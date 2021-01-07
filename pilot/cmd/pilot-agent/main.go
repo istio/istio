@@ -40,6 +40,7 @@ import (
 	"istio.io/istio/pkg/security"
 	"istio.io/istio/pkg/util/gogoprotomarshal"
 	"istio.io/istio/security/pkg/credentialfetcher"
+	"istio.io/istio/security/pkg/nodeagent/plugin/providers/google/stsclient"
 	stsserver "istio.io/istio/security/pkg/stsservice/server"
 	"istio.io/istio/security/pkg/stsservice/tokenmanager"
 	cleaniptables "istio.io/istio/tools/istio-clean-iptables/pkg/cmd"
@@ -123,15 +124,10 @@ var (
 		"The cert lifetime requested by istio agent").Get()
 	secretRotationGracePeriodRatioEnv = env.RegisterFloatVar("SECRET_GRACE_PERIOD_RATIO", 0.5,
 		"The grace period ratio for the cert rotation, by default 0.5.").Get()
-	secretRotationIntervalEnv = env.RegisterDurationVar("SECRET_ROTATION_CHECK_INTERVAL", 5*time.Minute,
-		"The ticker to detect and rotate the certificates, by default 5 minutes").Get()
-	staledConnectionRecycleIntervalEnv = env.RegisterDurationVar("STALED_CONNECTION_RECYCLE_RUN_INTERVAL", 5*time.Minute,
-		"The ticker to detect and close stale connections").Get()
 	pkcs8KeysEnv = env.RegisterBoolVar("PKCS8_KEY", false,
 		"Whether to generate PKCS#8 private keys").Get()
 	eccSigAlgEnv        = env.RegisterStringVar("ECC_SIGNATURE_ALGORITHM", "", "The type of ECC signature algorithm to use when generating private keys").Get()
 	fileMountedCertsEnv = env.RegisterBoolVar("FILE_MOUNTED_CERTS", false, "").Get()
-	useTokenForCSREnv   = env.RegisterBoolVar("USE_TOKEN_FOR_CSR", false, "CSR requires a token").Get()
 	credFetcherTypeEnv  = env.RegisterStringVar("CREDENTIAL_FETCHER_TYPE", "",
 		"The type of the credential fetcher. Currently supported types include GoogleComputeEngine").Get()
 	credIdentityProvider = env.RegisterStringVar("CREDENTIAL_IDENTITY_PROVIDER", "GoogleComputeEngine",
@@ -226,65 +222,17 @@ var (
 			role.DNSDomain = getDNSDomain(podNamespace, role.DNSDomain)
 			log.Infof("Proxy role: %#v", role)
 
-			var jwtPath string
-			if jwtPolicy.Get() == jwt.PolicyThirdParty {
-				log.Info("JWT policy is third-party-jwt")
-				jwtPath = trustworthyJWTPath
-			} else if jwtPolicy.Get() == jwt.PolicyFirstParty {
-				log.Info("JWT policy is first-party-jwt")
-				jwtPath = securityModel.K8sSAJwtFileName
-			} else {
-				log.Info("Using existing certs")
+			secOpts, err := setupSecurityOptions(proxyConfig)
+			if err != nil {
+				return err
 			}
-
-			secOpts := &security.Options{
-				PilotCertProvider:  pilotCertProvider,
-				OutputKeyCertToDir: outputKeyCertToDir,
-				ProvCert:           provCert,
-				JWTPath:            jwtPath,
-				ClusterID:          clusterIDVar.Get(),
-				FileMountedCerts:   fileMountedCertsEnv,
-				CAEndpoint:         caEndpointEnv,
-				UseTokenForCSR:     useTokenForCSREnv,
-				CredFetcher:        nil,
-				WorkloadNamespace:  podNamespace,
-				ServiceAccount:     serviceAccountVar.Get(),
-			}
-			// If not set explicitly, default to the discovery address.
-			if caEndpointEnv == "" {
-				secOpts.CAEndpoint = proxyConfig.DiscoveryAddress
-			}
-
-			secOpts.CAProviderName = caProviderEnv
-
-			secOpts.TrustDomain = trustDomainEnv
-			secOpts.Pkcs8Keys = pkcs8KeysEnv
-			secOpts.ECCSigAlg = eccSigAlgEnv
-			secOpts.RecycleInterval = staledConnectionRecycleIntervalEnv
-			secOpts.SecretTTL = secretTTLEnv
-			secOpts.SecretRotationGracePeriodRatio = secretRotationGracePeriodRatioEnv
-			secOpts.RotationInterval = secretRotationIntervalEnv
-			// Disable the secret eviction for istio agent.
-			secOpts.EvictionDuration = 0
-
-			// TODO (liminw): CredFetcher is a general interface. In 1.7, we limit the use on GCE only because
-			// GCE is the only supported plugin at the moment.
-			if credFetcherTypeEnv == security.GCE {
-				secOpts.CredIdentityProvider = credIdentityProvider
-				credFetcher, err := credentialfetcher.NewCredFetcher(credFetcherTypeEnv, secOpts.TrustDomain, jwtPath, secOpts.CredIdentityProvider)
-				if err != nil {
-					return fmt.Errorf("failed to create credential fetcher: %v", err)
-				}
-				log.Infof("Start credential fetcher of %s type in %s trust domain", credFetcherTypeEnv, secOpts.TrustDomain)
-				secOpts.CredFetcher = credFetcher
-			}
-
 			agentConfig := &istio_agent.AgentConfig{
 				XDSRootCerts: xdsRootCA,
 				CARootCerts:  caRootCA,
 				XDSHeaders:   map[string]string{},
 				XdsUdsPath:   constants.DefaultXdsUdsPath,
 				IsIPv6:       proxyIPv6,
+				ProxyType:    role.Type,
 			}
 			extractXDSHeadersFromEnv(agentConfig)
 			if proxyXDSViaAgent {
@@ -303,8 +251,7 @@ var (
 			log.Infof("PilotSAN %#v", pilotSAN)
 
 			// Start in process SDS.
-			_, err = sa.Start(role.Type == model.SidecarProxy, podNamespaceVar.Get())
-			if err != nil {
+			if err := sa.Start(); err != nil {
 				log.Fatala("Failed to start in-process SDS", err)
 			}
 
@@ -379,6 +326,63 @@ var (
 		},
 	}
 )
+
+func setupSecurityOptions(proxyConfig meshconfig.ProxyConfig) (security.Options, error) {
+	var jwtPath string
+	if jwtPolicy.Get() == jwt.PolicyThirdParty {
+		log.Info("JWT policy is third-party-jwt")
+		jwtPath = trustworthyJWTPath
+	} else if jwtPolicy.Get() == jwt.PolicyFirstParty {
+		log.Info("JWT policy is first-party-jwt")
+		jwtPath = securityModel.K8sSAJwtFileName
+	} else {
+		log.Info("Using existing certs")
+	}
+
+	o := security.Options{
+		CAEndpoint:                     caEndpointEnv,
+		CAProviderName:                 caProviderEnv,
+		PilotCertProvider:              pilotCertProvider,
+		OutputKeyCertToDir:             outputKeyCertToDir,
+		ProvCert:                       provCert,
+		JWTPath:                        jwtPath,
+		WorkloadUDSPath:                security.DefaultLocalSDSPath,
+		ClusterID:                      clusterIDVar.Get(),
+		FileMountedCerts:               fileMountedCertsEnv,
+		WorkloadNamespace:              podNamespaceVar.Get(),
+		ServiceAccount:                 serviceAccountVar.Get(),
+		TrustDomain:                    trustDomainEnv,
+		Pkcs8Keys:                      pkcs8KeysEnv,
+		ECCSigAlg:                      eccSigAlgEnv,
+		SecretTTL:                      secretTTLEnv,
+		SecretRotationGracePeriodRatio: secretRotationGracePeriodRatioEnv,
+	}
+	// If not set explicitly, default to the discovery address.
+	if o.CAEndpoint == "" {
+		o.CAEndpoint = proxyConfig.DiscoveryAddress
+	}
+
+	// TODO (liminw): CredFetcher is a general interface. In 1.7, we limit the use on GCE only because
+	// GCE is the only supported plugin at the moment.
+	if credFetcherTypeEnv == security.GCE {
+		o.CredIdentityProvider = credIdentityProvider
+		credFetcher, err := credentialfetcher.NewCredFetcher(credFetcherTypeEnv, o.TrustDomain, jwtPath, o.CredIdentityProvider)
+		if err != nil {
+			return security.Options{}, fmt.Errorf("failed to create credential fetcher: %v", err)
+		}
+		log.Infof("using credential fetcher of %s type in %s trust domain", credFetcherTypeEnv, o.TrustDomain)
+		o.CredFetcher = credFetcher
+	}
+	// TODO extract this logic out to a plugin
+	if o.CAProviderName == "GoogleCA" || strings.Contains(o.CAEndpoint, "googleapis.com") {
+		o.TokenExchanger = stsclient.NewSecureTokenServiceExchanger(o.CredFetcher, o.TrustDomain)
+	}
+
+	if o.ProvCert != "" && o.FileMountedCerts {
+		return security.Options{}, fmt.Errorf("invalid options: PROV_CERT and FILE_MOUNTED_CERTS are mutually exclusive")
+	}
+	return o, nil
+}
 
 // Simplified extraction of gRPC headers from environment.
 // Unlike ISTIO_META, where we need JSON and advanced features - this is just for small string headers.

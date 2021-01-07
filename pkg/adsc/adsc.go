@@ -320,8 +320,7 @@ func (a *ADSC) tlsConfig() (*tls.Config, error) {
 		serverCABytes, err = ioutil.ReadFile(a.cfg.XDSRootCAFile)
 	} else if a.cfg.SecretManager != nil {
 		// This is a bit crazy - we could just use the file
-		rootCA, err := a.cfg.SecretManager.GenerateSecret(context.Background(), "agent",
-			cache.RootCertReqResourceName, "")
+		rootCA, err := a.cfg.SecretManager.GenerateSecret(cache.RootCertReqResourceName)
 		if err != nil {
 			return nil, err
 		}

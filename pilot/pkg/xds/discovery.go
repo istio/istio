@@ -85,6 +85,10 @@ type DiscoveryServer struct {
 	// Normal istio clients use the default generator - will not be impacted by this.
 	Generators map[string]model.XdsResourceGenerator
 
+	// ProxyNeedsPush is a function that determines whether a push can be completely skipped. Individual generators
+	// may also choose to not send any updates.
+	ProxyNeedsPush func(proxy *model.Proxy, req *model.PushRequest) bool
+
 	concurrentPushLimit chan struct{}
 	// mutex protecting global structs updated or read by ADS service, including ConfigsUpdated and
 	// shards.
@@ -163,6 +167,7 @@ func NewDiscoveryServer(env *model.Environment, plugins []string, instanceID str
 	out := &DiscoveryServer{
 		Env:                     env,
 		Generators:              map[string]model.XdsResourceGenerator{},
+		ProxyNeedsPush:          DefaultProxyNeedsPush,
 		EndpointShardsByService: map[string]map[string]*EndpointShards{},
 		concurrentPushLimit:     make(chan struct{}, features.PushThrottle),
 		InboundUpdates:          atomic.NewInt64(0),
@@ -258,7 +263,9 @@ func (s *DiscoveryServer) periodicRefreshMetrics(stopCh <-chan struct{}) {
 				model.LastPushStatus = push
 				push.UpdateMetrics()
 				out, _ := model.LastPushStatus.StatusJSON()
-				adsLog.Infof("Push Status: %s", string(out))
+				if string(out) != "{}" {
+					adsLog.Infof("Push Status: %s", string(out))
+				}
 			}
 			model.LastPushMutex.Unlock()
 		case <-stopCh:
@@ -424,7 +431,6 @@ func doSendPushes(stopCh <-chan struct{}, semaphore chan struct{}, queue *PushQu
 
 			// Get the next proxy to push. This will block if there are no updates required.
 			client, push, shuttingdown := queue.Dequeue()
-
 			if shuttingdown {
 				return
 			}

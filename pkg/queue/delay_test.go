@@ -134,7 +134,7 @@ func TestDelayQueuePushNonblockingWithFullBuffer(t *testing.T) {
 		dq := dq.(*delayQueue)
 		dq.mu.Lock()
 		if dq.queue.Len() < queuedItems {
-			t.Fatalf("expected 5 items in the queue, got %d", dq.queue.Len())
+			t.Fatalf("expected 50 items in the queue, got %d", dq.queue.Len())
 		}
 		dq.mu.Unlock()
 		return

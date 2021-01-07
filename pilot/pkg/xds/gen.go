@@ -65,6 +65,7 @@ func init() {
 
 var SkipLogTypes = map[string]struct{}{
 	v3.EndpointType: {},
+	v3.SecretType:   {},
 }
 
 func (s *DiscoveryServer) findGenerator(typeURL string, con *Connection) model.XdsResourceGenerator {

@@ -15,13 +15,13 @@
 package mock
 
 import (
-	"context"
 	"encoding/pem"
 	"fmt"
 	"path"
 	"sync/atomic"
 	"time"
 
+	"istio.io/istio/pkg/security"
 	"istio.io/istio/security/pkg/pki/util"
 )
 
@@ -58,8 +58,10 @@ func NewMockCAClient(certLifetime time.Duration) (*CAClient, error) {
 	return &cl, nil
 }
 
+func (c *CAClient) Close() {}
+
 // CSRSign returns the certificate or errors depending on the settings.
-func (c *CAClient) CSRSign(ctx context.Context, csrPEM []byte, token string, certValidTTLInSec int64) ([]string, error) {
+func (c *CAClient) CSRSign(csrPEM []byte, certValidTTLInSec int64) ([]string, error) {
 	atomic.AddUint64(&c.SignInvokeCount, 1)
 	signingCert, signingKey, certChain, rootCert := c.bundle.GetAll()
 	csr, err := util.ParsePemEncodedCSR(csrPEM)
@@ -84,15 +86,26 @@ func (c *CAClient) CSRSign(ctx context.Context, csrPEM []byte, token string, cer
 }
 
 // TokenExchangeServer is the mocked token exchange server for testing.
-type TokenExchangeServer struct{}
-
-// NewMockTokenExchangeServer creates an instance of TokenExchangeServer.
-func NewMockTokenExchangeServer() *TokenExchangeServer {
-	return &TokenExchangeServer{}
+type TokenExchangeServer struct {
+	exchangeMap map[string]string
 }
 
+// NewMockTokenExchangeServer creates an instance of TokenExchangeServer. errors is used to
+// specify the number of errors before ExchangeToken returns a dumb token.
+func NewMockTokenExchangeServer(exchangeMap map[string]string) *TokenExchangeServer {
+	return &TokenExchangeServer{exchangeMap}
+}
+
+var _ security.TokenExchanger = &TokenExchangeServer{}
+
 // ExchangeToken returns a dumb token or errors depending on the settings.
-func (s *TokenExchangeServer) ExchangeToken(string, string) (string, error) {
-	// Since the secret cache uses the k8s token in the stored secret, we can just return anything here.
-	return "some-token", nil
+func (s *TokenExchangeServer) ExchangeToken(token string) (string, error) {
+	if len(s.exchangeMap) == 0 {
+		return "some-token", nil
+	}
+	ex, f := s.exchangeMap[token]
+	if !f {
+		return "", fmt.Errorf("token %v not found", token)
+	}
+	return ex, nil
 }

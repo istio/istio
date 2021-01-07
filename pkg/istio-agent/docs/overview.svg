@@ -1,0 +1,78 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<svg width="210pt" height="283pt" viewBox="0.00 0.00 210.00 283.20" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">
+<g id="graph0" class="graph" transform="scale(1 1) rotate(0) translate(4 279.2)">
+<title>%0</title>
+<polygon fill="#ffffff" stroke="transparent" points="-4,4 -4,-279.2 206,-279.2 206,4 -4,4"/>
+<g id="clust1" class="cluster">
+<title>cluster_istioagent</title>
+<polygon fill="none" stroke="#ffa500" points="8,-119.6 8,-196.4 190,-196.4 190,-119.6 8,-119.6"/>
+<text text-anchor="middle" x="99" y="-179.8" font-family="Times,serif" font-size="14.00" fill="#000000">Istio Agent</text>
+</g>
+<g id="clust2" class="cluster">
+<title>cluster_istiod</title>
+<polygon fill="none" stroke="#add8e6" points="8,-8 8,-84.8 194,-84.8 194,-8 8,-8"/>
+<text text-anchor="middle" x="101" y="-68.2" font-family="Times,serif" font-size="14.00" fill="#000000">Istiod</text>
+</g>
+<!-- envoy -->
+<g id="node1" class="node">
+<title>envoy</title>
+<polygon fill="none" stroke="#a020f0" points="127.991,-257.2 107.9955,-275.2 68.0045,-275.2 48.009,-257.2 68.0045,-239.2 107.9955,-239.2 127.991,-257.2"/>
+<text text-anchor="middle" x="88" y="-253" font-family="Times,serif" font-size="14.00" fill="#000000">envoy</text>
+</g>
+<!-- sds -->
+<g id="node2" class="node">
+<title>sds</title>
+<ellipse fill="none" stroke="#000000" cx="43" cy="-145.6" rx="27" ry="18"/>
+<text text-anchor="middle" x="43" y="-141.4" font-family="Times,serif" font-size="14.00" fill="#000000">sds</text>
+</g>
+<!-- envoy&#45;&gt;sds -->
+<g id="edge1" class="edge">
+<title>envoy-&gt;sds</title>
+<path fill="none" stroke="#000000" d="M76.7285,-229.2468C69.7603,-211.9654 60.8598,-189.8923 53.9518,-172.7605"/>
+<polygon fill="#000000" stroke="#000000" points="73.5834,-230.806 80.5692,-238.7715 80.0755,-228.1882 73.5834,-230.806"/>
+<polygon fill="#000000" stroke="#000000" points="57.1302,-171.2835 50.1444,-163.318 50.6381,-173.9014 57.1302,-171.2835"/>
+<text text-anchor="middle" x="86.8359" y="-208.6" font-family="Times,serif" font-size="14.00" fill="#000000">SDS</text>
+</g>
+<!-- xdsproxy -->
+<g id="node3" class="node">
+<title>xdsproxy</title>
+<ellipse fill="none" stroke="#000000" cx="135" cy="-145.6" rx="46.9555" ry="18"/>
+<text text-anchor="middle" x="135" y="-141.4" font-family="Times,serif" font-size="14.00" fill="#000000">xdsproxy</text>
+</g>
+<!-- envoy&#45;&gt;xdsproxy -->
+<g id="edge2" class="edge">
+<title>envoy-&gt;xdsproxy</title>
+<path fill="none" stroke="#000000" d="M99.7471,-229.3068C106.9774,-212.1388 116.2066,-190.2244 123.408,-173.1248"/>
+<polygon fill="#000000" stroke="#000000" points="96.4168,-228.197 95.7611,-238.7715 102.8681,-230.914 96.4168,-228.197"/>
+<polygon fill="#000000" stroke="#000000" points="126.7276,-174.2601 127.3833,-163.6856 120.2763,-171.5431 126.7276,-174.2601"/>
+<text text-anchor="middle" x="123.9979" y="-208.6" font-family="Times,serif" font-size="14.00" fill="#000000">ADS</text>
+</g>
+<!-- ca -->
+<g id="node4" class="node">
+<title>ca</title>
+<ellipse fill="none" stroke="#000000" cx="43" cy="-34" rx="27" ry="18"/>
+<text text-anchor="middle" x="43" y="-29.8" font-family="Times,serif" font-size="14.00" fill="#000000">ca</text>
+</g>
+<!-- sds&#45;&gt;ca -->
+<g id="edge3" class="edge">
+<title>sds-&gt;ca</title>
+<path fill="none" stroke="#000000" d="M43,-127.1715C43,-109.539 43,-82.6924 43,-62.3391"/>
+<polygon fill="#000000" stroke="#000000" points="46.5001,-62.0855 43,-52.0856 39.5001,-62.0856 46.5001,-62.0855"/>
+<text text-anchor="middle" x="56.2279" y="-97" font-family="Times,serif" font-size="14.00" fill="#000000">CSR</text>
+</g>
+<!-- discovery -->
+<g id="node5" class="node">
+<title>discovery</title>
+<ellipse fill="none" stroke="#000000" cx="137" cy="-34" rx="48.6559" ry="18"/>
+<text text-anchor="middle" x="137" y="-29.8" font-family="Times,serif" font-size="14.00" fill="#000000">discovery</text>
+</g>
+<!-- xdsproxy&#45;&gt;discovery -->
+<g id="edge4" class="edge">
+<title>xdsproxy-&gt;discovery</title>
+<path fill="none" stroke="#000000" d="M135.5099,-117.1451C135.8109,-100.3518 136.1905,-79.169 136.4913,-62.3875"/>
+<polygon fill="#000000" stroke="#000000" points="132.0101,-117.1104 135.3303,-127.1715 139.009,-117.2359 132.0101,-117.1104"/>
+<polygon fill="#000000" stroke="#000000" points="139.996,-62.1467 136.6759,-52.0856 132.9972,-62.0212 139.996,-62.1467"/>
+<text text-anchor="middle" x="148.9979" y="-97" font-family="Times,serif" font-size="14.00" fill="#000000">ADS</text>
+</g>
+</g>
+</svg>

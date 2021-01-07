@@ -16,8 +16,10 @@ package caclient
 
 import (
 	"context"
+	"crypto/tls"
 	"fmt"
 	"net"
+	"path/filepath"
 	"reflect"
 	"strings"
 	"testing"
@@ -25,13 +27,22 @@ import (
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"
 
 	pb "istio.io/api/security/v1alpha1"
+	testutil "istio.io/istio/pilot/test/util"
+	"istio.io/istio/pkg/file"
+	"istio.io/istio/pkg/security"
+	"istio.io/istio/pkg/spiffe"
+	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/test/util/retry"
+	"istio.io/istio/security/pkg/credentialfetcher/plugin"
 	"istio.io/istio/security/pkg/monitoring"
 	"istio.io/istio/security/pkg/nodeagent/util"
+	ca2 "istio.io/istio/security/pkg/server/ca"
+	"istio.io/istio/security/pkg/server/ca/authenticate"
 	"istio.io/istio/tests/util/leak"
 )
 
@@ -47,15 +58,127 @@ var (
 )
 
 type mockCAServer struct {
-	Certs []string
-	Err   error
+	Certs         []string
+	Authenticator *security.FakeAuthenticator
+	Err           error
 }
 
 func (ca *mockCAServer) CreateCertificate(ctx context.Context, in *pb.IstioCertificateRequest) (*pb.IstioCertificateResponse, error) {
+	if ca.Authenticator != nil {
+		caller := ca2.Authenticate(ctx, []authenticate.Authenticator{ca.Authenticator})
+		if caller == nil {
+			return nil, status.Error(codes.Unauthenticated, "request authenticate failure")
+		}
+	}
 	if ca.Err == nil {
 		return &pb.IstioCertificateResponse{CertChain: ca.Certs}, nil
 	}
 	return nil, ca.Err
+}
+
+func tlsOptions(t *testing.T) grpc.ServerOption {
+	t.Helper()
+	cert, err := tls.LoadX509KeyPair(
+		filepath.Join(env.IstioSrc, "./tests/testdata/certs/pilot/cert-chain.pem"),
+		filepath.Join(env.IstioSrc, "./tests/testdata/certs/pilot/key.pem"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	peerCertVerifier := spiffe.NewPeerCertVerifier()
+	if err := peerCertVerifier.AddMappingFromPEM("cluster.local",
+		testutil.ReadFile(filepath.Join(env.IstioSrc, "./tests/testdata/certs/pilot/root-cert.pem"), t)); err != nil {
+		t.Fatal(err)
+	}
+	return grpc.Creds(credentials.NewTLS(&tls.Config{
+		Certificates: []tls.Certificate{cert},
+		ClientAuth:   tls.VerifyClientCertIfGiven,
+		ClientCAs:    peerCertVerifier.GetGeneralCertPool(),
+	}))
+}
+func serve(t *testing.T, ca mockCAServer, opts ...grpc.ServerOption) string {
+	// create a local grpc server
+	s := grpc.NewServer(opts...)
+	t.Cleanup(s.Stop)
+	lis, err := net.Listen("tcp", mockServerAddress)
+	if err != nil {
+		t.Fatalf("failed to listen: %v", err)
+	}
+
+	go func() {
+		pb.RegisterIstioCertificateServiceServer(s, &ca)
+		if err := s.Serve(lis); err != nil {
+			t.Logf("failed to serve: %v", err)
+		}
+	}()
+	_, port, _ := net.SplitHostPort(lis.Addr().String())
+	return fmt.Sprintf("localhost:%s", port)
+}
+
+func TestCitadelClientRotation(t *testing.T) {
+	checkSign := func(t *testing.T, cli security.Client, expectError bool) {
+		t.Helper()
+		resp, err := cli.CSRSign([]byte{01}, 1)
+		if expectError != (err != nil) {
+			t.Fatalf("expected error:%v, got error:%v", expectError, err)
+		}
+		if !expectError && !reflect.DeepEqual(resp, fakeCert) {
+			t.Fatalf("expected cert: %v", resp)
+		}
+	}
+	certDir := filepath.Join(env.IstioSrc, "./tests/testdata/certs/pilot")
+	t.Run("cert always present", func(t *testing.T) {
+		server := mockCAServer{Certs: fakeCert, Err: nil, Authenticator: security.NewFakeAuthenticator("ca")}
+		addr := serve(t, server, tlsOptions(t))
+		opts := security.Options{CAEndpoint: addr, JWTPath: "testdata/token", ProvCert: certDir}
+		cli, err := NewCitadelClient(opts, true, testutil.ReadFile(filepath.Join(certDir, "root-cert.pem"), t))
+		if err != nil {
+			t.Errorf("failed to create ca client: %v", err)
+		}
+		t.Cleanup(cli.Close)
+		server.Authenticator.Set("fake", "")
+		checkSign(t, cli, false)
+		// Expiring the token is harder, so just switch to only allow certs
+		server.Authenticator.Set("", "istiod.istio-system.svc")
+		checkSign(t, cli, false)
+		checkSign(t, cli, false)
+	})
+	t.Run("cert never present", func(t *testing.T) {
+		server := mockCAServer{Certs: fakeCert, Err: nil, Authenticator: security.NewFakeAuthenticator("ca")}
+		addr := serve(t, server, tlsOptions(t))
+		opts := security.Options{CAEndpoint: addr, JWTPath: "testdata/token", ProvCert: "."}
+		cli, err := NewCitadelClient(opts, true, testutil.ReadFile(filepath.Join(certDir, "root-cert.pem"), t))
+		if err != nil {
+			t.Errorf("failed to create ca client: %v", err)
+		}
+		t.Cleanup(cli.Close)
+		server.Authenticator.Set("fake", "")
+		checkSign(t, cli, false)
+		server.Authenticator.Set("", "istiod.istio-system.svc")
+		checkSign(t, cli, true)
+	})
+	t.Run("cert present later", func(t *testing.T) {
+		dir := t.TempDir()
+		server := mockCAServer{Certs: fakeCert, Err: nil, Authenticator: security.NewFakeAuthenticator("ca")}
+		addr := serve(t, server, tlsOptions(t))
+		opts := security.Options{CAEndpoint: addr, JWTPath: "testdata/token", ProvCert: dir}
+		cli, err := NewCitadelClient(opts, true, testutil.ReadFile(filepath.Join(certDir, "root-cert.pem"), t))
+		if err != nil {
+			t.Errorf("failed to create ca client: %v", err)
+		}
+		t.Cleanup(cli.Close)
+		server.Authenticator.Set("fake", "")
+		checkSign(t, cli, false)
+		checkSign(t, cli, false)
+		server.Authenticator.Set("", "istiod.istio-system.svc")
+		checkSign(t, cli, true)
+		if err := file.Copy(filepath.Join(certDir, "cert-chain.pem"), dir, "cert-chain.pem"); err != nil {
+			t.Fatal(err)
+		}
+		if err := file.Copy(filepath.Join(certDir, "key.pem"), dir, "key.pem"); err != nil {
+			t.Fatal(err)
+		}
+		checkSign(t, cli, false)
+	})
 }
 
 func TestCitadelClient(t *testing.T) {
@@ -78,7 +201,7 @@ func TestCitadelClient(t *testing.T) {
 		"Empty response": {
 			server:       mockCAServer{Certs: []string{}, Err: nil},
 			expectedCert: nil,
-			expectedErr:  "invalid response cert chain",
+			expectedErr:  "invalid empty CertChain",
 		},
 		"retry": {
 			server:       mockCAServer{Certs: nil, Err: status.Error(codes.Unavailable, "test failure")},
@@ -90,31 +213,16 @@ func TestCitadelClient(t *testing.T) {
 
 	for id, tc := range testCases {
 		t.Run(id, func(t *testing.T) {
-			monitoring.Reset()
-			// create a local grpc server
-			s := grpc.NewServer()
-			t.Cleanup(s.Stop)
-			lis, err := net.Listen("tcp", mockServerAddress)
-			if err != nil {
-				t.Fatalf("failed to listen: %v", err)
-			}
-
-			go func() {
-				pb.RegisterIstioCertificateServiceServer(s, &tc.server)
-				if err := s.Serve(lis); err != nil {
-					t.Logf("failed to serve: %v", err)
-				}
-			}()
-
-			cli, err := NewCitadelClient(lis.Addr().String(), false, nil, "")
+			addr := serve(t, tc.server)
+			cli, err := NewCitadelClient(security.Options{CAEndpoint: addr}, false, nil)
 			if err != nil {
 				t.Errorf("failed to create ca client: %v", err)
 			}
 			t.Cleanup(cli.Close)
 
-			resp, err := cli.CSRSign(context.Background(), []byte{01}, fakeToken, 1)
+			resp, err := cli.CSRSign([]byte{01}, 1)
 			if err != nil {
-				if err.Error() != tc.expectedErr {
+				if !strings.Contains(err.Error(), tc.expectedErr) {
 					t.Errorf("error (%s) does not match expected error (%s)", err.Error(), tc.expectedErr)
 				}
 			} else {
@@ -153,7 +261,7 @@ func (ca *mockTokenCAServer) CreateCertificate(ctx context.Context, in *pb.Istio
 		return nil, err
 	}
 	if targetJWT != validToken {
-		return nil, fmt.Errorf("token is not valid")
+		return nil, fmt.Errorf("token is not valid, wanted %q got %q", validToken, targetJWT)
 	}
 	return &pb.IstioCertificateResponse{CertChain: ca.Certs}, nil
 }
@@ -213,35 +321,36 @@ func TestCitadelClientWithDifferentTypeToken(t *testing.T) {
 			defer s.Stop()
 			lis, err := net.Listen("tcp", mockServerAddress)
 			if err != nil {
-				t.Fatalf("test case [%s]: failed to listen: %v", id, err)
+				t.Fatalf("failed to listen: %v", err)
 			}
 			go func() {
 				pb.RegisterIstioCertificateServiceServer(s, &tc.server)
 				if err := s.Serve(lis); err != nil {
-					t.Logf("Test case [%s]: failed to serve: %v", id, err)
+					t.Logf("failed to serve: %v", err)
 				}
 			}()
 
+			opts := security.Options{CAEndpoint: lis.Addr().String(), ClusterID: "Kubernetes", CredFetcher: plugin.CreateMockPlugin(tc.token)}
 			err = retry.UntilSuccess(func() error {
-				cli, err := NewCitadelClient(lis.Addr().String(), false, nil, "Kubernetes")
+				cli, err := NewCitadelClient(opts, false, nil)
 				if err != nil {
-					return fmt.Errorf("test case [%s]: failed to create ca client: %v", id, err)
+					return fmt.Errorf("failed to create ca client: %v", err)
 				}
 				t.Cleanup(cli.Close)
-				resp, err := cli.CSRSign(context.Background(), []byte{01}, tc.token, 1)
+				resp, err := cli.CSRSign([]byte{01}, 1)
 				if err != nil {
-					if err.Error() != tc.expectedErr {
-						return fmt.Errorf("test case [%s]: error (%s) does not match expected error (%s)", id, err.Error(), tc.expectedErr)
+					if !strings.Contains(err.Error(), tc.expectedErr) {
+						return fmt.Errorf("error (%s) does not match expected error (%s)", err.Error(), tc.expectedErr)
 					}
 				} else {
 					if tc.expectedErr != "" {
-						return fmt.Errorf("test case [%s]: expect error: %s but got no error", id, tc.expectedErr)
+						return fmt.Errorf("expect error: %s but got no error", tc.expectedErr)
 					} else if !reflect.DeepEqual(resp, tc.expectedCert) {
-						return fmt.Errorf("test case [%s]: resp: got %+v, expected %v", id, resp, tc.expectedCert)
+						return fmt.Errorf("resp: got %+v, expected %v", resp, tc.expectedCert)
 					}
 				}
 				return nil
-			}, retry.Timeout(20*time.Second), retry.Delay(2*time.Second))
+			}, retry.Timeout(2*time.Second), retry.Delay(time.Millisecond))
 			if err != nil {
 				t.Fatalf("test failed error is： %+v", err)
 			}

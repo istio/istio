@@ -44,7 +44,7 @@ var (
 )
 
 func TestGRPC(t *testing.T) {
-	ds := xds.NewXDS()
+	ds := xds.NewXDS(make(chan struct{}))
 
 	sd := ds.DiscoveryServer.MemRegistry
 	sd.AddHTTPService("fortio1.fortio.svc.cluster.local", "10.10.10.1", 8081)

@@ -29,14 +29,13 @@ var configKindAffectedProxyTypes = map[config.GroupVersionKind][]model.NodeType{
 
 // ConfigAffectsProxy checks if a pushEv will affect a specified proxy. That means whether the push will be performed
 // towards the proxy.
-func ConfigAffectsProxy(pushEv *Event, proxy *model.Proxy) bool {
-	pushRequest := pushEv.pushRequest
+func ConfigAffectsProxy(req *model.PushRequest, proxy *model.Proxy) bool {
 	// Empty changes means "all" to get a backward compatibility.
-	if len(pushRequest.ConfigsUpdated) == 0 {
+	if len(req.ConfigsUpdated) == 0 {
 		return true
 	}
 
-	for config := range pushRequest.ConfigsUpdated {
+	for config := range req.ConfigsUpdated {
 		affected := true
 
 		// Some configKinds only affect specific proxy types
@@ -74,16 +73,16 @@ func checkProxyDependencies(proxy *model.Proxy, config model.ConfigKey) bool {
 	return false
 }
 
-// ProxyNeedsPush check if a proxy needs push for this push event.
-func ProxyNeedsPush(proxy *model.Proxy, pushEv *Event) bool {
-	if ConfigAffectsProxy(pushEv, proxy) {
+// DefaultProxyNeedsPush check if a proxy needs push for this push event.
+func DefaultProxyNeedsPush(proxy *model.Proxy, req *model.PushRequest) bool {
+	if ConfigAffectsProxy(req, proxy) {
 		return true
 	}
 
 	// If the proxy's service updated, need push for it.
-	if len(proxy.ServiceInstances) > 0 && pushEv.pushRequest.ConfigsUpdated != nil {
+	if len(proxy.ServiceInstances) > 0 && req.ConfigsUpdated != nil {
 		svc := proxy.ServiceInstances[0].Service
-		if _, ok := pushEv.pushRequest.ConfigsUpdated[model.ConfigKey{
+		if _, ok := req.ConfigsUpdated[model.ConfigKey{
 			Kind:      gvk.ServiceEntry,
 			Name:      string(svc.Hostname),
 			Namespace: svc.Attributes.Namespace,
