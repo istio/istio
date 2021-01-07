@@ -299,6 +299,12 @@ func init() {
 		handleError(err)
 	}
 	viper.SetDefault(constants.RunValidation, false)
+
+	rootCmd.Flags().Bool(constants.RedirectDNS, dnsCaptureByAgent, "If set to true, enable the capture of outgoing DNS packets on port 53, redirecting to istio-agent on :15053")
+	if err := viper.BindPFlag(constants.RedirectDNS, rootCmd.Flags().Lookup(constants.RedirectDNS)); err != nil {
+		handleError(err)
+	}
+	viper.SetDefault(constants.RedirectDNS, dnsCaptureByAgent)
 }
 
 func GetCommand() *cobra.Command {
