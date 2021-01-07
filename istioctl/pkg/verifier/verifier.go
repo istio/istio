@@ -124,9 +124,10 @@ func (v *StatusVerifier) verifyInstallIOPRevision() error {
 			// - the user followed our remote control plane instructions
 			// - helm was used
 			// - user did `istioctl manifest generate | kubectl apply ...`
-			return fmt.Errorf("cluster configured for Istio injection.  Supply flag --filename <yaml>")
+			// nolint: golint,stylecheck
+			return fmt.Errorf("Istio present but verify-install needs an IstioOperator or manifest for comparison. Supply flag --filename <yaml>")
 		}
-		return fmt.Errorf("could not load IstioOperator from cluster: %v.  Use --filename", err)
+		return fmt.Errorf("could not load IstioOperator from cluster: %v. Use --filename", err)
 	}
 	if v.manifestsPath != "" {
 		iop.Spec.InstallPackagePath = v.manifestsPath
