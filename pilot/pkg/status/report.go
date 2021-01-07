@@ -49,18 +49,18 @@ func ResourceFromString(s string) *Resource {
 			Version:  pieces[1],
 			Resource: pieces[2],
 		},
-		Namespace:       pieces[3],
-		Name:            pieces[4],
-		Generation:      pieces[5],
+		Namespace:  pieces[3],
+		Name:       pieces[4],
+		Generation: pieces[5],
 	}
 }
 
 // TODO: maybe replace with a kubernetes resource identifier, if that's a thing
 type Resource struct {
 	schema.GroupVersionResource
-	Namespace       string
-	Name            string
-	Generation      string
+	Namespace  string
+	Name       string
+	Generation string
 }
 
 func (r Resource) String() string {

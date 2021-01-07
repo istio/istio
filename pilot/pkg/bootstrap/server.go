@@ -41,6 +41,7 @@ import (
 
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
+	modelstatus "istio.io/istio/pilot/pkg/model/status"
 	"istio.io/istio/pilot/pkg/networking/plugin"
 	kubesecrets "istio.io/istio/pilot/pkg/secrets/kube"
 	securityModel "istio.io/istio/pilot/pkg/security/model"
@@ -800,8 +801,16 @@ func (s *Server) initRegistryEventHandlers() {
 
 	if s.configController != nil {
 		configHandler := func(old config.Config, curr config.Config, event model.Event) {
-			if old.Generation == curr.Generation && curr.GroupVersionKind.Kind != "WorkloadEntry" {
-				return
+			if old.Generation == curr.Generation {
+				if curr.GroupVersionKind == gvk.WorkloadEntry {
+					oldCond := modelstatus.GetConditionFromSpec(old, modelstatus.ConditionHealthy)
+					newCond := modelstatus.GetConditionFromSpec(curr, modelstatus.ConditionHealthy)
+					if oldCond == newCond {
+						return
+					}
+				} else {
+					return
+				}
 			}
 
 			pushReq := &model.PushRequest{
