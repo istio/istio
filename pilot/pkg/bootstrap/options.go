@@ -45,10 +45,6 @@ type RegistryOptions struct {
 
 	// DistributionTracking control
 	DistributionTrackingEnabled bool
-
-	MCSServiceExportEnabled bool
-
-	ClusterLocalHosts []string
 }
 
 // PilotArgs provides all of the configuration parameters for the Pilot discovery service.

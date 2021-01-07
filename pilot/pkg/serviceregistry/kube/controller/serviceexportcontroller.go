@@ -16,11 +16,11 @@ package controller
 
 import (
 	"context"
-	"k8s.io/apimachinery/pkg/api/errors"
 	"strings"
 	"time"
 
 	"k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	corev1 "k8s.io/client-go/kubernetes/typed/core/v1"
 	"k8s.io/client-go/tools/cache"
@@ -52,8 +52,8 @@ func NewServiceExportController(kubeClient kube.Client, clusterLocalHosts []stri
 
 	serviceExportController.serviceInformer = kubeClient.KubeInformer().Core().V1().Services().Informer()
 	serviceExportController.serviceInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
-		AddFunc: func(obj interface{}) {serviceExportController.onServiceAdd(obj)} ,
-		DeleteFunc: func(obj interface{}) {serviceExportController.onServiceDelete(obj)},
+		AddFunc:    func(obj interface{}) { serviceExportController.onServiceAdd(obj) },
+		DeleteFunc: func(obj interface{}) { serviceExportController.onServiceDelete(obj) },
 	})
 
 	return serviceExportController, nil
@@ -117,7 +117,7 @@ func (sc *ServiceExportController) createServiceExportIfNotPresent(service *v1.S
 
 	_, err := sc.client.MulticlusterV1alpha1().ServiceExports(service.Namespace).Create(context.TODO(), &serviceExport, metav1.CreateOptions{})
 
-	if err != nil &&  errors.IsAlreadyExists(err) {
+	if err != nil && errors.IsAlreadyExists(err) {
 		err = nil //This is the error thrown by the client if there is already an object with the name in the namespace. If that's true, we do nothing
 	}
 	return err

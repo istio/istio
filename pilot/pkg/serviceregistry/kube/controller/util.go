@@ -17,14 +17,16 @@ package controller
 import (
 	"encoding/json"
 	"fmt"
-	"k8s.io/client-go/tools/cache"
 	"strings"
+
+	"k8s.io/client-go/tools/cache"
 
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	klabels "k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	listerv1 "k8s.io/client-go/listers/core/v1"
+	"k8s.io/client-go/tools/cache"
 
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube"
