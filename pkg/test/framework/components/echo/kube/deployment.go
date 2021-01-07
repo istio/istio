@@ -322,13 +322,6 @@ spec:
           valueFrom:
             fieldRef:
               fieldPath: status.podIP
-        readinessProbe:
-          httpGet:
-            path: /healthz/ready
-            port: 15021
-          initialDelaySeconds: 1
-          periodSeconds: 2
-          failureThreshold: 10
         volumeMounts:
         - mountPath: /var/run/secrets/tokens
           name: {{ $.Service }}-istio-token

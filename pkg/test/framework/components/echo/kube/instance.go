@@ -27,7 +27,6 @@ import (
 	"time"
 
 	"github.com/hashicorp/go-multierror"
-	"gopkg.in/yaml.v2"
 	kubeCore "k8s.io/api/core/v1"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -49,6 +48,7 @@ import (
 	"istio.io/istio/pkg/test/scopes"
 	"istio.io/istio/pkg/test/shell"
 	"istio.io/istio/pkg/test/util/retry"
+	"istio.io/istio/pkg/test/util/tmpl"
 	"istio.io/istio/pkg/util/gogoprotomarshal"
 )
 
@@ -164,17 +164,41 @@ func createVMConfig(ctx resource.Context, c *instance, cfg echo.Config) error {
 	if err != nil {
 		return err
 	}
-	cmd := []string{
-		"x", "workload", "group", "create",
-		"--name", cfg.Service,
-		"--namespace", cfg.Namespace.Name(),
-		"--serviceAccount", serviceAccount,
-		"--labels", "app=" + cfg.Service,
-	}
-	wg, _, err := istioCtl.Invoke(cmd)
+	// generate config files for VM bootstrap
+	dirname := fmt.Sprintf("%s-vm-config-", cfg.Service)
+	dir, err := ctx.CreateDirectory(dirname)
 	if err != nil {
 		return err
 	}
+
+	wg := tmpl.MustEvaluate(`
+apiVersion: networking.istio.io/v1alpha3
+kind: WorkloadGroup
+metadata:
+  name: {{.name}}
+  namespace: {{.namespace}}
+spec:
+  metadata:
+    labels:
+      app: {{.name}}
+  template:
+    serviceAccount: {{.serviceaccount}}
+    network: {{.network}}
+  probe:
+    failureThreshold: 5
+    httpGet:
+      path: /
+      port: 8080
+    periodSeconds: 2
+    successThreshold: 1
+    timeoutSeconds: 2
+
+`, map[string]string{
+		"name":           cfg.Service,
+		"namespace":      cfg.Namespace.Name(),
+		"serviceaccount": serviceAccount,
+		"network":        cfg.Cluster.NetworkName(),
+	})
 
 	// Push the WorkloadGroup for auto-registration
 	if cfg.AutoRegisterVM {
@@ -191,20 +215,7 @@ func createVMConfig(ctx resource.Context, c *instance, cfg echo.Config) error {
 		}
 	}
 
-	// generate config files for VM bootstrap
-	dirname := fmt.Sprintf("%s-vm-config-", cfg.Service)
-	dir, err := ctx.CreateDirectory(dirname)
-	if err != nil {
-		return err
-	}
-
-	// we edit workload group template by hand to avoid too many customization flags on the cmd
-	var wgBytes []byte
-	if wgBytes, err = customizeWorkloadGroup(cfg, []byte(wg)); err != nil {
-		return err
-	}
-
-	if err := ioutil.WriteFile(path.Join(dir, "workloadgroup.yaml"), wgBytes, 0600); err != nil {
+	if err := ioutil.WriteFile(path.Join(dir, "workloadgroup.yaml"), []byte(wg), 0600); err != nil {
 		return err
 	}
 
@@ -302,23 +313,6 @@ func createVMConfig(ctx resource.Context, c *instance, cfg echo.Config) error {
 	}
 
 	return nil
-}
-
-func customizeWorkloadGroup(cfg echo.Config, wg []byte) ([]byte, error) {
-	workloadGroup := map[string]interface{}{}
-	if err := yaml.Unmarshal(wg, workloadGroup); err != nil {
-		return nil, err
-	}
-
-	// don't use the primary network, use the network it's actually reachable from
-	spec := workloadGroup["spec"].(map[interface{}]interface{})
-	if spec["template"] == nil {
-		spec["template"] = map[interface{}]interface{}{}
-	}
-	template := spec["template"].(map[interface{}]interface{})
-	template["network"] = cfg.Cluster.NetworkName()
-
-	return yaml.Marshal(workloadGroup)
 }
 
 func customizeVMEnvironment(ctx resource.Context, cfg echo.Config, clusterEnv string, istiodAddr net.TCPAddr) (err error) {
