@@ -165,7 +165,7 @@ func (lb *ListenerBuilder) aggregateVirtualInboundListener(needTLSForPassThrough
 	// 2. explicit original_dst listener filter
 	// UseOriginalDst: proto.BoolTrue,
 	// nolint: staticcheck
-	lb.virtualInboundListener.HiddenEnvoyDeprecatedUseOriginalDst = nil
+	lb.virtualInboundListener.UseOriginalDst = nil
 	lb.virtualInboundListener.ListenerFilters = append(lb.virtualInboundListener.ListenerFilters,
 		xdsfilters.OriginalDestination,
 	)
@@ -331,12 +331,12 @@ func (lb *ListenerBuilder) buildVirtualOutboundListener(configgen *ConfigGenerat
 
 	// add an extra listener that binds to the port that is the recipient of the iptables redirect
 	ipTablesListener := &listener.Listener{
-		Name:                                VirtualOutboundListenerName,
-		Address:                             util.BuildAddress(actualWildcard, uint32(lb.push.Mesh.ProxyListenPort)),
-		Transparent:                         isTransparentProxy,
-		HiddenEnvoyDeprecatedUseOriginalDst: proto.BoolTrue,
-		FilterChains:                        filterChains,
-		TrafficDirection:                    core.TrafficDirection_OUTBOUND,
+		Name:             VirtualOutboundListenerName,
+		Address:          util.BuildAddress(actualWildcard, uint32(lb.push.Mesh.ProxyListenPort)),
+		Transparent:      isTransparentProxy,
+		UseOriginalDst:   proto.BoolTrue,
+		FilterChains:     filterChains,
+		TrafficDirection: core.TrafficDirection_OUTBOUND,
 	}
 	accessLogBuilder.setListenerAccessLog(lb.push.Mesh, ipTablesListener, lb.node)
 	lb.virtualOutboundListener = ipTablesListener
@@ -360,12 +360,12 @@ func (lb *ListenerBuilder) buildVirtualInboundListener(configgen *ConfigGenerato
 		filterChains = append(filterChains, fc...)
 	}
 	lb.virtualInboundListener = &listener.Listener{
-		Name:                                VirtualInboundListenerName,
-		Address:                             util.BuildAddress(actualWildcard, ProxyInboundListenPort),
-		Transparent:                         isTransparentProxy,
-		HiddenEnvoyDeprecatedUseOriginalDst: proto.BoolTrue,
-		TrafficDirection:                    core.TrafficDirection_INBOUND,
-		FilterChains:                        filterChains,
+		Name:             VirtualInboundListenerName,
+		Address:          util.BuildAddress(actualWildcard, ProxyInboundListenPort),
+		Transparent:      isTransparentProxy,
+		UseOriginalDst:   proto.BoolTrue,
+		TrafficDirection: core.TrafficDirection_INBOUND,
+		FilterChains:     filterChains,
 	}
 	accessLogBuilder.setListenerAccessLog(lb.push.Mesh, lb.virtualInboundListener, lb.node)
 	lb.aggregateVirtualInboundListener(needTLSForPassThroughFilterChain)
