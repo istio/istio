@@ -82,6 +82,10 @@ type Connection struct {
 	// This is included in internal events.
 	node *core.Node
 
+	// initialized channel will be closed when proxy is initialized. Pushes, or anything accessing
+	// the proxy, should not be started until this channel is closed.
+	initialized chan struct{}
+
 	// stop can be used to end the connection manually via debug endpoints. Only to be used for testing.
 	stop chan struct{}
 
@@ -103,6 +107,7 @@ type Event struct {
 func newConnection(peerAddr string, stream DiscoveryStream) *Connection {
 	return &Connection{
 		pushChannel:   make(chan *Event),
+		initialized:   make(chan struct{}),
 		stop:          make(chan struct{}),
 		PeerAddr:      peerAddr,
 		Connect:       time.Now(),
@@ -266,6 +271,13 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream discovery.AggregatedD
 	reqChannel := make(chan *discovery.DiscoveryRequest, 1)
 	go s.receive(con, reqChannel, &receiveError)
 
+	// Wait for the proxy to be fully initialized before we start serving traffic. Because
+	// initialization doesn't have dependencies that will block, there is no need to add any timeout
+	// here. Prior to this explicit wait, we were implicitly waiting by receive() not sending to
+	// reqChannel and the connection not being enqueued for pushes to pushChannel until the
+	// initialization is complete.
+	<-con.initialized
+
 	for {
 		// Block until either a request is received or a push is triggered.
 		// We need 2 go routines because 'read' blocks in Recv().
@@ -288,10 +300,6 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream discovery.AggregatedD
 			}
 
 		case pushEv := <-con.pushChannel:
-			// TODO: possible race condition: if a config change happens while the envoy
-			// was getting the initial config, between LDS and RDS, the push will miss the
-			// monitored 'routes'. Same for CDS/EDS interval. It is very tricky to handle
-			// due to the protocol - but the periodic push recovers from it.
 			err := s.pushConnection(con, pushEv)
 			pushEv.done()
 			if err != nil {
@@ -444,22 +452,16 @@ func listEqualUnordered(a []string, b []string) bool {
 // update the node associated with the connection, after receiving a a packet from envoy, also adds the connection
 // to the tracking map.
 func (s *DiscoveryServer) initConnection(node *core.Node, con *Connection) error {
-	proxy, err := s.initProxy(node, con)
-	if err != nil {
-		return err
-	}
-
-	proxy.WatchedResources = map[string]*model.WatchedResource{}
-	// Based on node metadata and version, we can associate a different generator.
-	if proxy.Metadata.Generator != "" {
-		proxy.XdsResourceGenerator = s.Generators[proxy.Metadata.Generator]
-	}
-
 	// First request so initialize connection id and start tracking it.
-	con.proxy = proxy
 	con.ConID = connectionID(node.Id)
 	con.node = node
 
+	// Setup the initial proxy metadata
+	proxy, err := s.initProxyMetadata(node)
+	if err != nil {
+		return err
+	}
+	con.proxy = proxy
 	if features.EnableXDSIdentityCheck && con.Identities != nil {
 		// TODO: allow locking down, rejecting unauthenticated requests.
 		id, err := checkConnectionIdentity(con)
@@ -470,7 +472,22 @@ func (s *DiscoveryServer) initConnection(node *core.Node, con *Connection) error
 		con.proxy.VerifiedIdentity = id
 	}
 
+	// Register the connection; this allows pushes to be triggered for the proxy. Note: the timing of
+	// this an initProxyState is important. While registering for pushes *after* initialization is
+	// complete seems like a better choice, it introduces a race condition; If we complete
+	// initialization of a new push context between initProxyState and addCon, we would not get any pushes
+	// triggered for the new push context, leading the proxy to have a stale state until the next
+	// full push.
 	s.addCon(con.ConID, con)
+
+	// Complete full initialization of the proxy
+	if err := s.initProxyState(node, con); err != nil {
+		return err
+	}
+
+	// Register that initialization is complete. This triggers to calls that it is safe to access the
+	// proxy.
+	close(con.initialized)
 
 	if s.StatusGen != nil {
 		s.StatusGen.OnConnect(con)
@@ -500,8 +517,10 @@ func connectionID(node string) string {
 	return node + "-" + strconv.FormatInt(id, 10)
 }
 
-// initProxy initializes the Proxy from node.
-func (s *DiscoveryServer) initProxy(node *core.Node, con *Connection) (*model.Proxy, error) {
+// initProxyMetadata initializes just the basic metadata of a proxy. This is decoupled from
+// initProxyState such that we can perform authorization before attempting expensive computations to
+// fully initialize the proxy.
+func (s *DiscoveryServer) initProxyMetadata(node *core.Node) (*model.Proxy, error) {
 	meta, err := model.ParseMetadata(node.Metadata)
 	if err != nil {
 		return nil, err
@@ -512,11 +531,17 @@ func (s *DiscoveryServer) initProxy(node *core.Node, con *Connection) (*model.Pr
 	}
 	// Update the config namespace associated with this proxy
 	proxy.ConfigNamespace = model.GetProxyConfigNamespace(proxy)
+	return proxy, nil
+}
 
+// initProxyState completes the initialization of a proxy. It is expected to be called only after
+// initProxyMetadata.
+func (s *DiscoveryServer) initProxyState(node *core.Node, con *Connection) error {
+	proxy := con.proxy
 	// this should be done before we look for service instances, but after we load metadata
 	// TODO fix check in kubecontroller treat echo VMs like there isn't a pod
 	if err := s.WorkloadEntryController.RegisterWorkload(proxy, con.Connect); err != nil {
-		return nil, err
+		return err
 	}
 	s.setProxyState(proxy, s.globalPushContext())
 
@@ -541,7 +566,14 @@ func (s *DiscoveryServer) initProxy(node *core.Node, con *Connection) (*model.Pr
 	// Discover supported IP Versions of proxy so that appropriate config can be delivered.
 	proxy.DiscoverIPVersions()
 
-	return proxy, nil
+	proxy.WatchedResources = map[string]*model.WatchedResource{}
+	// Based on node metadata and version, we can associate a different generator.
+	if proxy.Metadata.Generator != "" {
+		proxy.XdsResourceGenerator = s.Generators[proxy.Metadata.Generator]
+	}
+
+	recordXDSClients(proxy.Metadata.IstioVersion, 1)
+	return nil
 }
 
 func (s *DiscoveryServer) updateProxy(proxy *model.Proxy, push *model.PushContext) {
@@ -791,7 +823,7 @@ func (s *DiscoveryServer) startPush(req *model.PushRequest) {
 		}
 	}
 	req.Start = time.Now()
-	for _, p := range s.Clients() {
+	for _, p := range s.AllClients() {
 		s.pushQueue.Enqueue(p, req)
 	}
 }
@@ -800,7 +832,6 @@ func (s *DiscoveryServer) addCon(conID string, con *Connection) {
 	s.adsClientsMutex.Lock()
 	defer s.adsClientsMutex.Unlock()
 	s.adsClients[conID] = con
-	recordXDSClients(con.proxy.Metadata.IstioVersion, 1)
 }
 
 func (s *DiscoveryServer) removeCon(conID string) {
