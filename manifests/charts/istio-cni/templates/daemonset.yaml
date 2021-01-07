@@ -32,6 +32,11 @@ spec:
         # if it ever gets evicted.
         scheduler.alpha.kubernetes.io/critical-pod: ''
         sidecar.istio.io/inject: "false"
+        # Add Prometheus Scrape annotations
+        prometheus.io/scrape: 'true'
+        prometheus.io/port: 2112
+        prometheus.io/path: '/metrics'
+        # Custom annotations
         {{- if .Values.cni.podAnnotations }}
 {{ toYaml .Values.cni.podAnnotations | indent 8 }}
         {{- end }}

@@ -18,8 +18,12 @@ package main
 
 import (
 	"fmt"
+	"net/http"
 	"os"
 
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promauto"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/spf13/pflag"
 	"github.com/spf13/viper"
 	"go.uber.org/multierr"
@@ -37,7 +41,11 @@ type ControllerOptions struct {
 	RunAsDaemon   bool            `json:"run_as_daemon"`
 }
 
-var loggingOptions = log.DefaultOptions()
+var (
+	loggingOptions = log.DefaultOptions()
+
+	metrics = repair.Metrics{}
+)
 
 // Parse command line options
 func parseFlags() (filters *repair.Filters, options *ControllerOptions) {
@@ -166,6 +174,13 @@ func logCurrentOptions(bpr *repair.BrokenPodReconciler, options *ControllerOptio
 	}
 }
 
+func init() {
+	metrics.PodsRepaired = promauto.NewCounter(prometheus.CounterOpts{
+		Name: "istio_cni_repair_pods_repaired_total",
+		Help: "Total number of pods repaired by repair controller",
+	})
+}
+
 func main() {
 	loggingOptions.OutputPaths = []string{"stderr"}
 	loggingOptions.JSONEncoding = true
@@ -180,8 +195,14 @@ func main() {
 		log.Fatalf("Could not construct clientSet: %s", err)
 	}
 
-	podFixer := repair.NewBrokenPodReconciler(clientSet, filters, options.RepairOptions)
+	podFixer := repair.NewBrokenPodReconciler(clientSet, filters, options.RepairOptions, &metrics)
 	logCurrentOptions(&podFixer, options)
+
+	// Start metrics server
+	go func() {
+		http.Handle("/metrics", promhttp.Handler())
+		http.ListenAndServe(":2112", nil)
+	}()
 
 	if options.RunAsDaemon {
 		rc, err := repair.NewRepairController(podFixer)

@@ -19,6 +19,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/prometheus/client_golang/prometheus"
 	"go.uber.org/multierr"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -44,19 +45,25 @@ type Filters struct {
 	LabelSelectors                  string `json:"label_selectors"`
 }
 
+type Metrics struct {
+	PodsRepaired prometheus.Counter
+}
+
 // The pod reconciler struct. Contains state used to reconcile broken pods.
 type BrokenPodReconciler struct {
 	client  client.Interface
 	Filters *Filters
 	Options *Options
+	Metrics *Metrics
 }
 
 // Constructs a new BrokenPodReconciler struct.
-func NewBrokenPodReconciler(client client.Interface, filters *Filters, options *Options) BrokenPodReconciler {
+func NewBrokenPodReconciler(client client.Interface, filters *Filters, options *Options, metrics *Metrics) BrokenPodReconciler {
 	return BrokenPodReconciler{
 		client:  client,
 		Filters: filters,
 		Options: options,
+		Metrics: metrics,
 	}
 }
 
@@ -68,7 +75,6 @@ func (bpr BrokenPodReconciler) ReconcilePod(pod v1.Pod) (err error) {
 	} else if bpr.Options.LabelPods {
 		err = multierr.Append(err, bpr.labelBrokenPod(pod))
 	}
-
 	return err
 }
 
@@ -111,6 +117,7 @@ func (bpr BrokenPodReconciler) labelBrokenPod(pod v1.Pod) (err error) {
 		log.Errorf("Failed to update pod: %s", err)
 		return err
 	}
+	bpr.Metrics.PodsRepaired.Inc()
 	return err
 }
 
@@ -145,6 +152,7 @@ func (bpr BrokenPodReconciler) deleteBrokenPod(pod v1.Pod) error {
 		return nil
 	}
 	log.Infof("Pod detected as broken, deleting: %s/%s", pod.Namespace, pod.Name)
+	defer bpr.Metrics.PodsRepaired.Inc()
 	return bpr.client.CoreV1().Pods(pod.Namespace).Delete(context.TODO(), pod.Name, metav1.DeleteOptions{})
 }
 

@@ -21,6 +21,8 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/testutil"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -28,6 +30,16 @@ import (
 	"k8s.io/client-go/kubernetes/fake"
 
 	"istio.io/istio/tools/istio-iptables/pkg/constants"
+)
+
+var (
+	ignoreCounter prometheus.Counter = prometheus.NewCounter(prometheus.CounterOpts{
+			Name: "pods_repaired_counter",
+			Help: "Number of pods repaired",
+		})
+	ignoreMetrics *Metrics = &Metrics{
+		PodsRepaired: ignoreCounter,
+	}
 )
 
 func TestBrokenPodReconciler_detectPod(t *testing.T) {
@@ -348,6 +360,7 @@ func TestBrokenPodReconciler_listBrokenPods(t *testing.T) {
 				client:  tt.fields.client,
 				Filters: tt.fields.Filters,
 				Options: tt.fields.Options,
+				Metrics: ignoreMetrics,
 			}
 			gotList, err := bpr.ListBrokenPods()
 			if err != nil {
@@ -392,12 +405,13 @@ func TestNewBrokenPodReconciler(t *testing.T) {
 				client:  client,
 				Filters: &filter,
 				Options: &options,
+				Metrics: ignoreMetrics,
 			},
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if gotBpr := NewBrokenPodReconciler(tt.args.client, tt.args.filters, tt.args.options); !reflect.DeepEqual(gotBpr, tt.wantBpr) {
+			if gotBpr := NewBrokenPodReconciler(tt.args.client, tt.args.filters, tt.args.options, ignoreMetrics); !reflect.DeepEqual(gotBpr, tt.wantBpr) {
 				t.Errorf("NewBrokenPodReconciler() = %v, want %v", gotBpr, tt.wantBpr)
 			}
 		})
@@ -487,6 +501,7 @@ func TestBrokenPodReconciler_labelBrokenPods(t *testing.T) {
 				client:  tt.fields.client,
 				Filters: tt.fields.Filters,
 				Options: tt.fields.Options,
+				Metrics: ignoreMetrics,
 			}
 			if err := bpr.LabelBrokenPods(); (err != nil) != tt.wantErr {
 				t.Errorf("LabelBrokenPods() error = %v, wantErr %v", err, tt.wantErr)
@@ -551,6 +566,7 @@ func TestBrokenPodReconciler_deleteBrokenPods(t *testing.T) {
 				client:  tt.fields.client,
 				Filters: tt.fields.Filters,
 				Options: tt.fields.Options,
+				Metrics: ignoreMetrics,
 			}
 			if err := bpr.DeleteBrokenPods(); (err != nil) != tt.wantErr {
 				t.Errorf("DeleteBrokenPods() error = %v, wantErr %v", err, tt.wantErr)
@@ -561,6 +577,163 @@ func TestBrokenPodReconciler_deleteBrokenPods(t *testing.T) {
 			}
 			if !reflect.DeepEqual(havePods.Items, tt.wantPods) {
 				t.Errorf("DeleteBrokenPods() error havePods = %v, wantPods = %v", havePods.Items, tt.wantPods)
+			}
+		})
+	}
+}
+
+// Tests the ReconcilePod method and checks that metrics are working
+func TestBrokenPodReconciler_ReconcilePod_metrics(t *testing.T) {
+
+	type fields struct {
+		client  kubernetes.Interface
+		Filters *Filters
+		Options *Options
+		Metrics *Metrics
+	}
+	tests := []struct {
+	name      string
+	fields    fields
+	wantCount float64
+	fn        func(reconciler BrokenPodReconciler) error
+	}{
+		{
+			name: "No broken pods",
+			fields: fields{
+				client: labelBrokenPodsClientset(workingPod),
+				Filters: &Filters{
+					InitContainerName:               constants.ValidationContainerName,
+					InitContainerExitCode:           126,
+					InitContainerTerminationMessage: "Died for some reason",
+				},
+				Options: &Options{},
+				Metrics: &Metrics{
+					PodsRepaired: prometheus.NewCounter(prometheus.CounterOpts{
+						Name: "test",
+						Help: "test",
+					}),
+				},
+			},
+			wantCount: 0,
+			fn: func(reconciler BrokenPodReconciler) error { return reconciler.DeleteBrokenPods()},
+		},
+		{
+			name: "No broken pods, one died previously",
+			fields: fields{
+				client: labelBrokenPodsClientset(workingPod, workingPodDiedPreviously),
+				Filters: &Filters{
+					InitContainerName:               constants.ValidationContainerName,
+					InitContainerExitCode:           126,
+					InitContainerTerminationMessage: "Died for some reason",
+				},
+				Options: &Options{},
+				Metrics: &Metrics{
+					PodsRepaired: prometheus.NewCounter(prometheus.CounterOpts{
+						Name: "test",
+						Help: "test",
+					}),
+				},
+			},
+			wantCount: 0,
+			fn: func(reconciler BrokenPodReconciler) error { return reconciler.DeleteBrokenPods()},
+		},
+		{
+			name: "With broken pods",
+			fields: fields{
+				client: labelBrokenPodsClientset(workingPod, workingPodDiedPreviously, brokenPodWaiting),
+				Filters: &Filters{
+					InitContainerName:               constants.ValidationContainerName,
+					InitContainerExitCode:           126,
+					InitContainerTerminationMessage: "Died for some reason",
+				},
+				Options: &Options{},
+				Metrics: &Metrics{
+					PodsRepaired: prometheus.NewCounter(prometheus.CounterOpts{
+						Name: "test",
+						Help: "test",
+					}),
+				},
+			},
+			wantCount: 1,
+			fn: func(reconciler BrokenPodReconciler) error { return reconciler.DeleteBrokenPods()},
+
+
+		},
+		{
+			name: "Label Broken -- No broken pods",
+			fields: fields{
+				client: labelBrokenPodsClientset(workingPod),
+				Filters: &Filters{
+					InitContainerName:               constants.ValidationContainerName,
+					InitContainerExitCode:           126,
+					InitContainerTerminationMessage: "Died for some reason",
+				},
+				Options: &Options{},
+				Metrics: &Metrics{
+					PodsRepaired: prometheus.NewCounter(prometheus.CounterOpts{
+						Name: "test",
+						Help: "test",
+					}),
+				},
+			},
+			wantCount: 0,
+			fn: func(reconciler BrokenPodReconciler) error { return reconciler.LabelBrokenPods()},
+		},
+		{
+			name: "Label Broken --No broken pods, one died previously",
+			fields: fields{
+				client: labelBrokenPodsClientset(workingPod, workingPodDiedPreviously),
+				Filters: &Filters{
+					InitContainerName:               constants.ValidationContainerName,
+					InitContainerExitCode:           126,
+					InitContainerTerminationMessage: "Died for some reason",
+				},
+				Options: &Options{},
+				Metrics: &Metrics{
+					PodsRepaired: prometheus.NewCounter(prometheus.CounterOpts{
+						Name: "test",
+						Help: "test",
+					}),
+				},
+			},
+			wantCount: 0,
+			fn: func(reconciler BrokenPodReconciler) error { return reconciler.LabelBrokenPods()},
+		},
+		{
+			name: "Label Broken -- With broken pods",
+			fields: fields{
+				client: labelBrokenPodsClientset(workingPod, workingPodDiedPreviously, brokenPodWaiting),
+				Filters: &Filters{
+					InitContainerName:               constants.ValidationContainerName,
+					InitContainerExitCode:           126,
+					InitContainerTerminationMessage: "Died for some reason",
+				},
+				Options: &Options{},
+				Metrics: &Metrics{
+					PodsRepaired: prometheus.NewCounter(prometheus.CounterOpts{
+						Name: "test",
+						Help: "test",
+					}),
+				},
+			},
+			wantCount: 1,
+			fn: func(reconciler BrokenPodReconciler) error { return reconciler.LabelBrokenPods()},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			bpr := BrokenPodReconciler{
+				client:  tt.fields.client,
+				Filters: tt.fields.Filters,
+				Options: tt.fields.Options,
+				Metrics: tt.fields.Metrics,
+			}
+			if err := tt.fn(bpr); err != nil {
+				t.Errorf("DeleteBrokenPods() error in ReconcilePod(): %v", err)
+			}
+			haveCount := testutil.ToFloat64(tt.fields.Metrics.PodsRepaired)
+			if haveCount != tt.wantCount {
+				t.Errorf("Counter error in ReconcilePod(): haveCount = %v, wantCount = %v", haveCount, tt.wantCount)
 			}
 		})
 	}
