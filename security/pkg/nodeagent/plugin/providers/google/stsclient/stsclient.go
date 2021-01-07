@@ -52,21 +52,22 @@ type federatedTokenResponse struct {
 }
 
 // TokenExchanger for google securetoken api interaction.
-type Plugin struct {
+type SecureTokenServiceExchanger struct {
 	httpClient  *http.Client
 	credFetcher security.CredFetcher
+	trustDomain string
 	backoff     time.Duration
 }
 
-// NewPlugin returns an instance of secure token service client plugin
-func NewPlugin(credFetcher security.CredFetcher) *Plugin {
-	stsClientLog.SetOutputLevel(log.DebugLevel)
-	return &Plugin{
+// NewSecureTokenServiceExchanger returns an instance of secure token service client plugin
+func NewSecureTokenServiceExchanger(credFetcher security.CredFetcher, trustDomain string) *SecureTokenServiceExchanger {
+	return &SecureTokenServiceExchanger{
 		httpClient: &http.Client{
 			Timeout: httpTimeout,
 		},
 		backoff:     time.Millisecond * 50,
 		credFetcher: credFetcher,
+		trustDomain: trustDomain,
 	}
 }
 
@@ -74,7 +75,7 @@ func retryable(code int) bool {
 	return code >= 500 && !(code == 501 || code == 505 || code == 511)
 }
 
-func (p *Plugin) requestWithRetry(reqBytes []byte) ([]byte, error) {
+func (p *SecureTokenServiceExchanger) requestWithRetry(reqBytes []byte) ([]byte, error) {
 	attempts := 0
 	var lastError error
 	for attempts < 5 {
@@ -112,8 +113,8 @@ func (p *Plugin) requestWithRetry(reqBytes []byte) ([]byte, error) {
 }
 
 // ExchangeToken exchange oauth access token from trusted domain and k8s sa jwt.
-func (p *Plugin) ExchangeToken(trustDomain, k8sSAjwt string) (string, error) {
-	aud := constructAudience(p.credFetcher, trustDomain)
+func (p *SecureTokenServiceExchanger) ExchangeToken(k8sSAjwt string) (string, error) {
+	aud := constructAudience(p.credFetcher, p.trustDomain)
 	jsonStr := constructFederatedTokenRequest(aud, k8sSAjwt)
 
 	body, err := p.requestWithRetry(jsonStr)

@@ -1026,7 +1026,7 @@ func testSideCarInjectorMetrics(t *testing.T) {
 	}
 	for _, e := range expected {
 		retry.UntilSuccessOrFail(t, func() error {
-			got, err := sutil.GetMetricsCounterValue(e)
+			got, err := sutil.GetMetricsCounterValueWithTags(e, nil)
 			if err != nil {
 				return err
 			}

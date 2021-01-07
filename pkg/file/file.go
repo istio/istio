@@ -37,6 +37,20 @@ func AtomicCopy(srcFilepath, targetDir, targetFilename string) error {
 	return AtomicWrite(filepath.Join(targetDir, targetFilename), input, info.Mode())
 }
 
+func Copy(srcFilepath, targetDir, targetFilename string) error {
+	info, err := os.Stat(srcFilepath)
+	if err != nil {
+		return err
+	}
+
+	input, err := ioutil.ReadFile(srcFilepath)
+	if err != nil {
+		return err
+	}
+
+	return ioutil.WriteFile(filepath.Join(targetDir, targetFilename), input, info.Mode())
+}
+
 // Write atomically by writing to a temporary file in the same directory then renaming
 func AtomicWrite(path string, data []byte, mode os.FileMode) (err error) {
 	tmpFile, err := ioutil.TempFile(filepath.Dir(path), filepath.Base(path)+".tmp.")
@@ -93,4 +107,17 @@ func IsDirWriteable(dir string) error {
 		return err
 	}
 	return os.Remove(f)
+}
+
+// DirEquals check if two directories are referring to the same directory
+func DirEquals(a, b string) (bool, error) {
+	aa, err := filepath.Abs(a)
+	if err != nil {
+		return false, err
+	}
+	bb, err := filepath.Abs(b)
+	if err != nil {
+		return false, err
+	}
+	return aa == bb, nil
 }

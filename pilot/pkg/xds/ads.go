@@ -220,6 +220,10 @@ func (s *DiscoveryServer) processRequest(req *discovery.DiscoveryRequest, con *C
 
 // StreamAggregatedResources implements the ADS interface.
 func (s *DiscoveryServer) StreamAggregatedResources(stream discovery.AggregatedDiscoveryService_StreamAggregatedResourcesServer) error {
+	return s.Stream(stream)
+}
+
+func (s *DiscoveryServer) Stream(stream DiscoveryStream) error {
 	// Check if server is ready to accept clients and process new requests.
 	// Currently ready means caches have been synced and hence can build
 	// clusters correctly. Without this check, InitContext() call below would
@@ -639,7 +643,7 @@ func (s *DiscoveryServer) pushConnection(con *Connection, pushEv *Event) error {
 		s.updateProxy(con.proxy, pushRequest.Push)
 	}
 
-	if !ProxyNeedsPush(con.proxy, pushEv) {
+	if !s.ProxyNeedsPush(con.proxy, pushRequest) {
 		adsLog.Debugf("Skipping push to %v, no updates required", con.ConID)
 		if pushRequest.Full {
 			// Only report for full versions, incremental pushes do not have a new version
