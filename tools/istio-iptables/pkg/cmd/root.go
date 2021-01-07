@@ -95,6 +95,7 @@ func constructConfig() *config.Config {
 		ProbeTimeout:            viper.GetDuration(constants.ProbeTimeout),
 		SkipRuleApply:           viper.GetBool(constants.SkipRuleApply),
 		RunValidation:           viper.GetBool(constants.RunValidation),
+		RedirectDNS:             viper.GetBool(constants.RedirectDNS),
 	}
 
 	// TODO: Make this more configurable, maybe with an allowlist of users to be captured for output instead of a denylist.
@@ -300,7 +301,7 @@ func init() {
 	}
 	viper.SetDefault(constants.RunValidation, false)
 
-	rootCmd.Flags().Bool(constants.RedirectDNS, dnsCaptureByAgent, "If set to true, enable the capture of outgoing DNS packets on port 53, redirecting to istio-agent on :15053")
+	rootCmd.Flags().Bool(constants.RedirectDNS, dnsCaptureByAgent, "Enable capture of dns traffic by istio-agent")
 	if err := viper.BindPFlag(constants.RedirectDNS, rootCmd.Flags().Lookup(constants.RedirectDNS)); err != nil {
 		handleError(err)
 	}
