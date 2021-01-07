@@ -519,23 +519,24 @@ func gatewayCases(apps *EchoDeployments) []TrafficTestCase {
 			},
 		})
 	}
-	cases = append(cases, TrafficTestCase{
-		name:   "404",
-		config: httpGateway("*"),
-		call:   apps.Ingress.CallEchoWithRetryOrFail,
-		opts: echo.CallOptions{
-			Port: &echo.Port{
-				Protocol: protocol.HTTP,
+	cases = append(cases,
+		TrafficTestCase{
+			name:   "404",
+			config: httpGateway("*"),
+			call:   apps.Ingress.CallEchoWithRetryOrFail,
+			opts: echo.CallOptions{
+				Port: &echo.Port{
+					Protocol: protocol.HTTP,
+				},
+				Headers: map[string][]string{
+					"Host": {"foo.bar"},
+				},
+				Validator: echo.ExpectCode("404"),
 			},
-			Headers: map[string][]string{
-				"Host": {"foo.bar"},
-			},
-			Validator: echo.ExpectCode("404"),
 		},
-	})
-	cases = append(cases, TrafficTestCase{
-		name: "https redirect",
-		config: `apiVersion: networking.istio.io/v1alpha3
+		TrafficTestCase{
+			name: "https redirect",
+			config: `apiVersion: networking.istio.io/v1alpha3
 kind: Gateway
 metadata:
   name: gateway
@@ -553,18 +554,18 @@ spec:
       httpsRedirect: true
 ---
 `,
-		call: apps.Ingress.CallEchoWithRetryOrFail,
-		opts: echo.CallOptions{
-			Port: &echo.Port{
-				Protocol: protocol.HTTP,
+			call: apps.Ingress.CallEchoWithRetryOrFail,
+			opts: echo.CallOptions{
+				Port: &echo.Port{
+					Protocol: protocol.HTTP,
+				},
+				Validator: echo.ExpectCode("301"),
 			},
-			Validator: echo.ExpectCode("301"),
 		},
-	})
-	cases = append(cases, TrafficTestCase{
-		// See https://github.com/istio/istio/issues/27315
-		name: "https with x-forwarded-proto",
-		config: `apiVersion: networking.istio.io/v1alpha3
+		TrafficTestCase{
+			// See https://github.com/istio/istio/issues/27315
+			name: "https with x-forwarded-proto",
+			config: `apiVersion: networking.istio.io/v1alpha3
 kind: Gateway
 metadata:
   name: gateway
@@ -607,19 +608,19 @@ spec:
       istio: ingressgateway
 ---
 ` + httpVirtualService("gateway", apps.PodA[0].Config().FQDN(), apps.PodA[0].Config().PortByName("http").ServicePort),
-		call: apps.Ingress.CallEchoWithRetryOrFail,
-		opts: echo.CallOptions{
-			Port: &echo.Port{
-				Protocol: protocol.HTTP,
+			call: apps.Ingress.CallEchoWithRetryOrFail,
+			opts: echo.CallOptions{
+				Port: &echo.Port{
+					Protocol: protocol.HTTP,
+				},
+				Headers: map[string][]string{
+					// In real world, this may be set by a downstream LB that terminates the TLS
+					"X-Forwarded-Proto": {"https"},
+					"Host":              {apps.PodA[0].Config().FQDN()},
+				},
+				Validator: echo.ExpectOK(),
 			},
-			Headers: map[string][]string{
-				// In real world, this may be set by a downstream LB that terminates the TLS
-				"X-Forwarded-Proto": {"https"},
-				"Host":              {apps.PodA[0].Config().FQDN()},
-			},
-			Validator: echo.ExpectOK(),
-		},
-	})
+		})
 	return cases
 }
 

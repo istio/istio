@@ -59,7 +59,7 @@ func applyNamespace(yamlText, ns string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	if meta["namespace"] != "" {
+	if meta["namespace"] != nil && meta["namespace"] != "" {
 		return yamlText, nil
 	}
 	meta["namespace"] = ns
