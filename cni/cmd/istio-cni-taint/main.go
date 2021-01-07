@@ -97,7 +97,7 @@ kubernetes controller and checking on the readiness of critical label
 			leadelectionCallback := leaderelection.LeaderCallbacks{
 				OnStartedLeading: func(ctx context.Context) {
 					//once leader elected it should taint all nodes at first to prevent race condition
-					tc.RegistTaints()
+					tc.RegisterTaints()
 					tc.Run(ctx.Done()) //graceful shut down
 				},
 				OnStoppedLeading: func() {
