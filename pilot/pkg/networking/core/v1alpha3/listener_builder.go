@@ -103,6 +103,7 @@ func amendFilterChainMatchFromInboundListener(chain *listener.FilterChain, l *li
 }
 
 func isBindtoPort(l *listener.Listener) bool {
+	// nolint: staticcheck
 	v1 := l.GetDeprecatedV1()
 	if v1 == nil {
 		// Default is true
@@ -164,7 +165,6 @@ func (lb *ListenerBuilder) aggregateVirtualInboundListener(needTLSForPassThrough
 	// 1. filter chains in this listener
 	// 2. explicit original_dst listener filter
 	// UseOriginalDst: proto.BoolTrue,
-	// nolint: staticcheck
 	lb.virtualInboundListener.UseOriginalDst = nil
 	lb.virtualInboundListener.ListenerFilters = append(lb.virtualInboundListener.ListenerFilters,
 		xdsfilters.OriginalDestination,
