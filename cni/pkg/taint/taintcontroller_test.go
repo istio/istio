@@ -15,6 +15,7 @@
 package taint
 
 import (
+	"context"
 	"fmt"
 	"reflect"
 	"testing"
@@ -185,7 +186,8 @@ func TestController_ListAllNode(t *testing.T) {
 		})
 	}
 }
-func TestController_RegistTaints(t *testing.T) {
+
+func TestController_RegisterTaints(t *testing.T) {
 	tests := []struct {
 		name      string
 		client    kubernetes.Interface
@@ -212,10 +214,12 @@ func TestController_RegistTaints(t *testing.T) {
 			tc, _ := newMockTaintSetterController(&ts, source)
 			stop := make(chan struct{})
 			for _, name := range tt.nodeNames {
-				source.Add(&v1.Node{ObjectMeta: metav1.ObjectMeta{Name: name}})
+				node := &v1.Node{ObjectMeta: metav1.ObjectMeta{Name: name}}
+				source.Add(node)
+				tt.client.CoreV1().Nodes().Create(context.Background(), node, metav1.CreateOptions{})
 			}
 			go tc.Run(stop)
-			tc.RegistTaints()
+			tc.RegisterTaints()
 			// Let's wait for the controller to finish processing the things we just added.
 			err := retry.UntilSuccess(func() error {
 				if len(tc.ListAllNode()) != len(tt.nodeNames) {
