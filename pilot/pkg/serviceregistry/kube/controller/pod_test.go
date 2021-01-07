@@ -248,22 +248,6 @@ func testPodCache(t *testing.T) {
 	}
 }
 
-func makePodWithCondition(ip string, om metav1.ObjectMeta, status v1.ConditionStatus) *v1.Pod {
-	p := &v1.Pod{ObjectMeta: om}
-	p.Status = v1.PodStatus{
-		PodIP: ip,
-		Phase: v1.PodRunning,
-		Conditions: []v1.PodCondition{
-			v1.PodCondition{
-				Type:               v1.PodReady,
-				LastTransitionTime: metav1.Time{time.Now()},
-				Status:             status,
-			},
-		},
-	}
-	return p
-}
-
 // Checks that events from the watcher create the proper internal structures
 func TestPodCacheEvents(t *testing.T) {
 	t.Parallel()
@@ -318,41 +302,4 @@ func TestPodCacheEvents(t *testing.T) {
 		t.Errorf("getPodKey => got %s, want none", pod)
 	}
 
-	pod3 := metav1.ObjectMeta{Name: "pod3", Namespace: ns}
-	if err := f(makePodWithCondition(ip, pod3, v1.ConditionTrue), model.EventAdd); err != nil {
-		t.Error(err)
-	}
-	// pod is ready and is added to the
-	if _, exists := podCache.podTransitionTime[ip]; !exists {
-		t.Errorf("Cannot find pod transition time in %s", model.EventAdd)
-	}
-
-	pod4 := metav1.ObjectMeta{Name: "pod4", Namespace: ns}
-	pod4Ip := "172.0.3.36"
-	if err := f(makePodWithCondition(pod4Ip, pod4, v1.ConditionTrue), model.EventUpdate); err != nil {
-		t.Error(err)
-	}
-	var lastTransitTime, newLastTransitTime metav1.Time
-	var exists bool
-	if lastTransitTime, exists = podCache.podTransitionTime[pod4Ip]; !exists {
-		t.Errorf("Cannot find pod transition time in %s", model.EventUpdate)
-	}
-	if err := f(makePodWithCondition(pod4Ip, pod4, v1.ConditionFalse), model.EventUpdate); err != nil {
-		t.Error(err)
-	}
-	if newLastTransitTime, exists = podCache.podTransitionTime[pod4Ip]; !exists {
-		t.Errorf("Cannot find pod transition time in %s", model.EventUpdate)
-	}
-	if lastTransitTime.Equal(&newLastTransitTime) {
-		t.Error("Transit time is not updated")
-	}
-	if err := f(makePodWithCondition(pod4Ip, pod4, v1.ConditionTrue), model.EventUpdate); err != nil {
-		t.Error(err)
-	}
-	if newLastTransitTime, exists = podCache.podTransitionTime[pod4Ip]; !exists {
-		t.Errorf("Cannot find pod transition time in %s", model.EventUpdate)
-	}
-	if lastTransitTime.Equal(&newLastTransitTime) {
-		t.Error("Transit time is not updated")
-	}
 }

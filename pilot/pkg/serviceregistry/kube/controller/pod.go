@@ -25,7 +25,6 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube"
 	"istio.io/istio/pilot/pkg/util/sets"
-	kubemetav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 // PodCache is an eventually consistent pod cache
@@ -40,11 +39,6 @@ type PodCache struct {
 	// IPByPods is a reverse map of podsByIP. This exists to allow us to prune stale entries in the
 	// pod cache if a pod changes IP.
 	IPByPods map[string]string
-
-	// This is used to track the transit time of the pods. When pods events arrive, we will compare
-	// it with the previous time and decide whether should send an eds update
-	// We send the updates with types of readiness 1) pods are becoming ready 2) pods are becoming unready
-	podTransitionTime map[string]kubemetav1.Time
 
 	// needResync is map of IP to endpoint names. This is used to requeue endpoint
 	// events when pod event comes. This typically happens when pod is not available
@@ -63,7 +57,6 @@ func newPodCache(c *Controller, informer coreinformers.PodInformer, queueEndpoin
 		IPByPods:           make(map[string]string),
 		needResync:         make(map[string]sets.Set),
 		queueEndpointEvent: queueEndpointEvent,
-		podTransitionTime:  make(map[string]kubemetav1.Time),
 	}
 
 	return out
@@ -123,16 +116,12 @@ func (pc *PodCache) onEvent(curr interface{}, ev model.Event) error {
 		}
 	}
 
-	// This variable is used to determine whether we need to trigger an eds update for its dependencies
-	// for example, when a running pod becomes unready, we should trigger an eds update to remove it from sidecar
-	inTransitState := false
 	ip := pod.Status.PodIP
 
 	// PodIP will be empty when pod is just created, but before the IP is assigned
 	// via UpdateStatus.
 	if len(ip) > 0 {
 		key := kube.KeyFunc(pod.Name, pod.Namespace)
-		podCondition := GetPodReadyCondition(pod.Status)
 		switch ev {
 		case model.EventAdd:
 			switch pod.Status.Phase {
@@ -141,9 +130,8 @@ func (pc *PodCache) onEvent(curr interface{}, ev model.Event) error {
 					// add to cache if the pod is running or pending
 					pc.update(ip, key)
 				}
-				if _, ok := pc.podTransitionTime[ip]; !ok && IsPodReady(pod) {
-					pc.podTransitionTime[ip] = podCondition.LastTransitionTime
-					inTransitState = true
+				if !IsPodReady(pod) {
+					ev = model.EventDelete
 				}
 			}
 		case model.EventUpdate:
@@ -152,7 +140,6 @@ func (pc *PodCache) onEvent(curr interface{}, ev model.Event) error {
 				if pc.podsByIP[ip] == key {
 					pc.deleteIP(ip)
 				}
-				delete(pc.podTransitionTime, ip)
 				ev = model.EventDelete
 			} else {
 				switch pod.Status.Phase {
@@ -161,25 +148,15 @@ func (pc *PodCache) onEvent(curr interface{}, ev model.Event) error {
 						// add to cache if the pod is running or pending
 						pc.update(ip, key)
 					}
-					if IsPodReady(pod) {
-						if lastTransitTime, ok := pc.podTransitionTime[ip]; !ok || !lastTransitTime.Equal(&podCondition.LastTransitionTime) {
-							pc.podTransitionTime[ip] = podCondition.LastTransitionTime
-							inTransitState = true
-						}
-					} else {
-						// This is when a healthy endpoint becomes unready
-						if _, ok := pc.podTransitionTime[ip]; ok {
-							inTransitState = true
-							pc.podTransitionTime[ip] = podCondition.LastTransitionTime
-							ev = model.EventDelete
-						}
+					if !IsPodReady(pod) {
+						ev = model.EventDelete
 					}
 				default:
 					// delete if the pod switched to other states and is in the cache
 					if pc.podsByIP[ip] == key {
 						pc.deleteIP(ip)
 					}
-					delete(pc.podTransitionTime, ip)
+					ev = model.EventDelete
 				}
 			}
 		case model.EventDelete:
@@ -187,17 +164,15 @@ func (pc *PodCache) onEvent(curr interface{}, ev model.Event) error {
 			if pc.podsByIP[ip] == key {
 				pc.deleteIP(ip)
 			}
-			delete(pc.podTransitionTime, ip)
 		}
 		// fire instance handles for workload
 		for _, handler := range pc.c.workloadHandlers {
 			ep := NewEndpointBuilder(pc.c, pod).buildIstioEndpoint(ip, 0, "")
 			handler(&model.WorkloadInstance{
-				Name:           pod.Name,
-				Namespace:      pod.Namespace,
-				Endpoint:       ep,
-				PortMap:        getPortMap(pod),
-				InTransitState: inTransitState,
+				Name:      pod.Name,
+				Namespace: pod.Namespace,
+				Endpoint:  ep,
+				PortMap:   getPortMap(pod),
 			}, ev)
 		}
 	}

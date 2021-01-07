@@ -245,11 +245,10 @@ func (instance *ServiceInstance) DeepCopy() *ServiceInstance {
 }
 
 type WorkloadInstance struct {
-	Name           string            `json:"name,omitempty"`
-	Namespace      string            `json:"namespace,omitempty"`
-	Endpoint       *IstioEndpoint    `json:"endpoint,omitempty"`
-	PortMap        map[string]uint32 `json:"portMap,omitempty"`
-	InTransitState bool              `json:"inTransitState,omitempty"`
+	Name      string            `json:"name,omitempty"`
+	Namespace string            `json:"namespace,omitempty"`
+	Endpoint  *IstioEndpoint    `json:"endpoint,omitempty"`
+	PortMap   map[string]uint32 `json:"portMap,omitempty"`
 }
 
 // DeepCopy creates a copy of WorkloadInstance.
@@ -259,11 +258,10 @@ func (instance *WorkloadInstance) DeepCopy() *WorkloadInstance {
 		pmap[k] = v
 	}
 	return &WorkloadInstance{
-		Name:           instance.Name,
-		Namespace:      instance.Namespace,
-		PortMap:        pmap,
-		Endpoint:       instance.Endpoint.DeepCopy(),
-		InTransitState: instance.InTransitState,
+		Name:      instance.Name,
+		Namespace: instance.Namespace,
+		PortMap:   pmap,
+		Endpoint:  instance.Endpoint.DeepCopy(),
 	}
 }
 
