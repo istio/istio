@@ -1,0 +1,18 @@
+# The following policy applies the CUSTOM action with the ext-authz-http provider on ingress gateway for path /custom.
+
+apiVersion: "security.istio.io/v1beta1"
+kind: AuthorizationPolicy
+metadata:
+  name: policy-ingress-http
+  namespace: "{{ .RootNamespace }}"
+spec:
+  selector:
+    matchLabels:
+      "app": "istio-ingressgateway"
+  action: CUSTOM
+  provider:
+    name: ext-authz-http
+  rules:
+  - to:
+    - operation:
+        paths: ["/custom"]

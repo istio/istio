@@ -1290,13 +1290,9 @@ func TestAuthorization_Custom(t *testing.T) {
 				"RootNamespace": istio.GetOrFail(ctx, ctx).Settings().SystemNamespace,
 			}
 
-			applyYAML := func(filename string, ns namespace.Instance) []string {
-				name := ""
-				if ns != nil {
-					name = ns.Name()
-				}
+			applyYAML := func(filename string, ns string) []string {
 				policy := tmpl.EvaluateAllOrFail(t, args, file.AsStringOrFail(t, filename))
-				ctx.Config().ApplyYAMLOrFail(t, name, policy...)
+				ctx.Config().ApplyYAMLOrFail(t, ns, policy...)
 				return policy
 			}
 
@@ -1304,13 +1300,15 @@ func TestAuthorization_Custom(t *testing.T) {
 			if extAuthzServiceNamespace == nil {
 				ctx.Fatalf("Failed to create namespace for ext-authz server: %v", extAuthzServiceNamespaceErr)
 			}
-			extAuthzServer := applyYAML("../../../samples/extauthz/ext-authz.yaml", extAuthzServiceNamespace)
+			extAuthzServer := applyYAML("../../../samples/extauthz/ext-authz.yaml", extAuthzServiceNamespace.Name())
 			defer ctx.Config().DeleteYAMLOrFail(t, extAuthzServiceNamespace.Name(), extAuthzServer...)
 			if _, _, err := kube.WaitUntilServiceEndpointsAreReady(ctx.Clusters().Default(), extAuthzServiceNamespace.Name(), "ext-authz"); err != nil {
 				ctx.Fatalf("Wait for ext-authz server failed: %v", err)
 			}
-			policy := applyYAML("testdata/authz/v1beta1-custom.yaml.tmpl", nil)
-			defer ctx.Config().DeleteYAMLOrFail(t, "", policy...)
+			policy := applyYAML("testdata/authz/v1beta1-custom.yaml.tmpl", ns.Name())
+			defer ctx.Config().DeleteYAMLOrFail(t, ns.Name(), policy...)
+			ingressPolicy := applyYAML("testdata/authz/v1beta1-custom-ingress.yaml.tmpl", args["RootNamespace"])
+			defer ctx.Config().DeleteYAMLOrFail(t, args["RootNamespace"], ingressPolicy...)
 
 			ports := []echo.Port{
 				{
@@ -1421,7 +1419,7 @@ func TestAuthorization_Custom(t *testing.T) {
 					authn.CheckIngressOrFail(ctx, ingr, "www.company.com", tc.Request.Options.Path, headers, "", wantCode)
 				})
 			}
-			
+
 			rbacUtil.RunRBACTest(ctx, cases)
 		})
 }
