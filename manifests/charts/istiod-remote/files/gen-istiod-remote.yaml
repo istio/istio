@@ -224,8 +224,8 @@ data:
           {{ else -}}
           - name: istio-init
           {{ end -}}
-          {{- if contains "/" .Values.global.proxy_init.image }}
-            image: "{{ .Values.global.proxy_init.image }}"
+          {{- if contains "/" (annotation .ObjectMeta `sidecar.istio.io/proxyImage` .Values.global.proxy_init.image) }}
+            image: "{{ annotation .ObjectMeta `sidecar.istio.io/proxyImage` .Values.global.proxy_init.image }}"
           {{- else }}
             image: "{{ .Values.global.hub }}/{{ .Values.global.proxy_init.image }}:{{ .Values.global.tag }}"
           {{- end }}
@@ -331,8 +331,8 @@ data:
             - sysctl -w kernel.core_pattern=/var/lib/istio/data/core.proxy && ulimit -c unlimited
             command:
               - /bin/sh
-          {{- if contains "/" .Values.global.proxy_init.image }}
-            image: "{{ .Values.global.proxy_init.image }}"
+          {{- if contains "/" (annotation .ObjectMeta `sidecar.istio.io/proxyImage` .Values.global.proxy_init.image) }}
+            image: "{{ annotation .ObjectMeta `sidecar.istio.io/proxyImage` .Values.global.proxy_init.image }}"
           {{- else }}
             image: "{{ .Values.global.hub }}/{{ .Values.global.proxy_init.image }}:{{ .Values.global.tag }}"
           {{- end }}
