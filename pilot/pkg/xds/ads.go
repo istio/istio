@@ -140,11 +140,11 @@ func (s *DiscoveryServer) receive(con *Connection, reqChannel chan *discovery.Di
 		req, err := con.stream.Recv()
 		if err != nil {
 			if isExpectedGRPCError(err) {
-				adsLog.Infof("XDS: %q %s terminated %v", con.PeerAddr, con.ConID, err)
+				adsLog.Infof("ADS: %q %s terminated %v", con.PeerAddr, con.ConID, err)
 				return
 			}
 			*errP = err
-			adsLog.Errorf("XDS: %q %s terminated with error: %v", con.PeerAddr, con.ConID, err)
+			adsLog.Errorf("ADS: %q %s terminated with error: %v", con.PeerAddr, con.ConID, err)
 			totalXDSInternalErrors.Increment()
 			return
 		}
@@ -160,7 +160,7 @@ func (s *DiscoveryServer) receive(con *Connection, reqChannel chan *discovery.Di
 				*errP = err
 				return
 			}
-			adsLog.Infof("XDS: new connection for node:%s", con.ConID)
+			adsLog.Infof("ADS: new connection for node:%s", con.ConID)
 			defer func() {
 				s.removeCon(con.ConID)
 				if s.StatusGen != nil {
