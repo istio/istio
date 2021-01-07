@@ -162,12 +162,13 @@ func (m *Multicluster) AddMemberCluster(client kubelib.Client, clusterID string)
 			// Add an instance handler in the service entry store to notify kubernetes about workload entry events
 			m.serviceEntryStore.AppendWorkloadHandler(kubeRegistry.WorkloadInstanceHandler)
 		} else {
+			// TODO only do this for non-remotes, CRDs won't exist in remotes (depends on https://github.com/istio/istio/pull/29824)
 			store, err := createConfigStore(client, m.revision, options)
 			if err == nil {
 				m.remoteKubeControllers[clusterID].workloadEntryStore = serviceentry.NewServiceDiscovery(
 					store, model.MakeIstioStore(store), options.XDSUpdater, serviceentry.ProcessServiceEntry(false))
 				m.serviceController.AddRegistry(m.remoteKubeControllers[clusterID].workloadEntryStore)
-				// Services can select WorkloadEntry from the same cluster.
+				// Services can select WorkloadEntry from the same cluster. We only duplicate the Service to configure kube-dns.
 				m.remoteKubeControllers[clusterID].workloadEntryStore.AppendWorkloadHandler(kubeRegistry.WorkloadInstanceHandler)
 				go store.Run(stopCh)
 			} else {
