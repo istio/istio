@@ -102,6 +102,7 @@ func TestController(t *testing.T) {
 			}
 			iopCRFile = filepath.Join(workDir, "iop_cr.yaml")
 			// later just run `kubectl apply -f newcr.yaml` to apply new installation cr files and verify.
+			installWithCRFile(t, ctx, cs, s, istioCtl, "demo", "")
 			installWithCRFile(t, ctx, cs, s, istioCtl, "default", "")
 
 			initCmd = []string{
