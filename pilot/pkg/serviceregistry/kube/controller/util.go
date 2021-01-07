@@ -17,6 +17,7 @@ package controller
 import (
 	"encoding/json"
 	"fmt"
+	"k8s.io/client-go/tools/cache"
 	"strings"
 
 	v1 "k8s.io/api/core/v1"
@@ -199,4 +200,19 @@ func podKeyByProxy(proxy *model.Proxy) string {
 	}
 
 	return ""
+}
+
+func convertToService(obj interface{}) (*v1.Service, error) {
+	cm, ok := obj.(*v1.Service)
+	if !ok {
+		tombstone, ok := obj.(cache.DeletedFinalStateUnknown)
+		if !ok {
+			return nil, fmt.Errorf("couldn't get object from tombstone %#v", obj)
+		}
+		cm, ok = tombstone.Obj.(*v1.Service)
+		if !ok {
+			return nil, fmt.Errorf("tombstone contained object that is not a Service %#v", obj)
+		}
+	}
+	return cm, nil
 }

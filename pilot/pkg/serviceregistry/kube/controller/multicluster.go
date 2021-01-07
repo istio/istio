@@ -86,7 +86,7 @@ type Multicluster struct {
 	syncInterval     time.Duration
 
 	//MCS Settings - settings for behavior of controllers relating to MCS
-	mcsSettings *MCSSettings
+	mcsSettings MCSSettings
 }
 
 type MCSSettings struct {
@@ -107,7 +107,7 @@ func NewMulticluster(
 	revision string,
 	fetchCaRoot func() map[string]string,
 	networksWatcher mesh.NetworksWatcher,
-	mcsSettings *MCSSettings,
+	mcsSettings MCSSettings,
 ) *Multicluster {
 	remoteKubeController := make(map[string]*kubeController)
 	if opts.ResyncPeriod == 0 {

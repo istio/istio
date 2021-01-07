@@ -16,11 +16,11 @@ package controller
 
 import (
 	"context"
-	"fmt"
+	"k8s.io/apimachinery/pkg/api/errors"
 	"strings"
 	"time"
 
-	v1 "k8s.io/api/core/v1"
+	"k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	corev1 "k8s.io/client-go/kubernetes/typed/core/v1"
 	"k8s.io/client-go/tools/cache"
@@ -52,34 +52,38 @@ func NewServiceExportController(kubeClient kube.Client, clusterLocalHosts []stri
 
 	serviceExportController.serviceInformer = kubeClient.KubeInformer().Core().V1().Services().Informer()
 	serviceExportController.serviceInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
-		AddFunc: func(obj interface{}) {
-			serviceExportController.queue.Push(func() error {
-				serviceObj, err := convertToService(obj)
-				if err != nil {
-					return err
-				}
-				return serviceExportController.HandleNewService(serviceObj)
-			})
-		},
-		DeleteFunc: func(obj interface{}) {
-			serviceExportController.queue.Push(func() error {
-				serviceObj, err := convertToService(obj)
-				if err != nil {
-					return err
-				}
-				return serviceExportController.HandleDeletedService(serviceObj)
-			})
-		},
+		AddFunc: func(obj interface{}) {serviceExportController.onServiceAdd(obj)} ,
+		DeleteFunc: func(obj interface{}) {serviceExportController.onServiceDelete(obj)},
 	})
 
 	return serviceExportController, nil
 }
 
+func (sc *ServiceExportController) onServiceAdd(obj interface{}) {
+	sc.queue.Push(func() error {
+		serviceObj, err := convertToService(obj)
+		if err != nil {
+			return err
+		}
+		return sc.HandleNewService(serviceObj)
+	})
+}
+
+func (sc *ServiceExportController) onServiceDelete(obj interface{}) {
+	sc.queue.Push(func() error {
+		serviceObj, err := convertToService(obj)
+		if err != nil {
+			return err
+		}
+		return sc.HandleDeletedService(serviceObj)
+	})
+}
+
 func (sc *ServiceExportController) Run(stopCh <-chan struct{}) {
+	cache.WaitForCacheSync(stopCh, sc.serviceInformer.HasSynced)
 	log.Infof("Syncing existing services and serviceexports...")
 	sc.doInitialFullSync()
 	log.Infof("serviceexport sync complete")
-	cache.WaitForCacheSync(stopCh, sc.serviceInformer.HasSynced)
 	log.Infof("ServiceExport controller started")
 	go sc.queue.Run(stopCh)
 }
@@ -93,21 +97,6 @@ func (sc *ServiceExportController) HandleNewService(obj *v1.Service) error {
 
 func (sc *ServiceExportController) HandleDeletedService(obj *v1.Service) error {
 	return sc.deleteServiceExportIfPresent(obj)
-}
-
-func convertToService(obj interface{}) (*v1.Service, error) {
-	cm, ok := obj.(*v1.Service)
-	if !ok {
-		tombstone, ok := obj.(cache.DeletedFinalStateUnknown)
-		if !ok {
-			return nil, fmt.Errorf("couldn't get object from tombstone %#v", obj)
-		}
-		cm, ok = tombstone.Obj.(*v1.Service)
-		if !ok {
-			return nil, fmt.Errorf("tombstone contained object that is not a Service %#v", obj)
-		}
-	}
-	return cm, nil
 }
 
 func (sc *ServiceExportController) isServiceClusterLocal(service *v1.Service) bool {
@@ -128,7 +117,7 @@ func (sc *ServiceExportController) createServiceExportIfNotPresent(service *v1.S
 
 	_, err := sc.client.MulticlusterV1alpha1().ServiceExports(service.Namespace).Create(context.TODO(), &serviceExport, metav1.CreateOptions{})
 
-	if err != nil && strings.Contains(err.Error(), "already exists") {
+	if err != nil &&  errors.IsAlreadyExists(err) {
 		err = nil //This is the error thrown by the client if there is already an object with the name in the namespace. If that's true, we do nothing
 	}
 	return err
@@ -138,22 +127,15 @@ func (sc *ServiceExportController) deleteServiceExportIfPresent(service *v1.Serv
 	//cannot use the auto-generated client as it hardcodes the namespace in the client struct, and we can't have one client per watched ns
 	err := sc.client.MulticlusterV1alpha1().ServiceExports(service.Namespace).Delete(context.TODO(), service.Name, metav1.DeleteOptions{})
 
-	if err != nil && strings.Contains(err.Error(), "not found") {
+	if err != nil && errors.IsNotFound(err) {
 		err = nil //If it's already gone, then we're happy
 	}
 	return err
 }
 
 func (sc *ServiceExportController) doInitialFullSync() {
-	allServices, err := sc.serviceClient.Services("").List(context.TODO(), metav1.ListOptions{})
-	if err != nil {
-		log.Errorf("Failed getting services for serviceexport sync. Err=%v", err)
-	}
-	for _, service := range allServices.Items {
-		err = sc.HandleNewService(&service)
-		if err != nil {
-			log.Errorf("Failed to create serviceexport for service %v in namespace %v Err=%v", service.Name, service.Namespace, err)
-		}
-
+	services := sc.serviceInformer.GetStore().List()
+	for _, service := range services {
+		sc.onServiceAdd(service)
 	}
 }

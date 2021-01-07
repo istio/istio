@@ -97,7 +97,7 @@ func (s *Server) initKubeRegistry(args *PilotArgs) (err error) {
 		args.Revision,
 		s.fetchCARoot,
 		s.environment,
-		&mcsSettings)
+		mcsSettings)
 
 	// initialize the "main" cluster registry before starting controllers for remote clusters
 	if err := mc.AddMemberCluster(s.kubeClient, args.RegistryOptions.KubeOptions.ClusterID); err != nil {
