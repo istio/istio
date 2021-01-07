@@ -100,9 +100,6 @@ spec:
       oneNamespace: false
       defaultNodeSelector: {}
       configValidation: true
-      meshExpansion:
-        enabled: false
-        useILB: false
       multiCluster:
         enabled: false
         clusterName: ""
