@@ -38,7 +38,7 @@ setup_and_export_git_sha
 source "${ROOT}/common/scripts/kind_provisioner.sh"
 
 TOPOLOGY=SINGLE_CLUSTER
-NODE_IMAGE="gcr.io/istio-testing/kindest/node:v1.20.0"
+NODE_IMAGE="gcr.io/howardjohn-istio/kindest/node:v1.20.0-revert-pod"
 KIND_CONFIG=""
 CLUSTER_TOPOLOGY_CONFIG_FILE="${ROOT}/prow/config/topology/multicluster.json"
 
