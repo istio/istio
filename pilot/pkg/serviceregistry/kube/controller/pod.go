@@ -40,7 +40,7 @@ type PodCache struct {
 	// pod cache if a pod changes IP.
 	IPByPods map[string]string
 
-	// needResync is map of IP to endpoint names. This is used to requeue endpoint
+	// needResync is map of IP to endpoint namespace/name. This is used to requeue endpoint
 	// events when pod event comes. This typically happens when pod is not available
 	// in podCache when endpoint event comes.
 	needResync         map[string]sets.Set
