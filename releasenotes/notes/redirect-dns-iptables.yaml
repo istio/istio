@@ -3,4 +3,4 @@ kind: feature
 area: networking
 releaseNotes:
 - |
-  **Added** Allow specifying dns capture via CLI in istio-iptables script.
+  **Added** flag to enable capture of dns traffic to the istio-iptables script.
