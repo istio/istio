@@ -15,9 +15,10 @@
 package status
 
 import (
+	"strconv"
+
 	"istio.io/istio/pkg/config"
 	"istio.io/pkg/ledger"
-	"strconv"
 )
 
 func tryLedgerPut(configLedger ledger.Ledger, obj config.Config) {

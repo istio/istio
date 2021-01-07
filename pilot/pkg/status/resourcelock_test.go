@@ -30,8 +30,8 @@ func TestResourceLock_Lock(t *testing.T) {
 			Group:   "r1",
 			Version: "r1",
 		},
-		Namespace:       "r1",
-		Name:            "r1",
+		Namespace:  "r1",
+		Name:       "r1",
 		Generation: "11",
 	}
 	r1a := Resource{
@@ -39,8 +39,8 @@ func TestResourceLock_Lock(t *testing.T) {
 			Group:   "r1",
 			Version: "r1",
 		},
-		Namespace:       "r1",
-		Name:            "r1",
+		Namespace:  "r1",
+		Name:       "r1",
 		Generation: "12",
 	}
 	var runCount int32

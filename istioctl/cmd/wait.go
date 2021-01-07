@@ -38,14 +38,14 @@ import (
 )
 
 var (
-	forFlag         string
-	nameflag        string
-	threshold       float32
-	timeout         time.Duration
-	generation string
-	verbose         bool
-	targetSchema    collection.Schema
-	clientGetter    func(string, string) (dynamic.Interface, error)
+	forFlag      string
+	nameflag     string
+	threshold    float32
+	timeout      time.Duration
+	generation   string
+	verbose      bool
+	targetSchema collection.Schema
+	clientGetter func(string, string) (dynamic.Interface, error)
 )
 
 const pollInterval = time.Second
@@ -112,7 +112,7 @@ func waitCmd() *cobra.Command {
 					printVerbosef(cmd, "tick")
 					continue
 				case err = <-w.errorChan:
-					return fmt.Errorf("unable to retrieve Kubernetes resource %s: %v", "", err)
+					return fmt.Errorf("unable to retrieve Kubernetes resource2 %s: %v", "", err)
 				case <-ctx.Done():
 					printVerbosef(cmd, "timeout")
 					// I think this means the timeout has happened:
