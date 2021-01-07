@@ -406,6 +406,9 @@ message GlobalConfig {
   // Controls whether one external istiod is enabled.
   google.protobuf.BoolValue externalIstiod = 62;
 
+  // Controls whether one central istiod is enabled.
+  google.protobuf.BoolValue centralIstiod = 63;
+
   // The next available key is 64
 }
 
@@ -1105,6 +1108,8 @@ message Values {
   IstiodRemoteConfig istiodRemote = 38;
 
   repeated string revisionTags = 39;
+
+  bool defaultRevision = 40;
 }
 
 // GOTYPE: map[string]interface{}
