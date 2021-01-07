@@ -47,7 +47,7 @@ type Server struct {
 // NewServer creates and starts the Grpc server for SDS.
 func NewServer(options *ca2.Options, workloadSecretCache ca2.SecretManager) (*Server, error) {
 	s := &Server{
-		workloadSds: newSDSService(workloadSecretCache, options, options.FileMountedCerts),
+		workloadSds: newSDSService(workloadSecretCache, options),
 	}
 	if err := s.initWorkloadSdsService(options); err != nil {
 		sdsServiceLog.Errorf("Failed to initialize secret discovery service for workload proxies: %v", err)

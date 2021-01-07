@@ -120,8 +120,6 @@ type sdsservice struct {
 	// skipToken indicates whether token is required.
 	skipToken bool
 
-	fileMountedCertsOnly bool
-
 	localJWT bool
 
 	jwtPath string
@@ -134,22 +132,20 @@ type sdsservice struct {
 
 // newSDSService creates Secret Discovery Service which implements envoy SDS API.
 func newSDSService(st security.SecretManager,
-	secOpt *security.Options,
-	skipTokenVerification bool) *sdsservice {
+	secOpt *security.Options) *sdsservice {
 	if st == nil {
 		return nil
 	}
 
 	ret := &sdsservice{
-		st:                   st,
-		skipToken:            skipTokenVerification,
-		fileMountedCertsOnly: secOpt.FileMountedCerts,
-		tickerInterval:       secOpt.RecycleInterval,
-		closing:              make(chan bool),
-		localJWT:             secOpt.UseLocalJWT,
-		jwtPath:              secOpt.JWTPath,
-		outputKeyCertToDir:   secOpt.OutputKeyCertToDir,
-		credFetcher:          secOpt.CredFetcher,
+		st:                 st,
+		skipToken:          secOpt.FileMountedCerts,
+		tickerInterval:     secOpt.RecycleInterval,
+		closing:            make(chan bool),
+		localJWT:           secOpt.UseLocalJWT,
+		jwtPath:            secOpt.JWTPath,
+		outputKeyCertToDir: secOpt.OutputKeyCertToDir,
+		credFetcher:        secOpt.CredFetcher,
 	}
 
 	go ret.clearStaledClientsJob()
