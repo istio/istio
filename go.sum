@@ -229,8 +229,8 @@ github.com/envoyproxy/go-control-plane v0.6.9/go.mod h1:SBwIajubJHhxtWwsL9s8ss4s
 github.com/envoyproxy/go-control-plane v0.9.0/go.mod h1:YTl/9mNaCwkRvm6d1a2C3ymFceY/DCBVvsKhRF0iEA4=
 github.com/envoyproxy/go-control-plane v0.9.1-0.20191026205805-5f8ba28d4473/go.mod h1:YTl/9mNaCwkRvm6d1a2C3ymFceY/DCBVvsKhRF0iEA4=
 github.com/envoyproxy/go-control-plane v0.9.4/go.mod h1:6rpuAdCZL397s3pYoYcLgu1mIlRU8Am5FuJP05cCM98=
-github.com/envoyproxy/go-control-plane v0.9.9-0.20210105200739-3076827b5618 h1:eS0vMTHSu6aEsMktdNN3VKzliOmGLLFZFWZzHFjQOc8=
-github.com/envoyproxy/go-control-plane v0.9.9-0.20210105200739-3076827b5618/go.mod h1:cXg6YxExXjJnVBQHBLXeUAgxn2UodCpnH306RInaBQk=
+github.com/envoyproxy/go-control-plane v0.9.9-0.20210107012154-6a4e9f86cc35 h1:hLBMI9SH4K1MadRAA8Jd9sai50Aetb8qn7J5yklw+dQ=
+github.com/envoyproxy/go-control-plane v0.9.9-0.20210107012154-6a4e9f86cc35/go.mod h1:cXg6YxExXjJnVBQHBLXeUAgxn2UodCpnH306RInaBQk=
 github.com/envoyproxy/protoc-gen-validate v0.1.0 h1:EQciDnbrYxy13PgWoY8AqoxGiPrpgBZ1R8UNe3ddc+A=
 github.com/envoyproxy/protoc-gen-validate v0.1.0/go.mod h1:iSmxcyjqTsJpI2R4NaDN7+kN2VEUnK/pcBlmesArF7c=
 github.com/evanphx/json-patch v0.0.0-20190815234213-e83c0a1c26c8 h1:DM7gHzQfHwIj+St8zaPOI6iQEPAxOwIkskvw6s9rDaM=
