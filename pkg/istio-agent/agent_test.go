@@ -442,7 +442,7 @@ func expectFileChanged(t *testing.T, files ...string) {
 			}
 		}
 		return nil
-	}, retry.Delay(time.Millisecond*10), retry.Timeout(time.Second*5))
+	}, retry.Delay(time.Millisecond*10), retry.Timeout(time.Second*15))
 }
 
 func expectFileUnchanged(t *testing.T, files ...string) {
