@@ -353,3 +353,23 @@ messages:
     level: Warning
     description: "Virtual IP addresses are required for ports serving TCP (or unset) protocol"
     template: "ServiceEntry addresses are required for this protocol."
+
+  - name: "DeprecatedAnnotation"
+    code: IST0135
+    level: Info
+    description: "A resource is using a deprecated Istio annotation."
+    template: "Annotation %q has been deprecated and may not work in future Istio versions."
+    args:
+      - name: annotation
+        type: string
+
+  - name: "AlphaAnnotation"
+    code: IST0136
+    level: Info
+    description: "An Istio annotation is not recognized for any kind of resource."
+    template: "Annotation %q is %s level and may be incompletely supported."
+    args:
+      - name: annotation
+        type: string
+      - name: level
+        type: string

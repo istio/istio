@@ -132,6 +132,14 @@ var (
 	// ServiceEntryAddressesRequired defines a diag.MessageType for message "ServiceEntryAddressesRequired".
 	// Description: Virtual IP addresses are required for ports serving TCP (or unset) protocol
 	ServiceEntryAddressesRequired = diag.NewMessageType(diag.Warning, "IST0134", "ServiceEntry addresses are required for this protocol.")
+
+	// DeprecatedAnnotation defines a diag.MessageType for message "DeprecatedAnnotation".
+	// Description: A resource is using a deprecated Istio annotation.
+	DeprecatedAnnotation = diag.NewMessageType(diag.Info, "IST0135", "Annotation %q has been deprecated and may not work in future Istio versions.")
+
+	// AlphaAnnotation defines a diag.MessageType for message "AlphaAnnotation".
+	// Description: An Istio annotation is not recognized for any kind of resource.
+	AlphaAnnotation = diag.NewMessageType(diag.Info, "IST0136", "Annotation %q is %s level and may be incompletely supported.")
 )
 
 // All returns a list of all known message types.
@@ -168,6 +176,8 @@ func All() []*diag.MessageType {
 		VirtualServiceHostNotFoundInGateway,
 		SchemaWarning,
 		ServiceEntryAddressesRequired,
+		DeprecatedAnnotation,
+		AlphaAnnotation,
 	}
 }
 
@@ -482,5 +492,24 @@ func NewServiceEntryAddressesRequired(r *resource.Instance) diag.Message {
 	return diag.NewMessage(
 		ServiceEntryAddressesRequired,
 		r,
+	)
+}
+
+// NewDeprecatedAnnotation returns a new diag.Message based on DeprecatedAnnotation.
+func NewDeprecatedAnnotation(r *resource.Instance, annotation string) diag.Message {
+	return diag.NewMessage(
+		DeprecatedAnnotation,
+		r,
+		annotation,
+	)
+}
+
+// NewAlphaAnnotation returns a new diag.Message based on AlphaAnnotation.
+func NewAlphaAnnotation(r *resource.Instance, annotation string, level string) diag.Message {
+	return diag.NewMessage(
+		AlphaAnnotation,
+		r,
+		annotation,
+		level,
 	)
 }
