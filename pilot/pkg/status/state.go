@@ -181,6 +181,12 @@ func (c *DistributionController) initK8sResource(gvr schema.GroupVersionResource
 func (c *DistributionController) writeStatus(config Resource, distributionState Progress) {
 	schema, _ := collections.All.FindByGroupVersionResource(config.GroupVersionResource)
 	current := c.configStore.Get(schema.Resource().GroupVersionKind(), config.Name, config.Namespace)
+	if current == nil {
+		scope.Warnf("config store missing entry %v, status will not update", config)
+		// this happens when resources are rapidly deleted, such as the validation-readiness checker
+		c.pruneOldVersion(config)
+		return
+	}
 	if config.Generation != strconv.FormatInt(current.Generation, 10) {
 		// this distribution report is for an old version of the object.  Prune and continue.
 		c.pruneOldVersion(config)
@@ -188,7 +194,6 @@ func (c *DistributionController) writeStatus(config Resource, distributionState 
 	}
 
 	// check if status needs updating
-	current.Key()
 	if needsReconcile, desiredStatus := ReconcileStatuses(current, distributionState, current.Generation); needsReconcile {
 		// technically, we should be updating probe time even when reconciling isn't needed, but
 		// I'm skipping that for efficiency.
