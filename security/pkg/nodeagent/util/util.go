@@ -18,11 +18,12 @@ import (
 	"crypto/x509"
 	"encoding/pem"
 	"fmt"
-	"io/ioutil"
 	"path"
 	"time"
 
 	"go.opencensus.io/stats/view"
+
+	"istio.io/istio/pkg/file"
 )
 
 // ParseCertAndGetExpiryTimestamp parses the first certificate in certByte and returns cert expire
@@ -91,17 +92,17 @@ func OutputKeyCertToDir(dir string, privateKey, certChain, rootCert []byte) erro
 	}
 
 	if privateKey != nil {
-		if err := ioutil.WriteFile(path.Join(dir, "key.pem"), privateKey, 0600); err != nil {
+		if err := file.AtomicWrite(path.Join(dir, "key.pem"), privateKey, 0600); err != nil {
 			return fmt.Errorf("failed to write private key to file: %v", err)
 		}
 	}
 	if certChain != nil {
-		if err := ioutil.WriteFile(path.Join(dir, "cert-chain.pem"), certChain, 0600); err != nil {
+		if err := file.AtomicWrite(path.Join(dir, "cert-chain.pem"), certChain, 0600); err != nil {
 			return fmt.Errorf("failed to write cert chain to file: %v", err)
 		}
 	}
 	if rootCert != nil {
-		if err := ioutil.WriteFile(path.Join(dir, "root-cert.pem"), rootCert, 0600); err != nil {
+		if err := file.AtomicWrite(path.Join(dir, "root-cert.pem"), rootCert, 0600); err != nil {
 			return fmt.Errorf("failed to write root cert to file: %v", err)
 		}
 	}
