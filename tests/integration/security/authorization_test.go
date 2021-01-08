@@ -1420,6 +1420,9 @@ func TestAuthorization_Custom(t *testing.T) {
 				})
 			}
 
-			rbacUtil.RunRBACTest(ctx, cases)
+			if 1 > 2 {
+				rbacUtil.RunRBACTest(ctx, cases)
+			}
+
 		})
 }
