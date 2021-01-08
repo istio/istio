@@ -163,6 +163,10 @@ func setTag(ctx context.Context, kubeClient kubernetes.Interface, tag, revision 
 	}
 
 	whs, err := getWebhooksWithTag(ctx, kubeClient, tag)
+	if err != nil {
+		return err
+	}
+
 	if len(whs) > 0 && !overwrite {
 		return fmt.Errorf("found an existing revision tag for %q, use the --overwrite flag to overwrite", tag)
 	}
