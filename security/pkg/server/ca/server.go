@@ -127,8 +127,10 @@ func (s *Server) Register(grpcServer *grpc.Server) {
 func New(ca CertificateAuthority, ttl time.Duration,
 	authenticators []authenticate.Authenticator) (*Server, error) {
 
-	recordCertsExpiry(ca.GetCAKeyCertBundle())
-
+	certBundle := ca.GetCAKeyCertBundle()
+	if len(certBundle.GetRootCertPem()) != 0 {
+		recordCertsExpiry(certBundle)
+	}
 	server := &Server{
 		Authenticators: authenticators,
 		serverCertTTL:  ttl,
