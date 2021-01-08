@@ -144,6 +144,7 @@ func (w *WorkloadHealthChecker) PerformApplicationHealthCheck(callback func(*Pro
 			if numSuccess == w.config.SuccessThresh && !lastStateHealthy {
 				healthCheckLog.Info("success threshold hit, marking as healthy")
 				callback(&ProbeEvent{Healthy: true})
+				numSuccess = 0
 				lastStateHealthy = true
 			}
 		} else {
@@ -155,6 +156,7 @@ func (w *WorkloadHealthChecker) PerformApplicationHealthCheck(callback func(*Pro
 			// if we reached the fail threshold, mark the target as unhealthy
 			if numFail == w.config.FailThresh && lastStateHealthy {
 				healthCheckLog.Infof("failure threshold hit, marking as unhealthy: %v", err)
+				numFail = 0
 				callback(&ProbeEvent{
 					Healthy:          false,
 					UnhealthyStatus:  500,
