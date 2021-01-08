@@ -366,7 +366,7 @@ messages:
   - name: "AlphaAnnotation"
     code: IST0136
     level: Info
-    description: "An Istio annotation is not recognized for any kind of resource."
+    description: "An Istio annotation may not be suitable for production."
     template: "Annotation %q is %s level and may be incompletely supported."
     args:
       - name: annotation
