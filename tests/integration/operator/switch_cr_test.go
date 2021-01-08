@@ -79,6 +79,9 @@ func TestController(t *testing.T) {
 				t.Fatal(err)
 			}
 			cleanupInClusterCRs(t, cs)
+			t.Cleanup(func() {
+				cleanupIstioResources(t, cs, istioCtl)
+			})
 			initCmd := []string{
 				"operator", "init",
 				"--hub=" + s.Hub,
@@ -137,32 +140,38 @@ func TestController(t *testing.T) {
 				return nil
 			}, retry.Timeout(retryTimeOut), retry.Delay(retryDelay))
 
-			t.Cleanup(func() {
-				scopes.Framework.Infof("cleaning up resources")
-				unInstallCmd := []string{
-					"x", "uninstall", "--purge", "--skip-confirmation",
-				}
-				out, _ := istioCtl.InvokeOrFail(t, unInstallCmd)
-				t.Logf("uninstall command output: %s", out)
-				// clean up operator namespace
-				if err := cs.CoreV1().Namespaces().Delete(context.TODO(), OperatorNamespace,
-					kube2.DeleteOptionsForeground()); err != nil {
-					t.Errorf("failed to delete operator namespace: %v", err)
-				}
-				if err := kube2.WaitForNamespaceDeletion(cs, OperatorNamespace, retry.Timeout(nsDeletionTimeout)); err != nil {
-					t.Errorf("wating for operator namespace to be deleted: %v", err)
-				}
-				// clean up dynamically created secret and configmaps
-				if e := cs.CoreV1().Secrets(IstioNamespace).DeleteCollection(
-					context.Background(), kubeApiMeta.DeleteOptions{}, kubeApiMeta.ListOptions{}); e != nil {
-					err = multierror.Append(err, e)
-				}
-				if e := cs.CoreV1().ConfigMaps(IstioNamespace).DeleteCollection(
-					context.Background(), kubeApiMeta.DeleteOptions{}, kubeApiMeta.ListOptions{}); e != nil {
-					err = multierror.Append(err, e)
-				}
-			})
 		})
+}
+
+func cleanupIstioResources(t *testing.T, cs resource.Cluster, istioCtl istioctl.Instance) {
+	scopes.Framework.Infof("cleaning up resources")
+	// clean up Istio control plane
+	unInstallCmd := []string{
+		"x", "uninstall", "--purge", "--skip-confirmation",
+	}
+	out, _ := istioCtl.InvokeOrFail(t, unInstallCmd)
+	t.Logf("uninstall command output: %s", out)
+	// clean up operator namespace
+	if err := cs.CoreV1().Namespaces().Delete(context.TODO(), OperatorNamespace,
+		kube2.DeleteOptionsForeground()); err != nil {
+		t.Errorf("failed to delete operator namespace: %v", err)
+	}
+	if err := kube2.WaitForNamespaceDeletion(cs, OperatorNamespace, retry.Timeout(nsDeletionTimeout)); err != nil {
+		t.Errorf("wating for operator namespace to be deleted: %v", err)
+	}
+	var err error
+	// clean up dynamically created secret and configmaps
+	if e := cs.CoreV1().Secrets(IstioNamespace).DeleteCollection(
+		context.Background(), kubeApiMeta.DeleteOptions{}, kubeApiMeta.ListOptions{}); e != nil {
+		err = multierror.Append(err, e)
+	}
+	if e := cs.CoreV1().ConfigMaps(IstioNamespace).DeleteCollection(
+		context.Background(), kubeApiMeta.DeleteOptions{}, kubeApiMeta.ListOptions{}); e != nil {
+		err = multierror.Append(err, e)
+	}
+	if err != nil {
+		scopes.Framework.Errorf("failed to cleanup dynamically created resources: %v", err)
+	}
 }
 
 // checkInstallStatus check the status of IstioOperator CR from the cluster
