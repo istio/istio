@@ -25,7 +25,6 @@ import (
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
-	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
@@ -62,7 +61,6 @@ type DistributionController struct {
 	UpdateInterval  time.Duration
 	dynamicClient   dynamic.Interface
 	clock           clock.Clock
-	knownResources  map[schema.GroupVersionResource]dynamic.NamespaceableResourceInterface
 	workers         WorkerQueue
 	StaleInterval   time.Duration
 	cmInformer      cache.SharedIndexInformer
@@ -72,7 +70,6 @@ func NewController(restConfig rest.Config, namespace string, cs model.ConfigStor
 	c := &DistributionController{
 		CurrentState:    make(map[Resource]map[string]Progress),
 		ObservationTime: make(map[string]time.Time),
-		knownResources:  make(map[schema.GroupVersionResource]dynamic.NamespaceableResourceInterface),
 		UpdateInterval:  200 * time.Millisecond,
 		StaleInterval:   time.Minute,
 		clock:           clock.RealClock{},
@@ -108,9 +105,8 @@ func (c *DistributionController) Start(stop <-chan struct{}) {
 	ctx := NewIstioContext(stop)
 	go c.cmInformer.Run(ctx.Done())
 
-	c.workers = NewQueue(10*time.Second, func(entry *cacheEntry) error {
+	c.workers = NewQueue(10*time.Second, func(entry cacheEntry) {
 		c.writeStatus(*entry.cacheVal, *entry.cacheProgress)
-		return nil
 	}, features.StatusMaxWorkers.Get())
 	c.workers.Run(ctx)
 
@@ -167,19 +163,13 @@ func (c *DistributionController) writeAllStatus() (staleReporters []string) {
 	return
 }
 
-func (c *DistributionController) initK8sResource(gvr schema.GroupVersionResource) (result dynamic.NamespaceableResourceInterface) {
-	if result, ok := c.knownResources[gvr]; ok {
-		return result
-	}
-	result = c.dynamicClient.Resource(gvr)
-	c.mu.Lock()
-	c.knownResources[gvr] = result
-	c.mu.Unlock()
-	return
-}
-
 func (c *DistributionController) writeStatus(config Resource, distributionState Progress) {
 	schema, _ := collections.All.FindByGroupVersionResource(config.GroupVersionResource)
+	if schema == nil {
+		scope.Warnf("schema %v could not be identified", schema)
+		c.pruneOldVersion(config)
+		return
+	}
 	current := c.configStore.Get(schema.Resource().GroupVersionKind(), config.Name, config.Namespace)
 	if current == nil {
 		scope.Warnf("config store missing entry %v, status will not update", config)
@@ -229,7 +219,7 @@ func (c *DistributionController) queueWriteStatus(config Resource, state Progres
 
 func (c *DistributionController) configDeleted(res config.Config) {
 	r := ResourceFromModelConfig(res)
-	c.workers.Delete(convert(*r))
+	c.workers.Delete(*r)
 }
 
 func GetTypedStatus(in interface{}) (out v1alpha1.IstioStatus, err error) {
