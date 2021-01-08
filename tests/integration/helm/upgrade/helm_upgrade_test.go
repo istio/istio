@@ -13,11 +13,13 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package helm
+package helmupgrade
 
 import (
 	"context"
 	"fmt"
+	"io/ioutil"
+	"os"
 	"path/filepath"
 	"testing"
 
@@ -32,6 +34,7 @@ import (
 	kubetest "istio.io/istio/pkg/test/kube"
 	"istio.io/istio/pkg/test/scopes"
 	"istio.io/istio/pkg/test/util/retry"
+	helmtest "istio.io/istio/tests/integration/helm"
 	"istio.io/istio/tests/util/sanitycheck"
 )
 
@@ -68,7 +71,7 @@ func TestDefaultInPlaceUpgrades(t *testing.T) {
 
 			overrideValuesFile := getValuesOverrides(ctx, defaultValues, gcrHub, previousSupportedVersion)
 			installIstio(t, cs, h, overrideValuesFile)
-			verifyInstallation(ctx, cs)
+			helmtest.VerifyInstallation(ctx, cs)
 
 			oldClient, oldServer := sanitycheck.SetupTrafficTest(t, ctx)
 			sanitycheck.RunTrafficTestClientServer(t, oldClient, oldServer)
@@ -83,7 +86,7 @@ func TestDefaultInPlaceUpgrades(t *testing.T) {
 
 			overrideValuesFile = getValuesOverrides(ctx, defaultValues, s.Hub, s.Tag)
 			upgradeCharts(ctx, h, overrideValuesFile)
-			verifyInstallation(ctx, cs)
+			helmtest.VerifyInstallation(ctx, cs)
 
 			newClient, newServer := sanitycheck.SetupTrafficTest(t, ctx)
 			sanitycheck.RunTrafficTestClientServer(t, newClient, newServer)
@@ -98,31 +101,31 @@ func TestDefaultInPlaceUpgrades(t *testing.T) {
 func upgradeCharts(ctx framework.TestContext, h *helm.Helm, overrideValuesFile string) {
 
 	// Upgrade base chart
-	err := h.UpgradeChart(BaseReleaseName, filepath.Join(ChartPath, BaseChart),
-		IstioNamespace, overrideValuesFile, helmTimeout)
+	err := h.UpgradeChart(helmtest.BaseReleaseName, filepath.Join(helmtest.ChartPath, helmtest.BaseChart),
+		helmtest.IstioNamespace, overrideValuesFile, helmtest.HelmTimeout)
 	if err != nil {
-		ctx.Fatalf("failed to upgrade istio %s chart", BaseChart)
+		ctx.Fatalf("failed to upgrade istio %s chart", helmtest.BaseChart)
 	}
 
 	// Upgrade discovery chart
-	err = h.UpgradeChart(IstiodReleaseName, filepath.Join(ChartPath, ControlChartsDir, DiscoveryChart),
-		IstioNamespace, overrideValuesFile, helmTimeout)
+	err = h.UpgradeChart(helmtest.IstiodReleaseName, filepath.Join(helmtest.ChartPath, helmtest.ControlChartsDir, helmtest.DiscoveryChart),
+		helmtest.IstioNamespace, overrideValuesFile, helmtest.HelmTimeout)
 	if err != nil {
-		ctx.Fatalf("failed to upgrade istio %s chart", DiscoveryChart)
+		ctx.Fatalf("failed to upgrade istio %s chart", helmtest.DiscoveryChart)
 	}
 
 	// Upgrade ingress gateway chart
-	err = h.UpgradeChart(IngressReleaseName, filepath.Join(ChartPath, GatewayChartsDir, IngressGatewayChart),
-		IstioNamespace, overrideValuesFile, helmTimeout)
+	err = h.UpgradeChart(helmtest.IngressReleaseName, filepath.Join(helmtest.ChartPath, helmtest.GatewayChartsDir, helmtest.IngressGatewayChart),
+		helmtest.IstioNamespace, overrideValuesFile, helmtest.HelmTimeout)
 	if err != nil {
-		ctx.Fatalf("failed to upgrade istio %s chart", IngressGatewayChart)
+		ctx.Fatalf("failed to upgrade istio %s chart", helmtest.IngressGatewayChart)
 	}
 
 	// Upgrade egress gateway chart
-	err = h.UpgradeChart(EgressReleaseName, filepath.Join(ChartPath, GatewayChartsDir, EgressGatewayChart),
-		IstioNamespace, overrideValuesFile, helmTimeout)
+	err = h.UpgradeChart(helmtest.EgressReleaseName, filepath.Join(helmtest.ChartPath, helmtest.GatewayChartsDir, helmtest.EgressGatewayChart),
+		helmtest.IstioNamespace, overrideValuesFile, helmtest.HelmTimeout)
 	if err != nil {
-		ctx.Fatalf("failed to upgrade istio %s chart", EgressGatewayChart)
+		ctx.Fatalf("failed to upgrade istio %s chart", helmtest.EgressGatewayChart)
 	}
 }
 
@@ -130,46 +133,57 @@ func upgradeCharts(ctx framework.TestContext, h *helm.Helm, overrideValuesFile s
 // override values file and fails the tests on any failures.
 func installIstio(t *testing.T, cs resource.Cluster,
 	h *helm.Helm, overrideValuesFile string) {
-	createIstioSystemNamespace(t, cs)
+	helmtest.CreateIstioSystemNamespace(t, cs)
 
 	// Install base chart
-	err := h.InstallChart(BaseReleaseName, BaseChart,
-		IstioNamespace, overrideValuesFile, helmTimeout)
+	err := h.InstallChart(helmtest.BaseReleaseName, helmtest.BaseChart,
+		helmtest.IstioNamespace, overrideValuesFile, helmtest.HelmTimeout)
 	if err != nil {
-		t.Errorf("failed to install istio %s chart", BaseChart)
+		t.Errorf("failed to install istio %s chart", helmtest.BaseChart)
 	}
 
 	// Install discovery chart
-	err = h.InstallChart(IstiodReleaseName, filepath.Join(ControlChartsDir, DiscoveryChart),
-		IstioNamespace, overrideValuesFile, helmTimeout)
+	err = h.InstallChart(helmtest.IstiodReleaseName, filepath.Join(helmtest.ControlChartsDir, helmtest.DiscoveryChart),
+		helmtest.IstioNamespace, overrideValuesFile, helmtest.HelmTimeout)
 	if err != nil {
-		t.Errorf("failed to install istio %s chart", DiscoveryChart)
+		t.Errorf("failed to install istio %s chart", helmtest.DiscoveryChart)
 	}
 
-	installGatewaysCharts(t, cs, h, overrideValuesFile)
+	helmtest.InstallGatewaysCharts(t, cs, h, overrideValuesFile)
 }
 
 // deleteIstio deletes installed Istio Helm charts and resources
 func deleteIstio(cs resource.Cluster, h *helm.Helm) error {
 	scopes.Framework.Infof("cleaning up resources")
-	if err := h.DeleteChart(EgressReleaseName, IstioNamespace); err != nil {
-		return fmt.Errorf("failed to delete %s release", EgressReleaseName)
+	if err := h.DeleteChart(helmtest.EgressReleaseName, helmtest.IstioNamespace); err != nil {
+		return fmt.Errorf("failed to delete %s release", helmtest.EgressReleaseName)
 	}
-	if err := h.DeleteChart(IngressReleaseName, IstioNamespace); err != nil {
-		return fmt.Errorf("failed to delete %s release", IngressReleaseName)
+	if err := h.DeleteChart(helmtest.IngressReleaseName, helmtest.IstioNamespace); err != nil {
+		return fmt.Errorf("failed to delete %s release", helmtest.IngressReleaseName)
 	}
-	if err := h.DeleteChart(IstiodReleaseName, IstioNamespace); err != nil {
-		return fmt.Errorf("failed to delete %s release", IngressReleaseName)
+	if err := h.DeleteChart(helmtest.IstiodReleaseName, helmtest.IstioNamespace); err != nil {
+		return fmt.Errorf("failed to delete %s release", helmtest.IngressReleaseName)
 	}
-	if err := h.DeleteChart(BaseReleaseName, IstioNamespace); err != nil {
-		return fmt.Errorf("failed to delete %s release", BaseReleaseName)
+	if err := h.DeleteChart(helmtest.BaseReleaseName, helmtest.IstioNamespace); err != nil {
+		return fmt.Errorf("failed to delete %s release", helmtest.BaseReleaseName)
 	}
-	if err := cs.CoreV1().Namespaces().Delete(context.TODO(), IstioNamespace, metav1.DeleteOptions{}); err != nil {
+	if err := cs.CoreV1().Namespaces().Delete(context.TODO(), helmtest.IstioNamespace, metav1.DeleteOptions{}); err != nil {
 		return fmt.Errorf("failed to delete istio namespace: %v", err)
 	}
-	if err := kubetest.WaitForNamespaceDeletion(cs, IstioNamespace, retry.Timeout(retryTimeOut)); err != nil {
+	if err := kubetest.WaitForNamespaceDeletion(cs, helmtest.IstioNamespace, retry.Timeout(helmtest.RetryTimeOut)); err != nil {
 		return fmt.Errorf("wating for istio namespace to be deleted: %v", err)
 	}
 
 	return nil
+}
+
+func getValuesOverrides(ctx framework.TestContext, valuesStr, hub, tag string) string {
+	workDir := ctx.CreateTmpDirectoryOrFail("helm")
+	overrideValues := fmt.Sprintf(valuesStr, hub, tag)
+	overrideValuesFile := filepath.Join(workDir, "values.yaml")
+	if err := ioutil.WriteFile(overrideValuesFile, []byte(overrideValues), os.ModePerm); err != nil {
+		ctx.Fatalf("failed to write iop cr file: %v", err)
+	}
+
+	return overrideValuesFile
 }
