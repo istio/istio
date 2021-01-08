@@ -27,25 +27,17 @@ import (
 )
 
 // TokenProvider is a grpc PerRPCCredentials that can be used to attach a JWT token to each gRPC call.
+// TokenProvider can be used for both XDS and CA connection, which may involve token exchange through STS.
 type TokenProvider struct {
 	opts security.Options
-	// TokenProvider can be used for both XDS and CA connection. Because CA is often used with
-	// external systems and XDS is not often (yet?), many of the security options only apply to CA
-	// communication. A more proper solution would be to have separate options for CA and XDS, but
-	// this requires API changes.
-	forCA bool
 }
 
 var _ credentials.PerRPCCredentials = &TokenProvider{}
 
 // TODO add metrics
 // TODO change package
-func NewCATokenProvider(opts security.Options) *TokenProvider {
-	return &TokenProvider{opts, true}
-}
-
-func NewXDSTokenProvider(opts security.Options) *TokenProvider {
-	return &TokenProvider{opts, false}
+func NewTokenProvider(opts security.Options) *TokenProvider {
+	return &TokenProvider{opts}
 }
 
 func (t *TokenProvider) GetRequestMetadata(ctx context.Context, uri ...string) (map[string]string, error) {
@@ -77,8 +69,8 @@ func (t *TokenProvider) RequireTransportSecurity() bool {
 // volatile memory), we can still proceed and allow other authentication methods to potentially
 // handle the request, such as mTLS.
 func (t *TokenProvider) GetToken() (string, error) {
-	if !t.forCA {
-		// When not using a CA, we only support reading from file
+	if !t.opts.EnableTokenExchange {
+		// When token exchange is disabled, we only support reading from file
 		if t.opts.JWTPath == "" {
 			return "", nil
 		}
@@ -89,7 +81,7 @@ func (t *TokenProvider) GetToken() (string, error) {
 		}
 		return strings.TrimSpace(string(tok)), nil
 	}
-	// For CA, we have two modes, using the newer CredentialFetcher or just reading directly from file
+	// When token exchange is enabled, we have two modes: using the newer CredentialFetcher or just reading directly from file
 	var token string
 	if t.opts.CredFetcher != nil {
 		var err error

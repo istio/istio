@@ -55,11 +55,13 @@ type CitadelClient struct {
 
 // NewCitadelClient create a CA client for Citadel.
 func NewCitadelClient(opts security.Options, tls bool, rootCert []byte) (*CitadelClient, error) {
+	// According to existing implementation, CA flow always allow token exchange.
+	opts.EnableTokenExchange = true
 	c := &CitadelClient{
 		enableTLS:     tls,
 		caTLSRootCert: rootCert,
 		opts:          opts,
-		provider:      caclient.NewCATokenProvider(opts),
+		provider:      caclient.NewTokenProvider(opts),
 		usingMtls:     atomic.NewBool(false),
 	}
 

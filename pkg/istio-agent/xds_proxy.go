@@ -80,6 +80,7 @@ type XdsProxy struct {
 	healthChecker        *health.WorkloadHealthChecker
 	xdsHeaders           map[string]string
 	xdsUdsPath           string
+	enableTokenExchange  bool
 
 	// connected stores the active gRPC stream. The proxy will only have 1 connection at a time
 	connected      *ProxyConnection
@@ -105,13 +106,14 @@ func initXdsProxy(ia *Agent) (*XdsProxy, error) {
 		LocalHostAddr: localHostAddr,
 	}
 	proxy := &XdsProxy{
-		istiodAddress:  ia.proxyConfig.DiscoveryAddress,
-		clusterID:      ia.secOpts.ClusterID,
-		localDNSServer: ia.localDNSServer,
-		stopChan:       make(chan struct{}),
-		healthChecker:  health.NewWorkloadHealthChecker(ia.proxyConfig.ReadinessProbe, envoyProbe),
-		xdsHeaders:     ia.cfg.XDSHeaders,
-		xdsUdsPath:     ia.cfg.XdsUdsPath,
+		istiodAddress:       ia.proxyConfig.DiscoveryAddress,
+		clusterID:           ia.secOpts.ClusterID,
+		localDNSServer:      ia.localDNSServer,
+		stopChan:            make(chan struct{}),
+		healthChecker:       health.NewWorkloadHealthChecker(ia.proxyConfig.ReadinessProbe, envoyProbe),
+		xdsHeaders:          ia.cfg.XDSHeaders,
+		xdsUdsPath:          ia.cfg.XdsUdsPath,
+		enableTokenExchange: ia.secOpts.EnableTokenExchange,
 	}
 
 	proxyLog.Infof("Initializing with upstream address %q and cluster %q", proxy.istiodAddress, proxy.clusterID)
@@ -494,7 +496,7 @@ func (p *XdsProxy) buildUpstreamClientDialOpts(sa *Agent) ([]grpc.DialOption, er
 	}
 
 	if !sa.secOpts.FileMountedCerts {
-		dialOptions = append(dialOptions, grpc.WithPerRPCCredentials(caclient.NewXDSTokenProvider(sa.secOpts)))
+		dialOptions = append(dialOptions, grpc.WithPerRPCCredentials(caclient.NewTokenProvider(sa.secOpts)))
 	}
 	return dialOptions, nil
 }

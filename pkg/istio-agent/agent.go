@@ -276,7 +276,9 @@ func (sa *Agent) newSecretManager() (*cache.SecretManagerClient, error) {
 		// Use a plugin to an external CA - this has direct support for the K8S JWT token
 		// This is only used if the proper env variables are injected - otherwise the existing Citadel or Istiod will be
 		// used.
-		caClient, err := gca.NewGoogleCAClient(sa.secOpts.CAEndpoint, true, caclient.NewCATokenProvider(sa.secOpts))
+		// According to existing implementation, CA flow always allow token exchange.
+		sa.secOpts.EnableTokenExchange = true
+		caClient, err := gca.NewGoogleCAClient(sa.secOpts.CAEndpoint, true, caclient.NewTokenProvider(sa.secOpts))
 		if err != nil {
 			return nil, err
 		}
