@@ -16,14 +16,22 @@
 package helm
 
 import (
+	"context"
+	"fmt"
 	"path/filepath"
 	"testing"
+
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/environment/kube"
 	"istio.io/istio/pkg/test/framework/image"
+	"istio.io/istio/pkg/test/framework/resource"
 	"istio.io/istio/pkg/test/helm"
+	kubetest "istio.io/istio/pkg/test/kube"
+	"istio.io/istio/pkg/test/scopes"
+	"istio.io/istio/pkg/test/util/retry"
 	"istio.io/istio/tests/util/sanitycheck"
 )
 
@@ -62,11 +70,11 @@ func TestDefaultInPlaceUpgrades(t *testing.T) {
 			ctx.WhenDone(func() error {
 				// only need to do call this once as helm doesn't need to remove
 				// all versions
-				return deleteIstio(cs, h)
+				return deleteIstio(t, cs, h)
 			})
 
 			overrideValuesFile := getValuesOverrides(ctx, defaultValues, gcrHub, previousSupportedVersion)
-			installIstio(ctx, cs, h, overrideValuesFile)
+			installIstio(t, cs, h, overrideValuesFile)
 			verifyInstallation(ctx, cs)
 
 			oldClient, oldServer := sanitycheck.SetupTrafficTest(t, ctx)
@@ -123,4 +131,52 @@ func upgradeCharts(ctx framework.TestContext, h *helm.Helm, overrideValuesFile s
 	if err != nil {
 		ctx.Fatalf("failed to upgrade istio %s chart", EgressGatewayChart)
 	}
+}
+
+// installIstio install Istio using Helm charts with the provided
+// override values file and fails the tests on any failures.
+func installIstio(t *testing.T, cs resource.Cluster,
+	h *helm.Helm, overrideValuesFile string) {
+	createIstioSystemNamespace(t, cs)
+
+	// Install base chart
+	err := h.InstallChart(BaseReleaseName, BaseChart,
+		IstioNamespace, overrideValuesFile, helmTimeout)
+	if err != nil {
+		t.Errorf("failed to install istio %s chart", BaseChart)
+	}
+
+	// Install discovery chart
+	err = h.InstallChart(IstiodReleaseName, filepath.Join(ControlChartsDir, DiscoveryChart),
+		IstioNamespace, overrideValuesFile, helmTimeout)
+	if err != nil {
+		t.Errorf("failed to install istio %s chart", DiscoveryChart)
+	}
+
+	installGatewaysCharts(t, cs, h, overrideValuesFile)
+}
+
+// deleteIstio deletes installed Istio Helm charts and resources
+func deleteIstio(t *testing.T, cs resource.Cluster, h *helm.Helm) error {
+	scopes.Framework.Infof("cleaning up resources")
+	if err := h.DeleteChart(EgressReleaseName, IstioNamespace); err != nil {
+		return fmt.Errorf("failed to delete %s release", EgressReleaseName)
+	}
+	if err := h.DeleteChart(IngressReleaseName, IstioNamespace); err != nil {
+		return fmt.Errorf("failed to delete %s release", IngressReleaseName)
+	}
+	if err := h.DeleteChart(IstiodReleaseName, IstioNamespace); err != nil {
+		return fmt.Errorf("failed to delete %s release", IngressReleaseName)
+	}
+	if err := h.DeleteChart(BaseReleaseName, IstioNamespace); err != nil {
+		return fmt.Errorf("failed to delete %s release", BaseReleaseName)
+	}
+	if err := cs.CoreV1().Namespaces().Delete(context.TODO(), IstioNamespace, metav1.DeleteOptions{}); err != nil {
+		return fmt.Errorf("failed to delete istio namespace: %v", err)
+	}
+	if err := kubetest.WaitForNamespaceDeletion(cs, IstioNamespace, retry.Timeout(retryTimeOut)); err != nil {
+		return fmt.Errorf("wating for istio namespace to be deleted: %v", err)
+	}
+
+	return nil
 }

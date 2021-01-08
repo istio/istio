@@ -141,17 +141,7 @@ global:
 // override values file and fails the tests on any failures.
 func installGatewaysCharts(t *testing.T, cs resource.Cluster,
 	h *helm.Helm, overrideValuesFile string) {
-	if _, err := cs.CoreV1().Namespaces().Create(context.TODO(), &v1.Namespace{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: IstioNamespace,
-		},
-	}, metav1.CreateOptions{}); err != nil {
-		if kerrors.IsAlreadyExists(err) {
-			log.Info("istio namespace already exist")
-		} else {
-			t.Errorf("failed to create istio namespace: %v", err)
-		}
-	}
+	createIstioSystemNamespace(t, cs)
 
 	// Install ingress gateway chart
 	err := h.InstallChart(IngressReleaseName, filepath.Join(GatewayChartsDir, IngressGatewayChart),
@@ -165,6 +155,20 @@ func installGatewaysCharts(t *testing.T, cs resource.Cluster,
 		IstioNamespace, overrideValuesFile, helmTimeout)
 	if err != nil {
 		t.Errorf("failed to install istio %s chart", EgressGatewayChart)
+	}
+}
+
+func createIstioSystemNamespace(t *testing.T, cs resource.Cluster) {
+	if _, err := cs.CoreV1().Namespaces().Create(context.TODO(), &v1.Namespace{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: IstioNamespace,
+		},
+	}, metav1.CreateOptions{}); err != nil {
+		if kerrors.IsAlreadyExists(err) {
+			log.Debugf("%v namespace already exist", IstioNamespace)
+		} else {
+			t.Errorf("failed to create %v namespace: %v", IstioNamespace, err)
+		}
 	}
 }
 
