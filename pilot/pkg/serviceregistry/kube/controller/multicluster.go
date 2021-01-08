@@ -30,6 +30,7 @@ import (
 	"istio.io/istio/pilot/pkg/serviceregistry/aggregate"
 	"istio.io/istio/pilot/pkg/serviceregistry/serviceentry"
 	"istio.io/istio/pkg/config/mesh"
+	"istio.io/istio/pkg/config/schema/collection"
 	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/config/schema/gvk"
 	kubelib "istio.io/istio/pkg/kube"
@@ -266,7 +267,10 @@ func (m *Multicluster) DeleteMemberCluster(clusterID string) error {
 
 func createConfigStore(client kubelib.Client, revision string, opts Options) (model.ConfigStoreCache, error) {
 	log.Infof("Creating WorkloadEntry only config store for %s", opts.ClusterID)
-	configController, err := crdclient.NewForSchemas(client, revision, opts.DomainSuffix, collections.WorkloadEntries)
+	workloadEntriesSchemas := collection.NewSchemasBuilder().
+		MustAdd(collections.IstioNetworkingV1Alpha3Workloadentries).
+		Build()
+	configController, err := crdclient.NewForSchemas(client, revision, opts.DomainSuffix, workloadEntriesSchemas)
 	if err != nil {
 		return nil, err
 	}

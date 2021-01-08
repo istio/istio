@@ -904,11 +904,6 @@ var (
 			MustAdd(K8SServiceApisV1Alpha1Tlsroutes).
 			Build()
 
-	// WorkloadEntries contains only the WorkloadEntry schema.
-	WorkloadEntries = collection.NewSchemasBuilder().
-			MustAdd(IstioNetworkingV1Alpha3Workloadentries).
-			Build()
-
 	// Deprecated contains only collections used by that will soon be used by nothing.
 	Deprecated = collection.NewSchemasBuilder().
 			Build()
