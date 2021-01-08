@@ -92,9 +92,7 @@ func TestWaitCmd(t *testing.T) {
 }
 
 func setupK8Sfake() *fake.FakeDynamicClient {
-	//objs := []runtime.Object{}
 	client := fake.NewSimpleDynamicClient(runtime.NewScheme())
-	//client.AddWatchReactor()
 	clientGetter = func(_, _ string) (dynamic.Interface, error) {
 		return client, nil
 	}
