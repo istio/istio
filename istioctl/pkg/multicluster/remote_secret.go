@@ -449,6 +449,9 @@ type RemoteSecretOptions struct {
 	// or URL with a release tgz. This is only used when no reader service account exists and has
 	// to be created.
 	ManifestsPath string
+
+	// ServerOverride overrides the server IP/hostname field from the Kubeconfig
+	ServerOverride string
 }
 
 func (o *RemoteSecretOptions) addFlags(flagset *pflag.FlagSet) {
@@ -463,6 +466,8 @@ func (o *RemoteSecretOptions) addFlags(flagset *pflag.FlagSet) {
 		"Name of the local cluster whose credentials are stored "+
 			"in the secret. If a name is not specified the kube-system namespace's UUID of "+
 			"the local cluster will be used.")
+	flagset.StringVar(&o.ServerOverride, "server", "",
+		"Overrides the server field from the Kubeconfg.")
 	var supportedAuthType []string
 	for _, at := range []RemoteSecretAuthType{RemoteSecretAuthTypeBearerToken, RemoteSecretAuthTypePlugin} {
 		supportedAuthType = append(supportedAuthType, string(at))
@@ -527,9 +532,14 @@ func createRemoteSecret(opt RemoteSecretOptions, client kube.ExtendedClient, env
 		return nil, fmt.Errorf("could not get access token to read resources from local kube-apiserver: %v", err)
 	}
 
-	server, err := getServerFromKubeconfig(opt.Context, env.GetConfig())
-	if err != nil {
-		return nil, err
+	var server string
+	if opt.ServerOverride != "" {
+		server = opt.ServerOverride
+	} else {
+		server, err = getServerFromKubeconfig(opt.Context, env.GetConfig())
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	var remoteSecret *v1.Secret
