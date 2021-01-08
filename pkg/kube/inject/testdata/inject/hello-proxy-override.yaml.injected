@@ -174,7 +174,7 @@ spec:
         - 15090,15021,15020
         env:
         - name: DNS_AGENT
-        image: gcr.io/istio-testing/proxyv2:latest
+        image: docker.io/istio/proxy2_debug:unittest
         imagePullPolicy: Always
         name: istio-init
         resources:
