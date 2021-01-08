@@ -21,7 +21,7 @@
 # to 5 times.
 
 function fail {
-  echo $1 >&2
+  echo "${1}" >&2
   exit 1
 }
 
@@ -31,7 +31,8 @@ function retry {
   local n=1
   local max=5
   while true; do
-    out="$($@ 2>&1)"
+    out="$("$@" 2>&1)"
+    # shellcheck disable=SC2181
     if [[ $? == 0 ]]; then
       echo "${out}"
       break
