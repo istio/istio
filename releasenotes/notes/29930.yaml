@@ -1,0 +1,10 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: istioctl
+issue:
+  - 29930
+
+releaseNotes:
+- |
+  **Fixed** `istioctl install` read empty istiooperator from standard input.
+

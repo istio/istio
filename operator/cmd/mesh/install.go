@@ -187,7 +187,7 @@ func runApplyCmd(cmd *cobra.Command, rootArgs *rootArgs, iArgs *installArgs, log
 	return nil
 }
 
-// InstallManifests generates manifests from the given input files and --set flag overlays and applies them to the
+// InstallManifests generates manifests from the given istiooperator instance and applies them to the
 // cluster. See GenManifests for more description of the manifest generation process.
 //  force   validation warnings are written to logger but command is not aborted
 //  dryRun  all operations are done but nothing is written
