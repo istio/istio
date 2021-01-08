@@ -122,13 +122,14 @@ func NewController(store model.ConfigStoreCache, instanceID string, maxConnAge t
 			maxConnAge = time.Duration(math.MaxInt64)
 		}
 		return &Controller{
-			instanceID:       instanceID,
-			store:            store,
-			cleanupLimit:     rate.NewLimiter(rate.Limit(20), 1),
-			cleanupQueue:     queue.NewDelayed(),
-			queue:            workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter()),
-			adsConnections:   map[string]uint8{},
-			maxConnectionAge: maxConnAge,
+			instanceID:        instanceID,
+			store:             store,
+			cleanupLimit:      rate.NewLimiter(rate.Limit(20), 1),
+			cleanupQueue:      queue.NewDelayed(),
+			queue:             workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter()),
+			adsConnections:    map[string]uint8{},
+			maxConnectionAge:  maxConnAge,
+			latestHealthEvent: map[string]*HealthStatus{},
 		}
 	}
 	return nil
@@ -197,7 +198,7 @@ func (c *Controller) RegisterWorkload(proxy *model.Proxy, conTime time.Time) err
 	}
 
 	c.mutex.Lock()
-	c.adsConnections[proxy.Metadata.Network+proxy.IPAddresses[0]]++
+	c.adsConnections[makeProxyKey(proxy)]++
 	c.mutex.Unlock()
 
 	if err := c.registerWorkload(entryName, proxy, conTime); err != nil {
@@ -258,16 +259,16 @@ func (c *Controller) QueueUnregisterWorkload(proxy *model.Proxy, origConnect tim
 	}
 
 	c.mutex.Lock()
-	num := c.adsConnections[proxy.Metadata.Network+proxy.IPAddresses[0]]
+	num := c.adsConnections[makeProxyKey(proxy)]
 	// if there is still ads connection, do not unregister.
 	if num > 1 {
-		c.adsConnections[proxy.Metadata.Network+proxy.IPAddresses[0]] = num - 1
+		c.adsConnections[makeProxyKey(proxy)] = num - 1
 		c.mutex.Unlock()
 		return
 	}
-	delete(c.adsConnections, proxy.Metadata.Network+proxy.IPAddresses[0])
+	delete(c.adsConnections, makeProxyKey(proxy))
 	// cleanup health event when proxy disconnects.
-	delete(c.latestHealthEvent, proxy.Metadata.Network+proxy.IPAddresses[0])
+	delete(c.latestHealthEvent, makeProxyKey(proxy))
 	c.mutex.Unlock()
 
 	disconTime := time.Now()
@@ -347,7 +348,7 @@ func (c *Controller) UpdateWorkloadEntryHealth(proxy *model.Proxy, event HealthE
 	}
 
 	condition := transformHealthEvent(event)
-	c.storeHealthStatus(proxy.Metadata.Network+proxy.IPAddresses[0], condition)
+	c.storeHealthStatus(makeProxyKey(proxy), condition)
 
 	// backoff retry
 	for i := 0; i < maxRetries; i++ {
@@ -365,7 +366,7 @@ func (c *Controller) UpdateWorkloadEntryHealth(proxy *model.Proxy, event HealthE
 			return
 		}
 
-		condition := c.getHealthStatus(proxy.Metadata.Network + proxy.IPAddresses[0])
+		condition := c.getHealthStatus(makeProxyKey(proxy))
 		// this proxy has disconnected with this istiod
 		if condition == nil {
 			return
@@ -593,4 +594,8 @@ func (c *Controller) getHealthStatus(key string) *HealthStatus {
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
 	return c.latestHealthEvent[key]
+}
+
+func makeProxyKey(proxy *model.Proxy) string {
+	return proxy.Metadata.Network + proxy.IPAddresses[0]
 }
