@@ -82,8 +82,6 @@ OPTIMIZATION_FLAGS=(-trimpath)
 if [ "${DEBUG}" == "1" ]; then
     OPTIMIZATION_FLAGS=()
 fi
-go version
-echo $PATH
 
 time GOOS=${BUILD_GOOS} GOARCH=${BUILD_GOARCH} ${GOBINARY} build \
         ${V} "${GOBUILDFLAGS_ARRAY[@]}" ${GCFLAGS:+-gcflags "${GCFLAGS}"} \
