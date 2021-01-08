@@ -49,13 +49,6 @@ global:
   hub: %s
   tag: %s
 `
-
-	firstPartyJwtValues = `
-global:
-  hub: %s
-  tag: %s
-  jwtPolicy: first-party-jwt
-`
 )
 
 // TestDefaultInPlaceUpgrades tests Istio installation using Helm with default options
@@ -70,7 +63,7 @@ func TestDefaultInPlaceUpgrades(t *testing.T) {
 			ctx.WhenDone(func() error {
 				// only need to do call this once as helm doesn't need to remove
 				// all versions
-				return deleteIstio(t, cs, h)
+				return deleteIstio(cs, h)
 			})
 
 			overrideValuesFile := getValuesOverrides(ctx, defaultValues, gcrHub, previousSupportedVersion)
@@ -157,7 +150,7 @@ func installIstio(t *testing.T, cs resource.Cluster,
 }
 
 // deleteIstio deletes installed Istio Helm charts and resources
-func deleteIstio(t *testing.T, cs resource.Cluster, h *helm.Helm) error {
+func deleteIstio(cs resource.Cluster, h *helm.Helm) error {
 	scopes.Framework.Infof("cleaning up resources")
 	if err := h.DeleteChart(EgressReleaseName, IstioNamespace); err != nil {
 		return fmt.Errorf("failed to delete %s release", EgressReleaseName)
