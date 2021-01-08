@@ -73,7 +73,7 @@ func tagSetCommand() *cobra.Command {
 		SuggestFor: []string{"create"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) == 0 {
-				return fmt.Errorf("must provide a tag for midification")
+				return fmt.Errorf("must provide a tag for modification")
 			}
 			if len(args) > 1 {
 				return fmt.Errorf("can only provide a single tag for creation")
