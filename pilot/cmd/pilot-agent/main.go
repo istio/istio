@@ -52,9 +52,8 @@ import (
 )
 
 const (
-	trustworthyJWTPath = "./var/run/secrets/tokens/istio-token"
-	localHostIPv4      = "127.0.0.1"
-	localHostIPv6      = "[::1]"
+	localHostIPv4 = "127.0.0.1"
+	localHostIPv6 = "[::1]"
 
 	// Similar with ISTIO_META_, which is used to customize the node metadata - this customizes extra header.
 	xdsHeaderPrefix = "XDS_HEADER_"
@@ -331,7 +330,7 @@ func setupSecurityOptions(proxyConfig meshconfig.ProxyConfig) (security.Options,
 	var jwtPath string
 	if jwtPolicy.Get() == jwt.PolicyThirdParty {
 		log.Info("JWT policy is third-party-jwt")
-		jwtPath = trustworthyJWTPath
+		jwtPath = constants.TrustworthyJWTPath
 	} else if jwtPolicy.Get() == jwt.PolicyFirstParty {
 		log.Info("JWT policy is first-party-jwt")
 		jwtPath = securityModel.K8sSAJwtFileName
