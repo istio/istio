@@ -169,12 +169,12 @@ func setTag(ctx context.Context, kubeClient kubernetes.Interface, tag, revision 
 
 	// create or update webhook depending on whether it exists
 	// note there should be a single webhook for each revision tag
-	kubeClientWebhook := kubeClient.AdmissionregistrationV1().MutatingWebhookConfigurations()
+	kubeWebhookClient := kubeClient.AdmissionregistrationV1().MutatingWebhookConfigurations()
 	if len(whs) == 0 {
-		_, err = kubeClientWebhook.Create(ctx, tagWebhook, metav1.CreateOptions{})
+		_, err = kubeWebhookClient.Create(ctx, tagWebhook, metav1.CreateOptions{})
 	} else {
 		tagWebhook.ObjectMeta.ResourceVersion = whs[0].ObjectMeta.ResourceVersion
-		_, err = kubeClientWebhook.Update(ctx, tagWebhook, metav1.UpdateOptions{})
+		_, err = kubeWebhookClient.Update(ctx, tagWebhook, metav1.UpdateOptions{})
 	}
 	if err != nil {
 		return err
