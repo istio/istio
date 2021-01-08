@@ -162,7 +162,20 @@ func setTag(ctx context.Context, kubeClient kubernetes.Interface, tag, revision 
 		return err
 	}
 
-	_, err = kubeClient.AdmissionregistrationV1().MutatingWebhookConfigurations().Create(ctx, tagWebhook, metav1.CreateOptions{})
+	whs, err := getWebhooksWithTag(ctx, kubeClient, tag)
+	if len(whs) > 0 && !overwrite {
+		return fmt.Errorf("found an existing revision tag for %q, use the --overwrite flag to overwrite", tag)
+	}
+
+	// create or update webhook depending on whether it exists
+	// note there should be a single webhook for each revision tag
+	kubeClientWebhook := kubeClient.AdmissionregistrationV1().MutatingWebhookConfigurations()
+	if len(whs) == 0 {
+		_, err = kubeClientWebhook.Create(ctx, tagWebhook, metav1.CreateOptions{})
+	} else {
+		tagWebhook.ObjectMeta.ResourceVersion = whs[0].ObjectMeta.ResourceVersion
+		_, err = kubeClientWebhook.Update(ctx, tagWebhook, metav1.UpdateOptions{})
+	}
 	if err != nil {
 		return err
 	}
