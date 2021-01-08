@@ -21,8 +21,6 @@ import (
 	"testing"
 	"time"
 
-	"istio.io/istio/tests/util/leak"
-
 	. "github.com/onsi/gomega"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 
