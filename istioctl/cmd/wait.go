@@ -230,6 +230,8 @@ func init() {
 // as they are created.
 func getAndWatchResource(ictx context.Context) *watcher {
 	g := withContext(ictx)
+	// copy nameflag to avoid race
+	nf := nameflag
 	g.Go(func(result chan string) error {
 		// retrieve latest generation from Kubernetes
 		dclient, err := clientGetter(kubeconfig, configContext)
@@ -248,7 +250,7 @@ func getAndWatchResource(ictx context.Context) *watcher {
 		for w := range watch.ResultChan() {
 			o := w.Object.(metav1.Object)
 			o.GetName()
-			if o.GetName() == nameflag {
+			if o.GetName() == nf {
 				result <- strconv.FormatInt(o.GetGeneration(), 10)
 			}
 			select {
