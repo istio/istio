@@ -18,6 +18,7 @@ import (
 	configaggregate "istio.io/istio/pilot/pkg/config/aggregate"
 	"istio.io/istio/pilot/pkg/config/kube/crdclient"
 	"istio.io/istio/pilot/pkg/serviceregistry"
+	"istio.io/istio/pkg/config/schema/collections"
 	"strings"
 	"sync"
 	"time"
@@ -157,22 +158,21 @@ func (m *Multicluster) AddMemberCluster(client kubelib.Client, clusterID string)
 	}
 
 	// TODO implement deduping in aggregate registry to allow multiple k8s registries to handle WorkloadEntry
-	if m.serviceEntryStore != nil && features.EnableK8SServiceSelectWorkloadEntries {
-		if localCluster {
+	if features.EnableK8SServiceSelectWorkloadEntries {
+		if m.serviceEntryStore != nil && localCluster {
 			// Add an instance handler in the service entry store to notify kubernetes about workload entry events
 			m.serviceEntryStore.AppendWorkloadHandler(kubeRegistry.WorkloadInstanceHandler)
 		} else {
 			// TODO only do this for non-remotes, CRDs won't exist in remotes (depends on https://github.com/istio/istio/pull/29824)
-			store, err := createConfigStore(client, m.revision, options)
-			if err == nil {
+			if configStore, err := createConfigStore(client, m.revision, options); err == nil {
 				m.remoteKubeControllers[clusterID].workloadEntryStore = serviceentry.NewServiceDiscovery(
-					store, model.MakeIstioStore(store), options.XDSUpdater, serviceentry.ProcessServiceEntry(false))
+					configStore, model.MakeIstioStore(configStore), options.XDSUpdater, serviceentry.ProcessServiceEntry(false))
 				m.serviceController.AddRegistry(m.remoteKubeControllers[clusterID].workloadEntryStore)
 				// Services can select WorkloadEntry from the same cluster. We only duplicate the Service to configure kube-dns.
 				m.remoteKubeControllers[clusterID].workloadEntryStore.AppendWorkloadHandler(kubeRegistry.WorkloadInstanceHandler)
-				go store.Run(stopCh)
+				go configStore.Run(stopCh)
 			} else {
-				log.Errorf("failed creating config store for cluster %s: %v", clusterID, err)
+				log.Errorf("failed creating config configStore for cluster %s: %v", clusterID, err)
 			}
 		}
 	}
@@ -265,7 +265,8 @@ func (m *Multicluster) DeleteMemberCluster(clusterID string) error {
 }
 
 func createConfigStore(client kubelib.Client, revision string, opts Options) (model.ConfigStoreCache, error) {
-	configController, err := crdclient.New(client, revision, opts.DomainSuffix)
+	log.Infof("Creating WorkloadEntry only config store for %s", opts.ClusterID)
+	configController, err := crdclient.NewForSchemas(client, revision, opts.DomainSuffix, collections.WorkloadEntries)
 	if err != nil {
 		return nil, err
 	}

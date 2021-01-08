@@ -138,6 +138,10 @@ func New(client kube.Client, revision, domainSuffix string) (model.ConfigStoreCa
 	if features.EnableServiceApis {
 		schemas = collections.PilotServiceApi
 	}
+	return NewForSchemas(client, revision, domainSuffix, schemas)
+}
+
+func NewForSchemas(client kube.Client, revision, domainSuffix string, schemas collection.Schemas) (model.ConfigStoreCache, error) {
 	out := &Client{
 		domainSuffix:      domainSuffix,
 		schemas:           schemas,
