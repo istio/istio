@@ -329,6 +329,7 @@ func (table *LookupTable) lookupHost(qtype uint16, hostname string) ([]dns.RR, b
 // the lookup table, where N is number of search namespaces.
 func (table *LookupTable) buildDNSAnswers(altHosts map[string]struct{}, ipv4 []net.IP, ipv6 []net.IP, searchNamespaces []string) {
 	for h := range altHosts {
+		h = strings.ToLower(h)
 		table.allHosts[h] = struct{}{}
 		if len(ipv4) > 0 {
 			table.name4[h] = a(h, ipv4)
@@ -343,7 +344,7 @@ func (table *LookupTable) buildDNSAnswers(altHosts map[string]struct{}, ipv4 []n
 
 			// host h already ends with a .
 			// search namespace does not. So we append one in the end
-			expandedHost := h + searchNamespaces[0] + "."
+			expandedHost := strings.ToLower(h + searchNamespaces[0] + ".")
 			// make sure this is not a proper hostname
 			// if host is productpage, and search namespace is ns1.svc.cluster.local
 			// then the expanded host productpage.ns1.svc.cluster.local is a valid hostname
