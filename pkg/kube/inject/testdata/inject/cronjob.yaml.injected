@@ -40,6 +40,7 @@ spec:
             - hellocron.default
             - --proxyLogLevel=warning
             - --proxyComponentLogLevel=misc:error
+            - --log_output_level=default:info
             - --concurrency
             - "2"
             env:
