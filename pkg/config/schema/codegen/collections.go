@@ -123,15 +123,6 @@ var (
 	{{- end }}
 		Build()
 
-	// WorkloadEntries contains only the WorkloadEntry schema.
-	WorkloadEntries = collection.NewSchemasBuilder().
-	{{- range .Entries }}
-		{{- if eq (.Resource.Kind "WorkloadEntry") }}
-		MustAdd({{ .Collection.VariableName }}).
-		{{- end}}
-	{{- end }}
-		Build()
-
 	// Deprecated contains only collections used by that will soon be used by nothing.
 	Deprecated = collection.NewSchemasBuilder().
 	{{- range .Entries }}
