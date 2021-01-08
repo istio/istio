@@ -1017,7 +1017,7 @@ func jsonBytes(t *testing.T, v interface{}) []byte {
 
 func setPodReady(pod *v1.Pod) {
 	pod.Status.Conditions = []v1.PodCondition{
-		v1.PodCondition{
+		{
 			Type:               v1.PodReady,
 			Status:             v1.ConditionTrue,
 			LastTransitionTime: metav1.Now(),
@@ -1027,7 +1027,7 @@ func setPodReady(pod *v1.Pod) {
 
 func setPodUnready(pod *v1.Pod) {
 	pod.Status.Conditions = []v1.PodCondition{
-		v1.PodCondition{
+		{
 			Type:               v1.PodReady,
 			Status:             v1.ConditionFalse,
 			LastTransitionTime: metav1.Now(),
