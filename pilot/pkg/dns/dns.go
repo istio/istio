@@ -237,6 +237,7 @@ func separateIPtypes(ips []string) (ipv4, ipv6 []net.IP) {
 	for _, ip := range ips {
 		addr := net.ParseIP(ip)
 		if addr == nil {
+			log.Debugf("ignoring un-parsable IP address: %v", ip)
 			continue
 		}
 		if addr.To4() != nil {
