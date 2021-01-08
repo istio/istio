@@ -15,13 +15,23 @@
 package status
 
 import (
+	"context"
+	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
 
+	"istio.io/istio/tests/util/leak"
+
 	. "github.com/onsi/gomega"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+
+	"istio.io/istio/tests/util/leak"
 )
+
+func TestMain(m *testing.M) {
+	leak.CheckMain(m)
+}
 
 func TestResourceLock_Lock(t *testing.T) {
 	g := NewGomegaWithT(t)
@@ -44,15 +54,20 @@ func TestResourceLock_Lock(t *testing.T) {
 		Generation: "12",
 	}
 	var runCount int32
-	workers := NewQueue(10*time.Second, func(_ *cacheEntry) error {
+	var m sync.Mutex
+	m.Lock()
+	workers := NewQueue(100*time.Second, func(a cacheEntry) {
+		m.Unlock()
 		atomic.AddInt32(&runCount, 1)
-		time.Sleep(10 * time.Millisecond)
-		return nil
 	}, 10)
-	workers.Push(r1, Progress{})
-	workers.Push(r1, Progress{})
-	workers.Push(r1a, Progress{})
-	time.Sleep(40 * time.Millisecond)
+	ctx, cancel := context.WithCancel(context.Background())
+	workers.Run(ctx)
+	workers.Push(r1, Progress{1, 1})
+	m.Lock()
+	workers.Push(r1, Progress{2, 2})
+	workers.Push(r1a, Progress{3, 3})
+	m.Lock()
 	result := atomic.LoadInt32(&runCount)
-	g.Expect(result).To(Equal(int32(1)))
+	g.Expect(result).To(Equal(int32(2)))
+	cancel()
 }

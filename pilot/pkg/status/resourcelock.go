@@ -20,12 +20,10 @@ import (
 	"time"
 
 	"k8s.io/apimachinery/pkg/runtime/schema"
-
-	"istio.io/pkg/log"
 )
 
 // Task to be performed.
-type Task func(entry *cacheEntry) error
+type Task func(entry cacheEntry)
 
 // Worker queue implements an expandable goroutine pool which executes at most one concurrent routine per target
 // resource.  Multiple calls to Push() will not schedule multiple executions per target resource, but will ensure that
@@ -36,7 +34,7 @@ type WorkerQueue interface {
 	// Run the loop until a signal on the context
 	Run(ctx context.Context)
 	// Delete a task
-	Delete(target lockResource)
+	Delete(target Resource)
 }
 
 type queueImpl struct {
@@ -47,7 +45,7 @@ type queueImpl struct {
 	work    Task
 
 	cacheLock   sync.Mutex
-	cache       map[lockResource]*cacheEntry
+	cache       map[lockResource]cacheEntry
 	workerCount int
 	maxWorkers  int
 }
@@ -62,7 +60,7 @@ func NewQueue(errorDelay time.Duration, work Task, maxWorkers int) WorkerQueue {
 		work:        work,
 		workerCount: 0,
 		maxWorkers:  maxWorkers,
-		cache:       make(map[lockResource]*cacheEntry),
+		cache:       make(map[lockResource]cacheEntry),
 	}
 }
 
@@ -71,7 +69,7 @@ func (q *queueImpl) Push(target Resource, progress Progress) {
 	defer q.cacheLock.Unlock()
 	key := convert(target)
 	_, inqueue := q.cache[key]
-	q.cache[key] = &cacheEntry{
+	q.cache[key] = cacheEntry{
 		cacheVal:      &target,
 		cacheProgress: &progress,
 	}
@@ -81,10 +79,16 @@ func (q *queueImpl) Push(target Resource, progress Progress) {
 	q.maybeAddWorker()
 }
 
-func (q *queueImpl) Delete(target lockResource) {
+func (q *queueImpl) Delete(target Resource) {
 	q.cacheLock.Lock()
 	defer q.cacheLock.Unlock()
-	delete(q.cache, target)
+	delete(q.cache, convert(target))
+}
+
+func (q *queueImpl) GetWorkerCount() int {
+	q.cond.L.Lock()
+	defer q.cond.L.Unlock()
+	return q.workerCount
 }
 
 func (q *queueImpl) enqueue(item lockResource) {
@@ -96,6 +100,8 @@ func (q *queueImpl) enqueue(item lockResource) {
 	q.cond.Signal()
 }
 
+// maybeAddWorker adds a worker unless we are at maxWorkers.  Workers exit when there are no more tasks, except for the
+// last worker, which stays alive indefinitely.
 func (q *queueImpl) maybeAddWorker() {
 	q.cond.L.Lock()
 	if q.workerCount >= q.maxWorkers {
@@ -126,7 +132,7 @@ func (q *queueImpl) maybeAddWorker() {
 			target, q.tasks = q.tasks[0], q.tasks[1:]
 			q.cond.L.Unlock()
 
-			var c *cacheEntry
+			var c cacheEntry
 			q.cacheLock.Lock()
 			c, ok := q.cache[target]
 			if !ok {
@@ -138,12 +144,15 @@ func (q *queueImpl) maybeAddWorker() {
 			}
 			q.cacheLock.Unlock()
 
-			if err := q.work(c); err != nil {
-				log.Infof("Work item handle failed (%v), retry after delay %v", err, q.delay)
-				time.AfterFunc(q.delay, func() {
-					q.Push(*c.cacheVal, *c.cacheProgress)
-				})
+			q.work(c)
+
+			// if the cache has a record for the target, we need to re-enqueue work
+			q.cacheLock.Lock()
+			_, ok = q.cache[target]
+			if ok {
+				q.enqueue(target)
 			}
+			q.cacheLock.Unlock()
 		}
 	}()
 }
