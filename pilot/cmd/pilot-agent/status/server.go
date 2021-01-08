@@ -295,7 +295,7 @@ func (s *Server) handlePprofTrace(w http.ResponseWriter, r *http.Request) {
 }
 
 const (
-	// TODO: update when is is able to customize the timeout.
+	// TODO: update when it is able to customize the timeout.
 	ReadinessTimeout = time.Second * 3 // Default Readiness probe timeout. It is set the same in helm charts.
 )
 
