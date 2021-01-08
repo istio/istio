@@ -35,6 +35,7 @@ import (
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/keepalive"
 	"google.golang.org/grpc/reflection"
+	"k8s.io/apimachinery/pkg/labels"
 	v1 "k8s.io/client-go/kubernetes/typed/core/v1"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/cache"
@@ -809,7 +810,9 @@ func (s *Server) initRegistryEventHandlers() {
 						return
 					}
 				} else {
-					return
+					if onlyStatusUpdated(old, curr) {
+						return
+					}
 				}
 			}
 
@@ -847,6 +850,11 @@ func (s *Server) initRegistryEventHandlers() {
 			s.configController.RegisterEventHandler(schema.Resource().GroupVersionKind(), configHandler)
 		}
 	}
+}
+
+func onlyStatusUpdated(old config.Config, curr config.Config) bool {
+	return labels.Equals(old.Labels, curr.Labels) &&
+		labels.Equals(old.Annotations, curr.Annotations) && old.Spec == curr.Spec
 }
 
 // initIstiodCerts creates Istiod certificates and also sets up watches to them.
