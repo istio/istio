@@ -70,10 +70,10 @@ const (
 )
 
 type HealthEvent struct {
-	// whether or not the agent thought the target was empty
+	// whether or not the agent thought the target is healthy
 	Healthy bool `json:"healthy,omitempty"`
 	// error message propagated
-	Message string `json:"err_message,omitempty"`
+	Message string `json:"errMessage,omitempty"`
 }
 
 var log = istiolog.RegisterScope("wle", "wle controller debugging", 0)
@@ -91,9 +91,9 @@ type Controller struct {
 
 	// queue contains workloadEntry that need to be unregistered
 	queue workqueue.RateLimitingInterface
-	// cleanupLimit rate limit's autoregistered WorkloadEntry cleanup calls to k8s
+	// cleanupLimit rate limit's auto registered WorkloadEntry cleanup calls to k8s
 	cleanupLimit *rate.Limiter
-	// cleanupQueue delays the cleanup of autoregsitered WorkloadEntries to allow for grace period
+	// cleanupQueue delays the cleanup of auto registered WorkloadEntries to allow for grace period
 	cleanupQueue queue.Delayed
 
 	mutex sync.Mutex
@@ -102,9 +102,16 @@ type Controller struct {
 	// keyed by proxy network+ip
 	adsConnections map[string]uint8
 
-	// maxConnectionAge is a duration that workload entry should be cleanedup if it does not reconnects.
+	// maxConnectionAge is a duration that workload entry should be cleaned up if it does not reconnects.
 	maxConnectionAge time.Duration
+
+	// latest health check status of the connected workload entries
+	// When the workload entry disconnects, the status will be removed.
+	// keyed by proxy network+ip
+	latestHealthEvent map[string]*HealthStatus
 }
+
+type HealthStatus = v1alpha1.IstioCondition
 
 // NewController create a controller which manages workload lifecycle and health status.
 func NewController(store model.ConfigStoreCache, instanceID string, maxConnAge time.Duration) *Controller {
@@ -259,6 +266,8 @@ func (c *Controller) QueueUnregisterWorkload(proxy *model.Proxy, origConnect tim
 		return
 	}
 	delete(c.adsConnections, proxy.Metadata.Network+proxy.IPAddresses[0])
+	// cleanup health event when proxy disconnects.
+	delete(c.latestHealthEvent, proxy.Metadata.Network+proxy.IPAddresses[0])
 	c.mutex.Unlock()
 
 	disconTime := time.Now()
@@ -338,17 +347,28 @@ func (c *Controller) UpdateWorkloadEntryHealth(proxy *model.Proxy, event HealthE
 	}
 
 	condition := transformHealthEvent(event)
+	c.storeHealthStatus(proxy.Metadata.Network+proxy.IPAddresses[0], condition)
+
 	// backoff retry
-	// TODO(@hzxuzhonghu): handle race when reconnect happens and health status changed
 	for i := 0; i < maxRetries; i++ {
 		if i > 0 {
-			time.Sleep(waitTime << (i - 1))
+			time.Sleep(time.Duration(float64(waitTime.Nanoseconds()) * math.Pow(2, float64(i-1))))
 		}
 		// get previous status
 		cfg := c.store.Get(gvk.WorkloadEntry, entryName, proxy.Metadata.Namespace)
 		if cfg == nil {
 			log.Errorf("config was nil when getting WorkloadEntry %v for %v", entryName, proxy.ID)
 			continue
+		}
+		// The workloadentry has reconnected to the other istiod
+		if cfg.Annotations[WorkloadControllerAnnotation] != c.instanceID {
+			return
+		}
+
+		condition := c.getHealthStatus(proxy.Metadata.Network + proxy.IPAddresses[0])
+		// this proxy has disconnected with this istiod
+		if condition == nil {
+			return
 		}
 
 		// replace the updated status
@@ -561,4 +581,16 @@ func (c *Controller) handleErr(err error, key interface{}) {
 
 	c.queue.Forget(key)
 	log.Errorf(err)
+}
+
+func (c *Controller) storeHealthStatus(key string, healthStatus *HealthStatus) {
+	c.mutex.Lock()
+	defer c.mutex.Unlock()
+	c.latestHealthEvent[key] = healthStatus
+}
+
+func (c *Controller) getHealthStatus(key string) *HealthStatus {
+	c.mutex.Lock()
+	defer c.mutex.Unlock()
+	return c.latestHealthEvent[key]
 }
