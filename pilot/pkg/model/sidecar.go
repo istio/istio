@@ -122,17 +122,17 @@ type SidecarScope struct {
 }
 
 // Implement json.Marshaller
-func (d *SidecarScope) MarshalJSON() ([]byte, error) {
+func (sc *SidecarScope) MarshalJSON() ([]byte, error) {
 	// Json cannot expose unexported fields, so copy the ones we want here
 	return json.MarshalIndent(map[string]interface{}{
-		"version":               d.Version,
-		"rootNamespace":         d.RootNamespace,
-		"name":                  d.Name,
-		"namespace":             d.Namespace,
-		"outboundTrafficPolicy": d.OutboundTrafficPolicy,
-		"services":              d.services,
-		"sidecar":               d.Sidecar,
-		"destinationRules":      d.destinationRules,
+		"version":               sc.Version,
+		"rootNamespace":         sc.RootNamespace,
+		"name":                  sc.Name,
+		"namespace":             sc.Namespace,
+		"outboundTrafficPolicy": sc.OutboundTrafficPolicy,
+		"services":              sc.services,
+		"sidecar":               sc.Sidecar,
+		"destinationRules":      sc.destinationRules,
 	}, "", "  ")
 }
 

@@ -429,7 +429,6 @@ func (s *DiscoveryServer) sidecarz(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 	_, _ = w.Write(by)
-	return
 }
 
 // Resource debugging.
