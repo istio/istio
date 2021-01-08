@@ -467,7 +467,7 @@ func (o *RemoteSecretOptions) addFlags(flagset *pflag.FlagSet) {
 			"in the secret. If a name is not specified the kube-system namespace's UUID of "+
 			"the local cluster will be used.")
 	flagset.StringVar(&o.ServerOverride, "server", "",
-		"Overrides the server field from the Kubeconfg.")
+		"The address and port of the Kubernetes API server.")
 	var supportedAuthType []string
 	for _, at := range []RemoteSecretAuthType{RemoteSecretAuthTypeBearerToken, RemoteSecretAuthTypePlugin} {
 		supportedAuthType = append(supportedAuthType, string(at))
