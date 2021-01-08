@@ -126,6 +126,6 @@ const (
 
 	TestVMLabel = "istio.io/test-vm"
 
-	// TrustworthyJWTPath is the defaut 3P token to authenticate with google services
+	// TrustworthyJWTPath is the defaut 3P token to authenticate with third party services
 	TrustworthyJWTPath = "./var/run/secrets/tokens/istio-token"
 )
