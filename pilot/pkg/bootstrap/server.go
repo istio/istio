@@ -810,10 +810,9 @@ func (s *Server) initRegistryEventHandlers() {
 					if oldCond == newCond {
 						return
 					}
-				} else {
-					if onlyStatusUpdated(old, curr) {
-						return
-					}
+				} else if onlyStatusUpdated(old, curr) {
+					log.Warnf("skipping push for %v %v\n", old, curr)
+					return
 				}
 			}
 
