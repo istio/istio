@@ -18,6 +18,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
 
@@ -168,6 +169,10 @@ func (c *DistributionController) writeStatus(config Resource, distributionState 
 	if schema == nil {
 		scope.Warnf("schema %v could not be identified", schema)
 		c.pruneOldVersion(config)
+		return
+	}
+	if !strings.HasSuffix(schema.Resource().Group(), "istio.io") {
+		// we don't write status for objects we don't own
 		return
 	}
 	current := c.configStore.Get(schema.Resource().GroupVersionKind(), config.Name, config.Namespace)
