@@ -24,6 +24,7 @@ import (
 	"time"
 
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
+	uatomic "go.uber.org/atomic"
 	"google.golang.org/grpc"
 
 	"istio.io/istio/pilot/pkg/model"
@@ -291,10 +292,11 @@ func TestDebounce(t *testing.T) {
 					atomic.AddInt32(&partialPushes, 1)
 				}
 			}
+			updateSent := uatomic.NewInt64(0)
 
 			wg.Add(1)
 			go func() {
-				debounce(updateCh, stopCh, opts, fakePush)
+				debounce(updateCh, stopCh, opts, fakePush, updateSent)
 				wg.Done()
 			}()
 

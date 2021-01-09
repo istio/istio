@@ -204,7 +204,11 @@ type PushContext struct {
 	// AuthnBetaPolicies contains (beta) Authn policies by namespace.
 	AuthnBetaPolicies *AuthenticationPolicies `json:"-"`
 
-	Version string
+	// PushVersion describes the push version this push context was computed for
+	PushVersion string
+
+	// LedgerVersion is the version of the configuration ledger
+	LedgerVersion string
 
 	// cache gateways addresses for each network
 	// this is mainly used for kubernetes multi-cluster scenario
@@ -890,7 +894,7 @@ func (ps *PushContext) InitContext(env *Environment, oldPushContext *PushContext
 	ps.MeshNetworks = env.Networks()
 	ps.ServiceDiscovery = env
 	ps.IstioConfigStore = env
-	ps.Version = env.Version()
+	ps.LedgerVersion = env.Version()
 
 	// Must be initialized first
 	// as initServiceRegistry/VirtualServices/Destrules

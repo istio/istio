@@ -46,7 +46,7 @@ spec:
         app: ext-authz
     spec:
       containers:
-      - image: docker.io/istio/ext-authz:0.5
+      - image: docker.io/istio/ext-authz:0.6
         imagePullPolicy: IfNotPresent
         name: ext-authz
         ports:

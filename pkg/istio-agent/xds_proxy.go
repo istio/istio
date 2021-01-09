@@ -37,7 +37,6 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/credentials"
-	"google.golang.org/grpc/credentials/oauth"
 	"google.golang.org/grpc/keepalive"
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/reflection"
@@ -52,6 +51,7 @@ import (
 	"istio.io/istio/pkg/istio-agent/metrics"
 	"istio.io/istio/pkg/mcp/status"
 	"istio.io/istio/pkg/uds"
+	"istio.io/istio/security/pkg/nodeagent/caclient"
 	"istio.io/pkg/log"
 )
 
@@ -172,8 +172,8 @@ func (p *XdsProxy) UnregisterStream(c *ProxyConnection) {
 	if p.connected != nil && p.connected == c {
 		proxyLog.Warnf("unregister stream")
 		close(p.connected.stopChan)
+		p.connected = nil
 	}
-	p.connected = nil
 }
 
 func (p *XdsProxy) RegisterStream(c *ProxyConnection) {
@@ -493,15 +493,8 @@ func (p *XdsProxy) buildUpstreamClientDialOpts(sa *Agent) ([]grpc.DialOption, er
 		keepaliveOption, initialWindowSizeOption, initialConnWindowSizeOption, msgSizeOption,
 	}
 
-	// TODO: This is not a valid way of detecting if we are on VM vs k8s
-	// Some end users do not use Istiod for CA but run on k8s with file mounted certs
-	// In these cases, while we fallback to mTLS to istiod using the provisioned certs
-	// it would be ideal to keep using token plus k8s ca certs for control plane communication
-	// as the intention behind provisioned certs on k8s pods is only for data plane comm.
-	if sa.proxyConfig.ControlPlaneAuthPolicy != meshconfig.AuthenticationPolicy_NONE {
-		if sa.secOpts.ProvCert == "" || !sa.secOpts.FileMountedCerts {
-			dialOptions = append(dialOptions, grpc.WithPerRPCCredentials(oauth.TokenSource{TokenSource: &fileTokenSource{sa.secOpts.JWTPath}}))
-		}
+	if !sa.secOpts.FileMountedCerts {
+		dialOptions = append(dialOptions, grpc.WithPerRPCCredentials(caclient.NewXDSTokenProvider(sa.secOpts)))
 	}
 	return dialOptions, nil
 }

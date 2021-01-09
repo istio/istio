@@ -141,7 +141,7 @@ func (s *DiscoveryServer) edsCacheUpdate(clusterID, hostname string, namespace s
 	ep, created := s.getOrCreateEndpointShard(hostname, namespace)
 	// If we create a new endpoint shard, that means we have not seen the service earlier. We should do a full push.
 	if created {
-		adsLog.Infof("Full push, new service %s", hostname)
+		adsLog.Infof("Full push, new service %s/%s", namespace, hostname)
 		fullPush = true
 	}
 

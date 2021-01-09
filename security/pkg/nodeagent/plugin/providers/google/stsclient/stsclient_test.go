@@ -29,7 +29,7 @@ import (
 
 func TestGetFederatedToken(t *testing.T) {
 	GKEClusterURL = mock.FakeGKEClusterURL
-	r := NewPlugin(nil)
+	r := NewSecureTokenServiceExchanger(nil, mock.FakeTrustDomain)
 	r.backoff = time.Millisecond
 
 	ms, err := mock.StartNewServer(t, mock.Config{Port: 0})
@@ -45,7 +45,7 @@ func TestGetFederatedToken(t *testing.T) {
 	})
 
 	t.Run("exchange", func(t *testing.T) {
-		token, err := r.ExchangeToken(mock.FakeTrustDomain, mock.FakeSubjectToken)
+		token, err := r.ExchangeToken(mock.FakeSubjectToken)
 		if err != nil {
 			t.Fatalf("failed to call exchange token %v", err)
 		}
@@ -58,7 +58,7 @@ func TestGetFederatedToken(t *testing.T) {
 		t.Cleanup(func() {
 			ms.SetGenFedTokenError(nil)
 		})
-		_, err := r.ExchangeToken(mock.FakeTrustDomain, mock.FakeSubjectToken)
+		_, err := r.ExchangeToken(mock.FakeSubjectToken)
 		if err == nil {
 			t.Fatalf("expected error %v", err)
 		}
@@ -67,7 +67,7 @@ func TestGetFederatedToken(t *testing.T) {
 	t.Run("retry", func(t *testing.T) {
 		monitoring.Reset()
 		ms.SetGenFedTokenError(errors.New("fake error"))
-		_, err := r.ExchangeToken(mock.FakeTrustDomain, mock.FakeSubjectToken)
+		_, err := r.ExchangeToken(mock.FakeSubjectToken)
 		if err == nil {
 			t.Fatalf("expected error %v", err)
 		}

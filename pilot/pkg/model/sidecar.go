@@ -15,6 +15,7 @@
 package model
 
 import (
+	"encoding/json"
 	"sort"
 	"strings"
 
@@ -73,6 +74,9 @@ type SidecarScope struct {
 	// sidecar scope
 	Sidecar *networking.Sidecar
 
+	// Version this sidecar was computed for
+	Version string
+
 	// Set of egress listeners, and their associated services.  A sidecar
 	// scope should have either ingress/egress listeners or both.  For
 	// every proxy workload that maps to a sidecar API object (or the
@@ -115,6 +119,21 @@ type SidecarScope struct {
 	//
 	// Changes to Sidecar resources in this namespace will trigger a push.
 	RootNamespace string
+}
+
+// Implement json.Marshaller
+func (sc *SidecarScope) MarshalJSON() ([]byte, error) {
+	// Json cannot expose unexported fields, so copy the ones we want here
+	return json.MarshalIndent(map[string]interface{}{
+		"version":               sc.Version,
+		"rootNamespace":         sc.RootNamespace,
+		"name":                  sc.Name,
+		"namespace":             sc.Namespace,
+		"outboundTrafficPolicy": sc.OutboundTrafficPolicy,
+		"services":              sc.services,
+		"sidecar":               sc.Sidecar,
+		"destinationRules":      sc.destinationRules,
+	}, "", "  ")
 }
 
 // IstioEgressListenerWrapper is a wrapper for
@@ -184,6 +203,7 @@ func DefaultSidecarScopeForNamespace(ps *PushContext, configNamespace string) *S
 		servicesByHostname: make(map[host.Name]*Service),
 		configDependencies: make(map[uint32]struct{}),
 		RootNamespace:      ps.Mesh.RootNamespace,
+		Version:            ps.PushVersion,
 	}
 
 	// Now that we have all the services that sidecars using this scope (in
@@ -246,6 +266,7 @@ func ConvertToSidecarScope(ps *PushContext, sidecarConfig *config.Config, config
 		Sidecar:            sidecar,
 		configDependencies: make(map[uint32]struct{}),
 		RootNamespace:      ps.Mesh.RootNamespace,
+		Version:            ps.PushVersion,
 	}
 
 	out.EgressListeners = make([]*IstioEgressListenerWrapper, 0)

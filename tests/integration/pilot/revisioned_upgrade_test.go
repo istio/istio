@@ -28,6 +28,7 @@ import (
 	"istio.io/istio/pkg/test/framework/components/echo/echoboot"
 	"istio.io/istio/pkg/test/framework/components/namespace"
 	kubetest "istio.io/istio/pkg/test/kube"
+	"istio.io/pkg/log"
 )
 
 // TestRevisionedUpgrade tests a revision-based upgrade from the specified versions to current master
@@ -86,6 +87,8 @@ func testUpgradeFromVersion(ctx framework.TestContext, t *testing.T, fromVersion
 	if err := enableDefaultInjection(revisionedNamespace); err != nil {
 		ctx.Fatalf("could not relabel namespace to enable default injection: %v", err)
 	}
+
+	log.Infof("rolling out echo workloads behind service %q", revisionedInstance.Config().Service)
 	if err := revisionedInstance.Restart(); err != nil {
 		ctx.Fatalf("revisioned instance rollout failed with: %v", err)
 	}

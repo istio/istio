@@ -343,7 +343,9 @@ func convertToEnvoyJwtConfig(jwtRules []*v1beta1.JWTRule, push *model.PushContex
 							Prefix: "/",
 						},
 					},
-					Requires: innerAndList[0],
+					RequirementType: &envoy_jwt.RequirementRule_Requires{
+						Requires: innerAndList[0],
+					},
 				},
 			},
 			Providers: providers,
@@ -371,10 +373,12 @@ func convertToEnvoyJwtConfig(jwtRules []*v1beta1.JWTRule, push *model.PushContex
 						Prefix: "/",
 					},
 				},
-				Requires: &envoy_jwt.JwtRequirement{
-					RequiresType: &envoy_jwt.JwtRequirement_RequiresAny{
-						RequiresAny: &envoy_jwt.JwtRequirementOrList{
-							Requirements: outterOrList,
+				RequirementType: &envoy_jwt.RequirementRule_Requires{
+					Requires: &envoy_jwt.JwtRequirement{
+						RequiresType: &envoy_jwt.JwtRequirement_RequiresAny{
+							RequiresAny: &envoy_jwt.JwtRequirementOrList{
+								Requirements: outterOrList,
+							},
 						},
 					},
 				},

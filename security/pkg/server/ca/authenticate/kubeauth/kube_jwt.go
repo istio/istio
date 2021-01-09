@@ -102,7 +102,7 @@ func (a *KubeJWTAuthenticator) Authenticate(ctx context.Context) (*authenticate.
 	}
 	id, err = tokenreview.ValidateK8sJwt(kubeClient, targetJWT, aud)
 	if err != nil {
-		return nil, fmt.Errorf("failed to validate the JWT from cluster %s: %v", clusterID, err)
+		return nil, fmt.Errorf("failed to validate the JWT from cluster %q: %v", clusterID, err)
 	}
 	if len(id) != 2 {
 		return nil, fmt.Errorf("failed to parse the JWT. Validation result length is not 2, but %d", len(id))

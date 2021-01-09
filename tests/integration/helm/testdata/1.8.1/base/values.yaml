@@ -1,0 +1,22 @@
+global:
+
+  # ImagePullSecrets for control plane ServiceAccount, list of secrets in the same namespace
+  # to use for pulling any images in pods that reference this ServiceAccount.
+  # Must be set for any cluster configured with private docker registry.
+  imagePullSecrets: []
+
+  # Used to locate istiod.
+  istioNamespace: istio-system
+
+  istiod:
+    enableAnalysis: false
+
+  configValidation: true
+
+base:
+  # Used for helm2 to add the CRDs to templates.
+  enableCRDTemplates: false
+
+  # Validation webhook configuration url
+  # For example: https://$remotePilotAddress:15017/validate
+  validationURL: ""
