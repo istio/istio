@@ -30,12 +30,12 @@ import (
 
 	"istio.io/istio/pkg/bootstrap/platform"
 	"istio.io/istio/pkg/security"
+	"istio.io/istio/security/pkg/nodeagent/caclient"
 	gcapb "istio.io/istio/security/proto/providers/google"
 	"istio.io/pkg/env"
 	"istio.io/pkg/log"
 )
 
-const bearerTokenPrefix = "Bearer "
 const hubIDPPrefix = "https://gkehub.googleapis.com/"
 
 var (
@@ -47,10 +47,11 @@ type googleCAClient struct {
 	caEndpoint string
 	enableTLS  bool
 	client     gcapb.MeshCertificateServiceClient
+	conn       *grpc.ClientConn
 }
 
 // NewGoogleCAClient create a CA client for Google CA.
-func NewGoogleCAClient(endpoint string, tls bool) (security.Client, error) {
+func NewGoogleCAClient(endpoint string, tls bool, provider *caclient.TokenProvider) (security.Client, error) {
 	c := &googleCAClient{
 		caEndpoint: endpoint,
 		enableTLS:  tls,
@@ -67,36 +68,30 @@ func NewGoogleCAClient(endpoint string, tls bool) (security.Client, error) {
 		opts = grpc.WithInsecure()
 	}
 
-	// TODO(JimmyCYJ): This connection is create at construction time. If conn is broken at anytime,
-	//  need a way to reconnect.
-	conn, err := grpc.Dial(endpoint, opts)
+	conn, err := grpc.Dial(endpoint,
+		opts,
+		grpc.WithPerRPCCredentials(provider),
+		security.CARetryInterceptor(),
+	)
 	if err != nil {
 		googleCAClientLog.Errorf("Failed to connect to endpoint %s: %v", endpoint, err)
 		return nil, fmt.Errorf("failed to connect to endpoint %s", endpoint)
 	}
 
+	c.conn = conn
 	c.client = gcapb.NewMeshCertificateServiceClient(conn)
 	return c, nil
 }
 
 // CSR Sign calls Google CA to sign a CSR.
-func (cl *googleCAClient) CSRSign(ctx context.Context, csrPEM []byte, token string, certValidTTLInSec int64) ([]string, error) {
+func (cl *googleCAClient) CSRSign(csrPEM []byte, certValidTTLInSec int64) ([]string, error) {
 	req := &gcapb.MeshCertificateRequest{
 		RequestId: uuid.New().String(),
 		Csr:       string(csrPEM),
 		Validity:  &duration.Duration{Seconds: certValidTTLInSec},
 	}
 
-	// If the token doesn't have "Bearer " prefix, add it.
-	if !strings.HasPrefix(token, bearerTokenPrefix) {
-		token = bearerTokenPrefix + token
-	}
-
-	out, _ := metadata.FromOutgoingContext(ctx)
-	// preventing races by modification.
-	out = out.Copy()
-	out["authorization"] = []string{token}
-
+	out := metadata.New(nil)
 	gkeClusterURL := envGkeClusterURL
 	if envGkeClusterURL == "" && platform.IsGCP() {
 		gkeClusterURL = platform.NewGCP().Metadata()[platform.GCPClusterURL]
@@ -106,7 +101,7 @@ func (cl *googleCAClient) CSRSign(ctx context.Context, csrPEM []byte, token stri
 		out["x-goog-request-params"] = []string{fmt.Sprintf("location=locations/%s", zone)}
 	}
 
-	ctx = metadata.NewOutgoingContext(ctx, out)
+	ctx := metadata.NewOutgoingContext(context.Background(), out)
 	resp, err := cl.client.CreateCertificate(ctx, req)
 	if err != nil {
 		googleCAClientLog.Errorf("Failed to create certificate: %v", err)
@@ -121,6 +116,12 @@ func (cl *googleCAClient) CSRSign(ctx context.Context, csrPEM []byte, token stri
 	googleCAClientLog.Infof("Cert created with GoogleCA %s chain length %d", zone, len(resp.CertChain))
 
 	return resp.CertChain, nil
+}
+
+func (cl *googleCAClient) Close() {
+	if cl.conn != nil {
+		cl.conn.Close()
+	}
 }
 
 func (cl *googleCAClient) getTLSDialOption() (grpc.DialOption, error) {

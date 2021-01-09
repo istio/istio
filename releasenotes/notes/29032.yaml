@@ -1,0 +1,9 @@
+apiVersion: release-notes/v2
+kind: feature
+area: istioctl
+issue:
+  - 29022
+
+releaseNotes:
+- |
+  **Added** `--browser` flag to `istioctl dashboard`, which controls whether you want to open a browser to view the dashboard.

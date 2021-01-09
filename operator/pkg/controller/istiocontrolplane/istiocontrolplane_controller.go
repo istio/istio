@@ -191,7 +191,7 @@ type ReconcileIstioOperator struct {
 // Note:
 // The Controller will requeue the Request to be processed again if the returned error is non-nil or
 // Result.Requeue is true, otherwise upon completion it will remove the work from the queue.
-func (r *ReconcileIstioOperator) Reconcile(request reconcile.Request) (reconcile.Result, error) {
+func (r *ReconcileIstioOperator) Reconcile(_ context.Context, request reconcile.Request) (reconcile.Result, error) {
 	scope.Info("Reconciling IstioOperator")
 
 	ns, iopName := request.Namespace, request.Name
@@ -440,17 +440,16 @@ func watchIstioResources(c controller.Controller) error {
 			Group:   t.Group,
 			Version: t.Version,
 		})
-		err := c.Watch(&source.Kind{Type: u}, &handler.EnqueueRequestsFromMapFunc{
-			ToRequests: handler.ToRequestsFunc(func(a handler.MapObject) []reconcile.Request {
-				scope.Infof("Watching a change for istio resource: %s/%s", a.Meta.GetNamespace(), a.Meta.GetName())
-				return []reconcile.Request{
-					{NamespacedName: types.NamespacedName{
-						Name:      a.Meta.GetLabels()[helmreconciler.OwningResourceName],
-						Namespace: a.Meta.GetLabels()[helmreconciler.OwningResourceNamespace],
-					}},
-				}
-			}),
-		}, ownedResourcePredicates)
+		err := c.Watch(&source.Kind{Type: u}, handler.EnqueueRequestsFromMapFunc(func(a client.Object) []reconcile.Request {
+			scope.Infof("Watching a change for istio resource: %s/%s", a.GetNamespace(), a.GetName())
+			return []reconcile.Request{
+				{NamespacedName: types.NamespacedName{
+					Name:      a.GetLabels()[helmreconciler.OwningResourceName],
+					Namespace: a.GetLabels()[helmreconciler.OwningResourceNamespace],
+				}},
+			}
+		}),
+			ownedResourcePredicates)
 		if err != nil {
 			scope.Errorf("Could not create watch for %s/%s/%s: %s.", t.Kind, t.Group, t.Version, err)
 		}

@@ -1,0 +1,240 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: istiod{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: istiod
+    istio.io/rev: {{ .Values.revision | default "default" }}
+    install.operator.istio.io/owning-resource: {{ .Values.ownerName | default "unknown" }}
+    operator.istio.io/component: "Pilot"
+    istio: pilot
+    release: {{ .Release.Name }}
+{{- range $key, $val := .Values.pilot.deploymentLabels }}
+    {{ $key }}: "{{ $val }}"
+{{- end }}
+spec:
+{{- if not .Values.pilot.autoscaleEnabled }}
+{{- if .Values.pilot.replicaCount }}
+  replicas: {{ .Values.pilot.replicaCount }}
+{{- end }}
+{{- end }}
+  strategy:
+    rollingUpdate:
+      maxSurge: {{ .Values.pilot.rollingMaxSurge }}
+      maxUnavailable: {{ .Values.pilot.rollingMaxUnavailable }}
+  selector:
+    matchLabels:
+      {{- if ne .Values.revision ""}}
+      app: istiod
+      istio.io/rev: {{ .Values.revision | default "default" }}
+      {{- else }}
+      istio: pilot
+      {{- end }}
+  template:
+    metadata:
+      labels:
+        app: istiod
+        istio.io/rev: {{ .Values.revision | default "default" }}
+        install.operator.istio.io/owning-resource: {{ .Values.ownerName | default "unknown" }}
+        operator.istio.io/component: "Pilot"
+        {{- if eq .Values.revision ""}}
+        istio: pilot
+        {{- else }}
+        istio: istiod
+        {{- end }}
+      annotations:
+        {{- if .Values.meshConfig.enablePrometheusMerge }}
+        prometheus.io/port: "15014"
+        prometheus.io/scrape: "true"
+        {{- end }}
+        sidecar.istio.io/inject: "false"
+        {{- if .Values.pilot.podAnnotations }}
+{{ toYaml .Values.pilot.podAnnotations | indent 8 }}
+        {{- end }}
+    spec:
+      serviceAccountName: istiod-service-account
+{{- if .Values.global.priorityClassName }}
+      priorityClassName: "{{ .Values.global.priorityClassName }}"
+{{- end }}
+      securityContext:
+        fsGroup: 1337
+      containers:
+        - name: discovery
+{{- if contains "/" .Values.pilot.image }}
+          image: "{{ .Values.pilot.image }}"
+{{- else }}
+          image: "{{ .Values.pilot.hub | default .Values.global.hub }}/{{ .Values.pilot.image | default "pilot" }}:{{ .Values.pilot.tag | default .Values.global.tag }}"
+{{- end }}
+{{- if .Values.global.imagePullPolicy }}
+          imagePullPolicy: {{ .Values.global.imagePullPolicy }}
+{{- end }}
+          args:
+          - "discovery"
+          - --monitoringAddr=:15014
+{{- if .Values.global.logging.level }}
+          - --log_output_level={{ .Values.global.logging.level }}
+{{- end}}
+{{- if .Values.global.logAsJson }}
+          - --log_as_json
+{{- end }}
+          - --domain
+          - {{ .Values.global.proxy.clusterDomain }}
+{{- if .Values.global.oneNamespace }}
+          - "-a"
+          - {{ .Release.Namespace }}
+{{- end }}
+{{- if .Values.pilot.plugins }}
+          - --plugins={{ .Values.pilot.plugins }}
+{{- end }}
+          - --keepaliveMaxServerConnectionAge
+          - "{{ .Values.pilot.keepaliveMaxServerConnectionAge }}"
+          ports:
+          - containerPort: 8080
+            protocol: TCP
+          - containerPort: 15010
+            protocol: TCP
+          - containerPort: 15017
+            protocol: TCP
+          - containerPort: 15053
+            protocol: TCP
+          readinessProbe:
+            httpGet:
+              path: /ready
+              port: 8080
+            initialDelaySeconds: 1
+            periodSeconds: 3
+            timeoutSeconds: 5
+          env:
+          - name: REVISION
+            value: "{{ .Values.revision | default `default` }}"
+          - name: JWT_POLICY
+            value: {{ .Values.global.jwtPolicy }}
+          - name: PILOT_CERT_PROVIDER
+            value: {{ .Values.global.pilotCertProvider }}
+          - name: POD_NAME
+            valueFrom:
+              fieldRef:
+                apiVersion: v1
+                fieldPath: metadata.name
+          - name: POD_NAMESPACE
+            valueFrom:
+              fieldRef:
+                apiVersion: v1
+                fieldPath: metadata.namespace
+          - name: SERVICE_ACCOUNT
+            valueFrom:
+              fieldRef:
+                apiVersion: v1
+                fieldPath: spec.serviceAccountName
+          - name: KUBECONFIG
+            value: /var/run/secrets/remote/config
+          {{- if .Values.pilot.env }}
+          {{- range $key, $val := .Values.pilot.env }}
+          - name: {{ $key }}
+            value: "{{ $val }}"
+          {{- end }}
+          {{- end }}
+{{- if .Values.pilot.traceSampling }}
+          - name: PILOT_TRACE_SAMPLING
+            value: "{{ .Values.pilot.traceSampling }}"
+{{- end }}
+          - name: PILOT_ENABLE_PROTOCOL_SNIFFING_FOR_OUTBOUND
+            value: "{{ .Values.pilot.enableProtocolSniffingForOutbound }}"
+          - name: PILOT_ENABLE_PROTOCOL_SNIFFING_FOR_INBOUND
+            value: "{{ .Values.pilot.enableProtocolSniffingForInbound }}"
+{{- if not (hasKey .Values.pilot.env "INJECTION_WEBHOOK_CONFIG_NAME") }}
+          - name: INJECTION_WEBHOOK_CONFIG_NAME
+          {{- if eq .Release.Namespace "istio-system" }}
+            value: istio-sidecar-injector{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}
+          {{- else }}
+            value: istio-sidecar-injector{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}-{{ .Release.Namespace }}
+          {{- end }}
+{{- end }}
+          - name: ISTIOD_ADDR
+            value: istiod{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}.{{ .Release.Namespace }}.svc:15012
+          - name: PILOT_ENABLE_ANALYSIS
+            value: "{{ .Values.global.istiod.enableAnalysis }}"
+          - name: CLUSTER_ID
+            value: "{{ $.Values.global.multiCluster.clusterName | default `Kubernetes` }}"
+          - name: EXTERNAL_ISTIOD
+            value: "{{ $.Values.global.externalIstiod | default "false" }}"
+          - name: CENTRAL_ISTIOD
+            value: "{{ $.Values.global.centralIstiod | default "false" }}"
+{{- if .Values.telemetry.v2.enabled }}
+          - name: PILOT_ENDPOINT_TELEMETRY_LABEL
+            value: "true"
+{{- end }}
+          resources:
+{{- if .Values.pilot.resources }}
+{{ toYaml .Values.pilot.resources | trim | indent 12 }}
+{{- else }}
+{{ toYaml .Values.global.defaultResources | trim | indent 12 }}
+{{- end }}
+          securityContext:
+            runAsUser: 1337
+            runAsGroup: 1337
+            runAsNonRoot: true
+            capabilities:
+              drop:
+              - ALL
+          volumeMounts:
+          - name: config-volume
+            mountPath: /etc/istio/config
+          {{- if eq .Values.global.jwtPolicy "third-party-jwt" }}
+          - name: istio-token
+            mountPath: /var/run/secrets/tokens
+            readOnly: true
+          {{- end }}
+          - name: local-certs
+            mountPath: /var/run/secrets/istio-dns
+          - name: cacerts
+            mountPath: /etc/cacerts
+            readOnly: true
+          - name: istio-kubeconfig
+            mountPath: /var/run/secrets/remote
+            readOnly: true
+          - name: inject
+            mountPath: /var/lib/istio/inject
+            readOnly: true
+          {{- if .Values.pilot.jwksResolverExtraRootCA }}
+          - name: extracacerts
+            mountPath: /cacerts
+          {{- end }}
+      volumes:
+      # Technically not needed on this pod - but it helps debugging/testing SDS
+      # Should be removed after everything works.
+      - emptyDir:
+          medium: Memory
+        name: local-certs
+      {{- if eq .Values.global.jwtPolicy "third-party-jwt" }}
+      - name: istio-token
+        projected:
+          sources:
+            - serviceAccountToken:
+                audience: {{ .Values.global.sds.token.aud }}
+                expirationSeconds: 43200
+                path: istio-token
+      {{- end }}
+      # Optional: user-generated root
+      - name: cacerts
+        secret:
+          secretName: cacerts
+          optional: true
+      - name: istio-kubeconfig
+        secret:
+          secretName: istio-kubeconfig
+          optional: true
+      # Optional - image should have
+      - name: inject
+        configMap:
+          name: istio-sidecar-injector{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}
+      - name: config-volume
+        configMap:
+          name: istio{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}
+  {{- if .Values.pilot.jwksResolverExtraRootCA }}
+      - name: extracacerts
+        configMap:
+          name: pilot-jwks-extra-cacerts{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}
+  {{- end }}
+---

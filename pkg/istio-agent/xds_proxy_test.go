@@ -19,6 +19,7 @@ import (
 	"fmt"
 	"net"
 	"path"
+	"path/filepath"
 	"testing"
 	"time"
 
@@ -39,6 +40,7 @@ import (
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/security"
+	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/test/util/retry"
 )
@@ -48,7 +50,7 @@ func TestXdsProxyBasicFlow(t *testing.T) {
 	proxy := setupXdsProxy(t)
 	f := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{})
 	setDialOptions(proxy, f.Listener)
-	conn := setupDownstreamConnection(t)
+	conn := setupDownstreamConnection(t, proxy)
 	downstream := stream(t, conn)
 	sendDownstream(t, downstream)
 }
@@ -88,7 +90,7 @@ func TestXdsProxyHealthCheck(t *testing.T) {
 		t.Fatal(err)
 	}
 	setDialOptions(proxy, f.Listener)
-	conn := setupDownstreamConnection(t)
+	conn := setupDownstreamConnection(t, proxy)
 	downstream := stream(t, conn)
 	sendDownstreamWithNode(t, downstream, node)
 
@@ -121,7 +123,7 @@ func TestXdsProxyHealthCheck(t *testing.T) {
 				return fmt.Errorf("expected status %q got %q", expected, con.Status)
 			}
 			return nil
-		}, retry.Timeout(time.Second))
+		}, retry.Timeout(time.Second*2))
 	}
 
 	// On initial connect, status is unset.
@@ -139,7 +141,7 @@ func TestXdsProxyHealthCheck(t *testing.T) {
 	conn.Close()
 	downstream.CloseSend()
 	waitDisconnect()
-	conn = setupDownstreamConnection(t)
+	conn = setupDownstreamConnection(t, proxy)
 	downstream = stream(t, conn)
 	sendDownstreamWithNode(t, downstream, node)
 
@@ -154,7 +156,7 @@ func TestXdsProxyHealthCheck(t *testing.T) {
 	downstream.CloseSend()
 	waitDisconnect()
 	proxy.PersistRequest(healthy)
-	conn = setupDownstreamConnection(t)
+	conn = setupDownstreamConnection(t, proxy)
 	downstream = stream(t, conn)
 	sendDownstreamWithNode(t, downstream, node)
 
@@ -174,7 +176,7 @@ func TestXdsProxyHealthCheck(t *testing.T) {
 	waitDisconnect()
 	f.Store().Delete(gvk.WorkloadEntry, "group-1.1.1.1", "default", nil)
 	proxy.PersistRequest(healthy)
-	conn = setupDownstreamConnection(t)
+	conn = setupDownstreamConnection(t, proxy)
 	downstream = stream(t, conn)
 	sendDownstreamWithNode(t, downstream, node)
 
@@ -189,7 +191,7 @@ func TestXdsProxyHealthCheck(t *testing.T) {
 }
 
 func setupXdsProxy(t *testing.T) *XdsProxy {
-	secOpts := &security.Options{
+	secOpts := security.Options{
 		FileMountedCerts: true,
 	}
 	proxyConfig := mesh.DefaultProxyConfig()
@@ -202,8 +204,10 @@ func setupXdsProxy(t *testing.T) *XdsProxy {
 		MetadataClientCertKey:   path.Join(env.IstioSrc, "tests/testdata/certs/pilot/key.pem"),
 		MetadataClientRootCert:  path.Join(env.IstioSrc, "tests/testdata/certs/pilot/root-cert.pem"),
 	}
-	ia := NewAgent(&proxyConfig,
-		&AgentConfig{}, secOpts)
+	dir := t.TempDir()
+	ia := NewAgent(&proxyConfig, &AgentConfig{
+		XdsUdsPath: filepath.Join(dir, "XDS"),
+	}, secOpts)
 	t.Cleanup(func() {
 		ia.Close()
 	})
@@ -246,7 +250,7 @@ func TestXdsProxyReconnects(t *testing.T) {
 		f := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{})
 		setDialOptions(proxy, f.Listener)
 
-		conn := setupDownstreamConnection(t)
+		conn := setupDownstreamConnection(t, proxy)
 		downstream := stream(t, conn)
 		sendDownstream(t, downstream)
 
@@ -261,7 +265,7 @@ func TestXdsProxyReconnects(t *testing.T) {
 		f := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{})
 		setDialOptions(proxy, f.Listener)
 
-		conn := setupDownstreamConnection(t)
+		conn := setupDownstreamConnection(t, proxy)
 		downstream := stream(t, conn)
 		sendDownstream(t, downstream)
 		downstream = stream(t, conn)
@@ -272,12 +276,31 @@ func TestXdsProxyReconnects(t *testing.T) {
 		f := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{})
 		setDialOptions(proxy, f.Listener)
 
-		conn := setupDownstreamConnection(t)
+		conn := setupDownstreamConnection(t, proxy)
 		downstream := stream(t, conn)
 		sendDownstream(t, downstream)
 		conn.Close()
-		conn = setupDownstreamConnection(t)
-		downstream = stream(t, conn)
+
+		c := setupDownstreamConnection(t, proxy)
+		downstream = stream(t, c)
+		sendDownstream(t, downstream)
+	})
+	t.Run("Envoy sends concurrent requests", func(t *testing.T) {
+		// Envoy doesn't really do this, in reality it should only have a single connection. However,
+		// this ensures we are robust against cases where envoy rapidly disconnects and reconnects
+		proxy := setupXdsProxy(t)
+		f := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{})
+		setDialOptions(proxy, f.Listener)
+
+		conn := setupDownstreamConnection(t, proxy)
+		downstream := stream(t, conn)
+		sendDownstream(t, downstream)
+
+		c := setupDownstreamConnection(t, proxy)
+		downstream = stream(t, c)
+		sendDownstream(t, downstream)
+		conn.Close()
+
 		sendDownstream(t, downstream)
 	})
 	t.Run("Istiod closes connection", func(t *testing.T) {
@@ -300,7 +323,7 @@ func TestXdsProxyReconnects(t *testing.T) {
 		go grpcServer.Serve(listener)
 
 		// Send initial request
-		conn := setupDownstreamConnection(t)
+		conn := setupDownstreamConnection(t, proxy)
 		downstream := stream(t, conn)
 		sendDownstream(t, downstream)
 
@@ -371,15 +394,15 @@ func sendDownstream(t *testing.T, downstream discovery.AggregatedDiscoveryServic
 	})
 }
 
-func setupDownstreamConnection(t *testing.T) *grpc.ClientConn {
+func setupDownstreamConnectionUDS(t test.Failer, path string) *grpc.ClientConn {
 	var opts []grpc.DialOption
 
 	opts = append(opts, grpc.WithInsecure(), grpc.WithContextDialer(func(ctx context.Context, addr string) (net.Conn, error) {
 		var d net.Dialer
-		return d.DialContext(ctx, "unix", xdsUdsPath)
+		return d.DialContext(ctx, "unix", path)
 	}))
 
-	conn, err := grpc.Dial(xdsUdsPath, opts...)
+	conn, err := grpc.Dial(path, opts...)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -388,4 +411,8 @@ func setupDownstreamConnection(t *testing.T) *grpc.ClientConn {
 		conn.Close()
 	})
 	return conn
+}
+
+func setupDownstreamConnection(t *testing.T, proxy *XdsProxy) *grpc.ClientConn {
+	return setupDownstreamConnectionUDS(t, proxy.xdsUdsPath)
 }

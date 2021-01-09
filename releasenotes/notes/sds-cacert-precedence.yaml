@@ -1,0 +1,9 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: security
+issue:
+- 29856
+releaseNotes:
+- |
+  **Fixed** an issue causing a Secret named `<secret>-cacert` to have lower precedence than a Secret named `<secret>` for Gateway Mutual TLS.
+  This behavior was accidentally inverted in Istio 1.8; this changes restores the behavior to match Istio 1.7 and earlier.

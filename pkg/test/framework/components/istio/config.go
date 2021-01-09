@@ -146,6 +146,22 @@ type Config struct {
 	// Indicates that the test should deploy Istio's east west gateway into the target Kubernetes cluster
 	// before running tests.
 	DeployEastWestGW bool
+
+	// Indicates that the test should deploy Istio's using helm charts
+	DeployHelm bool
+}
+
+func (c *Config) OverridesYAML() string {
+	s, err := image.SettingsFromCommandLine()
+	if err != nil {
+		return ""
+	}
+
+	return fmt.Sprintf(`
+global:
+  hub: %s
+  tag: %s
+`, s.Hub, s.Tag)
 }
 
 func (c *Config) IstioOperatorConfigYAML(iopYaml string) string {
@@ -305,6 +321,7 @@ func (c *Config) String() string {
 	result += fmt.Sprintf("ConfigClusterIOPFile:           %s\n", c.ConfigClusterIOPFile)
 	result += fmt.Sprintf("RemoteClusterIOPFile:           %s\n", c.RemoteClusterIOPFile)
 	result += fmt.Sprintf("SkipWaitForValidationWebhook:   %v\n", c.SkipWaitForValidationWebhook)
+	result += fmt.Sprintf("DeployHelm:                     %v\n", c.DeployHelm)
 	return result
 }
 

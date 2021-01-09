@@ -15,33 +15,79 @@
 package stsclient
 
 import (
-	"context"
+	"errors"
+	"fmt"
 	"testing"
+	"time"
 
+	"istio.io/istio/pkg/test/util/retry"
+	"istio.io/istio/security/pkg/monitoring"
+	"istio.io/istio/security/pkg/nodeagent/util"
 	"istio.io/istio/security/pkg/stsservice/tokenmanager/google/mock"
+	"istio.io/istio/tests/util/leak"
 )
 
 func TestGetFederatedToken(t *testing.T) {
 	GKEClusterURL = mock.FakeGKEClusterURL
-	r := NewPlugin()
+	r := NewSecureTokenServiceExchanger(nil, mock.FakeTrustDomain)
+	r.backoff = time.Millisecond
 
 	ms, err := mock.StartNewServer(t, mock.Config{Port: 0})
 	if err != nil {
 		t.Fatalf("failed to start a mock server: %v", err)
 	}
 	SecureTokenEndpoint = ms.URL + "/v1/identitybindingtoken"
-	defer func() {
+	t.Cleanup(func() {
 		if err := ms.Stop(); err != nil {
 			t.Logf("failed to stop mock server: %v", err)
 		}
 		SecureTokenEndpoint = "https://securetoken.googleapis.com/v1/identitybindingtoken"
-	}()
+	})
 
-	token, _, _, err := r.ExchangeToken(context.Background(), nil, mock.FakeTrustDomain, mock.FakeSubjectToken)
-	if err != nil {
-		t.Fatalf("failed to call exchange token %v", err)
-	}
-	if token != mock.FakeFederatedToken {
-		t.Errorf("Access token got %q, expected %q", token, mock.FakeFederatedToken)
-	}
+	t.Run("exchange", func(t *testing.T) {
+		token, err := r.ExchangeToken(mock.FakeSubjectToken)
+		if err != nil {
+			t.Fatalf("failed to call exchange token %v", err)
+		}
+		if token != mock.FakeFederatedToken {
+			t.Errorf("Access token got %q, expected %q", token, mock.FakeFederatedToken)
+		}
+	})
+	t.Run("error", func(t *testing.T) {
+		ms.SetGenFedTokenError(errors.New("fake error"))
+		t.Cleanup(func() {
+			ms.SetGenFedTokenError(nil)
+		})
+		_, err := r.ExchangeToken(mock.FakeSubjectToken)
+		if err == nil {
+			t.Fatalf("expected error %v", err)
+		}
+	})
+
+	t.Run("retry", func(t *testing.T) {
+		monitoring.Reset()
+		ms.SetGenFedTokenError(errors.New("fake error"))
+		_, err := r.ExchangeToken(mock.FakeSubjectToken)
+		if err == nil {
+			t.Fatalf("expected error %v", err)
+		}
+
+		retry.UntilSuccessOrFail(t, func() error {
+			g, err := util.GetMetricsCounterValueWithTags("num_outgoing_retries", map[string]string{
+				"request_type": monitoring.TokenExchange,
+			})
+			if err != nil {
+				return err
+			}
+			if g <= 0 {
+				return fmt.Errorf("expected retries, got %v", g)
+			}
+			return nil
+		}, retry.Timeout(time.Second*5))
+	})
+
+}
+
+func TestMain(m *testing.M) {
+	leak.CheckMain(m)
 }

@@ -146,7 +146,7 @@ func NewHTTPServer(port uint16) (*HTTPServer, error) {
 
 // Start starts the server
 func (s *HTTPServer) Start() <-chan error {
-	errCh := make(chan error)
+	errCh := make(chan error, 2)
 	go func() {
 		http.HandleFunc("/", s.handle)
 		http.HandleFunc("/pubkey", pubkeyHandler)

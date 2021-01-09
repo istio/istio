@@ -125,7 +125,7 @@ func BenchmarkRouteGeneration(b *testing.B) {
 			b.ResetTimer()
 			var c model.Resources
 			for n := 0; n < b.N; n++ {
-				c = s.Discovery.Generators[v3.RouteType].Generate(proxy, s.PushContext(), &model.WatchedResource{ResourceNames: routeNames}, nil)
+				c, _ = s.Discovery.Generators[v3.RouteType].Generate(proxy, s.PushContext(), &model.WatchedResource{ResourceNames: routeNames}, nil)
 				if len(c) == 0 {
 					b.Fatal("Got no routes!")
 				}
@@ -143,7 +143,7 @@ func BenchmarkClusterGeneration(b *testing.B) {
 			b.ResetTimer()
 			var c model.Resources
 			for n := 0; n < b.N; n++ {
-				c = s.Discovery.Generators[v3.ClusterType].Generate(proxy, s.PushContext(), nil, nil)
+				c, _ = s.Discovery.Generators[v3.ClusterType].Generate(proxy, s.PushContext(), nil, nil)
 				if len(c) == 0 {
 					b.Fatal("Got no clusters!")
 				}
@@ -161,7 +161,7 @@ func BenchmarkListenerGeneration(b *testing.B) {
 			b.ResetTimer()
 			var c model.Resources
 			for n := 0; n < b.N; n++ {
-				c = s.Discovery.Generators[v3.ListenerType].Generate(proxy, s.PushContext(), nil, nil)
+				c, _ = s.Discovery.Generators[v3.ListenerType].Generate(proxy, s.PushContext(), nil, nil)
 				if len(c) == 0 {
 					b.Fatal("Got no listeners!")
 				}
@@ -179,7 +179,7 @@ func BenchmarkNameTableGeneration(b *testing.B) {
 			b.ResetTimer()
 			var c model.Resources
 			for n := 0; n < b.N; n++ {
-				c = s.Discovery.Generators[v3.NameTableType].Generate(proxy, s.PushContext(), nil, nil)
+				c, _ = s.Discovery.Generators[v3.NameTableType].Generate(proxy, s.PushContext(), nil, nil)
 				if len(c) == 0 && tt.ProxyType != model.Router {
 					b.Fatal("Got no name tables!")
 				}
@@ -222,7 +222,7 @@ func BenchmarkSecretGeneration(b *testing.B) {
 			b.ResetTimer()
 			var c model.Resources
 			for n := 0; n < b.N; n++ {
-				c = gen.Generate(proxy, s.PushContext(), res, &model.PushRequest{Full: true})
+				c, _ = gen.Generate(proxy, s.PushContext(), res, &model.PushRequest{Full: true})
 				if len(c) == 0 {
 					b.Fatal("Got no secrets!")
 				}
@@ -268,7 +268,7 @@ func BenchmarkEndpointGeneration(b *testing.B) {
 					l := s.Discovery.generateEndpoints(NewEndpointBuilder(fmt.Sprintf("outbound|80||foo-%d.com", svc), proxy, push))
 					loadAssignments = append(loadAssignments, util.MessageToAny(l))
 				}
-				response = endpointDiscoveryResponse(loadAssignments, version, push.Version)
+				response = endpointDiscoveryResponse(loadAssignments, version, push.LedgerVersion)
 			}
 			logDebug(b, response.GetResources())
 		})

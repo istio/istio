@@ -40,6 +40,14 @@ func TestKubeInject(t *testing.T) {
 				" "),
 			goldenFilename: "testdata/deployment/hello.yaml.injected",
 		},
+		{ // case 3
+			args: strings.Split(
+				"kube-inject --meshConfigFile testdata/mesh-config.yaml"+
+					" --injectConfigFile testdata/inject-config-inline.yaml -f testdata/deployment/hello.yaml"+
+					" --valuesFile testdata/inject-values.yaml",
+				" "),
+			goldenFilename: "testdata/deployment/hello.yaml.injected",
+		},
 	}
 
 	for i, c := range cases {

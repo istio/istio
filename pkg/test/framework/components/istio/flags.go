@@ -46,4 +46,6 @@ func init() {
 		"Manual overrides for Helm values file. Only valid when deploying Istio.")
 	flag.BoolVar(&settingsFromCommandline.DeployEastWestGW, "istio.test.kube.deployEastWestGW", settingsFromCommandline.DeployEastWestGW,
 		"Deploy Istio east west gateway into the target Kubernetes environment.")
+	flag.BoolVar(&settingsFromCommandline.DeployHelm, "istio.test.helm.deploy", settingsFromCommandline.DeployHelm,
+		"Deploy Istio into the target Kubernetes environment with Helm.")
 }

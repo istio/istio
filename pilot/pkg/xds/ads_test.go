@@ -14,7 +14,6 @@
 package xds_test
 
 import (
-	"context"
 	"fmt"
 	"reflect"
 	"testing"
@@ -24,7 +23,6 @@ import (
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	"google.golang.org/genproto/googleapis/rpc/status"
 
-	mesh "istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
@@ -36,14 +34,9 @@ import (
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/protocol"
-	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/config/schema/gvk"
-	istioagent "istio.io/istio/pkg/istio-agent"
-	"istio.io/istio/pkg/security"
-	"istio.io/istio/pkg/spiffe"
-	"istio.io/istio/tests/util"
+	"istio.io/istio/pkg/test/util/retry"
 	"istio.io/istio/tests/util/leak"
-	"istio.io/pkg/log"
 )
 
 const (
@@ -51,118 +44,8 @@ const (
 	routeB = "https.443.https.my-gateway.testns"
 )
 
-type clientSecrets struct {
-	security.SecretItem
-}
-
-func (sc *clientSecrets) GenerateSecret(ctx context.Context, connectionID, resourceName, token string) (*security.SecretItem, error) {
-	return &sc.SecretItem, nil
-}
-
-// TODO: must fix SDS, it uses existence to detect it's an ACK !!
-func (sc *clientSecrets) SecretExist(connectionID, resourceName, token, version string) bool {
-	return false
-}
-
-// DeleteSecret deletes a secret by its key from cache.
-func (sc *clientSecrets) DeleteSecret(connectionID, resourceName string) {
-}
-
-// TestAgent will start istiod with TLS enabled, use the istio-agent to connect, and then
-// use the ADSC to connect to the agent proxy.
-func TestAgent(t *testing.T) {
-	// TODO: fix leak and add leak.Check(t)
-	// Start Istiod
-	bs, tearDown := initLocalPilotTestEnv(t)
-	defer tearDown()
-
-	// TODO: when authz is implemented, verify labels are checked.
-	cert, key, err := bs.CA.GenKeyCert([]string{spiffe.Identity{"cluster.local", "test", "sa"}.String()}, 1*time.Hour, true)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	creds := &clientSecrets{
-		security.SecretItem{
-			PrivateKey:       key,
-			CertificateChain: cert,
-			RootCert:         bs.CA.GetCAKeyCertBundle().GetRootCertPem(),
-		},
-	}
-
-	t.Run("agentProxy", func(t *testing.T) {
-		// Start the istio-agent (proxy and SDS part) - will connect to XDS
-		sa := istioagent.NewAgent(&mesh.ProxyConfig{
-			DiscoveryAddress:       util.MockPilotSGrpcAddr,
-			ControlPlaneAuthPolicy: mesh.AuthenticationPolicy_MUTUAL_TLS,
-		}, &istioagent.AgentConfig{
-			// Enable proxy - off by default, will be XDS_LOCAL env in install.
-			LocalXDSGeneratorListenAddress: "127.0.0.1:15002",
-		}, &security.Options{
-			PilotCertProvider: "custom",
-			ClusterID:         "kubernetes",
-		})
-
-		// Override agent auth - start will use this instead of a gRPC
-		// TODO: add a test for cert-based config.
-		// TODO: add a test for JWT-based ( using some mock OIDC in Istiod)
-		sa.WorkloadSecrets = creds
-		sa.RootCert = creds.RootCert
-		_, err = sa.Start(true, "test")
-		if err != nil {
-			t.Fatal(err)
-		}
-
-		// connect to the local XDS proxy - it's using a transient port.
-		ldsr, err := adsc.New(sa.GetLocalXDSGeneratorListener().Addr().String(),
-			&adsc.Config{
-				IP:        "10.11.10.1",
-				Namespace: "test",
-				RootCert:  creds.RootCert,
-				InitialDiscoveryRequests: []*discovery.DiscoveryRequest{
-					{TypeUrl: v3.ClusterType},
-					{TypeUrl: collections.IstioNetworkingV1Alpha3Serviceentries.Resource().GroupVersionKind().String()},
-				},
-			})
-		if err != nil {
-			t.Fatal("Failed to connect", err)
-		}
-		defer ldsr.Close()
-		if err := ldsr.Run(); err != nil {
-			t.Fatal("ADSC: failed running ", err)
-		}
-
-		r, err := ldsr.WaitVersion(5*time.Second, collections.IstioNetworkingV1Alpha3Serviceentries.Resource().GroupVersionKind().String(), "")
-		if err != nil {
-			t.Fatal(err)
-		}
-		if len(r.Resources) == 0 {
-			t.Fatalf("Got no resources")
-		}
-	})
-	t.Run("adscTLSDirect", func(t *testing.T) {
-		testAdscTLS(t, creds)
-	})
-}
-
-// testAdscTLS tests that ADSC helper can connect using TLS to Istiod
-func testAdscTLS(t *testing.T, creds security.SecretManager) {
-	// connect to the local XDS proxy - it's using a transient port.
-	ldsr, err := adsc.New(util.MockPilotSGrpcAddr,
-		&adsc.Config{
-			IP:            "10.11.10.1",
-			Namespace:     "test",
-			SecretManager: creds,
-			InitialDiscoveryRequests: []*discovery.DiscoveryRequest{
-				{TypeUrl: v3.ClusterType},
-				{TypeUrl: xds.TypeURLConnect},
-				{TypeUrl: collections.IstioNetworkingV1Alpha3Serviceentries.Resource().GroupVersionKind().String()},
-			},
-		})
-	if err != nil {
-		t.Fatal("Failed to connect", err)
-	}
-	defer ldsr.Close()
+func TestMain(m *testing.M) {
+	leak.CheckMain(m)
 }
 
 func TestStatusEvents(t *testing.T) {
@@ -918,7 +801,6 @@ func TestBlockedPush(t *testing.T) {
 		ads.ExpectResponse()
 	})
 	t.Run("flow control enabled NACK", func(t *testing.T) {
-		log.FindScope("ads").SetOutputLevel(log.DebugLevel)
 		features.EnableFlowControl = true
 		s := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{})
 		ads := s.ConnectADS().WithType(v3.ClusterType)
@@ -986,7 +868,7 @@ func TestEnvoyRDSUpdatedRouteRequest(t *testing.T) {
 	expectRoutes(resp, routeA)
 }
 
-func TestXdsCache(t *testing.T) {
+func TestEdsCache(t *testing.T) {
 	makeEndpoint := func(addr []*networking.WorkloadEntry) config.Config {
 		return config.Config{
 			Meta: config.Meta{
@@ -1008,12 +890,15 @@ func TestXdsCache(t *testing.T) {
 	}
 	assertEndpoints := func(a *adsc.ADSC, addr ...string) {
 		t.Helper()
-		got := sets.NewSet(xdstest.ExtractEndpoints(a.GetEndpoints()["outbound|80||foo.com"])...)
-		want := sets.NewSet(addr...)
+		retry.UntilSuccessOrFail(t, func() error {
+			got := sets.NewSet(xdstest.ExtractEndpoints(a.GetEndpoints()["outbound|80||foo.com"])...)
+			want := sets.NewSet(addr...)
 
-		if !got.Equals(want) {
-			t.Fatalf("invalid endpoints, got %v want %v", got, addr)
-		}
+			if !got.Equals(want) {
+				return fmt.Errorf("invalid endpoints, got %v want %v", got, addr)
+			}
+			return nil
+		}, retry.Timeout(time.Second*5))
 	}
 
 	s := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{
@@ -1027,7 +912,7 @@ func TestXdsCache(t *testing.T) {
 	ads := s.Connect(&model.Proxy{Locality: &core.Locality{Region: "region"}}, nil, watchAll)
 
 	assertEndpoints(ads, "1.2.3.4:80", "1.2.3.5:80")
-	t.Logf("endpoints: %+v", ads.GetEndpoints())
+	t.Logf("endpoints: %+v", xdstest.ExtractEndpoints(ads.GetEndpoints()["outbound|80||foo.com"]))
 
 	if _, err := s.Store().Update(makeEndpoint([]*networking.WorkloadEntry{
 		{Address: "1.2.3.6", Locality: "region/zone"},
@@ -1039,7 +924,7 @@ func TestXdsCache(t *testing.T) {
 		t.Fatal(err)
 	}
 	assertEndpoints(ads, "1.2.3.6:80", "1.2.3.5:80")
-	t.Logf("endpoints: %+v", ads.GetEndpoints())
+	t.Logf("endpoints: %+v", xdstest.ExtractEndpoints(ads.GetEndpoints()["outbound|80||foo.com"]))
 
 	ads.WaitClear()
 	if _, err := s.Store().Create(config.Config{
@@ -1061,16 +946,19 @@ func TestXdsCache(t *testing.T) {
 		t.Fatal(err)
 	}
 	assertEndpoints(ads, "1.2.3.6:80", "1.2.3.5:80")
-	found := false
-	for _, ep := range ads.GetEndpoints()["outbound|80||foo.com"].Endpoints {
-		if ep.Priority == 1 {
-			found = true
+	retry.UntilSuccessOrFail(t, func() error {
+		found := false
+		for _, ep := range ads.GetEndpoints()["outbound|80||foo.com"].Endpoints {
+			if ep.Priority == 1 {
+				found = true
+			}
 		}
-	}
-	if !found {
-		t.Fatalf("locality did not update")
-	}
-	t.Logf("endpoints: %+v", ads.GetEndpoints())
+		if !found {
+			return fmt.Errorf("locality did not update")
+		}
+		return nil
+	}, retry.Timeout(time.Second*5))
+
 	ads.WaitClear()
 
 	ep := makeEndpoint([]*networking.WorkloadEntry{{Address: "1.2.3.6", Locality: "region/zone"}, {Address: "1.2.3.5", Locality: "notmatch"}})

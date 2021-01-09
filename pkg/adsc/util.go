@@ -15,25 +15,15 @@
 package adsc
 
 import (
-	"context"
 	"crypto/tls"
-	"io/ioutil"
 
 	"istio.io/istio/security/pkg/nodeagent/cache"
-	"istio.io/pkg/log"
 )
 
 func getClientCertFn(config *Config) func(requestInfo *tls.CertificateRequestInfo) (*tls.Certificate, error) {
 	if config.SecretManager != nil {
 		return func(requestInfo *tls.CertificateRequestInfo) (*tls.Certificate, error) {
-			tok, err := ioutil.ReadFile(config.JWTPath)
-			if err != nil {
-				log.Infof("Failed to get credential token in agent: %v", err)
-				tok = []byte("")
-			}
-
-			key, err := config.SecretManager.GenerateSecret(context.Background(), "agent",
-				cache.WorkloadKeyCertResourceName, string(tok))
+			key, err := config.SecretManager.GenerateSecret(cache.WorkloadKeyCertResourceName)
 			if err != nil {
 				return nil, err
 			}

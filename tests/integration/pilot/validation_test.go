@@ -85,53 +85,55 @@ func TestValidation(t *testing.T) {
 					strings.Contains(err.Error(), "is invalid")
 			}
 
-			for i := range dataset {
-				d := dataset[i]
-				ctx.NewSubTest(string(d)).RunParallel(func(ctx framework.TestContext) {
-					if d.isSkipped() {
-						ctx.SkipNow()
-						return
-					}
-
-					ym, err := d.load()
-					if err != nil {
-						ctx.Fatalf("Unable to load test data: %v", err)
-					}
-
-					ns := namespace.NewOrFail(t, ctx, namespace.Config{
-						Prefix: "validation",
-					})
-
-					applyFiles := ctx.WriteYAMLOrFail(ctx, "apply", ym)
-					dryRunErr := ctx.Clusters().Default().ApplyYAMLFilesDryRun(ns.Name(), applyFiles...)
-
-					switch {
-					case dryRunErr != nil && d.isValid():
-						if denied(dryRunErr) {
-							ctx.Fatalf("got unexpected for valid config: %v", dryRunErr)
-						} else {
-							ctx.Fatalf("got unexpected unknown error for valid config: %v", dryRunErr)
+			for _, cluster := range ctx.Clusters().Primaries() {
+				for i := range dataset {
+					d := dataset[i]
+					ctx.NewSubTest(string(d)).RunParallel(func(ctx framework.TestContext) {
+						if d.isSkipped() {
+							ctx.SkipNow()
+							return
 						}
-					case dryRunErr == nil && !d.isValid():
-						ctx.Fatalf("got unexpected success for invalid config")
-					case dryRunErr != nil && !d.isValid():
-						if !denied(dryRunErr) {
-							ctx.Fatalf("config request denied for wrong reason: %v", dryRunErr)
+
+						ym, err := d.load()
+						if err != nil {
+							ctx.Fatalf("Unable to load test data: %v", err)
 						}
-					}
 
-					wetRunErr := ctx.Clusters().Default().ApplyYAMLFiles(ns.Name(), applyFiles...)
-					ctx.WhenDone(func() error {
-						return ctx.Clusters().Default().DeleteYAMLFiles(ns.Name(), applyFiles...)
+						ns := namespace.NewOrFail(t, ctx, namespace.Config{
+							Prefix: "validation",
+						})
+
+						applyFiles := ctx.WriteYAMLOrFail(ctx, "apply", ym)
+						dryRunErr := cluster.ApplyYAMLFilesDryRun(ns.Name(), applyFiles...)
+
+						switch {
+						case dryRunErr != nil && d.isValid():
+							if denied(dryRunErr) {
+								ctx.Fatalf("got unexpected for valid config: %v", dryRunErr)
+							} else {
+								ctx.Fatalf("got unexpected unknown error for valid config: %v", dryRunErr)
+							}
+						case dryRunErr == nil && !d.isValid():
+							ctx.Fatalf("got unexpected success for invalid config")
+						case dryRunErr != nil && !d.isValid():
+							if !denied(dryRunErr) {
+								ctx.Fatalf("config request denied for wrong reason: %v", dryRunErr)
+							}
+						}
+
+						wetRunErr := cluster.ApplyYAMLFiles(ns.Name(), applyFiles...)
+						ctx.WhenDone(func() error {
+							return cluster.DeleteYAMLFiles(ns.Name(), applyFiles...)
+						})
+
+						if dryRunErr != nil && wetRunErr == nil {
+							ctx.Fatalf("dry run returned error, but wet run returned none: %v", dryRunErr)
+						}
+						if dryRunErr == nil && wetRunErr != nil {
+							ctx.Fatalf("wet run returned errors, but dry run returned none: %v", wetRunErr)
+						}
 					})
-
-					if dryRunErr != nil && wetRunErr == nil {
-						ctx.Fatalf("dry run returned error, but wet run returned none: %v", dryRunErr)
-					}
-					if dryRunErr == nil && wetRunErr != nil {
-						ctx.Fatalf("wet run returned errors, but dry run returned none: %v", wetRunErr)
-					}
-				})
+				}
 			}
 		})
 }

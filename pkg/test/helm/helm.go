@@ -17,6 +17,7 @@ package helm
 import (
 	"fmt"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"istio.io/istio/pkg/test/scopes"
@@ -38,9 +39,27 @@ func New(kubeConfig, baseWorkDir string) *Helm {
 }
 
 // InstallChart installs the specified chart with its given name to the given namespace
+func (h *Helm) InstallChartWithValues(name, relpath, namespace string, values []string, timeout time.Duration) error {
+	p := filepath.Join(h.baseDir, relpath)
+
+	command := fmt.Sprintf("helm install %s %s --namespace %s --kubeconfig %s --timeout %s %s",
+		name, p, namespace, h.kubeConfig, timeout, strings.Join(values, " "))
+	return execCommand(command)
+}
+
+// InstallChart installs the specified chart with its given name to the given namespace
 func (h *Helm) InstallChart(name, relpath, namespace, overridesFile string, timeout time.Duration) error {
 	p := filepath.Join(h.baseDir, relpath)
-	command := fmt.Sprintf("helm install %s %s --namespace %s -f %s --kubeconfig %s --timeout %s", name, p, namespace, overridesFile, h.kubeConfig, timeout)
+	command := fmt.Sprintf("helm install %s %s --namespace %s -f %s --kubeconfig %s --timeout %s",
+		name, p, namespace, overridesFile, h.kubeConfig, timeout)
+	return execCommand(command)
+}
+
+// UpgradeChart upgrades the specified chart with its given name to the given namespace; does not use baseWorkDir
+// but the full path passed
+func (h *Helm) UpgradeChart(name, chartPath, namespace, overridesFile string, timeout time.Duration) error {
+	command := fmt.Sprintf("helm upgrade %s %s --namespace %s -f %s --kubeconfig %s --timeout %s",
+		name, chartPath, namespace, overridesFile, h.kubeConfig, timeout)
 	return execCommand(command)
 }
 

@@ -232,6 +232,8 @@ func TestApplyDestinationRule(t *testing.T) {
 	}
 
 	for _, tt := range cases {
+		// TODO(https://github.com/istio/istio/issues/29735) remove nolint
+		// nolint: staticcheck
 		t.Run(tt.name, func(t *testing.T) {
 			instances := []*model.ServiceInstance{
 				{
@@ -647,7 +649,7 @@ func TestBuildDefaultCluster(t *testing.T) {
 				ClusterDiscoveryType: &cluster.Cluster_Type{Type: cluster.Cluster_EDS},
 				ConnectTimeout:       &duration.Duration{Seconds: 10, Nanos: 1},
 				CircuitBreakers: &cluster.CircuitBreakers{
-					Thresholds: []*cluster.CircuitBreakers_Thresholds{&defaultCircuitBreakerThresholds},
+					Thresholds: []*cluster.CircuitBreakers_Thresholds{getDefaultCircuitBreakerThresholds()},
 				},
 				Metadata: &core.Metadata{
 					FilterMetadata: map[string]*structpb.Struct{
@@ -742,7 +744,7 @@ func TestBuildDefaultCluster(t *testing.T) {
 					},
 				},
 				CircuitBreakers: &cluster.CircuitBreakers{
-					Thresholds: []*cluster.CircuitBreakers_Thresholds{&defaultCircuitBreakerThresholds},
+					Thresholds: []*cluster.CircuitBreakers_Thresholds{getDefaultCircuitBreakerThresholds()},
 				},
 				Metadata: &core.Metadata{
 					FilterMetadata: map[string]*structpb.Struct{

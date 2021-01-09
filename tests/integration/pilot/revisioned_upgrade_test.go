@@ -19,7 +19,6 @@ import (
 	"fmt"
 	"strings"
 	"testing"
-	"time"
 
 	"github.com/hashicorp/go-multierror"
 
@@ -29,8 +28,7 @@ import (
 	"istio.io/istio/pkg/test/framework/components/echo/echoboot"
 	"istio.io/istio/pkg/test/framework/components/namespace"
 	kubetest "istio.io/istio/pkg/test/kube"
-	"istio.io/istio/pkg/test/shell"
-	"istio.io/istio/pkg/test/util/retry"
+	"istio.io/pkg/log"
 )
 
 // TestRevisionedUpgrade tests a revision-based upgrade from the specified versions to current master
@@ -87,44 +85,38 @@ func testUpgradeFromVersion(ctx framework.TestContext, t *testing.T, fromVersion
 	sendSimpleTrafficOrFail(t, revisionedInstance)
 
 	if err := enableDefaultInjection(revisionedNamespace); err != nil {
-		t.Fatalf("could not relabel namespace to enable default injection: %v", err)
-	}
-	if err := restartNamespaceDeployments(revisionedNamespace.Name()); err != nil {
-		t.Fatalf("failed to rollout deployments in namespace %s: %v", revisionedNamespace.Name(), err)
+		ctx.Fatalf("could not relabel namespace to enable default injection: %v", err)
 	}
 
-	// ensure that rollout completes with pods running updated proxies
-	retry.UntilSuccessOrFail(t, func() error {
-		fetch := kubetest.NewPodMustFetch(ctx.Clusters().Default(), revisionedInstance.Config().Namespace.Name(), fmt.Sprintf("app=%s", revisionedInstance.Config().Service)) // nolint: lll
-		pods, _ := kubetest.CheckPodsAreReady(fetch)
-
-		if len(pods) >= 1 {
-			return fmt.Errorf("rollout in progress, multiple instances exist")
-		}
-
-		// all containers must be with tag "latest" for rollout to be considered finished
-		for _, p := range pods {
-			for _, c := range p.Spec.Containers {
-				if !strings.Contains(c.Image, ":latest") {
-					return fmt.Errorf("rollout in progress, pods not updated to latest")
-				}
+	log.Infof("rolling out echo workloads behind service %q", revisionedInstance.Config().Service)
+	if err := revisionedInstance.Restart(); err != nil {
+		ctx.Fatalf("revisioned instance rollout failed with: %v", err)
+	}
+	fetch := kubetest.NewPodMustFetch(ctx.Clusters().Default(), revisionedInstance.Config().Namespace.Name(), fmt.Sprintf("app=%s", revisionedInstance.Config().Service)) // nolint: lll
+	pods, err := kubetest.CheckPodsAreReady(fetch)
+	if err != nil {
+		ctx.Fatalf("failed to retrieve upgraded pods: %v", err)
+	}
+	for _, p := range pods {
+		for _, c := range p.Spec.Containers {
+			if strings.Contains(c.Image, fromVersion) {
+				ctx.Fatalf("expected post-upgrade container image not to include %q, got %s", fromVersion, c.Image)
 			}
 		}
+	}
 
-		return nil
-	}, retry.Delay(time.Second*2), retry.Timeout(time.Second*30))
 	sendSimpleTrafficOrFail(t, revisionedInstance)
 }
 
 // sendSimpleTrafficOrFail sends an echo call to the upgrading echo instance
-func sendSimpleTrafficOrFail(t *testing.T, i echo.Instance) {
-	t.Helper()
+func sendSimpleTrafficOrFail(ctx *testing.T, i echo.Instance) {
+	ctx.Helper()
 	resp, err := apps.PodA[0].Call(echo.CallOptions{
 		Target:   i,
 		PortName: "http",
 	})
 	if resp.CheckOK() != nil {
-		t.Fatalf("error in call: %v", err)
+		ctx.Fatalf("error in call: %v", err)
 	}
 }
 
@@ -134,11 +126,4 @@ func enableDefaultInjection(ns namespace.Instance) error {
 	errs = multierror.Append(errs, ns.SetLabel("istio-injection", "enabled"))
 	errs = multierror.Append(errs, ns.RemoveLabel("istio.io/rev"))
 	return errs.ErrorOrNil()
-}
-
-// restartNamespaceDeployments performs a `kubectl rollout restart` on the provided namespace
-func restartNamespaceDeployments(namespace string) error {
-	execCmd := fmt.Sprintf("kubectl rollout restart deployment -n %s", namespace)
-	_, err := shell.Execute(true, execCmd)
-	return err
 }

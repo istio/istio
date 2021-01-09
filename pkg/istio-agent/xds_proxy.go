@@ -37,7 +37,6 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/credentials"
-	"google.golang.org/grpc/credentials/oauth"
 	"google.golang.org/grpc/keepalive"
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/reflection"
@@ -52,6 +51,7 @@ import (
 	"istio.io/istio/pkg/istio-agent/metrics"
 	"istio.io/istio/pkg/mcp/status"
 	"istio.io/istio/pkg/uds"
+	"istio.io/istio/security/pkg/nodeagent/caclient"
 	"istio.io/pkg/log"
 )
 
@@ -60,10 +60,6 @@ const (
 	defaultInitialConnWindowSize       = 1024 * 1024     // default gRPC InitialWindowSize
 	defaultInitialWindowSize           = 1024 * 1024     // default gRPC ConnWindowSize
 	sendTimeout                        = 5 * time.Second // default upstream send timeout.
-)
-
-const (
-	xdsUdsPath = "./etc/istio/proxy/XDS"
 )
 
 // XDS Proxy proxies all XDS requests from envoy to istiod, in addition to allowing
@@ -83,6 +79,7 @@ type XdsProxy struct {
 	localDNSServer       *dns.LocalDNSServer
 	healthChecker        *health.WorkloadHealthChecker
 	xdsHeaders           map[string]string
+	xdsUdsPath           string
 
 	// connected stores the active gRPC stream. The proxy will only have 1 connection at a time
 	connected      *ProxyConnection
@@ -114,9 +111,10 @@ func initXdsProxy(ia *Agent) (*XdsProxy, error) {
 		stopChan:       make(chan struct{}),
 		healthChecker:  health.NewWorkloadHealthChecker(ia.proxyConfig.ReadinessProbe, envoyProbe),
 		xdsHeaders:     ia.cfg.XDSHeaders,
+		xdsUdsPath:     ia.cfg.XdsUdsPath,
 	}
 
-	proxyLog.Infof("Initializing with upstream address %s and cluster %s", proxy.istiodAddress, proxy.clusterID)
+	proxyLog.Infof("Initializing with upstream address %q and cluster %q", proxy.istiodAddress, proxy.clusterID)
 
 	if err = proxy.initDownstreamServer(); err != nil {
 		return nil, err
@@ -168,18 +166,23 @@ func (p *XdsProxy) PersistRequest(req *discovery.DiscoveryRequest) {
 	}
 }
 
-func (p *XdsProxy) UnregisterStream() {
+func (p *XdsProxy) UnregisterStream(c *ProxyConnection) {
 	p.connectedMutex.Lock()
 	defer p.connectedMutex.Unlock()
-	if p.connected != nil {
+	if p.connected != nil && p.connected == c {
+		proxyLog.Warnf("unregister stream")
 		close(p.connected.stopChan)
+		p.connected = nil
 	}
-	p.connected = nil
 }
 
 func (p *XdsProxy) RegisterStream(c *ProxyConnection) {
 	p.connectedMutex.Lock()
 	defer p.connectedMutex.Unlock()
+	if p.connected != nil {
+		proxyLog.Warnf("registered overlapping stream; closing previous")
+		close(p.connected.stopChan)
+	}
 	p.connected = c
 }
 
@@ -209,7 +212,7 @@ func (p *XdsProxy) StreamAggregatedResources(downstream discovery.AggregatedDisc
 	}
 
 	p.RegisterStream(con)
-	defer p.UnregisterStream()
+	defer p.UnregisterStream(con)
 
 	// Handle downstream xds
 	initialRequestsSent := false
@@ -315,6 +318,7 @@ func (p *XdsProxy) HandleUpstream(ctx context.Context, con *ProxyConnection, xds
 			// On downstream error, we will return. This propagates the error to downstream envoy which will trigger reconnect
 			return err
 		case <-con.stopChan:
+			proxyLog.Debugf("stream stopped")
 			return nil
 		}
 	}
@@ -435,7 +439,7 @@ func (ts *fileTokenSource) Token() (*oauth2.Token, error) {
 }
 
 func (p *XdsProxy) initDownstreamServer() error {
-	l, err := uds.NewListener(xdsUdsPath)
+	l, err := uds.NewListener(p.xdsUdsPath)
 	if err != nil {
 		return err
 	}
@@ -489,15 +493,8 @@ func (p *XdsProxy) buildUpstreamClientDialOpts(sa *Agent) ([]grpc.DialOption, er
 		keepaliveOption, initialWindowSizeOption, initialConnWindowSizeOption, msgSizeOption,
 	}
 
-	// TODO: This is not a valid way of detecting if we are on VM vs k8s
-	// Some end users do not use Istiod for CA but run on k8s with file mounted certs
-	// In these cases, while we fallback to mTLS to istiod using the provisioned certs
-	// it would be ideal to keep using token plus k8s ca certs for control plane communication
-	// as the intention behind provisioned certs on k8s pods is only for data plane comm.
-	if sa.proxyConfig.ControlPlaneAuthPolicy != meshconfig.AuthenticationPolicy_NONE {
-		if sa.secOpts.ProvCert == "" || !sa.secOpts.FileMountedCerts {
-			dialOptions = append(dialOptions, grpc.WithPerRPCCredentials(oauth.TokenSource{TokenSource: &fileTokenSource{sa.secOpts.JWTPath}}))
-		}
+	if !sa.secOpts.FileMountedCerts {
+		dialOptions = append(dialOptions, grpc.WithPerRPCCredentials(caclient.NewXDSTokenProvider(sa.secOpts)))
 	}
 	return dialOptions, nil
 }
