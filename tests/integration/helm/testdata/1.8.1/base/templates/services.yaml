@@ -1,0 +1,37 @@
+{{- if .Values.global.remotePilotAddress }}
+  {{- if .Values.pilot.enabled }}
+# when istiod is enabled in remote cluster, we can't use istiod service name
+apiVersion: v1
+kind: Service
+metadata:
+  name: istiod-remote
+  namespace: {{ .Release.Namespace }}
+spec:
+  ports:
+  - port: 15012
+    name: tcp-istiod
+    protocol: TCP
+  clusterIP: None
+  {{- else }}
+# when istiod isn't enabled in remote cluster, we can use istiod service name
+apiVersion: v1
+kind: Service
+metadata:
+  name: istiod
+  namespace: {{ .Release.Namespace }}
+spec:
+  ports:
+  - port: 15012
+    name: tcp-istiod
+    protocol: TCP
+  # if the remotePilotAddress is IP addr, we use clusterIP: None.
+  # else, we use externalName
+  {{- if regexMatch "^([0-9]*\\.){3}[0-9]*$" .Values.global.remotePilotAddress }}
+  clusterIP: None
+  {{- else }}
+  type: ExternalName
+  externalName: {{ .Values.global.remotePilotAddress }}
+  {{- end }}
+  {{- end }}
+---
+{{- end }}

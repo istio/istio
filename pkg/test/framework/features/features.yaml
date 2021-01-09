@@ -128,7 +128,10 @@ features:
       centralremotekubeconfig:
     helm:
       default:
+        install:
+        upgrade:
       firstpartyjwt:
+        install:
     upgrade:
   # describes internal build and testing infrastrcuture
   infrastructure:

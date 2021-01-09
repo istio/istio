@@ -1,0 +1,78 @@
+{{ $gateway := index .Values "gateways" "istio-ingressgateway" }}
+{{- if .Values.global.multiCluster.enabled }}
+apiVersion: networking.istio.io/v1alpha3
+kind: Gateway
+metadata:
+  name: istio-multicluster-ingressgateway
+  namespace: {{ .Release.Namespace }}
+  labels:
+{{ $gateway.labels | toYaml | indent 4 }}
+    release: {{ .Release.Name }}
+    istio.io/rev: {{ .Values.revision | default "default" }}
+    install.operator.istio.io/owning-resource: {{ .Values.ownerName | default "unknown" }}
+    operator.istio.io/component: "IngressGateways"
+spec:
+  selector:
+    istio: ingressgateway
+  servers:
+  - hosts:
+    - "*.{{ .Values.global.multiCluster.globalDomainSuffix | trim }}"
+    port:
+      name: tls
+      number: 15443
+      protocol: TLS
+    tls:
+      mode: AUTO_PASSTHROUGH
+---
+{{- if .Values.global.multiCluster.includeEnvoyFilter }}
+apiVersion: networking.istio.io/v1alpha3
+kind: EnvoyFilter
+metadata:
+  name: istio-multicluster-ingressgateway
+  namespace: {{ .Release.Namespace }}
+  labels:
+{{ $gateway.labels | toYaml | indent 4 }}
+    release: {{ .Release.Name }}
+spec:
+  workloadSelector:
+    labels:
+      istio: ingressgateway
+  configPatches:
+  - applyTo: NETWORK_FILTER
+    match:
+      context: GATEWAY
+      listener:
+        portNumber: 15443
+        filterChain:
+          filter:
+            name: "envoy.filters.network.sni_cluster"
+    patch:
+      operation: INSERT_AFTER
+      value:
+        name: "envoy.filters.network.tcp_cluster_rewrite"
+        typed_config:
+          "@type": "type.googleapis.com/istio.envoy.config.filter.network.tcp_cluster_rewrite.v2alpha1.TcpClusterRewrite"
+          cluster_pattern: "\\.{{ .Values.global.multiCluster.globalDomainSuffix | trim }}$"
+          cluster_replacement: ".svc.{{ .Values.global.proxy.clusterDomain }}"
+---
+{{- end }}
+## To ensure all traffic to globalDomainSuffix is using mTLS
+apiVersion: networking.istio.io/v1alpha3
+kind: DestinationRule
+metadata:
+  name: istio-multicluster-ingressgateway
+  namespace: {{ .Release.Namespace }}
+  labels:
+{{ $gateway.labels | toYaml | indent 4 }}
+    release: {{ .Release.Name }}
+spec:
+  host: "*.{{ .Values.global.multiCluster.globalDomainSuffix | trim }}"
+  {{- if .Values.global.defaultConfigVisibilitySettings }}
+  exportTo:
+  - '*'
+  {{- end }}
+  trafficPolicy:
+    tls:
+      mode: ISTIO_MUTUAL
+---
+{{- end }}
