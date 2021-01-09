@@ -15,6 +15,8 @@
 package v1alpha3
 
 import (
+	"net"
+
 	"istio.io/istio/pilot/pkg/model"
 	nds "istio.io/istio/pilot/pkg/proto"
 	"istio.io/istio/pilot/pkg/serviceregistry"
@@ -90,6 +92,11 @@ func (configgen *ConfigGeneratorImpl) BuildNameTable(node *model.Proxy, push *mo
 				continue
 			}
 		} else {
+			// Filter out things we cannot parse as IP. Generally this means CIDRs, as anything else
+			// should be caught in validation.
+			if addr := net.ParseIP(svcAddress); addr == nil {
+				continue
+			}
 			addressList = append(addressList, svcAddress)
 		}
 

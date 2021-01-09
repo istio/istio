@@ -1,3 +1,0 @@
-SERVICE FQDN                                    PORT      SUBSET     DIRECTION     TYPE
-istio-policy.istio-system.svc.cluster.local     15004     -          outbound      EDS
-xds-grpc                                        -         -          -             STRICT_DNS

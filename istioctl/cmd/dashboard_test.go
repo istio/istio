@@ -30,76 +30,76 @@ func TestDashboard(t *testing.T) {
 
 	cases := []testCase{
 		{ // case 0
-			args:           strings.Split("dashboard", " "),
+			args:           strings.Split("dashboard --browser=false", " "),
 			expectedRegexp: regexp.MustCompile("Access to Istio web UIs"),
 		},
 		{ // case 1
-			args:           strings.Split("dashboard invalid", " "),
+			args:           strings.Split("dashboard invalid --browser=false", " "),
 			expectedRegexp: regexp.MustCompile(`unknown dashboard "invalid"`),
 			wantException:  true,
 		},
 		{ // case 2
-			args:           strings.Split("dashboard controlz", " "),
+			args:           strings.Split("dashboard controlz --browser=false", " "),
 			expectedRegexp: regexp.MustCompile(".*Error: specify a pod or --selector"),
 			wantException:  true,
 		},
 		{ // case 3
-			args:           strings.Split("dashboard controlz pod-123456-7890", " "),
+			args:           strings.Split("dashboard controlz --browser=false pod-123456-7890", " "),
 			expectedRegexp: regexp.MustCompile(".*http://localhost:3456"),
 			wantException:  false,
 		},
 		{ // case 4
-			args:           strings.Split("dashboard envoy", " "),
+			args:           strings.Split("dashboard envoy --browser=false", " "),
 			expectedRegexp: regexp.MustCompile(".*Error: specify a pod or --selector"),
 			wantException:  true,
 		},
 		{ // case 5
-			args:           strings.Split("dashboard envoy pod-123456-7890", " "),
+			args:           strings.Split("dashboard envoy --browser=false pod-123456-7890", " "),
 			expectedRegexp: regexp.MustCompile("http://localhost:3456"),
 			wantException:  false,
 		},
 		{ // case 6
-			args:           strings.Split("dashboard grafana", " "),
+			args:           strings.Split("dashboard grafana --browser=false", " "),
 			expectedOutput: "Error: no Grafana pods found\n",
 			wantException:  true,
 		},
 		{ // case 7
-			args:           strings.Split("dashboard jaeger", " "),
+			args:           strings.Split("dashboard jaeger --browser=false", " "),
 			expectedOutput: "Error: no Jaeger pods found\n",
 			wantException:  true,
 		},
 		{ // case 8
-			args:           strings.Split("dashboard kiali", " "),
+			args:           strings.Split("dashboard kiali --browser=false", " "),
 			expectedOutput: "Error: no Kiali pods found\n",
 			wantException:  true,
 		},
 		{ // case 9
-			args:           strings.Split("dashboard prometheus", " "),
+			args:           strings.Split("dashboard prometheus --browser=false", " "),
 			expectedOutput: "Error: no Prometheus pods found\n",
 			wantException:  true,
 		},
 		{ // case 10
-			args:           strings.Split("dashboard zipkin", " "),
+			args:           strings.Split("dashboard zipkin --browser=false", " "),
 			expectedOutput: "Error: no Zipkin pods found\n",
 			wantException:  true,
 		},
 		{ // case 11
-			args:           strings.Split("dashboard envoy --selector app=example", " "),
+			args:           strings.Split("dashboard envoy --selector app=example --browser=false", " "),
 			expectedRegexp: regexp.MustCompile(".*no pods found"),
 			wantException:  true,
 		},
 		{ // case 12
-			args:           strings.Split("dashboard envoy --selector app=example pod-123456-7890", " "),
+			args:           strings.Split("dashboard envoy --browser=false --selector app=example pod-123456-7890", " "),
 			expectedRegexp: regexp.MustCompile(".*Error: name cannot be provided when a selector is specified"),
 			wantException:  true,
 		},
 		{ // case 13
-			args:           strings.Split("dashboard controlz --selector app=example", " "),
+			args:           strings.Split("dashboard --browser=false controlz --selector app=example", " "),
 			expectedRegexp: regexp.MustCompile(".*no pods found"),
 			wantException:  true,
 		},
 		{ // case 14
-			args:           strings.Split("dashboard controlz --selector app=example pod-123456-7890", " "),
+			args:           strings.Split("dashboard --browser=false controlz --selector app=example pod-123456-7890", " "),
 			expectedRegexp: regexp.MustCompile(".*Error: name cannot be provided when a selector is specified"),
 			wantException:  true,
 		},

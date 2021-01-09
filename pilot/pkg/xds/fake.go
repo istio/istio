@@ -25,6 +25,7 @@ import (
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	endpoint "github.com/envoyproxy/go-control-plane/envoy/config/endpoint/v3"
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
+	sds "github.com/envoyproxy/go-control-plane/envoy/service/secret/v3"
 	"google.golang.org/genproto/googleapis/rpc/status"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/test/bufconn"
@@ -52,6 +53,8 @@ import (
 	"istio.io/istio/pkg/keepalive"
 	kubelib "istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/test"
+	"istio.io/istio/pkg/test/util/retry"
+	"istio.io/pkg/log"
 )
 
 type FakeOptions struct {
@@ -122,6 +125,14 @@ func NewFakeDiscoveryServer(t test.Failer, opts FakeOptions) *FakeDiscoveryServe
 	var defaultKubeClient kubelib.Client
 	var defaultKubeController *kube.FakeController
 	var registries []serviceregistry.Instance
+	if opts.NetworksWatcher != nil {
+		opts.NetworksWatcher.AddNetworksHandler(func() {
+			s.ConfigUpdate(&model.PushRequest{
+				Full:   true,
+				Reason: []model.TriggerReason{model.GlobalUpdate},
+			})
+		})
+	}
 	for cluster, objs := range k8sObjects {
 		client := kubelib.NewFakeClient(objs...)
 		k8s, _ := kube.NewFakeControllerWithOptions(kube.FakeControllerOptions{
@@ -235,11 +246,23 @@ func NewFakeDiscoveryServer(t test.Failer, opts FakeOptions) *FakeDiscoveryServe
 	cache.WaitForCacheSync(stop,
 		cg.Registry.HasSynced,
 		cg.Store().HasSynced)
-	s.CachesSynced()
 	cg.ServiceEntryRegistry.ResyncEDS()
+
+	// Send an update. This ensures that even if there are no configs provided, the push context is
+	// initialized.
+	s.ConfigUpdate(&model.PushRequest{Full: true})
 
 	// Now that handlers are added, get everything started
 	cg.Run()
+
+	// Wait until initial updates are committed
+	c := s.InboundUpdates.Load()
+	retry.UntilOrFail(t, func() bool {
+		return s.CommittedUpdates.Load() >= c
+	}, retry.Delay(time.Millisecond))
+
+	// Mark ourselves ready
+	s.CachesSynced()
 
 	fake := &FakeDiscoveryServer{
 		t:             t,
@@ -249,10 +272,6 @@ func NewFakeDiscoveryServer(t test.Failer, opts FakeOptions) *FakeDiscoveryServe
 		kubeClient:    defaultKubeClient,
 		KubeRegistry:  defaultKubeController,
 	}
-
-	// currently meshNetworks gateways are stored on the push context
-	fake.refreshPushContext()
-	cg.Env().AddNetworksHandler(fake.refreshPushContext)
 
 	return fake
 }
@@ -275,12 +294,7 @@ func (f *FakeDiscoveryServer) ConnectADS() *AdsTest {
 	if err != nil {
 		f.t.Fatalf("failed to connect: %v", err)
 	}
-	xds := discovery.NewAggregatedDiscoveryServiceClient(conn)
-	client, err := xds.StreamAggregatedResources(context.Background())
-	if err != nil {
-		f.t.Fatalf("stream resources failed: %s", err)
-	}
-	return NewAdsTest(f.t, conn, client)
+	return NewAdsTest(f.t, conn)
 }
 
 // Connect starts an ADS connection to the server using adsc. It will automatically be cleaned up when the test ends
@@ -339,16 +353,6 @@ func (f *FakeDiscoveryServer) Endpoints(p *model.Proxy) []*endpoint.ClusterLoadA
 	return loadAssignments
 }
 
-func (f *FakeDiscoveryServer) refreshPushContext() {
-	_, err := f.Discovery.initPushContext(&model.PushRequest{
-		Full:   true,
-		Reason: []model.TriggerReason{model.GlobalUpdate},
-	}, nil)
-	if err != nil {
-		f.t.Fatal(err)
-	}
-}
-
 func getKubernetesObjects(t test.Failer, opts FakeOptions) map[string][]runtime.Object {
 	objects := map[string][]runtime.Object{}
 
@@ -381,18 +385,38 @@ func getKubernetesObjects(t test.Failer, opts FakeOptions) map[string][]runtime.
 	return objects
 }
 
-func NewAdsTest(t test.Failer, conn *grpc.ClientConn, client DiscoveryClient) *AdsTest {
+func NewAdsTest(t test.Failer, conn *grpc.ClientConn) *AdsTest {
+	return NewXdsTest(t, conn, func(conn *grpc.ClientConn) (DiscoveryClient, error) {
+		xds := discovery.NewAggregatedDiscoveryServiceClient(conn)
+		return xds.StreamAggregatedResources(context.Background())
+	})
+}
+
+func NewSdsTest(t test.Failer, conn *grpc.ClientConn) *AdsTest {
+	return NewXdsTest(t, conn, func(conn *grpc.ClientConn) (DiscoveryClient, error) {
+		xds := sds.NewSecretDiscoveryServiceClient(conn)
+		return xds.StreamSecrets(context.Background())
+	}).WithType(v3.SecretType)
+}
+
+func NewXdsTest(t test.Failer, conn *grpc.ClientConn, getClient func(conn *grpc.ClientConn) (DiscoveryClient, error)) *AdsTest {
 	ctx, cancel := context.WithCancel(context.Background())
 
+	cl, err := getClient(conn)
+	if err != nil {
+		t.Fatal(err)
+	}
 	resp := &AdsTest{
-		client:        client,
+		client:        cl,
 		conn:          conn,
 		context:       ctx,
 		cancelContext: cancel,
 		t:             t,
 		ID:            "sidecar~1.1.1.1~test.default~default.svc.cluster.local",
+		timeout:       time.Second,
 		Type:          v3.ClusterType,
 		responses:     make(chan *discovery.DiscoveryResponse),
+		error:         make(chan error),
 	}
 	t.Cleanup(resp.Cleanup)
 
@@ -404,8 +428,10 @@ func NewAdsTest(t test.Failer, conn *grpc.ClientConn, client DiscoveryClient) *A
 type AdsTest struct {
 	client    DiscoveryClient
 	responses chan *discovery.DiscoveryResponse
+	error     chan error
 	t         test.Failer
 	conn      *grpc.ClientConn
+	metadata  model.NodeMetadata
 
 	ID   string
 	Type string
@@ -413,6 +439,7 @@ type AdsTest struct {
 	cancelOnce    sync.Once
 	context       context.Context
 	cancelContext context.CancelFunc
+	timeout       time.Duration
 }
 
 func (a *AdsTest) Cleanup() {
@@ -420,7 +447,9 @@ func (a *AdsTest) Cleanup() {
 	a.cancelOnce.Do(func() {
 		a.cancelContext()
 		_ = a.client.CloseSend()
-		_ = a.conn.Close()
+		if a.conn != nil {
+			_ = a.conn.Close()
+		}
 	})
 }
 
@@ -432,13 +461,33 @@ func (a *AdsTest) adsReceiveChannel() {
 	for {
 		resp, err := a.client.Recv()
 		if err != nil {
+			if isUnexpectedError(err) {
+				log.Warnf("ads received error: %v", err)
+			}
+			select {
+			case a.error <- err:
+			case <-a.context.Done():
+			}
 			return
 		}
 		select {
 		case a.responses <- resp:
 		case <-a.context.Done():
+			return
 		}
+	}
+}
 
+// DrainResponses reads all responses, but does nothing to them
+func (a *AdsTest) DrainResponses() {
+	a.t.Helper()
+	for {
+		select {
+		case <-a.context.Done():
+			return
+		case r := <-a.responses:
+			log.Infof("drained response %v", r.TypeUrl)
+		}
 	}
 }
 
@@ -446,13 +495,27 @@ func (a *AdsTest) adsReceiveChannel() {
 func (a *AdsTest) ExpectResponse() *discovery.DiscoveryResponse {
 	a.t.Helper()
 	select {
-	case <-time.After(time.Second):
+	case <-time.After(a.timeout):
 		a.t.Fatalf("did not get response in time")
 	case resp := <-a.responses:
 		if resp == nil || len(resp.Resources) == 0 {
 			a.t.Fatalf("got empty response")
 		}
 		return resp
+	case err := <-a.error:
+		a.t.Fatalf("got error: %v", err)
+	}
+	return nil
+}
+
+// ExpectError waits until an error is received and returns it
+func (a *AdsTest) ExpectError() error {
+	a.t.Helper()
+	select {
+	case <-time.After(a.timeout):
+		a.t.Fatalf("did not get error in time")
+	case err := <-a.error:
+		return err
 	}
 	return nil
 }
@@ -477,7 +540,8 @@ func (a *AdsTest) fillInRequestDefaults(req *discovery.DiscoveryRequest) *discov
 	}
 	if req.Node == nil {
 		req.Node = &core.Node{
-			Id: a.ID,
+			Id:       a.ID,
+			Metadata: a.metadata.ToStruct(),
 		}
 	}
 	return req
@@ -523,5 +587,15 @@ func (a *AdsTest) WithID(id string) *AdsTest {
 
 func (a *AdsTest) WithType(typeURL string) *AdsTest {
 	a.Type = typeURL
+	return a
+}
+
+func (a *AdsTest) WithMetadata(m model.NodeMetadata) *AdsTest {
+	a.metadata = m
+	return a
+}
+
+func (a *AdsTest) WithTimeout(t time.Duration) *AdsTest {
+	a.timeout = t
 	return a
 }

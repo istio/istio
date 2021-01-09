@@ -56,6 +56,12 @@ var (
 	genericMtlsCertSplitCa = makeSecret("generic-mtls-split-cacert", map[string]string{
 		GenericScrtCaCert: "generic-mtls-split-ca",
 	})
+	overlapping = makeSecret("overlap", map[string]string{
+		GenericScrtCert: "cert", GenericScrtKey: "key", GenericScrtCaCert: "main-ca",
+	})
+	overlappingCa = makeSecret("overlap-cacert", map[string]string{
+		GenericScrtCaCert: "split-ca",
+	})
 	tlsCert = makeSecret("tls", map[string]string{
 		TLSSecretCert: "tls-cert", TLSSecretKey: "tls-key",
 	})
@@ -76,6 +82,8 @@ func TestSecretsController(t *testing.T) {
 		genericMtlsCert,
 		genericMtlsCertSplit,
 		genericMtlsCertSplitCa,
+		overlapping,
+		overlappingCa,
 		tlsCert,
 		tlsMtlsCert,
 		tlsMtlsCertSplit,
@@ -95,6 +103,8 @@ func TestSecretsController(t *testing.T) {
 		{"generic-mtls", "default", "generic-mtls-cert", "generic-mtls-key", "generic-mtls-ca"},
 		{"generic-mtls-split", "default", "generic-mtls-split-cert", "generic-mtls-split-key", ""},
 		{"generic-mtls-split-cacert", "default", "", "", "generic-mtls-split-ca"},
+		// The -cacert secret has precedence
+		{"overlap-cacert", "default", "", "", "split-ca"},
 		{"tls", "default", "tls-cert", "tls-key", ""},
 		{"tls-mtls", "default", "tls-mtls-cert", "tls-mtls-key", "tls-mtls-ca"},
 		{"tls-mtls-split", "default", "tls-mtls-split-cert", "tls-mtls-split-key", ""},

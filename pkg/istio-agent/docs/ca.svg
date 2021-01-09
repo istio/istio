@@ -1,0 +1,105 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<svg width="472pt" height="666pt" viewBox="0.00 0.00 471.51 665.80" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">
+<g id="graph0" class="graph" transform="scale(1 1) rotate(0) translate(4 661.8)">
+<title>%0</title>
+<polygon fill="#ffffff" stroke="transparent" points="-4,4 -4,-661.8 467.5098,-661.8 467.5098,4 -4,4"/>
+<g id="clust1" class="cluster">
+<title>cluster_istioagent</title>
+<polygon fill="none" stroke="#ffa500" points="8,-8 8,-649.8 326,-649.8 326,-8 8,-8"/>
+<text text-anchor="middle" x="167" y="-633.2" font-family="Times,serif" font-size="14.00" fill="#000000">Istio Agent</text>
+</g>
+<g id="clust2" class="cluster">
+<title>cluster_istiod</title>
+<polygon fill="none" stroke="#add8e6" points="334,-81 334,-157.8 404,-157.8 404,-81 334,-81"/>
+<text text-anchor="middle" x="369" y="-141.2" font-family="Times,serif" font-size="14.00" fill="#000000">Istiod</text>
+</g>
+<!-- grpc -->
+<g id="node1" class="node">
+<title>grpc</title>
+<polygon fill="none" stroke="#000000" points="231,-236.6 191.2522,-218.6 231,-200.6 270.7478,-218.6 231,-236.6"/>
+<text text-anchor="middle" x="231" y="-214.4" font-family="Times,serif" font-size="14.00" fill="#000000">grpc</text>
+</g>
+<!-- ca -->
+<g id="node2" class="node">
+<title>ca</title>
+<ellipse fill="none" stroke="#000000" cx="369" cy="-107" rx="27" ry="18"/>
+<text text-anchor="middle" x="369" y="-102.8" font-family="Times,serif" font-size="14.00" fill="#000000">ca</text>
+</g>
+<!-- grpc&#45;&gt;ca -->
+<g id="edge1" class="edge">
+<title>grpc-&gt;ca</title>
+<path fill="none" stroke="#000000" d="M250.6465,-209.2662C271.7076,-198.6676 305.4257,-179.943 330,-157.8 338.3014,-150.3199 346.0955,-140.8836 352.5012,-132.18"/>
+<polygon fill="#000000" stroke="#000000" points="355.4966,-134.006 358.4115,-123.8201 349.7807,-129.9651 355.4966,-134.006"/>
+<text text-anchor="middle" x="391.7549" y="-170" font-family="Times,serif" font-size="14.00" fill="#000000">Send CSR gRPC Request</text>
+</g>
+<!-- TokenProvider -->
+<g id="node6" class="node">
+<title>TokenProvider</title>
+<ellipse fill="none" stroke="#000000" cx="249" cy="-34" rx="68.9235" ry="18"/>
+<text text-anchor="middle" x="249" y="-29.8" font-family="Times,serif" font-size="14.00" fill="#000000">TokenProvider</text>
+</g>
+<!-- grpc&#45;&gt;TokenProvider -->
+<g id="edge4" class="edge">
+<title>grpc-&gt;TokenProvider</title>
+<path fill="none" stroke="#a020f0" d="M232.6934,-201.2333C236.1065,-166.2295 243.7813,-87.5205 247.245,-51.9981"/>
+<text text-anchor="middle" x="274.9071" y="-102.8" font-family="Times,serif" font-size="14.00" fill="#000000">Fetch JWT</text>
+</g>
+<!-- cfiles -->
+<g id="node7" class="node">
+<title>cfiles</title>
+<ellipse fill="none" stroke="#000000" cx="89" cy="-34" rx="72.96" ry="18"/>
+<text text-anchor="middle" x="89" y="-29.8" font-family="Times,serif" font-size="14.00" fill="#000000">Certificate Files</text>
+</g>
+<!-- grpc&#45;&gt;cfiles -->
+<g id="edge5" class="edge">
+<title>grpc-&gt;cfiles</title>
+<path fill="none" stroke="#a020f0" d="M218.2589,-206.0505C206.371,-194.0898 188.3997,-175.3519 174.2952,-157.8 145.3569,-121.7887 115.6601,-76.3926 100.0874,-51.8041"/>
+<text text-anchor="middle" x="203.3524" y="-102.8" font-family="Times,serif" font-size="14.00" fill="#000000">Fetch Cert</text>
+</g>
+<!-- sds -->
+<g id="node3" class="node">
+<title>sds</title>
+<ellipse fill="none" stroke="#000000" cx="134" cy="-599" rx="27" ry="18"/>
+<text text-anchor="middle" x="134" y="-594.8" font-family="Times,serif" font-size="14.00" fill="#000000">sds</text>
+</g>
+<!-- SecretManager -->
+<g id="node4" class="node">
+<title>SecretManager</title>
+<ellipse fill="none" stroke="#000000" cx="134" cy="-472.2" rx="69.4587" ry="18"/>
+<text text-anchor="middle" x="134" y="-468" font-family="Times,serif" font-size="14.00" fill="#000000">SecretManager</text>
+</g>
+<!-- sds&#45;&gt;SecretManager -->
+<g id="edge6" class="edge">
+<title>sds-&gt;SecretManager</title>
+<path fill="none" stroke="#000000" d="M134,-580.8327C134,-559.8352 134,-525.0261 134,-500.479"/>
+<polygon fill="#000000" stroke="#000000" points="137.5001,-500.3336 134,-490.3336 130.5001,-500.3337 137.5001,-500.3336"/>
+<text text-anchor="middle" x="188.9864" y="-531.4" font-family="Times,serif" font-size="14.00" fill="#000000">Generate certificate</text>
+</g>
+<!-- caClient -->
+<g id="node5" class="node">
+<title>caClient</title>
+<ellipse fill="none" stroke="#000000" cx="200" cy="-345.4" rx="43.4338" ry="18"/>
+<text text-anchor="middle" x="200" y="-341.2" font-family="Times,serif" font-size="14.00" fill="#000000">caClient</text>
+</g>
+<!-- SecretManager&#45;&gt;caClient -->
+<g id="edge2" class="edge">
+<title>SecretManager-&gt;caClient</title>
+<path fill="none" stroke="#000000" d="M143.3162,-454.3016C154.4209,-432.9672 173.0878,-397.104 185.9481,-372.3967"/>
+<polygon fill="#000000" stroke="#000000" points="189.2187,-373.6937 190.7312,-363.2074 183.0095,-370.4617 189.2187,-373.6937"/>
+<text text-anchor="middle" x="197.8145" y="-404.6" font-family="Times,serif" font-size="14.00" fill="#000000">Sign CSR</text>
+</g>
+<!-- SecretManager&#45;&gt;cfiles -->
+<g id="edge7" class="edge">
+<title>SecretManager-&gt;cfiles</title>
+<path fill="none" stroke="#000000" d="M114.4755,-454.7815C103.5074,-443.0336 92,-426.4921 92,-408.8 92,-408.8 92,-408.8 92,-107 92,-92.2872 91.3841,-75.9205 90.7105,-62.419"/>
+<polygon fill="#000000" stroke="#000000" points="94.198,-62.0904 90.1685,-52.2918 87.208,-62.4646 94.198,-62.0904"/>
+<text text-anchor="middle" x="141.1715" y="-277.8" font-family="Times,serif" font-size="14.00" fill="#000000">Write certs to file</text>
+</g>
+<!-- caClient&#45;&gt;grpc -->
+<g id="edge3" class="edge">
+<title>caClient-&gt;grpc</title>
+<path fill="none" stroke="#000000" d="M204.4415,-327.2327C209.7152,-305.6617 218.5525,-269.5142 224.5724,-244.8911"/>
+<polygon fill="#000000" stroke="#000000" points="227.9861,-245.6651 226.9612,-235.12 221.1864,-244.0027 227.9861,-245.6651"/>
+</g>
+</g>
+</svg>

@@ -46,6 +46,7 @@ type Config struct {
 	RestoreFormat           bool          `json:"RESTORE_FORMAT"`
 	SkipRuleApply           bool          `json:"SKIP_RULE_APPLY"`
 	RunValidation           bool          `json:"RUN_VALIDATION"`
+	RedirectDNS             bool          `json:"REDIRECT_DNS"`
 	EnableInboundIPv6       bool          `json:"ENABLE_INBOUND_IPV6"`
 }
 

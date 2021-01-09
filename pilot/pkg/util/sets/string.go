@@ -31,6 +31,14 @@ func (s Set) Insert(items ...string) Set {
 	return s
 }
 
+// Delete removes items from the set.
+func (s Set) Delete(items ...string) Set {
+	for _, item := range items {
+		delete(s, item)
+	}
+	return s
+}
+
 // Difference returns a set of objects that are not in s2
 // For example:
 // s = {a1, a2, a3}

@@ -50,7 +50,16 @@ func (h *Helm) InstallChartWithValues(name, relpath, namespace string, values []
 // InstallChart installs the specified chart with its given name to the given namespace
 func (h *Helm) InstallChart(name, relpath, namespace, overridesFile string, timeout time.Duration) error {
 	p := filepath.Join(h.baseDir, relpath)
-	command := fmt.Sprintf("helm install %s %s --namespace %s -f %s --kubeconfig %s --timeout %s", name, p, namespace, overridesFile, h.kubeConfig, timeout)
+	command := fmt.Sprintf("helm install %s %s --namespace %s -f %s --kubeconfig %s --timeout %s",
+		name, p, namespace, overridesFile, h.kubeConfig, timeout)
+	return execCommand(command)
+}
+
+// UpgradeChart upgrades the specified chart with its given name to the given namespace; does not use baseWorkDir
+// but the full path passed
+func (h *Helm) UpgradeChart(name, chartPath, namespace, overridesFile string, timeout time.Duration) error {
+	command := fmt.Sprintf("helm upgrade %s %s --namespace %s -f %s --kubeconfig %s --timeout %s",
+		name, chartPath, namespace, overridesFile, h.kubeConfig, timeout)
 	return execCommand(command)
 }
 

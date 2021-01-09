@@ -31,6 +31,8 @@ import (
 	"istio.io/istio/pkg/spiffe"
 	caerror "istio.io/istio/security/pkg/pki/error"
 	"istio.io/istio/security/pkg/pki/util"
+	"istio.io/istio/security/pkg/server/ca"
+	"istio.io/istio/security/pkg/server/ca/authenticate"
 	"istio.io/pkg/log"
 )
 
@@ -38,12 +40,13 @@ var caServerLog = log.RegisterScope("ca", "CA service debugging", 0)
 
 // CAServer is a mock CA server.
 type CAServer struct {
-	URL        string
-	GRPCServer *grpc.Server
+	URL            string
+	GRPCServer     *grpc.Server
+	Authenticators []authenticate.Authenticator
 
 	certPem       []byte
 	keyPem        []byte
-	keyCertBundle util.KeyCertBundle
+	KeyCertBundle util.KeyCertBundle
 	certLifetime  time.Duration
 
 	rejectCSR       bool
@@ -51,8 +54,29 @@ type CAServer struct {
 	faultInjectLock *sync.Mutex
 }
 
+func NewCAServerWithKeyCert(port int, key, cert []byte, opts ...grpc.ServerOption) (*CAServer, error) {
+	keyCertBundle, err := util.NewVerifiedKeyCertBundleFromPem(cert, key, nil, cert)
+	if err != nil {
+		caServerLog.Errorf("failed to create CA KeyCertBundle: %+v", err)
+		return nil, err
+	}
+
+	server := &CAServer{
+		certPem:         cert,
+		keyPem:          key,
+		certLifetime:    24 * time.Hour,
+		KeyCertBundle:   keyCertBundle,
+		GRPCServer:      grpc.NewServer(opts...),
+		faultInjectLock: &sync.Mutex{},
+	}
+	// Register CA service at gRPC server.
+	pb.RegisterIstioCertificateServiceServer(server.GRPCServer, server)
+	ghc.RegisterHealthServer(server.GRPCServer, server)
+	return server, server.start(port)
+}
+
 // NewCAServer creates a new CA server that listens on port.
-func NewCAServer(port int) (*CAServer, error) {
+func NewCAServer(port int, opts ...grpc.ServerOption) (*CAServer, error) {
 	// Create root cert and private key.
 	options := util.CertOptions{
 		TTL:          3650 * 24 * time.Hour,
@@ -67,24 +91,7 @@ func NewCAServer(port int) (*CAServer, error) {
 		caServerLog.Errorf("cannot create CA cert and private key: %+v", err)
 		return nil, err
 	}
-	keyCertBundle, err := util.NewVerifiedKeyCertBundleFromPem(cert, key, nil, cert)
-	if err != nil {
-		caServerLog.Errorf("failed to create CA KeyCertBundle: %+v", err)
-		return nil, err
-	}
-
-	server := &CAServer{
-		certPem:         cert,
-		keyPem:          key,
-		certLifetime:    24 * time.Hour,
-		keyCertBundle:   keyCertBundle,
-		GRPCServer:      grpc.NewServer(),
-		faultInjectLock: &sync.Mutex{},
-	}
-	// Register CA service at gRPC server.
-	pb.RegisterIstioCertificateServiceServer(server.GRPCServer, server)
-	ghc.RegisterHealthServer(server.GRPCServer, server)
-	return server, server.start(port)
+	return NewCAServerWithKeyCert(port, key, cert, opts...)
 }
 
 func (s *CAServer) start(port int) error {
@@ -99,7 +106,7 @@ func (s *CAServer) start(port int) error {
 	s.URL = fmt.Sprintf("localhost:%d", port)
 	go func() {
 		caServerLog.Infof("start CA server on %s", s.URL)
-		if err := s.GRPCServer.Serve(listener); err != nil {
+		if err := s.GRPCServer.Serve(listener); err != nil && (err != grpc.ErrServerStopped) {
 			caServerLog.Errorf("CA Server failed to serve in %q: %v", s.URL, err)
 		}
 	}()
@@ -155,7 +162,15 @@ func (s *CAServer) CreateCertificate(ctx context.Context, request *pb.IstioCerti
 		}
 		return response, nil
 	}
-	cert, err := s.sign([]byte(request.Csr), []string{"client-identity"}, time.Duration(request.ValidityDuration)*time.Second, false)
+	id := []string{"client-identity"}
+	if len(s.Authenticators) > 0 {
+		caller := ca.Authenticate(ctx, s.Authenticators)
+		if caller == nil {
+			return nil, status.Error(codes.Unauthenticated, "request authenticate failure")
+		}
+		id = caller.Identities
+	}
+	cert, err := s.sign([]byte(request.Csr), id, time.Duration(request.ValidityDuration)*time.Second, false)
 	if err != nil {
 		caServerLog.Errorf("failed to sign CSR: %+v", err)
 		return nil, status.Errorf(err.(*caerror.Error).HTTPErrorCode(), "CSR signing error: %+v", err.(*caerror.Error))
@@ -175,7 +190,7 @@ func (s *CAServer) sign(csrPEM []byte, subjectIDs []string, _ time.Duration, for
 		caServerLog.Errorf("failed to parse CSR: %+v", err)
 		return nil, caerror.NewError(caerror.CSRError, err)
 	}
-	signingCert, signingKey, _, _ := s.keyCertBundle.GetAll()
+	signingCert, signingKey, _, _ := s.KeyCertBundle.GetAll()
 	certBytes, err := util.GenCertFromCSR(csr, signingCert, csr.PublicKey, *signingKey, subjectIDs, s.certLifetime, forCA)
 	if err != nil {
 		caServerLog.Errorf("failed to generate cert from CSR: %+v", err)

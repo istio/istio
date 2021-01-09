@@ -316,7 +316,8 @@ func (tc Controller) ListAllNode() []*v1.Node {
 	}
 	return nodes
 }
-func (tc Controller) RegistTaints() {
+
+func (tc Controller) RegisterTaints() {
 	nodes := tc.ListAllNode()
 	for _, node := range nodes {
 		err := tc.taintsetter.AddReadinessTaint(node)

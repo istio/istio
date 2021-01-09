@@ -1,0 +1,24 @@
+digraph {
+    envoy -> sds [dir=both, label="SDS"]
+    envoy -> xdsproxy  [dir=both, label="ADS"]
+
+    sds -> ca [label="CSR"]
+
+    xdsproxy -> discovery [dir=both,label="ADS"]
+
+    envoy [shape=hexagon, color=purple]
+
+    subgraph cluster_istioagent {
+        label = "Istio Agent"
+        color="orange"
+        sds
+        xdsproxy
+    }
+
+    subgraph cluster_istiod {
+        label = "Istiod"
+        color="lightblue"
+        ca
+        discovery
+    }
+}

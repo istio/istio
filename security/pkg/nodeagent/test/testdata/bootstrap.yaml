@@ -5,7 +5,7 @@ admin:
       address: 127.0.0.1
       port_value: {{.Ports.AdminPort}}
 node:
-  id: id
+  id: sidecar~0.0.0.0~.~
   cluster: sdstest
 static_resources:
   clusters:

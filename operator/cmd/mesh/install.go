@@ -146,7 +146,7 @@ func runApplyCmd(cmd *cobra.Command, rootArgs *rootArgs, iArgs *installArgs, log
 
 	// Ignore the err because we don't want to show
 	// "no running Istio pods in istio-system" for the first time
-	_ = DetectIstioVersionDiff(cmd, tag, ns, kubeClient, iArgs)
+	_ = DetectIstioVersionDiff(cmd, tag, ns, kubeClient, setFlags)
 
 	// Warn users if they use `istioctl install` without any config args.
 	if !rootArgs.dryRun && !iArgs.skipConfirmation {
@@ -249,7 +249,7 @@ func savedIOPName(iop *v1alpha12.IstioOperator) string {
 
 // DetectIstioVersionDiff will show warning if istioctl version and control plane version are different
 // nolint: interfacer
-func DetectIstioVersionDiff(cmd *cobra.Command, tag string, ns string, kubeClient kube.ExtendedClient, iArgs *installArgs) error {
+func DetectIstioVersionDiff(cmd *cobra.Command, tag string, ns string, kubeClient kube.ExtendedClient, setFlags []string) error {
 	icps, err := kubeClient.GetIstioVersions(context.TODO(), ns)
 	if err != nil {
 		return err
@@ -273,13 +273,14 @@ func DetectIstioVersionDiff(cmd *cobra.Command, tag string, ns string, kubeClien
 				icpTag = val
 			}
 		}
+		revision := manifest.GetValueForSetFlag(setFlags, "revision")
 		// when the revision is not passed and if the ns has a prior istio
-		if iArgs.revision == "" && tag != icpTag {
+		if revision == "" && tag != icpTag {
 			cmd.Printf("! Istio control planes installed: %s.\n"+
 				"! An older installed version of Istio has been detected. Running this command will overwrite it.\n", strings.Join(icpTags, ", "))
 		}
 		// when the revision is passed
-		if icpTag != "" && tag != icpTag && iArgs.revision != "" {
+		if icpTag != "" && tag != icpTag && revision != "" {
 			cmd.Printf("! Istio is being upgraded from %s -> %s.\n"+
 				"! Before upgrading, you may wish to use 'istioctl analyze' to check for IST0002 deprecation warnings.\n", icpTag, tag)
 		}

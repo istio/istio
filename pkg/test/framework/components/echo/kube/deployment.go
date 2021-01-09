@@ -101,7 +101,7 @@ spec:
       containers:
 {{- if $.IncludeExtAuthz }}
       - name: ext-authz
-        image: docker.io/istio/ext-authz:0.5
+        image: docker.io/istio/ext-authz:0.6
         imagePullPolicy: {{ $.PullPolicy }}
         ports:
         - containerPort: 8000
@@ -322,13 +322,6 @@ spec:
           valueFrom:
             fieldRef:
               fieldPath: status.podIP
-        readinessProbe:
-          httpGet:
-            path: /healthz/ready
-            port: 15021
-          initialDelaySeconds: 1
-          periodSeconds: 2
-          failureThreshold: 10
         volumeMounts:
         - mountPath: /var/run/secrets/tokens
           name: {{ $.Service }}-istio-token

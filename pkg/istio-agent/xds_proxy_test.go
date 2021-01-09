@@ -40,6 +40,7 @@ import (
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/security"
+	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/test/util/retry"
 )
@@ -190,7 +191,7 @@ func TestXdsProxyHealthCheck(t *testing.T) {
 }
 
 func setupXdsProxy(t *testing.T) *XdsProxy {
-	secOpts := &security.Options{
+	secOpts := security.Options{
 		FileMountedCerts: true,
 	}
 	proxyConfig := mesh.DefaultProxyConfig()
@@ -393,15 +394,15 @@ func sendDownstream(t *testing.T, downstream discovery.AggregatedDiscoveryServic
 	})
 }
 
-func setupDownstreamConnection(t *testing.T, proxy *XdsProxy) *grpc.ClientConn {
+func setupDownstreamConnectionUDS(t test.Failer, path string) *grpc.ClientConn {
 	var opts []grpc.DialOption
 
 	opts = append(opts, grpc.WithInsecure(), grpc.WithContextDialer(func(ctx context.Context, addr string) (net.Conn, error) {
 		var d net.Dialer
-		return d.DialContext(ctx, "unix", proxy.xdsUdsPath)
+		return d.DialContext(ctx, "unix", path)
 	}))
 
-	conn, err := grpc.Dial(proxy.xdsUdsPath, opts...)
+	conn, err := grpc.Dial(path, opts...)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -410,4 +411,8 @@ func setupDownstreamConnection(t *testing.T, proxy *XdsProxy) *grpc.ClientConn {
 		conn.Close()
 	})
 	return conn
+}
+
+func setupDownstreamConnection(t *testing.T, proxy *XdsProxy) *grpc.ClientConn {
+	return setupDownstreamConnectionUDS(t, proxy.xdsUdsPath)
 }

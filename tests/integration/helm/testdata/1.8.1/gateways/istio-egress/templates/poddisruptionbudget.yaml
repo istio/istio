@@ -1,0 +1,19 @@
+{{- if .Values.global.defaultPodDisruptionBudget.enabled }}
+{{ $gateway := index .Values "gateways" "istio-egressgateway" }}
+apiVersion: policy/v1beta1
+kind: PodDisruptionBudget
+metadata:
+  name: {{ $gateway.name | default "istio-egressgateway" }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+{{ $gateway.labels | toYaml | trim | indent 4 }}
+    release: {{ .Release.Name }}
+    istio.io/rev: {{ .Values.revision | default "default" }}
+    install.operator.istio.io/owning-resource: {{ .Values.ownerName | default "unknown" }}
+    operator.istio.io/component: "EgressGateways"
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+{{ $gateway.labels | toYaml | trim | indent 6 }}
+{{- end }}
