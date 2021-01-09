@@ -166,18 +166,20 @@ func TestJwtFilter(t *testing.T) {
 											Prefix: "/",
 										},
 									},
-									Requires: &envoy_jwt.JwtRequirement{
-										RequiresType: &envoy_jwt.JwtRequirement_RequiresAny{
-											RequiresAny: &envoy_jwt.JwtRequirementOrList{
-												Requirements: []*envoy_jwt.JwtRequirement{
-													{
-														RequiresType: &envoy_jwt.JwtRequirement_ProviderName{
-															ProviderName: "origins-0",
+									RequirementType: &envoy_jwt.RequirementRule_Requires{
+										Requires: &envoy_jwt.JwtRequirement{
+											RequiresType: &envoy_jwt.JwtRequirement_RequiresAny{
+												RequiresAny: &envoy_jwt.JwtRequirementOrList{
+													Requirements: []*envoy_jwt.JwtRequirement{
+														{
+															RequiresType: &envoy_jwt.JwtRequirement_ProviderName{
+																ProviderName: "origins-0",
+															},
 														},
-													},
-													{
-														RequiresType: &envoy_jwt.JwtRequirement_AllowMissing{
-															AllowMissing: &empty.Empty{},
+														{
+															RequiresType: &envoy_jwt.JwtRequirement_AllowMissing{
+																AllowMissing: &empty.Empty{},
+															},
 														},
 													},
 												},
@@ -235,18 +237,20 @@ func TestJwtFilter(t *testing.T) {
 											Prefix: "/",
 										},
 									},
-									Requires: &envoy_jwt.JwtRequirement{
-										RequiresType: &envoy_jwt.JwtRequirement_RequiresAny{
-											RequiresAny: &envoy_jwt.JwtRequirementOrList{
-												Requirements: []*envoy_jwt.JwtRequirement{
-													{
-														RequiresType: &envoy_jwt.JwtRequirement_ProviderName{
-															ProviderName: "origins-0",
+									RequirementType: &envoy_jwt.RequirementRule_Requires{
+										Requires: &envoy_jwt.JwtRequirement{
+											RequiresType: &envoy_jwt.JwtRequirement_RequiresAny{
+												RequiresAny: &envoy_jwt.JwtRequirementOrList{
+													Requirements: []*envoy_jwt.JwtRequirement{
+														{
+															RequiresType: &envoy_jwt.JwtRequirement_ProviderName{
+																ProviderName: "origins-0",
+															},
 														},
-													},
-													{
-														RequiresType: &envoy_jwt.JwtRequirement_AllowMissing{
-															AllowMissing: &empty.Empty{},
+														{
+															RequiresType: &envoy_jwt.JwtRequirement_AllowMissing{
+																AllowMissing: &empty.Empty{},
+															},
 														},
 													},
 												},
