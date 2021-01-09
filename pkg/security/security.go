@@ -141,8 +141,11 @@ type Options struct {
 	// Name of the Service Account
 	ServiceAccount string
 
-	// Enable token exchange through STS
-	EnableTokenExchange bool
+	// Enable token exchange for XDS
+	XdsEnableTokenExchange bool
+
+	// Enable token exchange for SDS
+	SdsEnableTokenExchange bool
 }
 
 // Client interface defines the clients need to implement to talk to CA for CSR.
