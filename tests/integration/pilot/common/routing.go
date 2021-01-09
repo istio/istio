@@ -412,7 +412,21 @@ func HostHeader(header string) http.Header {
 
 // tlsOriginationCases contains tests TLS origination from DestinationRule
 func tlsOriginationCases(apps *EchoDeployments) []TrafficTestCase {
-	cases := []TrafficTestCase{}
+	tc := TrafficTestCase{
+		name: "",
+		config: fmt.Sprintf(`
+apiVersion: networking.istio.io/v1alpha3
+kind: DestinationRule
+metadata:
+  name: external
+spec:
+  host: %s
+  trafficPolicy:
+    tls:
+      mode: SIMPLE
+`, apps.External[0].Config().DefaultHostHeader),
+		children: []TrafficCall{},
+	}
 	expects := []struct {
 		port int
 		alpn string
@@ -425,19 +439,8 @@ func tlsOriginationCases(apps *EchoDeployments) []TrafficTestCase {
 			c := c
 			e := e
 
-			cases = append(cases, TrafficTestCase{
+			tc.children = append(tc.children, TrafficCall{
 				name: fmt.Sprintf("%s: %s", c.Config().Cluster.Name(), e.alpn),
-				config: fmt.Sprintf(`
-apiVersion: networking.istio.io/v1alpha3
-kind: DestinationRule
-metadata:
-  name: external
-spec:
-  host: %s
-  trafficPolicy:
-    tls:
-      mode: SIMPLE
-`, apps.External[0].Config().DefaultHostHeader),
 				opts: echo.CallOptions{
 					Port:      &echo.Port{ServicePort: e.port, Protocol: protocol.HTTP},
 					Address:   apps.External[0].Address(),
@@ -449,7 +452,7 @@ spec:
 			})
 		}
 	}
-	return cases
+	return []TrafficTestCase{tc}
 }
 
 // trafficLoopCases contains tests to ensure traffic does not loop through the sidecar
