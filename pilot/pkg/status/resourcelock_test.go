@@ -19,7 +19,6 @@ import (
 	"sync"
 	"sync/atomic"
 	"testing"
-	"time"
 
 	. "github.com/onsi/gomega"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -54,7 +53,7 @@ func TestResourceLock_Lock(t *testing.T) {
 	var runCount int32
 	var m sync.Mutex
 	m.Lock()
-	workers := NewQueue(100*time.Second, func(a cacheEntry) {
+	workers := NewQueue(func(a cacheEntry) {
 		m.Unlock()
 		atomic.AddInt32(&runCount, 1)
 	}, 10)

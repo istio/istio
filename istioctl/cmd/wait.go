@@ -138,7 +138,7 @@ func waitCmd() *cobra.Command {
 		"The ratio of distribution required for success")
 	cmd.PersistentFlags().StringVar(&generation, "generation", "",
 		"Wait for a specific generation of config to become current, rather than using whatever is latest in "+
-			"kubernetes")
+			"Kubernetes")
 	cmd.PersistentFlags().BoolVarP(&verbose, "verbose", "v", false, "enables verbose output")
 	_ = cmd.PersistentFlags().MarkHidden("verbose")
 	opts.AttachControlPlaneFlags(cmd)

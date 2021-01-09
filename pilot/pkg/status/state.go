@@ -106,9 +106,9 @@ func (c *DistributionController) Start(stop <-chan struct{}) {
 	ctx := NewIstioContext(stop)
 	go c.cmInformer.Run(ctx.Done())
 
-	c.workers = NewQueue(10*time.Second, func(entry cacheEntry) {
+	c.workers = NewQueue(func(entry cacheEntry) {
 		c.writeStatus(*entry.cacheVal, *entry.cacheProgress)
-	}, features.StatusMaxWorkers.Get())
+	}, uint(features.StatusMaxWorkers.Get()))
 	c.workers.Run(ctx)
 
 	//  create Status Writer

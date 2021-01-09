@@ -17,7 +17,6 @@ package status
 import (
 	"context"
 	"sync"
-	"time"
 
 	"k8s.io/apimachinery/pkg/runtime/schema"
 )
@@ -37,23 +36,30 @@ type WorkerQueue interface {
 	Delete(target Resource)
 }
 
+// queueImple implements WorkerQueue
 type queueImpl struct {
-	delay   time.Duration
-	tasks   []lockResource
-	cond    *sync.Cond
+	// tasks which are not currently executing but need to run
+	tasks []lockResource
+	// lock and signal resources for the tasks queue
+	cond *sync.Cond
+	// indicates the queue is closing
 	closing bool
-	work    Task
+	// the function which will be run for each task in queue
+	work Task
 
-	cacheLock   sync.Mutex
-	cache       map[lockResource]cacheEntry
-	workerCount int
-	maxWorkers  int
+	// a lock to govern access to data in the cache
+	cacheLock sync.Mutex
+	// for each task, a cacheEntry which can be updated before the task is run so that execution will have latest values
+	cache map[lockResource]cacheEntry
+	// current worker routine count
+	workerCount uint
+	// maximum worker routine count
+	maxWorkers uint
 }
 
 // NewQueue instantiates a queue with a processing function
-func NewQueue(errorDelay time.Duration, work Task, maxWorkers int) WorkerQueue {
+func NewQueue(work Task, maxWorkers uint) WorkerQueue {
 	return &queueImpl{
-		delay:       errorDelay,
 		tasks:       make([]lockResource, 0),
 		closing:     false,
 		cond:        sync.NewCond(&sync.Mutex{}),
@@ -85,7 +91,7 @@ func (q *queueImpl) Delete(target Resource) {
 	delete(q.cache, convert(target))
 }
 
-func (q *queueImpl) GetWorkerCount() int {
+func (q *queueImpl) GetWorkerCount() uint {
 	q.cond.L.Lock()
 	defer q.cond.L.Unlock()
 	return q.workerCount
