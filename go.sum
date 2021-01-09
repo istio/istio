@@ -470,8 +470,6 @@ github.com/hashicorp/memberlist v0.1.3/go.mod h1:ajVTdAv/9Im8oMAAj5G31PhhMCZJV2p
 github.com/hashicorp/serf v0.8.2/go.mod h1:6hOLApaqBFA1NXqRQAsxw9QxuDEvNxSQRwA/JwenrHc=
 github.com/howardjohn/kube-openapi v0.0.0-20210104181841-c0b40d2cb1c8 h1:7xtuaZpn0B8ADbjP6+N36cPJP2RGr9s+xBLvSUwEiLA=
 github.com/howardjohn/kube-openapi v0.0.0-20210104181841-c0b40d2cb1c8/go.mod h1:5bo4IQ0MwvQD/vdm+Qc4LwwCh3l8kJ6yu1WtQrN6aQQ=
-github.com/howeyc/fsnotify v0.9.0 h1:0gtV5JmOKH4A8SsFxG2BczSeXWWPvcMT0euZt5gDAxY=
-github.com/howeyc/fsnotify v0.9.0/go.mod h1:41HzSPxBGeFRQKEEwgh49TRw/nKBsYZ2cF1OzPjSJsA=
 github.com/hpcloud/tail v1.0.0/go.mod h1:ab1qPbhIpdTxEkNHXyeSf5vhxWSCs/tWer42PpOxQnU=
 github.com/huandu/xstrings v1.3.1 h1:4jgBlKK6tLKFvO8u5pmYjG91cqytmDCDvGh7ECVFfFs=
 github.com/huandu/xstrings v1.3.1/go.mod h1:y5/lhBue+AyNmUVz9RLU9xbLR0o4KIIExikq4ovT0aE=
@@ -1324,8 +1322,8 @@ istio.io/client-go v0.0.0-20200908160912-f99162621a1a/go.mod h1:SO65MWt7I45dvUwu
 istio.io/gogo-genproto v0.0.0-20190930162913-45029607206a/go.mod h1:OzpAts7jljZceG4Vqi5/zXy/pOg1b209T3jb7Nv5wIs=
 istio.io/gogo-genproto v0.0.0-20201015184601-1e80d26d6249 h1:TLe95ZesBltHrDA/sWrUGhbsJDKRoAk/U1Uy+PAdGnA=
 istio.io/gogo-genproto v0.0.0-20201015184601-1e80d26d6249/go.mod h1:OzpAts7jljZceG4Vqi5/zXy/pOg1b209T3jb7Nv5wIs=
-istio.io/pkg v0.0.0-20201106170352-6775f12cf100 h1:lBC5JYvlDTcrrZkQ5HqoD2jHD3Q9gWoxI0lvWmZFn3I=
-istio.io/pkg v0.0.0-20201106170352-6775f12cf100/go.mod h1:p6wktGBjkjL3spRSsyfOh0XkuKb8IuBX61rERHfmSbU=
+istio.io/pkg v0.0.0-20201230223204-2d0a1c8bd9e5 h1:gDra2gTI4upKwsw0QFuCHJY45PoH5BuwINuHXeplKek=
+istio.io/pkg v0.0.0-20201230223204-2d0a1c8bd9e5/go.mod h1:3mQXIbIrZzBPBUbmlIGo1GfAAH7yJLnqX2T8de13rgU=
 k8s.io/api v0.18.1/go.mod h1:3My4jorQWzSs5a+l7Ge6JBbIxChLnY8HnuT58ZWolss=
 k8s.io/api v0.18.2/go.mod h1:SJCWI7OLzhZSvbY7U8zwNl9UA4o1fizoug34OV/2r78=
 k8s.io/api v0.18.3/go.mod h1:UOaMwERbqJMfeeeHc8XJKawj4P9TgDRnViIqqBeH2QA=
