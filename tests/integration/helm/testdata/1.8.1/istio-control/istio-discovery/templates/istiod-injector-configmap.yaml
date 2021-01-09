@@ -1,0 +1,35 @@
+{{- if not .Values.global.omitSidecarInjectorConfigMap }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: istio-sidecar-injector{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    istio.io/rev: {{ .Values.revision | default "default" }}
+    install.operator.istio.io/owning-resource: {{ .Values.ownerName | default "unknown" }}
+    operator.istio.io/component: "Pilot"
+    release: {{ .Release.Name }}
+data:
+{{/* Scope the values to just top level fields used in the template, to reduce the size. */}}
+  values: |-
+{{ pick .Values "global" "istio_cni" "sidecarInjectorWebhook" "revision" | toPrettyJson | indent 4 }}
+
+  # To disable injection: use omitSidecarInjectorConfigMap, which disables the webhook patching
+  # and istiod webhook functionality.
+  #
+  # New fields should not use Values - it is a 'primary' config object, users should be able
+  # to fine tune it or use it with kube-inject.
+  config: |-
+    policy: {{ .Values.global.proxy.autoInject }}
+    alwaysInjectSelector:
+{{ toYaml .Values.sidecarInjectorWebhook.alwaysInjectSelector | trim | indent 6 }}
+    neverInjectSelector:
+{{ toYaml .Values.sidecarInjectorWebhook.neverInjectSelector | trim | indent 6 }}
+    injectedAnnotations:
+      {{- range $key, $val := .Values.sidecarInjectorWebhook.injectedAnnotations }}
+      "{{ $key }}": "{{ $val }}"
+      {{- end }}
+
+{{ .Files.Get "files/injection-template.yaml" | trim | indent 4 }}
+
+{{- end }}
