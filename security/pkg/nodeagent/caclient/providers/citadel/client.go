@@ -59,7 +59,7 @@ func NewCitadelClient(opts security.Options, tls bool, rootCert []byte) (*Citade
 		enableTLS:     tls,
 		caTLSRootCert: rootCert,
 		opts:          opts,
-		provider:      caclient.NewTokenProvider(opts),
+		provider:      caclient.NewCATokenProvider(opts),
 		usingMtls:     atomic.NewBool(false),
 	}
 

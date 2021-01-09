@@ -80,7 +80,6 @@ type XdsProxy struct {
 	healthChecker          *health.WorkloadHealthChecker
 	xdsHeaders             map[string]string
 	xdsUdsPath             string
-	sdsEnableTokenExchange bool
 	xdsEnableTokenExchange bool
 
 	// connected stores the active gRPC stream. The proxy will only have 1 connection at a time
@@ -114,7 +113,6 @@ func initXdsProxy(ia *Agent) (*XdsProxy, error) {
 		healthChecker:          health.NewWorkloadHealthChecker(ia.proxyConfig.ReadinessProbe, envoyProbe),
 		xdsHeaders:             ia.cfg.XDSHeaders,
 		xdsUdsPath:             ia.cfg.XdsUdsPath,
-		sdsEnableTokenExchange: ia.secOpts.SdsEnableTokenExchange,
 		xdsEnableTokenExchange: ia.secOpts.XdsEnableTokenExchange,
 	}
 
@@ -498,7 +496,7 @@ func (p *XdsProxy) buildUpstreamClientDialOpts(sa *Agent) ([]grpc.DialOption, er
 	}
 
 	if !sa.secOpts.FileMountedCerts {
-		dialOptions = append(dialOptions, grpc.WithPerRPCCredentials(caclient.NewTokenProvider(sa.secOpts)))
+		dialOptions = append(dialOptions, grpc.WithPerRPCCredentials(caclient.NewXDSTokenProvider(sa.secOpts)))
 	}
 	return dialOptions, nil
 }

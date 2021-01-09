@@ -84,7 +84,6 @@ var (
 	serviceAccountVar      = env.RegisterStringVar("SERVICE_ACCOUNT", "", "Name of service account")
 	clusterIDVar           = env.RegisterStringVar("ISTIO_META_CLUSTER_ID", "", "")
 	callCredentials        = env.RegisterBoolVar("CALL_CREDENTIALS", false, "Use JWT directly instead of MTLS")
-	sdsEnableTokenExchange = env.RegisterBoolVar("SDS_ENABLE_TOKEN_EXCHANGE", true, "Enable token exchange for SDS")
 	xdsEnableTokenExchange = env.RegisterBoolVar("XDS_ENABLE_TOKEN_EXCHANGE", false, "Enable token exchange for XDS")
 
 	pilotCertProvider = env.RegisterStringVar("PILOT_CERT_PROVIDER", "istiod",
@@ -350,7 +349,6 @@ func setupSecurityOptions(proxyConfig meshconfig.ProxyConfig) (security.Options,
 		FileMountedCerts:               fileMountedCertsEnv,
 		WorkloadNamespace:              podNamespaceVar.Get(),
 		ServiceAccount:                 serviceAccountVar.Get(),
-		SdsEnableTokenExchange:         sdsEnableTokenExchange.Get(),
 		XdsEnableTokenExchange:         xdsEnableTokenExchange.Get(),
 		TrustDomain:                    trustDomainEnv,
 		Pkcs8Keys:                      pkcs8KeysEnv,
