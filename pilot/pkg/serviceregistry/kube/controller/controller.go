@@ -262,7 +262,7 @@ type Controller struct {
 }
 
 // NewController creates a new Kubernetes controller
-// Created by bootstrap and multicluster (see secretcontroler).
+// Created by bootstrap and multicluster (see secretcontroller).
 func NewController(kubeClient kubelib.Client, options Options) *Controller {
 	// The queue requires a time duration for a retry delay after a handler error
 	c := &Controller{
