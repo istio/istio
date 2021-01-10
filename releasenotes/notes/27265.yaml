@@ -1,0 +1,9 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: installation
+issue:
+- 27265
+
+releaseNotes:
+- |
+  **Fixed** gateways outside istio-system now can get the correct revisioned discoveryAddress renderred by manifests.
