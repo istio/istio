@@ -85,6 +85,8 @@ type XdsProxy struct {
 	connected      *ProxyConnection
 	initialRequest *discovery.DiscoveryRequest
 	connectedMutex sync.RWMutex
+
+	consecutiveUpstreamConnectFailures int
 }
 
 var proxyLog = log.RegisterScope("xdsproxy", "XDS Proxy in Istio Agent", 0)
@@ -170,7 +172,6 @@ func (p *XdsProxy) UnregisterStream(c *ProxyConnection) {
 	p.connectedMutex.Lock()
 	defer p.connectedMutex.Unlock()
 	if p.connected != nil && p.connected == c {
-		proxyLog.Warnf("unregister stream")
 		close(p.connected.stopChan)
 		p.connected = nil
 	}
@@ -272,9 +273,14 @@ func (p *XdsProxy) HandleUpstream(ctx context.Context, con *ProxyConnection, xds
 	upstream, err := xds.StreamAggregatedResources(ctx,
 		grpc.MaxCallRecvMsgSize(defaultClientMaxReceiveMessageSize))
 	if err != nil {
-		proxyLog.Errorf("failed to create upstream grpc client: %v", err)
+		p.consecutiveUpstreamConnectFailures++
+		if p.consecutiveUpstreamConnectFailures > 10 {
+			proxyLog.Errorf("failed to create upstream grpc client after %d attempts : %v", p.consecutiveUpstreamConnectFailures, err)
+		}
 		return err
 	}
+
+	p.consecutiveUpstreamConnectFailures = 0
 
 	con.upstream = upstream
 
