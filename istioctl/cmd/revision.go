@@ -100,10 +100,11 @@ func revisionCommand() *cobra.Command {
 	return revisionCmd
 }
 
+// TODO(su225): Fix example, description - command documentation part
 func revisionDescribeCommand() *cobra.Command {
 	describeCmd := &cobra.Command{
 		Use:     "describe",
-		Example: `    istioctl experimental revision describe canary`,
+		Example: `    istioctl experimental revision describe <revision>`,
 		Short:   "Show details of a revision - customizations, number of pods pointing to it, istiod, gateways etc",
 		Args: func(cmd *cobra.Command, args []string) error {
 			if len(args) == 0 {
@@ -129,8 +130,12 @@ func revisionDescribeCommand() *cobra.Command {
 		},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			revArgs.name = args[0]
-			if errs := validation.IsDNS1123Label(revArgs.name); len(errs) > 0 {
-				return fmt.Errorf(strings.Join(errs, "\n"))
+			if revArgs.name != "<default>" {
+				if errs := validation.IsDNS1123Label(revArgs.name); len(errs) > 0 {
+					return fmt.Errorf(strings.Join(errs, "\n"))
+				}
+			} else {
+				revArgs.name = "" // TODO(su225): This case is broken. Fix it.
 			}
 			logger := clog.NewConsoleLogger(cmd.OutOrStdout(), cmd.ErrOrStderr(), scope)
 			return revisionDescription(cmd.OutOrStdout(), &revArgs, logger)
@@ -216,6 +221,7 @@ func revisionList(writer io.Writer, args *revisionArgs, logger clog.Logger) erro
 
 	switch revArgs.output {
 	case "json":
+		// TODO(su225): support JSON format
 		return fmt.Errorf("not yet implemented")
 	default:
 		return printRevisionInfoTable(writer, args, revisions, logger)
@@ -233,7 +239,7 @@ func printRevisionInfoTable(writer io.Writer, args *revisionArgs, revisions map[
 	for r, ri := range revisions {
 		rowId := 0
 		for _, iop := range ri.IOPs {
-			profile := iop.Spec.Profile
+			profile := effectiveProfile(iop.Spec.Profile)
 			components := getEnabledComponents(iop.Spec)
 			qualifiedName := fmt.Sprintf("%s/%s", iop.Namespace, iop.Name)
 
@@ -324,6 +330,8 @@ func getAllIstioOperatorCRs(client kube.ExtendedClient) ([]*iopv1alpha1.IstioOpe
 
 // TODO: Refactor this to a function and wrap output in a struct so that we can
 // TODO: easily support printing in different formats and make it more testable
+//
+// TODO(su225): Incorporate code-review feedback
 func revisionDescription(w io.Writer, args *revisionArgs, logger *clog.ConsoleLogger) error {
 	revision := args.name
 	client, err := newKubeClientWithRevision(kubeconfig, configContext, revision)
@@ -531,6 +539,7 @@ func getPodsWithRevision(client kube.ExtendedClient) ([]v1.Pod, error) {
 	})
 }
 
+// TODO(su225): This must be somewhere in the codebase already. Find it.
 func getPodsWithSelector(client kube.ExtendedClient, ns string, selector *meta_v1.LabelSelector) ([]v1.Pod, error) {
 	labelSelector, err := meta_v1.LabelSelectorAsSelector(selector)
 	if err != nil {
