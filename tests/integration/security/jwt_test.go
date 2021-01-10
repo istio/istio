@@ -27,6 +27,7 @@ import (
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/components/namespace"
+	"istio.io/istio/pkg/test/kube"
 	"istio.io/istio/pkg/test/util/file"
 	"istio.io/istio/pkg/test/util/retry"
 	"istio.io/istio/pkg/test/util/tmpl"
@@ -38,6 +39,12 @@ import (
 
 const (
 	authHeaderKey = "Authorization"
+)
+
+var (
+	// The jwtServeNamespace namespace is used to deploy the sample jwt server.
+	jwtServerNamespace    namespace.Instance
+	jwtServerNamespaceErr error
 )
 
 // TestRequestAuthentication tests beta authn policy for jwt.
@@ -348,6 +355,33 @@ func TestRequestAuthentication(t *testing.T) {
 						})
 					}
 				})
+			}
+		})
+}
+
+func TestRequestAuthentication_RemoteJwks(t *testing.T) {
+	framework.NewTest(t).
+		Features("security.authentication.jwt").
+		Run(func(ctx framework.TestContext) {
+			ns := namespace.NewOrFail(t, ctx, namespace.Config{
+				Prefix: "v1beta1-custom",
+				Inject: true,
+			})
+			args := map[string]string{"Namespace": ns.Name()}
+			applyYAML := func(filename string, ns namespace.Instance) []string {
+				policy := tmpl.EvaluateAllOrFail(t, args, file.AsStringOrFail(t, filename))
+				ctx.Config().ApplyYAMLOrFail(t, ns.Name(), policy...)
+				return policy
+			}
+
+			// Deploy and wait for the ext-authz server to be ready.
+			if jwtServerNamespace == nil {
+				ctx.Fatalf("Failed to create namespace for jwt-server server: %v", jwtServerNamespaceErr)
+			}
+			jwtServer := applyYAML("../../../samples/jwt-server/jwt-server.yaml", jwtServerNamespace)
+			defer ctx.Config().DeleteYAMLOrFail(t, jwtServerNamespace.Name(), jwtServer...)
+			if _, _, err := kube.WaitUntilServiceEndpointsAreReady(ctx.Clusters().Default(), jwtServerNamespace.Name(), "jwt-server"); err != nil {
+				ctx.Fatalf("Wait for jwt-server server failed: %v", err)
 			}
 		})
 }
