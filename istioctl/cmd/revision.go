@@ -39,8 +39,6 @@ import (
 	apimachinery_schema "k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/duration"
 	"k8s.io/apimachinery/pkg/util/validation"
-	"k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/rest"
 )
 
 type revisionArgs struct {
@@ -159,9 +157,9 @@ func revisionListCommand() *cobra.Command {
 
 // TODO: Come up with a better name
 type revisionInfo struct {
-	Revision          string
-	Tags              []string
-	IOPs              []*iopv1alpha1.IstioOperator
+	Revision string
+	Tags     []string
+	IOPs     []*iopv1alpha1.IstioOperator
 }
 
 func newRevisionInfo(name string) *revisionInfo {
@@ -201,7 +199,7 @@ func revisionList(writer io.Writer, args *revisionArgs, logger clog.Logger) erro
 	}
 
 	// Get a list of all CRs which are installed in this cluster
-	iopcrs, err := getAllIstioOperatorCRs(err, client)
+	iopcrs, err := getAllIstioOperatorCRs(client)
 	if err != nil {
 		return fmt.Errorf("error while listing IstioOperator CRs: %v", err)
 	}
@@ -228,9 +226,9 @@ func printRevisionInfoTable(writer io.Writer, args *revisionArgs, revisions map[
 	tw := new(tabwriter.Writer).Init(writer, 0, 8, 1, ' ', 0)
 	var err error
 	if args.verbose {
-		tw.Write([]byte("REVISION\tTAG\tISTIO-OPERATOR CR\tPROFILE\tREQD-COMPONENTS\tCUSTOMIZATIONS\n"))
+		tw.Write([]byte("REVISION\tTAG\tISTIO-OPERATOR-CR\tPROFILE\tREQD-COMPONENTS\tCUSTOMIZATIONS\n"))
 	} else {
-		tw.Write([]byte("REVISION\tTAG\tISTIO-OPERATOR CR\tPROFILE\tREQD-COMPONENTS\n"))
+		tw.Write([]byte("REVISION\tTAG\tISTIO-OPERATOR-CR\tPROFILE\tREQD-COMPONENTS\n"))
 	}
 	for r, ri := range revisions {
 		rowId := 0
@@ -245,6 +243,12 @@ func printRevisionInfoTable(writer io.Writer, args *revisionArgs, revisions map[
 				if err != nil {
 					return fmt.Errorf("error while computing customizations for %s: %v", qualifiedName, err)
 				}
+				if len(customizations) == 0 {
+					customizations = append(customizations, "<no-customization>")
+				}
+			}
+			if len(ri.Tags) == 0 {
+				ri.Tags = append(ri.Tags, "<no-tag>")
 			}
 			maxIopRows := max(max(1, len(components)), len(customizations))
 			for i := 0; i < maxIopRows; i++ {
@@ -276,11 +280,27 @@ func printRevisionInfoTable(writer io.Writer, args *revisionArgs, revisions map[
 				rowId++
 			}
 		}
+		for rowId < len(ri.Tags) {
+			var rowRev, rowTag, rowIopName string
+			if rowId == 0 {
+				rowRev = r
+			}
+			if rowId == 0 {
+				rowIopName = "<no-iop>"
+			}
+			rowTag = ri.Tags[rowId]
+			if args.verbose {
+				fmt.Fprintf(tw, "%s\t%s\t%s\t \t \t \n", rowRev, rowTag, rowIopName)
+			} else {
+				fmt.Fprintf(tw, "%s\t%s\t%s\t \t \n", rowRev, rowTag, rowIopName)
+			}
+			rowId++
+		}
 	}
 	return tw.Flush()
 }
 
-func getAllIstioOperatorCRs(err error, client kube.ExtendedClient) ([]*iopv1alpha1.IstioOperator, error) {
+func getAllIstioOperatorCRs(client kube.ExtendedClient) ([]*iopv1alpha1.IstioOperator, error) {
 	ucrs, err := client.Dynamic().Resource(istioOperatorGVR).
 		Namespace(istioNamespace).
 		List(context.Background(), meta_v1.ListOptions{})
@@ -305,13 +325,59 @@ func getAllIstioOperatorCRs(err error, client kube.ExtendedClient) ([]*iopv1alph
 // TODO: Refactor this to a function and wrap output in a struct so that we can
 // TODO: easily support printing in different formats and make it more testable
 func revisionDescription(w io.Writer, args *revisionArgs, logger *clog.ConsoleLogger) error {
-	// TODO: Rewrite this stuff
-	fmt.Fprintln(w, "Not yet implemented")
+	revision := args.name
+	client, err := newKubeClientWithRevision(kubeconfig, configContext, revision)
+	if err != nil {
+		return fmt.Errorf("cannot create kubeclient for kubeconfig=%s, context=%s: %v",
+			kubeconfig, configContext, err)
+	}
+
+	fmt.Fprintf(w, "Revision: %s\n", revision)
+	err = printIstioOperatorCRInfoForRevision(w, args, client, logger)
+	if err != nil {
+		return err
+	}
+
+	// show Istiod and gateways that are installed under this revision
+	istiodPods, err := getControlPlanePods(client)
+	if err != nil {
+		return err
+	}
+	if err = printPodTable(w, "CONTROL-PLANE", &istiodPods); err != nil {
+		return err
+	}
+
+	// list ingress gateways
+	ingressPods, err := getIngressGateways(client)
+	if err != nil {
+		return err
+	}
+	if err = printPodTable(w, "INGRESS-GATEWAYS", &ingressPods); err != nil {
+		return err
+	}
+
+	// list egress gateways
+	egressPods, err := getEgressGateways(client)
+	if err != nil {
+		return err
+	}
+	if err = printPodTable(w, "EGRESS-GATEWAYS", &egressPods); err != nil {
+		return err
+	}
+
+	// print namespace summary
+	pods, err := printNamespaceSummaryForRevision(w, client)
+	if err != nil {
+		return err
+	}
+	if args.verbose {
+		return printPodTable(w, "PODS", &pods)
+	}
 	return nil
 }
 
-func printNamespaceSummaryForRevision(w io.Writer, restConfig *rest.Config, revision string) ([]v1.Pod, error) {
-	pods, err := getPodsWithRevision(restConfig, revision)
+func printNamespaceSummaryForRevision(w io.Writer, client kube.ExtendedClient) ([]v1.Pod, error) {
+	pods, err := getPodsWithRevision(client)
 	if err != nil {
 		return nil, err
 	}
@@ -333,42 +399,42 @@ func printNamespaceSummaryForRevision(w io.Writer, restConfig *rest.Config, revi
 	return pods, nil
 }
 
-func printIstioOperatorCRInfoForRevision(w io.Writer, args *revisionArgs, restConfig *rest.Config, revision string, logger *clog.ConsoleLogger) error {
-	//iops, err := getIOPs(restConfig)
-	//if err != nil {
-	//	return err
-	//}
-	//
-	//// It is not an efficient way. But for now, we live with this
-	//// This can be refined by selecting by label, annotation etc.
-	//filteredIOPs := getIOPWithRevision(iops, revision)
-	//if len(filteredIOPs) == 0 {
-	//	fmt.Fprintf(w, "ISTIO-OPERATOR: (No CRDs found)\n")
-	//} else if len(filteredIOPs) == 1 {
-	//	fmt.Fprintf(w, "ISTIO-OPERATOR: (1 CRD found)\n")
-	//} else {
-	//	fmt.Fprintf(w, "ISTIO-OPERATOR: (%d CRDs found)\n", len(filteredIOPs))
-	//}
-	//
-	//for i, iop := range filteredIOPs {
-	//	fmt.Fprintf(w, "%d. %s/%s\n", i+1, iop.Namespace, iop.Name)
-	//	enabledComponents := getEnabledComponents(iop.Spec)
-	//	fmt.Fprintf(w, "  COMPONENTS:\n")
-	//	for _, c := range enabledComponents {
-	//		fmt.Fprintf(w, "  - %s\n", c)
-	//	}
-	//
-	//	// For each IOP, print all customizations for it
-	//	fmt.Fprintf(w, "  CUSTOMIZATIONS:\n")
-	//	iopCustomizations, err := getDiffs(iop, args.manifestsPath, iop.Spec.GetProfile(), logger)
-	//	if err != nil {
-	//		return fmt.Errorf("<Error> Cannot fetch customizations for %s: %s", iop.Name, err.Error())
-	//	}
-	//	for _, customization := range iopCustomizations {
-	//		fmt.Fprintf(w, "  - %s\n", customization)
-	//	}
-	//	fmt.Fprintln(w)
-	//}
+func printIstioOperatorCRInfoForRevision(w io.Writer, args *revisionArgs, client kube.ExtendedClient, logger *clog.ConsoleLogger) error {
+	iops, err := getAllIstioOperatorCRs(client)
+	if err != nil {
+		return err
+	}
+
+	// It is not an efficient way. But for now, we live with this
+	// This can be refined by selecting by label, annotation etc.
+	filteredIOPs := getIOPWithRevision(iops, args.name)
+	if len(filteredIOPs) == 0 {
+		fmt.Fprintf(w, "ISTIO-OPERATOR: (No CRDs found)\n")
+	} else if len(filteredIOPs) == 1 {
+		fmt.Fprintf(w, "ISTIO-OPERATOR: (1 CRD found)\n")
+	} else {
+		fmt.Fprintf(w, "ISTIO-OPERATOR: (%d CRDs found)\n", len(filteredIOPs))
+	}
+
+	for i, iop := range filteredIOPs {
+		fmt.Fprintf(w, "%d. %s/%s\n", i+1, iop.Namespace, iop.Name)
+		enabledComponents := getEnabledComponents(iop.Spec)
+		fmt.Fprintf(w, "  COMPONENTS:\n")
+		for _, c := range enabledComponents {
+			fmt.Fprintf(w, "  - %s\n", c)
+		}
+
+		// For each IOP, print all customizations for it
+		fmt.Fprintf(w, "  CUSTOMIZATIONS:\n")
+		iopCustomizations, err := getDiffs(iop, args.manifestsPath, iop.Spec.GetProfile(), logger)
+		if err != nil {
+			return fmt.Errorf("<Error> Cannot fetch customizations for %s: %s", iop.Name, err.Error())
+		}
+		for _, customization := range iopCustomizations {
+			fmt.Fprintf(w, "  - %s\n", customization)
+		}
+		fmt.Fprintln(w)
+	}
 	return nil
 }
 
@@ -503,40 +569,36 @@ func getEnabledComponents(iops *v1alpha1.IstioOperatorSpec) []string {
 }
 
 // TODO: Get Rid of magic strings or get rid of these methods altogether
-func getControlPlanePods(restConfig *rest.Config, revision string) ([]v1.Pod, error) {
-	return getPodsForComponent(restConfig, "Pilot", revision)
+func getControlPlanePods(client kube.ExtendedClient) ([]v1.Pod, error) {
+	return getPodsForComponent(client, "Pilot")
 }
 
-func getIngressGateways(restConfig *rest.Config, revision string) ([]v1.Pod, error) {
-	return getPodsForComponent(restConfig, "IngressGateways", revision)
+func getIngressGateways(client kube.ExtendedClient) ([]v1.Pod, error) {
+	return getPodsForComponent(client, "IngressGateways")
 }
 
-func getEgressGateways(restConfig *rest.Config, revision string) ([]v1.Pod, error) {
-	return getPodsForComponent(restConfig, "EgressGateways", revision)
+func getEgressGateways(client kube.ExtendedClient) ([]v1.Pod, error) {
+	return getPodsForComponent(client, "EgressGateways")
 }
 
-func getPodsForComponent(restConfig *rest.Config, component, revision string) ([]v1.Pod, error) {
-	return getPodsWithSelector(restConfig, istioNamespace, &meta_v1.LabelSelector{
+func getPodsForComponent(client kube.ExtendedClient, component string) ([]v1.Pod, error) {
+	return getPodsWithSelector(client, istioNamespace, &meta_v1.LabelSelector{
 		MatchLabels: map[string]string{
-			label.IstioRev:               revision,
+			label.IstioRev:               client.Revision(),
 			label.IstioOperatorComponent: component,
 		},
 	})
 }
 
-func getPodsWithRevision(restConfig *rest.Config, revision string) ([]v1.Pod, error) {
-	return getPodsWithSelector(restConfig, "", &meta_v1.LabelSelector{
+func getPodsWithRevision(client kube.ExtendedClient) ([]v1.Pod, error) {
+	return getPodsWithSelector(client, "", &meta_v1.LabelSelector{
 		MatchLabels: map[string]string{
-			label.IstioRev: revision,
+			label.IstioRev: client.Revision(),
 		},
 	})
 }
 
-func getPodsWithSelector(restConfig *rest.Config, ns string, selector *meta_v1.LabelSelector) ([]v1.Pod, error) {
-	client, err := kubernetes.NewForConfig(restConfig)
-	if err != nil {
-		return []v1.Pod{}, err
-	}
+func getPodsWithSelector(client kube.ExtendedClient, ns string, selector *meta_v1.LabelSelector) ([]v1.Pod, error) {
 	labelSelector, err := meta_v1.LabelSelectorAsSelector(selector)
 	if err != nil {
 		return []v1.Pod{}, err
