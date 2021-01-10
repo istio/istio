@@ -49,6 +49,10 @@ spec:
         prometheus.io/path: "/stats/prometheus"
         {{- end }}
         sidecar.istio.io/inject: "false"
+        {{- if not (eq .Release.Namespace "istio-system") }}
+        proxy.istio.io/config: |-
+          discoveryAddress: istiod{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}.{{ .Values.global.istioNamespace }}.svc:15012
+        {{- end }}
 {{- if $gateway.podAnnotations }}
 {{ toYaml $gateway.podAnnotations | indent 8 }}
 {{ end }}
