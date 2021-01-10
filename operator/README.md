@@ -54,15 +54,6 @@ for details.
 
 The quick start describes how to install and use the operator `mesh` CLI command and/or controller.
 
-### Building
-
-If you're trying to do a local build that bypasses the build container, you'll need to
-to execute the following step one time.
-
-```bash
-GO111MODULE=on go get github.com/jteeuwen/go-bindata/go-bindata@6025e8de665b
-```
-
 #### CLI
 
 To build the operator CLI, simply:

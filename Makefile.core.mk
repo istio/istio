@@ -342,9 +342,6 @@ go-gen:
 	@mkdir -p /tmp/bin
 	@PATH="${PATH}":/tmp/bin go generate ./...
 
-gen-charts:
-	@operator/scripts/create_assets_gen.sh
-
 refresh-goldens:
 	@REFRESH_GOLDEN=true go test ${GOBUILDFLAGS} ./operator/...
 	@REFRESH_GOLDEN=true go test ${GOBUILDFLAGS} ./pkg/kube/inject/...
@@ -352,12 +349,13 @@ refresh-goldens:
 
 update-golden: refresh-goldens
 
+# Keep dummy target since some build pipelines depend on this
+gen-charts:
+	@echo "This target is no longer required and will be removed in the future"
+
 gen: mod-download-go go-gen mirror-licenses format update-crds operator-proto sync-configs-from-istiod gen-kustomize update-golden ## Update all generated code.
 
-check-no-modify:
-	@bin/check_no_modify.sh
-
-gen-check: check-no-modify gen check-clean-repo
+gen-check: gen check-clean-repo
 
 # Copy the injection template file and configmap from istiod chart to istiod-remote chart
 sync-configs-from-istiod:
