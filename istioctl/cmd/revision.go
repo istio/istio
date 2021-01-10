@@ -18,23 +18,13 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"istio.io/istio/pkg/kube"
 	"sort"
 	"strings"
 	"text/tabwriter"
 	"time"
 
 	"github.com/spf13/cobra"
-	v1 "k8s.io/api/core/v1"
-	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	apimachinery_schema "k8s.io/apimachinery/pkg/runtime/schema"
-	"k8s.io/apimachinery/pkg/util/duration"
-	"k8s.io/apimachinery/pkg/util/validation"
-	"k8s.io/cli-runtime/pkg/genericclioptions"
-	"k8s.io/client-go/dynamic"
-	"k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/rest"
-	"k8s.io/utils/pointer"
-
 	"istio.io/api/label"
 	"istio.io/api/operator/v1alpha1"
 	"istio.io/istio/operator/cmd/mesh"
@@ -44,25 +34,55 @@ import (
 	"istio.io/istio/operator/pkg/util"
 	"istio.io/istio/operator/pkg/util/clog"
 	"istio.io/istio/pkg/config"
+	v1 "k8s.io/api/core/v1"
+	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	apimachinery_schema "k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/util/duration"
+	"k8s.io/apimachinery/pkg/util/validation"
+	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/rest"
 )
 
 type revisionArgs struct {
 	manifestsPath string
 	name          string
 	verbose       bool
+	sections      []string
+	output        string
 }
+
+const (
+	IstioOperatorCRSection = "cr"
+	ControlPlaneSection    = "cp"
+	GatewaysSection        = "gw"
+	PodsSection            = "po"
+
+	// TODO: This should be moved to istio/api:label package
+	istioTag = "istio.io/tag"
+)
+
+var (
+	validFormats = []string{"table", "json"}
+
+	defaultSections = []string{
+		IstioOperatorCRSection,
+		ControlPlaneSection,
+		GatewaysSection,
+	}
+
+	verboseSections = []string{
+		IstioOperatorCRSection,
+		ControlPlaneSection,
+		GatewaysSection,
+		PodsSection,
+	}
+)
 
 var (
 	istioOperatorGVR = apimachinery_schema.GroupVersionResource{
 		Group:    iopv1alpha1.SchemeGroupVersion.Group,
 		Version:  iopv1alpha1.SchemeGroupVersion.Version,
 		Resource: "istiooperators",
-	}
-
-	kubeConfigFlags = &genericclioptions.ConfigFlags{
-		Context:    pointer.StringPtr(""),
-		Namespace:  pointer.StringPtr(""),
-		KubeConfig: pointer.StringPtr(""),
 	}
 
 	revArgs = revisionArgs{}
@@ -94,6 +114,19 @@ func revisionDescribeCommand() *cobra.Command {
 			if len(args) > 1 {
 				return fmt.Errorf("exactly 1 revision should be specified")
 			}
+			if revArgs.verbose && len(revArgs.sections) != 0 {
+				return fmt.Errorf("sections and verbose flags should not be specified at the same time")
+			}
+			isValidFormat := false
+			for _, f := range validFormats {
+				if revArgs.output == f {
+					isValidFormat = true
+					break
+				}
+			}
+			if !isValidFormat {
+				return fmt.Errorf("unknown format %s. It should be %#v", revArgs.output, validFormats)
+			}
 			return nil
 		},
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -102,10 +135,12 @@ func revisionDescribeCommand() *cobra.Command {
 				return fmt.Errorf(strings.Join(errs, "\n"))
 			}
 			logger := clog.NewConsoleLogger(cmd.OutOrStdout(), cmd.ErrOrStderr(), scope)
-			return revisionDescription(cmd.OutOrStdout(), &revArgs, kubeConfigFlags, logger)
+			return revisionDescription(cmd.OutOrStdout(), &revArgs, logger)
 		},
 	}
-	describeCmd.Flags().Bool("all", true, "show all related to a revision")
+	describeCmd.Flags().BoolVarP(&revArgs.verbose, "verbose", "v", false, "Dump all information related to the revision")
+	describeCmd.Flags().StringSliceVarP(&revArgs.sections, "sections", "s", []string{}, "Sections that should be included in description output")
+	describeCmd.Flags().StringVarP(&revArgs.output, "output", "o", "table", "Output format for revision description")
 	return describeCmd
 }
 
@@ -116,74 +151,162 @@ func revisionListCommand() *cobra.Command {
 		Example: `   istioctl experimental revision list`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			logger := clog.NewConsoleLogger(cmd.OutOrStdout(), cmd.ErrOrStderr(), scope)
-			return revisionList(cmd.OutOrStdout(), &revArgs, kubeConfigFlags, logger)
+			return revisionList(cmd.OutOrStdout(), &revArgs, logger)
 		},
 	}
 	return listCmd
 }
 
-func revisionList(writer io.Writer, args *revisionArgs, restClientGetter genericclioptions.RESTClientGetter, logger clog.Logger) error {
-	restConfig, err := restClientGetter.ToRESTConfig()
-	if err != nil {
-		return err
+// TODO: Come up with a better name
+type revisionInfo struct {
+	Revision          string
+	Tags              []string
+	IOPs              []*iopv1alpha1.IstioOperator
+}
+
+func newRevisionInfo(name string) *revisionInfo {
+	return &revisionInfo{
+		Revision: name,
+		Tags:     []string{},
+		IOPs:     []*iopv1alpha1.IstioOperator{},
 	}
-	iops, err := getIOPs(restConfig)
+}
+
+func revisionList(writer io.Writer, args *revisionArgs, logger clog.Logger) error {
+	client, err := newKubeClient(kubeconfig, configContext)
 	if err != nil {
-		return err
+		return fmt.Errorf("cannot create kubeclient for kubeconfig=%s, context=%s: %v",
+			kubeconfig, configContext, err)
 	}
-	return printIOPs(writer, iops, args.verbose, args.manifestsPath, logger)
+
+	revisions := map[string]*revisionInfo{}
+
+	// Get a list of control planes which are installed in remote clusters
+	// In this case, it is possible that they only have webhooks installed.
+	webhooks, err := getWebhooks(context.Background(), client)
+	if err != nil {
+		return fmt.Errorf("error while listing webhooks: %v", err)
+	}
+	for _, hook := range webhooks {
+		rev := renderWithDefault(hook.GetLabels()[label.IstioRev], "default")
+		tag := hook.GetLabels()[istioTag]
+		ri, revPresent := revisions[rev]
+		if revPresent {
+			if tag != "" {
+				ri.Tags = append(ri.Tags, tag)
+			}
+		} else {
+			revisions[rev] = newRevisionInfo(rev)
+		}
+	}
+
+	// Get a list of all CRs which are installed in this cluster
+	iopcrs, err := getAllIstioOperatorCRs(err, client)
+	if err != nil {
+		return fmt.Errorf("error while listing IstioOperator CRs: %v", err)
+	}
+	for _, iop := range iopcrs {
+		if iop == nil {
+			continue
+		}
+		rev := renderWithDefault(iop.Spec.GetRevision(), "default")
+		ri, revPresent := revisions[rev]
+		if revPresent {
+			ri.IOPs = append(ri.IOPs, iop)
+		}
+	}
+
+	switch revArgs.output {
+	case "json":
+		return fmt.Errorf("not yet implemented")
+	default:
+		return printRevisionInfoTable(writer, args, revisions, logger)
+	}
+}
+
+func printRevisionInfoTable(writer io.Writer, args *revisionArgs, revisions map[string]*revisionInfo, logger clog.Logger) error {
+	tw := new(tabwriter.Writer).Init(writer, 0, 8, 1, ' ', 0)
+	var err error
+	if args.verbose {
+		tw.Write([]byte("REVISION\tTAG\tISTIO-OPERATOR CR\tPROFILE\tREQD-COMPONENTS\tCUSTOMIZATIONS\n"))
+	} else {
+		tw.Write([]byte("REVISION\tTAG\tISTIO-OPERATOR CR\tPROFILE\tREQD-COMPONENTS\n"))
+	}
+	for r, ri := range revisions {
+		rowId := 0
+		for _, iop := range ri.IOPs {
+			profile := iop.Spec.Profile
+			components := getEnabledComponents(iop.Spec)
+			qualifiedName := fmt.Sprintf("%s/%s", iop.Namespace, iop.Name)
+
+			customizations := []string{}
+			if args.verbose {
+				customizations, err = getDiffs(iop, args.manifestsPath, profile, logger)
+				if err != nil {
+					return fmt.Errorf("error while computing customizations for %s: %v", qualifiedName, err)
+				}
+			}
+			maxIopRows := max(max(1, len(components)), len(customizations))
+			for i := 0; i < maxIopRows; i++ {
+				var rowTag, rowRev string
+				var rowIopName, rowProfile, rowComp, rowCust string
+				if i == 0 {
+					rowIopName = qualifiedName
+					rowProfile = profile
+				}
+				if i < len(components) {
+					rowComp = components[i]
+				}
+				if i < len(customizations) {
+					rowCust = customizations[i]
+				}
+				if rowId < len(ri.Tags) {
+					rowTag = ri.Tags[rowId]
+				}
+				if rowId == 0 {
+					rowRev = r
+				}
+				if args.verbose {
+					fmt.Fprintf(tw, "%s\t%s\t%s\t%s\t%s\t%s\n",
+						rowRev, rowTag, rowIopName, rowProfile, rowComp, rowCust)
+				} else {
+					fmt.Fprintf(tw, "%s\t%s\t%s\t%s\t%s\n",
+						rowRev, rowTag, rowIopName, rowProfile, rowComp)
+				}
+				rowId++
+			}
+		}
+	}
+	return tw.Flush()
+}
+
+func getAllIstioOperatorCRs(err error, client kube.ExtendedClient) ([]*iopv1alpha1.IstioOperator, error) {
+	ucrs, err := client.Dynamic().Resource(istioOperatorGVR).
+		Namespace(istioNamespace).
+		List(context.Background(), meta_v1.ListOptions{})
+	if err != nil {
+		return []*iopv1alpha1.IstioOperator{}, fmt.Errorf("cannot retrieve IstioOperator CRs: %v", err)
+	}
+	iopCRs := []*iopv1alpha1.IstioOperator{}
+	for _, u := range ucrs.Items {
+		u.SetCreationTimestamp(meta_v1.Time{})
+		u.SetManagedFields([]meta_v1.ManagedFieldsEntry{})
+		iop, err := operator_istio.UnmarshalIstioOperator(util.ToYAML(u.Object), true)
+		if err != nil {
+			return []*iopv1alpha1.IstioOperator{},
+				fmt.Errorf("error while converting to IstioOperator CR - %s/%s: %v",
+					u.GetNamespace(), u.GetName(), err)
+		}
+		iopCRs = append(iopCRs, iop)
+	}
+	return iopCRs, nil
 }
 
 // TODO: Refactor this to a function and wrap output in a struct so that we can
 // TODO: easily support printing in different formats and make it more testable
-func revisionDescription(w io.Writer, args *revisionArgs, restClientGetter *genericclioptions.ConfigFlags, logger *clog.ConsoleLogger) error {
-	restConfig, err := restClientGetter.ToRESTConfig()
-	if err != nil {
-		return err
-	}
-
-	revision := args.name
-	fmt.Fprintf(w, "Revision: %s\n", revision)
-	err = printIstioOperatorCRInfoForRevision(w, args, restConfig, revision, logger)
-	if err != nil {
-		return err
-	}
-
-	// show Istiod and gateways that are installed under this revision
-	istiodPods, err := getControlPlanePods(restConfig, revision)
-	if err != nil {
-		return err
-	}
-	if err = printPodTable(w, "CONTROL-PLANE", &istiodPods); err != nil {
-		return err
-	}
-
-	// list ingress gateways
-	ingressPods, err := getIngressGateways(restConfig, revision)
-	if err != nil {
-		return err
-	}
-	if err = printPodTable(w, "INGRESS-GATEWAYS", &ingressPods); err != nil {
-		return err
-	}
-
-	// list egress gateways
-	egressPods, err := getEgressGateways(restConfig, revision)
-	if err != nil {
-		return err
-	}
-	if err = printPodTable(w, "EGRESS-GATEWAYS", &egressPods); err != nil {
-		return err
-	}
-
-	// print namespace summary
-	pods, err := printNamespaceSummaryForRevision(w, restConfig, revision)
-	if err != nil {
-		return err
-	}
-	if args.verbose {
-		return printPodTable(w, "PODS", &pods)
-	}
+func revisionDescription(w io.Writer, args *revisionArgs, logger *clog.ConsoleLogger) error {
+	// TODO: Rewrite this stuff
+	fmt.Fprintln(w, "Not yet implemented")
 	return nil
 }
 
@@ -211,41 +334,41 @@ func printNamespaceSummaryForRevision(w io.Writer, restConfig *rest.Config, revi
 }
 
 func printIstioOperatorCRInfoForRevision(w io.Writer, args *revisionArgs, restConfig *rest.Config, revision string, logger *clog.ConsoleLogger) error {
-	iops, err := getIOPs(restConfig)
-	if err != nil {
-		return err
-	}
-
-	// It is not an efficient way. But for now, we live with this
-	// This can be refined by selecting by label, annotation etc.
-	filteredIOPs := getIOPWithRevision(iops, revision)
-	if len(filteredIOPs) == 0 {
-		fmt.Fprintf(w, "ISTIO-OPERATOR: (No CRDs found)\n")
-	} else if len(filteredIOPs) == 1 {
-		fmt.Fprintf(w, "ISTIO-OPERATOR: (1 CRD found)\n")
-	} else {
-		fmt.Fprintf(w, "ISTIO-OPERATOR: (%d CRDs found)\n", len(filteredIOPs))
-	}
-
-	for i, iop := range filteredIOPs {
-		fmt.Fprintf(w, "%d. %s/%s\n", i+1, iop.Namespace, iop.Name)
-		enabledComponents := getEnabledComponents(iop.Spec)
-		fmt.Fprintf(w, "  COMPONENTS:\n")
-		for _, c := range enabledComponents {
-			fmt.Fprintf(w, "  - %s\n", c)
-		}
-
-		// For each IOP, print all customizations for it
-		fmt.Fprintf(w, "  CUSTOMIZATIONS:\n")
-		iopCustomizations, err := getDiffs(iop, args.manifestsPath, iop.Spec.GetProfile(), logger)
-		if err != nil {
-			return fmt.Errorf("<Error> Cannot fetch customizations for %s: %s", iop.Name, err.Error())
-		}
-		for _, customization := range iopCustomizations {
-			fmt.Fprintf(w, "  - %s\n", customization)
-		}
-		fmt.Fprintln(w)
-	}
+	//iops, err := getIOPs(restConfig)
+	//if err != nil {
+	//	return err
+	//}
+	//
+	//// It is not an efficient way. But for now, we live with this
+	//// This can be refined by selecting by label, annotation etc.
+	//filteredIOPs := getIOPWithRevision(iops, revision)
+	//if len(filteredIOPs) == 0 {
+	//	fmt.Fprintf(w, "ISTIO-OPERATOR: (No CRDs found)\n")
+	//} else if len(filteredIOPs) == 1 {
+	//	fmt.Fprintf(w, "ISTIO-OPERATOR: (1 CRD found)\n")
+	//} else {
+	//	fmt.Fprintf(w, "ISTIO-OPERATOR: (%d CRDs found)\n", len(filteredIOPs))
+	//}
+	//
+	//for i, iop := range filteredIOPs {
+	//	fmt.Fprintf(w, "%d. %s/%s\n", i+1, iop.Namespace, iop.Name)
+	//	enabledComponents := getEnabledComponents(iop.Spec)
+	//	fmt.Fprintf(w, "  COMPONENTS:\n")
+	//	for _, c := range enabledComponents {
+	//		fmt.Fprintf(w, "  - %s\n", c)
+	//	}
+	//
+	//	// For each IOP, print all customizations for it
+	//	fmt.Fprintf(w, "  CUSTOMIZATIONS:\n")
+	//	iopCustomizations, err := getDiffs(iop, args.manifestsPath, iop.Spec.GetProfile(), logger)
+	//	if err != nil {
+	//		return fmt.Errorf("<Error> Cannot fetch customizations for %s: %s", iop.Name, err.Error())
+	//	}
+	//	for _, customization := range iopCustomizations {
+	//		fmt.Fprintf(w, "  - %s\n", customization)
+	//	}
+	//	fmt.Fprintln(w)
+	//}
 	return nil
 }
 
@@ -377,32 +500,6 @@ func getEnabledComponents(iops *v1alpha1.IstioOperatorSpec) []string {
 		}
 	}
 	return enabledComponents
-}
-
-func getIOPs(restConfig *rest.Config) ([]*iopv1alpha1.IstioOperator, error) {
-	client, err := dynamic.NewForConfig(restConfig)
-	if err != nil {
-		return nil, err
-	}
-	ul, err := client.
-		Resource(istioOperatorGVR).
-		Namespace(istioNamespace).
-		List(context.TODO(), meta_v1.ListOptions{})
-	if err != nil {
-		return nil, err
-	}
-	iops := []*iopv1alpha1.IstioOperator{}
-	for _, un := range ul.Items {
-		un.SetCreationTimestamp(meta_v1.Time{}) // UnmarshalIstioOperator chokes on these
-		un.SetManagedFields([]meta_v1.ManagedFieldsEntry{})
-		by := util.ToYAML(un.Object)
-		iop, err := operator_istio.UnmarshalIstioOperator(by, true)
-		if err != nil {
-			return nil, err
-		}
-		iops = append(iops, iop)
-	}
-	return iops, nil
 }
 
 // TODO: Get Rid of magic strings or get rid of these methods altogether
