@@ -41,6 +41,12 @@ const (
 	authHeaderKey = "Authorization"
 )
 
+var (
+	// The jwtServerNamespace namespace is used to deploy the sample jwt server.
+	jwtServerNamespace    namespace.Instance
+	jwtServerNamespaceErr error
+)
+
 // TestRequestAuthentication tests beta authn policy for jwt.
 func TestRequestAuthentication(t *testing.T) {
 	payload1 := strings.Split(jwt.TokenIssuer1, ".")[1]
@@ -357,8 +363,8 @@ func TestRequestAuthentication_RemoteJwks(t *testing.T) {
 	framework.NewTest(t).
 		Features("security.authentication.jwt").
 		Run(func(ctx framework.TestContext) {
-			jwtServerNamespace, jwtServerNamespaceErr := namespace.New(ctx, namespace.Config{
-				Prefix: "test-ns-jwt-server",
+			ns := namespace.NewOrFail(t, ctx, namespace.Config{
+				Prefix: "v1beta1-remotejwks",
 				Inject: true,
 			})
 			args := map[string]string{"Namespace": ns.Name()}
