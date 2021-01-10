@@ -294,9 +294,6 @@ var (
 		return ptypes.DurationProto(defaultRequestTimeoutVar.Get())
 	}()
 
-	EnableGrpcTimeoutHeader = env.RegisterBoolVar("PILOT_ENABLE_GRPC_TIMEOUT_HEADER", false,
-		"If this is set to true, Istio will configure proxy to respect the  grpc-timeout header set by applications.").Get()
-
 	EnableServiceApis = env.RegisterBoolVar("PILOT_ENABLED_SERVICE_APIS", false,
 		"If this is set to true, support for Kubernetes service-apis (github.com/kubernetes-sigs/service-apis) will "+
 			" be enabled. This feature is currently experimental, and is off by default.").Get()

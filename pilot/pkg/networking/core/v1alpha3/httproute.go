@@ -537,11 +537,6 @@ func buildCatchAllVirtualHost(node *model.Proxy) *route.VirtualHost {
 			routeAction.MaxStreamDuration = &route.RouteAction_MaxStreamDuration{
 				MaxStreamDuration: notimeout,
 			}
-			// If GrpcTimeoutHeader is enabled, set the GrpcTimeoutHeaderMax to zero so that
-			// Envoy respects grpc-timeout header.
-			if features.EnableGrpcTimeoutHeader {
-				routeAction.MaxStreamDuration.GrpcTimeoutHeaderMax = notimeout
-			}
 		} else {
 			// If not configured at all, the grpc-timeout header is not used and
 			// gRPC requests time out like any other requests using timeout or its default.
