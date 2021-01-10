@@ -168,7 +168,7 @@ func DumpPodLogs(_ resource.Context, c resource.Cluster, workDir, namespace stri
 		for _, container := range containers {
 			l, err := c.PodLogs(context.TODO(), pod.Name, pod.Namespace, container.Name, false /* previousLog */)
 			if err != nil {
-				scopes.Framework.Errorf("Unable to get logs for pod/container: %s/%s/%s", pod.Namespace, pod.Name, container.Name)
+				scopes.Framework.Errorf("Unable to get logs for pod/container: %s/%s/%s. error :%v", pod.Namespace, pod.Name, container.Name, err)
 			}
 
 			fname := outputPath(workDir, c, pod, fmt.Sprintf("%s.log", container.Name))

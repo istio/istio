@@ -81,6 +81,10 @@ func (s *JWTServer) run(httpAddr string) {
 	wg.Wait()
 }
 
+func (s *JWTServer) stop() {
+	s.httpServer.Close()
+}
+
 func NewJwtServer() *JWTServer {
 	return &JWTServer{
 		httpPort: make(chan int, 1),
@@ -91,6 +95,7 @@ func main() {
 	flag.Parse()
 	s := NewJwtServer()
 	go s.run(fmt.Sprintf(":%s", *httpPort))
+	defer s.stop()
 
 	// Wait for the process to be shutdown.
 	sigs := make(chan os.Signal, 1)
