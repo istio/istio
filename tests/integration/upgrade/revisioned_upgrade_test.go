@@ -17,7 +17,11 @@ package upgrade
 
 import (
 	"fmt"
+	"strings"
+	"testing"
+
 	"github.com/hashicorp/go-multierror"
+
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
@@ -25,8 +29,6 @@ import (
 	"istio.io/istio/pkg/test/framework/components/namespace"
 	kubetest "istio.io/istio/pkg/test/kube"
 	"istio.io/pkg/log"
-	"strings"
-	"testing"
 )
 
 func TestRevisionedUpgrade(t *testing.T) {
@@ -39,7 +41,7 @@ func TestRevisionedUpgrade(t *testing.T) {
 			t.Run(fmt.Sprintf("%s->master", NMinusTwo.Settings().Version), func(t *testing.T) {
 				testUpgradeFromVersion(ctx, t, NMinusTwo.Settings().Version, NMinusTwo.Settings().Revision)
 			})
-	})
+		})
 }
 
 // testUpgradeFromVersion tests an upgrade from the target revision to the namespace running master revision
@@ -109,4 +111,3 @@ func enableDefaultInjection(ns namespace.Instance) error {
 	errs = multierror.Append(errs, ns.RemoveLabel("istio.io/rev"))
 	return errs.ErrorOrNil()
 }
-
