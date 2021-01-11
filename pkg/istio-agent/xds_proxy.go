@@ -273,14 +273,18 @@ func (p *XdsProxy) HandleUpstream(ctx context.Context, con *ProxyConnection, xds
 	upstream, err := xds.StreamAggregatedResources(ctx,
 		grpc.MaxCallRecvMsgSize(defaultClientMaxReceiveMessageSize))
 	if err != nil {
+		p.connectedMutex.Lock()
 		p.consecutiveUpstreamConnectFailures++
 		if p.consecutiveUpstreamConnectFailures > 10 {
 			proxyLog.Errorf("failed to create upstream grpc client after %d attempts : %v", p.consecutiveUpstreamConnectFailures, err)
 		}
+		p.connectedMutex.Unlock()
 		return err
 	}
 
+	p.connectedMutex.Lock()
 	p.consecutiveUpstreamConnectFailures = 0
+	p.connectedMutex.Unlock()
 
 	con.upstream = upstream
 
