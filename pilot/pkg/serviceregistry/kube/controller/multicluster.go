@@ -162,7 +162,7 @@ func (m *Multicluster) AddMemberCluster(client kubelib.Client, clusterID string)
 		if m.serviceEntryStore != nil && localCluster {
 			// Add an instance handler in the service entry store to notify kubernetes about workload entry events
 			m.serviceEntryStore.AppendWorkloadHandler(kubeRegistry.WorkloadInstanceHandler)
-		} else {
+		} else if features.WorkloadEntryCrossCluster {
 			// TODO only do this for non-remotes, can't guarantee CRDs in remotes (depends on https://github.com/istio/istio/pull/29824)
 			if configStore, err := createConfigStore(client, m.revision, options); err == nil {
 				m.remoteKubeControllers[clusterID].workloadEntryStore = serviceentry.NewServiceDiscovery(
