@@ -21,7 +21,6 @@ import (
 
 	"k8s.io/client-go/kubernetes"
 
-	configaggregate "istio.io/istio/pilot/pkg/config/aggregate"
 	"istio.io/istio/pilot/pkg/config/kube/crdclient"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/leaderelection"
@@ -164,10 +163,10 @@ func (m *Multicluster) AddMemberCluster(client kubelib.Client, clusterID string)
 			// Add an instance handler in the service entry store to notify kubernetes about workload entry events
 			m.serviceEntryStore.AppendWorkloadHandler(kubeRegistry.WorkloadInstanceHandler)
 		} else {
-			// TODO only do this for non-remotes, CRDs won't exist in remotes (depends on https://github.com/istio/istio/pull/29824)
+			// TODO only do this for non-remotes, can't guarantee CRDs in remotes (depends on https://github.com/istio/istio/pull/29824)
 			if configStore, err := createConfigStore(client, m.revision, options); err == nil {
 				m.remoteKubeControllers[clusterID].workloadEntryStore = serviceentry.NewServiceDiscovery(
-					configStore, model.MakeIstioStore(configStore), options.XDSUpdater, serviceentry.ProcessServiceEntry(false))
+					configStore, model.MakeIstioStore(configStore), options.XDSUpdater, serviceentry.DisableServiceEntryProcessing())
 				m.serviceController.AddRegistry(m.remoteKubeControllers[clusterID].workloadEntryStore)
 				// Services can select WorkloadEntry from the same cluster. We only duplicate the Service to configure kube-dns.
 				m.remoteKubeControllers[clusterID].workloadEntryStore.AppendWorkloadHandler(kubeRegistry.WorkloadInstanceHandler)
@@ -270,15 +269,7 @@ func createConfigStore(client kubelib.Client, revision string, opts Options) (mo
 	workloadEntriesSchemas := collection.NewSchemasBuilder().
 		MustAdd(collections.IstioNetworkingV1Alpha3Workloadentries).
 		Build()
-	configController, err := crdclient.NewForSchemas(client, revision, opts.DomainSuffix, workloadEntriesSchemas)
-	if err != nil {
-		return nil, err
-	}
-	aggregateStore, err := configaggregate.MakeCache([]model.ConfigStoreCache{configController})
-	if err != nil {
-		return nil, err
-	}
-	return aggregateStore, nil
+	return crdclient.NewForSchemas(client, revision, opts.DomainSuffix, workloadEntriesSchemas)
 }
 
 func (m *Multicluster) updateHandler(svc *model.Service) {
