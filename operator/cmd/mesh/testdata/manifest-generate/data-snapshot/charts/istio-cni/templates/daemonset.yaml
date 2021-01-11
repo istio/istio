@@ -24,6 +24,7 @@ spec:
     metadata:
       labels:
         k8s-app: istio-cni-node
+        sidecar.istio.io/inject: "false"
       annotations:
         # This, along with the CriticalAddonsOnly toleration below,
         # marks the pod as a critical add-on, ensuring it gets

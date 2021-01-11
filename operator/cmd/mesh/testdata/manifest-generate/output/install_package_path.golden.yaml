@@ -24,6 +24,7 @@ spec:
         app: istiod
         istio.io/rev: default
         install.operator.istio.io/owning-resource: unknown
+        sidecar.istio.io/inject: "false"
         operator.istio.io/component: "Pilot"
         istio: pilot
       annotations:
