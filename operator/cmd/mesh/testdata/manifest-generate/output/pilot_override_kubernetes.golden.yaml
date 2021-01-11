@@ -41,6 +41,12 @@ webhooks:
   namespaceSelector:
     matchLabels:
       istio-injection: enabled
+  objectSelector:
+    matchExpressions:
+    - key: sidecar.istio.io/inject
+      operator: NotIn
+      values:
+      - "false"
   rules:
   - apiGroups:
     - ""
@@ -86,6 +92,7 @@ spec:
         istio: pilot
         istio.io/rev: default
         operator.istio.io/component: Pilot
+        sidecar.istio.io/inject: "false"
     spec:
       containers:
       - args:
