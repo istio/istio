@@ -246,6 +246,7 @@ func deploy(ctx resource.Context, env *kube.Environment, cfg Config) (Instance, 
 		return i, nil
 	}
 	// Use pre-generated manifests for versioned control plane
+	// TODO(Monkeyanator) set up versioned istiod deploy to work with multicluster
 	if cfg.Version != "" {
 		scopes.Framework.Infof("deploying version %s from manifests", cfg.Version)
 		if err := deployVersion(i, cfg.Version); err != nil {
@@ -340,7 +341,7 @@ func deploy(ctx resource.Context, env *kube.Environment, cfg Config) (Instance, 
 }
 
 func deployVersion(i *operatorComponent, version string) error {
-	installationTestdataDir := filepath.Join(testenv.IstioSrc, "tests/integration/pilot/testdata/upgrade")
+	installationTestdataDir := filepath.Join(testenv.IstioSrc, "pkg/test/upgrade/testdata")
 	installationConfigPath := filepath.Join(installationTestdataDir, fmt.Sprintf("%s-install.yaml", version))
 	configBytes, err := ioutil.ReadFile(installationConfigPath)
 	if err != nil {
