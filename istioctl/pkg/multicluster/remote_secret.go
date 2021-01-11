@@ -29,6 +29,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/serializer/json"
 	"k8s.io/apimachinery/pkg/runtime/serializer/versioning"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
+	"k8s.io/client-go/tools/clientcmd"
 
 	//  to avoid 'No Auth Provider found for name "gcp"'
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
@@ -193,6 +194,9 @@ func createRemoteSecretFromPlugin(
 
 	// Create a Kubeconfig to access the remote cluster using the auth provider plugin.
 	kubeconfig := createPluginKubeconfig(caData, clusterName, server, authProviderConfig)
+	if err := clientcmd.Validate(*kubeconfig); err != nil {
+		return nil, fmt.Errorf("invalid kubeconfig: %v", err)
+	}
 
 	// Encode the Kubeconfig in a secret that can be loaded by Istio to dynamically discover and access the remote cluster.
 	return createRemoteServiceAccountSecret(kubeconfig, clusterName, secName)
@@ -215,6 +219,9 @@ func createRemoteSecretFromTokenAndServer(tokenSecret *v1.Secret, clusterName, s
 
 	// Create a Kubeconfig to access the remote cluster using the remote service account credentials.
 	kubeconfig := createBearerTokenKubeconfig(caData, token, clusterName, server)
+	if err := clientcmd.Validate(*kubeconfig); err != nil {
+		return nil, fmt.Errorf("invalid kubeconfig: %v", err)
+	}
 
 	// Encode the Kubeconfig in a secret that can be loaded by Istio to dynamically discover and access the remote cluster.
 	return createRemoteServiceAccountSecret(kubeconfig, clusterName, secName)
