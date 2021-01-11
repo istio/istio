@@ -32,6 +32,7 @@ import (
 
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	"github.com/golang/protobuf/ptypes"
+	"go.uber.org/atomic"
 	"golang.org/x/oauth2"
 	google_rpc "google.golang.org/genproto/googleapis/rpc/status"
 	"google.golang.org/grpc"
@@ -85,6 +86,8 @@ type XdsProxy struct {
 	connected      *ProxyConnection
 	initialRequest *discovery.DiscoveryRequest
 	connectedMutex sync.RWMutex
+
+	consecutiveUpstreamConnectFailures atomic.Int32
 }
 
 var proxyLog = log.RegisterScope("xdsproxy", "XDS Proxy in Istio Agent", 0)
@@ -170,7 +173,6 @@ func (p *XdsProxy) UnregisterStream(c *ProxyConnection) {
 	p.connectedMutex.Lock()
 	defer p.connectedMutex.Unlock()
 	if p.connected != nil && p.connected == c {
-		proxyLog.Warnf("unregister stream")
 		close(p.connected.stopChan)
 		p.connected = nil
 	}
@@ -272,9 +274,15 @@ func (p *XdsProxy) HandleUpstream(ctx context.Context, con *ProxyConnection, xds
 	upstream, err := xds.StreamAggregatedResources(ctx,
 		grpc.MaxCallRecvMsgSize(defaultClientMaxReceiveMessageSize))
 	if err != nil {
-		proxyLog.Errorf("failed to create upstream grpc client: %v", err)
+		p.consecutiveUpstreamConnectFailures.Inc()
+		failures := p.consecutiveUpstreamConnectFailures.Load()
+		if failures > 10 {
+			proxyLog.Errorf("failed to create upstream grpc client after %d attempts : %v", failures, err)
+		}
 		return err
 	}
+
+	p.consecutiveUpstreamConnectFailures.Store(0)
 
 	con.upstream = upstream
 
