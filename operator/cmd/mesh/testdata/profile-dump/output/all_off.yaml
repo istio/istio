@@ -76,6 +76,9 @@ spec:
       logAsJson: false
       logging:
         level: default:info
+      meshExpansion:
+        enabled: false
+        useILB: false
       meshNetworks: {}
       mountMtlsCerts: false
       multiCluster:
