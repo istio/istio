@@ -423,17 +423,14 @@ func generateAltVirtualHosts(hostname string, port int, proxyDomain string) []st
 		return nil
 	}
 
-	// adds the uniq piece foo, foo:80
+	// adds the unique piece foo, foo:80
 	vhosts = append(vhosts, uniqHostname, domainName(uniqHostname, port))
 
-	// adds all the other variants (foo.local, foo.local:80)
-	// TODO(https://github.com/istio/istio/issues/28407) splitting on each dot is not right
-	for i := len(sharedDNSDomain) - 1; i > 0; i-- {
-		if sharedDNSDomain[i] == '.' {
-			variant := uniqHostname + "." + sharedDNSDomain[:i]
-			variantWithPort := domainName(variant, port)
-			vhosts = append(vhosts, variant, variantWithPort)
-		}
+	hostNameParts := strings.Split(uniqHostname, ".")
+	if len(hostNameParts) != 2 {
+		sharedDNSDomainParts := strings.SplitN(sharedDNSDomain, ".", 2)
+		namespace := sharedDNSDomainParts[0]
+		vhosts = append(vhosts, uniqHostname+"."+namespace, domainName(uniqHostname+"."+namespace, port))
 	}
 	return vhosts
 }

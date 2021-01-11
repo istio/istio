@@ -55,8 +55,8 @@ func TestGenerateVirtualHostDomains(t *testing.T) {
 			node: &model.Proxy{
 				DNSDomain: "local.campus.net",
 			},
-			want: []string{"foo", "foo.local", "foo.local.campus", "foo.local.campus.net",
-				"foo:80", "foo.local:80", "foo.local.campus:80", "foo.local.campus.net:80"},
+			want: []string{"foo", "foo.local", "foo.local.campus.net",
+				"foo:80", "foo.local:80", "foo.local.campus.net:80"},
 		},
 		{
 			name: "different domains with some shared dns",
@@ -68,8 +68,8 @@ func TestGenerateVirtualHostDomains(t *testing.T) {
 			node: &model.Proxy{
 				DNSDomain: "remote.campus.net",
 			},
-			want: []string{"foo.local", "foo.local.campus", "foo.local.campus.net",
-				"foo.local:80", "foo.local.campus:80", "foo.local.campus.net:80"},
+			want: []string{"foo.local", "foo.local.campus.net",
+				"foo.local:80", "foo.local.campus.net:80"},
 		},
 		{
 			name: "different domains with no shared dns",
@@ -144,8 +144,7 @@ func TestSidecarOutboundHTTPRouteConfigWithDuplicateHosts(t *testing.T) {
 			map[string][]string{
 				"allow_any": {"*"},
 				// BUG: test should be below
-				"test.local:80": {"test.local", "test.local:80"},
-				"test:80":       {"test", "test:80"},
+				"test:80": {"test", "test:80"},
 			},
 			map[string]string{
 				"allow_any":     "PassthroughCluster",
