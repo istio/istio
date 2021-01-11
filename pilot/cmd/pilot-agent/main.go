@@ -180,7 +180,6 @@ var (
 
 			// Obtain all the IPs from the node
 			if ipAddrs, ok := network.GetPrivateIPs(context.Background()); ok {
-				log.Infof("Obtained private IP %v", ipAddrs)
 				if len(role.IPAddresses) == 1 {
 					for _, ip := range ipAddrs {
 						// prevent duplicate ips, the first one must be the pod ip
@@ -218,7 +217,7 @@ var (
 			// If not set, set a default based on platform - podNamespace.svc.cluster.local for
 			// K8S
 			role.DNSDomain = getDNSDomain(podNamespace, role.DNSDomain)
-			log.Infof("Proxy role: %#v", role)
+			log.WithLabels("ips", role.IPAddresses, "type", role.Type, "id", role.ID, "domain", role.DNSDomain).Info("Proxy role")
 
 			secOpts, err := setupSecurityOptions(proxyConfig)
 			if err != nil {
@@ -246,7 +245,7 @@ var (
 				// Obtain Pilot SAN, using DNS.
 				pilotSAN = []string{getPilotSan(proxyConfig.DiscoveryAddress)}
 			}
-			log.Infof("PilotSAN %#v", pilotSAN)
+			log.Infof("Pilot SAN: %v", pilotSAN)
 
 			// Start in process SDS.
 			if err := sa.Start(); err != nil {
