@@ -5,4 +5,4 @@ issue:
   - 28288
 releaseNotes:
   - |
-    **Added** Istio Canonical Service Grafana Dashboard.
+    **Deprecated, Added** Deprecate Istio Service Dashboard and replace it with the Istio Canonical Service Dashboard.

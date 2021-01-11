@@ -113,14 +113,6 @@ var (
 			true,
 		},
 		{
-			"istio-grafana-dashboards",
-			"istio-canonical-service-dashboard.json",
-			[]string{
-				"istio_tcp_",
-			},
-			true,
-		},
-		{
 			"istio-services-grafana-dashboards",
 			"istio-extension-dashboard.json",
 			[]string{
