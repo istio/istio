@@ -56,7 +56,7 @@ var VersionedEchoPorts = []echo.Port{
 func SetupApps(ctx resource.Context, latest, nMinusOne, nMinusTwo istio.Instance, apps *VersionedEchoDeployments) error {
 	var err error
 	apps.LatestNs, err = namespace.New(ctx, namespace.Config{
-		Prefix:   "echo-latest-",
+		Prefix:   "echo-latest",
 		Revision: latest.Settings().Revision,
 		Inject:   true,
 	})
