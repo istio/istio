@@ -75,6 +75,7 @@ var (
 	}()
 	// Compiled in charts come from assets.gen.go
 	compiledInCharts chartSourceType = "COMPILED"
+	_                                = compiledInCharts
 	// Live charts come from manifests/
 	liveCharts = chartSourceType(filepath.Join(env.IstioSrc, helm.OperatorSubdirFilePath))
 )
