@@ -87,9 +87,9 @@ type ServiceEntryStore struct { // nolint:golint
 
 type ServiceDiscoveryOption func(*ServiceEntryStore)
 
-func ProcessServiceEntry(enabled bool) ServiceDiscoveryOption {
+func DisableServiceEntryProcessing() ServiceDiscoveryOption {
 	return func(o *ServiceEntryStore) {
-		o.processServiceEntry = enabled
+		o.processServiceEntry = false
 	}
 }
 
@@ -547,7 +547,7 @@ type servicesWithEntry struct {
 	services []*model.Service
 }
 
-// Resync EDS will do a full EDS update. This is needed for some tests where we have many configs loaded without calling
+// ResyncEDS will do a full EDS update. This is needed for some tests where we have many configs loaded without calling
 // the config handlers.
 // This should probably not be used in production code.
 func (s *ServiceEntryStore) ResyncEDS() {
