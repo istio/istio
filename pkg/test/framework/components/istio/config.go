@@ -154,7 +154,7 @@ type Config struct {
 	// only applicable when used with DeployHelm
 	Version string
 
-	// Revision
+	// Revision for this control plane installation
 	Revision string
 }
 
