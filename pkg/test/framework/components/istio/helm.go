@@ -53,10 +53,8 @@ var _ Instance = &helmComponent{}
 var _ resource.Dumper = &helmComponent{}
 
 var (
-	// chartBasePath is path of local Helm charts used for testing.
-	chartBasePath = filepath.Join(env.IstioSrc, "manifests/charts")
-	// versionedChartBasePath is path of checked-in charts for older Istio versions
-	versionedChartBasePath = filepath.Join(env.IstioSrc, "tests/integration/helm/testdata")
+	// chartPath is path of local Helm charts used for testing.
+	chartPath = filepath.Join(env.IstioSrc, "manifests/charts")
 )
 
 type helmComponent struct {
@@ -101,14 +99,13 @@ func (h *helmComponent) Settings() Config {
 func (h *helmComponent) Close() error {
 	scopes.Framework.Infof("cleaning up resources")
 	// TODO remove ingress and egress charts
-	istiodRelease := IstiodReleaseName + h.settings.Revision
-	if err := h.helmCmd.DeleteChart(istiodRelease, h.settings.IstioNamespace); err != nil {
-		return fmt.Errorf("failed to delete %s release", istiodRelease)
+	if err := h.helmCmd.DeleteChart(IstiodReleaseName, h.settings.IstioNamespace); err != nil {
+		return fmt.Errorf("failed to delete %s release", IstiodReleaseName)
 	}
 	if err := h.helmCmd.DeleteChart(BaseReleaseName, h.settings.IstioNamespace); err != nil {
 		return fmt.Errorf("failed to delete %s release", BaseReleaseName)
 	}
-	if err := h.cs.CoreV1().Namespaces().Delete(context.Background(), h.settings.IstioNamespace, metav1.DeleteOptions{}); err != nil {
+	if err := h.cs.CoreV1().Namespaces().Delete(context.TODO(), h.settings.IstioNamespace, metav1.DeleteOptions{}); err != nil {
 		return fmt.Errorf("failed to delete istio namespace: %v", err)
 	}
 	if err := kube2.WaitForNamespaceDeletion(h.cs, h.settings.IstioNamespace, retry.Timeout(retryTimeOut)); err != nil {
@@ -125,14 +122,7 @@ func deployWithHelm(ctx resource.Context, env *kube.Environment, cfg Config) (In
 
 	// install control plane clusters
 	cluster := ctx.Clusters().Default().(*kube.Cluster)
-
-	var helmCmd *helm.Helm
-	if cfg.Version == "" {
-		helmCmd = helm.New(cluster.Filename(), chartBasePath)
-	} else {
-		chartPath := filepath.Join(versionedChartBasePath, cfg.Version, "charts")
-		helmCmd = helm.New(cluster.Filename(), chartPath)
-	}
+	helmCmd := helm.New(cluster.Filename(), chartPath)
 
 	h := &helmComponent{
 		settings: cfg,
@@ -172,13 +162,13 @@ func helmInstall(h *helmComponent) error {
 		return fmt.Errorf("cluster is not config cluster")
 	}
 
-	if _, err := h.cs.CoreV1().Namespaces().Create(context.Background(), &v1.Namespace{
+	if _, err := h.cs.CoreV1().Namespaces().Create(context.TODO(), &v1.Namespace{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: h.settings.SystemNamespace,
 		},
 	}, metav1.CreateOptions{}); err != nil {
 		if errors.IsAlreadyExists(err) {
-			if _, err := h.cs.CoreV1().Namespaces().Update(context.Background(), &v1.Namespace{
+			if _, err := h.cs.CoreV1().Namespaces().Update(context.TODO(), &v1.Namespace{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: h.settings.SystemNamespace,
 				},
@@ -205,7 +195,7 @@ func helmInstall(h *helmComponent) error {
 	}
 
 	// Install discovery chart
-	err = h.helmCmd.InstallChartWithValues(IstiodReleaseName+h.settings.Revision, filepath.Join(ControlChartsDir, DiscoveryChart),
+	err = h.helmCmd.InstallChartWithValues(IstiodReleaseName, filepath.Join(ControlChartsDir, DiscoveryChart),
 		h.settings.IstioNamespace, overridesArgs, helmTimeout)
 	if err != nil {
 		return fmt.Errorf("failed to install istio %s chart", DiscoveryChart)
@@ -221,29 +211,12 @@ func generateCommonInstallSettings(cfg Config) ([]string, error) {
 	}
 
 	installSettings := []string{
-		"--set", fmt.Sprintf("%s=%s", image.ImagePullPolicyValuesKey, s.PullPolicy),
+		"--set", "global.imagePullPolicy=" + s.PullPolicy,
 	}
 
 	// Include all user-specified values.
 	for k, v := range cfg.Values {
-		if cfg.Version != "" {
-			if k == image.TagValuesKey || k == image.HubValuesKey {
-				continue
-			}
-		}
 		installSettings = append(installSettings, "--set", fmt.Sprintf("%s=%s", k, v))
-	}
-
-	if cfg.Revision != "" {
-		installSettings = append(installSettings,
-			"--set", fmt.Sprintf("%s=%s", "revision", cfg.Revision))
-	}
-
-	// set the tag and hub to custom values if version specified
-	if cfg.Version != "" {
-		installSettings = append(installSettings,
-			"--set", fmt.Sprintf("%s=%s", image.TagValuesKey, cfg.Version),
-			"--set", fmt.Sprintf("%s=%s", image.HubValuesKey, "gcr.io/istio-release"))
 	}
 
 	return installSettings, nil
