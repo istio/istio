@@ -80,10 +80,6 @@ func SetupApps(ctx resource.Context, latest, nMinusOne, nMinusTwo istio.Instance
 		return err
 	}
 
-	for _, p := range VersionedEchoPorts {
-		p.ServicePort = p.InstancePort
-	}
-
 	c := ctx.Clusters().Default()
 	builder := echoboot.NewBuilder(ctx)
 	builder.
