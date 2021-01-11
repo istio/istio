@@ -32,7 +32,6 @@ import (
 
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	"github.com/golang/protobuf/ptypes"
-	"go.uber.org/atomic"
 	"golang.org/x/oauth2"
 	google_rpc "google.golang.org/genproto/googleapis/rpc/status"
 	"google.golang.org/grpc"
@@ -86,8 +85,6 @@ type XdsProxy struct {
 	connected      *ProxyConnection
 	initialRequest *discovery.DiscoveryRequest
 	connectedMutex sync.RWMutex
-
-	consecutiveUpstreamConnectFailures atomic.Int32
 }
 
 var proxyLog = log.RegisterScope("xdsproxy", "XDS Proxy in Istio Agent", 0)
@@ -202,7 +199,7 @@ type ProxyConnection struct {
 // This ensures that a new connection between istiod and agent doesn't end up consuming pending messages from envoy
 // as the new connection may not go to the same istiod. Vice versa case also applies.
 func (p *XdsProxy) StreamAggregatedResources(downstream discovery.AggregatedDiscoveryService_StreamAggregatedResourcesServer) error {
-	proxyLog.Infof("Envoy ADS stream established")
+	proxyLog.Debugf("accepted XDS connection from Envoy, forwarding to upstream XDS server")
 
 	con := &ProxyConnection{
 		upstreamError:   make(chan error, 2), // can be produced by recv and send
@@ -269,20 +266,15 @@ func (p *XdsProxy) StreamAggregatedResources(downstream discovery.AggregatedDisc
 }
 
 func (p *XdsProxy) HandleUpstream(ctx context.Context, con *ProxyConnection, xds discovery.AggregatedDiscoveryServiceClient) error {
-	proxyLog.Infof("connecting to upstream XDS server: %s", p.istiodAddress)
-	defer proxyLog.Infof("disconnected from XDS server: %s", p.istiodAddress)
 	upstream, err := xds.StreamAggregatedResources(ctx,
 		grpc.MaxCallRecvMsgSize(defaultClientMaxReceiveMessageSize))
 	if err != nil {
-		p.consecutiveUpstreamConnectFailures.Inc()
-		failures := p.consecutiveUpstreamConnectFailures.Load()
-		if failures > 10 {
-			proxyLog.Errorf("failed to create upstream grpc client after %d attempts : %v", failures, err)
-		}
+		// Envoy logs errors again, so no need to log beyond debug level
+		proxyLog.Debugf("failed to create upstream grpc client: %v", err)
 		return err
 	}
-
-	p.consecutiveUpstreamConnectFailures.Store(0)
+	proxyLog.Infof("connected to upstream XDS server: %s", p.istiodAddress)
+	defer proxyLog.Debugf("disconnected from XDS server: %s", p.istiodAddress)
 
 	con.upstream = upstream
 
