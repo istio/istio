@@ -14,48 +14,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-export SHARED_VPC_HOST_BOSKOS_RESOURCE="shared-vpc-host-gke-project"
-export SHARED_VPC_SVC_BOSKOS_RESOURCE="shared-vpc-svc-gke-project"
 export VPC_SC_BOSKOS_RESOURCE="vpc-sc-gke-project"
 export COMMON_BOSKOS_RESOURCE="gke-project"
-
-# The network and firewall rule resources are very likely leaked if we
-# teardown them with `kubetest2 --down`, so we leverage boskos-janitor here
-# since it can make sure the projects can be back to the clean state.
-# TODO(chizhg): find a cleaner and less hacky way to handle this.
-function multiproject_multicluster_setup() {
-  # Acquire a host project from the project rental pool.
-  local host_project
-  host_project=$(boskos_acquire "${SHARED_VPC_HOST_BOSKOS_RESOURCE}")
-  # Remove all projects that are currently associated with this host project.
-  local associated_projects
-  associated_projects=$(gcloud beta compute shared-vpc associated-projects list "${host_project}" --format="value(RESOURCE_ID)")
-  if [ -n "${associated_projects}" ]; then
-    while read -r svc_project
-    do
-      gcloud beta compute shared-vpc associated-projects remove "${svc_project}" --host-project "${host_project}"
-    done <<< "$associated_projects"
-  fi
-
-  # Acquire two service projects from the project rental pool.
-  local service_project1
-  service_project1=$(boskos_acquire "${SHARED_VPC_SVC_BOSKOS_RESOURCE}")
-  local service_project2
-  service_project2=$(boskos_acquire "${SHARED_VPC_SVC_BOSKOS_RESOURCE}")
-  # gcloud requires one service project can only be associated with one host
-  # project, so if the acquired service projects have already been associated
-  # with one host project, remove the association.
-  for service_project in "${service_project1}" "${service_project2}"
-  do
-    local associated_host_project
-    associated_host_project=$(gcloud beta compute shared-vpc get-host-project "${service_project}" --format="value(name)")
-    if [ -n "${associated_host_project}" ]; then
-      gcloud beta compute shared-vpc associated-projects remove "${service_project}" --host-project "${associated_host_project}"
-    fi
-  done
-
-  echo "${host_project},${service_project1},${service_project2}"
-}
 
 # Setup the project for VPC-SC testing, as per the instructions in
 # https://docs.google.com/document/d/11yYDxxI-fbbqlpvUYRtJiBmGdY_nIKPJLbssM3YQtKI/edit#heading=h.e2laig460f1d

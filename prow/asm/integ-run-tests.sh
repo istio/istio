@@ -153,7 +153,7 @@ build_istioctl
 echo "Installing ASM control plane..."
 gcloud components install kpt
 if [[ "${DEPLOYER}" == "gke" ]]; then
-  install_asm "${WD}/pkg" "${CA}" "${WIP}" "${CONTEXTS[@]}"
+  install_asm "${WD}/kpt-pkg" "${CA}" "${WIP}" "${CONTEXTS[@]}"
 elif [[ "${DEPLOYER}" == "tailorbird" ]]; then
   install_asm_on_multicloud "${WD}/pkg" "CITADEL" "${WIP}" "${CONTEXTS[@]}"
 fi
