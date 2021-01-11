@@ -614,7 +614,7 @@ func (s *DiscoveryServer) preProcessRequest(proxy *model.Proxy, req *discovery.D
 				event.Healthy = false
 				event.Message = req.ErrorDetail.Message
 			}
-			s.WorkloadEntryController.UpdateWorkloadEntryHealth(proxy, event)
+			s.WorkloadEntryController.QueueWorkloadEntryHealth(proxy, event)
 		}
 		return false
 	}

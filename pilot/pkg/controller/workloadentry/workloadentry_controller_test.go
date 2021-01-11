@@ -24,6 +24,7 @@ import (
 	"github.com/hashicorp/go-multierror"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	kubetypes "k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/wait"
 
 	"istio.io/api/meta/v1alpha1"
 	"istio.io/api/networking/v1alpha3"
@@ -217,13 +218,13 @@ func TestUpdateHealthCondition(t *testing.T) {
 	p := fakeProxy("1.2.3.4", wgA, "litNw")
 	ig.RegisterWorkload(p, time.Now())
 	t.Run("auto registered healthy health", func(t *testing.T) {
-		ig.UpdateWorkloadEntryHealth(p, HealthEvent{
+		ig.QueueWorkloadEntryHealth(p, HealthEvent{
 			Healthy: true,
 		})
 		checkHealthOrFail(t, store, p, true)
 	})
-	t.Run("auto registered unhealthy health :(", func(t *testing.T) {
-		ig.UpdateWorkloadEntryHealth(p, HealthEvent{
+	t.Run("auto registered unhealthy health", func(t *testing.T) {
+		ig.QueueWorkloadEntryHealth(p, HealthEvent{
 			Healthy: false,
 			Message: "lol health bad",
 		})
@@ -435,7 +436,14 @@ func checkEntryHealth(store model.ConfigStoreCache, proxy *model.Proxy, healthy 
 }
 
 func checkHealthOrFail(t test.Failer, store model.ConfigStoreCache, proxy *model.Proxy, healthy bool) {
-	if err := checkEntryHealth(store, proxy, healthy); err != nil {
+	err := wait.Poll(100*time.Millisecond, 1*time.Second, func() (done bool, err error) {
+		err2 := checkEntryHealth(store, proxy, healthy)
+		if err2 != nil {
+			return false, nil
+		}
+		return true, nil
+	})
+	if err != nil {
 		t.Fatal(err)
 	}
 }
