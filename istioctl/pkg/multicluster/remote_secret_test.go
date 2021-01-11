@@ -477,7 +477,7 @@ func TestCreateRemoteKubeconfig(t *testing.T) {
 clusters:
 - cluster:
     certificate-authority-data: Y2FEYXRh
-    server: ""
+    server: https://1.2.3.4
   name: {cluster}
 contexts:
 - context:
@@ -517,10 +517,19 @@ users:
 			wantErrStr:  errMissingTokenKey.Error(),
 		},
 		{
+			name:        "bad server name",
+			in:          makeSecret("", "caData", "token"),
+			context:     "c0",
+			clusterName: fakeClusterName,
+			server:      "",
+			wantErrStr:  "invalid kubeconfig:",
+		},
+		{
 			name:        "success",
 			in:          makeSecret("", "caData", "token"),
 			context:     "c0",
 			clusterName: fakeClusterName,
+			server:      "https://1.2.3.4",
 			want: &v1.Secret{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: remoteSecretNameFromClusterName(fakeClusterName),
@@ -604,7 +613,7 @@ func TestCreateRemoteSecretFromPlugin(t *testing.T) {
 clusters:
 - cluster:
     certificate-authority-data: Y2FEYXRh
-    server: ""
+    server: https://1.2.3.4
   name: {cluster}
 contexts:
 - context:
@@ -645,6 +654,7 @@ users:
 			in:          makeSecret("", "caData", ""),
 			context:     "c0",
 			clusterName: fakeClusterName,
+			server:      "https://1.2.3.4",
 			authProviderConfig: &api.AuthProviderConfig{
 				Name: "foobar",
 				Config: map[string]string{
@@ -671,6 +681,7 @@ users:
 			in:          makeSecret("", "caData", "token"),
 			context:     "c0",
 			clusterName: fakeClusterName,
+			server:      "https://1.2.3.4",
 			authProviderConfig: &api.AuthProviderConfig{
 				Name: "foobar",
 				Config: map[string]string{
