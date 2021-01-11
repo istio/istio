@@ -70,17 +70,17 @@ const (
 // connections. These need to be consolidated.
 // TODO: consolidate/use ADSC struct - a lot of duplication.
 type XdsProxy struct {
-	stopChan               chan struct{}
-	clusterID              string
-	downstreamListener     net.Listener
-	downstreamGrpcServer   *grpc.Server
-	istiodAddress          string
-	istiodDialOptions      []grpc.DialOption
-	localDNSServer         *dns.LocalDNSServer
-	healthChecker          *health.WorkloadHealthChecker
-	xdsHeaders             map[string]string
-	xdsUdsPath             string
-	xdsEnableTokenExchange bool
+	stopChan                    chan struct{}
+	clusterID                   string
+	downstreamListener          net.Listener
+	downstreamGrpcServer        *grpc.Server
+	istiodAddress               string
+	istiodDialOptions           []grpc.DialOption
+	localDNSServer              *dns.LocalDNSServer
+	healthChecker               *health.WorkloadHealthChecker
+	xdsHeaders                  map[string]string
+	xdsUdsPath                  string
+	xdsEnableTokenFetchExchange bool
 
 	// connected stores the active gRPC stream. The proxy will only have 1 connection at a time
 	connected      *ProxyConnection
@@ -106,14 +106,14 @@ func initXdsProxy(ia *Agent) (*XdsProxy, error) {
 		LocalHostAddr: localHostAddr,
 	}
 	proxy := &XdsProxy{
-		istiodAddress:          ia.proxyConfig.DiscoveryAddress,
-		clusterID:              ia.secOpts.ClusterID,
-		localDNSServer:         ia.localDNSServer,
-		stopChan:               make(chan struct{}),
-		healthChecker:          health.NewWorkloadHealthChecker(ia.proxyConfig.ReadinessProbe, envoyProbe),
-		xdsHeaders:             ia.cfg.XDSHeaders,
-		xdsUdsPath:             ia.cfg.XdsUdsPath,
-		xdsEnableTokenExchange: ia.secOpts.XdsEnableTokenExchange,
+		istiodAddress:               ia.proxyConfig.DiscoveryAddress,
+		clusterID:                   ia.secOpts.ClusterID,
+		localDNSServer:              ia.localDNSServer,
+		stopChan:                    make(chan struct{}),
+		healthChecker:               health.NewWorkloadHealthChecker(ia.proxyConfig.ReadinessProbe, envoyProbe),
+		xdsHeaders:                  ia.cfg.XDSHeaders,
+		xdsUdsPath:                  ia.cfg.XdsUdsPath,
+		xdsEnableTokenFetchExchange: ia.secOpts.XdsEnableTokenFetchExchange,
 	}
 
 	proxyLog.Infof("Initializing with upstream address %q and cluster %q", proxy.istiodAddress, proxy.clusterID)

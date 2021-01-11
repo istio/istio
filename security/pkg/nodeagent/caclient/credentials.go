@@ -78,8 +78,8 @@ func (t *TokenProvider) RequireTransportSecurity() bool {
 // volatile memory), we can still proceed and allow other authentication methods to potentially
 // handle the request, such as mTLS.
 func (t *TokenProvider) GetToken() (string, error) {
-	if !t.forCA && !t.opts.XdsEnableTokenExchange {
-		// For XDS flow, when token exchange is disabled, we only support reading from file.
+	if !t.forCA && !t.opts.XdsEnableTokenFetchExchange {
+		// For XDS flow, when token fetch and exchange is disabled, we only support reading from file.
 		if t.opts.JWTPath == "" {
 			return "", nil
 		}

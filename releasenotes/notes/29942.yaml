@@ -5,4 +5,4 @@ issue:
 - 29943
 releaseNotes:
 - |
-  **Added** option to enable STS token exchange for XDS flow.
+  **Added** option to enable STS token fetch and exchange for XDS flow.
