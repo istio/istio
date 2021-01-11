@@ -171,7 +171,9 @@ func (c *Controller) Run(stop <-chan struct{}) {
 				}
 				log.Errorf(err)
 				next := b.NextBackOff()
-				time.AfterFunc(next, func() { c.healthCondition.AddIfNotPresent(obj) })
+				time.AfterFunc(next, func() {
+					_ = c.healthCondition.AddIfNotPresent(obj)
+				})
 			} else {
 				b.Reset()
 			}
@@ -377,7 +379,7 @@ func (c *Controller) QueueWorkloadEntryHealth(proxy *model.Proxy, event HealthEv
 	}
 
 	condition := transformHealthEvent(proxy, entryName, event)
-	c.healthCondition.Add(condition)
+	_ = c.healthCondition.Add(condition)
 }
 
 // updateWorkloadEntryHealth updates the associated WorkloadEntries health status
@@ -410,7 +412,7 @@ func (c *Controller) updateWorkloadEntryHealth(obj interface{}) error {
 	// update the status
 	_, err := c.store.UpdateStatus(wle)
 	if err != nil {
-		return fmt.Errorf("error while updating WorkloadEntry health status for %s: %v", &condition.proxy.ID, err)
+		return fmt.Errorf("error while updating WorkloadEntry health status for %s: %v", condition.proxy.ID, err)
 	}
 	log.Debugf("updated health status of %v to %v", condition.proxy.ID, condition.condition)
 	return nil
