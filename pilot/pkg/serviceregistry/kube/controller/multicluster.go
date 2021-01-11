@@ -165,7 +165,7 @@ func (m *Multicluster) AddMemberCluster(client kubelib.Client, clusterID string)
 		// if serviceController isn't running, it will start its members when it is started
 		go kubeRegistry.Run(stopCh)
 	}
-	if m.fetchCaRoot != nil && m.fetchCaRoot() != nil && (features.ExternalIstioD || features.CentralIstioD || localCluster) {
+	if m.fetchCaRoot != nil && m.fetchCaRoot() != nil && (features.ExternalIstiod || localCluster) {
 		log.Infof("joining leader-election for %s in %s", leaderelection.NamespaceController, options.SystemNamespace)
 		go leaderelection.
 			NewLeaderElection(options.SystemNamespace, m.serverID, leaderelection.NamespaceController, client.Kube()).
@@ -183,7 +183,7 @@ func (m *Multicluster) AddMemberCluster(client kubelib.Client, clusterID string)
 	}
 
 	// The local cluster has this patching set-up elsewhere. We may eventually want to move it here.
-	if (features.ExternalIstioD || features.CentralIstioD) && !localCluster {
+	if features.ExternalIstiod && !localCluster {
 		// Patch injection webhook cert
 		// This requires RBAC permissions - a low-priv Istiod should not attempt to patch but rely on
 		// operator or CI/CD
