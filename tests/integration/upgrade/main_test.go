@@ -37,20 +37,17 @@ func TestMain(m *testing.M) {
 		NewSuite(m).
 		RequireSingleCluster().
 		Setup(istio.Setup(&Latest, func(ctx resource.Context, cfg *istio.Config) {
-			cfg.DeployHelm = true
 		})).
 		Setup(istio.Setup(&NMinusOne, func(ctx resource.Context, cfg *istio.Config) {
-			cfg.DeployHelm = true
 			cfg.Version = "1.7.6"
 			cfg.Revision = "1-7-6"
 		})).
 		Setup(istio.Setup(&NMinusTwo, func(ctx resource.Context, cfg *istio.Config) {
-			cfg.DeployHelm = true
-			cfg.Version = "1.8.1"
-			cfg.Revision = "1-8-1"
+			cfg.Version = "1.8.0"
+			cfg.Revision = "1-8-0"
 		})).
 		Setup(func(ctx resource.Context) error {
-			fmt.Println("-=-=-=-SETTING UP APPS-=-=-=-")
+			fmt.Println("-=-=-=-SETTING UP VERSIONED APPS-=-=-=-")
 			return SetupApps(ctx, Latest, NMinusOne, NMinusTwo, &apps)
 		}).
 		Run()

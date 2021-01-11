@@ -29,11 +29,11 @@ type VersionedEchoDeployments struct {
 	Latest   echo.Instances
 	LatestNs namespace.Instance
 
-	// Echo instances running tip of previous patch version
+	// Echo instances running tip of previous minor version
 	NMinusOne   echo.Instances
 	NMinusOneNs namespace.Instance
 
-	// Echo instances running
+	// Echo instances running tip of two minor versions back
 	NMinusTwo   echo.Instances
 	NMinusTwoNs namespace.Instance
 

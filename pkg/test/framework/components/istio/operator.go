@@ -245,6 +245,14 @@ func deploy(ctx resource.Context, env *kube.Environment, cfg Config) (Instance, 
 		scopes.Framework.Info("skipping deployment as specified in the config")
 		return i, nil
 	}
+	// Use pre-generated manifests for versioned control plane
+	if cfg.Version != "" {
+		scopes.Framework.Infof("deploying version %s from manifests", cfg.Version)
+		if err := deployVersion(i, cfg.Version); err != nil {
+			return nil, err
+		}
+		return i, nil
+	}
 
 	// Top-level work dir for Istio deployment.
 	workDir, err := ctx.CreateTmpDirectory("istio-deployment")
@@ -329,6 +337,20 @@ func deploy(ctx resource.Context, env *kube.Environment, cfg Config) (Instance, 
 	}
 
 	return i, nil
+}
+
+func deployVersion(i *operatorComponent, version string) error {
+	installationTestdataDir := filepath.Join(testenv.IstioSrc, "tests/integration/pilot/testdata/upgrade")
+	installationConfigPath := filepath.Join(installationTestdataDir, fmt.Sprintf("%s-install.yaml", version))
+	configBytes, err := ioutil.ReadFile(installationConfigPath)
+	if err != nil {
+		return fmt.Errorf("could not read installation config at path %s: %v", installationConfigPath, err)
+	}
+	if err := i.ctx.Config().ApplyYAML(i.Settings().SystemNamespace, string(configBytes)); err != nil {
+		return fmt.Errorf("failed to install manifests for version %q: %v", version, err)
+	}
+	i.saveManifestForCleanup(i.ctx.Clusters().Default().Name(), string(configBytes))
+	return nil
 }
 
 func patchIstiodCustomHost(istiodAddress net.TCPAddr, cfg Config, cluster resource.Cluster) error {
