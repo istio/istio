@@ -48,6 +48,17 @@ func tagCommand() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "tag",
 		Short: "Command group used to interact with revision tags",
+		Long: `Command group used to interact with revision tags. Revision tags allow for the creation of mutable aliases
+to control plane revisions for sidecar injection. 
+
+With revision tags, rather than relabeling a namespace from "istio.io/rev=revision-a" to "istio.io/rev=revision-b" to
+change which control plane revision handles injection, it's possible to create a revision tag "prod" and label our 
+namespace "istio.io/rev=prod". The "prod" revision tag could point to "1-7-6" initially and then be changed to point to "1-8-1"
+at some later point.
+
+This allows operators to change which Istio control plane revision should handle injection for a namespace or set of namespaces
+without manual relabeling of the "istio.io/rev" tag.
+`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			cmd.HelpFunc()(cmd, args)
 			if len(args) != 0 {
