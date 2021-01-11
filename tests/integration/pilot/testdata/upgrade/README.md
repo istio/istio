@@ -28,7 +28,7 @@ spec:
         resources:
           requests:
             cpu: 10m
-            memory: 
+            memory:
 ```
 
-2. Run `tar cf 1.x.y-install.yaml.tar 1.x.y-install.yaml`
+1. Run `tar cf 1.x.y-install.yaml.tar 1.x.y-install.yaml`
