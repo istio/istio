@@ -90,9 +90,16 @@ func EchoConfig(name string, ns namespace.Instance, headless bool, annos echo.An
 				Name:     "grpc",
 				Protocol: protocol.GRPC,
 			},
+			{
+				Name:         "https",
+				Protocol:     protocol.HTTPS,
+				ServicePort:  443,
+				InstancePort: 8443,
+				TLS:          true,
+			},
 		},
 		// Workload Ports needed by TestPassThroughFilterChain
-		// The port 8085,8086,8087,8088 will be defined only in the workload and not in the k8s service.
+		// The port 8085,8086,8087,8088,8089 will be defined only in the workload and not in the k8s service.
 		WorkloadOnlyPorts: []echo.WorkloadPort{
 			{
 				Port:     8085,
@@ -110,6 +117,10 @@ func EchoConfig(name string, ns namespace.Instance, headless bool, annos echo.An
 				Port:     8088,
 				Protocol: protocol.TCP,
 			},
+			{
+				Port:     8089,
+				Protocol: protocol.HTTPS,
+			},
 		},
 		Cluster: cluster,
 	}
@@ -117,7 +128,9 @@ func EchoConfig(name string, ns namespace.Instance, headless bool, annos echo.An
 	// for headless service with selector, the port and target port must be equal
 	// Ref: https://kubernetes.io/docs/concepts/services-networking/service/#headless-services
 	if headless {
-		out.Ports[0].ServicePort = 8090
+		for i := range out.Ports {
+			out.Ports[i].ServicePort = out.Ports[i].InstancePort
+		}
 	}
 	return out
 }

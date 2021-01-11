@@ -87,7 +87,17 @@ func (s *httpInstance) Start(onReady OnReadyFunc) error {
 		if cerr != nil {
 			return fmt.Errorf("could not load TLS keys: %v", cerr)
 		}
-		config := &tls.Config{Certificates: []tls.Certificate{cert}}
+		config := &tls.Config{
+			Certificates: []tls.Certificate{cert},
+			NextProtos:   []string{"h2", "http/1.1", "http/1.0"},
+			GetConfigForClient: func(info *tls.ClientHelloInfo) (*tls.Config, error) {
+				// There isn't a way to pass through all ALPNs presented by the client down to the
+				// HTTP server to return in the response. However, for debugging, we can at least log
+				// them at this level.
+				epLog.Infof("TLS connection with alpn: %v", info.SupportedProtos)
+				return nil, nil
+			},
+		}
 		// Listen on the given port and update the port if it changed from what was passed in.
 		listener, port, err = listenOnPortTLS(s.Port.Port, config)
 		// Store the actual listening port back to the argument.
@@ -290,6 +300,14 @@ func (h *httpHandler) addResponsePayload(r *http.Request, body *bytes.Buffer) {
 	writeField(body, "Method", r.Method)
 	writeField(body, "Proto", r.Proto)
 	writeField(body, "RemoteAddr", r.RemoteAddr)
+
+	// Note: since this is the NegotiatedProtocol, it will be set to empty if the client sends an ALPN
+	// not supported by the server (ie one of h2,http/1.1,http/1.0)
+	var alpn string
+	if r.TLS != nil {
+		alpn = r.TLS.NegotiatedProtocol
+	}
+	writeField(body, "Alpn", alpn)
 
 	keys := []string{}
 	for k := range r.Header {

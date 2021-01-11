@@ -19,7 +19,6 @@ import (
 	"testing"
 
 	"istio.io/istio/pkg/test/echo/common/scheme"
-
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/istio"
@@ -71,6 +70,18 @@ func TestReachability(t *testing.T) {
 				},
 				{
 					ConfigFile: "beta-mtls-off.yaml",
+					Namespace:  systemNM,
+					Include: func(src echo.Instance, opts echo.CallOptions) bool {
+						// Exclude calls from naked->VM.
+						return !(apps.IsNaked(src) && apps.VM.Contains(opts.Target))
+					},
+					ExpectSuccess: func(src echo.Instance, opts echo.CallOptions) bool {
+						return true
+					},
+					SkippedForMulticluster: true,
+				},
+				{
+					ConfigFile: "plaintext-to-permissive.yaml",
 					Namespace:  systemNM,
 					Include: func(src echo.Instance, opts echo.CallOptions) bool {
 						// Exclude calls from naked->VM.

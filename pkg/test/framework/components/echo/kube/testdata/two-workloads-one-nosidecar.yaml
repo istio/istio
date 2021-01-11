@@ -48,6 +48,8 @@ spec:
           - "3333"
           - --version
           - "v1"
+          - --crt=/cert.crt
+          - --key=/cert.key
         ports:
         - containerPort: 8090
         - containerPort: 8080
@@ -108,6 +110,8 @@ spec:
           - "3333"
           - --version
           - "nosidecar"
+          - --crt=/cert.crt
+          - --key=/cert.key
         ports:
         - containerPort: 8090
         - containerPort: 8080

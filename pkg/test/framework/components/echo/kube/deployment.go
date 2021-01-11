@@ -141,6 +141,9 @@ spec:
 {{- if $.TLSSettings }}
           - --crt=/etc/certs/custom/cert-chain.pem
           - --key=/etc/certs/custom/key.pem
+{{- else }}
+          - --crt=/cert.crt
+          - --key=/cert.key
 {{- end }}
         ports:
 {{- range $i, $p := $.ContainerPorts }}
@@ -255,10 +258,10 @@ spec:
         - |-
           # Read root cert from and place signed certs here (can't mount directly or the dir would be unwritable)
           sudo mkdir -p /var/run/secrets/istio
- 
+
           # hack: remove certs that are bundled in the image
-          sudo rm /var/run/secrets/istio/cert-chain.pem  
-          sudo rm /var/run/secrets/istio/key.pem  
+          sudo rm /var/run/secrets/istio/cert-chain.pem
+          sudo rm /var/run/secrets/istio/key.pem
           sudo chown -R istio-proxy /var/run/secrets
 
           # place mounted bootstrap files (token is mounted directly to the correct location)
@@ -289,7 +292,12 @@ spec:
 {{- if $p.ServerFirst }}
              --server-first={{ $p.Port }} \
 {{- end }}
+{{- if $p.TLS }}
+             --tls={{ $p.Port }} \
 {{- end }}
+{{- end }}
+             --crt=/var/lib/istio/cert.crt \
+             --key=/var/lib/istio/cert.key
         env:
         - name: INSTANCE_IP
           valueFrom:

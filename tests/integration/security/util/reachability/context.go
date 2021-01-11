@@ -78,6 +78,10 @@ func Run(testCases []TestCase, ctx framework.TestContext, apps *util.EchoDeploym
 			PortName: "grpc",
 			Scheme:   scheme.GRPC,
 		},
+		{
+			PortName: "https",
+			Scheme:   scheme.HTTPS,
+		},
 	}
 
 	for _, c := range testCases {

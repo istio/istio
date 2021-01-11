@@ -709,32 +709,9 @@ func TestInboundListenerFilters(t *testing.T) {
 func evaluateListenerFilterPredicates(t testing.TB, predicate *listener.ListenerFilterChainMatchPredicate, expected map[int]bool) {
 	t.Helper()
 	for port, expect := range expected {
-		got := evaluateListenerFilterPredicatesInternal(predicate, false, port)
+		got := xdstest.EvaluateListenerFilterPredicates(predicate, false, port)
 		if got != expect {
 			t.Errorf("expected port %v to have match=%v, got match=%v", port, expect, got)
 		}
-	}
-}
-
-func evaluateListenerFilterPredicatesInternal(predicate *listener.ListenerFilterChainMatchPredicate, invertMatch bool, port int) bool {
-	if predicate == nil {
-		return false
-	}
-	switch r := predicate.Rule.(type) {
-	case *listener.ListenerFilterChainMatchPredicate_NotMatch:
-		return evaluateListenerFilterPredicatesInternal(r.NotMatch, !invertMatch, port)
-	case *listener.ListenerFilterChainMatchPredicate_OrMatch:
-		matches := false
-		for _, r := range r.OrMatch.Rules {
-			matches = matches || evaluateListenerFilterPredicatesInternal(r, invertMatch, port)
-		}
-		if invertMatch {
-			matches = !matches
-		}
-		return matches
-	case *listener.ListenerFilterChainMatchPredicate_DestinationPortRange:
-		return int32(port) >= r.DestinationPortRange.GetStart() && int32(port) < r.DestinationPortRange.GetEnd()
-	default:
-		panic("unsupported predicate")
 	}
 }

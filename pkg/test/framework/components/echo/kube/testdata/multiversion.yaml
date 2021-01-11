@@ -58,6 +58,8 @@ spec:
           - "3333"
           - --version
           - "v-istio"
+          - --crt=/cert.crt
+          - --key=/cert.key
         ports:
         - containerPort: 8090
         - containerPort: 9000
@@ -124,6 +126,8 @@ spec:
           - "3333"
           - --version
           - "v-legacy"
+          - --crt=/cert.crt
+          - --key=/cert.key
         ports:
         - containerPort: 8090
         - containerPort: 9000
