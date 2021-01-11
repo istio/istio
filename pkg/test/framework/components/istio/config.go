@@ -150,8 +150,7 @@ type Config struct {
 	// Indicates that the test should deploy Istio's using helm charts
 	DeployHelm bool
 
-	// Indicates which Istio version charts to use for this installation
-	// only applicable when used with DeployHelm
+	// Version of the Istio control plane to deploy for this instance
 	Version string
 
 	// Revision for this control plane installation
