@@ -15,6 +15,7 @@
 package xds
 
 import (
+	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/config/schema/resource"
@@ -175,9 +176,15 @@ func PushTypeFor(proxy *model.Proxy, pushEv *Event) map[Type]bool {
 		for config := range pushEv.configsUpdated {
 			switch config.Kind {
 			case gvk.VirtualService:
+				if features.FilterGatewayClusterConfig {
+					out[CDS] = true
+				}
 				out[LDS] = true
 				out[RDS] = true
 			case gvk.Gateway:
+				if features.FilterGatewayClusterConfig {
+					out[CDS] = true
+				}
 				out[LDS] = true
 				out[RDS] = true
 			case gvk.ServiceEntry:

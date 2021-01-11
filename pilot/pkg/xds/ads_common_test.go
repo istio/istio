@@ -20,6 +20,7 @@ import (
 	"strconv"
 	"testing"
 
+	"istio.io/istio/pilot/pkg/features"
 	model "istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/config/schema/resource"
@@ -177,10 +178,11 @@ func TestPushTypeFor(t *testing.T) {
 	gateway := &model.Proxy{Type: model.Router}
 
 	tests := []struct {
-		name        string
-		proxy       *model.Proxy
-		configTypes []resource.GroupVersionKind
-		expect      map[Type]bool
+		name                       string
+		proxy                      *model.Proxy
+		configTypes                []resource.GroupVersionKind
+		filterGatewayClusterConfig bool
+		expect                     map[Type]bool
 	}{
 		{
 			name:        "configTypes is empty",
@@ -243,11 +245,55 @@ func TestPushTypeFor(t *testing.T) {
 			expect:      map[Type]bool{CDS: true, EDS: true, LDS: true, RDS: true},
 		},
 		{
-			name:  "gateway and virtualservice updated for gateway proxy",
-			proxy: gateway,
-			configTypes: []resource.GroupVersionKind{gvk.Gateway,
-				gvk.VirtualService},
-			expect: map[Type]bool{LDS: true, RDS: true},
+			name:        "gateway updated for sidecar proxy",
+			proxy:       sidecar,
+			configTypes: []resource.GroupVersionKind{gvk.Gateway},
+			expect:      map[Type]bool{},
+		},
+		{
+			name:        "gateway updated for gateway proxy (filter = off)",
+			proxy:       gateway,
+			configTypes: []resource.GroupVersionKind{gvk.Gateway},
+			expect:      map[Type]bool{LDS: true, RDS: true},
+		},
+		{
+			name:                       "gateway updated for gateway proxy (filter = on)",
+			proxy:                      gateway,
+			configTypes:                []resource.GroupVersionKind{gvk.Gateway},
+			filterGatewayClusterConfig: true,
+			expect:                     map[Type]bool{CDS: true, LDS: true, RDS: true},
+		},
+		{
+			name:        "virtualservice updated for sidecar proxy",
+			proxy:       sidecar,
+			configTypes: []resource.GroupVersionKind{gvk.VirtualService},
+			expect:      map[Type]bool{LDS: true, RDS: true},
+		},
+		{
+			name:        "virtualservice updated for gateway proxy (filter = off)",
+			proxy:       gateway,
+			configTypes: []resource.GroupVersionKind{gvk.VirtualService},
+			expect:      map[Type]bool{LDS: true, RDS: true},
+		},
+		{
+			name:                       "virtualservice updated for gateway proxy (filter = on)",
+			proxy:                      gateway,
+			configTypes:                []resource.GroupVersionKind{gvk.VirtualService},
+			filterGatewayClusterConfig: true,
+			expect:                     map[Type]bool{CDS: true, LDS: true, RDS: true},
+		},
+		{
+			name:        "gateway and virtualservice updated for gateway proxy (filter = off)",
+			proxy:       gateway,
+			configTypes: []resource.GroupVersionKind{gvk.Gateway, gvk.VirtualService},
+			expect:      map[Type]bool{LDS: true, RDS: true},
+		},
+		{
+			name:                       "gateway and virtualservice updated for gateway proxy (filter = on)",
+			proxy:                      gateway,
+			configTypes:                []resource.GroupVersionKind{gvk.Gateway, gvk.VirtualService},
+			filterGatewayClusterConfig: true,
+			expect:                     map[Type]bool{CDS: true, LDS: true, RDS: true},
 		},
 		{
 			name:  "virtualservice and destinationrule updated",
@@ -284,6 +330,11 @@ func TestPushTypeFor(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			backupFilterGatewayClusterConfig := features.FilterGatewayClusterConfig
+			defer func() {
+				features.FilterGatewayClusterConfig = backupFilterGatewayClusterConfig
+			}()
+			features.FilterGatewayClusterConfig = tt.filterGatewayClusterConfig
 			cfgs := map[model.ConfigKey]struct{}{}
 			for _, kind := range tt.configTypes {
 				cfgs[model.ConfigKey{
