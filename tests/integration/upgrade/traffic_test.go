@@ -29,7 +29,6 @@ import (
 func TestTraffic(t *testing.T) {
 	framework.
 		NewTest(t).
-		Features("traffic.routing", "traffic.reachability", "traffic.shifting").
 		Run(func(ctx framework.TestContext) {
 			skipIfK8sVersionUnsupported(ctx)
 			testAllEchoCalls(ctx, apps.All)

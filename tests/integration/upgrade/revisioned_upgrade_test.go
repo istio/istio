@@ -67,7 +67,7 @@ func testUpgradeFromVersion(ctx framework.TestContext, t *testing.T, version, re
 	sendSimpleTrafficOrFail(t, revisionedInstance)
 
 	if err := enableDefaultInjection(revisionedNamespace); err != nil {
-		ctx.Fatalf("could not relabel namespace to enable default injection: %v", err)
+		ctx.Fatalf("could not label namespace to enable default injection: %v", err)
 	}
 
 	log.Infof("rolling out echo workloads behind service %q", revisionedInstance.Config().Service)
