@@ -199,7 +199,7 @@ type ProxyConnection struct {
 // This ensures that a new connection between istiod and agent doesn't end up consuming pending messages from envoy
 // as the new connection may not go to the same istiod. Vice versa case also applies.
 func (p *XdsProxy) StreamAggregatedResources(downstream discovery.AggregatedDiscoveryService_StreamAggregatedResourcesServer) error {
-	proxyLog.Infof("accepted XDS connection from Envoy, forwarding to upstream XDS server")
+	proxyLog.Debugf("accepted XDS connection from Envoy, forwarding to upstream XDS server")
 
 	con := &ProxyConnection{
 		upstreamError:   make(chan error, 2), // can be produced by recv and send
@@ -273,7 +273,7 @@ func (p *XdsProxy) HandleUpstream(ctx context.Context, con *ProxyConnection, xds
 		proxyLog.Debugf("failed to create upstream grpc client: %v", err)
 		return err
 	}
-	proxyLog.Debugf("connecting to upstream XDS server: %s", p.istiodAddress)
+	proxyLog.Infof("connected to upstream XDS server: %s", p.istiodAddress)
 	defer proxyLog.Debugf("disconnected from XDS server: %s", p.istiodAddress)
 
 	con.upstream = upstream
