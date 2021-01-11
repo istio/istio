@@ -329,6 +329,8 @@ func (c *Config) String() string {
 	result += fmt.Sprintf("RemoteClusterIOPFile:           %s\n", c.RemoteClusterIOPFile)
 	result += fmt.Sprintf("SkipWaitForValidationWebhook:   %v\n", c.SkipWaitForValidationWebhook)
 	result += fmt.Sprintf("DeployHelm:                     %v\n", c.DeployHelm)
+	result += fmt.Sprintf("Version:                        %s\n", c.Version)
+	result += fmt.Sprintf("Revision:                       %s\n", c.Revision)
 	return result
 }
 
