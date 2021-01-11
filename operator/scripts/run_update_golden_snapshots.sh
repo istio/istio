@@ -33,7 +33,7 @@ rm -Rf "${CHARTS_SNAPSHOT:?}/data-snapshot.tar.gz"
 
 cd "$(mktemp -d)"
 cp -Rf "${MANIFESTS_DIR}" ./
-rm -f **/*.md
+rm -f ./**/*.md
 tar cfz data-snapshot.tar.gz manifests
 cp data-snapshot.tar.gz "${CHARTS_SNAPSHOT}"
 rm -r "${PWD}"
