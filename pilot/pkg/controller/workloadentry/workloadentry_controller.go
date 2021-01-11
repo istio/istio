@@ -22,12 +22,14 @@ import (
 	"sync"
 	"time"
 
+	"github.com/cenkalti/backoff"
 	"github.com/gogo/protobuf/types"
 	"golang.org/x/time/rate"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	kubetypes "k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/wait"
+	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/workqueue"
 
 	"istio.io/api/meta/v1alpha1"
@@ -62,9 +64,6 @@ const (
 	// 5ms, 10ms, 20ms, 40ms, 80ms, 160ms, 320ms, 640ms, 1.3s, 2.6s, 5.1s, 10.2s, 20.4s, 41s, 82s
 	maxRetries = 15
 
-	// base retry interval
-	waitTime = 5 * time.Millisecond
-
 	workerNum = 5
 )
 
@@ -73,6 +72,17 @@ type HealthEvent struct {
 	Healthy bool `json:"healthy,omitempty"`
 	// error message propagated
 	Message string `json:"errMessage,omitempty"`
+}
+
+type HealthCondition struct {
+	proxy     *model.Proxy
+	entryName string
+	condition *v1alpha1.IstioCondition
+}
+
+var keyFunc = func(obj interface{}) (string, error) {
+	condition := obj.(HealthCondition)
+	return makeProxyKey(condition.proxy), nil
 }
 
 var log = istiolog.RegisterScope("wle", "wle controller debugging", 0)
@@ -108,6 +118,8 @@ type Controller struct {
 	// When the workload entry disconnects, the status will be removed.
 	// keyed by proxy network+ip
 	latestHealthEvent map[string]*HealthStatus
+
+	healthCondition cache.Queue
 }
 
 type HealthStatus = v1alpha1.IstioCondition
@@ -129,6 +141,7 @@ func NewController(store model.ConfigStoreCache, instanceID string, maxConnAge t
 			adsConnections:    map[string]uint8{},
 			maxConnectionAge:  maxConnAge,
 			latestHealthEvent: map[string]*HealthStatus{},
+			healthCondition:   cache.NewFIFO(keyFunc),
 		}
 	}
 	return nil
@@ -146,8 +159,28 @@ func (c *Controller) Run(stop <-chan struct{}) {
 	for i := 0; i < workerNum; i++ {
 		go wait.Until(c.worker, time.Second, stop)
 	}
+
+	// start a new go routine updating health status
+	go func() {
+		b := backoff.NewExponentialBackOff()
+		for {
+			obj, err := c.healthCondition.Pop(c.updateWorkloadEntryHealth)
+			if err != nil {
+				if err == cache.ErrFIFOClosed {
+					return
+				}
+				log.Errorf(err)
+				next := b.NextBackOff()
+				time.AfterFunc(next, func() { c.healthCondition.AddIfNotPresent(obj) })
+			} else {
+				b.Reset()
+			}
+		}
+	}()
+
 	<-stop
 	c.queue.ShutDown()
+	c.healthCondition.Close()
 }
 
 func (c *Controller) worker() {
@@ -266,8 +299,6 @@ func (c *Controller) QueueUnregisterWorkload(proxy *model.Proxy, origConnect tim
 		return
 	}
 	delete(c.adsConnections, makeProxyKey(proxy))
-	// cleanup health event when proxy disconnects.
-	delete(c.latestHealthEvent, makeProxyKey(proxy))
 	c.mutex.Unlock()
 
 	disconTime := time.Now()
@@ -334,9 +365,8 @@ func (c *Controller) unregisterWorkload(entryName string, proxy *model.Proxy, di
 	return nil
 }
 
-// UpdateWorkloadEntryHealth updates the associated WorkloadEntries health status
-// based on the corresponding health check performed by istio-agent.
-func (c *Controller) UpdateWorkloadEntryHealth(proxy *model.Proxy, event HealthEvent) {
+// QueueWorkloadEntryHealth enqueues the associated WorkloadEntries health status.
+func (c *Controller) QueueWorkloadEntryHealth(proxy *model.Proxy, event HealthEvent) {
 	// we assume that the workload entry exists
 	// if auto registration does not exist, try looking
 	// up in NodeMetadata
@@ -346,42 +376,44 @@ func (c *Controller) UpdateWorkloadEntryHealth(proxy *model.Proxy, event HealthE
 		return
 	}
 
-	condition := transformHealthEvent(event)
-	c.storeHealthStatus(makeProxyKey(proxy), condition)
+	condition := transformHealthEvent(proxy, entryName, event)
+	c.healthCondition.Add(condition)
+}
 
-	// backoff retry
-	for i := 0; i < maxRetries; i++ {
-		if i > 0 {
-			time.Sleep(time.Duration(float64(waitTime.Nanoseconds()) * math.Pow(2, float64(i-1))))
-		}
-		// get previous status
-		cfg := c.store.Get(gvk.WorkloadEntry, entryName, proxy.Metadata.Namespace)
-		if cfg == nil {
-			log.Errorf("config was nil when getting WorkloadEntry %v for %v", entryName, proxy.ID)
-			continue
-		}
-		// The workloadentry has reconnected to the other istiod
-		if cfg.Annotations[WorkloadControllerAnnotation] != c.instanceID {
-			return
-		}
-
-		condition := c.getHealthStatus(makeProxyKey(proxy))
-		// this proxy has disconnected with this istiod
-		if condition == nil {
-			return
-		}
-
-		// replace the updated status
-		wle := status.UpdateConfigCondition(*cfg, condition)
-		// update the status
-		_, err := c.store.UpdateStatus(wle)
-		if err != nil {
-			log.Errorf("error while updating WorkloadEntry status: %v for %v", err, proxy.ID)
-			continue
-		}
-		log.Debugf("updated health status of %v to %v", proxy.ID, event.Healthy)
-		return
+// updateWorkloadEntryHealth updates the associated WorkloadEntries health status
+// based on the corresponding health check performed by istio-agent.
+func (c *Controller) updateWorkloadEntryHealth(obj interface{}) error {
+	condition := obj.(HealthCondition)
+	// get previous status
+	cfg := c.store.Get(gvk.WorkloadEntry, condition.entryName, condition.proxy.Metadata.Namespace)
+	if cfg == nil {
+		return fmt.Errorf("failed to update health status for %v: WorkloadEntry %v not found", condition.proxy.ID, condition.entryName)
 	}
+	// The workloadentry has reconnected to the other istiod
+	if cfg.Annotations[WorkloadControllerAnnotation] != c.instanceID {
+		return nil
+	}
+
+	// check if the existing health status is newer than this one
+	wleStatus, ok := cfg.Status.(*v1alpha1.IstioStatus)
+	if ok {
+		healthCondition := status.GetCondition(wleStatus.Conditions, status.ConditionHealthy)
+		if healthCondition != nil {
+			if healthCondition.LastProbeTime.Compare(condition.condition.LastProbeTime) > 0 {
+				return nil
+			}
+		}
+	}
+
+	// replace the updated status
+	wle := status.UpdateConfigCondition(*cfg, condition.condition)
+	// update the status
+	_, err := c.store.UpdateStatus(wle)
+	if err != nil {
+		return fmt.Errorf("error while updating WorkloadEntry health status for %s: %v", &condition.proxy.ID, err)
+	}
+	log.Debugf("updated health status of %v to %v", condition.proxy.ID, condition.condition)
+	return nil
 }
 
 // periodicWorkloadEntryCleanup checks lists all WorkloadEntry
@@ -487,7 +519,7 @@ func autoregisteredWorkloadEntryName(proxy *model.Proxy) string {
 	return name
 }
 
-func transformHealthEvent(event HealthEvent) *v1alpha1.IstioCondition {
+func transformHealthEvent(proxy *model.Proxy, entryName string, event HealthEvent) HealthCondition {
 	cond := &v1alpha1.IstioCondition{
 		Type: status.ConditionHealthy,
 		// last probe and transition are the same because
@@ -495,13 +527,18 @@ func transformHealthEvent(event HealthEvent) *v1alpha1.IstioCondition {
 		LastProbeTime:      types.TimestampNow(),
 		LastTransitionTime: types.TimestampNow(),
 	}
+	out := HealthCondition{
+		proxy:     proxy,
+		entryName: entryName,
+		condition: cond,
+	}
 	if event.Healthy {
 		cond.Status = status.StatusTrue
-		return cond
+		return out
 	}
 	cond.Status = status.StatusFalse
 	cond.Message = event.Message
-	return cond
+	return out
 }
 
 func mergeLabels(labels ...map[string]string) map[string]string {
