@@ -28,35 +28,14 @@ import (
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/config/validation"
 	"istio.io/istio/pkg/util/gogoprotomarshal"
-	"istio.io/pkg/log"
 )
 
 type annotationValidationFunc func(value string) error
 
 // per-sidecar policy and status
 var (
-	alwaysValidFunc = func(value string) error {
-		return nil
-	}
-
 	AnnotationValidation = map[string]annotationValidationFunc{
-		annotation.SidecarInject.Name:                             alwaysValidFunc,
-		annotation.SidecarStatus.Name:                             alwaysValidFunc,
-		annotation.SidecarRewriteAppHTTPProbers.Name:              alwaysValidFunc,
-		annotation.SidecarControlPlaneAuthPolicy.Name:             alwaysValidFunc,
-		annotation.SidecarDiscoveryAddress.Name:                   alwaysValidFunc,
-		annotation.SidecarProxyImage.Name:                         alwaysValidFunc,
-		annotation.SidecarProxyCPU.Name:                           alwaysValidFunc,
-		annotation.SidecarProxyCPULimit.Name:                      alwaysValidFunc,
-		annotation.SidecarProxyMemory.Name:                        alwaysValidFunc,
-		annotation.SidecarProxyMemoryLimit.Name:                   alwaysValidFunc,
 		annotation.SidecarInterceptionMode.Name:                   validateInterceptionMode,
-		annotation.SidecarBootstrapOverride.Name:                  alwaysValidFunc,
-		annotation.SidecarStatsInclusionPrefixes.Name:             alwaysValidFunc,
-		annotation.SidecarStatsInclusionSuffixes.Name:             alwaysValidFunc,
-		annotation.SidecarStatsInclusionRegexps.Name:              alwaysValidFunc,
-		annotation.SidecarUserVolume.Name:                         alwaysValidFunc,
-		annotation.SidecarUserVolumeMount.Name:                    alwaysValidFunc,
 		annotation.SidecarEnableCoreDump.Name:                     validateBool,
 		annotation.SidecarStatusPort.Name:                         validateStatusPort,
 		annotation.SidecarStatusReadinessInitialDelaySeconds.Name: validateUInt32,
@@ -67,10 +46,8 @@ var (
 		annotation.SidecarTrafficIncludeInboundPorts.Name:         ValidateIncludeInboundPorts,
 		annotation.SidecarTrafficExcludeInboundPorts.Name:         ValidateExcludeInboundPorts,
 		annotation.SidecarTrafficExcludeOutboundPorts.Name:        ValidateExcludeOutboundPorts,
-		annotation.SidecarTrafficKubevirtInterfaces.Name:          alwaysValidFunc,
 		annotation.PrometheusMergeMetrics.Name:                    validateBool,
 		annotation.ProxyConfig.Name:                               validateProxyConfig,
-		"k8s.v1.cni.cncf.io/networks":                             alwaysValidFunc,
 	}
 )
 
@@ -88,8 +65,6 @@ func validateAnnotations(annotations map[string]string) (err error) {
 			if e := v(value); e != nil {
 				err = multierror.Append(err, fmt.Errorf("invalid value '%s' for annotation '%s': %v", value, name, e))
 			}
-		} else if strings.Contains(name, "istio") {
-			log.Warnf("Potentially misspelled annotation '%s' with value '%s' encountered", name, value)
 		}
 	}
 	return
