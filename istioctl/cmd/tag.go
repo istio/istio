@@ -146,6 +146,16 @@ func tagRemoveCommand() *cobra.Command {
 
 // setTag creates or modifies a revision tag.
 func setTag(ctx context.Context, kubeClient kubernetes.Interface, tag, revision string, w io.Writer) error {
+	// abort if there exists a revision with the target tag name
+	revWebhookCollisions, err := getWebhooksWithRevision(ctx, kubeClient, tag)
+	if err != nil {
+		return err
+	}
+	if len(revWebhookCollisions) > 0 {
+		return fmt.Errorf("cannot create revision tag with same name as an existing control plane revision")
+	}
+
+	// find canonical revision webhook to base our tag webhook off of
 	revWebhooks, err := getWebhooksWithRevision(ctx, kubeClient, revision)
 	if err != nil {
 		return err

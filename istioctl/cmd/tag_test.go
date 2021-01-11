@@ -402,6 +402,20 @@ func TestSetTag(t *testing.T) {
 			outputMatches: []string{},
 			error:         "",
 		},
+		{
+			name:     "TestErrorWhenRevisionWithNameCollision",
+			tag:      "revision",
+			revision: "revision",
+			webhooksBefore: admit_v1.MutatingWebhookConfigurationList{
+				Items: []admit_v1.MutatingWebhookConfiguration{revisionCanonicalWebhookRemote},
+			},
+			webhooksAfter: admit_v1.MutatingWebhookConfigurationList{
+				Items: []admit_v1.MutatingWebhookConfiguration{revisionCanonicalWebhookRemote},
+			},
+			namespaces:    corev1.NamespaceList{},
+			outputMatches: []string{},
+			error:         "cannot create revision tag",
+		},
 	}
 
 	for _, tc := range tcs {
