@@ -123,6 +123,13 @@ func newProtocol(cfg Config) (protocol, error) {
 		tlsConfig.InsecureSkipVerify = true
 	}
 
+	// Disable redirects
+	redirectFn := func(req *http.Request, via []*http.Request) error {
+		return http.ErrUseLastResponse
+	}
+	if cfg.Request.FollowRedirects {
+		redirectFn = nil
+	}
 	switch scheme.Instance(u.Scheme) {
 	case scheme.HTTP, scheme.HTTPS:
 		if cfg.Request.Alpn == nil {
@@ -130,10 +137,7 @@ func newProtocol(cfg Config) (protocol, error) {
 		}
 		proto := &httpProtocol{
 			client: &http.Client{
-				// Do not follow redirects
-				CheckRedirect: func(req *http.Request, via []*http.Request) error {
-					return http.ErrUseLastResponse
-				},
+				CheckRedirect: redirectFn,
 				Transport: &http.Transport{
 					// We are creating a Transport on each ForwardEcho request. Transport is what holds connections,
 					// so this means every ForwardEcho request will create a new connection. Without setting an idle timeout,

@@ -137,10 +137,11 @@ spec:
         host: b`,
 				call: podA.CallWithRetryOrFail,
 				opts: echo.CallOptions{
-					Target:   apps.PodB[0],
-					PortName: "http",
-					Path:     "/foo?key=value",
-					Count:    callCount,
+					Target:          apps.PodB[0],
+					PortName:        "http",
+					Path:            "/foo?key=value",
+					Count:           callCount,
+					FollowRedirects: true,
 					Validator: echo.ValidatorFunc(
 						func(response echoclient.ParsedResponses, _ error) error {
 							return response.Check(func(_ int, response *echoclient.ParsedResponse) error {
