@@ -13,15 +13,11 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package pilot
+package upgrade
 
 import (
 	"fmt"
-	"strings"
-	"testing"
-
 	"github.com/hashicorp/go-multierror"
-
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
@@ -29,39 +25,25 @@ import (
 	"istio.io/istio/pkg/test/framework/components/namespace"
 	kubetest "istio.io/istio/pkg/test/kube"
 	"istio.io/pkg/log"
+	"strings"
+	"testing"
 )
 
-// TestRevisionedUpgrade tests a revision-based upgrade from the specified versions to current master
 func TestRevisionedUpgrade(t *testing.T) {
-	framework.NewTest(t).
-		RequiresSingleCluster().
-		Features("installation.upgrade").
+	framework.
+		NewTest(t).
 		Run(func(ctx framework.TestContext) {
-			versions := []string{"1.8.0"}
-			for _, v := range versions {
-				t.Run(fmt.Sprintf("%s->master", v), func(t *testing.T) {
-					testUpgradeFromVersion(ctx, t, v)
-				})
-			}
-		})
+			t.Run(fmt.Sprintf("%s->master", NMinusOne.Settings().Version), func(t *testing.T) {
+				testUpgradeFromVersion(ctx, t, NMinusOne.Settings().Version, NMinusOne.Settings().Revision)
+			})
+			t.Run(fmt.Sprintf("%s->master", NMinusTwo.Settings().Version), func(t *testing.T) {
+				testUpgradeFromVersion(ctx, t, NMinusTwo.Settings().Version, NMinusTwo.Settings().Revision)
+			})
+	})
 }
 
-// testUpgradeFromVersion tests an upgrade from the target version to the master version
-// provided fromVersion must be present in tests/integration/pilot/testdata/upgrade for the installation to succeed
-// TODO(monkeyanator) pass this a generic UpgradeFunc allowing for reuse across in-place and revisioned upgrades
-func testUpgradeFromVersion(ctx framework.TestContext, t *testing.T, fromVersion string) {
-	configs := make(map[string]string)
-	ctx.WhenDone(func() error {
-		var errs *multierror.Error
-		for _, config := range configs {
-			multierror.Append(errs, ctx.Config().DeleteYAML("istio-system", config))
-		}
-		return errs.ErrorOrNil()
-	})
-
-	// install control plane on the specified version and create namespace pointed to that control plane
-	installRevisionOrFail(ctx, fromVersion, configs)
-	revision := strings.ReplaceAll(fromVersion, ".", "-")
+// testUpgradeFromVersion tests an upgrade from the target revision to the namespace running master revision
+func testUpgradeFromVersion(ctx framework.TestContext, t *testing.T, version, revision string) {
 	revisionedNamespace := namespace.NewOrFail(t, ctx, namespace.Config{
 		Prefix:   revision,
 		Inject:   true,
@@ -99,8 +81,8 @@ func testUpgradeFromVersion(ctx framework.TestContext, t *testing.T, fromVersion
 	}
 	for _, p := range pods {
 		for _, c := range p.Spec.Containers {
-			if strings.Contains(c.Image, fromVersion) {
-				ctx.Fatalf("expected post-upgrade container image not to include %q, got %s", fromVersion, c.Image)
+			if strings.Contains(c.Image, version) {
+				ctx.Fatalf("expected post-upgrade container image not to include %q, got %s", version, c.Image)
 			}
 		}
 	}
@@ -111,7 +93,7 @@ func testUpgradeFromVersion(ctx framework.TestContext, t *testing.T, fromVersion
 // sendSimpleTrafficOrFail sends an echo call to the upgrading echo instance
 func sendSimpleTrafficOrFail(ctx *testing.T, i echo.Instance) {
 	ctx.Helper()
-	resp, err := apps.PodA[0].Call(echo.CallOptions{
+	resp, err := apps.Latest[0].Call(echo.CallOptions{
 		Target:   i,
 		PortName: "http",
 	})
@@ -127,3 +109,4 @@ func enableDefaultInjection(ns namespace.Instance) error {
 	errs = multierror.Append(errs, ns.RemoveLabel("istio.io/rev"))
 	return errs.ErrorOrNil()
 }
+
