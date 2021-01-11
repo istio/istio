@@ -31,6 +31,7 @@ func TestTraffic(t *testing.T) {
 		NewTest(t).
 		Features("traffic.routing", "traffic.reachability", "traffic.shifting").
 		Run(func(ctx framework.TestContext) {
+			skipIfK8sVersionUnsupported(ctx)
 			testAllEchoCalls(ctx, apps.All)
 		})
 }
@@ -58,5 +59,19 @@ func testAllEchoCalls(ctx framework.TestContext, echoInstances echo.Instances) {
 					})
 			}
 		}
+	}
+}
+
+// skipIfK8sVersionUnsupported skips the test if we're running on a k8s version that is not expected to work
+// with any of the revision versions included in the test (i.e. istio 1.7 not supported on k8s 1.15)
+func skipIfK8sVersionUnsupported(ctx framework.TestContext) {
+	ver, err := ctx.Clusters().Default().GetKubernetesVersion()
+	if err != nil {
+		ctx.Fatalf("failed to get Kubernetes version: %v", err)
+	}
+	serverVersion := fmt.Sprintf("%s.%s", ver.Major, ver.Minor)
+	ctx.Name()
+	if serverVersion < "1.16" {
+		ctx.Skipf("k8s version %s not supported for %s (<%s)", serverVersion, ctx.Name(), "1.16")
 	}
 }
