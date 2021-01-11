@@ -71,7 +71,7 @@ var (
 		if err := tgz.Extract(f, d); err != nil {
 			panic(fmt.Errorf("failed to extract data snapshot: %v", err))
 		}
-		return chartSourceType(filepath.Join(d, "data-snapshot"))
+		return chartSourceType(filepath.Join(d, "manifests"))
 	}()
 	// Compiled in charts come from assets.gen.go
 	compiledInCharts chartSourceType = "COMPILED"
