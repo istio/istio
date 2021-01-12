@@ -35,6 +35,16 @@ const (
 	istioTagLabel             = "istio.io/tag"
 	istioInjectionWebhookName = "sidecar-injector.istio.io"
 	revisionTagNamePrefix     = "istio-revision-tag"
+
+	// help strings and long formatted user outputs
+	skipConfirmationFlagHelpStr = `The skipConfirmation determines whether the user is prompted for confirmation.
+If set to true, the user is not prompted and a Yes response is assumed in all cases.`
+	overrideHelpStr = `If true, allow revision tags to be overwritten, otherwise reject revision tag updates that
+overwrite existing revision tags.`
+	revisionHelpStr = "Control plane revision to reference from a given revision tag"
+	tagCreatedStr   = `Revision tag %q created, referencing control plane revision %q. To enable injection using this
+revision tag, use 'kubectl label namespace <NAMESPACE>  istio.io/rev=%s'
+`
 )
 
 var (
@@ -78,7 +88,7 @@ without manual relabeling of the "istio.io/rev" tag.
 
 func tagSetCommand() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:        "set",
+		Use:        "set <revision-tag>",
 		Short:      "Create or modify revision tags",
 		Example:    "istioctl x tag set prod --revision 1-8-0",
 		SuggestFor: []string{"create"},
@@ -92,16 +102,16 @@ func tagSetCommand() *cobra.Command {
 
 			client, err := kubeClient(kubeconfig, configContext)
 			if err != nil {
-				return fmt.Errorf("failed to create kubernetes client: %v", err)
+				return fmt.Errorf("failed to create Kubernetes client: %v", err)
 			}
 
 			return setTag(context.Background(), client.Kube(), args[0], revision, cmd.OutOrStdout())
 		},
 	}
 
-	cmd.PersistentFlags().BoolVar(&overwrite, "overwrite", false, "whether to overwrite an existing tag")
-	cmd.PersistentFlags().BoolVarP(&skipConfirmation, "skip-confirmation", "y", false, "whether to skip confirmation for tag deletion")
-	cmd.PersistentFlags().StringVarP(&revision, "revision", "r", "", "revision to point tag to")
+	cmd.PersistentFlags().BoolVar(&overwrite, "overwrite", false, overrideHelpStr)
+	cmd.PersistentFlags().BoolVarP(&skipConfirmation, "skip-confirmation", "y", false, skipConfirmationFlagHelpStr)
+	cmd.PersistentFlags().StringVarP(&revision, "revision", "r", "", revisionHelpStr)
 	_ = cmd.MarkPersistentFlagRequired("revision")
 
 	return cmd
@@ -110,7 +120,7 @@ func tagSetCommand() *cobra.Command {
 func tagListCommand() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "list",
-		Short:   "List existing revision tags and their corresponding revisions",
+		Short:   "List existing revision tags",
 		Example: "istioctl x tag list",
 		Aliases: []string{"show"},
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -120,7 +130,7 @@ func tagListCommand() *cobra.Command {
 
 			client, err := kubeClient(kubeconfig, configContext)
 			if err != nil {
-				return fmt.Errorf("failed to create kubernetes client: %v", err)
+				return fmt.Errorf("failed to create Kubernetes client: %v", err)
 			}
 			return listTags(context.Background(), client.Kube(), cmd.OutOrStdout())
 		},
@@ -131,8 +141,8 @@ func tagListCommand() *cobra.Command {
 
 func tagRemoveCommand() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:     "remove",
-		Short:   "Remove an existing revision tag",
+		Use:     "remove <revision-tag>",
+		Short:   "Remove Istio control plane revision tag",
 		Example: "istioctl x tag remove prod",
 		Aliases: []string{"delete"},
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -145,7 +155,7 @@ func tagRemoveCommand() *cobra.Command {
 
 			client, err := kubeClient(kubeconfig, configContext)
 			if err != nil {
-				return fmt.Errorf("failed to create kubernetes client: %v", err)
+				return fmt.Errorf("failed to create Kubernetes client: %v", err)
 			}
 
 			return removeTag(context.Background(), client.Kube(), args[0], skipConfirmation, cmd.OutOrStdout())
@@ -187,9 +197,8 @@ func setTag(ctx context.Context, kubeClient kubernetes.Interface, tag, revision 
 	if err != nil {
 		return err
 	}
-
 	if len(whs) > 0 && !overwrite {
-		return fmt.Errorf("found an existing revision tag for %q, use the --overwrite flag to overwrite", tag)
+		return fmt.Errorf("revision tag %q already exists, and --overwrite is false", tag)
 	}
 
 	// create or update webhook depending on whether it exists
@@ -205,7 +214,7 @@ func setTag(ctx context.Context, kubeClient kubernetes.Interface, tag, revision 
 		return err
 	}
 
-	fmt.Fprintf(w, "Revision tag %s created\n", tag)
+	fmt.Fprintf(w, tagCreatedStr, tag, revision, tag)
 	return nil
 }
 
@@ -221,7 +230,7 @@ func removeTag(ctx context.Context, kubeClient kubernetes.Interface, tag string,
 
 	taggedNamespaces, err := getNamespacesWithTag(ctx, kubeClient, tag)
 	if err != nil {
-		return fmt.Errorf("could not retrieve namespaces dependent on tag: %s", tag)
+		return fmt.Errorf("failed to retrieve namespaces dependent on tag %q", tag)
 	}
 	// warn user if deleting a tag that still has namespaces pointed to it
 	if len(taggedNamespaces) > 0 && !skipConfirmation {
@@ -234,7 +243,7 @@ func removeTag(ctx context.Context, kubeClient kubernetes.Interface, tag string,
 	// proceed with webhook deletion
 	err = deleteTagWebhooks(ctx, kubeClient, webhooks)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to delete Istio revision tag MutatingConfigurationWebhook: %v", err)
 	}
 
 	fmt.Fprintf(w, "Revision tag %s removed\n", tag)
@@ -248,7 +257,7 @@ func listTags(ctx context.Context, kubeClient kubernetes.Interface, writer io.Wr
 		return fmt.Errorf("failed to retrieve tags: %v", err)
 	}
 	if len(tagWebhooks) == 0 {
-		fmt.Fprintf(writer, "No tag webhooks found\n")
+		fmt.Fprintf(writer, "No Istio revision tag MutatingWebhookConfigurations to list")
 		return nil
 	}
 	w := new(tabwriter.Writer).Init(writer, 0, 8, 1, ' ', 0)
@@ -256,15 +265,15 @@ func listTags(ctx context.Context, kubeClient kubernetes.Interface, writer io.Wr
 	for _, wh := range tagWebhooks {
 		tagName, err := getTagName(wh)
 		if err != nil {
-			return fmt.Errorf("error parsing webhook %q: %v", wh.Name, err)
+			return fmt.Errorf("error parsing tag name from webhook %q: %v", wh.Name, err)
 		}
 		tagRevision, err := getTagRevision(wh)
 		if err != nil {
-			return fmt.Errorf("error parsing webhook %q: %v", wh.Name, err)
+			return fmt.Errorf("error parsing revision from webhook %q: %v", wh.Name, err)
 		}
 		tagNamespaces, err := getNamespacesWithTag(ctx, kubeClient, tagName)
 		if err != nil {
-			return fmt.Errorf("error parsing webhook %q: %v", wh.Name, err)
+			return fmt.Errorf("error finding namespaces for tag %q: %v", tagName, err)
 		}
 
 		fmt.Fprintf(w, "%s\t%s\t%s\n", tagName, tagRevision, strings.Join(tagNamespaces, ","))
@@ -351,7 +360,7 @@ func deleteTagWebhooks(ctx context.Context, client kubernetes.Interface, webhook
 // buildDeleteTagConfirmation takes a list of webhooks and creates a message prompting confirmation for their deletion.
 func buildDeleteTagConfirmation(tag string, taggedNamespaces []string) string {
 	var sb strings.Builder
-	base := fmt.Sprintf("Caution, found %d namespace(s) still pointing to tag %q:", len(taggedNamespaces), tag)
+	base := fmt.Sprintf("Caution, found %d namespace(s) still injected by tag %q:", len(taggedNamespaces), tag)
 	sb.WriteString(base)
 	for _, ns := range taggedNamespaces {
 		sb.WriteString(" " + ns)
