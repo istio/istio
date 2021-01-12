@@ -13,7 +13,7 @@
 # limitations under the License.
 
 HUB ?= docker.io/istio/ext-authz
-TAG ?= 0.5
+TAG ?= 0.6
 
 build: main.go go.mod go.sum Dockerfile
 	docker build . -t $(HUB):$(TAG)

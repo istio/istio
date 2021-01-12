@@ -298,9 +298,6 @@ message GlobalConfig {
   // Specifies the global logging level settings for the Istio control plane components.
   GlobalLoggingConfig logging = 17;
 
-  // Specifies the Configuration for Istio mesh expansion to bare metal.
-  MeshExpansionConfig meshExpansion = 18;
-
   string meshID = 53;
 
   // Configure the mesh networks to be used by the Split Horizon EDS.
@@ -462,8 +459,6 @@ message IngressGatewayConfig {
 
   repeated string loadBalancerSourceRanges = 17;
 
-  repeated PortsConfig meshExpansionPorts = 18;
-
   string name = 44;
 
   // K8s node selector.
@@ -534,15 +529,6 @@ message IngressGatewayZvpnConfig {
   google.protobuf.BoolValue enabled = 1;
 
   string suffix = 2;
-}
-
-// Configuration for Istio mesh expansion to bare metal.
-message MeshExpansionConfig {
-  // Exposes Pilot and Citadel mTLS on the ingress gateway.
-  google.protobuf.BoolValue enabled = 1;
-
-  // Exposes Pilot and Citadel mTLS and the plain text Pilot ports on an internal gateway.
-  google.protobuf.BoolValue useILB = 2;
 }
 
 // MultiClusterConfig specifies the Configuration for Istio mesh across multiple clusters through the istio gateways.

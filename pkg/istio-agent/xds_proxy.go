@@ -170,7 +170,6 @@ func (p *XdsProxy) UnregisterStream(c *ProxyConnection) {
 	p.connectedMutex.Lock()
 	defer p.connectedMutex.Unlock()
 	if p.connected != nil && p.connected == c {
-		proxyLog.Warnf("unregister stream")
 		close(p.connected.stopChan)
 		p.connected = nil
 	}
@@ -200,7 +199,7 @@ type ProxyConnection struct {
 // This ensures that a new connection between istiod and agent doesn't end up consuming pending messages from envoy
 // as the new connection may not go to the same istiod. Vice versa case also applies.
 func (p *XdsProxy) StreamAggregatedResources(downstream discovery.AggregatedDiscoveryService_StreamAggregatedResourcesServer) error {
-	proxyLog.Infof("Envoy ADS stream established")
+	proxyLog.Debugf("accepted XDS connection from Envoy, forwarding to upstream XDS server")
 
 	con := &ProxyConnection{
 		upstreamError:   make(chan error, 2), // can be produced by recv and send
@@ -267,14 +266,15 @@ func (p *XdsProxy) StreamAggregatedResources(downstream discovery.AggregatedDisc
 }
 
 func (p *XdsProxy) HandleUpstream(ctx context.Context, con *ProxyConnection, xds discovery.AggregatedDiscoveryServiceClient) error {
-	proxyLog.Infof("connecting to upstream XDS server: %s", p.istiodAddress)
-	defer proxyLog.Infof("disconnected from XDS server: %s", p.istiodAddress)
 	upstream, err := xds.StreamAggregatedResources(ctx,
 		grpc.MaxCallRecvMsgSize(defaultClientMaxReceiveMessageSize))
 	if err != nil {
-		proxyLog.Errorf("failed to create upstream grpc client: %v", err)
+		// Envoy logs errors again, so no need to log beyond debug level
+		proxyLog.Debugf("failed to create upstream grpc client: %v", err)
 		return err
 	}
+	proxyLog.Infof("connected to upstream XDS server: %s", p.istiodAddress)
+	defer proxyLog.Debugf("disconnected from XDS server: %s", p.istiodAddress)
 
 	con.upstream = upstream
 

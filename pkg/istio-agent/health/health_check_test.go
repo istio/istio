@@ -124,7 +124,7 @@ func TestWorkloadHealthChecker_PerformApplicationHealthCheck(t *testing.T) {
 			{Healthy: true},
 			{Healthy: false},
 		}
-		httpHealthStatuses := [4]bool{true, false, true, false}
+		httpHealthStatuses := [4]bool{true, false, false, true}
 
 		mockListener, err := net.Listen("tcp", fmt.Sprintf("localhost:%d", port))
 		if err != nil {
