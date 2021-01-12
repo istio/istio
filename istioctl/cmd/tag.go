@@ -32,7 +32,6 @@ import (
 	"k8s.io/client-go/kubernetes"
 
 	"istio.io/api/label"
-	"istio.io/istio/operator/pkg/helmreconciler"
 )
 
 const (
@@ -40,6 +39,7 @@ const (
 	istioTagLabel             = "istio.io/tag"
 	istioInjectionWebhookName = "sidecar-injector.istio.io"
 	revisionTagNamePrefix     = "istio-revision-tag"
+	pilotDiscoveryChart       = "istio-control/istio-discovery"
 
 	// help strings and long formatted user outputs
 	skipConfirmationFlagHelpStr = `The skipConfirmation determines whether the user is prompted for confirmation.
@@ -392,56 +392,6 @@ func buildDeleteTagConfirmation(tag string, taggedNamespaces []string) string {
 	return sb.String()
 }
 
-// buildTagWebhookFromCanonical takes a canonical injector webhook for a given revision and generates a tag webhook.
-// from the original webhook, we need to change (1) the namespace selector (2) the name (3) the labels
-func buildTagWebhookFromCanonical(wh admit_v1.MutatingWebhookConfiguration, tag, revision string) (*admit_v1.MutatingWebhookConfiguration, error) {
-	tagWebhook := &admit_v1.MutatingWebhookConfiguration{}
-	tagWebhook.Name = fmt.Sprintf("%s-%s", revisionTagNamePrefix, tag)
-	tagWebhookLabels := map[string]string{
-		istioTagLabel:  tag,
-		label.IstioRev: revision,
-		// needed so istioctl uninstall can cleanup tag webhooks
-		helmreconciler.IstioComponentLabelStr: "Pilot",
-	}
-	tagWebhook.Labels = tagWebhookLabels
-	injectionWebhook, err := buildInjectionWebhook(wh, tag)
-	if err != nil {
-		return nil, err
-	}
-	tagWebhook.Webhooks = []admit_v1.MutatingWebhook{
-		injectionWebhook,
-	}
-	return tagWebhook, nil
-}
-
-// buildInjectionWebhook takes a webhook configuration, copies the injection webhook, and changes key fields.
-func buildInjectionWebhook(wh admit_v1.MutatingWebhookConfiguration, tag string) (admit_v1.MutatingWebhook, error) {
-	var injectionWebhook *admit_v1.MutatingWebhook
-	for _, w := range wh.Webhooks {
-		if w.Name == istioInjectionWebhookName {
-			injectionWebhook = w.DeepCopy()
-		}
-	}
-	if injectionWebhook == nil {
-		return admit_v1.MutatingWebhook{}, fmt.Errorf("injection webhook not found")
-	}
-
-	// webhook should inject for istio.io/rev=<tag>
-	tagWebhookNamespaceSelector := metav1.LabelSelector{
-		MatchExpressions: []metav1.LabelSelectorRequirement{
-			{
-				Key: label.IstioRev, Operator: metav1.LabelSelectorOpIn, Values: []string{tag},
-			},
-			{
-				Key: "istio-injection", Operator: metav1.LabelSelectorOpDoesNotExist,
-			},
-		},
-	}
-	injectionWebhook.NamespaceSelector = &tagWebhookNamespaceSelector
-	injectionWebhook.ClientConfig.CABundle = []byte("") // istiod patches the CA bundle in
-	return *injectionWebhook, nil
-}
-
 func tagWebhookConfigFromCanonicalWebhook(wh admit_v1.MutatingWebhookConfiguration, tag string) (*tagWebhookConfig, error) {
 	rev, err := getWebhookRevision(wh)
 	if err != nil {
@@ -488,9 +438,10 @@ revisionTags:
 istiodRemote:
   injectionURL: %s
 `, config.revision, config.tag, config.remoteInjectionURL)
-	fmt.Println(values)
 
-	tagWebhookYaml, err := r.RenderManifest(values)
+	tagWebhookYaml, err := r.RenderManifestFiltered(values, func(tmplName string) bool {
+		return strings.Contains(tmplName, "revision-tag")
+	})
 	if err != nil {
 		return fmt.Errorf("failed rendering istio-control manifest: %v", err)
 	}
@@ -498,6 +449,7 @@ istiodRemote:
 	return applyYAML(kubeClient, tagWebhookYaml, "istio-system")
 }
 
+// duplicated from remote_secret.go
 func applyYAML(client kube.ExtendedClient, yamlContent, ns string) error {
 	yamlFile, err := writeToTempFile(yamlContent)
 	if err != nil {
@@ -511,8 +463,9 @@ func applyYAML(client kube.ExtendedClient, yamlContent, ns string) error {
 	return nil
 }
 
+// duplicated from remote_secret.go
 func writeToTempFile(content string) (string, error) {
-	outFile, err := ioutil.TempFile("", "remote-secret-manifest-*")
+	outFile, err := ioutil.TempFile("", "revision-tag-manifest-*")
 	if err != nil {
 		return "", fmt.Errorf("failed creating temp file for manifest: %v", err)
 	}
@@ -524,8 +477,8 @@ func writeToTempFile(content string) (string, error) {
 	return outFile.Name(), nil
 }
 
-// TODO(monkeyanator) duplicated between cmd/mesh/upgrade.go, move to common place
 // confirm waits for a user to confirm with the supplied message.
+// duplicated between cmd/mesh/upgrade.go, move to common place
 func confirm(msg string, w io.Writer) bool {
 	fmt.Fprintf(w, "%s ", msg)
 
