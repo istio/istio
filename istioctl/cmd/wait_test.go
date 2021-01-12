@@ -109,7 +109,6 @@ func setupK8Sfake() *fake.FakeDynamicClient {
 		// by default, k8s sends all existing objects at the beginning of a watch, but the test mock does not.  This
 		// function forces the test to behave like kubernetes does, but creates a race condition on watch creation.
 		l.Lock()
-		fmt.Println("unlocked")
 		gvr := schema.GroupVersionResource{Group: "networking.istio.io", Version: "v1alpha3", Resource: "virtualservices"}
 		x := client.Resource(gvr).Namespace("default")
 

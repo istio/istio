@@ -854,6 +854,7 @@ func (s *Server) initRegistryEventHandlers() {
 	}
 }
 
+// onlyStatusUpdated returns false if changes are observed in labels, annotations, or spec, and otherwise returns true.
 func onlyStatusUpdated(old config.Config, curr config.Config) bool {
 	return labels.Equals(old.Labels, curr.Labels) &&
 		labels.Equals(old.Annotations, curr.Annotations) && reflect.DeepEqual(old.Spec, curr.Spec)
