@@ -157,8 +157,8 @@ func TestWasmCache(t *testing.T) {
 			}
 			cache.mux.Unlock()
 
-			// Sleep 5 ms for purge on expiry testing
-			time.Sleep(5 * time.Millisecond)
+			// Sleep 10 ms for purge on expiry testing
+			time.Sleep(10 * time.Millisecond)
 
 			gotFilePath, gotErr := cache.Get(c.fetchURL, fmt.Sprintf("%x", c.checksum), 0)
 			wantFilePath := filepath.Join(tmpDir, c.wantFileName)
