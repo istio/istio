@@ -185,6 +185,10 @@ func (c *Controller) extractGatewaysInner(svc *model.Service) {
 // getGatewayDetails finds the port and network to use for cross-network traffic on the given service.
 // Zero values are returned if the service is not a cross-network gateway.
 func (c *Controller) getGatewayDetails(svc *model.Service) (uint32, string) {
+	if rev, ok := svc.Attributes.Labels[label.IstioRev]; !ok || rev != c.revision {
+		// the gateway service isn't part of this revision
+		return 0, ""
+	}
 	// label based gateways
 	if nw := svc.Attributes.Labels[label.IstioNetwork]; nw != "" {
 		if gwPortStr := svc.Attributes.Labels[IstioGatewayPortLabel]; gwPortStr != "" {

@@ -93,7 +93,7 @@ func Test_KubeSecretController(t *testing.T) {
 			DomainSuffix:      DomainSuffix,
 			ResyncPeriod:      ResyncPeriod,
 			SyncInterval:      time.Microsecond,
-		}, mockserviceController, nil, "", "default", nil, nil)
+		}, mockserviceController, nil, "", nil, nil)
 	mc.InitSecretController(stop)
 	cache.WaitForCacheSync(stop, mc.HasSynced)
 	clientset.RunAndWait(stop)

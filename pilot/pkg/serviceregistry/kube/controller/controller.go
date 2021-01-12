@@ -113,6 +113,9 @@ type Options struct {
 	// ClusterID identifies the remote cluster in a multicluster env.
 	ClusterID string
 
+	// Revision this control plane is a part of
+	Revision string
+
 	// Metrics for capturing node-based metrics.
 	Metrics model.Metrics
 
@@ -215,6 +218,7 @@ type Controller struct {
 	xdsUpdater      model.XDSUpdater
 	domainSuffix    string
 	clusterID       string
+	revision        string
 
 	serviceHandlers  []func(*model.Service, model.Event)
 	workloadHandlers []func(*model.WorkloadInstance, model.Event)
@@ -270,6 +274,7 @@ func NewController(kubeClient kubelib.Client, options Options) *Controller {
 		client:                      kubeClient.Kube(),
 		queue:                       queue.NewQueue(1 * time.Second),
 		clusterID:                   options.ClusterID,
+		revision:                    options.Revision,
 		xdsUpdater:                  options.XDSUpdater,
 		servicesMap:                 make(map[host.Name]*model.Service),
 		nodeSelectorsForServices:    make(map[host.Name]labels.Instance),

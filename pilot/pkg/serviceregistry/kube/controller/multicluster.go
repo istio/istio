@@ -73,7 +73,6 @@ type Multicluster struct {
 	// fetchCaRoot maps the certificate name to the certificate
 	fetchCaRoot  func() map[string]string
 	caBundlePath string
-	revision     string
 
 	// secretNamespace where we get cluster-access secrets
 	secretNamespace  string
@@ -91,7 +90,6 @@ func NewMulticluster(
 	serviceController *aggregate.Controller,
 	serviceEntryStore *serviceentry.ServiceEntryStore,
 	caBundlePath string,
-	revision string,
 	fetchCaRoot func() map[string]string,
 	networksWatcher mesh.NetworksWatcher,
 ) *Multicluster {
@@ -107,7 +105,6 @@ func NewMulticluster(
 		serviceController:     serviceController,
 		serviceEntryStore:     serviceEntryStore,
 		caBundlePath:          caBundlePath,
-		revision:              revision,
 		fetchCaRoot:           fetchCaRoot,
 		XDSUpdater:            opts.XDSUpdater,
 		remoteKubeControllers: remoteKubeController,
@@ -190,7 +187,7 @@ func (m *Multicluster) AddMemberCluster(client kubelib.Client, clusterID string)
 		if features.InjectionWebhookConfigName.Get() != "" && m.caBundlePath != "" {
 			// TODO prevent istiods in primary clusters from trying to patch eachother. should we also leader-elect?
 			log.Infof("initializing webhook cert patch for cluster %s", clusterID)
-			patcher, err := webhooks.NewWebhookCertPatcher(client.Kube(), m.revision, webhookName, m.caBundlePath)
+			patcher, err := webhooks.NewWebhookCertPatcher(client.Kube(), options.Revision, webhookName, m.caBundlePath)
 			if err != nil {
 				log.Errorf("could not initialize webhook cert patcher: %v", err)
 			} else {

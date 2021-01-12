@@ -75,6 +75,7 @@ func (s *Server) initKubeRegistry(args *PilotArgs) (err error) {
 	args.RegistryOptions.KubeOptions.XDSUpdater = s.XDSServer
 	args.RegistryOptions.KubeOptions.NetworksWatcher = s.environment.NetworksWatcher
 	args.RegistryOptions.KubeOptions.SystemNamespace = args.Namespace
+	args.RegistryOptions.KubeOptions.Revision = args.Revision
 
 	caBundlePath := s.caBundlePath
 	if hasCustomTLSCerts(args.ServerOptions.TLSOptions) {
@@ -88,7 +89,6 @@ func (s *Server) initKubeRegistry(args *PilotArgs) (err error) {
 		s.ServiceController(),
 		s.serviceEntryStore,
 		caBundlePath,
-		args.Revision,
 		s.fetchCARoot,
 		s.environment)
 
