@@ -152,3 +152,41 @@ spec:
     protocol: GRPC
   resolution: STATIC
 ---
+
+# The following gateway allows request to "*.company.com"
+
+apiVersion: networking.istio.io/v1alpha3
+kind: Gateway
+metadata:
+  name: test-ingress
+  namespace: {{ .Namespace }}
+spec:
+  selector:
+    istio: ingressgateway # use istio default ingress gateway
+  servers:
+    - port:
+        number: 80
+        name: http
+        protocol: HTTP
+      hosts:
+        - "*.company.com"
+---
+
+# The following virtual service routes requests to workload x
+
+apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
+metadata:
+  name: test-vs
+  namespace: {{ .Namespace }}
+spec:
+  hosts:
+  - "*.company.com"
+  gateways:
+  - test-ingress
+  http:
+  - route:
+    - destination:
+        host: x
+        port:
+          number: 80

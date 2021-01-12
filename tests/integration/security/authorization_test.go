@@ -1399,11 +1399,11 @@ func TestAuthorization_Custom(t *testing.T) {
 
 			ingr := ist.IngressFor(ctx.Clusters().Default())
 			ingressCases := []rbacUtil.TestCase{
-				// workload b is using an ext-authz service in its own pod of HTTP API.
+				// workload g is using an ext-authz service in its own pod of HTTP API.
 				newTestCase(x, g, "/custom", "http", "allow", true, scheme.HTTP),
 				newTestCase(x, g, "/custom", "http", "deny", false, scheme.HTTP),
-				newTestCase(x, g, "/health", "http", "allow", false, scheme.HTTP),
-				newTestCase(x, g, "/health", "http", "deny", false, scheme.HTTP),
+				newTestCase(x, g, "/health", "http", "allow", true, scheme.HTTP),
+				newTestCase(x, g, "/health", "http", "deny", true, scheme.HTTP),
 			}
 			for _, tc := range ingressCases {
 				name := fmt.Sprintf("%s->%s:%s%s[%t]",
@@ -1421,7 +1421,7 @@ func TestAuthorization_Custom(t *testing.T) {
 					authn.CheckIngressOrFail(ctx, ingr, "www.company.com", tc.Request.Options.Path, headers, "", wantCode)
 				})
 			}
-			
+
 			rbacUtil.RunRBACTest(ctx, cases)
 		})
 }
