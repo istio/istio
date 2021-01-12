@@ -21,6 +21,8 @@ import (
 	"strings"
 	"text/tabwriter"
 
+	"istio.io/istio/operator/pkg/helmreconciler"
+
 	"github.com/hashicorp/go-multierror"
 	"github.com/spf13/cobra"
 	admit_v1 "k8s.io/api/admissionregistration/v1"
@@ -43,7 +45,7 @@ If set to true, the user is not prompted and a Yes response is assumed in all ca
 overwrite existing revision tags.`
 	revisionHelpStr = "Control plane revision to reference from a given revision tag"
 	tagCreatedStr   = `Revision tag %q created, referencing control plane revision %q. To enable injection using this
-revision tag, use 'kubectl label namespace <NAMESPACE>  istio.io/rev=%s'
+revision tag, use 'kubectl label namespace <NAMESPACE> istio.io/rev=%s'
 `
 )
 
@@ -396,7 +398,12 @@ func buildDeleteTagConfirmation(tag string, taggedNamespaces []string) string {
 func buildTagWebhookFromCanonical(wh admit_v1.MutatingWebhookConfiguration, tag, revision string) (*admit_v1.MutatingWebhookConfiguration, error) {
 	tagWebhook := &admit_v1.MutatingWebhookConfiguration{}
 	tagWebhook.Name = fmt.Sprintf("%s-%s", revisionTagNamePrefix, tag)
-	tagWebhookLabels := map[string]string{istioTagLabel: tag, label.IstioRev: revision}
+	tagWebhookLabels := map[string]string{
+		istioTagLabel:  tag,
+		label.IstioRev: revision,
+		// needed so istioctl uninstall can cleanup tag webhooks
+		helmreconciler.IstioComponentLabelStr: "Pilot",
+	}
 	tagWebhook.Labels = tagWebhookLabels
 	injectionWebhook, err := buildInjectionWebhook(wh, tag)
 	if err != nil {
