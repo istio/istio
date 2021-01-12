@@ -16,13 +16,15 @@ package v1alpha3
 
 import (
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
+
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/core/v1alpha3/envoyfilter"
 )
 
 // BuildExtensionConfiguration returns the list of extension configuration for the given proxy and list of names.
 // This is the ECDS output.
-func (configgen *ConfigGeneratorImpl) BuildExtensionConfiguration(proxy *model.Proxy, push *model.PushContext, extensionConfigNames []string) []*core.TypedExtensionConfig {
+func (configgen *ConfigGeneratorImpl) BuildExtensionConfiguration(
+	proxy *model.Proxy, push *model.PushContext, extensionConfigNames []string) []*core.TypedExtensionConfig {
 	resources := make([]*core.TypedExtensionConfig, 0)
 	envoyFilterPatches := push.EnvoyFilters(proxy)
 	extensionConfigs := envoyfilter.InsertedExtensionConfigurations(envoyFilterPatches, extensionConfigNames)
