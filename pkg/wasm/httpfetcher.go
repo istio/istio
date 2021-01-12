@@ -42,11 +42,11 @@ func NewHTTPFetcher() *HTTPFetcher {
 }
 
 // Fetch downloads a wasm module with HTTP get.
-func (f *HTTPFetcher) Fetch(url string, timeout *time.Duration) ([]byte, error) {
+func (f *HTTPFetcher) Fetch(url string, timeout time.Duration) ([]byte, error) {
 	c := f.defaultClient
-	if timeout != nil {
+	if timeout != 0 {
 		c = &http.Client{
-			Timeout: *timeout,
+			Timeout: timeout,
 		}
 	}
 	attempts := 0

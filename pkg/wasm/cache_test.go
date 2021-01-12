@@ -84,7 +84,7 @@ func TestWasmCache(t *testing.T) {
 			fetchURL:             "https://dummyurl",
 			purgeInterval:        DefaultWasmModulePurgeInteval,
 			wasmModuleExpiry:     DefaultWasmModuleExpiry,
-			wantErrorMsgPrefix:   "Wasm module download failed, last error: Get \"https://dummyurl\"",
+			wantErrorMsgPrefix:   "wasm module download failed, last error: Get \"https://dummyurl\"",
 			wantServerReqNum:     0,
 		},
 		{
@@ -160,7 +160,7 @@ func TestWasmCache(t *testing.T) {
 			// Sleep 2 ms for purge on expiry testing
 			time.Sleep(2 * time.Millisecond)
 
-			gotFilePath, gotErr := cache.Get(c.fetchURL, fmt.Sprintf("%x", c.checksum), nil)
+			gotFilePath, gotErr := cache.Get(c.fetchURL, fmt.Sprintf("%x", c.checksum), 0)
 			wantFilePath := filepath.Join(tmpDir, c.wantFileName)
 			if c.wantErrorMsgPrefix != "" {
 				if gotErr == nil {
@@ -178,5 +178,59 @@ func TestWasmCache(t *testing.T) {
 				t.Errorf("test server request number got %v, want %v", c.wantServerReqNum, tsNumRequest)
 			}
 		})
+	}
+}
+
+func TestWasmCacheMissChecksum(t *testing.T) {
+	tmpDir := t.TempDir()
+	cache := NewLocalFileCache(tmpDir, DefaultWasmModulePurgeInteval, DefaultWasmModuleExpiry)
+	defer close(cache.stopChan)
+
+	gotNumRequest := 0
+	// Create a test server which returns 0 for the first two calls, and returns 1 for the following calls.
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if gotNumRequest <= 1 {
+			fmt.Fprintln(w, "0")
+		} else {
+			fmt.Fprintln(w, "1")
+		}
+		gotNumRequest++
+	}))
+	// dataCheckSum := sha256.Sum256([]byte("data/\n"))
+	// tsNumRequest = 0
+	wantFilePath1 := filepath.Join(tmpDir, fmt.Sprintf("%x.wasm", sha256.Sum256([]byte("0\n"))))
+	wantFilePath2 := filepath.Join(tmpDir, fmt.Sprintf("%x.wasm", sha256.Sum256([]byte("1\n"))))
+
+	// Get wasm module three times, since checksum is not specified, it will be fetched from module server every time.
+	// 1st time
+	gotFilePath, err := cache.Get(ts.URL, "", 0)
+	if err != nil {
+		t.Fatalf("failed to download Wasm module: %v", err)
+	}
+	if gotFilePath != wantFilePath1 {
+		t.Errorf("wasm download path got %v want %v", gotFilePath, wantFilePath1)
+	}
+
+	// 2nd time
+	gotFilePath, err = cache.Get(ts.URL, "", 0)
+	if err != nil {
+		t.Fatalf("failed to download Wasm module: %v", err)
+	}
+	if gotFilePath != wantFilePath1 {
+		t.Errorf("wasm download path got %v want %v", gotFilePath, wantFilePath1)
+	}
+
+	// 3rd time
+	gotFilePath, err = cache.Get(ts.URL, "", 0)
+	if err != nil {
+		t.Fatalf("failed to download Wasm module: %v", err)
+	}
+	if gotFilePath != wantFilePath2 {
+		t.Errorf("wasm download path got %v want %v", gotFilePath, wantFilePath2)
+	}
+
+	wantNumRequest := 3
+	if gotNumRequest != wantNumRequest {
+		t.Errorf("wasm download call got %v want %v", gotNumRequest, wantNumRequest)
 	}
 }
