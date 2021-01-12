@@ -114,11 +114,7 @@ type Controller struct {
 	// maxConnectionAge is a duration that workload entry should be cleaned up if it does not reconnects.
 	maxConnectionAge time.Duration
 
-	// latest health check status of the connected workload entries
-	// When the workload entry disconnects, the status will be removed.
-	// keyed by proxy network+ip
-	latestHealthEvent map[string]*HealthStatus
-
+	// healthCondition is a fifo queue used for updating health check status
 	healthCondition cache.Queue
 }
 
@@ -133,15 +129,14 @@ func NewController(store model.ConfigStoreCache, instanceID string, maxConnAge t
 			maxConnAge = time.Duration(math.MaxInt64)
 		}
 		return &Controller{
-			instanceID:        instanceID,
-			store:             store,
-			cleanupLimit:      rate.NewLimiter(rate.Limit(20), 1),
-			cleanupQueue:      queue.NewDelayed(),
-			queue:             workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter()),
-			adsConnections:    map[string]uint8{},
-			maxConnectionAge:  maxConnAge,
-			latestHealthEvent: map[string]*HealthStatus{},
-			healthCondition:   cache.NewFIFO(keyFunc),
+			instanceID:       instanceID,
+			store:            store,
+			cleanupLimit:     rate.NewLimiter(rate.Limit(20), 1),
+			cleanupQueue:     queue.NewDelayed(),
+			queue:            workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter()),
+			adsConnections:   map[string]uint8{},
+			maxConnectionAge: maxConnAge,
+			healthCondition:  cache.NewFIFO(keyFunc),
 		}
 	}
 	return nil
@@ -620,18 +615,6 @@ func (c *Controller) handleErr(err error, key interface{}) {
 
 	c.queue.Forget(key)
 	log.Errorf(err)
-}
-
-func (c *Controller) storeHealthStatus(key string, healthStatus *HealthStatus) {
-	c.mutex.Lock()
-	defer c.mutex.Unlock()
-	c.latestHealthEvent[key] = healthStatus
-}
-
-func (c *Controller) getHealthStatus(key string) *HealthStatus {
-	c.mutex.Lock()
-	defer c.mutex.Unlock()
-	return c.latestHealthEvent[key]
 }
 
 func makeProxyKey(proxy *model.Proxy) string {
