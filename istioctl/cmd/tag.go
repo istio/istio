@@ -194,7 +194,7 @@ func setTag(ctx context.Context, kubeClient kubernetes.Interface, tag, revision 
 		return err
 	}
 	if len(revWebhookCollisions) > 0 {
-		return fmt.Errorf("cannot create revision tag with same name as an existing control plane revision")
+		return fmt.Errorf("cannot create tag %q: found existing control plane revision with same name", tag)
 	}
 
 	// find canonical revision webhook to base our tag webhook off of
@@ -203,10 +203,10 @@ func setTag(ctx context.Context, kubeClient kubernetes.Interface, tag, revision 
 		return err
 	}
 	if len(revWebhooks) == 0 {
-		return fmt.Errorf("cannot find webhook with revision %q", revision)
+		return fmt.Errorf("cannot modify tag: cannot find MutatingWebhookConfiguration with revision %q", revision)
 	}
 	if len(revWebhooks) > 1 {
-		return fmt.Errorf("found multiple canonical webhooks for revision %q", revision)
+		return fmt.Errorf("cannot modify tag: found multiple canonical webhooks with revision %q", revision)
 	}
 
 	tagWebhook, err := buildTagWebhookFromCanonical(revWebhooks[0], tag, revision)
@@ -246,7 +246,7 @@ func removeTag(ctx context.Context, kubeClient kubernetes.Interface, tag string,
 		return fmt.Errorf("failed to retrieve tag with name %s: %v", tag, err)
 	}
 	if len(webhooks) == 0 {
-		return fmt.Errorf("revision tag %s does not exist", tag)
+		return fmt.Errorf("cannot remove tag %q: cannot find MutatingWebhookConfiguration for tag", tag)
 	}
 
 	taggedNamespaces, err := getNamespacesWithTag(ctx, kubeClient, tag)
@@ -275,7 +275,7 @@ func removeTag(ctx context.Context, kubeClient kubernetes.Interface, tag string,
 func listTags(ctx context.Context, kubeClient kubernetes.Interface, writer io.Writer) error {
 	tagWebhooks, err := getTagWebhooks(ctx, kubeClient)
 	if err != nil {
-		return fmt.Errorf("failed to retrieve tags: %v", err)
+		return fmt.Errorf("failed to retrieve revision tags: %v", err)
 	}
 	if len(tagWebhooks) == 0 {
 		fmt.Fprintf(writer, "No Istio revision tag MutatingWebhookConfigurations to list")
@@ -294,7 +294,7 @@ func listTags(ctx context.Context, kubeClient kubernetes.Interface, writer io.Wr
 		}
 		tagNamespaces, err := getNamespacesWithTag(ctx, kubeClient, tagName)
 		if err != nil {
-			return fmt.Errorf("error finding namespaces for tag %q: %v", tagName, err)
+			return fmt.Errorf("error retrieving namespaces for tag %q: %v", tagName, err)
 		}
 
 		fmt.Fprintf(w, "%s\t%s\t%s\n", tagName, tagRevision, strings.Join(tagNamespaces, ","))
