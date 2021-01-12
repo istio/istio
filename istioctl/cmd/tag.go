@@ -482,19 +482,11 @@ func createTagWebhook(kubeClient kube.ExtendedClient, config *tagWebhookConfig) 
 
 	values := fmt.Sprintf(`
 revision: %s
-revisionTags: [%s]
-
-global:
-  istioNamespace: istio-system
-  istiod:
-    enableAnalysis: false
-  configValidation: false
+revisionTags:
+  - %s
 
 istiodRemote:
   injectionURL: %s
-
-base:
-  enableCRDTemplates: false
 `, config.revision, config.tag, config.remoteInjectionURL)
 	fmt.Println(values)
 
