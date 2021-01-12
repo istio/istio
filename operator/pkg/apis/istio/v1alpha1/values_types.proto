@@ -982,6 +982,12 @@ message SidecarInjectorConfig {
   // being injected with the hello=world labels.
   // This is intended for advanced configuration only; most users should use the built in template
   TypeMapStringInterface templates = 23;
+
+  // If enabled, the legacy webhook selection logic will be used. This relies on filtering of webhook
+  // requests in Istiod, rather than at the webhook selection level.
+  // This is option is intended for migration purposes only and will be removed in Istio 1.10.
+  google.protobuf.BoolValue useLegacySelectors = 4;
+
 }
 
 // Configuration for each of the supported tracers.

@@ -93,6 +93,30 @@ func TestMutatingWebhookPatch(t *testing.T) {
 			"",
 		},
 		{
+			"Prefix",
+			admissionregistrationv1beta1.MutatingWebhookConfigurationList{
+				Items: []admissionregistrationv1beta1.MutatingWebhookConfiguration{
+					{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:   "config1",
+							Labels: testRevisionLabel,
+						},
+						Webhooks: []admissionregistrationv1beta1.MutatingWebhook{
+							{
+								Name:         "prefix.webhook1",
+								ClientConfig: admissionregistrationv1beta1.WebhookClientConfig{},
+							},
+						},
+					},
+				},
+			},
+			testRevision,
+			"config1",
+			"webhook1",
+			[]byte("fake CA"),
+			"",
+		},
+		{
 			"NoRevisionWebhookNotUpdated",
 			admissionregistrationv1beta1.MutatingWebhookConfigurationList{
 				Items: []admissionregistrationv1beta1.MutatingWebhookConfiguration{
@@ -193,12 +217,12 @@ func TestMutatingWebhookPatch(t *testing.T) {
 					t.Fatal(err)
 				}
 				for _, w := range obj.Webhooks {
-					if w.Name == tc.webhookName {
+					if strings.HasSuffix(w.Name, tc.webhookName) {
 						if !bytes.Equal(w.ClientConfig.CABundle, tc.pemData) {
 							t.Fatalf("Incorrect CA bundle: expect %s got %s", tc.pemData, w.ClientConfig.CABundle)
 						}
 					}
-					if w.Name != tc.webhookName {
+					if !strings.HasSuffix(w.Name, tc.webhookName) {
 						if bytes.Equal(w.ClientConfig.CABundle, tc.pemData) {
 							t.Fatalf("Non-matching webhook \"%s\" CA bundle updated to %v", w.Name, w.ClientConfig.CABundle)
 						}

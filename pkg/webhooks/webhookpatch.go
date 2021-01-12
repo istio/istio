@@ -20,6 +20,7 @@ import (
 	"errors"
 	"fmt"
 	"io/ioutil"
+	"strings"
 	"time"
 
 	"k8s.io/api/admissionregistration/v1beta1"
@@ -112,7 +113,7 @@ func (w *WebhookCertPatcher) runWebhookController(stopChan <-chan struct{}) {
 func (w *WebhookCertPatcher) updateWebhookHandler(oldConfig, newConfig *v1beta1.MutatingWebhookConfiguration) {
 	if oldConfig.ResourceVersion != newConfig.ResourceVersion {
 		for i, wh := range newConfig.Webhooks {
-			if wh.Name == w.webhookName && !bytes.Equal(newConfig.Webhooks[i].ClientConfig.CABundle, w.caCertPem) {
+			if strings.HasSuffix(wh.Name, w.webhookName) && !bytes.Equal(newConfig.Webhooks[i].ClientConfig.CABundle, w.caCertPem) {
 				w.queue.Push(func() error {
 					return w.webhookPatchTask(newConfig.Name)
 				})
@@ -124,7 +125,7 @@ func (w *WebhookCertPatcher) updateWebhookHandler(oldConfig, newConfig *v1beta1.
 
 func (w *WebhookCertPatcher) addWebhookHandler(config *v1beta1.MutatingWebhookConfiguration) {
 	for i, wh := range config.Webhooks {
-		if wh.Name == w.webhookName && !bytes.Equal(config.Webhooks[i].ClientConfig.CABundle, w.caCertPem) {
+		if strings.HasSuffix(wh.Name, w.webhookName) && !bytes.Equal(config.Webhooks[i].ClientConfig.CABundle, w.caCertPem) {
 			log.Infof("New webhook config added, patching MutatingWebhookConfiguration for %s", config.Name)
 			w.queue.Push(func() error {
 				return w.webhookPatchTask(config.Name)
@@ -165,7 +166,7 @@ func (w *WebhookCertPatcher) patchMutatingWebhookConfig(
 
 	found := false
 	for i, wh := range config.Webhooks {
-		if wh.Name == w.webhookName {
+		if strings.HasSuffix(wh.Name, w.webhookName) {
 			config.Webhooks[i].ClientConfig.CABundle = w.caCertPem
 			found = true
 		}
