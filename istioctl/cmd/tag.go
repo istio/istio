@@ -18,8 +18,12 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"strings"
 	"text/tabwriter"
+
+	"istio.io/istio/operator/pkg/helm"
+	"istio.io/istio/pkg/kube"
 
 	"github.com/hashicorp/go-multierror"
 	"github.com/spf13/cobra"
@@ -54,6 +58,12 @@ var (
 	overwrite        = false
 	skipConfirmation = false
 )
+
+type tagWebhookConfig struct {
+	tag                string
+	revision           string
+	remoteInjectionURL string
+}
 
 func tagCommand() *cobra.Command {
 	cmd := &cobra.Command{
@@ -119,7 +129,7 @@ injection labels.`,
 				return fmt.Errorf("failed to create Kubernetes client: %v", err)
 			}
 
-			return setTag(context.Background(), client.Kube(), args[0], revision, cmd.OutOrStdout())
+			return setTag(context.Background(), client, args[0], revision, cmd.OutOrStdout())
 		},
 	}
 
@@ -188,7 +198,7 @@ revision tag before removing using the "istioctl x tag list" command.
 }
 
 // setTag creates or modifies a revision tag.
-func setTag(ctx context.Context, kubeClient kubernetes.Interface, tag, revision string, w io.Writer) error {
+func setTag(ctx context.Context, kubeClient kube.ExtendedClient, tag, revision string, w io.Writer) error {
 	// abort if there exists a revision with the target tag name
 	revWebhookCollisions, err := getWebhooksWithRevision(ctx, kubeClient, tag)
 	if err != nil {
@@ -210,11 +220,6 @@ func setTag(ctx context.Context, kubeClient kubernetes.Interface, tag, revision 
 		return fmt.Errorf("cannot modify tag: found multiple canonical webhooks with revision %q", revision)
 	}
 
-	tagWebhook, err := buildTagWebhookFromCanonical(revWebhooks[0], tag, revision)
-	if err != nil {
-		return err
-	}
-
 	whs, err := getWebhooksWithTag(ctx, kubeClient, tag)
 	if err != nil {
 		return err
@@ -223,17 +228,12 @@ func setTag(ctx context.Context, kubeClient kubernetes.Interface, tag, revision 
 		return fmt.Errorf("revision tag %q already exists, and --overwrite is false", tag)
 	}
 
-	// create or update webhook depending on whether it exists
-	// note there should be a single webhook for each revision tag
-	kubeWebhookClient := kubeClient.AdmissionregistrationV1().MutatingWebhookConfigurations()
-	if len(whs) == 0 {
-		_, err = kubeWebhookClient.Create(ctx, tagWebhook, metav1.CreateOptions{})
-	} else {
-		tagWebhook.ObjectMeta.ResourceVersion = whs[0].ObjectMeta.ResourceVersion
-		_, err = kubeWebhookClient.Update(ctx, tagWebhook, metav1.UpdateOptions{})
-	}
+	tagWhConfig, err := tagWebhookConfigFromCanonicalWebhook(revWebhooks[0], tag)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to create tag webhook config: %v", err)
+	}
+	if err := createTagWebhook(kubeClient, tagWhConfig); err != nil {
+		return fmt.Errorf("failed to create tag webhook: %v", err)
 	}
 
 	fmt.Fprintf(w, tagCreatedStr, tag, revision, tag)
@@ -285,11 +285,11 @@ func listTags(ctx context.Context, kubeClient kubernetes.Interface, writer io.Wr
 	w := new(tabwriter.Writer).Init(writer, 0, 8, 1, ' ', 0)
 	fmt.Fprintln(w, "TAG\tREVISION\tNAMESPACES")
 	for _, wh := range tagWebhooks {
-		tagName, err := getTagName(wh)
+		tagName, err := getWebhookName(wh)
 		if err != nil {
 			return fmt.Errorf("error parsing tag name from webhook %q: %v", wh.Name, err)
 		}
-		tagRevision, err := getTagRevision(wh)
+		tagRevision, err := getWebhookRevision(wh)
 		if err != nil {
 			return fmt.Errorf("error parsing revision from webhook %q: %v", wh.Name, err)
 		}
@@ -354,8 +354,8 @@ func getNamespacesWithTag(ctx context.Context, client kubernetes.Interface, tag 
 	return nsNames, nil
 }
 
-// getTagName extracts tag name from webhook object.
-func getTagName(wh admit_v1.MutatingWebhookConfiguration) (string, error) {
+// getWebhookName extracts tag name from webhook object.
+func getWebhookName(wh admit_v1.MutatingWebhookConfiguration) (string, error) {
 	if tagName, ok := wh.ObjectMeta.Labels[istioTagLabel]; ok {
 		return tagName, nil
 	}
@@ -363,7 +363,7 @@ func getTagName(wh admit_v1.MutatingWebhookConfiguration) (string, error) {
 }
 
 // getRevision extracts tag target revision from webhook object.
-func getTagRevision(wh admit_v1.MutatingWebhookConfiguration) (string, error) {
+func getWebhookRevision(wh admit_v1.MutatingWebhookConfiguration) (string, error) {
 	if tagName, ok := wh.ObjectMeta.Labels[label.IstioRev]; ok {
 		return tagName, nil
 	}
@@ -440,6 +440,96 @@ func buildInjectionWebhook(wh admit_v1.MutatingWebhookConfiguration, tag string)
 	injectionWebhook.NamespaceSelector = &tagWebhookNamespaceSelector
 	injectionWebhook.ClientConfig.CABundle = []byte("") // istiod patches the CA bundle in
 	return *injectionWebhook, nil
+}
+
+func tagWebhookConfigFromCanonicalWebhook(wh admit_v1.MutatingWebhookConfiguration, tag string) (*tagWebhookConfig, error) {
+	rev, err := getWebhookRevision(wh)
+	if err != nil {
+		return nil, err
+	}
+	var injectionURL string
+	found := false
+	for _, w := range wh.Webhooks {
+		if w.Name == istioInjectionWebhookName {
+			found = true
+			if w.ClientConfig.URL != nil {
+				injectionURL = *w.ClientConfig.URL
+			} else {
+				injectionURL = ""
+			}
+		}
+	}
+	if !found {
+		return nil, fmt.Errorf("could not find sidecar-injector webhook in canonical webhook")
+	}
+
+	return &tagWebhookConfig{
+		tag:                tag,
+		revision:           rev,
+		remoteInjectionURL: injectionURL,
+	}, nil
+}
+
+func createTagWebhook(kubeClient kube.ExtendedClient, config *tagWebhookConfig) error {
+	r, err := helm.NewHelmRenderer("", "istio-control/istio-discovery", "Pilot", "istio-system")
+	if err != nil {
+		return fmt.Errorf("failed creating Helm renderer: %v", err)
+	}
+
+	if err := r.Run(); err != nil {
+		return fmt.Errorf("failed running Helm renderer: %v", err)
+	}
+
+	values := fmt.Sprintf(`
+revision: %s
+revisionTags: [%s]
+
+global:
+  istioNamespace: istio-system
+  istiod:
+    enableAnalysis: false
+  configValidation: false
+
+istiodRemote:
+  injectionURL: %s
+
+base:
+  enableCRDTemplates: false
+`, config.revision, config.tag, config.remoteInjectionURL)
+	fmt.Println(values)
+
+	tagWebhookYaml, err := r.RenderManifest(values)
+	if err != nil {
+		return fmt.Errorf("failed rendering istio-control manifest: %v", err)
+	}
+
+	return applyYAML(kubeClient, tagWebhookYaml, "istio-system")
+}
+
+func applyYAML(client kube.ExtendedClient, yamlContent, ns string) error {
+	yamlFile, err := writeToTempFile(yamlContent)
+	if err != nil {
+		return fmt.Errorf("failed creating manifest file: %v", err)
+	}
+
+	// Apply the YAML to the cluster.
+	if err := client.ApplyYAMLFiles(ns, yamlFile); err != nil {
+		return fmt.Errorf("failed applying manifest %s: %v", yamlFile, err)
+	}
+	return nil
+}
+
+func writeToTempFile(content string) (string, error) {
+	outFile, err := ioutil.TempFile("", "remote-secret-manifest-*")
+	if err != nil {
+		return "", fmt.Errorf("failed creating temp file for manifest: %v", err)
+	}
+	defer func() { _ = outFile.Close() }()
+
+	if _, err := outFile.Write([]byte(content)); err != nil {
+		return "", fmt.Errorf("failed writing manifest file: %v", err)
+	}
+	return outFile.Name(), nil
 }
 
 // TODO(monkeyanator) duplicated between cmd/mesh/upgrade.go, move to common place
