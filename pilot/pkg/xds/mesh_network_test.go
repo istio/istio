@@ -53,19 +53,36 @@ func TestMeshNetworking(t *testing.T) {
 				},
 			}},
 			// cluster/network 2's ingress can be found by it's network label
-			"cluster-2": {&corev1.Service{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "istio-ingressgateway",
-					Namespace: "istio-system",
-					Labels: map[string]string{
-						label.IstioNetwork: "network-2",
+			"cluster-2": {
+				&corev1.Service{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "istio-ingressgateway",
+						Namespace: "istio-system",
+						Labels: map[string]string{
+							label.IstioNetwork: "network-2",
+						},
+					},
+					Spec: corev1.ServiceSpec{Type: corev1.ServiceTypeLoadBalancer},
+					Status: corev1.ServiceStatus{
+						LoadBalancer: corev1.LoadBalancerStatus{Ingress: []corev1.LoadBalancerIngress{{IP: "3.3.3.3"}}},
 					},
 				},
-				Spec: corev1.ServiceSpec{Type: corev1.ServiceTypeLoadBalancer},
-				Status: corev1.ServiceStatus{
-					LoadBalancer: corev1.LoadBalancerStatus{Ingress: []corev1.LoadBalancerIngress{{IP: "3.3.3.3"}}},
+				// the second ingress with ip 6.7.8.9 should be ingored since it's part of a different revision
+				&corev1.Service{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "istio-ingressgateway-canary",
+						Namespace: "istio-system",
+						Labels: map[string]string{
+							label.IstioNetwork: "network-2",
+							label.IstioRev:     "canary",
+						},
+					},
+					Spec: corev1.ServiceSpec{Type: corev1.ServiceTypeLoadBalancer},
+					Status: corev1.ServiceStatus{
+						LoadBalancer: corev1.LoadBalancerStatus{Ingress: []corev1.LoadBalancerIngress{{IP: "6.7.8.9"}}},
+					},
 				},
-			}},
+			},
 		},
 		corev1.ServiceTypeClusterIP: {
 			// cluster/network 1's ingress can be found up by registry service name in meshNetworks
@@ -208,6 +225,20 @@ func TestMeshNetworking(t *testing.T) {
 					vm.Expect(pod, net1gw)
 					vm.Expect(labeledPod, net2gw)
 					vm.Expect(vm, "10.10.10.30:9090")
+
+					// Fill in revision "default" on all Services unless already specified
+					for _, svcs := range ingressObjects {
+						for _, obj := range svcs {
+							if svc, ok := obj.(*corev1.Service); ok {
+								if svc.Labels == nil {
+									svc.Labels = map[string]string{}
+								}
+								if svc.Labels[label.IstioRev] == "" {
+									svc.Labels[label.IstioRev] = "default"
+								}
+							}
+						}
+					}
 
 					runMeshNetworkingTest(t, meshNetworkingTest{
 						workloads:         []*workload{pod, labeledPod, vm, gw},

@@ -166,6 +166,7 @@ func NewFakeControllerWithOptions(opts FakeControllerOptions) (*FakeController, 
 		EndpointMode:      opts.Mode,
 		ClusterID:         opts.ClusterID,
 		SyncInterval:      time.Microsecond,
+		Revision:          "default",
 	}
 	c := NewController(opts.Client, options)
 	if opts.ServiceHandler != nil {
