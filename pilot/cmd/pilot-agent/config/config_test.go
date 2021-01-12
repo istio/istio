@@ -132,3 +132,64 @@ proxyStatsMatcher:
 		})
 	}
 }
+
+func TestApplyAnnotations(t *testing.T) {
+	cases := []struct {
+		name     string
+		original meshconfig.ProxyConfig
+		annos    map[string]string
+		expect   meshconfig.ProxyConfig
+	}{
+		{
+			name:     "Defaults",
+			original: mesh.DefaultProxyConfig(),
+			expect:   mesh.DefaultProxyConfig(),
+		},
+		{
+			name:     "Override ControlPlaneAuthPolicy To NONE",
+			original: mesh.DefaultProxyConfig(),
+			annos: map[string]string{
+				"sidecar.istio.io/controlPlaneAuthPolicy": "NONE",
+			},
+			expect: func() meshconfig.ProxyConfig {
+				m := mesh.DefaultProxyConfig()
+				m.ControlPlaneAuthPolicy = meshconfig.AuthenticationPolicy_NONE
+				return m
+			}(),
+		},
+		{
+			name: "Override ControlPlaneAuthPolicy From None To MTLS",
+			original: func() meshconfig.ProxyConfig {
+				m := mesh.DefaultProxyConfig()
+				m.ControlPlaneAuthPolicy = meshconfig.AuthenticationPolicy_NONE
+				return m
+			}(),
+			annos: map[string]string{
+				"sidecar.istio.io/controlPlaneAuthPolicy": "MUTUAL_TLS",
+			},
+			expect: func() meshconfig.ProxyConfig {
+				m := mesh.DefaultProxyConfig()
+				m.ControlPlaneAuthPolicy = meshconfig.AuthenticationPolicy_MUTUAL_TLS
+				return m
+			}(),
+		},
+		{
+			name:     "Override ControlPlaneAuthPolicy To Invalid",
+			original: mesh.DefaultProxyConfig(),
+			annos: map[string]string{
+				"sidecar.istio.io/controlPlaneAuthPolicy": "foo",
+			},
+			expect: mesh.DefaultProxyConfig(),
+		},
+	}
+
+	for _, tt := range cases {
+		t.Run(tt.name, func(t *testing.T) {
+			got := applyAnnotations(tt.original, tt.annos)
+			if !reflect.DeepEqual(got, tt.expect) {
+				t.Fatalf("got \n%v expected \n%v", got, tt.expect)
+			}
+		})
+	}
+
+}

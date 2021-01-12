@@ -186,6 +186,11 @@ func applyAnnotations(config meshconfig.ProxyConfig, annos map[string]string) me
 	if v, f := annos[annotation.SidecarDiscoveryAddress.Name]; f {
 		config.DiscoveryAddress = v
 	}
+	if v, f := annos[annotation.SidecarControlPlaneAuthPolicy.Name]; f {
+		if value, found := meshconfig.AuthenticationPolicy_value[v]; found {
+			config.ControlPlaneAuthPolicy = meshconfig.AuthenticationPolicy(value)
+		}
+	}
 	if v, f := annos[annotation.SidecarStatusPort.Name]; f {
 		p, err := strconv.Atoi(v)
 		if err != nil {
