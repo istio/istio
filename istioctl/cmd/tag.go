@@ -90,6 +90,8 @@ func tagSetCommand() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "set <revision-tag>",
 		Short: "Create or modify revision tags",
+		Long: `Create or modify revision tags. Tag an Istio control plane revision for use with namespace istio.io/rev
+injection labels.`,
 		Example: ` # Create a revision tag from the "1-8-0" revision
 	istioctl x tag set prod --revision 1-8-0
 
@@ -156,7 +158,7 @@ func tagRemoveCommand() *cobra.Command {
 		Short: "Remove Istio control plane revision tag",
 		Long: `Remove Istio control plane revision tag.
 
-Removing a revision tag should be done with care. Removing a revision tag can disrupt sidecar injection in namespaces
+Removing a revision tag should be done with care. Removing a revision tag will disrupt sidecar injection in namespaces
 that reference the tag in an "istio.io/rev" label. Verify that there are no remaining namespaces referencing a
 revision tag before removing using the "istioctl x tag list" command.
 `,
