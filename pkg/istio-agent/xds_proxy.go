@@ -52,6 +52,7 @@ import (
 	"istio.io/istio/pkg/mcp/status"
 	"istio.io/istio/pkg/uds"
 	"istio.io/istio/security/pkg/nodeagent/caclient"
+	"istio.io/istio/security/pkg/stsservice"
 	"istio.io/pkg/log"
 )
 
@@ -81,6 +82,7 @@ type XdsProxy struct {
 	xdsHeaders                  map[string]string
 	xdsUdsPath                  string
 	xdsEnableTokenFetchExchange bool
+	tokenManager                stsservice.TokenManager
 
 	// connected stores the active gRPC stream. The proxy will only have 1 connection at a time
 	connected      *ProxyConnection
@@ -114,6 +116,7 @@ func initXdsProxy(ia *Agent) (*XdsProxy, error) {
 		xdsHeaders:                  ia.cfg.XDSHeaders,
 		xdsUdsPath:                  ia.cfg.XdsUdsPath,
 		xdsEnableTokenFetchExchange: ia.secOpts.XdsEnableTokenFetchExchange,
+		tokenManager:                ia.secOpts.TokenManager,
 	}
 
 	proxyLog.Infof("Initializing with upstream address %q and cluster %q", proxy.istiodAddress, proxy.clusterID)

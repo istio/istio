@@ -16,6 +16,7 @@ package caclient
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"strings"
@@ -23,6 +24,8 @@ import (
 	"google.golang.org/grpc/credentials"
 
 	"istio.io/istio/pkg/security"
+	"istio.io/istio/security/pkg/stsservice"
+	"istio.io/istio/security/pkg/stsservice/server"
 	"istio.io/pkg/log"
 )
 
@@ -78,8 +81,7 @@ func (t *TokenProvider) RequireTransportSecurity() bool {
 // volatile memory), we can still proceed and allow other authentication methods to potentially
 // handle the request, such as mTLS.
 func (t *TokenProvider) GetToken() (string, error) {
-	if !t.forCA && !t.opts.XdsEnableTokenFetchExchange {
-		// For XDS flow, when token fetch and exchange is disabled, we only support reading from file.
+	if !t.forCA {
 		if t.opts.JWTPath == "" {
 			return "", nil
 		}
@@ -88,9 +90,33 @@ func (t *TokenProvider) GetToken() (string, error) {
 			log.Warnf("failed to fetch token from file: %v", err)
 			return "", nil
 		}
-		return strings.TrimSpace(string(tok)), nil
+		// For XDS flow, when token fetch and exchange is disabled, we only support reading from file.
+		if !t.opts.XdsEnableTokenFetchExchange {
+			return strings.TrimSpace(string(tok)), nil
+		}
+		// For XDS flow, the token exchange is different from that of the CA flow.
+		if t.opts.TokenManager == nil {
+			return "", fmt.Errorf("XDS token exchange is enabled but token manager is nil")
+		}
+		if strings.TrimSpace(string(tok)) == "" {
+			return "", fmt.Errorf("the JWT token for XDS token exchange is empty")
+		}
+		params := stsservice.StsRequestParameters{
+			GrantType:        server.TokenExchangeGrantType,
+			SubjectToken:     strings.TrimSpace(string(tok)),
+			SubjectTokenType: server.SubjectTokenType,
+		}
+		body, err := t.opts.TokenManager.GenerateToken(params)
+		if err != nil {
+			return "", fmt.Errorf("token manager failed to generate access token: %v", err)
+		}
+		respData := &stsservice.StsResponseParameters{}
+		if err := json.Unmarshal(body, respData); err != nil {
+			return "", fmt.Errorf("failed to unmarshal access token response data: %v", err)
+		}
+		return respData.AccessToken, nil
 	}
-	// We have two modes: using the newer CredentialFetcher or just reading directly from file
+	// For CA, we have two modes, using the newer CredentialFetcher or just reading directly from file
 	var token string
 	if t.opts.CredFetcher != nil {
 		var err error

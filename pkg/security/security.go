@@ -18,6 +18,7 @@ import (
 	"strings"
 	"time"
 
+	"istio.io/istio/security/pkg/stsservice"
 	"istio.io/pkg/env"
 )
 
@@ -143,6 +144,9 @@ type Options struct {
 
 	// Enable token fetch and exchange for XDS
 	XdsEnableTokenFetchExchange bool
+
+	// Token manager for the token exchange of XDS
+	TokenManager stsservice.TokenManager
 }
 
 // Client interface defines the clients need to implement to talk to CA for CSR.
