@@ -20,9 +20,9 @@
   "panels": [
     {
       "collapsed": false,
-      "content": "<div>\n  <div style=\"position: absolute; bottom: 0\">\n    <a href=\"https://istio.io\" target=\"_blank\" style=\"font-size: 30px; text-decoration: none; color: inherit\"><img src=\"https://istio.io/latest/img/istio-bluelogo-nobackground-unframed.svg\" style=\"height: 50px\"> Istio</a>\n  </div>\n  <div style=\"position: absolute; bottom: 0; right: 0; font-size: 15px\">\n    Istio is an <a href=\"https://github.com/istio/istio\" target=\"_blank\">open platform</a> that provides a uniform way to connect,\n    <a href=\"https://istio.io/docs/concepts/traffic-management/overview.html\" target=\"_blank\">manage</a>, and \n    <a href=\"https://istio.io/docs/concepts/network-and-auth/auth.html\" target=\"_blank\">secure</a> microservices.\n    <br>\n    Need help? Join the <a href=\"https://istio.io/community/\" target=\"_blank\">Istio community</a>.\n  </div>\n</div>",
+      "content": "<div>\n  <div style=\"position: absolute; bottom: 0\">\n    <a href=\"https://istio.io\" target=\"_blank\" style=\"font-size: 30px; text-decoration: none; color: inherit\"><img src=\"https://istio.io/latest/img/istio-bluelogo-nobackground-unframed.svg\" style=\"height: 50px\"> Istio</a>\n  </div>\n  <div style=\"position: absolute; bottom: 0; right: 0; font-size: 15px\">\n    Istio is an <a href=\"https://github.com/istio/istio\" target=\"_blank\">open platform</a> that provides a uniform way to connect,\n    <a href=\"https://istio.io/latest/docs/concepts/traffic-management/\" target=\"_blank\">manage</a>, and \n    <a href=\"https://istio.io/latest/docs/concepts/security/\" target=\"_blank\">secure</a> microservices.  Need help? Join the <a href=\"https://istio.io/community/\" target=\"_blank\">Istio community</a>.\n  <br> See changes of Istio Grafana Dashboards, please check out our <a href=\"https://github.com/istio/istio/releasenotes/notes/canonical-service-dashboard.yaml\" target=\"_blank\">Release Notes</a>",
       "gridPos": {
-        "h": 3,
+        "h": 4,
         "w": 24,
         "x": 0,
         "y": 0
@@ -37,37 +37,6 @@
       "title": "",
       "transparent": true,
       "type": "text"
-    },
-    {
-      "collapsed": true,
-      "gridPos": {
-        "h": 1,
-        "w": 24,
-        "x": 0,
-        "y": 0
-      },
-      "id": 24,
-      "panels": [
-        {
-          "content": "In Istio release 1.9, we replace the Istio Service Dashboard from all the queries based on the K8s service to Istio Canonical Service. The benefits of this change is that user now can\n gain service-to-service traffic/metrics knowledge in a much more Istio friendly way.",
-          "gridPos": {
-            "h": 6,
-            "w": 24,
-            "x": 0,
-            "y": 1
-          },
-          "id": 19,
-          "links": [],
-          "mode": "markdown",
-          "timeFrom": null,
-          "timeShift": null,
-          "title": "Istio Service Dashboard",
-          "transparent": true,
-          "type": "text"
-        }
-      ],
-      "title": "Istio Grafana Dashboard Notes",
-      "type": "row"
     },
     {
       "collapsed": false,
@@ -1398,7 +1367,7 @@
           "unit": "short"
         },
         {
-          "alias": "Canonical Service",
+          "alias": "Service",
           "colorMode": null,
           "colors": [
             "rgba(245, 54, 54, 0.9)",
@@ -1409,8 +1378,26 @@
           "decimals": 2,
           "link": true,
           "linkTooltip": "$__cell dashboard",
-          "linkUrl": "/dashboard/db/istio-canonical-service-dashboard?var-service=${__cell_1:raw}",
+          "linkUrl": "/dashboard/db/istio-service-dashboard?var-service=${__cell_1:raw}",
           "pattern": "destination_canonical_service",
+          "thresholds": [],
+          "type": "string",
+          "unit": "short"
+        },
+        {
+          "alias": "Service Namespace",
+          "colorMode": null,
+          "colors": [
+            "rgba(245, 54, 54, 0.9)",
+            "rgba(237, 129, 40, 0.89)",
+            "rgba(50, 172, 45, 0.97)"
+          ],
+          "dateFormat": "YYYY-MM-DD HH:mm:ss",
+          "decimals": 2,
+          "link": false,
+          "linkTooltip": "$__cell dashboard",
+          "linkUrl": "",
+          "pattern": "destination_workload_namespace",
           "thresholds": [],
           "type": "string",
           "unit": "short"
@@ -1648,7 +1635,7 @@
         }
       ],
       "timeFrom": null,
-      "title": "TCP Canonical Services",
+      "title": "TCP Services",
       "transform": "table",
       "type": "table"
     },

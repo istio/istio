@@ -29,7 +29,7 @@
       "id": 106,
       "panels": [
         {
-          "content": "<div class=\"dashboard-header text-center\">\n<span>CANONICAL SERVICE: $service</span>\n</div>",
+          "content": "<div class=\"dashboard-header text-center\">\n<span>SERVICE: $service</span>\n</div>",
           "fieldConfig": {
             "defaults": {
               "custom": {}
@@ -46,7 +46,7 @@
           "links": [],
           "mode": "html",
           "options": {
-            "content": "<div class=\"dashboard-header text-center\">\n<span>CANONICAL SERVICE: $service</span>\n</div>",
+            "content": "<div class=\"dashboard-header text-center\">\n<span>SERVICE: $service.$serns</span>\n</div>",
             "mode": "html"
           },
           "pluginVersion": "7.1.0",
@@ -2832,6 +2832,28 @@
         "name": "service",
         "options": [],
         "query": "label_values(destination_canonical_service)",
+        "refresh": 1,
+        "regex": "",
+        "skipUrlSync": false,
+        "sort": 0,
+        "tagValuesQuery": "",
+        "tags": [],
+        "tagsQuery": "",
+        "type": "query",
+        "useTags": false
+      },
+      {
+        "allValue": null,
+        "current": {},
+        "datasource": "Prometheus",
+        "definition": "",
+        "hide": 0,
+        "includeAll": false,
+        "label": "Service Namespace",
+        "multi": false,
+        "name": "serns",
+        "options": [],
+        "query": "label_values(destination_workload_namespace)",
         "refresh": 1,
         "regex": "",
         "skipUrlSync": false,
