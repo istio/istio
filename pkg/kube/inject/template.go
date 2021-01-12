@@ -333,5 +333,8 @@ func cleanProxyConfig(msg proto.Message) proto.Message {
 	if reflect.DeepEqual(pc.Concurrency, defaults.Concurrency) {
 		pc.Concurrency = nil
 	}
+	if len(pc.ProxyMetadata) == 0 {
+		pc.ProxyMetadata = nil
+	}
 	return proto.Message(&pc)
 }
