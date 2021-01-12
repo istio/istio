@@ -147,9 +147,8 @@ func TestSidecarOutboundHTTPRouteConfigWithDuplicateHosts(t *testing.T) {
 				"test:80": {"test", "test:80"},
 			},
 			map[string]string{
-				"allow_any":     "PassthroughCluster",
-				"test.local:80": "outbound|80||test.local",
-				"test:80":       "outbound|80||test",
+				"allow_any": "PassthroughCluster",
+				"test:80":   "outbound|80||test",
 			},
 		},
 		{
@@ -163,8 +162,6 @@ func TestSidecarOutboundHTTPRouteConfigWithDuplicateHosts(t *testing.T) {
 				"allow_any": {"*"},
 				"test.default.svc.cluster.local:80": {
 					"test.default.svc.cluster.local", "test.default.svc.cluster.local:80",
-					"test.default.svc.cluster", "test.default.svc.cluster:80",
-					"test.default.svc", "test.default.svc:80",
 					"test.default", "test.default:80",
 				},
 				"test:80": {"test", "test:80"},
@@ -183,14 +180,12 @@ func TestSidecarOutboundHTTPRouteConfigWithDuplicateHosts(t *testing.T) {
 			},
 			nil,
 			map[string][]string{
-				"allow_any":     {"*"},
-				"test.local:80": {"test.local", "test.local:80"},
-				"test:80":       {"test", "test:80"},
+				"allow_any": {"*"},
+				"test:80":   {"test", "test:80"},
 			},
 			map[string]string{
-				"allow_any":     "PassthroughCluster",
-				"test.local:80": "outbound|80||test.local",
-				"test:80":       "outbound|80||test",
+				"allow_any": "PassthroughCluster",
+				"test:80":   "outbound|80||test",
 			},
 		},
 		{
@@ -210,8 +205,6 @@ func TestSidecarOutboundHTTPRouteConfigWithDuplicateHosts(t *testing.T) {
 				"test-duplicate-domains.default.svc.cluster.local:80": {
 					"test-duplicate-domains.default.svc.cluster.local", "test-duplicate-domains.default.svc.cluster.local:80",
 					"test-duplicate-domains", "test-duplicate-domains:80",
-					"test-duplicate-domains.default.svc.cluster", "test-duplicate-domains.default.svc.cluster:80",
-					"test-duplicate-domains.default.svc", "test-duplicate-domains.default.svc:80",
 				},
 				"test-duplicate-domains.default:80": {"test-duplicate-domains.default", "test-duplicate-domains.default:80"},
 			},
@@ -239,8 +232,6 @@ func TestSidecarOutboundHTTPRouteConfigWithDuplicateHosts(t *testing.T) {
 				"test.default.svc.cluster.local:80": {
 					"test.default.svc.cluster.local", "test.default.svc.cluster.local:80",
 					"test", "test:80",
-					"test.default.svc.cluster", "test.default.svc.cluster:80",
-					"test.default.svc", "test.default.svc:80",
 				},
 				"test.default:80": {"test.default", "test.default:80"},
 			},
@@ -261,7 +252,7 @@ func TestSidecarOutboundHTTPRouteConfigWithDuplicateHosts(t *testing.T) {
 			map[string][]string{
 				"allow_any": {"*"},
 				// BUG: test should be below
-				"test.local:80": {"test.local", "test.local:80", "test", "test:80"},
+				"test.local:80": {"test", "test:80"},
 			},
 			map[string]string{
 				"allow_any":     "PassthroughCluster",

@@ -426,6 +426,7 @@ func generateAltVirtualHosts(hostname string, port int, proxyDomain string) []st
 	// adds the unique piece foo, foo:80
 	vhosts = append(vhosts, uniqHostname, domainName(uniqHostname, port))
 
+	// If hostName does not have a namespace, add a  domain with proper namespace.
 	hostNameParts := strings.Split(uniqHostname, ".")
 	if len(hostNameParts) != 2 {
 		sharedDNSDomainParts := strings.SplitN(sharedDNSDomain, ".", 2)
