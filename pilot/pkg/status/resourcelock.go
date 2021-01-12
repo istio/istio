@@ -110,7 +110,7 @@ func (q *queueImpl) enqueue(item lockResource) {
 // last worker, which stays alive indefinitely.
 func (q *queueImpl) maybeAddWorker() {
 	q.cond.L.Lock()
-	if q.workerCount >= q.maxWorkers {
+	if q.workerCount >= q.maxWorkers || len(q.tasks) == 0 {
 		q.cond.L.Unlock()
 		return
 	}
