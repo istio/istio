@@ -313,4 +313,6 @@ meshConfig:
     #        caCertificates:    # example: /etc/istio/tracer/root-cert.pem
     #        sni:               # example: tracer.somedomain
     #        subjectAltNames: []
-    # - tracer.somedomain
+
+      # Configuration for each of the supported tracers
+      tracer: {}
