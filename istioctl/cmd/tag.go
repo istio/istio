@@ -31,7 +31,7 @@ import (
 )
 
 const (
-	// TODO(monkeyanator) move into istio/api
+	// TODO(Monkeyanator) move into istio/api
 	istioTagLabel             = "istio.io/tag"
 	istioInjectionWebhookName = "sidecar-injector.istio.io"
 	revisionTagNamePrefix     = "istio-revision-tag"
@@ -59,7 +59,7 @@ func tagCommand() *cobra.Command {
 		Use:   "tag",
 		Short: "Command group used to interact with revision tags",
 		Long: `Command group used to interact with revision tags. Revision tags allow for the creation of mutable aliases
-to control plane revisions for sidecar injection. 
+referring to control plane revisions for sidecar injection.
 
 With revision tags, rather than relabeling a namespace from "istio.io/rev=revision-a" to "istio.io/rev=revision-b" to
 change which control plane revision handles injection, it's possible to create a revision tag "prod" and label our 
@@ -97,7 +97,7 @@ func tagSetCommand() *cobra.Command {
 				return fmt.Errorf("must provide a tag for modification")
 			}
 			if len(args) > 1 {
-				return fmt.Errorf("can only provide a single tag for creation")
+				return fmt.Errorf("must provide a single tag for creation")
 			}
 
 			client, err := kubeClient(kubeconfig, configContext)
