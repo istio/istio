@@ -1,22 +1,23 @@
-{{- range $tagName := .Values.revisionTags }}
+{{- range $tagName := $.Values.revisionTags }}
 apiVersion: admissionregistration.k8s.io/v1beta1
 kind: MutatingWebhookConfiguration
 metadata:
   name: istio-revision-tag-{{ $tagName }}
   labels:
-    istio.io/rev: {{ .Values.revision | default "default" }}
-    install.operator.istio.io/owning-resource: {{ .Values.ownerName | default "unknown" }}
+    istio.io/rev: {{ $.Values.revision | default "default" }}
+    istio.io/tag: {{ $tagName }}
+    install.operator.istio.io/owning-resource: {{ $.Values.ownerName | default "unknown" }}
     operator.istio.io/component: "Pilot"
     app: sidecar-injector
 webhooks:
   - name: sidecar-injector.istio.io
     clientConfig:
-      {{- if .Values.istiodRemote.injectionURL }}
-      url: {{ .Values.istiodRemote.injectionURL }}
+      {{- if $.Values.istiodRemote.injectionURL }}
+      url: {{ $.Values.istiodRemote.injectionURL }}
       {{- else }}
       service:
-        name: istiod{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}
-        namespace: {{ .Release.Namespace }}
+        name: istiod{{- if not (eq $.Values.revision "") }}-{{ $.Values.revision }}{{- end }}
+        namespace: {{ $.Release.Namespace }}
         path: "/inject"
       {{- end }}
       caBundle: ""
@@ -35,5 +36,5 @@ webhooks:
       - key: istio.io/rev
         operator: In
         values:
-        - {{ .Values.revision }}
+        - {{ $.Values.revision }}
 {{- end }}
