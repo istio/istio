@@ -45,7 +45,6 @@ data:
     {
       "global": {
         "caAddress": "",
-        "centralIstiod": false,
         "defaultPodDisruptionBudget": {
           "enabled": true
         },
