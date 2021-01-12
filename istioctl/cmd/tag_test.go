@@ -21,6 +21,8 @@ import (
 	"strings"
 	"testing"
 
+	"istio.io/istio/operator/pkg/helmreconciler"
+
 	"github.com/davecgh/go-spew/spew"
 	admit_v1 "k8s.io/api/admissionregistration/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -47,8 +49,10 @@ func TestTagList(t *testing.T) {
 						ObjectMeta: metav1.ObjectMeta{
 							Name: "istio-revision-tag-sample",
 							Labels: map[string]string{
-								istioTagLabel:  "sample",
-								label.IstioRev: "sample-revision"},
+								istioTagLabel:                         "sample",
+								label.IstioRev:                        "sample-revision",
+								helmreconciler.IstioComponentLabelStr: "Pilot",
+							},
 						},
 					},
 				},
@@ -324,8 +328,9 @@ func TestSetTag(t *testing.T) {
 						ObjectMeta: metav1.ObjectMeta{
 							Name: "istio-revision-tag-test",
 							Labels: map[string]string{
-								label.IstioRev: "revision",
-								istioTagLabel:  "test",
+								label.IstioRev:                        "revision",
+								istioTagLabel:                         "test",
+								helmreconciler.IstioComponentLabelStr: "Pilot",
 							},
 						},
 						Webhooks: []admit_v1.MutatingWebhook{
@@ -371,8 +376,9 @@ func TestSetTag(t *testing.T) {
 						ObjectMeta: metav1.ObjectMeta{
 							Name: "istio-revision-tag-test",
 							Labels: map[string]string{
-								label.IstioRev: "revision",
-								istioTagLabel:  "test",
+								label.IstioRev:                        "revision",
+								istioTagLabel:                         "test",
+								helmreconciler.IstioComponentLabelStr: "Pilot",
 							},
 						},
 						Webhooks: []admit_v1.MutatingWebhook{
