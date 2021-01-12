@@ -54,7 +54,7 @@ func TestWasmHTTPFetch(t *testing.T) {
 				w.WriteHeader(500)
 			},
 			wantNumRequest: 5,
-			wantError:      "Wasm module download failed, last error: Wasm module download request failed: status code 500",
+			wantError:      "wasm module download failed, last error: wasm module download request failed: status code 500",
 		},
 	}
 
