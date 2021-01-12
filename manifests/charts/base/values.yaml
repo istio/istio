@@ -13,7 +13,6 @@ global:
 
   configValidation: true
   externalIstiod: false
-  centralIstiod: false
   remotePilotAddress: ""
 
 base:
