@@ -21,8 +21,6 @@ import (
 	"strings"
 	"testing"
 
-	"istio.io/istio/operator/pkg/helmreconciler"
-
 	"github.com/davecgh/go-spew/spew"
 	admit_v1 "k8s.io/api/admissionregistration/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -30,6 +28,7 @@ import (
 	"k8s.io/client-go/kubernetes/fake"
 
 	"istio.io/api/label"
+	"istio.io/istio/operator/pkg/helmreconciler"
 )
 
 func TestTagList(t *testing.T) {
