@@ -103,7 +103,7 @@ func revisionCommand() *cobra.Command {
 		Aliases: []string{"rev"},
 	}
 	revisionCmd.PersistentFlags().StringVarP(&revArgs.manifestsPath, "manifests", "d", "", mesh.ManifestsFlagHelpStr)
-	revisionCmd.PersistentFlags().BoolVarP(&revArgs.verbose, "verbose", "v", false, "print customizations")
+	revisionCmd.PersistentFlags().BoolVarP(&revArgs.verbose, "verbose", "v", false, "Enable verbose output")
 	revisionCmd.PersistentFlags().StringVarP(&revArgs.output, "output", "o", "table", "Output format for revision description")
 
 	revisionCmd.AddCommand(revisionListCommand())
@@ -117,9 +117,9 @@ func revisionDescribeCommand() *cobra.Command {
 		Use:     "describe",
 		Example: `    istioctl experimental revision describe <revision>`,
 		Short:   "Show details of a revision - customizations, number of pods pointing to it, istiod, gateways etc",
-		Args: func(cmd *cobra.Command, args []string) error {
+		PreRunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) == 0 {
-				return fmt.Errorf("revision is not specified")
+				return fmt.Errorf("revision must be specified")
 			}
 			if len(args) > 1 {
 				return fmt.Errorf("exactly 1 revision should be specified")
@@ -134,6 +134,11 @@ func revisionDescribeCommand() *cobra.Command {
 			if !isValidFormat {
 				return fmt.Errorf("unknown format %s. It should be %#v", revArgs.output, validFormats)
 			}
+			if revArgs.name != "<default>" {
+				if errs := validation.IsDNS1123Label(revArgs.name); len(errs) > 0 {
+					return fmt.Errorf("%s - invalid revision format: %v", revArgs.name, errs)
+				}
+			}
 			return nil
 		},
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -143,18 +148,14 @@ func revisionDescribeCommand() *cobra.Command {
 			} else {
 				revArgs.sections = defaultSections
 			}
-			if revArgs.name != "<default>" {
-				if errs := validation.IsDNS1123Label(revArgs.name); len(errs) > 0 {
-					return fmt.Errorf(strings.Join(errs, "\n"))
-				}
-			} else {
+			if revArgs.name == "<default>" {
 				revArgs.name = "" // TODO(su225): This case is broken. Fix it.
 			}
 			logger := clog.NewConsoleLogger(cmd.OutOrStdout(), cmd.ErrOrStderr(), scope)
 			return printRevisionDescription(cmd.OutOrStdout(), &revArgs, logger)
 		},
 	}
-	describeCmd.Flags().BoolVarP(&revArgs.verbose, "verbose", "v", false, "Dump all information related to the revision")
+	describeCmd.Flags().BoolVarP(&revArgs.verbose, "verbose", "v", false, "Enable verbose output")
 	return describeCmd
 }
 
