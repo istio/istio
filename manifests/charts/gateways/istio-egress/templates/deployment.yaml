@@ -51,7 +51,57 @@ spec:
         sidecar.istio.io/inject: "false"
         {{- if not (eq .Release.Namespace "istio-system") }}
         proxy.istio.io/config: |-
-          discoveryAddress: istiod{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}.{{ .Values.global.istioNamespace }}.svc:15012
+          {{- if .Values.global.meshID }}
+          meshId: {{ .Values.global.meshID }}
+          {{- else if .Values.global.trustDomain }}
+          meshId: {{ .Values.global.trustDomain }}
+          {{- end }}
+          tracing:
+          {{- if eq .Values.global.proxy.tracer "lightstep" }}
+            lightstep:
+              # Address of the LightStep Satellite pool
+              address: {{ .Values.global.tracer.lightstep.address }}
+              # Access Token used to communicate with the Satellite pool
+              accessToken: {{ .Values.global.tracer.lightstep.accessToken }}
+          {{- else if eq .Values.global.proxy.tracer "zipkin" }}
+            zipkin:
+              # Address of the Zipkin collector
+              address: {{ .Values.global.tracer.zipkin.address | default (print "zipkin." .Values.global.istioNamespace ":9411") }}
+          {{- else if eq .Values.global.proxy.tracer "datadog" }}
+            datadog:
+              # Address of the Datadog Agent
+              address: {{ .Values.global.tracer.datadog.address | default "$(HOST_IP):8126" }}
+          {{- else if eq .Values.global.proxy.tracer "stackdriver" }}
+            stackdriver:
+              # enables trace output to stdout.
+            {{- if $.Values.global.tracer.stackdriver.debug }}
+              debug: {{ $.Values.global.tracer.stackdriver.debug }}
+            {{- end }}
+            {{- if $.Values.global.tracer.stackdriver.maxNumberOfAttributes }}
+              # The global default max number of attributes per span.
+              maxNumberOfAttributes: {{ $.Values.global.tracer.stackdriver.maxNumberOfAttributes | default "200" }}
+            {{- end }}
+            {{- if $.Values.global.tracer.stackdriver.maxNumberOfAnnotations }}
+              # The global default max number of annotation events per span.
+              maxNumberOfAnnotations: {{ $.Values.global.tracer.stackdriver.maxNumberOfAnnotations | default "200" }}
+            {{- end }}
+            {{- if $.Values.global.tracer.stackdriver.maxNumberOfMessageEvents }}
+              # The global default max number of message events per span.
+              maxNumberOfMessageEvents: {{ $.Values.global.tracer.stackdriver.maxNumberOfMessageEvents | default "200" }}
+            {{- end }}
+          {{- else if eq .Values.global.proxy.tracer "openCensusAgent" }}
+          {{- /* Fill in openCensusAgent configuration from meshConfig so it isn't overwritten below */ -}}
+            {{ toYaml $.Values.meshConfig.defaultConfig.tracing }}
+          {{- end }}
+          {{- if .Values.global.remotePilotAddress }}
+             {{- if .Values.pilot.enabled }}
+              discoveryAddress: {{ printf "istiod-remote.%s.svc" .Release.Namespace }}:15012
+             {{- else }}
+              discoveryAddress: {{ printf "istiod.%s.svc" .Release.Namespace }}:15012
+             {{- end }}
+          {{- else }}
+          discoveryAddress: istiod{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}.{{.Release.Namespace}}.svc:15012
+          {{- end }}
         {{- end }}
 {{- if $gateway.podAnnotations }}
 {{ toYaml $gateway.podAnnotations | indent 8 }}
