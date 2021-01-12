@@ -196,8 +196,6 @@ func TestWasmCacheMissChecksum(t *testing.T) {
 		}
 		gotNumRequest++
 	}))
-	// dataCheckSum := sha256.Sum256([]byte("data/\n"))
-	// tsNumRequest = 0
 	wantFilePath1 := filepath.Join(tmpDir, fmt.Sprintf("%x.wasm", sha256.Sum256([]byte("0\n"))))
 	wantFilePath2 := filepath.Join(tmpDir, fmt.Sprintf("%x.wasm", sha256.Sum256([]byte("1\n"))))
 
