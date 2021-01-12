@@ -276,6 +276,331 @@ values:
 	}
 }
 
+func TestValueToK8s(t *testing.T) {
+	tests := []struct {
+		desc      string
+		inIOPSpec string
+		want      string
+		wantErr   string
+	}{
+		{
+			desc: "pilot k8s setting with values",
+			inIOPSpec: `
+spec:
+  components:
+    pilot:
+      k8s:
+        nodeSelector:
+          master: "true"
+  values:
+    pilot:
+      enabled: true
+      rollingMaxSurge: 100%
+      rollingMaxUnavailable: 25%
+      resources:
+        requests:
+          cpu: 1000m
+          memory: 1G
+      replicaCount: 1
+      nodeSelector:
+        kubernetes.io/os: linux
+      tolerations:
+      - key: dedicated
+        operator: Exists
+        effect: NoSchedule
+      - key: CriticalAddonsOnly
+        operator: Exists
+      autoscaleEnabled: true
+      autoscaleMax: 3
+      autoscaleMin: 1
+      cpu:
+        targetAverageUtilization: 80
+      traceSampling: 1.0
+      image: pilot
+      env:
+        GODEBUG: gctrace=1
+    global:
+      hub: docker.io/istio
+      tag: 1.2.3
+      istioNamespace: istio-system
+      proxy:
+        readinessInitialDelaySeconds: 2
+`,
+			want: `
+spec:
+  components:
+    pilot:
+      k8s:
+        env:
+        - name: GODEBUG
+          value: gctrace=1
+        hpaSpec:
+          minReplicas: 1
+          maxReplicas: 3
+          scaleTargetRef:
+            apiVersion: apps/v1
+            kind: Deployment
+            name: istiod
+          metrics:
+          - type: Resource
+            resource:
+              name: cpu
+              targetAverageUtilization: 80
+        nodeSelector:
+          master: "true"
+          kubernetes.io/os: linux
+        replicaCount: 1
+        resources:
+          requests:
+            cpu: 1000m
+            memory: 1G
+        strategy:
+          rollingUpdate:
+            maxSurge: 100%
+            maxUnavailable: 25%
+        tolerations:
+        - effect: NoSchedule
+          key: dedicated
+          operator: Exists
+        - key: CriticalAddonsOnly
+          operator: Exists
+  values:
+    global:
+      hub: docker.io/istio
+      tag: 1.2.3
+      istioNamespace: istio-system
+      proxy:
+        readinessInitialDelaySeconds: 2
+    pilot:
+      enabled: true
+      rollingMaxSurge: 100%
+      rollingMaxUnavailable: 25%
+      resources:
+        requests:
+          cpu: 1000m
+          memory: 1G
+      replicaCount: 1
+      nodeSelector:
+        kubernetes.io/os: linux
+      tolerations:
+      - key: dedicated
+        operator: Exists
+        effect: NoSchedule
+      - key: CriticalAddonsOnly
+        operator: Exists
+      autoscaleEnabled: true
+      autoscaleMax: 3
+      autoscaleMin: 1
+      cpu:
+        targetAverageUtilization: 80
+      traceSampling: 1.0
+      image: pilot
+      env:
+        GODEBUG: gctrace=1
+`,
+		},
+		{
+			desc: "pilot k8s setting with empty env in values",
+			inIOPSpec: `
+spec:
+  components:
+    pilot:
+      k8s:
+        nodeSelector:
+          master: "true"
+        env:
+        - name: SPIFFE_BUNDLE_ENDPOINTS
+          value: "SPIFFE_BUNDLE_ENDPOINT"
+  values:
+    pilot:
+      enabled: true
+      rollingMaxSurge: 100%
+      rollingMaxUnavailable: 25%
+      resources:
+        requests:
+          cpu: 1000m
+          memory: 1G
+      replicaCount: 1
+      nodeSelector:
+        kubernetes.io/os: linux
+      tolerations:
+      - key: dedicated
+        operator: Exists
+        effect: NoSchedule
+      - key: CriticalAddonsOnly
+        operator: Exists
+      autoscaleEnabled: true
+      autoscaleMax: 3
+      autoscaleMin: 1
+      cpu:
+        targetAverageUtilization: 80
+      traceSampling: 1.0
+      image: pilot
+      env: {}
+    global:
+      hub: docker.io/istio
+      tag: 1.2.3
+      istioNamespace: istio-system
+      proxy:
+        readinessInitialDelaySeconds: 2
+`,
+			want: `
+spec:
+  components:
+    pilot:
+      k8s:
+        env:
+        - name: SPIFFE_BUNDLE_ENDPOINTS
+          value: "SPIFFE_BUNDLE_ENDPOINT"
+        hpaSpec:
+          minReplicas: 1
+          maxReplicas: 3
+          scaleTargetRef:
+            apiVersion: apps/v1
+            kind: Deployment
+            name: istiod
+          metrics:
+          - type: Resource
+            resource:
+              name: cpu
+              targetAverageUtilization: 80
+        nodeSelector:
+          master: "true"
+          kubernetes.io/os: linux
+        replicaCount: 1
+        resources:
+          requests:
+            cpu: 1000m
+            memory: 1G
+        strategy:
+          rollingUpdate:
+            maxSurge: 100%
+            maxUnavailable: 25%
+        tolerations:
+        - effect: NoSchedule
+          key: dedicated
+          operator: Exists
+        - key: CriticalAddonsOnly
+          operator: Exists
+  values:
+    global:
+      hub: docker.io/istio
+      tag: 1.2.3
+      istioNamespace: istio-system
+      proxy:
+        readinessInitialDelaySeconds: 2
+    pilot:
+      enabled: true
+      rollingMaxSurge: 100%
+      rollingMaxUnavailable: 25%
+      resources:
+        requests:
+          cpu: 1000m
+          memory: 1G
+      replicaCount: 1
+      nodeSelector:
+        kubernetes.io/os: linux
+      tolerations:
+      - key: dedicated
+        operator: Exists
+        effect: NoSchedule
+      - key: CriticalAddonsOnly
+        operator: Exists
+      autoscaleEnabled: true
+      autoscaleMax: 3
+      autoscaleMin: 1
+      cpu:
+        targetAverageUtilization: 80
+      traceSampling: 1.0
+      image: pilot
+      env: {}
+`,
+		},
+		{
+			desc: "ingressgateway k8s setting with values",
+			inIOPSpec: `
+spec:
+  components:
+    pilot:
+      enabled: false
+    ingressGateways:
+    - namespace: istio-system
+      name: istio-ingressgateway
+      enabled: true
+      k8s:
+        service:
+          externalTrafficPolicy: Local
+        serviceAnnotations:
+          manifest-generate: "testserviceAnnotation"
+        securityContext:
+          sysctls:
+          - name: "net.ipv4.ip_local_port_range"
+            value: "80 65535"
+  values:
+    gateways:
+      istio-ingressgateway:
+        serviceAnnotations: {}
+        nodeSelector: {}
+        tolerations: []
+    global:
+      hub: docker.io/istio
+      tag: 1.2.3
+      istioNamespace: istio-system
+`,
+			want: `
+spec:
+  components:
+    ingressGateways:
+    - name: istio-ingressgateway
+      namespace: istio-system
+      enabled: true
+      k8s:
+        securityContext:
+          sysctls:
+          - name: net.ipv4.ip_local_port_range
+            value: "80 65535"
+        service:
+          externalTrafficPolicy: Local
+        serviceAnnotations:
+          manifest-generate: testserviceAnnotation
+    pilot:
+      enabled: false
+  values:
+    gateways:
+      istio-ingressgateway:
+        serviceAnnotations: {}
+        nodeSelector: {}
+        tolerations: []
+    global:
+      hub: docker.io/istio
+      tag: 1.2.3
+      istioNamespace: istio-system
+`,
+		},
+	}
+	tr := NewReverseTranslator()
+
+	for _, tt := range tests {
+		t.Run(tt.desc, func(t *testing.T) {
+			iopStruct := v1alpha1.IstioOperator{}
+			err := util.UnmarshalWithJSONPB(tt.inIOPSpec, &iopStruct, false)
+			if err != nil {
+				t.Fatalf("unmarshal(%s): got error %s", tt.desc, err)
+			}
+			scope.Debugf("value struct: \n%s\n", pretty.Sprint(iopStruct))
+			gotSpec, err := tr.TranslateK8SfromValueToIOP(tt.inIOPSpec)
+			if gotErr, wantErr := errToString(err), tt.wantErr; gotErr != wantErr {
+				t.Errorf("ValuesToK8s(%s)(%v): gotErr:%s, wantErr:%s", tt.desc, tt.inIOPSpec, gotErr, wantErr)
+			}
+			if tt.wantErr == "" {
+				if want := tt.want; !util.IsYAMLEqual(gotSpec, want) {
+					t.Errorf("ValuesToK8s(%s): got:\n%s\n\nwant:\n%s\nDiff:\n%s\n", tt.desc, gotSpec, want, util.YAMLDiff(gotSpec, want))
+				}
+			}
+		})
+	}
+}
+
 // errToString returns the string representation of err and the empty string if
 // err is nil.
 func errToString(err error) string {
