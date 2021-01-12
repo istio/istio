@@ -229,7 +229,7 @@ func TestRemoveTag(t *testing.T) {
 					},
 				},
 			},
-			outputMatches:    []string{"Caution, found 1 namespace(s) still pointing to tag \"match\": dependent"},
+			outputMatches:    []string{"Caution, found 1 namespace(s) still injected by tag \"match\": dependent"},
 			skipConfirmation: false,
 			error:            "",
 		},
