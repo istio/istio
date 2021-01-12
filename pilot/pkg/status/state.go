@@ -254,8 +254,11 @@ func ReconcileStatuses(current *config.Config, desired Progress, generation int6
 	}
 	if err != nil {
 		// the status field is in an unexpected state.
-		scope.Warn("Encountered unexpected status content.  Overwriting status.")
-		scope.Debugf("Encountered unexpected status content.  Overwriting status: %v", current.Status)
+		if scope.DebugEnabled() {
+			scope.Debugf("Encountered unexpected status content.  Overwriting status: %v", current.Status)
+		} else {
+			scope.Warn("Encountered unexpected status content.  Overwriting status.")
+		}
 		currentStatus = v1alpha1.IstioStatus{
 			Conditions: []*v1alpha1.IstioCondition{&desiredCondition},
 		}

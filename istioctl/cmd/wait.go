@@ -243,13 +243,12 @@ func getAndWatchResource(ictx context.Context) *watcher {
 		version := targetSchema.Resource().Version()
 		resource := collectionParts[3]
 		r := dclient.Resource(schema.GroupVersionResource{Group: group, Version: version, Resource: resource}).Namespace(namespace)
-		watch, err := r.Watch(context.TODO(), metav1.ListOptions{})
+		watch, err := r.Watch(context.TODO(), metav1.ListOptions{FieldSelector: "metadata.name=" + nf})
 		if err != nil {
 			return err
 		}
 		for w := range watch.ResultChan() {
 			o := w.Object.(metav1.Object)
-			o.GetName()
 			if o.GetName() == nf {
 				result <- strconv.FormatInt(o.GetGeneration(), 10)
 			}

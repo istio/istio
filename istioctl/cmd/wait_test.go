@@ -19,15 +19,17 @@ import (
 	"encoding/json"
 	"fmt"
 	"strings"
+	"sync"
 	"testing"
-	"time"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/dynamic/fake"
+	ktesting "k8s.io/client-go/testing"
 
 	"istio.io/istio/pilot/pkg/xds"
 )
@@ -96,11 +98,18 @@ func setupK8Sfake() *fake.FakeDynamicClient {
 	clientGetter = func(_, _ string) (dynamic.Interface, error) {
 		return client, nil
 	}
+	l := sync.Mutex{}
+	l.Lock()
+	client.PrependWatchReactor("*", func(action ktesting.Action) (handled bool, ret watch.Interface, err error) {
+		l.Unlock()
+		return false, nil, nil
+	})
 	go func() {
 		// wait till watch created, then send create events.
 		// by default, k8s sends all existing objects at the beginning of a watch, but the test mock does not.  This
 		// function forces the test to behave like kubernetes does, but creates a race condition on watch creation.
-		time.Sleep(100 * time.Millisecond)
+		l.Lock()
+		fmt.Println("unlocked")
 		gvr := schema.GroupVersionResource{Group: "networking.istio.io", Version: "v1alpha3", Resource: "virtualservices"}
 		x := client.Resource(gvr).Namespace("default")
 
