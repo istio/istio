@@ -337,7 +337,7 @@ func doNetworkFilterOperation(patchContext networking.EnvoyFilter_PatchContext,
 					retVal = filter.GetTypedConfig()
 				}
 			}
-			filter.Name = filterName
+			filter.Name = toCanonicalName(filterName)
 			if retVal != nil {
 				filter.ConfigType = &xdslistener.Filter_TypedConfig{TypedConfig: retVal}
 			}
@@ -514,7 +514,7 @@ func doHTTPFilterOperation(patchContext networking.EnvoyFilter_PatchContext,
 					retVal = httpFilter.GetTypedConfig()
 				}
 			}
-			httpFilter.Name = httpFilterName
+			httpFilter.Name = toCanonicalName(httpFilterName)
 			if retVal != nil {
 				httpFilter.ConfigType = &http_conn.HttpFilter_TypedConfig{TypedConfig: retVal}
 			}
@@ -616,8 +616,7 @@ func networkFilterMatch(filter *xdslistener.Filter, cp *model.EnvoyFilterConfigP
 		return true
 	}
 
-	return cp.Match.GetListener().FilterChain.Filter.Name == filter.Name ||
-		cp.Match.GetListener().FilterChain.Filter.Name == xds.DeprecatedFilterNames[filter.Name]
+	return nameMatches(cp.Match.GetListener().FilterChain.Filter.Name, filter.Name)
 }
 
 func hasHTTPFilterMatch(cp *model.EnvoyFilterConfigPatchWrapper) bool {
@@ -637,7 +636,7 @@ func httpFilterMatch(filter *http_conn.HttpFilter, cp *model.EnvoyFilterConfigPa
 
 	match := cp.Match.GetListener().FilterChain.Filter.SubFilter
 
-	return match.Name == filter.Name || match.Name == xds.DeprecatedFilterNames[filter.Name]
+	return nameMatches(match.Name, filter.Name)
 }
 
 func patchContextMatch(patchContext networking.EnvoyFilter_PatchContext,
@@ -648,4 +647,18 @@ func patchContextMatch(patchContext networking.EnvoyFilter_PatchContext,
 func commonConditionMatch(patchContext networking.EnvoyFilter_PatchContext,
 	cp *model.EnvoyFilterConfigPatchWrapper) bool {
 	return patchContextMatch(patchContext, cp)
+}
+
+// toCanonicalName converts a deprecated filter name to the replacement, if present. Otherwise, the
+// same name is returned.
+func toCanonicalName(name string) string {
+	if nn, f := xds.ReverseDeprecatedFilterNames[name]; f {
+		return nn
+	}
+	return name
+}
+
+// nameMatches compares two filter names, matching even if a deprecated filter name is used.
+func nameMatches(matchName, filterName string) bool {
+	return matchName == filterName || matchName == xds.DeprecatedFilterNames[filterName]
 }
