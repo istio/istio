@@ -194,7 +194,7 @@ func TestRemoveTag(t *testing.T) {
 			namespaces:       corev1.NamespaceList{},
 			outputMatches:    []string{},
 			skipConfirmation: true,
-			error:            "revision tag sample does not exist",
+			error:            "cannot remove tag \"sample\"",
 		},
 		{
 			name: "TestDeleteTagWithDependentNamespace",
@@ -414,7 +414,7 @@ func TestSetTag(t *testing.T) {
 			},
 			namespaces:    corev1.NamespaceList{},
 			outputMatches: []string{},
-			error:         "cannot create revision tag",
+			error:         "cannot create revision tag \"revision\"",
 		},
 	}
 
