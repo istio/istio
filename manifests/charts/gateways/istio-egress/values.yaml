@@ -332,6 +332,9 @@ global:
       # zipkin service (port 9411) in the same namespace as the other istio components.
       address: ""
 
+  # configure remote pilot and istiod service and endpoint
+  remotePilotAddress: ""
+
 meshConfig:
   enablePrometheusMerge: true
   defaultConfig:
