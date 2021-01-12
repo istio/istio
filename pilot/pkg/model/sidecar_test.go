@@ -136,7 +136,6 @@ var (
 			},
 		},
 	}
-
 	configs2 = &config.Config{
 		Meta: config.Meta{
 			Name:      "foo",
@@ -717,7 +716,14 @@ func TestCreateSidecarScope(t *testing.T) {
 			configs2,
 			services4,
 			nil,
-			nil,
+			[]*Service{
+				{
+					Hostname: "bar",
+				},
+				{
+					Hostname: "barprime",
+				},
+			},
 		},
 		{
 			"sidecar-with-multiple-egress-noport",
@@ -1021,7 +1027,9 @@ func TestCreateSidecarScope(t *testing.T) {
 			configuredListeneres := 1
 			if sidecarConfig != nil {
 				r := sidecarConfig.Spec.(*networking.Sidecar)
-				configuredListeneres = len(r.Egress)
+				if len(r.Egress) > 0 {
+					configuredListeneres = len(r.Egress)
+				}
 			}
 
 			numberListeners := len(sidecarScope.EgressListeners)

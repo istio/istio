@@ -812,8 +812,8 @@ var ValidateSidecar = registerValidateFunc("ValidateSidecar",
 			return nil, err
 		}
 
-		if len(rule.Egress) == 0 {
-			return nil, fmt.Errorf("sidecar: missing egress")
+		if len(rule.Egress) == 0 && len(rule.Ingress) == 0 && rule.OutboundTrafficPolicy == nil {
+			return nil, fmt.Errorf("sidecar: empty configuration provided")
 		}
 
 		portMap := make(map[uint32]struct{})
