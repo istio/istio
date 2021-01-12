@@ -130,8 +130,8 @@ func TestWasmCache(t *testing.T) {
 				{downloadURL: ts.URL, checksum: fmt.Sprintf("%x", dataCheckSum)}: {modulePath: fmt.Sprintf("%x.wasm", dataCheckSum)},
 			},
 			fetchURL:         ts.URL,
-			purgeInterval:    3 * time.Millisecond,
-			wasmModuleExpiry: 3 * time.Millisecond,
+			purgeInterval:    50 * time.Millisecond,
+			wasmModuleExpiry: 50 * time.Millisecond,
 			checksum:         dataCheckSum,
 			wantFileName:     fmt.Sprintf("%x.wasm", dataCheckSum),
 			wantServerReqNum: 0,
@@ -157,8 +157,8 @@ func TestWasmCache(t *testing.T) {
 			}
 			cache.mux.Unlock()
 
-			// Sleep 2 ms for purge on expiry testing
-			time.Sleep(2 * time.Millisecond)
+			// Sleep 5 ms for purge on expiry testing
+			time.Sleep(5 * time.Millisecond)
 
 			gotFilePath, gotErr := cache.Get(c.fetchURL, fmt.Sprintf("%x", c.checksum), 0)
 			wantFilePath := filepath.Join(tmpDir, c.wantFileName)
@@ -175,7 +175,7 @@ func TestWasmCache(t *testing.T) {
 				}
 			}
 			if c.wantServerReqNum != tsNumRequest {
-				t.Errorf("test server request number got %v, want %v", c.wantServerReqNum, tsNumRequest)
+				t.Errorf("test server request number got %v, want %v", tsNumRequest, c.wantServerReqNum)
 			}
 		})
 	}
