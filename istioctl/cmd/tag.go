@@ -88,9 +88,20 @@ without manual relabeling of the "istio.io/rev" tag.
 
 func tagSetCommand() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:        "set <revision-tag>",
-		Short:      "Create or modify revision tags",
-		Example:    "istioctl x tag set prod --revision 1-8-0",
+		Use:   "set <revision-tag>",
+		Short: "Create or modify revision tags",
+		Example: ` # Create a revision tag from the "1-8-0" revision
+	istioctl x tag set prod --revision 1-8-0
+
+	# Point namespace "test-ns" at the revision pointed to by the "prod" revision tag
+	kubectl label ns test-ns istio.io/rev=prod
+
+	# Change the revision tag to reference the "1-8-1" revision
+	istioctl x tag set prod --revision 1-8-1 --overwrite
+
+	# Rollout namespace "test-ns" to update workloads to the "1-8-1" revision
+	kubectl rollout restart deployments -n test-ns
+`,
 		SuggestFor: []string{"create"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) == 0 {
@@ -141,9 +152,17 @@ func tagListCommand() *cobra.Command {
 
 func tagRemoveCommand() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:     "remove <revision-tag>",
-		Short:   "Remove Istio control plane revision tag",
-		Example: "istioctl x tag remove prod",
+		Use:   "remove <revision-tag>",
+		Short: "Remove Istio control plane revision tag",
+		Long: `Remove Istio control plane revision tag.
+
+Removing a revision tag should be done with care. Removing a revision tag can disrupt sidecar injection in namespaces
+that reference the tag in an "istio.io/rev" label. Verify that there are no remaining namespaces referencing a
+revision tag before removing using the "istioctl x tag list" command.
+`,
+		Example: ` # Remove the revision tag "prod"
+	istioctl x tag remove prod
+`,
 		Aliases: []string{"delete"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) == 0 {
