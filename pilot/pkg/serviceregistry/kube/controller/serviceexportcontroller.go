@@ -39,15 +39,15 @@ type ServiceExportController struct {
 	queue           queue.Instance
 	serviceInformer cache.SharedInformer
 
-	pushContext *model.PushContext
+	environment *model.Environment
 }
 
-func NewServiceExportController(kubeClient kube.Client, pushContext *model.PushContext) (*ServiceExportController, error) {
+func NewServiceExportController(kubeClient kube.Client, environment *model.Environment) (*ServiceExportController, error) {
 	serviceExportController := &ServiceExportController{
 		client:        kubeClient.MCSApis(),
 		serviceClient: kubeClient.Kube().CoreV1(),
 		queue:         queue.NewQueue(time.Second),
-		pushContext:   pushContext,
+		environment:   environment,
 	}
 
 	serviceExportController.serviceInformer = kubeClient.KubeInformer().Core().V1().Services().Informer()
@@ -89,7 +89,7 @@ func (sc *ServiceExportController) Run(stopCh <-chan struct{}) {
 }
 
 func (sc *ServiceExportController) HandleNewService(obj *v1.Service) error {
-	if sc.pushContext.IsServiceClusterLocal(obj) {
+	if sc.environment.PushContext.IsServiceClusterLocal(obj) {
 		return nil //don't don anything for marked clusterlocal services
 	}
 	return sc.createServiceExportIfNotPresent(obj)

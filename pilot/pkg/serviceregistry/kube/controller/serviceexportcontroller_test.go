@@ -44,7 +44,11 @@ func TestServiceExportController(t *testing.T) {
 	pushContext := model.PushContext{}
 	pushContext.SetClusterLocalHosts(hosts)
 
-	sc, _ := NewServiceExportController(client, &pushContext)
+	env := model.Environment{
+		PushContext: &pushContext,
+	}
+
+	sc, _ := NewServiceExportController(client, &env)
 
 	stop := make(chan struct{})
 	client.RunAndWait(stop)

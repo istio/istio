@@ -91,7 +91,7 @@ type Multicluster struct {
 
 type MCSSettings struct {
 	EnableServiceExport bool
-	PushContext         *model.PushContext
+	Environment         *model.Environment
 }
 
 // NewMulticluster initializes data structure to store multicluster information
@@ -237,7 +237,7 @@ func (m *Multicluster) AddMemberCluster(client kubelib.Client, clusterID string)
 
 	//setting up the serviceexport controller if and only if it is turned on in the meshconfig.
 	if m.mcsSettings.EnableServiceExport { //no reason to set up a new watcher if it will never do anything
-		serviceExportController, err := NewServiceExportController(client, m.mcsSettings.PushContext)
+		serviceExportController, err := NewServiceExportController(client, m.mcsSettings.Environment)
 		if err != nil {
 			log.Errorf("Failed to start the service export controller. Err: %v", err)
 		}
