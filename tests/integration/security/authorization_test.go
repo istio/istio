@@ -1290,13 +1290,9 @@ func TestAuthorization_Custom(t *testing.T) {
 				"RootNamespace": istio.GetOrFail(ctx, ctx).Settings().SystemNamespace,
 			}
 
-			applyYAML := func(filename string, ns namespace.Instance) []string {
-				name := ""
-				if ns != nil {
-					name = ns.Name()
-				}
+			applyYAML := func(filename string, namespace string) []string {
 				policy := tmpl.EvaluateAllOrFail(t, args, file.AsStringOrFail(t, filename))
-				ctx.Config().ApplyYAMLOrFail(t, name, policy...)
+				ctx.Config().ApplyYAMLOrFail(t, namespace, policy...)
 				return policy
 			}
 
@@ -1304,12 +1300,12 @@ func TestAuthorization_Custom(t *testing.T) {
 			if extAuthzServiceNamespace == nil {
 				ctx.Fatalf("Failed to create namespace for ext-authz server: %v", extAuthzServiceNamespaceErr)
 			}
-			extAuthzServer := applyYAML("../../../samples/extauthz/ext-authz.yaml", extAuthzServiceNamespace)
+			extAuthzServer := applyYAML("../../../samples/extauthz/ext-authz.yaml", extAuthzServiceNamespace.Name())
 			defer ctx.Config().DeleteYAMLOrFail(t, extAuthzServiceNamespace.Name(), extAuthzServer...)
 			if _, _, err := kube.WaitUntilServiceEndpointsAreReady(ctx.Clusters().Default(), extAuthzServiceNamespace.Name(), "ext-authz"); err != nil {
 				ctx.Fatalf("Wait for ext-authz server failed: %v", err)
 			}
-			policy := applyYAML("testdata/authz/v1beta1-custom.yaml.tmpl", nil)
+			policy := applyYAML("testdata/authz/v1beta1-custom.yaml.tmpl", "")
 			defer ctx.Config().DeleteYAMLOrFail(t, "", policy...)
 
 			ports := []echo.Port{
@@ -1397,6 +1393,8 @@ func TestAuthorization_Custom(t *testing.T) {
 				newTestCase(x, f, "", "tcp-8093", "", true, scheme.TCP),
 			}
 
+			rbacUtil.RunRBACTest(ctx, cases)
+
 			ingr := ist.IngressFor(ctx.Clusters().Default())
 			ingressCases := []rbacUtil.TestCase{
 				// workload g is using an ext-authz service in its own pod of HTTP API.
@@ -1421,7 +1419,5 @@ func TestAuthorization_Custom(t *testing.T) {
 					authn.CheckIngressOrFail(ctx, ingr, "www.company.com", tc.Request.Options.Path, headers, "", wantCode)
 				})
 			}
-
-			rbacUtil.RunRBACTest(ctx, cases)
 		})
 }
