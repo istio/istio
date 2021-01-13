@@ -20,8 +20,6 @@ import (
 	"strings"
 	"testing"
 
-	"istio.io/istio/pkg/test/kube"
-
 	admit_v1 "k8s.io/api/admissionregistration/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -29,6 +27,7 @@ import (
 
 	"istio.io/api/label"
 	"istio.io/istio/operator/pkg/helmreconciler"
+	"istio.io/istio/pkg/test/kube"
 )
 
 var (

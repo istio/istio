@@ -22,9 +22,6 @@ import (
 	"strings"
 	"text/tabwriter"
 
-	"istio.io/istio/operator/pkg/helm"
-	"istio.io/istio/pkg/kube"
-
 	"github.com/hashicorp/go-multierror"
 	"github.com/spf13/cobra"
 	admit_v1 "k8s.io/api/admissionregistration/v1"
@@ -32,6 +29,8 @@ import (
 	"k8s.io/client-go/kubernetes"
 
 	"istio.io/api/label"
+	"istio.io/istio/operator/pkg/helm"
+	"istio.io/istio/pkg/kube"
 )
 
 const (
