@@ -91,7 +91,7 @@ func NewXdsServer(stop chan struct{}, gen model.XdsResourceGenerator) *xds.Disco
 }
 
 // newSDSService creates Secret Discovery Service which implements envoy SDS API.
-func newSDSService(st security.SecretManager) *sdsservice {
+func newSDSService(st security.SecretManager, options security.Options) *sdsservice {
 	if st == nil {
 		return nil
 	}
@@ -101,6 +101,10 @@ func newSDSService(st security.SecretManager) *sdsservice {
 		stop: make(chan struct{}),
 	}
 	ret.XdsServer = NewXdsServer(ret.stop, ret)
+
+	if options.FileMountedCerts {
+		return ret
+	}
 
 	// Pre-generate workload certificates to improve startup latency and ensure that for OUTPUT_CERTS
 	// case we always write a certificate. A workload can technically run without any mTLS/CA
