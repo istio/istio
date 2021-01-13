@@ -173,32 +173,7 @@ func doFilterChainOperation(patchContext networking.EnvoyFilter_PatchContext,
 			return
 		} else if cp.Operation == networking.EnvoyFilter_Patch_MERGE {
 
-			// Test if the patch contains a config for TransportSocket
-			cpValueCast, errCpCast := (cp.Value).(*xdslistener.FilterChain)
-			if !errCpCast {
-				log.Errorf("ERROR Cast of cp.Value: %v", errCpCast)
-				continue
-			}
-			isTransportSocketPatch := cpValueCast.TransportSocket != nil
-
-			if isTransportSocketPatch {
-
-				// Test if the listener contains a config for TransportSocket
-				fcTransportSocketName := ""
-				if fc.TransportSocket != nil {
-					fcTransportSocketName = fc.TransportSocket.Name
-				}
-				isTransportSocketConfig := cpValueCast.TransportSocket.Name == fcTransportSocketName
-
-				if isTransportSocketConfig {
-					ret := mergeTransportSocketListener(cpValueCast, fc)
-					if ret != nil{
-						log.Errorf("ERROR mergeTransportSocketListener: %v", ret)
-						continue
-					}
-				}
-
-			} else {
+			if mergeTransportSocketListener(fc, cp) == false {
 				proto.Merge(fc, cp.Value)
 			}
 		}
@@ -206,31 +181,49 @@ func doFilterChainOperation(patchContext networking.EnvoyFilter_PatchContext,
 	doNetworkFilterListOperation(patchContext, patches, listener, fc)
 }
 
-func mergeTransportSocketListener(cpValueCast *xdslistener.FilterChain, fc *xdslistener.FilterChain) error {
-	// Extract ConfigType from patch
-	var configTypePatch ptypes.DynamicAny
-	cpTransportSocket := cpValueCast.TransportSocket
-	errPatch := ptypes.UnmarshalAny(cpTransportSocket.GetTypedConfig(), &configTypePatch)
-	if errPatch != nil {
-		log.Errorf("ERROR UnmarshalAny patch: %v", errPatch)
-		return errPatch
+
+// Test if the patch contains a config for TransportSocket
+func mergeTransportSocketListener(fc *xdslistener.FilterChain, cp *model.EnvoyFilterConfigPatchWrapper) bool {
+
+	// Test if the patch contains a config for TransportSocket
+	cpValueCast, okCpCast := (cp.Value).(*xdslistener.FilterChain)
+	if !okCpCast {
+		log.Errorf("ERROR Cast of cp.Value: %v", okCpCast)
+		return false
 	}
 
-	// Extract ConfigType from Listener
-	var configTypeListener ptypes.DynamicAny
-	cTransportSocket := fc.TransportSocket
-	errListener := ptypes.UnmarshalAny(cTransportSocket.GetTypedConfig(), &configTypeListener)
-	if errListener != nil {
-		log.Errorf("ERROR UnmarshalAny Listener: %v", errListener)
-		return errListener
+	if cpValueCast.GetTransportSocket() != nil {
+
+		// Test if the listener contains a config for TransportSocket
+		if fc.GetTransportSocket() != nil {
+			if cpValueCast.TransportSocket.Name == fc.TransportSocket.Name {
+
+				// Merge the patch and the listener at a lower level
+				dstListener := fc.TransportSocket.GetTypedConfig()
+				srcPatch := cpValueCast.TransportSocket.GetTypedConfig()
+
+				if dstListener != nil && srcPatch != nil {
+
+					retVal, err := util.MergeAnyWithAny(dstListener, srcPatch)
+					if err != nil {
+						log.Errorf("ERROR merge any with any: %v", err)
+						return false
+					}
+
+					// Merge the above result with the whole listener
+					proto.Merge(dstListener, retVal)
+					return true
+
+				}
+			}
+		}
+	} else {
+		// The patch is not transport socket
+		return false
 	}
 
-	// Merge the patch and the listener at a lower level
-	proto.Merge(configTypeListener.Message, configTypePatch.Message)
-	// Merge the above result with the whole listener
-	proto.Merge(cTransportSocket.GetTypedConfig(), util.MessageToAny(configTypeListener.Message))
-
-	return nil
+	// Default: We don't merge if the patch is transport socket and the listener is not
+	return true
 }
 
 func doNetworkFilterListOperation(patchContext networking.EnvoyFilter_PatchContext,
