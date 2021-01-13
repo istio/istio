@@ -367,9 +367,7 @@ messages:
     code: IST0136
     level: Info
     description: "An Istio annotation may not be suitable for production."
-    template: "Annotation %q is %s level and may be incompletely supported."
+    template: "Annotation %q is part of an alpha-phase feature and may be incompletely supported."
     args:
       - name: annotation
-        type: string
-      - name: level
         type: string

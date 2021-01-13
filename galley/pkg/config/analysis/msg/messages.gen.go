@@ -138,8 +138,8 @@ var (
 	DeprecatedAnnotation = diag.NewMessageType(diag.Info, "IST0135", "Annotation %q has been deprecated and may not work in future Istio versions.")
 
 	// AlphaAnnotation defines a diag.MessageType for message "AlphaAnnotation".
-	// Description: An Istio annotation is not recognized for any kind of resource.
-	AlphaAnnotation = diag.NewMessageType(diag.Info, "IST0136", "Annotation %q is %s level and may be incompletely supported.")
+	// Description: An Istio annotation may not be suitable for production.
+	AlphaAnnotation = diag.NewMessageType(diag.Info, "IST0136", "Annotation %q is part of an alpha-phase feature and may be incompletely supported.")
 )
 
 // All returns a list of all known message types.
@@ -505,11 +505,10 @@ func NewDeprecatedAnnotation(r *resource.Instance, annotation string) diag.Messa
 }
 
 // NewAlphaAnnotation returns a new diag.Message based on AlphaAnnotation.
-func NewAlphaAnnotation(r *resource.Instance, annotation string, level string) diag.Message {
+func NewAlphaAnnotation(r *resource.Instance, annotation string) diag.Message {
 	return diag.NewMessage(
 		AlphaAnnotation,
 		r,
 		annotation,
-		level,
 	)
 }

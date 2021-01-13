@@ -97,7 +97,7 @@ outer:
 		}
 
 		if annotationDef.FeatureStatus == annotation.Alpha {
-			m := msg.NewAlphaAnnotation(r, ann, annotationDef.FeatureStatus.String())
+			m := msg.NewAlphaAnnotation(r, ann)
 			util.AddLineNumber(r, ann, m)
 
 			ctx.Report(collectionType, m)
