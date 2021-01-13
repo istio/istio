@@ -15,7 +15,6 @@
 package adsc
 
 import (
-	"fmt"
 	"io/ioutil"
 	"log"
 	"net"
@@ -57,21 +56,18 @@ func TestADSC_Run(t *testing.T) {
 	tests := []struct {
 		desc                 string
 		inAdsc               *ADSC
-		port                 uint32
 		streamHandler        func(server xdsapi.AggregatedDiscoveryService_StreamAggregatedResourcesServer) error
 		expectedADSResources *ADSC
 	}{
 		{
 			desc: "stream-no-resources",
 			inAdsc: &ADSC{
-				url:        "127.0.0.1:49133",
 				Received:   make(map[string]*xdsapi.DiscoveryResponse),
 				Updates:    make(chan string),
 				XDSUpdates: make(chan *xdsapi.DiscoveryResponse),
 				RecvWg:     sync.WaitGroup{},
 				cfg:        &Config{},
 			},
-			port: uint32(49133),
 			streamHandler: func(server xdsapi.AggregatedDiscoveryService_StreamAggregatedResourcesServer) error {
 				return nil
 			},
@@ -82,7 +78,6 @@ func TestADSC_Run(t *testing.T) {
 		{
 			desc: "stream-2-unnamed-resources",
 			inAdsc: &ADSC{
-				url:         "127.0.0.1:49133",
 				Received:    make(map[string]*xdsapi.DiscoveryResponse),
 				Updates:     make(chan string),
 				XDSUpdates:  make(chan *xdsapi.DiscoveryResponse),
@@ -90,7 +85,6 @@ func TestADSC_Run(t *testing.T) {
 				cfg:         &Config{},
 				VersionInfo: map[string]string{},
 			},
-			port: uint32(49133),
 			streamHandler: func(stream xdsapi.AggregatedDiscoveryService_StreamAggregatedResourcesServer) error {
 				_ = stream.Send(&xdsapi.DiscoveryResponse{
 					TypeUrl: "foo",
@@ -117,11 +111,12 @@ func TestADSC_Run(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.desc, func(t *testing.T) {
 			StreamHandler = tt.streamHandler
-			l, err := net.Listen("tcp", ":"+fmt.Sprint(tt.port))
+			l, err := net.Listen("tcp", ":0")
 			if err != nil {
-				t.Errorf("Unable to listen on port %v with tcp err %v", tt.port, err)
+				t.Errorf("Unable to listen with tcp err %v", err)
 				return
 			}
+			tt.inAdsc.url = l.Addr().String()
 			xds := grpc.NewServer()
 			xdsapi.RegisterAggregatedDiscoveryServiceServer(xds, new(testAdscRunServer))
 			go func() {
