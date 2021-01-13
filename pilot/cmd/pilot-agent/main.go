@@ -27,10 +27,11 @@ import (
 	"github.com/spf13/cobra/doc"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
+	"istio.io/istio/pilot/cmd/pilot-agent/config"
+	secopt "istio.io/istio/pilot/cmd/pilot-agent/security"
 	"istio.io/istio/pilot/cmd/pilot-agent/status"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
-	securityModel "istio.io/istio/pilot/pkg/security/model"
 	"istio.io/istio/pilot/pkg/util/network"
 	"istio.io/istio/pkg/cmd"
 	"istio.io/istio/pkg/config/constants"
@@ -39,8 +40,6 @@ import (
 	"istio.io/istio/pkg/jwt"
 	"istio.io/istio/pkg/security"
 	"istio.io/istio/pkg/util/gogoprotomarshal"
-	"istio.io/istio/security/pkg/credentialfetcher"
-	"istio.io/istio/security/pkg/nodeagent/plugin/providers/google/stsclient"
 	stsserver "istio.io/istio/security/pkg/stsservice/server"
 	"istio.io/istio/security/pkg/stsservice/tokenmanager"
 	cleaniptables "istio.io/istio/tools/istio-clean-iptables/pkg/cmd"
@@ -205,7 +204,7 @@ var (
 			// operational parameters correctly.
 			proxyIPv6 := isIPv6Proxy(role.IPAddresses)
 
-			proxyConfig, err := constructProxyConfig(role)
+			proxyConfig, err := config.ConstructProxyConfig(meshConfigFile, serviceCluster, proxyConfigEnv, concurrency, role)
 			if err != nil {
 				return fmt.Errorf("failed to get proxy config: %v", err)
 			}
@@ -219,8 +218,10 @@ var (
 			// K8S
 			role.DNSDomain = getDNSDomain(podNamespace, role.DNSDomain)
 			log.WithLabels("ips", role.IPAddresses, "type", role.Type, "id", role.ID, "domain", role.DNSDomain).Info("Proxy role")
-
-			secOpts, err := setupSecurityOptions(proxyConfig)
+			secOpts, err := secopt.SetupSecurityOptions(proxyConfig, jwtPolicy.Get(), clusterIDVar.Get(),
+				podNamespaceVar.Get(), serviceAccountVar.Get(), caEndpointEnv, caProviderEnv, pilotCertProvider,
+				outputKeyCertToDir, provCert, trustDomainEnv, eccSigAlgEnv, credFetcherTypeEnv, credIdentityProvider,
+				xdsAuthProvider.Get(), fileMountedCertsEnv, pkcs8KeysEnv, secretTTLEnv, secretRotationGracePeriodRatioEnv)
 			if err != nil {
 				return err
 			}
@@ -271,7 +272,7 @@ var (
 			var pilotSAN []string
 			if proxyConfig.ControlPlaneAuthPolicy == meshconfig.AuthenticationPolicy_MUTUAL_TLS {
 				// Obtain Pilot SAN, using DNS.
-				pilotSAN = []string{getPilotSan(proxyConfig.DiscoveryAddress)}
+				pilotSAN = []string{config.GetPilotSan(proxyConfig.DiscoveryAddress)}
 			}
 			log.Infof("Pilot SAN: %v", pilotSAN)
 
@@ -337,64 +338,6 @@ var (
 		},
 	}
 )
-
-func setupSecurityOptions(proxyConfig meshconfig.ProxyConfig) (security.Options, error) {
-	var jwtPath string
-	if jwtPolicy.Get() == jwt.PolicyThirdParty {
-		log.Info("JWT policy is third-party-jwt")
-		jwtPath = constants.TrustworthyJWTPath
-	} else if jwtPolicy.Get() == jwt.PolicyFirstParty {
-		log.Info("JWT policy is first-party-jwt")
-		jwtPath = securityModel.K8sSAJwtFileName
-	} else {
-		log.Info("Using existing certs")
-	}
-
-	o := security.Options{
-		CAEndpoint:                     caEndpointEnv,
-		CAProviderName:                 caProviderEnv,
-		PilotCertProvider:              pilotCertProvider,
-		OutputKeyCertToDir:             outputKeyCertToDir,
-		ProvCert:                       provCert,
-		JWTPath:                        jwtPath,
-		WorkloadUDSPath:                security.DefaultLocalSDSPath,
-		ClusterID:                      clusterIDVar.Get(),
-		FileMountedCerts:               fileMountedCertsEnv,
-		WorkloadNamespace:              podNamespaceVar.Get(),
-		ServiceAccount:                 serviceAccountVar.Get(),
-		XdsAuthProvider:                xdsAuthProvider.Get(),
-		TrustDomain:                    trustDomainEnv,
-		Pkcs8Keys:                      pkcs8KeysEnv,
-		ECCSigAlg:                      eccSigAlgEnv,
-		SecretTTL:                      secretTTLEnv,
-		SecretRotationGracePeriodRatio: secretRotationGracePeriodRatioEnv,
-	}
-	// If not set explicitly, default to the discovery address.
-	if o.CAEndpoint == "" {
-		o.CAEndpoint = proxyConfig.DiscoveryAddress
-	}
-
-	// TODO (liminw): CredFetcher is a general interface. In 1.7, we limit the use on GCE only because
-	// GCE is the only supported plugin at the moment.
-	if credFetcherTypeEnv == security.GCE {
-		o.CredIdentityProvider = credIdentityProvider
-		credFetcher, err := credentialfetcher.NewCredFetcher(credFetcherTypeEnv, o.TrustDomain, jwtPath, o.CredIdentityProvider)
-		if err != nil {
-			return security.Options{}, fmt.Errorf("failed to create credential fetcher: %v", err)
-		}
-		log.Infof("using credential fetcher of %s type in %s trust domain", credFetcherTypeEnv, o.TrustDomain)
-		o.CredFetcher = credFetcher
-	}
-	// TODO extract this logic out to a plugin
-	if o.CAProviderName == "GoogleCA" || strings.Contains(o.CAEndpoint, "googleapis.com") {
-		o.TokenExchanger = stsclient.NewSecureTokenServiceExchanger(o.CredFetcher, o.TrustDomain)
-	}
-
-	if o.ProvCert != "" && o.FileMountedCerts {
-		return security.Options{}, fmt.Errorf("invalid options: PROV_CERT and FILE_MOUNTED_CERTS are mutually exclusive")
-	}
-	return o, nil
-}
 
 // Simplified extraction of gRPC headers from environment.
 // Unlike ISTIO_META, where we need JSON and advanced features - this is just for small string headers.
