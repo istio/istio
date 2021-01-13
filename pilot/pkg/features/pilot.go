@@ -306,10 +306,7 @@ var (
 	ClusterName = env.RegisterStringVar("CLUSTER_ID", "Kubernetes",
 		"Defines the cluster and service registry that this Istiod instance is belongs to").Get()
 
-	// CentralIstioD will be Deprecated: TODO remove in 1.9 in favor of `ExternalIstioD`
-	CentralIstioD = env.RegisterBoolVar("CENTRAL_ISTIOD", false,
-		"If this is set to true, one Istiod will control remote clusters including CA.").Get()
-	ExternalIstioD = env.RegisterBoolVar("EXTERNAL_ISTIOD", false,
+	ExternalIstiod = env.RegisterBoolVar("EXTERNAL_ISTIOD", false,
 		"If this is set to true, one Istiod will control remote clusters including CA.").Get()
 
 	EnableCAServer = env.RegisterBoolVar("ENABLE_CA_SERVER", true,
