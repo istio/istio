@@ -36,7 +36,7 @@ webhooks:
       - key: istio.io/rev
         operator: In
         values:
-        - $tagName
+        - {{ $tagName }}
 {{- if $.Values.sidecarInjectorWebhook.objectSelector.enabled }}
     objectSelector:
 {{- if $.Values.sidecarInjectorWebhook.objectSelector.autoInject }}
@@ -52,7 +52,7 @@ webhooks:
       - key: istio.io/rev
         operator: In
         values:
-        - $tagName
+        - {{ $tagName }}
 {{- end }}
 {{- end }}
 {{- end }}

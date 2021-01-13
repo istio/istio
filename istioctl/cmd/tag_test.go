@@ -18,8 +18,14 @@ import (
 	"bytes"
 	"context"
 	"path/filepath"
+	"reflect"
 	"strings"
 	"testing"
+
+	"github.com/davecgh/go-spew/spew"
+
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/serializer"
 
 	admit_v1 "k8s.io/api/admissionregistration/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -355,37 +361,47 @@ func TestSetTagErrors(t *testing.T) {
 }
 
 func TestSetTagWebhookCreation(t *testing.T) {
-	tcs := []struct {
-		webhook              admit_v1.MutatingWebhookConfiguration
-		tagName              string
-		expectedSubstrings   []string
-		unexpectedSubstrings []string
-	}{
-		{
-			webhook: revisionCanonicalWebhook,
-			tagName: "canary",
-			expectedSubstrings: []string{
-				"istio.io/rev: revision",
-				"istio.io/tag: canary",
-				"path: \"/inject\"",
-				"caBundle: \"\"",
-				"key: \"sidecar.istio.io/inject\"",
+	namespaceSelector := metav1.LabelSelector{
+		MatchExpressions: []metav1.LabelSelectorRequirement{
+			{
+				Key:      "istio-injection",
+				Operator: metav1.LabelSelectorOpDoesNotExist,
 			},
-			unexpectedSubstrings: []string{"url"},
-		},
-		{
-			webhook: revisionCanonicalWebhookRemote,
-			tagName: "canary",
-			expectedSubstrings: []string{
-				remoteInjectionURL,
-				"istio.io/rev: revision",
-				"istio.io/tag: canary",
-				"caBundle: \"\"",
-				"key: \"sidecar.istio.io/inject\"",
+			{
+				Key:      label.IstioRev,
+				Operator: metav1.LabelSelectorOpIn,
+				Values:   []string{"canary"},
 			},
-			unexpectedSubstrings: []string{"service", "path:"},
 		},
 	}
+	tcs := []struct {
+		name       string
+		webhook    admit_v1.MutatingWebhookConfiguration
+		tagName    string
+		whURL      string
+		whSVC      string
+		nsSelector metav1.LabelSelector
+	}{
+		{
+			name:       "webhook-pointing-to-service",
+			webhook:    revisionCanonicalWebhook,
+			tagName:    "canary",
+			whURL:      "",
+			whSVC:      "istiod-revision",
+			nsSelector: namespaceSelector,
+		},
+		{
+			name:       "webhook-pointing-to-url",
+			webhook:    revisionCanonicalWebhookRemote,
+			tagName:    "canary",
+			whURL:      remoteInjectionURL,
+			whSVC:      "",
+			nsSelector: namespaceSelector,
+		},
+	}
+	scheme := runtime.NewScheme()
+	codecFactory := serializer.NewCodecFactory(scheme)
+	deserializer := codecFactory.UniversalDeserializer()
 
 	for _, tc := range tcs {
 		webhookConfig, err := tagWebhookConfigFromCanonicalWebhook(tc.webhook, tc.tagName)
@@ -397,15 +413,45 @@ func TestSetTagWebhookCreation(t *testing.T) {
 			t.Fatalf("tag webhook YAML generation failed with error: %v", err)
 		}
 
-		for _, s := range tc.expectedSubstrings {
-			if !strings.Contains(webhookYAML, s) {
-				t.Errorf("expected substring in tag webhook YAML: %s, did not find", s)
+		whObject, _, err := deserializer.Decode([]byte(webhookYAML), nil, &admit_v1.MutatingWebhookConfiguration{})
+		if err != nil {
+			t.Fatalf("could not parse webhook from generated YAML: %s", webhookYAML)
+		}
+		wh := whObject.(*admit_v1.MutatingWebhookConfiguration)
+
+		if len(wh.Webhooks) != 1 {
+			t.Errorf("expected 1 webhook in MutatingWebhookConfiguration, found %d", len(wh.Webhooks))
+		}
+		tag, exists := wh.ObjectMeta.Labels[istioTagLabel]
+		if !exists {
+			t.Errorf("expected tag webhook to have %s label, did not find", istioTagLabel)
+		}
+		if tag != tc.tagName {
+			t.Errorf("expected tag webhook to have istio.io/tag=%s, found %s instead", tc.tagName, tag)
+		}
+
+		injectionWhConf := wh.Webhooks[0].ClientConfig
+		if tc.whSVC != "" {
+			if injectionWhConf.Service == nil {
+				t.Fatalf("expected injection service %s, got nil", tc.whSVC)
+			}
+			if injectionWhConf.Service.Name != tc.whSVC {
+				t.Fatalf("expected injection service %s, got %s", tc.whSVC, injectionWhConf.Service.Name)
 			}
 		}
-		for _, s := range tc.unexpectedSubstrings {
-			if strings.Contains(webhookYAML, s) {
-				t.Errorf("unexpected substring in tag webhook YAML: %s", s)
+		if tc.whURL != "" {
+			if injectionWhConf.URL == nil {
+				t.Fatalf("expected injection URL %s, got nil", tc.whURL)
 			}
+			if *injectionWhConf.URL != tc.whURL {
+				t.Fatalf("expected injection URL %s, got %s", tc.whURL, *injectionWhConf.URL)
+			}
+		}
+
+		if !reflect.DeepEqual(wh.Webhooks[0].NamespaceSelector, &namespaceSelector) {
+			t.Fatalf("expected namespace selector %+v, got %+v",
+				spew.Sdump(namespaceSelector),
+				spew.Sdump(wh.Webhooks[0].NamespaceSelector))
 		}
 	}
 }
