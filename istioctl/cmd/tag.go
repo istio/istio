@@ -441,6 +441,11 @@ revision: %s
 revisionTags:
   - %s
 
+sidecarInjectorWebhook:
+  objectSelector:
+    enabled: true
+    autoInject: true
+
 istiodRemote:
   injectionURL: %s
 `, config.revision, config.tag, config.remoteInjectionURL)

@@ -17,7 +17,6 @@ package cmd
 import (
 	"bytes"
 	"context"
-	"fmt"
 	"strings"
 	"testing"
 
@@ -369,6 +368,7 @@ func TestSetTagWebhookCreation(t *testing.T) {
 				"istio.io/tag: canary",
 				"path: \"/inject\"",
 				"caBundle: \"\"",
+				"key: \"sidecar.istio.io/inject\"",
 			},
 			unexpectedSubstrings: []string{"url"},
 		},
@@ -380,6 +380,7 @@ func TestSetTagWebhookCreation(t *testing.T) {
 				"istio.io/rev: revision",
 				"istio.io/tag: canary",
 				"caBundle: \"\"",
+				"key: \"sidecar.istio.io/inject\"",
 			},
 			unexpectedSubstrings: []string{"service", "path:"},
 		},
@@ -394,7 +395,7 @@ func TestSetTagWebhookCreation(t *testing.T) {
 		if err != nil {
 			t.Fatalf("tag webhook YAML generation failed with error: %v", err)
 		}
-		fmt.Println(webhookYAML)
+
 		for _, s := range tc.expectedSubstrings {
 			if !strings.Contains(webhookYAML, s) {
 				t.Errorf("expected substring in tag webhook YAML: %s, did not find", s)
