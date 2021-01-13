@@ -98,8 +98,6 @@ func NewLocalFileCache(dir string, purgeInterval, moduleExpiry time.Duration) *L
 
 // Get returns path the local Wasm module file.
 func (c *LocalFileCache) Get(downloadURL, checksum string, timeout time.Duration) (string, error) {
-	c.mux.Lock()
-	defer c.mux.Unlock()
 	url, err := url.Parse(downloadURL)
 	if err != nil {
 		return "", fmt.Errorf("fail to parse Wasm module fetch url: %s", downloadURL)
@@ -113,10 +111,8 @@ func (c *LocalFileCache) Get(downloadURL, checksum string, timeout time.Duration
 	switch url.Scheme {
 	case "http", "https":
 		// First check if the cache entry is already downloaded.
-		if ce, ok := c.modules[key]; ok {
-			// Update last touched time.
-			ce.last = time.Now()
-			return ce.modulePath, nil
+		if modulePath := c.getEntry(key); modulePath != "" {
+			return modulePath, nil
 		}
 
 		// If the module is not available locally, download the Wasm module with http fetcher.
@@ -135,10 +131,8 @@ func (c *LocalFileCache) Get(downloadURL, checksum string, timeout time.Duration
 
 		key.checksum = dChecksum
 		// Check if the module has already been stored as local file. If so, avoid writing the file again.
-		if ce, ok := c.modules[key]; ok {
-			// Update last touched time.
-			ce.last = time.Now()
-			return ce.modulePath, nil
+		if modulePath := c.getEntry(key); modulePath != "" {
+			return modulePath, nil
 		}
 
 		// Materialize the Wasm module into a local file. Use checksum as name of the module.
@@ -149,16 +143,34 @@ func (c *LocalFileCache) Get(downloadURL, checksum string, timeout time.Duration
 		}
 
 		// Add the downloaded module into the cache map.
-		ce := cacheEntry{
-			modulePath: f,
-			last:       time.Now(),
-		}
-		c.modules[key] = ce
+		c.addEntry(key, f)
 
 		return f, nil
 	default:
 		return "", fmt.Errorf("unsupported Wasm module downloading URL scheme: %v", url.Scheme)
 	}
+}
+
+func (c *LocalFileCache) addEntry(key cacheKey, modulePath string) {
+	c.mux.Lock()
+	defer c.mux.Unlock()
+	ce := cacheEntry{
+		modulePath: modulePath,
+		last:       time.Now(),
+	}
+	c.modules[key] = ce
+}
+
+func (c *LocalFileCache) getEntry(key cacheKey) string {
+	modulePath := ""
+	c.mux.Lock()
+	defer c.mux.Unlock()
+	if ce, ok := c.modules[key]; ok {
+		// Update last touched time.
+		ce.last = time.Now()
+		modulePath = ce.modulePath
+	}
+	return modulePath
 }
 
 // Purge periodically clean up the stale Wasm modules local file and the cache map.
@@ -171,7 +183,7 @@ func (c *LocalFileCache) purge() {
 			c.mux.Lock()
 			for k, m := range c.modules {
 				if m.expired(c.wasmModuleExpiry) {
-					// The module has not be touched for Expiry, delete if from the map as well as the local dir.
+					// The module has not be touched for expiry duration, delete it from the map as well as the local dir.
 					if err := os.Remove(m.modulePath); err != nil {
 						wasmLog.Errorf("failed to purge Wasm module %v: %v", m.modulePath, err)
 					} else {

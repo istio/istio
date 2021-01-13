@@ -28,7 +28,8 @@ const (
 // HTTPFetcher fetches remote wasm module with HTTP get.
 type HTTPFetcher struct {
 	defaultClient *http.Client
-	retryBackoff  time.Duration
+	// TODO(bianpengyuan): make this exponential backoff.
+	retryBackoff time.Duration
 }
 
 // NewHTTPFetcher create a new HTTP remote wasm module fetcher.
