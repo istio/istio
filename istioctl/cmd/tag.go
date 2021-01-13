@@ -232,8 +232,12 @@ func setTag(ctx context.Context, kubeClient kube.ExtendedClient, tag, revision s
 	if err != nil {
 		return fmt.Errorf("failed to create tag webhook config: %v", err)
 	}
-	if err := createTagWebhook(kubeClient, tagWhConfig); err != nil {
+	tagWhYAML, err := tagWebhookYAML(tagWhConfig)
+	if err != nil {
 		return fmt.Errorf("failed to create tag webhook: %v", err)
+	}
+	if err := applyYAML(kubeClient, tagWhYAML, "istio-system"); err != nil {
+		return fmt.Errorf("failed to apply tag webhook MutatingWebhookConfiguration to cluster: %v", err)
 	}
 
 	fmt.Fprintf(w, tagCreatedStr, tag, revision, tag)
@@ -420,14 +424,14 @@ func tagWebhookConfigFromCanonicalWebhook(wh admit_v1.MutatingWebhookConfigurati
 	}, nil
 }
 
-func createTagWebhook(kubeClient kube.ExtendedClient, config *tagWebhookConfig) error {
+func tagWebhookYAML(config *tagWebhookConfig) (string, error) {
 	r, err := helm.NewHelmRenderer("", "istio-control/istio-discovery", "Pilot", "istio-system")
 	if err != nil {
-		return fmt.Errorf("failed creating Helm renderer: %v", err)
+		return "", fmt.Errorf("failed creating Helm renderer: %v", err)
 	}
 
 	if err := r.Run(); err != nil {
-		return fmt.Errorf("failed running Helm renderer: %v", err)
+		return "", fmt.Errorf("failed running Helm renderer: %v", err)
 	}
 
 	values := fmt.Sprintf(`
@@ -443,13 +447,12 @@ istiodRemote:
 		return strings.Contains(tmplName, "revision-tag")
 	})
 	if err != nil {
-		return fmt.Errorf("failed rendering istio-control manifest: %v", err)
+		return "", fmt.Errorf("failed rendering istio-control manifest: %v", err)
 	}
 
-	return applyYAML(kubeClient, tagWebhookYaml, "istio-system")
+	return tagWebhookYaml, nil
 }
 
-// duplicated from remote_secret.go
 func applyYAML(client kube.ExtendedClient, yamlContent, ns string) error {
 	yamlFile, err := writeToTempFile(yamlContent)
 	if err != nil {
@@ -463,7 +466,6 @@ func applyYAML(client kube.ExtendedClient, yamlContent, ns string) error {
 	return nil
 }
 
-// duplicated from remote_secret.go
 func writeToTempFile(content string) (string, error) {
 	outFile, err := ioutil.TempFile("", "revision-tag-manifest-*")
 	if err != nil {
@@ -478,7 +480,6 @@ func writeToTempFile(content string) (string, error) {
 }
 
 // confirm waits for a user to confirm with the supplied message.
-// duplicated between cmd/mesh/upgrade.go, move to common place
 func confirm(msg string, w io.Writer) bool {
 	fmt.Fprintf(w, "%s ", msg)
 

@@ -17,11 +17,12 @@ package cmd
 import (
 	"bytes"
 	"context"
-	"reflect"
+	"fmt"
 	"strings"
 	"testing"
 
-	"github.com/davecgh/go-spew/spew"
+	"istio.io/istio/pkg/test/kube"
+
 	admit_v1 "k8s.io/api/admissionregistration/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -29,6 +30,41 @@ import (
 
 	"istio.io/api/label"
 	"istio.io/istio/operator/pkg/helmreconciler"
+)
+
+var (
+	revisionCanonicalWebhook = admit_v1.MutatingWebhookConfiguration{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:   "istio-sidecar-injector-revision",
+			Labels: map[string]string{label.IstioRev: "revision"},
+		},
+		Webhooks: []admit_v1.MutatingWebhook{
+			{
+				Name: istioInjectionWebhookName,
+				ClientConfig: admit_v1.WebhookClientConfig{
+					Service: &admit_v1.ServiceReference{
+						Namespace: "default",
+						Name:      "istiod-revision",
+					},
+				},
+			},
+		},
+	}
+	remoteInjectionURL             = "random.injection.url.com"
+	revisionCanonicalWebhookRemote = admit_v1.MutatingWebhookConfiguration{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:   "istio-sidecar-injector-revision",
+			Labels: map[string]string{label.IstioRev: "revision"},
+		},
+		Webhooks: []admit_v1.MutatingWebhook{
+			{
+				Name: istioInjectionWebhookName,
+				ClientConfig: admit_v1.WebhookClientConfig{
+					URL: &remoteInjectionURL,
+				},
+			},
+		},
+	}
 )
 
 func TestTagList(t *testing.T) {
@@ -271,151 +307,22 @@ func TestRemoveTag(t *testing.T) {
 	}
 }
 
-func TestSetTag(t *testing.T) {
-	revisionCanonicalWebhook := admit_v1.MutatingWebhookConfiguration{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:   "istio-sidecar-injector-revision",
-			Labels: map[string]string{label.IstioRev: "revision"},
-		},
-		Webhooks: []admit_v1.MutatingWebhook{
-			{
-				Name: istioInjectionWebhookName,
-				ClientConfig: admit_v1.WebhookClientConfig{
-					Service: &admit_v1.ServiceReference{
-						Namespace: "default",
-						Name:      "istiod-revision",
-					},
-				},
-			},
-		},
-	}
-	injectionURL := "random.injection.url.com"
-	revisionCanonicalWebhookRemote := admit_v1.MutatingWebhookConfiguration{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:   "istio-sidecar-injector-revision",
-			Labels: map[string]string{label.IstioRev: "revision"},
-		},
-		Webhooks: []admit_v1.MutatingWebhook{
-			{
-				Name: istioInjectionWebhookName,
-				ClientConfig: admit_v1.WebhookClientConfig{
-					URL: &injectionURL,
-				},
-			},
-		},
-	}
+func TestSetTagErrors(t *testing.T) {
 	tcs := []struct {
 		name           string
 		tag            string
 		revision       string
 		webhooksBefore admit_v1.MutatingWebhookConfigurationList
-		webhooksAfter  admit_v1.MutatingWebhookConfigurationList
 		namespaces     corev1.NamespaceList
 		outputMatches  []string
 		error          string
 	}{
 		{
-			name:     "TestSimpleCreate",
-			tag:      "test",
-			revision: "revision",
-			webhooksBefore: admit_v1.MutatingWebhookConfigurationList{
-				Items: []admit_v1.MutatingWebhookConfiguration{revisionCanonicalWebhook},
-			},
-			webhooksAfter: admit_v1.MutatingWebhookConfigurationList{
-				Items: []admit_v1.MutatingWebhookConfiguration{
-					{
-						ObjectMeta: metav1.ObjectMeta{
-							Name: "istio-revision-tag-test",
-							Labels: map[string]string{
-								label.IstioRev:                        "revision",
-								istioTagLabel:                         "test",
-								helmreconciler.IstioComponentLabelStr: "Pilot",
-							},
-						},
-						Webhooks: []admit_v1.MutatingWebhook{
-							{
-								Name: istioInjectionWebhookName,
-								ClientConfig: admit_v1.WebhookClientConfig{
-									Service: &admit_v1.ServiceReference{
-										Namespace: "default",
-										Name:      "istiod-revision",
-									},
-									CABundle: []byte(""),
-								},
-								NamespaceSelector: &metav1.LabelSelector{
-									MatchExpressions: []metav1.LabelSelectorRequirement{
-										{
-											Key: label.IstioRev, Operator: metav1.LabelSelectorOpIn, Values: []string{"test"},
-										},
-										{
-											Key: "istio-injection", Operator: metav1.LabelSelectorOpDoesNotExist,
-										},
-									},
-								},
-							},
-						},
-					},
-					revisionCanonicalWebhook,
-				},
-			},
-			namespaces:    corev1.NamespaceList{},
-			outputMatches: []string{},
-			error:         "",
-		},
-		{
-			name:     "TestCreateWithURL",
-			tag:      "test",
-			revision: "revision",
-			webhooksBefore: admit_v1.MutatingWebhookConfigurationList{
-				Items: []admit_v1.MutatingWebhookConfiguration{revisionCanonicalWebhookRemote},
-			},
-			webhooksAfter: admit_v1.MutatingWebhookConfigurationList{
-				Items: []admit_v1.MutatingWebhookConfiguration{
-					{
-						ObjectMeta: metav1.ObjectMeta{
-							Name: "istio-revision-tag-test",
-							Labels: map[string]string{
-								label.IstioRev:                        "revision",
-								istioTagLabel:                         "test",
-								helmreconciler.IstioComponentLabelStr: "Pilot",
-							},
-						},
-						Webhooks: []admit_v1.MutatingWebhook{
-							{
-								Name: istioInjectionWebhookName,
-								ClientConfig: admit_v1.WebhookClientConfig{
-									URL:      &injectionURL,
-									CABundle: []byte(""),
-								},
-								NamespaceSelector: &metav1.LabelSelector{
-									MatchExpressions: []metav1.LabelSelectorRequirement{
-										{
-											Key: label.IstioRev, Operator: metav1.LabelSelectorOpIn, Values: []string{"test"},
-										},
-										{
-											Key: "istio-injection", Operator: metav1.LabelSelectorOpDoesNotExist,
-										},
-									},
-								},
-							},
-						},
-					},
-					revisionCanonicalWebhookRemote,
-				},
-			},
-			namespaces:    corev1.NamespaceList{},
-			outputMatches: []string{},
-			error:         "",
-		},
-		{
 			name:     "TestErrorWhenRevisionWithNameCollision",
 			tag:      "revision",
 			revision: "revision",
 			webhooksBefore: admit_v1.MutatingWebhookConfigurationList{
-				Items: []admit_v1.MutatingWebhookConfiguration{revisionCanonicalWebhookRemote},
-			},
-			webhooksAfter: admit_v1.MutatingWebhookConfigurationList{
-				Items: []admit_v1.MutatingWebhookConfiguration{revisionCanonicalWebhookRemote},
+				Items: []admit_v1.MutatingWebhookConfiguration{revisionCanonicalWebhook},
 			},
 			namespaces:    corev1.NamespaceList{},
 			outputMatches: []string{},
@@ -426,8 +333,12 @@ func TestSetTag(t *testing.T) {
 	for _, tc := range tcs {
 		t.Run(tc.name, func(t *testing.T) {
 			var out bytes.Buffer
+
 			client := fake.NewSimpleClientset(tc.webhooksBefore.DeepCopyObject(), tc.namespaces.DeepCopyObject())
-			err := setTag(context.Background(), client, tc.tag, tc.revision, &out)
+			mockClient := kube.MockClient{
+				Interface: client,
+			}
+			err := setTag(context.Background(), mockClient, tc.tag, tc.revision, &out)
 			if tc.error == "" && err != nil {
 				t.Fatalf("expected no error, got %v", err)
 			}
@@ -439,23 +350,60 @@ func TestSetTag(t *testing.T) {
 					t.Fatalf("expected \"%s\" in error, got %v", tc.error, err)
 				}
 			}
-
-			commandOutput := out.String()
-			for _, s := range tc.outputMatches {
-				if !strings.Contains(commandOutput, s) {
-					t.Fatalf("expected \"%s\" in command output, got %s", s, commandOutput)
-				}
-			}
-
-			webhooksAfter, _ := client.AdmissionregistrationV1().MutatingWebhookConfigurations().List(context.Background(), metav1.ListOptions{})
-			if len(webhooksAfter.Items) != len(tc.webhooksAfter.Items) {
-				t.Fatalf("expected %d after running, got %d", len(tc.webhooksAfter.Items), len(webhooksAfter.Items))
-			}
-			for i, w := range webhooksAfter.Items {
-				if !reflect.DeepEqual(w, tc.webhooksAfter.Items[i]) {
-					t.Fatalf("expected webhook %v not equal to actual %v\n", spew.Sdump(tc.webhooksAfter.Items[i]), spew.Sdump(w))
-				}
-			}
 		})
+	}
+}
+
+func TestSetTagWebhookCreation(t *testing.T) {
+	tcs := []struct {
+		webhook              admit_v1.MutatingWebhookConfiguration
+		tagName              string
+		expectedSubstrings   []string
+		unexpectedSubstrings []string
+	}{
+		{
+			webhook: revisionCanonicalWebhook,
+			tagName: "canary",
+			expectedSubstrings: []string{
+				"istio.io/rev: revision",
+				"istio.io/tag: canary",
+				"path: \"/inject\"",
+				"caBundle: \"\"",
+			},
+			unexpectedSubstrings: []string{"url"},
+		},
+		{
+			webhook: revisionCanonicalWebhookRemote,
+			tagName: "canary",
+			expectedSubstrings: []string{
+				remoteInjectionURL,
+				"istio.io/rev: revision",
+				"istio.io/tag: canary",
+				"caBundle: \"\"",
+			},
+			unexpectedSubstrings: []string{"service", "path:"},
+		},
+	}
+
+	for _, tc := range tcs {
+		webhookConfig, err := tagWebhookConfigFromCanonicalWebhook(tc.webhook, tc.tagName)
+		if err != nil {
+			t.Fatalf("webhook parsing failed with error: %v", err)
+		}
+		webhookYAML, err := tagWebhookYAML(webhookConfig)
+		if err != nil {
+			t.Fatalf("tag webhook YAML generation failed with error: %v", err)
+		}
+		fmt.Println(webhookYAML)
+		for _, s := range tc.expectedSubstrings {
+			if !strings.Contains(webhookYAML, s) {
+				t.Errorf("expected substring in tag webhook YAML: %s, did not find", s)
+			}
+		}
+		for _, s := range tc.unexpectedSubstrings {
+			if strings.Contains(webhookYAML, s) {
+				t.Errorf("unexpected substring in tag webhook YAML: %s", s)
+			}
+		}
 	}
 }
