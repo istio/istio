@@ -61,6 +61,7 @@ type LocalFileCache struct {
 	purgeInterval    time.Duration
 	wasmModuleExpiry time.Duration
 
+	// stopChan currently is only used by test
 	stopChan chan struct{}
 }
 
@@ -194,6 +195,7 @@ func (c *LocalFileCache) purge() {
 			}
 			c.mux.Unlock()
 		case <-c.stopChan:
+			// Currently this will only happen in test.
 			return
 		}
 	}
