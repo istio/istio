@@ -1080,6 +1080,8 @@ message Values {
   BaseConfig base = 37;
 
   IstiodRemoteConfig istiodRemote = 38;
+
+  repeated string revisionTags = 39;
 }
 
 // GOTYPE: map[string]interface{}
