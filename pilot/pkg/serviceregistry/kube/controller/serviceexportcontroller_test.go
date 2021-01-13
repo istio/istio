@@ -27,6 +27,7 @@ import (
 	"sigs.k8s.io/mcs-api/pkg/apis/v1alpha1"
 	"sigs.k8s.io/mcs-api/pkg/client/clientset/versioned"
 
+	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/test/util/retry"
 )
@@ -40,8 +41,10 @@ func TestServiceExportController(t *testing.T) {
 
 	//start the controller
 	hosts := []string{"*.ns1.svc.cluster.local", "secretservice.*.svc.cluster.local", "service12.ns12.svc.cluster.local"}
+	pushContext := model.PushContext{}
+	pushContext.SetClusterLocalHosts(hosts)
 
-	sc, _ := NewServiceExportController(client, hosts)
+	sc, _ := NewServiceExportController(client, &pushContext)
 
 	stop := make(chan struct{})
 	client.RunAndWait(stop)

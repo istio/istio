@@ -16,7 +16,6 @@ package controller
 
 import (
 	"context"
-	"strings"
 	"time"
 
 	v1 "k8s.io/api/core/v1"
@@ -27,6 +26,7 @@ import (
 	"sigs.k8s.io/mcs-api/pkg/apis/v1alpha1"
 	"sigs.k8s.io/mcs-api/pkg/client/clientset/versioned"
 
+	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/queue"
 	"istio.io/pkg/log"
@@ -39,15 +39,15 @@ type ServiceExportController struct {
 	queue           queue.Instance
 	serviceInformer cache.SharedInformer
 
-	clusterLocalHosts []string //hosts marked as cluster-local, which will not have serviceeexports generated
+	pushContext *model.PushContext
 }
 
-func NewServiceExportController(kubeClient kube.Client, clusterLocalHosts []string) (*ServiceExportController, error) {
+func NewServiceExportController(kubeClient kube.Client, pushContext *model.PushContext) (*ServiceExportController, error) {
 	serviceExportController := &ServiceExportController{
-		client:            kubeClient.MCSApis(),
-		serviceClient:     kubeClient.Kube().CoreV1(),
-		queue:             queue.NewQueue(time.Second),
-		clusterLocalHosts: clusterLocalHosts,
+		client:        kubeClient.MCSApis(),
+		serviceClient: kubeClient.Kube().CoreV1(),
+		queue:         queue.NewQueue(time.Second),
+		pushContext:   pushContext,
 	}
 
 	serviceExportController.serviceInformer = kubeClient.KubeInformer().Core().V1().Services().Informer()
@@ -89,7 +89,7 @@ func (sc *ServiceExportController) Run(stopCh <-chan struct{}) {
 }
 
 func (sc *ServiceExportController) HandleNewService(obj *v1.Service) error {
-	if sc.isServiceClusterLocal(obj) {
+	if sc.pushContext.IsServiceClusterLocal(obj) {
 		return nil //don't don anything for marked clusterlocal services
 	}
 	return sc.createServiceExportIfNotPresent(obj)
@@ -97,17 +97,6 @@ func (sc *ServiceExportController) HandleNewService(obj *v1.Service) error {
 
 func (sc *ServiceExportController) HandleDeletedService(obj *v1.Service) error {
 	return sc.deleteServiceExportIfPresent(obj)
-}
-
-func (sc *ServiceExportController) isServiceClusterLocal(service *v1.Service) bool {
-	for _, host := range sc.clusterLocalHosts {
-		hostComponents := strings.Split(host, ".")
-		//name match
-		if (hostComponents[0] == "*" || hostComponents[0] == service.Name) && (hostComponents[1] == "*" || hostComponents[1] == service.Namespace) {
-			return true
-		}
-	}
-	return false
 }
 
 func (sc *ServiceExportController) createServiceExportIfNotPresent(service *v1.Service) error {

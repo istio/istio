@@ -16,6 +16,7 @@ package model
 
 import (
 	"encoding/json"
+	"fmt"
 	"net"
 	"sort"
 	"strings"
@@ -23,6 +24,7 @@ import (
 	"time"
 
 	"go.uber.org/atomic"
+	v1 "k8s.io/api/core/v1"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
@@ -247,7 +249,6 @@ type processedDestRules struct {
 // tracks all endpoints in the mesh and they fit in RAM - so limit is few M endpoints.
 // It is possible to split the endpoint tracking in future.
 type XDSUpdater interface {
-
 	// EDSUpdate is called when the list of endpoints or labels in a Service is changed.
 	// For each cluster and hostname, the full list of active endpoints (including empty list)
 	// must be sent. The shard name is used as a key - current implementation is using the
@@ -405,7 +406,6 @@ func (ps *PushContext) AddMetric(metric monitoring.Metric, key string, proxyID, 
 }
 
 var (
-
 	// EndpointNoPod tracks endpoints without an associated pod. This is an error condition, since
 	// we can't figure out the labels. It may be a transient problem, if endpoint is processed before
 	// pod.
@@ -914,6 +914,12 @@ func (ps *PushContext) getExportedDestinationRuleFromNamespace(owningNamespace s
 // within the cluster.
 func (ps *PushContext) IsClusterLocal(service *Service) bool {
 	_, ok := MostSpecificHostMatch(service.Hostname, nil, ps.clusterLocalHosts)
+	return ok
+}
+
+func (ps *PushContext) IsServiceClusterLocal(service *v1.Service) bool {
+	hostname := fmt.Sprintf("%s.%s.svc.cluster.local", service.Name, service.Namespace)
+	_, ok := MostSpecificHostMatch(host.Name(hostname), nil, ps.clusterLocalHosts)
 	return ok
 }
 
@@ -1866,12 +1872,10 @@ func (ps *PushContext) ServiceInstancesByPort(svc *Service, port int, labels lab
 	return ps.InstancesByPort(svc, port, labels)
 }
 
-func (ps *PushContext) GetClusterLocalHosts(e *Environment) []string {
-	ps.initClusterLocalHosts(e)
-
-	toReturn := make([]string, len(ps.clusterLocalHosts))
-	for i, name := range ps.clusterLocalHosts {
-		toReturn[i] = string(name)
+//only user for testing
+func (ps *PushContext) SetClusterLocalHosts(hostList []string) {
+	ps.clusterLocalHosts = make([]host.Name, len(hostList))
+	for _, hostName := range hostList {
+		ps.clusterLocalHosts = append(ps.clusterLocalHosts, host.Name(hostName))
 	}
-	return toReturn
 }

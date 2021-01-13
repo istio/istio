@@ -84,7 +84,7 @@ func (s *Server) initKubeRegistry(args *PilotArgs) (err error) {
 
 	mcsSettings := kubecontroller.MCSSettings{
 		EnableServiceExport: false, //todo change to s.environment.Mesh().EnableMcsServiceExport once https://github.com/istio/api/pull/1785 is merged,
-		ClusterLocalHosts:   s.environment.PushContext.GetClusterLocalHosts(s.environment),
+		PushContext:         s.environment.PushContext,
 	}
 
 	mc := kubecontroller.NewMulticluster(args.PodName,
