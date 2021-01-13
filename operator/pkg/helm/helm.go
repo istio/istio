@@ -58,7 +58,7 @@ type TemplateRenderer interface {
 	// RenderManifest renders the associated helm charts with the given values YAML string and returns the resulting
 	// string.
 	RenderManifest(values string) (string, error)
-	// RenderManifestFiltered filters manifests by template file name
+	// RenderManifestFiltered filters manifests to render by template file name
 	RenderManifestFiltered(values string, filter TemplateFilterFunc) (string, error)
 }
 
@@ -120,7 +120,7 @@ func renderChart(namespace, values string, chrt *chart.Chart, filterFunc Templat
 		filteredTemplates := []*chart.File{}
 		for _, t := range chrt.Templates {
 			if filterFunc(t.Name) {
-				filteredTemplates = append(chrt.Templates, t)
+				filteredTemplates = append(filteredTemplates, t)
 			}
 		}
 		chrt.Templates = filteredTemplates
