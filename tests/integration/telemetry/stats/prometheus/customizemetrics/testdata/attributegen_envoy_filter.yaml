@@ -45,6 +45,14 @@ spec:
                             "value": "getoperation",
                             "condition": "request.method == 'GET'"
                         }]
+                      },
+                      {
+                        "output_attribute": "istio_grpcResponseStatus",
+                        "match": [
+                        {
+                            "value": "OK",
+                            "condition": "response.grpc_status == 0"
+                        }]
                       }]
                     }
                 vm_config:
