@@ -128,7 +128,7 @@ func TestWasmCache(t *testing.T) {
 			fetchURL:          ts.URL,
 			purgeInterval:     1 * time.Millisecond,
 			wasmModuleExpiry:  1 * time.Millisecond,
-			checkPurgeTimeout: 3 * time.Millisecond,
+			checkPurgeTimeout: 10 * time.Millisecond,
 			checksum:          dataCheckSum,
 			wantFileName:      fmt.Sprintf("%x.wasm", dataCheckSum),
 			wantServerReqNum:  1,
