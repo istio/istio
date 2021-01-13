@@ -1,16 +1,18 @@
-# The following gateway allows request to "*.company.com"
+# The following policy applies the CUSTOM action with the ext-authz-http provider on ingress gateway for path /custom.
 
-apiVersion: networking.istio.io/v1alpha3
-kind: Gateway
+apiVersion: "security.istio.io/v1beta1"
+kind: AuthorizationPolicy
 metadata:
-  name: test-ingress
+  name: policy-ingress-http
+  namespace: "{{ .RootNamespace }}"
 spec:
   selector:
-    istio: ingressgateway # use istio default ingress gateway
-  servers:
-    - port:
-        number: 80
-        name: http
-        protocol: HTTP
-      hosts:
-        - "*.company.com"
+    matchLabels:
+      "app": "istio-ingressgateway"
+  action: CUSTOM
+  provider:
+    name: ext-authz-http
+  rules:
+  - to:
+    - operation:
+        paths: ["/custom"]
