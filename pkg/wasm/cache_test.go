@@ -24,7 +24,13 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"istio.io/istio/tests/util/leak"
 )
+
+func TestMain(m *testing.M) {
+	leak.CheckMain(m)
+}
 
 func TestWasmCache(t *testing.T) {
 	var tsNumRequest int
@@ -32,6 +38,7 @@ func TestWasmCache(t *testing.T) {
 		tsNumRequest++
 		fmt.Fprintln(w, "data"+r.URL.Path)
 	}))
+	defer ts.Close()
 	dataCheckSum := sha256.Sum256([]byte("data/\n"))
 
 	cases := []struct {
@@ -40,6 +47,7 @@ func TestWasmCache(t *testing.T) {
 		fetchURL             string
 		purgeInterval        time.Duration
 		wasmModuleExpiry     time.Duration
+		checkPurgeTimeout    time.Duration
 		checksum             [32]byte
 		wantFileName         string
 		wantErrorMsgPrefix   string
@@ -117,24 +125,13 @@ func TestWasmCache(t *testing.T) {
 			initialCachedModules: map[cacheKey]cacheEntry{
 				{downloadURL: ts.URL, checksum: fmt.Sprintf("%x", dataCheckSum)}: {modulePath: fmt.Sprintf("%x.wasm", dataCheckSum)},
 			},
-			fetchURL:         ts.URL,
-			purgeInterval:    1 * time.Millisecond,
-			wasmModuleExpiry: 1 * time.Millisecond,
-			checksum:         dataCheckSum,
-			wantFileName:     fmt.Sprintf("%x.wasm", dataCheckSum),
-			wantServerReqNum: 1,
-		},
-		{
-			name: "cache hit before purge",
-			initialCachedModules: map[cacheKey]cacheEntry{
-				{downloadURL: ts.URL, checksum: fmt.Sprintf("%x", dataCheckSum)}: {modulePath: fmt.Sprintf("%x.wasm", dataCheckSum)},
-			},
-			fetchURL:         ts.URL,
-			purgeInterval:    50 * time.Millisecond,
-			wasmModuleExpiry: 50 * time.Millisecond,
-			checksum:         dataCheckSum,
-			wantFileName:     fmt.Sprintf("%x.wasm", dataCheckSum),
-			wantServerReqNum: 0,
+			fetchURL:          ts.URL,
+			purgeInterval:     1 * time.Millisecond,
+			wasmModuleExpiry:  1 * time.Millisecond,
+			checkPurgeTimeout: 3 * time.Millisecond,
+			checksum:          dataCheckSum,
+			wantFileName:      fmt.Sprintf("%x.wasm", dataCheckSum),
+			wantServerReqNum:  1,
 		},
 	}
 
@@ -157,8 +154,19 @@ func TestWasmCache(t *testing.T) {
 			}
 			cache.mux.Unlock()
 
-			// Sleep 10 ms for purge on expiry testing
-			time.Sleep(10 * time.Millisecond)
+			if c.checkPurgeTimeout > 0 {
+				moduleDeleted := false
+				for start := time.Now(); time.Since(start) < c.checkPurgeTimeout; {
+					// Check existence of module files. files should be deleted before timing out.
+					if files, err := ioutil.ReadDir(tmpDir); err == nil && len(files) == 0 {
+						moduleDeleted = true
+						break
+					}
+				}
+				if !moduleDeleted {
+					t.Fatalf("Wasm modules are not purged before purge timeout")
+				}
+			}
 
 			gotFilePath, gotErr := cache.Get(c.fetchURL, fmt.Sprintf("%x", c.checksum), 0)
 			wantFilePath := filepath.Join(tmpDir, c.wantFileName)
@@ -196,6 +204,7 @@ func TestWasmCacheMissChecksum(t *testing.T) {
 		}
 		gotNumRequest++
 	}))
+	defer ts.Close()
 	wantFilePath1 := filepath.Join(tmpDir, fmt.Sprintf("%x.wasm", sha256.Sum256([]byte("0\n"))))
 	wantFilePath2 := filepath.Join(tmpDir, fmt.Sprintf("%x.wasm", sha256.Sum256([]byte("1\n"))))
 
