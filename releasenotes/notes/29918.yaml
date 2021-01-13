@@ -6,4 +6,6 @@ issue:
 
 releaseNotes:
 - |
-  **Added** `istioctl analyze` now informs if deprecated or alpha-level annotations are present
+  **Added** `istioctl analyze` now informs if deprecated or alpha-level annotations are present.
+  (These checks can be disabled using `--suppress "IST0135=*"` and `--suppress "IST0136=*"`
+  respectively.)
