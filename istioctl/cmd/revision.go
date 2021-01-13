@@ -18,15 +18,20 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/hashicorp/go-multierror"
 	"io"
-	"istio.io/istio/pkg/kube"
-	admit_v1 "k8s.io/api/admissionregistration/v1"
 	"strings"
 	"text/tabwriter"
 	"time"
 
+	"github.com/hashicorp/go-multierror"
 	"github.com/spf13/cobra"
+	admit_v1 "k8s.io/api/admissionregistration/v1"
+	v1 "k8s.io/api/core/v1"
+	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	apimachinery_schema "k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/util/duration"
+	"k8s.io/apimachinery/pkg/util/validation"
+
 	"istio.io/api/label"
 	"istio.io/api/operator/v1alpha1"
 	"istio.io/istio/operator/cmd/mesh"
@@ -36,11 +41,7 @@ import (
 	"istio.io/istio/operator/pkg/util"
 	"istio.io/istio/operator/pkg/util/clog"
 	"istio.io/istio/pkg/config"
-	v1 "k8s.io/api/core/v1"
-	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	apimachinery_schema "k8s.io/apimachinery/pkg/runtime/schema"
-	"k8s.io/apimachinery/pkg/util/duration"
-	"k8s.io/apimachinery/pkg/util/validation"
+	"istio.io/istio/pkg/kube"
 )
 
 type revisionArgs struct {
@@ -62,8 +63,8 @@ const (
 	// TODO: This should be moved to istio/api:label package
 	istioTag = "istio.io/tag"
 
-	jsonFormat   = "json"
-	tableFormat  = "table"
+	jsonFormat  = "json"
+	tableFormat = "table"
 )
 
 var (
@@ -173,35 +174,35 @@ func revisionListCommand() *cobra.Command {
 }
 
 type podFilteredInfo struct {
-	Namespace string `json:"namespace"`
-	Name      string `json:"name"`
-	Address   string `json:"address"`
+	Namespace string      `json:"namespace"`
+	Name      string      `json:"name"`
+	Address   string      `json:"address"`
 	Status    v1.PodPhase `json:"status"`
-	Age       string `json:"age"`
+	Age       string      `json:"age"`
 }
 
 type istioOperatorCRInfo struct {
-	Namespace string `json:"namespace"`
-	Name      string `json:"name"`
-	Profile   string `json:"profile"`
-	Components []string `json:"components"`
+	Namespace      string    `json:"namespace"`
+	Name           string    `json:"name"`
+	Profile        string    `json:"profile"`
+	Components     []string  `json:"components"`
 	Customizations []iopDiff `json:"customizations"`
 }
 
 type mutatingWebhookConfigInfo struct {
-	Name string 	`json:"name"`
+	Name     string `json:"name"`
 	Revision string `json:"revision"`
-	Tag string		`json:"tag"`
+	Tag      string `json:"tag"`
 }
 
 type revisionDescription struct {
-	IstioOperatorCRs   []istioOperatorCRInfo        `json:"istio_operator_crs,omitempty"`
-	Webhooks           []mutatingWebhookConfigInfo  `json:"webhooks,omitempty"`
-	ControlPlanePods   []podFilteredInfo            `json:"control_plane_pods,omitempty"`
-	IngressGatewayPods []podFilteredInfo            `json:"ingess_gateways,omitempty"`
-	EgressGatewayPods  []podFilteredInfo            `json:"egress_gateways,omitempty"`
-	NamespaceSummary   map[string]uint              `json:"namespace_summary,omitempty"`
-	Pods               []podFilteredInfo 			`json:"pods,omitempty"`
+	IstioOperatorCRs   []istioOperatorCRInfo       `json:"istio_operator_crs,omitempty"`
+	Webhooks           []mutatingWebhookConfigInfo `json:"webhooks,omitempty"`
+	ControlPlanePods   []podFilteredInfo           `json:"control_plane_pods,omitempty"`
+	IngressGatewayPods []podFilteredInfo           `json:"ingess_gateways,omitempty"`
+	EgressGatewayPods  []podFilteredInfo           `json:"egress_gateways,omitempty"`
+	NamespaceSummary   map[string]uint             `json:"namespace_summary,omitempty"`
+	Pods               []podFilteredInfo           `json:"pods,omitempty"`
 }
 
 func revisionList(writer io.Writer, args *revisionArgs, logger clog.Logger) error {
@@ -226,15 +227,15 @@ func revisionList(writer io.Writer, args *revisionArgs, logger clog.Logger) erro
 		if revPresent {
 			if tag != "" {
 				ri.Webhooks = append(ri.Webhooks, mutatingWebhookConfigInfo{
-					Name: hook.Name,
+					Name:     hook.Name,
 					Revision: rev,
-					Tag: tag,
+					Tag:      tag,
 				})
 			}
 		} else {
 			revisions[rev] = &revisionDescription{
 				IstioOperatorCRs: []istioOperatorCRInfo{},
-				Webhooks: []mutatingWebhookConfigInfo{{Name: hook.Name, Revision: rev, Tag: tag}},
+				Webhooks:         []mutatingWebhookConfigInfo{{Name: hook.Name, Revision: rev, Tag: tag}},
 			}
 		}
 	}
@@ -415,9 +416,9 @@ func printRevisionDescription(w io.Writer, args *revisionArgs, logger clog.Logge
 					continue
 				}
 				crInfo := istioOperatorCRInfo{
-					Namespace: iop.Namespace,
-					Name: iop.Name,
-					Components: getEnabledComponents(iop.Spec),
+					Namespace:      iop.Namespace,
+					Name:           iop.Name,
+					Components:     getEnabledComponents(iop.Spec),
 					Customizations: iopCustomizations,
 				}
 				crsExtracted = append(crsExtracted, crInfo)
@@ -517,22 +518,22 @@ func transformToFilteredPodInfo(pods []v1.Pod) []podFilteredInfo {
 func getFilteredPodInfo(pod *v1.Pod) podFilteredInfo {
 	return podFilteredInfo{
 		Namespace: pod.Namespace,
-		Name: pod.Name,
-		Address: pod.Status.PodIP,
-		Status: pod.Status.Phase,
-		Age: translateTimestampSince(pod.CreationTimestamp),
+		Name:      pod.Name,
+		Address:   pod.Status.PodIP,
+		Status:    pod.Status.Phase,
+		Age:       translateTimestampSince(pod.CreationTimestamp),
 	}
 }
 
 func printTable(w io.Writer, sections []string, desc *revisionDescription) error {
 	errs := &multierror.Error{}
-	tablePrintFuncs := map[string]func(io.Writer, *revisionDescription)error{
-		IstioOperatorCRSection: printIstioOperatorCRInfo,
-		WebhooksSection: printWebhookInfo,
-		ControlPlaneSection: printControlPlane,
-		GatewaysSection: printGateways,
+	tablePrintFuncs := map[string]func(io.Writer, *revisionDescription) error{
+		IstioOperatorCRSection:  printIstioOperatorCRInfo,
+		WebhooksSection:         printWebhookInfo,
+		ControlPlaneSection:     printControlPlane,
+		GatewaysSection:         printGateways,
 		NamespaceSummarySection: printNamespaceSummary,
-		PodsSection: printPodsSection,
+		PodsSection:             printPodsSection,
 	}
 	for _, s := range sections {
 		f := tablePrintFuncs[s]
@@ -607,8 +608,8 @@ func printControlPlane(w io.Writer, desc *revisionDescription) error {
 	fmt.Fprintf(w, "\nCONTROL-PLANE-PODS (ISTIOD): (%d)\n", len(desc.ControlPlanePods))
 	if len(desc.ControlPlanePods) == 0 {
 		if len(desc.Webhooks) > 0 {
-			fmt.Fprintln(w, "No Istiod found in this cluster for the revision. " +
-				"However there are webhooks. It is possible that Istiod is external to this cluster or " +
+			fmt.Fprintln(w, "No Istiod found in this cluster for the revision. "+
+				"However there are webhooks. It is possible that Istiod is external to this cluster or "+
 				"perhaps it is not uninstalled properly")
 		} else {
 			fmt.Fprintln(w, "No Istiod or the webhook found in this cluster for the revision. Something could be wrong")
@@ -632,8 +633,8 @@ func printIngressGateways(w io.Writer, desc *revisionDescription) error {
 	fmt.Fprintf(w, "\nINGRESS-GATEWAYS: (%d)\n", len(desc.IngressGatewayPods))
 	if len(desc.IngressGatewayPods) == 0 {
 		if isIngressGatewayEnabled(desc) {
-			fmt.Fprintln(w, "Ingress gateway is enabled for this revision. However there are no such pods. " +
-				"It could be that it is replaced by ingress-gateway from another revision (as it is still upgraded in-place) " +
+			fmt.Fprintln(w, "Ingress gateway is enabled for this revision. However there are no such pods. "+
+				"It could be that it is replaced by ingress-gateway from another revision (as it is still upgraded in-place) "+
 				"or it could be some issue with installation")
 		} else {
 			fmt.Fprintln(w, "Ingress gateway is disabled for this revision")
@@ -650,8 +651,8 @@ func printEgressGateways(w io.Writer, desc *revisionDescription) error {
 	fmt.Fprintf(w, "\nEGRESS-GATEWAYS: (%d)\n", len(desc.IngressGatewayPods))
 	if len(desc.EgressGatewayPods) == 0 {
 		if isEgressGatewayEnabled(desc) {
-			fmt.Fprintln(w, "Egress gateway is enabled for this revision. However there are no such pods. " +
-				"It could be that it is replaced by egress-gateway from another revision (as it is still upgraded in-place) " +
+			fmt.Fprintln(w, "Egress gateway is enabled for this revision. However there are no such pods. "+
+				"It could be that it is replaced by egress-gateway from another revision (as it is still upgraded in-place) "+
 				"or it could be some issue with installation")
 		} else {
 			fmt.Fprintln(w, "Egress gateway is disabled for this revision")
@@ -665,9 +666,10 @@ func printEgressGateways(w io.Writer, desc *revisionDescription) error {
 }
 
 type istioGatewayType = string
+
 const (
 	ingress istioGatewayType = "ingress"
-	egress istioGatewayType = "egress"
+	egress  istioGatewayType = "egress"
 )
 
 func isIngressGatewayEnabled(desc *revisionDescription) bool {
@@ -791,7 +793,7 @@ func getPodsWithSelector(client kube.ExtendedClient, ns string, selector *meta_v
 }
 
 type iopDiff struct {
-	Path string `json:"path"`
+	Path  string `json:"path"`
 	Value string `json:"value"`
 }
 
