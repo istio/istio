@@ -25,9 +25,6 @@ import (
 // This is the ECDS output.
 func (configgen *ConfigGeneratorImpl) BuildExtensionConfiguration(
 	proxy *model.Proxy, push *model.PushContext, extensionConfigNames []string) []*core.TypedExtensionConfig {
-	resources := make([]*core.TypedExtensionConfig, 0)
 	envoyFilterPatches := push.EnvoyFilters(proxy)
-	extensionConfigs := envoyfilter.InsertedExtensionConfigurations(envoyFilterPatches, extensionConfigNames)
-	resources = append(resources, extensionConfigs...)
-	return resources
+	return envoyfilter.InsertedExtensionConfigurations(envoyFilterPatches, extensionConfigNames)
 }
