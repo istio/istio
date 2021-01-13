@@ -5,4 +5,4 @@ issue:
   - 28288
 releaseNotes:
   - |
-    **Deprecated, Added** Deprecate Istio Service Dashboard and replace it with the Istio Canonical Service Dashboard.
+   **Updated** the Istio Service Dashboard to use canonical services. The updated dashboard will now show service-to-service traffic for both incoming and outgoing links. More information on canonical services and their role in Istio is provided here: https://docs.google.com/document/d/1EsKpYNW55-LqG08zdjp1tAd224T9IEG3CEnusmL-Joc/edit.
