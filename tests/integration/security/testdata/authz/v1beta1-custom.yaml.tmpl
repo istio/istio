@@ -124,6 +124,7 @@ apiVersion: networking.istio.io/v1alpha3
 kind: ServiceEntry
 metadata:
   name: httpbin-ext-authz-http
+  namespace: "{{ .Namespace }}"
 spec:
   hosts:
   - "ext-authz-http.local"
@@ -141,6 +142,7 @@ apiVersion: networking.istio.io/v1alpha3
 kind: ServiceEntry
 metadata:
   name: httpbin-ext-authz-grpc
+  namespace: "{{ .Namespace }}"
 spec:
   hosts:
   - "ext-authz-grpc.local"

@@ -1416,7 +1416,7 @@ func TestAuthorization_Custom(t *testing.T) {
 				ctx.NewSubTest(name).Run(func(ctx framework.TestContext) {
 					wantCode := map[bool]int{true: 200, false: 403}[tc.ExpectAllowed]
 					headers := map[string][]string{
-						"x-ext-authz": {tc.Headers["x-ext-authz"]},
+						"X-Ext-Authz": {tc.Headers["x-ext-authz"]},
 					}
 					authn.CheckIngressOrFail(ctx, ingr, "www.company.com", tc.Request.Options.Path, headers, "", wantCode)
 				})

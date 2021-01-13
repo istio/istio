@@ -399,7 +399,6 @@ func (r *JwksResolver) refresh() {
 				hasChange = true
 				log.Infof("Updated cached JWT public key from %q", jwksURI)
 			}
-
 		}()
 
 		return true
