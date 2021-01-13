@@ -66,6 +66,7 @@ func TestWasmHTTPFetch(t *testing.T) {
 				c.handler(w, r, gotNumRequest)
 				gotNumRequest++
 			}))
+			defer ts.Close()
 			fetcher := NewHTTPFetcher()
 			b, err := fetcher.Fetch(ts.URL, 0)
 			if c.wantNumRequest != gotNumRequest {
