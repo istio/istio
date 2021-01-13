@@ -178,7 +178,7 @@ func upgrade(rootArgs *rootArgs, args *upgradeArgs, l clog.Logger) (err error) {
 	// Ref: https://github.com/istio/istio/issues/28566
 	pods, err := kubeClient.PodsForSelector(istioNamespace, "app=istiod")
 	if err != nil {
-		return fmt.Errorf("failed to fetch istiod pod, error: %v", err)
+		return fmt.Errorf("failed to fetch the existing istiod pod for checking revision, error: %v", err)
 	}
 	for _, pod := range pods.Items {
 		revision := pod.ObjectMeta.GetLabels()[label.IstioRev]
