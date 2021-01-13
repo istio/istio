@@ -71,6 +71,10 @@ type CallOptions struct {
 	// (without proxy) from naked client to test certificates issued by custom CA instead of the Istio self-signed CA.
 	Cert, Key, CaCert string
 
+	// FollowRedirects will instruct the call to follow 301 redirects. Otherwise, the original 301 response
+	// is returned directly.
+	FollowRedirects bool
+
 	// Validator for server responses. If no validator is provided, only the number of responses received
 	// will be verified.
 	Validator Validator
