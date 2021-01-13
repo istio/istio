@@ -38,8 +38,8 @@ const (
 	// TODO(Monkeyanator) move into istio/api
 	istioTagLabel             = "istio.io/tag"
 	istioInjectionWebhookName = "sidecar-injector.istio.io"
-	revisionTagNamePrefix     = "istio-revision-tag"
 	pilotDiscoveryChart       = "istio-control/istio-discovery"
+	revisionTagTemplateName   = "revision-tags.yaml"
 
 	// help strings and long formatted user outputs
 	skipConfirmationFlagHelpStr = `The skipConfirmation determines whether the user is prompted for confirmation.
@@ -396,6 +396,7 @@ func buildDeleteTagConfirmation(tag string, taggedNamespaces []string) string {
 	return sb.String()
 }
 
+// tagWebhookConfigFromCanonicalWebhook parses configuration needed to create tag webhook from existing revision webhook.
 func tagWebhookConfigFromCanonicalWebhook(wh admit_v1.MutatingWebhookConfiguration, tag string) (*tagWebhookConfig, error) {
 	rev, err := getWebhookRevision(wh)
 	if err != nil {
@@ -424,8 +425,9 @@ func tagWebhookConfigFromCanonicalWebhook(wh admit_v1.MutatingWebhookConfigurati
 	}, nil
 }
 
+// tagWebhookYAML generates YAML for the tag webhook MutatingWebhookConfiguration.
 func tagWebhookYAML(config *tagWebhookConfig) (string, error) {
-	r, err := helm.NewHelmRenderer("", "istio-control/istio-discovery", "Pilot", "istio-system")
+	r, err := helm.NewHelmRenderer("", pilotDiscoveryChart, "Pilot", istioNamespace)
 	if err != nil {
 		return "", fmt.Errorf("failed creating Helm renderer: %v", err)
 	}
@@ -444,7 +446,7 @@ istiodRemote:
 `, config.revision, config.tag, config.remoteInjectionURL)
 
 	tagWebhookYaml, err := r.RenderManifestFiltered(values, func(tmplName string) bool {
-		return strings.Contains(tmplName, "revision-tag")
+		return strings.Contains(tmplName, revisionTagTemplateName)
 	})
 	if err != nil {
 		return "", fmt.Errorf("failed rendering istio-control manifest: %v", err)
@@ -453,6 +455,7 @@ istiodRemote:
 	return tagWebhookYaml, nil
 }
 
+// applyYAML taken from remote_secret.go
 func applyYAML(client kube.ExtendedClient, yamlContent, ns string) error {
 	yamlFile, err := writeToTempFile(yamlContent)
 	if err != nil {
@@ -466,6 +469,7 @@ func applyYAML(client kube.ExtendedClient, yamlContent, ns string) error {
 	return nil
 }
 
+// writeToTempFile taken from remote_secret.go
 func writeToTempFile(content string) (string, error) {
 	outFile, err := ioutil.TempFile("", "revision-tag-manifest-*")
 	if err != nil {
