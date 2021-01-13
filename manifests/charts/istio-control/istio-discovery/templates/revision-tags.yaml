@@ -36,7 +36,7 @@ webhooks:
       - key: istio.io/rev
         operator: In
         values:
-        - {{ $.Values.revision }}
+        - $tagName
 {{- if $.Values.sidecarInjectorWebhook.objectSelector.enabled }}
     objectSelector:
 {{- if $.Values.sidecarInjectorWebhook.objectSelector.autoInject }}
@@ -45,17 +45,14 @@ webhooks:
         operator: NotIn
         values:
         - "false"
-{{- else if $.Values.revision }}
+{{- else }}
       matchExpressions:
       - key: "sidecar.istio.io/inject"
         operator: DoesNotExist
       - key: istio.io/rev
         operator: In
         values:
-        - {{ $.Values.revision }}
-{{- else }}
-      matchLabels:
-        "sidecar.istio.io/inject": "true"
+        - $tagName
 {{- end }}
 {{- end }}
 {{- end }}
