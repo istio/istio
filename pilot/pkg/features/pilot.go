@@ -430,4 +430,10 @@ var (
 	WasmRemoteLoadConversion = env.RegisterBoolVar("ISTIO_AGENT_ENABLE_WASM_REMOTE_LOAD_CONVERSION", true,
 		"If enabled, Istio agent will intercept ECDS resource update, downloads Wasm module, "+
 			"and replaces Wasm module remote load with downloaded local module file.").Get()
+
+	PilotJwtPubKeyRefreshInterval = env.RegisterDurationVar(
+		"PILOT_JWTPUBKEY_REFRESH_INTERVAL0",
+		20*time.Minute,
+		"The refresh interval for istiod to fetch and cache the jwks public key. ",
+	).Get()
 )
