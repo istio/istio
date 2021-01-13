@@ -17,8 +17,11 @@ package cmd
 import (
 	"bytes"
 	"context"
+	"path/filepath"
 	"strings"
 	"testing"
+
+	"istio.io/istio/pkg/test/env"
 
 	admit_v1 "k8s.io/api/admissionregistration/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -390,7 +393,7 @@ func TestSetTagWebhookCreation(t *testing.T) {
 		if err != nil {
 			t.Fatalf("webhook parsing failed with error: %v", err)
 		}
-		webhookYAML, err := tagWebhookYAML(webhookConfig)
+		webhookYAML, err := tagWebhookYAML(webhookConfig, filepath.Join(env.IstioSrc, "manifests"))
 		if err != nil {
 			t.Fatalf("tag webhook YAML generation failed with error: %v", err)
 		}

@@ -38,6 +38,7 @@ const (
 	istioTagLabel             = "istio.io/tag"
 	istioInjectionWebhookName = "sidecar-injector.istio.io"
 	pilotDiscoveryChart       = "istio-control/istio-discovery"
+	chartsPath                = "" // use compiled in charts for tag webhook gen
 	revisionTagTemplateName   = "revision-tags.yaml"
 
 	// help strings and long formatted user outputs
@@ -231,7 +232,7 @@ func setTag(ctx context.Context, kubeClient kube.ExtendedClient, tag, revision s
 	if err != nil {
 		return fmt.Errorf("failed to create tag webhook config: %v", err)
 	}
-	tagWhYAML, err := tagWebhookYAML(tagWhConfig)
+	tagWhYAML, err := tagWebhookYAML(tagWhConfig, chartsPath)
 	if err != nil {
 		return fmt.Errorf("failed to create tag webhook: %v", err)
 	}
@@ -425,8 +426,8 @@ func tagWebhookConfigFromCanonicalWebhook(wh admit_v1.MutatingWebhookConfigurati
 }
 
 // tagWebhookYAML generates YAML for the tag webhook MutatingWebhookConfiguration.
-func tagWebhookYAML(config *tagWebhookConfig) (string, error) {
-	r, err := helm.NewHelmRenderer("", pilotDiscoveryChart, "Pilot", istioNamespace)
+func tagWebhookYAML(config *tagWebhookConfig, chartPath string) (string, error) {
+	r, err := helm.NewHelmRenderer(chartPath, pilotDiscoveryChart, "Pilot", istioNamespace)
 	if err != nil {
 		return "", fmt.Errorf("failed creating Helm renderer: %v", err)
 	}
