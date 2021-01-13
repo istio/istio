@@ -188,7 +188,7 @@ func upgrade(rootArgs *rootArgs, args *upgradeArgs, l clog.Logger) (err error) {
 				"\nUse canary upgrades instead: " + url.CanaryUpgrades)
 		}
 	}
-	if err != nil {
+	if err != nil && !args.force {
 		return err
 	}
 	// Check if the upgrade currentVersion -> targetVersion is supported
