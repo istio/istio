@@ -708,12 +708,13 @@ func TestValidateProxyConfig(t *testing.T) {
 
 func TestValidateGateway(t *testing.T) {
 	tests := []struct {
-		name string
-		in   proto.Message
-		out  string
+		name    string
+		in      proto.Message
+		out     string
+		warning string
 	}{
-		{"empty", &networking.Gateway{}, "server"},
-		{"invalid message", &networking.Server{}, "cannot cast"},
+		{"empty", &networking.Gateway{}, "server", ""},
+		{"invalid message", &networking.Server{}, "cannot cast", ""},
 		{"happy domain",
 			&networking.Gateway{
 				Servers: []*networking.Server{{
@@ -721,7 +722,7 @@ func TestValidateGateway(t *testing.T) {
 					Port:  &networking.Port{Name: "name1", Number: 7, Protocol: "http"},
 				}},
 			},
-			""},
+			"", ""},
 		{"happy multiple servers",
 			&networking.Gateway{
 				Servers: []*networking.Server{
@@ -730,7 +731,7 @@ func TestValidateGateway(t *testing.T) {
 						Port:  &networking.Port{Name: "name1", Number: 7, Protocol: "http"},
 					}},
 			},
-			""},
+			"", ""},
 		{"invalid port",
 			&networking.Gateway{
 				Servers: []*networking.Server{
@@ -739,7 +740,7 @@ func TestValidateGateway(t *testing.T) {
 						Port:  &networking.Port{Name: "name1", Number: 66000, Protocol: "http"},
 					}},
 			},
-			"port"},
+			"port", ""},
 		{"duplicate port names",
 			&networking.Gateway{
 				Servers: []*networking.Server{
@@ -752,7 +753,7 @@ func TestValidateGateway(t *testing.T) {
 						Port:  &networking.Port{Name: "foo", Number: 8080, Protocol: "http"},
 					}},
 			},
-			"port names"},
+			"port names", ""},
 		{"invalid domain",
 			&networking.Gateway{
 				Servers: []*networking.Server{
@@ -761,25 +762,63 @@ func TestValidateGateway(t *testing.T) {
 						Port:  &networking.Port{Number: 7, Protocol: "http"},
 					}},
 			},
-			"domain"},
+			"domain", ""},
+		{"valid httpsRedirect",
+			&networking.Gateway{
+				Servers: []*networking.Server{
+					{
+						Hosts: []string{"bar.com"},
+						Port:  &networking.Port{Name: "http", Number: 80, Protocol: "http"},
+						Tls:   &networking.ServerTLSSettings{HttpsRedirect: true},
+					}},
+			},
+			"", ""},
+		{"invalid https httpsRedirect",
+			&networking.Gateway{
+				Servers: []*networking.Server{
+					{
+						Hosts: []string{"bar.com"},
+						Port:  &networking.Port{Name: "https", Number: 80, Protocol: "https"},
+						Tls:   &networking.ServerTLSSettings{HttpsRedirect: true},
+					}},
+			},
+			"", "tls.httpsRedirect should only be used with http servers"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			_, err := ValidateGateway(config.Config{
+			warn, err := ValidateGateway(config.Config{
 				Meta: config.Meta{
 					Name:      someName,
 					Namespace: someNamespace,
 				},
 				Spec: tt.in,
 			})
-			if err == nil && tt.out != "" {
-				t.Fatalf("ValidateGateway(%v) = nil, wanted %q", tt.in, tt.out)
-			} else if err != nil && tt.out == "" {
-				t.Fatalf("ValidateGateway(%v) = %v, wanted nil", tt.in, err)
-			} else if err != nil && !strings.Contains(err.Error(), tt.out) {
-				t.Fatalf("ValidateGateway(%v) = %v, wanted %q", tt.in, err, tt.out)
-			}
+			checkValidationMessage(t, warn, err, tt.warning, tt.out)
 		})
+	}
+}
+
+func stringOrEmpty(v error) string {
+	if v == nil {
+		return ""
+	}
+	return v.Error()
+}
+
+func checkValidationMessage(t *testing.T, gotWarning Warning, gotError error, wantWarning string, wantError string) {
+	t.Helper()
+	if (gotError == nil) != (wantError == "") {
+		t.Fatalf("got err=%v but wanted err=%v", gotError, wantError)
+	}
+	if !strings.Contains(stringOrEmpty(gotError), wantError) {
+		t.Fatalf("got err=%v but wanted err=%v", gotError, wantError)
+	}
+
+	if (gotWarning == nil) != (wantWarning == "") {
+		t.Fatalf("got warning=%v but wanted warning=%v", gotWarning, wantWarning)
+	}
+	if !strings.Contains(stringOrEmpty(gotWarning), wantWarning) {
+		t.Fatalf("got warning=%v but wanted warning=%v", gotWarning, wantWarning)
 	}
 }
 

@@ -59,17 +59,18 @@ func callInternal(srcName string, opts *echo.CallOptions, send sendFunc,
 	}
 
 	req := &proto.ForwardEchoRequest{
-		Url:           targetURL,
-		Count:         int32(opts.Count),
-		Headers:       protoHeaders,
-		TimeoutMicros: common.DurationToMicros(opts.Timeout),
-		Message:       opts.Message,
-		Http2:         opts.HTTP2,
-		Method:        opts.Method,
-		ServerFirst:   opts.Port.ServerFirst,
-		Cert:          opts.Cert,
-		Key:           opts.Key,
-		CaCert:        opts.CaCert,
+		Url:             targetURL,
+		Count:           int32(opts.Count),
+		Headers:         protoHeaders,
+		TimeoutMicros:   common.DurationToMicros(opts.Timeout),
+		Message:         opts.Message,
+		Http2:           opts.HTTP2,
+		Method:          opts.Method,
+		ServerFirst:     opts.Port.ServerFirst,
+		Cert:            opts.Cert,
+		Key:             opts.Key,
+		CaCert:          opts.CaCert,
+		FollowRedirects: opts.FollowRedirects,
 	}
 
 	var responses client.ParsedResponses

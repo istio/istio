@@ -24,6 +24,7 @@ import (
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/util/retry"
+	"istio.io/istio/pkg/test/util/yml"
 )
 
 // callsPerCluster is used to ensure cross-cluster load balancing has a chance to work
@@ -48,8 +49,8 @@ type TrafficTestCase struct {
 	children []TrafficCall
 
 	// Single call. Cannot be used with children.
-	call     func(t test.Failer, options echo.CallOptions, retryOptions ...retry.Option) echoclient.ParsedResponses
-	opts     echo.CallOptions
+	call func(t test.Failer, options echo.CallOptions, retryOptions ...retry.Option) echoclient.ParsedResponses
+	opts echo.CallOptions
 
 	// setting cases to skipped is better than not adding them - gives visibility to what needs to be fixed
 	skip bool
@@ -61,9 +62,10 @@ func (c TrafficTestCase) Run(ctx framework.TestContext, namespace string) {
 			ctx.SkipNow()
 		}
 		if len(c.config) > 0 {
-			ctx.Config().ApplyYAMLOrFail(ctx, namespace, c.config)
+			cfg := yml.MustApplyNamespace(ctx, c.config, namespace)
+			ctx.Config().ApplyYAMLOrFail(ctx, "", cfg)
 			ctx.Cleanup(func() {
-				_ = ctx.Config().DeleteYAML(namespace, c.config)
+				_ = ctx.Config().DeleteYAML("", cfg)
 			})
 		}
 

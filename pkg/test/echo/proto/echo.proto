@@ -48,6 +48,8 @@ message ForwardEchoRequest {
   bool http2 = 7;
   // If true, requests will not be sent until magic string is received
   bool serverFirst = 8;
+  // If true, 301 redirects will be followed
+  bool followRedirects = 14;
   // If non-empty, make the request with the corresponding cert and key.
   string cert = 10;
   string key = 11;

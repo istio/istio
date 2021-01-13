@@ -319,23 +319,24 @@ func ValidateUnixAddress(addr string) error {
 
 // ValidateGateway checks gateway specifications
 var ValidateGateway = registerValidateFunc("ValidateGateway",
-	func(cfg config.Config) (warnings Warning, errs error) {
+	func(cfg config.Config) (Warning, error) {
 		name := cfg.Name
+		v := Validation{}
 		// Gateway name must conform to the DNS label format (no dots)
 		if !labels.IsDNS1123Label(name) {
-			errs = appendErrors(errs, fmt.Errorf("invalid gateway name: %q", name))
+			v = appendValidation(v, fmt.Errorf("invalid gateway name: %q", name))
 		}
 		value, ok := cfg.Spec.(*networking.Gateway)
 		if !ok {
-			errs = appendErrors(errs, fmt.Errorf("cannot cast to gateway: %#v", cfg.Spec))
-			return
+			v = appendValidation(v, fmt.Errorf("cannot cast to gateway: %#v", cfg.Spec))
+			return v.Unwrap()
 		}
 
 		if len(value.Servers) == 0 {
-			errs = appendErrors(errs, fmt.Errorf("gateway must have at least one server"))
+			v = appendValidation(v, fmt.Errorf("gateway must have at least one server"))
 		} else {
 			for _, server := range value.Servers {
-				errs = appendErrors(errs, validateServer(server))
+				v = appendValidation(v, validateServer(server))
 			}
 		}
 
@@ -344,18 +345,21 @@ var ValidateGateway = registerValidateFunc("ValidateGateway",
 
 		for _, s := range value.Servers {
 			if s == nil {
-				errs = appendErrors(errs, fmt.Errorf("server may not be nil"))
+				v = appendValidation(v, fmt.Errorf("server may not be nil"))
 				continue
 			}
 			if s.Port != nil {
 				if portNames[s.Port.Name] {
-					errs = appendErrors(errs, fmt.Errorf("port names in servers must be unique: duplicate name %s", s.Port.Name))
+					v = appendValidation(v, fmt.Errorf("port names in servers must be unique: duplicate name %s", s.Port.Name))
 				}
 				portNames[s.Port.Name] = true
+				if !protocol.Parse(s.Port.Protocol).IsHTTP() && s.GetTls().GetHttpsRedirect() {
+					v = appendValidation(v, WrapWarning(fmt.Errorf("tls.httpsRedirect should only be used with http servers")))
+				}
 			}
 		}
 
-		return nil, errs
+		return v.Unwrap()
 	})
 
 func validateServer(server *networking.Server) (errs error) {
