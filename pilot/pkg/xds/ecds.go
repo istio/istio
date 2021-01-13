@@ -58,7 +58,7 @@ func (e *EcdsGenerator) Generate(proxy *model.Proxy, push *model.PushContext, w 
 		return nil, nil
 	}
 
-	resources := model.Resources{}
+	resources := make(model.Resources, 0, len(ec))
 	for _, c := range ec {
 		resources = append(resources, util.MessageToAny(c))
 	}
