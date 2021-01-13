@@ -21,7 +21,6 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
-	"os"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -162,7 +161,7 @@ func installRevisionOrFail(ctx framework.TestContext, version string, configs ma
 
 // ReadInstallFile reads a tar compress installation file from the embedded
 func ReadInstallFile(f string) (string, error) {
-	b, err := os.ReadFile(filepath.Join("testdata/upgrade", f+".tar"))
+	b, err := ioutil.ReadFile(filepath.Join("testdata/upgrade", f+".tar"))
 	if err != nil {
 		return "", err
 	}
