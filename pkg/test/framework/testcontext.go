@@ -54,18 +54,15 @@ type TestContext interface {
 	CreateTmpDirectoryOrFail(prefix string) string
 
 	// WhenDone runs the given function when the test context completes.
-	// The function will not be skipped by nocleanup.
+	// If -istio.test.nocleanup is set, this function will not be executed. To unconditionally cleanup, use Cleanup.
 	// This function may not (safely) access the test context.
 	WhenDone(fn func() error)
 
 	// Cleanup runs the given function when the test context completes.
+	// This function will always run, regardless of -istio.test.nocleanup. To run only when cleanup is enabled,
+	// use WhenDone.
 	// This function may not (safely) access the test context.
 	Cleanup(fn func())
-
-	// CleanupOrFail runs the given function when the test context completes.
-	// The context is failed if an error is returned.
-	// This function may not (safely) access the test context.
-	CleanupOrFail(fn func() error)
 
 	// Done should be called when this context is no longer needed. It triggers the asynchronous cleanup of any
 	// allocated resources.
@@ -284,10 +281,6 @@ func (c *testContext) Cleanup(fn func()) {
 		fn()
 		return nil
 	}})
-}
-
-func (c *testContext) CleanupOrFail(fn func() error) {
-	c.scope.addCloser(&closer{fn: fn})
 }
 
 func (c *testContext) Done() {
