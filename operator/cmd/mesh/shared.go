@@ -225,8 +225,9 @@ func applyFlagAliases(flags []string, manifestsPath, revision string) []string {
 // getRevisionFromSetFlags get revision string from setfFlags, return empty string if revision not found.
 func getRevisionFromSetFlags(flags []string) string {
 	for _, flag := range flags {
-		strings.HasPrefix(flag, "revision=")
-		return strings.ReplaceAll(flag, "revision=", "")
+		if strings.HasPrefix(flag, "revision=") {
+			return strings.ReplaceAll(flag, "revision=", "")
+		}
 	}
 	return ""
 }
