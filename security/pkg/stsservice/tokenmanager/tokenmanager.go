@@ -112,3 +112,8 @@ func (tm *TokenManager) DumpTokenStatus() ([]byte, error) {
 func (tm *TokenManager) SetPlugin(p Plugin) {
 	tm.plugin = p
 }
+
+// GetPlugin gets token exchange plugin
+func (tm *TokenManager) GetPlugin() Plugin {
+	return tm.plugin
+}

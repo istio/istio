@@ -26,6 +26,8 @@ import (
 	"istio.io/istio/pkg/security"
 	"istio.io/istio/security/pkg/stsservice"
 	"istio.io/istio/security/pkg/stsservice/server"
+	"istio.io/istio/security/pkg/stsservice/tokenmanager"
+	"istio.io/istio/security/pkg/stsservice/tokenmanager/google"
 	"istio.io/pkg/log"
 )
 
@@ -66,6 +68,22 @@ func (t *TokenProvider) GetRequestMetadata(ctx context.Context, uri ...string) (
 	}
 	if token == "" {
 		return nil, nil
+	}
+
+	var gcpProjectNumber string
+	tm, ok := t.opts.TokenManager.(*tokenmanager.TokenManager)
+	if ok && tm != nil {
+		plugin, ok := tm.GetPlugin().(*google.Plugin)
+		if ok && plugin != nil {
+			gcpProjectNumber = plugin.GetGcpProjectNumber()
+		}
+	}
+	if !t.forCA && t.opts.XdsEnableTokenFetchExchange && len(gcpProjectNumber) > 0 {
+		return map[string]string{
+			"authorization":       "Bearer " + token,
+			"X-Goog-User-Project": gcpProjectNumber,
+			"project":             "projects/" + gcpProjectNumber,
+		}, nil
 	}
 	return map[string]string{
 		"authorization": "Bearer " + token,

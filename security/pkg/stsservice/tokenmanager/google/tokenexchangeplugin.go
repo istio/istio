@@ -499,6 +499,11 @@ func (p *Plugin) SetEndpoints(fTokenEndpoint, aTokenEndpoint string) {
 	accessTokenEndpoint = aTokenEndpoint
 }
 
+// GetGcpProjectNumber returns the GCP project number
+func (p *Plugin) GetGcpProjectNumber() string {
+	return p.gcpProjectNumber
+}
+
 // ClearCache is only used for testing purposes.
 func (p *Plugin) ClearCache() {
 	p.tokens.Delete(federatedToken)
