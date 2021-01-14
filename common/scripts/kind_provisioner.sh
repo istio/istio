@@ -343,7 +343,7 @@ function connect_metallb() {
   fi
 }
 
-function cidr_to_ips() :q
+function cidr_to_ips() {
     CIDR="$1"
     python3 - <<EOF
 from ipaddress import IPv4Network; [print(str(ip)) for ip in IPv4Network('$CIDR').hosts()]

@@ -175,6 +175,7 @@ func (s *DiscoveryServer) AddDebugHandlers(mux *http.ServeMux, enableProfiling b
 	s.addDebugHandler(mux, "/debug/sidecarz", "Debug sidecar scope for a proxy", s.sidecarz)
 	s.addDebugHandler(mux, "/debug/resourcesz", "Debug support for watched resources", s.resourcez)
 	s.addDebugHandler(mux, "/debug/instancesz", "Debug support for service instances", s.instancesz)
+	s.addDebugHandler(mux, "/debug/networkgatewayz", "Debug support for cross network gateways", s.networkgatewayz)
 
 	s.addDebugHandler(mux, "/debug/authorizationz", "Internal authorization policies", s.Authorizationz)
 	s.addDebugHandler(mux, "/debug/config_dump", "ConfigDump in the form of the Envoy admin config dump API for passed in proxyID", s.ConfigDump)
@@ -821,5 +822,13 @@ func (s *DiscoveryServer) instancesz(w http.ResponseWriter, req *http.Request) {
 	}
 	by, _ := json.MarshalIndent(instances, "", "  ")
 
+	_, _ = w.Write(by)
+}
+
+func (s *DiscoveryServer) networkgatewayz(w http.ResponseWriter, req *http.Request) {
+	w.Header().Add("Content-Type", "application/json")
+
+	network := s.globalPushContext().NetworkGateways()
+	by, _ := json.MarshalIndent(network, "", "  ")
 	_, _ = w.Write(by)
 }
