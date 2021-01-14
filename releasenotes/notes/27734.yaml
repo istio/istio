@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: security
+issue:
+  - 27734
+releaseNotes:
+  - |
+    **Fixed** Removing ability to configure trustDomain from helm global.values. It can only by configured through meshConfig.trustDomain
