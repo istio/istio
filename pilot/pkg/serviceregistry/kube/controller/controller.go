@@ -393,7 +393,7 @@ func (c *Controller) onServiceEvent(curr interface{}, event model.Event) error {
 		c.Unlock()
 	default:
 		needsFullPush := false
-		// First, process nodePort gateway service when externalIPs specified
+		// First, process nodePort gateway service, whose externalIPs specified
 		// and loadbalancer gateway service
 		if svcConv.Attributes.ClusterExternalAddresses != nil {
 			needsFullPush = c.extractGatewaysFromService(svcConv)
