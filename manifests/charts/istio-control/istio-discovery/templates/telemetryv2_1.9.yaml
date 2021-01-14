@@ -400,7 +400,7 @@ spec:
                     {{- if not .Values.telemetry.v2.prometheus.configOverride.inboundSidecar }}
                     {
                       "debug": "false",
-                      "stat_prefix": "istio"
+                      "stat_prefix": "istio",
                       "metrics": [
                         {
                           "dimensions": {
@@ -452,7 +452,7 @@ spec:
                     {{- if not .Values.telemetry.v2.prometheus.configOverride.outboundSidecar }}
                     {
                       "debug": "false",
-                      "stat_prefix": "istio"
+                      "stat_prefix": "istio",
                       "metrics": [
                         {
                           "dimensions": {
@@ -504,7 +504,7 @@ spec:
                     {{- if not .Values.telemetry.v2.prometheus.configOverride.gateway }}
                     {
                       "debug": "false",
-                      "stat_prefix": "istio"
+                      "stat_prefix": "istio",
                       "metrics": [
                         {
                           "dimensions": {

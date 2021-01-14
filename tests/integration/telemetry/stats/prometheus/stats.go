@@ -87,7 +87,11 @@ func TestStatsFilter(t *testing.T, feature features.Feature) {
 							return err
 						}
 						c := cltInstance.Config().Cluster
-						sourceQuery, destinationQuery, appQuery := buildQuery(c.Name())
+						sourceCluster := "Kubernetes"
+						if len(ctx.Clusters()) > 1 {
+							sourceCluster = c.Name()
+						}
+						sourceQuery, destinationQuery, appQuery := buildQuery(sourceCluster)
 						// Query client side metrics
 						if _, err := QueryPrometheus(t, c, sourceQuery, GetPromInstance()); err != nil {
 							t.Logf("prometheus values for istio_requests_total for cluster %v: \n%s", c, util.PromDump(c, promInst, "istio_requests_total"))
@@ -131,7 +135,11 @@ func TestStatsTCPFilter(t *testing.T, feature features.Feature) {
 							return err
 						}
 						c := cltInstance.Config().Cluster
-						destinationQuery := buildTCPQuery(c.Name())
+						sourceCluster := "Kubernetes"
+						if len(ctx.Clusters()) > 1 {
+							sourceCluster = c.Name()
+						}
+						destinationQuery := buildTCPQuery(sourceCluster)
 						if _, err := QueryPrometheus(t, c, destinationQuery, GetPromInstance()); err != nil {
 							t.Logf("prometheus values for istio_tcp_connections_opened_total: \n%s", util.PromDump(c, promInst, "istio_tcp_connections_opened_total"))
 							return err
