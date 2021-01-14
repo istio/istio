@@ -15,8 +15,10 @@
 package util
 
 import (
+	"fmt"
 	"strings"
 
+	"istio.io/istio/galley/pkg/config/analysis/diag"
 	"istio.io/istio/pkg/config/resource"
 )
 
@@ -107,4 +109,12 @@ func ErrorLine(r *resource.Instance, path string) (line int, found bool) {
 func ExtractLabelFromSelectorString(s string) string {
 	equalIndex := strings.Index(s, "=")
 	return s[:equalIndex]
+}
+
+func AddLineNumber(r *resource.Instance, ann string, m diag.Message) bool {
+	if line, ok := ErrorLine(r, fmt.Sprintf(Annotation, ann)); ok {
+		m.Line = line
+		return true
+	}
+	return false
 }
