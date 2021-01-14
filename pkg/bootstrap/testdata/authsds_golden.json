@@ -289,7 +289,7 @@
         "connect_timeout": "0.250s",
         "lb_policy": "ROUND_ROBIN",
         "load_assignment": {
-          "cluster_name": "prometheus_stats",
+          "cluster_name": "agent",
           "endpoints": [{
             "lb_endpoints": [{
               "endpoint": {
