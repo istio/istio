@@ -638,6 +638,10 @@ func scopeToSidecar(scope *SidecarScope) string {
 
 func TestSetDestinationRuleInheritance(t *testing.T) {
 	features.EnableDestinationRuleInheritance = true
+	defer func() {
+		features.EnableDestinationRuleInheritance = false
+	}()
+
 	ps := NewPushContext()
 	ps.Mesh = &meshconfig.MeshConfig{RootNamespace: "istio-system"}
 	testhost := "httpbin.org"
