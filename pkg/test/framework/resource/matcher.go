@@ -46,6 +46,10 @@ func NewMatcher(regex string) (*Matcher, error) {
 }
 
 func (m *Matcher) MatchTest(testName string) bool {
+	if len(m.filter) == 0 {
+		// No regex defined, we default to NOT matching. This ensures our default skips nothing
+		return false
+	}
 	elem := strings.Split(testName, "/")
 	if len(m.filter) > len(elem) {
 		return false
