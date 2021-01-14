@@ -423,15 +423,25 @@ func generateAltVirtualHosts(hostname string, port int, proxyDomain string) []st
 		return nil
 	}
 
-	// adds the unique piece foo, foo:80
-	vhosts = append(vhosts, uniqHostname, domainName(uniqHostname, port))
+	sharedDNSDomainParts := strings.Split(sharedDNSDomain, ".")
 
-	// If hostName does not have a namespace, add a  domain with proper namespace.
-	hostNameParts := strings.Split(uniqHostname, ".")
-	if len(hostNameParts) != 2 {
-		sharedDNSDomainParts := strings.SplitN(sharedDNSDomain, ".", 2)
+	if len(strings.Split(uniqHostname, ".")) == 2 {
+		// This is the case of uniqHostname having namespace already.
+		dnsHostName := uniqHostname + "." + sharedDNSDomainParts[0]
+		vhosts = append(vhosts, uniqHostname, domainName(uniqHostname, port))
+		vhosts = append(vhosts, dnsHostName, domainName(dnsHostName, port))
+	} else {
+		// Derive the namespace from sharedDNSDomain and add virtual host.
 		namespace := sharedDNSDomainParts[0]
-		vhosts = append(vhosts, uniqHostname+"."+namespace, domainName(uniqHostname+"."+namespace, port))
+		hostNameWithNS := uniqHostname + "." + namespace
+		// Don't add if they are same because we add it later and adding it here will result in duplicates.
+		if hostname != hostNameWithNS {
+			vhosts = append(vhosts, hostNameWithNS, domainName(hostNameWithNS, port))
+		}
+		if len(sharedDNSDomainParts) > 1 {
+			dnsHostName := uniqHostname + "." + namespace + "." + sharedDNSDomainParts[1]
+			vhosts = append(vhosts, dnsHostName, domainName(dnsHostName, port))
+		}
 	}
 	return vhosts
 }
