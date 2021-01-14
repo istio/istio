@@ -132,6 +132,10 @@ var (
 	// ServiceEntryAddressesRequired defines a diag.MessageType for message "ServiceEntryAddressesRequired".
 	// Description: Virtual IP addresses are required for ports serving TCP (or unset) protocol
 	ServiceEntryAddressesRequired = diag.NewMessageType(diag.Warning, "IST0134", "ServiceEntry addresses are required for this protocol.")
+
+	// DeploymentConflictingPorts defines a diag.MessageType for message "DeploymentConflictingPorts".
+	// Description: If we have two services, both selecting the same workload, with the same target port, they should be the same port.
+	DeploymentConflictingPorts = diag.NewMessageType(diag.Warning, "IST0135", "This deployment %s is associated with multiple services %v using targetPort %s but different ports: %v.")
 )
 
 // All returns a list of all known message types.
@@ -168,6 +172,7 @@ func All() []*diag.MessageType {
 		VirtualServiceHostNotFoundInGateway,
 		SchemaWarning,
 		ServiceEntryAddressesRequired,
+		DeploymentConflictingPorts,
 	}
 }
 
@@ -482,5 +487,17 @@ func NewServiceEntryAddressesRequired(r *resource.Instance) diag.Message {
 	return diag.NewMessage(
 		ServiceEntryAddressesRequired,
 		r,
+	)
+}
+
+// NewDeploymentConflictingPorts returns a new diag.Message based on DeploymentConflictingPorts.
+func NewDeploymentConflictingPorts(r *resource.Instance, deployment string, services []string, targetPort string, ports []int32) diag.Message {
+	return diag.NewMessage(
+		DeploymentConflictingPorts,
+		r,
+		deployment,
+		services,
+		targetPort,
+		ports,
 	)
 }

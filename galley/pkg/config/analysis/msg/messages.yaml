@@ -353,3 +353,18 @@ messages:
     level: Warning
     description: "Virtual IP addresses are required for ports serving TCP (or unset) protocol"
     template: "ServiceEntry addresses are required for this protocol."
+
+  - name: "DeploymentConflictingPorts"
+    code: IST0135
+    level: Warning
+    description: "If we have two services, both selecting the same workload, with the same target port, they should be the same port."
+    template: "This deployment %s is associated with multiple services %v using targetPort %s but different ports: %v."
+    args:
+      - name: deployment
+        type: string
+      - name: services
+        type: "[]string"
+      - name: targetPort
+        type: string
+      - name: ports
+        type: "[]int32"
