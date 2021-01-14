@@ -21,12 +21,16 @@ import (
 
 	"k8s.io/client-go/kubernetes"
 
+	"istio.io/istio/pilot/pkg/config/kube/crdclient"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/leaderelection"
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pilot/pkg/serviceregistry"
 	"istio.io/istio/pilot/pkg/serviceregistry/aggregate"
 	"istio.io/istio/pilot/pkg/serviceregistry/serviceentry"
 	"istio.io/istio/pkg/config/mesh"
+	"istio.io/istio/pkg/config/schema/collection"
+	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/config/schema/gvk"
 	kubelib "istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/secretcontroller"
@@ -48,7 +52,8 @@ var (
 
 type kubeController struct {
 	*Controller
-	stopCh chan struct{}
+	stopCh             chan struct{}
+	workloadEntryStore *serviceentry.ServiceEntryStore
 }
 
 // Multicluster structure holds the remote kube Controllers and multicluster specific attributes.
@@ -152,11 +157,23 @@ func (m *Multicluster) AddMemberCluster(client kubelib.Client, clusterID string)
 		kubeRegistry.AppendWorkloadHandler(m.serviceEntryStore.WorkloadInstanceHandler)
 	}
 
-	if localCluster {
-		// TODO implement deduping in aggregate registry to allow multiple k8s registries to handle WorkloadEntry
-		if m.serviceEntryStore != nil && features.EnableK8SServiceSelectWorkloadEntries {
+	// TODO implement deduping in aggregate registry to allow multiple k8s registries to handle WorkloadEntry
+	if features.EnableK8SServiceSelectWorkloadEntries {
+		if m.serviceEntryStore != nil && localCluster {
 			// Add an instance handler in the service entry store to notify kubernetes about workload entry events
 			m.serviceEntryStore.AppendWorkloadHandler(kubeRegistry.WorkloadInstanceHandler)
+		} else if features.WorkloadEntryCrossCluster {
+			// TODO only do this for non-remotes, can't guarantee CRDs in remotes (depends on https://github.com/istio/istio/pull/29824)
+			if configStore, err := createConfigStore(client, m.revision, options); err == nil {
+				m.remoteKubeControllers[clusterID].workloadEntryStore = serviceentry.NewServiceDiscovery(
+					configStore, model.MakeIstioStore(configStore), options.XDSUpdater, serviceentry.DisableServiceEntryProcessing())
+				m.serviceController.AddRegistry(m.remoteKubeControllers[clusterID].workloadEntryStore)
+				// Services can select WorkloadEntry from the same cluster. We only duplicate the Service to configure kube-dns.
+				m.remoteKubeControllers[clusterID].workloadEntryStore.AppendWorkloadHandler(kubeRegistry.WorkloadInstanceHandler)
+				go configStore.Run(stopCh)
+			} else {
+				log.Errorf("failed creating config configStore for cluster %s: %v", clusterID, err)
+			}
 		}
 	}
 
@@ -226,7 +243,7 @@ func (m *Multicluster) DeleteMemberCluster(clusterID string) error {
 
 	m.m.Lock()
 	defer m.m.Unlock()
-	m.serviceController.DeleteRegistry(clusterID)
+	m.serviceController.DeleteRegistry(clusterID, serviceregistry.Kubernetes)
 	kc, ok := m.remoteKubeControllers[clusterID]
 	if !ok {
 		log.Infof("cluster %s does not exist, maybe caused by invalid kubeconfig", clusterID)
@@ -235,6 +252,9 @@ func (m *Multicluster) DeleteMemberCluster(clusterID string) error {
 	if err := kc.Cleanup(); err != nil {
 		log.Warnf("failed cleaning up services in %s: %v", clusterID, err)
 	}
+	if kc.workloadEntryStore != nil {
+		m.serviceController.DeleteRegistry(clusterID, serviceregistry.External)
+	}
 	close(m.remoteKubeControllers[clusterID].stopCh)
 	delete(m.remoteKubeControllers, clusterID)
 	if m.XDSUpdater != nil {
@@ -242,6 +262,14 @@ func (m *Multicluster) DeleteMemberCluster(clusterID string) error {
 	}
 
 	return nil
+}
+
+func createConfigStore(client kubelib.Client, revision string, opts Options) (model.ConfigStoreCache, error) {
+	log.Infof("Creating WorkloadEntry only config store for %s", opts.ClusterID)
+	workloadEntriesSchemas := collection.NewSchemasBuilder().
+		MustAdd(collections.IstioNetworkingV1Alpha3Workloadentries).
+		Build()
+	return crdclient.NewForSchemas(client, revision, opts.DomainSuffix, workloadEntriesSchemas)
 }
 
 func (m *Multicluster) updateHandler(svc *model.Service) {
