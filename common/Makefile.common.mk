@@ -94,7 +94,7 @@ mirror-licenses: mod-download-go
 	@license-lint --mirror
 
 TMP := $(shell mktemp -d -u)
-UPDATE_BRANCH ?= "master"
+UPDATE_BRANCH ?= "release-1.9"
 
 update-common:
 	@mkdir -p $(TMP)
