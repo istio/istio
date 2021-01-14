@@ -1654,7 +1654,8 @@ func TestIsClusterLocal(t *testing.T) {
 			push := &PushContext{
 				Mesh: env.Mesh(),
 			}
-			push.initClusterLocalHosts(env)
+			env.PushContext = push
+			env.initClusterLocalHosts()
 
 			svc := &Service{
 				Hostname: host.Name(c.host),
