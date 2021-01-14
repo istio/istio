@@ -17,18 +17,17 @@ package model_test
 import (
 	"bytes"
 	"encoding/json"
-	"github.com/onsi/gomega"
-	"istio.io/istio/pkg/config/mesh"
 	"reflect"
 	"testing"
 	"time"
 
-	v1 "k8s.io/api/core/v1"
-
 	"github.com/gogo/protobuf/types"
 	"github.com/golang/protobuf/jsonpb"
 	structpb "github.com/golang/protobuf/ptypes/struct"
+	"github.com/onsi/gomega"
+	"github.com/onsi/gomega"
 	"github.com/stretchr/testify/assert"
+	v1 "k8s.io/api/core/v1"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/api/networking/v1alpha3"
@@ -36,6 +35,8 @@ import (
 	"istio.io/istio/pilot/pkg/serviceregistry/memory"
 	"istio.io/istio/pilot/pkg/serviceregistry/mock"
 	"istio.io/istio/pkg/config/host"
+	"istio.io/istio/pkg/config/mesh"
+	"istio.io/istio/pkg/config/mesh"
 )
 
 func TestNodeMetadata(t *testing.T) {
