@@ -160,6 +160,10 @@ func newTestContext(test *testImpl, goTest *testing.T, s *suiteContext, parentSc
 		goTest.Skipf("Skipping: label mismatch: labels=%v, filter=%v", allLabels, s.settings.Selector)
 	}
 
+	if s.settings.SkipMatcher.MatchTest(goTest.Name()) {
+		goTest.Skipf("Skipping: test %v matched -istio.test.skip regex", goTest.Name())
+	}
+
 	scopes.Framework.Debugf("Creating New test context")
 	workDir := path.Join(s.settings.RunDir(), goTest.Name(), "_test_context")
 	if err := os.MkdirAll(workDir, os.ModePerm); err != nil {
