@@ -222,6 +222,15 @@ func applyFlagAliases(flags []string, manifestsPath, revision string) []string {
 	return flags
 }
 
+// getRevisionFromSetFlags get revision string from setfFlags, return empty string if revision not found.
+func getRevisionFromSetFlags(flags []string) string {
+	for _, flag := range flags {
+		strings.HasPrefix(flag, "revision=")
+		return strings.ReplaceAll(flag, "revision=", "")
+	}
+	return ""
+}
+
 // getCRAndNamespaceFromFile returns the CR name and istio namespace from a file containing an IstioOperator CR.
 func getCRAndNamespaceFromFile(filePath string, l clog.Logger) (customResource string, istioNamespace string, err error) {
 	if filePath == "" {
