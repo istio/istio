@@ -17,9 +17,13 @@ package model_test
 import (
 	"bytes"
 	"encoding/json"
+	"github.com/onsi/gomega"
+	"istio.io/istio/pkg/config/mesh"
 	"reflect"
 	"testing"
 	"time"
+
+	v1 "k8s.io/api/core/v1"
 
 	"github.com/gogo/protobuf/types"
 	"github.com/golang/protobuf/jsonpb"
@@ -607,6 +611,128 @@ func TestGlobalUnicastIP(t *testing.T) {
 			if got := node.GlobalUnicastIP; got != tt.expect {
 				t.Errorf("GlobalUnicastIP = %v, want %v", got, tt.expect)
 			}
+		})
+	}
+}
+
+func TestIsServiceClusterLocal(t *testing.T) {
+	cases := []struct {
+		name             string
+		m                meshconfig.MeshConfig
+		serviceName      string
+		serviceNamespace string
+		expected         bool
+	}{
+		{
+			name:             "local by default",
+			m:                mesh.DefaultMeshConfig(),
+			serviceName:      "s",
+			serviceNamespace: "kube-system",
+			expected:         true,
+		},
+		{
+			name:             "discovery server is local",
+			m:                mesh.DefaultMeshConfig(),
+			serviceName:      "istiod",
+			serviceNamespace: "istio-system",
+			expected:         true,
+		},
+		{
+			name:             "not local by default",
+			m:                mesh.DefaultMeshConfig(),
+			serviceName:      "not",
+			serviceNamespace: "random",
+			expected:         false,
+		},
+		{
+			name: "override default",
+			m: meshconfig.MeshConfig{
+				// Remove the cluster-local setting for kube-system.
+				ServiceSettings: []*meshconfig.MeshConfig_ServiceSettings{
+					{
+						Settings: &meshconfig.MeshConfig_ServiceSettings_Settings{
+							ClusterLocal: false,
+						},
+						Hosts: []string{"*.kube-system.svc.cluster.local"},
+					},
+				},
+			},
+			serviceName:      "s",
+			serviceNamespace: "kube-system",
+			expected:         false,
+		},
+		{
+			name: "local 1",
+			m: meshconfig.MeshConfig{
+				ServiceSettings: []*meshconfig.MeshConfig_ServiceSettings{
+					{
+						Settings: &meshconfig.MeshConfig_ServiceSettings_Settings{
+							ClusterLocal: true,
+						},
+						Hosts: []string{
+							"*.ns1.svc.cluster.local",
+							"*.ns2.svc.cluster.local",
+						},
+					},
+				},
+			},
+			serviceName:      "s",
+			serviceNamespace: "ns1",
+			expected:         true,
+		},
+		{
+			name: "local 2",
+			m: meshconfig.MeshConfig{
+				ServiceSettings: []*meshconfig.MeshConfig_ServiceSettings{
+					{
+						Settings: &meshconfig.MeshConfig_ServiceSettings_Settings{
+							ClusterLocal: true,
+						},
+						Hosts: []string{
+							"*.ns1.svc.cluster.local",
+							"*.ns2.svc.cluster.local",
+						},
+					},
+				},
+			},
+			serviceName:      "s",
+			serviceNamespace: "ns2",
+			expected:         true,
+		},
+		{
+			name: "not local",
+			m: meshconfig.MeshConfig{
+				ServiceSettings: []*meshconfig.MeshConfig_ServiceSettings{
+					{
+						Settings: &meshconfig.MeshConfig_ServiceSettings_Settings{
+							ClusterLocal: true,
+						},
+						Hosts: []string{
+							"*.ns1.svc.cluster.local",
+							"*.ns2.svc.cluster.local",
+						},
+					},
+				},
+			},
+			serviceName:      "s",
+			serviceNamespace: "ns3",
+			expected:         false,
+		},
+	}
+
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			g := gomega.NewWithT(t)
+
+			env := &model.Environment{Watcher: mesh.NewFixedWatcher(&c.m)}
+
+			env.InitClusterLocalHosts()
+
+			svc := &v1.Service{}
+			svc.Name = c.serviceName
+			svc.Namespace = c.serviceNamespace
+			clusterLocal := env.IsServiceClusterLocal(svc)
+			g.Expect(clusterLocal).To(gomega.Equal(c.expected))
 		})
 	}
 }

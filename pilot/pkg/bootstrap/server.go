@@ -239,8 +239,6 @@ func NewServer(args *PilotArgs) (*Server, error) {
 	s.initMeshNetworks(args, s.fileWatcher)
 	s.initMeshHandlers()
 
-	e.PushContext.Mesh = e.Mesh()
-
 	// Options based on the current 'defaults' in istio.
 	caOpts := &caOptions{
 		TrustDomain:    s.environment.Mesh().TrustDomain,
@@ -1183,6 +1181,8 @@ func (s *Server) initMeshHandlers() {
 			Reason: []model.TriggerReason{model.GlobalUpdate},
 		})
 	})
+
+	s.environment.InitClusterLocalHosts()
 }
 
 func (s *Server) initWorkloadTrustBundle() {

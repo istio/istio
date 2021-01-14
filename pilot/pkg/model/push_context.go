@@ -975,7 +975,7 @@ func (ps *PushContext) InitContext(env *Environment, oldPushContext *PushContext
 	// TODO: only do this when meshnetworks or gateway service changed
 	ps.initMeshNetworks(env.Networks())
 
-	ps.clusterLocalHosts = env.initClusterLocalHosts()
+	ps.clusterLocalHosts = env.GetClusterLocalHosts()
 
 	ps.initDone.Store(true)
 	return nil
@@ -1023,7 +1023,7 @@ func (ps *PushContext) updateContext(
 	oldPushContext *PushContext,
 	pushReq *PushRequest) error {
 	var servicesChanged, virtualServicesChanged, destinationRulesChanged, gatewayChanged,
-		authnChanged, authzChanged, envoyFiltersChanged, sidecarsChanged bool
+	authnChanged, authzChanged, envoyFiltersChanged, sidecarsChanged bool
 
 	for conf := range pushReq.ConfigsUpdated {
 		switch conf.Kind {

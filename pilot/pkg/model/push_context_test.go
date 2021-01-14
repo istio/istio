@@ -1657,6 +1657,7 @@ func TestIsClusterLocal(t *testing.T) {
 			env.ServiceDiscovery = &localServiceDiscovery{
 				services: []*Service{},
 			}
+			env.InitClusterLocalHosts()
 			push := NewPushContext()
 			_ = push.InitContext(env, nil, nil)
 

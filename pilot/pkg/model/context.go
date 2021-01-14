@@ -149,7 +149,7 @@ func (e *Environment) Version() string {
 	return ""
 }
 
-func (e *Environment) initClusterLocalHosts() []host.Name {
+func (e *Environment) InitClusterLocalHosts() []host.Name {
 	// Create the default list of cluster-local hosts.
 	domainSuffix := e.GetDomainSuffix()
 	defaultClusterLocalHosts := make([]host.Name, 0)
@@ -196,6 +196,10 @@ func (e *Environment) initClusterLocalHosts() []host.Name {
 	sort.Sort(host.Names(clusterLocalHosts))
 	e.clusterLocalHosts = clusterLocalHosts
 	return clusterLocalHosts
+}
+
+func (e *Environment) GetClusterLocalHosts() []host.Name {
+	return e.clusterLocalHosts
 }
 
 func (e *Environment) IsServiceClusterLocal(service *v1.Service) bool {
