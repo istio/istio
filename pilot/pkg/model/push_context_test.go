@@ -1659,7 +1659,6 @@ func TestIsClusterLocal(t *testing.T) {
 			}
 			push := NewPushContext()
 			_ = push.InitContext(env, nil, nil)
-			//env.initClusterLocalHosts()
 
 			svc := &Service{
 				Hostname: host.Name(c.host),
