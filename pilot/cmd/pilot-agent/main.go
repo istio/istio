@@ -231,6 +231,7 @@ var (
 			// If security token service (STS) port is not zero, start STS server and
 			// listen on STS port for STS requests. For STS, see
 			// https://tools.ietf.org/html/draft-ietf-oauth-token-exchange-16.
+			// STS is used for stackdriver or other Envoy services using google gRPC.
 			if stsPort > 0 {
 				localHostAddr := localHostIPv4
 				if proxyIPv6 {

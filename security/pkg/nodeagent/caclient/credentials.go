@@ -36,10 +36,10 @@ const (
 )
 
 // TokenProvider is a grpc PerRPCCredentials that can be used to attach a JWT token to each gRPC call.
-// TokenProvider can be used for both XDS and CA connection, which may involve token exchange through STS.
+// TokenProvider can be used for XDS, which may involve token exchange through STS.
 type TokenProvider struct {
 	opts security.Options
-	// TokenProvider can be used for both XDS and CA connection. Because CA is often used with
+	// TokenProvider can be used for XDS. Because CA is often used with
 	// external systems and XDS is not often (yet?), many of the security options only apply to CA
 	// communication. A more proper solution would be to have separate options for CA and XDS, but
 	// this requires API changes.
