@@ -114,8 +114,7 @@ func validate(ms *messages) error {
 	return nil
 }
 
-var tmpl = `
-// GENERATED FILE -- DO NOT EDIT
+var tmpl = `// GENERATED FILE -- DO NOT EDIT
 //
 
 package msg
@@ -126,22 +125,21 @@ import (
 )
 
 var (
-	{{- range .Messages}}
+{{- range .Messages}}
 	// {{.Name}} defines a diag.MessageType for message "{{.Name}}".
 	// Description: {{.Description}}
 	{{.Name}} = diag.NewMessageType(diag.{{.Level}}, "{{.Code}}", "{{.Template}}")
-	{{end}}
+{{end -}}
 )
 
 // All returns a list of all known message types.
 func All() []*diag.MessageType {
 	return []*diag.MessageType{
 		{{- range .Messages}}
-			{{.Name}},
+		{{.Name}},
 		{{- end}}
 	}
 }
-
 {{range .Messages}}
 // New{{.Name}} returns a new diag.Message based on {{.Name}}.
 func New{{.Name}}(r *resource.Instance{{range .Args}}, {{.Name}} {{.Type}}{{end}}) diag.Message {
@@ -149,11 +147,11 @@ func New{{.Name}}(r *resource.Instance{{range .Args}}, {{.Name}} {{.Type}}{{end}
 		{{.Name}},
 		r,
 		{{- range .Args}}
-			{{.Name}},
+		{{.Name}},
 		{{- end}}
 	)
 }
-{{end}}
+{{end -}}
 `
 
 func generate(m *messages) (string, error) {
