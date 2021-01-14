@@ -73,8 +73,8 @@ func (e *Environment) Clusters() resource.Clusters {
 // ClustersByNetwork returns an inverse mapping of the network topolgoy to a slice of clusters in a given network.
 func (e *Environment) ClustersByNetwork() map[string][]resource.Cluster {
 	out := make(map[string][]resource.Cluster)
-	for clusterIdx, networkName := range e.s.networkTopology {
-		out[networkName] = append(out[networkName], e.clusters[clusterIdx])
+	for _, c := range e.clusters {
+		out[c.NetworkName()] = append(out[c.NetworkName()], c)
 	}
 	return out
 }

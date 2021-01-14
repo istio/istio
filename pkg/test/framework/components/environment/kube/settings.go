@@ -74,16 +74,6 @@ func (s *Settings) clone() *Settings {
 	return &c
 }
 
-// GetControlPlaneClusters returns a set containing just the cluster indexes that contain control planes.
-func (s *Settings) GetControlPlaneClusters() map[resource.ClusterIndex]bool {
-	out := make(map[resource.ClusterIndex]bool)
-	for _, controlPlaneClusterIndex := range s.ControlPlaneTopology {
-		out[controlPlaneClusterIndex] = true
-	}
-	return out
-}
-
-// clusterConfigs creates the kubernetes clients for interacting with the configured clusters.
 func (s *Settings) clusterConfigs() []cluster.Config {
 	var configs []cluster.Config
 	// TODO read entire config from file, use flags for backwards compat
