@@ -32,6 +32,7 @@ import (
 	"github.com/golang/protobuf/jsonpb"
 	"github.com/golang/protobuf/ptypes/any"
 	structpb "github.com/golang/protobuf/ptypes/struct"
+	v1 "k8s.io/api/core/v1"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/pkg/trustbundle"
@@ -82,6 +83,8 @@ type Environment struct {
 
 	// TrustBundle: List of Mesh TrustAnchors
 	TrustBundle *trustbundle.TrustBundle
+
+	clusterLocalHosts []host.Name
 }
 
 func (e *Environment) GetDomainSuffix() string {
@@ -146,12 +149,75 @@ func (e *Environment) Version() string {
 	return ""
 }
 
+func (e *Environment) initClusterLocalHosts() []host.Name {
+	// Create the default list of cluster-local hosts.
+	domainSuffix := e.GetDomainSuffix()
+	defaultClusterLocalHosts := make([]host.Name, 0)
+	for _, n := range defaultClusterLocalNamespaces {
+		defaultClusterLocalHosts = append(defaultClusterLocalHosts, host.Name("*."+n+".svc."+domainSuffix))
+	}
+
+	if discoveryHost, _, err := e.GetDiscoveryAddress(); err != nil {
+		log.Errorf("failed to make discoveryAddress cluster-local: %v", err)
+	} else {
+		if !strings.HasSuffix(string(discoveryHost), domainSuffix) {
+			discoveryHost += host.Name("." + domainSuffix)
+		}
+		defaultClusterLocalHosts = append(defaultClusterLocalHosts, discoveryHost)
+	}
+
+	// Collect the cluster-local hosts.
+	clusterLocalHosts := make([]host.Name, 0)
+	for _, serviceSettings := range e.Mesh().ServiceSettings {
+		if serviceSettings.Settings.ClusterLocal {
+			for _, h := range serviceSettings.Hosts {
+				clusterLocalHosts = append(clusterLocalHosts, host.Name(h))
+			}
+		} else {
+			// Remove defaults if specified to be non-cluster-local.
+			for _, h := range serviceSettings.Hosts {
+				for i, defaultClusterLocalHost := range defaultClusterLocalHosts {
+					if len(defaultClusterLocalHost) > 0 && strings.HasSuffix(h, string(defaultClusterLocalHost[1:])) {
+						// This default was explicitly overridden, so remove it.
+						defaultClusterLocalHosts[i] = ""
+					}
+				}
+			}
+		}
+	}
+
+	// Add any remaining defaults to the end of the list.
+	for _, defaultClusterLocalHost := range defaultClusterLocalHosts {
+		if len(defaultClusterLocalHost) > 0 {
+			clusterLocalHosts = append(clusterLocalHosts, defaultClusterLocalHost)
+		}
+	}
+
+	sort.Sort(host.Names(clusterLocalHosts))
+	e.clusterLocalHosts = clusterLocalHosts
+	return clusterLocalHosts
+}
+
+func (e *Environment) IsServiceClusterLocal(service *v1.Service) bool {
+	hostname := fmt.Sprintf("%s.%s.svc.cluster.local", service.Name, service.Namespace)
+	_, ok := MostSpecificHostMatch(host.Name(hostname), nil, e.clusterLocalHosts)
+	return ok
+}
+
 func (e *Environment) GetLedger() ledger.Ledger {
 	return e.ledger
 }
 
 func (e *Environment) SetLedger(l ledger.Ledger) {
 	e.ledger = l
+}
+
+//only user for testing
+func (e *Environment) SetClusterLocalHosts(hostList []string) {
+	e.clusterLocalHosts = make([]host.Name, len(hostList))
+	for _, hostName := range hostList {
+		e.clusterLocalHosts = append(e.clusterLocalHosts, host.Name(hostName))
+	}
 }
 
 // Request is an alias for array of marshaled resources.

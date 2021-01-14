@@ -16,15 +16,12 @@ package model
 
 import (
 	"encoding/json"
-	"fmt"
 	"net"
 	"sort"
-	"strings"
 	"sync"
 	"time"
 
 	"go.uber.org/atomic"
-	v1 "k8s.io/api/core/v1"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
@@ -917,12 +914,6 @@ func (ps *PushContext) IsClusterLocal(service *Service) bool {
 	return ok
 }
 
-func (ps *PushContext) IsServiceClusterLocal(service *v1.Service) bool {
-	hostname := fmt.Sprintf("%s.%s.svc.cluster.local", service.Name, service.Namespace)
-	_, ok := MostSpecificHostMatch(host.Name(hostname), nil, ps.clusterLocalHosts)
-	return ok
-}
-
 // SubsetToLabels returns the labels associated with a subset of a given service.
 func (ps *PushContext) SubsetToLabels(proxy *Proxy, subsetName string, hostname host.Name) labels.Collection {
 	// empty subset
@@ -984,7 +975,7 @@ func (ps *PushContext) InitContext(env *Environment, oldPushContext *PushContext
 	// TODO: only do this when meshnetworks or gateway service changed
 	ps.initMeshNetworks(env.Networks())
 
-	ps.initClusterLocalHosts(env)
+	ps.clusterLocalHosts = env.initClusterLocalHosts()
 
 	ps.initDone.Store(true)
 	return nil
@@ -1870,12 +1861,4 @@ func (ps *PushContext) ServiceInstancesByPort(svc *Service, port int, labels lab
 
 	// Fallback to discovery call.
 	return ps.InstancesByPort(svc, port, labels)
-}
-
-//only user for testing
-func (ps *PushContext) SetClusterLocalHosts(hostList []string) {
-	ps.clusterLocalHosts = make([]host.Name, len(hostList))
-	for _, hostName := range hostList {
-		ps.clusterLocalHosts = append(ps.clusterLocalHosts, host.Name(hostName))
-	}
 }

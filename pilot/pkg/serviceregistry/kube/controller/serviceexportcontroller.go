@@ -89,8 +89,8 @@ func (sc *ServiceExportController) Run(stopCh <-chan struct{}) {
 }
 
 func (sc *ServiceExportController) HandleNewService(obj *v1.Service) error {
-	if sc.environment.PushContext.IsServiceClusterLocal(obj) {
-		return nil //don't don anything for marked clusterlocal services
+	if sc.environment.IsServiceClusterLocal(obj) {
+		return nil //don't do anything for marked clusterlocal services
 	}
 	return sc.createServiceExportIfNotPresent(obj)
 }

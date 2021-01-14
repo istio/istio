@@ -41,12 +41,9 @@ func TestServiceExportController(t *testing.T) {
 
 	//start the controller
 	hosts := []string{"*.ns1.svc.cluster.local", "secretservice.*.svc.cluster.local", "service12.ns12.svc.cluster.local"}
-	pushContext := model.PushContext{}
-	pushContext.SetClusterLocalHosts(hosts)
 
-	env := model.Environment{
-		PushContext: &pushContext,
-	}
+	env := model.Environment{}
+	env.SetClusterLocalHosts(hosts)
 
 	sc, _ := NewServiceExportController(client, &env)
 
