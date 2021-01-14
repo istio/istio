@@ -19,10 +19,10 @@ ISTIO_GO := $(shell dirname $(realpath $(lastword $(MAKEFILE_LIST))))
 export ISTIO_GO
 SHELL := /bin/bash -o pipefail
 
-export VERSION ?= 1.9-dev
+export VERSION ?= 1.10-dev
 
 # Base version of Istio image to use
-BASE_VERSION ?= 1.9-dev.1
+BASE_VERSION ?= 1.10-dev.1
 
 export GO111MODULE ?= on
 export GOPROXY ?= https://proxy.golang.org
