@@ -29,6 +29,10 @@ import (
 	"istio.io/pkg/log"
 )
 
+const (
+	scope = "https://www.googleapis.com/auth/cloud-platform"
+)
+
 // TokenProvider is a grpc PerRPCCredentials that can be used to attach a JWT token to each gRPC call.
 // TokenProvider can be used for both XDS and CA connection, which may involve token exchange through STS.
 type TokenProvider struct {
@@ -102,6 +106,7 @@ func (t *TokenProvider) GetToken() (string, error) {
 			return "", fmt.Errorf("the JWT token for XDS token exchange is empty")
 		}
 		params := stsservice.StsRequestParameters{
+			Scope:            scope,
 			GrantType:        server.TokenExchangeGrantType,
 			SubjectToken:     strings.TrimSpace(string(tok)),
 			SubjectTokenType: server.SubjectTokenType,
