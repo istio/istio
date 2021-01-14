@@ -15,6 +15,7 @@
 package envoyfilter
 
 import (
+	"fmt"
 	cluster "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
 	"github.com/golang/protobuf/proto"
 	networking "istio.io/api/networking/v1alpha3"
@@ -40,7 +41,11 @@ func ApplyClusterMerge(pctx networking.EnvoyFilter_PatchContext, efw *model.Envo
 		}
 		if commonConditionMatch(pctx, cp) && clusterMatch(c, cp) {
 
-			if mergeTransportSocketCluster(c, cp) == false {
+			ret, err := mergeTransportSocketCluster(c, cp)
+			if err != nil {
+				continue
+			}
+			if !ret {
 				proto.Merge(c, cp.Value)
 			}
 		}
@@ -49,45 +54,51 @@ func ApplyClusterMerge(pctx networking.EnvoyFilter_PatchContext, efw *model.Envo
 }
 
 // Test if the patch contains a config for TransportSocket
-func mergeTransportSocketCluster(c *cluster.Cluster, cp *model.EnvoyFilterConfigPatchWrapper) bool {
+func mergeTransportSocketCluster(c *cluster.Cluster, cp *model.EnvoyFilterConfigPatchWrapper) (bool, error) {
+
+	err := fmt.Errorf("ERROR function mergeTransportSocketCluster failed.")
 
 	cpValueCast, okCpCast := (cp.Value).(*cluster.Cluster)
 	if !okCpCast {
 		log.Errorf("ERROR Cast of cp.Value: %v", okCpCast)
-		return false
+		return false, err
 	}
 
-	if cpValueCast.GetTransportSocket() != nil {
+	applyPatch := false
+	var tsmPatch *cluster.Cluster_TransportSocketMatch
 
-		// Test if the cluster contains a config for TransportSocket
-		if c.GetTransportSocketMatches() != nil {
-			for transportSocketIndex, tsm := range c.TransportSocketMatches {
-				if tsm.GetTransportSocket() != nil {
-					if cpValueCast.TransportSocket.Name == tsm.TransportSocket.Name {
+	// Test if the patch and the cluster contains a config for TransportSocket
+	if cpValueCast.GetTransportSocket() != nil && c.GetTransportSocketMatches() != nil {
 
-						// Merge the patch and the cluster at a lower level
-						dstCluster := c.TransportSocketMatches[transportSocketIndex].TransportSocket.GetTypedConfig()
-						srcPatch := cpValueCast.TransportSocket.GetTypedConfig()
-
-						if dstCluster != nil && srcPatch != nil {
-
-							retVal, err := util.MergeAnyWithAny(dstCluster, srcPatch)
-							if err != nil {
-								log.Errorf("ERROR merge any with any: %v", err)
-								return false
-							}
-
-							// Merge the above result with the whole cluster
-							proto.Merge(dstCluster, retVal)
-							return true
-
-						}
-					}
-				}
+		for _, tsm := range c.GetTransportSocketMatches() {
+			if tsm.GetTransportSocket() != nil && cpValueCast.GetTransportSocket().Name == tsm.GetTransportSocket().Name {
+				tsmPatch = tsm
+				applyPatch = true
+				break
 			}
 		}
+
+		if applyPatch {
+			// Merge the patch and the cluster at a lower level
+			dstCluster := tsmPatch.GetTransportSocket().GetTypedConfig()
+			srcPatch := cpValueCast.GetTransportSocket().GetTypedConfig()
+
+			if dstCluster != nil && srcPatch != nil {
+
+				retVal, err := util.MergeAnyWithAny(dstCluster, srcPatch)
+				if err != nil {
+					log.Errorf("ERROR MergeAnyWithAny failed for ApplyClusterMerge: %v", err)
+					return false, err
+				}
+
+				// Merge the above result with the whole cluster
+				proto.Merge(dstCluster, retVal)
+				return true, nil
+			}
+		}
+
 	}
-	return false
+	return false, nil
 }
 
 
