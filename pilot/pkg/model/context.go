@@ -195,7 +195,6 @@ func (e *Environment) initClusterLocalHosts() []host.Name {
 
 	sort.Sort(host.Names(clusterLocalHosts))
 	e.clusterLocalHosts = clusterLocalHosts
-	e.PushContext.clusterLocalHosts = clusterLocalHosts
 	return clusterLocalHosts
 }
 

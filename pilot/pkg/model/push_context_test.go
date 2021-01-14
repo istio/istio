@@ -1651,11 +1651,15 @@ func TestIsClusterLocal(t *testing.T) {
 			g := NewWithT(t)
 
 			env := &Environment{Watcher: mesh.NewFixedWatcher(&c.m)}
-			push := &PushContext{
-				Mesh: env.Mesh(),
+			store := istioConfigStore{ConfigStore: NewFakeStore()}
+
+			env.IstioConfigStore = &store
+			env.ServiceDiscovery = &localServiceDiscovery{
+				services: []*Service{},
 			}
-			env.PushContext = push
-			env.initClusterLocalHosts()
+			push := NewPushContext()
+			_ = push.InitContext(env, nil, nil)
+			//env.initClusterLocalHosts()
 
 			svc := &Service{
 				Hostname: host.Name(c.host),
