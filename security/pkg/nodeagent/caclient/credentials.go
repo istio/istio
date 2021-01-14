@@ -86,40 +86,7 @@ func (t *TokenProvider) RequireTransportSecurity() bool {
 // handle the request, such as mTLS.
 func (t *TokenProvider) GetToken() (string, error) {
 	if !t.forCA {
-		if t.opts.JWTPath == "" {
-			return "", nil
-		}
-		tok, err := ioutil.ReadFile(t.opts.JWTPath)
-		if err != nil {
-			log.Warnf("failed to fetch token from file: %v", err)
-			return "", nil
-		}
-		// For XDS flow, when token fetch and exchange is disabled, we only support reading from file.
-		if !t.opts.XdsEnableTokenFetchExchange {
-			return strings.TrimSpace(string(tok)), nil
-		}
-		// For XDS flow, the token exchange is different from that of the CA flow.
-		if t.opts.TokenManager == nil {
-			return "", fmt.Errorf("XDS token exchange is enabled but token manager is nil")
-		}
-		if strings.TrimSpace(string(tok)) == "" {
-			return "", fmt.Errorf("the JWT token for XDS token exchange is empty")
-		}
-		params := stsservice.StsRequestParameters{
-			Scope:            scope,
-			GrantType:        server.TokenExchangeGrantType,
-			SubjectToken:     strings.TrimSpace(string(tok)),
-			SubjectTokenType: server.SubjectTokenType,
-		}
-		body, err := t.opts.TokenManager.GenerateToken(params)
-		if err != nil {
-			return "", fmt.Errorf("token manager failed to generate access token: %v", err)
-		}
-		respData := &stsservice.StsResponseParameters{}
-		if err := json.Unmarshal(body, respData); err != nil {
-			return "", fmt.Errorf("failed to unmarshal access token response data: %v", err)
-		}
-		return respData.AccessToken, nil
+		return t.GetTokenForXDS()
 	}
 	// For CA, we have two modes, using the newer CredentialFetcher or just reading directly from file
 	var token string
@@ -144,6 +111,44 @@ func (t *TokenProvider) GetToken() (string, error) {
 	// Regardless of where the token came from, we (optionally) can exchange the token for a different
 	// one using the configured TokenExchanger.
 	return t.exchangeToken(token)
+}
+
+// GetTokenForXDS gets the token for the XDS flow.
+func (t *TokenProvider) GetTokenForXDS() (string, error) {
+	if t.opts.JWTPath == "" {
+		return "", nil
+	}
+	tok, err := ioutil.ReadFile(t.opts.JWTPath)
+	if err != nil {
+		log.Warnf("failed to fetch token from file: %v", err)
+		return "", nil
+	}
+	// For XDS flow, when token fetch and exchange is disabled, we only support reading from file.
+	if !t.opts.XdsEnableTokenFetchExchange {
+		return strings.TrimSpace(string(tok)), nil
+	}
+	// For XDS flow, the token exchange is different from that of the CA flow.
+	if t.opts.TokenManager == nil {
+		return "", fmt.Errorf("XDS token exchange is enabled but token manager is nil")
+	}
+	if strings.TrimSpace(string(tok)) == "" {
+		return "", fmt.Errorf("the JWT token for XDS token exchange is empty")
+	}
+	params := stsservice.StsRequestParameters{
+		Scope:            scope,
+		GrantType:        server.TokenExchangeGrantType,
+		SubjectToken:     strings.TrimSpace(string(tok)),
+		SubjectTokenType: server.SubjectTokenType,
+	}
+	body, err := t.opts.TokenManager.GenerateToken(params)
+	if err != nil {
+		return "", fmt.Errorf("token manager failed to generate access token: %v", err)
+	}
+	respData := &stsservice.StsResponseParameters{}
+	if err := json.Unmarshal(body, respData); err != nil {
+		return "", fmt.Errorf("failed to unmarshal access token response data: %v", err)
+	}
+	return respData.AccessToken, nil
 }
 
 // exchangeToken exchanges the provided token using TokenExchanger, if configured. If not, the
