@@ -476,9 +476,25 @@ var ValidateDestinationRule = registerValidateFunc("ValidateDestinationRule",
 		}
 
 		v := Validation{}
-		v = appendValidation(v,
-			ValidateWildcardDomain(rule.Host),
-			validateTrafficPolicy(rule.TrafficPolicy))
+		if features.EnableDestinationRuleInheritance {
+			if rule.Host == "" {
+				if len(rule.Subsets) != 0 {
+					v = appendValidation(v,
+						fmt.Errorf("mesh/namespace destination rule cannot have subsets"))
+				}
+				if rule.TrafficPolicy != nil && rule.TrafficPolicy.Tls != nil {
+					v = appendValidation(v,
+						fmt.Errorf("mesh/namespace destination rule cannot have TLS settings, use peer authentication"))
+				}
+			} else {
+				v = appendValidation(v, ValidateWildcardDomain(rule.Host))
+			}
+			// TODO GregHanson: could mesh/namespace destination rule ever have ExportTo set?
+		} else {
+			v = appendValidation(v, ValidateWildcardDomain(rule.Host))
+		}
+
+		v = appendValidation(v, validateTrafficPolicy(rule.TrafficPolicy))
 
 		for _, subset := range rule.Subsets {
 			if subset == nil {
