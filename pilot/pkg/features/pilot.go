@@ -294,9 +294,9 @@ var (
 		return ptypes.DurationProto(defaultRequestTimeoutVar.Get())
 	}()
 
-	EnableServiceApis = env.RegisterBoolVar("PILOT_ENABLED_SERVICE_APIS", false,
+	EnableServiceApis = env.RegisterBoolVar("PILOT_ENABLED_SERVICE_APIS", true,
 		"If this is set to true, support for Kubernetes service-apis (github.com/kubernetes-sigs/service-apis) will "+
-			" be enabled. This feature is currently experimental, and is off by default.").Get()
+			" be enabled. In addition to this being enabled, the service-apis CRDs need to be installed.").Get()
 
 	EnableVirtualServiceDelegate = env.RegisterBoolVar(
 		"PILOT_ENABLE_VIRTUAL_SERVICE_DELEGATE",
