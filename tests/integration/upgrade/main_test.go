@@ -22,6 +22,7 @@ import (
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/resource"
+	"istio.io/istio/pkg/test/upgrade"
 )
 
 var (
@@ -39,12 +40,10 @@ func TestMain(m *testing.M) {
 		Setup(istio.Setup(&Latest, func(ctx resource.Context, cfg *istio.Config) {
 		})).
 		Setup(istio.Setup(&NMinusOne, func(ctx resource.Context, cfg *istio.Config) {
-			cfg.Version = "1.7.6"
-			cfg.Revision = "1-7-6"
+			cfg.Version = upgrade.NMinusOne
 		})).
 		Setup(istio.Setup(&NMinusTwo, func(ctx resource.Context, cfg *istio.Config) {
-			cfg.Version = "1.8.0"
-			cfg.Revision = "1-8-0"
+			cfg.Version = upgrade.NMinusTwo
 		})).
 		Setup(func(ctx resource.Context) error {
 			log.Println("-=-=-=-SETTING UP VERSIONED APPS-=-=-=-")

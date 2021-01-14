@@ -57,7 +57,7 @@ func SetupApps(ctx resource.Context, latest, nMinusOne, nMinusTwo istio.Instance
 	var err error
 	apps.LatestNs, err = namespace.New(ctx, namespace.Config{
 		Prefix:   "echo-latest",
-		Revision: latest.Settings().Revision,
+		Revision: latest.Settings().Version.ToRevision(),
 		Inject:   true,
 	})
 	if err != nil {
@@ -65,7 +65,7 @@ func SetupApps(ctx resource.Context, latest, nMinusOne, nMinusTwo istio.Instance
 	}
 	apps.NMinusOneNs, err = namespace.New(ctx, namespace.Config{
 		Prefix:   "echo-n-1",
-		Revision: nMinusOne.Settings().Revision,
+		Revision: nMinusOne.Settings().Version.ToRevision(),
 		Inject:   true,
 	})
 	if err != nil {
@@ -73,7 +73,7 @@ func SetupApps(ctx resource.Context, latest, nMinusOne, nMinusTwo istio.Instance
 	}
 	apps.NMinusTwoNs, err = namespace.New(ctx, namespace.Config{
 		Prefix:   "echo-n-2",
-		Revision: nMinusTwo.Settings().Revision,
+		Revision: nMinusTwo.Settings().Version.ToRevision(),
 		Inject:   true,
 	})
 	if err != nil {

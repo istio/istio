@@ -341,13 +341,13 @@ func deploy(ctx resource.Context, env *kube.Environment, cfg Config) (Instance, 
 	return i, nil
 }
 
-func deployVersion(i *operatorComponent, version string) error {
-	config, err := upgrade.ReadInstallFile(fmt.Sprintf("%s-install.yaml", version))
+func deployVersion(i *operatorComponent, ver upgrade.Version) error {
+	config, err := upgrade.ReadInstallFile(ver)
 	if err != nil {
-		return fmt.Errorf("failed to read install file for version %s: %v", version, err)
+		return fmt.Errorf("failed to read install file for version %s: %v", ver, err)
 	}
 	if err := i.ctx.Config().ApplyYAML(i.Settings().SystemNamespace, config); err != nil {
-		return fmt.Errorf("failed to install manifests for version %q: %v", version, err)
+		return fmt.Errorf("failed to install manifests for version %q: %v", ver, err)
 	}
 	i.saveManifestForCleanup(i.ctx.Clusters().Default().Name(), config)
 	return nil

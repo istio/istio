@@ -21,16 +21,33 @@ import (
 	"io"
 	"io/ioutil"
 	"path/filepath"
+	"strings"
 
 	"istio.io/istio/pkg/test/env"
 )
 
-// ReadInstallFile reads a tar compress installation file from the embedded
-func ReadInstallFile(f string) (string, error) {
-	installFilePath := filepath.Join(env.IstioSrc, "pkg/test/upgrade/testdata/", f+".tar")
+// Version is the version of the control plane to read installation config for
+type Version string
+
+const (
+	// NMinusOne should be kept at the tip of the previous minor version
+	NMinusOne Version = "1.8.0"
+	// NMinusTwo should be kept at the tip of the two minor versions prior
+	NMinusTwo Version = "1.7.6"
+)
+
+// ToRevision takes a version and turns it into a revision conformant name
+func (v Version) ToRevision() string {
+	return strings.ReplaceAll(string(v), ".", "-")
+}
+
+// ReadInstallFile reads a tar compressed installation file from the embedded
+func ReadInstallFile(ver Version) (string, error) {
+	f := fmt.Sprintf("%s-install.yaml", ver)
+	installFilePath := filepath.Join(env.IstioSrc, "pkg/test/upgrade/testdata", f+".tar")
 	b, err := ioutil.ReadFile(installFilePath)
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("failed to read manifest at path %s: %v", installFilePath, err)
 	}
 	tr := tar.NewReader(bytes.NewBuffer(b))
 	for {
@@ -50,5 +67,5 @@ func ReadInstallFile(f string) (string, error) {
 		}
 		return string(contents), nil
 	}
-	return "", fmt.Errorf("file not found")
+	return "", fmt.Errorf("file not found in archive")
 }

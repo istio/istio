@@ -28,6 +28,7 @@ import (
 	"istio.io/istio/pkg/test/framework/components/echo/echoboot"
 	"istio.io/istio/pkg/test/framework/components/namespace"
 	kubetest "istio.io/istio/pkg/test/kube"
+	"istio.io/istio/pkg/test/upgrade"
 	"istio.io/pkg/log"
 )
 
@@ -36,16 +37,17 @@ func TestRevisionedUpgrade(t *testing.T) {
 		NewTest(t).
 		Run(func(ctx framework.TestContext) {
 			t.Run(fmt.Sprintf("%s->master", NMinusOne.Settings().Version), func(t *testing.T) {
-				testUpgradeFromVersion(ctx, t, NMinusOne.Settings().Version, NMinusOne.Settings().Revision)
+				testUpgradeFromVersion(ctx, t, NMinusOne.Settings().Version)
 			})
 			t.Run(fmt.Sprintf("%s->master", NMinusTwo.Settings().Version), func(t *testing.T) {
-				testUpgradeFromVersion(ctx, t, NMinusTwo.Settings().Version, NMinusTwo.Settings().Revision)
+				testUpgradeFromVersion(ctx, t, NMinusTwo.Settings().Version)
 			})
 		})
 }
 
 // testUpgradeFromVersion tests an upgrade from the target revision to the namespace running master revision
-func testUpgradeFromVersion(ctx framework.TestContext, t *testing.T, version, revision string) {
+func testUpgradeFromVersion(ctx framework.TestContext, t *testing.T, version upgrade.Version) {
+	revision := version.ToRevision()
 	revisionedNamespace := namespace.NewOrFail(t, ctx, namespace.Config{
 		Prefix:   revision,
 		Inject:   true,
@@ -83,7 +85,7 @@ func testUpgradeFromVersion(ctx framework.TestContext, t *testing.T, version, re
 	}
 	for _, p := range pods {
 		for _, c := range p.Spec.Containers {
-			if strings.Contains(c.Image, version) {
+			if strings.Contains(c.Image, string(version)) {
 				ctx.Fatalf("expected post-upgrade container image not to include %q, got %s", version, c.Image)
 			}
 		}

@@ -30,6 +30,7 @@ import (
 	"istio.io/istio/pkg/test/framework/image"
 	"istio.io/istio/pkg/test/framework/resource"
 	"istio.io/istio/pkg/test/scopes"
+	"istio.io/istio/pkg/test/upgrade"
 )
 
 const (
@@ -151,10 +152,7 @@ type Config struct {
 	DeployHelm bool
 
 	// Version of the Istio control plane to deploy for this instance
-	Version string
-
-	// Revision for this control plane installation
-	Revision string
+	Version upgrade.Version
 }
 
 func (c *Config) OverridesYAML() string {
@@ -329,7 +327,6 @@ func (c *Config) String() string {
 	result += fmt.Sprintf("SkipWaitForValidationWebhook:   %v\n", c.SkipWaitForValidationWebhook)
 	result += fmt.Sprintf("DeployHelm:                     %v\n", c.DeployHelm)
 	result += fmt.Sprintf("Version:                        %s\n", c.Version)
-	result += fmt.Sprintf("Revision:                       %s\n", c.Revision)
 	return result
 }
 
