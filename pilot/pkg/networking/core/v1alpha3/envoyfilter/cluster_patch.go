@@ -64,7 +64,6 @@ func mergeTransportSocketCluster(c *cluster.Cluster, cp *model.EnvoyFilterConfig
 		return false, err
 	}
 
-	applyPatch := false
 	var tsmPatch *cluster.Cluster_TransportSocketMatch
 
 	// Test if the patch and the cluster contains a config for TransportSocket
@@ -73,12 +72,11 @@ func mergeTransportSocketCluster(c *cluster.Cluster, cp *model.EnvoyFilterConfig
 		for _, tsm := range c.GetTransportSocketMatches() {
 			if tsm.GetTransportSocket() != nil && cpValueCast.GetTransportSocket().Name == tsm.GetTransportSocket().Name {
 				tsmPatch = tsm
-				applyPatch = true
 				break
 			}
 		}
 
-		if applyPatch {
+		if tsmPatch != nil {
 			// Merge the patch and the cluster at a lower level
 			dstCluster := tsmPatch.GetTransportSocket().GetTypedConfig()
 			srcPatch := cpValueCast.GetTransportSocket().GetTypedConfig()
