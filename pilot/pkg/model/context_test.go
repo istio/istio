@@ -25,7 +25,6 @@ import (
 	"github.com/golang/protobuf/jsonpb"
 	structpb "github.com/golang/protobuf/ptypes/struct"
 	"github.com/onsi/gomega"
-	"github.com/onsi/gomega"
 	"github.com/stretchr/testify/assert"
 	v1 "k8s.io/api/core/v1"
 
@@ -35,7 +34,6 @@ import (
 	"istio.io/istio/pilot/pkg/serviceregistry/memory"
 	"istio.io/istio/pilot/pkg/serviceregistry/mock"
 	"istio.io/istio/pkg/config/host"
-	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/config/mesh"
 )
 
