@@ -35,6 +35,7 @@ import (
 func TestRevisionedUpgrade(t *testing.T) {
 	framework.
 		NewTest(t).
+		Features("installation.upgrade").
 		Run(func(ctx framework.TestContext) {
 			t.Run(fmt.Sprintf("%s->master", NMinusOne.Settings().Version), func(t *testing.T) {
 				testUpgradeFromVersion(ctx, t, NMinusOne.Settings().Version)
