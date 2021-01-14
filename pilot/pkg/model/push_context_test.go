@@ -23,6 +23,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/gogo/protobuf/types"
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
 	. "github.com/onsi/gomega"
@@ -32,6 +33,7 @@ import (
 	networking "istio.io/api/networking/v1alpha3"
 	securityBeta "istio.io/api/security/v1beta1"
 	selectorpb "istio.io/api/type/v1beta1"
+	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/host"
@@ -632,6 +634,104 @@ func scopeToSidecar(scope *SidecarScope) string {
 		return ""
 	}
 	return scope.Namespace + "/" + scope.Name
+}
+
+func TestSetDestinationRuleInheritance(t *testing.T) {
+	features.EnableDestinationRuleInheritance = true
+	ps := NewPushContext()
+	ps.Mesh = &meshconfig.MeshConfig{RootNamespace: "istio-system"}
+	testhost := "httpbin.org"
+	meshDestinationRule := config.Config{
+		Meta: config.Meta{
+			Name:      "meshRule",
+			Namespace: ps.Mesh.RootNamespace,
+		},
+		Spec: &networking.DestinationRule{
+			TrafficPolicy: &networking.TrafficPolicy{
+				ConnectionPool: &networking.ConnectionPoolSettings{
+					Tcp: &networking.ConnectionPoolSettings_TCPSettings{
+						MaxConnections: 123,
+					},
+				},
+			},
+		},
+	}
+	nsDestinationRule := config.Config{
+		Meta: config.Meta{
+			Name:      "nsRule",
+			Namespace: "test",
+		},
+		Spec: &networking.DestinationRule{
+			TrafficPolicy: &networking.TrafficPolicy{
+				OutlierDetection: &networking.OutlierDetection{
+					ConsecutiveGatewayErrors: &types.UInt32Value{Value: 11},
+					Interval:                 &types.Duration{Seconds: 9},
+				},
+			},
+		},
+	}
+	svcDestinationRule := config.Config{
+		Meta: config.Meta{
+			Name:      "svcRule",
+			Namespace: "test",
+		},
+		Spec: &networking.DestinationRule{
+			Host: testhost,
+			TrafficPolicy: &networking.TrafficPolicy{
+				ConnectionPool: &networking.ConnectionPoolSettings{
+					Http: &networking.ConnectionPoolSettings_HTTPSettings{
+						MaxRetries: 33,
+					},
+					Tcp: &networking.ConnectionPoolSettings_TCPSettings{
+						ConnectTimeout: &types.Duration{Seconds: 7},
+					},
+				},
+			},
+		},
+	}
+	destinationRuleNamespace2 := config.Config{
+		Meta: config.Meta{
+			Name:      "svcRule2",
+			Namespace: "test2",
+		},
+		Spec: &networking.DestinationRule{
+			Host: testhost,
+			Subsets: []*networking.Subset{
+				{
+					Name: "subset1",
+				},
+				{
+					Name: "subset2",
+				},
+			},
+		},
+	}
+
+	ps.SetDestinationRules([]config.Config{meshDestinationRule, nsDestinationRule, svcDestinationRule, destinationRuleNamespace2})
+	mergedPolicy := ps.destinationRuleIndex.namespaceLocal["test"].destRule[host.Name(testhost)].Spec.(*networking.DestinationRule).TrafficPolicy
+	if mergedPolicy == nil {
+		t.Error("inherited policy should not be nil")
+	}
+	if mergedPolicy.GetConnectionPool().GetTcp().MaxConnections != 123 {
+		t.Error("policy should inherit TCP settings")
+	}
+	if mergedPolicy.GetConnectionPool().GetHttp().MaxRetries != 33 {
+		t.Error("policy should inherit HTTP settings")
+	}
+
+	mergedPolicy = ps.destinationRuleIndex.namespaceLocal["test2"].destRule[host.Name(testhost)].Spec.(*networking.DestinationRule).TrafficPolicy
+	if mergedPolicy == nil {
+		t.Error("inherited policy should not be nil")
+	}
+	if mergedPolicy.GetConnectionPool().GetTcp().MaxConnections != 123 {
+		t.Error("policy should inherit mesh TCP settings")
+	}
+	if mergedPolicy.GetConnectionPool().GetHttp() != nil {
+		t.Error("policy should not inherit settings from rule in separate namespace")
+	}
+	if mergedPolicy.GetOutlierDetection() != nil {
+		t.Error("policy should not inherit settings from separate namespace rule")
+	}
 }
 
 func TestSetDestinationRuleMerging(t *testing.T) {
