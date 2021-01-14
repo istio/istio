@@ -27,6 +27,8 @@ import (
 	"sync"
 	"time"
 
+	"istio.io/istio/pkg/test/upgrade"
+
 	"github.com/hashicorp/go-multierror"
 	"gopkg.in/yaml.v2"
 	kubeApiCore "k8s.io/api/core/v1"
@@ -341,16 +343,14 @@ func deploy(ctx resource.Context, env *kube.Environment, cfg Config) (Instance, 
 }
 
 func deployVersion(i *operatorComponent, version string) error {
-	installationTestdataDir := filepath.Join(testenv.IstioSrc, "pkg/test/upgrade/testdata")
-	installationConfigPath := filepath.Join(installationTestdataDir, fmt.Sprintf("%s-install.yaml", version))
-	configBytes, err := ioutil.ReadFile(installationConfigPath)
+	config, err := upgrade.ReadInstallFile(fmt.Sprintf("%s-install.yaml", version))
 	if err != nil {
-		return fmt.Errorf("could not read installation config at path %s: %v", installationConfigPath, err)
+		return fmt.Errorf("failed to read install file for version %s: %v", version, err)
 	}
-	if err := i.ctx.Config().ApplyYAML(i.Settings().SystemNamespace, string(configBytes)); err != nil {
+	if err := i.ctx.Config().ApplyYAML(i.Settings().SystemNamespace, config); err != nil {
 		return fmt.Errorf("failed to install manifests for version %q: %v", version, err)
 	}
-	i.saveManifestForCleanup(i.ctx.Clusters().Default().Name(), string(configBytes))
+	i.saveManifestForCleanup(i.ctx.Clusters().Default().Name(), config)
 	return nil
 }
 

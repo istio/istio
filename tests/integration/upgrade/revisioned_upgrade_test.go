@@ -44,7 +44,7 @@ func TestRevisionedUpgrade(t *testing.T) {
 		})
 }
 
-// testUpgradeFromVersion tests an upgrade from the target version to the latest version
+// testUpgradeFromVersion tests an upgrade from the target revision to the namespace running master revision
 func testUpgradeFromVersion(ctx framework.TestContext, t *testing.T, version, revision string) {
 	revisionedNamespace := namespace.NewOrFail(t, ctx, namespace.Config{
 		Prefix:   revision,
