@@ -18,6 +18,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	kube3 "istio.io/istio/pkg/test/framework/components/cluster/kube"
 	"net"
 	"path/filepath"
 	"time"
@@ -121,7 +122,7 @@ func deployWithHelm(ctx resource.Context, env *kube.Environment, cfg Config) (In
 	scopes.Framework.Infof("================================")
 
 	// install control plane clusters
-	cluster := ctx.Clusters().Default().(*kube.Cluster)
+	cluster := ctx.Clusters().Default().(*kube3.Cluster)
 	helmCmd := helm.New(cluster.Filename(), chartPath)
 
 	h := &helmComponent{

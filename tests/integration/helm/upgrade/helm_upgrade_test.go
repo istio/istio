@@ -19,6 +19,7 @@ import (
 	"context"
 	"fmt"
 	"io/ioutil"
+	kube2 "istio.io/istio/pkg/test/framework/components/cluster/kube"
 	"os"
 	"path/filepath"
 	"testing"
@@ -27,7 +28,6 @@ import (
 
 	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/test/framework"
-	"istio.io/istio/pkg/test/framework/components/environment/kube"
 	"istio.io/istio/pkg/test/framework/image"
 	"istio.io/istio/pkg/test/framework/resource"
 	"istio.io/istio/pkg/test/helm"
@@ -60,7 +60,7 @@ func TestDefaultInPlaceUpgrades(t *testing.T) {
 		NewTest(t).
 		Features("installation.helm.default.upgrade").
 		Run(func(ctx framework.TestContext) {
-			cs := ctx.Clusters().Default().(*kube.Cluster)
+			cs := ctx.Clusters().Default().(*kube2.Cluster)
 			h := helm.New(cs.Filename(), filepath.Join(previousChartPath, previousSupportedVersion))
 
 			ctx.WhenDone(func() error {

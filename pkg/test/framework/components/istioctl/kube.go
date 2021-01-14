@@ -17,25 +17,25 @@ package istioctl
 import (
 	"bytes"
 	"fmt"
+	kube2 "istio.io/istio/pkg/test/framework/components/cluster/kube"
 	"strings"
 	"testing"
 
 	"istio.io/istio/istioctl/cmd"
 	"istio.io/istio/pilot/pkg/config/kube/crd"
-	"istio.io/istio/pkg/test/framework/components/environment/kube"
 	"istio.io/istio/pkg/test/framework/resource"
 )
 
 type kubeComponent struct {
 	config  Config
 	id      resource.ID
-	cluster *kube.Cluster
+	cluster *kube2.Cluster
 }
 
 func newKube(ctx resource.Context, config Config) Instance {
 	n := &kubeComponent{
 		config:  config,
-		cluster: ctx.Clusters().GetOrDefault(config.Cluster).(*kube.Cluster),
+		cluster: ctx.Clusters().GetOrDefault(config.Cluster).(*kube2.Cluster),
 	}
 	n.id = ctx.TrackResource(n)
 

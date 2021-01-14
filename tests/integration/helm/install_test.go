@@ -18,12 +18,12 @@ package helm
 import (
 	"fmt"
 	"io/ioutil"
+	kube2 "istio.io/istio/pkg/test/framework/components/cluster/kube"
 	"os"
 	"path/filepath"
 	"testing"
 
 	"istio.io/istio/pkg/test/framework"
-	"istio.io/istio/pkg/test/framework/components/environment/kube"
 	"istio.io/istio/pkg/test/framework/image"
 	"istio.io/istio/pkg/test/helm"
 )
@@ -38,7 +38,7 @@ func TestDefaultInstall(t *testing.T) {
 			if err != nil {
 				t.Fatal("failed to create test directory")
 			}
-			cs := ctx.Clusters().Default().(*kube.Cluster)
+			cs := ctx.Clusters().Default().(*kube2.Cluster)
 			h := helm.New(cs.Filename(), ChartPath)
 			s, err := image.SettingsFromCommandLine()
 			if err != nil {
@@ -75,7 +75,7 @@ func TestInstallWithFirstPartyJwt(t *testing.T) {
 			if err != nil {
 				t.Fatal("failed to create test directory")
 			}
-			cs := ctx.Clusters().Default().(*kube.Cluster)
+			cs := ctx.Clusters().Default().(*kube2.Cluster)
 			h := helm.New(cs.Filename(), ChartPath)
 			s, err := image.SettingsFromCommandLine()
 			if err != nil {
