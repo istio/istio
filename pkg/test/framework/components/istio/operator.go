@@ -27,8 +27,6 @@ import (
 	"sync"
 	"time"
 
-	"istio.io/istio/pkg/test/upgrade"
-
 	"github.com/hashicorp/go-multierror"
 	"gopkg.in/yaml.v2"
 	kubeApiCore "k8s.io/api/core/v1"
@@ -48,6 +46,7 @@ import (
 	"istio.io/istio/pkg/test/framework/resource"
 	kube2 "istio.io/istio/pkg/test/kube"
 	"istio.io/istio/pkg/test/scopes"
+	"istio.io/istio/pkg/test/upgrade"
 	"istio.io/istio/pkg/test/util/file"
 	"istio.io/istio/pkg/test/util/retry"
 	"istio.io/istio/pkg/test/util/yml"

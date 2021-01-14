@@ -21,11 +21,14 @@ import (
 	"io"
 	"io/ioutil"
 	"path/filepath"
+
+	"istio.io/istio/pkg/test/env"
 )
 
 // ReadInstallFile reads a tar compress installation file from the embedded
 func ReadInstallFile(f string) (string, error) {
-	b, err := ioutil.ReadFile(filepath.Join("testdata/upgrade", f+".tar"))
+	installFilePath := filepath.Join(env.IstioSrc, "pkg/test/upgrade/testdata/", f+".tar")
+	b, err := ioutil.ReadFile(installFilePath)
 	if err != nil {
 		return "", err
 	}

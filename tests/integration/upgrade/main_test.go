@@ -16,7 +16,7 @@
 package upgrade
 
 import (
-	"fmt"
+	"log"
 	"testing"
 
 	"istio.io/istio/pkg/test/framework"
@@ -47,7 +47,7 @@ func TestMain(m *testing.M) {
 			cfg.Revision = "1-8-0"
 		})).
 		Setup(func(ctx resource.Context) error {
-			fmt.Println("-=-=-=-SETTING UP VERSIONED APPS-=-=-=-")
+			log.Println("-=-=-=-SETTING UP VERSIONED APPS-=-=-=-")
 			return SetupApps(ctx, Latest, NMinusOne, NMinusTwo, &apps)
 		}).
 		Run()

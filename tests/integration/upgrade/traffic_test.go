@@ -20,10 +20,9 @@ import (
 	"testing"
 	"time"
 
+	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/util/retry"
-
-	"istio.io/istio/pkg/test/framework"
 )
 
 func TestTraffic(t *testing.T) {
@@ -45,16 +44,11 @@ func testAllEchoCalls(ctx framework.TestContext, echoInstances echo.Instances) {
 			for _, trafficType := range trafficTypes {
 				ctx.NewSubTest(fmt.Sprintf("%s-%s->%s", trafficType, source.Config().Service, dest.Config().Service)).
 					Run(func(ctx framework.TestContext) {
-						retry.UntilSuccessOrFail(ctx, func() error {
-							resp, err := source.Call(echo.CallOptions{
-								Target:   dest,
-								PortName: trafficType,
-							})
-							if err != nil {
-								return err
-							}
-							return resp.CheckOK()
+						resps := source.CallWithRetryOrFail(ctx, echo.CallOptions{
+							Target:   dest,
+							PortName: trafficType,
 						}, retry.Delay(time.Millisecond*150))
+						resps.CheckOKOrFail(ctx)
 					})
 			}
 		}
