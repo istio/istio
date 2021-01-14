@@ -26,8 +26,8 @@ func TestMatcher(t *testing.T) {
 		{
 			name:      "empty",
 			input:     "",
-			matches:   []string{"", "foo", "foo/bar", ".*"},
-			nomatches: []string{},
+			matches:   []string{},
+			nomatches: []string{"", "foo", "foo/bar", ".*"},
 		},
 		{
 			name:      "single",
@@ -62,13 +62,13 @@ func TestMatcher(t *testing.T) {
 			for _, m := range tt.matches {
 				got := matcher.MatchTest(m)
 				if !got {
-					t.Fatalf("expected match for %q", m)
+					t.Errorf("expected match for %q", m)
 				}
 			}
 			for _, m := range tt.nomatches {
 				got := matcher.MatchTest(m)
 				if got {
-					t.Fatalf("expected no match for %q", m)
+					t.Errorf("expected no match for %q", m)
 				}
 			}
 		})
