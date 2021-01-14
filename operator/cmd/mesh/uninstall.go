@@ -104,7 +104,7 @@ func UninstallCmd(logOpts *log.Options) *cobra.Command {
   # Uninstall all control planes and shared resources
   istioctl x uninstall --purge`,
 		Args: func(cmd *cobra.Command, args []string) error {
-			if uiArgs.revision == "" && getRevisionFromSetFlags(uiArgs.set) == "" && uiArgs.filename == "" && !uiArgs.purge {
+			if uiArgs.revision == "" && manifest.GetValueForSetFlag(uiArgs.set, "revision") == "" && uiArgs.filename == "" && !uiArgs.purge {
 				return fmt.Errorf("at least one of the --revision(or --set revision=<revision>), --filename or --purge flags must be set")
 			}
 			if len(args) > 0 {
