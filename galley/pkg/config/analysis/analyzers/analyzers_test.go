@@ -280,6 +280,7 @@ var testGrid = []testCase{
 			{msg.DeploymentAssociatedToMultipleServices, "Deployment multiple-without-port.bookinfo"},
 			{msg.DeploymentRequiresServiceAssociated, "Deployment no-services.bookinfo"},
 			{msg.DeploymentRequiresServiceAssociated, "Deployment ann-enabled-ns-disabled.injection-disabled-ns"},
+			{msg.DeploymentConflictingPorts, "Deployment conflicting-ports.bookinfo"},
 		},
 	},
 	{

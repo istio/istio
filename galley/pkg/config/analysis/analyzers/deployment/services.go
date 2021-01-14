@@ -15,6 +15,7 @@ package deployment
 
 import (
 	"fmt"
+	"strconv"
 
 	apps_v1 "k8s.io/api/apps/v1"
 	core_v1 "k8s.io/api/core/v1"
@@ -193,6 +194,10 @@ func serviceTargetPortsMap(svcs []ServiceSpecWithName) targetPortMap {
 		svc := swn.Spec
 		for _, sPort := range svc.Ports {
 			p := sPort.TargetPort.String()
+			if p == "0" || p == "" {
+				// By default and for convenience, the targetPort is set to the same value as the port field.
+				p = strconv.Itoa(int(sPort.Port))
+			}
 			if _, ok := pm[p]; !ok {
 				pm[p] = map[int32]string{}
 			}
