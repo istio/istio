@@ -19,10 +19,11 @@ import (
 	"context"
 	"fmt"
 	"io/ioutil"
-	kube2 "istio.io/istio/pkg/test/framework/components/cluster/kube"
 	"os"
 	"path/filepath"
 	"testing"
+
+	kube2 "istio.io/istio/pkg/test/framework/components/cluster/kube"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 

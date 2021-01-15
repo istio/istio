@@ -17,12 +17,14 @@ package istioctl
 import (
 	"bytes"
 	"fmt"
-	kube2 "istio.io/istio/pkg/test/framework/components/cluster/kube"
 	"strings"
 	"testing"
 
+	kube2 "istio.io/istio/pkg/test/framework/components/cluster/kube"
+
 	"istio.io/istio/istioctl/cmd"
 	"istio.io/istio/pilot/pkg/config/kube/crd"
+	kube2 "istio.io/istio/pkg/test/framework/components/cluster/kube"
 	"istio.io/istio/pkg/test/framework/resource"
 )
 

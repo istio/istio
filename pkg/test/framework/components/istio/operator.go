@@ -19,7 +19,6 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
-	kube3 "istio.io/istio/pkg/test/framework/components/cluster/kube"
 	"net"
 	"os"
 	"path"
@@ -27,6 +26,8 @@ import (
 	"regexp"
 	"sync"
 	"time"
+
+	kube3 "istio.io/istio/pkg/test/framework/components/cluster/kube"
 
 	"github.com/hashicorp/go-multierror"
 	"gopkg.in/yaml.v2"
@@ -40,6 +41,7 @@ import (
 	pkgAPI "istio.io/istio/operator/pkg/apis/istio/v1alpha1"
 	"istio.io/istio/pkg/test/cert/ca"
 	testenv "istio.io/istio/pkg/test/env"
+	kube3 "istio.io/istio/pkg/test/framework/components/cluster/kube"
 	"istio.io/istio/pkg/test/framework/components/environment/kube"
 	"istio.io/istio/pkg/test/framework/components/istio/ingress"
 	"istio.io/istio/pkg/test/framework/components/istioctl"
@@ -76,9 +78,9 @@ type operatorComponent struct {
 	// The key is the cluster name
 	installManifest map[string][]string
 	// ingress components, indexed first by cluster name and then by gateway name.
-	ingress         map[string]map[string]ingress.Instance
-	workDir         string
-	deployTime      time.Duration
+	ingress    map[string]map[string]ingress.Instance
+	workDir    string
+	deployTime time.Duration
 }
 
 var _ io.Closer = &operatorComponent{}

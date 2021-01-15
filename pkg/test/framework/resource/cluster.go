@@ -16,6 +16,7 @@ package resource
 
 import (
 	"fmt"
+
 	"istio.io/istio/pkg/kube"
 )
 
@@ -154,7 +155,6 @@ type Cluster interface {
 	// Config returns the config cluster for this cluster. Will return itself if
 	// IsConfig.
 	Config() Cluster
-
 }
 
 var _ Cluster = FakeCluster{}
