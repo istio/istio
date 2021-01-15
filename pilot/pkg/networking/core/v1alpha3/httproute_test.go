@@ -55,8 +55,8 @@ func TestGenerateVirtualHostDomains(t *testing.T) {
 			node: &model.Proxy{
 				DNSDomain: "local.campus.net",
 			},
-			want: []string{"foo.local", "foo.local.campus", "foo.local.campus.net",
-				"foo.local:80", "foo.local.campus:80", "foo.local.campus.net:80"},
+			want: []string{"foo", "foo.local", "foo.local.campus", "foo.local.campus.net",
+				"foo:80", "foo.local:80", "foo.local.campus:80", "foo.local.campus.net:80"},
 		},
 		{
 			name: "different domains with some shared dns",
@@ -93,8 +93,8 @@ func TestGenerateVirtualHostDomains(t *testing.T) {
 			node: &model.Proxy{
 				DNSDomain: "default.svc.cluster.local",
 			},
-			want: []string{"echo.default", "echo.default.svc", "echo.default.svc.cluster.local",
-				"echo.default:8123", "echo.default.svc:8123", "echo.default.svc.cluster.local:8123"},
+			want: []string{"echo", "echo.default", "echo.default.svc", "echo.default.svc.cluster.local",
+				"echo:8123", "echo.default:8123", "echo.default.svc:8123", "echo.default.svc.cluster.local:8123"},
 		},
 	}
 
@@ -222,6 +222,7 @@ func TestSidecarOutboundHTTPRouteConfigWithDuplicateHosts(t *testing.T) {
 				"allow_any": {"*"},
 				"test-duplicate-domains.default.svc.cluster.local:80": {
 					"test-duplicate-domains.default.svc.cluster.local", "test-duplicate-domains.default.svc.cluster.local:80",
+					"test-duplicate-domains", "test-duplicate-domains:80",
 					"test-duplicate-domains.default.svc", "test-duplicate-domains.default.svc:80",
 				},
 				"test-duplicate-domains.default:80": {"test-duplicate-domains.default", "test-duplicate-domains.default:80"},
@@ -249,6 +250,7 @@ func TestSidecarOutboundHTTPRouteConfigWithDuplicateHosts(t *testing.T) {
 				"allow_any": {"*"},
 				"test.default.svc.cluster.local:80": {
 					"test.default.svc.cluster.local", "test.default.svc.cluster.local:80",
+					"test", "test:80",
 					"test.default.svc", "test.default.svc:80",
 				},
 				"test.default:80": {"test.default", "test.default:80"},
@@ -269,7 +271,7 @@ func TestSidecarOutboundHTTPRouteConfigWithDuplicateHosts(t *testing.T) {
 			nil,
 			map[string][]string{
 				"allow_any":     {"*"},
-				"test.local:80": {"test.local", "test.local:80"},
+				"test.local:80": {"test.local", "test.local:80", "test", "test:80"},
 			},
 			map[string]string{
 				"allow_any":     "PassthroughCluster",

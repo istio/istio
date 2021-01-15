@@ -423,12 +423,14 @@ func generateAltVirtualHosts(hostname string, port int, proxyDomain string) []st
 		return nil
 	}
 
+	// adds the uniq piece foo, foo:80
+	vhosts = append(vhosts, uniqHostname, domainName(uniqHostname, port))
+
 	sharedDNSDomainParts := strings.Split(sharedDNSDomain, ".")
 
 	if len(strings.Split(uniqHostname, ".")) == 2 {
 		// This is the case of uniqHostname having namespace already.
 		dnsHostName := uniqHostname + "." + sharedDNSDomainParts[0]
-		vhosts = append(vhosts, uniqHostname, domainName(uniqHostname, port))
 		vhosts = append(vhosts, dnsHostName, domainName(dnsHostName, port))
 	} else {
 		// Derive the namespace from sharedDNSDomain and add virtual host.
