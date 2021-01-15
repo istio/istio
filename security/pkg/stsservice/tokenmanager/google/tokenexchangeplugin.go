@@ -43,6 +43,7 @@ const (
 	tokenType        = "urn:ietf:params:oauth:token-type:access_token"
 	federatedToken   = "federated token"
 	accessToken      = "access token"
+	GCPAuthProvider  = "gcp"
 )
 
 var (
@@ -491,6 +492,24 @@ func (p *Plugin) DumpPluginStatus() ([]byte, error) {
 	}
 	statusJSON, err := json.MarshalIndent(td, "", " ")
 	return statusJSON, err
+}
+
+// GetMetadata returns the metadata headers related to the token
+func (p *Plugin) GetMetadata(forCA bool, xdsAuthProvider, token string) (map[string]string, error) {
+	if token == "" {
+		return nil, fmt.Errorf("empty token in plugin GetMetadata")
+	}
+	gcpProjectNumber := p.GetGcpProjectNumber()
+	if !forCA && xdsAuthProvider == GCPAuthProvider && len(gcpProjectNumber) > 0 {
+		return map[string]string{
+			"authorization":       "Bearer " + token,
+			"X-Goog-User-Project": gcpProjectNumber,
+			"project":             "projects/" + gcpProjectNumber,
+		}, nil
+	}
+	return map[string]string{
+		"authorization": "Bearer " + token,
+	}, nil
 }
 
 // SetEndpoints changes the endpoints for testing purposes only.

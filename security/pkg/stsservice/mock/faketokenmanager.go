@@ -16,6 +16,7 @@ package mock
 
 import (
 	"encoding/json"
+	"fmt"
 	"sync"
 	"time"
 
@@ -111,4 +112,14 @@ func (tm *FakeTokenManager) DumpTokenStatus() ([]byte, error) {
 	}
 	statusJSON, err := json.MarshalIndent(td, "", " ")
 	return statusJSON, err
+}
+
+// GetMetadata returns the metadata headers related to the token
+func (tm *FakeTokenManager) GetMetadata(forCA bool, xdsAuthProvider, token string) (map[string]string, error) {
+	if token == "" {
+		return nil, fmt.Errorf("empty token in FakeTokenManager GetMetadata()")
+	}
+	return map[string]string{
+		"authorization": "Bearer " + token,
+	}, nil
 }

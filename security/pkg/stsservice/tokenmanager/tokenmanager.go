@@ -32,6 +32,8 @@ const (
 type Plugin interface {
 	ExchangeToken(parameters stsservice.StsRequestParameters) ([]byte, error)
 	DumpPluginStatus() ([]byte, error)
+	// GetMetadata returns the metadata headers related to the token
+	GetMetadata(forCA bool, xdsAuthProvider, token string) (map[string]string, error)
 }
 
 type TokenManager struct {
@@ -108,12 +110,21 @@ func (tm *TokenManager) DumpTokenStatus() ([]byte, error) {
 	return nil, errors.New("no plugin is found")
 }
 
+func (tm *TokenManager) GetMetadata(forCA bool, xdsAuthProvider, token string) (map[string]string, error) {
+	if tm.plugin != nil {
+		return tm.plugin.GetMetadata(forCA, xdsAuthProvider, token)
+	}
+	// If no plugin, for an non-empty token, place the token in the authorization header.
+	if len(token) > 0 {
+		return map[string]string{
+			"authorization": "Bearer " + token,
+		}, nil
+	}
+	// Otherwise, return an error
+	return nil, errors.New("no plugin is found and token is empty in token manager")
+}
+
 // SetPlugin sets token exchange plugin for testing purposes only.
 func (tm *TokenManager) SetPlugin(p Plugin) {
 	tm.plugin = p
-}
-
-// GetPlugin gets token exchange plugin
-func (tm *TokenManager) GetPlugin() Plugin {
-	return tm.plugin
 }

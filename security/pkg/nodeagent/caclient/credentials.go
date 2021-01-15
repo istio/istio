@@ -26,8 +26,6 @@ import (
 	"istio.io/istio/pkg/security"
 	"istio.io/istio/security/pkg/stsservice"
 	"istio.io/istio/security/pkg/stsservice/server"
-	"istio.io/istio/security/pkg/stsservice/tokenmanager"
-	"istio.io/istio/security/pkg/stsservice/tokenmanager/google"
 	"istio.io/pkg/log"
 )
 
@@ -69,25 +67,12 @@ func (t *TokenProvider) GetRequestMetadata(ctx context.Context, uri ...string) (
 	if token == "" {
 		return nil, nil
 	}
-
-	var gcpProjectNumber string
-	tm, ok := t.opts.TokenManager.(*tokenmanager.TokenManager)
-	if ok && tm != nil {
-		plugin, ok := tm.GetPlugin().(*google.Plugin)
-		if ok && plugin != nil {
-			gcpProjectNumber = plugin.GetGcpProjectNumber()
-		}
-	}
-	if !t.forCA && t.opts.XdsAuthProvider == "gcp" && len(gcpProjectNumber) > 0 {
+	if t.opts.TokenManager == nil {
 		return map[string]string{
-			"authorization":       "Bearer " + token,
-			"X-Goog-User-Project": gcpProjectNumber,
-			"project":             "projects/" + gcpProjectNumber,
+			"authorization": "Bearer " + token,
 		}, nil
 	}
-	return map[string]string{
-		"authorization": "Bearer " + token,
-	}, nil
+	return t.opts.TokenManager.GetMetadata(t.forCA, t.opts.XdsAuthProvider, token)
 }
 
 // Allow the token provider to be used regardless of transport security; callers can determine whether

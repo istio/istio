@@ -92,6 +92,8 @@ type TokenManager interface {
 	GenerateToken(parameters StsRequestParameters) ([]byte, error)
 	// DumpTokenStatus dumps status of all generated tokens and returns status in JSON.
 	DumpTokenStatus() ([]byte, error)
+	// GetMetadata returns the metadata headers related to the token
+	GetMetadata(forCA bool, xdsAuthProvider, token string) (map[string]string, error)
 }
 
 // TokenInfo stores token information maintained at TokenManager.
