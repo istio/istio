@@ -136,8 +136,6 @@ func init() {
 	// Deprecated - use mesh config
 	discoveryCmd.PersistentFlags().StringVar(&serverArgs.RegistryOptions.KubeOptions.TrustDomain, "trust-domain", "",
 		"The domain serves to identify the system with spiffe")
-	discoveryCmd.PersistentFlags().BoolVar(&serverArgs.RegistryOptions.KubeOptions.EnableDiscoveryNamespaces, "discoveryNamespaces", false,
-		"Enable dynamically restricting by namespace the set of Services, Pods, and Endpoints that istio processes when pushing xDS updates")
 
 	// using address, so it can be configured as localhost:.. (possibly UDS in future)
 	discoveryCmd.PersistentFlags().StringVar(&serverArgs.ServerOptions.HTTPAddr, "httpAddr", ":8080",

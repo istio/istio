@@ -24,12 +24,25 @@ import (
 
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube/controller/filter"
+	"istio.io/istio/pkg/config/mesh"
 	kubelib "istio.io/istio/pkg/kube"
 	"istio.io/pkg/log"
 )
 
-// Handle discovery namespace membership changes, which entails triggering create/delete event handlers for services, pods, and endpoints,
-// and adding/removing discovery namespaces from the DiscoveryNamespacesFilter.
+// initialize handlers for discovery selection scoping
+func (c *Controller) initDiscoveryHandlers(
+	kubeClient kubelib.Client,
+	endpointMode EndpointMode,
+	meshWatcher mesh.Watcher,
+	discoveryNamespacesFilter filter.DiscoveryNamespacesFilter,
+) {
+	c.initDiscoveryNamespaceHandlers(kubeClient, endpointMode, discoveryNamespacesFilter)
+	c.initMeshWatcherHandler(kubeClient, endpointMode, meshWatcher, discoveryNamespacesFilter)
+}
+
+// handle discovery namespace membership changes triggered by namespace events,
+// which requires triggering create/delete event handlers for services, pods, and endpoints,
+// and updating the DiscoveryNamespacesFilter.
 func (c *Controller) initDiscoveryNamespaceHandlers(
 	kubeClient kubelib.Client,
 	endpointMode EndpointMode,
@@ -40,11 +53,9 @@ func (c *Controller) initDiscoveryNamespaceHandlers(
 		AddFunc: func(obj interface{}) {
 			incrementEvent(otype, "add")
 			ns := obj.(*v1.Namespace)
-			// handle creation of labeled namespace
-			if ns.Labels[filter.PilotDiscoveryLabelName] == filter.PilotDiscoveryLabelValue {
-				discoveryNamespacesFilter.AddNamespace(ns.Name)
+			if discoveryNamespacesFilter.NamespaceCreated(ns.ObjectMeta) {
 				c.queue.Push(func() error {
-					c.handleLabeledNamespace(endpointMode, ns.Name)
+					c.handleSelectedNamespace(endpointMode, ns.Name)
 					return nil
 				})
 			}
@@ -53,20 +64,17 @@ func (c *Controller) initDiscoveryNamespaceHandlers(
 			incrementEvent(otype, "update")
 			oldNs := old.(*v1.Namespace)
 			newNs := new.(*v1.Namespace)
-			if oldNs.Labels[filter.PilotDiscoveryLabelName] != newNs.Labels[filter.PilotDiscoveryLabelName] {
+			membershipChanged, namespaceAdded := discoveryNamespacesFilter.NamespaceUpdated(oldNs.ObjectMeta, newNs.ObjectMeta)
+			if membershipChanged {
 				var handleFunc func() error
-				if oldNs.Labels[filter.PilotDiscoveryLabelName] == filter.PilotDiscoveryLabelValue {
-					// namespace was delabeled, issue deletes for all services, pods, and endpoints in namespace
-					discoveryNamespacesFilter.RemoveNamespace(newNs.Name)
+				if namespaceAdded {
 					handleFunc = func() error {
-						c.handleDelabledNamespace(kubeClient, endpointMode, newNs.Name)
+						c.handleSelectedNamespace(endpointMode, newNs.Name)
 						return nil
 					}
 				} else {
-					// namespace was newly labeled, issue creates for all services, pods, and endpoints in namespace
-					discoveryNamespacesFilter.AddNamespace(newNs.Name)
 					handleFunc = func() error {
-						c.handleLabeledNamespace(endpointMode, newNs.Name)
+						c.handleDeselectedNamespace(kubeClient, endpointMode, newNs.Name)
 						return nil
 					}
 				}
@@ -76,16 +84,42 @@ func (c *Controller) initDiscoveryNamespaceHandlers(
 		DeleteFunc: func(obj interface{}) {
 			incrementEvent(otype, "delete")
 			ns := obj.(*v1.Namespace)
-			if ns.Labels[filter.PilotDiscoveryLabelName] == filter.PilotDiscoveryLabelValue {
-				discoveryNamespacesFilter.RemoveNamespace(ns.Name)
-			}
+			discoveryNamespacesFilter.NamespaceDeleted(ns.ObjectMeta)
 			// no need to invoke object handlers since objects within the namespace will trigger delete events
 		},
 	})
 }
 
+// handle discovery namespace membership changes triggered by changes to meshConfig's discovery selectors
+// which requires updating the DiscoveryNamespaceFilter and triggering create/delete event handlers for services/pods/endpoints
+// for membership changes
+func (c *Controller) initMeshWatcherHandler(
+	kubeClient kubelib.Client,
+	endpointMode EndpointMode,
+	meshWatcher mesh.Watcher,
+	discoveryNamespacesFilter filter.DiscoveryNamespacesFilter,
+) {
+	meshWatcher.AddMeshHandler(func() {
+		newSelectedNamespaces, deselectedNamespaces := discoveryNamespacesFilter.SelectorsChanged(meshWatcher.Mesh().GetDiscoverySelectors())
+
+		for _, nsName := range newSelectedNamespaces {
+			c.queue.Push(func() error {
+				c.handleSelectedNamespace(endpointMode, nsName)
+				return nil
+			})
+		}
+
+		for _, nsName := range deselectedNamespaces {
+			c.queue.Push(func() error {
+				c.handleDeselectedNamespace(kubeClient, endpointMode, nsName)
+				return nil
+			})
+		}
+	})
+}
+
 // issue create events for all services, pods, and endpoints in the newly labeled namespace
-func (c *Controller) handleLabeledNamespace(endpointMode EndpointMode, ns string) {
+func (c *Controller) handleSelectedNamespace(endpointMode EndpointMode, ns string) {
 	var errs *multierror.Error
 
 	// for each resource type, issue create events for objects in the labeled namespace
@@ -136,7 +170,7 @@ func (c *Controller) handleLabeledNamespace(endpointMode EndpointMode, ns string
 
 // issue delete events for all services, pods, and endpoints in the delabled namespace
 // use kubeClient to bypass filter in order to list resources from non-labeled namespace
-func (c *Controller) handleDelabledNamespace(kubeClient kubelib.Client, endpointMode EndpointMode, ns string) {
+func (c *Controller) handleDeselectedNamespace(kubeClient kubelib.Client, endpointMode EndpointMode, ns string) {
 	var errs *multierror.Error
 
 	// for each resource type, issue delete events for objects in the delabled namespace

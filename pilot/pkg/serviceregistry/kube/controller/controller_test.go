@@ -17,6 +17,8 @@ package controller
 import (
 	"context"
 	"fmt"
+	"io/ioutil"
+	"path/filepath"
 	"reflect"
 	"sort"
 	"sync"
@@ -24,12 +26,15 @@ import (
 	"time"
 
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
+	"github.com/fsnotify/fsnotify"
+	"github.com/golang/protobuf/proto"
 	coreV1 "k8s.io/api/core/v1"
 	discovery "k8s.io/api/discovery/v1beta1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metaV1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/client-go/kubernetes"
+	"sigs.k8s.io/yaml"
 
 	"istio.io/api/annotation"
 	"istio.io/api/label"
@@ -37,13 +42,13 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube"
-	"istio.io/istio/pilot/pkg/serviceregistry/kube/controller/filter"
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/spiffe"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/util/retry"
+	"istio.io/pkg/filewatcher"
 	"istio.io/pkg/log"
 )
 
@@ -892,6 +897,25 @@ func TestController_Service(t *testing.T) {
 }
 
 func TestController_ServiceWithDiscoveryNamespaces(t *testing.T) {
+	meshWatcher := mesh.NewFixedWatcher(&meshconfig.MeshConfig{
+		DiscoverySelectors: []*metaV1.LabelSelector{
+			{
+				MatchLabels: map[string]string{
+					"pilot-discovery": "enabled",
+				},
+			},
+			{
+				MatchExpressions: []metaV1.LabelSelectorRequirement{
+					{
+						Key:      "env",
+						Operator: metaV1.LabelSelectorOpIn,
+						Values:   []string{"test", "dev"},
+					},
+				},
+			},
+		},
+	})
+
 	var servicesEqual = func(svcList, expectedSvcList []*model.Service) bool {
 		if len(svcList) != len(expectedSvcList) {
 			return false
@@ -958,14 +982,17 @@ func TestController_ServiceWithDiscoveryNamespaces(t *testing.T) {
 	for mode, name := range EndpointModeNames {
 		mode := mode
 		t.Run(name, func(t *testing.T) {
-			controller, fx := NewFakeControllerWithOptions(FakeControllerOptions{Mode: mode, EnableDiscoveryNamespaces: true})
+			controller, fx := NewFakeControllerWithOptions(FakeControllerOptions{
+				Mode:        mode,
+				MeshWatcher: meshWatcher,
+			})
 			defer controller.Stop()
 
 			nsA := "nsA"
 			nsB := "nsB"
 
-			// event handlers should only be triggered for services in namespaces with the discovery label
-			createNamespace(t, controller.client, nsA, map[string]string{filter.PilotDiscoveryLabelName: filter.PilotDiscoveryLabelValue})
+			// event handlers should only be triggered for services in namespaces selected for discovery
+			createNamespace(t, controller.client, nsA, map[string]string{"pilot-discovery": "enabled"})
 			createNamespace(t, controller.client, nsB, map[string]string{})
 
 			// wait for namespaces to be created
@@ -1005,7 +1032,7 @@ func TestController_ServiceWithDiscoveryNamespaces(t *testing.T) {
 			})
 
 			// test updating namespace with adding discovery label
-			updateNamespace(t, controller.client, nsB, map[string]string{filter.PilotDiscoveryLabelName: filter.PilotDiscoveryLabelValue})
+			updateNamespace(t, controller.client, nsB, map[string]string{"env": "test"})
 			// service event handlers should trigger for svc3 and svc4
 			if ev := fx.Wait("service"); ev == nil {
 				t.Fatal("Timeout creating service")
@@ -1020,7 +1047,7 @@ func TestController_ServiceWithDiscoveryNamespaces(t *testing.T) {
 			})
 
 			// test updating namespace by removing discovery label
-			updateNamespace(t, controller.client, nsA, map[string]string{filter.PilotDiscoveryLabelName: "false"})
+			updateNamespace(t, controller.client, nsA, map[string]string{"pilot-discovery": "disabled"})
 			// service event handlers should trigger for svc1 and svc2
 			if ev := fx.Wait("service"); ev == nil {
 				t.Fatal("Timeout creating service")
@@ -1033,6 +1060,272 @@ func TestController_ServiceWithDiscoveryNamespaces(t *testing.T) {
 				svcList, _ := controller.Services()
 				return servicesEqual(svcList, expectedSvcList)
 			})
+		})
+	}
+}
+
+func TestController_ServiceWithChangedDiscoveryNamespaces(t *testing.T) {
+	var servicesEqual = func(svcList, expectedSvcList []*model.Service) bool {
+		if len(svcList) != len(expectedSvcList) {
+			return false
+		}
+		for i, exp := range expectedSvcList {
+			if exp.Hostname != svcList[i].Hostname {
+				return false
+			}
+			if exp.Address != svcList[i].Address {
+				return false
+			}
+			if !reflect.DeepEqual(exp.Ports, svcList[i].Ports) {
+				return false
+			}
+		}
+		return true
+	}
+
+	svc1 := &model.Service{
+		Hostname: kube.ServiceHostname("svc1", "nsA", defaultFakeDomainSuffix),
+		Address:  "10.0.0.1",
+		Ports: model.PortList{
+			&model.Port{
+				Name:     "tcp-port",
+				Port:     8080,
+				Protocol: protocol.TCP,
+			},
+		},
+	}
+	svc2 := &model.Service{
+		Hostname: kube.ServiceHostname("svc2", "nsA", defaultFakeDomainSuffix),
+		Address:  "10.0.0.1",
+		Ports: model.PortList{
+			&model.Port{
+				Name:     "tcp-port",
+				Port:     8081,
+				Protocol: protocol.TCP,
+			},
+		},
+	}
+	svc3 := &model.Service{
+		Hostname: kube.ServiceHostname("svc3", "nsB", defaultFakeDomainSuffix),
+		Address:  "10.0.0.1",
+		Ports: model.PortList{
+			&model.Port{
+				Name:     "tcp-port",
+				Port:     8082,
+				Protocol: protocol.TCP,
+			},
+		},
+	}
+	svc4 := &model.Service{
+		Hostname: kube.ServiceHostname("svc4", "nsB", defaultFakeDomainSuffix),
+		Address:  "10.0.0.1",
+		Ports: model.PortList{
+			&model.Port{
+				Name:     "tcp-port",
+				Port:     8083,
+				Protocol: protocol.TCP,
+			},
+		},
+	}
+
+	path := func(t testing.TB) string {
+		t.Helper()
+		f, err := ioutil.TempFile("", t.Name())
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer func() {
+			_ = f.Close()
+		}()
+
+		path, err := filepath.Abs(f.Name())
+		if err != nil {
+			t.Fatal(err)
+		}
+		return path
+	}(t)
+
+	writeMessage := func(t testing.TB, path string, msg proto.Message) {
+		t.Helper()
+		yml, err := yaml.Marshal(msg)
+		if err != nil {
+			t.Fatal(err)
+		}
+		t.Helper()
+		if err := ioutil.WriteFile(path, []byte(yml), 0666); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	updateMeshConfig := func(
+		meshConfig *meshconfig.MeshConfig,
+		expectedSvcList []*model.Service,
+		expectedNumSvcEvents int,
+		fakeWatcher *filewatcher.FakeWatcher,
+		meshWatcher mesh.Watcher,
+		doneCh chan struct{},
+		fx *FakeXdsUpdater,
+		controller *FakeController,
+	) {
+		// update meshConfig
+		writeMessage(t, path, meshConfig)
+		fakeWatcher.InjectEvent(path, fsnotify.Event{path, fsnotify.Write})
+
+		// assert firing of service events
+		for i := 0; i < expectedNumSvcEvents; i++ {
+			if ev := fx.Wait("service"); ev == nil {
+				t.Fatal("timed out waiting for service event")
+			}
+		}
+
+		// assert controller's returned services
+		select {
+		case <-doneCh:
+			eventually(t, func() bool {
+				svcList, _ := controller.Services()
+				return servicesEqual(svcList, expectedSvcList)
+			})
+			break
+		case <-time.After(time.Second * 5):
+			t.Fatal("timed out meshConfig update")
+		}
+	}
+
+	for mode, name := range EndpointModeNames {
+		mode := mode
+		t.Run(name, func(t *testing.T) {
+
+			// start with nil discovery selectors, all namespaces should be permitted
+			writeMessage(t, path, &meshconfig.MeshConfig{})
+
+			newWatcher, fakeWatcher := filewatcher.NewFakeWatcher(func(path string, added bool) {})
+			watcher := newWatcher()
+
+			meshWatcher, err := mesh.NewFileWatcher(watcher, path)
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			doneCh := make(chan struct{}, 1)
+			meshWatcher.AddMeshHandler(func() {
+				doneCh <- struct{}{}
+			})
+
+			controller, fx := NewFakeControllerWithOptions(FakeControllerOptions{
+				Mode:        mode,
+				MeshWatcher: meshWatcher,
+			})
+			defer controller.Stop()
+
+			nsA := "nsA"
+			nsB := "nsB"
+
+			createNamespace(t, controller.client, nsA, map[string]string{"app": "foo"})
+			createNamespace(t, controller.client, nsB, map[string]string{"app": "bar"})
+
+			// wait for namespaces to be created
+			eventually(t, func() bool {
+				list, err := controller.client.CoreV1().Namespaces().List(context.TODO(), metaV1.ListOptions{})
+				if err != nil {
+					t.Fatalf("error listing namespaces: %v", err)
+				}
+				return len(list.Items) == 2
+			})
+
+			// service event handlers should trigger for all svcs
+			createService(controller, "svc1", nsA,
+				map[string]string{},
+				[]int32{8080}, map[string]string{"test-app": "test-app-1"}, t)
+			if ev := fx.Wait("service"); ev == nil {
+				t.Fatal("Timeout creating service")
+			}
+			createService(controller, "svc2", nsA,
+				map[string]string{},
+				[]int32{8081}, map[string]string{"test-app": "test-app-2"}, t)
+			if ev := fx.Wait("service"); ev == nil {
+				t.Fatal("Timeout creating service")
+			}
+			createService(controller, "svc3", nsB,
+				map[string]string{},
+				[]int32{8082}, map[string]string{"test-app": "test-app-3"}, t)
+			if ev := fx.Wait("service"); ev == nil {
+				t.Fatal("Timeout creating service")
+			}
+			createService(controller, "svc4", nsB,
+				map[string]string{},
+				[]int32{8083}, map[string]string{"test-app": "test-app-4"}, t)
+			if ev := fx.Wait("service"); ev == nil {
+				t.Fatal("Timeout creating service")
+			}
+
+			expectedSvcList := []*model.Service{svc1, svc2, svc3, svc4}
+			eventually(t, func() bool {
+				svcList, _ := controller.Services()
+				return servicesEqual(svcList, expectedSvcList)
+			})
+
+			// restrict namespaces to nsA
+			updateMeshConfig(
+				&meshconfig.MeshConfig{
+					DiscoverySelectors: []*metaV1.LabelSelector{
+						{
+							MatchLabels: map[string]string{
+								"app": "foo",
+							},
+						},
+					},
+				},
+				[]*model.Service{svc1, svc2},
+				2,
+				fakeWatcher,
+				meshWatcher,
+				doneCh,
+				fx,
+				controller,
+			)
+
+			// restrict namespaces to nsB (2 create events should trigger for nsB and 2 delete events for nsA)
+			updateMeshConfig(
+				&meshconfig.MeshConfig{
+					DiscoverySelectors: []*metaV1.LabelSelector{
+						{
+							MatchLabels: map[string]string{
+								"app": "bar",
+							},
+						},
+					},
+				},
+				[]*model.Service{svc3, svc4},
+				4,
+				fakeWatcher,
+				meshWatcher,
+				doneCh,
+				fx,
+				controller,
+			)
+
+			updateMeshConfig(
+				&meshconfig.MeshConfig{
+					DiscoverySelectors: []*metaV1.LabelSelector{
+						{
+							MatchExpressions: []metaV1.LabelSelectorRequirement{
+								{
+									Key:      "app",
+									Operator: metaV1.LabelSelectorOpIn,
+									Values:   []string{"foo", "bar"},
+								},
+							},
+						},
+					},
+				},
+				[]*model.Service{svc1, svc2, svc3, svc4},
+				2,
+				fakeWatcher,
+				meshWatcher,
+				doneCh,
+				fx,
+				controller,
+			)
 		})
 	}
 }

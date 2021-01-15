@@ -128,6 +128,9 @@ type Options struct {
 	// NetworksWatcher observes changes to the mesh networks config.
 	NetworksWatcher mesh.NetworksWatcher
 
+	// MeshWatcher observes changes to the mesh config
+	MeshWatcher mesh.Watcher
+
 	// EndpointMode decides what source to use to get endpoint information
 	EndpointMode EndpointMode
 
@@ -139,9 +142,6 @@ type Options struct {
 
 	// Duration to wait for cache syncs
 	SyncInterval time.Duration
-
-	// If enabled, dynamically restrict by namespace the set of Services, Pods, and Endpoints that istio processes when pushing xDS updates
-	EnableDiscoveryNamespaces bool
 }
 
 func (o Options) GetSyncInterval() time.Duration {
@@ -302,11 +302,9 @@ func NewController(kubeClient kubelib.Client, options Options) *Controller {
 
 	c.nsInformer = kubeClient.KubeInformer().Core().V1().Namespaces()
 
-	discoveryNamespaceFilter := filter.NewDiscoveryNamespacesFilter(options.EnableDiscoveryNamespaces, c.nsInformer.Lister())
+	discoveryNamespaceFilter := filter.NewDiscoveryNamespacesFilter(c.nsInformer.Lister(), options.MeshWatcher.Mesh().DiscoverySelectors)
 
-	if options.EnableDiscoveryNamespaces {
-		c.initDiscoveryNamespaceHandlers(kubeClient, options.EndpointMode, discoveryNamespaceFilter)
-	}
+	c.initDiscoveryHandlers(kubeClient, options.EndpointMode, options.MeshWatcher, discoveryNamespaceFilter)
 
 	c.serviceInformer = filter.NewFilteredSharedIndexInformer(discoveryNamespaceFilter.Filter, kubeClient.KubeInformer().Core().V1().Services().Informer())
 	c.serviceLister = listerv1.NewServiceLister(c.serviceInformer.GetIndexer())
