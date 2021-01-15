@@ -11,12 +11,12 @@ import (
 
 // NewFactory creates a new kube Cluster factory, using a slice-pointer that will be filled
 // with every possibly-related cluster, to allow checking topology info (network, primary, config).
-func NewFactory(allClusters *resource.Clusters) cluster.Factory {
+func NewFactory(allClusters map[string]resource.Cluster) cluster.Factory {
 	return &factory{allClusters: allClusters}
 }
 
 type factory struct {
-	allClusters *resource.Clusters
+	allClusters map[string]resource.Cluster
 	configs     []cluster.Config
 }
 
@@ -34,7 +34,7 @@ func (f *factory) With(configs ...cluster.Config) cluster.Factory {
 func (f *factory) Build() (resource.Clusters, error) {
 	var errs error
 
-	var clusters []resource.Cluster
+	var clusters resource.Clusters
 	for _, origCfg := range f.configs {
 		cfg, err := validConfig(origCfg)
 		if err != nil {
@@ -55,7 +55,6 @@ func (f *factory) Build() (resource.Clusters, error) {
 				cfg.Network,
 				cfg.ControlPlaneClusterName,
 				cfg.ConfigClusterName,
-				cfg.Index,
 				f.allClusters,
 			),
 		})

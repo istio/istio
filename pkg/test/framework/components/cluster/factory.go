@@ -18,8 +18,6 @@ type Config struct {
 	ControlPlaneClusterName string            `json:"controlPlaneClusterName,omitempty"`
 	ConfigClusterName       string            `json:"configClusterName,omitempty"`
 	Meta                    map[string]string `json:"meta,omitempty"`
-
-	Index resource.ClusterIndex
 }
 
 type Factory interface {

@@ -40,7 +40,6 @@ func (c Cluster) String() string {
 
 	_, _ = fmt.Fprintf(buf, "Name:               %d\n", c.Name())
 	_, _ = fmt.Fprintf(buf, "Kind:               %d\n", cluster.Kubernetes)
-	_, _ = fmt.Fprintf(buf, "Index:               %d\n", c.Index())
 	_, _ = fmt.Fprintf(buf, "Filename:            %s\n", c.filename)
 
 	return buf.String()

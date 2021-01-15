@@ -10,15 +10,13 @@ func NewTopology(
 	networkName string,
 	controlPlaneCluster string,
 	configCluster string,
-	index resource.ClusterIndex,
-	clusters *resource.Clusters,
+	clusters map[string]resource.Cluster,
 ) Topology {
 	return Topology{
 		name:                name,
 		networkName:         networkName,
 		controlPlaneCluster: controlPlaneCluster,
 		configCluster:       configCluster,
-		index:               index,
 		clusters:            clusters,
 	}
 }
@@ -30,9 +28,8 @@ type Topology struct {
 	networkName         string
 	controlPlaneCluster string
 	configCluster       string
-	index               resource.ClusterIndex
 	// clusters should contain all clusters in the context
-	clusters *resource.Clusters
+	clusters map[string]resource.Cluster
 }
 
 // NetworkName the cluster is on
@@ -43,11 +40,6 @@ func (c Topology) NetworkName() string {
 // Name provides the name this cluster used by Istio.
 func (c Topology) Name() string {
 	return c.name
-}
-
-// Index of this cluster within the Environment.
-func (c Topology) Index() resource.ClusterIndex {
-	return c.index
 }
 
 func (c Topology) IsPrimary() bool {
@@ -63,19 +55,17 @@ func (c Topology) IsRemote() bool {
 }
 
 func (c Topology) Primary() resource.Cluster {
-	for _, cluster := range *c.clusters {
-		if cluster.Name() == c.controlPlaneCluster {
-			return cluster
-		}
+	cluster, ok := c.clusters[c.controlPlaneCluster]
+	if !ok || cluster == nil {
+		panic(fmt.Errorf("cannot find %s, the primary cluster for %s", c.controlPlaneCluster, c.Name()))
 	}
-	panic(fmt.Errorf("cannot find %s, the primary cluster for %s", c.controlPlaneCluster, c.Name()))
+	return cluster
 }
 
 func (c Topology) Config() resource.Cluster {
-	for _, cluster := range *c.clusters {
-		if cluster.Name() == c.configCluster {
-			return cluster
-		}
+	cluster, ok := c.clusters[c.configCluster]
+	if !ok || cluster == nil {
+		panic(fmt.Errorf("cannot find %s, the config cluster for %s", c.configCluster, c.Name()))
 	}
-	panic(fmt.Errorf("cannot find %s, the config cluster for %s", c.configCluster, c.Name()))
+	return cluster
 }

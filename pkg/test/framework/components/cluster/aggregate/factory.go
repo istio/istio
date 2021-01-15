@@ -20,15 +20,14 @@ type Factory interface {
 var _ Factory = &aggregateFactory{}
 
 func NewFactory() Factory {
-	var allClusters resource.Clusters
 	return &aggregateFactory{
 		factories:   make(map[cluster.Kind]cluster.Factory),
-		allClusters: &allClusters,
+		allClusters: map[string]resource.Cluster{},
 	}
 }
 
 type aggregateFactory struct {
-	allClusters *resource.Clusters
+	allClusters map[string]resource.Cluster
 	configs     []cluster.Config
 	factories   map[cluster.Kind]cluster.Factory
 }
@@ -39,7 +38,6 @@ func (a *aggregateFactory) Kind() cluster.Kind {
 
 func (a *aggregateFactory) With(config ...cluster.Config) cluster.Factory {
 	for _, c := range config {
-		c.Index = resource.ClusterIndex(len(a.configs))
 		a.configs = append(a.configs, c)
 	}
 	for _, config := range a.configs {
@@ -49,8 +47,9 @@ func (a *aggregateFactory) With(config ...cluster.Config) cluster.Factory {
 }
 
 func (a *aggregateFactory) Build() (resource.Clusters, error) {
-	var errs error
+	scopes.Framework.Infof("=== BEGIN: Building clusters ===")
 
+	var errs error
 	// distribute configs to their factories
 	for i, origCfg := range a.configs {
 		cfg, err := validConfig(origCfg)
@@ -67,17 +66,23 @@ func (a *aggregateFactory) Build() (resource.Clusters, error) {
 	}
 
 	// initialize the clusters
+	var clusters resource.Clusters
 	for kind, factory := range a.factories {
 		scopes.Framework.Infof("Building %s clusters", kind)
-		clusters, err := factory.Build()
+		built, err := factory.Build()
 		if err != nil {
 			errs = multierror.Append(errs, err)
 			continue
 		}
-		*a.allClusters = append(*a.allClusters, clusters...)
+		for _, c := range built {
+			a.allClusters[c.Name()] = c
+			scopes.Framework.Infof("Built cluster:")
+			scopes.Framework.Infof(c.String())
+		}
+		clusters = append(clusters, built...)
 	}
 
-	return *a.allClusters, errs
+	return clusters, errs
 }
 
 func (a *aggregateFactory) BuildOrFail(t test.Failer) resource.Clusters {
