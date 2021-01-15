@@ -52,10 +52,8 @@ func (a *aggregateFactory) Kind() cluster.Kind {
 	return cluster.Aggregate
 }
 
-func (a *aggregateFactory) With(config ...cluster.Config) cluster.Factory {
-	for _, c := range config {
-		a.configs = append(a.configs, c)
-	}
+func (a *aggregateFactory) With(configs ...cluster.Config) cluster.Factory {
+	a.configs = append(a.configs, configs...)
 	for _, config := range a.configs {
 		a.maybeCreateFactory(config)
 	}

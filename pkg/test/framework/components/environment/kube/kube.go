@@ -64,9 +64,7 @@ func (e *Environment) IsMultinetwork() bool {
 
 func (e *Environment) Clusters() resource.Clusters {
 	out := make([]resource.Cluster, 0, len(e.clusters))
-	for _, c := range e.clusters {
-		out = append(out, c)
-	}
+	out = append(out, e.clusters...)
 	return out
 }
 

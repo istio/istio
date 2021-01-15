@@ -41,9 +41,7 @@ func (f *factory) Kind() cluster.Kind {
 }
 
 func (f *factory) With(configs ...cluster.Config) cluster.Factory {
-	for _, c := range configs {
-		f.configs = append(f.configs, c)
-	}
+	f.configs = append(f.configs, configs...)
 	return f
 }
 
