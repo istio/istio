@@ -340,6 +340,11 @@ func (t *ReverseTranslator) TranslateK8SfromValueToIOP(userOverlayYaml string) (
 		return "", fmt.Errorf("error unmarshalling values overlay yaml into untype tree %v", err)
 	}
 	iopSpecTree := make(map[string]interface{})
+	iopSpecOverlay, err := tpath.GetConfigSubtree(userOverlayYaml, "spec")
+	err = yaml.Unmarshal([]byte(iopSpecOverlay), &iopSpecTree)
+	if err != nil {
+		return "", fmt.Errorf("error unmarshalling spec overlay yaml into tree %v", err)
+	}
 	if err = t.TranslateK8S(valuesOverlayTree, iopSpecTree); err != nil {
 		return "", err
 	}
@@ -379,7 +384,7 @@ func translateStrategy(fieldName string, outPath string, value interface{}, cpSp
 	outPath += ".rollingUpdate." + newFieldName
 
 	scope.Debugf("path has value in helm Value.yaml tree, mapping to output path %s", outPath)
-	if err := tpath.WriteNode(cpSpecTree, util.ToYAMLPath(outPath), value); err != nil {
+	if err := tpath.MergeNode(cpSpecTree, util.ToYAMLPath(outPath), value); err != nil {
 		return err
 	}
 	return nil
@@ -489,17 +494,32 @@ func translateEnv(outPath string, value interface{}, cpSpecTree map[string]inter
 	if len(envMap) == 0 {
 		return nil
 	}
-	outEnv := make([]map[string]interface{}, len(envMap))
-	cnt := 0
-	for k, v := range envMap {
-		outEnv[cnt] = make(map[string]interface{})
-		outEnv[cnt]["name"] = k
-		outEnv[cnt]["value"] = fmt.Sprintf("%v", v)
-		cnt++
-	}
 	scope.Debugf("path has value in helm Value.yaml tree, mapping to output path %s", outPath)
-	if err := tpath.WriteNode(cpSpecTree, util.ToYAMLPath(outPath), outEnv); err != nil {
-		return err
+	nc, found, _ := tpath.GetPathContext(cpSpecTree, util.ToYAMLPath(outPath), false)
+	envValStr, _ := yaml.Marshal(nc.Node)
+	if !found || strings.TrimSpace(string(envValStr)) == "{}" {
+		scope.Debugf("path doesn't have value in k8s setting with output path %s, override with helm Value.yaml tree", outPath)
+		outEnv := make([]map[string]interface{}, len(envMap))
+		cnt := 0
+		for k, v := range envMap {
+			outEnv[cnt] = make(map[string]interface{})
+			outEnv[cnt]["name"] = k
+			outEnv[cnt]["value"] = fmt.Sprintf("%v", v)
+			cnt++
+		}
+		if err := tpath.WriteNode(cpSpecTree, util.ToYAMLPath(outPath), outEnv); err != nil {
+			return err
+		}
+	} else {
+		scope.Debugf("path has value in k8s setting with output path %s, merge it with helm Value.yaml tree", outPath)
+		outEnv := make(map[string]interface{})
+		for k, v := range envMap {
+			outEnv["name"] = k
+			outEnv["value"] = fmt.Sprintf("%v", v)
+			if err := tpath.MergeNode(cpSpecTree, util.ToYAMLPath(outPath), outEnv); err != nil {
+				return err
+			}
+		}
 	}
 	return nil
 }
@@ -561,7 +581,7 @@ func (t *ReverseTranslator) translateK8sTree(valueTree map[string]interface{},
 			output := util.ToYAMLPath(v.OutPath)
 			scope.Debugf("path has value in helm Value.yaml tree, mapping to output path %s", output)
 
-			if err := tpath.WriteNode(cpSpecTree, output, m); err != nil {
+			if err := tpath.MergeNode(cpSpecTree, output, m); err != nil {
 				return err
 			}
 		}
