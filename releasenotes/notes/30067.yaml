@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: networking
+issue:
+- 30067
+releaseNotes:
+- |
+  **Fixed** a bug where ISTIO_META_IDLE_TIMEOUT is not reflected when set to "0s".
