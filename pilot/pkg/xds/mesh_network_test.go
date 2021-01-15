@@ -17,7 +17,6 @@ package xds
 import (
 	"context"
 	"fmt"
-	"istio.io/istio/pkg/test/util/retry"
 	"strings"
 	"testing"
 	"time"
@@ -38,6 +37,7 @@ import (
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/config/schema/collections"
+	"istio.io/istio/pkg/test/util/retry"
 )
 
 func TestNetworkGatewayUpdates(t *testing.T) {
