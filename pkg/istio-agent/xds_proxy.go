@@ -32,6 +32,7 @@ import (
 
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	"github.com/golang/protobuf/ptypes"
+	"go.uber.org/atomic"
 	"golang.org/x/oauth2"
 	google_rpc "google.golang.org/genproto/googleapis/rpc/status"
 	"google.golang.org/grpc"
@@ -88,10 +89,13 @@ type XdsProxy struct {
 	connectedMutex sync.RWMutex
 
 	// Wasm cache and ecds channel are used to repalce wasm remote load with local file.
-	wasmCache          wasm.Cache
-	ecdsLastAckVersion string
-	ecdsLastNonce      string
-	ecdsUpdateChan     chan discoveryResponse
+	wasmCache      wasm.Cache
+	ecdsUpdateChan chan discoveryResponse
+	// ecds version and nonce uses atomic only to prevent race in testing.
+	// In reality there should not be race as istiod will only have one
+	// in flight update for each type of resource.
+	ecdsLastAckVersion atomic.String
+	ecdsLastNonce      atomic.String
 }
 
 // discoveryResponse wraps the response message and an annotation which indicates whether
@@ -356,9 +360,9 @@ func (p *XdsProxy) handleUpstreamRequest(ctx context.Context, con *ProxyConnecti
 			metrics.XdsProxyRequests.Increment()
 			if req.TypeUrl == v3.ExtensionConfigurationType {
 				if req.VersionInfo != "" {
-					p.ecdsLastAckVersion = req.VersionInfo
+					p.ecdsLastAckVersion.Store(req.VersionInfo)
 				}
-				p.ecdsLastNonce = req.ResponseNonce
+				p.ecdsLastNonce.Store(req.ResponseNonce)
 			}
 			if err := sendUpstreamWithTimeout(ctx, con.upstream, req); err != nil {
 				proxyLog.Errorf("upstream send error for type url %s: %v", req.TypeUrl, err)
@@ -424,7 +428,7 @@ func (p *XdsProxy) handleUpstreamECDSResponse(con *ProxyConnection) {
 			sendNack := wasm.MaybeConvertWasmExtensionConfig(discoveryResp.resp.Resources, p.wasmCache)
 			if sendNack {
 				con.requestsChan <- &discovery.DiscoveryRequest{
-					VersionInfo:   p.ecdsLastAckVersion,
+					VersionInfo:   p.ecdsLastAckVersion.Load(),
 					TypeUrl:       v3.ExtensionConfigurationType,
 					ResponseNonce: discoveryResp.resp.Nonce,
 					ErrorDetail: &google_rpc.Status{

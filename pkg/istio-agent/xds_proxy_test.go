@@ -470,7 +470,7 @@ func TestECDSWasmConversion(t *testing.T) {
 
 	// Wait until nonce was updated, which represents an ACK/NACK has been received.
 	retry.UntilSuccessOrFail(t, func() error {
-		if proxy.ecdsLastNonce == n1 {
+		if proxy.ecdsLastNonce.Load() == n1.Load() {
 			return errors.New("last process nonce has not been updated. no ecds ack/nack is received yet")
 		}
 		return nil
@@ -478,7 +478,7 @@ func TestECDSWasmConversion(t *testing.T) {
 
 	// Verify that the last ack version remains the same, which represents the latest DiscoveryRequest is a NACK.
 	v2 := proxy.ecdsLastAckVersion
-	if v1 == v2 {
+	if v1.Load() == v2.Load() {
 		t.Errorf("last ack ecds request was updated. expect it to remain the same which represents a nack for ecds update")
 	}
 }
