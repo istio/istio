@@ -78,7 +78,7 @@ func (t *TokenProvider) GetRequestMetadata(ctx context.Context, uri ...string) (
 			gcpProjectNumber = plugin.GetGcpProjectNumber()
 		}
 	}
-	if !t.forCA && t.opts.XdsEnableTokenFetchExchange && len(gcpProjectNumber) > 0 {
+	if !t.forCA && t.opts.XdsAuthProvider == "gcp" && len(gcpProjectNumber) > 0 {
 		return map[string]string{
 			"authorization":       "Bearer " + token,
 			"X-Goog-User-Project": gcpProjectNumber,
@@ -142,7 +142,7 @@ func (t *TokenProvider) GetTokenForXDS() (string, error) {
 		return "", nil
 	}
 	// For XDS flow, when token fetch and exchange is disabled, we only support reading from file.
-	if !t.opts.XdsEnableTokenFetchExchange {
+	if t.opts.XdsAuthProvider != "gcp" {
 		return strings.TrimSpace(string(tok)), nil
 	}
 	// For XDS flow, the token exchange is different from that of the CA flow.

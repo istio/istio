@@ -142,8 +142,8 @@ type Options struct {
 	// Name of the Service Account
 	ServiceAccount string
 
-	// Enable token fetch and exchange for XDS
-	XdsEnableTokenFetchExchange bool
+	// XDS auth provider
+	XdsAuthProvider string
 
 	// Token manager for the token exchange of XDS
 	TokenManager stsservice.TokenManager

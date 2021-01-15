@@ -77,14 +77,15 @@ var (
 	loggingOptions         = log.DefaultOptions()
 	outlierLogPath         string
 
-	instanceIPVar               = env.RegisterStringVar("INSTANCE_IP", "", "")
-	podNameVar                  = env.RegisterStringVar("POD_NAME", "", "")
-	podNamespaceVar             = env.RegisterStringVar("POD_NAMESPACE", "", "")
-	kubeAppProberNameVar        = env.RegisterStringVar(status.KubeAppProberEnvName, "", "")
-	serviceAccountVar           = env.RegisterStringVar("SERVICE_ACCOUNT", "", "Name of service account")
-	clusterIDVar                = env.RegisterStringVar("ISTIO_META_CLUSTER_ID", "", "")
-	callCredentials             = env.RegisterBoolVar("CALL_CREDENTIALS", false, "Use JWT directly instead of MTLS")
-	xdsEnableTokenFetchExchange = env.RegisterBoolVar("XDS_ENABLE_TOKEN_FETCH_EXCHANGE", false, "Enable token fetch and exchange for XDS")
+	instanceIPVar        = env.RegisterStringVar("INSTANCE_IP", "", "")
+	podNameVar           = env.RegisterStringVar("POD_NAME", "", "")
+	podNamespaceVar      = env.RegisterStringVar("POD_NAMESPACE", "", "")
+	kubeAppProberNameVar = env.RegisterStringVar(status.KubeAppProberEnvName, "", "")
+	serviceAccountVar    = env.RegisterStringVar("SERVICE_ACCOUNT", "", "Name of service account")
+	clusterIDVar         = env.RegisterStringVar("ISTIO_META_CLUSTER_ID", "", "")
+	callCredentials      = env.RegisterBoolVar("CALL_CREDENTIALS", false, "Use JWT directly instead of MTLS")
+	// Provider for XDS auth, e.g., gcp. By default, it is empty, meaning no auth provider.
+	xdsAuthProvider = env.RegisterStringVar("XDS_AUTH_PROVIDER", "", "Provider for XDS auth")
 
 	pilotCertProvider = env.RegisterStringVar("PILOT_CERT_PROVIDER", "istiod",
 		"The provider of Pilot DNS certificate.").Get()
@@ -352,7 +353,7 @@ func setupSecurityOptions(proxyConfig meshconfig.ProxyConfig) (security.Options,
 		FileMountedCerts:               fileMountedCertsEnv,
 		WorkloadNamespace:              podNamespaceVar.Get(),
 		ServiceAccount:                 serviceAccountVar.Get(),
-		XdsEnableTokenFetchExchange:    xdsEnableTokenFetchExchange.Get(),
+		XdsAuthProvider:                xdsAuthProvider.Get(),
 		TrustDomain:                    trustDomainEnv,
 		Pkcs8Keys:                      pkcs8KeysEnv,
 		ECCSigAlg:                      eccSigAlgEnv,
