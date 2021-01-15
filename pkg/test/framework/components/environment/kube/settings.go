@@ -57,18 +57,6 @@ type Settings struct {
 	ConfigTopology clusterTopology
 }
 
-type SetupSettingsFunc func(s *Settings, ctx resource.Context)
-
-// Setup is a setup function that allows overriding values in the Kube environment settings.
-func Setup(sfn SetupSettingsFunc) resource.SetupFn {
-	return func(ctx resource.Context) error {
-		s := ctx.Environment().(*Environment).s
-		sfn(s, ctx)
-		scopes.Framework.Infof("Overridden Kubernetes environment Settings:\n%s", s.String())
-		return nil
-	}
-}
-
 func (s *Settings) clone() *Settings {
 	c := *s
 	return &c

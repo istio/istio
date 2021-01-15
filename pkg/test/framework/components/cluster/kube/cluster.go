@@ -22,7 +22,7 @@ import (
 	"istio.io/istio/pkg/test/framework/resource"
 )
 
-var _ resource.Cluster = Cluster{}
+var _ resource.Cluster = &Cluster{}
 
 // Cluster for a Kubernetes cluster. Provides access via a kube.Client.
 type Cluster struct {
@@ -35,7 +35,11 @@ type Cluster struct {
 	cluster.Topology
 }
 
-func (c Cluster) String() string {
+func (c *Cluster) OverrideTopology(fn func(cluster.Topology) cluster.Topology) {
+	c.Topology = fn(c.Topology)
+}
+
+func (c *Cluster) String() string {
 	buf := &bytes.Buffer{}
 
 	_, _ = fmt.Fprintf(buf, "Name:               %s\n", c.Name())
