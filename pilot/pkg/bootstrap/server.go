@@ -238,6 +238,7 @@ func NewServer(args *PilotArgs) (*Server, error) {
 
 	s.initMeshNetworks(args, s.fileWatcher)
 	s.initMeshHandlers()
+	s.environment.InitClusterLocalHosts()
 
 	// Options based on the current 'defaults' in istio.
 	caOpts := &caOptions{
