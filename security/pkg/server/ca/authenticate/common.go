@@ -20,6 +20,8 @@ import (
 	"strings"
 
 	"google.golang.org/grpc/metadata"
+
+	"istio.io/istio/pkg/security"
 )
 
 const (
@@ -41,8 +43,8 @@ func ExtractBearerToken(ctx context.Context) (string, error) {
 	}
 
 	for _, value := range authHeader {
-		if strings.HasPrefix(value, BearerTokenPrefix) {
-			return strings.TrimPrefix(value, BearerTokenPrefix), nil
+		if strings.HasPrefix(value, security.BearerTokenPrefix) {
+			return strings.TrimPrefix(value, security.BearerTokenPrefix), nil
 		}
 	}
 

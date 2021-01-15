@@ -200,18 +200,6 @@ func TestInjectRequired(t *testing.T) {
 		},
 		{
 			config: &Config{
-				Policy: "wrong_policy",
-			},
-			podSpec: podSpec,
-			meta: metav1.ObjectMeta{
-				Name:        "wrong-policy",
-				Namespace:   "test-namespace",
-				Annotations: map[string]string{},
-			},
-			want: false,
-		},
-		{
-			config: &Config{
 				Policy:               InjectionPolicyEnabled,
 				AlwaysInjectSelector: []metav1.LabelSelector{{MatchLabels: map[string]string{"foo": "bar"}}},
 			},

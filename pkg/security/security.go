@@ -58,6 +58,11 @@ var (
 	TokenAudiences = strings.Split(env.RegisterStringVar("TOKEN_AUDIENCES", "istio-ca",
 		"A list of comma separated audiences to check in the JWT token before issuing a certificate. "+
 			"The token is accepted if it matches with one of the audiences").Get(), ",")
+
+	XDSTokenType = env.RegisterStringVar("XDS_TOKEN_TYPE", "Bearer",
+		"Token type in the Authorization header.").Get()
+
+	BearerTokenPrefix = XDSTokenType + " "
 )
 
 // Options provides all of the configuration parameters for secret discovery service
