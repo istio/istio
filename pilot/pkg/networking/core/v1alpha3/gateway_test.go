@@ -118,19 +118,53 @@ func TestBuildGatewayListenerTlsContext(t *testing.T) {
 					Mode: networking.ServerTLSSettings_SIMPLE,
 				},
 			},
+			sdsPath: "unix:/var/run/sds/uds_path",
 			result: &auth.DownstreamTlsContext{
 				CommonTlsContext: &auth.CommonTlsContext{
 					AlpnProtocols: util.ALPNHttp,
-					TlsCertificates: []*auth.TlsCertificate{
+					TlsCertificateSdsSecretConfigs: []*auth.SdsSecretConfig{
 						{
-							CertificateChain: &core.DataSource{
-								Specifier: &core.DataSource_Filename{
-									Filename: "",
+							Name: "default",
+							SdsConfig: &core.ConfigSource{
+								InitialFetchTimeout: ptypes.DurationProto(time.Second * 0),
+								ResourceApiVersion:  core.ApiVersion_V3,
+								ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
+									ApiConfigSource: &core.ApiConfigSource{
+										ApiType:             core.ApiConfigSource_GRPC,
+										TransportApiVersion: core.ApiVersion_V3,
+										GrpcServices: []*core.GrpcService{
+											{
+												TargetSpecifier: &core.GrpcService_EnvoyGrpc_{
+													EnvoyGrpc: &core.GrpcService_EnvoyGrpc{ClusterName: model.SDSClusterName},
+												},
+											},
+										},
+									},
 								},
 							},
-							PrivateKey: &core.DataSource{
-								Specifier: &core.DataSource_Filename{
-									Filename: "",
+						},
+					},
+					ValidationContextType: &auth.CommonTlsContext_CombinedValidationContext{
+						CombinedValidationContext: &auth.CommonTlsContext_CombinedCertificateValidationContext{
+							DefaultValidationContext: &auth.CertificateValidationContext{},
+							ValidationContextSdsSecretConfig: &auth.SdsSecretConfig{
+								Name: "ROOTCA",
+								SdsConfig: &core.ConfigSource{
+									InitialFetchTimeout: ptypes.DurationProto(time.Second * 0),
+									ResourceApiVersion:  core.ApiVersion_V3,
+									ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
+										ApiConfigSource: &core.ApiConfigSource{
+											ApiType:             core.ApiConfigSource_GRPC,
+											TransportApiVersion: core.ApiVersion_V3,
+											GrpcServices: []*core.GrpcService{
+												{
+													TargetSpecifier: &core.GrpcService_EnvoyGrpc_{
+														EnvoyGrpc: &core.GrpcService_EnvoyGrpc{ClusterName: model.SDSClusterName},
+													},
+												},
+											},
+										},
+									},
 								},
 							},
 						},
@@ -198,21 +232,53 @@ func TestBuildGatewayListenerTlsContext(t *testing.T) {
 					Mode:              networking.ServerTLSSettings_SIMPLE,
 					ServerCertificate: "server-cert.crt",
 					PrivateKey:        "private-key.key",
+					CaCertificates:    "ca-cert.crt",
 				},
 			},
 			result: &auth.DownstreamTlsContext{
 				CommonTlsContext: &auth.CommonTlsContext{
 					AlpnProtocols: util.ALPNHttp,
-					TlsCertificates: []*auth.TlsCertificate{
+					TlsCertificateSdsSecretConfigs: []*auth.SdsSecretConfig{
 						{
-							CertificateChain: &core.DataSource{
-								Specifier: &core.DataSource_Filename{
-									Filename: "server-cert.crt",
+							Name: "file-cert:server-cert.crt~private-key.key",
+							SdsConfig: &core.ConfigSource{
+								ResourceApiVersion: core.ApiVersion_V3,
+								ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
+									ApiConfigSource: &core.ApiConfigSource{
+										ApiType:             core.ApiConfigSource_GRPC,
+										TransportApiVersion: core.ApiVersion_V3,
+										GrpcServices: []*core.GrpcService{
+											{
+												TargetSpecifier: &core.GrpcService_EnvoyGrpc_{
+													EnvoyGrpc: &core.GrpcService_EnvoyGrpc{ClusterName: model.SDSClusterName},
+												},
+											},
+										},
+									},
 								},
 							},
-							PrivateKey: &core.DataSource{
-								Specifier: &core.DataSource_Filename{
-									Filename: "private-key.key",
+						},
+					},
+					ValidationContextType: &auth.CommonTlsContext_CombinedValidationContext{
+						CombinedValidationContext: &auth.CommonTlsContext_CombinedCertificateValidationContext{
+							DefaultValidationContext: &auth.CertificateValidationContext{},
+							ValidationContextSdsSecretConfig: &auth.SdsSecretConfig{
+								Name: "file-root:ca-cert.crt",
+								SdsConfig: &core.ConfigSource{
+									ResourceApiVersion: core.ApiVersion_V3,
+									ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
+										ApiConfigSource: &core.ApiConfigSource{
+											ApiType:             core.ApiConfigSource_GRPC,
+											TransportApiVersion: core.ApiVersion_V3,
+											GrpcServices: []*core.GrpcService{
+												{
+													TargetSpecifier: &core.GrpcService_EnvoyGrpc_{
+														EnvoyGrpc: &core.GrpcService_EnvoyGrpc{ClusterName: model.SDSClusterName},
+													},
+												},
+											},
+										},
+									},
 								},
 							},
 						},
@@ -229,21 +295,121 @@ func TestBuildGatewayListenerTlsContext(t *testing.T) {
 					Mode:              networking.ServerTLSSettings_MUTUAL,
 					ServerCertificate: "server-cert.crt",
 					PrivateKey:        "private-key.key",
+					CaCertificates:    "ca-cert.crt",
 				},
 			},
+			sdsPath: "unix:/var/run/sds/uds_path",
 			result: &auth.DownstreamTlsContext{
 				CommonTlsContext: &auth.CommonTlsContext{
 					AlpnProtocols: util.ALPNHttp,
-					TlsCertificates: []*auth.TlsCertificate{
+					TlsCertificateSdsSecretConfigs: []*auth.SdsSecretConfig{
 						{
-							CertificateChain: &core.DataSource{
-								Specifier: &core.DataSource_Filename{
-									Filename: "server-cert.crt",
+							Name: "file-cert:server-cert.crt~private-key.key",
+							SdsConfig: &core.ConfigSource{
+								ResourceApiVersion: core.ApiVersion_V3,
+								ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
+									ApiConfigSource: &core.ApiConfigSource{
+										ApiType:             core.ApiConfigSource_GRPC,
+										TransportApiVersion: core.ApiVersion_V3,
+										GrpcServices: []*core.GrpcService{
+											{
+												TargetSpecifier: &core.GrpcService_EnvoyGrpc_{
+													EnvoyGrpc: &core.GrpcService_EnvoyGrpc{ClusterName: model.SDSClusterName},
+												},
+											},
+										},
+									},
 								},
 							},
-							PrivateKey: &core.DataSource{
-								Specifier: &core.DataSource_Filename{
-									Filename: "private-key.key",
+						},
+					},
+					ValidationContextType: &auth.CommonTlsContext_CombinedValidationContext{
+						CombinedValidationContext: &auth.CommonTlsContext_CombinedCertificateValidationContext{
+							DefaultValidationContext: &auth.CertificateValidationContext{},
+							ValidationContextSdsSecretConfig: &auth.SdsSecretConfig{
+								Name: "file-root:ca-cert.crt",
+								SdsConfig: &core.ConfigSource{
+									ResourceApiVersion: core.ApiVersion_V3,
+									ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
+										ApiConfigSource: &core.ApiConfigSource{
+											ApiType:             core.ApiConfigSource_GRPC,
+											TransportApiVersion: core.ApiVersion_V3,
+											GrpcServices: []*core.GrpcService{
+												{
+													TargetSpecifier: &core.GrpcService_EnvoyGrpc_{
+														EnvoyGrpc: &core.GrpcService_EnvoyGrpc{ClusterName: model.SDSClusterName},
+													},
+												},
+											},
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+				RequireClientCertificate: proto.BoolTrue,
+			},
+		},
+		{
+			name: "no credential name key and cert subject alt names tls MUTUAL",
+			server: &networking.Server{
+				Hosts: []string{"httpbin.example.com", "bookinfo.example.com"},
+				Tls: &networking.ServerTLSSettings{
+					Mode:              networking.ServerTLSSettings_MUTUAL,
+					ServerCertificate: "server-cert.crt",
+					PrivateKey:        "private-key.key",
+					CaCertificates:    "ca-cert.crt",
+					SubjectAltNames:   []string{"subject.name.a.com", "subject.name.b.com"},
+				},
+			},
+			sdsPath: "unix:/var/run/sds/uds_path",
+			result: &auth.DownstreamTlsContext{
+				CommonTlsContext: &auth.CommonTlsContext{
+					AlpnProtocols: util.ALPNHttp,
+					TlsCertificateSdsSecretConfigs: []*auth.SdsSecretConfig{
+						{
+							Name: "file-cert:server-cert.crt~private-key.key",
+							SdsConfig: &core.ConfigSource{
+								ResourceApiVersion: core.ApiVersion_V3,
+								ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
+									ApiConfigSource: &core.ApiConfigSource{
+										ApiType:             core.ApiConfigSource_GRPC,
+										TransportApiVersion: core.ApiVersion_V3,
+										GrpcServices: []*core.GrpcService{
+											{
+												TargetSpecifier: &core.GrpcService_EnvoyGrpc_{
+													EnvoyGrpc: &core.GrpcService_EnvoyGrpc{ClusterName: model.SDSClusterName},
+												},
+											},
+										},
+									},
+								},
+							},
+						},
+					},
+					ValidationContextType: &auth.CommonTlsContext_CombinedValidationContext{
+						CombinedValidationContext: &auth.CommonTlsContext_CombinedCertificateValidationContext{
+							DefaultValidationContext: &auth.CertificateValidationContext{
+								MatchSubjectAltNames: util.StringToExactMatch([]string{"subject.name.a.com", "subject.name.b.com"}),
+							},
+							ValidationContextSdsSecretConfig: &auth.SdsSecretConfig{
+								Name: "file-root:ca-cert.crt",
+								SdsConfig: &core.ConfigSource{
+									ResourceApiVersion: core.ApiVersion_V3,
+									ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
+										ApiConfigSource: &core.ApiConfigSource{
+											ApiType:             core.ApiConfigSource_GRPC,
+											TransportApiVersion: core.ApiVersion_V3,
+											GrpcServices: []*core.GrpcService{
+												{
+													TargetSpecifier: &core.GrpcService_EnvoyGrpc_{
+														EnvoyGrpc: &core.GrpcService_EnvoyGrpc{ClusterName: model.SDSClusterName},
+													},
+												},
+											},
+										},
+									},
 								},
 							},
 						},

@@ -435,44 +435,21 @@ func buildGatewayListenerTLSContext(
 		},
 	}
 
-	if server.Tls.CredentialName != "" {
-		// If SDS is enabled at gateway, and credential name is specified at gateway config, create
-		// SDS config for gateway to fetch key/cert at gateway agent.
+	switch {
+	// If SDS is enabled at gateway, and credential name is specified at gateway config, create
+	// SDS config for gateway to fetch key/cert at gateway agent.
+	case server.Tls.CredentialName != "":
 		authn_model.ApplyCredentialSDSToServerCommonTLSContext(ctx.CommonTlsContext, server.Tls)
-	} else if server.Tls.Mode == networking.ServerTLSSettings_ISTIO_MUTUAL {
+	case server.Tls.Mode == networking.ServerTLSSettings_ISTIO_MUTUAL:
 		authn_model.ApplyToCommonTLSContext(ctx.CommonTlsContext, metadata, sdsPath, server.Tls.SubjectAltNames, []string{})
-	} else {
-		// Fall back to the read-from-file approach when SDS is not enabled or Tls.CredentialName is not specified.
-		ctx.CommonTlsContext.TlsCertificates = []*tls.TlsCertificate{
-			{
-				CertificateChain: &core.DataSource{
-					Specifier: &core.DataSource_Filename{
-						Filename: server.Tls.ServerCertificate,
-					},
-				},
-				PrivateKey: &core.DataSource{
-					Specifier: &core.DataSource_Filename{
-						Filename: server.Tls.PrivateKey,
-					},
-				},
-			},
+	default:
+		// If certificate files are specified in gateway configuration, use file based SDS.
+		certmetadata := &model.NodeMetadata{
+			TLSServerCertChain: server.Tls.ServerCertificate,
+			TLSServerKey:       server.Tls.PrivateKey,
+			TLSServerRootCert:  server.Tls.CaCertificates,
 		}
-		var trustedCa *core.DataSource
-		if len(server.Tls.CaCertificates) != 0 {
-			trustedCa = &core.DataSource{
-				Specifier: &core.DataSource_Filename{
-					Filename: server.Tls.CaCertificates,
-				},
-			}
-		}
-		if trustedCa != nil || len(server.Tls.SubjectAltNames) > 0 {
-			ctx.CommonTlsContext.ValidationContextType = &tls.CommonTlsContext_ValidationContext{
-				ValidationContext: &tls.CertificateValidationContext{
-					TrustedCa:            trustedCa,
-					MatchSubjectAltNames: util.StringToExactMatch(server.Tls.SubjectAltNames),
-				},
-			}
-		}
+		authn_model.ApplyToCommonTLSContext(ctx.CommonTlsContext, certmetadata, sdsPath, server.Tls.SubjectAltNames, []string{})
 	}
 
 	ctx.RequireClientCertificate = proto.BoolFalse

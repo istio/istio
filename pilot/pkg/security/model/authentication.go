@@ -203,10 +203,9 @@ func appendURIPrefixToTrustDomain(trustDomainAliases []string) []string {
 	return res
 }
 
-// ApplyToCommonTLSContext completes the commonTlsContext for `ISTIO_MUTUAL` TLS mode
+// ApplyToCommonTLSContext completes the commonTlsContext
 func ApplyToCommonTLSContext(tlsContext *tls.CommonTlsContext, metadata *model.NodeMetadata,
 	sdsPath string, subjectAltNames []string, trustDomainAliases []string) {
-
 	// These are certs being mounted from within the pod. Rather than reading directly in Envoy,
 	// which does not support rotation, we will serve them over SDS by reading the files.
 	// We should check if these certs have values, if yes we should use them or otherwise fall back to defaults.
