@@ -62,14 +62,14 @@ func NewDiscoveryNamespacesFilter(
 }
 
 func (d *discoveryNamespacesFilter) Filter(obj interface{}) bool {
+	d.lock.RLock()
+	defer d.lock.RUnlock()
 	// permit all objects if discovery selectors are not specified
 	if len(d.discoverySelectors) == 0 {
 		return true
 	}
 
 	// permit if object resides in a namespace labeled for discovery
-	d.lock.Lock()
-	defer d.lock.Unlock()
 	return d.discoveryNamespaces.Has(obj.(metav1.Object).GetNamespace())
 }
 
@@ -98,18 +98,23 @@ func (d *discoveryNamespacesFilter) SelectorsChanged(
 		selectors = append(selectors, ls)
 	}
 
-	if len(selectors) != 0 {
-		// range over all namespaces to get discovery namespaces
-		for _, ns := range namespaceList {
-			for _, selector := range selectors {
-				// omitting discoverySelectors indicates discovering all namespaces
-				if selector.Matches(labels.Set(ns.Labels)) {
-					newDiscoveryNamespaces.Insert(ns.Name)
-				}
+	// range over all namespaces to get discovery namespaces
+	for _, ns := range namespaceList {
+		for _, selector := range selectors {
+			if selector.Matches(labels.Set(ns.Labels)) {
+				newDiscoveryNamespaces.Insert(ns.Name)
+			}
+		}
+		// omitting discoverySelectors indicates discovering all namespaces
+		if len(selectors) == 0 {
+			for _, ns := range namespaceList {
+				newDiscoveryNamespaces.Insert(ns.Name)
 			}
 		}
 	}
 
+	d.lock.Lock()
+	defer d.lock.Unlock()
 	selectedNamespaces = newDiscoveryNamespaces.Difference(oldDiscoveryNamespaces).List()
 	deselectedNamespaces = oldDiscoveryNamespaces.Difference(newDiscoveryNamespaces).List()
 
@@ -158,8 +163,8 @@ func (d *discoveryNamespacesFilter) addNamespace(ns string) {
 }
 
 func (d *discoveryNamespacesFilter) hasNamespace(ns string) bool {
-	d.lock.Lock()
-	defer d.lock.Unlock()
+	d.lock.RLock()
+	defer d.lock.RUnlock()
 	return d.discoveryNamespaces.Has(ns)
 }
 

@@ -103,6 +103,7 @@ func (c *Controller) initMeshWatcherHandler(
 		newSelectedNamespaces, deselectedNamespaces := discoveryNamespacesFilter.SelectorsChanged(meshWatcher.Mesh().GetDiscoverySelectors())
 
 		for _, nsName := range newSelectedNamespaces {
+			nsName := nsName // need to shadow variable to ensure correct value when evaluated inside the closure below
 			c.queue.Push(func() error {
 				c.handleSelectedNamespace(endpointMode, nsName)
 				return nil
@@ -110,6 +111,7 @@ func (c *Controller) initMeshWatcherHandler(
 		}
 
 		for _, nsName := range deselectedNamespaces {
+			nsName := nsName // need to shadow variable to ensure correct value when evaluated inside the closure below
 			c.queue.Push(func() error {
 				c.handleDeselectedNamespace(kubeClient, endpointMode, nsName)
 				return nil
@@ -169,7 +171,8 @@ func (c *Controller) handleSelectedNamespace(endpointMode EndpointMode, ns strin
 }
 
 // issue delete events for all services, pods, and endpoints in the delabled namespace
-// use kubeClient to bypass filter in order to list resources from non-labeled namespace
+// use kubeClient.KubeInformer() to bypass filter in order to list resources from non-labeled namespace,
+// which fetches informers from the SharedInformerFactory cache (i.e. does not instantiate a new informer)
 func (c *Controller) handleDeselectedNamespace(kubeClient kubelib.Client, endpointMode EndpointMode, ns string) {
 	var errs *multierror.Error
 
