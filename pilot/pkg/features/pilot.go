@@ -432,8 +432,8 @@ var (
 			"and replaces Wasm module remote load with downloaded local module file.").Get()
 
 	PilotJwtPubKeyRefreshInterval = env.RegisterDurationVar(
-		"PILOT_JWTPUBKEY_REFRESH_INTERVAL0",
+		"PILOT_JWT_PUB_KEY_REFRESH_INTERVAL",
 		20*time.Minute,
-		"The refresh interval for istiod to fetch and cache the jwks public key. ",
+		"The interval for istiod to fetch the jwks_uri for the jwks public key.",
 	).Get()
 )
