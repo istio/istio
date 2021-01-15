@@ -507,7 +507,10 @@ func translateEnv(outPath string, value interface{}, cpSpecTree map[string]inter
 	}
 	scope.Debugf("path has value in helm Value.yaml tree, mapping to output path %s", outPath)
 	nc, found, _ := tpath.GetPathContext(cpSpecTree, util.ToYAMLPath(outPath), false)
-	envValStr, _ := yaml.Marshal(nc.Node)
+	var envValStr []byte
+	if nc != nil {
+		envValStr, _ = yaml.Marshal(nc.Node)
+	}
 	if !found || strings.TrimSpace(string(envValStr)) == "{}" {
 		scope.Debugf("path doesn't have value in k8s setting with output path %s, override with helm Value.yaml tree", outPath)
 		outEnv := make([]map[string]interface{}, len(envMap))
