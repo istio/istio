@@ -225,9 +225,12 @@ var (
 			if err != nil {
 				return err
 			}
-			// tokenManager is gcp token manager when using the default token manager plugin.
-			tokenManager := tokenmanager.CreateTokenManager(tokenManagerPlugin,
-				tokenmanager.Config{CredFetcher: secOpts.CredFetcher, TrustDomain: secOpts.TrustDomain})
+			var tokenManager security.TokenManager
+			if stsPort > 0 || xdsAuthProvider.Get() != "" {
+				// tokenManager is gcp token manager when using the default token manager plugin.
+				tokenManager = tokenmanager.CreateTokenManager(tokenManagerPlugin,
+					tokenmanager.Config{CredFetcher: secOpts.CredFetcher, TrustDomain: secOpts.TrustDomain})
+			}
 			secOpts.TokenManager = tokenManager
 
 			// If security token service (STS) port is not zero, start STS server and
