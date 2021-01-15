@@ -408,24 +408,21 @@ func (w *workload) configs() []config.Config {
 	return nil
 }
 
-func (w *workload) setupProxy(s *FakeDiscoveryServer) *model.Proxy {
-	if w.proxy == nil {
-		p := &model.Proxy{
-			ID: strings.Join([]string{w.name, w.namespace}, "."),
-			Metadata: &model.NodeMetadata{
-				Network:              w.metaNetwork,
-				Labels:               w.labels,
-				RequestedNetworkView: w.networkView,
-			},
-		}
-		if w.kind == Pod {
-			p.Metadata.ClusterID = w.clusterID
-		} else {
-			p.Metadata.InterceptionMode = "NONE"
-		}
-		w.proxy = s.SetupProxy(p)
+func (w *workload) setupProxy(s *FakeDiscoveryServer) {
+	p := &model.Proxy{
+		ID: strings.Join([]string{w.name, w.namespace}, "."),
+		Metadata: &model.NodeMetadata{
+			Network:              w.metaNetwork,
+			Labels:               w.labels,
+			RequestedNetworkView: w.networkView,
+		},
 	}
-	return w.proxy
+	if w.kind == Pod {
+		p.Metadata.ClusterID = w.clusterID
+	} else {
+		p.Metadata.InterceptionMode = "NONE"
+	}
+	w.proxy = s.SetupProxy(p)
 }
 
 func (w *workload) buildPodService() []runtime.Object {
