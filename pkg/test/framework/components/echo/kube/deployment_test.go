@@ -16,11 +16,9 @@ package kube
 import (
 	"testing"
 
-	kube2 "istio.io/istio/pkg/test/framework/components/cluster/kube"
-
 	testutil "istio.io/istio/pilot/test/util"
 	"istio.io/istio/pkg/config/protocol"
-	kube2 "istio.io/istio/pkg/test/framework/components/cluster/kube"
+	kubecluster "istio.io/istio/pkg/test/framework/components/cluster/kube"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/echo/common"
 	"istio.io/istio/pkg/test/framework/image"
@@ -146,7 +144,7 @@ func TestDeploymentYAML(t *testing.T) {
 			if err := common.FillInDefaults(nil, "", &tc.config); err != nil {
 				t.Errorf("failed filling in defaults: %v", err)
 			}
-			serviceYAML, deploymentYAML, err := generateYAMLWithSettings(tc.config, settings, &kube2.Cluster{
+			serviceYAML, deploymentYAML, err := generateYAMLWithSettings(tc.config, settings, &kubecluster.Cluster{
 				ExtendedClient: kubetest.MockClient{},
 			})
 			if err != nil {
