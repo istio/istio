@@ -16,10 +16,11 @@
 package centralremotekubeconfig
 
 import (
-	"istio.io/istio/pkg/test/framework/components/cluster"
 	"testing"
 
 	"istio.io/istio/pkg/test/framework"
+	"istio.io/istio/pkg/test/framework/components/cluster"
+	kubecluster "istio.io/istio/pkg/test/framework/components/cluster/kube"
 	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/label"
 	"istio.io/istio/pkg/test/framework/resource"
@@ -40,7 +41,7 @@ func TestMain(m *testing.M) {
 			configCluster := ctx.Clusters()[0]
 			externalControlPlaneCluster := ctx.Clusters()[1]
 			for _, c := range ctx.Clusters() {
-				c.OverrideTopology(func(c cluster.Topology) cluster.Topology {
+				c.(*kubecluster.Cluster).OverrideTopology(func(c cluster.Topology) cluster.Topology {
 					return c.
 						WithConfig(configCluster.Name()).
 						WithPrimary(externalControlPlaneCluster.Name())

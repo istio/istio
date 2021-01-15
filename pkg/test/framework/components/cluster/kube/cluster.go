@@ -35,6 +35,10 @@ type Cluster struct {
 	cluster.Topology
 }
 
+// OverrideTopology allows customizing the relationship between this and other clusters
+// for a single suite. This practice is discouraged, and separate test jobs should be created
+// on a per-topology bassis.
+// TODO remove this when centralistiod test is isolated as it's own job
 func (c *Cluster) OverrideTopology(fn func(cluster.Topology) cluster.Topology) {
 	c.Topology = fn(c.Topology)
 }

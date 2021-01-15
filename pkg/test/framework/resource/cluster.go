@@ -16,8 +16,6 @@ package resource
 
 import (
 	"fmt"
-	"istio.io/istio/pkg/test/framework/components/cluster"
-
 	"istio.io/istio/pkg/kube"
 )
 
@@ -157,11 +155,6 @@ type Cluster interface {
 	// IsConfig.
 	Config() Cluster
 
-	// OverrideTopology allows customizing the relationship between this and other clusters
-	// for a single suite. This practice is discouraged, and separate test jobs should be created
-	// on a per-topology bassis.
-	// TODO remove this when centralistiod test is isolated as it's own job
-	OverrideTopology(f func(c cluster.Topology) cluster.Topology)
 }
 
 var _ Cluster = FakeCluster{}
@@ -214,8 +207,4 @@ func (m FakeCluster) Primary() Cluster {
 
 func (m FakeCluster) Config() Cluster {
 	return m.ConfigCluster
-}
-
-func (m FakeCluster) OverrideTopology(f func(c cluster.Topology) cluster.Topology) {
-	panic("implement me")
 }
