@@ -170,7 +170,7 @@ func (h *HelmReconciler) ApplyObject(obj *unstructured.Unstructured, serverSideA
 
 	receiver := &unstructured.Unstructured{}
 	receiver.SetGroupVersionKind(obj.GroupVersionKind())
-	objectKey, _ := client.ObjectKeyFromObject(obj)
+	objectKey := client.ObjectKeyFromObject(obj)
 	objectStr := fmt.Sprintf("%s/%s/%s", obj.GetKind(), obj.GetNamespace(), obj.GetName())
 
 	scope.Debugf("Processing object:\n%s\n\n", util.ToYAML(obj))

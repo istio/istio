@@ -19,6 +19,7 @@ import (
 
 	"k8s.io/client-go/tools/cache"
 
+	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/config/mesh"
 	kubelib "istio.io/istio/pkg/kube"
@@ -156,6 +157,9 @@ func NewFakeControllerWithOptions(opts FakeControllerOptions) (*FakeController, 
 	}
 	if opts.Client == nil {
 		opts.Client = kubelib.NewFakeClient()
+	}
+	if opts.MeshWatcher == nil {
+		opts.MeshWatcher = mesh.NewFixedWatcher(&meshconfig.MeshConfig{})
 	}
 
 	options := Options{

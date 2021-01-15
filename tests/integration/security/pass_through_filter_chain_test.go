@@ -116,7 +116,7 @@ func TestPassThroughFilterChain(t *testing.T) {
 					},
 
 					// For workload c, there is only authN policy that enables mTLS (Strict).
-					// The request should be denied because the e is always using plain text.
+					// The request should be denied because the a is always using plain text.
 					{
 						target: c,
 						port:   8085,
@@ -143,7 +143,7 @@ func TestPassThroughFilterChain(t *testing.T) {
 					},
 
 					// For workload d, there is only authN policy that enables mTLS (Permissive).
-					// The request should be allowed because the e is always using plain text.
+					// The request should be allowed because the a is always using plain text.
 					{
 						target: d,
 						port:   8085,
@@ -225,9 +225,9 @@ func TestPassThroughFilterChain(t *testing.T) {
 				}
 				ctx.NewSubTest(fmt.Sprintf("In %s", cluster.Name())).Run(func(ctx framework.TestContext) {
 					for _, tc := range cases {
-						name := fmt.Sprintf("G->%s:%d[%t]", tc.target.Config().Service, tc.port, tc.want)
-						g := apps.G.Match(echo.InCluster(cluster)).GetOrFail(ctx, echo.Namespace(ns.Name()))
-						from := getWorkload(g, t)
+						name := fmt.Sprintf("A->%s:%d[%t]", tc.target.Config().Service, tc.port, tc.want)
+						a := apps.A.Match(echo.InCluster(cluster)).GetOrFail(ctx, echo.Namespace(ns.Name()))
+						from := getWorkload(a, t)
 						// The request should be handled by the pass through filter chain.
 						host := fmt.Sprintf("%s:%d", getWorkload(tc.target, t).Address(), tc.port)
 						request := &epb.ForwardEchoRequest{

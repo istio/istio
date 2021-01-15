@@ -66,7 +66,7 @@ type helmComponent struct {
 }
 
 func (h *helmComponent) Dump(ctx resource.Context) {
-	scopes.Framework.Errorf("=== Dumping Istio Deployment State...")
+	scopes.Framework.Infof("=== Dumping Istio Deployment State...")
 	ns := h.settings.SystemNamespace
 	d, err := ctx.CreateTmpDirectory("istio-state")
 	if err != nil {

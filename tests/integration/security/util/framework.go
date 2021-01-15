@@ -33,8 +33,6 @@ const (
 	DSvc             = "d"
 	ESvc             = "e"
 	FSvc             = "f"
-	GSvc             = "g"
-	XSvc             = "x"
 	MultiversionSvc  = "multiversion"
 	VMSvc            = "vm"
 	HeadlessSvc      = "headless"
@@ -52,14 +50,14 @@ type EchoDeployments struct {
 	// Namespace2 is used by most authorization test cases within authorization_test.go
 	Namespace2 namespace.Instance
 	// Namespace3 is used by TestAuthorization_Conditions and there is one C echo instance deployed
-	Namespace3             namespace.Instance
-	A, B, C, D, E, F, G, X echo.Instances
-	Multiversion           echo.Instances
-	Headless               echo.Instances
-	Naked                  echo.Instances
-	VM                     echo.Instances
-	HeadlessNaked          echo.Instances
-	All                    echo.Instances
+	Namespace3       namespace.Instance
+	A, B, C, D, E, F echo.Instances
+	Multiversion     echo.Instances
+	Headless         echo.Instances
+	Naked            echo.Instances
+	VM               echo.Instances
+	HeadlessNaked    echo.Instances
+	All              echo.Instances
 }
 
 func EchoConfig(name string, ns namespace.Instance, headless bool, annos echo.Annotations, cluster resource.Cluster) echo.Config {
@@ -179,13 +177,12 @@ func SetupApps(ctx resource.Context, i istio.Instance, apps *EchoDeployments, bu
 			With(nil, EchoConfig(DSvc, apps.Namespace1, false, nil, cluster)).
 			With(nil, EchoConfig(ESvc, apps.Namespace1, false, nil, cluster)).
 			With(nil, EchoConfig(FSvc, apps.Namespace1, false, nil, cluster)).
-			With(nil, EchoConfig(GSvc, apps.Namespace1, false, nil, cluster)).
 			With(nil, multiVersionCfg).
 			With(nil, EchoConfig(NakedSvc, apps.Namespace1, false, echo.NewAnnotations().
 				SetBool(echo.SidecarInject, false), cluster)).
 			With(nil, EchoConfig(BSvc, apps.Namespace2, false, nil, cluster)).
 			With(nil, EchoConfig(CSvc, apps.Namespace2, false, nil, cluster)).
-			With(nil, EchoConfig(XSvc, apps.Namespace2, false, nil, cluster))
+			With(nil, EchoConfig(CSvc, apps.Namespace3, false, nil, cluster))
 	}
 	for _, cluster := range ctx.Clusters().Primaries() {
 		// VM specific setup
@@ -196,20 +193,6 @@ func SetupApps(ctx resource.Context, i istio.Instance, apps *EchoDeployments, bu
 		builder.With(nil, EchoConfig(HeadlessSvc, apps.Namespace1, true, nil, cluster))
 		builder.With(nil, EchoConfig(HeadlessNakedSvc, apps.Namespace1, true, echo.NewAnnotations().
 			SetBool(echo.SidecarInject, false), cluster))
-	}
-	portC := 8090
-	for _, cluster := range ctx.Clusters() {
-		builder.
-			With(nil, echo.Config{Service: CSvc, Namespace: apps.Namespace3,
-				Subsets: []echo.SubsetConfig{{}},
-				Ports: []echo.Port{
-					{
-						Name:         "http",
-						Protocol:     protocol.HTTP,
-						InstancePort: portC,
-					},
-				},
-				Cluster: cluster})
 	}
 	echos, err := builder.Build()
 	if err != nil {
@@ -222,8 +205,6 @@ func SetupApps(ctx resource.Context, i istio.Instance, apps *EchoDeployments, bu
 	apps.D = echos.Match(echo.Service(DSvc))
 	apps.E = echos.Match(echo.Service(ESvc))
 	apps.F = echos.Match(echo.Service(FSvc))
-	apps.G = echos.Match(echo.Service(GSvc))
-	apps.X = echos.Match(echo.Service(XSvc))
 	apps.Multiversion = echos.Match(echo.Service(MultiversionSvc))
 	apps.Headless = echos.Match(echo.Service(HeadlessSvc))
 	apps.Naked = echos.Match(echo.Service(NakedSvc))

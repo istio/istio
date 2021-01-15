@@ -298,9 +298,6 @@ message GlobalConfig {
   // Specifies the global logging level settings for the Istio control plane components.
   GlobalLoggingConfig logging = 17;
 
-  // Specifies the Configuration for Istio mesh expansion to bare metal.
-  MeshExpansionConfig meshExpansion = 18;
-
   string meshID = 53;
 
   // Configure the mesh networks to be used by the Split Horizon EDS.
@@ -407,8 +404,6 @@ message GlobalConfig {
   // Controls whether one external istiod is enabled.
   google.protobuf.BoolValue externalIstiod = 62;
 
-  // Controls whether one central istiod is enabled.
-  google.protobuf.BoolValue centralIstiod = 63;
   // The next available key is 64
 }
 
@@ -461,8 +456,6 @@ message IngressGatewayConfig {
   string loadBalancerIP = 16;
 
   repeated string loadBalancerSourceRanges = 17;
-
-  repeated PortsConfig meshExpansionPorts = 18;
 
   string name = 44;
 
@@ -534,15 +527,6 @@ message IngressGatewayZvpnConfig {
   google.protobuf.BoolValue enabled = 1;
 
   string suffix = 2;
-}
-
-// Configuration for Istio mesh expansion to bare metal.
-message MeshExpansionConfig {
-  // Exposes Pilot and Citadel mTLS on the ingress gateway.
-  google.protobuf.BoolValue enabled = 1;
-
-  // Exposes Pilot and Citadel mTLS and the plain text Pilot ports on an internal gateway.
-  google.protobuf.BoolValue useILB = 2;
 }
 
 // MultiClusterConfig specifies the Configuration for Istio mesh across multiple clusters through the istio gateways.
@@ -983,6 +967,19 @@ message SidecarInjectorConfig {
 
   // Configure the injection url for sidecar injector webhook
   string injectionURL = 22;
+
+  // Templates defines a set of custom injection templates that can be used. For example, defining:
+  //
+  // templates:
+  //   hello:
+  //    metadata
+  //      labels:
+  //        hello: world
+  //
+  // Then starting a pod with the `inject.istio.io/templates: hello` annotation, will result in the pod
+  // being injected with the hello=world labels.
+  // This is intended for advanced configuration only; most users should use the built in template
+  TypeMapStringInterface templates = 23;
 }
 
 // Configuration for each of the supported tracers.

@@ -268,7 +268,7 @@ func BenchmarkEndpointGeneration(b *testing.B) {
 					l := s.Discovery.generateEndpoints(NewEndpointBuilder(fmt.Sprintf("outbound|80||foo-%d.com", svc), proxy, push))
 					loadAssignments = append(loadAssignments, util.MessageToAny(l))
 				}
-				response = endpointDiscoveryResponse(loadAssignments, version, push.Version)
+				response = endpointDiscoveryResponse(loadAssignments, version, push.LedgerVersion)
 			}
 			logDebug(b, response.GetResources())
 		})
@@ -292,7 +292,7 @@ func setupTest(t testing.TB, config ConfigInput) (*FakeDiscoveryServer, *model.P
 			Labels: map[string]string{
 				"istio.io/benchmark": "true",
 			},
-			IstioVersion: "1.9.0",
+			IstioVersion: "1.10.0",
 		},
 		// TODO: if you update this, make sure telemetry.yaml is also updated
 		IstioVersion:    &model.IstioVersion{Major: 1, Minor: 6},

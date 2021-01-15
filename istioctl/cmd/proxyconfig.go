@@ -743,8 +743,8 @@ func secretConfigCmd() *cobra.Command {
 
 	secretConfigCmd := &cobra.Command{
 		Use:   "secret [<type>/]<name>[.<namespace>]",
-		Short: "(experimental) Retrieves secret configuration for the Envoy in the specified pod",
-		Long:  `(experimental) Retrieve information about secret configuration for the Envoy instance in the specified pod.`,
+		Short: "Retrieves secret configuration for the Envoy in the specified pod",
+		Long:  `Retrieve information about secret configuration for the Envoy instance in the specified pod.`,
 		Example: `  # Retrieve full secret configuration for a given pod from Envoy.
   istioctl proxy-config secret <pod-name[.namespace]>
 

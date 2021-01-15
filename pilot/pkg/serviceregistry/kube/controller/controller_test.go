@@ -1152,7 +1152,7 @@ func TestController_ServiceWithChangedDiscoveryNamespaces(t *testing.T) {
 			t.Fatal(err)
 		}
 		t.Helper()
-		if err := ioutil.WriteFile(path, []byte(yml), 0666); err != nil {
+		if err := ioutil.WriteFile(path, yml, 0666); err != nil {
 			t.Fatal(err)
 		}
 	}
@@ -1162,7 +1162,6 @@ func TestController_ServiceWithChangedDiscoveryNamespaces(t *testing.T) {
 		expectedSvcList []*model.Service,
 		expectedNumSvcEvents int,
 		fakeWatcher *filewatcher.FakeWatcher,
-		meshWatcher mesh.Watcher,
 		doneCh chan struct{},
 		fx *FakeXdsUpdater,
 		controller *FakeController,
@@ -1278,7 +1277,6 @@ func TestController_ServiceWithChangedDiscoveryNamespaces(t *testing.T) {
 				[]*model.Service{svc1, svc2},
 				2,
 				fakeWatcher,
-				meshWatcher,
 				doneCh,
 				fx,
 				controller,
@@ -1298,7 +1296,6 @@ func TestController_ServiceWithChangedDiscoveryNamespaces(t *testing.T) {
 				[]*model.Service{svc3, svc4},
 				4,
 				fakeWatcher,
-				meshWatcher,
 				doneCh,
 				fx,
 				controller,
@@ -1321,7 +1318,6 @@ func TestController_ServiceWithChangedDiscoveryNamespaces(t *testing.T) {
 				[]*model.Service{svc1, svc2, svc3, svc4},
 				2,
 				fakeWatcher,
-				meshWatcher,
 				doneCh,
 				fx,
 				controller,

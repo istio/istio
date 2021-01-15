@@ -1,0 +1,48 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  creationTimestamp: null
+  name: hello
+spec:
+  selector:
+    matchLabels:
+      app: hello
+  strategy: {}
+  template:
+    metadata:
+      annotations:
+        foo: bar
+        inject.istio.io/templates: custom
+        prometheus.istio.io/merge-metrics: "false"
+        proxy.istio.io/overrides: '{"containers":[{"name":"hello","image":"fake.docker.io/google-samples/hello-go-gke:1.0","resources":{},"readinessProbe":{"httpGet":{"port":80}}}]}'
+        sidecar.istio.io/rewriteAppHTTPProbers: "false"
+        sidecar.istio.io/status: '{"initContainers":null,"containers":["hello"],"volumes":["some-injected-file"],"imagePullSecrets":null}'
+      creationTimestamp: null
+      labels:
+        app: hello
+    spec:
+      containers:
+      - env:
+        - name: SOME_ENV
+          value: "true"
+        - name: SOME_FILE
+          value: /var/lib/data/foo.json
+        image: fake.docker.io/google-samples/hello-go-gke:1.0
+        name: hello
+        readinessProbe:
+          httpGet:
+            port: 80
+        resources: {}
+        volumeMounts:
+        - mountPath: /var/lib/data/foo.json
+          name: some-injected-file
+          subPath: foo.json
+      volumes:
+      - downwardAPI:
+          items:
+          - fieldRef:
+              fieldPath: metadata.annotations['foo']
+            path: foo.json
+        name: some-injected-file
+status: {}
+---

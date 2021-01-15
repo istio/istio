@@ -22,12 +22,14 @@ import (
 	"sync"
 	"time"
 
+	"github.com/cenkalti/backoff"
 	"github.com/gogo/protobuf/types"
 	"golang.org/x/time/rate"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	kubetypes "k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/wait"
+	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/workqueue"
 
 	"istio.io/api/meta/v1alpha1"
@@ -66,10 +68,21 @@ const (
 )
 
 type HealthEvent struct {
-	// whether or not the agent thought the target was empty
+	// whether or not the agent thought the target is healthy
 	Healthy bool `json:"healthy,omitempty"`
 	// error message propagated
-	Message string `json:"err_message,omitempty"`
+	Message string `json:"errMessage,omitempty"`
+}
+
+type HealthCondition struct {
+	proxy     *model.Proxy
+	entryName string
+	condition *v1alpha1.IstioCondition
+}
+
+var keyFunc = func(obj interface{}) (string, error) {
+	condition := obj.(HealthCondition)
+	return makeProxyKey(condition.proxy), nil
 }
 
 var log = istiolog.RegisterScope("wle", "wle controller debugging", 0)
@@ -87,9 +100,9 @@ type Controller struct {
 
 	// queue contains workloadEntry that need to be unregistered
 	queue workqueue.RateLimitingInterface
-	// cleanupLimit rate limit's autoregistered WorkloadEntry cleanup calls to k8s
+	// cleanupLimit rate limit's auto registered WorkloadEntry cleanup calls to k8s
 	cleanupLimit *rate.Limiter
-	// cleanupQueue delays the cleanup of autoregsitered WorkloadEntries to allow for grace period
+	// cleanupQueue delays the cleanup of auto registered WorkloadEntries to allow for grace period
 	cleanupQueue queue.Delayed
 
 	mutex sync.Mutex
@@ -98,9 +111,14 @@ type Controller struct {
 	// keyed by proxy network+ip
 	adsConnections map[string]uint8
 
-	// maxConnectionAge is a duration that workload entry should be cleanedup if it does not reconnects.
+	// maxConnectionAge is a duration that workload entry should be cleaned up if it does not reconnects.
 	maxConnectionAge time.Duration
+
+	// healthCondition is a fifo queue used for updating health check status
+	healthCondition cache.Queue
 }
+
+type HealthStatus = v1alpha1.IstioCondition
 
 // NewController create a controller which manages workload lifecycle and health status.
 func NewController(store model.ConfigStoreCache, instanceID string, maxConnAge time.Duration) *Controller {
@@ -118,6 +136,7 @@ func NewController(store model.ConfigStoreCache, instanceID string, maxConnAge t
 			queue:            workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter()),
 			adsConnections:   map[string]uint8{},
 			maxConnectionAge: maxConnAge,
+			healthCondition:  cache.NewFIFO(keyFunc),
 		}
 	}
 	return nil
@@ -135,8 +154,30 @@ func (c *Controller) Run(stop <-chan struct{}) {
 	for i := 0; i < workerNum; i++ {
 		go wait.Until(c.worker, time.Second, stop)
 	}
+
+	// start a new go routine updating health status
+	go func() {
+		b := backoff.NewExponentialBackOff()
+		for {
+			obj, err := c.healthCondition.Pop(c.updateWorkloadEntryHealth)
+			if err != nil {
+				if err == cache.ErrFIFOClosed {
+					return
+				}
+				log.Errorf(err)
+				next := b.NextBackOff()
+				time.AfterFunc(next, func() {
+					_ = c.healthCondition.AddIfNotPresent(obj)
+				})
+			} else {
+				b.Reset()
+			}
+		}
+	}()
+
 	<-stop
 	c.queue.ShutDown()
+	c.healthCondition.Close()
 }
 
 func (c *Controller) worker() {
@@ -186,7 +227,7 @@ func (c *Controller) RegisterWorkload(proxy *model.Proxy, conTime time.Time) err
 	}
 
 	c.mutex.Lock()
-	c.adsConnections[proxy.Metadata.Network+proxy.IPAddresses[0]]++
+	c.adsConnections[makeProxyKey(proxy)]++
 	c.mutex.Unlock()
 
 	if err := c.registerWorkload(entryName, proxy, conTime); err != nil {
@@ -247,14 +288,14 @@ func (c *Controller) QueueUnregisterWorkload(proxy *model.Proxy, origConnect tim
 	}
 
 	c.mutex.Lock()
-	num := c.adsConnections[proxy.Metadata.Network+proxy.IPAddresses[0]]
+	num := c.adsConnections[makeProxyKey(proxy)]
 	// if there is still ads connection, do not unregister.
 	if num > 1 {
-		c.adsConnections[proxy.Metadata.Network+proxy.IPAddresses[0]] = num - 1
+		c.adsConnections[makeProxyKey(proxy)] = num - 1
 		c.mutex.Unlock()
 		return
 	}
-	delete(c.adsConnections, proxy.Metadata.Network+proxy.IPAddresses[0])
+	delete(c.adsConnections, makeProxyKey(proxy))
 	c.mutex.Unlock()
 
 	disconTime := time.Now()
@@ -321,9 +362,8 @@ func (c *Controller) unregisterWorkload(entryName string, proxy *model.Proxy, di
 	return nil
 }
 
-// UpdateWorkloadEntryHealth updates the associated WorkloadEntries health status
-// based on the corresponding health check performed by istio-agent.
-func (c *Controller) UpdateWorkloadEntryHealth(proxy *model.Proxy, event HealthEvent) {
+// QueueWorkloadEntryHealth enqueues the associated WorkloadEntries health status.
+func (c *Controller) QueueWorkloadEntryHealth(proxy *model.Proxy, event HealthEvent) {
 	// we assume that the workload entry exists
 	// if auto registration does not exist, try looking
 	// up in NodeMetadata
@@ -333,21 +373,44 @@ func (c *Controller) UpdateWorkloadEntryHealth(proxy *model.Proxy, event HealthE
 		return
 	}
 
+	condition := transformHealthEvent(proxy, entryName, event)
+	_ = c.healthCondition.Add(condition)
+}
+
+// updateWorkloadEntryHealth updates the associated WorkloadEntries health status
+// based on the corresponding health check performed by istio-agent.
+func (c *Controller) updateWorkloadEntryHealth(obj interface{}) error {
+	condition := obj.(HealthCondition)
 	// get previous status
-	cfg := c.store.Get(gvk.WorkloadEntry, entryName, proxy.Metadata.Namespace)
+	cfg := c.store.Get(gvk.WorkloadEntry, condition.entryName, condition.proxy.Metadata.Namespace)
 	if cfg == nil {
-		log.Errorf("config was nil when getting WorkloadEntry %v for %v", entryName, proxy.ID)
-		return
+		return fmt.Errorf("failed to update health status for %v: WorkloadEntry %v not found", condition.proxy.ID, condition.entryName)
+	}
+	// The workloadentry has reconnected to the other istiod
+	if cfg.Annotations[WorkloadControllerAnnotation] != c.instanceID {
+		return nil
+	}
+
+	// check if the existing health status is newer than this one
+	wleStatus, ok := cfg.Status.(*v1alpha1.IstioStatus)
+	if ok {
+		healthCondition := status.GetCondition(wleStatus.Conditions, status.ConditionHealthy)
+		if healthCondition != nil {
+			if healthCondition.LastProbeTime.Compare(condition.condition.LastProbeTime) > 0 {
+				return nil
+			}
+		}
 	}
 
 	// replace the updated status
-	wle := status.UpdateConfigCondition(*cfg, transformHealthEvent(event))
+	wle := status.UpdateConfigCondition(*cfg, condition.condition)
 	// update the status
 	_, err := c.store.UpdateStatus(wle)
 	if err != nil {
-		log.Errorf("error while updating WorkloadEntry status: %v for %v", err, proxy.ID)
+		return fmt.Errorf("error while updating WorkloadEntry health status for %s: %v", condition.proxy.ID, err)
 	}
-	log.Debugf("updated health status of %v to %v", proxy.ID, event.Healthy)
+	log.Debugf("updated health status of %v to %v", condition.proxy.ID, condition.condition)
+	return nil
 }
 
 // periodicWorkloadEntryCleanup checks lists all WorkloadEntry
@@ -453,7 +516,7 @@ func autoregisteredWorkloadEntryName(proxy *model.Proxy) string {
 	return name
 }
 
-func transformHealthEvent(event HealthEvent) *v1alpha1.IstioCondition {
+func transformHealthEvent(proxy *model.Proxy, entryName string, event HealthEvent) HealthCondition {
 	cond := &v1alpha1.IstioCondition{
 		Type: status.ConditionHealthy,
 		// last probe and transition are the same because
@@ -461,13 +524,18 @@ func transformHealthEvent(event HealthEvent) *v1alpha1.IstioCondition {
 		LastProbeTime:      types.TimestampNow(),
 		LastTransitionTime: types.TimestampNow(),
 	}
+	out := HealthCondition{
+		proxy:     proxy,
+		entryName: entryName,
+		condition: cond,
+	}
 	if event.Healthy {
 		cond.Status = status.StatusTrue
-		return cond
+		return out
 	}
 	cond.Status = status.StatusFalse
 	cond.Message = event.Message
-	return cond
+	return out
 }
 
 func mergeLabels(labels ...map[string]string) map[string]string {
@@ -547,4 +615,8 @@ func (c *Controller) handleErr(err error, key interface{}) {
 
 	c.queue.Forget(key)
 	log.Errorf(err)
+}
+
+func makeProxyKey(proxy *model.Proxy) string {
+	return proxy.Metadata.Network + proxy.IPAddresses[0]
 }

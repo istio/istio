@@ -231,10 +231,14 @@ func NewServer(args *PilotArgs) (*Server, error) {
 
 	// Options based on the current 'defaults' in istio.
 	caOpts := &caOptions{
-		TrustDomain:      s.environment.Mesh().TrustDomain,
-		Namespace:        args.Namespace,
-		ExternalCAType:   ra.CaExternalType(externalCaType),
-		ExternalCASigner: k8sSigner,
+		TrustDomain:    s.environment.Mesh().TrustDomain,
+		Namespace:      args.Namespace,
+		ExternalCAType: ra.CaExternalType(externalCaType),
+	}
+
+	if caOpts.ExternalCAType == ra.ExtCAK8s {
+		// Older environment variable preserved for backward compatibility
+		caOpts.ExternalCASigner = k8sSigner
 	}
 
 	// CA signing certificate must be created first if needed.
@@ -746,6 +750,18 @@ func (s *Server) addTerminatingStartFunc(fn startFunc) {
 func (s *Server) waitForCacheSync(stop <-chan struct{}) bool {
 	if !cache.WaitForCacheSync(stop, s.cachesSynced) {
 		log.Errorf("Failed waiting for cache sync")
+		return false
+	}
+	// At this point, we know that all update events of the initial state-of-the-world have been
+	// received. Capture how many updates there are
+	expected := s.XDSServer.InboundUpdates.Load()
+	// Now, we wait to ensure we have committed at least this many updates. This avoids a race
+	// condition where we are marked ready prior to updating the push context, leading to incomplete
+	// pushes.
+	if !cache.WaitForCacheSync(stop, func() bool {
+		return s.XDSServer.CommittedUpdates.Load() >= expected
+	}) {
+		log.Errorf("Failed waiting for push context initialization")
 		return false
 	}
 

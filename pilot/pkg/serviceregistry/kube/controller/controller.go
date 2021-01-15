@@ -269,7 +269,7 @@ type Controller struct {
 }
 
 // NewController creates a new Kubernetes controller
-// Created by bootstrap and multicluster (see secretcontroler).
+// Created by bootstrap and multicluster (see secretcontroller).
 func NewController(kubeClient kubelib.Client, options Options) *Controller {
 	// The queue requires a time duration for a retry delay after a handler error
 	c := &Controller{
@@ -660,7 +660,8 @@ func (c *Controller) syncEndpoints() error {
 func (c *Controller) Run(stop <-chan struct{}) {
 	if c.networksWatcher != nil {
 		c.networksWatcher.AddNetworksHandler(c.reloadNetworkLookup)
-		c.reloadNetworkLookup()
+		c.reloadMeshNetworks()
+		c.reloadNetworkGateways()
 	}
 	if c.systemNsInformer != nil {
 		go c.systemNsInformer.Run(stop)

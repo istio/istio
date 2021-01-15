@@ -19,6 +19,7 @@ import (
 
 	certificatesv1beta1 "k8s.io/client-go/kubernetes/typed/certificates/v1beta1"
 
+	raerror "istio.io/istio/security/pkg/pki/error"
 	"istio.io/istio/security/pkg/pki/util"
 	caserver "istio.io/istio/security/pkg/server/ca"
 )
@@ -47,6 +48,8 @@ type IstioRAOptions struct {
 	VerifyAppendCA bool
 	// K8sClient : K8s API client
 	K8sClient certificatesv1beta1.CertificatesV1beta1Interface
+	// TrustDomain
+	TrustDomain string
 }
 
 const (
@@ -97,4 +100,27 @@ func NewIstioRA(opts *IstioRAOptions) (RegistrationAuthority, error) {
 		return istioRA, err
 	}
 	return nil, fmt.Errorf("invalid CA Name %s", opts.ExternalCAType)
+}
+
+// preSign : Validation checks to execute before signing certificates
+func preSign(raOpts *IstioRAOptions, csrPEM []byte, subjectIDs []string, requestedLifetime time.Duration, forCA bool) (time.Duration, error) {
+	if forCA {
+		return requestedLifetime, raerror.NewError(raerror.CSRError,
+			fmt.Errorf("unable to generate CA certifificates"))
+	}
+	if !ValidateCSR(csrPEM, subjectIDs) {
+		return requestedLifetime, raerror.NewError(raerror.CSRError, fmt.Errorf(
+			"unable to validate SAN Identities in CSR"))
+	}
+	// If the requested requestedLifetime is non-positive, apply the default TTL.
+	lifetime := requestedLifetime
+	if requestedLifetime.Seconds() <= 0 {
+		lifetime = raOpts.DefaultCertTTL
+	}
+	// If the requested TTL is greater than maxCertTTL, return an error
+	if requestedLifetime.Seconds() > raOpts.MaxCertTTL.Seconds() {
+		return lifetime, raerror.NewError(raerror.TTLError, fmt.Errorf(
+			"requested TTL %s is greater than the max allowed TTL %s", requestedLifetime, raOpts.MaxCertTTL))
+	}
+	return lifetime, nil
 }

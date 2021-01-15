@@ -1,0 +1,23 @@
+digraph {
+    grpc -> ca [label="Send CSR gRPC Request"]
+    subgraph cluster_istioagent {
+        label = "Istio Agent"
+        color="orange"
+        sds
+        SecretManager -> caClient [label="Sign CSR"]
+        caClient -> grpc
+        grpc -> TokenProvider [dir=none,label="Fetch JWT",color=purple]
+        grpc -> cfiles [dir=none,label="Fetch Cert",color=purple]
+
+        sds -> SecretManager [label="Generate certificate"]
+        SecretManager -> cfiles [label="Write certs to file"]
+        cfiles [label="Certificate Files"]
+        grpc [shape=diamond]
+    }
+
+    subgraph cluster_istiod {
+        label = "Istiod"
+        color="lightblue"
+        ca
+    }
+}

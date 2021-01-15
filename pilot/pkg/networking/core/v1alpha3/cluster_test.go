@@ -200,6 +200,8 @@ func TestCommonHttpProtocolOptions(t *testing.T) {
 			settingsName = "override"
 		}
 		testName := fmt.Sprintf("%s-%s-%s", tc.clusterName, settingsName, tc.proxyType)
+		// TODO(https://github.com/istio/istio/issues/29735) remove nolint
+		// nolint: staticcheck
 		t.Run(testName, func(t *testing.T) {
 			g := NewWithT(t)
 			clusters := xdstest.ExtractClusters(buildTestClusters(clusterTest{t: t, serviceHostname: "*.example.org", nodeType: tc.proxyType, mesh: testMesh,

@@ -119,6 +119,10 @@ type channelTerminal struct {
 }
 
 func initServiceDiscovery() (model.IstioConfigStore, *ServiceEntryStore, chan Event, func()) {
+	return initServiceDiscoveryWithOpts()
+}
+
+func initServiceDiscoveryWithOpts(opts ...ServiceDiscoveryOption) (model.IstioConfigStore, *ServiceEntryStore, chan Event, func()) {
 	store := memory.Make(collections.Pilot)
 	configController := memory.NewController(store)
 
@@ -132,7 +136,7 @@ func initServiceDiscovery() (model.IstioConfigStore, *ServiceEntryStore, chan Ev
 	}
 
 	istioStore := model.MakeIstioStore(configController)
-	serviceController := NewServiceDiscovery(configController, istioStore, xdsUpdater)
+	serviceController := NewServiceDiscovery(configController, istioStore, xdsUpdater, opts...)
 	return istioStore, serviceController, eventch, func() {
 		stop <- channelTerminal{}
 	}
@@ -1372,5 +1376,25 @@ func Test_autoAllocateIP_values(t *testing.T) {
 			t.Errorf("multiple allocations of same IP address to different services: %s", svc.AutoAllocatedAddress)
 		}
 		gotIPMap[svc.AutoAllocatedAddress] = true
+	}
+}
+
+func TestWorkloadEntryOnlyMode(t *testing.T) {
+	store, registry, _, cleanup := initServiceDiscoveryWithOpts(DisableServiceEntryProcessing())
+	defer cleanup()
+	createConfigs([]*config.Config{httpStatic}, store, t)
+	svcs, err := registry.Services()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(svcs) > 0 {
+		t.Fatalf("expected 0 services, got %d", len(svcs))
+	}
+	svc, err := registry.GetService("*.google.com")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if svc != nil {
+		t.Fatalf("expected nil, got %v", svc)
 	}
 }

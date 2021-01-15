@@ -49,6 +49,7 @@ items:
           - hello.$(POD_NAMESPACE)
           - --proxyLogLevel=warning
           - --proxyComponentLogLevel=misc:error
+          - --log_output_level=default:info
           - --concurrency
           - "2"
           env:
@@ -88,7 +89,7 @@ items:
                 fieldPath: metadata.labels['service.istio.io/canonical-revision']
           - name: PROXY_CONFIG
             value: |
-              {"proxyMetadata":{"DNS_AGENT":""}}
+              {}
           - name: ISTIO_META_POD_PORTS
             value: |-
               [
@@ -108,7 +109,6 @@ items:
             value: cluster.local
           - name: TRUST_DOMAIN
             value: cluster.local
-          - name: DNS_AGENT
           image: gcr.io/istio-testing/proxyv2:latest
           imagePullPolicy: Always
           name: istio-proxy
@@ -171,8 +171,6 @@ items:
           - '*'
           - -d
           - 15090,15021,15020
-          env:
-          - name: DNS_AGENT
           image: gcr.io/istio-testing/proxyv2:latest
           imagePullPolicy: Always
           name: istio-init
@@ -283,6 +281,7 @@ items:
           - hello.$(POD_NAMESPACE)
           - --proxyLogLevel=warning
           - --proxyComponentLogLevel=misc:error
+          - --log_output_level=default:info
           - --concurrency
           - "2"
           env:
@@ -322,7 +321,7 @@ items:
                 fieldPath: metadata.labels['service.istio.io/canonical-revision']
           - name: PROXY_CONFIG
             value: |
-              {"proxyMetadata":{"DNS_AGENT":""}}
+              {}
           - name: ISTIO_META_POD_PORTS
             value: |-
               [
@@ -342,7 +341,6 @@ items:
             value: cluster.local
           - name: TRUST_DOMAIN
             value: cluster.local
-          - name: DNS_AGENT
           image: gcr.io/istio-testing/proxyv2:latest
           imagePullPolicy: Always
           name: istio-proxy
@@ -405,8 +403,6 @@ items:
           - '*'
           - -d
           - 15090,15021,15020
-          env:
-          - name: DNS_AGENT
           image: gcr.io/istio-testing/proxyv2:latest
           imagePullPolicy: Always
           name: istio-init

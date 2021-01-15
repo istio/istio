@@ -20,6 +20,7 @@ import (
 	"fmt"
 
 	cluster "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
+	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
 	route "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
 	httpConn "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
@@ -55,6 +56,8 @@ func BuildXDSObjectFromStruct(applyTo networking.EnvoyFilter_ApplyTo, value *typ
 		obj = &route.VirtualHost{}
 	case networking.EnvoyFilter_HTTP_ROUTE:
 		obj = &route.Route{}
+	case networking.EnvoyFilter_EXTENSION_CONFIG:
+		obj = &core.TypedExtensionConfig{}
 	default:
 		return nil, fmt.Errorf("Envoy filter: unknown object type for applyTo %s", applyTo.String()) // nolint: golint,stylecheck
 	}
