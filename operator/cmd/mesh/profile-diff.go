@@ -20,8 +20,9 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"istio.io/istio/operator/pkg/helm"
+	"istio.io/istio/operator/pkg/manifest"
 	"istio.io/istio/operator/pkg/util"
+	"istio.io/istio/operator/pkg/util/clog"
 )
 
 type profileDiffArgs struct {
@@ -60,12 +61,15 @@ func profileDiffCmd(rootArgs *rootArgs, pfArgs *profileDiffArgs) *cobra.Command 
 func profileDiff(cmd *cobra.Command, rootArgs *rootArgs, pfArgs *profileDiffArgs, args []string) error {
 	initLogsOrExit(rootArgs)
 
-	a, err := helm.ReadProfileYAML(args[0], pfArgs.manifestsPath)
+	l := clog.NewConsoleLogger(os.Stdout, os.Stderr, nil)
+	setFlags := []string{fmt.Sprintf("installPackagePath=%s", pfArgs.manifestsPath)}
+
+	a, _, err := manifest.GenIOPFromProfile(args[0], "", setFlags, true, true, nil, l)
 	if err != nil {
 		return fmt.Errorf("could not read %q: %v", args[0], err)
 	}
 
-	b, err := helm.ReadProfileYAML(args[1], pfArgs.manifestsPath)
+	b, _, err := manifest.GenIOPFromProfile(args[1], "", setFlags, true, true, nil, l)
 	if err != nil {
 		return fmt.Errorf("could not read %q: %v", args[1], err)
 	}
