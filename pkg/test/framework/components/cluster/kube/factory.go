@@ -16,11 +16,13 @@ package kube
 
 import (
 	"fmt"
+
 	"github.com/hashicorp/go-multierror"
+	"k8s.io/client-go/rest"
+
 	istioKube "istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/test/framework/components/cluster"
 	"istio.io/istio/pkg/test/framework/resource"
-	"k8s.io/client-go/rest"
 )
 
 // NewFactory creates a new kube Cluster factory, using a slice-pointer that will be filled
