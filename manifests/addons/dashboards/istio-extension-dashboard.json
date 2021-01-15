@@ -201,13 +201,13 @@
       "steppedLine": false,
       "targets": [
         {
-          "expr": "avg(envoy_wasm_vm_null_created)",
+          "expr": "avg(envoy_wasm_envoy_wasm_runtime_null_created)",
           "interval": "",
           "legendFormat": "native",
           "refId": "A"
         },
         {
-          "expr": "avg(envoy_wasm_vm_v8_created)",
+          "expr": "avg(envoy_wasm_envoy_wasm_runtime_v8_created)",
           "interval": "",
           "legendFormat": "v8",
           "refId": "B"
