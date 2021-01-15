@@ -27,8 +27,6 @@ import (
 	"sync"
 	"time"
 
-	kube3 "istio.io/istio/pkg/test/framework/components/cluster/kube"
-
 	"github.com/hashicorp/go-multierror"
 	"gopkg.in/yaml.v2"
 	kubeApiCore "k8s.io/api/core/v1"
@@ -41,7 +39,7 @@ import (
 	pkgAPI "istio.io/istio/operator/pkg/apis/istio/v1alpha1"
 	"istio.io/istio/pkg/test/cert/ca"
 	testenv "istio.io/istio/pkg/test/env"
-	kube3 "istio.io/istio/pkg/test/framework/components/cluster/kube"
+	kubecluster "istio.io/istio/pkg/test/framework/components/cluster/kube"
 	"istio.io/istio/pkg/test/framework/components/environment/kube"
 	"istio.io/istio/pkg/test/framework/components/istio/ingress"
 	"istio.io/istio/pkg/test/framework/components/istioctl"
@@ -865,7 +863,7 @@ func configureDiscoveryForConfigAndRemoteCluster(discoveryAddress string, cfg Co
 func (i *operatorComponent) configureRemoteConfigForControlPlane(cluster resource.Cluster) error {
 	cfg := i.settings
 	configCluster := cluster.Config()
-	istioKubeConfig, err := file.AsString(configCluster.(*kube3.Cluster).Filename())
+	istioKubeConfig, err := file.AsString(configCluster.(*kubecluster.Cluster).Filename())
 	if err != nil {
 		scopes.Framework.Infof("error in parsing kubeconfig for %s", configCluster.Name())
 		return err
