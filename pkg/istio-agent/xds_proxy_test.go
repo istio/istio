@@ -381,7 +381,7 @@ func TestECDSWasmConversion(t *testing.T) {
 	proxy.wasmCache = &fakeAckCache{}
 
 	// Initialize discovery server with an ECDS resource.
-	ef, err := ioutil.ReadFile("../../pilot/pkg/xds/testdata/ecds.yaml")
+	ef, err := ioutil.ReadFile(path.Join(env.IstioSrc, "pilot/pkg/xds/testdata/ecds.yaml"))
 	if err != nil {
 		t.Fatal(err)
 	}
