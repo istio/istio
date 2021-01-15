@@ -153,7 +153,7 @@ func (c *LocalFileCache) Get(downloadURL, checksum string, timeout time.Duration
 	}
 }
 
-// CleanUp closes background Wasm module purge routine.
+// Cleanup closes background Wasm module purge routine.
 func (c *LocalFileCache) Cleanup() {
 	close(c.stopChan)
 }

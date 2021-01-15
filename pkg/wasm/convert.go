@@ -143,7 +143,7 @@ func convert(resource *any.Any, cache Cache) (newExtensionConfig *any.Any, sendN
 		return
 	}
 
-	// At this point, we are certain that wasm module has been downloaded.
+	// At this point, we are certain that wasm module has been downloaded and config is rewritten.
 	// ECDS has been rewritten successfully and should not nack.
 	newExtensionConfig = nec
 	sendNack = false
