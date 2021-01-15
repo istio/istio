@@ -46,7 +46,7 @@ func MaybeConvertWasmExtensionConfig(resources []*any.Any, cache Cache) bool {
 			defer wg.Done()
 
 			newExtensionConfig, nack := convert(resources[i], cache)
-			if nack && !sendNack.Load() {
+			if nack {
 				sendNack.Store(true)
 				return
 			}
@@ -91,10 +91,7 @@ func convert(resource *any.Any, cache Cache) (newExtensionConfig *any.Any, sendN
 		return
 	}
 
-	if wasmHTTPFilterConfig.Config == nil ||
-		wasmHTTPFilterConfig.Config.GetVmConfig() == nil ||
-		wasmHTTPFilterConfig.Config.GetVmConfig().GetCode() == nil ||
-		wasmHTTPFilterConfig.Config.GetVmConfig().GetCode().GetRemote() == nil {
+	if wasmHTTPFilterConfig.Config.GetVmConfig().GetCode().GetRemote() == nil {
 		wasmLog.Debugf("no remote load found in Wasm HTTP filter %+v", wasmHTTPFilterConfig)
 		return
 	}
@@ -140,7 +137,7 @@ func convert(resource *any.Any, cache Cache) (newExtensionConfig *any.Any, sendN
 	ec.TypedConfig = wasmTypedConfig
 	wasmLog.Debugf("new extension config resource %+v", ec)
 
-	newExtensionConfig, err = ptypes.MarshalAny(ec)
+	nec, err := ptypes.MarshalAny(ec)
 	if err != nil {
 		wasmLog.Errorf("failed to marshal new extension config resource: %v", err)
 		return
@@ -148,6 +145,7 @@ func convert(resource *any.Any, cache Cache) (newExtensionConfig *any.Any, sendN
 
 	// At this point, we are certain that wasm module has been downloaded.
 	// ECDS has been rewritten successfully and should not nack.
+	newExtensionConfig = nec
 	sendNack = false
 	return
 }
