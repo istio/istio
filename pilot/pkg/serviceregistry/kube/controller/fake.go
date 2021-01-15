@@ -32,17 +32,11 @@ const (
 type FakeXdsUpdater struct {
 	// Events tracks notifications received by the updater
 	Events chan FakeXdsEvent
-
-	// Updater if given, will actually trigger calls to the fake updater
-	Updater model.XDSUpdater
 }
 
 var _ model.XDSUpdater = &FakeXdsUpdater{}
 
 func (fx *FakeXdsUpdater) ConfigUpdate(req *model.PushRequest) {
-	if fx.Updater != nil {
-		fx.Updater.ConfigUpdate(req)
-	}
 	var id string
 	if req != nil && len(req.ConfigsUpdated) > 0 {
 		for key := range req.ConfigsUpdated {
@@ -55,10 +49,7 @@ func (fx *FakeXdsUpdater) ConfigUpdate(req *model.PushRequest) {
 	}
 }
 
-func (fx *FakeXdsUpdater) ProxyUpdate(clusterID, ip string) {
-	if fx.Updater != nil {
-		fx.Updater.ProxyUpdate(clusterID, ip)
-	}
+func (fx *FakeXdsUpdater) ProxyUpdate(_, _ string) {
 	select {
 	case fx.Events <- FakeXdsEvent{Type: "proxy"}:
 	default:
@@ -79,22 +70,12 @@ type FakeXdsEvent struct {
 
 // NewFakeXDS creates a XdsUpdater reporting events via a channel.
 func NewFakeXDS() *FakeXdsUpdater {
-	return NewFakeXDSWithUpdater(nil)
-}
-
-// NewFakeXDSWithUpdater creates a XdsUpdater reporting events via a channel.
-// If a non-nil updater is given, it will be triggered before events are put on the channel.
-func NewFakeXDSWithUpdater(updater model.XDSUpdater) *FakeXdsUpdater {
 	return &FakeXdsUpdater{
-		Events:  make(chan FakeXdsEvent, 100),
-		Updater: updater,
+		Events: make(chan FakeXdsEvent, 100),
 	}
 }
 
-func (fx *FakeXdsUpdater) EDSUpdate(shard, hostname, namespace string, entry []*model.IstioEndpoint) {
-	if fx.Updater != nil {
-		fx.Updater.EDSCacheUpdate(shard, hostname, namespace, entry)
-	}
+func (fx *FakeXdsUpdater) EDSUpdate(_, hostname string, _ string, entry []*model.IstioEndpoint) {
 	if len(entry) > 0 {
 		select {
 		case fx.Events <- FakeXdsEvent{Type: "eds", ID: hostname, Endpoints: entry}:
@@ -103,20 +84,14 @@ func (fx *FakeXdsUpdater) EDSUpdate(shard, hostname, namespace string, entry []*
 	}
 }
 
-func (fx *FakeXdsUpdater) EDSCacheUpdate(shard, hostname string, namespace string, entry []*model.IstioEndpoint) {
-	if fx.Updater != nil {
-		fx.Updater.EDSCacheUpdate(shard, hostname, namespace, entry)
-	}
+func (fx *FakeXdsUpdater) EDSCacheUpdate(_, _, _ string, entry []*model.IstioEndpoint) {
 }
 
 // SvcUpdate is called when a service port mapping definition is updated.
 // This interface is WIP - labels, annotations and other changes to service may be
 // updated to force a EDS and CDS recomputation and incremental push, as it doesn't affect
 // LDS/RDS.
-func (fx *FakeXdsUpdater) SvcUpdate(shard, hostname, namespace string, event model.Event) {
-	if fx.Updater != nil {
-		fx.Updater.SvcUpdate(shard, hostname, namespace, event)
-	}
+func (fx *FakeXdsUpdater) SvcUpdate(_, hostname string, _ string, _ model.Event) {
 	select {
 	case fx.Events <- FakeXdsEvent{Type: "service", ID: hostname}:
 	default:

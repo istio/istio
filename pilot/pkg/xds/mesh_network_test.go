@@ -92,13 +92,10 @@ func TestNetworkGatewayUpdates(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		if s.XDSUpdater.Wait("xds") == nil {
-			t.Fatal("did not trigger xds event")
-		}
 		if err := retry.Until(func() bool {
 			return len(s.PushContext().NetworkGatewaysByNetwork("network-1")) == 1
 		}); err != nil {
-			t.Fatal("push context did not reinitialize with gateways")
+			t.Fatal("push context did not reinitialize with gateways; xds event may not have been triggred")
 		}
 		vm.Expect(pod, "3.3.3.3:15443")
 		vm.Test(t, s)
