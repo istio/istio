@@ -16,8 +16,12 @@
 package pilot
 
 import (
+	"archive/tar"
+	"bytes"
 	"fmt"
+	"io"
 	"io/ioutil"
+	"os"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -26,7 +30,6 @@ import (
 	"github.com/hashicorp/go-multierror"
 
 	"istio.io/istio/pkg/config/protocol"
-	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/echo/echoboot"
@@ -149,15 +152,39 @@ func testAllEchoCalls(ctx framework.TestContext, echoInstances []echo.Instance) 
 // installRevisionOrFail takes an Istio version and installs a revisioned control plane running that version
 // provided istio version must be present in tests/integration/pilot/testdata/upgrade for the installation to succeed
 func installRevisionOrFail(ctx framework.TestContext, version string, configs map[string]string) {
-	installationTestdataDir := filepath.Join(env.IstioSrc, "tests/integration/pilot/testdata/upgrade")
-	installationConfigPath := filepath.Join(installationTestdataDir, fmt.Sprintf("%s-install.yaml", version))
-	configBytes, err := ioutil.ReadFile(installationConfigPath)
+	config, err := ReadInstallFile(fmt.Sprintf("%s-install.yaml", version))
 	if err != nil {
-		ctx.Fatalf("could not read installation config at path %s: %v", installationConfigPath, err)
+		ctx.Fatalf("could not read installation config: %v", err)
 	}
+	configs[version] = config
+	ctx.Config().ApplyYAMLOrFail(ctx, i.Settings().SystemNamespace, config)
+}
 
-	configs[version] = string(configBytes)
-	ctx.Config().ApplyYAMLOrFail(ctx, i.Settings().SystemNamespace, string(configBytes))
+// ReadInstallFile reads a tar compress installation file from the embedded
+func ReadInstallFile(f string) (string, error) {
+	b, err := os.ReadFile(filepath.Join("testdata/upgrade", f+".tar"))
+	if err != nil {
+		return "", err
+	}
+	tr := tar.NewReader(bytes.NewBuffer(b))
+	for {
+		hdr, err := tr.Next()
+		if err == io.EOF {
+			break // End of archive
+		}
+		if err != nil {
+			return "", err
+		}
+		if hdr.Name != f {
+			continue
+		}
+		contents, err := ioutil.ReadAll(tr)
+		if err != nil {
+			return "", err
+		}
+		return string(contents), nil
+	}
+	return "", fmt.Errorf("file not found")
 }
 
 // skipIfK8sVersionUnsupported skips the test if we're running on a k8s version that is not expected to work

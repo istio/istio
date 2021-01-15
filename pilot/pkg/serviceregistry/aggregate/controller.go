@@ -67,7 +67,7 @@ func (c *Controller) AddRegistry(registry serviceregistry.Instance) {
 }
 
 // DeleteRegistry deletes specified registry from the aggregated controller
-func (c *Controller) DeleteRegistry(clusterID string) {
+func (c *Controller) DeleteRegistry(clusterID string, providerID serviceregistry.ProviderID) {
 	c.storeLock.Lock()
 	defer c.storeLock.Unlock()
 
@@ -75,7 +75,7 @@ func (c *Controller) DeleteRegistry(clusterID string) {
 		log.Warnf("Registry list is empty, nothing to delete")
 		return
 	}
-	index, ok := c.GetRegistryIndex(clusterID)
+	index, ok := c.GetRegistryIndex(clusterID, providerID)
 	if !ok {
 		log.Warnf("Registry is not found in the registries list, nothing to delete")
 		return
@@ -93,9 +93,9 @@ func (c *Controller) GetRegistries() []serviceregistry.Instance {
 }
 
 // GetRegistryIndex returns the index of a registry
-func (c *Controller) GetRegistryIndex(clusterID string) (int, bool) {
+func (c *Controller) GetRegistryIndex(clusterID string, provider serviceregistry.ProviderID) (int, bool) {
 	for i, r := range c.registries {
-		if r.Cluster() == clusterID {
+		if r.Cluster() == clusterID && r.Provider() == provider {
 			return i, true
 		}
 	}

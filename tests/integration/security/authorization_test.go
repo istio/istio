@@ -429,7 +429,7 @@ func TestAuthorization_NegativeMatch(t *testing.T) {
 			for _, srcCluster := range ctx.Clusters() {
 				ctx.NewSubTest(fmt.Sprintf("From %s", srcCluster.Name())).Run(func(ctx framework.TestContext) {
 					srcA := apps.A.Match(echo.InCluster(srcCluster).And(echo.Namespace(apps.Namespace1.Name())))
-					srcX := apps.X.Match(echo.InCluster(srcCluster).And(echo.Namespace(apps.Namespace2.Name())))
+					srcBInNS2 := apps.B.Match(echo.InCluster(srcCluster).And(echo.Namespace(apps.Namespace2.Name())))
 					destB := apps.B.Match(echo.Namespace(apps.Namespace1.Name()))
 					destC := apps.C.Match(echo.Namespace(apps.Namespace1.Name()))
 					destD := apps.D.Match(echo.Namespace(apps.Namespace1.Name()))
@@ -450,12 +450,12 @@ func TestAuthorization_NegativeMatch(t *testing.T) {
 						}
 					}
 
-					// a, b, c and d are in the same namespace and x is in a different namespace.
-					// a connects to b, c and d with mTLS.
-					// x connects to b and c with mTLS, to d with plain-text.
+					// a, b, c and d are in the same namespace and another b(bInNs2) is in a different namespace.
+					// a connects to b, c and d in ns1 with mTLS.
+					// bInNs2 connects to b and c with mTLS, to d with plain-text.
 					cases := []rbacUtil.TestCase{
 						// Test the policy with overlapped `paths` and `not_paths` on b.
-						// a and x should have the same results:
+						// a and bInNs2 should have the same results:
 						// - path with prefix `/prefix` should be denied explicitly.
 						// - path `/prefix/allowlist` should be excluded from the deny.
 						// - path `/allow` should be allowed implicitly.
@@ -463,22 +463,22 @@ func TestAuthorization_NegativeMatch(t *testing.T) {
 						newTestCase(srcA[0], destB, "/prefix/other", false),
 						newTestCase(srcA[0], destB, "/prefix/allowlist", true),
 						newTestCase(srcA[0], destB, "/allow", true),
-						newTestCase(srcX[0], destB, "/prefix", false),
-						newTestCase(srcX[0], destB, "/prefix/other", false),
-						newTestCase(srcX[0], destB, "/prefix/allowlist", true),
-						newTestCase(srcX[0], destB, "/allow", true),
+						newTestCase(srcBInNS2[0], destB, "/prefix", false),
+						newTestCase(srcBInNS2[0], destB, "/prefix/other", false),
+						newTestCase(srcBInNS2[0], destB, "/prefix/allowlist", true),
+						newTestCase(srcBInNS2[0], destB, "/allow", true),
 
 						// Test the policy that denies other namespace on c.
 						// a should be allowed because it's from the same namespace.
-						// x should be denied because it's from a different namespace.
+						// bInNs2 should be denied because it's from a different namespace.
 						newTestCase(srcA[0], destC, "/", true),
-						newTestCase(srcX[0], destC, "/", false),
+						newTestCase(srcBInNS2[0], destC, "/", false),
 
 						// Test the policy that denies plain-text traffic on d.
 						// a should be allowed because it's using mTLS.
-						// x should be denied because it's using plain-text.
+						// bInNs2 should be denied because it's using plain-text.
 						newTestCase(srcA[0], destD, "/", true),
-						newTestCase(srcX[0], destD, "/", false),
+						newTestCase(srcBInNS2[0], destD, "/", false),
 					}
 
 					rbacUtil.RunRBACTest(ctx, cases)

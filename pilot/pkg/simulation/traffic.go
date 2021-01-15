@@ -71,6 +71,7 @@ var (
 	ErrNoListener          = errors.New("no listener matched")
 	ErrNoFilterChain       = errors.New("no filter chains matched")
 	ErrNoRoute             = errors.New("no route matched")
+	ErrTLSRedirect         = errors.New("tls required, sending 301")
 	ErrNoVirtualHost       = errors.New("no virtual host matched")
 	ErrMultipleFilterChain = errors.New("multiple filter chains matched")
 	// ErrProtocolError happens when sending TLS/TCP request to HCM, for example
@@ -328,8 +329,12 @@ func (sim *Simulation) Run(input Call) (result Result) {
 			return
 		}
 		result.VirtualHostMatched = vh.Name
-		r := sim.matchRoute(vh, input)
+		if vh.RequireTls == route.VirtualHost_ALL && input.TLS == Plaintext {
+			result.Error = ErrTLSRedirect
+			return
+		}
 
+		r := sim.matchRoute(vh, input)
 		if r == nil {
 			result.Error = ErrNoRoute
 			return

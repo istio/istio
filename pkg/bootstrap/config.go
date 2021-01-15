@@ -487,7 +487,11 @@ func getNodeMetaData(envs []string, plat platform.Environment, nodeIPs []string,
 			meta.Labels[k] = v
 		}
 	} else {
-		log.Warnf("failed to read pod labels: %v", err)
+		if os.IsNotExist(err) {
+			log.Debugf("failed to read pod labels: %v", err)
+		} else {
+			log.Warnf("failed to read pod labels: %v", err)
+		}
 	}
 
 	return meta, untypedMeta, nil

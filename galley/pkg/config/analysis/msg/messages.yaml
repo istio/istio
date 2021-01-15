@@ -354,8 +354,26 @@ messages:
     description: "Virtual IP addresses are required for ports serving TCP (or unset) protocol"
     template: "ServiceEntry addresses are required for this protocol."
 
-  - name: "DeploymentConflictingPorts"
+  - name: "DeprecatedAnnotation"
     code: IST0135
+    level: Info
+    description: "A resource is using a deprecated Istio annotation."
+    template: "Annotation %q has been deprecated and may not work in future Istio versions."
+    args:
+      - name: annotation
+        type: string
+
+  - name: "AlphaAnnotation"
+    code: IST0136
+    level: Info
+    description: "An Istio annotation may not be suitable for production."
+    template: "Annotation %q is part of an alpha-phase feature and may be incompletely supported."
+    args:
+      - name: annotation
+        type: string
+
+  - name: "DeploymentConflictingPorts"
+    code: IST0137
     level: Warning
     description: "If we have two services, both selecting the same workload, with the same target port, they should be the same port."
     template: "This deployment %s is associated with multiple services %v using targetPort %s but different ports: %v."
