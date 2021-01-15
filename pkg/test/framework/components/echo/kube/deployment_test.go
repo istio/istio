@@ -144,7 +144,7 @@ func TestDeploymentYAML(t *testing.T) {
 			if err := common.FillInDefaults(nil, "", &tc.config); err != nil {
 				t.Errorf("failed filling in defaults: %v", err)
 			}
-			serviceYAML, deploymentYAML, err := generateYAMLWithSettings(tc.config, settings, kube2.Cluster{
+			serviceYAML, deploymentYAML, err := generateYAMLWithSettings(tc.config, settings, &kube2.Cluster{
 				ExtendedClient: kubetest.MockClient{},
 			})
 			if err != nil {
