@@ -146,9 +146,7 @@ func (c *Controller) reloadNetworkGateways() {
 		}
 	}
 	if gwsChanged {
-		c.xdsUpdater.ConfigUpdate(&model.PushRequest{
-			Full: true,
-		})
+		c.xdsUpdater.ConfigUpdate(&model.PushRequest{Full: true, Reason: []model.TriggerReason{model.NetworksTrigger}})
 	}
 }
 

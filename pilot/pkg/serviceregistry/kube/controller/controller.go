@@ -407,7 +407,7 @@ func (c *Controller) onServiceEvent(curr interface{}, event model.Event) error {
 		}
 		if needsFullPush {
 			// networks are different, we need to update all eds endpoints
-			c.xdsUpdater.ConfigUpdate(&model.PushRequest{Full: true})
+			c.xdsUpdater.ConfigUpdate(&model.PushRequest{Full: true, Reason: []model.TriggerReason{model.NetworksTrigger}})
 		}
 
 		// instance conversion is only required when service is added/updated.
