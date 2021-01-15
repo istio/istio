@@ -88,6 +88,7 @@ type FakeDiscoveryServer struct {
 	Listener     *bufconn.Listener
 	kubeClient   kubelib.Client
 	KubeRegistry *kube.FakeController
+	XDSUpdater   *kube.FakeXdsUpdater
 }
 
 func NewFakeDiscoveryServer(t test.Failer, opts FakeOptions) *FakeDiscoveryServer {
@@ -107,6 +108,8 @@ func NewFakeDiscoveryServer(t test.Failer, opts FakeOptions) *FakeDiscoveryServe
 	t.Cleanup(func() {
 		s.Shutdown()
 	})
+
+	xdsUpdater := kube.NewFakeXDSWithUpdater(s)
 
 	serviceHandler := func(svc *model.Service, _ model.Event) {
 		pushReq := &model.PushRequest{
@@ -129,7 +132,7 @@ func NewFakeDiscoveryServer(t test.Failer, opts FakeOptions) *FakeDiscoveryServe
 		opts.NetworksWatcher.AddNetworksHandler(func() {
 			s.ConfigUpdate(&model.PushRequest{
 				Full:   true,
-				Reason: []model.TriggerReason{model.GlobalUpdate},
+				Reason: []model.TriggerReason{model.NetworksTrigger},
 			})
 		})
 	}
@@ -140,7 +143,7 @@ func NewFakeDiscoveryServer(t test.Failer, opts FakeOptions) *FakeDiscoveryServe
 			Client:          client,
 			ClusterID:       cluster,
 			DomainSuffix:    "cluster.local",
-			XDSUpdater:      s,
+			XDSUpdater:      xdsUpdater,
 			NetworksWatcher: opts.NetworksWatcher,
 			Mode:            opts.KubernetesEndpointMode,
 			// we wait for the aggregate to sync
@@ -183,7 +186,7 @@ func NewFakeDiscoveryServer(t test.Failer, opts FakeOptions) *FakeDiscoveryServe
 	// Disable debounce to reduce test times
 	s.debounceOptions.debounceAfter = opts.DebounceTime
 	s.MemRegistry = cg.MemRegistry
-	s.MemRegistry.EDSUpdater = s
+	s.MemRegistry.EDSUpdater = xdsUpdater
 	s.updateMutex.Unlock()
 
 	// Setup config handlers
@@ -271,6 +274,7 @@ func NewFakeDiscoveryServer(t test.Failer, opts FakeOptions) *FakeDiscoveryServe
 		ConfigGenTest: cg,
 		kubeClient:    defaultKubeClient,
 		KubeRegistry:  defaultKubeController,
+		XDSUpdater:    xdsUpdater,
 	}
 
 	return fake
