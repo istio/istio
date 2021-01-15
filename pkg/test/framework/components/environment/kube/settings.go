@@ -81,6 +81,7 @@ func (s *Settings) clusterConfigs() []cluster.Config {
 		ci := resource.ClusterIndex(i)
 		cfg := cluster.Config{
 			Name:    fmt.Sprintf("cluster-%d", i),
+			Kind:    cluster.Kubernetes,
 			Network: s.networkTopology[ci],
 			Meta:    map[string]string{"kubeconfig": kc},
 		}
