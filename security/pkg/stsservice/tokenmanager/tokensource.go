@@ -23,7 +23,6 @@ import (
 	"golang.org/x/oauth2"
 
 	"istio.io/istio/pkg/security"
-
 	"istio.io/istio/security/pkg/stsservice"
 	"istio.io/istio/security/pkg/stsservice/server"
 )

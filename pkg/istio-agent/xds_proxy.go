@@ -41,8 +41,6 @@ import (
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/reflection"
 
-	"istio.io/istio/pkg/security"
-
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/cmd/pilot-agent/status/ready"
 	"istio.io/istio/pilot/pkg/dns"
@@ -82,8 +80,6 @@ type XdsProxy struct {
 	healthChecker        *health.WorkloadHealthChecker
 	xdsHeaders           map[string]string
 	xdsUdsPath           string
-	xdsAuthProvider      string
-	tokenManager         security.TokenManager
 
 	// connected stores the active gRPC stream. The proxy will only have 1 connection at a time
 	connected      *ProxyConnection
@@ -109,15 +105,13 @@ func initXdsProxy(ia *Agent) (*XdsProxy, error) {
 		LocalHostAddr: localHostAddr,
 	}
 	proxy := &XdsProxy{
-		istiodAddress:   ia.proxyConfig.DiscoveryAddress,
-		clusterID:       ia.secOpts.ClusterID,
-		localDNSServer:  ia.localDNSServer,
-		stopChan:        make(chan struct{}),
-		healthChecker:   health.NewWorkloadHealthChecker(ia.proxyConfig.ReadinessProbe, envoyProbe),
-		xdsHeaders:      ia.cfg.XDSHeaders,
-		xdsUdsPath:      ia.cfg.XdsUdsPath,
-		xdsAuthProvider: ia.secOpts.XdsAuthProvider,
-		tokenManager:    ia.secOpts.TokenManager,
+		istiodAddress:  ia.proxyConfig.DiscoveryAddress,
+		clusterID:      ia.secOpts.ClusterID,
+		localDNSServer: ia.localDNSServer,
+		stopChan:       make(chan struct{}),
+		healthChecker:  health.NewWorkloadHealthChecker(ia.proxyConfig.ReadinessProbe, envoyProbe),
+		xdsHeaders:     ia.cfg.XDSHeaders,
+		xdsUdsPath:     ia.cfg.XdsUdsPath,
 	}
 
 	proxyLog.Infof("Initializing with upstream address %q and cluster %q", proxy.istiodAddress, proxy.clusterID)

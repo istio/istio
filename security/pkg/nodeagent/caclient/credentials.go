@@ -23,12 +23,11 @@ import (
 
 	"google.golang.org/grpc/credentials"
 
-	"istio.io/istio/security/pkg/nodeagent/plugin/providers/google/stsclient"
-	"istio.io/istio/security/pkg/stsservice/tokenmanager/google"
-
 	"istio.io/istio/pkg/security"
+	"istio.io/istio/security/pkg/nodeagent/plugin/providers/google/stsclient"
 	"istio.io/istio/security/pkg/stsservice"
 	"istio.io/istio/security/pkg/stsservice/server"
+	"istio.io/istio/security/pkg/stsservice/tokenmanager/google"
 	"istio.io/pkg/log"
 )
 
