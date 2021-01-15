@@ -503,8 +503,7 @@ func (p *Plugin) GetMetadata(forCA bool, xdsAuthProvider, token string) (map[str
 	if !forCA && xdsAuthProvider == GCPAuthProvider && len(gcpProjectNumber) > 0 {
 		return map[string]string{
 			"authorization":       "Bearer " + token,
-			"X-Goog-User-Project": gcpProjectNumber,
-			"project":             "projects/" + gcpProjectNumber,
+			"x-goog-user-project": gcpProjectNumber,
 		}, nil
 	}
 	return map[string]string{
