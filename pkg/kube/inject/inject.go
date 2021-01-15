@@ -233,11 +233,9 @@ func injectRequired(ignored []string, config *Config, podSpec *corev1.PodSpec, m
 	var required bool
 	switch config.Policy {
 	default: // InjectionPolicyOff
-		if useDefault {
-			required = true
-		} else {
-			required = inject
-		}
+		log.Errorf("Illegal value for autoInject:%s, must be one of [%s,%s]. Auto injection disabled!",
+			config.Policy, InjectionPolicyDisabled, InjectionPolicyEnabled)
+		required = false
 	case InjectionPolicyDisabled:
 		if useDefault {
 			required = false
