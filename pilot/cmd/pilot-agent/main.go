@@ -225,6 +225,7 @@ var (
 			if err != nil {
 				return err
 			}
+			// tokenManager is gcp token manager when using the default token manager plugin.
 			tokenManager := tokenmanager.CreateTokenManager(tokenManagerPlugin,
 				tokenmanager.Config{CredFetcher: secOpts.CredFetcher, TrustDomain: secOpts.TrustDomain})
 			secOpts.TokenManager = tokenManager

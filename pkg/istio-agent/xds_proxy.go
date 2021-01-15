@@ -41,6 +41,8 @@ import (
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/reflection"
 
+	"istio.io/istio/pkg/security"
+
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/cmd/pilot-agent/status/ready"
 	"istio.io/istio/pilot/pkg/dns"
@@ -52,7 +54,6 @@ import (
 	"istio.io/istio/pkg/mcp/status"
 	"istio.io/istio/pkg/uds"
 	"istio.io/istio/security/pkg/nodeagent/caclient"
-	"istio.io/istio/security/pkg/stsservice"
 	"istio.io/pkg/log"
 )
 
@@ -82,7 +83,7 @@ type XdsProxy struct {
 	xdsHeaders           map[string]string
 	xdsUdsPath           string
 	xdsAuthProvider      string
-	tokenManager         stsservice.TokenManager
+	tokenManager         security.TokenManager
 
 	// connected stores the active gRPC stream. The proxy will only have 1 connection at a time
 	connected      *ProxyConnection

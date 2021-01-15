@@ -23,14 +23,13 @@ import (
 
 	"google.golang.org/grpc/credentials"
 
+	"istio.io/istio/security/pkg/nodeagent/plugin/providers/google/stsclient"
+	"istio.io/istio/security/pkg/stsservice/tokenmanager/google"
+
 	"istio.io/istio/pkg/security"
 	"istio.io/istio/security/pkg/stsservice"
 	"istio.io/istio/security/pkg/stsservice/server"
 	"istio.io/pkg/log"
-)
-
-const (
-	scope = "https://www.googleapis.com/auth/cloud-platform"
 )
 
 // TokenProvider is a grpc PerRPCCredentials that can be used to attach a JWT token to each gRPC call.
@@ -118,6 +117,10 @@ func (t *TokenProvider) GetToken() (string, error) {
 
 // GetTokenForXDS gets the token for the XDS flow.
 func (t *TokenProvider) GetTokenForXDS() (string, error) {
+	if t.opts.XdsAuthProvider == google.GCPAuthProvider {
+		return t.getTokenForGCP()
+	}
+	// For XDS flow, when no token provider is specified, we only support reading from file.
 	if t.opts.JWTPath == "" {
 		return "", nil
 	}
@@ -126,9 +129,17 @@ func (t *TokenProvider) GetTokenForXDS() (string, error) {
 		log.Warnf("failed to fetch token from file: %v", err)
 		return "", nil
 	}
-	// For XDS flow, when token fetch and exchange is disabled, we only support reading from file.
-	if t.opts.XdsAuthProvider != "gcp" {
-		return strings.TrimSpace(string(tok)), nil
+	return strings.TrimSpace(string(tok)), nil
+}
+
+func (t *TokenProvider) getTokenForGCP() (string, error) {
+	if t.opts.JWTPath == "" {
+		return "", nil
+	}
+	tok, err := ioutil.ReadFile(t.opts.JWTPath)
+	if err != nil {
+		log.Warnf("failed to fetch token from file: %v", err)
+		return "", nil
 	}
 	// For XDS flow, the token exchange is different from that of the CA flow.
 	if t.opts.TokenManager == nil {
@@ -137,8 +148,8 @@ func (t *TokenProvider) GetTokenForXDS() (string, error) {
 	if strings.TrimSpace(string(tok)) == "" {
 		return "", fmt.Errorf("the JWT token for XDS token exchange is empty")
 	}
-	params := stsservice.StsRequestParameters{
-		Scope:            scope,
+	params := security.StsRequestParameters{
+		Scope:            stsclient.Scope,
 		GrantType:        server.TokenExchangeGrantType,
 		SubjectToken:     strings.TrimSpace(string(tok)),
 		SubjectTokenType: server.SubjectTokenType,
