@@ -1195,9 +1195,9 @@ func TestApplyListenerPatches(t *testing.T) {
 
 	sidecarVirtualInboundIn := []*listener.Listener{
 		{
-			Name:                                VirtualInboundListenerName,
-			HiddenEnvoyDeprecatedUseOriginalDst: istio_proto.BoolTrue,
-			TrafficDirection:                    core.TrafficDirection_INBOUND,
+			Name:             VirtualInboundListenerName,
+			UseOriginalDst:   istio_proto.BoolTrue,
+			TrafficDirection: core.TrafficDirection_INBOUND,
 			Address: &core.Address{
 				Address: &core.Address_SocketAddress{
 					SocketAddress: &core.SocketAddress{
@@ -1254,9 +1254,9 @@ func TestApplyListenerPatches(t *testing.T) {
 
 	sidecarVirtualInboundOut := []*listener.Listener{
 		{
-			Name:                                VirtualInboundListenerName,
-			HiddenEnvoyDeprecatedUseOriginalDst: istio_proto.BoolTrue,
-			TrafficDirection:                    core.TrafficDirection_INBOUND,
+			Name:             VirtualInboundListenerName,
+			UseOriginalDst:   istio_proto.BoolTrue,
+			TrafficDirection: core.TrafficDirection_INBOUND,
 			Address: &core.Address{
 				Address: &core.Address_SocketAddress{
 					SocketAddress: &core.SocketAddress{
