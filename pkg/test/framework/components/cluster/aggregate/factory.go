@@ -75,12 +75,24 @@ func (a *aggregateFactory) Build() (resource.Clusters, error) {
 			continue
 		}
 		for _, c := range built {
+			if _, ok := a.allClusters[c.Name()]; ok {
+				errs = multierror.Append(errs, fmt.Errorf("duplicate cluster name: %s", c.Name()))
+				continue
+			}
 			a.allClusters[c.Name()] = c
-			scopes.Framework.Infof("Built cluster:")
 			scopes.Framework.Infof(c.String())
 		}
 		clusters = append(clusters, built...)
 	}
+	if errs != nil {
+		scopes.Framework.Infof("=== FAILED: Building clusters ===")
+		return nil, errs
+	}
+	for n, c := range a.allClusters {
+		scopes.Framework.Infof("Built Cluster: %s", n)
+		scopes.Framework.Infof(c.String())
+	}
+	scopes.Framework.Infof("=== DONE: Building clusters ===")
 
 	return clusters, errs
 }
