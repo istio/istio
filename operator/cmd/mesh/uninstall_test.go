@@ -37,7 +37,8 @@ func TestUninstallNonEmptyRevision(t *testing.T) {
 	uninstallCmd.SetErr(&out)
 
 	err := uninstallCmd.Execute()
-	g.Expect(err).To(gomega.HaveOccurred())
+	t.Log(err)
+	g.Expect(err).To(gomega.Not(gomega.HaveOccurred()))
 }
 
 func TestUninstallEmptyRevision(t *testing.T) {
