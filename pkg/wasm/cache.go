@@ -131,7 +131,7 @@ func (c *LocalFileCache) Get(downloadURL, checksum string, timeout time.Duration
 		// TODO(bianpengyuan): Add sanity check on downloaded file to make sure it is a valid Wasm module.
 
 		key.checksum = dChecksum
-		f := filepath.Join(c.dir, fmt.Sprintf("%s.wasm", checksum))
+		f := filepath.Join(c.dir, fmt.Sprintf("%s.wasm", dChecksum))
 
 		if err := c.addEntry(key, b, f); err != nil {
 			return "", err
