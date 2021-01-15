@@ -341,6 +341,9 @@ func (t *ReverseTranslator) TranslateK8SfromValueToIOP(userOverlayYaml string) (
 	}
 	iopSpecTree := make(map[string]interface{})
 	iopSpecOverlay, err := tpath.GetConfigSubtree(userOverlayYaml, "spec")
+	if err != nil {
+		return "", fmt.Errorf("error getting iop spec subtree from overlay yaml %v", err)
+	}
 	err = yaml.Unmarshal([]byte(iopSpecOverlay), &iopSpecTree)
 	if err != nil {
 		return "", fmt.Errorf("error unmarshalling spec overlay yaml into tree %v", err)
@@ -384,7 +387,7 @@ func translateStrategy(fieldName string, outPath string, value interface{}, cpSp
 	outPath += ".rollingUpdate." + newFieldName
 
 	scope.Debugf("path has value in helm Value.yaml tree, mapping to output path %s", outPath)
-	if err := tpath.MergeNode(cpSpecTree, util.ToYAMLPath(outPath), value); err != nil {
+	if err := tpath.WriteNode(cpSpecTree, util.ToYAMLPath(outPath), value); err != nil {
 		return err
 	}
 	return nil
@@ -581,7 +584,7 @@ func (t *ReverseTranslator) translateK8sTree(valueTree map[string]interface{},
 			output := util.ToYAMLPath(v.OutPath)
 			scope.Debugf("path has value in helm Value.yaml tree, mapping to output path %s", output)
 
-			if err := tpath.MergeNode(cpSpecTree, output, m); err != nil {
+			if err := tpath.WriteNode(cpSpecTree, output, m); err != nil {
 				return err
 			}
 		}
