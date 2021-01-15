@@ -375,8 +375,8 @@ messages:
   - name: "DeploymentConflictingPorts"
     code: IST0137
     level: Warning
-    description: "If we have two services, both selecting the same workload, with the same target port, they should be the same port."
-    template: "This deployment %s is associated with multiple services %v using targetPort %s but different ports: %v."
+    description: "Two services selecting the same workload with same target port are MUST refer to the same port."
+    template: "This deployment %s is associated with multiple services %v using targetPort %q but different ports: %v."
     args:
       - name: deployment
         type: string

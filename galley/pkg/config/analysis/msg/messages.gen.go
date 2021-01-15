@@ -142,8 +142,8 @@ var (
 	AlphaAnnotation = diag.NewMessageType(diag.Info, "IST0136", "Annotation %q is part of an alpha-phase feature and may be incompletely supported.")
 
 	// DeploymentConflictingPorts defines a diag.MessageType for message "DeploymentConflictingPorts".
-	// Description: If we have two services, both selecting the same workload, with the same target port, they should be the same port.
-	DeploymentConflictingPorts = diag.NewMessageType(diag.Warning, "IST0137", "This deployment %s is associated with multiple services %v using targetPort %s but different ports: %v.")
+	// Description: Two services selecting the same workload with same target port are MUST refer to the same port.
+	DeploymentConflictingPorts = diag.NewMessageType(diag.Warning, "IST0137", "This deployment %s is associated with multiple services %v using targetPort %q but different ports: %v.")
 )
 
 // All returns a list of all known message types.
