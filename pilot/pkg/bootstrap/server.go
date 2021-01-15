@@ -236,7 +236,6 @@ func NewServer(args *PilotArgs) (*Server, error) {
 		Namespace:      args.Namespace,
 		ExternalCAType: ra.CaExternalType(externalCaType),
 	}
-
 	if caOpts.ExternalCAType == ra.ExtCAK8s {
 		// Older environment variable preserved for backward compatibility
 		caOpts.ExternalCASigner = k8sSigner
@@ -1047,41 +1046,40 @@ func (s *Server) initJwtPolicy() {
 // maybeCreateCA creates and initializes CA Key if needed.
 func (s *Server) maybeCreateCA(caOpts *caOptions) error {
 	// CA signing certificate must be created only if CA is enabled.
-	if s.EnableCA() {
-		log.Info("creating CA and initializing public key")
-		var err error
-		var corev1 v1.CoreV1Interface
-		if s.kubeClient != nil {
-			corev1 = s.kubeClient.CoreV1()
-		}
-		if useRemoteCerts.Get() {
-			if err = s.loadRemoteCACerts(caOpts, LocalCertDir.Get()); err != nil {
-				return fmt.Errorf("failed to load remote CA certs: %v", err)
-			}
-		}
-		// May return nil, if the CA is missing required configs - This is not an error.
+	if !s.EnableCA() {
+		return nil
+	}
+	log.Info("creating CA and initializing public key")
+	var err error
 
-		// TODO: Issue #27606 If External CA is configured, use that to sign DNS Certs as well. IstioCA need not be initialized
-		if s.CA, err = s.createIstioCA(corev1, caOpts); err != nil {
-			return fmt.Errorf("failed to create CA: %v", err)
+	if useRemoteCerts {
+		if err = s.loadRemoteCACerts(caOpts, localCertDir); err != nil {
+			return fmt.Errorf("failed to load remote CA certs: %v", err)
 		}
-		if caOpts.ExternalCAType != "" {
-			if s.RA, err = s.createIstioRA(s.kubeClient, caOpts); err != nil {
-				return fmt.Errorf("failed to create RA: %v", err)
-			}
+	}
+
+	var corev1 v1.CoreV1Interface
+	if s.kubeClient != nil {
+		corev1 = s.kubeClient.CoreV1()
+	}
+	// May return nil, if the CA is missing required configs - This is not an error.
+	// TODO: Issue #27606 If External CA is configured, use that to sign DNS Certs as well. IstioCA need not be initialized
+	if s.CA, err = s.createIstioCA(corev1, caOpts); err != nil {
+		return fmt.Errorf("failed to create CA: %v", err)
+	}
+	if caOpts.ExternalCAType != "" {
+		if s.RA, err = s.createIstioRA(s.kubeClient, caOpts); err != nil {
+			return fmt.Errorf("failed to create RA: %v", err)
 		}
-		if err = s.initPublicKey(); err != nil {
-			return fmt.Errorf("error initializing public key: %v", err)
-		}
+	}
+	if err = s.initPublicKey(); err != nil {
+		return fmt.Errorf("error initializing public key: %v", err)
 	}
 	return nil
 }
 
 // StartCA starts the CA or RA server if configured.
 func (s *Server) startCA(caOpts *caOptions) {
-	if s.CA == nil && s.RA == nil {
-		return
-	}
 	s.addStartFunc(func(stop <-chan struct{}) error {
 		grpcServer := s.secureGrpcServer
 		if s.secureGrpcServer == nil {
@@ -1092,7 +1090,7 @@ func (s *Server) startCA(caOpts *caOptions) {
 			log.Infof("Starting RA")
 			s.RunCA(grpcServer, s.RA, caOpts)
 		} else if s.CA != nil {
-			log.Infof("Starting IstioD CA")
+			log.Infof("Starting Istiod CA")
 			s.RunCA(grpcServer, s.CA, caOpts)
 		}
 		return nil

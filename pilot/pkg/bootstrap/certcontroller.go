@@ -27,6 +27,8 @@ import (
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
 	"istio.io/istio/security/pkg/k8s/chiron"
+	"istio.io/istio/security/pkg/pki/ca"
+
 	"istio.io/pkg/log"
 )
 
@@ -145,7 +147,7 @@ func (s *Server) initDNSCerts(hostname, customHost, namespace string) error {
 		log.Infof("Generating istiod-signed cert for %v", names)
 		certChain, keyPEM, err = s.CA.GenKeyCert(names, SelfSignedCACertTTL.Get(), false)
 
-		signingKeyFile := path.Join(LocalCertDir.Get(), "ca-key.pem")
+		signingKeyFile := path.Join(localCertDir, ca.CAPrivateKeyID)
 		// check if signing key file exists the cert dir
 		if _, err := os.Stat(signingKeyFile); err != nil {
 			log.Infof("No plugged-in cert at %v; self-signed cert is used", signingKeyFile)
@@ -187,15 +189,11 @@ func (s *Server) initDNSCerts(hostname, customHost, namespace string) error {
 			s.caBundlePath = internalSelfSignedRootPath
 		} else {
 			log.Infof("Use plugged-in cert at %v", signingKeyFile)
-			s.caBundlePath = path.Join(LocalCertDir.Get(), "root-cert.pem")
+			s.caBundlePath = path.Join(localCertDir, "root-cert.pem")
 		}
 
 	} else {
-		log.Infof("User specified cert provider: %v", features.PilotCertProvider.Get())
-		return nil
-	}
-	if err != nil {
-		return err
+		return fmt.Errorf("unsupported PILOT_CERT_PROVIDER %q", features.PilotCertProvider.Get())
 	}
 
 	// Save the certificates to ./var/run/secrets/istio-dns - this is needed since most of the code we currently

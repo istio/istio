@@ -97,9 +97,9 @@ func TestCreateSelfSignedIstioCAWithoutSecret(t *testing.T) {
 	rootCertCheckInverval := time.Hour
 	rsaKeySize := 2048
 
-	caopts, err := NewSelfSignedIstioCAOptions(context.Background(),
+	caopts, err := NewSelfSignedIstioCAOptions(
 		0, caCertTTL, rootCertCheckInverval, defaultCertTTL,
-		maxCertTTL, org, false, caNamespace, -1, client.CoreV1(),
+		maxCertTTL, org, false, caNamespace, client.CoreV1(),
 		rootCertFile, false, rsaKeySize)
 	if err != nil {
 		t.Fatalf("Failed to create a self-signed CA Options: %v", err)
@@ -141,7 +141,7 @@ func TestCreateSelfSignedIstioCAWithoutSecret(t *testing.T) {
 		t.Errorf("Failed to get secret (error: %s)", err)
 	}
 
-	signingCertFromSecret, err := util.ParsePemEncodedCertificate(caSecret.Data[caCertID])
+	signingCertFromSecret, err := util.ParsePemEncodedCertificate(caSecret.Data[CACertID])
 	if err != nil {
 		t.Errorf("Failed to parse cert (error: %s)", err)
 	}
@@ -174,9 +174,9 @@ func TestCreateSelfSignedIstioCAWithSecret(t *testing.T) {
 	rootCertCheckInverval := time.Hour
 	rsaKeySize := 2048
 
-	caopts, err := NewSelfSignedIstioCAOptions(context.Background(),
+	caopts, err := NewSelfSignedIstioCAOptions(
 		0, caCertTTL, rootCertCheckInverval, defaultCertTTL, maxCertTTL,
-		org, false, caNamespace, -1, client.CoreV1(),
+		org, false, caNamespace, client.CoreV1(),
 		rootCertFile, false, rsaKeySize)
 	if err != nil {
 		t.Fatalf("Failed to create a self-signed CA Options: %v", err)
@@ -227,34 +227,18 @@ func TestCreateSelfSignedIstioCAReadSigningCertOnly(t *testing.T) {
 
 	client := fake.NewSimpleClientset()
 
-	// Should abort with timeout.
-	expectedErr := "secret waiting thread is terminated"
-	ctx0, cancel0 := context.WithTimeout(context.Background(), time.Millisecond*50)
-	defer cancel0()
-	_, err := NewSelfSignedIstioCAOptions(ctx0, 0,
-		caCertTTL, defaultCertTTL, rootCertCheckInverval, maxCertTTL, org, false,
-		caNamespace, time.Millisecond*10, client.CoreV1(), rootCertFile, false, rsaKeySize)
-	if err == nil {
-		t.Errorf("Expected error, but succeeded.")
-	} else if err.Error() != expectedErr {
-		t.Errorf("Unexpected error message: %s VS (expected) %s", err.Error(), expectedErr)
-		return
-	}
-
 	// Should succeed once secret is ready.
 	secret := k8ssecret.BuildSecret("", CASecret, "default", nil, nil, nil, signingCertPem, signingKeyPem, istioCASecretType)
-	_, err = client.CoreV1().Secrets("default").Create(context.TODO(), secret, metav1.CreateOptions{})
+	_, err := client.CoreV1().Secrets("default").Create(context.TODO(), secret, metav1.CreateOptions{})
 	if err != nil {
 		t.Errorf("Failed to create secret (error: %s)", err)
 	}
 
-	ctx1, cancel1 := context.WithCancel(context.Background())
-	defer cancel1()
-	caopts, err := NewSelfSignedIstioCAOptions(ctx1, 0,
+	caopts, err := NewSelfSignedIstioCAOptions(0,
 		caCertTTL, defaultCertTTL, rootCertCheckInverval, maxCertTTL, org, false,
-		caNamespace, time.Millisecond*10, client.CoreV1(), rootCertFile, false, rsaKeySize)
+		caNamespace, client.CoreV1(), rootCertFile, false, rsaKeySize)
 	if err != nil {
-		t.Errorf("Unexpected error: %v", err)
+		t.Fatalf("Failed to create a self-signed CA Options: %v", err)
 	}
 
 	ca, err := NewIstioCA(caopts)
@@ -290,12 +274,13 @@ func TestCreatePluggedCertCA(t *testing.T) {
 	certChainFile := "../testdata/multilevelpki/int2-cert-chain.pem"
 	signingCertFile := "../testdata/multilevelpki/int2-cert.pem"
 	signingKeyFile := "../testdata/multilevelpki/int2-key.pem"
+	trustDomain := "cluster.local"
 	rsaKeySize := 2048
 
 	defaultWorkloadCertTTL := 99999 * time.Hour
 	maxWorkloadCertTTL := time.Hour
 
-	caopts, err := NewPluggedCertIstioCAOptions(certChainFile, signingCertFile, signingKeyFile, rootCertFile,
+	caopts, err := NewPluggedCertIstioCAOptions(certChainFile, signingCertFile, signingKeyFile, rootCertFile, trustDomain,
 		defaultWorkloadCertTTL, maxWorkloadCertTTL, rsaKeySize)
 	if err != nil {
 		t.Fatalf("Failed to create a plugged-cert CA Options: %v", err)
@@ -564,12 +549,13 @@ func TestSignWithCertChain(t *testing.T) {
 	certChainFile := "../testdata/multilevelpki/int-cert-chain.pem"
 	signingCertFile := "../testdata/multilevelpki/int-cert.pem"
 	signingKeyFile := "../testdata/multilevelpki/int-key.pem"
+	trustDomain := "cluster.local"
 	rsaKeySize := 2048
 
 	defaultWorkloadCertTTL := 30 * time.Minute
 	maxWorkloadCertTTL := time.Hour
 
-	caopts, err := NewPluggedCertIstioCAOptions(certChainFile, signingCertFile, signingKeyFile, rootCertFile,
+	caopts, err := NewPluggedCertIstioCAOptions(certChainFile, signingCertFile, signingKeyFile, rootCertFile, trustDomain,
 		defaultWorkloadCertTTL, maxWorkloadCertTTL, rsaKeySize)
 	if err != nil {
 		t.Fatalf("Failed to create a plugged-cert CA Options: %v", err)
@@ -658,11 +644,12 @@ func TestGenKeyCert(t *testing.T) {
 	}
 	defaultWorkloadCertTTL := 30 * time.Minute
 	maxWorkloadCertTTL := 24 * time.Hour
+	trustDomain := "cluster.local"
 	rsaKeySize := 2048
 
 	for id, tc := range cases {
 		caopts, err := NewPluggedCertIstioCAOptions(tc.certChainFile, tc.signingCertFile, tc.signingKeyFile, tc.rootCertFile,
-			defaultWorkloadCertTTL, maxWorkloadCertTTL, rsaKeySize)
+			trustDomain, defaultWorkloadCertTTL, maxWorkloadCertTTL, rsaKeySize)
 		if err != nil {
 			t.Fatalf("%s: failed to create a plugged-cert CA Options: %v", id, err)
 		}

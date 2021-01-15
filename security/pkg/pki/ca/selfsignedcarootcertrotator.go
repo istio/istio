@@ -77,7 +77,7 @@ func NewSelfSignedCARootCertRotator(config *SelfSignedCARootCertRotatorConfig,
 }
 
 // Run refreshes root certs and updates config map accordingly.
-func (rotator *SelfSignedCARootCertRotator) Run(stopCh chan struct{}) {
+func (rotator *SelfSignedCARootCertRotator) Run(stopCh <-chan struct{}) {
 	if rotator.config.enableJitter {
 		rootCertRotatorLog.Infof("Jitter is enabled, wait %s before "+
 			"starting root cert rotator.", rotator.backOffTime.String())
@@ -132,23 +132,23 @@ func (rotator *SelfSignedCARootCertRotator) checkAndRotateRootCertForSigningCert
 		return
 	}
 	// Check root certificate expiration time in CA secret
-	waitTime, err := rotator.config.certInspector.GetWaitTime(caSecret.Data[caCertID], time.Now(), time.Duration(0))
+	waitTime, err := rotator.config.certInspector.GetWaitTime(caSecret.Data[CACertID], time.Now(), time.Duration(0))
 	if err == nil && waitTime > 0 {
 		rootCertRotatorLog.Info("Root cert is not about to expire, skipping root cert rotation.")
 		caCertInMem, _, _, _ := rotator.ca.GetCAKeyCertBundle().GetAllPem()
 		// If CA certificate is different from the CA certificate in local key
 		// cert bundle, it implies that other Citadels have updated istio-ca-secret.
 		// Reload root certificate into key cert bundle.
-		if !bytes.Equal(caCertInMem, caSecret.Data[caCertID]) {
+		if !bytes.Equal(caCertInMem, caSecret.Data[CACertID]) {
 			rootCertRotatorLog.Warn("CA cert in KeyCertBundle does not match CA cert in " +
 				"istio-ca-secret. Start to reload root cert into KeyCertBundle")
-			rootCerts, err := util.AppendRootCerts(caSecret.Data[caCertID], rotator.config.rootCertFile)
+			rootCerts, err := util.AppendRootCerts(caSecret.Data[CACertID], rotator.config.rootCertFile)
 			if err != nil {
 				rootCertRotatorLog.Errorf("failed to append root certificates from file: %s", err.Error())
 				return
 			}
-			if err := rotator.ca.GetCAKeyCertBundle().VerifyAndSetAll(caSecret.Data[caCertID],
-				caSecret.Data[caPrivateKeyID], nil, rootCerts); err != nil {
+			if err := rotator.ca.GetCAKeyCertBundle().VerifyAndSetAll(caSecret.Data[CACertID],
+				caSecret.Data[CAPrivateKeyID], nil, rootCerts); err != nil {
 				rootCertRotatorLog.Errorf("failed to reload root cert into KeyCertBundle (%v)", err)
 			} else {
 				rootCertRotatorLog.Info("Successfully reloaded root cert into KeyCertBundle.")
@@ -159,14 +159,14 @@ func (rotator *SelfSignedCARootCertRotator) checkAndRotateRootCertForSigningCert
 
 	rootCertRotatorLog.Infof("Refresh root certificate, root cert is about to expire: %s", err.Error())
 
-	oldCertOptions, err := util.GetCertOptionsFromExistingCert(caSecret.Data[caCertID])
+	oldCertOptions, err := util.GetCertOptionsFromExistingCert(caSecret.Data[CACertID])
 	if err != nil {
 		rootCertRotatorLog.Warnf("Failed to generate cert options from existing root certificate (%v), "+
 			"new root certificate may not match old root certificate", err)
 	}
 	options := util.CertOptions{
 		TTL:           rotator.config.caCertTTL,
-		SignerPrivPem: caSecret.Data[caPrivateKeyID],
+		SignerPrivPem: caSecret.Data[CAPrivateKeyID],
 		Org:           rotator.config.org,
 		IsCA:          true,
 		IsSelfSigned:  true,
@@ -189,8 +189,8 @@ func (rotator *SelfSignedCARootCertRotator) checkAndRotateRootCertForSigningCert
 		return
 	}
 
-	oldCaCert := caSecret.Data[caCertID]
-	oldCaPrivateKey := caSecret.Data[caPrivateKeyID]
+	oldCaCert := caSecret.Data[CACertID]
+	oldCaPrivateKey := caSecret.Data[CAPrivateKeyID]
 	oldRootCerts := rotator.ca.GetCAKeyCertBundle().GetRootCertPem()
 	if rollback, err := rotator.updateRootCertificate(caSecret, true, pemCert, pemKey, pemRootCerts); err != nil {
 		if !rollback {
@@ -223,8 +223,8 @@ func (rotator *SelfSignedCARootCertRotator) updateRootCertificate(caSecret *v1.S
 				err.Error())
 		}
 	}
-	caSecret.Data[caCertID] = cert
-	caSecret.Data[caPrivateKeyID] = key
+	caSecret.Data[CACertID] = cert
+	caSecret.Data[CAPrivateKeyID] = key
 	if err = rotator.caSecretController.UpdateCASecretWithRetry(caSecret, rotator.config.retryInterval, rotator.config.retryMax); err != nil {
 		return false, fmt.Errorf("failed to update CA secret (error: %s)", err.Error())
 	}
