@@ -39,8 +39,6 @@ data:
   mesh: |-
     defaultConfig:
       discoveryAddress: istiod.istio-system.svc:15012
-      proxyMetadata:
-        DNS_AGENT: ""
       tracing:
         zipkin:
           address: zipkin.istio-system:9411
@@ -65,7 +63,6 @@ data:
     {
       "global": {
         "caAddress": "",
-        "centralIstiod": false,
         "defaultPodDisruptionBudget": {
           "enabled": true
         },
@@ -244,8 +241,8 @@ data:
           {{ else -}}
           - name: istio-init
           {{ end -}}
-          {{- if contains "/" .Values.global.proxy_init.image }}
-            image: "{{ .Values.global.proxy_init.image }}"
+          {{- if contains "/" (annotation .ObjectMeta `sidecar.istio.io/proxyImage` .Values.global.proxy_init.image) }}
+            image: "{{ annotation .ObjectMeta `sidecar.istio.io/proxyImage` .Values.global.proxy_init.image }}"
           {{- else }}
             image: "{{ .Values.global.hub }}/{{ .Values.global.proxy_init.image }}:{{ .Values.global.tag }}"
           {{- end }}
@@ -351,8 +348,8 @@ data:
             - sysctl -w kernel.core_pattern=/var/lib/istio/data/core.proxy && ulimit -c unlimited
             command:
               - /bin/sh
-          {{- if contains "/" .Values.global.proxy_init.image }}
-            image: "{{ .Values.global.proxy_init.image }}"
+          {{- if contains "/" (annotation .ObjectMeta `sidecar.istio.io/proxyImage` .Values.global.proxy_init.image) }}
+            image: "{{ annotation .ObjectMeta `sidecar.istio.io/proxyImage` .Values.global.proxy_init.image }}"
           {{- else }}
             image: "{{ .Values.global.hub }}/{{ .Values.global.proxy_init.image }}:{{ .Values.global.tag }}"
           {{- end }}
@@ -393,8 +390,9 @@ data:
             {{ else -}}
             - "{{ valueOrDefault .DeploymentMeta.Name `istio-proxy` }}.{{ valueOrDefault .DeploymentMeta.Namespace `default` }}"
             {{ end -}}
-            - --proxyLogLevel={{ annotation .ObjectMeta `sidecar.istio.io/logLevel` .Values.global.proxy.logLevel}}
-            - --proxyComponentLogLevel={{ annotation .ObjectMeta `sidecar.istio.io/componentLogLevel` .Values.global.proxy.componentLogLevel}}
+            - --proxyLogLevel={{ annotation .ObjectMeta `sidecar.istio.io/logLevel` .Values.global.proxy.logLevel }}
+            - --proxyComponentLogLevel={{ annotation .ObjectMeta `sidecar.istio.io/componentLogLevel` .Values.global.proxy.componentLogLevel }}
+            - --log_output_level={{ annotation .ObjectMeta `sidecar.istio.io/agentLogLevel` .Values.global.logging.level }}
           {{- if .Values.global.sts.servicePort }}
             - --stsPort={{ .Values.global.sts.servicePort }}
           {{- end }}
@@ -831,8 +829,6 @@ spec:
             value: "Kubernetes"
           - name: EXTERNAL_ISTIOD
             value: "false"
-          - name: CENTRAL_ISTIOD
-            value: "false"
           resources:
             requests:
               cpu: 500m
@@ -1090,7 +1086,7 @@ spec:
             filter:
               name: "envoy.http_connection_manager"
               subFilter:
-                name: "envoy.router"
+                name: "envoy.filters.http.router"
       patch:
         operation: INSERT_BEFORE
         value:
@@ -1122,7 +1118,7 @@ spec:
             filter:
               name: "envoy.http_connection_manager"
               subFilter:
-                name: "envoy.router"
+                name: "envoy.filters.http.router"
       patch:
         operation: INSERT_BEFORE
         value:
@@ -1154,7 +1150,7 @@ spec:
             filter:
               name: "envoy.http_connection_manager"
               subFilter:
-                name: "envoy.router"
+                name: "envoy.filters.http.router"
       patch:
         operation: INSERT_BEFORE
         value:
@@ -1454,7 +1450,7 @@ spec:
             filter:
               name: "envoy.http_connection_manager"
               subFilter:
-                name: "envoy.router"
+                name: "envoy.filters.http.router"
       patch:
         operation: INSERT_BEFORE
         value:
@@ -1470,7 +1466,15 @@ spec:
                   value: |
                     {
                       "debug": "false",
-                      "stat_prefix": "istio"
+                      "stat_prefix": "istio",
+                      "metrics": [
+                        {
+                          "dimensions": {
+                            "source_cluster": "node.metadata['CLUSTER_ID']",
+                            "destination_cluster": "upstream_peer.cluster_id"
+                          }
+                        }
+                      ]
                     }
                 vm_config:
                   vm_id: stats_outbound
@@ -1488,7 +1492,7 @@ spec:
             filter:
               name: "envoy.http_connection_manager"
               subFilter:
-                name: "envoy.router"
+                name: "envoy.filters.http.router"
       patch:
         operation: INSERT_BEFORE
         value:
@@ -1504,7 +1508,15 @@ spec:
                   value: |
                     {
                       "debug": "false",
-                      "stat_prefix": "istio"
+                      "stat_prefix": "istio",
+                      "metrics": [
+                        {
+                          "dimensions": {
+                            "destination_cluster": "node.metadata['CLUSTER_ID']",
+                            "source_cluster": "downstream_peer.cluster_id"
+                          }
+                        }
+                      ]
                     }
                 vm_config:
                   vm_id: stats_inbound
@@ -1522,7 +1534,7 @@ spec:
             filter:
               name: "envoy.http_connection_manager"
               subFilter:
-                name: "envoy.router"
+                name: "envoy.filters.http.router"
       patch:
         operation: INSERT_BEFORE
         value:
@@ -1539,7 +1551,15 @@ spec:
                     {
                       "debug": "false",
                       "stat_prefix": "istio",
-                      "disable_host_header_fallback": true
+                      "disable_host_header_fallback": true,
+                      "metrics": [
+                        {
+                          "dimensions": {
+                            "source_cluster": "node.metadata['CLUSTER_ID']",
+                            "destination_cluster": "upstream_peer.cluster_id"
+                          }
+                        }
+                      ]
                     }
                 vm_config:
                   vm_id: stats_outbound
@@ -1583,7 +1603,15 @@ spec:
                   value: |
                     {
                       "debug": "false",
-                      "stat_prefix": "istio"
+                      "stat_prefix": "istio",
+                      "metrics": [
+                        {
+                          "dimensions": {
+                            "destination_cluster": "node.metadata['CLUSTER_ID']",
+                            "source_cluster": "downstream_peer.cluster_id"
+                          }
+                        }
+                      ]
                     }
                 vm_config:
                   vm_id: tcp_stats_inbound
@@ -1615,7 +1643,15 @@ spec:
                   value: |
                     {
                       "debug": "false",
-                      "stat_prefix": "istio"
+                      "stat_prefix": "istio",
+                      "metrics": [
+                        {
+                          "dimensions": {
+                            "source_cluster": "node.metadata['CLUSTER_ID']",
+                            "destination_cluster": "upstream_peer.cluster_id"
+                          }
+                        }
+                      ]
                     }
                 vm_config:
                   vm_id: tcp_stats_outbound
@@ -1647,7 +1683,15 @@ spec:
                   value: |
                     {
                       "debug": "false",
-                      "stat_prefix": "istio"
+                      "stat_prefix": "istio",
+                      "metrics": [
+                        {
+                          "dimensions": {
+                            "source_cluster": "node.metadata['CLUSTER_ID']",
+                            "destination_cluster": "upstream_peer.cluster_id"
+                          }
+                        }
+                      ]
                     }
                 vm_config:
                   vm_id: tcp_stats_outbound

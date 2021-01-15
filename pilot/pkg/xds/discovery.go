@@ -85,6 +85,10 @@ type DiscoveryServer struct {
 	// Normal istio clients use the default generator - will not be impacted by this.
 	Generators map[string]model.XdsResourceGenerator
 
+	// ProxyNeedsPush is a function that determines whether a push can be completely skipped. Individual generators
+	// may also choose to not send any updates.
+	ProxyNeedsPush func(proxy *model.Proxy, req *model.PushRequest) bool
+
 	concurrentPushLimit chan struct{}
 	// mutex protecting global structs updated or read by ADS service, including ConfigsUpdated and
 	// shards.
@@ -163,6 +167,7 @@ func NewDiscoveryServer(env *model.Environment, plugins []string, instanceID str
 	out := &DiscoveryServer{
 		Env:                     env,
 		Generators:              map[string]model.XdsResourceGenerator{},
+		ProxyNeedsPush:          DefaultProxyNeedsPush,
 		EndpointShardsByService: map[string]map[string]*EndpointShards{},
 		concurrentPushLimit:     make(chan struct{}, features.PushThrottle),
 		InboundUpdates:          atomic.NewInt64(0),
@@ -258,7 +263,9 @@ func (s *DiscoveryServer) periodicRefreshMetrics(stopCh <-chan struct{}) {
 				model.LastPushStatus = push
 				push.UpdateMetrics()
 				out, _ := model.LastPushStatus.StatusJSON()
-				adsLog.Infof("Push Status: %s", string(out))
+				if string(out) != "{}" {
+					adsLog.Infof("Push Status: %s", string(out))
+				}
 			}
 			model.LastPushMutex.Unlock()
 		case <-stopCh:
@@ -284,13 +291,12 @@ func (s *DiscoveryServer) Push(req *model.PushRequest) {
 	// saved.
 	t0 := time.Now()
 
-	push, err := s.initPushContext(req, oldPushContext)
+	versionLocal := time.Now().Format(time.RFC3339) + "/" + strconv.FormatUint(versionNum.Inc(), 10)
+	push, err := s.initPushContext(req, oldPushContext, versionLocal)
 	if err != nil {
 		return
 	}
 
-	versionLocal := time.Now().Format(time.RFC3339) + "/" + strconv.FormatUint(versionNum.Load(), 10)
-	versionNum.Inc()
 	initContextTime := time.Since(t0)
 	adsLog.Debugf("InitContext %v for push took %s", versionLocal, initContextTime)
 
@@ -424,7 +430,6 @@ func doSendPushes(stopCh <-chan struct{}, semaphore chan struct{}, queue *PushQu
 
 			// Get the next proxy to push. This will block if there are no updates required.
 			client, push, shuttingdown := queue.Dequeue()
-
 			if shuttingdown {
 				return
 			}
@@ -459,8 +464,9 @@ func doSendPushes(stopCh <-chan struct{}, semaphore chan struct{}, queue *PushQu
 // method is technically thread safe (there are no data races), it should not be called in parallel;
 // if it is, then we may start two push context creations (say A, and B), but then write them in
 // reverse order, leaving us with a final version of A, which may be incomplete.
-func (s *DiscoveryServer) initPushContext(req *model.PushRequest, oldPushContext *model.PushContext) (*model.PushContext, error) {
+func (s *DiscoveryServer) initPushContext(req *model.PushRequest, oldPushContext *model.PushContext, version string) (*model.PushContext, error) {
 	push := model.NewPushContext()
+	push.PushVersion = version
 	if err := push.InitContext(s.Env, oldPushContext, req); err != nil {
 		adsLog.Errorf("XDS: Failed to update services: %v", err)
 		// We can't push if we can't read the data - stick with previous version.
@@ -492,6 +498,7 @@ func (s *DiscoveryServer) initGenerators() {
 	s.Generators[v3.RouteType] = &RdsGenerator{Server: s}
 	s.Generators[v3.EndpointType] = edsGen
 	s.Generators[v3.NameTableType] = &NdsGenerator{Server: s}
+	s.Generators[v3.ExtensionConfigurationType] = &EcdsGenerator{Server: s}
 
 	s.Generators["grpc"] = &grpcgen.GrpcConfigGenerator{}
 	s.Generators["grpc/"+v3.EndpointType] = edsGen

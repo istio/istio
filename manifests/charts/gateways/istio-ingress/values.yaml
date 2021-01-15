@@ -70,18 +70,6 @@ gateways:
     podAnnotations: {}
     type: LoadBalancer #change to NodePort, ClusterIP or LoadBalancer if need be
 
-    #### MESH EXPANSION PORTS  ########
-    # Pilot and Citadel MTLS ports are enabled in gateway - but will only redirect
-    # to pilot/citadel if global.meshExpansion settings are enabled.
-    # Delete these ports if mesh expansion is not enabled, to avoid
-    # exposing unnecessary ports on the web.
-    # You can remove these ports if you are not using mesh expansion
-    meshExpansionPorts:
-    - port: 15012
-      targetPort: 15012
-      name: tcp-istiod
-    ####### end MESH EXPANSION PORTS ######
-
     ##############
     secretVolumes:
     - name: ingressgateway-certs
@@ -215,14 +203,6 @@ global:
   # If empty, default scope and level will be used as configured in code
   logging:
     level: "default:info"
-
-  # If set to true, the pilot and citadel mtls will be exposed on the
-  # ingress gateway
-  meshExpansion:
-    enabled: false
-    # If set to true, the pilot and citadel mtls and the plain text pilot ports
-    # will be exposed on an internal gateway
-    useILB: false
 
   # Kubernetes >=v1.11.0 will create two PriorityClass, including system-cluster-critical and
   # system-node-critical, it is better to configure this in order to make sure your Istio pods

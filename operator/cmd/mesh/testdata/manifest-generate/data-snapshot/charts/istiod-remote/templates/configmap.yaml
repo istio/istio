@@ -47,9 +47,12 @@
       {{- /* Fill in openCensusAgent configuration from meshConfig so it isn't overwritten below */ -}}
         {{ toYaml $.Values.meshConfig.defaultConfig.tracing }}
       {{- end }}
-
       {{- if .Values.global.remotePilotAddress }}
-      discoveryAddress: {{ printf "istiod-remote.%s.svc" .Release.Namespace }}:15012
+         {{- if .Values.pilot.enabled }}
+          discoveryAddress: {{ printf "istiod-remote.%s.svc" .Release.Namespace }}:15012
+         {{- else }}
+          discoveryAddress: {{ printf "istiod.%s.svc" .Release.Namespace }}:15012
+         {{- end }}
       {{- else }}
       discoveryAddress: istiod{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}.{{.Release.Namespace}}.svc:15012
       {{- end }}

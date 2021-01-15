@@ -38,14 +38,6 @@ spec:
       {{- end }}
     {{- end }}
 
-    {{- if $.Values.global.meshExpansion.enabled }}
-    {{- range $key, $val := $gateway.meshExpansionPorts }}
-    -
-      {{- range $pkey, $pval := $val }}
-      {{ $pkey}}: {{ $pval }}
-      {{- end }}
-    {{- end }}
-    {{- end }}
   {{ range $app := $gateway.ingressPorts }}
     -
       port: {{ $app.port }}

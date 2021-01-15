@@ -220,6 +220,10 @@ func (s *DiscoveryServer) processRequest(req *discovery.DiscoveryRequest, con *C
 
 // StreamAggregatedResources implements the ADS interface.
 func (s *DiscoveryServer) StreamAggregatedResources(stream discovery.AggregatedDiscoveryService_StreamAggregatedResourcesServer) error {
+	return s.Stream(stream)
+}
+
+func (s *DiscoveryServer) Stream(stream DiscoveryStream) error {
 	// Check if server is ready to accept clients and process new requests.
 	// Currently ready means caches have been synced and hence can build
 	// clusters correctly. Without this check, InitContext() call below would
@@ -610,7 +614,7 @@ func (s *DiscoveryServer) preProcessRequest(proxy *model.Proxy, req *discovery.D
 				event.Healthy = false
 				event.Message = req.ErrorDetail.Message
 			}
-			s.WorkloadEntryController.UpdateWorkloadEntryHealth(proxy, event)
+			s.WorkloadEntryController.QueueWorkloadEntryHealth(proxy, event)
 		}
 		return false
 	}
@@ -639,11 +643,11 @@ func (s *DiscoveryServer) pushConnection(con *Connection, pushEv *Event) error {
 		s.updateProxy(con.proxy, pushRequest.Push)
 	}
 
-	if !ProxyNeedsPush(con.proxy, pushEv) {
+	if !s.ProxyNeedsPush(con.proxy, pushRequest) {
 		adsLog.Debugf("Skipping push to %v, no updates required", con.ConID)
 		if pushRequest.Full {
 			// Only report for full versions, incremental pushes do not have a new version
-			reportAllEvents(s.StatusReporter, con.ConID, pushRequest.Push.Version, nil)
+			reportAllEvents(s.StatusReporter, con.ConID, pushRequest.Push.LedgerVersion, nil)
 		}
 		return nil
 	}
@@ -688,7 +692,7 @@ func (s *DiscoveryServer) pushConnection(con *Connection, pushEv *Event) error {
 	}
 	if pushRequest.Full {
 		// Report all events for unwatched resources. Watched resources will be reported in pushXds or on ack.
-		reportAllEvents(s.StatusReporter, con.ConID, pushRequest.Push.Version, con.proxy.WatchedResources)
+		reportAllEvents(s.StatusReporter, con.ConID, pushRequest.Push.LedgerVersion, con.proxy.WatchedResources)
 	}
 
 	proxiesConvergeDelay.Record(time.Since(pushRequest.Start).Seconds())
@@ -794,12 +798,12 @@ func (s *DiscoveryServer) AdsPushAll(version string, req *model.PushRequest) {
 		s.Cache.Clear(req.ConfigsUpdated)
 	}
 	if !req.Full {
-		adsLog.Infof("XDS: Incremental Pushing:%s ConnectedEndpoints:%d",
-			version, s.adsClientCount())
+		adsLog.Infof("XDS: Incremental Pushing:%s ConnectedEndpoints:%d Version:%s",
+			version, s.adsClientCount(), req.Push.PushVersion)
 	} else {
 		totalService := len(req.Push.Services(nil))
-		adsLog.Infof("XDS: Pushing:%s Services:%d ConnectedEndpoints:%d",
-			version, totalService, s.adsClientCount())
+		adsLog.Infof("XDS: Pushing:%s Services:%d ConnectedEndpoints:%d  Version:%s",
+			version, totalService, s.adsClientCount(), req.Push.PushVersion)
 		monServices.Record(float64(totalService))
 
 		// Make sure the ConfigsUpdated map exists

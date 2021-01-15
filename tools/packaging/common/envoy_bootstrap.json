@@ -219,7 +219,7 @@
         "connect_timeout": "0.250s",
         "lb_policy": "ROUND_ROBIN",
         "load_assignment": {
-          "cluster_name": "prometheus_stats",
+          "cluster_name": "agent",
           "endpoints": [{
             "lb_endpoints": [{
               "endpoint": {
@@ -360,6 +360,7 @@
         "type": "STRICT_DNS",
         "respect_dns_ttl": true,
         "dns_lookup_family": "{{ .dns_lookup_family }}",
+        "dns_refresh_rate": "30s",
         "connect_timeout": "1s",
         "lb_policy": "ROUND_ROBIN",
         "load_assignment": {

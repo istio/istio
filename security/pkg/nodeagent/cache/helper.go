@@ -16,7 +16,13 @@ package cache
 
 import (
 	"fmt"
+
+	"istio.io/pkg/log"
 )
+
+func resourceLog(resourceName string) *log.Scope {
+	return cacheLog.WithLabels("resource", resourceName)
+}
 
 // cacheLogPrefix returns a unified log prefix.
 func cacheLogPrefix(resourceName string) string {

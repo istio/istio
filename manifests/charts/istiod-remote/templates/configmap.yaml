@@ -4,6 +4,12 @@
     # Refer to https://github.com/spiffe/spiffe/blob/master/standards/SPIFFE-ID.md#21-trust-domain
     trustDomain: {{ .Values.global.trustDomain | default "cluster.local" | quote }}
 
+    # The namespace to treat as the administrative root namespace for Istio configuration.
+    # When processing a leaf namespace Istio will search for declarations in that namespace first
+    # and if none are found it will search in the root namespace. Any matching declaration found in the root namespace
+    # is processed as if it were declared in the leaf namespace.
+    rootNamespace: {{ .Values.meshConfig.rootNamespace | default .Values.global.istioNamespace }}
+
     defaultConfig:
       {{- if .Values.global.meshID }}
       meshId: {{ .Values.global.meshID }}

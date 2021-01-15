@@ -434,13 +434,34 @@ func TestApplyListenerPatches(t *testing.T) {
 			Patch: &networking.EnvoyFilter_Patch{
 				Operation: networking.EnvoyFilter_Patch_MERGE,
 				Value: buildPatchStruct(`
-{"name": "envoy.filters.network.http_connection_manager", 
+{"name": "envoy.http_connection_manager", 
  "typed_config": {
         "@type": "type.googleapis.com/envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager",
          "mergeSlashes": true,
          "alwaysSetRequestIdInResponse": true
  }
 }`),
+			},
+		},
+		{
+			ApplyTo: networking.EnvoyFilter_HTTP_FILTER,
+			Match: &networking.EnvoyFilter_EnvoyConfigObjectMatch{
+				Context: networking.EnvoyFilter_SIDECAR_INBOUND,
+				ObjectTypes: &networking.EnvoyFilter_EnvoyConfigObjectMatch_Listener{
+					Listener: &networking.EnvoyFilter_ListenerMatch{
+						PortNumber: 80,
+						FilterChain: &networking.EnvoyFilter_ListenerMatch_FilterChainMatch{
+							Filter: &networking.EnvoyFilter_ListenerMatch_FilterMatch{
+								Name:      "envoy.http_connection_manager", // Use deprecated name for test.
+								SubFilter: &networking.EnvoyFilter_ListenerMatch_SubFilterMatch{Name: "http-filter2"},
+							},
+						},
+					},
+				},
+			},
+			Patch: &networking.EnvoyFilter_Patch{
+				Operation: networking.EnvoyFilter_Patch_INSERT_AFTER,
+				Value:     buildPatchStruct(`{"name": "http-filter-5"}`),
 			},
 		},
 		{
@@ -1048,6 +1069,7 @@ func TestApplyListenerPatches(t *testing.T) {
 										},
 										{Name: "http-filter3"},
 										{Name: "http-filter2"},
+										{Name: "http-filter-5"},
 										{Name: "http-filter4"},
 									},
 								}),
@@ -1265,6 +1287,7 @@ func TestApplyListenerPatches(t *testing.T) {
 										},
 										{Name: "http-filter3"},
 										{Name: "http-filter2"},
+										{Name: "http-filter-5"},
 										{Name: "http-filter4"},
 									},
 								}),

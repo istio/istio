@@ -5,7 +5,7 @@ admin:
       address: 127.0.0.1
       port_value: {{.Ports.AdminPort}}
 node:
-  id: id
+  id: sidecar~0.0.0.0~.~
   cluster: sdstest
 static_resources:
   clusters:
@@ -89,7 +89,7 @@ static_resources:
           codec_type: auto
           stat_prefix: outbound
           http_filters:
-          - name: envoy.router
+          - name: envoy.filters.http.router
           route_config:
             name: outbound_cluster_tls
             virtual_hosts:
@@ -141,7 +141,7 @@ static_resources:
           codec_type: auto
           stat_prefix: inbound
           http_filters:
-          - name: envoy.router
+          - name: envoy.filters.http.router
           route_config:
             name: backend
             virtual_hosts:
