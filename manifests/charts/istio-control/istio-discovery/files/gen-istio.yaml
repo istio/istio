@@ -917,7 +917,7 @@ spec:
 apiVersion: networking.istio.io/v1alpha3
 kind: EnvoyFilter
 metadata:
-  name: metadata-exchange-1.9
+  name: metadata-exchange-1.10
   namespace: istio-system
   labels:
     istio.io/rev: default
@@ -929,7 +929,7 @@ spec:
       match:
         context: SIDECAR_INBOUND
         proxy:
-          proxyVersion: '^1\.9.*'
+          proxyVersion: '^1\.10.*'
         listener:
           filterChain:
             filter:
@@ -956,7 +956,7 @@ spec:
       match:
         context: SIDECAR_OUTBOUND
         proxy:
-          proxyVersion: '^1\.9.*'
+          proxyVersion: '^1\.10.*'
         listener:
           filterChain:
             filter:
@@ -983,7 +983,7 @@ spec:
       match:
         context: GATEWAY
         proxy:
-          proxyVersion: '^1\.9.*'
+          proxyVersion: '^1\.10.*'
         listener:
           filterChain:
             filter:
@@ -1011,7 +1011,7 @@ spec:
 apiVersion: networking.istio.io/v1alpha3
 kind: EnvoyFilter
 metadata:
-  name: tcp-metadata-exchange-1.9
+  name: tcp-metadata-exchange-1.10
   namespace: istio-system
   labels:
     istio.io/rev: default
@@ -1021,7 +1021,7 @@ spec:
       match:
         context: SIDECAR_INBOUND
         proxy:
-          proxyVersion: '^1\.9.*'
+          proxyVersion: '^1\.10.*'
         listener: {}
       patch:
         operation: INSERT_BEFORE
@@ -1036,7 +1036,7 @@ spec:
       match:
         context: SIDECAR_OUTBOUND
         proxy:
-          proxyVersion: '^1\.9.*'
+          proxyVersion: '^1\.10.*'
         cluster: {}
       patch:
         operation: MERGE
@@ -1052,7 +1052,7 @@ spec:
       match:
         context: GATEWAY
         proxy:
-          proxyVersion: '^1\.9.*'
+          proxyVersion: '^1\.10.*'
         cluster: {}
       patch:
         operation: MERGE
@@ -1070,7 +1070,7 @@ spec:
 apiVersion: networking.istio.io/v1alpha3
 kind: EnvoyFilter
 metadata:
-  name: stats-filter-1.9
+  name: stats-filter-1.10
   namespace: istio-system
   labels:
     istio.io/rev: default
@@ -1080,7 +1080,7 @@ spec:
       match:
         context: SIDECAR_OUTBOUND
         proxy:
-          proxyVersion: '^1\.9.*'
+          proxyVersion: '^1\.10.*'
         listener:
           filterChain:
             filter:
@@ -1122,7 +1122,7 @@ spec:
       match:
         context: SIDECAR_INBOUND
         proxy:
-          proxyVersion: '^1\.9.*'
+          proxyVersion: '^1\.10.*'
         listener:
           filterChain:
             filter:
@@ -1164,7 +1164,7 @@ spec:
       match:
         context: GATEWAY
         proxy:
-          proxyVersion: '^1\.9.*'
+          proxyVersion: '^1\.10.*'
         listener:
           filterChain:
             filter:
@@ -1209,7 +1209,7 @@ spec:
 apiVersion: networking.istio.io/v1alpha3
 kind: EnvoyFilter
 metadata:
-  name: tcp-stats-filter-1.9
+  name: tcp-stats-filter-1.10
   namespace: istio-system
   labels:
     istio.io/rev: default
@@ -1219,7 +1219,7 @@ spec:
       match:
         context: SIDECAR_INBOUND
         proxy:
-          proxyVersion: '^1\.9.*'
+          proxyVersion: '^1\.10.*'
         listener:
           filterChain:
             filter:
@@ -1259,7 +1259,7 @@ spec:
       match:
         context: SIDECAR_OUTBOUND
         proxy:
-          proxyVersion: '^1\.9.*'
+          proxyVersion: '^1\.10.*'
         listener:
           filterChain:
             filter:
@@ -1299,7 +1299,7 @@ spec:
       match:
         context: GATEWAY
         proxy:
-          proxyVersion: '^1\.9.*'
+          proxyVersion: '^1\.10.*'
         listener:
           filterChain:
             filter:
