@@ -50,7 +50,6 @@ func TestResourceLock_Lock(t *testing.T) {
 		Generation: "12",
 	}
 	var runCount int32
-	//var m sync.Mutex
 	var x = make(chan struct{})
 	var y = make(chan struct{})
 	workers := NewWorkerPool(func(resource *Resource, progress *Progress) {
