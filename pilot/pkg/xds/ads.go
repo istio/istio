@@ -174,6 +174,13 @@ func (s *DiscoveryServer) receive(con *Connection, reqChannel chan *discovery.Di
 					s.StatusGen.OnDisconnect(con)
 				}
 				s.WorkloadEntryController.QueueUnregisterWorkload(con.proxy, con.Connect)
+				if s.XEventing != nil {
+					// TODO: more info - actual instance of istiod, timestamp, etc.
+					s.XEventing.PodEvent(con.proxy.ConfigNamespace, con.proxy.Metadata.InstanceName,
+						"istio-disconnect",
+						con.ConID, false)
+				}
+
 			}()
 		}
 
@@ -511,6 +518,13 @@ func (s *DiscoveryServer) initConnection(node *core.Node, con *Connection) error
 	if s.StatusGen != nil {
 		s.StatusGen.OnConnect(con)
 	}
+	if s.XEventing != nil {
+		// TODO: more info - actual instance of istiod, timestamp, etc.
+		s.XEventing.PodEvent(con.proxy.ConfigNamespace, con.proxy.Metadata.InstanceName,
+			"istio-connect",
+			fmt.Sprintf("id=%s", con.ConID), false)
+	}
+
 	return nil
 }
 

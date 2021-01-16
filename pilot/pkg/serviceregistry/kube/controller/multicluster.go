@@ -296,6 +296,15 @@ func (m *Multicluster) GetRemoteKubeClient(clusterID string) kubernetes.Interfac
 	return nil
 }
 
+func (m *Multicluster) GetRemoteController(clusterID string) *Controller {
+	m.m.Lock()
+	defer m.m.Unlock()
+	if c := m.remoteKubeControllers[clusterID]; c != nil {
+		return c.Controller
+	}
+	return nil
+}
+
 func (m *Multicluster) InitSecretController(stop <-chan struct{}) {
 	m.secretController = secretcontroller.StartSecretController(
 		m.client, m.AddMemberCluster, m.UpdateMemberCluster, m.DeleteMemberCluster,

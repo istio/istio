@@ -47,10 +47,13 @@ type PodCache struct {
 	queueEndpointEvent func(string)
 
 	c *Controller
+
+	podInformer coreinformers.PodInformer
 }
 
 func newPodCache(c *Controller, informer coreinformers.PodInformer, queueEndpointEvent func(string)) *PodCache {
 	out := &PodCache{
+		podInformer:        informer,
 		informer:           informer.Informer(),
 		c:                  c,
 		podsByIP:           make(map[string]string),

@@ -28,10 +28,14 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
 	klabels "k8s.io/apimachinery/pkg/labels"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/kubernetes/scheme"
+	typedcorev1 "k8s.io/client-go/kubernetes/typed/core/v1"
 	listerv1 "k8s.io/client-go/listers/core/v1"
 	"k8s.io/client-go/tools/cache"
+	"k8s.io/client-go/tools/record"
 
 	"istio.io/api/label"
 	"istio.io/istio/pilot/pkg/features"
@@ -259,6 +263,14 @@ type Controller struct {
 
 	// Duration to wait for cache syncs
 	syncInterval time.Duration
+
+	eventBroadcaster record.EventBroadcaster
+	Recoder          record.EventRecorder
+
+	// nsLister provide access to namespace - currently used to report Istio events associated with a namespace.
+	// K8S events require an object - for regular pods we use the Pod, but for Istiod we may not have an Istiod
+	// instance.
+	nsLister         listerv1.NamespaceLister
 }
 
 // NewController creates a new Kubernetes controller
@@ -297,6 +309,14 @@ func NewController(kubeClient kubelib.Client, options Options) *Controller {
 	c.serviceLister = kubeClient.KubeInformer().Core().V1().Services().Lister()
 	registerHandlers(c.serviceInformer, c.queue, "Services", c.onServiceEvent, nil)
 
+	if features.EnableEventing.Get() {
+		c.eventBroadcaster = record.NewBroadcaster()
+		c.Recoder = c.eventBroadcaster.NewRecorder(scheme.Scheme, v1.EventSource{Component: "istiod"})
+		_ = c.eventBroadcaster.StartRecordingToSink(&typedcorev1.EventSinkImpl{
+			Interface: kubeClient.CoreV1().Events(""),
+		})
+		c.nsLister = kubeClient.KubeInformer().Core().V1().Namespaces().Lister()
+	}
 	switch options.EndpointMode {
 	case EndpointsOnly:
 		c.endpoints = newEndpointsController(c, kubeClient.KubeInformer().Core().V1().Endpoints())
@@ -336,6 +356,36 @@ func (c *Controller) Cluster() string {
 	return c.clusterID
 }
 
+// IstiodEvent is an event associated with a Istiod tenant. In K8S namespace is the tenancy unit - we may
+// not run deployments or services in the cluster (for example central istiod), but a namespace is expected.
+func (c *Controller) IstiodEvent(ns, reason, msg string, warn bool) {
+	if c.Recoder == nil {
+		return
+	}
+	// Event type can be normal and warning
+	evType := v1.EventTypeNormal
+	if warn {
+		evType = v1.EventTypeWarning
+	}
+	// reference is required
+	p, err := c.nsLister.Get(ns)
+	if err != nil {
+		log.Infoa("Pod not found, skipping event ", err)
+		return
+	}
+	log.Infoa("NS: ", p)
+	ref := &v1.ObjectReference{
+		Kind:            "",
+		APIVersion:      "",
+		Name:            "istio",
+		Namespace:       ns,
+		UID:             "",
+		ResourceVersion: "",
+	}
+
+	c.Recoder.Event(ref, evType, reason, msg)
+}
+
 func (c *Controller) cidrRanger() cidranger.Ranger {
 	c.RLock()
 	defer c.RUnlock()
@@ -363,6 +413,39 @@ func (c *Controller) Cleanup() error {
 		// TODO(landow) do we need to notify service handlers?
 	}
 	return nil
+}
+
+// PodEvent reports an event back to a Pod. Can be used with 'kubectl describe pod' or 'kubectl get events'.
+// Important events associated with the Envoy connection should be reported.
+// The method signatures avoid deps on K8S API, so the events can be reported via other mechanisms ( XDS, pubsub)
+func (c *Controller) PodEvent(ns, pod, reason, msg string, warn bool) {
+	if c.Recoder == nil {
+		return
+	}
+	// Event type can be normal and warning
+	evType := v1.EventTypeNormal
+	if warn {
+		evType = v1.EventTypeWarning
+	}
+	// reference is required
+	p, err := c.pods.podInformer.Lister().Pods(ns).Get(pod)
+	var ref runtime.Object
+	if err != nil {
+		log.Infoa("Pod not found, dummy object", err)
+		ref = &v1.ObjectReference{
+			Kind:            "Pod",
+			APIVersion:      "v1",
+			Name:            pod,
+			Namespace:       ns,
+			UID:             "",
+			ResourceVersion: "",
+		}
+	} else {
+		log.Infoa("Pod  found ", p)
+		ref = p
+	}
+	// TODO: use annotatedEventf, json object - for programmatic use of the event.
+	c.Recoder.Event(ref, evType, reason, msg)
 }
 
 func (c *Controller) onServiceEvent(curr interface{}, event model.Event) error {
@@ -647,6 +730,9 @@ func (c *Controller) Run(stop <-chan struct{}) {
 	kubelib.WaitForCacheSyncInterval(stop, c.syncInterval, c.HasSynced)
 	c.queue.Run(stop)
 	log.Infof("Controller terminated")
+	if c.eventBroadcaster != nil {
+		c.eventBroadcaster.Shutdown()
+	}
 }
 
 // Stop the controller. Only for tests, to simplify the code (defer c.Stop())

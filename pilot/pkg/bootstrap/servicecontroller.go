@@ -17,6 +17,7 @@ package bootstrap
 import (
 	"fmt"
 
+	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry"
 	"istio.io/istio/pilot/pkg/serviceregistry/aggregate"
@@ -51,6 +52,12 @@ func (s *Server) initServiceControllers(args *PilotArgs) error {
 		case serviceregistry.Kubernetes:
 			if err := s.initKubeRegistry(args); err != nil {
 				return err
+			}
+			// Initial implementation - eventually will be integrated with MC, so each cluster gets
+			// pod events. initKubeRegistry creates a multicluster instance keyed by 'clusterID' - this code is
+			// for reporting only in the 'config' cluster. It is possible to add code to also report events in other clusters.
+			if features.EnableEventing.Get() {
+				s.XDSServer.XEventing = s.multicluster.GetRemoteController(s.clusterID)
 			}
 		case serviceregistry.Mock:
 			s.initMockRegistry()

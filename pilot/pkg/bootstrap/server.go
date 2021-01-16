@@ -81,6 +81,8 @@ var (
 		plugin.Authn,
 		plugin.Authz,
 	}
+
+	startupTime time.Time
 )
 
 const (
@@ -89,6 +91,7 @@ const (
 )
 
 func init() {
+	startupTime = time.Now()
 	// Disable gRPC tracing. It has performance impacts (See https://github.com/grpc/grpc-go/issues/695)
 	grpc.EnableTracing = false
 
@@ -395,6 +398,12 @@ func (s *Server) Start(stop <-chan struct{}) error {
 				log.Errorf("error serving https server: %v", err)
 			}
 		}()
+	}
+
+	if s.XDSServer.XEventing != nil {
+		s.XDSServer.XEventing.IstiodEvent("istio-system",
+			"istio-start",
+			fmt.Sprintf("time:%v", time.Since(startupTime)), false)
 	}
 
 	s.waitForShutdown(stop)
