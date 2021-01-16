@@ -270,7 +270,7 @@ type Controller struct {
 	// nsLister provide access to namespace - currently used to report Istio events associated with a namespace.
 	// K8S events require an object - for regular pods we use the Pod, but for Istiod we may not have an Istiod
 	// instance.
-	nsLister         listerv1.NamespaceLister
+	nsLister listerv1.NamespaceLister
 }
 
 // NewController creates a new Kubernetes controller
