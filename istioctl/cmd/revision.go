@@ -172,14 +172,14 @@ type istioOperatorCRInfo struct {
 	Namespace      string                     `json:"namespace"`
 	Name           string                     `json:"name"`
 	Profile        string                     `json:"profile"`
-	Components     []string                   `json:"components"`
-	Customizations []iopDiff                  `json:"customizations"`
+	Components     []string                   `json:"components,omitempty"`
+	Customizations []iopDiff                  `json:"customizations,omitempty"`
 }
 
 type mutatingWebhookConfigInfo struct {
 	Name     string `json:"name"`
 	Revision string `json:"revision"`
-	Tag      string `json:"tag"`
+	Tag      string `json:"tag,omitempty"`
 }
 
 type nsInfo struct {
@@ -260,6 +260,21 @@ func revisionList(writer io.Writer, args *revisionArgs, logger clog.Logger) erro
 		}
 	}
 
+	if args.verbose {
+		for rev, desc := range revisions {
+			revClient, err := newKubeClientWithRevision(kubeconfig, configContext, rev)
+			if err != nil {
+				return fmt.Errorf("failed to get revision based kubeclient for revision: %s", rev)
+			}
+			if err = enrichWithControlPlanePodInfo(desc, revClient); err != nil {
+				return fmt.Errorf("failed to get control plane pods for revision: %s", rev)
+			}
+			if err = enrichWithGatewayInfo(desc, revClient); err != nil {
+				return fmt.Errorf("failed to get gateway pods for revision: %s", rev)
+			}
+		}
+	}
+
 	switch revArgs.output {
 	case jsonFormat:
 		return printJSON(writer, revisions)
@@ -269,6 +284,145 @@ func revisionList(writer io.Writer, args *revisionArgs, logger clog.Logger) erro
 }
 
 func printRevisionInfoTable(writer io.Writer, verbose bool, revisions map[string]*revisionDescription) error {
+	if err := printSummaryTable(writer, verbose, revisions); err != nil {
+		return fmt.Errorf("failed to print summary table: %v", err)
+	}
+	if verbose {
+		if err := printControlPlaneSummaryTable(writer, revisions); err != nil {
+			return fmt.Errorf("failed to print control plane table: %v", err)
+		}
+		if err := printGatewaySummaryTable(writer, revisions); err != nil {
+			return fmt.Errorf("failed to print gateway summary table: %v", err)
+		}
+	}
+	return nil
+}
+
+func printControlPlaneSummaryTable(w io.Writer, revisions map[string]*revisionDescription) error {
+	fmt.Fprintf(w, "\nCONTROL PLANE:\n")
+	tw := new(tabwriter.Writer).Init(w, 0, 8, 1, ' ', 0)
+	fmt.Fprintf(tw, "REVISION\tISTIOD ENABLED\tCONTROL-PLANE PODS\n")
+	for rev, rd := range revisions {
+		isIstiodEnabled := false
+	outer:
+		for _, iop := range rd.IstioOperatorCRs {
+			for _, c := range iop.Components {
+				if c == "istiod" {
+					isIstiodEnabled = true
+					break outer
+				}
+			}
+		}
+		maxRows := max(1, len(rd.ControlPlanePods))
+		for i := 0; i < maxRows; i++ {
+			var rowRev, rowEnabled, rowPod string
+			if i == 0 {
+				rowRev = rev
+				if isIstiodEnabled {
+					rowEnabled = "YES"
+				} else {
+					rowEnabled = "NO"
+				}
+			}
+			if i < len(rd.ControlPlanePods) {
+				rowPod = fmt.Sprintf("%s/%s",
+					rd.ControlPlanePods[i].Namespace,
+					rd.ControlPlanePods[i].Name)
+			} else if i == 0 && len(rd.ControlPlanePods) == 0 {
+				rowPod = "<no-istiod>"
+			}
+			fmt.Fprintf(tw, "%s\t%s\t%s\n", rowRev, rowEnabled, rowPod)
+		}
+	}
+	return tw.Flush()
+}
+
+func printGatewaySummaryTable(w io.Writer, revisions map[string]*revisionDescription) error {
+	if err := printIngressGatewaySummaryTable(w, revisions); err != nil {
+		return fmt.Errorf("error while printing ingress gateway summary: %v", err)
+	}
+	if err := printEgressGatewaySummaryTable(w, revisions); err != nil {
+		return fmt.Errorf("error while printing egress gateway summary: %v", err)
+	}
+	return nil
+}
+
+func printIngressGatewaySummaryTable(w io.Writer, revisions map[string]*revisionDescription) error {
+	fmt.Fprintf(w, "\nINGRESS GATEWAYS:\n")
+	tw := new(tabwriter.Writer).Init(w, 0, 8, 1, ' ', 0)
+	fmt.Fprintf(tw, "REVISION\tDECLARED-GATEWAYS\tGATEWAY-POD\n")
+	for rev, rd := range revisions {
+		enabledIngressGateways := []string{}
+		for _, iop := range rd.IstioOperatorCRs {
+			for _, c := range iop.Components {
+				if strings.HasPrefix(c, "ingress") {
+					enabledIngressGateways = append(enabledIngressGateways, c)
+				}
+			}
+		}
+		maxRows := max(max(1, len(enabledIngressGateways)), len(rd.IngressGatewayPods))
+		for i := 0; i < maxRows; i++ {
+			var rowRev, rowEnabled, rowPod string
+			if i == 0 {
+				rowRev = rev
+			}
+			if i == 0 && len(enabledIngressGateways) == 0 {
+				rowEnabled = "<no-ingress-enabled>"
+			} else if i < len(enabledIngressGateways) {
+				rowEnabled = enabledIngressGateways[i]
+			}
+			if i == 0 && len(rd.IngressGatewayPods) == 0 {
+				rowPod = "<no-ingress-pod>"
+			} else if i < len(enabledIngressGateways) {
+				rowPod = fmt.Sprintf("%s/%s",
+					rd.IngressGatewayPods[i].Namespace,
+					rd.IngressGatewayPods[i].Name)
+			}
+			fmt.Fprintf(tw, "%s\t%s\t%s\n", rowRev, rowEnabled, rowPod)
+		}
+	}
+	return tw.Flush()
+}
+
+// TODO(su225): This is a copy paste of corresponding function of ingress. Refactor these parts!
+func printEgressGatewaySummaryTable(w io.Writer, revisions map[string]*revisionDescription) error {
+	fmt.Fprintf(w, "\nEGRESS GATEWAYS:\n")
+	tw := new(tabwriter.Writer).Init(w, 0, 8, 1, ' ', 0)
+	fmt.Fprintf(tw, "REVISION\tDECLARED-GATEWAYS\tGATEWAY-POD\n")
+	for rev, rd := range revisions {
+		enabledEgressGateways := []string{}
+		for _, iop := range rd.IstioOperatorCRs {
+			for _, c := range iop.Components {
+				if strings.HasPrefix(c, "egress") {
+					enabledEgressGateways = append(enabledEgressGateways, c)
+				}
+			}
+		}
+		maxRows := max(max(1, len(enabledEgressGateways)), len(rd.EgressGatewayPods))
+		for i := 0; i < maxRows; i++ {
+			var rowRev, rowEnabled, rowPod string
+			if i == 0 {
+				rowRev = rev
+			}
+			if i == 0 && len(enabledEgressGateways) == 0 {
+				rowEnabled = "<no-egress-enabled>"
+			} else if i < len(enabledEgressGateways) {
+				rowEnabled = enabledEgressGateways[i]
+			}
+			if i == 0 && len(rd.EgressGatewayPods) == 0 {
+				rowPod = "<no-egress-pod>"
+			} else if i < len(enabledEgressGateways) {
+				rowPod = fmt.Sprintf("%s/%s",
+					rd.EgressGatewayPods[i].Namespace,
+					rd.EgressGatewayPods[i].Name)
+			}
+			fmt.Fprintf(tw, "%s\t%s\t%s\n", rowRev, rowEnabled, rowPod)
+		}
+	}
+	return tw.Flush()
+}
+
+func printSummaryTable(writer io.Writer, verbose bool, revisions map[string]*revisionDescription) error {
 	tw := new(tabwriter.Writer).Init(writer, 0, 8, 1, ' ', 0)
 	if verbose {
 		tw.Write([]byte("REVISION\tTAG\tISTIO-OPERATOR-CR\tPROFILE\tREQD-COMPONENTS\tCUSTOMIZATIONS\n"))
@@ -523,7 +677,6 @@ func printJSON(w io.Writer, res interface{}) error {
 	if err != nil {
 		return fmt.Errorf("error while marshaling to JSON: %v", err)
 	}
-	_, err = w.Write(out)
 	fmt.Fprintln(w, string(out))
 	return nil
 }
