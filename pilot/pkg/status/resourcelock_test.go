@@ -16,7 +16,6 @@ package status
 
 import (
 	"context"
-	"sync"
 	"sync/atomic"
 	"testing"
 
@@ -51,19 +50,23 @@ func TestResourceLock_Lock(t *testing.T) {
 		Generation: "12",
 	}
 	var runCount int32
-	var m sync.Mutex
-	m.Lock()
-	workers := NewQueue(func(a cacheEntry) {
-		m.Unlock()
+	//var m sync.Mutex
+	var x = make(chan struct{})
+	var y = make(chan struct{})
+	workers := NewWorkerPool(func(resource *Resource, progress *Progress) {
+		x <- struct{}{}
 		atomic.AddInt32(&runCount, 1)
+		y <- struct{}{}
 	}, 10)
 	ctx, cancel := context.WithCancel(context.Background())
 	workers.Run(ctx)
 	workers.Push(r1, Progress{1, 1})
-	m.Lock()
+	<-x
 	workers.Push(r1, Progress{2, 2})
 	workers.Push(r1a, Progress{3, 3})
-	m.Lock()
+	<-y
+	<-x
+	<-y
 	result := atomic.LoadInt32(&runCount)
 	g.Expect(result).To(Equal(int32(2)))
 	cancel()
