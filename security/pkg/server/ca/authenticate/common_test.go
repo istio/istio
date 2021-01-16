@@ -19,6 +19,8 @@ import (
 	"testing"
 
 	"google.golang.org/grpc/metadata"
+
+	"istio.io/istio/pkg/security"
 )
 
 func TestExtractBearerToken(t *testing.T) {
@@ -66,7 +68,7 @@ func TestExtractBearerToken(t *testing.T) {
 			ctx = metadata.NewIncomingContext(ctx, tc.metadata)
 		}
 
-		actual, err := ExtractBearerToken(ctx)
+		actual, err := security.ExtractBearerToken(ctx)
 		if len(tc.extractBearerTokenErrMsg) > 0 {
 			if err == nil {
 				t.Errorf("Case %s: Succeeded. Error expected: %v", id, err)

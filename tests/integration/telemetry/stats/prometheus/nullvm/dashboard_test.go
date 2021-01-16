@@ -118,7 +118,7 @@ var (
 			"istio-services-grafana-dashboards",
 			"istio-extension-dashboard.json",
 			[]string{
-				"avg(envoy_wasm_vm_v8_",
+				"avg(envoy_wasm_envoy_wasm_runtime_v8_",
 				// flakes: https://github.com/istio/istio/issues/29871
 				"container_memory_working_set_bytes",
 				"container_cpu_usage_seconds_total",

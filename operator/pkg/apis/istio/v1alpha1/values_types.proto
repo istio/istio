@@ -255,7 +255,9 @@ message GlobalConfig {
   //   1 - Least preferred
   //   2 - No preference
   //   3 - Most preferred
-  ArchConfig arch = 1;
+  //
+  // Deprecated: replaced by the affinity k8s settings which allows architecture nodeAffinity configuration of this behavior.
+  ArchConfig arch = 1 [deprecated=true];
 
   string configRootNamespace = 50;
 
@@ -404,8 +406,6 @@ message GlobalConfig {
   // Controls whether one external istiod is enabled.
   google.protobuf.BoolValue externalIstiod = 62;
 
-  // Controls whether one central istiod is enabled.
-  google.protobuf.BoolValue centralIstiod = 63;
   // The next available key is 64
 }
 

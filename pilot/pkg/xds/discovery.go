@@ -35,7 +35,7 @@ import (
 	"istio.io/istio/pilot/pkg/serviceregistry/memory"
 	"istio.io/istio/pilot/pkg/util/sets"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
-	"istio.io/istio/security/pkg/server/ca/authenticate"
+	"istio.io/istio/pkg/security"
 )
 
 var (
@@ -125,7 +125,7 @@ type DiscoveryServer struct {
 	StatusReporter DistributionStatusCache
 
 	// Authenticators for XDS requests. Should be same/subset of the CA authenticators.
-	Authenticators []authenticate.Authenticator
+	Authenticators []security.Authenticator
 
 	// StatusGen is notified of connect/disconnect/nack on all connections
 	StatusGen               *StatusGen
@@ -498,6 +498,7 @@ func (s *DiscoveryServer) initGenerators() {
 	s.Generators[v3.RouteType] = &RdsGenerator{Server: s}
 	s.Generators[v3.EndpointType] = edsGen
 	s.Generators[v3.NameTableType] = &NdsGenerator{Server: s}
+	s.Generators[v3.ExtensionConfigurationType] = &EcdsGenerator{Server: s}
 
 	s.Generators["grpc"] = &grpcgen.GrpcConfigGenerator{}
 	s.Generators["grpc/"+v3.EndpointType] = edsGen

@@ -21,6 +21,7 @@ import (
 	"time"
 
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
+	route "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
 	hcm "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
 	auth "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
 	"github.com/golang/protobuf/ptypes"
@@ -117,19 +118,53 @@ func TestBuildGatewayListenerTlsContext(t *testing.T) {
 					Mode: networking.ServerTLSSettings_SIMPLE,
 				},
 			},
+			sdsPath: "unix:/var/run/sds/uds_path",
 			result: &auth.DownstreamTlsContext{
 				CommonTlsContext: &auth.CommonTlsContext{
 					AlpnProtocols: util.ALPNHttp,
-					TlsCertificates: []*auth.TlsCertificate{
+					TlsCertificateSdsSecretConfigs: []*auth.SdsSecretConfig{
 						{
-							CertificateChain: &core.DataSource{
-								Specifier: &core.DataSource_Filename{
-									Filename: "",
+							Name: "default",
+							SdsConfig: &core.ConfigSource{
+								InitialFetchTimeout: ptypes.DurationProto(time.Second * 0),
+								ResourceApiVersion:  core.ApiVersion_V3,
+								ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
+									ApiConfigSource: &core.ApiConfigSource{
+										ApiType:             core.ApiConfigSource_GRPC,
+										TransportApiVersion: core.ApiVersion_V3,
+										GrpcServices: []*core.GrpcService{
+											{
+												TargetSpecifier: &core.GrpcService_EnvoyGrpc_{
+													EnvoyGrpc: &core.GrpcService_EnvoyGrpc{ClusterName: model.SDSClusterName},
+												},
+											},
+										},
+									},
 								},
 							},
-							PrivateKey: &core.DataSource{
-								Specifier: &core.DataSource_Filename{
-									Filename: "",
+						},
+					},
+					ValidationContextType: &auth.CommonTlsContext_CombinedValidationContext{
+						CombinedValidationContext: &auth.CommonTlsContext_CombinedCertificateValidationContext{
+							DefaultValidationContext: &auth.CertificateValidationContext{},
+							ValidationContextSdsSecretConfig: &auth.SdsSecretConfig{
+								Name: "ROOTCA",
+								SdsConfig: &core.ConfigSource{
+									InitialFetchTimeout: ptypes.DurationProto(time.Second * 0),
+									ResourceApiVersion:  core.ApiVersion_V3,
+									ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
+										ApiConfigSource: &core.ApiConfigSource{
+											ApiType:             core.ApiConfigSource_GRPC,
+											TransportApiVersion: core.ApiVersion_V3,
+											GrpcServices: []*core.GrpcService{
+												{
+													TargetSpecifier: &core.GrpcService_EnvoyGrpc_{
+														EnvoyGrpc: &core.GrpcService_EnvoyGrpc{ClusterName: model.SDSClusterName},
+													},
+												},
+											},
+										},
+									},
 								},
 							},
 						},
@@ -197,21 +232,53 @@ func TestBuildGatewayListenerTlsContext(t *testing.T) {
 					Mode:              networking.ServerTLSSettings_SIMPLE,
 					ServerCertificate: "server-cert.crt",
 					PrivateKey:        "private-key.key",
+					CaCertificates:    "ca-cert.crt",
 				},
 			},
 			result: &auth.DownstreamTlsContext{
 				CommonTlsContext: &auth.CommonTlsContext{
 					AlpnProtocols: util.ALPNHttp,
-					TlsCertificates: []*auth.TlsCertificate{
+					TlsCertificateSdsSecretConfigs: []*auth.SdsSecretConfig{
 						{
-							CertificateChain: &core.DataSource{
-								Specifier: &core.DataSource_Filename{
-									Filename: "server-cert.crt",
+							Name: "file-cert:server-cert.crt~private-key.key",
+							SdsConfig: &core.ConfigSource{
+								ResourceApiVersion: core.ApiVersion_V3,
+								ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
+									ApiConfigSource: &core.ApiConfigSource{
+										ApiType:             core.ApiConfigSource_GRPC,
+										TransportApiVersion: core.ApiVersion_V3,
+										GrpcServices: []*core.GrpcService{
+											{
+												TargetSpecifier: &core.GrpcService_EnvoyGrpc_{
+													EnvoyGrpc: &core.GrpcService_EnvoyGrpc{ClusterName: model.SDSClusterName},
+												},
+											},
+										},
+									},
 								},
 							},
-							PrivateKey: &core.DataSource{
-								Specifier: &core.DataSource_Filename{
-									Filename: "private-key.key",
+						},
+					},
+					ValidationContextType: &auth.CommonTlsContext_CombinedValidationContext{
+						CombinedValidationContext: &auth.CommonTlsContext_CombinedCertificateValidationContext{
+							DefaultValidationContext: &auth.CertificateValidationContext{},
+							ValidationContextSdsSecretConfig: &auth.SdsSecretConfig{
+								Name: "file-root:ca-cert.crt",
+								SdsConfig: &core.ConfigSource{
+									ResourceApiVersion: core.ApiVersion_V3,
+									ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
+										ApiConfigSource: &core.ApiConfigSource{
+											ApiType:             core.ApiConfigSource_GRPC,
+											TransportApiVersion: core.ApiVersion_V3,
+											GrpcServices: []*core.GrpcService{
+												{
+													TargetSpecifier: &core.GrpcService_EnvoyGrpc_{
+														EnvoyGrpc: &core.GrpcService_EnvoyGrpc{ClusterName: model.SDSClusterName},
+													},
+												},
+											},
+										},
+									},
 								},
 							},
 						},
@@ -228,21 +295,121 @@ func TestBuildGatewayListenerTlsContext(t *testing.T) {
 					Mode:              networking.ServerTLSSettings_MUTUAL,
 					ServerCertificate: "server-cert.crt",
 					PrivateKey:        "private-key.key",
+					CaCertificates:    "ca-cert.crt",
 				},
 			},
+			sdsPath: "unix:/var/run/sds/uds_path",
 			result: &auth.DownstreamTlsContext{
 				CommonTlsContext: &auth.CommonTlsContext{
 					AlpnProtocols: util.ALPNHttp,
-					TlsCertificates: []*auth.TlsCertificate{
+					TlsCertificateSdsSecretConfigs: []*auth.SdsSecretConfig{
 						{
-							CertificateChain: &core.DataSource{
-								Specifier: &core.DataSource_Filename{
-									Filename: "server-cert.crt",
+							Name: "file-cert:server-cert.crt~private-key.key",
+							SdsConfig: &core.ConfigSource{
+								ResourceApiVersion: core.ApiVersion_V3,
+								ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
+									ApiConfigSource: &core.ApiConfigSource{
+										ApiType:             core.ApiConfigSource_GRPC,
+										TransportApiVersion: core.ApiVersion_V3,
+										GrpcServices: []*core.GrpcService{
+											{
+												TargetSpecifier: &core.GrpcService_EnvoyGrpc_{
+													EnvoyGrpc: &core.GrpcService_EnvoyGrpc{ClusterName: model.SDSClusterName},
+												},
+											},
+										},
+									},
 								},
 							},
-							PrivateKey: &core.DataSource{
-								Specifier: &core.DataSource_Filename{
-									Filename: "private-key.key",
+						},
+					},
+					ValidationContextType: &auth.CommonTlsContext_CombinedValidationContext{
+						CombinedValidationContext: &auth.CommonTlsContext_CombinedCertificateValidationContext{
+							DefaultValidationContext: &auth.CertificateValidationContext{},
+							ValidationContextSdsSecretConfig: &auth.SdsSecretConfig{
+								Name: "file-root:ca-cert.crt",
+								SdsConfig: &core.ConfigSource{
+									ResourceApiVersion: core.ApiVersion_V3,
+									ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
+										ApiConfigSource: &core.ApiConfigSource{
+											ApiType:             core.ApiConfigSource_GRPC,
+											TransportApiVersion: core.ApiVersion_V3,
+											GrpcServices: []*core.GrpcService{
+												{
+													TargetSpecifier: &core.GrpcService_EnvoyGrpc_{
+														EnvoyGrpc: &core.GrpcService_EnvoyGrpc{ClusterName: model.SDSClusterName},
+													},
+												},
+											},
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+				RequireClientCertificate: proto.BoolTrue,
+			},
+		},
+		{
+			name: "no credential name key and cert subject alt names tls MUTUAL",
+			server: &networking.Server{
+				Hosts: []string{"httpbin.example.com", "bookinfo.example.com"},
+				Tls: &networking.ServerTLSSettings{
+					Mode:              networking.ServerTLSSettings_MUTUAL,
+					ServerCertificate: "server-cert.crt",
+					PrivateKey:        "private-key.key",
+					CaCertificates:    "ca-cert.crt",
+					SubjectAltNames:   []string{"subject.name.a.com", "subject.name.b.com"},
+				},
+			},
+			sdsPath: "unix:/var/run/sds/uds_path",
+			result: &auth.DownstreamTlsContext{
+				CommonTlsContext: &auth.CommonTlsContext{
+					AlpnProtocols: util.ALPNHttp,
+					TlsCertificateSdsSecretConfigs: []*auth.SdsSecretConfig{
+						{
+							Name: "file-cert:server-cert.crt~private-key.key",
+							SdsConfig: &core.ConfigSource{
+								ResourceApiVersion: core.ApiVersion_V3,
+								ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
+									ApiConfigSource: &core.ApiConfigSource{
+										ApiType:             core.ApiConfigSource_GRPC,
+										TransportApiVersion: core.ApiVersion_V3,
+										GrpcServices: []*core.GrpcService{
+											{
+												TargetSpecifier: &core.GrpcService_EnvoyGrpc_{
+													EnvoyGrpc: &core.GrpcService_EnvoyGrpc{ClusterName: model.SDSClusterName},
+												},
+											},
+										},
+									},
+								},
+							},
+						},
+					},
+					ValidationContextType: &auth.CommonTlsContext_CombinedValidationContext{
+						CombinedValidationContext: &auth.CommonTlsContext_CombinedCertificateValidationContext{
+							DefaultValidationContext: &auth.CertificateValidationContext{
+								MatchSubjectAltNames: util.StringToExactMatch([]string{"subject.name.a.com", "subject.name.b.com"}),
+							},
+							ValidationContextSdsSecretConfig: &auth.SdsSecretConfig{
+								Name: "file-root:ca-cert.crt",
+								SdsConfig: &core.ConfigSource{
+									ResourceApiVersion: core.ApiVersion_V3,
+									ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
+										ApiConfigSource: &core.ApiConfigSource{
+											ApiType:             core.ApiConfigSource_GRPC,
+											TransportApiVersion: core.ApiVersion_V3,
+											GrpcServices: []*core.GrpcService{
+												{
+													TargetSpecifier: &core.GrpcService_EnvoyGrpc_{
+														EnvoyGrpc: &core.GrpcService_EnvoyGrpc{ClusterName: model.SDSClusterName},
+													},
+												},
+											},
+										},
+									},
 								},
 							},
 						},
@@ -948,6 +1115,23 @@ func TestGatewayHTTPRouteConfig(t *testing.T) {
 			},
 		},
 	}
+	httpsRedirectGatewayWithoutVS := config.Config{
+		Meta: config.Meta{
+			Name:             "gateway-redirect-noroutes",
+			Namespace:        "default",
+			GroupVersionKind: gvk.Gateway,
+		},
+		Spec: &networking.Gateway{
+			Selector: map[string]string{"istio": "ingressgateway"},
+			Servers: []*networking.Server{
+				{
+					Hosts: []string{"example.org"},
+					Port:  &networking.Port{Name: "http", Number: 80, Protocol: "HTTP"},
+					Tls:   &networking.ServerTLSSettings{HttpsRedirect: true},
+				},
+			},
+		},
+	}
 	httpGateway := config.Config{
 		Meta: config.Meta{
 			Name:             "gateway",
@@ -1046,6 +1230,7 @@ func TestGatewayHTTPRouteConfig(t *testing.T) {
 		routeName            string
 		expectedVirtualHosts map[string][]string
 		expectedHTTPRoutes   map[string]int
+		redirect             bool
 	}{
 		{
 			"404 when no services",
@@ -1058,9 +1243,24 @@ func TestGatewayHTTPRouteConfig(t *testing.T) {
 				},
 			},
 			map[string]int{"blackhole:80": 0},
+			false,
 		},
 		{
-			"virtual services do not matter when tls redirect is set",
+			"tls redirect without virtual services",
+			[]config.Config{virtualService},
+			[]config.Config{httpsRedirectGatewayWithoutVS},
+			"http.80",
+			map[string][]string{
+				"example.org:80": {
+					"example.org", "example.org:*",
+				},
+			},
+			// We will setup a VHost which just redirects; no routes
+			map[string]int{"example.org:80": 0},
+			true,
+		},
+		{
+			"virtual services with tls redirect",
 			[]config.Config{virtualService},
 			[]config.Config{httpsRedirectGateway},
 			"http.80",
@@ -1069,10 +1269,11 @@ func TestGatewayHTTPRouteConfig(t *testing.T) {
 					"example.org", "example.org:*",
 				},
 			},
-			map[string]int{"example.org:80": 0},
+			map[string]int{"example.org:80": 1},
+			true,
 		},
 		{
-			"no merging of virtual services when tls redirect is set",
+			"merging of virtual services when tls redirect is set",
 			[]config.Config{virtualService, virtualServiceCopy},
 			[]config.Config{httpsRedirectGateway, httpGateway},
 			"http.80",
@@ -1081,7 +1282,47 @@ func TestGatewayHTTPRouteConfig(t *testing.T) {
 					"example.org", "example.org:*",
 				},
 			},
-			map[string]int{"example.org:80": 0},
+			map[string]int{"example.org:80": 4},
+			true,
+		},
+		{
+			"reverse merging of virtual services when tls redirect is set",
+			[]config.Config{virtualService, virtualServiceCopy},
+			[]config.Config{httpGateway, httpsRedirectGateway},
+			"http.80",
+			map[string][]string{
+				"example.org:80": {
+					"example.org", "example.org:*",
+				},
+			},
+			map[string]int{"example.org:80": 4},
+			true,
+		},
+		{
+			"merging of virtual services when tls redirect is set without VS",
+			[]config.Config{virtualService, virtualServiceCopy},
+			[]config.Config{httpGateway, httpsRedirectGatewayWithoutVS},
+			"http.80",
+			map[string][]string{
+				"example.org:80": {
+					"example.org", "example.org:*",
+				},
+			},
+			map[string]int{"example.org:80": 2},
+			true,
+		},
+		{
+			"reverse merging of virtual services when tls redirect is set without VS",
+			[]config.Config{virtualService, virtualServiceCopy},
+			[]config.Config{httpsRedirectGatewayWithoutVS, httpGateway},
+			"http.80",
+			map[string][]string{
+				"example.org:80": {
+					"example.org", "example.org:*",
+				},
+			},
+			map[string]int{"example.org:80": 2},
+			true,
 		},
 		{
 			"add a route for a virtual service",
@@ -1094,6 +1335,7 @@ func TestGatewayHTTPRouteConfig(t *testing.T) {
 				},
 			},
 			map[string]int{"example.org:80": 1},
+			false,
 		},
 		{
 			"duplicate virtual service should merge",
@@ -1106,6 +1348,7 @@ func TestGatewayHTTPRouteConfig(t *testing.T) {
 				},
 			},
 			map[string]int{"example.org:80": 2},
+			false,
 		},
 		{
 			"duplicate by wildcard should merge",
@@ -1118,6 +1361,7 @@ func TestGatewayHTTPRouteConfig(t *testing.T) {
 				},
 			},
 			map[string]int{"example.org:80": 2},
+			false,
 		},
 		{
 			"wildcard virtual service",
@@ -1130,6 +1374,7 @@ func TestGatewayHTTPRouteConfig(t *testing.T) {
 				},
 			},
 			map[string]int{"*.org:80": 1},
+			false,
 		},
 	}
 	for _, tt := range cases {
@@ -1139,19 +1384,23 @@ func TestGatewayHTTPRouteConfig(t *testing.T) {
 			cg := NewConfigGenTest(t, TestOptions{
 				Configs: cfgs,
 			})
-			route := cg.ConfigGen.buildGatewayHTTPRouteConfig(cg.SetupProxy(&proxyGateway), cg.PushContext(), tt.routeName)
-			if route == nil {
+			r := cg.ConfigGen.buildGatewayHTTPRouteConfig(cg.SetupProxy(&proxyGateway), cg.PushContext(), tt.routeName)
+			if r == nil {
 				t.Fatal("got an empty route configuration")
 			}
 			vh := make(map[string][]string)
 			hr := make(map[string]int)
-			for _, h := range route.VirtualHosts {
+			for _, h := range r.VirtualHosts {
 				vh[h.Name] = h.Domains
 				hr[h.Name] = len(h.Routes)
 				if h.Name != "blackhole:80" && !h.IncludeRequestAttemptCount {
 					t.Errorf("expected attempt count to be set in virtual host, but not found")
 				}
+				if tt.redirect != (h.RequireTls == route.VirtualHost_ALL) {
+					t.Errorf("expected redirect %v, got %v", tt.redirect, h.RequireTls)
+				}
 			}
+
 			if !reflect.DeepEqual(tt.expectedVirtualHosts, vh) {
 				t.Errorf("got unexpected virtual hosts. Expected: %v, Got: %v", tt.expectedVirtualHosts, vh)
 			}

@@ -294,9 +294,9 @@ var (
 		return ptypes.DurationProto(defaultRequestTimeoutVar.Get())
 	}()
 
-	EnableServiceApis = env.RegisterBoolVar("PILOT_ENABLED_SERVICE_APIS", false,
+	EnableServiceApis = env.RegisterBoolVar("PILOT_ENABLED_SERVICE_APIS", true,
 		"If this is set to true, support for Kubernetes service-apis (github.com/kubernetes-sigs/service-apis) will "+
-			" be enabled. This feature is currently experimental, and is off by default.").Get()
+			" be enabled. In addition to this being enabled, the service-apis CRDs need to be installed.").Get()
 
 	EnableVirtualServiceDelegate = env.RegisterBoolVar(
 		"PILOT_ENABLE_VIRTUAL_SERVICE_DELEGATE",
@@ -306,10 +306,7 @@ var (
 	ClusterName = env.RegisterStringVar("CLUSTER_ID", "Kubernetes",
 		"Defines the cluster and service registry that this Istiod instance is belongs to").Get()
 
-	// CentralIstioD will be Deprecated: TODO remove in 1.9 in favor of `ExternalIstioD`
-	CentralIstioD = env.RegisterBoolVar("CENTRAL_ISTIOD", false,
-		"If this is set to true, one Istiod will control remote clusters including CA.").Get()
-	ExternalIstioD = env.RegisterBoolVar("EXTERNAL_ISTIOD", false,
+	ExternalIstiod = env.RegisterBoolVar("EXTERNAL_ISTIOD", false,
 		"If this is set to true, one Istiod will control remote clusters including CA.").Get()
 
 	EnableCAServer = env.RegisterBoolVar("ENABLE_CA_SERVER", true,
@@ -391,6 +388,9 @@ var (
 
 	WorkloadEntryHealthChecks = env.RegisterBoolVar("PILOT_ENABLE_WORKLOAD_ENTRY_HEALTHCHECKS", false,
 		"Enables automatic health checks of WorkloadEntries based on the config provided in the associated WorkloadGroup").Get()
+
+	WorkloadEntryCrossCluster = env.RegisterBoolVar("PILOT_ENABLE_CROSS_CLUSTER_WORKLOAD_ENTRY", false,
+		"If enabled, pilot will read WorkloadEntry from other clusters, selectable by Services in that cluster.").Get()
 
 	EnableFlowControl = env.RegisterBoolVar(
 		"PILOT_ENABLE_FLOW_CONTROL",

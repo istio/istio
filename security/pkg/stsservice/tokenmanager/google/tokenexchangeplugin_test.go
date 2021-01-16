@@ -20,6 +20,7 @@ import (
 	"strings"
 	"testing"
 
+	"istio.io/istio/pkg/security"
 	"istio.io/istio/security/pkg/stsservice"
 	"istio.io/istio/security/pkg/stsservice/tokenmanager/google/mock"
 )
@@ -125,8 +126,8 @@ func verifyToken(t *testing.T, tCase string, stsRespJSON []byte, actualErr error
 	}
 }
 
-func defaultSTSRequest() stsservice.StsRequestParameters {
-	return stsservice.StsRequestParameters{
+func defaultSTSRequest() security.StsRequestParameters {
+	return security.StsRequestParameters{
 		GrantType:        "urn:ietf:params:oauth:grant-type:token-exchange",
 		Audience:         mock.FakeTrustDomain,
 		Scope:            scope,
