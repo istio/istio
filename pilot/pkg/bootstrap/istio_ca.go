@@ -36,7 +36,6 @@ import (
 	"istio.io/istio/pkg/config/constants"
 	kubelib "istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/security"
-	"istio.io/istio/pkg/security"
 	"istio.io/istio/security/pkg/cmd"
 	"istio.io/istio/security/pkg/pki/ca"
 	"istio.io/istio/security/pkg/pki/ra"

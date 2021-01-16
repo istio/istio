@@ -61,7 +61,6 @@ import (
 	kubelib "istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/inject"
 	"istio.io/istio/pkg/security"
-	"istio.io/istio/pkg/security"
 	"istio.io/istio/pkg/spiffe"
 	"istio.io/istio/security/pkg/k8s/chiron"
 	"istio.io/istio/security/pkg/pki/ca"
