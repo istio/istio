@@ -147,7 +147,7 @@ var (
 
 	// GatewayDuplicateCertificate defines a diag.MessageType for message "GatewayDuplicateCertificate".
 	// Description: Duplicate certificate in multiple gateway, causing 404
-	GatewayDuplicateCertificate = diag.NewMessageType(diag.Error, "IST0135", "Duplicate certificate in multiple gateway, causing 404.")
+	GatewayDuplicateCertificate = diag.NewMessageType(diag.Error, "IST0137", "Duplicate certificate in multiple gateway, causing 404.")
 )
 
 // All returns a list of all known message types.
@@ -187,6 +187,8 @@ func All() []*diag.MessageType {
 		DeprecatedAnnotation,
 		AlphaAnnotation,
 		DeploymentConflictingPorts,
+=======
+>>>>>>> refactor from master
 		GatewayDuplicateCertificate,
 	}
 }
