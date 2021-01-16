@@ -97,7 +97,9 @@ var (
 func revisionCommand() *cobra.Command {
 	revisionCmd := &cobra.Command{
 		Use:     "revision",
-		Short:   "Revision centric view of Istio deployment",
+		Long:   "The revision command provides a revision centric view of istio deployments. " +
+			"It provides insight into IstioOperator CRs defining the revision, istiod and gateway pods " +
+			"which are part of deployment of a particular revision.",
 		Aliases: []string{"rev"},
 	}
 	revisionCmd.PersistentFlags().StringVarP(&revArgs.manifestsPath, "manifests", "d", "", mesh.ManifestsFlagHelpStr)
@@ -112,7 +114,16 @@ func revisionCommand() *cobra.Command {
 func revisionDescribeCommand() *cobra.Command {
 	describeCmd := &cobra.Command{
 		Use:     "describe",
-		Example: `    istioctl experimental revision describe <revision>`,
+		Example: `  # View the details of a revision named 'canary'    
+  istioctl experimental revision describe canary
+
+  # View the details of a revision named 'canary' and also the pods
+  # under that particular revision
+  istioctl experimental revision describe canary -v
+
+  # Get details about a revision in json format (default format is human-friendly table format)
+  istioctl experimental revision describe canary -v -o json 
+`,
 		Short:   "Show details of a revision - customizations, number of pods pointing to it, istiod, gateways etc",
 		PreRunE: func(cmd *cobra.Command, args []string) error {
 			revArgs.name = args[0]
@@ -150,7 +161,17 @@ func revisionListCommand() *cobra.Command {
 	listCmd := &cobra.Command{
 		Use:     "list",
 		Short:   "Show list of control plane and gateway revisions that are currently installed in cluster",
-		Example: `   istioctl experimental revision list`,
+		Example: `  # View summary of revisions installed in the current cluster
+  # which can be overriden with --context parameter. 
+  istioctl experimental revision list
+
+  # View summary of revisions, along with customization in each IstioOperator CR,
+  # control plane and gateway pods
+  istioctl experimental revision list -v
+
+  # View summary of revisions in json format
+  istioctl experimental revision list -o json
+`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			logger := clog.NewConsoleLogger(cmd.OutOrStdout(), cmd.ErrOrStderr(), scope)
 			return revisionList(cmd.OutOrStdout(), &revArgs, logger)
