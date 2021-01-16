@@ -36,144 +36,6 @@ type WorkerQueue interface {
 	Delete(target Resource)
 }
 
-// queueImple implements WorkerQueue
-type queueImpl struct {
-	// tasks which are not currently executing but need to run
-	tasks []lockResource
-	// lock and signal resources for the tasks queue
-	cond *sync.Cond
-	// indicates the queue is closing
-	closing bool
-	// the function which will be run for each task in queue
-	work Task
-
-	// a lock to govern access to data in the cache
-	cacheLock sync.Mutex
-	// for each task, a cacheEntry which can be updated before the task is run so that execution will have latest values
-	cache map[lockResource]cacheEntry
-	// current worker routine count
-	workerCount uint
-	// maximum worker routine count
-	maxWorkers uint
-}
-
-// NewQueue instantiates a queue with a processing function
-func NewQueue(work Task, maxWorkers uint) WorkerQueue {
-	return &queueImpl{
-		tasks:       make([]lockResource, 0),
-		closing:     false,
-		cond:        sync.NewCond(&sync.Mutex{}),
-		work:        work,
-		workerCount: 0,
-		maxWorkers:  maxWorkers,
-		cache:       make(map[lockResource]cacheEntry),
-	}
-}
-
-func (q *queueImpl) Push(target Resource, progress Progress) {
-	q.cacheLock.Lock()
-	defer q.cacheLock.Unlock()
-	key := convert(target)
-	_, inqueue := q.cache[key]
-	q.cache[key] = cacheEntry{
-		cacheVal:      &target,
-		cacheProgress: &progress,
-	}
-	if !inqueue {
-		q.enqueue(key)
-	}
-	q.maybeAddWorker()
-}
-
-func (q *queueImpl) Delete(target Resource) {
-	q.cacheLock.Lock()
-	defer q.cacheLock.Unlock()
-	delete(q.cache, convert(target))
-}
-
-func (q *queueImpl) GetWorkerCount() uint {
-	q.cond.L.Lock()
-	defer q.cond.L.Unlock()
-	return q.workerCount
-}
-
-func (q *queueImpl) enqueue(item lockResource) {
-	q.cond.L.Lock()
-	defer q.cond.L.Unlock()
-	if !q.closing {
-		q.tasks = append(q.tasks, item)
-	}
-	q.cond.Signal()
-}
-
-// maybeAddWorker adds a worker unless we are at maxWorkers.  Workers exit when there are no more tasks, except for the
-// last worker, which stays alive indefinitely.
-func (q *queueImpl) maybeAddWorker() {
-	q.cond.L.Lock()
-	if q.workerCount >= q.maxWorkers || len(q.tasks) == 0 {
-		q.cond.L.Unlock()
-		return
-	}
-	q.workerCount++
-	q.cond.L.Unlock()
-	go func() {
-		for {
-			q.cond.L.Lock()
-			for !q.closing && len(q.tasks) == 0 {
-				if q.workerCount > 1 {
-					q.workerCount--
-					q.cond.L.Unlock()
-					return
-				}
-				q.cond.Wait()
-			}
-
-			if len(q.tasks) == 0 {
-				q.cond.L.Unlock()
-				// We must be shutting down.
-				return
-			}
-
-			var target lockResource
-			target, q.tasks = q.tasks[0], q.tasks[1:]
-			q.cond.L.Unlock()
-
-			var c cacheEntry
-			q.cacheLock.Lock()
-			c, ok := q.cache[target]
-			if !ok {
-				// this element has been deleted, move along
-				q.cacheLock.Unlock()
-				continue
-			} else {
-				delete(q.cache, target)
-			}
-			q.cacheLock.Unlock()
-
-			q.work(c)
-
-			// if the cache has a record for the target, we need to re-enqueue work
-			q.cacheLock.Lock()
-			_, ok = q.cache[target]
-			if ok {
-				q.enqueue(target)
-			}
-			q.cacheLock.Unlock()
-		}
-	}()
-}
-
-func (q *queueImpl) Run(ctx context.Context) {
-	go func() {
-		<-ctx.Done()
-		q.cond.L.Lock()
-		q.cond.Signal()
-		q.closing = true
-		q.cond.L.Unlock()
-	}()
-	q.maybeAddWorker()
-}
-
 type cacheEntry struct {
 	// the cacheVale represents the latest version of the resource, including ResourceVersion
 	cacheVal *Resource
@@ -193,4 +55,147 @@ func convert(i Resource) lockResource {
 		Namespace:            i.Namespace,
 		Name:                 i.Name,
 	}
+}
+
+type WorkQueue struct {
+	// tasks which are not currently executing but need to run
+	tasks []lockResource
+	// a lock to govern access to data in the cache
+	lock sync.Mutex
+	// for each task, a cacheEntry which can be updated before the task is run so that execution will have latest values
+	cache map[lockResource]cacheEntry
+
+	OnPush func()
+}
+
+func (wq *WorkQueue) Push(target Resource, progress Progress) {
+	wq.lock.Lock()
+	key := convert(target)
+	_, inqueue := wq.cache[key]
+	wq.cache[key] = cacheEntry{
+		cacheVal:      &target,
+		cacheProgress: &progress,
+	}
+	if !inqueue {
+		wq.tasks = append(wq.tasks, key)
+	}
+	wq.lock.Unlock()
+	if wq.OnPush != nil {
+		wq.OnPush()
+	}
+}
+
+// Pop returns the first item in the queue not in exclusion, along with it's latest progress
+func (wq *WorkQueue) Pop(exclusion map[lockResource]struct{}) (target *Resource, progress *Progress) {
+	wq.lock.Lock()
+	defer wq.lock.Unlock()
+	for i := len(wq.tasks) - 1; i >= 0; i-- {
+		if _, ok := exclusion[wq.tasks[i]]; !ok {
+			// remove from tasks
+			t, ok := wq.cache[wq.tasks[i]]
+			wq.tasks = append(wq.tasks[:i], wq.tasks[i+1:]...)
+			if !ok {
+				return nil, nil
+			}
+			return t.cacheVal, t.cacheProgress
+		}
+	}
+	return nil, nil
+}
+
+func (wq *WorkQueue) Length() int {
+	wq.lock.Lock()
+	defer wq.lock.Unlock()
+	return len(wq.tasks)
+}
+
+func (wq *WorkQueue) Delete(target *Resource) {
+	wq.lock.Lock()
+	defer wq.lock.Unlock()
+	delete(wq.cache, convert(*target))
+}
+
+type WorkerPool struct {
+	q WorkQueue
+	// indicates the queue is closing
+	closing bool
+	// the function which will be run for each task in queue
+	work func(*Resource, *Progress)
+	// current worker routine count
+	workerCount uint
+	// maximum worker routine count
+	maxWorkers       uint
+	currentlyWorking map[lockResource]struct{}
+	lock             sync.Mutex
+}
+
+func NewWorkerPool(work func(*Resource, *Progress), maxWorkers uint) WorkerQueue {
+	return &WorkerPool{
+		work:             work,
+		maxWorkers:       maxWorkers,
+		currentlyWorking: make(map[lockResource]struct{}),
+		q: WorkQueue{
+			tasks:  make([]lockResource, 0),
+			cache:  make(map[lockResource]cacheEntry),
+			OnPush: nil,
+		},
+	}
+}
+
+func (wp *WorkerPool) Delete(target Resource) {
+	wp.q.Delete(&target)
+}
+
+func (wp *WorkerPool) Push(target Resource, progress Progress) {
+	wp.q.Push(target, progress)
+	wp.maybeAddWorker()
+}
+
+func (wp *WorkerPool) Run(ctx context.Context) {
+	go func() {
+		<-ctx.Done()
+		wp.lock.Lock()
+		wp.closing = true
+		wp.lock.Unlock()
+	}()
+}
+
+// maybeAddWorker adds a worker unless we are at maxWorkers.  Workers exit when there are no more tasks, except for the
+// last worker, which stays alive indefinitely.
+func (wp *WorkerPool) maybeAddWorker() {
+
+	wp.lock.Lock()
+	if wp.workerCount >= wp.maxWorkers || wp.q.Length() == 0 {
+		wp.lock.Unlock()
+		return
+	}
+	wp.workerCount++
+	wp.lock.Unlock()
+	go func() {
+		for {
+			wp.lock.Lock()
+			if wp.closing || wp.q.Length() == 0 {
+				wp.lock.Unlock()
+				return
+			}
+
+			target, c := wp.q.Pop(wp.currentlyWorking)
+
+			if target == nil {
+				// continue or return?
+				// could have been deleted, or could be no items in queueu not currently worked on.  need a way to differentiate.
+				wp.lock.Unlock()
+				continue
+			}
+			wp.q.Delete(target)
+			wp.currentlyWorking[convert(*target)] = struct{}{}
+			wp.lock.Unlock()
+			// work should be done without holding the lock
+			wp.work(target, c)
+
+			wp.lock.Lock()
+			delete(wp.currentlyWorking, convert(*target))
+			wp.lock.Unlock()
+		}
+	}()
 }
