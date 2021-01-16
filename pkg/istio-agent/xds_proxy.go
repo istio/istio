@@ -50,6 +50,7 @@ import (
 	"istio.io/istio/pkg/istio-agent/health"
 	"istio.io/istio/pkg/istio-agent/metrics"
 	"istio.io/istio/pkg/mcp/status"
+	"istio.io/istio/pkg/security"
 	"istio.io/istio/pkg/uds"
 	"istio.io/istio/security/pkg/nodeagent/caclient"
 	"istio.io/pkg/log"
@@ -435,6 +436,7 @@ func (ts *fileTokenSource) Token() (*oauth2.Token, error) {
 
 	return &oauth2.Token{
 		AccessToken: tok,
+		TokenType:   security.XDSTokenType,
 	}, nil
 }
 

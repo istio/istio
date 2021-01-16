@@ -24,7 +24,11 @@ import (
 	"google.golang.org/grpc/peer"
 
 	"istio.io/istio/pilot/pkg/features"
+	"istio.io/pkg/env"
 )
+
+var authPlaintext = env.RegisterBoolVar("XDS_AUTH_PLAINTEXT", false,
+	"Authenticate plain text requests - used if Istiod is behind a gateway handling TLS").Get()
 
 // authenticate authenticates the ADS request using the configured authenticators.
 // Returns the validated principals or an error.
@@ -45,7 +49,7 @@ func (s *DiscoveryServer) authenticate(ctx context.Context) ([]string, error) {
 	// Not a TLS connection, we will not perform authentication
 	// TODO: add a flag to prevent unauthenticated requests ( 15010 )
 	// request not over TLS on the insecure port
-	if _, ok := peerInfo.AuthInfo.(credentials.TLSInfo); !ok {
+	if _, ok := peerInfo.AuthInfo.(credentials.TLSInfo); !ok && !authPlaintext {
 		return nil, nil
 	}
 	authFailMsgs := []string{}

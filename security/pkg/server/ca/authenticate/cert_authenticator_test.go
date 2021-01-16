@@ -25,6 +25,7 @@ import (
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/peer"
 
+	"istio.io/istio/pkg/security"
 	"istio.io/istio/security/pkg/pki/util"
 )
 
@@ -48,7 +49,7 @@ func TestAuthenticate_clientCertAuthenticator(t *testing.T) {
 
 	testCases := map[string]struct {
 		certChain          [][]*x509.Certificate
-		caller             *Caller
+		caller             *security.Caller
 		authenticateErrMsg string
 		fakeAuthInfo       *mockAuthInfo
 	}{
@@ -86,7 +87,7 @@ func TestAuthenticate_clientCertAuthenticator(t *testing.T) {
 					},
 				},
 			},
-			caller: &Caller{Identities: []string{callerID}},
+			caller: &security.Caller{Identities: []string{callerID}},
 		},
 	}
 
