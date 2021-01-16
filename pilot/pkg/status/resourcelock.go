@@ -175,6 +175,7 @@ func (wp *WorkerPool) maybeAddWorker() {
 		for {
 			wp.lock.Lock()
 			if wp.closing || wp.q.Length() == 0 {
+				wp.workerCount--
 				wp.lock.Unlock()
 				return
 			}

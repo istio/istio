@@ -68,5 +68,6 @@ func TestResourceLock_Lock(t *testing.T) {
 	<-y
 	result := atomic.LoadInt32(&runCount)
 	g.Expect(result).To(Equal(int32(2)))
+	g.Expect(workers.(*WorkerPool).workerCount).To(Equal(uint(0)))
 	cancel()
 }
