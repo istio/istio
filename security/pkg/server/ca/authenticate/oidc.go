@@ -20,6 +20,7 @@ import (
 	"strings"
 
 	"github.com/coreos/go-oidc"
+
 	"istio.io/istio/pkg/security"
 )
 

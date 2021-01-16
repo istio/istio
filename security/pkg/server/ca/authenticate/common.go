@@ -18,4 +18,3 @@ const (
 	// IdentityTemplate is the SPIFFE format template of the identity.
 	IdentityTemplate = "spiffe://%s/ns/%s/sa/%s"
 )
-

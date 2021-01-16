@@ -27,9 +27,9 @@ import (
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/peer"
 	"google.golang.org/grpc/status"
-	"istio.io/istio/pkg/security"
 
 	pb "istio.io/api/security/v1alpha1"
+	"istio.io/istio/pkg/security"
 	mockca "istio.io/istio/security/pkg/pki/ca/mock"
 	caerror "istio.io/istio/security/pkg/pki/error"
 	"istio.io/istio/security/pkg/pki/util"

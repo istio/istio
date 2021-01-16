@@ -42,7 +42,6 @@ import (
 	"istio.io/istio/security/pkg/monitoring"
 	"istio.io/istio/security/pkg/nodeagent/util"
 	ca2 "istio.io/istio/security/pkg/server/ca"
-	"istio.io/istio/security/pkg/server/ca/authenticate"
 	"istio.io/istio/tests/util/leak"
 )
 

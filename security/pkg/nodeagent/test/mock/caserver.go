@@ -25,10 +25,10 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	ghc "google.golang.org/grpc/health/grpc_health_v1"
-	"istio.io/istio/pkg/security"
 
 	pb "istio.io/api/security/v1alpha1"
 	"istio.io/istio/pkg/mcp/status"
+	"istio.io/istio/pkg/security"
 	"istio.io/istio/pkg/spiffe"
 	caerror "istio.io/istio/security/pkg/pki/error"
 	"istio.io/istio/security/pkg/pki/util"

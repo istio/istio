@@ -20,15 +20,14 @@ import (
 	"golang.org/x/net/context"
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/peer"
-	"istio.io/istio/pkg/security"
 
+	"istio.io/istio/pkg/security"
 	"istio.io/istio/security/pkg/pki/util"
 )
 
 const (
 	ClientCertAuthenticatorType = "ClientCertAuthenticator"
 )
-
 
 // ClientCertAuthenticator extracts identities from client certificate.
 type ClientCertAuthenticator struct{}

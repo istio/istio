@@ -21,6 +21,7 @@ import (
 	"time"
 
 	"google.golang.org/grpc/metadata"
+
 	"istio.io/pkg/env"
 )
 
@@ -265,7 +266,6 @@ const (
 
 	authorizationMeta = "authorization"
 )
-
 
 // Caller carries the identity and authentication source of a caller.
 type Caller struct {

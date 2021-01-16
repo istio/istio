@@ -23,9 +23,9 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/peer"
 	"google.golang.org/grpc/status"
-	"istio.io/istio/pkg/security"
 
 	pb "istio.io/api/security/v1alpha1"
+	"istio.io/istio/pkg/security"
 	caerror "istio.io/istio/security/pkg/pki/error"
 	"istio.io/istio/security/pkg/pki/util"
 	"istio.io/pkg/log"

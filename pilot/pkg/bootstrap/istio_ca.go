@@ -27,7 +27,6 @@ import (
 	"time"
 
 	"google.golang.org/grpc"
-	"istio.io/istio/pkg/security"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	corev1 "k8s.io/client-go/kubernetes/typed/core/v1"
@@ -36,6 +35,8 @@ import (
 	"istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
 	"istio.io/istio/pkg/config/constants"
 	kubelib "istio.io/istio/pkg/kube"
+	"istio.io/istio/pkg/security"
+	"istio.io/istio/pkg/security"
 	"istio.io/istio/security/pkg/cmd"
 	"istio.io/istio/security/pkg/pki/ca"
 	"istio.io/istio/security/pkg/pki/ra"
