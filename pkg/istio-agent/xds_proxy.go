@@ -90,23 +90,12 @@ type XdsProxy struct {
 
 	// Wasm cache and ecds channel are used to repalce wasm remote load with local file.
 	wasmCache      wasm.Cache
-	ecdsUpdateChan chan discoveryResponse
+	ecdsUpdateChan chan *discovery.DiscoveryResponse
 	// ecds version and nonce uses atomic only to prevent race in testing.
 	// In reality there should not be race as istiod will only have one
 	// in flight update for each type of resource.
 	ecdsLastAckVersion atomic.String
 	ecdsLastNonce      atomic.String
-}
-
-// discoveryResponse wraps the response message and an annotation which indicates whether
-// the wasm extension config sent via ECDS has been converted from remote load to local file.
-type discoveryResponse struct {
-	resp *discovery.DiscoveryResponse
-
-	// wasm extension config is converted asynchronously. Once the conversion finishes,
-	// it will be pushed to the response channel again. This annotation is used to prevent the
-	// ECDS resource going through conversion again.
-	wasmExtensionConverted bool
 }
 
 var proxyLog = log.RegisterScope("xdsproxy", "XDS Proxy in Istio Agent", 0)
@@ -135,7 +124,7 @@ func initXdsProxy(ia *Agent) (*XdsProxy, error) {
 		xdsHeaders:     ia.cfg.XDSHeaders,
 		xdsUdsPath:     ia.cfg.XdsUdsPath,
 		wasmCache:      wasm.NewLocalFileCache(constants.ConfigPathDir, wasm.DefaultWasmModulePurgeInteval, wasm.DefaultWasmModuleExpiry),
-		ecdsUpdateChan: make(chan discoveryResponse, 10),
+		ecdsUpdateChan: make(chan *discovery.DiscoveryResponse, 10),
 	}
 
 	proxyLog.Infof("Initializing with upstream address %q and cluster %q", proxy.istiodAddress, proxy.clusterID)
@@ -213,7 +202,7 @@ type ProxyConnection struct {
 	upstreamError   chan error
 	downstreamError chan error
 	requestsChan    chan *discovery.DiscoveryRequest
-	responsesChan   chan discoveryResponse
+	responsesChan   chan *discovery.DiscoveryResponse
 	stopChan        chan struct{}
 	downstream      discovery.AggregatedDiscoveryService_StreamAggregatedResourcesServer
 	upstream        discovery.AggregatedDiscoveryService_StreamAggregatedResourcesClient
@@ -229,7 +218,7 @@ func (p *XdsProxy) StreamAggregatedResources(downstream discovery.AggregatedDisc
 		upstreamError:   make(chan error, 2), // can be produced by recv and send
 		downstreamError: make(chan error, 2), // can be produced by recv and send
 		requestsChan:    make(chan *discovery.DiscoveryRequest, 10),
-		responsesChan:   make(chan discoveryResponse, 10),
+		responsesChan:   make(chan *discovery.DiscoveryResponse, 10),
 		stopChan:        make(chan struct{}),
 		downstream:      downstream,
 	}
@@ -311,7 +300,7 @@ func (p *XdsProxy) HandleUpstream(ctx context.Context, con *ProxyConnection, xds
 				con.upstreamError <- err
 				return
 			}
-			con.responsesChan <- discoveryResponse{resp: resp}
+			con.responsesChan <- resp
 		}
 	}()
 
@@ -378,8 +367,7 @@ func (p *XdsProxy) handleUpstreamRequest(ctx context.Context, con *ProxyConnecti
 func (p *XdsProxy) handleUpstreamResponse(con *ProxyConnection) {
 	for {
 		select {
-		case dr := <-con.responsesChan:
-			resp := dr.resp
+		case resp := <-con.responsesChan:
 			// TODO: separate upstream response handling from requests sending, which are both time costly
 			proxyLog.Debugf("response for type url %s", resp.TypeUrl)
 			metrics.XdsProxyResponses.Increment()
@@ -402,15 +390,7 @@ func (p *XdsProxy) handleUpstreamResponse(con *ProxyConnection) {
 					ResponseNonce: resp.Nonce,
 				}
 			case v3.ExtensionConfigurationType:
-				// intercepts ECDS, replace Wasm remote load with local file path.
-				if dr.wasmExtensionConverted {
-					forwardToEnvoy(con, resp)
-				} else {
-					p.ecdsUpdateChan <- discoveryResponse{
-						resp:                   resp,
-						wasmExtensionConverted: false,
-					}
-				}
+				p.ecdsUpdateChan <- resp
 			default:
 				forwardToEnvoy(con, resp)
 			}
@@ -424,24 +404,22 @@ func (p *XdsProxy) handleUpstreamECDSResponse(con *ProxyConnection) {
 	// TODO(bianpengyuan): Add metrics about ecds handling.
 	for {
 		select {
-		case discoveryResp := <-p.ecdsUpdateChan:
-			sendNack := wasm.MaybeConvertWasmExtensionConfig(discoveryResp.resp.Resources, p.wasmCache)
+		case resp := <-p.ecdsUpdateChan:
+			sendNack := wasm.MaybeConvertWasmExtensionConfig(resp.Resources, p.wasmCache)
 			if sendNack {
 				con.requestsChan <- &discovery.DiscoveryRequest{
 					VersionInfo:   p.ecdsLastAckVersion.Load(),
 					TypeUrl:       v3.ExtensionConfigurationType,
-					ResponseNonce: discoveryResp.resp.Nonce,
+					ResponseNonce: resp.Nonce,
 					ErrorDetail: &google_rpc.Status{
+						// TODO(bianpengyuan): make error message more informative.
 						Message: "failed to fetch wasm module",
 					},
 				}
 				return
 			}
-			proxyLog.Debugf("forward ECDS resources %+v", discoveryResp.resp.Resources)
-
-			// Wasm filter conversion finishes, send the discovery response back to the channel again.
-			discoveryResp.wasmExtensionConverted = true
-			con.responsesChan <- discoveryResp
+			proxyLog.Debugf("forward ECDS resources %+v", resp.Resources)
+			forwardToEnvoy(con, resp)
 
 		case <-con.stopChan:
 			return
@@ -452,11 +430,20 @@ func (p *XdsProxy) handleUpstreamECDSResponse(con *ProxyConnection) {
 func forwardToEnvoy(con *ProxyConnection, resp *discovery.DiscoveryResponse) {
 	// TODO: Validate the known type urls before forwarding them to Envoy.
 	if err := sendDownstreamWithTimeout(con.downstream, resp); err != nil {
-		proxyLog.Errorf("downstream send error: %v", err)
-		// we cannot return partial error and hope to restart just the downstream
-		// as we are blindly proxying req/responses. For now, the best course of action
-		// is to terminate upstream connection as well and restart afresh.
-		con.downstreamError <- err
+		select {
+		case con.downstreamError <- err:
+			// we cannot return partial error and hope to restart just the downstream
+			// as we are blindly proxying req/responses. For now, the best course of action
+			// is to terminate upstream connection as well and restart afresh.
+			proxyLog.Errorf("downstream send error: %v", err)
+		default:
+			// Do not block on downstream error channel push, this could happen when forward
+			// is triggered from a separated goroutine (e.g. ECDS processing go routine) while
+			// downstream connection has already been teared down and no receiver is available
+			// for downstream error channel.
+			proxyLog.Debugf("downstream error channel full, but get downstream send error: %v", err)
+		}
+
 		return
 	}
 }
