@@ -65,7 +65,7 @@ type mockCAServer struct {
 
 func (ca *mockCAServer) CreateCertificate(ctx context.Context, in *pb.IstioCertificateRequest) (*pb.IstioCertificateResponse, error) {
 	if ca.Authenticator != nil {
-		caller := ca2.Authenticate(ctx, []authenticate.Authenticator{ca.Authenticator})
+		caller := ca2.Authenticate(ctx, []security.Authenticator{ca.Authenticator})
 		if caller == nil {
 			return nil, status.Error(codes.Unauthenticated, "request authenticate failure")
 		}

@@ -20,6 +20,7 @@ import (
 	"strings"
 
 	"github.com/coreos/go-oidc"
+	"istio.io/istio/pkg/security"
 )
 
 const (
@@ -32,7 +33,7 @@ type JwtAuthenticator struct {
 	trustDomain string
 }
 
-var _ Authenticator = &JwtAuthenticator{}
+var _ security.Authenticator = &JwtAuthenticator{}
 
 // newJwtAuthenticator is used when running istiod outside of a cluster, to validate the tokens using OIDC
 // K8S is created with --service-account-issuer, service-account-signing-key-file and service-account-api-audiences
@@ -51,8 +52,8 @@ func NewJwtAuthenticator(iss string, trustDomain, audience string) (*JwtAuthenti
 }
 
 // Authenticate - based on the old OIDC authenticator for mesh expansion.
-func (j *JwtAuthenticator) Authenticate(ctx context.Context) (*Caller, error) {
-	bearerToken, err := ExtractBearerToken(ctx)
+func (j *JwtAuthenticator) Authenticate(ctx context.Context) (*security.Caller, error) {
+	bearerToken, err := security.ExtractBearerToken(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("ID token extraction error: %v", err)
 	}
@@ -75,8 +76,8 @@ func (j *JwtAuthenticator) Authenticate(ctx context.Context) (*Caller, error) {
 	ns := parts[2]
 	ksa := parts[3]
 
-	return &Caller{
-		AuthSource: AuthSourceIDToken,
+	return &security.Caller{
+		AuthSource: security.AuthSourceIDToken,
 		Identities: []string{fmt.Sprintf(IdentityTemplate, j.trustDomain, ns, ksa)},
 	}, nil
 }

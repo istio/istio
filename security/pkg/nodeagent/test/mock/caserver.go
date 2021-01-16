@@ -25,6 +25,7 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	ghc "google.golang.org/grpc/health/grpc_health_v1"
+	"istio.io/istio/pkg/security"
 
 	pb "istio.io/api/security/v1alpha1"
 	"istio.io/istio/pkg/mcp/status"
@@ -32,7 +33,6 @@ import (
 	caerror "istio.io/istio/security/pkg/pki/error"
 	"istio.io/istio/security/pkg/pki/util"
 	"istio.io/istio/security/pkg/server/ca"
-	"istio.io/istio/security/pkg/server/ca/authenticate"
 	"istio.io/pkg/log"
 )
 
@@ -42,7 +42,7 @@ var caServerLog = log.RegisterScope("ca", "CA service debugging", 0)
 type CAServer struct {
 	URL            string
 	GRPCServer     *grpc.Server
-	Authenticators []authenticate.Authenticator
+	Authenticators []security.Authenticator
 
 	certPem       []byte
 	keyPem        []byte

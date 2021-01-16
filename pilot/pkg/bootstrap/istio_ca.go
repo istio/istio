@@ -27,6 +27,7 @@ import (
 	"time"
 
 	"google.golang.org/grpc"
+	"istio.io/istio/pkg/security"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	corev1 "k8s.io/client-go/kubernetes/typed/core/v1"
@@ -51,7 +52,7 @@ type caOptions struct {
 	// domain to use in SPIFFE identity URLs
 	TrustDomain    string
 	Namespace      string
-	Authenticators []authenticate.Authenticator
+	Authenticators []security.Authenticator
 }
 
 // Based on istio_ca main - removing creation of Secrets with private keys in all namespaces and install complexity.

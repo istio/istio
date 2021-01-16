@@ -15,9 +15,12 @@
 package security
 
 import (
+	"context"
+	"fmt"
 	"strings"
 	"time"
 
+	"google.golang.org/grpc/metadata"
 	"istio.io/pkg/env"
 )
 
@@ -246,4 +249,51 @@ type CredFetcher interface {
 
 	// The name of the IdentityProvider that can authenticate the workload credential.
 	GetIdentityProvider() string
+}
+
+// AuthSource represents where authentication result is derived from.
+type AuthSource int
+
+const (
+	AuthSourceClientCertificate AuthSource = iota
+	AuthSourceIDToken
+)
+
+const (
+	// IdentityTemplate is the SPIFFE format template of the identity.
+	IdentityTemplate = "spiffe://%s/ns/%s/sa/%s"
+
+	authorizationMeta = "authorization"
+)
+
+
+// Caller carries the identity and authentication source of a caller.
+type Caller struct {
+	AuthSource AuthSource
+	Identities []string
+}
+
+type Authenticator interface {
+	Authenticate(ctx context.Context) (*Caller, error)
+	AuthenticatorType() string
+}
+
+func ExtractBearerToken(ctx context.Context) (string, error) {
+	md, ok := metadata.FromIncomingContext(ctx)
+	if !ok {
+		return "", fmt.Errorf("no metadata is attached")
+	}
+
+	authHeader, exists := md[authorizationMeta]
+	if !exists {
+		return "", fmt.Errorf("no HTTP authorization header exists")
+	}
+
+	for _, value := range authHeader {
+		if strings.HasPrefix(value, BearerTokenPrefix) {
+			return strings.TrimPrefix(value, BearerTokenPrefix), nil
+		}
+	}
+
+	return "", fmt.Errorf("no bearer token exists in HTTP authorization header")
 }
