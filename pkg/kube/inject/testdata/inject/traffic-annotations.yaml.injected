@@ -116,7 +116,6 @@ spec:
         - name: FOO
           value: bar
         image: gcr.io/istio-testing/proxyv2:latest
-        imagePullPolicy: Always
         name: istio-proxy
         ports:
         - containerPort: 15090
@@ -179,7 +178,6 @@ spec:
         - name: FOO
           value: bar
         image: gcr.io/istio-testing/proxyv2:latest
-        imagePullPolicy: Always
         name: istio-init
         resources:
           requests:

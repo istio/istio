@@ -110,7 +110,6 @@ spec:
         - name: TRUST_DOMAIN
           value: cluster.local
         image: gcr.io/istio-testing/proxyv2:latest
-        imagePullPolicy: Always
         name: istio-proxy
         ports:
         - containerPort: 15090
@@ -174,7 +173,6 @@ spec:
         - --run-validation
         - --skip-rule-apply
         image: gcr.io/istio-testing/proxyv2:latest
-        imagePullPolicy: Always
         name: istio-validation
         resources:
           limits:
