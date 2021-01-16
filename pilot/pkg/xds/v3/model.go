@@ -19,13 +19,17 @@ import (
 )
 
 const (
-	ClusterType    = resource.ClusterType
-	EndpointType   = resource.EndpointType
-	ListenerType   = resource.ListenerType
-	RouteType      = resource.RouteType
-	SecretType     = resource.SecretType
+	ClusterType  = resource.ClusterType
+	EndpointType = resource.EndpointType
+	ListenerType = resource.ListenerType
+	RouteType    = resource.RouteType
+	SecretType   = resource.SecretType
+
 	NameTableType  = "type.googleapis.com/istio.networking.nds.v1.NameTable"
 	HealthInfoType = "type.googleapis.com/istio.v1.HealthInformation"
+
+	// TODO(bianpengyuan): uses upstream resource url one go control plane is updated.
+	ExtensionConfigurationType = "type.googleapis.com/envoy.config.core.v3.TypedExtensionConfig"
 )
 
 // GetShortType returns an abbreviated form of a type, useful for logging or human friendly messages

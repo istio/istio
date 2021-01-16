@@ -32,6 +32,7 @@ import (
 
 	//  to avoid 'No Auth Provider found for name "gcp"'
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
+	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/client-go/tools/clientcmd/api"
 	"k8s.io/client-go/tools/clientcmd/api/latest"
 
@@ -193,6 +194,9 @@ func createRemoteSecretFromPlugin(
 
 	// Create a Kubeconfig to access the remote cluster using the auth provider plugin.
 	kubeconfig := createPluginKubeconfig(caData, clusterName, server, authProviderConfig)
+	if err := clientcmd.Validate(*kubeconfig); err != nil {
+		return nil, fmt.Errorf("invalid kubeconfig: %v", err)
+	}
 
 	// Encode the Kubeconfig in a secret that can be loaded by Istio to dynamically discover and access the remote cluster.
 	return createRemoteServiceAccountSecret(kubeconfig, clusterName, secName)
@@ -215,6 +219,9 @@ func createRemoteSecretFromTokenAndServer(tokenSecret *v1.Secret, clusterName, s
 
 	// Create a Kubeconfig to access the remote cluster using the remote service account credentials.
 	kubeconfig := createBearerTokenKubeconfig(caData, token, clusterName, server)
+	if err := clientcmd.Validate(*kubeconfig); err != nil {
+		return nil, fmt.Errorf("invalid kubeconfig: %v", err)
+	}
 
 	// Encode the Kubeconfig in a secret that can be loaded by Istio to dynamically discover and access the remote cluster.
 	return createRemoteServiceAccountSecret(kubeconfig, clusterName, secName)
@@ -449,6 +456,9 @@ type RemoteSecretOptions struct {
 	// or URL with a release tgz. This is only used when no reader service account exists and has
 	// to be created.
 	ManifestsPath string
+
+	// ServerOverride overrides the server IP/hostname field from the Kubeconfig
+	ServerOverride string
 }
 
 func (o *RemoteSecretOptions) addFlags(flagset *pflag.FlagSet) {
@@ -463,6 +473,8 @@ func (o *RemoteSecretOptions) addFlags(flagset *pflag.FlagSet) {
 		"Name of the local cluster whose credentials are stored "+
 			"in the secret. If a name is not specified the kube-system namespace's UUID of "+
 			"the local cluster will be used.")
+	flagset.StringVar(&o.ServerOverride, "server", "",
+		"The address and port of the Kubernetes API server.")
 	var supportedAuthType []string
 	for _, at := range []RemoteSecretAuthType{RemoteSecretAuthTypeBearerToken, RemoteSecretAuthTypePlugin} {
 		supportedAuthType = append(supportedAuthType, string(at))
@@ -527,9 +539,14 @@ func createRemoteSecret(opt RemoteSecretOptions, client kube.ExtendedClient, env
 		return nil, fmt.Errorf("could not get access token to read resources from local kube-apiserver: %v", err)
 	}
 
-	server, err := getServerFromKubeconfig(opt.Context, env.GetConfig())
-	if err != nil {
-		return nil, err
+	var server string
+	if opt.ServerOverride != "" {
+		server = opt.ServerOverride
+	} else {
+		server, err = getServerFromKubeconfig(opt.Context, env.GetConfig())
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	var remoteSecret *v1.Secret

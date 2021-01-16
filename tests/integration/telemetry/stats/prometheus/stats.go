@@ -79,8 +79,6 @@ func TestStatsFilter(t *testing.T, feature features.Feature) {
 	framework.NewTest(t).
 		Features(feature).
 		Run(func(ctx framework.TestContext) {
-			sourceQuery, destinationQuery, appQuery := buildQuery()
-
 			g, _ := errgroup.WithContext(context.Background())
 			for _, cltInstance := range client {
 				g.Go(func() error {
@@ -89,6 +87,11 @@ func TestStatsFilter(t *testing.T, feature features.Feature) {
 							return err
 						}
 						c := cltInstance.Config().Cluster
+						sourceCluster := "Kubernetes"
+						if len(ctx.Clusters()) > 1 {
+							sourceCluster = c.Name()
+						}
+						sourceQuery, destinationQuery, appQuery := buildQuery(sourceCluster)
 						// Query client side metrics
 						if _, err := QueryPrometheus(t, c, sourceQuery, GetPromInstance()); err != nil {
 							t.Logf("prometheus values for istio_requests_total for cluster %v: \n%s", c, util.PromDump(c, promInst, "istio_requests_total"))
@@ -124,8 +127,6 @@ func TestStatsTCPFilter(t *testing.T, feature features.Feature) {
 	framework.NewTest(t).
 		Features(feature).
 		Run(func(ctx framework.TestContext) {
-			destinationQuery := buildTCPQuery()
-
 			g, _ := errgroup.WithContext(context.Background())
 			for _, cltInstance := range client {
 				g.Go(func() error {
@@ -134,6 +135,11 @@ func TestStatsTCPFilter(t *testing.T, feature features.Feature) {
 							return err
 						}
 						c := cltInstance.Config().Cluster
+						sourceCluster := "Kubernetes"
+						if len(ctx.Clusters()) > 1 {
+							sourceCluster = c.Name()
+						}
+						destinationQuery := buildTCPQuery(sourceCluster)
 						if _, err := QueryPrometheus(t, c, destinationQuery, GetPromInstance()); err != nil {
 							t.Logf("prometheus values for istio_tcp_connections_opened_total: \n%s", util.PromDump(c, promInst, "istio_tcp_connections_opened_total"))
 							return err
@@ -251,7 +257,7 @@ func BuildQueryCommon(labels map[string]string, ns string) (sourceQuery, destina
 	return
 }
 
-func buildQuery() (sourceQuery, destinationQuery, appQuery string) {
+func buildQuery(sourceCluster string) (sourceQuery, destinationQuery, appQuery string) {
 	ns := GetAppNamespace()
 	labels := map[string]string{
 		"request_protocol":               "http",
@@ -266,12 +272,13 @@ func buildQuery() (sourceQuery, destinationQuery, appQuery string) {
 		"source_version":                 "v1",
 		"source_workload":                "client-v1",
 		"source_workload_namespace":      ns.Name(),
+		"source_cluster":                 sourceCluster,
 	}
 
 	return BuildQueryCommon(labels, ns.Name())
 }
 
-func buildTCPQuery() (destinationQuery string) {
+func buildTCPQuery(sourceCluster string) (destinationQuery string) {
 	ns := GetAppNamespace()
 	destinationQuery = `istio_tcp_connections_opened_total{reporter="destination",`
 	labels := map[string]string{
@@ -287,6 +294,7 @@ func buildTCPQuery() (destinationQuery string) {
 		"source_version":                 "v1",
 		"source_workload":                "client-v1",
 		"source_workload_namespace":      ns.Name(),
+		"source_cluster":                 sourceCluster,
 	}
 	for k, v := range labels {
 		destinationQuery += fmt.Sprintf(`%s=%q,`, k, v)

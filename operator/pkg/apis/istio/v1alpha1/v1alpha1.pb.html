@@ -2,7 +2,7 @@
 title: v1alpha1
 layout: protoc-gen-docs
 generator: protoc-gen-docs
-number_of_entries: 61
+number_of_entries: 60
 ---
 <h2 id="ArchConfig">ArchConfig</h2>
 <section>
@@ -832,21 +832,6 @@ No
 </tr>
 </thead>
 <tbody>
-<tr id="GlobalConfig-arch">
-<td><code>arch</code></td>
-<td><code><a href="#ArchConfig">ArchConfig</a></code></td>
-<td>
-<p>Specifies pod scheduling arch(amd64, ppc64le, s390x) and weight as follows:
-  0 - Never scheduled
-  1 - Least preferred
-  2 - No preference
-  3 - Most preferred</p>
-
-</td>
-<td>
-No
-</td>
-</tr>
 <tr id="GlobalConfig-configRootNamespace">
 <td><code>configRootNamespace</code></td>
 <td><code>string</code></td>
@@ -935,17 +920,6 @@ No
 <td><code><a href="#GlobalLoggingConfig">GlobalLoggingConfig</a></code></td>
 <td>
 <p>Specifies the global logging level settings for the Istio control plane components.</p>
-
-</td>
-<td>
-No
-</td>
-</tr>
-<tr id="GlobalConfig-meshExpansion">
-<td><code>meshExpansion</code></td>
-<td><code><a href="#MeshExpansionConfig">MeshExpansionConfig</a></code></td>
-<td>
-<p>Specifies the Configuration for Istio mesh expansion to bare metal.</p>
 
 </td>
 <td>
@@ -1240,11 +1214,17 @@ No
 No
 </td>
 </tr>
-<tr id="GlobalConfig-centralIstiod">
-<td><code>centralIstiod</code></td>
-<td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#boolvalue">BoolValue</a></code></td>
+<tr id="GlobalConfig-arch" class="deprecated ">
+<td><code>arch</code></td>
+<td><code><a href="#ArchConfig">ArchConfig</a></code></td>
 <td>
-<p>Controls whether one central istiod is enabled.</p>
+<p>Specifies pod scheduling arch(amd64, ppc64le, s390x) and weight as follows:
+  0 - Never scheduled
+  1 - Least preferred
+  2 - No preference
+  3 - Most preferred</p>
+
+<p>Deprecated: replaced by the affinity k8s settings which allows architecture nodeAffinity configuration of this behavior.</p>
 
 </td>
 <td>
@@ -1496,15 +1476,6 @@ No
 <tr id="IngressGatewayConfig-loadBalancerSourceRanges">
 <td><code>loadBalancerSourceRanges</code></td>
 <td><code>string[]</code></td>
-<td>
-</td>
-<td>
-No
-</td>
-</tr>
-<tr id="IngressGatewayConfig-meshExpansionPorts">
-<td><code>meshExpansionPorts</code></td>
-<td><code><a href="#PortsConfig">PortsConfig[]</a></code></td>
 <td>
 </td>
 <td>
@@ -1770,45 +1741,6 @@ No
 <td><code>suffix</code></td>
 <td><code>string</code></td>
 <td>
-</td>
-<td>
-No
-</td>
-</tr>
-</tbody>
-</table>
-</section>
-<h2 id="MeshExpansionConfig">MeshExpansionConfig</h2>
-<section>
-<p>Configuration for Istio mesh expansion to bare metal.</p>
-
-<table class="message-fields">
-<thead>
-<tr>
-<th>Field</th>
-<th>Type</th>
-<th>Description</th>
-<th>Required</th>
-</tr>
-</thead>
-<tbody>
-<tr id="MeshExpansionConfig-enabled">
-<td><code>enabled</code></td>
-<td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#boolvalue">BoolValue</a></code></td>
-<td>
-<p>Exposes Pilot and Citadel mTLS on the ingress gateway.</p>
-
-</td>
-<td>
-No
-</td>
-</tr>
-<tr id="MeshExpansionConfig-useILB">
-<td><code>useILB</code></td>
-<td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#boolvalue">BoolValue</a></code></td>
-<td>
-<p>Exposes Pilot and Citadel mTLS and the plain text Pilot ports on an internal gateway.</p>
-
 </td>
 <td>
 No

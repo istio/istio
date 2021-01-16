@@ -637,7 +637,8 @@ func (c *Controller) syncEndpoints() error {
 func (c *Controller) Run(stop <-chan struct{}) {
 	if c.networksWatcher != nil {
 		c.networksWatcher.AddNetworksHandler(c.reloadNetworkLookup)
-		c.reloadNetworkLookup()
+		c.reloadMeshNetworks()
+		c.reloadNetworkGateways()
 	}
 	if c.nsInformer != nil {
 		go c.nsInformer.Run(stop)

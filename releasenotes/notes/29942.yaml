@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: feature
+area: security
+issue:
+- 29943
+releaseNotes:
+- |
+  **Added** option to enable STS token fetch and exchange for XDS flow.

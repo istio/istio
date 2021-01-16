@@ -40,6 +40,7 @@ const (
 	IstioNamespace      = "istio-system"
 	ReleasePrefix       = "istio-"
 	BaseChart           = "base"
+	TarGzSuffix         = ".tar.gz"
 	DiscoveryChart      = "istio-discovery"
 	IngressGatewayChart = "istio-ingress"
 	EgressGatewayChart  = "istio-egress"
@@ -62,18 +63,18 @@ var (
 // InstallGatewaysCharts install Istio using Helm charts with the provided
 // override values file and fails the tests on any failures.
 func InstallGatewaysCharts(t *testing.T, cs resource.Cluster,
-	h *helm.Helm, overrideValuesFile string) {
+	h *helm.Helm, suffix, overrideValuesFile string) {
 	CreateIstioSystemNamespace(t, cs)
 
 	// Install ingress gateway chart
-	err := h.InstallChart(IngressReleaseName, filepath.Join(GatewayChartsDir, IngressGatewayChart),
+	err := h.InstallChart(IngressReleaseName, filepath.Join(GatewayChartsDir, IngressGatewayChart)+suffix,
 		IstioNamespace, overrideValuesFile, HelmTimeout)
 	if err != nil {
 		t.Errorf("failed to install istio %s chart", IngressGatewayChart)
 	}
 
 	// Install egress gateway chart
-	err = h.InstallChart(EgressReleaseName, filepath.Join(GatewayChartsDir, EgressGatewayChart),
+	err = h.InstallChart(EgressReleaseName, filepath.Join(GatewayChartsDir, EgressGatewayChart)+suffix,
 		IstioNamespace, overrideValuesFile, HelmTimeout)
 	if err != nil {
 		t.Errorf("failed to install istio %s chart", EgressGatewayChart)

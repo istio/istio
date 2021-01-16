@@ -78,7 +78,7 @@ spec:
               fieldPath: metadata.labels['service.istio.io/canonical-revision']
         - name: PROXY_CONFIG
           value: |
-            {"proxyMetadata":{"DNS_AGENT":""}}
+            {}
         - name: ISTIO_META_POD_PORTS
           value: |-
             [
@@ -97,7 +97,6 @@ spec:
           value: cluster.local
         - name: TRUST_DOMAIN
           value: cluster.local
-        - name: DNS_AGENT
         image: gcr.io/istio-testing/proxyv2:latest
         imagePullPolicy: Always
         lifecycle:
@@ -164,8 +163,6 @@ spec:
         - my
         - custom
         - args
-        env:
-        - name: DNS_AGENT
         image: fake/custom-image
         imagePullPolicy: Always
         name: istio-init

@@ -30,7 +30,6 @@ import (
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/validation"
 	"istio.io/istio/pkg/util/gogoprotomarshal"
-	"istio.io/pkg/filewatcher"
 	"istio.io/pkg/log"
 )
 
@@ -243,27 +242,4 @@ func ResolveHostsInNetworksConfig(config *meshconfig.MeshNetworks) {
 			}
 		}
 	}
-}
-
-// Add to the FileWatcher the provided file and execute the provided function
-// on any change event for this file.
-// Using a debouncing mechanism to avoid calling the callback multiple times
-// per event.
-func addFileWatcher(fileWatcher filewatcher.FileWatcher, file string, callback func()) {
-	_ = fileWatcher.Add(file)
-	go func() {
-		var timerC <-chan time.Time
-		for {
-			select {
-			case <-timerC:
-				timerC = nil
-				callback()
-			case <-fileWatcher.Events(file):
-				// Use a timer to debounce configuration updates
-				if timerC == nil {
-					timerC = time.After(100 * time.Millisecond)
-				}
-			}
-		}
-	}()
 }

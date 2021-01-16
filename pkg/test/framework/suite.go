@@ -65,7 +65,11 @@ var (
 		// These are also used for istio.io/istio, but make help to satisfy
 		// the feature label enforcement when running with BUILD_WITH_CONTAINER=1.
 		"^/work/tests/integration/",
-		"^/work/")
+		"^/work/",
+
+		// Outside of standard Istio  GOPATH
+		".*/istio/tests/integration/",
+	)
 )
 
 // getSettingsFunc is a function used to extract the default settings for the Suite.

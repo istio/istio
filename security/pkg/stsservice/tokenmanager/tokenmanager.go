@@ -19,7 +19,6 @@ import (
 
 	"istio.io/istio/pkg/bootstrap/platform"
 	"istio.io/istio/pkg/security"
-	"istio.io/istio/security/pkg/stsservice"
 	"istio.io/istio/security/pkg/stsservice/tokenmanager/google"
 )
 
@@ -30,8 +29,10 @@ const (
 
 // Plugin provides common interfaces for specific token exchange services.
 type Plugin interface {
-	ExchangeToken(parameters stsservice.StsRequestParameters) ([]byte, error)
+	ExchangeToken(parameters security.StsRequestParameters) ([]byte, error)
 	DumpPluginStatus() ([]byte, error)
+	// GetMetadata returns the metadata headers related to the token
+	GetMetadata(forCA bool, xdsAuthProvider, token string) (map[string]string, error)
 }
 
 type TokenManager struct {
@@ -78,7 +79,7 @@ func GetGCPProjectInfo() GCPProjectInfo {
 
 // CreateTokenManager creates a token manager with specified type and returns
 // that token manager
-func CreateTokenManager(tokenManagerType string, config Config) stsservice.TokenManager {
+func CreateTokenManager(tokenManagerType string, config Config) security.TokenManager {
 	tm := &TokenManager{
 		plugin: nil,
 	}
@@ -94,7 +95,7 @@ func CreateTokenManager(tokenManagerType string, config Config) stsservice.Token
 	return tm
 }
 
-func (tm *TokenManager) GenerateToken(parameters stsservice.StsRequestParameters) ([]byte, error) {
+func (tm *TokenManager) GenerateToken(parameters security.StsRequestParameters) ([]byte, error) {
 	if tm.plugin != nil {
 		return tm.plugin.ExchangeToken(parameters)
 	}
@@ -106,6 +107,20 @@ func (tm *TokenManager) DumpTokenStatus() ([]byte, error) {
 		return tm.plugin.DumpPluginStatus()
 	}
 	return nil, errors.New("no plugin is found")
+}
+
+func (tm *TokenManager) GetMetadata(forCA bool, xdsAuthProvider, token string) (map[string]string, error) {
+	if tm.plugin != nil {
+		return tm.plugin.GetMetadata(forCA, xdsAuthProvider, token)
+	}
+	// If no plugin, for an non-empty token, place the token in the authorization header.
+	if len(token) > 0 {
+		return map[string]string{
+			"authorization": "Bearer " + token,
+		}, nil
+	}
+	// Otherwise, return an error
+	return nil, errors.New("no plugin is found and token is empty in token manager")
 }
 
 // SetPlugin sets token exchange plugin for testing purposes only.

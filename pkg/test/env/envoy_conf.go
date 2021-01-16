@@ -78,7 +78,7 @@ static_resources:
             config:
               path: {{.AccessLogPath}}
           http_filters:
-          - name: envoy.router
+          - name: envoy.filters.http.router
           route_config:
             name: backend
             virtual_hosts:
@@ -106,7 +106,7 @@ static_resources:
             config:
               path: {{.AccessLogPath}}
           http_filters:
-          - name: envoy.router
+          - name: envoy.filters.http.router
           route_config:
             name: loop
             virtual_hosts:

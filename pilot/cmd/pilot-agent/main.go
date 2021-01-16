@@ -84,6 +84,8 @@ var (
 	serviceAccountVar    = env.RegisterStringVar("SERVICE_ACCOUNT", "", "Name of service account")
 	clusterIDVar         = env.RegisterStringVar("ISTIO_META_CLUSTER_ID", "", "")
 	callCredentials      = env.RegisterBoolVar("CALL_CREDENTIALS", false, "Use JWT directly instead of MTLS")
+	// Provider for XDS auth, e.g., gcp. By default, it is empty, meaning no auth provider.
+	xdsAuthProvider = env.RegisterStringVar("XDS_AUTH_PROVIDER", "", "Provider for XDS auth")
 
 	pilotCertProvider = env.RegisterStringVar("PILOT_CERT_PROVIDER", "istiod",
 		"The provider of Pilot DNS certificate.").Get()
@@ -180,7 +182,6 @@ var (
 
 			// Obtain all the IPs from the node
 			if ipAddrs, ok := network.GetPrivateIPs(context.Background()); ok {
-				log.Infof("Obtained private IP %v", ipAddrs)
 				if len(role.IPAddresses) == 1 {
 					for _, ip := range ipAddrs {
 						// prevent duplicate ips, the first one must be the pod ip
@@ -218,12 +219,39 @@ var (
 			// If not set, set a default based on platform - podNamespace.svc.cluster.local for
 			// K8S
 			role.DNSDomain = getDNSDomain(podNamespace, role.DNSDomain)
-			log.Infof("Proxy role: %#v", role)
+			log.WithLabels("ips", role.IPAddresses, "type", role.Type, "id", role.ID, "domain", role.DNSDomain).Info("Proxy role")
 
 			secOpts, err := setupSecurityOptions(proxyConfig)
 			if err != nil {
 				return err
 			}
+			var tokenManager security.TokenManager
+			if stsPort > 0 || xdsAuthProvider.Get() != "" {
+				// tokenManager is gcp token manager when using the default token manager plugin.
+				tokenManager = tokenmanager.CreateTokenManager(tokenManagerPlugin,
+					tokenmanager.Config{CredFetcher: secOpts.CredFetcher, TrustDomain: secOpts.TrustDomain})
+			}
+			secOpts.TokenManager = tokenManager
+
+			// If security token service (STS) port is not zero, start STS server and
+			// listen on STS port for STS requests. For STS, see
+			// https://tools.ietf.org/html/draft-ietf-oauth-token-exchange-16.
+			// STS is used for stackdriver or other Envoy services using google gRPC.
+			if stsPort > 0 {
+				localHostAddr := localHostIPv4
+				if proxyIPv6 {
+					localHostAddr = localHostIPv6
+				}
+				stsServer, err := stsserver.NewServer(stsserver.Config{
+					LocalHostAddr: localHostAddr,
+					LocalPort:     stsPort,
+				}, tokenManager)
+				if err != nil {
+					return err
+				}
+				defer stsServer.Stop()
+			}
+
 			agentConfig := &istio_agent.AgentConfig{
 				XDSRootCerts: xdsRootCA,
 				CARootCerts:  caRootCA,
@@ -246,7 +274,7 @@ var (
 				// Obtain Pilot SAN, using DNS.
 				pilotSAN = []string{getPilotSan(proxyConfig.DiscoveryAddress)}
 			}
-			log.Infof("PilotSAN %#v", pilotSAN)
+			log.Infof("Pilot SAN: %v", pilotSAN)
 
 			// Start in process SDS.
 			if err := sa.Start(); err != nil {
@@ -266,26 +294,6 @@ var (
 				if err := initStatusServer(ctx, proxyIPv6, proxyConfig); err != nil {
 					return err
 				}
-			}
-
-			// If security token service (STS) port is not zero, start STS server and
-			// listen on STS port for STS requests. For STS, see
-			// https://tools.ietf.org/html/draft-ietf-oauth-token-exchange-16.
-			if stsPort > 0 {
-				localHostAddr := localHostIPv4
-				if proxyIPv6 {
-					localHostAddr = localHostIPv6
-				}
-				tokenManager := tokenmanager.CreateTokenManager(tokenManagerPlugin,
-					tokenmanager.Config{CredFetcher: secOpts.CredFetcher, TrustDomain: secOpts.TrustDomain})
-				stsServer, err := stsserver.NewServer(stsserver.Config{
-					LocalHostAddr: localHostAddr,
-					LocalPort:     stsPort,
-				}, tokenManager)
-				if err != nil {
-					return err
-				}
-				defer stsServer.Stop()
 			}
 
 			envoyProxy := envoy.NewProxy(envoy.ProxyConfig{
@@ -349,6 +357,7 @@ func setupSecurityOptions(proxyConfig meshconfig.ProxyConfig) (security.Options,
 		FileMountedCerts:               fileMountedCertsEnv,
 		WorkloadNamespace:              podNamespaceVar.Get(),
 		ServiceAccount:                 serviceAccountVar.Get(),
+		XdsAuthProvider:                xdsAuthProvider.Get(),
 		TrustDomain:                    trustDomainEnv,
 		Pkcs8Keys:                      pkcs8KeysEnv,
 		ECCSigAlg:                      eccSigAlgEnv,

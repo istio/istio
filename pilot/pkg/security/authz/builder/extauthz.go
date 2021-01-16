@@ -273,6 +273,7 @@ func generateGRPCConfig(cluster string, failOpen bool, status *envoytypev3.HttpS
 			GrpcService: grpc,
 		},
 		FilterEnabledMetadata: generateFilterMatcher(authzmodel.RBACHTTPFilterName),
+		TransportApiVersion:   envoy_config_core_v3.ApiVersion_V3,
 	}
 	tcp := &extauthztcp.ExtAuthz{
 		StatPrefix:            "tcp.",

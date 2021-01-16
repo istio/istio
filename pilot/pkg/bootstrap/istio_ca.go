@@ -35,6 +35,7 @@ import (
 	"istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
 	"istio.io/istio/pkg/config/constants"
 	kubelib "istio.io/istio/pkg/kube"
+	"istio.io/istio/pkg/security"
 	"istio.io/istio/security/pkg/cmd"
 	"istio.io/istio/security/pkg/pki/ca"
 	"istio.io/istio/security/pkg/pki/ra"
@@ -51,7 +52,7 @@ type caOptions struct {
 	// domain to use in SPIFFE identity URLs
 	TrustDomain    string
 	Namespace      string
-	Authenticators []authenticate.Authenticator
+	Authenticators []security.Authenticator
 }
 
 // Based on istio_ca main - removing creation of Secrets with private keys in all namespaces and install complexity.
