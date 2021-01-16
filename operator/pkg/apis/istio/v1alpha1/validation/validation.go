@@ -115,6 +115,7 @@ func checkDeprecatedSettings(iop *v1alpha1.IstioOperatorSpec) (util.Errors, stri
 		{"Values.telemetry.v2.stackdriver.logging", "Values.telemetry.v2.stackdriver.outboundAccessLogging and Values.telemetry.v2.stackdriver.inboundAccessLogging",
 			false},
 		{"Values.global.centralIstiod", "Values.global.externalIstiod", false},
+		{"Values.global.arch", "the affinity of k8s settings", nil},
 	}
 
 	failHardSettings := []deprecatedSettings{
