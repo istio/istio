@@ -232,10 +232,10 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream discovery.AggregatedD
 
 func (s *DiscoveryServer) Stream(stream DiscoveryStream) error {
 	if knativeEnv != "" && firstRequest.Load() {
-		// How scaling works is the first request is the "loading" request. During
-		// loading request, concurrency=1. Once that request is done, we bump up to
-		// concurrency=80. But for us, the load request is 15min (based on timeout). As a
-		// result, we should exit the first request immediately.
+		// How scaling works in knative is the first request is the "loading" request. During
+		// loading request, concurrency=1. Once that request is done, concurrency is enabled.
+		// However, the XDS stream is long lived, so the first request would block all others. As a
+		// result, we should exit the first request immediately; clients will retry.
 		firstRequest.Store(false)
 		return status.Error(codes.Unavailable, "server warmup not complete; try again")
 	}
