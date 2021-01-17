@@ -374,6 +374,12 @@ func TestRequestAuthentication_RemoteJwks(t *testing.T) {
 				return policy
 			}
 
+			jwtPolicies := tmpl.EvaluateAllOrFail(t, args,
+				file.AsStringOrFail(t, "testdata/requestauthn/a-authn-remote-jwks.yaml.tmpl"),
+			)
+			ctx.Config().ApplyYAMLOrFail(t, ns.Name(), jwtPolicies...)
+			defer ctx.Config().DeleteYAMLOrFail(t, ns.Name(), jwtPolicies...)
+
 			// Deploy and wait for the ext-authz server to be ready.
 			if jwtServerNamespace == nil {
 				ctx.Fatalf("Failed to create namespace for jwt-server server: %v", jwtServerNamespaceErr)
@@ -382,6 +388,51 @@ func TestRequestAuthentication_RemoteJwks(t *testing.T) {
 			defer ctx.Config().DeleteYAMLOrFail(t, jwtServerNamespace.Name(), jwtServer...)
 			if _, _, err := kube.WaitUntilServiceEndpointsAreReady(ctx.Clusters().Default(), jwtServerNamespace.Name(), "jwt-server"); err != nil {
 				ctx.Fatalf("Wait for jwt-server server failed: %v", err)
+			}
+
+			aSet := apps.A.Match(echo.Namespace(ns.Name()))
+			cSet := apps.C.Match(echo.Namespace(ns.Name()))
+
+			callCount := 1
+			if ctx.Clusters().IsMulticluster() {
+				// so we can validate all clusters are hit
+				callCount = util.CallsPerCluster * len(ctx.Clusters())
+			}
+
+			for _, cluster := range ctx.Clusters() {
+				ctx.NewSubTest(fmt.Sprintf("From %s", cluster.Name())).Run(func(ctx framework.TestContext) {
+					a := apps.A.Match(echo.InCluster(cluster).And(echo.Namespace(apps.Namespace1.Name())))
+					b := apps.B.Match(echo.InCluster(cluster).And(echo.Namespace(apps.Namespace1.Name())))
+					testCases := []authn.TestCase{
+						{
+							Name: "valid-token-noauthz",
+							Request: connection.Checker{
+								From: a[0],
+								Options: echo.CallOptions{
+									Target:   cSet[0],
+									PortName: "http",
+									Scheme:   scheme.HTTP,
+									Headers: map[string][]string{
+										authHeaderKey: {"Bearer " + jwt.TokenIssuer1},
+									},
+									Count: callCount,
+								},
+								DestClusters: cSet.Clusters(),
+							},
+							ExpectResponseCode: response.StatusCodeOK,
+							ExpectHeaders: map[string]string{
+								authHeaderKey:    "",
+								"X-Test-Payload": payload1,
+							},
+						},
+					}
+					for _, c := range testCases {
+						ctx.NewSubTest(c.Name).Run(func(ctx framework.TestContext) {
+							retry.UntilSuccessOrFail(ctx, c.CheckAuthn,
+								retry.Delay(250*time.Millisecond), retry.Timeout(30*time.Second))
+						})
+					}
+				})
 			}
 		})
 }

@@ -1,0 +1,14 @@
+apiVersion: "security.istio.io/v1beta1"
+kind: "RequestAuthentication"
+metadata:
+  name: "request-authn-for-a-remote-jwks"
+  namespace: {{ .Namespace }}
+spec:
+  selector:
+    matchLabels:
+      app: a
+  jwtRules:
+  - issuer: "test-issuer-1@istio.io"
+    jwksUri: "http://jwt-server.v1beta1-remotejwks:8000/jwks"
+    audiences:
+    - "foo"
