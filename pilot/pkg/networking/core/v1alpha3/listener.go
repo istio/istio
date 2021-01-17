@@ -43,6 +43,7 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	istionetworking "istio.io/istio/pilot/pkg/networking"
 	"istio.io/istio/pilot/pkg/networking/plugin"
+	"istio.io/istio/pilot/pkg/networking/plugin/metadataexchange"
 	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pilot/pkg/serviceregistry"
 	xdsfilters "istio.io/istio/pilot/pkg/xds/filters"
@@ -238,6 +239,10 @@ func init() {
 func (configgen *ConfigGeneratorImpl) BuildListeners(node *model.Proxy,
 	push *model.PushContext) []*listener.Listener {
 	builder := NewListenerBuilder(node, push)
+
+	if util.IsIstioVersionGE19(node) {
+		configgen.Plugins = append(configgen.Plugins, metadataexchange.NewPlugin())
+	}
 
 	switch node.Type {
 	case model.SidecarProxy:
