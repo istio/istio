@@ -5239,6 +5239,8 @@ spec:
           args:
           - proxy
           - router
+          - --concurrency
+          - 0
           - --domain
           - $(POD_NAMESPACE).svc.cluster.local
           - --proxyLogLevel=warning
@@ -5491,6 +5493,8 @@ spec:
           args:
           - proxy
           - router
+          - --concurrency
+          - 0
           - --domain
           - $(POD_NAMESPACE).svc.cluster.local
           - --proxyLogLevel=warning

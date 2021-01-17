@@ -107,6 +107,8 @@ spec:
           args:
           - proxy
           - router
+          - --concurrency
+          - 0
           - --domain
           - $(POD_NAMESPACE).svc.{{ .Values.global.proxy.clusterDomain }}
         {{- if .Values.global.proxy.logLevel }}
