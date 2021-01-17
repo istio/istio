@@ -305,7 +305,7 @@ spec:
 		t.Fatalf("failed to apply IstioOperator CR file: %s, %v", iopCRFile, err)
 	}
 
-	verifyInstallation(t, ctx, istioCtl, profileName, revision, cs)
+	verifyInstallation(t, ctx, istioCtl, crName, profileName, revision, setFlags, cs)
 }
 
 // verifyInstallation verify IOP CR status and compare in-cluster resources with generated ones.
