@@ -390,7 +390,6 @@ func TestRequestAuthentication_RemoteJwks(t *testing.T) {
 				ctx.Fatalf("Wait for jwt-server server failed: %v", err)
 			}
 
-			aSet := apps.A.Match(echo.Namespace(ns.Name()))
 			cSet := apps.C.Match(echo.Namespace(ns.Name()))
 
 			callCount := 1
