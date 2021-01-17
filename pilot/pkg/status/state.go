@@ -226,7 +226,7 @@ func GetTypedStatus(in interface{}) (out v1alpha1.IstioStatus, err error) {
 	}
 	out, ok := in.(v1alpha1.IstioStatus)
 	if !ok {
-		return v1alpha1.IstioStatus{}, fmt.Errorf("status was not of type IstioStatus.")
+		return v1alpha1.IstioStatus{}, fmt.Errorf("status was not of type IstioStatus")
 	}
 	return out, nil
 }
