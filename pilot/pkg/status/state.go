@@ -16,7 +16,6 @@ package status
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"sync"
 	"time"
@@ -222,11 +221,14 @@ func (c *DistributionController) removeStaleReporters(staleReporters []string) {
 }
 
 func GetTypedStatus(in interface{}) (out v1alpha1.IstioStatus, err error) {
-	var statusBytes []byte
-	if statusBytes, err = json.Marshal(in); err == nil {
-		err = json.Unmarshal(statusBytes, &out)
+	if in == nil {
+		return v1alpha1.IstioStatus{}, fmt.Errorf("status was nil")
 	}
-	return
+	out, ok := in.(IstioStatus)
+	if !ok {
+		return nil, fmt.Errorf("status was not of type IstioStatus.")
+	}
+	return out, nil
 }
 
 func boolToConditionStatus(b bool) string {
