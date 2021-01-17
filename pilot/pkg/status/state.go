@@ -222,11 +222,11 @@ func (c *DistributionController) removeStaleReporters(staleReporters []string) {
 
 func GetTypedStatus(in interface{}) (out v1alpha1.IstioStatus, err error) {
 	if in == nil {
-		return v1alpha1.IstioStatus{}, fmt.Errorf("status was nil")
+		return nil, fmt.Errorf("status was nil")
 	}
-	out, ok := in.(IstioStatus)
+	out, ok := in.(v1alpha1.IstioStatus)
 	if !ok {
-		return nil, fmt.Errorf("status was not of type IstioStatus.")
+		return v1alpha1.IstioStatus{}, fmt.Errorf("status was not of type IstioStatus.")
 	}
 	return out, nil
 }
