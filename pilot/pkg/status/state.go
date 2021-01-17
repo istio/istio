@@ -222,7 +222,7 @@ func (c *DistributionController) removeStaleReporters(staleReporters []string) {
 
 func GetTypedStatus(in interface{}) (out v1alpha1.IstioStatus, err error) {
 	if in == nil {
-		return nil, fmt.Errorf("status was nil")
+		return v1alpha1.IstioStatus{}, fmt.Errorf("status was nil")
 	}
 	out, ok := in.(v1alpha1.IstioStatus)
 	if !ok {
