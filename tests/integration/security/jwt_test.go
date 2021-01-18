@@ -391,6 +391,7 @@ func TestRequestAuthentication_RemoteJwks(t *testing.T) {
 				ctx.Fatalf("Wait for jwt-server server failed: %v", err)
 			}
 
+			bSet := apps.B.Match(echo.Namespace(apps.Namespace1.Name()))
 			cSet := apps.C.Match(echo.Namespace(apps.Namespace1.Name()))
 
 			callCount := 1
@@ -422,6 +423,26 @@ func TestRequestAuthentication_RemoteJwks(t *testing.T) {
 							ExpectHeaders: map[string]string{
 								authHeaderKey:    "",
 								"X-Test-Payload": payload1,
+							},
+						},
+						{
+							Name: "valid-token",
+							Request: connection.Checker{
+								From: a[0],
+								Options: echo.CallOptions{
+									Target:   bSet[0],
+									PortName: "http",
+									Scheme:   scheme.HTTP,
+									Headers: map[string][]string{
+										authHeaderKey: {"Bearer " + jwt.TokenIssuer1},
+									},
+									Count: callCount,
+								},
+								DestClusters: bSet.Clusters(),
+							},
+							ExpectResponseCode: response.StatusCodeOK,
+							ExpectHeaders: map[string]string{
+								authHeaderKey: "",
 							},
 						},
 					}
