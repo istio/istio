@@ -257,9 +257,10 @@ func TestSetup(ctx resource.Context) (err error) {
 // SendTraffic makes a client call to the "server" service on the http port.
 func SendTraffic(t *testing.T, cltInstance echo.Instance) error {
 	_, err := cltInstance.Call(echo.CallOptions{
-		Target:   server[0],
-		PortName: "http",
-		Count:    util.RequestCountMultipler * len(server),
+		Target:    server[0],
+		PortName:  "http",
+		Count:     util.RequestCountMultipler * len(server),
+		Validator: echo.ExpectOK(),
 	})
 	if err != nil {
 		return err
