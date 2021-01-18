@@ -360,6 +360,7 @@ func TestRequestAuthentication(t *testing.T) {
 }
 
 func TestRequestAuthentication_RemoteJwks(t *testing.T) {
+	payload1 := strings.Split(jwt.TokenIssuer1, ".")[1]
 	framework.NewTest(t).
 		Features("security.authentication.jwt").
 		Run(func(ctx framework.TestContext) {
@@ -401,7 +402,6 @@ func TestRequestAuthentication_RemoteJwks(t *testing.T) {
 			for _, cluster := range ctx.Clusters() {
 				ctx.NewSubTest(fmt.Sprintf("From %s", cluster.Name())).Run(func(ctx framework.TestContext) {
 					a := apps.A.Match(echo.InCluster(cluster).And(echo.Namespace(apps.Namespace1.Name())))
-					b := apps.B.Match(echo.InCluster(cluster).And(echo.Namespace(apps.Namespace1.Name())))
 					testCases := []authn.TestCase{
 						{
 							Name: "valid-token-noauthz",
