@@ -34,7 +34,13 @@ var (
 func TestMain(m *testing.M) {
 	framework.
 		NewSuite(m).
-		Setup(istio.Setup(&ist, setupConfig)).
+		Setup(istio.Setup(&i, func(ctx resource.Context, cfg *istio.Config) {
+			cfg.ControlPlaneValues = `
+values:
+  pilot:
+    env:
+	  PILOT_JWT_ENABLE_REMOTE_JWKS: "true"`
+		})).
 		Setup(func(ctx resource.Context) error {
 			return util.SetupApps(ctx, ist, apps, true)
 		}).
