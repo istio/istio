@@ -45,6 +45,9 @@ gateways:
     cpu:
       targetAverageUtilization: 80
 
+    nodeSelector:
+      kubernetes.io/os: linux
+
     resources:
       requests:
         cpu: 100m

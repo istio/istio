@@ -40,6 +40,8 @@ gateways:
     autoscaleEnabled: true
     autoscaleMin: 1
     autoscaleMax: 5
+    nodeSelector:
+      kubernetes.io/os: linux
     resources:
       requests:
         cpu: 100m
