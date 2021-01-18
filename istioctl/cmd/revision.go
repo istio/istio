@@ -96,8 +96,8 @@ var (
 
 func revisionCommand() *cobra.Command {
 	revisionCmd := &cobra.Command{
-		Use:     "revision",
-		Long:   "The revision command provides a revision centric view of istio deployments. " +
+		Use: "revision",
+		Long: "The revision command provides a revision centric view of istio deployments. " +
 			"It provides insight into IstioOperator CRs defining the revision, istiod and gateway pods " +
 			"which are part of deployment of a particular revision.",
 		Aliases: []string{"rev"},
@@ -113,7 +113,7 @@ func revisionCommand() *cobra.Command {
 
 func revisionDescribeCommand() *cobra.Command {
 	describeCmd := &cobra.Command{
-		Use:     "describe",
+		Use: "describe",
 		Example: `  # View the details of a revision named 'canary'    
   istioctl experimental revision describe canary
 
@@ -124,7 +124,7 @@ func revisionDescribeCommand() *cobra.Command {
   # Get details about a revision in json format (default format is human-friendly table format)
   istioctl experimental revision describe canary -v -o json 
 `,
-		Short:   "Show details of a revision - customizations, number of pods pointing to it, istiod, gateways etc",
+		Short: "Show details of a revision - customizations, number of pods pointing to it, istiod, gateways etc",
 		PreRunE: func(cmd *cobra.Command, args []string) error {
 			revArgs.name = args[0]
 			if len(args) == 0 {
@@ -159,8 +159,8 @@ func revisionDescribeCommand() *cobra.Command {
 
 func revisionListCommand() *cobra.Command {
 	listCmd := &cobra.Command{
-		Use:     "list",
-		Short:   "Show list of control plane and gateway revisions that are currently installed in cluster",
+		Use:   "list",
+		Short: "Show list of control plane and gateway revisions that are currently installed in cluster",
 		Example: `  # View summary of revisions installed in the current cluster
   # which can be overriden with --context parameter. 
   istioctl experimental revision list
@@ -180,7 +180,7 @@ func revisionListCommand() *cobra.Command {
 	return listCmd
 }
 
-type podFilteredInfo struct {
+type PodFilteredInfo struct {
 	Namespace string      `json:"namespace"`
 	Name      string      `json:"name"`
 	Address   string      `json:"address"`
@@ -188,7 +188,7 @@ type podFilteredInfo struct {
 	Age       string      `json:"age"`
 }
 
-type istioOperatorCRInfo struct {
+type IstioOperatorCRInfo struct {
 	IOP            *iopv1alpha1.IstioOperator `json:"-"`
 	Namespace      string                     `json:"namespace"`
 	Name           string                     `json:"name"`
@@ -197,24 +197,24 @@ type istioOperatorCRInfo struct {
 	Customizations []iopDiff                  `json:"customizations,omitempty"`
 }
 
-type mutatingWebhookConfigInfo struct {
+type MutatingWebhookConfigInfo struct {
 	Name     string `json:"name"`
 	Revision string `json:"revision"`
 	Tag      string `json:"tag,omitempty"`
 }
 
-type nsInfo struct {
+type NsInfo struct {
 	Name string            `json:"name,omitempty"`
-	Pods []podFilteredInfo `json:"pods,omitempty"`
+	Pods []PodFilteredInfo `json:"pods,omitempty"`
 }
 
-type revisionDescription struct {
-	IstioOperatorCRs   []istioOperatorCRInfo       `json:"istio_operator_crs,omitempty"`
-	Webhooks           []mutatingWebhookConfigInfo `json:"webhooks,omitempty"`
-	ControlPlanePods   []podFilteredInfo           `json:"control_plane_pods,omitempty"`
-	IngressGatewayPods []podFilteredInfo           `json:"ingess_gateways,omitempty"`
-	EgressGatewayPods  []podFilteredInfo           `json:"egress_gateways,omitempty"`
-	NamespaceSummary   map[string]*nsInfo          `json:"namespace_summary,omitempty"`
+type RevisionDescription struct {
+	IstioOperatorCRs   []IstioOperatorCRInfo       `json:"istio_operator_crs,omitempty"`
+	Webhooks           []MutatingWebhookConfigInfo `json:"webhooks,omitempty"`
+	ControlPlanePods   []PodFilteredInfo           `json:"control_plane_pods,omitempty"`
+	IngressGatewayPods []PodFilteredInfo           `json:"ingess_gateways,omitempty"`
+	EgressGatewayPods  []PodFilteredInfo           `json:"egress_gateways,omitempty"`
+	NamespaceSummary   map[string]*NsInfo          `json:"namespace_summary,omitempty"`
 }
 
 func revisionList(writer io.Writer, args *revisionArgs, logger clog.Logger) error {
@@ -224,7 +224,7 @@ func revisionList(writer io.Writer, args *revisionArgs, logger clog.Logger) erro
 			kubeconfig, configContext, err)
 	}
 
-	revisions := map[string]*revisionDescription{}
+	revisions := map[string]*RevisionDescription{}
 
 	// Get a list of control planes which are installed in remote clusters
 	// In this case, it is possible that they only have webhooks installed.
@@ -238,16 +238,16 @@ func revisionList(writer io.Writer, args *revisionArgs, logger clog.Logger) erro
 		ri, revPresent := revisions[rev]
 		if revPresent {
 			if tag != "" {
-				ri.Webhooks = append(ri.Webhooks, mutatingWebhookConfigInfo{
+				ri.Webhooks = append(ri.Webhooks, MutatingWebhookConfigInfo{
 					Name:     hook.Name,
 					Revision: rev,
 					Tag:      tag,
 				})
 			}
 		} else {
-			revisions[rev] = &revisionDescription{
-				IstioOperatorCRs: []istioOperatorCRInfo{},
-				Webhooks:         []mutatingWebhookConfigInfo{{Name: hook.Name, Revision: rev, Tag: tag}},
+			revisions[rev] = &RevisionDescription{
+				IstioOperatorCRs: []IstioOperatorCRInfo{},
+				Webhooks:         []MutatingWebhookConfigInfo{{Name: hook.Name, Revision: rev, Tag: tag}},
 			}
 		}
 	}
@@ -264,7 +264,7 @@ func revisionList(writer io.Writer, args *revisionArgs, logger clog.Logger) erro
 		rev := renderWithDefault(iop.Spec.GetRevision(), "default")
 		ri, revPresent := revisions[rev]
 		if revPresent {
-			iopInfo := istioOperatorCRInfo{
+			iopInfo := IstioOperatorCRInfo{
 				Namespace:      iop.GetNamespace(),
 				Name:           iop.GetName(),
 				Profile:        iop.Spec.GetProfile(),
@@ -304,7 +304,7 @@ func revisionList(writer io.Writer, args *revisionArgs, logger clog.Logger) erro
 	}
 }
 
-func printRevisionInfoTable(writer io.Writer, verbose bool, revisions map[string]*revisionDescription) error {
+func printRevisionInfoTable(writer io.Writer, verbose bool, revisions map[string]*RevisionDescription) error {
 	if err := printSummaryTable(writer, verbose, revisions); err != nil {
 		return fmt.Errorf("failed to print summary table: %v", err)
 	}
@@ -319,7 +319,7 @@ func printRevisionInfoTable(writer io.Writer, verbose bool, revisions map[string
 	return nil
 }
 
-func printControlPlaneSummaryTable(w io.Writer, revisions map[string]*revisionDescription) error {
+func printControlPlaneSummaryTable(w io.Writer, revisions map[string]*RevisionDescription) error {
 	fmt.Fprintf(w, "\nCONTROL PLANE:\n")
 	tw := new(tabwriter.Writer).Init(w, 0, 8, 1, ' ', 0)
 	fmt.Fprintf(tw, "REVISION\tISTIOD ENABLED\tCONTROL-PLANE PODS\n")
@@ -358,7 +358,7 @@ func printControlPlaneSummaryTable(w io.Writer, revisions map[string]*revisionDe
 	return tw.Flush()
 }
 
-func printGatewaySummaryTable(w io.Writer, revisions map[string]*revisionDescription) error {
+func printGatewaySummaryTable(w io.Writer, revisions map[string]*RevisionDescription) error {
 	if err := printIngressGatewaySummaryTable(w, revisions); err != nil {
 		return fmt.Errorf("error while printing ingress gateway summary: %v", err)
 	}
@@ -368,7 +368,7 @@ func printGatewaySummaryTable(w io.Writer, revisions map[string]*revisionDescrip
 	return nil
 }
 
-func printIngressGatewaySummaryTable(w io.Writer, revisions map[string]*revisionDescription) error {
+func printIngressGatewaySummaryTable(w io.Writer, revisions map[string]*RevisionDescription) error {
 	fmt.Fprintf(w, "\nINGRESS GATEWAYS:\n")
 	tw := new(tabwriter.Writer).Init(w, 0, 8, 1, ' ', 0)
 	fmt.Fprintf(tw, "REVISION\tDECLARED-GATEWAYS\tGATEWAY-POD\n")
@@ -406,7 +406,7 @@ func printIngressGatewaySummaryTable(w io.Writer, revisions map[string]*revision
 }
 
 // TODO(su225): This is a copy paste of corresponding function of ingress. Refactor these parts!
-func printEgressGatewaySummaryTable(w io.Writer, revisions map[string]*revisionDescription) error {
+func printEgressGatewaySummaryTable(w io.Writer, revisions map[string]*RevisionDescription) error {
 	fmt.Fprintf(w, "\nEGRESS GATEWAYS:\n")
 	tw := new(tabwriter.Writer).Init(w, 0, 8, 1, ' ', 0)
 	fmt.Fprintf(tw, "REVISION\tDECLARED-GATEWAYS\tGATEWAY-POD\n")
@@ -443,7 +443,7 @@ func printEgressGatewaySummaryTable(w io.Writer, revisions map[string]*revisionD
 	return tw.Flush()
 }
 
-func printSummaryTable(writer io.Writer, verbose bool, revisions map[string]*revisionDescription) error {
+func printSummaryTable(writer io.Writer, verbose bool, revisions map[string]*RevisionDescription) error {
 	tw := new(tabwriter.Writer).Init(writer, 0, 8, 1, ' ', 0)
 	if verbose {
 		tw.Write([]byte("REVISION\tTAG\tISTIO-OPERATOR-CR\tPROFILE\tREQD-COMPONENTS\tCUSTOMIZATIONS\n"))
@@ -592,7 +592,7 @@ func printRevisionDescription(w io.Writer, args *revisionArgs, logger clog.Logge
 	}
 }
 
-func isNonExistentRevision(revDescription *revisionDescription) bool {
+func isNonExistentRevision(revDescription *RevisionDescription) bool {
 	return len(revDescription.IstioOperatorCRs) == 0 &&
 		len(revDescription.Webhooks) == 0 &&
 		len(revDescription.ControlPlanePods) == 0 &&
@@ -600,12 +600,12 @@ func isNonExistentRevision(revDescription *revisionDescription) bool {
 		len(revDescription.EgressGatewayPods) == 0
 }
 
-func enrichWithNamespaceAndPodInfo(revDescription *revisionDescription, revisionAliases []string) error {
+func enrichWithNamespaceAndPodInfo(revDescription *RevisionDescription, revisionAliases []string) error {
 	client, err := newKubeClient(kubeconfig, configContext)
 	if err != nil {
 		return fmt.Errorf("failed to create kubeclient: %v", err)
 	}
-	nsMap := make(map[string]*nsInfo)
+	nsMap := make(map[string]*NsInfo)
 	for _, ra := range revisionAliases {
 		pods, err := getPodsWithSelector(client, "", &meta_v1.LabelSelector{
 			MatchLabels: map[string]string{
@@ -619,9 +619,9 @@ func enrichWithNamespaceAndPodInfo(revDescription *revisionDescription, revision
 			fpo := getFilteredPodInfo(&po)
 			_, ok := nsMap[po.Namespace]
 			if !ok {
-				nsMap[po.Namespace] = &nsInfo{
+				nsMap[po.Namespace] = &NsInfo{
 					Name: po.Namespace,
-					Pods: []podFilteredInfo{fpo},
+					Pods: []PodFilteredInfo{fpo},
 				}
 			} else {
 				nsMap[po.Namespace].Pods = append(nsMap[po.Namespace].Pods, fpo)
@@ -632,7 +632,7 @@ func enrichWithNamespaceAndPodInfo(revDescription *revisionDescription, revision
 	return nil
 }
 
-func enrichWithGatewayInfo(revDescription *revisionDescription, client kube.ExtendedClient) error {
+func enrichWithGatewayInfo(revDescription *RevisionDescription, client kube.ExtendedClient) error {
 	ingressPods, err := getPodsForComponent(client, "IngressGateways")
 	if err != nil {
 		return fmt.Errorf("error while fetching ingress gateway pods: %v", err)
@@ -646,7 +646,7 @@ func enrichWithGatewayInfo(revDescription *revisionDescription, client kube.Exte
 	return nil
 }
 
-func enrichWithControlPlanePodInfo(revDescription *revisionDescription, client kube.ExtendedClient) error {
+func enrichWithControlPlanePodInfo(revDescription *RevisionDescription, client kube.ExtendedClient) error {
 	controlPlanePods, err := getPodsForComponent(client, "Pilot")
 	if err != nil {
 		return fmt.Errorf("error while fetching control plane pods: %v", err)
@@ -655,7 +655,7 @@ func enrichWithControlPlanePodInfo(revDescription *revisionDescription, client k
 	return nil
 }
 
-func enrichWithIOPCustomization(revDesc *revisionDescription, manifestsPath string, logger clog.Logger) error {
+func enrichWithIOPCustomization(revDesc *RevisionDescription, manifestsPath string, logger clog.Logger) error {
 	for _, cr := range revDesc.IstioOperatorCRs {
 		cust, err := getDiffs(cr.IOP, manifestsPath, cr.IOP.Spec.GetProfile(), logger)
 		if err != nil {
@@ -668,13 +668,13 @@ func enrichWithIOPCustomization(revDesc *revisionDescription, manifestsPath stri
 }
 
 func getBasicRevisionDescription(iopCRs []*iopv1alpha1.IstioOperator,
-	mutatingWebhooks []admit_v1.MutatingWebhookConfiguration) *revisionDescription {
-	revDescription := &revisionDescription{
-		IstioOperatorCRs: []istioOperatorCRInfo{},
-		Webhooks:         []mutatingWebhookConfigInfo{},
+	mutatingWebhooks []admit_v1.MutatingWebhookConfiguration) *RevisionDescription {
+	revDescription := &RevisionDescription{
+		IstioOperatorCRs: []IstioOperatorCRInfo{},
+		Webhooks:         []MutatingWebhookConfigInfo{},
 	}
 	for _, iop := range iopCRs {
-		revDescription.IstioOperatorCRs = append(revDescription.IstioOperatorCRs, istioOperatorCRInfo{
+		revDescription.IstioOperatorCRs = append(revDescription.IstioOperatorCRs, IstioOperatorCRInfo{
 			IOP:            iop,
 			Namespace:      iop.Namespace,
 			Name:           iop.Name,
@@ -684,7 +684,7 @@ func getBasicRevisionDescription(iopCRs []*iopv1alpha1.IstioOperator,
 		})
 	}
 	for _, mwh := range mutatingWebhooks {
-		revDescription.Webhooks = append(revDescription.Webhooks, mutatingWebhookConfigInfo{
+		revDescription.Webhooks = append(revDescription.Webhooks, MutatingWebhookConfigInfo{
 			Name:     mwh.Name,
 			Revision: renderWithDefault(mwh.Labels[label.IstioRev], "default"),
 			Tag:      mwh.Labels[istioTag],
@@ -712,16 +712,16 @@ func getWebhooksWithRevision(webhooks []admit_v1.MutatingWebhookConfiguration, r
 	return whFiltered
 }
 
-func transformToFilteredPodInfo(pods []v1.Pod) []podFilteredInfo {
-	pfilInfo := []podFilteredInfo{}
+func transformToFilteredPodInfo(pods []v1.Pod) []PodFilteredInfo {
+	pfilInfo := []PodFilteredInfo{}
 	for _, p := range pods {
 		pfilInfo = append(pfilInfo, getFilteredPodInfo(&p))
 	}
 	return pfilInfo
 }
 
-func getFilteredPodInfo(pod *v1.Pod) podFilteredInfo {
-	return podFilteredInfo{
+func getFilteredPodInfo(pod *v1.Pod) PodFilteredInfo {
+	return PodFilteredInfo{
 		Namespace: pod.Namespace,
 		Name:      pod.Name,
 		Address:   pod.Status.PodIP,
@@ -730,9 +730,9 @@ func getFilteredPodInfo(pod *v1.Pod) podFilteredInfo {
 	}
 }
 
-func printTable(w io.Writer, sections []string, desc *revisionDescription) error {
+func printTable(w io.Writer, sections []string, desc *RevisionDescription) error {
 	errs := &multierror.Error{}
-	tablePrintFuncs := map[string]func(io.Writer, *revisionDescription) error{
+	tablePrintFuncs := map[string]func(io.Writer, *RevisionDescription) error{
 		IstioOperatorCRSection: printIstioOperatorCRInfo,
 		WebhooksSection:        printWebhookInfo,
 		ControlPlaneSection:    printControlPlane,
@@ -753,7 +753,7 @@ func printTable(w io.Writer, sections []string, desc *revisionDescription) error
 	return errs.ErrorOrNil()
 }
 
-func printPodsInfo(w io.Writer, desc *revisionDescription) error {
+func printPodsInfo(w io.Writer, desc *RevisionDescription) error {
 	fmt.Fprintf(w, "\nPODS:\n")
 	if len(desc.NamespaceSummary) == 0 {
 		fmt.Fprintln(w, "No pods for this revision")
@@ -769,7 +769,7 @@ func printPodsInfo(w io.Writer, desc *revisionDescription) error {
 	return nil
 }
 
-func printIstioOperatorCRInfo(w io.Writer, desc *revisionDescription) error {
+func printIstioOperatorCRInfo(w io.Writer, desc *RevisionDescription) error {
 	fmt.Fprintf(w, "\nISTIO-OPERATOR CUSTOM RESOURCE: (%d)", len(desc.IstioOperatorCRs))
 	if len(desc.IstioOperatorCRs) == 0 {
 		if len(desc.Webhooks) > 0 {
@@ -804,7 +804,7 @@ func printIstioOperatorCRInfo(w io.Writer, desc *revisionDescription) error {
 	return nil
 }
 
-func printWebhookInfo(w io.Writer, desc *revisionDescription) error {
+func printWebhookInfo(w io.Writer, desc *RevisionDescription) error {
 	fmt.Fprintf(w, "\nMUTATING WEBHOOK CONFIGURATIONS: (%d)\n", len(desc.Webhooks))
 	if len(desc.Webhooks) == 0 {
 		fmt.Fprintln(w, "No mutating webhook found for this revision. Something could be wrong with installation")
@@ -818,7 +818,7 @@ func printWebhookInfo(w io.Writer, desc *revisionDescription) error {
 	return tw.Flush()
 }
 
-func printControlPlane(w io.Writer, desc *revisionDescription) error {
+func printControlPlane(w io.Writer, desc *RevisionDescription) error {
 	fmt.Fprintf(w, "\nCONTROL PLANE PODS (ISTIOD): (%d)\n", len(desc.ControlPlanePods))
 	if len(desc.ControlPlanePods) == 0 {
 		if len(desc.Webhooks) > 0 {
@@ -833,7 +833,7 @@ func printControlPlane(w io.Writer, desc *revisionDescription) error {
 	return printPodTable(w, desc.ControlPlanePods)
 }
 
-func printGateways(w io.Writer, desc *revisionDescription) error {
+func printGateways(w io.Writer, desc *RevisionDescription) error {
 	if err := printIngressGateways(w, desc); err != nil {
 		return fmt.Errorf("error while printing ingress-gateway info: %v", err)
 	}
@@ -843,7 +843,7 @@ func printGateways(w io.Writer, desc *revisionDescription) error {
 	return nil
 }
 
-func printIngressGateways(w io.Writer, desc *revisionDescription) error {
+func printIngressGateways(w io.Writer, desc *RevisionDescription) error {
 	fmt.Fprintf(w, "\nINGRESS GATEWAYS: (%d)\n", len(desc.IngressGatewayPods))
 	if len(desc.IngressGatewayPods) == 0 {
 		if isIngressGatewayEnabled(desc) {
@@ -861,7 +861,7 @@ func printIngressGateways(w io.Writer, desc *revisionDescription) error {
 	return printPodTable(w, desc.IngressGatewayPods)
 }
 
-func printEgressGateways(w io.Writer, desc *revisionDescription) error {
+func printEgressGateways(w io.Writer, desc *RevisionDescription) error {
 	fmt.Fprintf(w, "\nEGRESS GATEWAYS: (%d)\n", len(desc.IngressGatewayPods))
 	if len(desc.EgressGatewayPods) == 0 {
 		if isEgressGatewayEnabled(desc) {
@@ -886,15 +886,15 @@ const (
 	egress  istioGatewayType = "egress"
 )
 
-func isIngressGatewayEnabled(desc *revisionDescription) bool {
+func isIngressGatewayEnabled(desc *RevisionDescription) bool {
 	return isGatewayTypeEnabled(desc, ingress)
 }
 
-func isEgressGatewayEnabled(desc *revisionDescription) bool {
+func isEgressGatewayEnabled(desc *RevisionDescription) bool {
 	return isGatewayTypeEnabled(desc, egress)
 }
 
-func isGatewayTypeEnabled(desc *revisionDescription, gwType istioGatewayType) bool {
+func isGatewayTypeEnabled(desc *RevisionDescription, gwType istioGatewayType) bool {
 	for _, iopdesc := range desc.IstioOperatorCRs {
 		for _, comp := range iopdesc.Components {
 			if strings.HasPrefix(comp, gwType) {
@@ -918,7 +918,7 @@ func getIOPWithRevision(iops []*iopv1alpha1.IstioOperator, revision string) []*i
 	return filteredIOPs
 }
 
-func printPodTable(w io.Writer, pods []podFilteredInfo) error {
+func printPodTable(w io.Writer, pods []PodFilteredInfo) error {
 	podTableW := new(tabwriter.Writer).Init(w, 0, 0, 1, ' ', 0)
 	fmt.Fprintln(podTableW, "NAMESPACE\tNAME\tADDRESS\tSTATUS\tAGE")
 	for _, pod := range pods {
