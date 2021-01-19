@@ -415,5 +415,5 @@ var (
 	// Currently only minimal events are reported: the start of an istiod instance ( including startup time) and
 	// connect/disconnect events associated with Pods. This is intended to validate the infrastructure and provide
 	// basic information about pod connection status.
-	EnableEventing = env.RegisterBoolVar("K8S_EVENTS", true, "Enable reporting of k8s events")
+	EnableEventing = env.RegisterBoolVar("K8S_EVENTS", false, "Enable reporting of k8s events")
 )
