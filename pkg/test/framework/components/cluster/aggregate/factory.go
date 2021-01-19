@@ -88,7 +88,6 @@ func (a aggregateFactory) Build(allClusters cluster.Map) (resource.Clusters, err
 				continue
 			}
 			allClusters[c.Name()] = c
-			scopes.Framework.Infof(c.String())
 		}
 		clusters = append(clusters, built...)
 	}
@@ -98,7 +97,7 @@ func (a aggregateFactory) Build(allClusters cluster.Map) (resource.Clusters, err
 	}
 	for n, c := range allClusters {
 		scopes.Framework.Infof("Built Cluster: %s", n)
-		scopes.Framework.Infof(c.String())
+		scopes.Framework.Infof("\n" + c.String())
 	}
 	scopes.Framework.Infof("=== DONE: Building clusters ===")
 
