@@ -57,10 +57,6 @@ func setupConfig(ctx resource.Context, cfg *istio.Config) {
 		Prefix: "test-ns-ext-authz-service",
 		Inject: true,
 	})
-	jwtServerNamespace, jwtServerNamespaceErr = namespace.New(ctx, namespace.Config{
-		Prefix: "test-ns-jwt-server",
-		Inject: true,
-	})
 	var extAuthzNamespace string
 	if extAuthzServiceNamespaceErr == nil {
 		extAuthzNamespace = extAuthzServiceNamespace.Name()
