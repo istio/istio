@@ -900,9 +900,13 @@ func (ps *PushContext) InitContext(env *Environment, oldPushContext *PushContext
 	ps.IstioConfigStore = env.IstioConfigStore
 	ps.LedgerVersion = env.Version()
 	ps.Cleanup = func() {
-		err := env.GetLedger().EraseRootHash(ps.LedgerVersion)
-		if err != nil {
-			log.Errorf("unable to garbage collect old config version: %s", err)
+		l := env.GetLedger()
+		// many tests run this code with no ledger.  don't bother cleaning them up.
+		if l != nil {
+			err := env.GetLedger().EraseRootHash(ps.LedgerVersion)
+			if err != nil {
+				log.Errorf("unable to garbage collect old config version: %s", err)
+			}
 		}
 	}
 
