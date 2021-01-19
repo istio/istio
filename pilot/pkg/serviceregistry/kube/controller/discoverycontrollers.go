@@ -83,7 +83,20 @@ func (c *Controller) initDiscoveryNamespaceHandlers(
 		},
 		DeleteFunc: func(obj interface{}) {
 			incrementEvent(otype, "delete")
-			ns := obj.(*v1.Namespace)
+			ns, ok := obj.(*v1.Namespace)
+			if !ok {
+				if tombstone, ok := obj.(cache.DeletedFinalStateUnknown); ok {
+					if cast, ok := tombstone.Obj.(*v1.Namespace); ok {
+						ns = cast
+					} else {
+						log.Errorf("Failed to convert to tombstoned namespace object: %v", obj)
+						return
+					}
+				} else {
+					log.Errorf("Failed to convert to namespace object: %v", obj)
+					return
+				}
+			}
 			discoveryNamespacesFilter.NamespaceDeleted(ns.ObjectMeta)
 			// no need to invoke object handlers since objects within the namespace will trigger delete events
 		},
