@@ -1,0 +1,26 @@
+meshConfig:
+  defaultConfig:
+    proxyMetadata:
+      TRUST_DOMAIN: "${PROJECT_ID}.svc.id.goog"
+      GKE_CLUSTER_URL: "https://container.googleapis.com/v1/projects/${PROJECT_ID}/locations/${CLUSTER_LOCATION}/clusters/${CLUSTER_NAME}"
+      XDS_TOKEN_TYPE: "Istio"
+      OUTPUT_CERTS: /etc/istio/proxy
+      XDS_ROOT_CA: /etc/ssl/certs/ca-certificates.crt
+      CA_ROOT_CA: /etc/ssl/certs/ca-certificates.crt
+
+
+gateways:
+  istio-ingressgateway:
+    runAsRoot: true
+
+global:
+  meshID: "proj-${PROJECT_NUMBER}"
+  sds:
+    token:
+      aud: "${PROJECT_ID}.svc.id.goog"
+  multiCluster:
+    clusterName: "cn-${PROJECT_ID}-${CLUSTER_LOCATION}-${CLUSTER_NAME}"
+  caAddress: "meshca.googleapis.com:443"
+  pilotCertProvider: system
+
+revision: asm-managed

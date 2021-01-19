@@ -1,0 +1,49 @@
+revision: "${REVISION}"
+
+meshConfig:
+  rootNamespace: istio-system
+
+global:
+  multiCluster:
+    clusterName: DUMMY
+
+telemetry:
+  enabled: true
+  v2:
+    # For Null VM case now.
+    # This also enables metadata exchange.
+    enabled: true
+    metadataExchange:
+      # Indicates whether to enable WebAssembly runtime for metadata exchange filter.
+      wasmEnabled: true
+    # Indicate if prometheus stats filter is enabled or not
+    prometheus:
+      enabled: true
+      # Indicates whether to enable WebAssembly runtime for stats filter.
+      wasmEnabled: true
+      # overrides stats EnvoyFilter configuration.
+      configOverride:
+        gateway: {}
+        inboundSidecar: {}
+        outboundSidecar: {}
+    # stackdriver filter settings.
+    stackdriver:
+      enabled: false
+      logging: true
+      monitoring: true
+      topology: true
+      disableOutbound: false
+      #  configOverride parts give you the ability to override the low level configuration params passed to envoy filter.
+
+      configOverride: {}
+      #  e.g.
+      #  enable_mesh_edges_reporting: true
+      #  disable_server_access_logging: false
+      #  meshEdgesReportingDuration: 500s
+      #  disable_host_header_fallback: true
+    # Access Log Policy Filter Settings. This enables filtering of access logs from stackdriver.
+    accessLogPolicy:
+      enabled: true
+      # To reduce the number of successful logs, default log window duration is
+      # set to 12 hours.
+      logWindowDuration: "43200s"
