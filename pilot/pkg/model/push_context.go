@@ -182,27 +182,24 @@ type PushContext struct {
 	// envoy filters for each namespace including global config namespace
 	envoyFiltersByNamespace map[string][]*EnvoyFilterWrapper
 
-	// The following data is either a global index or used in the inbound path.
-	// Namespace specific views do not apply here.
+	// AuthnPolicies contains Authn policies by namespace.
+	AuthnPolicies *AuthenticationPolicies `json:"-"`
 
 	// AuthzPolicies stores the existing authorization policies in the cluster. Could be nil if there
 	// are no authorization policies in the cluster.
 	AuthzPolicies *AuthorizationPolicies `json:"-"`
 
+	// The following data is either a global index or used in the inbound path.
+	// Namespace specific views do not apply here.
+
 	// Mesh configuration for the mesh.
 	Mesh *meshconfig.MeshConfig `json:"-"`
-
-	// Networks configuration.
-	MeshNetworks *meshconfig.MeshNetworks `json:"-"`
 
 	// Discovery interface for listing services and instances.
 	ServiceDiscovery `json:"-"`
 
 	// Config interface for listing routing rules
 	IstioConfigStore `json:"-"`
-
-	// AuthnBetaPolicies contains (beta) Authn policies by namespace.
-	AuthnBetaPolicies *AuthenticationPolicies `json:"-"`
 
 	// PushVersion describes the push version this push context was computed for
 	PushVersion string
@@ -891,9 +888,8 @@ func (ps *PushContext) InitContext(env *Environment, oldPushContext *PushContext
 	}
 
 	ps.Mesh = env.Mesh()
-	ps.MeshNetworks = env.Networks()
-	ps.ServiceDiscovery = env
-	ps.IstioConfigStore = env
+	ps.ServiceDiscovery = env.ServiceDiscovery
+	ps.IstioConfigStore = env.IstioConfigStore
 	ps.LedgerVersion = env.Version()
 
 	// Must be initialized first
@@ -913,7 +909,7 @@ func (ps *PushContext) InitContext(env *Environment, oldPushContext *PushContext
 	}
 
 	// TODO: only do this when meshnetworks or gateway service changed
-	ps.initMeshNetworks()
+	ps.initMeshNetworks(env.Networks())
 
 	ps.initClusterLocalHosts(env)
 
@@ -1023,7 +1019,7 @@ func (ps *PushContext) updateContext(
 			return err
 		}
 	} else {
-		ps.AuthnBetaPolicies = oldPushContext.AuthnBetaPolicies
+		ps.AuthnPolicies = oldPushContext.AuthnPolicies
 	}
 
 	if authzChanged {
@@ -1159,12 +1155,9 @@ func (ps *PushContext) initServiceAccounts(env *Environment, services []*Service
 // Caches list of authentication policies
 func (ps *PushContext) initAuthnPolicies(env *Environment) error {
 	// Init beta policy.
-	var initBetaPolicyErro error
-	if ps.AuthnBetaPolicies, initBetaPolicyErro = initAuthenticationPolicies(env); initBetaPolicyErro != nil {
-		return initBetaPolicyErro
-	}
-
-	return nil
+	var err error
+	ps.AuthnPolicies, err = initAuthenticationPolicies(env)
+	return err
 }
 
 // Caches list of virtual services
@@ -1638,12 +1631,12 @@ func (ps *PushContext) mergeGateways(proxy *Proxy) *MergedGateway {
 }
 
 // pre computes gateways for each network
-func (ps *PushContext) initMeshNetworks() {
+func (ps *PushContext) initMeshNetworks(meshNetworks *meshconfig.MeshNetworks) {
 	ps.networkGateways = map[string][]*Gateway{}
 
 	// First, use addresses directly specified in meshNetworks
-	if ps.MeshNetworks != nil {
-		for network, networkConf := range ps.MeshNetworks.Networks {
+	if meshNetworks != nil {
+		for network, networkConf := range meshNetworks.Networks {
 			gws := networkConf.Gateways
 			for _, gw := range gws {
 				if gwIP := net.ParseIP(gw.GetAddress()); gwIP != nil {
@@ -1751,7 +1744,7 @@ func (ps *PushContext) BestEffortInferServiceMTLSMode(service *Service, port *Po
 
 	// 2. check mTLS settings from beta policy (i.e PeerAuthentication) at namespace / mesh level.
 	// If the mode is not unknown, use it.
-	if serviceMTLSMode := ps.AuthnBetaPolicies.GetNamespaceMutualTLSMode(service.Attributes.Namespace); serviceMTLSMode != MTLSUnknown {
+	if serviceMTLSMode := ps.AuthnPolicies.GetNamespaceMutualTLSMode(service.Attributes.Namespace); serviceMTLSMode != MTLSUnknown {
 		return serviceMTLSMode
 	}
 
