@@ -20,6 +20,7 @@ import (
 	"testing"
 
 	"istio.io/api/meta/v1alpha1"
+	"istio.io/istio/pkg/config"
 )
 
 var statusStillPropagating = v1alpha1.IstioStatus{
@@ -40,7 +41,7 @@ var statusStillPropagating = v1alpha1.IstioStatus{
 
 func TestReconcileStatuses(t *testing.T) {
 	type args struct {
-		current map[string]interface{}
+		current *config.Config
 		desired Progress
 	}
 	tests := []struct {
@@ -52,14 +53,14 @@ func TestReconcileStatuses(t *testing.T) {
 		{
 			name: "Don't Reconcile when other fields are the only diff",
 			args: args{
-				current: map[string]interface{}{"status": statusStillPropagating},
+				current: &config.Config{Status: statusStillPropagating},
 				desired: Progress{1, 2},
 			},
 			want: false,
 		}, {
 			name: "Simple Reconcile to true",
 			args: args{
-				current: map[string]interface{}{"status": statusStillPropagating},
+				current: &config.Config{Status: statusStillPropagating},
 				desired: Progress{1, 3},
 			},
 			want: true,
@@ -82,7 +83,7 @@ func TestReconcileStatuses(t *testing.T) {
 		}, {
 			name: "Simple Reconcile to false",
 			args: args{
-				current: map[string]interface{}{"status": statusStillPropagating},
+				current: &config.Config{Status: statusStillPropagating},
 				desired: Progress{2, 2},
 			},
 			want: true,
@@ -105,7 +106,7 @@ func TestReconcileStatuses(t *testing.T) {
 		}, {
 			name: "Graceful handling of random status",
 			args: args{
-				current: map[string]interface{}{"status": "random"},
+				current: &config.Config{Status: "random"},
 				desired: Progress{2, 2},
 			},
 			want: true,
@@ -122,7 +123,7 @@ func TestReconcileStatuses(t *testing.T) {
 		}, {
 			name: "Reconcile for message difference",
 			args: args{
-				current: map[string]interface{}{"status": statusStillPropagating},
+				current: &config.Config{Status: statusStillPropagating},
 				desired: Progress{2, 3},
 			},
 			want: true,
