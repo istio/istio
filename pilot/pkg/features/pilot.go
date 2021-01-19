@@ -410,8 +410,10 @@ var (
 		"If enabled, Envoy will be configured to prevent traffic directly the the inbound/outbound "+
 			"ports (15001/15006). This prevents traffic loops. This option will be removed, and considered always enabled, in 1.9.").Get()
 
-	// Currently only minimal events are reported: the start of an istiod instance ( and startup time) and
-	// connect/disconnect of Pods. This is intended to validate the infrastructure and provide basic information
-	// about pod connection status.
+	// EnableEventing will cause Istiod to generate K8S Events.
+	//
+	// Currently only minimal events are reported: the start of an istiod instance ( including startup time) and
+	// connect/disconnect events associated with Pods. This is intended to validate the infrastructure and provide
+	// basic information about pod connection status.
 	EnableEventing = env.RegisterBoolVar("K8S_EVENTS", true, "Enable reporting of k8s events")
 )
