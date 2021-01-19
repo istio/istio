@@ -15,13 +15,12 @@ package xds
 
 import (
 	"net"
-	"sync"
+	"os"
 
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/reflection"
 
-	configaggregate "istio.io/istio/pilot/pkg/config/aggregate"
 	"istio.io/istio/pilot/pkg/config/memory"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry"
@@ -61,10 +60,6 @@ type SimpleServer struct {
 	// syncCh is used for detecting if the stores have synced,
 	// which needs to happen before serving requests.
 	syncCh chan string
-
-	ConfigStoreCache model.ConfigStoreCache
-
-	m sync.RWMutex
 }
 
 // Creates an basic, functional discovery server, using the same code as Istiod, but
@@ -84,18 +79,11 @@ func NewXDS(stop chan struct{}) *SimpleServer {
 	env.Watcher = mesh.NewFixedWatcher(&mc)
 	env.PushContext.Mesh = env.Watcher.Mesh()
 
-	ds := NewDiscoveryServer(env, nil, "istiod")
+	ds := NewDiscoveryServer(env, nil, os.Getenv("HOSTNAME"))
 	ds.CachesSynced()
-
-	// Config will have a fixed format:
-	// - aggregate store
-	// - one primary (local) memory config
-	// Additional stores can be added dynamically - for example by push or reference from a server.
-	// This is used to implement and test XDS federation (which is not yet final).
 
 	// In-memory config store, controller and istioConfigStore
 	schemas := collections.Pilot
-
 	store := memory.Make(schemas)
 	s := &SimpleServer{
 		DiscoveryServer: ds,
@@ -124,20 +112,9 @@ func NewXDS(stop chan struct{}) *SimpleServer {
 		Controller:       sd.Controller,
 	})
 	env.ServiceDiscovery = serviceControllers
+	env.IstioConfigStore = model.MakeIstioStore(configController)
 
 	go configController.Run(stop)
-
-	// configStoreCache - with HasSync interface
-	aggregateConfigController, err := configaggregate.MakeCache([]model.ConfigStoreCache{
-		configController,
-	})
-	if err != nil {
-		log.Fatala("Creating aggregate config ", err)
-	}
-
-	// TODO: fix the mess of store interfaces - most are too generic for their own good.
-	s.ConfigStoreCache = aggregateConfigController
-	env.IstioConfigStore = model.MakeIstioStore(aggregateConfigController)
 
 	return s
 }
@@ -179,12 +156,6 @@ func (s *SimpleServer) NewProxy() *ProxyGen {
 	return &ProxyGen{
 		server: s,
 	}
-}
-
-func (p *ProxyGen) AddClient(adsc *adsc.ADSC) {
-	p.server.m.Lock()
-	p.adsc = adsc // TODO: list
-	p.server.m.Unlock()
 }
 
 func (p *ProxyGen) Close() {

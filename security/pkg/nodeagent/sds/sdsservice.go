@@ -18,6 +18,7 @@ package sds
 import (
 	"context"
 	"fmt"
+	"os"
 	"time"
 
 	"github.com/cenkalti/backoff"
@@ -34,6 +35,7 @@ import (
 	"istio.io/istio/pilot/pkg/util/sets"
 	"istio.io/istio/pilot/pkg/xds"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
+	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/security"
 	"istio.io/istio/security/pkg/nodeagent/cache"
@@ -49,22 +51,30 @@ var (
 	sdsServiceLog = log.RegisterScope("sds", "SDS service debugging", 0)
 )
 
-type sdsservice struct {
-	st security.SecretManager
+type sdsService struct {
+	secretManager security.SecretManager
 
 	XdsServer *xds.DiscoveryServer
 	stop      chan struct{}
 }
 
 // Assert we implement the generator interface
-var _ model.XdsResourceGenerator = &sdsservice{}
+var _ model.XdsResourceGenerator = &sdsService{}
 
 func NewXdsServer(stop chan struct{}, gen model.XdsResourceGenerator) *xds.DiscoveryServer {
-	s := xds.NewXDS(stop)
-	s.DiscoveryServer.Generators = map[string]model.XdsResourceGenerator{
+	env := &model.Environment{
+		PushContext: model.NewPushContext(),
+	}
+	mc := mesh.DefaultMeshConfig()
+	env.Watcher = mesh.NewFixedWatcher(&mc)
+	env.PushContext.Mesh = env.Watcher.Mesh()
+
+	ds := xds.NewDiscoveryServer(env, nil, os.Getenv("HOSTNAME"))
+	ds.CachesSynced()
+	ds.Generators = map[string]model.XdsResourceGenerator{
 		v3.SecretType: gen,
 	}
-	s.DiscoveryServer.ProxyNeedsPush = func(proxy *model.Proxy, req *model.PushRequest) bool {
+	ds.ProxyNeedsPush = func(proxy *model.Proxy, req *model.PushRequest) bool {
 		// Empty changes means "all"
 		if len(req.ConfigsUpdated) == 0 {
 			return true
@@ -86,19 +96,19 @@ func NewXdsServer(stop chan struct{}, gen model.XdsResourceGenerator) *xds.Disco
 		}
 		return found
 	}
-	s.DiscoveryServer.Start(stop)
-	return s.DiscoveryServer
+	ds.Start(stop)
+	return ds
 }
 
 // newSDSService creates Secret Discovery Service which implements envoy SDS API.
-func newSDSService(st security.SecretManager, options security.Options) *sdsservice {
-	if st == nil {
+func newSDSService(secretManager security.SecretManager, options security.Options) *sdsService {
+	if secretManager == nil {
 		return nil
 	}
 
-	ret := &sdsservice{
-		st:   st,
-		stop: make(chan struct{}),
+	ret := &sdsService{
+		secretManager: secretManager,
+		stop:          make(chan struct{}),
 	}
 	ret.XdsServer = NewXdsServer(ret.stop, ret)
 
@@ -113,7 +123,7 @@ func newSDSService(st security.SecretManager, options security.Options) *sdsserv
 	go func() {
 		b := backoff.NewExponentialBackOff()
 		for {
-			_, err := st.GenerateSecret(cache.WorkloadKeyCertResourceName)
+			_, err := secretManager.GenerateSecret(cache.WorkloadKeyCertResourceName)
 			if err == nil {
 				break
 			}
@@ -125,7 +135,7 @@ func newSDSService(st security.SecretManager, options security.Options) *sdsserv
 			}
 		}
 		for {
-			_, err := st.GenerateSecret(cache.RootCertReqResourceName)
+			_, err := secretManager.GenerateSecret(cache.RootCertReqResourceName)
 			if err == nil {
 				break
 			}
@@ -141,10 +151,10 @@ func newSDSService(st security.SecretManager, options security.Options) *sdsserv
 	return ret
 }
 
-func (s *sdsservice) generate(resourceNames []string) (model.Resources, error) {
+func (s *sdsService) generate(resourceNames []string) (model.Resources, error) {
 	resources := model.Resources{}
 	for _, resourceName := range resourceNames {
-		secret, err := s.st.GenerateSecret(resourceName)
+		secret, err := s.secretManager.GenerateSecret(resourceName)
 		if err != nil {
 			// Typically, in Istiod, we do not return an error for a failure to generate a resource
 			// However, here it makes sense, because we are generally streaming a single resource,
@@ -163,7 +173,7 @@ func (s *sdsservice) generate(resourceNames []string) (model.Resources, error) {
 
 // Generate implements the XDS Generator interface. This allows the XDS server to dispatch requests
 // for SecretTypeV3 to our server to generate the Envoy response.
-func (s *sdsservice) Generate(_ *model.Proxy, _ *model.PushContext, w *model.WatchedResource, updates *model.PushRequest) (model.Resources, error) {
+func (s *sdsService) Generate(_ *model.Proxy, _ *model.PushContext, w *model.WatchedResource, updates *model.PushRequest) (model.Resources, error) {
 	// updates.Full indicates we should do a complete push of all updated resources
 	// In practice, all pushes should be incremental (ie, if the `default` cert changes we won't push
 	// all file certs).
@@ -185,24 +195,24 @@ func (s *sdsservice) Generate(_ *model.Proxy, _ *model.PushContext, w *model.Wat
 }
 
 // register adds the SDS handle to the grpc server
-func (s *sdsservice) register(rpcs *grpc.Server) {
+func (s *sdsService) register(rpcs *grpc.Server) {
 	sds.RegisterSecretDiscoveryServiceServer(rpcs, s)
 }
 
 // StreamSecrets serves SDS discovery requests and SDS push requests
-func (s *sdsservice) StreamSecrets(stream sds.SecretDiscoveryService_StreamSecretsServer) error {
+func (s *sdsService) StreamSecrets(stream sds.SecretDiscoveryService_StreamSecretsServer) error {
 	return s.XdsServer.Stream(stream)
 }
 
-func (s *sdsservice) DeltaSecrets(stream sds.SecretDiscoveryService_DeltaSecretsServer) error {
+func (s *sdsService) DeltaSecrets(stream sds.SecretDiscoveryService_DeltaSecretsServer) error {
 	return status.Error(codes.Unimplemented, "DeltaSecrets not implemented")
 }
 
-func (s *sdsservice) FetchSecrets(ctx context.Context, discReq *discovery.DiscoveryRequest) (*discovery.DiscoveryResponse, error) {
+func (s *sdsService) FetchSecrets(ctx context.Context, discReq *discovery.DiscoveryRequest) (*discovery.DiscoveryResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "FetchSecrets not implemented")
 }
 
-func (s *sdsservice) Close() {
+func (s *sdsService) Close() {
 	close(s.stop)
 	s.XdsServer.Shutdown()
 }

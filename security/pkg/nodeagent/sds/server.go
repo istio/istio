@@ -33,7 +33,7 @@ const (
 
 // Server is the gPRC server that exposes SDS through UDS.
 type Server struct {
-	workloadSds *sdsservice
+	workloadSds *sdsService
 
 	grpcWorkloadListener net.Listener
 
