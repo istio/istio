@@ -144,6 +144,7 @@ var translationMap = map[config.GroupVersionKind]func(r runtime.Object) *config.
 			CreationTimestamp: obj.CreationTimestamp.Time,
             OwnerReferences:   obj.OwnerReferences,
             UID:               string(obj.UID),
+            Generation:        obj.Generation,
 		},
 			Spec:   &obj.Spec,
 			Status: &obj.Status,

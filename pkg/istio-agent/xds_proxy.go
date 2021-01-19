@@ -33,7 +33,6 @@ import (
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	"github.com/golang/protobuf/ptypes"
 	"go.uber.org/atomic"
-	"golang.org/x/oauth2"
 	google_rpc "google.golang.org/genproto/googleapis/rpc/status"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
@@ -478,29 +477,6 @@ func isExpectedGRPCError(err error) bool {
 		return true
 	}
 	return false
-}
-
-type fileTokenSource struct {
-	path string
-}
-
-var _ = oauth2.TokenSource(&fileTokenSource{})
-
-func (ts *fileTokenSource) Token() (*oauth2.Token, error) {
-	tokb, err := ioutil.ReadFile(ts.path)
-	if err != nil {
-		proxyLog.Errorf("failed to read token file %q: %v", ts.path, err)
-		return nil, fmt.Errorf("failed to read token file %q: %v", ts.path, err)
-	}
-	tok := strings.TrimSpace(string(tokb))
-	if len(tok) == 0 {
-		proxyLog.Errorf("read empty token from file %q", ts.path)
-		return nil, fmt.Errorf("read empty token from file %q", ts.path)
-	}
-
-	return &oauth2.Token{
-		AccessToken: tok,
-	}, nil
 }
 
 func (p *XdsProxy) initDownstreamServer() error {

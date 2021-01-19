@@ -112,7 +112,7 @@ func TestAuthenticate(t *testing.T) {
 			ctx := context.Background()
 			if tc.metadata != nil {
 				if tc.token != "" {
-					token := authenticate.BearerTokenPrefix + tc.token
+					token := security.BearerTokenPrefix + tc.token
 					tc.metadata.Append("authorization", token)
 				}
 				ctx = metadata.NewIncomingContext(ctx, tc.metadata)
@@ -170,8 +170,8 @@ func TestAuthenticate(t *testing.T) {
 				return
 			}
 
-			expectedCaller := &authenticate.Caller{
-				AuthSource: authenticate.AuthSourceIDToken,
+			expectedCaller := &security.Caller{
+				AuthSource: security.AuthSourceIDToken,
 				Identities: []string{tc.expectedID},
 			}
 

@@ -1,0 +1,11 @@
+apiVersion: release-notes/v2
+kind: feature
+area: istioctl
+issue:
+  - 29154
+
+releaseNotes:
+- |
+  **Added** `istioctl analyze` now informs if deprecated or alpha-level annotations are present.
+  (These checks can be disabled using `--suppress "IST0135=*"` and `--suppress "IST0136=*"`
+  respectively.)
