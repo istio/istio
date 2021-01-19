@@ -41,12 +41,6 @@ const (
 	authHeaderKey = "Authorization"
 )
 
-var (
-	// The jwtServerNamespace namespace is used to deploy the sample jwt server.
-	jwtServerNamespace    namespace.Instance
-	jwtServerNamespaceErr error
-)
-
 // TestRequestAuthentication tests beta authn policy for jwt.
 func TestRequestAuthentication(t *testing.T) {
 	payload1 := strings.Split(jwt.TokenIssuer1, ".")[1]
@@ -54,10 +48,7 @@ func TestRequestAuthentication(t *testing.T) {
 	framework.NewTest(t).
 		Features("security.authentication.jwt").
 		Run(func(ctx framework.TestContext) {
-			ns := namespace.NewOrFail(t, ctx, namespace.Config{
-				Prefix: "v1beta1-remotejwks",
-				Inject: true,
-			})
+			ns := apps.Namespace1
 			args := map[string]string{"Namespace": ns.Name()}
 			applyYAML := func(filename string, ns namespace.Instance) []string {
 				policy := tmpl.EvaluateAllOrFail(t, args, file.AsStringOrFail(t, filename))
@@ -65,17 +56,11 @@ func TestRequestAuthentication(t *testing.T) {
 				return policy
 			}
 
-			// Deploy and wait for the ext-authz server to be ready.
-			if jwtServerNamespace == nil {
-				ctx.Fatalf("Failed to create namespace for jwt-server server: %v", jwtServerNamespaceErr)
-			}
-			jwtServer := applyYAML("../../../samples/jwt-server/jwt-server.yaml", jwtServerNamespace)
+			jwtServer := applyYAML("../../../samples/jwt-server/jwt-server.yaml", ns)
 			defer ctx.Config().DeleteYAMLOrFail(t, jwtServerNamespace.Name(), jwtServer...)
-			if _, _, err := kube.WaitUntilServiceEndpointsAreReady(ctx.Clusters().Default(), jwtServerNamespace.Name(), "jwt-server"); err != nil {
+			if _, _, err := kube.WaitUntilServiceEndpointsAreReady(ctx.Clusters().Default(), ns.Name(), "jwt-server"); err != nil {
 				ctx.Fatalf("Wait for jwt-server server failed: %v", err)
 			}
-
-			ns = apps.Namespace1
 
 			// Apply the policy.
 			namespaceTmpl := map[string]string{
@@ -402,7 +387,7 @@ func TestRequestAuthentication_RemoteJwks(t *testing.T) {
 			ctx.Config().ApplyYAMLOrFail(t, ns.Name(), jwtPolicies...)
 			defer ctx.Config().DeleteYAMLOrFail(t, ns.Name(), jwtPolicies...)
 
-			// Deploy and wait for the ext-authz server to be ready.
+			// Deploy and wait for the jwt-server server to be ready.
 			if jwtServerNamespace == nil {
 				ctx.Fatalf("Failed to create namespace for jwt-server server: %v", jwtServerNamespaceErr)
 			}
