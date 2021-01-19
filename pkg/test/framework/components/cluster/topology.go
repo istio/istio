@@ -24,41 +24,25 @@ import (
 // allowing clusters to find each other for lookups of Primary, ConfigCluster, etc.
 type Map = map[string]resource.Cluster
 
-func NewTopology(
-	name string,
-	networkName string,
-	controlPlaneCluster string,
-	configCluster string,
-	clusters Map,
-) Topology {
-	return Topology{
-		name:                    name,
-		networkName:             networkName,
-		controlPlaneClusterName: controlPlaneCluster,
-		configClusterName:       configCluster,
-		clusters:                clusters,
-	}
-}
-
 // Topology gives information about the relationship between clusters.
 // Cluster implementations can embed this struct to include common functionality.
 type Topology struct {
-	name                    string
-	networkName             string
-	controlPlaneClusterName string
-	configClusterName       string
-	// clusters should contain all clusters in the context
-	clusters map[string]resource.Cluster
+	ClusterName             string
+	Network                 string
+	ControlPlaneClusterName string
+	ConfigClusterName       string
+	// AllClusters should contain all AllClusters in the context
+	AllClusters map[string]resource.Cluster
 }
 
 // NetworkName the cluster is on
 func (c Topology) NetworkName() string {
-	return c.networkName
+	return c.Network
 }
 
-// Name provides the name this cluster used by Istio.
+// Name provides the ClusterName this cluster used by Istio.
 func (c Topology) Name() string {
-	return c.name
+	return c.ClusterName
 }
 
 func (c Topology) IsPrimary() bool {
@@ -74,29 +58,29 @@ func (c Topology) IsRemote() bool {
 }
 
 func (c Topology) Primary() resource.Cluster {
-	cluster, ok := c.clusters[c.controlPlaneClusterName]
+	cluster, ok := c.AllClusters[c.ControlPlaneClusterName]
 	if !ok || cluster == nil {
-		panic(fmt.Errorf("cannot find %s, the primary cluster for %s", c.controlPlaneClusterName, c.Name()))
+		panic(fmt.Errorf("cannot find %s, the primary cluster for %s", c.ControlPlaneClusterName, c.Name()))
 	}
 	return cluster
 }
 
 func (c Topology) Config() resource.Cluster {
-	cluster, ok := c.clusters[c.configClusterName]
+	cluster, ok := c.AllClusters[c.ConfigClusterName]
 	if !ok || cluster == nil {
-		panic(fmt.Errorf("cannot find %s, the config cluster for %s", c.configClusterName, c.Name()))
+		panic(fmt.Errorf("cannot find %s, the config cluster for %s", c.ConfigClusterName, c.Name()))
 	}
 	return cluster
 }
 
 func (c Topology) WithPrimary(primaryClusterName string) Topology {
 	// TODO remove this, should only be provided by external config
-	c.controlPlaneClusterName = primaryClusterName
+	c.ControlPlaneClusterName = primaryClusterName
 	return c
 }
 
 func (c Topology) WithConfig(configClusterName string) Topology {
 	// TODO remove this, should only be provided by external config
-	c.configClusterName = configClusterName
+	c.ConfigClusterName = configClusterName
 	return c
 }

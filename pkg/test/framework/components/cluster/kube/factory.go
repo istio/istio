@@ -63,13 +63,13 @@ func (f factory) Build(allClusters cluster.Map) (resource.Clusters, error) {
 		clusters = append(clusters, &Cluster{
 			filename:       kubeconfigPath,
 			ExtendedClient: client,
-			Topology: cluster.NewTopology(
-				cfg.Name,
-				cfg.Network,
-				cfg.ControlPlaneClusterName,
-				cfg.ConfigClusterName,
-				allClusters,
-			),
+			Topology: cluster.Topology{
+				ClusterName:             cfg.Name,
+				Network:                 cfg.Network,
+				ControlPlaneClusterName: cfg.ControlPlaneClusterName,
+				ConfigClusterName:       cfg.ConfigClusterName,
+				AllClusters:             allClusters,
+			},
 		})
 	}
 
