@@ -126,7 +126,7 @@ func TestRequestAuthentication(t *testing.T) {
 							},
 							ExpectResponseCode: response.StatusCodeOK,
 							ExpectHeaders: map[string]string{
-								authHeaderKey:    "",
+								authHeaderKey:    "Bearer " + jwt.TokenExpired,
 								"X-Test-Payload": payload1,
 							},
 						},
