@@ -32,21 +32,21 @@ func NewTopology(
 	clusters Map,
 ) Topology {
 	return Topology{
-		name:                name,
-		networkName:         networkName,
-		controlPlaneCluster: controlPlaneCluster,
-		configCluster:       configCluster,
-		clusters:            clusters,
+		name:                    name,
+		networkName:             networkName,
+		controlPlaneClusterName: controlPlaneCluster,
+		configClusterName:       configCluster,
+		clusters:                clusters,
 	}
 }
 
 // Topology gives information about the relationship between clusters.
 // Cluster implementations can embed this struct to include common functionality.
 type Topology struct {
-	name                string
-	networkName         string
-	controlPlaneCluster string
-	configCluster       string
+	name                    string
+	networkName             string
+	controlPlaneClusterName string
+	configClusterName       string
 	// clusters should contain all clusters in the context
 	clusters map[string]resource.Cluster
 }
@@ -74,29 +74,29 @@ func (c Topology) IsRemote() bool {
 }
 
 func (c Topology) Primary() resource.Cluster {
-	cluster, ok := c.clusters[c.controlPlaneCluster]
+	cluster, ok := c.clusters[c.controlPlaneClusterName]
 	if !ok || cluster == nil {
-		panic(fmt.Errorf("cannot find %s, the primary cluster for %s", c.controlPlaneCluster, c.Name()))
+		panic(fmt.Errorf("cannot find %s, the primary cluster for %s", c.controlPlaneClusterName, c.Name()))
 	}
 	return cluster
 }
 
 func (c Topology) Config() resource.Cluster {
-	cluster, ok := c.clusters[c.configCluster]
+	cluster, ok := c.clusters[c.configClusterName]
 	if !ok || cluster == nil {
-		panic(fmt.Errorf("cannot find %s, the config cluster for %s", c.configCluster, c.Name()))
+		panic(fmt.Errorf("cannot find %s, the config cluster for %s", c.configClusterName, c.Name()))
 	}
 	return cluster
 }
 
 func (c Topology) WithPrimary(primaryClusterName string) Topology {
 	// TODO remove this, should only be provided by external config
-	c.controlPlaneCluster = primaryClusterName
+	c.controlPlaneClusterName = primaryClusterName
 	return c
 }
 
 func (c Topology) WithConfig(configClusterName string) Topology {
 	// TODO remove this, should only be provided by external config
-	c.configCluster = configClusterName
+	c.configClusterName = configClusterName
 	return c
 }
