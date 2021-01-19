@@ -87,8 +87,8 @@ func NewSelfSignedIstioCAOptions(
 	rootCertGracePeriodPercentile int, caCertTTL, rootCertCheckInterval, defaultCertTTL,
 	maxCertTTL time.Duration, org string, dualUse bool, namespace string,
 	client corev1.CoreV1Interface,
-	rootCertFile string, enableJitter bool, caRSAKeySize int) (caOpts *IstioCAOptions, err error) {
-	caOpts = &IstioCAOptions{
+	rootCertFile string, enableJitter bool, caRSAKeySize int) (*IstioCAOptions, error) {
+	caOpts := &IstioCAOptions{
 		CAType:         selfSignedCA,
 		DefaultCertTTL: defaultCertTTL,
 		MaxCertTTL:     maxCertTTL,
@@ -138,7 +138,7 @@ func NewSelfSignedIstioCAOptions(
 		secret := k8ssecret.BuildSecret("", CASecret, namespace, nil, nil, nil, pemCert, pemKey, istioCASecretType)
 		if _, err = client.Secrets(namespace).Create(context.TODO(), secret, metav1.CreateOptions{}); err == nil {
 			pkiCaLog.Infof("Using self-generated public key: %v", string(rootCerts))
-			return
+			return caOpts, nil
 		}
 		if err != nil && !apierrors.IsAlreadyExists(err) {
 			pkiCaLog.Errorf("Failed to write secret to CA (error: %s). Abort.", err)
@@ -166,8 +166,8 @@ func NewSelfSignedIstioCAOptions(
 
 // NewPluggedCertIstioCAOptions returns a new IstioCAOptions instance using given certificate.
 func NewPluggedCertIstioCAOptions(certChainFile, signingCertFile, signingKeyFile, rootCertFile, trustDomain string,
-	defaultCertTTL, maxCertTTL time.Duration, caRSAKeySize int) (caOpts *IstioCAOptions, err error) {
-	caOpts = &IstioCAOptions{
+	defaultCertTTL, maxCertTTL time.Duration, caRSAKeySize int) (*IstioCAOptions, error) {
+	caOpts := &IstioCAOptions{
 		CAType:         pluggedCertCA,
 		DefaultCertTTL: defaultCertTTL,
 		MaxCertTTL:     maxCertTTL,
