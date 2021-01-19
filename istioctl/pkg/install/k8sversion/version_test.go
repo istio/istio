@@ -22,25 +22,20 @@ import (
 )
 
 var (
-	version1_16 = &version.Info{
+	version1_18 = &version.Info{
 		Major:      "1",
-		Minor:      "16",
-		GitVersion: "1.16",
-	}
-	version1_17 = &version.Info{
-		Major:      "1",
-		Minor:      "17",
-		GitVersion: "1.17",
-	}
-	version1_8 = &version.Info{
-		Major:      "1",
-		Minor:      "8",
-		GitVersion: "1.8",
+		Minor:      "18",
+		GitVersion: "v1.18.5",
 	}
 	version1_19 = &version.Info{
 		Major:      "1",
 		Minor:      "19",
 		GitVersion: "v1.19.4",
+	}
+	version1_20 = &version.Info{
+		Major:      "1",
+		Minor:      "20",
+		GitVersion: "v1.20.2",
 	}
 	version1_19RC = &version.Info{
 		Major:      "1",
@@ -77,26 +72,20 @@ func TestExtractKubernetesVersion(t *testing.T) {
 		isValid  bool
 	}{
 		{
-			version:  version1_16,
-			expected: 16,
-			errMsg:   nil,
-			isValid:  true,
-		},
-		{
-			version:  version1_17,
-			expected: 17,
-			errMsg:   nil,
-			isValid:  true,
-		},
-		{
-			version:  version1_8,
-			expected: 8,
+			version:  version1_18,
+			expected: 18,
 			errMsg:   nil,
 			isValid:  true,
 		},
 		{
 			version:  version1_19,
 			expected: 19,
+			errMsg:   nil,
+			isValid:  true,
+		},
+		{
+			version:  version1_20,
+			expected: 20,
 			errMsg:   nil,
 			isValid:  true,
 		},
