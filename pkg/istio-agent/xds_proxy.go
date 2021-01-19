@@ -44,6 +44,7 @@ import (
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/cmd/pilot-agent/status/ready"
 	"istio.io/istio/pilot/pkg/dns"
+	"istio.io/istio/pilot/pkg/features"
 	nds "istio.io/istio/pilot/pkg/proto"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
 	"istio.io/istio/pkg/config/constants"
@@ -389,7 +390,14 @@ func (p *XdsProxy) handleUpstreamResponse(con *ProxyConnection) {
 					ResponseNonce: resp.Nonce,
 				}
 			case v3.ExtensionConfigurationType:
-				p.ecdsUpdateChan <- resp
+				if features.WasmRemoteLoadConversion {
+					// If Wasm remote load conversion feature is enabled, push ECDS update into
+					// conversion channel.
+					p.ecdsUpdateChan <- resp
+				} else {
+					// Otherwise, forward ECDS resource update directly to Envoy.
+					forwardToEnvoy(con, resp)
+				}
 			default:
 				forwardToEnvoy(con, resp)
 			}
