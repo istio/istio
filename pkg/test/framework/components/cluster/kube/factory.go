@@ -63,11 +63,11 @@ func (f factory) Build(allClusters cluster.Map) (resource.Clusters, error) {
 			filename:       kubeconfigPath,
 			ExtendedClient: client,
 			Topology: cluster.Topology{
-				ClusterName:             cfg.Name,
-				Network:                 cfg.Network,
-				ControlPlaneClusterName: cfg.ControlPlaneClusterName,
-				ConfigClusterName:       cfg.ConfigClusterName,
-				AllClusters:             allClusters,
+				ClusterName:        cfg.Name,
+				Network:            cfg.Network,
+				PrimaryClusterName: cfg.PrimaryClusterName,
+				ConfigClusterName:  cfg.ConfigClusterName,
+				AllClusters:        allClusters,
 			},
 		})
 	}

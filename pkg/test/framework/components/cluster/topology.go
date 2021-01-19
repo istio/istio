@@ -27,10 +27,10 @@ type Map = map[string]resource.Cluster
 // Topology gives information about the relationship between clusters.
 // Cluster implementations can embed this struct to include common functionality.
 type Topology struct {
-	ClusterName             string
-	Network                 string
-	ControlPlaneClusterName string
-	ConfigClusterName       string
+	ClusterName        string
+	Network            string
+	PrimaryClusterName string
+	ConfigClusterName  string
 	// AllClusters should contain all AllClusters in the context
 	AllClusters map[string]resource.Cluster
 }
@@ -58,9 +58,9 @@ func (c Topology) IsRemote() bool {
 }
 
 func (c Topology) Primary() resource.Cluster {
-	cluster, ok := c.AllClusters[c.ControlPlaneClusterName]
+	cluster, ok := c.AllClusters[c.PrimaryClusterName]
 	if !ok || cluster == nil {
-		panic(fmt.Errorf("cannot find %s, the primary cluster for %s", c.ControlPlaneClusterName, c.Name()))
+		panic(fmt.Errorf("cannot find %s, the primary cluster for %s", c.PrimaryClusterName, c.Name()))
 	}
 	return cluster
 }
@@ -75,7 +75,7 @@ func (c Topology) Config() resource.Cluster {
 
 func (c Topology) WithPrimary(primaryClusterName string) Topology {
 	// TODO remove this, should only be provided by external config
-	c.ControlPlaneClusterName = primaryClusterName
+	c.PrimaryClusterName = primaryClusterName
 	return c
 }
 

@@ -73,7 +73,7 @@ func (s *Settings) clusterConfigs() []cluster.Config {
 			Meta:    map[string]string{"kubeconfig": kc},
 		}
 		if idx, ok := s.ControlPlaneTopology[ci]; ok {
-			cfg.ControlPlaneClusterName = fmt.Sprintf("cluster-%d", idx)
+			cfg.PrimaryClusterName = fmt.Sprintf("cluster-%d", idx)
 		}
 		if idx, ok := s.ConfigTopology[ci]; ok {
 			cfg.ConfigClusterName = fmt.Sprintf("cluster-%d", idx)

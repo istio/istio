@@ -26,12 +26,12 @@ const (
 )
 
 type Config struct {
-	Kind                    Kind              `json:"kind,omitempty"`
-	Name                    string            `json:"ClusterName,omitempty"`
-	Network                 string            `json:"network,omitempty"`
-	ControlPlaneClusterName string            `json:"controlPlaneClusterName,omitempty"`
-	ConfigClusterName       string            `json:"configClusterName,omitempty"`
-	Meta                    map[string]string `json:"meta,omitempty"`
+	Kind               Kind              `json:"kind,omitempty"`
+	Name               string            `json:"ClusterName,omitempty"`
+	Network            string            `json:"network,omitempty"`
+	PrimaryClusterName string            `json:"primaryClusterName,omitempty"`
+	ConfigClusterName  string            `json:"configClusterName,omitempty"`
+	Meta               map[string]string `json:"meta,omitempty"`
 }
 
 type Factory interface {

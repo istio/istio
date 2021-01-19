@@ -117,8 +117,8 @@ func validConfig(cfg cluster.Config) (cluster.Config, error) {
 	if cfg.Kind == "" {
 		return cfg, fmt.Errorf("unspecified Kind for %s", cfg.Name)
 	}
-	if cfg.ControlPlaneClusterName == "" {
-		cfg.ControlPlaneClusterName = cfg.Name
+	if cfg.PrimaryClusterName == "" {
+		cfg.PrimaryClusterName = cfg.Name
 	}
 	if cfg.ConfigClusterName == "" {
 		cfg.ConfigClusterName = cfg.Name
