@@ -270,7 +270,7 @@ func (s *Server) initStatusController(args *PilotArgs, writeStatus bool) {
 		return nil
 	})
 	s.XDSServer.StatusReporter = s.statusReporter
-	if writeStatus {
+	if writeStatus && s.kubeRestConfig != nil {
 		s.addTerminatingStartFunc(func(stop <-chan struct{}) error {
 			controller := status.NewController(*s.kubeRestConfig, args.Namespace, s.RWConfigStore)
 			leaderelection.
