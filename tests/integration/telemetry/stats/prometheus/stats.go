@@ -327,8 +327,12 @@ func buildQuery(sourceCluster string) (sourceQuery, destinationQuery, appQuery s
 func buildOutOfMeshServerQuery(sourceCluster string) string {
 	ns := GetAppNamespace()
 	labels := map[string]string{
-		"request_protocol":               "http",
-		"response_code":                  "200",
+		"request_protocol": "http",
+		"response_code":    "200",
+		// For out of mesh server, client side metrics rely on endpoint resource metadata
+		// to fill in workload labels. To limit size of endpoint resource, we only populate
+		// workload name and namespace, canonical service name and version in endpoint metadata.
+		// Thus destination_app and destination_version labels are unknown.
 		"destination_app":                "unknown",
 		"destination_version":            "unknown",
 		"destination_service":            "server-no-sidecar." + ns.Name() + ".svc.cluster.local",
