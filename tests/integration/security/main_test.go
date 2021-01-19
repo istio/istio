@@ -34,13 +34,7 @@ var (
 func TestMain(m *testing.M) {
 	framework.
 		NewSuite(m).
-		Setup(istio.Setup(&ist, func(ctx resource.Context, cfg *istio.Config) {
-			cfg.ControlPlaneValues = `
-values:
-  pilot:
-    env:
-	  PILOT_JWT_ENABLE_REMOTE_JWKS: "true"`
-		})).
+		Setup(istio.Setup(&ist, setupConfig)).
 		Setup(func(ctx resource.Context) error {
 			return util.SetupApps(ctx, ist, apps, true)
 		}).
@@ -51,6 +45,12 @@ func setupConfig(ctx resource.Context, cfg *istio.Config) {
 	if cfg == nil {
 		return
 	}
+
+	cfg.ControlPlaneValues = `
+	values:
+	  pilot:
+		env:
+		  PILOT_JWT_ENABLE_REMOTE_JWKS: "true"`
 
 	// Create the namespace instance ahead of time so that it can be used in the mesh config.
 	extAuthzServiceNamespace, extAuthzServiceNamespaceErr = namespace.New(ctx, namespace.Config{
