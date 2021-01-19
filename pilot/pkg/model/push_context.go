@@ -209,6 +209,7 @@ type PushContext struct {
 
 	// cache gateways addresses for each network
 	// this is mainly used for kubernetes multi-cluster scenario
+	networksMu      sync.RWMutex
 	networkGateways map[string][]*Gateway
 
 	initDone        atomic.Bool
@@ -328,6 +329,8 @@ const (
 	DebugTrigger TriggerReason = "debug"
 	// Describes a push triggered for a Secret change
 	SecretTrigger TriggerReason = "secret"
+	// Describes a push triggered for Networks change
+	NetworksTrigger TriggerReason = "networks"
 )
 
 // Merge two update requests together
@@ -1632,6 +1635,8 @@ func (ps *PushContext) mergeGateways(proxy *Proxy) *MergedGateway {
 
 // pre computes gateways for each network
 func (ps *PushContext) initMeshNetworks(meshNetworks *meshconfig.MeshNetworks) {
+	ps.networksMu.Lock()
+	defer ps.networksMu.Unlock()
 	ps.networkGateways = map[string][]*Gateway{}
 
 	// First, use addresses directly specified in meshNetworks
@@ -1653,7 +1658,6 @@ func (ps *PushContext) initMeshNetworks(meshNetworks *meshconfig.MeshNetworks) {
 		// - the computed map from meshNetworks (triggered by reloadNetworkLookup, the ported logic from getGatewayAddresses)
 		ps.networkGateways[network] = append(ps.networkGateways[network], gateways...)
 	}
-
 }
 
 func (ps *PushContext) initClusterLocalHosts(e *Environment) {
@@ -1705,10 +1709,14 @@ func (ps *PushContext) initClusterLocalHosts(e *Environment) {
 }
 
 func (ps *PushContext) NetworkGateways() map[string][]*Gateway {
+	ps.networksMu.RLock()
+	defer ps.networksMu.RUnlock()
 	return ps.networkGateways
 }
 
 func (ps *PushContext) NetworkGatewaysByNetwork(network string) []*Gateway {
+	ps.networksMu.RLock()
+	defer ps.networksMu.RUnlock()
 	if ps.networkGateways != nil {
 		return ps.networkGateways[network]
 	}
