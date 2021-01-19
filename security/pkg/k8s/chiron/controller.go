@@ -90,7 +90,9 @@ type WebhookController struct {
 	scrtController cache.Controller
 	scrtStore      cache.Store
 	// The file path to the k8s CA certificate
-	k8sCaCertFile  string
+	k8sCaCertFile string
+	// The K8s Signer used to sign Webhook Controller certificates
+	k8sSigner      string
 	minGracePeriod time.Duration
 	certMutex      sync.RWMutex
 	// Length of the grace period for the certificate rotation.
@@ -102,7 +104,8 @@ type WebhookController struct {
 func NewWebhookController(gracePeriodRatio float32, minGracePeriod time.Duration,
 	core corev1.CoreV1Interface, admission admissionv1beta1.AdmissionregistrationV1beta1Interface,
 	certClient certclient.CertificatesV1Interface, k8sCaCertFile string,
-	secretNames, dnsNames, serviceNamespaces []string) (*WebhookController, error) {
+	secretNames, dnsNames, serviceNamespaces []string,
+	k8sSigner string) (*WebhookController, error) {
 	if gracePeriodRatio < 0 || gracePeriodRatio > 1 {
 		return nil, fmt.Errorf("grace period ratio %f should be within [0, 1]", gracePeriodRatio)
 	}
@@ -137,6 +140,7 @@ func NewWebhookController(gracePeriodRatio float32, minGracePeriod time.Duration
 		dnsNames:          dnsNames,
 		serviceNamespaces: serviceNamespaces,
 		certUtil:          certutil.NewCertUtil(int(gracePeriodRatio * 100)),
+		k8sSigner:         k8sSigner,
 	}
 
 	// read CA cert at the beginning of launching the controller.
@@ -211,7 +215,8 @@ func (wc *WebhookController) upsertSecret(secretName, dnsName, secretNamespace s
 	}
 
 	// Now we know the secret does not exist yet. So we create a new one.
-	chain, key, caCert, err := GenKeyCertK8sCA(wc.certClient.CertificateSigningRequests(), dnsName, secretName, secretNamespace, wc.k8sCaCertFile)
+	chain, key, caCert, err := GenKeyCertK8sCA(wc.certClient.CertificateSigningRequests(), dnsName,
+		secretName, secretNamespace, wc.k8sCaCertFile, wc.k8sSigner)
 	if err != nil {
 		log.Errorf("failed to generate key and certificate for secret %v in namespace %v (error %v)",
 			secretName, secretNamespace, err)
@@ -332,7 +337,8 @@ func (wc *WebhookController) refreshSecret(scrt *v1.Secret) error {
 		return fmt.Errorf("failed to find the service name for the secret (%v) to refresh", scrtName)
 	}
 
-	chain, key, caCert, err := GenKeyCertK8sCA(wc.certClient.CertificateSigningRequests(), dnsName, scrtName, namespace, wc.k8sCaCertFile)
+	chain, key, caCert, err := GenKeyCertK8sCA(wc.certClient.CertificateSigningRequests(), dnsName, scrtName,
+		namespace, wc.k8sCaCertFile, wc.k8sSigner)
 	if err != nil {
 		return err
 	}

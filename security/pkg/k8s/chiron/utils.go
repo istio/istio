@@ -31,6 +31,7 @@ import (
 	rand "k8s.io/apimachinery/pkg/util/rand"
 	certclient "k8s.io/client-go/kubernetes/typed/certificates/v1"
 
+	globalconstants "istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/spiffe"
 	"istio.io/istio/security/pkg/pki/util"
 	"istio.io/pkg/log"
@@ -75,7 +76,9 @@ func getRandomCsrName(secretName, namespace string) string {
 // 1. Generate a CSR
 // 2. Call SignCSRK8sCA to finish rest of the flow
 func GenKeyCertK8sCA(certClient certclient.CertificateSigningRequestInterface, dnsName,
-	secretName, secretNamespace, caFilePath string) ([]byte, []byte, []byte, error) {
+	secretName, secretNamespace, caFilePath string, k8sSigner string) ([]byte, []byte, []byte, error) {
+
+	var csrSpec *cert.CertificateSigningRequestSpec
 	// 1. Generate a CSR
 	options := util.CertOptions{
 		Host:       dnsName,
@@ -89,15 +92,30 @@ func GenKeyCertK8sCA(certClient certclient.CertificateSigningRequestInterface, d
 		return nil, nil, nil, err
 	}
 	csrName := getRandomCsrName(secretName, secretNamespace)
-	csrSpec := &cert.CertificateSigningRequestSpec{
-		Request: csrPEM,
-		Groups:  []string{"system:authenticated"},
-		Usages: []cert.KeyUsage{
-			cert.UsageDigitalSignature,
-			cert.UsageKeyEncipherment,
-			cert.UsageServerAuth,
-			cert.UsageClientAuth,
-		},
+
+	if k8sSigner == globalconstants.DefaultK8SSigner {
+		csrSpec = &cert.CertificateSigningRequestSpec{
+			Request: csrPEM,
+			Groups:  []string{"system:authenticated"},
+			Usages: []cert.KeyUsage{
+				cert.UsageDigitalSignature,
+				cert.UsageKeyEncipherment,
+				cert.UsageServerAuth,
+				cert.UsageClientAuth,
+			},
+		}
+	} else {
+		csrSpec = &cert.CertificateSigningRequestSpec{
+			SignerName: k8sSigner,
+			Request:    csrPEM,
+			Groups:     []string{"system:authenticated"},
+			Usages: []cert.KeyUsage{
+				cert.UsageDigitalSignature,
+				cert.UsageKeyEncipherment,
+				cert.UsageServerAuth,
+				cert.UsageClientAuth,
+			},
+		}
 	}
 
 	certChain, caCert, err := SignCSRK8s(certClient,

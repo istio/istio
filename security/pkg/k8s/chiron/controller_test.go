@@ -26,6 +26,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes/fake"
 
+	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/security/pkg/pki/ca"
 	"istio.io/istio/security/pkg/pki/util"
 )
@@ -136,7 +137,7 @@ func TestNewWebhookController(t *testing.T) {
 		client := fake.NewSimpleClientset()
 		_, err := NewWebhookController(tc.gracePeriodRatio, tc.minGracePeriod,
 			client.CoreV1(), client.AdmissionregistrationV1beta1(), client.CertificatesV1(),
-			tc.k8sCaCertFile, tc.secretNames, tc.dnsNames, tc.serviceNamespaces)
+			tc.k8sCaCertFile, tc.secretNames, tc.dnsNames, tc.serviceNamespaces, constants.DefaultK8SSigner)
 		if tc.shouldFail {
 			if err == nil {
 				t.Errorf("should have failed at NewWebhookController()")
@@ -188,7 +189,7 @@ func TestUpsertSecret(t *testing.T) {
 		certWatchTimeout = time.Millisecond
 		wc, err := NewWebhookController(tc.gracePeriodRatio, tc.minGracePeriod,
 			client.CoreV1(), client.AdmissionregistrationV1beta1(), client.CertificatesV1(),
-			tc.k8sCaCertFile, tc.secretNames, tc.dnsNames, tc.serviceNamespaces)
+			tc.k8sCaCertFile, tc.secretNames, tc.dnsNames, tc.serviceNamespaces, constants.DefaultK8SSigner)
 		if err != nil {
 			t.Errorf("failed at creating webhook controller: %v", err)
 			continue
@@ -242,7 +243,7 @@ func TestScrtDeleted(t *testing.T) {
 
 		wc, err := NewWebhookController(tc.gracePeriodRatio, tc.minGracePeriod,
 			client.CoreV1(), client.AdmissionregistrationV1beta1(), client.CertificatesV1(),
-			tc.k8sCaCertFile, tc.secretNames, tc.dnsNames, tc.serviceNamespaces)
+			tc.k8sCaCertFile, tc.secretNames, tc.dnsNames, tc.serviceNamespaces, constants.DefaultK8SSigner)
 		if err != nil {
 			t.Errorf("failed at creating webhook controller: %v", err)
 			continue
@@ -354,7 +355,7 @@ func TestScrtUpdated(t *testing.T) {
 
 		wc, err := NewWebhookController(tc.gracePeriodRatio, tc.minGracePeriod,
 			client.CoreV1(), client.AdmissionregistrationV1beta1(), client.CertificatesV1(),
-			tc.k8sCaCertFile, tc.secretNames, tc.dnsNames, tc.serviceNamespaces)
+			tc.k8sCaCertFile, tc.secretNames, tc.dnsNames, tc.serviceNamespaces, constants.DefaultK8SSigner)
 		if err != nil {
 			t.Errorf("failed at creating webhook controller: %v", err)
 			continue
@@ -448,7 +449,7 @@ func TestRefreshSecret(t *testing.T) {
 
 		wc, err := NewWebhookController(tc.gracePeriodRatio, tc.minGracePeriod,
 			client.CoreV1(), client.AdmissionregistrationV1beta1(), client.CertificatesV1(),
-			tc.k8sCaCertFile, tc.secretNames, tc.dnsNames, tc.serviceNamespaces)
+			tc.k8sCaCertFile, tc.secretNames, tc.dnsNames, tc.serviceNamespaces, constants.DefaultK8SSigner)
 
 		if err != nil {
 			t.Errorf("failed at creating webhook controller: %v", err)
@@ -518,7 +519,7 @@ func TestCleanUpCertGen(t *testing.T) {
 		client := fake.NewSimpleClientset()
 		wc, err := NewWebhookController(tc.gracePeriodRatio, tc.minGracePeriod,
 			client.CoreV1(), client.AdmissionregistrationV1beta1(), client.CertificatesV1(),
-			tc.k8sCaCertFile, tc.secretNames, tc.dnsNames, tc.serviceNamespaces)
+			tc.k8sCaCertFile, tc.secretNames, tc.dnsNames, tc.serviceNamespaces, constants.DefaultK8SSigner)
 		if err != nil {
 			t.Fatalf("failed at creating webhook controller: %v", err)
 		}
@@ -629,7 +630,7 @@ func TestIsWebhookSecret(t *testing.T) {
 		client := fake.NewSimpleClientset()
 		wc, err := NewWebhookController(tc.gracePeriodRatio, tc.minGracePeriod,
 			client.CoreV1(), client.AdmissionregistrationV1beta1(), client.CertificatesV1(),
-			tc.k8sCaCertFile, tc.secretNames, tc.dnsNames, tc.serviceNamespaces)
+			tc.k8sCaCertFile, tc.secretNames, tc.dnsNames, tc.serviceNamespaces, constants.DefaultK8SSigner)
 		if err != nil {
 			t.Fatalf("failed to create a webhook controller: %v", err)
 		}
@@ -672,7 +673,7 @@ func TestGetCACert(t *testing.T) {
 		// If the CA cert. is invalid, NewWebhookController will fail.
 		wc, err := NewWebhookController(tc.gracePeriodRatio, tc.minGracePeriod,
 			client.CoreV1(), client.AdmissionregistrationV1beta1(), client.CertificatesV1(),
-			tc.k8sCaCertFile, tc.secretNames, tc.dnsNames, tc.serviceNamespaces)
+			tc.k8sCaCertFile, tc.secretNames, tc.dnsNames, tc.serviceNamespaces, constants.DefaultK8SSigner)
 		if err != nil {
 			t.Fatalf("failed at creating webhook controller: %v", err)
 		}
@@ -731,7 +732,7 @@ func TestGetDNSName(t *testing.T) {
 		client := fake.NewSimpleClientset()
 		wc, err := NewWebhookController(tc.gracePeriodRatio, tc.minGracePeriod,
 			client.CoreV1(), client.AdmissionregistrationV1beta1(), client.CertificatesV1(),
-			tc.k8sCaCertFile, tc.secretNames, tc.dnsNames, serviceNamespaces)
+			tc.k8sCaCertFile, tc.secretNames, tc.dnsNames, serviceNamespaces, constants.DefaultK8SSigner)
 		if err != nil {
 			t.Errorf("failed to create a webhook controller: %v", err)
 		}

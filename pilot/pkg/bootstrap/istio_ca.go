@@ -137,7 +137,7 @@ var (
 			"ISTIOD_RA_ISTIO_API").Get()
 
 	// TODO: Likely to be removed and added to mesh config
-	k8sSigner = env.RegisterStringVar("K8S_SIGNER", "",
+	k8sSigner = env.RegisterStringVar("K8S_SIGNER", constants.DefaultK8SSigner,
 		"Kubernates CA Signer type. Valid from Kubernates 1.18").Get()
 )
 

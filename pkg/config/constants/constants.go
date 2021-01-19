@@ -128,4 +128,8 @@ const (
 
 	// TrustworthyJWTPath is the defaut 3P token to authenticate with third party services
 	TrustworthyJWTPath = "./var/run/secrets/tokens/istio-token"
+
+	// DefaultK8SSigner is default Signer used when getting certificates signed by Kubernetes CA
+	// Refer https://kubernetes.io/docs/reference/access-authn-authz/certificate-signing-requests/
+	DefaultK8SSigner = "kubernetes.io/legacy-unknown"
 )
