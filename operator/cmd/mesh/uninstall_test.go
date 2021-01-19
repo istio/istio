@@ -27,22 +27,7 @@ var (
 	logOpts = log.DefaultOptions()
 )
 
-func TestUninstallNonEmptyRevision(t *testing.T) {
-	t.Skip("https://github.com/istio/istio/issues/30182")
-	g := gomega.NewWithT(t)
-	args := []string{"--revision", "rev"}
-	uninstallCmd := UninstallCmd(logOpts)
-	uninstallCmd.SetArgs(args)
-	var out bytes.Buffer
-	uninstallCmd.SetOut(&out)
-	uninstallCmd.SetErr(&out)
-
-	err := uninstallCmd.Execute()
-	g.Expect(err).To(gomega.HaveOccurred())
-}
-
 func TestUninstallEmptyRevision(t *testing.T) {
-	t.Skip("https://github.com/istio/istio/issues/30182")
 	g := gomega.NewWithT(t)
 	args := []string{"--revision", ""}
 	uninstallCmd := UninstallCmd(logOpts)
@@ -55,22 +40,7 @@ func TestUninstallEmptyRevision(t *testing.T) {
 	g.Expect(err).To(gomega.MatchError("at least one of the --revision(or --set revision=<revision>), --filename or --purge flags must be set"))
 }
 
-func TestUninstallNonEmptyRevisionFromSetFlags(t *testing.T) {
-	t.Skip("https://github.com/istio/istio/issues/30182")
-	g := gomega.NewWithT(t)
-	args := []string{"--set", "revision=rev"}
-	uninstallCmd := UninstallCmd(logOpts)
-	uninstallCmd.SetArgs(args)
-	var out bytes.Buffer
-	uninstallCmd.SetOut(&out)
-	uninstallCmd.SetErr(&out)
-
-	err := uninstallCmd.Execute()
-	g.Expect(err).To(gomega.HaveOccurred())
-}
-
 func TestUninstallEmptyRevisionFromSetFlags(t *testing.T) {
-	t.Skip("https://github.com/istio/istio/issues/30182")
 	g := gomega.NewWithT(t)
 	args := []string{"--set", "revision="}
 	uninstallCmd := UninstallCmd(logOpts)
@@ -83,22 +53,8 @@ func TestUninstallEmptyRevisionFromSetFlags(t *testing.T) {
 	g.Expect(err).To(gomega.MatchError("at least one of the --revision(or --set revision=<revision>), --filename or --purge flags must be set"))
 }
 
-func TestUninstallEmptyRevisionAndPurge(t *testing.T) {
-	t.Skip("https://github.com/istio/istio/issues/30182")
-	g := gomega.NewWithT(t)
-	args := []string{"--revision", "", "--purge"}
-	uninstallCmd := UninstallCmd(logOpts)
-	uninstallCmd.SetArgs(args)
-	var out bytes.Buffer
-	uninstallCmd.SetOut(&out)
-	uninstallCmd.SetErr(&out)
-
-	err := uninstallCmd.Execute()
-	g.Expect(err).To(gomega.HaveOccurred())
-}
 
 func TestUninstallEmptyRevisionAndEmptyFile(t *testing.T) {
-	t.Skip("https://github.com/istio/istio/issues/30182")
 	g := gomega.NewWithT(t)
 	args := []string{"--revision", "", "-f", ""}
 	uninstallCmd := UninstallCmd(logOpts)
