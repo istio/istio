@@ -214,7 +214,7 @@ type PushContext struct {
 
 	initDone        atomic.Bool
 	initializeMutex sync.Mutex
-	Cleanup func()
+	Cleanup         func()
 }
 
 // Gateway is the gateway of a network
