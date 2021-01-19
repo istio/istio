@@ -16,8 +16,8 @@ package aggregate
 
 import (
 	"fmt"
+
 	"github.com/hashicorp/go-multierror"
-	"github.com/openshift/api/config"
 
 	"istio.io/istio/pkg/test/framework/components/cluster"
 	"istio.io/istio/pkg/test/framework/resource"
