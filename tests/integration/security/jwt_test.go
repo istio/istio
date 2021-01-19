@@ -54,7 +54,28 @@ func TestRequestAuthentication(t *testing.T) {
 	framework.NewTest(t).
 		Features("security.authentication.jwt").
 		Run(func(ctx framework.TestContext) {
-			ns := apps.Namespace1
+			ns := namespace.NewOrFail(t, ctx, namespace.Config{
+				Prefix: "v1beta1-remotejwks",
+				Inject: true,
+			})
+			args := map[string]string{"Namespace": ns.Name()}
+			applyYAML := func(filename string, ns namespace.Instance) []string {
+				policy := tmpl.EvaluateAllOrFail(t, args, file.AsStringOrFail(t, filename))
+				ctx.Config().ApplyYAMLOrFail(t, ns.Name(), policy...)
+				return policy
+			}
+
+			// Deploy and wait for the ext-authz server to be ready.
+			if jwtServerNamespace == nil {
+				ctx.Fatalf("Failed to create namespace for jwt-server server: %v", jwtServerNamespaceErr)
+			}
+			jwtServer := applyYAML("../../../samples/jwt-server/jwt-server.yaml", jwtServerNamespace)
+			defer ctx.Config().DeleteYAMLOrFail(t, jwtServerNamespace.Name(), jwtServer...)
+			if _, _, err := kube.WaitUntilServiceEndpointsAreReady(ctx.Clusters().Default(), jwtServerNamespace.Name(), "jwt-server"); err != nil {
+				ctx.Fatalf("Wait for jwt-server server failed: %v", err)
+			}
+
+			ns = apps.Namespace1
 
 			// Apply the policy.
 			namespaceTmpl := map[string]string{
