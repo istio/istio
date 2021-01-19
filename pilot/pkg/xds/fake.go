@@ -129,7 +129,7 @@ func NewFakeDiscoveryServer(t test.Failer, opts FakeOptions) *FakeDiscoveryServe
 		opts.NetworksWatcher.AddNetworksHandler(func() {
 			s.ConfigUpdate(&model.PushRequest{
 				Full:   true,
-				Reason: []model.TriggerReason{model.GlobalUpdate},
+				Reason: []model.TriggerReason{model.NetworksTrigger},
 			})
 		})
 	}
