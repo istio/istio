@@ -57,7 +57,7 @@ func TestRequestAuthentication(t *testing.T) {
 			}
 
 			jwtServer := applyYAML("../../../samples/jwt-server/jwt-server.yaml", ns)
-			defer ctx.Config().DeleteYAMLOrFail(t, jwtServerNamespace.Name(), jwtServer...)
+			defer ctx.Config().DeleteYAMLOrFail(t, ns.Name(), jwtServer...)
 			if _, _, err := kube.WaitUntilServiceEndpointsAreReady(ctx.Clusters().Default(), ns.Name(), "jwt-server"); err != nil {
 				ctx.Fatalf("Wait for jwt-server server failed: %v", err)
 			}
@@ -111,7 +111,7 @@ func TestRequestAuthentication(t *testing.T) {
 							},
 							ExpectResponseCode: response.StatusCodeOK,
 							ExpectHeaders: map[string]string{
-								authHeaderKey:    "Bearer " + jwt.TokenIssuer1,
+								authHeaderKey:    "",
 								"X-Test-Payload": payload1,
 							},
 						},
@@ -352,104 +352,6 @@ func TestRequestAuthentication(t *testing.T) {
 								DestClusters: fSet.Clusters(),
 							},
 							ExpectResponseCode: response.StatusCodeOK,
-						},
-					}
-					for _, c := range testCases {
-						ctx.NewSubTest(c.Name).Run(func(ctx framework.TestContext) {
-							retry.UntilSuccessOrFail(ctx, c.CheckAuthn,
-								retry.Delay(250*time.Millisecond), retry.Timeout(30*time.Second))
-						})
-					}
-				})
-			}
-		})
-}
-
-func TestRequestAuthentication_RemoteJwks(t *testing.T) {
-	payload1 := strings.Split(jwt.TokenIssuer1, ".")[1]
-	framework.NewTest(t).
-		Features("security.authentication.jwt").
-		Run(func(ctx framework.TestContext) {
-			ns := namespace.NewOrFail(t, ctx, namespace.Config{
-				Prefix: "v1beta1-remotejwks",
-				Inject: true,
-			})
-			args := map[string]string{"Namespace": ns.Name()}
-			applyYAML := func(filename string, ns namespace.Instance) []string {
-				policy := tmpl.EvaluateAllOrFail(t, args, file.AsStringOrFail(t, filename))
-				ctx.Config().ApplyYAMLOrFail(t, ns.Name(), policy...)
-				return policy
-			}
-
-			jwtPolicies := tmpl.EvaluateAllOrFail(t, args,
-				file.AsStringOrFail(t, "testdata/requestauthn/a-authn-remote-jwks.yaml.tmpl"),
-			)
-			ctx.Config().ApplyYAMLOrFail(t, ns.Name(), jwtPolicies...)
-			defer ctx.Config().DeleteYAMLOrFail(t, ns.Name(), jwtPolicies...)
-
-			// Deploy and wait for the jwt-server server to be ready.
-			if jwtServerNamespace == nil {
-				ctx.Fatalf("Failed to create namespace for jwt-server server: %v", jwtServerNamespaceErr)
-			}
-			jwtServer := applyYAML("../../../samples/jwt-server/jwt-server.yaml", jwtServerNamespace)
-			defer ctx.Config().DeleteYAMLOrFail(t, jwtServerNamespace.Name(), jwtServer...)
-			if _, _, err := kube.WaitUntilServiceEndpointsAreReady(ctx.Clusters().Default(), jwtServerNamespace.Name(), "jwt-server"); err != nil {
-				ctx.Fatalf("Wait for jwt-server server failed: %v", err)
-			}
-
-			bSet := apps.B.Match(echo.Namespace(apps.Namespace1.Name()))
-			cSet := apps.C.Match(echo.Namespace(apps.Namespace1.Name()))
-
-			callCount := 1
-			if ctx.Clusters().IsMulticluster() {
-				// so we can validate all clusters are hit
-				callCount = util.CallsPerCluster * len(ctx.Clusters())
-			}
-
-			for _, cluster := range ctx.Clusters() {
-				ctx.NewSubTest(fmt.Sprintf("From %s", cluster.Name())).Run(func(ctx framework.TestContext) {
-					a := apps.A.Match(echo.InCluster(cluster).And(echo.Namespace(apps.Namespace1.Name())))
-					testCases := []authn.TestCase{
-						{
-							Name: "valid-token-noauthz",
-							Request: connection.Checker{
-								From: a[0],
-								Options: echo.CallOptions{
-									Target:   cSet[0],
-									PortName: "http",
-									Scheme:   scheme.HTTP,
-									Headers: map[string][]string{
-										authHeaderKey: {"Bearer " + jwt.TokenIssuer1},
-									},
-									Count: callCount,
-								},
-								DestClusters: cSet.Clusters(),
-							},
-							ExpectResponseCode: response.StatusCodeOK,
-							ExpectHeaders: map[string]string{
-								authHeaderKey:    "",
-								"X-Test-Payload": payload1,
-							},
-						},
-						{
-							Name: "valid-token",
-							Request: connection.Checker{
-								From: a[0],
-								Options: echo.CallOptions{
-									Target:   bSet[0],
-									PortName: "http",
-									Scheme:   scheme.HTTP,
-									Headers: map[string][]string{
-										authHeaderKey: {"Bearer " + jwt.TokenIssuer1},
-									},
-									Count: callCount,
-								},
-								DestClusters: bSet.Clusters(),
-							},
-							ExpectResponseCode: response.StatusCodeOK,
-							ExpectHeaders: map[string]string{
-								authHeaderKey: "",
-							},
 						},
 					}
 					for _, c := range testCases {
