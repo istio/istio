@@ -529,3 +529,8 @@ include common/Makefile.common.mk
 # Target: ASM specific tests
 #-----------------------------------------------------------------------------
 include tests/integration/tests-asm.mk
+
+#-----------------------------------------------------------------------------
+# Target: Cloudrun
+#-----------------------------------------------------------------------------
+include tools/packaging/knative/Makefile

@@ -1,0 +1,30 @@
+# Mesh config overrides, located on ./etc/istio/config/mesh
+# Docker will use an env to override.
+
+enablePrometheusMerge: true
+trustDomain: ${TRUST_DOMAIN}
+trustDomainAliases:
+  - cluster.local
+
+configSources:
+  - address: k8s://
+  - address: fs:///var/lib/istio/config/data
+
+defaultConfig:
+  proxyMetadata:
+    # Use tokens instead of MTLS - this uses STS ( backup plan if proxy doesn't work)
+    #CALL_CREDENTIALS: "true"
+    ISTIO_META_PROXY_XDS_VIA_AGENT: "1"
+    XDS_ROOT_CA: /etc/ssl/certs/ca-certificates.crt
+    CA_ROOT_CA: /etc/ssl/certs/ca-certificates.crt
+    # Save the certs, for debugging. The token is already on file, so anyone with file access
+    # can get the certs anyways.
+    OUTPUT_CERTS: /etc/istio/proxy
+    XDS_HEADER_Cloud-Run-Enable-H2: "1"
+    # Redundant, agent needs to use the one from proxy config ( flag is also redundant)
+    TRUST_DOMAIN: ${TRUST_DOMAIN}
+
+    XDS_TOKEN_TYPE: ${XDS_TOKEN_TYPE}
+  meshId: proj-${PROJECT_NUMBER}
+  discoveryAddress: "${XDS_ADDR}"
+  tracing: {}
