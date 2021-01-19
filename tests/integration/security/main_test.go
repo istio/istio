@@ -34,7 +34,7 @@ var (
 func TestMain(m *testing.M) {
 	framework.
 		NewSuite(m).
-		Setup(istio.Setup(&i, func(ctx resource.Context, cfg *istio.Config) {
+		Setup(istio.Setup(&ist, func(ctx resource.Context, cfg *istio.Config) {
 			cfg.ControlPlaneValues = `
 values:
   pilot:
