@@ -498,6 +498,9 @@ func translateEnv(outPath string, value interface{}, cpSpecTree map[string]inter
 	if !ok {
 		return fmt.Errorf("expect env node type to be map[string]interface{} but got: %T", value)
 	}
+	if len(envMap) == 0 {
+		return nil
+	}
 	outEnv := make([]map[string]interface{}, len(envMap))
 	cnt := 0
 	for k, v := range envMap {
@@ -563,6 +566,9 @@ func (t *ReverseTranslator) translateK8sTree(valueTree map[string]interface{},
 			}
 
 		default:
+			if util.IsValueNilOrDefault(m) {
+				continue
+			}
 			output := util.ToYAMLPath(v.OutPath)
 			scope.Debugf("path has value in helm Value.yaml tree, mapping to output path %s", output)
 
