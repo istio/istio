@@ -195,27 +195,24 @@ func buildNameToServiceMapForHttpRoutes(push *model.PushContext,
 		if _, exist := nameToServiceMap[hostname]; exist {
 			return
 		}
-		// First, we obtain the service from the namespace of virtualService
+		// First, we obtain the service which has the same namespace as virtualService
 		if s, exist := push.ServiceIndex.HostnameAndNamespace[hostname][virtualService.Namespace]; exist {
 			nameToServiceMap[hostname] = s
 		} else {
-			// We fallback to get service based on hostname directly.
+			// Didn't find match for our namespace, pick an arbitrary one.
+			// We just get service based on hostname directly.
 			nameToServiceMap[hostname] = push.ServiceIndex.Hostname[hostname]
 		}
 	}
 
 	for _, httpRoute := range vs.Http {
 		if httpRoute.GetMirror() != nil {
-			hostname := host.Name(httpRoute.GetMirror().GetHost())
-			addService(hostname)
+			addService(host.Name(httpRoute.GetMirror().GetHost()))
 		}
 
-		if len(httpRoute.GetRoute()) > 0 {
-			for _, route := range httpRoute.GetRoute() {
-				if route.GetDestination() != nil {
-					hostname := host.Name(route.GetDestination().GetHost())
-					addService(hostname)
-				}
+		for _, route := range httpRoute.GetRoute() {
+			if route.GetDestination() != nil {
+				addService(host.Name(route.GetDestination().GetHost()))
 			}
 		}
 	}
@@ -295,7 +292,7 @@ func (configgen *ConfigGeneratorImpl) buildGatewayHTTPRouteConfig(node *model.Pr
 				continue
 			}
 
-			// Make sure we can obtain services which is located the same namespace with virtualService as much as possible.
+			// Make sure we can obtain services which are visible to this virtualService as much as possible.
 			nameToServiceMap := buildNameToServiceMapForHttpRoutes(push, virtualService)
 
 			var routes []*route.Route
