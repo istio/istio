@@ -105,11 +105,6 @@ func (a aggregateFactory) Build(allClusters cluster.Map) (resource.Clusters, err
 	return clusters, errs
 }
 
-func maybeCreateFactory(factories map[cluster.Kind]cluster.Factory, config cluster.Config) error {
-
-	return nil
-}
-
 func validConfig(cfg cluster.Config) (cluster.Config, error) {
 	if cfg.Name == "" {
 		return cfg, fmt.Errorf("empty cluster name")
