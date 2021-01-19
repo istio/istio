@@ -27,9 +27,8 @@ import (
 
 const kubeconfigMetaKey = "kubeconfig"
 
-// NewFactory creates a new kube Cluster factory.
-func NewFactory() cluster.Factory {
-	return factory{}
+func init() {
+	cluster.RegisterFactory(factory{})
 }
 
 type factory struct {

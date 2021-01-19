@@ -17,9 +17,9 @@ package aggregate
 import (
 	"fmt"
 	"github.com/hashicorp/go-multierror"
+	"github.com/openshift/api/config"
 
 	"istio.io/istio/pkg/test/framework/components/cluster"
-	"istio.io/istio/pkg/test/framework/components/cluster/kube"
 	"istio.io/istio/pkg/test/framework/resource"
 	"istio.io/istio/pkg/test/scopes"
 )
@@ -61,12 +61,16 @@ func (a aggregateFactory) Build(allClusters cluster.Map) (resource.Clusters, err
 			errs = multierror.Append(errs, err)
 			continue
 		}
-		err = maybeCreateFactory(factories, cfg)
-		if err != nil {
-			errs = multierror.Append(errs, err)
-			continue
+		f, ok := factories[cfg.Kind]
+		if !ok {
+			// no factory of this type yet, initialize it
+			f, err = cluster.GetFactory(cfg.Kind)
+			if err != nil {
+				errs = multierror.Append(errs, err)
+				continue
+			}
 		}
-		factories[cfg.Kind] = factories[cfg.Kind].With(cfg)
+		factories[cfg.Kind] = f.With(cfg)
 	}
 
 	// initialize the clusters
@@ -101,18 +105,8 @@ func (a aggregateFactory) Build(allClusters cluster.Map) (resource.Clusters, err
 	return clusters, errs
 }
 
-// maybeCreateFactory initializes concrete factory implementations.
-// If the given Kind is unsupported we err during the build step to allow collecting
-// as much validation info as possible.
 func maybeCreateFactory(factories map[cluster.Kind]cluster.Factory, config cluster.Config) error {
-	switch config.Kind {
-	case cluster.Kubernetes:
-		if factories[cluster.Kubernetes] == nil {
-			factories[cluster.Kubernetes] = kube.NewFactory()
-		}
-	default:
-		return fmt.Errorf("unsupported cluster kind: %q", config.Kind)
-	}
+
 	return nil
 }
 
