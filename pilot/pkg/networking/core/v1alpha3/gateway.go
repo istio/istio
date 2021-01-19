@@ -185,6 +185,44 @@ func (configgen *ConfigGeneratorImpl) buildGatewayListeners(builder *ListenerBui
 	return builder
 }
 
+func buildNameToServiceMapForHttpRoutes(push *model.PushContext,
+	virtualService config.Config) map[host.Name]*model.Service {
+
+	vs := virtualService.Spec.(*networking.VirtualService)
+	nameToServiceMap := map[host.Name]*model.Service{}
+
+	addService := func(hostname host.Name) {
+		if _, exist := nameToServiceMap[hostname]; exist {
+			return
+		}
+		// First, we obtain the service from the namespace of virtualService
+		if s, exist := push.ServiceIndex.HostnameAndNamespace[hostname][virtualService.Namespace]; exist {
+			nameToServiceMap[hostname] = s
+		} else {
+			// We fallback to get service based on hostname directly.
+			nameToServiceMap[hostname] = push.ServiceIndex.Hostname[hostname]
+		}
+	}
+
+	for _, httpRoute := range vs.Http {
+		if httpRoute.GetMirror() != nil {
+			hostname := host.Name(httpRoute.GetMirror().GetHost())
+			addService(hostname)
+		}
+
+		if len(httpRoute.GetRoute()) > 0 {
+			for _, route := range httpRoute.GetRoute() {
+				if route.GetDestination() != nil {
+					hostname := host.Name(route.GetDestination().GetHost())
+					addService(hostname)
+				}
+			}
+		}
+	}
+
+	return nameToServiceMap
+}
+
 func (configgen *ConfigGeneratorImpl) buildGatewayHTTPRouteConfig(node *model.Proxy, push *model.PushContext,
 	routeName string) *route.RouteConfiguration {
 
@@ -207,8 +245,6 @@ func (configgen *ConfigGeneratorImpl) buildGatewayHTTPRouteConfig(node *model.Pr
 
 	servers := merged.ServersByRouteName[routeName]
 	port := int(servers[0].Port.Number) // all these servers are for the same routeName, and therefore same port
-
-	nameToServiceMap := push.ServiceIndex.Hostname
 
 	gatewayRoutes := make(map[string]map[string][]*route.Route)
 	gatewayVirtualServices := make(map[string][]config.Config)
@@ -258,6 +294,9 @@ func (configgen *ConfigGeneratorImpl) buildGatewayHTTPRouteConfig(node *model.Pr
 			if len(intersectingHosts) == 0 {
 				continue
 			}
+
+			// Make sure we can obtain services which is located the same namespace with virtualService as much as possible.
+			nameToServiceMap := buildNameToServiceMapForHttpRoutes(push, virtualService)
 
 			var routes []*route.Route
 			var exists bool
