@@ -817,7 +817,8 @@ func (s *Server) initRegistryEventHandlers() {
 						return
 					}
 				} else if onlyStatusUpdated(old, curr) {
-					log.Debugf("skipping push for %v %v\n", old, curr)
+					log.Debugf("skipping push for %v/%v, due to no change in spec or labels\n",
+						old.Namespace, old.Name)
 					return
 				}
 			}

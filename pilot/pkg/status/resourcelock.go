@@ -89,7 +89,7 @@ func (wq *WorkQueue) Push(target Resource, progress Progress) {
 func (wq *WorkQueue) Pop(exclusion map[lockResource]struct{}) (target *Resource, progress *Progress) {
 	wq.lock.Lock()
 	defer wq.lock.Unlock()
-	for i := len(wq.tasks) - 1; i >= 0; i-- {
+	for i := 0; i < len(wq.tasks); i++ {
 		if _, ok := exclusion[wq.tasks[i]]; !ok {
 			// remove from tasks
 			t, ok := wq.cache[wq.tasks[i]]
