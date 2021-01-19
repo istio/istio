@@ -16,7 +16,6 @@ package aggregate
 
 import (
 	"fmt"
-
 	"github.com/hashicorp/go-multierror"
 
 	"istio.io/istio/pkg/test"
@@ -33,67 +32,60 @@ type Factory interface {
 	BuildOrFail(f test.Failer) resource.Clusters
 }
 
-var _ Factory = &aggregateFactory{}
+var _ Factory = aggregateFactory{}
 
 func NewFactory() Factory {
-	return &aggregateFactory{
-		factories:   make(map[cluster.Kind]cluster.Factory),
-		allClusters: map[string]resource.Cluster{},
-	}
+	return aggregateFactory{}
 }
 
 type aggregateFactory struct {
-	allClusters map[string]resource.Cluster
-	configs     []cluster.Config
-	factories   map[cluster.Kind]cluster.Factory
+	configs []cluster.Config
 }
 
-func (a *aggregateFactory) Kind() cluster.Kind {
+func (a aggregateFactory) Kind() cluster.Kind {
 	return cluster.Aggregate
 }
 
-func (a *aggregateFactory) With(configs ...cluster.Config) cluster.Factory {
-	a.configs = append(a.configs, configs...)
-	for _, config := range a.configs {
-		a.maybeCreateFactory(config)
-	}
-	return a
+func (a aggregateFactory) With(configs ...cluster.Config) cluster.Factory {
+	return aggregateFactory{configs: append(a.configs, configs...)}
 }
 
-func (a *aggregateFactory) Build() (resource.Clusters, error) {
+func (a aggregateFactory) Build(allClusters cluster.Map) (resource.Clusters, error) {
 	scopes.Framework.Infof("=== BEGIN: Building clusters ===")
+
+	factories := make(map[cluster.Kind]cluster.Factory)
 
 	var errs error
 	// distribute configs to their factories
-	for i, origCfg := range a.configs {
+	for _, origCfg := range a.configs {
 		cfg, err := validConfig(origCfg)
 		if err != nil {
 			errs = multierror.Append(errs, err)
 			continue
 		}
-		factory, ok := a.factories[origCfg.Kind]
-		if !ok {
-			errs = multierror.Append(errs, fmt.Errorf("invalid kind for %s (item %d): %s", cfg.Name, i, cfg.Kind))
+		err = maybeCreateFactory(factories, cfg)
+		if err != nil {
+			errs = multierror.Append(errs, err)
 			continue
 		}
-		factory.With(cfg)
+		factories[cfg.Kind] = factories[cfg.Kind].With(cfg)
 	}
 
 	// initialize the clusters
 	var clusters resource.Clusters
-	for kind, factory := range a.factories {
+	for kind, factory := range factories {
 		scopes.Framework.Infof("Building %s clusters", kind)
-		built, err := factory.Build()
+		built, err := factory.Build(allClusters)
 		if err != nil {
 			errs = multierror.Append(errs, err)
 			continue
 		}
 		for _, c := range built {
-			if _, ok := a.allClusters[c.Name()]; ok {
+			if _, ok := allClusters[c.Name()]; ok {
 				errs = multierror.Append(errs, fmt.Errorf("duplicate cluster name: %s", c.Name()))
 				continue
 			}
-			a.allClusters[c.Name()] = c
+			allClusters[c.Name()] = c
 			scopes.Framework.Infof(c.String())
 		}
 		clusters = append(clusters, built...)
@@ -102,7 +94,7 @@ func (a *aggregateFactory) Build() (resource.Clusters, error) {
 		scopes.Framework.Infof("=== FAILED: Building clusters ===")
 		return nil, errs
 	}
-	for n, c := range a.allClusters {
+	for n, c := range allClusters {
 		scopes.Framework.Infof("Built Cluster: %s", n)
 		scopes.Framework.Infof(c.String())
 	}
@@ -111,12 +103,27 @@ func (a *aggregateFactory) Build() (resource.Clusters, error) {
 	return clusters, errs
 }
 
-func (a *aggregateFactory) BuildOrFail(t test.Failer) resource.Clusters {
-	out, err := a.Build()
+func (a aggregateFactory) BuildOrFail(t test.Failer) resource.Clusters {
+	out, err := a.Build(map[string]resource.Cluster{})
 	if err != nil {
 		t.Fatal(err)
 	}
 	return out
+}
+
+// maybeCreateFactory initializes concrete factory implementations.
+// If the given Kind is unsupported we err during the build step to allow collecting
+// as much validation info as possible.
+func maybeCreateFactory(factories map[cluster.Kind]cluster.Factory, config cluster.Config) error {
+	switch config.Kind {
+	case cluster.Kubernetes:
+		if factories[cluster.Kubernetes] == nil {
+			factories[cluster.Kubernetes] = kube.NewFactory()
+		}
+	default:
+		return fmt.Errorf("unsupported cluster kind: %q", config.Kind)
+	}
+	return nil
 }
 
 func validConfig(cfg cluster.Config) (cluster.Config, error) {
@@ -133,16 +140,4 @@ func validConfig(cfg cluster.Config) (cluster.Config, error) {
 		cfg.ConfigClusterName = cfg.Name
 	}
 	return cfg, nil
-}
-
-// maybeCreateFactory initializes concrete factory implementations.
-// If the given Kind is unsupported we err during the build step to allow collecting
-// as much validation info as possible.
-func (a *aggregateFactory) maybeCreateFactory(config cluster.Config) {
-	switch config.Kind {
-	case cluster.Kubernetes:
-		if a.factories[cluster.Kubernetes] == nil {
-			a.factories[cluster.Kubernetes] = kube.NewFactory(a.allClusters)
-		}
-	}
 }

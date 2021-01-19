@@ -20,12 +20,16 @@ import (
 	"istio.io/istio/pkg/test/framework/resource"
 )
 
+// Map can be given as a shared reference to multiple Topology/Cluster implemetations
+// allowing clusters to find each other for lookups of Primary, ConfigCluster, etc.
+type Map = map[string]resource.Cluster
+
 func NewTopology(
 	name string,
 	networkName string,
 	controlPlaneCluster string,
 	configCluster string,
-	clusters map[string]resource.Cluster,
+	clusters Map,
 ) Topology {
 	return Topology{
 		name:                name,

@@ -27,12 +27,13 @@ var _ resource.Cluster = &Cluster{}
 
 // Cluster for a Kubernetes cluster. Provides access via a kube.Client.
 type Cluster struct {
+	// filename is the path to the kubeconfig file for this cluster.
 	filename string
 
 	// ExtendedClient is embedded to interact with the kube cluster.
 	kube.ExtendedClient
 
-	// Topology is embedded for test framework functionality.
+	// Topology is embedded to include common functionality.
 	cluster.Topology
 }
 

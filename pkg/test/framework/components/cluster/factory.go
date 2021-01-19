@@ -37,5 +37,5 @@ type Config struct {
 type Factory interface {
 	Kind() Kind
 	With(config ...Config) Factory
-	Build() (resource.Clusters, error)
+	Build(Map) (resource.Clusters, error)
 }

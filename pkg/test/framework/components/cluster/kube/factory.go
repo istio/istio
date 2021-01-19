@@ -25,27 +25,26 @@ import (
 	"istio.io/istio/pkg/test/framework/resource"
 )
 
-// NewFactory creates a new kube Cluster factory, using a slice-pointer that will be filled
-// with every possibly-related cluster, to allow checking topology info (network, primary, config).
-func NewFactory(allClusters map[string]resource.Cluster) cluster.Factory {
-	return &factory{allClusters: allClusters}
+const kubeconfigMetaKey = "kubeconfig"
+
+// NewFactory creates a new kube Cluster factory.
+func NewFactory() cluster.Factory {
+	return factory{}
 }
 
 type factory struct {
-	allClusters map[string]resource.Cluster
-	configs     []cluster.Config
+	configs []cluster.Config
 }
 
-func (f *factory) Kind() cluster.Kind {
+func (f factory) Kind() cluster.Kind {
 	return cluster.Kubernetes
 }
 
-func (f *factory) With(configs ...cluster.Config) cluster.Factory {
-	f.configs = append(f.configs, configs...)
-	return f
+func (f factory) With(configs ...cluster.Config) cluster.Factory {
+	return factory{configs: append(f.configs, configs...)}
 }
 
-func (f *factory) Build() (resource.Clusters, error) {
+func (f factory) Build(allClusters cluster.Map) (resource.Clusters, error) {
 	var errs error
 
 	var clusters resource.Clusters
@@ -55,7 +54,7 @@ func (f *factory) Build() (resource.Clusters, error) {
 			errs = multierror.Append(errs, err)
 			continue
 		}
-		kubeconfigPath := cfg.Meta["kubeconfig"]
+		kubeconfigPath := cfg.Meta[kubeconfigMetaKey]
 		client, err := buildClient(kubeconfigPath)
 		if err != nil {
 			errs = multierror.Append(errs, err)
@@ -69,7 +68,7 @@ func (f *factory) Build() (resource.Clusters, error) {
 				cfg.Network,
 				cfg.ControlPlaneClusterName,
 				cfg.ConfigClusterName,
-				f.allClusters,
+				allClusters,
 			),
 		})
 	}
@@ -79,8 +78,8 @@ func (f *factory) Build() (resource.Clusters, error) {
 
 func validConfig(cfg cluster.Config) (cluster.Config, error) {
 	// only include kube-specific validation here
-	if cfg.Meta == nil || cfg.Meta["kubeconfig"] == "" {
-		return cfg, fmt.Errorf("missing meta.kubeconfig for %s", cfg.Name)
+	if cfg.Meta == nil || cfg.Meta[kubeconfigMetaKey] == "" {
+		return cfg, fmt.Errorf("missing meta.%s for %s", kubeconfigMetaKey, cfg.Name)
 	}
 	return cfg, nil
 }
