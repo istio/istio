@@ -18,23 +18,15 @@ import (
 	"fmt"
 	"github.com/hashicorp/go-multierror"
 
-	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/framework/components/cluster"
 	"istio.io/istio/pkg/test/framework/components/cluster/kube"
 	"istio.io/istio/pkg/test/framework/resource"
 	"istio.io/istio/pkg/test/scopes"
 )
 
-// Factory creates a "root" factory, capable of building clusters of any type.
-// This aggregate factory should be used rather than manually creating other kinds of cluster.Factory.
-type Factory interface {
-	cluster.Factory
-	BuildOrFail(f test.Failer) resource.Clusters
-}
+var _ cluster.Factory = aggregateFactory{}
 
-var _ Factory = aggregateFactory{}
-
-func NewFactory() Factory {
+func NewFactory() cluster.Factory {
 	return aggregateFactory{}
 }
 
@@ -52,6 +44,12 @@ func (a aggregateFactory) With(configs ...cluster.Config) cluster.Factory {
 
 func (a aggregateFactory) Build(allClusters cluster.Map) (resource.Clusters, error) {
 	scopes.Framework.Infof("=== BEGIN: Building clusters ===")
+
+	// allClusters doesn't need to be provided to aggregate, unless adding additional clusters
+	// to an existing set.
+	if allClusters == nil {
+		allClusters = make(cluster.Map)
+	}
 
 	factories := make(map[cluster.Kind]cluster.Factory)
 
@@ -101,14 +99,6 @@ func (a aggregateFactory) Build(allClusters cluster.Map) (resource.Clusters, err
 	scopes.Framework.Infof("=== DONE: Building clusters ===")
 
 	return clusters, errs
-}
-
-func (a aggregateFactory) BuildOrFail(t test.Failer) resource.Clusters {
-	out, err := a.Build(map[string]resource.Cluster{})
-	if err != nil {
-		t.Fatal(err)
-	}
-	return out
 }
 
 // maybeCreateFactory initializes concrete factory implementations.
