@@ -18,7 +18,6 @@ package sds
 import (
 	"context"
 	"fmt"
-	"os"
 	"time"
 
 	"github.com/cenkalti/backoff"
@@ -69,7 +68,7 @@ func NewXdsServer(stop chan struct{}, gen model.XdsResourceGenerator) *xds.Disco
 	env.Watcher = mesh.NewFixedWatcher(&mc)
 	env.PushContext.Mesh = env.Watcher.Mesh()
 
-	ds := xds.NewDiscoveryServer(env, nil, os.Getenv("HOSTNAME"))
+	ds := xds.NewDiscoveryServer(env, nil)
 	ds.CachesSynced()
 	ds.Generators = map[string]model.XdsResourceGenerator{
 		v3.SecretType: gen,

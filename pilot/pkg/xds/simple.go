@@ -15,11 +15,12 @@ package xds
 
 import (
 	"net"
-	"os"
 
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/reflection"
+
+	"istio.io/pkg/log"
 
 	"istio.io/istio/pilot/pkg/config/memory"
 	"istio.io/istio/pilot/pkg/model"
@@ -30,7 +31,6 @@ import (
 	"istio.io/istio/pkg/adsc"
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/config/schema/collections"
-	"istio.io/pkg/log"
 )
 
 // Server represents the XDS serving feature of Istiod (pilot).
@@ -79,7 +79,7 @@ func NewXDS(stop chan struct{}) *SimpleServer {
 	env.Watcher = mesh.NewFixedWatcher(&mc)
 	env.PushContext.Mesh = env.Watcher.Mesh()
 
-	ds := NewDiscoveryServer(env, nil, os.Getenv("HOSTNAME"))
+	ds := NewDiscoveryServer(env, nil)
 	ds.CachesSynced()
 
 	// In-memory config store, controller and istioConfigStore
