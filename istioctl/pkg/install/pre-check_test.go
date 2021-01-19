@@ -38,10 +38,10 @@ type testcase struct {
 }
 
 var (
-	version1_18 = &version.Info{
+	version1_17 = &version.Info{
 		Major:      "1",
-		Minor:      "18",
-		GitVersion: "1.18",
+		Minor:      "17",
+		GitVersion: "1.17",
 	}
 	version1_8 = &version.Info{
 		Major:      "1",
@@ -50,8 +50,8 @@ var (
 	}
 	version1_17GKE = &version.Info{
 		Major:      "1",
-		Minor:      "18+",
-		GitVersion: "v1.18.2-gke.10",
+		Minor:      "17+",
+		GitVersion: "v1.17.7-gke.10",
 	}
 	version1_8GKE = &version.Info{
 		Major:      "1",
@@ -101,21 +101,21 @@ func TestPreCheck(t *testing.T) {
 		},
 		{description: "Invalid Istio System",
 			config: &mockClientExecPreCheckConfig{
-				version:   version1_18,
+				version:   version1_17,
 				namespace: "istio-system",
 			},
 			expectedException: false, // It is fine to precheck an existing namespace; we might be installing canary control plane
 		},
 		{description: "Valid Istio System",
 			config: &mockClientExecPreCheckConfig{
-				version:   version1_18,
+				version:   version1_17,
 				namespace: "test",
 			},
 			expectedException: false,
 		},
 		{description: "Lacking Permission",
 			config: &mockClientExecPreCheckConfig{
-				version:   version1_18,
+				version:   version1_17,
 				namespace: "test",
 				authConfig: &authorizationapi.SelfSubjectAccessReview{
 					Spec: authorizationapi.SelfSubjectAccessReviewSpec{
@@ -133,7 +133,7 @@ func TestPreCheck(t *testing.T) {
 		},
 		{description: "Valid Case",
 			config: &mockClientExecPreCheckConfig{
-				version:   version1_18,
+				version:   version1_17,
 				namespace: "test",
 			},
 		},
