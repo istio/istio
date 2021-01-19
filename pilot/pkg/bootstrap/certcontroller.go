@@ -28,7 +28,6 @@ import (
 	"istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
 	"istio.io/istio/security/pkg/k8s/chiron"
 	"istio.io/istio/security/pkg/pki/ca"
-
 	"istio.io/pkg/log"
 )
 
@@ -141,11 +140,16 @@ func (s *Server) initDNSCerts(hostname, customHost, namespace string) error {
 		log.Infof("Generating K8S-signed cert for %v", names)
 		certChain, keyPEM, _, err = chiron.GenKeyCertK8sCA(s.kubeClient.CertificatesV1beta1().CertificateSigningRequests(),
 			strings.Join(names, ","), hostnamePrefix+".csr.secret", namespace, defaultCACertPath)
-
+		if err != nil {
+			return err
+		}
 		s.caBundlePath = defaultCACertPath
 	} else if features.PilotCertProvider.Get() == IstiodCAProvider {
 		log.Infof("Generating istiod-signed cert for %v", names)
 		certChain, keyPEM, err = s.CA.GenKeyCert(names, SelfSignedCACertTTL, false)
+		if err != nil {
+			return err
+		}
 		signingKeyFile := path.Join(localCertDir, ca.CAPrivateKeyID)
 		// check if signing key file exists the cert dir
 		if _, err := os.Stat(signingKeyFile); err != nil {
@@ -192,7 +196,8 @@ func (s *Server) initDNSCerts(hostname, customHost, namespace string) error {
 		}
 
 	} else {
-		return fmt.Errorf("unsupported PILOT_CERT_PROVIDER %q", features.PilotCertProvider.Get())
+		log.Infof("User specified cert provider: %v", features.PilotCertProvider.Get())
+		return nil
 	}
 
 	// Save the certificates to ./var/run/secrets/istio-dns - this is needed since most of the code we currently

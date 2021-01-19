@@ -142,11 +142,7 @@ var (
 // to have a central consistent endpoint to get whether CA functionality is
 // enabled in istiod. EnableCA() is called in multiple places.
 func (s *Server) EnableCA() bool {
-	if !features.EnableCAServer {
-		return false
-	}
-
-	return true
+	return features.EnableCAServer
 }
 
 // RunCA will start the cert signing GRPC service on an existing server.
@@ -278,7 +274,7 @@ func (s *Server) initPublicKey() error {
 			s.caBundlePath = path.Join(localCertDir, ca.CertChainID)
 		}
 	} else {
-		return fmt.Errorf("unsupported PILOT_CERT_PROVIDER %q", features.PilotCertProvider.Get())
+		log.Infof("User specified cert provider: %v", features.PilotCertProvider.Get())
 	}
 	return nil
 }
