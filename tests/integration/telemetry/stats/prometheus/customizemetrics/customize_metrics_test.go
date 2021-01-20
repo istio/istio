@@ -178,12 +178,12 @@ values:
 
 func setupEnvoyFilter(ctx resource.Context) error {
 	proxyDepFile := path.Join(env.IstioSrc, "istio.deps")
-	depJson, err := ioutil.ReadFile(proxyDepFile)
+	depJSON, err := ioutil.ReadFile(proxyDepFile)
 	if err != nil {
 		return err
 	}
 	var deps []interface{}
-	if err := json.Unmarshal(depJson, &deps); err != nil {
+	if err := json.Unmarshal(depJSON, &deps); err != nil {
 		return err
 	}
 	proxySHA := ""
@@ -202,7 +202,7 @@ func setupEnvoyFilter(ctx resource.Context) error {
 	if err != nil {
 		return err
 	}
-	if err := ctx.Config().ApplyYAML(appNsInst.Name(), string(con)); err != nil {
+	if err := ctx.Config().ApplyYAML(appNsInst.Name(), con); err != nil {
 		return err
 	}
 

@@ -23,6 +23,7 @@ import (
 	"time"
 
 	"golang.org/x/sync/errgroup"
+
 	resource "istio.io/istio/pilot/pkg/xds/v3"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/util/retry"
