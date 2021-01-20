@@ -283,7 +283,7 @@ func listTags(ctx context.Context, kubeClient kubernetes.Interface, writer io.Wr
 		return fmt.Errorf("failed to retrieve revision tags: %v", err)
 	}
 	if len(tagWebhooks) == 0 {
-		fmt.Fprintf(writer, "No Istio revision tag MutatingWebhookConfigurations to list")
+		fmt.Fprintf(writer, "No Istio revision tag MutatingWebhookConfigurations to list\n")
 		return nil
 	}
 	w := new(tabwriter.Writer).Init(writer, 0, 8, 1, ' ', 0)
