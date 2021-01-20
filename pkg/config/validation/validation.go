@@ -482,9 +482,9 @@ var ValidateDestinationRule = registerValidateFunc("ValidateDestinationRule",
 					v = appendValidation(v,
 						fmt.Errorf("mesh/namespace destination rule cannot have subsets"))
 				}
-				if rule.TrafficPolicy != nil && rule.TrafficPolicy.Tls != nil {
+				if len(rule.ExportTo) != 0 {
 					v = appendValidation(v,
-						fmt.Errorf("mesh/namespace destination rule cannot have TLS settings, use peer authentication"))
+						fmt.Errorf("mesh/namespace destination rule cannot have exportTo configured"))
 				}
 			} else {
 				v = appendValidation(v, ValidateWildcardDomain(rule.Host))
