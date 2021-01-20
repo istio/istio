@@ -649,6 +649,8 @@ spec:
       enabled: true
   values:
     pilot:
+      autoscaleMin: 1
+      autoscaleMax: 3
       cpu:
         targetAverageUtilization: 80
 `,
@@ -660,6 +662,8 @@ spec:
       enabled: true
       k8s:
         hpaSpec:
+          maxReplicas: 3
+          minReplicas: 1
           scaleTargetRef:
             apiVersion: apps/v1
             kind: Deployment
@@ -671,6 +675,8 @@ spec:
               targetAverageUtilization: 80
   values:
     pilot:
+      autoscaleMin: 1
+      autoscaleMax: 3
       cpu:
         targetAverageUtilization: 80
 `,
