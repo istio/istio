@@ -735,7 +735,7 @@ func deployCACerts(workDir string, env *kube.Environment, cfg Config) error {
 		// Create the system namespace.
 		var nsLabels map[string]string
 		if env.IsMultinetwork() {
-			nsLabels = map[string]string{label.IstioNetwork: cluster.NetworkName()}
+			nsLabels = map[string]string{label.TopologyNetwork.Name: cluster.NetworkName()}
 		}
 		if _, err := cluster.CoreV1().Namespaces().Create(context.TODO(), &kubeApiCore.Namespace{
 			ObjectMeta: kubeApiMeta.ObjectMeta{

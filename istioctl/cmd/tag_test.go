@@ -40,7 +40,7 @@ var (
 	revisionCanonicalWebhook = admit_v1.MutatingWebhookConfiguration{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:   "istio-sidecar-injector-revision",
-			Labels: map[string]string{label.IstioRev: "revision"},
+			Labels: map[string]string{label.IoIstioRev.Name: "revision"},
 		},
 		Webhooks: []admit_v1.MutatingWebhook{
 			{
@@ -58,7 +58,7 @@ var (
 	revisionCanonicalWebhookRemote = admit_v1.MutatingWebhookConfiguration{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:   "istio-sidecar-injector-revision",
-			Labels: map[string]string{label.IstioRev: "revision"},
+			Labels: map[string]string{label.IoIstioRev.Name: "revision"},
 		},
 		Webhooks: []admit_v1.MutatingWebhook{
 			{
@@ -89,7 +89,7 @@ func TestTagList(t *testing.T) {
 							Name: "istio-revision-tag-sample",
 							Labels: map[string]string{
 								istioTagLabel:                         "sample",
-								label.IstioRev:                        "sample-revision",
+								label.IoIstioRev.Name:                 "sample-revision",
 								helmreconciler.IstioComponentLabelStr: "Pilot",
 							},
 						},
@@ -108,7 +108,7 @@ func TestTagList(t *testing.T) {
 					{
 						ObjectMeta: metav1.ObjectMeta{
 							Name:   "istio-revision-test",
-							Labels: map[string]string{label.IstioRev: "test"},
+							Labels: map[string]string{label.IoIstioRev.Name: "test"},
 						},
 					},
 				},
@@ -126,8 +126,8 @@ func TestTagList(t *testing.T) {
 						ObjectMeta: metav1.ObjectMeta{
 							Name: "istio-revision-test",
 							Labels: map[string]string{
-								label.IstioRev: "revision",
-								istioTagLabel:  "test",
+								label.IoIstioRev.Name: "revision",
+								istioTagLabel:         "test",
 							},
 						},
 					},
@@ -138,7 +138,7 @@ func TestTagList(t *testing.T) {
 					{
 						ObjectMeta: metav1.ObjectMeta{
 							Name:   "dependent",
-							Labels: map[string]string{label.IstioRev: "test"},
+							Labels: map[string]string{label.IoIstioRev.Name: "test"},
 						},
 					},
 				},
@@ -267,7 +267,7 @@ func TestRemoveTag(t *testing.T) {
 					{
 						ObjectMeta: metav1.ObjectMeta{
 							Name:   "dependent",
-							Labels: map[string]string{label.IstioRev: "match"},
+							Labels: map[string]string{label.IoIstioRev.Name: "match"},
 						},
 					},
 				},
@@ -366,7 +366,7 @@ func TestSetTagWebhookCreation(t *testing.T) {
 				Operator: metav1.LabelSelectorOpDoesNotExist,
 			},
 			{
-				Key:      label.IstioRev,
+				Key:      label.IoIstioRev.Name,
 				Operator: metav1.LabelSelectorOpIn,
 				Values:   []string{"canary"},
 			},

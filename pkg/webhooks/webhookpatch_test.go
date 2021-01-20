@@ -30,8 +30,8 @@ import (
 func TestMutatingWebhookPatch(t *testing.T) {
 	testRevision := "test-revision"
 	wrongRevision := "wrong-revision"
-	testRevisionLabel := map[string]string{label.IstioRev: testRevision}
-	wrongRevisionLabel := map[string]string{label.IstioRev: wrongRevision}
+	testRevisionLabel := map[string]string{label.IoIstioRev.Name: testRevision}
+	wrongRevisionLabel := map[string]string{label.IoIstioRev.Name: wrongRevision}
 	ts := []struct {
 		name        string
 		configs     admissionregistrationv1beta1.MutatingWebhookConfigurationList
