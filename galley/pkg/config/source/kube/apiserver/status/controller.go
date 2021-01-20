@@ -141,6 +141,10 @@ func (c *ControllerImpl) Report(messages diag.Messages) {
 		msgs.Add(origin, m)
 	}
 
+	if c.state == nil {
+		scope.Analysis.Warn("Analysis reporting after controller stopped")
+		return
+	}
 	c.state.applyMessages(msgs)
 }
 

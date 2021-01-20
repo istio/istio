@@ -193,6 +193,10 @@ func (s *Source) startWatchers() {
 	scope.Source.Info("Creating watchers for Kubernetes CRDs")
 	s.watchers = make(map[collection.Name]*watcher)
 	for i, r := range resources {
+		if s.provider == nil {
+			scope.Source.Warn("stopped before finished starting watchers")
+			return
+		}
 		a := s.provider.GetAdapter(r.Resource())
 
 		found := s.foundResources[asKey(r.Resource().Group(), r.Resource().Kind())]

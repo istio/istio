@@ -78,10 +78,13 @@ func (ph *precedenceHandler) Handle(e event.Event) {
 // For each collection, we want to only send this once, after all upstream sources have sent theirs.
 func (ph *precedenceHandler) handleFullSync(e event.Event) {
 	col := e.Source.Name()
+	ph.src.mu.Lock()
 	ph.src.expectedCounts[col]--
 	if ph.src.expectedCounts[col] > 0 {
+		ph.src.mu.Unlock()
 		return
 	}
+	ph.src.mu.Unlock()
 	ph.src.handler.Handle(e)
 }
 
