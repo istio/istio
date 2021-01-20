@@ -399,8 +399,7 @@ func (s *Server) Start(stop <-chan struct{}) error {
 	if s.HTTP2Listener != nil {
 		go func() {
 			log.Infof("starting Http2 muxed service at %s", s.HTTP2Listener.Addr())
-			h2s := &http2.Server{
-			}
+			h2s := &http2.Server{}
 			h1s := &http.Server{
 				Addr:    ":8080",
 				Handler: h2c.NewHandler(s.httpMux, h2s),
