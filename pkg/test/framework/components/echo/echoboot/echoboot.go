@@ -34,9 +34,6 @@ type Builder interface {
 	echo.Builder
 
 	// With is the legacy version of WithConfig.
-	//
-	// Deprecated: in the process of being replaced by WithConfig. Rather than relying on an instance
-	// reference, query the result echo.Instances given by Build/BuildOrFail using matchers.
 	With(i *echo.Instance, cfg echo.Config) echo.Builder
 
 	// WithConfig mimics the behavior of With, but does not allow passing a reference
