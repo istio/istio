@@ -1606,7 +1606,7 @@ func TestBuildNameToServiceMapForHttpRoutes(t *testing.T) {
 	push.ServiceIndex.HostnameAndNamespace[barHostName] = map[string]*pilot_model.Service{}
 	push.ServiceIndex.HostnameAndNamespace[barHostName]["test"] = barServiceInTestNamespace
 
-	nameToServiceMap := buildNameToServiceMapForHttpRoutes(push, virtualService)
+	nameToServiceMap := buildNameToServiceMapForHTTPRoutes(push, virtualService)
 
 	if len(nameToServiceMap) != 2 {
 		t.Errorf("The length of nameToServiceMap is wrong.")

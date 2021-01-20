@@ -185,7 +185,7 @@ func (configgen *ConfigGeneratorImpl) buildGatewayListeners(builder *ListenerBui
 	return builder
 }
 
-func buildNameToServiceMapForHttpRoutes(push *model.PushContext,
+func buildNameToServiceMapForHTTPRoutes(push *model.PushContext,
 	virtualService config.Config) map[host.Name]*model.Service {
 
 	vs := virtualService.Spec.(*networking.VirtualService)
@@ -293,7 +293,7 @@ func (configgen *ConfigGeneratorImpl) buildGatewayHTTPRouteConfig(node *model.Pr
 			}
 
 			// Make sure we can obtain services which are visible to this virtualService as much as possible.
-			nameToServiceMap := buildNameToServiceMapForHttpRoutes(push, virtualService)
+			nameToServiceMap := buildNameToServiceMapForHTTPRoutes(push, virtualService)
 
 			var routes []*route.Route
 			var exists bool
