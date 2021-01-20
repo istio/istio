@@ -71,14 +71,14 @@ func TestSetup(ctx resource.Context) (err error) {
 	for _, c := range ctx.Clusters() {
 		clName := c.Name()
 		builder = builder.
-			With(nil, echo.Config{
+			WithConfig(echo.Config{
 				Service:   fmt.Sprintf("client-%s", clName),
 				Namespace: appNsInst,
 				Cluster:   c,
 				Ports:     nil,
 				Subsets:   []echo.SubsetConfig{{}},
 			}).
-			With(nil, echo.Config{
+			WithConfig(echo.Config{
 				Service:   "server",
 				Namespace: appNsInst,
 				Cluster:   c,
