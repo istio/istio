@@ -88,12 +88,15 @@ type XdsProxy struct {
 	initialRequest *discovery.DiscoveryRequest
 	connectedMutex sync.RWMutex
 
-	// Wasm cache and ecds channel are used to repalce wasm remote load with local file.
+	// Wasm cache and ecds channel are used to replace wasm remote load with local file.
 	wasmCache      wasm.Cache
 	ecdsUpdateChan chan *discovery.DiscoveryResponse
 	// ecds version and nonce uses atomic only to prevent race in testing.
 	// In reality there should not be race as istiod will only have one
 	// in flight update for each type of resource.
+	// TODO(bianpengyuan): this relies on the fact that istiod versions all ECDS resources
+	// the same in a update response. This needs update to support per resource versioning,
+	// in case istiod changes its behavior, or a different ECDS server is used.
 	ecdsLastAckVersion atomic.String
 	ecdsLastNonce      atomic.String
 }
