@@ -34,6 +34,9 @@ set -x
 # DEFAULT_KIND_IMAGE is used to set the Kubernetes version for KinD unless overridden in params to setup_kind_cluster(s)
 DEFAULT_KIND_IMAGE="gcr.io/istio-testing/kindest/node:v1.19.1"
 
+# COMMON_SCRIPTS contains the directory this file is in.
+COMMON_SCRIPTS=$(dirname "${BASH_SOURCE:-$0}")
+
 # load_cluster_topology function reads cluster configuration topology file and
 # sets up environment variables used by other functions. So this should be called
 # before anything else.
@@ -298,8 +301,7 @@ function connect_kind_clusters() {
 
 function install_metallb() {
   KUBECONFIG="${1}"
-  kubectl apply --kubeconfig="$KUBECONFIG" -f https://raw.githubusercontent.com/metallb/metallb/v0.9.3/manifests/namespace.yaml
-  kubectl apply --kubeconfig="$KUBECONFIG" -f https://raw.githubusercontent.com/metallb/metallb/v0.9.3/manifests/metallb.yaml
+  kubectl apply --kubeconfig="$KUBECONFIG" -f "${COMMON_SCRIPTS}/metallb.yaml"
   kubectl create --kubeconfig="$KUBECONFIG" secret generic -n metallb-system memberlist --from-literal=secretkey="$(openssl rand -base64 128)"
 
   if [ -z "${METALLB_IPS[*]}" ]; then
