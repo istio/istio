@@ -240,8 +240,11 @@ func (p *Plugin) constructFederatedTokenRequest(parameters security.StsRequestPa
 		dJSONQuery, _ := json.Marshal(dQuery)
 		dReq, _ := http.NewRequest("POST", federatedTokenEndpoint, bytes.NewBuffer(dJSONQuery))
 		dReq.Header.Set("Content-Type", contentType)
-		reqDump, _ := httputil.DumpRequest(dReq, true)
-		pluginLog.Debugf("Prepared federated token request: \n%s", string(reqDump))
+
+		if pluginLog.DebugEnabled() {
+			reqDump, _ := httputil.DumpRequest(dReq, true)
+			pluginLog.Debugf("Prepared federated token request: \n%s", string(reqDump))
+		}
 	} else {
 		pluginLog.Info("Prepared federated token request")
 	}
