@@ -39,8 +39,11 @@ const (
 	// DefaultRootCert is the default path to the mTLS root cert file
 	DefaultRootCert = AuthCertsPath + RootCertFilename
 
-	// ConfigPathDir config directory for storing envoy json config files and downloaded Wasm modules.
+	// ConfigPathDir config directory for storing envoy json config files.
 	ConfigPathDir = "./etc/istio/proxy"
+
+	// IstioDataDir is the directory to store binary data such as envoy core dump, profile, and downloaded Wasm modules.
+	IstioDataDir = "/var/lib/istio/data"
 
 	// BinaryPathFilename envoy binary location
 	BinaryPathFilename = "/usr/local/bin/envoy"

@@ -126,7 +126,7 @@ func initXdsProxy(ia *Agent) (*XdsProxy, error) {
 		healthChecker:  health.NewWorkloadHealthChecker(ia.proxyConfig.ReadinessProbe, envoyProbe),
 		xdsHeaders:     ia.cfg.XDSHeaders,
 		xdsUdsPath:     ia.cfg.XdsUdsPath,
-		wasmCache:      wasm.NewLocalFileCache(constants.ConfigPathDir, wasm.DefaultWasmModulePurgeInteval, wasm.DefaultWasmModuleExpiry),
+		wasmCache:      wasm.NewLocalFileCache(constants.IstioDataDir, wasm.DefaultWasmModulePurgeInteval, wasm.DefaultWasmModuleExpiry),
 		ecdsUpdateChan: make(chan *discovery.DiscoveryResponse, 10),
 	}
 
@@ -310,8 +310,10 @@ func (p *XdsProxy) HandleUpstream(ctx context.Context, con *ProxyConnection, xds
 	go p.handleUpstreamRequest(ctx, con)
 	go p.handleUpstreamResponse(con)
 
-	// Handle ECDS update asynchronously, it might need to download Wasm modules.
-	go p.handleUpstreamECDSResponse(con)
+	if features.WasmRemoteLoadConversion {
+		// Handle ECDS update asynchronously for Wasm config rewriting, since it might need to download Wasm modules.
+		go p.handleUpstreamECDSResponse(con)
+	}
 
 	for {
 		select {
