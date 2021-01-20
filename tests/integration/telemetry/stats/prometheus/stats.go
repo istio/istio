@@ -18,6 +18,7 @@ package prometheus
 import (
 	"context"
 	"fmt"
+	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"testing"
 
 	"golang.org/x/sync/errgroup"
@@ -163,42 +164,37 @@ func TestSetup(ctx resource.Context) (err error) {
 		return
 	}
 
-	builder := echoboot.NewBuilder(ctx)
-	for _, c := range ctx.Clusters() {
-		builder.
-			With(nil, echo.Config{
-				Service:   "client",
-				Namespace: appNsInst,
-				Cluster:   c,
-				Ports:     nil,
-				Subsets:   []echo.SubsetConfig{{}},
-			}).
-			With(nil, echo.Config{
-				Service:   "server",
-				Namespace: appNsInst,
-				Cluster:   c,
-				Subsets:   []echo.SubsetConfig{{}},
-				Ports: []echo.Port{
-					{
-						Name:         "http",
-						Protocol:     protocol.HTTP,
-						InstancePort: 8090,
-					},
-					{
-						Name:     "tcp",
-						Protocol: protocol.TCP,
-						// We use a port > 1024 to not require root
-						InstancePort: 9000,
-					},
+	echos, err := echoboot.NewBuilder(ctx).
+		WithClusters(ctx.Clusters()...).
+		With(nil, echo.Config{
+			Service:   "client",
+			Namespace: appNsInst,
+			Ports:     nil,
+			Subsets:   []echo.SubsetConfig{{}},
+		}).
+		With(nil, echo.Config{
+			Service:   "server",
+			Namespace: appNsInst,
+			Subsets:   []echo.SubsetConfig{{}},
+			Ports: []echo.Port{
+				{
+					Name:         "http",
+					Protocol:     protocol.HTTP,
+					InstancePort: 8090,
 				},
-			}).
-			Build()
-
-		ingr = append(ingr, ist.IngressFor(c))
-	}
-	echos, err := builder.Build()
+				{
+					Name:     "tcp",
+					Protocol: protocol.TCP,
+					// We use a port > 1024 to not require root
+					InstancePort: 9000,
+				},
+			},
+		}).Build()
 	if err != nil {
 		return err
+	}
+	for _, c := range ctx.Clusters() {
+		ingr = append(ingr, ist.IngressFor(c))
 	}
 	client = echos.Match(echo.Service("client"))
 	server = echos.Match(echo.Service("server"))
