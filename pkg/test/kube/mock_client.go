@@ -171,7 +171,7 @@ func (c MockClient) REST() rest.Interface {
 }
 
 func (c MockClient) ApplyYAMLFiles(string, ...string) error {
-	panic("not implemented by mock")
+	return nil
 }
 
 func (c MockClient) ApplyYAMLFilesDryRun(string, ...string) error {

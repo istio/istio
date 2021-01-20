@@ -195,8 +195,6 @@ func (h *HelmReconciler) GetPrunedResources(revision string, includeClusterResou
 	gvkList := append(NamespacedResources, ClusterCPResources...)
 	if includeClusterResources {
 		gvkList = append(NamespacedResources, AllClusterResources...)
-	}
-	if includeClusterResources {
 		if ioplist := h.getIstioOperatorCR(); ioplist.Items != nil {
 			usList = append(usList, ioplist)
 		}
