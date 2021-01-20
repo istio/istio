@@ -110,6 +110,14 @@ func NewFakeDiscoveryServer(t test.Failer, opts FakeOptions) *FakeDiscoveryServe
 	var defaultKubeClient kubelib.Client
 	var defaultKubeController *kube.FakeController
 	var registries []serviceregistry.Instance
+	if opts.NetworksWatcher != nil {
+		opts.NetworksWatcher.AddNetworksHandler(func() {
+			s.ConfigUpdate(&model.PushRequest{
+				Full:   true,
+				Reason: []model.TriggerReason{model.NetworksTrigger},
+			})
+		})
+	}
 	for cluster, objs := range k8sObjects {
 		client := kubelib.NewFakeClient(objs...)
 		k8s, _ := kube.NewFakeControllerWithOptions(kube.FakeControllerOptions{
@@ -299,10 +307,12 @@ func (f *FakeDiscoveryServer) Connect(p *model.Proxy, watch []string, wait []str
 		Locality:                 p.Locality,
 		Namespace:                p.ConfigNamespace,
 		InitialDiscoveryRequests: initialWatch,
-		GrpcOpts: []grpc.DialOption{grpc.WithContextDialer(func(context.Context, string) (net.Conn, error) {
-			return f.Listener.Dial()
-		}),
-			grpc.WithInsecure()},
+		GrpcOpts: []grpc.DialOption{
+			grpc.WithContextDialer(func(context.Context, string) (net.Conn, error) {
+				return f.Listener.Dial()
+			}),
+			grpc.WithInsecure(),
+		},
 	})
 	if err != nil {
 		f.t.Fatalf("Error connecting: %v", err)
