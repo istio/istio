@@ -327,7 +327,6 @@ func TestServiceIndex(t *testing.T) {
 	g.Expect(si.instancesByPort).To(HaveLen(5))
 	g.Expect(si.ClusterVIPs).To(HaveLen(5))
 	g.Expect(si.HostnameAndNamespace).To(HaveLen(5))
-	g.Expect(si.Hostname).To(HaveLen(5))
 
 	// Should just have "namespace"
 	g.Expect(si.exportedToNamespace).To(HaveLen(1))

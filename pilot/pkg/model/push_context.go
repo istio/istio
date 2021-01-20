@@ -62,7 +62,6 @@ type serviceIndex struct {
 
 	// HostnameAndNamespace has all services, indexed by hostname then namespace.
 	HostnameAndNamespace map[host.Name]map[string]*Service `json:"-"`
-	Hostname             map[host.Name]*Service            `json:"-"`
 
 	// ClusterVIPs contains a map of service and its cluster addresses. It is stored here
 	// to avoid locking each service for every proxy during push.
@@ -80,7 +79,6 @@ func newServiceIndex() serviceIndex {
 		privateByNamespace:   map[string][]*Service{},
 		exportedToNamespace:  map[string][]*Service{},
 		HostnameAndNamespace: map[host.Name]map[string]*Service{},
-		Hostname:             map[host.Name]*Service{},
 		ClusterVIPs:          map[*Service]map[string]string{},
 		instancesByPort:      map[*Service]map[int][]*ServiceInstance{},
 	}
@@ -1095,7 +1093,6 @@ func (ps *PushContext) initServiceRegistry(env *Environment) error {
 			ps.ServiceIndex.HostnameAndNamespace[s.Hostname] = map[string]*Service{}
 		}
 		ps.ServiceIndex.HostnameAndNamespace[s.Hostname][s.Attributes.Namespace] = s
-		ps.ServiceIndex.Hostname[s.Hostname] = s
 
 		ns := s.Attributes.Namespace
 		if len(s.Attributes.ExportTo) == 0 {

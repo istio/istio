@@ -185,7 +185,7 @@ func (configgen *ConfigGeneratorImpl) buildGatewayListeners(builder *ListenerBui
 	return builder
 }
 
-func buildNameToServiceMapForHTTPRoutes(push *model.PushContext,
+func buildNameToServiceMapForHTTPRoutes(node *model.Proxy, push *model.PushContext,
 	virtualService config.Config) map[host.Name]*model.Service {
 
 	vs := virtualService.Spec.(*networking.VirtualService)
@@ -199,9 +199,8 @@ func buildNameToServiceMapForHTTPRoutes(push *model.PushContext,
 		if s, exist := push.ServiceIndex.HostnameAndNamespace[hostname][virtualService.Namespace]; exist {
 			nameToServiceMap[hostname] = s
 		} else {
-			// Didn't find match for our namespace, pick an arbitrary one.
-			// We just get service based on hostname directly.
-			nameToServiceMap[hostname] = push.ServiceIndex.Hostname[hostname]
+			// Didn't find match for our namespace, pick the service which is visible to the ConfigNamespace of node.
+			nameToServiceMap[hostname] = push.ServiceForHostname(node, hostname)
 		}
 	}
 
@@ -293,7 +292,7 @@ func (configgen *ConfigGeneratorImpl) buildGatewayHTTPRouteConfig(node *model.Pr
 			}
 
 			// Make sure we can obtain services which are visible to this virtualService as much as possible.
-			nameToServiceMap := buildNameToServiceMapForHTTPRoutes(push, virtualService)
+			nameToServiceMap := buildNameToServiceMapForHTTPRoutes(node, push, virtualService)
 
 			var routes []*route.Route
 			var exists bool

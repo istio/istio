@@ -1538,6 +1538,9 @@ func TestBuildNameToServiceMapForHttpRoutes(t *testing.T) {
 						},
 					},
 				},
+				Mirror: &networking.Destination{
+					Host: "baz.example.org",
+				},
 			},
 		},
 	}
@@ -1566,12 +1569,29 @@ func TestBuildNameToServiceMapForHttpRoutes(t *testing.T) {
 		},
 	}
 
-	fooServiceInDefaultNamespace := &pilot_model.Service{
-		Hostname: fooHostName,
+	barHostName := host.Name("bar.example.org")
+	barServiceInDefaultNamespace := &pilot_model.Service{
+		Hostname: barHostName,
 		Ports: []*pilot_model.Port{{
 			Name:     "http",
 			Protocol: "HTTP",
 			Port:     8080,
+		}},
+		Attributes: pilot_model.ServiceAttributes{
+			Namespace: "default",
+			ExportTo: map[visibility.Instance]bool{
+				visibility.Public: true,
+			},
+		},
+	}
+
+	bazHostName := host.Name("baz.example.org")
+	bazServiceInDefaultNamespace := &pilot_model.Service{
+		Hostname: bazHostName,
+		Ports: []*pilot_model.Port{{
+			Name:     "http",
+			Protocol: "HTTP",
+			Port:     8090,
 		}},
 		Attributes: pilot_model.ServiceAttributes{
 			Namespace: "default",
@@ -1581,39 +1601,24 @@ func TestBuildNameToServiceMapForHttpRoutes(t *testing.T) {
 		},
 	}
 
-	barHostName := host.Name("bar.example.org")
-	barServiceInTestNamespace := &pilot_model.Service{
-		Hostname: barHostName,
-		Ports: []*pilot_model.Port{{
-			Name:     "http",
-			Protocol: "HTTP",
-			Port:     80,
-		}},
-		Attributes: pilot_model.ServiceAttributes{
-			Namespace: "test",
-			ExportTo: map[visibility.Instance]bool{
-				visibility.Private: true,
-			},
-		},
+	cg := NewConfigGenTest(t, TestOptions{
+		Configs: []config.Config{virtualService},
+		Services: []*pilot_model.Service{fooServiceInTestNamespace, barServiceInDefaultNamespace, bazServiceInDefaultNamespace},
+	})
+	proxy := &pilot_model.Proxy{
+		Type:            pilot_model.Router,
+		ConfigNamespace: "test",
 	}
+	proxy = cg.SetupProxy(proxy)
 
-	push := pilot_model.NewPushContext()
-	push.ServiceIndex.HostnameAndNamespace[fooHostName] = map[string]*pilot_model.Service{}
-	push.ServiceIndex.HostnameAndNamespace[fooHostName]["test"] = fooServiceInTestNamespace
-	push.ServiceIndex.Hostname[fooHostName] = fooServiceInTestNamespace
-	push.ServiceIndex.HostnameAndNamespace[fooHostName]["default"] = fooServiceInDefaultNamespace
-	push.ServiceIndex.Hostname[fooHostName] = fooServiceInDefaultNamespace
-	push.ServiceIndex.HostnameAndNamespace[barHostName] = map[string]*pilot_model.Service{}
-	push.ServiceIndex.HostnameAndNamespace[barHostName]["test"] = barServiceInTestNamespace
+	nameToServiceMap := buildNameToServiceMapForHTTPRoutes(proxy, cg.env.PushContext, virtualService)
 
-	nameToServiceMap := buildNameToServiceMapForHTTPRoutes(push, virtualService)
-
-	if len(nameToServiceMap) != 2 {
+	if len(nameToServiceMap) != 3 {
 		t.Errorf("The length of nameToServiceMap is wrong.")
 	}
 
-	if service, exist := nameToServiceMap[fooHostName]; !exist {
-		t.Errorf("The service of %s not found.", fooHostName)
+	if service, exist := nameToServiceMap[fooHostName]; !exist || service == nil {
+		t.Errorf("The service of %s not found or should be not nil.", fooHostName)
 	} else {
 		if service.Ports[0].Port != 80 {
 			t.Errorf("The port of %s is wrong.", fooHostName)
@@ -1622,5 +1627,21 @@ func TestBuildNameToServiceMapForHttpRoutes(t *testing.T) {
 		if service.Attributes.Namespace != "test" {
 			t.Errorf("The namespace of %s is wrong.", fooHostName)
 		}
+	}
+
+	if service, exist := nameToServiceMap[barHostName]; !exist || service == nil {
+		t.Errorf("The service of %s not found or should be not nil", barHostName)
+	} else {
+		if service.Ports[0].Port != 8080 {
+			t.Errorf("The port of %s is wrong.", barHostName)
+		}
+
+		if service.Attributes.Namespace != "default" {
+			t.Errorf("The namespace of %s is wrong.", barHostName)
+		}
+	}
+
+	if service, exist := nameToServiceMap[bazHostName]; !exist || service != nil {
+		t.Errorf("The value of hostname %s mapping must be exist and it should be nil.", bazHostName)
 	}
 }
