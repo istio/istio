@@ -81,12 +81,11 @@ func (ph *precedenceHandler) handleFullSync(e event.Event) {
 	col := e.Source.Name()
 	ph.src.countMu.Lock()
 	ph.src.expectedCounts[col]--
-	if ph.src.expectedCounts[col] > 0 {
-		ph.src.countMu.Unlock()
-		return
-	}
+	shallHandle := ph.src.expectedCounts[col] <= 0
 	ph.src.countMu.Unlock()
-	ph.src.handler.Handle(e)
+	if shallHandle {
+		ph.src.handler.Handle(e)
+	}
 }
 
 // handleEvent handles non fullsync events.

@@ -47,7 +47,7 @@ var (
 
 // Source is an implementation of processing.KubeSource
 type Source struct { // nolint:maligned
-	mu      sync.Mutex
+	mu      sync.RWMutex
 	options Options
 
 	// Keep the handlers that are registered by this Source. As we're recreating watchers, we need to seed them correctly
@@ -248,6 +248,8 @@ func (s *Source) Stop() {
 
 // Update implements processing.StatusUpdater
 func (s *Source) Update(messages diag.Messages) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
 	if s.statusCtl == nil {
 		panic("received diagnostic messages while the source is not configured with a status controller")
 	}
