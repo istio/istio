@@ -410,4 +410,8 @@ var (
 	StatusMaxWorkers = env.RegisterIntVar("PILOT_STATUS_MAX_WORKERS", 100, "The maximum number of workers"+
 		" Pilot will use to keep configuration status up to date.  Smaller numbers will result in higher status latency, "+
 		"but larger numbers may impact CPU in high scale environments.")
+
+	WasmRemoteLoadConversion = env.RegisterBoolVar("ISTIO_AGENT_ENABLE_WASM_REMOTE_LOAD_CONVERSION", true,
+		"If enabled, Istio agent will intercept ECDS resource update, downloads Wasm module, "+
+			"and replaces Wasm module remote load with downloaded local module file.").Get()
 )
