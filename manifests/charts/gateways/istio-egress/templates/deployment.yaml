@@ -88,6 +88,10 @@ spec:
 {{- end }}
       containers:
         - name: istio-proxy
+{{- if .Values.global.istioproxy.lifecycle }}
+          lifecycle:
+{{ toYaml .Values.global.istioproxy.lifecycle | indent 11 }}
+{{- end }}
 {{- if contains "/" .Values.global.proxy.image }}
           image: "{{ .Values.global.proxy.image }}"
 {{- else }}

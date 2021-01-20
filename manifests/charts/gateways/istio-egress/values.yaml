@@ -172,6 +172,11 @@ global:
   imagePullSecrets: []
   # - private-registry-key
 
+  # Lifecycle for istio-proxy container; allows you to add preStop/postStop for
+  # istio-proxy container for istio-egressgateway.
+  istioproxy:
+    lifecycle: {}
+
   # To output all istio components logs in json format by adding --log_as_json argument to each container argument
   logAsJson: false
 
