@@ -28,6 +28,7 @@ import (
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
+	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/core/v1alpha3"
 	"istio.io/istio/pilot/pkg/networking/util"
@@ -111,9 +112,10 @@ func TestInboundClusters(t *testing.T) {
 		services  []*model.Service
 		instances []*model.ServiceInstance
 		// Assertions
-		clusters  map[string][]string
-		telemetry map[string][]string
-		proxy     *model.Proxy
+		clusters                  map[string][]string
+		telemetry                 map[string][]string
+		proxy                     *model.Proxy
+		disableInboundPassthrough bool
 	}{
 		// Proxy 1.8.1+ tests
 		{name: "empty"},
@@ -123,7 +125,7 @@ func TestInboundClusters(t *testing.T) {
 			services:  []*model.Service{service},
 			instances: makeInstances(proxy, service, 80, 8080),
 			clusters: map[string][]string{
-				"inbound|8080||": {"127.0.0.1:8080"},
+				"inbound|8080||": nil,
 			},
 			telemetry: map[string][]string{
 				"inbound|8080||": {string(service.Hostname)},
@@ -136,8 +138,8 @@ func TestInboundClusters(t *testing.T) {
 				makeInstances(proxy, service, 80, 8080),
 				makeInstances(proxy, service, 81, 8081)),
 			clusters: map[string][]string{
-				"inbound|8080||": {"127.0.0.1:8080"},
-				"inbound|8081||": {"127.0.0.1:8081"},
+				"inbound|8080||": nil,
+				"inbound|8081||": nil,
 			},
 			telemetry: map[string][]string{
 				"inbound|8080||": {string(service.Hostname)},
@@ -153,10 +155,10 @@ func TestInboundClusters(t *testing.T) {
 				makeInstances(proxy, serviceAlt, 80, 8082),
 				makeInstances(proxy, serviceAlt, 81, 8083)),
 			clusters: map[string][]string{
-				"inbound|8080||": {"127.0.0.1:8080"},
-				"inbound|8081||": {"127.0.0.1:8081"},
-				"inbound|8082||": {"127.0.0.1:8082"},
-				"inbound|8083||": {"127.0.0.1:8083"},
+				"inbound|8080||": nil,
+				"inbound|8081||": nil,
+				"inbound|8082||": nil,
+				"inbound|8083||": nil,
 			},
 			telemetry: map[string][]string{
 				"inbound|8080||": {string(service.Hostname)},
@@ -174,8 +176,8 @@ func TestInboundClusters(t *testing.T) {
 				makeInstances(proxy, serviceAlt, 80, 8080),
 				makeInstances(proxy, serviceAlt, 81, 8081)),
 			clusters: map[string][]string{
-				"inbound|8080||": {"127.0.0.1:8080"},
-				"inbound|8081||": {"127.0.0.1:8081"},
+				"inbound|8080||": nil,
+				"inbound|8081||": nil,
 			},
 			telemetry: map[string][]string{
 				"inbound|8080||": {string(serviceAlt.Hostname), string(service.Hostname)},
@@ -240,6 +242,24 @@ func TestInboundClusters(t *testing.T) {
 			},
 		},
 		{
+			name: "ingress without default endpoint",
+			configs: []config.Config{
+				{
+					Meta: config.Meta{GroupVersionKind: gvk.Sidecar, Namespace: "default", Name: "sidecar"},
+					Spec: &networking.Sidecar{Ingress: []*networking.IstioIngressListener{{
+						Port: &networking.Port{
+							Number:   80,
+							Protocol: "HTTP",
+							Name:     "http",
+						},
+					}}},
+				},
+			},
+			clusters: map[string][]string{
+				"inbound|80||": nil,
+			},
+		},
+		{
 			name: "ingress to socket",
 			configs: []config.Config{
 				{
@@ -288,6 +308,76 @@ func TestInboundClusters(t *testing.T) {
 				"inbound|81||": {"127.0.0.1:8080"},
 			},
 		},
+
+		// Disable inbound passthrough
+		{
+			name:      "single service, partial instance",
+			services:  []*model.Service{service},
+			instances: makeInstances(proxy, service, 80, 8080),
+			clusters: map[string][]string{
+				"inbound|8080||": {"127.0.0.1:8080"},
+			},
+			telemetry: map[string][]string{
+				"inbound|8080||": {string(service.Hostname)},
+			},
+			disableInboundPassthrough: true,
+		},
+		{
+			name:     "single service, multiple instance",
+			services: []*model.Service{service},
+			instances: flattenInstances(
+				makeInstances(proxy, service, 80, 8080),
+				makeInstances(proxy, service, 81, 8081)),
+			clusters: map[string][]string{
+				"inbound|8080||": {"127.0.0.1:8080"},
+				"inbound|8081||": {"127.0.0.1:8081"},
+			},
+			telemetry: map[string][]string{
+				"inbound|8080||": {string(service.Hostname)},
+				"inbound|8081||": {string(service.Hostname)},
+			},
+			disableInboundPassthrough: true,
+		},
+		{
+			name:     "multiple services with same service port, different target",
+			services: []*model.Service{service, serviceAlt},
+			instances: flattenInstances(
+				makeInstances(proxy, service, 80, 8080),
+				makeInstances(proxy, service, 81, 8081),
+				makeInstances(proxy, serviceAlt, 80, 8082),
+				makeInstances(proxy, serviceAlt, 81, 8083)),
+			clusters: map[string][]string{
+				"inbound|8080||": {"127.0.0.1:8080"},
+				"inbound|8081||": {"127.0.0.1:8081"},
+				"inbound|8082||": {"127.0.0.1:8082"},
+				"inbound|8083||": {"127.0.0.1:8083"},
+			},
+			telemetry: map[string][]string{
+				"inbound|8080||": {string(service.Hostname)},
+				"inbound|8081||": {string(service.Hostname)},
+				"inbound|8082||": {string(serviceAlt.Hostname)},
+				"inbound|8083||": {string(serviceAlt.Hostname)},
+			},
+			disableInboundPassthrough: true,
+		},
+		{
+			name:     "multiple services with same service port and target",
+			services: []*model.Service{service, serviceAlt},
+			instances: flattenInstances(
+				makeInstances(proxy, service, 80, 8080),
+				makeInstances(proxy, service, 81, 8081),
+				makeInstances(proxy, serviceAlt, 80, 8080),
+				makeInstances(proxy, serviceAlt, 81, 8081)),
+			clusters: map[string][]string{
+				"inbound|8080||": {"127.0.0.1:8080"},
+				"inbound|8081||": {"127.0.0.1:8081"},
+			},
+			telemetry: map[string][]string{
+				"inbound|8080||": {string(serviceAlt.Hostname), string(service.Hostname)},
+				"inbound|8081||": {string(serviceAlt.Hostname), string(service.Hostname)},
+			},
+			disableInboundPassthrough: true,
+		},
 	}
 	for _, tt := range cases {
 		name := tt.name
@@ -296,7 +386,14 @@ func TestInboundClusters(t *testing.T) {
 		} else {
 			name += "-" + tt.proxy.Metadata.IstioVersion
 		}
+
+		if tt.disableInboundPassthrough {
+			name += "-disableinbound"
+		}
 		t.Run(name, func(t *testing.T) {
+			old := features.EnableInboundPassthrough
+			defer func() { features.EnableInboundPassthrough = old }()
+			features.EnableInboundPassthrough = !tt.disableInboundPassthrough
 			s := v1alpha3.NewConfigGenTest(t, v1alpha3.TestOptions{
 				Services:  tt.services,
 				Instances: tt.instances,

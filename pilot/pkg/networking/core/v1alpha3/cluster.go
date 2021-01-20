@@ -240,6 +240,9 @@ func (configgen *ConfigGeneratorImpl) buildOutboundSniDnatClusters(proxy *model.
 }
 
 func buildInboundLocalityLbEndpoints(bind string, port uint32) []*endpoint.LocalityLbEndpoints {
+	if bind == "" {
+		return nil
+	}
 	address := util.BuildAddress(bind, port)
 	lbEndpoint := &endpoint.LbEndpoint{
 		HostIdentifier: &endpoint.LbEndpoint_Endpoint{
@@ -294,10 +297,14 @@ func (configgen *ConfigGeneratorImpl) buildInboundClusters(cb *ClusterBuilder, i
 			clustersToBuild[ep] = append(clustersToBuild[ep], instance)
 		}
 
+		bind := actualLocalHost
+		if features.EnableInboundPassthrough {
+			bind = ""
+		}
 		// For each workload port, we will construct a cluster
 		for _, instances := range clustersToBuild {
 			instance := instances[0]
-			localCluster := cb.buildInboundClusterForPortOrUDS(int(instance.Endpoint.EndpointPort), actualLocalHost, instance, instances)
+			localCluster := cb.buildInboundClusterForPortOrUDS(int(instance.Endpoint.EndpointPort), bind, instance, instances)
 			// If inbound cluster match has service, we should see if it matches with any host name across all instances.
 			var hosts []host.Name
 			for _, si := range instances {
@@ -320,25 +327,25 @@ func (configgen *ConfigGeneratorImpl) buildInboundClusters(cb *ClusterBuilder, i
 		// When building an inbound cluster for the ingress listener, we take the defaultEndpoint specified
 		// by the user and parse it into host:port or a unix domain socket
 		// The default endpoint can be 127.0.0.1:port or :port or unix domain socket
-		endpointAddress := actualLocalHost
+		endpointAddress := ""
 		port := 0
-		var err error
-		instanceIPCluster := false
 		if strings.HasPrefix(ingressListener.DefaultEndpoint, model.UnixAddressPrefix) {
 			// this is a UDS endpoint. assign it as is
 			endpointAddress = ingressListener.DefaultEndpoint
-		} else {
+		} else if len(ingressListener.DefaultEndpoint) > 0 {
 			// parse the ip, port. Validation guarantees presence of :
 			parts := strings.Split(ingressListener.DefaultEndpoint, ":")
 			if len(parts) < 2 {
 				continue
 			}
+			var err error
 			if port, err = strconv.Atoi(parts[1]); err != nil {
 				continue
 			}
 			if parts[0] == model.PodIPAddressPrefix {
 				endpointAddress = cb.proxy.IPAddresses[0]
-				instanceIPCluster = true
+			} else if parts[0] == model.LocalhostAddressPrefix {
+				endpointAddress = actualLocalHost
 			}
 		}
 
@@ -352,19 +359,6 @@ func (configgen *ConfigGeneratorImpl) buildInboundClusters(cb *ClusterBuilder, i
 		instance.Endpoint.EndpointPort = uint32(port)
 
 		localCluster := cb.buildInboundClusterForPortOrUDS(int(ingressListener.Port.Number), endpointAddress, instance, nil)
-		if instanceIPCluster {
-			// IPTables will redirect our own traffic back to us if we do not use the "magic" upstream bind
-			// config which will be skipped. This mirrors the "passthrough" clusters.
-			// TODO: consider moving all clusters to use this for consistency.
-			localCluster.UpstreamBindConfig = &core.BindConfig{
-				SourceAddress: &core.SocketAddress{
-					Address: util.InboundPassthroughBindIpv4,
-					PortSpecifier: &core.SocketAddress_PortValue{
-						PortValue: uint32(0),
-					},
-				},
-			}
-		}
 		clusters = cp.conditionallyAppend(clusters, []host.Name{instance.Service.Hostname}, localCluster)
 	}
 
@@ -616,6 +610,8 @@ func applyTrafficPolicy(opts buildClusterOpts) {
 		applyH2Upgrade(opts, connectionPool)
 		applyOutlierDetection(opts.cluster, outlierDetection)
 		applyLoadBalancer(opts.cluster, loadBalancer, opts.port, opts.proxy, opts.mesh)
+	} else if opts.cluster.GetType() == cluster.Cluster_ORIGINAL_DST {
+		opts.cluster.LbPolicy = cluster.Cluster_CLUSTER_PROVIDED
 	}
 
 	if opts.clusterMode != SniDnatClusterMode && opts.direction != model.TrafficDirectionInbound {
