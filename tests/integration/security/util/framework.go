@@ -133,6 +133,9 @@ func EchoConfig(name string, ns namespace.Instance, headless bool, annos echo.An
 }
 
 func SetupApps(ctx resource.Context, i istio.Instance, apps *EchoDeployments, buildVM bool) error {
+	if ctx.Settings().SkipVM {
+		buildVM = false
+	}
 	var err error
 	apps.Namespace1, err = namespace.New(ctx, namespace.Config{
 		Prefix: "test-ns1",
