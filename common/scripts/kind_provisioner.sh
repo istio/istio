@@ -298,8 +298,11 @@ function connect_kind_clusters() {
 
 function install_metallb() {
   KUBECONFIG="${1}"
-  kubectl apply --kubeconfig="$KUBECONFIG" -f https://raw.githubusercontent.com/metallb/metallb/v0.9.3/manifests/namespace.yaml
-  kubectl apply --kubeconfig="$KUBECONFIG" -f https://raw.githubusercontent.com/metallb/metallb/v0.9.3/manifests/metallb.yaml
+  METALLB_DIR="${ARTIFACTS:-.}"
+  curl https://raw.githubusercontent.com/metallb/metallb/v0.9.3/manifests/namespace.yaml -o "${METALLB_DIR}/metallb-namespace.yaml"
+  curl https://raw.githubusercontent.com/metallb/metallb/v0.9.3/manifests/metallb.yaml -o "${METALLB_DIR}/metallb.yaml"
+  kubectl apply --kubeconfig="$KUBECONFIG" -f "${METALLB_DIR}/metallb-namespace.yaml"
+  kubectl apply --kubeconfig="$KUBECONFIG" -f "${METALLB_DIR}/metallb.yaml"
   kubectl create --kubeconfig="$KUBECONFIG" secret generic -n metallb-system memberlist --from-literal=secretkey="$(openssl rand -base64 128)"
 
   if [ -z "${METALLB_IPS[*]}" ]; then
