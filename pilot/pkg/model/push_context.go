@@ -360,10 +360,6 @@ func (first *PushRequest) Merge(other *PushRequest) *PushRequest {
 		Reason: reason,
 	}
 
-	if first.Push != nil && first.Push.Cleanup != nil {
-		first.Push.Cleanup()
-	}
-
 	// Do not merge when any one is empty
 	if len(first.ConfigsUpdated) > 0 && len(other.ConfigsUpdated) > 0 {
 		merged.ConfigsUpdated = make(map[ConfigKey]struct{}, len(first.ConfigsUpdated)+len(other.ConfigsUpdated))
@@ -903,7 +899,7 @@ func (ps *PushContext) InitContext(env *Environment, oldPushContext *PushContext
 		l := env.GetLedger()
 		// many tests run this code with no ledger.  don't bother cleaning them up.
 		if l != nil {
-			err := env.GetLedger().EraseRootHash(ps.LedgerVersion)
+			err := l.EraseRootHash(ps.LedgerVersion)
 			if err != nil {
 				log.Errorf("unable to garbage collect old config version: %s", err)
 			}
