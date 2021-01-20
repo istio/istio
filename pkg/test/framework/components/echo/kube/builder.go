@@ -50,6 +50,14 @@ func (b *builder) With(i *echo.Instance, cfg echo.Config) echo.Builder {
 	return b
 }
 
+func (b *builder) WithConfig(cfg echo.Config) echo.Builder {
+	return b.With(nil, cfg)
+}
+
+func (b *builder) WithClusters(_ ...resource.Cluster) echo.Builder {
+	panic("WithClusters is not supported directly on kube echo.Builder")
+}
+
 func (b *builder) Build() (echo.Instances, error) {
 	t0 := time.Now()
 	instances, err := b.newInstances()

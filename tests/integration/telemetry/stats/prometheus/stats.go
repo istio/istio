@@ -179,65 +179,60 @@ func TestSetup(ctx resource.Context) (err error) {
 	}
 
 	builder := echoboot.NewBuilder(ctx)
-	for _, c := range ctx.Clusters() {
-		builder.
-			With(nil, echo.Config{
-				Service:   "client",
-				Namespace: appNsInst,
-				Cluster:   c,
-				Ports:     nil,
-				Subsets:   []echo.SubsetConfig{{}},
-			}).
-			With(nil, echo.Config{
-				Service:   "server",
-				Namespace: appNsInst,
-				Cluster:   c,
-				Subsets:   []echo.SubsetConfig{{}},
-				Ports: []echo.Port{
-					{
-						Name:         "http",
-						Protocol:     protocol.HTTP,
-						InstancePort: 8090,
-					},
-					{
-						Name:     "tcp",
-						Protocol: protocol.TCP,
-						// We use a port > 1024 to not require root
-						InstancePort: 9000,
-						ServicePort:  9000,
-					},
+	builder.
+		WithConfig(echo.Config{
+			Service:   "client",
+			Namespace: appNsInst,
+			Ports:     nil,
+			Subsets:   []echo.SubsetConfig{{}},
+		}).
+		WithConfig(echo.Config{
+			Service:   "server",
+			Namespace: appNsInst,
+			Subsets:   []echo.SubsetConfig{{}},
+			Ports: []echo.Port{
+				{
+					Name:         "http",
+					Protocol:     protocol.HTTP,
+					InstancePort: 8090,
 				},
-			}).
-			With(nil, echo.Config{
-				Service:   "server-no-sidecar",
-				Namespace: appNsInst,
-				Cluster:   c,
-				Subsets: []echo.SubsetConfig{
-					{
-						Annotations: map[echo.Annotation]*echo.AnnotationValue{
-							echo.SidecarInject: {
-								Value: strconv.FormatBool(false),
-							},
+				{
+					Name:     "tcp",
+					Protocol: protocol.TCP,
+					// We use a port > 1024 to not require root
+					InstancePort: 9000,
+					ServicePort:  9000,
+				},
+			},
+		}).
+		WithConfig(echo.Config{
+			Service:   "server-no-sidecar",
+			Namespace: appNsInst,
+			Subsets: []echo.SubsetConfig{
+				{
+					Annotations: map[echo.Annotation]*echo.AnnotationValue{
+						echo.SidecarInject: {
+							Value: strconv.FormatBool(false),
 						},
 					},
 				},
-				Ports: []echo.Port{
-					{
-						Name:         "http",
-						Protocol:     protocol.HTTP,
-						InstancePort: 8090,
-					},
-					{
-						Name:     "tcp",
-						Protocol: protocol.TCP,
-						// We use a port > 1024 to not require root
-						InstancePort: 9000,
-						ServicePort:  9000,
-					},
+			},
+			Ports: []echo.Port{
+				{
+					Name:         "http",
+					Protocol:     protocol.HTTP,
+					InstancePort: 8090,
 				},
-			}).
-			Build()
-
+				{
+					Name:     "tcp",
+					Protocol: protocol.TCP,
+					// We use a port > 1024 to not require root
+					InstancePort: 9000,
+					ServicePort:  9000,
+				},
+			},
+		})
+	for _, c := range ctx.Clusters() {
 		ingr = append(ingr, ist.IngressFor(c))
 	}
 	echos, err := builder.Build()
