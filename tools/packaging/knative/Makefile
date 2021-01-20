@@ -27,8 +27,7 @@ TAG ?= asm-cr
 
 # Hub for the proxy
 PROXY_HUB ?= grc.io/wlhe-cr
-f:
-	echo $(ISTIO_OUT)/knative/telemetry-sd.yaml
+
 $(ISTIO_OUT)/knative/telemetry-sd.yaml: manifests/charts/istio-control/istio-discovery/templates/telemetryv2_1.8.yaml manifests/charts/istio-control/istio-discovery/templates/telemetryv2_1.9.yaml tools/packaging/knative/values.telemetry-sd.yaml
 	mkdir -p $(ISTIO_OUT)/knative/templates
 	cp manifests/charts/istio-control/istio-discovery/templates/telemetryv2_1.8.yaml ${ISTIO_OUT}/knative/templates
@@ -42,6 +41,11 @@ $(ISTIO_OUT)/knative/telemetry.yaml: manifests/charts/istio-control/istio-discov
 	cp manifests/charts/istio-control/istio-discovery/templates/telemetryv2_1.9.yaml ${ISTIO_OUT}/knative/templates
 	cp manifests/charts/istio-control/istio-discovery/Chart.yaml ${ISTIO_OUT}/knative/Chart.yaml
 	helm template $(ISTIO_OUT)/knative -f tools/packaging/knative/values.telemetry.yaml > $@
+
+$(ISTIO_OUT)/knative/injection-template.yaml: manifests/charts/istio-control/istio-discovery/files/injection-template.yaml
+	mkdir -p $(ISTIO_OUT)/knative
+	echo -e "templates:\n  sidecar: |-" > ${ISTIO_OUT}/knative/injection-template.yaml
+	cat manifests/charts/istio-control/istio-discovery/files/injection-template.yaml | sed 's/^/    /g' >> ${ISTIO_OUT}/knative/injection-template.yaml
 
 gen-gateway:
 	helm template istio-asm manifests/charts/gateways/istio-ingress \
