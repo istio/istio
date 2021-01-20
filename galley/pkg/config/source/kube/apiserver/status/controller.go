@@ -104,13 +104,14 @@ func (c *ControllerImpl) UpdateResourceStatus(
 	col collection.Name, name resource.FullName, version resource.Version, status interface{}) {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
+	if c.state != nil {
+		// Extract the subfield this controller manages
+		// If the status field was something other than a map, treat it like it was an empty map
+		// for the purpose of "observed"
+		statusMap, _ := status.(map[string]interface{})
 
-	// Extract the subfield this controller manages
-	// If the status field was something other than a map, treat it like it was an empty map
-	// for the purpose of "observed"
-	statusMap, _ := status.(map[string]interface{})
-
-	c.state.setObserved(col, name, version, statusMap[c.subfield])
+		c.state.setObserved(col, name, version, statusMap[c.subfield])
+	}
 }
 
 // Report the given set of messages towards particular resources.
