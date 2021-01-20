@@ -401,6 +401,7 @@ func TestSetTagWebhookCreation(t *testing.T) {
 	codecFactory := serializer.NewCodecFactory(scheme)
 	deserializer := codecFactory.UniversalDeserializer()
 
+	istioNamespace = "istio-system"
 	for _, tc := range tcs {
 		webhookConfig, err := tagWebhookConfigFromCanonicalWebhook(tc.webhook, tc.tagName)
 		if err != nil {
