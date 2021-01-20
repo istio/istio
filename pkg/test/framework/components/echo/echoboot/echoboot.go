@@ -21,37 +21,21 @@ import (
 	"istio.io/istio/pkg/test/framework/resource"
 )
 
+var _ echo.Builder = builder{}
+
 // NewBuilder for Echo Instances.
-func NewBuilder(ctx resource.Context, clusters ...resource.Cluster) Builder {
+func NewBuilder(ctx resource.Context, clusters ...resource.Cluster) echo.Builder {
 	return builder{
 		kubeBuilder: kube.NewBuilder(ctx),
 	}.WithClusters(clusters...)
 }
-
-// Builder is a superset of echo.Builder, which allows deploying the same echo configuration across clusters.
-type Builder interface {
-	echo.Builder
-
-	// With is the legacy version of WithConfig.
-	With(i *echo.Instance, cfg echo.Config) echo.Builder
-
-	// WithConfig mimics the behavior of With, but does not allow passing a reference
-	// and returns an echoboot builder rather than a generic echo builder.
-	// TODO rename this to With, and the old method to WithInstance
-	WithConfig(cfg echo.Config) Builder
-
-	// WithClusters will cause subsequent With or WithConfig calls to be applied to the given clusters.
-	WithClusters(...resource.Cluster) Builder
-}
-
-var _ Builder = builder{}
 
 type builder struct {
 	clusters    resource.Clusters
 	kubeBuilder echo.Builder
 }
 
-func (b builder) WithConfig(cfg echo.Config) Builder {
+func (b builder) WithConfig(cfg echo.Config) echo.Builder {
 	return b.With(nil, cfg).(builder)
 }
 
@@ -85,7 +69,7 @@ func (b builder) With(i *echo.Instance, cfg echo.Config) echo.Builder {
 }
 
 // WithClusters will cause subsequent With calls to be applied to the given clusters.
-func (b builder) WithClusters(clusters ...resource.Cluster) Builder {
+func (b builder) WithClusters(clusters ...resource.Cluster) echo.Builder {
 	next := b
 	next.clusters = clusters
 	return next
