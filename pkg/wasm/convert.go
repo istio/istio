@@ -42,7 +42,7 @@ func MaybeConvertWasmExtensionConfig(resources []*any.Any, cache Cache) bool {
 	sendNack := atomic.NewBool(false)
 	startTime := time.Now()
 	defer func() {
-		wasmConfigConversionDuration.Record(float64(time.Now().Sub(startTime).Milliseconds()))
+		wasmConfigConversionDuration.Record(float64(time.Since(startTime).Milliseconds()))
 	}()
 
 	for i := 0; i < numResources; i++ {
