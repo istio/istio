@@ -358,7 +358,11 @@ dockerx.save: dockerx $(ISTIO_DOCKER_TAR)
 	   fi; \
 	 ))
 
+ifdef DISABLE_DOCKERX
+docker.save: docker $(DOCKER_TAR_TARGETS)
+else
 docker.save: dockerx.save
+endif
 
 # for each docker.XXX target create a push.docker.XXX target that pushes
 # the local docker image to another hub
