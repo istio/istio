@@ -27,7 +27,7 @@ const (
 
 type Config struct {
 	Kind               Kind              `json:"kind,omitempty"`
-	Name               string            `json:"ClusterName,omitempty"`
+	Name               string            `json:"clusterName,omitempty"`
 	Network            string            `json:"network,omitempty"`
 	PrimaryClusterName string            `json:"primaryClusterName,omitempty"`
 	ConfigClusterName  string            `json:"configClusterName,omitempty"`
