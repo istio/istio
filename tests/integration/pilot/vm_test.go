@@ -50,6 +50,9 @@ func TestVmOSPost(t *testing.T) {
 		Features("traffic.reachability").
 		Label(label.Postsubmit).
 		Run(func(ctx framework.TestContext) {
+			if ctx.Settings().SkipVM {
+				ctx.Skip("VM tests are disabled")
+			}
 			b := echoboot.NewBuilder(ctx)
 			images := GetAdditionVMImages()
 			instances := make([]echo.Instance, len(images))
