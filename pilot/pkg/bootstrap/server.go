@@ -32,6 +32,8 @@ import (
 	prometheus "github.com/grpc-ecosystem/go-grpc-prometheus"
 	prom "github.com/prometheus/client_golang/prometheus"
 	"github.com/soheilhy/cmux"
+	"golang.org/x/net/http2"
+	"golang.org/x/net/http2/h2c"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/keepalive"
@@ -148,6 +150,7 @@ type Server struct {
 	httpsMux *http.ServeMux // webhooks
 
 	HTTPListener       net.Listener
+	HTTP2Listener      net.Listener
 	GRPCListener       net.Listener
 	SecureGrpcListener net.Listener
 
@@ -393,6 +396,20 @@ func (s *Server) Start(stop <-chan struct{}) error {
 		}
 	}()
 
+	if s.HTTP2Listener != nil {
+		go func() {
+			log.Infof("starting Http2 muxed service at %s", s.HTTP2Listener.Addr())
+			h2s := &http2.Server{}
+			h1s := &http.Server{
+				Addr:    ":8080",
+				Handler: h2c.NewHandler(s.httpMux, h2s),
+			}
+			if err := h1s.Serve(s.HTTP2Listener); err != nil && err != http.ErrServerClosed {
+				log.Errorf("error serving http server: %v", err)
+			}
+		}()
+	}
+
 	if s.httpsServer != nil {
 		go func() {
 			log.Infof("starting webhook service at %s", s.HTTPListener.Addr())
@@ -572,6 +589,7 @@ func (s *Server) initDiscoveryService(args *PilotArgs) {
 		log.Info("multplexing gRPC on http port ", s.HTTPListener.Addr())
 		m := cmux.New(s.HTTPListener)
 		s.GRPCListener = m.Match(cmux.HTTP2HeaderField("content-type", "application/grpc"))
+		s.HTTP2Listener = m.Match(cmux.HTTP2())
 		s.HTTPListener = m.Match(cmux.Any())
 		go func() {
 			err := m.Serve()
