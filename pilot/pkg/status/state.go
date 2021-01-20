@@ -15,7 +15,6 @@
 package status
 
 import (
-	"encoding/json"
 	"fmt"
 	"strconv"
 	"strings"
@@ -228,11 +227,10 @@ func (c *DistributionController) configDeleted(res config.Config) {
 }
 
 func GetTypedStatus(in interface{}) (out v1alpha1.IstioStatus, err error) {
-	var statusBytes []byte
-	if statusBytes, err = json.Marshal(in); err == nil {
-		err = json.Unmarshal(statusBytes, &out)
+	if ret, ok := in.(v1alpha1.IstioStatus); ok {
+		return ret, nil
 	}
-	return
+	return v1alpha1.IstioStatus{}, fmt.Errorf("cannot cast %t: %v to IstioStatus", in, in)
 }
 
 func boolToConditionStatus(b bool) string {
