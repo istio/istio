@@ -176,6 +176,7 @@ func doFilterChainOperation(patchContext networking.EnvoyFilter_PatchContext,
 
 			ret, err := mergeTransportSocketListener(fc, cp)
 			if err != nil {
+				log.Debugf("Merge of transport socket failed for listener: %v", err)
 				continue
 			}
 			if !ret {
@@ -190,11 +191,11 @@ func doFilterChainOperation(patchContext networking.EnvoyFilter_PatchContext,
 // Test if the patch contains a config for TransportSocket
 func mergeTransportSocketListener(fc *xdslistener.FilterChain, cp *model.EnvoyFilterConfigPatchWrapper) (bool, error) {
 
-	err := fmt.Errorf("ERROR function mergeTransportSocketListener failed.")
+	var err error
 
 	cpValueCast, okCpCast := (cp.Value).(*xdslistener.FilterChain)
 	if !okCpCast {
-		log.Errorf("ERROR Cast of cp.Value: %v", okCpCast)
+		err = fmt.Errorf("cast of cp.Value failed: %v", okCpCast)
 		return false, err
 	}
 
@@ -214,9 +215,9 @@ func mergeTransportSocketListener(fc *xdslistener.FilterChain, cp *model.EnvoyFi
 
 		if dstListener != nil && srcPatch != nil {
 
-			retVal, err := util.MergeAnyWithAny(dstListener, srcPatch)
-			if err != nil {
-				log.Errorf("ERROR MergeAnyWithAny failed for doFilterChainOperation: %v", err)
+			retVal, errMerge := util.MergeAnyWithAny(dstListener, srcPatch)
+			if errMerge != nil {
+				err = fmt.Errorf("MergeAnyWithAny failed for doFilterChainOperation: %v", errMerge)
 				return false, err
 			}
 

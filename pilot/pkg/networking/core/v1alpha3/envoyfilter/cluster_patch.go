@@ -43,6 +43,7 @@ func ApplyClusterMerge(pctx networking.EnvoyFilter_PatchContext, efw *model.Envo
 
 			ret, err := mergeTransportSocketCluster(c, cp)
 			if err != nil {
+				log.Debugf("Merge of transport socket failed for cluster: %v", err)
 				continue
 			}
 			if !ret {
@@ -56,11 +57,11 @@ func ApplyClusterMerge(pctx networking.EnvoyFilter_PatchContext, efw *model.Envo
 // Test if the patch contains a config for TransportSocket
 func mergeTransportSocketCluster(c *cluster.Cluster, cp *model.EnvoyFilterConfigPatchWrapper) (bool, error) {
 
-	err := fmt.Errorf("ERROR function mergeTransportSocketCluster failed.")
+	var err error
 
 	cpValueCast, okCpCast := (cp.Value).(*cluster.Cluster)
 	if !okCpCast {
-		log.Errorf("ERROR Cast of cp.Value: %v", okCpCast)
+		err = fmt.Errorf("cast of cp.Value failed: %v", okCpCast)
 		return false, err
 	}
 
@@ -83,9 +84,9 @@ func mergeTransportSocketCluster(c *cluster.Cluster, cp *model.EnvoyFilterConfig
 
 			if dstCluster != nil && srcPatch != nil {
 
-				retVal, err := util.MergeAnyWithAny(dstCluster, srcPatch)
-				if err != nil {
-					log.Errorf("ERROR MergeAnyWithAny failed for ApplyClusterMerge: %v", err)
+				retVal, errMerge := util.MergeAnyWithAny(dstCluster, srcPatch)
+				if errMerge != nil {
+					err = fmt.Errorf("function MergeAnyWithAny failed for ApplyClusterMerge: %v", errMerge)
 					return false, err
 				}
 
