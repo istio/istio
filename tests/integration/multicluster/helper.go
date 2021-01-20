@@ -90,11 +90,12 @@ func SetupApps(appCtx *AppContext) resource.SetupFn {
 			echoLbCfg := newEchoConfig("echolb", appCtx.Namespace, cluster)
 			echoLbCfg.Subsets = append(echoLbCfg.Subsets, echo.SubsetConfig{Version: "v2"})
 
-			builder.With(nil, echoLbCfg)
-			builder.With(nil, newEchoConfig("local", appCtx.LocalNamespace, cluster))
+			builder = builder.
+				WithConfig(echoLbCfg).
+				WithConfig(newEchoConfig("local", appCtx.LocalNamespace, cluster))
 			for i := 0; i < uniqSvcPerCluster; i++ {
 				svcName := fmt.Sprintf("echo-%d-%d", cluster.Index(), i)
-				builder = builder.With(nil, newEchoConfig(svcName, appCtx.Namespace, cluster))
+				builder = builder.WithConfig(newEchoConfig(svcName, appCtx.Namespace, cluster))
 			}
 		}
 		echos, err := builder.Build()
