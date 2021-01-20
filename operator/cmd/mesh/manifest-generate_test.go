@@ -59,9 +59,23 @@ var (
 	testDataDir = filepath.Join(operatorRootDir, "cmd/mesh/testdata/manifest-generate")
 
 	// Snapshot charts are in testdata/manifest-generate/data-snapshot
-	snapshotCharts = chartSourceType(filepath.Join(testDataDir, "data-snapshot"))
+	snapshotCharts = func() chartSourceType {
+		d, err := os.MkdirTemp("", "data-snapshot-")
+		if err != nil {
+			panic(fmt.Errorf("failed to make temp dir: %v", err))
+		}
+		f, err := os.Open("testdata/manifest-generate/data-snapshot.tar.gz")
+		if err != nil {
+			panic(fmt.Errorf("failed to read data snapshot: %v", err))
+		}
+		if err := tgz.Extract(f, d); err != nil {
+			panic(fmt.Errorf("failed to extract data snapshot: %v", err))
+		}
+		return chartSourceType(filepath.Join(d, "manifests"))
+	}()
 	// Compiled in charts come from assets.gen.go
 	compiledInCharts chartSourceType = "COMPILED"
+	_                                = compiledInCharts
 	// Live charts come from manifests/
 	liveCharts = chartSourceType(filepath.Join(env.IstioSrc, helm.OperatorSubdirFilePath))
 )
@@ -81,6 +95,13 @@ type testGroup []struct {
 	diffSelect                  string
 	diffIgnore                  string
 	chartSource                 chartSourceType
+}
+
+func TestMain(m *testing.M) {
+	code := m.Run()
+	// Cleanup uncompress snapshot charts
+	os.RemoveAll(string(snapshotCharts))
+	os.Exit(code)
 }
 
 func TestManifestGenerateComponentHubTag(t *testing.T) {
@@ -383,13 +404,14 @@ func TestManifestGenerateOrdered(t *testing.T) {
 		t.Errorf("stable_manifest: Manifest generation is not producing stable text output.")
 	}
 }
+
 func TestManifestGenerateFlagAliases(t *testing.T) {
 	inPath := filepath.Join(testDataDir, "input/all_on.yaml")
 	gotSet, err := runManifestGenerate([]string{inPath}, "--set revision=foo", snapshotCharts)
 	if err != nil {
 		t.Fatal(err)
 	}
-	gotAlias, err := runManifestGenerate([]string{inPath}, "--revision=foo --manifests="+filepath.Join(testDataDir, "data-snapshot"), compiledInCharts)
+	gotAlias, err := runManifestGenerate([]string{inPath}, "--revision=foo", snapshotCharts)
 	if err != nil {
 		t.Fatal(err)
 	}
