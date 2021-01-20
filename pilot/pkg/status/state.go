@@ -226,11 +226,11 @@ func (c *DistributionController) configDeleted(res config.Config) {
 	c.workers.Delete(*r)
 }
 
-func GetTypedStatus(in interface{}) (out v1alpha1.IstioStatus, err error) {
-	if ret, ok := in.(v1alpha1.IstioStatus); ok {
+func GetTypedStatus(in interface{}) (out *v1alpha1.IstioStatus, err error) {
+	if ret, ok := in.(*v1alpha1.IstioStatus); ok {
 		return ret, nil
 	}
-	return v1alpha1.IstioStatus{}, fmt.Errorf("cannot cast %t: %v to IstioStatus", in, in)
+	return nil, fmt.Errorf("cannot cast %t: %v to IstioStatus", in, in)
 }
 
 func boolToConditionStatus(b bool) string {
@@ -257,11 +257,11 @@ func ReconcileStatuses(current *config.Config, desired Progress, generation int6
 		} else {
 			scope.Warn("Encountered unexpected status content.  Overwriting status.")
 		}
-		currentStatus = v1alpha1.IstioStatus{
+		currentStatus = &v1alpha1.IstioStatus{
 			Conditions: []*v1alpha1.IstioCondition{&desiredCondition},
 		}
 		currentStatus.ObservedGeneration = generation
-		return true, &currentStatus
+		return true, currentStatus
 	}
 	var currentCondition *v1alpha1.IstioCondition
 	conditionIndex := -1
@@ -282,7 +282,7 @@ func ReconcileStatuses(current *config.Config, desired Progress, generation int6
 		currentStatus.Conditions = append(currentStatus.Conditions, &desiredCondition)
 	}
 	currentStatus.ObservedGeneration = generation
-	return needsReconcile, &currentStatus
+	return needsReconcile, currentStatus
 }
 
 type DistroReportHandler struct {

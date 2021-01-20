@@ -23,7 +23,7 @@ import (
 	"istio.io/istio/pkg/config"
 )
 
-var statusStillPropagating = v1alpha1.IstioStatus{
+var statusStillPropagating = &v1alpha1.IstioStatus{
 	Conditions: []*v1alpha1.IstioCondition{
 		{
 			Type:    "PassedValidation",
@@ -175,7 +175,7 @@ func Test_getTypedStatus(t *testing.T) {
 	tests := []struct {
 		name    string
 		args    args
-		wantOut v1alpha1.IstioStatus
+		wantOut *v1alpha1.IstioStatus
 		wantErr bool
 	}{
 		{
