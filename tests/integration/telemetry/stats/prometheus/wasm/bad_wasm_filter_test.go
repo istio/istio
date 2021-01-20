@@ -34,6 +34,7 @@ import (
 // TestBadWasmRemoteLoad tests that bad Wasm remote load configuration won't affect service.
 func TestBadWasmRemoteLoad(t *testing.T) {
 	framework.NewTest(t).
+		Features("extensibility.wasm.remote-load").
 		Run(func(ctx framework.TestContext) {
 			g, _ := errgroup.WithContext(context.Background())
 			for _, cltInstance := range common.GetClientInstances() {
