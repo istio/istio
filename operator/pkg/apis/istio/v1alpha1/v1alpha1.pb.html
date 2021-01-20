@@ -3210,6 +3210,19 @@ This is intended for advanced configuration only; most users should use the buil
 No
 </td>
 </tr>
+<tr id="SidecarInjectorConfig-useLegacySelectors">
+<td><code>useLegacySelectors</code></td>
+<td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#boolvalue">BoolValue</a></code></td>
+<td>
+<p>If enabled, the legacy webhook selection logic will be used. This relies on filtering of webhook
+requests in Istiod, rather than at the webhook selection level.
+This is option is intended for migration purposes only and will be removed in Istio 1.10.</p>
+
+</td>
+<td>
+No
+</td>
+</tr>
 </tbody>
 </table>
 </section>
