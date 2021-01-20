@@ -1602,7 +1602,7 @@ func TestBuildNameToServiceMapForHttpRoutes(t *testing.T) {
 	}
 
 	cg := NewConfigGenTest(t, TestOptions{
-		Configs: []config.Config{virtualService},
+		Configs:  []config.Config{virtualService},
 		Services: []*pilot_model.Service{fooServiceInTestNamespace, barServiceInDefaultNamespace, bazServiceInDefaultNamespace},
 	})
 	proxy := &pilot_model.Proxy{
