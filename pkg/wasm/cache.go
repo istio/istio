@@ -131,20 +131,11 @@ func (c *LocalFileCache) Get(downloadURL, checksum string, timeout time.Duration
 		// TODO(bianpengyuan): Add sanity check on downloaded file to make sure it is a valid Wasm module.
 
 		key.checksum = dChecksum
-		// Check if the module has already been stored as local file. If so, avoid writing the file again.
-		if modulePath := c.getEntry(key); modulePath != "" {
-			return modulePath, nil
-		}
-
-		// Materialize the Wasm module into a local file. Use checksum as name of the module.
 		f := filepath.Join(c.dir, fmt.Sprintf("%s.wasm", dChecksum))
-		err = ioutil.WriteFile(f, b, 0644)
-		if err != nil {
+
+		if err := c.addEntry(key, b, f); err != nil {
 			return "", err
 		}
-
-		// Add the downloaded module into the cache map.
-		c.addEntry(key, f)
 
 		return f, nil
 	default:
@@ -152,14 +143,28 @@ func (c *LocalFileCache) Get(downloadURL, checksum string, timeout time.Duration
 	}
 }
 
-func (c *LocalFileCache) addEntry(key cacheKey, modulePath string) {
+func (c *LocalFileCache) addEntry(key cacheKey, wasmModule []byte, f string) error {
 	c.mux.Lock()
 	defer c.mux.Unlock()
+
+	// Check if the module has already been added. If so, avoid writing the file again.
+	if ce, ok := c.modules[key]; ok {
+		// Update last touched time.
+		ce.last = time.Now()
+		return nil
+	}
+
+	// Materialize the Wasm module into a local file. Use checksum as name of the module.
+	if err := ioutil.WriteFile(f, wasmModule, 0644); err != nil {
+		return err
+	}
+
 	ce := cacheEntry{
-		modulePath: modulePath,
+		modulePath: f,
 		last:       time.Now(),
 	}
 	c.modules[key] = ce
+	return nil
 }
 
 func (c *LocalFileCache) getEntry(key cacheKey) string {
