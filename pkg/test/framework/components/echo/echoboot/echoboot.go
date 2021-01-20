@@ -1,4 +1,3 @@
-// +build integ
 // Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -29,7 +28,7 @@ func NewBuilder(ctx resource.Context, clusters ...resource.Cluster) Builder {
 	}.WithClusters(clusters...)
 }
 
-// Builder is a superset of echo.Builder, which allows deploying the same echo configuration accross clusters.
+// Builder is a superset of echo.Builder, which allows deploying the same echo configuration across clusters.
 type Builder interface {
 	echo.Builder
 
