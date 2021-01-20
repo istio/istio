@@ -1,0 +1,9 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: istioctl
+issue:
+  - 28797
+releaseNotes:
+  - |
+    **Fixed** istioctl wait now tracks resource's metadata.generation field, rather than metadata.resourceVersion.
+    Command line arguments have been updated to reflect this.
