@@ -70,6 +70,9 @@ var (
 				"galley_validation_passed",
 				// cAdvisor does not expose this metrics, and we don't have kubelet in kind
 				"container_fs_usage_bytes",
+				// flakes: https://github.com/istio/istio/issues/29871
+				"container_memory_working_set_bytes",
+				"container_cpu_usage_seconds_total",
 			},
 			// Pilot is installed only on Primary cluster, hence validate for primary clusters only.
 			true,
@@ -104,11 +107,11 @@ var (
 			"istio-grafana-dashboards",
 			"istio-performance-dashboard.json",
 			[]string{
-				// TODO add these back: https://github.com/istio/istio/issues/20175
-				`istio-telemetry`,
-				`istio-policy`,
 				// cAdvisor does not expose this metrics, and we don't have kubelet in kind
 				"container_fs_usage_bytes",
+				// flakes: https://github.com/istio/istio/issues/29871
+				"container_memory_working_set_bytes",
+				"container_cpu_usage_seconds_total",
 			},
 			true,
 		},
@@ -117,6 +120,9 @@ var (
 			"istio-extension-dashboard.json",
 			[]string{
 				"avg(envoy_wasm_vm_v8_",
+				// flakes: https://github.com/istio/istio/issues/29871
+				"container_memory_working_set_bytes",
+				"container_cpu_usage_seconds_total",
 			},
 			false,
 		},
