@@ -22,6 +22,8 @@ import (
 	"sync"
 	"time"
 
+	"istio.io/pkg/ledger"
+
 	"go.uber.org/atomic"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
@@ -35,6 +37,7 @@ import (
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/config/visibility"
+	"istio.io/pkg/ledger"
 	"istio.io/pkg/monitoring"
 )
 
@@ -214,7 +217,7 @@ type PushContext struct {
 
 	initDone        atomic.Bool
 	initializeMutex sync.Mutex
-	Cleanup         func()
+	ledger          ledger.Ledger
 }
 
 // Gateway is the gateway of a network
@@ -879,6 +882,18 @@ func (ps *PushContext) SubsetToLabels(proxy *Proxy, subsetName string, hostname 
 	return nil
 }
 
+func (ps *PushContext) Cleanup() {
+
+	l := ps.ledger
+	// many tests run this code with no ledger.  don't bother cleaning them up.
+	if l != nil {
+		err := l.EraseRootHash(ps.LedgerVersion)
+		if err != nil {
+			log.Errorf("unable to garbage collect old config version: %s", err)
+		}
+	}
+}
+
 // InitContext will initialize the data structures used for code generation.
 // This should be called before starting the push, from the thread creating
 // the push context.
@@ -895,16 +910,7 @@ func (ps *PushContext) InitContext(env *Environment, oldPushContext *PushContext
 	ps.ServiceDiscovery = env.ServiceDiscovery
 	ps.IstioConfigStore = env.IstioConfigStore
 	ps.LedgerVersion = env.Version()
-	ps.Cleanup = func() {
-		l := env.GetLedger()
-		// many tests run this code with no ledger.  don't bother cleaning them up.
-		if l != nil {
-			err := l.EraseRootHash(ps.LedgerVersion)
-			if err != nil {
-				log.Errorf("unable to garbage collect old config version: %s", err)
-			}
-		}
-	}
+	ps.ledger = env.GetLedger()
 
 	// Must be initialized first
 	// as initServiceRegistry/VirtualServices/Destrules
