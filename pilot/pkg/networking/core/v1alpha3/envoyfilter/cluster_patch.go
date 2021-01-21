@@ -36,11 +36,11 @@ const (
 	Port        = "port"
 )
 
-func GenerateMatchMap(pctx networking.EnvoyFilter_PatchContext, efw *model.EnvoyFilterWrapper) (cpw, serviceMap, subsetMap, portMap map[string][]*model.EnvoyFilterConfigPatchWrapper) {
-	cpw = make(map[string][]*model.EnvoyFilterConfigPatchWrapper)
-	serviceMap = make(map[string][]*model.EnvoyFilterConfigPatchWrapper)
-	subsetMap = make(map[string][]*model.EnvoyFilterConfigPatchWrapper)
-	portMap = make(map[string][]*model.EnvoyFilterConfigPatchWrapper)
+func GenerateMatchMap(pctx networking.EnvoyFilter_PatchContext, efw *model.EnvoyFilterWrapper) (map[string][]*model.EnvoyFilterConfigPatchWrapper, map[string][]*model.EnvoyFilterConfigPatchWrapper, map[string][]*model.EnvoyFilterConfigPatchWrapper, map[string][]*model.EnvoyFilterConfigPatchWrapper) {
+	cpw := make(map[string][]*model.EnvoyFilterConfigPatchWrapper)
+	serviceMap := make(map[string][]*model.EnvoyFilterConfigPatchWrapper)
+	subsetMap := make(map[string][]*model.EnvoyFilterConfigPatchWrapper)
+	portMap := make(map[string][]*model.EnvoyFilterConfigPatchWrapper)
 	if efw == nil {
 		return cpw, serviceMap, subsetMap, portMap
 	}
@@ -152,16 +152,18 @@ func mergeOrRemove(cluster *cluster.Cluster, cp *model.EnvoyFilterConfigPatchWra
 	if clusterMatch(cluster, cp) {
 		if cp.Operation == networking.EnvoyFilter_Patch_REMOVE {
 			return nil, false
-		} else {
-			proto.Merge(cluster, cp.Value)
 		}
+		proto.Merge(cluster, cp.Value)
 	}
 	return cluster, true
 }
 
-func findMinMatchMap(Name string, serviceMap, subsetMap, portMap map[string][]*model.EnvoyFilterConfigPatchWrapper) (string, []*model.EnvoyFilterConfigPatchWrapper) {
+func findMinMatchMap(name string,
+	serviceMap map[string][]*model.EnvoyFilterConfigPatchWrapper,
+	subsetMap map[string][]*model.EnvoyFilterConfigPatchWrapper,
+	portMap map[string][]*model.EnvoyFilterConfigPatchWrapper) (string, []*model.EnvoyFilterConfigPatchWrapper) {
 
-	_, subset, hostname, port := model.ParseSubsetKey(Name)
+	_, subset, hostname, port := model.ParseSubsetKey(name)
 
 	serviceMapLen := len(serviceMap[string(hostname)]) + len(serviceMap[MergeAny])
 	subsetMapLen := len(subsetMap[subset]) + len(subsetMap[MergeAny])
