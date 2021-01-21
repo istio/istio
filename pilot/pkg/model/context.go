@@ -520,9 +520,6 @@ type NodeMetadata struct {
 	// InstanceName is the pod name (for K8S) or an identifier of the instance.
 	InstanceName string `json:"NAME,omitempty"`
 
-	// ProxyXDSViaAgent indicates that xds data is being proxied via the agent
-	ProxyXDSViaAgent string `json:"PROXY_XDS_VIA_AGENT,omitempty"`
-
 	// AutoRegister will enable auto registration of the connected endpoint to the service registry using the given WorkloadGroup name
 	AutoRegisterGroup string `json:"AUTO_REGISTER_GROUP,omitempty"`
 

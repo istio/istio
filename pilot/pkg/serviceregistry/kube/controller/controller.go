@@ -367,13 +367,6 @@ func (c *Controller) IstiodEvent(ns, reason, msg string, warn bool) {
 	if warn {
 		evType = v1.EventTypeWarning
 	}
-	// reference is required
-	p, err := c.nsLister.Get(ns)
-	if err != nil {
-		log.Infoa("Pod not found, skipping event ", err)
-		return
-	}
-	log.Infoa("NS: ", p)
 	ref := &v1.ObjectReference{
 		Kind:            "",
 		APIVersion:      "",
@@ -431,19 +424,11 @@ func (c *Controller) PodEvent(ns, pod, reason, msg string, warn bool) {
 	p, err := c.pods.podInformer.Lister().Pods(ns).Get(pod)
 	var ref runtime.Object
 	if err != nil {
-		log.Infoa("Pod not found, dummy object", err)
-		ref = &v1.ObjectReference{
-			Kind:            "Pod",
-			APIVersion:      "v1",
-			Name:            pod,
-			Namespace:       ns,
-			UID:             "",
-			ResourceVersion: "",
-		}
-	} else {
-		log.Infoa("Pod  found ", p)
-		ref = p
+		// For now we'll skip reporting.
+		log.Infoa("Pod not found", err)
+		return
 	}
+	ref = p
 	// TODO: use annotatedEventf, json object - for programmatic use of the event.
 	c.Recoder.Event(ref, evType, reason, msg)
 }

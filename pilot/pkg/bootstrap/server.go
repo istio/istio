@@ -403,7 +403,7 @@ func (s *Server) Start(stop <-chan struct{}) error {
 	if s.XDSServer.XEventing != nil {
 		s.XDSServer.XEventing.IstiodEvent("istio-system",
 			"istio-start",
-			fmt.Sprintf("time:%v", time.Since(startupTime)), false)
+			fmt.Sprintf("startupTime=%v", time.Since(startupTime)), false)
 	}
 
 	s.waitForShutdown(stop)
