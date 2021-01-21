@@ -639,6 +639,48 @@ spec:
       istioNamespace: istio-system
 `,
 		},
+		{
+			desc: "pilot env k8s setting with non-empty hpa values",
+			inIOPSpec: `
+spec:
+  revision: canary
+  components:
+    pilot:
+      enabled: true
+  values:
+    pilot:
+      autoscaleMin: 1
+      autoscaleMax: 3
+      cpu:
+        targetAverageUtilization: 80
+`,
+			want: `
+spec:
+  revision: canary
+  components:
+    pilot:
+      enabled: true
+      k8s:
+        hpaSpec:
+          maxReplicas: 3
+          minReplicas: 1
+          scaleTargetRef:
+            apiVersion: apps/v1
+            kind: Deployment
+            name: istiod-canary
+          metrics:
+          - type: Resource
+            resource:
+              name: cpu
+              targetAverageUtilization: 80
+  values:
+    pilot:
+      autoscaleMin: 1
+      autoscaleMax: 3
+      cpu:
+        targetAverageUtilization: 80
+`,
+		},
 	}
 	tr := NewReverseTranslator()
 
