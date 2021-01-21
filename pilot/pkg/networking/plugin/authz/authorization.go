@@ -42,6 +42,10 @@ type Plugin struct {
 	actionType ActionType
 }
 
+func (p Plugin) OnOutboundCluster(mutable *networking.MutableObjects) error {
+	panic("implement me")
+}
+
 // NewPlugin returns an instance of the authorization plugin
 func NewPlugin(actionType ActionType) plugin.Plugin {
 	return Plugin{actionType: actionType}

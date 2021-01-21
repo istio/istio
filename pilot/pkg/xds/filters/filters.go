@@ -16,6 +16,7 @@ package filters
 
 import (
 	udpa "github.com/cncf/udpa/go/udpa/type/v1"
+	cluster "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
 	cors "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/cors/v3"
@@ -151,6 +152,19 @@ var (
 					}},
 			},
 		})},
+	}
+
+	TCPMxClusterFilter = &cluster.Filter{
+		Name: MxFilterName,
+		TypedConfig: util.MessageToAny(&udpa.TypedStruct{
+			TypeUrl: "type.googleapis.com/envoy.tcp.metadataexchange.config.MetadataExchange",
+			Value: &structpb.Struct{
+				Fields: map[string]*structpb.Value{
+					"protocol": {
+						Kind: &structpb.Value_StringValue{StringValue: "istio-peer-exchange"},
+					}},
+			},
+		}),
 	}
 
 	HTTPMx = buildHTTPMxFilter()

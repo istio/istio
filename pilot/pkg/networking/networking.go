@@ -15,11 +15,13 @@
 package networking
 
 import (
+	cluster1 "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
 	http_conn "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
 	thrift_proxy "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/thrift_proxy/v3"
 	tls "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
+	_ "google.golang.org/genproto/googleapis/bigtable/admin/cluster/v1"
 
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pkg/config/protocol"
@@ -118,6 +120,9 @@ type MutableObjects struct {
 
 	// FilterChains is the set of filter chains that will be attached to Listener.
 	FilterChains []FilterChain
+
+	// Cluster is the set of clusters that will be attached to Cluster.
+	Clusters []cluster1.Cluster
 }
 
 const (

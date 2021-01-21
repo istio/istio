@@ -34,6 +34,10 @@ var (
 // Plugin implements Istio mTLS auth
 type Plugin struct{}
 
+func (p Plugin) OnOutboundCluster(mutable *networking.MutableObjects) error {
+	panic("implement me")
+}
+
 // NewPlugin returns an instance of the authn plugin
 func NewPlugin() plugin.Plugin {
 	return Plugin{}

@@ -55,6 +55,8 @@ type Plugin interface {
 	// Can be used to add additional filters on the outbound path.
 	OnOutboundListener(in *InputParams, mutable *istionetworking.MutableObjects) error
 
+	OnOutboundCluster(mutable *istionetworking.MutableObjects) error
+
 	// OnInboundListener is called whenever a new listener is added to the LDS output for a given service
 	// Can be used to add additional filters.
 	OnInboundListener(in *InputParams, mutable *istionetworking.MutableObjects) error

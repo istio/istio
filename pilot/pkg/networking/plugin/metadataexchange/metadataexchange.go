@@ -49,6 +49,10 @@ func (p Plugin) OnOutboundListener(in *plugin.InputParams, mutable *networking.M
 	return buildFilter(in, mutable)
 }
 
+func (p Plugin) OnOutboundCluster(mutable *networking.MutableObjects) error {
+	return buildClusterFilter(mutable)
+}
+
 // OnInboundPassthrough is called whenever a new passthrough filter chain is added to the LDS output.
 // Can be used to add additional filters.
 func (p Plugin) OnInboundPassthrough(in *plugin.InputParams, mutable *networking.MutableObjects) error {
@@ -70,6 +74,13 @@ func buildFilter(in *plugin.InputParams, mutable *networking.MutableObjects) err
 			mutable.FilterChains[i].ListenerProtocol == networking.ListenerProtocolTCP {
 			mutable.FilterChains[i].TCP = append(mutable.FilterChains[i].TCP, xdsfilters.TCPMx)
 		}
+	}
+	return nil
+}
+
+func buildClusterFilter(mutable *networking.MutableObjects) error {
+	for i := range mutable.Clusters {
+		mutable.Clusters[i].Filters = append(mutable.Clusters[i].Filters, xdsfilters.TCPMxClusterFilter)
 	}
 	return nil
 }
