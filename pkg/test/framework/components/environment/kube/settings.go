@@ -15,10 +15,11 @@
 package kube
 
 import (
-	"encoding/json"
 	"fmt"
-	"gopkg.in/yaml.v3"
 	"io/ioutil"
+
+	"gopkg.in/yaml.v3"
+
 	istioKube "istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/test/framework/components/cluster"
 	"istio.io/istio/pkg/test/scopes"
@@ -119,10 +120,8 @@ func (s *Settings) clusterConfigsFromFile() ([]cluster.Config, error) {
 		return nil, err
 	}
 	configs := []cluster.Config{}
-	if jerr := json.Unmarshal(topologyBytes, &configs); jerr != nil {
-		if yerr := yaml.Unmarshal(topologyBytes, &configs); yerr != nil {
-			return nil, fmt.Errorf("failed to parse %s as JSON or YAML", topologyFile)
-		}
+	if err := yaml.Unmarshal(topologyBytes, &configs); err != nil {
+		return nil, fmt.Errorf("failed to parse %s: %v", topologyFile, err)
 	}
 
 	// Allow kubeconfig flag to override file
