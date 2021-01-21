@@ -26,7 +26,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/ghodss/yaml"
 	"gomodules.xyz/jsonpatch/v3"
 	kubeApiAdmissionv1 "k8s.io/api/admission/v1"
 	kubeApiAdmissionv1beta1 "k8s.io/api/admission/v1beta1"
@@ -752,16 +751,6 @@ func applyOverlay(target *corev1.Pod, overlayJSON []byte) (*corev1.Pod, error) {
 		return nil, fmt.Errorf("unmarshal patched pod: %v", err)
 	}
 	return &pod, nil
-}
-
-func mergeInjectedConfig(req *corev1.Pod, injected []byte) (*corev1.Pod, error) {
-	// The template is yaml, StrategicMergePatch expects JSON
-	injectedJSON, err := yaml.YAMLToJSON(injected)
-	if err != nil {
-		return nil, fmt.Errorf("yaml to json: %v", err)
-	}
-
-	return applyOverlay(req, injectedJSON)
 }
 
 func (wh *Webhook) inject(ar *kube.AdmissionReview, path string) *kube.AdmissionResponse {

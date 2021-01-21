@@ -78,6 +78,8 @@ var (
 		"retriable-4xx":          true,
 		"refused-stream":         true,
 		"retriable-status-codes": true,
+		"retriable-headers":      true,
+		"envoy-ratelimited":      true,
 
 		// 'x-envoy-retry-grpc-on' supported policies:
 		// https://www.envoyproxy.io/docs/envoy/latest/configuration/http/http_filters/router_filter#x-envoy-retry-grpc-on

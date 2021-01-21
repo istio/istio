@@ -96,6 +96,27 @@ spec:
   - to:
     - operation:
         ports: ["8092"]
+
+---
+
+# The following policy applies the CUSTOM action with the ext-authz-http provider on ingress gateway for path /custom.
+
+apiVersion: "security.istio.io/v1beta1"
+kind: AuthorizationPolicy
+metadata:
+  name: policy-ingress-http
+  namespace: "{{ .RootNamespace }}"
+spec:
+  selector:
+    matchLabels:
+      "app": "istio-ingressgateway"
+  action: CUSTOM
+  provider:
+    name: ext-authz-http
+  rules:
+  - to:
+    - operation:
+        paths: ["/custom"]
 ---
 
 # Define the service entry for the local ext-authz service on port 8000.
@@ -103,6 +124,7 @@ apiVersion: networking.istio.io/v1alpha3
 kind: ServiceEntry
 metadata:
   name: httpbin-ext-authz-http
+  namespace: "{{ .Namespace }}"
 spec:
   hosts:
   - "ext-authz-http.local"
@@ -120,6 +142,7 @@ apiVersion: networking.istio.io/v1alpha3
 kind: ServiceEntry
 metadata:
   name: httpbin-ext-authz-grpc
+  namespace: "{{ .Namespace }}"
 spec:
   hosts:
   - "ext-authz-grpc.local"
@@ -131,3 +154,41 @@ spec:
     protocol: GRPC
   resolution: STATIC
 ---
+
+# The following gateway allows request to "*.company.com"
+
+apiVersion: networking.istio.io/v1alpha3
+kind: Gateway
+metadata:
+  name: test-ingress
+  namespace: {{ .Namespace }}
+spec:
+  selector:
+    istio: ingressgateway # use istio default ingress gateway
+  servers:
+    - port:
+        number: 80
+        name: http
+        protocol: HTTP
+      hosts:
+        - "*.company.com"
+---
+
+# The following virtual service routes requests to workload x
+
+apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
+metadata:
+  name: test-vs
+  namespace: {{ .Namespace }}
+spec:
+  hosts:
+  - "*.company.com"
+  gateways:
+  - test-ingress
+  http:
+  - route:
+    - destination:
+        host: x
+        port:
+          number: 80

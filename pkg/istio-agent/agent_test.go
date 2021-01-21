@@ -409,7 +409,7 @@ func (a *AgentTest) Check(expectedSDS ...string) map[string]*xds.AdsTest {
 	for _, res := range xdstest.ExtractSecretResources(a.t, resp.Resources) {
 		sds := xds.NewSdsTest(a.t, setupDownstreamConnectionUDS(a.t, a.Security.WorkloadUDSPath)).
 			WithMetadata(meta).
-			WithTimeout(time.Second * 10) // CSR can be pretty slow with race detection enabled
+			WithTimeout(time.Second * 20) // CSR can be extremely slow with race detection enabled due to 2048 RSA
 		sds.RequestResponseAck(&discovery.DiscoveryRequest{ResourceNames: []string{res}})
 		sdsStreams[res] = sds
 		gotKeys = append(gotKeys, res)
