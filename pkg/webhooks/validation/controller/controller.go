@@ -482,8 +482,6 @@ func (c *Controller) updateValidatingWebhookConfiguration(caBundle []byte, failu
 	return nil
 }
 
-// func () shouldReset
-
 type configError struct {
 	err    error
 	reason string
