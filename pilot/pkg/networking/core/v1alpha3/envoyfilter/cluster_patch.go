@@ -36,7 +36,10 @@ const (
 	Port        = "port"
 )
 
-func GenerateMatchMap(pctx networking.EnvoyFilter_PatchContext, efw *model.EnvoyFilterWrapper) (cpw map[string][]*model.EnvoyFilterConfigPatchWrapper, serviceMap map[string][]*model.EnvoyFilterConfigPatchWrapper, subsetMap map[string][]*model.EnvoyFilterConfigPatchWrapper, portMap map[string][]*model.EnvoyFilterConfigPatchWrapper) {
+func GenerateMatchMap(pctx networking.EnvoyFilter_PatchContext, efw *model.EnvoyFilterWrapper) (cpw map[string][]*model.EnvoyFilterConfigPatchWrapper,
+	serviceMap map[string][]*model.EnvoyFilterConfigPatchWrapper,
+	subsetMap map[string][]*model.EnvoyFilterConfigPatchWrapper,
+	portMap map[string][]*model.EnvoyFilterConfigPatchWrapper) {
 
 	cpw = make(map[string][]*model.EnvoyFilterConfigPatchWrapper)
 	serviceMap = make(map[string][]*model.EnvoyFilterConfigPatchWrapper)
