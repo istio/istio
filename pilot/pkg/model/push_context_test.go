@@ -429,7 +429,6 @@ func TestInitPushContext(t *testing.T) {
 		// These are not feasible/worth comparing
 		cmpopts.IgnoreTypes(sync.RWMutex{}, localServiceDiscovery{}, FakeStore{}, atomic.Bool{}, sync.Mutex{}, func() {}),
 		cmpopts.IgnoreInterfaces(struct{ mesh.Holder }{}),
-		//cmpopts.IgnoreFields(PushContext{}, "Cleanup"),
 	)
 	if diff != "" {
 		t.Fatalf("Push context had a diff after update: %v", diff)
