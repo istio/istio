@@ -32,6 +32,10 @@ import (
 )
 
 // TestBadWasmRemoteLoad tests that bad Wasm remote load configuration won't affect service.
+// The test will set up an echo client and server, test echo ping works fine. Then apply a
+// Wasm filter which has a bad URL link, which will result as module download failure. After that,
+// verifies that echo ping could still work. The test also verifies that metrics are properly
+// recorded for module downloading failure and nack on ECDS update.
 func TestBadWasmRemoteLoad(t *testing.T) {
 	framework.NewTest(t).
 		Features("extensibility.wasm.remote-load").
@@ -40,15 +44,12 @@ func TestBadWasmRemoteLoad(t *testing.T) {
 			for _, cltInstance := range common.GetClientInstances() {
 				g.Go(func() error {
 					// Verify that echo server could return 200
-					err := retry.UntilSuccess(func() error {
+					retry.UntilSuccessOrFail(t, func() error {
 						if err := common.SendTraffic(t, cltInstance); err != nil {
 							return err
 						}
 						return nil
-					}, retry.Delay(10*time.Millisecond), retry.Timeout(5*time.Second))
-					if err != nil {
-						return err
-					}
+					}, retry.Delay(1*time.Millisecond), retry.Timeout(5*time.Second))
 					t.Log("echo server returns OK, apply bad wasm remote load filter.")
 
 					// Apply bad filter config
@@ -61,7 +62,7 @@ func TestBadWasmRemoteLoad(t *testing.T) {
 					}
 
 					// Wait until there is agent metrics for wasm download failure
-					err = retry.UntilSuccess(func() error {
+					retry.UntilSuccessOrFail(t, func() error {
 						q := "istio_agent_wasm_remote_fetch_count{result=\"download_failure\"}"
 						c := cltInstance.Config().Cluster
 						if _, err := common.QueryPrometheus(t, c, q, common.GetPromInstance()); err != nil {
@@ -70,16 +71,13 @@ func TestBadWasmRemoteLoad(t *testing.T) {
 							return err
 						}
 						return nil
-					}, retry.Delay(1*time.Second), retry.Timeout(40*time.Second))
-					if err != nil {
-						return err
-					}
+					}, retry.Delay(1*time.Second), retry.Timeout(80*time.Second))
 
 					t.Log("got istio_agent_wasm_remote_fetch_count metric in prometheus, bad wasm filter is applied, send request to echo server again.")
 
 					// Verify that istiod has a stats about rejected ECDS update
 					// pilot_total_xds_rejects{type="type.googleapis.com/envoy.config.core.v3.TypedExtensionConfig"}
-					err = retry.UntilSuccess(func() error {
+					retry.UntilSuccessOrFail(t, func() error {
 						q := fmt.Sprintf("pilot_total_xds_rejects{type=\"%v\"}", resource.ExtensionConfigurationType)
 						c := cltInstance.Config().Cluster
 						if _, err := common.QueryPrometheus(t, c, q, common.GetPromInstance()); err != nil {
@@ -88,21 +86,15 @@ func TestBadWasmRemoteLoad(t *testing.T) {
 							return err
 						}
 						return nil
-					}, retry.Delay(1*time.Second), retry.Timeout(40*time.Second))
-					if err != nil {
-						return err
-					}
+					}, retry.Delay(1*time.Second), retry.Timeout(80*time.Second))
 
 					// Verify that echo server could still return 200
-					err = retry.UntilSuccess(func() error {
+					retry.UntilSuccessOrFail(t, func() error {
 						if err := common.SendTraffic(t, cltInstance); err != nil {
 							return err
 						}
 						return nil
-					}, retry.Delay(10*time.Millisecond), retry.Timeout(5*time.Second))
-					if err != nil {
-						return err
-					}
+					}, retry.Delay(1*time.Millisecond), retry.Timeout(5*time.Second))
 
 					t.Log("echo server still returns ok after bad wasm filter is applied.")
 					return nil
