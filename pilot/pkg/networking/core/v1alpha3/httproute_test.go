@@ -124,9 +124,6 @@ func TestGenerateVirtualHostDomains(t *testing.T) {
 	}
 
 	for _, c := range cases {
-		// if c.name != "same domain" {
-		// 	continue
-		// }
 		out, _ := generateVirtualHostDomains(c.service, c.port, c.node, model.NewPushContext())
 		sort.SliceStable(c.want, func(i, j int) bool { return c.want[i] < c.want[j] })
 		sort.SliceStable(out, func(i, j int) bool { return out[i] < out[j] })
