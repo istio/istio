@@ -104,12 +104,6 @@ type Templates map[string]string
 type Config struct {
 	Policy InjectionPolicy `json:"policy"`
 
-	// Template is the templated version of `SidecarInjectionSpec` prior to
-	// expansion over the `SidecarTemplateData`.
-	// Deprecated; Use Templates instead. The code will transparently convert this to a template named
-	// "sidecar" for backwards compatibility
-	Template string `json:"template"`
-
 	// DefaultTemplates defines the default template to use for pods that do not explicitly specify a template
 	DefaultTemplates []string `json:"defaultTemplates"`
 
@@ -152,15 +146,13 @@ func UnmarshalConfig(yml []byte) (Config, error) {
 	if injectConfig.Templates == nil {
 		injectConfig.Templates = make(map[string]string)
 	}
-	if injectConfig.Template != "" && len(injectConfig.Templates) > 0 {
-		return injectConfig, fmt.Errorf(`only one of "template" or "templates" is allowed`)
-	}
-	if injectConfig.Template != "" {
-		injectConfig.Templates[SidecarTemplateName] = injectConfig.Template
-	}
-	injectConfig.Template = ""
 	if len(injectConfig.DefaultTemplates) == 0 {
 		injectConfig.DefaultTemplates = []string{SidecarTemplateName}
+	}
+	if len(injectConfig.Templates) == 0 {
+		log.Warnf("injection templates are empty." +
+			" This may be caused by using an injection template from an older version of Istio." +
+			" Please ensure the template is correct; mismatch template versions can lead to unexpected results, including pods not being injected.")
 	}
 	return injectConfig, nil
 }
@@ -368,11 +360,16 @@ func RunTemplate(params InjectionParameters) (mergedPod *corev1.Pod, templatePod
 			return nil, nil, err
 		}
 
-		mergedPod, err = unmarshalTemplate(mergedPod, bbuf.Bytes())
+		templateJSON, err := yaml.YAMLToJSON(bbuf.Bytes())
+		if err != nil {
+			return nil, nil, fmt.Errorf("yaml to json: %v", err)
+		}
+
+		mergedPod, err = applyOverlay(mergedPod, templateJSON)
 		if err != nil {
 			return nil, nil, fmt.Errorf("failed parsing generated injected YAML (check Istio sidecar injector configuration): %v", err)
 		}
-		templatePod, err = mergeInjectedConfig(templatePod, bbuf.Bytes())
+		templatePod, err = applyOverlay(templatePod, templateJSON)
 		if err != nil {
 			return nil, nil, fmt.Errorf("failed applying injection overlay: %v", err)
 		}
@@ -387,19 +384,6 @@ func knownTemplates(t Templates) []string {
 		keys = append(keys, k)
 	}
 	return keys
-}
-
-// unmarshalTemplate returns the Pod for the passed in template
-// The template can be either the legacy form, with the pod spec inlined with some custom options,
-// or the new form with just a full Pod yaml (allowing overriding metadata).
-// See https://eagain.net/articles/go-dynamic-json/ for more information on dynamically parsing JSON.
-func unmarshalTemplate(originalPod *corev1.Pod, raw []byte) (*corev1.Pod, error) {
-	mergedPod, err := mergeInjectedConfig(originalPod, raw)
-	if err != nil {
-		return nil, fmt.Errorf("failed to merge pod spec: %v", err)
-	}
-
-	return mergedPod, nil
 }
 
 func selectTemplates(params InjectionParameters) []string {
