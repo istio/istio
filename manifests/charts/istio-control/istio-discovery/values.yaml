@@ -278,6 +278,7 @@ global:
   # Refer to https://kubernetes.io/docs/concepts/configuration/pod-priority-preemption/#priorityclass
   # for more detail.
   priorityClassName: ""
+  configValidation: true
 
   proxy:
     image: proxyv2
@@ -498,3 +499,7 @@ global:
 base:
   # For istioctl usage to disable istio config crds in base
   enableIstioConfigCRDs: true
+
+  # Validation webhook configuration url
+  # For example: https://$remotePilotAddress:15017/validate
+  validationURL: ""
