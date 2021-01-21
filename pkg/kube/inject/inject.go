@@ -310,7 +310,7 @@ func RunTemplate(params InjectionParameters) (mergedPod *corev1.Pod, templatePod
 		network = params.proxyEnvs["ISTIO_META_NETWORK"]
 	}
 	// explicit label takes highest precedence
-	if n, ok := metadata.Labels[label.IstioNetwork]; ok {
+	if n, ok := metadata.Labels[label.TopologyNetwork.Name]; ok {
 		network = n
 	}
 

@@ -186,7 +186,7 @@ func (h *HelmReconciler) GetPrunedResources(revision string, includeClusterResou
 	var usList []*unstructured.UnstructuredList
 	labels := make(map[string]string)
 	if revision != "" {
-		labels[label.IstioRev] = revision
+		labels[label.IoIstioRev.Name] = revision
 	}
 	if componentName != "" {
 		labels[IstioComponentLabelStr] = componentName
@@ -249,7 +249,7 @@ func (h *HelmReconciler) DeleteControlPlaneByManifests(manifestMap name.Manifest
 	}
 	cpManifestMap := make(name.ManifestMap)
 	if revision != "" {
-		labels[label.IstioRev] = revision
+		labels[label.IoIstioRev.Name] = revision
 	}
 	if !includeClusterResources {
 		// only delete istiod resources if revision is empty and --purge flag is not true.

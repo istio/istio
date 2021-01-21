@@ -392,7 +392,7 @@ func (h *HelmReconciler) getCoreOwnerLabels() (map[string]string, error) {
 	if revision == "" {
 		revision = "default"
 	}
-	labels[label.IstioRev] = revision
+	labels[label.IoIstioRev.Name] = revision
 
 	return labels, nil
 }
@@ -516,7 +516,7 @@ func (h *HelmReconciler) createNamespace(namespace string, network string) error
 				},
 			}}
 			if network != "" {
-				ns.Labels[label.IstioNetwork] = network
+				ns.Labels[label.TopologyNetwork.Name] = network
 			}
 			_, err := h.clientSet.CoreV1().Namespaces().Create(context.TODO(), ns, metav1.CreateOptions{})
 			if err != nil {

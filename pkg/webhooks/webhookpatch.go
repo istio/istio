@@ -87,7 +87,7 @@ func (w *WebhookCertPatcher) runWebhookController(stopChan <-chan struct{}) {
 		"mutatingwebhookconfigurations",
 		"",
 		func(options *metav1.ListOptions) {
-			options.LabelSelector = fmt.Sprintf("%s=%s", label.IstioRev, w.revision)
+			options.LabelSelector = fmt.Sprintf("%s=%s", label.IoIstioRev.Name, w.revision)
 		})
 
 	_, c := cache.NewInformer(
@@ -159,7 +159,7 @@ func (w *WebhookCertPatcher) patchMutatingWebhookConfig(
 		return err
 	}
 	// prevents a race condition between multiple istiods when the revision is changed or modified
-	v, ok := config.Labels[label.IstioRev]
+	v, ok := config.Labels[label.IoIstioRev.Name]
 	if v != w.revision || !ok {
 		return errWrongRevision
 	}
