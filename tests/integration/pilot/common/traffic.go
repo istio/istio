@@ -105,6 +105,7 @@ func RunAllTrafficTests(ctx framework.TestContext, apps *EchoDeployments) {
 	if !ctx.Settings().SkipVM {
 		cases["vm"] = VMTestCases(apps.VM, apps)
 	}
+	cases["dns"] = DNSTestCases(apps)
 	for name, tts := range cases {
 		ctx.NewSubTest(name).Run(func(ctx framework.TestContext) {
 			for _, tt := range tts {
