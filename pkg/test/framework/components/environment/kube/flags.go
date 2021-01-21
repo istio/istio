@@ -78,7 +78,7 @@ func NewSettingsFromCommandLine() (*Settings, error) {
 		return nil, err
 	}
 
-	s.configTopolgoy, err = newConfigTopology(s.kubeconfigsFlag, s.controlPlaneTopology)
+	s.configconfigTopolgoy, err = newConfigTopology(s.kubeconfigsFlag, s.controlPlaneTopology)
 	if err != nil {
 		return nil, err
 	}
