@@ -126,10 +126,19 @@ type Controller struct {
 	reconcileDone func()
 }
 
-const QuitSignal = "unblock client on queue.Get return and exit the current go routine"
+// eventType represents potential specific reconcile events that we may want special behavior for
+type eventType uint16
+
+const (
+	// quitEvent indicates that we should unblock client on queue.Get return and exit the current go routine
+	quitEvent = iota
+	// validationUpdateEvent indicates that the reconcile request was the result of an update
+	validationUpdateEvent
+)
 
 type reconcileRequest struct {
 	description string
+	event       eventType
 }
 
 func (rr reconcileRequest) String() string {
@@ -159,7 +168,9 @@ func makeHandler(queue workqueue.Interface, gvk schema.GroupVersionKind, name st
 			if skip {
 				return
 			}
-			req := &reconcileRequest{fmt.Sprintf("add event (%v, Kind=%v) %v", gvk.GroupVersion(), gvk.Kind, key)}
+			req := &reconcileRequest{
+				description: fmt.Sprintf("add event (%v, Kind=%v) %v", gvk.GroupVersion(), gvk.Kind, key),
+			}
 			queue.Add(req)
 		},
 		UpdateFunc: func(prev, curr interface{}) {
@@ -179,7 +190,10 @@ func makeHandler(queue workqueue.Interface, gvk schema.GroupVersionKind, name st
 			if skip {
 				return
 			}
-			req := &reconcileRequest{fmt.Sprintf("update event (%v, Kind=%v) %v", gvk.GroupVersion(), gvk.Kind, key)}
+			req := &reconcileRequest{
+				description: fmt.Sprintf("update event (%v, Kind=%v) %v", gvk.GroupVersion(), gvk.Kind, key),
+				event:       validationUpdateEvent,
+			}
 			queue.Add(req)
 		},
 		DeleteFunc: func(curr interface{}) {
@@ -201,7 +215,9 @@ func makeHandler(queue workqueue.Interface, gvk schema.GroupVersionKind, name st
 			if skip {
 				return
 			}
-			req := &reconcileRequest{fmt.Sprintf("delete event (%v, Kind=%v) %v", gvk.GroupVersion(), gvk.Kind, key)}
+			req := &reconcileRequest{
+				description: fmt.Sprintf("delete event (%v, Kind=%v) %v", gvk.GroupVersion(), gvk.Kind, key),
+			}
 			queue.Add(req)
 		},
 	}
@@ -272,20 +288,25 @@ func (c *Controller) Start(stop <-chan struct{}) {
 		}
 	}
 
-	req := &reconcileRequest{"initial request to kickstart reconciliation"}
+	req := &reconcileRequest{
+		description: "initial request to kickstart reconciliation",
+	}
 	c.queue.Add(req)
 
 	go c.runWorker()
 
 	<-stop
-	c.queue.Add(&reconcileRequest{QuitSignal})
+	c.queue.Add(&reconcileRequest{
+		description: "unblock client on queue.Get return and exit the current go routine",
+		event:       quitEvent,
+	})
 }
 
 func (c *Controller) startFileWatcher(stop <-chan struct{}) {
 	for {
 		select {
 		case ev := <-c.fw.Events(c.o.CAPath):
-			req := &reconcileRequest{fmt.Sprintf("CA file changed: %v", ev)}
+			req := &reconcileRequest{description: fmt.Sprintf("CA file changed: %v", ev)}
 			c.queue.Add(req)
 		case err := <-c.fw.Errors(c.o.CAPath):
 			scope.Warnf("error watching local CA bundle: %v", err)
@@ -315,9 +336,15 @@ func (c *Controller) processNextWorkItem() (cont bool) {
 	}
 
 	// return false when leader lost in case go routine leak.
-	if req.description == QuitSignal {
+	if req.event == quitEvent {
 		c.queue.Forget(req)
 		return false
+	}
+	// when the validation webhook is updated, likely because defaultRevision was
+	// specified on a new revision, we should invalidate the cached validation readiness
+	// since we need to wait on new revision's validation endpoint to become available
+	if req.event == validationUpdateEvent {
+		c.dryRunOfInvalidConfigRejected = false
 	}
 
 	if err := c.reconcileRequest(req); err != nil {
@@ -367,7 +394,7 @@ func (c *Controller) readyForFailClose() bool {
 	if !c.dryRunOfInvalidConfigRejected {
 		if rejected, reason := c.isDryRunOfInvalidConfigRejected(); !rejected {
 			scope.Infof("Not ready to switch validation to fail-closed: %v", reason)
-			req := &reconcileRequest{"retry dry-run creation of invalid config"}
+			req := &reconcileRequest{description: "retry dry-run creation of invalid config"}
 			c.queue.AddAfter(req, time.Second)
 			return false
 		}
@@ -454,6 +481,8 @@ func (c *Controller) updateValidatingWebhookConfiguration(caBundle []byte, failu
 
 	return nil
 }
+
+// func () shouldReset
 
 type configError struct {
 	err    error
