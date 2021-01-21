@@ -429,20 +429,26 @@ func generateAltVirtualHosts(hostname string, port int, proxyDomain string) []st
 		dnsHostName := uniqHostname + "." + sharedDNSDomainParts[0]
 		vhosts = append(vhosts, uniqHostname, domainName(uniqHostname, port), dnsHostName, domainName(dnsHostName, port))
 	} else {
-		// Derive the namespace from sharedDNSDomain and add virtual host.
-		namespace := sharedDNSDomainParts[0]
-		hostNameWithNS := uniqHostname + "." + namespace
-		// If proxy is in the same namespace add unique host i.e. foo, foo:80.
-		if strings.HasPrefix(proxyDomain, namespace+".svc.") {
+		if strings.Contains(proxyDomain, ".svc.") {
+			// Derive the namespace from sharedDNSDomain and add virtual host.
+			namespace := sharedDNSDomainParts[0]
+			if strings.HasPrefix(proxyDomain, namespace+".svc.") {
+				// Split the domain and add only for Kubernetes proxies.
+				vhosts = append(vhosts, uniqHostname, domainName(uniqHostname, port))
+				if len(sharedDNSDomainParts) > 1 {
+					dnsHostName := uniqHostname + "." + namespace + "." + sharedDNSDomainParts[1]
+					vhosts = append(vhosts, dnsHostName, domainName(dnsHostName, port))
+				}
+				hostNameWithNS := uniqHostname + "." + namespace
+
+				// Don't add if they are same because we add it later and adding it here will result in duplicates.
+				if hostname != hostNameWithNS {
+					vhosts = append(vhosts, hostNameWithNS, domainName(hostNameWithNS, port))
+				}
+			}
+		} else {
+			// Add the uniqueHost if it is not a Kubernetes domain.
 			vhosts = append(vhosts, uniqHostname, domainName(uniqHostname, port))
-		}
-		// Don't add if they are same because we add it later and adding it here will result in duplicates.
-		if hostname != hostNameWithNS {
-			vhosts = append(vhosts, hostNameWithNS, domainName(hostNameWithNS, port))
-		}
-		if len(sharedDNSDomainParts) > 1 {
-			dnsHostName := uniqHostname + "." + namespace + "." + sharedDNSDomainParts[1]
-			vhosts = append(vhosts, dnsHostName, domainName(dnsHostName, port))
 		}
 	}
 	return vhosts

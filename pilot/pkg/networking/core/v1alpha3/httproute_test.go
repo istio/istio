@@ -55,8 +55,8 @@ func TestGenerateVirtualHostDomains(t *testing.T) {
 			node: &model.Proxy{
 				DNSDomain: "local.campus.net",
 			},
-			want: []string{"foo.local", "foo.local.campus", "foo.local.campus.net",
-				"foo.local:80", "foo.local.campus:80", "foo.local.campus.net:80"},
+			want: []string{"foo", "foo.local.campus.net",
+				"foo:80", "foo.local.campus.net:80"},
 		},
 		{
 			name: "different domains with some shared dns",
@@ -97,6 +97,19 @@ func TestGenerateVirtualHostDomains(t *testing.T) {
 				"echo:8123", "echo.default:8123", "echo.default.svc:8123", "echo.default.svc.cluster.local:8123"},
 		},
 		{
+			name: "k8s service with default domain and different namespace",
+			service: &model.Service{
+				Hostname:     "echo.default.svc.cluster.local",
+				MeshExternal: false,
+			},
+			port: 8123,
+			node: &model.Proxy{
+				DNSDomain: "mesh.svc.cluster.local",
+			},
+			want: []string{"echo.default", "echo.default.svc", "echo.default.svc.cluster.local",
+				"echo.default:8123", "echo.default.svc:8123", "echo.default.svc.cluster.local:8123"},
+		},
+		{
 			name: "k8s service with custom domain 2",
 			service: &model.Service{
 				Hostname:     "google.local",
@@ -111,6 +124,9 @@ func TestGenerateVirtualHostDomains(t *testing.T) {
 	}
 
 	for _, c := range cases {
+		// if c.name != "same domain" {
+		// 	continue
+		// }
 		out, _ := generateVirtualHostDomains(c.service, c.port, c.node, model.NewPushContext())
 		sort.SliceStable(c.want, func(i, j int) bool { return c.want[i] < c.want[j] })
 		sort.SliceStable(out, func(i, j int) bool { return out[i] < out[j] })
@@ -189,8 +205,8 @@ func TestSidecarOutboundHTTPRouteConfigWithDuplicateHosts(t *testing.T) {
 				"allow_any": {"*"},
 				"test.default.svc.cluster.local:80": {
 					"test.default.svc.cluster.local", "test.default.svc.cluster.local:80",
-					"test.default", "test.default:80",
 					"test.default.svc", "test.default.svc:80",
+					"test.default", "test.default:80",
 				},
 				"test:80": {"test", "test:80"},
 			},
