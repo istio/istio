@@ -20,9 +20,6 @@ import (
 	"istio.io/istio/pkg/kube"
 )
 
-// ClusterIndex is the index of a cluster within the Environment
-type ClusterIndex int
-
 // Clusters is an ordered list of Cluster instances.
 type Clusters []Cluster
 
@@ -183,10 +180,6 @@ func (m FakeCluster) Name() string {
 
 func (m FakeCluster) NetworkName() string {
 	return m.NetworkNameValue
-}
-
-func (m FakeCluster) Index() ClusterIndex {
-	return ClusterIndex(m.IndexValue)
 }
 
 func (m FakeCluster) IsPrimary() bool {

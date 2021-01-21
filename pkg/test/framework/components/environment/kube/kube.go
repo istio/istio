@@ -40,7 +40,11 @@ func New(ctx resource.Context, s *Settings) (resource.Environment, error) {
 	}
 	e.id = ctx.TrackResource(e)
 
-	clusters, err := aggregate.NewFactory().With(s.clusterConfigs()...).Build(nil)
+	configs, err := s.clusterConfigs()
+	if err != nil {
+		return nil, err
+	}
+	clusters, err := aggregate.NewFactory().With(configs...).Build(nil)
 	if err != nil {
 		return nil, err
 	}
