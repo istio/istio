@@ -36,11 +36,12 @@ const (
 	Port        = "port"
 )
 
-func GenerateMatchMap(pctx networking.EnvoyFilter_PatchContext, efw *model.EnvoyFilterWrapper) (map[string][]*model.EnvoyFilterConfigPatchWrapper, map[string][]*model.EnvoyFilterConfigPatchWrapper, map[string][]*model.EnvoyFilterConfigPatchWrapper, map[string][]*model.EnvoyFilterConfigPatchWrapper) {
-	cpw := make(map[string][]*model.EnvoyFilterConfigPatchWrapper)
-	serviceMap := make(map[string][]*model.EnvoyFilterConfigPatchWrapper)
-	subsetMap := make(map[string][]*model.EnvoyFilterConfigPatchWrapper)
-	portMap := make(map[string][]*model.EnvoyFilterConfigPatchWrapper)
+func GenerateMatchMap(pctx networking.EnvoyFilter_PatchContext, efw *model.EnvoyFilterWrapper) (cpw map[string][]*model.EnvoyFilterConfigPatchWrapper, serviceMap map[string][]*model.EnvoyFilterConfigPatchWrapper, subsetMap map[string][]*model.EnvoyFilterConfigPatchWrapper, portMap map[string][]*model.EnvoyFilterConfigPatchWrapper) {
+
+	cpw = make(map[string][]*model.EnvoyFilterConfigPatchWrapper)
+	serviceMap = make(map[string][]*model.EnvoyFilterConfigPatchWrapper)
+	subsetMap = make(map[string][]*model.EnvoyFilterConfigPatchWrapper)
+	portMap = make(map[string][]*model.EnvoyFilterConfigPatchWrapper)
 	if efw == nil {
 		return cpw, serviceMap, subsetMap, portMap
 	}
@@ -95,7 +96,10 @@ func GenerateMatchMap(pctx networking.EnvoyFilter_PatchContext, efw *model.Envoy
 	return cpw, serviceMap, subsetMap, portMap
 }
 
-func ApplyClusterMergeOrRemove(c *cluster.Cluster, cpw, serviceMap, subsetMap, portMap map[string][]*model.EnvoyFilterConfigPatchWrapper) (out *cluster.Cluster, shouldKeep bool) {
+func ApplyClusterMergeOrRemove(c *cluster.Cluster, cpw map[string][]*model.EnvoyFilterConfigPatchWrapper,
+	serviceMap map[string][]*model.EnvoyFilterConfigPatchWrapper,
+	subsetMap map[string][]*model.EnvoyFilterConfigPatchWrapper,
+	portMap map[string][]*model.EnvoyFilterConfigPatchWrapper) (out *cluster.Cluster, shouldKeep bool) {
 	defer runtime.HandleCrash(func(interface{}) {
 		log.Errorf("clusters patch caused panic, so the patches did not take effect")
 	})
