@@ -27,6 +27,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"istio.io/istio/pkg/test/env"
+	kubecluster "istio.io/istio/pkg/test/framework/components/cluster/kube"
 	"istio.io/istio/pkg/test/framework/components/environment/kube"
 	"istio.io/istio/pkg/test/framework/components/istio/ingress"
 	"istio.io/istio/pkg/test/framework/image"
@@ -121,7 +122,7 @@ func deployWithHelm(ctx resource.Context, env *kube.Environment, cfg Config) (In
 	scopes.Framework.Infof("================================")
 
 	// install control plane clusters
-	cluster := ctx.Clusters().Default().(*kube.Cluster)
+	cluster := ctx.Clusters().Default().(*kubecluster.Cluster)
 	helmCmd := helm.New(cluster.Filename(), chartPath)
 
 	h := &helmComponent{

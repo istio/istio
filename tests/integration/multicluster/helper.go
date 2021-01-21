@@ -94,7 +94,7 @@ func SetupApps(appCtx *AppContext) resource.SetupFn {
 				WithConfig(echoLbCfg).
 				WithConfig(newEchoConfig("local", appCtx.LocalNamespace, cluster))
 			for i := 0; i < uniqSvcPerCluster; i++ {
-				svcName := fmt.Sprintf("echo-%d-%d", cluster.Index(), i)
+				svcName := fmt.Sprintf("echo-%s-%d", cluster.Name(), i)
 				builder = builder.WithConfig(newEchoConfig(svcName, appCtx.Namespace, cluster))
 			}
 		}
