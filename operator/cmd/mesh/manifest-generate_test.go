@@ -301,6 +301,47 @@ func TestManifestGenerateFlagsSetValues(t *testing.T) {
 	g.Expect(cm).Should(HavePathValueMatchRegex(PathValue{"data.values", `.*"includeIPRanges"\: "172\.30\.0\.0/16,172\.21\.0\.0/16".*`}))
 }
 
+func TestDefaultRevision(t *testing.T) {
+	g := NewWithT(t)
+	tcs := []struct {
+		operatorFile string
+		webhooks     int
+		webhookName  string
+		serviceName  string
+	}{
+		{
+			"default_revision",
+			1,
+			"istiod-istio-system",
+			"istiod-canary",
+		},
+		{
+			"revision_not_default",
+			0,
+			"",
+			"",
+		},
+	}
+
+	for _, tc := range tcs {
+		objss, err := runManifestCommands(tc.operatorFile, "", liveCharts)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		for _, objs := range objss {
+			g.Expect(objs.kind(name.ValidatingWebhookConfigurationStr).size()).Should(Equal(tc.webhooks))
+			// no webhooks expected, no need for further checks
+			if tc.webhooks == 0 {
+				continue
+			}
+			vwc := mustGetValidatingWebhookConfiguration(g, objs, tc.webhookName).Unstructured()
+			g.Expect(vwc).Should(HavePathValueEqual(PathValue{"metadata.name", tc.webhookName}))
+			g.Expect(vwc).Should(HavePathValueEqual(PathValue{"webhooks.[0].clientConfig.service.name", tc.serviceName}))
+		}
+	}
+}
+
 func TestManifestGenerateFlags(t *testing.T) {
 	flagOutputDir := createTempDirOrFail(t, "flag-output")
 	flagOutputValuesDir := createTempDirOrFail(t, "flag-output-values")
