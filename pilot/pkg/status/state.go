@@ -53,6 +53,13 @@ func (p *Progress) PlusEquals(p2 Progress) {
 	p.AckedInstances += p2.AckedInstances
 }
 
+func (p *Progress) ToPercent() int {
+	if p.TotalInstances < 1 {
+		return 0
+	}
+	return (p.AckedInstances * 100) / p.TotalInstances
+}
+
 type DistributionController struct {
 	configStore     model.ConfigStore
 	mu              sync.RWMutex
@@ -248,7 +255,7 @@ func ReconcileStatuses(current *config.Config, desired Progress, generation int6
 		Status:             boolToConditionStatus(desired.AckedInstances == desired.TotalInstances),
 		LastProbeTime:      types.TimestampNow(),
 		LastTransitionTime: types.TimestampNow(),
-		Message:            fmt.Sprintf("%d/%d proxies up to date.", desired.AckedInstances, desired.TotalInstances),
+		Message:            fmt.Sprintf("%d%% of proxies up to date.", desired.ToPercent()),
 	}
 	if err != nil {
 		// the status field is in an unexpected state.
