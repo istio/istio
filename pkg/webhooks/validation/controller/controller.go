@@ -127,13 +127,13 @@ type Controller struct {
 }
 
 // eventType represents potential specific reconcile events that we may want special behavior for
-type eventType uint16
+type eventType string
 
 const (
 	// quitEvent indicates that we should unblock client on queue.Get return and exit the current go routine
-	quitEvent = iota
+	quitEvent = "quitEvent"
 	// webhookUpdateEvent indicates that the reconcile request is due to a validating webhook update
-	webhookUpdateEvent
+	webhookUpdateEvent = "webhookUpdateEvent"
 )
 
 type reconcileRequest struct {
