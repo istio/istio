@@ -210,7 +210,7 @@ func (c *Controller) extractGatewaysInner(svc *model.Service) bool {
 // Zero values are returned if the service is not a cross-network gateway.
 func (c *Controller) getGatewayDetails(svc *model.Service) (uint32, string) {
 	// label based gateways
-	if nw := svc.Attributes.Labels[label.IstioNetwork]; nw != "" {
+	if nw := svc.Attributes.Labels[label.TopologyNetwork.Name]; nw != "" {
 		if gwPortStr := svc.Attributes.Labels[IstioGatewayPortLabel]; gwPortStr != "" {
 			if gwPort, err := strconv.Atoi(gwPortStr); err == nil {
 				return uint32(gwPort), nw

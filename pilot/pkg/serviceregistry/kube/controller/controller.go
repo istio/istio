@@ -711,7 +711,7 @@ func (c *Controller) getPodLocality(pod *v1.Pod) string {
 
 	region := getLabelValue(nodeMeta, NodeRegionLabel, NodeRegionLabelGA)
 	zone := getLabelValue(nodeMeta, NodeZoneLabel, NodeZoneLabelGA)
-	subzone := getLabelValue(nodeMeta, label.IstioSubZone, "")
+	subzone := getLabelValue(nodeMeta, label.TopologySubzone.Name, "")
 
 	if region == "" && zone == "" && subzone == "" {
 		return ""
@@ -1007,7 +1007,7 @@ func (c *Controller) onNamespaceEvent(obj interface{}, ev model.Event) error {
 			log.Warnf("Namespace watch getting wrong type in event: %T", obj)
 			return nil
 		}
-		nw = ns.Labels[label.IstioNetwork]
+		nw = ns.Labels[label.TopologyNetwork.Name]
 	}
 	c.Lock()
 	oldDefaultNetwork := c.network
