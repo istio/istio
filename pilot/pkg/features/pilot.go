@@ -410,14 +410,13 @@ var (
 		"If enabled, Envoy will be configured to prevent traffic directly the the inbound/outbound "+
 			"ports (15001/15006). This prevents traffic loops. This option will be removed, and considered always enabled, in 1.9.").Get()
 
-<<<<<<< HEAD
 	// EnableEventing will cause Istiod to generate K8S Events.
 	//
 	// Currently only minimal events are reported: the start of an istiod instance ( including startup time) and
 	// connect/disconnect events associated with Pods. This is intended to validate the infrastructure and provide
 	// basic information about pod connection status.
 	EnableEventing = env.RegisterBoolVar("K8S_EVENTS", false, "Enable reporting of k8s events")
-=======
+
 	StatusMaxWorkers = env.RegisterIntVar("PILOT_STATUS_MAX_WORKERS", 100, "The maximum number of workers"+
 		" Pilot will use to keep configuration status up to date.  Smaller numbers will result in higher status latency, "+
 		"but larger numbers may impact CPU in high scale environments.")
@@ -425,5 +424,4 @@ var (
 	WasmRemoteLoadConversion = env.RegisterBoolVar("ISTIO_AGENT_ENABLE_WASM_REMOTE_LOAD_CONVERSION", true,
 		"If enabled, Istio agent will intercept ECDS resource update, downloads Wasm module, "+
 			"and replaces Wasm module remote load with downloaded local module file.").Get()
->>>>>>> 7552cfc8f11a8a012c6b37dbf9ff1ba710679315
 )
