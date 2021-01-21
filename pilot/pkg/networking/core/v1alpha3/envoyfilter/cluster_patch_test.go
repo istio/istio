@@ -15,6 +15,7 @@
 package envoyfilter
 
 import (
+	"strconv"
 	"testing"
 
 	cluster "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
@@ -291,9 +292,100 @@ func TestClusterPatching(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			efw := push.EnvoyFilters(tc.proxy)
 			output := []*cluster.Cluster{}
+
+			cpw, serviceMap, subsetMap, portMap := GenerateMatchMap(tc.patchContext, efw)
 			for _, c := range tc.input {
-				if ShouldKeepCluster(tc.patchContext, efw, c) {
-					output = append(output, ApplyClusterMerge(tc.patchContext, efw, c))
+				result, shouldKeep := ApplyClusterMergeOrRemove(c, cpw, serviceMap, subsetMap, portMap)
+				if shouldKeep {
+					output = append(output, result)
+				}
+			}
+			output = append(output, InsertedClusters(tc.patchContext, efw)...)
+			if diff := cmp.Diff(tc.output, output, protocmp.Transform()); diff != "" {
+				t.Errorf("%s mismatch (-want +got):\n%s", tc.name, diff)
+			}
+		})
+	}
+}
+
+func TestBatchClusterPatching(t *testing.T) {
+	var configPatches []*networking.EnvoyFilter_EnvoyConfigObjectPatch
+
+	for i := 1; i < 10000; i++ {
+		filter := &networking.EnvoyFilter_EnvoyConfigObjectPatch{
+			ApplyTo: networking.EnvoyFilter_CLUSTER,
+			Match: &networking.EnvoyFilter_EnvoyConfigObjectMatch{
+				Context: networking.EnvoyFilter_SIDECAR_OUTBOUND,
+				ObjectTypes: &networking.EnvoyFilter_EnvoyConfigObjectMatch_Cluster{
+					Cluster: &networking.EnvoyFilter_ClusterMatch{
+						PortNumber: uint32(i),
+					},
+				},
+			},
+			Patch: &networking.EnvoyFilter_Patch{
+				Operation: networking.EnvoyFilter_Patch_MERGE,
+				Value:     buildPatchStruct(`{"respect_dns_ttl":true}`),
+			},
+		}
+		configPatches = append(configPatches, filter)
+	}
+
+	sidecarOutboundIn := []*cluster.Cluster{
+		{Name: "cluster1", DnsLookupFamily: cluster.Cluster_V4_ONLY, LbPolicy: cluster.Cluster_ROUND_ROBIN},
+		{Name: "cluster2",
+			Http2ProtocolOptions: &core.Http2ProtocolOptions{
+				AllowConnect:  true,
+				AllowMetadata: true,
+			}, LbPolicy: cluster.Cluster_MAGLEV,
+		},
+	}
+
+	sidecarOutboundOut := []*cluster.Cluster{
+		{Name: "cluster1", DnsLookupFamily: cluster.Cluster_V4_ONLY, LbPolicy: cluster.Cluster_ROUND_ROBIN},
+		{Name: "cluster2",
+			Http2ProtocolOptions: &core.Http2ProtocolOptions{
+				AllowConnect:  true,
+				AllowMetadata: true,
+			}, LbPolicy: cluster.Cluster_MAGLEV,
+		},
+	}
+
+	for i := 1; i < 10000; i++ {
+		c := &cluster.Cluster{Name: "outbound|" + strconv.Itoa(i) + "||gateway.com"}
+		sidecarOutboundIn = append(sidecarOutboundIn, c)
+		c.RespectDnsTtl = true
+		sidecarOutboundOut = append(sidecarOutboundOut, c)
+	}
+	testCases := []struct {
+		name         string
+		input        []*cluster.Cluster
+		proxy        *model.Proxy
+		patchContext networking.EnvoyFilter_PatchContext
+		output       []*cluster.Cluster
+	}{
+		{
+			name:         "sidecar outbound cluster patch",
+			input:        sidecarOutboundIn,
+			proxy:        &model.Proxy{Type: model.SidecarProxy, ConfigNamespace: "not-default"},
+			patchContext: networking.EnvoyFilter_SIDECAR_OUTBOUND,
+			output:       sidecarOutboundOut,
+		},
+	}
+
+	serviceDiscovery := memory.NewServiceDiscovery(nil)
+	env := newTestEnvironment(serviceDiscovery, testMesh, buildEnvoyFilterConfigStore(configPatches))
+	push := model.NewPushContext()
+	push.InitContext(env, nil, nil)
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			efw := push.EnvoyFilters(tc.proxy)
+			output := []*cluster.Cluster{}
+
+			cpw, serviceMap, subsetMap, portMap := GenerateMatchMap(tc.patchContext, efw)
+			for _, c := range tc.input {
+				result, shouldKeep := ApplyClusterMergeOrRemove(c, cpw, serviceMap, subsetMap, portMap)
+				if shouldKeep {
+					output = append(output, result)
 				}
 			}
 			output = append(output, InsertedClusters(tc.patchContext, efw)...)
