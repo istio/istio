@@ -18,7 +18,6 @@ package prometheus
 import (
 	"context"
 	"fmt"
-	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"testing"
 
 	"golang.org/x/sync/errgroup"

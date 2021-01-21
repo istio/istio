@@ -122,8 +122,8 @@ func TestSecureNaming(t *testing.T) {
 			}, retry.Delay(time.Second), retry.Timeout(10*time.Second))
 			var a, b echo.Instance
 			echoboot.NewBuilder(ctx).
-				With(&a, util.EchoConfig("a", testNamespace, false, nil, nil)).
-				With(&b, util.EchoConfig("b", testNamespace, false, nil, nil)).
+				With(&a, util.EchoConfig("a", testNamespace, false, nil)).
+				With(&b, util.EchoConfig("b", testNamespace, false, nil)).
 				BuildOrFail(t)
 
 			ctx.NewSubTest("mTLS cert validation with plugin CA").

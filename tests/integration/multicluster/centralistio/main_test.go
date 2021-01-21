@@ -16,10 +16,11 @@
 package centralistio
 
 import (
+	"istio.io/istio/pkg/test/framework/components/cluster"
+	kubecluster "istio.io/istio/pkg/test/framework/components/cluster/kube"
 	"testing"
 
 	"istio.io/istio/pkg/test/framework"
-	"istio.io/istio/pkg/test/framework/components/environment/kube"
 	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/label"
 	"istio.io/istio/pkg/test/framework/resource"
@@ -37,14 +38,19 @@ func TestMain(m *testing.M) {
 		Label(label.Multicluster, label.Flaky).
 		RequireMinClusters(2).
 		Setup(multicluster.Setup(&appCtx)).
-		Setup(kube.Setup(func(s *kube.Settings, ctx resource.Context) {
-			// Make externalIstiod run on first cluster, all others are remotes which use externalIstiod's pilot
-			s.ControlPlaneTopology = make(map[resource.ClusterIndex]resource.ClusterIndex)
-			primaryCluster := resource.ClusterIndex(0)
-			for i := 0; i < len(s.KubeConfig); i++ {
-				s.ControlPlaneTopology[resource.ClusterIndex(i)] = primaryCluster
+		Setup(func(ctx resource.Context) error {
+			// TODO, this should be exclusively configurable outside of the framework
+			configCluster := ctx.Clusters()[0]
+			externalControlPlaneCluster := ctx.Clusters()[1]
+			for _, c := range ctx.Clusters() {
+				c.(*kubecluster.Cluster).OverrideTopology(func(c cluster.Topology) cluster.Topology {
+					return c.
+						WithConfig(configCluster.Name()).
+						WithPrimary(externalControlPlaneCluster.Name())
+				})
 			}
-		})).
+			return nil
+		}).
 		Setup(istio.Setup(&ist, func(_ resource.Context, cfg *istio.Config) {
 
 			cfg.Values["global.externalIstiod"] = "true"

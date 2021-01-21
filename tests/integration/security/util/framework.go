@@ -63,7 +63,7 @@ type EchoDeployments struct {
 	All                 echo.Instances
 }
 
-func EchoConfig(name string, ns namespace.Instance, headless bool, annos echo.Annotations, cluster resource.Cluster) echo.Config {
+func EchoConfig(name string, ns namespace.Instance, headless bool, annos echo.Annotations) echo.Config {
 	out := echo.Config{
 		Service:        name,
 		Namespace:      ns,
@@ -122,7 +122,6 @@ func EchoConfig(name string, ns namespace.Instance, headless bool, annos echo.An
 				Protocol: protocol.HTTPS,
 			},
 		},
-		Cluster: cluster,
 	}
 
 	// for headless service with selector, the port and target port must be equal
@@ -160,7 +159,7 @@ func SetupApps(ctx resource.Context, i istio.Instance, apps *EchoDeployments, bu
 	}
 
 	// Multi-version specific setup
-	multiVersionCfg := EchoConfig(MultiversionSvc, apps.Namespace1, false, nil, nil)
+	multiVersionCfg := EchoConfig(MultiversionSvc, apps.Namespace1, false, nil)
 	multiVersionCfg.Subsets = []echo.SubsetConfig{
 		// Istio deployment, with sidecar.
 		{
@@ -174,24 +173,24 @@ func SetupApps(ctx resource.Context, i istio.Instance, apps *EchoDeployments, bu
 	}
 
 	// VM specific setup
-	vmCfg := EchoConfig(VMSvc, apps.Namespace1, false, nil, nil)
+	vmCfg := EchoConfig(VMSvc, apps.Namespace1, false, nil)
 	// for test cases that have `buildVM` off, vm will function like a regular pod
 	vmCfg.DeployAsVM = buildVM
 
 	echos, err := echoboot.NewBuilder(ctx).
 		WithClusters(ctx.Clusters()...).
-		WithConfig(EchoConfig(ASvc, apps.Namespace1, false, nil, nil)).
-		WithConfig(EchoConfig(BSvc, apps.Namespace1, false, nil, nil)).
-		WithConfig(EchoConfig(CSvc, apps.Namespace1, false, nil, nil)).
-		WithConfig(EchoConfig(DSvc, apps.Namespace1, false, nil, nil)).
-		WithConfig(EchoConfig(ESvc, apps.Namespace1, false, nil, nil)).
-		WithConfig(EchoConfig(FSvc, apps.Namespace1, false, nil, nil)).
+		WithConfig(EchoConfig(ASvc, apps.Namespace1, false, nil)).
+		WithConfig(EchoConfig(BSvc, apps.Namespace1, false, nil)).
+		WithConfig(EchoConfig(CSvc, apps.Namespace1, false, nil)).
+		WithConfig(EchoConfig(DSvc, apps.Namespace1, false, nil)).
+		WithConfig(EchoConfig(ESvc, apps.Namespace1, false, nil)).
+		WithConfig(EchoConfig(FSvc, apps.Namespace1, false, nil)).
 		WithConfig(multiVersionCfg).
 		WithConfig(EchoConfig(NakedSvc, apps.Namespace1, false, echo.NewAnnotations().
-			SetBool(echo.SidecarInject, false), nil)).
-		WithConfig(EchoConfig(BSvc, apps.Namespace2, false, nil, nil)).
-		WithConfig(EchoConfig(CSvc, apps.Namespace2, false, nil, nil)).
-		WithConfig(EchoConfig(XSvc, apps.Namespace2, false, nil, nil)).
+			SetBool(echo.SidecarInject, false))).
+		WithConfig(EchoConfig(BSvc, apps.Namespace2, false, nil)).
+		WithConfig(EchoConfig(CSvc, apps.Namespace2, false, nil)).
+		WithConfig(EchoConfig(XSvc, apps.Namespace2, false, nil)).
 		WithConfig(echo.Config{Service: CSvc, Namespace: apps.Namespace3,
 			Subsets: []echo.SubsetConfig{{}},
 			Ports: []echo.Port{
@@ -203,9 +202,9 @@ func SetupApps(ctx resource.Context, i istio.Instance, apps *EchoDeployments, bu
 			}}).
 		WithClusters(ctx.Clusters().Primaries()...).
 		WithConfig(vmCfg).
-		WithConfig(EchoConfig(HeadlessSvc, apps.Namespace1, true, nil, nil)).
+		WithConfig(EchoConfig(HeadlessSvc, apps.Namespace1, true, nil)).
 		WithConfig(EchoConfig(HeadlessNakedSvc, apps.Namespace1, true, echo.NewAnnotations().
-			SetBool(echo.SidecarInject, false), nil)).
+			SetBool(echo.SidecarInject, false))).
 		Build()
 	if err != nil {
 		return err
