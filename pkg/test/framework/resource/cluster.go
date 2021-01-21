@@ -136,9 +136,6 @@ type Cluster interface {
 	// NetworkName the cluster is on
 	NetworkName() string
 
-	// Index of this Cluster within the Environment
-	Index() ClusterIndex
-
 	// IsPrimary returns true if this is a primary cluster, containing an instance
 	// of the Istio control plane.
 	IsPrimary() bool

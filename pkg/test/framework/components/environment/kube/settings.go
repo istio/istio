@@ -15,14 +15,11 @@
 package kube
 
 import (
-	"errors"
 	"fmt"
 
-	"k8s.io/client-go/rest"
-
 	istioKube "istio.io/istio/pkg/kube"
+	"istio.io/istio/pkg/test/framework/components/cluster"
 	"istio.io/istio/pkg/test/framework/resource"
-	"istio.io/istio/pkg/test/scopes"
 )
 
 type clusterTopology = map[resource.ClusterIndex]resource.ClusterIndex
@@ -35,10 +32,6 @@ type ClientFactoryFunc func(kubeConfigs []string) ([]istioKube.ExtendedClient, e
 type Settings struct {
 	// An array of paths to kube config files. Required if the environment is kubernetes.
 	KubeConfig []string
-
-	// ClientFactoryFunc is an optional override for the default behavior for creating k8s clients.
-	// instances for interacting with clusters. If not specified, the clients will be created from KubeConfig.
-	ClientFactoryFunc ClientFactoryFunc
 
 	// Indicates that the Ingress Gateway is not available. This typically happens in Minikube. The Ingress
 	// component will fall back to node-port in this case.
@@ -63,47 +56,31 @@ type Settings struct {
 	ConfigTopology clusterTopology
 }
 
-type SetupSettingsFunc func(s *Settings, ctx resource.Context)
-
-// Setup is a setup function that allows overriding values in the Kube environment settings.
-func Setup(sfn SetupSettingsFunc) resource.SetupFn {
-	return func(ctx resource.Context) error {
-		s := ctx.Environment().(*Environment).s
-		sfn(s, ctx)
-		scopes.Framework.Infof("Overridden Kubernetes environment Settings:\n%s", s.String())
-		return nil
-	}
-}
-
 func (s *Settings) clone() *Settings {
 	c := *s
 	return &c
 }
 
-// GetControlPlaneClusters returns a set containing just the cluster indexes that contain control planes.
-func (s *Settings) GetControlPlaneClusters() map[resource.ClusterIndex]bool {
-	out := make(map[resource.ClusterIndex]bool)
-	for _, controlPlaneClusterIndex := range s.ControlPlaneTopology {
-		out[controlPlaneClusterIndex] = true
+func (s *Settings) clusterConfigs() []cluster.Config {
+	var configs []cluster.Config
+	// TODO read entire config from file, use flags for backwards compat
+	for i, kc := range s.KubeConfig {
+		ci := resource.ClusterIndex(i)
+		cfg := cluster.Config{
+			Name:    fmt.Sprintf("cluster-%d", i),
+			Kind:    cluster.Kubernetes,
+			Network: s.networkTopology[ci],
+			Meta:    map[string]string{"kubeconfig": kc},
+		}
+		if idx, ok := s.ControlPlaneTopology[ci]; ok {
+			cfg.PrimaryClusterName = fmt.Sprintf("cluster-%d", idx)
+		}
+		if idx, ok := s.ConfigTopology[ci]; ok {
+			cfg.ConfigClusterName = fmt.Sprintf("cluster-%d", idx)
+		}
+		configs = append(configs, cfg)
 	}
-	return out
-}
-
-// NewClients creates the kubernetes clients for interacting with the configured clusters.
-func (s *Settings) NewClients() ([]istioKube.ExtendedClient, error) {
-	newClientsFn := s.ClientFactoryFunc
-	if newClientsFn == nil {
-		newClientsFn = newClients
-	}
-
-	clients, err := newClientsFn(s.KubeConfig)
-	if err != nil {
-		return nil, err
-	}
-	if len(clients) == 0 {
-		return nil, errors.New("failed creating Kubernetes environment: no clusters")
-	}
-	return clients, nil
+	return configs
 }
 
 // String implements fmt.Stringer
@@ -116,25 +93,4 @@ func (s *Settings) String() string {
 	result += fmt.Sprintf("NetworkTopology:      %v\n", s.networkTopology)
 	result += fmt.Sprintf("ConfigTopology:      %v\n", s.ConfigTopology)
 	return result
-}
-
-func newClients(kubeConfigs []string) ([]istioKube.ExtendedClient, error) {
-	out := make([]istioKube.ExtendedClient, 0, len(kubeConfigs))
-	for _, cfg := range kubeConfigs {
-		if len(cfg) > 0 {
-			rc, err := istioKube.DefaultRestConfig(cfg, "", func(config *rest.Config) {
-				config.QPS = 200
-				config.Burst = 400
-			})
-			if err != nil {
-				return nil, err
-			}
-			a, err := istioKube.NewExtendedClient(istioKube.NewClientConfigForRestConfig(rc), "")
-			if err != nil {
-				return nil, fmt.Errorf("client setup: %v", err)
-			}
-			out = append(out, a)
-		}
-	}
-	return out, nil
 }
