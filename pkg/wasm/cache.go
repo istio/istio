@@ -41,6 +41,7 @@ const (
 // TODO(bianpengyuan): add metrics to the wasm package.
 type Cache interface {
 	Get(url, checksum string, timeout time.Duration) (string, error)
+	Cleanup()
 }
 
 // LocalFileCache for downloaded Wasm modules. Currently it stores the Wasm module as local file.
@@ -141,6 +142,11 @@ func (c *LocalFileCache) Get(downloadURL, checksum string, timeout time.Duration
 	default:
 		return "", fmt.Errorf("unsupported Wasm module downloading URL scheme: %v", url.Scheme)
 	}
+}
+
+// Cleanup closes background Wasm module purge routine.
+func (c *LocalFileCache) Cleanup() {
+	close(c.stopChan)
 }
 
 func (c *LocalFileCache) addEntry(key cacheKey, wasmModule []byte, f string) error {
