@@ -153,7 +153,7 @@ if [[ -z "${SKIP_SETUP:-}" ]]; then
     for i in $(seq 0 $((${#CLUSTER_NAMES[@]} - 1))); do
       CLUSTER="${CLUSTER_NAMES[i]}"
       KCONFIG="${KUBECONFIGS[i]}"
-      TOPOLOGY_JSON=$(set_topology_value "${TOPOLOGY_JSON}" "${CLUSTER}" ".meta.kubeconfig" "${KCONFIG}")
+      TOPOLOGY_JSON=$(set_topology_value "${TOPOLOGY_JSON}" "${CLUSTER}" "meta.kubeconfig" "${KCONFIG}")
     done
     RUNTIME_TOPOLOGY_CONFIG_FILE="${ARTIFACTS}/topology-config.json"
     echo "${TOPOLOGY_JSON}" > "${RUNTIME_TOPOLOGY_CONFIG_FILE}"
