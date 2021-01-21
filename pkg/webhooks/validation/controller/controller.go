@@ -132,8 +132,8 @@ type eventType uint16
 const (
 	// quitEvent indicates that we should unblock client on queue.Get return and exit the current go routine
 	quitEvent = iota
-	// validationUpdateEvent indicates that the reconcile request was the result of an update
-	validationUpdateEvent
+	// webhookUpdateEvent indicates that the reconcile request is due to a validating webhook update
+	webhookUpdateEvent
 )
 
 type reconcileRequest struct {
@@ -192,7 +192,7 @@ func makeHandler(queue workqueue.Interface, gvk schema.GroupVersionKind, name st
 			}
 			req := &reconcileRequest{
 				description: fmt.Sprintf("update event (%v, Kind=%v) %v", gvk.GroupVersion(), gvk.Kind, key),
-				event:       validationUpdateEvent,
+				event:       webhookUpdateEvent,
 			}
 			queue.Add(req)
 		},
@@ -343,7 +343,7 @@ func (c *Controller) processNextWorkItem() (cont bool) {
 	// when the validation webhook is updated, likely because defaultRevision was
 	// specified on a new revision, we should invalidate the cached validation readiness
 	// since we need to wait on new revision's validation endpoint to become available
-	if req.event == validationUpdateEvent {
+	if req.event == webhookUpdateEvent {
 		c.dryRunOfInvalidConfigRejected = false
 	}
 
