@@ -57,10 +57,10 @@ type Settings struct {
 	// The source of truth clusters' networks is the Cluster instances themselves, rather than this field.
 	networkTopology map[clusterIndex]string
 
-	// configconfigTopolgoy maps each cluster to the cluster that runs it's config.
+	// configTopology maps each cluster to the cluster that runs it's config.
 	// If the cluster runs its own config, the cluster will map to itself (e.g. 0->0)
 	// By default, we use the controlPlaneTopology as the config topology.
-	configconfigTopolgoy clusterTopology
+	configTopology clusterTopology
 }
 
 func (s *Settings) clone() *Settings {
@@ -86,9 +86,11 @@ func (s *Settings) clusterConfigsFromFlags() ([]cluster.Config, error) {
 		if err != nil {
 			return nil, fmt.Errorf("error parsing KubeConfigs from environment: %v", err)
 		}
-
 	}
 	scopes.Framework.Infof("Using KubeConfigs: %v.", s.kubeconfigsFlag)
+	if err := s.validateTopologyFlags(len(s.kubeconfigsFlag)); err != nil {
+		return nil, err
+	}
 	var configs []cluster.Config
 	for i, kc := range s.kubeconfigsFlag {
 		ci := clusterIndex(i)
@@ -101,7 +103,7 @@ func (s *Settings) clusterConfigsFromFlags() ([]cluster.Config, error) {
 		if idx, ok := s.controlPlaneTopology[ci]; ok {
 			cfg.PrimaryClusterName = fmt.Sprintf("cluster-%d", idx)
 		}
-		if idx, ok := s.configconfigTopolgoy[ci]; ok {
+		if idx, ok := s.configTopology[ci]; ok {
 			cfg.ConfigClusterName = fmt.Sprintf("cluster-%d", idx)
 		}
 		configs = append(configs, cfg)
@@ -130,6 +132,10 @@ func (s *Settings) clusterConfigsFromFile() ([]cluster.Config, error) {
 		return nil, err
 	}
 
+	if err := s.validateTopologyFlags(len(configs)); err != nil {
+		return nil, err
+	}
+
 	// Apply configs overrides from flags, if specified.
 	if s.controlPlaneTopology != nil && len(s.controlPlaneTopology) > 0 {
 		if len(s.controlPlaneTopology) != len(configs) {
@@ -139,8 +145,8 @@ func (s *Settings) clusterConfigsFromFile() ([]cluster.Config, error) {
 			configs[src].PrimaryClusterName = configs[dst].Name
 		}
 	}
-	if s.configconfigTopolgoy != nil {
-		if len(s.configconfigTopolgoy) != len(configs) {
+	if s.configTopology != nil {
+		if len(s.configTopology) != len(configs) {
 			return nil, fmt.Errorf("istio.test.kube.configTopology has %d entries but there are %d clusters", len(controlPlaneTopology), len(configs))
 		}
 		for src, dst := range s.controlPlaneTopology {
@@ -157,6 +163,32 @@ func (s *Settings) clusterConfigsFromFile() ([]cluster.Config, error) {
 	}
 
 	return configs, nil
+}
+
+func (s *Settings) validateTopologyFlags(nClusters int) error {
+	makeErr := func(idx clusterIndex, flag string) error {
+		return fmt.Errorf("invalid cluster index %d in %s exceeds %d, the number of configured clusters", idx, flag, nClusters)
+	}
+	for flag, m := range map[string]clusterTopology{
+		"istio.test.kube.controlPlaneTopology": s.controlPlaneTopology,
+		"istio.test.kube.configTopology":       s.configTopology,
+	} {
+		for src, dst := range m {
+			if int(src) >= nClusters {
+				return makeErr(src, flag)
+			}
+			if int(dst) >= nClusters {
+				return makeErr(dst, flag)
+			}
+		}
+	}
+	for idx := range s.networkTopology {
+		if int(idx) >= nClusters {
+			return makeErr(idx, "istio.test.kube.networkTopology")
+		}
+	}
+
+	return nil
 }
 
 // replaceKubeconfigs allows using flags to specify the kubeconfigs for each cluster instead of the topology flags.
@@ -196,6 +228,6 @@ func (s *Settings) String() string {
 	result += fmt.Sprintf("LoadBalancerSupported:      %v\n", s.LoadBalancerSupported)
 	result += fmt.Sprintf("ControlPlaneTopology: %v\n", s.controlPlaneTopology)
 	result += fmt.Sprintf("NetworkTopology:      %v\n", s.networkTopology)
-	result += fmt.Sprintf("ConfigTopology:      %v\n", s.configconfigTopolgoy)
+	result += fmt.Sprintf("ConfigTopology:      %v\n", s.configTopology)
 	return result
 }
