@@ -28,6 +28,7 @@ var (
 )
 
 func TestUninstallNonEmptyRevision(t *testing.T) {
+	t.Skip("https://github.com/istio/istio/issues/30182")
 	g := gomega.NewWithT(t)
 	args := []string{"--revision", "rev"}
 	uninstallCmd := UninstallCmd(logOpts)
@@ -41,6 +42,7 @@ func TestUninstallNonEmptyRevision(t *testing.T) {
 }
 
 func TestUninstallEmptyRevision(t *testing.T) {
+	t.Skip("https://github.com/istio/istio/issues/30182")
 	g := gomega.NewWithT(t)
 	args := []string{"--revision", ""}
 	uninstallCmd := UninstallCmd(logOpts)
@@ -54,6 +56,7 @@ func TestUninstallEmptyRevision(t *testing.T) {
 }
 
 func TestUninstallNonEmptyRevisionFromSetFlags(t *testing.T) {
+	t.Skip("https://github.com/istio/istio/issues/30182")
 	g := gomega.NewWithT(t)
 	args := []string{"--set", "revision=rev"}
 	uninstallCmd := UninstallCmd(logOpts)
@@ -67,6 +70,7 @@ func TestUninstallNonEmptyRevisionFromSetFlags(t *testing.T) {
 }
 
 func TestUninstallEmptyRevisionFromSetFlags(t *testing.T) {
+	t.Skip("https://github.com/istio/istio/issues/30182")
 	g := gomega.NewWithT(t)
 	args := []string{"--set", "revision="}
 	uninstallCmd := UninstallCmd(logOpts)
@@ -80,6 +84,7 @@ func TestUninstallEmptyRevisionFromSetFlags(t *testing.T) {
 }
 
 func TestUninstallEmptyRevisionAndPurge(t *testing.T) {
+	t.Skip("https://github.com/istio/istio/issues/30182")
 	g := gomega.NewWithT(t)
 	args := []string{"--revision", "", "--purge"}
 	uninstallCmd := UninstallCmd(logOpts)
@@ -93,6 +98,7 @@ func TestUninstallEmptyRevisionAndPurge(t *testing.T) {
 }
 
 func TestUninstallEmptyRevisionAndEmptyFile(t *testing.T) {
+	t.Skip("https://github.com/istio/istio/issues/30182")
 	g := gomega.NewWithT(t)
 	args := []string{"--revision", "", "-f", ""}
 	uninstallCmd := UninstallCmd(logOpts)

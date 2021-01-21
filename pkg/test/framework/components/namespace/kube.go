@@ -175,7 +175,7 @@ func createNamespaceLabels(cfg *Config) map[string]string {
 	l["istio-testing"] = "istio-test"
 	if cfg.Inject {
 		if cfg.Revision != "" {
-			l[label.IstioRev] = cfg.Revision
+			l[label.IoIstioRev.Name] = cfg.Revision
 		} else {
 			l["istio-injection"] = "enabled"
 		}

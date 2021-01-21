@@ -110,7 +110,6 @@ spec:
         - name: TRUST_DOMAIN
           value: cluster.local
         image: docker.io/istio/proxy2_debug:unittest
-        imagePullPolicy: Always
         name: istio-proxy
         ports:
         - containerPort: 15090
@@ -172,7 +171,6 @@ spec:
         - -d
         - 15090,15021,15020
         image: docker.io/istio/proxy2_debug:unittest
-        imagePullPolicy: Always
         name: istio-init
         resources:
           limits:

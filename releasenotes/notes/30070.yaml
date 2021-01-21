@@ -1,0 +1,9 @@
+apiVersion: release-notes/v2
+kind: feature
+area: networking
+issue:
+  - 30054
+releaseNotes:
+- |
+  **Fixed** Modifying multi-network gateway configuration via Services with the label `topology.istio.io/network` will
+  now cause endpoints to be updated on all proxies.

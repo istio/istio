@@ -66,6 +66,7 @@ type Reporter struct {
 	clock                  clock.Clock
 	ledger                 ledger.Ledger
 	distributionEventQueue chan distributionEvent
+	controller             *DistributionController
 }
 
 var _ xds.DistributionStatusCache = &Reporter{}
@@ -156,7 +157,7 @@ func (r *Reporter) buildReport() (DistributionReport, []Resource) {
 			// check to see if this version of the config contains this version of the resource
 			// it might be more optimal to provide for a full dump of the config at a certain version?
 			dpVersion, err := r.ledger.GetPreviousValue(nonce, res.ToModelKey())
-			if err == nil && dpVersion == res.ResourceVersion {
+			if err == nil && dpVersion == res.Generation {
 				if _, ok := out.InProgressResources[key]; !ok {
 					out.InProgressResources[key] = len(dataplanes)
 				} else {
@@ -221,6 +222,9 @@ func (r *Reporter) AddInProgressResource(res config.Config) {
 
 func (r *Reporter) DeleteInProgressResource(res config.Config) {
 	tryLedgerDelete(r.ledger, res)
+	if r.controller != nil {
+		r.controller.configDeleted(res)
+	}
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	delete(r.inProgressResources, res.Key())
@@ -342,4 +346,8 @@ func (r *Reporter) RegisterDisconnect(conID string, types []xds.EventType) {
 		r.deleteKeyFromReverseMap(key)
 		delete(r.status, key)
 	}
+}
+
+func (r *Reporter) SetController(controller *DistributionController) {
+	r.controller = controller
 }
