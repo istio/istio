@@ -57,10 +57,10 @@ type Settings struct {
 	// The source of truth clusters' networks is the Cluster instances themselves, rather than this field.
 	networkTopology map[clusterIndex]string
 
-	// configTopolgoy maps each cluster to the cluster that runs it's config.
+	// configconfigTopolgoy maps each cluster to the cluster that runs it's config.
 	// If the cluster runs its own config, the cluster will map to itself (e.g. 0->0)
 	// By default, we use the controlPlaneTopology as the config topology.
-	configTopolgoy clusterTopology
+	configconfigTopolgoy clusterTopology
 }
 
 func (s *Settings) clone() *Settings {
@@ -101,7 +101,7 @@ func (s *Settings) clusterConfigsFromFlags() ([]cluster.Config, error) {
 		if idx, ok := s.controlPlaneTopology[ci]; ok {
 			cfg.PrimaryClusterName = fmt.Sprintf("cluster-%d", idx)
 		}
-		if idx, ok := s.configTopolgoy[ci]; ok {
+		if idx, ok := s.configconfigTopolgoy[ci]; ok {
 			cfg.ConfigClusterName = fmt.Sprintf("cluster-%d", idx)
 		}
 		configs = append(configs, cfg)
@@ -139,8 +139,8 @@ func (s *Settings) clusterConfigsFromFile() ([]cluster.Config, error) {
 			configs[src].PrimaryClusterName = configs[dst].Name
 		}
 	}
-	if s.configTopolgoy != nil {
-		if len(s.configTopolgoy) != len(configs) {
+	if s.configconfigTopolgoy != nil {
+		if len(s.configconfigTopolgoy) != len(configs) {
 			return nil, fmt.Errorf("istio.test.kube.configTopology has %d entries but there are %d clusters", len(controlPlaneTopology), len(configs))
 		}
 		for src, dst := range s.controlPlaneTopology {
@@ -196,6 +196,6 @@ func (s *Settings) String() string {
 	result += fmt.Sprintf("LoadBalancerSupported:      %v\n", s.LoadBalancerSupported)
 	result += fmt.Sprintf("ControlPlaneTopology: %v\n", s.controlPlaneTopology)
 	result += fmt.Sprintf("NetworkTopology:      %v\n", s.networkTopology)
-	result += fmt.Sprintf("ConfigTopology:      %v\n", s.configTopolgoy)
+	result += fmt.Sprintf("ConfigTopology:      %v\n", s.configconfigTopolgoy)
 	return result
 }
