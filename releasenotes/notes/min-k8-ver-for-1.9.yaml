@@ -5,4 +5,4 @@ issue:
 - 30176
 releaseNotes:
 - |
-  **Added** Istio 1.9 supports kubernetes versions 1.17 to 1.20.
+  **Added** Istio 1.9 supports Kubernetes versions 1.17 to 1.20.
