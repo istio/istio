@@ -90,11 +90,12 @@ func SetupApps(appCtx *AppContext) resource.SetupFn {
 			echoLbCfg := newEchoConfig("echolb", appCtx.Namespace, cluster)
 			echoLbCfg.Subsets = append(echoLbCfg.Subsets, echo.SubsetConfig{Version: "v2"})
 
-			builder.With(nil, echoLbCfg)
-			builder.With(nil, newEchoConfig("local", appCtx.LocalNamespace, cluster))
+			builder = builder.
+				WithConfig(echoLbCfg).
+				WithConfig(newEchoConfig("local", appCtx.LocalNamespace, cluster))
 			for i := 0; i < uniqSvcPerCluster; i++ {
-				svcName := fmt.Sprintf("echo-%d-%d", cluster.Index(), i)
-				builder = builder.With(nil, newEchoConfig(svcName, appCtx.Namespace, cluster))
+				svcName := fmt.Sprintf("echo-%s-%d", cluster.Name(), i)
+				builder = builder.WithConfig(newEchoConfig(svcName, appCtx.Namespace, cluster))
 			}
 		}
 		echos, err := builder.Build()
@@ -145,10 +146,10 @@ func newEchoConfig(service string, ns namespace.Instance, cluster resource.Clust
 func callOrFail(ctx framework.TestContext, src, dest echo.Instance, validator echo.Validator) {
 	ctx.Helper()
 	_ = src.CallWithRetryOrFail(ctx, echo.CallOptions{
-		Target:     dest,
-		PortName:   "http",
-		Scheme:     scheme.HTTP,
-		Count:      20 * len(ctx.Clusters()),
+		Target:    dest,
+		PortName:  "http",
+		Scheme:    scheme.HTTP,
+		Count:     20 * len(ctx.Clusters()),
 		Validator: echo.And(echo.ExpectOK(), validator),
 	})
 }

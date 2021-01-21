@@ -18,6 +18,8 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/mitchellh/copystructure"
+
 	"istio.io/istio/pkg/test/echo/common"
 	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/framework/resource"
@@ -132,4 +134,26 @@ func (c Config) HostHeader() string {
 		return c.DefaultHostHeader
 	}
 	return c.FQDN()
+}
+
+// DeepCopy creates a clone of IstioEndpoint.
+func (c Config) DeepCopy() Config {
+	newc := c
+	newc.Cluster = nil
+	newc = copyInternal(newc).(Config)
+	newc.Cluster = c.Cluster
+	newc.Namespace = c.Namespace
+	return newc
+}
+
+func copyInternal(v interface{}) interface{} {
+	copied, err := copystructure.Copy(v)
+	if err != nil {
+		// There are 2 locations where errors are generated in copystructure.Copy:
+		//  * The reflection walk over the structure fails, which should never happen
+		//  * A configurable copy function returns an error. This is only used for copying times, which never returns an error.
+		// Therefore, this should never happen
+		panic(err)
+	}
+	return copied
 }

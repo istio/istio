@@ -208,7 +208,7 @@ func testSetup(ctx resource.Context) (err error) {
 	for _, cls := range ctx.Clusters() {
 		clName := cls.Name()
 		builder.
-			With(nil, echo.Config{
+			WithConfig(echo.Config{
 				Service:   fmt.Sprintf("clt-%s", clName),
 				Cluster:   cls,
 				Namespace: getEchoNamespaceInstance(),
@@ -221,7 +221,7 @@ func testSetup(ctx resource.Context) (err error) {
 						},
 					},
 				}}).
-			With(nil, echo.Config{
+			WithConfig(echo.Config{
 				Service:   "srv",
 				Cluster:   cls,
 				Namespace: getEchoNamespaceInstance(),
@@ -253,8 +253,7 @@ func testSetup(ctx resource.Context) (err error) {
 							},
 						},
 					},
-				}}).
-			Build()
+				}})
 	}
 	echos, err := builder.Build()
 	if err != nil {
