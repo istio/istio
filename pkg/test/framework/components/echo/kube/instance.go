@@ -223,7 +223,7 @@ spec:
 	if err != nil {
 		return err
 	}
-	// this will wait until the eastwest gateway has an IP before running the next command
+	// this will wait until the expansiont gateway has an IP before running the next command
 	istiodAddr, err := ist.RemoteDiscoveryAddressFor(cfg.Cluster)
 	if err != nil {
 		return err

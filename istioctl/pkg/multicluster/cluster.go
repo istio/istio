@@ -37,5 +37,5 @@ func clusterUID(client kubernetes.Interface) (types.UID, error) {
 }
 
 const (
-	IstioEastWestGatewayServiceName = "istio-eastwestgateway"
+	IstioExpansionGatewayServiceName = "istio-expansiongateway"
 )

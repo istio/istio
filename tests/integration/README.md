@@ -544,7 +544,7 @@ The test framework supports the following command-line flags:
   -istio.test.kube.deploy
         Deploy Istio into the target Kubernetes environment. (default true)
 
-  -istio.test.kube.deployEastWestGW
+  -istio.test.kube.deployExpansionGW
         Deploy Istio east west gateway into the target Kubernetes environment. (default true)
 
   -istio.test.kube.deployTimeout duration

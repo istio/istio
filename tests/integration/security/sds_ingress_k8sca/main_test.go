@@ -54,7 +54,7 @@ values:
   global:
     pilotCertProvider: kubernetes
 `
-	cfg.DeployEastWestGW = false
+	cfg.DeployExpansionGW = false
 }
 
 func TestMtlsGatewaysK8sca(t *testing.T) {

@@ -71,10 +71,10 @@ spec:
   profile: empty
   components:
     ingressGateways:
-      - name: istio-eastwestgateway
+      - name: istio-expansiongateway
         label:
-          istio: eastwestgateway
-          app: istio-eastwestgateway
+          istio: expansiongateway
+          app: istio-expansiongateway
 EOF
 )
 

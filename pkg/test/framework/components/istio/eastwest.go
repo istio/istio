@@ -38,11 +38,11 @@ var (
 	mcSamples             = path.Join(env.IstioSrc, "samples", "multicluster")
 	exposeIstiodGateway   = path.Join(mcSamples, "expose-istiod.yaml")
 	exposeServicesGateway = path.Join(mcSamples, "expose-services.yaml")
-	genGatewayScript      = path.Join(mcSamples, "gen-eastwest-gateway.sh")
+	genGatewayScript      = path.Join(mcSamples, "gen-expansion-gateway.sh")
 )
 
-// deployEastWestGateway will create a separate gateway deployment for cross-cluster discovery or cross-network services.
-func (i *operatorComponent) deployEastWestGateway(cluster resource.Cluster, revision string) error {
+// deployExpansionGateway will create a separate gateway deployment for cross-cluster discovery or cross-network services.
+func (i *operatorComponent) deployExpansionGateway(cluster resource.Cluster, revision string) error {
 	imgSettings, err := image.SettingsFromCommandLine()
 	if err != nil {
 		return err
@@ -61,9 +61,9 @@ func (i *operatorComponent) deployEastWestGateway(cluster resource.Cluster, revi
 	cmd := exec.Command(genGatewayScript, args...)
 	gwIOP, err := cmd.CombinedOutput()
 	if err != nil {
-		return fmt.Errorf("failed generating eastwestgateway operator yaml: %v", err)
+		return fmt.Errorf("failed generating expansiongateway operator yaml: %v", err)
 	}
-	iopFile := path.Join(i.workDir, fmt.Sprintf("eastwest-%s.yaml", cluster.Name()))
+	iopFile := path.Join(i.workDir, fmt.Sprintf("expansion-%s.yaml", cluster.Name()))
 	if err := ioutil.WriteFile(iopFile, gwIOP, os.ModePerm); err != nil {
 		return err
 	}
@@ -95,17 +95,17 @@ func (i *operatorComponent) deployEastWestGateway(cluster resource.Cluster, revi
 	}
 	i.saveManifestForCleanup(cluster.Name(), out)
 
-	scopes.Framework.Infof("Deploying eastwestgateway in %s: %v", cluster.Name(), installSettings)
+	scopes.Framework.Infof("Deploying expansiongateway in %s: %v", cluster.Name(), installSettings)
 	err = install(i, installSettings, istioCtl, cluster.Name())
 	if err != nil {
 		scopes.Framework.Error(err)
-		return fmt.Errorf("failed installing eastwestgateway via IstioOperator: %v", err)
+		return fmt.Errorf("failed installing expansiongateway via IstioOperator: %v", err)
 	}
 
 	// wait for a ready pod
 	if err := retry.UntilSuccess(func() error {
 		pods, err := cluster.CoreV1().Pods(i.settings.SystemNamespace).List(context.TODO(), v1.ListOptions{
-			LabelSelector: "istio=" + eastWestIngressIstioLabel,
+			LabelSelector: "istio=" + expansionIngressIstioLabel,
 		})
 		if err != nil {
 			return err
@@ -115,20 +115,20 @@ func (i *operatorComponent) deployEastWestGateway(cluster resource.Cluster, revi
 				return nil
 			}
 		}
-		return fmt.Errorf("no ready pods for istio=" + eastWestIngressIstioLabel)
+		return fmt.Errorf("no ready pods for istio=" + expansionIngressIstioLabel)
 	}, componentDeployTimeout, componentDeployDelay); err != nil {
-		return fmt.Errorf("failed waiting for %s to become ready: %v", eastWestIngressServiceName, err)
+		return fmt.Errorf("failed waiting for %s to become ready: %v", expansion, err)
 	}
 
 	return nil
 }
 
 func (i *operatorComponent) exposeUserServices(cluster resource.Cluster) error {
-	scopes.Framework.Infof("Exposing services via eastwestgateway in %v", cluster.Name())
+	scopes.Framework.Infof("Exposing services via expansiongateway in %v", cluster.Name())
 	return cluster.ApplyYAMLFiles(i.settings.SystemNamespace, exposeServicesGateway)
 }
 
 func (i *operatorComponent) applyIstiodGateway(cluster resource.Cluster) error {
-	scopes.Framework.Infof("Exposing istiod via eastwestgateway in %v", cluster.Name())
+	scopes.Framework.Infof("Exposing istiod via expansiongateway in %v", cluster.Name())
 	return cluster.ApplyYAMLFiles(i.settings.SystemNamespace, exposeIstiodGateway)
 }

@@ -20,7 +20,7 @@ Run the following command to deploy the east-west gateway to a primary cluster:
 export MESH=mesh1
 export CLUSTER=cluster1
 export NETWORK=network1
-./samples/multicluster/gen-eastwest-gateway.sh | \
+./samples/multicluster/gen-expansion-gateway.sh | \
     istioctl manifest generate -f - | \
     kubectl apply -f -
 ```

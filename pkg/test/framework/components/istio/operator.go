@@ -540,13 +540,14 @@ func installControlPlaneCluster(i *operatorComponent, cfg Config, cluster resour
 	}
 
 	if cluster.IsConfig() {
-		// there are a few tests that require special gateway setup which will cause eastwest gateway fail to start
-		// exclude these tests from installing eastwest gw for now
-		if !cfg.DeployEastWestGW {
+		// there are a few tests that require special gateway setup which will cause expansion gateway fail to start
+		// exclude these tests from installing expansion gw for now
+		// TODO remove EastWest flag after confirming usage.
+		if !(cfg.DeployEastWestGW && cfg.DeployExpansionGW) {
 			return nil
 		}
 
-		if err := i.deployEastWestGateway(cluster, spec.Revision); err != nil {
+		if err := i.deployExpansionGateway(cluster, spec.Revision); err != nil {
 			return err
 		}
 		// Other clusters should only use this for discovery if its a config cluster.
@@ -608,7 +609,7 @@ func installRemoteClusters(i *operatorComponent, cfg Config, cluster resource.Cl
 
 	// remote clusters only need this gateway for multi-network purposes
 	if i.ctx.Environment().IsMultinetwork() {
-		if err := i.deployEastWestGateway(cluster, spec.Revision); err != nil {
+		if err := i.deployExpansionGateway(cluster, spec.Revision); err != nil {
 			return err
 		}
 	}

@@ -5,7 +5,7 @@ metadata:
   namespace: istio-system
 spec:
   selector:
-    istio: eastwestgateway
+    istio: expansiongateway
   servers:
     - port:
         name: https-istiod

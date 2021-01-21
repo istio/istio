@@ -37,8 +37,8 @@ const (
 	defaultIngressIstioLabel  = "ingressgateway"
 	defaultIngressServiceName = "istio-" + defaultIngressIstioLabel
 
-	eastWestIngressIstioLabel  = "eastwestgateway"
-	eastWestIngressServiceName = "istio-" + eastWestIngressIstioLabel
+	expansionIngressIstioLabel = "expansiongateway"
+	expansion                  = "istio-" + expansionIngressIstioLabel
 
 	proxyContainerName = "istio-proxy"
 	proxyAdminPort     = 15000
