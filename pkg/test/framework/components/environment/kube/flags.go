@@ -61,7 +61,7 @@ func NewSettingsFromCommandLine() (*Settings, error) {
 
 	s := settingsFromCommandLine.clone()
 
-	// Process the kube configs.
+	// Process the kube clusterConfigs.
 	var err error
 	s.KubeConfig, err = parseKubeConfigs(kubeConfigs, ",")
 	if err != nil {

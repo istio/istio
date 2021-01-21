@@ -39,6 +39,7 @@ import (
 	"istio.io/istio/pilot/pkg/leaderelection"
 	"istio.io/istio/pkg/test/cert/ca"
 	testenv "istio.io/istio/pkg/test/env"
+	kubecluster "istio.io/istio/pkg/test/framework/components/cluster/kube"
 	"istio.io/istio/pkg/test/framework/components/environment/kube"
 	"istio.io/istio/pkg/test/framework/components/istio/ingress"
 	"istio.io/istio/pkg/test/framework/components/istioctl"
@@ -74,8 +75,9 @@ type operatorComponent struct {
 	// installManifest includes the yamls use to install Istio. These can be deleted on cleanup
 	// The key is the cluster name
 	installManifest map[string][]string
-	ingress         map[resource.ClusterIndex]map[string]ingress.Instance
-	workDir         string
+	// ingress components, indexed first by cluster name and then by gateway name.
+	ingress map[string]map[string]ingress.Instance
+	workDir string
 }
 
 var _ io.Closer = &operatorComponent{}
@@ -128,18 +130,18 @@ func (i *operatorComponent) IngressFor(cluster resource.Cluster) ingress.Instanc
 func (i *operatorComponent) CustomIngressFor(cluster resource.Cluster, serviceName, istioLabel string) ingress.Instance {
 	i.mu.Lock()
 	defer i.mu.Unlock()
-	if i.ingress[cluster.Index()] == nil {
-		i.ingress[cluster.Index()] = map[string]ingress.Instance{}
+	if i.ingress[cluster.Name()] == nil {
+		i.ingress[cluster.Name()] = map[string]ingress.Instance{}
 	}
-	if _, ok := i.ingress[cluster.Index()][istioLabel]; !ok {
-		i.ingress[cluster.Index()][istioLabel] = newIngress(i.ctx, ingressConfig{
+	if _, ok := i.ingress[cluster.Name()][istioLabel]; !ok {
+		i.ingress[cluster.Name()][istioLabel] = newIngress(i.ctx, ingressConfig{
 			Namespace:   i.settings.IngressNamespace,
 			Cluster:     cluster,
 			ServiceName: serviceName,
 			IstioLabel:  istioLabel,
 		})
 	}
-	return i.ingress[cluster.Index()][istioLabel]
+	return i.ingress[cluster.Name()][istioLabel]
 }
 
 func (i *operatorComponent) Close() error {
@@ -208,7 +210,7 @@ func deploy(ctx resource.Context, env *kube.Environment, cfg Config) (Instance, 
 		settings:        cfg,
 		ctx:             ctx,
 		installManifest: map[string][]string{},
-		ingress:         map[resource.ClusterIndex]map[string]ingress.Instance{},
+		ingress:         map[string]map[string]ingress.Instance{},
 	}
 	i.id = ctx.TrackResource(i)
 
@@ -796,9 +798,9 @@ func configureDiscoveryForConfigCluster(discoveryAddress string, cfg Config, clu
 // in its remote config cluster by creating the kubeconfig secret pointing to the remote kubeconfig, and the
 // service account required to read the secret.
 func (i *operatorComponent) configureRemoteConfigForControlPlane(cluster resource.Cluster) error {
-	env, cfg := i.environment, i.settings
+	cfg := i.settings
 	configCluster := cluster.Config()
-	istioKubeConfig, err := file.AsString(env.Settings().KubeConfig[configCluster.Index()])
+	istioKubeConfig, err := file.AsString(configCluster.(*kubecluster.Cluster).Filename())
 	if err != nil {
 		scopes.Framework.Infof("error in parsing kubeconfig for %s", configCluster.Name())
 		return err
