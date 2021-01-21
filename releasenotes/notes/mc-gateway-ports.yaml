@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: feature
+area: installation
+releaseNotes:
+- |
+  **Removed** the `15012` and `15443` ports from the default gateway installation. These can be explicitly
+  [added](https://istio.io/latest/docs/setup/install/istioctl/#configure-gateways) if desired, although it is
+  recommended to follow the new [multicluster installation guide](https://istio.io/latest/docs/setup/install/multicluster/) instead.
