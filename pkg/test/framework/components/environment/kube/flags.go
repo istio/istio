@@ -68,17 +68,17 @@ func NewSettingsFromCommandLine() (*Settings, error) {
 		return nil, fmt.Errorf("error parsing KubeConfigs from command-line: %v", err)
 	}
 
-	s.controlPlaneTopology, err = newControlPlaneTopology(s.kubeconfigsFlag)
+	s.controlPlaneTopology, err = newControlPlaneTopology()
 	if err != nil {
 		return nil, err
 	}
 
-	s.networkTopology, err = parseNetworkTopology(s.kubeconfigsFlag)
+	s.networkTopology, err = parseNetworkTopology()
 	if err != nil {
 		return nil, err
 	}
 
-	s.configconfigTopolgoy, err = newConfigTopology(s.kubeconfigsFlag, s.controlPlaneTopology)
+	s.configTopology, err = newConfigTopology()
 	if err != nil {
 		return nil, err
 	}
@@ -134,69 +134,33 @@ func parseKubeConfigs(value, separator string) ([]string, error) {
 	return out, nil
 }
 
-func newControlPlaneTopology(kubeConfigs []string) (clusterTopology, error) {
+func newControlPlaneTopology() (clusterTopology, error) {
 	topology, err := parseClusterTopology(controlPlaneTopology)
 	if err != nil {
 		return nil, err
 	}
-
-	if len(topology) == 0 {
-		// Default to deploying a control plane per cluster.
-		for index := range kubeConfigs {
-			topology[clusterIndex(index)] = clusterIndex(index)
-		}
-		return topology, nil
-	}
-
-	// Verify that all of the specified clusters are valid.
-	numClusters := len(kubeConfigs)
-	for cIndex, cpIndex := range topology {
-		if int(cIndex) >= numClusters {
-			return nil, fmt.Errorf("failed parsing control plane topology: cluster index %d "+
-				"exceeds number of available clusters %d", cIndex, numClusters)
-		}
-		if int(cpIndex) >= numClusters {
-			return nil, fmt.Errorf("failed parsing control plane topology: control plane cluster index %d "+""+
-				"exceeds number of available clusters %d", cpIndex, numClusters)
-		}
+	if topology == nil || len(topology) == 0 {
+		return nil, nil
 	}
 	return topology, nil
 }
 
-func newConfigTopology(kubeConfigs []string, fallback clusterTopology) (clusterTopology, error) {
+func newConfigTopology() (clusterTopology, error) {
 	topology, err := parseClusterTopology(configTopology)
 	if err != nil {
 		return nil, err
 	}
-
-	if len(topology) == 0 {
-		// Default to every cluster using config from it's control plane cluster.
-		for k, v := range fallback {
-			topology[k] = v
-		}
-		return topology, nil
-	}
-
-	// Verify that all of the specified clusters are valid.
-	numClusters := len(kubeConfigs)
-	for cIndex, cfIndex := range topology {
-		if int(cIndex) >= numClusters {
-			return nil, fmt.Errorf("failed parsing config topology: cluster index %d "+
-				"exceeds number of available clusters %d", cIndex, numClusters)
-		}
-		if int(cfIndex) >= numClusters {
-			return nil, fmt.Errorf("failed parsing config topology: config cluster index %d "+""+
-				"exceeds number of available clusters %d", cfIndex, numClusters)
-		}
+	if topology == nil || len(topology) == 0 {
+		return nil, nil
 	}
 	return topology, nil
 }
 
 func parseClusterTopology(topology string) (clusterTopology, error) {
-	out := make(clusterTopology)
 	if topology == "" {
-		return out, nil
+		return nil, nil
 	}
+	out := make(clusterTopology)
 
 	values := strings.Split(configTopology, ",")
 	for _, v := range values {
@@ -220,15 +184,11 @@ func parseClusterTopology(topology string) (clusterTopology, error) {
 	return out, nil
 }
 
-func parseNetworkTopology(kubeConfigs []string) (map[clusterIndex]string, error) {
-	out := make(map[clusterIndex]string)
-	if controlPlaneTopology == "" {
-		for index := range kubeConfigs {
-			out[clusterIndex(index)] = "network-0"
-		}
-		return out, nil
+func parseNetworkTopology() (map[clusterIndex]string, error) {
+	if networkTopology == "" {
+		return nil, nil
 	}
-	numClusters := len(kubeConfigs)
+	out := make(map[clusterIndex]string)
 	values := strings.Split(networkTopology, ",")
 	for _, v := range values {
 		parts := strings.Split(v, ":")
@@ -238,10 +198,6 @@ func parseNetworkTopology(kubeConfigs []string) (map[clusterIndex]string, error)
 		cluster, err := parseClusterIndex(parts[0])
 		if err != nil {
 			return nil, err
-		}
-		if cluster >= cluster {
-			return nil, fmt.Errorf("failed parsing network topology: cluster index: %d "+
-				"exceeds number of available clusters %d", cluster, numClusters)
 		}
 		if len(parts[1]) == 0 {
 			return nil, fmt.Errorf("failed parsing network mapping entry %s: failed parsing network name", v)
