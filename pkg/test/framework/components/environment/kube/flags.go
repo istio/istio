@@ -139,7 +139,7 @@ func newControlPlaneTopology() (clusterTopology, error) {
 	if err != nil {
 		return nil, err
 	}
-	if topology == nil || len(topology) == 0 {
+	if len(topology) == 0 {
 		return nil, nil
 	}
 	return topology, nil
@@ -150,7 +150,7 @@ func newConfigTopology() (clusterTopology, error) {
 	if err != nil {
 		return nil, err
 	}
-	if topology == nil || len(topology) == 0 {
+	if len(topology) == 0 {
 		return nil, nil
 	}
 	return topology, nil
