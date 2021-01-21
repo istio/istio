@@ -430,7 +430,6 @@ global:
 base:
   # For istioctl usage to disable istio config crds in base
   enableIstioConfigCRDs: true
-
   # Validation webhook configuration url
   # For example: https://$remotePilotAddress:15017/validate
   validationURL: ""
