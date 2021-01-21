@@ -62,24 +62,26 @@ function load_cluster_topology() {
   export CLUSTER_SVC_SUBNETS
   export CLUSTER_NETWORK_ID
 
+  KUBE_CLUSTERS=$(jq '.[] | select(.kind == "Kubernetes" or .kind == null)' "${CLUSTER_TOPOLOGY_CONFIG_FILE}")
+
   while read -r value; do
     CLUSTER_NAMES+=("$value")
-  done < <(jq -r '.[].cluster_name' "${CLUSTER_TOPOLOGY_CONFIG_FILE}")
+  done < <(echo "${KUBE_CLUSTERS}" | jq -r '.cluster_name // .clusterName')
 
   while read -r value; do
     CLUSTER_POD_SUBNETS+=("$value")
-  done < <(jq -r '.[].pod_subnet' "${CLUSTER_TOPOLOGY_CONFIG_FILE}")
+  done < <(echo "${KUBE_CLUSTERS}" | jq -r '.pod_subnet // .podSubnet')
 
   while read -r value; do
     CLUSTER_SVC_SUBNETS+=("$value")
-  done < <(jq -r '.[].svc_subnet' "${CLUSTER_TOPOLOGY_CONFIG_FILE}")
+  done < <(echo "${KUBE_CLUSTERS}" | jq -r '.svc_subnet // .svcSubnet')
 
   while read -r value; do
     CLUSTER_NETWORK_ID+=("$value")
-  done < <(jq -r '.[].network_id' "${CLUSTER_TOPOLOGY_CONFIG_FILE}")
+  done < <(echo "${KUBE_CLUSTERS}" | jq -r '.network_id // .network')
 
   export NUM_CLUSTERS
-  NUM_CLUSTERS=$(jq 'length' "${CLUSTER_TOPOLOGY_CONFIG_FILE}")
+  NUM_CLUSTERS=$(echo "${KUBE_CLUSTERS}" | jq -s 'length')
 
   echo "${CLUSTER_NAMES[@]}"
   echo "${CLUSTER_POD_SUBNETS[@]}"
