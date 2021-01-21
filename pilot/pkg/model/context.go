@@ -196,6 +196,9 @@ func (e *Environment) InitClusterLocalHosts() []host.Name {
 	}
 
 	sort.Sort(host.Names(clusterLocalHosts))
+
+	e.mutex.Lock()
+	defer e.mutex.Unlock()
 	e.clusterLocalHosts = clusterLocalHosts
 	return clusterLocalHosts
 }
