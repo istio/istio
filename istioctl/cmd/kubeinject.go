@@ -104,7 +104,7 @@ func getValuesFromConfigMap(kubeconfig string) (string, error) {
 func readInjectConfigFile(f []byte) (inject.Templates, error) {
 	var injectConfig inject.Config
 	err := yaml.Unmarshal(f, &injectConfig)
-	if err != nil || len(injectConfig.Templates) == 0 && len(injectConfig.Template) == 0 {
+	if err != nil || len(injectConfig.Templates) == 0 {
 		// This must be a direct template, instead of an inject.Config. We support both formats
 		return map[string]string{inject.SidecarTemplateName: string(f)}, nil
 	}
@@ -305,8 +305,8 @@ kube-inject on deployments to get the most up-to-date changes.
 
 			if emitTemplate {
 				cfg := inject.Config{
-					Policy:   inject.InjectionPolicyEnabled,
-					Template: sidecarTemplate[inject.SidecarTemplateName],
+					Policy:    inject.InjectionPolicyEnabled,
+					Templates: sidecarTemplate,
 				}
 				out, err := yaml.Marshal(&cfg)
 				if err != nil {
