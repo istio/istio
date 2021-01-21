@@ -52,6 +52,8 @@ var (
 
 // Environment provides an aggregate environmental API for Pilot
 type Environment struct {
+	mutex sync.Mutex
+
 	// Discovery interface for listing services and instances.
 	ServiceDiscovery
 
@@ -199,6 +201,8 @@ func (e *Environment) InitClusterLocalHosts() []host.Name {
 }
 
 func (e *Environment) GetClusterLocalHosts() []host.Name {
+	e.mutex.Lock()
+	defer e.mutex.Unlock()
 	return e.clusterLocalHosts
 }
 
