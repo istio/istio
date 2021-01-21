@@ -1,3 +1,4 @@
+{{ if or (eq .Values.revision "") (eq .Values.defaultRevision true) }}
 {{- if .Values.global.configValidation }}
 apiVersion: admissionregistration.k8s.io/v1beta1
 kind: ValidatingWebhookConfiguration
@@ -37,4 +38,5 @@ webhooks:
     sideEffects: None
     admissionReviewVersions: ["v1beta1", "v1"]
 ---
+{{- end }}
 {{- end }}
