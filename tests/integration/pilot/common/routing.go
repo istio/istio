@@ -19,6 +19,8 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"reflect"
+	"sort"
 	"strings"
 	"time"
 
@@ -892,6 +894,126 @@ type vmCase struct {
 	from echo.Instance
 	to   echo.Instances
 	host string
+}
+
+func flatten(clients ...[]echo.Instance) []echo.Instance {
+	instances := []echo.Instance{}
+	for _, c := range clients {
+		instances = append(instances, c...)
+	}
+	return instances
+}
+
+func DNSTestCases(apps *EchoDeployments) []TrafficTestCase {
+	makeSE := func(ips ...string) string {
+		return tmpl.MustEvaluate(`
+apiVersion: networking.istio.io/v1alpha3
+kind: ServiceEntry
+metadata:
+  name: dns
+spec:
+  hosts:
+  - "fake.service.local"
+  addresses:
+{{ range $ip := .IPs }}
+  - "{{$ip}}"
+{{ end }}
+  resolution: STATIC
+  endpoints: []
+  ports:
+  - number: 80
+    name: http
+    protocol: HTTP
+`, map[string]interface{}{"IPs": ips})
+	}
+	tcases := []TrafficTestCase{}
+	ipv4 := "1.2.3.4"
+	ipv6 := "1234:1234:1234::1234:1234:1234"
+	dummyLocalhostServer := "127.0.0.1"
+	cases := []struct {
+		name string
+		// TODO(https://github.com/istio/istio/issues/30282) support multiple vips
+		ips      string
+		protocol string
+		server   string
+		expected []string
+	}{
+		{
+			name:     "tcp ipv4",
+			ips:      ipv4,
+			expected: []string{ipv4},
+			protocol: "tcp",
+		},
+		{
+			name:     "udp ipv4",
+			ips:      ipv4,
+			expected: []string{ipv4},
+			protocol: "udp",
+		},
+		{
+			name:     "tcp ipv6",
+			ips:      ipv6,
+			expected: []string{ipv6},
+			protocol: "tcp",
+		},
+		{
+			name:     "udp ipv6",
+			ips:      ipv6,
+			expected: []string{ipv6},
+			protocol: "udp",
+		},
+		{
+			name:     "tcp localhost server",
+			ips:      ipv4,
+			expected: []string{ipv4},
+			protocol: "tcp",
+			// iptables logic is different for traffic destined for localhost or external.
+			server:   dummyLocalhostServer,
+		},
+		{
+			name:     "udp localhost server",
+			ips:      ipv4,
+			expected: []string{ipv4},
+			protocol: "udp",
+			server:   dummyLocalhostServer,
+		},
+	}
+	for _, client := range flatten(apps.VM, apps.PodA) {
+		for _, tt := range cases {
+			tt, client := tt, client
+			address := "fake.service.local?"
+			if tt.protocol != "" {
+				address += "&protocol=" + tt.protocol
+			}
+			if tt.server != "" {
+				address += "&server=" + tt.server
+			}
+			tcases = append(tcases, TrafficTestCase{
+				name:   fmt.Sprintf("%s/%s", client.Config().Service, tt.name),
+				config: makeSE(tt.ips),
+				call:   client.CallWithRetryOrFail,
+				opts: echo.CallOptions{
+					Scheme:  scheme.DNS,
+					Address: address,
+					Validator: echo.ValidatorFunc(
+						func(response echoclient.ParsedResponses, _ error) error {
+							return response.Check(func(_ int, response *echoclient.ParsedResponse) error {
+								ips := []string{}
+								for _, v := range response.RawResponse {
+									ips = append(ips, v)
+								}
+								sort.Strings(ips)
+								if !reflect.DeepEqual(ips, tt.expected) {
+									return fmt.Errorf("unexpected dns response: wanted %v, got %v", tt.expected, ips)
+								}
+								return nil
+							})
+						}),
+				},
+			})
+		}
+	}
+	return tcases
 }
 
 func VMTestCases(vms echo.Instances, apps *EchoDeployments) []TrafficTestCase {
