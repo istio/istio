@@ -406,10 +406,7 @@ message GlobalConfig {
   // Controls whether one external istiod is enabled.
   google.protobuf.BoolValue externalIstiod = 62;
 
-  // Controls whether one central istiod is enabled.
-  google.protobuf.BoolValue centralIstiod = 63;
-
-  // The next available key is 64
+  // The next available key is 63
 }
 
 // Configuration for Security Token Service (STS) server.
