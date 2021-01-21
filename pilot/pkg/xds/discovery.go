@@ -467,7 +467,7 @@ func doSendPushes(stopCh <-chan struct{}, semaphore chan struct{}, queue *PushQu
 func (s *DiscoveryServer) initPushContext(req *model.PushRequest, oldPushContext *model.PushContext, version string) (*model.PushContext, error) {
 	push := model.NewPushContext()
 	push.PushVersion = version
-	if oldPushContext != nil && oldPushContext.Cleanup != nil {
+	if oldPushContext != nil {
 		oldPushContext.Cleanup()
 	}
 	if err := push.InitContext(s.Env, oldPushContext, req); err != nil {

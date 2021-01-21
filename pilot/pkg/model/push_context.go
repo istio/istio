@@ -22,8 +22,6 @@ import (
 	"sync"
 	"time"
 
-	"istio.io/pkg/ledger"
-
 	"go.uber.org/atomic"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
