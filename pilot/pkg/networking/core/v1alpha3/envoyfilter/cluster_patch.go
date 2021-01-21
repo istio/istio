@@ -41,6 +41,9 @@ func GenerateMatchMap(pctx networking.EnvoyFilter_PatchContext, efw *model.Envoy
 	serviceMap = make(map[string][]*model.EnvoyFilterConfigPatchWrapper)
 	subsetMap = make(map[string][]*model.EnvoyFilterConfigPatchWrapper)
 	portMap = make(map[string][]*model.EnvoyFilterConfigPatchWrapper)
+	if efw == nil {
+		return cpw, serviceMap, subsetMap, portMap
+	}
 	for _, cp := range efw.Patches[networking.EnvoyFilter_CLUSTER] {
 		if cp.Operation != networking.EnvoyFilter_Patch_REMOVE &&
 			cp.Operation != networking.EnvoyFilter_Patch_MERGE {
