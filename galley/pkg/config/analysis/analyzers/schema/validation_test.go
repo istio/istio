@@ -150,6 +150,7 @@ func schemaWithValidateFn(validateFn func(cfg config.Config) (validation.Warning
 type fakeOrigin struct{}
 
 func (fakeOrigin) FriendlyName() string          { return "myFriendlyName" }
+func (fakeOrigin) Comparator() string            { return "myFriendlyName" }
 func (fakeOrigin) Namespace() resource.Namespace { return "myNamespace" }
 func (fakeOrigin) Reference() resource.Reference { return fakeReference{} }
 func (fakeOrigin) FieldMap() map[string]int      { return make(map[string]int) }

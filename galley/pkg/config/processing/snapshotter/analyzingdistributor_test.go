@@ -528,6 +528,7 @@ type fakeOrigin struct {
 
 func (f fakeOrigin) Namespace() resource.Namespace { return f.namespace }
 func (f fakeOrigin) FriendlyName() string          { return f.friendlyName }
+func (f fakeOrigin) Comparator() string            { return f.friendlyName }
 func (f fakeOrigin) Reference() resource.Reference { return f.reference }
 func (f fakeOrigin) FieldMap() map[string]int      { return make(map[string]int) }
 

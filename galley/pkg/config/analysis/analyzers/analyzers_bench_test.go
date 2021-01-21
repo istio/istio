@@ -80,6 +80,7 @@ var _ resource.Reference = &reference{}
 
 func (o origin) Namespace() resource.Namespace { return "" }
 func (o origin) FriendlyName() string          { return o.friendlyName }
+func (o origin) Comparator() string            { return o.friendlyName }
 func (o origin) Reference() resource.Reference { return reference{name: ""} }
 func (o origin) FieldMap() map[string]int      { return map[string]int{o.friendlyName: 0} }
 
