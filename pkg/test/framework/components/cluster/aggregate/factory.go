@@ -20,7 +20,9 @@ import (
 	"github.com/hashicorp/go-multierror"
 
 	"istio.io/istio/pkg/test/framework/components/cluster"
+	// imported to trigger registration
 	_ "istio.io/istio/pkg/test/framework/components/cluster/fake"
+	// imported to trigger registration
 	_ "istio.io/istio/pkg/test/framework/components/cluster/kube"
 	"istio.io/istio/pkg/test/framework/resource"
 	"istio.io/istio/pkg/test/scopes"
