@@ -35,4 +35,3 @@ type Environment interface {
 
 	IsMultinetwork() bool
 }
-
