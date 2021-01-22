@@ -1,0 +1,17 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+
+# issue is a list of GitHub issues resolved in this note.
+issue:
+  - https://github.com/istio/istio/issues/25992
+
+releaseNotes:
+  - |
+    **Fixed** failed Helm installations not adopting existing resources
+
+upgradeNotes:
+  - title: Helm chart now use recommended labels
+    content: |
+      When a user experiences a failed upgrade they should be able to safely and easily re-run installs/upgrade without uninstalling Istio.
+
