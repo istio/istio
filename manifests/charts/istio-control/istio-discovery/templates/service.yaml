@@ -10,6 +10,10 @@ metadata:
     app: istiod
     istio: pilot
     release: {{ .Release.Name }}
+    app.kubernetes.io/name: "istiod"
+    helm.sh/chart: {{ .Chart.Name }}-{{ .Chart.Version | replace "+" "_" }}
+    app.kubernetes.io/managed-by: {{ .Release.Service }}
+    app.kubernetes.io/instance: {{ .Release.Name }}
 spec:
   ports:
     - port: 15010

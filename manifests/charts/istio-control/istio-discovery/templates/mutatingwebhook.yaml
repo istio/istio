@@ -38,6 +38,10 @@ metadata:
     operator.istio.io/component: "Pilot"
     app: sidecar-injector
     release: {{ .Release.Name }}
+    app.kubernetes.io/name: "istiod"
+    helm.sh/chart: {{ .Chart.Name }}-{{ .Chart.Version | replace "+" "_" }}
+    app.kubernetes.io/managed-by: {{ .Release.Service }}
+    app.kubernetes.io/instance: {{ .Release.Name }}
 webhooks:
 {{- if .Values.sidecarInjectorWebhook.useLegacySelectors}}
 {{- /* Setup the "legacy" selectors. These are for backwards compatibility, will be removed in the future. */}}

@@ -11,6 +11,10 @@ metadata:
     operator.istio.io/component: "Pilot"
     release: {{ .Release.Name }}
     istio: pilot
+    app.kubernetes.io/name: "istiod"
+    helm.sh/chart: {{ .Chart.Name }}-{{ .Chart.Version | replace "+" "_" }}
+    app.kubernetes.io/managed-by: {{ .Release.Service }}
+    app.kubernetes.io/instance: {{ .Release.Name }}
 spec:
   minAvailable: 1
   selector:
