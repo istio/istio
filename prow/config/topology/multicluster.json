@@ -13,7 +13,7 @@
     "svcSubnet": "10.255.20.0/24",
     "network": "network-1",
     "primaryClusterName": "primary",
-    "configClusterName": "primary",
+    "configClusterName": "primary"
   },
   {
     "kind": "Kubernetes",
