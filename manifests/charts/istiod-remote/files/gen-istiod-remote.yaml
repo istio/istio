@@ -10,6 +10,10 @@ metadata:
     install.operator.istio.io/owning-resource: unknown
     operator.istio.io/component: "Pilot"
     release: istiod-remote
+    app.kubernetes.io/name: "istiod"
+    helm.sh/chart: istiod-remote-1.1.0
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/instance: istiod-remote
 data:
 
   # Configuration file for the mesh networks to be used by the Split Horizon EDS.
@@ -37,6 +41,10 @@ metadata:
     install.operator.istio.io/owning-resource: unknown
     operator.istio.io/component: "Pilot"
     release: istiod-remote
+    app.kubernetes.io/name: "istiod"
+    helm.sh/chart: istiod-remote-1.1.0
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/instance: istiod-remote
 data:
 
   values: |-
@@ -687,6 +695,10 @@ metadata:
     operator.istio.io/component: "Pilot"
     app: sidecar-injector
     release: istiod-remote
+    app.kubernetes.io/name: "istiod"
+    helm.sh/chart: istiod-remote-1.1.0
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/instance: istiod-remote
 webhooks:
 - name: namespace.sidecar-injector.istio.io
   clientConfig:

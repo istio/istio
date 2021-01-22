@@ -3522,6 +3522,10 @@ metadata:
   labels:
     app: istio-reader
     release: istio
+    app.kubernetes.io/name: "istio-base"
+    helm.sh/chart: base-1.1.0
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/instance: istio
 ---
 # Source: base/templates/serviceaccount.yaml
 apiVersion: v1
@@ -3532,6 +3536,10 @@ metadata:
   labels:
     app: istiod
     release: istio
+    app.kubernetes.io/name: "istio-base"
+    helm.sh/chart: base-1.1.0
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/instance: istio
 ---
 # Source: base/templates/clusterrole.yaml
 apiVersion: rbac.authorization.k8s.io/v1
@@ -3541,6 +3549,10 @@ metadata:
   labels:
     app: istiod
     release: istio
+    app.kubernetes.io/name: "istio-base"
+    helm.sh/chart: base-1.1.0
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/instance: istio
 rules:
   # sidecar injection controller
   - apiGroups: ["admissionregistration.k8s.io"]
@@ -3633,6 +3645,10 @@ metadata:
   labels:
     app: istio-reader
     release: istio
+    app.kubernetes.io/name: "istio-base"
+    helm.sh/chart: base-1.1.0
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/instance: istio
 rules:
   - apiGroups:
       - "config.istio.io"
@@ -3672,6 +3688,10 @@ metadata:
   labels:
     app: istio-reader
     release: istio
+    app.kubernetes.io/name: "istio-base"
+    helm.sh/chart: base-1.1.0
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/instance: istio
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
@@ -3689,6 +3709,10 @@ metadata:
   labels:
     app: istiod
     release: istio
+    app.kubernetes.io/name: "istio-base"
+    helm.sh/chart: base-1.1.0
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/instance: istio
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
@@ -3707,6 +3731,10 @@ metadata:
   labels:
     app: istiod
     release: istio
+    app.kubernetes.io/name: "istio-base"
+    helm.sh/chart: base-1.1.0
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/instance: istio
 rules:
 # permissions to verify the webhook is ready and rejecting
 # invalid config. We use --server-dry-run so no config is persisted.
@@ -3729,6 +3757,10 @@ metadata:
   labels:
     app: istiod
     release: istio
+    app.kubernetes.io/name: "istio-base"
+    helm.sh/chart: base-1.1.0
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/instance: istio
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: Role
@@ -3747,6 +3779,10 @@ metadata:
     app: istiod
     release: istio
     istio: istiod
+    app.kubernetes.io/name: "istio-base"
+    helm.sh/chart: base-1.1.0
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/instance: istio
 webhooks:
   - name: validation.istio.io
     clientConfig:
