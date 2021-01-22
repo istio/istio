@@ -32,7 +32,7 @@ func hasKubeRegistry(registries []string) bool {
 func buildLedger(ca RegistryOptions) ledger.Ledger {
 	var result ledger.Ledger
 	if ca.DistributionTrackingEnabled {
-		result = ledger.Make(ca.DistributionCacheRetention)
+		result = ledger.Make()
 	} else {
 		result = &model.DisabledLedger{}
 	}

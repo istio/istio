@@ -321,13 +321,14 @@ func (s *Server) initStatusController(args *PilotArgs, writeStatus bool) {
 		return nil
 	})
 	s.addTerminatingStartFunc(func(stop <-chan struct{}) error {
-		if writeStatus {
+		// if we don't have a kubeclient, no reason to run the status reporter...
+		if writeStatus && s.kubeClient != nil {
 			s.statusReporter.Start(s.kubeClient.Kube(), args.Namespace, args.PodName, stop)
 		}
 		return nil
 	})
 	s.XDSServer.StatusReporter = s.statusReporter
-	if writeStatus {
+	if writeStatus && s.kubeRestConfig != nil {
 		s.addTerminatingStartFunc(func(stop <-chan struct{}) error {
 			leaderelection.
 				NewLeaderElection(args.Namespace, args.PodName, leaderelection.StatusController, args.Revision, s.kubeClient).
