@@ -379,13 +379,6 @@ func (iptConfigurator *IptablesConfigurator) run() {
 	iptConfigurator.iptables.AppendRuleV4(constants.ISTIOINBOUND, constants.NAT, "-p", constants.TCP, "--dport",
 		iptConfigurator.cfg.InboundTunnelPort, "-j", constants.RETURN)
 
-	if redirectDNS {
-		// redirect all TCP dns traffic on port 53 to the agent on port 15053
-		iptConfigurator.iptables.AppendRuleV4(
-			constants.ISTIOREDIRECT, constants.NAT, "-p", constants.TCP, "--dport", "53", "-j", constants.REDIRECT, "--to-ports", constants.IstioAgentDNSListenerPort)
-		// the rest of the IPtables rules will take care of ensuring that the traffic does not loop, among other things.
-	}
-
 	// Create a new chain for redirecting outbound traffic to the common Envoy port.
 	// In both chains, '-j RETURN' bypasses Envoy and '-j ISTIOREDIRECT'
 	// redirects to Envoy.
@@ -424,7 +417,16 @@ func (iptConfigurator *IptablesConfigurator) run() {
 		// e.g. appN => appN by lo
 		// If loopback explicitly set via OutboundIPRangesInclude, then don't return.
 		if !ipv4RangesInclude.HasLoopBackIP && !ipv6RangesInclude.HasLoopBackIP {
-			iptConfigurator.iptables.AppendRuleV4(constants.ISTIOOUTPUT, constants.NAT, "-o", "lo", "-m", "owner", "!", "--uid-owner", uid, "-j", constants.RETURN)
+			if redirectDNS {
+				// Users may have a DNS server that is on localhost. In these cases, applications may
+				// send TCP traffic to the DNS server that we actually *do* want to intercept. To
+				// handle this case, we exclude port 53 from this rule. Note: We cannot just move the
+				// port 53 redirection rule further up the list, as we will want to avoid capturing
+				// DNS requests from the proxy UID/GID
+				iptConfigurator.iptables.AppendRuleV4(constants.ISTIOOUTPUT, constants.NAT, "-o", "lo", "-p", "tcp", "!", "--dport", "53", "-m", "owner", "!", "--uid-owner", uid, "-j", constants.RETURN)
+			} else {
+				iptConfigurator.iptables.AppendRuleV4(constants.ISTIOOUTPUT, constants.NAT, "-o", "lo", "-m", "owner", "!", "--uid-owner", uid, "-j", constants.RETURN)
+			}
 		}
 
 		// Avoid infinite loops. Don't redirect Envoy traffic directly back to
@@ -442,13 +444,30 @@ func (iptConfigurator *IptablesConfigurator) run() {
 		// e.g. appN => appN by lo
 		// If loopback explicitly set via OutboundIPRangesInclude, then don't return.
 		if !ipv4RangesInclude.HasLoopBackIP && !ipv6RangesInclude.HasLoopBackIP {
-			iptConfigurator.iptables.AppendRuleV4(constants.ISTIOOUTPUT, constants.NAT, "-o", "lo", "-m", "owner", "!", "--gid-owner", gid, "-j", constants.RETURN)
+			if redirectDNS {
+				// Users may have a DNS server that is on localhost. In these cases, applications may
+				// send TCP traffic to the DNS server that we actually *do* want to intercept. To
+				// handle this case, we exclude port 53 from this rule. Note: We cannot just move the
+				// port 53 redirection rule further up the list, as we will want to avoid capturing
+				// DNS requests from the proxy UID/GID
+				iptConfigurator.iptables.AppendRuleV4(constants.ISTIOOUTPUT, constants.NAT, "-o", "lo", "-p", "tcp", "!", "--dport", "53", "-m", "owner", "!", "--gid-owner", gid, "-j", constants.RETURN)
+			} else {
+				iptConfigurator.iptables.AppendRuleV4(constants.ISTIOOUTPUT, constants.NAT, "-o", "lo", "-m", "owner", "!", "--gid-owner", gid, "-j", constants.RETURN)
+			}
 		}
 
 		// Avoid infinite loops. Don't redirect Envoy traffic directly back to
 		// Envoy for non-loopback traffic.
 		iptConfigurator.iptables.AppendRuleV4(constants.ISTIOOUTPUT, constants.NAT, "-m", "owner", "--gid-owner", gid, "-j", constants.RETURN)
 	}
+
+	if redirectDNS {
+		// redirect all TCP dns traffic on port 53 to the agent on port 15053
+		iptConfigurator.iptables.AppendRuleV4(
+			constants.ISTIOOUTPUT, constants.NAT, "-p", constants.TCP, "--dport", "53", "-j", constants.REDIRECT, "--to-ports", constants.IstioAgentDNSListenerPort)
+		// the rest of the IPtables rules will take care of ensuring that the traffic does not loop, among other things.
+	}
+
 	// Skip redirection for Envoy-aware applications and
 	// container-to-container traffic both of which explicitly use
 	// localhost.

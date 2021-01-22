@@ -968,7 +968,7 @@ spec:
 			expected: []string{ipv4},
 			protocol: "tcp",
 			// iptables logic is different for traffic destined for localhost or external.
-			server:   dummyLocalhostServer,
+			server: dummyLocalhostServer,
 		},
 		{
 			name:     "udp localhost server",
@@ -978,7 +978,7 @@ spec:
 			server:   dummyLocalhostServer,
 		},
 	}
-	for _, client := range flatten(apps.VM, apps.PodA) {
+	for _, client := range flatten(apps.VM, apps.PodA, apps.PodTproxy) {
 		for _, tt := range cases {
 			tt, client := tt, client
 			address := "fake.service.local?"

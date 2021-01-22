@@ -59,8 +59,10 @@ func parseRequest(inputUrl string) (dnsRequest, error) {
 		return resp, err
 	}
 	resp.dnsServer = qp.Get("server")
-	if _, _, err := net.SplitHostPort(resp.dnsServer); err != nil && strings.Contains(err.Error(), "missing port in address") {
-		resp.dnsServer += ":53"
+	if resp.dnsServer != "" {
+		if _, _, err := net.SplitHostPort(resp.dnsServer); err != nil && strings.Contains(err.Error(), "missing port in address") {
+			resp.dnsServer += ":53"
+		}
 	}
 	resp.hostname = u.Host
 	resp.query = qp.Get("query")
