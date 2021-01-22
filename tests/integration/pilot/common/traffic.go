@@ -95,6 +95,7 @@ func RunAllTrafficTests(ctx framework.TestContext, apps *EchoDeployments) {
 	cases := map[string][]TrafficTestCase{}
 	cases["virtualservice"] = virtualServiceCases(apps)
 	cases["sniffing"] = protocolSniffingCases(apps)
+	cases["selfcall"] = selfCallsCases(apps)
 	cases["serverfirst"] = serverFirstTestCases(apps)
 	cases["gateway"] = gatewayCases(apps)
 	cases["loop"] = trafficLoopCases(apps)
