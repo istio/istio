@@ -3,6 +3,11 @@ kind: Deployment
 metadata:
   namespace: {{.Values.operatorNamespace}}
   name: istio-operator{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}
+  labels:
+    app.kubernetes.io/name: "istio-operator"
+    helm.sh/chart: {{ .Chart.Name }}-{{ .Chart.Version | replace "+" "_" }}
+    app.kubernetes.io/managed-by: {{ .Release.Service }}
+    app.kubernetes.io/instance: {{ .Release.Name }}
 spec:
   replicas: 1
   selector:
