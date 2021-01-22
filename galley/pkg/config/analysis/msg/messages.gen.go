@@ -140,6 +140,10 @@ var (
 	// AlphaAnnotation defines a diag.MessageType for message "AlphaAnnotation".
 	// Description: An Istio annotation may not be suitable for production.
 	AlphaAnnotation = diag.NewMessageType(diag.Info, "IST0136", "Annotation %q is part of an alpha-phase feature and may be incompletely supported.")
+
+	// DeploymentConflictingPorts defines a diag.MessageType for message "DeploymentConflictingPorts".
+	// Description: Two services selecting the same workload with same target port are MUST refer to the same port.
+	DeploymentConflictingPorts = diag.NewMessageType(diag.Warning, "IST0137", "This deployment %s is associated with multiple services %v using targetPort %q but different ports: %v.")
 )
 
 // All returns a list of all known message types.
@@ -178,6 +182,7 @@ func All() []*diag.MessageType {
 		ServiceEntryAddressesRequired,
 		DeprecatedAnnotation,
 		AlphaAnnotation,
+		DeploymentConflictingPorts,
 	}
 }
 
@@ -510,5 +515,17 @@ func NewAlphaAnnotation(r *resource.Instance, annotation string) diag.Message {
 		AlphaAnnotation,
 		r,
 		annotation,
+	)
+}
+
+// NewDeploymentConflictingPorts returns a new diag.Message based on DeploymentConflictingPorts.
+func NewDeploymentConflictingPorts(r *resource.Instance, deployment string, services []string, targetPort string, ports []int32) diag.Message {
+	return diag.NewMessage(
+		DeploymentConflictingPorts,
+		r,
+		deployment,
+		services,
+		targetPort,
+		ports,
 	)
 }
