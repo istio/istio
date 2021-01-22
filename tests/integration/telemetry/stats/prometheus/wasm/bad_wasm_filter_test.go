@@ -45,7 +45,7 @@ func TestBadWasmRemoteLoad(t *testing.T) {
 				g.Go(func() error {
 					// Verify that echo server could return 200
 					retry.UntilSuccessOrFail(t, func() error {
-						if err := common.SendTraffic(t, cltInstance); err != nil {
+						if err := common.SendTraffic(cltInstance); err != nil {
 							return err
 						}
 						return nil
@@ -90,7 +90,7 @@ func TestBadWasmRemoteLoad(t *testing.T) {
 
 					// Verify that echo server could still return 200
 					retry.UntilSuccessOrFail(t, func() error {
-						if err := common.SendTraffic(t, cltInstance); err != nil {
+						if err := common.SendTraffic(cltInstance); err != nil {
 							return err
 						}
 						return nil
