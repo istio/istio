@@ -65,7 +65,7 @@ func TestCustomizeMetrics(t *testing.T) {
 			httpChecked := false
 			retry.UntilSuccessOrFail(t, func() error {
 				if err := sendTraffic(t); err != nil {
-					t.Errorf("failed to send traffic")
+					t.Log("failed to send traffic")
 					return err
 				}
 				var err error

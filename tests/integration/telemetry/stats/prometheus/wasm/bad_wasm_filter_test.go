@@ -57,9 +57,12 @@ func TestBadWasmRemoteLoad(t *testing.T) {
 					if err != nil {
 						return err
 					}
-					if err := ctx.Config().ApplyYAML(common.GetAppNamespace().Name(), string(content)); err != nil {
-						return err
-					}
+					ctx.Config().ApplyYAMLInClusterOrFail(t, cltInstance.Config().Cluster, common.GetAppNamespace().Name(), string(content))
+					defer func() {
+						if err := ctx.Config().DeleteYAML(common.GetAppNamespace().Name(), string(content)); err != nil {
+							t.Logf("failed to delete bad wasm filter %v", err)
+						}
+					}()
 
 					// Wait until there is agent metrics for wasm download failure
 					retry.UntilSuccessOrFail(t, func() error {
