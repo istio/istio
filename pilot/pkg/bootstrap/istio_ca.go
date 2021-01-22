@@ -32,6 +32,7 @@ import (
 	corev1 "k8s.io/client-go/kubernetes/typed/core/v1"
 
 	"istio.io/api/security/v1beta1"
+	"istio.io/istio/istioctl/pkg/install/k8sversion"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
 	"istio.io/istio/pkg/config/constants"
@@ -55,6 +56,12 @@ type caOptions struct {
 	Namespace      string
 	Authenticators []security.Authenticator
 }
+
+const (
+	// K8sLegacySignerMaxVersion is the maximum version of K8s that supports use of legacy-signer
+	// which is Istio's default for signing DNS certificates
+	K8sLegacySignerMaxVersion = 21
+)
 
 // Based on istio_ca main - removing creation of Secrets with private keys in all namespaces and install complexity.
 //
@@ -256,8 +263,10 @@ func detectAuthEnv(jwt string) (*authenticate.JwtPayload, error) {
 // Save the root public key file and initialize the path the the file, to be used by other
 // components.
 func (s *Server) initPublicKey() error {
+
 	// Setup the root cert chain and caBundlePath - before calling initDNSListener.
-	if features.PilotCertProvider.Get() == KubernetesCAProvider {
+	k8sDefaultSignerSupported, _ := kubeDefaultSignerSupported(s.kubeClient)
+	if features.PilotCertProvider.Get() == KubernetesCAProvider && k8sDefaultSignerSupported {
 		s.caBundlePath = defaultCACertPath
 	} else if features.PilotCertProvider.Get() == IstiodCAProvider {
 		signingKeyFile := path.Join(LocalCertDir.Get(), "ca-key.pem")
@@ -433,4 +442,15 @@ func (s *Server) createIstioRA(client kubelib.Client,
 	}
 	return ra.NewIstioRA(raOpts)
 
+}
+
+func kubeDefaultSignerSupported(client kubelib.Client) (bool, string) {
+	version, err := k8sversion.GetKubernetesVersion(client.RESTConfig())
+	if err != nil {
+		return false, ""
+	}
+	if version > K8sLegacySignerMaxVersion {
+		return false, fmt.Sprint(version)
+	}
+	return true, fmt.Sprint(version)
 }

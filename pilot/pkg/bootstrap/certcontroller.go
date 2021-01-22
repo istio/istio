@@ -135,7 +135,14 @@ func (s *Server) initDNSCerts(hostname, customHost, namespace string) error {
 
 	var certChain, keyPEM []byte
 	var err error
-	if features.PilotCertProvider.Get() == KubernetesCAProvider {
+
+	k8sDefaultSignerSupported, k8sVersion := kubeDefaultSignerSupported(s.kubeClient)
+	if !k8sDefaultSignerSupported && features.PilotCertProvider.Get() == KubernetesCAProvider {
+		log.Errorf("Unable to sign DNS certificates using Chiron in current deployment."+
+			"Kubernetes legacy signer is not supported for Kubernetes version 1.%s.0 onwards"+
+			"Falling back to self signed certificate", k8sVersion)
+	}
+	if features.PilotCertProvider.Get() == KubernetesCAProvider && k8sDefaultSignerSupported {
 		log.Infof("Generating K8S-signed cert for %v", names)
 		certChain, keyPEM, _, err = chiron.GenKeyCertK8sCA(s.kubeClient.CertificatesV1beta1().CertificateSigningRequests(),
 			strings.Join(names, ","), hostnamePrefix+".csr.secret", namespace, defaultCACertPath)
