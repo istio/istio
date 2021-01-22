@@ -22,6 +22,7 @@ import (
 
 	. "github.com/onsi/gomega"
 
+	"istio.io/istio/pkg/test/framework/components/environment/kube"
 	"istio.io/istio/pkg/test/framework/label"
 	"istio.io/istio/pkg/test/framework/resource"
 )
@@ -54,7 +55,7 @@ func cleanupRT() {
 func newTestSuite(testID string, fn mRunFn, osExit func(int), getSettingsFn getSettingsFunc) *suiteImpl {
 	s := newSuite(testID, fn, osExit, getSettingsFn)
 	s.envFactory = func(ctx resource.Context) (resource.Environment, error) {
-		return resource.FakeEnvironment{}, nil
+		return kube.FakeEnvironment{}, nil
 	}
 	return s
 }
@@ -449,7 +450,7 @@ func TestDeriveSuiteName(t *testing.T) {
 }
 
 func newFakeEnvironmentFactory(numClusters int) resource.EnvironmentFactory {
-	e := resource.FakeEnvironment{NumClusters: numClusters}
+	e := kube.FakeEnvironment{NumClusters: numClusters}
 	return func(ctx resource.Context) (resource.Environment, error) {
 		return e, nil
 	}
