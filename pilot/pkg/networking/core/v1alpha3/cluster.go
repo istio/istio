@@ -184,9 +184,9 @@ type clusterPatcher struct {
 }
 
 func (p clusterPatcher) conditionallyAppend(l []*cluster.Cluster, clusters ...*cluster.Cluster) []*cluster.Cluster {
-	cpw, serviceMap, subsetMap, portMap := envoyfilter.GenerateMatchMap(p.pctx, p.efw)
+	cpw, serviceMap, subsetMap, portMap := envoyfilter.GenerateEnvoyFilterMatchMap(p.pctx, p.efw)
 	for _, c := range clusters {
-		result, shouldKeep := envoyfilter.ApplyClusterMergeOrRemove(c, cpw, serviceMap, subsetMap, portMap)
+		result, shouldKeep := envoyfilter.ApplyClusterPatches(c, cpw, serviceMap, subsetMap, portMap)
 		if shouldKeep {
 			l = append(l, result)
 		}

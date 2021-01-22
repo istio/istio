@@ -293,9 +293,9 @@ func TestClusterPatching(t *testing.T) {
 			efw := push.EnvoyFilters(tc.proxy)
 			output := []*cluster.Cluster{}
 
-			cpw, serviceMap, subsetMap, portMap := GenerateMatchMap(tc.patchContext, efw)
+			cpw, serviceMap, subsetMap, portMap := GenerateEnvoyFilterMatchMap(tc.patchContext, efw)
 			for _, c := range tc.input {
-				result, shouldKeep := ApplyClusterMergeOrRemove(c, cpw, serviceMap, subsetMap, portMap)
+				result, shouldKeep := ApplyClusterPatches(c, cpw, serviceMap, subsetMap, portMap)
 				if shouldKeep {
 					output = append(output, result)
 				}
@@ -381,9 +381,9 @@ func TestBatchClusterPatching(t *testing.T) {
 			efw := push.EnvoyFilters(tc.proxy)
 			output := []*cluster.Cluster{}
 
-			cpw, serviceMap, subsetMap, portMap := GenerateMatchMap(tc.patchContext, efw)
+			cpw, serviceMap, subsetMap, portMap := GenerateEnvoyFilterMatchMap(tc.patchContext, efw)
 			for _, c := range tc.input {
-				result, shouldKeep := ApplyClusterMergeOrRemove(c, cpw, serviceMap, subsetMap, portMap)
+				result, shouldKeep := ApplyClusterPatches(c, cpw, serviceMap, subsetMap, portMap)
 				if shouldKeep {
 					output = append(output, result)
 				}

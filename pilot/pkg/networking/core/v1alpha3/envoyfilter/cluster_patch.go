@@ -36,7 +36,12 @@ const (
 	Port        = "port"
 )
 
-func GenerateMatchMap(pctx networking.EnvoyFilter_PatchContext, efw *model.EnvoyFilterWrapper) (cpw map[string][]*model.EnvoyFilterConfigPatchWrapper,
+// generate four maps according to different keys.
+// cpw is the map that envoyFilters do not specify anything or envoyFilters specify the name
+// serviceMap is the map that envoyFilters specify the service or not
+// subsetMap is the map that envoyFilters specify the subset or not
+// portMap is the map that envoyFilters specify the port or not
+func GenerateEnvoyFilterMatchMap(pctx networking.EnvoyFilter_PatchContext, efw *model.EnvoyFilterWrapper) (cpw map[string][]*model.EnvoyFilterConfigPatchWrapper,
 	serviceMap map[string][]*model.EnvoyFilterConfigPatchWrapper,
 	subsetMap map[string][]*model.EnvoyFilterConfigPatchWrapper,
 	portMap map[string][]*model.EnvoyFilterConfigPatchWrapper) {
@@ -99,7 +104,7 @@ func GenerateMatchMap(pctx networking.EnvoyFilter_PatchContext, efw *model.Envoy
 	return cpw, serviceMap, subsetMap, portMap
 }
 
-func ApplyClusterMergeOrRemove(c *cluster.Cluster, cpw map[string][]*model.EnvoyFilterConfigPatchWrapper,
+func ApplyClusterPatches(c *cluster.Cluster, cpw map[string][]*model.EnvoyFilterConfigPatchWrapper,
 	serviceMap map[string][]*model.EnvoyFilterConfigPatchWrapper,
 	subsetMap map[string][]*model.EnvoyFilterConfigPatchWrapper,
 	portMap map[string][]*model.EnvoyFilterConfigPatchWrapper) (out *cluster.Cluster, shouldKeep bool) {
@@ -108,23 +113,28 @@ func ApplyClusterMergeOrRemove(c *cluster.Cluster, cpw map[string][]*model.Envoy
 	})
 
 	shouldKeep = true
+
+	//cluster should be removed
 	if len(cpw[RemovePatch]) > 0 || len(cpw[c.Name+RemovePatch]) > 0 {
 		c = nil
 		shouldKeep = false
 		return nil, shouldKeep
 	}
+	//cluster should be patched when there are envoyFilters that do not specify anything
 	if len(cpw[MergeAny]) > 0 {
 		for _, cp := range cpw[MergeAny] {
 			proto.Merge(c, cp.Value)
 		}
 	}
+	//cluster should be patched when there are envoyFilters that specify name
 	if len(cpw[c.Name+MergeOne]) > 0 {
 		for _, cp := range cpw[c.Name+MergeOne] {
 			proto.Merge(c, cp.Value)
 		}
 	}
 	key, minMatchMap := findMinMatchMap(c.Name, serviceMap, subsetMap, portMap)
-
+	//find the min match map among service, subset and port.
+	//only loop the smallest map will optimize the performance
 	switch key {
 	case Service:
 		for _, cp := range minMatchMap {
@@ -165,6 +175,10 @@ func mergeOrRemove(cluster *cluster.Cluster, cp *model.EnvoyFilterConfigPatchWra
 	return cluster, true
 }
 
+//find the min match map among service, subset and port.
+//for each cluster's service, we find all the envoyFilters whose service matches and whose service is nil
+//for each cluster's subset, we find all the envoyFilters whose subset matches and whose subset is nil
+//for each cluster's port, we find all the envoyFilters whose port matches and whose port is nil
 func findMinMatchMap(name string,
 	serviceMap map[string][]*model.EnvoyFilterConfigPatchWrapper,
 	subsetMap map[string][]*model.EnvoyFilterConfigPatchWrapper,
