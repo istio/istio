@@ -152,12 +152,6 @@ func (r *Reporter) buildReport() (DistributionReport, []Resource) {
 		res := ipr.Resource
 		key := res.String()
 		// for every version (nonce) of the config currently in play
-		if ipr.completedIterations > 0 {
-			// this resource has completed, but we re-write it to reports for ~1 minute to ensure the leader picks it up
-			out.InProgressResources[key] = out.DataPlaneCount
-			finishedResources = append(finishedResources, res)
-			continue
-		}
 		for nonce, dataplanes := range r.reverseStatus {
 
 			// check to see if this version of the config contains this version of the resource
@@ -176,7 +170,7 @@ func (r *Reporter) buildReport() (DistributionReport, []Resource) {
 				scope.Warnf("Cache appears to be missing latest version of %s", key)
 			}
 			if out.InProgressResources[key] >= out.DataPlaneCount {
-				// if this resource is newly finished reconciling, let's not worry about it anymore
+				// if this resource is done reconciling, let's not worry about it anymore
 				finishedResources = append(finishedResources, res)
 				// deleting it here doesn't work because we have a read lock and are inside an iterator.
 				// TODO: this will leak when a resource never reaches 100% before it is replaced.
@@ -198,6 +192,7 @@ func (r *Reporter) removeCompletedResource(completedResources []Resource) {
 		total := r.inProgressResources[item.ToModelKey()].completedIterations + 1
 		if int64(total) > (time.Minute.Milliseconds() / r.UpdateInterval.Milliseconds()) {
 			// remove from inProgressResources
+			// TODO: cleanup completedResources
 			toDelete = append(toDelete, item)
 		} else {
 			r.inProgressResources[item.ToModelKey()].completedIterations = total
@@ -336,8 +331,6 @@ func (r *Reporter) deleteKeyFromReverseMap(key string) {
 			delete(keys, key)
 			if len(r.reverseStatus[old]) < 1 {
 				delete(r.reverseStatus, old)
-				// inform the ledger that this version is no longer interesting.
-				_ = r.ledger.EraseRootHash(old)
 			}
 		}
 	}

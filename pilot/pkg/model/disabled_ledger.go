@@ -29,8 +29,8 @@ type DisabledLedger struct {
 func (d *DisabledLedger) Put(key, value string) (string, error) {
 	return "", nil
 }
-func (d *DisabledLedger) Delete(key string) (string, error) {
-	return "", nil
+func (d *DisabledLedger) Delete(key string) error {
+	return nil
 }
 func (d *DisabledLedger) Get(key string) (string, error) {
 	return "", nil

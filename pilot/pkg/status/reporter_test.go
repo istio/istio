@@ -61,7 +61,7 @@ func initReporterWithoutStarting() (out Reporter) {
 func TestBuildReport(t *testing.T) {
 	RegisterTestingT(t)
 	r := initReporterWithoutStarting()
-	r.ledger = ledger.Make()
+	r.ledger = ledger.Make(time.Minute)
 	resources := []*config.Config{
 		{
 			Meta: config.Meta{
