@@ -20,10 +20,9 @@ import (
 
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/test/framework/components/cluster"
-	"istio.io/istio/pkg/test/framework/resource"
 )
 
-var _ resource.Cluster = &Cluster{}
+var _ cluster.Cluster = &Cluster{}
 
 // Cluster for a Kubernetes cluster. Provides access via a kube.Client.
 type Cluster struct {

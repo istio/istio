@@ -16,6 +16,7 @@ package resource
 
 import (
 	"istio.io/istio/pkg/test"
+	"istio.io/istio/pkg/test/framework/components/cluster"
 	"istio.io/istio/pkg/test/util/yml"
 )
 
@@ -28,10 +29,10 @@ type ConfigManager interface {
 	ApplyYAMLOrFail(t test.Failer, ns string, yamlText ...string)
 
 	// ApplyYAMLInCluster applies the given config yaml text via Galley in a specific cluster.
-	ApplyYAMLInCluster(c Cluster, ns string, yamlText ...string) error
+	ApplyYAMLInCluster(c cluster.Cluster, ns string, yamlText ...string) error
 
 	// ApplyYAMLInClusterOrFail applies the given config yaml text via Galley in a specific cluster.
-	ApplyYAMLInClusterOrFail(t test.Failer, c Cluster, ns string, yamlText ...string)
+	ApplyYAMLInClusterOrFail(t test.Failer, c cluster.Cluster, ns string, yamlText ...string)
 
 	// DeleteYAML deletes the given config yaml text via Galley.
 	DeleteYAML(ns string, yamlText ...string) error
@@ -68,7 +69,7 @@ type Context interface {
 	Environment() Environment
 
 	// Clusters in this Environment. There will always be at least one.
-	Clusters() Clusters
+	Clusters() cluster.Clusters
 
 	// Settings returns common settings
 	Settings() *Settings
@@ -81,5 +82,5 @@ type Context interface {
 
 	// Config returns a ConfigManager that writes config to the provide clusers. If
 	// no clusters are provided, writes to all clusters.
-	Config(clusters ...Cluster) ConfigManager
+	Config(clusters ...cluster.Cluster) ConfigManager
 }

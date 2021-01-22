@@ -17,6 +17,7 @@ package multicluster
 
 import (
 	"fmt"
+	"istio.io/istio/pkg/test/framework/components/cluster"
 
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/test/echo/common/scheme"
@@ -113,7 +114,7 @@ func SetupApps(appCtx *AppContext) resource.SetupFn {
 	}
 }
 
-func newEchoConfig(service string, ns namespace.Instance, cluster resource.Cluster) echo.Config {
+func newEchoConfig(service string, ns namespace.Instance, cluster cluster.Cluster) echo.Config {
 	return echo.Config{
 		Service:        service,
 		Namespace:      ns,

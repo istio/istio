@@ -16,6 +16,7 @@ package echoboot
 
 import (
 	"istio.io/istio/pkg/test"
+	"istio.io/istio/pkg/test/framework/components/cluster"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/echo/kube"
 	"istio.io/istio/pkg/test/framework/resource"
@@ -24,14 +25,14 @@ import (
 var _ echo.Builder = builder{}
 
 // NewBuilder for Echo Instances.
-func NewBuilder(ctx resource.Context, clusters ...resource.Cluster) echo.Builder {
+func NewBuilder(ctx resource.Context, clusters ...cluster.Cluster) echo.Builder {
 	return builder{
 		kubeBuilder: kube.NewBuilder(ctx),
 	}.WithClusters(clusters...)
 }
 
 type builder struct {
-	clusters    resource.Clusters
+	clusters    cluster.Clusters
 	kubeBuilder echo.Builder
 }
 
@@ -69,7 +70,7 @@ func (b builder) With(i *echo.Instance, cfg echo.Config) echo.Builder {
 }
 
 // WithClusters will cause subsequent With calls to be applied to the given clusters.
-func (b builder) WithClusters(clusters ...resource.Cluster) echo.Builder {
+func (b builder) WithClusters(clusters ...cluster.Cluster) echo.Builder {
 	next := b
 	next.clusters = clusters
 	return next

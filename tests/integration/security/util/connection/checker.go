@@ -17,19 +17,19 @@ package connection
 
 import (
 	"fmt"
+	"istio.io/istio/pkg/test/framework/components/cluster"
 	"time"
 
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/echo/common/scheme"
 	"istio.io/istio/pkg/test/framework/components/echo"
-	"istio.io/istio/pkg/test/framework/resource"
 	"istio.io/istio/pkg/test/util/retry"
 )
 
 // Checker is a test utility for testing the network connectivity between two endpoints.
 type Checker struct {
 	From          echo.Instance
-	DestClusters  resource.Clusters
+	DestClusters  cluster.Clusters
 	Options       echo.CallOptions
 	ExpectSuccess bool
 }

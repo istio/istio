@@ -46,7 +46,7 @@ func (f FakeEnvironment) EnvironmentName() string {
 	return f.Name
 }
 
-func (f FakeEnvironment) Clusters() resource.Clusters {
+func (f FakeEnvironment) Clusters() cluster.Clusters {
 	factory := aggregate.NewFactory()
 	for i := 0; i < f.NumClusters; i++ {
 		factory = factory.With(cluster.Config{Kind: cluster.Fake, Name: fmt.Sprintf("cluster-%d", i)})

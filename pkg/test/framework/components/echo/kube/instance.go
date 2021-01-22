@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+	cluster2 "istio.io/istio/pkg/test/framework/components/cluster"
 	"net"
 	"os"
 	"path"
@@ -71,7 +72,7 @@ type instance struct {
 	grpcPort  uint16
 	ctx       resource.Context
 	tls       *echoCommon.TLSSettings
-	cluster   resource.Cluster
+	cluster   cluster2.Cluster
 }
 
 func newInstance(ctx resource.Context, originalCfg echo.Config) (out *instance, err error) {

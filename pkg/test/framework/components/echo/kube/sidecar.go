@@ -18,6 +18,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	cluster2 "istio.io/istio/pkg/test/framework/components/cluster"
 	"strings"
 
 	envoyAdmin "github.com/envoyproxy/go-control-plane/envoy/admin/v3"
@@ -33,7 +34,6 @@ import (
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/echo/common"
-	"istio.io/istio/pkg/test/framework/resource"
 	"istio.io/istio/pkg/test/util/retry"
 )
 
@@ -47,10 +47,10 @@ type sidecar struct {
 	nodeID       string
 	podNamespace string
 	podName      string
-	cluster      resource.Cluster
+	cluster      cluster2.Cluster
 }
 
-func newSidecar(pod kubeCore.Pod, cluster resource.Cluster) (*sidecar, error) {
+func newSidecar(pod kubeCore.Pod, cluster cluster2.Cluster) (*sidecar, error) {
 	sidecar := &sidecar{
 		podNamespace: pod.Namespace,
 		podName:      pod.Name,

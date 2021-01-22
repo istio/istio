@@ -16,6 +16,7 @@ package common_test
 
 import (
 	"context"
+	cluster2 "istio.io/istio/pkg/test/framework/components/cluster"
 
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/test"
@@ -36,7 +37,7 @@ type testConfig struct {
 	service     string
 	domain      string
 	namespace   string
-	cluster     resource.Cluster
+	cluster     cluster2.Cluster
 }
 
 func (e *testConfig) Owner() echo.Instance {

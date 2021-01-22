@@ -17,6 +17,7 @@ package kube
 import (
 	"context"
 	"fmt"
+	cluster2 "istio.io/istio/pkg/test/framework/components/cluster"
 	"time"
 
 	"github.com/hashicorp/go-multierror"
@@ -46,11 +47,11 @@ type workload struct {
 	pod       kubeCore.Pod
 	forwarder istioKube.PortForwarder
 	sidecar   *sidecar
-	cluster   resource.Cluster
+	cluster   cluster2.Cluster
 	ctx       resource.Context
 }
 
-func newWorkload(pod kubeCore.Pod, sidecared bool, grpcPort uint16, cluster resource.Cluster,
+func newWorkload(pod kubeCore.Pod, sidecared bool, grpcPort uint16, cluster cluster2.Cluster,
 	tls *common.TLSSettings, ctx resource.Context) (*workload, error) {
 
 	// Create a forwarder to the command port of the app.

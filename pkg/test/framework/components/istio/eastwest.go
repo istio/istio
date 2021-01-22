@@ -18,6 +18,7 @@ import (
 	"context"
 	"fmt"
 	"io/ioutil"
+	"istio.io/istio/pkg/test/framework/components/cluster"
 	"os"
 	"os/exec"
 	"path"
@@ -29,7 +30,6 @@ import (
 	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/test/framework/components/istioctl"
 	"istio.io/istio/pkg/test/framework/image"
-	"istio.io/istio/pkg/test/framework/resource"
 	"istio.io/istio/pkg/test/scopes"
 	"istio.io/istio/pkg/test/util/retry"
 )
@@ -42,7 +42,7 @@ var (
 )
 
 // deployEastWestGateway will create a separate gateway deployment for cross-cluster discovery or cross-network services.
-func (i *operatorComponent) deployEastWestGateway(cluster resource.Cluster, revision string) error {
+func (i *operatorComponent) deployEastWestGateway(cluster cluster.Cluster, revision string) error {
 	imgSettings, err := image.SettingsFromCommandLine()
 	if err != nil {
 		return err
@@ -123,12 +123,12 @@ func (i *operatorComponent) deployEastWestGateway(cluster resource.Cluster, revi
 	return nil
 }
 
-func (i *operatorComponent) exposeUserServices(cluster resource.Cluster) error {
+func (i *operatorComponent) exposeUserServices(cluster cluster.Cluster) error {
 	scopes.Framework.Infof("Exposing services via eastwestgateway in %v", cluster.Name())
 	return cluster.ApplyYAMLFiles(i.settings.SystemNamespace, exposeServicesGateway)
 }
 
-func (i *operatorComponent) applyIstiodGateway(cluster resource.Cluster) error {
+func (i *operatorComponent) applyIstiodGateway(cluster cluster.Cluster) error {
 	scopes.Framework.Infof("Exposing istiod via eastwestgateway in %v", cluster.Name())
 	return cluster.ApplyYAMLFiles(i.settings.SystemNamespace, exposeIstiodGateway)
 }

@@ -20,10 +20,9 @@ import (
 
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/test/framework/components/cluster"
-	"istio.io/istio/pkg/test/framework/resource"
 )
 
-var _ resource.Cluster = Cluster{}
+var _ cluster.Cluster = Cluster{}
 
 func init() {
 	cluster.RegisterFactory(factory{})
@@ -41,12 +40,13 @@ func (f factory) With(configs ...cluster.Config) cluster.Factory {
 	return factory{configs: append(f.configs, configs...)}
 }
 
-func (f factory) Build(allClusters cluster.Map) (resource.Clusters, error) {
-	var clusters resource.Clusters
+func (f factory) Build(allClusters cluster.Map) (cluster.Clusters, error) {
+	var clusters cluster.Clusters
 	for _, cfg := range f.configs {
 		clusters = append(clusters, &Cluster{
 			Topology: cluster.Topology{
 				ClusterName:        cfg.Name,
+				ClusterKind:        f.Kind(),
 				Network:            cfg.Network,
 				PrimaryClusterName: cfg.PrimaryClusterName,
 				ConfigClusterName:  cfg.ConfigClusterName,

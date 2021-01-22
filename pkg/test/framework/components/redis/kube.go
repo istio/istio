@@ -19,6 +19,7 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+	cluster2 "istio.io/istio/pkg/test/framework/components/cluster"
 
 	environ "istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/test/framework/components/namespace"
@@ -41,7 +42,7 @@ var (
 type kubeComponent struct {
 	id      resource.ID
 	ns      namespace.Instance
-	cluster resource.Cluster
+	cluster cluster2.Cluster
 }
 
 func newKube(ctx resource.Context, cfg Config) (Instance, error) {

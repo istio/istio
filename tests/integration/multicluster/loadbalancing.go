@@ -17,6 +17,7 @@ package multicluster
 
 import (
 	"fmt"
+	"istio.io/istio/pkg/test/framework/components/cluster"
 	"testing"
 
 	"istio.io/istio/pkg/test/echo/client"
@@ -24,7 +25,6 @@ import (
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/features"
 	"istio.io/istio/pkg/test/framework/label"
-	"istio.io/istio/pkg/test/framework/resource"
 )
 
 func LoadbalancingTest(t *testing.T, apps AppContext, features ...features.Feature) {
@@ -67,7 +67,7 @@ func checkReachedAllSubsets(echos echo.Instances) echo.Validator {
 	})
 }
 
-func checkEqualIntraNetworkTraffic(clusters resource.Clusters, srcNetwork string) echo.Validator {
+func checkEqualIntraNetworkTraffic(clusters cluster.Clusters, srcNetwork string) echo.Validator {
 	// expect same network traffic to have very equal distribution (20% error)
 	intraNetworkClusters := clusters.ByNetwork()[srcNetwork]
 	return echo.ValidatorFunc(func(res client.ParsedResponses, _ error) error {

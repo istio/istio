@@ -17,6 +17,7 @@ package opentelemetry
 import (
 	"fmt"
 	"io/ioutil"
+	cluster2 "istio.io/istio/pkg/test/framework/components/cluster"
 	"strings"
 
 	"istio.io/istio/pkg/test/env"
@@ -27,7 +28,7 @@ import (
 
 type otel struct {
 	id      resource.ID
-	cluster resource.Cluster
+	cluster cluster2.Cluster
 	close   func()
 }
 
@@ -130,7 +131,7 @@ func install(ctx resource.Context, ns string) error {
 	return ctx.Config().ApplyYAML(ns, y)
 }
 
-func installServiceEntry(cluster resource.Cluster, ctx resource.Context, ns, ingressAddr string) error {
+func installServiceEntry(cluster cluster2.Cluster, ctx resource.Context, ns, ingressAddr string) error {
 	// Setup remote access to zipkin in cluster
 	yaml := strings.ReplaceAll(remoteOtelEntry, "{INGRESS_DOMAIN}", ingressAddr)
 	err := ctx.Config().ApplyYAMLInCluster(cluster, ns, yaml)

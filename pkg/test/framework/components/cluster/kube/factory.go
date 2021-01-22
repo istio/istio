@@ -22,7 +22,6 @@ import (
 
 	istioKube "istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/test/framework/components/cluster"
-	"istio.io/istio/pkg/test/framework/resource"
 )
 
 const kubeconfigMetaKey = "kubeconfig"
@@ -43,10 +42,10 @@ func (f factory) With(configs ...cluster.Config) cluster.Factory {
 	return factory{configs: append(f.configs, configs...)}
 }
 
-func (f factory) Build(allClusters cluster.Map) (resource.Clusters, error) {
+func (f factory) Build(allClusters cluster.Map) (cluster.Clusters, error) {
 	var errs error
 
-	var clusters resource.Clusters
+	var clusters cluster.Clusters
 	for _, origCfg := range f.configs {
 		cfg, err := validConfig(origCfg)
 		if err != nil {
@@ -63,6 +62,7 @@ func (f factory) Build(allClusters cluster.Map) (resource.Clusters, error) {
 			filename:       kubeconfigPath,
 			ExtendedClient: client,
 			Topology: cluster.Topology{
+				ClusterKind:        f.Kind(),
 				ClusterName:        cfg.Name,
 				Network:            cfg.Network,
 				PrimaryClusterName: cfg.PrimaryClusterName,

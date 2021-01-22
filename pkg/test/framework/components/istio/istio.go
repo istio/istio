@@ -15,6 +15,7 @@
 package istio
 
 import (
+	"istio.io/istio/pkg/test/framework/components/cluster"
 	"net"
 	"time"
 
@@ -31,15 +32,15 @@ type Instance interface {
 
 	// IngressFor returns an ingress used for reaching workloads in the given cluster.
 	// The ingress's service name will be "istio-ingressgateway" and the istio label will be "ingressgateway".
-	IngressFor(cluster resource.Cluster) ingress.Instance
+	IngressFor(cluster cluster.Cluster) ingress.Instance
 	// CustomIngressFor returns an ingress with a specific service name and "istio" label used for reaching workloads
 	// in the given cluster.
-	CustomIngressFor(cluster resource.Cluster, serviceName, istioLabel string) ingress.Instance
+	CustomIngressFor(cluster cluster.Cluster, serviceName, istioLabel string) ingress.Instance
 
 	// RemoteDiscoveryAddressFor returns the external address of the discovery server that controls
 	// the given cluster. This allows access to the discovery server from
 	// outside its cluster.
-	RemoteDiscoveryAddressFor(cluster resource.Cluster) (net.TCPAddr, error)
+	RemoteDiscoveryAddressFor(cluster cluster.Cluster) (net.TCPAddr, error)
 
 	Settings() Config
 }

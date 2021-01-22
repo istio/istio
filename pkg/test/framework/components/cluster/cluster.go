@@ -12,7 +12,7 @@
 //  See the License for the specific language governing permissions and
 //  limitations under the License.
 
-package resource
+package cluster
 
 import (
 	"fmt"
@@ -50,6 +50,16 @@ func (c Clusters) GetByName(name string) Cluster {
 		}
 	}
 	return nil
+}
+
+func (c Clusters) OfKind(kind Kind) Clusters {
+	var out Clusters
+	for _, cc := range c {
+		if cc.Kind() == kind {
+			out = append(out, cc)
+		}
+	}
+	return out
 }
 
 // Names returns the deduped list of names of the clusters.
@@ -132,6 +142,9 @@ type Cluster interface {
 
 	// NetworkName the cluster is on
 	NetworkName() string
+
+	// Kind returns the kind of clusters
+	Kind() Kind
 
 	// IsPrimary returns true if this is a primary cluster, containing an instance
 	// of the Istio control plane.

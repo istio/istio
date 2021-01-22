@@ -16,6 +16,7 @@ package echo
 
 import (
 	"context"
+	"istio.io/istio/pkg/test/framework/components/cluster"
 
 	envoyAdmin "github.com/envoyproxy/go-control-plane/envoy/admin/v3"
 	dto "github.com/prometheus/client_model/go"
@@ -53,7 +54,7 @@ type Builder interface {
 	WithConfig(cfg Config) Builder
 
 	// WithClusters will cause subsequent With or WithConfig calls to be applied to the given clusters.
-	WithClusters(...resource.Cluster) Builder
+	WithClusters(...cluster.Cluster) Builder
 
 	// Build and initialize all Echo Instances. Upon returning, the Instance pointers
 	// are assigned and all Instances are ready to communicate with each other.

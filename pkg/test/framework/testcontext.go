@@ -18,6 +18,7 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+	"istio.io/istio/pkg/test/framework/components/cluster"
 	"os"
 	"path"
 	"path/filepath"
@@ -207,7 +208,7 @@ func (c *testContext) Environment() resource.Environment {
 	return c.suite.environment
 }
 
-func (c *testContext) Clusters() resource.Clusters {
+func (c *testContext) Clusters() cluster.Clusters {
 	return c.Environment().Clusters()
 }
 
@@ -243,7 +244,7 @@ func (c *testContext) CreateTmpDirectory(prefix string) (string, error) {
 	return dir, err
 }
 
-func (c *testContext) Config(clusters ...resource.Cluster) resource.ConfigManager {
+func (c *testContext) Config(clusters ...cluster.Cluster) resource.ConfigManager {
 	return newConfigManager(c, clusters)
 }
 

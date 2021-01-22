@@ -17,12 +17,12 @@ package echo
 import (
 	"errors"
 	"fmt"
+	"istio.io/istio/pkg/test/framework/components/cluster"
 	"net/http"
 	"time"
 
 	"istio.io/istio/pkg/test/echo/client"
 	"istio.io/istio/pkg/test/echo/common/scheme"
-	"istio.io/istio/pkg/test/framework/resource"
 )
 
 // CallOptions defines options for calling a Endpoint.
@@ -145,7 +145,7 @@ func ExpectOK() Validator {
 }
 
 // ExpectReachedClusters returns a Validator that checks that all provided clusters are reached.
-func ExpectReachedClusters(clusters resource.Clusters) Validator {
+func ExpectReachedClusters(clusters cluster.Clusters) Validator {
 	return ValidatorFunc(func(responses client.ParsedResponses, _ error) error {
 		return responses.CheckReachedClusters(clusters)
 	})

@@ -26,7 +26,6 @@ import (
 
 	// imported to trigger registration
 	_ "istio.io/istio/pkg/test/framework/components/cluster/kube"
-	"istio.io/istio/pkg/test/framework/resource"
 	"istio.io/istio/pkg/test/scopes"
 )
 
@@ -48,7 +47,7 @@ func (a aggregateFactory) With(configs ...cluster.Config) cluster.Factory {
 	return aggregateFactory{configs: append(a.configs, configs...)}
 }
 
-func (a aggregateFactory) Build(allClusters cluster.Map) (clusters resource.Clusters, errs error) {
+func (a aggregateFactory) Build(allClusters cluster.Map) (clusters cluster.Clusters, errs error) {
 	scopes.Framework.Infof("=== BEGIN: Building clusters ===")
 	defer func() {
 		if errs != nil {

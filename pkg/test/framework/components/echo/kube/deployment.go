@@ -17,6 +17,7 @@ package kube
 import (
 	"bufio"
 	"fmt"
+	"istio.io/istio/pkg/test/framework/components/cluster"
 	"strings"
 	"text/template"
 
@@ -24,7 +25,6 @@ import (
 
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/image"
-	"istio.io/istio/pkg/test/framework/resource"
 	"istio.io/istio/pkg/test/util/tmpl"
 )
 
@@ -374,7 +374,7 @@ func init() {
 	}
 }
 
-func generateYAML(cfg echo.Config, cluster resource.Cluster) (serviceYAML string, deploymentYAML string, err error) {
+func generateYAML(cfg echo.Config, cluster cluster.Cluster) (serviceYAML string, deploymentYAML string, err error) {
 	// Create the parameters for the YAML template.
 	settings, err := image.SettingsFromCommandLine()
 	if err != nil {
@@ -386,7 +386,7 @@ func generateYAML(cfg echo.Config, cluster resource.Cluster) (serviceYAML string
 const DefaultVMImage = "app_sidecar_ubuntu_bionic"
 
 func generateYAMLWithSettings(cfg echo.Config,
-	settings *image.Settings, cluster resource.Cluster) (serviceYAML string, deploymentYAML string, err error) {
+	settings *image.Settings, cluster cluster.Cluster) (serviceYAML string, deploymentYAML string, err error) {
 	ver, err := cluster.GetKubernetesVersion()
 	if err != nil {
 		return "", "", err

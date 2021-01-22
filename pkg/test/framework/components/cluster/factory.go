@@ -14,10 +14,6 @@
 
 package cluster
 
-import (
-	"istio.io/istio/pkg/test/framework/resource"
-)
-
 type Kind string
 
 const (
@@ -38,5 +34,5 @@ type Config struct {
 type Factory interface {
 	Kind() Kind
 	With(config ...Config) Factory
-	Build(Map) (resource.Clusters, error)
+	Build(Map) (Clusters, error)
 }

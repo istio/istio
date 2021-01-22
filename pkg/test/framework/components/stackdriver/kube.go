@@ -18,6 +18,7 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+	cluster2 "istio.io/istio/pkg/test/framework/components/cluster"
 	"net/http"
 	"strings"
 	"time"
@@ -60,7 +61,7 @@ type kubeComponent struct {
 	id        resource.ID
 	ns        namespace.Instance
 	forwarder istioKube.PortForwarder
-	cluster   resource.Cluster
+	cluster   cluster2.Cluster
 	address   string
 }
 

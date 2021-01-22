@@ -17,6 +17,7 @@ package gcemetadata
 import (
 	"fmt"
 	"io"
+	cluster2 "istio.io/istio/pkg/test/framework/components/cluster"
 
 	kubeApiCore "k8s.io/api/core/v1"
 
@@ -39,7 +40,7 @@ var (
 type kubeComponent struct {
 	id      resource.ID
 	ns      namespace.Instance
-	cluster resource.Cluster
+	cluster cluster2.Cluster
 	address string
 }
 

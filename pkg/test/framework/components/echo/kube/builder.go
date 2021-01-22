@@ -16,6 +16,7 @@ package kube
 
 import (
 	"fmt"
+	"istio.io/istio/pkg/test/framework/components/cluster"
 	"sync"
 	"time"
 
@@ -54,7 +55,7 @@ func (b *builder) WithConfig(cfg echo.Config) echo.Builder {
 	return b.With(nil, cfg)
 }
 
-func (b *builder) WithClusters(_ ...resource.Cluster) echo.Builder {
+func (b *builder) WithClusters(_ ...cluster.Cluster) echo.Builder {
 	panic("WithClusters is not supported directly on kube echo.Builder")
 }
 

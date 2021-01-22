@@ -19,6 +19,7 @@ import (
 	"flag"
 	"fmt"
 	"io/ioutil"
+	"istio.io/istio/pkg/test/framework/components/cluster"
 	"os"
 	"path"
 	"path/filepath"
@@ -379,7 +380,7 @@ func isMulticluster(ctx resource.Context) bool {
 	return false
 }
 
-func clusters(ctx resource.Context) []resource.Cluster {
+func clusters(ctx resource.Context) []cluster.Cluster {
 	if ctx.Environment() != nil {
 		return ctx.Environment().Clusters()
 	}
