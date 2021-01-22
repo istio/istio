@@ -149,8 +149,13 @@ type Cluster interface {
 	// IsPrimary.
 	Primary() Cluster
 
+	// PrimaryName returns the name of the primary cluster for this cluster.
+	PrimaryName() string
+
 	// Config returns the config cluster for this cluster. Will return itself if
 	// IsConfig.
 	Config() Cluster
-}
 
+	// ConfigName returns the name of the config cluster for this cluster.
+	ConfigName() string
+}

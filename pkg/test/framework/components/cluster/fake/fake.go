@@ -15,6 +15,8 @@
 package fake
 
 import (
+	"bytes"
+	"fmt"
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/test/framework/components/cluster"
 	"istio.io/istio/pkg/test/framework/resource"
@@ -63,5 +65,13 @@ type Cluster struct {
 }
 
 func (m Cluster) String() string {
-	panic("implement me")
+	buf := &bytes.Buffer{}
+
+	_, _ = fmt.Fprintf(buf, "Name:               %s\n", m.Name())
+	_, _ = fmt.Fprintf(buf, "Kind:               %s\n", cluster.Kubernetes)
+	_, _ = fmt.Fprintf(buf, "PrimaryCluster:     %s\n", m.Primary().Name())
+	_, _ = fmt.Fprintf(buf, "ConfigCluster:      %s\n", m.Config().Name())
+	_, _ = fmt.Fprintf(buf, "Network:            %s\n", m.NetworkName())
+
+	return buf.String()
 }
