@@ -313,17 +313,7 @@ func NewServer(args *PilotArgs) (*Server, error) {
 		&authenticate.ClientCertAuthenticator{},
 		kubeauth.NewKubeJWTAuthenticator(s.kubeClient, s.clusterID, s.multicluster.GetRemoteKubeClient, spiffe.GetTrustDomain(), features.JwtPolicy.Get()),
 	}
-
-	caOpts.Authenticators = authenticators
 	if features.XDSAuth {
-		authenticators := []security.Authenticator{
-			&authenticate.ClientCertAuthenticator{},
-		}
-		// To be compatible with the flow in which k8s JWT is forwarded to istiod,
-		// the NewKubeJWTAuthenticator is included as an istiod authenticator.
-		// If the k8s JWT is not used, only the OIDC JWT authenticator is needed.
-		authenticators = append(authenticators, kubeauth.NewKubeJWTAuthenticator(s.kubeClient, s.clusterID,
-			s.multicluster.GetRemoteKubeClient, spiffe.GetTrustDomain(), features.JwtPolicy.Get()))
 		if args.JwtRule != "" {
 			jwtAuthn, err := initOIDC(args, s.environment.Mesh().TrustDomain)
 			if err != nil {
@@ -336,6 +326,7 @@ func NewServer(args *PilotArgs) (*Server, error) {
 		}
 		s.XDSServer.Authenticators = authenticators
 	}
+	caOpts.Authenticators = authenticators
 
 	// Start CA or RA server. This should be called after CA and Istiod certs have been created.
 	s.startCA(caOpts)
