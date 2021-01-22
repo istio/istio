@@ -36,6 +36,7 @@ var (
 	testScript          string
 	testFlags           string
 	clusterTopology     string
+	featureToTest       string
 )
 
 func main() {
@@ -45,7 +46,8 @@ func main() {
 		" checked by running `kubetest2 [deployer] --help`")
 	flag.StringVar(&testScript, "test-script", "", "the script to run the tests after clusters are created")
 	flag.StringVar(&testFlags, "test-flags", "", "flags to pass through to the test script")
-	flag.StringVar(&clusterTopology, "topology", "SINGLE_CLUSTER", "cluster topology for the SUT, can be one of SINGLE_CLUSTER, MULTICLUSTER and MULTIPROJECT_MULTICLUSTER")
+	flag.StringVar(&clusterTopology, "topology", "SINGLECLUSTER", "cluster topology for the SUT, can be one of SINGLECLUSTER, MULTICLUSTER and MULTIPROJECT_MULTICLUSTER")
+	flag.StringVar(&featureToTest, "feature", "", "The feature to test for ASM, for now can only be VPC_SC if not empty")
 	flag.Parse()
 
 	if err := initSetup(deployerName); err != nil {
@@ -67,6 +69,10 @@ func main() {
 		}
 	}
 
+	if os.Getenv("CI") != "true" {
+		// Also tear down the clusters in non-CI environment.
+		baseDeployerFlags = append(baseDeployerFlags, "--down")
+	}
 	baseDeployerFlags = append(baseDeployerFlags, extraDeployerFlagArr...)
 	if err := runKubetest2(deployerName, clusterTopology, baseDeployerFlags, testFlagArr); err != nil {
 		log.Fatal("Error running the test flow with kubetest2: ", err)
@@ -86,11 +92,10 @@ func initSetup(deployer string) error {
 func setEnvVars() {
 	// Run the Go tests with verbose logging.
 	os.Setenv("T", "-v")
-	// Setup junit report.
-	os.Setenv("CI", "true")
 
 	os.Setenv("DEPLOYER", deployerName)
 	os.Setenv("CLUSTER_TOPOLOGY", clusterTopology)
+	os.Setenv("FEATURE_TO_TEST", featureToTest)
 }
 
 func installTools(deployer string) error {
@@ -122,6 +127,8 @@ func runKubetest2(deployerName, clusterTopology string, deployerFlags, testFlags
 	case "gke":
 		log.Println("Will run kubetest2 gke deployer to create the clusters...")
 		switch clusterTopology {
+		case "SINGLECLUSTER":
+			deployerFlags = append(deployerFlags, gke.SingleClusterFlags()...)
 		case "MULTICLUSTER":
 			deployerFlags = append(deployerFlags, gke.MultiClusterFlags()...)
 		case "MULTIPROJECT_MULTICLUSTER":
