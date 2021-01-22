@@ -50,6 +50,11 @@ ifeq ($(_INTEGRATION_TEST_KUBECONFIG),)
     _INTEGRATION_TEST_KUBECONFIG = ~/.kube/config
 endif
 
+# If explicitly set to NONE, unset the flag
+ifeq ($(_INTEGRATION_TEST_KUBECONFIG),NONE)
+    _INTEGRATION_TEST_KUBECONFIG = ""
+endif
+
 _INTEGRATION_TEST_FLAGS += --istio.test.kube.config=$(_INTEGRATION_TEST_KUBECONFIG)
 
 # If $(INTEGRATION_TEST_NETWORKS) is set, add the networkTopology flag
