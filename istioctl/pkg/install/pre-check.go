@@ -351,7 +351,7 @@ func NewPrecheckCommand() *cobra.Command {
 						if revision == "" {
 							revision = "default"
 						}
-						c.Printf("%q revision of Istio is already installed in %q namespace \n", revision, install.namespace)
+						c.Printf("%q revision of Istio is already installed in %q namespace\n", revision, install.namespace)
 					}
 					if targetNamespace == install.namespace && targetRevision == install.revision {
 						matched = true
