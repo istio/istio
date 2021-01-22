@@ -755,6 +755,45 @@ spec:
 	return cases
 }
 
+func flatten(clients ...[]echo.Instance) []echo.Instance {
+	instances := []echo.Instance{}
+	for _, c := range clients {
+		instances = append(instances, c...)
+	}
+	return instances
+}
+
+// selfCallsCases checks that pods can call themselves
+func selfCallsCases(apps *EchoDeployments) []TrafficTestCase {
+	cases := []TrafficTestCase{}
+	for _, cl := range flatten(apps.PodA, apps.VM, apps.PodTproxy) {
+		cl := cl
+		cases = append(cases,
+			// Calls to the Service will go through envoy outbound and inbound, so we get envoy headers added
+			TrafficTestCase{
+				name: fmt.Sprintf("to service %v", cl.Config().Service),
+				call: cl.CallWithRetryOrFail,
+				opts: echo.CallOptions{
+					Target:    cl,
+					PortName:  "http",
+					Validator: echo.And(echo.ExpectOK(), echo.ExpectKey("X-Envoy-Attempt-Count", "1")),
+				},
+			},
+			// Localhost calls will go directly to localhost, bypassing Envoy. No envoy headers added.
+			TrafficTestCase{
+				name: fmt.Sprintf("to localhost %v", cl.Config().Service),
+				call: cl.CallWithRetryOrFail,
+				opts: echo.CallOptions{
+					Address:   "localhost",
+					Scheme:    scheme.HTTP,
+					Port:      &echo.Port{ServicePort: 8080},
+					Validator: echo.And(echo.ExpectOK(), echo.ExpectKey("X-Envoy-Attempt-Count", "")),
+				},
+			})
+	}
+	return cases
+}
+
 // Todo merge with security TestReachability code
 func protocolSniffingCases(apps *EchoDeployments) []TrafficTestCase {
 	cases := []TrafficTestCase{}
