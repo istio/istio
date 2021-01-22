@@ -164,9 +164,6 @@ revision: ""
 # Revision tags are aliases to Istio control plane revisions
 revisionTags: []
 
-# Default revision determines whether this installation should be the default for validation and injection
-defaultRevision: false
-
 # For Helm compatibility.
 ownerName: ""
 
