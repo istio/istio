@@ -334,7 +334,7 @@ func getWebhooksWithTag(ctx context.Context, client kubernetes.Interface, tag st
 // this retrieves the webhook created at revision installation rather than tag webhooks
 func getWebhooksWithRevision(ctx context.Context, client kubernetes.Interface, rev string) ([]admit_v1.MutatingWebhookConfiguration, error) {
 	webhooks, err := client.AdmissionregistrationV1().MutatingWebhookConfigurations().List(ctx, metav1.ListOptions{
-		LabelSelector: fmt.Sprintf("%s=%s,!%s", label.IstioRev, rev, istioTagLabel),
+		LabelSelector: fmt.Sprintf("%s=%s,!%s", label.IoIstioRev.Name, rev, istioTagLabel),
 	})
 	if err != nil {
 		return nil, err
@@ -345,7 +345,7 @@ func getWebhooksWithRevision(ctx context.Context, client kubernetes.Interface, r
 // getNamespacesWithTag retrieves all namespaces pointed at the given tag.
 func getNamespacesWithTag(ctx context.Context, client kubernetes.Interface, tag string) ([]string, error) {
 	namespaces, err := client.CoreV1().Namespaces().List(ctx, metav1.ListOptions{
-		LabelSelector: fmt.Sprintf("%s=%s", label.IstioRev, tag),
+		LabelSelector: fmt.Sprintf("%s=%s", label.IoIstioRev.Name, tag),
 	})
 	if err != nil {
 		return nil, err
@@ -368,7 +368,7 @@ func getWebhookName(wh admit_v1.MutatingWebhookConfiguration) (string, error) {
 
 // getRevision extracts tag target revision from webhook object.
 func getWebhookRevision(wh admit_v1.MutatingWebhookConfiguration) (string, error) {
-	if tagName, ok := wh.ObjectMeta.Labels[label.IstioRev]; ok {
+	if tagName, ok := wh.ObjectMeta.Labels[label.IoIstioRev.Name]; ok {
 		return tagName, nil
 	}
 	return "", fmt.Errorf("could not extract tag revision from webhook")

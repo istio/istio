@@ -110,36 +110,32 @@ func testSetup(ctx resource.Context) (err error) {
 	if err != nil {
 		return
 	}
-	var echos echo.Instances
-	for _, c := range ctx.Clusters() {
-		echos, err = echoboot.NewBuilder(ctx).
-			With(nil, echo.Config{
-				Service:   "client",
-				Namespace: appNsInst,
-				Cluster:   c,
-				Ports:     nil,
-				Subsets:   []echo.SubsetConfig{{}},
-			}).
-			With(nil, echo.Config{
-				Service:   "server",
-				Namespace: appNsInst,
-				Cluster:   c,
-				Subsets:   []echo.SubsetConfig{{}},
-				Ports: []echo.Port{
-					{
-						Name:         "http",
-						Protocol:     protocol.HTTP,
-						InstancePort: 8090,
-					},
-					{
-						Name:         "grpc",
-						Protocol:     protocol.GRPC,
-						InstancePort: 7070,
-					},
+	echos, err := echoboot.NewBuilder(ctx).
+		WithClusters(ctx.Clusters()...).
+		WithConfig(echo.Config{
+			Service:   "client",
+			Namespace: appNsInst,
+			Ports:     nil,
+			Subsets:   []echo.SubsetConfig{{}},
+		}).
+		WithConfig(echo.Config{
+			Service:   "server",
+			Namespace: appNsInst,
+			Subsets:   []echo.SubsetConfig{{}},
+			Ports: []echo.Port{
+				{
+					Name:         "http",
+					Protocol:     protocol.HTTP,
+					InstancePort: 8090,
 				},
-			}).
-			Build()
-	}
+				{
+					Name:         "grpc",
+					Protocol:     protocol.GRPC,
+					InstancePort: 7070,
+				},
+			},
+		}).
+		Build()
 	if err != nil {
 		return err
 	}

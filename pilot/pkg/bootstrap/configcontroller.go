@@ -227,11 +227,29 @@ func (s *Server) initInprocessAnalysisController(args *PilotArgs) error {
 		go leaderelection.
 			NewLeaderElection(args.Namespace, args.PodName, leaderelection.AnalyzeController, s.kubeClient).
 			AddRunFunction(func(stop <-chan struct{}) {
-				if err := processing.Start(); err != nil {
-					log.Fatalf("Error starting Background Analysis: %s", err)
+				// to protect pilot from panics in analysis (which should never cause pilot to exit), recover from
+				// panics in analysis and, unless stop is called, restart the analysis controller.
+				for {
+					select {
+					case <-stop:
+						return
+					default:
+						func() {
+							defer func() {
+								if r := recover(); r != nil {
+									log.Warnf("Analysis experienced fatal error, requires restart", r)
+								}
+							}()
+							log.Info("Starting Background Analysis")
+							if err := processing.Start(); err != nil {
+								log.Fatalf("Error starting Background Analysis: %s", err)
+							}
+							<-stop
+							log.Warnf("Stopping Background Analysis")
+							processing.Stop()
+						}()
+					}
 				}
-				<-stop
-				processing.Stop()
 			}).Run(stop)
 		return nil
 	})

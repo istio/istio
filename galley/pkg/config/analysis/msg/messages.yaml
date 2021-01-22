@@ -371,3 +371,18 @@ messages:
     args:
       - name: annotation
         type: string
+
+  - name: "DeploymentConflictingPorts"
+    code: IST0137
+    level: Warning
+    description: "Two services selecting the same workload with same target port are MUST refer to the same port."
+    template: "This deployment %s is associated with multiple services %v using targetPort %q but different ports: %v."
+    args:
+      - name: deployment
+        type: string
+      - name: services
+        type: "[]string"
+      - name: targetPort
+        type: string
+      - name: ports
+        type: "[]int32"
