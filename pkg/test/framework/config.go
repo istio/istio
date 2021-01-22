@@ -30,17 +30,17 @@ var _ resource.ConfigManager = &configManager{}
 
 type configManager struct {
 	ctx      resource.Context
-	clusters []cluster.Cluster
+	clusters cluster.Clusters
 	prefix   string
 }
 
-func newConfigManager(ctx resource.Context, clusters []cluster.Cluster) resource.ConfigManager {
+func newConfigManager(ctx resource.Context, clusters cluster.Clusters) resource.ConfigManager {
 	if len(clusters) == 0 {
 		clusters = ctx.Clusters()
 	}
 	return &configManager{
 		ctx:      ctx,
-		clusters: clusters,
+		clusters: clusters.OfKind(cluster.Kubernetes),
 	}
 }
 

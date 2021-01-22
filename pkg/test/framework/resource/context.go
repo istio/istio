@@ -81,6 +81,7 @@ type Context interface {
 	CreateTmpDirectory(prefix string) (string, error)
 
 	// Config returns a ConfigManager that writes config to the provide clusers. If
-	// no clusters are provided, writes to all clusters.
+	// no clusters are provided, writes to all clusters. The given set of clusters
+	// will be filtered to only Kubernetes clusters.
 	Config(clusters ...cluster.Cluster) ConfigManager
 }
