@@ -55,8 +55,8 @@ func TestGenerateVirtualHostDomains(t *testing.T) {
 			node: &model.Proxy{
 				DNSDomain: "local.campus.net",
 			},
-			want: []string{"foo", "foo.local", "foo.local.campus", "foo.local.campus.net",
-				"foo:80", "foo.local:80", "foo.local.campus:80", "foo.local.campus.net:80"},
+			want: []string{"foo", "foo.local.campus.net",
+				"foo:80", "foo.local.campus.net:80"},
 		},
 		{
 			name: "different domains with some shared dns",
@@ -82,6 +82,44 @@ func TestGenerateVirtualHostDomains(t *testing.T) {
 				DNSDomain: "example.com",
 			},
 			want: []string{"foo.local.campus.net", "foo.local.campus.net:80"},
+		},
+		{
+			name: "k8s service with default domain",
+			service: &model.Service{
+				Hostname:     "echo.default.svc.cluster.local",
+				MeshExternal: false,
+			},
+			port: 8123,
+			node: &model.Proxy{
+				DNSDomain: "default.svc.cluster.local",
+			},
+			want: []string{"echo", "echo.default", "echo.default.svc", "echo.default.svc.cluster.local",
+				"echo:8123", "echo.default:8123", "echo.default.svc:8123", "echo.default.svc.cluster.local:8123"},
+		},
+		{
+			name: "k8s service with default domain and different namespace",
+			service: &model.Service{
+				Hostname:     "echo.default.svc.cluster.local",
+				MeshExternal: false,
+			},
+			port: 8123,
+			node: &model.Proxy{
+				DNSDomain: "mesh.svc.cluster.local",
+			},
+			want: []string{"echo.default", "echo.default.svc", "echo.default.svc.cluster.local",
+				"echo.default:8123", "echo.default.svc:8123", "echo.default.svc.cluster.local:8123"},
+		},
+		{
+			name: "k8s service with custom domain 2",
+			service: &model.Service{
+				Hostname:     "google.local",
+				MeshExternal: false,
+			},
+			port: 8123,
+			node: &model.Proxy{
+				DNSDomain: "foo.svc.custom.k8s.local",
+			},
+			want: []string{"google.local", "google.local:8123"},
 		},
 	}
 
@@ -164,7 +202,6 @@ func TestSidecarOutboundHTTPRouteConfigWithDuplicateHosts(t *testing.T) {
 				"allow_any": {"*"},
 				"test.default.svc.cluster.local:80": {
 					"test.default.svc.cluster.local", "test.default.svc.cluster.local:80",
-					"test.default.svc.cluster", "test.default.svc.cluster:80",
 					"test.default.svc", "test.default.svc:80",
 					"test.default", "test.default:80",
 				},
@@ -211,7 +248,6 @@ func TestSidecarOutboundHTTPRouteConfigWithDuplicateHosts(t *testing.T) {
 				"test-duplicate-domains.default.svc.cluster.local:80": {
 					"test-duplicate-domains.default.svc.cluster.local", "test-duplicate-domains.default.svc.cluster.local:80",
 					"test-duplicate-domains", "test-duplicate-domains:80",
-					"test-duplicate-domains.default.svc.cluster", "test-duplicate-domains.default.svc.cluster:80",
 					"test-duplicate-domains.default.svc", "test-duplicate-domains.default.svc:80",
 				},
 				"test-duplicate-domains.default:80": {"test-duplicate-domains.default", "test-duplicate-domains.default:80"},
@@ -240,7 +276,6 @@ func TestSidecarOutboundHTTPRouteConfigWithDuplicateHosts(t *testing.T) {
 				"test.default.svc.cluster.local:80": {
 					"test.default.svc.cluster.local", "test.default.svc.cluster.local:80",
 					"test", "test:80",
-					"test.default.svc.cluster", "test.default.svc.cluster:80",
 					"test.default.svc", "test.default.svc:80",
 				},
 				"test.default:80": {"test.default", "test.default:80"},
@@ -260,9 +295,8 @@ func TestSidecarOutboundHTTPRouteConfigWithDuplicateHosts(t *testing.T) {
 			},
 			nil,
 			map[string][]string{
-				"allow_any": {"*"},
-				// BUG: test should be below
-				"test.local:80": {"test.local", "test.local:80", "test", "test:80"},
+				"allow_any":     {"*"},
+				"test.local:80": {"test.local", "test.local:80"},
 			},
 			map[string]string{
 				"allow_any":     "PassthroughCluster",
