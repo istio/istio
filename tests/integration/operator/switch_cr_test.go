@@ -155,10 +155,10 @@ func cleanupIstioResources(t *testing.T, cs resource.Cluster, istioCtl istioctl.
 	// clean up operator namespace
 	if err := cs.CoreV1().Namespaces().Delete(context.TODO(), OperatorNamespace,
 		kube2.DeleteOptionsForeground()); err != nil {
-		t.Errorf("failed to delete operator namespace: %v", err)
+		t.Logf("failed to delete operator namespace: %v", err)
 	}
 	if err := kube2.WaitForNamespaceDeletion(cs, OperatorNamespace, retry.Timeout(nsDeletionTimeout)); err != nil {
-		t.Errorf("wating for operator namespace to be deleted: %v", err)
+		t.Logf("failed wating for operator namespace to be deleted: %v", err)
 	}
 	var err error
 	// clean up dynamically created secret and configmaps
