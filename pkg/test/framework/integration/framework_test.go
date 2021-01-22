@@ -123,14 +123,13 @@ func runCheck(ctx framework.TestContext, errors chan error, name string) {
 	for _, c := range []string{"a", "b", "c"} {
 		c := c
 		ctx.NewSubTest(c).Run(func(ctx framework.TestContext) {
-			// Store the test name. We will check this in WhenDone to ensure we call finish cleanup before the next test runs
+			// Store the test name. We will check this in ConditionalCleanup to ensure we call finish cleanup before the next test runs
 			currentTest.Store(c)
-			ctx.WhenDone(func() error {
+			ctx.ConditionalCleanup(func() {
 				time.Sleep(time.Millisecond * 100)
 				if ct := currentTest.Load(); ct != c {
 					errors <- fmt.Errorf("expected current test for %s to be %s but was %s", name, c, ct)
 				}
-				return nil
 			})
 			for _, st := range []string{"p1", "p2"} {
 				ctx.NewSubTest(st).

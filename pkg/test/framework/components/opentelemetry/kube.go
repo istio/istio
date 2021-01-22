@@ -133,7 +133,7 @@ func install(ctx resource.Context, ns string) error {
 func installServiceEntry(cluster resource.Cluster, ctx resource.Context, ns, ingressAddr string) error {
 	// Setup remote access to zipkin in cluster
 	yaml := strings.ReplaceAll(remoteOtelEntry, "{INGRESS_DOMAIN}", ingressAddr)
-	err := ctx.Config().ApplyYAMLInCluster(cluster, ns, yaml)
+	err := ctx.Config(cluster).ApplyYAML(ns, yaml)
 	if err != nil {
 		return err
 	}
@@ -142,7 +142,7 @@ func installServiceEntry(cluster resource.Cluster, ctx resource.Context, ns, ing
 	yaml = strings.ReplaceAll(extServiceEntry, "{INGRESS_DOMAIN}", ingressAddr)
 	for _, cl := range ctx.Clusters() {
 		if cluster.Name() != cl.Name() {
-			err := ctx.Config().ApplyYAMLInCluster(cl, ns, yaml)
+			err := ctx.Config(cl).ApplyYAML(ns, yaml)
 			if err != nil {
 				return err
 			}

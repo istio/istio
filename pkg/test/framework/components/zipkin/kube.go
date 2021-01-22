@@ -160,13 +160,13 @@ func installZipkin(cluster resource.Cluster, ctx resource.Context, ns string) er
 	if err != nil {
 		return err
 	}
-	return ctx.Config().ApplyYAMLInCluster(cluster, ns, yaml)
+	return ctx.Config(cluster).ApplyYAML(ns, yaml)
 }
 
 func installServiceEntry(cluster resource.Cluster, ctx resource.Context, ns, ingressAddr string) error {
 	// Setup remote access to zipkin in cluster
 	yaml := strings.ReplaceAll(remoteZipkinEntry, "{INGRESS_DOMAIN}", ingressAddr)
-	err := ctx.Config().ApplyYAMLInCluster(cluster, ns, yaml)
+	err := ctx.Config(cluster).ApplyYAML(ns, yaml)
 	if err != nil {
 		return err
 	}

@@ -26,8 +26,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/hashicorp/go-multierror"
-
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
@@ -55,12 +53,10 @@ func TestMultiVersionRevision(t *testing.T) {
 
 			// keep track of applied configurations and clean up after the test
 			configs := make(map[string]string)
-			ctx.WhenDone(func() error {
-				var errs *multierror.Error
+			ctx.ConditionalCleanup(func() {
 				for _, config := range configs {
-					multierror.Append(errs, ctx.Config().DeleteYAML("istio-system", config))
+					ctx.Config().DeleteYAML("istio-system", config)
 				}
-				return errs.ErrorOrNil()
 			})
 
 			revisionedNamespaces := []revisionedNamespace{}
