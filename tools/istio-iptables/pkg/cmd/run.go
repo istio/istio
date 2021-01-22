@@ -505,8 +505,13 @@ func (iptConfigurator *IptablesConfigurator) run() {
 func (iptConfigurator *IptablesConfigurator) handleOutboundPortsInclude() {
 	if iptConfigurator.cfg.OutboundPortsInclude != "" {
 		for _, port := range split(iptConfigurator.cfg.OutboundPortsInclude) {
+			if iptConfigurator.cfg.InboundInterceptionMode == constants.TPROXY {
+				iptConfigurator.iptables.AppendRuleV4(
+					constants.ISTIOOUTPUT, constants.MANGLE, "-p", constants.TCP, "--dport", port, "-j", constants.ISTIOREDIRECT)
+			} else {
 			iptConfigurator.iptables.AppendRuleV4(
 				constants.ISTIOOUTPUT, constants.NAT, "-p", constants.TCP, "--dport", port, "-j", constants.ISTIOREDIRECT)
+			}
 		}
 	}
 }
