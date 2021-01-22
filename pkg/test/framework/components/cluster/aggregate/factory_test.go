@@ -15,12 +15,13 @@
 package aggregate
 
 import (
-	"github.com/google/go-cmp/cmp"
-	"istio.io/istio/pkg/test/framework/resource"
 	"testing"
+
+	"github.com/google/go-cmp/cmp"
 
 	"istio.io/istio/pkg/test/framework/components/cluster"
 	"istio.io/istio/pkg/test/framework/components/cluster/fake"
+	"istio.io/istio/pkg/test/framework/resource"
 )
 
 func TestBuild(t *testing.T) {

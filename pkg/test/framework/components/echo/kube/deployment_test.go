@@ -14,12 +14,12 @@
 package kube
 
 import (
-	"istio.io/istio/pkg/test/framework/components/cluster"
-	"istio.io/istio/pkg/test/framework/components/cluster/aggregate"
 	"testing"
 
 	testutil "istio.io/istio/pilot/test/util"
 	"istio.io/istio/pkg/config/protocol"
+	"istio.io/istio/pkg/test/framework/components/cluster"
+	"istio.io/istio/pkg/test/framework/components/cluster/aggregate"
 	kubecluster "istio.io/istio/pkg/test/framework/components/cluster/kube"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/echo/common"
