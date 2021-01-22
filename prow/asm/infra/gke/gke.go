@@ -33,14 +33,23 @@ const (
 )
 
 func gkeDeployerBaseFlags() []string {
-	return []string{"--ignore-gcp-ssh-key=true", "-v=1", "--gcp-service-account=" + os.Getenv("GOOGLE_APPLICATION_CREDENTIALS")}
+	return []string{"--ignore-gcp-ssh-key=true", "-v=2", "--gcp-service-account=" + os.Getenv("GOOGLE_APPLICATION_CREDENTIALS")}
+}
+
+// SingleClusterFlags returns the kubetest2 flags for single-cluster setup.
+func SingleClusterFlags() []string {
+	flags := gkeDeployerBaseFlags()
+	flags = append(flags, "--cluster-name=prow-test", "--machine-type=e2-standard-4", "--num-nodes=2", "--region=us-central1")
+	flags = append(flags, "--network=default", "--release-channel=regular", "--version=latest", "--enable-workload-identity")
+
+	return flags
 }
 
 // MultiClusterFlags returns the kubetest2 flags for single-project
 // multi-cluster setup.
 func MultiClusterFlags() []string {
 	flags := gkeDeployerBaseFlags()
-	flags = append(flags, "--cluster-name=prow-test1,prow-test2", "--machine-type=e2-standard-4", "--num-nodes=3", "--region=us-central1")
+	flags = append(flags, "--cluster-name=prow-test1,prow-test2", "--machine-type=e2-standard-4", "--num-nodes=2", "--region=us-central1")
 	flags = append(flags, "--network=default", "--release-channel=regular", "--version=latest", "--enable-workload-identity")
 
 	return flags
@@ -110,10 +119,14 @@ func acquireMultiGCPProjects() (string, error) {
 	associatedProjectsStr := strings.TrimSpace(string(associatedProjects))
 	if associatedProjectsStr != "" {
 		for _, project := range strings.Split(associatedProjectsStr, "\n") {
-			if err := exec.Run(fmt.Sprintf("gcloud beta compute shared-vpc"+
-				" associated-projects remove %s --host-project=%s", project, hostProject)); err != nil {
-				return "", fmt.Errorf("error removing the assciated project %q for %q: %w", project, hostProject, err)
-			}
+			// Sometimes this command returns error like below:
+			// 	ERROR: (gcloud.beta.compute.shared-vpc.associated-projects.remove) Could not disable resource [asm-boskos-shared-vpc-svc-144] as an associated resource for project [asm-boskos-shared-vpc-host-69]:
+			//    - Invalid resource usage: 'The resource 'projects/asm-boskos-shared-vpc-svc-144' is not linked to shared VPC host 'projects/asm-boskos-shared-vpc-host-69'.'.
+			// but it's uncertain why this happens. Ignore the error for now
+			// since the error says the project has already been dissociated.
+			// TODO(chizhg): enable the error check after figuring out the cause.
+			exec.Run(fmt.Sprintf("gcloud beta compute shared-vpc"+
+				" associated-projects remove %s --host-project=%s", project, hostProject))
 		}
 	}
 
@@ -131,16 +144,15 @@ func acquireMultiGCPProjects() (string, error) {
 	// with one host project, remove the association.
 	for _, sp := range serviceProjects {
 		associatedHostProject, err := exec.RunWithOutput(fmt.Sprintf("gcloud beta compute shared-vpc"+
-			" get-host-project %s --format=value(RESOURCE_ID)", sp))
+			" get-host-project %s --format=value(name)", sp))
 		if err != nil {
 			return "", fmt.Errorf("error getting the associated host project for %q: %w", sp, err)
 		}
 		associatedHostProjectStr := strings.TrimSpace(string(associatedHostProject))
 		if associatedHostProjectStr != "" {
-			if err := exec.Run(fmt.Sprintf("gcloud beta compute shared-vpc"+
-				" associated-projects remove %s --host-project=%s", sp, associatedHostProjectStr)); err != nil {
-				return "", fmt.Errorf("error removing the assciated project %q for %q: %w", sp, associatedHostProjectStr, err)
-			}
+			// TODO(chizhg): enable the error check after figuring out the cause.
+			exec.Run(fmt.Sprintf("gcloud beta compute shared-vpc"+
+				" associated-projects remove %s --host-project=%s", sp, associatedHostProjectStr))
 		}
 	}
 	// HOST_PROJECT is needed for the firewall setup after cluster creations.

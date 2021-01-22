@@ -398,6 +398,24 @@ function install_asm() {
       exit 1
     fi
 
+    if [[ "${FEATURE_TO_TEST}" == "VPC_SC" ]]; then
+      # Set up the firewall for VPC-SC
+      FIREWALL_RULE_NAME=$(gcloud compute firewall-rules list --filter="name~gke-""${CLUSTER}""-[0-9a-z]*-master" --format=json | jq -r '.[0].name')
+      gcloud compute firewall-rules update "${FIREWALL_RULE_NAME}" --allow tcp --source-ranges 0.0.0.0/0
+      # Check the updated firewall rule
+      gcloud compute firewall-rules list --filter="name~gke-""${CLUSTER}""-[0-9a-z]*-master"
+      # Setup NAT to grant private nodes outbound internet access
+      gcloud compute routers create test-router \
+        --network default \
+        --region us-central1 || echo "test-router already exists"
+      gcloud compute routers nats create test-nat \
+        --router=test-router \
+        --auto-allocate-nat-external-ips \
+        --nat-all-subnet-ip-ranges \
+        --router-region=us-central1 \
+        --enable-logging || echo "test-nat already exists"
+    fi
+
     # INSTALL_ASM_COMMIT is from a branch master-prow with more CI options on install_asm (not yet exposed to end users)
     # TODO(taohe@): if install_asm is updated for prow tests, update the commit ID accordingly.
     INSTALL_ASM_COMMIT="dbf24423b9fb44068f792669f36abbd97d606a48"
@@ -410,9 +428,12 @@ function install_asm() {
     export _CI_ISTIOCTL_REL_PATH="$PWD/out/linux_amd64/istioctl"
     export _CI_ASM_IMAGE_LOCATION="${HUB}"
     export _CI_ASM_IMAGE_TAG="${TAG}"
-    export _CI_ASM_KPT_BRANCH=staging-1.8-asm
+    export _CI_ASM_KPT_BRANCH=master-prow
     export _CI_NO_VALIDATE=1
     export _CI_NO_REVISION=1
+
+    local SERVICE_ACCOUNT
+    SERVICE_ACCOUNT=$(gcloud config list --format "value(core.account)")
     if [[ "${WIP}" != "HUB" ]]; then
       if [[ "${CLUSTER_TOPOLOGY}" == "MULTIPROJECT_MULTICLUSTER" ]]; then
         eval ./install_asm \
@@ -437,14 +458,14 @@ function install_asm() {
           --ca ${INSTALL_ASM_CA} \
           "${CUSTOM_CA_FLAGS}" \
           --mode install \
-          --enable_gcp_apis \
+          --enable_all \
           --custom_overlay "${CUSTOM_OVERLAY}" \
           --option audit-authorizationpolicy \
+          --service_account "${SERVICE_ACCOUNT}" \
+          --key-file "${GOOGLE_APPLICATION_CREDENTIALS}" \
           --verbose
       fi
     else
-      local SERVICE_ACCOUNT;
-      SERVICE_ACCOUNT=$(gcloud config list --format "value(core.account)")
       if [[ "${CLUSTER_TOPOLOGY}" == "MULTIPROJECT_MULTICLUSTER" ]]; then
         eval ./install_asm \
           --project_id "${PROJECT_ID}" \
@@ -486,8 +507,16 @@ function install_asm() {
     for j in "${!CONTEXTS[@]}"; do
       if [[ "$i" != "$j" ]]; then
         IFS="_" read -r -a VALS <<< "${CONTEXTS[$j]}"
-        istioctl x create-remote-secret --context="${CONTEXTS[$j]}" --name="${VALS[3]}" | \
-          kubectl apply -f - --context="${CONTEXTS[$i]}"
+        local PROJECT_J=${VALS[1]}
+        local LOCATION_J=${VALS[2]}
+        local CLUSTER_J=${VALS[3]}
+        istioctl x create-remote-secret --context="${CONTEXTS[$j]}" --name="${CLUSTER_J}" > "${PROJECT_J}"_"${LOCATION_J}"_"${CLUSTER_J}".secret
+        if [[ "${FEATURE_TO_TEST}" == "VPC_SC" ]]; then
+          # For private clusters, convert the cluster masters' public IPs to private IPs.
+          PRIV_IP=$(gcloud container clusters describe "${CLUSTER_J}" --project "${PROJECT_J}" --zone "${LOCATION_J}" --format "value(privateClusterConfig.privateEndpoint)")
+          sed -i 's/server\:.*/server\: https:\/\/'"${PRIV_IP}"'/' "${PROJECT_J}"_"${LOCATION_J}"_"${CLUSTER_J}".secret
+        fi
+        kubectl apply -f "${PROJECT_J}"_"${LOCATION_J}"_"${CLUSTER_J}".secret --context="${CONTEXTS[$i]}"
       fi
     done
   done
