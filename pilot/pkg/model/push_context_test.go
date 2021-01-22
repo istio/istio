@@ -339,7 +339,7 @@ func TestServiceIndex(t *testing.T) {
 	g.Expect(serviceNames(si.privateByNamespace["test1"])).To(Equal([]string{"svc-private"}))
 }
 
-func TestIsServiceExportToProxy(t *testing.T) {
+func TestIsServiceExportTo(t *testing.T) {
 	targetNamespace := "foo"
 	cases := []struct {
 		name        string

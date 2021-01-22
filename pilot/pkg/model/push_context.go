@@ -697,24 +697,11 @@ func (ps *PushContext) IsServiceExportTo(service *Service, namespace string) boo
 		} else if ps.exportToDefaults.service[visibility.Public] {
 			return true
 		}
-	} else {
-		if service.Attributes.ExportTo[visibility.Public] {
-			return true
-		} else if service.Attributes.ExportTo[visibility.None] {
-			return false
-		} else {
-			// . or other namespaces
-			for exportTo := range service.Attributes.ExportTo {
-				if exportTo == visibility.Private && ns == namespace {
-					return true
-				} else if string(exportTo) == namespace {
-					return true
-				}
-			}
-		}
 	}
 
-	return false
+	return service.Attributes.ExportTo[visibility.Public] ||
+		(service.Attributes.ExportTo[visibility.Private] && ns == namespace) ||
+		service.Attributes.ExportTo[visibility.Instance(namespace)]
 }
 
 // VirtualServicesForGateway lists all virtual services bound to the specified gateways
