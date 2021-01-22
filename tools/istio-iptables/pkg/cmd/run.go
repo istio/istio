@@ -509,8 +509,8 @@ func (iptConfigurator *IptablesConfigurator) handleOutboundPortsInclude() {
 				iptConfigurator.iptables.AppendRuleV4(
 					constants.ISTIOOUTPUT, constants.MANGLE, "-p", constants.TCP, "--dport", port, "-j", constants.ISTIOREDIRECT)
 			} else {
-			iptConfigurator.iptables.AppendRuleV4(
-				constants.ISTIOOUTPUT, constants.NAT, "-p", constants.TCP, "--dport", port, "-j", constants.ISTIOREDIRECT)
+				iptConfigurator.iptables.AppendRuleV4(
+					constants.ISTIOOUTPUT, constants.NAT, "-p", constants.TCP, "--dport", port, "-j", constants.ISTIOREDIRECT)
 			}
 		}
 	}
