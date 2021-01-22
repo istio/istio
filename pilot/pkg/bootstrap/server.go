@@ -18,6 +18,7 @@ import (
 	"context"
 	"crypto/tls"
 	"crypto/x509"
+	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"net"
@@ -43,6 +44,7 @@ import (
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/cache"
 
+	"istio.io/api/security/v1beta1"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	modelstatus "istio.io/istio/pilot/pkg/model/status"
@@ -314,6 +316,24 @@ func NewServer(args *PilotArgs) (*Server, error) {
 
 	caOpts.Authenticators = authenticators
 	if features.XDSAuth {
+		authenticators := []security.Authenticator{
+			&authenticate.ClientCertAuthenticator{},
+		}
+		// To be compatible with the flow in which k8s JWT is forwarded to istiod,
+		// the NewKubeJWTAuthenticator is included as an istiod authenticator.
+		// If the k8s JWT is not used, only the OIDC JWT authenticator is needed.
+		authenticators = append(authenticators, kubeauth.NewKubeJWTAuthenticator(s.kubeClient, s.clusterID,
+			s.multicluster.GetRemoteKubeClient, spiffe.GetTrustDomain(), features.JwtPolicy.Get()))
+		if args.JwtRule != "" {
+			jwtAuthn, err := initOIDC(args, s.environment.Mesh().TrustDomain)
+			if err != nil {
+				return nil, fmt.Errorf("error initializing OIDC: %v", err)
+			}
+			if jwtAuthn == nil {
+				return nil, fmt.Errorf("JWT authenticator is nil")
+			}
+			authenticators = append(authenticators, jwtAuthn)
+		}
 		s.XDSServer.Authenticators = authenticators
 	}
 
@@ -338,6 +358,22 @@ func NewServer(args *PilotArgs) (*Server, error) {
 	})
 
 	return s, nil
+}
+
+func initOIDC(args *PilotArgs, trustDomain string) (security.Authenticator, error) {
+	// JWTRule is from the JWT_RULE environment variable.
+	// An example of json string for JWTRule is:
+	//`{"issuer": "foo", "jwks_uri": "baz", "audiences": ["aud1", "aud2"]}`.
+	jwtRule := v1beta1.JWTRule{}
+	err := json.Unmarshal([]byte(args.JwtRule), &jwtRule)
+	if err != nil {
+		return nil, fmt.Errorf("failed to unmarshal JWT rule: %v", err)
+	}
+	jwtAuthn, err := authenticate.NewJwtAuthenticator(&jwtRule, trustDomain)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create the JWT authenticator: %v", err)
+	}
+	return jwtAuthn, nil
 }
 
 func getClusterID(args *PilotArgs) string {

@@ -176,11 +176,18 @@ func TestNewServer(t *testing.T) {
 		domain         string
 		expectedDomain string
 		secureGRPCport string
+		jwtRule        string
 	}{
 		{
 			name:           "default domain",
 			domain:         "",
 			expectedDomain: constants.DefaultKubernetesDomain,
+		},
+		{
+			name:           "default domain with JwtRule",
+			domain:         "",
+			expectedDomain: constants.DefaultKubernetesDomain,
+			jwtRule:        `{"issuer": "foo", "jwks_uri": "baz", "audiences": ["aud1", "aud2"]}`,
 		},
 		{
 			name:           "override domain",
@@ -225,6 +232,8 @@ func TestNewServer(t *testing.T) {
 				// Include all of the default plugins
 				p.Plugins = DefaultPlugins
 				p.ShutdownDuration = 1 * time.Millisecond
+
+				p.JwtRule = c.jwtRule
 			})
 
 			g := NewWithT(t)
@@ -306,6 +315,43 @@ func TestNewServerWithMockRegistry(t *testing.T) {
 			}()
 
 			g.Expect(s.ServiceController().GetRegistries()[1].Provider()).To(Equal(c.expectedRegistry))
+		})
+	}
+}
+
+func TestInitOIDC(t *testing.T) {
+	tests := []struct {
+		name      string
+		expectErr bool
+		jwtRule   string
+	}{
+		{
+			name:      "valid jwt rule",
+			expectErr: false,
+			jwtRule:   `{"issuer": "foo", "jwks_uri": "baz", "audiences": ["aud1", "aud2"]}`,
+		},
+		{
+			name:      "invalid jwt rule",
+			expectErr: true,
+			jwtRule:   "invalid",
+		},
+		{
+			name:      "jwt rule with invalid audiences",
+			expectErr: true,
+			// audiences must be a string array
+			jwtRule: `{"issuer": "foo", "jwks_uri": "baz", "audiences": "aud1"}`,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			args := &PilotArgs{JwtRule: tt.jwtRule}
+
+			_, err := initOIDC(args, "domain-foo")
+			gotErr := err != nil
+			if gotErr != tt.expectErr {
+				t.Errorf("expect error is %v while actual error is %v", tt.expectErr, gotErr)
+			}
 		})
 	}
 }
