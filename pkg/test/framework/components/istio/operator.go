@@ -216,6 +216,9 @@ func (i *operatorComponent) Dump(ctx resource.Context) {
 		return
 	}
 	kube2.DumpPods(ctx, d, ns)
+	for _, cluster := range ctx.Clusters() {
+		kube2.DumpDebug(cluster, d, "configz")
+	}
 }
 
 // saveManifestForCleanup will ensure we delete the given yaml from the given cluster during cleanup.
