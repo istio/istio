@@ -16,41 +16,24 @@ package wasm
 
 import "istio.io/pkg/monitoring"
 
-type fetchStatus int
-
+// Const strings for label value.
 const (
-	fetchSuccess fetchStatus = iota
-	downloadFailure
-	checksumMismatch
-)
+	// For remote fetch metric.
+	fetchSuccess = "success"
+	downloadFailure = "download_failure"
+	checksumMismatch = "checksum_mismatched"
 
-type conversionStatus int
-
-const (
-	conversionSuccess conversionStatus = iota
-	noRemoteLoad
-	marshalFailure
-	fetchFailure
-	missRemoteFetchHint
+	// For Wasm conversion metric.
+	conversionSuccess = "success"
+	noRemoteLoad = "no_remote_load"
+	marshalFailure = "marshal_failure"
+	fetchFailure = "fetch_failure"
+	missRemoteFetchHint = "miss_remote_fetch_hint"
 )
 
 var (
 	hitTag    = monitoring.MustCreateLabel("hit")
 	resultTag = monitoring.MustCreateLabel("result")
-
-	fetchResultLabelMap = map[fetchStatus]string{
-		fetchSuccess:     "success",
-		downloadFailure:  "download_failure",
-		checksumMismatch: "checksum_mismatched",
-	}
-
-	conversionResultLabelMap = map[conversionStatus]string{
-		conversionSuccess:   "success",
-		noRemoteLoad:        "no_remote_load",
-		marshalFailure:      "marshal_failure",
-		fetchFailure:        "fetch_failure",
-		missRemoteFetchHint: "miss_remote_fetch_hint",
-	}
 
 	wasmCacheEntries = monitoring.NewGauge(
 		"wasm_cache_entries",
