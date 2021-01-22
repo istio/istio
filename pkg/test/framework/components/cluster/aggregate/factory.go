@@ -72,7 +72,10 @@ func (a aggregateFactory) Build(allClusters cluster.Map) (resource.Clusters, err
 		}
 		factories[cfg.Kind] = f.With(cfg)
 	}
-
+	if errs != nil {
+		scopes.Framework.Infof("=== FAILED: Building clusters ===")
+		return nil, errs
+	}
 	// initialize the clusters
 	var clusters resource.Clusters
 	for kind, factory := range factories {
