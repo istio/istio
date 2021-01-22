@@ -116,13 +116,13 @@ func newInstance(ctx resource.Context, originalCfg echo.Config) (out *instance, 
 	}
 
 	// Apply the service definition to all clusters.
-	if err := ctx.Config().ApplyYAML(cfg.Namespace.Name(), serviceYAML); err != nil {
+	if err := ctx.Config().ApplyYAMLNoCleanup(cfg.Namespace.Name(), serviceYAML); err != nil {
 		return nil, fmt.Errorf("failed deploying echo service %s to clusters: %v",
 			cfg.FQDN(), err)
 	}
 
 	// Deploy the YAML.
-	if err = ctx.Config(c.cluster).ApplyYAML(cfg.Namespace.Name(), deploymentYAML); err != nil {
+	if err = ctx.Config(c.cluster).ApplyYAMLNoCleanup(cfg.Namespace.Name(), deploymentYAML); err != nil {
 		return nil, fmt.Errorf("failed deploying echo %s to cluster %s: %v",
 			cfg.FQDN(), c.cluster.Name(), err)
 	}
@@ -202,7 +202,7 @@ spec:
 
 	// Push the WorkloadGroup for auto-registration
 	if cfg.AutoRegisterVM {
-		if err := ctx.Config(cfg.Cluster).ApplyYAML(cfg.Namespace.Name(), wg); err != nil {
+		if err := ctx.Config(cfg.Cluster).ApplyYAMLNoCleanup(cfg.Namespace.Name(), wg); err != nil {
 			return err
 		}
 	}
@@ -420,7 +420,7 @@ spec:
     version: %s
 `, vmPod.Name, vmPod.Status.PodIP, serviceAccount, cfg.Cluster.NetworkName(), cfg.Service, vmPod.Labels["istio.io/test-vm-version"])
 		// Deploy the workload entry to the primary cluster. We will read WorkloadEntry across clusters.
-		if err := ctx.Config(cfg.Cluster.Primary()).ApplyYAML(cfg.Namespace.Name(), wle); err != nil {
+		if err := ctx.Config(cfg.Cluster.Primary()).ApplyYAMLNoCleanup(cfg.Namespace.Name(), wle); err != nil {
 			return err
 		}
 	}

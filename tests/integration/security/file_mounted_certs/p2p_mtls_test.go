@@ -52,11 +52,8 @@ func TestClientToServiceTls(t *testing.T) {
 
 			echoClient, echoServer, serviceNamespace := setupEcho(t, ctx)
 
-			bufDestinationRule := createObject(ctx, serviceNamespace.Name(), DestinationRuleConfigMutual)
-			defer ctx.Config().DeleteYAMLOrFail(ctx, serviceNamespace.Name(), bufDestinationRule)
-
-			bufPeerAuthentication := createObject(ctx, "istio-system", PeerAuthenticationConfig)
-			defer ctx.Config().DeleteYAMLOrFail(ctx, "istio-system", bufPeerAuthentication)
+			createObject(ctx, serviceNamespace.Name(), DestinationRuleConfigMutual)
+			createObject(ctx, "istio-system", PeerAuthenticationConfig)
 
 			retry.UntilSuccessOrFail(t, func() error {
 				resp, err := echoClient.Call(echo.CallOptions{
@@ -122,10 +119,9 @@ spec:
 `
 )
 
-func createObject(ctx framework.TestContext, serviceNamespace string, yamlManifest string) string {
+func createObject(ctx framework.TestContext, serviceNamespace string, yamlManifest string) {
 	template := tmpl.EvaluateOrFail(ctx, yamlManifest, map[string]string{"AppNamespace": serviceNamespace})
 	ctx.Config().ApplyYAMLOrFail(ctx, serviceNamespace, template)
-	return template
 }
 
 // setupEcho creates an `istio-fd-sds` namespace and brings up two echo instances server and
