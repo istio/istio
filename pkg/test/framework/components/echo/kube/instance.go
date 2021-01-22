@@ -183,7 +183,7 @@ spec:
       app: {{.name}}
   template:
     serviceAccount: {{.serviceaccount}}
-    network: {{.network}}
+    network: "{{.network}}"
   probe:
     failureThreshold: 5
     httpGet:
