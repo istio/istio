@@ -16,7 +16,6 @@ package kube
 import (
 	"istio.io/istio/pkg/test/framework/components/cluster"
 	"istio.io/istio/pkg/test/framework/components/cluster/aggregate"
-	"istio.io/istio/pkg/test/framework/components/cluster/fake"
 	"testing"
 
 	testutil "istio.io/istio/pilot/test/util"
@@ -140,7 +139,7 @@ func TestDeploymentYAML(t *testing.T) {
 	}
 	for _, tc := range testCase {
 		t.Run(tc.name, func(t *testing.T) {
-			clusters, err := aggregate.NewFactory().With(cluster.Config{Name: "cluster-0"}).Build()
+			clusters, err := aggregate.NewFactory().With(cluster.Config{Name: "cluster-0"}).Build(nil)
 			if err != nil {
 				t.Fatal(err)
 			}
