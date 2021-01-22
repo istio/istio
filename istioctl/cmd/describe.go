@@ -984,7 +984,7 @@ func getIngressIP(service v1.Service, pod v1.Pod) string {
 	}
 
 	// The scope of this function is to get the IP from Kubernetes, we do not
-	// ask Docker or Minikube for an IP.
+	// ask Docker or minikube for an IP.
 	// See https://istio.io/docs/tasks/traffic-management/ingress/ingress-control/#determining-the-ingress-ip-and-ports
 
 	return "unknown"
