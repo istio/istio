@@ -118,6 +118,7 @@ features:
   # features releated to the lifecycle of istio installations
   installation:
     istioctl:
+      install:
       uninstall_revision:
       uninstall_manifest:
       uninstall_purge:
