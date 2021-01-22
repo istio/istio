@@ -259,6 +259,24 @@ func checkIfVM(pod corev1.Pod) bool {
 	return false
 }
 
+func DumpDebug(c resource.Cluster, workDir string, endpoint string) {
+	cp, istiod, err := getControlPlane(c)
+	if err != nil {
+		scopes.Framework.Warnf("failed dumping %q: %v", endpoint, err)
+		return
+	}
+	outPath := outputPath(workDir, c, istiod, endpoint)
+	out, err := dumpDebug(cp, istiod, fmt.Sprintf("/debug/%s", endpoint))
+	if err != nil {
+		scopes.Framework.Warnf("failed dumping %q: %v", endpoint, err)
+		return
+	}
+	if err := ioutil.WriteFile(outPath, []byte(out), 0644); err != nil {
+		scopes.Framework.Warnf("failed dumping %q: %v", endpoint, err)
+		return
+	}
+}
+
 func DumpNdsz(_ resource.Context, c resource.Cluster, workDir string, _ string, pods ...corev1.Pod) {
 	cp, istiod, err := getControlPlane(c)
 	if err != nil {
