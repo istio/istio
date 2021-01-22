@@ -14,6 +14,12 @@
 
 package resource
 
+import (
+	"fmt"
+	"istio.io/istio/pkg/test/framework/components/cluster"
+	"istio.io/istio/pkg/test/framework/components/cluster/aggregate"
+)
+
 // EnvironmentFactory creates an Environment.
 type EnvironmentFactory func(ctx Context) (Environment, error)
 
@@ -61,11 +67,13 @@ func (f FakeEnvironment) EnvironmentName() string {
 }
 
 func (f FakeEnvironment) Clusters() Clusters {
-	out := make([]Cluster, f.NumClusters)
+	factory := aggregate.NewFactory()
 	for i := 0; i < f.NumClusters; i++ {
-		out[i] = FakeCluster{
-			IndexValue: i,
-		}
+		factory = factory.With(cluster.Config{Kind: cluster.Fake, Name: fmt.Sprintf("cluster-%d", i)})
+	}
+	out, err := factory.Build(nil)
+	if err != nil {
+		panic(err)
 	}
 	return out
 }

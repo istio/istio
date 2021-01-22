@@ -22,6 +22,7 @@ type Kind string
 
 const (
 	Kubernetes Kind = "Kubernetes"
+	Fake       Kind = "Fake"
 	Aggregate  Kind = "Aggregate"
 )
 
