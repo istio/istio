@@ -40,6 +40,10 @@ func MaybeConvertWasmExtensionConfig(resources []*any.Any, cache Cache) bool {
 	numResources := len(resources)
 	wg.Add(numResources)
 	sendNack := atomic.NewBool(false)
+	startTime := time.Now()
+	defer func() {
+		wasmConfigConversionDuration.Record(float64(time.Since(startTime).Milliseconds()))
+	}()
 
 	for i := 0; i < numResources; i++ {
 		go func(i int) {
@@ -62,6 +66,12 @@ func convert(resource *any.Any, cache Cache) (newExtensionConfig *any.Any, sendN
 	ec := &core.TypedExtensionConfig{}
 	newExtensionConfig = resource
 	sendNack = false
+	status := noRemoteLoad
+	defer func() {
+		wasmConfigConversionCount.
+			With(resultTag.Value(status)).
+			Increment()
+	}()
 	if err := ptypes.UnmarshalAny(resource, ec); err != nil {
 		wasmLog.Debugf("failed to unmarshal extension config resource: %v", err)
 		return
@@ -100,11 +110,13 @@ func convert(resource *any.Any, cache Cache) (newExtensionConfig *any.Any, sendN
 	// unless the plugin is marked as fail open.
 	failOpen := wasmHTTPFilterConfig.Config.GetFailOpen()
 	sendNack = !failOpen
+	status = conversionSuccess
 
 	vm := wasmHTTPFilterConfig.Config.GetVmConfig()
 	remote := vm.GetCode().GetRemote()
 	httpURI := remote.GetHttpUri()
 	if httpURI == nil {
+		status = missRemoteFetchHint
 		wasmLog.Errorf("wasm remote fetch %+v does not have httpUri specified", remote)
 		return
 	}
@@ -114,6 +126,7 @@ func convert(resource *any.Any, cache Cache) (newExtensionConfig *any.Any, sendN
 	}
 	f, err := cache.Get(httpURI.GetUri(), remote.GetSha256(), timeout)
 	if err != nil {
+		status = fetchFailure
 		wasmLog.Errorf("cannot fetch Wasm module %v: %v", remote.GetHttpUri().GetUri(), err)
 		return
 	}
@@ -131,6 +144,7 @@ func convert(resource *any.Any, cache Cache) (newExtensionConfig *any.Any, sendN
 
 	wasmTypedConfig, err = ptypes.MarshalAny(wasmHTTPFilterConfig)
 	if err != nil {
+		status = marshalFailure
 		wasmLog.Errorf("failed to marshal new wasm HTTP filter %+v to protobuf Any: %v", wasmHTTPFilterConfig, err)
 		return
 	}
@@ -139,6 +153,7 @@ func convert(resource *any.Any, cache Cache) (newExtensionConfig *any.Any, sendN
 
 	nec, err := ptypes.MarshalAny(ec)
 	if err != nil {
+		status = marshalFailure
 		wasmLog.Errorf("failed to marshal new extension config resource: %v", err)
 		return
 	}
