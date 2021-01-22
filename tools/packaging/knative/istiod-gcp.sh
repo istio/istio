@@ -80,6 +80,11 @@ export POD_NAME
 
 export ASM_CONTROL_PLANE_POD_NAME=${POD_NAME}
 
+# The auth provider for XDS (e.g., gcp). The default is empty.
+export XDS_AUTH_PROVIDER="${XDS_AUTH_PROVIDER:-}"
+# The JWT rule for istiod JWT authenticator. The default is empty.
+export JWT_RULE="${JWT_RULE:-}"
+
 export XDS_AUTH_PLAINTEXT=true
 export XDS_TOKEN_TYPE=${XDS_TOKEN_TYPE:-Bearer}
 
