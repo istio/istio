@@ -764,7 +764,9 @@ func TestWebhookSelector(t *testing.T) {
 
 	defaultWebhook := getWebhooks(t, "--set values.sidecarInjectorWebhook.useLegacySelectors=false", "istio-sidecar-injector")
 	revWebhook := getWebhooks(t, "--set values.sidecarInjectorWebhook.useLegacySelectors=false --set revision=canary", "istio-sidecar-injector-canary")
-	autoWebhook := getWebhooks(t, "--set values.sidecarInjectorWebhook.useLegacySelectors=false --set values.sidecarInjectorWebhook.enableNamespacesByDefault=true", "istio-sidecar-injector")
+	autoWebhook := getWebhooks(t,
+		"--set values.sidecarInjectorWebhook.useLegacySelectors=false --set values.sidecarInjectorWebhook.enableNamespacesByDefault=true",
+		"istio-sidecar-injector")
 	legacyWebhook := getWebhooks(t, "--set values.sidecarInjectorWebhook.useLegacySelectors=true", "istio-sidecar-injector")
 	legacyRevWebhook := getWebhooks(t, "--set values.sidecarInjectorWebhook.useLegacySelectors=true --set revision=canary", "istio-sidecar-injector-canary")
 
