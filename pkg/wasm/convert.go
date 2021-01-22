@@ -69,7 +69,7 @@ func convert(resource *any.Any, cache Cache) (newExtensionConfig *any.Any, sendN
 	status := noRemoteLoad
 	defer func() {
 		wasmConfigConversionCount.
-			With(resultTag.Value(conversionResultLabelMap[status])).
+			With(resultTag.Value(status)).
 			Increment()
 	}()
 	if err := ptypes.UnmarshalAny(resource, ec); err != nil {

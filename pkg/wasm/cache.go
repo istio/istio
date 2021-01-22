@@ -120,18 +120,18 @@ func (c *LocalFileCache) Get(downloadURL, checksum string, timeout time.Duration
 		// If the module is not available locally, download the Wasm module with http fetcher.
 		b, err := c.httpFetcher.Fetch(downloadURL, timeout)
 		if err != nil {
-			wasmRemoteFetchCount.With(resultTag.Value(fetchResultLabelMap[downloadFailure])).Increment()
+			wasmRemoteFetchCount.With(resultTag.Value(downloadFailure)).Increment()
 			return "", err
 		}
 
 		// Get sha256 checksum and check if it is the same as provided one.
 		dChecksum := fmt.Sprintf("%x", sha256.Sum256(b))
 		if checksum != "" && dChecksum != checksum {
-			wasmRemoteFetchCount.With(resultTag.Value(fetchResultLabelMap[checksumMismatch])).Increment()
+			wasmRemoteFetchCount.With(resultTag.Value(checksumMismatch)).Increment()
 			return "", fmt.Errorf("module downloaded from %v has checksum %v, which does not match: %v", downloadURL, dChecksum, checksum)
 		}
 
-		wasmRemoteFetchCount.With(resultTag.Value(fetchResultLabelMap[fetchSuccess])).Increment()
+		wasmRemoteFetchCount.With(resultTag.Value(fetchSuccess)).Increment()
 
 		// TODO(bianpengyuan): Add sanity check on downloaded file to make sure it is a valid Wasm module.
 
