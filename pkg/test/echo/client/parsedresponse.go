@@ -350,7 +350,7 @@ func parseResponse(output string) *ParsedResponse {
 
 	matches := responseHeaderFieldRegex.FindAllStringSubmatch(output, -1)
 	for _, kv := range matches {
-		sl := strings.Split(kv[1], ":")
+		sl := strings.SplitN(kv[1], ":", 2)
 		if len(sl) != 2 {
 			continue
 		}
