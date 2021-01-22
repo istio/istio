@@ -15,20 +15,22 @@
 package status
 
 import (
+	"strconv"
+
 	"istio.io/istio/pkg/config"
 	"istio.io/pkg/ledger"
 )
 
 func tryLedgerPut(configLedger ledger.Ledger, obj config.Config) {
 	key := config.Key(obj.GroupVersionKind.Kind, obj.Name, obj.Namespace)
-	if _, err := configLedger.Put(key, obj.ResourceVersion); err != nil {
-		scope.Errorf("Failed to update %s in ledger, status will be out of date.", key)
+	if _, err := configLedger.Put(key, strconv.FormatInt(obj.Generation, 10)); err != nil {
+		scope.Errorf("Failed to update %s in ledger, status will be out of date: %s", key, err)
 	}
 }
 
 func tryLedgerDelete(configLedger ledger.Ledger, obj config.Config) {
 	key := config.Key(obj.GroupVersionKind.Kind, obj.Name, obj.Namespace)
-	if err := configLedger.Delete(key); err != nil {
-		scope.Errorf("Failed to delete %s in ledger, status will be out of date.", key)
+	if _, err := configLedger.Delete(key); err != nil {
+		scope.Errorf("Failed to delete %s in ledger, status will be out of date: %s", key, err)
 	}
 }

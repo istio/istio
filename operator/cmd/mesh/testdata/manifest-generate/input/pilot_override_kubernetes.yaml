@@ -55,6 +55,6 @@ spec:
           - kind: MutatingWebhookConfiguration
             name: istio-sidecar-injector-istio-control
             patches:
-              - path: webhooks.[name:sidecar-injector\.istio\.io].clientConfig.service.name
+              - path: webhooks.[name:namespace\.sidecar-injector\.istio\.io].clientConfig.service.name
                 value: foo
 

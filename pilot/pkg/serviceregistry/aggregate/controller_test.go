@@ -451,7 +451,7 @@ func TestGetDeleteRegistry(t *testing.T) {
 	}
 
 	// Test Delete cluster2
-	ctrl.DeleteRegistry(registries[1].ClusterID)
+	ctrl.DeleteRegistry(registries[1].ClusterID, registries[1].ProviderID)
 	result = ctrl.GetRegistries()
 	if l := len(result); l != 2 {
 		t.Fatalf("Expected length of the registries slice should be 2, got %d", l)

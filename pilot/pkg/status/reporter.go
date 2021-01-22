@@ -66,6 +66,7 @@ type Reporter struct {
 	clock                  clock.Clock
 	ledger                 ledger.Ledger
 	distributionEventQueue chan distributionEvent
+	controller             *DistributionController
 }
 
 var _ xds.DistributionStatusCache = &Reporter{}
@@ -151,12 +152,18 @@ func (r *Reporter) buildReport() (DistributionReport, []Resource) {
 		res := ipr.Resource
 		key := res.String()
 		// for every version (nonce) of the config currently in play
+		if ipr.completedIterations > 0 {
+			// this resource has completed, but we re-write it to reports for ~1 minute to ensure the leader picks it up
+			out.InProgressResources[key] = out.DataPlaneCount
+			finishedResources = append(finishedResources, res)
+			continue
+		}
 		for nonce, dataplanes := range r.reverseStatus {
 
 			// check to see if this version of the config contains this version of the resource
 			// it might be more optimal to provide for a full dump of the config at a certain version?
 			dpVersion, err := r.ledger.GetPreviousValue(nonce, res.ToModelKey())
-			if err == nil && dpVersion == res.ResourceVersion {
+			if err == nil && dpVersion == res.Generation {
 				if _, ok := out.InProgressResources[key]; !ok {
 					out.InProgressResources[key] = len(dataplanes)
 				} else {
@@ -169,7 +176,7 @@ func (r *Reporter) buildReport() (DistributionReport, []Resource) {
 				scope.Warnf("Cache appears to be missing latest version of %s", key)
 			}
 			if out.InProgressResources[key] >= out.DataPlaneCount {
-				// if this resource is done reconciling, let's not worry about it anymore
+				// if this resource is newly finished reconciling, let's not worry about it anymore
 				finishedResources = append(finishedResources, res)
 				// deleting it here doesn't work because we have a read lock and are inside an iterator.
 				// TODO: this will leak when a resource never reaches 100% before it is replaced.
@@ -191,7 +198,6 @@ func (r *Reporter) removeCompletedResource(completedResources []Resource) {
 		total := r.inProgressResources[item.ToModelKey()].completedIterations + 1
 		if int64(total) > (time.Minute.Milliseconds() / r.UpdateInterval.Milliseconds()) {
 			// remove from inProgressResources
-			// TODO: cleanup completedResources
 			toDelete = append(toDelete, item)
 		} else {
 			r.inProgressResources[item.ToModelKey()].completedIterations = total
@@ -221,6 +227,9 @@ func (r *Reporter) AddInProgressResource(res config.Config) {
 
 func (r *Reporter) DeleteInProgressResource(res config.Config) {
 	tryLedgerDelete(r.ledger, res)
+	if r.controller != nil {
+		r.controller.configDeleted(res)
+	}
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	delete(r.inProgressResources, res.Key())
@@ -327,6 +336,8 @@ func (r *Reporter) deleteKeyFromReverseMap(key string) {
 			delete(keys, key)
 			if len(r.reverseStatus[old]) < 1 {
 				delete(r.reverseStatus, old)
+				// inform the ledger that this version is no longer interesting.
+				_ = r.ledger.EraseRootHash(old)
 			}
 		}
 	}
@@ -342,4 +353,8 @@ func (r *Reporter) RegisterDisconnect(conID string, types []xds.EventType) {
 		r.deleteKeyFromReverseMap(key)
 		delete(r.status, key)
 	}
+}
+
+func (r *Reporter) SetController(controller *DistributionController) {
+	r.controller = controller
 }

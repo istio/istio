@@ -24,7 +24,6 @@ data:
       discoveryAddress: my-discovery:123
       drainDuration: 12s
       proxyMetadata:
-        DNS_AGENT: ""
         TERMINATION_DRAIN_DURATION_SECONDS: "120"
       tracing:
         zipkin:

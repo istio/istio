@@ -1,0 +1,9 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: istioctl
+issue:
+  - 30079
+
+releaseNotes:
+  - |
+    **Fixed** a bug where the env k8s setings are overrided by the env settings in the helm values.

@@ -108,6 +108,7 @@ func NewFakeDiscoveryServer(t test.Failer, opts FakeOptions) *FakeDiscoveryServe
 		s.Shutdown()
 	})
 
+	s.Env.SetLedger(&model.DisabledLedger{})
 	serviceHandler := func(svc *model.Service, _ model.Event) {
 		pushReq := &model.PushRequest{
 			Full: true,
@@ -129,7 +130,7 @@ func NewFakeDiscoveryServer(t test.Failer, opts FakeOptions) *FakeDiscoveryServe
 		opts.NetworksWatcher.AddNetworksHandler(func() {
 			s.ConfigUpdate(&model.PushRequest{
 				Full:   true,
-				Reason: []model.TriggerReason{model.GlobalUpdate},
+				Reason: []model.TriggerReason{model.NetworksTrigger},
 			})
 		})
 	}

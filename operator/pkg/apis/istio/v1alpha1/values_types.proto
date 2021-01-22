@@ -255,7 +255,9 @@ message GlobalConfig {
   //   1 - Least preferred
   //   2 - No preference
   //   3 - Most preferred
-  ArchConfig arch = 1;
+  //
+  // Deprecated: replaced by the affinity k8s settings which allows architecture nodeAffinity configuration of this behavior.
+  ArchConfig arch = 1 [deprecated=true];
 
   string configRootNamespace = 50;
 
@@ -995,6 +997,11 @@ message SidecarInjectorConfig {
   
   // defaultTemplates: ["sidecar", "hello"]
   repeated string defaultTemplates = 24;
+
+  // If enabled, the legacy webhook selection logic will be used. This relies on filtering of webhook
+  // requests in Istiod, rather than at the webhook selection level.
+  // This is option is intended for migration purposes only and will be removed in Istio 1.10.
+  google.protobuf.BoolValue useLegacySelectors = 4;
 }
 
 // Configuration for each of the supported tracers.
@@ -1093,6 +1100,8 @@ message Values {
   BaseConfig base = 37;
 
   IstiodRemoteConfig istiodRemote = 38;
+
+  repeated string revisionTags = 39;
 }
 
 // GOTYPE: map[string]interface{}

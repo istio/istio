@@ -50,7 +50,7 @@ import (
 	"istio.io/istio/security/pkg/nodeagent/cache"
 	camock "istio.io/istio/security/pkg/nodeagent/caclient/providers/mock"
 	"istio.io/istio/security/pkg/nodeagent/test/mock"
-	"istio.io/istio/security/pkg/server/ca/authenticate"
+	pkiutil "istio.io/istio/security/pkg/pki/util"
 	"istio.io/istio/tests/util/leak"
 	"istio.io/pkg/log"
 )
@@ -88,6 +88,13 @@ func TestAgent(t *testing.T) {
 		// XDS and CA are both using JWT authentication and TLS. Root certificates distributed in
 		// configmap to each namespace.
 		Setup(t).Check(cache.WorkloadKeyCertResourceName, cache.RootCertReqResourceName)
+	})
+	t.Run("RSA", func(t *testing.T) {
+		// All of the other tests use ECC for speed. Here we make sure RSA still works
+		Setup(t, func(a AgentTest) AgentTest {
+			a.Security.ECCSigAlg = ""
+			return a
+		}).Check(cache.WorkloadKeyCertResourceName, cache.RootCertReqResourceName)
 	})
 	t.Run("Kubernetes defaults output key and cert", func(t *testing.T) {
 		// same as "Kubernetes defaults", but also output the key and cert. This can be used for tools
@@ -356,6 +363,9 @@ func Setup(t *testing.T, opts ...func(a AgentTest) AgentTest) *AgentTest {
 		JWTPath:           filepath.Join(env.IstioSrc, "pkg/istio-agent/testdata/token"),
 		WorkloadNamespace: "namespace",
 		ServiceAccount:    "sa",
+		// Signing in 2048 bit RSA is extremely slow when running with -race enabled, sometimes taking 5s+ in
+		// our CI, causing flakes. We use ECC as the default to speed this up.
+		ECCSigAlg: string(pkiutil.EcdsaSigAlg),
 	}
 	resp.ProxyConfig = mesh.DefaultProxyConfig()
 	resp.ProxyConfig.DiscoveryAddress = setupDiscovery(t, resp.XdsAuthenticator, ca.KeyCertBundle.GetRootCertPem())
@@ -399,7 +409,7 @@ func (a *AgentTest) Check(expectedSDS ...string) map[string]*xds.AdsTest {
 	for _, res := range xdstest.ExtractSecretResources(a.t, resp.Resources) {
 		sds := xds.NewSdsTest(a.t, setupDownstreamConnectionUDS(a.t, a.Security.WorkloadUDSPath)).
 			WithMetadata(meta).
-			WithTimeout(time.Second * 5) // CSR can be pretty slow with race detection enabled
+			WithTimeout(time.Second * 20) // CSR can be extremely slow with race detection enabled due to 2048 RSA
 		sds.RequestResponseAck(&discovery.DiscoveryRequest{ResourceNames: []string{res}})
 		sdsStreams[res] = sds
 		gotKeys = append(gotKeys, res)
@@ -511,7 +521,7 @@ func setupCa(t *testing.T, auth *security.FakeAuthenticator) *mock.CAServer {
 	}
 	t.Cleanup(s.GRPCServer.Stop)
 
-	s.Authenticators = []authenticate.Authenticator{auth}
+	s.Authenticators = []security.Authenticator{auth}
 
 	return s
 }
@@ -582,7 +592,7 @@ spec:
     tls:
       mode: ISTIO_MUTUAL
 `})
-	ds.Discovery.Authenticators = []authenticate.Authenticator{auth}
+	ds.Discovery.Authenticators = []security.Authenticator{auth}
 	grpcServer := grpc.NewServer(opt)
 	ds.Discovery.Register(grpcServer)
 	go func() {

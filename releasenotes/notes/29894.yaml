@@ -1,0 +1,11 @@
+apiVersion: release-notes/v2
+kind: feature
+area: istioctl
+issue:
+  - 29026
+
+releaseNotes:
+- |
+  **Added** `WorkloadEntry` resources will be read from all clusters in multi-cluster installations and do not need to be duplicated.
+  Makes Virtual Machine auto-registration compatible with multi-primary multi-cluster. This feature is diabled by default and can be
+  enaled by setting the `PILOT_ENABLE_CROSS_CLUSTER_WORKLOAD_ENTRY` environment variable in istiod.

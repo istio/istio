@@ -94,17 +94,19 @@ func NewHelmReconciler(client client.Client, restConfig *rest.Config, iop *value
 	if opts.ProgressLog == nil {
 		opts.ProgressLog = progress.NewLog()
 	}
-	if waitForResourcesTimeoutStr, found := os.LookupEnv("WAIT_FOR_RESOURCES_TIMEOUT"); found {
-		if waitForResourcesTimeout, err := time.ParseDuration(waitForResourcesTimeoutStr); err == nil {
-			opts.WaitTimeout = waitForResourcesTimeout
+	if int64(opts.WaitTimeout) == 0 {
+		if waitForResourcesTimeoutStr, found := os.LookupEnv("WAIT_FOR_RESOURCES_TIMEOUT"); found {
+			if waitForResourcesTimeout, err := time.ParseDuration(waitForResourcesTimeoutStr); err == nil {
+				opts.WaitTimeout = waitForResourcesTimeout
+			} else {
+				scope.Warnf("invalid env variable value: %s for 'WAIT_FOR_RESOURCES_TIMEOUT'! falling back to default value...", waitForResourcesTimeoutStr)
+				// fallback to default wait resource timeout
+				opts.WaitTimeout = defaultWaitResourceTimeout
+			}
 		} else {
-			scope.Warnf("invalid env variable value: %s for 'WAIT_FOR_RESOURCES_TIMEOUT'! falling back to default value...", waitForResourcesTimeoutStr)
 			// fallback to default wait resource timeout
 			opts.WaitTimeout = defaultWaitResourceTimeout
 		}
-	} else {
-		// fallback to default wait resource timeout
-		opts.WaitTimeout = defaultWaitResourceTimeout
 	}
 	if iop == nil {
 		// allows controller code to function for cases where IOP is not provided (e.g. operator remove).
@@ -392,7 +394,7 @@ func (h *HelmReconciler) getCoreOwnerLabels() (map[string]string, error) {
 	if revision == "" {
 		revision = "default"
 	}
-	labels[label.IstioRev] = revision
+	labels[label.IoIstioRev.Name] = revision
 
 	return labels, nil
 }
@@ -516,7 +518,7 @@ func (h *HelmReconciler) createNamespace(namespace string, network string) error
 				},
 			}}
 			if network != "" {
-				ns.Labels[label.IstioNetwork] = network
+				ns.Labels[label.TopologyNetwork.Name] = network
 			}
 			_, err := h.clientSet.CoreV1().Namespaces().Create(context.TODO(), ns, metav1.CreateOptions{})
 			if err != nil {
