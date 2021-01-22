@@ -684,6 +684,39 @@ func (ps *PushContext) ServiceForHostname(proxy *Proxy, hostname host.Name) *Ser
 	return nil
 }
 
+// IsServiceExportTo returns true if the input service is visible to the given namespace.
+func (ps *PushContext) IsServiceExportTo(service *Service, namespace string) bool {
+	if service == nil {
+		return false
+	}
+
+	ns := service.Attributes.Namespace
+	if len(service.Attributes.ExportTo) == 0 {
+		if ps.exportToDefaults.service[visibility.Private] {
+			return ns == namespace
+		} else if ps.exportToDefaults.service[visibility.Public] {
+			return true
+		}
+	} else {
+		if service.Attributes.ExportTo[visibility.Public] {
+			return true
+		} else if service.Attributes.ExportTo[visibility.None] {
+			return false
+		} else {
+			// . or other namespaces
+			for exportTo := range service.Attributes.ExportTo {
+				if exportTo == visibility.Private && ns == namespace {
+					return true
+				} else if string(exportTo) == namespace {
+					return true
+				}
+			}
+		}
+	}
+
+	return false
+}
+
 // VirtualServicesForGateway lists all virtual services bound to the specified gateways
 // This replaces store.VirtualServices. Used only by the gateways
 // Sidecars use the egressListener.VirtualServices().

@@ -195,13 +195,22 @@ func buildNameToServiceMapForHTTPRoutes(node *model.Proxy, push *model.PushConte
 		if _, exist := nameToServiceMap[hostname]; exist {
 			return
 		}
+
+		var service *model.Service
 		// First, we obtain the service which has the same namespace as virtualService
-		if s, exist := push.ServiceIndex.HostnameAndNamespace[hostname][virtualService.Namespace]; exist {
-			nameToServiceMap[hostname] = s
-		} else {
-			// Didn't find match for our namespace, pick the service which is visible to the ConfigNamespace of node.
-			nameToServiceMap[hostname] = push.ServiceForHostname(node, hostname)
+		s, exist := push.ServiceIndex.HostnameAndNamespace[hostname][virtualService.Namespace]
+		if exist {
+			// We should check whether the selected service is visible to the proxy node.
+			if push.IsServiceExportTo(s, node.ConfigNamespace) {
+				service = s
+			}
 		}
+		// If we find no service for the namespace of virtualService or the selected service is not visible to the proxy node,
+		// we should fallback to pick one service which is visible to the ConfigNamespace of node.
+		if service == nil {
+			service = push.ServiceForHostname(node, hostname)
+		}
+		nameToServiceMap[hostname] = service
 	}
 
 	for _, httpRoute := range vs.Http {
