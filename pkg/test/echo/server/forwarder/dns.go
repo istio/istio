@@ -44,9 +44,9 @@ func checkIn(got string, want ...string) error {
 	return fmt.Errorf("got value %q, wanted one of %v", got, want)
 }
 
-func parseRequest(inputUrl string) (dnsRequest, error) {
+func parseRequest(inputURL string) (dnsRequest, error) {
 	resp := dnsRequest{}
-	u, err := url.Parse(inputUrl)
+	u, err := url.Parse(inputURL)
 	if err != nil {
 		return resp, err
 	}
