@@ -342,11 +342,11 @@ func TestServiceIndex(t *testing.T) {
 func TestIsServiceExportToProxy(t *testing.T) {
 	targetNamespace := "foo"
 	cases := []struct {
-		name string
+		name        string
 		pushContext *PushContext
-		service *Service
-		expect bool
-	} {
+		service     *Service
+		expect      bool
+	}{
 		{
 			name: "service has no exportTo map with global private",
 			pushContext: &PushContext{
@@ -396,7 +396,7 @@ func TestIsServiceExportToProxy(t *testing.T) {
 			expect: true,
 		},
 		{
-			name: "service has exportTo map with private",
+			name:        "service has exportTo map with private",
 			pushContext: &PushContext{},
 			service: &Service{
 				Attributes: ServiceAttributes{
@@ -409,7 +409,7 @@ func TestIsServiceExportToProxy(t *testing.T) {
 			expect: true,
 		},
 		{
-			name: "service has exportTo map with private",
+			name:        "service has exportTo map with private",
 			pushContext: &PushContext{},
 			service: &Service{
 				Attributes: ServiceAttributes{
@@ -422,7 +422,7 @@ func TestIsServiceExportToProxy(t *testing.T) {
 			expect: false,
 		},
 		{
-			name: "service has exportTo map with public",
+			name:        "service has exportTo map with public",
 			pushContext: &PushContext{},
 			service: &Service{
 				Attributes: ServiceAttributes{
@@ -435,7 +435,7 @@ func TestIsServiceExportToProxy(t *testing.T) {
 			expect: true,
 		},
 		{
-			name: "service has exportTo map with specific namespace",
+			name:        "service has exportTo map with specific namespace",
 			pushContext: &PushContext{},
 			service: &Service{
 				Attributes: ServiceAttributes{
@@ -448,7 +448,7 @@ func TestIsServiceExportToProxy(t *testing.T) {
 			expect: true,
 		},
 		{
-			name: "service has exportTo map with specific namespace",
+			name:        "service has exportTo map with specific namespace",
 			pushContext: &PushContext{},
 			service: &Service{
 				Attributes: ServiceAttributes{
