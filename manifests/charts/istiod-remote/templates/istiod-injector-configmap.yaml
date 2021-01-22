@@ -22,7 +22,11 @@ data:
   config: |-
     # defaultTemplates defines the default template to use for pods that do not explicitly specify a template
     # NOTE: this currently only allows a single element
+    {{- if .Values.sidecarInjectorWebhook.defaultTemplates }}
+    defaultTemplates: {{ .Values.sidecarInjectorWebhook.defaultTemplates }}
+    {{- else }}
     defaultTemplates: [sidecar]
+    {{- end }}
     policy: {{ .Values.global.proxy.autoInject }}
     alwaysInjectSelector:
 {{ toYaml .Values.sidecarInjectorWebhook.alwaysInjectSelector | trim | indent 6 }}
