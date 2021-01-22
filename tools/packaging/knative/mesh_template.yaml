@@ -23,6 +23,7 @@ defaultConfig:
     XDS_HEADER_Cloud-Run-Enable-H2: "1"
     # Redundant, agent needs to use the one from proxy config ( flag is also redundant)
     TRUST_DOMAIN: ${TRUST_DOMAIN}
+    XDS_AUTH_PROVIDER: ${XDS_AUTH_PROVIDER}
 
     XDS_TOKEN_TYPE: ${XDS_TOKEN_TYPE}
   meshId: proj-${PROJECT_NUMBER}
