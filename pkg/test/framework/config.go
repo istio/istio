@@ -19,6 +19,7 @@ import (
 
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/framework/resource"
+	"istio.io/istio/pkg/test/scopes"
 )
 
 var _ resource.ConfigManager = &configManager{}
@@ -50,10 +51,15 @@ func (c *configManager) ApplyYAML(ns string, yamlText ...string) error {
 		return err
 	}
 
-	for _, c := range c.clusters {
-		if err := c.ApplyYAMLFiles(ns, yamlFiles...); err != nil {
-			return fmt.Errorf("failed applying YAML to cluster %s: %v", c.Name(), err)
+	for _, cl := range c.clusters {
+		if err := cl.ApplyYAMLFiles(ns, yamlFiles...); err != nil {
+			return fmt.Errorf("failed applying YAML to cluster %s: %v", cl.Name(), err)
 		}
+		c.ctx.Cleanup(func() {
+			if err := cl.DeleteYAMLFiles(ns, yamlFiles...); err != nil {
+				scopes.Framework.Errorf("failed applying YAML from cluster %s: %v", cl.Name(), err)
+			}
+		})
 	}
 	return nil
 }
