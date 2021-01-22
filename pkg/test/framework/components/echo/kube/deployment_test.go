@@ -139,7 +139,7 @@ func TestDeploymentYAML(t *testing.T) {
 	}
 	for _, tc := range testCase {
 		t.Run(tc.name, func(t *testing.T) {
-			clusters, err := aggregate.NewFactory().With(cluster.Config{Name: "cluster-0"}).Build(nil)
+			clusters, err := aggregate.NewFactory().With(cluster.Config{Kind: cluster.Fake, Name: "cluster-0"}).Build(nil)
 			if err != nil {
 				t.Fatal(err)
 			}
