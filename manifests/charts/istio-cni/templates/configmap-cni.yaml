@@ -38,6 +38,10 @@ metadata:
   labels:
     app: istio-cni
     release: {{ .Release.Name }}
+    app.kubernetes.io/name: "istio-cni"
+    helm.sh/chart: {{ .Chart.Name }}-{{ .Chart.Version | replace "+" "_" }}
+    app.kubernetes.io/managed-by: {{ .Release.Service }}
+    app.kubernetes.io/instance: {{ .Release.Name }}
 data:
   config: |
         - name: istio-cni

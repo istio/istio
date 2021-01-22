@@ -28,6 +28,10 @@ metadata:
   name: istio-cni-repair-rolebinding
   labels:
     k8s-app: istio-cni-repair
+    app.kubernetes.io/name: "istio-cni"
+    helm.sh/chart: {{ .Chart.Name }}-{{ .Chart.Version | replace "+" "_" }}
+    app.kubernetes.io/managed-by: {{ .Release.Service }}
+    app.kubernetes.io/instance: {{ .Release.Name }}
 subjects:
 - kind: ServiceAccount
   name: istio-cni
@@ -44,6 +48,11 @@ kind: RoleBinding
 metadata:
   name: istio-cni-psp
   namespace: {{ .Release.Namespace }}
+  labels:
+    app.kubernetes.io/name: "istio-cni"
+    helm.sh/chart: {{ .Chart.Name }}-{{ .Chart.Version | replace "+" "_" }}
+    app.kubernetes.io/managed-by: {{ .Release.Service }}
+    app.kubernetes.io/instance: {{ .Release.Name }}
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
@@ -61,6 +70,10 @@ metadata:
   name: istio-cni-taint-rolebinding
   labels:
     k8s-app: istio-cni-taint
+    app.kubernetes.io/name: "istio-cni"
+    helm.sh/chart: {{ .Chart.Name }}-{{ .Chart.Version | replace "+" "_" }}
+    app.kubernetes.io/managed-by: {{ .Release.Service }}
+    app.kubernetes.io/instance: {{ .Release.Name }}
 subjects:
   - kind: ServiceAccount
     name: istio-cni
