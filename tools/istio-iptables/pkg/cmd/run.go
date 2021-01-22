@@ -423,7 +423,9 @@ func (iptConfigurator *IptablesConfigurator) run() {
 				// handle this case, we exclude port 53 from this rule. Note: We cannot just move the
 				// port 53 redirection rule further up the list, as we will want to avoid capturing
 				// DNS requests from the proxy UID/GID
-				iptConfigurator.iptables.AppendRuleV4(constants.ISTIOOUTPUT, constants.NAT, "-o", "lo", "-p", "tcp", "!", "--dport", "53", "-m", "owner", "!", "--uid-owner", uid, "-j", constants.RETURN)
+				iptConfigurator.iptables.AppendRuleV4(constants.ISTIOOUTPUT, constants.NAT, "-o", "lo", "-p", "tcp",
+					"!", "--dport", "53",
+					"-m", "owner", "!", "--uid-owner", uid, "-j", constants.RETURN)
 			} else {
 				iptConfigurator.iptables.AppendRuleV4(constants.ISTIOOUTPUT, constants.NAT, "-o", "lo", "-m", "owner", "!", "--uid-owner", uid, "-j", constants.RETURN)
 			}
@@ -450,7 +452,9 @@ func (iptConfigurator *IptablesConfigurator) run() {
 				// handle this case, we exclude port 53 from this rule. Note: We cannot just move the
 				// port 53 redirection rule further up the list, as we will want to avoid capturing
 				// DNS requests from the proxy UID/GID
-				iptConfigurator.iptables.AppendRuleV4(constants.ISTIOOUTPUT, constants.NAT, "-o", "lo", "-p", "tcp", "!", "--dport", "53", "-m", "owner", "!", "--gid-owner", gid, "-j", constants.RETURN)
+				iptConfigurator.iptables.AppendRuleV4(constants.ISTIOOUTPUT, constants.NAT, "-o", "lo", "-p", "tcp",
+					"!", "--dport", "53",
+					"-m", "owner", "!", "--gid-owner", gid, "-j", constants.RETURN)
 			} else {
 				iptConfigurator.iptables.AppendRuleV4(constants.ISTIOOUTPUT, constants.NAT, "-o", "lo", "-m", "owner", "!", "--gid-owner", gid, "-j", constants.RETURN)
 			}
