@@ -6,4 +6,4 @@ issue:
 
 releaseNotes:
 - |
-  **Fixed** installation issue that readiness-timeout flag is not honored.
+  **Fixed** installation issue in which `--readiness-timeout` flag is not honored.
