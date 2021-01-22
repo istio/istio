@@ -44,8 +44,13 @@ func (a aggregateFactory) With(configs ...cluster.Config) cluster.Factory {
 	return aggregateFactory{configs: append(a.configs, configs...)}
 }
 
-func (a aggregateFactory) Build(allClusters cluster.Map) (resource.Clusters, error) {
+func (a aggregateFactory) Build(allClusters cluster.Map) (clusters resource.Clusters, errs error) {
 	scopes.Framework.Infof("=== BEGIN: Building clusters ===")
+	defer func() {
+		if errs != nil {
+			scopes.Framework.Infof("=== FAILED: Building clusters ===")
+		}
+	}()
 
 	// allClusters doesn't need to be provided to aggregate, unless adding additional clusters
 	// to an existing set.
@@ -55,7 +60,6 @@ func (a aggregateFactory) Build(allClusters cluster.Map) (resource.Clusters, err
 
 	factories := make(map[cluster.Kind]cluster.Factory)
 
-	var errs error
 	// distribute configs to their factories
 	for _, origCfg := range a.configs {
 		cfg, err := validConfig(origCfg)
@@ -75,11 +79,9 @@ func (a aggregateFactory) Build(allClusters cluster.Map) (resource.Clusters, err
 		factories[cfg.Kind] = f.With(cfg)
 	}
 	if errs != nil {
-		scopes.Framework.Infof("=== FAILED: Building clusters ===")
-		return nil, errs
+		return
 	}
 	// initialize the clusters
-	var clusters resource.Clusters
 	for kind, factory := range factories {
 		scopes.Framework.Infof("Building %s clusters", kind)
 		built, err := factory.Build(allClusters)
@@ -101,8 +103,19 @@ func (a aggregateFactory) Build(allClusters cluster.Map) (resource.Clusters, err
 		return nil, errs
 	}
 	for n, c := range allClusters {
+		if _, ok := allClusters[c.PrimaryName()]; !ok {
+			errs = multierror.Append(errs, fmt.Errorf("primary %s for %s is not in the topology", c.PrimaryName(), c.Name()))
+			continue
+		}
+		if _, ok := allClusters[c.ConfigName()]; !ok {
+			errs = multierror.Append(errs, fmt.Errorf("config %s for %s is not in the topology", c.ConfigName(), c.Name()))
+			continue
+		}
 		scopes.Framework.Infof("Built Cluster: %s", n)
 		scopes.Framework.Infof("\n" + c.String())
+	}
+	if errs != nil {
+		return
 	}
 	scopes.Framework.Infof("=== DONE: Building clusters ===")
 
@@ -120,7 +133,7 @@ func validConfig(cfg cluster.Config) (cluster.Config, error) {
 		cfg.PrimaryClusterName = cfg.Name
 	}
 	if cfg.ConfigClusterName == "" {
-		cfg.ConfigClusterName = cfg.Name
+		cfg.ConfigClusterName = cfg.PrimaryClusterName
 	}
 	return cfg, nil
 }
