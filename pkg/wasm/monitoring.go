@@ -19,15 +19,15 @@ import "istio.io/pkg/monitoring"
 // Const strings for label value.
 const (
 	// For remote fetch metric.
-	fetchSuccess = "success"
-	downloadFailure = "download_failure"
+	fetchSuccess     = "success"
+	downloadFailure  = "download_failure"
 	checksumMismatch = "checksum_mismatched"
 
 	// For Wasm conversion metric.
-	conversionSuccess = "success"
-	noRemoteLoad = "no_remote_load"
-	marshalFailure = "marshal_failure"
-	fetchFailure = "fetch_failure"
+	conversionSuccess   = "success"
+	noRemoteLoad        = "no_remote_load"
+	marshalFailure      = "marshal_failure"
+	fetchFailure        = "fetch_failure"
 	missRemoteFetchHint = "miss_remote_fetch_hint"
 )
 
