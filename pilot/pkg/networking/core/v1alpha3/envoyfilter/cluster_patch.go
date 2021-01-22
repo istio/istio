@@ -41,7 +41,8 @@ const (
 // serviceMap is the map that envoyFilters specify the service or not
 // subsetMap is the map that envoyFilters specify the subset or not
 // portMap is the map that envoyFilters specify the port or not
-func GenerateEnvoyFilterMatchMap(pctx networking.EnvoyFilter_PatchContext, efw *model.EnvoyFilterWrapper) (cpw map[string][]*model.EnvoyFilterConfigPatchWrapper,
+func GenerateEnvoyFilterMatchMap(pctx networking.EnvoyFilter_PatchContext,
+	efw *model.EnvoyFilterWrapper) (cpw map[string][]*model.EnvoyFilterConfigPatchWrapper,
 	serviceMap map[string][]*model.EnvoyFilterConfigPatchWrapper,
 	subsetMap map[string][]*model.EnvoyFilterConfigPatchWrapper,
 	portMap map[string][]*model.EnvoyFilterConfigPatchWrapper) {
