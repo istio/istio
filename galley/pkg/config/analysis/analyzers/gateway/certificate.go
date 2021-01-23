@@ -64,7 +64,8 @@ func (gateway *CertificateAnalyzer) analyzeDuplicateCertificate(currentResource 
 		for _, currentServer := range currentGateway.Servers {
 			for _, server := range gateway.Servers {
 				if haveSameCertificate(currentServer.Tls, server.Tls) {
-					message := msg.NewGatewayDuplicateCertificate(currentResource)
+					gatewayNames := []string{currentGatewayFullName.String(), gatewayFullName.String()}
+					message := msg.NewGatewayDuplicateCertificate(currentResource, gatewayNames)
 
 					if line, ok := util.ErrorLine(currentResource, util.MetadataName); ok {
 						message.Line = line

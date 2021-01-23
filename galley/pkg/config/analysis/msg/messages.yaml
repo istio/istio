@@ -387,8 +387,12 @@ messages:
       - name: ports
         type: "[]int32"
 
+# https://github.com/envoyproxy/envoy/issues/6767
   - name: "GatewayDuplicateCertificate"
-    code: IST0137
-    level: Error
-    description: "Duplicate certificate in multiple gateway, causing 404"
-    template: "Duplicate certificate in multiple gateway, causing 404."
+    code: IST0138
+    level: Warning
+    description: "Duplicate certificate in multiple gateway, which may cause 404s if clients re-use HTTP2 connections."
+    template: "Duplicate certificate in multiple gateway %v, which may cause 404s if clients re-use HTTP2 connections."
+    args:
+      - name: gateways
+        type: "[]string"
