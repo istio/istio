@@ -17,10 +17,12 @@ package opentelemetry
 import (
 	"fmt"
 	"io/ioutil"
-	cluster2 "istio.io/istio/pkg/test/framework/components/cluster"
 	"strings"
 
+	cluster2 "istio.io/istio/pkg/test/framework/components/cluster"
+
 	"istio.io/istio/pkg/test/env"
+	cluster2 "istio.io/istio/pkg/test/framework/components/cluster"
 	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/resource"
 	testKube "istio.io/istio/pkg/test/kube"

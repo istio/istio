@@ -18,16 +18,18 @@ import (
 	"context"
 	"fmt"
 	"io/ioutil"
-	"istio.io/istio/pkg/test/framework/components/cluster"
 	"os"
 	"path"
 	"strings"
 	"sync"
 
+	"istio.io/istio/pkg/test/framework/components/cluster"
+
 	"github.com/gogo/protobuf/jsonpb"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
+	"istio.io/istio/pkg/test/framework/components/cluster"
 	"istio.io/istio/pkg/test/framework/resource"
 	"istio.io/istio/pkg/test/scopes"
 )

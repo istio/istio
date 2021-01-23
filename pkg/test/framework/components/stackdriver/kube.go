@@ -18,10 +18,11 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
-	cluster2 "istio.io/istio/pkg/test/framework/components/cluster"
 	"net/http"
 	"strings"
 	"time"
+
+	cluster2 "istio.io/istio/pkg/test/framework/components/cluster"
 
 	"cloud.google.com/go/compute/metadata"
 	jsonpb "github.com/golang/protobuf/jsonpb"
@@ -33,6 +34,7 @@ import (
 
 	istioKube "istio.io/istio/pkg/kube"
 	environ "istio.io/istio/pkg/test/env"
+	cluster2 "istio.io/istio/pkg/test/framework/components/cluster"
 	"istio.io/istio/pkg/test/framework/components/namespace"
 	edgespb "istio.io/istio/pkg/test/framework/components/stackdriver/edges"
 	"istio.io/istio/pkg/test/framework/resource"

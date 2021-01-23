@@ -16,10 +16,12 @@ package echo
 
 import (
 	"errors"
-	"istio.io/istio/pkg/test/framework/components/cluster"
 	"strings"
 
+	"istio.io/istio/pkg/test/framework/components/cluster"
+
 	"istio.io/istio/pkg/test"
+	"istio.io/istio/pkg/test/framework/components/cluster"
 )
 
 // Instances contains the instances created by the builder with methods for filtering

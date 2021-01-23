@@ -15,10 +15,10 @@
 package opentelemetry
 
 import (
-	"istio.io/istio/pkg/test/framework/components/cluster"
 	"net"
 	"testing"
 
+	"istio.io/istio/pkg/test/framework/components/cluster"
 	"istio.io/istio/pkg/test/framework/resource"
 )
 

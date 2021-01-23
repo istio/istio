@@ -17,12 +17,14 @@ package kube
 import (
 	"bufio"
 	"fmt"
-	"istio.io/istio/pkg/test/framework/components/cluster"
 	"strings"
 	"text/template"
 
+	"istio.io/istio/pkg/test/framework/components/cluster"
+
 	"github.com/Masterminds/sprig/v3"
 
+	"istio.io/istio/pkg/test/framework/components/cluster"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/image"
 	"istio.io/istio/pkg/test/util/tmpl"

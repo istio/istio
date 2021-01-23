@@ -17,11 +17,11 @@ package prometheus
 
 import (
 	"fmt"
-	"istio.io/istio/pkg/test/framework/components/cluster"
 	"strings"
 	"testing"
 	"time"
 
+	"istio.io/istio/pkg/test/framework/components/cluster"
 	"istio.io/istio/pkg/test/framework/components/prometheus"
 	"istio.io/istio/pkg/test/util/retry"
 )

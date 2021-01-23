@@ -19,7 +19,6 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
-	"istio.io/istio/pkg/test/framework/components/cluster"
 	"net"
 	"os"
 	"path"
@@ -27,6 +26,8 @@ import (
 	"regexp"
 	"sync"
 	"time"
+
+	"istio.io/istio/pkg/test/framework/components/cluster"
 
 	"github.com/hashicorp/go-multierror"
 	"gopkg.in/yaml.v2"
@@ -40,6 +41,7 @@ import (
 	pkgAPI "istio.io/istio/operator/pkg/apis/istio/v1alpha1"
 	"istio.io/istio/pkg/test/cert/ca"
 	testenv "istio.io/istio/pkg/test/env"
+	"istio.io/istio/pkg/test/framework/components/cluster"
 	kubecluster "istio.io/istio/pkg/test/framework/components/cluster/kube"
 	"istio.io/istio/pkg/test/framework/components/environment/kube"
 	"istio.io/istio/pkg/test/framework/components/istio/ingress"

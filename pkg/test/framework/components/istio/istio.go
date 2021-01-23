@@ -15,11 +15,13 @@
 package istio
 
 import (
-	"istio.io/istio/pkg/test/framework/components/cluster"
 	"net"
 	"time"
 
+	"istio.io/istio/pkg/test/framework/components/cluster"
+
 	"istio.io/istio/pkg/test"
+	"istio.io/istio/pkg/test/framework/components/cluster"
 	"istio.io/istio/pkg/test/framework/components/environment/kube"
 	"istio.io/istio/pkg/test/framework/components/istio/ingress"
 	"istio.io/istio/pkg/test/framework/resource"

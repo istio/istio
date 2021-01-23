@@ -17,11 +17,13 @@ package connection
 
 import (
 	"fmt"
-	"istio.io/istio/pkg/test/framework/components/cluster"
 	"time"
+
+	"istio.io/istio/pkg/test/framework/components/cluster"
 
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/echo/common/scheme"
+	"istio.io/istio/pkg/test/framework/components/cluster"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/util/retry"
 )

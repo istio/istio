@@ -17,13 +17,13 @@ package framework
 import (
 	"fmt"
 	"io/ioutil"
-	"istio.io/istio/pkg/test/framework/components/cluster"
 	"os"
 	"path"
 	"reflect"
 	"strings"
 	"sync"
 
+	"istio.io/istio/pkg/test/framework/components/cluster"
 	"istio.io/istio/pkg/test/framework/features"
 	"istio.io/istio/pkg/test/framework/label"
 	"istio.io/istio/pkg/test/framework/resource"

@@ -16,14 +16,16 @@ package kube
 
 import (
 	"fmt"
-	"istio.io/istio/pkg/test/framework/components/cluster"
 	"sync"
 	"time"
+
+	"istio.io/istio/pkg/test/framework/components/cluster"
 
 	"github.com/hashicorp/go-multierror"
 
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/test"
+	"istio.io/istio/pkg/test/framework/components/cluster"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/resource"
 	"istio.io/istio/pkg/test/kube"

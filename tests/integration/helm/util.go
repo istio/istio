@@ -18,10 +18,11 @@ package helm
 import (
 	"context"
 	"fmt"
-	"istio.io/istio/pkg/test/framework/components/cluster"
 	"path/filepath"
 	"testing"
 	"time"
+
+	"istio.io/istio/pkg/test/framework/components/cluster"
 
 	v1 "k8s.io/api/core/v1"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
@@ -29,6 +30,7 @@ import (
 
 	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/test/framework"
+	"istio.io/istio/pkg/test/framework/components/cluster"
 	"istio.io/istio/pkg/test/helm"
 	kubetest "istio.io/istio/pkg/test/kube"
 	"istio.io/istio/pkg/test/scopes"

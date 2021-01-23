@@ -17,8 +17,9 @@ package kube
 import (
 	"context"
 	"fmt"
-	cluster2 "istio.io/istio/pkg/test/framework/components/cluster"
 	"time"
+
+	cluster2 "istio.io/istio/pkg/test/framework/components/cluster"
 
 	"github.com/hashicorp/go-multierror"
 	kubeCore "k8s.io/api/core/v1"
@@ -27,6 +28,7 @@ import (
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/echo/client"
 	"istio.io/istio/pkg/test/echo/common"
+	cluster2 "istio.io/istio/pkg/test/framework/components/cluster"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/errors"
 	"istio.io/istio/pkg/test/framework/resource"

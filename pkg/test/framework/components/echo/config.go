@@ -16,12 +16,14 @@ package echo
 
 import (
 	"fmt"
-	"istio.io/istio/pkg/test/framework/components/cluster"
 	"time"
+
+	"istio.io/istio/pkg/test/framework/components/cluster"
 
 	"github.com/mitchellh/copystructure"
 
 	"istio.io/istio/pkg/test/echo/common"
+	"istio.io/istio/pkg/test/framework/components/cluster"
 	"istio.io/istio/pkg/test/framework/components/namespace"
 )
 

@@ -18,14 +18,16 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
-	"istio.io/istio/pkg/test/framework/components/cluster"
 	"os"
 	"path"
 	"path/filepath"
 	"testing"
 	"time"
 
+	"istio.io/istio/pkg/test/framework/components/cluster"
+
 	"istio.io/istio/pkg/test"
+	"istio.io/istio/pkg/test/framework/components/cluster"
 	"istio.io/istio/pkg/test/framework/errors"
 	"istio.io/istio/pkg/test/framework/label"
 	"istio.io/istio/pkg/test/framework/resource"

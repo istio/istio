@@ -18,19 +18,21 @@ package pilot
 import (
 	"context"
 	"fmt"
-	"istio.io/istio/pkg/test/echo/client"
-	"istio.io/istio/pkg/test/framework/components/echo"
-	"istio.io/istio/pkg/test/framework/label"
-	"istio.io/istio/pkg/test/util/retry"
 	"testing"
 
+
 	"golang.org/x/sync/errgroup"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
 	mesh "istio.io/api/mesh/v1alpha1"
+	"istio.io/istio/pkg/test/echo/client"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/cluster"
+	"istio.io/istio/pkg/test/framework/components/echo"
+	"istio.io/istio/pkg/test/framework/label"
 	"istio.io/istio/pkg/test/scopes"
+	"istio.io/istio/pkg/test/util/retry"
 	"istio.io/istio/pkg/util/protomarshal"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 func TestCrossClusterLoadbalancing(t *testing.T) {
@@ -138,7 +140,7 @@ func clusterLocalCleanup(ctx framework.TestContext) error {
 				// remove the item
 				meshConfig.ServiceSettings = append(
 					meshConfig.ServiceSettings[:idx],
-					meshConfig.ServiceSettings[idx+1:len(meshConfig.ServiceSettings)]...
+					meshConfig.ServiceSettings[idx+1:len(meshConfig.ServiceSettings)]...,
 				)
 			})
 		})

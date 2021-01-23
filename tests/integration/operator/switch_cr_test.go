@@ -21,11 +21,12 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
-	"istio.io/istio/pkg/test/framework/components/cluster"
 	"os"
 	"path/filepath"
 	"testing"
 	"time"
+
+	"istio.io/istio/pkg/test/framework/components/cluster"
 
 	"github.com/golang/protobuf/jsonpb"
 	"github.com/hashicorp/go-multierror"
@@ -39,6 +40,7 @@ import (
 	istioKube "istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/test/framework"
+	"istio.io/istio/pkg/test/framework/components/cluster"
 	"istio.io/istio/pkg/test/framework/components/istioctl"
 	"istio.io/istio/pkg/test/framework/image"
 	"istio.io/istio/pkg/test/framework/resource"

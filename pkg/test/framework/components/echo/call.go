@@ -17,12 +17,14 @@ package echo
 import (
 	"errors"
 	"fmt"
-	"istio.io/istio/pkg/test/framework/components/cluster"
 	"net/http"
 	"time"
 
+	"istio.io/istio/pkg/test/framework/components/cluster"
+
 	"istio.io/istio/pkg/test/echo/client"
 	"istio.io/istio/pkg/test/echo/common/scheme"
+	"istio.io/istio/pkg/test/framework/components/cluster"
 )
 
 // CallOptions defines options for calling a Endpoint.

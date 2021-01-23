@@ -19,7 +19,6 @@ import (
 	"flag"
 	"fmt"
 	"io/ioutil"
-	"istio.io/istio/pkg/test/framework/components/cluster"
 	"os"
 	"path"
 	"path/filepath"
@@ -30,8 +29,11 @@ import (
 	"testing"
 	"time"
 
+	"istio.io/istio/pkg/test/framework/components/cluster"
+
 	"gopkg.in/yaml.v2"
 
+	"istio.io/istio/pkg/test/framework/components/cluster"
 	"istio.io/istio/pkg/test/framework/components/environment/kube"
 	ferrors "istio.io/istio/pkg/test/framework/errors"
 	"istio.io/istio/pkg/test/framework/label"

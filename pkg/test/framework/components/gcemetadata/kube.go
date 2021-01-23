@@ -17,11 +17,12 @@ package gcemetadata
 import (
 	"fmt"
 	"io"
-	cluster2 "istio.io/istio/pkg/test/framework/components/cluster"
+
 
 	kubeApiCore "k8s.io/api/core/v1"
 
 	environ "istio.io/istio/pkg/test/env"
+	cluster2 "istio.io/istio/pkg/test/framework/components/cluster"
 	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/framework/resource"
 	testKube "istio.io/istio/pkg/test/kube"

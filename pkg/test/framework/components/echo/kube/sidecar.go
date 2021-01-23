@@ -18,8 +18,9 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	cluster2 "istio.io/istio/pkg/test/framework/components/cluster"
 	"strings"
+
+	cluster2 "istio.io/istio/pkg/test/framework/components/cluster"
 
 	envoyAdmin "github.com/envoyproxy/go-control-plane/envoy/admin/v3"
 	"github.com/golang/protobuf/jsonpb"
@@ -32,6 +33,7 @@ import (
 	// Import all XDS config types
 	_ "istio.io/istio/pkg/config/xds"
 	"istio.io/istio/pkg/test"
+	cluster2 "istio.io/istio/pkg/test/framework/components/cluster"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/echo/common"
 	"istio.io/istio/pkg/test/util/retry"

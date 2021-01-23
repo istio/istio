@@ -18,16 +18,18 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"istio.io/istio/pkg/test/framework/components/cluster"
 	"net"
 	"path/filepath"
 	"time"
+
+	"istio.io/istio/pkg/test/framework/components/cluster"
 
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"istio.io/istio/pkg/test/env"
+	"istio.io/istio/pkg/test/framework/components/cluster"
 	kubecluster "istio.io/istio/pkg/test/framework/components/cluster/kube"
 	"istio.io/istio/pkg/test/framework/components/environment/kube"
 	"istio.io/istio/pkg/test/framework/components/istio/ingress"

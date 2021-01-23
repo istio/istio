@@ -19,9 +19,10 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
-	cluster2 "istio.io/istio/pkg/test/framework/components/cluster"
+
 
 	environ "istio.io/istio/pkg/test/env"
+	cluster2 "istio.io/istio/pkg/test/framework/components/cluster"
 	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/framework/image"
 	"istio.io/istio/pkg/test/framework/resource"

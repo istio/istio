@@ -46,7 +46,7 @@ func TestBuild(t *testing.T) {
 				PrimaryClusterName: "auto-fill-primary",
 				// The config cluster should match the primary cluster when not specified
 				ConfigClusterName: "auto-fill-primary",
-				ClusterKind:        cluster.Fake,
+				ClusterKind:       cluster.Fake,
 			}},
 		},
 		{

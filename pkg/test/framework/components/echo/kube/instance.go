@@ -20,12 +20,13 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
-	cluster2 "istio.io/istio/pkg/test/framework/components/cluster"
 	"net"
 	"os"
 	"path"
 	"strings"
 	"time"
+
+	cluster2 "istio.io/istio/pkg/test/framework/components/cluster"
 
 	"github.com/hashicorp/go-multierror"
 	kubeCore "k8s.io/api/core/v1"
@@ -39,6 +40,7 @@ import (
 	"istio.io/istio/pkg/test"
 	appEcho "istio.io/istio/pkg/test/echo/client"
 	echoCommon "istio.io/istio/pkg/test/echo/common"
+	cluster2 "istio.io/istio/pkg/test/framework/components/cluster"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/echo/common"
 	"istio.io/istio/pkg/test/framework/components/environment/kube"

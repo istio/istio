@@ -17,12 +17,14 @@ package istio
 import (
 	"context"
 	"fmt"
-	"istio.io/istio/pkg/test/framework/components/cluster"
 	"net"
 	"time"
 
+	"istio.io/istio/pkg/test/framework/components/cluster"
+
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
+	"istio.io/istio/pkg/test/framework/components/cluster"
 	"istio.io/istio/pkg/test/framework/components/environment/kube"
 	"istio.io/istio/pkg/test/framework/resource"
 	"istio.io/istio/pkg/test/scopes"
