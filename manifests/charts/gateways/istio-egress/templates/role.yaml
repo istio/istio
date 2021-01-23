@@ -9,10 +9,7 @@ metadata:
     istio.io/rev: {{ .Values.revision | default "default" }}
     install.operator.istio.io/owning-resource: {{ .Values.ownerName | default "unknown" }}
     operator.istio.io/component: "EgressGateways"
-    app.kubernetes.io/name: "istio-egress"
-    helm.sh/chart: {{ .Chart.Name }}-{{ .Chart.Version | replace "+" "_" }}
-    app.kubernetes.io/managed-by: {{ .Release.Service }}
-    app.kubernetes.io/instance: {{ .Release.Name }}
+    {{- include "istio-egress.labels" . | nindent 4 }}
 rules:
   - apiGroups: [""]
     resources: ["secrets"]
