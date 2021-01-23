@@ -7,10 +7,7 @@ metadata:
   name: istiod-remote
   namespace: {{ .Release.Namespace }}
   labels:
-    app.kubernetes.io/name: "istio-base"
-    helm.sh/chart: {{ .Chart.Name }}-{{ .Chart.Version | replace "+" "_" }}
-    app.kubernetes.io/managed-by: {{ .Release.Service }}
-    app.kubernetes.io/instance: {{ .Release.Name }}
+    {{- include "base.labels" . | nindent 4 }}
 spec:
   ports:
   - port: 15012
@@ -25,10 +22,7 @@ metadata:
   name: istiod
   namespace: {{ .Release.Namespace }}
   labels:
-    app.kubernetes.io/name: "istio-base"
-    helm.sh/chart: {{ .Chart.Name }}-{{ .Chart.Version | replace "+" "_" }}
-    app.kubernetes.io/managed-by: {{ .Release.Service }}
-    app.kubernetes.io/instance: {{ .Release.Name }}
+    {{- include "base.labels" . | nindent 4 }}
 spec:
   ports:
   - port: 15012

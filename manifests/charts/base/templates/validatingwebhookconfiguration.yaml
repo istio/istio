@@ -7,10 +7,7 @@ metadata:
     app: istiod
     release: {{ .Release.Name }}
     istio: istiod
-    app.kubernetes.io/name: "istio-base"
-    helm.sh/chart: {{ .Chart.Name }}-{{ .Chart.Version | replace "+" "_" }}
-    app.kubernetes.io/managed-by: {{ .Release.Service }}
-    app.kubernetes.io/instance: {{ .Release.Name }}
+    {{- include "base.labels" . | nindent 4 }}
 webhooks:
   - name: validation.istio.io
     clientConfig:

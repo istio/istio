@@ -5,10 +5,7 @@ metadata:
   labels:
     app: istiod
     release: {{ .Release.Name }}
-    app.kubernetes.io/name: "istio-base"
-    helm.sh/chart: {{ .Chart.Name }}-{{ .Chart.Version | replace "+" "_" }}
-    app.kubernetes.io/managed-by: {{ .Release.Service }}
-    app.kubernetes.io/instance: {{ .Release.Name }}
+    {{- include "base.labels" . | nindent 4 }}
 rules:
   # sidecar injection controller
   - apiGroups: ["admissionregistration.k8s.io"]
@@ -115,10 +112,7 @@ metadata:
   labels:
     app: istio-reader
     release: {{ .Release.Name }}
-    app.kubernetes.io/name: "istio-base"
-    helm.sh/chart: {{ .Chart.Name }}-{{ .Chart.Version | replace "+" "_" }}
-    app.kubernetes.io/managed-by: {{ .Release.Service }}
-    app.kubernetes.io/instance: {{ .Release.Name }}
+    {{- include "base.labels" . | nindent 4 }}
 rules:
   - apiGroups:
       - "config.istio.io"
