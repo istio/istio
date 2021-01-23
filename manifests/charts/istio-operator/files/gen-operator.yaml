@@ -7,10 +7,10 @@ metadata:
   labels:
     istio-operator-managed: Reconcile
     istio-injection: disabled
-    app.kubernetes.io/name: "istio-operator"
     helm.sh/chart: istio-operator-1.7.0
-    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/name: istio-operator
     app.kubernetes.io/instance: operator
+    app.kubernetes.io/managed-by: Helm
 ---
 # Source: istio-operator/templates/service_account.yaml
 apiVersion: v1
@@ -19,22 +19,21 @@ metadata:
   namespace: istio-operator
   name: istio-operator
   labels:
-    app.kubernetes.io/name: "istio-operator"
     helm.sh/chart: istio-operator-1.7.0
-    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/name: istio-operator
     app.kubernetes.io/instance: operator
+    app.kubernetes.io/managed-by: Helm
 ---
 # Source: istio-operator/templates/clusterrole.yaml
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
-  creationTimestamp: null
   name: istio-operator
   labels:
-    app.kubernetes.io/name: "istio-operator"
     helm.sh/chart: istio-operator-1.7.0
-    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/name: istio-operator
     app.kubernetes.io/instance: operator
+    app.kubernetes.io/managed-by: Helm
 rules:
 # istio groups
 - apiGroups:
@@ -153,10 +152,10 @@ apiVersion: rbac.authorization.k8s.io/v1
 metadata:
   name: istio-operator
   labels:
-    app.kubernetes.io/name: "istio-operator"
     helm.sh/chart: istio-operator-1.7.0
-    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/name: istio-operator
     app.kubernetes.io/instance: operator
+    app.kubernetes.io/managed-by: Helm
 subjects:
 - kind: ServiceAccount
   name: istio-operator
@@ -173,10 +172,10 @@ metadata:
   namespace: istio-operator
   labels:
     name: istio-operator
-    app.kubernetes.io/name: "istio-operator"
     helm.sh/chart: istio-operator-1.7.0
-    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/name: istio-operator
     app.kubernetes.io/instance: operator
+    app.kubernetes.io/managed-by: Helm
   name: istio-operator
 spec:
   ports:
@@ -194,10 +193,10 @@ metadata:
   namespace: istio-operator
   name: istio-operator
   labels:
-    app.kubernetes.io/name: "istio-operator"
     helm.sh/chart: istio-operator-1.7.0
-    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/name: istio-operator
     app.kubernetes.io/instance: operator
+    app.kubernetes.io/managed-by: Helm
 spec:
   replicas: 1
   selector:
