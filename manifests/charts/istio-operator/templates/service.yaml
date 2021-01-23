@@ -4,10 +4,7 @@ metadata:
   namespace: {{.Values.operatorNamespace}}
   labels:
     name: istio-operator
-    app.kubernetes.io/name: "istio-operator"
-    helm.sh/chart: {{ .Chart.Name }}-{{ .Chart.Version | replace "+" "_" }}
-    app.kubernetes.io/managed-by: {{ .Release.Service }}
-    app.kubernetes.io/instance: {{ .Release.Name }}
+    {{- include "istio-operator.labels" . | nindent 4 }}
   name: istio-operator{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}
 spec:
   ports:
