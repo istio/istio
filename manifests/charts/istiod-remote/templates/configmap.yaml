@@ -79,7 +79,7 @@ metadata:
     install.operator.istio.io/owning-resource: {{ .Values.ownerName | default "unknown" }}
     operator.istio.io/component: "Pilot"
     release: {{ .Release.Name }}
-    {{- include "istiod.labels" . | nindent 4 }}
+    {{- include "istiod-remote.labels" . | nindent 4 }}
 data:
 
   # Configuration file for the mesh networks to be used by the Split Horizon EDS.
