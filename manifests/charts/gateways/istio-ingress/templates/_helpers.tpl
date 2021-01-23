@@ -1,7 +1,3 @@
-{{- define "istio-ingress.name" -}}
-{{- default .Chart.Name | trunc 63 | trimSuffix "-" }}
-{{- end }}
-
 {{/*
 Create chart name and version as used by the chart label.
 */}}
@@ -25,6 +21,6 @@ app.kubernetes.io/managed-by: {{ .Release.Service }}
 Selector labels
 */}}
 {{- define "istio-ingress.selectorLabels" -}}
-app.kubernetes.io/name: {{ include "istio-ingress.name" . }}
+app.kubernetes.io/name: {{ .Chart.Name }}
 app.kubernetes.io/instance: {{ .Release.Name }}
 {{- end }}

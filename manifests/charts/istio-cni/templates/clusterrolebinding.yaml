@@ -9,9 +9,7 @@ metadata:
     install.operator.istio.io/owning-resource: {{ .Values.ownerName | default "unknown" }}
     operator.istio.io/component: "Cni"
     app.kubernetes.io/name: "istio-cni"
-    helm.sh/chart: {{ .Chart.Name }}-{{ .Chart.Version | replace "+" "_" }}
-    app.kubernetes.io/managed-by: {{ .Release.Service }}
-    app.kubernetes.io/instance: {{ .Release.Name }}
+    {{- include "istio-cni.labels" . | nindent 4 }}
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
@@ -28,10 +26,7 @@ metadata:
   name: istio-cni-repair-rolebinding
   labels:
     k8s-app: istio-cni-repair
-    app.kubernetes.io/name: "istio-cni"
-    helm.sh/chart: {{ .Chart.Name }}-{{ .Chart.Version | replace "+" "_" }}
-    app.kubernetes.io/managed-by: {{ .Release.Service }}
-    app.kubernetes.io/instance: {{ .Release.Name }}
+    {{- include "istio-cni.labels" . | nindent 4 }}
 subjects:
 - kind: ServiceAccount
   name: istio-cni
@@ -50,9 +45,7 @@ metadata:
   namespace: {{ .Release.Namespace }}
   labels:
     app.kubernetes.io/name: "istio-cni"
-    helm.sh/chart: {{ .Chart.Name }}-{{ .Chart.Version | replace "+" "_" }}
-    app.kubernetes.io/managed-by: {{ .Release.Service }}
-    app.kubernetes.io/instance: {{ .Release.Name }}
+    {{- include "istio-cni.labels" . | nindent 4 }}
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
@@ -71,9 +64,7 @@ metadata:
   labels:
     k8s-app: istio-cni-taint
     app.kubernetes.io/name: "istio-cni"
-    helm.sh/chart: {{ .Chart.Name }}-{{ .Chart.Version | replace "+" "_" }}
-    app.kubernetes.io/managed-by: {{ .Release.Service }}
-    app.kubernetes.io/instance: {{ .Release.Name }}
+    {{- include "istio-cni.labels" . | nindent 4 }}
 subjects:
   - kind: ServiceAccount
     name: istio-cni
