@@ -111,6 +111,7 @@ func (s *Server) initCertController(args *PilotArgs) error {
 // TODO: If the discovery address in mesh.yaml is set to port 15012 (XDS-with-DNS-certs) and the name
 // matches the k8s namespace, failure to start DNS server is a fatal error.
 func (s *Server) initDNSCerts(hostname, customHost, namespace string) error {
+	var pilotUseK8sCA bool = false
 	// Name in the Istiod cert - support the old service names as well.
 	// validate hostname contains namespace
 	parts := strings.Split(hostname, ".")
@@ -136,13 +137,16 @@ func (s *Server) initDNSCerts(hostname, customHost, namespace string) error {
 	var certChain, keyPEM []byte
 	var err error
 
-	k8sDefaultSignerSupported, k8sVersion := kubeDefaultSignerSupported(s.kubeClient)
-	if !k8sDefaultSignerSupported && features.PilotCertProvider.Get() == KubernetesCAProvider {
-		log.Errorf("Unable to sign DNS certificates using Chiron in current deployment."+
-			"Kubernetes legacy signer is not supported for Kubernetes version 1.%s.0 onwards"+
-			"Falling back to self signed certificate", k8sVersion)
+	if features.PilotCertProvider.Get() == KubernetesCAProvider {
+		var k8sVersion string
+		pilotUseK8sCA, k8sVersion = kubeDefaultSignerSupported(s.kubeClient)
+		if !pilotUseK8sCA {
+			log.Errorf("Unable to sign DNS certificates using Chiron in current deployment. "+
+				"Kubernetes legacy signer is not supported from Kubernetes version 1.%s.0 onwards. "+
+				"Falling back to using istiod to sign DNS certificate", k8sVersion)
+		}
 	}
-	if features.PilotCertProvider.Get() == KubernetesCAProvider && k8sDefaultSignerSupported {
+	if pilotUseK8sCA {
 		log.Infof("Generating K8S-signed cert for %v", names)
 		certChain, keyPEM, _, err = chiron.GenKeyCertK8sCA(s.kubeClient.CertificatesV1beta1().CertificateSigningRequests(),
 			strings.Join(names, ","), hostnamePrefix+".csr.secret", namespace, defaultCACertPath)

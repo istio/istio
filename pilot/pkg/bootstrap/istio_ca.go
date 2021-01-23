@@ -263,10 +263,13 @@ func detectAuthEnv(jwt string) (*authenticate.JwtPayload, error) {
 // Save the root public key file and initialize the path the the file, to be used by other
 // components.
 func (s *Server) initPublicKey() error {
+	var pilotUseK8sCA bool = false
 
 	// Setup the root cert chain and caBundlePath - before calling initDNSListener.
-	k8sDefaultSignerSupported, _ := kubeDefaultSignerSupported(s.kubeClient)
-	if features.PilotCertProvider.Get() == KubernetesCAProvider && k8sDefaultSignerSupported {
+	if features.PilotCertProvider.Get() == KubernetesCAProvider {
+		pilotUseK8sCA, _ = kubeDefaultSignerSupported(s.kubeClient)
+	}
+	if pilotUseK8sCA {
 		s.caBundlePath = defaultCACertPath
 	} else if features.PilotCertProvider.Get() == IstiodCAProvider {
 		signingKeyFile := path.Join(LocalCertDir.Get(), "ca-key.pem")
@@ -445,6 +448,9 @@ func (s *Server) createIstioRA(client kubelib.Client,
 }
 
 func kubeDefaultSignerSupported(client kubelib.Client) (bool, string) {
+	if client == nil {
+		return false, ""
+	}
 	version, err := k8sversion.GetKubernetesVersion(client.RESTConfig())
 	if err != nil {
 		return false, ""
