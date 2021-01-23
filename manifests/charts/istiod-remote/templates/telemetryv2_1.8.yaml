@@ -133,10 +133,7 @@ metadata:
   {{- end }}
   labels:
     istio.io/rev: {{ .Values.revision | default "default" }}
-    app.kubernetes.io/name: "istiod"
-    helm.sh/chart: {{ .Chart.Name }}-{{ .Chart.Version | replace "+" "_" }}
-    app.kubernetes.io/managed-by: {{ .Release.Service }}
-    app.kubernetes.io/instance: {{ .Release.Name }}
+    {{- include "istiod-remote.labels" . | nindent 4 }}
 spec:
   configPatches:
     - applyTo: NETWORK_FILTER
@@ -200,10 +197,7 @@ metadata:
   {{- end }}
   labels:
     istio.io/rev: {{ .Values.revision | default "default" }}
-    app.kubernetes.io/name: "istiod"
-    helm.sh/chart: {{ .Chart.Name }}-{{ .Chart.Version | replace "+" "_" }}
-    app.kubernetes.io/managed-by: {{ .Release.Service }}
-    app.kubernetes.io/instance: {{ .Release.Name }}
+    {{- include "istiod-remote.labels" . | nindent 4 }}
 spec:
   configPatches:
     - applyTo: HTTP_FILTER
@@ -381,10 +375,7 @@ metadata:
   {{- end }}
   labels:
     istio.io/rev: {{ .Values.revision | default "default" }}
-    app.kubernetes.io/name: "istiod"
-    helm.sh/chart: {{ .Chart.Name }}-{{ .Chart.Version | replace "+" "_" }}
-    app.kubernetes.io/managed-by: {{ .Release.Service }}
-    app.kubernetes.io/instance: {{ .Release.Name }}
+    {{- include "istiod-remote.labels" . | nindent 4 }}
 spec:
   configPatches:
     - applyTo: NETWORK_FILTER
@@ -557,10 +548,7 @@ metadata:
   {{- end }}
   labels:
     istio.io/rev: {{ .Values.revision | default "default" }}
-    app.kubernetes.io/name: "istiod"
-    helm.sh/chart: {{ .Chart.Name }}-{{ .Chart.Version | replace "+" "_" }}
-    app.kubernetes.io/managed-by: {{ .Release.Service }}
-    app.kubernetes.io/instance: {{ .Release.Name }}
+    {{- include "istiod-remote.labels" . | nindent 4 }}
 spec:
   configPatches:
 {{- if not .Values.telemetry.v2.stackdriver.disableOutbound }}
@@ -679,10 +667,7 @@ metadata:
   {{- end }}
   labels:
     istio.io/rev: {{ .Values.revision | default "default" }}
-    app.kubernetes.io/name: "istiod"
-    helm.sh/chart: {{ .Chart.Name }}-{{ .Chart.Version | replace "+" "_" }}
-    app.kubernetes.io/managed-by: {{ .Release.Service }}
-    app.kubernetes.io/instance: {{ .Release.Name }}
+    {{- include "istiod-remote.labels" . | nindent 4 }}
 spec:
   configPatches:
   {{- if not .Values.telemetry.v2.stackdriver.disableOutbound }}
@@ -796,10 +781,7 @@ metadata:
   {{- end }}
   labels:
     istio.io/rev: {{ .Values.revision | default "default" }}
-    app.kubernetes.io/name: "istiod"
-    helm.sh/chart: {{ .Chart.Name }}-{{ .Chart.Version | replace "+" "_" }}
-    app.kubernetes.io/managed-by: {{ .Release.Service }}
-    app.kubernetes.io/instance: {{ .Release.Name }}
+    {{- include "istiod-remote.labels" . | nindent 4 }}
 spec:
   configPatches:
     - applyTo: HTTP_FILTER

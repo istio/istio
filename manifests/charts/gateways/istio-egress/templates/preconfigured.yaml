@@ -32,10 +32,7 @@ metadata:
   labels:
 {{ $gateway.labels | toYaml | indent 4 }}
     release: {{ .Release.Name }}
-    app.kubernetes.io/name: "istio-egress"
-    helm.sh/chart: {{ .Chart.Name }}-{{ .Chart.Version | replace "+" "_" }}
-    app.kubernetes.io/managed-by: {{ .Release.Service }}
-    app.kubernetes.io/instance: {{ .Release.Name }}
+    {{- include "istio-egress.labels" . | nindent 4 }}
 spec:
   gateways:
   - istio-multicluster-egressgateway
@@ -61,10 +58,7 @@ metadata:
   labels:
 {{ $gateway.labels | toYaml | indent 4 }}
     release: {{ .Release.Name }}
-    app.kubernetes.io/name: "istio-egress"
-    helm.sh/chart: {{ .Chart.Name }}-{{ .Chart.Version | replace "+" "_" }}
-    app.kubernetes.io/managed-by: {{ .Release.Service }}
-    app.kubernetes.io/instance: {{ .Release.Name }}
+    {{- include "istio-egress.labels" . | nindent 4 }}
 spec:
   workloadLabels:
     istio: egressgateway
@@ -85,10 +79,7 @@ metadata:
   labels:
 {{ $gateway.labels | toYaml | indent 4 }}
     release: {{ .Release.Name }}
-    app.kubernetes.io/name: "istio-egress"
-    helm.sh/chart: {{ .Chart.Name }}-{{ .Chart.Version | replace "+" "_" }}
-    app.kubernetes.io/managed-by: {{ .Release.Service }}
-    app.kubernetes.io/instance: {{ .Release.Name }}
+    {{- include "istio-egress.labels" . | nindent 4 }}
 spec:
   host: "*.{{ $gateway.zvpn.suffix }}"
   trafficPolicy:

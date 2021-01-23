@@ -34,10 +34,7 @@ metadata:
   labels:
 {{ $gateway.labels | toYaml | indent 4 }}
     release: {{ .Release.Name }}
-    app.kubernetes.io/name: "istio-ingress"
-    helm.sh/chart: {{ .Chart.Name }}-{{ .Chart.Version | replace "+" "_" }}
-    app.kubernetes.io/managed-by: {{ .Release.Service }}
-    app.kubernetes.io/instance: {{ .Release.Name }}
+    {{- include "istio-ingress.labels" . | nindent 4 }}
 spec:
   workloadSelector:
     labels:
@@ -70,10 +67,7 @@ metadata:
   labels:
 {{ $gateway.labels | toYaml | indent 4 }}
     release: {{ .Release.Name }}
-    app.kubernetes.io/name: "istio-ingress"
-    helm.sh/chart: {{ .Chart.Name }}-{{ .Chart.Version | replace "+" "_" }}
-    app.kubernetes.io/managed-by: {{ .Release.Service }}
-    app.kubernetes.io/instance: {{ .Release.Name }}
+    {{- include "istio-ingress.labels" . | nindent 4 }}
 spec:
   host: "*.{{ .Values.global.multiCluster.globalDomainSuffix | trim }}"
   {{- if .Values.global.defaultConfigVisibilitySettings }}
