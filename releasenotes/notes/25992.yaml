@@ -11,7 +11,7 @@ releaseNotes:
     **Fixed** failed Helm installations not adopting existing resources
 
 upgradeNotes:
-  - title: Helm chart now use recommended labels
+  - title: Helm charts now use recommended labels
     content: |
       When a user experiences a failed upgrade they should be able to safely and easily re-run installs/upgrade without uninstalling Istio.
 
