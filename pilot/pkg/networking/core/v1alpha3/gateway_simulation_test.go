@@ -442,6 +442,82 @@ spec:
 			},
 		},
 		simulationTest{
+			name:           "duplicate tls virtual service",
+			skipValidation: true,
+			// Create the same virtual service in two namespaces
+			config: `
+apiVersion: networking.istio.io/v1alpha3
+kind: Gateway
+metadata:
+  name: ingressgateway
+  namespace: istio-system
+spec:
+  selector:
+    istio: ingressgateway
+  servers:
+  - hosts:
+    - '*.example.com'
+    port:
+      name: https
+      number: 443
+      protocol: HTTPS
+    tls:
+      mode: PASSTHROUGH
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
+metadata:
+  name: vs1
+  namespace: default
+spec:
+  gateways:
+  - istio-system/ingressgateway
+  hosts:
+  - mysite.example.com
+  tls:
+  - match:
+    - port: 443
+      sniHosts:
+      - mysite.example.com
+    route:
+    - destination:
+        host: mysite.default.svc.cluster.local
+        port:
+          number: 443
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
+metadata:
+  name: vs2
+  namespace: default
+spec:
+  gateways:
+  - istio-system/ingressgateway
+  hosts:
+  - mysite.example.com
+  tls:
+  - match:
+    - port: 443
+      sniHosts:
+      - mysite.example.com
+    route:
+    - destination:
+        host: mysite.default.svc.cluster.local
+        port:
+          number: 443
+`,
+			calls: []simulation.Expect{
+				{
+					// TODO(https://github.com/istio/istio/issues/24638) This is a bug!
+					// We should not have multiple matches, envoy will NACK this
+
+					"call",
+					simulation.Call{Port: 443, Protocol: simulation.HTTP, TLS: simulation.TLS, HostHeader: "mysite.example.com"},
+					simulation.Result{Error: simulation.ErrMultipleFilterChain},
+				},
+			},
+		},
+		simulationTest{
 			// TODO(https://github.com/istio/istio/issues/27481) this may be a bug. At very least, this should have indication to user
 			name: "multiple protocols on a port - tcp first",
 			config: createGateway("alpha", "", tcpServer) +
