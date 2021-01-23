@@ -313,17 +313,17 @@ func NewServer(args *PilotArgs) (*Server, error) {
 		&authenticate.ClientCertAuthenticator{},
 		kubeauth.NewKubeJWTAuthenticator(s.kubeClient, s.clusterID, s.multicluster.GetRemoteKubeClient, spiffe.GetTrustDomain(), features.JwtPolicy.Get()),
 	}
-	if features.XDSAuth {
-		if args.JwtRule != "" {
-			jwtAuthn, err := initOIDC(args, s.environment.Mesh().TrustDomain)
-			if err != nil {
-				return nil, fmt.Errorf("error initializing OIDC: %v", err)
-			}
-			if jwtAuthn == nil {
-				return nil, fmt.Errorf("JWT authenticator is nil")
-			}
-			authenticators = append(authenticators, jwtAuthn)
+	if args.JwtRule != "" {
+		jwtAuthn, err := initOIDC(args, s.environment.Mesh().TrustDomain)
+		if err != nil {
+			return nil, fmt.Errorf("error initializing OIDC: %v", err)
 		}
+		if jwtAuthn == nil {
+			return nil, fmt.Errorf("JWT authenticator is nil")
+		}
+		authenticators = append(authenticators, jwtAuthn)
+	}
+	if features.XDSAuth {
 		s.XDSServer.Authenticators = authenticators
 	}
 	caOpts.Authenticators = authenticators
