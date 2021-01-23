@@ -173,6 +173,7 @@ data:
       "revision": "",
       "sidecarInjectorWebhook": {
         "alwaysInjectSelector": [],
+        "defaultTemplates": [],
         "enableNamespacesByDefault": false,
         "injectedAnnotations": {},
         "neverInjectSelector": [],
