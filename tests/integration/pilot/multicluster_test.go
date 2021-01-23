@@ -1,23 +1,60 @@
+// +build integ
+// Copyright Istio Authors
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package pilot
 
 import (
 	"context"
 	"fmt"
+	"istio.io/istio/pkg/test/echo/client"
 	"istio.io/istio/pkg/test/framework/components/echo"
+	"istio.io/istio/pkg/test/framework/label"
 	"istio.io/istio/pkg/test/util/retry"
 	"testing"
 
 	"golang.org/x/sync/errgroup"
-	"gopkg.in/yaml.v2"
-
 	mesh "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/cluster"
 	"istio.io/istio/pkg/test/scopes"
 	"istio.io/istio/pkg/util/protomarshal"
-	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
+
+func TestCrossClusterLoadbalancing(t *testing.T) {
+	framework.NewTest(t).
+		Label(label.Multicluster).
+		Run(func(ctx framework.TestContext) {
+			ctx.NewSubTest("loadbalancing").
+				Run(func(ctx framework.TestContext) {
+					for _, src := range apps.PodA {
+						src := src
+						ctx.NewSubTest(fmt.Sprintf("from %s", src.Config().Cluster.Name())).
+							Run(func(ctx framework.TestContext) {
+								srcNetwork := src.Config().Cluster.NetworkName()
+								src.CallOrFail(ctx, echo.CallOptions{
+									PortName:  "http",
+									Target:    apps.PodB[0],
+									Count:     10,
+									Validator: checkEqualIntraNetworkTraffic(ctx.Clusters(), srcNetwork),
+								})
+							})
+					}
+				})
+		})
+}
 
 func TestClusterLocal(t *testing.T) {
 	framework.NewTest(t).
@@ -127,4 +164,21 @@ func patchMeshConfig(c cluster.Cluster, patch func(config *mesh.MeshConfig)) err
 	cm.Data["mesh"], err = protomarshal.ToYAML(meshConfig)
 	_, err = c.Kube().CoreV1().ConfigMaps(ns).Update(context.TODO(), cm, metav1.UpdateOptions{})
 	return err
+}
+
+func checkEqualIntraNetworkTraffic(clusters cluster.Clusters, srcNetwork string) echo.Validator {
+	// expect same network traffic to have very equal distribution (20% error)
+	intraNetworkClusters := clusters.ByNetwork()[srcNetwork]
+	return echo.ValidatorFunc(func(res client.ParsedResponses, err error) error {
+		if err != nil {
+			return err
+		}
+		intraNetworkRes := res.Match(func(r *client.ParsedResponse) bool {
+			return srcNetwork == clusters.GetByName(r.Cluster).NetworkName()
+		})
+		if err := intraNetworkRes.CheckEqualClusterTraffic(intraNetworkClusters, 20); err != nil {
+			return fmt.Errorf("same network traffic was not even: %v", err)
+		}
+		return nil
+	})
 }
