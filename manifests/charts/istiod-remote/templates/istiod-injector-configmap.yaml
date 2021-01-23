@@ -9,7 +9,7 @@ metadata:
     install.operator.istio.io/owning-resource: {{ .Values.ownerName | default "unknown" }}
     operator.istio.io/component: "Pilot"
     release: {{ .Release.Name }}
-    {{- include "istiod-remote.labels" . | nindent 4 }}
+    {{- include "istiod.labels" . | nindent 4 }}
 data:
 {{/* Scope the values to just top level fields used in the template, to reduce the size. */}}
   values: |-

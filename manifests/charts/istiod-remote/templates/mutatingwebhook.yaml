@@ -38,7 +38,7 @@ metadata:
     operator.istio.io/component: "Pilot"
     app: sidecar-injector
     release: {{ .Release.Name }}
-    {{- include "istiod-remote.labels" . | nindent 4 }}
+    {{- include "istiod.labels" . | nindent 4 }}
 webhooks:
 {{- if .Values.sidecarInjectorWebhook.useLegacySelectors}}
 {{- /* Setup the "legacy" selectors. These are for backwards compatibility, will be removed in the future. */}}
