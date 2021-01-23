@@ -12,10 +12,10 @@ metadata:
     operator.istio.io/component: "Pilot"
     release: istio
     istio: pilot
-    app.kubernetes.io/name: "istiod"
     helm.sh/chart: istio-discovery-1.2.0
-    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/name: istio-discovery
     app.kubernetes.io/instance: istio
+    app.kubernetes.io/managed-by: Helm
 spec:
   minAvailable: 1
   selector:
@@ -34,10 +34,10 @@ metadata:
     install.operator.istio.io/owning-resource: unknown
     operator.istio.io/component: "Pilot"
     release: istio
-    app.kubernetes.io/name: "istiod"
     helm.sh/chart: istio-discovery-1.2.0
-    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/name: istio-discovery
     app.kubernetes.io/instance: istio
+    app.kubernetes.io/managed-by: Helm
 data:
 
   # Configuration file for the mesh networks to be used by the Split Horizon EDS.
@@ -65,10 +65,10 @@ metadata:
     install.operator.istio.io/owning-resource: unknown
     operator.istio.io/component: "Pilot"
     release: istio
-    app.kubernetes.io/name: "istiod"
     helm.sh/chart: istio-discovery-1.2.0
-    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/name: istio-discovery
     app.kubernetes.io/instance: istio
+    app.kubernetes.io/managed-by: Helm
 data:
 
   values: |-
@@ -721,10 +721,10 @@ metadata:
     app: istiod
     istio: pilot
     release: istio
-    app.kubernetes.io/name: "istiod"
     helm.sh/chart: istio-discovery-1.2.0
-    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/name: istio-discovery
     app.kubernetes.io/instance: istio
+    app.kubernetes.io/managed-by: Helm
 spec:
   ports:
     - port: 15010
@@ -759,10 +759,10 @@ metadata:
     operator.istio.io/component: "Pilot"
     istio: pilot
     release: istio
-    app.kubernetes.io/name: "istiod"
     helm.sh/chart: istio-discovery-1.2.0
-    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/name: istio-discovery
     app.kubernetes.io/instance: istio
+    app.kubernetes.io/managed-by: Helm
 spec:
   strategy:
     rollingUpdate:
@@ -921,10 +921,10 @@ metadata:
     istio.io/rev: default
     install.operator.istio.io/owning-resource: unknown
     operator.istio.io/component: "Pilot"
-    app.kubernetes.io/name: "istiod"
     helm.sh/chart: istio-discovery-1.2.0
-    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/name: istio-discovery
     app.kubernetes.io/instance: istio
+    app.kubernetes.io/managed-by: Helm
 spec:
   maxReplicas: 5
   minReplicas: 1
@@ -949,10 +949,10 @@ metadata:
     istio.io/rev: default
     install.operator.istio.io/owning-resource: unknown
     operator.istio.io/component: "Pilot"
-    app.kubernetes.io/name: "istiod"
     helm.sh/chart: istio-discovery-1.2.0
-    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/name: istio-discovery
     app.kubernetes.io/instance: istio
+    app.kubernetes.io/managed-by: Helm
 spec:
   configPatches:
     - applyTo: HTTP_FILTER
@@ -1045,10 +1045,10 @@ metadata:
   namespace: istio-system
   labels:
     istio.io/rev: default
-    app.kubernetes.io/name: "istiod"
     helm.sh/chart: istio-discovery-1.2.0
-    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/name: istio-discovery
     app.kubernetes.io/instance: istio
+    app.kubernetes.io/managed-by: Helm
 spec:
   configPatches:
     - applyTo: NETWORK_FILTER
@@ -1108,10 +1108,10 @@ metadata:
   namespace: istio-system
   labels:
     istio.io/rev: default
-    app.kubernetes.io/name: "istiod"
     helm.sh/chart: istio-discovery-1.2.0
-    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/name: istio-discovery
     app.kubernetes.io/instance: istio
+    app.kubernetes.io/managed-by: Helm
 spec:
   configPatches:
     - applyTo: HTTP_FILTER
@@ -1251,10 +1251,10 @@ metadata:
   namespace: istio-system
   labels:
     istio.io/rev: default
-    app.kubernetes.io/name: "istiod"
     helm.sh/chart: istio-discovery-1.2.0
-    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/name: istio-discovery
     app.kubernetes.io/instance: istio
+    app.kubernetes.io/managed-by: Helm
 spec:
   configPatches:
     - applyTo: NETWORK_FILTER
@@ -1389,10 +1389,10 @@ metadata:
     istio.io/rev: default
     install.operator.istio.io/owning-resource: unknown
     operator.istio.io/component: "Pilot"
-    app.kubernetes.io/name: "istiod"
     helm.sh/chart: istio-discovery-1.2.0
-    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/name: istio-discovery
     app.kubernetes.io/instance: istio
+    app.kubernetes.io/managed-by: Helm
 spec:
   configPatches:
     - applyTo: HTTP_FILTER
@@ -1485,10 +1485,10 @@ metadata:
   namespace: istio-system
   labels:
     istio.io/rev: default
-    app.kubernetes.io/name: "istiod"
     helm.sh/chart: istio-discovery-1.2.0
-    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/name: istio-discovery
     app.kubernetes.io/instance: istio
+    app.kubernetes.io/managed-by: Helm
 spec:
   configPatches:
     - applyTo: NETWORK_FILTER
@@ -1548,10 +1548,10 @@ metadata:
   namespace: istio-system
   labels:
     istio.io/rev: default
-    app.kubernetes.io/name: "istiod"
     helm.sh/chart: istio-discovery-1.2.0
-    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/name: istio-discovery
     app.kubernetes.io/instance: istio
+    app.kubernetes.io/managed-by: Helm
 spec:
   configPatches:
     - applyTo: HTTP_FILTER
@@ -1661,10 +1661,10 @@ metadata:
   namespace: istio-system
   labels:
     istio.io/rev: default
-    app.kubernetes.io/name: "istiod"
     helm.sh/chart: istio-discovery-1.2.0
-    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/name: istio-discovery
     app.kubernetes.io/instance: istio
+    app.kubernetes.io/managed-by: Helm
 spec:
   configPatches:
     - applyTo: NETWORK_FILTER
@@ -1769,10 +1769,10 @@ metadata:
     istio.io/rev: default
     install.operator.istio.io/owning-resource: unknown
     operator.istio.io/component: "Pilot"
-    app.kubernetes.io/name: "istiod"
     helm.sh/chart: istio-discovery-1.2.0
-    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/name: istio-discovery
     app.kubernetes.io/instance: istio
+    app.kubernetes.io/managed-by: Helm
 spec:
   configPatches:
     - applyTo: HTTP_FILTER
@@ -1865,10 +1865,10 @@ metadata:
   namespace: istio-system
   labels:
     istio.io/rev: default
-    app.kubernetes.io/name: "istiod"
     helm.sh/chart: istio-discovery-1.2.0
-    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/name: istio-discovery
     app.kubernetes.io/instance: istio
+    app.kubernetes.io/managed-by: Helm
 spec:
   configPatches:
     - applyTo: NETWORK_FILTER
@@ -1928,10 +1928,10 @@ metadata:
   namespace: istio-system
   labels:
     istio.io/rev: default
-    app.kubernetes.io/name: "istiod"
     helm.sh/chart: istio-discovery-1.2.0
-    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/name: istio-discovery
     app.kubernetes.io/instance: istio
+    app.kubernetes.io/managed-by: Helm
 spec:
   configPatches:
     - applyTo: HTTP_FILTER
@@ -2071,10 +2071,10 @@ metadata:
   namespace: istio-system
   labels:
     istio.io/rev: default
-    app.kubernetes.io/name: "istiod"
     helm.sh/chart: istio-discovery-1.2.0
-    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/name: istio-discovery
     app.kubernetes.io/instance: istio
+    app.kubernetes.io/managed-by: Helm
 spec:
   configPatches:
     - applyTo: NETWORK_FILTER
@@ -2209,10 +2209,10 @@ metadata:
     operator.istio.io/component: "Pilot"
     app: sidecar-injector
     release: istio
-    app.kubernetes.io/name: "istiod"
     helm.sh/chart: istio-discovery-1.2.0
-    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/name: istio-discovery
     app.kubernetes.io/instance: istio
+    app.kubernetes.io/managed-by: Helm
 webhooks:
 - name: namespace.sidecar-injector.istio.io
   clientConfig:
