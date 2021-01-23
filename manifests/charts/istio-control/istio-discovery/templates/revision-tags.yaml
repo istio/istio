@@ -14,7 +14,10 @@ metadata:
     operator.istio.io/component: "Pilot"
     app: sidecar-injector
     release: {{ $.Release.Name }}
-    {{- include "istiod.labels" . | nindent 4 }}
+    helm.sh/chart: istio-discovery-1.2.0
+    app.kubernetes.io/name: istio-discovery
+    app.kubernetes.io/instance: istio
+    app.kubernetes.io/managed-by: Helm
 webhooks:
   - name: sidecar-injector.istio.io
     clientConfig:
