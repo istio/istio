@@ -227,7 +227,7 @@ func revisionList(writer io.Writer, args *revisionArgs, logger clog.Logger) erro
 		return fmt.Errorf("error while listing mutating webhooks: %v", err)
 	}
 	for _, hook := range webhooks {
-		rev := renderWithDefault(hook.GetLabels()[label.IstioRev], "default")
+		rev := renderWithDefault(hook.GetLabels()[label.IoIstioRev.Name], "default")
 		tag := hook.GetLabels()[istioTag]
 		ri, revPresent := revisions[rev]
 		if revPresent {
@@ -550,7 +550,7 @@ func printRevisionDescription(w io.Writer, args *revisionArgs, logger clog.Logge
 	if err != nil {
 		return fmt.Errorf("error while fetching mutating webhook configurations: %v", err)
 	}
-	webhooks := getWebhooksWithRevision(allWebhooks, revision)
+	webhooks := filterWebhooksWithRevision(allWebhooks, revision)
 	revDescription := getBasicRevisionDescription(iopsInCluster, webhooks)
 	if err = annotateWithIOPCustomization(revDescription, args.manifestsPath, logger); err != nil {
 		return err
@@ -604,7 +604,7 @@ func annotateWithNamespaceAndPodInfo(revDescription *RevisionDescription, revisi
 	for _, ra := range revisionAliases {
 		pods, err := getPodsWithSelector(client, "", &meta_v1.LabelSelector{
 			MatchLabels: map[string]string{
-				label.IstioRev: ra,
+				label.IoIstioRev.Name: ra,
 			},
 		})
 		if err != nil {
@@ -681,7 +681,7 @@ func getBasicRevisionDescription(iopCRs []*iopv1alpha1.IstioOperator,
 	for _, mwh := range mutatingWebhooks {
 		revDescription.Webhooks = append(revDescription.Webhooks, MutatingWebhookConfigInfo{
 			Name:     mwh.Name,
-			Revision: renderWithDefault(mwh.Labels[label.IstioRev], "default"),
+			Revision: renderWithDefault(mwh.Labels[label.IoIstioRev.Name], "default"),
 			Tag:      mwh.Labels[istioTag],
 		})
 	}
@@ -697,10 +697,10 @@ func printJSON(w io.Writer, res interface{}) error {
 	return nil
 }
 
-func getWebhooksWithRevision(webhooks []admit_v1.MutatingWebhookConfiguration, revision string) []admit_v1.MutatingWebhookConfiguration {
+func filterWebhooksWithRevision(webhooks []admit_v1.MutatingWebhookConfiguration, revision string) []admit_v1.MutatingWebhookConfiguration {
 	whFiltered := []admit_v1.MutatingWebhookConfiguration{}
 	for _, wh := range webhooks {
-		if wh.GetLabels()[label.IstioRev] == revision {
+		if wh.GetLabels()[label.IoIstioRev.Name] == revision {
 			whFiltered = append(whFiltered, wh)
 		}
 	}
@@ -953,8 +953,8 @@ func getEnabledComponents(iops *v1alpha1.IstioOperatorSpec) []string {
 func getPodsForComponent(client kube.ExtendedClient, component string) ([]v1.Pod, error) {
 	return getPodsWithSelector(client, istioNamespace, &meta_v1.LabelSelector{
 		MatchLabels: map[string]string{
-			label.IstioRev:               client.Revision(),
-			label.IstioOperatorComponent: component,
+			label.IoIstioRev.Name:        client.Revision(),
+			label.OperatorComponent.Name: component,
 		},
 	})
 }
