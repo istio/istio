@@ -52,11 +52,11 @@ type revisionArgs struct {
 }
 
 const (
-	IstioOperatorCRSection = "ISTIO-OPERATOR-CR"
-	ControlPlaneSection    = "CONTROL-PLANE"
-	GatewaysSection        = "GATEWAYS"
-	WebhooksSection        = "MUTATING-WEBHOOKS"
-	PodsSection            = "PODS"
+	istioOperatorCRSection = "ISTIO-OPERATOR-CR"
+	controlPlaneSection    = "CONTROL-PLANE"
+	gatewaysSection        = "GATEWAYS"
+	webhooksSection        = "MUTATING-WEBHOOKS"
+	podsSection            = "PODS"
 
 	// TODO: This should be moved to istio/api:label package
 	istioTag = "istio.io/tag"
@@ -66,21 +66,24 @@ const (
 )
 
 var (
-	validFormats = []string{tableFormat, jsonFormat}
+	validFormats = map[string]bool{
+		tableFormat: true,
+		jsonFormat:  true,
+	}
 
 	defaultSections = []string{
-		IstioOperatorCRSection,
-		WebhooksSection,
-		ControlPlaneSection,
-		GatewaysSection,
+		istioOperatorCRSection,
+		webhooksSection,
+		controlPlaneSection,
+		gatewaysSection,
 	}
 
 	verboseSections = []string{
-		IstioOperatorCRSection,
-		WebhooksSection,
-		ControlPlaneSection,
-		GatewaysSection,
-		PodsSection,
+		istioOperatorCRSection,
+		webhooksSection,
+		controlPlaneSection,
+		gatewaysSection,
+		podsSection,
 	}
 )
 
@@ -104,7 +107,8 @@ func revisionCommand() *cobra.Command {
 	}
 	revisionCmd.PersistentFlags().StringVarP(&revArgs.manifestsPath, "manifests", "d", "", mesh.ManifestsFlagHelpStr)
 	revisionCmd.PersistentFlags().BoolVarP(&revArgs.verbose, "verbose", "v", false, "Enable verbose output")
-	revisionCmd.PersistentFlags().StringVarP(&revArgs.output, "output", "o", "table", "Output format for revision description")
+	revisionCmd.PersistentFlags().StringVarP(&revArgs.output, "output", "o", tableFormat, "Output format for revision description "+
+		"(available formats: table,json)")
 
 	revisionCmd.AddCommand(revisionListCommand())
 	revisionCmd.AddCommand(revisionDescribeCommand())
@@ -124,23 +128,17 @@ func revisionDescribeCommand() *cobra.Command {
   # Get details about a revision in json format (default format is human-friendly table format)
   istioctl experimental revision describe canary -v -o json 
 `,
-		Short: "Show details of a revision - customizations, number of pods pointing to it, istiod, gateways etc",
+		Short: "Show information about a revision, including customizations, " +
+			"istiod version and which pods/gateways are using it.",
 		PreRunE: func(cmd *cobra.Command, args []string) error {
 			revArgs.name = args[0]
 			if len(args) == 0 {
 				return fmt.Errorf("revision must be specified")
 			}
-			if len(args) > 1 {
+			if len(args) != 1 {
 				return fmt.Errorf("exactly 1 revision should be specified")
 			}
-			isValidFormat := false
-			for _, f := range validFormats {
-				if revArgs.output == f {
-					isValidFormat = true
-					break
-				}
-			}
-			if !isValidFormat {
+			if !validFormats[revArgs.output] {
 				return fmt.Errorf("unknown format %s. It should be %#v", revArgs.output, validFormats)
 			}
 			if errs := validation.IsDNS1123Label(revArgs.name); len(errs) > 0 {
@@ -165,12 +163,8 @@ func revisionListCommand() *cobra.Command {
   # which can be overriden with --context parameter. 
   istioctl experimental revision list
 
-  # View summary of revisions, along with customization in each IstioOperator CR,
-  # control plane and gateway pods
+  # View list of revisions including customizations, istiod and gateway pods
   istioctl experimental revision list -v
-
-  # View summary of revisions in json format
-  istioctl experimental revision list -o json
 `,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			logger := clog.NewConsoleLogger(cmd.OutOrStdout(), cmd.ErrOrStderr(), scope)
@@ -258,12 +252,8 @@ func revisionList(writer io.Writer, args *revisionArgs, logger clog.Logger) erro
 		return fmt.Errorf("error while listing IstioOperator CRs: %v", err)
 	}
 	for _, iop := range iopcrs {
-		if iop == nil {
-			continue
-		}
 		rev := renderWithDefault(iop.Spec.GetRevision(), "default")
-		ri, revPresent := revisions[rev]
-		if revPresent {
+		if ri := revisions[rev]; ri != nil {
 			iopInfo := IstioOperatorCRInfo{
 				Namespace:      iop.GetNamespace(),
 				Name:           iop.GetName(),
@@ -287,10 +277,10 @@ func revisionList(writer io.Writer, args *revisionArgs, logger clog.Logger) erro
 			if err != nil {
 				return fmt.Errorf("failed to get revision based kubeclient for revision: %s", rev)
 			}
-			if err = enrichWithControlPlanePodInfo(desc, revClient); err != nil {
+			if err = annotateWithControlPlanePodInfo(desc, revClient); err != nil {
 				return fmt.Errorf("failed to get control plane pods for revision: %s", rev)
 			}
-			if err = enrichWithGatewayInfo(desc, revClient); err != nil {
+			if err = annotateWithGatewayInfo(desc, revClient); err != nil {
 				return fmt.Errorf("failed to get gateway pods for revision: %s", rev)
 			}
 		}
@@ -299,8 +289,10 @@ func revisionList(writer io.Writer, args *revisionArgs, logger clog.Logger) erro
 	switch revArgs.output {
 	case jsonFormat:
 		return printJSON(writer, revisions)
-	default:
+	case tableFormat:
 		return printRevisionInfoTable(writer, args.verbose, revisions)
+	default:
+		return fmt.Errorf("unknown format: %s", revArgs.output)
 	}
 }
 
@@ -336,20 +328,19 @@ func printControlPlaneSummaryTable(w io.Writer, revisions map[string]*RevisionDe
 		}
 		maxRows := max(1, len(rd.ControlPlanePods))
 		for i := 0; i < maxRows; i++ {
-			var rowRev, rowEnabled, rowPod string
+			rowRev, rowEnabled, rowPod := "", "NO", ""
 			if i == 0 {
 				rowRev = rev
 				if isIstiodEnabled {
 					rowEnabled = "YES"
-				} else {
-					rowEnabled = "NO"
 				}
 			}
-			if i < len(rd.ControlPlanePods) {
+			switch {
+			case i < len(rd.ControlPlanePods):
 				rowPod = fmt.Sprintf("%s/%s",
 					rd.ControlPlanePods[i].Namespace,
 					rd.ControlPlanePods[i].Name)
-			} else if i == 0 && len(rd.ControlPlanePods) == 0 {
+			case i == 0 && len(rd.ControlPlanePods) == 0:
 				rowPod = "<no-istiod>"
 			}
 			fmt.Fprintf(tw, "%s\t%s\t%s\n", rowRev, rowEnabled, rowPod)
@@ -461,7 +452,7 @@ func printSummaryTable(writer io.Writer, verbose bool, revisions map[string]*Rev
 			tags = append(tags, "<no-tag>")
 		}
 		for _, iop := range ri.IstioOperatorCRs {
-			profile := effectiveProfile(iop.Profile)
+			profile := profileWithDefault(iop.Profile)
 			components := iop.Components
 			qualifiedName := fmt.Sprintf("%s/%s", iop.Namespace, iop.Name)
 
@@ -561,12 +552,16 @@ func printRevisionDescription(w io.Writer, args *revisionArgs, logger clog.Logge
 	}
 	webhooks := getWebhooksWithRevision(allWebhooks, revision)
 	revDescription := getBasicRevisionDescription(iopsInCluster, webhooks)
-	if err = enrichWithIOPCustomization(revDescription, args.manifestsPath, logger); err != nil {
+	if err = annotateWithIOPCustomization(revDescription, args.manifestsPath, logger); err != nil {
 		return err
 	}
-	enrichWithControlPlanePodInfo(revDescription, client)
-	enrichWithGatewayInfo(revDescription, client)
-	if isNonExistentRevision(revDescription) {
+	if err = annotateWithControlPlanePodInfo(revDescription, client); err != nil {
+		return err
+	}
+	if err = annotateWithGatewayInfo(revDescription, client); err != nil {
+		return err
+	}
+	if !revisionExists(revDescription) {
 		return fmt.Errorf("revision %s is not present", revision)
 	}
 	if args.verbose {
@@ -574,17 +569,17 @@ func printRevisionDescription(w io.Writer, args *revisionArgs, logger clog.Logge
 		for _, wh := range revDescription.Webhooks {
 			revAliases = append(revAliases, wh.Tag)
 		}
-		enrichWithNamespaceAndPodInfo(revDescription, revAliases)
+		if err = annotateWithNamespaceAndPodInfo(revDescription, revAliases); err != nil {
+			return err
+		}
 	}
 	switch revArgs.output {
 	case jsonFormat:
 		return printJSON(w, revDescription)
 	case tableFormat:
-		sections := []string{}
+		sections := defaultSections
 		if args.verbose {
 			sections = verboseSections
-		} else {
-			sections = defaultSections
 		}
 		return printTable(w, sections, revDescription)
 	default:
@@ -592,15 +587,15 @@ func printRevisionDescription(w io.Writer, args *revisionArgs, logger clog.Logge
 	}
 }
 
-func isNonExistentRevision(revDescription *RevisionDescription) bool {
-	return len(revDescription.IstioOperatorCRs) == 0 &&
-		len(revDescription.Webhooks) == 0 &&
-		len(revDescription.ControlPlanePods) == 0 &&
-		len(revDescription.IngressGatewayPods) == 0 &&
-		len(revDescription.EgressGatewayPods) == 0
+func revisionExists(revDescription *RevisionDescription) bool {
+	return len(revDescription.IstioOperatorCRs) != 0 ||
+		len(revDescription.Webhooks) != 0 ||
+		len(revDescription.ControlPlanePods) != 0 ||
+		len(revDescription.IngressGatewayPods) != 0 ||
+		len(revDescription.EgressGatewayPods) != 0
 }
 
-func enrichWithNamespaceAndPodInfo(revDescription *RevisionDescription, revisionAliases []string) error {
+func annotateWithNamespaceAndPodInfo(revDescription *RevisionDescription, revisionAliases []string) error {
 	client, err := newKubeClient(kubeconfig, configContext)
 	if err != nil {
 		return fmt.Errorf("failed to create kubeclient: %v", err)
@@ -632,7 +627,7 @@ func enrichWithNamespaceAndPodInfo(revDescription *RevisionDescription, revision
 	return nil
 }
 
-func enrichWithGatewayInfo(revDescription *RevisionDescription, client kube.ExtendedClient) error {
+func annotateWithGatewayInfo(revDescription *RevisionDescription, client kube.ExtendedClient) error {
 	ingressPods, err := getPodsForComponent(client, "IngressGateways")
 	if err != nil {
 		return fmt.Errorf("error while fetching ingress gateway pods: %v", err)
@@ -646,7 +641,7 @@ func enrichWithGatewayInfo(revDescription *RevisionDescription, client kube.Exte
 	return nil
 }
 
-func enrichWithControlPlanePodInfo(revDescription *RevisionDescription, client kube.ExtendedClient) error {
+func annotateWithControlPlanePodInfo(revDescription *RevisionDescription, client kube.ExtendedClient) error {
 	controlPlanePods, err := getPodsForComponent(client, "Pilot")
 	if err != nil {
 		return fmt.Errorf("error while fetching control plane pods: %v", err)
@@ -655,7 +650,7 @@ func enrichWithControlPlanePodInfo(revDescription *RevisionDescription, client k
 	return nil
 }
 
-func enrichWithIOPCustomization(revDesc *RevisionDescription, manifestsPath string, logger clog.Logger) error {
+func annotateWithIOPCustomization(revDesc *RevisionDescription, manifestsPath string, logger clog.Logger) error {
 	for _, cr := range revDesc.IstioOperatorCRs {
 		cust, err := getDiffs(cr.IOP, manifestsPath, cr.IOP.Spec.GetProfile(), logger)
 		if err != nil {
@@ -733,11 +728,11 @@ func getFilteredPodInfo(pod *v1.Pod) PodFilteredInfo {
 func printTable(w io.Writer, sections []string, desc *RevisionDescription) error {
 	errs := &multierror.Error{}
 	tablePrintFuncs := map[string]func(io.Writer, *RevisionDescription) error{
-		IstioOperatorCRSection: printIstioOperatorCRInfo,
-		WebhooksSection:        printWebhookInfo,
-		ControlPlaneSection:    printControlPlane,
-		GatewaysSection:        printGateways,
-		PodsSection:            printPodsInfo,
+		istioOperatorCRSection: printIstioOperatorCRInfo,
+		webhooksSection:        printWebhookInfo,
+		controlPlaneSection:    printControlPlane,
+		gatewaysSection:        printGateways,
+		podsSection:            printPodsInfo,
 	}
 	for _, s := range sections {
 		f := tablePrintFuncs[s]
@@ -846,7 +841,7 @@ func printGateways(w io.Writer, desc *RevisionDescription) error {
 func printIngressGateways(w io.Writer, desc *RevisionDescription) error {
 	fmt.Fprintf(w, "\nINGRESS GATEWAYS: (%d)\n", len(desc.IngressGatewayPods))
 	if len(desc.IngressGatewayPods) == 0 {
-		if isIngressGatewayEnabled(desc) {
+		if ingressGatewayEnabled(desc) {
 			fmt.Fprintln(w, "Ingress gateway is enabled for this revision. However there are no such pods. "+
 				"It could be that it is replaced by ingress-gateway from another revision (as it is still upgraded in-place) "+
 				"or it could be some issue with installation")
@@ -855,7 +850,7 @@ func printIngressGateways(w io.Writer, desc *RevisionDescription) error {
 		}
 		return nil
 	}
-	if !isIngressGatewayEnabled(desc) {
+	if !ingressGatewayEnabled(desc) {
 		fmt.Fprintln(w, "WARNING: Ingress gateway is not enabled for this revision.")
 	}
 	return printPodTable(w, desc.IngressGatewayPods)
@@ -864,7 +859,7 @@ func printIngressGateways(w io.Writer, desc *RevisionDescription) error {
 func printEgressGateways(w io.Writer, desc *RevisionDescription) error {
 	fmt.Fprintf(w, "\nEGRESS GATEWAYS: (%d)\n", len(desc.IngressGatewayPods))
 	if len(desc.EgressGatewayPods) == 0 {
-		if isEgressGatewayEnabled(desc) {
+		if egressGatewayEnabled(desc) {
 			fmt.Fprintln(w, "Egress gateway is enabled for this revision. However there are no such pods. "+
 				"It could be that it is replaced by egress-gateway from another revision (as it is still upgraded in-place) "+
 				"or it could be some issue with installation")
@@ -873,7 +868,7 @@ func printEgressGateways(w io.Writer, desc *RevisionDescription) error {
 		}
 		return nil
 	}
-	if !isEgressGatewayEnabled(desc) {
+	if !egressGatewayEnabled(desc) {
 		fmt.Fprintln(w, "WARNING: Egress gateway is not enabled for this revision.")
 	}
 	return printPodTable(w, desc.EgressGatewayPods)
@@ -886,15 +881,15 @@ const (
 	egress  istioGatewayType = "egress"
 )
 
-func isIngressGatewayEnabled(desc *RevisionDescription) bool {
-	return isGatewayTypeEnabled(desc, ingress)
+func ingressGatewayEnabled(desc *RevisionDescription) bool {
+	return gatewayTypeEnabled(desc, ingress)
 }
 
-func isEgressGatewayEnabled(desc *RevisionDescription) bool {
-	return isGatewayTypeEnabled(desc, egress)
+func egressGatewayEnabled(desc *RevisionDescription) bool {
+	return gatewayTypeEnabled(desc, egress)
 }
 
-func isGatewayTypeEnabled(desc *RevisionDescription, gwType istioGatewayType) bool {
+func gatewayTypeEnabled(desc *RevisionDescription, gwType istioGatewayType) bool {
 	for _, iopdesc := range desc.IstioOperatorCRs {
 		for _, comp := range iopdesc.Components {
 			if strings.HasPrefix(comp, gwType) {
@@ -1049,7 +1044,7 @@ func renderWithDefault(s, def string) string {
 	return fmt.Sprintf("%s", def)
 }
 
-func effectiveProfile(profile string) string {
+func profileWithDefault(profile string) string {
 	if profile != "" {
 		return profile
 	}
