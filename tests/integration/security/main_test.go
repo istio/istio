@@ -61,8 +61,8 @@ func setupConfig(ctx resource.Context, cfg *istio.Config) {
 	cfg.ControlPlaneValues = fmt.Sprintf(`
 values:
   pilot: 
-	env: 
-	  PILOT_JWT_ENABLE_REMOTE_JWKS: true
+    env: 
+      PILOT_JWT_ENABLE_REMOTE_JWKS: true
 meshConfig:
   accessLogEncoding: JSON
   accessLogFile: /dev/stdout
