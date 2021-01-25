@@ -552,20 +552,8 @@ func (s *DiscoveryServer) AllClients() []*Connection {
 
 // SendResponse will immediately send the response to all connections.
 // TODO: additional filters can be added, for example namespace.
-func (s *DiscoveryServer) SendResponse(res *discovery.DiscoveryResponse) {
-	pending := []*Connection{}
-	for _, v := range s.Clients() {
-		if v.Watching(res.TypeUrl) {
-			pending = append(pending, v)
-		}
-	}
-
-	// only marshal resources if there are connected clients
-	if len(pending) == 0 {
-		return
-	}
-
-	for _, p := range pending {
+func (s *DiscoveryServer) SendResponse(connections []*Connection, res *discovery.DiscoveryResponse) {
+	for _, p := range connections {
 		// p.send() waits for an ACK - which is reasonable for normal push,
 		// but in this case we want to sync fast and not bother with stuck connections.
 		// This is expecting a relatively small number of watchers - each other istiod
@@ -579,4 +567,16 @@ func (s *DiscoveryServer) SendResponse(res *discovery.DiscoveryResponse) {
 			}
 		}()
 	}
+}
+
+// ClientsOf returns the clients that are watching the given resource.
+func (s *DiscoveryServer) ClientsOf(typeUrl string) []*Connection {
+	pending := []*Connection{}
+	for _, v := range s.Clients() {
+		if v.Watching(typeUrl) {
+			pending = append(pending, v)
+		}
+	}
+
+	return pending
 }
