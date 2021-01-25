@@ -26,7 +26,7 @@ type Instance interface {
 }
 
 type Config struct {
-	// Which KubeConfig should be used in a multicluster environment
+	// Which kubeconfigsFlag should be used in a multicluster environment
 	Cluster resource.Cluster
 }
 

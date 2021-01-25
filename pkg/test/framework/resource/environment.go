@@ -35,37 +35,3 @@ type Environment interface {
 
 	IsMultinetwork() bool
 }
-
-var _ Environment = FakeEnvironment{}
-
-// FakeEnvironment for testing.
-type FakeEnvironment struct {
-	Name        string
-	NumClusters int
-	IDValue     string
-}
-
-func (f FakeEnvironment) ID() ID {
-	return FakeID(f.IDValue)
-}
-
-func (f FakeEnvironment) IsMultinetwork() bool {
-	return false
-}
-
-func (f FakeEnvironment) EnvironmentName() string {
-	if len(f.Name) == 0 {
-		return "fake"
-	}
-	return f.Name
-}
-
-func (f FakeEnvironment) Clusters() Clusters {
-	out := make([]Cluster, f.NumClusters)
-	for i := 0; i < f.NumClusters; i++ {
-		out[i] = FakeCluster{
-			IndexValue: i,
-		}
-	}
-	return out
-}

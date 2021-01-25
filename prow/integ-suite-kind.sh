@@ -147,10 +147,20 @@ if [[ -z "${SKIP_SETUP:-}" ]]; then
     trace "load cluster topology" load_cluster_topology "${CLUSTER_TOPOLOGY_CONFIG_FILE}"
     trace "setup kind clusters" setup_kind_clusters "${NODE_IMAGE}" "${IP_FAMILY}"
 
-    export INTEGRATION_TEST_KUBECONFIG
-    INTEGRATION_TEST_KUBECONFIG=$(IFS=','; echo "${KUBECONFIGS[*]}")
+    TOPOLOGY_JSON=$(cat "${CLUSTER_TOPOLOGY_CONFIG_FILE}")
+    for i in $(seq 0 $((${#CLUSTER_NAMES[@]} - 1))); do
+      CLUSTER="${CLUSTER_NAMES[i]}"
+      KCONFIG="${KUBECONFIGS[i]}"
+      TOPOLOGY_JSON=$(set_topology_value "${TOPOLOGY_JSON}" "${CLUSTER}" "meta.kubeconfig" "${KCONFIG}")
+    done
+    RUNTIME_TOPOLOGY_CONFIG_FILE="${ARTIFACTS}/topology-config.json"
+    echo "${TOPOLOGY_JSON}" > "${RUNTIME_TOPOLOGY_CONFIG_FILE}"
+
     export INTEGRATION_TEST_TOPOLOGY_FILE
-    INTEGRATION_TEST_TOPOLOGY_FILE="${CLUSTER_TOPOLOGY_CONFIG_FILE}"
+    INTEGRATION_TEST_TOPOLOGY_FILE="${RUNTIME_TOPOLOGY_CONFIG_FILE}"
+
+    export INTEGRATION_TEST_KUBECONFIG
+    INTEGRATION_TEST_KUBECONFIG=NONE
   fi
 fi
 

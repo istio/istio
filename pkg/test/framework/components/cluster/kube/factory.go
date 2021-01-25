@@ -71,6 +71,9 @@ func (f factory) Build(allClusters cluster.Map) (resource.Clusters, error) {
 			},
 		})
 	}
+	if errs != nil {
+		return nil, errs
+	}
 
 	return clusters, nil
 }
