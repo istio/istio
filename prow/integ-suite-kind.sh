@@ -34,6 +34,9 @@ set -x
 source "${ROOT}/prow/lib.sh"
 setup_and_export_git_sha
 
+go install sigs.k8s.io/kind@v0.10.0
+kind version
+
 # shellcheck source=common/scripts/kind_provisioner.sh
 source "${ROOT}/common/scripts/kind_provisioner.sh"
 
@@ -187,3 +190,4 @@ if [[ -n "${MANUAL:-}" ]]; then
   read -rsn1
   exit 0
 fi
+kind version
