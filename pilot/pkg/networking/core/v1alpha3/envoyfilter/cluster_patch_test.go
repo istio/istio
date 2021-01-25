@@ -255,6 +255,27 @@ func TestClusterPatching(t *testing.T) {
 				AllowMetadata: true,
 			}, LbPolicy: cluster.Cluster_MAGLEV,
 		},
+		{Name: "cluster3",
+			DnsLookupFamily: cluster.Cluster_V4_ONLY,
+			LbPolicy: cluster.Cluster_ROUND_ROBIN,
+			TransportSocket: &core.TransportSocket{
+				Name: "envoy.transport_sockets.tls",
+				ConfigType: &core.TransportSocket_TypedConfig{
+					TypedConfig: util.MessageToAny(&tls.UpstreamTlsContext{
+						CommonTlsContext: &tls.CommonTlsContext{
+							TlsParams: &tls.TlsParameters{
+								EcdhCurves:                []string{"X25519"},
+								TlsMaximumProtocolVersion: tls.TlsParameters_TLSv1_3,
+							},
+							TlsCertificateCertificateProviderInstance: &tls.CommonTlsContext_CertificateProviderInstance{
+								InstanceName:    "instance",
+								CertificateName: "certificate",
+							},
+						},
+					}),
+				},
+			},
+		},
 	}
 
 	sidecarOutboundOut := []*cluster.Cluster{
@@ -298,6 +319,28 @@ func TestClusterPatching(t *testing.T) {
 						CommonTlsContext: &tls.CommonTlsContext {
 							TlsParams: &tls.TlsParameters {
 								TlsMinimumProtocolVersion: tls.TlsParameters_TLSv1_3,
+							},
+						},
+					}),
+				},
+			},
+		},
+		{Name: "cluster3",
+			DnsLookupFamily: cluster.Cluster_V6_ONLY,
+			LbPolicy: cluster.Cluster_RING_HASH,
+			TransportSocket: &core.TransportSocket{
+				Name: "envoy.transport_sockets.tls",
+				ConfigType: &core.TransportSocket_TypedConfig{
+					TypedConfig: util.MessageToAny(&tls.UpstreamTlsContext{
+						CommonTlsContext: &tls.CommonTlsContext{
+							TlsParams: &tls.TlsParameters{
+								EcdhCurves:                []string{"X25519"},
+								TlsMinimumProtocolVersion: tls.TlsParameters_TLSv1_3,
+								TlsMaximumProtocolVersion: tls.TlsParameters_TLSv1_3,
+							},
+							TlsCertificateCertificateProviderInstance: &tls.CommonTlsContext_CertificateProviderInstance{
+								InstanceName:    "instance",
+								CertificateName: "certificate",
 							},
 						},
 					}),
