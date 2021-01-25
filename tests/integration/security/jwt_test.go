@@ -95,6 +95,27 @@ func TestRequestAuthentication(t *testing.T) {
 					b := apps.B.Match(echo.InCluster(cluster).And(echo.Namespace(apps.Namespace1.Name())))
 					testCases := []authn.TestCase{
 						{
+							Name: "valid-token-noauthz",
+							Request: connection.Checker{
+								From: a[0],
+								Options: echo.CallOptions{
+									Target:   cSet[0],
+									PortName: "http",
+									Scheme:   scheme.HTTP,
+									Headers: map[string][]string{
+										authHeaderKey: {"Bearer " + jwt.TokenIssuer1},
+									},
+									Count: callCount,
+								},
+								DestClusters: cSet.Clusters(),
+							},
+							ExpectResponseCode: response.StatusCodeOK,
+							ExpectHeaders: map[string]string{
+								authHeaderKey:    "",
+								"X-Test-Payload": payload1,
+							},
+						},
+						{
 							Name: "valid-token-2-noauthz",
 							Request: connection.Checker{
 								From: a[0],
@@ -331,27 +352,6 @@ func TestRequestAuthentication(t *testing.T) {
 								DestClusters: fSet.Clusters(),
 							},
 							ExpectResponseCode: response.StatusCodeOK,
-						},
-						{
-							Name: "valid-token-noauthz",
-							Request: connection.Checker{
-								From: a[0],
-								Options: echo.CallOptions{
-									Target:   cSet[0],
-									PortName: "http",
-									Scheme:   scheme.HTTP,
-									Headers: map[string][]string{
-										authHeaderKey: {"Bearer " + jwt.TokenIssuer1},
-									},
-									Count: callCount,
-								},
-								DestClusters: cSet.Clusters(),
-							},
-							ExpectResponseCode: response.StatusCodeOK,
-							ExpectHeaders: map[string]string{
-								authHeaderKey:    "",
-								"X-Test-Payload": payload1,
-							},
 						},
 					}
 					for _, c := range testCases {
