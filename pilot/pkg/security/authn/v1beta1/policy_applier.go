@@ -268,7 +268,6 @@ func convertToEnvoyJwtConfig(jwtRules []*v1beta1.JWTRule, push *model.PushContex
 		provider.FromParams = jwtRule.FromParams
 
 		if features.EnableRemoteJwks && jwtRule.JwksUri != "" {
-			log.Infof("Remote JWKS is enabled so configuring %s", jwtRule.JwksUri)
 			// Use remote jwks if jwksUri is non empty. Parse the jwksUri to get the cluster name,
 			// generate the jwt filter config using remoteJwks.
 			// If failed to parse the cluster name, fallback to let istiod to fetch the jwksUri.
@@ -286,7 +285,6 @@ func convertToEnvoyJwtConfig(jwtRules []*v1beta1.JWTRule, push *model.PushContex
 				}
 			}
 			_, cluster, err := security_utils.LookupCluster(push, host, port)
-			log.Infof("Got cluster JWKS is enabled so configuring %s, %v", cluster, err)
 
 			if err == nil && len(cluster) > 0 {
 				// This is a case of URI pointing to mesh cluster. Setup Remote Jwks and let Envoy fetch the key.
@@ -297,6 +295,7 @@ func convertToEnvoyJwtConfig(jwtRules []*v1beta1.JWTRule, push *model.PushContex
 							HttpUpstreamType: &core.HttpUri_Cluster{
 								Cluster: cluster,
 							},
+							Timeout: &duration.Duration{Seconds: 5}, // TODO: Make this configurable.
 						},
 						CacheDuration: &duration.Duration{Seconds: 5 * 60}, // TODO: Make this configurable if needed.
 					},

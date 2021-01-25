@@ -198,6 +198,7 @@ func TestJwtFilter(t *testing.T) {
 												HttpUpstreamType: &core.HttpUri_Cluster{
 													Cluster: "outbound|7443||jwt-token-issuer.mesh.svc.cluster.local",
 												},
+												Timeout: &duration.Duration{Seconds: 5},
 											},
 											CacheDuration: &duration.Duration{Seconds: 5 * 60},
 										},
