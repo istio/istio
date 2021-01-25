@@ -37,7 +37,7 @@ func addProfileDiffFlags(cmd *cobra.Command, args *profileDiffArgs) {
 
 func profileDiffCmd(rootArgs *rootArgs, pfArgs *profileDiffArgs) *cobra.Command {
 	return &cobra.Command{
-		Use:   "diff <file1.yaml> <file2.yaml>",
+		Use:   "diff <profile|file1.yaml> <profile|file2.yaml>",
 		Short: "Diffs two Istio configuration profiles",
 		Long:  "The diff subcommand displays the differences between two Istio configuration profiles.",
 		Example: `  # Profile diff by providing yaml files
