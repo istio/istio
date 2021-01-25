@@ -50,21 +50,22 @@ func TestVmOSPost(t *testing.T) {
 		Features("traffic.reachability").
 		Label(label.Postsubmit).
 		Run(func(ctx framework.TestContext) {
+			if ctx.Settings().SkipVM {
+				ctx.Skip("VM tests are disabled")
+			}
 			b := echoboot.NewBuilder(ctx)
 			images := GetAdditionVMImages()
-			instances := make([]echo.Instance, len(images))
-			for i, image := range images {
-				b = b.With(&instances[i], echo.Config{
+			for _, image := range images {
+				b = b.WithConfig(echo.Config{
 					Service:    "vm-" + strings.ReplaceAll(image, "_", "-"),
 					Namespace:  apps.Namespace,
 					Ports:      common.EchoPorts,
 					DeployAsVM: true,
 					VMImage:    image,
 					Subsets:    []echo.SubsetConfig{{}},
-					Cluster:    ctx.Clusters().Default(),
 				})
 			}
-			b.BuildOrFail(ctx)
+			instances := b.BuildOrFail(ctx)
 
 			for i, image := range images {
 				i, image := i, image

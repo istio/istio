@@ -16,13 +16,9 @@ package framework
 
 import (
 	"fmt"
-	"io/ioutil"
-	"os"
-	"path/filepath"
 
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/framework/resource"
-	"istio.io/istio/pkg/test/scopes"
 )
 
 var _ resource.ConfigManager = &configManager{}
@@ -69,31 +65,6 @@ func (c *configManager) ApplyYAMLOrFail(t test.Failer, ns string, yamlText ...st
 	}
 }
 
-func (c *configManager) ApplyYAMLInCluster(cls resource.Cluster, ns string, yamlText ...string) error {
-	if len(c.prefix) == 0 {
-		return c.WithFilePrefix("apply").ApplyYAML(ns, yamlText...)
-	}
-
-	// Convert the content to files.
-	yamlFiles, err := c.ctx.WriteYAML(c.prefix, yamlText...)
-	if err != nil {
-		return err
-	}
-
-	if err := cls.ApplyYAMLFiles(ns, yamlFiles...); err != nil {
-		return fmt.Errorf("failed applying YAML to cluster %s: %v", cls.Name(), err)
-	}
-
-	return nil
-}
-
-func (c *configManager) ApplyYAMLInClusterOrFail(t test.Failer, cls resource.Cluster, ns string, yamlText ...string) {
-	err := c.ApplyYAMLInCluster(cls, ns, yamlText...)
-	if err != nil {
-		t.Fatal(err)
-	}
-}
-
 func (c *configManager) DeleteYAML(ns string, yamlText ...string) error {
 	if len(c.prefix) == 0 {
 		return c.WithFilePrefix("delete").DeleteYAML(ns, yamlText...)
@@ -118,40 +89,6 @@ func (c *configManager) DeleteYAMLOrFail(t test.Failer, ns string, yamlText ...s
 	if err != nil {
 		t.Fatal(err)
 	}
-}
-
-func (c *configManager) ApplyYAMLDir(ns string, configDir string) error {
-	return filepath.Walk(configDir, func(path string, info os.FileInfo, err error) error {
-		if info.IsDir() {
-			return nil
-		}
-
-		scopes.Framework.Debugf("Reading config file to: %v", path)
-		contents, readerr := ioutil.ReadFile(path)
-		if readerr != nil {
-			return readerr
-		}
-
-		return c.ApplyYAML(ns, string(contents))
-	})
-}
-
-func (c *configManager) DeleteYAMLDir(ns string, configDir string) error {
-	return filepath.Walk(configDir, func(path string, info os.FileInfo, err error) error {
-		if err != nil {
-			return err
-		}
-		if info.IsDir() {
-			return nil
-		}
-
-		contents, readerr := ioutil.ReadFile(path)
-		if readerr != nil {
-			return readerr
-		}
-
-		return c.DeleteYAML(ns, string(contents))
-	})
 }
 
 func (c *configManager) WithFilePrefix(prefix string) resource.ConfigManager {

@@ -137,10 +137,11 @@ spec:
         host: b`,
 				call: podA.CallWithRetryOrFail,
 				opts: echo.CallOptions{
-					Target:   apps.PodB[0],
-					PortName: "http",
-					Path:     "/foo?key=value",
-					Count:    callCount,
+					Target:          apps.PodB[0],
+					PortName:        "http",
+					Path:            "/foo?key=value",
+					Count:           callCount,
+					FollowRedirects: true,
 					Validator: echo.ValidatorFunc(
 						func(response echoclient.ParsedResponses, _ error) error {
 							return response.Check(func(_ int, response *echoclient.ParsedResponse) error {
@@ -519,20 +520,108 @@ func gatewayCases(apps *EchoDeployments) []TrafficTestCase {
 			},
 		})
 	}
-	cases = append(cases, TrafficTestCase{
-		name:   "404",
-		config: httpGateway("*"),
-		call:   apps.Ingress.CallEchoWithRetryOrFail,
-		opts: echo.CallOptions{
-			Port: &echo.Port{
-				Protocol: protocol.HTTP,
+	cases = append(cases,
+		TrafficTestCase{
+			name:   "404",
+			config: httpGateway("*"),
+			call:   apps.Ingress.CallEchoWithRetryOrFail,
+			opts: echo.CallOptions{
+				Port: &echo.Port{
+					Protocol: protocol.HTTP,
+				},
+				Headers: map[string][]string{
+					"Host": {"foo.bar"},
+				},
+				Validator: echo.ExpectCode("404"),
 			},
-			Headers: map[string][]string{
-				"Host": {"foo.bar"},
-			},
-			Validator: echo.ExpectCode("404"),
 		},
-	})
+		TrafficTestCase{
+			name: "https redirect",
+			config: `apiVersion: networking.istio.io/v1alpha3
+kind: Gateway
+metadata:
+  name: gateway
+spec:
+  selector:
+    istio: ingressgateway
+  servers:
+  - port:
+      number: 80
+      name: http
+      protocol: HTTP
+    hosts:
+    - "*"
+    tls:
+      httpsRedirect: true
+---
+`,
+			call: apps.Ingress.CallEchoWithRetryOrFail,
+			opts: echo.CallOptions{
+				Port: &echo.Port{
+					Protocol: protocol.HTTP,
+				},
+				Validator: echo.ExpectCode("301"),
+			},
+		},
+		TrafficTestCase{
+			// See https://github.com/istio/istio/issues/27315
+			name: "https with x-forwarded-proto",
+			config: `apiVersion: networking.istio.io/v1alpha3
+kind: Gateway
+metadata:
+  name: gateway
+spec:
+  selector:
+    istio: ingressgateway
+  servers:
+  - port:
+      number: 80
+      name: http
+      protocol: HTTP
+    hosts:
+    - "*"
+    tls:
+      httpsRedirect: true
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: EnvoyFilter
+metadata:
+  name: ingressgateway-redirect-config
+  namespace: istio-system
+spec:
+  configPatches:
+  - applyTo: NETWORK_FILTER
+    match:
+      context: GATEWAY
+      listener:
+        filterChain:
+          filter:
+            name: envoy.filters.network.http_connection_manager
+    patch:
+      operation: MERGE
+      value:
+        typed_config:
+          '@type': type.googleapis.com/envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager
+          xff_num_trusted_hops: 1
+          normalize_path: true
+  workloadSelector:
+    labels:
+      istio: ingressgateway
+---
+` + httpVirtualService("gateway", apps.PodA[0].Config().FQDN(), apps.PodA[0].Config().PortByName("http").ServicePort),
+			call: apps.Ingress.CallEchoWithRetryOrFail,
+			opts: echo.CallOptions{
+				Port: &echo.Port{
+					Protocol: protocol.HTTP,
+				},
+				Headers: map[string][]string{
+					// In real world, this may be set by a downstream LB that terminates the TLS
+					"X-Forwarded-Proto": {"https"},
+					"Host":              {apps.PodA[0].Config().FQDN()},
+				},
+				Validator: echo.ExpectOK(),
+			},
+		})
 	return cases
 }
 
@@ -663,6 +752,45 @@ spec:
 		})
 	}
 
+	return cases
+}
+
+func flatten(clients ...[]echo.Instance) []echo.Instance {
+	instances := []echo.Instance{}
+	for _, c := range clients {
+		instances = append(instances, c...)
+	}
+	return instances
+}
+
+// selfCallsCases checks that pods can call themselves
+func selfCallsCases(apps *EchoDeployments) []TrafficTestCase {
+	cases := []TrafficTestCase{}
+	for _, cl := range flatten(apps.PodA, apps.VM, apps.PodTproxy) {
+		cl := cl
+		cases = append(cases,
+			// Calls to the Service will go through envoy outbound and inbound, so we get envoy headers added
+			TrafficTestCase{
+				name: fmt.Sprintf("to service %v", cl.Config().Service),
+				call: cl.CallWithRetryOrFail,
+				opts: echo.CallOptions{
+					Target:    cl,
+					PortName:  "http",
+					Validator: echo.And(echo.ExpectOK(), echo.ExpectKey("X-Envoy-Attempt-Count", "1")),
+				},
+			},
+			// Localhost calls will go directly to localhost, bypassing Envoy. No envoy headers added.
+			TrafficTestCase{
+				name: fmt.Sprintf("to localhost %v", cl.Config().Service),
+				call: cl.CallWithRetryOrFail,
+				opts: echo.CallOptions{
+					Address:   "localhost",
+					Scheme:    scheme.HTTP,
+					Port:      &echo.Port{ServicePort: 8080},
+					Validator: echo.And(echo.ExpectOK(), echo.ExpectKey("X-Envoy-Attempt-Count", "")),
+				},
+			})
+	}
 	return cases
 }
 

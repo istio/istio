@@ -51,9 +51,6 @@ const (
 	// Location to read istioctl defaults from
 	defaultIstioctlConfig = "$HOME/.istioctl/config.yaml"
 
-	// deprecation messages to be suffixed to the deprecated commands
-	deprecatedMsg = "[Deprecated, it will be removed in Istio 1.9]"
-
 	// ExperimentalMsg indicate active development and not for production use warning.
 	ExperimentalMsg = `THIS COMMAND IS UNDER ACTIVE DEVELOPMENT AND NOT READY FOR PRODUCTION USE.`
 )
@@ -211,6 +208,7 @@ debug and diagnose their Istio mesh.
 	rootCmd.AddCommand(proxyConfig())
 	experimentalCmd.AddCommand(istiodConfig())
 	experimentalCmd.AddCommand(injectorCommand())
+	experimentalCmd.AddCommand(tagCommand())
 
 	rootCmd.AddCommand(install.NewVerifyCommand())
 	experimentalCmd.AddCommand(install.NewPrecheckCommand())
@@ -221,9 +219,6 @@ debug and diagnose their Istio mesh.
 	experimentalCmd.AddCommand(describe())
 	experimentalCmd.AddCommand(addToMeshCmd())
 	experimentalCmd.AddCommand(removeFromMeshCmd())
-	vmBootstrapCmd := vmBootstrapCommand()
-	deprecate(vmBootstrapCmd)
-	experimentalCmd.AddCommand(vmBootstrapCmd)
 	experimentalCmd.AddCommand(waitCmd())
 	experimentalCmd.AddCommand(mesh.UninstallCmd(loggingOptions))
 	experimentalCmd.AddCommand(configCmd())
@@ -363,9 +358,4 @@ func seeExperimentalCmd(name string) *cobra.Command {
 			return errors.New(msg)
 		},
 	}
-}
-
-// deprecate adds a suffix to command to indicate the command as Deprecated.
-func deprecate(cmd *cobra.Command) {
-	cmd.Short += " " + deprecatedMsg
 }

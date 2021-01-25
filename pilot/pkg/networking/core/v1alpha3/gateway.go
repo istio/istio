@@ -185,6 +185,49 @@ func (configgen *ConfigGeneratorImpl) buildGatewayListeners(builder *ListenerBui
 	return builder
 }
 
+func buildNameToServiceMapForHTTPRoutes(node *model.Proxy, push *model.PushContext,
+	virtualService config.Config) map[host.Name]*model.Service {
+
+	vs := virtualService.Spec.(*networking.VirtualService)
+	nameToServiceMap := map[host.Name]*model.Service{}
+
+	addService := func(hostname host.Name) {
+		if _, exist := nameToServiceMap[hostname]; exist {
+			return
+		}
+
+		var service *model.Service
+		// First, we obtain the service which has the same namespace as virtualService
+		s, exist := push.ServiceIndex.HostnameAndNamespace[hostname][virtualService.Namespace]
+		if exist {
+			// We should check whether the selected service is visible to the proxy node.
+			if push.IsServiceVisible(s, node.ConfigNamespace) {
+				service = s
+			}
+		}
+		// If we find no service for the namespace of virtualService or the selected service is not visible to the proxy node,
+		// we should fallback to pick one service which is visible to the ConfigNamespace of node.
+		if service == nil {
+			service = push.ServiceForHostname(node, hostname)
+		}
+		nameToServiceMap[hostname] = service
+	}
+
+	for _, httpRoute := range vs.Http {
+		if httpRoute.GetMirror() != nil {
+			addService(host.Name(httpRoute.GetMirror().GetHost()))
+		}
+
+		for _, route := range httpRoute.GetRoute() {
+			if route.GetDestination() != nil {
+				addService(host.Name(route.GetDestination().GetHost()))
+			}
+		}
+	}
+
+	return nameToServiceMap
+}
+
 func (configgen *ConfigGeneratorImpl) buildGatewayHTTPRouteConfig(node *model.Proxy, push *model.PushContext,
 	routeName string) *route.RouteConfiguration {
 
@@ -208,29 +251,11 @@ func (configgen *ConfigGeneratorImpl) buildGatewayHTTPRouteConfig(node *model.Pr
 	servers := merged.ServersByRouteName[routeName]
 	port := int(servers[0].Port.Number) // all these servers are for the same routeName, and therefore same port
 
-	nameToServiceMap := push.ServiceIndex.Hostname
-
 	gatewayRoutes := make(map[string]map[string][]*route.Route)
 	gatewayVirtualServices := make(map[string][]config.Config)
 	vHostDedupMap := make(map[host.Name]*route.VirtualHost)
 	for _, server := range servers {
 		gatewayName := merged.GatewayNameForServer[server]
-		if server.Tls != nil && server.Tls.HttpsRedirect {
-			// this is a plaintext server with TLS redirect enabled. There is no point in processing the
-			// virtual services for this server because all traffic is anyway going to get redirected
-			// to https. short circuit the route computation by generating a virtual host with no routes
-			// but with tls redirect enabled
-			for _, hostname := range server.Hosts {
-				newVHost := &route.VirtualHost{
-					Name:                       domainName(hostname, port),
-					Domains:                    buildGatewayVirtualHostDomains(hostname, port),
-					IncludeRequestAttemptCount: true,
-				}
-				newVHost.RequireTls = route.VirtualHost_ALL
-				vHostDedupMap[host.Name(hostname)] = newVHost
-			}
-			continue
-		}
 
 		var virtualServices []config.Config
 		var exists bool
@@ -239,7 +264,30 @@ func (configgen *ConfigGeneratorImpl) buildGatewayHTTPRouteConfig(node *model.Pr
 			virtualServices = push.VirtualServicesForGateway(node, gatewayName)
 			gatewayVirtualServices[gatewayName] = virtualServices
 		}
-
+		if len(virtualServices) == 0 && server.Tls != nil && server.Tls.HttpsRedirect {
+			// this is a plaintext server with TLS redirect enabled. There is no point in processing the
+			// virtual services for this server because all traffic is anyway going to get redirected
+			// to https. short circuit the route computation by generating a virtual host with no routes
+			// but with tls redirect enabled
+			for _, hostname := range server.Hosts {
+				if vHost, exists := vHostDedupMap[host.Name(hostname)]; exists {
+					if server.Tls != nil && server.Tls.HttpsRedirect {
+						vHost.RequireTls = route.VirtualHost_ALL
+					}
+				} else {
+					newVHost := &route.VirtualHost{
+						Name:                       domainName(hostname, port),
+						Domains:                    buildGatewayVirtualHostDomains(hostname, port),
+						IncludeRequestAttemptCount: true,
+					}
+					if server.Tls != nil && server.Tls.HttpsRedirect {
+						newVHost.RequireTls = route.VirtualHost_ALL
+					}
+					vHostDedupMap[host.Name(hostname)] = newVHost
+				}
+			}
+			continue
+		}
 		for _, virtualService := range virtualServices {
 			virtualServiceHosts := host.NewNames(virtualService.Spec.(*networking.VirtualService).Hosts)
 			serverHosts := host.NamesForNamespace(server.Hosts, virtualService.Namespace)
@@ -251,6 +299,9 @@ func (configgen *ConfigGeneratorImpl) buildGatewayHTTPRouteConfig(node *model.Pr
 			if len(intersectingHosts) == 0 {
 				continue
 			}
+
+			// Make sure we can obtain services which are visible to this virtualService as much as possible.
+			nameToServiceMap := buildNameToServiceMapForHTTPRoutes(node, push, virtualService)
 
 			var routes []*route.Route
 			var exists bool
@@ -272,9 +323,9 @@ func (configgen *ConfigGeneratorImpl) buildGatewayHTTPRouteConfig(node *model.Pr
 
 			for _, hostname := range intersectingHosts {
 				if vHost, exists := vHostDedupMap[hostname]; exists {
-					// before merging this virtual service's routes, make sure that the existing one is not a tls redirect host
-					if vHost.RequireTls == route.VirtualHost_NONE {
-						vHost.Routes = append(vHost.Routes, routes...)
+					vHost.Routes = append(vHost.Routes, routes...)
+					if server.Tls != nil && server.Tls.HttpsRedirect {
+						vHost.RequireTls = route.VirtualHost_ALL
 					}
 				} else {
 					newVHost := &route.VirtualHost{
@@ -282,6 +333,9 @@ func (configgen *ConfigGeneratorImpl) buildGatewayHTTPRouteConfig(node *model.Pr
 						Domains:                    buildGatewayVirtualHostDomains(string(hostname), port),
 						Routes:                     routes,
 						IncludeRequestAttemptCount: true,
+					}
+					if server.Tls != nil && server.Tls.HttpsRedirect {
+						newVHost.RequireTls = route.VirtualHost_ALL
 					}
 					vHostDedupMap[hostname] = newVHost
 				}
@@ -425,44 +479,21 @@ func buildGatewayListenerTLSContext(
 		},
 	}
 
-	if server.Tls.CredentialName != "" {
-		// If SDS is enabled at gateway, and credential name is specified at gateway config, create
-		// SDS config for gateway to fetch key/cert at gateway agent.
+	switch {
+	// If SDS is enabled at gateway, and credential name is specified at gateway config, create
+	// SDS config for gateway to fetch key/cert at gateway agent.
+	case server.Tls.CredentialName != "":
 		authn_model.ApplyCredentialSDSToServerCommonTLSContext(ctx.CommonTlsContext, server.Tls)
-	} else if server.Tls.Mode == networking.ServerTLSSettings_ISTIO_MUTUAL {
+	case server.Tls.Mode == networking.ServerTLSSettings_ISTIO_MUTUAL:
 		authn_model.ApplyToCommonTLSContext(ctx.CommonTlsContext, metadata, sdsPath, server.Tls.SubjectAltNames, []string{})
-	} else {
-		// Fall back to the read-from-file approach when SDS is not enabled or Tls.CredentialName is not specified.
-		ctx.CommonTlsContext.TlsCertificates = []*tls.TlsCertificate{
-			{
-				CertificateChain: &core.DataSource{
-					Specifier: &core.DataSource_Filename{
-						Filename: server.Tls.ServerCertificate,
-					},
-				},
-				PrivateKey: &core.DataSource{
-					Specifier: &core.DataSource_Filename{
-						Filename: server.Tls.PrivateKey,
-					},
-				},
-			},
+	default:
+		// If certificate files are specified in gateway configuration, use file based SDS.
+		certmetadata := &model.NodeMetadata{
+			TLSServerCertChain: server.Tls.ServerCertificate,
+			TLSServerKey:       server.Tls.PrivateKey,
+			TLSServerRootCert:  server.Tls.CaCertificates,
 		}
-		var trustedCa *core.DataSource
-		if len(server.Tls.CaCertificates) != 0 {
-			trustedCa = &core.DataSource{
-				Specifier: &core.DataSource_Filename{
-					Filename: server.Tls.CaCertificates,
-				},
-			}
-		}
-		if trustedCa != nil || len(server.Tls.SubjectAltNames) > 0 {
-			ctx.CommonTlsContext.ValidationContextType = &tls.CommonTlsContext_ValidationContext{
-				ValidationContext: &tls.CertificateValidationContext{
-					TrustedCa:            trustedCa,
-					MatchSubjectAltNames: util.StringToExactMatch(server.Tls.SubjectAltNames),
-				},
-			}
-		}
+		authn_model.ApplyToCommonTLSContext(ctx.CommonTlsContext, certmetadata, sdsPath, server.Tls.SubjectAltNames, []string{})
 	}
 
 	ctx.RequireClientCertificate = proto.BoolFalse

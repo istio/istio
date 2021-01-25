@@ -122,8 +122,8 @@ func TestValidation(t *testing.T) {
 						}
 
 						wetRunErr := cluster.ApplyYAMLFiles(ns.Name(), applyFiles...)
-						ctx.WhenDone(func() error {
-							return cluster.DeleteYAMLFiles(ns.Name(), applyFiles...)
+						ctx.ConditionalCleanup(func() {
+							cluster.DeleteYAMLFiles(ns.Name(), applyFiles...)
 						})
 
 						if dryRunErr != nil && wetRunErr == nil {

@@ -84,6 +84,8 @@ var (
 	serviceAccountVar    = env.RegisterStringVar("SERVICE_ACCOUNT", "", "Name of service account")
 	clusterIDVar         = env.RegisterStringVar("ISTIO_META_CLUSTER_ID", "", "")
 	callCredentials      = env.RegisterBoolVar("CALL_CREDENTIALS", false, "Use JWT directly instead of MTLS")
+	// Provider for XDS auth, e.g., gcp. By default, it is empty, meaning no auth provider.
+	xdsAuthProvider = env.RegisterStringVar("XDS_AUTH_PROVIDER", "", "Provider for XDS auth")
 
 	pilotCertProvider = env.RegisterStringVar("PILOT_CERT_PROVIDER", "istiod",
 		"The provider of Pilot DNS certificate.").Get()
@@ -95,11 +97,11 @@ var (
 	provCert = env.RegisterStringVar("PROV_CERT", "",
 		"Set to a directory containing provisioned certs, for VMs").Get()
 
-	// set to "/etc/ssl/certs/ca-certificates.crt" on debian/ubuntu for ACME/public signed XDS servers.
+	// set to "SYSTEM" for ACME/public signed XDS servers.
 	xdsRootCA = env.RegisterStringVar("XDS_ROOT_CA", "",
 		"Explicitly set the root CA to expect for the XDS connection.").Get()
 
-	// set to "/etc/ssl/certs/ca-certificates.crt" on debian/ubuntu for ACME/public signed CA servers.
+	// set to "SYSTEM" for ACME/public signed CA servers.
 	caRootCA = env.RegisterStringVar("CA_ROOT_CA", "",
 		"Explicitly set the root CA to expect for the CA connection.").Get()
 
@@ -180,7 +182,6 @@ var (
 
 			// Obtain all the IPs from the node
 			if ipAddrs, ok := network.GetPrivateIPs(context.Background()); ok {
-				log.Infof("Obtained private IP %v", ipAddrs)
 				if len(role.IPAddresses) == 1 {
 					for _, ip := range ipAddrs {
 						// prevent duplicate ips, the first one must be the pod ip
@@ -218,12 +219,39 @@ var (
 			// If not set, set a default based on platform - podNamespace.svc.cluster.local for
 			// K8S
 			role.DNSDomain = getDNSDomain(podNamespace, role.DNSDomain)
-			log.Infof("Proxy role: %#v", role)
+			log.WithLabels("ips", role.IPAddresses, "type", role.Type, "id", role.ID, "domain", role.DNSDomain).Info("Proxy role")
 
 			secOpts, err := setupSecurityOptions(proxyConfig)
 			if err != nil {
 				return err
 			}
+			var tokenManager security.TokenManager
+			if stsPort > 0 || xdsAuthProvider.Get() != "" {
+				// tokenManager is gcp token manager when using the default token manager plugin.
+				tokenManager = tokenmanager.CreateTokenManager(tokenManagerPlugin,
+					tokenmanager.Config{CredFetcher: secOpts.CredFetcher, TrustDomain: secOpts.TrustDomain})
+			}
+			secOpts.TokenManager = tokenManager
+
+			// If security token service (STS) port is not zero, start STS server and
+			// listen on STS port for STS requests. For STS, see
+			// https://tools.ietf.org/html/draft-ietf-oauth-token-exchange-16.
+			// STS is used for stackdriver or other Envoy services using google gRPC.
+			if stsPort > 0 {
+				localHostAddr := localHostIPv4
+				if proxyIPv6 {
+					localHostAddr = localHostIPv6
+				}
+				stsServer, err := stsserver.NewServer(stsserver.Config{
+					LocalHostAddr: localHostAddr,
+					LocalPort:     stsPort,
+				}, tokenManager)
+				if err != nil {
+					return err
+				}
+				defer stsServer.Stop()
+			}
+
 			agentConfig := &istio_agent.AgentConfig{
 				XDSRootCerts: xdsRootCA,
 				CARootCerts:  caRootCA,
@@ -246,7 +274,7 @@ var (
 				// Obtain Pilot SAN, using DNS.
 				pilotSAN = []string{getPilotSan(proxyConfig.DiscoveryAddress)}
 			}
-			log.Infof("PilotSAN %#v", pilotSAN)
+			log.Infof("Pilot SAN: %v", pilotSAN)
 
 			// Start in process SDS.
 			if err := sa.Start(); err != nil {
@@ -268,26 +296,13 @@ var (
 				}
 			}
 
-			// If security token service (STS) port is not zero, start STS server and
-			// listen on STS port for STS requests. For STS, see
-			// https://tools.ietf.org/html/draft-ietf-oauth-token-exchange-16.
-			if stsPort > 0 {
-				localHostAddr := localHostIPv4
-				if proxyIPv6 {
-					localHostAddr = localHostIPv6
-				}
-				tokenManager := tokenmanager.CreateTokenManager(tokenManagerPlugin,
-					tokenmanager.Config{CredFetcher: secOpts.CredFetcher, TrustDomain: secOpts.TrustDomain})
-				stsServer, err := stsserver.NewServer(stsserver.Config{
-					LocalHostAddr: localHostAddr,
-					LocalPort:     stsPort,
-				}, tokenManager)
-				if err != nil {
-					return err
-				}
-				defer stsServer.Stop()
+			provCert := sa.FindRootCAForXDS()
+			if provCert == "" {
+				// Envoy only supports load from file. If we want to use system certs, use best guess
+				// To be more correct this could lookup all the "well known" paths but this is extremely \
+				// unlikely to run on a non-debian based machine, and if it is it can be explicitly configured
+				provCert = "/etc/ssl/certs/ca-certificates.crt"
 			}
-
 			envoyProxy := envoy.NewProxy(envoy.ProxyConfig{
 				Config:              proxyConfig,
 				Node:                role.ServiceNode(),
@@ -299,7 +314,7 @@ var (
 				STSPort:             stsPort,
 				OutlierLogPath:      outlierLogPath,
 				PilotCertProvider:   pilotCertProvider,
-				ProvCert:            sa.FindRootCAForXDS(),
+				ProvCert:            provCert,
 				Sidecar:             role.Type == model.SidecarProxy,
 				ProxyViaAgent:       agentConfig.ProxyXDSViaAgent,
 				CallCredentials:     callCredentials.Get(),
@@ -349,6 +364,7 @@ func setupSecurityOptions(proxyConfig meshconfig.ProxyConfig) (security.Options,
 		FileMountedCerts:               fileMountedCertsEnv,
 		WorkloadNamespace:              podNamespaceVar.Get(),
 		ServiceAccount:                 serviceAccountVar.Get(),
+		XdsAuthProvider:                xdsAuthProvider.Get(),
 		TrustDomain:                    trustDomainEnv,
 		Pkcs8Keys:                      pkcs8KeysEnv,
 		ECCSigAlg:                      eccSigAlgEnv,

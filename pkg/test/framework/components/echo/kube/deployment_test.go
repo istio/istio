@@ -18,11 +18,12 @@ import (
 
 	testutil "istio.io/istio/pilot/test/util"
 	"istio.io/istio/pkg/config/protocol"
+	"istio.io/istio/pkg/test/framework/components/cluster"
+	"istio.io/istio/pkg/test/framework/components/cluster/aggregate"
+	kubecluster "istio.io/istio/pkg/test/framework/components/cluster/kube"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/echo/common"
-	"istio.io/istio/pkg/test/framework/components/environment/kube"
 	"istio.io/istio/pkg/test/framework/image"
-	"istio.io/istio/pkg/test/framework/resource"
 	kubetest "istio.io/istio/pkg/test/kube"
 )
 
@@ -138,13 +139,15 @@ func TestDeploymentYAML(t *testing.T) {
 	}
 	for _, tc := range testCase {
 		t.Run(tc.name, func(t *testing.T) {
-			tc.config.Cluster = resource.FakeCluster{
-				NameValue: "cluster-0",
+			clusters, err := aggregate.NewFactory().With(cluster.Config{Kind: cluster.Fake, Name: "cluster-0"}).Build(nil)
+			if err != nil {
+				t.Fatal(err)
 			}
+			tc.config.Cluster = clusters[0]
 			if err := common.FillInDefaults(nil, "", &tc.config); err != nil {
 				t.Errorf("failed filling in defaults: %v", err)
 			}
-			serviceYAML, deploymentYAML, err := generateYAMLWithSettings(tc.config, settings, kube.Cluster{
+			serviceYAML, deploymentYAML, err := generateYAMLWithSettings(tc.config, settings, &kubecluster.Cluster{
 				ExtendedClient: kubetest.MockClient{},
 			})
 			if err != nil {

@@ -119,6 +119,10 @@ type channelTerminal struct {
 }
 
 func initServiceDiscovery() (model.IstioConfigStore, *ServiceEntryStore, chan Event, func()) {
+	return initServiceDiscoveryWithOpts()
+}
+
+func initServiceDiscoveryWithOpts(opts ...ServiceDiscoveryOption) (model.IstioConfigStore, *ServiceEntryStore, chan Event, func()) {
 	store := memory.Make(collections.Pilot)
 	configController := memory.NewController(store)
 
@@ -132,7 +136,7 @@ func initServiceDiscovery() (model.IstioConfigStore, *ServiceEntryStore, chan Ev
 	}
 
 	istioStore := model.MakeIstioStore(configController)
-	serviceController := NewServiceDiscovery(configController, istioStore, xdsUpdater)
+	serviceController := NewServiceDiscovery(configController, istioStore, xdsUpdater, opts...)
 	return istioStore, serviceController, eventch, func() {
 		stop <- channelTerminal{}
 	}
@@ -414,7 +418,7 @@ func TestServiceDiscoveryServiceUpdate(t *testing.T) {
 			se.Endpoints = []*networking.WorkloadEntry{
 				{
 					Address: "lon.google.com",
-					Labels:  map[string]string{label.TLSMode: model.IstioMutualTLSModeLabel},
+					Labels:  map[string]string{label.SecurityTlsMode.Name: model.IstioMutualTLSModeLabel},
 				},
 			}
 			return &c
@@ -1014,7 +1018,7 @@ func TestServicesDiff(t *testing.T) {
 			Name:              "httpDNS",
 			Namespace:         "httpDNS",
 			CreationTimestamp: GlobalTime,
-			Labels:            map[string]string{label.TLSMode: model.IstioMutualTLSModeLabel},
+			Labels:            map[string]string{label.SecurityTlsMode.Name: model.IstioMutualTLSModeLabel},
 		},
 		Spec: &networking.ServiceEntry{
 			Hosts: []string{"*.google.com", "*.mail.com"},
@@ -1026,16 +1030,16 @@ func TestServicesDiff(t *testing.T) {
 				{
 					Address: "us.google.com",
 					Ports:   map[string]uint32{"http-port": 7080, "http-alt-port": 18080},
-					Labels:  map[string]string{label.TLSMode: model.IstioMutualTLSModeLabel},
+					Labels:  map[string]string{label.SecurityTlsMode.Name: model.IstioMutualTLSModeLabel},
 				},
 				{
 					Address: "uk.google.com",
 					Ports:   map[string]uint32{"http-port": 1080},
-					Labels:  map[string]string{label.TLSMode: model.IstioMutualTLSModeLabel},
+					Labels:  map[string]string{label.SecurityTlsMode.Name: model.IstioMutualTLSModeLabel},
 				},
 				{
 					Address: "de.google.com",
-					Labels:  map[string]string{"foo": "bar", label.TLSMode: model.IstioMutualTLSModeLabel},
+					Labels:  map[string]string{"foo": "bar", label.SecurityTlsMode.Name: model.IstioMutualTLSModeLabel},
 				},
 			},
 			Location:   networking.ServiceEntry_MESH_EXTERNAL,
@@ -1060,7 +1064,7 @@ func TestServicesDiff(t *testing.T) {
 		endpoints = append(endpoints, se.Endpoints...)
 		endpoints = append(endpoints, &networking.WorkloadEntry{
 			Address: "in.google.com",
-			Labels:  map[string]string{"foo": "bar", label.TLSMode: model.IstioMutualTLSModeLabel},
+			Labels:  map[string]string{"foo": "bar", label.SecurityTlsMode.Name: model.IstioMutualTLSModeLabel},
 		})
 		se.Endpoints = endpoints
 		return &c
@@ -1372,5 +1376,25 @@ func Test_autoAllocateIP_values(t *testing.T) {
 			t.Errorf("multiple allocations of same IP address to different services: %s", svc.AutoAllocatedAddress)
 		}
 		gotIPMap[svc.AutoAllocatedAddress] = true
+	}
+}
+
+func TestWorkloadEntryOnlyMode(t *testing.T) {
+	store, registry, _, cleanup := initServiceDiscoveryWithOpts(DisableServiceEntryProcessing())
+	defer cleanup()
+	createConfigs([]*config.Config{httpStatic}, store, t)
+	svcs, err := registry.Services()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(svcs) > 0 {
+		t.Fatalf("expected 0 services, got %d", len(svcs))
+	}
+	svc, err := registry.GetService("*.google.com")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if svc != nil {
+		t.Fatalf("expected nil, got %v", svc)
 	}
 }

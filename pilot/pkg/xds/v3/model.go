@@ -19,11 +19,13 @@ import (
 )
 
 const (
-	ClusterType    = resource.ClusterType
-	EndpointType   = resource.EndpointType
-	ListenerType   = resource.ListenerType
-	RouteType      = resource.RouteType
-	SecretType     = resource.SecretType
+	ClusterType                = resource.ClusterType
+	EndpointType               = resource.EndpointType
+	ListenerType               = resource.ListenerType
+	RouteType                  = resource.RouteType
+	SecretType                 = resource.SecretType
+	ExtensionConfigurationType = resource.ExtensionConfigType
+
 	NameTableType  = "type.googleapis.com/istio.networking.nds.v1.NameTable"
 	HealthInfoType = "type.googleapis.com/istio.v1.HealthInformation"
 )

@@ -24,6 +24,7 @@ import (
 	"path"
 	"path/filepath"
 	"regexp"
+	"strconv"
 	"sync"
 	"time"
 
@@ -39,6 +40,7 @@ import (
 	pkgAPI "istio.io/istio/operator/pkg/apis/istio/v1alpha1"
 	"istio.io/istio/pkg/test/cert/ca"
 	testenv "istio.io/istio/pkg/test/env"
+	kubecluster "istio.io/istio/pkg/test/framework/components/cluster/kube"
 	"istio.io/istio/pkg/test/framework/components/environment/kube"
 	"istio.io/istio/pkg/test/framework/components/istio/ingress"
 	"istio.io/istio/pkg/test/framework/components/istioctl"
@@ -74,9 +76,10 @@ type operatorComponent struct {
 	// installManifest includes the yamls use to install Istio. These can be deleted on cleanup
 	// The key is the cluster name
 	installManifest map[string][]string
-	ingress         map[resource.ClusterIndex]map[string]ingress.Instance
-	workDir         string
-	deployTime      time.Duration
+	// ingress components, indexed first by cluster name and then by gateway name.
+	ingress    map[string]map[string]ingress.Instance
+	workDir    string
+	deployTime time.Duration
 }
 
 var _ io.Closer = &operatorComponent{}
@@ -134,18 +137,18 @@ func (i *operatorComponent) IngressFor(cluster resource.Cluster) ingress.Instanc
 func (i *operatorComponent) CustomIngressFor(cluster resource.Cluster, serviceName, istioLabel string) ingress.Instance {
 	i.mu.Lock()
 	defer i.mu.Unlock()
-	if i.ingress[cluster.Index()] == nil {
-		i.ingress[cluster.Index()] = map[string]ingress.Instance{}
+	if i.ingress[cluster.Name()] == nil {
+		i.ingress[cluster.Name()] = map[string]ingress.Instance{}
 	}
-	if _, ok := i.ingress[cluster.Index()][istioLabel]; !ok {
-		i.ingress[cluster.Index()][istioLabel] = newIngress(i.ctx, ingressConfig{
+	if _, ok := i.ingress[cluster.Name()][istioLabel]; !ok {
+		i.ingress[cluster.Name()][istioLabel] = newIngress(i.ctx, ingressConfig{
 			Namespace:   i.settings.IngressNamespace,
 			Cluster:     cluster,
 			ServiceName: serviceName,
 			IstioLabel:  istioLabel,
 		})
 	}
-	return i.ingress[cluster.Index()][istioLabel]
+	return i.ingress[cluster.Name()][istioLabel]
 }
 
 func appendToFile(contents string, file string) error {
@@ -177,6 +180,10 @@ func (i *operatorComponent) Close() error {
 		scopes.Framework.Infof("=== SUCCEEDED: Cleanup Istio in %v [Suite=%s] ===", delta, i.ctx.Settings().TestID)
 	}()
 
+	if i.settings.DumpKubernetesManifests {
+		i.dumpGeneratedManifests()
+	}
+
 	if i.settings.DeployIstio {
 		errG := multierror.Group{}
 		for _, cluster := range i.ctx.Clusters() {
@@ -205,6 +212,27 @@ func (i *operatorComponent) Close() error {
 	return nil
 }
 
+func (i *operatorComponent) dumpGeneratedManifests() {
+	manifestsDir := path.Join(i.workDir, "manifests")
+	if err := os.Mkdir(manifestsDir, 0700); err != nil {
+		scopes.Framework.Errorf("Unable to create directory for dumping install manifests: %v", err)
+		return
+	}
+	for clusterName, manifests := range i.installManifest {
+		clusterDir := path.Join(manifestsDir, clusterName)
+		if err := os.Mkdir(manifestsDir, 0700); err != nil {
+			scopes.Framework.Errorf("Unable to create directory for dumping %s install manifests: %v", clusterName, err)
+			return
+		}
+		for i, manifest := range manifests {
+			err := ioutil.WriteFile(path.Join(clusterDir, "manifest-"+strconv.Itoa(i)+".yaml"), []byte(manifest), 0644)
+			if err != nil {
+				scopes.Framework.Errorf("Failed writing manifest %d/%d in %s: %v", i, len(manifests)-1, clusterName, err)
+			}
+		}
+	}
+}
+
 func (i *operatorComponent) Dump(ctx resource.Context) {
 	scopes.Framework.Errorf("=== Dumping Istio Deployment State...")
 	ns := i.settings.SystemNamespace
@@ -214,6 +242,9 @@ func (i *operatorComponent) Dump(ctx resource.Context) {
 		return
 	}
 	kube2.DumpPods(ctx, d, ns)
+	for _, cluster := range ctx.Clusters() {
+		kube2.DumpDebug(cluster, d, "configz")
+	}
 }
 
 // saveManifestForCleanup will ensure we delete the given yaml from the given cluster during cleanup.
@@ -233,7 +264,7 @@ func deploy(ctx resource.Context, env *kube.Environment, cfg Config) (Instance, 
 		settings:        cfg,
 		ctx:             ctx,
 		installManifest: map[string][]string{},
-		ingress:         map[resource.ClusterIndex]map[string]ingress.Instance{},
+		ingress:         map[string]map[string]ingress.Instance{},
 	}
 	t0 := time.Now()
 	defer func() {
@@ -735,7 +766,7 @@ func deployCACerts(workDir string, env *kube.Environment, cfg Config) error {
 		// Create the system namespace.
 		var nsLabels map[string]string
 		if env.IsMultinetwork() {
-			nsLabels = map[string]string{label.IstioNetwork: cluster.NetworkName()}
+			nsLabels = map[string]string{label.TopologyNetwork.Name: cluster.NetworkName()}
 		}
 		if _, err := cluster.CoreV1().Namespaces().Create(context.TODO(), &kubeApiCore.Namespace{
 			ObjectMeta: kubeApiMeta.ObjectMeta{
@@ -859,9 +890,9 @@ func configureDiscoveryForConfigAndRemoteCluster(discoveryAddress string, cfg Co
 // in its remote config cluster by creating the kubeconfig secret pointing to the remote kubeconfig, and the
 // service account required to read the secret.
 func (i *operatorComponent) configureRemoteConfigForControlPlane(cluster resource.Cluster) error {
-	env, cfg := i.environment, i.settings
+	cfg := i.settings
 	configCluster := cluster.Config()
-	istioKubeConfig, err := file.AsString(env.Settings().KubeConfig[configCluster.Index()])
+	istioKubeConfig, err := file.AsString(configCluster.(*kubecluster.Cluster).Filename())
 	if err != nil {
 		scopes.Framework.Infof("error in parsing kubeconfig for %s", configCluster.Name())
 		return err

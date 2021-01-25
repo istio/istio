@@ -82,7 +82,7 @@ func buildOutboundNetworkFiltersWithSingleDestination(push *model.PushContext, n
 	}
 
 	idleTimeout, err := time.ParseDuration(node.Metadata.IdleTimeout)
-	if idleTimeout > 0 && err == nil {
+	if err == nil {
 		tcpProxy.IdleTimeout = ptypes.DurationProto(idleTimeout)
 	}
 
@@ -107,7 +107,7 @@ func buildOutboundNetworkFiltersWithWeightedClusters(node *model.Proxy, routes [
 	}
 
 	idleTimeout, err := time.ParseDuration(node.Metadata.IdleTimeout)
-	if idleTimeout > 0 && err == nil {
+	if err == nil {
 		proxyConfig.IdleTimeout = ptypes.DurationProto(idleTimeout)
 	}
 

@@ -18,12 +18,14 @@ import (
 	"context"
 	"crypto/tls"
 	"crypto/x509"
+	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"net"
 	"net/http"
 	"os"
 	"path"
+	"reflect"
 	"sync"
 	"time"
 
@@ -31,16 +33,21 @@ import (
 	prometheus "github.com/grpc-ecosystem/go-grpc-prometheus"
 	prom "github.com/prometheus/client_golang/prometheus"
 	"github.com/soheilhy/cmux"
+	"golang.org/x/net/http2"
+	"golang.org/x/net/http2/h2c"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/keepalive"
 	"google.golang.org/grpc/reflection"
+	"k8s.io/apimachinery/pkg/labels"
 	v1 "k8s.io/client-go/kubernetes/typed/core/v1"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/cache"
 
+	"istio.io/api/security/v1beta1"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
+	modelstatus "istio.io/istio/pilot/pkg/model/status"
 	"istio.io/istio/pilot/pkg/networking/plugin"
 	kubesecrets "istio.io/istio/pilot/pkg/secrets/kube"
 	securityModel "istio.io/istio/pilot/pkg/security/model"
@@ -60,6 +67,7 @@ import (
 	istiokeepalive "istio.io/istio/pkg/keepalive"
 	kubelib "istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/inject"
+	"istio.io/istio/pkg/security"
 	"istio.io/istio/pkg/spiffe"
 	"istio.io/istio/security/pkg/k8s/chiron"
 	"istio.io/istio/security/pkg/pki/ca"
@@ -144,6 +152,7 @@ type Server struct {
 	httpsMux *http.ServeMux // webhooks
 
 	HTTPListener       net.Listener
+	HTTP2Listener      net.Listener
 	GRPCListener       net.Listener
 	SecureGrpcListener net.Listener
 
@@ -173,6 +182,8 @@ type Server struct {
 
 	// The SPIFFE based cert verifier
 	peerCertVerifier *spiffe.PeerCertVerifier
+	// RWConfigStore is the configstore which allows updates, particularly for status.
+	RWConfigStore model.ConfigStoreCache
 }
 
 // NewServer creates a new Server instance based on the provided arguments.
@@ -298,15 +309,24 @@ func NewServer(args *PilotArgs) (*Server, error) {
 	// authenticators are activated sequentially and the first successful attempt
 	// is used as the authentication result.
 	// The JWT authenticator requires the multicluster registry to be initialized, so we build this later
-	authenticators := []authenticate.Authenticator{
+	authenticators := []security.Authenticator{
 		&authenticate.ClientCertAuthenticator{},
 		kubeauth.NewKubeJWTAuthenticator(s.kubeClient, s.clusterID, s.multicluster.GetRemoteKubeClient, spiffe.GetTrustDomain(), features.JwtPolicy.Get()),
 	}
-
-	caOpts.Authenticators = authenticators
+	if args.JwtRule != "" {
+		jwtAuthn, err := initOIDC(args, s.environment.Mesh().TrustDomain)
+		if err != nil {
+			return nil, fmt.Errorf("error initializing OIDC: %v", err)
+		}
+		if jwtAuthn == nil {
+			return nil, fmt.Errorf("JWT authenticator is nil")
+		}
+		authenticators = append(authenticators, jwtAuthn)
+	}
 	if features.XDSAuth {
 		s.XDSServer.Authenticators = authenticators
 	}
+	caOpts.Authenticators = authenticators
 
 	// Start CA or RA server. This should be called after CA and Istiod certs have been created.
 	s.startCA(caOpts)
@@ -329,6 +349,22 @@ func NewServer(args *PilotArgs) (*Server, error) {
 	})
 
 	return s, nil
+}
+
+func initOIDC(args *PilotArgs, trustDomain string) (security.Authenticator, error) {
+	// JWTRule is from the JWT_RULE environment variable.
+	// An example of json string for JWTRule is:
+	//`{"issuer": "foo", "jwks_uri": "baz", "audiences": ["aud1", "aud2"]}`.
+	jwtRule := v1beta1.JWTRule{}
+	err := json.Unmarshal([]byte(args.JwtRule), &jwtRule)
+	if err != nil {
+		return nil, fmt.Errorf("failed to unmarshal JWT rule: %v", err)
+	}
+	jwtAuthn, err := authenticate.NewJwtAuthenticator(&jwtRule, trustDomain)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create the JWT authenticator: %v", err)
+	}
+	return jwtAuthn, nil
 }
 
 func getClusterID(args *PilotArgs) string {
@@ -386,6 +422,20 @@ func (s *Server) Start(stop <-chan struct{}) error {
 			log.Errorf("error serving http server: %v", err)
 		}
 	}()
+
+	if s.HTTP2Listener != nil {
+		go func() {
+			log.Infof("starting Http2 muxed service at %s", s.HTTP2Listener.Addr())
+			h2s := &http2.Server{}
+			h1s := &http.Server{
+				Addr:    ":8080",
+				Handler: h2c.NewHandler(s.httpMux, h2s),
+			}
+			if err := h1s.Serve(s.HTTP2Listener); err != nil && err != http.ErrServerClosed {
+				log.Errorf("error serving http server: %v", err)
+			}
+		}()
+	}
 
 	if s.httpsServer != nil {
 		go func() {
@@ -566,6 +616,7 @@ func (s *Server) initDiscoveryService(args *PilotArgs) {
 		log.Info("multplexing gRPC on http port ", s.HTTPListener.Addr())
 		m := cmux.New(s.HTTPListener)
 		s.GRPCListener = m.Match(cmux.HTTP2HeaderField("content-type", "application/grpc"))
+		s.HTTP2Listener = m.Match(cmux.HTTP2())
 		s.HTTPListener = m.Match(cmux.Any())
 		go func() {
 			err := m.Serve()
@@ -801,7 +852,23 @@ func (s *Server) initRegistryEventHandlers() {
 	s.ServiceController().AppendServiceHandler(serviceHandler)
 
 	if s.configController != nil {
-		configHandler := func(_, curr config.Config, event model.Event) {
+		configHandler := func(old config.Config, curr config.Config, event model.Event) {
+			if old.Generation == curr.Generation && curr.Generation != 0 {
+				// Kubernetes will start generation at 1, but some internally generated configurations
+				// may not set resource version at all and we still want updates from these
+				if curr.GroupVersionKind == gvk.WorkloadEntry {
+					oldCond := modelstatus.GetConditionFromSpec(old, modelstatus.ConditionHealthy)
+					newCond := modelstatus.GetConditionFromSpec(curr, modelstatus.ConditionHealthy)
+					if oldCond == newCond {
+						return
+					}
+				} else if onlyStatusUpdated(old, curr) {
+					log.Debugf("skipping push for %v/%v, due to no change in spec or labels\n",
+						old.Namespace, old.Name)
+					return
+				}
+			}
+
 			pushReq := &model.PushRequest{
 				Full: true,
 				ConfigsUpdated: map[model.ConfigKey]struct{}{{
@@ -836,6 +903,12 @@ func (s *Server) initRegistryEventHandlers() {
 			s.configController.RegisterEventHandler(schema.Resource().GroupVersionKind(), configHandler)
 		}
 	}
+}
+
+// onlyStatusUpdated returns false if changes are observed in labels, annotations, or spec, and otherwise returns true.
+func onlyStatusUpdated(old config.Config, curr config.Config) bool {
+	return labels.Equals(old.Labels, curr.Labels) &&
+		labels.Equals(old.Annotations, curr.Annotations) && reflect.DeepEqual(old.Spec, curr.Spec)
 }
 
 // initIstiodCerts creates Istiod certificates and also sets up watches to them.

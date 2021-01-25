@@ -27,7 +27,7 @@ import (
 
 	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/test/framework"
-	"istio.io/istio/pkg/test/framework/components/environment/kube"
+	kubecluster "istio.io/istio/pkg/test/framework/components/cluster/kube"
 	"istio.io/istio/pkg/test/framework/image"
 	"istio.io/istio/pkg/test/framework/resource"
 	"istio.io/istio/pkg/test/helm"
@@ -60,13 +60,13 @@ func TestDefaultInPlaceUpgrades(t *testing.T) {
 		NewTest(t).
 		Features("installation.helm.default.upgrade").
 		Run(func(ctx framework.TestContext) {
-			cs := ctx.Clusters().Default().(*kube.Cluster)
+			cs := ctx.Clusters().Default().(*kubecluster.Cluster)
 			h := helm.New(cs.Filename(), filepath.Join(previousChartPath, previousSupportedVersion))
 
-			ctx.WhenDone(func() error {
+			ctx.ConditionalCleanup(func() {
 				// only need to do call this once as helm doesn't need to remove
 				// all versions
-				return deleteIstio(cs, h)
+				deleteIstio(cs, h)
 			})
 
 			overrideValuesFile := getValuesOverrides(ctx, defaultValues, gcrHub, previousSupportedVersion)
@@ -136,20 +136,20 @@ func installIstio(t *testing.T, cs resource.Cluster,
 	helmtest.CreateIstioSystemNamespace(t, cs)
 
 	// Install base chart
-	err := h.InstallChart(helmtest.BaseReleaseName, helmtest.BaseChart,
+	err := h.InstallChart(helmtest.BaseReleaseName, helmtest.BaseChart+helmtest.TarGzSuffix,
 		helmtest.IstioNamespace, overrideValuesFile, helmtest.HelmTimeout)
 	if err != nil {
 		t.Errorf("failed to install istio %s chart", helmtest.BaseChart)
 	}
 
 	// Install discovery chart
-	err = h.InstallChart(helmtest.IstiodReleaseName, filepath.Join(helmtest.ControlChartsDir, helmtest.DiscoveryChart),
+	err = h.InstallChart(helmtest.IstiodReleaseName, filepath.Join(helmtest.ControlChartsDir, helmtest.DiscoveryChart)+helmtest.TarGzSuffix,
 		helmtest.IstioNamespace, overrideValuesFile, helmtest.HelmTimeout)
 	if err != nil {
 		t.Errorf("failed to install istio %s chart", helmtest.DiscoveryChart)
 	}
 
-	helmtest.InstallGatewaysCharts(t, cs, h, overrideValuesFile)
+	helmtest.InstallGatewaysCharts(t, cs, h, helmtest.TarGzSuffix, overrideValuesFile)
 }
 
 // deleteIstio deletes installed Istio Helm charts and resources

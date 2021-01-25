@@ -259,7 +259,7 @@ func createNamespace(cs kubernetes.Interface, namespace string, network string) 
 				},
 			}}
 			if network != "" {
-				ns.Labels[label.IstioNetwork] = network
+				ns.Labels[label.TopologyNetwork.Name] = network
 			}
 			_, err := cs.CoreV1().Namespaces().Create(context.TODO(), ns, v12.CreateOptions{})
 			if err != nil {
