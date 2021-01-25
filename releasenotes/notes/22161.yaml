@@ -1,0 +1,9 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: security
+issue:
+- 22161
+releaseNotes:
+- |
+  **Updated** K8s CA (Chiron) configuration to sign Istiod certificates will not be honored in
+  K8s clusters with version 1.22 and greater.
