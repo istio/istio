@@ -143,15 +143,13 @@ func TestIngress(t *testing.T) {
 			// we will define one for foo.example.com and one for bar.example.com, to ensure both can co-exist
 			credName := "k8s-ingress-secret-foo"
 			ingressutil.CreateIngressKubeSecret(ctx, []string{credName}, ingressutil.TLS, ingressutil.IngressCredentialA, false)
-			ctx.WhenDone(func() error {
+			ctx.ConditionalCleanup(func() {
 				ingressutil.DeleteKubeSecret(ctx, []string{credName})
-				return nil
 			})
 			credName2 := "k8s-ingress-secret-bar"
 			ingressutil.CreateIngressKubeSecret(ctx, []string{credName2}, ingressutil.TLS, ingressutil.IngressCredentialB, false)
-			ctx.WhenDone(func() error {
+			ctx.ConditionalCleanup(func() {
 				ingressutil.DeleteKubeSecret(ctx, []string{credName2})
-				return nil
 			})
 
 			ingressClassConfig := `
