@@ -18,15 +18,13 @@ import (
 	"fmt"
 	"strings"
 	"testing"
-
-	"istio.io/istio/pilot/test/util"
 )
 
 type profileDiffTestcase struct {
 	args           string
 	shouldFail     bool
 	expectedString string // String output is expected to contain
-	goldenFilename string // Expected output stored in golden file
+	notExpected    string // String the output must NOT contain
 }
 
 func TestProfileDiff(t *testing.T) {
@@ -44,6 +42,10 @@ func TestProfileDiff(t *testing.T) {
 			shouldFail: true,
 		},
 		{
+			args:       fmt.Sprintf("profile diff default unknown-profile --manifests %s", snapshotCharts),
+			shouldFail: true,
+		},
+		{
 			args:           fmt.Sprintf("profile diff default default --manifests %s", snapshotCharts),
 			expectedString: "Profiles are identical",
 		},
@@ -55,10 +57,15 @@ func TestProfileDiff(t *testing.T) {
 			args:           fmt.Sprintf("profile diff openshift openshift --manifests %s", snapshotCharts),
 			expectedString: "Profiles are identical",
 		},
-		// TODO diff non-identical profiles (default and demo; default and openshift)
-		// and use golden file to hold the expect difference.
-		// Currently we don't do that because profileDiff() calls os.Exit(1) which
-		// ends the Go test.
+		{
+			args: fmt.Sprintf("profile diff default openshift --manifests %s", snapshotCharts),
+			// This is just one of the many differences
+			expectedString: "+      cniBinDir: /var/lib/cni/bin",
+			// The profile doesn't change istiocoredns, so we shouldn't see this in the diff
+			notExpected: "-    istiocoredns:",
+			// 'profile diff' "fails" so that the error level `$?` is 1, not 0, if there is a diff
+			shouldFail: true,
+		},
 	}
 
 	for i, c := range cases {
@@ -78,8 +85,8 @@ func verifyProfileDiffCommandCaseOutput(t *testing.T, c profileDiffTestcase) {
 		t.Fatalf("Output didn't match for 'istioctl %s'\n got %v\nwant: %v", c.args, output, c.expectedString)
 	}
 
-	if c.goldenFilename != "" {
-		util.CompareContent([]byte(output), c.goldenFilename, t)
+	if c.notExpected != "" && strings.Contains(output, c.notExpected) {
+		t.Fatalf("Output didn't match for 'istioctl %s'\n got %v\nDON'T want: %v", c.args, output, c.expectedString)
 	}
 
 	if c.shouldFail {
