@@ -157,14 +157,16 @@ data:
   # to fine tune it or use it with kube-inject.
   config: |-
     # defaultTemplates defines the default template to use for pods that do not explicitly specify a template
-    # NOTE: this currently only allows a single element
-    defaultTemplates: [sidecar]
+    defaultTemplates:
+    - sidecar
+    - credential-volume
     policy: enabled
     alwaysInjectSelector:
       []
     neverInjectSelector:
       []
     injectedAnnotations:
+    template: "{{ Template_Version_And_Istio_Version_Mismatched_Check_Installation }}"
     templates:
       sidecar: |
         {{- $containers := list }}
