@@ -320,7 +320,7 @@ func printRevisionInfoTable(writer io.Writer, verbose bool, revisions map[string
 func printControlPlaneSummaryTable(w io.Writer, revisions map[string]*RevisionDescription) error {
 	fmt.Fprintf(w, "\nCONTROL PLANE:\n")
 	tw := new(tabwriter.Writer).Init(w, 0, 8, 1, ' ', 0)
-	fmt.Fprintf(tw, "REVISION\tISTIOD ENABLED\tCONTROL-PLANE PODS\n")
+	fmt.Fprintf(tw, "REVISION\tISTIOD-ENABLED\tCONTROL-PLANE-PODS\n")
 	for rev, rd := range revisions {
 		isIstiodEnabled := false
 	outer:
