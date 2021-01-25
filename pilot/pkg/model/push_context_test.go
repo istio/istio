@@ -339,7 +339,7 @@ func TestServiceIndex(t *testing.T) {
 	g.Expect(serviceNames(si.privateByNamespace["test1"])).To(Equal([]string{"svc-private"}))
 }
 
-func TestIsServiceExportTo(t *testing.T) {
+func TestIsServiceVisible(t *testing.T) {
 	targetNamespace := "foo"
 	cases := []struct {
 		name        string
@@ -348,7 +348,7 @@ func TestIsServiceExportTo(t *testing.T) {
 		expect      bool
 	}{
 		{
-			name: "service has no exportTo map with global private",
+			name: "service whose namespace is foo has no exportTo map with global private",
 			pushContext: &PushContext{
 				exportToDefaults: exportToDefaults{
 					service: map[visibility.Instance]bool{
@@ -364,7 +364,7 @@ func TestIsServiceExportTo(t *testing.T) {
 			expect: true,
 		},
 		{
-			name: "service has no exportTo map with global private",
+			name: "service whose namespace is bar has no exportTo map with global private",
 			pushContext: &PushContext{
 				exportToDefaults: exportToDefaults{
 					service: map[visibility.Instance]bool{
@@ -380,7 +380,7 @@ func TestIsServiceExportTo(t *testing.T) {
 			expect: false,
 		},
 		{
-			name: "service has no exportTo map with global public",
+			name: "service whose namespace is bar has no exportTo map with global public",
 			pushContext: &PushContext{
 				exportToDefaults: exportToDefaults{
 					service: map[visibility.Instance]bool{
@@ -396,7 +396,7 @@ func TestIsServiceExportTo(t *testing.T) {
 			expect: true,
 		},
 		{
-			name:        "service has exportTo map with private",
+			name:        "service whose namespace is foo has exportTo map with private",
 			pushContext: &PushContext{},
 			service: &Service{
 				Attributes: ServiceAttributes{
@@ -409,7 +409,7 @@ func TestIsServiceExportTo(t *testing.T) {
 			expect: true,
 		},
 		{
-			name:        "service has exportTo map with private",
+			name:        "service whose namespace is bar has exportTo map with private",
 			pushContext: &PushContext{},
 			service: &Service{
 				Attributes: ServiceAttributes{
@@ -422,7 +422,7 @@ func TestIsServiceExportTo(t *testing.T) {
 			expect: false,
 		},
 		{
-			name:        "service has exportTo map with public",
+			name:        "service whose namespace is bar has exportTo map with public",
 			pushContext: &PushContext{},
 			service: &Service{
 				Attributes: ServiceAttributes{
@@ -435,7 +435,7 @@ func TestIsServiceExportTo(t *testing.T) {
 			expect: true,
 		},
 		{
-			name:        "service has exportTo map with specific namespace",
+			name:        "service whose namespace is bar has exportTo map with specific namespace foo",
 			pushContext: &PushContext{},
 			service: &Service{
 				Attributes: ServiceAttributes{
@@ -448,7 +448,7 @@ func TestIsServiceExportTo(t *testing.T) {
 			expect: true,
 		},
 		{
-			name:        "service has exportTo map with specific namespace",
+			name:        "service whose namespace is bar has exportTo map with specific namespace baz",
 			pushContext: &PushContext{},
 			service: &Service{
 				Attributes: ServiceAttributes{
@@ -464,7 +464,7 @@ func TestIsServiceExportTo(t *testing.T) {
 
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
-			isVisible := c.pushContext.IsServiceExportTo(c.service, targetNamespace)
+			isVisible := c.pushContext.IsServiceVisible(c.service, targetNamespace)
 
 			g := NewWithT(t)
 			g.Expect(isVisible).To(Equal(c.expect))

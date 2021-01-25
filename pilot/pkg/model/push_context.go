@@ -684,8 +684,8 @@ func (ps *PushContext) ServiceForHostname(proxy *Proxy, hostname host.Name) *Ser
 	return nil
 }
 
-// IsServiceExportTo returns true if the input service is visible to the given namespace.
-func (ps *PushContext) IsServiceExportTo(service *Service, namespace string) bool {
+// IsServiceVisible returns true if the input service is visible to the given namespace.
+func (ps *PushContext) IsServiceVisible(service *Service, namespace string) bool {
 	if service == nil {
 		return false
 	}

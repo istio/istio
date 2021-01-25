@@ -201,7 +201,7 @@ func buildNameToServiceMapForHTTPRoutes(node *model.Proxy, push *model.PushConte
 		s, exist := push.ServiceIndex.HostnameAndNamespace[hostname][virtualService.Namespace]
 		if exist {
 			// We should check whether the selected service is visible to the proxy node.
-			if push.IsServiceExportTo(s, node.ConfigNamespace) {
+			if push.IsServiceVisible(s, node.ConfigNamespace) {
 				service = s
 			}
 		}
