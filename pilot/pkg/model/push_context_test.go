@@ -327,7 +327,6 @@ func TestServiceIndex(t *testing.T) {
 	g.Expect(si.instancesByPort).To(HaveLen(5))
 	g.Expect(si.ClusterVIPs).To(HaveLen(5))
 	g.Expect(si.HostnameAndNamespace).To(HaveLen(5))
-	g.Expect(si.Hostname).To(HaveLen(5))
 
 	// Should just have "namespace"
 	g.Expect(si.exportedToNamespace).To(HaveLen(1))
@@ -338,6 +337,139 @@ func TestServiceIndex(t *testing.T) {
 	// Should just have "test1"
 	g.Expect(si.privateByNamespace).To(HaveLen(1))
 	g.Expect(serviceNames(si.privateByNamespace["test1"])).To(Equal([]string{"svc-private"}))
+}
+
+func TestIsServiceVisible(t *testing.T) {
+	targetNamespace := "foo"
+	cases := []struct {
+		name        string
+		pushContext *PushContext
+		service     *Service
+		expect      bool
+	}{
+		{
+			name: "service whose namespace is foo has no exportTo map with global private",
+			pushContext: &PushContext{
+				exportToDefaults: exportToDefaults{
+					service: map[visibility.Instance]bool{
+						visibility.Private: true,
+					},
+				},
+			},
+			service: &Service{
+				Attributes: ServiceAttributes{
+					Namespace: "foo",
+				},
+			},
+			expect: true,
+		},
+		{
+			name: "service whose namespace is bar has no exportTo map with global private",
+			pushContext: &PushContext{
+				exportToDefaults: exportToDefaults{
+					service: map[visibility.Instance]bool{
+						visibility.Private: true,
+					},
+				},
+			},
+			service: &Service{
+				Attributes: ServiceAttributes{
+					Namespace: "bar",
+				},
+			},
+			expect: false,
+		},
+		{
+			name: "service whose namespace is bar has no exportTo map with global public",
+			pushContext: &PushContext{
+				exportToDefaults: exportToDefaults{
+					service: map[visibility.Instance]bool{
+						visibility.Public: true,
+					},
+				},
+			},
+			service: &Service{
+				Attributes: ServiceAttributes{
+					Namespace: "bar",
+				},
+			},
+			expect: true,
+		},
+		{
+			name:        "service whose namespace is foo has exportTo map with private",
+			pushContext: &PushContext{},
+			service: &Service{
+				Attributes: ServiceAttributes{
+					Namespace: "foo",
+					ExportTo: map[visibility.Instance]bool{
+						visibility.Private: true,
+					},
+				},
+			},
+			expect: true,
+		},
+		{
+			name:        "service whose namespace is bar has exportTo map with private",
+			pushContext: &PushContext{},
+			service: &Service{
+				Attributes: ServiceAttributes{
+					Namespace: "bar",
+					ExportTo: map[visibility.Instance]bool{
+						visibility.Private: true,
+					},
+				},
+			},
+			expect: false,
+		},
+		{
+			name:        "service whose namespace is bar has exportTo map with public",
+			pushContext: &PushContext{},
+			service: &Service{
+				Attributes: ServiceAttributes{
+					Namespace: "bar",
+					ExportTo: map[visibility.Instance]bool{
+						visibility.Public: true,
+					},
+				},
+			},
+			expect: true,
+		},
+		{
+			name:        "service whose namespace is bar has exportTo map with specific namespace foo",
+			pushContext: &PushContext{},
+			service: &Service{
+				Attributes: ServiceAttributes{
+					Namespace: "bar",
+					ExportTo: map[visibility.Instance]bool{
+						visibility.Instance("foo"): true,
+					},
+				},
+			},
+			expect: true,
+		},
+		{
+			name:        "service whose namespace is bar has exportTo map with specific namespace baz",
+			pushContext: &PushContext{},
+			service: &Service{
+				Attributes: ServiceAttributes{
+					Namespace: "bar",
+					ExportTo: map[visibility.Instance]bool{
+						visibility.Instance("baz"): true,
+					},
+				},
+			},
+			expect: false,
+		},
+	}
+
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			isVisible := c.pushContext.IsServiceVisible(c.service, targetNamespace)
+
+			g := NewWithT(t)
+			g.Expect(isVisible).To(Equal(c.expect))
+		})
+	}
 }
 
 func serviceNames(svcs []*Service) []string {
