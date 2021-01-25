@@ -58,9 +58,6 @@ const (
 	webhooksSection        = "MUTATING-WEBHOOKS"
 	podsSection            = "PODS"
 
-	// TODO: This should be moved to istio/api:label package
-	istioTag = "istio.io/tag"
-
 	jsonFormat  = "json"
 	tableFormat = "table"
 )
@@ -103,6 +100,7 @@ func revisionCommand() *cobra.Command {
 		Long: "The revision command provides a revision centric view of istio deployments. " +
 			"It provides insight into IstioOperator CRs defining the revision, istiod and gateway pods " +
 			"which are part of deployment of a particular revision.",
+		Short:   "Provide insight into various revisions (istiod, gateways) installed in the cluster",
 		Aliases: []string{"rev"},
 	}
 	revisionCmd.PersistentFlags().StringVarP(&revArgs.manifestsPath, "manifests", "d", "", mesh.ManifestsFlagHelpStr)
@@ -198,17 +196,17 @@ type MutatingWebhookConfigInfo struct {
 }
 
 type NsInfo struct {
-	Name string            `json:"name,omitempty"`
-	Pods []PodFilteredInfo `json:"pods,omitempty"`
+	Name string             `json:"name,omitempty"`
+	Pods []*PodFilteredInfo `json:"pods,omitempty"`
 }
 
 type RevisionDescription struct {
-	IstioOperatorCRs   []IstioOperatorCRInfo       `json:"istio_operator_crs,omitempty"`
-	Webhooks           []MutatingWebhookConfigInfo `json:"webhooks,omitempty"`
-	ControlPlanePods   []PodFilteredInfo           `json:"control_plane_pods,omitempty"`
-	IngressGatewayPods []PodFilteredInfo           `json:"ingess_gateways,omitempty"`
-	EgressGatewayPods  []PodFilteredInfo           `json:"egress_gateways,omitempty"`
-	NamespaceSummary   map[string]*NsInfo          `json:"namespace_summary,omitempty"`
+	IstioOperatorCRs   []*IstioOperatorCRInfo       `json:"istio_operator_crs,omitempty"`
+	Webhooks           []*MutatingWebhookConfigInfo `json:"webhooks,omitempty"`
+	ControlPlanePods   []*PodFilteredInfo           `json:"control_plane_pods,omitempty"`
+	IngressGatewayPods []*PodFilteredInfo           `json:"ingess_gateways,omitempty"`
+	EgressGatewayPods  []*PodFilteredInfo           `json:"egress_gateways,omitempty"`
+	NamespaceSummary   map[string]*NsInfo           `json:"namespace_summary,omitempty"`
 }
 
 func revisionList(writer io.Writer, args *revisionArgs, logger clog.Logger) error {
@@ -228,11 +226,11 @@ func revisionList(writer io.Writer, args *revisionArgs, logger clog.Logger) erro
 	}
 	for _, hook := range webhooks {
 		rev := renderWithDefault(hook.GetLabels()[label.IoIstioRev.Name], "default")
-		tag := hook.GetLabels()[istioTag]
+		tag := hook.GetLabels()[istioTagLabel]
 		ri, revPresent := revisions[rev]
 		if revPresent {
 			if tag != "" {
-				ri.Webhooks = append(ri.Webhooks, MutatingWebhookConfigInfo{
+				ri.Webhooks = append(ri.Webhooks, &MutatingWebhookConfigInfo{
 					Name:     hook.Name,
 					Revision: rev,
 					Tag:      tag,
@@ -240,8 +238,8 @@ func revisionList(writer io.Writer, args *revisionArgs, logger clog.Logger) erro
 			}
 		} else {
 			revisions[rev] = &RevisionDescription{
-				IstioOperatorCRs: []IstioOperatorCRInfo{},
-				Webhooks:         []MutatingWebhookConfigInfo{{Name: hook.Name, Revision: rev, Tag: tag}},
+				IstioOperatorCRs: []*IstioOperatorCRInfo{},
+				Webhooks:         []*MutatingWebhookConfigInfo{{Name: hook.Name, Revision: rev, Tag: tag}},
 			}
 		}
 	}
@@ -253,22 +251,25 @@ func revisionList(writer io.Writer, args *revisionArgs, logger clog.Logger) erro
 	}
 	for _, iop := range iopcrs {
 		rev := renderWithDefault(iop.Spec.GetRevision(), "default")
-		if ri := revisions[rev]; ri != nil {
-			iopInfo := IstioOperatorCRInfo{
-				Namespace:      iop.GetNamespace(),
-				Name:           iop.GetName(),
-				Profile:        iop.Spec.GetProfile(),
-				Components:     getEnabledComponents(iop.Spec),
-				Customizations: nil,
-			}
-			if args.verbose {
-				iopInfo.Customizations, err = getDiffs(iop, revArgs.manifestsPath, iop.Spec.GetProfile(), logger)
-				if err != nil {
-					return fmt.Errorf("error while finding customizations: %v", err)
-				}
-			}
-			ri.IstioOperatorCRs = append(ri.IstioOperatorCRs, iopInfo)
+		if ri := revisions[rev]; ri == nil {
+			revisions[rev] = &RevisionDescription{}
 		}
+		iopInfo := &IstioOperatorCRInfo{
+			IOP:            iop,
+			Namespace:      iop.GetNamespace(),
+			Name:           iop.GetName(),
+			Profile:        iop.Spec.GetProfile(),
+			Components:     getEnabledComponents(iop.Spec),
+			Customizations: nil,
+		}
+		if args.verbose {
+			iopInfo.Customizations, err = getDiffs(iop, revArgs.manifestsPath,
+				profileWithDefault(iop.Spec.GetProfile()), logger)
+			if err != nil {
+				return fmt.Errorf("error while finding customizations: %v", err)
+			}
+		}
+		revisions[rev].IstioOperatorCRs = append(revisions[rev].IstioOperatorCRs, iopInfo)
 	}
 
 	if args.verbose {
@@ -290,6 +291,11 @@ func revisionList(writer io.Writer, args *revisionArgs, logger clog.Logger) erro
 	case jsonFormat:
 		return printJSON(writer, revisions)
 	case tableFormat:
+		if len(revisions) == 0 {
+			_, err = fmt.Fprintln(writer, "No Istio installation found.\n"+
+				"No IstioOperator CR or sidecar injectors found")
+			return err
+		}
 		return printRevisionInfoTable(writer, args.verbose, revisions)
 	default:
 		return fmt.Errorf("unknown format: %s", revArgs.output)
@@ -385,7 +391,7 @@ func printIngressGatewaySummaryTable(w io.Writer, revisions map[string]*Revision
 			}
 			if i == 0 && len(rd.IngressGatewayPods) == 0 {
 				rowPod = "<no-ingress-pod>"
-			} else if i < len(enabledIngressGateways) {
+			} else if i < len(rd.IngressGatewayPods) {
 				rowPod = fmt.Sprintf("%s/%s",
 					rd.IngressGatewayPods[i].Namespace,
 					rd.IngressGatewayPods[i].Name)
@@ -423,7 +429,7 @@ func printEgressGatewaySummaryTable(w io.Writer, revisions map[string]*RevisionD
 			}
 			if i == 0 && len(rd.EgressGatewayPods) == 0 {
 				rowPod = "<no-egress-pod>"
-			} else if i < len(enabledEgressGateways) {
+			} else if i < len(rd.EgressGatewayPods) {
 				rowPod = fmt.Sprintf("%s/%s",
 					rd.EgressGatewayPods[i].Namespace,
 					rd.EgressGatewayPods[i].Name)
@@ -616,7 +622,7 @@ func annotateWithNamespaceAndPodInfo(revDescription *RevisionDescription, revisi
 			if !ok {
 				nsMap[po.Namespace] = &NsInfo{
 					Name: po.Namespace,
-					Pods: []PodFilteredInfo{fpo},
+					Pods: []*PodFilteredInfo{fpo},
 				}
 			} else {
 				nsMap[po.Namespace].Pods = append(nsMap[po.Namespace].Pods, fpo)
@@ -652,7 +658,7 @@ func annotateWithControlPlanePodInfo(revDescription *RevisionDescription, client
 
 func annotateWithIOPCustomization(revDesc *RevisionDescription, manifestsPath string, logger clog.Logger) error {
 	for _, cr := range revDesc.IstioOperatorCRs {
-		cust, err := getDiffs(cr.IOP, manifestsPath, cr.IOP.Spec.GetProfile(), logger)
+		cust, err := getDiffs(cr.IOP, manifestsPath, profileWithDefault(cr.IOP.Spec.GetProfile()), logger)
 		if err != nil {
 			return fmt.Errorf("error while computing customization for %s/%s: %v",
 				cr.Name, cr.Namespace, err)
@@ -665,11 +671,11 @@ func annotateWithIOPCustomization(revDesc *RevisionDescription, manifestsPath st
 func getBasicRevisionDescription(iopCRs []*iopv1alpha1.IstioOperator,
 	mutatingWebhooks []admit_v1.MutatingWebhookConfiguration) *RevisionDescription {
 	revDescription := &RevisionDescription{
-		IstioOperatorCRs: []IstioOperatorCRInfo{},
-		Webhooks:         []MutatingWebhookConfigInfo{},
+		IstioOperatorCRs: []*IstioOperatorCRInfo{},
+		Webhooks:         []*MutatingWebhookConfigInfo{},
 	}
 	for _, iop := range iopCRs {
-		revDescription.IstioOperatorCRs = append(revDescription.IstioOperatorCRs, IstioOperatorCRInfo{
+		revDescription.IstioOperatorCRs = append(revDescription.IstioOperatorCRs, &IstioOperatorCRInfo{
 			IOP:            iop,
 			Namespace:      iop.Namespace,
 			Name:           iop.Name,
@@ -679,10 +685,10 @@ func getBasicRevisionDescription(iopCRs []*iopv1alpha1.IstioOperator,
 		})
 	}
 	for _, mwh := range mutatingWebhooks {
-		revDescription.Webhooks = append(revDescription.Webhooks, MutatingWebhookConfigInfo{
+		revDescription.Webhooks = append(revDescription.Webhooks, &MutatingWebhookConfigInfo{
 			Name:     mwh.Name,
 			Revision: renderWithDefault(mwh.Labels[label.IoIstioRev.Name], "default"),
-			Tag:      mwh.Labels[istioTag],
+			Tag:      mwh.Labels[istioTagLabel],
 		})
 	}
 	return revDescription
@@ -707,16 +713,16 @@ func filterWebhooksWithRevision(webhooks []admit_v1.MutatingWebhookConfiguration
 	return whFiltered
 }
 
-func transformToFilteredPodInfo(pods []v1.Pod) []PodFilteredInfo {
-	pfilInfo := []PodFilteredInfo{}
+func transformToFilteredPodInfo(pods []v1.Pod) []*PodFilteredInfo {
+	pfilInfo := []*PodFilteredInfo{}
 	for _, p := range pods {
 		pfilInfo = append(pfilInfo, getFilteredPodInfo(&p))
 	}
 	return pfilInfo
 }
 
-func getFilteredPodInfo(pod *v1.Pod) PodFilteredInfo {
-	return PodFilteredInfo{
+func getFilteredPodInfo(pod *v1.Pod) *PodFilteredInfo {
+	return &PodFilteredInfo{
 		Namespace: pod.Namespace,
 		Name:      pod.Name,
 		Address:   pod.Status.PodIP,
@@ -913,7 +919,7 @@ func getIOPWithRevision(iops []*iopv1alpha1.IstioOperator, revision string) []*i
 	return filteredIOPs
 }
 
-func printPodTable(w io.Writer, pods []PodFilteredInfo) error {
+func printPodTable(w io.Writer, pods []*PodFilteredInfo) error {
 	podTableW := new(tabwriter.Writer).Init(w, 0, 0, 1, ' ', 0)
 	fmt.Fprintln(podTableW, "NAMESPACE\tNAME\tADDRESS\tSTATUS\tAGE")
 	for _, pod := range pods {
@@ -997,11 +1003,11 @@ func getDiffs(installed *iopv1alpha1.IstioOperator, manifestsPath, profile strin
 	return diffWalk("", "", mapInstalled, mapBase)
 }
 
-func diffWalk(path, separator string, obj interface{}, orig interface{}) ([]iopDiff, error) {
-	switch v := obj.(type) {
+func diffWalk(path, separator string, installed interface{}, base interface{}) ([]iopDiff, error) {
+	switch v := installed.(type) {
 	case map[string]interface{}:
 		accum := make([]iopDiff, 0)
-		typedOrig, ok := orig.(map[string]interface{})
+		typedOrig, ok := base.(map[string]interface{})
 		if ok {
 			for key, vv := range v {
 				childwalk, err := diffWalk(fmt.Sprintf("%s%s%s", path, separator, pathComponent(key)), ".", vv, typedOrig[key])
@@ -1014,10 +1020,14 @@ func diffWalk(path, separator string, obj interface{}, orig interface{}) ([]iopD
 		return accum, nil
 	case []interface{}:
 		accum := make([]iopDiff, 0)
-		typedOrig, ok := orig.([]interface{})
+		typedOrig, ok := base.([]interface{})
 		if ok {
 			for idx, vv := range v {
-				indexwalk, err := diffWalk(fmt.Sprintf("%s[%d]", path, idx), ".", vv, typedOrig[idx])
+				var baseMap interface{} = nil
+				if idx < len(typedOrig) {
+					baseMap = typedOrig[idx]
+				}
+				indexwalk, err := diffWalk(fmt.Sprintf("%s[%d]", path, idx), ".", vv, baseMap)
 				if err != nil {
 					return accum, err
 				}
@@ -1026,11 +1036,11 @@ func diffWalk(path, separator string, obj interface{}, orig interface{}) ([]iopD
 		}
 		return accum, nil
 	case string:
-		if v != orig && orig != nil {
+		if v != base && base != nil {
 			return []iopDiff{{Path: path, Value: fmt.Sprintf("%q", v)}}, nil
 		}
 	default:
-		if v != orig && orig != nil {
+		if v != base && base != nil {
 			return []iopDiff{{Path: path, Value: fmt.Sprintf("%v", v)}}, nil
 		}
 	}
