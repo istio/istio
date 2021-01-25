@@ -41,7 +41,7 @@ metadata:
 webhooks:
 {{- if .Values.sidecarInjectorWebhook.useLegacySelectors}}
 {{- /* Setup the "legacy" selectors. These are for backwards compatibility, will be removed in the future. */}}
-{{- include "core" . }}
+{{- include "core" (mergeOverwrite (deepCopy .) (dict "Prefix" "")) }}
   namespaceSelector:
   {{- if .Values.sidecarInjectorWebhook.enableNamespacesByDefault }}
     matchExpressions:
