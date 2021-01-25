@@ -36,7 +36,9 @@ import (
 	"istio.io/istio/pilot/pkg/security/model"
 	"istio.io/istio/pilot/test/xdstest"
 	"istio.io/istio/pkg/config"
+	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/schema/gvk"
+	"istio.io/istio/pkg/config/visibility"
 	"istio.io/istio/pkg/proto"
 )
 
@@ -1516,5 +1518,130 @@ func TestBuildGatewayListeners(t *testing.T) {
 			t.Fatalf("Expected listeners: %v, got: %v\n%v", tt.expectedListeners, listeners, proxyGateway.MergedGateway.Servers)
 		}
 		xdstest.ValidateListeners(t, builder.gatewayListeners)
+	}
+}
+
+func TestBuildNameToServiceMapForHttpRoutes(t *testing.T) {
+	virtualServiceSpec := &networking.VirtualService{
+		Hosts: []string{"*.example.org"},
+		Http: []*networking.HTTPRoute{
+			{
+				Route: []*networking.HTTPRouteDestination{
+					{
+						Destination: &networking.Destination{
+							Host: "foo.example.org",
+						},
+					},
+					{
+						Destination: &networking.Destination{
+							Host: "bar.example.org",
+						},
+					},
+				},
+				Mirror: &networking.Destination{
+					Host: "baz.example.org",
+				},
+			},
+		},
+	}
+	virtualService := config.Config{
+		Meta: config.Meta{
+			GroupVersionKind: gvk.VirtualService,
+			Name:             "virtual-service",
+			Namespace:        "test",
+		},
+		Spec: virtualServiceSpec,
+	}
+
+	fooHostName := host.Name("foo.example.org")
+	fooServiceInTestNamespace := &pilot_model.Service{
+		Hostname: fooHostName,
+		Ports: []*pilot_model.Port{{
+			Name:     "http",
+			Protocol: "HTTP",
+			Port:     80,
+		}},
+		Attributes: pilot_model.ServiceAttributes{
+			Namespace: "test",
+			ExportTo: map[visibility.Instance]bool{
+				visibility.Private: true,
+			},
+		},
+	}
+
+	barHostName := host.Name("bar.example.org")
+	barServiceInDefaultNamespace := &pilot_model.Service{
+		Hostname: barHostName,
+		Ports: []*pilot_model.Port{{
+			Name:     "http",
+			Protocol: "HTTP",
+			Port:     8080,
+		}},
+		Attributes: pilot_model.ServiceAttributes{
+			Namespace: "default",
+			ExportTo: map[visibility.Instance]bool{
+				visibility.Public: true,
+			},
+		},
+	}
+
+	bazHostName := host.Name("baz.example.org")
+	bazServiceInDefaultNamespace := &pilot_model.Service{
+		Hostname: bazHostName,
+		Ports: []*pilot_model.Port{{
+			Name:     "http",
+			Protocol: "HTTP",
+			Port:     8090,
+		}},
+		Attributes: pilot_model.ServiceAttributes{
+			Namespace: "default",
+			ExportTo: map[visibility.Instance]bool{
+				visibility.Private: true,
+			},
+		},
+	}
+
+	cg := NewConfigGenTest(t, TestOptions{
+		Configs:  []config.Config{virtualService},
+		Services: []*pilot_model.Service{fooServiceInTestNamespace, barServiceInDefaultNamespace, bazServiceInDefaultNamespace},
+	})
+	proxy := &pilot_model.Proxy{
+		Type:            pilot_model.Router,
+		ConfigNamespace: "test",
+	}
+	proxy = cg.SetupProxy(proxy)
+
+	nameToServiceMap := buildNameToServiceMapForHTTPRoutes(proxy, cg.env.PushContext, virtualService)
+
+	if len(nameToServiceMap) != 3 {
+		t.Errorf("The length of nameToServiceMap is wrong.")
+	}
+
+	if service, exist := nameToServiceMap[fooHostName]; !exist || service == nil {
+		t.Errorf("The service of %s not found or should be not nil.", fooHostName)
+	} else {
+		if service.Ports[0].Port != 80 {
+			t.Errorf("The port of %s is wrong.", fooHostName)
+		}
+
+		if service.Attributes.Namespace != "test" {
+			t.Errorf("The namespace of %s is wrong.", fooHostName)
+		}
+	}
+
+	if service, exist := nameToServiceMap[barHostName]; !exist || service == nil {
+		t.Errorf("The service of %s not found or should be not nil", barHostName)
+	} else {
+		if service.Ports[0].Port != 8080 {
+			t.Errorf("The port of %s is wrong.", barHostName)
+		}
+
+		if service.Attributes.Namespace != "default" {
+			t.Errorf("The namespace of %s is wrong.", barHostName)
+		}
+	}
+
+	if service, exist := nameToServiceMap[bazHostName]; !exist || service != nil {
+		t.Errorf("The value of hostname %s mapping must be exist and it should be nil.", bazHostName)
 	}
 }
