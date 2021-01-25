@@ -164,6 +164,12 @@ func revisionListCommand() *cobra.Command {
   # View list of revisions including customizations, istiod and gateway pods
   istioctl experimental revision list -v
 `,
+		PreRunE: func(cmd *cobra.Command, args []string) error {
+			if !revArgs.verbose && revArgs.manifestsPath != "" {
+				return fmt.Errorf("manifest path should only be specified with -v")
+			}
+			return nil
+		},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			logger := clog.NewConsoleLogger(cmd.OutOrStdout(), cmd.ErrOrStderr(), scope)
 			return revisionList(cmd.OutOrStdout(), &revArgs, logger)
