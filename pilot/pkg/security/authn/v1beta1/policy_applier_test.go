@@ -532,7 +532,7 @@ func TestJwtFilter(t *testing.T) {
 									JwksSourceSpecifier: &envoy_jwt.JwtProvider_LocalJwks{
 										LocalJwks: &core.DataSource{
 											Specifier: &core.DataSource_InlineString{
-												InlineString: createFakeJwks("http://site.not.exist"),
+												InlineString: createFakeJwks("http://site.not.exist", nil),
 											},
 										},
 									},
@@ -928,7 +928,7 @@ func TestConvertToEnvoyJwtConfig(t *testing.T) {
 						JwksSourceSpecifier: &envoy_jwt.JwtProvider_LocalJwks{
 							LocalJwks: &core.DataSource{
 								Specifier: &core.DataSource_InlineString{
-									InlineString: createFakeJwks(""),
+									InlineString: createFakeJwks("", nil),
 								},
 							},
 						},
@@ -982,7 +982,7 @@ func TestConvertToEnvoyJwtConfig(t *testing.T) {
 						JwksSourceSpecifier: &envoy_jwt.JwtProvider_LocalJwks{
 							LocalJwks: &core.DataSource{
 								Specifier: &core.DataSource_InlineString{
-									InlineString: createFakeJwks("http://site.not.exist"),
+									InlineString: createFakeJwks("http://site.not.exist", nil),
 								},
 							},
 						},

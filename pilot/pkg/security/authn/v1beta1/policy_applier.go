@@ -225,10 +225,10 @@ func NewPolicyApplier(rootNamespace string,
 	}
 }
 
-func createFakeJwks(jwksURI string) string {
+func createFakeJwks(jwksURI string, err error) string {
 	// Encode jwksURI with base64 to make dynamic n in jwks
 	encodedString := base64.RawURLEncoding.EncodeToString([]byte(jwksURI))
-	return fmt.Sprintf(`{"keys":[ {"e":"AQAB","kid":"abc","kty":"RSA","n":"Error-IstiodFailedToFetchJwksUri-%s"}]}`, encodedString)
+	return fmt.Sprintf(`{"keys":[ {"e":"AQAB","kid":"abc","kty":"RSA","n":"Error-IstiodFailedToFetchJwksUri-%s-%v"}]}`, encodedString, err)
 }
 
 // convertToEnvoyJwtConfig converts a list of JWT rules into Envoy JWT filter config to enforce it.
@@ -299,11 +299,11 @@ func convertToEnvoyJwtConfig(jwtRules []*v1beta1.JWTRule, push *model.PushContex
 					},
 				}
 			} else {
-				provider.JwksSourceSpecifier = buildLocalJwks(jwtRule.JwksUri, "")
+				provider.JwksSourceSpecifier = buildLocalJwks(jwtRule.JwksUri, "", err)
 			}
 		} else {
 			// Use inline jwks as existing flow, either jwtRule.jwks is non empty or let istiod to fetch the jwtRule.jwksUri
-			provider.JwksSourceSpecifier = buildLocalJwks(jwtRule.JwksUri, jwtRule.Jwks)
+			provider.JwksSourceSpecifier = buildLocalJwks(jwtRule.JwksUri, jwtRule.Jwks, nil)
 		}
 
 		name := fmt.Sprintf("origins-%d", i)
@@ -389,7 +389,7 @@ func convertToEnvoyJwtConfig(jwtRules []*v1beta1.JWTRule, push *model.PushContex
 }
 
 // buildLocalJwks builds local Jwks by fetching the Jwt Public Key from the URL passed if it is empty.
-func buildLocalJwks(jwksURI, jwtPubKey string) *envoy_jwt.JwtProvider_LocalJwks {
+func buildLocalJwks(jwksURI, jwtPubKey string, err error) *envoy_jwt.JwtProvider_LocalJwks {
 	if jwtPubKey == "" {
 		var err error
 		jwtPubKey, err = model.GetJwtKeyResolver().GetPublicKey(jwksURI)
@@ -397,7 +397,7 @@ func buildLocalJwks(jwksURI, jwtPubKey string) *envoy_jwt.JwtProvider_LocalJwks 
 			log.Errorf("Failed to fetch jwt public key from %q: %s", jwksURI, err)
 			// This is a temporary workaround to reject a request with JWT token by using a fake jwks when istiod failed to fetch it.
 			// TODO(xulingqing): Find a better way to reject the request without using the fake jwks.
-			jwtPubKey = createFakeJwks(jwksURI)
+			jwtPubKey = createFakeJwks(jwksURI, err)
 		}
 	}
 	return &envoy_jwt.JwtProvider_LocalJwks{
