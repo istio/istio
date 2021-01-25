@@ -60,6 +60,7 @@ func TestInjection(t *testing.T) {
 			setFlags: []string{
 				"components.cni.enabled=true",
 				"values.istio_cni.chained=true",
+				"values.global.network=network1",
 			},
 		},
 		{
