@@ -569,6 +569,7 @@ func (s *DiscoveryServer) SendResponse(connections []*Connection, res *discovery
 	}
 }
 
+// nolint
 // ClientsOf returns the clients that are watching the given resource.
 func (s *DiscoveryServer) ClientsOf(typeUrl string) []*Connection {
 	pending := []*Connection{}
