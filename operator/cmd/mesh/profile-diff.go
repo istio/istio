@@ -79,7 +79,10 @@ func profileDiff(cmd *cobra.Command, rootArgs *rootArgs, pfArgs *profileDiffArgs
 		cmd.Println("Profiles are identical")
 	} else {
 		cmd.Printf("The difference between profiles:\n%s", diff)
-		os.Exit(1)
+		// The command was a success, but we return an error so that the process will
+		// exit with 1.  We don't want to tell the user there was an error because there wasn't.
+		cmd.SilenceErrors = true
+		return fmt.Errorf("dummy")
 	}
 
 	return nil
