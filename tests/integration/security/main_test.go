@@ -46,12 +46,6 @@ func setupConfig(ctx resource.Context, cfg *istio.Config) {
 		return
 	}
 
-	cfg.ControlPlaneValues = `
-	values:
-	  pilot:
-		env:
-		  PILOT_JWT_ENABLE_REMOTE_JWKS: "true"`
-
 	// Create the namespace instance ahead of time so that it can be used in the mesh config.
 	extAuthzServiceNamespace, extAuthzServiceNamespaceErr = namespace.New(ctx, namespace.Config{
 		Prefix: "test-ns-ext-authz-service",
@@ -65,6 +59,10 @@ func setupConfig(ctx resource.Context, cfg *istio.Config) {
 	serviceWithNamespace := fmt.Sprintf("%s/%s", extAuthzNamespace, service)
 
 	cfg.ControlPlaneValues = fmt.Sprintf(`
+values:
+  pilot:
+	env:
+	  PILOT_JWT_ENABLE_REMOTE_JWKS: "true"
 meshConfig:
   accessLogEncoding: JSON
   accessLogFile: /dev/stdout
