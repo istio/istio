@@ -389,7 +389,7 @@ func convertToEnvoyJwtConfig(jwtRules []*v1beta1.JWTRule, push *model.PushContex
 }
 
 // buildLocalJwks builds local Jwks by fetching the Jwt Public Key from the URL passed if it is empty.
-func buildLocalJwks(jwksURI, jwtPubKey string, err error) *envoy_jwt.JwtProvider_LocalJwks {
+func buildLocalJwks(jwksURI, jwtPubKey string, err1 error) *envoy_jwt.JwtProvider_LocalJwks {
 	if jwtPubKey == "" {
 		var err error
 		jwtPubKey, err = model.GetJwtKeyResolver().GetPublicKey(jwksURI)
@@ -397,7 +397,7 @@ func buildLocalJwks(jwksURI, jwtPubKey string, err error) *envoy_jwt.JwtProvider
 			log.Errorf("Failed to fetch jwt public key from %q: %s", jwksURI, err)
 			// This is a temporary workaround to reject a request with JWT token by using a fake jwks when istiod failed to fetch it.
 			// TODO(xulingqing): Find a better way to reject the request without using the fake jwks.
-			jwtPubKey = createFakeJwks(jwksURI, err)
+			jwtPubKey = createFakeJwks(jwksURI, err1)
 		}
 	}
 	return &envoy_jwt.JwtProvider_LocalJwks{
