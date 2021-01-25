@@ -1,0 +1,7 @@
+apiVersion: release-notes/v2
+kind: feature
+area: installation
+releaseNotes:
+- |
+  **Improved** the sidecar injector to better utilize pod labels to determine if injection is required. This is not enabled
+  by default in this release, but can be tested using `--set values.sidecarInjectorWebhook.useLegacySelectors=false`.

@@ -182,7 +182,8 @@ data:
           "enabled": true
         },
         "rewriteAppHTTPProbe": true,
-        "templates": {}
+        "templates": {},
+        "useLegacySelectors": true
       }
     }
 
@@ -1703,12 +1704,10 @@ spec:
                       inline_string: "envoy.wasm.stats"
 ---
 # Source: istio-discovery/templates/mutatingwebhook.yaml
-# Installed for each revision - not installed for cluster resources ( cluster roles, bindings, crds)
 apiVersion: admissionregistration.k8s.io/v1beta1
 kind: MutatingWebhookConfiguration
 metadata:
   name: istio-sidecar-injector
-
   labels:
     istio.io/rev: default
     install.operator.istio.io/owning-resource: unknown
@@ -1716,27 +1715,27 @@ metadata:
     app: sidecar-injector
     release: istio
 webhooks:
-  - name: sidecar-injector.istio.io
-    clientConfig:
-      service:
-        name: istiod
-        namespace: istio-system
-        path: "/inject"
-      caBundle: ""
-    sideEffects: None
-    rules:
-      - operations: [ "CREATE" ]
-        apiGroups: [""]
-        apiVersions: ["v1"]
-        resources: ["pods"]
-    failurePolicy: Fail
-    admissionReviewVersions: ["v1beta1", "v1"]
-    namespaceSelector:
-      matchLabels:
-        istio-injection: enabled
-    objectSelector:
-      matchExpressions:
-      - key: "sidecar.istio.io/inject"
-        operator: NotIn
-        values:
-        - "false"
+- name: sidecar-injector.istio.io
+  clientConfig:
+    service:
+      name: istiod
+      namespace: istio-system
+      path: "/inject"
+    caBundle: ""
+  sideEffects: None
+  rules:
+  - operations: [ "CREATE" ]
+    apiGroups: [""]
+    apiVersions: ["v1"]
+    resources: ["pods"]
+  failurePolicy: Fail
+  admissionReviewVersions: ["v1beta1", "v1"]
+  namespaceSelector:
+    matchLabels:
+      istio-injection: enabled
+  objectSelector:
+    matchExpressions:
+    - key: "sidecar.istio.io/inject"
+      operator: NotIn
+      values:
+      - "false"
