@@ -62,7 +62,7 @@ func setupConfig(ctx resource.Context, cfg *istio.Config) {
 values:
   pilot:
 	env:
-	  PILOT_JWT_ENABLE_REMOTE_JWKS: "true"
+	  PILOT_JWT_ENABLE_REMOTE_JWKS: true
 meshConfig:
   accessLogEncoding: JSON
   accessLogFile: /dev/stdout
