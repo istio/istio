@@ -35,17 +35,19 @@ import (
 )
 
 var (
-	count       int
-	timeout     time.Duration
-	qps         int
-	uds         string
-	headers     []string
-	msg         string
-	method      string
-	http2       bool
-	serverFirst bool
-	clientCert  string
-	clientKey   string
+	count           int
+	timeout         time.Duration
+	qps             int
+	uds             string
+	headers         []string
+	msg             string
+	method          string
+	http2           bool
+	alpn            []string
+	serverFirst     bool
+	followRedirects bool
+	clientCert      string
+	clientKey       string
 
 	caFile string
 
@@ -124,8 +126,11 @@ func init() {
 		"send http requests as HTTP with prior knowledge")
 	rootCmd.PersistentFlags().BoolVar(&serverFirst, "server-first", false,
 		"Treat as a server first protocol; do not send request until magic string is received")
+	rootCmd.PersistentFlags().BoolVarP(&followRedirects, "follow-redirects", "L", false,
+		"If enabled, will follow 3xx redirects with the Location header")
 	rootCmd.PersistentFlags().StringVar(&clientCert, "client-cert", "", "client certificate file to use for request")
 	rootCmd.PersistentFlags().StringVar(&clientKey, "client-key", "", "client certificate key file to use for request")
+	rootCmd.PersistentFlags().StringSliceVarP(&alpn, "alpn", "", nil, "alpn to set")
 
 	loggingOptions.AttachCobraFlags(rootCmd)
 
@@ -146,14 +151,19 @@ func defaultScheme(u string) string {
 
 func getRequest(url string) (*proto.ForwardEchoRequest, error) {
 	request := &proto.ForwardEchoRequest{
-		Url:           defaultScheme(url),
-		TimeoutMicros: common.DurationToMicros(timeout),
-		Count:         int32(count),
-		Qps:           int32(qps),
-		Message:       msg,
-		Http2:         http2,
-		ServerFirst:   serverFirst,
-		Method:        method,
+		Url:             defaultScheme(url),
+		TimeoutMicros:   common.DurationToMicros(timeout),
+		Count:           int32(count),
+		Qps:             int32(qps),
+		Message:         msg,
+		Http2:           http2,
+		ServerFirst:     serverFirst,
+		FollowRedirects: followRedirects,
+		Method:          method,
+	}
+
+	if alpn != nil {
+		request.Alpn = &proto.Alpn{Value: alpn}
 	}
 
 	for _, header := range headers {

@@ -56,7 +56,7 @@ func BuildClientCmd(kubeconfig, context string) clientcmd.ClientConfig {
 		}
 	}
 
-	//Config loading rules:
+	// Config loading rules:
 	// 1. kubeconfig if it not empty string
 	// 2. Config(s) in KUBECONFIG environment variable
 	// 3. In cluster config if running in-cluster
@@ -171,7 +171,7 @@ func GetDeployMetaFromPod(pod *kubeApiCore.Pod) (*metav1.ObjectMeta, *metav1.Typ
 		var controllerRef metav1.OwnerReference
 		controllerFound := false
 		for _, ref := range pod.GetOwnerReferences() {
-			if *ref.Controller {
+			if ref.Controller != nil && *ref.Controller {
 				controllerRef = ref
 				controllerFound = true
 				break

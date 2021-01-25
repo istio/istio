@@ -17,6 +17,7 @@ items:
     template:
       metadata:
         annotations:
+          kubectl.kubernetes.io/default-logs-container: hello
           prometheus.io/path: /stats/prometheus
           prometheus.io/port: "15020"
           prometheus.io/scrape: "true"
@@ -24,7 +25,7 @@ items:
         creationTimestamp: null
         labels:
           app: hello
-          istio.io/rev: ""
+          istio.io/rev: default
           security.istio.io/tlsMode: istio
           service.istio.io/canonical-name: hello
           service.istio.io/canonical-revision: v1
@@ -48,6 +49,7 @@ items:
           - hello.$(POD_NAMESPACE)
           - --proxyLogLevel=warning
           - --proxyComponentLogLevel=misc:error
+          - --log_output_level=default:info
           - --concurrency
           - "2"
           env:
@@ -87,7 +89,7 @@ items:
                 fieldPath: metadata.labels['service.istio.io/canonical-revision']
           - name: PROXY_CONFIG
             value: |
-              {"proxyMetadata":{"DNS_AGENT":""}}
+              {}
           - name: ISTIO_META_POD_PORTS
             value: |-
               [
@@ -107,9 +109,7 @@ items:
             value: cluster.local
           - name: TRUST_DOMAIN
             value: cluster.local
-          - name: DNS_AGENT
           image: gcr.io/istio-testing/proxyv2:latest
-          imagePullPolicy: Always
           name: istio-proxy
           ports:
           - containerPort: 15090
@@ -170,10 +170,7 @@ items:
           - '*'
           - -d
           - 15090,15021,15020
-          env:
-          - name: DNS_AGENT
           image: gcr.io/istio-testing/proxyv2:latest
-          imagePullPolicy: Always
           name: istio-init
           resources:
             limits:
@@ -211,6 +208,16 @@ items:
             - fieldRef:
                 fieldPath: metadata.annotations
               path: annotations
+            - path: cpu-limit
+              resourceFieldRef:
+                containerName: istio-proxy
+                divisor: 1m
+                resource: limits.cpu
+            - path: cpu-request
+              resourceFieldRef:
+                containerName: istio-proxy
+                divisor: 1m
+                resource: requests.cpu
           name: istio-podinfo
         - name: istio-token
           projected:
@@ -240,6 +247,7 @@ items:
     template:
       metadata:
         annotations:
+          kubectl.kubernetes.io/default-logs-container: hello
           prometheus.io/path: /stats/prometheus
           prometheus.io/port: "15020"
           prometheus.io/scrape: "true"
@@ -247,7 +255,7 @@ items:
         creationTimestamp: null
         labels:
           app: hello
-          istio.io/rev: ""
+          istio.io/rev: default
           security.istio.io/tlsMode: istio
           service.istio.io/canonical-name: hello
           service.istio.io/canonical-revision: v2
@@ -271,6 +279,7 @@ items:
           - hello.$(POD_NAMESPACE)
           - --proxyLogLevel=warning
           - --proxyComponentLogLevel=misc:error
+          - --log_output_level=default:info
           - --concurrency
           - "2"
           env:
@@ -310,7 +319,7 @@ items:
                 fieldPath: metadata.labels['service.istio.io/canonical-revision']
           - name: PROXY_CONFIG
             value: |
-              {"proxyMetadata":{"DNS_AGENT":""}}
+              {}
           - name: ISTIO_META_POD_PORTS
             value: |-
               [
@@ -330,9 +339,7 @@ items:
             value: cluster.local
           - name: TRUST_DOMAIN
             value: cluster.local
-          - name: DNS_AGENT
           image: gcr.io/istio-testing/proxyv2:latest
-          imagePullPolicy: Always
           name: istio-proxy
           ports:
           - containerPort: 15090
@@ -393,10 +400,7 @@ items:
           - '*'
           - -d
           - 15090,15021,15020
-          env:
-          - name: DNS_AGENT
           image: gcr.io/istio-testing/proxyv2:latest
-          imagePullPolicy: Always
           name: istio-init
           resources:
             limits:
@@ -434,6 +438,16 @@ items:
             - fieldRef:
                 fieldPath: metadata.annotations
               path: annotations
+            - path: cpu-limit
+              resourceFieldRef:
+                containerName: istio-proxy
+                divisor: 1m
+                resource: limits.cpu
+            - path: cpu-request
+              resourceFieldRef:
+                containerName: istio-proxy
+                divisor: 1m
+                resource: requests.cpu
           name: istio-podinfo
         - name: istio-token
           projected:

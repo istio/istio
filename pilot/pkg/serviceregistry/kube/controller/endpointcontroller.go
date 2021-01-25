@@ -113,37 +113,61 @@ func updateEDS(c *Controller, epc kubeEndpointsController, ep interface{}, event
 	c.xdsUpdater.EDSUpdate(c.clusterID, string(host), ns, endpoints)
 }
 
-// getPod fetches a pod by IP address.
+// getPod fetches a pod by name or IP address.
 // A pod may be missing (nil) for two reasons:
 // * It is an endpoint without an associated Pod. In this case, expectPod will be false.
 // * It is an endpoint with an associate Pod, but its not found. In this case, expectPod will be true.
 //   this may happen due to eventually consistency issues, out of order events, etc. In this case, the caller
 //   should not precede with the endpoint, or inaccurate information would be sent which may have impacts on
 //   correctness and security.
-func getPod(c *Controller, ip string, ep *metav1.ObjectMeta, targetRef *v1.ObjectReference, host host.Name) (rpod *v1.Pod, expectPod bool) {
-	pod := c.pods.getPodByIP(ip)
-	if pod != nil {
-		return pod, false
+// Note: this is only used by endpoints and endpointslice controller
+func getPod(c *Controller, ip string, ep *metav1.ObjectMeta, targetRef *v1.ObjectReference, host host.Name) (*v1.Pod, bool) {
+	var expectPod bool
+	pod := c.getPod(ip, ep, targetRef)
+	if targetRef != nil && targetRef.Kind == "Pod" {
+		expectPod = true
+		if pod == nil {
+			c.registerEndpointResync(ep, ip, host)
+		}
 	}
+
+	return pod, expectPod
+}
+
+func (c *Controller) registerEndpointResync(ep *metav1.ObjectMeta, ip string, host host.Name) {
 	// This means, the endpoint event has arrived before pod event.
 	// This might happen because PodCache is eventually consistent.
+	log.Debugf("Endpoint without pod %s %s.%s", ip, ep.Name, ep.Namespace)
+	endpointsWithNoPods.Increment()
+	if c.metrics != nil {
+		c.metrics.AddMetric(model.EndpointNoPod, string(host), "", ip)
+	}
+	// Tell pod cache we want to queue the endpoint event when this pod arrives.
+	epkey := kube.KeyFunc(ep.Name, ep.Namespace)
+	c.pods.queueEndpointEventOnPodArrival(epkey, ip)
+}
+
+// getPod fetches a pod by name or IP address.
+// A pod may be missing (nil) for two reasons:
+// * It is an endpoint without an associated Pod.
+// * It is an endpoint with an associate Pod, but its not found.
+func (c *Controller) getPod(ip string, ep *metav1.ObjectMeta, targetRef *v1.ObjectReference) *v1.Pod {
 	if targetRef != nil && targetRef.Kind == "Pod" {
 		key := kube.KeyFunc(targetRef.Name, targetRef.Namespace)
-		// There is a small chance getInformer may have the pod, but it hasn't
-		// made its way to the PodCache yet as it a shared queue.
-		podFromInformer, f, err := c.pods.informer.GetStore().GetByKey(key)
-		if err != nil || !f {
-			log.Debugf("Endpoint without pod %s %s.%s error: %v", ip, ep.Name, ep.Namespace, err)
-			endpointsWithNoPods.Increment()
-			if c.metrics != nil {
-				c.metrics.AddMetric(model.EndpointNoPod, string(host), "", ip)
-			}
-			// Tell pod cache we want to queue the endpoint event when this pod arrives.
-			epkey := kube.KeyFunc(ep.Name, ep.Namespace)
-			c.pods.queueEndpointEventOnPodArrival(epkey, ip)
-			return nil, true
-		}
-		pod = podFromInformer.(*v1.Pod)
+		pod := c.pods.getPodByKey(key)
+		return pod
 	}
-	return pod, false
+
+	// This means the endpoint is manually controlled
+	// TODO: this may be not correct because of the hostnetwork pods may have same ip address
+	// Do we have a way to get the pod from only endpoint?
+	pod := c.pods.getPodByIP(ip)
+	if pod != nil {
+		// This prevents selecting a pod in another different namespace
+		if pod.Namespace != ep.Namespace {
+			pod = nil
+		}
+	}
+	// There maybe no pod at all
+	return pod
 }

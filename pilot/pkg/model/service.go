@@ -607,7 +607,7 @@ func (s *Service) GetServiceAddressForProxy(node *Proxy, push *PushContext) stri
 	if node.Metadata != nil && node.Metadata.ClusterID != "" && push.ServiceIndex.ClusterVIPs[s][node.Metadata.ClusterID] != "" {
 		return push.ServiceIndex.ClusterVIPs[s][node.Metadata.ClusterID]
 	}
-	if node.Metadata != nil && node.Metadata.DNSCapture != "" &&
+	if node.Metadata != nil && node.Metadata.DNSCapture && node.Metadata.DNSAutoAllocate &&
 		s.Address == constants.UnspecifiedIP && s.AutoAllocatedAddress != "" {
 		return s.AutoAllocatedAddress
 	}
@@ -620,7 +620,7 @@ func (s *Service) GetServiceAddressForProxy(node *Proxy, push *PushContext) stri
 // and apply custom transport socket matchers here.
 func GetTLSModeFromEndpointLabels(labels map[string]string) string {
 	if labels != nil {
-		if val, exists := labels[label.TLSMode]; exists {
+		if val, exists := labels[label.SecurityTlsMode.Name]; exists {
 			return val
 		}
 	}

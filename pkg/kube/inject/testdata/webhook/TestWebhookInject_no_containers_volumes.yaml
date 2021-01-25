@@ -1,5 +1,0 @@
-spec:
-  initContainers:
-    - name: c0
-  imagePullSecrets:
-    - name: v0

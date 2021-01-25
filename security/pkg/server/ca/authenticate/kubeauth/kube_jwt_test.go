@@ -79,7 +79,7 @@ func TestAuthenticate(t *testing.T) {
 				},
 			},
 			jwtPolicy:      jwt.PolicyFirstParty,
-			expectedErrMsg: "failed to validate the JWT from cluster Kubernetes: the token is not authenticated",
+			expectedErrMsg: `failed to validate the JWT from cluster "Kubernetes": the token is not authenticated`,
 		},
 		"token authenticated": {
 			token: "bearer-token",
@@ -112,7 +112,7 @@ func TestAuthenticate(t *testing.T) {
 			ctx := context.Background()
 			if tc.metadata != nil {
 				if tc.token != "" {
-					token := authenticate.BearerTokenPrefix + tc.token
+					token := security.BearerTokenPrefix + tc.token
 					tc.metadata.Append("authorization", token)
 				}
 				ctx = metadata.NewIncomingContext(ctx, tc.metadata)
@@ -170,8 +170,8 @@ func TestAuthenticate(t *testing.T) {
 				return
 			}
 
-			expectedCaller := &authenticate.Caller{
-				AuthSource: authenticate.AuthSourceIDToken,
+			expectedCaller := &security.Caller{
+				AuthSource: security.AuthSourceIDToken,
 				Identities: []string{tc.expectedID},
 			}
 

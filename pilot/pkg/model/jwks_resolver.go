@@ -168,6 +168,7 @@ func newJwksResolverWithCABundlePaths(evictionDuration, refreshInterval, retryIn
 		httpClient: &http.Client{
 			Timeout: jwksHTTPTimeOutInSec * time.Second,
 			Transport: &http.Transport{
+				Proxy:             http.ProxyFromEnvironment,
 				DisableKeepAlives: true,
 				TLSClientConfig:   &tls.Config{InsecureSkipVerify: true},
 			},
@@ -190,6 +191,7 @@ func newJwksResolverWithCABundlePaths(evictionDuration, refreshInterval, retryIn
 		ret.secureHTTPClient = &http.Client{
 			Timeout: jwksHTTPTimeOutInSec * time.Second,
 			Transport: &http.Transport{
+				Proxy:             http.ProxyFromEnvironment,
 				DisableKeepAlives: true,
 				TLSClientConfig: &tls.Config{
 					RootCAs: caCertPool,
@@ -341,6 +343,7 @@ func (r *JwksResolver) refresher() {
 			r.refresh()
 		case <-closeChan:
 			r.refreshTicker.Stop()
+			return
 		}
 	}
 }

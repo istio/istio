@@ -58,7 +58,7 @@ func ServiceToServiceEntry(svc *model.Service) *config.Config {
 		//
 		Addresses: []string{svc.Address},
 
-		//Location:             0,
+		// Location:             0,
 
 		// Internal resolution:
 		//  - Passthrough - for ClusterIP=None and no ExternalName
@@ -339,7 +339,7 @@ func getTLSModeFromWorkloadEntry(wle *networking.WorkloadEntry) string {
 	// * Use security.istio.io/tlsMode if its present
 	// * If not, set TLS mode if ServiceAccount is specified
 	tlsMode := model.DisabledTLSModeLabel
-	if val, exists := wle.Labels[label.TLSMode]; exists {
+	if val, exists := wle.Labels[label.SecurityTlsMode.Name]; exists {
 		tlsMode = val
 	} else if wle.ServiceAccount != "" {
 		tlsMode = model.IstioMutualTLSModeLabel

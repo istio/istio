@@ -24,11 +24,13 @@ import (
 	"time"
 
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
+	uatomic "go.uber.org/atomic"
 	"google.golang.org/grpc"
 
 	"istio.io/istio/pilot/pkg/model"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
 	"istio.io/istio/pkg/test/util/retry"
+	"istio.io/istio/tests/util/leak"
 )
 
 func createProxies(n int) []*Connection {
@@ -58,6 +60,7 @@ func wgDoneOrTimeout(wg *sync.WaitGroup, timeout time.Duration) bool {
 }
 
 func TestSendPushesManyPushes(t *testing.T) {
+	leak.Check(t)
 	stopCh := make(chan struct{})
 	defer close(stopCh)
 
@@ -108,6 +111,7 @@ func TestSendPushesManyPushes(t *testing.T) {
 }
 
 func TestSendPushesSinglePush(t *testing.T) {
+	leak.Check(t)
 	stopCh := make(chan struct{})
 	defer close(stopCh)
 
@@ -179,6 +183,7 @@ func (h *fakeStream) Context() context.Context {
 }
 
 func TestDebounce(t *testing.T) {
+	leak.Check(t)
 	// This test tests the timeout and debouncing of config updates
 	// If it is flaking, DebounceAfter may need to be increased, or the code refactored to mock time.
 	// For now, this seems to work well
@@ -287,10 +292,11 @@ func TestDebounce(t *testing.T) {
 					atomic.AddInt32(&partialPushes, 1)
 				}
 			}
+			updateSent := uatomic.NewInt64(0)
 
 			wg.Add(1)
 			go func() {
-				debounce(updateCh, stopCh, opts, fakePush)
+				debounce(updateCh, stopCh, opts, fakePush, updateSent)
 				wg.Done()
 			}()
 
@@ -325,6 +331,7 @@ func TestDebounce(t *testing.T) {
 }
 
 func TestShouldRespond(t *testing.T) {
+	leak.Check(t)
 	tests := []struct {
 		name       string
 		connection *Connection

@@ -650,9 +650,9 @@ func (c *client) GetIstioPods(ctx context.Context, namespace string, params map[
 	if c.revision != "" {
 		labelSelector, ok := params["labelSelector"]
 		if ok {
-			params["labelSelector"] = fmt.Sprintf("%s,%s=%s", labelSelector, label.IstioRev, c.revision)
+			params["labelSelector"] = fmt.Sprintf("%s,%s=%s", labelSelector, label.IoIstioRev.Name, c.revision)
 		} else {
-			params["labelSelector"] = fmt.Sprintf("%s=%s", label.IstioRev, c.revision)
+			params["labelSelector"] = fmt.Sprintf("%s=%s", label.IoIstioRev.Name, c.revision)
 		}
 	}
 
@@ -914,15 +914,15 @@ func (c *client) deleteFile(namespace string, dryRun bool, file string) error {
 	}
 
 	opts := kubectlDelete.DeleteOptions{
-		FilenameOptions:  fileOpts,
-		Cascade:          true,
-		GracePeriod:      -1,
-		IgnoreNotFound:   true,
-		WaitForDeletion:  true,
-		WarnClusterScope: enforceNamespace,
-		DynamicClient:    c.dynamic,
-		DryRunVerifier:   resource.NewDryRunVerifier(c.dynamic, c.discoveryClient),
-		IOStreams:        streams,
+		FilenameOptions:   fileOpts,
+		CascadingStrategy: metav1.DeletePropagationBackground,
+		GracePeriod:       -1,
+		IgnoreNotFound:    true,
+		WaitForDeletion:   true,
+		WarnClusterScope:  enforceNamespace,
+		DynamicClient:     c.dynamic,
+		DryRunVerifier:    resource.NewDryRunVerifier(c.dynamic, c.discoveryClient),
+		IOStreams:         streams,
 	}
 	if dryRun {
 		opts.DryRunStrategy = util.DryRunServer

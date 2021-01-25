@@ -24,6 +24,7 @@ spec:
         app: istiod
         istio.io/rev: default
         install.operator.istio.io/owning-resource: unknown
+        sidecar.istio.io/inject: "false"
         operator.istio.io/component: "Pilot"
         istio: pilot
       annotations:
@@ -51,8 +52,6 @@ spec:
           - containerPort: 15010
             protocol: TCP
           - containerPort: 15017
-            protocol: TCP
-          - containerPort: 15053
             protocol: TCP
           readinessProbe:
             httpGet:
@@ -91,8 +90,6 @@ spec:
             value: "true"
           - name: PILOT_ENABLE_PROTOCOL_SNIFFING_FOR_INBOUND
             value: "true"
-          - name: INJECTION_WEBHOOK_CONFIG_NAME
-            value: istio-sidecar-injector
           - name: ISTIOD_ADDR
             value: istiod.istio-system.svc:15012
           - name: PILOT_ENABLE_ANALYSIS
@@ -100,8 +97,6 @@ spec:
           - name: CLUSTER_ID
             value: "Kubernetes"
           - name: EXTERNAL_ISTIOD
-            value: "false"
-          - name: CENTRAL_ISTIOD
             value: "false"
           resources:
             requests:

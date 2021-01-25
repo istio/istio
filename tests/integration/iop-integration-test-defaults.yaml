@@ -1,6 +1,8 @@
 # This file provides some defaults for integration testing.
 apiVersion: install.istio.io/v1alpha1
 kind: IstioOperator
+metadata:
+  name: install
 spec:
   meshConfig:
     accessLogFile: "/dev/stdout"
@@ -53,9 +55,10 @@ spec:
 
     pilot:
       env:
-        PILOT_ENABLED_SERVICE_APIS: true
         ENABLE_ADMIN_ENDPOINTS: true
         PILOT_ENABLE_WORKLOAD_ENTRY_AUTOREGISTRATION: true
+        PILOT_ENABLE_WORKLOAD_ENTRY_HEALTHCHECKS: true
+        PILOT_ENABLE_CROSS_CLUSTER_WORKLOAD_ENTRY: true
 
     gateways:
       istio-ingressgateway:

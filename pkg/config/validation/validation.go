@@ -49,6 +49,7 @@ import (
 	"istio.io/istio/pkg/config/security"
 	"istio.io/istio/pkg/config/visibility"
 	"istio.io/istio/pkg/config/xds"
+	"istio.io/istio/pkg/kube/apimirror"
 	"istio.io/pkg/log"
 )
 
@@ -77,6 +78,8 @@ var (
 		"retriable-4xx":          true,
 		"refused-stream":         true,
 		"retriable-status-codes": true,
+		"retriable-headers":      true,
+		"envoy-ratelimited":      true,
 
 		// 'x-envoy-retry-grpc-on' supported policies:
 		// https://www.envoyproxy.io/docs/envoy/latest/configuration/http/http_filters/router_filter#x-envoy-retry-grpc-on
@@ -325,23 +328,24 @@ func ValidateUnixAddress(addr string) error {
 
 // ValidateGateway checks gateway specifications
 var ValidateGateway = registerValidateFunc("ValidateGateway",
-	func(cfg config.Config) (warnings Warning, errs error) {
+	func(cfg config.Config) (Warning, error) {
 		name := cfg.Name
+		v := Validation{}
 		// Gateway name must conform to the DNS label format (no dots)
 		if !labels.IsDNS1123Label(name) {
-			errs = appendErrors(errs, fmt.Errorf("invalid gateway name: %q", name))
+			v = appendValidation(v, fmt.Errorf("invalid gateway name: %q", name))
 		}
 		value, ok := cfg.Spec.(*networking.Gateway)
 		if !ok {
-			errs = appendErrors(errs, fmt.Errorf("cannot cast to gateway: %#v", cfg.Spec))
-			return
+			v = appendValidation(v, fmt.Errorf("cannot cast to gateway: %#v", cfg.Spec))
+			return v.Unwrap()
 		}
 
 		if len(value.Servers) == 0 {
-			errs = appendErrors(errs, fmt.Errorf("gateway must have at least one server"))
+			v = appendValidation(v, fmt.Errorf("gateway must have at least one server"))
 		} else {
 			for _, server := range value.Servers {
-				errs = appendErrors(errs, validateServer(server))
+				v = appendValidation(v, validateServer(server))
 			}
 		}
 
@@ -350,18 +354,21 @@ var ValidateGateway = registerValidateFunc("ValidateGateway",
 
 		for _, s := range value.Servers {
 			if s == nil {
-				errs = appendErrors(errs, fmt.Errorf("server may not be nil"))
+				v = appendValidation(v, fmt.Errorf("server may not be nil"))
 				continue
 			}
 			if s.Port != nil {
 				if portNames[s.Port.Name] {
-					errs = appendErrors(errs, fmt.Errorf("port names in servers must be unique: duplicate name %s", s.Port.Name))
+					v = appendValidation(v, fmt.Errorf("port names in servers must be unique: duplicate name %s", s.Port.Name))
 				}
 				portNames[s.Port.Name] = true
+				if !protocol.Parse(s.Port.Protocol).IsHTTP() && s.GetTls().GetHttpsRedirect() {
+					v = appendValidation(v, WrapWarning(fmt.Errorf("tls.httpsRedirect should only be used with http servers")))
+				}
 			}
 		}
 
-		return nil, errs
+		return v.Unwrap()
 	})
 
 func validateServer(server *networking.Server) (errs error) {
@@ -811,8 +818,8 @@ var ValidateSidecar = registerValidateFunc("ValidateSidecar",
 			return nil, err
 		}
 
-		if len(rule.Egress) == 0 {
-			return nil, fmt.Errorf("sidecar: missing egress")
+		if len(rule.Egress) == 0 && len(rule.Ingress) == 0 && rule.OutboundTrafficPolicy == nil {
+			return nil, fmt.Errorf("sidecar: empty configuration provided")
 		}
 
 		portMap := make(map[uint32]struct{})
@@ -1274,7 +1281,7 @@ func ValidateLightstepCollector(ls *meshconfig.Tracing_Lightstep) error {
 
 // ValidateZipkinCollector validates the configuration for sending envoy spans to Zipkin
 func ValidateZipkinCollector(z *meshconfig.Tracing_Zipkin) error {
-	return ValidateProxyAddress(z.GetAddress())
+	return ValidateProxyAddress(strings.Replace(z.GetAddress(), "$(HOST_IP)", "127.0.0.1", 1))
 }
 
 // ValidateDatadogCollector validates the configuration for sending envoy spans to Datadog
@@ -2240,13 +2247,99 @@ var ValidateWorkloadEntry = registerValidateFunc("ValidateWorkloadEntry",
 		if !ok {
 			return nil, fmt.Errorf("cannot cast to workload entry")
 		}
-		if we.Address == "" {
-			return nil, fmt.Errorf("address must be set")
-		}
-		// TODO: add better validation. The tricky thing is that we don't know if its meant to be
-		// DNS or STATIC type without association with a ServiceEntry
-		return nil, nil
+		return validateWorkloadEntry(we)
 	})
+
+func validateWorkloadEntry(we *networking.WorkloadEntry) (warnings Warning, errs error) {
+	if we.Address == "" {
+		return nil, fmt.Errorf("address must be set")
+	}
+	// TODO: add better validation. The tricky thing is that we don't know if its meant to be
+	// DNS or STATIC type without association with a ServiceEntry
+	return nil, nil
+}
+
+// ValidateWorkloadGroup validates a workload group.
+var ValidateWorkloadGroup = registerValidateFunc("ValidateWorkloadGroup",
+	func(cfg config.Config) (warnings Warning, errs error) {
+		wg, ok := cfg.Spec.(*networking.WorkloadGroup)
+		if !ok {
+			return nil, fmt.Errorf("cannot cast to workload entry")
+		}
+
+		if wg.Template == nil {
+			return nil, fmt.Errorf("template is required")
+		}
+		// Do not call validateWorkloadEntry. Some fields, such as address, are required in WorkloadEntry
+		// but not in the template since they are auto populated
+
+		if wg.Metadata != nil {
+			if err := labels.Instance(wg.Metadata.Labels).Validate(); err != nil {
+				return nil, fmt.Errorf("invalid labels: %v", err)
+			}
+		}
+
+		return nil, validateReadinessProbe(wg.Probe)
+	})
+
+func validateReadinessProbe(probe *networking.ReadinessProbe) (errs error) {
+	if probe == nil {
+		return nil
+	}
+	if probe.PeriodSeconds < 0 {
+		errs = appendErrors(errs, fmt.Errorf("periodSeconds must be non-negative"))
+	}
+	if probe.InitialDelaySeconds < 0 {
+		errs = appendErrors(errs, fmt.Errorf("initialDelaySeconds must be non-negative"))
+	}
+	if probe.TimeoutSeconds < 0 {
+		errs = appendErrors(errs, fmt.Errorf("timeoutSeconds must be non-negative"))
+	}
+	if probe.SuccessThreshold < 0 {
+		errs = appendErrors(errs, fmt.Errorf("successThreshold must be non-negative"))
+	}
+	if probe.FailureThreshold < 0 {
+		errs = appendErrors(errs, fmt.Errorf("failureThreshold must be non-negative"))
+	}
+	switch m := probe.HealthCheckMethod.(type) {
+	case *networking.ReadinessProbe_HttpGet:
+		h := m.HttpGet
+		if h == nil {
+			errs = appendErrors(errs, fmt.Errorf("httpGet may not be nil"))
+			break
+		}
+		errs = appendErrors(errs, ValidatePort(int(h.Port)))
+		if h.Scheme != "" && h.Scheme != string(apimirror.URISchemeHTTPS) && h.Scheme != string(apimirror.URISchemeHTTP) {
+			errs = appendErrors(errs, fmt.Errorf(`httpGet.schema must be one of "http", "https"`))
+		}
+		for _, header := range h.HttpHeaders {
+			if header == nil {
+				errs = appendErrors(errs, fmt.Errorf("invalid nil header"))
+				continue
+			}
+			errs = appendErrors(errs, ValidateHTTPHeaderName(header.Name))
+		}
+	case *networking.ReadinessProbe_TcpSocket:
+		h := m.TcpSocket
+		if h == nil {
+			errs = appendErrors(errs, fmt.Errorf("tcpSocket may not be nil"))
+			break
+		}
+		errs = appendErrors(errs, ValidatePort(int(h.Port)))
+	case *networking.ReadinessProbe_Exec:
+		h := m.Exec
+		if h == nil {
+			errs = appendErrors(errs, fmt.Errorf("exec may not be nil"))
+			break
+		}
+		if len(h.Command) == 0 {
+			errs = appendErrors(errs, fmt.Errorf("exec.command is required"))
+		}
+	default:
+		errs = appendErrors(errs, fmt.Errorf("unknown health check method %T", m))
+	}
+	return errs
+}
 
 // ValidateServiceEntry validates a service entry.
 var ValidateServiceEntry = registerValidateFunc("ValidateServiceEntry",

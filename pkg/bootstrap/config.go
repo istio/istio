@@ -388,9 +388,6 @@ func extractMetadata(envs []string, prefix string, set setMetaFunc, meta map[str
 }
 
 func shouldExtract(envVar, prefix string) bool {
-	if strings.HasPrefix(envVar, "ISTIO_META_WORKLOAD") {
-		return false
-	}
 	return strings.HasPrefix(envVar, prefix)
 }
 
@@ -427,10 +424,6 @@ func extractAttributesMetadata(envVars []string, plat platform.Environment, meta
 			meta.InstanceName = val
 		case "POD_NAMESPACE":
 			meta.Namespace = val
-		case "ISTIO_META_OWNER":
-			meta.Owner = val
-		case "ISTIO_META_WORKLOAD_NAME":
-			meta.WorkloadName = val
 		case "SERVICE_ACCOUNT":
 			meta.ServiceAccount = val
 		}
@@ -494,7 +487,11 @@ func getNodeMetaData(envs []string, plat platform.Environment, nodeIPs []string,
 			meta.Labels[k] = v
 		}
 	} else {
-		log.Warnf("failed to read pod labels: %v", err)
+		if os.IsNotExist(err) {
+			log.Debugf("failed to read pod labels: %v", err)
+		} else {
+			log.Warnf("failed to read pod labels: %v", err)
+		}
 	}
 
 	return meta, untypedMeta, nil

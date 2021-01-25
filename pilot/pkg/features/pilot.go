@@ -33,9 +33,9 @@ var (
 
 	TraceSampling = env.RegisterFloatVar(
 		"PILOT_TRACE_SAMPLING",
-		100.0,
+		1.0,
 		"Sets the mesh-wide trace sampling percentage. Should be 0.0 - 100.0. Precision to 0.01. "+
-			"Default is 100, not recommended for production use.",
+			"Default is 1.0.",
 	).Get()
 
 	// EnableIstioTags controls whether or not to configure Envoy with support for Istio-specific tags
@@ -172,10 +172,10 @@ var (
 		"If enabled, protocol sniffing will be used for inbound listeners whose port protocol is not specified or unsupported",
 	).Get()
 
-	EnableTCPMetadataExchange = env.RegisterBoolVar(
-		"PILOT_ENABLE_TCP_METADATA_EXCHANGE",
-		true,
-		"If enabled, metadata exchange will be enabled for TCP using ALPN and Network Metadata Exchange filters in Envoy",
+	EnableWasmTelemetry = env.RegisterBoolVar(
+		"ENABLE_WASM_TELEMETRY",
+		false,
+		"If enabled, Wasm-based telemetry will be enabled.",
 	).Get()
 
 	ScopeGatewayToNamespace = env.RegisterBoolVar(
@@ -294,9 +294,9 @@ var (
 		return ptypes.DurationProto(defaultRequestTimeoutVar.Get())
 	}()
 
-	EnableServiceApis = env.RegisterBoolVar("PILOT_ENABLED_SERVICE_APIS", false,
+	EnableServiceApis = env.RegisterBoolVar("PILOT_ENABLED_SERVICE_APIS", true,
 		"If this is set to true, support for Kubernetes service-apis (github.com/kubernetes-sigs/service-apis) will "+
-			" be enabled. This feature is currently experimental, and is off by default.").Get()
+			" be enabled. In addition to this being enabled, the service-apis CRDs need to be installed.").Get()
 
 	EnableVirtualServiceDelegate = env.RegisterBoolVar(
 		"PILOT_ENABLE_VIRTUAL_SERVICE_DELEGATE",
@@ -306,10 +306,7 @@ var (
 	ClusterName = env.RegisterStringVar("CLUSTER_ID", "Kubernetes",
 		"Defines the cluster and service registry that this Istiod instance is belongs to").Get()
 
-	// CentralIstioD will be Deprecated: TODO remove in 1.9 in favor of `ExternalIstioD`
-	CentralIstioD = env.RegisterBoolVar("CENTRAL_ISTIOD", false,
-		"If this is set to true, one Istiod will control remote clusters including CA.").Get()
-	ExternalIstioD = env.RegisterBoolVar("EXTERNAL_ISTIOD", false,
+	ExternalIstiod = env.RegisterBoolVar("EXTERNAL_ISTIOD", false,
 		"If this is set to true, one Istiod will control remote clusters including CA.").Get()
 
 	EnableCAServer = env.RegisterBoolVar("ENABLE_CA_SERVER", true,
@@ -392,6 +389,9 @@ var (
 	WorkloadEntryHealthChecks = env.RegisterBoolVar("PILOT_ENABLE_WORKLOAD_ENTRY_HEALTHCHECKS", false,
 		"Enables automatic health checks of WorkloadEntries based on the config provided in the associated WorkloadGroup").Get()
 
+	WorkloadEntryCrossCluster = env.RegisterBoolVar("PILOT_ENABLE_CROSS_CLUSTER_WORKLOAD_ENTRY", false,
+		"If enabled, pilot will read WorkloadEntry from other clusters, selectable by Services in that cluster.").Get()
+
 	EnableFlowControl = env.RegisterBoolVar(
 		"PILOT_ENABLE_FLOW_CONTROL",
 		false,
@@ -409,4 +409,12 @@ var (
 	PilotEnableLoopBlockers = env.RegisterBoolVar("PILOT_ENABLE_LOOP_BLOCKER", true,
 		"If enabled, Envoy will be configured to prevent traffic directly the the inbound/outbound "+
 			"ports (15001/15006). This prevents traffic loops. This option will be removed, and considered always enabled, in 1.9.").Get()
+
+	StatusMaxWorkers = env.RegisterIntVar("PILOT_STATUS_MAX_WORKERS", 100, "The maximum number of workers"+
+		" Pilot will use to keep configuration status up to date.  Smaller numbers will result in higher status latency, "+
+		"but larger numbers may impact CPU in high scale environments.")
+
+	WasmRemoteLoadConversion = env.RegisterBoolVar("ISTIO_AGENT_ENABLE_WASM_REMOTE_LOAD_CONVERSION", true,
+		"If enabled, Istio agent will intercept ECDS resource update, downloads Wasm module, "+
+			"and replaces Wasm module remote load with downloaded local module file.").Get()
 )

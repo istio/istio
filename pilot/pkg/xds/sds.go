@@ -94,28 +94,29 @@ func (s *SecretGen) proxyAuthorizedForSecret(proxy *model.Proxy, sr SecretResour
 	return nil
 }
 
-func (s *SecretGen) Generate(proxy *model.Proxy, _ *model.PushContext, w *model.WatchedResource, req *model.PushRequest) model.Resources {
+func (s *SecretGen) Generate(proxy *model.Proxy, push *model.PushContext, w *model.WatchedResource, req *model.PushRequest) (model.Resources, error) {
 	if proxy.VerifiedIdentity == nil {
 		adsLog.Warnf("proxy %v is not authorized to receive secrets. Ensure you are connecting over TLS port and are authenticated.", proxy.ID)
-		return nil
+		return nil, nil
 	}
 	secrets, err := s.secrets.ForCluster(proxy.Metadata.ClusterID)
 	if err != nil {
 		adsLog.Warnf("proxy %v is from an unknown cluster, cannot retrieve certificates: %v", proxy.ID, err)
-		return nil
+		return nil, nil
 	}
 	if err := secrets.Authorize(proxy.VerifiedIdentity.ServiceAccount, proxy.VerifiedIdentity.Namespace); err != nil {
 		adsLog.Warnf("proxy %v is not authorized to receive secrets: %v", proxy.ID, err)
-		return nil
+		return nil, nil
 	}
 	if req == nil || !needsUpdate(proxy, req.ConfigsUpdated) {
-		return nil
+		return nil, nil
 	}
 	var updatedSecrets map[model.ConfigKey]struct{}
 	if !req.Full {
 		updatedSecrets = model.ConfigsOfKind(req.ConfigsUpdated, gvk.Secret)
 	}
 	results := model.Resources{}
+	cached, regenerated := 0, 0
 	for _, resource := range w.ResourceNames {
 		sr, err := parseResourceName(resource, proxy.ConfigNamespace)
 		if err != nil {
@@ -134,11 +135,13 @@ func (s *SecretGen) Generate(proxy *model.Proxy, _ *model.PushContext, w *model.
 			adsLog.Warnf("requested secret %v not accessible for proxy %v: %v", sr.ResourceName, proxy.ID, err)
 			continue
 		}
-		if cached, f := s.cache.Get(sr); f {
+		if c, f := s.cache.Get(sr); f {
 			// If it is in the Cache, add it and continue
-			results = append(results, cached)
+			results = append(results, c)
+			cached++
 			continue
 		}
+		regenerated++
 
 		isCAOnlySecret := strings.HasSuffix(sr.Name, GatewaySdsCaSuffix)
 		if isCAOnlySecret {
@@ -161,7 +164,9 @@ func (s *SecretGen) Generate(proxy *model.Proxy, _ *model.PushContext, w *model.
 			}
 		}
 	}
-	return results
+	adsLog.Infof("SDS: PUSH for node:%s resources:%d size:%s cached:%v/%v",
+		proxy.ID, len(results), util.ByteCount(ResourceSize(results)), cached, cached+regenerated)
+	return results, nil
 }
 
 func toEnvoyCaSecret(name string, cert []byte) *any.Any {

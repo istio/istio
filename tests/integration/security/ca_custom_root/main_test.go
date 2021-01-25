@@ -55,9 +55,8 @@ type EchoDeployments struct {
 }
 
 var (
-	inst    istio.Instance
-	apps    = &EchoDeployments{}
-	Cleanup func() error
+	inst istio.Instance
+	apps = &EchoDeployments{}
 )
 
 func SetupApps(ctx resource.Context, apps *EchoDeployments) error {
@@ -70,138 +69,137 @@ func SetupApps(ctx resource.Context, apps *EchoDeployments) error {
 		return err
 	}
 
+	tmpdir, err := ctx.CreateTmpDirectory("ca-custom-root")
+	if err != nil {
+		return err
+	}
+
 	// Create testing certs using runtime namespace.
-	Cleanup, err = generateCerts(apps.Namespace.Name())
+	err = generateCerts(tmpdir, apps.Namespace.Name())
 	if err != nil {
 		return err
 	}
-	rootCert, err := loadCert("root-cert.pem")
+	rootCert, err := loadCert(path.Join(tmpdir, "root-cert.pem"))
 	if err != nil {
 		return err
 	}
-	clientCert, err := loadCert(TmpDir + "/workload-foo-cert.pem")
+	clientCert, err := loadCert(path.Join(tmpdir, "workload-foo-cert.pem"))
 	if err != nil {
 		return err
 	}
-	Key, err := loadCert(TmpDir + "/workload-foo-key.pem")
+	Key, err := loadCert(path.Join(tmpdir, "workload-foo-key.pem"))
 	if err != nil {
 		return err
 	}
 
 	builder := echoboot.NewBuilder(ctx)
-	for _, cluster := range ctx.Clusters() {
-		builder.
-			With(nil, util.EchoConfig(ASvc, apps.Namespace, false, nil, cluster)).
-			With(nil, util.EchoConfig(BSvc, apps.Namespace, false, nil, cluster)).
-			// Deploy 3 workloads:
-			// client: echo app with istio-proxy sidecar injected, holds default trust domain cluster.local.
-			// serverNakedFoo: echo app without istio-proxy sidecar, holds custom trust domain trust-domain-foo.
-			// serverNakedBar: echo app without istio-proxy sidecar, holds custom trust domain trust-domain-bar.
-			With(nil, echo.Config{
-				Namespace: apps.Namespace,
-				Service:   "client",
-				Cluster:   cluster,
-			}).
-			With(nil, echo.Config{
-				Namespace: apps.Namespace,
-				Service:   "server-naked-foo",
-				Subsets: []echo.SubsetConfig{
-					{
-						Annotations: echo.NewAnnotations().SetBool(echo.SidecarInject, false),
-					},
+	builder.
+		WithClusters(ctx.Clusters()...).
+		WithConfig(util.EchoConfig(ASvc, apps.Namespace, false, nil)).
+		WithConfig(util.EchoConfig(BSvc, apps.Namespace, false, nil)).
+		// Deploy 3 workloads:
+		// client: echo app with istio-proxy sidecar injected, holds default trust domain cluster.local.
+		// serverNakedFoo: echo app without istio-proxy sidecar, holds custom trust domain trust-domain-foo.
+		// serverNakedBar: echo app without istio-proxy sidecar, holds custom trust domain trust-domain-bar.
+		WithConfig(echo.Config{
+			Namespace: apps.Namespace,
+			Service:   "client",
+		}).
+		WithConfig(echo.Config{
+			Namespace: apps.Namespace,
+			Service:   "server-naked-foo",
+			Subsets: []echo.SubsetConfig{
+				{
+					Annotations: echo.NewAnnotations().SetBool(echo.SidecarInject, false),
 				},
-				ServiceAccount: true,
-				Ports: []echo.Port{
-					{
-						Name:         HTTPS,
-						Protocol:     protocol.HTTPS,
-						ServicePort:  443,
-						InstancePort: 8443,
-						TLS:          true,
-					},
+			},
+			ServiceAccount: true,
+			Ports: []echo.Port{
+				{
+					Name:         HTTPS,
+					Protocol:     protocol.HTTPS,
+					ServicePort:  443,
+					InstancePort: 8443,
+					TLS:          true,
 				},
-				TLSSettings: &common.TLSSettings{
-					RootCert:   rootCert,
-					ClientCert: clientCert,
-					Key:        Key,
+			},
+			TLSSettings: &common.TLSSettings{
+				RootCert:   rootCert,
+				ClientCert: clientCert,
+				Key:        Key,
+			},
+		}).
+		WithConfig(echo.Config{
+			Namespace: apps.Namespace,
+			Service:   "server-naked-bar",
+			Subsets: []echo.SubsetConfig{
+				{
+					Annotations: echo.NewAnnotations().SetBool(echo.SidecarInject, false),
 				},
-				Cluster: cluster,
-			}).
-			With(nil, echo.Config{
-				Namespace: apps.Namespace,
-				Service:   "server-naked-bar",
-				Subsets: []echo.SubsetConfig{
-					{
-						Annotations: echo.NewAnnotations().SetBool(echo.SidecarInject, false),
-					},
+			},
+			ServiceAccount: true,
+			Ports: []echo.Port{
+				{
+					Name:         HTTPS,
+					Protocol:     protocol.HTTPS,
+					ServicePort:  443,
+					InstancePort: 8443,
+					TLS:          true,
 				},
-				ServiceAccount: true,
-				Ports: []echo.Port{
-					{
-						Name:         HTTPS,
-						Protocol:     protocol.HTTPS,
-						ServicePort:  443,
-						InstancePort: 8443,
-						TLS:          true,
-					},
+			},
+			TLSSettings: &common.TLSSettings{
+				RootCert:   rootCert,
+				ClientCert: clientCert,
+				Key:        Key,
+			},
+		}).
+		WithConfig(echo.Config{
+			Namespace: apps.Namespace,
+			Service:   "naked",
+			Subsets: []echo.SubsetConfig{
+				{
+					Annotations: echo.NewAnnotations().SetBool(echo.SidecarInject, false),
 				},
-				TLSSettings: &common.TLSSettings{
-					RootCert:   rootCert,
-					ClientCert: clientCert,
-					Key:        Key,
+			},
+		}).
+		WithConfig(echo.Config{
+			Subsets:        []echo.SubsetConfig{{}},
+			Namespace:      apps.Namespace,
+			Service:        "server",
+			ServiceAccount: true,
+			Ports: []echo.Port{
+				{
+					Name:         httpPlaintext,
+					Protocol:     protocol.HTTP,
+					ServicePort:  8090,
+					InstancePort: 8090,
 				},
-				Cluster: cluster,
-			}).
-			With(nil, echo.Config{
-				Namespace: apps.Namespace,
-				Service:   "naked",
-				Subsets: []echo.SubsetConfig{
-					{
-						Annotations: echo.NewAnnotations().SetBool(echo.SidecarInject, false),
-					},
+				{
+					Name:         httpMTLS,
+					Protocol:     protocol.HTTP,
+					ServicePort:  8091,
+					InstancePort: 8091,
 				},
-				Cluster: cluster,
-			}).
-			With(nil, echo.Config{
-				Subsets:        []echo.SubsetConfig{{}},
-				Namespace:      apps.Namespace,
-				Service:        "server",
-				ServiceAccount: true,
-				Ports: []echo.Port{
-					{
-						Name:         httpPlaintext,
-						Protocol:     protocol.HTTP,
-						ServicePort:  8090,
-						InstancePort: 8090,
-					},
-					{
-						Name:         httpMTLS,
-						Protocol:     protocol.HTTP,
-						ServicePort:  8091,
-						InstancePort: 8091,
-					},
-					{
-						Name:         tcpPlaintext,
-						Protocol:     protocol.TCP,
-						ServicePort:  8092,
-						InstancePort: 8092,
-					},
-					{
-						Name:         tcpMTLS,
-						Protocol:     protocol.TCP,
-						ServicePort:  8093,
-						InstancePort: 8093,
-					},
+				{
+					Name:         tcpPlaintext,
+					Protocol:     protocol.TCP,
+					ServicePort:  8092,
+					InstancePort: 8092,
 				},
-				WorkloadOnlyPorts: []echo.WorkloadPort{
-					{
-						Port:     9000,
-						Protocol: protocol.TCP,
-					},
+				{
+					Name:         tcpMTLS,
+					Protocol:     protocol.TCP,
+					ServicePort:  8093,
+					InstancePort: 8093,
 				},
-				Cluster: cluster,
-			})
-	}
+			},
+			WorkloadOnlyPorts: []echo.WorkloadPort{
+				{
+					Port:     9000,
+					Protocol: protocol.TCP,
+				},
+			},
+		})
 	echos, err := builder.Build()
 	if err != nil {
 		return err
@@ -216,15 +214,15 @@ func SetupApps(ctx resource.Context, apps *EchoDeployments) error {
 	return nil
 }
 
-func loadCert(name string) (string, error) {
-	data, err := cert.ReadSampleCertFromFile(name)
+func loadCert(filename string) (string, error) {
+	data, err := cert.ReadSampleCertFromFile(filename)
 	if err != nil {
 		return "", err
 	}
 	return string(data), nil
 }
 
-func generateCerts(ns string) (func() error, error) {
+func generateCerts(tmpdir, ns string) error {
 	workDir := path.Join(env.IstioSrc, "samples/certs")
 	script := path.Join(workDir, "generate-workload.sh")
 
@@ -245,18 +243,16 @@ func generateCerts(ns string) (func() error, error) {
 	for _, crt := range crts {
 		command := exec.Cmd{
 			Path:   script,
-			Args:   []string{script, crt.td, ns, crt.sa, TmpDir},
+			Args:   []string{script, crt.td, ns, crt.sa, tmpdir},
 			Stdout: os.Stdout,
 			Stderr: os.Stdout,
 		}
 		if err := command.Run(); err != nil {
-			return nil, fmt.Errorf("failed to create testing certificates: %s", err)
+			return fmt.Errorf("failed to create testing certificates: %s", err)
 		}
 	}
 
-	return func() error {
-		return os.RemoveAll(path.Join(env.IstioSrc, "samples/certs/"+TmpDir))
-	}, nil
+	return nil
 }
 
 func TestMain(m *testing.M) {

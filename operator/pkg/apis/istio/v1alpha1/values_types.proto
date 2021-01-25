@@ -255,7 +255,9 @@ message GlobalConfig {
   //   1 - Least preferred
   //   2 - No preference
   //   3 - Most preferred
-  ArchConfig arch = 1;
+  //
+  // Deprecated: replaced by the affinity k8s settings which allows architecture nodeAffinity configuration of this behavior.
+  ArchConfig arch = 1 [deprecated=true];
 
   string configRootNamespace = 50;
 
@@ -297,9 +299,6 @@ message GlobalConfig {
 
   // Specifies the global logging level settings for the Istio control plane components.
   GlobalLoggingConfig logging = 17;
-
-  // Specifies the Configuration for Istio mesh expansion to bare metal.
-  MeshExpansionConfig meshExpansion = 18;
 
   string meshID = 53;
 
@@ -407,8 +406,6 @@ message GlobalConfig {
   // Controls whether one external istiod is enabled.
   google.protobuf.BoolValue externalIstiod = 62;
 
-  // Controls whether one central istiod is enabled.
-  google.protobuf.BoolValue centralIstiod = 63;
   // The next available key is 64
 }
 
@@ -461,8 +458,6 @@ message IngressGatewayConfig {
   string loadBalancerIP = 16;
 
   repeated string loadBalancerSourceRanges = 17;
-
-  repeated PortsConfig meshExpansionPorts = 18;
 
   string name = 44;
 
@@ -534,15 +529,6 @@ message IngressGatewayZvpnConfig {
   google.protobuf.BoolValue enabled = 1;
 
   string suffix = 2;
-}
-
-// Configuration for Istio mesh expansion to bare metal.
-message MeshExpansionConfig {
-  // Exposes Pilot and Citadel mTLS on the ingress gateway.
-  google.protobuf.BoolValue enabled = 1;
-
-  // Exposes Pilot and Citadel mTLS and the plain text Pilot ports on an internal gateway.
-  google.protobuf.BoolValue useILB = 2;
 }
 
 // MultiClusterConfig specifies the Configuration for Istio mesh across multiple clusters through the istio gateways.
@@ -983,6 +969,39 @@ message SidecarInjectorConfig {
 
   // Configure the injection url for sidecar injector webhook
   string injectionURL = 22;
+
+  // Templates defines a set of custom injection templates that can be used. For example, defining:
+  //
+  // templates:
+  //   hello:
+  //    metadata
+  //      labels:
+  //        hello: world
+  //
+  // Then starting a pod with the `inject.istio.io/templates: hello` annotation, will result in the pod
+  // being injected with the hello=world labels.
+  // This is intended for advanced configuration only; most users should use the built in template
+  TypeMapStringInterface templates = 23;
+
+  // Default templates specifies a set of default templates that are used in sidecar injection.
+  // By default, a template `sidecar` is always provided, which contains the template of default sidecar. 
+  // To inject other additional templates, define it using the `templates` option, and add it to 
+  // the default templates list.
+  // For example:
+  
+  // templates:
+  //   hello:
+  //     metadata
+  //       labels:
+  //         hello: world
+  
+  // defaultTemplates: ["sidecar", "hello"]
+  repeated string defaultTemplates = 24;
+
+  // If enabled, the legacy webhook selection logic will be used. This relies on filtering of webhook
+  // requests in Istiod, rather than at the webhook selection level.
+  // This is option is intended for migration purposes only and will be removed in Istio 1.10.
+  google.protobuf.BoolValue useLegacySelectors = 4;
 }
 
 // Configuration for each of the supported tracers.
@@ -1069,8 +1088,6 @@ message Values {
 
   SidecarInjectorConfig sidecarInjectorWebhook = 13;
 
-  google.protobuf.BoolValue clusterResources = 17;
-
   CNIConfig istio_cni = 19;
 
   string revision = 21;
@@ -1083,6 +1100,8 @@ message Values {
   BaseConfig base = 37;
 
   IstiodRemoteConfig istiodRemote = 38;
+
+  repeated string revisionTags = 39;
 }
 
 // GOTYPE: map[string]interface{}

@@ -17,30 +17,15 @@ package cache
 import (
 	"fmt"
 
-	"google.golang.org/grpc/codes"
+	"istio.io/pkg/log"
 )
 
-// isRetryableErr checks if a failed request should be retry based on gRPC resp code or http status code.
-func isRetryableErr(c codes.Code, httpRespCode int, isGrpc bool) bool {
-	if isGrpc {
-		switch c {
-		case codes.Canceled, codes.DeadlineExceeded, codes.ResourceExhausted, codes.Aborted, codes.Internal, codes.Unavailable:
-			return true
-		}
-	} else if httpRespCode >= 500 && !(httpRespCode == 501 || httpRespCode == 505 || httpRespCode == 511) {
-		return true
-	}
-	return false
+func resourceLog(resourceName string) *log.Scope {
+	return cacheLog.WithLabels("resource", resourceName)
 }
 
 // cacheLogPrefix returns a unified log prefix.
 func cacheLogPrefix(resourceName string) string {
 	lPrefix := fmt.Sprintf("resource:%s", resourceName)
-	return lPrefix
-}
-
-// cacheLogPrefix returns a unified log prefix.
-func cacheLogPrefixWithReqID(resourceName, reqID string) string {
-	lPrefix := fmt.Sprintf("resource:%s request:%s", resourceName, reqID)
 	return lPrefix
 }

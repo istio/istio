@@ -28,6 +28,7 @@ import (
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/clientcmd/api"
 
 	"istio.io/istio/pkg/kube"
@@ -35,12 +36,21 @@ import (
 	"istio.io/istio/pkg/test/env"
 )
 
+var (
+	kubeSystemNamespaceUID = types.UID("54643f96-eca0-11e9-bb97-42010a80000a")
+	kubeSystemNamespace    = &v1.Namespace{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "kube-system",
+			UID:  kubeSystemNamespaceUID,
+		},
+	}
+)
+
 const (
 	testNamespace          = "istio-system-test"
 	testServiceAccountName = "test-service-account"
 	testKubeconfig         = "test-kubeconfig"
 	testContext            = "test-context"
-	testNetwork            = "test-network"
 )
 
 func makeServiceAccount(secrets ...string) *v1.ServiceAccount {
@@ -467,7 +477,7 @@ func TestCreateRemoteKubeconfig(t *testing.T) {
 clusters:
 - cluster:
     certificate-authority-data: Y2FEYXRh
-    server: ""
+    server: https://1.2.3.4
   name: {cluster}
 contexts:
 - context:
@@ -507,10 +517,19 @@ users:
 			wantErrStr:  errMissingTokenKey.Error(),
 		},
 		{
+			name:        "bad server name",
+			in:          makeSecret("", "caData", "token"),
+			context:     "c0",
+			clusterName: fakeClusterName,
+			server:      "",
+			wantErrStr:  "invalid kubeconfig:",
+		},
+		{
 			name:        "success",
 			in:          makeSecret("", "caData", "token"),
 			context:     "c0",
 			clusterName: fakeClusterName,
+			server:      "https://1.2.3.4",
 			want: &v1.Secret{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: remoteSecretNameFromClusterName(fakeClusterName),
@@ -594,7 +613,7 @@ func TestCreateRemoteSecretFromPlugin(t *testing.T) {
 clusters:
 - cluster:
     certificate-authority-data: Y2FEYXRh
-    server: ""
+    server: https://1.2.3.4
   name: {cluster}
 contexts:
 - context:
@@ -635,6 +654,7 @@ users:
 			in:          makeSecret("", "caData", ""),
 			context:     "c0",
 			clusterName: fakeClusterName,
+			server:      "https://1.2.3.4",
 			authProviderConfig: &api.AuthProviderConfig{
 				Name: "foobar",
 				Config: map[string]string{
@@ -661,6 +681,7 @@ users:
 			in:          makeSecret("", "caData", "token"),
 			context:     "c0",
 			clusterName: fakeClusterName,
+			server:      "https://1.2.3.4",
 			authProviderConfig: &api.AuthProviderConfig{
 				Name: "foobar",
 				Config: map[string]string{

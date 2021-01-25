@@ -1,0 +1,34 @@
+[
+  {
+    "clusterName": "primary-1",
+    "podSubnet": "10.10.0.0/16",
+    "svcSubnet": "10.255.10.0/24",
+    "network": "network-1"
+  },
+  {
+    "clusterName": "remote",
+    "podSubnet": "10.20.0.0/16",
+    "svcSubnet": "10.255.20.0/24",
+    "network": "network-1",
+    "controlPlaneClusterName": "primary"
+  },
+  {
+    "clusterName": "primary-2",
+    "podSubnet": "10.30.0.0/16",
+    "svcSubnet": "10.255.30.0/24",
+    "network": "network-1"
+  },
+  {
+    "clusterName": "cross-network-primary",
+    "podSubnet": "10.40.0.0/16",
+    "svcSubnet": "10.255.40.0/24",
+    "network": "network-2"
+  },
+  {
+    "clusterName": "cross-network-remote",
+    "podSubnet": "10.50.0.0/16",
+    "svcSubnet": "10.255.50.0/24",
+    "network": "network-2",
+    "controlPlaneClusterName": "primary"
+  }
+]

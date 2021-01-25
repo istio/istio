@@ -28,6 +28,7 @@ import (
 	"fmt"
 	"time"
 
+	jsonmerge "github.com/evanphx/json-patch/v5"
 	"gomodules.xyz/jsonpatch/v2"
 	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
 	apiextensionsclient "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
@@ -50,7 +51,6 @@ import (
 	istioclient "istio.io/client-go/pkg/clientset/versioned"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
-	controller2 "istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/schema/collection"
 	"istio.io/istio/pkg/config/schema/collections"
@@ -133,13 +133,17 @@ func (cl *Client) HasSynced() bool {
 	return true
 }
 
-func New(client kube.Client, revision string, options controller2.Options) (model.ConfigStoreCache, error) {
+func New(client kube.Client, revision, domainSuffix string) (model.ConfigStoreCache, error) {
 	schemas := collections.Pilot
 	if features.EnableServiceApis {
 		schemas = collections.PilotServiceApi
 	}
+	return NewForSchemas(client, revision, domainSuffix, schemas)
+}
+
+func NewForSchemas(client kube.Client, revision, domainSuffix string, schemas collection.Schemas) (model.ConfigStoreCache, error) {
 	out := &Client{
-		domainSuffix:      options.DomainSuffix,
+		domainSuffix:      domainSuffix,
 		schemas:           schemas,
 		revision:          revision,
 		queue:             queue.NewQueue(1 * time.Second),
@@ -246,17 +250,10 @@ func (cl *Client) UpdateStatus(cfg config.Config) (string, error) {
 
 // Patch applies only the modifications made in the PatchFunc rather than doing a full replace. Useful to avoid
 // read-modify-write conflicts when there are many concurrent-writers to the same resource.
-func (cl *Client) Patch(typ config.GroupVersionKind, name, namespace string, patchFn config.PatchFunc) (string, error) {
-	// it is okay if orig is stale - we just care about the diff
-	orig := cl.Get(typ, name, namespace)
-	if orig == nil {
-		// TODO error from Get
-		return "", fmt.Errorf("item not found")
-	}
-	modified := patchFn(orig.DeepCopy())
+func (cl *Client) Patch(orig config.Config, patchFn config.PatchFunc) (string, error) {
+	modified, patchType := patchFn(orig.DeepCopy())
 
-	oo := *orig
-	meta, err := patch(cl.istioClient, cl.serviceApisClient, oo, getObjectMetadata(oo), modified, getObjectMetadata(modified))
+	meta, err := patch(cl.istioClient, cl.serviceApisClient, orig, getObjectMetadata(orig), modified, getObjectMetadata(modified), patchType)
 	if err != nil {
 		return "", err
 	}
@@ -264,8 +261,9 @@ func (cl *Client) Patch(typ config.GroupVersionKind, name, namespace string, pat
 }
 
 // Delete implements store interface
-func (cl *Client) Delete(typ config.GroupVersionKind, name, namespace string) error {
-	return delete(cl.istioClient, cl.serviceApisClient, typ, name, namespace)
+// `resourceVersion` must be matched before deletion is carried out. If not possible, a 409 Conflict status will be
+func (cl *Client) Delete(typ config.GroupVersionKind, name, namespace string, resourceVersion *string) error {
+	return delete(cl.istioClient, cl.serviceApisClient, typ, name, namespace, resourceVersion)
 }
 
 // List implements store interface
@@ -302,7 +300,7 @@ func (cl *Client) List(kind config.GroupVersionKind, namespace string) ([]config
 }
 
 func (cl *Client) objectInRevision(o *config.Config) bool {
-	configEnv, f := o.Labels[label.IstioRev]
+	configEnv, f := o.Labels[label.IoIstioRev.Name]
 	if !f {
 		// This is a global object, and always included
 		return true
@@ -360,20 +358,25 @@ func getObjectMetadata(config config.Config) metav1.ObjectMeta {
 	}
 }
 
-func genPatchBytes(oldRes, modRes runtime.Object) ([]byte, error) {
+func genPatchBytes(oldRes, modRes runtime.Object, patchType types.PatchType) ([]byte, error) {
 	oldJSON, err := json.Marshal(oldRes)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed marhsalling original resource: %v", err)
 	}
 	newJSON, err := json.Marshal(modRes)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed marhsalling modified resource: %v", err)
 	}
-	// TODO apply requires a "merge" style patch; see CreateTwoWayMerge patch or CreateMergePatch
-	ops, err := jsonpatch.CreatePatch(oldJSON, newJSON)
-	if err != nil {
-		return nil, err
+	switch patchType {
+	case types.JSONPatchType:
+		ops, err := jsonpatch.CreatePatch(oldJSON, newJSON)
+		if err != nil {
+			return nil, err
+		}
+		return json.Marshal(ops)
+	case types.MergePatchType:
+		return jsonmerge.CreateMergePatch(oldJSON, newJSON)
+	default:
+		return nil, fmt.Errorf("unsupported patch type: %v. must be one of JSONPatchType or MergePatchType", patchType)
 	}
-	// TODO apply may require setting gvk ourselves on the patch payload
-	return json.Marshal(ops)
 }

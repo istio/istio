@@ -17,3 +17,10 @@ spec:
           sysctls:
           - name: "net.ipv4.ip_local_port_range"
             value: "80 65535"
+    - namespace: istio-system
+      name: istio-ingressgateway-custom
+      enabled: true
+      k8s:
+        service:
+          externalTrafficPolicy: Local
+

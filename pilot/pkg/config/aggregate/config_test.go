@@ -15,7 +15,6 @@
 package aggregate
 
 import (
-	"fmt"
 	"strings"
 	"testing"
 	"time"
@@ -192,7 +191,7 @@ func TestAggregateStoreFails(t *testing.T) {
 	t.Run("Fails to Delete", func(t *testing.T) {
 		g := gomega.NewWithT(t)
 
-		err = store.Delete(config.GroupVersionKind{Kind: "not"}, "gonna", "work")
+		err = store.Delete(config.GroupVersionKind{Kind: "not"}, "gonna", "work", nil)
 		g.Expect(err).To(gomega.MatchError(gomega.ContainSubstring("unsupported operation")))
 	})
 
@@ -244,12 +243,7 @@ func TestAggregateStoreCache(t *testing.T) {
 				Name:             "another",
 			},
 		})
-		retry.UntilSuccessOrFail(t, func() error {
-			if !handled.Load() {
-				return fmt.Errorf("not handled")
-			}
-			return nil
-		}, retry.Timeout(time.Second))
+		retry.UntilOrFail(t, handled.Load, retry.Timeout(time.Second))
 	})
 }
 

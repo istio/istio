@@ -17,12 +17,15 @@ package serviceentry
 import (
 	"fmt"
 	"reflect"
+	"strconv"
 	"sync"
 
 	"go.uber.org/atomic"
 
 	networking "istio.io/api/networking/v1alpha3"
+	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pilot/pkg/model/status"
 	"istio.io/istio/pilot/pkg/serviceregistry"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/constants"
@@ -78,10 +81,25 @@ type ServiceEntryStore struct { // nolint:golint
 	seWithSelectorByNamespace map[string][]servicesWithEntry
 	refreshIndexes            *atomic.Bool
 	workloadHandlers          []func(*model.WorkloadInstance, model.Event)
+
+	processServiceEntry bool
+}
+
+type ServiceDiscoveryOption func(*ServiceEntryStore)
+
+func DisableServiceEntryProcessing() ServiceDiscoveryOption {
+	return func(o *ServiceEntryStore) {
+		o.processServiceEntry = false
+	}
 }
 
 // NewServiceDiscovery creates a new ServiceEntry discovery service
-func NewServiceDiscovery(configController model.ConfigStoreCache, store model.IstioConfigStore, xdsUpdater model.XDSUpdater) *ServiceEntryStore {
+func NewServiceDiscovery(
+	configController model.ConfigStoreCache,
+	store model.IstioConfigStore,
+	xdsUpdater model.XDSUpdater,
+	options ...ServiceDiscoveryOption,
+) *ServiceEntryStore {
 	s := &ServiceEntryStore{
 		XdsUpdater:                 xdsUpdater,
 		store:                      store,
@@ -90,9 +108,16 @@ func NewServiceDiscovery(configController model.ConfigStoreCache, store model.Is
 		workloadInstancesByIP:      map[string]*model.WorkloadInstance{},
 		workloadInstancesIPsByName: map[string]string{},
 		refreshIndexes:             atomic.NewBool(true),
+		processServiceEntry:        true,
 	}
+	for _, o := range options {
+		o(s)
+	}
+
 	if configController != nil {
-		configController.RegisterEventHandler(gvk.ServiceEntry, s.serviceEntryHandler)
+		if s.processServiceEntry {
+			configController.RegisterEventHandler(gvk.ServiceEntry, s.serviceEntryHandler)
+		}
 		configController.RegisterEventHandler(gvk.WorkloadEntry, s.workloadEntryHandler)
 	}
 	return s
@@ -112,6 +137,12 @@ func (s *ServiceEntryStore) workloadEntryHandler(old, curr config.Config, event 
 		kind:      workloadEntryConfigType,
 		name:      curr.Name,
 		namespace: curr.Namespace,
+	}
+
+	// If an entry is unhealthy, we will mark this as a delete instead
+	// This ensures we do not track unhealthy endpoints
+	if features.WorkloadEntryHealthChecks && !isHealthy(curr) {
+		event = model.EventDelete
 	}
 
 	// fire off the k8s handlers
@@ -447,6 +478,9 @@ func (s *ServiceEntryStore) HasSynced() bool {
 
 // Services list declarations of all services in the system
 func (s *ServiceEntryStore) Services() ([]*model.Service, error) {
+	if !s.processServiceEntry {
+		return nil, nil
+	}
 	services := make([]*model.Service, 0)
 	for _, cfg := range s.store.ServiceEntries() {
 		services = append(services, convertServices(cfg)...)
@@ -460,6 +494,9 @@ func (s *ServiceEntryStore) Services() ([]*model.Service, error) {
 // DO NOT USE
 // NOTE: This does not auto allocate IPs. The service entry implementation is used only for tests.
 func (s *ServiceEntryStore) GetService(hostname host.Name) (*model.Service, error) {
+	if !s.processServiceEntry {
+		return nil, nil
+	}
 	for _, service := range s.getServices() {
 		if service.Hostname == hostname {
 			return service, nil
@@ -470,6 +507,9 @@ func (s *ServiceEntryStore) GetService(hostname host.Name) (*model.Service, erro
 }
 
 func (s *ServiceEntryStore) getServices() []*model.Service {
+	if !s.processServiceEntry {
+		return nil
+	}
 	services := make([]*model.Service, 0)
 	for _, cfg := range s.store.ServiceEntries() {
 		services = append(services, convertServices(cfg)...)
@@ -507,7 +547,7 @@ type servicesWithEntry struct {
 	services []*model.Service
 }
 
-// Resync EDS will do a full EDS update. This is needed for some tests where we have many configs loaded without calling
+// ResyncEDS will do a full EDS update. This is needed for some tests where we have many configs loaded without calling
 // the config handlers.
 // This should probably not be used in production code.
 func (s *ServiceEntryStore) ResyncEDS() {
@@ -611,19 +651,21 @@ func (s *ServiceEntryStore) maybeRefreshIndexes() {
 
 	// First refresh service entry
 	seWithSelectorByNamespace := map[string][]servicesWithEntry{}
-	for _, cfg := range s.store.ServiceEntries() {
-		key := configKey{
-			kind:      serviceEntryConfigType,
-			name:      cfg.Name,
-			namespace: cfg.Namespace,
-		}
-		updateInstances(key, convertServiceEntryToInstances(cfg, nil), instanceMap, ip2instances)
-		services := convertServices(cfg)
+	if s.processServiceEntry {
+		for _, cfg := range s.store.ServiceEntries() {
+			key := configKey{
+				kind:      serviceEntryConfigType,
+				name:      cfg.Name,
+				namespace: cfg.Namespace,
+			}
+			updateInstances(key, convertServiceEntryToInstances(cfg, nil), instanceMap, ip2instances)
+			services := convertServices(cfg)
 
-		se := cfg.Spec.(*networking.ServiceEntry)
-		// If we have a workload selector, we will add all instances from WorkloadEntries. Otherwise, we continue
-		if se.WorkloadSelector != nil {
-			seWithSelectorByNamespace[cfg.Namespace] = append(seWithSelectorByNamespace[cfg.Namespace], servicesWithEntry{se, services})
+			se := cfg.Spec.(*networking.ServiceEntry)
+			// If we have a workload selector, we will add all instances from WorkloadEntries. Otherwise, we continue
+			if se.WorkloadSelector != nil {
+				seWithSelectorByNamespace[cfg.Namespace] = append(seWithSelectorByNamespace[cfg.Namespace], servicesWithEntry{se, services})
+			}
 		}
 	}
 
@@ -887,4 +929,27 @@ func makeConfigKey(svc *model.Service) model.ConfigKey {
 		Kind:      gvk.ServiceEntry,
 		Name:      string(svc.Hostname),
 		Namespace: svc.Attributes.Namespace}
+}
+
+// isHealthy checks that the provided WorkloadEntry is healthy. If health checks are not enabled,
+// it is assumed to always be healthy
+func isHealthy(cfg config.Config) bool {
+	if parseHealthAnnotation(cfg.Annotations[status.WorkloadEntryHealthCheckAnnotation]) {
+		// We default to false if the condition is not set. This ensures newly created WorkloadEntries
+		// are treated as unhealthy until we prove they are healthy by probe success.
+		return status.GetBoolConditionFromSpec(cfg, status.ConditionHealthy, false)
+	}
+	// If health check is not enabled, assume its healthy
+	return true
+}
+
+func parseHealthAnnotation(s string) bool {
+	if s == "" {
+		return false
+	}
+	p, err := strconv.ParseBool(s)
+	if err != nil {
+		return false
+	}
+	return p
 }

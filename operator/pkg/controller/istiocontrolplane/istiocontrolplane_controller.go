@@ -61,6 +61,8 @@ const (
 	finalizer = "istio-finalizer.install.istio.io"
 	// finalizerMaxRetries defines the maximum number of attempts to remove the finalizer.
 	finalizerMaxRetries = 1
+	// IgnoreReconcileAnnotation is annotation of IstioOperator CR so it would be ignored during Reconcile loop.
+	IgnoreReconcileAnnotation = "install.istio.io/ignoreReconcile"
 )
 
 var (
@@ -189,7 +191,7 @@ type ReconcileIstioOperator struct {
 // Note:
 // The Controller will requeue the Request to be processed again if the returned error is non-nil or
 // Result.Requeue is true, otherwise upon completion it will remove the work from the queue.
-func (r *ReconcileIstioOperator) Reconcile(request reconcile.Request) (reconcile.Result, error) {
+func (r *ReconcileIstioOperator) Reconcile(_ context.Context, request reconcile.Request) (reconcile.Result, error) {
 	scope.Info("Reconciling IstioOperator")
 
 	ns, iopName := request.Namespace, request.Name
@@ -218,6 +220,19 @@ func (r *ReconcileIstioOperator) Reconcile(request reconcile.Request) (reconcile
 	operatorRevision, _ := os.LookupEnv("REVISION")
 	if operatorRevision != "" && operatorRevision != iop.Spec.Revision {
 		scope.Infof("Ignoring IstioOperator CR %s with revision %s, since operator revision is %s.", iopName, iop.Spec.Revision, operatorRevision)
+		return reconcile.Result{}, nil
+	}
+	if iop.Annotations != nil {
+		if ir := iop.Annotations[IgnoreReconcileAnnotation]; ir == "true" {
+			scope.Infof("Ignoring the IstioOperator CR %s because it is annotated to be ignored for reconcile ", iopName)
+			return reconcile.Result{}, nil
+		}
+	}
+
+	// for backward compatibility, the previous applied installed-state CR does not have the ignore reconcile annotation
+	// TODO(richardwxn): remove this check and rely on annotation check only
+	if strings.HasPrefix(iop.Name, name.InstalledSpecCRPrefix) {
+		scope.Infof("Ignoring the installed-state IstioOperator CR %s ", iopName)
 		return reconcile.Result{}, nil
 	}
 
@@ -425,17 +440,16 @@ func watchIstioResources(c controller.Controller) error {
 			Group:   t.Group,
 			Version: t.Version,
 		})
-		err := c.Watch(&source.Kind{Type: u}, &handler.EnqueueRequestsFromMapFunc{
-			ToRequests: handler.ToRequestsFunc(func(a handler.MapObject) []reconcile.Request {
-				scope.Infof("Watching a change for istio resource: %s/%s", a.Meta.GetNamespace(), a.Meta.GetName())
-				return []reconcile.Request{
-					{NamespacedName: types.NamespacedName{
-						Name:      a.Meta.GetLabels()[helmreconciler.OwningResourceName],
-						Namespace: a.Meta.GetLabels()[helmreconciler.OwningResourceNamespace],
-					}},
-				}
-			}),
-		}, ownedResourcePredicates)
+		err := c.Watch(&source.Kind{Type: u}, handler.EnqueueRequestsFromMapFunc(func(a client.Object) []reconcile.Request {
+			scope.Infof("Watching a change for istio resource: %s/%s", a.GetNamespace(), a.GetName())
+			return []reconcile.Request{
+				{NamespacedName: types.NamespacedName{
+					Name:      a.GetLabels()[helmreconciler.OwningResourceName],
+					Namespace: a.GetLabels()[helmreconciler.OwningResourceNamespace],
+				}},
+			}
+		}),
+			ownedResourcePredicates)
 		if err != nil {
 			scope.Errorf("Could not create watch for %s/%s/%s: %s.", t.Kind, t.Group, t.Version, err)
 		}

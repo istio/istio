@@ -56,6 +56,12 @@ var (
 	genericMtlsCertSplitCa = makeSecret("generic-mtls-split-cacert", map[string]string{
 		GenericScrtCaCert: "generic-mtls-split-ca",
 	})
+	overlapping = makeSecret("overlap", map[string]string{
+		GenericScrtCert: "cert", GenericScrtKey: "key", GenericScrtCaCert: "main-ca",
+	})
+	overlappingCa = makeSecret("overlap-cacert", map[string]string{
+		GenericScrtCaCert: "split-ca",
+	})
 	tlsCert = makeSecret("tls", map[string]string{
 		TLSSecretCert: "tls-cert", TLSSecretKey: "tls-key",
 	})
@@ -76,6 +82,8 @@ func TestSecretsController(t *testing.T) {
 		genericMtlsCert,
 		genericMtlsCertSplit,
 		genericMtlsCertSplitCa,
+		overlapping,
+		overlappingCa,
 		tlsCert,
 		tlsMtlsCert,
 		tlsMtlsCertSplit,
@@ -95,6 +103,8 @@ func TestSecretsController(t *testing.T) {
 		{"generic-mtls", "default", "generic-mtls-cert", "generic-mtls-key", "generic-mtls-ca"},
 		{"generic-mtls-split", "default", "generic-mtls-split-cert", "generic-mtls-split-key", ""},
 		{"generic-mtls-split-cacert", "default", "", "", "generic-mtls-split-ca"},
+		// The -cacert secret has precedence
+		{"overlap-cacert", "default", "", "", "split-ca"},
 		{"tls", "default", "tls-cert", "tls-key", ""},
 		{"tls-mtls", "default", "tls-mtls-cert", "tls-mtls-key", "tls-mtls-ca"},
 		{"tls-mtls-split", "default", "tls-mtls-split-cert", "tls-mtls-split-key", ""},
@@ -139,9 +149,11 @@ func allowIdentities(c kube.Client, identities ...string) {
 }
 
 func TestForCluster(t *testing.T) {
+	stop := make(chan struct{})
+	defer close(stop)
 	localClient := kube.NewFakeClient()
 	remoteClient := kube.NewFakeClient()
-	sc := NewMulticluster(localClient, "local", "")
+	sc := NewMulticluster(localClient, "local", "", stop)
 	sc.addMemberCluster(remoteClient, "remote")
 	sc.addMemberCluster(remoteClient, "remote2")
 	cases := []struct {
@@ -164,11 +176,13 @@ func TestForCluster(t *testing.T) {
 }
 
 func TestAuthorize(t *testing.T) {
+	stop := make(chan struct{})
+	defer close(stop)
 	localClient := kube.NewFakeClient()
 	remoteClient := kube.NewFakeClient()
 	allowIdentities(localClient, "system:serviceaccount:ns-local:sa-allowed")
 	allowIdentities(remoteClient, "system:serviceaccount:ns-remote:sa-allowed")
-	sc := NewMulticluster(localClient, "local", "")
+	sc := NewMulticluster(localClient, "local", "", stop)
 	sc.addMemberCluster(remoteClient, "remote")
 	cases := []struct {
 		sa      string
@@ -200,6 +214,8 @@ func TestAuthorize(t *testing.T) {
 }
 
 func TestSecretsControllerMulticluster(t *testing.T) {
+	stop := make(chan struct{})
+	defer close(stop)
 	secretsLocal := []runtime.Object{
 		tlsCert,
 		tlsMtlsCert,
@@ -220,7 +236,7 @@ func TestSecretsControllerMulticluster(t *testing.T) {
 	localClient := kube.NewFakeClient(secretsLocal...)
 	remoteClient := kube.NewFakeClient(secretsRemote...)
 	otherRemoteClient := kube.NewFakeClient()
-	sc := NewMulticluster(localClient, "local", "")
+	sc := NewMulticluster(localClient, "local", "", stop)
 	sc.addMemberCluster(remoteClient, "remote")
 	sc.addMemberCluster(otherRemoteClient, "other")
 	cases := []struct {

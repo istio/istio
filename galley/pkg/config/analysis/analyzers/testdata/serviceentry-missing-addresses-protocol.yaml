@@ -1,0 +1,121 @@
+apiVersion: networking.istio.io/v1alpha3
+kind: ServiceEntry
+metadata:
+  name: service-entry-test-01 # Expected: no validation error
+  namespace: default
+spec:
+  hosts:
+    - 'istio.io'
+  exportTo:
+    - "."
+  ports:
+    - number: 443
+      name: https
+      protocol: HTTPS
+  location: MESH_EXTERNAL
+  resolution: DNS
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: ServiceEntry
+metadata:
+  name: service-entry-test-02 # Expected: no validation error
+  namespace: default
+spec:
+  hosts:
+    - 'istio.io'
+  addresses:
+    - 10.0.0.1
+  exportTo:
+    - "."
+  ports:
+    - number: 443
+      name: https
+      protocol: HTTPS
+  location: MESH_EXTERNAL
+  resolution: DNS
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: ServiceEntry
+metadata:
+  name: service-entry-test-03 # Expected: validation error missing addresses and protocol
+  namespace: default
+spec:
+  hosts:
+    - 'istio.io'
+  exportTo:
+    - "."
+  ports:
+    - number: 443
+      name: https
+  location: MESH_EXTERNAL
+  resolution: DNS
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: ServiceEntry
+metadata:
+  name: service-entry-test-04 # Expected: validation error missing addresses and protocol
+  namespace: default
+spec:
+  hosts:
+    - 'istio.io'
+  exportTo:
+    - "."
+  ports:
+    - number: 443
+      name: https
+      protocol: ""
+  location: MESH_EXTERNAL
+  resolution: DNS
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: ServiceEntry
+metadata:
+  name: service-entry-test-05 # Expected: no validation error
+  namespace: default
+spec:
+  hosts:
+    - 'istio.io'
+  exportTo:
+    - "."
+  ports:
+    - number: 443
+      name: https
+      protocol: HTTPS
+  location: MESH_EXTERNAL
+  resolution: DNS
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: ServiceEntry
+metadata:
+  name: service-entry-test-06 # Expected: no validation error
+  namespace: default
+spec:
+  hosts:
+    - 'istio.io'
+  addresses:
+    - 10.0.0.1
+  exportTo:
+    - "."
+  ports:
+    - number: 443
+      name: https
+      protocol: TCP
+  location: MESH_EXTERNAL
+  resolution: DNS
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: ServiceEntry
+metadata:
+  name: service-entry-test-07 # Expected: validation error missing addresses with protocol TCP
+  namespace: default
+spec:
+  hosts:
+    - 'istio.io'
+  exportTo:
+    - "."
+  ports:
+    - number: 443
+      name: https
+      protocol: TCP
+  location: MESH_EXTERNAL
+  resolution: DNS

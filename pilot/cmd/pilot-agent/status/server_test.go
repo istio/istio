@@ -134,6 +134,39 @@ func TestNewServer(t *testing.T) {
 	}
 }
 
+func TestPprof(t *testing.T) {
+	pprofPath := "/debug/pprof/cmdline"
+	// Starts the pilot agent status server.
+	server, err := NewServer(Config{StatusPort: 0})
+	if err != nil {
+		t.Fatalf("failed to create status server %v", err)
+	}
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	go server.Run(ctx)
+
+	var statusPort uint16
+	for statusPort == 0 {
+		server.mutex.RLock()
+		statusPort = server.statusPort
+		server.mutex.RUnlock()
+	}
+
+	client := http.Client{}
+	req, err := http.NewRequest("GET", fmt.Sprintf("http://localhost:%v/%s", statusPort, pprofPath), nil)
+	if err != nil {
+		t.Fatalf("[%v] failed to create request", pprofPath)
+	}
+	resp, err := client.Do(req)
+	if err != nil {
+		t.Fatal("request failed: ", err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		t.Errorf("[%v] unexpected status code, want = %v, got = %v", pprofPath, http.StatusOK, resp.StatusCode)
+	}
+}
+
 func TestStats(t *testing.T) {
 	cases := []struct {
 		name             string

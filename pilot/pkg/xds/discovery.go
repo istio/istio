@@ -24,6 +24,7 @@ import (
 	"go.uber.org/atomic"
 	"google.golang.org/grpc"
 
+	"istio.io/istio/pilot/pkg/controller/workloadentry"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/apigen"
@@ -34,7 +35,7 @@ import (
 	"istio.io/istio/pilot/pkg/serviceregistry/memory"
 	"istio.io/istio/pilot/pkg/util/sets"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
-	"istio.io/istio/security/pkg/server/ca/authenticate"
+	"istio.io/istio/pkg/security"
 )
 
 var (
@@ -84,11 +85,23 @@ type DiscoveryServer struct {
 	// Normal istio clients use the default generator - will not be impacted by this.
 	Generators map[string]model.XdsResourceGenerator
 
-	concurrentPushLimit chan struct{}
+	// ProxyNeedsPush is a function that determines whether a push can be completely skipped. Individual generators
+	// may also choose to not send any updates.
+	ProxyNeedsPush func(proxy *model.Proxy, req *model.PushRequest) bool
 
+	concurrentPushLimit chan struct{}
 	// mutex protecting global structs updated or read by ADS service, including ConfigsUpdated and
 	// shards.
 	mutex sync.RWMutex
+
+	// InboundUpdates describes the number of configuration updates the discovery server has received
+	InboundUpdates *atomic.Int64
+	// CommittedUpdates describes the number of configuration updates the discovery server has
+	// received, process, and stored in the push context. If this number is less than InboundUpdates,
+	// there are updates we have not yet processed.
+	// Note: This does not mean that all proxies have received these configurations; it is strictly
+	// the push context, which means that the next push to a proxy will receive this configuration.
+	CommittedUpdates *atomic.Int64
 
 	// EndpointShards for a service. This is a global (per-server) list, built from
 	// incremental updates. This is keyed by service and namespace
@@ -112,13 +125,14 @@ type DiscoveryServer struct {
 	StatusReporter DistributionStatusCache
 
 	// Authenticators for XDS requests. Should be same/subset of the CA authenticators.
-	Authenticators []authenticate.Authenticator
+	Authenticators []security.Authenticator
 
-	// InternalGen is notified of connect/disconnect/nack on all connections
-	InternalGen *InternalGen
+	// StatusGen is notified of connect/disconnect/nack on all connections
+	StatusGen               *StatusGen
+	WorkloadEntryController *workloadentry.Controller
 
 	// serverReady indicates caches have been synced up and server is ready to process requests.
-	serverReady bool
+	serverReady atomic.Bool
 
 	debounceOptions debounceOptions
 
@@ -153,13 +167,15 @@ func NewDiscoveryServer(env *model.Environment, plugins []string, instanceID str
 	out := &DiscoveryServer{
 		Env:                     env,
 		Generators:              map[string]model.XdsResourceGenerator{},
+		ProxyNeedsPush:          DefaultProxyNeedsPush,
 		EndpointShardsByService: map[string]map[string]*EndpointShards{},
 		concurrentPushLimit:     make(chan struct{}, features.PushThrottle),
+		InboundUpdates:          atomic.NewInt64(0),
+		CommittedUpdates:        atomic.NewInt64(0),
 		pushChannel:             make(chan *model.PushRequest, 10),
 		pushQueue:               NewPushQueue(),
 		debugHandlers:           map[string]string{},
 		adsClients:              map[string]*Connection{},
-		serverReady:             false,
 		debounceOptions: debounceOptions{
 			debounceAfter:     features.DebounceAfter,
 			debounceMax:       features.DebounceMax,
@@ -198,21 +214,15 @@ var (
 // CachesSynced is called when caches have been synced so that server can accept connections.
 func (s *DiscoveryServer) CachesSynced() {
 	adsLog.Infof("All caches have been synced up in %v, marking server ready", time.Since(processStartTime))
-	s.updateMutex.Lock()
-	s.serverReady = true
-	s.updateMutex.Unlock()
+	s.serverReady.Store(true)
 }
 
 func (s *DiscoveryServer) IsServerReady() bool {
-	s.mutex.RLock()
-	defer s.mutex.RUnlock()
-	return s.serverReady
+	return s.serverReady.Load()
 }
 
 func (s *DiscoveryServer) Start(stopCh <-chan struct{}) {
-	if s.InternalGen != nil {
-		s.InternalGen.Run(stopCh)
-	}
+	go s.WorkloadEntryController.Run(stopCh)
 	go s.handleUpdates(stopCh)
 	go s.periodicRefreshMetrics(stopCh)
 	go s.sendPushes(stopCh)
@@ -253,7 +263,9 @@ func (s *DiscoveryServer) periodicRefreshMetrics(stopCh <-chan struct{}) {
 				model.LastPushStatus = push
 				push.UpdateMetrics()
 				out, _ := model.LastPushStatus.StatusJSON()
-				adsLog.Infof("Push Status: %s", string(out))
+				if string(out) != "{}" {
+					adsLog.Infof("Push Status: %s", string(out))
+				}
 			}
 			model.LastPushMutex.Unlock()
 		case <-stopCh:
@@ -267,7 +279,7 @@ func (s *DiscoveryServer) periodicRefreshMetrics(stopCh <-chan struct{}) {
 func (s *DiscoveryServer) Push(req *model.PushRequest) {
 	if !req.Full {
 		req.Push = s.globalPushContext()
-		go s.AdsPushAll(versionInfo(), req)
+		s.AdsPushAll(versionInfo(), req)
 		return
 	}
 	// Reset the status during the push.
@@ -279,13 +291,12 @@ func (s *DiscoveryServer) Push(req *model.PushRequest) {
 	// saved.
 	t0 := time.Now()
 
-	push, err := s.initPushContext(req, oldPushContext)
+	versionLocal := time.Now().Format(time.RFC3339) + "/" + strconv.FormatUint(versionNum.Inc(), 10)
+	push, err := s.initPushContext(req, oldPushContext, versionLocal)
 	if err != nil {
 		return
 	}
 
-	versionLocal := time.Now().Format(time.RFC3339) + "/" + strconv.FormatUint(versionNum.Load(), 10)
-	versionNum.Inc()
 	initContextTime := time.Since(t0)
 	adsLog.Debugf("InitContext %v for push took %s", versionLocal, initContextTime)
 
@@ -294,7 +305,7 @@ func (s *DiscoveryServer) Push(req *model.PushRequest) {
 	versionMutex.Unlock()
 
 	req.Push = push
-	go s.AdsPushAll(versionLocal, req)
+	s.AdsPushAll(versionLocal, req)
 }
 
 func nonce(noncePrefix string) string {
@@ -318,6 +329,7 @@ func (s *DiscoveryServer) globalPushContext() *model.PushContext {
 // It replaces the 'clear cache' from v1.
 func (s *DiscoveryServer) ConfigUpdate(req *model.PushRequest) {
 	inboundConfigUpdates.Increment()
+	s.InboundUpdates.Inc()
 	s.pushChannel <- req
 }
 
@@ -327,11 +339,11 @@ func (s *DiscoveryServer) ConfigUpdate(req *model.PushRequest) {
 // It ensures that at minimum minQuiet time has elapsed since the last event before processing it.
 // It also ensures that at most maxDelay is elapsed between receiving an event and processing it.
 func (s *DiscoveryServer) handleUpdates(stopCh <-chan struct{}) {
-	debounce(s.pushChannel, stopCh, s.debounceOptions, s.Push)
+	debounce(s.pushChannel, stopCh, s.debounceOptions, s.Push, s.CommittedUpdates)
 }
 
 // The debounce helper function is implemented to enable mocking
-func debounce(ch chan *model.PushRequest, stopCh <-chan struct{}, opts debounceOptions, pushFn func(req *model.PushRequest)) {
+func debounce(ch chan *model.PushRequest, stopCh <-chan struct{}, opts debounceOptions, pushFn func(req *model.PushRequest), updateSent *atomic.Int64) {
 	var timeChan <-chan time.Time
 	var startDebounce time.Time
 	var lastConfigUpdateTime time.Time
@@ -345,8 +357,9 @@ func debounce(ch chan *model.PushRequest, stopCh <-chan struct{}, opts debounceO
 	free := true
 	freeCh := make(chan struct{}, 1)
 
-	push := func(req *model.PushRequest) {
+	push := func(req *model.PushRequest, debouncedEvents int) {
 		pushFn(req)
+		updateSent.Add(int64(debouncedEvents))
 		freeCh <- struct{}{}
 	}
 
@@ -362,7 +375,7 @@ func debounce(ch chan *model.PushRequest, stopCh <-chan struct{}, opts debounceO
 					quietTime, eventDelay, req.Full)
 
 				free = false
-				go push(req)
+				go push(req, debouncedEvents)
 				req = nil
 				debouncedEvents = 0
 			}
@@ -417,7 +430,6 @@ func doSendPushes(stopCh <-chan struct{}, semaphore chan struct{}, queue *PushQu
 
 			// Get the next proxy to push. This will block if there are no updates required.
 			client, push, shuttingdown := queue.Dequeue()
-
 			if shuttingdown {
 				return
 			}
@@ -448,9 +460,13 @@ func doSendPushes(stopCh <-chan struct{}, semaphore chan struct{}, queue *PushQu
 	}
 }
 
-// initPushContext creates a global push context and stores it on the environment.
-func (s *DiscoveryServer) initPushContext(req *model.PushRequest, oldPushContext *model.PushContext) (*model.PushContext, error) {
+// initPushContext creates a global push context and stores it on the environment. Note: while this
+// method is technically thread safe (there are no data races), it should not be called in parallel;
+// if it is, then we may start two push context creations (say A, and B), but then write them in
+// reverse order, leaving us with a final version of A, which may be incomplete.
+func (s *DiscoveryServer) initPushContext(req *model.PushRequest, oldPushContext *model.PushContext, version string) (*model.PushContext, error) {
 	push := model.NewPushContext()
+	push.PushVersion = version
 	if err := push.InitContext(s.Env, oldPushContext, req); err != nil {
 		adsLog.Errorf("XDS: Failed to update services: %v", err)
 		// We can't push if we can't read the data - stick with previous version.
@@ -476,12 +492,13 @@ func (s *DiscoveryServer) sendPushes(stopCh <-chan struct{}) {
 // initGenerators initializes generators to be used by XdsServer.
 func (s *DiscoveryServer) initGenerators() {
 	edsGen := &EdsGenerator{Server: s}
-	s.InternalGen = NewInternalGen(s)
+	s.StatusGen = NewStatusGen(s)
 	s.Generators[v3.ClusterType] = &CdsGenerator{Server: s}
 	s.Generators[v3.ListenerType] = &LdsGenerator{Server: s}
 	s.Generators[v3.RouteType] = &RdsGenerator{Server: s}
 	s.Generators[v3.EndpointType] = edsGen
 	s.Generators[v3.NameTableType] = &NdsGenerator{Server: s}
+	s.Generators[v3.ExtensionConfigurationType] = &EcdsGenerator{Server: s}
 
 	s.Generators["grpc"] = &grpcgen.GrpcConfigGenerator{}
 	s.Generators["grpc/"+v3.EndpointType] = edsGen
@@ -492,19 +509,38 @@ func (s *DiscoveryServer) initGenerators() {
 	s.Generators["api"] = &apigen.APIGenerator{}
 	s.Generators["api/"+v3.EndpointType] = edsGen
 
-	s.Generators["api/"+TypeURLConnections] = s.InternalGen
+	s.Generators["api/"+TypeURLConnect] = s.StatusGen
 
-	s.Generators["event"] = s.InternalGen
+	s.Generators["event"] = s.StatusGen
 }
 
-// shutdown shutsdown DiscoveryServer components.
+// shutdown shuts down DiscoveryServer components.
 func (s *DiscoveryServer) Shutdown() {
 	s.pushQueue.ShutDown()
 }
 
-// Clients returns all currently connected clients. This method can be safely called concurrently, but care
-// should be taken with the underlying objects (ie model.Proxy) to ensure proper locking.
+// Clients returns all currently connected clients. This method can be safely called concurrently,
+// but care should be taken with the underlying objects (ie model.Proxy) to ensure proper locking.
+// This method returns only fully initialized connections; for all connections, use AllClients
 func (s *DiscoveryServer) Clients() []*Connection {
+	s.adsClientsMutex.RLock()
+	defer s.adsClientsMutex.RUnlock()
+	clients := make([]*Connection, 0, len(s.adsClients))
+	for _, con := range s.adsClients {
+		select {
+		case <-con.initialized:
+		default:
+			// Initialization not complete, skip
+			continue
+		}
+		clients = append(clients, con)
+	}
+	return clients
+}
+
+// AllClients returns all connected clients, per Clients, but additionally includes unintialized connections
+// Warning: callers must take care not to rely on the con.proxy field being set
+func (s *DiscoveryServer) AllClients() []*Connection {
 	s.adsClientsMutex.RLock()
 	defer s.adsClientsMutex.RUnlock()
 	clients := make([]*Connection, 0, len(s.adsClients))
@@ -512,4 +548,35 @@ func (s *DiscoveryServer) Clients() []*Connection {
 		clients = append(clients, con)
 	}
 	return clients
+}
+
+// SendResponse will immediately send the response to all connections.
+// TODO: additional filters can be added, for example namespace.
+func (s *DiscoveryServer) SendResponse(res *discovery.DiscoveryResponse) {
+	pending := []*Connection{}
+	for _, v := range s.Clients() {
+		if v.Watching(res.TypeUrl) {
+			pending = append(pending, v)
+		}
+	}
+
+	// only marshal resources if there are connected clients
+	if len(pending) == 0 {
+		return
+	}
+
+	for _, p := range pending {
+		// p.send() waits for an ACK - which is reasonable for normal push,
+		// but in this case we want to sync fast and not bother with stuck connections.
+		// This is expecting a relatively small number of watchers - each other istiod
+		// plus few admin tools or bridges to real message brokers. The normal
+		// push expects 1000s of envoy connections.
+		con := p
+		go func() {
+			err := con.stream.Send(res)
+			if err != nil {
+				adsLog.Info("Failed to send internal event ", con.ConID, " ", err)
+			}
+		}()
+	}
 }

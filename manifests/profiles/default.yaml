@@ -93,16 +93,9 @@ spec:
         datadog: {}
         stackdriver: {}
       imagePullSecrets: []
-      arch:
-        amd64: 2
-        s390x: 2
-        ppc64le: 2
       oneNamespace: false
       defaultNodeSelector: {}
       configValidation: true
-      meshExpansion:
-        enabled: false
-        useILB: false
       multiCluster:
         enabled: false
         clusterName: ""
@@ -189,12 +182,3 @@ spec:
           - name: ingressgateway-ca-certs
             secretName: istio-ingressgateway-ca-certs
             mountPath: /etc/istio/ingressgateway-ca-certs
-
-    sidecarInjectorWebhook:
-      enableNamespacesByDefault: false
-      rewriteAppHTTPProbe: true
-      objectSelector:
-        enabled: false
-        autoInject: true
-
-    clusterResources: true

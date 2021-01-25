@@ -73,7 +73,7 @@ type SimpleServer struct {
 // Can be used in tests, or as a minimal XDS discovery server with no dependency on K8S or
 // the complex bootstrap used by Istiod. A memory registry and memory config store are used to
 // generate the configs - they can be programmatically updated.
-func NewXDS() *SimpleServer {
+func NewXDS(stop chan struct{}) *SimpleServer {
 	// Prepare a working XDS server, with aggregate config and registry stores and a memory store for each.
 	// TODO: refactor bootstrap code to use this server, and add more registries.
 
@@ -84,7 +84,7 @@ func NewXDS() *SimpleServer {
 	env.Watcher = mesh.NewFixedWatcher(&mc)
 	env.PushContext.Mesh = env.Watcher.Mesh()
 
-	ds := NewDiscoveryServer(env, nil, "pilot-123")
+	ds := NewDiscoveryServer(env, nil, "istiod")
 	ds.CachesSynced()
 
 	// Config will have a fixed format:
@@ -125,7 +125,7 @@ func NewXDS() *SimpleServer {
 	})
 	env.ServiceDiscovery = serviceControllers
 
-	go configController.Run(make(chan struct{}))
+	go configController.Run(stop)
 
 	// configStoreCache - with HasSync interface
 	aggregateConfigController, err := configaggregate.MakeCache([]model.ConfigStoreCache{
@@ -172,7 +172,7 @@ type ProxyGen struct {
 func (p *ProxyGen) HandleResponse(con *adsc.ADSC, res *discovery.DiscoveryResponse) {
 	// TODO: filter the push to only connections that
 	// match a filter.
-	p.server.DiscoveryServer.PushAll(res)
+	p.server.DiscoveryServer.SendResponse(res)
 }
 
 func (s *SimpleServer) NewProxy() *ProxyGen {
@@ -199,9 +199,9 @@ func (p *ProxyGen) Close() {
 // Responses will be forwarded back to the client.
 //
 // TODO: allow clients to indicate which requests they handle ( similar with topic )
-func (p *ProxyGen) Generate(proxy *model.Proxy, push *model.PushContext, w *model.WatchedResource, req *model.PushRequest) model.Resources {
+func (p *ProxyGen) Generate(proxy *model.Proxy, push *model.PushContext, w *model.WatchedResource, updates *model.PushRequest) (model.Resources, error) {
 	if p.adsc == nil {
-		return nil
+		return nil, nil
 	}
 
 	// TODO: track requests to connections, so resonses from server are dispatched to the right con
@@ -213,5 +213,5 @@ func (p *ProxyGen) Generate(proxy *model.Proxy, push *model.PushContext, w *mode
 		log.Debug("Failed to send, connection probably closed ", err)
 	}
 
-	return nil
+	return nil, nil
 }

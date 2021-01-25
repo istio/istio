@@ -40,6 +40,9 @@ func TestPostInstallControlPlaneVerification(t *testing.T) {
 				t.Fatal(err)
 			}
 			cleanupInClusterCRs(t, cs)
+			t.Cleanup(func() {
+				cleanupIstioResources(t, cs, istioCtl)
+			})
 			installCmd := []string{
 				"install",
 				"--set", "hub=" + s.Hub,
@@ -55,14 +58,5 @@ func TestPostInstallControlPlaneVerification(t *testing.T) {
 			if err := statusVerifier.Verify(); err != nil {
 				t.Fatal(err)
 			}
-
-			t.Cleanup(func() {
-				uninstallCmd := []string{
-					"experimental",
-					"uninstall",
-					"--purge", "-y",
-				}
-				istioCtl.InvokeOrFail(t, uninstallCmd)
-			})
 		})
 }

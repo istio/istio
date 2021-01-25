@@ -100,7 +100,13 @@ func (s *Server) initSidecarInjector(args *PilotArgs) (*inject.Webhook, error) {
 			if hasCustomTLSCerts(args.ServerOptions.TLSOptions) {
 				caBundlePath = args.ServerOptions.TLSOptions.CaCertFile
 			}
-			webhooks.PatchCertLoop(features.InjectionWebhookConfigName.Get(), webhookName, caBundlePath, s.kubeClient, stop)
+			patcher, err := webhooks.NewWebhookCertPatcher(s.kubeClient, args.Revision, webhookName, caBundlePath)
+			if err != nil {
+				log.Errorf("failed to create webhook cert patcher: %v", err)
+				return nil
+			}
+
+			patcher.Run(stop)
 			return nil
 		})
 	}

@@ -19,11 +19,14 @@ import (
 	"strings"
 	"sync/atomic"
 
+	"github.com/google/uuid"
 	"github.com/miekg/dns"
 
 	nds "istio.io/istio/pilot/pkg/proto"
-	"istio.io/pkg/log"
+	istiolog "istio.io/pkg/log"
 )
+
+var log = istiolog.RegisterScope("dns", "Istio DNS proxy", 0)
 
 // Holds configurations for the DNS downstreamUDPServer in Istio Agent
 type LocalDNSServer struct {
@@ -101,10 +104,12 @@ func NewLocalDNSServer(proxyNamespace, proxyDomain string) (*LocalDNSServer, err
 	// upstream resolvers as is.
 	if dnsConfig != nil {
 		for _, s := range dnsConfig.Servers {
-			h.resolvConfServers = append(h.resolvConfServers, s+":53")
+			h.resolvConfServers = append(h.resolvConfServers, net.JoinHostPort(s, dnsConfig.Port))
 		}
 		h.searchNamespaces = dnsConfig.Search
 	}
+
+	log.WithLabels("search", h.searchNamespaces, "servers", h.resolvConfServers).Debugf("initialized DNS")
 
 	if h.udpDNSProxy, err = newDNSProxy("udp", h); err != nil {
 		return nil, err
@@ -148,52 +153,61 @@ func (h *LocalDNSServer) UpdateLookupTable(nt *nds.NameTable) {
 		lookupTable.buildDNSAnswers(altHosts, ipv4, ipv6, h.searchNamespaces)
 	}
 	h.lookupTable.Store(lookupTable)
+	log.Debugf("updated lookup table with %d hosts", len(lookupTable.allHosts))
 }
 
 // ServerDNS is the implementation of DNS interface
 func (h *LocalDNSServer) ServeDNS(proxy *dnsProxy, w dns.ResponseWriter, req *dns.Msg) {
 	var response *dns.Msg
+	log := log
+	if log.DebugEnabled() {
+		id := uuid.New()
+		log = log.WithLabels("id", id)
+	}
+	log.Debugf("request %v", req)
 
 	if len(req.Question) == 0 {
 		response = new(dns.Msg)
 		response.SetReply(req)
-		response.Rcode = dns.RcodeNameError
-	} else {
-		// we expect only one question in the query even though the spec allows many
-		// clients usually do not do more than one query either.
-
-		lp := h.lookupTable.Load()
-		if lp == nil {
-			response = new(dns.Msg)
-			response.SetReply(req)
-			response.Rcode = dns.RcodeNameError
-			_ = w.WriteMsg(response)
-			return
-		}
-		lookupTable := lp.(*LookupTable)
-		var answers []dns.RR
-
-		// This name will always end in a dot
-		hostname := strings.ToLower(req.Question[0].Name)
-		answers, hostFound := lookupTable.lookupHost(req.Question[0].Qtype, hostname)
-
-		if hostFound {
-			response = new(dns.Msg)
-			response.SetReply(req)
-			response.Answer = answers
-			if len(answers) == 0 {
-				// we found the host in our pre-compiled list of known hosts but
-				// there was no valid record for this query type.
-				// so return NXDOMAIN
-				response.Rcode = dns.RcodeNameError
-			}
-		} else {
-			// We did not find the host in our internal cache. Query upstream and return the response as is.
-			response = h.queryUpstream(proxy.upstreamClient, req)
-		}
+		response.Rcode = dns.RcodeServerFailure
+		_ = w.WriteMsg(response)
+		return
 	}
+	// we expect only one question in the query even though the spec allows many
+	// clients usually do not do more than one query either.
 
+	lp := h.lookupTable.Load()
+	if lp == nil {
+		response = new(dns.Msg)
+		response.SetReply(req)
+		response.Rcode = dns.RcodeServerFailure
+		log.Debugf("dns request before lookup table is loaded")
+		_ = w.WriteMsg(response)
+		return
+	}
+	lookupTable := lp.(*LookupTable)
+	var answers []dns.RR
+
+	// This name will always end in a dot
+	hostname := strings.ToLower(req.Question[0].Name)
+	answers, hostFound := lookupTable.lookupHost(req.Question[0].Qtype, hostname)
+
+	if hostFound {
+		response = new(dns.Msg)
+		response.SetReply(req)
+		response.Answer = answers
+		if len(answers) == 0 {
+			// we found the host in our pre-compiled list of known hosts but
+			// there was no valid record for this query type.
+			// so return NXDOMAIN
+			response.Rcode = dns.RcodeNameError
+		}
+	} else {
+		// We did not find the host in our internal cache. Query upstream and return the response as is.
+		response = h.queryUpstream(proxy.upstreamClient, req)
+	}
 	_ = w.WriteMsg(response)
+	log.Debugf("response for hostname %q (found=%v): %v", hostname, hostFound, response)
 }
 
 func (h *LocalDNSServer) Close() {
@@ -206,7 +220,7 @@ func (h *LocalDNSServer) queryUpstream(upstreamClient *dns.Client, req *dns.Msg)
 	var response *dns.Msg
 	for _, upstream := range h.resolvConfServers {
 		cResponse, _, err := upstreamClient.Exchange(req, upstream)
-		if err == nil && len(cResponse.Answer) > 0 {
+		if err == nil {
 			response = cResponse
 			break
 		}
@@ -214,7 +228,7 @@ func (h *LocalDNSServer) queryUpstream(upstreamClient *dns.Client, req *dns.Msg)
 	if response == nil {
 		response = new(dns.Msg)
 		response.SetReply(req)
-		response.Rcode = dns.RcodeNameError
+		response.Rcode = dns.RcodeServerFailure
 	}
 	return response
 }
@@ -223,6 +237,7 @@ func separateIPtypes(ips []string) (ipv4, ipv6 []net.IP) {
 	for _, ip := range ips {
 		addr := net.ParseIP(ip)
 		if addr == nil {
+			log.Debugf("ignoring un-parsable IP address: %v", ip)
 			continue
 		}
 		if addr.To4() != nil {
@@ -314,6 +329,7 @@ func (table *LookupTable) lookupHost(qtype uint16, hostname string) ([]dns.RR, b
 // the lookup table, where N is number of search namespaces.
 func (table *LookupTable) buildDNSAnswers(altHosts map[string]struct{}, ipv4 []net.IP, ipv6 []net.IP, searchNamespaces []string) {
 	for h := range altHosts {
+		h = strings.ToLower(h)
 		table.allHosts[h] = struct{}{}
 		if len(ipv4) > 0 {
 			table.name4[h] = a(h, ipv4)
@@ -328,7 +344,7 @@ func (table *LookupTable) buildDNSAnswers(altHosts map[string]struct{}, ipv4 []n
 
 			// host h already ends with a .
 			// search namespace does not. So we append one in the end
-			expandedHost := h + searchNamespaces[0] + "."
+			expandedHost := strings.ToLower(h + searchNamespaces[0] + ".")
 			// make sure this is not a proper hostname
 			// if host is productpage, and search namespace is ns1.svc.cluster.local
 			// then the expanded host productpage.ns1.svc.cluster.local is a valid hostname
@@ -371,6 +387,8 @@ func cname(host string, targetHost string) []dns.RR {
 	answer.Hdr = dns.RR_Header{
 		Name:   host,
 		Rrtype: dns.TypeCNAME,
+		Class:  dns.ClassINET,
+		Ttl:    defaultTTLInSeconds,
 	}
 	answer.Target = targetHost
 	return []dns.RR{answer}

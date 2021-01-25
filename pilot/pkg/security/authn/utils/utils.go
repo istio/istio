@@ -55,8 +55,7 @@ func BuildInboundFilterChain(mTLSMode model.MutualTLSMode, sdsUdsPath string, no
 	meta := node.Metadata
 	var alpnIstioMatch *listener.FilterChainMatch
 	var ctx *tls.DownstreamTlsContext
-	if features.EnableTCPMetadataExchange &&
-		(listenerProtocol == networking.ListenerProtocolTCP || listenerProtocol == networking.ListenerProtocolAuto) {
+	if listenerProtocol == networking.ListenerProtocolTCP || listenerProtocol == networking.ListenerProtocolAuto {
 		alpnIstioMatch = &listener.FilterChainMatch{
 			ApplicationProtocols: util.ALPNInMeshWithMxc,
 		}

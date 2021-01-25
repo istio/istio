@@ -46,6 +46,8 @@ type HTTPGetAction struct {
 type URIScheme string
 
 const (
+	// URISchemeHTTP means that the scheme used will be http://
+	URISchemeHTTP URIScheme = "HTTP"
 	// URISchemeHTTPS means that the scheme used will be https://
 	URISchemeHTTPS URIScheme = "HTTPS"
 )

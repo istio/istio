@@ -89,6 +89,8 @@ function buildx-create() {
   export DOCKER_CLI_EXPERIMENTAL=enabled
   if ! docker buildx ls | grep -q container-builder; then
     docker buildx create --driver-opt network=host,image=gcr.io/istio-testing/buildkit:buildx-stable-1 --name container-builder
+    # Pre-warm the builder. If it fails, fetch logs, but continue
+    docker buildx inspect --bootstrap container-builder || docker logs buildx_buildkit_container-builder0 || true
   fi
   docker buildx use container-builder
 }
@@ -188,4 +190,15 @@ function gen_kubeconf_from_sa () {
            user:
              token: ${TOKEN}
 EOF
+}
+
+# gives a copy of a given topology JSON editing the given key on the entry with the given cluster name
+function set_topology_value() {
+    local JSON="$1"
+    local CLUSTER_NAME="$2"
+    local KEY="$3"
+    local VALUE="$4"
+    VALUE=$(echo "${VALUE}" | awk '{$1=$1};1')
+
+    echo "${JSON}" | jq '(.[] | select(.clusterName =="'"${CLUSTER_NAME}"'") | .'"${KEY}"') |="'"${VALUE}"'"'
 }

@@ -38,7 +38,7 @@ import (
 	"istio.io/pkg/log"
 )
 
-//TransportSocket wraps UpstreamTLSContext
+// TransportSocket wraps UpstreamTLSContext
 type TransportSocket struct {
 	Name        string          `json:"name,omitempty"`
 	TypedConfig *pstruct.Struct `json:"typed_config,omitempty"`

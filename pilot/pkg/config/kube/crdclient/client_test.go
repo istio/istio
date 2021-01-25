@@ -23,13 +23,13 @@ import (
 
 	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/cache"
 
 	"istio.io/api/meta/v1alpha1"
 	"istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/schema/collection"
 	"istio.io/istio/pkg/config/schema/collections"
@@ -48,7 +48,7 @@ func makeClient(t *testing.T, schemas collection.Schemas) model.ConfigStoreCache
 		}, metav1.CreateOptions{})
 	}
 	stop := make(chan struct{})
-	config, err := New(fake, "", controller.Options{})
+	config, err := New(fake, "", "")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -65,12 +65,7 @@ func makeClient(t *testing.T, schemas collection.Schemas) model.ConfigStoreCache
 func TestClientNoCRDs(t *testing.T) {
 	schema := collection.NewSchemasBuilder().MustAdd(collections.IstioNetworkingV1Alpha3Sidecars).Build()
 	store := makeClient(t, schema)
-	retry.UntilSuccessOrFail(t, func() error {
-		if !store.HasSynced() {
-			return fmt.Errorf("store has not synced yet")
-		}
-		return nil
-	}, retry.Timeout(time.Second))
+	retry.UntilOrFail(t, store.HasSynced, retry.Timeout(time.Second))
 	r := collections.IstioNetworkingV1Alpha3Virtualservices.Resource()
 	configMeta := config.Meta{
 		Name:             "name",
@@ -100,13 +95,9 @@ func TestClientNoCRDs(t *testing.T) {
 		}
 		return nil
 	}, retry.Timeout(time.Second*5), retry.Converge(5))
-	retry.UntilSuccessOrFail(t, func() error {
-		l := store.Get(r.GroupVersionKind(), configMeta.Name, configMeta.Namespace)
-		if l != nil {
-			return fmt.Errorf("expected no items returned for unknown CRD, got %v", l)
-		}
-		return nil
-	}, retry.Timeout(time.Second*5), retry.Converge(5))
+	retry.UntilOrFail(t, func() bool {
+		return store.Get(r.GroupVersionKind(), configMeta.Name, configMeta.Namespace) == nil
+	}, retry.Message("expected no items returned for unknown CRD"), retry.Timeout(time.Second*5), retry.Converge(5))
 }
 
 // CheckIstioConfigTypes validates that an empty store can do CRUD operators on all given types
@@ -181,9 +172,10 @@ func TestClient(t *testing.T) {
 			}); err != nil {
 				t.Errorf("Unexpected Error in Update -> %v", err)
 			}
+			var cfg *config.Config
 			// validate it is updated
 			retry.UntilSuccessOrFail(t, func() error {
-				cfg := store.Get(r.GroupVersionKind(), configName, configMeta.Namespace)
+				cfg = store.Get(r.GroupVersionKind(), configName, configMeta.Namespace)
 				if cfg == nil || !reflect.DeepEqual(cfg.Meta, configMeta) {
 					return fmt.Errorf("get(%v) => got unexpected object %v", name, cfg)
 				}
@@ -192,10 +184,10 @@ func TestClient(t *testing.T) {
 
 			// check we can patch items
 			var patchedCfg config.Config
-			if _, err := store.(*Client).Patch(r.GroupVersionKind(), configName, configNamespace, func(cfg config.Config) config.Config {
+			if _, err := store.(*Client).Patch(*cfg, func(cfg config.Config) (config.Config, types.PatchType) {
 				cfg.Annotations["fizz"] = "buzz"
 				patchedCfg = cfg
-				return cfg
+				return cfg, types.JSONPatchType
 			}); err != nil {
 				t.Errorf("unexpected err in Patch: %v", err)
 			}
@@ -209,7 +201,7 @@ func TestClient(t *testing.T) {
 			})
 
 			// Check we can remove items
-			if err := store.Delete(r.GroupVersionKind(), configName, configNamespace); err != nil {
+			if err := store.Delete(r.GroupVersionKind(), configName, configNamespace, nil); err != nil {
 				t.Fatalf("failed to delete: %v", err)
 			}
 			retry.UntilSuccessOrFail(t, func() error {

@@ -1,0 +1,9 @@
+apiVersion: release-notes/v2
+kind: feature
+area: traffic-management
+issue:
+  - 25531
+releaseNotes:
+  - |
+    **Fixed** an issue that caused very high memory usage with a large number of `ServiceEntries`.
+

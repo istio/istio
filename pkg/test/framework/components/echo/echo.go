@@ -47,6 +47,14 @@ type Builder interface {
 	// pointer will be updated to point at the new Instance.
 	With(i *Instance, cfg Config) Builder
 
+	// WithConfig mimics the behavior of With, but does not allow passing a reference
+	// and returns an echoboot builder rather than a generic echo builder.
+	// TODO rename this to With, and the old method to WithInstance
+	WithConfig(cfg Config) Builder
+
+	// WithClusters will cause subsequent With or WithConfig calls to be applied to the given clusters.
+	WithClusters(...resource.Cluster) Builder
+
 	// Build and initialize all Echo Instances. Upon returning, the Instance pointers
 	// are assigned and all Instances are ready to communicate with each other.
 	Build() (Instances, error)
@@ -76,6 +84,9 @@ type Instance interface {
 	// options. If no options are provided, uses defaults.
 	CallWithRetry(options CallOptions, retryOptions ...retry.Option) (client.ParsedResponses, error)
 	CallWithRetryOrFail(t test.Failer, options CallOptions, retryOptions ...retry.Option) client.ParsedResponses
+
+	// Restart restarts the workloads associated with this echo instance
+	Restart() error
 }
 
 // Workload port exposed by an Echo instance

@@ -23,6 +23,7 @@ import (
 
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/config/schema/gvk"
+	"istio.io/istio/tests/util/leak"
 )
 
 // Helper function to remove an item or timeout and return nil if there are no pending pushes
@@ -72,6 +73,7 @@ func ExpectDequeue(t *testing.T, p *PushQueue, expected *Connection) {
 }
 
 func TestProxyQueue(t *testing.T) {
+	leak.Check(t)
 	proxies := make([]*Connection, 0, 100)
 	for p := 0; p < 100; p++ {
 		proxies = append(proxies, &Connection{ConID: fmt.Sprintf("proxy-%d", p)})

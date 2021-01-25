@@ -51,20 +51,6 @@ const (
 )
 
 var (
-	// This disables circuit breaking by default by setting highest possible values.
-	// See: https://www.envoyproxy.io/docs/envoy/v1.11.1/faq/disable_circuit_breaking
-	defaultCircuitBreakerThresholds = cluster.CircuitBreakers_Thresholds{
-		// DefaultMaxRetries specifies the default for the Envoy circuit breaker parameter max_retries. This
-		// defines the maximum number of parallel retries a given Envoy will allow to the upstream cluster. Envoy defaults
-		// this value to 3, however that has shown to be insufficient during periods of pod churn (e.g. rolling updates),
-		// where multiple endpoints in a cluster are terminated. In these scenarios the circuit breaker can kick
-		// in before Pilot is able to deliver an updated endpoint list to Envoy, leading to client-facing 503s.
-		MaxRetries:         &wrappers.UInt32Value{Value: math.MaxUint32},
-		MaxRequests:        &wrappers.UInt32Value{Value: math.MaxUint32},
-		MaxConnections:     &wrappers.UInt32Value{Value: math.MaxUint32},
-		MaxPendingRequests: &wrappers.UInt32Value{Value: math.MaxUint32},
-	}
-
 	// defaultTransportSocketMatch applies to endpoints that have no security.istio.io/tlsMode label
 	// or those whose label value does not match "istio"
 	defaultTransportSocketMatch = &cluster.Cluster_TransportSocketMatch{
@@ -112,8 +98,8 @@ func (configgen *ConfigGeneratorImpl) BuildClusters(proxy *model.Proxy, push *mo
 
 		// Setup inbound clusters
 		inboundPatcher := clusterPatcher{envoyFilterPatches, networking.EnvoyFilter_SIDECAR_INBOUND}
-		// Pass through clusters for inbound traffic. These cluster bind loopback-ish src address to access node local service.
 		clusters = append(clusters, configgen.buildInboundClusters(cb, instances, inboundPatcher)...)
+		// Pass through clusters for inbound traffic. These cluster bind loopback-ish src address to access node local service.
 		clusters = inboundPatcher.conditionallyAppend(clusters, cb.buildInboundPassthroughClusters()...)
 		clusters = append(clusters, inboundPatcher.insertedClusters()...)
 	default: // Gateways
@@ -169,7 +155,7 @@ func (configgen *ConfigGeneratorImpl) buildOutboundClusters(cb *ClusterBuilder, 
 			// create default cluster
 			discoveryType := convertResolution(cb.proxy, service)
 			clusterName := model.BuildSubsetKey(model.TrafficDirectionOutbound, "", service.Hostname, port.Port)
-			defaultCluster := cb.buildDefaultCluster(clusterName, discoveryType, lbEndpoints, model.TrafficDirectionOutbound, port, service)
+			defaultCluster := cb.buildDefaultCluster(clusterName, discoveryType, lbEndpoints, model.TrafficDirectionOutbound, port, service, nil)
 			if defaultCluster == nil {
 				continue
 			}
@@ -189,6 +175,8 @@ func (configgen *ConfigGeneratorImpl) buildOutboundClusters(cb *ClusterBuilder, 
 
 	return clusters
 }
+
+var NilClusterPatcher = clusterPatcher{}
 
 type clusterPatcher struct {
 	efw  *model.EnvoyFilterWrapper
@@ -231,7 +219,7 @@ func (configgen *ConfigGeneratorImpl) buildOutboundSniDnatClusters(proxy *model.
 			discoveryType := convertResolution(proxy, service)
 
 			clusterName := model.BuildDNSSrvSubsetKey(model.TrafficDirectionOutbound, "", service.Hostname, port.Port)
-			defaultCluster := cb.buildDefaultCluster(clusterName, discoveryType, lbEndpoints, model.TrafficDirectionOutbound, port, service)
+			defaultCluster := cb.buildDefaultCluster(clusterName, discoveryType, lbEndpoints, model.TrafficDirectionOutbound, port, service, nil)
 			if defaultCluster == nil {
 				continue
 			}
@@ -260,6 +248,11 @@ func buildInboundLocalityLbEndpoints(bind string, port uint32) []*endpoint.Local
 	}
 }
 
+type ClusterInstances struct {
+	PrimaryInstance *model.ServiceInstance
+	AllInstances    []*model.ServiceInstance
+}
+
 func (configgen *ConfigGeneratorImpl) buildInboundClusters(cb *ClusterBuilder, instances []*model.ServiceInstance, cp clusterPatcher) []*cluster.Cluster {
 
 	clusters := make([]*cluster.Cluster, 0)
@@ -284,77 +277,88 @@ func (configgen *ConfigGeneratorImpl) buildInboundClusters(cb *ClusterBuilder, i
 			return nil
 		}
 
-		have := make(map[*model.Port]bool)
+		clustersToBuild := make(map[int][]*model.ServiceInstance)
 		for _, instance := range instances {
 			// Filter out service instances with the same port as we are going to mark them as duplicates any way
 			// in normalizeClusters method.
-			if !have[instance.ServicePort] {
-				localCluster := cb.buildInboundClusterForPortOrUDS(cb.proxy, instance, actualLocalHost)
-				clusters = cp.conditionallyAppend(clusters, localCluster)
-				have[instance.ServicePort] = true
+			// However, we still need to capture all the instances on this port, as its required to populate telemetry metadata
+			// The first instance will be used as the "primary" instance; this means if we have an conflicts between
+			// Services the first one wins
+			ep := instance.ServicePort.Port
+			if util.IsIstioVersionGE181(cb.proxy) {
+				// Istio 1.8.1+ switched to keying on EndpointPort. We need both logics in place to support smooth upgrade from 1.8.0 to 1.8.x
+				ep = int(instance.Endpoint.EndpointPort)
 			}
+			clustersToBuild[ep] = append(clustersToBuild[ep], instance)
 		}
-	} else {
-		rule := sidecarScope.Config.Spec.(*networking.Sidecar)
-		for _, ingressListener := range rule.Ingress {
-			// LDS would have setup the inbound clusters
-			// as inbound|portNumber|portName|Hostname[or]SidecarScopeID
-			listenPort := &model.Port{
-				Port:     int(ingressListener.Port.Number),
-				Protocol: protocol.Parse(ingressListener.Port.Protocol),
-				Name:     ingressListener.Port.Name,
-			}
 
-			// When building an inbound cluster for the ingress listener, we take the defaultEndpoint specified
-			// by the user and parse it into host:port or a unix domain socket
-			// The default endpoint can be 127.0.0.1:port or :port or unix domain socket
-			endpointAddress := actualLocalHost
-			port := 0
-			var err error
-			instanceIPCluster := false
-			if strings.HasPrefix(ingressListener.DefaultEndpoint, model.UnixAddressPrefix) {
-				// this is a UDS endpoint. assign it as is
-				endpointAddress = ingressListener.DefaultEndpoint
-			} else {
-				// parse the ip, port. Validation guarantees presence of :
-				parts := strings.Split(ingressListener.DefaultEndpoint, ":")
-				if len(parts) < 2 {
-					continue
-				}
-				if port, err = strconv.Atoi(parts[1]); err != nil {
-					continue
-				}
-				if parts[0] == model.PodIPAddressPrefix {
-					endpointAddress = cb.proxy.IPAddresses[0]
-					instanceIPCluster = true
-				}
-			}
-
-			// Find the service instance that corresponds to this ingress listener by looking
-			// for a service instance that matches this ingress port as this will allow us
-			// to generate the right cluster name that LDS expects inbound|portNumber|portName|Hostname
-			instance := configgen.findOrCreateServiceInstance(instances, ingressListener, sidecarScope.Config.Name, sidecarScope.Config.Namespace)
-			instance.Endpoint.Address = endpointAddress
-			instance.ServicePort = listenPort
-			instance.Endpoint.ServicePortName = listenPort.Name
-			instance.Endpoint.EndpointPort = uint32(port)
-
-			localCluster := cb.buildInboundClusterForPortOrUDS(nil, instance, endpointAddress)
-			if instanceIPCluster {
-				// IPTables will redirect our own traffic back to us if we do not use the "magic" upstream bind
-				// config which will be skipped. This mirrors the "passthrough" clusters.
-				// TODO: consider moving all clusters to use this for consistency.
-				localCluster.UpstreamBindConfig = &core.BindConfig{
-					SourceAddress: &core.SocketAddress{
-						Address: util.InboundPassthroughBindIpv4,
-						PortSpecifier: &core.SocketAddress_PortValue{
-							PortValue: uint32(0),
-						},
-					},
-				}
-			}
+		// For each workload port, we will construct a cluster
+		for _, instances := range clustersToBuild {
+			instance := instances[0]
+			localCluster := cb.buildInboundClusterForPortOrUDS(cb.proxy, int(instance.Endpoint.EndpointPort), actualLocalHost, instance, instances)
 			clusters = cp.conditionallyAppend(clusters, localCluster)
 		}
+		return clusters
+	}
+
+	for _, ingressListener := range sidecarScope.Sidecar.Ingress {
+		// LDS would have setup the inbound clusters
+		// as inbound|portNumber|portName|Hostname[or]SidecarScopeID
+		listenPort := &model.Port{
+			Port:     int(ingressListener.Port.Number),
+			Protocol: protocol.Parse(ingressListener.Port.Protocol),
+			Name:     ingressListener.Port.Name,
+		}
+
+		// When building an inbound cluster for the ingress listener, we take the defaultEndpoint specified
+		// by the user and parse it into host:port or a unix domain socket
+		// The default endpoint can be 127.0.0.1:port or :port or unix domain socket
+		endpointAddress := actualLocalHost
+		port := 0
+		var err error
+		instanceIPCluster := false
+		if strings.HasPrefix(ingressListener.DefaultEndpoint, model.UnixAddressPrefix) {
+			// this is a UDS endpoint. assign it as is
+			endpointAddress = ingressListener.DefaultEndpoint
+		} else {
+			// parse the ip, port. Validation guarantees presence of :
+			parts := strings.Split(ingressListener.DefaultEndpoint, ":")
+			if len(parts) < 2 {
+				continue
+			}
+			if port, err = strconv.Atoi(parts[1]); err != nil {
+				continue
+			}
+			if parts[0] == model.PodIPAddressPrefix {
+				endpointAddress = cb.proxy.IPAddresses[0]
+				instanceIPCluster = true
+			}
+		}
+
+		// Find the service instance that corresponds to this ingress listener by looking
+		// for a service instance that matches this ingress port as this will allow us
+		// to generate the right cluster name that LDS expects inbound|portNumber|portName|Hostname
+		instance := configgen.findOrCreateServiceInstance(instances, ingressListener, sidecarScope.Name, sidecarScope.Namespace)
+		instance.Endpoint.Address = endpointAddress
+		instance.ServicePort = listenPort
+		instance.Endpoint.ServicePortName = listenPort.Name
+		instance.Endpoint.EndpointPort = uint32(port)
+
+		localCluster := cb.buildInboundClusterForPortOrUDS(nil, int(ingressListener.Port.Number), endpointAddress, instance, nil)
+		if instanceIPCluster {
+			// IPTables will redirect our own traffic back to us if we do not use the "magic" upstream bind
+			// config which will be skipped. This mirrors the "passthrough" clusters.
+			// TODO: consider moving all clusters to use this for consistency.
+			localCluster.UpstreamBindConfig = &core.BindConfig{
+				SourceAddress: &core.SocketAddress{
+					Address: util.InboundPassthroughBindIpv4,
+					PortSpecifier: &core.SocketAddress_PortValue{
+						PortValue: uint32(0),
+					},
+				},
+			}
+		}
+		clusters = cp.conditionallyAppend(clusters, localCluster)
 	}
 
 	return clusters
@@ -574,6 +578,8 @@ func shouldH2Upgrade(clusterName string, direction model.TrafficDirection, port 
 }
 
 // setH2Options make the cluster an h2 cluster by setting http2ProtocolOptions.
+// TODO(https://github.com/istio/istio/issues/29735) remove nolint
+// nolint: staticcheck
 func setH2Options(cluster *cluster.Cluster) {
 	if cluster == nil || cluster.Http2ProtocolOptions != nil {
 		return
@@ -593,6 +599,8 @@ func applyTrafficPolicy(opts buildClusterOpts) {
 		// Use downstream protocol. If the incoming traffic use HTTP 1.1, the
 		// upstream cluster will use HTTP 1.1, if incoming traffic use HTTP2,
 		// the upstream cluster will use HTTP2.
+		// TODO(https://github.com/istio/istio/issues/29735) remove nolint
+		// nolint: staticcheck
 		opts.cluster.ProtocolSelection = cluster.Cluster_USE_DOWNSTREAM_PROTOCOL
 	}
 	// Connection pool settings are applicable for both inbound and outbound clusters.
@@ -661,6 +669,9 @@ func applyConnectionPool(mesh *meshconfig.MeshConfig, c *cluster.Cluster, settin
 
 	if idleTimeout != nil {
 		idleTimeoutDuration := gogo.DurationToProtoDuration(idleTimeout)
+
+		// TODO(https://github.com/istio/istio/issues/29735) remove nolint
+		// nolint: staticcheck
 		c.CommonHttpProtocolOptions = &core.HttpProtocolOptions{IdleTimeout: idleTimeoutDuration}
 	}
 }
@@ -757,21 +768,18 @@ func applyOutlierDetection(c *cluster.Cluster, outlier *networking.OutlierDetect
 }
 
 func applyLoadBalancer(c *cluster.Cluster, lb *networking.LoadBalancerSettings, port *model.Port, proxy *model.Proxy, meshConfig *meshconfig.MeshConfig) {
-	lbSetting := loadbalancer.GetLocalityLbSetting(meshConfig.GetLocalityLbSetting(), lb.GetLocalityLbSetting())
-	if c.OutlierDetection != nil {
+	localityLbSetting := loadbalancer.GetLocalityLbSetting(meshConfig.GetLocalityLbSetting(), lb.GetLocalityLbSetting())
+	if localityLbSetting != nil && (localityLbSetting.Distribute != nil || localityLbSetting.Failover != nil) {
 		if c.CommonLbConfig == nil {
 			c.CommonLbConfig = &cluster.Cluster_CommonLbConfig{}
 		}
-		// Locality weighted load balancing - set it only if Locality load balancing is enabled.
-		if lbSetting != nil {
-			c.CommonLbConfig.LocalityConfigSpecifier = &cluster.Cluster_CommonLbConfig_LocalityWeightedLbConfig_{
-				LocalityWeightedLbConfig: &cluster.Cluster_CommonLbConfig_LocalityWeightedLbConfig{},
-			}
+		c.CommonLbConfig.LocalityConfigSpecifier = &cluster.Cluster_CommonLbConfig_LocalityWeightedLbConfig_{
+			LocalityWeightedLbConfig: &cluster.Cluster_CommonLbConfig_LocalityWeightedLbConfig{},
 		}
 	}
 
 	// Use locality lb settings from load balancer settings if present, else use mesh wide locality lb settings
-	applyLocalityLBSetting(proxy.Locality, c, lbSetting)
+	applyLocalityLBSetting(proxy.Locality, c, localityLbSetting)
 
 	// The following order is important. If cluster type has been identified as Original DST since Resolution is PassThrough,
 	// and port is named as redis-xxx we end up creating a cluster with type Original DST and LbPolicy as MAGLEV which would be
@@ -940,29 +948,23 @@ func buildUpstreamClusterTLSContext(opts *buildClusterOpts, tls *networking.Clie
 		// The code has repeated snippets because We want to use predefined alpn strings for efficiency.
 		switch {
 		case metadataCerts:
+
+			// TODO(https://github.com/istio/istio/issues/29735) remove nolint
+			// nolint: staticcheck
 			if c.Http2ProtocolOptions != nil {
 				// This is HTTP/2 cluster, advertise it with ALPN.
 				tlsContext.CommonTlsContext.AlpnProtocols = util.ALPNH2Only
 			}
 		default:
+
+			// TODO(https://github.com/istio/istio/issues/29735) remove nolint
+			// nolint: staticcheck
 			if c.Http2ProtocolOptions != nil {
 				// This is HTTP/2 in-mesh cluster, advertise it with ALPN.
-				// Enable sending `istio-peer-exchange`	ALPN in ALPN list if TCP
-				// metadataexchange is enabled.
-				if features.EnableTCPMetadataExchange {
-					tlsContext.CommonTlsContext.AlpnProtocols = util.ALPNInMeshH2WithMxc
-				} else {
-					tlsContext.CommonTlsContext.AlpnProtocols = util.ALPNInMeshH2
-				}
+				tlsContext.CommonTlsContext.AlpnProtocols = util.ALPNInMeshH2WithMxc
 			} else {
 				// This is in-mesh cluster, advertise it with ALPN.
-				// Also, Enable sending `istio-peer-exchange` ALPN in ALPN list if TCP
-				// metadataexchange is enabled.
-				if features.EnableTCPMetadataExchange {
-					tlsContext.CommonTlsContext.AlpnProtocols = util.ALPNInMeshWithMxc
-				} else {
-					tlsContext.CommonTlsContext.AlpnProtocols = util.ALPNInMesh
-				}
+				tlsContext.CommonTlsContext.AlpnProtocols = util.ALPNInMeshWithMxc
 			}
 		}
 	case networking.ClientTLSSettings_SIMPLE:
@@ -998,6 +1000,8 @@ func buildUpstreamClusterTLSContext(opts *buildClusterOpts, tls *networking.Clie
 			}
 		}
 
+		// TODO(https://github.com/istio/istio/issues/29735) remove nolint
+		// nolint: staticcheck
 		if c.Http2ProtocolOptions != nil {
 			// This is HTTP/2 cluster, advertise it with ALPN.
 			tlsContext.CommonTlsContext.AlpnProtocols = util.ALPNH2Only
@@ -1056,6 +1060,8 @@ func buildUpstreamClusterTLSContext(opts *buildClusterOpts, tls *networking.Clie
 			}
 		}
 
+		// TODO(https://github.com/istio/istio/issues/29735) remove nolint
+		// nolint: staticcheck
 		if c.Http2ProtocolOptions != nil {
 			// This is HTTP/2 cluster, advertise it with ALPN.
 			tlsContext.CommonTlsContext.AlpnProtocols = util.ALPNH2Only
@@ -1081,11 +1087,14 @@ func setUpstreamProtocol(node *model.Proxy, c *cluster.Cluster, port *model.Port
 		// Use downstream protocol. If the incoming traffic use HTTP 1.1, the
 		// upstream cluster will use HTTP 1.1, if incoming traffic use HTTP2,
 		// the upstream cluster will use HTTP2.
+
+		// TODO(https://github.com/istio/istio/issues/29735) remove nolint
+		// nolint: staticcheck
 		c.ProtocolSelection = cluster.Cluster_USE_DOWNSTREAM_PROTOCOL
 	}
 }
 
-func addTelemetryMetadata(opts buildClusterOpts, service *model.Service, direction model.TrafficDirection) {
+func addTelemetryMetadata(opts buildClusterOpts, service *model.Service, direction model.TrafficDirection, instances []*model.ServiceInstance) {
 	if opts.cluster == nil {
 		return
 	}
@@ -1116,7 +1125,7 @@ func addTelemetryMetadata(opts buildClusterOpts, service *model.Service, directi
 	if direction == model.TrafficDirectionInbound {
 		// For inbound cluster, add all services on the cluster port
 		have := make(map[host.Name]bool)
-		for _, svc := range opts.proxy.ServiceInstances {
+		for _, svc := range instances {
 			if svc.ServicePort.Port != opts.port.Port {
 				// If the service port is different from the the port of the cluster that is being built,
 				// skip adding telemetry metadata for the service to the cluster.

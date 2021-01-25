@@ -30,6 +30,7 @@ spec:
         istio: pilot
         istio.io/rev: default
         operator.istio.io/component: Pilot
+        sidecar.istio.io/inject: "false"
     spec:
       containers:
       - args:
@@ -70,8 +71,6 @@ spec:
           value: "true"
         - name: PILOT_ENABLE_PROTOCOL_SNIFFING_FOR_INBOUND
           value: "true"
-        - name: INJECTION_WEBHOOK_CONFIG_NAME
-          value: istio-sidecar-injector-istio-control
         - name: ISTIOD_ADDR
           value: istiod.istio-control.svc:15012
         - name: PILOT_ENABLE_ANALYSIS
@@ -79,8 +78,6 @@ spec:
         - name: CLUSTER_ID
           value: Kubernetes
         - name: EXTERNAL_ISTIOD
-          value: "false"
-        - name: CENTRAL_ISTIOD
           value: "false"
         image: docker.io/istio/pilot:1.1.4
         name: discovery
@@ -90,8 +87,6 @@ spec:
         - containerPort: 15010
           protocol: TCP
         - containerPort: 15017
-          protocol: TCP
-        - containerPort: 15053
           protocol: TCP
         readinessProbe:
           httpGet:

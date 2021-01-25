@@ -17,11 +17,7 @@ package stsclient
 
 import (
 	"bytes"
-	"context"
-	"crypto/tls"
-	"crypto/x509"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io/ioutil"
 	"net/http"
@@ -29,6 +25,7 @@ import (
 
 	"istio.io/istio/pkg/bootstrap/platform"
 	"istio.io/istio/pkg/security"
+	"istio.io/istio/security/pkg/monitoring"
 	"istio.io/pkg/env"
 	"istio.io/pkg/log"
 )
@@ -39,13 +36,12 @@ var (
 	// SecureTokenEndpoint is the Endpoint the STS client calls to.
 	SecureTokenEndpoint = "https://securetoken.googleapis.com/v1/identitybindingtoken"
 	stsClientLog        = log.RegisterScope("stsclient", "STS client debugging", 0)
-	GCEProvider         = "GoogleComputeEngine"
 )
 
 const (
-	httpTimeOutInSec = 5
-	contentType      = "application/json"
-	scope            = "https://www.googleapis.com/auth/cloud-platform"
+	httpTimeout = time.Second * 5
+	contentType = "application/json"
+	Scope       = "https://www.googleapis.com/auth/cloud-platform"
 )
 
 type federatedTokenResponse struct {
@@ -56,68 +52,88 @@ type federatedTokenResponse struct {
 }
 
 // TokenExchanger for google securetoken api interaction.
-type Plugin struct {
-	hTTPClient *http.Client
+type SecureTokenServiceExchanger struct {
+	httpClient  *http.Client
+	credFetcher security.CredFetcher
+	trustDomain string
+	backoff     time.Duration
 }
 
-// NewPlugin returns an instance of secure token service client plugin
-func NewPlugin() security.TokenExchanger {
-	caCertPool, err := x509.SystemCertPool()
-	if err != nil {
-		stsClientLog.Errorf("Failed to get SystemCertPool: %v", err)
-		return nil
-	}
-	return Plugin{
-		hTTPClient: &http.Client{
-			Timeout: httpTimeOutInSec * time.Second,
-			Transport: &http.Transport{
-				TLSClientConfig: &tls.Config{
-					RootCAs: caCertPool,
-				},
-			},
+// NewSecureTokenServiceExchanger returns an instance of secure token service client plugin
+func NewSecureTokenServiceExchanger(credFetcher security.CredFetcher, trustDomain string) *SecureTokenServiceExchanger {
+	return &SecureTokenServiceExchanger{
+		httpClient: &http.Client{
+			Timeout: httpTimeout,
 		},
+		backoff:     time.Millisecond * 50,
+		credFetcher: credFetcher,
+		trustDomain: trustDomain,
 	}
+}
+
+func retryable(code int) bool {
+	return code >= 500 && !(code == 501 || code == 505 || code == 511)
+}
+
+func (p *SecureTokenServiceExchanger) requestWithRetry(reqBytes []byte) ([]byte, error) {
+	attempts := 0
+	var lastError error
+	for attempts < 5 {
+		attempts++
+		req, err := http.NewRequest("POST", SecureTokenEndpoint, bytes.NewBuffer(reqBytes))
+		if err != nil {
+			return nil, err
+		}
+		req.Header.Set("Content-Type", contentType)
+
+		resp, err := p.httpClient.Do(req)
+		if err != nil {
+			lastError = err
+			stsClientLog.Debugf("token exchange request failed: %v", err)
+			time.Sleep(p.backoff)
+			monitoring.NumOutgoingRetries.With(monitoring.RequestType.Value(monitoring.TokenExchange)).Increment()
+			continue
+		}
+		if resp.StatusCode == http.StatusOK {
+			defer resp.Body.Close()
+			body, err := ioutil.ReadAll(resp.Body)
+			return body, err
+		}
+		if retryable(resp.StatusCode) {
+			body, _ := ioutil.ReadAll(resp.Body)
+			lastError = fmt.Errorf("token exchange request failed: status code %v", resp.StatusCode)
+			stsClientLog.Debugf("token exchange request failed: status code %v, body %v", resp.StatusCode, string(body))
+			resp.Body.Close()
+			time.Sleep(p.backoff)
+			monitoring.NumOutgoingRetries.With(monitoring.RequestType.Value(monitoring.TokenExchange)).Increment()
+			continue
+		}
+	}
+	return nil, fmt.Errorf("exchange failed all retries, last error: %v", lastError)
 }
 
 // ExchangeToken exchange oauth access token from trusted domain and k8s sa jwt.
-func (p Plugin) ExchangeToken(ctx context.Context, credFetcher security.CredFetcher, trustDomain, k8sSAjwt string) (
-	string /*access token*/, time.Time /*expireTime*/, int /*httpRespCode*/, error) {
-	aud := constructAudience(credFetcher, trustDomain)
-	var jsonStr = constructFederatedTokenRequest(aud, k8sSAjwt)
-	req, _ := http.NewRequest("POST", SecureTokenEndpoint, bytes.NewBuffer(jsonStr))
-	req.Header.Set("Content-Type", contentType)
+func (p *SecureTokenServiceExchanger) ExchangeToken(k8sSAjwt string) (string, error) {
+	aud := constructAudience(p.credFetcher, p.trustDomain)
+	jsonStr := constructFederatedTokenRequest(aud, k8sSAjwt)
 
-	resp, err := p.hTTPClient.Do(req)
-	errMsg := "failed to call token exchange service. "
-	if err != nil || resp == nil {
-		statusCode := http.StatusServiceUnavailable
-		// If resp is not null, return the actually status code returned from the token service.
-		// If resp is null, return a service unavailable status and try again.
-		if resp != nil {
-			statusCode = resp.StatusCode
-			errMsg += fmt.Sprintf("HTTP status: %s. Error: %v", resp.Status, err)
-		} else {
-			errMsg += fmt.Sprintf("HTTP response empty. Error: %v", err)
-		}
-		return "", time.Now(), statusCode, errors.New(errMsg)
+	body, err := p.requestWithRetry(jsonStr)
+	if err != nil {
+		return "", err
 	}
-	defer resp.Body.Close()
-
-	body, _ := ioutil.ReadAll(resp.Body)
 	respData := &federatedTokenResponse{}
 	if err := json.Unmarshal(body, respData); err != nil {
 		// Normally the request should json - extremely hard to debug otherwise, not enough info in status/err
 		stsClientLog.Debugf("Unexpected unmarshal error, response was %s", string(body))
-		return "", time.Now(), resp.StatusCode, fmt.Errorf(
-			"failed to unmarshal response data. HTTP status: %s. Error: %v. Body size: %d", resp.Status, err, len(body))
+		return "", fmt.Errorf("failed to unmarshal response data of size %v: %v", len(body), err)
 	}
 
 	if respData.AccessToken == "" {
-		return "", time.Now(), resp.StatusCode, fmt.Errorf(
-			"exchanged empty token. HTTP status: %s. Response: %v", resp.Status, string(body))
+		return "", fmt.Errorf(
+			"exchanged empty token, response: %v", string(body))
 	}
 
-	return respData.AccessToken, time.Now().Add(time.Second * time.Duration(respData.ExpiresIn)), resp.StatusCode, nil
+	return respData.AccessToken, nil
 }
 
 func constructAudience(credFetcher security.CredFetcher, trustDomain string) string {
@@ -145,7 +161,7 @@ func constructFederatedTokenRequest(aud, jwt string) []byte {
 		"requestedTokenType": "urn:ietf:params:oauth:token-type:access_token",
 		"subjectTokenType":   "urn:ietf:params:oauth:token-type:jwt",
 		"subjectToken":       jwt,
-		"scope":              scope,
+		"scope":              Scope,
 	}
 	jsonValue, _ := json.Marshal(values)
 	return jsonValue

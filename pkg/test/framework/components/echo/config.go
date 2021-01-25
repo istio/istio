@@ -90,6 +90,11 @@ type Config struct {
 
 	// The set of environment variables to set for `DeployAsVM` instances.
 	VMEnvironment map[string]string
+
+	// If enabled, an additional ext-authz container will be included in the deployment. This is mainly used to test
+	// the CUSTOM authorization policy when the ext-authz server is deployed locally with the application container in
+	// the same pod.
+	IncludeExtAuthz bool
 }
 
 // SubsetConfig is the config for a group of Subsets (e.g. Kubernetes deployment).
@@ -138,7 +143,9 @@ func (c Config) HostHeader() string {
 
 // DeepCopy creates a clone of IstioEndpoint.
 func (c Config) DeepCopy() Config {
-	newc := copyInternal(c).(Config)
+	newc := c
+	newc.Cluster = nil
+	newc = copyInternal(newc).(Config)
 	newc.Cluster = c.Cluster
 	newc.Namespace = c.Namespace
 	return newc

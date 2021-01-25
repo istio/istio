@@ -39,7 +39,6 @@ import (
 	"github.com/golang/protobuf/ptypes"
 	"github.com/google/go-cmp/cmp"
 	"google.golang.org/protobuf/testing/protocmp"
-	diff "gopkg.in/d4l3k/messagediff.v1"
 
 	"istio.io/api/annotation"
 	meshconfig "istio.io/api/mesh/v1alpha1"
@@ -468,9 +467,8 @@ func checkOpencensusConfig(t *testing.T, got, want *bootstrap.Bootstrap) {
 		return
 	}
 
-	if !reflect.DeepEqual(got.Tracing.Http, want.Tracing.Http) {
-		p, _ := diff.PrettyDiff(got.Tracing.Http, want.Tracing.Http)
-		t.Fatalf("t diff: %v\ngot:\n %v\nwant:\n %v\n", p, got.Tracing.Http, want.Tracing.Http)
+	if diff := cmp.Diff(got.Tracing.Http, want.Tracing.Http, protocmp.Transform()); diff != "" {
+		t.Fatalf("t diff: %v\ngot:\n %v\nwant:\n %v\n", diff, got.Tracing.Http, want.Tracing.Http)
 	}
 }
 

@@ -99,7 +99,7 @@
                                   "fields": {
                                     "name": {
                                       "Kind": {
-                                        "StringValue": "envoy.router"
+                                        "StringValue": "envoy.filters.http.router"
                                       }
                                     }
                                   }
@@ -451,7 +451,7 @@
                                   "fields": {
                                     "name": {
                                       "Kind": {
-                                        "StringValue": "envoy.router"
+                                        "StringValue": "envoy.filters.http.router"
                                       }
                                     }
                                   }
@@ -693,7 +693,7 @@
                                   "fields": {
                                     "name": {
                                       "Kind": {
-                                        "StringValue": "envoy.router"
+                                        "StringValue": "envoy.filters.http.router"
                                       }
                                     }
                                   }

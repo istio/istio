@@ -26,7 +26,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/ghodss/yaml"
 	"gomodules.xyz/jsonpatch/v3"
 	kubeApiAdmissionv1 "k8s.io/api/admission/v1"
 	kubeApiAdmissionv1beta1 "k8s.io/api/admission/v1beta1"
@@ -38,11 +37,9 @@ import (
 	"k8s.io/apimachinery/pkg/util/strategicpatch"
 
 	"istio.io/api/annotation"
-	"istio.io/api/label"
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	opconfig "istio.io/istio/operator/pkg/apis/istio/v1alpha1"
 	"istio.io/istio/pilot/cmd/pilot-agent/status"
-	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/kube"
@@ -88,7 +85,7 @@ type Webhook struct {
 	revision string
 }
 
-//nolint directives: interfacer
+// nolint directives: interfacer
 func loadConfig(injectFile, valuesFile string) (*Config, string, error) {
 	data, err := ioutil.ReadFile(injectFile)
 	if err != nil {
@@ -230,14 +227,6 @@ func (wh *Webhook) updateConfig(sidecarConfig *Config, valuesConfig string) {
 	wh.mu.Unlock()
 }
 
-func setIfUnset(m map[string]string, k, v string) {
-	if _, f := m[k]; f {
-		// already set
-		return
-	}
-	m[k] = v
-}
-
 type ContainerReorder int
 
 const (
@@ -335,7 +324,9 @@ type InjectionParameters struct {
 	pod                 *corev1.Pod
 	deployMeta          *metav1.ObjectMeta
 	typeMeta            *metav1.TypeMeta
-	template            Templates
+	templates           Templates
+	defaultTemplate     []string
+	aliases             map[string][]string
 	meshConfig          *meshconfig.MeshConfig
 	valuesConfig        string
 	revision            string
@@ -375,8 +366,30 @@ func getInjectionStatus(podSpec corev1.PodSpec) string {
 	return string(statusAnnotationValue)
 }
 
+// injectPod is the core of the injection logic. This takes a pod and injection
+// template, as well as some inputs to the injection template, and produces a
+// JSON patch.
+//
+// In the webhook, we will receive a Pod directly from Kubernetes, and return the
+// patch directly; Kubernetes will take care of applying the patch.
+//
+// For kube-inject, we will parse out a Pod from YAML (which may involve
+// extraction from higher level types like Deployment), then apply the patch
+// locally.
+//
+// The injection logic works by first applying the rendered injection template on
+// top of the input pod This is done using a Strategic Patch Merge
+// (https://github.com/kubernetes/community/blob/master/contributors/devel/sig-api-machinery/strategic-merge-patch.md)
+// Currently only a single template is supported, although in the future the template to use will be configurable
+// and multiple templates will be supported by applying them in successive order.
+//
+// In addition to the plain templating, there is some post processing done to
+// handle cases that cannot feasibly be covered in the template, such as
+// re-ordering pods, rewriting readiness probes, etc.
 func injectPod(req InjectionParameters) ([]byte, error) {
 	checkPreconditions(req)
+
+	// The patch will be built relative to the initial pod, capture its current state
 	originalPodSpec, err := json.Marshal(req.pod)
 	if err != nil {
 		return nil, err
@@ -386,6 +399,11 @@ func injectPod(req InjectionParameters) ([]byte, error) {
 	mergedPod, injectedPodData, err := RunTemplate(req)
 	if err != nil {
 		return nil, fmt.Errorf("failed to run injection template: %v", err)
+	}
+
+	mergedPod, err = reapplyOverwrittenContainers(mergedPod, req.pod, injectedPodData)
+	if err != nil {
+		return nil, fmt.Errorf("failed to re apply container: %v", err)
 	}
 
 	// Apply some additional transformations to the pod
@@ -400,6 +418,134 @@ func injectPod(req InjectionParameters) ([]byte, error) {
 
 	log.Debugf("AdmissionResponse: patch=%v\n", string(patch))
 	return patch, nil
+}
+
+// OverrideAnnotation is used to store the overrides for injected containers
+// TODO move this to api repo
+const OverrideAnnotation = "proxy.istio.io/overrides"
+
+// TemplatesAnnotation declares the set of templates to use for injection. If not specified, DefaultTemplates
+// will take precedence, which will inject a standard sidecar.
+// The format is a comma separated list. For example, `inject.istio.io/templates: sidecar,debug`.
+// TODO move this to api repo
+const TemplatesAnnotation = "inject.istio.io/templates"
+
+// reapplyOverwrittenContainers enables users to provide container level overrides for settings in the injection template
+// * originalPod: the pod before injection. If needed, we will apply some configurations from this pod on top of the final pod
+// * templatePod: the rendered injection template. This is needed only to see what containers we injected
+// * finalPod: the current result of injection, roughly equivalent to the merging of originalPod and templatePod
+// There are essentially three cases we cover here:
+// 1. There is no overlap in containers in original and template pod. We will do nothing.
+// 2. There is an overlap (ie, both define istio-proxy), but that is because the pod is being re-injected.
+//    In this case we do nothing, since we want to apply the new settings
+// 3. There is an overlap. We will re-apply the original container.
+// Where "overlap" is a container defined in both the original and template pod. Typically, this would mean
+// the user has defined an `istio-proxy` container in their own pod spec.
+func reapplyOverwrittenContainers(finalPod *corev1.Pod, originalPod *corev1.Pod, templatePod *corev1.Pod) (*corev1.Pod, error) {
+	type podOverrides struct {
+		Containers     []corev1.Container `json:"containers,omitempty"`
+		InitContainers []corev1.Container `json:"initContainers,omitempty"`
+	}
+
+	overrides := podOverrides{}
+	existingOverrides := podOverrides{}
+	if annotationOverrides, f := originalPod.Annotations[OverrideAnnotation]; f {
+		if err := json.Unmarshal([]byte(annotationOverrides), &existingOverrides); err != nil {
+			return nil, err
+		}
+	}
+
+	for _, c := range templatePod.Spec.Containers {
+		match := FindContainer(c.Name, existingOverrides.Containers)
+		if match == nil {
+			match = FindContainer(c.Name, originalPod.Spec.Containers)
+		}
+		if match == nil {
+			continue
+		}
+		overlay := *match.DeepCopy()
+		if overlay.Image == AutoImage {
+			overlay.Image = ""
+		}
+		overrides.Containers = append(overrides.Containers, overlay)
+		newMergedPod, err := applyContainer(finalPod, overlay)
+		if err != nil {
+			return nil, fmt.Errorf("failed to apply sidecar container: %v", err)
+		}
+		finalPod = newMergedPod
+	}
+	for _, c := range templatePod.Spec.InitContainers {
+		match := FindContainer(c.Name, existingOverrides.InitContainers)
+		if match == nil {
+			match = FindContainer(c.Name, originalPod.Spec.InitContainers)
+		}
+		if match == nil {
+			continue
+		}
+		overlay := *match.DeepCopy()
+		if overlay.Image == AutoImage {
+			overlay.Image = ""
+		}
+		overrides.InitContainers = append(overrides.InitContainers, overlay)
+		newMergedPod, err := applyInitContainer(finalPod, overlay)
+		if err != nil {
+			return nil, fmt.Errorf("failed to apply sidecar init container: %v", err)
+		}
+		finalPod = newMergedPod
+	}
+
+	_, alreadyInjected := originalPod.Annotations[annotation.SidecarStatus.Name]
+	if !alreadyInjected && (len(overrides.Containers) > 0 || len(overrides.InitContainers) > 0) {
+		// We found any overrides. Put them in the pod annotation so we can re-apply them on re-injection
+		js, err := json.Marshal(overrides)
+		if err != nil {
+			return nil, err
+		}
+		if finalPod.Annotations == nil {
+			finalPod.Annotations = map[string]string{}
+		}
+		finalPod.Annotations[OverrideAnnotation] = string(js)
+	}
+
+	return finalPod, nil
+}
+
+// reinsertOverrides applies the containers listed in OverrideAnnotation to a pod. This is to achieve
+// idempotency by handling an edge case where an injection template is modifying a container already
+// present in the pod spec. In these cases, the logic to strip injected containers would remove the
+// original injected parts as well, leading to the templating logic being different (for example,
+// reading the .Spec.Containers field would be empty).
+func reinsertOverrides(pod *corev1.Pod) (*corev1.Pod, error) {
+	type podOverrides struct {
+		Containers     []corev1.Container `json:"containers,omitempty"`
+		InitContainers []corev1.Container `json:"initContainers,omitempty"`
+	}
+
+	existingOverrides := podOverrides{}
+	if annotationOverrides, f := pod.Annotations[OverrideAnnotation]; f {
+		if err := json.Unmarshal([]byte(annotationOverrides), &existingOverrides); err != nil {
+			return nil, err
+		}
+	}
+
+	pod = pod.DeepCopy()
+	for _, c := range existingOverrides.Containers {
+		match := FindContainer(c.Name, pod.Spec.Containers)
+		if match != nil {
+			continue
+		}
+		pod.Spec.Containers = append(pod.Spec.Containers, c)
+	}
+
+	for _, c := range existingOverrides.InitContainers {
+		match := FindContainer(c.Name, pod.Spec.InitContainers)
+		if match != nil {
+			continue
+		}
+		pod.Spec.InitContainers = append(pod.Spec.InitContainers, c)
+	}
+
+	return pod, nil
 }
 
 func createPatch(pod *corev1.Pod, original []byte) ([]byte, error) {
@@ -424,15 +570,11 @@ func postProcessPod(pod *corev1.Pod, injectedPod corev1.Pod, req InjectionParame
 		pod.Labels = map[string]string{}
 	}
 
-	applyConcurrency(pod.Spec.Containers)
-
 	overwriteClusterInfo(pod.Spec.Containers, req)
 
 	if err := applyPrometheusMerge(pod, req.meshConfig); err != nil {
 		return err
 	}
-
-	applyFSGroup(pod)
 
 	if err := applyRewrite(pod, req); err != nil {
 		return err
@@ -448,21 +590,10 @@ func postProcessPod(pod *corev1.Pod, injectedPod corev1.Pod, req InjectionParame
 }
 
 func applyMetadata(pod *corev1.Pod, injectedPodData corev1.Pod, req InjectionParameters) {
-	canonicalSvc, canonicalRev := ExtractCanonicalServiceLabels(pod.Labels, req.deployMeta.Name)
-	setIfUnset(pod.Labels, label.TLSMode, model.IstioMutualTLSModeLabel)
-	setIfUnset(pod.Labels, model.IstioCanonicalServiceLabelName, canonicalSvc)
-	setIfUnset(pod.Labels, label.IstioRev, req.revision)
-	setIfUnset(pod.Labels, model.IstioCanonicalServiceRevisionLabelName, canonicalRev)
-
 	// Add all additional injected annotations. These are overridden if needed
 	pod.Annotations[annotation.SidecarStatus.Name] = getInjectionStatus(injectedPodData.Spec)
 
-	for k := range AnnotationValidation {
-		if injectedPodData.ObjectMeta.Annotations[k] != "" {
-			pod.Annotations[k] = injectedPodData.ObjectMeta.Annotations[k]
-		}
-	}
-
+	// Deprecated; should be set directly in the template instead
 	for k, v := range req.injectedAnnotations {
 		pod.Annotations[k] = v
 	}
@@ -530,22 +661,6 @@ func applyRewrite(pod *corev1.Pod, req InjectionParameters) error {
 	return nil
 }
 
-func applyFSGroup(pod *corev1.Pod) {
-	if features.EnableLegacyFSGroupInjection {
-		// due to bug https://github.com/kubernetes/kubernetes/issues/57923,
-		// k8s sa jwt token volume mount file is only accessible to root user, not istio-proxy(the user that istio proxy runs as).
-		// workaround by https://kubernetes.io/docs/tasks/configure-pod-container/security-context/#set-the-security-context-for-a-pod
-		var grp = int64(1337)
-		if pod.Spec.SecurityContext == nil {
-			pod.Spec.SecurityContext = &corev1.PodSecurityContext{
-				FSGroup: &grp,
-			}
-		} else {
-			pod.Spec.SecurityContext.FSGroup = &grp
-		}
-	}
-}
-
 // applyPrometheusMerge configures prometheus scraping annotations for the "metrics merge" feature.
 // This moves the current prometheus.io annotations into an environment variable and replaces them
 // pointing to the agent.
@@ -583,55 +698,58 @@ func applyPrometheusMerge(pod *corev1.Pod, mesh *meshconfig.MeshConfig) error {
 	return nil
 }
 
-func mergeInjectedConfigLegacy(req *corev1.Pod, injected []byte) (*corev1.Pod, error) {
-	current, err := json.Marshal(req.Spec)
+const (
+	// AutoImage is the special image name to indicate to the injector that we should use the injected image, and NOT override it
+	// This is necessary because image is a required field on container, so if a user defines an istio-proxy container
+	// with customizations they must set an image.
+	AutoImage = "auto"
+)
+
+// applyContainer merges a container spec on top of the provided pod
+func applyContainer(target *corev1.Pod, container corev1.Container) (*corev1.Pod, error) {
+	overlay := &corev1.Pod{Spec: corev1.PodSpec{Containers: []corev1.Container{container}}}
+
+	overlayJSON, err := json.Marshal(overlay)
 	if err != nil {
 		return nil, err
 	}
 
-	// The template is yaml, StrategicMergePatch expects JSON
-	injectedJSON, err := yaml.YAMLToJSON(injected)
-	if err != nil {
-		return nil, fmt.Errorf("yaml to json: %v", err)
-	}
-
-	podSpec := corev1.PodSpec{}
-	// Overlay the injected template onto the original podSpec
-	patched, err := strategicpatch.StrategicMergePatch(current, injectedJSON, podSpec)
-	if err != nil {
-		return nil, fmt.Errorf("strategic merge: %v", err)
-	}
-	if err := json.Unmarshal(patched, &podSpec); err != nil {
-		return nil, fmt.Errorf("unmarshal patched pod: %v", err)
-	}
-	pod := req.DeepCopy()
-	pod.Spec = podSpec
-
-	return pod, nil
+	return applyOverlay(target, overlayJSON)
 }
 
-func mergeInjectedConfig(req *corev1.Pod, injected []byte) (*corev1.Pod, error) {
-	current, err := json.Marshal(req)
+// applyInitContainer merges a container spec on top of the provided pod as an init container
+func applyInitContainer(target *corev1.Pod, container corev1.Container) (*corev1.Pod, error) {
+	overlay := &corev1.Pod{Spec: corev1.PodSpec{
+		// We need to set containers to empty, otherwise it will marshal as "null" and delete all containers
+		Containers:     []corev1.Container{},
+		InitContainers: []corev1.Container{container},
+	}}
+
+	overlayJSON, err := json.Marshal(overlay)
 	if err != nil {
 		return nil, err
 	}
 
-	// The template is yaml, StrategicMergePatch expects JSON
-	injectedJSON, err := yaml.YAMLToJSON(injected)
+	return applyOverlay(target, overlayJSON)
+}
+
+// applyContainer merges a pod spec, provided as JSON, on top of the provided pod
+func applyOverlay(target *corev1.Pod, overlayJSON []byte) (*corev1.Pod, error) {
+	currentJSON, err := json.Marshal(target)
 	if err != nil {
-		return nil, fmt.Errorf("yaml to json: %v", err)
+		return nil, err
 	}
 
 	pod := corev1.Pod{}
 	// Overlay the injected template onto the original podSpec
-	patched, err := strategicpatch.StrategicMergePatch(current, injectedJSON, pod)
+	patched, err := strategicpatch.StrategicMergePatch(currentJSON, overlayJSON, pod)
 	if err != nil {
 		return nil, fmt.Errorf("strategic merge: %v", err)
 	}
+
 	if err := json.Unmarshal(patched, &pod); err != nil {
 		return nil, fmt.Errorf("unmarshal patched pod: %v", err)
 	}
-
 	return &pod, nil
 }
 
@@ -668,7 +786,9 @@ func (wh *Webhook) inject(ar *kube.AdmissionReview, path string) *kube.Admission
 		pod:                 &pod,
 		deployMeta:          deploy,
 		typeMeta:            typeMeta,
-		template:            wh.Config.Templates,
+		templates:           wh.Config.Templates,
+		defaultTemplate:     wh.Config.DefaultTemplates,
+		aliases:             wh.Config.Aliases,
 		meshConfig:          wh.meshConfig,
 		valuesConfig:        wh.valuesConfig,
 		revision:            wh.revision,

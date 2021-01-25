@@ -20,15 +20,17 @@ import (
 	"crypto/x509"
 	"errors"
 	"fmt"
+	"path/filepath"
 	"strings"
 
+	"go.uber.org/atomic"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/metadata"
 
 	pb "istio.io/api/security/v1alpha1"
 	"istio.io/istio/pkg/security"
-	"istio.io/pkg/env"
+	"istio.io/istio/security/pkg/nodeagent/caclient"
 	"istio.io/pkg/log"
 )
 
@@ -39,78 +41,67 @@ const (
 
 var (
 	citadelClientLog = log.RegisterScope("citadelclient", "citadel client debugging", 0)
-
-	// ProvCert is the environment controlling the use of pre-provisioned certs, for VMs.
-	// May also be used in K8S to use a Secret to bootstrap (as a 'refresh key'), but use short-lived tokens
-	// with extra SAN (labels, etc) in data path.
-	// TODO: move to main, stop using directly - security.Options instead !
-	ProvCert = env.RegisterStringVar("PROV_CERT", "",
-		"Set to a directory containing provisioned certs, for VMs").Get()
 )
 
-type citadelClient struct {
-	caEndpoint    string
+type CitadelClient struct {
 	enableTLS     bool
 	caTLSRootCert []byte
 	client        pb.IstioCertificateServiceClient
-	clusterID     string
 	conn          *grpc.ClientConn
+	provider      *caclient.TokenProvider
+	opts          security.Options
+	usingMtls     *atomic.Bool
 }
 
 // NewCitadelClient create a CA client for Citadel.
-func NewCitadelClient(endpoint string, tls bool, rootCert []byte, clusterID string) (security.Client, error) {
-	c := &citadelClient{
-		caEndpoint:    endpoint,
+func NewCitadelClient(opts security.Options, tls bool, rootCert []byte) (*CitadelClient, error) {
+	c := &CitadelClient{
 		enableTLS:     tls,
 		caTLSRootCert: rootCert,
-		clusterID:     clusterID,
+		opts:          opts,
+		provider:      caclient.NewCATokenProvider(opts),
+		usingMtls:     atomic.NewBool(false),
 	}
 
 	conn, err := c.buildConnection()
 	if err != nil {
-		citadelClientLog.Errorf("Failed to connect to endpoint %s: %v", endpoint, err)
-		return nil, fmt.Errorf("failed to connect to endpoint %s", endpoint)
+		citadelClientLog.Errorf("Failed to connect to endpoint %s: %v", opts.CAEndpoint, err)
+		return nil, fmt.Errorf("failed to connect to endpoint %s", opts.CAEndpoint)
 	}
 	c.conn = conn
 	c.client = pb.NewIstioCertificateServiceClient(conn)
 	return c, nil
 }
 
+func (c *CitadelClient) Close() {
+	if c.conn != nil {
+		c.conn.Close()
+	}
+}
+
 // CSR Sign calls Citadel to sign a CSR.
-func (c *citadelClient) CSRSign(ctx context.Context, reqID string, csrPEM []byte, token string,
-	certValidTTLInSec int64) ([]string /*PEM-encoded certificate chain*/, error) {
+func (c *CitadelClient) CSRSign(csrPEM []byte, certValidTTLInSec int64) ([]string, error) {
 	req := &pb.IstioCertificateRequest{
 		Csr:              string(csrPEM),
 		ValidityDuration: certValidTTLInSec,
 	}
-	if token != "" {
-		// add Bearer prefix, which is required by Citadel.
-		token = bearerTokenPrefix + token
-		ctx = metadata.NewOutgoingContext(ctx, metadata.Pairs("Authorization", token, "ClusterID", c.clusterID))
-	} else {
-		// This may use the per call credentials, if enabled.
-		err := c.reconnect()
-		if err != nil {
-			citadelClientLog.Errorf("Failed to Reconnect: %v", err)
-			return nil, err
-		}
+	if err := c.reconnectIfNeeded(); err != nil {
+		return nil, err
 	}
-
+	ctx := metadata.NewOutgoingContext(context.Background(), metadata.Pairs("ClusterID", c.opts.ClusterID))
 	resp, err := c.client.CreateCertificate(ctx, req)
 	if err != nil {
-		citadelClientLog.Errorf("Failed to create certificate: %v", err)
-		return nil, err
+		return nil, fmt.Errorf("create certificate: %v", err)
 	}
 
 	if len(resp.CertChain) <= 1 {
-		citadelClientLog.Errorf("CertChain length is %d, expected more than 1", len(resp.CertChain))
-		return nil, errors.New("invalid response cert chain")
+		return nil, errors.New("invalid empty CertChain")
 	}
 
 	return resp.CertChain, nil
 }
 
-func (c *citadelClient) getTLSDialOption() (grpc.DialOption, error) {
+func (c *CitadelClient) getTLSDialOption() (grpc.DialOption, error) {
 	// Load the TLS root certificate from the specified file.
 	// Create a certificate pool
 	var certPool *x509.CertPool
@@ -121,29 +112,32 @@ func (c *citadelClient) getTLSDialOption() (grpc.DialOption, error) {
 		if err != nil {
 			return nil, err
 		}
-		citadelClientLog.Info("Citadel client using public DNS: ", c.caEndpoint)
+		citadelClientLog.Info("Citadel client using public DNS: ", c.opts.CAEndpoint)
 	} else {
 		certPool = x509.NewCertPool()
 		ok := certPool.AppendCertsFromPEM(c.caTLSRootCert)
 		if !ok {
 			return nil, fmt.Errorf("failed to append certificates")
 		}
-		citadelClientLog.Info("Citadel client using custom root: ", c.caEndpoint, " ", string(c.caTLSRootCert))
+		citadelClientLog.Info("Citadel client using custom root cert: ", c.opts.CAEndpoint)
 	}
 	var certificate tls.Certificate
 	config := tls.Config{
 		Certificates: []tls.Certificate{certificate},
 		GetClientCertificate: func(*tls.CertificateRequestInfo) (*tls.Certificate, error) {
-			if ProvCert != "" {
+			if c.opts.ProvCert != "" {
 				// Load the certificate from disk
-				certificate, err = tls.LoadX509KeyPair(ProvCert+"/cert-chain.pem", ProvCert+"/key.pem")
+				certificate, err = tls.LoadX509KeyPair(
+					filepath.Join(c.opts.ProvCert, "cert-chain.pem"),
+					filepath.Join(c.opts.ProvCert, "key.pem"))
 				if err != nil {
 					// we will return an empty cert so that when user sets the Prov cert path
 					// but not have such cert in the file path we use the token to provide verification
 					// instead of just broken the workflow
-					citadelClientLog.Warnf("cannot load key pair, using token instead : %+v", err)
+					citadelClientLog.Warnf("cannot load key pair, using token instead: %v", err)
 					return &certificate, nil
 				}
+				c.usingMtls.Store(true)
 			}
 			return &certificate, nil
 		},
@@ -153,12 +147,12 @@ func (c *citadelClient) getTLSDialOption() (grpc.DialOption, error) {
 	// Initial implementation of citadel hardcoded the SAN to 'istio-citadel'. For backward compat, keep it.
 	// TODO: remove this once istiod replaces citadel.
 	// External CAs will use their normal server names.
-	if strings.Contains(c.caEndpoint, "citadel") {
+	if strings.Contains(c.opts.CAEndpoint, "citadel") {
 		config.ServerName = caServerName
 	}
 	// For debugging on localhost (with port forward)
 	// TODO: remove once istiod is stable and we have a way to validate JWTs locally
-	if strings.Contains(c.caEndpoint, "localhost") {
+	if strings.Contains(c.opts.CAEndpoint, "localhost") {
 		config.ServerName = "istiod.istio-system.svc"
 	}
 
@@ -166,7 +160,7 @@ func (c *citadelClient) getTLSDialOption() (grpc.DialOption, error) {
 	return grpc.WithTransportCredentials(transportCreds), nil
 }
 
-func (c *citadelClient) buildConnection() (*grpc.ClientConn, error) {
+func (c *CitadelClient) buildConnection() (*grpc.ClientConn, error) {
 	var opts grpc.DialOption
 	var err error
 	if c.enableTLS {
@@ -178,18 +172,32 @@ func (c *citadelClient) buildConnection() (*grpc.ClientConn, error) {
 		opts = grpc.WithInsecure()
 	}
 
-	conn, err := grpc.Dial(c.caEndpoint, opts)
+	conn, err := grpc.Dial(c.opts.CAEndpoint,
+		opts,
+		grpc.WithPerRPCCredentials(c.provider),
+		security.CARetryInterceptor())
 	if err != nil {
-		citadelClientLog.Errorf("Failed to connect to endpoint %s: %v", c.caEndpoint, err)
-		return nil, fmt.Errorf("failed to connect to endpoint %s", c.caEndpoint)
+		citadelClientLog.Errorf("Failed to connect to endpoint %s: %v", c.opts.CAEndpoint, err)
+		return nil, fmt.Errorf("failed to connect to endpoint %s", c.opts.CAEndpoint)
 	}
 
 	return conn, nil
 }
 
-func (c *citadelClient) reconnect() error {
-	err := c.conn.Close()
+func (c *CitadelClient) reconnectIfNeeded() error {
+	if c.opts.ProvCert == "" || c.usingMtls.Load() {
+		// No need to reconnect, already using mTLS or never will use it
+		return nil
+	}
+	_, err := tls.LoadX509KeyPair(
+		filepath.Join(c.opts.ProvCert, "cert-chain.pem"),
+		filepath.Join(c.opts.ProvCert, "key.pem"))
 	if err != nil {
+		// Cannot load the certificates yet, don't both reconnecting
+		return nil
+	}
+
+	if err := c.conn.Close(); err != nil {
 		return fmt.Errorf("failed to close connection")
 	}
 
@@ -199,5 +207,6 @@ func (c *citadelClient) reconnect() error {
 	}
 	c.conn = conn
 	c.client = pb.NewIstioCertificateServiceClient(conn)
-	return err
+	citadelClientLog.Errorf("recreated connection")
+	return nil
 }

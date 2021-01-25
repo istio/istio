@@ -25,9 +25,9 @@ import (
 	"google.golang.org/grpc/status"
 
 	pb "istio.io/api/security/v1alpha1"
+	"istio.io/istio/pkg/security"
 	caerror "istio.io/istio/security/pkg/pki/error"
 	"istio.io/istio/security/pkg/pki/util"
-	"istio.io/istio/security/pkg/server/ca/authenticate"
 	"istio.io/pkg/log"
 )
 
@@ -48,7 +48,7 @@ type CertificateAuthority interface {
 // specified port.
 type Server struct {
 	monitoring     monitoringMetrics
-	Authenticators []authenticate.Authenticator
+	Authenticators []security.Authenticator
 	ca             CertificateAuthority
 	serverCertTTL  time.Duration
 }
@@ -71,7 +71,7 @@ func getConnectionAddress(ctx context.Context) string {
 func (s *Server) CreateCertificate(ctx context.Context, request *pb.IstioCertificateRequest) (
 	*pb.IstioCertificateResponse, error) {
 	s.monitoring.CSR.Increment()
-	caller := s.authenticate(ctx)
+	caller := Authenticate(ctx, s.Authenticators)
 	if caller == nil {
 		s.monitoring.AuthnError.Increment()
 		return nil, status.Error(codes.Unauthenticated, "request authenticate failure")
@@ -125,10 +125,12 @@ func (s *Server) Register(grpcServer *grpc.Server) {
 
 // New creates a new instance of `IstioCAServiceServer`
 func New(ca CertificateAuthority, ttl time.Duration,
-	authenticators []authenticate.Authenticator) (*Server, error) {
+	authenticators []security.Authenticator) (*Server, error) {
 
-	recordCertsExpiry(ca.GetCAKeyCertBundle())
-
+	certBundle := ca.GetCAKeyCertBundle()
+	if len(certBundle.GetRootCertPem()) != 0 {
+		recordCertsExpiry(certBundle)
+	}
 	server := &Server{
 		Authenticators: authenticators,
 		serverCertTTL:  ttl,
@@ -140,10 +142,10 @@ func New(ca CertificateAuthority, ttl time.Duration,
 
 // authenticate goes through a list of authenticators (provided client cert, k8s jwt, and ID token)
 // and authenticates if one of them is valid.
-func (s *Server) authenticate(ctx context.Context) *authenticate.Caller {
+func Authenticate(ctx context.Context, auth []security.Authenticator) *security.Caller {
 	// TODO: apply different authenticators in specific order / according to configuration.
 	var errMsg string
-	for id, authn := range s.Authenticators {
+	for id, authn := range auth {
 		u, err := authn.Authenticate(ctx)
 		if err != nil {
 			errMsg += fmt.Sprintf("Authenticator %s at index %d got error: %v. ", authn.AuthenticatorType(), id, err)

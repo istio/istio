@@ -16,21 +16,41 @@ package istioagent
 
 import (
 	"context"
+	"errors"
+	"fmt"
+	"io/ioutil"
 	"net"
 	"path"
+	"path/filepath"
 	"testing"
+	"time"
 
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
+	wasm "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/wasm/v3"
+	wasmv3 "github.com/envoyproxy/go-control-plane/envoy/extensions/wasm/v3"
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
+	"github.com/golang/protobuf/ptypes"
+	google_rpc "google.golang.org/genproto/googleapis/rpc/status"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/test/bufconn"
+	"google.golang.org/protobuf/proto"
 
+	networking "istio.io/api/networking/v1alpha3"
+	"istio.io/istio/pilot/pkg/features"
+	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pilot/pkg/model/status"
+	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pilot/pkg/xds"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
+	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/mesh"
+	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/security"
+	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/env"
+	"istio.io/istio/pkg/test/util/retry"
+	"istio.io/pkg/log"
 )
 
 // Validates basic xds proxy flow by proxying one CDS requests end to end.
@@ -38,13 +58,148 @@ func TestXdsProxyBasicFlow(t *testing.T) {
 	proxy := setupXdsProxy(t)
 	f := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{})
 	setDialOptions(proxy, f.Listener)
-	conn := setupDownstreamConnection(t)
+	conn := setupDownstreamConnection(t, proxy)
 	downstream := stream(t, conn)
 	sendDownstream(t, downstream)
 }
 
+func init() {
+	features.WorkloadEntryHealthChecks = true
+	features.WorkloadEntryAutoRegistration = true
+}
+
+// Validates the proxy health checking updates
+func TestXdsProxyHealthCheck(t *testing.T) {
+	healthy := &discovery.DiscoveryRequest{TypeUrl: v3.HealthInfoType}
+	unhealthy := &discovery.DiscoveryRequest{TypeUrl: v3.HealthInfoType,
+		ErrorDetail: &google_rpc.Status{
+			Code:    500,
+			Message: "unhealthy",
+		},
+	}
+	node := model.NodeMetadata{
+		AutoRegisterGroup: "group",
+		Namespace:         "default",
+		InstanceIPs:       []string{"1.1.1.1"},
+	}
+	proxy := setupXdsProxy(t)
+
+	f := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{})
+	if _, err := f.Store().Create(config.Config{
+		Meta: config.Meta{
+			Name:             "group",
+			Namespace:        "default",
+			GroupVersionKind: gvk.WorkloadGroup,
+		},
+		Spec: &networking.WorkloadGroup{
+			Template: &networking.WorkloadEntry{},
+		},
+	}); err != nil {
+		t.Fatal(err)
+	}
+	setDialOptions(proxy, f.Listener)
+	conn := setupDownstreamConnection(t, proxy)
+	downstream := stream(t, conn)
+	sendDownstreamWithNode(t, downstream, node)
+
+	// Setup test helpers
+	waitDisconnect := func() {
+		retry.UntilSuccessOrFail(t, func() error {
+			proxy.connectedMutex.Lock()
+			defer proxy.connectedMutex.Unlock()
+			if proxy.connected != nil {
+				return fmt.Errorf("still connected")
+			}
+			return nil
+		}, retry.Timeout(time.Second), retry.Delay(time.Millisecond))
+	}
+	expectCondition := func(expected string) {
+		t.Helper()
+		retry.UntilSuccessOrFail(t, func() error {
+			cfg := f.Store().Get(gvk.WorkloadEntry, "group-1.1.1.1", "default")
+			if cfg == nil {
+				return fmt.Errorf("config not found")
+			}
+			con := status.GetConditionFromSpec(*cfg, status.ConditionHealthy)
+			if con == nil {
+				if expected == "" {
+					return nil
+				}
+				return fmt.Errorf("found no conditions, expected %v", expected)
+			}
+			if con.Status != expected {
+				return fmt.Errorf("expected status %q got %q", expected, con.Status)
+			}
+			return nil
+		}, retry.Timeout(time.Second*2))
+	}
+
+	// On initial connect, status is unset.
+	expectCondition("")
+
+	// Flip status back and forth, ensure we update
+	proxy.PersistRequest(healthy)
+	expectCondition(status.StatusTrue)
+	proxy.PersistRequest(unhealthy)
+	expectCondition(status.StatusFalse)
+	proxy.PersistRequest(healthy)
+	expectCondition(status.StatusTrue)
+
+	// Completely disconnect
+	conn.Close()
+	downstream.CloseSend()
+	waitDisconnect()
+	conn = setupDownstreamConnection(t, proxy)
+	downstream = stream(t, conn)
+	sendDownstreamWithNode(t, downstream, node)
+
+	// Old status should remain
+	expectCondition(status.StatusTrue)
+	// And still update when we send new requests
+	proxy.PersistRequest(unhealthy)
+	expectCondition(status.StatusFalse)
+
+	// Send a new update while we are disconnected
+	conn.Close()
+	downstream.CloseSend()
+	waitDisconnect()
+	proxy.PersistRequest(healthy)
+	conn = setupDownstreamConnection(t, proxy)
+	downstream = stream(t, conn)
+	sendDownstreamWithNode(t, downstream, node)
+
+	// When we reconnect, our status update should still persist
+	expectCondition(status.StatusTrue)
+
+	// Confirm more updates are honored
+	proxy.PersistRequest(healthy)
+	expectCondition(status.StatusTrue)
+	proxy.PersistRequest(unhealthy)
+	expectCondition(status.StatusFalse)
+
+	// Disconnect and remove workload entry. This could happen if there is an outage and istiod cleans up
+	// the workload entry.
+	conn.Close()
+	downstream.CloseSend()
+	waitDisconnect()
+	f.Store().Delete(gvk.WorkloadEntry, "group-1.1.1.1", "default", nil)
+	proxy.PersistRequest(healthy)
+	conn = setupDownstreamConnection(t, proxy)
+	downstream = stream(t, conn)
+	sendDownstreamWithNode(t, downstream, node)
+
+	// When we reconnect, our status update should be re-applied
+	expectCondition(status.StatusTrue)
+
+	// Confirm more updates are honored
+	proxy.PersistRequest(unhealthy)
+	expectCondition(status.StatusFalse)
+	proxy.PersistRequest(healthy)
+	expectCondition(status.StatusTrue)
+}
+
 func setupXdsProxy(t *testing.T) *XdsProxy {
-	secOpts := &security.Options{
+	secOpts := security.Options{
 		FileMountedCerts: true,
 	}
 	proxyConfig := mesh.DefaultProxyConfig()
@@ -57,8 +212,10 @@ func setupXdsProxy(t *testing.T) *XdsProxy {
 		MetadataClientCertKey:   path.Join(env.IstioSrc, "tests/testdata/certs/pilot/key.pem"),
 		MetadataClientRootCert:  path.Join(env.IstioSrc, "tests/testdata/certs/pilot/root-cert.pem"),
 	}
-	ia := NewAgent(&proxyConfig,
-		&AgentConfig{}, secOpts)
+	dir := t.TempDir()
+	ia := NewAgent(&proxyConfig, &AgentConfig{
+		XdsUdsPath: filepath.Join(dir, "XDS"),
+	}, secOpts)
 	t.Cleanup(func() {
 		ia.Close()
 	})
@@ -86,16 +243,28 @@ var ctx = metadata.AppendToOutgoingContext(context.Background(), "ClusterID", "K
 
 // Validates basic xds proxy flow by proxying one CDS requests end to end.
 func TestXdsProxyReconnects(t *testing.T) {
+	waitDisconnect := func(proxy *XdsProxy) {
+		retry.UntilSuccessOrFail(t, func() error {
+			proxy.connectedMutex.Lock()
+			defer proxy.connectedMutex.Unlock()
+			if proxy.connected != nil {
+				return fmt.Errorf("still connected")
+			}
+			return nil
+		}, retry.Timeout(time.Second), retry.Delay(time.Millisecond))
+	}
 	t.Run("Envoy close and open stream", func(t *testing.T) {
 		proxy := setupXdsProxy(t)
 		f := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{})
 		setDialOptions(proxy, f.Listener)
 
-		conn := setupDownstreamConnection(t)
+		conn := setupDownstreamConnection(t, proxy)
 		downstream := stream(t, conn)
 		sendDownstream(t, downstream)
 
 		downstream.CloseSend()
+		waitDisconnect(proxy)
+
 		downstream = stream(t, conn)
 		sendDownstream(t, downstream)
 	})
@@ -104,7 +273,7 @@ func TestXdsProxyReconnects(t *testing.T) {
 		f := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{})
 		setDialOptions(proxy, f.Listener)
 
-		conn := setupDownstreamConnection(t)
+		conn := setupDownstreamConnection(t, proxy)
 		downstream := stream(t, conn)
 		sendDownstream(t, downstream)
 		downstream = stream(t, conn)
@@ -115,12 +284,31 @@ func TestXdsProxyReconnects(t *testing.T) {
 		f := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{})
 		setDialOptions(proxy, f.Listener)
 
-		conn := setupDownstreamConnection(t)
+		conn := setupDownstreamConnection(t, proxy)
 		downstream := stream(t, conn)
 		sendDownstream(t, downstream)
 		conn.Close()
-		conn = setupDownstreamConnection(t)
-		downstream = stream(t, conn)
+
+		c := setupDownstreamConnection(t, proxy)
+		downstream = stream(t, c)
+		sendDownstream(t, downstream)
+	})
+	t.Run("Envoy sends concurrent requests", func(t *testing.T) {
+		// Envoy doesn't really do this, in reality it should only have a single connection. However,
+		// this ensures we are robust against cases where envoy rapidly disconnects and reconnects
+		proxy := setupXdsProxy(t)
+		f := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{})
+		setDialOptions(proxy, f.Listener)
+
+		conn := setupDownstreamConnection(t, proxy)
+		downstream := stream(t, conn)
+		sendDownstream(t, downstream)
+
+		c := setupDownstreamConnection(t, proxy)
+		downstream = stream(t, c)
+		sendDownstream(t, downstream)
+		conn.Close()
+
 		sendDownstream(t, downstream)
 	})
 	t.Run("Istiod closes connection", func(t *testing.T) {
@@ -143,7 +331,7 @@ func TestXdsProxyReconnects(t *testing.T) {
 		go grpcServer.Serve(listener)
 
 		// Send initial request
-		conn := setupDownstreamConnection(t)
+		conn := setupDownstreamConnection(t, proxy)
 		downstream := stream(t, conn)
 		sendDownstream(t, downstream)
 
@@ -153,6 +341,8 @@ func TestXdsProxyReconnects(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
+		waitDisconnect(proxy)
+
 		grpcServer = grpc.NewServer()
 		t.Cleanup(grpcServer.Stop)
 		f.Discovery.Register(grpcServer)
@@ -162,6 +352,135 @@ func TestXdsProxyReconnects(t *testing.T) {
 		downstream = stream(t, conn)
 		sendDownstream(t, downstream)
 	})
+}
+
+type fakeAckCache struct{}
+
+func (f *fakeAckCache) Get(string, string, time.Duration) (string, error) {
+	return "test", nil
+}
+func (f *fakeAckCache) Cleanup() {}
+
+type fakeNackCache struct{}
+
+func (f *fakeNackCache) Get(string, string, time.Duration) (string, error) {
+	return "", errors.New("errror")
+}
+func (f *fakeNackCache) Cleanup() {}
+
+func TestECDSWasmConversion(t *testing.T) {
+	proxyLog.SetOutputLevel(log.DebugLevel)
+	node := model.NodeMetadata{
+		Namespace:   "default",
+		InstanceIPs: []string{"1.1.1.1"},
+	}
+	proxy := setupXdsProxy(t)
+
+	// Reset wasm cache to a fake ACK cache.
+	proxy.wasmCache.Cleanup()
+	proxy.wasmCache = &fakeAckCache{}
+
+	// Initialize discovery server with an ECDS resource.
+	ef, err := ioutil.ReadFile(path.Join(env.IstioSrc, "pilot/pkg/xds/testdata/ecds.yaml"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	f := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{
+		ConfigString: string(ef),
+	})
+	setDialOptions(proxy, f.Listener)
+	conn := setupDownstreamConnection(t, proxy)
+	downstream := stream(t, conn)
+
+	// Send first request, wasm module async fetch should work fine and
+	// downstream should receive a local file based wasm extension config.
+	err = downstream.Send(&discovery.DiscoveryRequest{
+		TypeUrl:       v3.ExtensionConfigurationType,
+		ResourceNames: []string{"extension-config"},
+		Node: &core.Node{
+			Id:       "sidecar~1.1.1.1~debug~cluster.local",
+			Metadata: node.ToStruct(),
+		},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Verify that the request received has been rewritten to local file.
+	gotResp, err := downstream.Recv()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(gotResp.Resources) != 1 {
+		t.Errorf("xds proxy ecds wasm conversion number of received resource got %v want 1", len(gotResp.Resources))
+	}
+	gotEcdsConfig := &core.TypedExtensionConfig{}
+	if err := ptypes.UnmarshalAny(gotResp.Resources[0], gotEcdsConfig); err != nil {
+		t.Fatalf("wasm config conversion output %v failed to unmarshal", gotResp.Resources[0])
+	}
+	wasm := &wasm.Wasm{
+		Config: &wasmv3.PluginConfig{
+			Vm: &wasmv3.PluginConfig_VmConfig{
+				VmConfig: &wasmv3.VmConfig{
+
+					Code: &core.AsyncDataSource{Specifier: &core.AsyncDataSource_Local{
+						Local: &core.DataSource{
+							Specifier: &core.DataSource_Filename{
+								Filename: "test",
+							},
+						},
+					}},
+				},
+			},
+		},
+	}
+	wantEcdsConfig := &core.TypedExtensionConfig{
+		Name:        "extension-config",
+		TypedConfig: util.MessageToAny(wasm),
+	}
+
+	if !proto.Equal(gotEcdsConfig, wantEcdsConfig) {
+		t.Errorf("xds proxy wasm config conversion got %v want %v", gotEcdsConfig, wantEcdsConfig)
+	}
+	v1 := proxy.ecdsLastAckVersion
+	n1 := proxy.ecdsLastNonce
+
+	// reset wasm cache to a NACK cache, and recreate xds server as well to simulate a version bump
+	proxy.wasmCache = &fakeNackCache{}
+	f = xds.NewFakeDiscoveryServer(t, xds.FakeOptions{
+		ConfigString: string(ef),
+	})
+	setDialOptions(proxy, f.Listener)
+	conn = setupDownstreamConnection(t, proxy)
+	downstream = stream(t, conn)
+
+	// send request again, this time a nack should be returned from the xds proxy due to NACK wasm cache.
+	err = downstream.Send(&discovery.DiscoveryRequest{
+		VersionInfo:   gotResp.VersionInfo,
+		TypeUrl:       v3.ExtensionConfigurationType,
+		ResourceNames: []string{"extension-config"},
+		Node: &core.Node{
+			Id:       "sidecar~1.1.1.1~debug~cluster.local",
+			Metadata: node.ToStruct(),
+		},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Wait until nonce was updated, which represents an ACK/NACK has been received.
+	retry.UntilSuccessOrFail(t, func() error {
+		if proxy.ecdsLastNonce.Load() == n1.Load() {
+			return errors.New("last process nonce has not been updated. no ecds ack/nack is received yet")
+		}
+		return nil
+	}, retry.Timeout(time.Second), retry.Delay(time.Millisecond))
+
+	// Verify that the last ack version remains the same, which represents the latest DiscoveryRequest is a NACK.
+	v2 := proxy.ecdsLastAckVersion
+	if v1.Load() == v2.Load() {
+		t.Errorf("last ack ecds request was updated. expect it to remain the same which represents a nack for ecds update")
+	}
 }
 
 func stream(t *testing.T, conn *grpc.ClientConn) discovery.AggregatedDiscoveryService_StreamAggregatedResourcesClient {
@@ -174,14 +493,13 @@ func stream(t *testing.T, conn *grpc.ClientConn) discovery.AggregatedDiscoverySe
 	return downstream
 }
 
-func sendDownstream(t *testing.T, downstream discovery.AggregatedDiscoveryService_StreamAggregatedResourcesClient) {
+func sendDownstreamWithNode(t *testing.T, downstream discovery.AggregatedDiscoveryService_StreamAggregatedResourcesClient, meta model.NodeMetadata) {
 	t.Helper()
-	err := downstream.Send(&discovery.DiscoveryRequest{
-		TypeUrl: v3.ClusterType,
-		Node: &core.Node{
-			Id: "sidecar~0.0.0.0~debug~cluster.local",
-		},
-	})
+	node := &core.Node{
+		Id:       "sidecar~1.1.1.1~debug~cluster.local",
+		Metadata: meta.ToStruct(),
+	}
+	err := downstream.Send(&discovery.DiscoveryRequest{TypeUrl: v3.ClusterType, Node: node})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -192,17 +510,36 @@ func sendDownstream(t *testing.T, downstream discovery.AggregatedDiscoveryServic
 	if res == nil || res.TypeUrl != v3.ClusterType {
 		t.Fatalf("Expected to get cluster response but got %v", res)
 	}
+	err = downstream.Send(&discovery.DiscoveryRequest{TypeUrl: v3.ListenerType, Node: node})
+	if err != nil {
+		t.Fatal(err)
+	}
+	res, err = downstream.Recv()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if res == nil || res.TypeUrl != v3.ListenerType {
+		t.Fatalf("Expected to get listener response but got %v", res)
+	}
 }
 
-func setupDownstreamConnection(t *testing.T) *grpc.ClientConn {
+func sendDownstream(t *testing.T, downstream discovery.AggregatedDiscoveryService_StreamAggregatedResourcesClient) {
+	t.Helper()
+	sendDownstreamWithNode(t, downstream, model.NodeMetadata{
+		Namespace:   "default",
+		InstanceIPs: []string{"1.1.1.1"},
+	})
+}
+
+func setupDownstreamConnectionUDS(t test.Failer, path string) *grpc.ClientConn {
 	var opts []grpc.DialOption
 
 	opts = append(opts, grpc.WithInsecure(), grpc.WithContextDialer(func(ctx context.Context, addr string) (net.Conn, error) {
 		var d net.Dialer
-		return d.DialContext(ctx, "unix", xdsUdsPath)
+		return d.DialContext(ctx, "unix", path)
 	}))
 
-	conn, err := grpc.Dial(xdsUdsPath, opts...)
+	conn, err := grpc.Dial(path, opts...)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -211,4 +548,8 @@ func setupDownstreamConnection(t *testing.T) *grpc.ClientConn {
 		conn.Close()
 	})
 	return conn
+}
+
+func setupDownstreamConnection(t *testing.T, proxy *XdsProxy) *grpc.ClientConn {
+	return setupDownstreamConnectionUDS(t, proxy.xdsUdsPath)
 }

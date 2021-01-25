@@ -21,7 +21,6 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/go-openapi/validate"
 	"github.com/hashicorp/go-multierror"
 	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
@@ -33,6 +32,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/serializer"
 	kubeyaml "k8s.io/apimachinery/pkg/util/yaml"
 	"k8s.io/client-go/kubernetes/scheme"
+	"k8s.io/kube-openapi/pkg/validation/validate"
 	serviceapis "sigs.k8s.io/service-apis/apis/v1alpha1"
 
 	clientnetworkingalpha "istio.io/client-go/pkg/apis/networking/v1alpha3"
@@ -90,6 +90,7 @@ func (v *Validator) ValidateCustomResource(o runtime.Object) error {
 		// by omitting the entire parent object.
 		return strings.Contains(err.Error(), `must be of type object: "null"`) ||
 			strings.Contains(err.Error(), `must be of type array: "null"`) ||
+			strings.Contains(err.Error(), `must be of type string: "null"`) ||
 			strings.Contains(err.Error(), `Unsupported value: "": supported values`)
 	}).ToAggregate(); err != nil {
 		return fmt.Errorf("%v/%v/%v: %v", un.GroupVersionKind().Kind, un.GetName(), un.GetNamespace(), err)
@@ -157,7 +158,7 @@ func NewValidatorFromCRDs(crds ...apiextensions.CustomResourceDefinition) (*Vali
 	for _, crd := range crds {
 		versions := crd.Spec.Versions
 		if len(versions) == 0 {
-			versions = []apiextensions.CustomResourceDefinitionVersion{{Name: crd.Spec.Version}} //nolint: staticcheck
+			versions = []apiextensions.CustomResourceDefinitionVersion{{Name: crd.Spec.Version}} // nolint: staticcheck
 		}
 		for _, ver := range versions {
 			gvk := schema.GroupVersionKind{

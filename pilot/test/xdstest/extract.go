@@ -20,6 +20,7 @@ import (
 	"sort"
 
 	cluster "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
+	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	endpoint "github.com/envoyproxy/go-control-plane/envoy/config/endpoint/v3"
 	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
 	route "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
@@ -34,6 +35,8 @@ import (
 	"github.com/golang/protobuf/ptypes/any"
 
 	"istio.io/istio/pilot/pkg/networking/util"
+	"istio.io/istio/pilot/pkg/util/sets"
+	v3 "istio.io/istio/pilot/pkg/xds/v3"
 	"istio.io/istio/pkg/test"
 )
 
@@ -57,6 +60,65 @@ func ExtractRoutesFromListeners(ll []*listener.Listener) []string {
 		}
 	}
 	return routes
+}
+
+// ExtractSecretResources fetches all referenced SDS resource names from a list of clusters and listeners
+func ExtractSecretResources(t test.Failer, rs []*any.Any) []string {
+	resourceNames := sets.NewSet()
+	for _, r := range rs {
+		switch r.TypeUrl {
+		case v3.ClusterType:
+			c := &cluster.Cluster{}
+			if err := ptypes.UnmarshalAny(r, c); err != nil {
+				t.Fatal(err)
+			}
+			sockets := []*core.TransportSocket{}
+			if c.TransportSocket != nil {
+				sockets = append(sockets, c.TransportSocket)
+			}
+			for _, ts := range c.TransportSocketMatches {
+				sockets = append(sockets, ts.TransportSocket)
+			}
+			for _, s := range sockets {
+				tl := &tls.UpstreamTlsContext{}
+				if err := ptypes.UnmarshalAny(s.GetTypedConfig(), tl); err != nil {
+					t.Fatal(err)
+				}
+				resourceNames.Insert(tl.GetCommonTlsContext().GetCombinedValidationContext().GetValidationContextSdsSecretConfig().GetName())
+				for _, s := range tl.GetCommonTlsContext().GetTlsCertificateSdsSecretConfigs() {
+					resourceNames.Insert(s.GetName())
+				}
+			}
+		case v3.ListenerType:
+			l := &listener.Listener{}
+			if err := ptypes.UnmarshalAny(r, l); err != nil {
+				t.Fatal(err)
+			}
+			sockets := []*core.TransportSocket{}
+			for _, fc := range l.GetFilterChains() {
+				if fc.GetTransportSocket() != nil {
+					sockets = append(sockets, fc.GetTransportSocket())
+				}
+			}
+			if ts := l.GetDefaultFilterChain().GetTransportSocket(); ts != nil {
+				sockets = append(sockets, ts)
+			}
+			for _, s := range sockets {
+				tl := &tls.DownstreamTlsContext{}
+				if err := ptypes.UnmarshalAny(s.GetTypedConfig(), tl); err != nil {
+					t.Fatal(err)
+				}
+				resourceNames.Insert(tl.GetCommonTlsContext().GetCombinedValidationContext().GetValidationContextSdsSecretConfig().GetName())
+				for _, s := range tl.GetCommonTlsContext().GetTlsCertificateSdsSecretConfigs() {
+					resourceNames.Insert(s.GetName())
+				}
+			}
+		}
+	}
+	resourceNames.Delete("")
+	ls := resourceNames.UnsortedList()
+	sort.Sort(sort.Reverse(sort.StringSlice(ls)))
+	return ls
 }
 
 func ExtractListenerNames(ll []*listener.Listener) []string {

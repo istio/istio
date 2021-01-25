@@ -4,17 +4,20 @@
 as an example of integrating custom authorization system into Istio.
 
 The Ext Authz server supports authorization check request using either HTTP (port 8000) or gRPC v2/v3 (port 9000) API and
-will allow the request if it includes the header `x-ext-authz: allow`.
+will allow the request if it includes the header `x-ext-authz: allow` or if the service account of the source workload is `a`.
+Note that `a` is just a default value for testing. It can be changed with the flag `-allow_service_account` when running the ext authz server.
 
 ## Usage
 
-1. Deploy the Ext Authz service:
+1. Deploy the Ext Authz service in a dedicated pod:
 
     ```console
     $ kubectl apply -f ext-authz.yaml
     service/ext-authz created
     deployment.extensions/ext-authz created
     ```
+
+    Note, you can also deploy the Ext Authz service locally with the application container in the same pod, see the example in `local-ext-authz.yaml`.
 
 1. Verify the Ext Authz server is up and running:
 

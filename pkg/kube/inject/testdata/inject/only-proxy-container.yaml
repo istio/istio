@@ -1,0 +1,18 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: istio-ingressgateway
+spec:
+  selector:
+    matchLabels:
+      istio: ingressgateway
+  template:
+    metadata:
+      labels:
+        istio: ingressgateway
+    spec:
+      # Ensure we can have istio-proxy as the only container. This isn't particularly useful as a sidecar
+      # but will be used when we have a dedicated template to run a pod as a Gateway
+      containers:
+      - name: istio-proxy
+        image: auto

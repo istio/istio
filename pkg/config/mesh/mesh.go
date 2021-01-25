@@ -30,7 +30,6 @@ import (
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/validation"
 	"istio.io/istio/pkg/util/gogoprotomarshal"
-	"istio.io/pkg/filewatcher"
 	"istio.io/pkg/log"
 )
 
@@ -39,7 +38,6 @@ func DefaultProxyConfig() meshconfig.ProxyConfig {
 	// TODO: include revision based on REVISION env
 	// TODO: set default namespace based on POD_NAMESPACE env
 	return meshconfig.ProxyConfig{
-		// missing: ConnectTimeout: 10 * time.Second,
 		ConfigPath:               constants.ConfigPathDir,
 		ServiceCluster:           constants.ServiceClusterName,
 		DrainDuration:            types.DurationProto(45 * time.Second),
@@ -58,13 +56,9 @@ func DefaultProxyConfig() meshconfig.ProxyConfig {
 		},
 
 		// Code defaults
-		BinaryPath:            constants.BinaryPathFilename,
-		StatsdUdpAddress:      "",
-		EnvoyMetricsService:   &meshconfig.RemoteService{Address: ""},
-		EnvoyAccessLogService: &meshconfig.RemoteService{Address: ""},
-		CustomConfigFile:      "",
-		StatNameLength:        189,
-		StatusPort:            15020,
+		BinaryPath:     constants.BinaryPathFilename,
+		StatNameLength: 189,
+		StatusPort:     15020,
 	}
 }
 
@@ -248,27 +242,4 @@ func ResolveHostsInNetworksConfig(config *meshconfig.MeshNetworks) {
 			}
 		}
 	}
-}
-
-// Add to the FileWatcher the provided file and execute the provided function
-// on any change event for this file.
-// Using a debouncing mechanism to avoid calling the callback multiple times
-// per event.
-func addFileWatcher(fileWatcher filewatcher.FileWatcher, file string, callback func()) {
-	_ = fileWatcher.Add(file)
-	go func() {
-		var timerC <-chan time.Time
-		for {
-			select {
-			case <-timerC:
-				timerC = nil
-				callback()
-			case <-fileWatcher.Events(file):
-				// Use a timer to debounce configuration updates
-				if timerC == nil {
-					timerC = time.After(100 * time.Millisecond)
-				}
-			}
-		}
-	}()
 }

@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: networking
+issue:
+- 24619
+releaseNotes:
+- |
+  **Fixed** an issue causing only internal ALPN values to be set during external TLS origination.

@@ -984,7 +984,7 @@ func getIngressIP(service v1.Service, pod v1.Pod) string {
 	}
 
 	// The scope of this function is to get the IP from Kubernetes, we do not
-	// ask Docker or Minikube for an IP.
+	// ask Docker or minikube for an IP.
 	// See https://istio.io/docs/tasks/traffic-management/ingress/ingress-control/#determining-the-ingress-ip-and-ports
 
 	return "unknown"
@@ -1074,7 +1074,7 @@ the configuration objects that affect that service.`,
 			}
 
 			// Get all the labels for all the matching pods.  We will used this to complain
-			// if NONE of the pods match a VirtaulService
+			// if NONE of the pods match a VirtualService
 			podsLabels := make([]k8s_labels.Set, len(matchingPods))
 			for i, pod := range matchingPods {
 				podsLabels[i] = k8s_labels.Set(pod.ObjectMeta.Labels)

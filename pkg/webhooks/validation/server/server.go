@@ -121,7 +121,7 @@ func New(p Options) (*Webhook, error) {
 	return wh, nil
 }
 
-//Stop the server
+// Stop the server
 func (wh *Webhook) Stop() {
 }
 

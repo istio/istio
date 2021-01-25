@@ -48,11 +48,20 @@ message ForwardEchoRequest {
   bool http2 = 7;
   // If true, requests will not be sent until magic string is received
   bool serverFirst = 8;
+  // If true, 301 redirects will be followed
+  bool followRedirects = 14;
   // If non-empty, make the request with the corresponding cert and key.
   string cert = 10;
   string key = 11;
   // If non-empty, verify the server CA
   string caCert = 12;
+
+  // List of ALPNs to present. If not set, this will be automatically be set based on the protocol
+  Alpn alpn = 13;
+}
+
+message Alpn {
+  repeated string value = 1;
 }
 
 message ForwardEchoResponse {

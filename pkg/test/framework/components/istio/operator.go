@@ -37,9 +37,9 @@ import (
 	"istio.io/api/label"
 	opAPI "istio.io/api/operator/v1alpha1"
 	pkgAPI "istio.io/istio/operator/pkg/apis/istio/v1alpha1"
-	"istio.io/istio/pilot/pkg/leaderelection"
 	"istio.io/istio/pkg/test/cert/ca"
 	testenv "istio.io/istio/pkg/test/env"
+	kubecluster "istio.io/istio/pkg/test/framework/components/cluster/kube"
 	"istio.io/istio/pkg/test/framework/components/environment/kube"
 	"istio.io/istio/pkg/test/framework/components/istio/ingress"
 	"istio.io/istio/pkg/test/framework/components/istioctl"
@@ -75,8 +75,10 @@ type operatorComponent struct {
 	// installManifest includes the yamls use to install Istio. These can be deleted on cleanup
 	// The key is the cluster name
 	installManifest map[string][]string
-	ingress         map[resource.ClusterIndex]map[string]ingress.Instance
-	workDir         string
+	// ingress components, indexed first by cluster name and then by gateway name.
+	ingress    map[string]map[string]ingress.Instance
+	workDir    string
+	deployTime time.Duration
 }
 
 var _ io.Closer = &operatorComponent{}
@@ -118,12 +120,6 @@ func removeCRDs(istioYaml string) string {
 	return yml.JoinString(nonCrds...)
 }
 
-var leaderElectionConfigMaps = []string{
-	leaderelection.IngressController,
-	leaderelection.NamespaceController,
-	leaderelection.ValidationController,
-}
-
 type istioctlConfigFiles struct {
 	iopFile            string
 	operatorSpec       *opAPI.IstioOperatorSpec
@@ -140,26 +136,49 @@ func (i *operatorComponent) IngressFor(cluster resource.Cluster) ingress.Instanc
 func (i *operatorComponent) CustomIngressFor(cluster resource.Cluster, serviceName, istioLabel string) ingress.Instance {
 	i.mu.Lock()
 	defer i.mu.Unlock()
-	if i.ingress[cluster.Index()] == nil {
-		i.ingress[cluster.Index()] = map[string]ingress.Instance{}
+	if i.ingress[cluster.Name()] == nil {
+		i.ingress[cluster.Name()] = map[string]ingress.Instance{}
 	}
-	if _, ok := i.ingress[cluster.Index()][istioLabel]; !ok {
-		i.ingress[cluster.Index()][istioLabel] = newIngress(i.ctx, ingressConfig{
+	if _, ok := i.ingress[cluster.Name()][istioLabel]; !ok {
+		i.ingress[cluster.Name()][istioLabel] = newIngress(i.ctx, ingressConfig{
 			Namespace:   i.settings.IngressNamespace,
 			Cluster:     cluster,
 			ServiceName: serviceName,
 			IstioLabel:  istioLabel,
 		})
 	}
-	return i.ingress[cluster.Index()][istioLabel]
+	return i.ingress[cluster.Name()][istioLabel]
+}
+
+func appendToFile(contents string, file string) error {
+	f, err := os.OpenFile(file, os.O_APPEND|os.O_WRONLY|os.O_CREATE, 0600)
+	if err != nil {
+		return err
+	}
+
+	defer f.Close()
+
+	if _, err = f.WriteString(contents); err != nil {
+		return err
+	}
+	return nil
 }
 
 func (i *operatorComponent) Close() error {
 	t0 := time.Now()
 	scopes.Framework.Infof("=== BEGIN: Cleanup Istio [Suite=%s] ===", i.ctx.Settings().TestID)
+
+	// Write time spent for cleanup and deploy to ARTIFACTS/trace.yaml and logs to allow analyzing test times
 	defer func() {
-		scopes.Framework.Infof("=== DONE: Cleanup Istio in %v [Suite=%s] ===", time.Since(t0), i.ctx.Settings().TestID)
+		delta := time.Since(t0)
+		y := fmt.Sprintf(`'suite/%s':
+  istio-deploy: %f
+  istio-cleanup: %f
+`, i.ctx.Settings().TestID, i.deployTime.Seconds(), delta.Seconds())
+		_ = appendToFile(y, filepath.Join(i.ctx.Settings().BaseDir, "trace.yaml"))
+		scopes.Framework.Infof("=== SUCCEEDED: Cleanup Istio in %v [Suite=%s] ===", delta, i.ctx.Settings().TestID)
 	}()
+
 	if i.settings.DeployIstio {
 		errG := multierror.Group{}
 		for _, cluster := range i.ctx.Clusters() {
@@ -168,27 +187,22 @@ func (i *operatorComponent) Close() error {
 				if e := i.ctx.Config(cluster).DeleteYAML("", removeCRDsSlice(i.installManifest[cluster.Name()])); e != nil {
 					err = multierror.Append(err, e)
 				}
-				// Clean up dynamic leader election locks. This allows new test suites to become the leader without waiting 30s
-				for _, cm := range leaderElectionConfigMaps {
-					if e := cluster.CoreV1().ConfigMaps(i.settings.SystemNamespace).Delete(context.TODO(), cm,
-						kubeApiMeta.DeleteOptions{}); e != nil {
-						err = multierror.Append(err, e)
-					}
+				// Cleanup all secrets and configmaps - these are dynamically created by tests and/or istiod so they are not captured above
+				// This includes things like leader election locks (allowing next test to start without 30s delay),
+				// custom cacerts, custom kubeconfigs, etc.
+				// We avoid deleting the whole namespace since its extremely slow in Kubernetes (30-60s+)
+				if e := cluster.CoreV1().Secrets(i.settings.SystemNamespace).DeleteCollection(
+					context.Background(), kubeApiMeta.DeleteOptions{}, kubeApiMeta.ListOptions{}); e != nil {
+					err = multierror.Append(err, e)
 				}
-				if i.environment.IsMulticluster() {
-					// in multicluster mode we simply delete the namespace
-					if e := cluster.CoreV1().Namespaces().Delete(context.TODO(), i.settings.SystemNamespace,
-						kube2.DeleteOptionsForeground()); e != nil {
-						err = multierror.Append(err, e)
-					}
-					if e := kube2.WaitForNamespaceDeletion(cluster, i.settings.SystemNamespace, retry.Timeout(time.Minute)); e != nil {
-						err = multierror.Append(err, e)
-					}
+				if e := cluster.CoreV1().ConfigMaps(i.settings.SystemNamespace).DeleteCollection(
+					context.Background(), kubeApiMeta.DeleteOptions{}, kubeApiMeta.ListOptions{}); e != nil {
+					err = multierror.Append(err, e)
 				}
 				return
 			})
 		}
-		return errG.Wait()
+		return errG.Wait().ErrorOrNil()
 	}
 	return nil
 }
@@ -202,6 +216,9 @@ func (i *operatorComponent) Dump(ctx resource.Context) {
 		return
 	}
 	kube2.DumpPods(ctx, d, ns)
+	for _, cluster := range ctx.Clusters() {
+		kube2.DumpDebug(cluster, d, "configz")
+	}
 }
 
 // saveManifestForCleanup will ensure we delete the given yaml from the given cluster during cleanup.
@@ -221,8 +238,12 @@ func deploy(ctx resource.Context, env *kube.Environment, cfg Config) (Instance, 
 		settings:        cfg,
 		ctx:             ctx,
 		installManifest: map[string][]string{},
-		ingress:         map[resource.ClusterIndex]map[string]ingress.Instance{},
+		ingress:         map[string]map[string]ingress.Instance{},
 	}
+	t0 := time.Now()
+	defer func() {
+		i.deployTime = time.Since(t0)
+	}()
 	i.id = ctx.TrackResource(i)
 
 	if !cfg.DeployIstio {
@@ -237,7 +258,7 @@ func deploy(ctx resource.Context, env *kube.Environment, cfg Config) (Instance, 
 	}
 	i.workDir = workDir
 
-	//generate istioctl config files for config, control plane(primary) and remote clusters
+	// generate istioctl config files for config, control plane(primary) and remote clusters
 	istioctlConfigFiles, err := createIstioctlConfigFile(workDir, cfg)
 	if err != nil {
 		return nil, err
@@ -445,7 +466,8 @@ func installRemoteConfigCluster(i *operatorComponent, cfg Config, cluster resour
 // installControlPlaneCluster installs the istiod control plane to the given cluster.
 // The cluster is considered a "primary" cluster if it is also a "config cluster", in which case components
 // like ingress will be installed.
-func installControlPlaneCluster(i *operatorComponent, cfg Config, cluster resource.Cluster, iopFile string, spec *opAPI.IstioOperatorSpec) error {
+func installControlPlaneCluster(i *operatorComponent, cfg Config, cluster resource.Cluster, iopFile string,
+	spec *opAPI.IstioOperatorSpec) error {
 	scopes.Framework.Infof("setting up %s as control-plane cluster", cluster.Name())
 
 	if !cluster.IsConfig() {
@@ -492,6 +514,12 @@ func installControlPlaneCluster(i *operatorComponent, cfg Config, cluster resour
 	}
 
 	if cluster.IsConfig() {
+		// there are a few tests that require special gateway setup which will cause eastwest gateway fail to start
+		// exclude these tests from installing eastwest gw for now
+		if !cfg.DeployEastWestGW {
+			return nil
+		}
+
 		if err := i.deployEastWestGateway(cluster, spec.Revision); err != nil {
 			return err
 		}
@@ -609,7 +637,7 @@ func install(c *operatorComponent, installSettings []string, istioCtl istioctl.I
 		"--skip-confirmation",
 	}
 	cmd = append(cmd, installSettings...)
-	scopes.Framework.Infof("Running istio control plane on cluster %s %v", clusterName, cmd)
+	scopes.Framework.Infof("Installing Istio components on cluster %s %v", clusterName, cmd)
 	if _, _, err := istioCtl.Invoke(cmd); err != nil {
 		return fmt.Errorf("install failed: %v", err)
 	}
@@ -712,7 +740,7 @@ func deployCACerts(workDir string, env *kube.Environment, cfg Config) error {
 		// Create the system namespace.
 		var nsLabels map[string]string
 		if env.IsMultinetwork() {
-			nsLabels = map[string]string{label.IstioNetwork: cluster.NetworkName()}
+			nsLabels = map[string]string{label.TopologyNetwork.Name: cluster.NetworkName()}
 		}
 		if _, err := cluster.CoreV1().Namespaces().Create(context.TODO(), &kubeApiCore.Namespace{
 			ObjectMeta: kubeApiMeta.ObjectMeta{
@@ -720,15 +748,35 @@ func deployCACerts(workDir string, env *kube.Environment, cfg Config) error {
 				Name:   cfg.SystemNamespace,
 			},
 		}, kubeApiMeta.CreateOptions{}); err != nil {
-			scopes.Framework.Infof("failed creating namespace %s on cluster %s. This can happen when deploying "+
-				"multiple control planes. Error: %v", cfg.SystemNamespace, cluster.Name(), err)
+			if errors.IsAlreadyExists(err) {
+				if _, err := cluster.CoreV1().Namespaces().Update(context.TODO(), &kubeApiCore.Namespace{
+					ObjectMeta: kubeApiMeta.ObjectMeta{
+						Labels: nsLabels,
+						Name:   cfg.SystemNamespace,
+					},
+				}, kubeApiMeta.UpdateOptions{}); err != nil {
+					scopes.Framework.Errorf("failed updating namespace %s on cluster %s. This can happen when deploying "+
+						"multiple control planes. Error: %v", cfg.SystemNamespace, cluster.Name(), err)
+				}
+			} else {
+				scopes.Framework.Errorf("failed creating namespace %s on cluster %s. This can happen when deploying "+
+					"multiple control planes. Error: %v", cfg.SystemNamespace, cluster.Name(), err)
+			}
 		}
 
 		// Create the secret for the cacerts.
 		if _, err := cluster.CoreV1().Secrets(cfg.SystemNamespace).Create(context.TODO(), secret,
 			kubeApiMeta.CreateOptions{}); err != nil {
-			scopes.Framework.Infof("failed to create CA secrets on cluster %s. This can happen when deploying "+
-				"multiple control planes. Error: %v", cluster.Name(), err)
+			if errors.IsAlreadyExists(err) {
+				if _, err := cluster.CoreV1().Secrets(cfg.SystemNamespace).Update(context.TODO(), secret,
+					kubeApiMeta.UpdateOptions{}); err != nil {
+					scopes.Framework.Errorf("failed to create CA secrets on cluster %s. This can happen when deploying "+
+						"multiple control planes. Error: %v", cluster.Name(), err)
+				}
+			} else {
+				scopes.Framework.Errorf("failed to create CA secrets on cluster %s. This can happen when deploying "+
+					"multiple control planes. Error: %v", cluster.Name(), err)
+			}
 		}
 	}
 	return nil
@@ -816,15 +864,15 @@ func configureDiscoveryForConfigAndRemoteCluster(discoveryAddress string, cfg Co
 // in its remote config cluster by creating the kubeconfig secret pointing to the remote kubeconfig, and the
 // service account required to read the secret.
 func (i *operatorComponent) configureRemoteConfigForControlPlane(cluster resource.Cluster) error {
-	env, cfg := i.environment, i.settings
+	cfg := i.settings
 	configCluster := cluster.Config()
-	istioKubeConfig, err := file.AsString(env.Settings().KubeConfig[configCluster.Index()])
+	istioKubeConfig, err := file.AsString(configCluster.(*kubecluster.Cluster).Filename())
 	if err != nil {
 		scopes.Framework.Infof("error in parsing kubeconfig for %s", configCluster.Name())
 		return err
 	}
 
-	scopes.Framework.Infof("configuring external control plane %s to use config cluster in %s", cluster.Name())
+	scopes.Framework.Infof("configuring external control plane to use config cluster in %s", cluster.Name())
 	// ensure system namespace exists
 	_, err = cluster.CoreV1().Namespaces().
 		Create(context.TODO(), &kubeApiCore.Namespace{

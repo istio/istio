@@ -1,5 +1,3 @@
-// +build !race
-
 // Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -77,7 +75,6 @@ func verifyControllers(t *testing.T, m *Multicluster, expectedControllerCount in
 	})
 }
 
-// This test is skipped by the build tag !race due to https://github.com/istio/istio/issues/15610
 func Test_KubeSecretController(t *testing.T) {
 	secretcontroller.BuildClientsFromConfig = func(kubeConfig []byte) (kube.Client, error) {
 		return kube.NewFakeClient(), nil
@@ -87,24 +84,23 @@ func Test_KubeSecretController(t *testing.T) {
 	t.Cleanup(func() {
 		close(stop)
 	})
-	mc, err := NewMulticluster(clientset,
+	mc := NewMulticluster(
+		"pilot-abc-123",
+		clientset,
 		testSecretNameSpace,
 		Options{
 			WatchedNamespaces: WatchedNamespaces,
 			DomainSuffix:      DomainSuffix,
 			ResyncPeriod:      ResyncPeriod,
 			SyncInterval:      time.Microsecond,
-		},
-		mockserviceController, nil, nil)
-	if err != nil {
-		t.Fatalf("error creating Multicluster object and startign secret controller: %v", err)
-	}
+		}, mockserviceController, nil, "", "default", nil, nil)
+	mc.InitSecretController(stop)
 	cache.WaitForCacheSync(stop, mc.HasSynced)
 	clientset.RunAndWait(stop)
 
 	// Create the multicluster secret. Sleep to allow created remote
 	// controller to start and callback add function to be called.
-	err = createMultiClusterSecret(clientset)
+	err := createMultiClusterSecret(clientset)
 	if err != nil {
 		t.Fatalf("Unexpected error on secret create: %v", err)
 	}

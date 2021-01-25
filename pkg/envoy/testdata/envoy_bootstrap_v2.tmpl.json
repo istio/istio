@@ -19,15 +19,21 @@
         "type": "STATIC",
         "connect_timeout": "0.250s",
         "lb_policy": "ROUND_ROBIN",
-        "hosts": [
-          {
-            "socket_address": {
-              "protocol": "TCP",
-              "address": "{{ .localhost }}",
-              "port_value": {{ .adminPort }}
-            }
-          }
-        ]
+        "load_assignment": {
+          "cluster_name": "prometheus_stats",
+          "endpoints": [{
+            "lb_endpoints": [{
+              "endpoint": {
+                "address":{
+                  "socket_address": {
+                    "address": "{{ .localhost }}",
+                    "port_value":  {{ .adminPort }}
+                  }
+                }
+              }
+            }]
+          }]
+        }
       }
     ],
     "listeners":[
@@ -43,8 +49,9 @@
           {
             "filters": [
               {
-                "name": "envoy.http_connection_manager",
-                "config": {
+                "name": "envoy.filters.network.http_connection_manager",
+                "typed_config": {
+                  "@type": "type.googleapis.com/envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager",
                   "codec_type": "AUTO",
                   "stat_prefix": "stats",
                   "route_config": {
@@ -67,9 +74,9 @@
                       }
                     ]
                   },
-                  "http_filters": {
-                    "name": "envoy.router"
-                  }
+                  "http_filters": [{
+                    "name": "envoy.filters.http.router"
+                  }]
                 }
               }
             ]

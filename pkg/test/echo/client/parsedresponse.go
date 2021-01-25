@@ -38,6 +38,7 @@ var (
 	responseHeaderFieldRegex = regexp.MustCompile(string(response.ResponseHeader) + "=(.*)")
 	URLFieldRegex            = regexp.MustCompile(string(response.URLField) + "=(.*)")
 	ClusterFieldRegex        = regexp.MustCompile(string(response.ClusterField) + "=(.*)")
+	IPFieldRegex             = regexp.MustCompile(string(response.IPField) + "=(.*)")
 )
 
 // ParsedResponse represents a response to a single echo request.
@@ -60,6 +61,8 @@ type ParsedResponse struct {
 	Hostname string
 	// The cluster where the server is deployed.
 	Cluster string
+	// IP is the requester's ip address
+	IP string
 	// RawResponse gives a map of all values returned in the response (headers, etc)
 	RawResponse map[string]string
 }
@@ -85,6 +88,7 @@ func (r *ParsedResponse) String() string {
 	out += fmt.Sprintf("Host:     %s\n", r.Host)
 	out += fmt.Sprintf("Hostname: %s\n", r.Hostname)
 	out += fmt.Sprintf("Cluster:  %s\n", r.Cluster)
+	out += fmt.Sprintf("IP:       %s\n", r.IP)
 
 	return out
 }
@@ -239,6 +243,15 @@ func almostEquals(a, b, precision int) bool {
 	return true
 }
 
+func (r ParsedResponses) CheckKey(key, expected string) error {
+	return r.Check(func(i int, response *ParsedResponse) error {
+		if response.RawResponse[key] != expected {
+			return fmt.Errorf("response[%d] %s: expected %s, received %s", i, key, expected, response.RawResponse[key])
+		}
+		return nil
+	})
+}
+
 func (r ParsedResponses) CheckCluster(expected string) error {
 	return r.Check(func(i int, response *ParsedResponse) error {
 		if response.Cluster != expected {
@@ -251,6 +264,23 @@ func (r ParsedResponses) CheckCluster(expected string) error {
 func (r ParsedResponses) CheckClusterOrFail(t test.Failer, expected string) ParsedResponses {
 	t.Helper()
 	if err := r.CheckCluster(expected); err != nil {
+		t.Fatal(err)
+	}
+	return r
+}
+
+func (r ParsedResponses) CheckIP(expected string) error {
+	return r.Check(func(i int, response *ParsedResponse) error {
+		if response.IP != expected {
+			return fmt.Errorf("response[%d] IP: expected %s, received %s", i, expected, response.IP)
+		}
+		return nil
+	})
+}
+
+func (r ParsedResponses) CheckIPOrFail(t test.Failer, expected string) ParsedResponses {
+	t.Helper()
+	if err := r.CheckIP(expected); err != nil {
 		t.Fatal(err)
 	}
 	return r
@@ -337,11 +367,16 @@ func parseResponse(output string) *ParsedResponse {
 		out.Cluster = match[1]
 	}
 
+	match = IPFieldRegex.FindStringSubmatch(output)
+	if match != nil {
+		out.IP = match[1]
+	}
+
 	out.RawResponse = map[string]string{}
 
 	matches := responseHeaderFieldRegex.FindAllStringSubmatch(output, -1)
 	for _, kv := range matches {
-		sl := strings.Split(kv[1], ":")
+		sl := strings.SplitN(kv[1], ":", 2)
 		if len(sl) != 2 {
 			continue
 		}

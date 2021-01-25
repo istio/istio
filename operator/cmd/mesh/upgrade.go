@@ -155,7 +155,7 @@ func upgrade(rootArgs *rootArgs, args *upgradeArgs, l clog.Logger) (err error) {
 	}
 
 	// Get Istio control plane namespace
-	//TODO(elfinhe): support components distributed in multiple namespaces
+	// TODO(elfinhe): support components distributed in multiple namespaces
 	istioNamespace := targetIOP.Namespace
 
 	// Read the current Istio version from the the cluster
@@ -209,8 +209,7 @@ func upgrade(rootArgs *rootArgs, args *upgradeArgs, l clog.Logger) (err error) {
 	waitForConfirmation(args.skipConfirmation && !rootArgs.dryRun, l)
 
 	// Apply the Istio Control Plane specs reading from inFilenames to the cluster
-	iop, err := InstallManifests(applyFlagAliases(args.set, args.manifestsPath, ""), args.inFilenames, args.force, rootArgs.dryRun,
-		args.kubeConfigPath, args.context, args.readinessTimeout, l)
+	iop, err := InstallManifests(targetIOP, args.force, rootArgs.dryRun, args.kubeConfigPath, args.context, args.readinessTimeout, l)
 	if err != nil {
 		return fmt.Errorf("failed to apply the Istio Control Plane specs. Error: %v", err)
 	}
@@ -279,9 +278,16 @@ func waitForConfirmation(skipConfirmation bool, l clog.Logger) {
 	}
 }
 
-var SupportedIstioVersions, _ = goversion.NewConstraint(">=1.6.0, <1.9")
+var upgradeSupportStart, _ = goversion.NewVersion("1.6.0")
 
 func checkSupportedVersions(kubeClient *Client, currentVersion, targetVersion string, l clog.Logger) error {
+	if err := verifySupportedVersion(currentVersion, targetVersion, l); err != nil {
+		return err
+	}
+	return kubeClient.CheckUnsupportedAlphaSecurityCRD()
+}
+
+func verifySupportedVersion(currentVersion, targetVersion string, l clog.Logger) error {
 	curGoVersion, err := goversion.NewVersion(currentVersion)
 	if err != nil {
 		return fmt.Errorf("failed to parse the current version %q: %v", currentVersion, err)
@@ -290,8 +296,8 @@ func checkSupportedVersions(kubeClient *Client, currentVersion, targetVersion st
 	if err != nil {
 		return fmt.Errorf("failed to parse the target version %q: %v", targetVersion, err)
 	}
-	if !SupportedIstioVersions.Check(curGoVersion) {
-		return fmt.Errorf("upgrade is currently not supported from version: %v", currentVersion)
+	if upgradeSupportStart.Segments()[1] > curGoVersion.Segments()[1] {
+		return fmt.Errorf("upgrade is not supported before version: %v", upgradeSupportStart)
 	}
 	// Warn if user is trying skip one minor verion eg: 1.6.x to 1.8.x
 	if (targetGoVersion.Segments()[1] - curGoVersion.Segments()[1]) > 1 {
@@ -299,8 +305,7 @@ func checkSupportedVersions(kubeClient *Client, currentVersion, targetVersion st
 		l.LogAndPrintf("Upgrading across more than one minor version (e.g., %v to %v)"+
 			" in one step is not officially tested or recommended.\n", curGoVersion, targetGoVersion)
 	}
-
-	return kubeClient.CheckUnsupportedAlphaSecurityCRD()
+	return nil
 }
 
 // retrieveControlPlaneVersion retrieves the version number from the Istio control plane
@@ -441,7 +446,8 @@ func (client *Client) GetIstioVersions(namespace string) ([]ComponentVersion, er
 	var errs util.Errors
 	var res []ComponentVersion
 	for _, pod := range pods.Items {
-		component := pod.Labels["istio"]
+		// label for components app: istiod, istio-ingressgateway, istio-egressgateway
+		component := pod.Labels["app"]
 
 		switch component {
 		case "statsd-prom-bridge":

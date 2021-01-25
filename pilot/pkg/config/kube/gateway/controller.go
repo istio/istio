@@ -54,7 +54,7 @@ func (c *controller) Schemas() collection.Schemas {
 }
 
 func (c controller) Get(typ config.GroupVersionKind, name, namespace string) *config.Config {
-	panic("get is not supported")
+	return nil
 }
 
 func (c controller) List(typ config.GroupVersionKind, namespace string) ([]config.Config, error) {
@@ -145,11 +145,11 @@ func (c controller) UpdateStatus(config config.Config) (newRevision string, err 
 	return "", errUnsupportedOp
 }
 
-func (c controller) Patch(typ config.GroupVersionKind, name, namespace string, patchFn config.PatchFunc) (string, error) {
+func (c controller) Patch(orig config.Config, patchFn config.PatchFunc) (string, error) {
 	return "", errUnsupportedOp
 }
 
-func (c controller) Delete(typ config.GroupVersionKind, name, namespace string) error {
+func (c controller) Delete(typ config.GroupVersionKind, name, namespace string, _ *string) error {
 	return errUnsupportedOp
 }
 

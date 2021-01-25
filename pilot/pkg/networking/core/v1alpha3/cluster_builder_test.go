@@ -114,6 +114,34 @@ func TestApplyDestinationRule(t *testing.T) {
 			},
 		},
 		{
+			name:        "destination rule with pass through subsets",
+			cluster:     &cluster.Cluster{Name: "foo", ClusterDiscoveryType: &cluster.Cluster_Type{Type: cluster.Cluster_STATIC}},
+			clusterMode: DefaultClusterMode,
+			service:     service,
+			port:        servicePort[0],
+			networkView: map[string]bool{},
+			destRule: &networking.DestinationRule{
+				Host: "foo.default.svc.cluster.local",
+				Subsets: []*networking.Subset{
+					{
+						Name:   "foobar",
+						Labels: map[string]string{"foo": "bar"},
+						TrafficPolicy: &networking.TrafficPolicy{
+							LoadBalancer: &networking.LoadBalancerSettings{
+								LbPolicy: &networking.LoadBalancerSettings_Simple{Simple: networking.LoadBalancerSettings_PASSTHROUGH},
+							},
+						},
+					},
+				},
+			},
+			expectedSubsetClusters: []*cluster.Cluster{
+				{
+					Name:                 "outbound|8080|foobar|foo.default.svc.cluster.local",
+					ClusterDiscoveryType: &cluster.Cluster_Type{Type: cluster.Cluster_ORIGINAL_DST},
+				},
+			},
+		},
+		{
 			name:        "destination rule with subsets for SniDnat cluster",
 			cluster:     &cluster.Cluster{Name: "foo", ClusterDiscoveryType: &cluster.Cluster_Type{Type: cluster.Cluster_EDS}},
 			clusterMode: SniDnatClusterMode,
@@ -204,6 +232,8 @@ func TestApplyDestinationRule(t *testing.T) {
 	}
 
 	for _, tt := range cases {
+		// TODO(https://github.com/istio/istio/issues/29735) remove nolint
+		// nolint: staticcheck
 		t.Run(tt.name, func(t *testing.T) {
 			instances := []*model.ServiceInstance{
 				{
@@ -253,6 +283,13 @@ func TestApplyDestinationRule(t *testing.T) {
 				}
 				if tt.cluster.Http2ProtocolOptions == nil {
 					t.Errorf("Expected cluster to have http2 protocol options but they are absent")
+				}
+			}
+
+			// Validate that ORIGINAL_DST cluster does not have load assignments
+			for _, subset := range subsetClusters {
+				if subset.GetType() == cluster.Cluster_ORIGINAL_DST && subset.GetLoadAssignment() != nil {
+					t.Errorf("Passthrough subsets should not have load assignments")
 				}
 			}
 		})
@@ -612,7 +649,7 @@ func TestBuildDefaultCluster(t *testing.T) {
 				ClusterDiscoveryType: &cluster.Cluster_Type{Type: cluster.Cluster_EDS},
 				ConnectTimeout:       &duration.Duration{Seconds: 10, Nanos: 1},
 				CircuitBreakers: &cluster.CircuitBreakers{
-					Thresholds: []*cluster.CircuitBreakers_Thresholds{&defaultCircuitBreakerThresholds},
+					Thresholds: []*cluster.CircuitBreakers_Thresholds{getDefaultCircuitBreakerThresholds()},
 				},
 				Metadata: &core.Metadata{
 					FilterMetadata: map[string]*structpb.Struct{
@@ -707,7 +744,7 @@ func TestBuildDefaultCluster(t *testing.T) {
 					},
 				},
 				CircuitBreakers: &cluster.CircuitBreakers{
-					Thresholds: []*cluster.CircuitBreakers_Thresholds{&defaultCircuitBreakerThresholds},
+					Thresholds: []*cluster.CircuitBreakers_Thresholds{getDefaultCircuitBreakerThresholds()},
 				},
 				Metadata: &core.Metadata{
 					FilterMetadata: map[string]*structpb.Struct{
@@ -748,12 +785,10 @@ func TestBuildDefaultCluster(t *testing.T) {
 			cg := NewConfigGenTest(t, TestOptions{MeshConfig: &testMesh})
 			cb := NewClusterBuilder(cg.SetupProxy(nil), cg.PushContext())
 
-			defaultCluster := cb.buildDefaultCluster(tt.clusterName, tt.discovery,
-				tt.endpoints, tt.direction, servicePort,
-				&model.Service{Ports: model.PortList{
-					servicePort,
-				},
-					Hostname: "host", MeshExternal: false, Attributes: model.ServiceAttributes{Name: "svc", Namespace: "default"}})
+			defaultCluster := cb.buildDefaultCluster(tt.clusterName, tt.discovery, tt.endpoints, tt.direction, servicePort, &model.Service{Ports: model.PortList{
+				servicePort,
+			},
+				Hostname: "host", MeshExternal: false, Attributes: model.ServiceAttributes{Name: "svc", Namespace: "default"}}, nil)
 
 			if diff := cmp.Diff(defaultCluster, tt.expectedCluster, protocmp.Transform()); diff != "" {
 				t.Errorf("Unexpected default cluster, diff: %v", diff)

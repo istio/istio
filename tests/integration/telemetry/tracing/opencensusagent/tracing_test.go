@@ -30,10 +30,6 @@ import (
 	"istio.io/istio/tests/integration/telemetry/tracing"
 )
 
-var (
-	otelInst opentelemetry.Instance
-)
-
 // TestProxyTracing exercises the trace generation features of Istio, based on
 // the Envoy Trace driver for OpenCensusAgent. This test creates an
 // OpenTelemetry collector and a zipkin instance. Spans are forwarded from the
@@ -44,30 +40,27 @@ func TestProxyTracing(t *testing.T) {
 		Features("observability.telemetry.tracing.server").
 		Run(func(ctx framework.TestContext) {
 			appNsInst := tracing.GetAppNamespace()
-			for _, cl := range ctx.Clusters() {
-				clName := cl.Name()
-				if clName == "cluster-3" || clName == "cluster-4" {
-					// TODO: Skipping cluster-3 and cluster-4 as per https://github.com/istio/istio/issues/28890
-					continue
-				}
-				retry.UntilSuccessOrFail(t, func() error {
+			// TODO fix tracing tests in multi-network https://github.com/istio/istio/issues/28890
+			for _, cluster := range ctx.Clusters().ByNetwork()[ctx.Clusters().Default().NetworkName()] {
+				cluster := cluster
+				ctx.NewSubTest(cluster.Name()).Run(func(ctx framework.TestContext) {
+					retry.UntilSuccessOrFail(t, func() error {
+						err := tracing.SendTraffic(ctx, nil, cluster)
+						if err != nil {
+							return fmt.Errorf("cannot send traffic from cluster %s: %v", cluster.Name(), err)
+						}
 
-					t.Logf("Verifying for cluster %s", clName)
-					err := tracing.SendTraffic(t, nil, cl)
-					if err != nil {
-						return fmt.Errorf("cannot send traffic from cluster %s: %v", clName, err)
-					}
-
-					traces, err := tracing.GetZipkinInstance().QueryTraces(300,
-						fmt.Sprintf("server.%s.svc.cluster.local:80/*", appNsInst.Name()), "")
-					if err != nil {
-						return fmt.Errorf("cannot get traces from zipkin: %v", err)
-					}
-					if !tracing.VerifyEchoTraces(t, appNsInst.Name(), clName, traces) {
-						return errors.New("cannot find expected traces")
-					}
-					return nil
-				}, retry.Delay(3*time.Second), retry.Timeout(80*time.Second))
+						traces, err := tracing.GetZipkinInstance().QueryTraces(300,
+							fmt.Sprintf("server.%s.svc.cluster.local:80/*", appNsInst.Name()), "")
+						if err != nil {
+							return fmt.Errorf("cannot get traces from zipkin: %v", err)
+						}
+						if !tracing.VerifyEchoTraces(ctx, appNsInst.Name(), cluster.Name(), traces) {
+							return errors.New("cannot find expected traces")
+						}
+						return nil
+					}, retry.Delay(3*time.Second), retry.Timeout(80*time.Second))
+				})
 			}
 		})
 }
@@ -99,6 +92,6 @@ meshConfig:
 }
 
 func testSetup(ctx resource.Context) (err error) {
-	otelInst, err = opentelemetry.New(ctx, opentelemetry.Config{IngressAddr: tracing.GetIngressInstance().HTTPAddress()})
+	_, err = opentelemetry.New(ctx, opentelemetry.Config{IngressAddr: tracing.GetIngressInstance().HTTPAddress()})
 	return
 }

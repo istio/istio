@@ -37,10 +37,54 @@ webhooks:
       namespace: istio-control
       path: /inject
   failurePolicy: Fail
-  name: sidecar-injector.istio.io
+  name: namespace.sidecar-injector.istio.io
   namespaceSelector:
-    matchLabels:
-      istio-injection: enabled
+    matchExpressions:
+    - key: istio-injection
+      operator: In
+      values:
+      - enabled
+  objectSelector:
+    matchExpressions:
+    - key: sidecar.istio.io/inject
+      operator: NotIn
+      values:
+      - "false"
+  rules:
+  - apiGroups:
+    - ""
+    apiVersions:
+    - v1
+    operations:
+    - CREATE
+    resources:
+    - pods
+  sideEffects: None
+- admissionReviewVersions:
+  - v1beta1
+  - v1
+  clientConfig:
+    caBundle: ""
+    service:
+      name: istiod
+      namespace: istio-control
+      path: /inject
+  failurePolicy: Fail
+  name: object.sidecar-injector.istio.io
+  namespaceSelector:
+    matchExpressions:
+    - key: istio-injection
+      operator: DoesNotExist
+    - key: istio.io/rev
+      operator: DoesNotExist
+  objectSelector:
+    matchExpressions:
+    - key: sidecar.istio.io/inject
+      operator: In
+      values:
+      - "true"
+    - key: istio.io/rev
+      operator: DoesNotExist
   rules:
   - apiGroups:
     - ""
@@ -86,6 +130,7 @@ spec:
         istio: pilot
         istio.io/rev: default
         operator.istio.io/component: Pilot
+        sidecar.istio.io/inject: "false"
     spec:
       containers:
       - args:
@@ -124,8 +169,6 @@ spec:
           value: "true"
         - name: PILOT_ENABLE_PROTOCOL_SNIFFING_FOR_INBOUND
           value: "true"
-        - name: INJECTION_WEBHOOK_CONFIG_NAME
-          value: istio-sidecar-injector-istio-control
         - name: ISTIOD_ADDR
           value: istiod.istio-control.svc:15012
         - name: PILOT_ENABLE_ANALYSIS
@@ -133,8 +176,6 @@ spec:
         - name: CLUSTER_ID
           value: Kubernetes
         - name: EXTERNAL_ISTIOD
-          value: "false"
-        - name: CENTRAL_ISTIOD
           value: "false"
         image: docker.io/istio/pilot:1.1.4
         name: discovery
@@ -144,8 +185,6 @@ spec:
         - containerPort: 15010
           protocol: TCP
         - containerPort: 15017
-          protocol: TCP
-        - containerPort: 15053
           protocol: TCP
         readinessProbe:
           httpGet:

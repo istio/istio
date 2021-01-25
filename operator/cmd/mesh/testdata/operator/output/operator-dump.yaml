@@ -1,0 +1,268 @@
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  creationTimestamp: null
+  name: istio-operator
+rules:
+# istio groups
+- apiGroups:
+  - authentication.istio.io
+  resources:
+  - '*'
+  verbs:
+  - '*'
+- apiGroups:
+  - config.istio.io
+  resources:
+  - '*'
+  verbs:
+  - '*'
+- apiGroups:
+  - install.istio.io
+  resources:
+  - '*'
+  verbs:
+  - '*'
+- apiGroups:
+  - networking.istio.io
+  resources:
+  - '*'
+  verbs:
+  - '*'
+- apiGroups:
+  - security.istio.io
+  resources:
+  - '*'
+  verbs:
+  - '*'
+# k8s groups
+- apiGroups:
+  - admissionregistration.k8s.io
+  resources:
+  - mutatingwebhookconfigurations
+  - validatingwebhookconfigurations
+  verbs:
+  - '*'
+- apiGroups:
+  - apiextensions.k8s.io
+  resources:
+  - customresourcedefinitions.apiextensions.k8s.io
+  - customresourcedefinitions
+  verbs:
+  - '*'
+- apiGroups:
+  - apps
+  - extensions
+  resources:
+  - daemonsets
+  - deployments
+  - deployments/finalizers
+  - ingresses
+  - replicasets
+  - statefulsets
+  verbs:
+  - '*'
+- apiGroups:
+  - autoscaling
+  resources:
+  - horizontalpodautoscalers
+  verbs:
+  - '*'
+- apiGroups:
+  - monitoring.coreos.com
+  resources:
+  - servicemonitors
+  verbs:
+  - get
+  - create
+  - update
+- apiGroups:
+  - policy
+  resources:
+  - poddisruptionbudgets
+  verbs:
+  - '*'
+- apiGroups:
+  - rbac.authorization.k8s.io
+  resources:
+  - clusterrolebindings
+  - clusterroles
+  - roles
+  - rolebindings
+  verbs:
+  - '*'
+- apiGroups:
+  - coordination.k8s.io
+  resources:
+  - leases
+  verbs:
+  - get
+  - create
+  - update
+- apiGroups:
+  - ""
+  resources:
+  - configmaps
+  - endpoints
+  - events
+  - namespaces
+  - pods
+  - pods/proxy
+  - persistentvolumeclaims
+  - secrets
+  - services
+  - serviceaccounts
+  verbs:
+  - '*'
+---
+kind: ClusterRoleBinding
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: istio-operator
+subjects:
+- kind: ServiceAccount
+  name: istio-operator
+  namespace: operator-test-namespace
+roleRef:
+  kind: ClusterRole
+  name: istio-operator
+  apiGroup: rbac.authorization.k8s.io
+---
+
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  namespace: operator-test-namespace
+  name: istio-operator
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      name: istio-operator
+  template:
+    metadata:
+      labels:
+        name: istio-operator
+    spec:
+      serviceAccountName: istio-operator
+      containers:
+        - name: istio-operator
+          image: foo.io/istio/operator:1.2.3
+          command:
+          - operator
+          - server
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+              - ALL
+            privileged: false
+            readOnlyRootFilesystem: true
+            runAsGroup: 1337
+            runAsUser: 1337
+            runAsNonRoot: true
+          imagePullPolicy: IfNotPresent
+          resources:
+            limits:
+              cpu: 200m
+              memory: 256Mi
+            requests:
+              cpu: 50m
+              memory: 128Mi
+          env:
+            - name: WATCH_NAMESPACE
+              value: 
+            - name: LEADER_ELECTION_NAMESPACE
+              value: "operator-test-namespace"
+            - name: POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+            - name: OPERATOR_NAME
+              value: "operator-test-namespace"
+            - name: WAIT_FOR_RESOURCES_TIMEOUT
+              value: "300s"
+            - name: REVISION
+              value: ""
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: operator-test-namespace
+  labels:
+    istio-operator-managed: Reconcile
+    istio-injection: disabled
+---
+apiVersion: v1
+kind: Service
+metadata:
+  namespace: operator-test-namespace
+  labels:
+    name: istio-operator
+  name: istio-operator
+spec:
+  ports:
+  - name: http-metrics
+    port: 8383
+    targetPort: 8383
+    protocol: TCP
+  selector:
+    name: istio-operator
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  namespace: operator-test-namespace
+  name: istio-operator
+imagePullSecrets:
+- name: imagePullSecret1
+- name: imagePullSecret2
+---
+# SYNC WITH manifests/charts/base/files
+apiVersion: apiextensions.k8s.io/v1beta1
+kind: CustomResourceDefinition
+metadata:
+  name: istiooperators.install.istio.io
+spec:
+  group: install.istio.io
+  names:
+    kind: IstioOperator
+    plural: istiooperators
+    singular: istiooperator
+    shortNames:
+    - iop
+  scope: Namespaced
+  subresources:
+    status: {}
+  validation:
+    openAPIV3Schema:
+      properties:
+        apiVersion:
+          description: 'APIVersion defines the versioned schema of this representation
+            of an object. Servers should convert recognized schemas to the latest
+            internal value, and may reject unrecognized values.
+            More info: https://github.com/kubernetes/community/blob/master/contributors/devel/sig-architecture/api-conventions.md#resources'
+          type: string
+        kind:
+          description: 'Kind is a string value representing the REST resource this
+            object represents. Servers may infer this from the endpoint the client
+            submits requests to. Cannot be updated. In CamelCase.
+            More info: https://github.com/kubernetes/community/blob/master/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
+          type: string
+        spec:
+          description: 'Specification of the desired state of the istio control plane resource.
+            More info: https://github.com/kubernetes/community/blob/master/contributors/devel/sig-architecture/api-conventions.md#spec-and-status'
+          type: object
+        status:
+          description: 'Status describes each of istio control plane component status at the current time.
+            0 means NONE, 1 means UPDATING, 2 means HEALTHY, 3 means ERROR, 4 means RECONCILING.
+            More info: https://github.com/istio/api/blob/master/operator/v1alpha1/istio.operator.v1alpha1.pb.html &
+            https://github.com/kubernetes/community/blob/master/contributors/devel/sig-architecture/api-conventions.md#spec-and-status'
+          type: object
+  versions:
+  - name: v1alpha1
+    served: true
+    storage: true
+---

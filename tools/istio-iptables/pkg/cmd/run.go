@@ -30,7 +30,7 @@ import (
 
 type IptablesConfigurator struct {
 	iptables *builder.IptablesBuilderImpl
-	//TODO(abhide): Fix dep.Dependencies with better interface
+	// TODO(abhide): Fix dep.Dependencies with better interface
 	ext dep.Dependencies
 	cfg *config.Config
 }
@@ -132,25 +132,26 @@ func (iptConfigurator *IptablesConfigurator) handleInboundPortsInclude() {
 				iptConfigurator.cfg.InboundTProxyMark)
 			iptConfigurator.iptables.AppendRuleV4(constants.ISTIODIVERT, constants.MANGLE, "-j", constants.ACCEPT)
 			// Route all packets marked in chain ISTIODIVERT using routing table ${INBOUND_TPROXY_ROUTE_TABLE}.
-			//TODO: (abhide): Move this out of this method
+			// TODO: (abhide): Move this out of this method
 			iptConfigurator.ext.RunOrFail(
 				constants.IP, "-f", "inet", "rule", "add", "fwmark", iptConfigurator.cfg.InboundTProxyMark, "lookup",
 				iptConfigurator.cfg.InboundTProxyRouteTable)
 			// In routing table ${INBOUND_TPROXY_ROUTE_TABLE}, create a single default rule to route all traffic to
 			// the loopback interface.
-			//TODO: (abhide): Move this out of this method
+			// TODO: (abhide): Move this out of this method
 			err := iptConfigurator.ext.Run(constants.IP, "-f", "inet", "route", "add", "local", "default", "dev", "lo", "table",
 				iptConfigurator.cfg.InboundTProxyRouteTable)
 			if err != nil {
-				//TODO: (abhide): Move this out of this method
+				// TODO: (abhide): Move this out of this method
 				iptConfigurator.ext.RunOrFail(constants.IP, "route", "show", "table", "all")
 			}
+
 			// Create a new chain for redirecting inbound traffic to the common Envoy
 			// port.
 			// In the ISTIOINBOUND chain, '-j RETURN' bypasses Envoy and
 			// '-j ISTIOTPROXY' redirects to Envoy.
 			iptConfigurator.iptables.AppendRuleV4(constants.ISTIOTPROXY, constants.MANGLE, "!", "-d", "127.0.0.1/32", "-p", constants.TCP, "-j", constants.TPROXY,
-				"--tproxy-mark", iptConfigurator.cfg.InboundTProxyMark+"/0xffffffff", "--on-port", iptConfigurator.cfg.ProxyPort)
+				"--tproxy-mark", iptConfigurator.cfg.InboundTProxyMark+"/0xffffffff", "--on-port", iptConfigurator.cfg.InboundCapturePort)
 			table = constants.MANGLE
 		} else {
 			table = constants.NAT
@@ -363,14 +364,11 @@ func (iptConfigurator *IptablesConfigurator) run() {
 		panic(err)
 	}
 
-	redirectDNS := false
-	if dnsCaptureByAgent {
-		redirectDNS = true
-	}
+	redirectDNS := iptConfigurator.cfg.RedirectDNS
 	iptConfigurator.logConfig()
 
 	if iptConfigurator.cfg.EnableInboundIPv6 {
-		//TODO: (abhide): Move this out of this method
+		// TODO: (abhide): Move this out of this method
 		iptConfigurator.ext.RunOrFail(constants.IP, "-6", "addr", "add", "::6/128", "dev", "lo")
 	}
 
@@ -491,10 +489,15 @@ func (iptConfigurator *IptablesConfigurator) run() {
 	}
 
 	if iptConfigurator.cfg.InboundInterceptionMode == constants.TPROXY {
-		// mark outgoing packets from 127.0.0.1/32 with 1337, match it to policy routing entry setup for TPROXY mode
+		// save packet mark set by envoy.filters.listener.original_src as connection mark
+		iptConfigurator.iptables.AppendRuleV4(constants.PREROUTING, constants.MANGLE,
+			"-p", constants.TCP, "-m", "mark", "--mark", iptConfigurator.cfg.InboundTProxyMark, "-j", "CONNMARK", "--save-mark")
+		// mark outgoing packets from workload, match it to policy routing entry setup for TPROXY mode
 		iptConfigurator.iptables.AppendRuleV4(constants.OUTPUT, constants.MANGLE,
-			"-p", constants.TCP, "-s", "127.0.0.1/32", "!", "-d", "127.0.0.1/32",
-			"-j", constants.MARK, "--set-mark", iptConfigurator.cfg.InboundTProxyMark)
+			"-p", constants.TCP, "-m", "connmark", "--mark", iptConfigurator.cfg.InboundTProxyMark, "-j", "CONNMARK", "--restore-mark")
+		// prevent infinite redirect
+		iptConfigurator.iptables.InsertRuleV4(constants.ISTIOINBOUND, constants.MANGLE, 1,
+			"-p", constants.TCP, "-m", "mark", "--mark", iptConfigurator.cfg.InboundTProxyMark, "-j", constants.RETURN)
 	}
 	iptConfigurator.executeCommands()
 }

@@ -80,3 +80,16 @@ spec:
       protocol: HTTP
   resolution: NONE
 ---
+apiVersion: networking.istio.io/v1beta1
+kind: ServiceEntry
+metadata:
+  name: cidr
+spec:
+  addresses:
+  - 198.51.100.0/31
+  hosts:
+  - address.internal
+  ports:
+  - name: tcp
+    number: 8888
+    protocol: TCP

@@ -17,7 +17,6 @@ package bootstrap
 import (
 	"fmt"
 	"net/url"
-	"strings"
 	"time"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
@@ -29,6 +28,7 @@ import (
 	"istio.io/istio/pilot/pkg/config/kube/ingress"
 	"istio.io/istio/pilot/pkg/config/memory"
 	configmonitor "istio.io/istio/pilot/pkg/config/monitor"
+	"istio.io/istio/pilot/pkg/controller/workloadentry"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/leaderelection"
 	"istio.io/istio/pilot/pkg/model"
@@ -38,10 +38,20 @@ import (
 	"istio.io/pkg/log"
 )
 
+// URL schemes supported by the config store
+type ConfigSourceAddressScheme string
+
 const (
-	// URL types supported by the config store
+	// fs:///PATH will load local files. This replaces --configDir.
 	// example fs:///tmp/configroot
-	fsScheme = "fs"
+	// PATH can be mounted from a config map or volume
+	File ConfigSourceAddressScheme = "fs"
+	// xds://ADDRESS - load XDS-over-MCP sources
+	// example xds://127.0.0.1:49133
+	XDS ConfigSourceAddressScheme = "xds"
+	// k8s:// - load in-cluster k8s controller
+	// example k8s://
+	Kubernetes ConfigSourceAddressScheme = "k8s"
 )
 
 // initConfigController creates the config controller in the pilotConfig.
@@ -131,49 +141,37 @@ func (s *Server) initK8SConfigStore(args *PilotArgs) error {
 			return err
 		}
 	}
-	s.XDSServer.InternalGen.EnableWorkloadEntryController(configController)
+	s.RWConfigStore, err = configaggregate.MakeWriteableCache(s.ConfigStores, configController)
+	if err != nil {
+		return err
+	}
+	s.XDSServer.WorkloadEntryController = workloadentry.NewController(configController, args.PodName, args.KeepaliveOptions.MaxServerConnectionAge)
 	return nil
 }
 
 // initConfigSources will process mesh config 'configSources' and initialize
 // associated configs.
-//
-// - fs:///PATH will load local files. This replaces --configDir.
-//   PATH can be mounted from a config map or volume
-//
-// - k8s:// - load in-cluster k8s controller.
-//
-// - xds://ADDRESS - load XDS-over-MCP sources
-//
-// -
 func (s *Server) initConfigSources(args *PilotArgs) (err error) {
 	for _, configSource := range s.environment.Mesh().ConfigSources {
-		if strings.Contains(configSource.Address, fsScheme+"://") {
-			srcAddress, err := url.Parse(configSource.Address)
-			if err != nil {
-				return fmt.Errorf("invalid config URL %s %v", configSource.Address, err)
-			}
-			if srcAddress.Scheme == fsScheme {
-				if srcAddress.Path == "" {
-					return fmt.Errorf("invalid fs config URL %s, contains no file path", configSource.Address)
-				}
-				store := memory.MakeSkipValidation(collections.Pilot, false)
-				configController := memory.NewController(store)
-
-				err := s.makeFileMonitor(srcAddress.Path, args.RegistryOptions.KubeOptions.DomainSuffix, configController)
-				if err != nil {
-					return err
-				}
-				s.ConfigStores = append(s.ConfigStores, configController)
-				continue
-			}
+		srcAddress, err := url.Parse(configSource.Address)
+		if err != nil {
+			return fmt.Errorf("invalid config URL %s %v", configSource.Address, err)
 		}
-		if strings.Contains(configSource.Address, "xds://") {
-			srcAddress, err := url.Parse(configSource.Address)
-			if err != nil {
-				return fmt.Errorf("invalid XDS config URL %s %v", configSource.Address, err)
+		scheme := ConfigSourceAddressScheme(srcAddress.Scheme)
+		switch scheme {
+		case File:
+			if srcAddress.Path == "" {
+				return fmt.Errorf("invalid fs config URL %s, contains no file path", configSource.Address)
 			}
-			// TODO: use a query param or schema to specify insecure
+			store := memory.MakeSkipValidation(collections.Pilot, false)
+			configController := memory.NewController(store)
+
+			err := s.makeFileMonitor(srcAddress.Path, args.RegistryOptions.KubeOptions.DomainSuffix, configController)
+			if err != nil {
+				return err
+			}
+			s.ConfigStores = append(s.ConfigStores, configController)
+		case XDS:
 			xdsMCP, err := adsc.New(srcAddress.Host, &adsc.Config{
 				Meta: model.NodeMetadata{
 					Generator: "api",
@@ -192,13 +190,7 @@ func (s *Server) initConfigSources(args *PilotArgs) (err error) {
 			}
 			s.ConfigStores = append(s.ConfigStores, configController)
 			log.Warn("Started XDS config ", s.ConfigStores)
-			continue
-		}
-		if strings.Contains(configSource.Address, "k8s://") {
-			srcAddress, err := url.Parse(configSource.Address)
-			if err != nil {
-				return fmt.Errorf("invalid K8S config URL %s %v", configSource.Address, err)
-			}
+		case Kubernetes:
 			if srcAddress.Path == "" || srcAddress.Path == "/" {
 				err2 := s.initK8SConfigStore(args)
 				if err2 != nil {
@@ -211,9 +203,9 @@ func (s *Server) initConfigSources(args *PilotArgs) (err error) {
 				// TODO: handle k8s:// scheme for remote cluster. Use same mechanism as service registry,
 				// using the cluster name as key to match a secret.
 			}
-			continue
+		default:
+			log.Warnf("Ignoring unsupported config source: %v", configSource.Address)
 		}
-		log.Warnf("Ignoring unsupported config source: %v", configSource.Address)
 	}
 	return nil
 }
@@ -235,11 +227,29 @@ func (s *Server) initInprocessAnalysisController(args *PilotArgs) error {
 		go leaderelection.
 			NewLeaderElection(args.Namespace, args.PodName, leaderelection.AnalyzeController, s.kubeClient).
 			AddRunFunction(func(stop <-chan struct{}) {
-				if err := processing.Start(); err != nil {
-					log.Fatalf("Error starting Background Analysis: %s", err)
+				// to protect pilot from panics in analysis (which should never cause pilot to exit), recover from
+				// panics in analysis and, unless stop is called, restart the analysis controller.
+				for {
+					select {
+					case <-stop:
+						return
+					default:
+						func() {
+							defer func() {
+								if r := recover(); r != nil {
+									log.Warnf("Analysis experienced fatal error, requires restart", r)
+								}
+							}()
+							log.Info("Starting Background Analysis")
+							if err := processing.Start(); err != nil {
+								log.Fatalf("Error starting Background Analysis: %s", err)
+							}
+							<-stop
+							log.Warnf("Stopping Background Analysis")
+							processing.Stop()
+						}()
+					}
 				}
-				<-stop
-				processing.Stop()
 			}).Run(stop)
 		return nil
 	})
@@ -261,10 +271,11 @@ func (s *Server) initStatusController(args *PilotArgs, writeStatus bool) {
 	s.XDSServer.StatusReporter = s.statusReporter
 	if writeStatus {
 		s.addTerminatingStartFunc(func(stop <-chan struct{}) error {
-			controller := status.NewController(*s.kubeRestConfig, args.Namespace)
+			controller := status.NewController(*s.kubeRestConfig, args.Namespace, s.RWConfigStore)
 			leaderelection.
 				NewLeaderElection(args.Namespace, args.PodName, leaderelection.StatusController, s.kubeClient).
 				AddRunFunction(func(stop <-chan struct{}) {
+					s.statusReporter.SetController(controller)
 					controller.Start(stop)
 				}).Run(stop)
 			return nil
@@ -273,7 +284,7 @@ func (s *Server) initStatusController(args *PilotArgs, writeStatus bool) {
 }
 
 func (s *Server) makeKubeConfigController(args *PilotArgs) (model.ConfigStoreCache, error) {
-	c, err := crdclient.New(s.kubeClient, args.Revision, args.RegistryOptions.KubeOptions)
+	c, err := crdclient.New(s.kubeClient, args.Revision, args.RegistryOptions.KubeOptions.DomainSuffix)
 	if err != nil {
 		return nil, err
 	}

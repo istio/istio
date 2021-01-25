@@ -17,9 +17,9 @@ package tracing
 
 import (
 	"fmt"
-	"testing"
 
 	"istio.io/istio/pkg/config/protocol"
+	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/echo/echoboot"
 	"istio.io/istio/pkg/test/framework/components/istio"
@@ -70,15 +70,15 @@ func TestSetup(ctx resource.Context) (err error) {
 	builder := echoboot.NewBuilder(ctx)
 	for _, c := range ctx.Clusters() {
 		clName := c.Name()
-		builder.
-			With(nil, echo.Config{
+		builder = builder.
+			WithConfig(echo.Config{
 				Service:   fmt.Sprintf("client-%s", clName),
 				Namespace: appNsInst,
 				Cluster:   c,
 				Ports:     nil,
 				Subsets:   []echo.SubsetConfig{{}},
 			}).
-			With(nil, echo.Config{
+			WithConfig(echo.Config{
 				Service:   "server",
 				Namespace: appNsInst,
 				Cluster:   c,
@@ -96,8 +96,7 @@ func TestSetup(ctx resource.Context) (err error) {
 						InstancePort: 9000,
 					},
 				},
-			}).
-			Build()
+			})
 	}
 	echos, err := builder.Build()
 	if err != nil {
@@ -114,13 +113,13 @@ func TestSetup(ctx resource.Context) (err error) {
 	return nil
 }
 
-func VerifyEchoTraces(t *testing.T, namespace, clName string, traces []zipkin.Trace) bool {
+func VerifyEchoTraces(ctx framework.TestContext, namespace, clName string, traces []zipkin.Trace) bool {
 	wtr := WantTraceRoot(namespace, clName)
 	for _, trace := range traces {
 		// compare each candidate trace with the wanted trace
 		for _, s := range trace.Spans {
 			// find the root span of candidate trace and do recursive comparison
-			if s.ParentSpanID == "" && CompareTrace(t, s, wtr) {
+			if s.ParentSpanID == "" && CompareTrace(ctx, s, wtr) {
 				return true
 			}
 		}
@@ -130,7 +129,7 @@ func VerifyEchoTraces(t *testing.T, namespace, clName string, traces []zipkin.Tr
 }
 
 // compareTrace recursively compares the two given spans
-func CompareTrace(t *testing.T, got, want zipkin.Span) bool {
+func CompareTrace(t framework.TestContext, got, want zipkin.Span) bool {
 	if got.Name != want.Name || got.ServiceName != want.ServiceName {
 		t.Logf("got span %+v, want span %+v", got, want)
 		return false
@@ -168,8 +167,8 @@ func WantTraceRoot(namespace, clName string) (root zipkin.Span) {
 }
 
 // SendTraffic makes a client call to the "server" service on the http port.
-func SendTraffic(t *testing.T, headers map[string][]string, cl resource.Cluster) error {
-	t.Log("Sending Traffic...")
+func SendTraffic(ctx framework.TestContext, headers map[string][]string, cl resource.Cluster) error {
+	ctx.Logf("Sending from %s...", cl.Name())
 	for _, cltInstance := range client {
 		if cltInstance.Config().Cluster != cl {
 			continue

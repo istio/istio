@@ -136,7 +136,6 @@ var (
 			},
 		},
 	}
-
 	configs2 = &config.Config{
 		Meta: config.Meta{
 			Name:      "foo",
@@ -717,7 +716,14 @@ func TestCreateSidecarScope(t *testing.T) {
 			configs2,
 			services4,
 			nil,
-			nil,
+			[]*Service{
+				{
+					Hostname: "bar",
+				},
+				{
+					Hostname: "barprime",
+				},
+			},
 		},
 		{
 			"sidecar-with-multiple-egress-noport",
@@ -1021,7 +1027,9 @@ func TestCreateSidecarScope(t *testing.T) {
 			configuredListeneres := 1
 			if sidecarConfig != nil {
 				r := sidecarConfig.Spec.(*networking.Sidecar)
-				configuredListeneres = len(r.Egress)
+				if len(r.Egress) > 0 {
+					configuredListeneres = len(r.Egress)
+				}
 			}
 
 			numberListeners := len(sidecarScope.EgressListeners)
@@ -1231,6 +1239,9 @@ func TestContainsEgressDependencies(t *testing.T) {
 		{"Wrong Namespace", []string{"ns/*"}, allContains("other-ns", false)},
 		{"No Sidecar", nil, allContains("ns", true)},
 		{"No Sidecar Other Namespace", nil, allContains("other-ns", false)},
+		{"clusterScope resource", []string{"*/*"}, map[ConfigKey]bool{
+			{gvk.AuthorizationPolicy, "authz", "default"}: true,
+		}},
 	}
 	for _, tt := range cases {
 		t.Run(tt.name, func(t *testing.T) {
@@ -1294,6 +1305,54 @@ func TestContainsEgressDependencies(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestRootNsSidecarDependencies(t *testing.T) {
+	cases := []struct {
+		name   string
+		egress []string
+
+		contains map[ConfigKey]bool
+	}{
+		{"authorizationPolicy in same ns with workload", []string{"*/*"}, map[ConfigKey]bool{
+			{gvk.AuthorizationPolicy, "authz", "default"}: true,
+		}},
+		{"authorizationPolicy in different ns with workload", []string{"*/*"}, map[ConfigKey]bool{
+			{gvk.AuthorizationPolicy, "authz", "ns1"}: false,
+		}},
+	}
+
+	for _, tt := range cases {
+		t.Run(tt.name, func(t *testing.T) {
+			cfg := &config.Config{
+				Meta: config.Meta{
+					Name:      "foo",
+					Namespace: constants.IstioSystemNamespace,
+				},
+				Spec: &networking.Sidecar{
+					Egress: []*networking.IstioEgressListener{
+						{
+							Hosts: tt.egress,
+						},
+					},
+				},
+			}
+			ps := NewPushContext()
+			meshConfig := mesh.DefaultMeshConfig()
+			ps.Mesh = &meshConfig
+			sidecarScope := ConvertToSidecarScope(ps, cfg, "default")
+			if len(tt.egress) == 0 {
+				sidecarScope = DefaultSidecarScopeForNamespace(ps, "default")
+			}
+
+			for k, v := range tt.contains {
+				if ok := sidecarScope.DependsOnConfig(k); ok != v {
+					t.Fatalf("Expected contains %v-%v, but no match", k, v)
+				}
+			}
+		})
+	}
+
 }
 
 func TestSidecarOutboundTrafficPolicy(t *testing.T) {

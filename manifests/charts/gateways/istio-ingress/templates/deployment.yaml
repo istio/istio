@@ -41,6 +41,7 @@ spec:
         istio.io/rev: {{ .Values.revision | default "default" }}
         install.operator.istio.io/owning-resource: {{ .Values.ownerName | default "unknown" }}
         operator.istio.io/component: "IngressGateways"
+        sidecar.istio.io/inject: "false"
       annotations:
         {{- if .Values.meshConfig.enablePrometheusMerge }}
         prometheus.io/port: "15020"
@@ -99,12 +100,6 @@ spec:
             {{- range $key, $val := $gateway.ports }}
             - containerPort: {{ $val.targetPort | default $val.port }}
               protocol: {{ $val.protocol | default "TCP" }}
-            {{- end }}
-            {{- if $.Values.global.meshExpansion.enabled }}
-            {{- range $key, $val := $gateway.meshExpansionPorts }}
-            - containerPort: {{ $val.targetPort | default $val.port }}
-              protocol: {{ $val.protocol | default "TCP" }}
-            {{- end }}
             {{- end }}
             - containerPort: 15090
               protocol: TCP
@@ -234,7 +229,7 @@ spec:
           {{- $network_set := index $gateway.env "ISTIO_META_NETWORK" }}
           {{- if and (not $network_set) .Values.global.network }}
           - name: ISTIO_META_NETWORK
-            value: {{ .Values.global.network }}
+            value: "{{ .Values.global.network }}"
           {{- end }}
 {{- if $gateway.podAnnotations }}
           - name: "ISTIO_METAJSON_ANNOTATIONS"
@@ -297,6 +292,16 @@ spec:
             - path: "annotations"
               fieldRef:
                 fieldPath: metadata.annotations
+            - path: "cpu-limit"
+              resourceFieldRef:
+                containerName: istio-proxy
+                resource: limits.cpu
+                divisor: 1m
+            - path: "cpu-request"
+              resourceFieldRef:
+                containerName: istio-proxy
+                resource: requests.cpu
+                divisor: 1m
       - name: istio-envoy
         emptyDir: {}
       - name: istio-data

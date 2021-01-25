@@ -45,6 +45,7 @@ features:
       loadbalancing:
     ratelimit:
       envoy:
+    original-source-ip:
   usability:
     observability:
       describe:
@@ -66,6 +67,7 @@ features:
       trust-domain-validation:
       trust-domain-alias-secure-naming:
       file-mounted-certs:
+      ecc-signature-algorithm:
     user:
     ingress:
       mtls:
@@ -116,6 +118,7 @@ features:
   # features releated to the lifecycle of istio installations
   installation:
     istioctl:
+      install:
       uninstall_revision:
       uninstall_manifest:
       uninstall_purge:
@@ -126,7 +129,10 @@ features:
       centralremotekubeconfig:
     helm:
       default:
+        install:
+        upgrade:
       firstpartyjwt:
+        install:
     upgrade:
   # describes internal build and testing infrastrcuture
   infrastructure:

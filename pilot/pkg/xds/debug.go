@@ -123,7 +123,7 @@ type SyncedVersions struct {
 }
 
 // InitDebug initializes the debug handlers and adds a debug in-memory registry.
-func (s *DiscoveryServer) InitDebug(mux *http.ServeMux, sctl *aggregate.Controller, enableProfiling bool, fetchWebhook func() string) {
+func (s *DiscoveryServer) InitDebug(mux *http.ServeMux, sctl *aggregate.Controller, enableProfiling bool, fetchWebhook func() map[string]string) {
 	// For debugging and load testing v2 we add an memory registry.
 	s.MemRegistry = memory.NewServiceDiscovery(nil)
 	s.MemRegistry.EDSUpdater = s
@@ -138,7 +138,7 @@ func (s *DiscoveryServer) InitDebug(mux *http.ServeMux, sctl *aggregate.Controll
 	s.AddDebugHandlers(mux, enableProfiling, fetchWebhook)
 }
 
-func (s *DiscoveryServer) AddDebugHandlers(mux *http.ServeMux, enableProfiling bool, webhook func() string) {
+func (s *DiscoveryServer) AddDebugHandlers(mux *http.ServeMux, enableProfiling bool, webhook func() map[string]string) {
 	// Debug handlers on HTTP ports are added for backward compatibility.
 	// They will be exposed on XDS-over-TLS in future releases.
 	if !features.EnableDebugOnHTTP {
@@ -172,12 +172,14 @@ func (s *DiscoveryServer) AddDebugHandlers(mux *http.ServeMux, enableProfiling b
 	s.addDebugHandler(mux, "/debug/endpointShardz", "Info about the endpoint shards", s.endpointShardz)
 	s.addDebugHandler(mux, "/debug/cachez", "Info about the internal XDS caches", s.cachez)
 	s.addDebugHandler(mux, "/debug/configz", "Debug support for config", s.configz)
+	s.addDebugHandler(mux, "/debug/sidecarz", "Debug sidecar scope for a proxy", s.sidecarz)
 	s.addDebugHandler(mux, "/debug/resourcesz", "Debug support for watched resources", s.resourcez)
 	s.addDebugHandler(mux, "/debug/instancesz", "Debug support for service instances", s.instancesz)
 
 	s.addDebugHandler(mux, "/debug/authorizationz", "Internal authorization policies", s.Authorizationz)
 	s.addDebugHandler(mux, "/debug/config_dump", "ConfigDump in the form of the Envoy admin config dump API for passed in proxyID", s.ConfigDump)
 	s.addDebugHandler(mux, "/debug/push_status", "Last PushContext Details", s.PushStatusHandler)
+	s.addDebugHandler(mux, "/debug/pushcontext", "Debug support for current push context", s.PushContextHandler)
 
 	s.addDebugHandler(mux, "/debug/inject", "Active inject template", s.InjectTemplateHandler(webhook))
 	s.addDebugHandler(mux, "/debug/mesh", "Active mesh config", s.MeshHandler)
@@ -406,6 +408,30 @@ func (s *DiscoveryServer) configz(w http.ResponseWriter, req *http.Request) {
 	_, _ = w.Write(b)
 }
 
+// SidecarScope debugging
+func (s *DiscoveryServer) sidecarz(w http.ResponseWriter, req *http.Request) {
+	proxyID := req.URL.Query().Get("proxyID")
+	if proxyID == "" {
+		w.WriteHeader(http.StatusBadRequest)
+		_, _ = w.Write([]byte("You must provide a proxyID in the query string"))
+		return
+	}
+
+	con := s.getProxyConnection(proxyID)
+	if con == nil {
+		w.WriteHeader(http.StatusNotFound)
+		_, _ = w.Write([]byte("Proxy not connected to this Pilot instance"))
+		return
+	}
+	by, err := json.MarshalIndent(con.proxy.SidecarScope, "", "  ")
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		_, _ = w.Write([]byte(err.Error()))
+		return
+	}
+	_, _ = w.Write(by)
+}
+
 // Resource debugging.
 func (s *DiscoveryServer) resourcez(w http.ResponseWriter, _ *http.Request) {
 	w.Header().Add("Content-Type", "application/json")
@@ -428,7 +454,6 @@ type AuthorizationDebug struct {
 // Authorizationz dumps the internal authorization policies.
 func (s *DiscoveryServer) Authorizationz(w http.ResponseWriter, req *http.Request) {
 	w.Header().Add("Content-Type", "application/json")
-
 	info := AuthorizationDebug{
 		AuthorizationPolicies: s.globalPushContext().AuthzPolicies,
 	}
@@ -561,7 +586,7 @@ func (s *DiscoveryServer) configDump(conn *Connection) (*adminapi.ConfigDump, er
 
 	secretsDump := &adminapi.SecretsConfigDump{}
 	if s.Generators[v3.SecretType] != nil {
-		secrets := s.Generators[v3.SecretType].Generate(conn.proxy, s.globalPushContext(), conn.Watched(v3.SecretType), nil)
+		secrets, _ := s.Generators[v3.SecretType].Generate(conn.proxy, s.globalPushContext(), conn.Watched(v3.SecretType), nil)
 		if len(secrets) > 0 {
 			for _, secretAny := range secrets {
 				secret := &tls.Secret{}
@@ -601,7 +626,7 @@ func (s *DiscoveryServer) configDump(conn *Connection) (*adminapi.ConfigDump, er
 
 // InjectTemplateHandler dumps the injection template
 // Replaces dumping the template at startup.
-func (s *DiscoveryServer) InjectTemplateHandler(webhook func() string) func(http.ResponseWriter, *http.Request) {
+func (s *DiscoveryServer) InjectTemplateHandler(webhook func() map[string]string) func(http.ResponseWriter, *http.Request) {
 	return func(w http.ResponseWriter, req *http.Request) {
 		// TODO: we should split the inject template into smaller modules (separate one for dump core, etc),
 		// and allow pods to select which patches will be selected. When this happen, this should return
@@ -611,7 +636,13 @@ func (s *DiscoveryServer) InjectTemplateHandler(webhook func() string) func(http
 			return
 		}
 
-		_, _ = w.Write([]byte(webhook()))
+		by, err := json.MarshalIndent(webhook(), "", "  ")
+		if err != nil {
+			w.WriteHeader(503)
+			return
+		}
+
+		_, _ = w.Write(by)
 	}
 }
 
@@ -631,6 +662,30 @@ func (s *DiscoveryServer) PushStatusHandler(w http.ResponseWriter, req *http.Req
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		_, _ = fmt.Fprintf(w, "unable to marshal push information: %v", err)
+		return
+	}
+	w.Header().Add("Content-Type", "application/json")
+
+	_, _ = w.Write(out)
+}
+
+// PushContextDebug holds debug information for push context.
+type PushContextDebug struct {
+	AuthorizationPolicies *model.AuthorizationPolicies
+	NetworkGateways       map[string][]*model.Gateway
+}
+
+// PushContextHandler dumps the current PushContext
+func (s *DiscoveryServer) PushContextHandler(w http.ResponseWriter, req *http.Request) {
+	push := PushContextDebug{
+		AuthorizationPolicies: s.globalPushContext().AuthzPolicies,
+		NetworkGateways:       s.globalPushContext().NetworkGateways(),
+	}
+
+	out, err := json.MarshalIndent(push, "", "  ")
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		_, _ = fmt.Fprintf(w, "unable to marshal push context information: %v", err)
 		return
 	}
 	w.Header().Add("Content-Type", "application/json")
@@ -694,7 +749,7 @@ func (s *DiscoveryServer) Ndsz(w http.ResponseWriter, req *http.Request) {
 	}
 
 	if s.Generators[v3.NameTableType] != nil {
-		nds := s.Generators[v3.NameTableType].Generate(con.proxy, s.globalPushContext(), nil, nil)
+		nds, _ := s.Generators[v3.NameTableType].Generate(con.proxy, s.globalPushContext(), nil, nil)
 		if len(nds) == 0 {
 			return
 		}

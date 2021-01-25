@@ -91,6 +91,29 @@ func TestDelayQueueOrdering(t *testing.T) {
 	mu.Unlock()
 }
 
+func TestDelayQueuePushBeforeRun(t *testing.T) {
+	// This is a regression test to ensure we can push while Run() is called without a race
+	dq := NewDelayed(DelayQueueBuffer(0))
+	st := make(chan struct{})
+	go func() {
+		// Enqueue a bunch until we stop
+		for {
+			select {
+			case <-st:
+				return
+			default:
+			}
+			dq.Push(func() error {
+				return nil
+			})
+		}
+	}()
+	go dq.Run(st)
+	// Wait a bit
+	<-time.After(time.Millisecond * 10)
+	close(st)
+}
+
 func TestDelayQueuePushNonblockingWithFullBuffer(t *testing.T) {
 	queuedItems := 50
 	dq := NewDelayed(DelayQueueBuffer(0), DelayQueueWorkers(0))
@@ -111,11 +134,38 @@ func TestDelayQueuePushNonblockingWithFullBuffer(t *testing.T) {
 		dq := dq.(*delayQueue)
 		dq.mu.Lock()
 		if dq.queue.Len() < queuedItems {
-			t.Fatalf("expected 5 items in the queue, got %d", dq.queue.Len())
+			t.Fatalf("expected 50 items in the queue, got %d", dq.queue.Len())
 		}
 		dq.mu.Unlock()
 		return
 	case <-timeout:
 		t.Fatal("timed out waiting for enqueues")
+	}
+}
+
+func TestPriorityQueueShrinking(t *testing.T) {
+	c := 48
+	pq := make(pq, 0, c)
+	pqp := &pq
+
+	t0 := time.Now()
+	for i := 0; i < c; i++ {
+		dt := &delayTask{runAt: t0.Add(time.Duration(i) * time.Hour)}
+		heap.Push(pqp, dt)
+	}
+
+	if len(pq) != c {
+		t.Fatalf("the length of pq should be %d, but end up %d", c, len(pq))
+	}
+
+	if cap(pq) != c {
+		t.Fatalf("the capacity of pq should be %d, but end up %d", c, cap(pq))
+	}
+
+	for i := 0; i < c; i++ {
+		_ = heap.Pop(pqp)
+		if i == 1+c/2 && cap(pq) != c/2 {
+			t.Fatalf("the capacity of pq should be reduced to half its length %d, but got %d", c/2, cap(pq))
+		}
 	}
 }

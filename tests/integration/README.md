@@ -39,6 +39,9 @@ This folder contains Istio integration tests that use the test framework checked
 The goal of the framework is to make it as easy as possible to author and run tests. In its simplest
 case, just typing ```go test ./...``` should be sufficient to run tests.
 
+This guide walks through the basics of writing tests with the Istio test framework. For best
+practices, see [Writing Good Integration Tests](https://github.com/istio/istio/wiki/Writing-Good-Integration-Tests).
+
 ## Writing Tests
 
 The test framework is designed to work with standard go tooling and allows developers
@@ -540,6 +543,9 @@ The test framework supports the following command-line flags:
 
   -istio.test.kube.deploy
         Deploy Istio into the target Kubernetes environment. (default true)
+
+  -istio.test.kube.deployEastWestGW
+        Deploy Istio east west gateway into the target Kubernetes environment. (default true)
 
   -istio.test.kube.deployTimeout duration
         Timeout applied to deploying Istio into the target Kubernetes environment. Only applies if DeployIstio=true.

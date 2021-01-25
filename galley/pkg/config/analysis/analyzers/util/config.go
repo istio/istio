@@ -15,6 +15,7 @@
 package util
 
 import (
+	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/resource"
 )
 
@@ -26,7 +27,12 @@ import (
 // "local-path-storage": Dynamically provisioning persistent local storage with Kubernetes.
 //    used with Kind cluster: https://github.com/rancher/local-path-provisioner
 var (
-	SystemNamespaces = []string{"kube-system", "kube-public", "kube-node-lease", "local-path-storage"}
+	SystemNamespaces = []string{
+		constants.KubeSystemNamespace,
+		constants.KubePublicNamespace,
+		constants.KubeNodeLeaseNamespace,
+		constants.LocalPathStorageNamespace,
+	}
 )
 
 // IsSystemNamespace returns true for system namespaces

@@ -165,7 +165,7 @@ func BuildClientConfig(kubeconfig, context string) (*rest.Config, error) {
 		}
 	}
 
-	//Config loading rules:
+	// Config loading rules:
 	// 1. kubeconfig if it not empty string
 	// 2. In cluster config if running in-cluster
 	// 3. Config(s) in KUBECONFIG environment variable
@@ -206,7 +206,7 @@ func applyManifest(restConfig *rest.Config, client client.Client, manifestStr st
 		Name:    componentName,
 		Content: manifestStr,
 	}
-	_, _, err = reconciler.ApplyManifest(ms)
+	_, _, err = reconciler.ApplyManifest(ms, reconciler.CheckSSAEnabled())
 	return err
 }
 
@@ -248,7 +248,7 @@ func createNamespace(cs kubernetes.Interface, namespace string, network string) 
 		// Setup default namespace
 		namespace = istioDefaultNamespace
 	}
-	//check if the namespace already exists. If yes, do nothing. If no, create a new one.
+	// check if the namespace already exists. If yes, do nothing. If no, create a new one.
 	_, err := cs.CoreV1().Namespaces().Get(context.TODO(), namespace, v12.GetOptions{})
 	if err != nil {
 		if errors.IsNotFound(err) {
@@ -259,7 +259,7 @@ func createNamespace(cs kubernetes.Interface, namespace string, network string) 
 				},
 			}}
 			if network != "" {
-				ns.Labels[label.IstioNetwork] = network
+				ns.Labels[label.TopologyNetwork.Name] = network
 			}
 			_, err := cs.CoreV1().Namespaces().Create(context.TODO(), ns, v12.CreateOptions{})
 			if err != nil {
@@ -271,22 +271,6 @@ func createNamespace(cs kubernetes.Interface, namespace string, network string) 
 	}
 
 	return nil
-}
-
-func networkName(iop *v1alpha1.IstioOperator) string {
-	if iop == nil || iop.Spec == nil || iop.Spec.Values == nil {
-		return ""
-	}
-	globalI := iop.Spec.Values["global"]
-	global, ok := globalI.(map[string]interface{})
-	if !ok {
-		return ""
-	}
-	nw, ok := global["network"].(string)
-	if !ok {
-		return ""
-	}
-	return nw
 }
 
 // saveIOPToCluster saves the state in an IOP CR in the cluster.

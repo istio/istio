@@ -131,11 +131,11 @@ func (cr *store) List(typ config.GroupVersionKind, namespace string) ([]config.C
 	return configs, errs.ErrorOrNil()
 }
 
-func (cr *store) Delete(typ config.GroupVersionKind, name, namespace string) error {
+func (cr *store) Delete(typ config.GroupVersionKind, name, namespace string, resourceVersion *string) error {
 	if cr.writer == nil {
 		return errorUnsupported
 	}
-	return cr.writer.Delete(typ, name, namespace)
+	return cr.writer.Delete(typ, name, namespace, resourceVersion)
 }
 
 func (cr *store) Create(c config.Config) (string, error) {
@@ -159,11 +159,11 @@ func (cr *store) UpdateStatus(c config.Config) (string, error) {
 	return cr.writer.UpdateStatus(c)
 }
 
-func (cr *store) Patch(typ config.GroupVersionKind, name, namespace string, patchFn config.PatchFunc) (string, error) {
+func (cr *store) Patch(orig config.Config, patchFn config.PatchFunc) (string, error) {
 	if cr.writer == nil {
 		return "", errorUnsupported
 	}
-	return cr.writer.Patch(typ, name, namespace, patchFn)
+	return cr.writer.Patch(orig, patchFn)
 }
 
 type storeCache struct {

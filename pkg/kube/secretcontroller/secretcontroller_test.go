@@ -116,7 +116,7 @@ func Test_SecretController(t *testing.T) {
 	t.Cleanup(func() {
 		close(stopCh)
 	})
-	c := StartSecretController(clientset, addCallback, updateCallback, deleteCallback, secretNamespace, time.Microsecond)
+	c := StartSecretController(clientset, addCallback, updateCallback, deleteCallback, secretNamespace, time.Microsecond, stopCh)
 	kube.WaitForCacheSyncInterval(stopCh, time.Microsecond, c.informer.HasSynced)
 	clientset.RunAndWait(stopCh)
 

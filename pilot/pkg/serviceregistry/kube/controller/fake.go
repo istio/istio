@@ -133,6 +133,10 @@ type FakeControllerOptions struct {
 	WatchedNamespaces string
 	DomainSuffix      string
 	XDSUpdater        model.XDSUpdater
+
+	// when calling from NewFakeDiscoveryServer, we wait for the aggregate cache to sync. Waiting here can cause deadlock.
+	SkipCacheSyncWait bool
+	Stop              chan struct{}
 }
 
 type FakeController struct {
@@ -167,14 +171,15 @@ func NewFakeControllerWithOptions(opts FakeControllerOptions) (*FakeController, 
 	if opts.ServiceHandler != nil {
 		c.AppendServiceHandler(opts.ServiceHandler)
 	}
-	c.stop = make(chan struct{})
+	c.stop = opts.Stop
 	// Run in initiation to prevent calling each test
 	// TODO: fix it, so we can remove `stop` channel
 	go c.Run(c.stop)
 	opts.Client.RunAndWait(c.stop)
-	// Wait for the caches to sync, otherwise we may hit race conditions where events are dropped
-	cache.WaitForCacheSync(c.stop, c.HasSynced)
-
+	if !opts.SkipCacheSyncWait {
+		// Wait for the caches to sync, otherwise we may hit race conditions where events are dropped
+		cache.WaitForCacheSync(c.stop, c.HasSynced)
+	}
 	var fx *FakeXdsUpdater
 	if x, ok := xdsUpdater.(*FakeXdsUpdater); ok {
 		fx = x

@@ -120,6 +120,10 @@ func (*testConfig) ForwardEcho(_ context.Context, _ *proto.ForwardEchoRequest) (
 	panic("not implemented")
 }
 
+func (*testConfig) Restart() error {
+	panic("not implemented")
+}
+
 type fakeNamespace struct {
 	name string
 }
@@ -129,6 +133,14 @@ func (n *fakeNamespace) Name() string {
 }
 
 func (n *fakeNamespace) ID() resource.ID {
+	panic("not implemented")
+}
+
+func (n *fakeNamespace) SetLabel(key, value string) error {
+	panic("not implemented")
+}
+
+func (n *fakeNamespace) RemoveLabel(key string) error {
 	panic("not implemented")
 }
 

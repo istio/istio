@@ -15,8 +15,10 @@
 package util
 
 import (
+	"fmt"
 	"strings"
 
+	"istio.io/istio/galley/pkg/config/analysis/diag"
 	"istio.io/istio/pkg/config/resource"
 )
 
@@ -87,6 +89,10 @@ const (
 	// Path for credentialName.
 	// Required parameters: server index.
 	CredentialName = "{.spec.servers[%d].tls.credentialName}"
+
+	// Path for Port in ServiceEntry.
+	// Required parameters: port index.
+	ServiceEntryPort = "{.spec.ports[%d].name}"
 )
 
 // ErrorLine returns the line number of the input path key in the resource
@@ -103,4 +109,12 @@ func ErrorLine(r *resource.Instance, path string) (line int, found bool) {
 func ExtractLabelFromSelectorString(s string) string {
 	equalIndex := strings.Index(s, "=")
 	return s[:equalIndex]
+}
+
+func AddLineNumber(r *resource.Instance, ann string, m diag.Message) bool {
+	if line, ok := ErrorLine(r, fmt.Sprintf(Annotation, ann)); ok {
+		m.Line = line
+		return true
+	}
+	return false
 }

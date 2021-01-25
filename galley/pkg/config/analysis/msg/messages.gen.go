@@ -128,6 +128,22 @@ var (
 	// SchemaWarning defines a diag.MessageType for message "SchemaWarning".
 	// Description: The resource has a schema validation warning.
 	SchemaWarning = diag.NewMessageType(diag.Warning, "IST0133", "Schema validation warning: %v")
+
+	// ServiceEntryAddressesRequired defines a diag.MessageType for message "ServiceEntryAddressesRequired".
+	// Description: Virtual IP addresses are required for ports serving TCP (or unset) protocol
+	ServiceEntryAddressesRequired = diag.NewMessageType(diag.Warning, "IST0134", "ServiceEntry addresses are required for this protocol.")
+
+	// DeprecatedAnnotation defines a diag.MessageType for message "DeprecatedAnnotation".
+	// Description: A resource is using a deprecated Istio annotation.
+	DeprecatedAnnotation = diag.NewMessageType(diag.Info, "IST0135", "Annotation %q has been deprecated and may not work in future Istio versions.")
+
+	// AlphaAnnotation defines a diag.MessageType for message "AlphaAnnotation".
+	// Description: An Istio annotation may not be suitable for production.
+	AlphaAnnotation = diag.NewMessageType(diag.Info, "IST0136", "Annotation %q is part of an alpha-phase feature and may be incompletely supported.")
+
+	// DeploymentConflictingPorts defines a diag.MessageType for message "DeploymentConflictingPorts".
+	// Description: Two services selecting the same workload with same target port are MUST refer to the same port.
+	DeploymentConflictingPorts = diag.NewMessageType(diag.Warning, "IST0137", "This deployment %s is associated with multiple services %v using targetPort %q but different ports: %v.")
 )
 
 // All returns a list of all known message types.
@@ -163,6 +179,10 @@ func All() []*diag.MessageType {
 		VirtualServiceIneffectiveMatch,
 		VirtualServiceHostNotFoundInGateway,
 		SchemaWarning,
+		ServiceEntryAddressesRequired,
+		DeprecatedAnnotation,
+		AlphaAnnotation,
+		DeploymentConflictingPorts,
 	}
 }
 
@@ -469,5 +489,43 @@ func NewSchemaWarning(r *resource.Instance, err error) diag.Message {
 		SchemaWarning,
 		r,
 		err,
+	)
+}
+
+// NewServiceEntryAddressesRequired returns a new diag.Message based on ServiceEntryAddressesRequired.
+func NewServiceEntryAddressesRequired(r *resource.Instance) diag.Message {
+	return diag.NewMessage(
+		ServiceEntryAddressesRequired,
+		r,
+	)
+}
+
+// NewDeprecatedAnnotation returns a new diag.Message based on DeprecatedAnnotation.
+func NewDeprecatedAnnotation(r *resource.Instance, annotation string) diag.Message {
+	return diag.NewMessage(
+		DeprecatedAnnotation,
+		r,
+		annotation,
+	)
+}
+
+// NewAlphaAnnotation returns a new diag.Message based on AlphaAnnotation.
+func NewAlphaAnnotation(r *resource.Instance, annotation string) diag.Message {
+	return diag.NewMessage(
+		AlphaAnnotation,
+		r,
+		annotation,
+	)
+}
+
+// NewDeploymentConflictingPorts returns a new diag.Message based on DeploymentConflictingPorts.
+func NewDeploymentConflictingPorts(r *resource.Instance, deployment string, services []string, targetPort string, ports []int32) diag.Message {
+	return diag.NewMessage(
+		DeploymentConflictingPorts,
+		r,
+		deployment,
+		services,
+		targetPort,
+		ports,
 	)
 }
