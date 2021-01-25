@@ -17,6 +17,8 @@ package model
 import (
 	"fmt"
 
+	"github.com/golang/protobuf/proto"
+
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/host"
@@ -101,92 +103,9 @@ func (ps *PushContext) inheritDestinationRule(parent, child *config.Config) *con
 	if parentDR.TrafficPolicy == nil {
 		return child
 	}
+
 	copied := child.DeepCopy()
-	mergedRule := copied.Spec.(*networking.DestinationRule)
+	proto.Merge(copied.Spec.(proto.Message), parent.Spec.(proto.Message))
 
-	if mergedRule.TrafficPolicy == nil {
-		mergedRule.TrafficPolicy = parentDR.TrafficPolicy
-	} else {
-		if mergedRule.TrafficPolicy.LoadBalancer == nil {
-			mergedRule.TrafficPolicy.LoadBalancer = parentDR.TrafficPolicy.LoadBalancer
-		}
-
-		mergedRule.TrafficPolicy.ConnectionPool = mergeConnectionPool(parentDR.TrafficPolicy.ConnectionPool,
-			mergedRule.TrafficPolicy.ConnectionPool)
-
-		mergedRule.TrafficPolicy.OutlierDetection = mergeOutlierDetection(parentDR.TrafficPolicy.OutlierDetection,
-			mergedRule.TrafficPolicy.OutlierDetection)
-	}
-
-	// TODO merge port level traffic policy settings?
 	return &copied
-}
-
-func mergeOutlierDetection(parentSettings, childSettings *networking.OutlierDetection) *networking.OutlierDetection {
-	if childSettings == nil {
-		return parentSettings
-	}
-	if parentSettings == nil {
-		return childSettings
-	}
-	if childSettings.ConsecutiveGatewayErrors == nil {
-		childSettings.ConsecutiveGatewayErrors = parentSettings.ConsecutiveGatewayErrors
-	}
-	if childSettings.Consecutive_5XxErrors == nil {
-		childSettings.Consecutive_5XxErrors = parentSettings.Consecutive_5XxErrors
-	}
-	if childSettings.Interval == nil {
-		childSettings.Interval = parentSettings.Interval
-	}
-	if childSettings.BaseEjectionTime == nil {
-		childSettings.BaseEjectionTime = parentSettings.BaseEjectionTime
-	}
-	if childSettings.MaxEjectionPercent == 0 {
-		childSettings.MaxEjectionPercent = parentSettings.MaxEjectionPercent
-	}
-	if childSettings.MinHealthPercent == 0 {
-		childSettings.MinHealthPercent = parentSettings.MinHealthPercent
-	}
-	return childSettings
-}
-
-func mergeConnectionPool(parentSettings, childSettings *networking.ConnectionPoolSettings) *networking.ConnectionPoolSettings {
-	if childSettings == nil {
-		return parentSettings
-	}
-	if childSettings.Http == nil {
-		childSettings.Http = parentSettings.Http
-	} else if parentSettings.Http != nil {
-		if childSettings.Http.Http1MaxPendingRequests == 0 {
-			childSettings.Http.Http1MaxPendingRequests = parentSettings.Http.Http1MaxPendingRequests
-		}
-		if childSettings.Http.Http2MaxRequests == 0 {
-			childSettings.Http.Http2MaxRequests = parentSettings.Http.Http2MaxRequests
-		}
-		if childSettings.Http.MaxRequestsPerConnection == 0 {
-			childSettings.Http.MaxRequestsPerConnection = parentSettings.Http.MaxRequestsPerConnection
-		}
-		if childSettings.Http.MaxRetries == 0 {
-			childSettings.Http.MaxRetries = parentSettings.Http.MaxRetries
-		}
-		if childSettings.Http.IdleTimeout == nil {
-			childSettings.Http.IdleTimeout = parentSettings.Http.IdleTimeout
-		}
-		// TODO h2UpgradePolicy can be set to 0, can't distinguish between set/unset
-		// TODO useClietProtocol can be true or false, can't distinguish between set/unset
-	}
-	if childSettings.Tcp == nil {
-		childSettings.Tcp = parentSettings.Tcp
-	} else if parentSettings.Tcp != nil {
-		if childSettings.Tcp.MaxConnections == 0 {
-			childSettings.Tcp.MaxConnections = parentSettings.Tcp.MaxConnections
-		}
-		if childSettings.Tcp.ConnectTimeout == nil {
-			childSettings.Tcp.ConnectTimeout = parentSettings.Tcp.ConnectTimeout
-		}
-		if childSettings.Tcp.TcpKeepalive == nil {
-			childSettings.Tcp.TcpKeepalive = parentSettings.Tcp.TcpKeepalive
-		}
-	}
-	return childSettings
 }

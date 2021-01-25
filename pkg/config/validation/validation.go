@@ -489,7 +489,6 @@ var ValidateDestinationRule = registerValidateFunc("ValidateDestinationRule",
 			} else {
 				v = appendValidation(v, ValidateWildcardDomain(rule.Host))
 			}
-			// TODO GregHanson: could mesh/namespace destination rule ever have ExportTo set?
 		} else {
 			v = appendValidation(v, ValidateWildcardDomain(rule.Host))
 		}

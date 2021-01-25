@@ -830,6 +830,7 @@ func (ps *PushContext) DestinationRule(proxy *Proxy, service *Service) *config.C
 		return out
 	}
 
+	// 5. service DestinationRules were merged in SetDestinationRules, return mesh/namespace rules if present
 	if features.EnableDestinationRuleInheritance {
 		// return namespace rule if present
 		if svcNs != "" {
