@@ -45,6 +45,7 @@ features:
       loadbalancing:
       custom:
       topology:
+      gateway:
     ratelimit:
       envoy:
     original-source-ip:
