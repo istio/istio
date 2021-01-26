@@ -394,6 +394,14 @@ func (r *JwksResolver) refresh() time.Duration {
 				}
 			}
 
+			jwksURI, err := r.resolveJwksURIUsingOpenID(issuer)
+			if err != nil {
+				hasErrors = true
+				log.Errorf("Failed to resolve Jwks from issuer %q: %v", issuer, err)
+				atomic.AddUint64(&r.refreshJobFetchFailedCount, 1)
+				return
+			}
+
 			resp, err := r.getRemoteContentWithRetry(jwksURI, networkFetchRetryCountOnRefreshFlow)
 			if err != nil {
 				hasErrors = true
