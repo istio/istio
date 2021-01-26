@@ -1024,6 +1024,7 @@ func getDiffs(installed *iopv1alpha1.IstioOperator, manifestsPath, profile strin
 	return diffWalk("", "", mapInstalled, mapBase)
 }
 
+// TODO(su225): Improve this and write tests for it.
 func diffWalk(path, separator string, installed interface{}, base interface{}) ([]iopDiff, error) {
 	switch v := installed.(type) {
 	case map[string]interface{}:

@@ -112,12 +112,12 @@ func TestGetEnabledComponentsFromIOPSpec(t *testing.T) {
 			sort.Strings(actual)
 			sort.Strings(test.expected)
 			if len(actual) != len(test.expected) {
-				t.Fatalf("length of actual(%d) and expected(%d) don't match. "+
+				st.Fatalf("length of actual(%d) and expected(%d) don't match. "+
 					"actual=%v, expected=%v", len(actual), len(test.expected), actual, test.expected)
 			}
 			for i := 0; i < len(actual); i++ {
 				if actual[i] != test.expected[i] {
-					t.Fatalf("actual %s does not match expected %s", actual[i], test.expected[i])
+					st.Fatalf("actual %s does not match expected %s", actual[i], test.expected[i])
 				}
 			}
 		})
