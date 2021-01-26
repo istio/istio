@@ -918,3 +918,12 @@ func selectorMatches(t *testing.T, selector *metav1.LabelSelector, labels klabel
 	}
 	return s.Matches(labels)
 }
+
+func TestSidecarTemplate(t *testing.T) {
+	runTestGroup(t, testGroup{
+		{
+			desc:       "sidecar_template",
+			diffSelect: "ConfigMap:*:istio-sidecar-injector",
+		},
+	})
+}

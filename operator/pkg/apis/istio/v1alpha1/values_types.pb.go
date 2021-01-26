@@ -3496,10 +3496,10 @@ type SidecarInjectorConfig struct {
 	// Templates defines a set of custom injection templates that can be used. For example, defining:
 	//
 	// templates:
-	//   hello:
-	//    metadata
-	//      labels:
-	//        hello: world
+	//   hello: |
+	//     metadata:
+	//       labels:
+	//         hello: world
 	//
 	// Then starting a pod with the `inject.istio.io/templates: hello` annotation, will result in the pod
 	// being injected with the hello=world labels.

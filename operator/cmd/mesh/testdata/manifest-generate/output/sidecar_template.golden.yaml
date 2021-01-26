@@ -1,32 +1,3 @@
----
-# Source: istiod-remote/templates/configmap.yaml
-apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: istio
-  namespace: istio-system
-  labels:
-    istio.io/rev: default
-    install.operator.istio.io/owning-resource: unknown
-    operator.istio.io/component: "Pilot"
-    release: istiod-remote
-data:
-
-  # Configuration file for the mesh networks to be used by the Split Horizon EDS.
-  meshNetworks: |-
-    networks: {}
-
-  mesh: |-
-    defaultConfig:
-      discoveryAddress: istiod.istio-system.svc:15012
-      tracing:
-        zipkin:
-          address: zipkin.istio-system:9411
-    enablePrometheusMerge: true
-    rootNamespace: istio-system
-    trustDomain: cluster.local
----
-# Source: istiod-remote/templates/istiod-injector-configmap.yaml
 apiVersion: v1
 kind: ConfigMap
 metadata:
@@ -36,13 +7,20 @@ metadata:
     istio.io/rev: default
     install.operator.istio.io/owning-resource: unknown
     operator.istio.io/component: "Pilot"
-    release: istiod-remote
+    release: istio
 data:
 
   values: |-
     {
       "global": {
+        "arch": {
+          "amd64": 2,
+          "ppc64le": 2,
+          "s390x": 2
+        },
         "caAddress": "",
+        "configValidation": true,
+        "defaultNodeSelector": {},
         "defaultPodDisruptionBudget": {
           "enabled": true
         },
@@ -51,7 +29,8 @@ data:
             "cpu": "10m"
           }
         },
-        "externalIstiod": true,
+        "enabled": true,
+        "externalIstiod": false,
         "hub": "gcr.io/istio-testing",
         "imagePullPolicy": "",
         "imagePullSecrets": [],
@@ -71,6 +50,7 @@ data:
           "clusterName": "",
           "enabled": false
         },
+        "namespace": "istio-system",
         "network": "",
         "omitSidecarInjectorConfigMap": false,
         "oneNamespace": false,
@@ -150,10 +130,16 @@ data:
         "trustDomain": "",
         "useMCP": false
       },
+      "istio_cni": {
+        "enabled": false
+      },
       "revision": "",
       "sidecarInjectorWebhook": {
         "alwaysInjectSelector": [],
-        "defaultTemplates": [],
+        "defaultTemplates": [
+          "sidecar",
+          "credential-volume"
+        ],
         "enableNamespacesByDefault": false,
         "injectedAnnotations": {},
         "neverInjectSelector": [],
@@ -162,7 +148,9 @@ data:
           "enabled": true
         },
         "rewriteAppHTTPProbe": true,
-        "templates": {},
+        "templates": {
+          "credential-volume": "spec:\n  volumes:\n  - name: application-credentials\n    secret:\n      secretName: secret\n  containers:\n  - name: istio-proxy\n    volumeMounts:\n    - name: application-credentials\n      mountPath: /etc/istio/application-credentials\n      readOnly: true\n"
+        },
         "useLegacySelectors": true
       }
     }
@@ -174,7 +162,9 @@ data:
   # to fine tune it or use it with kube-inject.
   config: |-
     # defaultTemplates defines the default template to use for pods that do not explicitly specify a template
-    defaultTemplates: [sidecar]
+    defaultTemplates:
+    - sidecar
+    - credential-volume
     policy: enabled
     alwaysInjectSelector:
       []
@@ -675,40 +665,16 @@ data:
           securityContext:
             fsGroup: 1337
           {{- end }}
+      credential-volume: |
+        spec:
+          volumes:
+          - name: application-credentials
+            secret:
+              secretName: secret
+          containers:
+          - name: istio-proxy
+            volumeMounts:
+            - name: application-credentials
+              mountPath: /etc/istio/application-credentials
+              readOnly: true
 ---
-# Source: istiod-remote/templates/mutatingwebhook.yaml
-apiVersion: admissionregistration.k8s.io/v1beta1
-kind: MutatingWebhookConfiguration
-metadata:
-  name: istio-sidecar-injector
-  labels:
-    istio.io/rev: default
-    install.operator.istio.io/owning-resource: unknown
-    operator.istio.io/component: "Pilot"
-    app: sidecar-injector
-    release: istiod-remote
-webhooks:
-- name: sidecar-injector.istio.io
-  clientConfig:
-    service:
-      name: istiod
-      namespace: istio-system
-      path: "/inject"
-    caBundle: ""
-  sideEffects: None
-  rules:
-  - operations: [ "CREATE" ]
-    apiGroups: [""]
-    apiVersions: ["v1"]
-    resources: ["pods"]
-  failurePolicy: Fail
-  admissionReviewVersions: ["v1beta1", "v1"]
-  namespaceSelector:
-    matchLabels:
-      istio-injection: enabled
-  objectSelector:
-    matchExpressions:
-    - key: "sidecar.istio.io/inject"
-      operator: NotIn
-      values:
-      - "false"

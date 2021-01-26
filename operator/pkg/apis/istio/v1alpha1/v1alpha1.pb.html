@@ -3194,10 +3194,10 @@ No
 <p>Templates defines a set of custom injection templates that can be used. For example, defining:</p>
 
 <p>templates:
-  hello:
-   metadata
-     labels:
-       hello: world</p>
+  hello: |
+    metadata:
+      labels:
+        hello: world</p>
 
 <p>Then starting a pod with the <code>inject.istio.io/templates: hello</code> annotation, will result in the pod
 being injected with the hello=world labels.
