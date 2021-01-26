@@ -163,3 +163,14 @@ function gen_kubeconf_from_sa () {
              token: ${TOKEN}
 EOF
 }
+
+# gives a copy of a given topology JSON editing the given key on the entry with the given cluster name
+function set_topology_value() {
+    local JSON="$1"
+    local CLUSTER_NAME="$2"
+    local KEY="$3"
+    local VALUE="$4"
+    VALUE=$(echo "${VALUE}" | awk '{$1=$1};1')
+
+    echo "${JSON}" | jq '(.[] | select(.clusterName =="'"${CLUSTER_NAME}"'") | .'"${KEY}"') |="'"${VALUE}"'"'
+}
