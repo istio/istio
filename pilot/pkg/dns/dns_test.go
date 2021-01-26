@@ -199,6 +199,7 @@ func TestDNS(t *testing.T) {
 		{
 			Timeout: 3 * time.Second,
 			Net:     "udp",
+			UDPSize: 65535,
 		},
 		{
 			Timeout: 3 * time.Second,
