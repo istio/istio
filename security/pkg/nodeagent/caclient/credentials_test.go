@@ -26,6 +26,7 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/jwt"
+	"istio.io/istio/pkg/security"
 	"istio.io/istio/security/pkg/stsservice"
 	stsmock "istio.io/istio/security/pkg/stsservice/mock"
 	"istio.io/istio/security/pkg/stsservice/tokenmanager/google"
@@ -48,27 +49,27 @@ func TestGetTokenForXDS(t *testing.T) {
 	}
 
 	jwtPolicy := jwt.PolicyThirdParty
-	clusterIDVar := ""
-	podNamespaceVar := ""
-	serviceAccountVar := ""
-	caEndpointEnv := ""
-	caProviderEnv := "Citadel"
-	pilotCertProvider := "istiod"
-	outputKeyCertToDir := ""
-	provCert := ""
-	trustDomainEnv := "cluster.local"
-	eccSigAlgEnv := ""
 	credFetcherTypeEnv := ""
 	credIdentityProvider := google.GCEProvider
-	xdsAuthProvider := google.GCPAuthProvider
-	fileMountedCertsEnv := false
-	pkcs8KeysEnv := false
-	secretTTLEnv := 24 * time.Hour
-	secretRotationGracePeriodRatioEnv := 0.5
-	secOpts, err := secop.SetupSecurityOptions(proxyConfig, jwtPolicy, clusterIDVar,
-		podNamespaceVar, serviceAccountVar, caEndpointEnv, caProviderEnv, pilotCertProvider,
-		outputKeyCertToDir, provCert, trustDomainEnv, eccSigAlgEnv, credFetcherTypeEnv, credIdentityProvider,
-		xdsAuthProvider, fileMountedCertsEnv, pkcs8KeysEnv, secretTTLEnv, secretRotationGracePeriodRatioEnv)
+	sop := security.Options{
+		CAEndpoint:                     "",
+		CAProviderName:                 "Citadel",
+		PilotCertProvider:              "istiod",
+		OutputKeyCertToDir:             "",
+		ProvCert:                       "",
+		WorkloadUDSPath:                security.DefaultLocalSDSPath,
+		ClusterID:                      "",
+		FileMountedCerts:               false,
+		WorkloadNamespace:              "",
+		ServiceAccount:                 "",
+		TrustDomain:                    "cluster.local",
+		Pkcs8Keys:                      false,
+		ECCSigAlg:                      "",
+		SecretTTL:                      24 * time.Hour,
+		SecretRotationGracePeriodRatio: 0.5,
+	}
+	secOpts, err := secop.SetupSecurityOptions(proxyConfig, sop, jwtPolicy,
+		credFetcherTypeEnv, credIdentityProvider)
 	if err != nil {
 		t.Fatalf("failed to setup security options: %v", err)
 	}
@@ -90,24 +91,35 @@ func TestGetTokenForXDS(t *testing.T) {
 	})
 	secOpts.TokenManager = tokenManager
 
-	// Case 1: xdsAuthProvider is google.GCPAuthProvider
-	provider := NewXDSTokenProvider(secOpts)
-	token, err := provider.GetToken()
-	if err != nil {
-		t.Errorf("failed to get token: %v", err)
+	tests := []struct {
+		name        string
+		provider    string
+		expectToken string
+	}{
+		{
+			name:        "xdsAuthProvider is google.GCPAuthProvider",
+			provider:    google.GCPAuthProvider,
+			expectToken: mock.FakeAccessToken,
+		},
+		{
+			name:        "xdsAuthProvider is empty",
+			provider:    "",
+			expectToken: mock.FakeSubjectToken,
+		},
 	}
-	if token != mock.FakeAccessToken {
-		t.Errorf("the access token is unexpected, expect: %v, got: %v", mock.FakeAccessToken, token)
-	}
-	// Case 2: xdsAuthProvider is empty
-	secOpts.XdsAuthProvider = ""
-	provider = NewXDSTokenProvider(secOpts)
-	token, err = provider.GetToken()
-	if err != nil {
-		t.Fatalf("failed to get token: %v", err)
-	}
-	if token != mock.FakeSubjectToken {
-		t.Errorf("token is unexpected, expect: %v, got: %v", mock.FakeSubjectToken, token)
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			secOpts.XdsAuthProvider = tt.provider
+			provider := NewXDSTokenProvider(secOpts)
+			token, err := provider.GetToken()
+			if err != nil {
+				t.Errorf("failed to get token: %v", err)
+			}
+			if token != tt.expectToken {
+				t.Errorf("the token returned is unexpected, expect: %v, got: %v", tt.expectToken, token)
+			}
+		})
 	}
 }
 

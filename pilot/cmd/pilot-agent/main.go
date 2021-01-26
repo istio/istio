@@ -218,10 +218,27 @@ var (
 			// K8S
 			role.DNSDomain = getDNSDomain(podNamespace, role.DNSDomain)
 			log.WithLabels("ips", role.IPAddresses, "type", role.Type, "id", role.ID, "domain", role.DNSDomain).Info("Proxy role")
-			secOpts, err := secopt.SetupSecurityOptions(proxyConfig, jwtPolicy.Get(), clusterIDVar.Get(),
-				podNamespaceVar.Get(), serviceAccountVar.Get(), caEndpointEnv, caProviderEnv, pilotCertProvider,
-				outputKeyCertToDir, provCert, trustDomainEnv, eccSigAlgEnv, credFetcherTypeEnv, credIdentityProvider,
-				xdsAuthProvider.Get(), fileMountedCertsEnv, pkcs8KeysEnv, secretTTLEnv, secretRotationGracePeriodRatioEnv)
+
+			sop := security.Options{
+				CAEndpoint:                     caEndpointEnv,
+				CAProviderName:                 caProviderEnv,
+				PilotCertProvider:              pilotCertProvider,
+				OutputKeyCertToDir:             outputKeyCertToDir,
+				ProvCert:                       provCert,
+				WorkloadUDSPath:                security.DefaultLocalSDSPath,
+				ClusterID:                      clusterIDVar.Get(),
+				FileMountedCerts:               fileMountedCertsEnv,
+				WorkloadNamespace:              podNamespaceVar.Get(),
+				ServiceAccount:                 serviceAccountVar.Get(),
+				XdsAuthProvider:                xdsAuthProvider.Get(),
+				TrustDomain:                    trustDomainEnv,
+				Pkcs8Keys:                      pkcs8KeysEnv,
+				ECCSigAlg:                      eccSigAlgEnv,
+				SecretTTL:                      secretTTLEnv,
+				SecretRotationGracePeriodRatio: secretRotationGracePeriodRatioEnv,
+			}
+			secOpts, err := secopt.SetupSecurityOptions(proxyConfig, sop, jwtPolicy.Get(),
+				credFetcherTypeEnv, credIdentityProvider)
 			if err != nil {
 				return err
 			}

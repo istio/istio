@@ -17,7 +17,6 @@ package security
 import (
 	"fmt"
 	"strings"
-	"time"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	securityModel "istio.io/istio/pilot/pkg/security/model"
@@ -29,10 +28,8 @@ import (
 	"istio.io/pkg/log"
 )
 
-func SetupSecurityOptions(proxyConfig meshconfig.ProxyConfig, jwtPolicy, clusterIDVar, podNamespaceVar,
-	serviceAccountVar, caEndpointEnv, caProviderEnv, pilotCertProvider, outputKeyCertToDir, provCert, trustDomainEnv,
-	eccSigAlgEnv, credFetcherTypeEnv, credIdentityProvider, xdsAuthProvider string, fileMountedCertsEnv, pkcs8KeysEnv bool,
-	secretTTLEnv time.Duration, secretRotationGracePeriodRatioEnv float64) (security.Options, error) {
+func SetupSecurityOptions(proxyConfig meshconfig.ProxyConfig, secOpt security.Options, jwtPolicy,
+	credFetcherTypeEnv, credIdentityProvider string) (security.Options, error) {
 	var jwtPath string
 	if jwtPolicy == jwt.PolicyThirdParty {
 		log.Info("JWT policy is third-party-jwt")
@@ -44,25 +41,9 @@ func SetupSecurityOptions(proxyConfig meshconfig.ProxyConfig, jwtPolicy, cluster
 		log.Info("Using existing certs")
 	}
 
-	o := security.Options{
-		CAEndpoint:                     caEndpointEnv,
-		CAProviderName:                 caProviderEnv,
-		PilotCertProvider:              pilotCertProvider,
-		OutputKeyCertToDir:             outputKeyCertToDir,
-		ProvCert:                       provCert,
-		JWTPath:                        jwtPath,
-		WorkloadUDSPath:                security.DefaultLocalSDSPath,
-		ClusterID:                      clusterIDVar,
-		FileMountedCerts:               fileMountedCertsEnv,
-		WorkloadNamespace:              podNamespaceVar,
-		ServiceAccount:                 serviceAccountVar,
-		XdsAuthProvider:                xdsAuthProvider,
-		TrustDomain:                    trustDomainEnv,
-		Pkcs8Keys:                      pkcs8KeysEnv,
-		ECCSigAlg:                      eccSigAlgEnv,
-		SecretTTL:                      secretTTLEnv,
-		SecretRotationGracePeriodRatio: secretRotationGracePeriodRatioEnv,
-	}
+	o := secOpt
+	o.JWTPath = jwtPath
+
 	// If not set explicitly, default to the discovery address.
 	if o.CAEndpoint == "" {
 		o.CAEndpoint = proxyConfig.DiscoveryAddress
