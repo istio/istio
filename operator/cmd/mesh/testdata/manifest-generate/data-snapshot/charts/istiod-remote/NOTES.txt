@@ -1,3 +1,0 @@
-Minimal control plane configuration for Istio remote data plane. Mutating webhook configuration and sidecar injector configuration are included.
-
-

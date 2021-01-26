@@ -90,6 +90,7 @@ func (v *Validator) ValidateCustomResource(o runtime.Object) error {
 		// by omitting the entire parent object.
 		return strings.Contains(err.Error(), `must be of type object: "null"`) ||
 			strings.Contains(err.Error(), `must be of type array: "null"`) ||
+			strings.Contains(err.Error(), `must be of type string: "null"`) ||
 			strings.Contains(err.Error(), `Unsupported value: "": supported values`)
 	}).ToAggregate(); err != nil {
 		return fmt.Errorf("%v/%v/%v: %v", un.GroupVersionKind().Kind, un.GetName(), un.GetNamespace(), err)

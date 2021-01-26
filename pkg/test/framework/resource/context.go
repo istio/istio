@@ -27,23 +27,11 @@ type ConfigManager interface {
 	// ApplyYAMLOrFail applies the given config yaml text via Galley.
 	ApplyYAMLOrFail(t test.Failer, ns string, yamlText ...string)
 
-	// ApplyYAMLInCluster applies the given config yaml text via Galley in a specific cluster.
-	ApplyYAMLInCluster(c Cluster, ns string, yamlText ...string) error
-
-	// ApplyYAMLInClusterOrFail applies the given config yaml text via Galley in a specific cluster.
-	ApplyYAMLInClusterOrFail(t test.Failer, c Cluster, ns string, yamlText ...string)
-
 	// DeleteYAML deletes the given config yaml text via Galley.
 	DeleteYAML(ns string, yamlText ...string) error
 
 	// DeleteYAMLOrFail deletes the given config yaml text via Galley.
 	DeleteYAMLOrFail(t test.Failer, ns string, yamlText ...string)
-
-	// ApplyYAMLDir recursively applies all the config files in the specified directory
-	ApplyYAMLDir(ns string, configDir string) error
-
-	// DeleteYAMLDir recursively deletes all the config files in the specified directory
-	DeleteYAMLDir(ns string, configDir string) error
 
 	// WithFilePrefix sets the prefix used for intermediate files.
 	WithFilePrefix(prefix string) ConfigManager
@@ -72,6 +60,17 @@ type Context interface {
 
 	// Settings returns common settings
 	Settings() *Settings
+
+	// WhenDone runs the given function when the test context completes.
+	// If -istio.test.nocleanup is set, this function will not be executed. To unconditionally cleanup, use Cleanup.
+	// This function may not (safely) access the test context.
+	ConditionalCleanup(fn func())
+
+	// Cleanup runs the given function when the test context completes.
+	// This function will always run, regardless of -istio.test.nocleanup. To run only when cleanup is enabled,
+	// use WhenDone.
+	// This function may not (safely) access the test context.
+	Cleanup(fn func())
 
 	// CreateDirectory creates a new subdirectory within this context.
 	CreateDirectory(name string) (string, error)

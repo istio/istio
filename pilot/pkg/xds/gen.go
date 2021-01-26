@@ -106,7 +106,7 @@ func (s *DiscoveryServer) pushXds(con *Connection, push *model.PushContext,
 	if err != nil || res == nil {
 		// If we have nothing to send, report that we got an ACK for this version.
 		if s.StatusReporter != nil {
-			s.StatusReporter.RegisterEvent(con.ConID, w.TypeUrl, push.Version)
+			s.StatusReporter.RegisterEvent(con.ConID, w.TypeUrl, push.LedgerVersion)
 		}
 		return err
 	}
@@ -115,7 +115,7 @@ func (s *DiscoveryServer) pushXds(con *Connection, push *model.PushContext,
 	resp := &discovery.DiscoveryResponse{
 		TypeUrl:     w.TypeUrl,
 		VersionInfo: currentVersion,
-		Nonce:       nonce(push.Version),
+		Nonce:       nonce(push.LedgerVersion),
 		Resources:   res,
 	}
 
@@ -126,8 +126,14 @@ func (s *DiscoveryServer) pushXds(con *Connection, push *model.PushContext,
 
 	// Some types handle logs inside Generate, skip them here
 	if _, f := SkipLogTypes[w.TypeUrl]; !f {
-		adsLog.Infof("%s: PUSH for node:%s resources:%d size:%s",
-			v3.GetShortType(w.TypeUrl), con.proxy.ID, len(res), util.ByteCount(ResourceSize(res)))
+		if adsLog.DebugEnabled() {
+			// Add additional information to logs when debug mode enabled
+			adsLog.Infof("%s: PUSH for node:%s resources:%d size:%s nonce:%v version:%v",
+				v3.GetShortType(w.TypeUrl), con.proxy.ID, len(res), util.ByteCount(ResourceSize(res)), resp.Nonce, resp.VersionInfo)
+		} else {
+			adsLog.Infof("%s: PUSH for node:%s resources:%d size:%s",
+				v3.GetShortType(w.TypeUrl), con.proxy.ID, len(res), util.ByteCount(ResourceSize(res)))
+		}
 	}
 	return nil
 }

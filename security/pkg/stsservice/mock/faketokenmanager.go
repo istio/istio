@@ -16,9 +16,11 @@ package mock
 
 import (
 	"encoding/json"
+	"fmt"
 	"sync"
 	"time"
 
+	"istio.io/istio/pkg/security"
 	"istio.io/istio/security/pkg/stsservice"
 )
 
@@ -68,7 +70,7 @@ func (tm *FakeTokenManager) SetToken(t stsservice.TokenInfo) {
 }
 
 // GenerateToken returns a fake token, or error if generateTokenError is set.
-func (tm *FakeTokenManager) GenerateToken(_ stsservice.StsRequestParameters) ([]byte, error) {
+func (tm *FakeTokenManager) GenerateToken(_ security.StsRequestParameters) ([]byte, error) {
 	var expErr error
 	tm.mutex.Lock()
 	expErr = tm.generateTokenError
@@ -111,4 +113,14 @@ func (tm *FakeTokenManager) DumpTokenStatus() ([]byte, error) {
 	}
 	statusJSON, err := json.MarshalIndent(td, "", " ")
 	return statusJSON, err
+}
+
+// GetMetadata returns the metadata headers related to the token
+func (tm *FakeTokenManager) GetMetadata(forCA bool, xdsAuthProvider, token string) (map[string]string, error) {
+	if token == "" {
+		return nil, fmt.Errorf("empty token in FakeTokenManager GetMetadata()")
+	}
+	return map[string]string{
+		"authorization": "Bearer " + token,
+	}, nil
 }

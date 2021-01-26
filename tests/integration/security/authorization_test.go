@@ -429,7 +429,7 @@ func TestAuthorization_NegativeMatch(t *testing.T) {
 			for _, srcCluster := range ctx.Clusters() {
 				ctx.NewSubTest(fmt.Sprintf("From %s", srcCluster.Name())).Run(func(ctx framework.TestContext) {
 					srcA := apps.A.Match(echo.InCluster(srcCluster).And(echo.Namespace(apps.Namespace1.Name())))
-					srcX := apps.X.Match(echo.InCluster(srcCluster).And(echo.Namespace(apps.Namespace2.Name())))
+					srcBInNS2 := apps.B.Match(echo.InCluster(srcCluster).And(echo.Namespace(apps.Namespace2.Name())))
 					destB := apps.B.Match(echo.Namespace(apps.Namespace1.Name()))
 					destC := apps.C.Match(echo.Namespace(apps.Namespace1.Name()))
 					destD := apps.D.Match(echo.Namespace(apps.Namespace1.Name()))
@@ -450,12 +450,12 @@ func TestAuthorization_NegativeMatch(t *testing.T) {
 						}
 					}
 
-					// a, b, c and d are in the same namespace and x is in a different namespace.
-					// a connects to b, c and d with mTLS.
-					// x connects to b and c with mTLS, to d with plain-text.
+					// a, b, c and d are in the same namespace and another b(bInNs2) is in a different namespace.
+					// a connects to b, c and d in ns1 with mTLS.
+					// bInNs2 connects to b and c with mTLS, to d with plain-text.
 					cases := []rbacUtil.TestCase{
 						// Test the policy with overlapped `paths` and `not_paths` on b.
-						// a and x should have the same results:
+						// a and bInNs2 should have the same results:
 						// - path with prefix `/prefix` should be denied explicitly.
 						// - path `/prefix/allowlist` should be excluded from the deny.
 						// - path `/allow` should be allowed implicitly.
@@ -463,22 +463,22 @@ func TestAuthorization_NegativeMatch(t *testing.T) {
 						newTestCase(srcA[0], destB, "/prefix/other", false),
 						newTestCase(srcA[0], destB, "/prefix/allowlist", true),
 						newTestCase(srcA[0], destB, "/allow", true),
-						newTestCase(srcX[0], destB, "/prefix", false),
-						newTestCase(srcX[0], destB, "/prefix/other", false),
-						newTestCase(srcX[0], destB, "/prefix/allowlist", true),
-						newTestCase(srcX[0], destB, "/allow", true),
+						newTestCase(srcBInNS2[0], destB, "/prefix", false),
+						newTestCase(srcBInNS2[0], destB, "/prefix/other", false),
+						newTestCase(srcBInNS2[0], destB, "/prefix/allowlist", true),
+						newTestCase(srcBInNS2[0], destB, "/allow", true),
 
 						// Test the policy that denies other namespace on c.
 						// a should be allowed because it's from the same namespace.
-						// x should be denied because it's from a different namespace.
+						// bInNs2 should be denied because it's from a different namespace.
 						newTestCase(srcA[0], destC, "/", true),
-						newTestCase(srcX[0], destC, "/", false),
+						newTestCase(srcBInNS2[0], destC, "/", false),
 
 						// Test the policy that denies plain-text traffic on d.
 						// a should be allowed because it's using mTLS.
-						// x should be denied because it's using plain-text.
+						// bInNs2 should be denied because it's using plain-text.
 						newTestCase(srcA[0], destD, "/", true),
-						newTestCase(srcX[0], destD, "/", false),
+						newTestCase(srcBInNS2[0], destD, "/", false),
 					}
 
 					rbacUtil.RunRBACTest(ctx, cases)
@@ -516,7 +516,7 @@ func TestAuthorization_IngressGateway(t *testing.T) {
 
 			var b echo.Instance
 			echoboot.NewBuilder(ctx).
-				With(&b, util.EchoConfig("b", ns, false, nil, nil)).
+				With(&b, util.EchoConfig("b", ns, false, nil)).
 				BuildOrFail(t)
 
 			ingr := ist.IngressFor(ctx.Clusters().Default())
@@ -648,7 +648,7 @@ func TestAuthorization_EgressGateway(t *testing.T) {
 
 			var a, b, c echo.Instance
 			echoboot.NewBuilder(ctx).
-				With(&a, util.EchoConfig("a", ns, false, nil, nil)).
+				With(&a, util.EchoConfig("a", ns, false, nil)).
 				With(&b, echo.Config{
 					Service:   "b",
 					Namespace: ns,
@@ -661,7 +661,7 @@ func TestAuthorization_EgressGateway(t *testing.T) {
 						},
 					},
 				}).
-				With(&c, util.EchoConfig("c", ns, false, nil, nil)).
+				With(&c, util.EchoConfig("c", ns, false, nil)).
 				BuildOrFail(t)
 
 			args := map[string]string{
@@ -858,7 +858,7 @@ func TestAuthorization_TCP(t *testing.T) {
 				},
 			}
 			echoboot.NewBuilder(ctx).
-				With(&x, util.EchoConfig("x", ns2, false, nil, nil)).
+				With(&x, util.EchoConfig("x", ns2, false, nil)).
 				With(&a, echo.Config{
 					Subsets:        []echo.SubsetConfig{{}},
 					Namespace:      ns,
@@ -1102,10 +1102,10 @@ func TestAuthorization_GRPC(t *testing.T) {
 			})
 			var a, b, c, d echo.Instance
 			echoboot.NewBuilder(ctx).
-				With(&a, util.EchoConfig("a", ns, false, nil, nil)).
-				With(&b, util.EchoConfig("b", ns, false, nil, nil)).
-				With(&c, util.EchoConfig("c", ns, false, nil, nil)).
-				With(&d, util.EchoConfig("d", ns, false, nil, nil)).
+				With(&a, util.EchoConfig("a", ns, false, nil)).
+				With(&b, util.EchoConfig("b", ns, false, nil)).
+				With(&c, util.EchoConfig("c", ns, false, nil)).
+				With(&d, util.EchoConfig("d", ns, false, nil)).
 				BuildOrFail(t)
 
 			cases := []rbacUtil.TestCase{
@@ -1229,10 +1229,10 @@ func TestAuthorization_Audit(t *testing.T) {
 
 			var a, b, c, d echo.Instance
 			echoboot.NewBuilder(ctx).
-				With(&a, util.EchoConfig("a", ns, false, nil, nil)).
-				With(&b, util.EchoConfig("b", ns, false, nil, nil)).
-				With(&c, util.EchoConfig("c", ns, false, nil, nil)).
-				With(&d, util.EchoConfig("d", ns, false, nil, nil)).
+				With(&a, util.EchoConfig("a", ns, false, nil)).
+				With(&b, util.EchoConfig("b", ns, false, nil)).
+				With(&c, util.EchoConfig("c", ns, false, nil)).
+				With(&d, util.EchoConfig("d", ns, false, nil)).
 				BuildOrFail(t)
 
 			newTestCase := func(target echo.Instance, path string, expectAllowed bool) rbacUtil.TestCase {
@@ -1285,10 +1285,14 @@ func TestAuthorization_Custom(t *testing.T) {
 				Prefix: "v1beta1-custom",
 				Inject: true,
 			})
-			args := map[string]string{"Namespace": ns.Name()}
-			applyYAML := func(filename string, ns namespace.Instance) []string {
+			args := map[string]string{
+				"Namespace":     ns.Name(),
+				"RootNamespace": istio.GetOrFail(ctx, ctx).Settings().SystemNamespace,
+			}
+
+			applyYAML := func(filename string, namespace string) []string {
 				policy := tmpl.EvaluateAllOrFail(t, args, file.AsStringOrFail(t, filename))
-				ctx.Config().ApplyYAMLOrFail(t, ns.Name(), policy...)
+				ctx.Config().ApplyYAMLOrFail(t, namespace, policy...)
 				return policy
 			}
 
@@ -1296,14 +1300,13 @@ func TestAuthorization_Custom(t *testing.T) {
 			if extAuthzServiceNamespace == nil {
 				ctx.Fatalf("Failed to create namespace for ext-authz server: %v", extAuthzServiceNamespaceErr)
 			}
-			extAuthzServer := applyYAML("../../../samples/extauthz/ext-authz.yaml", extAuthzServiceNamespace)
+			extAuthzServer := applyYAML("../../../samples/extauthz/ext-authz.yaml", extAuthzServiceNamespace.Name())
 			defer ctx.Config().DeleteYAMLOrFail(t, extAuthzServiceNamespace.Name(), extAuthzServer...)
 			if _, _, err := kube.WaitUntilServiceEndpointsAreReady(ctx.Clusters().Default(), extAuthzServiceNamespace.Name(), "ext-authz"); err != nil {
 				ctx.Fatalf("Wait for ext-authz server failed: %v", err)
 			}
-
-			policy := applyYAML("testdata/authz/v1beta1-custom.yaml.tmpl", ns)
-			defer ctx.Config().DeleteYAMLOrFail(t, ns.Name(), policy...)
+			policy := applyYAML("testdata/authz/v1beta1-custom.yaml.tmpl", "")
+			defer ctx.Config().DeleteYAMLOrFail(t, "", policy...)
 
 			ports := []echo.Port{
 				{
@@ -1323,9 +1326,9 @@ func TestAuthorization_Custom(t *testing.T) {
 				},
 			}
 
-			var a, b, c, d, e, f, x echo.Instance
+			var a, b, c, d, e, f, g, x echo.Instance
 			echoConfig := func(name string, includeExtAuthz bool) echo.Config {
-				cfg := util.EchoConfig(name, ns, false, nil, nil)
+				cfg := util.EchoConfig(name, ns, false, nil)
 				cfg.IncludeExtAuthz = includeExtAuthz
 				cfg.Ports = ports
 				return cfg
@@ -1337,6 +1340,7 @@ func TestAuthorization_Custom(t *testing.T) {
 				With(&d, echoConfig("d", true)).
 				With(&e, echoConfig("e", true)).
 				With(&f, echoConfig("f", false)).
+				With(&g, echoConfig("g", false)).
 				With(&x, echoConfig("x", false)).
 				BuildOrFail(t)
 
@@ -1390,5 +1394,30 @@ func TestAuthorization_Custom(t *testing.T) {
 			}
 
 			rbacUtil.RunRBACTest(ctx, cases)
+
+			ingr := ist.IngressFor(ctx.Clusters().Default())
+			ingressCases := []rbacUtil.TestCase{
+				// workload g is using an ext-authz service in its own pod of HTTP API.
+				newTestCase(x, g, "/custom", "http", "allow", true, scheme.HTTP),
+				newTestCase(x, g, "/custom", "http", "deny", false, scheme.HTTP),
+				newTestCase(x, g, "/health", "http", "allow", true, scheme.HTTP),
+				newTestCase(x, g, "/health", "http", "deny", true, scheme.HTTP),
+			}
+			for _, tc := range ingressCases {
+				name := fmt.Sprintf("%s->%s:%s%s[%t]",
+					tc.Request.From.Config().Service,
+					tc.Request.Options.Target.Config().Service,
+					tc.Request.Options.PortName,
+					tc.Request.Options.Path,
+					tc.ExpectAllowed)
+
+				ctx.NewSubTest(name).Run(func(ctx framework.TestContext) {
+					wantCode := map[bool]int{true: 200, false: 403}[tc.ExpectAllowed]
+					headers := map[string][]string{
+						"X-Ext-Authz": {tc.Headers["x-ext-authz"]},
+					}
+					authn.CheckIngressOrFail(ctx, ingr, "www.company.com", tc.Request.Options.Path, headers, "", wantCode)
+				})
+			}
 		})
 }

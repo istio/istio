@@ -42,6 +42,7 @@ func (ipt *iptables) Program(netns string, rdrct *Redirect) error {
 	nsSetupExecutable := fmt.Sprintf("%s/%s", nsSetupBinDir, nsSetupProg)
 	nsenterArgs := []string{
 		netnsArg,
+		"--", // separate nsenter args from the rest with `--`, needed for hosts using BusyBox binaries
 		nsSetupExecutable,
 		"-p", rdrct.targetPort,
 		"-u", rdrct.noRedirectUID,

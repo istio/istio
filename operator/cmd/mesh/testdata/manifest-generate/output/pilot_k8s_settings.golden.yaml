@@ -30,6 +30,7 @@ spec:
         istio: pilot
         istio.io/rev: default
         operator.istio.io/component: Pilot
+        sidecar.istio.io/inject: "false"
     spec:
       containers:
       - args:
@@ -81,8 +82,6 @@ spec:
         - name: CLUSTER_ID
           value: Kubernetes
         - name: EXTERNAL_ISTIOD
-          value: "false"
-        - name: CENTRAL_ISTIOD
           value: "false"
         image: docker.io/istio/pilot:1.1.4
         name: discovery

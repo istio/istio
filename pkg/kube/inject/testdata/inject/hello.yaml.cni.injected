@@ -31,6 +31,7 @@ spec:
         service.istio.io/canonical-name: hello
         service.istio.io/canonical-revision: latest
         tier: backend
+        topology.istio.io/network: network1
         track: stable
     spec:
       containers:
@@ -89,7 +90,7 @@ spec:
               fieldPath: metadata.labels['service.istio.io/canonical-revision']
         - name: PROXY_CONFIG
           value: |
-            {"proxyMetadata":{"DNS_AGENT":""}}
+            {}
         - name: ISTIO_META_POD_PORTS
           value: |-
             [
@@ -109,9 +110,9 @@ spec:
           value: cluster.local
         - name: TRUST_DOMAIN
           value: cluster.local
-        - name: DNS_AGENT
+        - name: ISTIO_META_NETWORK
+          value: network1
         image: gcr.io/istio-testing/proxyv2:latest
-        imagePullPolicy: Always
         name: istio-proxy
         ports:
         - containerPort: 15090
@@ -174,10 +175,7 @@ spec:
         - 15090,15021,15020
         - --run-validation
         - --skip-rule-apply
-        env:
-        - name: DNS_AGENT
         image: gcr.io/istio-testing/proxyv2:latest
-        imagePullPolicy: Always
         name: istio-validation
         resources:
           limits:

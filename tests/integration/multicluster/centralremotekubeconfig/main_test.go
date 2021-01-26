@@ -19,11 +19,11 @@ import (
 	"testing"
 
 	"istio.io/istio/pkg/test/framework"
-	"istio.io/istio/pkg/test/framework/components/environment/kube"
+	"istio.io/istio/pkg/test/framework/components/cluster"
+	kubecluster "istio.io/istio/pkg/test/framework/components/cluster/kube"
 	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/label"
 	"istio.io/istio/pkg/test/framework/resource"
-	"istio.io/istio/pkg/test/scopes"
 	"istio.io/istio/tests/integration/multicluster"
 )
 
@@ -36,19 +36,19 @@ func TestMain(m *testing.M) {
 		NewSuite(m).
 		Label(label.Multicluster).
 		RequireMinClusters(2).
-		Setup(kube.Setup(func(s *kube.Settings, ctx resource.Context) {
-			// Make istiod run on 2nd cluster and points to KUBECONFIG in cluster 0
-			scopes.Framework.Infof("setting up istiod cluster before hand")
-			s.ControlPlaneTopology = make(map[resource.ClusterIndex]resource.ClusterIndex)
-			s.ConfigTopology = make(map[resource.ClusterIndex]resource.ClusterIndex)
-			externalControlPlaneCluster := resource.ClusterIndex(1)
-			configCluster := resource.ClusterIndex(0)
-			scopes.Framework.Infof("remote cluster %s", ctx.Clusters()[configCluster].Name())
-			for i := 0; i < len(ctx.Clusters()); i++ {
-				s.ControlPlaneTopology[resource.ClusterIndex(i)] = externalControlPlaneCluster
-				s.ConfigTopology[resource.ClusterIndex(i)] = configCluster
+		Setup(func(ctx resource.Context) error {
+			// TODO, this should be exclusively configurable outside of the framework
+			configCluster := ctx.Clusters()[0]
+			externalControlPlaneCluster := ctx.Clusters()[1]
+			for _, c := range ctx.Clusters() {
+				c.(*kubecluster.Cluster).OverrideTopology(func(c cluster.Topology) cluster.Topology {
+					return c.
+						WithConfig(configCluster.Name()).
+						WithPrimary(externalControlPlaneCluster.Name())
+				})
 			}
-		})).
+			return nil
+		}).
 		Setup(istio.Setup(&ist, func(_ resource.Context, cfg *istio.Config) {
 			// Set the control plane values on the config.
 			cfg.ConfigClusterValues =

@@ -15,3 +15,4 @@ typedConfig:
       clusterName: outbound|9000||my-custom-ext-authz.foo.svc.cluster.local
   statusOnError:
     code: Forbidden
+  transportApiVersion: V3

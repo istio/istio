@@ -23,7 +23,7 @@ spec:
         listener:
           filterChain:
             filter:
-              name: "envoy.http_connection_manager"
+              name: "envoy.filters.network.http_connection_manager"
       patch:
         operation: INSERT_BEFORE
         value:
@@ -58,7 +58,7 @@ spec:
         listener:
           filterChain:
             filter:
-              name: "envoy.http_connection_manager"
+              name: "envoy.filters.network.http_connection_manager"
       patch:
         operation: INSERT_BEFORE
         value:
@@ -93,7 +93,7 @@ spec:
         listener:
           filterChain:
             filter:
-              name: "envoy.http_connection_manager"
+              name: "envoy.filters.network.http_connection_manager"
       patch:
         operation: INSERT_BEFORE
         value:
@@ -205,9 +205,9 @@ spec:
         listener:
           filterChain:
             filter:
-              name: "envoy.http_connection_manager"
+              name: "envoy.filters.network.http_connection_manager"
               subFilter:
-                name: "envoy.router"
+                name: "envoy.filters.http.router"
       patch:
         operation: INSERT_BEFORE
         value:
@@ -224,7 +224,7 @@ spec:
                     {{- if not .Values.telemetry.v2.prometheus.configOverride.outboundSidecar }}
                     {
                       "debug": "false",
-                      "stat_prefix": "istio"{{- if .Values.global.multiCluster.clusterName }},
+                      "stat_prefix": "istio",
                       "metrics": [
                         {
                           "dimensions": {
@@ -233,7 +233,6 @@ spec:
                           }
                         }
                       ]
-                      {{- end }}
                     }
                     {{- else }}
                     {{ toJson .Values.telemetry.v2.prometheus.configOverride.outboundSidecar | indent 18 }}
@@ -260,9 +259,9 @@ spec:
         listener:
           filterChain:
             filter:
-              name: "envoy.http_connection_manager"
+              name: "envoy.filters.network.http_connection_manager"
               subFilter:
-                name: "envoy.router"
+                name: "envoy.filters.http.router"
       patch:
         operation: INSERT_BEFORE
         value:
@@ -279,7 +278,7 @@ spec:
                     {{- if not .Values.telemetry.v2.prometheus.configOverride.inboundSidecar }}
                     {
                       "debug": "false",
-                      "stat_prefix": "istio"{{- if .Values.global.multiCluster.clusterName }},
+                      "stat_prefix": "istio",
                       "metrics": [
                         {
                           "dimensions": {
@@ -288,7 +287,6 @@ spec:
                           }
                         }
                       ]
-                      {{- end }}
                     }
                     {{- else }}
                     {{ toJson .Values.telemetry.v2.prometheus.configOverride.inboundSidecar | indent 18 }}
@@ -315,9 +313,9 @@ spec:
         listener:
           filterChain:
             filter:
-              name: "envoy.http_connection_manager"
+              name: "envoy.filters.network.http_connection_manager"
               subFilter:
-                name: "envoy.router"
+                name: "envoy.filters.http.router"
       patch:
         operation: INSERT_BEFORE
         value:
@@ -335,7 +333,7 @@ spec:
                     {
                       "debug": "false",
                       "stat_prefix": "istio",
-                      "disable_host_header_fallback": true{{- if .Values.global.multiCluster.clusterName }},
+                      "disable_host_header_fallback": true,
                       "metrics": [
                         {
                           "dimensions": {
@@ -344,7 +342,6 @@ spec:
                           }
                         }
                       ]
-                      {{- end }}
                     }
                     {{- else }}
                     {{ toJson .Values.telemetry.v2.prometheus.configOverride.gateway | indent 18 }}
@@ -386,7 +383,7 @@ spec:
         listener:
           filterChain:
             filter:
-              name: "envoy.tcp_proxy"
+              name: "envoy.filters.network.tcp_proxy"
       patch:
         operation: INSERT_BEFORE
         value:
@@ -403,7 +400,7 @@ spec:
                     {{- if not .Values.telemetry.v2.prometheus.configOverride.inboundSidecar }}
                     {
                       "debug": "false",
-                      "stat_prefix": "istio"{{- if .Values.global.multiCluster.clusterName }},
+                      "stat_prefix": "istio",
                       "metrics": [
                         {
                           "dimensions": {
@@ -412,7 +409,6 @@ spec:
                           }
                         }
                       ]
-                      {{- end }}
                     }
                     {{- else }}
                     {{ toJson .Values.telemetry.v2.prometheus.configOverride.inboundSidecar | indent 18 }}
@@ -439,7 +435,7 @@ spec:
         listener:
           filterChain:
             filter:
-              name: "envoy.tcp_proxy"
+              name: "envoy.filters.network.tcp_proxy"
       patch:
         operation: INSERT_BEFORE
         value:
@@ -456,7 +452,7 @@ spec:
                     {{- if not .Values.telemetry.v2.prometheus.configOverride.outboundSidecar }}
                     {
                       "debug": "false",
-                      "stat_prefix": "istio"{{- if .Values.global.multiCluster.clusterName }},
+                      "stat_prefix": "istio",
                       "metrics": [
                         {
                           "dimensions": {
@@ -465,7 +461,6 @@ spec:
                           }
                         }
                       ]
-                      {{- end }}
                     }
                     {{- else }}
                     {{ toJson .Values.telemetry.v2.prometheus.configOverride.outboundSidecar | indent 18 }}
@@ -492,7 +487,7 @@ spec:
         listener:
           filterChain:
             filter:
-              name: "envoy.tcp_proxy"
+              name: "envoy.filters.network.tcp_proxy"
       patch:
         operation: INSERT_BEFORE
         value:
@@ -509,7 +504,7 @@ spec:
                     {{- if not .Values.telemetry.v2.prometheus.configOverride.gateway }}
                     {
                       "debug": "false",
-                      "stat_prefix": "istio"{{- if .Values.global.multiCluster.clusterName }},
+                      "stat_prefix": "istio",
                       "metrics": [
                         {
                           "dimensions": {
@@ -518,7 +513,6 @@ spec:
                           }
                         }
                       ]
-                      {{- end }}
                     }
                     {{- else }}
                     {{ toJson .Values.telemetry.v2.prometheus.configOverride.gateway | indent 18 }}
@@ -562,9 +556,9 @@ spec:
         listener:
           filterChain:
             filter:
-              name: "envoy.http_connection_manager"
+              name: "envoy.filters.network.http_connection_manager"
               subFilter:
-                name: "envoy.router"
+                name: "envoy.filters.http.router"
       patch:
         operation: INSERT_BEFORE
         value:
@@ -597,9 +591,9 @@ spec:
         listener:
           filterChain:
             filter:
-              name: "envoy.http_connection_manager"
+              name: "envoy.filters.network.http_connection_manager"
               subFilter:
-                name: "envoy.router"
+                name: "envoy.filters.http.router"
       patch:
         operation: INSERT_BEFORE
         value:
@@ -631,9 +625,9 @@ spec:
         listener:
           filterChain:
             filter:
-              name: "envoy.http_connection_manager"
+              name: "envoy.filters.network.http_connection_manager"
               subFilter:
-                name: "envoy.router"
+                name: "envoy.filters.http.router"
       patch:
         operation: INSERT_BEFORE
         value:
@@ -680,7 +674,7 @@ spec:
       listener:
         filterChain:
           filter:
-            name: "envoy.tcp_proxy"
+            name: "envoy.filters.network.tcp_proxy"
     patch:
       operation: INSERT_BEFORE
       value:
@@ -713,7 +707,7 @@ spec:
       listener:
         filterChain:
           filter:
-            name: "envoy.tcp_proxy"
+            name: "envoy.filters.network.tcp_proxy"
     patch:
       operation: INSERT_BEFORE
       value:
@@ -745,7 +739,7 @@ spec:
       listener:
         filterChain:
           filter:
-            name: "envoy.tcp_proxy"
+            name: "envoy.filters.network.tcp_proxy"
     patch:
       operation: INSERT_BEFORE
       value:
@@ -792,7 +786,7 @@ spec:
         listener:
           filterChain:
             filter:
-              name: "envoy.http_connection_manager"
+              name: "envoy.filters.network.http_connection_manager"
               subFilter:
                 name: "istio.stackdriver"
       patch:

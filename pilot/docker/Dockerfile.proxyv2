@@ -10,6 +10,7 @@ FROM gcr.io/istio-release/base:${BASE_VERSION} as default
 # The following section is used as base image if BASE_DISTRIBUTION=distroless
 # This image is a custom built debian9 distroless image with multiarchitecture support.
 # It is built on the base distroless image, with iptables binary and libraries added
+# The source can be found at https://github.com/istio/distroless/tree/iptables
 FROM gcr.io/istio-release/iptables:d71c854a55d9661ea1c45ee4391335a67030a617 as distroless
 
 # This will build the final image based on either default or distroless from above

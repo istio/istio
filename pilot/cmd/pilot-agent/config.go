@@ -39,7 +39,11 @@ import (
 func constructProxyConfig(role *model.Proxy) (meshconfig.ProxyConfig, error) {
 	annotations, err := readPodAnnotations()
 	if err != nil {
-		log.Warnf("failed to read pod annotations: %v", err)
+		if os.IsNotExist(err) {
+			log.Debugf("failed to read pod annotations: %v", err)
+		} else {
+			log.Warnf("failed to read pod annotations: %v", err)
+		}
 	}
 	var fileMeshContents string
 	if fileExists(meshConfigFile) {

@@ -82,7 +82,15 @@ func (h *VFSRenderer) RenderManifest(values string) (string, error) {
 	if !h.started {
 		return "", fmt.Errorf("VFSRenderer for %s not started in renderChart", h.componentName)
 	}
-	return renderChart(h.namespace, values, h.chart)
+	return renderChart(h.namespace, values, h.chart, nil)
+}
+
+// RenderManifestFiltered filters templates to render using the supplied filter function.
+func (h *VFSRenderer) RenderManifestFiltered(values string, filter TemplateFilterFunc) (string, error) {
+	if !h.started {
+		return "", fmt.Errorf("fileTemplateRenderer for %s not started in renderChart", h.componentName)
+	}
+	return renderChart(h.namespace, values, h.chart, filter)
 }
 
 // LoadValuesVFS loads the compiled in file corresponding to the given profile name.

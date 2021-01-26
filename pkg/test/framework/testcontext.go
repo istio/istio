@@ -53,20 +53,6 @@ type TestContext interface {
 	// CreateTmpDirectoryOrFail creates a new temporary directory with the given prefix in the workdir, or fails the test.
 	CreateTmpDirectoryOrFail(prefix string) string
 
-	// WhenDone runs the given function when the test context completes.
-	// The function will not be skipped by nocleanup.
-	// This function may not (safely) access the test context.
-	WhenDone(fn func() error)
-
-	// Cleanup runs the given function when the test context completes.
-	// This function may not (safely) access the test context.
-	Cleanup(fn func())
-
-	// CleanupOrFail runs the given function when the test context completes.
-	// The context is failed if an error is returned.
-	// This function may not (safely) access the test context.
-	CleanupOrFail(fn func() error)
-
 	// Done should be called when this context is no longer needed. It triggers the asynchronous cleanup of any
 	// allocated resources.
 	Done()
@@ -157,6 +143,10 @@ func newTestContext(test *testImpl, goTest *testing.T, s *suiteContext, parentSc
 	allLabels := s.suiteLabels.Merge(labels)
 	if !s.settings.Selector.Selects(allLabels) {
 		goTest.Skipf("Skipping: label mismatch: labels=%v, filter=%v", allLabels, s.settings.Selector)
+	}
+
+	if s.settings.SkipMatcher.MatchTest(goTest.Name()) {
+		goTest.Skipf("Skipping: test %v matched -istio.test.skip regex", goTest.Name())
 	}
 
 	scopes.Framework.Debugf("Creating New test context")
@@ -275,8 +265,11 @@ func (c *testContext) NewSubTest(name string) Test {
 	}
 }
 
-func (c *testContext) WhenDone(fn func() error) {
-	c.scope.addCloser(&closer{fn: fn, noskip: true})
+func (c *testContext) ConditionalCleanup(fn func()) {
+	c.scope.addCloser(&closer{fn: func() error {
+		fn()
+		return nil
+	}, noskip: true})
 }
 
 func (c *testContext) Cleanup(fn func()) {
@@ -284,10 +277,6 @@ func (c *testContext) Cleanup(fn func()) {
 		fn()
 		return nil
 	}})
-}
-
-func (c *testContext) CleanupOrFail(fn func() error) {
-	c.scope.addCloser(&closer{fn: fn})
 }
 
 func (c *testContext) Done() {

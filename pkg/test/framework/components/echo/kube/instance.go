@@ -105,7 +105,7 @@ func newInstance(ctx resource.Context, originalCfg echo.Config) (out *instance, 
 
 	if cfg.DeployAsVM {
 		if err := createVMConfig(ctx, c, cfg); err != nil {
-			return nil, err
+			return nil, fmt.Errorf("failed creating config for vm: %v", err)
 		}
 	}
 
@@ -183,7 +183,7 @@ spec:
       app: {{.name}}
   template:
     serviceAccount: {{.serviceaccount}}
-    network: {{.network}}
+    network: "{{.network}}"
   probe:
     failureThreshold: 5
     httpGet:
@@ -419,8 +419,8 @@ spec:
     app: %s
     version: %s
 `, vmPod.Name, vmPod.Status.PodIP, serviceAccount, cfg.Cluster.NetworkName(), cfg.Service, vmPod.Labels["istio.io/test-vm-version"])
-		// Deploy the workload entry to all clusters.
-		if err := ctx.Config().ApplyYAML(cfg.Namespace.Name(), wle); err != nil {
+		// Deploy the workload entry to the primary cluster. We will read WorkloadEntry across clusters.
+		if err := ctx.Config(cfg.Cluster.Primary()).ApplyYAML(cfg.Namespace.Name(), wle); err != nil {
 			return err
 		}
 	}

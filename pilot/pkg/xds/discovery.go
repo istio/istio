@@ -35,7 +35,7 @@ import (
 	"istio.io/istio/pilot/pkg/serviceregistry/memory"
 	"istio.io/istio/pilot/pkg/util/sets"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
-	"istio.io/istio/security/pkg/server/ca/authenticate"
+	"istio.io/istio/pkg/security"
 )
 
 var (
@@ -125,7 +125,7 @@ type DiscoveryServer struct {
 	StatusReporter DistributionStatusCache
 
 	// Authenticators for XDS requests. Should be same/subset of the CA authenticators.
-	Authenticators []authenticate.Authenticator
+	Authenticators []security.Authenticator
 
 	// StatusGen is notified of connect/disconnect/nack on all connections
 	StatusGen               *StatusGen
@@ -291,13 +291,12 @@ func (s *DiscoveryServer) Push(req *model.PushRequest) {
 	// saved.
 	t0 := time.Now()
 
-	push, err := s.initPushContext(req, oldPushContext)
+	versionLocal := time.Now().Format(time.RFC3339) + "/" + strconv.FormatUint(versionNum.Inc(), 10)
+	push, err := s.initPushContext(req, oldPushContext, versionLocal)
 	if err != nil {
 		return
 	}
 
-	versionLocal := time.Now().Format(time.RFC3339) + "/" + strconv.FormatUint(versionNum.Load(), 10)
-	versionNum.Inc()
 	initContextTime := time.Since(t0)
 	adsLog.Debugf("InitContext %v for push took %s", versionLocal, initContextTime)
 
@@ -465,8 +464,9 @@ func doSendPushes(stopCh <-chan struct{}, semaphore chan struct{}, queue *PushQu
 // method is technically thread safe (there are no data races), it should not be called in parallel;
 // if it is, then we may start two push context creations (say A, and B), but then write them in
 // reverse order, leaving us with a final version of A, which may be incomplete.
-func (s *DiscoveryServer) initPushContext(req *model.PushRequest, oldPushContext *model.PushContext) (*model.PushContext, error) {
+func (s *DiscoveryServer) initPushContext(req *model.PushRequest, oldPushContext *model.PushContext, version string) (*model.PushContext, error) {
 	push := model.NewPushContext()
+	push.PushVersion = version
 	if err := push.InitContext(s.Env, oldPushContext, req); err != nil {
 		adsLog.Errorf("XDS: Failed to update services: %v", err)
 		// We can't push if we can't read the data - stick with previous version.
@@ -498,6 +498,7 @@ func (s *DiscoveryServer) initGenerators() {
 	s.Generators[v3.RouteType] = &RdsGenerator{Server: s}
 	s.Generators[v3.EndpointType] = edsGen
 	s.Generators[v3.NameTableType] = &NdsGenerator{Server: s}
+	s.Generators[v3.ExtensionConfigurationType] = &EcdsGenerator{Server: s}
 
 	s.Generators["grpc"] = &grpcgen.GrpcConfigGenerator{}
 	s.Generators["grpc/"+v3.EndpointType] = edsGen
@@ -551,20 +552,8 @@ func (s *DiscoveryServer) AllClients() []*Connection {
 
 // SendResponse will immediately send the response to all connections.
 // TODO: additional filters can be added, for example namespace.
-func (s *DiscoveryServer) SendResponse(res *discovery.DiscoveryResponse) {
-	pending := []*Connection{}
-	for _, v := range s.Clients() {
-		if v.Watching(res.TypeUrl) {
-			pending = append(pending, v)
-		}
-	}
-
-	// only marshal resources if there are connected clients
-	if len(pending) == 0 {
-		return
-	}
-
-	for _, p := range pending {
+func (s *DiscoveryServer) SendResponse(connections []*Connection, res *discovery.DiscoveryResponse) {
+	for _, p := range connections {
 		// p.send() waits for an ACK - which is reasonable for normal push,
 		// but in this case we want to sync fast and not bother with stuck connections.
 		// This is expecting a relatively small number of watchers - each other istiod
@@ -578,4 +567,17 @@ func (s *DiscoveryServer) SendResponse(res *discovery.DiscoveryResponse) {
 			}
 		}()
 	}
+}
+
+// nolint
+// ClientsOf returns the clients that are watching the given resource.
+func (s *DiscoveryServer) ClientsOf(typeUrl string) []*Connection {
+	pending := []*Connection{}
+	for _, v := range s.Clients() {
+		if v.Watching(typeUrl) {
+			pending = append(pending, v)
+		}
+	}
+
+	return pending
 }

@@ -19,9 +19,11 @@ import (
 	"reflect"
 
 	"github.com/ghodss/yaml"
+
+	"istio.io/istio/pkg/test"
 )
 
-// ApplyNamespace applies the given namespaces to the resources in the yamlText.
+// ApplyNamespace applies the given namespaces to the resources in the yamlText if not set.
 func ApplyNamespace(yamlText, ns string) (string, error) {
 	chunks := SplitString(yamlText)
 
@@ -38,6 +40,15 @@ func ApplyNamespace(yamlText, ns string) (string, error) {
 	return result, nil
 }
 
+// MustApplyNamespace applies the given namespaces to the resources in the yamlText  if not set.
+func MustApplyNamespace(t test.Failer, yamlText, ns string) string {
+	y, err := ApplyNamespace(yamlText, ns)
+	if err != nil {
+		t.Fatalf("ApplyNamespace: %v", err)
+	}
+	return y
+}
+
 func applyNamespace(yamlText, ns string) (string, error) {
 	m := make(map[string]interface{})
 	if err := yaml.Unmarshal([]byte(yamlText), &m); err != nil {
@@ -47,6 +58,9 @@ func applyNamespace(yamlText, ns string) (string, error) {
 	meta, err := ensureChildMap(m, "metadata")
 	if err != nil {
 		return "", err
+	}
+	if meta["namespace"] != nil && meta["namespace"] != "" {
+		return yamlText, nil
 	}
 	meta["namespace"] = ns
 
