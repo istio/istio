@@ -155,6 +155,10 @@ func testRevisionListingVerbose(ctx framework.TestContext, istioCtl istioctl.Ins
 	}
 
 	for rev, descr := range revDescriptions {
+		if !expectedRevisionSet[rev] {
+			ctx.Logf("revision %s is unexpected. Might be a leftover from some other test. skipping...", rev)
+			continue
+		}
 		verifyRevisionOutput(ctx, descr, rev)
 	}
 }
