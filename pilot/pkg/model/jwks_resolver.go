@@ -394,6 +394,14 @@ func (r *JwksResolver) refresh() time.Duration {
 				}
 			}
 
+			jwksURI, err := r.resolveJwksURIUsingOpenID(issuer)
+			if err != nil {
+				hasErrors = true
+				log.Errorf("Failed to resolve Jwks from issuer %q: %v", issuer, err)
+				atomic.AddUint64(&r.refreshJobFetchFailedCount, 1)
+				return
+			}
+
 			resp, err := r.getRemoteContentWithRetry(jwksURI, networkFetchRetryCountOnRefreshFlow)
 			if err != nil {
 				hasErrors = true
@@ -442,13 +450,6 @@ func (r *JwksResolver) refresh() time.Duration {
 		return r.refreshIntervalOnFailure
 	}
 	return r.refreshDefaultInterval
-<<<<<<< HEAD
-<<<<<<< HEAD
-=======
-
->>>>>>> 07c70878cc (fix race in refresher and lint warnings)
-=======
->>>>>>> 09cce1d84a (remove newline)
 }
 
 // Close will shut down the refresher job.
