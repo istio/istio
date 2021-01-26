@@ -46,7 +46,7 @@ webhooks:
     - key: istio.io/rev
       operator: In
       values:
-      - "{{ $.Values.tagName }}"
+      - "{{ $tagName }}"
     - key: istio-injection
       operator: DoesNotExist
   objectSelector:
@@ -71,5 +71,5 @@ webhooks:
     - key: istio.io/rev
       operator: In
       values:
-      - "{{ $.Values.tagName }}"
+      - "{{ $tagName }}"
 {{- end }}
