@@ -36,6 +36,32 @@ import (
 )
 
 var (
+	defaultRevisionCanonicalWebhook = admit_v1.MutatingWebhookConfiguration{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:   "istio-sidecar-injector",
+			Labels: map[string]string{label.IoIstioRev.Name: "default"},
+		},
+		Webhooks: []admit_v1.MutatingWebhook{
+			{
+				Name: fmt.Sprintf("namespace.%s", istioInjectionWebhookSuffix),
+				ClientConfig: admit_v1.WebhookClientConfig{
+					Service: &admit_v1.ServiceReference{
+						Namespace: "default",
+						Name:      "istiod",
+					},
+				},
+			},
+			{
+				Name: fmt.Sprintf("object.%s", istioInjectionWebhookSuffix),
+				ClientConfig: admit_v1.WebhookClientConfig{
+					Service: &admit_v1.ServiceReference{
+						Namespace: "default",
+						Name:      "istiod",
+					},
+				},
+			},
+		},
+	}
 	revisionCanonicalWebhook = admit_v1.MutatingWebhookConfiguration{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:   "istio-sidecar-injector-revision",
@@ -393,6 +419,13 @@ func TestSetTagWebhookCreation(t *testing.T) {
 			tagName: "canary",
 			whURL:   remoteInjectionURL,
 			whSVC:   "",
+		},
+		{
+			name:    "webhook-pointing-to-default-revision",
+			webhook: defaultRevisionCanonicalWebhook,
+			tagName: "canary",
+			whURL:   "",
+			whSVC:   "istiod",
 		},
 	}
 	scheme := runtime.NewScheme()
