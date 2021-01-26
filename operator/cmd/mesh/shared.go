@@ -254,9 +254,6 @@ func createNamespace(cs kubernetes.Interface, namespace string, network string) 
 		if errors.IsNotFound(err) {
 			ns := &v1.Namespace{ObjectMeta: v12.ObjectMeta{
 				Name: namespace,
-				Labels: map[string]string{
-					"istio-injection": "disabled",
-				},
 			}}
 			if network != "" {
 				ns.Labels[label.TopologyNetwork.Name] = network
