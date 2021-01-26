@@ -492,6 +492,10 @@ var ValidateDestinationRule = registerValidateFunc("ValidateDestinationRule",
 					v = appendValidation(v,
 						fmt.Errorf("mesh/namespace destination rule cannot have exportTo configured"))
 				}
+				if rule.TrafficPolicy != nil && len(rule.TrafficPolicy.PortLevelSettings) != 0 {
+					v = appendValidation(v,
+						fmt.Errorf("mesh/namespace destination rule cannot have portLevelSettings configured"))
+				}
 			} else {
 				v = appendValidation(v, ValidateWildcardDomain(rule.Host))
 			}
