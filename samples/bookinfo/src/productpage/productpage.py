@@ -58,6 +58,10 @@ app.secret_key = b'_5#y2L"F4Q8z\n\xec]/'
 Bootstrap(app)
 
 servicesDomain = "" if (os.environ.get("SERVICES_DOMAIN") is None) else "." + os.environ.get("SERVICES_DOMAIN")
+detailsDomain = servicesDomain if (os.environ.get("DETAILS_DOMAIN") is None) else "." + os.environ.get("DETAILS_DOMAIN")
+ratingsDomain = servicesDomain if (os.environ.get("RATINGS_DOMAIN") is None) else "." + os.environ.get("RATINGS_DOMAIN")
+reviewsDomain = servicesDomain if (os.environ.get("REVIEWS_DOMAIN") is None) else "." + os.environ.get("REVIEWS_DOMAIN")
+
 detailsHostname = "details" if (os.environ.get("DETAILS_HOSTNAME") is None) else os.environ.get("DETAILS_HOSTNAME")
 ratingsHostname = "ratings" if (os.environ.get("RATINGS_HOSTNAME") is None) else os.environ.get("RATINGS_HOSTNAME")
 reviewsHostname = "reviews" if (os.environ.get("REVIEWS_HOSTNAME") is None) else os.environ.get("REVIEWS_HOSTNAME")
@@ -65,25 +69,25 @@ reviewsHostname = "reviews" if (os.environ.get("REVIEWS_HOSTNAME") is None) else
 flood_factor = 0 if (os.environ.get("FLOOD_FACTOR") is None) else int(os.environ.get("FLOOD_FACTOR"))
 
 details = {
-    "name": "http://{0}{1}:9080".format(detailsHostname, servicesDomain),
+    "name": "http://{0}{1}:9080".format(detailsHostname, detailsDomain),
     "endpoint": "details",
     "children": []
 }
 
 ratings = {
-    "name": "http://{0}{1}:9080".format(ratingsHostname, servicesDomain),
+    "name": "http://{0}{1}:9080".format(ratingsHostname, ratingsDomain),
     "endpoint": "ratings",
     "children": []
 }
 
 reviews = {
-    "name": "http://{0}{1}:9080".format(reviewsHostname, servicesDomain),
+    "name": "http://{0}{1}:9080".format(reviewsHostname, reviewsDomain),
     "endpoint": "reviews",
     "children": [ratings]
 }
 
 productpage = {
-    "name": "http://{0}{1}:9080".format(detailsHostname, servicesDomain),
+    "name": "http://{0}{1}:9080".format(detailsHostname, detailsDomain),
     "endpoint": "details",
     "children": [details, reviews]
 }
