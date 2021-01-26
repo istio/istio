@@ -28,5 +28,5 @@ var (
 
 func init() {
 	flag.DurationVar(&RetryDelay, "istio.test.telemetry.retryDelay", time.Second*3, "Default retry delay used in tests")
-	flag.DurationVar(&RetryTimeout, "istio.test.telemetry.retryTimeout", time.Second*80, "Default retry timeout used in tests")
+	flag.DurationVar(&RetryTimeout, "istio.test.telemetry.retryTimeout", time.Minute*10, "Default retry timeout used in tests")
 }

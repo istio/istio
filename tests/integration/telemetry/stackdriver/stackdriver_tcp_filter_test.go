@@ -58,10 +58,11 @@ func TestTCPStackdriverMonitoring(t *testing.T) {
 						if err := validateMetrics(t, tcpServerConnectionCount, tcpClientConnectionCount, clName); err != nil {
 							return err
 						}
+						t.Logf("TCP Metrics validated")
 						if err := validateLogs(t, tcpServerLogEntry, clName, stackdriver.ServerAccessLog); err != nil {
 							return err
 						}
-
+						t.Logf("TCP Logs validated")
 						return nil
 					}, retry.Delay(telemetrypkg.RetryDelay), retry.Timeout(telemetrypkg.RetryTimeout))
 					if err != nil {

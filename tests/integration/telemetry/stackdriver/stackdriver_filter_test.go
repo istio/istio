@@ -21,12 +21,15 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
+	"os"
 	"strings"
 	"testing"
 
 	"cloud.google.com/go/compute/metadata"
 	"github.com/golang/protobuf/jsonpb"
 	"github.com/golang/protobuf/proto"
+	"github.com/google/go-cmp/cmp"
+	"github.com/google/go-cmp/cmp/cmpopts"
 	"golang.org/x/sync/errgroup"
 	loggingpb "google.golang.org/genproto/googleapis/logging/v2"
 	monitoring "google.golang.org/genproto/googleapis/monitoring/v3"
@@ -56,7 +59,11 @@ const (
 	trafficAssertionTmpl         = "testdata/traffic_assertion.json.tmpl"
 	sdBootstrapConfigMap         = "stackdriver-bootstrap-config"
 
-	projectsPrefix = "projects/test-project"
+	projectsPrefix      = "projects/test-project"
+	GcrProjectIDENV     = "GCR_PROJECT_ID"
+	ControlPlaneENV     = "CONTROL_PLANE"
+	defaultTrustDomain  = "cluster.local"
+	managedControlPlane = "MANAGED"
 )
 
 var (
@@ -80,10 +87,20 @@ func unmarshalFromTemplateFile(file string, out proto.Message, clName string) er
 	if err != nil {
 		return err
 	}
+	// TODO: replace with reading from meshConfig
+	projectID, controlPlane := os.Getenv(GcrProjectIDENV), os.Getenv(ControlPlaneENV)
+	if projectID == "" {
+		scopes.Framework.Warn("projectID is empty from env\n")
+	}
+	trustDomain := defaultTrustDomain
+	if controlPlane == managedControlPlane {
+		trustDomain = fmt.Sprintf("%s.svc.id.goog", projectID)
+	}
 	resource, err := tmpl.Evaluate(string(templateFile), map[string]interface{}{
 		"EchoNamespace": getEchoNamespaceInstance().Name(),
 		"ClusterName":   clName,
 		"OnGCE":         metadata.OnGCE(),
+		"TrustDomain":   trustDomain,
 	})
 	if err != nil {
 		return err
@@ -109,6 +126,7 @@ func TestStackdriverMonitoring(t *testing.T) {
 
 						// Validate cluster names in telemetry below once https://github.com/istio/istio/issues/28125 is fixed.
 						if err := validateMetrics(t, serverRequestCount, clientRequestCount, clName); err != nil {
+							t.Logf("failed to validate metrics: %v", err)
 							return err
 						}
 						t.Logf("Metrics validated")
@@ -368,9 +386,11 @@ func validateEdges(t *testing.T, clName string) error {
 		edge.Source.ClusterName = ""
 		edge.Source.Location = ""
 		edge.Protocol = 0
-		t.Logf("edge: %v", edge)
+		t.Logf("edge: %v\n", edge)
 		if proto.Equal(edge, &wantEdge) {
 			return nil
+		} else if diff := cmp.Diff(wantEdge, edge, cmpopts.IgnoreUnexported(edgespb.WorkloadInstance{})); diff != "" {
+			t.Logf("got edges unexpected labels, (-want +got):\n%s diff is", diff)
 		}
 	}
 	return errors.New("edges: did not get expected traffic assertion")
