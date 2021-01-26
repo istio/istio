@@ -123,6 +123,7 @@ features:
       uninstall_manifest:
       uninstall_purge:
       postinstall_verify:
+      revision_centric_view:
     multicluster:
       multimaster:
       remote:
