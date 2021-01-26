@@ -45,31 +45,31 @@ func checkIn(got string, want ...string) error {
 }
 
 func parseRequest(inputURL string) (dnsRequest, error) {
-	resp := dnsRequest{}
+	req := dnsRequest{}
 	u, err := url.Parse(inputURL)
 	if err != nil {
-		return resp, err
+		return req, err
 	}
 	qp, err := url.ParseQuery(u.RawQuery)
 	if err != nil {
-		return resp, err
+		return req, err
 	}
-	resp.protocol = qp.Get("protocol")
-	if err := checkIn(resp.protocol, "", "udp", "tcp"); err != nil {
-		return resp, err
+	req.protocol = qp.Get("protocol")
+	if err := checkIn(req.protocol, "", "udp", "tcp"); err != nil {
+		return req, err
 	}
-	resp.dnsServer = qp.Get("server")
-	if resp.dnsServer != "" {
-		if _, _, err := net.SplitHostPort(resp.dnsServer); err != nil && strings.Contains(err.Error(), "missing port in address") {
-			resp.dnsServer += ":53"
+	req.dnsServer = qp.Get("server")
+	if req.dnsServer != "" {
+		if _, _, err := net.SplitHostPort(req.dnsServer); err != nil && strings.Contains(err.Error(), "missing port in address") {
+			req.dnsServer += ":53"
 		}
 	}
-	resp.hostname = u.Host
-	resp.query = qp.Get("query")
-	if err := checkIn(resp.query, "", "A", "AAAA"); err != nil {
-		return resp, err
+	req.hostname = u.Host
+	req.query = qp.Get("query")
+	if err := checkIn(req.query, "", "A", "AAAA"); err != nil {
+		return req, err
 	}
-	return resp, nil
+	return req, nil
 }
 
 func (c *dnsProtocol) makeRequest(ctx context.Context, rreq *request) (string, error) {
