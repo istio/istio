@@ -896,14 +896,6 @@ type vmCase struct {
 	host string
 }
 
-func flatten(clients ...[]echo.Instance) []echo.Instance {
-	instances := []echo.Instance{}
-	for _, c := range clients {
-		instances = append(instances, c...)
-	}
-	return instances
-}
-
 func DNSTestCases(apps *EchoDeployments) []TrafficTestCase {
 	makeSE := func(ips ...string) string {
 		return tmpl.MustEvaluate(`
@@ -1005,6 +997,67 @@ spec:
 								sort.Strings(ips)
 								if !reflect.DeepEqual(ips, tt.expected) {
 									return fmt.Errorf("unexpected dns response: wanted %v, got %v", tt.expected, ips)
+								}
+								return nil
+							})
+						}),
+				},
+			})
+		}
+	}
+	svcCases := []struct {
+		name     string
+		protocol string
+		server   string
+	}{
+		{
+			name:     "tcp",
+			protocol: "tcp",
+		},
+		{
+			name:     "udp",
+			protocol: "udp",
+		},
+		{
+			name:     "tcp localhost server",
+			protocol: "tcp",
+			// iptables logic is different for traffic destined for localhost or external.
+			server: dummyLocalhostServer,
+		},
+		{
+			name:     "udp localhost server",
+			protocol: "udp",
+			server:   dummyLocalhostServer,
+		},
+	}
+	for _, client := range flatten(apps.VM, apps.PodA, apps.PodTproxy) {
+		for _, tt := range svcCases {
+			tt, client := tt, client
+			address := apps.PodA[0].Config().FQDN() + "?"
+			if tt.protocol != "" {
+				address += "&protocol=" + tt.protocol
+			}
+			if tt.server != "" {
+				address += "&server=" + tt.server
+			}
+			expected := apps.PodA[0].Address()
+			tcases = append(tcases, TrafficTestCase{
+				name: fmt.Sprintf("svc/%s/%s", client.Config().Service, tt.name),
+				call: client.CallWithRetryOrFail,
+				opts: echo.CallOptions{
+					Scheme:  scheme.DNS,
+					Address: address,
+					Validator: echo.ValidatorFunc(
+						func(response echoclient.ParsedResponses, _ error) error {
+							return response.Check(func(_ int, response *echoclient.ParsedResponse) error {
+								ips := []string{}
+								for _, v := range response.RawResponse {
+									ips = append(ips, v)
+								}
+								sort.Strings(ips)
+								exp := []string{expected}
+								if !reflect.DeepEqual(ips, exp) {
+									return fmt.Errorf("unexpected dns response: wanted %v, got %v", exp, ips)
 								}
 								return nil
 							})
