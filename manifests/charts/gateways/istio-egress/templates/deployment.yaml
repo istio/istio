@@ -41,14 +41,17 @@ spec:
         istio.io/rev: {{ .Values.revision | default "default" }}
         install.operator.istio.io/owning-resource: {{ .Values.ownerName | default "unknown" }}
         operator.istio.io/component: "EgressGateways"
-        sidecar.istio.io/inject: "false"
+        sidecar.istio.io/inject: "{{- ne $gateway.injectionTemplate "" }}"
       annotations:
         {{- if .Values.meshConfig.enablePrometheusMerge }}
         prometheus.io/port: "15020"
         prometheus.io/scrape: "true"
         prometheus.io/path: "/stats/prometheus"
         {{- end }}
-        sidecar.istio.io/inject: "false"
+        sidecar.istio.io/inject: "{{- ne $gateway.injectionTemplate "" }}"
+        {{- if ne $gateway.injectionTemplate "" }}
+        inject.istio.io/templates: "{{ $gateway.injectionTemplate }}"
+        {{- end}}
 {{- if $gateway.podAnnotations }}
 {{ toYaml $gateway.podAnnotations | indent 8 }}
 {{ end }}
