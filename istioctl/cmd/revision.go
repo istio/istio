@@ -948,17 +948,20 @@ func printPodTable(w io.Writer, pods []*PodFilteredInfo) error {
 }
 
 func getEnabledComponents(iops *v1alpha1.IstioOperatorSpec) []string {
+	if iops == nil || iops.Components == nil {
+		return []string{}
+	}
 	enabledComponents := []string{}
-	if iops.Components.Base.Enabled.GetValue() {
+	if iops.Components.Base != nil && iops.Components.Base.Enabled.GetValue() {
 		enabledComponents = append(enabledComponents, "base")
 	}
-	if iops.Components.Cni.Enabled.GetValue() {
+	if iops.Components.Cni != nil && iops.Components.Cni.Enabled.GetValue() {
 		enabledComponents = append(enabledComponents, "cni")
 	}
-	if iops.Components.Pilot.Enabled.GetValue() {
+	if iops.Components.Pilot != nil && iops.Components.Pilot.Enabled.GetValue() {
 		enabledComponents = append(enabledComponents, "istiod")
 	}
-	if iops.Components.IstiodRemote.Enabled.GetValue() {
+	if iops.Components.IstiodRemote != nil && iops.Components.IstiodRemote.Enabled.GetValue() {
 		enabledComponents = append(enabledComponents, "istiod-remote")
 	}
 	for _, gw := range iops.Components.IngressGateways {
