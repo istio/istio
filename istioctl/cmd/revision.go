@@ -1043,7 +1043,7 @@ func diffWalk(path, separator string, installed interface{}, base interface{}) (
 		return accum, nil
 	case string:
 		if v != base && base != nil {
-			return []iopDiff{{Path: path, Value: fmt.Sprintf("%q", v)}}, nil
+			return []iopDiff{{Path: path, Value: fmt.Sprintf("%v", v)}}, nil
 		}
 	default:
 		if v != base && base != nil {

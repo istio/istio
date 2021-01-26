@@ -16,25 +16,32 @@
 package revisions
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
+	"istio.io/api/label"
+	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"path/filepath"
 	"strings"
 	"testing"
 
 	"istio.io/istio/istioctl/cmd"
-
 	"istio.io/istio/pkg/test/env"
+	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/echo/echoboot"
-	"istio.io/istio/pkg/test/framework/components/namespace"
-
-	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/istioctl"
+	"istio.io/istio/pkg/test/framework/components/namespace"
 )
 
 var (
 	manifestPath = filepath.Join(env.IstioSrc, "manifests")
+
+	componentMap = map[string]string{
+		"istiod":          "Pilot",
+		"ingress-gateway": "IngressGateways",
+		"egress-gateway":  "EgressGateways",
+	}
 )
 
 type revisionResource struct {
@@ -112,7 +119,72 @@ func testRevisionListing(ctx framework.TestContext, istioCtl istioctl.Instance, 
 	if err = json.Unmarshal([]byte(stdout), &revDescriptions); err != nil {
 		ctx.Fatalf("error while unmarshaling JSON output: %v", err)
 	}
-	// TODO(su225): complete this
+	// 1. Check if revisions are expected
+	expectedRevisionSet := map[string]bool{"default": true, "stable": true, "canary": true}
+	actualRevisionSet := map[string]bool{}
+	for rev, _ := range revDescriptions {
+		actualRevisionSet[rev] = true
+	}
+	if !setsMatch(expectedRevisionSet, actualRevisionSet) {
+		ctx.Fatalf("revision sets don't match. Expected: %v, Actual: %v", expectedRevisionSet, actualRevisionSet)
+	}
+
+	// 2. Check if all expected tags are present for a revision
+	expectedTagSet := map[string]bool{}
+	actualTagSet := map[string]bool{}
+	for _, descr := range revDescriptions {
+		for _, mwh := range descr.Webhooks {
+			if mwh.Tag != "" {
+				actualTagSet[mwh.Tag] = true
+			}
+		}
+	}
+	if !setsMatch(expectedTagSet, actualTagSet) {
+		ctx.Fatalf("tag sets across revisions don't match. Expected: %v, Actual:%v", expectedTagSet, actualTagSet)
+	}
+
+	// 3. Check if combination of IOPs for a revision give the expected
+	//    set of components like gateways, pods etc.
+	defaultComponentMap := map[string]bool{
+		"base":                          true,
+		"istiod":                        true,
+		"ingress:istio-ingressgateway":  true,
+		"ingress:istio-eastwestgateway": true,
+		"egress:istio-egressgateway":    true,
+	}
+	expectedComponentsPerRevision := map[string]map[string]bool{
+		"default": defaultComponentMap,
+		"stable":  defaultComponentMap,
+		"canary": map[string]bool{
+			"istiod":                        true,
+			"ingress:istio-ingressgateway":  true,
+			"ingress:istio-eastwestgateway": true,
+			"egress:istio-egressgateway":    true,
+		},
+	}
+	for rev, descr := range revDescriptions {
+		expectedComponents, ok := expectedComponentsPerRevision[rev]
+		if !ok {
+			ctx.Fatalf("unexpected error. Could not find expected components for %s", rev)
+		}
+		actualComponents := map[string]bool{}
+		for _, iop := range descr.IstioOperatorCRs {
+			for _, comp := range iop.Components {
+				actualComponents[comp] = true
+			}
+		}
+		if !setsMatch(expectedComponents, actualComponents) {
+			ctx.Fatalf("required component sets don't match for revision %s. Expected: %v, Actual: %v",
+				rev, expectedComponents, actualComponents)
+		}
+	}
+
+	// 4. Check the listing of control plane and gateway pods
+	for rev, descr := range revDescriptions {
+		verifyComponentPodsForRevision(ctx, "istiod", rev, descr)
+		verifyComponentPodsForRevision(ctx, "ingress-gateway", rev, descr)
+		verifyComponentPodsForRevision(ctx, "egress-gateway", rev, descr)
+	}
 }
 
 func testRevisionDescription(ctx framework.TestContext, istioCtl istioctl.Instance, revResources map[string]*revisionResource) {
@@ -120,21 +192,7 @@ func testRevisionDescription(ctx framework.TestContext, istioCtl istioctl.Instan
 	if err != nil || stableDescr == nil {
 		ctx.Fatalf("failed to retrieve description for stable: %v", err)
 	}
-	// TODO(su225): complete this
-}
-
-func getDescriptionForRevision(istioCtl istioctl.Instance, revision string) (*cmd.RevisionDescription, error) {
-	describeCmd := []string{"x", "revision", "describe", revision, "-d", manifestPath, "-v", "-o", "json"}
-	descr, _, err := istioCtl.Invoke(describeCmd)
-	if err != nil {
-		return nil, err
-	}
-	var revDescription cmd.RevisionDescription
-	if err = json.Unmarshal([]byte(descr), &revDescription); err != nil {
-		return nil, fmt.Errorf("error while unmarshaling revision description JSON for"+
-			" revision=%s : %v", revision, err)
-	}
-	return &revDescription, nil
+	// TODO(su225): Fill this one
 }
 
 func testNonExistentRevisionDescription(ctx framework.TestContext, istioCtl istioctl.Instance, _ map[string]*revisionResource) {
@@ -169,4 +227,63 @@ func testInvalidOutputFormat(ctx framework.TestContext, istioCtl istioctl.Instan
 			}
 		})
 	}
+}
+
+func getDescriptionForRevision(istioCtl istioctl.Instance, revision string) (*cmd.RevisionDescription, error) {
+	describeCmd := []string{"x", "revision", "describe", revision, "-d", manifestPath, "-v", "-o", "json"}
+	descr, _, err := istioCtl.Invoke(describeCmd)
+	if err != nil {
+		return nil, err
+	}
+	var revDescription cmd.RevisionDescription
+	if err = json.Unmarshal([]byte(descr), &revDescription); err != nil {
+		return nil, fmt.Errorf("error while unmarshaling revision description JSON for"+
+			" revision=%s : %v", revision, err)
+	}
+	return &revDescription, nil
+}
+
+func verifyComponentPodsForRevision(ctx framework.TestContext, component, rev string, descr *cmd.RevisionDescription) {
+	opComponent := componentMap[component]
+	if opComponent == "" {
+		ctx.Fatalf("unknown component: %s", component)
+	}
+	labelMatcher := &meta_v1.LabelSelector{
+		MatchLabels: map[string]string{
+			label.IoIstioRev.Name:        rev,
+			label.OperatorComponent.Name: opComponent,
+		},
+	}
+	componentPods, err := ctx.Clusters().Default().
+		CoreV1().Pods("").
+		List(context.Background(), meta_v1.ListOptions{LabelSelector: labelMatcher.String()})
+	if err != nil {
+		ctx.Fatalf("unexpected error while fetching %s pods for revision %s: %v", component, rev, err)
+	}
+	expectedComponentPodSet := map[string]bool{}
+	for _, pod := range componentPods.Items {
+		podName := fmt.Sprintf("%s/%s", pod.Namespace, pod.Name)
+		expectedComponentPodSet[podName] = true
+	}
+	actualComponentPodSet := map[string]bool{}
+	for _, pod := range descr.ControlPlanePods {
+		podName := fmt.Sprintf("%s/%s", pod.Namespace, pod.Name)
+		actualComponentPodSet[podName] = true
+	}
+	if !setsMatch(expectedComponentPodSet, actualComponentPodSet) {
+		ctx.Fatalf("%s pods are not listed properly. Expected: %v, Actual: %v",
+			component, expectedComponentPodSet, actualComponentPodSet)
+	}
+}
+
+func setsMatch(expected map[string]bool, actual map[string]bool) bool {
+	if len(expected) != len(actual) {
+		return false
+	}
+	for x, _ := range actual {
+		if !expected[x] {
+			return false
+		}
+	}
+	return true
 }
