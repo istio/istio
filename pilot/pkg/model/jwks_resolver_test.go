@@ -88,8 +88,6 @@ func TestGetPublicKey(t *testing.T) {
 		t.Fatal("failed to start a mock server")
 	}
 
-	mockCertURL := ms.URL + "/oauth2/v3/certs"
-
 	cases := []struct {
 		in                []string
 		expectedJwtPubkey string
@@ -129,8 +127,6 @@ func TestGetPublicKeyReorderedKey(t *testing.T) {
 		t.Fatal("failed to start a mock server")
 	}
 	ms.ReturnReorderedKeyAfterFirstNumHits = 1
-
-	mockCertURL := ms.URL + "/oauth2/v3/certs"
 
 	cases := []struct {
 		in                []string
@@ -234,13 +230,9 @@ func TestJwtPubKeyEvictionForNotUsed(t *testing.T) {
 		2*time.Millisecond,   /*RefreshInterval*/
 		2*time.Millisecond,   /*RefreshIntervalOnFailure*/
 		testRetryInterval,
-	)
 	defer r.Close()
 
 	ms := startMockServer(t)
-	defer ms.Stop()
-
-	// Mock server returns JwtPubKey2 for later calls.
 	// Verify the refresher has run and got new key from mock server.
 	verifyKeyRefresh(t, r, ms, test.JwtPubKey2)
 
@@ -432,7 +424,6 @@ func TestJwtPubKeyMetric(t *testing.T) {
 	successValueBefore := getCounterValue(networkFetchSuccessCounter.Name(), t)
 	failValueBefore := getCounterValue(networkFetchFailCounter.Name(), t)
 
-	mockCertURL := ms.URL + "/oauth2/v3/certs"
 	cases := []struct {
 		in                []string
 		expectedJwtPubkey string
@@ -475,7 +466,6 @@ func startMockServer(t *testing.T) *test.MockOpenIDDiscoveryServer {
 
 func verifyKeyRefresh(t *testing.T, r *JwksResolver, ms *test.MockOpenIDDiscoveryServer, expectedJwtPubkey string) {
 	t.Helper()
-	mockCertURL := ms.URL + "/oauth2/v3/certs"
 
 	pk, err := r.GetPublicKey("", mockCertURL)
 	if err != nil {
