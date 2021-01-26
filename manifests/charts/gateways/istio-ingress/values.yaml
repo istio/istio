@@ -120,6 +120,9 @@ gateways:
     # whether to run the gateway in a privileged container
     runAsRoot: false
 
+    # The injection template to use for the gateway. If not set, no injection will be performed.
+    injectionTemplate: ""
+
 # Revision is set as 'version' label and part of the resource names when installing multiple control planes.
 revision: ""
 
