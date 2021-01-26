@@ -32,6 +32,7 @@ import (
 
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	"github.com/golang/protobuf/ptypes"
+	"go.uber.org/atomic"
 	google_rpc "google.golang.org/genproto/googleapis/rpc/status"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
@@ -43,6 +44,7 @@ import (
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/cmd/pilot-agent/status/ready"
 	"istio.io/istio/pilot/pkg/dns"
+	"istio.io/istio/pilot/pkg/features"
 	nds "istio.io/istio/pilot/pkg/proto"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
 	"istio.io/istio/pkg/config/constants"
@@ -50,6 +52,7 @@ import (
 	"istio.io/istio/pkg/istio-agent/metrics"
 	"istio.io/istio/pkg/mcp/status"
 	"istio.io/istio/pkg/uds"
+	"istio.io/istio/pkg/wasm"
 	"istio.io/istio/security/pkg/nodeagent/caclient"
 	"istio.io/pkg/log"
 )
@@ -84,6 +87,18 @@ type XdsProxy struct {
 	connected      *ProxyConnection
 	initialRequest *discovery.DiscoveryRequest
 	connectedMutex sync.RWMutex
+
+	// Wasm cache and ecds channel are used to replace wasm remote load with local file.
+	wasmCache      wasm.Cache
+	ecdsUpdateChan chan *discovery.DiscoveryResponse
+	// ecds version and nonce uses atomic only to prevent race in testing.
+	// In reality there should not be race as istiod will only have one
+	// in flight update for each type of resource.
+	// TODO(bianpengyuan): this relies on the fact that istiod versions all ECDS resources
+	// the same in a update response. This needs update to support per resource versioning,
+	// in case istiod changes its behavior, or a different ECDS server is used.
+	ecdsLastAckVersion atomic.String
+	ecdsLastNonce      atomic.String
 }
 
 var proxyLog = log.RegisterScope("xdsproxy", "XDS Proxy in Istio Agent", 0)
@@ -111,6 +126,8 @@ func initXdsProxy(ia *Agent) (*XdsProxy, error) {
 		healthChecker:  health.NewWorkloadHealthChecker(ia.proxyConfig.ReadinessProbe, envoyProbe),
 		xdsHeaders:     ia.cfg.XDSHeaders,
 		xdsUdsPath:     ia.cfg.XdsUdsPath,
+		wasmCache:      wasm.NewLocalFileCache(constants.IstioDataDir, wasm.DefaultWasmModulePurgeInteval, wasm.DefaultWasmModuleExpiry),
+		ecdsUpdateChan: make(chan *discovery.DiscoveryResponse, 10),
 	}
 
 	proxyLog.Infof("Initializing with upstream address %q and cluster %q", proxy.istiodAddress, proxy.clusterID)
@@ -293,6 +310,11 @@ func (p *XdsProxy) HandleUpstream(ctx context.Context, con *ProxyConnection, xds
 	go p.handleUpstreamRequest(ctx, con)
 	go p.handleUpstreamResponse(con)
 
+	if features.WasmRemoteLoadConversion {
+		// Handle ECDS update asynchronously for Wasm config rewriting, since it might need to download Wasm modules.
+		go p.handleUpstreamECDSResponse(con)
+	}
+
 	for {
 		select {
 		case err := <-con.upstreamError:
@@ -330,6 +352,12 @@ func (p *XdsProxy) handleUpstreamRequest(ctx context.Context, con *ProxyConnecti
 		case req := <-con.requestsChan:
 			proxyLog.Debugf("request for type url %s", req.TypeUrl)
 			metrics.XdsProxyRequests.Increment()
+			if req.TypeUrl == v3.ExtensionConfigurationType {
+				if req.VersionInfo != "" {
+					p.ecdsLastAckVersion.Store(req.VersionInfo)
+				}
+				p.ecdsLastNonce.Store(req.ResponseNonce)
+			}
 			if err := sendUpstreamWithTimeout(ctx, con.upstream, req); err != nil {
 				proxyLog.Errorf("upstream send error for type url %s: %v", req.TypeUrl, err)
 				con.upstreamError <- err
@@ -366,20 +394,69 @@ func (p *XdsProxy) handleUpstreamResponse(con *ProxyConnection) {
 					TypeUrl:       v3.NameTableType,
 					ResponseNonce: resp.Nonce,
 				}
-			default:
-				// TODO: Validate the known type urls before forwarding them to Envoy.
-				if err := sendDownstreamWithTimeout(con.downstream, resp); err != nil {
-					proxyLog.Errorf("downstream send error: %v", err)
-					// we cannot return partial error and hope to restart just the downstream
-					// as we are blindly proxying req/responses. For now, the best course of action
-					// is to terminate upstream connection as well and restart afresh.
-					con.downstreamError <- err
-					return
+			case v3.ExtensionConfigurationType:
+				if features.WasmRemoteLoadConversion {
+					// If Wasm remote load conversion feature is enabled, push ECDS update into
+					// conversion channel.
+					p.ecdsUpdateChan <- resp
+				} else {
+					// Otherwise, forward ECDS resource update directly to Envoy.
+					forwardToEnvoy(con, resp)
 				}
+			default:
+				forwardToEnvoy(con, resp)
 			}
 		case <-con.stopChan:
 			return
 		}
+	}
+}
+
+func (p *XdsProxy) handleUpstreamECDSResponse(con *ProxyConnection) {
+	// TODO(bianpengyuan): Add metrics about ecds handling.
+	for {
+		select {
+		case resp := <-p.ecdsUpdateChan:
+			sendNack := wasm.MaybeConvertWasmExtensionConfig(resp.Resources, p.wasmCache)
+			if sendNack {
+				con.requestsChan <- &discovery.DiscoveryRequest{
+					VersionInfo:   p.ecdsLastAckVersion.Load(),
+					TypeUrl:       v3.ExtensionConfigurationType,
+					ResponseNonce: resp.Nonce,
+					ErrorDetail: &google_rpc.Status{
+						// TODO(bianpengyuan): make error message more informative.
+						Message: "failed to fetch wasm module",
+					},
+				}
+				return
+			}
+			proxyLog.Debugf("forward ECDS resources %+v", resp.Resources)
+			forwardToEnvoy(con, resp)
+
+		case <-con.stopChan:
+			return
+		}
+	}
+}
+
+func forwardToEnvoy(con *ProxyConnection, resp *discovery.DiscoveryResponse) {
+	// TODO: Validate the known type urls before forwarding them to Envoy.
+	if err := sendDownstreamWithTimeout(con.downstream, resp); err != nil {
+		select {
+		case con.downstreamError <- err:
+			// we cannot return partial error and hope to restart just the downstream
+			// as we are blindly proxying req/responses. For now, the best course of action
+			// is to terminate upstream connection as well and restart afresh.
+			proxyLog.Errorf("downstream send error: %v", err)
+		default:
+			// Do not block on downstream error channel push, this could happen when forward
+			// is triggered from a separated goroutine (e.g. ECDS processing go routine) while
+			// downstream connection has already been teared down and no receiver is available
+			// for downstream error channel.
+			proxyLog.Debugf("downstream error channel full, but get downstream send error: %v", err)
+		}
+
+		return
 	}
 }
 
@@ -389,6 +466,7 @@ func (p *XdsProxy) DeltaAggregatedResources(server discovery.AggregatedDiscovery
 
 func (p *XdsProxy) close() {
 	close(p.stopChan)
+	p.wasmCache.Cleanup()
 	if p.downstreamGrpcServer != nil {
 		p.downstreamGrpcServer.Stop()
 	}
@@ -522,15 +600,22 @@ func (p *XdsProxy) getRootCertificate(agent *Agent) (*x509.CertPool, error) {
 	var err error
 	var rootCert []byte
 	xdsCACertPath := agent.FindRootCAForXDS()
-	rootCert, err = ioutil.ReadFile(xdsCACertPath)
-	if err != nil {
-		return nil, err
-	}
+	if xdsCACertPath != "" {
+		rootCert, err = ioutil.ReadFile(xdsCACertPath)
+		if err != nil {
+			return nil, err
+		}
 
-	certPool = x509.NewCertPool()
-	ok := certPool.AppendCertsFromPEM(rootCert)
-	if !ok {
-		return nil, fmt.Errorf("failed to create TLS dial option with root certificates")
+		certPool = x509.NewCertPool()
+		ok := certPool.AppendCertsFromPEM(rootCert)
+		if !ok {
+			return nil, fmt.Errorf("failed to create TLS dial option with root certificates")
+		}
+	} else {
+		certPool, err = x509.SystemCertPool()
+		if err != nil {
+			return nil, err
+		}
 	}
 	return certPool, nil
 }

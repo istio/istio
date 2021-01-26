@@ -98,7 +98,6 @@ spec:
         - name: TRUST_DOMAIN
           value: cluster.local
         image: gcr.io/istio-testing/proxyv2:latest
-        imagePullPolicy: Always
         lifecycle:
           preStop:
             exec:
@@ -164,7 +163,6 @@ spec:
         - custom
         - args
         image: fake/custom-image
-        imagePullPolicy: Always
         name: istio-init
         resources:
           limits:

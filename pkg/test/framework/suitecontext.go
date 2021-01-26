@@ -122,6 +122,20 @@ func (s *suiteContext) allocateResourceID(contextID string, r resource.Resource)
 	}
 }
 
+func (s *suiteContext) ConditionalCleanup(fn func()) {
+	s.globalScope.addCloser(&closer{fn: func() error {
+		fn()
+		return nil
+	}, noskip: true})
+}
+
+func (s *suiteContext) Cleanup(fn func()) {
+	s.globalScope.addCloser(&closer{fn: func() error {
+		fn()
+		return nil
+	}})
+}
+
 // TrackResource adds a new resource to track to the context at this level.
 func (s *suiteContext) TrackResource(r resource.Resource) resource.ID {
 	id := s.allocateResourceID(s.globalScope.id, r)

@@ -93,119 +93,113 @@ func SetupApps(ctx resource.Context, apps *EchoDeployments) error {
 	}
 
 	builder := echoboot.NewBuilder(ctx)
-	for _, cluster := range ctx.Clusters() {
-		builder.
-			With(nil, util.EchoConfig(ASvc, apps.Namespace, false, nil, cluster)).
-			With(nil, util.EchoConfig(BSvc, apps.Namespace, false, nil, cluster)).
-			// Deploy 3 workloads:
-			// client: echo app with istio-proxy sidecar injected, holds default trust domain cluster.local.
-			// serverNakedFoo: echo app without istio-proxy sidecar, holds custom trust domain trust-domain-foo.
-			// serverNakedBar: echo app without istio-proxy sidecar, holds custom trust domain trust-domain-bar.
-			With(nil, echo.Config{
-				Namespace: apps.Namespace,
-				Service:   "client",
-				Cluster:   cluster,
-			}).
-			With(nil, echo.Config{
-				Namespace: apps.Namespace,
-				Service:   "server-naked-foo",
-				Subsets: []echo.SubsetConfig{
-					{
-						Annotations: echo.NewAnnotations().SetBool(echo.SidecarInject, false),
-					},
+	builder.
+		WithClusters(ctx.Clusters()...).
+		WithConfig(util.EchoConfig(ASvc, apps.Namespace, false, nil)).
+		WithConfig(util.EchoConfig(BSvc, apps.Namespace, false, nil)).
+		// Deploy 3 workloads:
+		// client: echo app with istio-proxy sidecar injected, holds default trust domain cluster.local.
+		// serverNakedFoo: echo app without istio-proxy sidecar, holds custom trust domain trust-domain-foo.
+		// serverNakedBar: echo app without istio-proxy sidecar, holds custom trust domain trust-domain-bar.
+		WithConfig(echo.Config{
+			Namespace: apps.Namespace,
+			Service:   "client",
+		}).
+		WithConfig(echo.Config{
+			Namespace: apps.Namespace,
+			Service:   "server-naked-foo",
+			Subsets: []echo.SubsetConfig{
+				{
+					Annotations: echo.NewAnnotations().SetBool(echo.SidecarInject, false),
 				},
-				ServiceAccount: true,
-				Ports: []echo.Port{
-					{
-						Name:         HTTPS,
-						Protocol:     protocol.HTTPS,
-						ServicePort:  443,
-						InstancePort: 8443,
-						TLS:          true,
-					},
+			},
+			ServiceAccount: true,
+			Ports: []echo.Port{
+				{
+					Name:         HTTPS,
+					Protocol:     protocol.HTTPS,
+					ServicePort:  443,
+					InstancePort: 8443,
+					TLS:          true,
 				},
-				TLSSettings: &common.TLSSettings{
-					RootCert:   rootCert,
-					ClientCert: clientCert,
-					Key:        Key,
+			},
+			TLSSettings: &common.TLSSettings{
+				RootCert:   rootCert,
+				ClientCert: clientCert,
+				Key:        Key,
+			},
+		}).
+		WithConfig(echo.Config{
+			Namespace: apps.Namespace,
+			Service:   "server-naked-bar",
+			Subsets: []echo.SubsetConfig{
+				{
+					Annotations: echo.NewAnnotations().SetBool(echo.SidecarInject, false),
 				},
-				Cluster: cluster,
-			}).
-			With(nil, echo.Config{
-				Namespace: apps.Namespace,
-				Service:   "server-naked-bar",
-				Subsets: []echo.SubsetConfig{
-					{
-						Annotations: echo.NewAnnotations().SetBool(echo.SidecarInject, false),
-					},
+			},
+			ServiceAccount: true,
+			Ports: []echo.Port{
+				{
+					Name:         HTTPS,
+					Protocol:     protocol.HTTPS,
+					ServicePort:  443,
+					InstancePort: 8443,
+					TLS:          true,
 				},
-				ServiceAccount: true,
-				Ports: []echo.Port{
-					{
-						Name:         HTTPS,
-						Protocol:     protocol.HTTPS,
-						ServicePort:  443,
-						InstancePort: 8443,
-						TLS:          true,
-					},
+			},
+			TLSSettings: &common.TLSSettings{
+				RootCert:   rootCert,
+				ClientCert: clientCert,
+				Key:        Key,
+			},
+		}).
+		WithConfig(echo.Config{
+			Namespace: apps.Namespace,
+			Service:   "naked",
+			Subsets: []echo.SubsetConfig{
+				{
+					Annotations: echo.NewAnnotations().SetBool(echo.SidecarInject, false),
 				},
-				TLSSettings: &common.TLSSettings{
-					RootCert:   rootCert,
-					ClientCert: clientCert,
-					Key:        Key,
+			},
+		}).
+		WithConfig(echo.Config{
+			Subsets:        []echo.SubsetConfig{{}},
+			Namespace:      apps.Namespace,
+			Service:        "server",
+			ServiceAccount: true,
+			Ports: []echo.Port{
+				{
+					Name:         httpPlaintext,
+					Protocol:     protocol.HTTP,
+					ServicePort:  8090,
+					InstancePort: 8090,
 				},
-				Cluster: cluster,
-			}).
-			With(nil, echo.Config{
-				Namespace: apps.Namespace,
-				Service:   "naked",
-				Subsets: []echo.SubsetConfig{
-					{
-						Annotations: echo.NewAnnotations().SetBool(echo.SidecarInject, false),
-					},
+				{
+					Name:         httpMTLS,
+					Protocol:     protocol.HTTP,
+					ServicePort:  8091,
+					InstancePort: 8091,
 				},
-				Cluster: cluster,
-			}).
-			With(nil, echo.Config{
-				Subsets:        []echo.SubsetConfig{{}},
-				Namespace:      apps.Namespace,
-				Service:        "server",
-				ServiceAccount: true,
-				Ports: []echo.Port{
-					{
-						Name:         httpPlaintext,
-						Protocol:     protocol.HTTP,
-						ServicePort:  8090,
-						InstancePort: 8090,
-					},
-					{
-						Name:         httpMTLS,
-						Protocol:     protocol.HTTP,
-						ServicePort:  8091,
-						InstancePort: 8091,
-					},
-					{
-						Name:         tcpPlaintext,
-						Protocol:     protocol.TCP,
-						ServicePort:  8092,
-						InstancePort: 8092,
-					},
-					{
-						Name:         tcpMTLS,
-						Protocol:     protocol.TCP,
-						ServicePort:  8093,
-						InstancePort: 8093,
-					},
+				{
+					Name:         tcpPlaintext,
+					Protocol:     protocol.TCP,
+					ServicePort:  8092,
+					InstancePort: 8092,
 				},
-				WorkloadOnlyPorts: []echo.WorkloadPort{
-					{
-						Port:     9000,
-						Protocol: protocol.TCP,
-					},
+				{
+					Name:         tcpMTLS,
+					Protocol:     protocol.TCP,
+					ServicePort:  8093,
+					InstancePort: 8093,
 				},
-				Cluster: cluster,
-			})
-	}
+			},
+			WorkloadOnlyPorts: []echo.WorkloadPort{
+				{
+					Port:     9000,
+					Protocol: protocol.TCP,
+				},
+			},
+		})
 	echos, err := builder.Build()
 	if err != nil {
 		return err

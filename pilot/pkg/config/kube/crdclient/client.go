@@ -300,7 +300,7 @@ func (cl *Client) List(kind config.GroupVersionKind, namespace string) ([]config
 }
 
 func (cl *Client) objectInRevision(o *config.Config) bool {
-	configEnv, f := o.Labels[label.IstioRev]
+	configEnv, f := o.Labels[label.IoIstioRev.Name]
 	if !f {
 		// This is a global object, and always included
 		return true

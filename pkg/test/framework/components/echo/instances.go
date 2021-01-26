@@ -73,7 +73,7 @@ func Namespace(namespace string) Matcher {
 // InCluster matches instances deployed on the given cluster.
 func InCluster(c resource.Cluster) Matcher {
 	return func(i Instance) bool {
-		return c.Index() == i.Config().Cluster.Index()
+		return c.Name() == i.Config().Cluster.Name()
 	}
 }
 

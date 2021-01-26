@@ -20,9 +20,6 @@ import (
 	"istio.io/istio/pkg/kube"
 )
 
-// ClusterIndex is the index of a cluster within the Environment
-type ClusterIndex int
-
 // Clusters is an ordered list of Cluster instances.
 type Clusters []Cluster
 
@@ -136,9 +133,6 @@ type Cluster interface {
 	// NetworkName the cluster is on
 	NetworkName() string
 
-	// Index of this Cluster within the Environment
-	Index() ClusterIndex
-
 	// IsPrimary returns true if this is a primary cluster, containing an instance
 	// of the Istio control plane.
 	IsPrimary() bool
@@ -155,59 +149,13 @@ type Cluster interface {
 	// IsPrimary.
 	Primary() Cluster
 
+	// PrimaryName returns the name of the primary cluster for this cluster.
+	PrimaryName() string
+
 	// Config returns the config cluster for this cluster. Will return itself if
 	// IsConfig.
 	Config() Cluster
-}
 
-var _ Cluster = FakeCluster{}
-
-// FakeCluster used for testing.
-type FakeCluster struct {
-	kube.ExtendedClient
-
-	NameValue        string
-	NetworkNameValue string
-	IndexValue       int
-	IsPrimaryCluster bool
-	IsConfigCluster  bool
-	IsRemoteCluster  bool
-	PrimaryCluster   Cluster
-	ConfigCluster    Cluster
-}
-
-func (m FakeCluster) String() string {
-	panic("implement me")
-}
-
-func (m FakeCluster) Name() string {
-	return m.NameValue
-}
-
-func (m FakeCluster) NetworkName() string {
-	return m.NetworkNameValue
-}
-
-func (m FakeCluster) Index() ClusterIndex {
-	return ClusterIndex(m.IndexValue)
-}
-
-func (m FakeCluster) IsPrimary() bool {
-	return m.IsPrimaryCluster
-}
-
-func (m FakeCluster) IsConfig() bool {
-	return m.IsConfigCluster
-}
-
-func (m FakeCluster) IsRemote() bool {
-	return m.IsRemoteCluster
-}
-
-func (m FakeCluster) Primary() Cluster {
-	return m.PrimaryCluster
-}
-
-func (m FakeCluster) Config() Cluster {
-	return m.ConfigCluster
+	// ConfigName returns the name of the config cluster for this cluster.
+	ConfigName() string
 }

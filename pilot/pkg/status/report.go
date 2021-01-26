@@ -15,6 +15,7 @@
 package status
 
 import (
+	"strconv"
 	"strings"
 
 	"gopkg.in/yaml.v2"
@@ -48,22 +49,22 @@ func ResourceFromString(s string) *Resource {
 			Version:  pieces[1],
 			Resource: pieces[2],
 		},
-		Namespace:       pieces[3],
-		Name:            pieces[4],
-		ResourceVersion: pieces[5],
+		Namespace:  pieces[3],
+		Name:       pieces[4],
+		Generation: pieces[5],
 	}
 }
 
 // TODO: maybe replace with a kubernetes resource identifier, if that's a thing
 type Resource struct {
 	schema.GroupVersionResource
-	Namespace       string
-	Name            string
-	ResourceVersion string
+	Namespace  string
+	Name       string
+	Generation string
 }
 
 func (r Resource) String() string {
-	return strings.Join([]string{r.Group, r.Version, r.Resource, r.Namespace, r.Name, r.ResourceVersion}, "/")
+	return strings.Join([]string{r.Group, r.Version, r.Resource, r.Namespace, r.Name, r.Generation}, "/")
 }
 
 func (r *Resource) ToModelKey() string {
@@ -81,7 +82,7 @@ func ResourceFromModelConfig(c config.Config) *Resource {
 		GroupVersionResource: *gvr,
 		Namespace:            c.Namespace,
 		Name:                 c.Name,
-		ResourceVersion:      c.ResourceVersion,
+		Generation:           strconv.FormatInt(c.Generation, 10),
 	}
 }
 

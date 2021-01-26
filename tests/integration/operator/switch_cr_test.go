@@ -155,10 +155,10 @@ func cleanupIstioResources(t *testing.T, cs resource.Cluster, istioCtl istioctl.
 	// clean up operator namespace
 	if err := cs.CoreV1().Namespaces().Delete(context.TODO(), OperatorNamespace,
 		kube2.DeleteOptionsForeground()); err != nil {
-		t.Errorf("failed to delete operator namespace: %v", err)
+		t.Logf("failed to delete operator namespace: %v", err)
 	}
 	if err := kube2.WaitForNamespaceDeletion(cs, OperatorNamespace, retry.Timeout(nsDeletionTimeout)); err != nil {
-		t.Errorf("wating for operator namespace to be deleted: %v", err)
+		t.Logf("failed wating for operator namespace to be deleted: %v", err)
 	}
 	var err error
 	// clean up dynamically created secret and configmaps
@@ -283,7 +283,7 @@ spec:
 
 	overlayYAML := fmt.Sprintf(metadataYAML, revName("test-istiocontrolplane", revision), profileName, ManifestPathContainer, s.Hub, s.Tag, s.PullPolicy)
 
-	scopes.Framework.Infof("=== installing with IOP: ===\n%s\n", metadataYAML)
+	scopes.Framework.Infof("=== installing with IOP: ===\n%s\n", overlayYAML)
 
 	if err := ioutil.WriteFile(iopCRFile, []byte(overlayYAML), os.ModePerm); err != nil {
 		t.Fatalf("failed to write iop cr file: %v", err)

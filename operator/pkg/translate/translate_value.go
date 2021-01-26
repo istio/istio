@@ -447,6 +447,11 @@ func translateHPASpec(inPath string, outPath string, valueTree map[string]interf
 
 	// There is no direct source from value.yaml for scaleTargetRef value, we need to construct from component name
 	if found {
+		revision := ""
+		rev, ok := cpSpecTree["revision"]
+		if ok {
+			revision = rev.(string)
+		}
 		st := make(map[string]interface{})
 		stVal := `
 apiVersion: apps/v1
@@ -460,6 +465,9 @@ name: %s`
 		// convert from values component name to correct deployment target
 		if newPS == "pilot" {
 			newPS = "istiod"
+			if revision != "" {
+				newPS = newPS + "-" + revision
+			}
 		}
 		stString := fmt.Sprintf(stVal, newPS)
 		if err := yaml.Unmarshal([]byte(stString), &st); err != nil {

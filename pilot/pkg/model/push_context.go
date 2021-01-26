@@ -62,7 +62,6 @@ type serviceIndex struct {
 
 	// HostnameAndNamespace has all services, indexed by hostname then namespace.
 	HostnameAndNamespace map[host.Name]map[string]*Service `json:"-"`
-	Hostname             map[host.Name]*Service            `json:"-"`
 
 	// ClusterVIPs contains a map of service and its cluster addresses. It is stored here
 	// to avoid locking each service for every proxy during push.
@@ -80,7 +79,6 @@ func newServiceIndex() serviceIndex {
 		privateByNamespace:   map[string][]*Service{},
 		exportedToNamespace:  map[string][]*Service{},
 		HostnameAndNamespace: map[host.Name]map[string]*Service{},
-		Hostname:             map[host.Name]*Service{},
 		ClusterVIPs:          map[*Service]map[string]string{},
 		instancesByPort:      map[*Service]map[int][]*ServiceInstance{},
 	}
@@ -209,6 +207,7 @@ type PushContext struct {
 
 	// cache gateways addresses for each network
 	// this is mainly used for kubernetes multi-cluster scenario
+	networksMu      sync.RWMutex
 	networkGateways map[string][]*Gateway
 
 	initDone        atomic.Bool
@@ -328,6 +327,8 @@ const (
 	DebugTrigger TriggerReason = "debug"
 	// Describes a push triggered for a Secret change
 	SecretTrigger TriggerReason = "secret"
+	// Describes a push triggered for Networks change
+	NetworksTrigger TriggerReason = "networks"
 )
 
 // Merge two update requests together
@@ -681,6 +682,26 @@ func (ps *PushContext) ServiceForHostname(proxy *Proxy, hostname host.Name) *Ser
 
 	// No service found
 	return nil
+}
+
+// IsServiceVisible returns true if the input service is visible to the given namespace.
+func (ps *PushContext) IsServiceVisible(service *Service, namespace string) bool {
+	if service == nil {
+		return false
+	}
+
+	ns := service.Attributes.Namespace
+	if len(service.Attributes.ExportTo) == 0 {
+		if ps.exportToDefaults.service[visibility.Private] {
+			return ns == namespace
+		} else if ps.exportToDefaults.service[visibility.Public] {
+			return true
+		}
+	}
+
+	return service.Attributes.ExportTo[visibility.Public] ||
+		(service.Attributes.ExportTo[visibility.Private] && ns == namespace) ||
+		service.Attributes.ExportTo[visibility.Instance(namespace)]
 }
 
 // VirtualServicesForGateway lists all virtual services bound to the specified gateways
@@ -1091,7 +1112,6 @@ func (ps *PushContext) initServiceRegistry(env *Environment) error {
 			ps.ServiceIndex.HostnameAndNamespace[s.Hostname] = map[string]*Service{}
 		}
 		ps.ServiceIndex.HostnameAndNamespace[s.Hostname][s.Attributes.Namespace] = s
-		ps.ServiceIndex.Hostname[s.Hostname] = s
 
 		ns := s.Attributes.Namespace
 		if len(s.Attributes.ExportTo) == 0 {
@@ -1632,6 +1652,8 @@ func (ps *PushContext) mergeGateways(proxy *Proxy) *MergedGateway {
 
 // pre computes gateways for each network
 func (ps *PushContext) initMeshNetworks(meshNetworks *meshconfig.MeshNetworks) {
+	ps.networksMu.Lock()
+	defer ps.networksMu.Unlock()
 	ps.networkGateways = map[string][]*Gateway{}
 
 	// First, use addresses directly specified in meshNetworks
@@ -1653,7 +1675,6 @@ func (ps *PushContext) initMeshNetworks(meshNetworks *meshconfig.MeshNetworks) {
 		// - the computed map from meshNetworks (triggered by reloadNetworkLookup, the ported logic from getGatewayAddresses)
 		ps.networkGateways[network] = append(ps.networkGateways[network], gateways...)
 	}
-
 }
 
 func (ps *PushContext) initClusterLocalHosts(e *Environment) {
@@ -1705,10 +1726,14 @@ func (ps *PushContext) initClusterLocalHosts(e *Environment) {
 }
 
 func (ps *PushContext) NetworkGateways() map[string][]*Gateway {
+	ps.networksMu.RLock()
+	defer ps.networksMu.RUnlock()
 	return ps.networkGateways
 }
 
 func (ps *PushContext) NetworkGatewaysByNetwork(network string) []*Gateway {
+	ps.networksMu.RLock()
+	defer ps.networksMu.RUnlock()
 	if ps.networkGateways != nil {
 		return ps.networkGateways[network]
 	}

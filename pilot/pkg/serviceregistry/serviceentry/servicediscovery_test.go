@@ -418,7 +418,7 @@ func TestServiceDiscoveryServiceUpdate(t *testing.T) {
 			se.Endpoints = []*networking.WorkloadEntry{
 				{
 					Address: "lon.google.com",
-					Labels:  map[string]string{label.TLSMode: model.IstioMutualTLSModeLabel},
+					Labels:  map[string]string{label.SecurityTlsMode.Name: model.IstioMutualTLSModeLabel},
 				},
 			}
 			return &c
@@ -1018,7 +1018,7 @@ func TestServicesDiff(t *testing.T) {
 			Name:              "httpDNS",
 			Namespace:         "httpDNS",
 			CreationTimestamp: GlobalTime,
-			Labels:            map[string]string{label.TLSMode: model.IstioMutualTLSModeLabel},
+			Labels:            map[string]string{label.SecurityTlsMode.Name: model.IstioMutualTLSModeLabel},
 		},
 		Spec: &networking.ServiceEntry{
 			Hosts: []string{"*.google.com", "*.mail.com"},
@@ -1030,16 +1030,16 @@ func TestServicesDiff(t *testing.T) {
 				{
 					Address: "us.google.com",
 					Ports:   map[string]uint32{"http-port": 7080, "http-alt-port": 18080},
-					Labels:  map[string]string{label.TLSMode: model.IstioMutualTLSModeLabel},
+					Labels:  map[string]string{label.SecurityTlsMode.Name: model.IstioMutualTLSModeLabel},
 				},
 				{
 					Address: "uk.google.com",
 					Ports:   map[string]uint32{"http-port": 1080},
-					Labels:  map[string]string{label.TLSMode: model.IstioMutualTLSModeLabel},
+					Labels:  map[string]string{label.SecurityTlsMode.Name: model.IstioMutualTLSModeLabel},
 				},
 				{
 					Address: "de.google.com",
-					Labels:  map[string]string{"foo": "bar", label.TLSMode: model.IstioMutualTLSModeLabel},
+					Labels:  map[string]string{"foo": "bar", label.SecurityTlsMode.Name: model.IstioMutualTLSModeLabel},
 				},
 			},
 			Location:   networking.ServiceEntry_MESH_EXTERNAL,
@@ -1064,7 +1064,7 @@ func TestServicesDiff(t *testing.T) {
 		endpoints = append(endpoints, se.Endpoints...)
 		endpoints = append(endpoints, &networking.WorkloadEntry{
 			Address: "in.google.com",
-			Labels:  map[string]string{"foo": "bar", label.TLSMode: model.IstioMutualTLSModeLabel},
+			Labels:  map[string]string{"foo": "bar", label.SecurityTlsMode.Name: model.IstioMutualTLSModeLabel},
 		})
 		se.Endpoints = endpoints
 		return &c

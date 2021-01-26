@@ -110,7 +110,6 @@ items:
           - name: TRUST_DOMAIN
             value: cluster.local
           image: gcr.io/istio-testing/proxyv2:latest
-          imagePullPolicy: Always
           name: istio-proxy
           ports:
           - containerPort: 15090
@@ -172,7 +171,6 @@ items:
           - -d
           - 15090,15021,15020
           image: gcr.io/istio-testing/proxyv2:latest
-          imagePullPolicy: Always
           name: istio-init
           resources:
             limits:
@@ -342,7 +340,6 @@ items:
           - name: TRUST_DOMAIN
             value: cluster.local
           image: gcr.io/istio-testing/proxyv2:latest
-          imagePullPolicy: Always
           name: istio-proxy
           ports:
           - containerPort: 15090
@@ -404,7 +401,6 @@ items:
           - -d
           - 15090,15021,15020
           image: gcr.io/istio-testing/proxyv2:latest
-          imagePullPolicy: Always
           name: istio-init
           resources:
             limits:

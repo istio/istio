@@ -83,7 +83,6 @@ var (
 	kubeAppProberNameVar = env.RegisterStringVar(status.KubeAppProberEnvName, "", "")
 	serviceAccountVar    = env.RegisterStringVar("SERVICE_ACCOUNT", "", "Name of service account")
 	clusterIDVar         = env.RegisterStringVar("ISTIO_META_CLUSTER_ID", "", "")
-	callCredentials      = env.RegisterBoolVar("CALL_CREDENTIALS", false, "Use JWT directly instead of MTLS")
 	// Provider for XDS auth, e.g., gcp. By default, it is empty, meaning no auth provider.
 	xdsAuthProvider = env.RegisterStringVar("XDS_AUTH_PROVIDER", "", "Provider for XDS auth")
 
@@ -97,11 +96,11 @@ var (
 	provCert = env.RegisterStringVar("PROV_CERT", "",
 		"Set to a directory containing provisioned certs, for VMs").Get()
 
-	// set to "/etc/ssl/certs/ca-certificates.crt" on debian/ubuntu for ACME/public signed XDS servers.
+	// set to "SYSTEM" for ACME/public signed XDS servers.
 	xdsRootCA = env.RegisterStringVar("XDS_ROOT_CA", "",
 		"Explicitly set the root CA to expect for the XDS connection.").Get()
 
-	// set to "/etc/ssl/certs/ca-certificates.crt" on debian/ubuntu for ACME/public signed CA servers.
+	// set to "SYSTEM" for ACME/public signed CA servers.
 	caRootCA = env.RegisterStringVar("CA_ROOT_CA", "",
 		"Explicitly set the root CA to expect for the CA connection.").Get()
 
@@ -296,6 +295,13 @@ var (
 				}
 			}
 
+			provCert := sa.FindRootCAForXDS()
+			if provCert == "" {
+				// Envoy only supports load from file. If we want to use system certs, use best guess
+				// To be more correct this could lookup all the "well known" paths but this is extremely \
+				// unlikely to run on a non-debian based machine, and if it is it can be explicitly configured
+				provCert = "/etc/ssl/certs/ca-certificates.crt"
+			}
 			envoyProxy := envoy.NewProxy(envoy.ProxyConfig{
 				Config:              proxyConfig,
 				Node:                role.ServiceNode(),
@@ -307,10 +313,9 @@ var (
 				STSPort:             stsPort,
 				OutlierLogPath:      outlierLogPath,
 				PilotCertProvider:   pilotCertProvider,
-				ProvCert:            sa.FindRootCAForXDS(),
+				ProvCert:            provCert,
 				Sidecar:             role.Type == model.SidecarProxy,
 				ProxyViaAgent:       agentConfig.ProxyXDSViaAgent,
-				CallCredentials:     callCredentials.Get(),
 			})
 
 			drainDuration, _ := types.DurationFromProto(proxyConfig.TerminationDrainDuration)

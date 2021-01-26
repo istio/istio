@@ -430,7 +430,7 @@ func applyFileOrFail(ctx framework.TestContext, ns, filename string) {
 	if err := ctx.Clusters().Default().ApplyYAMLFiles(ns, filename); err != nil {
 		ctx.Fatal(err)
 	}
-	ctx.WhenDone(func() error {
-		return ctx.Clusters().Default().DeleteYAMLFiles(ns, filename)
+	ctx.ConditionalCleanup(func() {
+		ctx.Clusters().Default().DeleteYAMLFiles(ns, filename)
 	})
 }

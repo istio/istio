@@ -84,7 +84,7 @@ spec:
         host: reviews
 `)
 			istioCtl := istioctl.NewOrFail(ctx, ctx, istioctl.Config{Cluster: ctx.Environment().Clusters()[0]})
-			istioCtl.InvokeOrFail(t, []string{"x", "wait", "VirtualService", "reviews." + ns.Name()})
+			istioCtl.InvokeOrFail(t, []string{"x", "wait", "-v", "VirtualService", "reviews." + ns.Name()})
 		})
 }
 
@@ -119,8 +119,8 @@ func TestDescribe(t *testing.T) {
 		Run(func(ctx framework.TestContext) {
 			deployment := file.AsStringOrFail(t, "testdata/a.yaml")
 			ctx.Config().ApplyYAMLOrFail(ctx, apps.Namespace.Name(), deployment)
-			ctx.WhenDone(func() error {
-				return ctx.Config().DeleteYAML(apps.Namespace.Name(), deployment)
+			ctx.ConditionalCleanup(func() {
+				ctx.Config().DeleteYAML(apps.Namespace.Name(), deployment)
 			})
 
 			istioCtl := istioctl.NewOrFail(ctx, ctx, istioctl.Config{})
@@ -363,11 +363,11 @@ func TestAuthZCheck(t *testing.T) {
 			gwPolicy := file.AsStringOrFail(t, "testdata/authz-b.yaml")
 			ctx.Config().ApplyYAMLOrFail(ctx, apps.Namespace.Name(), appPolicy)
 			ctx.Config().ApplyYAMLOrFail(ctx, i.Settings().SystemNamespace, gwPolicy)
-			ctx.WhenDone(func() error {
-				return ctx.Config().DeleteYAML(apps.Namespace.Name(), appPolicy)
+			ctx.ConditionalCleanup(func() {
+				ctx.Config().DeleteYAML(apps.Namespace.Name(), appPolicy)
 			})
-			ctx.WhenDone(func() error {
-				return ctx.Config().DeleteYAML(i.Settings().SystemNamespace, gwPolicy)
+			ctx.ConditionalCleanup(func() {
+				ctx.Config().DeleteYAML(i.Settings().SystemNamespace, gwPolicy)
 			})
 
 			gwPod, err := i.IngressFor(ctx.Clusters().Default()).PodID(0)

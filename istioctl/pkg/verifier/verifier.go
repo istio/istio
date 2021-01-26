@@ -149,7 +149,7 @@ func (v *StatusVerifier) getRevision() (string, error) {
 		return "", fmt.Errorf("failed to fetch istiod pod, error: %v", err)
 	}
 	for _, pod := range pods.Items {
-		rev := pod.ObjectMeta.GetLabels()[label.IstioRev]
+		rev := pod.ObjectMeta.GetLabels()[label.IoIstioRev.Name]
 		revCount++
 		if rev == "default" {
 			continue
@@ -370,7 +370,7 @@ func (v *StatusVerifier) injectorFromCluster(revision string) (*admit_v1.Mutatin
 	revCount := 0
 	var hookmatch *admit_v1.MutatingWebhookConfiguration
 	for _, hook := range hooks.Items {
-		rev := hook.ObjectMeta.GetLabels()[label.IstioRev]
+		rev := hook.ObjectMeta.GetLabels()[label.IoIstioRev.Name]
 		if rev != "" {
 			revCount++
 			revision = rev
