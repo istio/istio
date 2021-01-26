@@ -94,14 +94,14 @@ func (rb *IptablesBuilderImpl) buildRules(command string, rules []*Rule) [][]str
 		if _, present := chainTableLookupMap[chainTable]; !present {
 			// Ignore chain creation for built-in chains for iptables
 			if _, present := constants.BuiltInChainsMap[r.chain]; !present {
-				cmd := []string{command, "-t", r.table, "-N", r.chain}
+				cmd := []string{command, "-w", constants.IptablesWaitSecondsArg, "-t", r.table, "-N", r.chain}
 				output = append(output, cmd)
 				chainTableLookupMap[chainTable] = struct{}{}
 			}
 		}
 	}
 	for _, r := range rules {
-		cmd := append([]string{command, "-t", r.table}, r.params...)
+		cmd := append([]string{command, "-w", constants.IptablesWaitSecondsArg, "-t", r.table}, r.params...)
 		output = append(output, cmd)
 	}
 	return output

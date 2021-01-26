@@ -24,17 +24,27 @@ import (
 
 func flushAndDeleteChains(ext dep.Dependencies, cmd string, table string, chains []string) {
 	for _, chain := range chains {
-		ext.RunQuietlyAndIgnore(cmd, "-t", table, "-F", chain)
-		ext.RunQuietlyAndIgnore(cmd, "-t", table, "-X", chain)
+		ext.RunQuietlyAndIgnore(cmd, "-w", constants.IptablesWaitSecondsArg, "-t", table, "-F", chain)
+		ext.RunQuietlyAndIgnore(cmd, "-w", constants.IptablesWaitSecondsArg, "-t", table, "-X", chain)
 	}
 }
 
 func removeOldChains(cfg *config.Config, ext dep.Dependencies, cmd string) {
 	// Remove the old TCP rules
 	for _, table := range []string{constants.NAT, constants.MANGLE} {
-		ext.RunQuietlyAndIgnore(cmd, "-t", table, "-D", constants.PREROUTING, "-p", constants.TCP, "-j", constants.ISTIOINBOUND)
+		ext.RunQuietlyAndIgnore(cmd,
+			"-w", constants.IptablesWaitSecondsArg,
+			"-t", table,
+			"-D", constants.PREROUTING,
+			"-p", constants.TCP,
+			"-j", constants.ISTIOINBOUND)
 	}
-	ext.RunQuietlyAndIgnore(cmd, "-t", constants.NAT, "-D", constants.OUTPUT, "-p", constants.TCP, "-j", constants.ISTIOOUTPUT)
+	ext.RunQuietlyAndIgnore(cmd,
+		"-w", constants.IptablesWaitSecondsArg,
+		"-t", constants.NAT,
+		"-D", constants.OUTPUT,
+		"-p", constants.TCP,
+		"-j", constants.ISTIOOUTPUT)
 
 	redirectDNS := cfg.RedirectDNS
 	// Remove the old DNS UDP rules

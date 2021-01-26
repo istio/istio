@@ -131,3 +131,8 @@ const (
 const (
 	IstioAgentDNSListenerPort = "15053"
 )
+
+const (
+	// argument to pass to iptables --wait
+	IptablesWaitSecondsArg = "10"
+)
