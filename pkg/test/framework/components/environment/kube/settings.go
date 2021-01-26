@@ -25,7 +25,7 @@ import (
 	"istio.io/istio/pkg/test/scopes"
 )
 
-// clusterIndex is the index of a cluster within the kubeconfigsFlag or topology file entries
+// clusterIndex is the index of a cluster within the KubeConfig or topology file entries
 type clusterIndex int
 
 // clusterTopology defines the associations between multiple clusters in a topology.
