@@ -35,11 +35,11 @@ import (
 
 const (
 	// TODO(Monkeyanator) move into istio/api
-	istioTagLabel             = "istio.io/tag"
-	istioInjectionWebhookName = "sidecar-injector.istio.io"
-	pilotDiscoveryChart       = "istio-control/istio-discovery"
-	chartsPath                = "" // use compiled in charts for tag webhook gen
-	revisionTagTemplateName   = "revision-tags.yaml"
+	istioTagLabel               = "istio.io/tag"
+	istioInjectionWebhookSuffix = "sidecar-injector.istio.io"
+	pilotDiscoveryChart         = "istio-control/istio-discovery"
+	chartsPath                  = "" // use compiled in charts for tag webhook gen
+	revisionTagTemplateName     = "revision-tags.yaml"
 
 	// help strings and long formatted user outputs
 	skipConfirmationFlagHelpStr = `The skipConfirmation determines whether the user is prompted for confirmation.
@@ -405,13 +405,14 @@ func tagWebhookConfigFromCanonicalWebhook(wh admit_v1.MutatingWebhookConfigurati
 	var injectionURL string
 	found := false
 	for _, w := range wh.Webhooks {
-		if w.Name == istioInjectionWebhookName {
+		if strings.HasSuffix(w.Name, istioInjectionWebhookSuffix) {
 			found = true
 			if w.ClientConfig.URL != nil {
 				injectionURL = *w.ClientConfig.URL
 			} else {
 				injectionURL = ""
 			}
+			break
 		}
 	}
 	if !found {
