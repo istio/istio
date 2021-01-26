@@ -52,6 +52,7 @@ func (c *configManager) applyYAML(cleanup bool, ns string, yamlText ...string) e
 	}
 
 	for _, cl := range c.clusters {
+		cl := cl
 		if err := cl.ApplyYAMLFiles(ns, yamlFiles...); err != nil {
 			return fmt.Errorf("failed applying YAML to cluster %s: %v", cl.Name(), err)
 		}
