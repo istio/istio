@@ -306,7 +306,7 @@ global:
 
     # Per Component log level for proxy, applies to gateways and sidecars. If a component level is
     # not set, then the global "logLevel" will be used.
-    componentLogLevel: "misc:error"
+    componentLogLevel: "jwt:trace,misc:error"
 
     # If set, newly injected sidecars will have core dumps enabled.
     enableCoreDump: false
