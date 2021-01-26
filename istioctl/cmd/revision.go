@@ -158,7 +158,7 @@ func revisionListCommand() *cobra.Command {
 		Use:   "list",
 		Short: "Show list of control plane and gateway revisions that are currently installed in cluster",
 		Example: `  # View summary of revisions installed in the current cluster
-  # which can be overriden with --context parameter. 
+  # which can be overridden with --context parameter. 
   istioctl experimental revision list
 
   # View list of revisions including customizations, istiod and gateway pods
@@ -458,6 +458,7 @@ func printEgressGatewaySummaryTable(w io.Writer, revisions map[string]*RevisionD
 	return tw.Flush()
 }
 
+//nolint:errcheck
 func printSummaryTable(writer io.Writer, verbose bool, revisions map[string]*RevisionDescription) error {
 	tw := new(tabwriter.Writer).Init(writer, 0, 8, 1, ' ', 0)
 	if verbose {
@@ -466,7 +467,7 @@ func printSummaryTable(writer io.Writer, verbose bool, revisions map[string]*Rev
 		tw.Write([]byte("REVISION\tTAG\tISTIO-OPERATOR-CR\tPROFILE\tREQD-COMPONENTS\n"))
 	}
 	for r, ri := range revisions {
-		rowId, tags := 0, []string{}
+		rowID, tags := 0, []string{}
 		for _, wh := range ri.Webhooks {
 			if wh.Tag != "" {
 				tags = append(tags, wh.Tag)
@@ -501,10 +502,10 @@ func printSummaryTable(writer io.Writer, verbose bool, revisions map[string]*Rev
 				if i < len(customizations) {
 					rowCust = customizations[i]
 				}
-				if rowId < len(tags) {
-					rowTag = tags[rowId]
+				if rowID < len(tags) {
+					rowTag = tags[rowID]
 				}
-				if rowId == 0 {
+				if rowID == 0 {
 					rowRev = r
 				}
 				if verbose {
@@ -514,24 +515,24 @@ func printSummaryTable(writer io.Writer, verbose bool, revisions map[string]*Rev
 					fmt.Fprintf(tw, "%s\t%s\t%s\t%s\t%s\n",
 						rowRev, rowTag, rowIopName, rowProfile, rowComp)
 				}
-				rowId++
+				rowID++
 			}
 		}
-		for rowId < len(tags) {
+		for rowID < len(tags) {
 			var rowRev, rowTag, rowIopName string
-			if rowId == 0 {
+			if rowID == 0 {
 				rowRev = r
 			}
-			if rowId == 0 {
+			if rowID == 0 {
 				rowIopName = "<no-iop>"
 			}
-			rowTag = tags[rowId]
+			rowTag = tags[rowID]
 			if verbose {
 				fmt.Fprintf(tw, "%s\t%s\t%s\t \t \t \n", rowRev, rowTag, rowIopName)
 			} else {
 				fmt.Fprintf(tw, "%s\t%s\t%s\t \t \n", rowRev, rowTag, rowIopName)
 			}
-			rowId++
+			rowID++
 		}
 	}
 	return tw.Flush()
@@ -788,6 +789,7 @@ func printPodsInfo(w io.Writer, desc *RevisionDescription) error {
 	return nil
 }
 
+//nolint:unparam
 func printIstioOperatorCRInfo(w io.Writer, desc *RevisionDescription) error {
 	fmt.Fprintf(w, "\nISTIO-OPERATOR CUSTOM RESOURCE: (%d)", len(desc.IstioOperatorCRs))
 	if len(desc.IstioOperatorCRs) == 0 {
@@ -823,6 +825,7 @@ func printIstioOperatorCRInfo(w io.Writer, desc *RevisionDescription) error {
 	return nil
 }
 
+//nolint:errcheck
 func printWebhookInfo(w io.Writer, desc *RevisionDescription) error {
 	fmt.Fprintf(w, "\nMUTATING WEBHOOK CONFIGURATIONS: (%d)\n", len(desc.Webhooks))
 	if len(desc.Webhooks) == 0 {
@@ -1073,7 +1076,7 @@ func renderWithDefault(s, def string) string {
 	if s != "" {
 		return s
 	}
-	return fmt.Sprintf("%s", def)
+	return def
 }
 
 func profileWithDefault(profile string) string {

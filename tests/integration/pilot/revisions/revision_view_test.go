@@ -145,7 +145,7 @@ func testRevisionListingVerbose(ctx framework.TestContext, istioCtl istioctl.Ins
 
 	expectedRevisionSet := map[string]bool{"stable": true, "canary": true}
 	actualRevisionSet := map[string]bool{}
-	for rev, _ := range revDescriptions {
+	for rev := range revDescriptions {
 		actualRevisionSet[rev] = true
 	}
 	if !subsetOf(expectedRevisionSet, actualRevisionSet) {
@@ -187,10 +187,11 @@ func testRevisionDescription(ctx framework.TestContext, istioCtl istioctl.Instan
 				CoreV1().Pods(nsName).
 				List(context.Background(), meta_v1.ListOptions{LabelSelector: labelSelector.String()})
 			if podsForRev == nil || err != nil {
-				ctx.Fatalf("error while getting pods for revision: %s from namespace: %s", rev, nsName)
+				ctx.Fatalf("error while getting pods for revision: %s from namespace: %s: %v", rev, nsName, err)
 			}
 			expectedPodsForRev := map[string]bool{}
 			actualPodsForRev := map[string]bool{}
+			//nolint:staticcheck
 			for _, pod := range podsForRev.Items {
 				expectedPodsForRev[fmt.Sprintf("%s/%s", pod.Namespace, pod.Name)] = true
 			}
@@ -334,7 +335,7 @@ func setsMatch(expected map[string]bool, actual map[string]bool) bool {
 	if len(expected) != len(actual) {
 		return false
 	}
-	for x, _ := range actual {
+	for x := range actual {
 		if !expected[x] {
 			return false
 		}
@@ -343,7 +344,7 @@ func setsMatch(expected map[string]bool, actual map[string]bool) bool {
 }
 
 func subsetOf(a map[string]bool, b map[string]bool) bool {
-	for ax, _ := range a {
+	for ax := range a {
 		if !b[ax] {
 			return false
 		}
