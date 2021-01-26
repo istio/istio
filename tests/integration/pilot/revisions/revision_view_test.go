@@ -57,7 +57,7 @@ func TestRevisionCommand(t *testing.T) {
 		Run(func(ctx framework.TestContext) {
 			istioCtl := istioctl.NewOrFail(ctx, ctx, istioctl.Config{})
 
-			revisions := []string{"default", "stable", "canary"}
+			revisions := []string{"stable", "canary"}
 			revResourceMap := map[string]*revisionResource{}
 			builder := echoboot.NewBuilder(ctx)
 			for _, rev := range revisions {
@@ -120,7 +120,7 @@ func testRevisionListing(ctx framework.TestContext, istioCtl istioctl.Instance, 
 		ctx.Fatalf("error while unmarshaling JSON output: %v", err)
 	}
 	// 1. Check if revisions are expected
-	expectedRevisionSet := map[string]bool{"default": true, "stable": true, "canary": true}
+	expectedRevisionSet := map[string]bool{"stable": true, "canary": true}
 	actualRevisionSet := map[string]bool{}
 	for rev, _ := range revDescriptions {
 		actualRevisionSet[rev] = true
@@ -145,17 +145,15 @@ func testRevisionListing(ctx framework.TestContext, istioCtl istioctl.Instance, 
 
 	// 3. Check if combination of IOPs for a revision give the expected
 	//    set of components like gateways, pods etc.
-	defaultComponentMap := map[string]bool{
-		"base":                          true,
-		"istiod":                        true,
-		"ingress:istio-ingressgateway":  true,
-		"ingress:istio-eastwestgateway": true,
-		"egress:istio-egressgateway":    true,
-	}
 	expectedComponentsPerRevision := map[string]map[string]bool{
-		"default": defaultComponentMap,
-		"stable":  defaultComponentMap,
-		"canary": map[string]bool{
+		"stable": {
+			"base":                          true,
+			"istiod":                        true,
+			"ingress:istio-ingressgateway":  true,
+			"ingress:istio-eastwestgateway": true,
+			"egress:istio-egressgateway":    true,
+		},
+		"canary": {
 			"istiod":                        true,
 			"ingress:istio-ingressgateway":  true,
 			"ingress:istio-eastwestgateway": true,
@@ -192,7 +190,7 @@ func testRevisionDescription(ctx framework.TestContext, istioCtl istioctl.Instan
 	if err != nil || stableDescr == nil {
 		ctx.Fatalf("failed to retrieve description for stable: %v", err)
 	}
-	// TODO(su225): Fill this one
+
 }
 
 func testNonExistentRevisionDescription(ctx framework.TestContext, istioCtl istioctl.Instance, _ map[string]*revisionResource) {
@@ -218,7 +216,7 @@ func testInvalidOutputFormat(ctx framework.TestContext, istioCtl istioctl.Instan
 	}
 	for _, t := range []invalidFormatTest{
 		{name: "list", command: []string{"x", "revision", "list", "-o", "mystery"}},
-		{name: "describe", command: []string{"x", "revision", "describe", "default", "-o", "mystery"}},
+		{name: "describe", command: []string{"x", "revision", "describe", "canary", "-o", "mystery"}},
 	} {
 		ctx.NewSubTest(t.name).Run(func(sctx framework.TestContext) {
 			_, _, fErr := istioCtl.Invoke(t.command)
@@ -248,15 +246,18 @@ func verifyComponentPodsForRevision(ctx framework.TestContext, component, rev st
 	if opComponent == "" {
 		ctx.Fatalf("unknown component: %s", component)
 	}
-	labelMatcher := &meta_v1.LabelSelector{
+	labelSelector, err := meta_v1.LabelSelectorAsSelector(&meta_v1.LabelSelector{
 		MatchLabels: map[string]string{
 			label.IoIstioRev.Name:        rev,
 			label.OperatorComponent.Name: opComponent,
 		},
+	})
+	if err != nil {
+		ctx.Fatalf("unexpected error: failed to create label selector: %v", err)
 	}
 	componentPods, err := ctx.Clusters().Default().
 		CoreV1().Pods("").
-		List(context.Background(), meta_v1.ListOptions{LabelSelector: labelMatcher.String()})
+		List(context.Background(), meta_v1.ListOptions{LabelSelector: labelSelector.String()})
 	if err != nil {
 		ctx.Fatalf("unexpected error while fetching %s pods for revision %s: %v", component, rev, err)
 	}
@@ -265,11 +266,22 @@ func verifyComponentPodsForRevision(ctx framework.TestContext, component, rev st
 		podName := fmt.Sprintf("%s/%s", pod.Namespace, pod.Name)
 		expectedComponentPodSet[podName] = true
 	}
+
 	actualComponentPodSet := map[string]bool{}
-	for _, pod := range descr.ControlPlanePods {
+	podList := []*cmd.PodFilteredInfo{}
+	switch component {
+	case "istiod":
+		podList = descr.ControlPlanePods
+	case "ingress-gateway":
+		podList = descr.IngressGatewayPods
+	case "egress-gateway":
+		podList = descr.EgressGatewayPods
+	}
+	for _, pod := range podList {
 		podName := fmt.Sprintf("%s/%s", pod.Namespace, pod.Name)
 		actualComponentPodSet[podName] = true
 	}
+
 	if !setsMatch(expectedComponentPodSet, actualComponentPodSet) {
 		ctx.Fatalf("%s pods are not listed properly. Expected: %v, Actual: %v",
 			component, expectedComponentPodSet, actualComponentPodSet)
