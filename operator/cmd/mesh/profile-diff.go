@@ -51,6 +51,7 @@ func profileDiffCmd(rootArgs *rootArgs, pfArgs *profileDiffArgs) *cobra.Command 
 			return nil
 		},
 		RunE: func(cmd *cobra.Command, args []string) error {
+			cmd.SetOut(os.Stdout)
 			return profileDiff(cmd, rootArgs, pfArgs, args)
 		}}
 
