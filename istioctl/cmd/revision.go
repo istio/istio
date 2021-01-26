@@ -178,6 +178,8 @@ func revisionListCommand() *cobra.Command {
 	return listCmd
 }
 
+// PodFilteredInfo represents a small subset of fields from
+// Pod object in Kubernetes. Exposed for integration test
 type PodFilteredInfo struct {
 	Namespace string      `json:"namespace"`
 	Name      string      `json:"name"`
@@ -186,6 +188,9 @@ type PodFilteredInfo struct {
 	Age       string      `json:"age"`
 }
 
+// IstioOperatorCRInfo represents a tiny subset of fields from
+// IstioOperator CR. This structure is used for displaying data.
+// Exposed for integration test
 type IstioOperatorCRInfo struct {
 	IOP            *iopv1alpha1.IstioOperator `json:"-"`
 	Namespace      string                     `json:"namespace"`
@@ -195,17 +200,24 @@ type IstioOperatorCRInfo struct {
 	Customizations []iopDiff                  `json:"customizations,omitempty"`
 }
 
+// MutatingWebhookConfigInfo represents a tiny subset of fields from
+// MutatingWebhookConfiguration kubernetes object. This is exposed for
+// integration tests only
 type MutatingWebhookConfigInfo struct {
 	Name     string `json:"name"`
 	Revision string `json:"revision"`
 	Tag      string `json:"tag,omitempty"`
 }
 
+// NsInfo represents namespace related information like pods running there.
+// It is used to display data and is exposed for integration tests.
 type NsInfo struct {
 	Name string             `json:"name,omitempty"`
 	Pods []*PodFilteredInfo `json:"pods,omitempty"`
 }
 
+// RevisionDescription is used to display revision related information.
+// This is exposed for integration tests.
 type RevisionDescription struct {
 	IstioOperatorCRs   []*IstioOperatorCRInfo       `json:"istio_operator_crs,omitempty"`
 	Webhooks           []*MutatingWebhookConfigInfo `json:"webhooks,omitempty"`
