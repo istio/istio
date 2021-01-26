@@ -116,6 +116,7 @@ func TestStackdriverMonitoring(t *testing.T) {
 						// Validate cluster names in telemetry below once https://github.com/istio/istio/issues/28125 is fixed.
 						if err := validateMetrics(t, filepath.Join(env.IstioSrc, serverRequestCount), filepath.Join(env.IstioSrc, clientRequestCount),
 							clName, trustDomain); err != nil {
+							t.Logf("failed to validate metrics: %v", err)
 							return err
 						}
 						t.Logf("Metrics validated")

@@ -61,11 +61,12 @@ func TestTCPStackdriverMonitoring(t *testing.T) {
 							filepath.Join(env.IstioSrc, tcpClientConnectionCount), clName, trustDomain); err != nil {
 							return err
 						}
+						t.Logf("TCP Metrics validated")
 						if err := validateLogs(t, filepath.Join(env.IstioSrc, tcpServerLogEntry), clName,
 							trustDomain, stackdriver.ServerAccessLog); err != nil {
 							return err
 						}
-
+						t.Logf("TCP Logs validated")
 						return nil
 					}, retry.Delay(framework.TelemetryRetryDelay), retry.Timeout(framework.TelemetryRetryTimeout))
 					if err != nil {

@@ -97,6 +97,8 @@ while (( "$#" )); do
 done
 
 echo "Running with CA ${CA}, ${WIP} Workload Identity Pool, ${CONTROL_PLANE} and --vm=${USE_VM} control plane."
+# used in telemetry test to decide expected source/destination principal.
+export CONTROL_PLANE
 
 echo "Using ${KUBECONFIG} to connect to the cluster(s)"
 if [[ -z "${KUBECONFIG}" ]]; then
@@ -144,6 +146,11 @@ else
   GCR_PROJECT_ID="${CENTRAL_GCP_PROJECT}"
 fi
 
+# The Makefile passes the path defined in INTEGRATION_TEST_TOPOLOGY_FILE to --istio.test.kube.topology on go test.
+export INTEGRATION_TEST_TOPOLOGY_FILE
+INTEGRATION_TEST_TOPOLOGY_FILE="${WD}/topology.yaml"
+gen_topology_file "${INTEGRATION_TEST_TOPOLOGY_FILE}" "${CONTEXTS[@]}"
+
 # TODO(ruigu): extract the common part of MANAGED and UNMANAGED when MANAGED test is added.
 if [[ "${CONTROL_PLANE}" == "UNMANAGED" ]]; then
   echo "Setting up ASM ${CONTROL_PLANE} control plane for test"
@@ -186,11 +193,6 @@ if [[ "${CONTROL_PLANE}" == "UNMANAGED" ]]; then
 
   echo "Processing kubeconfig files for running the tests..."
   process_kubeconfigs
-
-  # The Makefile passes the path defined in INTEGRATION_TEST_TOPOLOGY_FILE to --istio.test.kube.topology on go test.
-  export INTEGRATION_TEST_TOPOLOGY_FILE
-  INTEGRATION_TEST_TOPOLOGY_FILE="${WD}/topology.yaml"
-  gen_topology_file "${INTEGRATION_TEST_TOPOLOGY_FILE}" "${CONTEXTS[@]}"
 
   # exported GCR_PROJECT_ID_1, GCR_PROJECT_ID_2, WIP and CA values are needed
   # for security and telemetry test.
@@ -243,6 +245,8 @@ else
   echo "Setting up ASM ${CONTROL_PLANE} control plane for test"
   export HUB="gcr.io/wlhe-cr"
   export TAG="BUILD_ID_${BUILD_ID}"
+  # needed for telemetry test
+  export GCR_PROJECT_ID
 
   echo "Preparing images for managed control plane..."
   prepare_images_for_managed_control_plane
@@ -268,15 +272,12 @@ else
     DISABLED_TESTS+="|TestGateway" # BROKEN: CRDs need to be deployed before Istiod runs. In this case, we install Istiod first, causing failure.
     DISABLED_TESTS+="|TestRevisionedUpgrade" # UNSUPPORTED: OSS Control Plane upgrade is not supported by MCP.
     # telemetry/ tests
-    DISABLED_TESTS+="|TestStackdriverHTTPAuditLogging" # UNKNOWN
-    DISABLED_TESTS+="|TestIstioctlMetrics" # UNKNOWN
-    DISABLED_TESTS+="|TestStatsFilter" # UNKNOWN
-    DISABLED_TESTS+="|TestTcpMetric" # UNKNOWN
-    DISABLED_TESTS+="|TestBadWasmRemoteLoad" # UNKNOWN
-    DISABLED_TESTS+="|TestWasmStatsFilter" # UNKNOWN
-    DISABLED_TESTS+="|TestWASMTcpMetric" # UNKNOWN
+    DISABLED_TESTS+="|TestStackdriverHTTPAuditLogging" # UNSUPPORTED: Relies on customized installation of the stackdriver envoyfilter.
+    DISABLED_TESTS+="|TestIstioctlMetrics" # UNSUPPORTED: istioctl doesn't work
+    DISABLED_TESTS+="|TestBadWasmRemoteLoad|TestWasmStatsFilter|TestWASMTcpMetric" # UNSUPPORTED Relies on enabling WASM during installation.
     DISABLED_TESTS+="|TestDashboard" # UNSUPPORTED: Relies on istiod in cluster. TODO: filter out only pilot-dashboard.json
-    DISABLED_TESTS+="|TestCustomizeMetrics|TestProxyTracing|TestClientTracing|TestStackdriverMonitoring|TestTCPStackdriverMonitoring|TestRateLimiting" # UNKNOWN
+    DISABLED_TESTS+="|TestProxyTracing|TestClientTracing|TestRateLimiting" # NOT SUPPORTED: requires customized meshConfig setting
+    DISABLED_TESTS+="|TestCustomizeMetrics" # NOT SUPPORTED: Replies on customization on the stats envoyFilter
     DISABLED_TESTS+="|TestOutboundTrafficPolicy" # UNSUPPORTED: Relies on egress gateway deployed to the cluster. TODO: filter out only Traffic_Egress
     # security/ tests
     DISABLED_TESTS+="|TestAuthorization_IngressGateway" # UNKNOWN
