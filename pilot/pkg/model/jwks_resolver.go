@@ -425,6 +425,12 @@ func (r *JwksResolver) refresh() time.Duration {
 	// Wait for all go routine to complete.
 	wg.Wait()
 
+	if hasErrors {
+		r.refreshInterval = r.refreshIntervalOnFailure
+	} else {
+		r.refreshInterval = r.refreshDefaultInterval
+	}
+
 	if hasChange {
 		atomic.AddUint64(&r.refreshJobKeyChangedCount, 1)
 		// Push public key changes to sidecars.
