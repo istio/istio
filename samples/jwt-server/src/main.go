@@ -17,7 +17,6 @@ package main
 import (
 	"flag"
 	"fmt"
-	"io/ioutil"
 	"log"
 	"net"
 	"net/http"
@@ -28,7 +27,7 @@ import (
 )
 
 const (
-	jwtFile = "../../../tests/common/jwt/jwks.json"
+	jwtKey = "{ \"keys\":[ {\"e\":\"AQAB\",\"kid\":\"tT_w9LRNrY7wJalGsTYSt7rutZi86Gvyc0EKR4CaQAw\",\"kty\":\"RSA\",\"n\":\"raJ7ZEhMfrBUo2werGKOow9an1B6Ukc6dKY2hNi10eaQe9ehJCjLpmJpePxoqaCi2VYt6gncLfhEV71JDGsodbfYMlaxwWTt6lXBcjlVXHWDXLC45rHVfi9FjSSXloHqmSStpjv3mrW3R6fx2VeVVP_mrA6ZHtcynq6ecJqO11STvVoeeM3lEsASVSWsUrKltC1Crfo0sI7YG34QjophVTEi8B9gVepAJZV-Bso5sinRABnxfLUM7DU5c8MO114uvXThgSIuAOM9PbViSC3X6Y9Gsjsy881HGO-EJaUCrwSWnwQW5sp0TktrYL70-M4_ug-X51Yt_PErmncKupx8Hw\"}]}"
 )
 
 var (
@@ -44,14 +43,8 @@ type JWTServer struct {
 
 // ServeHTTP serves the JWT Keys.
 func (s *JWTServer) ServeHTTP(response http.ResponseWriter, request *http.Request) {
-	key, err := ioutil.ReadFile(jwtFile)
-	if err != nil {
-		response.WriteHeader(http.StatusFailedDependency)
-		response.Write([]byte(err.Error()))
-		return
-	}
 	response.WriteHeader(http.StatusOK)
-	response.Write([]byte(string(key)))
+	response.Write([]byte(string(jwtKey)))
 }
 
 func (s *JWTServer) startHTTP(address string, wg *sync.WaitGroup) {
