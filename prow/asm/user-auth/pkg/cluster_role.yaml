@@ -1,0 +1,36 @@
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  labels:
+    k8s-app: clientconfig-operator
+  name: clientconfig-status-writer
+rules:
+- apiGroups:
+  - authentication.gke.io
+  resources:
+  - clientconfigs/status
+  verbs: [patch]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  labels:
+    k8s-app: clientconfig-operator
+  name: clientconfig-reader
+rules:
+- apiGroups:
+  - authentication.gke.io
+  resources:
+  - clientconfigs
+  verbs: [get]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: iapconfig-reader
+rules:
+- apiGroups:
+  - security.anthos.io
+  resources:
+  - identityawareproxyconfigs
+  verbs: ["get"]

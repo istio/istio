@@ -1,0 +1,143 @@
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    # TODO(piyushn): Find out the right version
+    controller-gen.kubebuilder.io/version: v0.2.4
+  creationTimestamp: null
+  name: identityawareproxyconfigs.security.anthos.io
+spec:
+  group: security.anthos.io
+  names:
+    kind: IdentityAwareProxyConfig
+    listKind: IdentityAwareProxyConfigList
+    plural: identityawareproxyconfigs
+    singular: identityawareproxyconfig
+  scope: Namespaced
+  versions:
+  - name: v1alpha1
+    schema:
+      openAPIV3Schema:
+        description: IdentityAwareProxyConfig is the schema for the identityawareproxyconfigs API.
+        properties:
+          apiVersion:
+            description: 'APIVersion defines the versioned schema of this representation
+              of an object. Servers should convert recognized schemas to the latest
+              internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
+            type: string
+          kind:
+            description: 'Kind is a string value representing the REST resource this
+              object represents. Servers may infer this from the endpoint the client
+              submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
+            type: string
+          metadata:
+            type: object
+          spec:
+            description: IdentityAwareProxyConfig defines the desired state of IdentityAwareProxy.
+            properties:
+              authentication:
+                description: Details of the authentication endpoint to use.
+                properties:
+                  oidc:
+                    description: OIDC specific configuration.
+                    properties:
+                      certificateAuthorityData:
+                        description: CertificateAuthorityData contains PEM-encoded
+                          certificate authority certificate for OIDC provider.
+                        type: string
+                      # TODO(piyushn): Move clientid / secret to k8s secrets.
+                      clientID:
+                        description: ClientID is an ID for OIDC client application.
+                        type: string
+                      clientSecret:
+                        description: ClientSecret is the shared secret between OIDC
+                          client application and OIDC provider.
+                        type: string
+                      issuerURI:
+                        description: The issuer in the idtoken issued by OIDC provider.
+                          This will be used to validate the idtoken.
+                        type: string
+                      authorizationEndpointURI:
+                        description: The Authorization Endpoint for OIDC authorization server
+                          as defined in https://openid.net/specs/openid-connect-core-1_0.html.
+                        type: string
+                      tokenEndpointURI:
+                        description: The Token Endpoint for OIDC authorization server as defined
+                          in https://openid.net/specs/openid-connect-core-1_0.html.
+                        type: string
+                      redirectURIHost:
+                        description: The host to be used for OAuth termination URI. If not present
+                          the host from the target URL will be used. This value can be utilized
+                          when a IAP sso session is desired at a higher level domain. For example,
+                          to enable sso between profile.example.com/ and admin.example.com/, this
+                          value can be set to example.com. It'll enable IAP session to be
+                          established at example.com that'll be shared amongst all subdomains.
+                          Note that if multiple domains are being served from the same mesh,
+                          example1.com and example2.com, the feature can not be used, and is
+                          recommended to be left empty.
+                        type: string
+                      redirectURIPath:
+                        description: The oauth termination path. It is required for this path to
+                          be served from the same ingress as the application for a successful IAP
+                          session. Note, this path will always terminate at IAP.
+                        type: string
+                        default: "/_gcp_iap/authenticate"
+                      scopes:
+                        description: comma-separated list of identifiers used to specify what access
+                          privileges are being requested in addition to "openid" scope.
+                        type: string
+                      userClaim:
+                        description: Name of the claim in the OIDC ID Token that holds the username.
+                          If this is missing from the ID Token, authentication will fail.
+                        type: string
+                      groupsClaim:
+                        description: Name of the claim in the OIDC ID Token that holds the user's
+                          group information. The value of this claim in the OIDC ID Token should
+                          contain an array of strings.
+                        type: string
+                    required:
+                    - clientID
+                    - clientSecret
+                    - issuerURI
+                    - authorizationEndpointURI
+                    - tokenEndpointURI
+                    - userClaim
+                    type: object
+                type: object
+              allowHttpOptions:
+                description: If IAP should allow HTTP OPTIONS requests to pass through.
+                type: boolean
+              sessionSettings:
+                description: Defines the set of session properties enforced by IAP.
+                properties:
+                  sessionLifetime:
+                    description: The lifetime of an IAP session in minutes. A session refresh is
+                      enforced after this duration. The actual enforced session duration is min of
+                      IDP's session and this value.
+                    type: string
+                    format: duration
+                type: object
+              outputJWTAudience:
+                description: The value of the 'aud' field in the JWT generated by IAP.
+                type: string
+            type: object
+          status:
+            description: IdentityAwareProxyConfigStatus defines the observed state of IAP.
+            properties:
+              identityAwareProxyService:
+                description: IdentityAwareProxyService contains a message which records the status
+                  of applying the current configuration set.
+                type: string
+            type: object
+        type: object
+    served: true
+    storage: true
+    subresources:
+      status: {}
+  preserveUnknownFields: false
+status:
+  acceptedNames:
+    kind: ""
+    plural: ""
+  conditions: []
+  storedVersions: []

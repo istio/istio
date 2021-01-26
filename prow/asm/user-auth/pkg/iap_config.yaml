@@ -1,0 +1,59 @@
+# IAP is deployed to its own namespace with istio-injection=enabled label rather then "istio-system".
+# Since the Istio sidecar injector webhook only monitors the istio-injection=enabled labeled
+# namespaces for auto injection.
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: iap-service
+  namespace: iap
+  labels:
+    app: iap
+    service: iap
+spec:
+  selector:
+    app: iap
+  ports:
+  - name: grpc
+    port: 10003
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: iap-deployment
+  namespace: iap
+  labels:
+    app: iap
+    deployment: iap
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: iap
+  template:
+    metadata:
+      labels:
+        app: iap
+    spec:
+      containers:
+      - name: iap-authservice
+        image: gcr.io/onprem-idp-release/iap:hybrid_identity_charon_20210207_RC00  # {"$ref":"#/definitions/io.k8s.cli.setters.iap-image"}
+        imagePullPolicy: IfNotPresent
+        ports:
+        - containerPort: 10003
+        volumeMounts:
+        - name: key-volume
+          mountPath: /etc/charon/certs
+      volumes:
+      - name: key-volume
+        secret:
+          secretName: secret-key
+---
+apiVersion: security.istio.io/v1beta1
+kind: PeerAuthentication
+metadata:
+  name: iap-peer-authn-mtls
+  namespace: iap
+spec:
+  mtls:
+    mode: STRICT

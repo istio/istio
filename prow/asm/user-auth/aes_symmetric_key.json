@@ -1,0 +1,9 @@
+{
+   "keys":[
+      {
+         "kty":"oct",
+         "kid":"aes-v1",
+         "k":"7BdPwMwhda+ZZgijtDT39L3tP33JSa0G4QgA2FolC0s="
+      }
+   ]
+}

@@ -63,6 +63,7 @@ func DeployerFlags(clusterTopology, featureToTest string) ([]string, error) {
 		switch featureToTest {
 		case "VPC_SC":
 			featureFlags, err = featureVPCSCClusterFlags(flags)
+		case "USER_AUTH":
 		default:
 			err = fmt.Errorf("feature %q is not supported", featureToTest)
 		}

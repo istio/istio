@@ -1,0 +1,18 @@
+apiVersion: kpt.dev/v1alpha1
+kind: Kptfile
+metadata:
+  name: pkg
+packageMetadata:
+  shortDescription: IAP kpt package for anthos service mesh.
+openAPI:
+  definitions:
+    io.k8s.cli.setters.iap-service-address:
+      x-k8s-cli:
+        setter:
+          name: iap-service-address
+          value: iap-service.istio-system.svc.cluster.local
+    io.k8s.cli.setters.iap-image:
+      x-k8s-cli:
+        setter:
+          name: iap-image
+          value: gcr.io/onprem-idp-release/iap:staging

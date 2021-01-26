@@ -474,6 +474,9 @@ function install_asm() {
         --nat-all-subnet-ip-ranges \
         --router-region=us-central1 \
         --enable-logging || echo "test-nat already exists"
+    elif [[ "${FEATURE_TO_TEST}" == "USER_AUTH" ]]; then
+      # Add user auth overlay
+      CUSTOM_OVERLAY="${CUSTOM_OVERLAY},${PKG}/overlay/user-auth.yaml"
     fi
 
     # INSTALL_ASM_BRANCH is one of the branches in https://github.com/GoogleCloudPlatform/anthos-service-mesh-packages
@@ -1064,4 +1067,36 @@ spec:
 EOF
     configure_validating_webhook "${ASM_REVISION_LABEL}" "${BAREMETAL_SC_CONFIG[$i]}"
   done
+}
+
+# Install ASM User Auth on the cluster.
+# Parameters: $1 - Path of working directory
+function install_asm_user_auth() {
+  # create RSA signing key for RC token signing.
+  openssl req -newkey rsa:2048 -x509 -sha256 -days 365 -nodes -subj \
+	  "/C=US/ST=California/L=Sunnyvale/O=Google/OU=Cloud/CN=iap-service.iap.svc.cluster.local"  \
+	   -keyout "${1}/user-auth/rsa_signing_key.pem"
+
+  create_asm_revision_label
+  kubectl create namespace iap
+  kubectl label namespace iap istio.io/rev=asm-190-3 --overwrite
+
+  # Create the kubernetes secret for the encryption and signing key.
+  kubectl create secret generic secret-key  \
+       --from-file=encryption-key="${WD}/user-auth/aes_symmetric_key.json"  \
+       --from-file=signing-key="${WD}/user-auth/rsa_signing_key.pem"  \
+       --namespace=iap
+
+  # TODO: Fetch image from GCR release repo and GitHub packet.
+  kpt cfg set "${1}/user-auth/pkg" iap-image gcr.io/jianfeih-test/asm-user-auth:20200212-rc0
+  kpt live init "${1}/user-auth/pkg"
+  kpt live apply "${1}/user-auth/pkg"
+}
+
+# Cleanup ASM User Auth manifest.
+# Parameters: $1 - Path of working directory
+function cleanup_asm_user_auth() {
+  kubectl delete ns iap
+  rm -rf "${1}/user-auth/rsa_signing_key.pem"
+  rm -rf "${1}/user-auth/pkg/inventory-template.yaml"
 }

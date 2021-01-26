@@ -1,0 +1,9 @@
+apiVersion: install.istio.io/v1alpha1
+kind: IstioOperator
+spec:
+  meshConfig:
+    extensionProviders:
+      - name: "iap-ext-authz-grpc"
+        envoyExtAuthzGrpc:
+          service: "iap-service.iap.svc.cluster.local"
+          port: "10003"

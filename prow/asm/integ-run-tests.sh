@@ -278,6 +278,15 @@ if [[ "${CONTROL_PLANE}" == "UNMANAGED" ]]; then
   export CA
   export WIP
 
+  if [[ "${FEATURE_TO_TEST}" == "USER_AUTH" ]]; then
+    install_asm_user_auth "${WD}"
+    kubectl wait --for=condition=Ready --timeout=2m -n iap --all pod --context="${CONTEXTS[$i]}"
+    kubectl get configmap istio -n istio-system -o yaml
+    kubectl get ns --show-labels
+    kubectl get pods --all-namespaces
+    add_trap "cleanup_asm_user_auth ${WD}" EXIT SIGKILL SIGTERM SIGQUIT
+  fi
+
   # DISABLED_TESTS contains a list of all tests we skip
   # pilot/ tests
   if [[ -n "${DISABLED_TESTS}" ]]; then
@@ -324,7 +333,11 @@ if [[ "${CONTROL_PLANE}" == "UNMANAGED" ]]; then
     TEST_SELECT="+multicluster"
   fi
   if [[ $TEST_TARGET == "test.integration.asm.security" ]]; then
-    TEST_SELECT="-customsetup"
+    if [[ -z "${TEST_SELECT}" ]]; then
+      TEST_SELECT="-customsetup"
+    else
+      TEST_SELECT+=",-customsetup"
+    fi
   fi
 
   export INTEGRATION_TEST_FLAGS="${INTEGRATION_TEST_FLAGS:-}"

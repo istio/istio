@@ -28,13 +28,17 @@ const (
 
 	// Multicluster indicates that the test requires a multicluster configuration.
 	Multicluster Instance = "multicluster"
+
+	// UserAuth indicates that the test requires ASM User Auth Installation.
+	UserAuth Instance = "userauth"
 )
 
 var all = NewSet(
 	Postsubmit,
 	CustomSetup,
 	Flaky,
-	Multicluster)
+	Multicluster,
+	UserAuth)
 
 // Find the label with the given name
 func Find(name string) (Instance, bool) {
