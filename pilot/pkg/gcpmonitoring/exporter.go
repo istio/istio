@@ -30,6 +30,7 @@ import (
 	"istio.io/istio/pilot/pkg/security/model"
 	"istio.io/istio/pkg/bootstrap/platform"
 	"istio.io/istio/security/pkg/stsservice/tokenmanager"
+	"istio.io/pkg/env"
 	"istio.io/pkg/log"
 	"istio.io/pkg/version"
 )
@@ -43,6 +44,9 @@ var (
 	podName      = ""
 	podNamespace = ""
 	meshUID      = ""
+
+	cloudRunServiceVar = env.RegisterStringVar("K_SERVICE", "", "cloud run service name")
+	managedRevisionVar = env.RegisterStringVar("REV", "", "name of the managed revision, e.g. asm, asmca, ossmanaged")
 )
 
 // ASMExporter is a stats exporter used for ASM control plane metrics.
@@ -91,7 +95,7 @@ func NewASMExporter(pe *ocprom.Exporter) (*ASMExporter, error) {
 	labels.Set("mesh_uid", meshUID, "ID for Mesh")
 	labels.Set("revision", version.Info.Version, "Control plane revision")
 	clientOptions := []option.ClientOption{}
-	if strings.HasSuffix(trustDomain, "svc.id.goog") {
+	if !isCloudRun() && strings.HasSuffix(trustDomain, "svc.id.goog") {
 		// Workload identity is enabled and P4SA access token is used.
 		if subjectToken, err := ioutil.ReadFile(model.K8sSATrustworthyJwtFileName); err == nil {
 			ts := tokenmanager.NewTokenSource(trustDomain, string(subjectToken), authScope)
@@ -110,21 +114,28 @@ func NewASMExporter(pe *ocprom.Exporter) (*ASMExporter, error) {
 			log.Errorf("Cannot read third party jwt token file: %v", err)
 		}
 	}
+
+	mr := &monitoredresource.GKEContainer{
+		ProjectID:                  gcpMetadata[platform.GCPProject],
+		ClusterName:                gcpMetadata[platform.GCPCluster],
+		Zone:                       gcpMetadata[platform.GCPLocation],
+		NamespaceID:                podNamespace,
+		PodID:                      podName,
+		ContainerName:              "discovery",
+		LoggingMonitoringV2Enabled: true,
+	}
+	if isCloudRun() {
+		mr.ContainerName = "cr-" + managedRevisionVar.Get()
+	}
 	se, err := stackdriver.NewExporter(stackdriver.Options{
+		ProjectID:               gcpMetadata[platform.GCPProject],
+		Location:                gcpMetadata[platform.GCPLocation],
 		MetricPrefix:            "istio.io/control",
 		MonitoringClientOptions: clientOptions,
 		GetMetricType: func(view *view.View) string {
 			return "istio.io/control/" + view.Name
 		},
-		MonitoredResource: &monitoredresource.GKEContainer{
-			ProjectID:                  gcpMetadata[platform.GCPProject],
-			ClusterName:                gcpMetadata[platform.GCPCluster],
-			Zone:                       gcpMetadata[platform.GCPLocation],
-			NamespaceID:                podNamespace,
-			PodID:                      podName,
-			ContainerName:              "discovery",
-			LoggingMonitoringV2Enabled: true,
-		},
+		MonitoredResource:       mr,
 		DefaultMonitoringLabels: labels,
 		ReportingInterval:       60 * time.Second,
 	})
@@ -133,6 +144,11 @@ func NewASMExporter(pe *ocprom.Exporter) (*ASMExporter, error) {
 		return nil, errors.New("fail to initialize Stackdriver exporter")
 	}
 
+	if isCloudRun() {
+		return &ASMExporter{
+			sdExporter: se,
+		}, nil
+	}
 	return &ASMExporter{
 		PromExporter: pe,
 		sdExporter:   se,
@@ -145,7 +161,7 @@ func (e *ASMExporter) ExportView(vd *view.Data) {
 	if _, ok := viewMap[vd.View.Name]; ok && e.sdExporter != nil {
 		// This indicates that this is a stackdriver view
 		e.sdExporter.ExportView(vd)
-	} else {
+	} else if e.PromExporter != nil {
 		e.PromExporter.ExportView(vd)
 	}
 }
@@ -168,4 +184,11 @@ func (t *TestExporter) ExportView(d *view.Data) {
 		}
 	}
 	t.Rows[d.View.Name] = append(t.Rows[d.View.Name], d.Rows...)
+}
+
+func isCloudRun() bool {
+	if svc := cloudRunServiceVar.Get(); svc != "" {
+		return true
+	}
+	return false
 }
