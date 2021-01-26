@@ -430,7 +430,7 @@ func (configgen *ConfigGeneratorImpl) createGatewayHTTPFilterChainOpts(node *mod
 		// and that no two non-HTTPS servers can be on same port or share port names.
 		// Validation is done per gateway and also during merging
 		sniHosts:   node.MergedGateway.SNIHostsByServer[server],
-		tlsContext: buildGatewayListenerTLSContext(server, sdsPath, node.Metadata),
+		tlsContext: buildGatewayListenerTLSContext(server, sdsPath, node),
 		httpOpts: &httpListenerOpts{
 			rds:              routeName,
 			useRemoteAddress: true,
@@ -467,7 +467,7 @@ func (configgen *ConfigGeneratorImpl) createGatewayHTTPFilterChainOpts(node *mod
 //
 // Note that ISTIO_MUTUAL TLS mode and ingressSds should not be used simultaneously on the same ingress gateway.
 func buildGatewayListenerTLSContext(
-	server *networking.Server, sdsPath string, metadata *model.NodeMetadata) *tls.DownstreamTlsContext {
+	server *networking.Server, sdsPath string, proxy *model.Proxy) *tls.DownstreamTlsContext {
 	// Server.TLS cannot be nil or passthrough. But as a safety guard, return nil
 	if server.Tls == nil || gateway.IsPassThroughServer(server) {
 		return nil // We don't need to setup TLS context for passthrough mode
@@ -485,15 +485,17 @@ func buildGatewayListenerTLSContext(
 	case server.Tls.CredentialName != "":
 		authn_model.ApplyCredentialSDSToServerCommonTLSContext(ctx.CommonTlsContext, server.Tls)
 	case server.Tls.Mode == networking.ServerTLSSettings_ISTIO_MUTUAL:
-		authn_model.ApplyToCommonTLSContext(ctx.CommonTlsContext, metadata, sdsPath, server.Tls.SubjectAltNames, []string{})
+		authn_model.ApplyToCommonTLSContext(ctx.CommonTlsContext, proxy, sdsPath, server.Tls.SubjectAltNames, []string{})
 	default:
+		certProxy := &model.Proxy{}
+		certProxy.IstioVersion = proxy.IstioVersion
 		// If certificate files are specified in gateway configuration, use file based SDS.
-		certmetadata := &model.NodeMetadata{
+		certProxy.Metadata = &model.NodeMetadata{
 			TLSServerCertChain: server.Tls.ServerCertificate,
 			TLSServerKey:       server.Tls.PrivateKey,
 			TLSServerRootCert:  server.Tls.CaCertificates,
 		}
-		authn_model.ApplyToCommonTLSContext(ctx.CommonTlsContext, certmetadata, sdsPath, server.Tls.SubjectAltNames, []string{})
+		authn_model.ApplyToCommonTLSContext(ctx.CommonTlsContext, certProxy, sdsPath, server.Tls.SubjectAltNames, []string{})
 	}
 
 	ctx.RequireClientCertificate = proto.BoolFalse
@@ -554,7 +556,7 @@ func (configgen *ConfigGeneratorImpl) createGatewayTCPFilterChainOpts(
 			return []*filterChainOpts{
 				{
 					sniHosts:       node.MergedGateway.SNIHostsByServer[server],
-					tlsContext:     buildGatewayListenerTLSContext(server, constants.DefaultSdsUdsPath, node.Metadata),
+					tlsContext:     buildGatewayListenerTLSContext(server, constants.DefaultSdsUdsPath, node),
 					networkFilters: filters,
 				},
 			}

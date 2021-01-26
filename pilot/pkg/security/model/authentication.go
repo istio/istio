@@ -140,15 +140,21 @@ var (
 )
 
 // ConstructSdsSecretConfig constructs SDS Secret Configuration for workload proxy.
-func ConstructSdsSecretConfig(name string) *tls.SdsSecretConfig {
+func ConstructSdsSecretConfig(name string, node *model.Proxy) *tls.SdsSecretConfig {
 	if name == "" {
 		return nil
 	}
 
 	if name == SDSDefaultResourceName {
+		if util.IsIstioVersionGE19(node) {
+			defaultSDSConfig.SdsConfig.GetApiConfigSource().SetNodeOnFirstMessageOnly = true
+		}
 		return defaultSDSConfig
 	}
 	if name == SDSRootResourceName {
+		if util.IsIstioVersionGE19(node) {
+			rootSDSConfig.SdsConfig.GetApiConfigSource().SetNodeOnFirstMessageOnly = true
+		}
 		return rootSDSConfig
 	}
 
@@ -173,6 +179,9 @@ func ConstructSdsSecretConfig(name string) *tls.SdsSecretConfig {
 		},
 	}
 
+	if util.IsIstioVersionGE19(node) {
+		cfg.SdsConfig.GetApiConfigSource().SetNodeOnFirstMessageOnly = true
+	}
 	return cfg
 }
 
@@ -204,15 +213,15 @@ func appendURIPrefixToTrustDomain(trustDomainAliases []string) []string {
 }
 
 // ApplyToCommonTLSContext completes the commonTlsContext
-func ApplyToCommonTLSContext(tlsContext *tls.CommonTlsContext, metadata *model.NodeMetadata,
+func ApplyToCommonTLSContext(tlsContext *tls.CommonTlsContext, proxy *model.Proxy,
 	sdsPath string, subjectAltNames []string, trustDomainAliases []string) {
 	// These are certs being mounted from within the pod. Rather than reading directly in Envoy,
 	// which does not support rotation, we will serve them over SDS by reading the files.
 	// We should check if these certs have values, if yes we should use them or otherwise fall back to defaults.
 	res := model.SdsCertificateConfig{
-		CertificatePath:   metadata.TLSServerCertChain,
-		PrivateKeyPath:    metadata.TLSServerKey,
-		CaCertificatePath: metadata.TLSServerRootCert,
+		CertificatePath:   proxy.Metadata.TLSServerCertChain,
+		PrivateKeyPath:    proxy.Metadata.TLSServerKey,
+		CaCertificatePath: proxy.Metadata.TLSServerRootCert,
 	}
 
 	// TODO: if subjectAltName ends with *, create a prefix match as well.
@@ -226,11 +235,11 @@ func ApplyToCommonTLSContext(tlsContext *tls.CommonTlsContext, metadata *model.N
 	tlsContext.ValidationContextType = &tls.CommonTlsContext_CombinedValidationContext{
 		CombinedValidationContext: &tls.CommonTlsContext_CombinedCertificateValidationContext{
 			DefaultValidationContext:         &tls.CertificateValidationContext{MatchSubjectAltNames: matchSAN},
-			ValidationContextSdsSecretConfig: ConstructSdsSecretConfig(model.GetOrDefault(res.GetRootResourceName(), SDSRootResourceName)),
+			ValidationContextSdsSecretConfig: ConstructSdsSecretConfig(model.GetOrDefault(res.GetRootResourceName(), SDSRootResourceName), proxy),
 		},
 	}
 	tlsContext.TlsCertificateSdsSecretConfigs = []*tls.SdsSecretConfig{
-		ConstructSdsSecretConfig(model.GetOrDefault(res.GetResourceName(), SDSDefaultResourceName)),
+		ConstructSdsSecretConfig(model.GetOrDefault(res.GetResourceName(), SDSDefaultResourceName), proxy),
 	}
 }
 
