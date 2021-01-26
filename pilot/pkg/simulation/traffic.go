@@ -35,12 +35,14 @@ import (
 
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/core/v1alpha3"
+	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pilot/pkg/util/sets"
 	"istio.io/istio/pilot/pkg/xds"
 	xdsfilters "istio.io/istio/pilot/pkg/xds/filters"
 	"istio.io/istio/pilot/test/xdstest"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/test"
+	"istio.io/pkg/log"
 )
 
 type Protocol string
@@ -514,10 +516,17 @@ func (sim *Simulation) matchFilterChain(chains []*listener.FilterChain, defaultC
 	}, func(fc *listener.FilterChainMatch) bool {
 		return sets.NewSet(fc.GetApplicationProtocols()...).Contains(input.Alpn)
 	})
+
 	// We do not implement the "source" based filters as we do not use them
-	if len(chains) > 1 {
-		return nil, ErrMultipleFilterChain
+
+	false_positive, err := checkMultipleFilterChain(chains)
+	if err != nil {
+		return nil, err
 	}
+	if false_positive {
+		chains = findFilterChainForServerName(chains, input)
+	}
+
 	if len(chains) == 0 {
 		if defaultChain != nil {
 			return defaultChain, nil
@@ -525,6 +534,132 @@ func (sim *Simulation) matchFilterChain(chains []*listener.FilterChain, defaultC
 		return nil, ErrNoFilterChain
 	}
 	return chains[0], nil
+}
+
+func checkMultipleFilterChain(chains []*listener.FilterChain) (bool, error) {
+	// Fast path - not a multiple filter matched case
+	if len(chains) <= 1 {
+		return false, nil
+	}
+
+	// Slow path - check whether the multiple filter error is false positive
+	false_positive := false
+
+	for i := 0; i < len(chains); i++ {
+		for j := i + 1; j < len(chains); j++ {
+			false_positive = filterChainMatchAlmostEqual(chains[i].GetFilterChainMatch(), chains[j].GetFilterChainMatch())
+
+			log.Infof("false positive %t", false_positive)
+
+			// Valid multiple filter error
+			if !false_positive {
+				return false, ErrMultipleFilterChain
+			}
+		}
+	}
+
+	return false_positive, nil
+}
+
+// Returns true if both filter chains are equal only except that `ServerNames` fields exist and are set differently,
+// otherwise false.
+func filterChainMatchAlmostEqual(first, second *listener.FilterChainMatch) bool {
+	if first == nil || second == nil {
+		return false
+	}
+	if first.ServerNames == nil || second.ServerNames == nil {
+		return false
+	}
+
+	if first.TransportProtocol != second.TransportProtocol {
+		return false
+	}
+	if !util.StringSliceEqual(first.ApplicationProtocols, second.ApplicationProtocols) {
+		return false
+	}
+	if first.DestinationPort.GetValue() != second.DestinationPort.GetValue() {
+		return false
+	}
+	if !util.CidrRangeSliceEqual(first.PrefixRanges, second.PrefixRanges) {
+		return false
+	}
+	if !util.CidrRangeSliceEqual(first.SourcePrefixRanges, second.SourcePrefixRanges) {
+		return false
+	}
+	if first.AddressSuffix != second.AddressSuffix {
+		return false
+	}
+	if first.SuffixLen.GetValue() != second.SuffixLen.GetValue() {
+		return false
+	}
+	if first.SourceType != second.SourceType {
+		return false
+	}
+	if !util.UInt32SliceEqual(first.SourcePorts, second.SourcePorts) {
+		return false
+	}
+	// Only ServerNames should be different
+	if util.StringSliceEqual(first.ServerNames, second.ServerNames) {
+		return false
+	}
+
+	return true
+}
+
+func findFilterChainForServerName(chains []*listener.FilterChain, input Call) []*listener.FilterChain {
+	res := []*listener.FilterChain{}
+
+	// Match firstly on exact server name, i.e. "www.example.com" for "www.example.com"
+	res = filter(chains, func(fc *listener.FilterChainMatch) bool {
+		// Always not empty so that `filter()` would not match firstly on no-server-name cases
+		return false
+	}, func(fc *listener.FilterChainMatch) bool {
+		sni := host.Name(input.Sni)
+		for _, s := range fc.GetServerNames() {
+			if sni.SameAs(host.Name(s)) {
+				return true
+			}
+		}
+		return false
+	})
+	if len(res) > 0 {
+		return res
+	}
+
+	// Match then on all wildcard domains, i.e. ".example.com" and ".com" for "www.example.com"
+	// TODO: Add full support to simulate Envoy match logic for wildcarded `server_names`.
+	// For criteria that allow ranges or wildcards, the most specific value in any of the configured filter chains that
+	// matches the incoming connection is going to be used.
+	// e.g. for SNI www.example.com, the match priority goes -> www.example.com ->  *.example.com -> *.com ->
+	// any filter chain without server_names requirements.
+	res = filter(chains, func(fc *listener.FilterChainMatch) bool {
+		// Always not empty so that `filter()` would not match firstly on no-server-name cases
+		return false
+	}, func(fc *listener.FilterChainMatch) bool {
+		sni := host.Name(input.Sni)
+		for _, s := range fc.GetServerNames() {
+			if sni.SubsetOf(host.Name(s)) {
+				return true
+			}
+		}
+		return false
+	})
+	if len(res) > 0 {
+		return res
+	}
+
+	// Match on a filter chain without server name requirements.
+	res = filter(chains, func(fc *listener.FilterChainMatch) bool {
+		return fc.GetServerNames() == nil
+	}, func(fc *listener.FilterChainMatch) bool {
+		// Always not empty since we only handle no-server-name cases in this round
+		return false
+	})
+	if len(res) > 0 {
+		return res
+	}
+
+	return res
 }
 
 func filter(chains []*listener.FilterChain,

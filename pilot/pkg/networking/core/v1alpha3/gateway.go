@@ -608,9 +608,6 @@ func buildGatewayNetworkFiltersFromTLSRoutes(node *model.Proxy, push *model.Push
 			}
 
 			// For every matching TLS block, generate a filter chain with sni match
-			// TODO: Bug..if there is a single virtual service with *.foo.com, and multiple TLS block
-			// matches, one for 1.foo.com, another for 2.foo.com, this code will produce duplicate filter
-			// chain matches
 			for _, tls := range vsvc.Tls {
 				for _, match := range tls.Match {
 					if l4SingleMatch(convertTLSMatchToL4Match(match), server, gatewayName) {

@@ -518,6 +518,86 @@ spec:
 			},
 		},
 		simulationTest{
+			name: "single virtual service with multiple TLS block matches",
+			// Create a single virtual service and multiple TLS block matches
+			config: `
+apiVersion: networking.istio.io/v1alpha3
+kind: Gateway
+metadata:
+  name: ingressgateway
+  namespace: istio-system
+spec:
+  selector:
+    istio: ingressgateway
+  servers:
+  - hosts:
+    - '*.example.com'
+    port:
+      name: https
+      number: 443
+      protocol: HTTPS
+    tls:
+      mode: PASSTHROUGH
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
+metadata:
+  name: vs
+  namespace: default
+spec:
+  gateways:
+  - istio-system/ingressgateway
+  hosts:
+  - '*.example.com'
+  tls:
+  - match:
+    - port: 443
+      sniHosts:
+      - '*.example.com'
+    route:
+    - destination:
+        host: 0.default.svc.cluster.local
+        port:
+          number: 443
+  - match:
+    - port: 443
+      sniHosts:
+      - 1.example.com
+    route:
+    - destination:
+        host: 1.default.svc.cluster.local
+        port:
+          number: 443
+  - match:
+    - port: 443
+      sniHosts:
+      - 2.example.com
+    route:
+    - destination:
+        host: 2.default.svc.cluster.local
+        port:
+          number: 443
+`,
+			calls: []simulation.Expect{
+				{
+					"call",
+					simulation.Call{Port: 443, Protocol: simulation.HTTP, TLS: simulation.TLS, HostHeader: "2.example.com"},
+					simulation.Result{
+						ListenerMatched: "0.0.0.0_443",
+						ClusterMatched:  "outbound|443||2.default.svc.cluster.local",
+					},
+				},
+				{
+					"call",
+					simulation.Call{Port: 443, Protocol: simulation.HTTP, TLS: simulation.TLS, HostHeader: "x.example.com"},
+					simulation.Result{
+						ListenerMatched: "0.0.0.0_443",
+						ClusterMatched:  "outbound|443||0.default.svc.cluster.local",
+					},
+				},
+			},
+		},
+		simulationTest{
 			// TODO(https://github.com/istio/istio/issues/27481) this may be a bug. At very least, this should have indication to user
 			name: "multiple protocols on a port - tcp first",
 			config: createGateway("alpha", "", tcpServer) +

@@ -85,6 +85,10 @@ func (n Name) SubsetOf(o Name) bool {
 	return n == o
 }
 
+func (n Name) SameAs(o Name) bool {
+	return n == o
+}
+
 func (n Name) IsWildCarded() bool {
 	return len(n) > 0 && n[0] == '*'
 }
