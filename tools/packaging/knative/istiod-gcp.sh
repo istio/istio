@@ -71,16 +71,14 @@ export GKE_CLUSTER_URL=https://container.googleapis.com/v1/projects/${PROJECT}/l
 
 export CLUSTER_ID=cn-${PROJECT}-${ZONE}-${CLUSTER}
 
-# Emulate K8S - with one namespace per tenant
-export ASM_CONTROL_PLANE_POD_NAMESPACE=${K_CONFIGURATION}
+# GCP_METADATA is used by gcp_metadata package and provides metadata for telemetry.
+export GCP_METADATA="${PROJECT}|${PROJECT_NUMBER}|${CLUSTER}|${ZONE}"
 
 # Check for required arguments
 : "${K_REVISION:?K_REVISION not set or is empty}"
 # Revision is equivalent with a deployment - unfortunately we can't get instance id.
 POD_NAME="${K_REVISION}-$(date +%N)"
 export POD_NAME
-
-export ASM_CONTROL_PLANE_POD_NAME=${POD_NAME}
 
 # The auth provider for XDS (e.g., gcp). The default is empty.
 export XDS_AUTH_PROVIDER="${XDS_AUTH_PROVIDER:-}"
