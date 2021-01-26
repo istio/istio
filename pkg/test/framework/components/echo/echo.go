@@ -28,6 +28,13 @@ import (
 	"istio.io/istio/pkg/test/util/retry"
 )
 
+type Claimer interface {
+	// Claim takes a given set of echo configs and returns the configs
+	// that the VM cluster will be responsible for, and the configs that
+	// the VM does not handle and should be dealt with by other clusters.
+	Claim(configs []Config) (claimed []Config, unclaimed []Config)
+}
+
 // Builder for a group of collaborating Echo Instances. Once built, all Instances in the
 // group:
 //

@@ -15,6 +15,7 @@
 package cluster
 
 import (
+	"bytes"
 	"fmt"
 
 	"istio.io/istio/pkg/test/framework/resource"
@@ -28,6 +29,7 @@ type Map = map[string]resource.Cluster
 // Cluster implementations can embed this struct to include common functionality.
 type Topology struct {
 	ClusterName        string
+	ClusterKind        Kind
 	Network            string
 	PrimaryClusterName string
 	ConfigClusterName  string
@@ -43,6 +45,10 @@ func (c Topology) NetworkName() string {
 // Name provides the ClusterName this cluster used by Istio.
 func (c Topology) Name() string {
 	return c.ClusterName
+}
+
+func (c Topology) Kind() Kind {
+	return c.ClusterKind
 }
 
 func (c Topology) IsPrimary() bool {
@@ -91,4 +97,16 @@ func (c Topology) WithConfig(configClusterName string) Topology {
 	// TODO remove this, should only be provided by external config
 	c.ConfigClusterName = configClusterName
 	return c
+}
+
+func (c Topology) String() string {
+	buf := &bytes.Buffer{}
+
+	_, _ = fmt.Fprintf(buf, "Name:               %s\n", c.Name())
+	_, _ = fmt.Fprintf(buf, "Kind:               %s\n", c.Kind())
+	_, _ = fmt.Fprintf(buf, "PrimaryCluster:     %s\n", c.Primary().Name())
+	_, _ = fmt.Fprintf(buf, "ConfigCluster:      %s\n", c.Config().Name())
+	_, _ = fmt.Fprintf(buf, "Network:            %s\n", c.NetworkName())
+
+	return buf.String()
 }

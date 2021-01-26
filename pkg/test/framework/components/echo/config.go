@@ -16,6 +16,8 @@ package echo
 
 import (
 	"fmt"
+	"reflect"
+	"strings"
 	"time"
 
 	"github.com/mitchellh/copystructure"
@@ -48,6 +50,10 @@ type Config struct {
 
 	// Headless (k8s only) indicates that no ClusterIP should be specified.
 	Headless bool
+
+	// StaticAddress for some echo implementations is an address locally reachable within
+	// the test framework and from the echo Cluster's network.
+	StaticAddress string
 
 	// ServiceAccount (k8s only) indicates that a service account should be created
 	// for the deployment.
@@ -149,6 +155,27 @@ func (c Config) DeepCopy() Config {
 	newc.Cluster = c.Cluster
 	newc.Namespace = c.Namespace
 	return newc
+}
+
+func (c Config) Equals(other Config) bool {
+	if c.Cluster != other.Cluster {
+		return false
+	}
+	// cluster may self-reference, set to nil to avoid infinite walk
+	c.Cluster = nil
+	other.Cluster = nil
+
+	// don't compare namespace by reference
+	// allow only the prefix to be specified for one of the namespaces
+	ns := c.Namespace.Name()
+	otherNs := other.Namespace.Name()
+	c.Namespace = nil
+	other.Namespace = nil
+	if !strings.HasPrefix(ns, otherNs) && !strings.HasPrefix(otherNs, ns) {
+		return false
+	}
+
+	return reflect.DeepEqual(c, other)
 }
 
 func copyInternal(v interface{}) interface{} {

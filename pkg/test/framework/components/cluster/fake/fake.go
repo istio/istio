@@ -15,9 +15,6 @@
 package fake
 
 import (
-	"bytes"
-	"fmt"
-
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/test/framework/components/cluster"
 	"istio.io/istio/pkg/test/framework/resource"
@@ -47,6 +44,7 @@ func (f factory) Build(allClusters cluster.Map) (resource.Clusters, error) {
 		clusters = append(clusters, &Cluster{
 			Topology: cluster.Topology{
 				ClusterName:        cfg.Name,
+				ClusterKind:        cluster.Fake,
 				Network:            cfg.Network,
 				PrimaryClusterName: cfg.PrimaryClusterName,
 				ConfigClusterName:  cfg.ConfigClusterName,
@@ -63,16 +61,4 @@ type Cluster struct {
 	kube.ExtendedClient
 
 	cluster.Topology
-}
-
-func (m Cluster) String() string {
-	buf := &bytes.Buffer{}
-
-	_, _ = fmt.Fprintf(buf, "Name:               %s\n", m.Name())
-	_, _ = fmt.Fprintf(buf, "Kind:               %s\n", cluster.Kubernetes)
-	_, _ = fmt.Fprintf(buf, "PrimaryCluster:     %s\n", m.Primary().Name())
-	_, _ = fmt.Fprintf(buf, "ConfigCluster:      %s\n", m.Config().Name())
-	_, _ = fmt.Fprintf(buf, "Network:            %s\n", m.NetworkName())
-
-	return buf.String()
 }

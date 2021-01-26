@@ -560,15 +560,6 @@ func (c *instance) Config() echo.Config {
 func (c *instance) Call(opts echo.CallOptions) (appEcho.ParsedResponses, error) {
 	out, err := common.ForwardEcho(c.cfg.Service, c.workloads[0].Instance, &opts, false)
 	if err != nil {
-		if opts.Port != nil {
-			err = fmt.Errorf("failed calling %s->'%s://%s:%d/%s': %v",
-				c.Config().Service,
-				strings.ToLower(string(opts.Port.Protocol)),
-				opts.Address,
-				opts.Port.ServicePort,
-				opts.Path,
-				err)
-		}
 		return nil, err
 	}
 	return out, nil
@@ -587,15 +578,6 @@ func (c *instance) CallWithRetry(opts echo.CallOptions,
 	retryOptions ...retry.Option) (appEcho.ParsedResponses, error) {
 	out, err := common.ForwardEcho(c.cfg.Service, c.workloads[0].Instance, &opts, true, retryOptions...)
 	if err != nil {
-		if opts.Port != nil {
-			err = fmt.Errorf("failed calling %s->'%s://%s:%d/%s': %v",
-				c.Config().Service,
-				strings.ToLower(string(opts.Port.Protocol)),
-				opts.Address,
-				opts.Port.ServicePort,
-				opts.Path,
-				err)
-		}
 		return nil, err
 	}
 	return out, nil

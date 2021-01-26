@@ -16,7 +16,6 @@ package resource
 
 import (
 	"fmt"
-
 	"istio.io/istio/pkg/kube"
 )
 

@@ -139,5 +139,8 @@ func validConfig(cfg cluster.Config) (cluster.Config, error) {
 	if cfg.ConfigClusterName == "" {
 		cfg.ConfigClusterName = cfg.PrimaryClusterName
 	}
+	if cfg.Meta == nil {
+		cfg.Meta = cluster.ConfigMeta{}
+	}
 	return cfg, nil
 }

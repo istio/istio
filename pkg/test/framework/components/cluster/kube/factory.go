@@ -53,7 +53,7 @@ func (f factory) Build(allClusters cluster.Map) (resource.Clusters, error) {
 			errs = multierror.Append(errs, err)
 			continue
 		}
-		kubeconfigPath := cfg.Meta[kubeconfigMetaKey]
+		kubeconfigPath := cfg.Meta.String(kubeconfigMetaKey)
 		client, err := buildClient(kubeconfigPath)
 		if err != nil {
 			errs = multierror.Append(errs, err)
@@ -64,6 +64,7 @@ func (f factory) Build(allClusters cluster.Map) (resource.Clusters, error) {
 			ExtendedClient: client,
 			Topology: cluster.Topology{
 				ClusterName:        cfg.Name,
+				ClusterKind:        cluster.Kubernetes,
 				Network:            cfg.Network,
 				PrimaryClusterName: cfg.PrimaryClusterName,
 				ConfigClusterName:  cfg.ConfigClusterName,
@@ -80,7 +81,7 @@ func (f factory) Build(allClusters cluster.Map) (resource.Clusters, error) {
 
 func validConfig(cfg cluster.Config) (cluster.Config, error) {
 	// only include kube-specific validation here
-	if cfg.Meta == nil || cfg.Meta[kubeconfigMetaKey] == "" {
+	if cfg.Meta.String(kubeconfigMetaKey) == "" {
 		return cfg, fmt.Errorf("missing meta.%s for %s", kubeconfigMetaKey, cfg.Name)
 	}
 	return cfg, nil
