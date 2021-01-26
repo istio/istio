@@ -16,31 +16,33 @@
 
 set -x # Print out all commands.
 
-if [[ -n ${PROJECT} ]]; then
+if [[ -z ${IN_CLUSTER} ]] ; then
+  if [[ -n ${PROJECT} ]]; then
 
-  # Getting the credentials with gcloud currently fails if it's run in a new
-  # project for up to the first 7 minutes (but it rarely gets this bad). Cloud
-  # Run waits up to 4 minutes for the service to be ready. So retry this
-  # command for ~3-4 minutes just in case.
-  RET=1
-  START=$(date +%s)
-  while true; do
-    gcloud container clusters get-credentials "${CLUSTER}" --zone "${ZONE}" --project "${PROJECT}" --billing-project "${PROJECT}"
-    RET="$?"
-    if [[ "${RET}" -eq 0 ]] ; then
-      # get-credentials command was successful, exit the loop.
-      break
-    fi
-    # TODO(qfel): Retry only on permission errors.
-    if (( $(date +%s) - START > 3 * 60 + 30 )); then
-      echo 'gcloud container clusters get-credentials failed'
-      exit 1
-    fi
-    sleep 5
-  done
+    # Getting the credentials with gcloud currently fails if it's run in a new
+    # project for up to the first 7 minutes (but it rarely gets this bad). Cloud
+    # Run waits up to 4 minutes for the service to be ready. So retry this
+    # command for ~3-4 minutes just in case.
+    RET=1
+    START=$(date +%s)
+    while true; do
+      gcloud container clusters get-credentials "${CLUSTER}" --zone "${ZONE}" --project "${PROJECT}" --billing-project "${PROJECT}"
+      RET="$?"
+      if [[ "${RET}" -eq 0 ]] ; then
+        # get-credentials command was successful, exit the loop.
+        break
+      fi
+      # TODO(qfel): Retry only on permission errors.
+      if (( $(date +%s) - START > 3 * 60 + 30 )); then
+        echo 'gcloud container clusters get-credentials failed'
+        exit 1
+      fi
+      sleep 5
+    done
 
-  # TODO: check secret manager for a .kubeconfig - use it for non-GKE projects AND ingress secrets
-  # AND citadel root CA
+    # TODO: check secret manager for a .kubeconfig - use it for non-GKE projects AND ingress secrets
+    # AND citadel root CA
+  fi
 fi
 
 # Disable webhook config patching - manual configs used, proper DNS certs means no cert patching needed.
@@ -209,10 +211,12 @@ export ENABLE_STACKDRIVER_MONITORING="${ENABLE_STACKDRIVER_MONITORING:-1}"
 
 env
 
+# shellcheck disable=SC2068
+# shellcheck disable=SC2086
 exec /usr/local/bin/pilot-discovery discovery \
    --httpsAddr "" \
    --trust-domain "${TRUST_DOMAIN}" \
    --secureGRPCAddr "" \
    --monitoringAddr "" \
    --grpcAddr "" \
-   "${EXTRA_ARGS}" "${LOG_ARGS}" "$@"
+   ${EXTRA_ARGS} ${LOG_ARGS} $@
