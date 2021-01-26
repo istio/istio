@@ -31,6 +31,12 @@ set -x
 #################   COMMON SECTION   ###############################
 ####################################################################
 
+# DEFAULT_KIND_IMAGE is used to set the Kubernetes version for KinD unless overridden in params to setup_kind_cluster(s)
+DEFAULT_KIND_IMAGE="gcr.io/istio-testing/kindest/node:v1.19.1"
+
+# COMMON_SCRIPTS contains the directory this file is in.
+COMMON_SCRIPTS=$(dirname "${BASH_SOURCE:-$0}")
+
 # load_cluster_topology function reads cluster configuration topology file and
 # sets up environment variables used by other functions. So this should be called
 # before anything else.
@@ -56,24 +62,26 @@ function load_cluster_topology() {
   export CLUSTER_SVC_SUBNETS
   export CLUSTER_NETWORK_ID
 
+  KUBE_CLUSTERS=$(jq '.[] | select(.kind == "Kubernetes" or .kind == null)' "${CLUSTER_TOPOLOGY_CONFIG_FILE}")
+
   while read -r value; do
     CLUSTER_NAMES+=("$value")
-  done < <(jq -r '.[].cluster_name' "${CLUSTER_TOPOLOGY_CONFIG_FILE}")
+  done < <(echo "${KUBE_CLUSTERS}" | jq -r '.cluster_name // .clusterName')
 
   while read -r value; do
     CLUSTER_POD_SUBNETS+=("$value")
-  done < <(jq -r '.[].pod_subnet' "${CLUSTER_TOPOLOGY_CONFIG_FILE}")
+  done < <(echo "${KUBE_CLUSTERS}" | jq -r '.pod_subnet // .podSubnet')
 
   while read -r value; do
     CLUSTER_SVC_SUBNETS+=("$value")
-  done < <(jq -r '.[].svc_subnet' "${CLUSTER_TOPOLOGY_CONFIG_FILE}")
+  done < <(echo "${KUBE_CLUSTERS}" | jq -r '.svc_subnet // .svcSubnet')
 
   while read -r value; do
     CLUSTER_NETWORK_ID+=("$value")
-  done < <(jq -r '.[].network_id' "${CLUSTER_TOPOLOGY_CONFIG_FILE}")
+  done < <(echo "${KUBE_CLUSTERS}" | jq -r '.network_id // .network')
 
   export NUM_CLUSTERS
-  NUM_CLUSTERS=$(jq 'length' "${CLUSTER_TOPOLOGY_CONFIG_FILE}")
+  NUM_CLUSTERS=$(echo "${KUBE_CLUSTERS}" | jq -s 'length')
 
   echo "${CLUSTER_NAMES[@]}"
   echo "${CLUSTER_POD_SUBNETS[@]}"
@@ -116,7 +124,7 @@ function check_default_cluster_yaml() {
 # If Kind cluster was already created then it would be cleaned up in case of errors
 function setup_kind_cluster() {
   NAME="${1:-istio-testing}"
-  IMAGE="${2:-gcr.io/istio-testing/kindest/node:v1.19.1}"
+  IMAGE="${2:-"${DEFAULT_KIND_IMAGE}"}"
   CONFIG="${3:-}"
   NOMETALBINSTALL="${4:-}"
 
@@ -185,8 +193,8 @@ function cleanup_kind_clusters() {
 # NOTE: Please call load_cluster_topology before calling this method as it expects
 # cluster topology information to be loaded in advance
 function setup_kind_clusters() {
-  IMAGE="${1:-gcr.io/istio-testing/kindest/node:v1.19.1}"
-  KUBECONFIG_DIR="$(mktemp -d)"
+  IMAGE="${1:-"${DEFAULT_KIND_IMAGE}"}"
+  KUBECONFIG_DIR="${ARTIFACTS:-$(mktemp -d)}/kubeconfig"
   IP_FAMILY="${2:-ipv4}"
 
   check_default_cluster_yaml
@@ -295,8 +303,7 @@ function connect_kind_clusters() {
 
 function install_metallb() {
   KUBECONFIG="${1}"
-  kubectl apply --kubeconfig="$KUBECONFIG" -f https://raw.githubusercontent.com/metallb/metallb/v0.9.3/manifests/namespace.yaml
-  kubectl apply --kubeconfig="$KUBECONFIG" -f https://raw.githubusercontent.com/metallb/metallb/v0.9.3/manifests/metallb.yaml
+  kubectl apply --kubeconfig="$KUBECONFIG" -f "${COMMON_SCRIPTS}/metallb.yaml"
   kubectl create --kubeconfig="$KUBECONFIG" secret generic -n metallb-system memberlist --from-literal=secretkey="$(openssl rand -base64 128)"
 
   if [ -z "${METALLB_IPS[*]}" ]; then
