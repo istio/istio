@@ -55,9 +55,9 @@ func MultiClusterFlags() []string {
 	return flags
 }
 
-// VPCSCClusterFlags returns the kubetest2 flags for creating the clusters for
+// ExtraVPCSCClusterFlags returns the extra kubetest2 flags for creating the clusters for
 // VPC-SC testing, as per the instructions in https://docs.google.com/document/d/11yYDxxI-fbbqlpvUYRtJiBmGdY_nIKPJLbssM3YQtKI/edit#heading=h.e2laig460f1d
-func VPCSCClusterFlags() ([]string, error) {
+func ExtraVPCSCClusterFlags() ([]string, error) {
 	project, err := boskos.AcquireBoskosResource(vpcSCBoskosResource)
 	if err != nil {
 		return nil, fmt.Errorf("error acquiring the GCP project for testing with VPC-SC")
@@ -74,8 +74,7 @@ func VPCSCClusterFlags() ([]string, error) {
 		return nil, fmt.Errorf("error creating the route in the default network to restricted.googleapis.com")
 	}
 
-	flags := gkeDeployerBaseFlags()
-	flags = append(flags, "--project="+project)
+	flags := []string{"--project="+project}
 	//  TODO: yonggangl@ tairan@ restrict the access to limited after the job is tested successfully
 	flags = append(flags, "--private-cluster-access-level=unrestricted")
 	flags = append(flags, "--private-cluster-master-ip-range=173.16.0.32/28,172.16.0.32/28")

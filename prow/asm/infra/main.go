@@ -29,7 +29,9 @@ import (
 
 var (
 	baseDeployerFlags = []string{"--up"}
+)
 
+type options struct {
 	kubetest2WorkingDir string
 	deployerName        string
 	extraDeployerFlags  string
@@ -37,35 +39,36 @@ var (
 	testFlags           string
 	clusterTopology     string
 	featureToTest       string
-)
+}
 
 func main() {
-	flag.StringVar(&kubetest2WorkingDir, "kubetest2-working-dir", "", "the working directory for running the kubetest2 command")
-	flag.StringVar(&deployerName, "deployer", "", "kubetest2 deployer name, can be gke, tailorbird or kind")
-	flag.StringVar(&extraDeployerFlags, "deployer-flags", "", "extra flags corresponding to the deployer being used, supported flags can be"+
+	o := options{}
+	flag.StringVar(&o.kubetest2WorkingDir, "kubetest2-working-dir", "", "the working directory for running the kubetest2 command")
+	flag.StringVar(&o.deployerName, "deployer", "", "kubetest2 deployer name, can be gke, tailorbird or kind")
+	flag.StringVar(&o.extraDeployerFlags, "deployer-flags", "", "extra flags corresponding to the deployer being used, supported flags can be"+
 		" checked by running `kubetest2 [deployer] --help`")
-	flag.StringVar(&testScript, "test-script", "", "the script to run the tests after clusters are created")
-	flag.StringVar(&testFlags, "test-flags", "", "flags to pass through to the test script")
-	flag.StringVar(&clusterTopology, "topology", "SINGLECLUSTER", "cluster topology for the SUT, can be one of SINGLECLUSTER, MULTICLUSTER and MULTIPROJECT_MULTICLUSTER")
-	flag.StringVar(&featureToTest, "feature", "", "The feature to test for ASM, for now can only be VPC_SC if not empty")
+	flag.StringVar(&o.testScript, "test-script", "", "the script to run the tests after clusters are created")
+	flag.StringVar(&o.testFlags, "test-flags", "", "flags to pass through to the test script")
+	flag.StringVar(&o.clusterTopology, "topology", "SINGLECLUSTER", "cluster topology for the SUT, can be one of SINGLECLUSTER, MULTICLUSTER and MULTIPROJECT_MULTICLUSTER")
+	flag.StringVar(&o.featureToTest, "feature", "", "The feature to test for ASM, for now can only be VPC_SC if not empty")
 	flag.Parse()
 
-	if err := initSetup(deployerName); err != nil {
+	if err := o.initSetup(); err != nil {
 		log.Fatal("Error initializing the setups: ", err)
 	}
 
 	var extraDeployerFlagArr, testFlagArr []string
 	var err error
-	if extraDeployerFlags != "" {
-		extraDeployerFlagArr, err = shell.Split(extraDeployerFlags)
+	if o.extraDeployerFlags != "" {
+		extraDeployerFlagArr, err = shell.Split(o.extraDeployerFlags)
 		if err != nil {
-			log.Fatalf("Error parsing the deployer flags %q: %v", extraDeployerFlags, err)
+			log.Fatalf("Error parsing the deployer flags %q: %v", o.extraDeployerFlags, err)
 		}
 	}
-	if testFlags != "" {
-		testFlagArr, err = shell.Split(testFlags)
+	if o.testFlags != "" {
+		testFlagArr, err = shell.Split(o.testFlags)
 		if err != nil {
-			log.Fatalf("Error parsing the test flags %q: %v", testFlags, err)
+			log.Fatalf("Error parsing the test flags %q: %v", o.testFlags, err)
 		}
 	}
 
@@ -74,32 +77,32 @@ func main() {
 		baseDeployerFlags = append(baseDeployerFlags, "--down")
 	}
 	baseDeployerFlags = append(baseDeployerFlags, extraDeployerFlagArr...)
-	if err := runKubetest2(deployerName, clusterTopology, baseDeployerFlags, testFlagArr); err != nil {
+	if err := o.runKubetest2(baseDeployerFlags, testFlagArr); err != nil {
 		log.Fatal("Error running the test flow with kubetest2: ", err)
 	}
 }
 
-func initSetup(deployer string) error {
-	setEnvVars()
+func (o *options) initSetup() error {
+	o.setEnvVars()
 
-	if err := installTools(deployer); err != nil {
-		return fmt.Errorf("error installing tools for running %s deployer: %w", deployer, err)
+	if err := o.installTools(); err != nil {
+		return fmt.Errorf("error installing tools for running %s deployer: %w", o.deployerName, err)
 	}
 
 	return nil
 }
 
-func setEnvVars() {
+func (o *options) setEnvVars() {
 	// Run the Go tests with verbose logging.
 	os.Setenv("T", "-v")
 
-	os.Setenv("DEPLOYER", deployerName)
-	os.Setenv("CLUSTER_TOPOLOGY", clusterTopology)
-	os.Setenv("FEATURE_TO_TEST", featureToTest)
+	os.Setenv("DEPLOYER", o.deployerName)
+	os.Setenv("CLUSTER_TOPOLOGY", o.clusterTopology)
+	os.Setenv("FEATURE_TO_TEST", o.featureToTest)
 }
 
-func installTools(deployer string) error {
-	if deployer == "tailorbird" {
+func (o *options) installTools() error {
+	if o.deployerName == "tailorbird" {
 		log.Println("Installing kubetest2 tailorbird deployer...")
 		cookieFile := "/secrets/cookiefile/cookies"
 		exec.Run("git config --global http.cookiefile " + cookieFile)
@@ -122,11 +125,11 @@ func installTools(deployer string) error {
 	return nil
 }
 
-func runKubetest2(deployerName, clusterTopology string, deployerFlags, testFlags []string) error {
-	switch deployerName {
+func (o *options) runKubetest2(deployerFlags, testFlags []string) error {
+	switch o.deployerName {
 	case "gke":
 		log.Println("Will run kubetest2 gke deployer to create the clusters...")
-		switch clusterTopology {
+		switch o.clusterTopology {
 		case "SINGLECLUSTER":
 			deployerFlags = append(deployerFlags, gke.SingleClusterFlags()...)
 		case "MULTICLUSTER":
@@ -138,7 +141,20 @@ func runKubetest2(deployerName, clusterTopology string, deployerFlags, testFlags
 			}
 			deployerFlags = append(deployerFlags, extraFlags...)
 		default:
-			log.Fatalf("The cluster topology %q is not supported, please double check!", clusterTopology)
+			log.Fatalf("The cluster topology %q is not supported, please double check!", o.clusterTopology)
+		}
+
+		if o.featureToTest != "" {
+			switch o.featureToTest {
+			case "VPC_SC":
+				extraFlags, err := gke.ExtraVPCSCClusterFlags()
+				if err != nil {
+					return fmt.Errorf("error getting the extra flags for testing with VPC-SC: %w", err)
+				}
+				deployerFlags = append(deployerFlags, extraFlags...)
+			default:
+				log.Fatalf("The feature %q is not supported, please double check!", o.featureToTest)
+			}
 		}
 	case "tailorbird":
 		log.Println("Will run kubetest2 tailorbird deployer to create the clusters...")
@@ -146,14 +162,14 @@ func runKubetest2(deployerName, clusterTopology string, deployerFlags, testFlags
 		deployerFlags = append(deployerFlags, "--down")
 		deployerFlags = append(deployerFlags, "--tbenv=int", "--verbose")
 	default:
-		log.Fatalf("The deployer %q is not supported, please double check!", deployerName)
+		log.Fatalf("The deployer %q is not supported, please double check!", o.deployerName)
 	}
 
-	kubetest2Flags := []string{deployerName}
+	kubetest2Flags := []string{o.deployerName}
 	kubetest2Flags = append(kubetest2Flags, deployerFlags...)
-	kubetest2Flags = append(kubetest2Flags, "--test=exec", "--", testScript)
+	kubetest2Flags = append(kubetest2Flags, "--test=exec", "--", o.testScript)
 	kubetest2Flags = append(kubetest2Flags, testFlags...)
-	if err := exec.Run(fmt.Sprintf("kubetest2 %s", strings.Join(kubetest2Flags, " ")), exec.WithWorkingDir(kubetest2WorkingDir)); err != nil {
+	if err := exec.Run(fmt.Sprintf("kubetest2 %s", strings.Join(kubetest2Flags, " ")), exec.WithWorkingDir(o.kubetest2WorkingDir)); err != nil {
 		return err
 	}
 
