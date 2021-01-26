@@ -63,8 +63,9 @@ values:
   pilot: 
     env: 
 	  PILOT_JWT_ENABLE_REMOTE_JWKS: true
-  proxy:
-    logLevel: debug
+  global:
+    proxy:
+      logLevel: debug
 meshConfig:
   accessLogEncoding: JSON
   accessLogFile: /dev/stdout
