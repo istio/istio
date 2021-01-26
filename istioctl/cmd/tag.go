@@ -37,6 +37,7 @@ const (
 	// TODO(Monkeyanator) move into istio/api
 	istioTagLabel               = "istio.io/tag"
 	istioInjectionWebhookSuffix = "sidecar-injector.istio.io"
+	defaultRevisionName         = "default"
 	pilotDiscoveryChart         = "istio-control/istio-discovery"
 	chartsPath                  = "" // use compiled in charts for tag webhook gen
 	revisionTagTemplateName     = "revision-tags.yaml"
@@ -402,6 +403,11 @@ func tagWebhookConfigFromCanonicalWebhook(wh admit_v1.MutatingWebhookConfigurati
 	if err != nil {
 		return nil, err
 	}
+	// if the revision is "default", render templates with an empty revision
+	if rev == defaultRevisionName {
+		rev = ""
+	}
+
 	var injectionURL string
 	found := false
 	for _, w := range wh.Webhooks {
@@ -438,7 +444,7 @@ func tagWebhookYAML(config *tagWebhookConfig, chartPath string) (string, error) 
 	}
 
 	values := fmt.Sprintf(`
-revision: %s
+revision: %q
 revisionTags:
   - %s
 
