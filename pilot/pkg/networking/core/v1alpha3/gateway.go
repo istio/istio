@@ -639,6 +639,8 @@ func buildGatewayNetworkFiltersFromTLSRoutes(node *model.Proxy, push *model.Push
 			networkFilters: buildOutboundAutoPassthroughFilterStack(push, node, port),
 		})
 	} else {
+		tlsSniHosts := map[string]struct{}{} // sni host -> exists
+
 		virtualServices := push.VirtualServicesForGateway(node, gatewayName)
 		for _, v := range virtualServices {
 			vsvc := v.Spec.(*networking.VirtualService)
@@ -658,8 +660,19 @@ func buildGatewayNetworkFiltersFromTLSRoutes(node *model.Proxy, push *model.Push
 			// matches, one for 1.foo.com, another for 2.foo.com, this code will produce duplicate filter
 			// chain matches
 			for _, tls := range vsvc.Tls {
-				for _, match := range tls.Match {
+				for i, match := range tls.Match {
 					if l4SingleMatch(convertTLSMatchToL4Match(match), server, gatewayName) {
+						// Envoy will reject config that has multiple filter chain matches with the same matching rules
+						// To avoid this, we need to make sure we don't have duplicated SNI hosts, which will become
+						// SNI filter chain matches
+						if duplicateSniHosts := model.CheckDuplicates(match.SniHosts, tlsSniHosts); len(duplicateSniHosts) != 0 {
+							log.Debugf(
+								"skipping VirtualService %s rule #%v on server port %d of gateway %s, duplicate SNI host names: %v",
+								v.Meta.Name, i, port.Port, gatewayName, duplicateSniHosts)
+							model.RecordRejectedConfig(gatewayName)
+							continue
+						}
+
 						// the sni hosts in the match will become part of a filter chain match
 						filterChains = append(filterChains, &filterChainOpts{
 							sniHosts:       match.SniHosts,
