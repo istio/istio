@@ -95,9 +95,9 @@ func ConstructSdsSecretConfigForCredential(name string) *tls.SdsSecretConfig {
 
 // Preconfigured SDS configs to avoid excessive memory allocations
 var (
-	// set the fetch timeout to 0 here in defaultSDSConfig and rootSDSConfig
+	// set the fetch timeout to 0 here in legacyDefaultSDSConfig and rootSDSConfig
 	// because workload certs are guaranteed exist.
-	defaultSDSConfig = &tls.SdsSecretConfig{
+	legacyDefaultSDSConfig = &tls.SdsSecretConfig{
 		Name: SDSDefaultResourceName,
 		SdsConfig: &core.ConfigSource{
 			ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
@@ -117,13 +117,55 @@ var (
 			InitialFetchTimeout: ptypes.DurationProto(time.Second * 0),
 		},
 	}
-	rootSDSConfig = &tls.SdsSecretConfig{
+	legacyRootSDSConfig = &tls.SdsSecretConfig{
 		Name: SDSRootResourceName,
 		SdsConfig: &core.ConfigSource{
 			ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
 				ApiConfigSource: &core.ApiConfigSource{
 					ApiType:             core.ApiConfigSource_GRPC,
 					TransportApiVersion: core.ApiVersion_V3,
+					GrpcServices: []*core.GrpcService{
+						{
+							TargetSpecifier: &core.GrpcService_EnvoyGrpc_{
+								EnvoyGrpc: &core.GrpcService_EnvoyGrpc{ClusterName: SDSClusterName},
+							},
+						},
+					},
+				},
+			},
+			ResourceApiVersion:  core.ApiVersion_V3,
+			InitialFetchTimeout: ptypes.DurationProto(time.Second * 0),
+		},
+	}
+	defaultSDSConfig = &tls.SdsSecretConfig{
+		Name: SDSDefaultResourceName,
+		SdsConfig: &core.ConfigSource{
+			ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
+				ApiConfigSource: &core.ApiConfigSource{
+					ApiType:                   core.ApiConfigSource_GRPC,
+					SetNodeOnFirstMessageOnly: true,
+					TransportApiVersion:       core.ApiVersion_V3,
+					GrpcServices: []*core.GrpcService{
+						{
+							TargetSpecifier: &core.GrpcService_EnvoyGrpc_{
+								EnvoyGrpc: &core.GrpcService_EnvoyGrpc{ClusterName: SDSClusterName},
+							},
+						},
+					},
+				},
+			},
+			ResourceApiVersion:  core.ApiVersion_V3,
+			InitialFetchTimeout: ptypes.DurationProto(time.Second * 0),
+		},
+	}
+	rootSDSConfig = &tls.SdsSecretConfig{
+		Name: SDSRootResourceName,
+		SdsConfig: &core.ConfigSource{
+			ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
+				ApiConfigSource: &core.ApiConfigSource{
+					ApiType:                   core.ApiConfigSource_GRPC,
+					SetNodeOnFirstMessageOnly: true,
+					TransportApiVersion:       core.ApiVersion_V3,
 					GrpcServices: []*core.GrpcService{
 						{
 							TargetSpecifier: &core.GrpcService_EnvoyGrpc_{
@@ -147,15 +189,15 @@ func ConstructSdsSecretConfig(name string, node *model.Proxy) *tls.SdsSecretConf
 
 	if name == SDSDefaultResourceName {
 		if util.IsIstioVersionGE19(node) {
-			defaultSDSConfig.SdsConfig.GetApiConfigSource().SetNodeOnFirstMessageOnly = true
+			return defaultSDSConfig
 		}
-		return defaultSDSConfig
+		return legacyDefaultSDSConfig
 	}
 	if name == SDSRootResourceName {
 		if util.IsIstioVersionGE19(node) {
-			rootSDSConfig.SdsConfig.GetApiConfigSource().SetNodeOnFirstMessageOnly = true
+			return rootSDSConfig
 		}
-		return rootSDSConfig
+		return legacyRootSDSConfig
 	}
 
 	cfg := &tls.SdsSecretConfig{
