@@ -786,8 +786,15 @@ func TestSetDestinationRuleInheritance(t *testing.T) {
 			TrafficPolicy: &networking.TrafficPolicy{
 				ConnectionPool: &networking.ConnectionPoolSettings{
 					Tcp: &networking.ConnectionPoolSettings_TCPSettings{
-						MaxConnections: 123,
+						ConnectTimeout: &types.Duration{Seconds: 1},
+						MaxConnections: 111,
 					},
+				},
+				Tls: &networking.ClientTLSSettings{
+					Mode:              networking.ClientTLSSettings_MUTUAL,
+					ClientCertificate: "/etc/certs/myclientcert.pem",
+					PrivateKey:        "/etc/certs/client_private_key.pem",
+					CaCertificates:    "/etc/certs/rootcacerts.pem",
 				},
 			},
 		},
@@ -800,8 +807,13 @@ func TestSetDestinationRuleInheritance(t *testing.T) {
 		Spec: &networking.DestinationRule{
 			TrafficPolicy: &networking.TrafficPolicy{
 				OutlierDetection: &networking.OutlierDetection{
-					ConsecutiveGatewayErrors: &types.UInt32Value{Value: 11},
-					Interval:                 &types.Duration{Seconds: 9},
+					ConsecutiveGatewayErrors: &types.UInt32Value{Value: 222},
+					Interval:                 &types.Duration{Seconds: 22},
+				},
+				ConnectionPool: &networking.ConnectionPoolSettings{
+					Http: &networking.ConnectionPoolSettings_HTTPSettings{
+						MaxRetries: 2,
+					},
 				},
 			},
 		},
@@ -819,8 +831,14 @@ func TestSetDestinationRuleInheritance(t *testing.T) {
 						MaxRetries: 33,
 					},
 					Tcp: &networking.ConnectionPoolSettings_TCPSettings{
-						ConnectTimeout: &types.Duration{Seconds: 7},
+						ConnectTimeout: &types.Duration{Seconds: 33},
 					},
+				},
+				OutlierDetection: &networking.OutlierDetection{
+					Consecutive_5XxErrors: &types.UInt32Value{Value: 3},
+				},
+				Tls: &networking.ClientTLSSettings{
+					Mode: networking.ClientTLSSettings_SIMPLE,
 				},
 			},
 		},
@@ -843,30 +861,111 @@ func TestSetDestinationRuleInheritance(t *testing.T) {
 		},
 	}
 
-	ps.SetDestinationRules([]config.Config{meshDestinationRule, nsDestinationRule, svcDestinationRule, destinationRuleNamespace2})
-	mergedPolicy := ps.destinationRuleIndex.namespaceLocal["test"].destRule[host.Name(testhost)].Spec.(*networking.DestinationRule).TrafficPolicy
-	if mergedPolicy == nil {
-		t.Error("inherited policy should not be nil")
-	}
-	if mergedPolicy.GetConnectionPool().GetTcp().MaxConnections != 123 {
-		t.Error("policy should inherit TCP settings")
-	}
-	if mergedPolicy.GetConnectionPool().GetHttp().MaxRetries != 33 {
-		t.Error("policy should inherit HTTP settings")
+	testCases := []struct {
+		name            string
+		proxyNs         string
+		serviceNs       string
+		serviceHostname string
+		expectedConfig  string
+		expectedPolicy  *networking.TrafficPolicy
+	}{
+		{
+			name:            "merge mesh+namespace+service DR",
+			proxyNs:         "test",
+			serviceNs:       "test",
+			serviceHostname: testhost,
+			expectedConfig:  "svcRule",
+			expectedPolicy: &networking.TrafficPolicy{
+				ConnectionPool: &networking.ConnectionPoolSettings{
+					Http: &networking.ConnectionPoolSettings_HTTPSettings{
+						MaxRetries: 33,
+					},
+					Tcp: &networking.ConnectionPoolSettings_TCPSettings{
+						ConnectTimeout: &types.Duration{Seconds: 33},
+						MaxConnections: 111,
+					},
+				},
+				OutlierDetection: &networking.OutlierDetection{
+					Consecutive_5XxErrors:    &types.UInt32Value{Value: 3},
+					ConsecutiveGatewayErrors: &types.UInt32Value{Value: 222},
+					Interval:                 &types.Duration{Seconds: 22},
+				},
+				Tls: &networking.ClientTLSSettings{
+					Mode: networking.ClientTLSSettings_SIMPLE,
+				},
+			},
+		},
+		{
+			name:            "merge mesh+service DR",
+			proxyNs:         "test2",
+			serviceNs:       "test2",
+			serviceHostname: testhost,
+			expectedConfig:  "svcRule2",
+			expectedPolicy: &networking.TrafficPolicy{
+				ConnectionPool: &networking.ConnectionPoolSettings{
+					Tcp: &networking.ConnectionPoolSettings_TCPSettings{
+						ConnectTimeout: &types.Duration{Seconds: 1},
+						MaxConnections: 111,
+					},
+				},
+				Tls: &networking.ClientTLSSettings{
+					Mode:              networking.ClientTLSSettings_MUTUAL,
+					ClientCertificate: "/etc/certs/myclientcert.pem",
+					PrivateKey:        "/etc/certs/client_private_key.pem",
+					CaCertificates:    "/etc/certs/rootcacerts.pem",
+				},
+			},
+		},
+		{
+			name:            "unknown host returns merged mesh+namespace",
+			proxyNs:         "test",
+			serviceNs:       "test",
+			serviceHostname: "unknown.host",
+			expectedConfig:  "nsRule",
+			expectedPolicy: &networking.TrafficPolicy{
+				ConnectionPool: &networking.ConnectionPoolSettings{
+					Http: &networking.ConnectionPoolSettings_HTTPSettings{
+						MaxRetries: 2,
+					},
+					Tcp: &networking.ConnectionPoolSettings_TCPSettings{
+						ConnectTimeout: &types.Duration{Seconds: 1},
+						MaxConnections: 111,
+					},
+				},
+				OutlierDetection: &networking.OutlierDetection{
+					ConsecutiveGatewayErrors: &types.UInt32Value{Value: 222},
+					Interval:                 &types.Duration{Seconds: 22},
+				},
+				Tls: &networking.ClientTLSSettings{
+					Mode:              networking.ClientTLSSettings_MUTUAL,
+					ClientCertificate: "/etc/certs/myclientcert.pem",
+					PrivateKey:        "/etc/certs/client_private_key.pem",
+					CaCertificates:    "/etc/certs/rootcacerts.pem",
+				},
+			},
+		},
+		{
+			name:            "unknwn namespace+host returns mesh",
+			proxyNs:         "unknown",
+			serviceNs:       "unknown",
+			serviceHostname: "unknown.host",
+			expectedConfig:  "meshRule",
+			expectedPolicy:  meshDestinationRule.Spec.(*networking.DestinationRule).TrafficPolicy,
+		},
 	}
 
-	mergedPolicy = ps.destinationRuleIndex.namespaceLocal["test2"].destRule[host.Name(testhost)].Spec.(*networking.DestinationRule).TrafficPolicy
-	if mergedPolicy == nil {
-		t.Error("inherited policy should not be nil")
-	}
-	if mergedPolicy.GetConnectionPool().GetTcp().MaxConnections != 123 {
-		t.Error("policy should inherit mesh TCP settings")
-	}
-	if mergedPolicy.GetConnectionPool().GetHttp() != nil {
-		t.Error("policy should not inherit settings from rule in separate namespace")
-	}
-	if mergedPolicy.GetOutlierDetection() != nil {
-		t.Error("policy should not inherit settings from separate namespace rule")
+	ps.SetDestinationRules([]config.Config{meshDestinationRule, nsDestinationRule, svcDestinationRule, destinationRuleNamespace2})
+
+	for _, tt := range testCases {
+		mergedConfig := ps.DestinationRule(&Proxy{ConfigNamespace: tt.proxyNs},
+			&Service{Hostname: host.Name(tt.serviceHostname), Attributes: ServiceAttributes{Namespace: tt.serviceNs}})
+		if mergedConfig.Name != tt.expectedConfig {
+			t.Errorf("case %s failed, merged config should contain most specific config name, wanted %v got %v", tt.name, tt.expectedConfig, mergedConfig.Name)
+		}
+		mergedPolicy := mergedConfig.Spec.(*networking.DestinationRule).TrafficPolicy
+		if !reflect.DeepEqual(mergedPolicy, tt.expectedPolicy) {
+			t.Fatalf("case %s failed, want %+v, got %+v", tt.name, tt.expectedPolicy, mergedPolicy)
+		}
 	}
 }
 
