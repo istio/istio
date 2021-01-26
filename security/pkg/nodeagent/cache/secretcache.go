@@ -129,6 +129,7 @@ type secretCache struct {
 	workload       *security.SecretItem
 	root           []byte
 	rootExpiration time.Time
+	override       bool
 }
 
 // GetRoot returns cached root cert and cert expiration time. This method is thread safe.
@@ -139,11 +140,16 @@ func (s *secretCache) GetRoot() (rootCert []byte, rootCertExpr time.Time) {
 }
 
 // SetRoot sets root cert into cache. This method is thread safe.
-func (s *secretCache) SetRoot(rootCert []byte, rootCertExpr time.Time) {
+func (s *secretCache) SetRoot(rootCert []byte, rootCertExpr time.Time, override bool) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	if s.override && !override {
+		// Do not update
+		return
+	}
 	s.root = rootCert
 	s.rootExpiration = rootCertExpr
+	s.override = override
 }
 
 func (s *secretCache) GetWorkload() *security.SecretItem {
@@ -193,6 +199,18 @@ func NewSecretManagerClient(caClient security.Client, options security.Options) 
 	go ret.queue.Run(ret.stop)
 	go ret.handleFileWatch()
 	return ret, nil
+}
+
+func (sc *SecretManagerClient) OverrideRoot(root []byte) error {
+	cacheLog.Errorf("howardjohn: overridden root!")
+	certExpireTime, err := nodeagentutil.ParseCertAndGetExpiryTimestamp(root)
+	if err != nil {
+		cacheLog.Errorf("failed to extract expiration time in the root certificate: %v", err)
+		return fmt.Errorf("failed to extract expiration time in the root certificate: %v", err)
+	}
+	sc.cache.SetRoot(root, certExpireTime, true)
+	sc.CallUpdateCallback(RootCertReqResourceName)
+	return nil
 }
 
 func (sc *SecretManagerClient) Close() {
@@ -368,7 +386,7 @@ func (sc *SecretManagerClient) generateRootCertFromExistingFile(rootCertPath, re
 
 	// Set the rootCert only if it is workload root cert.
 	if workload {
-		sc.cache.SetRoot(rootCert, certExpireTime)
+		sc.cache.SetRoot(rootCert, certExpireTime, false)
 	}
 	return &security.SecretItem{
 		ResourceName: resourceName,
@@ -546,7 +564,7 @@ func (sc *SecretManagerClient) generateSecret(resourceName string) (*security.Se
 	if rootCert == nil || rootCertChanged {
 		rootCertExpireTime, err := nodeagentutil.ParseCertAndGetExpiryTimestamp([]byte(certChainPEM[length-1]))
 		if err == nil {
-			sc.cache.SetRoot([]byte(certChainPEM[length-1]), rootCertExpireTime)
+			sc.cache.SetRoot([]byte(certChainPEM[length-1]), rootCertExpireTime, false)
 		} else {
 			cacheLog.Errorf("%s failed to parse root certificate in CSR response: %v", logPrefix, err)
 			rootCertChanged = false

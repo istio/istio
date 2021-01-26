@@ -26,8 +26,9 @@ const (
 	SecretType                 = resource.SecretType
 	ExtensionConfigurationType = resource.ExtensionConfigType
 
-	NameTableType  = "type.googleapis.com/istio.networking.nds.v1.NameTable"
-	HealthInfoType = "type.googleapis.com/istio.v1.HealthInformation"
+	NameTableType   = "type.googleapis.com/istio.networking.nds.v1.NameTable"
+	ProxyConfigType = "type.googleapis.com/istio.mesh.v1alpha1.ProxyConfig"
+	HealthInfoType  = "type.googleapis.com/istio.v1.HealthInformation"
 )
 
 // GetShortType returns an abbreviated form of a type, useful for logging or human friendly messages
@@ -45,6 +46,8 @@ func GetShortType(typeURL string) string {
 		return "SDS"
 	case NameTableType:
 		return "NDS"
+	case ProxyConfigType:
+		return "PCDS"
 	default:
 		return typeURL
 	}
@@ -65,6 +68,8 @@ func GetMetricType(typeURL string) string {
 		return "sds"
 	case NameTableType:
 		return "nds"
+	case ProxyConfigType:
+		return "pcds"
 	default:
 		return typeURL
 	}
