@@ -19,12 +19,14 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"istio.io/api/label"
-	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
+	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
+	"istio.io/api/label"
 	"istio.io/istio/istioctl/cmd"
 	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/test/framework"
@@ -41,6 +43,22 @@ var (
 		"istiod":          "Pilot",
 		"ingress-gateway": "IngressGateways",
 		"egress-gateway":  "EgressGateways",
+	}
+
+	expectedComponentsPerRevision = map[string]map[string]bool{
+		"stable": {
+			"base":                          true,
+			"istiod":                        true,
+			"ingress:istio-ingressgateway":  true,
+			"ingress:istio-eastwestgateway": true,
+			"egress:istio-egressgateway":    true,
+		},
+		"canary": {
+			"istiod":                        true,
+			"ingress:istio-ingressgateway":  true,
+			"ingress:istio-eastwestgateway": true,
+			"egress:istio-egressgateway":    true,
+		},
 	}
 )
 
@@ -75,6 +93,11 @@ func TestRevisionCommand(t *testing.T) {
 				builder.With(&revResourceMap[rev].echo,
 					echo.Config{Namespace: revResourceMap[rev].ns})
 			}
+			builder.BuildOrFail(ctx)
+
+			// Wait some time for things to settle down. This is very
+			// important for gateway pod related tests.
+			time.Sleep(60 * time.Second)
 
 			testCases := []struct {
 				name     string
@@ -82,7 +105,7 @@ func TestRevisionCommand(t *testing.T) {
 			}{
 				{
 					name:     "list revisions",
-					testFunc: testRevisionListing,
+					testFunc: testRevisionListingVerbose,
 				},
 				{
 					name:     "describe valid revision",
@@ -109,7 +132,7 @@ func TestRevisionCommand(t *testing.T) {
 		})
 }
 
-func testRevisionListing(ctx framework.TestContext, istioCtl istioctl.Instance, revResources map[string]*revisionResource) {
+func testRevisionListingVerbose(ctx framework.TestContext, istioCtl istioctl.Instance, _ map[string]*revisionResource) {
 	listVerboseCmd := []string{"x", "revision", "list", "-d", manifestPath, "-v", "-o", "json"}
 	stdout, _, err := istioCtl.Invoke(listVerboseCmd)
 	if err != nil {
@@ -119,78 +142,63 @@ func testRevisionListing(ctx framework.TestContext, istioCtl istioctl.Instance, 
 	if err = json.Unmarshal([]byte(stdout), &revDescriptions); err != nil {
 		ctx.Fatalf("error while unmarshaling JSON output: %v", err)
 	}
-	// 1. Check if revisions are expected
+
 	expectedRevisionSet := map[string]bool{"stable": true, "canary": true}
 	actualRevisionSet := map[string]bool{}
 	for rev, _ := range revDescriptions {
 		actualRevisionSet[rev] = true
 	}
-	if !setsMatch(expectedRevisionSet, actualRevisionSet) {
-		ctx.Fatalf("revision sets don't match. Expected: %v, Actual: %v", expectedRevisionSet, actualRevisionSet)
+	if !subsetOf(expectedRevisionSet, actualRevisionSet) {
+		ctx.Fatalf("Some expected revisions are missing from actual. "+
+			"Expected should be subset of actual. Expected: %v, Actual: %v",
+			expectedRevisionSet, actualRevisionSet)
 	}
 
-	// 2. Check if all expected tags are present for a revision
-	expectedTagSet := map[string]bool{}
-	actualTagSet := map[string]bool{}
-	for _, descr := range revDescriptions {
-		for _, mwh := range descr.Webhooks {
-			if mwh.Tag != "" {
-				actualTagSet[mwh.Tag] = true
-			}
-		}
-	}
-	if !setsMatch(expectedTagSet, actualTagSet) {
-		ctx.Fatalf("tag sets across revisions don't match. Expected: %v, Actual:%v", expectedTagSet, actualTagSet)
-	}
-
-	// 3. Check if combination of IOPs for a revision give the expected
-	//    set of components like gateways, pods etc.
-	expectedComponentsPerRevision := map[string]map[string]bool{
-		"stable": {
-			"base":                          true,
-			"istiod":                        true,
-			"ingress:istio-ingressgateway":  true,
-			"ingress:istio-eastwestgateway": true,
-			"egress:istio-egressgateway":    true,
-		},
-		"canary": {
-			"istiod":                        true,
-			"ingress:istio-ingressgateway":  true,
-			"ingress:istio-eastwestgateway": true,
-			"egress:istio-egressgateway":    true,
-		},
-	}
 	for rev, descr := range revDescriptions {
-		expectedComponents, ok := expectedComponentsPerRevision[rev]
-		if !ok {
-			ctx.Fatalf("unexpected error. Could not find expected components for %s", rev)
-		}
-		actualComponents := map[string]bool{}
-		for _, iop := range descr.IstioOperatorCRs {
-			for _, comp := range iop.Components {
-				actualComponents[comp] = true
-			}
-		}
-		if !setsMatch(expectedComponents, actualComponents) {
-			ctx.Fatalf("required component sets don't match for revision %s. Expected: %v, Actual: %v",
-				rev, expectedComponents, actualComponents)
-		}
-	}
-
-	// 4. Check the listing of control plane and gateway pods
-	for rev, descr := range revDescriptions {
-		verifyComponentPodsForRevision(ctx, "istiod", rev, descr)
-		verifyComponentPodsForRevision(ctx, "ingress-gateway", rev, descr)
-		verifyComponentPodsForRevision(ctx, "egress-gateway", rev, descr)
+		verifyRevisionOutput(ctx, descr, rev)
 	}
 }
 
 func testRevisionDescription(ctx framework.TestContext, istioCtl istioctl.Instance, revResources map[string]*revisionResource) {
-	stableDescr, err := getDescriptionForRevision(istioCtl, "stable")
-	if err != nil || stableDescr == nil {
-		ctx.Fatalf("failed to retrieve description for stable: %v", err)
+	for _, rev := range []string{"stable", "canary"} {
+		descr, err := getDescriptionForRevision(istioCtl, rev)
+		if err != nil || descr == nil {
+			ctx.Fatalf("failed to retrieve description for %s: %v", descr, err)
+		}
+		verifyRevisionOutput(ctx, descr, rev)
+		if resources := revResources[rev]; resources != nil {
+			nsName := resources.ns.Name()
+			podsInNamespace := []*cmd.PodFilteredInfo{}
+			if nsi := descr.NamespaceSummary[nsName]; nsi != nil {
+				podsInNamespace = nsi.Pods
+			}
+			labelSelector, err := meta_v1.LabelSelectorAsSelector(&meta_v1.LabelSelector{
+				MatchLabels: map[string]string{label.IoIstioRev.Name: rev},
+			})
+			if err != nil {
+				ctx.Fatalf("error while creating label selector for pods in namespace: %s, revision: %s",
+					nsName, rev)
+			}
+			podsForRev, err := ctx.Clusters().Default().
+				CoreV1().Pods(nsName).
+				List(context.Background(), meta_v1.ListOptions{LabelSelector: labelSelector.String()})
+			if podsForRev == nil || err != nil {
+				ctx.Fatalf("error while getting pods for revision: %s from namespace: %s", rev, nsName)
+			}
+			expectedPodsForRev := map[string]bool{}
+			actualPodsForRev := map[string]bool{}
+			for _, pod := range podsForRev.Items {
+				expectedPodsForRev[fmt.Sprintf("%s/%s", pod.Namespace, pod.Name)] = true
+			}
+			for _, pod := range podsInNamespace {
+				actualPodsForRev[fmt.Sprintf("%s/%s", pod.Namespace, pod.Name)] = true
+			}
+			if !setsMatch(expectedPodsForRev, actualPodsForRev) {
+				ctx.Fatalf("list of pods pointing to %s don't match in namespace %s. Expected: %v, Actual: %v",
+					rev, nsName, expectedPodsForRev, actualPodsForRev)
+			}
+		}
 	}
-
 }
 
 func testNonExistentRevisionDescription(ctx framework.TestContext, istioCtl istioctl.Instance, _ map[string]*revisionResource) {
@@ -228,7 +236,7 @@ func testInvalidOutputFormat(ctx framework.TestContext, istioCtl istioctl.Instan
 }
 
 func getDescriptionForRevision(istioCtl istioctl.Instance, revision string) (*cmd.RevisionDescription, error) {
-	describeCmd := []string{"x", "revision", "describe", revision, "-d", manifestPath, "-v", "-o", "json"}
+	describeCmd := []string{"x", "revision", "describe", revision, "-d", manifestPath, "-o", "json", "-v"}
 	descr, _, err := istioCtl.Invoke(describeCmd)
 	if err != nil {
 		return nil, err
@@ -239,6 +247,36 @@ func getDescriptionForRevision(istioCtl istioctl.Instance, revision string) (*cm
 			" revision=%s : %v", revision, err)
 	}
 	return &revDescription, nil
+}
+
+func verifyRevisionOutput(ctx framework.TestContext, descr *cmd.RevisionDescription, rev string) {
+	expectedTagSet := map[string]bool{}
+	actualTagSet := map[string]bool{}
+	for _, mwh := range descr.Webhooks {
+		if mwh.Tag != "" {
+			actualTagSet[mwh.Tag] = true
+		}
+	}
+	if !setsMatch(expectedTagSet, actualTagSet) {
+		ctx.Fatalf("tag sets don't match for %s. Expected: %v, Actual:%v", rev, expectedTagSet, actualTagSet)
+	}
+	expectedComponents, ok := expectedComponentsPerRevision[rev]
+	if !ok {
+		ctx.Fatalf("unexpected error. Could not find expected components for %s", rev)
+	}
+	actualComponents := map[string]bool{}
+	for _, iop := range descr.IstioOperatorCRs {
+		for _, comp := range iop.Components {
+			actualComponents[comp] = true
+		}
+	}
+	if !setsMatch(expectedComponents, actualComponents) {
+		ctx.Fatalf("required component sets don't match for revision %s. Expected: %v, Actual: %v",
+			rev, expectedComponents, actualComponents)
+	}
+	verifyComponentPodsForRevision(ctx, "istiod", rev, descr)
+	verifyComponentPodsForRevision(ctx, "ingress-gateway", rev, descr)
+	verifyComponentPodsForRevision(ctx, "egress-gateway", rev, descr)
 }
 
 func verifyComponentPodsForRevision(ctx framework.TestContext, component, rev string, descr *cmd.RevisionDescription) {
@@ -294,6 +332,15 @@ func setsMatch(expected map[string]bool, actual map[string]bool) bool {
 	}
 	for x, _ := range actual {
 		if !expected[x] {
+			return false
+		}
+	}
+	return true
+}
+
+func subsetOf(a map[string]bool, b map[string]bool) bool {
+	for ax, _ := range a {
+		if !b[ax] {
 			return false
 		}
 	}
