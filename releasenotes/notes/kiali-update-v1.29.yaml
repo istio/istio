@@ -3,4 +3,4 @@ kind: feature
 area: installation
 releaseNotes:
  - |
-   **Updated** Kiali addon has been upgraded to v1.29
+   **Updated** Kiali addon to the latest version v1.29.
