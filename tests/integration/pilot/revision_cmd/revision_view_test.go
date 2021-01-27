@@ -13,7 +13,7 @@
 //  See the License for the specific language governing permissions and
 //  limitations under the License.
 
-package revisions
+package revision_cmd
 
 import (
 	"context"
