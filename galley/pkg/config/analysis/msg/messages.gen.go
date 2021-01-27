@@ -146,8 +146,8 @@ var (
 	DeploymentConflictingPorts = diag.NewMessageType(diag.Warning, "IST0137", "This deployment %s is associated with multiple services %v using targetPort %q but different ports: %v.")
 
 	// GatewayDuplicateCertificate defines a diag.MessageType for message "GatewayDuplicateCertificate".
-	// Description: Duplicate certificate in multiple gateway, which may cause 404s if clients re-use HTTP2 connections.
-	GatewayDuplicateCertificate = diag.NewMessageType(diag.Warning, "IST0138", "Duplicate certificate in multiple gateway %v, which may cause 404s if clients re-use HTTP2 connections.")
+	// Description: Duplicate certificate in multiple gateways may cause 404s if clients re-use HTTP2 connections.
+	GatewayDuplicateCertificate = diag.NewMessageType(diag.Warning, "IST0138", "Duplicate certificate in multiple gateways %v may cause 404s if clients re-use HTTP2 connections.")
 )
 
 // All returns a list of all known message types.
