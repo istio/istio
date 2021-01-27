@@ -44,14 +44,17 @@ func callInternal(srcName string, opts *echo.CallOptions, send sendFunc,
 		return nil, err
 	}
 
-	// Forward a request from 'this' service to the destination service.
+	var targetURL string
 	port := opts.Port.ServicePort
 	addressAndPort := net.JoinHostPort(opts.Address, strconv.Itoa(port))
-	var targetURL string
-	if opts.Scheme != scheme.TCP {
-		targetURL = fmt.Sprintf("%s://%s%s", string(opts.Scheme), addressAndPort, opts.Path)
-	} else {
+	// Forward a request from 'this' service to the destination service.
+	switch opts.Scheme {
+	case scheme.DNS:
+		targetURL = fmt.Sprintf("%s://%s", string(opts.Scheme), opts.Address)
+	case scheme.TCP:
 		targetURL = fmt.Sprintf("%s://%s", string(opts.Scheme), addressAndPort)
+	default:
+		targetURL = fmt.Sprintf("%s://%s%s", string(opts.Scheme), addressAndPort, opts.Path)
 	}
 
 	// Copy all the headers.
@@ -175,6 +178,12 @@ func fillInCallOptions(opts *echo.CallOptions) error {
 				return fmt.Errorf("callOptions: no port named %s available in Target Instance", opts.PortName)
 			}
 		}
+	} else if opts.Scheme == scheme.DNS {
+		// Just need address
+		if opts.Address == "" {
+			return fmt.Errorf("for DNS, address must be set")
+		}
+		opts.Port = &echo.Port{}
 	} else if opts.Port == nil || opts.Port.ServicePort == 0 || (opts.Port.Protocol == "" && opts.Scheme == "") || opts.Address == "" {
 		return fmt.Errorf("if target is not set, then port.servicePort, port.protocol or schema, and address must be set")
 	}
