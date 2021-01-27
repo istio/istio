@@ -15,9 +15,14 @@
 package mesh
 
 import (
+	"bufio"
+	"bytes"
 	"fmt"
+	"os"
 	"strings"
 	"testing"
+
+	"istio.io/istio/operator/pkg/util/clog"
 )
 
 type profileDiffTestcase struct {
@@ -57,29 +62,44 @@ func TestProfileDiff(t *testing.T) {
 			args:           fmt.Sprintf("profile diff openshift openshift --manifests %s", snapshotCharts),
 			expectedString: "Profiles are identical",
 		},
+	}
+
+	for i, c := range cases {
+		t.Run(fmt.Sprintf("case %d %q", i, c.args), func(t *testing.T) {
+			output, fErr := runCommand(c.args)
+			verifyProfileDiffCommandCaseOutput(t, c, output, fErr)
+		})
+	}
+}
+
+func TestProfileDiffDirect(t *testing.T) {
+	cases := []profileDiffTestcase{
 		{
-			args: fmt.Sprintf("profile diff default openshift --manifests %s", snapshotCharts),
+			// We won't be parsing with Cobra, but this is the command equivalent
+			args: "profile diff default openshift",
 			// This is just one of the many differences
 			expectedString: "+      cniBinDir: /var/lib/cni/bin",
 			// The profile doesn't change istiocoredns, so we shouldn't see this in the diff
 			notExpected: "-    istiocoredns:",
 			// 'profile diff' "fails" so that the error level `$?` is 1, not 0, if there is a diff
-			shouldFail: true,
+			shouldFail: false,
 		},
 	}
 
+	l := clog.NewConsoleLogger(os.Stdout, os.Stderr, nil)
 	for i, c := range cases {
 		t.Run(fmt.Sprintf("case %d %q", i, c.args), func(t *testing.T) {
-			verifyProfileDiffCommandCaseOutput(t, c)
+			args := strings.Split(c.args, " ")
+			setFlag := fmt.Sprintf("installPackagePath=%s", snapshotCharts)
+			var by bytes.Buffer
+			_, err := profileDiffInternal(args[len(args)-2], args[len(args)-1], []string{setFlag}, bufio.NewWriter(&by), l)
+			verifyProfileDiffCommandCaseOutput(t, c, by.String(), err)
 		})
 	}
 }
 
-func verifyProfileDiffCommandCaseOutput(t *testing.T, c profileDiffTestcase) {
+func verifyProfileDiffCommandCaseOutput(t *testing.T, c profileDiffTestcase, output string, fErr error) {
 	t.Helper()
-
-	output, fErr := runCommand(c.args)
-	// Note that 'output' doesn't capture stderr
 
 	if c.expectedString != "" && !strings.Contains(output, c.expectedString) {
 		t.Fatalf("Output didn't match for 'istioctl %s'\n got %v\nwant: %v", c.args, output, c.expectedString)

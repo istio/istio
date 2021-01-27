@@ -16,6 +16,7 @@ package mesh
 
 import (
 	"fmt"
+	"io"
 	"os"
 
 	"github.com/spf13/cobra"
@@ -52,38 +53,45 @@ func profileDiffCmd(rootArgs *rootArgs, pfArgs *profileDiffArgs) *cobra.Command 
 			return nil
 		},
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return profileDiff(cmd, rootArgs, pfArgs, args)
-		}}
-
+			isdifferent, err := profileDiff(cmd, rootArgs, pfArgs, args)
+			if err != nil {
+				return err
+			}
+			if isdifferent {
+				os.Exit(1)
+			}
+			return nil
+		},
+	}
 }
 
 // profileDiff compare two profile files.
-func profileDiff(cmd *cobra.Command, rootArgs *rootArgs, pfArgs *profileDiffArgs, args []string) error {
+func profileDiff(cmd *cobra.Command, rootArgs *rootArgs, pfArgs *profileDiffArgs, args []string) (bool, error) {
 	initLogsOrExit(rootArgs)
 
 	l := clog.NewConsoleLogger(os.Stdout, os.Stderr, nil)
 	setFlags := []string{fmt.Sprintf("installPackagePath=%s", pfArgs.manifestsPath)}
+	return profileDiffInternal(args[0], args[1], setFlags, cmd.OutOrStdout(), l)
+}
 
-	a, _, err := manifest.GenIOPFromProfile(args[0], "", setFlags, true, true, nil, l)
+func profileDiffInternal(profileA, profileB string, setFlags []string, writer io.Writer, l clog.Logger) (bool, error) {
+	a, _, err := manifest.GenIOPFromProfile(profileA, "", setFlags, true, true, nil, l)
 	if err != nil {
-		return fmt.Errorf("could not read %q: %v", args[0], err)
+		return false, fmt.Errorf("could not read %q: %v", profileA, err)
 	}
 
-	b, _, err := manifest.GenIOPFromProfile(args[1], "", setFlags, true, true, nil, l)
+	b, _, err := manifest.GenIOPFromProfile(profileB, "", setFlags, true, true, nil, l)
 	if err != nil {
-		return fmt.Errorf("could not read %q: %v", args[1], err)
+		return false, fmt.Errorf("could not read %q: %v", profileB, err)
 	}
 
 	diff := util.YAMLDiff(a, b)
 	if diff == "" {
-		cmd.Println("Profiles are identical")
+		fmt.Fprintln(writer, "Profiles are identical")
 	} else {
-		cmd.Printf("The difference between profiles:\n%s", diff)
-		// The command was a success, but we return an error so that the process will
-		// exit with 1.  We don't want to tell the user there was an error because there wasn't.
-		cmd.SilenceErrors = true
-		return fmt.Errorf("dummy")
+		fmt.Fprintf(writer, "The difference between profiles:\n%s", diff)
+		return true, nil
 	}
 
-	return nil
+	return false, nil
 }
