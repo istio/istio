@@ -16,6 +16,7 @@ package v1alpha3
 
 import (
 	"fmt"
+	"hash/fnv"
 	"net"
 	"sort"
 	"strconv"
@@ -80,6 +81,9 @@ const (
 )
 
 const (
+	// FilterChainNamePrefix is the name infix in between the Listener name and initially unnamed filter chains
+	FilterChainNameInfix = "-fc-"
+
 	// RDSHttpProxy is the special name for HTTP PROXY route
 	RDSHttpProxy = "http_proxy"
 
@@ -89,9 +93,9 @@ const (
 	// VirtualOutboundCatchAllTCPFilterChainName is the name of the catch all tcp filter chain
 	VirtualOutboundCatchAllTCPFilterChainName = "virtualOutbound-catchall-tcp"
 
-	// VirtualOutboundCatchAllTCPFilterChainName is the name of the filter chain to blackhole undesired traffic
+	// VirtualOutboundBlackholeFilterChainName is the name of the filter chain to blackhole undesired traffic
 	VirtualOutboundBlackholeFilterChainName = "virtualOutbound-blackhole"
-	// VirtualInboundCatchAllTCPFilterChainName is the name of the filter chain to blackhole undesired traffic
+	// VirtualInboundBlackholeFilterChainName is the name of the filter chain to blackhole undesired traffic
 	VirtualInboundBlackholeFilterChainName = "virtualInbound-blackhole"
 
 	// VirtualInboundListenerName is the name for traffic capture listener
@@ -2024,6 +2028,17 @@ func (configgen *ConfigGeneratorImpl) appendListenerFallthroughRouteForCompleteL
 	}
 }
 
+// hash returns a unique hash based on listener.FilterChain, default to 32-bit FNV-1a hash for now
+func hash(fc *listener.FilterChain) (res string, err error) {
+	h := fnv.New32a()
+
+	if _, err = h.Write([]byte(fmt.Sprintf("%v", fc))); err != nil {
+		return
+	}
+
+	return fmt.Sprintf("%b", h.Sum32()), nil
+}
+
 // buildCompleteFilterChain adds the provided TCP and HTTP filters to the provided Listener and serializes them.
 //
 // TODO: should we change this from []plugins.FilterChains to [][]listener.Filter, [][]*hcm.HttpFilter?
@@ -2039,13 +2054,14 @@ func buildCompleteFilterChain(mutable *istionetworking.MutableObjects, opts buil
 	thriftProxies := make([]*thrift.ThriftProxy, len(mutable.FilterChains))
 	for i := range mutable.FilterChains {
 		chain := mutable.FilterChains[i]
+		chainToMut := mutable.Listener.FilterChains[i]
 		opt := opts.filterChainOpts[i]
-		mutable.Listener.FilterChains[i].Metadata = opt.metadata
-		mutable.Listener.FilterChains[i].Name = opt.filterChainName
+
+		chainToMut.Metadata = opt.metadata
 
 		if opt.thriftOpts != nil && features.EnableThriftFilter {
 			// Add the TCP filters first.. and then the Thrift filter
-			mutable.Listener.FilterChains[i].Filters = append(mutable.Listener.FilterChains[i].Filters, chain.TCP...)
+			chainToMut.Filters = append(chainToMut.Filters, chain.TCP...)
 
 			thriftProxies[i] = buildThriftProxy(opt.thriftOpts)
 
@@ -2073,7 +2089,7 @@ func buildCompleteFilterChain(mutable *istionetworking.MutableObjects, opts buil
 				ConfigType: &listener.Filter_TypedConfig{TypedConfig: util.MessageToAny(thriftProxies[i])},
 			}
 
-			mutable.Listener.FilterChains[i].Filters = append(mutable.Listener.FilterChains[i].Filters, filter)
+			chainToMut.Filters = append(chainToMut.Filters, filter)
 			log.Debugf("attached Thrift filter with %d thrift_filter options to listener %q filter chain %d",
 				len(thriftProxies[i].ThriftFilters), mutable.Listener.Name, i)
 		} else if opt.httpOpts == nil {
@@ -2087,17 +2103,17 @@ func buildCompleteFilterChain(mutable *istionetworking.MutableObjects, opts buil
 				lastNetworkFilter := opt.networkFilters[len(opt.networkFilters)-1]
 
 				for n := 0; n < len(opt.networkFilters)-1; n++ {
-					mutable.Listener.FilterChains[i].Filters = append(mutable.Listener.FilterChains[i].Filters, opt.networkFilters[n])
+					chainToMut.Filters = append(chainToMut.Filters, opt.networkFilters[n])
 				}
-				mutable.Listener.FilterChains[i].Filters = append(mutable.Listener.FilterChains[i].Filters, chain.TCP...)
-				mutable.Listener.FilterChains[i].Filters = append(mutable.Listener.FilterChains[i].Filters, lastNetworkFilter)
+				chainToMut.Filters = append(chainToMut.Filters, chain.TCP...)
+				chainToMut.Filters = append(chainToMut.Filters, lastNetworkFilter)
 			} else {
-				mutable.Listener.FilterChains[i].Filters = append(mutable.Listener.FilterChains[i].Filters, chain.TCP...)
+				chainToMut.Filters = append(chainToMut.Filters, chain.TCP...)
 			}
 			log.Debugf("attached %d network filters to listener %q filter chain %d", len(chain.TCP)+len(opt.networkFilters), mutable.Listener.Name, i)
 		} else {
 			// Add the TCP filters first.. and then the HTTP connection manager
-			mutable.Listener.FilterChains[i].Filters = append(mutable.Listener.FilterChains[i].Filters, chain.TCP...)
+			chainToMut.Filters = append(chainToMut.Filters, chain.TCP...)
 
 			// If statPrefix has been set before calling this method, respect that.
 			if len(opt.httpOpts.statPrefix) == 0 {
@@ -2108,9 +2124,19 @@ func buildCompleteFilterChain(mutable *istionetworking.MutableObjects, opts buil
 				Name:       wellknown.HTTPConnectionManager,
 				ConfigType: &listener.Filter_TypedConfig{TypedConfig: util.MessageToAny(httpConnectionManagers[i])},
 			}
-			mutable.Listener.FilterChains[i].Filters = append(mutable.Listener.FilterChains[i].Filters, filter)
+			chainToMut.Filters = append(chainToMut.Filters, filter)
 			log.Debugf("attached HTTP filter with %d http_filter options to listener %q filter chain %d",
 				len(httpConnectionManagers[i].HttpFilters), mutable.Listener.Name, i)
+		}
+
+		if len(opt.filterChainName) == 0 {
+			if chainHash, err := hash(chainToMut); err != nil {
+				log.Warnf("failed to generate hash for naming the filter chain: %v", chainToMut)
+			} else {
+				chainToMut.Name = mutable.Listener.Name + FilterChainNameInfix + chainHash
+			}
+		} else {
+			chainToMut.Name = opt.filterChainName
 		}
 	}
 

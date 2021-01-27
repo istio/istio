@@ -48,8 +48,19 @@ func ValidateListener(t testing.TB, l *listener.Listener) {
 	}
 	validateInspector(t, l)
 	validateListenerTLS(t, l)
+	validateFilterChainNameNotEmpty(t, l)
 	validateFilterChainMatch(t, l)
 	validateInboundListener(t, l)
+}
+
+func validateFilterChainNameNotEmpty(t testing.TB, l *listener.Listener) {
+	t.Helper()
+
+	for _, fc := range l.FilterChains {
+		if len(fc.Name) == 0 {
+			t.Errorf("filter chain has an empty name: %v", fc)
+		}
+	}
 }
 
 func validateInboundListener(t testing.TB, l *listener.Listener) {
@@ -89,7 +100,8 @@ func validateFilterChainMatch(t testing.TB, l *listener.Listener) {
 				for _, fc := range l.FilterChains {
 					fcms = append(fcms, Dump(t, fc.GetFilterChainMatch()))
 				}
-				t.Errorf("overlapping filter chains %d and %d:\n%v\n Full listener: %v", i1, i2, strings.Join(fcms, ",\n"), Dump(t, l))
+				t.Errorf("overlapping filter chains [%d]%s and [%d]%s:\n%v\n Full listener: %v",
+					i1, l1.Name, i2, l2.Name, strings.Join(fcms, ",\n"), Dump(t, l))
 			}
 		}
 	}
