@@ -54,7 +54,7 @@ func TestBadWasmRemoteLoad(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			ctx.Config().ApplyYAMLInClusterOrFail(t, cltInstance.Config().Cluster, common.GetAppNamespace().Name(), string(content))
+			ctx.Config().ApplyYAML(common.GetAppNamespace().Name(), string(content))
 
 			// Wait until there is agent metrics for wasm download failure
 			retry.UntilSuccessOrFail(t, func() error {
