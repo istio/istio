@@ -43,6 +43,9 @@ type Settings struct {
 
 	// BitnamiHub value to use in Helm templates for bitnami images
 	BitnamiHub string
+
+	// ImagePullSecret to use for test pods
+	ImagePullSecret string
 }
 
 func (s *Settings) clone() *Settings {
@@ -57,6 +60,7 @@ func (s *Settings) String() string {
 	result += fmt.Sprintf("Hub:             %s\n", s.Hub)
 	result += fmt.Sprintf("Tag:             %s\n", s.Tag)
 	result += fmt.Sprintf("PullPolicy:      %s\n", s.PullPolicy)
+	result += fmt.Sprintf("ImagePullSecret: %s\n", s.ImagePullSecret)
 	result += fmt.Sprintf("BitnamiHub:      %s\n", s.BitnamiHub)
 
 	return result
