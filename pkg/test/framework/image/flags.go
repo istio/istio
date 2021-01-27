@@ -59,7 +59,7 @@ func init() {
 	flag.StringVar(&settingsFromCommandLine.PullPolicy, "istio.test.pullpolicy", settingsFromCommandLine.PullPolicy,
 		"Common image pull policy to use when deploying container images")
 	flag.StringVar(&settingsFromCommandLine.ImagePullSecret, "istio.test.imagePullSecret", settingsFromCommandLine.ImagePullSecret,
-		"Secret that already exists in cluster(s) to use for pulling images in test app deployments. "+
+		"Path to a file containing a DockerConfig secret use for test apps. This will be pushed to all created namespaces."+
 			"Secret should already exist when used with istio.test.stableNamespaces.")
 	flag.StringVar(&settingsFromCommandLine.BitnamiHub, "istio.test.bitnamihub", settingsFromCommandLine.BitnamiHub,
 		"Container registry to use to download binami images for the redis tests")
