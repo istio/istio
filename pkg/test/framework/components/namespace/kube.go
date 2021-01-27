@@ -26,6 +26,7 @@ import (
 	kubeApiMeta "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"istio.io/api/label"
+	"istio.io/istio/pkg/test/framework/image"
 	"istio.io/istio/pkg/test/framework/resource"
 	kube2 "istio.io/istio/pkg/test/kube"
 	"istio.io/istio/pkg/test/scopes"
@@ -125,6 +126,15 @@ func newKube(ctx resource.Context, nsConfig *Config) (Instance, error) {
 			},
 		}, kubeApiMeta.CreateOptions{}); err != nil {
 			return nil, err
+		}
+		settings, err := image.SettingsFromCommandLine()
+		if err != nil {
+			return nil, err
+		}
+		if settings.ImagePullSecret != "" {
+			if err := cluster.ApplyYAMLFiles(n.name, settings.ImagePullSecret); err != nil {
+				return nil, err
+			}
 		}
 	}
 
