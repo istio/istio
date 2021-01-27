@@ -21,15 +21,13 @@ import (
 	"istio.io/istio/pkg/test/env"
 )
 
-var (
-	// Settings we will collect from the command-line.
-	settingsFromCommandLine = &Settings{
-		Hub:        env.HUB.ValueOrDefault("gcr.io/istio-testing"),
-		Tag:        env.TAG.ValueOrDefault("latest"),
-		PullPolicy: env.PULL_POLICY.Value(),
-		BitnamiHub: env.BITNAMIHUB.ValueOrDefault("docker.io/bitnami"),
-	}
-)
+// Settings we will collect from the command-line.
+var settingsFromCommandLine = &Settings{
+	Hub:        env.HUB.ValueOrDefault("gcr.io/istio-testing"),
+	Tag:        env.TAG.ValueOrDefault("latest"),
+	PullPolicy: env.PULL_POLICY.Value(),
+	BitnamiHub: env.BITNAMIHUB.ValueOrDefault("docker.io/bitnami"),
+}
 
 // SettingsFromCommandLine returns Settings obtained from command-line flags. flag.Parse must be called before calling this function.
 func SettingsFromCommandLine() (*Settings, error) {

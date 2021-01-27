@@ -42,14 +42,12 @@ const (
 	readyInterval = 2 * time.Second
 )
 
-var (
-	webSocketUpgrader = websocket.Upgrader{
-		CheckOrigin: func(r *http.Request) bool {
-			// allow all connections by default
-			return true
-		},
-	}
-)
+var webSocketUpgrader = websocket.Upgrader{
+	CheckOrigin: func(r *http.Request) bool {
+		// allow all connections by default
+		return true
+	},
+}
 
 var _ Instance = &httpInstance{}
 
@@ -332,6 +330,7 @@ func (h *httpHandler) addResponsePayload(r *http.Request, body *bytes.Buffer) {
 		writeField(body, response.HostnameField, hostname)
 	}
 }
+
 func delayResponse(request *http.Request) error {
 	d := request.FormValue("delay")
 	if len(d) == 0 {
@@ -374,7 +373,7 @@ func setResponseFromCodes(request *http.Request, response http.ResponseWriter) e
 	}
 
 	// Choose a random "slice" from a pie
-	var totalSlices = 0
+	totalSlices := 0
 	for _, flavor := range codes {
 		totalSlices += flavor.slices
 	}

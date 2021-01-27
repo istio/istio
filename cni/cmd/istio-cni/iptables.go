@@ -24,9 +24,7 @@ import (
 	"istio.io/pkg/log"
 )
 
-var (
-	nsSetupProg = "istio-iptables"
-)
+var nsSetupProg = "istio-iptables"
 
 type iptables struct {
 }

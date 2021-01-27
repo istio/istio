@@ -87,7 +87,7 @@ func Extract(gzipStream io.Reader, destination string) error {
 		dest := filepath.Join(destination, header.Name)
 		switch header.Typeflag {
 		case tar.TypeDir:
-			if err := os.Mkdir(dest, 0755); err != nil {
+			if err := os.Mkdir(dest, 0o755); err != nil {
 				return fmt.Errorf("mkdir: %v", err)
 			}
 		case tar.TypeReg:

@@ -215,7 +215,7 @@ spec:
 		}
 	}
 
-	if err := ioutil.WriteFile(path.Join(dir, "workloadgroup.yaml"), []byte(wg), 0600); err != nil {
+	if err := ioutil.WriteFile(path.Join(dir, "workloadgroup.yaml"), []byte(wg), 0o600); err != nil {
 		return err
 	}
 
@@ -357,7 +357,7 @@ func patchProxyConfigFile(file string, overrides string) error {
 	if err != nil {
 		return err
 	}
-	return ioutil.WriteFile(file, []byte(outYAML), 0744)
+	return ioutil.WriteFile(file, []byte(outYAML), 0o744)
 }
 
 func readMeshConfig(file string) (*meshconfig.MeshConfig, error) {
@@ -650,7 +650,7 @@ func (c *instance) Restart() error {
 	return nil
 }
 
-//restartEchoDeployments performs a `kubectl rollout restart` on the echo deployment and waits for
+// restartEchoDeployments performs a `kubectl rollout restart` on the echo deployment and waits for
 // `kubectl rollout status` to complete before returning.
 func (c *instance) restartEchoDeployments() error {
 	var errs error

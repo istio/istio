@@ -211,7 +211,6 @@ func toRouteKey(c config.Config) RouteKey {
 }
 
 func convertDestinationRule(r *KubernetesResources) []config.Config {
-
 	result := []config.Config{}
 	for _, obj := range r.BackendPolicy {
 		bp := obj.Spec.(*k8s.BackendPolicySpec)

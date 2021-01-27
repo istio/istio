@@ -32,7 +32,6 @@ func TestNewSet(t *testing.T) {
 }
 
 func TestDifference(t *testing.T) {
-
 	elements := []string{"a", "b", "c", "d"}
 	s1 := NewSet(elements...)
 

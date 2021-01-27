@@ -101,11 +101,10 @@ func TestNonAutoregisteredWorkloads(t *testing.T) {
 			}
 		})
 	}
-
 }
 
 func TestAutoregistrationLifecycle(t *testing.T) {
-	var maxConnAge = time.Hour
+	maxConnAge := time.Hour
 	c1, c2, store := setup(t)
 	c2.maxConnectionAge = maxConnAge
 	stopped1 := false

@@ -53,7 +53,6 @@ func TestArgs_String(t *testing.T) {
 }
 
 func createTestWebhook(t testing.TB) (*Webhook, func()) {
-
 	t.Helper()
 	dir, err := ioutil.TempDir("", "galley_validation_webhook")
 	if err != nil {
@@ -70,12 +69,12 @@ func createTestWebhook(t testing.TB) (*Webhook, func()) {
 	)
 
 	// cert
-	if err := ioutil.WriteFile(certFile, testcerts.ServerCert, 0644); err != nil { // nolint: vetshadow
+	if err := ioutil.WriteFile(certFile, testcerts.ServerCert, 0o644); err != nil { // nolint: vetshadow
 		cleanup()
 		t.Fatalf("WriteFile(%v) failed: %v", certFile, err)
 	}
 	// key
-	if err := ioutil.WriteFile(keyFile, testcerts.ServerKey, 0644); err != nil { // nolint: vetshadow
+	if err := ioutil.WriteFile(keyFile, testcerts.ServerKey, 0o644); err != nil { // nolint: vetshadow
 		cleanup()
 		t.Fatalf("WriteFile(%v) failed: %v", keyFile, err)
 	}

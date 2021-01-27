@@ -343,7 +343,6 @@ func BenchmarkMostSpecificHostMatch(b *testing.B) {
 			}
 		})
 	}
-
 }
 
 func TestAuthorizationPolicies(t *testing.T) {

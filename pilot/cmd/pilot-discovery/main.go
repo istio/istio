@@ -94,7 +94,6 @@ func configureLogging(_ *cobra.Command, _ []string) error {
 }
 
 func init() {
-
 	serverArgs = bootstrap.NewPilotArgs(func(p *bootstrap.PilotArgs) {
 		// Set Defaults
 		p.CtrlZOptions = ctrlz.DefaultOptions()
@@ -183,7 +182,6 @@ func init() {
 		Section: "pilot-discovery CLI",
 		Manual:  "Istio Pilot Discovery",
 	}))
-
 }
 
 func main() {

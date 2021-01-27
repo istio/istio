@@ -37,7 +37,7 @@ type PodDumper func(ctx resource.Context, cluster resource.Cluster, workDir stri
 
 func outputPath(workDir string, cluster resource.Cluster, pod corev1.Pod, name string) string {
 	dir := path.Join(workDir, cluster.Name())
-	if err := os.MkdirAll(dir, os.ModeDir|0700); err != nil {
+	if err := os.MkdirAll(dir, os.ModeDir|0o700); err != nil {
 		scopes.Framework.Warnf("failed creating directory: %s", dir)
 	}
 	return path.Join(dir, fmt.Sprintf("%s_%s", pod.Name, name))
@@ -271,7 +271,7 @@ func DumpDebug(c resource.Cluster, workDir string, endpoint string) {
 		scopes.Framework.Warnf("failed dumping %q: %v", endpoint, err)
 		return
 	}
-	if err := ioutil.WriteFile(outPath, []byte(out), 0644); err != nil {
+	if err := ioutil.WriteFile(outPath, []byte(out), 0o644); err != nil {
 		scopes.Framework.Warnf("failed dumping %q: %v", endpoint, err)
 		return
 	}
@@ -292,14 +292,13 @@ func DumpNdsz(_ resource.Context, c resource.Cluster, workDir string, _ string, 
 		}
 		// dump to the cluster directory for the proxy
 		outPath := outputPath(workDir, c, p, "ndsz.json")
-		if err := ioutil.WriteFile(outPath, []byte(out), 0644); err != nil {
+		if err := ioutil.WriteFile(outPath, []byte(out), 0o644); err != nil {
 			scopes.Framework.Warnf("failed dumping ndsz: %v", err)
 		}
 	}
 }
 
 func dumpDebug(cp resource.Cluster, istiodPod corev1.Pod, endpoint string) (string, error) {
-
 	// exec to the control plane to run nds gen
 	cmd := []string{"pilot-discovery", "request", "GET", endpoint}
 

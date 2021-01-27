@@ -34,7 +34,6 @@ func DeploymentInMesh(r *resource.Instance, c analysis.Context) bool {
 func PodInMesh(r *resource.Instance, c analysis.Context) bool {
 	p := r.Message.(*v1.Pod)
 	return inMesh(p.Annotations, resource.Namespace(p.Namespace), p.Spec.Containers, c)
-
 }
 
 func inMesh(annos map[string]string, namespace resource.Namespace, containers []v1.Container, c analysis.Context) bool {

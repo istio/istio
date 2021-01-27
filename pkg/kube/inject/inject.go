@@ -95,8 +95,10 @@ type SidecarTemplateData struct {
 	Revision       string
 }
 
-type Template *corev1.Pod
-type Templates map[string]string
+type (
+	Template  *corev1.Pod
+	Templates map[string]string
+)
 
 // Config specifies the sidecar injection configuration This includes
 // the sidecar template and cluster-side injection policy. It is used

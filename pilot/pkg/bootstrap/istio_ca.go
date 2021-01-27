@@ -264,14 +264,14 @@ func (s *Server) initPublicKey() error {
 		if _, err := os.Stat(signingKeyFile); err != nil {
 			// When Citadel is configured to use self-signed certs, keep a local copy so other
 			// components can load it via file (e.g. webhook config controller).
-			if err := os.MkdirAll(dnsCertDir, 0700); err != nil {
+			if err := os.MkdirAll(dnsCertDir, 0o700); err != nil {
 				return err
 			}
 			// We have direct access to the self-signed
 			internalSelfSignedRootPath := path.Join(dnsCertDir, "self-signed-root.pem")
 
 			rootCert := s.CA.GetCAKeyCertBundle().GetRootCertPem()
-			if err = ioutil.WriteFile(internalSelfSignedRootPath, rootCert, 0600); err != nil {
+			if err = ioutil.WriteFile(internalSelfSignedRootPath, rootCert, 0o600); err != nil {
 				return err
 			}
 
@@ -286,7 +286,7 @@ func (s *Server) initPublicKey() error {
 							newRootCert := s.CA.GetCAKeyCertBundle().GetRootCertPem()
 							if !bytes.Equal(rootCert, newRootCert) {
 								rootCert = newRootCert
-								if err = ioutil.WriteFile(internalSelfSignedRootPath, rootCert, 0600); err != nil {
+								if err = ioutil.WriteFile(internalSelfSignedRootPath, rootCert, 0o600); err != nil {
 									log.Errorf("Failed to update local copy of self-signed root: %v", err)
 								} else {
 									log.Info("Updtaed local copy of self-signed root")
@@ -331,12 +331,12 @@ func (s *Server) loadRemoteCACerts(caOpts *caOptions, dir string) error {
 	}
 
 	log.Infof("cacerts Secret found in remote cluster, saving contents to %s", dir)
-	if err := os.MkdirAll(dir, 0700); err != nil {
+	if err := os.MkdirAll(dir, 0o700); err != nil {
 		return err
 	}
 	for key, data := range secret.Data {
 		filename := path.Join(dir, key)
-		if err := ioutil.WriteFile(filename, data, 0600); err != nil {
+		if err := ioutil.WriteFile(filename, data, 0o600); err != nil {
 			return err
 		}
 	}
@@ -416,7 +416,6 @@ func (s *Server) createIstioCA(client corev1.CoreV1Interface, opts *caOptions) (
 // the caOptions defines the external provider
 func (s *Server) createIstioRA(client kubelib.Client,
 	opts *caOptions) (ra.RegistrationAuthority, error) {
-
 	caCertFile := path.Join(ra.DefaultExtCACertDir, constants.CACertNamespaceConfigMapDataName)
 	if _, err := os.Stat(caCertFile); err != nil {
 		caCertFile = defaultCACertPath
@@ -432,5 +431,4 @@ func (s *Server) createIstioRA(client kubelib.Client,
 		TrustDomain:    opts.TrustDomain,
 	}
 	return ra.NewIstioRA(raOpts)
-
 }

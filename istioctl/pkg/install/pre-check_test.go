@@ -31,6 +31,7 @@ type mockClientExecPreCheckConfig struct {
 	version    *version.Info
 	authConfig *authorizationapi.SelfSubjectAccessReview
 }
+
 type testcase struct {
 	description       string
 	config            *mockClientExecPreCheckConfig
@@ -99,21 +100,24 @@ func TestPreCheck(t *testing.T) {
 			},
 			expectedException: true,
 		},
-		{description: "Invalid Istio System",
+		{
+			description: "Invalid Istio System",
 			config: &mockClientExecPreCheckConfig{
 				version:   version1_17,
 				namespace: "istio-system",
 			},
 			expectedException: false, // It is fine to precheck an existing namespace; we might be installing canary control plane
 		},
-		{description: "Valid Istio System",
+		{
+			description: "Valid Istio System",
 			config: &mockClientExecPreCheckConfig{
 				version:   version1_17,
 				namespace: "test",
 			},
 			expectedException: false,
 		},
-		{description: "Lacking Permission",
+		{
+			description: "Lacking Permission",
 			config: &mockClientExecPreCheckConfig{
 				version:   version1_17,
 				namespace: "test",
@@ -131,7 +135,8 @@ func TestPreCheck(t *testing.T) {
 			},
 			expectedException: true,
 		},
-		{description: "Valid Case",
+		{
+			description: "Valid Case",
 			config: &mockClientExecPreCheckConfig{
 				version:   version1_17,
 				namespace: "test",
@@ -193,7 +198,6 @@ func (m *mockClientExecPreCheckConfig) getNameSpace(ns string) (*v1.Namespace, e
 		return n, nil
 	}
 	return nil, fmt.Errorf("namespaces \"%s\" not found", ns)
-
 }
 
 func (m *mockClientExecPreCheckConfig) checkAuthorization(
@@ -216,7 +220,6 @@ func (m *mockClientExecPreCheckConfig) checkAuthorization(
 		},
 	}
 	return authConfig, nil
-
 }
 
 func (m *mockClientExecPreCheckConfig) checkMutatingWebhook() error {

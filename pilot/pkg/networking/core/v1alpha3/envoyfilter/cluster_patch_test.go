@@ -205,7 +205,8 @@ func TestClusterPatching(t *testing.T) {
 
 	sidecarOutboundIn := []*cluster.Cluster{
 		{Name: "cluster1", DnsLookupFamily: cluster.Cluster_V4_ONLY, LbPolicy: cluster.Cluster_ROUND_ROBIN},
-		{Name: "cluster2",
+		{
+			Name: "cluster2",
 			Http2ProtocolOptions: &core.Http2ProtocolOptions{
 				AllowConnect:  true,
 				AllowMetadata: true,
@@ -215,7 +216,8 @@ func TestClusterPatching(t *testing.T) {
 
 	sidecarOutboundOut := []*cluster.Cluster{
 		{Name: "cluster1", DnsLookupFamily: cluster.Cluster_V6_ONLY, LbPolicy: cluster.Cluster_RING_HASH},
-		{Name: "cluster2",
+		{
+			Name: "cluster2",
 			Http2ProtocolOptions: &core.Http2ProtocolOptions{
 				AllowConnect:  true,
 				AllowMetadata: true,
@@ -235,7 +237,8 @@ func TestClusterPatching(t *testing.T) {
 
 	gatewayInput := []*cluster.Cluster{
 		{Name: "cluster1", DnsLookupFamily: cluster.Cluster_V4_ONLY, LbPolicy: cluster.Cluster_ROUND_ROBIN},
-		{Name: "cluster2",
+		{
+			Name: "cluster2",
 			Http2ProtocolOptions: &core.Http2ProtocolOptions{
 				AllowConnect:  true,
 				AllowMetadata: true,
@@ -245,7 +248,8 @@ func TestClusterPatching(t *testing.T) {
 	}
 	gatewayOutput := []*cluster.Cluster{
 		{Name: "cluster1", DnsLookupFamily: cluster.Cluster_V6_ONLY, LbPolicy: cluster.Cluster_RING_HASH},
-		{Name: "cluster2",
+		{
+			Name: "cluster2",
 			Http2ProtocolOptions: &core.Http2ProtocolOptions{
 				AllowConnect:  true,
 				AllowMetadata: true,

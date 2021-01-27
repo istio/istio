@@ -128,6 +128,7 @@ func (u *UpdateTracker) Callback(name string) {
 	defer u.mu.Unlock()
 	u.hits[name]++
 }
+
 func (u *UpdateTracker) Expect(want map[string]int) {
 	u.t.Helper()
 	retry.UntilSuccessOrFail(u.t, func() error {
@@ -139,6 +140,7 @@ func (u *UpdateTracker) Expect(want map[string]int) {
 		return nil
 	}, retry.Timeout(time.Second*2), retry.Delay(time.Millisecond))
 }
+
 func TestWorkloadAgentRefreshSecret(t *testing.T) {
 	cacheLog.SetOutputLevel(log.DebugLevel)
 	fakeCACli, err := mock.NewMockCAClient(time.Millisecond * 200)
@@ -323,6 +325,7 @@ func TestFileSecrets(t *testing.T) {
 		runFileAgentTest(t, true)
 	})
 }
+
 func runFileAgentTest(t *testing.T, sds bool) {
 	fakeCACli, err := mock.NewMockCAClient(time.Hour)
 	if err != nil {
@@ -373,7 +376,7 @@ func runFileAgentTest(t *testing.T, sds bool) {
 	// We shouldn't get an pushes; these only happen on changes
 	u.Expect(map[string]int{})
 
-	if err := file.AtomicWrite(sc.existingCertificateFile.CertificatePath, testcerts.RotatedCert, os.FileMode(0644)); err != nil {
+	if err := file.AtomicWrite(sc.existingCertificateFile.CertificatePath, testcerts.RotatedCert, os.FileMode(0o644)); err != nil {
 		t.Fatal(err)
 	}
 	// Expect update callback
@@ -385,7 +388,7 @@ func runFileAgentTest(t *testing.T, sds bool) {
 		PrivateKey:       privateKey,
 	})
 
-	if err := file.AtomicWrite(sc.existingCertificateFile.PrivateKeyPath, testcerts.RotatedKey, os.FileMode(0644)); err != nil {
+	if err := file.AtomicWrite(sc.existingCertificateFile.PrivateKeyPath, testcerts.RotatedKey, os.FileMode(0o644)); err != nil {
 		t.Fatal(err)
 	}
 	// We do NOT expect update callback. We only watch the cert file, since the key and cert must be updated
@@ -398,7 +401,7 @@ func runFileAgentTest(t *testing.T, sds bool) {
 		PrivateKey:       testcerts.RotatedKey,
 	})
 
-	if err := file.AtomicWrite(sc.existingCertificateFile.CaCertificatePath, testcerts.CACert, os.FileMode(0644)); err != nil {
+	if err := file.AtomicWrite(sc.existingCertificateFile.CaCertificatePath, testcerts.CACert, os.FileMode(0o644)); err != nil {
 		t.Fatal(err)
 	}
 	rootExpiration, err = nodeagentutil.ParseCertAndGetExpiryTimestamp(testcerts.CACert)
@@ -527,6 +530,5 @@ func TestConcatCerts(t *testing.T) {
 				t.Fatalf("expected %q, got %q", c.expected, result)
 			}
 		})
-
 	}
 }

@@ -37,9 +37,11 @@ func (f *FakeTypeBase) Unmarshal(in []byte) error {
 	return nil
 }
 
-type FakeType0 struct{ FakeTypeBase }
-type FakeType1 struct{ FakeTypeBase }
-type FakeType2 struct{ FakeTypeBase }
+type (
+	FakeType0 struct{ FakeTypeBase }
+	FakeType1 struct{ FakeTypeBase }
+	FakeType2 struct{ FakeTypeBase }
+)
 
 type UnmarshalErrorType struct{ FakeTypeBase }
 

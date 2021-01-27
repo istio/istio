@@ -25,9 +25,7 @@ import (
 	"istio.io/pkg/log"
 )
 
-var (
-	gcecredLog = log.RegisterScope("gcecred", "GCE credential fetcher for istio agent", 0)
-)
+var gcecredLog = log.RegisterScope("gcecred", "GCE credential fetcher for istio agent", 0)
 
 // The plugin object.
 type GCEPlugin struct {
@@ -68,7 +66,7 @@ func (p *GCEPlugin) GetPlatformCredential() (string, error) {
 	}
 	gcecredLog.Debugf("Got GCE identity token: %d", len(token))
 	tokenbytes := []byte(token)
-	err = ioutil.WriteFile(p.jwtPath, tokenbytes, 0640)
+	err = ioutil.WriteFile(p.jwtPath, tokenbytes, 0o640)
 	if err != nil {
 		gcecredLog.Errorf("Encountered error when writing vm identity token: %v", err)
 		return "", err

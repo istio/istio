@@ -517,7 +517,8 @@ func TestJwtFilter(t *testing.T) {
 											},
 										},
 									},
-								}},
+								},
+							},
 							Providers: map[string]*envoy_jwt.JwtProvider{
 								"origins-0": {
 									Issuer: "https://secret.foo.com",

@@ -557,7 +557,8 @@ func (s *DiscoveryServer) configDump(conn *Connection) (*adminapi.ConfigDump, er
 		}
 		dynamicActiveListeners = append(dynamicActiveListeners, &adminapi.ListenersConfigDump_DynamicListener{
 			Name:        cs.Name,
-			ActiveState: &adminapi.ListenersConfigDump_DynamicListenerState{Listener: listener}})
+			ActiveState: &adminapi.ListenersConfigDump_DynamicListenerState{Listener: listener},
+		})
 	}
 	listenersAny, err := util.MessageToAnyWithError(&adminapi.ListenersConfigDump{
 		VersionInfo:      versionInfo(),

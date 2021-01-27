@@ -18,8 +18,10 @@ import (
 	"istio.io/istio/pkg/config/resource"
 )
 
-var _ resource.Origin = &testOrigin{}
-var _ resource.Reference = &testReference{}
+var (
+	_ resource.Origin    = &testOrigin{}
+	_ resource.Reference = &testReference{}
+)
 
 type testOrigin struct {
 	name     string

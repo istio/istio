@@ -25,7 +25,7 @@ import (
 )
 
 func TestStaticCollections(t *testing.T) {
-	var cases = []struct {
+	cases := []struct {
 		packageName string
 		m           *ast.Metadata
 		err         string

@@ -100,7 +100,6 @@ type VirtualHostWrapper struct {
 // The list of services is also passed to allow maintaining consistent ordering.
 func BuildSidecarVirtualHostsFromConfigAndRegistry(node *model.Proxy, push *model.PushContext, serviceRegistry map[host.Name]*model.Service,
 	virtualServices []config.Config, listenPort int) []VirtualHostWrapper {
-
 	out := make([]VirtualHostWrapper, 0)
 
 	// translate all virtual service configs into virtual hosts
@@ -279,7 +278,6 @@ func BuildHTTPRoutesForVirtualService(
 	serviceRegistry map[host.Name]*model.Service,
 	listenPort int,
 	gatewayNames map[string]bool) ([]*route.Route, error) {
-
 	vs, ok := virtualService.Spec.(*networking.VirtualService)
 	if !ok { // should never happen
 		return nil, fmt.Errorf("in not a virtual service: %#v", virtualService)
@@ -342,7 +340,6 @@ func translateRoute(push *model.PushContext, node *model.Proxy, in *networking.H
 	virtualService config.Config,
 	serviceRegistry map[host.Name]*model.Service,
 	gatewayNames map[string]bool) *route.Route {
-
 	// When building routes, its okay if the target cluster cannot be
 	// resolved Traffic to such clusters will blackhole.
 
@@ -382,7 +379,8 @@ func translateRoute(push *model.PushContext, node *model.Proxy, in *networking.H
 				PathRewriteSpecifier: &route.RedirectAction_PathRedirect{
 					PathRedirect: redirect.Uri,
 				},
-			}}
+			},
+		}
 
 		switch in.Redirect.RedirectCode {
 		case 0, 301:
@@ -690,13 +688,15 @@ func translateQueryParamMatch(name string, in *networking.StringMatch, node *mod
 		}
 	case *networking.StringMatch_Regex:
 		out.QueryParameterMatchSpecifier = &route.QueryParameterMatcher_StringMatch{
-			StringMatch: &matcher.StringMatcher{MatchPattern: &matcher.StringMatcher_SafeRegex{
-				SafeRegex: &matcher.RegexMatcher{
-					EngineType: regexMatcher(node),
-					Regex:      m.Regex,
+			StringMatch: &matcher.StringMatcher{
+				MatchPattern: &matcher.StringMatcher_SafeRegex{
+					SafeRegex: &matcher.RegexMatcher{
+						EngineType: regexMatcher(node),
+						Regex:      m.Regex,
+					},
 				},
 			},
-			}}
+		}
 	}
 
 	return out
@@ -769,15 +769,15 @@ func convertToEnvoyMatch(in []*networking.StringMatch, node *model.Proxy) []*mat
 		case *networking.StringMatch_Prefix:
 			res = append(res, &matcher.StringMatcher{MatchPattern: &matcher.StringMatcher_Prefix{Prefix: m.Prefix}})
 		case *networking.StringMatch_Regex:
-			res = append(res, &matcher.StringMatcher{MatchPattern: &matcher.StringMatcher_SafeRegex{
-				SafeRegex: &matcher.RegexMatcher{
-					EngineType: regexMatcher(node),
-					Regex:      m.Regex,
+			res = append(res, &matcher.StringMatcher{
+				MatchPattern: &matcher.StringMatcher_SafeRegex{
+					SafeRegex: &matcher.RegexMatcher{
+						EngineType: regexMatcher(node),
+						Regex:      m.Regex,
+					},
 				},
-			},
 			})
 		}
-
 	}
 
 	return res

@@ -111,7 +111,6 @@ func TestVirtualListenerBuilder(t *testing.T) {
 	} else {
 		t.Logf("found virtual listener: %s", listeners[0].Name)
 	}
-
 }
 
 func setInboundCaptureAllOnThisNode(proxy *model.Proxy, mode model.TrafficInterceptionMode) {
@@ -319,7 +318,6 @@ func TestSidecarInboundListenerWithOriginalSrc(t *testing.T) {
 }
 
 func TestListenerBuilderPatchListeners(t *testing.T) {
-
 	configPatches := []*networking.EnvoyFilter_EnvoyConfigObjectPatch{
 		{
 			ApplyTo: networking.EnvoyFilter_LISTENER,
@@ -538,7 +536,6 @@ func TestListenerBuilderPatchListeners(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-
 			lb := &ListenerBuilder{
 				node:                    tt.proxy,
 				push:                    cg.PushContext(),
@@ -584,7 +581,8 @@ func getEnvoyFilterConfigs(configPatches []*networking.EnvoyFilter_EnvoyConfigOb
 			},
 			Spec: &networking.EnvoyFilter{
 				ConfigPatches: []*networking.EnvoyFilter_EnvoyConfigObjectPatch{cp},
-			}})
+			},
+		})
 	}
 	return res
 }
@@ -599,6 +597,7 @@ spec:
   mtls:
     mode: STRICT
 `
+
 const disableMode = `
 apiVersion: security.istio.io/v1beta1
 kind: PeerAuthentication

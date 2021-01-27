@@ -108,7 +108,6 @@ func TestGRPC(t *testing.T) {
 		ch := make(chan resolver.State)
 		_, err := rb.Build(resolver.Target{Endpoint: istiodSvcAddr},
 			&testClientConn{ch: ch}, resolver.BuildOptions{})
-
 		if err != nil {
 			t.Fatal("Failed to resolve XDS ", err)
 		}
@@ -143,9 +142,7 @@ func TestGRPC(t *testing.T) {
 			t.Fatal(err)
 		}
 		t.Log(s.Send(&discovery.DiscoveryRequest{}))
-
 	})
-
 }
 
 type testLBClientConn struct {

@@ -100,7 +100,8 @@ func TestAdsReconnectAfterRestart(t *testing.T) {
 	ads.RequestResponseAck(&discovery.DiscoveryRequest{
 		ResourceNames: []string{"fake-cluster"},
 		ResponseNonce: res.Nonce,
-		VersionInfo:   res.VersionInfo})
+		VersionInfo:   res.VersionInfo,
+	})
 }
 
 func TestAdsUnsubscribe(t *testing.T) {
@@ -112,7 +113,8 @@ func TestAdsUnsubscribe(t *testing.T) {
 	ads.Request(&discovery.DiscoveryRequest{
 		ResourceNames: nil,
 		ResponseNonce: res.Nonce,
-		VersionInfo:   res.VersionInfo})
+		VersionInfo:   res.VersionInfo,
+	})
 	ads.ExpectNoResponse()
 }
 
@@ -141,7 +143,7 @@ func TestAdsClusterUpdate(t *testing.T) {
 
 	version := ""
 	nonce := ""
-	var sendEDSReqAndVerify = func(clusterName string) {
+	sendEDSReqAndVerify := func(clusterName string) {
 		res := ads.RequestResponseAck(&discovery.DiscoveryRequest{
 			ResourceNames: []string{clusterName},
 			VersionInfo:   version,
@@ -188,7 +190,6 @@ func TestAdsPushScoping(t *testing.T) {
 		}
 
 		s.Discovery.ConfigUpdate(&model.PushRequest{Full: true, ConfigsUpdated: configsUpdated})
-
 	}
 	removeService := func(ns string, indexes ...int) {
 		var names []string
@@ -250,7 +251,8 @@ func TestAdsPushScoping(t *testing.T) {
 		if _, err := s.Store().Create(config.Config{
 			Meta: config.Meta{
 				GroupVersionKind: gvk.VirtualService,
-				Name:             fmt.Sprintf("vs%d", i), Namespace: model.IstioDefaultConfigNamespace},
+				Name:             fmt.Sprintf("vs%d", i), Namespace: model.IstioDefaultConfigNamespace,
+			},
 			Spec: &networking.VirtualService{
 				Hosts: hosts,
 				Http: []*networking.HTTPRoute{{
@@ -275,7 +277,8 @@ func TestAdsPushScoping(t *testing.T) {
 		if _, err := s.Store().Create(config.Config{
 			Meta: config.Meta{
 				GroupVersionKind: gvk.VirtualService,
-				Name:             fmt.Sprintf("rootvs%d", i), Namespace: model.IstioDefaultConfigNamespace},
+				Name:             fmt.Sprintf("rootvs%d", i), Namespace: model.IstioDefaultConfigNamespace,
+			},
 			Spec: &networking.VirtualService{
 				Hosts: hosts,
 
@@ -295,7 +298,8 @@ func TestAdsPushScoping(t *testing.T) {
 		if _, err := s.Store().Create(config.Config{
 			Meta: config.Meta{
 				GroupVersionKind: gvk.VirtualService,
-				Name:             fmt.Sprintf("delegatevs%d", i), Namespace: model.IstioDefaultConfigNamespace},
+				Name:             fmt.Sprintf("delegatevs%d", i), Namespace: model.IstioDefaultConfigNamespace,
+			},
 			Spec: &networking.VirtualService{
 				Http: []*networking.HTTPRoute{{
 					Name: "dest-foo",
@@ -316,7 +320,8 @@ func TestAdsPushScoping(t *testing.T) {
 		if _, err := s.Store().Update(config.Config{
 			Meta: config.Meta{
 				GroupVersionKind: gvk.VirtualService,
-				Name:             fmt.Sprintf("delegatevs%d", i), Namespace: model.IstioDefaultConfigNamespace},
+				Name:             fmt.Sprintf("delegatevs%d", i), Namespace: model.IstioDefaultConfigNamespace,
+			},
 			Spec: &networking.VirtualService{
 				Http: []*networking.HTTPRoute{{
 					Name: "dest-foo",
@@ -349,7 +354,8 @@ func TestAdsPushScoping(t *testing.T) {
 		if _, err := s.Store().Create(config.Config{
 			Meta: config.Meta{
 				GroupVersionKind: gvk.DestinationRule,
-				Name:             fmt.Sprintf("dr%d", i), Namespace: model.IstioDefaultConfigNamespace},
+				Name:             fmt.Sprintf("dr%d", i), Namespace: model.IstioDefaultConfigNamespace,
+			},
 			Spec: &networking.DestinationRule{
 				Host:     host,
 				ExportTo: nil,
@@ -372,7 +378,8 @@ func TestAdsPushScoping(t *testing.T) {
 	if _, err := s.Store().Create(config.Config{
 		Meta: config.Meta{
 			GroupVersionKind: gvk.Sidecar,
-			Name:             "sc", Namespace: model.IstioDefaultConfigNamespace},
+			Name:             "sc", Namespace: model.IstioDefaultConfigNamespace,
+		},
 		Spec: sc,
 	}); err != nil {
 		t.Fatal(err)

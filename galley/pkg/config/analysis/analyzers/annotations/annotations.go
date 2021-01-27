@@ -30,9 +30,7 @@ import (
 // K8sAnalyzer checks for misplaced and invalid Istio annotations in K8s resources
 type K8sAnalyzer struct{}
 
-var (
-	istioAnnotations = annotation.AllResourceAnnotations()
-)
+var istioAnnotations = annotation.AllResourceAnnotations()
 
 // Metadata implements analyzer.Analyzer
 func (*K8sAnalyzer) Metadata() analysis.Metadata {

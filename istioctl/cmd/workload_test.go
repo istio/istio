@@ -31,9 +31,7 @@ import (
 	testKube "istio.io/istio/pkg/test/kube"
 )
 
-var (
-	fakeCACert = []byte("fake-CA-cert")
-)
+var fakeCACert = []byte("fake-CA-cert")
 
 var (
 	defaultYAML = `apiVersion: networking.istio.io/v1alpha3

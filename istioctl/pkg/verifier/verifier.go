@@ -43,13 +43,11 @@ import (
 	"istio.io/istio/pkg/kube"
 )
 
-var (
-	istioOperatorGVR = apimachinery_schema.GroupVersionResource{
-		Group:    v1alpha1.SchemeGroupVersion.Group,
-		Version:  v1alpha1.SchemeGroupVersion.Version,
-		Resource: "istiooperators",
-	}
-)
+var istioOperatorGVR = apimachinery_schema.GroupVersionResource{
+	Group:    v1alpha1.SchemeGroupVersion.Group,
+	Version:  v1alpha1.SchemeGroupVersion.Version,
+	Resource: "istiooperators",
+}
 
 // StatusVerifier checks status of certain resources like deployment,
 // jobs and also verifies count of certain resource types.

@@ -46,7 +46,6 @@ func TestQueueWrapEmpty(t *testing.T) {
 }
 
 func TestQueue_Expand_And_Use(t *testing.T) {
-
 	q := &queue{}
 
 	addCtr := 0

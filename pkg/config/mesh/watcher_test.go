@@ -106,7 +106,7 @@ func writeMessage(t testing.TB, path string, msg proto.Message) {
 
 func writeFile(t testing.TB, path, content string) {
 	t.Helper()
-	if err := ioutil.WriteFile(path, []byte(content), 0666); err != nil {
+	if err := ioutil.WriteFile(path, []byte(content), 0o666); err != nil {
 		t.Fatal(err)
 	}
 }

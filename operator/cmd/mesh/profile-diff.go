@@ -52,8 +52,8 @@ func profileDiffCmd(rootArgs *rootArgs, pfArgs *profileDiffArgs) *cobra.Command 
 		},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return profileDiff(cmd, rootArgs, pfArgs, args)
-		}}
-
+		},
+	}
 }
 
 // profileDiff compare two profile files.

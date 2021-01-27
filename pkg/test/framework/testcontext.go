@@ -70,8 +70,10 @@ type TestContext interface {
 	Skipped() bool
 }
 
-var _ TestContext = &testContext{}
-var _ test.Failer = &testContext{}
+var (
+	_ TestContext = &testContext{}
+	_ test.Failer = &testContext{}
+)
 
 // testContext for the currently executing test.
 type testContext struct {

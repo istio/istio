@@ -234,7 +234,8 @@ func (c MockClient) UtilFactory() util.Factory {
 			StatusCode: http.StatusOK,
 			Header:     cmdtesting.DefaultHeader(),
 			Body: cmdtesting.ObjBody(codec,
-				cmdtesting.NewInternalType("", "", "foo"))},
+				cmdtesting.NewInternalType("", "", "foo")),
+		},
 	}
 	return tf
 }

@@ -52,7 +52,7 @@ func TestConvertResources(t *testing.T) {
 			if util.Refresh() {
 				res := append(output.Gateway, output.VirtualService...)
 				res = append(res, output.DestinationRule...)
-				if err := ioutil.WriteFile(goldenFile, marshalYaml(t, res), 0644); err != nil {
+				if err := ioutil.WriteFile(goldenFile, marshalYaml(t, res), 0o644); err != nil {
 					t.Fatal(err)
 				}
 			}

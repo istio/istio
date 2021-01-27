@@ -176,7 +176,8 @@ func (p PodInfo) makeRequest(configType string) *discovery.DiscoveryRequest {
 		Node: &core.Node{
 			Id: p.makeNodeID(),
 		},
-		TypeUrl: configTypeToTypeURL(configType)}
+		TypeUrl: configTypeToTypeURL(configType),
+	}
 }
 
 func (p PodInfo) appendResources(req *discovery.DiscoveryRequest, resources []string) *discovery.DiscoveryRequest {
@@ -309,7 +310,7 @@ func main() {
 	strResponse, _ := gogoprotomarshal.ToJSONWithIndent(resp, " ")
 	if outputFile == nil || *outputFile == "" {
 		fmt.Printf("%v\n", strResponse)
-	} else if err := ioutil.WriteFile(*outputFile, []byte(strResponse), 0644); err != nil {
+	} else if err := ioutil.WriteFile(*outputFile, []byte(strResponse), 0o644); err != nil {
 		log.Errorf("Cannot write output to file %q", *outputFile)
 	}
 }

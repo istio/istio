@@ -25,9 +25,7 @@ import (
 	"istio.io/istio/pkg/test/framework/resource"
 )
 
-var (
-	prom prometheus.Instance
-)
+var prom prometheus.Instance
 
 func TestMain(m *testing.M) {
 	var ist istio.Instance

@@ -75,8 +75,10 @@ type origin struct {
 	friendlyName string
 }
 
-var _ resource.Origin = &origin{}
-var _ resource.Reference = &reference{}
+var (
+	_ resource.Origin    = &origin{}
+	_ resource.Reference = &reference{}
+)
 
 func (o origin) Namespace() resource.Namespace { return "" }
 func (o origin) FriendlyName() string          { return o.friendlyName }

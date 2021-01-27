@@ -58,10 +58,12 @@ func (n *kubeNamespace) Dump(ctx resource.Context) {
 	kube2.DumpPods(n.ctx, d, n.name)
 }
 
-var _ Instance = &kubeNamespace{}
-var _ io.Closer = &kubeNamespace{}
-var _ resource.Resource = &kubeNamespace{}
-var _ resource.Dumper = &kubeNamespace{}
+var (
+	_ Instance          = &kubeNamespace{}
+	_ io.Closer         = &kubeNamespace{}
+	_ resource.Resource = &kubeNamespace{}
+	_ resource.Dumper   = &kubeNamespace{}
+)
 
 func (n *kubeNamespace) Name() string {
 	return n.name

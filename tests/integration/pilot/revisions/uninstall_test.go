@@ -44,9 +44,7 @@ const (
 	stableRevision = "stable"
 )
 
-var (
-	ManifestPath = filepath.Join(env.IstioSrc, "manifests")
-)
+var ManifestPath = filepath.Join(env.IstioSrc, "manifests")
 
 func TestUninstallByRevision(t *testing.T) {
 	framework.
@@ -161,7 +159,7 @@ func TestUninstallPurge(t *testing.T) {
 		})
 }
 
-//checkCPResourcesUninstalled is a helper function to check list of gvk resources matched with label are uninstalled
+// checkCPResourcesUninstalled is a helper function to check list of gvk resources matched with label are uninstalled
 func checkCPResourcesUninstalled(t *testing.T, cs resource.Cluster, gvkResources []schema.GroupVersionKind, label string) {
 	retry.UntilSuccessOrFail(t, func() error {
 		for _, gvk := range gvkResources {

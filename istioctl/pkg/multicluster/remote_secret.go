@@ -395,8 +395,10 @@ func makeOutputWriter() writer {
 var makeOutputWriterTestHook = makeOutputWriter
 
 // RemoteSecretAuthType is a strongly typed authentication type suitable for use with pflags.Var().
-type RemoteSecretAuthType string
-type SecretType string
+type (
+	RemoteSecretAuthType string
+	SecretType           string
+)
 
 var _ pflag.Value = (*RemoteSecretAuthType)(nil)
 
@@ -495,7 +497,6 @@ func (o *RemoteSecretOptions) addFlags(flagset *pflag.FlagSet) {
 	flagset.Var(&o.Type, "type",
 		fmt.Sprintf("Type of the generated secret. supported values = %v", supportedSecretType))
 	flagset.StringVarP(&o.ManifestsPath, "manifests", "d", "", mesh.ManifestsFlagHelpStr)
-
 }
 
 func (o *RemoteSecretOptions) prepare(flags *pflag.FlagSet) error {

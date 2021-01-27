@@ -27,16 +27,13 @@ import (
 	kubetest "istio.io/istio/pkg/test/kube"
 )
 
-var (
-	settings = &image.Settings{
-		Hub:        "testing.hub",
-		Tag:        "latest",
-		PullPolicy: "Always",
-	}
-)
+var settings = &image.Settings{
+	Hub:        "testing.hub",
+	Tag:        "latest",
+	PullPolicy: "Always",
+}
 
 func TestDeploymentYAML(t *testing.T) {
-
 	testCase := []struct {
 		name         string
 		wantFilePath string

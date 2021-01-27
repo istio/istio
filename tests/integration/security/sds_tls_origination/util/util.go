@@ -350,7 +350,6 @@ spec:
 // Create the DestinationRule for TLS origination at Gateway by reading secret in istio-system namespace.
 func CreateDestinationRule(t *testing.T, serverNamespace namespace.Instance,
 	destinationRuleMode string, credentialName string) bytes.Buffer {
-
 	destinationRuleToParse := DestinationRuleConfig
 
 	tmpl, err := template.New("DestinationRule").Parse(destinationRuleToParse)
@@ -359,8 +358,10 @@ func CreateDestinationRule(t *testing.T, serverNamespace namespace.Instance,
 	}
 
 	var buf bytes.Buffer
-	if err := tmpl.Execute(&buf, map[string]string{"ServerNamespace": serverNamespace.Name(),
-		"Mode": destinationRuleMode, "CredentialName": credentialName}); err != nil {
+	if err := tmpl.Execute(&buf, map[string]string{
+		"ServerNamespace": serverNamespace.Name(),
+		"Mode":            destinationRuleMode, "CredentialName": credentialName,
+	}); err != nil {
 		t.Fatalf("failed to create template: %v", err)
 	}
 	return buf

@@ -48,7 +48,7 @@ func TestFetch(t *testing.T) {
 	for _, tt := range tests {
 		outdir := filepath.Join(server.Root, "testout")
 		os.RemoveAll(outdir)
-		os.Mkdir(outdir, 0755)
+		os.Mkdir(outdir, 0o755)
 		fq := NewURLFetcher(server.URL()+"/"+tt.installationPackageName, tmp+"/testout")
 
 		err = fq.Fetch()

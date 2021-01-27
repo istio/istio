@@ -27,9 +27,7 @@ import (
 	"istio.io/istio/tests/integration/multicluster"
 )
 
-var (
-	ist istio.Instance
-)
+var ist istio.Instance
 
 func TestMain(m *testing.M) {
 	framework.

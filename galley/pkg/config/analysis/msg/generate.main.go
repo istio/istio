@@ -27,8 +27,10 @@ import (
 	"github.com/ghodss/yaml"
 )
 
-const codeRegex = `^IST\d\d\d\d$`
-const nameRegex = `^[[:upper:]]\w*$`
+const (
+	codeRegex = `^IST\d\d\d\d$`
+	nameRegex = `^[[:upper:]]\w*$`
+)
 
 // Utility for generating messages.gen.go. Called from gen.go
 func main() {

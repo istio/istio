@@ -82,7 +82,8 @@ func TestMergeUpdateRequest(t *testing.T) {
 				Push:  push0,
 				Start: t0,
 				ConfigsUpdated: map[ConfigKey]struct{}{
-					{Kind: config.GroupVersionKind{Kind: "cfg1"}, Namespace: "ns1"}: {}},
+					{Kind: config.GroupVersionKind{Kind: "cfg1"}, Namespace: "ns1"}: {},
+				},
 				Reason: []TriggerReason{ServiceUpdate, ServiceUpdate},
 			},
 			&PushRequest{
@@ -90,7 +91,8 @@ func TestMergeUpdateRequest(t *testing.T) {
 				Push:  push1,
 				Start: t1,
 				ConfigsUpdated: map[ConfigKey]struct{}{
-					{Kind: config.GroupVersionKind{Kind: "cfg2"}, Namespace: "ns2"}: {}},
+					{Kind: config.GroupVersionKind{Kind: "cfg2"}, Namespace: "ns2"}: {},
+				},
 				Reason: []TriggerReason{EndpointUpdate},
 			},
 			PushRequest{
@@ -99,7 +101,8 @@ func TestMergeUpdateRequest(t *testing.T) {
 				Start: t0,
 				ConfigsUpdated: map[ConfigKey]struct{}{
 					{Kind: config.GroupVersionKind{Kind: "cfg1"}, Namespace: "ns1"}: {},
-					{Kind: config.GroupVersionKind{Kind: "cfg2"}, Namespace: "ns2"}: {}},
+					{Kind: config.GroupVersionKind{Kind: "cfg2"}, Namespace: "ns2"}: {},
+				},
 				Reason: []TriggerReason{ServiceUpdate, ServiceUpdate, EndpointUpdate},
 			},
 		},
@@ -107,7 +110,8 @@ func TestMergeUpdateRequest(t *testing.T) {
 			"skip config type merge: one empty",
 			&PushRequest{Full: true, ConfigsUpdated: nil},
 			&PushRequest{Full: true, ConfigsUpdated: map[ConfigKey]struct{}{{
-				Kind: config.GroupVersionKind{Kind: "cfg2"}}: {}}},
+				Kind: config.GroupVersionKind{Kind: "cfg2"},
+			}: {}}},
 			PushRequest{Full: true, ConfigsUpdated: nil, Reason: []TriggerReason{}},
 		},
 	}
@@ -509,13 +513,14 @@ func TestInitPushContext(t *testing.T) {
 
 	env.IstioConfigStore = &store
 	env.ServiceDiscovery = &localServiceDiscovery{
-		services: []*Service{{
-			Hostname: "svc1",
-			Ports:    allPorts,
-			Attributes: ServiceAttributes{
-				Namespace: "test1",
+		services: []*Service{
+			{
+				Hostname: "svc1",
+				Ports:    allPorts,
+				Attributes: ServiceAttributes{
+					Namespace: "test1",
+				},
 			},
-		},
 			{
 				Hostname: "svc2",
 				Ports:    allPorts,
@@ -523,7 +528,8 @@ func TestInitPushContext(t *testing.T) {
 					Namespace: "test1",
 					ExportTo:  map[visibility.Instance]bool{visibility.Public: true},
 				},
-			}},
+			},
+		},
 		serviceInstances: []*ServiceInstance{{
 			Endpoint: &IstioEndpoint{
 				Address:      "192.168.1.2",
@@ -909,8 +915,10 @@ func TestSetDestinationRuleWithExportTo(t *testing.T) {
 			},
 		},
 	}
-	ps.SetDestinationRules([]config.Config{destinationRuleNamespace1, destinationRuleNamespace2,
-		destinationRuleNamespace3, destinationRuleRootNamespace, destinationRuleRootNamespaceLocal})
+	ps.SetDestinationRules([]config.Config{
+		destinationRuleNamespace1, destinationRuleNamespace2,
+		destinationRuleNamespace3, destinationRuleRootNamespace, destinationRuleRootNamespaceLocal,
+	})
 	cases := []struct {
 		proxyNs     string
 		serviceNs   string
@@ -1154,18 +1162,22 @@ func TestServiceWithExportTo(t *testing.T) {
 		Hostname: "svc2",
 		Attributes: ServiceAttributes{
 			Namespace: "test2",
-			ExportTo: map[visibility.Instance]bool{visibility.Instance("test1"): true,
+			ExportTo: map[visibility.Instance]bool{
+				visibility.Instance("test1"): true,
 				visibility.Instance("ns1"):   true,
-				visibility.Instance("test2"): true},
+				visibility.Instance("test2"): true,
+			},
 		},
 	}
 	svc3 := &Service{
 		Hostname: "svc3",
 		Attributes: ServiceAttributes{
 			Namespace: "test3",
-			ExportTo: map[visibility.Instance]bool{visibility.Instance("test1"): true,
+			ExportTo: map[visibility.Instance]bool{
+				visibility.Instance("test1"): true,
 				visibility.Public:            true,
-				visibility.Instance("test2"): true},
+				visibility.Instance("test2"): true,
+			},
 		},
 	}
 	svc4 := &Service{

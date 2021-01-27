@@ -178,7 +178,8 @@ func SetupApps(ctx resource.Context, i istio.Instance, apps *EchoDeployments) er
 				{
 					Annotations: map[echo.Annotation]*echo.AnnotationValue{
 						echo.SidecarInject: {
-							Value: strconv.FormatBool(false)},
+							Value: strconv.FormatBool(false),
+						},
 					},
 				},
 			},
@@ -193,7 +194,8 @@ func SetupApps(ctx resource.Context, i istio.Instance, apps *EchoDeployments) er
 				{
 					Annotations: map[echo.Annotation]*echo.AnnotationValue{
 						echo.SidecarInject: {
-							Value: strconv.FormatBool(false)},
+							Value: strconv.FormatBool(false),
+						},
 					},
 				},
 			},

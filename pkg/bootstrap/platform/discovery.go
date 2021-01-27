@@ -19,8 +19,10 @@ import (
 	"time"
 )
 
-const defaultTimeout = 5 * time.Second
-const numPlatforms = 3
+const (
+	defaultTimeout = 5 * time.Second
+	numPlatforms   = 3
+)
 
 // Discover attempts to discover the host platform, defaulting to
 // `Unknown` if a platform cannot be discovered.

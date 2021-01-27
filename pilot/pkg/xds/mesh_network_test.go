@@ -278,7 +278,6 @@ func TestMeshNetworking(t *testing.T) {
 						meshNetworkConfig: networkConfig,
 						kubeObjects:       ingressObjects,
 					})
-
 				})
 			}
 		})

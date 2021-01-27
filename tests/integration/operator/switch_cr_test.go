@@ -140,7 +140,6 @@ func TestController(t *testing.T) {
 				}
 				return nil
 			}, retry.Timeout(retryTimeOut), retry.Delay(retryDelay))
-
 		})
 }
 
@@ -395,5 +394,4 @@ func revName(name, revision string) string {
 		return name
 	}
 	return name + "-" + revision
-
 }

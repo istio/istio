@@ -232,8 +232,10 @@ func (h *HelmReconciler) GetPrunedResources(revision string, includeClusterResou
 // And it is needed to remove the IstioOperator CRD.
 func (h *HelmReconciler) getIstioOperatorCR() *unstructured.UnstructuredList {
 	objects := &unstructured.UnstructuredList{}
-	objects.SetGroupVersionKind(schema.GroupVersionKind{Group: "install.istio.io",
-		Version: "v1alpha1", Kind: name.IstioOperatorStr})
+	objects.SetGroupVersionKind(schema.GroupVersionKind{
+		Group:   "install.istio.io",
+		Version: "v1alpha1", Kind: name.IstioOperatorStr,
+	})
 	if err := h.client.List(context.TODO(), objects); err != nil {
 		scope.Errorf("failed to list IstioOperator CR: %v", err)
 	}

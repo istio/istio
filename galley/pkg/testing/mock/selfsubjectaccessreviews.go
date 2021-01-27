@@ -59,7 +59,6 @@ func (i *SelfSubjectAccessReviewImpl) Create(ctx context.Context, sar *authoriza
 // CreateContext implements authorizationv1.SelfSubjectAccessReviewInterface
 func (i *SelfSubjectAccessReviewImpl) CreateContext(ctx context.Context,
 	sar *authorizationapi.SelfSubjectAccessReview) (result *authorizationapi.SelfSubjectAccessReview, err error) {
-
 	panic("not implemented")
 }
 

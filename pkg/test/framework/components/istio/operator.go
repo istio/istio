@@ -82,9 +82,11 @@ type operatorComponent struct {
 	deployTime time.Duration
 }
 
-var _ io.Closer = &operatorComponent{}
-var _ Instance = &operatorComponent{}
-var _ resource.Dumper = &operatorComponent{}
+var (
+	_ io.Closer       = &operatorComponent{}
+	_ Instance        = &operatorComponent{}
+	_ resource.Dumper = &operatorComponent{}
+)
 
 // ID implements resource.Instance
 func (i *operatorComponent) ID() resource.ID {
@@ -152,7 +154,7 @@ func (i *operatorComponent) CustomIngressFor(cluster resource.Cluster, serviceNa
 }
 
 func appendToFile(contents string, file string) error {
-	f, err := os.OpenFile(file, os.O_APPEND|os.O_WRONLY|os.O_CREATE, 0600)
+	f, err := os.OpenFile(file, os.O_APPEND|os.O_WRONLY|os.O_CREATE, 0o600)
 	if err != nil {
 		return err
 	}
@@ -214,18 +216,18 @@ func (i *operatorComponent) Close() error {
 
 func (i *operatorComponent) dumpGeneratedManifests() {
 	manifestsDir := path.Join(i.workDir, "manifests")
-	if err := os.Mkdir(manifestsDir, 0700); err != nil {
+	if err := os.Mkdir(manifestsDir, 0o700); err != nil {
 		scopes.Framework.Errorf("Unable to create directory for dumping install manifests: %v", err)
 		return
 	}
 	for clusterName, manifests := range i.installManifest {
 		clusterDir := path.Join(manifestsDir, clusterName)
-		if err := os.Mkdir(manifestsDir, 0700); err != nil {
+		if err := os.Mkdir(manifestsDir, 0o700); err != nil {
 			scopes.Framework.Errorf("Unable to create directory for dumping %s install manifests: %v", clusterName, err)
 			return
 		}
 		for i, manifest := range manifests {
-			err := ioutil.WriteFile(path.Join(clusterDir, "manifest-"+strconv.Itoa(i)+".yaml"), []byte(manifest), 0644)
+			err := ioutil.WriteFile(path.Join(clusterDir, "manifest-"+strconv.Itoa(i)+".yaml"), []byte(manifest), 0o644)
 			if err != nil {
 				scopes.Framework.Errorf("Failed writing manifest %d/%d in %s: %v", i, len(manifests)-1, clusterName, err)
 			}
@@ -428,7 +430,7 @@ func initIOPFile(cfg Config, iopFile string, valuesYaml string) (*opAPI.IstioOpe
 	if err := gogoprotomarshal.ApplyYAML(operatorYaml, operatorCfg); err != nil {
 		return nil, fmt.Errorf("failed to unmarshal base iop: %v, %v", err, operatorYaml)
 	}
-	var values = &pkgAPI.Values{}
+	values := &pkgAPI.Values{}
 	if operatorCfg.Spec.Values != nil {
 		valuesYml, err := yaml.Marshal(operatorCfg.Spec.Values)
 		if err != nil {
@@ -617,7 +619,6 @@ func installRemoteClusters(i *operatorComponent, cfg Config, cluster resource.Cl
 }
 
 func (i *operatorComponent) generateCommonInstallSettings(cfg Config, cluster resource.Cluster, defaultsIOPFile, iopFile string) ([]string, error) {
-
 	s, err := image.SettingsFromCommandLine()
 	if err != nil {
 		return nil, err
@@ -728,7 +729,7 @@ func createRemoteSecret(ctx resource.Context, cluster resource.Cluster, cfg Conf
 
 func deployCACerts(workDir string, env *kube.Environment, cfg Config) error {
 	certsDir := filepath.Join(workDir, "cacerts")
-	if err := os.Mkdir(certsDir, 0700); err != nil {
+	if err := os.Mkdir(certsDir, 0o700); err != nil {
 		return err
 	}
 
@@ -740,7 +741,7 @@ func deployCACerts(workDir string, env *kube.Environment, cfg Config) error {
 	for _, cluster := range env.Clusters() {
 		// Create a subdir for the cluster certs.
 		clusterDir := filepath.Join(certsDir, cluster.Name())
-		if err := os.Mkdir(clusterDir, 0700); err != nil {
+		if err := os.Mkdir(clusterDir, 0o700); err != nil {
 			return err
 		}
 

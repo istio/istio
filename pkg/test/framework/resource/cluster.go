@@ -108,7 +108,6 @@ func exclude(exclude ...Cluster) func(Cluster) bool {
 
 func (c Clusters) filterClusters(included func(Cluster) bool,
 	excluded func(Cluster) bool) Clusters {
-
 	var out Clusters
 	for _, cc := range c {
 		if !excluded(cc) && included(cc) {

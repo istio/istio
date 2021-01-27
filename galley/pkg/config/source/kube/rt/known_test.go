@@ -129,7 +129,6 @@ func TestParse(t *testing.T) {
 		}
 		g.Expect(objMeta.GetName()).To(Equal("httpbin"))
 	})
-
 }
 
 func TestExtractObject(t *testing.T) {

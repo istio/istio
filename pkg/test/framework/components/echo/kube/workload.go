@@ -36,9 +36,7 @@ const (
 	appContainerName = "app"
 )
 
-var (
-	_ echo.Workload = &workload{}
-)
+var _ echo.Workload = &workload{}
 
 type workload struct {
 	*client.Instance
@@ -52,7 +50,6 @@ type workload struct {
 
 func newWorkload(pod kubeCore.Pod, sidecared bool, grpcPort uint16, cluster resource.Cluster,
 	tls *common.TLSSettings, ctx resource.Context) (*workload, error) {
-
 	// Create a forwarder to the command port of the app.
 	var forwarder istioKube.PortForwarder
 	if err := retry.UntilSuccess(func() error {

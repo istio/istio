@@ -39,9 +39,7 @@ const (
 	bearerTokenPrefix = "Bearer "
 )
 
-var (
-	citadelClientLog = log.RegisterScope("citadelclient", "citadel client debugging", 0)
-)
+var citadelClientLog = log.RegisterScope("citadelclient", "citadel client debugging", 0)
 
 type CitadelClient struct {
 	enableTLS     bool

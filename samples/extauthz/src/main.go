@@ -53,8 +53,10 @@ var (
 	denyBody       = fmt.Sprintf("denied by ext_authz for not found header `%s: %s` in the request", checkHeader, allowedValue)
 )
 
-type extAuthzServerV2 struct{}
-type extAuthzServerV3 struct{}
+type (
+	extAuthzServerV2 struct{}
+	extAuthzServerV3 struct{}
+)
 
 // ExtAuthzServer implements the ext_authz v2/v3 gRPC and HTTP check request API.
 type ExtAuthzServer struct {
@@ -73,7 +75,7 @@ func (s *extAuthzServerV2) Check(ctx context.Context, request *authv2.CheckReque
 		request.GetAttributes().GetRequest().GetHttp().GetHost(),
 		request.GetAttributes().GetRequest().GetHttp().GetPath(),
 		request.GetAttributes())
-	if allowedValue == request.GetAttributes().GetRequest().GetHttp().GetHeaders()[checkHeader] || strings.HasSuffix(request.GetAttributes().Source.Principal, "/sa/" + *serviceAccount) {
+	if allowedValue == request.GetAttributes().GetRequest().GetHttp().GetHeaders()[checkHeader] || strings.HasSuffix(request.GetAttributes().Source.Principal, "/sa/"+*serviceAccount) {
 		log.Printf("[gRPCv2][allowed]: %s", l)
 		return &authv2.CheckResponse{
 			HttpResponse: &authv2.CheckResponse_OkResponse{
@@ -118,7 +120,7 @@ func (s *extAuthzServerV3) Check(ctx context.Context, request *authv3.CheckReque
 		request.GetAttributes().GetRequest().GetHttp().GetHost(),
 		request.GetAttributes().GetRequest().GetHttp().GetPath(),
 		request.GetAttributes())
-	if allowedValue == request.GetAttributes().GetRequest().GetHttp().GetHeaders()[checkHeader]  || strings.HasSuffix(request.GetAttributes().Source.Principal, "/sa/" + *serviceAccount) {
+	if allowedValue == request.GetAttributes().GetRequest().GetHttp().GetHeaders()[checkHeader] || strings.HasSuffix(request.GetAttributes().Source.Principal, "/sa/"+*serviceAccount) {
 		log.Printf("[gRPCv3][allowed]: %s", l)
 		return &authv3.CheckResponse{
 			HttpResponse: &authv3.CheckResponse_OkResponse{

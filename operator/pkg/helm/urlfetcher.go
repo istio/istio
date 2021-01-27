@@ -110,7 +110,7 @@ func DownloadTo(srcURL, dest string) (string, error) {
 
 	name := filepath.Base(u.Path)
 	destFile := filepath.Join(dest, name)
-	if err := ioutil.WriteFile(destFile, data, 0666); err != nil {
+	if err := ioutil.WriteFile(destFile, data, 0o666); err != nil {
 		return destFile, err
 	}
 

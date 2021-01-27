@@ -140,7 +140,7 @@ func (ts *testState) testSetup(t *testing.T) {
 	}
 
 	for name, content := range ts.ConfigFiles {
-		err = ioutil.WriteFile(filepath.Join(ts.rootPath, name), content, 0600)
+		err = ioutil.WriteFile(filepath.Join(ts.rootPath, name), content, 0o600)
 		if err != nil {
 			t.Fatal(err)
 		}

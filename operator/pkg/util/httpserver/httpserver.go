@@ -62,7 +62,7 @@ func (s *Server) MoveFiles(origin string) ([]string, error) {
 			return []string{}, err
 		}
 		newName := filepath.Join(s.Root, filepath.Base(file))
-		if err := ioutil.WriteFile(newName, data, 0755); err != nil {
+		if err := ioutil.WriteFile(newName, data, 0o755); err != nil {
 			return []string{}, err
 		}
 		tmpFiles[i] = newName

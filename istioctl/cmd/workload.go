@@ -67,7 +67,7 @@ var (
 )
 
 const (
-	filePerms = os.FileMode(0744)
+	filePerms = os.FileMode(0o744)
 )
 
 func workloadCommands() *cobra.Command {

@@ -50,14 +50,12 @@ import (
 	"istio.io/istio/pkg/test/env"
 )
 
-var (
-	testMesh = meshconfig.MeshConfig{
-		ConnectTimeout: &types.Duration{
-			Seconds: 10,
-			Nanos:   1,
-		},
-	}
-)
+var testMesh = meshconfig.MeshConfig{
+	ConnectTimeout: &types.Duration{
+		Seconds: 10,
+		Nanos:   1,
+	},
+}
 
 func buildEnvoyFilterConfigStore(configPatches []*networking.EnvoyFilter_EnvoyConfigObjectPatch) model.IstioConfigStore {
 	store := model.MakeIstioStore(memory.Make(collections.Pilot))
@@ -803,7 +801,8 @@ func TestApplyListenerPatches(t *testing.T) {
 			FilterChains: []*listener.FilterChain{
 				{
 					Filters: []*listener.Filter{
-						{Name: "envoy.redis_proxy",
+						{
+							Name: "envoy.redis_proxy",
 							ConfigType: &listener.Filter_TypedConfig{
 								TypedConfig: util.MessageToAny(&redis_proxy.RedisProxy{
 									StatPrefix: "redis_stats",
@@ -1122,7 +1121,8 @@ func TestApplyListenerPatches(t *testing.T) {
 							ConfigType: &listener.Filter_TypedConfig{
 								TypedConfig: util.MessageToAny(&http_conn.HttpConnectionManager{
 									HttpFilters: []*http_conn.HttpFilter{
-										{Name: wellknown.Fault,
+										{
+											Name:       wellknown.Fault,
 											ConfigType: &http_conn.HttpFilter_TypedConfig{TypedConfig: faultFilterInAny},
 										},
 										{Name: "http-filter2"},
@@ -1200,7 +1200,8 @@ func TestApplyListenerPatches(t *testing.T) {
 									MergeSlashes:                 true,
 									AlwaysSetRequestIdInResponse: true,
 									HttpFilters: []*http_conn.HttpFilter{
-										{Name: wellknown.Fault,
+										{
+											Name:       wellknown.Fault,
 											ConfigType: &http_conn.HttpFilter_TypedConfig{TypedConfig: faultFilterOutAny},
 										},
 										{Name: "http-filter3"},
@@ -1228,7 +1229,8 @@ func TestApplyListenerPatches(t *testing.T) {
 						},
 					},
 					Filters: []*listener.Filter{
-						{Name: "envoy.redis_proxy",
+						{
+							Name: "envoy.redis_proxy",
 							ConfigType: &listener.Filter_TypedConfig{
 								TypedConfig: util.MessageToAny(&redis_proxy.RedisProxy{
 									StatPrefix: "redis_stats",

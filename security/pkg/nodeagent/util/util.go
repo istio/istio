@@ -76,17 +76,17 @@ func OutputKeyCertToDir(dir string, privateKey, certChain, rootCert []byte) erro
 	}
 
 	if privateKey != nil {
-		if err := file.AtomicWrite(path.Join(dir, "key.pem"), privateKey, os.FileMode(0600)); err != nil {
+		if err := file.AtomicWrite(path.Join(dir, "key.pem"), privateKey, os.FileMode(0o600)); err != nil {
 			return fmt.Errorf("failed to write private key to file: %v", err)
 		}
 	}
 	if certChain != nil {
-		if err := file.AtomicWrite(path.Join(dir, "cert-chain.pem"), certChain, os.FileMode(0600)); err != nil {
+		if err := file.AtomicWrite(path.Join(dir, "cert-chain.pem"), certChain, os.FileMode(0o600)); err != nil {
 			return fmt.Errorf("failed to write cert chain to file: %v", err)
 		}
 	}
 	if rootCert != nil {
-		if err := file.AtomicWrite(path.Join(dir, "root-cert.pem"), rootCert, os.FileMode(0600)); err != nil {
+		if err := file.AtomicWrite(path.Join(dir, "root-cert.pem"), rootCert, os.FileMode(0o600)); err != nil {
 			return fmt.Errorf("failed to write root cert to file: %v", err)
 		}
 	}

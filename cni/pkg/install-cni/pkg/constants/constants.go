@@ -37,7 +37,7 @@ var (
 	HostCNIBinDir         = "/host/opt/cni/bin"
 	SecondaryBinDir       = "/host/secondary-bin-dir"
 	ServiceAccountPath    = "/var/run/secrets/kubernetes.io/serviceaccount"
-	DefaultKubeconfigMode = 0600
+	DefaultKubeconfigMode = 0o600
 
 	// K8s liveness and readiness endpoints
 	LivenessEndpoint  = "/healthz"
