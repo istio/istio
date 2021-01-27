@@ -1642,8 +1642,39 @@ func TestValidateHTTPRewrite(t *testing.T) {
 			valid: true,
 		},
 		{
-			name:  "no uri or authority",
+			name:  "no uriRegex, uri or authority",
 			in:    &networking.HTTPRewrite{},
+			valid: false,
+		},
+		{
+			name: "uriRegex and uri",
+			in: &networking.HTTPRewrite{
+				UriRegex: &networking.RegexMatchAndSubstitute{
+					Pattern:      "[aeioe]",
+					Substitution: "V",
+				},
+				Uri: "/foo",
+			},
+			valid: false,
+		},
+		{
+			name: "valid regex",
+			in: &networking.HTTPRewrite{
+				UriRegex: &networking.RegexMatchAndSubstitute{
+					Pattern:      "[aeioe]",
+					Substitution: "V",
+				},
+			},
+			valid: true,
+		},
+		{
+			name: "invalid regex",
+			in: &networking.HTTPRewrite{
+				UriRegex: &networking.RegexMatchAndSubstitute{
+					Pattern:      "[aeioe",
+					Substitution: "V",
+				},
+			},
 			valid: false,
 		},
 	}

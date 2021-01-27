@@ -2234,8 +2234,16 @@ func validateHTTPRedirect(redirect *networking.HTTPRedirect) error {
 }
 
 func validateHTTPRewrite(rewrite *networking.HTTPRewrite) error {
-	if rewrite != nil && rewrite.Uri == "" && rewrite.Authority == "" {
-		return errors.New("rewrite must specify URI, authority, or both")
+	if rewrite != nil && rewrite.GetUriRegex() != nil && rewrite.Uri != "" {
+		return errors.New("only one of UriRegex or Uri is allowed in rewrite")
+	}
+	if rewrite != nil && rewrite.GetUriRegex() != nil {
+		if _, err := regexp.Compile(rewrite.GetUriRegex().Pattern); err != nil {
+			return fmt.Errorf("uriRegex: %w; Istio uses RE2 style regex-based match (https://github.com/google/re2/wiki/Syntax)", err)
+		}
+	}
+	if rewrite != nil && rewrite.GetUriRegex() == nil && rewrite.Uri == "" && rewrite.Authority == "" {
+		return errors.New("rewrite must specify at least one of UriRegex, Uri and authority, except the case that both UriRegex and Uri are specified")
 	}
 	return nil
 }

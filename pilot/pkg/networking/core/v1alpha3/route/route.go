@@ -435,7 +435,8 @@ func translateRoute(push *model.PushContext, node *model.Proxy, in *networking.H
 		out.Action = &route.Route_Route{Route: action}
 
 		if rewrite := in.Rewrite; rewrite != nil {
-			//TODO: Error handling as either of prefix_rewrite or regex_rewrite is supported
+			// Only one of RegexRewrite or PrefixRewrite may be specified. If UriRegex policy is not nil,
+			// we ignore Uri and use UriRegex for rewrite.
 			if regexRewrite := rewrite.GetUriRegex(); regexRewrite != nil {
 				action.RegexRewrite = &matcher.RegexMatchAndSubstitute{
 					Pattern: &matcher.RegexMatcher{
