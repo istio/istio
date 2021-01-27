@@ -425,7 +425,7 @@ func generateYAMLWithSettings(cfg echo.Config,
 			return "", "", err
 		}
 		secret := unstructured.Unstructured{Object: map[string]interface{}{}}
-		if err := yaml.Unmarshal(data, &secret); err != nil {
+		if err := yaml.Unmarshal(data, secret.Object); err != nil {
 			return "", "", err
 		}
 		imagePullSecret = secret.GetName()
