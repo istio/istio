@@ -26,6 +26,7 @@ import (
 	"os"
 	"path"
 	"reflect"
+	"strings"
 	"sync"
 	"time"
 
@@ -148,6 +149,11 @@ type Server struct {
 	// httpsMux listens on the httpsAddr(15017), handling webhooks
 	// If the address os empty, the webhooks will be set on the default httpPort.
 	httpsMux *http.ServeMux // webhooks
+
+	// MUXListener uses CMUX to detect GRPC, HTTP2 and HTTP/1.1.
+	// Enabled if grpc port is disabled, for cases where Istiod is behind a LB or infrastructure that multiplexes
+	// the ports. In this case the other listeners will be 'virtual', provided by CMUX.
+	MUXListener net.Listener
 
 	HTTPListener       net.Listener
 	HTTP2Listener      net.Listener
@@ -429,8 +435,17 @@ func (s *Server) Start(stop <-chan struct{}) error {
 			log.Infof("starting Http2 muxed service at %s", s.HTTP2Listener.Addr())
 			h2s := &http2.Server{}
 			h1s := &http.Server{
-				Addr:    ":8080",
-				Handler: h2c.NewHandler(s.httpMux, h2s),
+				Addr: ":8080",
+				Handler: h2c.NewHandler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+					if r.ProtoMajor == 2 && strings.HasPrefix(
+						r.Header.Get("content-type"), "application/grpc") {
+						// Temp, to debug cmux. Should not happen - but it does.
+						log.Infoa("GRPC ", r.Proto, " ", r.RequestURI)
+						s.grpcServer.ServeHTTP(w, r)
+						return
+					}
+					s.httpMux.ServeHTTP(w, r)
+				}), h2s),
 			}
 			if err := h1s.Serve(s.HTTP2Listener); err != nil && err != http.ErrServerClosed {
 				log.Errorf("error serving http server: %v", err)
@@ -553,7 +568,7 @@ func (s *Server) initIstiodAdminServer(args *PilotArgs, wh *inject.Webhook) erro
 		Handler: s.httpMux,
 	}
 
-	// create http listener
+	// create http listener. If CMUX is used - this will be the main port, multiplexing gRPC as well.
 	listener, err := net.Listen("tcp", args.ServerOptions.HTTPAddr)
 	if err != nil {
 		return err
@@ -589,7 +604,11 @@ func (s *Server) initIstiodAdminServer(args *PilotArgs, wh *inject.Webhook) erro
 	// Readiness Handler.
 	s.httpMux.HandleFunc("/ready", s.istiodReadyHandler)
 
-	s.HTTPListener = listener
+	if args.ServerOptions.GRPCAddr == "" {
+		s.MUXListener = listener
+	} else {
+		s.HTTPListener = listener
+	}
 	return nil
 }
 
@@ -614,8 +633,12 @@ func (s *Server) initDiscoveryService(args *PilotArgs) {
 	} else if s.GRPCListener == nil {
 		// This happens only if the GRPC port (15010) is disabled. We will multiplex
 		// it on the HTTP port. Does not impact the HTTPS gRPC or HTTPS.
-		log.Info("multplexing gRPC on http port ", s.HTTPListener.Addr())
-		m := cmux.New(s.HTTPListener)
+		if s.MUXListener == nil {
+			s.MUXListener = s.HTTPListener
+			log.Info("multplexing gRPC on http listener ", s.HTTPListener.Addr())
+		}
+		log.Info("multplexing gRPC on http port ", s.MUXListener.Addr())
+		m := cmux.New(s.MUXListener)
 		s.GRPCListener = m.Match(cmux.HTTP2HeaderField("content-type", "application/grpc"))
 		s.HTTP2Listener = m.Match(cmux.HTTP2())
 		s.HTTPListener = m.Match(cmux.Any())
@@ -1165,7 +1188,7 @@ func (s *Server) startCA(caOpts *caOptions) {
 			log.Infof("Starting RA")
 			s.RunCA(grpcServer, s.RA, caOpts)
 		} else if s.CA != nil {
-			log.Infof("Starting IstioD CA")
+			log.Infoa("Starting IstioD CA ", s.secureGrpcServer)
 			s.RunCA(grpcServer, s.CA, caOpts)
 		}
 		return nil
