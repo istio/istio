@@ -52,6 +52,7 @@ const (
 func TestCustomizeMetrics(t *testing.T) {
 	framework.NewTest(t).
 		Features("observability.telemetry.stats.prometheus.customize-metric").
+		Features("observability.telemetry.request-classification").
 		Run(func(ctx framework.TestContext) {
 			httpDestinationQuery := buildQuery(httpProtocol)
 			grpcDestinationQuery := buildQuery(grpcProtocol)
