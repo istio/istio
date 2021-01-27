@@ -38,6 +38,9 @@ const (
 	// LocalSDS is the location of the in-process SDS server - must be in a writeable dir.
 	DefaultLocalSDSPath = "./etc/istio/proxy/SDS"
 
+	// SystemRootCerts is special case input for root cert configuration to use system root certificates.
+	SystemRootCerts = "SYSTEM"
+
 	// Credential fetcher type
 	GCE  = "GoogleComputeEngine"
 	Mock = "Mock" // testing only
