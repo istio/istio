@@ -17,7 +17,6 @@ package kube
 import (
 	"bufio"
 	"fmt"
-
 	"io/ioutil"
 	"strings"
 	"text/template"
