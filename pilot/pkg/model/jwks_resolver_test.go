@@ -68,9 +68,6 @@ func TestResolveJwksURIUsingOpenID(t *testing.T) {
 				c.in, c.expectedJwksURI, jwksURI)
 		}
 	}
-	jwksURI, err := r.resolveJwksURIUsingOpenID("http://xyz")
-	t.Logf("jwks: %s, err: %s", jwksURI, err)
-	t.Logf("%v", r.keyEntries)
 
 	// Verify mock openID discovery http://localhost:9999/.well-known/openid-configuration was called twice.
 	if got, want := ms.OpenIDHitNum, uint64(2); got != want {
@@ -159,7 +156,13 @@ func TestGetPublicKeyReorderedKey(t *testing.T) {
 }
 
 func TestGetPublicKeyUsingTLS(t *testing.T) {
-	r := newJwksResolverWithCABundlePaths(JwtPubKeyEvictionDuration, JwtPubKeyRefreshInterval, JwtPubKeyRefreshIntervalOnFailure, testRetryInterval, []string{"./test/testcert/cert.pem"})
+	r := newJwksResolverWithCABundlePaths(
+		JwtPubKeyEvictionDuration,
+		JwtPubKeyRefreshInterval,
+		JwtPubKeyRefreshIntervalOnFailure,
+		testRetryInterval,
+		[]string{"./test/testcert/cert.pem"},
+	)
 	defer r.Close()
 
 	ms, err := test.StartNewTLSServer("./test/testcert/cert.pem", "./test/testcert/key.pem")
