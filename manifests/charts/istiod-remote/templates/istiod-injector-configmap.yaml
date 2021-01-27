@@ -21,9 +21,11 @@ data:
   # to fine tune it or use it with kube-inject.
   config: |-
     # defaultTemplates defines the default template to use for pods that do not explicitly specify a template
-    # NOTE: this currently only allows a single element
     {{- if .Values.sidecarInjectorWebhook.defaultTemplates }}
-    defaultTemplates: {{ .Values.sidecarInjectorWebhook.defaultTemplates }}
+    defaultTemplates:
+{{- range .Values.sidecarInjectorWebhook.defaultTemplates}}
+    - {{ . }}
+{{- end }}
     {{- else }}
     defaultTemplates: [sidecar]
     {{- end }}

@@ -2249,8 +2249,9 @@ func TestBuildUpstreamClusterTLSContext(t *testing.T) {
 								SdsConfig: &core.ConfigSource{
 									ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
 										ApiConfigSource: &core.ApiConfigSource{
-											ApiType:             core.ApiConfigSource_GRPC,
-											TransportApiVersion: core.ApiVersion_V3,
+											ApiType:                   core.ApiConfigSource_GRPC,
+											SetNodeOnFirstMessageOnly: true,
+											TransportApiVersion:       core.ApiVersion_V3,
 											GrpcServices: []*core.GrpcService{
 												{
 													TargetSpecifier: &core.GrpcService_EnvoyGrpc_{
@@ -2272,8 +2273,9 @@ func TestBuildUpstreamClusterTLSContext(t *testing.T) {
 									SdsConfig: &core.ConfigSource{
 										ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
 											ApiConfigSource: &core.ApiConfigSource{
-												ApiType:             core.ApiConfigSource_GRPC,
-												TransportApiVersion: core.ApiVersion_V3,
+												ApiType:                   core.ApiConfigSource_GRPC,
+												SetNodeOnFirstMessageOnly: true,
+												TransportApiVersion:       core.ApiVersion_V3,
 												GrpcServices: []*core.GrpcService{
 													{
 														TargetSpecifier: &core.GrpcService_EnvoyGrpc_{
@@ -2322,8 +2324,9 @@ func TestBuildUpstreamClusterTLSContext(t *testing.T) {
 								SdsConfig: &core.ConfigSource{
 									ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
 										ApiConfigSource: &core.ApiConfigSource{
-											ApiType:             core.ApiConfigSource_GRPC,
-											TransportApiVersion: core.ApiVersion_V3,
+											ApiType:                   core.ApiConfigSource_GRPC,
+											SetNodeOnFirstMessageOnly: true,
+											TransportApiVersion:       core.ApiVersion_V3,
 											GrpcServices: []*core.GrpcService{
 												{
 													TargetSpecifier: &core.GrpcService_EnvoyGrpc_{
@@ -2345,8 +2348,9 @@ func TestBuildUpstreamClusterTLSContext(t *testing.T) {
 									SdsConfig: &core.ConfigSource{
 										ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
 											ApiConfigSource: &core.ApiConfigSource{
-												ApiType:             core.ApiConfigSource_GRPC,
-												TransportApiVersion: core.ApiVersion_V3,
+												ApiType:                   core.ApiConfigSource_GRPC,
+												SetNodeOnFirstMessageOnly: true,
+												TransportApiVersion:       core.ApiVersion_V3,
 												GrpcServices: []*core.GrpcService{
 													{
 														TargetSpecifier: &core.GrpcService_EnvoyGrpc_{
@@ -2420,8 +2424,9 @@ func TestBuildUpstreamClusterTLSContext(t *testing.T) {
 									SdsConfig: &core.ConfigSource{
 										ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
 											ApiConfigSource: &core.ApiConfigSource{
-												ApiType:             core.ApiConfigSource_GRPC,
-												TransportApiVersion: core.ApiVersion_V3,
+												ApiType:                   core.ApiConfigSource_GRPC,
+												SetNodeOnFirstMessageOnly: true,
+												TransportApiVersion:       core.ApiVersion_V3,
 												GrpcServices: []*core.GrpcService{
 													{
 														TargetSpecifier: &core.GrpcService_EnvoyGrpc_{
@@ -2471,8 +2476,9 @@ func TestBuildUpstreamClusterTLSContext(t *testing.T) {
 									SdsConfig: &core.ConfigSource{
 										ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
 											ApiConfigSource: &core.ApiConfigSource{
-												ApiType:             core.ApiConfigSource_GRPC,
-												TransportApiVersion: core.ApiVersion_V3,
+												ApiType:                   core.ApiConfigSource_GRPC,
+												SetNodeOnFirstMessageOnly: true,
+												TransportApiVersion:       core.ApiVersion_V3,
 												GrpcServices: []*core.GrpcService{
 													{
 														TargetSpecifier: &core.GrpcService_EnvoyGrpc_{
@@ -2524,8 +2530,9 @@ func TestBuildUpstreamClusterTLSContext(t *testing.T) {
 									SdsConfig: &core.ConfigSource{
 										ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
 											ApiConfigSource: &core.ApiConfigSource{
-												ApiType:             core.ApiConfigSource_GRPC,
-												TransportApiVersion: core.ApiVersion_V3,
+												ApiType:                   core.ApiConfigSource_GRPC,
+												SetNodeOnFirstMessageOnly: true,
+												TransportApiVersion:       core.ApiVersion_V3,
 												GrpcServices: []*core.GrpcService{
 													{
 														TargetSpecifier: &core.GrpcService_EnvoyGrpc_{
@@ -2607,8 +2614,9 @@ func TestBuildUpstreamClusterTLSContext(t *testing.T) {
 								SdsConfig: &core.ConfigSource{
 									ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
 										ApiConfigSource: &core.ApiConfigSource{
-											ApiType:             core.ApiConfigSource_GRPC,
-											TransportApiVersion: core.ApiVersion_V3,
+											ApiType:                   core.ApiConfigSource_GRPC,
+											SetNodeOnFirstMessageOnly: true,
+											TransportApiVersion:       core.ApiVersion_V3,
 											GrpcServices: []*core.GrpcService{
 												{
 													TargetSpecifier: &core.GrpcService_EnvoyGrpc_{
@@ -2657,8 +2665,9 @@ func TestBuildUpstreamClusterTLSContext(t *testing.T) {
 								SdsConfig: &core.ConfigSource{
 									ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
 										ApiConfigSource: &core.ApiConfigSource{
-											ApiType:             core.ApiConfigSource_GRPC,
-											TransportApiVersion: core.ApiVersion_V3,
+											ApiType:                   core.ApiConfigSource_GRPC,
+											SetNodeOnFirstMessageOnly: true,
+											TransportApiVersion:       core.ApiVersion_V3,
 											GrpcServices: []*core.GrpcService{
 												{
 													TargetSpecifier: &core.GrpcService_EnvoyGrpc_{
@@ -2681,8 +2690,9 @@ func TestBuildUpstreamClusterTLSContext(t *testing.T) {
 									SdsConfig: &core.ConfigSource{
 										ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
 											ApiConfigSource: &core.ApiConfigSource{
-												ApiType:             core.ApiConfigSource_GRPC,
-												TransportApiVersion: core.ApiVersion_V3,
+												ApiType:                   core.ApiConfigSource_GRPC,
+												SetNodeOnFirstMessageOnly: true,
+												TransportApiVersion:       core.ApiVersion_V3,
 												GrpcServices: []*core.GrpcService{
 													{
 														TargetSpecifier: &core.GrpcService_EnvoyGrpc_{
