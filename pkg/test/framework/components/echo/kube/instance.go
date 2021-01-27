@@ -105,7 +105,7 @@ func newInstance(ctx resource.Context, originalCfg echo.Config) (out *instance, 
 
 	if cfg.DeployAsVM {
 		if err := createVMConfig(ctx, c, cfg); err != nil {
-			return nil, err
+			return nil, fmt.Errorf("failed creating config for vm: %v", err)
 		}
 	}
 
@@ -183,7 +183,7 @@ spec:
       app: {{.name}}
   template:
     serviceAccount: {{.serviceaccount}}
-    network: {{.network}}
+    network: "{{.network}}"
   probe:
     failureThreshold: 5
     httpGet:

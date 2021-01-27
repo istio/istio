@@ -95,6 +95,7 @@ func RunAllTrafficTests(ctx framework.TestContext, apps *EchoDeployments) {
 	cases := map[string][]TrafficTestCase{}
 	cases["virtualservice"] = virtualServiceCases(apps)
 	cases["sniffing"] = protocolSniffingCases(apps)
+	cases["selfcall"] = selfCallsCases(apps)
 	cases["serverfirst"] = serverFirstTestCases(apps)
 	cases["gateway"] = gatewayCases(apps)
 	cases["loop"] = trafficLoopCases(apps)
@@ -104,6 +105,7 @@ func RunAllTrafficTests(ctx framework.TestContext, apps *EchoDeployments) {
 	if !ctx.Settings().SkipVM {
 		cases["vm"] = VMTestCases(apps.VM, apps)
 	}
+	cases["dns"] = DNSTestCases(apps)
 	for name, tts := range cases {
 		ctx.NewSubTest(name).Run(func(ctx framework.TestContext) {
 			for _, tt := range tts {

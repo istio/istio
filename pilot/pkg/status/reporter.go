@@ -57,7 +57,6 @@ type Reporter struct {
 	// map from nonce to connection ids for which it is current
 	// using map[string]struct to approximate a hashset
 	reverseStatus          map[string]map[string]struct{}
-	dirty                  bool
 	inProgressResources    map[string]*inProgressEntry
 	client                 v1.ConfigMapInterface
 	cm                     *corev1.ConfigMap
@@ -306,7 +305,6 @@ func (r *Reporter) readFromEventQueue() {
 func (r *Reporter) processEvent(conID string, distributionType xds.EventType, nonce string) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
-	r.dirty = true
 	key := conID + distributionType // TODO: delimit?
 	r.deleteKeyFromReverseMap(key)
 	var version string
@@ -340,7 +338,6 @@ func (r *Reporter) deleteKeyFromReverseMap(key string) {
 func (r *Reporter) RegisterDisconnect(conID string, types []xds.EventType) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
-	r.dirty = true
 	for _, xdsType := range types {
 		key := conID + xdsType // TODO: delimit?
 		r.deleteKeyFromReverseMap(key)

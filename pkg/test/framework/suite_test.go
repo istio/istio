@@ -22,6 +22,7 @@ import (
 
 	. "github.com/onsi/gomega"
 
+	"istio.io/istio/pkg/test/framework/components/environment/kube"
 	"istio.io/istio/pkg/test/framework/label"
 	"istio.io/istio/pkg/test/framework/resource"
 )
@@ -54,7 +55,7 @@ func cleanupRT() {
 func newTestSuite(testID string, fn mRunFn, osExit func(int), getSettingsFn getSettingsFunc) *suiteImpl {
 	s := newSuite(testID, fn, osExit, getSettingsFn)
 	s.envFactory = func(ctx resource.Context) (resource.Environment, error) {
-		return resource.FakeEnvironment{}, nil
+		return kube.FakeEnvironment{}, nil
 	}
 	return s
 }
@@ -308,6 +309,71 @@ func TestSuite_SetupFail_Dump(t *testing.T) {
 	g.Expect(runCalled).To(BeFalse())
 }
 
+func TestSuite_Cleanup(t *testing.T) {
+	t.Run("cleanup", func(t *testing.T) {
+		defer cleanupRT()
+		g := NewWithT(t)
+
+		var cleanupCalled bool
+		var conditionalCleanupCalled bool
+		var waitForRun1 sync.WaitGroup
+		waitForRun1.Add(1)
+		runFn := func(ctx *suiteContext) int {
+			waitForRun1.Done()
+			return 0
+		}
+		settings := resource.DefaultSettings()
+		settings.NoCleanup = false
+
+		s := newTestSuite("tid", runFn, defaultExitFn, settingsFn(settings))
+		s.Setup(func(ctx resource.Context) error {
+			ctx.Cleanup(func() {
+				cleanupCalled = true
+			})
+			ctx.ConditionalCleanup(func() {
+				conditionalCleanupCalled = true
+			})
+			return nil
+		})
+		s.Run()
+		waitForRun1.Wait()
+
+		g.Expect(cleanupCalled).To(BeTrue())
+		g.Expect(conditionalCleanupCalled).To(BeTrue())
+	})
+	t.Run("nocleanup", func(t *testing.T) {
+		defer cleanupRT()
+		g := NewWithT(t)
+
+		var cleanupCalled bool
+		var conditionalCleanupCalled bool
+		var waitForRun1 sync.WaitGroup
+		waitForRun1.Add(1)
+		runFn := func(ctx *suiteContext) int {
+			waitForRun1.Done()
+			return 0
+		}
+		settings := resource.DefaultSettings()
+		settings.NoCleanup = true
+
+		s := newTestSuite("tid", runFn, defaultExitFn, settingsFn(settings))
+		s.Setup(func(ctx resource.Context) error {
+			ctx.Cleanup(func() {
+				cleanupCalled = true
+			})
+			ctx.ConditionalCleanup(func() {
+				conditionalCleanupCalled = true
+			})
+			return nil
+		})
+		s.Run()
+		waitForRun1.Wait()
+
+		g.Expect(cleanupCalled).To(BeTrue())
+		g.Expect(conditionalCleanupCalled).To(BeFalse())
+	})
+}
+
 func TestSuite_DoubleInit_Error(t *testing.T) {
 	defer cleanupRT()
 	g := NewWithT(t)
@@ -449,7 +515,7 @@ func TestDeriveSuiteName(t *testing.T) {
 }
 
 func newFakeEnvironmentFactory(numClusters int) resource.EnvironmentFactory {
-	e := resource.FakeEnvironment{NumClusters: numClusters}
+	e := kube.FakeEnvironment{NumClusters: numClusters}
 	return func(ctx resource.Context) (resource.Environment, error) {
 		return e, nil
 	}

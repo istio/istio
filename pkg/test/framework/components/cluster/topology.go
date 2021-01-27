@@ -65,12 +65,20 @@ func (c Topology) Primary() resource.Cluster {
 	return cluster
 }
 
+func (c Topology) PrimaryName() string {
+	return c.PrimaryClusterName
+}
+
 func (c Topology) Config() resource.Cluster {
 	cluster, ok := c.AllClusters[c.ConfigClusterName]
 	if !ok || cluster == nil {
 		panic(fmt.Errorf("cannot find %s, the config cluster for %s", c.ConfigClusterName, c.Name()))
 	}
 	return cluster
+}
+
+func (c Topology) ConfigName() string {
+	return c.ConfigClusterName
 }
 
 func (c Topology) WithPrimary(primaryClusterName string) Topology {

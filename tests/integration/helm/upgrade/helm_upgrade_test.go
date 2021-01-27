@@ -63,10 +63,10 @@ func TestDefaultInPlaceUpgrades(t *testing.T) {
 			cs := ctx.Clusters().Default().(*kubecluster.Cluster)
 			h := helm.New(cs.Filename(), filepath.Join(previousChartPath, previousSupportedVersion))
 
-			ctx.WhenDone(func() error {
+			ctx.ConditionalCleanup(func() {
 				// only need to do call this once as helm doesn't need to remove
 				// all versions
-				return deleteIstio(cs, h)
+				deleteIstio(cs, h)
 			})
 
 			overrideValuesFile := getValuesOverrides(ctx, defaultValues, gcrHub, previousSupportedVersion)

@@ -56,6 +56,7 @@ const (
 func TestCustomizeMetrics(t *testing.T) {
 	framework.NewTest(t).
 		Features("observability.telemetry.stats.prometheus.customize-metric").
+		Features("observability.telemetry.request-classification").
 		Features("extensibility.wasm.remote-load").
 		Run(func(ctx framework.TestContext) {
 			httpDestinationQuery := buildQuery(httpProtocol)

@@ -197,8 +197,8 @@ func expectAllTrafficTo(dest string) map[string]int {
 
 func applyAndCleanup(ctx framework.TestContext, ns string, yaml ...string) {
 	ctx.Config().ApplyYAMLOrFail(ctx, ns, yaml...)
-	ctx.WhenDone(func() error {
-		return ctx.Config().DeleteYAML(ns, yaml...)
+	ctx.ConditionalCleanup(func() {
+		ctx.Config().DeleteYAML(ns, yaml...)
 	})
 }
 

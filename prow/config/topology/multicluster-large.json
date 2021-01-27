@@ -1,42 +1,34 @@
 [
   {
-    "cluster_name": "cluster-0",
-    "pod_subnet": "10.10.0.0/16",
-    "svc_subnet": "10.255.10.0/24",
-    "network_id": 0,
-    "control_plane_index": 0,
-    "config_index": 0
+    "clusterName": "primary-1",
+    "podSubnet": "10.10.0.0/16",
+    "svcSubnet": "10.255.10.0/24",
+    "network": "network-1"
   },
   {
-    "cluster_name": "cluster-1",
-    "pod_subnet": "10.20.0.0/16",
-    "svc_subnet": "10.255.20.0/24",
-    "network_id": 0,
-    "control_plane_index": 0,
-    "config_index": 0
+    "clusterName": "remote",
+    "podSubnet": "10.20.0.0/16",
+    "svcSubnet": "10.255.20.0/24",
+    "network": "network-1",
+    "controlPlaneClusterName": "primary"
   },
   {
-    "cluster_name": "cluster-2",
-    "pod_subnet": "10.30.0.0/16",
-    "svc_subnet": "10.255.30.0/24",
-    "network_id": 0,
-    "control_plane_index": 2,
-    "config_index": 2
+    "clusterName": "primary-2",
+    "podSubnet": "10.30.0.0/16",
+    "svcSubnet": "10.255.30.0/24",
+    "network": "network-1"
   },
   {
-    "cluster_name": "cluster-3",
-    "pod_subnet": "10.40.0.0/16",
-    "svc_subnet": "10.255.40.0/24",
-    "network_id": 1,
-    "control_plane_index": 3,
-    "config_index": 3
+    "clusterName": "cross-network-primary",
+    "podSubnet": "10.40.0.0/16",
+    "svcSubnet": "10.255.40.0/24",
+    "network": "network-2"
   },
   {
-    "cluster_name": "cluster-4",
-    "pod_subnet": "10.50.0.0/16",
-    "svc_subnet": "10.255.50.0/24",
-    "network_id": 1,
-    "control_plane_index": 0,
-    "config_index": 0
+    "clusterName": "cross-network-remote",
+    "podSubnet": "10.50.0.0/16",
+    "svcSubnet": "10.255.50.0/24",
+    "network": "network-2",
+    "controlPlaneClusterName": "primary"
   }
 ]

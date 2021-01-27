@@ -51,12 +51,10 @@ func TestRevisionedUpgrade(t *testing.T) {
 // TODO(monkeyanator) pass this a generic UpgradeFunc allowing for reuse across in-place and revisioned upgrades
 func testUpgradeFromVersion(ctx framework.TestContext, t *testing.T, fromVersion string) {
 	configs := make(map[string]string)
-	ctx.WhenDone(func() error {
-		var errs *multierror.Error
+	ctx.ConditionalCleanup(func() {
 		for _, config := range configs {
-			multierror.Append(errs, ctx.Config().DeleteYAML("istio-system", config))
+			ctx.Config().DeleteYAML("istio-system", config)
 		}
-		return errs.ErrorOrNil()
 	})
 
 	// install control plane on the specified version and create namespace pointed to that control plane

@@ -56,7 +56,6 @@ type ProxyConfig struct {
 	ProvCert            string
 	Sidecar             bool
 	ProxyViaAgent       bool
-	CallCredentials     bool
 	LogAsJSON           bool
 }
 
@@ -170,7 +169,6 @@ func (e *envoy) Run(config interface{}, epoch int, abort <-chan error) error {
 			OutlierLogPath:      e.OutlierLogPath,
 			PilotCertProvider:   e.PilotCertProvider,
 			ProvCert:            e.ProvCert,
-			CallCredentials:     e.CallCredentials,
 			DiscoveryHost:       discHost,
 		}).CreateFileForEpoch(epoch)
 		if err != nil {
