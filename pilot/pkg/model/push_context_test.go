@@ -982,6 +982,104 @@ func TestVirtualServiceWithExportTo(t *testing.T) {
 	}
 }
 
+func TestInitVirtualService(t *testing.T) {
+	ps := NewPushContext()
+	env := &Environment{Watcher: mesh.NewFixedWatcher(&meshconfig.MeshConfig{RootNamespace: "istio-system"})}
+	ps.Mesh = env.Mesh()
+	ps.ServiceDiscovery = env
+	configStore := NewFakeStore()
+	gatewayName := "ns1/gateway"
+
+	vs1 := config.Config{
+		Meta: config.Meta{
+			GroupVersionKind: collections.IstioNetworkingV1Alpha3Virtualservices.Resource().GroupVersionKind(),
+			Name:             "vs1",
+			Namespace:        "ns1",
+		},
+		Spec: &networking.VirtualService{
+			Hosts:    []string{"*.org"},
+			Gateways: []string{"gateway"},
+			Http: []*networking.HTTPRoute{
+				{
+					Match: []*networking.HTTPMatchRequest{
+						{
+							Uri: &networking.StringMatch{
+								MatchType: &networking.StringMatch_Prefix{Prefix: "/productpage"},
+							},
+						},
+						{
+							Uri: &networking.StringMatch{
+								MatchType: &networking.StringMatch_Exact{Exact: "/login"},
+							},
+						},
+					},
+					Delegate: &networking.Delegate{
+						Name:      "vs2",
+						Namespace: "ns2",
+					},
+				},
+			},
+		},
+	}
+	vs2 := config.Config{
+		Meta: config.Meta{
+			GroupVersionKind: collections.IstioNetworkingV1Alpha3Virtualservices.Resource().GroupVersionKind(),
+			Name:             "vs2",
+			Namespace:        "ns2",
+		},
+		Spec: &networking.VirtualService{
+			Hosts:    []string{},
+			Gateways: []string{gatewayName},
+			Http: []*networking.HTTPRoute{
+				{
+					Route: []*networking.HTTPRouteDestination{
+						{
+							Destination: &networking.Destination{
+								Host: "test",
+								Port: &networking.PortSelector{
+									Number: 80,
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	for _, c := range []config.Config{vs1, vs2} {
+		if _, err := configStore.Create(c); err != nil {
+			t.Fatalf("could not create %v", c.Name)
+		}
+	}
+
+	store := istioConfigStore{ConfigStore: configStore}
+	env.IstioConfigStore = &store
+	ps.initDefaultExportMaps()
+	if err := ps.initVirtualServices(env); err != nil {
+		t.Fatalf("init virtual services failed: %v", err)
+	}
+
+	t.Run("resolve shortname", func(t *testing.T) {
+		rules := ps.VirtualServicesForGateway(&Proxy{ConfigNamespace: "ns1"}, gatewayName)
+		if len(rules) != 1 {
+			t.Fatalf("wanted 1 virtualservice for gateway %s, actually got %d", gatewayName, len(rules))
+		}
+		gotHTTPHosts := make([]string, 0)
+		for _, r := range rules {
+			vs := r.Spec.(*networking.VirtualService)
+			for _, route := range vs.GetHttp() {
+				for _, dst := range route.Route {
+					gotHTTPHosts = append(gotHTTPHosts, dst.Destination.Host)
+				}
+			}
+		}
+		if !reflect.DeepEqual(gotHTTPHosts, []string{"test.ns2"}) {
+			t.Errorf("got %+v", gotHTTPHosts)
+		}
+	})
+}
+
 func TestServiceWithExportTo(t *testing.T) {
 	ps := NewPushContext()
 	env := &Environment{Watcher: mesh.NewFixedWatcher(&meshconfig.MeshConfig{RootNamespace: "zzz"})}

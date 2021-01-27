@@ -1182,12 +1182,12 @@ func (ps *PushContext) initVirtualServices(env *Environment) error {
 	// the RDS code. See separateVSHostsAndServices in route/route.go
 	sortConfigByCreationTime(vservices)
 
-	vservices, ps.virtualServiceIndex.delegates = mergeVirtualServicesIfNeeded(vservices, ps.exportToDefaults.virtualService)
-
 	// convert all shortnames in virtual services into FQDNs
 	for _, r := range vservices {
 		resolveVirtualServiceShortnames(r.Spec.(*networking.VirtualService), r.Meta)
 	}
+
+	vservices, ps.virtualServiceIndex.delegates = mergeVirtualServicesIfNeeded(vservices, ps.exportToDefaults.virtualService)
 
 	for _, virtualService := range vservices {
 		ns := virtualService.Namespace
