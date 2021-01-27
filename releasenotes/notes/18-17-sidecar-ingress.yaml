@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+issue:
+- 30437
+releaseNotes:
+- |
+  **Fixed** an issues causing Istio 1.8 to configure Istio 1.7 proxies incorrectly when using the `Sidecar` `ingress` configuration.

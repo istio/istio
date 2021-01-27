@@ -307,10 +307,20 @@ func (configgen *ConfigGeneratorImpl) buildInboundClusters(cb *ClusterBuilder, i
 		}
 
 		// For each workload port, we will construct a cluster
-		for _, instances := range clustersToBuild {
-			instance := instances[0]
-			localCluster := cb.buildInboundClusterForPortOrUDS(cb.proxy, int(instance.Endpoint.EndpointPort), actualLocalHost, instance, instances)
-			clusters = cp.conditionallyAppend(clusters, localCluster)
+		if !util.IsIstioVersionGE18(cb.proxy) {
+			// For 1.7 clusters, we used an old cluster format
+			for _, instances := range clustersToBuild {
+				for _, instance := range instances {
+					localCluster := cb.buildInboundClusterForPortOrUDS(cb.proxy, int(instance.Endpoint.EndpointPort), actualLocalHost, instance, instances)
+					clusters = cp.conditionallyAppend(clusters, localCluster)
+				}
+			}
+		} else {
+			for _, instances := range clustersToBuild {
+				instance := instances[0]
+				localCluster := cb.buildInboundClusterForPortOrUDS(cb.proxy, int(instance.Endpoint.EndpointPort), actualLocalHost, instance, instances)
+				clusters = cp.conditionallyAppend(clusters, localCluster)
+			}
 		}
 	} else {
 		rule := sidecarScope.Config.Spec.(*networking.Sidecar)
@@ -352,7 +362,7 @@ func (configgen *ConfigGeneratorImpl) buildInboundClusters(cb *ClusterBuilder, i
 			instance.Endpoint.ServicePortName = listenPort.Name
 			instance.Endpoint.EndpointPort = uint32(port)
 
-			localCluster := cb.buildInboundClusterForPortOrUDS(nil, int(ingressListener.Port.Number), endpointAddress, instance, nil)
+			localCluster := cb.buildInboundClusterForPortOrUDS(cb.proxy, int(ingressListener.Port.Number), endpointAddress, instance, nil)
 			clusters = cp.conditionallyAppend(clusters, localCluster)
 		}
 	}
