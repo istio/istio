@@ -156,7 +156,13 @@ func GetJwtKeyResolver() *JwksResolver {
 	return jwtKeyResolver
 }
 
-func newJwksResolverWithCABundlePaths(evictionDuration, refreshDefaultInterval, refreshIntervalOnFailure, retryInterval time.Duration, caBundlePaths []string) *JwksResolver {
+func newJwksResolverWithCABundlePaths(
+	evictionDuration,
+	refreshDefaultInterval,
+	refreshIntervalOnFailure,
+	retryInterval time.Duration,
+	caBundlePaths []string,
+) *JwksResolver {
 	ret := &JwksResolver{
 		evictionDuration:         evictionDuration,
 		refreshInterval:          refreshDefaultInterval,
@@ -324,11 +330,11 @@ func (r *JwksResolver) refresher() {
 		select {
 		case <-r.refreshTicker.C:
 			oldRefreshInterval := r.refreshInterval
-			r.refresh()
+			refreshInterval := r.refresh()
 			// update refresh interval on change.
-			if oldRefreshInterval != r.refreshInterval {
+			if oldRefreshInterval != refreshInterval {
 				r.refreshTicker.Stop()
-				r.refreshTicker = time.NewTicker(r.refreshInterval)
+				r.refreshTicker = time.NewTicker(refreshInterval)
 			}
 		case <-closeChan:
 			r.refreshTicker.Stop()
@@ -337,7 +343,7 @@ func (r *JwksResolver) refresher() {
 	}
 }
 
-func (r *JwksResolver) refresh() {
+func (r *JwksResolver) refresh() time.Duration {
 	var wg sync.WaitGroup
 	hasChange := false
 	hasErrors := false
@@ -407,12 +413,6 @@ func (r *JwksResolver) refresh() {
 	// Wait for all go routine to complete.
 	wg.Wait()
 
-	if hasErrors {
-		r.refreshInterval = r.refreshIntervalOnFailure
-	} else {
-		r.refreshInterval = r.refreshDefaultInterval
-	}
-
 	if hasChange {
 		atomic.AddUint64(&r.refreshJobKeyChangedCount, 1)
 		// Push public key changes to sidecars.
@@ -420,6 +420,11 @@ func (r *JwksResolver) refresh() {
 			r.PushFunc()
 		}
 	}
+	if hasErrors {
+		return r.refreshIntervalOnFailure
+	}
+	return r.refreshDefaultInterval
+
 }
 
 // Close will shut down the refresher job.
