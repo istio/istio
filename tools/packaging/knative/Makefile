@@ -44,7 +44,7 @@ $(ISTIO_OUT)/knative/telemetry.yaml: manifests/charts/istio-control/istio-discov
 
 $(ISTIO_OUT)/knative/injection-template.yaml: manifests/charts/istio-control/istio-discovery/files/injection-template.yaml
 	mkdir -p $(ISTIO_OUT)/knative
-	echo -e "templates:\n  sidecar: |-" > ${ISTIO_OUT}/knative/injection-template.yaml
+	echo -e "policy: enabled\ntemplates:\n  sidecar: |-" > ${ISTIO_OUT}/knative/injection-template.yaml
 	cat manifests/charts/istio-control/istio-discovery/files/injection-template.yaml | sed 's/^/    /g' >> ${ISTIO_OUT}/knative/injection-template.yaml
 
 gen-gateway:

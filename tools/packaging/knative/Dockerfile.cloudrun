@@ -24,7 +24,7 @@ COPY pilot-discovery /usr/local/bin/pilot-discovery
 
 COPY istiod-gcp.sh /usr/local/bin/istiod-gcp.sh
 
-COPY injection-template.yaml /var/lib/istio/inject/config.yaml
+COPY injection-template.yaml /var/lib/istio/inject/config
 COPY injection-values.yaml /var/lib/istio/inject/values_template.yaml
 
 COPY mutating_template.yaml /var/lib/istio/inject/mutating_template.yaml

@@ -26,6 +26,8 @@ defaultConfig:
     XDS_AUTH_PROVIDER: ${XDS_AUTH_PROVIDER}
 
     XDS_TOKEN_TYPE: ${XDS_TOKEN_TYPE}
+    ISTIO_META_CLOUDRUN_ADDR: ${CLOUDRUN_ADDR}
+
   meshId: proj-${PROJECT_NUMBER}
   discoveryAddress: "${XDS_ADDR}"
   tracing: {}

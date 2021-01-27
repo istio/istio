@@ -57,6 +57,7 @@ func (s *Server) initSidecarInjector(args *PilotArgs) (*inject.Webhook, error) {
 		if err != nil {
 			return nil, err
 		}
+		log.Infof("Using local files for injection template")
 	} else if s.kubeClient != nil {
 		configMapName := getInjectorConfigMapName(args.Revision)
 		cms := s.kubeClient.CoreV1().ConfigMaps(args.Namespace)

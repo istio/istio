@@ -45,6 +45,8 @@ if [[ -z ${IN_CLUSTER} ]] ; then
   fi
 fi
 
+# TODO: provisioning code should set all those variables in knative config.
+
 # Disable webhook config patching - manual configs used, proper DNS certs means no cert patching needed.
 # If running in KNative without a DNS cert - we may need it back, but we should require DNS certs.
 # Even if user doesn't have a DNS name - they can still use an self-signed root and add it to system trust,
@@ -136,29 +138,17 @@ else
   export CA_PROVIDER=istiod
 fi
 
-# TODO:
-# - copy inject template and mesh config to cluster (first time) or from cluster
-# - revision support
-# - option to enable 'default' ingress class, remote install/control Gateway
-
-if ! kubectl get ns istio-system; then
-  echo "Initializing istio-system and CRDs, fresh cluster"
-  kubectl create ns istio-system
-  #kubectl apply -k github.com/istio/istio/manifests/charts/base
-  kubectl apply -f /var/lib/istio/config/gen-istio-cluster.yaml \
-      --record=false --overwrite=false   --force-conflicts=true --server-side
-fi
-# TODO: check CRD revision, upgrade if needed.
-
-if [[ -n "${MESH}" ]]; then
-  echo "${MESH}" > /etc/istio/config/mesh.yaml
+if [[ -n ${MESH} ]]; then
+  echo ${MESH} > /etc/istio/config/mesh.yaml
 else
   envsubst < /etc/istio/config/mesh_template.yaml > /etc/istio/config/mesh.yaml
   cat /etc/istio/config/mesh.yaml
 fi
 
-# TODO: fix OSS template to use only MeshConfig !
-envsubst < /var/lib/istio/inject/values_template.yaml > /var/lib/istio/inject/values.yaml
+# Istio looks for /var/lib/istio/inject/{config|values}.
+# Due to the high risk of breakages if the in-cluster config map is modified we use the tested version.
+# Istio doesn't officially support users editing the injection config map.
+envsubst < /var/lib/istio/inject/values_template.yaml > /var/lib/istio/inject/values
 
 # Create file config sources for telemetry
 mkdir -p /var/lib/istio/config/data
@@ -170,26 +160,22 @@ else
 fi
 
 
-
 # NB: Local files have .yaml suffix but ConfigMap keys don't
 # Local files named after ConfigMap keys shouldn't exist or they'll be used instead of the ConfigMaps
-if ! kubectl get -n istio-system cm "istio-${REVISION}"; then
+kubectl get -n istio-system cm istio-${REVISION}
+if [[ "$?" != "0" ]]; then
   echo "Initializing revision"
   kubectl -n istio-system create cm "istio-${REVISION}" --from-file mesh=/etc/istio/config/mesh.yaml
 fi
 
 
-if ! kubectl get -n istio-system cm "istio-sidecar-injector-${REVISION}"; then
-  echo "Initializing injector config"
-  kubectl -n istio-system create cm "istio-sidecar-injector-${REVISION}" \
-    --from-file config=/var/lib/istio/inject/config.yaml \
-    --from-file values=/var/lib/istio/inject/values.yaml
-fi
-
-
+# TODO: The script or istioctl should set this up, part of base. This should be removed, so we
+# can drop cluster-admin requirement.
+#
 # Make sure the mutating webhook is installed, and prepare CRDs
 # This also 'warms' up the kubeconfig - otherwise gcloud will slow down startup of istiod.
-if kubectl get mutatingwebhookconfiguration "istiod-${REVISION}"; then
+kubectl get mutatingwebhookconfiguration istiod-${REVISION}
+if [[ "$?" == "1" ]]; then
   echo "Mutating webhook missing, initializing"
   envsubst < /var/lib/istio/inject/mutating_template.yaml > /var/lib/istio/inject/mutating.yaml
   cat /var/lib/istio/inject/mutating.yaml
