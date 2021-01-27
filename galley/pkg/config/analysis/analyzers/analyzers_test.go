@@ -80,10 +80,6 @@ var testGrid = []testCase{
 			{msg.MisplacedAnnotation, "Deployment fortio-deploy"},
 			{msg.MisplacedAnnotation, "Namespace staging"},
 			{msg.DeprecatedAnnotation, "Deployment fortio-deploy"},
-			{msg.AlphaAnnotation, "Deployment fortio-deploy"},
-			{msg.AlphaAnnotation, "Pod invalid-annotations"},
-			{msg.AlphaAnnotation, "Pod invalid-annotations"},
-			{msg.AlphaAnnotation, "Service httpbin"},
 		},
 	},
 	{
