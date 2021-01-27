@@ -16,14 +16,11 @@ package model
 
 import (
 	"fmt"
-	//	"reflect"
 	"sync/atomic"
 	"testing"
 	"time"
 
 	"go.opencensus.io/stats/view"
-
-	//	"istio.io/api/security/v1beta1"
 
 	"istio.io/istio/pilot/pkg/model/test"
 	"istio.io/istio/pkg/test/util/retry"
