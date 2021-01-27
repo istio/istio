@@ -22,13 +22,11 @@ import (
 	"github.com/golang/protobuf/ptypes"
 	"github.com/golang/protobuf/ptypes/any"
 
-	"istio.io/pkg/log"
-
 	networking "istio.io/api/networking/v1alpha3"
-
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pilot/pkg/util/runtime"
+	"istio.io/pkg/log"
 )
 
 const (
@@ -200,7 +198,7 @@ func doFilterChainOperation(patchContext networking.EnvoyFilter_PatchContext,
 	for _, cp := range patches[networking.EnvoyFilter_FILTER_CHAIN] {
 		if !commonConditionMatch(patchContext, cp) ||
 			!listenerMatch(listener, cp) ||
-			!filterChainMatch(fc, cp) {
+			!filterChainMatch(listener, fc, cp) {
 			continue
 		}
 		if cp.Operation == networking.EnvoyFilter_Patch_REMOVE {
@@ -228,7 +226,7 @@ func doNetworkFilterListOperation(patchContext networking.EnvoyFilter_PatchConte
 	for _, cp := range patches[networking.EnvoyFilter_NETWORK_FILTER] {
 		if !commonConditionMatch(patchContext, cp) ||
 			!listenerMatch(listener, cp) ||
-			!filterChainMatch(fc, cp) {
+			!filterChainMatch(listener, fc, cp) {
 			continue
 		}
 
@@ -308,7 +306,7 @@ func doNetworkFilterOperation(patchContext networking.EnvoyFilter_PatchContext,
 	for _, cp := range patches[networking.EnvoyFilter_NETWORK_FILTER] {
 		if !commonConditionMatch(patchContext, cp) ||
 			!listenerMatch(listener, cp) ||
-			!filterChainMatch(fc, cp) ||
+			!filterChainMatch(listener, fc, cp) ||
 			!networkFilterMatch(filter, cp) {
 			continue
 		}
@@ -382,7 +380,7 @@ func doHTTPFilterListOperation(patchContext networking.EnvoyFilter_PatchContext,
 	for _, cp := range patches[networking.EnvoyFilter_HTTP_FILTER] {
 		if !commonConditionMatch(patchContext, cp) ||
 			!listenerMatch(listener, cp) ||
-			!filterChainMatch(fc, cp) ||
+			!filterChainMatch(listener, fc, cp) ||
 			!networkFilterMatch(filter, cp) {
 			continue
 		}
@@ -463,7 +461,7 @@ func doHTTPFilterOperation(patchContext networking.EnvoyFilter_PatchContext,
 	for _, cp := range patches[networking.EnvoyFilter_HTTP_FILTER] {
 		if !commonConditionMatch(patchContext, cp) ||
 			!listenerMatch(listener, cp) ||
-			!filterChainMatch(fc, cp) ||
+			!filterChainMatch(listener, fc, cp) ||
 			!networkFilterMatch(filter, cp) ||
 			!httpFilterMatch(httpFilter, cp) {
 			continue
@@ -544,7 +542,7 @@ func listenerMatch(listener *xdslistener.Listener, cp *model.EnvoyFilterConfigPa
 }
 
 // We assume that the parent listener has already been matched
-func filterChainMatch(fc *xdslistener.FilterChain, cp *model.EnvoyFilterConfigPatchWrapper) bool {
+func filterChainMatch(listener *xdslistener.Listener, fc *xdslistener.FilterChain, cp *model.EnvoyFilterConfigPatchWrapper) bool {
 	cMatch := cp.Match.GetListener()
 	if cMatch == nil {
 		return true
@@ -576,10 +574,11 @@ func filterChainMatch(fc *xdslistener.FilterChain, cp *model.EnvoyFilterConfigPa
 		}
 	}
 
+	isVirtual := listener.Name == VirtualInboundListenerName || listener.Name == VirtualOutboundListenerName
 	// check match for destination port within the FilterChainMatch
-	if cMatch.PortNumber > 0 &&
-		fc.FilterChainMatch != nil && fc.FilterChainMatch.DestinationPort != nil &&
-		fc.FilterChainMatch.DestinationPort.Value != cMatch.PortNumber {
+	// We only do this for virtual listeners, which will move the listener port into a FCM. For non-virtual listeners,
+	// we will handle this in the proper listener match.
+	if isVirtual && cMatch.GetPortNumber() > 0 && fc.GetFilterChainMatch().GetDestinationPort().GetValue() != cMatch.GetPortNumber() {
 		return false
 	}
 

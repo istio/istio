@@ -21,9 +21,6 @@ import (
 	"strings"
 	"testing"
 
-	tls "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
-	"google.golang.org/protobuf/testing/protocmp"
-
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
 	fault "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/fault/v3"
@@ -35,20 +32,19 @@ import (
 	"github.com/golang/protobuf/ptypes"
 	"github.com/golang/protobuf/ptypes/wrappers"
 	"github.com/google/go-cmp/cmp"
+	"google.golang.org/protobuf/testing/protocmp"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
-
-	"istio.io/istio/pilot/pkg/config/memory"
-	memregistry "istio.io/istio/pilot/pkg/serviceregistry/memory"
-	istio_proto "istio.io/istio/pkg/proto"
-
 	"istio.io/istio/pilot/pkg/config/kube/crd"
+	"istio.io/istio/pilot/pkg/config/memory"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/util"
+	memregistry "istio.io/istio/pilot/pkg/serviceregistry/memory"
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/config/schema/gvk"
+	istio_proto "istio.io/istio/pkg/proto"
 	"istio.io/istio/pkg/test/env"
 )
 
@@ -562,102 +558,6 @@ func TestApplyListenerPatches(t *testing.T) {
 		DownstreamNodes: []string{"foo"},
 	}
 	faultFilterOutAny, _ := ptypes.MarshalAny(faultFilterOut)
-	sidecarInboundIn := []*listener.Listener{
-		{
-			Name: "12345",
-			Address: &core.Address{
-				Address: &core.Address_SocketAddress{
-					SocketAddress: &core.SocketAddress{
-						PortSpecifier: &core.SocketAddress_PortValue{
-							PortValue: 12345,
-						},
-					},
-				},
-			},
-		},
-		{
-			Name: "another-listener",
-			Address: &core.Address{
-				Address: &core.Address_SocketAddress{
-					SocketAddress: &core.SocketAddress{
-						PortSpecifier: &core.SocketAddress_PortValue{
-							PortValue: 80,
-						},
-					},
-				},
-			},
-			ListenerFilters: []*listener.ListenerFilter{{Name: "envoy.tls_inspector"}},
-			FilterChains: []*listener.FilterChain{
-				{
-					FilterChainMatch: &listener.FilterChainMatch{TransportProtocol: "tls"},
-					TransportSocket: &core.TransportSocket{
-						Name: "envoy.transport_sockets.tls",
-						ConfigType: &core.TransportSocket_TypedConfig{
-							TypedConfig: util.MessageToAny(&tls.DownstreamTlsContext{}),
-						},
-					},
-					Filters: []*listener.Filter{{Name: "network-filter"}},
-				},
-				{
-					Filters: []*listener.Filter{
-						{
-							Name: wellknown.HTTPConnectionManager,
-							ConfigType: &listener.Filter_TypedConfig{
-								TypedConfig: util.MessageToAny(&http_conn.HttpConnectionManager{
-									HttpFilters: []*http_conn.HttpFilter{
-										{Name: wellknown.Fault,
-											ConfigType: &http_conn.HttpFilter_TypedConfig{TypedConfig: faultFilterInAny},
-										},
-										{Name: "http-filter2"},
-									},
-								}),
-							},
-						},
-					},
-				},
-			},
-		},
-	}
-
-	sidecarInboundOut := []*listener.Listener{
-		{
-			Name: "another-listener",
-			Address: &core.Address{
-				Address: &core.Address_SocketAddress{
-					SocketAddress: &core.SocketAddress{
-						PortSpecifier: &core.SocketAddress_PortValue{
-							PortValue: 80,
-						},
-					},
-				},
-			},
-			ListenerFilters: []*listener.ListenerFilter{{Name: "envoy.tls_inspector"}},
-			FilterChains: []*listener.FilterChain{
-				{
-					Filters: []*listener.Filter{
-						{
-							Name: wellknown.HTTPConnectionManager,
-							ConfigType: &listener.Filter_TypedConfig{
-								TypedConfig: util.MessageToAny(&http_conn.HttpConnectionManager{
-									XffNumTrustedHops:            4,
-									MergeSlashes:                 true,
-									AlwaysSetRequestIdInResponse: true,
-									HttpFilters: []*http_conn.HttpFilter{
-										{Name: wellknown.Fault,
-											ConfigType: &http_conn.HttpFilter_TypedConfig{TypedConfig: faultFilterOutAny},
-										},
-										{Name: "http-filter3"},
-										{Name: "http-filter2"},
-										{Name: "http-filter4"},
-									},
-								}),
-							},
-						},
-					},
-				},
-			},
-		},
-	}
 
 	gatewayIn := []*listener.Listener{
 		{
@@ -808,6 +708,22 @@ func TestApplyListenerPatches(t *testing.T) {
 						},
 					},
 				},
+				{
+					Name:             "catch-all",
+					FilterChainMatch: &listener.FilterChainMatch{},
+					Filters: []*listener.Filter{
+						{
+							Name: wellknown.HTTPConnectionManager,
+							ConfigType: &listener.Filter_TypedConfig{
+								TypedConfig: util.MessageToAny(&http_conn.HttpConnectionManager{
+									HttpFilters: []*http_conn.HttpFilter{
+										{Name: "base"},
+									},
+								}),
+							},
+						},
+					},
+				},
 			},
 		},
 	}
@@ -848,6 +764,22 @@ func TestApplyListenerPatches(t *testing.T) {
 										{Name: "http-filter3"},
 										{Name: "http-filter2"},
 										{Name: "http-filter4"},
+									},
+								}),
+							},
+						},
+					},
+				},
+				{
+					Name:             "catch-all",
+					FilterChainMatch: &listener.FilterChainMatch{},
+					Filters: []*listener.Filter{
+						{
+							Name: wellknown.HTTPConnectionManager,
+							ConfigType: &listener.Filter_TypedConfig{
+								TypedConfig: util.MessageToAny(&http_conn.HttpConnectionManager{
+									HttpFilters: []*http_conn.HttpFilter{
+										{Name: "base"},
 									},
 								}),
 							},
@@ -898,17 +830,6 @@ func TestApplyListenerPatches(t *testing.T) {
 		args args
 		want []*listener.Listener
 	}{
-		{
-			name: "sidecar inbound lds",
-			args: args{
-				patchContext: networking.EnvoyFilter_SIDECAR_INBOUND,
-				proxy:        sidecarProxy,
-				push:         push,
-				listeners:    sidecarInboundIn,
-				skipAdds:     false,
-			},
-			want: sidecarInboundOut,
-		},
 		{
 			name: "gateway lds",
 			args: args{
