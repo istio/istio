@@ -63,7 +63,7 @@ func NewSettingsFromCommandLine() (*Settings, error) {
 
 	// Process the kube clusterConfigs.
 	var err error
-	s.kubeconfigsFlag, err = parseKubeConfigs(kubeConfigs, ",")
+	s.KubeConfig, err = parseKubeConfigs(kubeConfigs, ",")
 	if err != nil {
 		return nil, fmt.Errorf("error parsing KubeConfigs from command-line: %v", err)
 	}

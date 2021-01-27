@@ -25,7 +25,7 @@ import (
 	"istio.io/istio/pkg/test/scopes"
 )
 
-// clusterIndex is the index of a cluster within the kubeconfigsFlag or topology file entries
+// clusterIndex is the index of a cluster within the KubeConfig or topology file entries
 type clusterIndex int
 
 // clusterTopology defines the associations between multiple clusters in a topology.
@@ -38,7 +38,7 @@ type ClientFactoryFunc func(kubeConfigs []string) ([]istioKube.ExtendedClient, e
 // Settings provide kube-specific Settings from flags.
 type Settings struct {
 	// An array of paths to kube config files. Required if the environment is kubernetes.
-	kubeconfigsFlag []string
+	KubeConfig []string
 
 	// Indicates that the Ingress Gateway is not available. This typically happens in minikube. The Ingress
 	// component will fall back to node-port in this case.
@@ -78,21 +78,21 @@ func (s *Settings) clusterConfigs() (configs []cluster.Config, err error) {
 }
 
 func (s *Settings) clusterConfigsFromFlags() ([]cluster.Config, error) {
-	if len(s.kubeconfigsFlag) == 0 {
+	if len(s.KubeConfig) == 0 {
 		// flag-based, but no kubeconfigs, get kubeconfigs from environment
 		scopes.Framework.Info("Flags istio.test.kube.config and istio.test.kube.topology not specified.")
 		var err error
-		s.kubeconfigsFlag, err = getKubeConfigsFromEnvironment()
+		s.KubeConfig, err = getKubeConfigsFromEnvironment()
 		if err != nil {
 			return nil, fmt.Errorf("error parsing KubeConfigs from environment: %v", err)
 		}
 	}
-	scopes.Framework.Infof("Using KubeConfigs: %v.", s.kubeconfigsFlag)
-	if err := s.validateTopologyFlags(len(s.kubeconfigsFlag)); err != nil {
+	scopes.Framework.Infof("Using KubeConfigs: %v.", s.KubeConfig)
+	if err := s.validateTopologyFlags(len(s.KubeConfig)); err != nil {
 		return nil, err
 	}
 	var configs []cluster.Config
-	for i, kc := range s.kubeconfigsFlag {
+	for i, kc := range s.KubeConfig {
 		ci := clusterIndex(i)
 		cfg := cluster.Config{
 			Name:    fmt.Sprintf("cluster-%d", i),
@@ -127,7 +127,7 @@ func (s *Settings) clusterConfigsFromFile() ([]cluster.Config, error) {
 	}
 
 	// Allow kubeconfig flag to override file
-	configs, err = replaceKubeconfigs(configs, s.kubeconfigsFlag)
+	configs, err = replaceKubeconfigs(configs, s.KubeConfig)
 	if err != nil {
 		return nil, err
 	}
@@ -224,7 +224,7 @@ func replaceKubeconfigs(configs []cluster.Config, kubeconfigs []string) ([]clust
 func (s *Settings) String() string {
 	result := ""
 
-	result += fmt.Sprintf("Kubeconfigs:           %s\n", s.kubeconfigsFlag)
+	result += fmt.Sprintf("Kubeconfigs:           %s\n", s.KubeConfig)
 	result += fmt.Sprintf("LoadBalancerSupported:      %v\n", s.LoadBalancerSupported)
 	result += fmt.Sprintf("ControlPlaneTopology: %v\n", s.controlPlaneTopology)
 	result += fmt.Sprintf("NetworkTopology:      %v\n", s.networkTopology)
