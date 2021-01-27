@@ -290,7 +290,7 @@ func DetectIstioVersionDiff(cmd *cobra.Command, tag string, ns string, kubeClien
 				cmd.Printf("! Istio is being upgraded from %s -> %s.\n"+
 					"! Before upgrading, you may wish to use 'istioctl analyze' to check for IST0002 and IST0135 deprecation warnings.\n", icpTag, tag)
 			} else {
-				cmd.Printf("! Istio is being downgraded from %s -> %s.")
+				cmd.Printf("! Istio is being downgraded from %s -> %s.", icpTag, tag)
 			}
 		}
 	}
