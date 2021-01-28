@@ -74,7 +74,6 @@ func TestTrustDomainAliasSecureNaming(t *testing.T) {
 			testNS := apps.Namespace
 
 			ctx.Config().ApplyYAMLOrFail(ctx, testNS.Name(), POLICY)
-			defer ctx.Config().DeleteYAMLOrFail(ctx, testNS.Name(), POLICY)
 
 			for _, cluster := range ctx.Clusters() {
 				ctx.NewSubTest(fmt.Sprintf("From %s", cluster.Name())).Run(func(ctx framework.TestContext) {

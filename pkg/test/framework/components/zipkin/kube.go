@@ -143,7 +143,6 @@ type kubeComponent struct {
 	address   string
 	forwarder istioKube.PortForwarder
 	cluster   resource.Cluster
-	close     func()
 }
 
 func getZipkinYaml() (string, error) {
@@ -178,14 +177,6 @@ func installServiceEntry(ctx resource.Context, ns, ingressAddr string) error {
 	return nil
 }
 
-func removeZipkin(ctx resource.Context, ns string) error {
-	yaml, err := getZipkinYaml()
-	if err != nil {
-		return err
-	}
-	return ctx.Config().DeleteYAML(ns, yaml)
-}
-
 func newKube(ctx resource.Context, cfgIn Config) (Instance, error) {
 	c := &kubeComponent{
 		cluster: ctx.Clusters().GetOrDefault(cfgIn.Cluster),
@@ -200,10 +191,6 @@ func newKube(ctx resource.Context, cfgIn Config) (Instance, error) {
 
 	if err := installZipkin(ctx, cfg.TelemetryNamespace); err != nil {
 		return nil, err
-	}
-
-	c.close = func() {
-		_ = removeZipkin(ctx, cfg.TelemetryNamespace)
 	}
 
 	fetchFn := testKube.NewSinglePodFetch(c.cluster, cfg.SystemNamespace, fmt.Sprintf("app=%s", appName))
@@ -267,9 +254,6 @@ func (c *kubeComponent) QueryTraces(limit int, spanName, annotationQuery string)
 
 // Close implements io.Closer.
 func (c *kubeComponent) Close() error {
-	if c.close != nil {
-		c.close()
-	}
 	c.forwarder.Close()
 	return nil
 }

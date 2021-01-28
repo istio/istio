@@ -29,7 +29,6 @@ import (
 	"istio.io/istio/pkg/test/util/retry"
 	"istio.io/istio/tests/integration/security/util"
 	"istio.io/istio/tests/integration/security/util/connection"
-	"istio.io/pkg/log"
 )
 
 // TestCase represents reachability test cases.
@@ -102,14 +101,6 @@ func Run(testCases []TestCase, ctx framework.TestContext, apps *util.EchoDeploym
 			})
 			ctx.NewSubTest("wait for config").Run(func(ctx framework.TestContext) {
 				util.WaitForConfigWithSleep(ctx, policyYAML, c.Namespace)
-			})
-
-			ctx.Cleanup(func() {
-				if err := retry.UntilSuccess(func() error {
-					return ctx.Config().DeleteYAML(c.Namespace.Name(), policyYAML)
-				}); err != nil {
-					log.Errorf("failed to delete configuration: %v", err)
-				}
 			})
 			for _, clients := range []echo.Instances{apps.A, apps.B.Match(echo.Namespace(apps.Namespace1.Name())), apps.Headless, apps.Naked, apps.HeadlessNaked} {
 				for _, client := range clients {

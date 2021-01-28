@@ -19,6 +19,7 @@ import (
 
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/framework/resource"
+	"istio.io/istio/pkg/test/scopes"
 )
 
 var _ resource.ConfigManager = &configManager{}
@@ -39,9 +40,9 @@ func newConfigManager(ctx resource.Context, clusters []resource.Cluster) resourc
 	}
 }
 
-func (c *configManager) ApplyYAML(ns string, yamlText ...string) error {
+func (c *configManager) applyYAML(cleanup bool, ns string, yamlText ...string) error {
 	if len(c.prefix) == 0 {
-		return c.WithFilePrefix("apply").ApplyYAML(ns, yamlText...)
+		return c.WithFilePrefix("apply").(*configManager).applyYAML(cleanup, ns, yamlText...)
 	}
 
 	// Convert the content to files.
@@ -50,12 +51,28 @@ func (c *configManager) ApplyYAML(ns string, yamlText ...string) error {
 		return err
 	}
 
-	for _, c := range c.clusters {
-		if err := c.ApplyYAMLFiles(ns, yamlFiles...); err != nil {
-			return fmt.Errorf("failed applying YAML to cluster %s: %v", c.Name(), err)
+	for _, cl := range c.clusters {
+		cl := cl
+		if err := cl.ApplyYAMLFiles(ns, yamlFiles...); err != nil {
+			return fmt.Errorf("failed applying YAML to cluster %s: %v", cl.Name(), err)
+		}
+		if cleanup {
+			c.ctx.Cleanup(func() {
+				if err := cl.DeleteYAMLFiles(ns, yamlFiles...); err != nil {
+					scopes.Framework.Errorf("failed applying YAML from cluster %s: %v", cl.Name(), err)
+				}
+			})
 		}
 	}
 	return nil
+}
+
+func (c *configManager) ApplyYAML(ns string, yamlText ...string) error {
+	return c.applyYAML(true, ns, yamlText...)
+}
+
+func (c *configManager) ApplyYAMLNoCleanup(ns string, yamlText ...string) error {
+	return c.applyYAML(false, ns, yamlText...)
 }
 
 func (c *configManager) ApplyYAMLOrFail(t test.Failer, ns string, yamlText ...string) {
