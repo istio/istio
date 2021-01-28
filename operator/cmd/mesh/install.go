@@ -273,15 +273,25 @@ func DetectIstioVersionDiff(cmd *cobra.Command, tag string, ns string, kubeClien
 			}
 		}
 		revision := manifest.GetValueForSetFlag(setFlags, "revision")
+		msg := ""
 		// when the revision is not passed and if the ns has a prior istio
 		if revision == "" && tag != icpTag {
+			if icpTag < tag {
+				msg = "A newer"
+			} else {
+				msg = "An older"
+			}
 			cmd.Printf("! Istio control planes installed: %s.\n"+
-				"! An older installed version of Istio has been detected. Running this command will overwrite it.\n", strings.Join(icpTags, ", "))
+				"! "+msg+" installed version of Istio has been detected. Running this command will overwrite it.\n", strings.Join(icpTags, ", "))
 		}
 		// when the revision is passed
 		if icpTag != "" && tag != icpTag && revision != "" {
-			cmd.Printf("! Istio is being upgraded from %s -> %s.\n"+
-				"! Before upgrading, you may wish to use 'istioctl analyze' to check for IST0002 deprecation warnings.\n", icpTag, tag)
+			if icpTag > tag {
+				cmd.Printf("! Istio is being upgraded from %s -> %s.\n"+
+					"! Before upgrading, you may wish to use 'istioctl analyze' to check for IST0002 and IST0135 deprecation warnings.\n", icpTag, tag)
+			} else {
+				cmd.Printf("! Istio is being downgraded from %s -> %s.", icpTag, tag)
+			}
 		}
 	}
 	return nil
