@@ -63,7 +63,7 @@ func newInstances(ctx resource.Context, config []echo.Config) (echo.Instances, e
 			return nil
 		})
 	}
-	if err := errG.Wait(); err != nil {
+	if err := errG.Wait().ErrorOrNil(); err != nil {
 		return nil, err
 	}
 	return out, nil

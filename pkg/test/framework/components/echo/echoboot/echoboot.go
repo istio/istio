@@ -124,10 +124,11 @@ func (b builder) WithClusters(clusters ...cluster.Cluster) echo.Builder {
 }
 
 func (b builder) Build() (out echo.Instances, err error) {
-	scopes.Framework.Infof("=== BEGIN: Deploy echo instances ===")
+	scopes.Framework.Info("=== BEGIN: Deploy echo instances ===")
 	defer func() {
 		if err != nil {
-			scopes.Framework.Infof("=== FAILED: Deploy echo instances ===")
+			scopes.Framework.Error("=== FAILED: Deploy echo instances ===")
+			scopes.Framework.Error(err)
 		}
 	}()
 	// bail early if there were issues during the configuration stage
@@ -136,13 +137,13 @@ func (b builder) Build() (out echo.Instances, err error) {
 	}
 
 	if err = b.deployServices(); err != nil {
-		return nil, err
-	}
-	out, err = b.deployInstances()
-	if err != nil {
 		return
 	}
-	scopes.Framework.Infof("=== DONE: Deploy echo instances ===")
+	if out, err = b.deployInstances(); err != nil {
+		return
+	}
+
+	scopes.Framework.Info("=== DONE: Deploy echo instances ===")
 	return
 }
 
@@ -178,7 +179,7 @@ func (b builder) deployServices() error {
 			return b.ctx.Config().ApplyYAML(ns, svcYaml)
 		})
 	}
-	return errG.Wait()
+	return errG.Wait().ErrorOrNil()
 }
 
 func (b builder) deployInstances() (echo.Instances, error) {
@@ -211,7 +212,7 @@ func (b builder) deployInstances() (echo.Instances, error) {
 			return nil
 		})
 	}
-	if err := errGroup.Wait(); err != nil {
+	if err := errGroup.Wait().ErrorOrNil(); err != nil {
 		return nil, err
 	}
 	return out, nil
