@@ -140,6 +140,9 @@ func (b builder) deployServices() error {
 	services := map[string]string{}
 	for _, cfgs := range b.configs {
 		for _, cfg := range cfgs {
+			if err := common.FillInKubeDefaults(b.ctx, &cfg); err != nil {
+				return err
+			}
 			svc, err := kube.GenerateService(cfg)
 			if err != nil {
 				return err
