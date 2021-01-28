@@ -15,8 +15,9 @@
 package cluster
 
 import (
-	"istio.io/istio/pkg/kube"
 	"k8s.io/apimachinery/pkg/version"
+
+	"istio.io/istio/pkg/kube"
 )
 
 var _ Cluster = FakeCluster{}

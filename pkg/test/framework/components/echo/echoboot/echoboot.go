@@ -27,11 +27,11 @@ import (
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/echo/common"
 	"istio.io/istio/pkg/test/framework/components/echo/kube"
-	"istio.io/istio/pkg/test/framework/resource"
-	"istio.io/istio/pkg/test/scopes"
 
 	// force registraton of factory func
 	_ "istio.io/istio/pkg/test/framework/components/echo/staticvm"
+	"istio.io/istio/pkg/test/framework/resource"
+	"istio.io/istio/pkg/test/scopes"
 )
 
 var _ echo.Builder = builder{}
