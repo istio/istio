@@ -28,6 +28,7 @@ import (
 	"istio.io/istio/pkg/test/framework/components/echo/common"
 	"istio.io/istio/pkg/test/framework/components/echo/kube"
 	"istio.io/istio/pkg/test/framework/resource"
+	"istio.io/istio/pkg/test/scopes"
 
 	// force registraton of factory func
 	_ "istio.io/istio/pkg/test/framework/components/echo/staticvm"
@@ -121,17 +122,27 @@ func (b builder) WithClusters(clusters ...cluster.Cluster) echo.Builder {
 	return next
 }
 
-func (b builder) Build() (echo.Instances, error) {
+func (b builder) Build() (out echo.Instances, err error) {
+	scopes.Framework.Infof("=== BEGIN: Deploy echo instances ===")
+	defer func() {
+		if err != nil {
+			scopes.Framework.Infof("=== FAILED: Deploy echo instances ===")
+		}
+	}()
 	// bail early if there were issues during the configuration stage
 	if b.errs != nil {
 		return nil, b.errs
 	}
 
-	if err := b.deployServices(); err != nil {
+	if err = b.deployServices(); err != nil {
 		return nil, err
 	}
-
-	return b.deployInstances()
+	out, err = b.deployInstances()
+	if err != nil {
+		return
+	}
+	scopes.Framework.Infof("=== DONE: Deploy echo instances ===")
+	return
 }
 
 // deployServices deploys the kubernetes Service to all clusters. Multicluster meshes should have "sameness"
