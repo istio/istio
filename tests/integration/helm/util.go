@@ -28,7 +28,7 @@ import (
 
 	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/test/framework"
-	"istio.io/istio/pkg/test/framework/resource"
+	"istio.io/istio/pkg/test/framework/components/cluster"
 	"istio.io/istio/pkg/test/helm"
 	kubetest "istio.io/istio/pkg/test/kube"
 	"istio.io/istio/pkg/test/scopes"
@@ -62,7 +62,7 @@ var (
 
 // InstallGatewaysCharts install Istio using Helm charts with the provided
 // override values file and fails the tests on any failures.
-func InstallGatewaysCharts(t *testing.T, cs resource.Cluster,
+func InstallGatewaysCharts(t *testing.T, cs cluster.Cluster,
 	h *helm.Helm, suffix, overrideValuesFile string) {
 	CreateIstioSystemNamespace(t, cs)
 
@@ -81,7 +81,7 @@ func InstallGatewaysCharts(t *testing.T, cs resource.Cluster,
 	}
 }
 
-func CreateIstioSystemNamespace(t *testing.T, cs resource.Cluster) {
+func CreateIstioSystemNamespace(t *testing.T, cs cluster.Cluster) {
 	if _, err := cs.CoreV1().Namespaces().Create(context.TODO(), &v1.Namespace{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: IstioNamespace,
@@ -107,7 +107,7 @@ func deleteGatewayCharts(t *testing.T, h *helm.Helm) {
 }
 
 // VerifyInstallation verify that the Helm installation is successful
-func VerifyInstallation(ctx framework.TestContext, cs resource.Cluster) {
+func VerifyInstallation(ctx framework.TestContext, cs cluster.Cluster) {
 	scopes.Framework.Infof("=== verifying istio installation === ")
 
 	retry.UntilSuccessOrFail(ctx, func() error {

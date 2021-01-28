@@ -24,6 +24,7 @@ import (
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/echo/client"
+	"istio.io/istio/pkg/test/framework/components/cluster"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/echo/common"
 	"istio.io/istio/pkg/test/framework/components/environment/kube"
@@ -61,7 +62,7 @@ type ingressConfig struct {
 	IstioLabel string
 
 	// Cluster to be used in a multicluster environment
-	Cluster resource.Cluster
+	Cluster cluster.Cluster
 }
 
 func newIngress(ctx resource.Context, cfg ingressConfig) (i ingress.Instance) {
@@ -87,7 +88,7 @@ type ingressImpl struct {
 	namespace   string
 
 	env     *kube.Environment
-	cluster resource.Cluster
+	cluster cluster.Cluster
 }
 
 // getAddressInner returns the external address for the given port. When we don't have support for LoadBalancer,

@@ -37,6 +37,7 @@ import (
 	"istio.io/istio/pkg/test"
 	appEcho "istio.io/istio/pkg/test/echo/client"
 	echoCommon "istio.io/istio/pkg/test/echo/common"
+	"istio.io/istio/pkg/test/framework/components/cluster"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/echo/common"
 	"istio.io/istio/pkg/test/framework/components/environment/kube"
@@ -69,7 +70,7 @@ type instance struct {
 	grpcPort  uint16
 	ctx       resource.Context
 	tls       *echoCommon.TLSSettings
-	cluster   resource.Cluster
+	cluster   cluster.Cluster
 }
 
 func newInstance(ctx resource.Context, originalCfg echo.Config) (out *instance, err error) {

@@ -16,13 +16,14 @@ package clusterboot
 
 import (
 	"fmt"
-	"istio.io/istio/pkg/test/framework/components/cluster"
+
 
 	"github.com/hashicorp/go-multierror"
 
+	"istio.io/istio/pkg/test/framework/components/cluster"
+
 	// imported to trigger registration
 	_ "istio.io/istio/pkg/test/framework/components/cluster/kube"
-	"istio.io/istio/pkg/test/framework/resource"
 	"istio.io/istio/pkg/test/scopes"
 )
 
@@ -44,7 +45,7 @@ func (a factory) With(configs ...cluster.Config) cluster.Factory {
 	return factory{configs: append(a.configs, configs...)}
 }
 
-func (a factory) Build() (resource.Clusters, error) {
+func (a factory) Build() (cluster.Clusters, error) {
 	scopes.Framework.Infof("=== BEGIN: Building clusters ===")
 
 	// use multierror to give as much detail as possible if the config is bad
@@ -73,7 +74,7 @@ func (a factory) Build() (resource.Clusters, error) {
 	}
 
 	// validate the topology has no open edges and build the return slice
-	var clusters resource.Clusters
+	var clusters cluster.Clusters
 	for n, c := range allClusters {
 		if _, ok := allClusters[c.PrimaryName()]; !ok {
 			errs = multierror.Append(errs, fmt.Errorf("primary %s for %s is not in the topology", c.PrimaryName(), c.Name()))
@@ -95,7 +96,7 @@ func (a factory) Build() (resource.Clusters, error) {
 	return clusters, errs
 }
 
-func buildCluster(cfg cluster.Config, allClusters cluster.Map) (resource.Cluster, error) {
+func buildCluster(cfg cluster.Config, allClusters cluster.Map) (cluster.Cluster, error) {
 	cfg, err := validConfig(cfg)
 	if err != nil {
 		return nil, err

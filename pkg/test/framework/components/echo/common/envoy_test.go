@@ -17,10 +17,12 @@ package common_test
 import (
 	"context"
 
+
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/echo/client"
 	"istio.io/istio/pkg/test/echo/proto"
+	"istio.io/istio/pkg/test/framework/components/cluster"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/resource"
 	"istio.io/istio/pkg/test/util/retry"
@@ -36,7 +38,7 @@ type testConfig struct {
 	service     string
 	domain      string
 	namespace   string
-	cluster     resource.Cluster
+	cluster     cluster.Cluster
 }
 
 func (e *testConfig) Owner() echo.Instance {

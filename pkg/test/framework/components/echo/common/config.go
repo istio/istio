@@ -16,10 +16,10 @@ package common
 
 import (
 	"fmt"
-	"istio.io/istio/pkg/config/constants"
 	"strings"
 	"time"
 
+	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/namespace"

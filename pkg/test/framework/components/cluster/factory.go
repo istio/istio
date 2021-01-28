@@ -2,17 +2,16 @@ package cluster
 
 import (
 	"fmt"
-	"istio.io/istio/pkg/test/framework/resource"
 )
 
 type Factory interface {
 	Kind() Kind
 	With(config ...Config) Factory
-	Build() (resource.Clusters, error)
+	Build() (Clusters, error)
 }
 
 // FactoryFunc validates a config and builds a single echo instance.
-type FactoryFunc func(cfg Config, allClusters Map) (resource.Cluster, error)
+type FactoryFunc func(cfg Config, allClusters Map) (Cluster, error)
 
 var factoryRegistry = map[Kind]FactoryFunc{}
 

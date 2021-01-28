@@ -16,22 +16,20 @@ package echo
 
 import (
 	"fmt"
-	"istio.io/istio/pkg/test/framework/components/cluster"
 	"time"
 
 	"github.com/mitchellh/copystructure"
 
 	"istio.io/istio/pkg/test/echo/common"
+	"istio.io/istio/pkg/test/framework/components/cluster"
 	"istio.io/istio/pkg/test/framework/components/namespace"
-	"istio.io/istio/pkg/test/framework/resource"
 )
 
 // Cluster that can deploy echo instances.
 // TODO putting this here for now to deal with circular imports, needs to be moved
 type Cluster interface {
-	resource.Cluster
+	cluster.Cluster
 
-	Kind() cluster.Kind
 	CanDeploy(Config) bool
 }
 
@@ -87,7 +85,7 @@ type Config struct {
 	Subsets []SubsetConfig
 
 	// Cluster to be used in a multicluster environment
-	Cluster resource.Cluster
+	Cluster cluster.Cluster
 
 	// TLS settings for echo server
 	TLSSettings *common.TLSSettings

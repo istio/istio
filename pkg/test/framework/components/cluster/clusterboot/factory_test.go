@@ -20,7 +20,6 @@ import (
 	"github.com/google/go-cmp/cmp"
 
 	"istio.io/istio/pkg/test/framework/components/cluster"
-	"istio.io/istio/pkg/test/framework/resource"
 )
 
 func TestBuild(t *testing.T) {
@@ -74,7 +73,7 @@ func TestBuild(t *testing.T) {
 			}},
 		},
 	}
-	var clusters resource.Clusters
+	var clusters cluster.Clusters
 	t.Run("build", func(t *testing.T) {
 		factory := NewFactory()
 		for _, tc := range tests {

@@ -16,7 +16,6 @@ package echoboot
 
 import (
 	"fmt"
-	"istio.io/istio/pkg/test/framework/components/echo/common"
 	"sync"
 
 	"github.com/hashicorp/go-multierror"
@@ -24,6 +23,8 @@ import (
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/framework/components/cluster"
 	"istio.io/istio/pkg/test/framework/components/echo"
+	"istio.io/istio/pkg/test/framework/components/echo/common"
+
 	// force registraton of factory func
 	_ "istio.io/istio/pkg/test/framework/components/echo/kube"
 	"istio.io/istio/pkg/test/framework/resource"
@@ -32,10 +33,10 @@ import (
 var _ echo.Builder = builder{}
 
 // NewBuilder for Echo Instances.
-func NewBuilder(ctx resource.Context, clusters ...resource.Cluster) echo.Builder {
+func NewBuilder(ctx resource.Context, clusters ...cluster.Cluster) echo.Builder {
 	// use default kube cluster unless otherwise specified
 	if len(clusters) == 0 {
-		clusters = resource.Clusters{ctx.Clusters().Default()}
+		clusters = cluster.Clusters{ctx.Clusters().Default()}
 	}
 	return builder{
 		ctx:     ctx,
@@ -49,7 +50,7 @@ type builder struct {
 
 	// clusters contains the current set of clusters that subsequent With calls will be applied to,
 	// if the Config passed to With does not explicitly choose a cluster.
-	clusters resource.Clusters
+	clusters cluster.Clusters
 
 	// configs contains configurations to be built, expanded per-cluster and grouped by cluster Kind.
 	configs map[cluster.Kind][]echo.Config
@@ -75,7 +76,7 @@ func (b builder) With(i *echo.Instance, cfg echo.Config) echo.Builder {
 
 	targetClusters := b.clusters
 	if cfg.Cluster != nil {
-		targetClusters = resource.Clusters{cfg.Cluster}
+		targetClusters = cluster.Clusters{cfg.Cluster}
 	}
 
 	deployedTo := 0
@@ -112,7 +113,7 @@ func (b builder) With(i *echo.Instance, cfg echo.Config) echo.Builder {
 }
 
 // WithClusters will cause subsequent With calls to be applied to the given clusters.
-func (b builder) WithClusters(clusters ...resource.Cluster) echo.Builder {
+func (b builder) WithClusters(clusters ...cluster.Cluster) echo.Builder {
 	next := b
 	next.clusters = clusters
 	return next

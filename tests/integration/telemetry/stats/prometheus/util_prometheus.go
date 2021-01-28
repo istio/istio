@@ -21,13 +21,13 @@ import (
 	"testing"
 	"time"
 
+	"istio.io/istio/pkg/test/framework/components/cluster"
 	"istio.io/istio/pkg/test/framework/components/prometheus"
-	"istio.io/istio/pkg/test/framework/resource"
 	"istio.io/istio/pkg/test/util/retry"
 )
 
 // QueryPrometheus queries prometheus and returns the result once the query stabilizes
-func QueryPrometheus(t *testing.T, cluster resource.Cluster, query string, promInst prometheus.Instance) (string, error) {
+func QueryPrometheus(t *testing.T, cluster cluster.Cluster, query string, promInst prometheus.Instance) (string, error) {
 	t.Logf("query prometheus with: %v", query)
 	val, err := promInst.WaitForQuiesceForCluster(cluster, query)
 	if err != nil {
@@ -43,7 +43,7 @@ func QueryPrometheus(t *testing.T, cluster resource.Cluster, query string, promI
 }
 
 // QueryFirstPrometheus queries prometheus and returns the result once a timeseries exists
-func QueryFirstPrometheus(t *testing.T, cluster resource.Cluster, query string, promInst prometheus.Instance) error {
+func QueryFirstPrometheus(t *testing.T, cluster cluster.Cluster, query string, promInst prometheus.Instance) error {
 	t.Logf("query prometheus with: %v", query)
 	val, err := promInst.WaitForOneOrMoreForCluster(cluster, query)
 	if err != nil {
@@ -58,7 +58,7 @@ func QueryFirstPrometheus(t *testing.T, cluster resource.Cluster, query string, 
 	return nil
 }
 
-func ValidateMetric(t *testing.T, cluster resource.Cluster, prometheus prometheus.Instance, query, metricName string, want float64) {
+func ValidateMetric(t *testing.T, cluster cluster.Cluster, prometheus prometheus.Instance, query, metricName string, want float64) {
 	var got float64
 	retry.UntilSuccessOrFail(t, func() error {
 		var err error
@@ -73,7 +73,7 @@ func ValidateMetric(t *testing.T, cluster resource.Cluster, prometheus prometheu
 	}
 }
 
-func getMetric(t *testing.T, cluster resource.Cluster, prometheus prometheus.Instance, query, metricName string) (float64, error) {
+func getMetric(t *testing.T, cluster cluster.Cluster, prometheus prometheus.Instance, query, metricName string) (float64, error) {
 	t.Helper()
 
 	t.Logf("prometheus query: %s", query)
@@ -94,14 +94,14 @@ func getMetric(t *testing.T, cluster resource.Cluster, prometheus prometheus.Ins
 
 // promDump gets all of the recorded values for a metric by name and generates a report of the values.
 // used for debugging of failures to provide a comprehensive view of traffic experienced.
-func PromDump(cluster resource.Cluster, prometheus prometheus.Instance, metric string) string {
+func PromDump(cluster cluster.Cluster, prometheus prometheus.Instance, metric string) string {
 	return PromDumpWithAttributes(cluster, prometheus, metric, nil)
 }
 
 // promDumpWithAttributes is used to get all of the recorded values of a metric for particular attributes.
 // Attributes have to be of format %s=\"%s\"
 // nolint: unparam
-func PromDumpWithAttributes(cluster resource.Cluster, prometheus prometheus.Instance, metric string, attributes []string) string {
+func PromDumpWithAttributes(cluster cluster.Cluster, prometheus prometheus.Instance, metric string, attributes []string) string {
 	if value, err := prometheus.WaitForQuiesceForCluster(cluster, fmt.Sprintf("%s{%s}", metric, strings.Join(attributes, ", "))); err == nil {
 		return value.String()
 	}

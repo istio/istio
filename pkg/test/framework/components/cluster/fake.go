@@ -16,16 +16,15 @@ package cluster
 
 import (
 	"istio.io/istio/pkg/kube"
-	"istio.io/istio/pkg/test/framework/resource"
 )
 
-var _ resource.Cluster = FakeCluster{}
+var _ Cluster = FakeCluster{}
 
 func init() {
 	RegisterFactory(Fake, newFakeCluster)
 }
 
-func newFakeCluster(cfg Config, allClusters Map) (resource.Cluster, error) {
+func newFakeCluster(cfg Config, allClusters Map) (Cluster, error) {
 	return &FakeCluster{
 		Topology: Topology{
 			ClusterName:        cfg.Name,

@@ -31,6 +31,7 @@ import (
 
 	"gopkg.in/yaml.v2"
 
+	"istio.io/istio/pkg/test/framework/components/cluster"
 	"istio.io/istio/pkg/test/framework/components/environment/kube"
 	ferrors "istio.io/istio/pkg/test/framework/errors"
 	"istio.io/istio/pkg/test/framework/label"
@@ -379,7 +380,7 @@ func isMulticluster(ctx resource.Context) bool {
 	return false
 }
 
-func clusters(ctx resource.Context) []resource.Cluster {
+func clusters(ctx resource.Context) []cluster.Cluster {
 	if ctx.Environment() != nil {
 		return ctx.Environment().Clusters()
 	}

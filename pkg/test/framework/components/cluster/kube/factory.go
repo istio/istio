@@ -21,7 +21,6 @@ import (
 
 	istioKube "istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/test/framework/components/cluster"
-	"istio.io/istio/pkg/test/framework/resource"
 )
 
 const (
@@ -33,7 +32,7 @@ func init() {
 	cluster.RegisterFactory(cluster.Kubernetes, buildKube)
 }
 
-func buildKube(origCfg cluster.Config, allClusters cluster.Map) (resource.Cluster, error) {
+func buildKube(origCfg cluster.Config, allClusters cluster.Map) (cluster.Cluster, error) {
 	cfg, err := validConfig(origCfg)
 	if err != nil {
 		return nil, err
