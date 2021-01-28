@@ -52,7 +52,6 @@ func BuildInboundFilterChain(mTLSMode model.MutualTLSMode, sdsUdsPath string, no
 		return []networking.FilterChain{{}}
 	}
 
-	meta := node.Metadata
 	var alpnIstioMatch *listener.FilterChainMatch
 	var ctx *tls.DownstreamTlsContext
 	if listenerProtocol == networking.ListenerProtocolTCP || listenerProtocol == networking.ListenerProtocolAuto {
@@ -98,7 +97,7 @@ func BuildInboundFilterChain(mTLSMode model.MutualTLSMode, sdsUdsPath string, no
 
 	}
 
-	authn_model.ApplyToCommonTLSContext(ctx.CommonTlsContext, meta, sdsUdsPath, []string{} /*subjectAltNames*/, trustDomainAliases)
+	authn_model.ApplyToCommonTLSContext(ctx.CommonTlsContext, node, sdsUdsPath, []string{} /*subjectAltNames*/, trustDomainAliases)
 
 	if mTLSMode == model.MTLSStrict {
 		log.Debug("Allow only istio mutual TLS traffic")

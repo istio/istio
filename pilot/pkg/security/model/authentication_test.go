@@ -47,8 +47,9 @@ func TestConstructSdsSecretConfig(t *testing.T) {
 					ResourceApiVersion:  core.ApiVersion_V3,
 					ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
 						ApiConfigSource: &core.ApiConfigSource{
-							ApiType:             core.ApiConfigSource_GRPC,
-							TransportApiVersion: core.ApiVersion_V3,
+							ApiType:                   core.ApiConfigSource_GRPC,
+							SetNodeOnFirstMessageOnly: true,
+							TransportApiVersion:       core.ApiVersion_V3,
 							GrpcServices: []*core.GrpcService{
 								{
 									TargetSpecifier: &core.GrpcService_EnvoyGrpc_{
@@ -70,7 +71,7 @@ func TestConstructSdsSecretConfig(t *testing.T) {
 
 	for _, c := range testCases {
 		t.Run(c.name, func(t *testing.T) {
-			if got := ConstructSdsSecretConfig(c.secretName); !cmp.Equal(got, c.expected, protocmp.Transform()) {
+			if got := ConstructSdsSecretConfig(c.secretName, &model.Proxy{}); !cmp.Equal(got, c.expected, protocmp.Transform()) {
 				t.Errorf("ConstructSdsSecretConfig: got(%#v), want(%#v)\n", got, c.expected)
 			}
 		})
@@ -157,8 +158,9 @@ func TestApplyToCommonTLSContext(t *testing.T) {
 							ResourceApiVersion:  core.ApiVersion_V3,
 							ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
 								ApiConfigSource: &core.ApiConfigSource{
-									ApiType:             core.ApiConfigSource_GRPC,
-									TransportApiVersion: core.ApiVersion_V3,
+									ApiType:                   core.ApiConfigSource_GRPC,
+									SetNodeOnFirstMessageOnly: true,
+									TransportApiVersion:       core.ApiVersion_V3,
 									GrpcServices: []*core.GrpcService{
 										{
 											TargetSpecifier: &core.GrpcService_EnvoyGrpc_{
@@ -181,8 +183,9 @@ func TestApplyToCommonTLSContext(t *testing.T) {
 								ResourceApiVersion:  core.ApiVersion_V3,
 								ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
 									ApiConfigSource: &core.ApiConfigSource{
-										ApiType:             core.ApiConfigSource_GRPC,
-										TransportApiVersion: core.ApiVersion_V3,
+										ApiType:                   core.ApiConfigSource_GRPC,
+										SetNodeOnFirstMessageOnly: true,
+										TransportApiVersion:       core.ApiVersion_V3,
 										GrpcServices: []*core.GrpcService{
 											{
 												TargetSpecifier: &core.GrpcService_EnvoyGrpc_{
@@ -214,8 +217,9 @@ func TestApplyToCommonTLSContext(t *testing.T) {
 							ResourceApiVersion:  core.ApiVersion_V3,
 							ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
 								ApiConfigSource: &core.ApiConfigSource{
-									ApiType:             core.ApiConfigSource_GRPC,
-									TransportApiVersion: core.ApiVersion_V3,
+									ApiType:                   core.ApiConfigSource_GRPC,
+									SetNodeOnFirstMessageOnly: true,
+									TransportApiVersion:       core.ApiVersion_V3,
 									GrpcServices: []*core.GrpcService{
 										{
 											TargetSpecifier: &core.GrpcService_EnvoyGrpc_{
@@ -242,8 +246,9 @@ func TestApplyToCommonTLSContext(t *testing.T) {
 								ResourceApiVersion:  core.ApiVersion_V3,
 								ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
 									ApiConfigSource: &core.ApiConfigSource{
-										ApiType:             core.ApiConfigSource_GRPC,
-										TransportApiVersion: core.ApiVersion_V3,
+										ApiType:                   core.ApiConfigSource_GRPC,
+										SetNodeOnFirstMessageOnly: true,
+										TransportApiVersion:       core.ApiVersion_V3,
 										GrpcServices: []*core.GrpcService{
 											{
 												TargetSpecifier: &core.GrpcService_EnvoyGrpc_{
@@ -276,8 +281,9 @@ func TestApplyToCommonTLSContext(t *testing.T) {
 						SdsConfig: &core.ConfigSource{
 							ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
 								ApiConfigSource: &core.ApiConfigSource{
-									ApiType:             core.ApiConfigSource_GRPC,
-									TransportApiVersion: core.ApiVersion_V3,
+									ApiType:                   core.ApiConfigSource_GRPC,
+									SetNodeOnFirstMessageOnly: true,
+									TransportApiVersion:       core.ApiVersion_V3,
 									GrpcServices: []*core.GrpcService{
 										{
 											TargetSpecifier: &core.GrpcService_EnvoyGrpc_{
@@ -299,8 +305,9 @@ func TestApplyToCommonTLSContext(t *testing.T) {
 							SdsConfig: &core.ConfigSource{
 								ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
 									ApiConfigSource: &core.ApiConfigSource{
-										ApiType:             core.ApiConfigSource_GRPC,
-										TransportApiVersion: core.ApiVersion_V3,
+										ApiType:                   core.ApiConfigSource_GRPC,
+										SetNodeOnFirstMessageOnly: true,
+										TransportApiVersion:       core.ApiVersion_V3,
 										GrpcServices: []*core.GrpcService{
 											{
 												TargetSpecifier: &core.GrpcService_EnvoyGrpc_{
@@ -330,8 +337,9 @@ func TestApplyToCommonTLSContext(t *testing.T) {
 						SdsConfig: &core.ConfigSource{
 							ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
 								ApiConfigSource: &core.ApiConfigSource{
-									ApiType:             core.ApiConfigSource_GRPC,
-									TransportApiVersion: core.ApiVersion_V3,
+									ApiType:                   core.ApiConfigSource_GRPC,
+									SetNodeOnFirstMessageOnly: true,
+									TransportApiVersion:       core.ApiVersion_V3,
 									GrpcServices: []*core.GrpcService{
 										{
 											TargetSpecifier: &core.GrpcService_EnvoyGrpc_{
@@ -354,8 +362,9 @@ func TestApplyToCommonTLSContext(t *testing.T) {
 							SdsConfig: &core.ConfigSource{
 								ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
 									ApiConfigSource: &core.ApiConfigSource{
-										ApiType:             core.ApiConfigSource_GRPC,
-										TransportApiVersion: core.ApiVersion_V3,
+										ApiType:                   core.ApiConfigSource_GRPC,
+										SetNodeOnFirstMessageOnly: true,
+										TransportApiVersion:       core.ApiVersion_V3,
 										GrpcServices: []*core.GrpcService{
 											{
 												TargetSpecifier: &core.GrpcService_EnvoyGrpc_{
@@ -390,8 +399,9 @@ func TestApplyToCommonTLSContext(t *testing.T) {
 						SdsConfig: &core.ConfigSource{
 							ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
 								ApiConfigSource: &core.ApiConfigSource{
-									ApiType:             core.ApiConfigSource_GRPC,
-									TransportApiVersion: core.ApiVersion_V3,
+									ApiType:                   core.ApiConfigSource_GRPC,
+									SetNodeOnFirstMessageOnly: true,
+									TransportApiVersion:       core.ApiVersion_V3,
 									GrpcServices: []*core.GrpcService{
 										{
 											TargetSpecifier: &core.GrpcService_EnvoyGrpc_{
@@ -413,8 +423,9 @@ func TestApplyToCommonTLSContext(t *testing.T) {
 							SdsConfig: &core.ConfigSource{
 								ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
 									ApiConfigSource: &core.ApiConfigSource{
-										ApiType:             core.ApiConfigSource_GRPC,
-										TransportApiVersion: core.ApiVersion_V3,
+										ApiType:                   core.ApiConfigSource_GRPC,
+										SetNodeOnFirstMessageOnly: true,
+										TransportApiVersion:       core.ApiVersion_V3,
 										GrpcServices: []*core.GrpcService{
 											{
 												TargetSpecifier: &core.GrpcService_EnvoyGrpc_{
@@ -436,7 +447,7 @@ func TestApplyToCommonTLSContext(t *testing.T) {
 	for _, test := range testCases {
 		t.Run(test.name, func(t *testing.T) {
 			tlsContext := &auth.CommonTlsContext{}
-			ApplyToCommonTLSContext(tlsContext, test.node.Metadata, test.sdsUdsPath, []string{}, test.trustDomainAliases)
+			ApplyToCommonTLSContext(tlsContext, test.node, test.sdsUdsPath, []string{}, test.trustDomainAliases)
 
 			if !cmp.Equal(tlsContext, test.expected, protocmp.Transform()) {
 				t.Errorf("got(%#v), want(%#v)\n", spew.Sdump(tlsContext), spew.Sdump(test.expected))
