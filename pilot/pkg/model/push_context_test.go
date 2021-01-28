@@ -28,6 +28,7 @@ import (
 	securityBeta "istio.io/api/security/v1beta1"
 	selectorpb "istio.io/api/type/v1beta1"
 
+	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/labels"
@@ -771,6 +772,8 @@ func TestVirtualServiceWithExportTo(t *testing.T) {
 }
 
 func TestInitVirtualService(t *testing.T) {
+	features.EnableVirtualServiceDelegate = true
+
 	ps := NewPushContext()
 	env := &Environment{Watcher: mesh.NewFixedWatcher(&meshconfig.MeshConfig{RootNamespace: "istio-system"})}
 	ps.Mesh = env.Mesh()
