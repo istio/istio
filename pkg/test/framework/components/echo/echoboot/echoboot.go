@@ -98,6 +98,7 @@ func (b builder) With(i *echo.Instance, cfg echo.Config) echo.Builder {
 				// TODO: should we just panic if a ref is passed in a multi-cluster context?
 				ref = i
 			}
+			perClusterConfig = perClusterConfig.DeepCopy()
 			k := ec.Kind()
 			perClusterConfig.Cluster = ec
 			b.configs[k] = append(b.configs[k], perClusterConfig)
@@ -151,6 +152,7 @@ func (b builder) deployServices() error {
 	services := map[string]string{}
 	for _, cfgs := range b.configs {
 		for _, cfg := range cfgs {
+			cfg := cfg.DeepCopy()
 			if err := common.FillInKubeDefaults(b.ctx, &cfg); err != nil {
 				return err
 			}
