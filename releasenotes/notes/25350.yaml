@@ -1,0 +1,9 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+issue:
+  - 25350
+releaseNotes:
+  - |
+    **Fixed** wildcard hosts fail to match when port is included in host header.
+
