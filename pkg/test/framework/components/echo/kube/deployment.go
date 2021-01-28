@@ -384,8 +384,8 @@ func init() {
 	}
 }
 
-func generateDeployment(cfg echo.Config) (string, error) {
-	params, err := templateParams(cfg)
+func generateDeploymentWithSettings(cfg echo.Config, settings *image.Settings) (string, error) {
+	params, err := templateParams(cfg, settings)
 	if err != nil {
 		return "", err
 	}
@@ -398,8 +398,12 @@ func generateDeployment(cfg echo.Config) (string, error) {
 	return tmpl.Execute(deploy, params)
 }
 
+func generateDeployment(cfg echo.Config) (string, error) {
+	return generateDeploymentWithSettings(cfg, nil)
+}
+
 func GenerateService(cfg echo.Config) (string, error) {
-	params, err := templateParams(cfg)
+	params, err := templateParams(cfg, nil)
 	if err != nil {
 		return "", err
 	}
@@ -409,10 +413,13 @@ func GenerateService(cfg echo.Config) (string, error) {
 
 const DefaultVMImage = "app_sidecar_ubuntu_bionic"
 
-func templateParams(cfg echo.Config) (map[string]interface{}, error) {
-	settings, err := image.SettingsFromCommandLine()
-	if err != nil {
-		return nil, err
+func templateParams(cfg echo.Config, settings *image.Settings) (map[string]interface{}, error) {
+	if settings == nil {
+		var err error
+		settings, err = image.SettingsFromCommandLine()
+		if err != nil {
+			return nil, err
+		}
 	}
 	ver, err := cfg.Cluster.GetKubernetesVersion()
 	if err != nil {
