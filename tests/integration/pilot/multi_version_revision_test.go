@@ -186,6 +186,6 @@ func ReadInstallFile(f string) (string, error) {
 // with any of the revision versions included in the test (i.e. istio 1.7 not supported on k8s 1.15)
 func skipIfK8sVersionUnsupported(ctx framework.TestContext) {
 	if ctx.Clusters().Default().MinKubeVersion(1, 16) {
-		ctx.Skipf("k8s version %s not supported for %s (<%s)", serverVersion, ctx.Name(), "1.16")
+		ctx.Skipf("k8s version not supported for %s (<%s)", ctx.Name(), "1.16")
 	}
 }
