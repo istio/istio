@@ -123,7 +123,6 @@ func TestEgressGatewayTls(t *testing.T) {
 						systemNamespace := namespace.ClaimOrFail(t, ctx, istioCfg.SystemNamespace)
 
 						ctx.Config().ApplyYAMLOrFail(ctx, systemNamespace.Name(), bufDestinationRule.String())
-						defer ctx.Config().DeleteYAMLOrFail(ctx, systemNamespace.Name(), bufDestinationRule.String())
 
 						retry.UntilSuccessOrFail(t, func() error {
 							resp, err := internalClient.Call(echo.CallOptions{

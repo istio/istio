@@ -115,6 +115,8 @@ features:
       plugin-cert:
   # features which allow extending or deep integrations with istio and other products
   extensibility:
+    wasm:
+      remote-load:
   # features releated to the lifecycle of istio installations
   installation:
     istioctl:
@@ -123,6 +125,7 @@ features:
       uninstall_manifest:
       uninstall_purge:
       postinstall_verify:
+      revision_centric_view:
     multicluster:
       multimaster:
       remote:

@@ -28,7 +28,6 @@ import (
 type otel struct {
 	id      resource.ID
 	cluster resource.Cluster
-	close   func()
 }
 
 const (
@@ -145,14 +144,6 @@ func installServiceEntry(ctx resource.Context, ns, ingressAddr string) error {
 	return nil
 }
 
-func remove(ctx resource.Context, ns string) error {
-	y, err := getYaml()
-	if err != nil {
-		return err
-	}
-	return ctx.Config().DeleteYAML(ns, y)
-}
-
 func newCollector(ctx resource.Context, c Config) (*otel, error) {
 	o := &otel{
 		cluster: ctx.Clusters().GetOrDefault(c.Cluster),
@@ -167,10 +158,6 @@ func newCollector(ctx resource.Context, c Config) (*otel, error) {
 	ns := istioCfg.TelemetryNamespace
 	if err := install(ctx, ns); err != nil {
 		return nil, err
-	}
-
-	o.close = func() {
-		_ = remove(ctx, ns)
 	}
 
 	f := testKube.NewSinglePodFetch(o.cluster, ns, fmt.Sprintf("app=%s", appName))
@@ -189,12 +176,4 @@ func newCollector(ctx resource.Context, c Config) (*otel, error) {
 
 func (o *otel) ID() resource.ID {
 	return o.id
-}
-
-// Close implements io.Closer.
-func (o *otel) Close() error {
-	if o.close != nil {
-		o.close()
-	}
-	return nil
 }

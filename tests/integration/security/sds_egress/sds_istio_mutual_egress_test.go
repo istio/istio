@@ -92,7 +92,6 @@ func doIstioMutualTest(
 		With(&client, util.EchoConfig("client", ns, false, nil)).
 		BuildOrFail(ctx)
 	ctx.Config().ApplyYAMLOrFail(ctx, ns.Name(), file.AsStringOrFail(ctx, configPath))
-	defer ctx.Config().DeleteYAMLOrFail(ctx, ns.Name(), file.AsStringOrFail(ctx, configPath))
 
 	// give the configuration a moment to kick in
 	time.Sleep(time.Second * 20)

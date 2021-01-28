@@ -223,6 +223,7 @@ debug and diagnose their Istio mesh.
 	experimentalCmd.AddCommand(mesh.UninstallCmd(loggingOptions))
 	experimentalCmd.AddCommand(configCmd())
 	experimentalCmd.AddCommand(workloadCommands())
+	experimentalCmd.AddCommand(revisionCommand())
 
 	analyzeCmd := Analyze()
 	hideInheritedFlags(analyzeCmd, "istioNamespace")

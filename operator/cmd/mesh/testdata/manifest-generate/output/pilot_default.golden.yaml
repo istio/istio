@@ -17,7 +17,7 @@ spec:
         listener:
           filterChain:
             filter:
-              name: "envoy.http_connection_manager"
+              name: "envoy.filters.network.http_connection_manager"
       patch:
         operation: INSERT_BEFORE
         value:
@@ -44,7 +44,7 @@ spec:
         listener:
           filterChain:
             filter:
-              name: "envoy.http_connection_manager"
+              name: "envoy.filters.network.http_connection_manager"
       patch:
         operation: INSERT_BEFORE
         value:
@@ -71,7 +71,7 @@ spec:
         listener:
           filterChain:
             filter:
-              name: "envoy.http_connection_manager"
+              name: "envoy.filters.network.http_connection_manager"
       patch:
         operation: INSERT_BEFORE
         value:
@@ -110,7 +110,7 @@ spec:
         listener:
           filterChain:
             filter:
-              name: "envoy.http_connection_manager"
+              name: "envoy.filters.network.http_connection_manager"
       patch:
         operation: INSERT_BEFORE
         value:
@@ -137,7 +137,7 @@ spec:
         listener:
           filterChain:
             filter:
-              name: "envoy.http_connection_manager"
+              name: "envoy.filters.network.http_connection_manager"
       patch:
         operation: INSERT_BEFORE
         value:
@@ -164,7 +164,7 @@ spec:
         listener:
           filterChain:
             filter:
-              name: "envoy.http_connection_manager"
+              name: "envoy.filters.network.http_connection_manager"
       patch:
         operation: INSERT_BEFORE
         value:
@@ -203,7 +203,7 @@ spec:
         listener:
           filterChain:
             filter:
-              name: "envoy.http_connection_manager"
+              name: "envoy.filters.network.http_connection_manager"
       patch:
         operation: INSERT_BEFORE
         value:
@@ -230,7 +230,7 @@ spec:
         listener:
           filterChain:
             filter:
-              name: "envoy.http_connection_manager"
+              name: "envoy.filters.network.http_connection_manager"
       patch:
         operation: INSERT_BEFORE
         value:
@@ -257,7 +257,7 @@ spec:
         listener:
           filterChain:
             filter:
-              name: "envoy.http_connection_manager"
+              name: "envoy.filters.network.http_connection_manager"
       patch:
         operation: INSERT_BEFORE
         value:
@@ -294,7 +294,7 @@ spec:
         listener:
           filterChain:
             filter:
-              name: "envoy.http_connection_manager"
+              name: "envoy.filters.network.http_connection_manager"
               subFilter:
                 name: "envoy.filters.http.router"
       patch:
@@ -336,7 +336,7 @@ spec:
         listener:
           filterChain:
             filter:
-              name: "envoy.http_connection_manager"
+              name: "envoy.filters.network.http_connection_manager"
               subFilter:
                 name: "envoy.filters.http.router"
       patch:
@@ -378,7 +378,7 @@ spec:
         listener:
           filterChain:
             filter:
-              name: "envoy.http_connection_manager"
+              name: "envoy.filters.network.http_connection_manager"
               subFilter:
                 name: "envoy.filters.http.router"
       patch:
@@ -431,7 +431,7 @@ spec:
         listener:
           filterChain:
             filter:
-              name: "envoy.http_connection_manager"
+              name: "envoy.filters.network.http_connection_manager"
               subFilter:
                 name: "envoy.filters.http.router"
       patch:
@@ -463,7 +463,7 @@ spec:
         listener:
           filterChain:
             filter:
-              name: "envoy.http_connection_manager"
+              name: "envoy.filters.network.http_connection_manager"
               subFilter:
                 name: "envoy.filters.http.router"
       patch:
@@ -495,7 +495,7 @@ spec:
         listener:
           filterChain:
             filter:
-              name: "envoy.http_connection_manager"
+              name: "envoy.filters.network.http_connection_manager"
               subFilter:
                 name: "envoy.filters.http.router"
       patch:
@@ -538,7 +538,7 @@ spec:
         listener:
           filterChain:
             filter:
-              name: "envoy.http_connection_manager"
+              name: "envoy.filters.network.http_connection_manager"
               subFilter:
                 name: "envoy.filters.http.router"
       patch:
@@ -580,7 +580,7 @@ spec:
         listener:
           filterChain:
             filter:
-              name: "envoy.http_connection_manager"
+              name: "envoy.filters.network.http_connection_manager"
               subFilter:
                 name: "envoy.filters.http.router"
       patch:
@@ -622,7 +622,7 @@ spec:
         listener:
           filterChain:
             filter:
-              name: "envoy.http_connection_manager"
+              name: "envoy.filters.network.http_connection_manager"
               subFilter:
                 name: "envoy.filters.http.router"
       patch:
@@ -846,7 +846,7 @@ spec:
         listener:
           filterChain:
             filter:
-              name: "envoy.tcp_proxy"
+              name: "envoy.filters.network.tcp_proxy"
       patch:
         operation: INSERT_BEFORE
         value:
@@ -886,7 +886,7 @@ spec:
         listener:
           filterChain:
             filter:
-              name: "envoy.tcp_proxy"
+              name: "envoy.filters.network.tcp_proxy"
       patch:
         operation: INSERT_BEFORE
         value:
@@ -926,7 +926,7 @@ spec:
         listener:
           filterChain:
             filter:
-              name: "envoy.tcp_proxy"
+              name: "envoy.filters.network.tcp_proxy"
       patch:
         operation: INSERT_BEFORE
         value:
@@ -976,7 +976,7 @@ spec:
         listener:
           filterChain:
             filter:
-              name: "envoy.tcp_proxy"
+              name: "envoy.filters.network.tcp_proxy"
       patch:
         operation: INSERT_BEFORE
         value:
@@ -1006,7 +1006,7 @@ spec:
         listener:
           filterChain:
             filter:
-              name: "envoy.tcp_proxy"
+              name: "envoy.filters.network.tcp_proxy"
       patch:
         operation: INSERT_BEFORE
         value:
@@ -1036,7 +1036,7 @@ spec:
         listener:
           filterChain:
             filter:
-              name: "envoy.tcp_proxy"
+              name: "envoy.filters.network.tcp_proxy"
       patch:
         operation: INSERT_BEFORE
         value:
@@ -1076,7 +1076,7 @@ spec:
         listener:
           filterChain:
             filter:
-              name: "envoy.tcp_proxy"
+              name: "envoy.filters.network.tcp_proxy"
       patch:
         operation: INSERT_BEFORE
         value:
@@ -1116,7 +1116,7 @@ spec:
         listener:
           filterChain:
             filter:
-              name: "envoy.tcp_proxy"
+              name: "envoy.filters.network.tcp_proxy"
       patch:
         operation: INSERT_BEFORE
         value:
@@ -1156,7 +1156,7 @@ spec:
         listener:
           filterChain:
             filter:
-              name: "envoy.tcp_proxy"
+              name: "envoy.filters.network.tcp_proxy"
       patch:
         operation: INSERT_BEFORE
         value:
@@ -1349,6 +1349,7 @@ data:
       "revision": "",
       "sidecarInjectorWebhook": {
         "alwaysInjectSelector": [],
+        "defaultTemplates": [],
         "enableNamespacesByDefault": false,
         "injectedAnnotations": {},
         "neverInjectSelector": [],
@@ -1369,7 +1370,6 @@ data:
   # to fine tune it or use it with kube-inject.
   config: |-
     # defaultTemplates defines the default template to use for pods that do not explicitly specify a template
-    # NOTE: this currently only allows a single element
     defaultTemplates: [sidecar]
     policy: enabled
     alwaysInjectSelector:
@@ -1377,6 +1377,7 @@ data:
     neverInjectSelector:
       []
     injectedAnnotations:
+    template: "{{ Template_Version_And_Istio_Version_Mismatched_Check_Installation }}"
     templates:
       sidecar: |
         {{- $containers := list }}
