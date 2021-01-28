@@ -186,7 +186,6 @@ func TestSecureNaming(t *testing.T) {
 							Run(func(ctx framework.TestContext) {
 								dr := strings.ReplaceAll(tc.destinationRule, "NS", testNamespace.Name())
 								ctx.Config().ApplyYAMLOrFail(t, testNamespace.Name(), dr)
-								defer ctx.Config().DeleteYAMLOrFail(t, testNamespace.Name(), dr)
 								// Verify mTLS works between a and b
 								callOptions := echo.CallOptions{
 									Target:   bSet[0],

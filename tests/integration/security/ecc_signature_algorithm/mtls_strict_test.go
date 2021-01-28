@@ -62,16 +62,10 @@ func TestStrictMTLS(t *testing.T) {
 		Run(func(ctx framework.TestContext) {
 			peerTemplate := tmpl.EvaluateOrFail(ctx, PeerAuthenticationConfig, map[string]string{"AppNamespace": apps.Namespace.Name()})
 			ctx.Config().ApplyYAMLOrFail(ctx, apps.Namespace.Name(), peerTemplate)
-			ctx.ConditionalCleanup(func() {
-				ctx.Config().DeleteYAML(apps.Namespace.Name(), peerTemplate)
-			})
 			util.WaitForConfigWithSleep(ctx, peerTemplate, apps.Namespace)
 
 			drTemplate := tmpl.EvaluateOrFail(ctx, DestinationRuleConfigIstioMutual, map[string]string{"AppNamespace": apps.Namespace.Name()})
 			ctx.Config().ApplyYAMLOrFail(ctx, apps.Namespace.Name(), drTemplate)
-			ctx.ConditionalCleanup(func() {
-				ctx.Config().DeleteYAML(apps.Namespace.Name(), drTemplate)
-			})
 			util.WaitForConfigWithSleep(ctx, drTemplate, apps.Namespace)
 
 			response := apps.Client.CallOrFail(t, echo.CallOptions{

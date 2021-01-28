@@ -55,7 +55,6 @@ func TestStackdriverHTTPAuditLogging(t *testing.T) {
 			}
 			policies := tmpl.EvaluateAllOrFail(t, args, file.AsStringOrFail(t, auditPolicyForLogEntry))
 			ctx.Config().ApplyYAMLOrFail(t, ns, policies...)
-			defer ctx.Config().DeleteYAMLOrFail(t, ns, policies...)
 			t.Logf("Audit policy deployed to namespace %v", ns)
 
 			for _, cltInstance := range clt {

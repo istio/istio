@@ -150,7 +150,9 @@ func installRevisionOrFail(ctx framework.TestContext, version string, configs ma
 		ctx.Fatalf("could not read installation config: %v", err)
 	}
 	configs[version] = config
-	ctx.Config().ApplyYAMLOrFail(ctx, i.Settings().SystemNamespace, config)
+	if err := ctx.Config().ApplyYAMLNoCleanup(i.Settings().SystemNamespace, config); err != nil {
+		ctx.Fatal(err)
+	}
 }
 
 // ReadInstallFile reads a tar compress installation file from the embedded
