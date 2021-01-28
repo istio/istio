@@ -87,6 +87,9 @@ func instanceFromMeta(cfg cluster.ConfigMeta) (echo.Config, error) {
 		}
 		ips = append(ips, ipStr)
 	}
+	if len(ips) == 0 {
+		return echo.Config{}, fmt.Errorf("%s has no IPs", svc)
+	}
 
 	return echo.Config{
 		Namespace: fakeNamespace(ns),

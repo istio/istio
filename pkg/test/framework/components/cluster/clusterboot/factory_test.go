@@ -102,11 +102,11 @@ func TestBuild(t *testing.T) {
 	})
 	for _, tc := range tests {
 		t.Run("built "+tc.config.Name, func(t *testing.T) {
-			built := clusters.GetByName(tc.config.Name)
-			builtFake := *built.(*cluster.FakeCluster)
-			// don't include ref map in comparison
-			builtFake.AllClusters = nil
-			if diff := cmp.Diff(builtFake, tc.cluster); diff != "" {
+			built := *clusters.GetByName(tc.config.Name).(*cluster.FakeCluster)
+			// don't compare these
+			built.AllClusters = nil
+			built.Version = nil
+			if diff := cmp.Diff(built, tc.cluster); diff != "" {
 				t.Fatal(diff)
 			}
 		})
@@ -130,6 +130,13 @@ func TestValidation(t *testing.T) {
 		},
 		"non-existent config": {
 			{Kind: cluster.Fake, Name: "no-primary", ConfigClusterName: "does-not-exist"},
+		},
+		"vm without kube primary": {
+			{Kind: cluster.StaticVM, Name: "vm", Meta: cluster.ConfigMeta{"deployments": []interface{}{
+				cluster.ConfigMeta{
+					"service": "vm", "namespace": "echo", "instances": []cluster.ConfigMeta{{"ip": "1.2.3.4"}},
+				},
+			}}},
 		},
 	}
 
