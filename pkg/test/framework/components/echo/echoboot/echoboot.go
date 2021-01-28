@@ -86,7 +86,7 @@ func (b builder) With(i *echo.Instance, cfg echo.Config) echo.Builder {
 			b.errs = multierror.Append(b.errs, fmt.Errorf("attembed to deploy to %s but it does not implement echo.Cluster", c.Name()))
 			continue
 		}
-		if ec.CanDeploy(cfg) {
+		if perClusterConfig, ok := ec.CanDeploy(cfg); ok {
 			var ref *echo.Instance
 			if idx == 0 {
 				// ref only applies to the first cluster deployed to
@@ -95,7 +95,6 @@ func (b builder) With(i *echo.Instance, cfg echo.Config) echo.Builder {
 				ref = i
 			}
 			k := ec.Kind()
-			perClusterConfig := cfg
 			perClusterConfig.Cluster = ec
 			b.configs[k] = append(b.configs[k], perClusterConfig)
 			b.refs[k] = append(b.refs[k], ref)

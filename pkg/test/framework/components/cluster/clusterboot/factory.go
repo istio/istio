@@ -17,13 +17,15 @@ package clusterboot
 import (
 	"fmt"
 
-
 	"github.com/hashicorp/go-multierror"
 
 	"istio.io/istio/pkg/test/framework/components/cluster"
 
 	// imported to trigger registration
 	_ "istio.io/istio/pkg/test/framework/components/cluster/kube"
+
+	// imported to trigger registration
+	_ "istio.io/istio/pkg/test/framework/components/cluster/staticvm"
 	"istio.io/istio/pkg/test/scopes"
 )
 
@@ -105,7 +107,7 @@ func buildCluster(cfg cluster.Config, allClusters cluster.Map) (cluster.Cluster,
 	if err != nil {
 		return nil, err
 	}
-	return f(cfg, allClusters)
+	return f(cfg, cluster.NewTopology(cfg, allClusters))
 }
 
 func validConfig(cfg cluster.Config) (cluster.Config, error) {

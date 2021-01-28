@@ -24,17 +24,8 @@ func init() {
 	RegisterFactory(Fake, newFakeCluster)
 }
 
-func newFakeCluster(cfg Config, allClusters Map) (Cluster, error) {
-	return &FakeCluster{
-		Topology: Topology{
-			ClusterName:        cfg.Name,
-			ClusterKind:        Fake,
-			Network:            cfg.Network,
-			PrimaryClusterName: cfg.PrimaryClusterName,
-			ConfigClusterName:  cfg.ConfigClusterName,
-			AllClusters:        allClusters,
-		},
-	}, nil
+func newFakeCluster(cfg Config, topology Topology) (Cluster, error) {
+	return &FakeCluster{Topology: topology}, nil
 }
 
 // FakeCluster used for testing.

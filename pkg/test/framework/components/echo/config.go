@@ -30,7 +30,7 @@ import (
 type Cluster interface {
 	cluster.Cluster
 
-	CanDeploy(Config) bool
+	CanDeploy(Config) (Config, bool)
 }
 
 // Config defines the options for creating an Echo component.

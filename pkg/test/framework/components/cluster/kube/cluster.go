@@ -42,11 +42,11 @@ type Cluster struct {
 
 // CanDeploy for a kube cluster returns true if the config is a non-vm, or if the cluster supports
 // fake pod-based VMs.
-func (c *Cluster) CanDeploy(config echo.Config) bool {
+func (c *Cluster) CanDeploy(config echo.Config) (echo.Config, bool) {
 	if config.DeployAsVM && !c.vmSupport {
-		return false
+		return echo.Config{}, false
 	}
-	return true
+	return config, true
 }
 
 // OverrideTopology allows customizing the relationship between this and other clusters

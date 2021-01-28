@@ -23,6 +23,17 @@ import (
 // allowing clusters to find each other for lookups of Primary, ConfigCluster, etc.
 type Map = map[string]Cluster
 
+func NewTopology(config Config, allClusters Map) Topology {
+	return Topology{
+		ClusterName:        config.Name,
+		ClusterKind:        config.Kind,
+		Network:            config.Network,
+		PrimaryClusterName: config.PrimaryClusterName,
+		ConfigClusterName:  config.ConfigClusterName,
+		AllClusters:        allClusters,
+	}
+}
+
 // Topology gives information about the relationship between clusters.
 // Cluster implementations can embed this struct to include common functionality.
 type Topology struct {
@@ -32,7 +43,7 @@ type Topology struct {
 	PrimaryClusterName string
 	ConfigClusterName  string
 	// AllClusters should contain all AllClusters in the context
-	AllClusters map[string]Cluster
+	AllClusters Map
 }
 
 // NetworkName the cluster is on

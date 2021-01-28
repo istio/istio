@@ -32,7 +32,7 @@ func init() {
 	cluster.RegisterFactory(cluster.Kubernetes, buildKube)
 }
 
-func buildKube(origCfg cluster.Config, allClusters cluster.Map) (cluster.Cluster, error) {
+func buildKube(origCfg cluster.Config, topology cluster.Topology) (cluster.Cluster, error) {
 	cfg, err := validConfig(origCfg)
 	if err != nil {
 		return nil, err
@@ -54,14 +54,7 @@ func buildKube(origCfg cluster.Config, allClusters cluster.Map) (cluster.Cluster
 		filename:       kubeconfigPath,
 		ExtendedClient: client,
 		vmSupport:      vmSupport,
-		Topology: cluster.Topology{
-			ClusterName:        cfg.Name,
-			ClusterKind:        cluster.Kubernetes,
-			Network:            cfg.Network,
-			PrimaryClusterName: cfg.PrimaryClusterName,
-			ConfigClusterName:  cfg.ConfigClusterName,
-			AllClusters:        allClusters,
-		},
+		Topology:       topology,
 	}, nil
 }
 

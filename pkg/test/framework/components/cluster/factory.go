@@ -11,7 +11,7 @@ type Factory interface {
 }
 
 // FactoryFunc validates a config and builds a single echo instance.
-type FactoryFunc func(cfg Config, allClusters Map) (Cluster, error)
+type FactoryFunc func(cfg Config, topology Topology) (Cluster, error)
 
 var factoryRegistry = map[Kind]FactoryFunc{}
 
