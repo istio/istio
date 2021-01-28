@@ -304,6 +304,9 @@ func controlZDashCmd() *cobra.Command {
 		Example: `  # Open ControlZ web UI for the istiod-123-456.istio-system pod
   istioctl dashboard controlz istiod-123-456.istio-system
 
+  # Open ControlZ web UI for the istiod-56dd66799-jfdvs pod in a custom namespace
+  istioctl dashboard controlz istiod-123-456 -n custom-ns
+
   # Open ControlZ web UI for any Istiod pod
   istioctl dashboard controlz deployment/istiod.istio-system
 
