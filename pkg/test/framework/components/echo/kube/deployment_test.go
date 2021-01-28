@@ -20,11 +20,9 @@ import (
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/test/framework/components/cluster"
 	"istio.io/istio/pkg/test/framework/components/cluster/clusterboot"
-	kubecluster "istio.io/istio/pkg/test/framework/components/cluster/kube"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/echo/common"
 	"istio.io/istio/pkg/test/framework/image"
-	kubetest "istio.io/istio/pkg/test/kube"
 )
 
 var (
@@ -148,9 +146,13 @@ func TestDeploymentYAML(t *testing.T) {
 			if err := common.FillInKubeDefaults(nil, &tc.config); err != nil {
 				t.Errorf("failed filling in defaults: %v", err)
 			}
-			serviceYAML, deploymentYAML, err := generateYAMLWithSettings(tc.config, settings)
+			serviceYAML, err := GenerateService(tc.config)
 			if err != nil {
-				t.Errorf("failed to generate yaml %v", err)
+				t.Errorf("failed to generate service %v", err)
+			}
+			deploymentYAML, err := generateDeployment(tc.config)
+			if err != nil {
+				t.Errorf("failed to generate deployment %v", err)
 			}
 			gotBytes := []byte(serviceYAML + "---" + deploymentYAML)
 			wantedBytes := testutil.ReadGoldenFile(gotBytes, tc.wantFilePath, t)
