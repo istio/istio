@@ -38,15 +38,23 @@ func buildKube(origCfg cluster.Config, allClusters cluster.Map) (resource.Cluste
 	if err != nil {
 		return nil, err
 	}
+
 	kubeconfigPath := cfg.Meta.String(kubeconfigMetaKey)
 	client, err := buildClient(kubeconfigPath)
 	if err != nil {
 		return nil, err
 	}
+
+	// support fake VMs by default
+	vmSupport := true
+	if vmP := cfg.Meta.Bool(vmSupportMetaKey); vmP != nil {
+		vmSupport = *vmP
+	}
+
 	return &Cluster{
 		filename:       kubeconfigPath,
 		ExtendedClient: client,
-		vmSupport:      cfg.Meta.Bool(vmSupportMetaKey),
+		vmSupport:      vmSupport,
 		Topology: cluster.Topology{
 			ClusterName:        cfg.Name,
 			ClusterKind:        cluster.Kubernetes,

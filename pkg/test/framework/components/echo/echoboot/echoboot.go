@@ -26,8 +26,6 @@ import (
 	"istio.io/istio/pkg/test/framework/components/echo"
 	// force registraton of factory func
 	_ "istio.io/istio/pkg/test/framework/components/echo/kube"
-	// force registraton of factory func
-	_ "istio.io/istio/pkg/test/framework/components/echo/staticvm"
 	"istio.io/istio/pkg/test/framework/resource"
 )
 

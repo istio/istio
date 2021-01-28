@@ -40,13 +40,13 @@ func (m ConfigMeta) Slice(key string) []ConfigMeta {
 	return v
 }
 
-func (m ConfigMeta) Bool(key string) bool {
+func (m ConfigMeta) Bool(key string) *bool {
 	v, ok := m[key].(bool)
 	if !ok {
 		scopes.Framework.Warnf("failed to parse key %q as bool, defaulting to false", key)
-		return false
+		return nil
 	}
-	return v
+	return &v
 }
 
 func (m ConfigMeta) Int(key string) int {
