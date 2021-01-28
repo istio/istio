@@ -17,7 +17,6 @@ package framework
 import (
 	"fmt"
 
-
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/framework/components/cluster"
 	"istio.io/istio/pkg/test/framework/resource"

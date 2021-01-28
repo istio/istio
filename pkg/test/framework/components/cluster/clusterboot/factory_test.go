@@ -15,6 +15,7 @@
 package clusterboot
 
 import (
+	"istio.io/istio/pkg/kube"
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
@@ -29,33 +30,42 @@ func TestBuild(t *testing.T) {
 	}{
 		{
 			config: cluster.Config{Kind: cluster.Fake, Name: "auto-fill-primary", Network: "network-0"},
-			cluster: cluster.FakeCluster{Topology: cluster.Topology{
-				ClusterName: "auto-fill-primary",
-				ClusterKind: cluster.Fake,
-				// The primary and config clusters should match the cluster name when not specified
-				PrimaryClusterName: "auto-fill-primary",
-				ConfigClusterName:  "auto-fill-primary",
-				Network:            "network-0",
-			}},
+			cluster: cluster.FakeCluster{
+				ExtendedClient: kube.MockClient{},
+				Topology: cluster.Topology{
+					ClusterName: "auto-fill-primary",
+					ClusterKind: cluster.Fake,
+					// The primary and config clusters should match the cluster name when not specified
+					PrimaryClusterName: "auto-fill-primary",
+					ConfigClusterName:  "auto-fill-primary",
+					Network:            "network-0",
+				},
+			},
 		},
 		{
 			config: cluster.Config{Kind: cluster.Fake, Name: "auto-fill-remote", PrimaryClusterName: "auto-fill-primary"},
-			cluster: cluster.FakeCluster{Topology: cluster.Topology{
-				ClusterName:        "auto-fill-remote",
-				ClusterKind:        cluster.Fake,
-				PrimaryClusterName: "auto-fill-primary",
-				// The config cluster should match the primary cluster when not specified
-				ConfigClusterName: "auto-fill-primary",
-			}},
+			cluster: cluster.FakeCluster{
+				ExtendedClient: kube.MockClient{},
+				Topology: cluster.Topology{
+					ClusterName:        "auto-fill-remote",
+					ClusterKind:        cluster.Fake,
+					PrimaryClusterName: "auto-fill-primary",
+					// The config cluster should match the primary cluster when not specified
+					ConfigClusterName: "auto-fill-primary",
+				},
+			},
 		},
 		{
 			config: cluster.Config{Kind: cluster.Fake, Name: "external-istiod", ConfigClusterName: "remote-config"},
-			cluster: cluster.FakeCluster{Topology: cluster.Topology{
-				ClusterName:        "external-istiod",
-				ClusterKind:        cluster.Fake,
-				PrimaryClusterName: "external-istiod",
-				ConfigClusterName:  "remote-config",
-			}},
+			cluster: cluster.FakeCluster{
+				ExtendedClient: kube.MockClient{},
+				Topology: cluster.Topology{
+					ClusterName:        "external-istiod",
+					ClusterKind:        cluster.Fake,
+					PrimaryClusterName: "external-istiod",
+					ConfigClusterName:  "remote-config",
+				},
+			},
 		},
 		{
 			config: cluster.Config{
@@ -64,13 +74,15 @@ func TestBuild(t *testing.T) {
 				PrimaryClusterName: "external-istiod",
 				ConfigClusterName:  "remote-config",
 			},
-			cluster: cluster.FakeCluster{Topology: cluster.Topology{
-				ClusterName: "remote-config",
-				ClusterKind: cluster.Fake,
-				// Explicitly specified in config, should be copied exactly
-				PrimaryClusterName: "external-istiod",
-				ConfigClusterName:  "remote-config",
-			}},
+			cluster: cluster.FakeCluster{
+				ExtendedClient: kube.MockClient{},
+				Topology: cluster.Topology{
+					ClusterName: "remote-config",
+					ClusterKind: cluster.Fake,
+					// Explicitly specified in config, should be copied exactly
+					PrimaryClusterName: "external-istiod",
+					ConfigClusterName:  "remote-config",
+				}},
 		},
 	}
 	var clusters cluster.Clusters
