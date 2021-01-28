@@ -75,8 +75,6 @@ type instance struct {
 
 func newInstance(ctx resource.Context, originalCfg echo.Config) (out *instance, err error) {
 	cfg := originalCfg.DeepCopy()
-	// Fill in defaults for any missing values.
-	common.AddPortIfMissing(&cfg, protocol.GRPC)
 	if err = common.FillInKubeDefaults(ctx, &cfg); err != nil {
 		return nil, err
 	}

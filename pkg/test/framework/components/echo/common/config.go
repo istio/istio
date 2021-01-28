@@ -64,6 +64,7 @@ func FillInDefaults(c *echo.Config) {
 
 func FillInKubeDefaults(ctx resource.Context, c *echo.Config) (err error) {
 	FillInDefaults(c)
+	AddPortIfMissing(c, protocol.GRPC)
 	// If no namespace was provided, use the default.
 	if c.Namespace == nil && ctx != nil {
 		nsConfig := namespace.Config{
