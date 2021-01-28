@@ -17,14 +17,15 @@ package staticvm
 import (
 	"errors"
 	"fmt"
-	"istio.io/istio/pkg/test/scopes"
-	"k8s.io/apimachinery/pkg/version"
 	"net"
 	"strings"
+
+	"k8s.io/apimachinery/pkg/version"
 
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/test/framework/components/cluster"
 	"istio.io/istio/pkg/test/framework/components/echo"
+	"istio.io/istio/pkg/test/scopes"
 )
 
 func init() {
