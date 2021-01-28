@@ -7,6 +7,9 @@ metadata:
     app: foo
 spec:
   ports:
+  - name: grpc
+    port: 7070
+    targetPort: 7070
   - name: http
     port: 8090
     targetPort: 8090
@@ -42,6 +45,8 @@ spec:
           - --metrics=15014
           - --cluster
           - "cluster-0"
+          - --grpc
+          - "7070"
           - --port
           - "8090"
           - --port
@@ -53,6 +58,7 @@ spec:
           - --crt=/cert.crt
           - --key=/cert.key
         ports:
+        - containerPort: 7070
         - containerPort: 8090
         - containerPort: 8080
         - containerPort: 3333
@@ -111,6 +117,8 @@ spec:
           - --metrics=15014
           - --cluster
           - "cluster-0"
+          - --grpc
+          - "7070"
           - --port
           - "8090"
           - --port
@@ -122,6 +130,7 @@ spec:
           - --crt=/cert.crt
           - --key=/cert.key
         ports:
+        - containerPort: 7070
         - containerPort: 8090
         - containerPort: 8080
         - containerPort: 3333

@@ -16,6 +16,7 @@ package cluster
 
 import (
 	"istio.io/istio/pkg/kube"
+	"k8s.io/apimachinery/pkg/version"
 )
 
 var _ Cluster = FakeCluster{}
@@ -25,12 +26,24 @@ func init() {
 }
 
 func newFakeCluster(cfg Config, topology Topology) (Cluster, error) {
-	return &FakeCluster{ExtendedClient: kube.MockClient{}, Topology: topology}, nil
+
+	return &FakeCluster{
+		ExtendedClient: kube.MockClient{},
+		Topology:       topology,
+		Version: &version.Info{
+			Major: cfg.Meta.String("majorVesion"),
+			Minor: cfg.Meta.String("minorVersion"),
+		},
+	}, nil
 }
 
 // FakeCluster used for testing.
 type FakeCluster struct {
 	kube.ExtendedClient
-
+	Version *version.Info
 	Topology
+}
+
+func (f FakeCluster) GetKubernetesVersion() (*version.Info, error) {
+	return f.Version, nil
 }

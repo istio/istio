@@ -17,6 +17,7 @@ package cluster
 import (
 	"bytes"
 	"fmt"
+	"strconv"
 )
 
 // Map can be given as a shared reference to multiple Topology/Cluster implemetations
@@ -106,6 +107,29 @@ func (c Topology) WithConfig(configClusterName string) Topology {
 	// TODO remove this, should only be provided by external config
 	c.ConfigClusterName = configClusterName
 	return c
+}
+
+func (c Topology) MinKubeVersion(major, minor int) bool {
+	cluster := c.AllClusters[c.ClusterName]
+	if cluster.Kind() != Kubernetes && cluster.Kind() != Fake {
+		return c.Primary().MinKubeVersion(major, minor)
+	}
+	ver, err := cluster.GetKubernetesVersion()
+	if err != nil {
+		return true
+	}
+	serverMajor, err := strconv.Atoi(ver.Major)
+	if err != nil {
+		return true
+	}
+	serverMinor, err := strconv.Atoi(ver.Minor)
+	if err != nil {
+		return true
+	}
+	if serverMajor > major {
+		return true
+	}
+	return serverMajor >= major && serverMinor >= minor
 }
 
 func (c Topology) String() string {

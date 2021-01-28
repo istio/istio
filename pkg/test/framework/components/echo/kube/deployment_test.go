@@ -14,12 +14,12 @@
 package kube
 
 import (
+	"istio.io/istio/pkg/test/framework/components/cluster"
+	"istio.io/istio/pkg/test/framework/components/cluster/clusterboot"
 	"testing"
 
 	testutil "istio.io/istio/pilot/test/util"
 	"istio.io/istio/pkg/config/protocol"
-	"istio.io/istio/pkg/test/framework/components/cluster"
-	"istio.io/istio/pkg/test/framework/components/cluster/clusterboot"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/echo/common"
 	"istio.io/istio/pkg/test/framework/image"
@@ -138,7 +138,10 @@ func TestDeploymentYAML(t *testing.T) {
 	}
 	for _, tc := range testCase {
 		t.Run(tc.name, func(t *testing.T) {
-			clusters, err := clusterboot.NewFactory().With(cluster.Config{Kind: cluster.Fake, Name: "cluster-0"}).Build()
+			clusters, err := clusterboot.NewFactory().With(cluster.Config{
+				Kind: cluster.Fake, Name: "cluster-0",
+				Meta: cluster.ConfigMeta{"majorVersion": 1, "minorVersion": 16},
+			}).Build()
 			if err != nil {
 				t.Fatal(err)
 			}

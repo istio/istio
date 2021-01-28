@@ -16,7 +16,7 @@ package cluster
 
 import (
 	"fmt"
-	
+
 	"istio.io/istio/pkg/test/scopes"
 )
 
@@ -57,7 +57,7 @@ func (m ConfigMeta) Slice(key string) []ConfigMeta {
 	}
 	var out []ConfigMeta
 	for i, imeta := range v {
-		meta, ok := m.toConfigMeta(imeta)
+		meta, ok := toConfigMeta(imeta)
 		if !ok {
 			scopes.Framework.Warnf("failed to parse item %d of %s, defaulting to empty: %v", i, key, imeta)
 			return nil
@@ -67,7 +67,7 @@ func (m ConfigMeta) Slice(key string) []ConfigMeta {
 	return out
 }
 
-func (m ConfigMeta) toConfigMeta(orig interface{}) (ConfigMeta, bool) {
+func toConfigMeta(orig interface{}) (ConfigMeta, bool) {
 	// keys are strings, easily cast
 	if cfgMeta, ok := orig.(ConfigMeta); ok {
 		return cfgMeta, true

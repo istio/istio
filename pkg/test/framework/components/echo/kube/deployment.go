@@ -421,15 +421,7 @@ func templateParams(cfg echo.Config, settings *image.Settings) (map[string]inter
 			return nil, err
 		}
 	}
-	ver, err := cfg.Cluster.GetKubernetesVersion()
-	if err != nil {
-		return nil, err
-	}
-	supportStartupProbe := true
-	if ver != nil && ver.Minor < "16" {
-		// Added in Kubernetes 1.16
-		supportStartupProbe = false
-	}
+	supportStartupProbe := cfg.Cluster.MinKubeVersion(16, 0)
 
 	// if image is not provided, default to app_sidecar
 	vmImage := DefaultVMImage
