@@ -18,9 +18,40 @@ import (
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
+	"gopkg.in/yaml.v3"
 
+	"istio.io/istio/pkg/test/framework/components/cluster"
 	"istio.io/istio/pkg/test/framework/components/echo"
 )
+
+func TestBuild(t *testing.T) {
+	cfg := cluster.Config{}
+	if err := yaml.Unmarshal([]byte(`
+kind: StaticVM
+clusterName: static-vms
+primaryClusterName: istio-testing
+meta:
+  deployments:
+  - service: vm
+    namespace: echo
+    instances:
+    - ip: 172.17.0.4
+`), &cfg); err != nil {
+		t.Fatal(err)
+	}
+	got, err := build(cfg, cluster.Topology{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if diff := cmp.Diff(got.(*vmcluster).vms, []echo.Config{{
+		Service:         "vm",
+		Namespace:       fakeNamespace("echo"),
+		StaticAddresses: []string{"172.17.0.4"},
+	}}); diff != "" {
+		t.Fatal(diff)
+	}
+
+}
 
 func TestVmcluster_CanDeploy(t *testing.T) {
 	aSvc := "a"

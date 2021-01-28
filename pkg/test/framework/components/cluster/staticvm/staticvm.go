@@ -17,10 +17,9 @@ package staticvm
 import (
 	"errors"
 	"fmt"
+	"istio.io/istio/pkg/test/scopes"
 	"net"
 	"strings"
-
-	"github.com/hashicorp/go-multierror"
 
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/test/framework/components/cluster"
@@ -51,18 +50,20 @@ func build(cfg cluster.Config, topology cluster.Topology) (cluster.Cluster, erro
 	}, nil
 }
 
-func readInstances(cfg cluster.Config) (out []echo.Config, errs error) {
-	for i, deploymentMeta := range cfg.Meta.Slice("deployments") {
+func readInstances(cfg cluster.Config) ([]echo.Config, error) {
+	var out []echo.Config
+	deployments := cfg.Meta.Slice("deployments")
+	for i, deploymentMeta := range deployments {
 		vm, err := instanceFromMeta(deploymentMeta)
 		if err != nil {
-			errs = multierror.Append(errs, fmt.Errorf("reading deployment config %d of %s: %v", i, cfg.Name, err))
+			scopes.Framework.Errorf("failed reading deployment config %d of %s: %v", i, cfg.Name, err)
 		}
 		out = append(out, vm)
 	}
-	if len(out) == 0 {
-		return nil, fmt.Errorf("static vm cluster has no deployments provided")
+	if len(out) == 0 || len(out) != len(deployments) {
+		return nil, fmt.Errorf("static vm cluster %s has no deployments provided", cfg.Name)
 	}
-	return
+	return out, nil
 }
 
 func instanceFromMeta(cfg cluster.ConfigMeta) (echo.Config, error) {
@@ -86,7 +87,7 @@ func instanceFromMeta(cfg cluster.ConfigMeta) (echo.Config, error) {
 	}
 
 	return echo.Config{
-		Namespace: nil,
+		Namespace: fakeNamespace(ns),
 		Service:   svc,
 		// Will set the version of each subset if not provided
 		Version:         cfg.String("version"),

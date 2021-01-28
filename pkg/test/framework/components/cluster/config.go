@@ -14,7 +14,10 @@
 
 package cluster
 
-import "istio.io/istio/pkg/test/scopes"
+import (
+	"fmt"
+	"istio.io/istio/pkg/test/scopes"
+)
 
 type Kind string
 
@@ -46,12 +49,39 @@ func (m ConfigMeta) String(key string) string {
 }
 
 func (m ConfigMeta) Slice(key string) []ConfigMeta {
-	v, ok := m[key].([]ConfigMeta)
+	v, ok := m[key].([]interface{})
 	if !ok {
-		scopes.Framework.Warnf("failed to parse key %q as config slice, defaulting to empty", key)
+		scopes.Framework.Warnf("failed to parse key %q as slice, defaulting to empty", key)
 		return nil
 	}
-	return v
+	var out []ConfigMeta
+	for i, imeta := range v {
+		meta, ok := m.toConfigMeta(imeta)
+		if !ok {
+			scopes.Framework.Warnf("failed to parse item %d of %s, defaulting to empty: %v", i, key, imeta)
+			return nil
+		}
+		out = append(out, meta)
+	}
+	return out
+}
+
+func (m ConfigMeta) toConfigMeta(orig interface{}) (ConfigMeta, bool) {
+	// keys are strings, easily cast
+	if cfgMeta, ok := orig.(ConfigMeta); ok {
+		return cfgMeta, true
+	}
+	// keys are interface{}, manually change to string keys
+	mapInterface, ok := orig.(map[interface{}]interface{})
+	if !ok {
+		// not a map at all
+		return nil, false
+	}
+	mapString := make(map[string]interface{})
+	for key, value := range mapInterface {
+		mapString[fmt.Sprintf("%v", key)] = value
+	}
+	return mapString, true
 }
 
 func (m ConfigMeta) Bool(key string) *bool {
