@@ -18,7 +18,6 @@ import (
 	"fmt"
 	"io"
 
-
 	kubeApiCore "k8s.io/api/core/v1"
 
 	environ "istio.io/istio/pkg/test/env"
