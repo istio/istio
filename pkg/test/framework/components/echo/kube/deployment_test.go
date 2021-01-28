@@ -145,7 +145,7 @@ func TestDeploymentYAML(t *testing.T) {
 				t.Fatal(err)
 			}
 			tc.config.Cluster = clusters[0]
-			if err := common.FillInDefaults(nil, "", &tc.config); err != nil {
+			if err := common.FillInKubeDefaults(nil, &tc.config); err != nil {
 				t.Errorf("failed filling in defaults: %v", err)
 			}
 			serviceYAML, deploymentYAML, err := generateYAMLWithSettings(tc.config, settings, &kubecluster.Cluster{

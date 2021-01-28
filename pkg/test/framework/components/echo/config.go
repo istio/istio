@@ -16,6 +16,7 @@ package echo
 
 import (
 	"fmt"
+	"istio.io/istio/pkg/test/framework/components/cluster"
 	"time"
 
 	"github.com/mitchellh/copystructure"
@@ -24,6 +25,15 @@ import (
 	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/framework/resource"
 )
+
+// Cluster that can deploy echo instances.
+// TODO putting this here for now to deal with circular imports, needs to be moved
+type Cluster interface {
+	resource.Cluster
+
+	Kind() cluster.Kind
+	CanDeploy(Config) bool
+}
 
 // Config defines the options for creating an Echo component.
 // nolint: maligned
@@ -48,6 +58,10 @@ type Config struct {
 
 	// Headless (k8s only) indicates that no ClusterIP should be specified.
 	Headless bool
+
+	// StaticAddress for some echo implementations is an address locally reachable within
+	// the test framework and from the echo Cluster's network.
+	StaticAddresses []string
 
 	// ServiceAccount (k8s only) indicates that a service account should be created
 	// for the deployment.

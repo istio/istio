@@ -24,7 +24,10 @@ import (
 	"istio.io/istio/pkg/test/framework/resource"
 )
 
-const kubeconfigMetaKey = "kubeconfig"
+const (
+	kubeconfigMetaKey = "kubeconfig"
+	vmSupportMetaKey  = "fakeVM"
+)
 
 func init() {
 	cluster.RegisterFactory(cluster.Kubernetes, buildKube)
@@ -43,6 +46,7 @@ func buildKube(origCfg cluster.Config, allClusters cluster.Map) (resource.Cluste
 	return &Cluster{
 		filename:       kubeconfigPath,
 		ExtendedClient: client,
+		vmSupport:      cfg.Meta.Bool(vmSupportMetaKey),
 		Topology: cluster.Topology{
 			ClusterName:        cfg.Name,
 			ClusterKind:        cluster.Kubernetes,

@@ -20,21 +20,33 @@ import (
 
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/test/framework/components/cluster"
-	"istio.io/istio/pkg/test/framework/resource"
+	"istio.io/istio/pkg/test/framework/components/echo"
 )
 
-var _ resource.Cluster = &Cluster{}
+var _ echo.Cluster = &Cluster{}
 
 // Cluster for a Kubernetes cluster. Provides access via a kube.Client.
 type Cluster struct {
 	// filename is the path to the kubeconfig file for this cluster.
 	filename string
 
+	// vmSupport indicates the cluster is being used for fake VMs
+	vmSupport bool
+
 	// ExtendedClient is embedded to interact with the kube cluster.
 	kube.ExtendedClient
 
 	// Topology is embedded to include common functionality.
 	cluster.Topology
+}
+
+// CanDeploy for a kube cluster returns true if the config is a non-vm, or if the cluster supports
+// fake pod-based VMs.
+func (c *Cluster) CanDeploy(config echo.Config) bool {
+	if config.DeployAsVM && !c.vmSupport {
+		return false
+	}
+	return true
 }
 
 // OverrideTopology allows customizing the relationship between this and other clusters

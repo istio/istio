@@ -33,7 +33,6 @@ import (
 	"k8s.io/client-go/kubernetes"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
-	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/test"
 	appEcho "istio.io/istio/pkg/test/echo/client"
@@ -55,7 +54,6 @@ import (
 const (
 	tcpHealthPort     = 3333
 	httpReadinessPort = 8080
-	defaultDomain     = constants.DefaultKubernetesDomain
 )
 
 var (
@@ -78,7 +76,7 @@ func newInstance(ctx resource.Context, originalCfg echo.Config) (out *instance, 
 	cfg := originalCfg.DeepCopy()
 	// Fill in defaults for any missing values.
 	common.AddPortIfMissing(&cfg, protocol.GRPC)
-	if err = common.FillInDefaults(ctx, defaultDomain, &cfg); err != nil {
+	if err = common.FillInKubeDefaults(ctx, &cfg); err != nil {
 		return nil, err
 	}
 
