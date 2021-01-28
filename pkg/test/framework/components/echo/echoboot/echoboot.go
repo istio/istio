@@ -33,12 +33,14 @@ var _ echo.Builder = builder{}
 
 // NewBuilder for Echo Instances.
 func NewBuilder(ctx resource.Context, clusters ...resource.Cluster) echo.Builder {
+	// use default kube cluster unless otherwise specified
+	if len(clusters) == 0 {
+		clusters = resource.Clusters{ctx.Clusters().Default()}
+	}
 	return builder{
 		ctx:     ctx,
 		configs: map[cluster.Kind][]echo.Config{},
 		refs:    map[cluster.Kind][]*echo.Instance{},
-		// use default kube cluster unless otherwise specified
-		clusters: resource.Clusters{ctx.Clusters().Default()},
 	}.WithClusters(clusters...)
 }
 
