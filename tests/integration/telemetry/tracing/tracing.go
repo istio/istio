@@ -18,7 +18,6 @@ package tracing
 import (
 	"fmt"
 
-
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/cluster"

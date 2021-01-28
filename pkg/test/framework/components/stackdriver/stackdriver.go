@@ -19,7 +19,6 @@ import (
 	loggingpb "google.golang.org/genproto/googleapis/logging/v2"
 	monitoringpb "google.golang.org/genproto/googleapis/monitoring/v3"
 
-
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/framework/components/cluster"
 	edgespb "istio.io/istio/pkg/test/framework/components/stackdriver/edges"

@@ -15,9 +15,11 @@
 package staticvm
 
 import (
-	"github.com/google/go-cmp/cmp"
-	"istio.io/istio/pkg/test/framework/components/echo"
 	"testing"
+
+	"github.com/google/go-cmp/cmp"
+
+	"istio.io/istio/pkg/test/framework/components/echo"
 )
 
 func TestVmcluster_CanDeploy(t *testing.T) {

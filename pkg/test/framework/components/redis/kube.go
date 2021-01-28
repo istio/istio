@@ -20,7 +20,6 @@ import (
 	"io"
 	"io/ioutil"
 
-
 	environ "istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/test/framework/components/cluster"
 	"istio.io/istio/pkg/test/framework/components/namespace"

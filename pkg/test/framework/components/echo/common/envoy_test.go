@@ -17,7 +17,6 @@ package common_test
 import (
 	"context"
 
-
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/echo/client"

@@ -60,7 +60,7 @@ func (c *Cluster) OverrideTopology(fn func(cluster.Topology) cluster.Topology) {
 func (c *Cluster) String() string {
 	buf := &bytes.Buffer{}
 
-	_, _ = fmt.Fprintf(buf, c.Topology.String())
+	_, _ = fmt.Fprint(buf, c.Topology.String())
 	_, _ = fmt.Fprintf(buf, "Filename:           %s\n", c.filename)
 
 	return buf.String()

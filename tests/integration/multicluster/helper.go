@@ -18,7 +18,6 @@ package multicluster
 import (
 	"fmt"
 
-
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/test/echo/common/scheme"
 	"istio.io/istio/pkg/test/framework"

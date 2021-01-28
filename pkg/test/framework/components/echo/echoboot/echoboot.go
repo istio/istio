@@ -16,21 +16,21 @@ package echoboot
 
 import (
 	"fmt"
-	"github.com/google/go-cmp/cmp"
-	"istio.io/istio/pkg/test/framework/components/echo/kube"
 	"strings"
 	"sync"
 
+	"github.com/google/go-cmp/cmp"
 	"github.com/hashicorp/go-multierror"
 
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/framework/components/cluster"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/echo/common"
+	"istio.io/istio/pkg/test/framework/components/echo/kube"
+	"istio.io/istio/pkg/test/framework/resource"
 
 	// force registraton of factory func
-	_ "istio.io/istio/pkg/test/framework/components/echo/kube"
-	"istio.io/istio/pkg/test/framework/resource"
+	_ "istio.io/istio/pkg/test/framework/components/echo/staticvm"
 )
 
 var _ echo.Builder = builder{}
@@ -182,6 +182,9 @@ func (b builder) deployInstances() (echo.Instances, error) {
 				return err
 			}
 			instances, err := buildFunc(b.ctx, configs)
+			if err != nil {
+				return err
+			}
 
 			// link reference pointers
 			if err := assignRefs(b.refs[kind], instances); err != nil {

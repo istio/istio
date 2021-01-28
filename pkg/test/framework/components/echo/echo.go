@@ -17,7 +17,6 @@ package echo
 import (
 	"context"
 
-
 	envoyAdmin "github.com/envoyproxy/go-control-plane/envoy/admin/v3"
 	dto "github.com/prometheus/client_model/go"
 

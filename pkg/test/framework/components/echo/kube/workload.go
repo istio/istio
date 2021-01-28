@@ -47,8 +47,8 @@ type workload struct {
 	pod       kubeCore.Pod
 	forwarder istioKube.PortForwarder
 	sidecar   *sidecar
-	cluster cluster.Cluster
-	ctx resource.Context
+	cluster   cluster.Cluster
+	ctx       resource.Context
 }
 
 func newWorkload(pod kubeCore.Pod, sidecared bool, grpcPort uint16, cluster cluster.Cluster,
