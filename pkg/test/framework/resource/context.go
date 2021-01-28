@@ -21,16 +21,20 @@ import (
 
 // ConfigManager is an interface for applying/deleting yaml resources.
 type ConfigManager interface {
-	// ApplyYAML applies the given config yaml text via Galley.
+	// ApplyYAML applies the given config yaml text. Applied YAML is automatically deleted when the
+	// test exits.
 	ApplyYAML(ns string, yamlText ...string) error
 
-	// ApplyYAMLOrFail applies the given config yaml text via Galley.
+	// ApplyYAMLNoCleanup applies the given config yaml text.
+	ApplyYAMLNoCleanup(ns string, yamlText ...string) error
+
+	// ApplyYAMLOrFail applies the given config yaml text.
 	ApplyYAMLOrFail(t test.Failer, ns string, yamlText ...string)
 
-	// DeleteYAML deletes the given config yaml text via Galley.
+	// DeleteYAML deletes the given config yaml text.
 	DeleteYAML(ns string, yamlText ...string) error
 
-	// DeleteYAMLOrFail deletes the given config yaml text via Galley.
+	// DeleteYAMLOrFail deletes the given config yaml text.
 	DeleteYAMLOrFail(t test.Failer, ns string, yamlText ...string)
 
 	// WithFilePrefix sets the prefix used for intermediate files.

@@ -45,7 +45,6 @@ func TestPassThroughFilterChain(t *testing.T) {
 			policies := tmpl.EvaluateAllOrFail(t, args,
 				file.AsStringOrFail(t, "testdata/pass-through-filter-chain.yaml.tmpl"))
 			ctx.Config().ApplyYAMLOrFail(t, ns.Name(), policies...)
-			defer ctx.Config().DeleteYAMLOrFail(t, ns.Name(), policies...)
 
 			for _, cluster := range ctx.Clusters() {
 				a := apps.A.Match(echo.Namespace(ns.Name())).GetOrFail(ctx, echo.InCluster(cluster))
