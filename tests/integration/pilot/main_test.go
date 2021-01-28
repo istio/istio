@@ -40,7 +40,7 @@ var (
 
 func supportsCRDv1(ctx resource.Context) bool {
 	ver, err := ctx.Clusters()[0].GetKubernetesVersion()
-	if err != nil {
+	if ver == nil || err != nil {
 		return true
 	}
 	serverVersion := fmt.Sprintf("%s.%s", ver.Major, ver.Minor)
