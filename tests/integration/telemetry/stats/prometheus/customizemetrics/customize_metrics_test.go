@@ -16,13 +16,16 @@
 package customizemetrics
 
 import (
+	"encoding/json"
 	"fmt"
 	"io/ioutil"
+	"path"
 	"strings"
 	"testing"
 	"time"
 
 	"istio.io/istio/pkg/config/protocol"
+	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/echo/echoboot"
@@ -32,6 +35,7 @@ import (
 	"istio.io/istio/pkg/test/framework/label"
 	"istio.io/istio/pkg/test/framework/resource"
 	"istio.io/istio/pkg/test/util/retry"
+	"istio.io/istio/pkg/test/util/tmpl"
 	util "istio.io/istio/tests/integration/telemetry"
 	common "istio.io/istio/tests/integration/telemetry/stats/prometheus"
 )
@@ -53,6 +57,7 @@ func TestCustomizeMetrics(t *testing.T) {
 	framework.NewTest(t).
 		Features("observability.telemetry.stats.prometheus.customize-metric").
 		Features("observability.telemetry.request-classification").
+		Features("extensibility.wasm.remote-load").
 		Run(func(ctx framework.TestContext) {
 			httpDestinationQuery := buildQuery(httpProtocol)
 			grpcDestinationQuery := buildQuery(grpcProtocol)
@@ -61,7 +66,7 @@ func TestCustomizeMetrics(t *testing.T) {
 			httpChecked := false
 			retry.UntilSuccessOrFail(t, func() error {
 				if err := sendTraffic(t); err != nil {
-					t.Errorf("failed to send traffic")
+					t.Log("failed to send traffic")
 					return err
 				}
 				var err error
@@ -170,11 +175,32 @@ values:
 }
 
 func setupEnvoyFilter(ctx resource.Context) error {
+	proxyDepFile := path.Join(env.IstioSrc, "istio.deps")
+	depJSON, err := ioutil.ReadFile(proxyDepFile)
+	if err != nil {
+		return err
+	}
+	var deps []interface{}
+	if err := json.Unmarshal(depJSON, &deps); err != nil {
+		return err
+	}
+	proxySHA := ""
+	for _, d := range deps {
+		if dm, ok := d.(map[string]interface{}); ok && dm["repoName"].(string) == "proxy" {
+			proxySHA = dm["lastStableSHA"].(string)
+		}
+	}
 	content, err := ioutil.ReadFile("testdata/attributegen_envoy_filter.yaml")
 	if err != nil {
 		return err
 	}
-	if err := ctx.Config().ApplyYAML(appNsInst.Name(), string(content)); err != nil {
+	con, err := tmpl.Evaluate(string(content), map[string]interface{}{
+		"ProxySHA": proxySHA,
+	})
+	if err != nil {
+		return err
+	}
+	if err := ctx.Config().ApplyYAML(appNsInst.Name(), con); err != nil {
 		return err
 	}
 
