@@ -23,6 +23,7 @@ import (
 	"io/ioutil"
 	"os"
 	"path"
+	"strconv"
 	"strings"
 	"time"
 
@@ -32,7 +33,6 @@ import (
 	corev1 "k8s.io/client-go/kubernetes/typed/core/v1"
 
 	"istio.io/api/security/v1beta1"
-	"istio.io/istio/istioctl/pkg/install/k8sversion"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
 	"istio.io/istio/pkg/config/constants"
@@ -58,9 +58,11 @@ type caOptions struct {
 }
 
 const (
-	// K8sLegacySignerMaxVersion is the maximum version of K8s that supports use of legacy-signer
+	// K8sLegacySignerMaxMinorVersion is the maximum version of K8s that supports use of legacy-signer
 	// which is Istio's default for signing DNS certificates
-	K8sLegacySignerMaxVersion = 21
+	K8sLegacySignerMaxMinorVersion = 21
+	// K8sLegacySignerMaxMajorVersion is the maximum version of K8s that supports use of legacy-signer
+	K8sLegacySignerMaxMajorVersion = 1
 )
 
 // Based on istio_ca main - removing creation of Secrets with private keys in all namespaces and install complexity.
@@ -451,12 +453,18 @@ func kubeDefaultSignerSupported(client kubelib.Client) (bool, string) {
 	if client == nil {
 		return false, ""
 	}
-	version, err := k8sversion.GetKubernetesVersion(client.RESTConfig())
+	versionInfo, err := client.Discovery().ServerVersion()
 	if err != nil {
 		return false, ""
 	}
-	if version > K8sLegacySignerMaxVersion {
-		return false, fmt.Sprint(version)
+	minor, _ := strconv.Atoi(versionInfo.Minor)
+	major, _ := strconv.Atoi(versionInfo.Major)
+	if major > K8sLegacySignerMaxMajorVersion {
+		return false, fmt.Sprintf("%v.%v", major, minor)
 	}
-	return true, fmt.Sprint(version)
+
+	if minor > K8sLegacySignerMaxMinorVersion && major == K8sLegacySignerMaxMajorVersion {
+		return false, fmt.Sprintf("%v.%v", major, minor)
+	}
+	return true, fmt.Sprintf("%v.%v", major, minor)
 }

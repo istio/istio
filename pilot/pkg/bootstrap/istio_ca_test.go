@@ -24,6 +24,8 @@ import (
 	. "github.com/onsi/gomega"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/version"
+	fakediscovery "k8s.io/client-go/discovery/fake"
 
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/test/env"
@@ -110,4 +112,34 @@ func createCASecret(client kube.Client) error {
 
 func readSampleCertFromFile(f string) ([]byte, error) {
 	return ioutil.ReadFile(path.Join(env.IstioSrc, "samples/certs", f))
+}
+
+func TestKubeDefaultSignerSupported(t *testing.T) {
+	g := NewWithT(t)
+	k8sClient := kube.NewFakeClient()
+
+	// Positive Test
+	k8sClient.Discovery().(*fakediscovery.FakeDiscovery).FakedServerVersion = &version.Info{
+		Major: "1",
+		Minor: "16",
+	}
+	supported, _ := kubeDefaultSignerSupported(k8sClient)
+	g.Expect(supported).Should(Equal(true))
+
+	// Negative Test 1
+	k8sClient.Discovery().(*fakediscovery.FakeDiscovery).FakedServerVersion = &version.Info{
+		Major: "1",
+		Minor: "22",
+	}
+	supported, _ = kubeDefaultSignerSupported(k8sClient)
+	g.Expect(supported).Should(Equal(false))
+
+	// Negative Test 2
+	k8sClient.Discovery().(*fakediscovery.FakeDiscovery).FakedServerVersion = &version.Info{
+		Major: "2",
+		Minor: "3",
+	}
+	supported, _ = kubeDefaultSignerSupported(k8sClient)
+	g.Expect(supported).Should(Equal(false))
+
 }
