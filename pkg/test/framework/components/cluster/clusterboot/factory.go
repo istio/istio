@@ -81,14 +81,14 @@ func (a factory) Build() (cluster.Clusters, error) {
 		if primary, ok := allClusters[c.PrimaryName()]; !ok {
 			errs = multierror.Append(errs, fmt.Errorf("primary %s for %s is not in the topology", c.PrimaryName(), c.Name()))
 			continue
-		} else if primary.Kind() != cluster.Kubernetes {
+		} else if !validPrimaryOrConfig(primary) {
 			errs = multierror.Append(errs, fmt.Errorf("primary %s for %s is of kind %s, primaries must be Kubernetes", primary.Name(), c.Name(), primary.Kind()))
 			continue
 		}
 		if config, ok := allClusters[c.ConfigName()]; !ok {
 			errs = multierror.Append(errs, fmt.Errorf("config %s for %s is not in the topology", c.ConfigName(), c.Name()))
 			continue
-		} else if config.Kind() != cluster.Kubernetes {
+		} else if !validPrimaryOrConfig(config) {
 			errs = multierror.Append(errs, fmt.Errorf("config %s for %s is of kind %s, primaries must be Kubernetes", config.Name(), c.Name(), config.Kind()))
 			continue
 		}
@@ -102,6 +102,10 @@ func (a factory) Build() (cluster.Clusters, error) {
 
 	scopes.Framework.Infof("=== DONE: Building clusters ===")
 	return clusters, errs
+}
+
+func validPrimaryOrConfig(c cluster.Cluster) bool {
+	return c.Kind() == cluster.Kubernetes || c.Kind() == cluster.Fake
 }
 
 func buildCluster(cfg cluster.Config, allClusters cluster.Map) (cluster.Cluster, error) {
