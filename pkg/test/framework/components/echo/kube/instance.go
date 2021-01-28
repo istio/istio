@@ -108,19 +108,13 @@ func newInstance(ctx resource.Context, originalCfg echo.Config) (out *instance, 
 		}
 	}
 
-	// Generate the service and deployment YAML.
-	serviceYAML, deploymentYAML, err := generateYAML(cfg, c.cluster)
+	// Generate the deployment YAML.
+	deploymentYAML, err := generateDeployment(cfg)
 	if err != nil {
 		return nil, fmt.Errorf("generate yaml: %v", err)
 	}
 
-	// Apply the service definition to all clusters.
-	if err := ctx.Config().ApplyYAMLNoCleanup(cfg.Namespace.Name(), serviceYAML); err != nil {
-		return nil, fmt.Errorf("failed deploying echo service %s to clusters: %v",
-			cfg.FQDN(), err)
-	}
-
-	// Deploy the YAML.
+	// Apply the deployment to the configured cluster.
 	if err = ctx.Config(c.cluster).ApplyYAMLNoCleanup(cfg.Namespace.Name(), deploymentYAML); err != nil {
 		return nil, fmt.Errorf("failed deploying echo %s to cluster %s: %v",
 			cfg.FQDN(), c.cluster.Name(), err)

@@ -16,6 +16,9 @@ package echoboot
 
 import (
 	"fmt"
+	"github.com/google/go-cmp/cmp"
+	"istio.io/istio/pkg/test/framework/components/echo/kube"
+	"strings"
 	"sync"
 
 	"github.com/hashicorp/go-multierror"
@@ -119,10 +122,50 @@ func (b builder) WithClusters(clusters ...cluster.Cluster) echo.Builder {
 }
 
 func (b builder) Build() (echo.Instances, error) {
+	// bail early if there were issues during the configuration stage
 	if b.errs != nil {
 		return nil, b.errs
 	}
 
+	if err := b.deployServices(); err != nil {
+		return nil, err
+	}
+
+	return b.deployInstances()
+}
+
+// deployServices deploys the kubernetes Service to all clusters. Multicluster meshes should have "sameness"
+// per cluster. This avoids concurrent writes later.
+func (b builder) deployServices() error {
+	services := map[string]string{}
+	for _, cfgs := range b.configs {
+		for _, cfg := range cfgs {
+			svc, err := kube.GenerateService(cfg)
+			if err != nil {
+				return err
+			}
+			if existing, ok := services[cfg.FQDN()]; ok {
+				// we've already run the generation for another echo instance's config, make sure things are the same
+				if existing != svc {
+					return fmt.Errorf("inconsistency in %s Service definition:\n%s", cfg.Service, cmp.Diff(existing, svc))
+				}
+			}
+			services[cfg.FQDN()] = svc
+		}
+	}
+
+	errG := multierror.Group{}
+	for svcNs, svcYaml := range services {
+		svcYaml := svcYaml
+		ns := strings.Split(svcNs, ".")[1]
+		errG.Go(func() error {
+			return b.ctx.Config().ApplyYAML(ns, svcYaml)
+		})
+	}
+	return errG.Wait()
+}
+
+func (b builder) deployInstances() (echo.Instances, error) {
 	m := sync.Mutex{}
 	out := echo.Instances{}
 	errGroup := multierror.Group{}
@@ -152,7 +195,6 @@ func (b builder) Build() (echo.Instances, error) {
 	if err := errGroup.Wait(); err != nil {
 		return nil, err
 	}
-
 	return out, nil
 }
 

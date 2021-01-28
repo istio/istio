@@ -138,6 +138,8 @@ func (c Config) FQDN() string {
 	out := c.Service
 	if c.Namespace != nil {
 		out += "." + c.Namespace.Name() + ".svc"
+	} else {
+		out += ".default.svc"
 	}
 	if c.Domain != "" {
 		out += "." + c.Domain

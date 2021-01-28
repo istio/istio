@@ -25,7 +25,6 @@ import (
 	"gopkg.in/yaml.v3"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 
-	"istio.io/istio/pkg/test/framework/components/cluster"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/image"
 	"istio.io/istio/pkg/test/util/tmpl"
@@ -385,22 +384,39 @@ func init() {
 	}
 }
 
-func generateYAML(cfg echo.Config, cluster cluster.Cluster) (serviceYAML string, deploymentYAML string, err error) {
-	// Create the parameters for the YAML template.
-	settings, err := image.SettingsFromCommandLine()
+func generateDeployment(cfg echo.Config) (string, error) {
+	params, err := templateParams(cfg)
 	if err != nil {
-		return "", "", err
+		return "", err
 	}
-	return generateYAMLWithSettings(cfg, settings, cluster)
+
+	deploy := deploymentTemplate
+	if cfg.DeployAsVM {
+		deploy = vmDeploymentTemplate
+	}
+
+	return tmpl.Execute(deploy, params)
+}
+
+func GenerateService(cfg echo.Config) (string, error) {
+	params, err := templateParams(cfg)
+	if err != nil {
+		return "", err
+	}
+
+	return tmpl.Execute(serviceTemplate, params)
 }
 
 const DefaultVMImage = "app_sidecar_ubuntu_bionic"
 
-func generateYAMLWithSettings(cfg echo.Config,
-	settings *image.Settings, cluster cluster.Cluster) (serviceYAML string, deploymentYAML string, err error) {
-	ver, err := cluster.GetKubernetesVersion()
+func templateParams(cfg echo.Config) (map[string]interface{}, error) {
+	settings, err := image.SettingsFromCommandLine()
 	if err != nil {
-		return "", "", err
+		return nil, err
+	}
+	ver, err := cfg.Cluster.GetKubernetesVersion()
+	if err != nil {
+		return nil, err
 	}
 	supportStartupProbe := true
 	if ver.Minor < "16" {
@@ -421,11 +437,11 @@ func generateYAMLWithSettings(cfg echo.Config,
 	if settings.ImagePullSecret != "" {
 		data, err := ioutil.ReadFile(settings.ImagePullSecret)
 		if err != nil {
-			return "", "", err
+			return nil, err
 		}
 		secret := unstructured.Unstructured{Object: map[string]interface{}{}}
 		if err := yaml.Unmarshal(data, secret.Object); err != nil {
-			return "", "", err
+			return nil, err
 		}
 		imagePullSecret = secret.GetName()
 	}
@@ -453,19 +469,7 @@ func generateYAMLWithSettings(cfg echo.Config,
 		"StartupProbe":    supportStartupProbe,
 		"IncludeExtAuthz": cfg.IncludeExtAuthz,
 	}
-	serviceYAML, err = tmpl.Execute(serviceTemplate, params)
-	if err != nil {
-		return
-	}
-
-	deploy := deploymentTemplate
-	if cfg.DeployAsVM {
-		deploy = vmDeploymentTemplate
-	}
-
-	// Generate the YAML content.
-	deploymentYAML, err = tmpl.Execute(deploy, params)
-	return
+	return params, nil
 }
 
 func lines(input string) []string {
