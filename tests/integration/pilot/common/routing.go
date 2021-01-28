@@ -1127,14 +1127,19 @@ spec:
 	for _, client := range flatten(apps.VM, apps.PodA, apps.PodTproxy) {
 		for _, tt := range svcCases {
 			tt, client := tt, client
-			address := apps.PodA.Match(echo.InCluster(client.Config().Cluster.Primary()))[0].Config().FQDN() + "?"
+			aInCluster := apps.PodA.Match(echo.InCluster(client.Config().Cluster))
+			if len(aInCluster) == 0 {
+				// The cluster doesn't contain A, but connects to a cluster containing A
+				aInCluster = apps.PodA.Match(echo.InCluster(client.Config().Cluster.Primary()))
+			}
+			address := aInCluster[0].Config().FQDN() + "?"
 			if tt.protocol != "" {
 				address += "&protocol=" + tt.protocol
 			}
 			if tt.server != "" {
 				address += "&server=" + tt.server
 			}
-			expected := apps.PodA.Match(echo.InCluster(client.Config().Cluster.Primary()))[0].Address()
+			expected := aInCluster[0].Address()
 			tcases = append(tcases, TrafficTestCase{
 				name: fmt.Sprintf("svc/%s/%s", client.Config().Service, tt.name),
 				call: client.CallWithRetryOrFail,
