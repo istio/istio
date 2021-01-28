@@ -15,11 +15,11 @@
 package clusterboot
 
 import (
-	"istio.io/istio/pkg/kube"
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
 
+	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/test/framework/components/cluster"
 )
 
