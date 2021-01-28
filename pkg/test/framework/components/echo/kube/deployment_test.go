@@ -19,7 +19,7 @@ import (
 	testutil "istio.io/istio/pilot/test/util"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/test/framework/components/cluster"
-	"istio.io/istio/pkg/test/framework/components/cluster/aggregate"
+	"istio.io/istio/pkg/test/framework/components/cluster/clusterboot"
 	kubecluster "istio.io/istio/pkg/test/framework/components/cluster/kube"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/echo/common"
@@ -140,7 +140,7 @@ func TestDeploymentYAML(t *testing.T) {
 	}
 	for _, tc := range testCase {
 		t.Run(tc.name, func(t *testing.T) {
-			clusters, err := aggregate.NewFactory().With(cluster.Config{Kind: cluster.Fake, Name: "cluster-0"}).Build(nil)
+			clusters, err := clusterboot.NewFactory().With(cluster.Config{Kind: cluster.Fake, Name: "cluster-0"}).Build()
 			if err != nil {
 				t.Fatal(err)
 			}

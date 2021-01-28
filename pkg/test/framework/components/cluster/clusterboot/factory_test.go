@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package aggregate
+package clusterboot
 
 import (
 	"testing"
@@ -20,19 +20,19 @@ import (
 	"github.com/google/go-cmp/cmp"
 
 	"istio.io/istio/pkg/test/framework/components/cluster"
-	"istio.io/istio/pkg/test/framework/components/cluster/fake"
 	"istio.io/istio/pkg/test/framework/resource"
 )
 
 func TestBuild(t *testing.T) {
 	tests := []struct {
 		config  cluster.Config
-		cluster fake.Cluster
+		cluster cluster.FakeCluster
 	}{
 		{
 			config: cluster.Config{Kind: cluster.Fake, Name: "auto-fill-primary", Network: "network-0"},
-			cluster: fake.Cluster{Topology: cluster.Topology{
+			cluster: cluster.FakeCluster{Topology: cluster.Topology{
 				ClusterName: "auto-fill-primary",
+				ClusterKind: cluster.Fake,
 				// The primary and config clusters should match the cluster name when not specified
 				PrimaryClusterName: "auto-fill-primary",
 				ConfigClusterName:  "auto-fill-primary",
@@ -41,8 +41,9 @@ func TestBuild(t *testing.T) {
 		},
 		{
 			config: cluster.Config{Kind: cluster.Fake, Name: "auto-fill-remote", PrimaryClusterName: "auto-fill-primary"},
-			cluster: fake.Cluster{Topology: cluster.Topology{
+			cluster: cluster.FakeCluster{Topology: cluster.Topology{
 				ClusterName:        "auto-fill-remote",
+				ClusterKind:        cluster.Fake,
 				PrimaryClusterName: "auto-fill-primary",
 				// The config cluster should match the primary cluster when not specified
 				ConfigClusterName: "auto-fill-primary",
@@ -50,21 +51,23 @@ func TestBuild(t *testing.T) {
 		},
 		{
 			config: cluster.Config{Kind: cluster.Fake, Name: "external-istiod", ConfigClusterName: "remote-config"},
-			cluster: fake.Cluster{Topology: cluster.Topology{
+			cluster: cluster.FakeCluster{Topology: cluster.Topology{
 				ClusterName:        "external-istiod",
+				ClusterKind:        cluster.Fake,
 				PrimaryClusterName: "external-istiod",
 				ConfigClusterName:  "remote-config",
 			}},
 		},
 		{
 			config: cluster.Config{
-				Kind:               cluster.Fake,
 				Name:               "remote-config",
+				Kind:               cluster.Fake,
 				PrimaryClusterName: "external-istiod",
 				ConfigClusterName:  "remote-config",
 			},
-			cluster: fake.Cluster{Topology: cluster.Topology{
+			cluster: cluster.FakeCluster{Topology: cluster.Topology{
 				ClusterName: "remote-config",
+				ClusterKind: cluster.Fake,
 				// Explicitly specified in config, should be copied exactly
 				PrimaryClusterName: "external-istiod",
 				ConfigClusterName:  "remote-config",
@@ -78,7 +81,7 @@ func TestBuild(t *testing.T) {
 			factory = factory.With(tc.config)
 		}
 		var err error
-		clusters, err = factory.Build(nil)
+		clusters, err = factory.Build()
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -89,7 +92,7 @@ func TestBuild(t *testing.T) {
 	for _, tc := range tests {
 		t.Run("built "+tc.config.Name, func(t *testing.T) {
 			built := clusters.GetByName(tc.config.Name)
-			builtFake := *built.(*fake.Cluster)
+			builtFake := *built.(*cluster.FakeCluster)
 			// don't include ref map in comparison
 			builtFake.AllClusters = nil
 			if diff := cmp.Diff(builtFake, tc.cluster); diff != "" {
@@ -121,7 +124,7 @@ func TestValidation(t *testing.T) {
 
 	for name, tc := range tests {
 		t.Run(name, func(t *testing.T) {
-			_, err := NewFactory().With(tc...).Build(nil)
+			_, err := NewFactory().With(tc...).Build()
 			if err == nil {
 				t.Fatal("expected err but got nil")
 			}

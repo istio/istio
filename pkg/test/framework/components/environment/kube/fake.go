@@ -18,7 +18,8 @@ import (
 	"fmt"
 
 	"istio.io/istio/pkg/test/framework/components/cluster"
-	"istio.io/istio/pkg/test/framework/components/cluster/aggregate"
+	"istio.io/istio/pkg/test/framework/components/cluster/clusterboot"
+
 	"istio.io/istio/pkg/test/framework/resource"
 )
 
@@ -47,11 +48,11 @@ func (f FakeEnvironment) EnvironmentName() string {
 }
 
 func (f FakeEnvironment) Clusters() resource.Clusters {
-	factory := aggregate.NewFactory()
+	factory := clusterboot.NewFactory()
 	for i := 0; i < f.NumClusters; i++ {
 		factory = factory.With(cluster.Config{Kind: cluster.Fake, Name: fmt.Sprintf("cluster-%d", i)})
 	}
-	out, err := factory.Build(nil)
+	out, err := factory.Build()
 	if err != nil {
 		panic(err)
 	}

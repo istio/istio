@@ -48,11 +48,7 @@ func (c *Cluster) OverrideTopology(fn func(cluster.Topology) cluster.Topology) {
 func (c *Cluster) String() string {
 	buf := &bytes.Buffer{}
 
-	_, _ = fmt.Fprintf(buf, "Name:               %s\n", c.Name())
-	_, _ = fmt.Fprintf(buf, "Kind:               %s\n", cluster.Kubernetes)
-	_, _ = fmt.Fprintf(buf, "PrimaryCluster:     %s\n", c.Primary().Name())
-	_, _ = fmt.Fprintf(buf, "ConfigCluster:      %s\n", c.Config().Name())
-	_, _ = fmt.Fprintf(buf, "Network:            %s\n", c.NetworkName())
+	_, _ = fmt.Fprintf(buf, c.Topology.String())
 	_, _ = fmt.Fprintf(buf, "Filename:           %s\n", c.filename)
 
 	return buf.String()

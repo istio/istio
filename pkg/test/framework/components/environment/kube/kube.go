@@ -15,7 +15,7 @@
 package kube
 
 import (
-	"istio.io/istio/pkg/test/framework/components/cluster/aggregate"
+	"istio.io/istio/pkg/test/framework/components/cluster/clusterboot"
 	"istio.io/istio/pkg/test/framework/resource"
 	"istio.io/istio/pkg/test/scopes"
 )
@@ -44,7 +44,7 @@ func New(ctx resource.Context, s *Settings) (resource.Environment, error) {
 	if err != nil {
 		return nil, err
 	}
-	clusters, err := aggregate.NewFactory().With(configs...).Build(nil)
+	clusters, err := clusterboot.NewFactory().With(configs...).Build()
 	if err != nil {
 		return nil, err
 	}

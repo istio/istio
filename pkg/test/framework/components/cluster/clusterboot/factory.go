@@ -12,17 +12,13 @@
 //  See the License for the specific language governing permissions and
 //  limitations under the License.
 
-package aggregate
+package clusterboot
 
 import (
 	"fmt"
-
-	"github.com/hashicorp/go-multierror"
-
 	"istio.io/istio/pkg/test/framework/components/cluster"
 
-	// imported to trigger registration
-	_ "istio.io/istio/pkg/test/framework/components/cluster/fake"
+	"github.com/hashicorp/go-multierror"
 
 	// imported to trigger registration
 	_ "istio.io/istio/pkg/test/framework/components/cluster/kube"
@@ -30,82 +26,54 @@ import (
 	"istio.io/istio/pkg/test/scopes"
 )
 
-var _ cluster.Factory = aggregateFactory{}
+var _ cluster.Factory = factory{}
 
 func NewFactory() cluster.Factory {
-	return aggregateFactory{}
+	return factory{}
 }
 
-type aggregateFactory struct {
+type factory struct {
 	configs []cluster.Config
 }
 
-func (a aggregateFactory) Kind() cluster.Kind {
+func (a factory) Kind() cluster.Kind {
 	return cluster.Aggregate
 }
 
-func (a aggregateFactory) With(configs ...cluster.Config) cluster.Factory {
-	return aggregateFactory{configs: append(a.configs, configs...)}
+func (a factory) With(configs ...cluster.Config) cluster.Factory {
+	return factory{configs: append(a.configs, configs...)}
 }
 
-func (a aggregateFactory) Build(allClusters cluster.Map) (clusters resource.Clusters, errs error) {
+func (a factory) Build() (resource.Clusters, error) {
 	scopes.Framework.Infof("=== BEGIN: Building clusters ===")
+
+	// use multierror to give as much detail as possible if the config is bad
+	var errs error
 	defer func() {
 		if errs != nil {
 			scopes.Framework.Infof("=== FAILED: Building clusters ===")
 		}
 	}()
 
-	// allClusters doesn't need to be provided to aggregate, unless adding additional clusters
-	// to an existing set.
-	if allClusters == nil {
-		allClusters = make(cluster.Map)
-	}
-
-	factories := make(map[cluster.Kind]cluster.Factory)
-
-	// distribute configs to their factories
-	for _, origCfg := range a.configs {
-		cfg, err := validConfig(origCfg)
+	allClusters := make(cluster.Map)
+	for i, config := range a.configs {
+		c, err := buildCluster(config, allClusters)
 		if err != nil {
-			errs = multierror.Append(errs, err)
+			errs = multierror.Append(errs, fmt.Errorf("failed building cluster from config %d: %v", i, err))
 			continue
 		}
-		f, ok := factories[cfg.Kind]
-		if !ok {
-			// no factory of this type yet, initialize it
-			f, err = cluster.GetFactory(cfg.Kind)
-			if err != nil {
-				errs = multierror.Append(errs, err)
-				continue
-			}
-		}
-		factories[cfg.Kind] = f.With(cfg)
-	}
-	if errs != nil {
-		return
-	}
-	// initialize the clusters
-	for kind, factory := range factories {
-		scopes.Framework.Infof("Building %s clusters", kind)
-		built, err := factory.Build(allClusters)
-		if err != nil {
-			errs = multierror.Append(errs, err)
+		if _, ok := allClusters[c.Name()]; ok {
+			errs = multierror.Append(errs, fmt.Errorf("more than one cluster named %s", c.Name()))
 			continue
 		}
-		for _, c := range built {
-			if _, ok := allClusters[c.Name()]; ok {
-				errs = multierror.Append(errs, fmt.Errorf("duplicate cluster name: %s", c.Name()))
-				continue
-			}
-			allClusters[c.Name()] = c
-		}
-		clusters = append(clusters, built...)
+		allClusters[c.Name()] = c
 	}
 	if errs != nil {
-		scopes.Framework.Infof("=== FAILED: Building clusters ===")
 		return nil, errs
 	}
+
+	// validate the topology has no open edges and build the return slice
+	var clusters resource.Clusters
 	for n, c := range allClusters {
 		if _, ok := allClusters[c.PrimaryName()]; !ok {
 			errs = multierror.Append(errs, fmt.Errorf("primary %s for %s is not in the topology", c.PrimaryName(), c.Name()))
@@ -117,13 +85,26 @@ func (a aggregateFactory) Build(allClusters cluster.Map) (clusters resource.Clus
 		}
 		scopes.Framework.Infof("Built Cluster: %s", n)
 		scopes.Framework.Infof("\n" + c.String())
+		clusters = append(clusters, c)
 	}
 	if errs != nil {
-		return
+		return nil, errs
 	}
-	scopes.Framework.Infof("=== DONE: Building clusters ===")
 
+	scopes.Framework.Infof("=== DONE: Building clusters ===")
 	return clusters, errs
+}
+
+func buildCluster(cfg cluster.Config, allClusters cluster.Map) (resource.Cluster, error) {
+	cfg, err := validConfig(cfg)
+	if err != nil {
+		return nil, err
+	}
+	f, err := cluster.GetFactory(cfg)
+	if err != nil {
+		return nil, err
+	}
+	return f(cfg, allClusters)
 }
 
 func validConfig(cfg cluster.Config) (cluster.Config, error) {
@@ -138,6 +119,9 @@ func validConfig(cfg cluster.Config) (cluster.Config, error) {
 	}
 	if cfg.ConfigClusterName == "" {
 		cfg.ConfigClusterName = cfg.PrimaryClusterName
+	}
+	if cfg.Meta == nil {
+		cfg.Meta = cluster.ConfigMeta{}
 	}
 	return cfg, nil
 }
