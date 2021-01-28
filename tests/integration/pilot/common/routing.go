@@ -18,7 +18,6 @@ package common
 import (
 	"context"
 	"fmt"
-	"istio.io/istio/pkg/test/scopes"
 	"net/http"
 	"reflect"
 	"sort"

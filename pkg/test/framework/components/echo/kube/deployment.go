@@ -426,7 +426,7 @@ func templateParams(cfg echo.Config, settings *image.Settings) (map[string]inter
 		return nil, err
 	}
 	supportStartupProbe := true
-	if ver.Minor < "16" {
+	if ver != nil && ver.Minor < "16" {
 		// Added in Kubernetes 1.16
 		supportStartupProbe = false
 	}

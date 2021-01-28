@@ -18,6 +18,7 @@ import (
 	"errors"
 	"fmt"
 	"istio.io/istio/pkg/test/scopes"
+	"k8s.io/apimachinery/pkg/version"
 	"net"
 	"strings"
 
@@ -111,6 +112,10 @@ func (v vmcluster) CanDeploy(config echo.Config) (echo.Config, bool) {
 		}
 	}
 	return echo.Config{}, false
+}
+
+func (v vmcluster) GetKubernetesVersion() (*version.Info, error) {
+	return nil, nil
 }
 
 func matchConfig(vm, cfg echo.Config) bool {
