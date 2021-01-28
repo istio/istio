@@ -187,7 +187,7 @@ func (i *operatorComponent) Close() error {
 
 	if i.settings.DeployIstio {
 		errG := multierror.Group{}
-		for _, cluster := range i.ctx.Clusters() {
+		for _, cluster := range i.ctx.Clusters().Kube() {
 			cluster := cluster
 			errG.Go(func() (err error) {
 				if e := i.ctx.Config(cluster).DeleteYAML("", removeCRDsSlice(i.installManifest[cluster.Name()])); e != nil {
@@ -243,7 +243,7 @@ func (i *operatorComponent) Dump(ctx resource.Context) {
 		return
 	}
 	kube2.DumpPods(ctx, d, ns)
-	for _, cluster := range ctx.Clusters() {
+	for _, cluster := range ctx.Clusters().Kube() {
 		kube2.DumpDebug(cluster, d, "configz")
 	}
 }
@@ -304,7 +304,7 @@ func deploy(ctx resource.Context, env *kube.Environment, cfg Config) (Instance, 
 	}
 
 	// install remote config clusters, we do this first so that the external istiod has a place to read config from
-	for _, cluster := range ctx.Clusters().Configs().Remotes() {
+	for _, cluster := range ctx.Clusters().Kube().Configs().Remotes() {
 		if err = installRemoteConfigCluster(i, cfg, cluster, istioctlConfigFiles.configIopFile); err != nil {
 			return i, err
 		}
@@ -312,7 +312,7 @@ func deploy(ctx resource.Context, env *kube.Environment, cfg Config) (Instance, 
 
 	// install control plane clusters (can be external or primary)
 	errG := multierror.Group{}
-	for _, cluster := range ctx.Clusters().Primaries() {
+	for _, cluster := range ctx.Clusters().Kube().Primaries() {
 		cluster := cluster
 		errG.Go(func() error {
 			return installControlPlaneCluster(i, cfg, cluster, istioctlConfigFiles.iopFile, istioctlConfigFiles.operatorSpec)
@@ -336,7 +336,7 @@ func deploy(ctx resource.Context, env *kube.Environment, cfg Config) (Instance, 
 	if !i.isExternalControlPlane() {
 		// TODO allow remotes with an external control planes (not implemented yet)
 		errG = multierror.Group{}
-		for _, cluster := range ctx.Clusters().Remotes(ctx.Clusters().Configs()...) {
+		for _, cluster := range ctx.Clusters().Kube().Remotes(ctx.Clusters().Configs()...) {
 			cluster := cluster
 			errG.Go(func() error {
 				if err := installRemoteClusters(i, cfg, cluster, istioctlConfigFiles.remoteIopFile, istioctlConfigFiles.remoteOperatorSpec); err != nil {
@@ -352,7 +352,7 @@ func deploy(ctx resource.Context, env *kube.Environment, cfg Config) (Instance, 
 		// TODO allow multi-network with an external control planes
 		if env.IsMultinetwork() {
 			// enable cross network traffic
-			for _, cluster := range ctx.Clusters() {
+			for _, cluster := range ctx.Clusters().Kube() {
 				if err := i.exposeUserServices(cluster); err != nil {
 					return nil, err
 				}
@@ -687,7 +687,7 @@ func waitForIstioReady(ctx resource.Context, cluster cluster.Cluster, cfg Config
 func (i *operatorComponent) configureDirectAPIServerAccess(ctx resource.Context, cfg Config) error {
 	// Configure direct access for each control plane to each APIServer. This allows each control plane to
 	// automatically discover endpoints in remote clusters.
-	for _, cluster := range ctx.Clusters() {
+	for _, cluster := range ctx.Clusters().Kube() {
 		if err := i.configureDirectAPIServiceAccessForCluster(ctx, cfg, cluster); err != nil {
 			return err
 		}

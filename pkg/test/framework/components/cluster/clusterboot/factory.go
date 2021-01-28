@@ -78,12 +78,18 @@ func (a factory) Build() (cluster.Clusters, error) {
 	// validate the topology has no open edges and build the return slice
 	var clusters cluster.Clusters
 	for n, c := range allClusters {
-		if _, ok := allClusters[c.PrimaryName()]; !ok {
+		if primary, ok := allClusters[c.PrimaryName()]; !ok {
 			errs = multierror.Append(errs, fmt.Errorf("primary %s for %s is not in the topology", c.PrimaryName(), c.Name()))
 			continue
+		} else if primary.Kind() != cluster.Kubernetes {
+			errs = multierror.Append(errs, fmt.Errorf("primary %s for %s is of kind %s, primaries must be Kubernetes", primary.Name(), c.Name(), primary.Kind()))
+			continue
 		}
-		if _, ok := allClusters[c.ConfigName()]; !ok {
+		if config, ok := allClusters[c.ConfigName()]; !ok {
 			errs = multierror.Append(errs, fmt.Errorf("config %s for %s is not in the topology", c.ConfigName(), c.Name()))
+			continue
+		} else if config.Kind() != cluster.Kubernetes {
+			errs = multierror.Append(errs, fmt.Errorf("config %s for %s is of kind %s, primaries must be Kubernetes", config.Name(), c.Name(), config.Kind()))
 			continue
 		}
 		scopes.Framework.Infof("Built Cluster: %s", n)

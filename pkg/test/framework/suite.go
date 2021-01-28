@@ -229,14 +229,16 @@ func (s *suiteImpl) RequireSingleCluster() Suite {
 
 func (s *suiteImpl) RequireEnvironmentVersion(version string) Suite {
 	fn := func(ctx resource.Context) error {
-		ver, err := ctx.Clusters()[0].GetKubernetesVersion()
-		if err != nil {
-			return fmt.Errorf("failed to get Kubernetes version: %v", err)
-		}
-		serverVersion := fmt.Sprintf("%s.%s", ver.Major, ver.Minor)
-		if serverVersion < version {
-			s.Skip(fmt.Sprintf("Required Kubernetes version (%v) is greater than current: %v",
-				version, serverVersion))
+		for _, c := range ctx.Clusters().Kube() {
+			ver, err := c.GetKubernetesVersion()
+			if err != nil {
+				return fmt.Errorf("failed to get Kubernetes version: %v", err)
+			}
+			serverVersion := fmt.Sprintf("%s.%s", ver.Major, ver.Minor)
+			if serverVersion < version {
+				s.Skip(fmt.Sprintf("Required Kubernetes version (%v) is greater than current: %v",
+					version, serverVersion))
+			}
 		}
 		return nil
 	}

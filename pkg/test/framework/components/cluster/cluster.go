@@ -95,6 +95,11 @@ func (c Clusters) Remotes(excluded ...Cluster) Clusters {
 	}, exclude(excluded...))
 }
 
+// Kube returns OfKind(cluster.Kubernetes)
+func (c Clusters) Kube() Clusters {
+	return c.OfKind(Kubernetes)
+}
+
 // OfKind filters clusters by their Kind.
 func (c Clusters) OfKind(kind Kind) Clusters {
 	return c.filterClusters(func(cc Cluster) bool {

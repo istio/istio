@@ -58,7 +58,7 @@ func DumpPods(ctx resource.Context, workDir, namespace string, dumpers ...PodDum
 	}
 
 	wg := sync.WaitGroup{}
-	for _, cluster := range ctx.Clusters() {
+	for _, cluster := range ctx.Clusters().Kube() {
 		pods, err := cluster.PodsForSelector(context.TODO(), namespace)
 		if err != nil {
 			scopes.Framework.Warnf("Error getting pods list via kubectl: %v", err)

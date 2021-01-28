@@ -18,6 +18,7 @@ package common
 import (
 	"context"
 	"fmt"
+	"istio.io/istio/pkg/test/scopes"
 	"net/http"
 	"reflect"
 	"sort"
@@ -1189,7 +1190,7 @@ func VMTestCases(vms echo.Instances, apps *EchoDeployments) []TrafficTestCase {
 			vmCase{
 				name: "dns: VM to k8s headless service",
 				from: vm,
-				to:   apps.Headless.Match(echo.InCluster(vm.Config().Cluster)),
+				to:   apps.Headless.Match(echo.InCluster(vm.Config().Cluster.Primary())),
 				host: apps.Headless[0].Config().FQDN(),
 			},
 		)
