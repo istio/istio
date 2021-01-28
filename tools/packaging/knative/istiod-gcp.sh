@@ -139,7 +139,7 @@ else
 fi
 
 if [[ -n ${MESH} ]]; then
-  echo ${MESH} > /etc/istio/config/mesh.yaml
+  echo "${MESH}" > /etc/istio/config/mesh.yaml
 else
   envsubst < /etc/istio/config/mesh_template.yaml > /etc/istio/config/mesh.yaml
   cat /etc/istio/config/mesh.yaml
@@ -162,7 +162,8 @@ fi
 
 # NB: Local files have .yaml suffix but ConfigMap keys don't
 # Local files named after ConfigMap keys shouldn't exist or they'll be used instead of the ConfigMaps
-kubectl get -n istio-system cm istio-${REVISION}
+kubectl get -n istio-system cm "istio-${REVISION}"
+# shellcheck disable=SC2181
 if [[ "$?" != "0" ]]; then
   echo "Initializing revision"
   kubectl -n istio-system create cm "istio-${REVISION}" --from-file mesh=/etc/istio/config/mesh.yaml
@@ -174,7 +175,8 @@ fi
 #
 # Make sure the mutating webhook is installed, and prepare CRDs
 # This also 'warms' up the kubeconfig - otherwise gcloud will slow down startup of istiod.
-kubectl get mutatingwebhookconfiguration istiod-${REVISION}
+kubectl get mutatingwebhookconfiguration "istiod-${REVISION}"
+# shellcheck disable=SC2181
 if [[ "$?" == "1" ]]; then
   echo "Mutating webhook missing, initializing"
   envsubst < /var/lib/istio/inject/mutating_template.yaml > /var/lib/istio/inject/mutating.yaml

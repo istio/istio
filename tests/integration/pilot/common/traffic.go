@@ -225,7 +225,6 @@ func RunAllTrafficTests(t framework.TestContext, apps *EchoDeployments) {
 	if !t.Settings().SkipVM {
 		cases["vm"] = VMTestCases(apps.VM, apps)
 	}
-	cases["dns"] = DNSTestCases(apps)
 	for name, tts := range cases {
 		name := name
 		t.NewSubTest(name).Run(func(t framework.TestContext) {
