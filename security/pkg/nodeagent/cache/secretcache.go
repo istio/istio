@@ -115,6 +115,11 @@ type SecretManagerClient struct {
 	// outputMutex protects writes of certificates to disk
 	outputMutex sync.Mutex
 
+	// Dynamically configured Trust Bundle Mutex
+	configTrustBundleMutex sync.RWMutex
+	// Dynamically configured Trust Bundle
+	configTrustBundle []byte
+
 	// queue maintains all certificate rotation events that need to be triggered when they are about to expire
 	queue queue.Delayed
 	stop  chan struct{}
@@ -124,27 +129,21 @@ type secretCache struct {
 	mu       sync.RWMutex
 	workload *security.SecretItem
 	// currentCSRroot: Needed to compare old and new roots when workload is empty
-	currentCSRroot []byte
-	override       bool
+	currentCertroot []byte
 }
 
 // GetRoot returns cached root cert and cert expiration time. This method is thread safe.
 func (s *secretCache) GetRoot() (rootCert []byte) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
-	return s.currentCSRroot
+	return s.currentCertroot
 }
 
 // SetRoot sets root cert into cache. This method is thread safe.
-func (s *secretCache) SetRoot(rootCert []byte, override bool) {
+func (s *secretCache) SetRoot(rootCert []byte) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	if s.override && !override {
-		// Do not update
-		return
-	}
-	s.currentCSRroot = rootCert
-	s.override = override
+	s.currentCertroot = rootCert
 }
 
 func (s *secretCache) GetWorkload() *security.SecretItem {
@@ -194,13 +193,6 @@ func NewSecretManagerClient(caClient security.Client, options security.Options) 
 	go ret.queue.Run(ret.stop)
 	go ret.handleFileWatch()
 	return ret, nil
-}
-
-func (sc *SecretManagerClient) OverrideRoot(root []byte) error {
-	cacheLog.Errorf("howardjohn: overridden root!")
-	sc.cache.SetRoot(root, true)
-	sc.CallUpdateCallback(RootCertReqResourceName)
-	return nil
 }
 
 func (sc *SecretManagerClient) Close() {
@@ -262,12 +254,18 @@ func (sc *SecretManagerClient) GenerateSecret(resourceName string) (secret *secu
 
 	// cache hit. this is expected to happen most of the time.
 	if c := sc.cache.GetWorkload(); c != nil {
+		var rootCertBundle []byte
 		cacheLog.WithLabels("ttl", time.Until(c.ExpireTime)).Info("returned workload certificate from cache")
+		if resourceName == RootCertReqResourceName {
+			rootCertBundle = sc.mergeConfigTrustBundle(c.RootCert)
+		} else {
+			rootCertBundle = c.RootCert
+		}
 		ns = &security.SecretItem{
 			ResourceName:     resourceName,
 			CertificateChain: c.CertificateChain,
 			PrivateKey:       c.PrivateKey,
-			RootCert:         c.RootCert,
+			RootCert:         rootCertBundle,
 			ExpireTime:       c.ExpireTime,
 			CreatedTime:      c.CreatedTime,
 		}
@@ -300,9 +298,13 @@ func (sc *SecretManagerClient) GenerateSecret(resourceName string) (secret *secu
 		cacheLog.Info("Root cert has changed, start rotating root cert")
 
 		// We store the oldRoot only for comparison and not for serving
-		sc.cache.SetRoot(ns.RootCert, false)
+		sc.cache.SetRoot(ns.RootCert)
 		sc.CallUpdateCallback(RootCertReqResourceName)
 	}
+	if resourceName == RootCertReqResourceName {
+		ns.RootCert = sc.mergeConfigTrustBundle(ns.RootCert)
+	}
+
 	return ns, nil
 
 }
@@ -373,7 +375,7 @@ func (sc *SecretManagerClient) generateRootCertFromExistingFile(rootCertPath, re
 
 	// Set the rootCert only if it is workload root cert.
 	if workload {
-		sc.cache.SetRoot(rootCert, false)
+		sc.cache.SetRoot(rootCert)
 	}
 	return &security.SecretItem{
 		ResourceName: resourceName,
@@ -570,6 +572,7 @@ func (sc *SecretManagerClient) rotateTime(secret security.SecretItem) time.Durat
 
 func (sc *SecretManagerClient) registerSecret(item security.SecretItem) {
 	delay := sc.rotateTime(item)
+	item.ResourceName = WorkloadKeyCertResourceName
 	// In case there are two calls to GenerateSecret at once, we don't want both to be concurrently registered
 	if sc.cache.GetWorkload() != nil {
 		resourceLog(item.ResourceName).Infof("skip scheduling certificate rotation, already scheduled")
@@ -665,4 +668,32 @@ func concatCerts(certsPEM []string) []byte {
 		}
 	}
 	return certChain.Bytes()
+}
+
+// getConfigTrustBundle : Retrieve the Configured Trust Bundle from the secret manager client
+func (sc *SecretManagerClient) getConfigTrustBundle() []byte {
+	sc.configTrustBundleMutex.RLock()
+	defer sc.configTrustBundleMutex.RUnlock()
+	return sc.configTrustBundle
+}
+
+// setConfigTrustBundle : Retrieve the Configured Trust Bundle from the secret manager client
+func (sc *SecretManagerClient) setConfigTrustBundle(trustBundle []byte) {
+	sc.configTrustBundleMutex.Lock()
+	defer sc.configTrustBundleMutex.Unlock()
+	sc.configTrustBundle = trustBundle
+}
+
+// UpdateConfigTrustBundle : Update the Configured Trust Bundle in the secret Manager client
+func (sc *SecretManagerClient) UpdateConfigTrustBundle(trustBundle []byte) error {
+	sc.setConfigTrustBundle(trustBundle)
+	// S,G: Any need to check if the TrustBundle configs have changed and only then trigger a callback?
+	sc.CallUpdateCallback(RootCertReqResourceName)
+	return nil
+}
+
+// mergeTrustBundle : Merge
+func (sc *SecretManagerClient) mergeConfigTrustBundle(rootCert []byte) []byte {
+	// S,G: Perform possible dedup logic here
+	return append(sc.getConfigTrustBundle(), rootCert...)
 }
