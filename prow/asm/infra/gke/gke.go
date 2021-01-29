@@ -36,29 +36,75 @@ func gkeDeployerBaseFlags() []string {
 	return []string{"--ignore-gcp-ssh-key=true", "-v=2", "--gcp-service-account=" + os.Getenv("GOOGLE_APPLICATION_CREDENTIALS")}
 }
 
-// SingleClusterFlags returns the kubetest2 flags for single-cluster setup.
-func SingleClusterFlags() []string {
-	flags := gkeDeployerBaseFlags()
-	flags = append(flags, "--cluster-name=prow-test", "--machine-type=e2-standard-4", "--num-nodes=2", "--region=us-central1")
-	flags = append(flags, "--network=default", "--release-channel=regular", "--version=latest", "--enable-workload-identity")
+// DeployerFlags returns the deployer flags needed for the given cluster
+// topology and the feature to test
+func DeployerFlags(clusterTopology, featureToTest string) ([]string, error) {
+	var flags []string
+	var err error
+	switch clusterTopology {
+	case "SINGLECLUSTER":
+		flags, err = singleClusterFlags()
+	case "MULTICLUSTER":
+		flags, err = multiClusterFlags()
+	case "MULTIPROJECT_MULTICLUSTER":
+		flags, err = multiProjectMultiClusterFlags()
+	default:
+		err = fmt.Errorf("cluster topology %q is not supported", clusterTopology)
+	}
 
-	return flags
+	if featureToTest != "" {
+		var featureFlags []string
+		switch featureToTest {
+		case "VPC_SC":
+			featureFlags, err = featureVPCSCClusterFlags()
+		default:
+			err = fmt.Errorf("feature %q is not supported", featureToTest)
+		}
+		flags = append(flags, featureFlags...)
+	}
+
+	return flags, err
 }
 
-// MultiClusterFlags returns the kubetest2 flags for single-project
+// singleClusterFlags returns the kubetest2 flags for single-cluster setup.
+func singleClusterFlags() ([]string, error) {
+	project, err := acquireBoskosProjectAndSetBilling(commonBoskosResource)
+	if err != nil {
+		return nil, fmt.Errorf("error acquiring the GCP project for singlecluster tests")
+	}
+
+	flags := gkeDeployerBaseFlags()
+	flags = append(flags, "--project="+project)
+	flags = append(flags, "--cluster-name=prow-test", "--machine-type=e2-standard-4", "--num-nodes=2")
+	flags = append(flags, "--network=default", "--release-channel=regular", "--version=latest", "--enable-workload-identity")
+	// TODO(chizhg): uncomment after b/162609408 is fixed upstream
+	// flags = append(flags, "--region=us-central1")
+
+	return flags, nil
+}
+
+// multiClusterFlags returns the kubetest2 flags for single-project
 // multi-cluster setup.
-func MultiClusterFlags() []string {
-	flags := gkeDeployerBaseFlags()
-	flags = append(flags, "--cluster-name=prow-test1,prow-test2", "--machine-type=e2-standard-4", "--num-nodes=2", "--region=us-central1")
-	flags = append(flags, "--network=default", "--release-channel=regular", "--version=latest", "--enable-workload-identity")
+func multiClusterFlags() ([]string, error) {
+	project, err := acquireBoskosProjectAndSetBilling(commonBoskosResource)
+	if err != nil {
+		return nil, fmt.Errorf("error acquiring the GCP project for multicluster tests")
+	}
 
-	return flags
+	flags := gkeDeployerBaseFlags()
+	flags = append(flags, "--project="+project)
+	flags = append(flags, "--cluster-name=prow-test1,prow-test2", "--machine-type=e2-standard-4", "--num-nodes=2")
+	flags = append(flags, "--network=default", "--release-channel=regular", "--version=latest", "--enable-workload-identity")
+	// TODO(chizhg): uncomment after b/162609408 is fixed upstream
+	// flags = append(flags, "--region=us-central1")
+
+	return flags, nil
 }
 
-// ExtraVPCSCClusterFlags returns the extra kubetest2 flags for creating the clusters for
+// featureVPCSCClusterFlags returns the extra kubetest2 flags for creating the clusters for
 // VPC-SC testing, as per the instructions in https://docs.google.com/document/d/11yYDxxI-fbbqlpvUYRtJiBmGdY_nIKPJLbssM3YQtKI/edit#heading=h.e2laig460f1d
-func ExtraVPCSCClusterFlags() ([]string, error) {
-	project, err := boskos.AcquireBoskosResource(vpcSCBoskosResource)
+func featureVPCSCClusterFlags() ([]string, error) {
+	project, err := acquireBoskosProjectAndSetBilling(vpcSCBoskosResource)
 	if err != nil {
 		return nil, fmt.Errorf("error acquiring the GCP project for testing with VPC-SC")
 	}
@@ -74,7 +120,7 @@ func ExtraVPCSCClusterFlags() ([]string, error) {
 		return nil, fmt.Errorf("error creating the route in the default network to restricted.googleapis.com")
 	}
 
-	flags := []string{"--project="+project}
+	flags := []string{"--project=" + project}
 	//  TODO: yonggangl@ tairan@ restrict the access to limited after the job is tested successfully
 	flags = append(flags, "--private-cluster-access-level=unrestricted")
 	flags = append(flags, "--private-cluster-master-ip-range=173.16.0.32/28,172.16.0.32/28")
@@ -82,9 +128,9 @@ func ExtraVPCSCClusterFlags() ([]string, error) {
 	return flags, nil
 }
 
-// MultiProjectMultiClusterFlags returns the kubetest2 flags for multi-project
+// multiProjectMultiClusterFlags returns the kubetest2 flags for multi-project
 // multi-cluster setup.
-func MultiProjectMultiClusterFlags() ([]string, error) {
+func multiProjectMultiClusterFlags() ([]string, error) {
 	projects, err := acquireMultiGCPProjects()
 	if err != nil {
 		return nil, fmt.Errorf("error acquiring GCP projects for multi-project multi-cluster setup: %w", err)
@@ -92,10 +138,12 @@ func MultiProjectMultiClusterFlags() ([]string, error) {
 
 	flags := gkeDeployerBaseFlags()
 	flags = append(flags, "--create-command='beta container clusters create --quiet'")
-	flags = append(flags, "--cluster-name=prow-test1:1,prow-test2:2", "--machine-type=e2-standard-4", "--num-nodes=2", "--region=us-central1")
+	flags = append(flags, "--cluster-name=prow-test1:1,prow-test2:2", "--machine-type=e2-standard-4", "--num-nodes=2")
 	flags = append(flags, "--network=test-network", "--subnetwork-ranges='172.16.4.0/22 172.16.16.0/20 172.20.0.0/14,10.0.4.0/22 10.0.32.0/20 10.4.0.0/14'")
 	flags = append(flags, "--release-channel=regular", "--version=latest", "--enable-workload-identity")
 	flags = append(flags, "--project="+projects)
+	// TODO(chizhg): uncomment after b/162609408 is fixed upstream
+	// flags = append(flags, "--region=us-central1")
 
 	return flags, nil
 }
@@ -104,13 +152,14 @@ func MultiProjectMultiClusterFlags() ([]string, error) {
 // These projects are mananged by the boskos project rental pool as configured in
 // https://gke-internal.googlesource.com/istio/test-infra-internal/+/refs/heads/master/boskos/config/resources.yaml#105
 func acquireMultiGCPProjects() (string, error) {
-	// Acquire a host project from the project rental pool.
-	hostProject, err := boskos.AcquireBoskosResource(sharedVPCHostBoskosResource)
+	// Acquire a host project from the project rental pool and set it as the
+	// billing project.
+	hostProject, err := acquireBoskosProjectAndSetBilling(sharedVPCHostBoskosResource)
 	if err != nil {
 		return "", fmt.Errorf("error acquiring a host project: %w", err)
 	}
 	// Remove all projects that are currently associated with this host project.
-	associatedProjects, err := exec.RunWithOutput(fmt.Sprintf("gcloud beta compute shared-vpc"+
+	associatedProjects, err := exec.Output(fmt.Sprintf("gcloud beta compute shared-vpc"+
 		" associated-projects list %s --format=value(RESOURCE_ID)", hostProject))
 	if err != nil {
 		return "", fmt.Errorf("error getting the associated projects for %q: %w", hostProject, err)
@@ -142,7 +191,7 @@ func acquireMultiGCPProjects() (string, error) {
 	// project, so if the acquired service projects have already been associated
 	// with one host project, remove the association.
 	for _, sp := range serviceProjects {
-		associatedHostProject, err := exec.RunWithOutput(fmt.Sprintf("gcloud beta compute shared-vpc"+
+		associatedHostProject, err := exec.Output(fmt.Sprintf("gcloud beta compute shared-vpc"+
 			" get-host-project %s --format=value(name)", sp))
 		if err != nil {
 			return "", fmt.Errorf("error getting the associated host project for %q: %w", sp, err)
@@ -158,4 +207,16 @@ func acquireMultiGCPProjects() (string, error) {
 	os.Setenv("HOST_PROJECT", hostProject)
 
 	return strings.Join(append([]string{hostProject}, serviceProjects...), ","), nil
+}
+
+func acquireBoskosProjectAndSetBilling(projectType string) (string, error) {
+	project, err := boskos.AcquireBoskosResource(projectType)
+	if err != nil {
+		return "", fmt.Errorf("error acquiring a project with type %q: %w", projectType, err)
+	}
+	if err = exec.Run("gcloud config set billing/quota_project " + project); err != nil {
+		return "", fmt.Errorf("error setting billing/quota_project to %q: %w", project, err)
+	}
+
+	return project, nil
 }
