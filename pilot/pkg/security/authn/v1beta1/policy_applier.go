@@ -216,10 +216,10 @@ func NewPolicyApplier(rootNamespace string,
 	}
 }
 
-func createFakeJwks(issuer string) string {
+func createFakeJwks(jwksURI string) string {
 	// Encode jwksURI with base64 to make dynamic n in jwks
-	encodedString := base64.RawURLEncoding.EncodeToString([]byte(issuer))
-	return fmt.Sprintf(`{"keys":[ {"e":"AQAB","kid":"abc","kty":"RSA","n":"Error-IstiodFailedToFetchIssuer-%s"}]}`, encodedString)
+	encodedString := base64.RawURLEncoding.EncodeToString([]byte(jwksURI))
+	return fmt.Sprintf(`{"keys":[ {"e":"AQAB","kid":"abc","kty":"RSA","n":"Error-IstiodFailedToFetchJwksUri-%s"}]}`, encodedString)
 }
 
 // convertToEnvoyJwtConfig converts a list of JWT rules into Envoy JWT filter config to enforce it.
@@ -261,12 +261,12 @@ func convertToEnvoyJwtConfig(jwtRules []*v1beta1.JWTRule) *envoy_jwt.JwtAuthenti
 		jwtPubKey := jwtRule.Jwks
 		if jwtPubKey == "" {
 			var err error
-			jwtPubKey, err = model.GetJwtKeyResolver().GetPublicKey(jwtRule.Issuer)
+			jwtPubKey, err = model.GetJwtKeyResolver().GetPublicKey(jwtRule.Issuer, jwtRule.JwksUri)
 			if err != nil {
-				log.Errorf("Failed to fetch jwt public key from issuer %q: %s", jwtRule.Issuer, err)
+				log.Errorf("Failed to fetch jwt public key from issuer %q, jwks uri %q: %s", jwtRule.Issuer, jwtRule.JwksUri, err)
 				// This is a temporary workaround to reject a request with JWT token by using a fake jwks when istiod failed to fetch it.
 				// TODO(xulingqing): Find a better way to reject the request without using the fake jwks.
-				jwtPubKey = createFakeJwks(jwtRule.Issuer)
+				jwtPubKey = createFakeJwks(jwtRule.JwksUri)
 			}
 		}
 		provider.JwksSourceSpecifier = &envoy_jwt.JwtProvider_LocalJwks{
