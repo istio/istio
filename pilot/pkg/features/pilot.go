@@ -246,14 +246,14 @@ var (
 
 	EnableAnalysis = env.RegisterBoolVar(
 		"PILOT_ENABLE_ANALYSIS",
-		false,
+		true,
 		"If enabled, pilot will run istio analyzers and write analysis errors to the Status field of any "+
 			"Istio Resources",
 	).Get()
 
 	EnableStatus = env.RegisterBoolVar(
 		"PILOT_ENABLE_STATUS",
-		true,
+		false,
 		"If enabled, pilot will update the CRD Status field of all istio resources with reconciliation status.",
 	).Get()
 
