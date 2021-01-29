@@ -104,7 +104,7 @@ func testWorkloadAgentGenerateSecret(t *testing.T, isUsingPluginProvider bool) {
 
 	// Root cert is the last element in the generated certs.
 	want := []byte(fakeCACli.GeneratedCerts[0][2])
-	if got, _ := sc.cache.GetRoot(); !bytes.Equal(got, want) {
+	if got := sc.cache.GetRoot(); !bytes.Equal(got, want) {
 		t.Errorf("Got unexpected root certificate. Got: %v\n want: %v", string(got), string(want))
 	}
 }
