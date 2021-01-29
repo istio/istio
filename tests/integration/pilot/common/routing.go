@@ -380,7 +380,7 @@ spec:
 								errorThreshold := 10
 								for host, exp := range split {
 									hostResponses := responses.Match(func(r *echoclient.ParsedResponse) bool {
-										return strings.HasPrefix(r.Hostname, host+"-")
+										return strings.HasPrefix(r.Hostname, host)
 									})
 									if !AlmostEquals(len(hostResponses), exp, errorThreshold) {
 										return fmt.Errorf("expected %v calls to %q, got %v", exp, host, len(hostResponses))
