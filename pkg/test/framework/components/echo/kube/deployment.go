@@ -103,7 +103,7 @@ spec:
 {{- end }}
 {{- if $.ImagePullSecret }}
       imagePullSecrets:
-      - {{ $.ImagePullSecret }}
+      - name: {{ $.ImagePullSecret }}
 {{- end }}
       containers:
       - name: app
