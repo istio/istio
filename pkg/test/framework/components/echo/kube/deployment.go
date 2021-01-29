@@ -22,7 +22,7 @@ import (
 	"text/template"
 
 	"github.com/Masterminds/sprig/v3"
-	"gopkg.in/yaml.v2"
+	"gopkg.in/yaml.v3"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 
 	"istio.io/istio/pkg/test/framework/components/echo"
@@ -103,7 +103,7 @@ spec:
 {{- end }}
 {{- if ne $.ImagePullSecret "" }}
       imagePullSecrets:
-      - {{ $.ImagePullSecret }}
+      - name: {{ $.ImagePullSecret }}
 {{- end }}
       containers:
 {{- if $.IncludeExtAuthz }}
@@ -267,7 +267,7 @@ spec:
       automountServiceAccountToken: false
       {{- if $.ImagePullSecret }}
       imagePullSecrets:
-      - {{ $.ImagePullSecret }}
+      - name: {{ $.ImagePullSecret }}
       {{- end }}
       containers:
       - name: istio-proxy
