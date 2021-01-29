@@ -160,7 +160,13 @@ func TestGetPublicKeyReorderedKey(t *testing.T) {
 }
 
 func TestGetPublicKeyUsingTLS(t *testing.T) {
-	r := newJwksResolverWithCABundlePaths(JwtPubKeyEvictionDuration, JwtPubKeyRefreshInterval, JwtPubKeyRefreshIntervalOnFailure, testRetryInterval, []string{"./test/testcert/cert.pem"})
+	r := newJwksResolverWithCABundlePaths(
+		JwtPubKeyEvictionDuration,
+		JwtPubKeyRefreshInterval,
+		JwtPubKeyRefreshIntervalOnFailure,
+		testRetryInterval,
+		[]string{"./test/testcert/cert.pem"},
+	)
 	defer r.Close()
 
 	ms, err := test.StartNewTLSServer("./test/testcert/cert.pem", "./test/testcert/key.pem")
@@ -231,10 +237,6 @@ func TestJwtPubKeyEvictionForNotUsed(t *testing.T) {
 		2*time.Millisecond,   /*RefreshInterval*/
 		2*time.Millisecond,   /*RefreshIntervalOnFailure*/
 		testRetryInterval,
-	defer r.Close()
-
-	ms := startMockServer(t)
-	// Verify the refresher has run and got new key from mock server.
 	verifyKeyRefresh(t, r, ms, test.JwtPubKey2)
 
 	// Wait until unused keys are evicted.
