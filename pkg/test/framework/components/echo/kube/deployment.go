@@ -266,7 +266,7 @@ spec:
       automountServiceAccountToken: false
       {{- if $.ImagePullSecret }}
       imagePullSecrets:
-      - {{ $.ImagePullSecret }}
+      - name: {{ $.ImagePullSecret }}
       {{- end }}
       containers:
       - name: istio-proxy
