@@ -17,7 +17,6 @@ package cache
 
 import (
 	"bytes"
-	"errors"
 	"fmt"
 	"io/ioutil"
 	"path/filepath"
@@ -47,12 +46,6 @@ var (
 const (
 	// The size of a private key for a leaf certificate.
 	keySize = 2048
-
-	// max retry number to wait CSR response come back to parse root cert from it.
-	maxRetryNum = 5
-
-	// initial retry wait time duration when waiting root cert is available.
-	retryWaitDuration = 200 * time.Millisecond
 
 	// RootCertReqResourceName is resource name of discovery request for root certificate.
 	RootCertReqResourceName = "ROOTCA"
@@ -125,30 +118,29 @@ type SecretManagerClient struct {
 }
 
 type secretCache struct {
-	mu             sync.RWMutex
-	workload       *security.SecretItem
-	root           []byte
-	rootExpiration time.Time
+	mu       sync.RWMutex
+	workload *security.SecretItem
+	// currentCSRroot: Needed to compare old and new roots when workload is empty
+	currentCSRroot []byte
 	override       bool
 }
 
 // GetRoot returns cached root cert and cert expiration time. This method is thread safe.
-func (s *secretCache) GetRoot() (rootCert []byte, rootCertExpr time.Time) {
+func (s *secretCache) GetRoot() (rootCert []byte) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
-	return s.root, s.rootExpiration
+	return s.currentCSRroot
 }
 
 // SetRoot sets root cert into cache. This method is thread safe.
-func (s *secretCache) SetRoot(rootCert []byte, rootCertExpr time.Time, override bool) {
+func (s *secretCache) SetRoot(rootCert []byte, override bool) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	if s.override && !override {
 		// Do not update
 		return
 	}
-	s.root = rootCert
-	s.rootExpiration = rootCertExpr
+	s.currentCSRroot = rootCert
 	s.override = override
 }
 
@@ -203,12 +195,7 @@ func NewSecretManagerClient(caClient security.Client, options security.Options) 
 
 func (sc *SecretManagerClient) OverrideRoot(root []byte) error {
 	cacheLog.Errorf("howardjohn: overridden root!")
-	certExpireTime, err := nodeagentutil.ParseCertAndGetExpiryTimestamp(root)
-	if err != nil {
-		cacheLog.Errorf("failed to extract expiration time in the root certificate: %v", err)
-		return fmt.Errorf("failed to extract expiration time in the root certificate: %v", err)
-	}
-	sc.cache.SetRoot(root, certExpireTime, true)
+	sc.cache.SetRoot(root, true)
 	sc.CallUpdateCallback(RootCertReqResourceName)
 	return nil
 }
@@ -235,10 +222,9 @@ func (sc *SecretManagerClient) CallUpdateCallback(resourceName string) {
 	}
 }
 
-// GenerateSecret generates new secret and cache the secret, this function is called by SDS.StreamSecrets
-// and SDS.FetchSecret. Since credential passing from client may change, regenerate secret every time
-// instead of reading from cache.
+// GenerateSecret passes the cached secret to SDS.StreamSecrets and SDS.FetchSecret.
 func (sc *SecretManagerClient) GenerateSecret(resourceName string) (secret *security.SecretItem, err error) {
+
 	// Setup the call to store generated secret to disk
 	defer func() {
 		if secret == nil || err != nil {
@@ -271,52 +257,40 @@ func (sc *SecretManagerClient) GenerateSecret(resourceName string) (secret *secu
 		return ns, nil
 	}
 
-	if resourceName != RootCertReqResourceName {
-		// cache hit
-		if c := sc.cache.GetWorkload(); c != nil {
-			cacheLog.WithLabels("ttl", time.Until(c.ExpireTime)).Info("returned workload certificate from cache")
-			return c, nil
+	// cache hit. this is expected to happen most of the time.
+	if c := sc.cache.GetWorkload(); c != nil {
+		cacheLog.WithLabels("ttl", time.Until(c.ExpireTime)).Info("returned workload certificate from cache")
+		ns = &security.SecretItem{
+			ResourceName:     resourceName,
+			CertificateChain: c.CertificateChain,
+			PrivateKey:       c.PrivateKey,
+			RootCert:         c.RootCert,
+			ExpireTime:       c.ExpireTime,
+			CreatedTime:      c.CreatedTime,
 		}
-		t0 := time.Now()
-		ns, err := sc.generateSecret(resourceName)
-		if err != nil {
-			return nil, fmt.Errorf("failed to generate workload certificate: %v", err)
-		}
-
-		cacheLog.WithLabels("latency", time.Since(t0), "ttl", time.Until(ns.ExpireTime)).Info("generated new workload certificate")
-		sc.registerSecret(*ns)
 		return ns, nil
 	}
-	// If request is for root certificate,
-	// retry since rootCert may be empty until there is CSR response returned from CA.
-	rootCert, rootCertExpr := sc.cache.GetRoot()
-	if rootCert == nil {
-		wait := retryWaitDuration
-		retryNum := 0
-		for ; retryNum < maxRetryNum; retryNum++ {
-			time.Sleep(wait)
-			rootCert, rootCertExpr = sc.cache.GetRoot()
-			if rootCert != nil {
-				break
-			}
 
-			wait *= 2
-		}
+	// exception cases
+
+	ns, err = sc.generateNewSecret(resourceName)
+	if err != nil {
+		return nil, fmt.Errorf("failed to generate workload certificate: %v", err)
 	}
 
-	if rootCert == nil {
-		return nil, errors.New("failed to get root cert")
-	}
+	// Store the new secret in the secretCache and trigger the periodic rotation for workload certificate
+	sc.registerSecret(*ns)
 
-	t := time.Now()
-	ns = &security.SecretItem{
-		ResourceName: resourceName,
-		RootCert:     rootCert,
-		ExpireTime:   rootCertExpr,
-		CreatedTime:  t,
-	}
+	oldRoot := sc.cache.GetRoot()
+	if !bytes.Equal(oldRoot, ns.RootCert) {
+		cacheLog.Info("Root cert has changed, start rotating root cert")
 
+		// We store the oldRoot only for comparison and not for serving
+		sc.cache.SetRoot(ns.RootCert, false)
+		sc.CallUpdateCallback(RootCertReqResourceName)
+	}
 	return ns, nil
+
 }
 
 func (sc *SecretManagerClient) addFileWatcher(file string, resourceName string) {
@@ -386,7 +360,7 @@ func (sc *SecretManagerClient) generateRootCertFromExistingFile(rootCertPath, re
 
 	// Set the rootCert only if it is workload root cert.
 	if workload {
-		sc.cache.SetRoot(rootCert, certExpireTime, false)
+		sc.cache.SetRoot(rootCert, false)
 	}
 	return &security.SecretItem{
 		ResourceName: resourceName,
@@ -508,10 +482,11 @@ func (sc *SecretManagerClient) generateFileSecret(resourceName string) (bool, *s
 	return sdsFromFile, nil, nil
 }
 
-func (sc *SecretManagerClient) generateSecret(resourceName string) (*security.SecretItem, error) {
+func (sc *SecretManagerClient) generateNewSecret(resourceName string) (*security.SecretItem, error) {
 	if sc.caClient == nil {
 		return nil, fmt.Errorf("attempted to fetch secret, but ca client is nil")
 	}
+	t0 := time.Now()
 	logPrefix := cacheLogPrefix(resourceName)
 
 	csrHostName := &spiffe.Identity{
@@ -557,32 +532,16 @@ func (sc *SecretManagerClient) generateSecret(resourceName string) (*security.Se
 		return nil, fmt.Errorf("failed to extract expire time from server certificate in CSR response: %v", err)
 	}
 
-	length := len(certChainPEM)
-	rootCert, _ := sc.cache.GetRoot()
-	// Leaf cert is element '0'. Root cert is element 'n'.
-	rootCertChanged := !bytes.Equal(rootCert, []byte(certChainPEM[length-1]))
-	if rootCert == nil || rootCertChanged {
-		rootCertExpireTime, err := nodeagentutil.ParseCertAndGetExpiryTimestamp([]byte(certChainPEM[length-1]))
-		if err == nil {
-			sc.cache.SetRoot([]byte(certChainPEM[length-1]), rootCertExpireTime, false)
-		} else {
-			cacheLog.Errorf("%s failed to parse root certificate in CSR response: %v", logPrefix, err)
-			rootCertChanged = false
-		}
-	}
-
-	if rootCertChanged {
-		cacheLog.Info("Root cert has changed, start rotating root cert")
-		sc.CallUpdateCallback(RootCertReqResourceName)
-	}
-
+	cacheLog.WithLabels("latency", time.Since(t0), "ttl", time.Until(expireTime)).Info("generated new workload certificate")
 	return &security.SecretItem{
 		CertificateChain: certChain,
 		PrivateKey:       keyPEM,
 		ResourceName:     resourceName,
 		CreatedTime:      time.Now(),
 		ExpireTime:       expireTime,
+		RootCert:         []byte(certChainPEM[len(certChainPEM)-1]),
 	}, nil
+
 }
 
 func (sc *SecretManagerClient) rotateTime(secret security.SecretItem) time.Duration {
