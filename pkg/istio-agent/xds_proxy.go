@@ -167,7 +167,7 @@ func initXdsProxy(ia *Agent) (*XdsProxy, error) {
 			if ia.secretCache == nil {
 				return nil
 			}
-			return ia.secretCache.OverrideRoot([]byte(pc.ConfigPath))
+			return ia.secretCache.UpdateConfigTrustBundle([]byte(pc.ConfigPath))
 		}
 	}
 
