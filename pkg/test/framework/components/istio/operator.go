@@ -362,7 +362,8 @@ func deploy(ctx resource.Context, env *kube.Environment, cfg Config) (Instance, 
 	return i, nil
 }
 
-// patchIstiodCustomHost finds the Primary cluster for the given cluster, and
+// patchIstiodCustomHost sets the ISTIOD_CUSTOM_HOST to the given address,
+// to allow webhook connections to succeed when reaching webhook by IP.
 func patchIstiodCustomHost(istiodAddress net.TCPAddr, cfg Config, cluster resource.Cluster) error {
 	scopes.Framework.Infof("patching custom host for cluster %s as %s", cluster.Name(), istiodAddress.IP.String())
 	patchOptions := kubeApiMeta.PatchOptions{

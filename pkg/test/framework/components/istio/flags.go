@@ -51,5 +51,5 @@ func init() {
 	flag.BoolVar(&settingsFromCommandline.DumpKubernetesManifests, "istio.test.istio.dumpManifests", settingsFromCommandline.DumpKubernetesManifests,
 		"Dump generated Istio install manifests in the artifacts directory.")
 	flag.BoolVar(&settingsFromCommandline.IstiodlessRemotes, "istio.test.istio.istiodlessRemotes", settingsFromCommandline.IstiodlessRemotes,
-		"Dump generated Istio install manifests in the artifacts directory.")
+		"Remote clusters run without istiod, using webhooks/ca from the primary cluster.")
 }
