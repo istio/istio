@@ -19,10 +19,9 @@ set -x # Print out all commands.
 if [[ -z ${IN_CLUSTER} ]] ; then
   if [[ -n ${PROJECT} ]]; then
 
-    # Getting the credentials with gcloud currently fails if it's run in a new
-    # project for up to the first 7 minutes (but it rarely gets this bad). Cloud
-    # Run waits up to 4 minutes for the service to be ready. So retry this
-    # command for ~3-4 minutes just in case.
+    # Retry for 5 seconds in case there's flakiness in the gcloud command,
+    # though we expect the command to succeed on the first try (see
+    # b/169186377).
     RET=1
     START=$(date +%s)
     while true; do
@@ -32,8 +31,7 @@ if [[ -z ${IN_CLUSTER} ]] ; then
         # get-credentials command was successful, exit the loop.
         break
       fi
-      # TODO(qfel): Retry only on permission errors.
-      if (( $(date +%s) - START > 3 * 60 + 30 )); then
+      if (( $(date +%s) - START > 5 )); then
         echo 'gcloud container clusters get-credentials failed'
         exit 1
       fi
