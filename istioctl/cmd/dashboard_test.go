@@ -103,6 +103,11 @@ func TestDashboard(t *testing.T) {
 			expectedRegexp: regexp.MustCompile(".*Error: name cannot be provided when a selector is specified"),
 			wantException:  true,
 		},
+		{ // case 16
+			args:           strings.Split("dashboard controlz pod-123456-7890 -n istio-system", " "),
+			expectedRegexp: regexp.MustCompile(".*http://localhost:3456"),
+			wantException:  false,
+		},
 	}
 
 	for i, c := range cases {
