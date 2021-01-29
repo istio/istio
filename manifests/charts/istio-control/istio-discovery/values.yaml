@@ -210,6 +210,10 @@ meshConfig:
   # What we may configure in mesh config is the ".global" - and use of other suffixes.
   # No hurry to do this in 1.6, we're trying to prove the code.
 
+hsm:
+  # HSM enablement. Disabled by default.
+  enabled: false
+
 global:
   # Used to locate istiod.
   istioNamespace: istio-system

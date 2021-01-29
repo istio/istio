@@ -154,6 +154,12 @@ spec:
           - name: PILOT_ENDPOINT_TELEMETRY_LABEL
             value: "false"
 {{- end }}
+          {{- if .Values.hsm.enabled }}
+          - name: KEY_MANAGEMENT_ENDPOINT
+            value: /var/run/hsm-socket/.sock
+          - name: KEY_MANAGEMENT_KEY_ID
+            value: "{{ .Values.hsm.hsmKEKID }}"
+          {{- end }}
           resources:
 {{- if .Values.pilot.resources }}
 {{ toYaml .Values.pilot.resources | trim | indent 12 }}
@@ -185,6 +191,53 @@ spec:
           - name: extracacerts
             mountPath: /cacerts
           {{- end }}
+          {{- if .Values.hsm.enabled }}
+          - name: hsm-socket
+            mountPath: /var/run/hsm-socket
+          {{- end }}
+        {{- if .Values.hsm.enabled }}
+        - name: hsm-plugin
+          image: "{{ .Values.hsm.hsmPluginImage }}"
+          imagePullPolicy: IfNotPresent
+          env:
+          - name: P11_TOKEN
+            value: "{{ .Values.hsm.hsmSlotLabel }}"
+          - name: ChrystokiConfigurationPath
+            value: /onprem/config
+          - name: P11_LIB
+            value: /onprem/lib/libCryptoki2.so
+          - name: P11_PIN_FILE
+            value: /var/run/hsm-credential/pin
+          - name: SOCKET
+            value: /var/run/hsm-socket/.sock
+          volumeMounts:
+          - name: hsm-socket
+            mountPath: /var/run/hsm-socket
+          - name: hsm-credential
+            mountPath: /var/run/hsm-credential
+            readOnly: true
+        - name: vaultclient
+          image: "{{ .Values.hsm.vaultClientImage }}"
+          imagePullPolicy: IfNotPresent
+          env:
+          - name: OUTPUT_DIR
+            value: /var/run/hsm-credential
+          - name: VAULT_ADDR
+            value: "{{ .Values.hsm.vaultAddr }}"
+          - name: VAULT_AUTH_CERT_CM
+            value: "vault-tls-cert"
+          - name: VAULT_AUTH_PATH
+            value: "{{ .Values.hsm.vaultAuthPath }}"
+          - name: VAULT_ROLE
+            value: "{{ .Values.hsm.vaultAuthRole }}"
+          - name: VAULT_AUTH_JWT_PATH
+            value: "{{ .Values.hsm.vaultAuthJwtPath }}"
+          - name: VAULT_KV_PATH
+            value: "{{ .Values.hsm.vaultSecretPath }}"
+          volumeMounts:
+          - name: hsm-credential
+            mountPath: /var/run/hsm-credential
+        {{- end }}
       volumes:
       # Technically not needed on this pod - but it helps debugging/testing SDS
       # Should be removed after everything works.
@@ -199,6 +252,14 @@ spec:
                 audience: {{ .Values.global.sds.token.aud }}
                 expirationSeconds: 43200
                 path: istio-token
+      {{- end }}
+      {{- if .Values.hsm.enabled }}
+      - emptyDir:
+          medium: Memory
+        name: hsm-credential
+      - emptyDir:
+          medium: Memory
+        name: hsm-socket
       {{- end }}
       # Optional: user-generated root
       - name: cacerts

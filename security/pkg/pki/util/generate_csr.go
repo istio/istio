@@ -76,6 +76,26 @@ func GenCSR(options CertOptions) ([]byte, []byte, error) {
 	return csr, privKey, err
 }
 
+// GenCSRwithExistingKey generates a X.509 certificate sign request with the given options and private key.
+func GenCSRwithExistingKey(options CertOptions, keyBytes []byte) ([]byte, error) {
+	key, err := ParsePemEncodedKey(keyBytes)
+	if err != nil {
+		return nil, err
+	}
+	template, err := GenCSRTemplate(options)
+	if err != nil {
+		return []byte{}, fmt.Errorf("CSR template creation failed (%v)", err)
+	}
+
+	csrBytes, err := x509.CreateCertificateRequest(rand.Reader, template, key)
+	if err != nil {
+		return []byte{}, fmt.Errorf("CSR creation failed (%v)", err)
+	}
+
+	csr, _, err := encodePem(true, csrBytes, key, options.PKCS8Key)
+	return csr, err
+}
+
 // GenCSRTemplate generates a certificateRequest template with the given options.
 func GenCSRTemplate(options CertOptions) (*x509.CertificateRequest, error) {
 	template := &x509.CertificateRequest{

@@ -37,6 +37,7 @@ import (
 	"istio.io/istio/pkg/jwt"
 	kubelib "istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/security"
+	"istio.io/istio/pkg/spiffe"
 	"istio.io/istio/security/pkg/cmd"
 	"istio.io/istio/security/pkg/pki/ca"
 	"istio.io/istio/security/pkg/pki/ra"
@@ -141,6 +142,12 @@ var (
 	//TODO: Likely to be removed and added to mesh config
 	externalCAName = env.RegisterStringVar("CA_NAME", "",
 		"External CA Name").Get()
+
+	keyManagementEndpoint = env.RegisterStringVar("KEY_MANAGEMENT_ENDPOINT", "",
+		"Key management endpoint, which can be implemented by HSM")
+
+	keyManagementKeyID = env.RegisterStringVar("KEY_MANAGEMENT_KEY_ID", "",
+		"Key management key ID, which can be HSM KEK ID")
 )
 
 // EnableCA returns whether CA functionality is enabled in istiod.
@@ -309,7 +316,22 @@ func (s *Server) createIstioCA(client corev1.CoreV1Interface, opts *caOptions) (
 		// In Istiod, it is possible to provide one via "cacerts" secret in both cases, for consistency.
 		rootCertFile = ""
 	}
-	if _, err := os.Stat(signingKeyFile); err != nil && client != nil {
+
+	if len(keyManagementEndpoint.Get()) != 0 {
+		// The KMS endpoint is set. Run the KMS backed CA.
+		log.Info("Use KMS backed CA")
+		spiffe.SetTrustDomain(opts.TrustDomain)
+		// Abort after 100 days. This does not really matter.
+		ctx, cancel := context.WithTimeout(context.Background(), time.Hour*2400)
+		defer cancel()
+
+		caOpts, err = ca.NewKMSBackedCAOptions(ctx, workloadCertTTL.Get(), maxWorkloadCertTTL.Get(), opts.TrustDomain, true,
+			opts.Namespace, client, caRSAKeySize.Get(), keyManagementEndpoint.Get(), []byte(keyManagementKeyID.Get()))
+		if err != nil {
+			return nil, fmt.Errorf("failed to create a KMS backed CA: %v", err)
+		}
+
+	} else if _, err := os.Stat(signingKeyFile); err != nil && client != nil {
 		// The user-provided certs are missing - create a self-signed cert.
 		log.Info("Use self-signed certificate as the CA certificate")
 		// Abort after 20 minutes.

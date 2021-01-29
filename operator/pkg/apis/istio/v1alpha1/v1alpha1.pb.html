@@ -2,7 +2,11 @@
 title: v1alpha1
 layout: protoc-gen-docs
 generator: protoc-gen-docs
+<<<<<<< Updated upstream
 number_of_entries: 60
+=======
+number_of_entries: 63
+>>>>>>> Stashed changes
 ---
 <h2 id="ArchConfig">ArchConfig</h2>
 <section>
@@ -2157,6 +2161,131 @@ No
 </tbody>
 </table>
 </section>
+<h2 id="HSMConfig">HSMConfig</h2>
+<section>
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+<th>Required</th>
+</tr>
+</thead>
+<tbody>
+<tr id="HSMConfig-enabled">
+<td><code>enabled</code></td>
+<td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#boolvalue">BoolValue</a></code></td>
+<td>
+<p>Controls whether HSM is configured.</p>
+
+</td>
+<td>
+No
+</td>
+</tr>
+<tr id="HSMConfig-hsmKEKID">
+<td><code>hsmKEKID</code></td>
+<td><code>string</code></td>
+<td>
+<p>HSM KEK ID.</p>
+
+</td>
+<td>
+No
+</td>
+</tr>
+<tr id="HSMConfig-hsmPluginImage">
+<td><code>hsmPluginImage</code></td>
+<td><code>string</code></td>
+<td>
+<p>Image of the HSM plugin.</p>
+
+</td>
+<td>
+No
+</td>
+</tr>
+<tr id="HSMConfig-hsmSlotLabel">
+<td><code>hsmSlotLabel</code></td>
+<td><code>string</code></td>
+<td>
+<p>The HSM slot Label.</p>
+
+</td>
+<td>
+No
+</td>
+</tr>
+<tr id="HSMConfig-vaultClientImage">
+<td><code>vaultClientImage</code></td>
+<td><code>string</code></td>
+<td>
+<p>Image of the Vault client.</p>
+
+</td>
+<td>
+No
+</td>
+</tr>
+<tr id="HSMConfig-vaultAddr">
+<td><code>vaultAddr</code></td>
+<td><code>string</code></td>
+<td>
+<p>The address of the Vault server.</p>
+
+</td>
+<td>
+No
+</td>
+</tr>
+<tr id="HSMConfig-vaultAuthPath">
+<td><code>vaultAuthPath</code></td>
+<td><code>string</code></td>
+<td>
+<p>The path of the Vault authentication path.</p>
+
+</td>
+<td>
+No
+</td>
+</tr>
+<tr id="HSMConfig-vaultAuthRole">
+<td><code>vaultAuthRole</code></td>
+<td><code>string</code></td>
+<td>
+<p>The role to authenticate to Vault.</p>
+
+</td>
+<td>
+No
+</td>
+</tr>
+<tr id="HSMConfig-vaultAuthJwtPath">
+<td><code>vaultAuthJwtPath</code></td>
+<td><code>string</code></td>
+<td>
+<p>The path to the JWT token to authenticate to Vault.</p>
+
+</td>
+<td>
+No
+</td>
+</tr>
+<tr id="HSMConfig-vaultSecretPath">
+<td><code>vaultSecretPath</code></td>
+<td><code>string</code></td>
+<td>
+<p>The path to access the secret on Vault.</p>
+
+</td>
+<td>
+No
+</td>
+</tr>
+</tbody>
+</table>
+</section>
 <h2 id="PilotIngressConfig">PilotIngressConfig</h2>
 <section>
 <p>Controls legacy k8s ingress. Only one pilot profile should enable ingress support.</p>
@@ -3623,6 +3752,17 @@ No
 <td><code>istiodRemote</code></td>
 <td><code><a href="#IstiodRemoteConfig">IstiodRemoteConfig</a></code></td>
 <td>
+</td>
+<td>
+No
+</td>
+</tr>
+<tr id="Values-hsm">
+<td><code>hsm</code></td>
+<td><code><a href="#HSMConfig">HSMConfig</a></code></td>
+<td>
+<p>HSM is ASM-specific feature, start from 100 to avoid conflicts.</p>
+
 </td>
 <td>
 No

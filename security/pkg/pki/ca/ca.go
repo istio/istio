@@ -26,7 +26,9 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	corev1 "k8s.io/client-go/kubernetes/typed/core/v1"
 
+	"istio.io/istio/security/pkg/adapter/kms"
 	"istio.io/istio/security/pkg/cmd"
+	"istio.io/istio/security/pkg/k8s/controller"
 	k8ssecret "istio.io/istio/security/pkg/k8s/secret"
 	caerror "istio.io/istio/security/pkg/pki/error"
 	"istio.io/istio/security/pkg/pki/util"
@@ -38,6 +40,8 @@ import (
 const (
 	// istioCASecretType is the Istio secret annotation type.
 	istioCASecretType = "istio.io/ca-root"
+	// istioIntermediateCASecretType is the Istio secret annotation type for intermediate CA.
+	istioIntermediateCASecretType = "istio.io/intermediate-ca"
 
 	// CaCertID is the CA certificate chain file.
 	CaCertID = "ca-cert.pem"
@@ -54,8 +58,19 @@ const (
 	// ServiceAccountNameAnnotationKey is the key to specify corresponding service account in the annotation of K8s secrets.
 	ServiceAccountNameAnnotationKey = "istio.io/service-account.name"
 
+	// CAEncryptedKeySecret stores the key/cert of self-signed CA for persistency purpose.
+	CAEncryptedKeySecret = "istio-ca-encrypted-key"
+	// CACertSecret is the name of the secret that stores the CA certificates.
+	CACertSecret = "istio-ca-cert"
+	// CACertCSRSecret is the name of the secret that store the CA certificate's CSR.
+	CACertCSRSecret = "istio-ca-cert-csr"
+
 	// The standard key size to use when generating an RSA private key
 	rsaKeySize = 2048
+
+	defaultSecretAccessRetryInterval = time.Millisecond * 500
+	defaultSecretAccessTimeout       = time.Second * 2
+	defaultCertReadRetryInterval     = time.Second * 2
 )
 
 var pkiCaLog = log.RegisterScope("pkica", "Citadel CA log", 0)
@@ -80,6 +95,8 @@ const (
 	selfSignedCA caTypes = iota
 	// pluggedCertCA means the Istio CA uses a operator-specified key/cert.
 	pluggedCertCA
+	// kmsBackedCA means the Istio CA stores the encrypted signing key leveraging a KMS.
+	kmsBackedCA
 )
 
 // IstioCAOptions holds the configurations for creating an Istio CA.
@@ -170,7 +187,7 @@ func NewSelfSignedIstioCAOptions(ctx context.Context,
 		}
 
 		// Write the key/cert back to secret so they will be persistent when CA restarts.
-		secret := k8ssecret.BuildSecret("", CASecret, namespace, nil, nil, nil, pemCert, pemKey, istioCASecretType)
+		secret := k8ssecret.BuildSecret("", CASecret, namespace, nil, nil, nil, pemCert, pemKey, istioIntermediateCASecretType)
 		if _, err = client.Secrets(namespace).Create(context.TODO(), secret, metav1.CreateOptions{}); err != nil {
 			pkiCaLog.Errorf("Failed to write secret to CA (error: %s). Abort.", err)
 			return nil, fmt.Errorf("failed to create CA due to secret write error")
@@ -251,6 +268,167 @@ func NewPluggedCertIstioCAOptions(certChainFile, signingCertFile, signingKeyFile
 		return nil, fmt.Errorf("certificate is not authorized to sign other certificates")
 	}
 
+	return caOpts, nil
+}
+
+// NewKMSBackedCAOptions creates a CAOptions for a CA with the KMS encryption.
+func NewKMSBackedCAOptions(ctx context.Context,
+	defaultCertTTL, maxCertTTL time.Duration, org string, dualUse bool, namespace string,
+	client corev1.CoreV1Interface, caRSAKeySize int, kmsEndpoint string, kekID []byte) (
+	caOpts *IstioCAOptions, err error) {
+	// KMS integration
+	// 1. if the signing key secret doesn't exist:
+	//      Call the KMS to generate the encrypted key and write it to the secret, and get the decypted key from KMS.
+	//    else:
+	//      Load the signing key from secret and decrypt it by calling the KMS.
+	// 2. if the cert secret doesn't exist:
+	//      if the CSR secret doesn't exist:
+	//        Generate the CSR from the private key, and write it into the secret
+	//      Wait until the cert secret presents
+	// 3. Load the cert from the secret, and set it with the signing key into the CA keycertbundle.
+	caOpts = &IstioCAOptions{
+		CAType:         kmsBackedCA,
+		DefaultCertTTL: defaultCertTTL,
+		MaxCertTTL:     maxCertTTL,
+		CARSAKeySize:   caRSAKeySize,
+	}
+	kes := kms.KeyEncryptionService{
+		Endpoint: kmsEndpoint,
+	}
+
+	var timeout = time.Hour * 10
+	err = kes.Connect(timeout)
+	if err != nil {
+		pkiCaLog.Errorf("Failed to initialize KMS (error: %s). Abort.", err)
+		return nil, fmt.Errorf("failed to create CA due to failure in initializing the KMS")
+	}
+	defer kes.Cancel()
+
+	srtCtr := controller.NewCaSecretController(client)
+	// Read the encrypted CA signing key.
+	keySecret, keyReadErr := srtCtr.LoadCASecretWithRetry(
+		CAEncryptedKeySecret, namespace, defaultSecretAccessRetryInterval, defaultSecretAccessTimeout)
+
+	// CA signing key secret does not exist, generate one and write it to secret.
+
+	if keyReadErr != nil {
+		pkiCaLog.Infof("Failed to read encrypted key from secret (error: %s). We will generate one", keyReadErr)
+
+		encDEK, keyGenErr := kes.GenerateDEK(kekID)
+		if keyGenErr != nil {
+			pkiCaLog.Errorf("Failed to generate DEK (error: %v). Abort.", keyGenErr)
+			return nil, fmt.Errorf("failed to create CA due to failure in generating DEK")
+		}
+
+		encSKey, keyGenErr := kes.GenerateSKey(kekID, encDEK, caRSAKeySize, kms.RSA)
+		if keyGenErr != nil {
+			pkiCaLog.Errorf("Failed to generate encrypted CA key (error: %v). Abort.", keyGenErr)
+			return nil, fmt.Errorf("failed to create CA due to failure in generating encrypted CA key")
+		}
+
+		// Write the key ID and encrypted key to secret so they will be shared and persistent when CA restarts.
+		keySecret = k8ssecret.BuildSecretForEncryptedKey(CAEncryptedKeySecret, namespace, kekID, encDEK,
+			encSKey, istioIntermediateCASecretType)
+
+		if keyWriteErr := srtCtr.CreateCASecretWithRetry(keySecret, defaultSecretAccessRetryInterval,
+			defaultSecretAccessTimeout); keyWriteErr != nil {
+			pkiCaLog.Errorf("Failed to write secret to CA (error: %v). Abort.", keyWriteErr)
+			return nil, fmt.Errorf("failed to create CA due to encrypted key secret write error")
+		}
+		pkiCaLog.Info("Newly generated encrypted signing key is successfully written into secret.")
+	}
+
+	kekID = keySecret.Data[k8ssecret.KEKID]
+	encDEK := keySecret.Data[k8ssecret.EncryptedDEK]
+	encSKey := keySecret.Data[k8ssecret.EncryptedSKey]
+	if len(kekID) == 0 || len(encDEK) == 0 || len(encSKey) == 0 {
+		pkiCaLog.Errorf("Failed to read KEK ID %s, encrypted DEK %s, and encrypted SKey %s in secret %s.",
+			k8ssecret.KEKID, k8ssecret.EncryptedDEK, k8ssecret.EncryptedSKey, CAEncryptedKeySecret)
+		return nil, fmt.Errorf("failed to create CA due to malformed encrypted signing key secret")
+	}
+	sKey, keyErr := kes.GetSKey(kekID, encDEK, encSKey)
+	if keyErr != nil {
+		pkiCaLog.Errorf("Failed to decrypt CA key (error: %v). Abort.", keyErr)
+		return nil, fmt.Errorf("failed to create CA due to failure in decrypting CA key")
+	}
+
+	// Read the CA certificate from secret.
+	certSecret, certReadErr := srtCtr.LoadCASecretWithRetry(
+		CACertSecret, namespace, defaultSecretAccessRetryInterval, defaultSecretAccessTimeout)
+
+	if certReadErr != nil {
+		// CA cert certificate does not exist, check if the CSR secret exists. If not, generate one for admin to sign.
+		pkiCaLog.Infof("Failed to read CA cert from secret (error: %v). We will check if the CSR exists.", certReadErr)
+		if _, csrReadErr := srtCtr.LoadCASecretWithRetry(
+			CACertCSRSecret, namespace, defaultSecretAccessRetryInterval, defaultSecretAccessTimeout); csrReadErr != nil {
+			// CA cert CSR does not exist, create one.
+			pkiCaLog.Infof("Failed to read CA cert CSR from secret (error: %v). We will create one.", certReadErr)
+			options := util.CertOptions{
+				Org:          org,
+				IsCA:         true,
+				IsSelfSigned: true,
+				IsDualUse:    dualUse,
+			}
+			csr, csrGenErr := util.GenCSRwithExistingKey(options, sKey)
+			if csrGenErr != nil {
+				pkiCaLog.Errorf("Failed to generate CSR: %v.", csrGenErr)
+				return nil, fmt.Errorf("failed to create CA due to CSR generate failure")
+			}
+
+			// Use the organization to identify the CSR and use as the AAD.
+			csrID := []byte(org)
+
+			encCSR, keyErr := kes.AuthenticatedEncrypt(kekID, encDEK, csrID, csr)
+			if keyErr != nil {
+				pkiCaLog.Errorf("Failed to encrypt CSR (error: %v). Abort.", keyErr)
+				return nil, fmt.Errorf("failed to encrypt CSR")
+			}
+
+			csrSecret := k8ssecret.BuildSecretForCSR(CACertCSRSecret, namespace, kekID, encDEK, csrID, encCSR, istioIntermediateCASecretType)
+			if csrWriteErr := srtCtr.CreateCASecretWithRetry(csrSecret, defaultSecretAccessRetryInterval,
+				defaultSecretAccessTimeout); csrWriteErr != nil {
+				pkiCaLog.Errorf("Failed to write CSR to secret %v.", csrGenErr)
+				return nil, fmt.Errorf("failed to create CA due to CSR write failure")
+			}
+			pkiCaLog.Infof("Newly generated CSR is successfully written into secret %s.", CACertCSRSecret)
+		} else {
+			pkiCaLog.Infof("CSR exists in secret %s.", CACertCSRSecret)
+		}
+
+		// Watch the certificate resource. Blocking.
+		pkiCaLog.Infof("Wait until the CA certificate secret %s.%s can be loaded...", namespace, CACertSecret)
+		ticker := time.NewTicker(defaultCertReadRetryInterval)
+		for certReadErr != nil {
+			select {
+			case <-ticker.C:
+				if certSecret, certReadErr = client.Secrets(namespace).Get(
+					context.TODO(), CACertSecret, metav1.GetOptions{}); certReadErr == nil {
+					pkiCaLog.Infof("Successfully loaded the secret.")
+				}
+			case <-ctx.Done():
+				pkiCaLog.Errorf("CA certificate secret waiting thread is terminated.")
+				return nil, fmt.Errorf("CA certificate secret waiting thread is terminated")
+			}
+		}
+	}
+
+	// Verify cert chain with previously loaded CA cert in HSM
+	verified, verifyErr := kes.VerifyCertChain(certSecret.Data[CertChainID])
+	if verifyErr != nil {
+		pkiCaLog.Errorf("Failed to verify certificate chain (error: %v). Abort.", verifyErr)
+		return nil, fmt.Errorf("failed to verify certificate chain")
+	} else if !verified {
+		pkiCaLog.Errorf("Certificate chain verification failed")
+		return nil, fmt.Errorf("certificate chain verification failed")
+	}
+
+	if caOpts.KeyCertBundle, err = util.NewVerifiedKeyCertBundleFromPem(nil, sKey, certSecret.Data[CertChainID],
+		nil); err != nil {
+		return nil, fmt.Errorf("failed to create CA KeyCertBundle (%v)", err)
+	}
+	pkiCaLog.Info("Loaded decrypted CA key and CA certificate into memory.")
+	certBytes, _, certChainBytes, rootBytes := caOpts.KeyCertBundle.GetAllPem()
+	pkiCaLog.Infof("CA cert:\n%s\nintermediate certs:\n%s\nroot cert:\n%s", certBytes, certChainBytes, rootBytes)
 	return caOpts, nil
 }
 

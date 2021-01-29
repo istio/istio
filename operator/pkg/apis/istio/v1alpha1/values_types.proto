@@ -670,6 +670,29 @@ message PilotConfig {
   TypeInterface tag = 35;
 }
 
+message HSMConfig {
+  // Controls whether HSM is configured.
+  google.protobuf.BoolValue enabled = 1;
+  // HSM KEK ID.
+  string hsmKEKID = 2;
+  // Image of the HSM plugin.
+  string hsmPluginImage = 3;
+  // The HSM slot Label.
+  string hsmSlotLabel = 4;
+  // Image of the Vault client.
+  string vaultClientImage = 5;
+  // The address of the Vault server.
+  string vaultAddr = 6;
+  // The path of the Vault authentication path.
+  string vaultAuthPath = 7;
+  // The role to authenticate to Vault.
+  string vaultAuthRole = 8;
+  // The path to the JWT token to authenticate to Vault.
+  string vaultAuthJwtPath = 9;
+  // The path to access the secret on Vault.
+  string vaultSecretPath = 10;
+}
+
 // Controls legacy k8s ingress. Only one pilot profile should enable ingress support.
 message PilotIngressConfig {
   // Sets the type ingress service for Pilot.
@@ -1105,6 +1128,9 @@ message Values {
   IstiodRemoteConfig istiodRemote = 38;
 
   repeated string revisionTags = 39;
+
+  // HSM is ASM-specific feature, start from 100 to avoid conflicts.
+  HSMConfig hsm = 100;
 }
 
 // GOTYPE: map[string]interface{}

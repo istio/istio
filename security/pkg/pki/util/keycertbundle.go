@@ -24,6 +24,7 @@ import (
 	"crypto/rsa"
 	"crypto/tls"
 	"crypto/x509"
+	"encoding/pem"
 	"errors"
 	"fmt"
 	"io/ioutil"
@@ -78,11 +79,50 @@ func NewUnverifiedKeyCertBundle(certBytes, privKeyBytes,
 	}, nil
 }
 
+func splitCerts(certChainBytes []byte) (certList [][]byte, err error) {
+	rest := certChainBytes
+	var block *pem.Block
+	i := 0
+	last := 0
+	for i < 20 {
+		block, rest = pem.Decode(rest)
+		if block == nil {
+			return [][]byte{}, fmt.Errorf("error spliting the cert chain")
+		}
+		certList = append(certList, certChainBytes[last:(len(certChainBytes)-len(rest))])
+		if len(rest) == 0 {
+			break
+		}
+		i++
+		last = len(certChainBytes) - len(rest)
+	}
+	if i == 20 {
+		return [][]byte{}, fmt.Errorf("failed to parse the cert chain: %s", string(certChainBytes))
+	}
+	return certList, nil
+}
+
 // NewVerifiedKeyCertBundleFromPem returns a new KeyCertBundle, or error if the provided certs failed the
 // verification.
 func NewVerifiedKeyCertBundleFromPem(certBytes, privKeyBytes, certChainBytes, rootCertBytes []byte) (
 	*KeyCertBundle, error) {
 	bundle := &KeyCertBundle{}
+	if len(certBytes) == 0 && len(rootCertBytes) == 0 {
+		certList, err := splitCerts(certChainBytes)
+		if err != nil {
+			return nil, err
+		}
+		if len(certList) == 0 {
+			return nil, fmt.Errorf("cert chain length is 0 while CA cert and root cert are not specified")
+		}
+		certBytes = certList[0]
+		rootCertBytes = certList[len(certList)-1]
+		if len(certList) > 1 { // cert-chain also includes the issuing CA cert.
+			certChainBytes = certBytes[:len(certChainBytes)-len(rootCertBytes)]
+		} else { // Single self-signed cert
+			certChainBytes = []byte{}
+		}
+	}
 	if err := bundle.VerifyAndSetAll(certBytes, privKeyBytes, certChainBytes, rootCertBytes); err != nil {
 		return nil, err
 	}

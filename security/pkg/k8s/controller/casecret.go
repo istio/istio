@@ -95,3 +95,24 @@ func (csc *CaSecretController) UpdateCASecretWithRetry(caSecret *v1.Secret,
 		time.Sleep(retryInterval)
 	}
 }
+
+// CreateCASecretWithRetry Creates CA secret with retries until timeout.
+func (csc *CaSecretController) CreateCASecretWithRetry(caSecret *v1.Secret,
+	retryInterval, timeout time.Duration) error {
+	start := time.Now()
+	for {
+		_, scrtErr := csc.client.Secrets(caSecret.Namespace).Create(context.TODO(), caSecret, metav1.CreateOptions{})
+		if scrtErr == nil {
+			return nil
+		}
+		k8sControllerLog.Errorf("Failed on creating CA secret %s:%s.: %v",
+			caSecret.Namespace, caSecret.Name, scrtErr)
+
+		if time.Since(start) > timeout {
+			k8sControllerLog.Errorf("Timeout on creating CA secret %s:%s.",
+				caSecret.Namespace, caSecret.Name)
+			return scrtErr
+		}
+		time.Sleep(retryInterval)
+	}
+}
