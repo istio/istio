@@ -62,6 +62,7 @@ values:
       proxyMetadata:
         ECC_SIGNATURE_ALGORITHM: "ECDSA"
 `
+	cfg.RemoteClusterValues = cfg.ControlPlaneValues
 }
 
 func SetupApps(ctx resource.Context, apps *EchoDeployments) error {
