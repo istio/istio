@@ -32,6 +32,8 @@ spec:
         prometheus.io/scrape: "true"
         prometheus.io/port: "15014"
     spec:
+      imagePullSecrets:
+      - name: myregistrykey
       containers:
       - name: app
         image: testing.hub/app:latest
