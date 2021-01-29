@@ -200,6 +200,10 @@ meshConfig:
 
   rootNamespace:
 
+  # The trust domain corresponds to the trust root of a system
+  # Refer to https://github.com/spiffe/spiffe/blob/master/standards/SPIFFE-ID.md#21-trust-domain
+  trustDomain: "cluster.local"
+
   # TODO: the intent is to eventually have this enabled by default when security is used.
   # It is not clear if user should normally need to configure - the metadata is typically
   # used as an escape and to control testing and rollout, but it is not intended as a long-term
@@ -508,8 +512,6 @@ global:
   # Use the Mesh Control Protocol (MCP) for configuring Istiod. Requires an MCP source.
   useMCP: false
 
-  # Deprecated, use meshConfig.trustDomain
-  trustDomain: ""
 base:
   # For istioctl usage to disable istio config crds in base
   enableIstioConfigCRDs: true
