@@ -44,6 +44,10 @@ const (
 	// on remote clusters for integration tests
 	IntegrationTestRemoteDefaultsIOP = "tests/integration/iop-remote-integration-test-defaults.yaml"
 
+	// IntegrationTestIstiodlessRemoteDefaultsIOP is the path of the default IstioOperator spec to use
+	// on remote clusters for integration tests when --istio.test.istio.istiodlessRemotes is set.
+	IntegrationTestIstiodlessRemoteDefaultsIOP = "tests/integration/iop-istiodless-remote-integration-test-defaults.yaml"
+
 	// DefaultDeployTimeout for Istio
 	DefaultDeployTimeout = time.Second * 300
 
@@ -75,6 +79,7 @@ var (
 		ConfigClusterIOPFile:  IntegrationTestDefaultsIOP,
 		RemoteClusterIOPFile:  IntegrationTestRemoteDefaultsIOP,
 		DeployEastWestGW:      true,
+		IstiodlessRemotes:     false,
 	}
 )
 
@@ -149,6 +154,10 @@ type Config struct {
 
 	// Indicates that the test should deploy Istio's using helm charts
 	DeployHelm bool
+
+	// IstiodlessRemotes makes remote clusters run without istiod, using webhooks/ca from the primary cluster.
+	// TODO we could set this per-cluster if istiod was smarter about patching remotes.
+	IstiodlessRemotes bool
 }
 
 func (c *Config) OverridesYAML() string {
@@ -322,6 +331,7 @@ func (c *Config) String() string {
 	result += fmt.Sprintf("RemoteClusterIOPFile:           %s\n", c.RemoteClusterIOPFile)
 	result += fmt.Sprintf("SkipWaitForValidationWebhook:   %v\n", c.SkipWaitForValidationWebhook)
 	result += fmt.Sprintf("DeployHelm:                     %v\n", c.DeployHelm)
+	result += fmt.Sprintf("IstiodlessRemotes:              %v\n", c.IstiodlessRemotes)
 	return result
 }
 

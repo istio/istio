@@ -48,4 +48,6 @@ func init() {
 		"Deploy Istio east west gateway into the target Kubernetes environment.")
 	flag.BoolVar(&settingsFromCommandline.DeployHelm, "istio.test.helm.deploy", settingsFromCommandline.DeployHelm,
 		"Deploy Istio into the target Kubernetes environment with Helm.")
+	flag.BoolVar(&settingsFromCommandline.IstiodlessRemotes, "istio.test.istio.istiodlessRemotes", settingsFromCommandline.IstiodlessRemotes,
+		"Remote clusters run without istiod, using webhooks/ca from the primary cluster.")
 }

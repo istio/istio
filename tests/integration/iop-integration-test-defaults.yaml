@@ -46,7 +46,6 @@ spec:
         enabled: true
   values:
     global:
-      externalIstiod: true
       proxy:
         resources:
           requests:
