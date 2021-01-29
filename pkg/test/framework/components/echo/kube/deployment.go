@@ -101,7 +101,7 @@ spec:
 {{- if $.ServiceAccount }}
       serviceAccountName: {{ $.Service }}
 {{- end }}
-{{- if $.ImagePullSecret }}
+{{- if ne $.ImagePullSecret "" }}
       imagePullSecrets:
       - {{ $.ImagePullSecret }}
 {{- end }}
