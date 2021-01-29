@@ -62,6 +62,8 @@ features:
       remove-from-mesh:
   # features that allow users to secure their services and service mesh.
   security:
+    externalca:
+      reachability:
     peer:
       secure-naming:
       trust-domain-validation:
