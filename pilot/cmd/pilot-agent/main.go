@@ -237,6 +237,7 @@ var (
 				SecretTTL:                      secretTTLEnv,
 				SecretRotationGracePeriodRatio: secretRotationGracePeriodRatioEnv,
 			}
+			log.Infof("XDS auth provider is: %v", xdsAuthProvider.Get())
 			secOpts, err := secopt.SetupSecurityOptions(proxyConfig, sop, jwtPolicy.Get(),
 				credFetcherTypeEnv, credIdentityProvider)
 			if err != nil {
