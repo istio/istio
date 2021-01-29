@@ -50,4 +50,6 @@ func init() {
 		"Deploy Istio into the target Kubernetes environment with Helm.")
 	flag.BoolVar(&settingsFromCommandline.DumpKubernetesManifests, "istio.test.istio.dumpManifests", settingsFromCommandline.DumpKubernetesManifests,
 		"Dump generated Istio install manifests in the artifacts directory.")
+	flag.BoolVar(&settingsFromCommandline.IstiodlessRemotes, "istio.test.istio.istiodlessRemotes", settingsFromCommandline.IstiodlessRemotes,
+		"Dump generated Istio install manifests in the artifacts directory.")
 }
