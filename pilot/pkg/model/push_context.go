@@ -16,7 +16,6 @@ package model
 
 import (
 	"encoding/json"
-	"fmt"
 	"net"
 	"sort"
 	"strings"
@@ -1150,7 +1149,6 @@ func (ps *PushContext) initVirtualServices(env *Environment) error {
 					ps.privateVirtualServicesByNamespaceAndGateway[ns][gw] = append(ps.privateVirtualServicesByNamespaceAndGateway[ns][gw], virtualService)
 				}
 			} else if ps.defaultVirtualServiceExportTo[visibility.Public] {
-				fmt.Println("---gwname ", gwNames)
 				for _, gw := range gwNames {
 					ps.publicVirtualServicesByGateway[gw] = append(ps.publicVirtualServicesByGateway[gw], virtualService)
 				}
