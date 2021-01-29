@@ -36,7 +36,7 @@ spec:
         prometheus.io/port: "15014"
     spec:
       imagePullSecrets:
-      - myregistrykey
+      - name: myregistrykey
       containers:
       - name: app
         image: testing.hub/app:latest
@@ -108,7 +108,7 @@ spec:
         sidecar.istio.io/inject: "false"
     spec:
       imagePullSecrets:
-      - myregistrykey
+      - name: myregistrykey
       containers:
       - name: app
         image: testing.hub/app:latest

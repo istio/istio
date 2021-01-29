@@ -102,7 +102,7 @@ spec:
 {{- end }}
 {{- if ne $.ImagePullSecret "" }}
       imagePullSecrets:
-      - {{ $.ImagePullSecret }}
+      - name: {{ $.ImagePullSecret }}
 {{- end }}
       containers:
 {{- if $.IncludeExtAuthz }}

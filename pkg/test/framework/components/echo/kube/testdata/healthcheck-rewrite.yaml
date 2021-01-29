@@ -37,7 +37,7 @@ spec:
         sidecar.istio.io/rewriteAppHTTPProbers: "true"
     spec:
       imagePullSecrets:
-      - myregistrykey
+      - name: myregistrykey
       containers:
       - name: app
         image: testing.hub/app:latest
