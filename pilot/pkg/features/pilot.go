@@ -253,7 +253,7 @@ var (
 
 	EnableStatus = env.RegisterBoolVar(
 		"PILOT_ENABLE_STATUS",
-		false,
+		true,
 		"If enabled, pilot will update the CRD Status field of all istio resources with reconciliation status.",
 	).Get()
 
