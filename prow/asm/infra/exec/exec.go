@@ -16,6 +16,7 @@ package exec
 
 import (
 	"fmt"
+	"io"
 	"log"
 	"os"
 	"os/exec"
@@ -34,18 +35,20 @@ func WithAdditionalEnvs(envs []string) Option {
 	}
 }
 
-// WithNoOutput returns an option that sets the stdout to be nil for the given Cmd.
-func WithNoOutput() Option {
-	return func(c *exec.Cmd) {
-		c.Stdout = nil
-	}
-}
-
 // WithWorkingDir returns an option that sets the working directory for the
 // given command.
 func WithWorkingDir(dir string) Option {
 	return func(c *exec.Cmd) {
 		c.Dir = dir
+	}
+}
+
+// WithWriter returns an option that sets custom stdout and stderr for the
+// given command.
+func WithWriter(outWriter, errWriter io.Writer) Option {
+	return func(c *exec.Cmd) {
+		c.Stdout = outWriter
+		c.Stderr = errWriter
 	}
 }
 
@@ -69,10 +72,10 @@ func Run(rawCommand string, options ...Option) error {
 	return cmd.Run()
 }
 
-// RunWithOutput will run the command with the given args and options, and
+// Output will run the command with the given args and options, and
 // return the output string.
 // It will wait until the command is finished.
-func RunWithOutput(rawCommand string, options ...Option) ([]byte, error) {
+func Output(rawCommand string, options ...Option) ([]byte, error) {
 	cmd, err := parseAndBuildCmd(rawCommand, options...)
 	if err != nil {
 		return nil, err
