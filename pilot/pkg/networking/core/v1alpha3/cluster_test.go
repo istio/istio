@@ -1781,28 +1781,6 @@ func TestApplyLoadBalancer(t *testing.T) {
 			port:             &model.Port{Protocol: protocol.Redis},
 			expectedLbPolicy: cluster.Cluster_MAGLEV,
 		},
-		{
-			name: "Loadbalancer has distribute",
-			lbSettings: &networking.LoadBalancerSettings{
-				LocalityLbSetting: &networking.LocalityLoadBalancerSetting{
-					Enabled: &types.BoolValue{Value: true},
-					Distribute: []*networking.LocalityLoadBalancerSetting_Distribute{
-						{
-							From: "region1/zone1/subzone1",
-							To: map[string]uint32{
-								"region1/zone1/subzone1": 80,
-								"region1/zone1/subzone2": 15,
-								"region1/zone1/subzone3": 5,
-							},
-						},
-					},
-				},
-			},
-			discoveryType:                  cluster.Cluster_EDS,
-			port:                           &model.Port{Protocol: protocol.HTTP},
-			expectedLbPolicy:               cluster.Cluster_ROUND_ROBIN,
-			expectedLocalityWeightedConfig: true,
-		},
 		// TODO: add more to cover all cases
 	}
 
