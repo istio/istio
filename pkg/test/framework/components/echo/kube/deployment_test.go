@@ -29,9 +29,10 @@ import (
 
 var (
 	settings = &image.Settings{
-		Hub:        "testing.hub",
-		Tag:        "latest",
-		PullPolicy: "Always",
+		Hub:             "testing.hub",
+		Tag:             "latest",
+		PullPolicy:      "Always",
+		ImagePullSecret: "testdata/secret.yaml",
 	}
 )
 
