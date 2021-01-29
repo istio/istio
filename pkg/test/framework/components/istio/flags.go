@@ -47,7 +47,7 @@ func init() {
 	flag.BoolVar(&settingsFromCommandline.DeployEastWestGW, "istio.test.kube.deployEastWestGW", settingsFromCommandline.DeployEastWestGW,
 		"Deprecated: replaced with istio.test.kube.deployExpansionGW.")
 	flag.BoolVar(&settingsFromCommandline.DeployExpansionGW, "istio.test.kube.deployExpansionGW", settingsFromCommandline.DeployExpansionGW,
-		"Deploy Istio east west gateway into the target Kubernetes environment.")
+		"Deploy Istio expansion gateway into the target Kubernetes environment.")
 	flag.BoolVar(&settingsFromCommandline.DeployHelm, "istio.test.helm.deploy", settingsFromCommandline.DeployHelm,
 		"Deploy Istio into the target Kubernetes environment with Helm.")
 	flag.BoolVar(&settingsFromCommandline.DumpKubernetesManifests, "istio.test.istio.dumpManifests", settingsFromCommandline.DumpKubernetesManifests,

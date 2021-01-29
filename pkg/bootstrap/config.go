@@ -56,22 +56,6 @@ const (
 	v2Suffix   = ",component"
 )
 
-var (
-	// These must match the json field names in model.nodeMetadata
-	metadataExchangeKeys = []string{
-		"NAME",
-		"NAMESPACE",
-		"INSTANCE_IPS",
-		"LABELS",
-		"OWNER",
-		"PLATFORM_METADATA",
-		"WORKLOAD_NAME",
-		"MESH_ID",
-		"SERVICE_ACCOUNT",
-		"CLUSTER_ID",
-	}
-)
-
 // Config for creating a bootstrap file.
 type Config struct {
 	Node                string
@@ -86,7 +70,6 @@ type Config struct {
 	PilotCertProvider   string
 	ProvCert            string
 	DiscoveryHost       string
-	CallCredentials     bool
 }
 
 // newTemplateParams creates a new template configuration for the given configuration.
@@ -108,7 +91,6 @@ func (cfg Config) toTemplateParams() (map[string]interface{}, error) {
 		option.PilotCertProvider(cfg.PilotCertProvider),
 		option.OutlierLogPath(cfg.OutlierLogPath),
 		option.ProvCert(cfg.ProvCert),
-		option.CallCredentials(cfg.CallCredentials),
 		option.DiscoveryHost(cfg.DiscoveryHost))
 
 	if cfg.STSPort > 0 {
@@ -404,9 +386,6 @@ func extractMetadata(envs []string, prefix string, set setMetaFunc, meta map[str
 }
 
 func shouldExtract(envVar, prefix string) bool {
-	if strings.HasPrefix(envVar, "ISTIO_META_WORKLOAD") {
-		return false
-	}
 	return strings.HasPrefix(envVar, prefix)
 }
 
@@ -431,7 +410,6 @@ func jsonStringToMap(jsonStr string) (m map[string]string) {
 }
 
 func extractAttributesMetadata(envVars []string, plat platform.Environment, meta *model.BootstrapNodeMetadata) {
-	var additionalMetaExchangeKeys []string
 	for _, varStr := range envVars {
 		name, val := parseEnvVar(varStr)
 		switch name {
@@ -444,24 +422,13 @@ func extractAttributesMetadata(envVars []string, plat platform.Environment, meta
 			meta.InstanceName = val
 		case "POD_NAMESPACE":
 			meta.Namespace = val
-		case "ISTIO_META_OWNER":
-			meta.Owner = val
-		case "ISTIO_META_WORKLOAD_NAME":
-			meta.WorkloadName = val
 		case "SERVICE_ACCOUNT":
 			meta.ServiceAccount = val
-		case "ISTIO_ADDITIONAL_METADATA_EXCHANGE_KEYS":
-			// comma separated list of keys
-			additionalMetaExchangeKeys = strings.Split(val, ",")
 		}
 	}
 	if plat != nil && len(plat.Metadata()) > 0 {
 		meta.PlatformMetadata = plat.Metadata()
 	}
-	meta.ExchangeKeys = []string{}
-	meta.ExchangeKeys = append(meta.ExchangeKeys, metadataExchangeKeys...)
-	meta.ExchangeKeys = append(meta.ExchangeKeys, additionalMetaExchangeKeys...)
-
 }
 
 // getNodeMetaData function uses an environment variable contract
@@ -518,7 +485,11 @@ func getNodeMetaData(envs []string, plat platform.Environment, nodeIPs []string,
 			meta.Labels[k] = v
 		}
 	} else {
-		log.Warnf("failed to read pod labels: %v", err)
+		if os.IsNotExist(err) {
+			log.Debugf("failed to read pod labels: %v", err)
+		} else {
+			log.Warnf("failed to read pod labels: %v", err)
+		}
 	}
 
 	return meta, untypedMeta, nil
