@@ -160,13 +160,7 @@ func TestGetPublicKeyReorderedKey(t *testing.T) {
 }
 
 func TestGetPublicKeyUsingTLS(t *testing.T) {
-	r := newJwksResolverWithCABundlePaths(
-		JwtPubKeyEvictionDuration,
-		JwtPubKeyRefreshInterval,
-		JwtPubKeyRefreshIntervalOnFailure,
-		testRetryInterval,
-		[]string{"./test/testcert/cert.pem"},
-	)
+	r := newJwksResolverWithCABundlePaths(JwtPubKeyEvictionDuration, JwtPubKeyRefreshInterval, JwtPubKeyRefreshIntervalOnFailure, testRetryInterval, []string{"./test/testcert/cert.pem"})
 	defer r.Close()
 
 	ms, err := test.StartNewTLSServer("./test/testcert/cert.pem", "./test/testcert/key.pem")
