@@ -19,6 +19,9 @@ replace github.com/imdario/mergo => github.com/imdario/mergo v0.3.5
 // See https://github.com/kubernetes/kubernetes/issues/92867, there is a bug in the library
 replace github.com/evanphx/json-patch => github.com/evanphx/json-patch v0.0.0-20190815234213-e83c0a1c26c8
 
+// Latest version has OSX compatibility issue. See https://github.com/ory/dockertest/issues/212
+replace golang.org/x/sys => golang.org/x/sys v0.0.0-20200826173525-f9321e4c35a6
+
 require (
 	cloud.google.com/go v0.73.0
 	contrib.go.opencensus.io/exporter/prometheus v0.2.0
@@ -52,8 +55,8 @@ require (
 	github.com/hashicorp/go-multierror v1.1.0
 	github.com/hashicorp/go-version v1.2.1
 	github.com/hashicorp/golang-lru v0.5.4
+	github.com/hashicorp/vault/api v1.0.4
 	github.com/kr/pretty v0.2.1
-	github.com/kr/text v0.2.0 // indirect
 	github.com/kylelemons/godebug v1.1.0
 	github.com/lestrrat-go/jwx v1.0.6
 	github.com/lucas-clemente/quic-go v0.19.3
@@ -62,7 +65,6 @@ require (
 	github.com/miekg/dns v1.1.35
 	github.com/mitchellh/copystructure v1.0.0
 	github.com/mitchellh/go-homedir v1.1.0
-	github.com/niemeyer/pretty v0.0.0-20200227124842-a10e7caefd8e // indirect
 	github.com/onsi/gomega v1.10.4
 	github.com/openshift/api v0.0.0-20200713203337-b2494ecb17dd
 	github.com/pkg/errors v0.9.1
@@ -77,6 +79,7 @@ require (
 	github.com/spf13/pflag v1.0.5
 	github.com/spf13/viper v1.7.1
 	github.com/stretchr/testify v1.6.1
+	github.com/thalescpl-io/k8s-kms-plugin v0.5.1-0.20200921230108-72051fb36f12
 	github.com/xeipuuv/gojsonpointer v0.0.0-20190905194746-02993c407bfb // indirect
 	github.com/yl2chen/cidranger v1.0.2
 	go.opencensus.io v0.22.5
@@ -97,7 +100,6 @@ require (
 	google.golang.org/grpc v1.35.0
 	google.golang.org/grpc/examples v0.0.0-20200825162801-44d73dff99bf // indirect
 	google.golang.org/protobuf v1.25.0
-	gopkg.in/check.v1 v1.0.0-20200227125254-8fa46927fb4f // indirect
 	gopkg.in/square/go-jose.v2 v2.5.1
 	gopkg.in/yaml.v2 v2.3.0
 	gopkg.in/yaml.v3 v3.0.0-20200615113413-eeeca48fe776

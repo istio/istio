@@ -16,6 +16,8 @@ package util
 
 import (
 	"fmt"
+	"io/ioutil"
+	"reflect"
 	"strings"
 	"testing"
 	"time"
@@ -556,6 +558,69 @@ func TestTimeBeforeCertExpires(t *testing.T) {
 
 			if time != tc.expectedTime {
 				t.Fatalf("expected time %v, got %v", tc.expectedTime, time)
+			}
+		})
+	}
+}
+
+func TestSplitCerts(t *testing.T) {
+	var cert1, cert2, cert3 []byte
+	var err error
+	if cert1, err = ioutil.ReadFile(intCertFile); err != nil {
+		t.Fatalf("Error reading file: %v", err)
+	}
+	if cert2, err = ioutil.ReadFile(int2CertFile); err != nil {
+		t.Fatalf("Error reading file: %v", err)
+	}
+	if cert3, err = ioutil.ReadFile(rootCertFile); err != nil {
+		t.Fatalf("Error reading file: %v", err)
+	}
+
+	certChain2 := []byte{}
+	certChain2 = append(certChain2, cert1...)
+	certChain2 = append(certChain2, cert2...)
+
+	certChain3 := []byte{}
+	certChain3 = append(certChain3, cert1...)
+	certChain3 = append(certChain3, cert2...)
+	certChain3 = append(certChain3, cert3...)
+
+	testCases := []struct {
+		name         string
+		certChain    []byte
+		expectedErr  error
+		expectedList [][]byte
+	}{
+		{
+			name:         "1 cert",
+			certChain:    cert1,
+			expectedList: [][]byte{cert1},
+		},
+		{
+			name:         "2 certs",
+			certChain:    certChain2,
+			expectedList: [][]byte{cert1, cert2},
+		},
+		{
+			name:         "3 certs",
+			certChain:    certChain3,
+			expectedList: [][]byte{cert1, cert2, cert3},
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			certList, err := splitCerts(tc.certChain)
+			if err != nil {
+				if tc.expectedErr == nil {
+					t.Fatalf("Unexpected error: %v", err)
+				} else if strings.Compare(err.Error(), tc.expectedErr.Error()) != 0 {
+					t.Errorf("expected error: %v got %v", err, tc.expectedErr)
+				}
+				return
+			}
+			if !reflect.DeepEqual(certList, tc.expectedList) {
+				t.Fatalf("unexpected list of certs returned: %v\nexpected: %v", certList, tc.expectedList)
 			}
 		})
 	}

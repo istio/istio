@@ -95,6 +95,7 @@ func TestBinarySizes(t *testing.T) {
 		"pilot-agent":     {30, 50},
 		"pilot-discovery": {60, 120},
 		"bug-report":      {60, 120},
+		"vaultclient":     {30, 70},
 	}
 
 	runBinariesTest(t, func(t *testing.T, name string) {

@@ -26,7 +26,7 @@ docker: docker.all
 DOCKER_TARGETS ?= docker.pilot docker.proxyv2 docker.app docker.app_sidecar_ubuntu_xenial \
 docker.app_sidecar_ubuntu_bionic docker.app_sidecar_ubuntu_focal docker.app_sidecar_debian_9 \
 docker.app_sidecar_debian_10 docker.app_sidecar_centos_8 docker.app_sidecar_centos_7 \
-docker.istioctl docker.operator docker.install-cni docker.cloudrun
+docker.istioctl docker.operator docker.install-cni docker.cloudrun docker.vaultclient
 
 # Echo docker directory and the template to pass image name and version to for VM testing
 ECHO_DOCKER ?= pkg/test/echo/docker
@@ -225,6 +225,13 @@ docker.install-cni: $(ISTIO_OUT_LINUX)/install-cni
 docker.install-cni: $(ISTIO_OUT_LINUX)/istio-cni-taint
 docker.install-cni: cni/deployments/kubernetes/Dockerfile.install-cni
 	$(DOCKER_RULE)
+
+# Vault client
+docker.vaultclient: BUILD_ARGS=--build-arg BASE_VERSION=${BASE_VERSION}
+docker.vaultclient: $(ISTIO_OUT_LINUX)/vaultclient
+docker.vaultclient: security/docker/Dockerfile.vaultclient
+	$(DOCKER_RULE)
+
 
 .PHONY: dockerx dockerx.save
 
