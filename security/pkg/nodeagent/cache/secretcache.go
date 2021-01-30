@@ -106,6 +106,9 @@ type SecretManagerClient struct {
 	// lookup is cheap.
 	cache secretCache
 
+	// generateMutex ensures we do not send concurrent requests to generate a certificate
+	generateMutex sync.Mutex
+
 	// The paths for an existing certificate chain, key and root cert files. Istio agent will
 	// use them as the source of secrets if they exist.
 	existingCertificateFile model.SdsCertificateConfig
@@ -254,12 +257,23 @@ func (sc *SecretManagerClient) GenerateSecret(resourceName string) (secret *secu
 	}
 
 	if resourceName != RootCertReqResourceName {
-		// cache hit
 		if c := sc.cache.GetWorkload(); c != nil {
+			// cache hit
 			cacheLog.WithLabels("ttl", time.Until(c.ExpireTime)).Info("returned workload certificate from cache")
 			return c, nil
 		}
 		t0 := time.Now()
+		sc.generateMutex.Lock()
+		defer sc.generateMutex.Unlock()
+		if c := sc.cache.GetWorkload(); c != nil {
+			// Now that we got the lock, check again if there is a cached secret (from the caller holding the lock previously)
+			cacheLog.WithLabels("ttl", time.Until(c.ExpireTime)).Info("returned delayed workload certificate from cache")
+			return c, nil
+		}
+		if ts := time.Since(t0); ts > time.Second {
+			cacheLog.Warnf("slow generate secret lock: %v", ts)
+		}
+
 		ns, err := sc.generateSecret(resourceName)
 		if err != nil {
 			return nil, fmt.Errorf("failed to generate workload certificate: %v", err)
