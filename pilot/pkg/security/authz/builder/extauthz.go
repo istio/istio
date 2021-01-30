@@ -280,9 +280,8 @@ func generateHTTPConfig(hostname, cluster string, status *envoytypev3.HttpStatus
 		}
 	}
 	http := &extauthzhttp.ExtAuthz{
-		StatusOnError:       status,
-		FailureModeAllow:    config.FailOpen,
-		TransportApiVersion: envoy_config_core_v3.ApiVersion_V3,
+		StatusOnError:    status,
+		FailureModeAllow: config.FailOpen,
 		Services: &extauthzhttp.ExtAuthz_HttpService{
 			HttpService: service,
 		},
@@ -305,8 +304,9 @@ func generateGRPCConfig(cluster string, failOpen bool, status *envoytypev3.HttpS
 		},
 	}
 	http := &extauthzhttp.ExtAuthz{
-		StatusOnError:    status,
-		FailureModeAllow: failOpen,
+		StatusOnError:       status,
+		FailureModeAllow:    failOpen,
+		TransportApiVersion: envoy_config_core_v3.ApiVersion_V3,
 		Services: &extauthzhttp.ExtAuthz_GrpcService{
 			GrpcService: grpc,
 		},

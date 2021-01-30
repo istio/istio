@@ -28,4 +28,3 @@ typedConfig:
       uri: http://my-custom-ext-authz.foo.svc.cluster.local
   statusOnError:
     code: Forbidden
-  transportApiVersion: V3
