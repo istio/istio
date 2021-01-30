@@ -339,10 +339,9 @@ func (r *JwksResolver) refresher() {
 	for {
 		select {
 		case <-r.refreshTicker.C:
-			oldRefreshInterval := r.refreshInterval
 			refreshInterval := r.refresh()
 			// update refresh interval on change.
-			if oldRefreshInterval != refreshInterval {
+			if r.refreshInterval != refreshInterval {
 				r.refreshTicker.Stop()
 				r.refreshTicker = time.NewTicker(refreshInterval)
 			}
