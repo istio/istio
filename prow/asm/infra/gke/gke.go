@@ -45,7 +45,14 @@ func DeployerFlags(clusterTopology, featureToTest string) ([]string, error) {
 	case "SINGLECLUSTER":
 		flags, err = singleClusterFlags()
 	case "MULTICLUSTER":
-		flags, err = multiClusterFlags()
+		acquireBoskosProject := true
+		// Testing with VPC-SC requires a different project type so do not
+		// acquire a project here.
+		// TODO(chizhg): find out a cleaner way to handle this.
+		if featureToTest == "VPC_SC" {
+			acquireBoskosProject = false
+		}
+		flags, err = multiClusterFlags(acquireBoskosProject)
 	case "MULTIPROJECT_MULTICLUSTER":
 		flags, err = multiProjectMultiClusterFlags()
 	default:
@@ -85,14 +92,15 @@ func singleClusterFlags() ([]string, error) {
 
 // multiClusterFlags returns the kubetest2 flags for single-project
 // multi-cluster setup.
-func multiClusterFlags() ([]string, error) {
-	project, err := acquireBoskosProjectAndSetBilling(commonBoskosResource)
-	if err != nil {
-		return nil, fmt.Errorf("error acquiring the GCP project for multicluster tests")
-	}
-
+func multiClusterFlags(acquireBoskosProject bool) ([]string, error) {
 	flags := gkeDeployerBaseFlags()
-	flags = append(flags, "--project="+project)
+	if acquireBoskosProject {
+		project, err := acquireBoskosProjectAndSetBilling(commonBoskosResource)
+		if err != nil {
+			return nil, fmt.Errorf("error acquiring the GCP project for multicluster tests")
+		}
+		flags = append(flags, "--project="+project)
+	}
 	flags = append(flags, "--cluster-name=prow-test1,prow-test2", "--machine-type=e2-standard-4", "--num-nodes=2")
 	flags = append(flags, "--network=default", "--release-channel=regular", "--version=latest", "--enable-workload-identity")
 	// TODO(chizhg): uncomment after b/162609408 is fixed upstream
