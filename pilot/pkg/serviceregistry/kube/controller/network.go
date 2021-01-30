@@ -245,21 +245,13 @@ func (c *Controller) updateServiceNodePortAddresses(svcs ...*model.Service) bool
 		c.RUnlock()
 		// update external address
 		svc.Mutex.Lock()
-		if nodeSelector == nil {
-			var extAddresses []string
-			for _, n := range c.nodeInfoMap {
-				extAddresses = append(extAddresses, n.address)
+		var nodeAddresses []string
+		for _, n := range c.nodeInfoMap {
+			if nodeSelector.SubsetOf(n.labels) {
+				nodeAddresses = append(nodeAddresses, n.address)
 			}
-			svc.Attributes.ClusterExternalAddresses = map[string][]string{c.clusterID: extAddresses}
-		} else {
-			var nodeAddresses []string
-			for _, n := range c.nodeInfoMap {
-				if nodeSelector.SubsetOf(n.labels) {
-					nodeAddresses = append(nodeAddresses, n.address)
-				}
-			}
-			svc.Attributes.ClusterExternalAddresses = map[string][]string{c.clusterID: nodeAddresses}
 		}
+		svc.Attributes.ClusterExternalAddresses = map[string][]string{c.clusterID: nodeAddresses}
 		svc.Mutex.Unlock()
 		// update gateways that use the service
 		c.extractGatewaysFromService(svc)
