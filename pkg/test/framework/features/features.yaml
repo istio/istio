@@ -43,6 +43,7 @@ features:
     mirroring:
     ingress:
       loadbalancing:
+      topology:
     ratelimit:
       envoy:
     original-source-ip:
