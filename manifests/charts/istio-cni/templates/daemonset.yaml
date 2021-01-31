@@ -113,7 +113,7 @@ spec:
 {{- end }}
 {{ - if .Values.cni.resources }}
           resources:
-{{ toYaml .Values.cni.resources | trim | indent 12 }}
+{{ toYaml .Values.cni.repair.resources | trim | indent 12 }}
 {{ - end }}
           command: ["/opt/cni/bin/istio-cni-repair"]
           env:
