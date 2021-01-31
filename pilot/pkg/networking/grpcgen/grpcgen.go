@@ -136,9 +136,6 @@ func (g *GrpcConfigGenerator) BuildListeners(node *model.Proxy, push *model.Push
 					},
 				}
 				hcmAny := util.MessageToAny(hcm)
-				// TODO: grpc-go still expects the v2 Http connection manager TypeUrl. Fix this when it is changed.
-				// https://github.com/grpc/grpc-go/blob/master/xds/internal/version/version.go#L48.
-				hcmAny.TypeUrl = "type.googleapis.com/envoy.config.filter.network.http_connection_manager.v2.HttpConnectionManager"
 				// TODO: for TCP listeners don't generate RDS, but some indication of cluster name.
 				ll.ApiListener = &listener.ApiListener{
 					ApiListener: hcmAny,

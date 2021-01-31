@@ -16,6 +16,7 @@ package mock
 
 import (
 	"fmt"
+	"os"
 	"reflect"
 	"strconv"
 	"testing"
@@ -34,6 +35,13 @@ import (
 	"istio.io/istio/pkg/test/config"
 	"istio.io/pkg/log"
 )
+
+func init() {
+	os.Setenv("GRPC_XDS_BOOTSTRAP", "testdata/xds_bootstrap.json")
+	os.Setenv("GRPC_XDS_EXPERIMENTAL_V3_SUPPORT", "true")
+	os.Setenv("GRPC_VERBOSITY", "debug")
+	os.Setenv("GRPC_GO_LOG_SEVERITY_LEVEL", "info")
+}
 
 var (
 	// ExampleVirtualService is an example V2 route rule
