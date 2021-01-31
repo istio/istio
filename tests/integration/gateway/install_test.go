@@ -18,21 +18,14 @@ package gateway
 import (
 	"context"
 	"fmt"
-	"io/ioutil"
-	"os"
 	"path/filepath"
 	"strings"
 	"testing"
 	"time"
 
-	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/test/framework"
-	"istio.io/istio/pkg/test/framework/components/echo"
-	"istio.io/istio/pkg/test/framework/components/echo/echoboot"
 	"istio.io/istio/pkg/test/framework/components/istioctl"
-	"istio.io/istio/pkg/test/framework/components/namespace"
-	"istio.io/istio/pkg/test/framework/image"
 	"istio.io/istio/pkg/test/framework/resource"
 	"istio.io/istio/pkg/test/scopes"
 	"istio.io/istio/pkg/test/shell"
@@ -89,28 +82,31 @@ func TestInstallCustomGateway(t *testing.T) {
 		NewTest(t).
 		Features("traffic.ingress.gateway").
 		Run(func(ctx framework.TestContext) {
-			workDir, err := ctx.CreateTmpDirectory("gateway-installer-test")
-			istioCtl := istioctl.NewOrFail(ctx, ctx, istioctl.Config{})
-			cs := ctx.Environment().Clusters().Default()
-			t.Cleanup(func() {
-				cleanupIstioResources(t, cs, istioCtl)
-			})
+			// workDir, err := ctx.CreateTmpDirectory("gateway-installer-test")
+			// if err != nil {
+			// 	t.Fatal(err)
+			// }
+			// istioCtl := istioctl.NewOrFail(ctx, ctx, istioctl.Config{})
+			// cs := ctx.Environment().Clusters().Default()
+			// t.Cleanup(func() {
+			// 	cleanupIstioResources(t, cs, istioCtl)
+			// })
 
-			ns, err := namespace.New(ctx, namespace.Config{
-				Prefix: "custom-gateways",
-				Inject: false,
-			})
-			if err != nil {
-				t.Fatal(err)
-			}
+			// ns, err := namespace.New(ctx, namespace.Config{
+			// 	Prefix: "custom-gateways",
+			// 	Inject: false,
+			// })
+			// if err != nil {
+			// 	t.Fatal(err)
+			// }
 
-			nsGWApp, err := namespace.New(ctx, namespace.Config{
-				Prefix: "cgwapp",
-				Inject: true,
-			})
-			if err != nil {
-				t.Fatal(err)
-			}
+			// nsGWApp, err := namespace.New(ctx, namespace.Config{
+			// 	Prefix: "cgwapp",
+			// 	Inject: true,
+			// })
+			// if err != nil {
+			// 	t.Fatal(err)
+			// }
 
 			// nsIstioApp, err := namespace.New(ctx, namespace.Config{
 			// 	Prefix: "istioapp",
@@ -120,62 +116,62 @@ func TestInstallCustomGateway(t *testing.T) {
 			// 	t.Fatal(err)
 			// }
 
-			customGatewayNamespace := ns.Name()
+			// 			customGatewayNamespace := CustomGWNamespace.Name()
 
-			s, err := image.SettingsFromCommandLine()
+			// 			s, err := image.SettingsFromCommandLine()
 
-			config := `
-apiVersion: install.istio.io/v1alpha1
-kind: IstioOperator
-metadata:
-  name: custom-ingressgateway-iop
-  namespace: %s
-spec:
-  profile: empty
-  components:
-    ingressGateways:
-    - name: custom-ingressgateway
-      label:
-        istio: custom-ingressgateway
-      namespace: %s
-      enabled: true`
+			// 			config := `
+			// apiVersion: install.istio.io/v1alpha1
+			// kind: IstioOperator
+			// metadata:
+			//   name: custom-ingressgateway-iop
+			//   namespace: %s
+			// spec:
+			//   profile: empty
+			//   components:
+			//     ingressGateways:
+			//     - name: custom-ingressgateway
+			//       label:
+			//         istio: custom-ingressgateway
+			//       namespace: %s
+			//       enabled: true`
 
-			gatewayConfig := fmt.Sprintf(config, customGatewayNamespace, customGatewayNamespace)
+			// 			gatewayConfig := fmt.Sprintf(config, customGatewayNamespace, customGatewayNamespace)
 
-			iopGWFile := filepath.Join(workDir, "iop_gw.yaml")
-			if err := ioutil.WriteFile(iopGWFile, []byte(gatewayConfig), os.ModePerm); err != nil {
-				t.Fatalf("failed to write iop cr file: %v", err)
-			}
+			// 			iopGWFile := filepath.Join(workDir, "iop_gw.yaml")
+			// 			if err := ioutil.WriteFile(iopGWFile, []byte(gatewayConfig), os.ModePerm); err != nil {
+			// 				t.Fatalf("failed to write iop cr file: %v", err)
+			// 			}
 
-			createGateWayCmd := []string{
-				"manifest", "generate",
-				"--set", "hub=" + s.Hub,
-				"--set", "tag=" + s.Tag,
-				"--manifests=" + ManifestPath,
-				"-f",
-				iopGWFile,
-			}
+			// 			createGateWayCmd := []string{
+			// 				"manifest", "generate",
+			// 				"--set", "hub=" + s.Hub,
+			// 				"--set", "tag=" + s.Tag,
+			// 				"--manifests=" + ManifestPath,
+			// 				"-f",
+			// 				iopGWFile,
+			// 			}
 
-			// install gateway
-			gwCreateYaml, _ := istioCtl.InvokeOrFail(t, createGateWayCmd)
+			// 			// install gateway
+			// 			gwCreateYaml, _ := istioCtl.InvokeOrFail(t, createGateWayCmd)
 
-			// scopes.Framework.Infof("=== installing with IOP: ===\n%s\n", gatewayConfig)
-			ctx.Config().ApplyYAMLOrFail(ctx, customGatewayNamespace, gwCreateYaml)
+			// 			// scopes.Framework.Infof("=== installing with IOP: ===\n%s\n", gatewayConfig)
+			// 			ctx.Config().ApplyYAMLOrFail(ctx, customGatewayNamespace, gwCreateYaml)
 
-			var customGatewayInstance echo.Instance
-			builder := echoboot.NewBuilder(ctx)
-			builder.With(&customGatewayInstance, echo.Config{
-				Service:   "svc-cgw",
-				Namespace: nsGWApp,
-				Ports: []echo.Port{
-					{
-						Name:         "http",
-						Protocol:     protocol.HTTP,
-						InstancePort: 8080,
-					},
-				},
-			})
-			builder.BuildOrFail(t)
+			// var customGatewayInstance echo.Instance
+			// builder := echoboot.NewBuilder(ctx)
+			// builder.With(&customGatewayInstance, echo.Config{
+			// 	Service:   "svc-cgw",
+			// 	Namespace: CustomGWNamespace,
+			// 	Ports: []echo.Port{
+			// 		{
+			// 			Name:         "http",
+			// 			Protocol:     protocol.HTTP,
+			// 			InstancePort: 8080,
+			// 		},
+			// 	},
+			// })
+			// builder.BuildOrFail(t)
 
 			// var istioGatewayInstance echo.Instance
 			// builder.With(&istioGatewayInstance, echo.Config{
@@ -192,21 +188,21 @@ spec:
 			//builder.BuildOrFail(t)
 
 			// sendSimpleTrafficOrFail(t, revisionedInstance)
-			gwIngressURL, err := getIngressURL(customGatewayNamespace, "custom-ingressgateway")
-			if err != nil {
-				t.Fatalf("failed to get custom gateway URL: %v", err)
-			}
+			// gwIngressURL, err := getIngressURL(customGatewayNamespace, "custom-ingressgateway")
+			// if err != nil {
+			// 	t.Fatalf("failed to get custom gateway URL: %v", err)
+			// }
 
-			scopes.Framework.Infof("Custom Gateway ingress URL: " +
-				gwIngressURL)
+			// scopes.Framework.Infof("Custom Gateway ingress URL: " +
+			// 	gwIngressURL)
 
-			gwYaml := fmt.Sprintf(gwTemplate, customGatewayNamespace, "custom-ingressgateway", "*") // TODO Change to numbered name
-			ctx.Config().ApplyYAMLOrFail(ctx, nsGWApp.Name(), gwYaml)
-			vsYaml := fmt.Sprintf(vsTemplate, nsGWApp.Name(), "*", customGatewayNamespace, "svc-cgw")
-			ctx.Config().ApplyYAMLOrFail(ctx, nsGWApp.Name(), vsYaml)
+			// gwYaml := fmt.Sprintf(gwTemplate, customGatewayNamespace, "custom-ingressgateway", "*") // TODO Change to numbered name
+			// ctx.Config().ApplyYAMLOrFail(ctx, nsGWApp.Name(), gwYaml)
+			// vsYaml := fmt.Sprintf(vsTemplate, nsGWApp.Name(), "*", customGatewayNamespace, "svc-cgw")
+			// ctx.Config().ApplyYAMLOrFail(ctx, nsGWApp.Name(), vsYaml)
 
-			scopes.Framework.Infof("sleeping for 5 minutes, check namespace: %s", customGatewayNamespace)
-			time.Sleep(time.Minute * 5)
+			scopes.Framework.Infof("sleeping for 2 minutes, check namespace: %s", CustomGWNamespace.Name())
+			time.Sleep(time.Minute * 2)
 			scopes.Framework.Infof("done sleeping")
 		})
 }
