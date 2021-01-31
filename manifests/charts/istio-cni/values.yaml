@@ -32,7 +32,13 @@ cni:
   # Deploy the config files as plugin chain (value "true") or as standalone files in the conf dir (value "false")?
   # Some k8s flavors (e.g. OpenShift) do not support the chain approach, set to false if this is the case
   chained: true
-
+  resources:
+    limits:
+      cpu: 2
+      memory: 4Gi
+    requests:
+      cpu: 4
+      memory: 8Gi
   repair:
     enabled: true
     hub: ""
@@ -45,7 +51,13 @@ cni:
 
     brokenPodLabelKey: "cni.istio.io/uninitialized"
     brokenPodLabelValue: "true"
-
+    resources:
+      limits:
+        cpu: 2
+        memory: 4Gi
+      requests:
+        cpu: 4
+        memory: 8Gi
   # Experimental taint controller for further race condition mitigation
   taint:
     enabled: false

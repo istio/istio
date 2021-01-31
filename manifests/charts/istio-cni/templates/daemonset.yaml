@@ -65,6 +65,10 @@ spec:
 {{- if or .Values.cni.pullPolicy .Values.global.imagePullPolicy }}
           imagePullPolicy: {{ .Values.cni.pullPolicy | default .Values.global.imagePullPolicy }}
 {{- end }}
+{{ - if .Values.cni.resources }}
+          resources:
+{{ toYaml .Values.cni.resources | trim | indent 12 }}
+{{ - end }}
           livenessProbe:
             httpGet:
               path: /healthz
@@ -107,7 +111,10 @@ spec:
 {{- if or .Values.cni.pullPolicy .Values.global.imagePullPolicy }}
           imagePullPolicy: {{ .Values.cni.pullPolicy | default .Values.global.imagePullPolicy }}
 {{- end }}
-
+{{ - if .Values.cni.resources }}
+          resources:
+{{ toYaml .Values.cni.resources | trim | indent 12 }}
+{{ - end }}
           command: ["/opt/cni/bin/istio-cni-repair"]
           env:
           - name: "REPAIR_NODE-NAME"
