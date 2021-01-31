@@ -16,10 +16,6 @@
 package gateway
 
 import (
-	"fmt"
-	"io/ioutil"
-	"os"
-	"path/filepath"
 	"testing"
 
 	"istio.io/istio/pkg/config/protocol"
@@ -27,9 +23,7 @@ import (
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/echo/echoboot"
 	"istio.io/istio/pkg/test/framework/components/istio"
-	"istio.io/istio/pkg/test/framework/components/istioctl"
 	"istio.io/istio/pkg/test/framework/components/namespace"
-	"istio.io/istio/pkg/test/framework/image"
 	"istio.io/istio/pkg/test/framework/resource"
 )
 
@@ -45,6 +39,7 @@ type EchoDeployments struct {
 
 var (
 	inst              istio.Instance
+	cgwInst           istio.Instance
 	apps              = &EchoDeployments{}
 	CustomGWNamespace namespace.Instance
 )
@@ -55,24 +50,52 @@ func TestMain(m *testing.M) {
 		RequireSingleCluster().
 		Setup(istio.Setup(&inst, nil)).
 		Setup(func(ctx resource.Context) error {
-			return SetupApps(ctx, apps)
+			return setupCustomGatewayNamespace(ctx, &CustomGWNamespace)
 		}).
+		Setup(istio.Setup(&cgwInst, setupCustomGatewayConfig)).
 		Setup(func(ctx resource.Context) error {
-			return SetupCustomGateway(ctx, &CustomGWNamespace)
+			return setupApps(ctx, apps)
 		}).
 		Run()
 }
 
-// func setupConfig(ctx resource.Context, cfg *istio.Config) {
-// 	if cfg == nil {
-// 		return
-// 	}
-// 	cfg.ControlPlaneValues = "profile: default"
-// }
+// setupCustomGatewayNamespace will create a namespace for a custom gateway.
+func setupCustomGatewayNamespace(ctx resource.Context, gwNamespace *namespace.Instance) error {
+	var err error
 
-// SetupApps creates two namespaces and starts the echo app in each namespace
-// Tests will be able to connect the apps to gateways and verify traffic
-func SetupApps(ctx resource.Context, apps *EchoDeployments) error {
+	// Setup namespace for custom gateway
+	if *gwNamespace, err = namespace.New(ctx, namespace.Config{
+		Prefix: "custom-gw",
+		Inject: false,
+	}); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+// setupCustomGatewayConfig returns a config to create a custom gateway in the
+// CustomGWNamespace.
+func setupCustomGatewayConfig(ctx resource.Context, cfg *istio.Config) {
+	if cfg == nil {
+		return
+	}
+
+	cfg.ControlPlaneValues = `
+components:
+  ingressGateways:
+  - name: custom-ingressgateway
+    label:
+      istio: custom-ingressgateway
+    namespace: ` + CustomGWNamespace.Name() + `
+    enabled:
+      true
+`
+}
+
+// setupApps creates two namespaces and starts an echo app in each namespace.
+// Tests will be able to connect the apps to gateways and verify traffic.
+func setupApps(ctx resource.Context, apps *EchoDeployments) error {
 	var err error
 	var echos echo.Instances
 
@@ -92,6 +115,7 @@ func SetupApps(ctx resource.Context, apps *EchoDeployments) error {
 		return err
 	}
 
+	// Setup the two apps, one per namespace
 	builder := echoboot.NewBuilder(ctx)
 	builder.
 		WithClusters(ctx.Clusters()...).
@@ -120,75 +144,4 @@ func echoConfig(name string, ns namespace.Instance) echo.Config {
 		},
 		Subsets: []echo.SubsetConfig{{}},
 	}
-}
-
-// SetupCustomGateway will create a namespace and create a custom gateway in that namespace
-func SetupCustomGateway(ctx resource.Context, gwNamespace *namespace.Instance) error {
-	var err error
-
-	// Setup namespace for custom gateway
-	if *gwNamespace, err = namespace.New(ctx, namespace.Config{
-		Prefix: "custom-gw",
-		Inject: false,
-	}); err != nil {
-		return err
-	}
-	customGatewayNamespace := (*gwNamespace).Name()
-
-	// Create
-	workDir, err := ctx.CreateTmpDirectory("gateway-installer-test")
-	if err != nil {
-		return fmt.Errorf("failed to create temp directory: %v", err)
-	}
-
-	s, err := image.SettingsFromCommandLine()
-	if err != nil {
-		return fmt.Errorf("failed to get image settings: %v", err)
-	}
-	istioCtl, err := istioctl.New(ctx, istioctl.Config{})
-
-	config := `
-apiVersion: install.istio.io/v1alpha1
-kind: IstioOperator
-metadata:
-  name: custom-ingressgateway-iop
-  namespace: %s
-spec:
-  profile: empty
-  components:
-    ingressGateways:
-    - name: custom-ingressgateway
-      label:
-        istio: custom-ingressgateway
-      namespace: %s
-      enabled: true
-`
-	gatewayConfig := fmt.Sprintf(config, customGatewayNamespace, customGatewayNamespace)
-
-	iopGWFile := filepath.Join(workDir, "iop_gw.yaml")
-	if err := ioutil.WriteFile(iopGWFile, []byte(gatewayConfig), os.ModePerm); err != nil {
-		return fmt.Errorf("failed to write iop cr file: %v", err)
-	}
-
-	createGateWayCmd := []string{
-		"manifest", "generate",
-		"--set", "hub=" + s.Hub,
-		"--set", "tag=" + s.Tag,
-		"--manifests=" + ManifestPath,
-		"-f",
-		iopGWFile,
-	}
-
-	// setup gateway
-	gwCreateYaml, _, err := istioCtl.Invoke(createGateWayCmd)
-	if err != nil {
-		return fmt.Errorf("failed to create custom gateway yaml: %v", err)
-	}
-
-	err = ctx.Config().ApplyYAML(customGatewayNamespace, gwCreateYaml)
-	if err != nil {
-		return fmt.Errorf("failed to create custom gateway: %v", err)
-	}
-
-	return nil
 }

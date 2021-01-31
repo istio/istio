@@ -18,15 +18,11 @@ package gateway
 import (
 	"context"
 	"fmt"
-	"path/filepath"
 	"strings"
 	"testing"
 	"time"
 
-	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/test/framework"
-	"istio.io/istio/pkg/test/framework/components/istioctl"
-	"istio.io/istio/pkg/test/framework/resource"
 	"istio.io/istio/pkg/test/scopes"
 	"istio.io/istio/pkg/test/shell"
 	"istio.io/istio/tests/util"
@@ -71,92 +67,12 @@ spec:
 `
 )
 
-var (
-	// ManifestPath is path of local manifests which istioctl operator init refers to.
-	ManifestPath = filepath.Join(env.IstioSrc, "manifests")
-)
-
-// TestInstallCustomGateway tests installing a custom gateway
-func TestInstallCustomGateway(t *testing.T) {
+// TestAccessAppViaCustomGateway tests installing a custom gateway
+func TestAccessAppViaCustomGateway(t *testing.T) {
 	framework.
 		NewTest(t).
 		Features("traffic.ingress.gateway").
 		Run(func(ctx framework.TestContext) {
-			// workDir, err := ctx.CreateTmpDirectory("gateway-installer-test")
-			// if err != nil {
-			// 	t.Fatal(err)
-			// }
-			// istioCtl := istioctl.NewOrFail(ctx, ctx, istioctl.Config{})
-			// cs := ctx.Environment().Clusters().Default()
-			// t.Cleanup(func() {
-			// 	cleanupIstioResources(t, cs, istioCtl)
-			// })
-
-			// ns, err := namespace.New(ctx, namespace.Config{
-			// 	Prefix: "custom-gateways",
-			// 	Inject: false,
-			// })
-			// if err != nil {
-			// 	t.Fatal(err)
-			// }
-
-			// nsGWApp, err := namespace.New(ctx, namespace.Config{
-			// 	Prefix: "cgwapp",
-			// 	Inject: true,
-			// })
-			// if err != nil {
-			// 	t.Fatal(err)
-			// }
-
-			// nsIstioApp, err := namespace.New(ctx, namespace.Config{
-			// 	Prefix: "istioapp",
-			// 	Inject: false,
-			// })
-			// if err != nil {
-			// 	t.Fatal(err)
-			// }
-
-			// 			customGatewayNamespace := CustomGWNamespace.Name()
-
-			// 			s, err := image.SettingsFromCommandLine()
-
-			// 			config := `
-			// apiVersion: install.istio.io/v1alpha1
-			// kind: IstioOperator
-			// metadata:
-			//   name: custom-ingressgateway-iop
-			//   namespace: %s
-			// spec:
-			//   profile: empty
-			//   components:
-			//     ingressGateways:
-			//     - name: custom-ingressgateway
-			//       label:
-			//         istio: custom-ingressgateway
-			//       namespace: %s
-			//       enabled: true`
-
-			// 			gatewayConfig := fmt.Sprintf(config, customGatewayNamespace, customGatewayNamespace)
-
-			// 			iopGWFile := filepath.Join(workDir, "iop_gw.yaml")
-			// 			if err := ioutil.WriteFile(iopGWFile, []byte(gatewayConfig), os.ModePerm); err != nil {
-			// 				t.Fatalf("failed to write iop cr file: %v", err)
-			// 			}
-
-			// 			createGateWayCmd := []string{
-			// 				"manifest", "generate",
-			// 				"--set", "hub=" + s.Hub,
-			// 				"--set", "tag=" + s.Tag,
-			// 				"--manifests=" + ManifestPath,
-			// 				"-f",
-			// 				iopGWFile,
-			// 			}
-
-			// 			// install gateway
-			// 			gwCreateYaml, _ := istioCtl.InvokeOrFail(t, createGateWayCmd)
-
-			// 			// scopes.Framework.Infof("=== installing with IOP: ===\n%s\n", gatewayConfig)
-			// 			ctx.Config().ApplyYAMLOrFail(ctx, customGatewayNamespace, gwCreateYaml)
 
 			// var customGatewayInstance echo.Instance
 			// builder := echoboot.NewBuilder(ctx)
@@ -205,19 +121,6 @@ func TestInstallCustomGateway(t *testing.T) {
 			time.Sleep(time.Minute * 2)
 			scopes.Framework.Infof("done sleeping")
 		})
-}
-
-func cleanupIstioResources(t *testing.T, cs resource.Cluster, istioCtl istioctl.Instance) {
-	scopes.Framework.Infof("cleaning up resources")
-
-	// clean up gateway namespace
-	// if err := cs.CoreV1().Namespaces().Delete(context.TODO(), customGatewayNamespace,
-	// 	kube2.DeleteOptionsForeground()); err != nil {
-	// 	t.Logf("failed to delete operator namespace: %v", err)
-	// }
-	// if err := kube2.WaitForNamespaceDeletion(cs, customGatewayNamespace, retry.Timeout(nsDeletionTimeout)); err != nil {
-	// 	t.Logf("failed wating for operator namespace to be deleted: %v", err)
-	// }
 }
 
 func getIngressURL(ns, service string) (string, error) {
