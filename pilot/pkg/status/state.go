@@ -240,6 +240,13 @@ func boolToConditionStatus(b bool) string {
 	return "False"
 }
 
+func boolToConditionMessage(b bool) string {
+	if b {
+		return "All proxies up to date."
+	}
+	return "Not all proxies up to date."
+}
+
 func ReconcileStatuses(current *config.Config, desired Progress, generation int64) (bool, *v1alpha1.IstioStatus) {
 	needsReconcile := false
 	currentStatus, err := GetTypedStatus(current.Status)
@@ -248,7 +255,7 @@ func ReconcileStatuses(current *config.Config, desired Progress, generation int6
 		Status:             boolToConditionStatus(desired.AckedInstances == desired.TotalInstances),
 		LastProbeTime:      types.TimestampNow(),
 		LastTransitionTime: types.TimestampNow(),
-		Message:            fmt.Sprintf("%d/%d proxies up to date.", desired.AckedInstances, desired.TotalInstances),
+		Message:            boolToConditionMessage(desired.AckedInstances == desired.TotalInstances),
 	}
 	if err != nil {
 		// the status field is in an unexpected state.
