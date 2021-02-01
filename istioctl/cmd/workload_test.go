@@ -28,7 +28,6 @@ import (
 
 	"istio.io/istio/pilot/test/util"
 	"istio.io/istio/pkg/kube"
-	testKube "istio.io/istio/pkg/test/kube"
 )
 
 var (
@@ -171,7 +170,7 @@ func TestWorkloadEntryConfigure(t *testing.T) {
 		t.Run(dir.Name(), func(t *testing.T) {
 			testdir := path.Join("testdata/vmconfig", dir.Name())
 			kubeClientWithRevision = func(_, _, _ string) (kube.ExtendedClient, error) {
-				return &testKube.MockClient{
+				return &kube.MockClient{
 					Interface: fake.NewSimpleClientset(
 						&v1.ServiceAccount{
 							ObjectMeta: metav1.ObjectMeta{Namespace: "bar", Name: "vm-serviceaccount"},

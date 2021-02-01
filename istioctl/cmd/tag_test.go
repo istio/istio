@@ -31,8 +31,8 @@ import (
 
 	"istio.io/api/label"
 	"istio.io/istio/operator/pkg/helmreconciler"
+	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/test/env"
-	"istio.io/istio/pkg/test/kube"
 )
 
 var (

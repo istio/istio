@@ -14,6 +14,8 @@
 
 package resource
 
+import "istio.io/istio/pkg/test/framework/components/cluster"
+
 // EnvironmentFactory creates an Environment.
 type EnvironmentFactory func(ctx Context) (Environment, error)
 
@@ -31,7 +33,7 @@ type Environment interface {
 	EnvironmentName() string
 
 	// Clusters in this Environment. There will always be at least one.
-	Clusters() Clusters
+	Clusters() cluster.Clusters
 
 	IsMultinetwork() bool
 }

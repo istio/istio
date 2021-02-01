@@ -207,21 +207,16 @@ func SetupApps(ctx resource.Context, i istio.Instance, apps *EchoDeployments) er
 				Annotations: echo.NewAnnotations().Set(echo.SidecarInterceptionMode, "TPROXY"),
 			}},
 			WorkloadOnlyPorts: WorkloadPorts,
+		}).
+		WithConfig(echo.Config{
+			Service:           VMSvc,
+			Namespace:         apps.Namespace,
+			Ports:             EchoPorts,
+			DeployAsVM:        true,
+			AutoRegisterVM:    true,
+			Subsets:           []echo.SubsetConfig{{}},
+			WorkloadOnlyPorts: WorkloadPorts,
 		})
-	if !ctx.Settings().SkipVM {
-		// It only makes sense to deploy echo VMs on a primary cluster.
-		// TODO in the future non-kube Cluster types will support VMs
-		builder = builder.WithClusters(ctx.Clusters().Primaries()...).
-			WithConfig(echo.Config{
-				Service:           VMSvc,
-				Namespace:         apps.Namespace,
-				Ports:             EchoPorts,
-				DeployAsVM:        true,
-				AutoRegisterVM:    true,
-				Subsets:           []echo.SubsetConfig{{}},
-				WorkloadOnlyPorts: WorkloadPorts,
-			})
-	}
 
 	echos, err := builder.Build()
 	if err != nil {

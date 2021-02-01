@@ -24,6 +24,7 @@ import (
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/echo/client"
 	"istio.io/istio/pkg/test/echo/proto"
+	"istio.io/istio/pkg/test/framework/components/cluster"
 	"istio.io/istio/pkg/test/framework/resource"
 	"istio.io/istio/pkg/test/util/retry"
 )
@@ -53,7 +54,7 @@ type Builder interface {
 	WithConfig(cfg Config) Builder
 
 	// WithClusters will cause subsequent With or WithConfig calls to be applied to the given clusters.
-	WithClusters(...resource.Cluster) Builder
+	WithClusters(...cluster.Cluster) Builder
 
 	// Build and initialize all Echo Instances. Upon returning, the Instance pointers
 	// are assigned and all Instances are ready to communicate with each other.
