@@ -33,6 +33,7 @@ import (
 
 func TestRevisionTags(t *testing.T) {
 	framework.NewTest(t).
+		Features("installation.istioctl.revision_tags").
 		RequiresSingleCluster().
 		Run(func(ctx framework.TestContext) {
 			tcs := []struct {
