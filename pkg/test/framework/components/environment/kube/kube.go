@@ -15,7 +15,8 @@
 package kube
 
 import (
-	"istio.io/istio/pkg/test/framework/components/cluster/aggregate"
+	"istio.io/istio/pkg/test/framework/components/cluster"
+	"istio.io/istio/pkg/test/framework/components/cluster/clusterboot"
 	"istio.io/istio/pkg/test/framework/resource"
 	"istio.io/istio/pkg/test/scopes"
 )
@@ -25,7 +26,7 @@ import (
 type Environment struct {
 	id       resource.ID
 	ctx      resource.Context
-	clusters []resource.Cluster
+	clusters []cluster.Cluster
 	s        *Settings
 }
 
@@ -44,7 +45,7 @@ func New(ctx resource.Context, s *Settings) (resource.Environment, error) {
 	if err != nil {
 		return nil, err
 	}
-	clusters, err := aggregate.NewFactory().With(configs...).Build(nil)
+	clusters, err := clusterboot.NewFactory().With(configs...).Build()
 	if err != nil {
 		return nil, err
 	}
@@ -66,15 +67,15 @@ func (e *Environment) IsMultinetwork() bool {
 	return len(e.ClustersByNetwork()) > 1
 }
 
-func (e *Environment) Clusters() resource.Clusters {
-	out := make([]resource.Cluster, 0, len(e.clusters))
+func (e *Environment) Clusters() cluster.Clusters {
+	out := make([]cluster.Cluster, 0, len(e.clusters))
 	out = append(out, e.clusters...)
 	return out
 }
 
 // ClustersByNetwork returns an inverse mapping of the network topolgoy to a slice of clusters in a given network.
-func (e *Environment) ClustersByNetwork() map[string][]resource.Cluster {
-	out := make(map[string][]resource.Cluster)
+func (e *Environment) ClustersByNetwork() map[string][]cluster.Cluster {
+	out := make(map[string][]cluster.Cluster)
 	for _, c := range e.clusters {
 		out[c.NetworkName()] = append(out[c.NetworkName()], c)
 	}

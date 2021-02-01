@@ -20,6 +20,7 @@ import (
 	"strings"
 
 	"istio.io/istio/pkg/test/env"
+	"istio.io/istio/pkg/test/framework/components/cluster"
 	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/resource"
 	testKube "istio.io/istio/pkg/test/kube"
@@ -27,7 +28,7 @@ import (
 
 type otel struct {
 	id      resource.ID
-	cluster resource.Cluster
+	cluster cluster.Cluster
 }
 
 const (

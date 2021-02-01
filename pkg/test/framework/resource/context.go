@@ -16,6 +16,7 @@ package resource
 
 import (
 	"istio.io/istio/pkg/test"
+	"istio.io/istio/pkg/test/framework/components/cluster"
 	"istio.io/istio/pkg/test/util/yml"
 )
 
@@ -60,7 +61,7 @@ type Context interface {
 	Environment() Environment
 
 	// Clusters in this Environment. There will always be at least one.
-	Clusters() Clusters
+	Clusters() cluster.Clusters
 
 	// Settings returns common settings
 	Settings() *Settings
@@ -84,5 +85,5 @@ type Context interface {
 
 	// Config returns a ConfigManager that writes config to the provide clusers. If
 	// no clusters are provided, writes to all clusters.
-	Config(clusters ...Cluster) ConfigManager
+	Config(clusters ...cluster.Cluster) ConfigManager
 }
