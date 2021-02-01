@@ -33,7 +33,7 @@ var statusStillPropagating = &v1alpha1.IstioStatus{
 		{
 			Type:    "Reconciled",
 			Status:  "False",
-			Message: "1/2 proxies up to date.",
+			Message: "Not all proxies up to date.",
 		},
 	},
 	ValidationMessages: nil,
@@ -60,7 +60,21 @@ func TestReconcileStatuses(t *testing.T) {
 		}, {
 			name: "Simple Reconcile to true",
 			args: args{
-				current: &config.Config{Status: statusStillPropagating},
+				current: &config.Config{Status: &v1alpha1.IstioStatus{
+					Conditions: []*v1alpha1.IstioCondition{
+						{
+							Type:    "PassedValidation",
+							Status:  "True",
+							Message: "just a test, here",
+						},
+						{
+							Type:    "Reconciled",
+							Status:  "True",
+							Message: "Not all proxies up to date.",
+						},
+					},
+					ValidationMessages: nil,
+				}},
 				desired: Progress{1, 3},
 			},
 			want: true,
@@ -74,7 +88,7 @@ func TestReconcileStatuses(t *testing.T) {
 					{
 						Type:    "Reconciled",
 						Status:  "False",
-						Message: "1/3 proxies up to date.",
+						Message: "Not all proxies up to date.",
 					},
 				},
 				ValidationMessages: nil,
@@ -97,7 +111,7 @@ func TestReconcileStatuses(t *testing.T) {
 					{
 						Type:    "Reconciled",
 						Status:  "True",
-						Message: "2/2 proxies up to date.",
+						Message: "All proxies up to date.",
 					},
 				},
 				ValidationMessages: nil,
@@ -115,7 +129,7 @@ func TestReconcileStatuses(t *testing.T) {
 					{
 						Type:    "Reconciled",
 						Status:  "True",
-						Message: "2/2 proxies up to date.",
+						Message: "All proxies up to date.",
 					},
 				},
 				ObservedGeneration: int64(1234),
@@ -137,7 +151,7 @@ func TestReconcileStatuses(t *testing.T) {
 					{
 						Type:    "Reconciled",
 						Status:  "False",
-						Message: "2/3 proxies up to date.",
+						Message: "Not all proxies up to date.",
 					},
 				},
 				ObservedGeneration: int64(1234),
