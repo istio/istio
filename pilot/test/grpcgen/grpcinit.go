@@ -1,5 +1,4 @@
-// +build integ
-// Copyright Istio Authors. All Rights Reserved.
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -13,20 +12,12 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package requestclassfication
+package grpcgen
 
-import (
-	"testing"
+import "os"
 
-	"istio.io/istio/pkg/test/framework"
-)
-
-func TestMain(m *testing.M) {
-	framework.NewSuite(m).Run()
-}
-
-func TestRequestClassification(t *testing.T) {
-	framework.NewTest(t).
-		NotImplementedYet("observability.telemetry.request-classification").
-		NotImplementedYet("observability.telemetry.stats.prometheus.customize-metric")
+// This init function sets up the env vars needed for grpcgen_test.
+func init() {
+	os.Setenv("GRPC_XDS_BOOTSTRAP", "testdata/xds_bootstrap.json")
+	os.Setenv("GRPC_XDS_EXPERIMENTAL_V3_SUPPORT", "true")
 }

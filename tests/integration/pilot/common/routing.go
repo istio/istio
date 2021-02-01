@@ -19,6 +19,8 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"reflect"
+	"sort"
 	"strings"
 	"time"
 
@@ -625,6 +627,61 @@ spec:
 	return cases
 }
 
+func XFFGatewayCase(apps *EchoDeployments) []TrafficTestCase {
+	cases := []TrafficTestCase{}
+
+	destinationSets := []echo.Instances{
+		apps.PodA,
+	}
+
+	for _, d := range destinationSets {
+		d := d
+		if len(d) == 0 {
+			continue
+		}
+		fqdn := d[0].Config().FQDN()
+		cases = append(cases, TrafficTestCase{
+			name:   d[0].Config().Service,
+			config: httpGateway("*") + httpVirtualService("gateway", fqdn, d[0].Config().PortByName("http").ServicePort),
+			skip:   false,
+			call:   apps.Ingress.CallEchoWithRetryOrFail,
+			opts: echo.CallOptions{
+				Port: &echo.Port{
+					Protocol: protocol.HTTP,
+				},
+				Headers: map[string][]string{
+					"X-Forwarded-For": {"56.5.6.7, 72.9.5.6, 98.1.2.3"},
+					"Host":            {fqdn},
+				},
+				Validator: echo.ValidatorFunc(
+					func(response echoclient.ParsedResponses, _ error) error {
+						return response.Check(func(_ int, response *echoclient.ParsedResponse) error {
+							externalAddress, ok := response.RawResponse["X-Envoy-External-Address"]
+							if !ok {
+								return fmt.Errorf("missing X-Envoy-External-Address Header")
+							}
+							if err := ExpectString(externalAddress, "72.9.5.6", "envoy-external-address header"); err != nil {
+								return err
+							}
+							xffHeader, ok := response.RawResponse["X-Forwarded-For"]
+							if !ok {
+								return fmt.Errorf("missing X-Forwarded-For Header")
+							}
+
+							xffIPs := strings.Split(xffHeader, ",")
+							if len(xffIPs) != 4 {
+								return fmt.Errorf("did not receive expected 4 hosts in X-Forwarded-For header")
+							}
+
+							return ExpectString(strings.TrimSpace(xffIPs[1]), "72.9.5.6", "ip in xff header")
+						})
+					}),
+			},
+		})
+	}
+	return cases
+}
+
 // serviceCases tests overlapping Services. There are a few cases.
 // Consider we have our base service B, with service port P and target port T
 // 1) Another service, B', with P -> T. In this case, both the listener and the cluster will conflict.
@@ -931,6 +988,179 @@ type vmCase struct {
 	from echo.Instance
 	to   echo.Instances
 	host string
+}
+
+func DNSTestCases(apps *EchoDeployments) []TrafficTestCase {
+	makeSE := func(ips ...string) string {
+		return tmpl.MustEvaluate(`
+apiVersion: networking.istio.io/v1alpha3
+kind: ServiceEntry
+metadata:
+  name: dns
+spec:
+  hosts:
+  - "fake.service.local"
+  addresses:
+{{ range $ip := .IPs }}
+  - "{{$ip}}"
+{{ end }}
+  resolution: STATIC
+  endpoints: []
+  ports:
+  - number: 80
+    name: http
+    protocol: HTTP
+`, map[string]interface{}{"IPs": ips})
+	}
+	tcases := []TrafficTestCase{}
+	ipv4 := "1.2.3.4"
+	ipv6 := "1234:1234:1234::1234:1234:1234"
+	dummyLocalhostServer := "127.0.0.1"
+	cases := []struct {
+		name string
+		// TODO(https://github.com/istio/istio/issues/30282) support multiple vips
+		ips      string
+		protocol string
+		server   string
+		expected []string
+	}{
+		{
+			name:     "tcp ipv4",
+			ips:      ipv4,
+			expected: []string{ipv4},
+			protocol: "tcp",
+		},
+		{
+			name:     "udp ipv4",
+			ips:      ipv4,
+			expected: []string{ipv4},
+			protocol: "udp",
+		},
+		{
+			name:     "tcp ipv6",
+			ips:      ipv6,
+			expected: []string{ipv6},
+			protocol: "tcp",
+		},
+		{
+			name:     "udp ipv6",
+			ips:      ipv6,
+			expected: []string{ipv6},
+			protocol: "udp",
+		},
+		{
+			name:     "tcp localhost server",
+			ips:      ipv4,
+			expected: []string{ipv4},
+			protocol: "tcp",
+			// iptables logic is different for traffic destined for localhost or external.
+			server: dummyLocalhostServer,
+		},
+		{
+			name:     "udp localhost server",
+			ips:      ipv4,
+			expected: []string{ipv4},
+			protocol: "udp",
+			server:   dummyLocalhostServer,
+		},
+	}
+	for _, client := range flatten(apps.VM, apps.PodA, apps.PodTproxy) {
+		for _, tt := range cases {
+			tt, client := tt, client
+			address := "fake.service.local?"
+			if tt.protocol != "" {
+				address += "&protocol=" + tt.protocol
+			}
+			if tt.server != "" {
+				address += "&server=" + tt.server
+			}
+			tcases = append(tcases, TrafficTestCase{
+				name:   fmt.Sprintf("%s/%s", client.Config().Service, tt.name),
+				config: makeSE(tt.ips),
+				call:   client.CallWithRetryOrFail,
+				opts: echo.CallOptions{
+					Scheme:  scheme.DNS,
+					Address: address,
+					Validator: echo.ValidatorFunc(
+						func(response echoclient.ParsedResponses, _ error) error {
+							return response.Check(func(_ int, response *echoclient.ParsedResponse) error {
+								ips := []string{}
+								for _, v := range response.RawResponse {
+									ips = append(ips, v)
+								}
+								sort.Strings(ips)
+								if !reflect.DeepEqual(ips, tt.expected) {
+									return fmt.Errorf("unexpected dns response: wanted %v, got %v", tt.expected, ips)
+								}
+								return nil
+							})
+						}),
+				},
+			})
+		}
+	}
+	svcCases := []struct {
+		name     string
+		protocol string
+		server   string
+	}{
+		{
+			name:     "tcp",
+			protocol: "tcp",
+		},
+		{
+			name:     "udp",
+			protocol: "udp",
+		},
+		{
+			name:     "tcp localhost server",
+			protocol: "tcp",
+			// iptables logic is different for traffic destined for localhost or external.
+			server: dummyLocalhostServer,
+		},
+		{
+			name:     "udp localhost server",
+			protocol: "udp",
+			server:   dummyLocalhostServer,
+		},
+	}
+	for _, client := range flatten(apps.VM, apps.PodA, apps.PodTproxy) {
+		for _, tt := range svcCases {
+			tt, client := tt, client
+			address := apps.PodA.Match(echo.InCluster(client.Config().Cluster))[0].Config().FQDN() + "?"
+			if tt.protocol != "" {
+				address += "&protocol=" + tt.protocol
+			}
+			if tt.server != "" {
+				address += "&server=" + tt.server
+			}
+			expected := apps.PodA.Match(echo.InCluster(client.Config().Cluster))[0].Address()
+			tcases = append(tcases, TrafficTestCase{
+				name: fmt.Sprintf("svc/%s/%s", client.Config().Service, tt.name),
+				call: client.CallWithRetryOrFail,
+				opts: echo.CallOptions{
+					Scheme:  scheme.DNS,
+					Address: address,
+					Validator: echo.ValidatorFunc(
+						func(response echoclient.ParsedResponses, _ error) error {
+							return response.Check(func(_ int, response *echoclient.ParsedResponse) error {
+								ips := []string{}
+								for _, v := range response.RawResponse {
+									ips = append(ips, v)
+								}
+								sort.Strings(ips)
+								exp := []string{expected}
+								if !reflect.DeepEqual(ips, exp) {
+									return fmt.Errorf("unexpected dns response: wanted %v, got %v", exp, ips)
+								}
+								return nil
+							})
+						}),
+				},
+			})
+		}
+	}
+	return tcases
 }
 
 func VMTestCases(vms echo.Instances, apps *EchoDeployments) []TrafficTestCase {

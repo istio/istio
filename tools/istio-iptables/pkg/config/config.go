@@ -77,5 +77,6 @@ func (c *Config) Print() {
 	fmt.Printf("OUTBOUND_PORTS_EXCLUDE=%s\n", c.OutboundPortsExclude)
 	fmt.Printf("KUBEVIRT_INTERFACES=%s\n", c.KubevirtInterfaces)
 	fmt.Printf("ENABLE_INBOUND_IPV6=%t\n", c.EnableInboundIPv6)
+	fmt.Printf("DNS_CAPTURE=%t\n", c.RedirectDNS)
 	fmt.Println("")
 }

@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package main
+package config
 
 import (
 	"fmt"
@@ -36,7 +36,7 @@ import (
 )
 
 // return proxyConfig and trustDomain
-func constructProxyConfig(role *model.Proxy) (meshconfig.ProxyConfig, error) {
+func ConstructProxyConfig(meshConfigFile, serviceCluster, proxyConfigEnv string, concurrency int, role *model.Proxy) (meshconfig.ProxyConfig, error) {
 	annotations, err := readPodAnnotations()
 	if err != nil {
 		if os.IsNotExist(err) {
@@ -53,7 +53,7 @@ func constructProxyConfig(role *model.Proxy) (meshconfig.ProxyConfig, error) {
 		}
 		fileMeshContents = string(contents)
 	}
-	meshConfig, err := getMeshConfig(fileMeshContents, annotations[annotation.ProxyConfig.Name])
+	meshConfig, err := getMeshConfig(fileMeshContents, annotations[annotation.ProxyConfig.Name], proxyConfigEnv)
 	if err != nil {
 		return meshconfig.ProxyConfig{}, err
 	}
@@ -117,7 +117,7 @@ func determineConcurrencyOption() *types.Int32Value {
 //
 // Merging is done by replacement. Any fields present in the overlay will replace those existing fields, while
 // untouched fields will remain untouched. This means lists will be replaced, not appended to, for example.
-func getMeshConfig(fileOverride, annotationOverride string) (meshconfig.MeshConfig, error) {
+func getMeshConfig(fileOverride, annotationOverride, proxyConfigEnv string) (meshconfig.MeshConfig, error) {
 	mc := mesh.DefaultMeshConfig()
 
 	if fileOverride != "" {
@@ -196,7 +196,7 @@ func applyAnnotations(config meshconfig.ProxyConfig, annos map[string]string) me
 	return config
 }
 
-func getPilotSan(discoveryAddress string) string {
+func GetPilotSan(discoveryAddress string) string {
 	discHost := strings.Split(discoveryAddress, ":")[0]
 	// For local debugging - the discoveryAddress is set to localhost, but the cert issued for normal SA.
 	if discHost == "localhost" {

@@ -64,9 +64,6 @@ func (c TrafficTestCase) Run(ctx framework.TestContext, namespace string) {
 		if len(c.config) > 0 {
 			cfg := yml.MustApplyNamespace(ctx, c.config, namespace)
 			ctx.Config().ApplyYAMLOrFail(ctx, "", cfg)
-			ctx.Cleanup(func() {
-				_ = ctx.Config().DeleteYAML("", cfg)
-			})
 		}
 
 		if c.call != nil && len(c.children) > 0 {
@@ -105,6 +102,7 @@ func RunAllTrafficTests(ctx framework.TestContext, apps *EchoDeployments) {
 	if !ctx.Settings().SkipVM {
 		cases["vm"] = VMTestCases(apps.VM, apps)
 	}
+	cases["dns"] = DNSTestCases(apps)
 	for name, tts := range cases {
 		ctx.NewSubTest(name).Run(func(ctx framework.TestContext) {
 			for _, tt := range tts {

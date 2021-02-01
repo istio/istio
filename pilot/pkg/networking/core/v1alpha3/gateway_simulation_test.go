@@ -442,8 +442,7 @@ spec:
 			},
 		},
 		simulationTest{
-			name:           "duplicate tls virtual service",
-			skipValidation: true,
+			name: "duplicate tls virtual service",
 			// Create the same virtual service in two namespaces
 			config: `
 apiVersion: networking.istio.io/v1alpha3
@@ -508,12 +507,12 @@ spec:
 `,
 			calls: []simulation.Expect{
 				{
-					// TODO(https://github.com/istio/istio/issues/24638) This is a bug!
-					// We should not have multiple matches, envoy will NACK this
-
 					"call",
 					simulation.Call{Port: 443, Protocol: simulation.HTTP, TLS: simulation.TLS, HostHeader: "mysite.example.com"},
-					simulation.Result{Error: simulation.ErrMultipleFilterChain},
+					simulation.Result{
+						ListenerMatched: "0.0.0.0_443",
+						ClusterMatched:  "outbound|443||mysite.default.svc.cluster.local",
+					},
 				},
 			},
 		},

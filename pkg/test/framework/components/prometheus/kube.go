@@ -58,7 +58,6 @@ type kubeComponent struct {
 	api       map[string]prometheusApiV1.API
 	forwarder map[string]istioKube.PortForwarder
 	clusters  resource.Clusters
-	cleanup   func() error
 }
 
 func getPrometheusYaml() (string, error) {
@@ -81,14 +80,6 @@ func installPrometheus(ctx resource.Context, ns string) error {
 	return ctx.Config().ApplyYAML(ns, yaml)
 }
 
-func removePrometheus(ctx resource.Context, ns string) error {
-	yaml, err := getPrometheusYaml()
-	if err != nil {
-		return err
-	}
-	return ctx.Config().DeleteYAML(ns, yaml)
-}
-
 func newKube(ctx resource.Context, cfgIn Config) (Instance, error) {
 	c := &kubeComponent{
 		clusters: ctx.Clusters(),
@@ -104,10 +95,6 @@ func newKube(ctx resource.Context, cfgIn Config) (Instance, error) {
 	if !cfgIn.SkipDeploy {
 		if err := installPrometheus(ctx, cfg.TelemetryNamespace); err != nil {
 			return nil, err
-		}
-
-		c.cleanup = func() error {
-			return removePrometheus(ctx, cfg.TelemetryNamespace)
 		}
 	}
 	for _, cls := range ctx.Clusters() {
@@ -328,9 +315,6 @@ func (c *kubeComponent) SumOrFail(t test.Failer, val model.Value, labels map[str
 func (c *kubeComponent) Close() error {
 	for _, forwarder := range c.forwarder {
 		forwarder.Close()
-	}
-	if c.cleanup != nil {
-		return c.cleanup()
 	}
 	return nil
 }

@@ -264,8 +264,12 @@ fmt: format-go format-python tidy-go
 buildcache:
 	GOBUILDFLAGS=-i $(MAKE) -e -f Makefile.core.mk build
 
+ifeq ($(DEBUG),1)
 # gobuild script uses custom linker flag to set the variables.
+RELEASE_LDFLAGS=''
+else
 RELEASE_LDFLAGS='-extldflags -static -s -w'
+endif
 
 # List of all binaries to build
 # We split the binaries into "agent" binaries and standard ones. This corresponds to build "agent".

@@ -21,7 +21,8 @@ import (
 )
 
 var (
-	baseVersion = version.OperatorVersionString
+	v           = version.OperatorBinaryVersion
+	baseVersion = v.MinorVersion.String()
 
 	// ReleaseTar is a URL to download latest istio version from Github release
 	ReleaseTar = `https://github.com/istio/istio/releases/download/` + baseVersion + `/istio-` + baseVersion + `-linux-amd64.tar.gz`
@@ -34,7 +35,7 @@ var (
 
 	// DocsVersion is a documentation version for istio.io
 	// This will build version as v1.6, v1.7, v1.8
-	DocsVersion = fmt.Sprintf("%s%s", "v", baseVersion[:3])
+	DocsVersion = fmt.Sprintf("%s%s", "v", baseVersion)
 
 	// DocsURL is a base docs URL for istio.io
 	DocsURL = fmt.Sprintf("%s%s%s", BaseURL, DocsVersion, "/docs/")

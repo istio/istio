@@ -17,10 +17,13 @@ package kube
 import (
 	"bufio"
 	"fmt"
+	"io/ioutil"
 	"strings"
 	"text/template"
 
 	"github.com/Masterminds/sprig/v3"
+	"gopkg.in/yaml.v3"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/image"
@@ -97,6 +100,10 @@ spec:
     spec:
 {{- if $.ServiceAccount }}
       serviceAccountName: {{ $.Service }}
+{{- end }}
+{{- if ne $.ImagePullSecret "" }}
+      imagePullSecrets:
+      - name: {{ $.ImagePullSecret }}
 {{- end }}
       containers:
 {{- if $.IncludeExtAuthz }}
@@ -258,6 +265,10 @@ spec:
           value: "1"
       # Disable service account mount, to mirror VM
       automountServiceAccountToken: false
+      {{- if $.ImagePullSecret }}
+      imagePullSecrets:
+      - name: {{ $.ImagePullSecret }}
+      {{- end }}
       containers:
       - name: istio-proxy
         image: {{ $.Hub }}/{{ $.VM.Image }}:{{ $.Tag }}
@@ -406,6 +417,18 @@ func generateYAMLWithSettings(cfg echo.Config,
 	if cfg.Namespace != nil {
 		namespace = cfg.Namespace.Name()
 	}
+	imagePullSecret := ""
+	if settings.ImagePullSecret != "" {
+		data, err := ioutil.ReadFile(settings.ImagePullSecret)
+		if err != nil {
+			return "", "", err
+		}
+		secret := unstructured.Unstructured{Object: map[string]interface{}{}}
+		if err := yaml.Unmarshal(data, secret.Object); err != nil {
+			return "", "", err
+		}
+		imagePullSecret = secret.GetName()
+	}
 	params := map[string]interface{}{
 		"Hub":                settings.Hub,
 		"Tag":                strings.TrimSuffix(settings.Tag, "-distroless"),
@@ -423,6 +446,7 @@ func generateYAMLWithSettings(cfg echo.Config,
 		"TLSSettings":        cfg.TLSSettings,
 		"Cluster":            cfg.Cluster.Name(),
 		"Namespace":          namespace,
+		"ImagePullSecret":    imagePullSecret,
 		"VM": map[string]interface{}{
 			"Image": vmImage,
 		},
