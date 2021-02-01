@@ -25,6 +25,7 @@ import (
 	"time"
 
 	"istio.io/istio/pkg/test"
+	"istio.io/istio/pkg/test/framework/components/cluster"
 	"istio.io/istio/pkg/test/framework/errors"
 	"istio.io/istio/pkg/test/framework/label"
 	"istio.io/istio/pkg/test/framework/resource"
@@ -206,7 +207,7 @@ func (c *testContext) Environment() resource.Environment {
 	return c.suite.environment
 }
 
-func (c *testContext) Clusters() resource.Clusters {
+func (c *testContext) Clusters() cluster.Clusters {
 	return c.Environment().Clusters()
 }
 
@@ -242,7 +243,7 @@ func (c *testContext) CreateTmpDirectory(prefix string) (string, error) {
 	return dir, err
 }
 
-func (c *testContext) Config(clusters ...resource.Cluster) resource.ConfigManager {
+func (c *testContext) Config(clusters ...cluster.Cluster) resource.ConfigManager {
 	return newConfigManager(c, clusters)
 }
 

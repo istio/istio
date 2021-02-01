@@ -27,6 +27,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"istio.io/istio/pkg/test/env"
+	"istio.io/istio/pkg/test/framework/components/cluster"
 	kubecluster "istio.io/istio/pkg/test/framework/components/cluster/kube"
 	"istio.io/istio/pkg/test/framework/components/environment/kube"
 	"istio.io/istio/pkg/test/framework/components/istio/ingress"
@@ -62,7 +63,7 @@ type helmComponent struct {
 	id         resource.ID
 	settings   Config
 	helmCmd    *helm.Helm
-	cs         resource.Cluster
+	cs         cluster.Cluster
 	deployTime time.Duration
 }
 
@@ -81,15 +82,15 @@ func (h *helmComponent) ID() resource.ID {
 	return h.id
 }
 
-func (h *helmComponent) IngressFor(cluster resource.Cluster) ingress.Instance {
+func (h *helmComponent) IngressFor(cluster cluster.Cluster) ingress.Instance {
 	panic("implement me")
 }
 
-func (h *helmComponent) CustomIngressFor(cluster resource.Cluster, serviceName, istioLabel string) ingress.Instance {
+func (h *helmComponent) CustomIngressFor(cluster cluster.Cluster, serviceName, istioLabel string) ingress.Instance {
 	panic("implement me")
 }
 
-func (h *helmComponent) RemoteDiscoveryAddressFor(cluster resource.Cluster) (net.TCPAddr, error) {
+func (h *helmComponent) RemoteDiscoveryAddressFor(cluster cluster.Cluster) (net.TCPAddr, error) {
 	panic("implement me")
 }
 

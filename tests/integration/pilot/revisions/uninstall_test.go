@@ -34,8 +34,8 @@ import (
 	"istio.io/istio/operator/pkg/object"
 	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/test/framework"
+	"istio.io/istio/pkg/test/framework/components/cluster"
 	"istio.io/istio/pkg/test/framework/components/istioctl"
-	"istio.io/istio/pkg/test/framework/resource"
 	"istio.io/istio/pkg/test/scopes"
 	"istio.io/istio/pkg/test/util/retry"
 )
@@ -158,7 +158,7 @@ func TestUninstallPurge(t *testing.T) {
 		})
 }
 
-func checkResourcesNotInCluster(cs resource.Cluster, gvr schema.GroupVersionResource, ls string) error {
+func checkResourcesNotInCluster(cs cluster.Cluster, gvr schema.GroupVersionResource, ls string) error {
 	usList, _ := cs.Dynamic().Resource(gvr).List(context.TODO(), kubeApiMeta.ListOptions{LabelSelector: ls})
 	if usList != nil && len(usList.Items) != 0 {
 		var stalelist []string

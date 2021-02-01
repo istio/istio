@@ -380,7 +380,7 @@ spec:
 								errorThreshold := 10
 								for host, exp := range split {
 									hostResponses := responses.Match(func(r *echoclient.ParsedResponse) bool {
-										return strings.HasPrefix(r.Hostname, host+"-")
+										return strings.HasPrefix(r.Hostname, host)
 									})
 									if !AlmostEquals(len(hostResponses), exp, errorThreshold) {
 										return fmt.Errorf("expected %v calls to %q, got %v", exp, host, len(hostResponses))
@@ -1096,14 +1096,19 @@ spec:
 	for _, client := range flatten(apps.VM, apps.PodA, apps.PodTproxy) {
 		for _, tt := range svcCases {
 			tt, client := tt, client
-			address := apps.PodA.Match(echo.InCluster(client.Config().Cluster))[0].Config().FQDN() + "?"
+			aInCluster := apps.PodA.Match(echo.InCluster(client.Config().Cluster))
+			if len(aInCluster) == 0 {
+				// The cluster doesn't contain A, but connects to a cluster containing A
+				aInCluster = apps.PodA.Match(echo.InCluster(client.Config().Cluster.Primary()))
+			}
+			address := aInCluster[0].Config().FQDN() + "?"
 			if tt.protocol != "" {
 				address += "&protocol=" + tt.protocol
 			}
 			if tt.server != "" {
 				address += "&server=" + tt.server
 			}
-			expected := apps.PodA.Match(echo.InCluster(client.Config().Cluster))[0].Address()
+			expected := aInCluster[0].Address()
 			tcases = append(tcases, TrafficTestCase{
 				name: fmt.Sprintf("svc/%s/%s", client.Config().Service, tt.name),
 				call: client.CallWithRetryOrFail,
@@ -1158,7 +1163,7 @@ func VMTestCases(vms echo.Instances, apps *EchoDeployments) []TrafficTestCase {
 			vmCase{
 				name: "dns: VM to k8s headless service",
 				from: vm,
-				to:   apps.Headless.Match(echo.InCluster(vm.Config().Cluster)),
+				to:   apps.Headless.Match(echo.InCluster(vm.Config().Cluster.Primary())),
 				host: apps.Headless[0].Config().FQDN(),
 			},
 		)

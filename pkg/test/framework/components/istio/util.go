@@ -22,6 +22,7 @@ import (
 
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
+	"istio.io/istio/pkg/test/framework/components/cluster"
 	"istio.io/istio/pkg/test/framework/components/environment/kube"
 	"istio.io/istio/pkg/test/framework/resource"
 	"istio.io/istio/pkg/test/scopes"
@@ -55,7 +56,7 @@ spec:
 `
 )
 
-func waitForValidationWebhook(ctx resource.Context, cluster resource.Cluster, cfg Config) error {
+func waitForValidationWebhook(ctx resource.Context, cluster cluster.Cluster, cfg Config) error {
 	dummyValidationVirtualService := fmt.Sprintf(dummyValidationVirtualServiceTemplate, cfg.SystemNamespace)
 	defer func() {
 		e := ctx.Config(cluster).DeleteYAML("", dummyValidationVirtualService)
@@ -75,7 +76,7 @@ func waitForValidationWebhook(ctx resource.Context, cluster resource.Cluster, cf
 	}, retry.Timeout(time.Minute))
 }
 
-func (i *operatorComponent) RemoteDiscoveryAddressFor(cluster resource.Cluster) (net.TCPAddr, error) {
+func (i *operatorComponent) RemoteDiscoveryAddressFor(cluster cluster.Cluster) (net.TCPAddr, error) {
 	var addr net.TCPAddr
 	primary := cluster.Primary()
 	if !primary.IsConfig() {
@@ -98,7 +99,7 @@ func (i *operatorComponent) RemoteDiscoveryAddressFor(cluster resource.Cluster) 
 	return addr, nil
 }
 
-func getRemoteServiceAddress(s *kube.Settings, cluster resource.Cluster, ns, label, svcName string,
+func getRemoteServiceAddress(s *kube.Settings, cluster cluster.Cluster, ns, label, svcName string,
 	port int) (interface{}, bool, error) {
 
 	if !s.LoadBalancerSupported {

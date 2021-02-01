@@ -17,70 +17,50 @@ package kube
 import (
 	"fmt"
 
-	"github.com/hashicorp/go-multierror"
 	"k8s.io/client-go/rest"
 
 	istioKube "istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/test/framework/components/cluster"
-	"istio.io/istio/pkg/test/framework/resource"
 )
 
-const kubeconfigMetaKey = "kubeconfig"
+const (
+	kubeconfigMetaKey = "kubeconfig"
+	vmSupportMetaKey  = "fakeVM"
+)
 
 func init() {
-	cluster.RegisterFactory(factory{})
+	cluster.RegisterFactory(cluster.Kubernetes, buildKube)
 }
 
-type factory struct {
-	configs []cluster.Config
-}
-
-func (f factory) Kind() cluster.Kind {
-	return cluster.Kubernetes
-}
-
-func (f factory) With(configs ...cluster.Config) cluster.Factory {
-	return factory{configs: append(f.configs, configs...)}
-}
-
-func (f factory) Build(allClusters cluster.Map) (resource.Clusters, error) {
-	var errs error
-
-	var clusters resource.Clusters
-	for _, origCfg := range f.configs {
-		cfg, err := validConfig(origCfg)
-		if err != nil {
-			errs = multierror.Append(errs, err)
-			continue
-		}
-		kubeconfigPath := cfg.Meta[kubeconfigMetaKey]
-		client, err := buildClient(kubeconfigPath)
-		if err != nil {
-			errs = multierror.Append(errs, err)
-			continue
-		}
-		clusters = append(clusters, &Cluster{
-			filename:       kubeconfigPath,
-			ExtendedClient: client,
-			Topology: cluster.Topology{
-				ClusterName:        cfg.Name,
-				Network:            cfg.Network,
-				PrimaryClusterName: cfg.PrimaryClusterName,
-				ConfigClusterName:  cfg.ConfigClusterName,
-				AllClusters:        allClusters,
-			},
-		})
-	}
-	if errs != nil {
-		return nil, errs
+func buildKube(origCfg cluster.Config, topology cluster.Topology) (cluster.Cluster, error) {
+	cfg, err := validConfig(origCfg)
+	if err != nil {
+		return nil, err
 	}
 
-	return clusters, nil
+	kubeconfigPath := cfg.Meta.String(kubeconfigMetaKey)
+	client, err := buildClient(kubeconfigPath)
+	if err != nil {
+		return nil, err
+	}
+
+	// support fake VMs by default
+	vmSupport := true
+	if vmP := cfg.Meta.Bool(vmSupportMetaKey); vmP != nil {
+		vmSupport = *vmP
+	}
+
+	return &Cluster{
+		filename:       kubeconfigPath,
+		ExtendedClient: client,
+		vmSupport:      vmSupport,
+		Topology:       topology,
+	}, nil
 }
 
 func validConfig(cfg cluster.Config) (cluster.Config, error) {
 	// only include kube-specific validation here
-	if cfg.Meta == nil || cfg.Meta[kubeconfigMetaKey] == "" {
+	if cfg.Meta.String(kubeconfigMetaKey) == "" {
 		return cfg, fmt.Errorf("missing meta.%s for %s", kubeconfigMetaKey, cfg.Name)
 	}
 	return cfg, nil

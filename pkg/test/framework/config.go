@@ -21,6 +21,7 @@ import (
 	"path/filepath"
 
 	"istio.io/istio/pkg/test"
+	"istio.io/istio/pkg/test/framework/components/cluster"
 	"istio.io/istio/pkg/test/framework/resource"
 	"istio.io/istio/pkg/test/scopes"
 )
@@ -29,17 +30,17 @@ var _ resource.ConfigManager = &configManager{}
 
 type configManager struct {
 	ctx      resource.Context
-	clusters []resource.Cluster
+	clusters []cluster.Cluster
 	prefix   string
 }
 
-func newConfigManager(ctx resource.Context, clusters []resource.Cluster) resource.ConfigManager {
+func newConfigManager(ctx resource.Context, clusters cluster.Clusters) resource.ConfigManager {
 	if len(clusters) == 0 {
 		clusters = ctx.Clusters()
 	}
 	return &configManager{
 		ctx:      ctx,
-		clusters: clusters,
+		clusters: clusters.OfKind(cluster.Kubernetes),
 	}
 }
 
