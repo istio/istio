@@ -883,7 +883,7 @@ func protocolSniffingCases(apps *EchoDeployments) []TrafficTestCase {
 					continue
 				}
 				if apps.VM.Contains(client) && apps.External.Contains(destination) {
-					// VM won't resolve external DNS
+					// TODO VM won't resolve DNS in ServiceEntry https://github.com/istio/istio/issues/27154
 					continue
 				}
 
