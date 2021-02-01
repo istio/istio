@@ -326,6 +326,8 @@ func TestIngressClass(t *testing.T) {
 		{ingressMode: meshconfig.MeshConfig_STRICT, ingressClass: nil, shouldProcess: false},
 
 		// IngressClass and Annotation
+		// note: k8s rejects Ingress resources configured with kubernetes.io/ingress.class annotation *and* ingressClassName field so this shouldn't happen
+		// see https://github.com/kubernetes/kubernetes/blob/ededd08ba131b727e60f663bd7217fffaaccd448/pkg/apis/networking/validation/validation.go#L226
 		{ingressMode: meshconfig.MeshConfig_STRICT, ingressClass: ingressClassIstio, annotation: "nginx", shouldProcess: false},
 		{ingressMode: meshconfig.MeshConfig_STRICT, ingressClass: ingressClassOther, annotation: istio, shouldProcess: true},
 		{ingressMode: -1, shouldProcess: false},
