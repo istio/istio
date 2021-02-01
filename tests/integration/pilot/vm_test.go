@@ -46,7 +46,6 @@ func GetAdditionVMImages() []string {
 func TestVmOSPost(t *testing.T) {
 	framework.
 		NewTest(t).
-		RequiresSingleCluster(). // TODO(landow) fix DNS issues with multicluster/VMs/headless
 		Features("traffic.reachability").
 		Label(label.Postsubmit).
 		Run(func(ctx framework.TestContext) {
