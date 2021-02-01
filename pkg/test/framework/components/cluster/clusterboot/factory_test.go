@@ -12,73 +12,87 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package aggregate
+package clusterboot
 
 import (
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
 
+	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/test/framework/components/cluster"
-	"istio.io/istio/pkg/test/framework/components/cluster/fake"
-	"istio.io/istio/pkg/test/framework/resource"
 )
 
 func TestBuild(t *testing.T) {
 	tests := []struct {
 		config  cluster.Config
-		cluster fake.Cluster
+		cluster cluster.FakeCluster
 	}{
 		{
 			config: cluster.Config{Kind: cluster.Fake, Name: "auto-fill-primary", Network: "network-0"},
-			cluster: fake.Cluster{Topology: cluster.Topology{
-				ClusterName: "auto-fill-primary",
-				// The primary and config clusters should match the cluster name when not specified
-				PrimaryClusterName: "auto-fill-primary",
-				ConfigClusterName:  "auto-fill-primary",
-				Network:            "network-0",
-			}},
+			cluster: cluster.FakeCluster{
+				ExtendedClient: kube.MockClient{},
+				Topology: cluster.Topology{
+					ClusterName: "auto-fill-primary",
+					ClusterKind: cluster.Fake,
+					// The primary and config clusters should match the cluster name when not specified
+					PrimaryClusterName: "auto-fill-primary",
+					ConfigClusterName:  "auto-fill-primary",
+					Network:            "network-0",
+				},
+			},
 		},
 		{
 			config: cluster.Config{Kind: cluster.Fake, Name: "auto-fill-remote", PrimaryClusterName: "auto-fill-primary"},
-			cluster: fake.Cluster{Topology: cluster.Topology{
-				ClusterName:        "auto-fill-remote",
-				PrimaryClusterName: "auto-fill-primary",
-				// The config cluster should match the primary cluster when not specified
-				ConfigClusterName: "auto-fill-primary",
-			}},
+			cluster: cluster.FakeCluster{
+				ExtendedClient: kube.MockClient{},
+				Topology: cluster.Topology{
+					ClusterName:        "auto-fill-remote",
+					ClusterKind:        cluster.Fake,
+					PrimaryClusterName: "auto-fill-primary",
+					// The config cluster should match the primary cluster when not specified
+					ConfigClusterName: "auto-fill-primary",
+				},
+			},
 		},
 		{
 			config: cluster.Config{Kind: cluster.Fake, Name: "external-istiod", ConfigClusterName: "remote-config"},
-			cluster: fake.Cluster{Topology: cluster.Topology{
-				ClusterName:        "external-istiod",
-				PrimaryClusterName: "external-istiod",
-				ConfigClusterName:  "remote-config",
-			}},
+			cluster: cluster.FakeCluster{
+				ExtendedClient: kube.MockClient{},
+				Topology: cluster.Topology{
+					ClusterName:        "external-istiod",
+					ClusterKind:        cluster.Fake,
+					PrimaryClusterName: "external-istiod",
+					ConfigClusterName:  "remote-config",
+				},
+			},
 		},
 		{
 			config: cluster.Config{
-				Kind:               cluster.Fake,
 				Name:               "remote-config",
+				Kind:               cluster.Fake,
 				PrimaryClusterName: "external-istiod",
 				ConfigClusterName:  "remote-config",
 			},
-			cluster: fake.Cluster{Topology: cluster.Topology{
-				ClusterName: "remote-config",
-				// Explicitly specified in config, should be copied exactly
-				PrimaryClusterName: "external-istiod",
-				ConfigClusterName:  "remote-config",
-			}},
+			cluster: cluster.FakeCluster{
+				ExtendedClient: kube.MockClient{},
+				Topology: cluster.Topology{
+					ClusterName: "remote-config",
+					ClusterKind: cluster.Fake,
+					// Explicitly specified in config, should be copied exactly
+					PrimaryClusterName: "external-istiod",
+					ConfigClusterName:  "remote-config",
+				}},
 		},
 	}
-	var clusters resource.Clusters
+	var clusters cluster.Clusters
 	t.Run("build", func(t *testing.T) {
 		factory := NewFactory()
 		for _, tc := range tests {
 			factory = factory.With(tc.config)
 		}
 		var err error
-		clusters, err = factory.Build(nil)
+		clusters, err = factory.Build()
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -88,11 +102,11 @@ func TestBuild(t *testing.T) {
 	})
 	for _, tc := range tests {
 		t.Run("built "+tc.config.Name, func(t *testing.T) {
-			built := clusters.GetByName(tc.config.Name)
-			builtFake := *built.(*fake.Cluster)
-			// don't include ref map in comparison
-			builtFake.AllClusters = nil
-			if diff := cmp.Diff(builtFake, tc.cluster); diff != "" {
+			built := *clusters.GetByName(tc.config.Name).(*cluster.FakeCluster)
+			// don't compare these
+			built.AllClusters = nil
+			built.Version = nil
+			if diff := cmp.Diff(built, tc.cluster); diff != "" {
 				t.Fatal(diff)
 			}
 		})
@@ -117,11 +131,18 @@ func TestValidation(t *testing.T) {
 		"non-existent config": {
 			{Kind: cluster.Fake, Name: "no-primary", ConfigClusterName: "does-not-exist"},
 		},
+		"vm without kube primary": {
+			{Kind: cluster.StaticVM, Name: "vm", Meta: cluster.ConfigMeta{"deployments": []interface{}{
+				cluster.ConfigMeta{
+					"service": "vm", "namespace": "echo", "instances": []cluster.ConfigMeta{{"ip": "1.2.3.4"}},
+				},
+			}}},
+		},
 	}
 
 	for name, tc := range tests {
 		t.Run(name, func(t *testing.T) {
-			_, err := NewFactory().With(tc...).Build(nil)
+			_, err := NewFactory().With(tc...).Build()
 			if err == nil {
 				t.Fatal("expected err but got nil")
 			}

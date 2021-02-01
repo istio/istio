@@ -21,7 +21,6 @@ import (
 	"testing"
 
 	"istio.io/istio/pkg/kube"
-	testKube "istio.io/istio/pkg/test/kube"
 )
 
 func TestDashboard(t *testing.T) {
@@ -122,9 +121,9 @@ func TestDashboard(t *testing.T) {
 }
 
 func mockExecClientDashboard(_, _, _ string) (kube.ExtendedClient, error) {
-	return testKube.MockClient{}, nil
+	return kube.MockClient{}, nil
 }
 
 func mockEnvoyClientDashboard(_, _ string) (kube.ExtendedClient, error) {
-	return testKube.MockClient{}, nil
+	return kube.MockClient{}, nil
 }

@@ -32,6 +32,7 @@ import (
 
 	istioKube "istio.io/istio/pkg/kube"
 	environ "istio.io/istio/pkg/test/env"
+	"istio.io/istio/pkg/test/framework/components/cluster"
 	"istio.io/istio/pkg/test/framework/components/namespace"
 	edgespb "istio.io/istio/pkg/test/framework/components/stackdriver/edges"
 	"istio.io/istio/pkg/test/framework/resource"
@@ -60,7 +61,7 @@ type kubeComponent struct {
 	id        resource.ID
 	ns        namespace.Instance
 	forwarder istioKube.PortForwarder
-	cluster   resource.Cluster
+	cluster   cluster.Cluster
 	address   string
 }
 

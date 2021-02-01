@@ -32,9 +32,9 @@ import (
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/test/framework"
+	"istio.io/istio/pkg/test/framework/components/cluster"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/prometheus"
-	"istio.io/istio/pkg/test/framework/resource"
 	"istio.io/istio/pkg/test/scopes"
 	"istio.io/istio/pkg/test/util/retry"
 	"istio.io/istio/pkg/test/util/yml"
@@ -207,7 +207,7 @@ var (
 	)
 )
 
-func checkMetric(cl resource.Cluster, p prometheus.Instance, query string, excluded []string) error {
+func checkMetric(cl cluster.Cluster, p prometheus.Instance, query string, excluded []string) error {
 	query = replacer.Replace(query)
 	value, _, err := p.APIForCluster(cl).QueryRange(context.Background(), query, promv1.Range{
 		Start: time.Now().Add(-time.Minute),
