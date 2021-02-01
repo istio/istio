@@ -16,17 +16,17 @@ package grpcgen_test
 
 import (
 	"context"
-	"os"
 	"testing"
 	"time"
-
-	_ "istio.io/istio/pilot/test/mock"
 
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/balancer"
 	"google.golang.org/grpc/resolver"
 	"google.golang.org/grpc/serviceconfig"
+
+	// To setup the env vars needed for grpc-go. Should be loaded before grpc/xds is loaded.
+	_ "istio.io/istio/pilot/test/grpcgen"
 
 	//  To install the xds resolvers and balancers.
 	_ "google.golang.org/grpc/xds"
@@ -101,8 +101,6 @@ func TestGRPC(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer ds.GRPCListener.Close()
-
-	os.Setenv("GRPC_XDS_BOOTSTRAP", "testdata/xds_bootstrap.json")
 
 	t.Run("gRPC-resolve", func(t *testing.T) {
 		rb := resolver.Get("xds")
