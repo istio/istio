@@ -183,7 +183,10 @@ if [[ "${CLUSTER_TOPOLOGY}" == "MULTICLUSTER" || "${CLUSTER_TOPOLOGY}" == "MULTI
     echo "Processing kubeconfig files for running the tests..."
     process_kubeconfigs
 
-    export KUBECONFIGINPUT="${KUBECONFIG/:/,}"
+    # The Makefile passes the path defined in INTEGRATION_TEST_TOPOLOGY_FILE to --istio.test.kube.topology on go test.
+    export INTEGRATION_TEST_TOPOLOGY_FILE
+    INTEGRATION_TEST_TOPOLOGY_FILE="${WD}/topology.yaml"
+    gen_topology_file "${INTEGRATION_TEST_TOPOLOGY_FILE}" "${CONTEXTS[@]}"
 
     # exported GCR_PROJECT_ID_1, GCR_PROJECT_ID_2, WIP and CA values are needed for security test.
     export GCR_PROJECT_ID_1=${GCR_PROJECT_ID}
@@ -223,8 +226,6 @@ if [[ "${CLUSTER_TOPOLOGY}" == "MULTICLUSTER" || "${CLUSTER_TOPOLOGY}" == "MULTI
 
     # Skip the tests that are known to be not working.
     INTEGRATION_TEST_FLAGS+=" --istio.test.skip=\"${DISABLED_TESTS}\""
-
-    export INTEGRATION_TEST_KUBECONFIG="${KUBECONFIGINPUT}"
 
     echo "Running e2e test: ${TEST_TARGET}..."
     export JUNIT_OUT="${ARTIFACTS}/junit1.xml"
