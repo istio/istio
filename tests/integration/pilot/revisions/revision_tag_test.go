@@ -80,10 +80,9 @@ func TestRevisionTags(t *testing.T) {
 					if tc.error != "" {
 						if !strings.Contains(cmdErr, tc.error) {
 							ctx.Fatalf("expected error to contain %q, got %q", tc.error, cmdErr)
-						} else {
-							// found correct error, don't proceed
-							return
 						}
+						// found correct error, don't proceed
+						return
 					}
 
 					// build namespace labeled with tag and create echo in that namespace
