@@ -18,16 +18,17 @@ package revisions
 import (
 	"fmt"
 	"path/filepath"
+	"strings"
 	"testing"
 
-	kubetest "istio.io/istio/pkg/test/kube"
-
+	"istio.io/api/label"
 	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/echo/echoboot"
 	"istio.io/istio/pkg/test/framework/components/istioctl"
 	"istio.io/istio/pkg/test/framework/components/namespace"
+	kubetest "istio.io/istio/pkg/test/kube"
 )
 
 func TestRevisionTags(t *testing.T) {
@@ -38,16 +39,25 @@ func TestRevisionTags(t *testing.T) {
 				name     string
 				tag      string
 				revision string
+				error    string
 			}{
 				{
-					"rev-tag-canary",
-					"canary",
-					"default",
+					"prod-tag-pointed-to-stable",
+					"prod",
+					"stable",
+					"",
 				},
 				{
-					"rev-tag-prod",
+					"prod-tag-pointed-to-canary",
 					"prod",
-					"default",
+					"canary",
+					"",
+				},
+				{
+					"tag-pointed-to-non-existent-revision",
+					"prod",
+					"fake-revision",
+					"cannot modify tag",
 				},
 			}
 
@@ -59,8 +69,22 @@ func TestRevisionTags(t *testing.T) {
 					tagSetArgs = append(tagSetArgs, "--manifests", filepath.Join(env.IstioSrc, "manifests"))
 					tagRemoveArgs := append(baseArgs, "remove", tc.tag, "-y")
 
-					// create initial revision tag
-					istioCtl.InvokeOrFail(t, tagSetArgs)
+					_, cmdErr, _ := istioCtl.Invoke(tagSetArgs)
+					ctx.Cleanup(func() {
+						_, _, _ = istioCtl.Invoke(tagRemoveArgs)
+					})
+
+					if tc.error == "" && cmdErr != "" {
+						ctx.Fatalf("did not expect error, got %q", cmdErr)
+					}
+					if tc.error != "" {
+						if !strings.Contains(cmdErr, tc.error) {
+							ctx.Fatalf("expected error to contain %q, got %q", tc.error, cmdErr)
+						} else {
+							// found correct error, don't proceed
+							return
+						}
+					}
 
 					// build namespace labeled with tag and create echo in that namespace
 					revTagNs := namespace.NewOrFail(t, ctx, namespace.Config{
@@ -73,23 +97,17 @@ func TestRevisionTags(t *testing.T) {
 						Namespace: revTagNs,
 					}).BuildOrFail(ctx)
 
-					// make sure we have two containers in the echo pod, indicating injection
-					fetch := kubetest.NewPodMustFetch(ctx.Clusters().Default(),
+					fetch := kubetest.NewSinglePodFetch(ctx.Clusters().Default(),
 						revTagNs.Name(),
 						fmt.Sprintf("app=%s", "rev-tag"))
 					pods, err := fetch()
 					if err != nil {
-						t.Fatalf("failed to retrieve pods for app %q", "rev-tag")
+						ctx.Fatalf("error fetching pods: %v", err)
 					}
-					if len(pods) != 1 {
-						t.Fatalf("expected 1 pod, got %d", len(pods))
+					injectedRevision := pods[0].GetLabels()[label.IoIstioRev.Name]
+					if injectedRevision != tc.revision {
+						ctx.Fatalf("expected revision tag %q, got %q", tc.revision, injectedRevision)
 					}
-					if len(pods[0].Spec.Containers) != 2 {
-						t.Fatalf("expected sidecar injection, got %d containers", len(pods[0].Spec.Containers))
-					}
-
-					// remove revision tag
-					istioCtl.InvokeOrFail(t, tagRemoveArgs)
 				})
 			}
 		})
