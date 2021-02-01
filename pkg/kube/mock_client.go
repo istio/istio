@@ -39,11 +39,10 @@ import (
 
 	istioclient "istio.io/client-go/pkg/clientset/versioned"
 	istioinformer "istio.io/client-go/pkg/informers/externalversions"
-	"istio.io/istio/pkg/kube"
 	"istio.io/pkg/version"
 )
 
-var _ kube.ExtendedClient = MockClient{}
+var _ ExtendedClient = MockClient{}
 
 type MockPortForwarder struct {
 }
@@ -62,7 +61,7 @@ func (m MockPortForwarder) Close() {
 func (m MockPortForwarder) WaitForStop() {
 }
 
-var _ kube.PortForwarder = MockPortForwarder{}
+var _ PortForwarder = MockPortForwarder{}
 
 // MockClient for tests that rely on kube.Client.
 type MockClient struct {
@@ -219,7 +218,7 @@ func (c MockClient) PodLogs(_ context.Context, _ string, _ string, _ string, _ b
 	return "", fmt.Errorf("TODO MockClient doesn't implement logs")
 }
 
-func (c MockClient) NewPortForwarder(_, _, _ string, _, _ int) (kube.PortForwarder, error) {
+func (c MockClient) NewPortForwarder(_, _, _ string, _, _ int) (PortForwarder, error) {
 	return MockPortForwarder{}, nil
 }
 

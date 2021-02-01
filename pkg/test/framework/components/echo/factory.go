@@ -12,33 +12,30 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package cluster
+package echo
 
 import (
 	"fmt"
+
+	"istio.io/istio/pkg/test/framework/components/cluster"
+	"istio.io/istio/pkg/test/framework/resource"
 )
 
-type Factory interface {
-	Kind() Kind
-	With(config ...Config) Factory
-	Build() (Clusters, error)
-}
+// FactoryFunc can be used by a builder to produce instances from configs
+type FactoryFunc func(ctx resource.Context, config []Config) (Instances, error)
 
-// FactoryFunc validates a config and builds a single echo instance.
-type FactoryFunc func(cfg Config, topology Topology) (Cluster, error)
-
-var factoryRegistry = map[Kind]FactoryFunc{}
+var factoryRegistry = map[cluster.Kind]FactoryFunc{}
 
 // RegisterFactory globally registers a base factory of a given Kind.
 // The given factory should be immutable, as it will be used globally.
-func RegisterFactory(kind Kind, factory FactoryFunc) {
+func RegisterFactory(kind cluster.Kind, factory FactoryFunc) {
 	factoryRegistry[kind] = factory
 }
 
-func GetFactory(config Config) (FactoryFunc, error) {
-	f, ok := factoryRegistry[config.Kind]
+func GetBuilder(kind cluster.Kind) (FactoryFunc, error) {
+	f, ok := factoryRegistry[kind]
 	if !ok {
-		return nil, fmt.Errorf("unsupported cluster kind %s", config.Kind)
+		return nil, fmt.Errorf("unsupported cluster kind: %q", kind)
 	}
 	return f, nil
 }
