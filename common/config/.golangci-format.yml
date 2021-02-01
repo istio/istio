@@ -29,6 +29,7 @@ run:
   skip-files:
   - ".*\\.pb\\.go"
   - ".*\\.gen\\.go"
+  - pilot/pkg/networking/grpcgen/grpcgen_test.go
 
 linters:
   disable-all: true
