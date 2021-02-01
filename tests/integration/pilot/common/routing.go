@@ -882,6 +882,10 @@ func protocolSniffingCases(apps *EchoDeployments) []TrafficTestCase {
 					// Need a sidecar to connect to VMs
 					continue
 				}
+				if apps.VM.Contains(client) && apps.External.Contains(destination) {
+					// VM won't resolve external DNS
+					continue
+				}
 
 				type protocolCase struct {
 					// The port we call
