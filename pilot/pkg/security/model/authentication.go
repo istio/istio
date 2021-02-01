@@ -26,6 +26,7 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pkg/spiffe"
+	"istio.io/pkg/env"
 )
 
 const (
@@ -68,13 +69,22 @@ const (
 	KubernetesSecretTypeURI = KubernetesSecretType + "://"
 )
 
-var SDSAdsConfig = &core.ConfigSource{
-	ConfigSourceSpecifier: &core.ConfigSource_Ads{
-		Ads: &core.AggregatedConfigSource{},
-	},
-	ResourceApiVersion:  core.ApiVersion_V3,
-	InitialFetchTimeout: features.InitialFetchTimeout,
-}
+var (
+	SDSAdsConfig = &core.ConfigSource{
+		ConfigSourceSpecifier: &core.ConfigSource_Ads{
+			Ads: &core.AggregatedConfigSource{},
+		},
+		ResourceApiVersion:  core.ApiVersion_V3,
+		InitialFetchTimeout: features.InitialFetchTimeout,
+	}
+
+	// TODO: remove once ASM MCP Private Preview is removed. Will be true when the env is not set,
+	// false when running in CloudRun where we need to support the old images
+
+	asmNodeOnFirstEnv = env.RegisterStringVar("ASM_NODE_ON_FIRST_WORKAROUND", "",
+		"Address for Istiod when running in CloudRun").Get()
+	AsmSdsNodeOnFirst = asmNodeOnFirstEnv == ""
+)
 
 // ConstructSdsSecretConfigForCredential constructs SDS secret configuration used
 // from certificates referenced by credentialName in DestinationRule or Gateway.
@@ -141,7 +151,7 @@ var (
 			ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
 				ApiConfigSource: &core.ApiConfigSource{
 					ApiType:                   core.ApiConfigSource_GRPC,
-					SetNodeOnFirstMessageOnly: true,
+					SetNodeOnFirstMessageOnly: AsmSdsNodeOnFirst,
 					TransportApiVersion:       core.ApiVersion_V3,
 					GrpcServices: []*core.GrpcService{
 						{
@@ -162,7 +172,7 @@ var (
 			ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
 				ApiConfigSource: &core.ApiConfigSource{
 					ApiType:                   core.ApiConfigSource_GRPC,
-					SetNodeOnFirstMessageOnly: true,
+					SetNodeOnFirstMessageOnly: AsmSdsNodeOnFirst,
 					TransportApiVersion:       core.ApiVersion_V3,
 					GrpcServices: []*core.GrpcService{
 						{
@@ -186,13 +196,13 @@ func ConstructSdsSecretConfig(name string, node *model.Proxy) *tls.SdsSecretConf
 	}
 
 	if name == SDSDefaultResourceName {
-		if util.IsIstioVersionGE19(node) {
+		if AsmSdsNodeOnFirst && util.IsIstioVersionGE19(node) {
 			return defaultSDSConfig
 		}
 		return legacyDefaultSDSConfig
 	}
 	if name == SDSRootResourceName {
-		if util.IsIstioVersionGE19(node) {
+		if AsmSdsNodeOnFirst && util.IsIstioVersionGE19(node) {
 			return rootSDSConfig
 		}
 		return legacyRootSDSConfig
@@ -219,7 +229,8 @@ func ConstructSdsSecretConfig(name string, node *model.Proxy) *tls.SdsSecretConf
 		},
 	}
 
-	if util.IsIstioVersionGE19(node) {
+	// MCP: disable until PrivatePreview is retired.
+	if AsmSdsNodeOnFirst && util.IsIstioVersionGE19(node) {
 		cfg.SdsConfig.GetApiConfigSource().SetNodeOnFirstMessageOnly = true
 	}
 	return cfg

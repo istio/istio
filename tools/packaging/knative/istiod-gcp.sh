@@ -193,13 +193,14 @@ export TOKEN_AUDIENCES="${PROJECT}.svc.id.goog,istio-ca"
 # Istiod will report to stackdriver
 export ENABLE_STACKDRIVER_MONITORING="${ENABLE_STACKDRIVER_MONITORING:-1}"
 
+export ASM_NODE_ON_FIRST_WORKAROUND=1
+
 env
 
 # shellcheck disable=SC2068
 # shellcheck disable=SC2086
 exec /usr/local/bin/pilot-discovery discovery \
    --httpsAddr "" \
-   --trust-domain "${TRUST_DOMAIN}" \
    --secureGRPCAddr "" \
    --monitoringAddr "" \
    --grpcAddr "" \
