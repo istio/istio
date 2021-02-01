@@ -15,7 +15,7 @@
 package gcpmonitoring
 
 import (
-	"errors"
+	"fmt"
 	"io/ioutil"
 	"strings"
 	"sync"
@@ -155,6 +155,7 @@ func NewASMExporter(pe *ocprom.Exporter) (*ASMExporter, error) {
 		Location:                gcpMetadata[platform.GCPLocation],
 		MetricPrefix:            "istio.io/control",
 		MonitoringClientOptions: clientOptions,
+		TraceClientOptions:      clientOptions,
 		GetMetricType: func(view *view.View) string {
 			return "istio.io/control/" + view.Name
 		},
@@ -164,7 +165,7 @@ func NewASMExporter(pe *ocprom.Exporter) (*ASMExporter, error) {
 	})
 
 	if err != nil {
-		return nil, errors.New("fail to initialize Stackdriver exporter")
+		return nil, fmt.Errorf("fail to initialize Stackdriver exporter: %v", err)
 	}
 
 	if isCloudRun() {
