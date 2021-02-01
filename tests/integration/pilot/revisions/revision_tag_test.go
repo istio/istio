@@ -103,6 +103,7 @@ func TestRevisionTags(t *testing.T) {
 					if err != nil {
 						ctx.Fatalf("error fetching pods: %v", err)
 					}
+
 					injectedRevision := pods[0].GetLabels()[label.IoIstioRev.Name]
 					if injectedRevision != tc.revision {
 						ctx.Fatalf("expected revision tag %q, got %q", tc.revision, injectedRevision)
