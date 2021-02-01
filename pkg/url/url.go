@@ -22,7 +22,7 @@ import (
 
 var (
 	v           = version.OperatorBinaryVersion
-	baseVersion = fmt.Sprintf("%d.%d", v.Major, v.Minor)
+	baseVersion = v.MinorVersion.String()
 
 	// ReleaseTar is a URL to download latest istio version from Github release
 	ReleaseTar = `https://github.com/istio/istio/releases/download/` + baseVersion + `/istio-` + baseVersion + `-linux-amd64.tar.gz`
