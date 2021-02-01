@@ -18,9 +18,9 @@ import (
 	"istio.io/istio/pilot/pkg/networking/util"
 	"testing"
 
-	tls "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
 	cluster "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
+	tls "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
 	"github.com/google/go-cmp/cmp"
 	"google.golang.org/protobuf/testing/protocmp"
 
@@ -210,7 +210,7 @@ func TestClusterPatching(t *testing.T) {
 			},
 			Patch: &networking.EnvoyFilter_Patch{
 				Operation: networking.EnvoyFilter_Patch_MERGE,
-				Value:     buildPatchStruct(`
+				Value: buildPatchStruct(`
 				{"transport_socket":{
 					"name":"envoy.transport_sockets.tls",
 					"typed_config":{
@@ -225,10 +225,10 @@ func TestClusterPatching(t *testing.T) {
 	sidecarOutboundIn := []*cluster.Cluster{
 		{Name: "cluster1",
 			DnsLookupFamily: cluster.Cluster_V4_ONLY,
-			LbPolicy: cluster.Cluster_ROUND_ROBIN,
+			LbPolicy:        cluster.Cluster_ROUND_ROBIN,
 			TransportSocketMatches: []*cluster.Cluster_TransportSocketMatch{
 				{
-					Name:            "tlsMode-istio",
+					Name: "tlsMode-istio",
 					TransportSocket: &core.TransportSocket{
 						Name: "envoy.transport_sockets.tls",
 						ConfigType: &core.TransportSocket_TypedConfig{
@@ -257,7 +257,7 @@ func TestClusterPatching(t *testing.T) {
 		},
 		{Name: "cluster3",
 			DnsLookupFamily: cluster.Cluster_V4_ONLY,
-			LbPolicy: cluster.Cluster_ROUND_ROBIN,
+			LbPolicy:        cluster.Cluster_ROUND_ROBIN,
 			TransportSocket: &core.TransportSocket{
 				Name: "envoy.transport_sockets.tls",
 				ConfigType: &core.TransportSocket_TypedConfig{
@@ -281,10 +281,10 @@ func TestClusterPatching(t *testing.T) {
 	sidecarOutboundOut := []*cluster.Cluster{
 		{Name: "cluster1",
 			DnsLookupFamily: cluster.Cluster_V6_ONLY,
-			LbPolicy: cluster.Cluster_RING_HASH,
+			LbPolicy:        cluster.Cluster_RING_HASH,
 			TransportSocketMatches: []*cluster.Cluster_TransportSocketMatch{
 				{
-					Name:            "tlsMode-istio",
+					Name: "tlsMode-istio",
 					TransportSocket: &core.TransportSocket{
 						Name: "envoy.transport_sockets.tls",
 						ConfigType: &core.TransportSocket_TypedConfig{
@@ -310,14 +310,14 @@ func TestClusterPatching(t *testing.T) {
 				AllowConnect:  true,
 				AllowMetadata: true,
 			},
-			LbPolicy: cluster.Cluster_RING_HASH,
+			LbPolicy:        cluster.Cluster_RING_HASH,
 			DnsLookupFamily: cluster.Cluster_V6_ONLY,
 			TransportSocket: &core.TransportSocket{
 				Name: "envoy.transport_sockets.tls",
 				ConfigType: &core.TransportSocket_TypedConfig{
 					TypedConfig: util.MessageToAny(&tls.UpstreamTlsContext{
-						CommonTlsContext: &tls.CommonTlsContext {
-							TlsParams: &tls.TlsParameters {
+						CommonTlsContext: &tls.CommonTlsContext{
+							TlsParams: &tls.TlsParameters{
 								TlsMinimumProtocolVersion: tls.TlsParameters_TLSv1_3,
 							},
 						},
@@ -327,7 +327,7 @@ func TestClusterPatching(t *testing.T) {
 		},
 		{Name: "cluster3",
 			DnsLookupFamily: cluster.Cluster_V6_ONLY,
-			LbPolicy: cluster.Cluster_RING_HASH,
+			LbPolicy:        cluster.Cluster_RING_HASH,
 			TransportSocket: &core.TransportSocket{
 				Name: "envoy.transport_sockets.tls",
 				ConfigType: &core.TransportSocket_TypedConfig{

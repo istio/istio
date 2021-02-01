@@ -676,7 +676,7 @@ func TestApplyListenerPatches(t *testing.T) {
 							TypedConfig: util.MessageToAny(&tls.DownstreamTlsContext{
 								CommonTlsContext: &tls.CommonTlsContext{
 									TlsParams: &tls.TlsParameters{
-										EcdhCurves: []string{"X25519"},
+										EcdhCurves:                []string{"X25519"},
 										TlsMaximumProtocolVersion: tls.TlsParameters_TLSv1_1,
 									},
 								},
@@ -833,7 +833,7 @@ func TestApplyListenerPatches(t *testing.T) {
 							TypedConfig: util.MessageToAny(&tls.DownstreamTlsContext{
 								CommonTlsContext: &tls.CommonTlsContext{
 									TlsParams: &tls.TlsParameters{
-										EcdhCurves: []string{"X25519"},
+										EcdhCurves:                []string{"X25519"},
 										TlsMaximumProtocolVersion: tls.TlsParameters_TLSv1_3,
 										TlsMinimumProtocolVersion: tls.TlsParameters_TLSv1_2,
 									},

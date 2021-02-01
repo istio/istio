@@ -18,7 +18,7 @@ import (
 	"fmt"
 	xdslistener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
 	http_conn "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
-	wellknown "github.com/envoyproxy/go-control-plane/pkg/wellknown"
+	"github.com/envoyproxy/go-control-plane/pkg/wellknown"
 	"github.com/golang/protobuf/proto"
 	"github.com/golang/protobuf/ptypes"
 	"github.com/golang/protobuf/ptypes/any"
@@ -183,7 +183,7 @@ func doFilterChainOperation(patchContext networking.EnvoyFilter_PatchContext,
 
 			ret, err := mergeTransportSocketListener(fc, cp)
 			if err != nil {
-				log.Debugf("Merge of transport socket failed for listener: %v", err)
+				log.Debugf("merge of transport socket failed for listener: %v", err)
 				continue
 			}
 			if !ret {
@@ -193,7 +193,6 @@ func doFilterChainOperation(patchContext networking.EnvoyFilter_PatchContext,
 	}
 	doNetworkFilterListOperation(patchContext, patches, listener, fc)
 }
-
 
 // Test if the patch contains a config for TransportSocket
 func mergeTransportSocketListener(fc *xdslistener.FilterChain, cp *model.EnvoyFilterConfigPatchWrapper) (bool, error) {
@@ -221,7 +220,7 @@ func mergeTransportSocketListener(fc *xdslistener.FilterChain, cp *model.EnvoyFi
 
 			retVal, errMerge := util.MergeAnyWithAny(dstListener, srcPatch)
 			if errMerge != nil {
-				return false, fmt.Errorf("MergeAnyWithAny failed for doFilterChainOperation: %v", errMerge)
+				return false, fmt.Errorf("function mergeAnyWithAny failed for doFilterChainOperation: %v", errMerge)
 			}
 
 			// Merge the above result with the whole listener
