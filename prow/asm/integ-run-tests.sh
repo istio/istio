@@ -230,4 +230,60 @@ if [[ "${CLUSTER_TOPOLOGY}" == "MULTICLUSTER" || "${CLUSTER_TOPOLOGY}" == "MULTI
     export JUNIT_OUT="${ARTIFACTS}/junit1.xml"
     make "${TEST_TARGET}"
   fi
+else
+  export HUB="gcr.io/wlhe-cr"
+  export TAG="BUILD_ID_${BUILD_ID}"
+
+  echo "Preparing images for managed control plane..."
+  prepare_images_for_managed_control_plane
+  add_trap "cleanup_images_for_managed_control_plane" EXIT SIGKILL SIGTERM SIGQUIT
+
+  echo "Installing ASM managed control plane..."
+  install_asm_managed_control_plane "${CONTEXTS[@]}"
+  kubectl wait --for=condition=Ready --timeout=2m -n istio-system --all pod
+
+  # DISABLED_TESTS contains a list of all tests we skip
+  # pilot/ tests
+  DISABLED_TESTS="TestWait|TestVersion|TestProxyStatus" # UNSUPPORTED: istioctl doesn't work
+  DISABLED_TESTS+="|TestMultiVersionRevision" # UNSUPPORTED: deploys istiod in the cluster, which fails since its using the wrong root cert
+  DISABLED_TESTS+="|TestVmOSPost" # BROKEN: temp, pending oss pr
+  DISABLED_TESTS+="|TestVMRegistrationLifecycle" # UNSUPPORTED: Attempts to interact with Istiod directly
+  DISABLED_TESTS+="|TestValidation|TestWebhook" # BROKEN: b/170404545 currently broken
+  DISABLED_TESTS+="|TestAddToAndRemoveFromMesh" # BROKEN: Test current doesn't respect --istio.test.revision
+  DISABLED_TESTS+="|TestGateway" # BROKEN: CRDs need to be deployed before Istiod runs. In this case, we install Istiod first, causing failure.
+  # telemetry/ tests
+  DISABLED_TESTS+="|TestStackdriverHTTPAuditLogging" # UNKNOWN
+  DISABLED_TESTS+="|TestDashboard" # UNSUPPORTED: Relies on istiod in cluster. TODO: filter out only pilot-dashboard.json
+  DISABLED_TESTS+="|TestCustomizeMetrics|TestProxyTracing|TestClientTracing|TestStackdriverMonitoring|TestTCPStackdriverMonitoring|TestRateLimiting" # UNKNOWN
+  DISABLED_TESTS+="|TestOutboundTrafficPolicy" # UNSUPPORTED: Relies on egress gateway deployed to the cluster. TODO: filter out only Traffic_Egress
+  # security/ tests
+  DISABLED_TESTS+="|TestAuthorization_IngressGateway" # UNKNOWN
+  DISABLED_TESTS+="|TestAuthorization_EgressGateway" # UNKNOWN
+  DISABLED_TESTS+="|TestAuthorization_Custom" # UNSUPPORTED: requires mesh config
+  # DISABLED_PACKAGES contains a list of all packages we skip
+  DISABLED_PACKAGES="/multicluster" # NOT SUPPORTED
+  DISABLED_PACKAGES+="\|/pilot/cni" # NOT SUPPORTED
+  DISABLED_PACKAGES+="\|/pilot/revisions" # Attempts to install Istio
+  DISABLED_PACKAGES+="\|pilot/analysis" # NOT SUPPORTED
+  DISABLED_PACKAGES+="\|/pilot/endpointslice" # NOT SUPPORTED
+  DISABLED_PACKAGES+="\|/helm" # NOT SUPPORTED
+  DISABLED_PACKAGES+="\|/operator" # NOT SUPPORTED
+  DISABLED_PACKAGES+="\|/telemetry/stackdriver/vm" # NOT SUPPORTED (vm)
+  DISABLED_PACKAGES+="\|/security/chiron" # NOT SUPPORTED
+  DISABLED_PACKAGES+="\|/security/file_mounted_certs" # NOT SUPPORTED
+  DISABLED_PACKAGES+="\|/security/ca_custom_root" # NOT SUPPORTED
+  DISABLED_PACKAGES+="\|/security/filebased_tls_origination" # NOT SUPPORTED
+  DISABLED_PACKAGES+="\|/security/mtls_first_party_jwt" # NOT SUPPORTED
+  DISABLED_PACKAGES+="\|/security/mtlsk8sca" # NOT SUPPORTED
+  DISABLED_PACKAGES+="\|/security/sds_ingress_k8sca" # NOT SUPPORTED
+  DISABLED_PACKAGES+="\|/security/sds_tls_origination" # NOT SUPPORTED
+
+  export DISABLED_PACKAGES
+  echo "Running full integration test with ASM managed control plane"
+  TAG="latest" HUB="gcr.io/istio-testing" \
+    make test.integration.mcp-full.kube \
+    INTEGRATION_TEST_FLAGS="--istio.test.kube.deploy=false \
+--istio.test.revision=asm-managed \
+--istio.test.skipVM=true \
+--istio.test.skip=\"${DISABLED_TESTS}\""
 fi
