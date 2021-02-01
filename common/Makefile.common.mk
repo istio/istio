@@ -77,9 +77,6 @@ mod-download-go:
 # https://github.com/golang/go/issues/43994
 	@go mod tidy
 
-list-all-go:
-	@-GOFLAGS="-mod=readonly" go list -deps -test
-
 format-go: tidy-go
 	@${FINDFILES} -name '*.go' \( ! \( -name '*.gen.go' -o -name '*.pb.go' \) \) -print0 | ${XARGS} common/scripts/format_go.sh
 
