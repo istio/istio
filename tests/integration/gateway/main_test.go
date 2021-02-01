@@ -28,8 +28,9 @@ import (
 )
 
 const (
-	ASvc = "a" // Used by the default gateway
-	BSvc = "b" // Used by the custom ingress gateway
+	ASvc                 = "a" // Used by the default gateway
+	BSvc                 = "b" // Used by the custom ingress gateway
+	CustomServiceGateway = "custom-ingressgateway"
 )
 
 type EchoDeployments struct {
@@ -38,9 +39,9 @@ type EchoDeployments struct {
 }
 
 var (
-	inst              istio.Instance
-	cgwInst           istio.Instance
-	apps              = &EchoDeployments{}
+	Inst              istio.Instance
+	CgwInst           istio.Instance
+	Apps              = &EchoDeployments{}
 	CustomGWNamespace namespace.Instance
 )
 
@@ -48,13 +49,13 @@ func TestMain(m *testing.M) {
 	framework.
 		NewSuite(m).
 		RequireSingleCluster().
-		Setup(istio.Setup(&inst, nil)).
+		Setup(istio.Setup(&Inst, nil)).
 		Setup(func(ctx resource.Context) error {
 			return setupCustomGatewayNamespace(ctx, &CustomGWNamespace)
 		}).
-		Setup(istio.Setup(&cgwInst, setupCustomGatewayConfig)).
+		Setup(istio.Setup(&CgwInst, setupCustomGatewayConfig)).
 		Setup(func(ctx resource.Context) error {
-			return setupApps(ctx, apps)
+			return setupApps(ctx, Apps)
 		}).
 		Run()
 }
@@ -84,9 +85,9 @@ func setupCustomGatewayConfig(ctx resource.Context, cfg *istio.Config) {
 	cfg.ControlPlaneValues = `
 components:
   ingressGateways:
-  - name: custom-ingressgateway
+  - name: ` + CustomServiceGateway + `
     label:
-      istio: custom-ingressgateway
+      istio: ` + CustomServiceGateway + `
     namespace: ` + CustomGWNamespace.Name() + `
     enabled:
       true

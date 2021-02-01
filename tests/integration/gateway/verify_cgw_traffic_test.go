@@ -22,9 +22,11 @@ import (
 	"testing"
 	"time"
 
+	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/test/framework"
-	"istio.io/istio/pkg/test/scopes"
+	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/shell"
+	"istio.io/istio/pkg/test/util/retry"
 	"istio.io/istio/tests/util"
 )
 
@@ -36,7 +38,7 @@ metadata:
   name: %s
 spec:
   hosts:
-  - "%s"
+  - "*"
   gateways:
   - %s
   http:
@@ -46,8 +48,6 @@ spec:
     route:
     - destination:
         host: %s
-        port:
-          number: 9080
 `
 	gwTemplate = `
 apiVersion: networking.istio.io/v1alpha3
@@ -56,74 +56,73 @@ metadata:
   name: %s
 spec:
   selector:
-    istio: %s # use istio default ingress gateway
+    istio: %s
   servers:
   - port:
       number: 80
       name: http
       protocol: HTTP
     hosts:
-    - "%s"
+    - "*"
 `
 )
 
-// TestAccessAppViaCustomGateway tests installing a custom gateway
+// TestAccessAppViaCustomGateway tests access to an aplication using a custom gateway
 func TestAccessAppViaCustomGateway(t *testing.T) {
 	framework.
 		NewTest(t).
 		Features("traffic.ingress.gateway").
 		Run(func(ctx framework.TestContext) {
 
-			// var customGatewayInstance echo.Instance
-			// builder := echoboot.NewBuilder(ctx)
-			// builder.With(&customGatewayInstance, echo.Config{
-			// 	Service:   "svc-cgw",
-			// 	Namespace: CustomGWNamespace,
-			// 	Ports: []echo.Port{
-			// 		{
-			// 			Name:         "http",
-			// 			Protocol:     protocol.HTTP,
-			// 			InstancePort: 8080,
-			// 		},
-			// 	},
-			// })
-			// builder.BuildOrFail(t)
+			// Unable to find the ingress for the custom gateway install via the framework so retrieve URL and
+			// use in the echo call.
+			gwIngressURL, err := GetIngressURL(CustomGWNamespace.Name(), CustomServiceGateway)
+			if err != nil {
+				t.Fatalf("failed to get custom gateway URL: %v", err)
+			}
+			gwAddress := (strings.Split(gwIngressURL, ":"))[0]
+			ingress := CgwInst.IngressFor(ctx.Clusters().Default())
 
-			// var istioGatewayInstance echo.Instance
-			// builder.With(&istioGatewayInstance, echo.Config{
-			// 	Service:   "svc-igw",
-			// 	Namespace: nsIstioApp,
-			// 	Ports: []echo.Port{
-			// 		{
-			// 			Name:         "http",
-			// 			Protocol:     protocol.HTTP,
-			// 			InstancePort: 8080,
-			// 		},
-			// 	},
-			// })
-			//builder.BuildOrFail(t)
+			// Attempting to reach application A before creating a gateway an service should fail
+			ctx.NewSubTest("no gateway or service").Run(func(ctx framework.TestContext) {
+				ingress.CallEchoWithRetryOrFail(ctx, echo.CallOptions{
+					Port: &echo.Port{
+						Protocol: protocol.HTTP,
+					},
+					Address: gwAddress,
+					Path:    "/",
+					Headers: map[string][]string{
+						"Host": {"my.domain.example"},
+					},
+					Validator: echo.ExpectError(),
+				}, retry.Timeout(time.Minute))
+			})
 
-			// sendSimpleTrafficOrFail(t, revisionedInstance)
-			// gwIngressURL, err := getIngressURL(customGatewayNamespace, "custom-ingressgateway")
-			// if err != nil {
-			// 	t.Fatalf("failed to get custom gateway URL: %v", err)
-			// }
+			// Apply a gateway to the custom-gateway and a virtual service for appplication A in its namespace.
+			// Application A will then be exposed externally on the custom-gateway
+			gwYaml := fmt.Sprintf(gwTemplate, ASvc+"-gateway", CustomServiceGateway)
+			ctx.Config().ApplyYAMLOrFail(ctx, Apps.appANamespace.Name(), gwYaml)
+			vsYaml := fmt.Sprintf(vsTemplate, ASvc, ASvc+"-gateway", ASvc)
+			ctx.Config().ApplyYAMLOrFail(ctx, Apps.appANamespace.Name(), vsYaml)
 
-			// scopes.Framework.Infof("Custom Gateway ingress URL: " +
-			// 	gwIngressURL)
-
-			// gwYaml := fmt.Sprintf(gwTemplate, customGatewayNamespace, "custom-ingressgateway", "*") // TODO Change to numbered name
-			// ctx.Config().ApplyYAMLOrFail(ctx, nsGWApp.Name(), gwYaml)
-			// vsYaml := fmt.Sprintf(vsTemplate, nsGWApp.Name(), "*", customGatewayNamespace, "svc-cgw")
-			// ctx.Config().ApplyYAMLOrFail(ctx, nsGWApp.Name(), vsYaml)
-
-			scopes.Framework.Infof("sleeping for 2 minutes, check namespace: %s", CustomGWNamespace.Name())
-			time.Sleep(time.Minute * 2)
-			scopes.Framework.Infof("done sleeping")
+			// Verify that one can access application A on the custom-gateway
+			ctx.NewSubTest("gateway and service applied").Run(func(ctx framework.TestContext) {
+				ingress.CallEchoWithRetryOrFail(ctx, echo.CallOptions{
+					Port: &echo.Port{
+						Protocol: protocol.HTTP,
+					},
+					Address: gwAddress,
+					Path:    "/",
+					Headers: map[string][]string{
+						"Host": {"my.domain.example"},
+					},
+					Validator: echo.ExpectOK(),
+				}, retry.Timeout(time.Minute))
+			})
 		})
 }
 
-func getIngressURL(ns, service string) (string, error) {
+func GetIngressURL(ns, service string) (string, error) {
 	retry := util.Retrier{
 		BaseDelay: 10 * time.Second,
 		Retries:   3,
