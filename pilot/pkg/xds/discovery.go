@@ -267,7 +267,7 @@ func (s *DiscoveryServer) periodicRefreshMetrics(stopCh <-chan struct{}) {
 func (s *DiscoveryServer) Push(req *model.PushRequest) {
 	if !req.Full {
 		req.Push = s.globalPushContext()
-		go s.AdsPushAll(versionInfo(), req)
+		s.AdsPushAll(versionInfo(), req)
 		return
 	}
 	// Reset the status during the push.
@@ -294,7 +294,7 @@ func (s *DiscoveryServer) Push(req *model.PushRequest) {
 	versionMutex.Unlock()
 
 	req.Push = push
-	go s.AdsPushAll(versionLocal, req)
+	s.AdsPushAll(versionLocal, req)
 }
 
 func nonce(noncePrefix string) string {
