@@ -21,7 +21,6 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
-	"path/filepath"
 	"regexp"
 	"strings"
 	"testing"
@@ -31,7 +30,6 @@ import (
 	"github.com/golang/protobuf/jsonpb"
 	"github.com/onsi/gomega"
 
-	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/echo/echoboot"
@@ -410,71 +408,6 @@ func TestAuthZCheck(t *testing.T) {
 						}
 						return nil
 					}, retry.Timeout(time.Second*5))
-				})
-			}
-		})
-}
-
-func TestRevisionTags(t *testing.T) {
-	framework.NewTest(t).
-		RequiresSingleCluster().
-		Run(func(ctx framework.TestContext) {
-			tcs := []struct {
-				name     string
-				tag      string
-				revision string
-			}{
-				{
-					"rev-tag-canary",
-					"canary",
-					"default",
-				},
-				{
-					"rev-tag-prod",
-					"prod",
-					"default",
-				},
-			}
-
-			istioCtl := istioctl.NewOrFail(ctx, ctx, istioctl.Config{Cluster: ctx.Clusters().Default()})
-			baseArgs := []string{"experimental", "tag"}
-			for _, tc := range tcs {
-				ctx.NewSubTest(tc.name).Run(func(ctx framework.TestContext) {
-					tagSetArgs := append(baseArgs, "set", tc.tag, "--revision", tc.revision)
-					tagSetArgs = append(tagSetArgs, "--manifests", filepath.Join(env.IstioSrc, "manifests"))
-					tagRemoveArgs := append(baseArgs, "remove", tc.tag, "-y")
-
-					// create initial revision tag
-					istioCtl.InvokeOrFail(t, tagSetArgs)
-
-					// build namespace labeled with tag and create echo in that namespace
-					revTagNs := namespace.NewOrFail(t, ctx, namespace.Config{
-						Prefix:   "rev-tag",
-						Inject:   true,
-						Revision: tc.tag,
-					})
-					echoboot.NewBuilder(ctx).WithConfig(echo.Config{
-						Service:   "rev-tag",
-						Namespace: revTagNs,
-					}).BuildOrFail(ctx)
-
-					// make sure we have two containers in the echo pod, indicating injection
-					fetch := kubetest.NewPodMustFetch(ctx.Clusters().Default(),
-						revTagNs.Name(),
-						fmt.Sprintf("app=%s", "rev-tag"))
-					pods, err := fetch()
-					if err != nil {
-						t.Fatalf("failed to retrieve pods for app %q", "rev-tag")
-					}
-					if len(pods) != 1 {
-						t.Fatalf("expected 1 pod, got %d", len(pods))
-					}
-					if len(pods[0].Spec.Containers) != 2 {
-						t.Fatalf("expected sidecar injection, got %d containers", len(pods[0].Spec.Containers))
-					}
-
-					// remove revision tag
-					istioCtl.InvokeOrFail(t, tagRemoveArgs)
 				})
 			}
 		})
