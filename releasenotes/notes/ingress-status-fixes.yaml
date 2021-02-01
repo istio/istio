@@ -1,0 +1,9 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: networking
+issue:
+  - 25308
+
+releaseNotes:
+  - |
+    **Fixed** a bug that prevented `Ingress` resources created with `IngressClass` from having their status field updated
