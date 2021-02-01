@@ -575,6 +575,33 @@ function install_asm_managed_control_plane() {
   kubectl set env deployment/istio-ingressgateway ISTIO_META_CLOUDRUN_ADDR="${CLOUDRUN_ADDR}" -n istio-system
 }
 
+
+# Outputs YAML to the given file, in the structure of []cluster.Config to inform the test framework of details about
+# each cluster under test. cluster.Config is defined in pkg/test/framework/components/cluster/factory.go.
+# Parameters: $1 - path to the file to append to
+#             $2 - array of k8s contexts
+# Depends on env var ${KUBECONFIG}
+function gen_topology_file() {
+    local file="$1"; shift
+    local contexts=("${@}")
+
+    local kubeconfpaths
+    IFS=":" read -r -a kubeconfpaths <<< "${KUBECONFIG}"
+
+    for i in "${!contexts[@]}"; do
+      IFS="_" read -r -a VALS <<< "${contexts[$i]}"
+      local PROJECT_ID=${VALS[1]}
+      local CLUSTER_LOCATION=${VALS[2]}
+      local CLUSTER_NAME=${VALS[3]}
+      cat <<EOF >> "${file}"
+      - clusterName: "cn-${PROJECT_ID}-${CLUSTER_LOCATION}-${CLUSTER_NAME}"
+        kind: Kubernetes
+        meta:
+          kubeconfig: "${kubeconfpaths[i]}"
+EOF
+    done
+}
+
 # Install ASM on the clusters.
 # Parameters: $1 - PKG: Path of Kpt package
 #             $2 - CA: CITADEL, MESHCA or PRIVATECA
