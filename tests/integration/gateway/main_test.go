@@ -28,34 +28,68 @@ import (
 )
 
 const (
-	ASvc                 = "a" // Used by the default gateway
-	BSvc                 = "b" // Used by the custom ingress gateway
-	CustomServiceGateway = "custom-ingressgateway"
+	aSvc                 = "a" // Used by the default gateway
+	bSvc                 = "b" // Used by the custom ingress gateway
+	customServiceGateway = "custom-ingressgateway"
+	vsTemplate           = `
+apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
+metadata:
+  name: %s
+spec:
+  hosts:
+  - "*"
+  gateways:
+  - %s
+  http:
+  - match:
+    - uri:
+        prefix: /
+    route:
+    - destination:
+        host: %s
+`
+	gwTemplate = `
+apiVersion: networking.istio.io/v1alpha3
+kind: Gateway
+metadata:
+  name: %s
+spec:
+  selector:
+    istio: %s
+  servers:
+  - port:
+      number: 80
+      name: http
+      protocol: HTTP
+    hosts:
+    - "*"
+`
 )
 
-type EchoDeployments struct {
+type echoDeployments struct {
 	appANamespace, appBNamespace namespace.Instance
 	A, B                         echo.Instances
 }
 
 var (
-	Inst              istio.Instance
-	CgwInst           istio.Instance
-	Apps              = &EchoDeployments{}
-	CustomGWNamespace namespace.Instance
+	inst              istio.Instance
+	cgwInst           istio.Instance
+	apps              = &echoDeployments{}
+	customGWNamespace namespace.Instance
 )
 
 func TestMain(m *testing.M) {
 	framework.
 		NewSuite(m).
 		RequireSingleCluster().
-		Setup(istio.Setup(&Inst, nil)).
+		Setup(istio.Setup(&inst, nil)).
 		Setup(func(ctx resource.Context) error {
-			return setupCustomGatewayNamespace(ctx, &CustomGWNamespace)
+			return setupCustomGatewayNamespace(ctx, &customGWNamespace)
 		}).
-		Setup(istio.Setup(&CgwInst, setupCustomGatewayConfig)).
+		Setup(istio.Setup(&cgwInst, setupCustomGatewayConfig)).
 		Setup(func(ctx resource.Context) error {
-			return setupApps(ctx, Apps)
+			return setupApps(ctx, apps)
 		}).
 		Run()
 }
@@ -85,10 +119,10 @@ func setupCustomGatewayConfig(ctx resource.Context, cfg *istio.Config) {
 	cfg.ControlPlaneValues = `
 components:
   ingressGateways:
-  - name: ` + CustomServiceGateway + `
+  - name: ` + customServiceGateway + `
     label:
-      istio: ` + CustomServiceGateway + `
-    namespace: ` + CustomGWNamespace.Name() + `
+      istio: ` + customServiceGateway + `
+    namespace: ` + customGWNamespace.Name() + `
     enabled:
       true
 `
@@ -96,7 +130,7 @@ components:
 
 // setupApps creates two namespaces and starts an echo app in each namespace.
 // Tests will be able to connect the apps to gateways and verify traffic.
-func setupApps(ctx resource.Context, apps *EchoDeployments) error {
+func setupApps(ctx resource.Context, apps *echoDeployments) error {
 	var err error
 	var echos echo.Instances
 
@@ -120,14 +154,14 @@ func setupApps(ctx resource.Context, apps *EchoDeployments) error {
 	builder := echoboot.NewBuilder(ctx)
 	builder.
 		WithClusters(ctx.Clusters()...).
-		WithConfig(echoConfig(ASvc, apps.appANamespace)).
-		WithConfig(echoConfig(BSvc, apps.appBNamespace))
+		WithConfig(echoConfig(aSvc, apps.appANamespace)).
+		WithConfig(echoConfig(bSvc, apps.appBNamespace))
 
 	if echos, err = builder.Build(); err != nil {
 		return err
 	}
-	apps.A = echos.Match(echo.Service(ASvc))
-	apps.B = echos.Match(echo.Service(BSvc))
+	apps.A = echos.Match(echo.Service(aSvc))
+	apps.B = echos.Match(echo.Service(bSvc))
 	return nil
 }
 

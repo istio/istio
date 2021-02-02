@@ -1,0 +1,14 @@
+apiVersion: install.istio.io/v1alpha1
+kind: IstioOperator
+metadata:
+  name: custom-ingressgateway-iop
+  namespace: custom-gateways
+spec:
+  profile: empty
+  components:
+    ingressGateways:
+    - name: custom-ingressgateway
+      label:
+        istio: custom-ingressgateway
+      namespace: custom-gateways
+      enabled: true
