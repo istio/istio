@@ -19,11 +19,13 @@ import (
 
 	cluster "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
+	tls "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
 	"github.com/google/go-cmp/cmp"
 	"google.golang.org/protobuf/testing/protocmp"
 
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pilot/pkg/serviceregistry/memory"
 )
 
@@ -201,25 +203,149 @@ func TestClusterPatching(t *testing.T) {
 				Value:     buildPatchStruct(`{"lb_policy":"RING_HASH"}`),
 			},
 		},
+		{
+			ApplyTo: networking.EnvoyFilter_CLUSTER,
+			Match: &networking.EnvoyFilter_EnvoyConfigObjectMatch{
+				Context: networking.EnvoyFilter_SIDECAR_OUTBOUND,
+			},
+			Patch: &networking.EnvoyFilter_Patch{
+				Operation: networking.EnvoyFilter_Patch_MERGE,
+				Value: buildPatchStruct(`
+				{"transport_socket":{
+					"name":"envoy.transport_sockets.tls",
+					"typed_config":{
+						"@type":"type.googleapis.com/envoy.extensions.transport_sockets.tls.v3.UpstreamTlsContext",
+						"common_tls_context":{
+							"tls_params":{
+								"tls_minimum_protocol_version":"TLSv1_3"}}}}}`),
+			},
+		},
 	}
 
 	sidecarOutboundIn := []*cluster.Cluster{
-		{Name: "cluster1", DnsLookupFamily: cluster.Cluster_V4_ONLY, LbPolicy: cluster.Cluster_ROUND_ROBIN},
+		{Name: "cluster1",
+			DnsLookupFamily: cluster.Cluster_V4_ONLY,
+			LbPolicy:        cluster.Cluster_ROUND_ROBIN,
+			TransportSocketMatches: []*cluster.Cluster_TransportSocketMatch{
+				{
+					Name: "tlsMode-istio",
+					TransportSocket: &core.TransportSocket{
+						Name: "envoy.transport_sockets.tls",
+						ConfigType: &core.TransportSocket_TypedConfig{
+							TypedConfig: util.MessageToAny(&tls.UpstreamTlsContext{
+								CommonTlsContext: &tls.CommonTlsContext{
+									TlsParams: &tls.TlsParameters{
+										EcdhCurves:                []string{"X25519"},
+										TlsMinimumProtocolVersion: tls.TlsParameters_TLSv1_1,
+									},
+									TlsCertificateCertificateProviderInstance: &tls.CommonTlsContext_CertificateProviderInstance{
+										InstanceName:    "instance",
+										CertificateName: "certificate",
+									},
+								},
+							}),
+						},
+					},
+				},
+			},
+		},
 		{Name: "cluster2",
 			Http2ProtocolOptions: &core.Http2ProtocolOptions{
 				AllowConnect:  true,
 				AllowMetadata: true,
 			}, LbPolicy: cluster.Cluster_MAGLEV,
 		},
+		{Name: "cluster3",
+			DnsLookupFamily: cluster.Cluster_V4_ONLY,
+			LbPolicy:        cluster.Cluster_ROUND_ROBIN,
+			TransportSocket: &core.TransportSocket{
+				Name: "envoy.transport_sockets.tls",
+				ConfigType: &core.TransportSocket_TypedConfig{
+					TypedConfig: util.MessageToAny(&tls.UpstreamTlsContext{
+						CommonTlsContext: &tls.CommonTlsContext{
+							TlsParams: &tls.TlsParameters{
+								EcdhCurves:                []string{"X25519"},
+								TlsMaximumProtocolVersion: tls.TlsParameters_TLSv1_3,
+							},
+							TlsCertificateCertificateProviderInstance: &tls.CommonTlsContext_CertificateProviderInstance{
+								InstanceName:    "instance",
+								CertificateName: "certificate",
+							},
+						},
+					}),
+				},
+			},
+		},
 	}
 
 	sidecarOutboundOut := []*cluster.Cluster{
-		{Name: "cluster1", DnsLookupFamily: cluster.Cluster_V6_ONLY, LbPolicy: cluster.Cluster_RING_HASH},
+		{Name: "cluster1",
+			DnsLookupFamily: cluster.Cluster_V6_ONLY,
+			LbPolicy:        cluster.Cluster_RING_HASH,
+			TransportSocketMatches: []*cluster.Cluster_TransportSocketMatch{
+				{
+					Name: "tlsMode-istio",
+					TransportSocket: &core.TransportSocket{
+						Name: "envoy.transport_sockets.tls",
+						ConfigType: &core.TransportSocket_TypedConfig{
+							TypedConfig: util.MessageToAny(&tls.UpstreamTlsContext{
+								CommonTlsContext: &tls.CommonTlsContext{
+									TlsParams: &tls.TlsParameters{
+										EcdhCurves:                []string{"X25519"},
+										TlsMinimumProtocolVersion: tls.TlsParameters_TLSv1_3,
+									},
+									TlsCertificateCertificateProviderInstance: &tls.CommonTlsContext_CertificateProviderInstance{
+										InstanceName:    "instance",
+										CertificateName: "certificate",
+									},
+								},
+							}),
+						},
+					},
+				},
+			},
+		},
 		{Name: "cluster2",
 			Http2ProtocolOptions: &core.Http2ProtocolOptions{
 				AllowConnect:  true,
 				AllowMetadata: true,
-			}, LbPolicy: cluster.Cluster_RING_HASH, DnsLookupFamily: cluster.Cluster_V6_ONLY,
+			},
+			LbPolicy:        cluster.Cluster_RING_HASH,
+			DnsLookupFamily: cluster.Cluster_V6_ONLY,
+			TransportSocket: &core.TransportSocket{
+				Name: "envoy.transport_sockets.tls",
+				ConfigType: &core.TransportSocket_TypedConfig{
+					TypedConfig: util.MessageToAny(&tls.UpstreamTlsContext{
+						CommonTlsContext: &tls.CommonTlsContext{
+							TlsParams: &tls.TlsParameters{
+								TlsMinimumProtocolVersion: tls.TlsParameters_TLSv1_3,
+							},
+						},
+					}),
+				},
+			},
+		},
+		{Name: "cluster3",
+			DnsLookupFamily: cluster.Cluster_V6_ONLY,
+			LbPolicy:        cluster.Cluster_RING_HASH,
+			TransportSocket: &core.TransportSocket{
+				Name: "envoy.transport_sockets.tls",
+				ConfigType: &core.TransportSocket_TypedConfig{
+					TypedConfig: util.MessageToAny(&tls.UpstreamTlsContext{
+						CommonTlsContext: &tls.CommonTlsContext{
+							TlsParams: &tls.TlsParameters{
+								EcdhCurves:                []string{"X25519"},
+								TlsMinimumProtocolVersion: tls.TlsParameters_TLSv1_3,
+								TlsMaximumProtocolVersion: tls.TlsParameters_TLSv1_3,
+							},
+							TlsCertificateCertificateProviderInstance: &tls.CommonTlsContext_CertificateProviderInstance{
+								InstanceName:    "instance",
+								CertificateName: "certificate",
+							},
+						},
+					}),
+				},
+			},
 		},
 		{Name: "new-cluster1"},
 		{Name: "new-cluster2"},
