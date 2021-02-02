@@ -180,4 +180,8 @@ type Cluster interface {
 
 	// ConfigName returns the name of the config cluster for this cluster.
 	ConfigName() string
+
+	// Versions returns the set of Istio control plane versions running in this cluster
+	// returns nil if the cluster is not primary or there are no revisions running
+	Versions() []string
 }

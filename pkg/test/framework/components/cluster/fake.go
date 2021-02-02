@@ -47,3 +47,7 @@ type FakeCluster struct {
 func (f FakeCluster) GetKubernetesVersion() (*version.Info, error) {
 	return f.Version, nil
 }
+
+func (f FakeCluster) Versions() []string {
+	return nil
+}

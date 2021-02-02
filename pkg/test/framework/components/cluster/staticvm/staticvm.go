@@ -122,6 +122,10 @@ func (v vmcluster) GetKubernetesVersion() (*version.Info, error) {
 	return nil, nil
 }
 
+func (v vmcluster) Versions() []string {
+	return nil
+}
+
 func matchConfig(vm, cfg echo.Config) bool {
 	return vm.Service == cfg.Service && strings.HasPrefix(cfg.Namespace.Name(), vm.Namespace.Name())
 }

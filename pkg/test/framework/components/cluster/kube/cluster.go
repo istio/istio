@@ -44,6 +44,15 @@ type Cluster struct {
 	cluster.Topology
 }
 
+// Versions returns the set of Istio control plane versions running within the cluster
+func (c *Cluster) Versions() []string {
+	if !c.IsPrimary() {
+		return nil
+	}
+
+	return c.versions
+}
+
 // CanDeploy for a kube cluster returns true if the config is a non-vm, or if the cluster supports
 // fake pod-based VMs.
 func (c *Cluster) CanDeploy(config echo.Config) (echo.Config, bool) {
