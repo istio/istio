@@ -489,6 +489,9 @@ func isExpectedGRPCError(err error) bool {
 	if s.Code() == codes.Unavailable && (s.Message() == "client disconnected" || s.Message() == "transport is closing") {
 		return true
 	}
+	if s.Code() == codes.Internal && (s.Message() == "stream terminated by RST_STREAM with error code: NO_ERROR") {
+		return true
+	}
 	return false
 }
 
