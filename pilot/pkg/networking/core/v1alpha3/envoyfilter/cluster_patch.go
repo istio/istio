@@ -15,11 +15,15 @@
 package envoyfilter
 
 import (
+	"fmt"
+
 	cluster "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
+	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	"github.com/golang/protobuf/proto"
 
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pilot/pkg/util/runtime"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/pkg/log"
@@ -39,10 +43,64 @@ func ApplyClusterMerge(pctx networking.EnvoyFilter_PatchContext, efw *model.Envo
 			continue
 		}
 		if commonConditionMatch(pctx, cp) && clusterMatch(c, cp) {
-			proto.Merge(c, cp.Value)
+
+			ret, err := mergeTransportSocketCluster(c, cp)
+			if err != nil {
+				log.Debugf("Merge of transport socket failed for cluster: %v", err)
+				continue
+			}
+			if !ret {
+				proto.Merge(c, cp.Value)
+			}
 		}
 	}
 	return c
+}
+
+// Test if the patch contains a config for TransportSocket
+func mergeTransportSocketCluster(c *cluster.Cluster, cp *model.EnvoyFilterConfigPatchWrapper) (bool, error) {
+
+	cpValueCast, okCpCast := (cp.Value).(*cluster.Cluster)
+	if !okCpCast {
+		return false, fmt.Errorf("cast of cp.Value failed: %v", okCpCast)
+	}
+
+	var tsmPatch *core.TransportSocket
+
+	// Test if the patch contains a config for TransportSocket
+	// and if the cluster contains a config for Transport Socket Matches
+	if cpValueCast.GetTransportSocket() != nil && c.GetTransportSocketMatches() != nil {
+		for _, tsm := range c.GetTransportSocketMatches() {
+			if tsm.GetTransportSocket() != nil && cpValueCast.GetTransportSocket().Name == tsm.GetTransportSocket().Name {
+				tsmPatch = tsm.GetTransportSocket()
+				break
+			}
+		}
+	} else if cpValueCast.GetTransportSocket() != nil && c.GetTransportSocket() != nil {
+		if cpValueCast.GetTransportSocket().Name == c.GetTransportSocket().Name {
+			tsmPatch = c.GetTransportSocket()
+		}
+	}
+
+	if tsmPatch != nil {
+		// Merge the patch and the cluster at a lower level
+		dstCluster := tsmPatch.GetTypedConfig()
+		srcPatch := cpValueCast.GetTransportSocket().GetTypedConfig()
+
+		if dstCluster != nil && srcPatch != nil {
+
+			retVal, errMerge := util.MergeAnyWithAny(dstCluster, srcPatch)
+			if errMerge != nil {
+				return false, fmt.Errorf("function MergeAnyWithAny failed for ApplyClusterMerge: %v", errMerge)
+			}
+
+			// Merge the above result with the whole cluster
+			proto.Merge(dstCluster, retVal)
+			return true, nil
+		}
+	}
+
+	return false, nil
 }
 
 func ShouldKeepCluster(pctx networking.EnvoyFilter_PatchContext, efw *model.EnvoyFilterWrapper, c *cluster.Cluster) bool {
