@@ -70,7 +70,7 @@ func (c *configManager) ApplyYAMLOrFail(t test.Failer, ns string, yamlText ...st
 	}
 }
 
-func (c *configManager) ApplyYAMLInCluster(cls resource.Cluster, ns string, yamlText ...string) error {
+func (c *configManager) ApplyYAMLInCluster(cls cluster.Cluster, ns string, yamlText ...string) error {
 	if len(c.prefix) == 0 {
 		return c.WithFilePrefix("apply").ApplyYAML(ns, yamlText...)
 	}
@@ -88,7 +88,7 @@ func (c *configManager) ApplyYAMLInCluster(cls resource.Cluster, ns string, yaml
 	return nil
 }
 
-func (c *configManager) ApplyYAMLInClusterOrFail(t test.Failer, cls resource.Cluster, ns string, yamlText ...string) {
+func (c *configManager) ApplyYAMLInClusterOrFail(t test.Failer, cls cluster.Cluster, ns string, yamlText ...string) {
 	err := c.ApplyYAMLInCluster(cls, ns, yamlText...)
 	if err != nil {
 		t.Fatal(err)

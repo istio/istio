@@ -29,10 +29,10 @@ type ConfigManager interface {
 	ApplyYAMLOrFail(t test.Failer, ns string, yamlText ...string)
 
 	// ApplyYAMLInCluster applies the given config yaml text via Galley in a specific cluster.
-	ApplyYAMLInCluster(c Cluster, ns string, yamlText ...string) error
+	ApplyYAMLInCluster(c cluster.Cluster, ns string, yamlText ...string) error
 
 	// ApplyYAMLInClusterOrFail applies the given config yaml text via Galley in a specific cluster.
-	ApplyYAMLInClusterOrFail(t test.Failer, c Cluster, ns string, yamlText ...string)
+	ApplyYAMLInClusterOrFail(t test.Failer, c cluster.Cluster, ns string, yamlText ...string)
 
 	// DeleteYAML deletes the given config yaml text via Galley.
 	DeleteYAML(ns string, yamlText ...string) error
