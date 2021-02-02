@@ -20,7 +20,7 @@ replace github.com/imdario/mergo => github.com/imdario/mergo v0.3.5
 replace github.com/evanphx/json-patch => github.com/evanphx/json-patch v0.0.0-20190815234213-e83c0a1c26c8
 
 // TODO(harveyxia) remove after istio/api PR is merged
-replace istio.io/api => github.com/harveyxia/api v0.0.0-20210114181145-8a38157cc32e
+replace istio.io/api => github.com/harveyxia/api v0.0.0-20210202205520-386fe635b6ac
 
 require (
 	cloud.google.com/go v0.73.0
