@@ -518,20 +518,38 @@ function install_asm() {
           --key-file "${GOOGLE_APPLICATION_CREDENTIALS}" \
           --verbose
       else
-        eval ./install_asm \
-          --project_id "${PROJECT_ID}" \
-          --cluster_name "${CLUSTER}" \
-          --cluster_location "${LOCATION}" \
-          --ca ${INSTALL_ASM_CA} \
-          "${CUSTOM_CA_FLAGS}" \
-          --mode install \
-          --enable_all \
-          --option hub-meshca \
-          --custom_overlay "${CUSTOM_OVERLAY}" \
-          --option audit-authorizationpolicy \
-          --service_account "${SERVICE_ACCOUNT}" \
-          --key-file "${GOOGLE_APPLICATION_CREDENTIALS}" \
-          --verbose
+        if [[ "${USE_VM}" == false ]]; then
+          eval ./install_asm \
+            --project_id "${PROJECT_ID}" \
+            --cluster_name "${CLUSTER}" \
+            --cluster_location "${LOCATION}" \
+            --ca ${INSTALL_ASM_CA} \
+            "${CUSTOM_CA_FLAGS}" \
+            --mode install \
+            --enable_all \
+            --option hub-meshca \
+            --custom_overlay "${CUSTOM_OVERLAY}" \
+            --option audit-authorizationpolicy \
+            --service_account "${SERVICE_ACCOUNT}" \
+            --key-file "${GOOGLE_APPLICATION_CREDENTIALS}" \
+            --verbose
+        else
+          eval ./install_asm \
+            --project_id "${PROJECT_ID}" \
+            --cluster_name "${CLUSTER}" \
+            --cluster_location "${LOCATION}" \
+            --ca ${INSTALL_ASM_CA} \
+            "${CUSTOM_CA_FLAGS}" \
+            --mode install \
+            --enable_all \
+            --option hub-meshca \
+            --option vm \
+            --custom_overlay "${CUSTOM_OVERLAY}" \
+            --option audit-authorizationpolicy \
+            --service_account "${SERVICE_ACCOUNT}" \
+            --key-file "${GOOGLE_APPLICATION_CREDENTIALS}" \
+            --verbose
+        fi
       fi
     fi
   done
