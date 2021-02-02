@@ -958,6 +958,10 @@ func createIstioctlConfigFile(workDir string, cfg Config) (istioctlConfigFiles, 
 	}
 
 	// Generate the istioctl config file for remote cluster
+	if cfg.RemoteClusterValues == "" {
+		cfg.RemoteClusterValues = cfg.ControlPlaneValues
+	}
+
 	configFiles.remoteIopFile = filepath.Join(workDir, "remote.yaml")
 	if configFiles.remoteOperatorSpec, err = initIOPFile(cfg, configFiles.remoteIopFile, cfg.RemoteClusterValues); err != nil {
 		return configFiles, err
