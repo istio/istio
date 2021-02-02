@@ -1,0 +1,6 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: security
+releaseNotes:
+- |
+  **Fixed** an issue the TLS minimum version to be set to v1.2 only on HTTP ports. This option is now applied to all ports.

@@ -1318,6 +1318,17 @@ func TestOnInboundFilterChain(t *testing.T) {
 				},
 			},
 			AlpnProtocols: []string{"istio-peer-exchange", "h2", "http/1.1"},
+			TlsParams: &tls.TlsParameters{
+				TlsMinimumProtocolVersion: tls.TlsParameters_TLSv1_2,
+				CipherSuites: []string{
+					"ECDHE-ECDSA-AES256-GCM-SHA384",
+					"ECDHE-RSA-AES256-GCM-SHA384",
+					"ECDHE-ECDSA-AES128-GCM-SHA256",
+					"ECDHE-RSA-AES128-GCM-SHA256",
+					"AES256-GCM-SHA384",
+					"AES128-GCM-SHA256",
+				},
+			},
 		},
 		RequireClientCertificate: protovalue.BoolTrue,
 	}
@@ -1327,7 +1338,6 @@ func TestOnInboundFilterChain(t *testing.T) {
 			TLSContext: tlsContext,
 		},
 	}
-
 	// Two filter chains, one for mtls traffic within the mesh, one for plain text traffic.
 	expectedPermissive := []networking.FilterChain{
 		{
