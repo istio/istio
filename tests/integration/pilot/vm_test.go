@@ -52,7 +52,7 @@ func TestVmOSPost(t *testing.T) {
 			if ctx.Settings().SkipVM {
 				ctx.Skip("VM tests are disabled")
 			}
-			b := echoboot.NewBuilder(ctx)
+			b := echoboot.NewBuilder(ctx, ctx.Clusters().Primaries().Default())
 			images := GetAdditionVMImages()
 			for _, image := range images {
 				b = b.WithConfig(echo.Config{
