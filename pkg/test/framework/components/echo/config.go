@@ -21,9 +21,17 @@ import (
 	"github.com/mitchellh/copystructure"
 
 	"istio.io/istio/pkg/test/echo/common"
+	"istio.io/istio/pkg/test/framework/components/cluster"
 	"istio.io/istio/pkg/test/framework/components/namespace"
-	"istio.io/istio/pkg/test/framework/resource"
 )
+
+// Cluster that can deploy echo instances.
+// TODO putting this here for now to deal with circular imports, needs to be moved
+type Cluster interface {
+	cluster.Cluster
+
+	CanDeploy(Config) (Config, bool)
+}
 
 // Config defines the options for creating an Echo component.
 // nolint: maligned
@@ -49,6 +57,10 @@ type Config struct {
 	// Headless (k8s only) indicates that no ClusterIP should be specified.
 	Headless bool
 
+	// StaticAddress for some echo implementations is an address locally reachable within
+	// the test framework and from the echo Cluster's network.
+	StaticAddresses []string
+
 	// ServiceAccount (k8s only) indicates that a service account should be created
 	// for the deployment.
 	ServiceAccount bool
@@ -73,7 +85,7 @@ type Config struct {
 	Subsets []SubsetConfig
 
 	// Cluster to be used in a multicluster environment
-	Cluster resource.Cluster
+	Cluster cluster.Cluster
 
 	// TLS settings for echo server
 	TLSSettings *common.TLSSettings
@@ -126,6 +138,8 @@ func (c Config) FQDN() string {
 	out := c.Service
 	if c.Namespace != nil {
 		out += "." + c.Namespace.Name() + ".svc"
+	} else {
+		out += ".default.svc"
 	}
 	if c.Domain != "" {
 		out += "." + c.Domain
@@ -143,7 +157,9 @@ func (c Config) HostHeader() string {
 
 // DeepCopy creates a clone of IstioEndpoint.
 func (c Config) DeepCopy() Config {
-	newc := copyInternal(c).(Config)
+	newc := c
+	newc.Cluster = nil
+	newc = copyInternal(newc).(Config)
 	newc.Cluster = c.Cluster
 	newc.Namespace = c.Namespace
 	return newc

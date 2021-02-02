@@ -94,17 +94,16 @@ func TestSimpleTlsOrigination(t *testing.T) {
 			}
 
 			for name, tc := range testCases {
-				t.Run(name, func(t *testing.T) {
-					bufDestinationRule := sdstlsutil.CreateDestinationRule(t, serverNamespace, "SIMPLE", tc.credentialToUse)
+				ctx.NewSubTest(name).Run(func(ctx framework.TestContext) {
+					bufDestinationRule := sdstlsutil.CreateDestinationRule(ctx, serverNamespace, "SIMPLE", tc.credentialToUse)
 
 					// Get namespace for gateway pod.
 					istioCfg := istio.DefaultConfigOrFail(ctx, ctx)
 					systemNS := namespace.ClaimOrFail(ctx, ctx, istioCfg.SystemNamespace)
 
 					ctx.Config().ApplyYAMLOrFail(ctx, systemNS.Name(), bufDestinationRule.String())
-					defer ctx.Config().DeleteYAMLOrFail(ctx, systemNS.Name(), bufDestinationRule.String())
 
-					retry.UntilSuccessOrFail(t, func() error {
+					retry.UntilSuccessOrFail(ctx, func() error {
 						resp, err := internalClient.Call(echo.CallOptions{
 							Target:   externalServer,
 							PortName: "http",
@@ -252,7 +251,6 @@ func TestMutualTlsOrigination(t *testing.T) {
 						systemNS := namespace.ClaimOrFail(ctx, ctx, istioCfg.SystemNamespace)
 
 						ctx.Config().ApplyYAMLOrFail(ctx, systemNS.Name(), bufDestinationRule.String())
-						defer ctx.Config().DeleteYAMLOrFail(ctx, systemNS.Name(), bufDestinationRule.String())
 
 						retry.UntilSuccessOrFail(t, func() error {
 							resp, err := internalClient.Call(echo.CallOptions{

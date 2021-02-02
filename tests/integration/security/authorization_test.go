@@ -83,7 +83,6 @@ func TestAuthorization_mTLS(t *testing.T) {
 				file.AsStringOrFail(t, "testdata/authz/v1beta1-mtls.yaml.tmpl"))
 
 			ctx.Config().ApplyYAMLOrFail(t, apps.Namespace1.Name(), policies...)
-			defer ctx.Config().DeleteYAMLOrFail(t, apps.Namespace1.Name(), policies...)
 			for _, cluster := range ctx.Clusters() {
 				ctx.NewSubTest(fmt.Sprintf("From %s", cluster.Name())).Run(func(ctx framework.TestContext) {
 					a := apps.A.Match(echo.InCluster(cluster).And(echo.Namespace(apps.Namespace1.Name())))
@@ -135,7 +134,6 @@ func TestAuthorization_JWT(t *testing.T) {
 			policies := tmpl.EvaluateAllOrFail(t, args,
 				file.AsStringOrFail(t, "testdata/authz/v1beta1-jwt.yaml.tmpl"))
 			ctx.Config().ApplyYAMLOrFail(t, ns.Name(), policies...)
-			defer ctx.Config().DeleteYAMLOrFail(t, ns.Name(), policies...)
 			for _, srcCluster := range ctx.Clusters() {
 				ctx.NewSubTest(fmt.Sprintf("From %s", srcCluster.Name())).Run(func(ctx framework.TestContext) {
 					a := apps.A.Match(echo.InCluster(srcCluster).And(echo.Namespace(ns.Name())))
@@ -239,19 +237,15 @@ func TestAuthorization_WorkloadSelector(t *testing.T) {
 				"RootNamespace": istio.GetOrFail(ctx, ctx).Settings().SystemNamespace,
 			}
 
-			applyPolicy := func(filename string, ns namespace.Instance) []string {
+			applyPolicy := func(filename string, ns namespace.Instance) {
 				policy := tmpl.EvaluateAllOrFail(t, args, file.AsStringOrFail(t, filename))
 				ctx.Config().ApplyYAMLOrFail(t, ns.Name(), policy...)
-				return policy
 			}
 
 			rootns := newRootNS(ctx)
-			policyNS1 := applyPolicy("testdata/authz/v1beta1-workload-ns1.yaml.tmpl", ns1)
-			defer ctx.Config().DeleteYAMLOrFail(t, ns1.Name(), policyNS1...)
-			policyNS2 := applyPolicy("testdata/authz/v1beta1-workload-ns2.yaml.tmpl", ns2)
-			defer ctx.Config().DeleteYAMLOrFail(t, ns2.Name(), policyNS2...)
-			policyNSRoot := applyPolicy("testdata/authz/v1beta1-workload-ns-root.yaml.tmpl", rootns)
-			defer ctx.Config().DeleteYAMLOrFail(t, rootns.Name(), policyNSRoot...)
+			applyPolicy("testdata/authz/v1beta1-workload-ns1.yaml.tmpl", ns1)
+			applyPolicy("testdata/authz/v1beta1-workload-ns2.yaml.tmpl", ns2)
+			applyPolicy("testdata/authz/v1beta1-workload-ns-root.yaml.tmpl", rootns)
 			for _, srcCluster := range ctx.Clusters() {
 				ctx.NewSubTest(fmt.Sprintf("From %s", srcCluster.Name())).Run(func(ctx framework.TestContext) {
 					a := apps.A.Match(echo.InCluster(srcCluster).And(echo.Namespace(apps.Namespace1.Name())))
@@ -337,10 +331,8 @@ func TestAuthorization_Deny(t *testing.T) {
 			rootns := newRootNS(ctx)
 			policy := applyPolicy("testdata/authz/v1beta1-deny.yaml.tmpl", ns)
 			util.WaitForConfigWithSleep(ctx, policy[0], ns)
-			defer ctx.Config().DeleteYAMLOrFail(t, ns.Name(), policy...)
 			policyNSRoot := applyPolicy("testdata/authz/v1beta1-deny-ns-root.yaml.tmpl", rootns)
 			util.WaitForConfigWithSleep(ctx, policyNSRoot[0], rootns)
-			defer ctx.Config().DeleteYAMLOrFail(t, rootns.Name(), policyNSRoot...)
 
 			callCount := 1
 			if ctx.Clusters().IsMulticluster() {
@@ -408,18 +400,16 @@ func TestAuthorization_NegativeMatch(t *testing.T) {
 				"Namespace2": ns2.Name(),
 			}
 
-			applyPolicy := func(filename string, ns namespace.Instance) []string {
+			applyPolicy := func(filename string, ns namespace.Instance) {
 				policy := tmpl.EvaluateAllOrFail(t, args, file.AsStringOrFail(t, filename))
 				name := ""
 				if ns != nil {
 					name = ns.Name()
 				}
 				ctx.Config().ApplyYAMLOrFail(t, name, policy...)
-				return policy
 			}
 
-			policies := applyPolicy("testdata/authz/v1beta1-negative-match.yaml.tmpl", nil)
-			defer ctx.Config().DeleteYAMLOrFail(t, "", policies...)
+			applyPolicy("testdata/authz/v1beta1-negative-match.yaml.tmpl", nil)
 
 			callCount := 1
 			if ctx.Clusters().IsMulticluster() {
@@ -506,17 +496,15 @@ func TestAuthorization_IngressGateway(t *testing.T) {
 				"RootNamespace": istio.GetOrFail(ctx, ctx).Settings().SystemNamespace,
 			}
 
-			applyPolicy := func(filename string) []string {
+			applyPolicy := func(filename string) {
 				policy := tmpl.EvaluateAllOrFail(t, args, file.AsStringOrFail(t, filename))
 				ctx.Config().ApplyYAMLOrFail(t, "", policy...)
-				return policy
 			}
-			policies := applyPolicy("testdata/authz/v1beta1-ingress-gateway.yaml.tmpl")
-			defer ctx.Config().DeleteYAMLOrFail(t, "", policies...)
+			applyPolicy("testdata/authz/v1beta1-ingress-gateway.yaml.tmpl")
 
 			var b echo.Instance
 			echoboot.NewBuilder(ctx).
-				With(&b, util.EchoConfig("b", ns, false, nil, nil)).
+				With(&b, util.EchoConfig("b", ns, false, nil)).
 				BuildOrFail(t)
 
 			ingr := ist.IngressFor(ctx.Clusters().Default())
@@ -648,7 +636,7 @@ func TestAuthorization_EgressGateway(t *testing.T) {
 
 			var a, b, c echo.Instance
 			echoboot.NewBuilder(ctx).
-				With(&a, util.EchoConfig("a", ns, false, nil, nil)).
+				With(&a, util.EchoConfig("a", ns, false, nil)).
 				With(&b, echo.Config{
 					Service:   "b",
 					Namespace: ns,
@@ -661,7 +649,7 @@ func TestAuthorization_EgressGateway(t *testing.T) {
 						},
 					},
 				}).
-				With(&c, util.EchoConfig("c", ns, false, nil, nil)).
+				With(&c, util.EchoConfig("c", ns, false, nil)).
 				BuildOrFail(t)
 
 			args := map[string]string{
@@ -671,7 +659,6 @@ func TestAuthorization_EgressGateway(t *testing.T) {
 			policies := tmpl.EvaluateAllOrFail(t, args,
 				file.AsStringOrFail(t, "testdata/authz/v1beta1-egress-gateway.yaml.tmpl"))
 			ctx.Config().ApplyYAMLOrFail(t, "", policies...)
-			defer ctx.Config().DeleteYAMLOrFail(t, "", policies...)
 
 			cases := []struct {
 				name  string
@@ -832,7 +819,6 @@ func TestAuthorization_TCP(t *testing.T) {
 				"Namespace2": ns2.Name(),
 			}, file.AsStringOrFail(t, "testdata/authz/v1beta1-tcp.yaml.tmpl"))
 			ctx.Config().ApplyYAMLOrFail(t, "", policy...)
-			defer ctx.Config().DeleteYAMLOrFail(t, "", policy...)
 
 			var a, b, c, d, e, x echo.Instance
 			ports := []echo.Port{
@@ -858,7 +844,7 @@ func TestAuthorization_TCP(t *testing.T) {
 				},
 			}
 			echoboot.NewBuilder(ctx).
-				With(&x, util.EchoConfig("x", ns2, false, nil, nil)).
+				With(&x, util.EchoConfig("x", ns2, false, nil)).
 				With(&a, echo.Config{
 					Subsets:        []echo.SubsetConfig{{}},
 					Namespace:      ns,
@@ -996,7 +982,6 @@ func TestAuthorization_Conditions(t *testing.T) {
 
 					policies := tmpl.EvaluateAllOrFail(t, args, file.AsStringOrFail(t, "testdata/authz/v1beta1-conditions.yaml.tmpl"))
 					ctx.Config().ApplyYAMLOrFail(t, "", policies...)
-					defer ctx.Config().DeleteYAMLOrFail(t, "", policies...)
 
 					for _, srcCluster := range ctx.Clusters() {
 						ctx.NewSubTest(fmt.Sprintf("From %s", srcCluster.Name())).Run(func(ctx framework.TestContext) {
@@ -1102,10 +1087,10 @@ func TestAuthorization_GRPC(t *testing.T) {
 			})
 			var a, b, c, d echo.Instance
 			echoboot.NewBuilder(ctx).
-				With(&a, util.EchoConfig("a", ns, false, nil, nil)).
-				With(&b, util.EchoConfig("b", ns, false, nil, nil)).
-				With(&c, util.EchoConfig("c", ns, false, nil, nil)).
-				With(&d, util.EchoConfig("d", ns, false, nil, nil)).
+				With(&a, util.EchoConfig("a", ns, false, nil)).
+				With(&b, util.EchoConfig("b", ns, false, nil)).
+				With(&c, util.EchoConfig("c", ns, false, nil)).
+				With(&d, util.EchoConfig("d", ns, false, nil)).
 				BuildOrFail(t)
 
 			cases := []rbacUtil.TestCase{
@@ -1149,7 +1134,6 @@ func TestAuthorization_GRPC(t *testing.T) {
 			policies := tmpl.EvaluateAllOrFail(t, namespaceTmpl,
 				file.AsStringOrFail(t, "testdata/authz/v1beta1-grpc.yaml.tmpl"))
 			ctx.Config().ApplyYAMLOrFail(t, ns.Name(), policies...)
-			defer ctx.Config().DeleteYAMLOrFail(t, ns.Name(), policies...)
 
 			rbacUtil.RunRBACTest(ctx, cases)
 		})
@@ -1168,7 +1152,6 @@ func TestAuthorization_Path(t *testing.T) {
 			policies := tmpl.EvaluateAllOrFail(t, args,
 				file.AsStringOrFail(t, "testdata/authz/v1beta1-path.yaml.tmpl"))
 			ctx.Config().ApplyYAMLOrFail(t, ns.Name(), policies...)
-			defer ctx.Config().DeleteYAMLOrFail(t, ns.Name(), policies...)
 			for _, srcCluster := range ctx.Clusters() {
 				ctx.NewSubTest(fmt.Sprintf("In %s", srcCluster.Name())).Run(func(ctx framework.TestContext) {
 					b := apps.B.GetOrFail(ctx, echo.InCluster(srcCluster).And(echo.Namespace(ns.Name())))
@@ -1229,10 +1212,10 @@ func TestAuthorization_Audit(t *testing.T) {
 
 			var a, b, c, d echo.Instance
 			echoboot.NewBuilder(ctx).
-				With(&a, util.EchoConfig("a", ns, false, nil, nil)).
-				With(&b, util.EchoConfig("b", ns, false, nil, nil)).
-				With(&c, util.EchoConfig("c", ns, false, nil, nil)).
-				With(&d, util.EchoConfig("d", ns, false, nil, nil)).
+				With(&a, util.EchoConfig("a", ns, false, nil)).
+				With(&b, util.EchoConfig("b", ns, false, nil)).
+				With(&c, util.EchoConfig("c", ns, false, nil)).
+				With(&d, util.EchoConfig("d", ns, false, nil)).
 				BuildOrFail(t)
 
 			newTestCase := func(target echo.Instance, path string, expectAllowed bool) rbacUtil.TestCase {
@@ -1263,14 +1246,12 @@ func TestAuthorization_Audit(t *testing.T) {
 				"RootNamespace": istio.GetOrFail(ctx, ctx).Settings().SystemNamespace,
 			}
 
-			applyPolicy := func(filename string, ns namespace.Instance) []string {
+			applyPolicy := func(filename string, ns namespace.Instance) {
 				policy := tmpl.EvaluateAllOrFail(t, args, file.AsStringOrFail(t, filename))
 				ctx.Config().ApplyYAMLOrFail(t, ns.Name(), policy...)
-				return policy
 			}
 
-			policy := applyPolicy("testdata/authz/v1beta1-audit.yaml.tmpl", ns)
-			defer ctx.Config().DeleteYAMLOrFail(t, ns.Name(), policy...)
+			applyPolicy("testdata/authz/v1beta1-audit.yaml.tmpl", ns)
 
 			rbacUtil.RunRBACTest(ctx, cases)
 		})
@@ -1285,25 +1266,25 @@ func TestAuthorization_Custom(t *testing.T) {
 				Prefix: "v1beta1-custom",
 				Inject: true,
 			})
-			args := map[string]string{"Namespace": ns.Name()}
-			applyYAML := func(filename string, ns namespace.Instance) []string {
+			args := map[string]string{
+				"Namespace":     ns.Name(),
+				"RootNamespace": istio.GetOrFail(ctx, ctx).Settings().SystemNamespace,
+			}
+
+			applyYAML := func(filename string, namespace string) {
 				policy := tmpl.EvaluateAllOrFail(t, args, file.AsStringOrFail(t, filename))
-				ctx.Config().ApplyYAMLOrFail(t, ns.Name(), policy...)
-				return policy
+				ctx.Config().ApplyYAMLOrFail(t, namespace, policy...)
 			}
 
 			// Deploy and wait for the ext-authz server to be ready.
 			if extAuthzServiceNamespace == nil {
 				ctx.Fatalf("Failed to create namespace for ext-authz server: %v", extAuthzServiceNamespaceErr)
 			}
-			extAuthzServer := applyYAML("../../../samples/extauthz/ext-authz.yaml", extAuthzServiceNamespace)
-			defer ctx.Config().DeleteYAMLOrFail(t, extAuthzServiceNamespace.Name(), extAuthzServer...)
+			applyYAML("../../../samples/extauthz/ext-authz.yaml", extAuthzServiceNamespace.Name())
 			if _, _, err := kube.WaitUntilServiceEndpointsAreReady(ctx.Clusters().Default(), extAuthzServiceNamespace.Name(), "ext-authz"); err != nil {
 				ctx.Fatalf("Wait for ext-authz server failed: %v", err)
 			}
-
-			policy := applyYAML("testdata/authz/v1beta1-custom.yaml.tmpl", ns)
-			defer ctx.Config().DeleteYAMLOrFail(t, ns.Name(), policy...)
+			applyYAML("testdata/authz/v1beta1-custom.yaml.tmpl", "")
 
 			ports := []echo.Port{
 				{
@@ -1323,9 +1304,9 @@ func TestAuthorization_Custom(t *testing.T) {
 				},
 			}
 
-			var a, b, c, d, e, f, x echo.Instance
+			var a, b, c, d, e, f, g, x echo.Instance
 			echoConfig := func(name string, includeExtAuthz bool) echo.Config {
-				cfg := util.EchoConfig(name, ns, false, nil, nil)
+				cfg := util.EchoConfig(name, ns, false, nil)
 				cfg.IncludeExtAuthz = includeExtAuthz
 				cfg.Ports = ports
 				return cfg
@@ -1337,6 +1318,7 @@ func TestAuthorization_Custom(t *testing.T) {
 				With(&d, echoConfig("d", true)).
 				With(&e, echoConfig("e", true)).
 				With(&f, echoConfig("f", false)).
+				With(&g, echoConfig("g", false)).
 				With(&x, echoConfig("x", false)).
 				BuildOrFail(t)
 
@@ -1390,5 +1372,30 @@ func TestAuthorization_Custom(t *testing.T) {
 			}
 
 			rbacUtil.RunRBACTest(ctx, cases)
+
+			ingr := ist.IngressFor(ctx.Clusters().Default())
+			ingressCases := []rbacUtil.TestCase{
+				// workload g is using an ext-authz service in its own pod of HTTP API.
+				newTestCase(x, g, "/custom", "http", "allow", true, scheme.HTTP),
+				newTestCase(x, g, "/custom", "http", "deny", false, scheme.HTTP),
+				newTestCase(x, g, "/health", "http", "allow", true, scheme.HTTP),
+				newTestCase(x, g, "/health", "http", "deny", true, scheme.HTTP),
+			}
+			for _, tc := range ingressCases {
+				name := fmt.Sprintf("%s->%s:%s%s[%t]",
+					tc.Request.From.Config().Service,
+					tc.Request.Options.Target.Config().Service,
+					tc.Request.Options.PortName,
+					tc.Request.Options.Path,
+					tc.ExpectAllowed)
+
+				ctx.NewSubTest(name).Run(func(ctx framework.TestContext) {
+					wantCode := map[bool]int{true: 200, false: 403}[tc.ExpectAllowed]
+					headers := map[string][]string{
+						"X-Ext-Authz": {tc.Headers["x-ext-authz"]},
+					}
+					authn.CheckIngressOrFail(ctx, ingr, "www.company.com", tc.Request.Options.Path, headers, "", wantCode)
+				})
+			}
 		})
 }

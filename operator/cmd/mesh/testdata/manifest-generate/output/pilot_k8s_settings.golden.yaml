@@ -83,8 +83,6 @@ spec:
           value: Kubernetes
         - name: EXTERNAL_ISTIOD
           value: "false"
-        - name: CENTRAL_ISTIOD
-          value: "false"
         image: docker.io/istio/pilot:1.1.4
         name: discovery
         ports:

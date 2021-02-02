@@ -27,9 +27,9 @@ import (
 
 	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/test/framework"
-	"istio.io/istio/pkg/test/framework/components/environment/kube"
+	"istio.io/istio/pkg/test/framework/components/cluster"
+	kubecluster "istio.io/istio/pkg/test/framework/components/cluster/kube"
 	"istio.io/istio/pkg/test/framework/image"
-	"istio.io/istio/pkg/test/framework/resource"
 	"istio.io/istio/pkg/test/helm"
 	kubetest "istio.io/istio/pkg/test/kube"
 	"istio.io/istio/pkg/test/scopes"
@@ -60,13 +60,13 @@ func TestDefaultInPlaceUpgrades(t *testing.T) {
 		NewTest(t).
 		Features("installation.helm.default.upgrade").
 		Run(func(ctx framework.TestContext) {
-			cs := ctx.Clusters().Default().(*kube.Cluster)
+			cs := ctx.Clusters().Default().(*kubecluster.Cluster)
 			h := helm.New(cs.Filename(), filepath.Join(previousChartPath, previousSupportedVersion))
 
-			ctx.WhenDone(func() error {
+			ctx.ConditionalCleanup(func() {
 				// only need to do call this once as helm doesn't need to remove
 				// all versions
-				return deleteIstio(cs, h)
+				deleteIstio(cs, h)
 			})
 
 			overrideValuesFile := getValuesOverrides(ctx, defaultValues, gcrHub, previousSupportedVersion)
@@ -131,7 +131,7 @@ func upgradeCharts(ctx framework.TestContext, h *helm.Helm, overrideValuesFile s
 
 // installIstio install Istio using Helm charts with the provided
 // override values file and fails the tests on any failures.
-func installIstio(t *testing.T, cs resource.Cluster,
+func installIstio(t *testing.T, cs cluster.Cluster,
 	h *helm.Helm, overrideValuesFile string) {
 	helmtest.CreateIstioSystemNamespace(t, cs)
 
@@ -153,7 +153,7 @@ func installIstio(t *testing.T, cs resource.Cluster,
 }
 
 // deleteIstio deletes installed Istio Helm charts and resources
-func deleteIstio(cs resource.Cluster, h *helm.Helm) error {
+func deleteIstio(cs cluster.Cluster, h *helm.Helm) error {
 	scopes.Framework.Infof("cleaning up resources")
 	if err := h.DeleteChart(helmtest.EgressReleaseName, helmtest.IstioNamespace); err != nil {
 		return fmt.Errorf("failed to delete %s release", helmtest.EgressReleaseName)

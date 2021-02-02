@@ -31,9 +31,9 @@ import (
 	// Import all XDS config types
 	_ "istio.io/istio/pkg/config/xds"
 	"istio.io/istio/pkg/test"
+	"istio.io/istio/pkg/test/framework/components/cluster"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/echo/common"
-	"istio.io/istio/pkg/test/framework/resource"
 	"istio.io/istio/pkg/test/util/retry"
 )
 
@@ -47,10 +47,10 @@ type sidecar struct {
 	nodeID       string
 	podNamespace string
 	podName      string
-	cluster      resource.Cluster
+	cluster      cluster.Cluster
 }
 
-func newSidecar(pod kubeCore.Pod, cluster resource.Cluster) (*sidecar, error) {
+func newSidecar(pod kubeCore.Pod, cluster cluster.Cluster) (*sidecar, error) {
 	sidecar := &sidecar{
 		podNamespace: pod.Namespace,
 		podName:      pod.Name,

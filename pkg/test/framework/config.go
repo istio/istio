@@ -16,11 +16,9 @@ package framework
 
 import (
 	"fmt"
-	"io/ioutil"
-	"os"
-	"path/filepath"
 
 	"istio.io/istio/pkg/test"
+	"istio.io/istio/pkg/test/framework/components/cluster"
 	"istio.io/istio/pkg/test/framework/resource"
 	"istio.io/istio/pkg/test/scopes"
 )
@@ -29,23 +27,23 @@ var _ resource.ConfigManager = &configManager{}
 
 type configManager struct {
 	ctx      resource.Context
-	clusters []resource.Cluster
+	clusters []cluster.Cluster
 	prefix   string
 }
 
-func newConfigManager(ctx resource.Context, clusters []resource.Cluster) resource.ConfigManager {
+func newConfigManager(ctx resource.Context, clusters cluster.Clusters) resource.ConfigManager {
 	if len(clusters) == 0 {
 		clusters = ctx.Clusters()
 	}
 	return &configManager{
 		ctx:      ctx,
-		clusters: clusters,
+		clusters: clusters.OfKind(cluster.Kubernetes),
 	}
 }
 
-func (c *configManager) ApplyYAML(ns string, yamlText ...string) error {
+func (c *configManager) applyYAML(cleanup bool, ns string, yamlText ...string) error {
 	if len(c.prefix) == 0 {
-		return c.WithFilePrefix("apply").ApplyYAML(ns, yamlText...)
+		return c.WithFilePrefix("apply").(*configManager).applyYAML(cleanup, ns, yamlText...)
 	}
 
 	// Convert the content to files.
@@ -54,41 +52,32 @@ func (c *configManager) ApplyYAML(ns string, yamlText ...string) error {
 		return err
 	}
 
-	for _, c := range c.clusters {
-		if err := c.ApplyYAMLFiles(ns, yamlFiles...); err != nil {
-			return fmt.Errorf("failed applying YAML to cluster %s: %v", c.Name(), err)
+	for _, cl := range c.clusters {
+		cl := cl
+		if err := cl.ApplyYAMLFiles(ns, yamlFiles...); err != nil {
+			return fmt.Errorf("failed applying YAML to cluster %s: %v", cl.Name(), err)
+		}
+		if cleanup {
+			c.ctx.Cleanup(func() {
+				if err := cl.DeleteYAMLFiles(ns, yamlFiles...); err != nil {
+					scopes.Framework.Errorf("failed applying YAML from cluster %s: %v", cl.Name(), err)
+				}
+			})
 		}
 	}
 	return nil
 }
 
+func (c *configManager) ApplyYAML(ns string, yamlText ...string) error {
+	return c.applyYAML(true, ns, yamlText...)
+}
+
+func (c *configManager) ApplyYAMLNoCleanup(ns string, yamlText ...string) error {
+	return c.applyYAML(false, ns, yamlText...)
+}
+
 func (c *configManager) ApplyYAMLOrFail(t test.Failer, ns string, yamlText ...string) {
 	err := c.ApplyYAML(ns, yamlText...)
-	if err != nil {
-		t.Fatal(err)
-	}
-}
-
-func (c *configManager) ApplyYAMLInCluster(cls resource.Cluster, ns string, yamlText ...string) error {
-	if len(c.prefix) == 0 {
-		return c.WithFilePrefix("apply").ApplyYAML(ns, yamlText...)
-	}
-
-	// Convert the content to files.
-	yamlFiles, err := c.ctx.WriteYAML(c.prefix, yamlText...)
-	if err != nil {
-		return err
-	}
-
-	if err := cls.ApplyYAMLFiles(ns, yamlFiles...); err != nil {
-		return fmt.Errorf("failed applying YAML to cluster %s: %v", cls.Name(), err)
-	}
-
-	return nil
-}
-
-func (c *configManager) ApplyYAMLInClusterOrFail(t test.Failer, cls resource.Cluster, ns string, yamlText ...string) {
-	err := c.ApplyYAMLInCluster(cls, ns, yamlText...)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -118,40 +107,6 @@ func (c *configManager) DeleteYAMLOrFail(t test.Failer, ns string, yamlText ...s
 	if err != nil {
 		t.Fatal(err)
 	}
-}
-
-func (c *configManager) ApplyYAMLDir(ns string, configDir string) error {
-	return filepath.Walk(configDir, func(path string, info os.FileInfo, err error) error {
-		if info.IsDir() {
-			return nil
-		}
-
-		scopes.Framework.Debugf("Reading config file to: %v", path)
-		contents, readerr := ioutil.ReadFile(path)
-		if readerr != nil {
-			return readerr
-		}
-
-		return c.ApplyYAML(ns, string(contents))
-	})
-}
-
-func (c *configManager) DeleteYAMLDir(ns string, configDir string) error {
-	return filepath.Walk(configDir, func(path string, info os.FileInfo, err error) error {
-		if err != nil {
-			return err
-		}
-		if info.IsDir() {
-			return nil
-		}
-
-		contents, readerr := ioutil.ReadFile(path)
-		if readerr != nil {
-			return readerr
-		}
-
-		return c.DeleteYAML(ns, string(contents))
-	})
 }
 
 func (c *configManager) WithFilePrefix(prefix string) resource.ConfigManager {

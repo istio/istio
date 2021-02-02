@@ -43,6 +43,7 @@ features:
     mirroring:
     ingress:
       loadbalancing:
+      topology:
     ratelimit:
       envoy:
     original-source-ip:
@@ -62,6 +63,8 @@ features:
       remove-from-mesh:
   # features that allow users to secure their services and service mesh.
   security:
+    externalca:
+      reachability:
     peer:
       secure-naming:
       trust-domain-validation:
@@ -115,13 +118,17 @@ features:
       plugin-cert:
   # features which allow extending or deep integrations with istio and other products
   extensibility:
+    wasm:
+      remote-load:
   # features releated to the lifecycle of istio installations
   installation:
     istioctl:
+      install:
       uninstall_revision:
       uninstall_manifest:
       uninstall_purge:
       postinstall_verify:
+      revision_centric_view:
     multicluster:
       multimaster:
       remote:

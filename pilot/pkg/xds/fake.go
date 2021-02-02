@@ -76,6 +76,9 @@ type FakeOptions struct {
 	MeshConfig      *meshconfig.MeshConfig
 	NetworksWatcher mesh.NetworksWatcher
 
+	// Callback to modify the server before it is started
+	DiscoveryServerModifier func(s *DiscoveryServer)
+
 	// Time to debounce
 	// By default, set to 0s to speed up tests
 	DebounceTime time.Duration
@@ -129,7 +132,7 @@ func NewFakeDiscoveryServer(t test.Failer, opts FakeOptions) *FakeDiscoveryServe
 		opts.NetworksWatcher.AddNetworksHandler(func() {
 			s.ConfigUpdate(&model.PushRequest{
 				Full:   true,
-				Reason: []model.TriggerReason{model.GlobalUpdate},
+				Reason: []model.TriggerReason{model.NetworksTrigger},
 			})
 		})
 	}
@@ -226,6 +229,10 @@ func NewFakeDiscoveryServer(t test.Failer, opts FakeOptions) *FakeDiscoveryServe
 		k8s.AppendWorkloadHandler(cg.ServiceEntryRegistry.WorkloadInstanceHandler)
 	}
 	s.WorkloadEntryController = workloadentry.NewController(cg.Store(), "test", keepalive.Infinity)
+
+	if opts.DiscoveryServerModifier != nil {
+		opts.DiscoveryServerModifier(s)
+	}
 
 	// Start in memory gRPC listener
 	buffer := 1024 * 1024

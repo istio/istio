@@ -121,10 +121,6 @@ type Options struct {
 	// XDSUpdater will push changes to the xDS server.
 	XDSUpdater model.XDSUpdater
 
-	// TrustDomain used in SPIFFE identity
-	// Deprecated - MeshConfig should be used.
-	TrustDomain string
-
 	// NetworksWatcher observes changes to the mesh networks config.
 	NetworksWatcher mesh.NetworksWatcher
 
@@ -415,7 +411,12 @@ func (c *Controller) onServiceEvent(curr interface{}, event model.Event) error {
 		delete(c.networkGateways, svcConv.Hostname)
 		c.Unlock()
 	default:
-		if isNodePortGatewayService(svc) {
+		needsFullPush := false
+		// First, process nodePort gateway service, whose externalIPs specified
+		// and loadbalancer gateway service
+		if svcConv.Attributes.ClusterExternalAddresses != nil {
+			needsFullPush = c.extractGatewaysFromService(svcConv)
+		} else if isNodePortGatewayService(svc) {
 			// We need to know which services are using node selectors because during node events,
 			// we have to update all the node port services accordingly.
 			nodeSelector := getNodeSelectorsForService(svc)
@@ -423,10 +424,14 @@ func (c *Controller) onServiceEvent(curr interface{}, event model.Event) error {
 			// only add when it is nodePort gateway service
 			c.nodeSelectorsForServices[svcConv.Hostname] = nodeSelector
 			c.Unlock()
-			c.updateServiceNodePortAddresses(svcConv)
-		} else {
-			c.extractGatewaysFromService(svcConv)
+			needsFullPush = c.updateServiceNodePortAddresses(svcConv)
 		}
+
+		if needsFullPush {
+			// networks are different, we need to update all eds endpoints
+			c.xdsUpdater.ConfigUpdate(&model.PushRequest{Full: true, Reason: []model.TriggerReason{model.NetworksTrigger}})
+		}
+
 		// instance conversion is only required when service is added/updated.
 		instances := kube.ExternalNameServiceInstances(svc, svcConv)
 		c.Lock()
@@ -725,7 +730,7 @@ func (c *Controller) getPodLocality(pod *v1.Pod) string {
 
 	region := getLabelValue(nodeMeta, NodeRegionLabel, NodeRegionLabelGA)
 	zone := getLabelValue(nodeMeta, NodeZoneLabel, NodeZoneLabelGA)
-	subzone := getLabelValue(nodeMeta, label.IstioSubZone, "")
+	subzone := getLabelValue(nodeMeta, label.TopologySubzone.Name, "")
 
 	if region == "" && zone == "" && subzone == "" {
 		return ""
@@ -1021,7 +1026,7 @@ func (c *Controller) onSystemNamespaceEvent(obj interface{}, ev model.Event) err
 			log.Warnf("Namespace watch getting wrong type in event: %T", obj)
 			return nil
 		}
-		nw = ns.Labels[label.IstioNetwork]
+		nw = ns.Labels[label.TopologyNetwork.Name]
 	}
 	c.Lock()
 	oldDefaultNetwork := c.network

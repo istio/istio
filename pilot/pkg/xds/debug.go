@@ -179,6 +179,7 @@ func (s *DiscoveryServer) AddDebugHandlers(mux *http.ServeMux, enableProfiling b
 	s.addDebugHandler(mux, "/debug/authorizationz", "Internal authorization policies", s.Authorizationz)
 	s.addDebugHandler(mux, "/debug/config_dump", "ConfigDump in the form of the Envoy admin config dump API for passed in proxyID", s.ConfigDump)
 	s.addDebugHandler(mux, "/debug/push_status", "Last PushContext Details", s.PushStatusHandler)
+	s.addDebugHandler(mux, "/debug/pushcontext", "Debug support for current push context", s.PushContextHandler)
 
 	s.addDebugHandler(mux, "/debug/inject", "Active inject template", s.InjectTemplateHandler(webhook))
 	s.addDebugHandler(mux, "/debug/mesh", "Active mesh config", s.MeshHandler)
@@ -453,7 +454,6 @@ type AuthorizationDebug struct {
 // Authorizationz dumps the internal authorization policies.
 func (s *DiscoveryServer) Authorizationz(w http.ResponseWriter, req *http.Request) {
 	w.Header().Add("Content-Type", "application/json")
-
 	info := AuthorizationDebug{
 		AuthorizationPolicies: s.globalPushContext().AuthzPolicies,
 	}
@@ -662,6 +662,30 @@ func (s *DiscoveryServer) PushStatusHandler(w http.ResponseWriter, req *http.Req
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		_, _ = fmt.Fprintf(w, "unable to marshal push information: %v", err)
+		return
+	}
+	w.Header().Add("Content-Type", "application/json")
+
+	_, _ = w.Write(out)
+}
+
+// PushContextDebug holds debug information for push context.
+type PushContextDebug struct {
+	AuthorizationPolicies *model.AuthorizationPolicies
+	NetworkGateways       map[string][]*model.Gateway
+}
+
+// PushContextHandler dumps the current PushContext
+func (s *DiscoveryServer) PushContextHandler(w http.ResponseWriter, req *http.Request) {
+	push := PushContextDebug{
+		AuthorizationPolicies: s.globalPushContext().AuthzPolicies,
+		NetworkGateways:       s.globalPushContext().NetworkGateways(),
+	}
+
+	out, err := json.MarshalIndent(push, "", "  ")
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		_, _ = fmt.Fprintf(w, "unable to marshal push context information: %v", err)
 		return
 	}
 	w.Header().Add("Content-Type", "application/json")

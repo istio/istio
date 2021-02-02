@@ -142,9 +142,6 @@ func runMirrorTest(t *testing.T, options mirrorTestOptions) {
 					deployment := tmpl.EvaluateOrFail(ctx,
 						file.AsStringOrFail(ctx, "testdata/traffic-mirroring-template.yaml"), vsc)
 					ctx.Config().ApplyYAMLOrFail(ctx, apps.Namespace.Name(), deployment)
-					ctx.WhenDone(func() error {
-						return ctx.Config().DeleteYAML(apps.Namespace.Name(), deployment)
-					})
 
 					for _, podA := range apps.PodA {
 						podA := podA

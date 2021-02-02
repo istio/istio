@@ -21,6 +21,7 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"strconv"
 	"sync"
 	"time"
 
@@ -38,9 +39,9 @@ const (
 )
 
 // Cache models a Wasm module cache.
-// TODO(bianpengyuan): add metrics to the wasm package.
 type Cache interface {
 	Get(url, checksum string, timeout time.Duration) (string, error)
+	Cleanup()
 }
 
 // LocalFileCache for downloaded Wasm modules. Currently it stores the Wasm module as local file.
@@ -119,32 +120,27 @@ func (c *LocalFileCache) Get(downloadURL, checksum string, timeout time.Duration
 		// If the module is not available locally, download the Wasm module with http fetcher.
 		b, err := c.httpFetcher.Fetch(downloadURL, timeout)
 		if err != nil {
+			wasmRemoteFetchCount.With(resultTag.Value(downloadFailure)).Increment()
 			return "", err
 		}
 
 		// Get sha256 checksum and check if it is the same as provided one.
 		dChecksum := fmt.Sprintf("%x", sha256.Sum256(b))
 		if checksum != "" && dChecksum != checksum {
+			wasmRemoteFetchCount.With(resultTag.Value(checksumMismatch)).Increment()
 			return "", fmt.Errorf("module downloaded from %v has checksum %v, which does not match: %v", downloadURL, dChecksum, checksum)
 		}
+
+		wasmRemoteFetchCount.With(resultTag.Value(fetchSuccess)).Increment()
 
 		// TODO(bianpengyuan): Add sanity check on downloaded file to make sure it is a valid Wasm module.
 
 		key.checksum = dChecksum
-		// Check if the module has already been stored as local file. If so, avoid writing the file again.
-		if modulePath := c.getEntry(key); modulePath != "" {
-			return modulePath, nil
-		}
-
-		// Materialize the Wasm module into a local file. Use checksum as name of the module.
 		f := filepath.Join(c.dir, fmt.Sprintf("%s.wasm", dChecksum))
-		err = ioutil.WriteFile(f, b, 0644)
-		if err != nil {
+
+		if err := c.addEntry(key, b, f); err != nil {
 			return "", err
 		}
-
-		// Add the downloaded module into the cache map.
-		c.addEntry(key, f)
 
 		return f, nil
 	default:
@@ -152,25 +148,48 @@ func (c *LocalFileCache) Get(downloadURL, checksum string, timeout time.Duration
 	}
 }
 
-func (c *LocalFileCache) addEntry(key cacheKey, modulePath string) {
+// Cleanup closes background Wasm module purge routine.
+func (c *LocalFileCache) Cleanup() {
+	close(c.stopChan)
+}
+
+func (c *LocalFileCache) addEntry(key cacheKey, wasmModule []byte, f string) error {
 	c.mux.Lock()
 	defer c.mux.Unlock()
+
+	// Check if the module has already been added. If so, avoid writing the file again.
+	if ce, ok := c.modules[key]; ok {
+		// Update last touched time.
+		ce.last = time.Now()
+		return nil
+	}
+
+	// Materialize the Wasm module into a local file. Use checksum as name of the module.
+	if err := ioutil.WriteFile(f, wasmModule, 0644); err != nil {
+		return err
+	}
+
 	ce := cacheEntry{
-		modulePath: modulePath,
+		modulePath: f,
 		last:       time.Now(),
 	}
 	c.modules[key] = ce
+	wasmCacheEntries.Record(float64(len(c.modules)))
+	return nil
 }
 
 func (c *LocalFileCache) getEntry(key cacheKey) string {
 	modulePath := ""
+	cacheHit := false
 	c.mux.Lock()
 	defer c.mux.Unlock()
 	if ce, ok := c.modules[key]; ok {
 		// Update last touched time.
 		ce.last = time.Now()
 		modulePath = ce.modulePath
+		cacheHit = true
 	}
+	wasmCacheLookupCount.With(hitTag.Value(strconv.FormatBool(cacheHit))).Increment()
 	return modulePath
 }
 
@@ -193,6 +212,7 @@ func (c *LocalFileCache) purge() {
 					}
 				}
 			}
+			wasmCacheEntries.Record(float64(len(c.modules)))
 			c.mux.Unlock()
 		case <-c.stopChan:
 			// Currently this will only happen in test.

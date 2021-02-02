@@ -26,8 +26,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/hashicorp/go-multierror"
-
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
@@ -55,12 +53,10 @@ func TestMultiVersionRevision(t *testing.T) {
 
 			// keep track of applied configurations and clean up after the test
 			configs := make(map[string]string)
-			ctx.WhenDone(func() error {
-				var errs *multierror.Error
+			ctx.ConditionalCleanup(func() {
 				for _, config := range configs {
-					multierror.Append(errs, ctx.Config().DeleteYAML("istio-system", config))
+					ctx.Config().DeleteYAML("istio-system", config)
 				}
-				return errs.ErrorOrNil()
 			})
 
 			revisionedNamespaces := []revisionedNamespace{}
@@ -86,14 +82,9 @@ func TestMultiVersionRevision(t *testing.T) {
 			// create an echo instance in each revisioned namespace, all these echo
 			// instances will be injected with proxies from their respective versions
 			builder := echoboot.NewBuilder(ctx)
-			instanceCount := len(revisionedNamespaces) + 1
-			instances := make([]echo.Instance, instanceCount)
 
-			// add an existing pod from apps to the rotation to avoid an extra deployment
-			instances[instanceCount-1] = apps.PodA[0]
-
-			for i, ns := range revisionedNamespaces {
-				builder = builder.With(&instances[i], echo.Config{
+			for _, ns := range revisionedNamespaces {
+				builder = builder.WithConfig(echo.Config{
 					Service:   fmt.Sprintf("revision-%s", ns.revision),
 					Namespace: ns.namespace,
 					Ports: []echo.Port{
@@ -115,7 +106,10 @@ func TestMultiVersionRevision(t *testing.T) {
 					},
 				})
 			}
-			builder.BuildOrFail(ctx)
+			instances := builder.BuildOrFail(ctx)
+			// add an existing pod from apps to the rotation to avoid an extra deployment
+			instances = append(instances, apps.PodA[0])
+
 			testAllEchoCalls(ctx, instances)
 		})
 }
@@ -156,7 +150,9 @@ func installRevisionOrFail(ctx framework.TestContext, version string, configs ma
 		ctx.Fatalf("could not read installation config: %v", err)
 	}
 	configs[version] = config
-	ctx.Config().ApplyYAMLOrFail(ctx, i.Settings().SystemNamespace, config)
+	if err := ctx.Config().ApplyYAMLNoCleanup(i.Settings().SystemNamespace, config); err != nil {
+		ctx.Fatal(err)
+	}
 }
 
 // ReadInstallFile reads a tar compress installation file from the embedded
@@ -189,13 +185,7 @@ func ReadInstallFile(f string) (string, error) {
 // skipIfK8sVersionUnsupported skips the test if we're running on a k8s version that is not expected to work
 // with any of the revision versions included in the test (i.e. istio 1.7 not supported on k8s 1.15)
 func skipIfK8sVersionUnsupported(ctx framework.TestContext) {
-	ver, err := ctx.Clusters().Default().GetKubernetesVersion()
-	if err != nil {
-		ctx.Fatalf("failed to get Kubernetes version: %v", err)
-	}
-	serverVersion := fmt.Sprintf("%s.%s", ver.Major, ver.Minor)
-	ctx.Name()
-	if serverVersion < "1.16" {
-		ctx.Skipf("k8s version %s not supported for %s (<%s)", serverVersion, ctx.Name(), "1.16")
+	if ctx.Clusters().Default().MinKubeVersion(1, 16) {
+		ctx.Skipf("k8s version not supported for %s (<%s)", ctx.Name(), "1.16")
 	}
 }

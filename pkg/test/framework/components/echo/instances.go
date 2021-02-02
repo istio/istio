@@ -19,19 +19,19 @@ import (
 	"strings"
 
 	"istio.io/istio/pkg/test"
-	"istio.io/istio/pkg/test/framework/resource"
+	"istio.io/istio/pkg/test/framework/components/cluster"
 )
 
 // Instances contains the instances created by the builder with methods for filtering
 type Instances []Instance
 
 // Clusters returns a list of cluster names that the instances are deployed in
-func (i Instances) Clusters() resource.Clusters {
-	clusters := map[string]resource.Cluster{}
+func (i Instances) Clusters() cluster.Clusters {
+	clusters := map[string]cluster.Cluster{}
 	for _, instance := range i {
 		clusters[instance.Config().Cluster.Name()] = instance.Config().Cluster
 	}
-	out := make(resource.Clusters, 0, len(clusters))
+	out := make(cluster.Clusters, 0, len(clusters))
 	for _, c := range clusters {
 		out = append(out, c)
 	}
@@ -71,9 +71,9 @@ func Namespace(namespace string) Matcher {
 }
 
 // InCluster matches instances deployed on the given cluster.
-func InCluster(c resource.Cluster) Matcher {
+func InCluster(c cluster.Cluster) Matcher {
 	return func(i Instance) bool {
-		return c.Index() == i.Config().Cluster.Index()
+		return c.Name() == i.Config().Cluster.Name()
 	}
 }
 

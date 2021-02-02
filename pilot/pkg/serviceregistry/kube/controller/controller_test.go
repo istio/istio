@@ -198,8 +198,8 @@ func TestController_GetPodLocality(t *testing.T) {
 			name: "should return correct az for given address",
 			pods: []*coreV1.Pod{pod1, pod2},
 			nodes: []*coreV1.Node{
-				generateNode("node1", map[string]string{NodeZoneLabel: "zone1", NodeRegionLabel: "region1", label.IstioSubZone: "subzone1"}),
-				generateNode("node2", map[string]string{NodeZoneLabel: "zone2", NodeRegionLabel: "region2", label.IstioSubZone: "subzone2"}),
+				generateNode("node1", map[string]string{NodeZoneLabel: "zone1", NodeRegionLabel: "region1", label.TopologySubzone.Name: "subzone1"}),
+				generateNode("node2", map[string]string{NodeZoneLabel: "zone2", NodeRegionLabel: "region2", label.TopologySubzone.Name: "subzone2"}),
 			},
 			wantAZ: map[*coreV1.Pod]string{
 				pod1: "region1/zone1/subzone1",
@@ -261,8 +261,8 @@ func TestController_GetPodLocality(t *testing.T) {
 			name: "should return correct az if node has only subzone label",
 			pods: []*coreV1.Pod{pod1, pod2},
 			nodes: []*coreV1.Node{
-				generateNode("node1", map[string]string{label.IstioSubZone: "subzone1"}),
-				generateNode("node2", map[string]string{label.IstioSubZone: "subzone2"}),
+				generateNode("node1", map[string]string{label.TopologySubzone.Name: "subzone1"}),
+				generateNode("node2", map[string]string{label.TopologySubzone.Name: "subzone2"}),
 			},
 			wantAZ: map[*coreV1.Pod]string{
 				pod1: "//subzone1",
@@ -273,7 +273,7 @@ func TestController_GetPodLocality(t *testing.T) {
 			name: "should return correct az for given address",
 			pods: []*coreV1.Pod{podOverride},
 			nodes: []*coreV1.Node{
-				generateNode("node1", map[string]string{NodeZoneLabel: "zone1", NodeRegionLabel: "region1", label.IstioSubZone: "subzone1"}),
+				generateNode("node1", map[string]string{NodeZoneLabel: "zone1", NodeRegionLabel: "region1", label.TopologySubzone.Name: "subzone1"}),
 			},
 			wantAZ: map[*coreV1.Pod]string{
 				podOverride: "regionOverride/zoneOverride/subzoneOverride",
@@ -393,8 +393,8 @@ func TestGetProxyServiceInstances(t *testing.T) {
 				Metadata: &model.NodeMetadata{ServiceAccount: "account",
 					ClusterID: clusterID,
 					Labels: map[string]string{
-						"app":         "prod-app",
-						label.TLSMode: "mutual",
+						"app":                      "prod-app",
+						label.SecurityTlsMode.Name: "mutual",
 					}},
 			})
 
@@ -416,11 +416,11 @@ func TestGetProxyServiceInstances(t *testing.T) {
 				ServicePort: &model.Port{Name: "tcp-port", Port: 8080, Protocol: protocol.TCP},
 				Endpoint: &model.IstioEndpoint{
 					Labels: labels.Instance{
-						"app":              "prod-app",
-						label.TLSMode:      "mutual",
-						NodeRegionLabelGA:  "r",
-						NodeZoneLabelGA:    "z",
-						label.IstioCluster: clusterID,
+						"app":                      "prod-app",
+						label.SecurityTlsMode.Name: "mutual",
+						NodeRegionLabelGA:          "r",
+						NodeZoneLabelGA:            "z",
+						label.TopologyCluster.Name: clusterID,
 					},
 					ServiceAccount:  "account",
 					Address:         "1.1.1.1",
@@ -442,7 +442,7 @@ func TestGetProxyServiceInstances(t *testing.T) {
 
 			// Test that we first look up instances by Proxy pod
 
-			node := generateNode("node1", map[string]string{NodeZoneLabel: "zone1", NodeRegionLabel: "region1", label.IstioSubZone: "subzone1"})
+			node := generateNode("node1", map[string]string{NodeZoneLabel: "zone1", NodeRegionLabel: "region1", label.TopologySubzone.Name: "subzone1"})
 			addNodes(t, controller, node)
 
 			// 1. pod without `istio-locality` label, get locality from node label.
@@ -488,11 +488,11 @@ func TestGetProxyServiceInstances(t *testing.T) {
 						ClusterID: clusterID,
 					},
 					Labels: labels.Instance{
-						"app":              "prod-app",
-						NodeRegionLabelGA:  "region1",
-						NodeZoneLabelGA:    "zone1",
-						label.IstioSubZone: "subzone1",
-						label.IstioCluster: clusterID,
+						"app":                      "prod-app",
+						NodeRegionLabelGA:          "region1",
+						NodeZoneLabelGA:            "zone1",
+						label.TopologySubzone.Name: "subzone1",
+						label.TopologyCluster.Name: clusterID,
 					},
 					ServiceAccount: "spiffe://cluster.local/ns/nsa/sa/svcaccount",
 					TLSMode:        model.DisabledTLSModeLabel,
@@ -550,11 +550,11 @@ func TestGetProxyServiceInstances(t *testing.T) {
 						ClusterID: clusterID,
 					},
 					Labels: labels.Instance{
-						"app":              "prod-app",
-						"istio-locality":   "region.zone",
-						NodeRegionLabelGA:  "region",
-						NodeZoneLabelGA:    "zone",
-						label.IstioCluster: clusterID,
+						"app":                      "prod-app",
+						"istio-locality":           "region.zone",
+						NodeRegionLabelGA:          "region",
+						NodeZoneLabelGA:            "zone",
+						label.TopologyCluster.Name: clusterID,
 					},
 					ServiceAccount: "spiffe://cluster.local/ns/nsa/sa/svcaccount",
 					TLSMode:        model.DisabledTLSModeLabel,
@@ -1808,7 +1808,7 @@ func TestEndpointUpdateBeforePodUpdate(t *testing.T) {
 			controller, fx := NewFakeControllerWithOptions(FakeControllerOptions{Mode: mode})
 			// Setup kube caches
 			defer controller.Stop()
-			addNodes(t, controller, generateNode("node1", map[string]string{NodeZoneLabel: "zone1", NodeRegionLabel: "region1", label.IstioSubZone: "subzone1"}))
+			addNodes(t, controller, generateNode("node1", map[string]string{NodeZoneLabel: "zone1", NodeRegionLabel: "region1", label.TopologySubzone.Name: "subzone1"}))
 			// Setup help functions to make the test more explicit
 			addPod := func(name, ip string) {
 				pod := generatePod(ip, name, "nsA", name, "node1", map[string]string{"app": "prod-app"}, map[string]string{})
@@ -1965,7 +1965,7 @@ func TestWorkloadInstanceHandlerMultipleEndpoints(t *testing.T) {
 	pod2 := generatePod("172.0.1.2", "pod2", "nsA", "", "node1", map[string]string{"app": "prod-app"}, map[string]string{})
 	pods := []*coreV1.Pod{pod1, pod2}
 	nodes := []*coreV1.Node{
-		generateNode("node1", map[string]string{NodeZoneLabel: "zone1", NodeRegionLabel: "region1", label.IstioSubZone: "subzone1"}),
+		generateNode("node1", map[string]string{NodeZoneLabel: "zone1", NodeRegionLabel: "region1", label.TopologySubzone.Name: "subzone1"}),
 	}
 	addNodes(t, controller, nodes...)
 	addPods(t, controller, fx, pods...)

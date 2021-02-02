@@ -68,7 +68,7 @@ func init() {
 	monitoring.MustRegister(totalRejectedConfigs)
 }
 
-func recordRejectedConfig(gatewayName string) {
+func RecordRejectedConfig(gatewayName string) {
 	totalRejectedConfigs.With(typeTag.Value("gateway"), nameTag.Value(gatewayName)).Increment()
 }
 
@@ -117,9 +117,9 @@ func MergeGateways(gateways ...config.Config) *MergedGateway {
 				if tlsHostsByPort[s.Port.Number] == nil {
 					tlsHostsByPort[s.Port.Number] = map[string]struct{}{}
 				}
-				if duplicateHosts := checkDuplicates(s.Hosts, tlsHostsByPort[s.Port.Number]); len(duplicateHosts) != 0 {
+				if duplicateHosts := CheckDuplicates(s.Hosts, tlsHostsByPort[s.Port.Number]); len(duplicateHosts) != 0 {
 					log.Debugf("skipping server on gateway %s, duplicate host names: %v", gatewayName, duplicateHosts)
-					recordRejectedConfig(gatewayName)
+					RecordRejectedConfig(gatewayName)
 					continue
 				}
 			}
@@ -136,14 +136,14 @@ func MergeGateways(gateways ...config.Config) *MergedGateway {
 					if !canMergeProtocols(currentProto, p) {
 						log.Debugf("skipping server on gateway %s port %s.%d.%s: conflict with existing server %s.%d.%s",
 							gatewayConfig.Name, s.Port.Name, s.Port.Number, s.Port.Protocol, server[0].Port.Name, server[0].Port.Number, server[0].Port.Protocol)
-						recordRejectedConfig(gatewayName)
+						RecordRejectedConfig(gatewayName)
 						continue
 					}
 					routeName := gatewayRDSRouteName(s, gatewayConfig)
 					if routeName == "" {
 						log.Debugf("skipping server on gateway %s port %s.%d.%s: could not build RDS name from server",
 							gatewayConfig.Name, s.Port.Name, s.Port.Number, s.Port.Protocol)
-						recordRejectedConfig(gatewayName)
+						RecordRejectedConfig(gatewayName)
 						continue
 					}
 					serversByRouteName[routeName] = append(serversByRouteName[routeName], s)
@@ -156,7 +156,7 @@ func MergeGateways(gateways ...config.Config) *MergedGateway {
 						if routeName == "" {
 							log.Debugf("skipping server on gateway %s port %s.%d.%s: could not build RDS name from server",
 								gatewayConfig.Name, s.Port.Name, s.Port.Number, s.Port.Protocol)
-							recordRejectedConfig(gatewayName)
+							RecordRejectedConfig(gatewayName)
 							continue
 						}
 
@@ -169,7 +169,7 @@ func MergeGateways(gateways ...config.Config) *MergedGateway {
 						if _, exists := serversByRouteName[routeName]; exists {
 							log.Infof("skipping server on gateway %s port %s.%d.%s: non unique port name for HTTPS port",
 								gatewayConfig.Name, s.Port.Name, s.Port.Number, s.Port.Protocol)
-							recordRejectedConfig(gatewayName)
+							RecordRejectedConfig(gatewayName)
 							continue
 						}
 						serversByRouteName[routeName] = []*networking.Server{s}
@@ -248,9 +248,9 @@ func GetSNIHostsForServer(server *networking.Server) []string {
 	return sniHostsSlice
 }
 
-// checkDuplicates returns all of the hosts provided that are already known
+// CheckDuplicates returns all of the hosts provided that are already known
 // If there were no duplicates, all hosts are added to the known hosts.
-func checkDuplicates(hosts []string, knownHosts map[string]struct{}) []string {
+func CheckDuplicates(hosts []string, knownHosts map[string]struct{}) []string {
 	var duplicates []string
 	for _, h := range hosts {
 		if _, found := knownHosts[h]; found {

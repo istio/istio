@@ -38,6 +38,7 @@ type precedenceSource struct {
 	eventStateMu     sync.Mutex
 	resourcePriority map[string]int
 	expectedCounts   map[collection.Name]int
+	countMu          sync.Mutex
 }
 
 type precedenceSourceInput struct {
@@ -78,11 +79,13 @@ func (ph *precedenceHandler) Handle(e event.Event) {
 // For each collection, we want to only send this once, after all upstream sources have sent theirs.
 func (ph *precedenceHandler) handleFullSync(e event.Event) {
 	col := e.Source.Name()
+	ph.src.countMu.Lock()
 	ph.src.expectedCounts[col]--
-	if ph.src.expectedCounts[col] > 0 {
-		return
+	shallHandle := ph.src.expectedCounts[col] <= 0
+	ph.src.countMu.Unlock()
+	if shallHandle {
+		ph.src.handler.Handle(e)
 	}
-	ph.src.handler.Handle(e)
 }
 
 // handleEvent handles non fullsync events.

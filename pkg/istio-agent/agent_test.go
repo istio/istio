@@ -51,7 +51,6 @@ import (
 	camock "istio.io/istio/security/pkg/nodeagent/caclient/providers/mock"
 	"istio.io/istio/security/pkg/nodeagent/test/mock"
 	pkiutil "istio.io/istio/security/pkg/pki/util"
-	"istio.io/istio/security/pkg/server/ca/authenticate"
 	"istio.io/istio/tests/util/leak"
 	"istio.io/pkg/log"
 )
@@ -410,7 +409,7 @@ func (a *AgentTest) Check(expectedSDS ...string) map[string]*xds.AdsTest {
 	for _, res := range xdstest.ExtractSecretResources(a.t, resp.Resources) {
 		sds := xds.NewSdsTest(a.t, setupDownstreamConnectionUDS(a.t, a.Security.WorkloadUDSPath)).
 			WithMetadata(meta).
-			WithTimeout(time.Second * 10) // CSR can be pretty slow with race detection enabled
+			WithTimeout(time.Second * 20) // CSR can be extremely slow with race detection enabled due to 2048 RSA
 		sds.RequestResponseAck(&discovery.DiscoveryRequest{ResourceNames: []string{res}})
 		sdsStreams[res] = sds
 		gotKeys = append(gotKeys, res)
@@ -522,7 +521,7 @@ func setupCa(t *testing.T, auth *security.FakeAuthenticator) *mock.CAServer {
 	}
 	t.Cleanup(s.GRPCServer.Stop)
 
-	s.Authenticators = []authenticate.Authenticator{auth}
+	s.Authenticators = []security.Authenticator{auth}
 
 	return s
 }
@@ -593,7 +592,7 @@ spec:
     tls:
       mode: ISTIO_MUTUAL
 `})
-	ds.Discovery.Authenticators = []authenticate.Authenticator{auth}
+	ds.Discovery.Authenticators = []security.Authenticator{auth}
 	grpcServer := grpc.NewServer(opt)
 	ds.Discovery.Register(grpcServer)
 	go func() {

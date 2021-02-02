@@ -327,7 +327,6 @@ func TestServiceIndex(t *testing.T) {
 	g.Expect(si.instancesByPort).To(HaveLen(5))
 	g.Expect(si.ClusterVIPs).To(HaveLen(5))
 	g.Expect(si.HostnameAndNamespace).To(HaveLen(5))
-	g.Expect(si.Hostname).To(HaveLen(5))
 
 	// Should just have "namespace"
 	g.Expect(si.exportedToNamespace).To(HaveLen(1))
@@ -338,6 +337,139 @@ func TestServiceIndex(t *testing.T) {
 	// Should just have "test1"
 	g.Expect(si.privateByNamespace).To(HaveLen(1))
 	g.Expect(serviceNames(si.privateByNamespace["test1"])).To(Equal([]string{"svc-private"}))
+}
+
+func TestIsServiceVisible(t *testing.T) {
+	targetNamespace := "foo"
+	cases := []struct {
+		name        string
+		pushContext *PushContext
+		service     *Service
+		expect      bool
+	}{
+		{
+			name: "service whose namespace is foo has no exportTo map with global private",
+			pushContext: &PushContext{
+				exportToDefaults: exportToDefaults{
+					service: map[visibility.Instance]bool{
+						visibility.Private: true,
+					},
+				},
+			},
+			service: &Service{
+				Attributes: ServiceAttributes{
+					Namespace: "foo",
+				},
+			},
+			expect: true,
+		},
+		{
+			name: "service whose namespace is bar has no exportTo map with global private",
+			pushContext: &PushContext{
+				exportToDefaults: exportToDefaults{
+					service: map[visibility.Instance]bool{
+						visibility.Private: true,
+					},
+				},
+			},
+			service: &Service{
+				Attributes: ServiceAttributes{
+					Namespace: "bar",
+				},
+			},
+			expect: false,
+		},
+		{
+			name: "service whose namespace is bar has no exportTo map with global public",
+			pushContext: &PushContext{
+				exportToDefaults: exportToDefaults{
+					service: map[visibility.Instance]bool{
+						visibility.Public: true,
+					},
+				},
+			},
+			service: &Service{
+				Attributes: ServiceAttributes{
+					Namespace: "bar",
+				},
+			},
+			expect: true,
+		},
+		{
+			name:        "service whose namespace is foo has exportTo map with private",
+			pushContext: &PushContext{},
+			service: &Service{
+				Attributes: ServiceAttributes{
+					Namespace: "foo",
+					ExportTo: map[visibility.Instance]bool{
+						visibility.Private: true,
+					},
+				},
+			},
+			expect: true,
+		},
+		{
+			name:        "service whose namespace is bar has exportTo map with private",
+			pushContext: &PushContext{},
+			service: &Service{
+				Attributes: ServiceAttributes{
+					Namespace: "bar",
+					ExportTo: map[visibility.Instance]bool{
+						visibility.Private: true,
+					},
+				},
+			},
+			expect: false,
+		},
+		{
+			name:        "service whose namespace is bar has exportTo map with public",
+			pushContext: &PushContext{},
+			service: &Service{
+				Attributes: ServiceAttributes{
+					Namespace: "bar",
+					ExportTo: map[visibility.Instance]bool{
+						visibility.Public: true,
+					},
+				},
+			},
+			expect: true,
+		},
+		{
+			name:        "service whose namespace is bar has exportTo map with specific namespace foo",
+			pushContext: &PushContext{},
+			service: &Service{
+				Attributes: ServiceAttributes{
+					Namespace: "bar",
+					ExportTo: map[visibility.Instance]bool{
+						visibility.Instance("foo"): true,
+					},
+				},
+			},
+			expect: true,
+		},
+		{
+			name:        "service whose namespace is bar has exportTo map with specific namespace baz",
+			pushContext: &PushContext{},
+			service: &Service{
+				Attributes: ServiceAttributes{
+					Namespace: "bar",
+					ExportTo: map[visibility.Instance]bool{
+						visibility.Instance("baz"): true,
+					},
+				},
+			},
+			expect: false,
+		},
+	}
+
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			isVisible := c.pushContext.IsServiceVisible(c.service, targetNamespace)
+
+			g := NewWithT(t)
+			g.Expect(isVisible).To(Equal(c.expect))
+		})
+	}
 }
 
 func serviceNames(svcs []*Service) []string {
@@ -1003,6 +1135,104 @@ func TestVirtualServiceWithExportTo(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestInitVirtualService(t *testing.T) {
+	ps := NewPushContext()
+	env := &Environment{Watcher: mesh.NewFixedWatcher(&meshconfig.MeshConfig{RootNamespace: "istio-system"})}
+	ps.Mesh = env.Mesh()
+	ps.ServiceDiscovery = env
+	configStore := NewFakeStore()
+	gatewayName := "ns1/gateway"
+
+	vs1 := config.Config{
+		Meta: config.Meta{
+			GroupVersionKind: collections.IstioNetworkingV1Alpha3Virtualservices.Resource().GroupVersionKind(),
+			Name:             "vs1",
+			Namespace:        "ns1",
+		},
+		Spec: &networking.VirtualService{
+			Hosts:    []string{"*.org"},
+			Gateways: []string{"gateway"},
+			Http: []*networking.HTTPRoute{
+				{
+					Match: []*networking.HTTPMatchRequest{
+						{
+							Uri: &networking.StringMatch{
+								MatchType: &networking.StringMatch_Prefix{Prefix: "/productpage"},
+							},
+						},
+						{
+							Uri: &networking.StringMatch{
+								MatchType: &networking.StringMatch_Exact{Exact: "/login"},
+							},
+						},
+					},
+					Delegate: &networking.Delegate{
+						Name:      "vs2",
+						Namespace: "ns2",
+					},
+				},
+			},
+		},
+	}
+	vs2 := config.Config{
+		Meta: config.Meta{
+			GroupVersionKind: collections.IstioNetworkingV1Alpha3Virtualservices.Resource().GroupVersionKind(),
+			Name:             "vs2",
+			Namespace:        "ns2",
+		},
+		Spec: &networking.VirtualService{
+			Hosts:    []string{},
+			Gateways: []string{gatewayName},
+			Http: []*networking.HTTPRoute{
+				{
+					Route: []*networking.HTTPRouteDestination{
+						{
+							Destination: &networking.Destination{
+								Host: "test",
+								Port: &networking.PortSelector{
+									Number: 80,
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	for _, c := range []config.Config{vs1, vs2} {
+		if _, err := configStore.Create(c); err != nil {
+			t.Fatalf("could not create %v", c.Name)
+		}
+	}
+
+	store := istioConfigStore{ConfigStore: configStore}
+	env.IstioConfigStore = &store
+	ps.initDefaultExportMaps()
+	if err := ps.initVirtualServices(env); err != nil {
+		t.Fatalf("init virtual services failed: %v", err)
+	}
+
+	t.Run("resolve shortname", func(t *testing.T) {
+		rules := ps.VirtualServicesForGateway(&Proxy{ConfigNamespace: "ns1"}, gatewayName)
+		if len(rules) != 1 {
+			t.Fatalf("wanted 1 virtualservice for gateway %s, actually got %d", gatewayName, len(rules))
+		}
+		gotHTTPHosts := make([]string, 0)
+		for _, r := range rules {
+			vs := r.Spec.(*networking.VirtualService)
+			for _, route := range vs.GetHttp() {
+				for _, dst := range route.Route {
+					gotHTTPHosts = append(gotHTTPHosts, dst.Destination.Host)
+				}
+			}
+		}
+		if !reflect.DeepEqual(gotHTTPHosts, []string{"test.ns2"}) {
+			t.Errorf("got %+v", gotHTTPHosts)
+		}
+	})
 }
 
 func TestServiceWithExportTo(t *testing.T) {

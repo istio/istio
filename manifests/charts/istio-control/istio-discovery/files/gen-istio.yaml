@@ -167,12 +167,12 @@ data:
             "address": ""
           }
         },
-        "trustDomain": "",
         "useMCP": false
       },
       "revision": "",
       "sidecarInjectorWebhook": {
         "alwaysInjectSelector": [],
+        "defaultTemplates": [],
         "enableNamespacesByDefault": false,
         "injectedAnnotations": {},
         "neverInjectSelector": [],
@@ -181,7 +181,8 @@ data:
           "enabled": true
         },
         "rewriteAppHTTPProbe": true,
-        "templates": {}
+        "templates": {},
+        "useLegacySelectors": false
       }
     }
 
@@ -192,7 +193,6 @@ data:
   # to fine tune it or use it with kube-inject.
   config: |-
     # defaultTemplates defines the default template to use for pods that do not explicitly specify a template
-    # NOTE: this currently only allows a single element
     defaultTemplates: [sidecar]
     policy: enabled
     alwaysInjectSelector:
@@ -200,6 +200,7 @@ data:
     neverInjectSelector:
       []
     injectedAnnotations:
+    template: "{{ Template_Version_And_Istio_Version_Mismatched_Check_Installation }}"
     templates:
       sidecar: |
         {{- $containers := list }}
@@ -284,7 +285,7 @@ data:
             - "--run-validation"
             - "--skip-rule-apply"
             {{ end -}}
-            imagePullPolicy: "{{ valueOrDefault .Values.global.imagePullPolicy `Always` }}"
+            {{with .Values.global.imagePullPolicy }}imagePullPolicy: "{{.}}"{{end}}
           {{- if .ProxyConfig.ProxyMetadata }}
             env:
             {{- range $key, $value := .ProxyConfig.ProxyMetadata }}
@@ -353,7 +354,7 @@ data:
           {{- else }}
             image: "{{ .Values.global.hub }}/{{ .Values.global.proxy_init.image }}:{{ .Values.global.tag }}"
           {{- end }}
-            imagePullPolicy: "{{ valueOrDefault .Values.global.imagePullPolicy `Always` }}"
+            {{with .Values.global.imagePullPolicy }}imagePullPolicy: "{{.}}"{{end}}
             resources: {}
             securityContext:
               allowPrivilegeEscalation: true
@@ -517,7 +518,7 @@ data:
             - name: {{ $key }}
               value: "{{ $value }}"
             {{- end }}
-            imagePullPolicy: "{{ valueOrDefault .Values.global.imagePullPolicy `Always` }}"
+            {{with .Values.global.imagePullPolicy }}imagePullPolicy: "{{.}}"{{end}}
             {{ if ne (annotation .ObjectMeta `status.sidecar.istio.io/port` .Values.global.proxy.statusPort) `0` }}
             readinessProbe:
               httpGet:
@@ -912,6 +913,11 @@ spec:
       name: cpu
       targetAverageUtilization: 80
 ---
+# Source: istio-discovery/templates/revision-tags.yaml
+# Adapted from istio-discovery/templates/mutatingwebhook.yaml
+# Removed paths for legacy and default selectors since a revision tag
+# is inherently created from a specific revision
+---
 # Source: istio-discovery/templates/telemetryv2_1.10.yaml
 # Note: metadata exchange filter is wasm enabled only in sidecars.
 apiVersion: networking.istio.io/v1alpha3
@@ -933,7 +939,7 @@ spec:
         listener:
           filterChain:
             filter:
-              name: "envoy.http_connection_manager"
+              name: "envoy.filters.network.http_connection_manager"
       patch:
         operation: INSERT_BEFORE
         value:
@@ -960,7 +966,7 @@ spec:
         listener:
           filterChain:
             filter:
-              name: "envoy.http_connection_manager"
+              name: "envoy.filters.network.http_connection_manager"
       patch:
         operation: INSERT_BEFORE
         value:
@@ -987,7 +993,7 @@ spec:
         listener:
           filterChain:
             filter:
-              name: "envoy.http_connection_manager"
+              name: "envoy.filters.network.http_connection_manager"
       patch:
         operation: INSERT_BEFORE
         value:
@@ -1084,7 +1090,7 @@ spec:
         listener:
           filterChain:
             filter:
-              name: "envoy.http_connection_manager"
+              name: "envoy.filters.network.http_connection_manager"
               subFilter:
                 name: "envoy.filters.http.router"
       patch:
@@ -1126,7 +1132,7 @@ spec:
         listener:
           filterChain:
             filter:
-              name: "envoy.http_connection_manager"
+              name: "envoy.filters.network.http_connection_manager"
               subFilter:
                 name: "envoy.filters.http.router"
       patch:
@@ -1168,7 +1174,7 @@ spec:
         listener:
           filterChain:
             filter:
-              name: "envoy.http_connection_manager"
+              name: "envoy.filters.network.http_connection_manager"
               subFilter:
                 name: "envoy.filters.http.router"
       patch:
@@ -1223,7 +1229,7 @@ spec:
         listener:
           filterChain:
             filter:
-              name: "envoy.tcp_proxy"
+              name: "envoy.filters.network.tcp_proxy"
       patch:
         operation: INSERT_BEFORE
         value:
@@ -1263,7 +1269,7 @@ spec:
         listener:
           filterChain:
             filter:
-              name: "envoy.tcp_proxy"
+              name: "envoy.filters.network.tcp_proxy"
       patch:
         operation: INSERT_BEFORE
         value:
@@ -1303,7 +1309,7 @@ spec:
         listener:
           filterChain:
             filter:
-              name: "envoy.tcp_proxy"
+              name: "envoy.filters.network.tcp_proxy"
       patch:
         operation: INSERT_BEFORE
         value:
@@ -1357,7 +1363,7 @@ spec:
         listener:
           filterChain:
             filter:
-              name: "envoy.http_connection_manager"
+              name: "envoy.filters.network.http_connection_manager"
       patch:
         operation: INSERT_BEFORE
         value:
@@ -1384,7 +1390,7 @@ spec:
         listener:
           filterChain:
             filter:
-              name: "envoy.http_connection_manager"
+              name: "envoy.filters.network.http_connection_manager"
       patch:
         operation: INSERT_BEFORE
         value:
@@ -1411,7 +1417,7 @@ spec:
         listener:
           filterChain:
             filter:
-              name: "envoy.http_connection_manager"
+              name: "envoy.filters.network.http_connection_manager"
       patch:
         operation: INSERT_BEFORE
         value:
@@ -1508,7 +1514,7 @@ spec:
         listener:
           filterChain:
             filter:
-              name: "envoy.http_connection_manager"
+              name: "envoy.filters.network.http_connection_manager"
               subFilter:
                 name: "envoy.filters.http.router"
       patch:
@@ -1540,7 +1546,7 @@ spec:
         listener:
           filterChain:
             filter:
-              name: "envoy.http_connection_manager"
+              name: "envoy.filters.network.http_connection_manager"
               subFilter:
                 name: "envoy.filters.http.router"
       patch:
@@ -1572,7 +1578,7 @@ spec:
         listener:
           filterChain:
             filter:
-              name: "envoy.http_connection_manager"
+              name: "envoy.filters.network.http_connection_manager"
               subFilter:
                 name: "envoy.filters.http.router"
       patch:
@@ -1617,7 +1623,7 @@ spec:
         listener:
           filterChain:
             filter:
-              name: "envoy.tcp_proxy"
+              name: "envoy.filters.network.tcp_proxy"
       patch:
         operation: INSERT_BEFORE
         value:
@@ -1647,7 +1653,7 @@ spec:
         listener:
           filterChain:
             filter:
-              name: "envoy.tcp_proxy"
+              name: "envoy.filters.network.tcp_proxy"
       patch:
         operation: INSERT_BEFORE
         value:
@@ -1677,7 +1683,7 @@ spec:
         listener:
           filterChain:
             filter:
-              name: "envoy.tcp_proxy"
+              name: "envoy.filters.network.tcp_proxy"
       patch:
         operation: INSERT_BEFORE
         value:
@@ -1721,7 +1727,7 @@ spec:
         listener:
           filterChain:
             filter:
-              name: "envoy.http_connection_manager"
+              name: "envoy.filters.network.http_connection_manager"
       patch:
         operation: INSERT_BEFORE
         value:
@@ -1748,7 +1754,7 @@ spec:
         listener:
           filterChain:
             filter:
-              name: "envoy.http_connection_manager"
+              name: "envoy.filters.network.http_connection_manager"
       patch:
         operation: INSERT_BEFORE
         value:
@@ -1775,7 +1781,7 @@ spec:
         listener:
           filterChain:
             filter:
-              name: "envoy.http_connection_manager"
+              name: "envoy.filters.network.http_connection_manager"
       patch:
         operation: INSERT_BEFORE
         value:
@@ -1872,7 +1878,7 @@ spec:
         listener:
           filterChain:
             filter:
-              name: "envoy.http_connection_manager"
+              name: "envoy.filters.network.http_connection_manager"
               subFilter:
                 name: "envoy.filters.http.router"
       patch:
@@ -1914,7 +1920,7 @@ spec:
         listener:
           filterChain:
             filter:
-              name: "envoy.http_connection_manager"
+              name: "envoy.filters.network.http_connection_manager"
               subFilter:
                 name: "envoy.filters.http.router"
       patch:
@@ -1956,7 +1962,7 @@ spec:
         listener:
           filterChain:
             filter:
-              name: "envoy.http_connection_manager"
+              name: "envoy.filters.network.http_connection_manager"
               subFilter:
                 name: "envoy.filters.http.router"
       patch:
@@ -2011,7 +2017,7 @@ spec:
         listener:
           filterChain:
             filter:
-              name: "envoy.tcp_proxy"
+              name: "envoy.filters.network.tcp_proxy"
       patch:
         operation: INSERT_BEFORE
         value:
@@ -2051,7 +2057,7 @@ spec:
         listener:
           filterChain:
             filter:
-              name: "envoy.tcp_proxy"
+              name: "envoy.filters.network.tcp_proxy"
       patch:
         operation: INSERT_BEFORE
         value:
@@ -2091,7 +2097,7 @@ spec:
         listener:
           filterChain:
             filter:
-              name: "envoy.tcp_proxy"
+              name: "envoy.filters.network.tcp_proxy"
       patch:
         operation: INSERT_BEFORE
         value:
@@ -2125,12 +2131,10 @@ spec:
                       inline_string: "envoy.wasm.stats"
 ---
 # Source: istio-discovery/templates/mutatingwebhook.yaml
-# Installed for each revision - not installed for cluster resources ( cluster roles, bindings, crds)
 apiVersion: admissionregistration.k8s.io/v1beta1
 kind: MutatingWebhookConfiguration
 metadata:
   name: istio-sidecar-injector
-
   labels:
     istio.io/rev: default
     install.operator.istio.io/owning-resource: unknown
@@ -2138,27 +2142,59 @@ metadata:
     app: sidecar-injector
     release: istio
 webhooks:
-  - name: sidecar-injector.istio.io
-    clientConfig:
-      service:
-        name: istiod
-        namespace: istio-system
-        path: "/inject"
-      caBundle: ""
-    sideEffects: None
-    rules:
-      - operations: [ "CREATE" ]
-        apiGroups: [""]
-        apiVersions: ["v1"]
-        resources: ["pods"]
-    failurePolicy: Fail
-    admissionReviewVersions: ["v1beta1", "v1"]
-    namespaceSelector:
-      matchLabels:
-        istio-injection: enabled
-    objectSelector:
-      matchExpressions:
-      - key: "sidecar.istio.io/inject"
-        operator: NotIn
-        values:
-        - "false"
+- name: namespace.sidecar-injector.istio.io
+  clientConfig:
+    service:
+      name: istiod
+      namespace: istio-system
+      path: "/inject"
+    caBundle: ""
+  sideEffects: None
+  rules:
+  - operations: [ "CREATE" ]
+    apiGroups: [""]
+    apiVersions: ["v1"]
+    resources: ["pods"]
+  failurePolicy: Fail
+  admissionReviewVersions: ["v1beta1", "v1"]
+  namespaceSelector:
+    matchExpressions:
+    - key: istio-injection
+      operator: In
+      values:
+      - enabled
+  objectSelector:
+    matchExpressions:
+    - key: sidecar.istio.io/inject
+      operator: NotIn
+      values:
+      - "false"
+- name: object.sidecar-injector.istio.io
+  clientConfig:
+    service:
+      name: istiod
+      namespace: istio-system
+      path: "/inject"
+    caBundle: ""
+  sideEffects: None
+  rules:
+  - operations: [ "CREATE" ]
+    apiGroups: [""]
+    apiVersions: ["v1"]
+    resources: ["pods"]
+  failurePolicy: Fail
+  admissionReviewVersions: ["v1beta1", "v1"]
+  namespaceSelector:
+    matchExpressions:
+    - key: istio-injection
+      operator: DoesNotExist
+    - key: istio.io/rev
+      operator: DoesNotExist
+  objectSelector:
+    matchExpressions:
+    - key: sidecar.istio.io/inject
+      operator: In
+      values:
+      - "true"
+    - key: istio.io/rev
+      operator: DoesNotExist

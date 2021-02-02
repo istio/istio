@@ -221,7 +221,132 @@ func TestValueToK8s(t *testing.T) {
 		wantErr   string
 	}{
 		{
-			desc: "pilot k8s setting with values",
+			desc: "pilot env k8s setting with values",
+			inIOPSpec: `
+spec:
+  components:
+    pilot:
+      k8s:
+        nodeSelector:
+          master: "true"
+        env:
+        - name: EXTERNAL_CA
+          value: ISTIOD_RA_KUBERNETES_API
+        - name: K8S_SIGNER
+          value: kubernetes.io/legacy-unknown
+  values:
+    pilot:
+      enabled: true
+      rollingMaxSurge: 100%
+      rollingMaxUnavailable: 25%
+      resources:
+        requests:
+          cpu: 1000m
+          memory: 1G
+      replicaCount: 1
+      nodeSelector:
+        kubernetes.io/os: linux
+      tolerations:
+      - key: dedicated
+        operator: Exists
+        effect: NoSchedule
+      - key: CriticalAddonsOnly
+        operator: Exists
+      autoscaleEnabled: true
+      autoscaleMax: 3
+      autoscaleMin: 1
+      cpu:
+        targetAverageUtilization: 80
+      traceSampling: 1.0
+      image: pilot
+      env:
+        GODEBUG: gctrace=1
+    global:
+      hub: docker.io/istio
+      tag: 1.2.3
+      istioNamespace: istio-system
+      proxy:
+        readinessInitialDelaySeconds: 2
+`,
+			want: `
+spec:
+  components:
+    pilot:
+      k8s:
+        env:
+        - name: EXTERNAL_CA
+          value: ISTIOD_RA_KUBERNETES_API
+        - name: K8S_SIGNER
+          value: kubernetes.io/legacy-unknown
+        - name: GODEBUG
+          value: gctrace=1
+        hpaSpec:
+          minReplicas: 1
+          maxReplicas: 3
+          scaleTargetRef:
+            apiVersion: apps/v1
+            kind: Deployment
+            name: istiod
+          metrics:
+          - type: Resource
+            resource:
+              name: cpu
+              targetAverageUtilization: 80
+        nodeSelector:
+          master: "true"
+          kubernetes.io/os: linux
+        replicaCount: 1
+        resources:
+          requests:
+            cpu: 1000m
+            memory: 1G
+        strategy:
+          rollingUpdate:
+            maxSurge: 100%
+            maxUnavailable: 25%
+        tolerations:
+        - effect: NoSchedule
+          key: dedicated
+          operator: Exists
+        - key: CriticalAddonsOnly
+          operator: Exists
+  values:
+    global:
+      hub: docker.io/istio
+      tag: 1.2.3
+      istioNamespace: istio-system
+      proxy:
+        readinessInitialDelaySeconds: 2
+    pilot:
+      enabled: true
+      rollingMaxSurge: 100%
+      rollingMaxUnavailable: 25%
+      resources:
+        requests:
+          cpu: 1000m
+          memory: 1G
+      replicaCount: 1
+      nodeSelector:
+        kubernetes.io/os: linux
+      tolerations:
+      - key: dedicated
+        operator: Exists
+        effect: NoSchedule
+      - key: CriticalAddonsOnly
+        operator: Exists
+      autoscaleEnabled: true
+      autoscaleMax: 3
+      autoscaleMin: 1
+      cpu:
+        targetAverageUtilization: 80
+      traceSampling: 1.0
+      image: pilot
+      env:
+        GODEBUG: gctrace=1
+`,
+		},
+		{
+			desc: "pilot no env k8s setting with values",
 			inIOPSpec: `
 spec:
   components:
@@ -512,6 +637,48 @@ spec:
       hub: docker.io/istio
       tag: 1.2.3
       istioNamespace: istio-system
+`,
+		},
+		{
+			desc: "pilot env k8s setting with non-empty hpa values",
+			inIOPSpec: `
+spec:
+  revision: canary
+  components:
+    pilot:
+      enabled: true
+  values:
+    pilot:
+      autoscaleMin: 1
+      autoscaleMax: 3
+      cpu:
+        targetAverageUtilization: 80
+`,
+			want: `
+spec:
+  revision: canary
+  components:
+    pilot:
+      enabled: true
+      k8s:
+        hpaSpec:
+          maxReplicas: 3
+          minReplicas: 1
+          scaleTargetRef:
+            apiVersion: apps/v1
+            kind: Deployment
+            name: istiod-canary
+          metrics:
+          - type: Resource
+            resource:
+              name: cpu
+              targetAverageUtilization: 80
+  values:
+    pilot:
+      autoscaleMin: 1
+      autoscaleMax: 3
+      cpu:
+        targetAverageUtilization: 80
 `,
 		},
 	}

@@ -15,6 +15,8 @@
 package kube
 
 import (
+	"istio.io/istio/pkg/test/framework/components/cluster"
+	"istio.io/istio/pkg/test/framework/components/cluster/clusterboot"
 	"istio.io/istio/pkg/test/framework/resource"
 	"istio.io/istio/pkg/test/scopes"
 )
@@ -24,7 +26,7 @@ import (
 type Environment struct {
 	id       resource.ID
 	ctx      resource.Context
-	clusters []*Cluster
+	clusters []cluster.Cluster
 	s        *Settings
 }
 
@@ -33,30 +35,21 @@ var _ resource.Environment = &Environment{}
 // New returns a new Kubernetes environment
 func New(ctx resource.Context, s *Settings) (resource.Environment, error) {
 	scopes.Framework.Infof("Test Framework Kubernetes environment Settings:\n%s", s)
-
 	e := &Environment{
 		ctx: ctx,
 		s:   s,
 	}
 	e.id = ctx.TrackResource(e)
 
-	clients, err := s.NewClients()
+	configs, err := s.clusterConfigs()
 	if err != nil {
 		return nil, err
 	}
-
-	e.clusters = make([]*Cluster, len(clients))
-	for i, client := range clients {
-		clusterIndex := resource.ClusterIndex(i)
-		e.clusters[i] = &Cluster{
-			networkName:    s.networkTopology[clusterIndex],
-			filename:       s.KubeConfig[i],
-			index:          clusterIndex,
-			ExtendedClient: client,
-			clusters:       e.clusters,
-			settings:       s,
-		}
+	clusters, err := clusterboot.NewFactory().With(configs...).Build()
+	if err != nil {
+		return nil, err
 	}
+	e.clusters = clusters
 
 	return e, nil
 }
@@ -74,19 +67,17 @@ func (e *Environment) IsMultinetwork() bool {
 	return len(e.ClustersByNetwork()) > 1
 }
 
-func (e *Environment) Clusters() resource.Clusters {
-	out := make([]resource.Cluster, 0, len(e.clusters))
-	for _, c := range e.clusters {
-		out = append(out, c)
-	}
+func (e *Environment) Clusters() cluster.Clusters {
+	out := make([]cluster.Cluster, 0, len(e.clusters))
+	out = append(out, e.clusters...)
 	return out
 }
 
 // ClustersByNetwork returns an inverse mapping of the network topolgoy to a slice of clusters in a given network.
-func (e *Environment) ClustersByNetwork() map[string][]*Cluster {
-	out := make(map[string][]*Cluster)
-	for clusterIdx, networkName := range e.s.networkTopology {
-		out[networkName] = append(out[networkName], e.clusters[clusterIdx])
+func (e *Environment) ClustersByNetwork() map[string][]cluster.Cluster {
+	out := make(map[string][]cluster.Cluster)
+	for _, c := range e.clusters {
+		out[c.NetworkName()] = append(out[c.NetworkName()], c)
 	}
 	return out
 }
