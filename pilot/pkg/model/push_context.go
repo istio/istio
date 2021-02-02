@@ -851,10 +851,8 @@ func (ps *PushContext) DestinationRule(proxy *Proxy, service *Service) *config.C
 	// 5. service DestinationRules were merged in SetDestinationRules, return mesh/namespace rules if present
 	if features.EnableDestinationRuleInheritance {
 		// return namespace rule if present
-		if svcNs != "" {
-			if out := ps.destinationRuleIndex.inheritedByNamespace[svcNs]; out != nil {
-				return out
-			}
+		if out := ps.destinationRuleIndex.inheritedByNamespace[proxy.ConfigNamespace]; out != nil {
+			return out
 		}
 		// return mesh rule
 		if out := ps.destinationRuleIndex.inheritedByNamespace[ps.Mesh.RootNamespace]; out != nil {
@@ -874,6 +872,18 @@ func (ps *PushContext) getExportedDestinationRuleFromNamespace(owningNamespace s
 			// Check if the dest rule for this host is actually exported to the proxy's (client) namespace
 			exportToMap := ps.destinationRuleIndex.exportedByNamespace[owningNamespace].exportTo[specificHostname]
 			if len(exportToMap) == 0 || exportToMap[visibility.Public] || exportToMap[visibility.Instance(clientNamespace)] {
+				if features.EnableDestinationRuleInheritance {
+					var parent *config.Config
+					// client inherits global DR from its own namespace, not from the exported DR's owning namespace
+					// grab the client namespace DR or mesh if none exists
+					if parent = ps.destinationRuleIndex.inheritedByNamespace[clientNamespace]; parent == nil {
+						parent = ps.destinationRuleIndex.inheritedByNamespace[ps.Mesh.RootNamespace]
+					}
+					if child := ps.destinationRuleIndex.exportedByNamespace[owningNamespace].destRule[specificHostname]; child != nil {
+						return ps.inheritDestinationRule(parent, child)
+					}
+					return nil
+				}
 				return ps.destinationRuleIndex.exportedByNamespace[owningNamespace].destRule[specificHostname]
 			}
 		}
@@ -1528,7 +1538,8 @@ func (ps *PushContext) SetDestinationRules(configs []config.Config) {
 			// update namespace rule after it has been merged with mesh rule
 			inheritedConfigs[ns] = inheritedRule
 		}
-		// TODO exportedDestRulesByNamespace
+		// can't precalculate exportedDestRulesByNamespace since we don't know all the client namespaces in advance
+		// inheritance is performed in getExportedDestinationRuleFromNamespace
 	}
 
 	// presort it so that we don't sort it for each DestinationRule call.
