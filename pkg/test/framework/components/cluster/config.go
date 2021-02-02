@@ -49,6 +49,18 @@ func (m ConfigMeta) String(key string) string {
 	return v
 }
 
+func (m ConfigMeta) StringSlice(key string) []string {
+	keys, ok := m[key].([]interface{})
+	if !ok {
+		return nil
+	}
+	v := make([]string, len(keys))
+	for i, k := range keys {
+		v[i] = k.(string)
+	}
+	return v
+}
+
 func (m ConfigMeta) Slice(key string) []ConfigMeta {
 	v, ok := m[key].([]interface{})
 	if !ok {
