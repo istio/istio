@@ -54,7 +54,7 @@ func TestBadWasmRemoteLoad(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			ctx.Config(cltInstance.Config().Cluster).ApplyYAMLInClusterOrFail(t, cltInstance.Config().Cluster, common.GetAppNamespace().Name(), string(content))
+			ctx.Config().ApplyYAMLInClusterOrFail(t, cltInstance.Config().Cluster, common.GetAppNamespace().Name(), string(content))
 
 			// Wait until there is agent metrics for wasm download failure
 			retry.UntilSuccessOrFail(t, func() error {
@@ -76,7 +76,7 @@ func TestBadWasmRemoteLoad(t *testing.T) {
 				q := fmt.Sprintf("pilot_total_xds_rejects{type=\"%v\"}", resource.ExtensionConfigurationType)
 				c := cltInstance.Config().Cluster
 				if _, err := common.QueryPrometheus(t, c, q, common.GetPromInstance()); err != nil {
-					t.Logf("prometheus values for pilot_total_xds_rejects for cluster %s: \n%s",
+					t.Logf("prometheus values for pilot_total_xds_rejects for cluster %v: \n%s",
 						c, util.PromDump(c, common.GetPromInstance(), "pilot_total_xds_rejects"))
 					return err
 				}
