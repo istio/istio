@@ -44,6 +44,11 @@ func buildKube(origCfg cluster.Config, topology cluster.Topology) (cluster.Clust
 		return nil, err
 	}
 
+	versions := cfg.Meta.StringSlice("versions")
+	if versions == nil {
+		versions = []string{"default"}
+	}
+
 	// support fake VMs by default
 	vmSupport := true
 	if vmP := cfg.Meta.Bool(vmSupportMetaKey); vmP != nil {
@@ -54,7 +59,7 @@ func buildKube(origCfg cluster.Config, topology cluster.Topology) (cluster.Clust
 		filename:       kubeconfigPath,
 		ExtendedClient: client,
 		vmSupport:      vmSupport,
-		versions:       cfg.Meta.StringSlice("versions"),
+		versions:       versions,
 		Topology:       topology,
 	}, nil
 }
