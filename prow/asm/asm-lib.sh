@@ -540,11 +540,6 @@ function install_asm() {
 # Parameters: $1 - array of k8s contexts
 # Depends on env var ${HUB} and ${TAG}
 function install_asm_managed_control_plane() {
-  local CONTEXTS=("${@}")
-  IFS="_" read -r -a VALS <<< "${CONTEXTS[0]}"
-  local PROJECT_ID="${VALS[1]}"
-  local CLUSTER_LOCATION="${VALS[2]}"
-  local CLUSTER_NAME="${VALS[3]}"
   # Obtain 1.8 Scriptaro for ASM MCP instead of the latest from github.
   # We'll manually bump up the version here upon new ASM release.
   curl https://storage.googleapis.com/csm-artifacts/asm/install_asm_1.8 > install_asm
@@ -556,23 +551,46 @@ function install_asm_managed_control_plane() {
   # After that, we manually modify the env in the Gateway deployment.
   sed -i 's/retry 5 run/retry 1 run/g' install_asm
 
-  _CI_CLOUDRUN_IMAGE_HUB="${HUB}/cloudrun" _CI_CLOUDRUN_IMAGE_TAG="${TAG}" "./install_asm" \
-    --mode install \
-    --project_id "${PROJECT_ID}" \
-    --cluster_location "${CLUSTER_LOCATION}" \
-    --cluster_name "${CLUSTER_NAME}" \
-    --managed \
-    --service_account "prow-gob-storage@istio-prow-build.iam.gserviceaccount.com" \
-    --key_file "/etc/service-account/service-account.json" \
-    --enable_cluster_labels \
-    --verbose || true
+  for i in "${!CONTEXTS[@]}"; do
+    IFS="_" read -r -a VALS <<< "${CONTEXTS[$i]}"
+    local PROJECT_ID="${VALS[1]}"
+    local LOCATION="${VALS[2]}"
+    local CLUSTER_NAME="${VALS[3]}"
 
-  # TODO(ruigu): Remove the following hack when Scriptaro is ready.
-  # Manually set ISTIO_META_CLOUDRUN_ADDR env to the cloudrun address.
-  # http://doc/163UaaQcYzCSHSewolZOq7X1DYFRfblY0CZkIBQczZO4#heading=h.xh7sh1ybhy43
-  # shellcheck disable=SC2155
-  local CLOUDRUN_ADDR=$(kubectl get mutatingwebhookconfigurations istiod-asm-managed -ojson | jq ".webhooks[0].clientConfig.url" | cut -d'/' -f3)
-  kubectl set env deployment/istio-ingressgateway ISTIO_META_CLOUDRUN_ADDR="${CLOUDRUN_ADDR}" -n istio-system
+    _CI_CLOUDRUN_IMAGE_HUB="${HUB}/cloudrun" _CI_CLOUDRUN_IMAGE_TAG="${TAG}" "./install_asm" \
+      --mode install \
+      --project_id "${PROJECT_ID}" \
+      --cluster_location "${LOCATION}" \
+      --cluster_name "${CLUSTER_NAME}" \
+      --managed \
+      --service_account "prow-gob-storage@istio-prow-build.iam.gserviceaccount.com" \
+      --key_file "/etc/service-account/service-account.json" \
+      --enable_cluster_labels \
+      --verbose || true
+
+    # TODO(ruigu): Remove the following hack when Scriptaro is ready.
+    # Manually set ISTIO_META_CLOUDRUN_ADDR env to the cloudrun address.
+    # http://doc/163UaaQcYzCSHSewolZOq7X1DYFRfblY0CZkIBQczZO4#heading=h.xh7sh1ybhy43
+    # shellcheck disable=SC2155
+    local CLOUDRUN_ADDR=$(kubectl get mutatingwebhookconfigurations istiod-asm-managed -ojson | jq ".webhooks[0].clientConfig.url" | cut -d'/' -f3)
+    kubectl set env deployment/istio-ingressgateway ISTIO_META_CLOUDRUN_ADDR="${CLOUDRUN_ADDR}" -n istio-system
+  done
+
+  for i in "${!CONTEXTS[@]}"; do
+    for j in "${!CONTEXTS[@]}"; do
+      if [[ "$i" != "$j" ]]; then
+        IFS="_" read -r -a VALS <<< "${CONTEXTS[$j]}"
+        local PROJECT_J=${VALS[1]}
+        local LOCATION_J=${VALS[2]}
+        local CLUSTER_J=${VALS[3]}
+        # TODO(ruigu): Ideally, the istioctl here should be the same what Scriptaro used above.
+        # However, we don't have a clear way of figuring that out.
+        # For now, similar to ASM unmanaged, use the locally built istioctl.
+        istioctl x create-remote-secret --context="${CONTEXTS[$j]}" --name="${CLUSTER_J}" > "${PROJECT_J}"_"${LOCATION_J}"_"${CLUSTER_J}".secret
+        kubectl apply -f "${PROJECT_J}"_"${LOCATION_J}"_"${CLUSTER_J}".secret --context="${CONTEXTS[$i]}"
+      fi
+    done
+  done
 }
 
 
