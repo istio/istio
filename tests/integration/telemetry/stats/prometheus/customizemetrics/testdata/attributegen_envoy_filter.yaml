@@ -23,6 +23,7 @@ spec:
           config_discovery:
             config_source:
               ads: {}
+              initial_fetch_timeout: 0s # wait indefinitely to prevent filter chain being disabled
             type_urls: [ "type.googleapis.com/envoy.extensions.filters.http.wasm.v3.Wasm"]
 ---
 apiVersion: networking.istio.io/v1alpha3
