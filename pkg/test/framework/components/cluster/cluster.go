@@ -152,6 +152,8 @@ type Cluster interface {
 	// NetworkName the cluster is on
 	NetworkName() string
 
+	// MinKubeVersion returns true if the cluster is at least the version specified,
+	// false otherwise
 	MinKubeVersion(major, minor int) bool
 
 	// IsPrimary returns true if this is a primary cluster, containing an instance
