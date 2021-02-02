@@ -36,7 +36,6 @@ func TestAccessAppViaCustomGateway(t *testing.T) {
 		NewTest(t).
 		Features("traffic.ingress.gateway").
 		Run(func(ctx framework.TestContext) {
-
 			// Unable to find the ingress for the custom gateway install via the framework so retrieve URL and
 			// use in the echo call.
 			gwIngressURL, err := getIngressURL(customGWNamespace.Name(), customServiceGateway)

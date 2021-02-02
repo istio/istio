@@ -57,7 +57,6 @@ func TestUpdateWithCustomGatewaySave(t *testing.T) {
 		NewTest(t).
 		Features("traffic.ingress.gateway").
 		Run(func(ctx framework.TestContext) {
-
 			cs := ctx.Clusters().Default().(*kubecluster.Cluster)
 			h := helm.New(cs.Filename(), filepath.Join(previousChartPath, previousSupportedVersion))
 

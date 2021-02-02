@@ -22,6 +22,7 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+	"os"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -102,14 +103,13 @@ var (
 	ManifestPath = filepath.Join(env.IstioSrc, "manifests")
 )
 
-// TestUpdateWithCustomGateway tests access to an aplication using an updated
+// TestUpdateWithCustomGateway tests access to an application using an updated
 // control plane and custom gateway
 func TestUpdateWithCustomGateway(t *testing.T) {
 	framework.
 		NewTest(t).
 		Features("traffic.ingress.gateway").
 		Run(func(ctx framework.TestContext) {
-
 			var err error
 			cs := ctx.Clusters().Default().(*kubecluster.Cluster)
 
@@ -181,9 +181,14 @@ func TestUpdateWithCustomGateway(t *testing.T) {
 
 			// Upgrade to control plane
 			s, err := image.SettingsFromCommandLine()
+			if err != nil {
+				ctx.Fatal(err)
+			}
 			istioCtl := istioctl.NewOrFail(ctx, ctx, istioctl.Config{Cluster: ctx.Environment().Clusters()[0]})
-			istioCtl.InvokeOrFail(t, []string{"upgrade", "--manifests=" + ManifestPath, "--skip-confirmation",
-				"--set", "hub=" + s.Hub, "--set", "tag=" + s.Tag, "-f", "../testdata/upgrade/base.yaml"})
+			istioCtl.InvokeOrFail(t, []string{
+				"upgrade", "--manifests=" + ManifestPath, "--skip-confirmation",
+				"--set", "hub=" + s.Hub, "--set", "tag=" + s.Tag, "-f", "../testdata/upgrade/base.yaml",
+			})
 
 			// Verify that one can access application A on the custom-gateway
 			ctx.NewSubTest("gateway and service applied, upgraded control plane").Run(func(ctx framework.TestContext) {
@@ -198,9 +203,12 @@ func TestUpdateWithCustomGateway(t *testing.T) {
 
 			// Upgrade the custom gateway
 			// Create a temp file for the custom gateway with the random namespace name
-			tempFile, err := ioutil.TempFile(ctx.WorkDir(), "modified_customgw.yaml")
-			input, err := ioutil.ReadFile("../testdata/upgrade/customgw.yaml")
-			if err != nil {
+			var tempFile *os.File
+			var input []byte
+			if tempFile, err = ioutil.TempFile(ctx.WorkDir(), "modified_customgw.yaml"); err != nil {
+				ctx.Fatal(err)
+			}
+			if input, err = ioutil.ReadFile("../testdata/upgrade/customgw.yaml"); err != nil {
 				ctx.Fatal(err)
 			}
 			output := bytes.Replace(input, []byte("custom-gateways"), []byte(customGWNamespace.Name()), -1)
@@ -209,9 +217,11 @@ func TestUpdateWithCustomGateway(t *testing.T) {
 			}
 
 			// Upgrade to custom gateway
-			istioCtl.InvokeOrFail(t, []string{"upgrade", "--manifests=" + ManifestPath, "--skip-confirmation",
+			istioCtl.InvokeOrFail(t, []string{
+				"upgrade", "--manifests=" + ManifestPath, "--skip-confirmation",
 				"--set", "hub=" + s.Hub, "--set", "tag=" + s.Tag, "--namespace", customGWNamespace.Name(),
-				"-f", tempFile.Name()})
+				"-f", tempFile.Name(),
+			})
 
 			ctx.NewSubTest("gateway and service applied, upgraded control plane and custom gateway").Run(func(ctx framework.TestContext) {
 				apps.B[0].CallWithRetryOrFail(t, echo.CallOptions{
