@@ -131,7 +131,7 @@ func install(ctx resource.Context, ns string) error {
 	return ctx.Config().ApplyYAML(ns, y)
 }
 
-func installServiceEntry(cluster resource.Cluster, ctx resource.Context, ns, ingressAddr string) error {
+func installServiceEntry(cluster cluster.Cluster, ctx resource.Context, ns, ingressAddr string) error {
 	// Setup remote access to zipkin in cluster
 	yaml := strings.ReplaceAll(remoteOtelEntry, "{INGRESS_DOMAIN}", ingressAddr)
 	err := ctx.Config().ApplyYAMLInCluster(cluster, ns, yaml)
