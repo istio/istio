@@ -137,13 +137,12 @@ else
   GCR_PROJECT_ID="${CENTRAL_GCP_PROJECT}"
 fi
 
-if [[ "${CLUSTER_TOPOLOGY}" == "MULTICLUSTER" || "${CLUSTER_TOPOLOGY}" == "MULTIPROJECT_MULTICLUSTER" ]]; then
-  echo "Setting up ${CLUSTER_TOPOLOGY} envrionment for test"
 
+if [[ "${CLUSTER_TOPOLOGY}" == "MULTICLUSTER" || "${CLUSTER_TOPOLOGY}" == "MULTIPROJECT_MULTICLUSTER" ]]; then
+  echo "Setting up ${CLUSTER_TOPOLOGY} topology for test"
   # TODO(ruigu): extract the common part of MANAGED and UNMANAGED when MANAGED test is added.
   if [[ "${CONTROL_PLANE}" == "UNMANAGED" ]]; then
     echo "Setting up ASM ${CONTROL_PLANE} control plane for test"
-
     export HUB="gcr.io/${GCR_PROJECT_ID}/asm"
     export TAG="BUILD_ID_${BUILD_ID}"
 
@@ -230,14 +229,35 @@ if [[ "${CLUSTER_TOPOLOGY}" == "MULTICLUSTER" || "${CLUSTER_TOPOLOGY}" == "MULTI
     echo "Running e2e test: ${TEST_TARGET}..."
     export JUNIT_OUT="${ARTIFACTS}/junit1.xml"
     make "${TEST_TARGET}"
+  else
+    echo "Setting up ASM ${CONTROL_PLANE} control plane for test"
+    export HUB="gcr.io/wlhe-cr"
+    export TAG="BUILD_ID_${BUILD_ID}"
+
+    echo "Preparing images for managed control plane..."
+    prepare_images_for_managed_control_plane
+    add_trap "cleanup_images_for_managed_control_plane" EXIT SIGKILL SIGTERM SIGQUIT
+
+    echo "Building istioctl..."
+    build_istioctl
+
+    echo "Installing ASM managed control plane for multi-cluster..."
+    install_asm_managed_control_plane "${CONTEXTS[@]}"
+    for i in "${!CONTEXTS[@]}"; do
+      kubectl wait --for=condition=Ready --timeout=2m -n istio-system --all pod --context="${CONTEXTS[$i]}"
+    done
   fi
 else
+  echo "Setting up ${CLUSTER_TOPOLOGY} topology for test"
   export HUB="gcr.io/wlhe-cr"
   export TAG="BUILD_ID_${BUILD_ID}"
 
   echo "Preparing images for managed control plane..."
   prepare_images_for_managed_control_plane
   add_trap "cleanup_images_for_managed_control_plane" EXIT SIGKILL SIGTERM SIGQUIT
+
+  echo "Building istioctl..."
+  build_istioctl
 
   echo "Installing ASM managed control plane..."
   install_asm_managed_control_plane "${CONTEXTS[@]}"
@@ -282,7 +302,7 @@ else
   export DISABLED_PACKAGES
   echo "Running full integration test with ASM managed control plane"
   TAG="latest" HUB="gcr.io/istio-testing" \
-    make test.integration.mcp-full.kube \
+    make test.integration.asm.mcp \
     INTEGRATION_TEST_FLAGS="--istio.test.kube.deploy=false \
 --istio.test.revision=asm-managed \
 --istio.test.skipVM=true \
