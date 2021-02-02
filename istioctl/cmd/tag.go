@@ -29,6 +29,7 @@ import (
 	"k8s.io/client-go/kubernetes"
 
 	"istio.io/api/label"
+	"istio.io/istio/operator/cmd/mesh"
 	"istio.io/istio/operator/pkg/helm"
 	"istio.io/istio/pkg/kube"
 )
@@ -39,7 +40,6 @@ const (
 	istioInjectionWebhookSuffix = "sidecar-injector.istio.io"
 	defaultRevisionName         = "default"
 	pilotDiscoveryChart         = "istio-control/istio-discovery"
-	chartsPath                  = "" // use compiled in charts for tag webhook gen
 	revisionTagTemplateName     = "revision-tags.yaml"
 
 	// help strings and long formatted user outputs
@@ -56,6 +56,7 @@ revision tag, use 'kubectl label namespace <NAMESPACE> istio.io/rev=%s'
 var (
 	// revision to point tag webhook at
 	revision         = ""
+	manifestsPath    = ""
 	overwrite        = false
 	skipConfirmation = false
 )
@@ -135,6 +136,7 @@ injection labels.`,
 	}
 
 	cmd.PersistentFlags().BoolVar(&overwrite, "overwrite", false, overrideHelpStr)
+	cmd.PersistentFlags().StringVarP(&manifestsPath, "manifests", "d", "", mesh.ManifestsFlagHelpStr)
 	cmd.PersistentFlags().BoolVarP(&skipConfirmation, "skip-confirmation", "y", false, skipConfirmationFlagHelpStr)
 	cmd.PersistentFlags().StringVarP(&revision, "revision", "r", "", revisionHelpStr)
 	_ = cmd.MarkPersistentFlagRequired("revision")
@@ -195,6 +197,7 @@ revision tag before removing using the "istioctl x tag list" command.
 		},
 	}
 
+	cmd.PersistentFlags().BoolVarP(&skipConfirmation, "skip-confirmation", "y", false, skipConfirmationFlagHelpStr)
 	return cmd
 }
 
@@ -233,7 +236,7 @@ func setTag(ctx context.Context, kubeClient kube.ExtendedClient, tag, revision s
 	if err != nil {
 		return fmt.Errorf("failed to create tag webhook config: %v", err)
 	}
-	tagWhYAML, err := tagWebhookYAML(tagWhConfig, chartsPath)
+	tagWhYAML, err := tagWebhookYAML(tagWhConfig, manifestsPath)
 	if err != nil {
 		return fmt.Errorf("failed to create tag webhook: %v", err)
 	}
