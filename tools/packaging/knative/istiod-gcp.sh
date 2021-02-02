@@ -142,7 +142,7 @@ if [[ "$?" != "0" ]]; then
   echo "Initializing istio-system and CRDs, fresh cluster"
   kubectl create ns istio-system
   kubectl apply -f /var/lib/istio/config/gen-istio-cluster.yaml \
-    --record=false --overwrite=false   --force-conflicts=true --server-side
+    --record=false --overwrite=false --force-conflicts=true --server-side
 fi
 
 if [[ -n ${MESH} ]]; then
