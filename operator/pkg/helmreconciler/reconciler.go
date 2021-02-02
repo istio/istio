@@ -22,10 +22,10 @@ import (
 	"sync"
 	"time"
 
-	corev1 "k8s.io/api/core/v1"
+	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	v12 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
@@ -498,29 +498,23 @@ func (h *HelmReconciler) reportPrunedObjectKind() {
 	}
 }
 
-// createNamespace creates a namespace using the given k8s client.
-func (h *HelmReconciler) createNamespace(namespace string, network string) error {
+// CreateNamespace creates a namespace using the given k8s interface.
+func CreateNamespace(cs kubernetes.Interface, namespace string, network string) error {
 	if namespace == "" {
 		// Setup default namespace
 		namespace = name.IstioDefaultNamespace
 	}
-	// Check if the namespace already exists. If yes, do nothing. If no, create a new one.
-	// TODO(morvencao): consider to use the helm reconciler's client after Multi Namespace Cache
-	// supports get and create cluster scoped resources, see:
-	// https://github.com/kubernetes-sigs/controller-runtime/issues/934
-	_, err := h.clientSet.CoreV1().Namespaces().Get(context.TODO(), namespace, metav1.GetOptions{})
+	// check if the namespace already exists. If yes, do nothing. If no, create a new one.
+	_, err := cs.CoreV1().Namespaces().Get(context.TODO(), namespace, v12.GetOptions{})
 	if err != nil {
 		if errors.IsNotFound(err) {
-			ns := &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{
+			ns := &v1.Namespace{ObjectMeta: v12.ObjectMeta{
 				Name: namespace,
-				Labels: map[string]string{
-					"istio-injection": "disabled",
-				},
 			}}
 			if network != "" {
 				ns.Labels[label.TopologyNetwork.Name] = network
 			}
-			_, err := h.clientSet.CoreV1().Namespaces().Create(context.TODO(), ns, metav1.CreateOptions{})
+			_, err := cs.CoreV1().Namespaces().Create(context.TODO(), ns, v12.CreateOptions{})
 			if err != nil {
 				return fmt.Errorf("failed to create namespace %v: %v", namespace, err)
 			}
@@ -530,6 +524,11 @@ func (h *HelmReconciler) createNamespace(namespace string, network string) error
 	}
 
 	return nil
+}
+
+// createNamespace creates a namespace using the given k8s client.
+func (h *HelmReconciler) createNamespace(namespace string, network string) error {
+	return CreateNamespace(h.clientSet, namespace, network)
 }
 
 func (h *HelmReconciler) networkName() string {
