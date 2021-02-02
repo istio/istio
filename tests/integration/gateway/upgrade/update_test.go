@@ -30,6 +30,7 @@ import (
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/test/framework"
+	"istio.io/istio/pkg/test/framework/components/cluster"
 	kubecluster "istio.io/istio/pkg/test/framework/components/cluster/kube"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/echo/echoboot"
@@ -239,7 +240,7 @@ func installCPOrFail(ctx framework.TestContext, version, namespace string, confi
 }
 
 // WaitForCPInstallation waits until the control plane installation is complete
-func WaitForCPInstallation(ctx framework.TestContext, cs resource.Cluster) {
+func WaitForCPInstallation(ctx framework.TestContext, cs cluster.Cluster) {
 	scopes.Framework.Infof("=== waiting on istio control installation === ")
 
 	retry.UntilSuccessOrFail(ctx, func() error {
@@ -272,7 +273,7 @@ func installCGWOrFail(ctx framework.TestContext, version, namespace string, conf
 }
 
 // WaitForCGWInstallation waits until the custom gateway installation is complete
-func WaitForCGWInstallation(ctx framework.TestContext, cs resource.Cluster) {
+func WaitForCGWInstallation(ctx framework.TestContext, cs cluster.Cluster) {
 	scopes.Framework.Infof("=== waiting on custom gateway installation === ")
 
 	retry.UntilSuccessOrFail(ctx, func() error {
