@@ -39,6 +39,8 @@ CA="MESHCA"
 WIP="GKE"
 # CONTROL_PLANE = UNMANAGED or MANAGED
 CONTROL_PLANE="UNMANAGED"
+# USE_VM = true or false
+USE_VM=false
 TEST_TARGET="test.integration.multicluster.kube.presubmit"
 
 while (( "$#" )); do
@@ -67,10 +69,6 @@ while (( "$#" )); do
           ;;
       esac
       ;;
-    --test)
-      TEST_TARGET=$2
-      shift 2
-      ;;
     --wip)
       case $2 in
         "GKE" | "HUB" )
@@ -83,13 +81,22 @@ while (( "$#" )); do
           ;;
       esac
       ;;
+    --vm)
+      USE_VM=true
+      shift 1
+      ;;
+    --test)
+      TEST_TARGET=$2
+      shift 2
+      ;;
     *)
       echo "Error: Unsupported input $1" >&2
       exit 1
       ;;
   esac
 done
-echo "Running with CA ${CA}, ${WIP} Workload Identity Pool, ${CONTROL_PLANE} control plane."
+
+echo "Running with CA ${CA}, ${WIP} Workload Identity Pool, ${CONTROL_PLANE} and --vm=${USE_VM} control plane."
 
 echo "Using ${KUBECONFIG} to connect to the cluster(s)"
 if [[ -z "${KUBECONFIG}" ]]; then
@@ -137,10 +144,10 @@ else
   GCR_PROJECT_ID="${CENTRAL_GCP_PROJECT}"
 fi
 
-
 # TODO(ruigu): extract the common part of MANAGED and UNMANAGED when MANAGED test is added.
 if [[ "${CONTROL_PLANE}" == "UNMANAGED" ]]; then
   echo "Setting up ASM ${CONTROL_PLANE} control plane for test"
+
   export HUB="gcr.io/${GCR_PROJECT_ID}/asm"
   export TAG="BUILD_ID_${BUILD_ID}"
 
