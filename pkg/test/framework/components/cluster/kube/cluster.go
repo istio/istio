@@ -33,6 +33,10 @@ type Cluster struct {
 	// vmSupport indicates the cluster is being used for fake VMs
 	vmSupport bool
 
+	// versions indicates what Istio control plane versions are deployed
+	// within this kube cluster
+	versions []string
+
 	// ExtendedClient is embedded to interact with the kube cluster.
 	kube.ExtendedClient
 

@@ -54,6 +54,7 @@ func buildKube(origCfg cluster.Config, topology cluster.Topology) (cluster.Clust
 		filename:       kubeconfigPath,
 		ExtendedClient: client,
 		vmSupport:      vmSupport,
+		versions:       cfg.Meta.StringSlice("versions"),
 		Topology:       topology,
 	}, nil
 }
