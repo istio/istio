@@ -129,6 +129,7 @@ features:
       uninstall_purge:
       postinstall_verify:
       revision_centric_view:
+      revision_tags:
     multicluster:
       multimaster:
       remote:
