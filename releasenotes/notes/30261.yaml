@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: networking
+issue:
+- 30261
+releaseNotes:
+- |
+  **Fixed**  Periodically resolve jwks_uri.
