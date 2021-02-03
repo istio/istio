@@ -178,7 +178,6 @@ func (sd *ServiceDiscovery) AddEndpoint(service host.Name, servicePortName strin
 
 // SetEndpoints update the list of endpoints for a service, similar with K8S controller.
 func (sd *ServiceDiscovery) SetEndpoints(service string, namespace string, endpoints []*model.IstioEndpoint) {
-
 	sh := host.Name(service)
 
 	sd.mutex.Lock()

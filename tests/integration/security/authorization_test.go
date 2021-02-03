@@ -146,7 +146,6 @@ func TestAuthorization_JWT(t *testing.T) {
 						callCount = util.CallsPerCluster * len(ctx.Clusters())
 					}
 					newTestCase := func(target echo.Instances, namePrefix string, jwt string, path string, expectAllowed bool) rbacUtil.TestCase {
-
 						return rbacUtil.TestCase{
 							NamePrefix: namePrefix,
 							Request: connection.Checker{
@@ -310,8 +309,7 @@ func TestAuthorization_Deny(t *testing.T) {
 	framework.NewTest(t).
 		Features("security.authorization.deny-action").
 		Run(func(ctx framework.TestContext) {
-
-			//TODO: Convert into multicluster support. Currently 503 is received cross-network
+			// TODO: Convert into multicluster support. Currently 503 is received cross-network
 			if ctx.Clusters().IsMulticluster() {
 				ctx.Skip()
 			}
@@ -391,7 +389,6 @@ func TestAuthorization_NegativeMatch(t *testing.T) {
 	framework.NewTest(t).
 		Features("security.authorization.negative-match").
 		Run(func(ctx framework.TestContext) {
-
 			ns := apps.Namespace1
 			ns2 := apps.Namespace2
 
@@ -474,7 +471,6 @@ func TestAuthorization_NegativeMatch(t *testing.T) {
 					rbacUtil.RunRBACTest(ctx, cases)
 				})
 			}
-
 		})
 }
 
@@ -625,7 +621,7 @@ func TestAuthorization_EgressGateway(t *testing.T) {
 	framework.NewTest(t).
 		Features("security.authorization.egress-gateway").
 		Run(func(ctx framework.TestContext) {
-			//TODO: Convert into multicluster support. Currently 503 is received
+			// TODO: Convert into multicluster support. Currently 503 is received
 			if ctx.Clusters().IsMulticluster() {
 				ctx.Skip()
 			}
@@ -951,7 +947,6 @@ func TestAuthorization_Conditions(t *testing.T) {
 	framework.NewTest(t).
 		Features("security.authorization.conditions").
 		Run(func(ctx framework.TestContext) {
-
 			nsA := apps.Namespace1
 			nsB := apps.Namespace2
 			nsC := apps.Namespace3

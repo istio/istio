@@ -34,7 +34,6 @@ func UnmarshalData(pb proto.Message, data interface{}) error {
 }
 
 func toJSON(data interface{}) (string, error) {
-
 	var result string
 	b, err := yaml2.Marshal(data)
 	if err == nil {

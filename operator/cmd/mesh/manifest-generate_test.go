@@ -501,7 +501,6 @@ func TestInstallPackagePath(t *testing.T) {
 			flags:      "--force --set installPackagePath=" + srv.URL() + "/" + testTGZFilename,
 		},
 	})
-
 }
 
 // TestTrailingWhitespace ensures there are no trailing spaces in the manifests
@@ -708,7 +707,6 @@ func runTestGroup(t *testing.T, tests testGroup) {
 					t.Errorf("%s: got:\n%s\nwant:\n%s\n(-got, +want)\n%s\n", tt.desc, "", "", diff)
 				}
 			}
-
 		})
 	}
 }

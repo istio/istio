@@ -114,9 +114,9 @@ func (m *Monitor) Start(stop <-chan struct{}) {
 
 func (m *Monitor) checkAndUpdate() {
 	newConfigs, err := m.getSnapshotFunc()
-	//If an error exists then log it and return to running the check and update
-	//Do not edit the local []*model.config until the connection has been reestablished
-	//The error will only come from a directory read error or a gRPC connection error
+	// If an error exists then log it and return to running the check and update
+	// Do not edit the local []*model.config until the connection has been reestablished
+	// The error will only come from a directory read error or a gRPC connection error
 	if err != nil {
 		log.Warnf("checkAndUpdate Error Caught %s: %v\n", m.name, err)
 		return

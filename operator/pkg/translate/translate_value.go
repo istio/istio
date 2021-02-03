@@ -157,8 +157,7 @@ func NewReverseTranslator() *ReverseTranslator {
 
 // TranslateFromValueToSpec translates from values.yaml value to IstioOperatorSpec.
 func (t *ReverseTranslator) TranslateFromValueToSpec(values []byte, force bool) (controlPlaneSpec *v1alpha1.IstioOperatorSpec, err error) {
-
-	var yamlTree = make(map[string]interface{})
+	yamlTree := make(map[string]interface{})
 	err = yaml.Unmarshal(values, &yamlTree)
 	if err != nil {
 		return nil, fmt.Errorf("error when unmarshalling into untype tree %v", err)
@@ -174,7 +173,7 @@ func (t *ReverseTranslator) TranslateFromValueToSpec(values []byte, force bool) 
 		return nil, err
 	}
 
-	var cpSpec = &v1alpha1.IstioOperatorSpec{}
+	cpSpec := &v1alpha1.IstioOperatorSpec{}
 	err = util.UnmarshalWithJSONPB(string(outputVal), cpSpec, force)
 
 	if err != nil {
@@ -334,7 +333,7 @@ func (t *ReverseTranslator) TranslateK8SfromValueToIOP(userOverlayYaml string) (
 		scope.Debugf("no spec.values section from userOverlayYaml %v", err)
 		return "", nil
 	}
-	var valuesOverlayTree = make(map[string]interface{})
+	valuesOverlayTree := make(map[string]interface{})
 	err = yaml.Unmarshal([]byte(valuesOverlay), &valuesOverlayTree)
 	if err != nil {
 		return "", fmt.Errorf("error unmarshalling values overlay yaml into untype tree %v", err)

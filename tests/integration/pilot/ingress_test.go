@@ -272,7 +272,6 @@ spec:
 					}
 					return nil
 				}, retry.Delay(time.Second*5), retry.Timeout(time.Second*90))
-
 			})
 
 			// setup another ingress pointing to a different route; the ingress will have an ingress class that should be targeted at first
@@ -344,6 +343,5 @@ spec:
 					apps.Ingress.CallEchoWithRetryOrFail(ctx, c.call, retry.Timeout(time.Minute))
 				})
 			}
-
 		})
 }

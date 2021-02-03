@@ -50,7 +50,6 @@ meta:
 	}}); diff != "" {
 		t.Fatal(diff)
 	}
-
 }
 
 func TestVmcluster_CanDeploy(t *testing.T) {
@@ -93,5 +92,4 @@ func TestVmcluster_CanDeploy(t *testing.T) {
 			}
 		})
 	}
-
 }

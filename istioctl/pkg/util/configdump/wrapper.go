@@ -29,9 +29,7 @@ import (
 // nonstrictResolver is an AnyResolver that ignores unknown proto messages
 type nonstrictResolver struct{}
 
-var (
-	envoyResolver nonstrictResolver
-)
+var envoyResolver nonstrictResolver
 
 func (m *nonstrictResolver) Resolve(typeURL string) (proto.Message, error) {
 	// See https://github.com/golang/protobuf/issues/747#issuecomment-437463120
@@ -67,8 +65,10 @@ func (w *Wrapper) MarshalJSON() ([]byte, error) {
 // UnmarshalJSON is a custom unmarshaller to handle protobuf pain
 func (w *Wrapper) UnmarshalJSON(b []byte) error {
 	cd := &adminapi.ConfigDump{}
-	err := (&jsonpb.Unmarshaler{AllowUnknownFields: true,
-		AnyResolver: &envoyResolver}).Unmarshal(bytes.NewReader(b), cd)
+	err := (&jsonpb.Unmarshaler{
+		AllowUnknownFields: true,
+		AnyResolver:        &envoyResolver,
+	}).Unmarshal(bytes.NewReader(b), cd)
 	*w = Wrapper{cd}
 	return err
 }

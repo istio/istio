@@ -124,7 +124,7 @@ func makeNodeWithTaint(args makeNodeArgs) v1.Node {
 }
 
 var (
-	//Data for configMaps
+	// Data for configMaps
 	istiocniConfig = makeConfigMap(makeConfigMapArgs{
 		ConfigName: "node.readiness",
 		Namespace:  "kube-system",
@@ -169,7 +169,8 @@ var (
 - name: addon=test2
   selector: addon=test2
   namespace: test2
-`},
+`,
+		},
 	})
 )
 
@@ -185,31 +186,31 @@ var (
 		},
 	}
 )
-var (
-	//pods with specified taints for testing
-	workingPod = *makePodWithTolerance(makePodArgs{
-		PodName:   "WorkingPod",
-		Namespace: "kube-system",
-		Annotations: map[string]string{
-			"sidecar.istio.io/status": "something",
+
+// pods with specified taints for testing
+var workingPod = *makePodWithTolerance(makePodArgs{
+	PodName:   "WorkingPod",
+	Namespace: "kube-system",
+	Annotations: map[string]string{
+		"sidecar.istio.io/status": "something",
+	},
+	Labels: map[string]string{
+		// specified by config map
+		"app": "istio",
+	},
+	InitContainerStatus: &workingInitContainer,
+	Tolerations: []v1.Toleration{
+		{Key: TaintName, Operator: v1.TolerationOpExists, Effect: v1.TaintEffectNoSchedule},
+	},
+	NodeName: "foo",
+	Conditions: []v1.PodCondition{
+		{
+			Type:   v1.PodReady,
+			Status: v1.ConditionTrue,
 		},
-		Labels: map[string]string{
-			//specified by config map
-			"app": "istio",
-		},
-		InitContainerStatus: &workingInitContainer,
-		Tolerations: []v1.Toleration{
-			{Key: TaintName, Operator: v1.TolerationOpExists, Effect: v1.TaintEffectNoSchedule},
-		},
-		NodeName: "foo",
-		Conditions: []v1.PodCondition{
-			{
-				Type:   v1.PodReady,
-				Status: v1.ConditionTrue,
-			},
-		},
-	})
-)
+	},
+})
+
 var (
 	testingNode = makeNodeWithTaint(makeNodeArgs{
 		NodeName: "foo",

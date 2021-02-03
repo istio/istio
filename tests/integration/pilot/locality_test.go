@@ -89,6 +89,7 @@ const localityFailover = `
 failover:
 - from: region
   to: nearregion`
+
 const localityDistribute = `
 distribute:
 - from: region

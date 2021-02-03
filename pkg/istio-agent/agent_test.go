@@ -125,8 +125,8 @@ func TestAgent(t *testing.T) {
 		checkCertsWritten(t, dir)
 
 		// TODO: this does not actually work, rotation is tied to SDS currently
-		//expectFileChanged(t, filepath.Join(dir, "cert-chain.pem"))
-		//expectFileChanged(t, filepath.Join(dir, "key.pem"))
+		// expectFileChanged(t, filepath.Join(dir, "cert-chain.pem"))
+		// expectFileChanged(t, filepath.Join(dir, "key.pem"))
 	})
 	t.Run("File mounted certs", func(t *testing.T) {
 		// User sets FileMountedCerts. They also need to set ISTIO_META_TLS_CLIENT* to specify the

@@ -29,14 +29,14 @@ import (
 	"istio.io/pkg/log"
 )
 
-var (
-	clusterAddressesMutex sync.Mutex
-)
+var clusterAddressesMutex sync.Mutex
 
 // The aggregate controller does not implement serviceregistry.Instance since it may be comprised of various
 // providers and clusters.
-var _ model.ServiceDiscovery = &Controller{}
-var _ model.Controller = &Controller{}
+var (
+	_ model.ServiceDiscovery = &Controller{}
+	_ model.Controller       = &Controller{}
+)
 
 // Controller aggregates data across different registries and monitors for changes
 type Controller struct {

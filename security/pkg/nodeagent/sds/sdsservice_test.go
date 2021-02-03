@@ -103,7 +103,6 @@ func (s *TestServer) Verify(resp *discovery.DiscoveryResponse, expectations ...E
 }
 
 func setupSDS(t *testing.T) *TestServer {
-
 	st := ca2.NewDirectSecretManager()
 	st.Set(testResourceName, &ca2.SecretItem{
 		CertificateChain: fakeCertificateChain,

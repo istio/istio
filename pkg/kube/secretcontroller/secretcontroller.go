@@ -98,7 +98,6 @@ func NewController(
 	addCallback addSecretCallback,
 	updateCallback updateSecretCallback,
 	removeCallback removeSecretCallback) *Controller {
-
 	secretsInformer := cache.NewSharedIndexInformer(
 		&cache.ListWatch{
 			ListFunc: func(opts meta_v1.ListOptions) (runtime.Object, error) {

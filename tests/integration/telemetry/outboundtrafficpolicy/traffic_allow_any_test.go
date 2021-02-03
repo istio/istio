@@ -122,8 +122,8 @@ func TestOutboundTrafficPolicy_AllowAny(t *testing.T) {
 			PortName: "tcp",
 			Expected: Expected{
 				// TODO(https://github.com/istio/istio/issues/22717) re-enable TCP
-				//Metric:          "istio_tcp_connections_closed_total",
-				//PromQueryFormat: `sum(istio_tcp_connections_closed_total{reporter="source",destination_service_name="PassthroughCluster",source_workload="client-v1"})`,
+				// Metric:          "istio_tcp_connections_closed_total",
+				// PromQueryFormat: `sum(istio_tcp_connections_closed_total{reporter="source",destination_service_name="PassthroughCluster",source_workload="client-v1"})`,
 				ResponseCode: []string{"200"},
 				// TCP will add StatusCode field. We don't really have a better way to identify as TCP
 				Metadata: map[string]string{"StatusCode": "200"},
@@ -134,8 +134,8 @@ func TestOutboundTrafficPolicy_AllowAny(t *testing.T) {
 			PortName: "tcp",
 			Expected: Expected{
 				// TODO(https://github.com/istio/istio/issues/22717) re-enable TCP
-				//Metric:          "istio_tcp_connections_closed_total",
-				//PromQueryFormat: `sum(istio_tcp_connections_closed_total{reporter="source",destination_service_name="PassthroughCluster",source_workload="client-v1"})`,
+				// Metric:          "istio_tcp_connections_closed_total",
+				// PromQueryFormat: `sum(istio_tcp_connections_closed_total{reporter="source",destination_service_name="PassthroughCluster",source_workload="client-v1"})`,
 				ResponseCode: []string{"200"},
 				// TCP will add StatusCode field. We don't really have a better way to identify as TCP
 				Metadata: map[string]string{"StatusCode": "200"},

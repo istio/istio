@@ -99,7 +99,8 @@ func testSetup(ctx resource.Context) (err error) {
 	_, err = echoboot.NewBuilder(ctx).
 		With(&clt, echo.Config{
 			Service:   "clt",
-			Namespace: echoNsInst}).
+			Namespace: echoNsInst,
+		}).
 		With(&srv, echo.Config{
 			Service:   "srv",
 			Namespace: echoNsInst,
@@ -110,7 +111,8 @@ func testSetup(ctx resource.Context) (err error) {
 					// We use a port > 1024 to not require root
 					InstancePort: 8888,
 				},
-			}}).
+			},
+		}).
 		Build()
 	if err != nil {
 		return

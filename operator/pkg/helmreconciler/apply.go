@@ -218,7 +218,6 @@ func (h *HelmReconciler) ApplyObject(obj *unstructured.Unstructured, serverSideA
 		}
 		return nil
 	})
-
 }
 
 // use server-side apply, require kubernetes 1.16+

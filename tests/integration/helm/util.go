@@ -55,10 +55,8 @@ const (
 	HelmTimeout         = 2 * time.Minute
 )
 
-var (
-	// ChartPath is path of local Helm charts used for testing.
-	ChartPath = filepath.Join(env.IstioSrc, "manifests/charts")
-)
+// ChartPath is path of local Helm charts used for testing.
+var ChartPath = filepath.Join(env.IstioSrc, "manifests/charts")
 
 // InstallGatewaysCharts install Istio using Helm charts with the provided
 // override values file and fails the tests on any failures.

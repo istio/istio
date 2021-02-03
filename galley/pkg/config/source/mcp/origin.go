@@ -23,8 +23,10 @@ const (
 	defaultReference = reference("mcp")
 )
 
-var _ resource.Origin = defaultOrigin
-var _ resource.Reference = defaultReference
+var (
+	_ resource.Origin    = defaultOrigin
+	_ resource.Reference = defaultReference
+)
 
 type origin string
 

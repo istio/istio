@@ -63,7 +63,7 @@ type builder struct {
 	// Only the first per-cluster entry for a given config should have a non-nil ref.
 	refs map[cluster.Kind][]*echo.Instance
 
-	//errs contains a multierror for failed validation during With calls
+	// errs contains a multierror for failed validation during With calls
 	errs error
 }
 

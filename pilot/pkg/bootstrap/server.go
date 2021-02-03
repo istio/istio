@@ -80,15 +80,13 @@ import (
 	"istio.io/pkg/version"
 )
 
-var (
-	// DefaultPlugins is the default list of plugins to enable, when no plugin(s)
-	// is specified through the command line
-	DefaultPlugins = []string{
-		plugin.AuthzCustom,
-		plugin.Authn,
-		plugin.Authz,
-	}
-)
+// DefaultPlugins is the default list of plugins to enable, when no plugin(s)
+// is specified through the command line
+var DefaultPlugins = []string{
+	plugin.AuthzCustom,
+	plugin.Authn,
+	plugin.Authz,
+}
 
 const (
 	// debounce file watcher events to minimize noise in logs

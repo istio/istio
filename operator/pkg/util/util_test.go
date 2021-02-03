@@ -242,7 +242,6 @@ func TestRenderTemplate(t *testing.T) {
 			got, err := RenderTemplate(tt.template, tt.in)
 			if got != tt.want {
 				t.Errorf("%s: got :%v, wanted output: %v", tt.desc, got, tt.want)
-
 			}
 
 			if (err == nil && tt.err != nil) || (err != nil && tt.err == nil) {

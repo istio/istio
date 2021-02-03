@@ -59,7 +59,6 @@ func (a *Analyzer) Analyze(c analysis.Context) {
 	injectedNamespaces := make(map[string]bool)
 
 	c.ForEach(collections.K8SCoreV1Namespaces.Name(), func(r *resource.Instance) bool {
-
 		ns := r.Metadata.FullName.String()
 		if util.IsSystemNamespace(resource.Namespace(ns)) {
 			return true

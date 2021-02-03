@@ -225,7 +225,6 @@ func createGateway(t *testing.T, ctx resource.Context, appsNamespace namespace.I
 // routes and this test relies on the dynamic routes sent through pilot to allow external traffic.
 
 func RunExternalRequest(cases []*TestCase, prometheus prometheus.Instance, mode TrafficPolicy, t *testing.T) {
-
 	// Testing of Blackhole and Passthrough clusters:
 	// Setup of environment:
 	// 1. client and destination are deployed to app-1-XXXX namespace

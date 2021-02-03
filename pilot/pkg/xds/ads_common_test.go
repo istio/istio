@@ -48,11 +48,13 @@ func TestProxyNeedsPush(t *testing.T) {
 
 	sidecar := &model.Proxy{
 		Type: model.SidecarProxy, IPAddresses: []string{"127.0.0.1"}, Metadata: &model.NodeMetadata{},
-		SidecarScope: &model.SidecarScope{Name: generalName, Namespace: nsName, RootNamespace: nsRoot}}
+		SidecarScope: &model.SidecarScope{Name: generalName, Namespace: nsName, RootNamespace: nsRoot},
+	}
 	gateway := &model.Proxy{Type: model.Router}
 
 	sidecarScopeKindNames := map[config.GroupVersionKind]string{
-		gvk.ServiceEntry: svcName, gvk.VirtualService: vsName, gvk.DestinationRule: drName}
+		gvk.ServiceEntry: svcName, gvk.VirtualService: vsName, gvk.DestinationRule: drName,
+	}
 	for kind, name := range sidecarScopeKindNames {
 		sidecar.SidecarScope.AddConfigDependencies(model.ConfigKey{Kind: kind, Name: name, Namespace: nsName})
 	}
@@ -73,19 +75,30 @@ func TestProxyNeedsPush(t *testing.T) {
 		{"gateway config for sidecar", sidecar, map[model.ConfigKey]struct{}{
 			{
 				Kind: gvk.Gateway,
-				Name: generalName, Namespace: nsName}: {}}, false},
+				Name: generalName, Namespace: nsName,
+			}: {},
+		}, false},
 		{"gateway config for gateway", gateway, map[model.ConfigKey]struct{}{
 			{
 				Kind: gvk.Gateway,
-				Name: generalName, Namespace: nsName}: {}}, true},
+				Name: generalName, Namespace: nsName,
+			}: {},
+		}, true},
 		{"sidecar config for gateway", gateway, map[model.ConfigKey]struct{}{
 			{
 				Kind: gvk.Sidecar,
-				Name: scName, Namespace: nsName}: {}}, false},
-		{"invalid config for sidecar", sidecar, map[model.ConfigKey]struct{}{
-			{
-				Kind: config.GroupVersionKind{Kind: invalidKind}, Name: generalName, Namespace: nsName}: {}},
-			true},
+				Name: scName, Namespace: nsName,
+			}: {},
+		}, false},
+		{
+			"invalid config for sidecar", sidecar,
+			map[model.ConfigKey]struct{}{
+				{
+					Kind: config.GroupVersionKind{Kind: invalidKind}, Name: generalName, Namespace: nsName,
+				}: {},
+			},
+			true,
+		},
 		{"mixture matched and unmatched config for sidecar", sidecar, map[model.ConfigKey]struct{}{
 			{Kind: gvk.DestinationRule, Name: drName, Namespace: nsName}:                   {},
 			{Kind: gvk.ServiceEntry, Name: svcName + invalidNameSuffix, Namespace: nsName}: {},
@@ -142,7 +155,8 @@ func TestProxyNeedsPush(t *testing.T) {
 				name:  fmt.Sprintf("kind %s affect %s", kind, nodeType),
 				proxy: proxy,
 				configs: map[model.ConfigKey]struct{}{
-					{Kind: kind, Name: generalName + invalidNameSuffix, Namespace: nsName}: {}},
+					{Kind: kind, Name: generalName + invalidNameSuffix, Namespace: nsName}: {},
+				},
 				want: true,
 			})
 		}

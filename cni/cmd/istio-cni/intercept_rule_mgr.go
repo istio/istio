@@ -26,11 +26,9 @@ type InterceptRuleMgr interface {
 
 type InterceptRuleMgrCtor func() InterceptRuleMgr
 
-var (
-	InterceptRuleMgrTypes = map[string]InterceptRuleMgrCtor{
-		"iptables": IptablesInterceptRuleMgrCtor,
-	}
-)
+var InterceptRuleMgrTypes = map[string]InterceptRuleMgrCtor{
+	"iptables": IptablesInterceptRuleMgrCtor,
+}
 
 // Constructor factory for known types of InterceptRuleMgr's
 func GetInterceptRuleMgrCtor(interceptType string) InterceptRuleMgrCtor {

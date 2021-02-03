@@ -32,18 +32,16 @@ import (
 	"istio.io/istio/pkg/config/schema/resource"
 )
 
-var (
-	// crdKubeResource is metadata for listening to CRD resource on the API Server.
-	crdKubeResource = collection.Builder{
-		Name: "k8s/crd",
-		Resource: resource.Builder{
-			Group:   "apiextensions.k8s.io",
-			Version: "v1beta1",
-			Plural:  "customresourcedefinitions",
-			Kind:    "CustomResourceDefinition",
-		}.BuildNoValidate(),
-	}.MustBuild()
-)
+// crdKubeResource is metadata for listening to CRD resource on the API Server.
+var crdKubeResource = collection.Builder{
+	Name: "k8s/crd",
+	Resource: resource.Builder{
+		Group:   "apiextensions.k8s.io",
+		Version: "v1beta1",
+		Plural:  "customresourcedefinitions",
+		Kind:    "CustomResourceDefinition",
+	}.BuildNoValidate(),
+}.MustBuild()
 
 // Source is an implementation of processing.KubeSource
 type Source struct { // nolint:maligned
@@ -80,8 +78,10 @@ type Source struct { // nolint:maligned
 	statusCtl status.Controller
 }
 
-var _ event.Source = &Source{}
-var _ snapshotter.StatusUpdater = &Source{}
+var (
+	_ event.Source              = &Source{}
+	_ snapshotter.StatusUpdater = &Source{}
+)
 
 // New returns a new kube.Source.
 func New(o Options) *Source {

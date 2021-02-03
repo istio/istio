@@ -30,27 +30,25 @@ import (
 // FieldAnalyzer checks for deprecated Istio types and fields
 type FieldAnalyzer struct{}
 
-var (
-	// Tracks Istio CRDs removed from manifests/charts/base/crds/crd-all.gen.yaml
-	deprecatedCRDs = []k8sext_v1beta1.CustomResourceDefinitionSpec{
-		{
-			Group: "rbac.istio.io",
-			Names: k8sext_v1beta1.CustomResourceDefinitionNames{Kind: "ClusterRbacConfig"},
-		},
-		{
-			Group: "rbac.istio.io",
-			Names: k8sext_v1beta1.CustomResourceDefinitionNames{Kind: "RbacConfig"},
-		},
-		{
-			Group: "rbac.istio.io",
-			Names: k8sext_v1beta1.CustomResourceDefinitionNames{Kind: "ServiceRole"},
-		},
-		{
-			Group: "rbac.istio.io",
-			Names: k8sext_v1beta1.CustomResourceDefinitionNames{Kind: "ServiceRoleBinding"},
-		},
-	}
-)
+// Tracks Istio CRDs removed from manifests/charts/base/crds/crd-all.gen.yaml
+var deprecatedCRDs = []k8sext_v1beta1.CustomResourceDefinitionSpec{
+	{
+		Group: "rbac.istio.io",
+		Names: k8sext_v1beta1.CustomResourceDefinitionNames{Kind: "ClusterRbacConfig"},
+	},
+	{
+		Group: "rbac.istio.io",
+		Names: k8sext_v1beta1.CustomResourceDefinitionNames{Kind: "RbacConfig"},
+	},
+	{
+		Group: "rbac.istio.io",
+		Names: k8sext_v1beta1.CustomResourceDefinitionNames{Kind: "ServiceRole"},
+	},
+	{
+		Group: "rbac.istio.io",
+		Names: k8sext_v1beta1.CustomResourceDefinitionNames{Kind: "ServiceRoleBinding"},
+	},
+}
 
 // Currently we don't have an Istio API that tells which Istio API fields are deprecated.
 // Run `find . -name "*.proto" -exec grep -i "deprecated=true" \{\} \; -print`
@@ -106,7 +104,6 @@ func (*FieldAnalyzer) analyzeCRD(r *resource.Instance, ctx analysis.Context) {
 }
 
 func (*FieldAnalyzer) analyzeSidecar(r *resource.Instance, ctx analysis.Context) {
-
 	sc := r.Message.(*v1alpha3.Sidecar)
 
 	if sc.OutboundTrafficPolicy != nil {
@@ -118,7 +115,6 @@ func (*FieldAnalyzer) analyzeSidecar(r *resource.Instance, ctx analysis.Context)
 }
 
 func (*FieldAnalyzer) analyzeVirtualService(r *resource.Instance, ctx analysis.Context) {
-
 	vs := r.Message.(*v1alpha3.VirtualService)
 
 	for _, httpRoute := range vs.Http {

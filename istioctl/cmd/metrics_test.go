@@ -183,6 +183,7 @@ func (client mockPromAPI) Query(ctx context.Context, query string, ts time.Time)
 func (client mockPromAPI) TSDB(ctx context.Context) (promv1.TSDBResult, error) {
 	return promv1.TSDBResult{}, nil
 }
+
 func (client mockPromAPI) QueryRange(ctx context.Context, query string, r promv1.Range) (prometheus_model.Value, promv1.Warnings, error) {
 	canned, ok := client.cannedResponse[query]
 	if !ok {
