@@ -1918,12 +1918,14 @@ func buildListener(opts buildListenerOpts, trafficDirection core.TrafficDirectio
 				}
 			}
 			if !fullWildcardFound {
-				sort.Strings(chain.sniHosts)
+				chain.sniHosts = append([]string{}, chain.sniHosts...)
+				sort.Stable(sort.StringSlice(chain.sniHosts))
 				match.ServerNames = chain.sniHosts
 			}
 		}
 		if len(chain.destinationCIDRs) > 0 {
-			sort.Strings(chain.destinationCIDRs)
+			chain.destinationCIDRs = append([]string{}, chain.destinationCIDRs...)
+			sort.Stable(sort.StringSlice(chain.destinationCIDRs))
 			for _, d := range chain.destinationCIDRs {
 				if len(d) == 0 {
 					continue
