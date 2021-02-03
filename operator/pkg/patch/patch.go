@@ -98,9 +98,7 @@ import (
 	"istio.io/pkg/log"
 )
 
-var (
-	scope = log.RegisterScope("patch", "patch", 0)
-)
+var scope = log.RegisterScope("patch", "patch", 0)
 
 // overlayMatches reports whether obj matches the overlay for either the default namespace or no namespace (cluster scope).
 func overlayMatches(overlay *v1alpha1.K8SObjectOverlay, obj *object.K8sObject, defaultNamespace string) bool {

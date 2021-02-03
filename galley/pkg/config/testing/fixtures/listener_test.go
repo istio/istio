@@ -35,5 +35,4 @@ func TestDispatcher(t *testing.T) {
 
 	expected := []event.Event{data.Event1Col1AddItem1}
 	g.Expect(h1.Events()).To(gomega.Equal(expected))
-
 }

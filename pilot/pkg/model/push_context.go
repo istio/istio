@@ -38,9 +38,7 @@ import (
 	"istio.io/pkg/monitoring"
 )
 
-var (
-	defaultClusterLocalNamespaces = []string{"kube-system"}
-)
+var defaultClusterLocalNamespaces = []string{"kube-system"}
 
 // Metrics is an interface for capturing metrics on a per-node basis.
 type Metrics interface {
@@ -736,7 +734,6 @@ func (ps *PushContext) DelegateVirtualServicesConfigKey(vses []config.Config) []
 // Callers can check if the sidecarScope is from user generated object or not
 // by checking the sidecarScope.Config field, that contains the user provided config
 func (ps *PushContext) getSidecarScope(proxy *Proxy, workloadLabels labels.Collection) *SidecarScope {
-
 	// Find the most specific matching sidecar config from the proxy's
 	// config namespace If none found, construct a sidecarConfig on the fly
 	// that allows the sidecar to talk to any namespace (the default
@@ -979,7 +976,6 @@ func (ps *PushContext) updateContext(
 	env *Environment,
 	oldPushContext *PushContext,
 	pushReq *PushRequest) error {
-
 	var servicesChanged, virtualServicesChanged, destinationRulesChanged, gatewayChanged,
 		authnChanged, authzChanged, envoyFiltersChanged, sidecarsChanged bool
 

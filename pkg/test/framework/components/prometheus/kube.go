@@ -145,6 +145,7 @@ func (c *kubeComponent) ID() resource.ID {
 func (c *kubeComponent) API() prometheusApiV1.API {
 	return c.api[c.clusters.Default().Name()]
 }
+
 func (c *kubeComponent) APIForCluster(cluster cluster.Cluster) prometheusApiV1.API {
 	return c.api[cluster.Name()]
 }
@@ -152,6 +153,7 @@ func (c *kubeComponent) APIForCluster(cluster cluster.Cluster) prometheusApiV1.A
 func (c *kubeComponent) WaitForQuiesce(format string, args ...interface{}) (model.Value, error) {
 	return c.WaitForQuiesceForCluster(c.clusters.Default(), format, args...)
 }
+
 func (c *kubeComponent) WaitForQuiesceForCluster(cluster cluster.Cluster, format string, args ...interface{}) (model.Value, error) {
 	var previous model.Value
 
@@ -199,6 +201,7 @@ func (c *kubeComponent) WaitForQuiesceForCluster(cluster cluster.Cluster, format
 func (c *kubeComponent) WaitForQuiesceOrFail(t test.Failer, format string, args ...interface{}) model.Value {
 	return c.WaitForQuiesceOrFailForCluster(c.clusters.Default(), t, format, args...)
 }
+
 func (c *kubeComponent) WaitForQuiesceOrFailForCluster(cluster cluster.Cluster, t test.Failer, format string, args ...interface{}) model.Value {
 	v, err := c.WaitForQuiesceForCluster(cluster, format, args...)
 	if err != nil {
@@ -210,8 +213,8 @@ func (c *kubeComponent) WaitForQuiesceOrFailForCluster(cluster cluster.Cluster, 
 func (c *kubeComponent) WaitForOneOrMore(format string, args ...interface{}) (model.Value, error) {
 	return c.WaitForOneOrMoreForCluster(c.clusters.Default(), format, args...)
 }
-func (c *kubeComponent) WaitForOneOrMoreForCluster(cluster cluster.Cluster, format string, args ...interface{}) (model.Value, error) {
 
+func (c *kubeComponent) WaitForOneOrMoreForCluster(cluster cluster.Cluster, format string, args ...interface{}) (model.Value, error) {
 	value, err := retry.Do(func() (interface{}, bool, error) {
 		var err error
 		query, err := tmpl.Evaluate(fmt.Sprintf(format, args...), map[string]string{})
@@ -222,7 +225,6 @@ func (c *kubeComponent) WaitForOneOrMoreForCluster(cluster cluster.Cluster, form
 		scopes.Framework.Debugf("WaitForOneOrMore running: %q", query)
 
 		v, _, err := c.api[cluster.Name()].Query(context.Background(), query, time.Now())
-
 		if err != nil {
 			return nil, false, fmt.Errorf("error querying Prometheus: %v", err)
 		}
@@ -255,6 +257,7 @@ func (c *kubeComponent) WaitForOneOrMoreForCluster(cluster cluster.Cluster, form
 func (c *kubeComponent) WaitForOneOrMoreOrFail(t test.Failer, format string, args ...interface{}) model.Value {
 	return c.WaitForOneOrMoreOrFailForCluster(c.clusters.Default(), t, format, args...)
 }
+
 func (c *kubeComponent) WaitForOneOrMoreOrFailForCluster(cluster cluster.Cluster, t test.Failer, format string, args ...interface{}) model.Value {
 	val, err := c.WaitForOneOrMoreForCluster(cluster, format, args...)
 	if err != nil {

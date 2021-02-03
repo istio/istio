@@ -62,7 +62,6 @@ func (a *DestinationHostAnalyzer) Analyze(ctx analysis.Context) {
 
 func (a *DestinationHostAnalyzer) analyzeVirtualService(r *resource.Instance, ctx analysis.Context,
 	serviceEntryHosts map[util.ScopedFqdn]*v1alpha3.ServiceEntry) {
-
 	vs := r.Message.(*v1alpha3.VirtualService)
 
 	for _, d := range getRouteDestinations(vs) {

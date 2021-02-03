@@ -126,7 +126,6 @@ func TestReachability(t *testing.T) {
 						// have proxy or have mTLS disabled
 						if apps.IsNaked(src) {
 							return apps.IsNaked(opts.Target) || (apps.B.Contains(opts.Target) && opts.PortName != "http")
-
 						}
 						// PeerAuthentication disable mTLS for workload app:b, except http port. Thus, autoMTLS
 						// will fail on all ports on b, except http port.

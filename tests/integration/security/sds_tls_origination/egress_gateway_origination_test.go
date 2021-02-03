@@ -38,17 +38,16 @@ func TestSimpleTlsOrigination(t *testing.T) {
 	framework.NewTest(t).
 		Features("security.egress.tls.sds").
 		Run(func(ctx framework.TestContext) {
-
 			var (
 				credName        = "tls-credential-cacert"
 				fakeCredName    = "fake-tls-credential-cacert"
 				credNameMissing = "tls-credential-not-created-cacert"
 			)
 
-			var credentialA = sdstlsutil.TLSCredential{
+			credentialA := sdstlsutil.TLSCredential{
 				CaCert: sdstlsutil.MustReadCert(t, "root-cert.pem"),
 			}
-			var CredentialB = sdstlsutil.TLSCredential{
+			CredentialB := sdstlsutil.TLSCredential{
 				CaCert: sdstlsutil.FakeRoot,
 			}
 			// Add kubernetes secret to provision key/cert for gateway.
@@ -139,7 +138,6 @@ func TestMutualTlsOrigination(t *testing.T) {
 	framework.NewTest(t).
 		Features("security.egress.mtls.sds").
 		Run(func(ctx framework.TestContext) {
-
 			var (
 				credNameGeneric    = "mtls-credential-generic"
 				credNameNotGeneric = "mtls-credential-not-generic"
@@ -149,29 +147,29 @@ func TestMutualTlsOrigination(t *testing.T) {
 				simpleCredName     = "tls-credential-simple-cacert"
 			)
 
-			var credentialASimple = sdstlsutil.TLSCredential{
+			credentialASimple := sdstlsutil.TLSCredential{
 				CaCert: sdstlsutil.MustReadCert(t, "root-cert.pem"),
 			}
 
-			var credentialAGeneric = sdstlsutil.TLSCredential{
+			credentialAGeneric := sdstlsutil.TLSCredential{
 				ClientCert: sdstlsutil.MustReadCert(t, "cert-chain.pem"),
 				PrivateKey: sdstlsutil.MustReadCert(t, "key.pem"),
 				CaCert:     sdstlsutil.MustReadCert(t, "root-cert.pem"),
 			}
 
-			var credentialANonGeneric = sdstlsutil.TLSCredential{
+			credentialANonGeneric := sdstlsutil.TLSCredential{
 				ClientCert: sdstlsutil.MustReadCert(t, "cert-chain.pem"),
 				PrivateKey: sdstlsutil.MustReadCert(t, "key.pem"),
 				CaCert:     sdstlsutil.MustReadCert(t, "root-cert.pem"),
 			}
 			// Configured with an invalid ClientCert
-			var credentialBCert = sdstlsutil.TLSCredential{
+			credentialBCert := sdstlsutil.TLSCredential{
 				ClientCert: sdstlsutil.FakeCert,
 				PrivateKey: sdstlsutil.MustReadCert(t, "key.pem"),
 				CaCert:     sdstlsutil.MustReadCert(t, "root-cert.pem"),
 			}
 			// Configured with an invalid ClientCert and PrivateKey
-			var credentialBCertAndKey = sdstlsutil.TLSCredential{
+			credentialBCertAndKey := sdstlsutil.TLSCredential{
 				ClientCert: sdstlsutil.FakeCert,
 				PrivateKey: sdstlsutil.FakeKey,
 				CaCert:     sdstlsutil.MustReadCert(t, "root-cert.pem"),

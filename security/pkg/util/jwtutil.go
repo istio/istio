@@ -46,7 +46,6 @@ func IsJwtExpired(token string, now time.Time) (bool, error) {
 		return true, nil
 	}
 	return false, nil
-
 }
 
 // GetAud returns the claim `aud` from the token. Returns nil if not found.

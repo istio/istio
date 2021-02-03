@@ -62,7 +62,6 @@ func TestEmptyCluster(t *testing.T) {
 			output, err := istioctlSafe(t, istioCtl, ns.Name(), true)
 			expectNoMessages(t, g, output)
 			g.Expect(err).To(BeNil())
-
 		})
 }
 
@@ -183,7 +182,6 @@ func TestJsonInputFile(t *testing.T) {
 			output, err := istioctlSafe(t, istioCtl, ns.Name(), false, jsonGatewayFile)
 			expectMessages(t, g, output, msg.ReferencedResourceNotFound)
 			g.Expect(err).To(BeIdenticalTo(analyzerFoundIssuesError))
-
 		})
 }
 
@@ -225,7 +223,6 @@ func TestJsonOutput(t *testing.T) {
 					g.Expect(err).To(BeNil())
 				})
 			}
-
 		})
 }
 

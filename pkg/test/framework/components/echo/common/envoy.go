@@ -71,7 +71,6 @@ func WaitForConfig(fetch ConfigFetchFunc, accept ConfigAcceptFunc, options ...re
 		// The configuration was rejected, don't try again.
 		return nil, true, errors.New("envoy config rejected")
 	}, options...)
-
 	if err != nil {
 		configDumpStr := "nil"
 		if cfg != nil {

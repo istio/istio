@@ -65,7 +65,6 @@ func InitServiceEntryHostMap(ctx analysis.Context) map[ScopedFqdn]*v1alpha3.Serv
 		}
 		result[NewScopedFqdn(hostsNamespaceScope, r.Metadata.FullName.Namespace, r.Metadata.FullName.Name.String())] = se
 		return true
-
 	})
 	return result
 }

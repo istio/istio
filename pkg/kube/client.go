@@ -185,8 +185,10 @@ type ExtendedClient interface {
 	UtilFactory() util.Factory
 }
 
-var _ Client = &client{}
-var _ ExtendedClient = &client{}
+var (
+	_ Client         = &client{}
+	_ ExtendedClient = &client{}
+)
 
 const resyncInterval = 0
 
@@ -740,7 +742,6 @@ func (c *client) GetIstioVersions(ctx context.Context, namespace string) (*versi
 }
 
 func (c *client) getIstioVersionUsingExec(pod *v1.Pod) (*version.BuildInfo, error) {
-
 	// exclude data plane components from control plane list
 	labelToPodDetail := map[string]struct {
 		binary    string

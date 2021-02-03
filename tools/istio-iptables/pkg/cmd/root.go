@@ -155,9 +155,9 @@ func init() {
 	// Replace - with _; so that environment variables are looked up correctly.
 	viper.SetEnvKeyReplacer(strings.NewReplacer("-", "_"))
 
-	var envoyPort = "15001"
-	var inboundPort = "15006"
-	var inboundTunnelPort = "15008"
+	envoyPort := "15001"
+	inboundPort := "15006"
+	inboundTunnelPort := "15008"
 
 	rootCmd.Flags().StringP(constants.EnvoyPort, "p", "", "Specify the envoy port to which redirect all TCP traffic (default $ENVOY_PORT = 15001)")
 	if err := viper.BindPFlag(constants.EnvoyPort, rootCmd.Flags().Lookup(constants.EnvoyPort)); err != nil {

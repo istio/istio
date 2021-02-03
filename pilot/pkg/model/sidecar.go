@@ -271,7 +271,7 @@ func ConvertToSidecarScope(ps *PushContext, sidecarConfig *config.Config, config
 
 	out.EgressListeners = make([]*IstioEgressListenerWrapper, 0)
 	egressConfigs := sidecar.Egress
-	//If egress not set, setup a default listener
+	// If egress not set, setup a default listener
 	if len(egressConfigs) == 0 {
 		egressConfigs = append(egressConfigs, &networking.IstioEgressListener{Hosts: []string{"*/*"}})
 	}
@@ -408,7 +408,6 @@ func ConvertToSidecarScope(ps *PushContext, sidecarConfig *config.Config, config
 
 func convertIstioListenerToWrapper(ps *PushContext, configNamespace string,
 	istioListener *networking.IstioEgressListener) *IstioEgressListenerWrapper {
-
 	out := &IstioEgressListenerWrapper{
 		IstioListener: istioListener,
 		listenerHosts: make(map[string][]host.Name),
@@ -614,7 +613,6 @@ func (ilw *IstioEgressListenerWrapper) selectVirtualServices(virtualServices []c
 // Return filtered services through the hosts field in the egress portion of the Sidecar config.
 // Note that the returned service could be trimmed.
 func (ilw *IstioEgressListenerWrapper) selectServices(services []*Service, configNamespace string) []*Service {
-
 	importedServices := make([]*Service, 0)
 	wildcardHosts, wnsFound := ilw.listenerHosts[wildcardNamespace]
 	for _, s := range services {
@@ -635,7 +633,7 @@ func (ilw *IstioEgressListenerWrapper) selectServices(services []*Service, confi
 		}
 	}
 
-	var validServices = make(map[host.Name]string)
+	validServices := make(map[host.Name]string)
 	for _, svc := range importedServices {
 		_, f := validServices[svc.Hostname]
 		// Select a single namespace for a given hostname.

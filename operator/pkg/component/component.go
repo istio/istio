@@ -40,9 +40,7 @@ const (
 	yamlCommentStr       = "#"
 )
 
-var (
-	scope = log.RegisterScope("installer", "installer", 0)
-)
+var scope = log.RegisterScope("installer", "installer", 0)
 
 // Options defines options for a component.
 type Options struct {

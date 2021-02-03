@@ -16,7 +16,5 @@ package scopes
 
 import "istio.io/pkg/log"
 
-var (
-	// Framework is the general logging scope for the framework.
-	Framework = log.RegisterScope("tf", "General scope for the test framework", 0)
-)
+// Framework is the general logging scope for the framework.
+var Framework = log.RegisterScope("tf", "General scope for the test framework", 0)

@@ -58,7 +58,8 @@ func TestWorkloadHealthChecker_PerformApplicationHealthCheck(t *testing.T) {
 			{Healthy: true},
 			{Healthy: false},
 			{Healthy: true},
-			{Healthy: false}}
+			{Healthy: false},
+		}
 		tcpHealthStatuses := [6]bool{true, false, true, false, true, false}
 
 		cont := make(chan struct{}, 6)

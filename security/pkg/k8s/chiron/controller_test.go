@@ -449,7 +449,6 @@ func TestRefreshSecret(t *testing.T) {
 		wc, err := NewWebhookController(tc.gracePeriodRatio, tc.minGracePeriod,
 			client.CoreV1(), client.AdmissionregistrationV1beta1(), client.CertificatesV1beta1(),
 			tc.k8sCaCertFile, tc.secretNames, tc.dnsNames, tc.serviceNamespaces)
-
 		if err != nil {
 			t.Errorf("failed at creating webhook controller: %v", err)
 			continue

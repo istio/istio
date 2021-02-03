@@ -23,9 +23,7 @@ import (
 	"istio.io/istio/pkg/envoy"
 )
 
-var (
-	testConfigPath = absPath("testdata/bootstrap.json")
-)
+var testConfigPath = absPath("testdata/bootstrap.json")
 
 func TestNewOptions(t *testing.T) {
 	g := NewWithT(t)

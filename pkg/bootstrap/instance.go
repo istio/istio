@@ -35,10 +35,8 @@ const (
 	DefaultCfgDir     = "./var/lib/istio/envoy/envoy_bootstrap_tmpl.json"
 )
 
-var (
-	// TODO(nmittler): Move this to application code. This shouldn't be declared in a library.
-	overrideVar = env.RegisterStringVar("ISTIO_BOOTSTRAP", "", "")
-)
+// TODO(nmittler): Move this to application code. This shouldn't be declared in a library.
+var overrideVar = env.RegisterStringVar("ISTIO_BOOTSTRAP", "", "")
 
 // Instance of a configured Envoy bootstrap writer.
 type Instance interface {

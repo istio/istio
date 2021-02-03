@@ -117,21 +117,17 @@ func (i *ingressImpl) Watch(ctx context.Context, opts metav1.ListOptions) (watch
 
 func (i *ingressImpl) UpdateStatus(context.Context, *v1beta1.Ingress, metav1.UpdateOptions) (*v1beta1.Ingress, error) {
 	panic("not implemented")
-
 }
 
 func (i *ingressImpl) DeleteCollection(ctx context.Context, options metav1.DeleteOptions, listOptions metav1.ListOptions) error {
 	panic("not implemented")
-
 }
 
 func (i *ingressImpl) Get(ctx context.Context, name string, options metav1.GetOptions) (*v1beta1.Ingress, error) {
 	panic("not implemented")
-
 }
 
 func (i *ingressImpl) Patch(ctx context.Context, name string, pt types.PatchType,
 	data []byte, opts metav1.PatchOptions, subresources ...string) (result *v1beta1.Ingress, err error) {
 	panic("not implemented")
-
 }

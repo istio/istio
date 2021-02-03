@@ -109,7 +109,6 @@ func TestStackdriverHTTPAuditLogging(t *testing.T) {
 
 						return fmt.Errorf(strings.Join(errs, "\n"))
 					}, retry.Delay(5*time.Second), retry.Timeout(80*time.Second))
-
 					if err != nil {
 						return err
 					}

@@ -107,10 +107,12 @@ type TLSOptions struct {
 	KeyFile    string
 }
 
-var PodNamespaceVar = env.RegisterStringVar("POD_NAMESPACE", constants.IstioSystemNamespace, "")
-var podNameVar = env.RegisterStringVar("POD_NAME", "", "")
-var jwtRuleVar = env.RegisterStringVar("JWT_RULE", "",
-	"The JWT rule used by istiod authentication")
+var (
+	PodNamespaceVar = env.RegisterStringVar("POD_NAMESPACE", constants.IstioSystemNamespace, "")
+	podNameVar      = env.RegisterStringVar("POD_NAME", "", "")
+	jwtRuleVar      = env.RegisterStringVar("JWT_RULE", "",
+		"The JWT rule used by istiod authentication")
+)
 
 // RevisionVar is the value of the Istio control plane revision, e.g. "canary",
 // and is the value used by the "istio.io/rev" label.

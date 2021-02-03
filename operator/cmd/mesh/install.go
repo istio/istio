@@ -120,7 +120,8 @@ func InstallCmd(logOpts *log.Options) *cobra.Command {
 		},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runApplyCmd(cmd, rootArgs, iArgs, logOpts)
-		}}
+		},
+	}
 
 	addFlags(ic, rootArgs)
 	addInstallFlags(ic, iArgs)
@@ -205,8 +206,10 @@ func InstallManifests(iop *v1alpha12.IstioOperator, force bool, dryRun bool, res
 	waitTimeout time.Duration, l clog.Logger) (*v1alpha12.IstioOperator, error) {
 	// Needed in case we are running a test through this path that doesn't start a new process.
 	cache.FlushObjectCaches()
-	opts := &helmreconciler.Options{DryRun: dryRun, Log: l, WaitTimeout: waitTimeout, ProgressLog: progress.NewLog(),
-		Force: force}
+	opts := &helmreconciler.Options{
+		DryRun: dryRun, Log: l, WaitTimeout: waitTimeout, ProgressLog: progress.NewLog(),
+		Force: force,
+	}
 	reconciler, err := helmreconciler.NewHelmReconciler(client, restConfig, iop, opts)
 	if err != nil {
 		return iop, err

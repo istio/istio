@@ -125,8 +125,10 @@ const (
 	H2TunnelTypeName = "H2Tunnel"
 )
 
-type TunnelType int
-type TunnelAbility int
+type (
+	TunnelType    int
+	TunnelAbility int
+)
 
 const (
 	// Bind the no tunnel support to a name.

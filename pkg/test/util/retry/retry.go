@@ -33,13 +33,11 @@ const (
 	DefaultConverge = 1
 )
 
-var (
-	defaultConfig = config{
-		timeout:  DefaultTimeout,
-		delay:    DefaultDelay,
-		converge: DefaultConverge,
-	}
-)
+var defaultConfig = config{
+	timeout:  DefaultTimeout,
+	delay:    DefaultDelay,
+	converge: DefaultConverge,
+}
 
 type config struct {
 	error    string

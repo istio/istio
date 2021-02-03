@@ -240,7 +240,6 @@ func (m *Multicluster) UpdateMemberCluster(clients kubelib.Client, clusterID str
 // when a remote cluster is deleted.  Also must clear the cache so remote resources
 // are removed.
 func (m *Multicluster) DeleteMemberCluster(clusterID string) error {
-
 	m.m.Lock()
 	defer m.m.Unlock()
 	m.serviceController.DeleteRegistry(clusterID, serviceregistry.Kubernetes)

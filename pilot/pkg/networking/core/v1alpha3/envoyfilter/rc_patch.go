@@ -63,7 +63,6 @@ func ApplyRouteConfigurationPatches(
 func doVirtualHostListOperation(patchContext networking.EnvoyFilter_PatchContext,
 	patches map[networking.EnvoyFilter_ApplyTo][]*model.EnvoyFilterConfigPatchWrapper,
 	routeConfiguration *route.RouteConfiguration) {
-
 	virtualHostsRemoved := false
 	// first do removes/merges
 	for _, vhost := range routeConfiguration.VirtualHosts {
@@ -96,12 +95,10 @@ func doVirtualHostListOperation(patchContext networking.EnvoyFilter_PatchContext
 func doVirtualHostOperation(patchContext networking.EnvoyFilter_PatchContext,
 	patches map[networking.EnvoyFilter_ApplyTo][]*model.EnvoyFilterConfigPatchWrapper,
 	routeConfiguration *route.RouteConfiguration, virtualHost *route.VirtualHost, virtualHostRemoved *bool) {
-
 	for _, cp := range patches[networking.EnvoyFilter_VIRTUAL_HOST] {
 		if commonConditionMatch(patchContext, cp) &&
 			routeConfigurationMatch(patchContext, routeConfiguration, cp) &&
 			virtualHostMatch(virtualHost, cp) {
-
 			if cp.Operation == networking.EnvoyFilter_Patch_REMOVE {
 				virtualHost.Name = ""
 				*virtualHostRemoved = true
@@ -132,7 +129,6 @@ func hasRouteMatch(cp *model.EnvoyFilterConfigPatchWrapper) bool {
 func doHTTPRouteListOperation(patchContext networking.EnvoyFilter_PatchContext,
 	patches map[networking.EnvoyFilter_ApplyTo][]*model.EnvoyFilterConfigPatchWrapper,
 	routeConfiguration *route.RouteConfiguration, virtualHost *route.VirtualHost) {
-
 	routesRemoved := false
 	// Apply the route level removes/merges if any.
 	for index := range virtualHost.Routes {
