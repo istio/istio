@@ -466,7 +466,6 @@ func TestConnection(t *testing.T) {
 		var kesClient KeyEncryptionService
 		kesClient.Endpoint = tc.addr
 		err := kesClient.Connect(timeout)
-
 		if err != nil {
 			t.Errorf("Test case [%s]: Problem calling Connect", id)
 		}

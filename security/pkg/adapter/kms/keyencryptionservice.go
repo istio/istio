@@ -62,7 +62,6 @@ func (kes *KeyEncryptionService) Connect(timeout time.Duration) error {
 
 // GenerateDEK gets the encrypted target key blob.
 func (kes *KeyEncryptionService) GenerateDEK(kekID []byte) (encDEK []byte, err error) {
-
 	var genDEKResp *istio.GenerateDEKResponse
 	if genDEKResp, err = kes.c.GenerateDEK(kes.ctx, &istio.GenerateDEKRequest{
 		KekKid: kekID,
@@ -92,7 +91,6 @@ func getKeyKind(keyType KeyType) istio.KeyKind {
 // GenerateSkey gets the encrypted target key blob.
 func (kes *KeyEncryptionService) GenerateSKey(kekID []byte, encDEK []byte, keySize int, keyType KeyType) (
 	encSKey []byte, err error) {
-
 	keyKind := getKeyKind(keyType)
 
 	var genSKeyResp *istio.GenerateSKeyResponse
@@ -127,7 +125,6 @@ func (kes *KeyEncryptionService) GetSKey(kekID, encDEK, encSKey []byte) (decSKey
 // AutenticatedEncrypt encrypts with AEAD 256-bit AES.
 func (kes *KeyEncryptionService) AuthenticatedEncrypt(kekID, encDEK, aad, plaintext []byte) (
 	ciphertext []byte, err error) {
-
 	var aeResp *istio.AuthenticatedEncryptResponse
 	if aeResp, err = kes.c.AuthenticatedEncrypt(kes.ctx, &istio.AuthenticatedEncryptRequest{
 		KekKid:           kekID,
@@ -145,7 +142,6 @@ func (kes *KeyEncryptionService) AuthenticatedEncrypt(kekID, encDEK, aad, plaint
 // AutenticatedDecrypt decrypts with AEAD 256-bit AES.
 func (kes *KeyEncryptionService) AuthenticatedDecrypt(kekID, encDEK, aad, ciphertext []byte) (
 	plaintext []byte, err error) {
-
 	var adResp *istio.AuthenticatedDecryptResponse
 	if adResp, err = kes.c.AuthenticatedDecrypt(kes.ctx, &istio.AuthenticatedDecryptRequest{
 		KekKid:           kekID,
@@ -171,10 +167,10 @@ func (kes *KeyEncryptionService) VerifyCertChain(certChain []byte) (success bool
 	chain := make([][]byte, 0)
 	chain = append(chain, block.Bytes)
 
-	var verifyCertChainReq = &istio.VerifyCertChainRequest{
+	verifyCertChainReq := &istio.VerifyCertChainRequest{
 		Certificates: chain,
 	}
-	var verifyCertChainResp = &istio.VerifyCertChainResponse{}
+	var verifyCertChainResp *istio.VerifyCertChainResponse
 	if verifyCertChainResp, err = kes.c.VerifyCertChain(kes.ctx, verifyCertChainReq); nil != err {
 		kmsLog.Errorf(err)
 		return false, err

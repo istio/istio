@@ -62,9 +62,7 @@ const (
 	roleKeyInLoginReq = "role"
 )
 
-var (
-	vaultClientLog = log.RegisterScope("vault", "Vault client debugging", 0)
-)
+var vaultClientLog = log.RegisterScope("vault", "Vault client debugging", 0)
 
 // Client is a client for interaction with Vault.
 type Client struct {
@@ -223,7 +221,6 @@ func loginVaultK8sAuthMethod(client *vaultapi.Client, loginPath, role, jwt strin
 			jwtKeyInLoginReq:  jwt,
 			roleKeyInLoginReq: role,
 		})
-
 	if err != nil {
 		vaultClientLog.Errorf("failed to log into Vault: %v", err)
 		return "", err

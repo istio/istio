@@ -163,7 +163,6 @@ func NewASMExporter(pe *ocprom.Exporter) (*ASMExporter, error) {
 		DefaultMonitoringLabels: labels,
 		ReportingInterval:       60 * time.Second,
 	})
-
 	if err != nil {
 		return nil, fmt.Errorf("fail to initialize Stackdriver exporter: %v", err)
 	}
