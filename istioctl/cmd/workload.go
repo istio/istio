@@ -37,6 +37,7 @@ import (
 	clientv1alpha3 "istio.io/client-go/pkg/apis/networking/v1alpha3"
 	"istio.io/istio/istioctl/pkg/clioptions"
 	"istio.io/istio/istioctl/pkg/multicluster"
+	"istio.io/istio/operator/pkg/util"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
 	"istio.io/istio/pkg/config/constants"
@@ -44,6 +45,7 @@ import (
 	"istio.io/istio/pkg/config/validation"
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/inject"
+	"istio.io/istio/pkg/url"
 	"istio.io/istio/pkg/util/gogoprotomarshal"
 	"istio.io/istio/pkg/util/shellescape"
 )
@@ -333,6 +335,29 @@ func createCertsTokens(kubeClient kube.ExtendedClient, wg *clientv1alpha3.Worklo
 	}
 
 	serviceAccount := wg.Spec.Template.ServiceAccount
+	tokenPath := filepath.Join(dir, "istio-token")
+	jwtPolicy, err := util.DetectSupportedJWTPolicy(kubeClient.RESTConfig())
+	if err != nil {
+		fmt.Printf("Failed to determine JWT policy support: %v", err)
+	}
+	if jwtPolicy == util.FirstPartyJWT {
+		fmt.Println("warning: Detected that your cluster does not support third party JWT authentication. " +
+			"Falling back to less secure first party JWT. " +
+			"See " + url.ConfigureSAToken + " for details.")
+		sa, err := kubeClient.CoreV1().ServiceAccounts(wg.Namespace).Get(context.TODO(), serviceAccount, metav1.GetOptions{})
+		if err != nil {
+			return err
+		}
+		secret, err := kubeClient.CoreV1().Secrets(wg.Namespace).Get(context.TODO(), sa.Secrets[0].Name, metav1.GetOptions{})
+		if err != nil {
+			return err
+		}
+		if err := ioutil.WriteFile(tokenPath, secret.Data["token"], filePerms); err != nil {
+			return err
+		}
+		fmt.Printf("warning: a security token for namespace %s and service account %s has been generated and stored at %s\n", wg.Namespace, serviceAccount, tokenPath)
+		return nil
+	}
 	token := &authenticationv1.TokenRequest{
 		// ObjectMeta isn't required in real k8s, but needed for tests
 		ObjectMeta: metav1.ObjectMeta{
@@ -349,7 +374,6 @@ func createCertsTokens(kubeClient kube.ExtendedClient, wg *clientv1alpha3.Worklo
 	if err != nil {
 		return fmt.Errorf("could not create a token under service account %s in namespace %s: %v", serviceAccount, wg.Namespace, err)
 	}
-	tokenPath := filepath.Join(dir, "istio-token")
 	if err := ioutil.WriteFile(tokenPath, []byte(tokenReq.Status.Token), filePerms); err != nil {
 		return err
 	}
