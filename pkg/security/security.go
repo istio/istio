@@ -66,10 +66,7 @@ var (
 		"A list of comma separated audiences to check in the JWT token before issuing a certificate. "+
 			"The token is accepted if it matches with one of the audiences").Get(), ",")
 
-	XDSTokenType = env.RegisterStringVar("XDS_TOKEN_TYPE", "Bearer",
-		"Token type in the Authorization header.").Get()
-
-	BearerTokenPrefix = XDSTokenType + " "
+	BearerTokenPrefix = "Bearer" + " "
 )
 
 // Options provides all of the configuration parameters for secret discovery service
