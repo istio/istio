@@ -30,14 +30,13 @@ import (
 	"istio.io/istio/pkg/test/util/retry"
 )
 
-var (
-	admissionRequest = kube.AdmissionRequest{
-		Resource: v1.GroupVersionResource{
-			Group:    "g",
-			Version:  "v",
-			Resource: "r",
-		}}
-)
+var admissionRequest = kube.AdmissionRequest{
+	Resource: v1.GroupVersionResource{
+		Group:    "g",
+		Version:  "v",
+		Resource: "r",
+	},
+}
 
 func TestGCPMonitoringGalleyValidation(t *testing.T) {
 	os.Setenv("ENABLE_STACKDRIVER_MONITORING", "true")
@@ -46,28 +45,34 @@ func TestGCPMonitoringGalleyValidation(t *testing.T) {
 	view.RegisterExporter(exp)
 	view.SetReportingPeriod(1 * time.Millisecond)
 
-	var cases = []struct {
+	cases := []struct {
 		name      string
 		increment func(*kube.AdmissionRequest)
 		req       *kube.AdmissionRequest
 		wantVal   *view.Row
 	}{
-		{"validation_failed", func(req *kube.AdmissionRequest) { reportValidationFailed(req, "") },
+		{
+			"validation_failed", func(req *kube.AdmissionRequest) { reportValidationFailed(req, "") },
 			&admissionRequest,
 			&view.Row{
 				Tags: []tag.Tag{
 					{Key: tag.MustNewKey("success"), Value: "false"},
 					{Key: tag.MustNewKey("type"), Value: "r"},
 				},
-				Data: &view.SumData{Value: 1.0}}},
-		{"validation_success", reportValidationPass,
+				Data: &view.SumData{Value: 1.0},
+			},
+		},
+		{
+			"validation_success", reportValidationPass,
 			&admissionRequest,
 			&view.Row{
 				Tags: []tag.Tag{
 					{Key: tag.MustNewKey("success"), Value: "true"},
 					{Key: tag.MustNewKey("type"), Value: "r"},
 				},
-				Data: &view.SumData{Value: 1.0}}},
+				Data: &view.SumData{Value: 1.0},
+			},
+		},
 	}
 
 	for _, tt := range cases {

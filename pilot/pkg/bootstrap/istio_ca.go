@@ -139,7 +139,7 @@ var (
 	k8sSigner = env.RegisterStringVar("K8S_SIGNER", "",
 		"Kubernates CA Signer type. Valid from Kubernates 1.18").Get()
 
-	//TODO: Likely to be removed and added to mesh config
+	// TODO: Likely to be removed and added to mesh config
 	externalCAName = env.RegisterStringVar("CA_NAME", "",
 		"External CA Name").Get()
 

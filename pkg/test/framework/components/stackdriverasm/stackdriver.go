@@ -116,7 +116,6 @@ func fetchTimeSeries(ctx context.Context, t *testing.T, ms *monitoring.Service, 
 		Context(ctx)
 
 	resp, err := lr.Do()
-
 	if err != nil {
 		t.Fatalf("failed to call monitoring api to list time series: %v", err)
 	}
@@ -240,7 +239,6 @@ func fetchLog(ctx context.Context, t *testing.T, loggingService *logging.Service
 // ValidateMetrics validate metrics from stackdriver.
 func (d *Instance) ValidateMetrics(t *testing.T, ts []*monitoring.TimeSeries, expLabel []byte,
 	templlabels map[string]interface{}) error {
-
 	expLabel = execute(t, string(expLabel), templlabels)
 	expm := make(map[string]string)
 	if err := json.Unmarshal(expLabel, &expm); err != nil {

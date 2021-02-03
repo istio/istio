@@ -36,15 +36,17 @@ func TestGCPMonitoringSidecarInjection(t *testing.T) {
 	view.RegisterExporter(exp)
 	view.SetReportingPeriod(1 * time.Millisecond)
 
-	var cases = []struct {
+	cases := []struct {
 		name    string
 		m       monitoring.Metric
 		wantVal *view.Row
 	}{
 		{"totalSuccessfulInjections", totalSuccessfulInjections, &view.Row{
-			Tags: []tag.Tag{{Key: tag.MustNewKey("success"), Value: "true"}}, Data: &view.SumData{Value: 1.0}}},
+			Tags: []tag.Tag{{Key: tag.MustNewKey("success"), Value: "true"}}, Data: &view.SumData{Value: 1.0},
+		}},
 		{"totalFailedInjections", totalFailedInjections, &view.Row{
-			Tags: []tag.Tag{{Key: tag.MustNewKey("success"), Value: "false"}}, Data: &view.SumData{Value: 1.0}}},
+			Tags: []tag.Tag{{Key: tag.MustNewKey("success"), Value: "false"}}, Data: &view.SumData{Value: 1.0},
+		}},
 	}
 
 	for _, tt := range cases {

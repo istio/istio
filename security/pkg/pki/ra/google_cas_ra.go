@@ -74,7 +74,6 @@ func NewGoogleCasRA(raOpts *IstioRAOptions) (*GoogleCasRA, error) {
 
 func (r *GoogleCasRA) createCertReq(name string, csrPEM []byte,
 	subjectIDs []string, lifetime time.Duration) *privatecapb.CreateCertificateRequest {
-
 	subjectConfig := &privatecapb.CertificateConfig_SubjectConfig{
 		// Empty Subject
 		Subject: &privatecapb.Subject{},
@@ -123,7 +122,6 @@ func (r *GoogleCasRA) createCertReq(name string, csrPEM []byte,
 }
 
 func (r *GoogleCasRA) Sign(csrPEM []byte, subjectIDs []string, requestedLifetime time.Duration, forCA bool) ([]byte, error) {
-
 	lifetime, err := preSign(r.raOpts, csrPEM, subjectIDs, requestedLifetime, forCA)
 	if err != nil {
 		return []byte{}, err

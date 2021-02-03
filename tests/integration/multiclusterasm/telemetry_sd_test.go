@@ -234,7 +234,6 @@ func validateMetrics(t *testing.T, projectID string, sd *stackdriver.Instance, n
 
 func validateLog(t *testing.T, projectID string, sd *stackdriver.Instance, src, dest echo.Instance,
 	param *stackdriver.ResourceFilterParam, startTime string, filter string) {
-
 	lf := fmt.Sprintf("%s AND timestamp > %q AND logName=\"projects/%s/logs/%s\"", param, startTime, projectID, filter)
 	sd.CheckForLogEntry(context.Background(), t, lf, projectID, map[string]string{
 		"source_workload":      fmt.Sprintf("%s-v1", src.Config().Service),

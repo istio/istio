@@ -296,7 +296,7 @@ func NewKMSBackedCAOptions(ctx context.Context,
 		Endpoint: kmsEndpoint,
 	}
 
-	var timeout = time.Hour * 10
+	timeout := time.Hour * 10
 	err = kes.Connect(timeout)
 	if err != nil {
 		pkiCaLog.Errorf("Failed to initialize KMS (error: %s). Abort.", err)

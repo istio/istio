@@ -75,8 +75,10 @@ var (
 		Name:        "config_convergence_latencies",
 		Measure:     configConvergenceMeasuare,
 		Description: "Time (in seconds) until applied config is active",
-		Aggregation: view.Distribution([]float64{0.001, 0.002, 0.004, 0.008, 0.016, 0.032, 0.064,
-			0.128, 0.256, 0.512, 1, 2, 4, 8, 16, 32}...),
+		Aggregation: view.Distribution([]float64{
+			0.001, 0.002, 0.004, 0.008, 0.016, 0.032, 0.064,
+			0.128, 0.256, 0.512, 1, 2, 4, 8, 16, 32,
+		}...),
 		TagKeys: []tag.Key{typeKey},
 	}
 	proxyClientsView = &view.View{
