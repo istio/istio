@@ -106,7 +106,6 @@ func TestAccessAppViaCustomGateway(t *testing.T) {
 		Features("traffic.ingress.gateway").
 		RequiresSingleCluster().
 		Run(func(ctx framework.TestContext) {
-
 			var err error
 
 			// Setup namespace for custom gateway
@@ -122,6 +121,9 @@ func TestAccessAppViaCustomGateway(t *testing.T) {
 			// Create the yaml
 			var iopGWFile *os.File
 			s, err := image.SettingsFromCommandLine()
+			if err != nil {
+				t.Fatalf("failed to get settings: %v", err)
+			}
 			gatewayConfig := fmt.Sprintf(iopGWTemplate, customGatewayNamespace, customGatewayNamespace)
 			if iopGWFile, err = ioutil.TempFile(ctx.WorkDir(), "modified_customgw.yaml"); err != nil {
 				ctx.Fatal(err)
