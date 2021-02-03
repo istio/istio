@@ -75,6 +75,10 @@ func (b builder) WithConfig(cfg echo.Config) echo.Builder {
 // to that cluster, otherwise the Config is applied to all WithClusters. Once built, if being built for a sngle cluster,
 // the instance pointer will be updated to point at the new Instance.
 func (b builder) With(i *echo.Instance, cfg echo.Config) echo.Builder {
+	if b.ctx.Settings().SkipVM && cfg.DeployAsVM {
+		return b
+	}
+
 	cfg = cfg.DeepCopy()
 	common.FillInDefaults(&cfg)
 
