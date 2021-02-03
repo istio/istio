@@ -66,8 +66,13 @@ func (t *TokenProvider) GetRequestMetadata(ctx context.Context, uri ...string) (
 		return nil, nil
 	}
 	if t.opts.TokenManager == nil {
+		if t.forCA {
+			return map[string]string{
+				"authorization": "Bearer " + token,
+			}, nil
+		}
 		return map[string]string{
-			"authorization": "Bearer " + token,
+			"authorization": security.XDSBearerTokenPrefix + token,
 		}, nil
 	}
 	return t.opts.TokenManager.GetMetadata(t.forCA, t.opts.XdsAuthProvider, token)
