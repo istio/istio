@@ -505,19 +505,12 @@ func (p *Plugin) GetMetadata(forCA bool, xdsAuthProvider, token string) (map[str
 	gcpProjectNumber := p.GetGcpProjectNumber()
 	if !forCA && xdsAuthProvider == GCPAuthProvider && len(gcpProjectNumber) > 0 {
 		return map[string]string{
-			"authorization":       security.XDSBearerTokenPrefix + token,
+			"authorization":       "Bearer " + token,
 			"x-goog-user-project": gcpProjectNumber,
 		}, nil
 	}
-	if forCA {
-		pluginLog.Debugf("forCA is true, returns a Bearer token")
-		return map[string]string{
-			"authorization": "Bearer " + token,
-		}, nil
-	}
-	pluginLog.Debugf("forCA is false, returns a %v token", security.XDSBearerTokenPrefix)
 	return map[string]string{
-		"authorization": security.XDSBearerTokenPrefix + token,
+		"authorization": "Bearer " + token,
 	}, nil
 }
 

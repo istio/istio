@@ -115,13 +115,8 @@ func (tm *TokenManager) GetMetadata(forCA bool, xdsAuthProvider, token string) (
 	}
 	// If no plugin, for an non-empty token, place the token in the authorization header.
 	if len(token) > 0 {
-		if forCA {
-			return map[string]string{
-				"authorization": "Bearer " + token,
-			}, nil
-		}
 		return map[string]string{
-			"authorization": security.XDSBearerTokenPrefix + token,
+			"authorization": "Bearer " + token,
 		}, nil
 	}
 	// Otherwise, return an error

@@ -120,12 +120,7 @@ func (tm *FakeTokenManager) GetMetadata(forCA bool, xdsAuthProvider, token strin
 	if token == "" {
 		return nil, fmt.Errorf("empty token in FakeTokenManager GetMetadata()")
 	}
-	if forCA {
-		return map[string]string{
-			"authorization": "Bearer " + token,
-		}, nil
-	}
 	return map[string]string{
-		"authorization": security.XDSBearerTokenPrefix + token,
+		"authorization": "Bearer " + token,
 	}, nil
 }
