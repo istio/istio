@@ -23,4 +23,4 @@ issue:
 # release notes.
 releaseNotes:
 - |
-  **Added** support for DestinationRule inheritance for mesh/namespace level rules. Enable feature with `PILOT_DESTINATION_RULE_INHERITANCE` environment variable.
+  **Added** support for DestinationRule inheritance for mesh/namespace level rules. Enable feature with `PILOT_ENABLE_DESTINATION_RULE_INHERITANCE` environment variable.
