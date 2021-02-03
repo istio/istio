@@ -23,7 +23,6 @@ import (
 
 	"istio.io/api/security/v1beta1"
 	"istio.io/istio/pkg/security"
-	"istio.io/pkg/log"
 )
 
 const (
