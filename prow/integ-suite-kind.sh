@@ -29,6 +29,7 @@ set -u
 # Print commands
 set -x
 
+export DEBUG_IMAGE=1
 
 # shellcheck source=prow/lib.sh
 source "${ROOT}/prow/lib.sh"
