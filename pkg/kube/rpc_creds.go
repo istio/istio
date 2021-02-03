@@ -23,6 +23,7 @@ import (
 	authenticationv1 "k8s.io/api/authentication/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
+	"istio.io/istio/pkg/security"
 	"istio.io/pkg/log"
 )
 
@@ -88,7 +89,7 @@ func (its *tokenSupplier) GetRequestMetadata(ctx context.Context, uri ...string)
 	}
 
 	return map[string]string{
-		"authorization": "Bearer " + its.Token,
+		"authorization": security.XDSBearerTokenPrefix + its.Token,
 	}, nil
 }
 

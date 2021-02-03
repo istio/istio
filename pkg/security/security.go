@@ -69,7 +69,7 @@ var (
 	XDSTokenType = env.RegisterStringVar("XDS_TOKEN_TYPE", "Bearer",
 		"Token type in the Authorization header.").Get()
 
-	BearerTokenPrefix = XDSTokenType + " "
+	XDSBearerTokenPrefix = XDSTokenType + " "
 )
 
 // Options provides all of the configuration parameters for secret discovery service
@@ -293,8 +293,8 @@ func ExtractBearerToken(ctx context.Context) (string, error) {
 	}
 
 	for _, value := range authHeader {
-		if strings.HasPrefix(value, BearerTokenPrefix) {
-			return strings.TrimPrefix(value, BearerTokenPrefix), nil
+		if strings.HasPrefix(value, XDSBearerTokenPrefix) {
+			return strings.TrimPrefix(value, XDSBearerTokenPrefix), nil
 		}
 	}
 
