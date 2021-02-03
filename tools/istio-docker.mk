@@ -65,6 +65,9 @@ $(foreach FILE,$(DOCKER_FILES_FROM_SOURCE), \
 # BUILD_ARGS tells  $(DOCKER_RULE) to execute a docker build with the specified commands
 
 # The file must be named 'envoy', depends on the release.
+ifdef DEBUG_IMAGE
+.PHONY: ${ISTIO_ENVOY_LINUX_RELEASE_DIR}/${SIDECAR}
+endif
 ${ISTIO_ENVOY_LINUX_RELEASE_DIR}/${SIDECAR}: ${ISTIO_ENVOY_LINUX_RELEASE_PATH}
 	mkdir -p $(DOCKER_BUILD_TOP)/proxyv2
 ifdef DEBUG_IMAGE
