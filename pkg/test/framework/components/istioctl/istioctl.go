@@ -19,6 +19,7 @@ import (
 	"testing"
 
 	"istio.io/istio/pkg/test"
+	"istio.io/istio/pkg/test/framework/components/cluster"
 	"istio.io/istio/pkg/test/framework/resource"
 )
 
@@ -38,7 +39,7 @@ type Instance interface {
 // Config is structured config for the istioctl component
 type Config struct {
 	// Cluster to be used in a multicluster environment
-	Cluster resource.Cluster
+	Cluster cluster.Cluster
 }
 
 // New returns a new instance of "istioctl".

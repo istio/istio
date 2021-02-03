@@ -184,7 +184,6 @@ func SetupApps(ctx resource.Context, i istio.Instance, apps *EchoDeployments, bu
 		WithConfig(EchoConfig(BSvc, apps.Namespace2, false, nil)).
 		WithConfig(EchoConfig(CSvc, apps.Namespace2, false, nil)).
 		WithConfig(EchoConfig(CSvc, apps.Namespace3, false, nil)).
-		WithClusters(ctx.Clusters().Primaries()...).
 		WithConfig(func() echo.Config {
 			// VM specific setup
 			vmCfg := EchoConfig(VMSvc, apps.Namespace1, false, nil)

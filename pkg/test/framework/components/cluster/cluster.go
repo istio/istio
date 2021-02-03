@@ -12,7 +12,7 @@
 //  See the License for the specific language governing permissions and
 //  limitations under the License.
 
-package resource
+package cluster
 
 import (
 	"fmt"
@@ -95,6 +95,22 @@ func (c Clusters) Remotes(excluded ...Cluster) Clusters {
 	}, exclude(excluded...))
 }
 
+// Kube returns OfKind(cluster.Kubernetes)
+func (c Clusters) Kube() Clusters {
+	return c.OfKind(Kubernetes)
+}
+
+// OfKind filters clusters by their Kind.
+func (c Clusters) OfKind(kind Kind) Clusters {
+	return c.filterClusters(func(cc Cluster) bool {
+		return cc.Kind() == kind
+	}, none)
+}
+
+func none(Cluster) bool {
+	return false
+}
+
 func exclude(exclude ...Cluster) func(Cluster) bool {
 	return func(cc Cluster) bool {
 		for _, e := range exclude {
@@ -130,8 +146,15 @@ type Cluster interface {
 	// Name of this cluster
 	Name() string
 
+	// Kind of cluster
+	Kind() Kind
+
 	// NetworkName the cluster is on
 	NetworkName() string
+
+	// MinKubeVersion returns true if the cluster is at least the version specified,
+	// false otherwise
+	MinKubeVersion(major, minor int) bool
 
 	// IsPrimary returns true if this is a primary cluster, containing an instance
 	// of the Istio control plane.

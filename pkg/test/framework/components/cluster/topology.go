@@ -15,24 +15,36 @@
 package cluster
 
 import (
+	"bytes"
 	"fmt"
-
-	"istio.io/istio/pkg/test/framework/resource"
+	"strconv"
 )
 
 // Map can be given as a shared reference to multiple Topology/Cluster implemetations
 // allowing clusters to find each other for lookups of Primary, ConfigCluster, etc.
-type Map = map[string]resource.Cluster
+type Map = map[string]Cluster
+
+func NewTopology(config Config, allClusters Map) Topology {
+	return Topology{
+		ClusterName:        config.Name,
+		ClusterKind:        config.Kind,
+		Network:            config.Network,
+		PrimaryClusterName: config.PrimaryClusterName,
+		ConfigClusterName:  config.ConfigClusterName,
+		AllClusters:        allClusters,
+	}
+}
 
 // Topology gives information about the relationship between clusters.
 // Cluster implementations can embed this struct to include common functionality.
 type Topology struct {
 	ClusterName        string
+	ClusterKind        Kind
 	Network            string
 	PrimaryClusterName string
 	ConfigClusterName  string
 	// AllClusters should contain all AllClusters in the context
-	AllClusters map[string]resource.Cluster
+	AllClusters Map
 }
 
 // NetworkName the cluster is on
@@ -43,6 +55,10 @@ func (c Topology) NetworkName() string {
 // Name provides the ClusterName this cluster used by Istio.
 func (c Topology) Name() string {
 	return c.ClusterName
+}
+
+func (c Topology) Kind() Kind {
+	return c.ClusterKind
 }
 
 func (c Topology) IsPrimary() bool {
@@ -57,7 +73,7 @@ func (c Topology) IsRemote() bool {
 	return !c.IsPrimary()
 }
 
-func (c Topology) Primary() resource.Cluster {
+func (c Topology) Primary() Cluster {
 	cluster, ok := c.AllClusters[c.PrimaryClusterName]
 	if !ok || cluster == nil {
 		panic(fmt.Errorf("cannot find %s, the primary cluster for %s", c.PrimaryClusterName, c.Name()))
@@ -69,7 +85,7 @@ func (c Topology) PrimaryName() string {
 	return c.PrimaryClusterName
 }
 
-func (c Topology) Config() resource.Cluster {
+func (c Topology) Config() Cluster {
 	cluster, ok := c.AllClusters[c.ConfigClusterName]
 	if !ok || cluster == nil {
 		panic(fmt.Errorf("cannot find %s, the config cluster for %s", c.ConfigClusterName, c.Name()))
@@ -91,4 +107,39 @@ func (c Topology) WithConfig(configClusterName string) Topology {
 	// TODO remove this, should only be provided by external config
 	c.ConfigClusterName = configClusterName
 	return c
+}
+
+func (c Topology) MinKubeVersion(major, minor int) bool {
+	cluster := c.AllClusters[c.ClusterName]
+	if cluster.Kind() != Kubernetes && cluster.Kind() != Fake {
+		return c.Primary().MinKubeVersion(major, minor)
+	}
+	ver, err := cluster.GetKubernetesVersion()
+	if err != nil {
+		return true
+	}
+	serverMajor, err := strconv.Atoi(ver.Major)
+	if err != nil {
+		return true
+	}
+	serverMinor, err := strconv.Atoi(ver.Minor)
+	if err != nil {
+		return true
+	}
+	if serverMajor > major {
+		return true
+	}
+	return serverMajor >= major && serverMinor >= minor
+}
+
+func (c Topology) String() string {
+	buf := &bytes.Buffer{}
+
+	_, _ = fmt.Fprintf(buf, "Name:               %s\n", c.Name())
+	_, _ = fmt.Fprintf(buf, "Kind:               %s\n", c.Kind())
+	_, _ = fmt.Fprintf(buf, "PrimaryCluster:     %s\n", c.Primary().Name())
+	_, _ = fmt.Fprintf(buf, "ConfigCluster:      %s\n", c.Config().Name())
+	_, _ = fmt.Fprintf(buf, "Network:            %s\n", c.NetworkName())
+
+	return buf.String()
 }

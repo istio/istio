@@ -21,6 +21,7 @@ import (
 	"path/filepath"
 
 	"istio.io/istio/pkg/test"
+	"istio.io/istio/pkg/test/framework/components/cluster"
 	"istio.io/istio/pkg/test/framework/resource"
 	"istio.io/istio/pkg/test/scopes"
 )
@@ -29,17 +30,17 @@ var _ resource.ConfigManager = &configManager{}
 
 type configManager struct {
 	ctx      resource.Context
-	clusters []resource.Cluster
+	clusters []cluster.Cluster
 	prefix   string
 }
 
-func newConfigManager(ctx resource.Context, clusters []resource.Cluster) resource.ConfigManager {
+func newConfigManager(ctx resource.Context, clusters cluster.Clusters) resource.ConfigManager {
 	if len(clusters) == 0 {
 		clusters = ctx.Clusters()
 	}
 	return &configManager{
 		ctx:      ctx,
-		clusters: clusters,
+		clusters: clusters.OfKind(cluster.Kubernetes),
 	}
 }
 
@@ -69,7 +70,7 @@ func (c *configManager) ApplyYAMLOrFail(t test.Failer, ns string, yamlText ...st
 	}
 }
 
-func (c *configManager) ApplyYAMLInCluster(cls resource.Cluster, ns string, yamlText ...string) error {
+func (c *configManager) ApplyYAMLInCluster(cls cluster.Cluster, ns string, yamlText ...string) error {
 	if len(c.prefix) == 0 {
 		return c.WithFilePrefix("apply").ApplyYAML(ns, yamlText...)
 	}
@@ -87,7 +88,7 @@ func (c *configManager) ApplyYAMLInCluster(cls resource.Cluster, ns string, yaml
 	return nil
 }
 
-func (c *configManager) ApplyYAMLInClusterOrFail(t test.Failer, cls resource.Cluster, ns string, yamlText ...string) {
+func (c *configManager) ApplyYAMLInClusterOrFail(t test.Failer, cls cluster.Cluster, ns string, yamlText ...string) {
 	err := c.ApplyYAMLInCluster(cls, ns, yamlText...)
 	if err != nil {
 		t.Fatal(err)

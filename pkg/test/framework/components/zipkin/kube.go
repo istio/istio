@@ -28,6 +28,7 @@ import (
 
 	istioKube "istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/test/env"
+	"istio.io/istio/pkg/test/framework/components/cluster"
 	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/resource"
 	testKube "istio.io/istio/pkg/test/kube"
@@ -142,7 +143,7 @@ type kubeComponent struct {
 	id        resource.ID
 	address   string
 	forwarder istioKube.PortForwarder
-	cluster   resource.Cluster
+	cluster   cluster.Cluster
 	close     func()
 }
 
@@ -155,7 +156,7 @@ func getZipkinYaml() (string, error) {
 	return yaml, nil
 }
 
-func installZipkin(cluster resource.Cluster, ctx resource.Context, ns string) error {
+func installZipkin(cluster cluster.Cluster, ctx resource.Context, ns string) error {
 	yaml, err := getZipkinYaml()
 	if err != nil {
 		return err
@@ -163,7 +164,7 @@ func installZipkin(cluster resource.Cluster, ctx resource.Context, ns string) er
 	return ctx.Config().ApplyYAMLInCluster(cluster, ns, yaml)
 }
 
-func installServiceEntry(cluster resource.Cluster, ctx resource.Context, ns, ingressAddr string) error {
+func installServiceEntry(cluster cluster.Cluster, ctx resource.Context, ns, ingressAddr string) error {
 	// Setup remote access to zipkin in cluster
 	yaml := strings.ReplaceAll(remoteZipkinEntry, "{INGRESS_DOMAIN}", ingressAddr)
 	err := ctx.Config().ApplyYAMLInCluster(cluster, ns, yaml)

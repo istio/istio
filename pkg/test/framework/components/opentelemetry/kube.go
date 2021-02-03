@@ -20,6 +20,7 @@ import (
 	"strings"
 
 	"istio.io/istio/pkg/test/env"
+	"istio.io/istio/pkg/test/framework/components/cluster"
 	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/resource"
 	testKube "istio.io/istio/pkg/test/kube"
@@ -27,7 +28,7 @@ import (
 
 type otel struct {
 	id      resource.ID
-	cluster resource.Cluster
+	cluster cluster.Cluster
 	close   func()
 }
 
@@ -130,7 +131,7 @@ func install(ctx resource.Context, ns string) error {
 	return ctx.Config().ApplyYAML(ns, y)
 }
 
-func installServiceEntry(cluster resource.Cluster, ctx resource.Context, ns, ingressAddr string) error {
+func installServiceEntry(cluster cluster.Cluster, ctx resource.Context, ns, ingressAddr string) error {
 	// Setup remote access to zipkin in cluster
 	yaml := strings.ReplaceAll(remoteOtelEntry, "{INGRESS_DOMAIN}", ingressAddr)
 	err := ctx.Config().ApplyYAMLInCluster(cluster, ns, yaml)

@@ -27,15 +27,16 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
+	"istio.io/istio/pkg/test/framework/components/cluster"
 	"istio.io/istio/pkg/test/framework/resource"
 	"istio.io/istio/pkg/test/scopes"
 )
 
 // PodDumper will dump information from all the pods into the given workDir.
 // If no pods are provided, client will be used to fetch all the pods in a namespace.
-type PodDumper func(ctx resource.Context, cluster resource.Cluster, workDir string, namespace string, pods ...corev1.Pod)
+type PodDumper func(ctx resource.Context, cluster cluster.Cluster, workDir string, namespace string, pods ...corev1.Pod)
 
-func outputPath(workDir string, cluster resource.Cluster, pod corev1.Pod, name string) string {
+func outputPath(workDir string, cluster cluster.Cluster, pod corev1.Pod, name string) string {
 	dir := path.Join(workDir, cluster.Name())
 	if err := os.MkdirAll(dir, os.ModeDir|0700); err != nil {
 		scopes.Framework.Warnf("failed creating directory: %s", dir)
@@ -57,7 +58,7 @@ func DumpPods(ctx resource.Context, workDir, namespace string, dumpers ...PodDum
 	}
 
 	wg := sync.WaitGroup{}
-	for _, cluster := range ctx.Clusters() {
+	for _, cluster := range ctx.Clusters().Kube() {
 		pods, err := cluster.PodsForSelector(context.TODO(), namespace)
 		if err != nil {
 			scopes.Framework.Errorf("Error getting pods list via kubectl: %v", err)
@@ -75,7 +76,7 @@ func DumpPods(ctx resource.Context, workDir, namespace string, dumpers ...PodDum
 	wg.Wait()
 }
 
-func podsOrFetch(a resource.Cluster, pods []corev1.Pod, namespace string) []corev1.Pod {
+func podsOrFetch(a cluster.Cluster, pods []corev1.Pod, namespace string) []corev1.Pod {
 	if len(pods) == 0 {
 		podList, err := a.CoreV1().Pods(namespace).List(context.TODO(), metav1.ListOptions{})
 		if err != nil {
@@ -88,7 +89,7 @@ func podsOrFetch(a resource.Cluster, pods []corev1.Pod, namespace string) []core
 }
 
 // DumpPodState dumps the pod state for either the provided pods or all pods in the namespace if none are provided.
-func DumpPodState(_ resource.Context, c resource.Cluster, workDir string, namespace string, pods ...corev1.Pod) {
+func DumpPodState(_ resource.Context, c cluster.Cluster, workDir string, namespace string, pods ...corev1.Pod) {
 	pods = podsOrFetch(c, pods, namespace)
 
 	marshaler := jsonpb.Marshaler{
@@ -110,7 +111,7 @@ func DumpPodState(_ resource.Context, c resource.Cluster, workDir string, namesp
 }
 
 // DumpPodEvents dumps the pod events for either the provided pods or all pods in the namespace if none are provided.
-func DumpPodEvents(_ resource.Context, c resource.Cluster, workDir, namespace string, pods ...corev1.Pod) {
+func DumpPodEvents(_ resource.Context, c cluster.Cluster, workDir, namespace string, pods ...corev1.Pod) {
 	pods = podsOrFetch(c, pods, namespace)
 
 	marshaler := jsonpb.Marshaler{
@@ -159,7 +160,7 @@ func containerRestarted(pod corev1.Pod, container string) bool {
 
 // DumpPodLogs will dump logs from each container in each of the provided pods
 // or all pods in the namespace if none are provided.
-func DumpPodLogs(_ resource.Context, c resource.Cluster, workDir, namespace string, pods ...corev1.Pod) {
+func DumpPodLogs(_ resource.Context, c cluster.Cluster, workDir, namespace string, pods ...corev1.Pod) {
 	pods = podsOrFetch(c, pods, namespace)
 
 	for _, pod := range pods {
@@ -219,7 +220,7 @@ func DumpPodLogs(_ resource.Context, c resource.Cluster, workDir, namespace stri
 
 // DumpPodProxies will dump Envoy proxy config and clusters in each of the provided pods
 // or all pods in the namespace if none are provided.
-func DumpPodProxies(_ resource.Context, c resource.Cluster, workDir, namespace string, pods ...corev1.Pod) {
+func DumpPodProxies(_ resource.Context, c cluster.Cluster, workDir, namespace string, pods ...corev1.Pod) {
 	pods = podsOrFetch(c, pods, namespace)
 
 	for _, pod := range pods {
@@ -259,7 +260,7 @@ func checkIfVM(pod corev1.Pod) bool {
 	return false
 }
 
-func DumpNdsz(_ resource.Context, c resource.Cluster, workDir string, _ string, pods ...corev1.Pod) {
+func DumpNdsz(_ resource.Context, c cluster.Cluster, workDir string, _ string, pods ...corev1.Pod) {
 	cp, istiod, err := getControlPlane(c)
 	if err != nil {
 		scopes.Framework.Errorf("failed dumping ndsz: %v", err)
@@ -280,7 +281,7 @@ func DumpNdsz(_ resource.Context, c resource.Cluster, workDir string, _ string, 
 	}
 }
 
-func dumpDebug(cp resource.Cluster, istiodPod corev1.Pod, endpoint string) (string, error) {
+func dumpDebug(cp cluster.Cluster, istiodPod corev1.Pod, endpoint string) (string, error) {
 
 	// exec to the control plane to run nds gen
 	cmd := []string{"pilot-discovery", "request", "GET", endpoint}
@@ -292,7 +293,7 @@ func dumpDebug(cp resource.Cluster, istiodPod corev1.Pod, endpoint string) (stri
 	return out, nil
 }
 
-func getControlPlane(cluster resource.Cluster) (resource.Cluster, corev1.Pod, error) {
+func getControlPlane(cluster cluster.Cluster) (cluster.Cluster, corev1.Pod, error) {
 	// fetch istiod from the control-plane cluster
 	cp := cluster.Primary()
 	// TODO use namespace from framework

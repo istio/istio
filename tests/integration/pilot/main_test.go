@@ -16,7 +16,6 @@
 package pilot
 
 import (
-	"fmt"
 	"io/ioutil"
 	"testing"
 
@@ -39,12 +38,12 @@ var (
 )
 
 func supportsCRDv1(ctx resource.Context) bool {
-	ver, err := ctx.Clusters()[0].GetKubernetesVersion()
-	if err != nil {
-		return true
+	for _, cluster := range ctx.Clusters() {
+		if !cluster.MinKubeVersion(1, 16) {
+			return false
+		}
 	}
-	serverVersion := fmt.Sprintf("%s.%s", ver.Major, ver.Minor)
-	return serverVersion >= "1.16"
+	return true
 }
 
 // TestMain defines the entrypoint for pilot tests using a standard Istio installation.

@@ -20,21 +20,33 @@ import (
 
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/test/framework/components/cluster"
-	"istio.io/istio/pkg/test/framework/resource"
+	"istio.io/istio/pkg/test/framework/components/echo"
 )
 
-var _ resource.Cluster = &Cluster{}
+var _ echo.Cluster = &Cluster{}
 
 // Cluster for a Kubernetes cluster. Provides access via a kube.Client.
 type Cluster struct {
 	// filename is the path to the kubeconfig file for this cluster.
 	filename string
 
+	// vmSupport indicates the cluster is being used for fake VMs
+	vmSupport bool
+
 	// ExtendedClient is embedded to interact with the kube cluster.
 	kube.ExtendedClient
 
 	// Topology is embedded to include common functionality.
 	cluster.Topology
+}
+
+// CanDeploy for a kube cluster returns true if the config is a non-vm, or if the cluster supports
+// fake pod-based VMs.
+func (c *Cluster) CanDeploy(config echo.Config) (echo.Config, bool) {
+	if config.DeployAsVM && !c.vmSupport {
+		return echo.Config{}, false
+	}
+	return config, true
 }
 
 // OverrideTopology allows customizing the relationship between this and other clusters
@@ -48,11 +60,7 @@ func (c *Cluster) OverrideTopology(fn func(cluster.Topology) cluster.Topology) {
 func (c *Cluster) String() string {
 	buf := &bytes.Buffer{}
 
-	_, _ = fmt.Fprintf(buf, "Name:               %s\n", c.Name())
-	_, _ = fmt.Fprintf(buf, "Kind:               %s\n", cluster.Kubernetes)
-	_, _ = fmt.Fprintf(buf, "PrimaryCluster:     %s\n", c.Primary().Name())
-	_, _ = fmt.Fprintf(buf, "ConfigCluster:      %s\n", c.Config().Name())
-	_, _ = fmt.Fprintf(buf, "Network:            %s\n", c.NetworkName())
+	_, _ = fmt.Fprint(buf, c.Topology.String())
 	_, _ = fmt.Fprintf(buf, "Filename:           %s\n", c.filename)
 
 	return buf.String()
