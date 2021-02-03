@@ -66,13 +66,15 @@ spec:
 `
 
 	deploymentYAML = `
+{{- $versions := .Versions }}
 {{- $subsets := .Subsets }}
 {{- $cluster := .Cluster }}
 {{- range $i, $subset := $subsets }}
+{{- range $j, $version := $versions }}
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: {{ $.Service }}-{{ $subset.Version }}
+  name: {{ $.Service }}-{{ $subset.Version }}-{{ $version }}
 spec:
   replicas: 1
   selector:
@@ -87,6 +89,11 @@ spec:
       labels:
         app: {{ $.Service }}
         version: {{ $subset.Version }}
+{{- if eq $version "default" }}
+        sidecar.istio.io/inject: "true"
+{{- else if ne $version "" }}
+        istio.io/rev: {{ $version }}
+{{- end }}
 {{- if ne $.Locality "" }}
         istio-locality: {{ $.Locality }}
 {{- end }}
@@ -202,9 +209,10 @@ spec:
       - configMap:
           name: {{ $.Service }}-certs
         name: custom-certs
-{{- end}}
+{{- end }}
 ---
-{{- end}}
+{{- end }}
+{{- end }}
 {{- if .TLSSettings }}
 apiVersion: v1
 kind: ConfigMap
@@ -218,7 +226,7 @@ data:
   key.pem: |
 {{.TLSSettings.Key | indent 4}}
 ---
-{{- end}}
+{{- end }}
 `
 
 	// vmDeploymentYaml aims to simulate a VM, but instead of managing the complex test setup of spinning up a VM,
@@ -462,6 +470,7 @@ func templateParams(cfg echo.Config, settings *image.Settings) (map[string]inter
 		"Cluster":            cfg.Cluster.Name(),
 		"Namespace":          namespace,
 		"ImagePullSecret":    imagePullSecret,
+		"Versions":           cfg.Cluster.Versions(),
 		"VM": map[string]interface{}{
 			"Image": vmImage,
 		},
