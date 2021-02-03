@@ -42,7 +42,6 @@ var _ security.Authenticator = &JwtAuthenticator{}
 // K8S is created with --service-account-issuer, service-account-signing-key-file and service-account-api-audiences
 // which enable OIDC.
 func NewJwtAuthenticator(jwtRule *v1beta1.JWTRule, trustDomain string) (*JwtAuthenticator, error) {
-	log.Infof("XDS token type is: %v", security.XDSTokenType)
 	issuer := jwtRule.GetIssuer()
 	jwksURL := jwtRule.GetJwksUri()
 	// The key of a JWT issuer may change, so the key may need to be updated.

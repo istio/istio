@@ -25,7 +25,6 @@ import (
 	"istio.io/istio/security/pkg/k8s/tokenreview"
 	"istio.io/istio/security/pkg/server/ca/authenticate"
 	"istio.io/istio/security/pkg/util"
-	"istio.io/pkg/log"
 )
 
 const (
@@ -56,7 +55,6 @@ var _ security.Authenticator = &KubeJWTAuthenticator{}
 func NewKubeJWTAuthenticator(client kubernetes.Interface, clusterID string,
 	remoteKubeClientGetter RemoteKubeClientGetter,
 	trustDomain, jwtPolicy string) *KubeJWTAuthenticator {
-	log.Infof("XDS token type is: %v", security.XDSTokenType)
 	return &KubeJWTAuthenticator{
 		trustDomain:            trustDomain,
 		jwtPolicy:              jwtPolicy,
