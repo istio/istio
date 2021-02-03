@@ -23,6 +23,7 @@ import (
 	"strings"
 
 	"github.com/ghodss/yaml"
+	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 
 	"istio.io/api/operator/v1alpha1"
@@ -191,7 +192,11 @@ func GenIOPFromProfile(profileOrPath, fileOverlayYAML string, setFlags []string,
 
 	// Validate Final IOP config against K8s cluster
 	if kubeConfig != nil {
-		err = validateIOPCAConfig(kubeConfig, finalIOP)
+		client, err := kubernetes.NewForConfig(kubeConfig)
+		if err != nil {
+			return "", nil, err
+		}
+		err = util.ValidateIOPCAConfig(client, finalIOP)
 		if err != nil {
 			return "", nil, err
 		}
@@ -384,31 +389,6 @@ func getFSGroupOverlay(config *rest.Config) (string, error) {
 		return "values.pilot.env.ENABLE_LEGACY_FSGROUP_INJECTION=false", nil
 	}
 	return "", nil
-}
-
-func validateIOPCAConfig(config *rest.Config, iop *iopv1alpha1.IstioOperator) error {
-	globalI := iop.Spec.Values["global"]
-	global, ok := globalI.(map[string]interface{})
-	if !ok {
-		// This means no explicit global configuration. Still okay
-		return nil
-	}
-	ca, ok := global["pilotCertProvider"].(string)
-	if !ok {
-		// This means the default pilotCertProvider is being used
-		return nil
-	}
-	if ca == "kubernetes" {
-		version, err := k8sversion.GetKubernetesVersion(config)
-		if err != nil {
-			return fmt.Errorf("failed to determine support for K8s legacy signer. Use the --force flag to ignore this: %v", err)
-		}
-		if version >= 22 {
-			return fmt.Errorf("configuration PILOT_CERT_PROVIDER=%s not supported in k8s minor version %v."+
-				"Please pick another value for PILOT_CERT_PROVIDER", ca, version)
-		}
-	}
-	return nil
 }
 
 // makeTreeFromSetList creates a YAML tree from a string slice containing key-value pairs in the format key=value.
