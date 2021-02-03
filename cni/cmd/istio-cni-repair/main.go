@@ -37,9 +37,7 @@ type ControllerOptions struct {
 	RunAsDaemon   bool            `json:"run_as_daemon"`
 }
 
-var (
-	loggingOptions = log.DefaultOptions()
-)
+var loggingOptions = log.DefaultOptions()
 
 // Parse command line options
 func parseFlags() (filters *repair.Filters, options *ControllerOptions) {

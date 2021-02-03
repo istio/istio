@@ -142,7 +142,7 @@ func parseZone(clusterURL string) string {
 	}
 	// input: https://container.googleapis.com/v1/projects/testproj/locations/us-central1-c/clusters/cluster1
 	// output: us-central1-c
-	var rgx = regexp.MustCompile(`.*/projects/(.*)/locations/(.*)/clusters/.*`)
+	rgx := regexp.MustCompile(`.*/projects/(.*)/locations/(.*)/clusters/.*`)
 	rs := rgx.FindStringSubmatch(clusterURL)
 	if len(rs) < 3 {
 		return ""

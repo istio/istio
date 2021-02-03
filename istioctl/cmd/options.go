@@ -19,17 +19,15 @@ import (
 	"github.com/spf13/pflag"
 )
 
-var (
-	helpFlags = map[string]bool{
-		"log_as_json":          true,
-		"log_stacktrace_level": true,
-		"log_target":           true,
-		"log_caller":           true,
-		"log_output_level":     true,
-		// istioctl also inherits support for log_rotate, log_rotate_max_age, log_rotate_max_backups,
-		// log_rotate_max_size, but these are rarely appropriate for a user-facing CLI so we ignore them
-	}
-)
+var helpFlags = map[string]bool{
+	"log_as_json":          true,
+	"log_stacktrace_level": true,
+	"log_target":           true,
+	"log_caller":           true,
+	"log_output_level":     true,
+	// istioctl also inherits support for log_rotate, log_rotate_max_age, log_rotate_max_backups,
+	// log_rotate_max_size, but these are rarely appropriate for a user-facing CLI so we ignore them
+}
 
 func optionsCommand(rootCmd *cobra.Command) *cobra.Command {
 	retval := &cobra.Command{

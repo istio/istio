@@ -33,17 +33,15 @@ const (
 	PilotSvcAccName string = "istio-pilot-service-account"
 )
 
-var (
-	// SupportedCiphers for server side TLS configuration.
-	SupportedCiphers = []string{
-		"ECDHE-ECDSA-AES256-GCM-SHA384",
-		"ECDHE-RSA-AES256-GCM-SHA384",
-		"ECDHE-ECDSA-AES128-GCM-SHA256",
-		"ECDHE-RSA-AES128-GCM-SHA256",
-		"AES256-GCM-SHA384",
-		"AES128-GCM-SHA256",
-	}
-)
+// SupportedCiphers for server side TLS configuration.
+var SupportedCiphers = []string{
+	"ECDHE-ECDSA-AES256-GCM-SHA384",
+	"ECDHE-RSA-AES256-GCM-SHA384",
+	"ECDHE-ECDSA-AES128-GCM-SHA256",
+	"ECDHE-RSA-AES128-GCM-SHA256",
+	"AES256-GCM-SHA384",
+	"AES128-GCM-SHA256",
+}
 
 // BuildInboundFilterChain returns the filter chain(s) corresponding to the mTLS mode.
 func BuildInboundFilterChain(mTLSMode model.MutualTLSMode, sdsUdsPath string, node *model.Proxy,
@@ -103,7 +101,8 @@ func BuildInboundFilterChain(mTLSMode model.MutualTLSMode, sdsUdsPath string, no
 		return []networking.FilterChain{
 			{
 				TLSContext: ctx,
-			}}
+			},
+		}
 	}
 	if mTLSMode == model.MTLSPermissive {
 		log.Debug("Allow both, ALPN istio and legacy traffic")

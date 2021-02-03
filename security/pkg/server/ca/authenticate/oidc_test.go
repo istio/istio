@@ -229,8 +229,10 @@ func TestOIDCAuthenticate(t *testing.T) {
 }
 
 func generateJWT(key *jose.JSONWebKey, claims []byte) (string, error) {
-	signer, err := jose.NewSigner(jose.SigningKey{Algorithm: jose.SignatureAlgorithm(key.Algorithm),
-		Key: key}, nil)
+	signer, err := jose.NewSigner(jose.SigningKey{
+		Algorithm: jose.SignatureAlgorithm(key.Algorithm),
+		Key:       key,
+	}, nil)
 	if err != nil {
 		return "", fmt.Errorf("failed to create a signer: %v", err)
 	}

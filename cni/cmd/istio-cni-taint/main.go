@@ -96,9 +96,9 @@ kubernetes controller and checking on the readiness of critical label
 			}
 			leadelectionCallback := leaderelection.LeaderCallbacks{
 				OnStartedLeading: func(ctx context.Context) {
-					//once leader elected it should taint all nodes at first to prevent race condition
+					// once leader elected it should taint all nodes at first to prevent race condition
 					tc.RegisterTaints()
-					tc.Run(ctx.Done()) //graceful shut down
+					tc.Run(ctx.Done()) // graceful shut down
 				},
 				OnStoppedLeading: func() {
 					// when leader failed, log leader failure and restart leader election
@@ -147,7 +147,7 @@ kubernetes controller and checking on the readiness of critical label
 // Parse command line options
 func parseFlags() (options *ControllerOptions) {
 	// Parse command line flags
-	//configmap name Options
+	// configmap name Options
 
 	pflag.String("configmap-namespace", "kube-system", "the namespace of critical pod definition configmap")
 	pflag.String("configmap-name", "single", "the name of critical pod definition configmap")
@@ -201,7 +201,7 @@ func logCurrentOptions(ts *taint.Setter, options *ControllerOptions) {
 	}
 }
 
-//check all node, taint all unready node
+// check all node, taint all unready node
 func nodeReadinessCheck(tc *taint.Controller) {
 	nodes := tc.ListAllNode()
 	for _, node := range nodes {
@@ -211,12 +211,14 @@ func nodeReadinessCheck(tc *taint.Controller) {
 		}
 	}
 }
+
 func configureLogging(_ *cobra.Command, _ []string) error {
 	if err := log.Configure(loggingOptions); err != nil {
 		return err
 	}
 	return nil
 }
+
 func main() {
 	if err := rootCmd.Execute(); err != nil {
 		os.Exit(-1)

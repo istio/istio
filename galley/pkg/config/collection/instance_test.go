@@ -79,7 +79,6 @@ func TestInstance_Basics(t *testing.T) {
 
 	g.Expect(inst.Generation()).To(Equal(int64(4)))
 	g.Expect(inst.Size()).To(Equal(0))
-
 }
 
 func TestInstance_Clone(t *testing.T) {

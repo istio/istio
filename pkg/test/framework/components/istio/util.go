@@ -33,8 +33,7 @@ const (
 	istiodLabel = "pilot"
 )
 
-var (
-	dummyValidationVirtualServiceTemplate = `
+var dummyValidationVirtualServiceTemplate = `
 apiVersion: networking.istio.io/v1alpha3
 kind: VirtualService
 metadata:
@@ -54,7 +53,6 @@ spec:
           subset: v2
         weight: 25
 `
-)
 
 func waitForValidationWebhook(ctx resource.Context, cluster cluster.Cluster, cfg Config) error {
 	dummyValidationVirtualService := fmt.Sprintf(dummyValidationVirtualServiceTemplate, cfg.SystemNamespace)
@@ -101,7 +99,6 @@ func (i *operatorComponent) RemoteDiscoveryAddressFor(cluster cluster.Cluster) (
 
 func getRemoteServiceAddress(s *kube.Settings, cluster cluster.Cluster, ns, label, svcName string,
 	port int) (interface{}, bool, error) {
-
 	if !s.LoadBalancerSupported {
 		pods, err := cluster.PodsForSelector(context.TODO(), ns, fmt.Sprintf("istio=%s", label))
 		if err != nil {

@@ -385,7 +385,6 @@ func removeEntryOrigins(resources []*resource.Instance) []*resource.Instance {
 }
 
 func TestBuildFieldPathMap(t *testing.T) {
-
 	yamlResource := map[string]interface{}{
 		"key":    "value",
 		"array":  []string{"a", "b", "c", "d", "e"},

@@ -248,7 +248,6 @@ func (hostGenerator) permission(key, value string, forTCP bool) (*rbacpb.Permiss
 
 	m := matcher.HeaderMatcher(hostHeader, value)
 	return permissionHeader(m), nil
-
 }
 
 func (hostGenerator) principal(key, value string, forTCP bool) (*rbacpb.Principal, error) {

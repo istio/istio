@@ -33,9 +33,7 @@ import (
 	"istio.io/istio/pkg/test/framework/resource"
 )
 
-var (
-	inst istio.Instance
-)
+var inst istio.Instance
 
 const (
 	PilotCertsPath  = "tests/testdata/certs/pilot"

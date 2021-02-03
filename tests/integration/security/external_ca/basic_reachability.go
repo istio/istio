@@ -70,7 +70,6 @@ func TestReachability(t *testing.T) {
 							}
 							checker.CheckOrFail(ctx)
 						})
-
 				})
 			}
 		})

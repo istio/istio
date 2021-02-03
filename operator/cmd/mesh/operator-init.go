@@ -64,7 +64,8 @@ func operatorInitCmd(rootArgs *rootArgs, oiArgs *operatorInitArgs) *cobra.Comman
 		Run: func(cmd *cobra.Command, args []string) {
 			l := clog.NewConsoleLogger(cmd.OutOrStdout(), cmd.ErrOrStderr(), installerScope)
 			operatorInit(rootArgs, oiArgs, l)
-		}}
+		},
+	}
 }
 
 // operatorInit installs the Istio operator controller into the cluster.
@@ -123,7 +124,6 @@ func operatorInit(args *rootArgs, oiArgs *operatorInitArgs, l clog.Logger) {
 	if customResource != "" {
 		if err := createNamespace(clientset, istioNamespace, ""); err != nil {
 			l.LogAndFatal(err)
-
 		}
 		if err := applyManifest(restConfig, client, customResource, name.IstioOperatorComponentName, opts, iop, l); err != nil {
 			l.LogAndFatal(err)

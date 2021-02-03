@@ -28,9 +28,7 @@ import (
 	"istio.io/istio/pkg/config/schema/collection"
 )
 
-var (
-	cols = collection.SchemasFor(basicmeta.K8SCollection1)
-)
+var cols = collection.SchemasFor(basicmeta.K8SCollection1)
 
 func TestInMemory_Register_Empty(t *testing.T) {
 	g := NewWithT(t)

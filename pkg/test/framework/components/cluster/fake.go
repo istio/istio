@@ -27,7 +27,6 @@ func init() {
 }
 
 func newFakeCluster(cfg Config, topology Topology) (Cluster, error) {
-
 	return &FakeCluster{
 		ExtendedClient: kube.MockClient{},
 		Topology:       topology,

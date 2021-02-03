@@ -125,8 +125,10 @@ func TestGenerate(t *testing.T) {
 		Cert   string
 		CaCert string
 	}
-	allResources := []string{"kubernetes://generic", "kubernetes://generic-mtls", "kubernetes://generic-mtls-cacert",
-		"kubernetes://generic-mtls-split", "kubernetes://generic-mtls-split-cacert"}
+	allResources := []string{
+		"kubernetes://generic", "kubernetes://generic-mtls", "kubernetes://generic-mtls-cacert",
+		"kubernetes://generic-mtls-split", "kubernetes://generic-mtls-split-cacert",
+	}
 	cases := []struct {
 		name                 string
 		proxy                *model.Proxy

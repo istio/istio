@@ -50,17 +50,15 @@ const (
 	DefaultLbType = networking.LoadBalancerSettings_ROUND_ROBIN
 )
 
-var (
-	// defaultTransportSocketMatch applies to endpoints that have no security.istio.io/tlsMode label
-	// or those whose label value does not match "istio"
-	defaultTransportSocketMatch = &cluster.Cluster_TransportSocketMatch{
-		Name:  "tlsMode-disabled",
-		Match: &structpb.Struct{},
-		TransportSocket: &core.TransportSocket{
-			Name: util.EnvoyRawBufferSocketName,
-		},
-	}
-)
+// defaultTransportSocketMatch applies to endpoints that have no security.istio.io/tlsMode label
+// or those whose label value does not match "istio"
+var defaultTransportSocketMatch = &cluster.Cluster_TransportSocketMatch{
+	Name:  "tlsMode-disabled",
+	Match: &structpb.Struct{},
+	TransportSocket: &core.TransportSocket{
+		Name: util.EnvoyRawBufferSocketName,
+	},
+}
 
 // getDefaultCircuitBreakerThresholds returns a copy of the default circuit breaker thresholds for the given traffic direction.
 func getDefaultCircuitBreakerThresholds() *cluster.CircuitBreakers_Thresholds {
@@ -254,7 +252,6 @@ type ClusterInstances struct {
 }
 
 func (configgen *ConfigGeneratorImpl) buildInboundClusters(cb *ClusterBuilder, instances []*model.ServiceInstance, cp clusterPatcher) []*cluster.Cluster {
-
 	clusters := make([]*cluster.Cluster, 0)
 
 	// The inbound clusters for a node depends on whether the node has a SidecarScope with inbound listeners

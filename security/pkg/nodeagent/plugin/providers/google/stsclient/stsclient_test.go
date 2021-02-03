@@ -85,7 +85,6 @@ func TestGetFederatedToken(t *testing.T) {
 			return nil
 		}, retry.Timeout(time.Second*5))
 	})
-
 }
 
 func TestMain(m *testing.M) {

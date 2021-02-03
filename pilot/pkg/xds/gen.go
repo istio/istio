@@ -40,9 +40,7 @@ type IstioControlPlaneInstance struct {
 	Info istioversion.BuildInfo
 }
 
-var (
-	controlPlane *corev3.ControlPlane
-)
+var controlPlane *corev3.ControlPlane
 
 // ControlPlane identifies the instance and Istio version.
 func ControlPlane() *corev3.ControlPlane {

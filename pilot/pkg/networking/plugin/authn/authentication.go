@@ -27,9 +27,7 @@ import (
 	"istio.io/pkg/log"
 )
 
-var (
-	authnLog = log.RegisterScope("authn", "authn debugging", 0)
-)
+var authnLog = log.RegisterScope("authn", "authn debugging", 0)
 
 // Plugin implements Istio mTLS auth
 type Plugin struct{}

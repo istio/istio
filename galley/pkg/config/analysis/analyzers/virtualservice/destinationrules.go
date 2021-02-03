@@ -56,12 +56,10 @@ func (d *DestinationRuleAnalyzer) Analyze(ctx analysis.Context) {
 
 func (d *DestinationRuleAnalyzer) analyzeVirtualService(r *resource.Instance, ctx analysis.Context,
 	destHostsAndSubsets map[hostAndSubset]bool) {
-
 	vs := r.Message.(*v1alpha3.VirtualService)
 	ns := r.Metadata.FullName.Namespace
 
 	for _, ad := range getRouteDestinations(vs) {
-
 		if !d.checkDestinationSubset(ns, ad.Destination, destHostsAndSubsets) {
 
 			m := msg.NewReferencedResourceNotFound(r, "host+subset in destinationrule",
@@ -74,11 +72,9 @@ func (d *DestinationRuleAnalyzer) analyzeVirtualService(r *resource.Instance, ct
 
 			ctx.Report(collections.IstioNetworkingV1Alpha3Virtualservices.Name(), m)
 		}
-
 	}
 
 	for _, ad := range getHTTPMirrorDestinations(vs) {
-
 		if !d.checkDestinationSubset(ns, ad.Destination, destHostsAndSubsets) {
 
 			m := msg.NewReferencedResourceNotFound(r, "mirror+subset in destinationrule",
@@ -91,13 +87,11 @@ func (d *DestinationRuleAnalyzer) analyzeVirtualService(r *resource.Instance, ct
 
 			ctx.Report(collections.IstioNetworkingV1Alpha3Virtualservices.Name(), m)
 		}
-
 	}
 }
 
 func (d *DestinationRuleAnalyzer) checkDestinationSubset(vsNamespace resource.Namespace, destination *v1alpha3.Destination,
 	destHostsAndSubsets map[hostAndSubset]bool) bool {
-
 	name := util.GetResourceNameFromHost(vsNamespace, destination.GetHost())
 	subset := destination.GetSubset()
 

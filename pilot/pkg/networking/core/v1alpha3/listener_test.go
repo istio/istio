@@ -247,7 +247,8 @@ func TestOutboundListenerConfig_WithSidecar(t *testing.T) {
 	services := []*model.Service{
 		buildService("test1.com", wildcardIP, protocol.HTTP, tnow.Add(1*time.Second)),
 		buildService("test2.com", wildcardIP, protocol.TCP, tnow),
-		buildService("test3.com", wildcardIP, "unknown", tnow.Add(2*time.Second))}
+		buildService("test3.com", wildcardIP, "unknown", tnow.Add(2*time.Second)),
+	}
 	service4 := &model.Service{
 		CreationTime: tnow.Add(1 * time.Second),
 		Hostname:     host.Name("test4.com"),
@@ -352,7 +353,6 @@ func TestOutboundListenerConflict_TCPWithCurrentTCP(t *testing.T) {
 }
 
 func TestOutboundListenerTCPWithVS(t *testing.T) {
-
 	tests := []struct {
 		name           string
 		CIDR           string
@@ -536,7 +536,8 @@ func TestOutboundListenerConfig_WithDisabledSniffing_WithSidecar(t *testing.T) {
 	services := []*model.Service{
 		buildService("test1.com", wildcardIP, protocol.HTTP, tnow.Add(1*time.Second)),
 		buildService("test2.com", wildcardIP, protocol.TCP, tnow),
-		buildService("test3.com", wildcardIP, protocol.HTTP, tnow.Add(2*time.Second))}
+		buildService("test3.com", wildcardIP, protocol.HTTP, tnow.Add(2*time.Second)),
+	}
 	service4 := &model.Service{
 		CreationTime: tnow.Add(1 * time.Second),
 		Hostname:     host.Name("test4.com"),
@@ -1561,7 +1562,7 @@ func TestHttpProxyListener(t *testing.T) {
 }
 
 func TestHttpProxyListener_Tracing(t *testing.T) {
-	var customTagsTest = []struct {
+	customTagsTest := []struct {
 		name             string
 		in               *meshconfig.Tracing
 		out              *hcm.HttpConnectionManager_Tracing
@@ -1946,7 +1947,8 @@ func TestHttpProxyListener_Tracing(t *testing.T) {
 								DefaultValue: "custom-defaulted-value-request-header",
 							},
 						},
-					}}, defaultTags()...),
+					},
+				}, defaultTags()...),
 			},
 		},
 	}
@@ -2009,7 +2011,8 @@ func verifyHTTPConnectionManagerFilter(t *testing.T, f *listener.Filter, expecte
 func TestOutboundListenerConfig_TCPFailThrough(t *testing.T) {
 	// Add a service and verify it's config
 	services := []*model.Service{
-		buildService("test1.com", wildcardIP, protocol.HTTP, tnow)}
+		buildService("test1.com", wildcardIP, protocol.HTTP, tnow),
+	}
 	listeners := buildOutboundListeners(t, &fakePlugin{}, getProxy(), nil, nil, services...)
 
 	if len(listeners[0].FilterChains) != 1 {
@@ -2082,7 +2085,6 @@ func verifyInboundHTTPListenerStatPrefix(t *testing.T, l *listener.Listener) {
 	if !strings.HasPrefix(cfg.Fields["stat_prefix"].GetStringValue(), "inbound_") {
 		t.Fatalf("expected stat prefix to have %s , found %s", "inbound", cfg.Fields["stat_prefix"].GetStringValue())
 	}
-
 }
 
 func verifyInboundEnvoyListenerNumber(t *testing.T, l *listener.Listener) {
@@ -2685,7 +2687,8 @@ func TestOutboundRateLimitedThriftListenerConfig(t *testing.T) {
 
 	services := []*model.Service{
 		buildService(svcName+".default.svc.cluster.local", svcIP, protocol.Thrift, tnow),
-		buildService(limitedSvcName+".default.svc.cluster.local", limitedSvcIP, protocol.Thrift, tnow)}
+		buildService(limitedSvcName+".default.svc.cluster.local", limitedSvcIP, protocol.Thrift, tnow),
+	}
 
 	p := &fakePlugin{}
 	sidecarConfig := &config.Config{

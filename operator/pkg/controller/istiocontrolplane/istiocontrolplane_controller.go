@@ -422,7 +422,7 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 	if err != nil {
 		return err
 	}
-	//watch for changes to Istio resources
+	// watch for changes to Istio resources
 	err = watchIstioResources(c)
 	if err != nil {
 		return err

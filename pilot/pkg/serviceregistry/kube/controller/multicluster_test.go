@@ -116,5 +116,4 @@ func Test_KubeSecretController(t *testing.T) {
 
 	// Test - Verify that the remote controller has been removed.
 	verifyControllers(t, mc, 0, "delete remote controller")
-
 }
