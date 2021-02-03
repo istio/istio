@@ -33,11 +33,11 @@ import (
 	"k8s.io/client-go/kubernetes"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
-	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/test"
 	appEcho "istio.io/istio/pkg/test/echo/client"
 	echoCommon "istio.io/istio/pkg/test/echo/common"
+	"istio.io/istio/pkg/test/framework/components/cluster"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/echo/common"
 	"istio.io/istio/pkg/test/framework/components/environment/kube"
@@ -55,7 +55,6 @@ import (
 const (
 	tcpHealthPort     = 3333
 	httpReadinessPort = 8080
-	defaultDomain     = constants.DefaultKubernetesDomain
 )
 
 var (
@@ -71,14 +70,12 @@ type instance struct {
 	grpcPort  uint16
 	ctx       resource.Context
 	tls       *echoCommon.TLSSettings
-	cluster   resource.Cluster
+	cluster   cluster.Cluster
 }
 
 func newInstance(ctx resource.Context, originalCfg echo.Config) (out *instance, err error) {
 	cfg := originalCfg.DeepCopy()
-	// Fill in defaults for any missing values.
-	common.AddPortIfMissing(&cfg, protocol.GRPC)
-	if err = common.FillInDefaults(ctx, defaultDomain, &cfg); err != nil {
+	if err = common.FillInKubeDefaults(ctx, &cfg); err != nil {
 		return nil, err
 	}
 
@@ -109,20 +106,14 @@ func newInstance(ctx resource.Context, originalCfg echo.Config) (out *instance, 
 		}
 	}
 
-	// Generate the service and deployment YAML.
-	serviceYAML, deploymentYAML, err := generateYAML(cfg, c.cluster)
+	// Generate the deployment YAML.
+	deploymentYAML, err := generateDeployment(cfg)
 	if err != nil {
 		return nil, fmt.Errorf("generate yaml: %v", err)
 	}
 
-	// Apply the service definition to all clusters.
-	if err := ctx.Config().ApplyYAML(cfg.Namespace.Name(), serviceYAML); err != nil {
-		return nil, fmt.Errorf("failed deploying echo service %s to clusters: %v",
-			cfg.FQDN(), err)
-	}
-
-	// Deploy the YAML.
-	if err = ctx.Config(c.cluster).ApplyYAML(cfg.Namespace.Name(), deploymentYAML); err != nil {
+	// Apply the deployment to the configured cluster.
+	if err = ctx.Config(c.cluster).ApplyYAMLNoCleanup(cfg.Namespace.Name(), deploymentYAML); err != nil {
 		return nil, fmt.Errorf("failed deploying echo %s to cluster %s: %v",
 			cfg.FQDN(), c.cluster.Name(), err)
 	}
@@ -202,7 +193,7 @@ spec:
 
 	// Push the WorkloadGroup for auto-registration
 	if cfg.AutoRegisterVM {
-		if err := ctx.Config(cfg.Cluster).ApplyYAML(cfg.Namespace.Name(), wg); err != nil {
+		if err := ctx.Config(cfg.Cluster).ApplyYAMLNoCleanup(cfg.Namespace.Name(), wg); err != nil {
 			return err
 		}
 	}
@@ -420,7 +411,7 @@ spec:
     version: %s
 `, vmPod.Name, vmPod.Status.PodIP, serviceAccount, cfg.Cluster.NetworkName(), cfg.Service, vmPod.Labels["istio.io/test-vm-version"])
 		// Deploy the workload entry to the primary cluster. We will read WorkloadEntry across clusters.
-		if err := ctx.Config(cfg.Cluster.Primary()).ApplyYAML(cfg.Namespace.Name(), wle); err != nil {
+		if err := ctx.Config(cfg.Cluster.Primary()).ApplyYAMLNoCleanup(cfg.Namespace.Name(), wle); err != nil {
 			return err
 		}
 	}
@@ -560,15 +551,6 @@ func (c *instance) Config() echo.Config {
 func (c *instance) Call(opts echo.CallOptions) (appEcho.ParsedResponses, error) {
 	out, err := common.ForwardEcho(c.cfg.Service, c.workloads[0].Instance, &opts, false)
 	if err != nil {
-		if opts.Port != nil {
-			err = fmt.Errorf("failed calling %s->'%s://%s:%d/%s': %v",
-				c.Config().Service,
-				strings.ToLower(string(opts.Port.Protocol)),
-				opts.Address,
-				opts.Port.ServicePort,
-				opts.Path,
-				err)
-		}
 		return nil, err
 	}
 	return out, nil
@@ -587,15 +569,6 @@ func (c *instance) CallWithRetry(opts echo.CallOptions,
 	retryOptions ...retry.Option) (appEcho.ParsedResponses, error) {
 	out, err := common.ForwardEcho(c.cfg.Service, c.workloads[0].Instance, &opts, true, retryOptions...)
 	if err != nil {
-		if opts.Port != nil {
-			err = fmt.Errorf("failed calling %s->'%s://%s:%d/%s': %v",
-				c.Config().Service,
-				strings.ToLower(string(opts.Port.Protocol)),
-				opts.Address,
-				opts.Port.ServicePort,
-				opts.Path,
-				err)
-		}
 		return nil, err
 	}
 	return out, nil

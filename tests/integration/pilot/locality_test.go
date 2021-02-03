@@ -182,7 +182,7 @@ func TestLocality(t *testing.T) {
 				ctx.NewSubTest(tt.name).Run(func(ctx framework.TestContext) {
 					hostname := fmt.Sprintf("%s-fake-locality.example.com", strings.ToLower(strings.ReplaceAll(tt.name, "/", "-")))
 					tt.input.Host = hostname
-					applyAndCleanup(ctx, apps.Namespace.Name(), runTemplate(ctx, localityTemplate, tt.input))
+					ctx.Config().ApplyYAMLOrFail(ctx, apps.Namespace.Name(), runTemplate(ctx, localityTemplate, tt.input))
 					sendTrafficOrFail(ctx, apps.PodA[0], hostname, tt.expected)
 				})
 			}
@@ -193,13 +193,6 @@ const sendCount = 50
 
 func expectAllTrafficTo(dest string) map[string]int {
 	return map[string]int{dest: sendCount}
-}
-
-func applyAndCleanup(ctx framework.TestContext, ns string, yaml ...string) {
-	ctx.Config().ApplyYAMLOrFail(ctx, ns, yaml...)
-	ctx.ConditionalCleanup(func() {
-		ctx.Config().DeleteYAML(ns, yaml...)
-	})
 }
 
 func sendTrafficOrFail(ctx framework.TestContext, from echo.Instance, host string, expected map[string]int) {

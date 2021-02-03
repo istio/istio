@@ -120,12 +120,7 @@ spec:
 }
 
 func skipIfIngressClassUnsupported(ctx framework.TestContext) {
-	ver, err := ctx.Clusters().Default().GetKubernetesVersion()
-	if err != nil {
-		ctx.Fatalf("failed to get Kubernetes version: %v", err)
-	}
-	serverVersion := fmt.Sprintf("%s.%s", ver.Major, ver.Minor)
-	if serverVersion < "1.18" {
+	if !ctx.Clusters().Default().MinKubeVersion(1, 18) {
 		ctx.Skip("IngressClass not supported")
 	}
 }

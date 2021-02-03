@@ -98,7 +98,7 @@ func (s *Settings) clusterConfigsFromFlags() ([]cluster.Config, error) {
 			Name:    fmt.Sprintf("cluster-%d", i),
 			Kind:    cluster.Kubernetes,
 			Network: s.networkTopology[ci],
-			Meta:    map[string]string{"kubeconfig": kc},
+			Meta:    cluster.ConfigMeta{"kubeconfig": kc},
 		}
 		if idx, ok := s.controlPlaneTopology[ci]; ok {
 			cfg.PrimaryClusterName = fmt.Sprintf("cluster-%d", idx)
@@ -206,7 +206,7 @@ func replaceKubeconfigs(configs []cluster.Config, kubeconfigs []string) ([]clust
 				return nil, fmt.Errorf("istio.test.kube.config should have a kubeconfig for each kube cluster")
 			}
 			if config.Meta == nil {
-				config.Meta = map[string]string{}
+				config.Meta = cluster.ConfigMeta{}
 			}
 			config.Meta["kubeconfig"] = kubeconfigs[kube]
 		}

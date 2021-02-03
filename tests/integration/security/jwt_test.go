@@ -74,7 +74,6 @@ func TestRequestAuthentication(t *testing.T) {
 				file.AsStringOrFail(t, "testdata/requestauthn/f-authn.yaml.tmpl"),
 			)
 			ctx.Config().ApplyYAMLOrFail(t, ns.Name(), jwtPolicies...)
-			defer ctx.Config().DeleteYAMLOrFail(t, ns.Name(), jwtPolicies...)
 
 			aSet := apps.A.Match(echo.Namespace(ns.Name()))
 			bSet := apps.B.Match(echo.Namespace(ns.Name()))
@@ -379,17 +378,13 @@ func TestIngressRequestAuthentication(t *testing.T) {
 				"RootNamespace": istio.GetOrFail(ctx, ctx).Settings().SystemNamespace,
 			}
 
-			applyPolicy := func(filename string, ns namespace.Instance) []string {
+			applyPolicy := func(filename string, ns namespace.Instance) {
 				policy := tmpl.EvaluateAllOrFail(t, namespaceTmpl, file.AsStringOrFail(t, filename))
 				ctx.Config().ApplyYAMLOrFail(t, ns.Name(), policy...)
-				return policy
 			}
 
-			securityPolicies := applyPolicy("testdata/requestauthn/global-jwt.yaml.tmpl", rootNS{})
-			ingressCfgs := applyPolicy("testdata/requestauthn/ingress.yaml.tmpl", ns)
-
-			defer ctx.Config().DeleteYAMLOrFail(t, rootNS{}.Name(), securityPolicies...)
-			defer ctx.Config().DeleteYAMLOrFail(t, ns.Name(), ingressCfgs...)
+			applyPolicy("testdata/requestauthn/global-jwt.yaml.tmpl", rootNS{})
+			applyPolicy("testdata/requestauthn/ingress.yaml.tmpl", ns)
 
 			bSet := apps.B.Match(echo.Namespace(ns.Name()))
 

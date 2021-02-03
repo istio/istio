@@ -16,21 +16,26 @@ package resource
 
 import (
 	"istio.io/istio/pkg/test"
+	"istio.io/istio/pkg/test/framework/components/cluster"
 	"istio.io/istio/pkg/test/util/yml"
 )
 
 // ConfigManager is an interface for applying/deleting yaml resources.
 type ConfigManager interface {
-	// ApplyYAML applies the given config yaml text via Galley.
+	// ApplyYAML applies the given config yaml text. Applied YAML is automatically deleted when the
+	// test exits.
 	ApplyYAML(ns string, yamlText ...string) error
 
-	// ApplyYAMLOrFail applies the given config yaml text via Galley.
+	// ApplyYAMLNoCleanup applies the given config yaml text.
+	ApplyYAMLNoCleanup(ns string, yamlText ...string) error
+
+	// ApplyYAMLOrFail applies the given config yaml text.
 	ApplyYAMLOrFail(t test.Failer, ns string, yamlText ...string)
 
-	// DeleteYAML deletes the given config yaml text via Galley.
+	// DeleteYAML deletes the given config yaml text.
 	DeleteYAML(ns string, yamlText ...string) error
 
-	// DeleteYAMLOrFail deletes the given config yaml text via Galley.
+	// DeleteYAMLOrFail deletes the given config yaml text.
 	DeleteYAMLOrFail(t test.Failer, ns string, yamlText ...string)
 
 	// WithFilePrefix sets the prefix used for intermediate files.
@@ -56,7 +61,7 @@ type Context interface {
 	Environment() Environment
 
 	// Clusters in this Environment. There will always be at least one.
-	Clusters() Clusters
+	Clusters() cluster.Clusters
 
 	// Settings returns common settings
 	Settings() *Settings
@@ -80,5 +85,5 @@ type Context interface {
 
 	// Config returns a ConfigManager that writes config to the provide clusers. If
 	// no clusters are provided, writes to all clusters.
-	Config(clusters ...Cluster) ConfigManager
+	Config(clusters ...cluster.Cluster) ConfigManager
 }

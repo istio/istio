@@ -20,6 +20,7 @@ import (
 
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/test/framework"
+	"istio.io/istio/pkg/test/framework/components/cluster"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/echo/echoboot"
 	"istio.io/istio/pkg/test/framework/components/istio"
@@ -167,7 +168,7 @@ func WantTraceRoot(namespace, clName string) (root zipkin.Span) {
 }
 
 // SendTraffic makes a client call to the "server" service on the http port.
-func SendTraffic(ctx framework.TestContext, headers map[string][]string, cl resource.Cluster) error {
+func SendTraffic(ctx framework.TestContext, headers map[string][]string, cl cluster.Cluster) error {
 	ctx.Logf("Sending from %s...", cl.Name())
 	for _, cltInstance := range client {
 		if cltInstance.Config().Cluster != cl {

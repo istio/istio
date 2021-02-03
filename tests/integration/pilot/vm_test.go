@@ -46,14 +46,13 @@ func GetAdditionVMImages() []string {
 func TestVmOSPost(t *testing.T) {
 	framework.
 		NewTest(t).
-		RequiresSingleCluster(). // TODO(landow) fix DNS issues with multicluster/VMs/headless
 		Features("traffic.reachability").
 		Label(label.Postsubmit).
 		Run(func(ctx framework.TestContext) {
 			if ctx.Settings().SkipVM {
 				ctx.Skip("VM tests are disabled")
 			}
-			b := echoboot.NewBuilder(ctx)
+			b := echoboot.NewBuilder(ctx, ctx.Clusters().Primaries().Default())
 			images := GetAdditionVMImages()
 			for _, image := range images {
 				b = b.WithConfig(echo.Config{
