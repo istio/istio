@@ -84,7 +84,8 @@ func TestMultiRevision(t *testing.T) {
 							Name:         "http",
 							Protocol:     protocol.HTTP,
 							InstancePort: 8090,
-						}},
+						},
+					},
 				}).
 				BuildOrFail(t)
 			retry.UntilSuccessOrFail(t, func() error {

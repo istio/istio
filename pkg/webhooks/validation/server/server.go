@@ -129,7 +129,6 @@ var readyHook = func() {}
 
 // Run implements the webhook server
 func (wh *Webhook) Run(stopCh <-chan struct{}) {
-
 	defer func() {
 		wh.Stop()
 	}()

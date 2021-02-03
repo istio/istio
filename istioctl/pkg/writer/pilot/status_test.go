@@ -27,9 +27,7 @@ import (
 	"istio.io/istio/tests/util"
 )
 
-var (
-	preDefinedNonce = newNonce()
-)
+var preDefinedNonce = newNonce()
 
 func newNonce() string {
 	return uuid.New().String()

@@ -20,9 +20,7 @@ import (
 	"istio.io/pkg/log"
 )
 
-var (
-	mockcredLog = log.RegisterScope("mockcred", "Mock credential fetcher for istio agent", 0)
-)
+var mockcredLog = log.RegisterScope("mockcred", "Mock credential fetcher for istio agent", 0)
 
 // The plugin object.
 type MockPlugin struct {

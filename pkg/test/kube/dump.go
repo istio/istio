@@ -300,7 +300,6 @@ func DumpNdsz(_ resource.Context, c cluster.Cluster, workDir string, _ string, p
 }
 
 func dumpDebug(cp cluster.Cluster, istiodPod corev1.Pod, endpoint string) (string, error) {
-
 	// exec to the control plane to run nds gen
 	cmd := []string{"pilot-discovery", "request", "GET", endpoint}
 

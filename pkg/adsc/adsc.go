@@ -202,9 +202,7 @@ type ResponseHandler interface {
 	HandleResponse(con *ADSC, response *discovery.DiscoveryResponse)
 }
 
-var (
-	adscLog = log.RegisterScope("adsc", "adsc debugging", 0)
-)
+var adscLog = log.RegisterScope("adsc", "adsc debugging", 0)
 
 // New creates a new ADSC, maintaining a connection to an XDS server.
 // Will:
@@ -311,7 +309,7 @@ func (a *ADSC) tlsConfig() (*tls.Config, error) {
 	var serverCABytes []byte
 	var err error
 
-	var getClientCertificate = getClientCertFn(a.cfg)
+	getClientCertificate := getClientCertFn(a.cfg)
 
 	// Load the root CAs
 	if a.cfg.RootCert != nil {
@@ -697,7 +695,6 @@ func (a *ADSC) Save(base string) error {
 }
 
 func (a *ADSC) handleCDS(ll []*cluster.Cluster) {
-
 	cn := make([]string, 0, len(ll))
 	cdsSize := 0
 	edscds := map[string]*cluster.Cluster{}
@@ -745,7 +742,8 @@ func (a *ADSC) node() *core.Node {
 		n.Metadata = &pstruct.Struct{
 			Fields: map[string]*pstruct.Value{
 				"ISTIO_VERSION": {Kind: &pstruct.Value_StringValue{StringValue: "65536.65536.65536"}},
-			}}
+			},
+		}
 	} else {
 		n.Metadata = a.Metadata
 		if a.Metadata.Fields["ISTIO_VERSION"] == nil {
@@ -799,7 +797,6 @@ func (a *ADSC) handleEDS(eds []*endpoint.ClusterLoadAssignment) {
 }
 
 func (a *ADSC) handleRDS(configurations []*route.RouteConfiguration) {
-
 	vh := 0
 	rcount := 0
 	size := 0
@@ -838,7 +835,6 @@ func (a *ADSC) handleRDS(configurations []*route.RouteConfiguration) {
 	case a.Updates <- v3.RouteType:
 	default:
 	}
-
 }
 
 // WaitClear will clear the waiting events, so next call to Wait will get
@@ -1111,7 +1107,7 @@ func (a *ADSC) handleMCP(gvk []string, resources []*any.Any) {
 		return
 	}
 
-	var received = make(map[string]*config.Config)
+	received := make(map[string]*config.Config)
 	for _, rsc := range resources {
 		m := &mcp.Resource{}
 		err := types.UnmarshalAny(&types.Any{

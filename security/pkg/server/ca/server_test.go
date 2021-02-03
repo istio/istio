@@ -100,7 +100,7 @@ func TestCreateCertificateE2EUsingClientCertAuthenticator(t *testing.T) {
 		code         codes.Code
 		ipAddr       *net.IPAddr
 	}{
-		//no client certificate is presented
+		// no client certificate is presented
 		"No client certificate": {
 			certChain: nil,
 			caller:    nil,
@@ -115,14 +115,14 @@ func TestCreateCertificateE2EUsingClientCertAuthenticator(t *testing.T) {
 			ipAddr:       mockIPAddr,
 			code:         codes.Unauthenticated,
 		},
-		//no cert chain presented
+		// no cert chain presented
 		"Empty cert chain": {
 			certChain: [][]*x509.Certificate{},
 			caller:    nil,
 			ipAddr:    mockIPAddr,
 			code:      codes.Unauthenticated,
 		},
-		//certificate misses the the SAN field
+		// certificate misses the the SAN field
 		"Certificate has no SAN": {
 			certChain: [][]*x509.Certificate{
 				{
@@ -134,7 +134,7 @@ func TestCreateCertificateE2EUsingClientCertAuthenticator(t *testing.T) {
 			ipAddr: mockIPAddr,
 			code:   codes.Unauthenticated,
 		},
-		//successful testcase with valid client certificate
+		// successful testcase with valid client certificate
 		"With client certificate": {
 			certChain: [][]*x509.Certificate{
 				{

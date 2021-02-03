@@ -301,5 +301,4 @@ func TestPodCacheEvents(t *testing.T) {
 	if pod, exists := podCache.getPodKey(ip); exists {
 		t.Errorf("getPodKey => got %s, want none", pod)
 	}
-
 }

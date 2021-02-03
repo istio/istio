@@ -214,7 +214,6 @@ func (s *Server) initConfigSources(args *PilotArgs) (err error) {
 // running Analyzers for status updates.  The Status Updater will eventually need to allow input from istiod
 // to support config distribution status as well.
 func (s *Server) initInprocessAnalysisController(args *PilotArgs) error {
-
 	processingArgs := settings.DefaultArgs()
 	processingArgs.KubeConfig = args.RegistryOptions.KubeConfig
 	processingArgs.WatchedNamespaces = args.RegistryOptions.KubeOptions.WatchedNamespaces

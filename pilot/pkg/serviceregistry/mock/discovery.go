@@ -219,7 +219,6 @@ func (sd *ServiceDiscovery) GetProxyServiceInstances(node *model.Proxy) []*model
 					}
 				}
 			}
-
 		}
 	}
 	return out

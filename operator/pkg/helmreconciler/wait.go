@@ -312,7 +312,7 @@ func statefulsetsReady(statefulsets []*appsv1.StatefulSet) (bool, []string) {
 			// Dereference all the pointers because StatefulSets like them
 			var partition int
 			// default replicasfor sts is 1
-			var replicas = 1
+			replicas := 1
 			// the rollingUpdate field can be nil even if the update strategy is a rolling update.
 			if sts.Spec.UpdateStrategy.RollingUpdate != nil &&
 				sts.Spec.UpdateStrategy.RollingUpdate.Partition != nil {

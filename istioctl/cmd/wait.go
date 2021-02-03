@@ -93,7 +93,7 @@ func waitCmd() *cobra.Command {
 			generations := []string{firstVersion}
 			targetResource := config.Key(targetSchema.Resource().Kind(), nameflag, namespace)
 			for {
-				//run the check here as soon as we start
+				// run the check here as soon as we start
 				// because tickers won't run immediately
 				present, notpresent, err := poll(generations, targetResource, opts)
 				printVerbosef(cmd, "Received poll result: %d/%d", present, present+notpresent)
@@ -222,7 +222,6 @@ func init() {
 		}
 		return dclient, nil
 	}
-
 }
 
 // getAndWatchResource ensures that Generations always contains

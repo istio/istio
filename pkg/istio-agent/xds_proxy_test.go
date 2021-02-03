@@ -71,7 +71,8 @@ func init() {
 // Validates the proxy health checking updates
 func TestXdsProxyHealthCheck(t *testing.T) {
 	healthy := &discovery.DiscoveryRequest{TypeUrl: v3.HealthInfoType}
-	unhealthy := &discovery.DiscoveryRequest{TypeUrl: v3.HealthInfoType,
+	unhealthy := &discovery.DiscoveryRequest{
+		TypeUrl: v3.HealthInfoType,
 		ErrorDetail: &google_rpc.Status{
 			Code:    500,
 			Message: "unhealthy",
@@ -236,7 +237,6 @@ func setDialOptions(p *XdsProxy, l *bufconn.Listener) {
 			return l.Dial()
 		}),
 	}
-
 }
 
 var ctx = metadata.AppendToOutgoingContext(context.Background(), "ClusterID", "Kubernetes")

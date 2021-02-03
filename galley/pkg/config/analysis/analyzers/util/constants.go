@@ -32,6 +32,4 @@ const (
 	InjectionLabelEnableValue = "enabled"
 )
 
-var (
-	fqdnPattern = regexp.MustCompile(`^(.+)\.(.+)\.svc\.cluster\.local$`)
-)
+var fqdnPattern = regexp.MustCompile(`^(.+)\.(.+)\.svc\.cluster\.local$`)

@@ -59,7 +59,6 @@ func ApplyClusterMerge(pctx networking.EnvoyFilter_PatchContext, efw *model.Envo
 
 // Test if the patch contains a config for TransportSocket
 func mergeTransportSocketCluster(c *cluster.Cluster, cp *model.EnvoyFilterConfigPatchWrapper) (bool, error) {
-
 	cpValueCast, okCpCast := (cp.Value).(*cluster.Cluster)
 	if !okCpCast {
 		return false, fmt.Errorf("cast of cp.Value failed: %v", okCpCast)

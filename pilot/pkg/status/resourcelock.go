@@ -163,7 +163,6 @@ func (wp *WorkerPool) Run(ctx context.Context) {
 // maybeAddWorker adds a worker unless we are at maxWorkers.  Workers exit when there are no more tasks, except for the
 // last worker, which stays alive indefinitely.
 func (wp *WorkerPool) maybeAddWorker() {
-
 	wp.lock.Lock()
 	if wp.workerCount >= wp.maxWorkers || wp.q.Length() == 0 {
 		wp.lock.Unlock()

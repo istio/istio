@@ -25,7 +25,6 @@ import (
 )
 
 func TestCtlPlaneConfig(t *testing.T) {
-
 	istiodConfigMap := map[string][]byte{
 		"istiod-7b69ff6f8c-fvjvw": []byte("active_scopes:\n  ads:info"),
 	}
@@ -76,7 +75,7 @@ func TestCtlPlaneConfig(t *testing.T) {
 }
 
 func Test_newScopeLevelPair(t *testing.T) {
-	var validationPattern = `^\w+:(debug|error|warn|info|debug)`
+	validationPattern := `^\w+:(debug|error|warn|info|debug)`
 	type args struct {
 		slp               string
 		validationPattern string
@@ -108,7 +107,7 @@ func Test_newScopeLevelPair(t *testing.T) {
 }
 
 func Test_newScopeStackTraceLevelPair(t *testing.T) {
-	var validationPattern = `^\w+:(debug|error|warn|info|debug)`
+	validationPattern := `^\w+:(debug|error|warn|info|debug)`
 	type args struct {
 		sslp              string
 		validationPattern string
@@ -228,9 +227,9 @@ func adsHandler(writer http.ResponseWriter, request *http.Request) {
 	switch request.Method {
 	case http.MethodGet:
 		_, _ = writer.Write([]byte(getResponse))
-
 	}
 }
+
 func setupHTTPServer() (*httptest.Server, *url.URL) {
 	handler := http.NewServeMux()
 	handler.HandleFunc("/scopej/ads", adsHandler)
@@ -241,7 +240,6 @@ func setupHTTPServer() (*httptest.Server, *url.URL) {
 }
 
 func Test_flagState_run(t *testing.T) {
-
 	server, url := setupHTTPServer()
 	defer server.Close()
 

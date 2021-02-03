@@ -197,7 +197,6 @@ func doFilterChainOperation(patchContext networking.EnvoyFilter_PatchContext,
 
 // Test if the patch contains a config for TransportSocket
 func mergeTransportSocketListener(fc *xdslistener.FilterChain, cp *model.EnvoyFilterConfigPatchWrapper) (bool, error) {
-
 	cpValueCast, okCpCast := (cp.Value).(*xdslistener.FilterChain)
 	if !okCpCast {
 		return false, fmt.Errorf("cast of cp.Value failed: %v", okCpCast)

@@ -22,9 +22,11 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 )
 
-type LocalhostValue string
-type WildcardValue string
-type DNSLookupFamilyValue string
+type (
+	LocalhostValue       string
+	WildcardValue        string
+	DNSLookupFamilyValue string
+)
 
 const (
 	LocalhostIPv4       LocalhostValue       = "127.0.0.1"

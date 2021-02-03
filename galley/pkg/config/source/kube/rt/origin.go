@@ -34,8 +34,10 @@ type Origin struct {
 	FieldsMap  map[string]int
 }
 
-var _ resource.Origin = &Origin{}
-var _ resource.Reference = &Position{}
+var (
+	_ resource.Origin    = &Origin{}
+	_ resource.Reference = &Position{}
+)
 
 // FriendlyName implements resource.Origin
 func (o *Origin) FriendlyName() string {

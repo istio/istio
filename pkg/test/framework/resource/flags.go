@@ -22,9 +22,7 @@ import (
 	"istio.io/istio/pkg/test/framework/label"
 )
 
-var (
-	settingsFromCommandLine = DefaultSettings()
-)
+var settingsFromCommandLine = DefaultSettings()
 
 // SettingsFromCommandLine returns settings obtained from command-line flags. flag.Parse must be called before
 // calling this function.

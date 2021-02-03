@@ -82,7 +82,8 @@ func TestBuild(t *testing.T) {
 					// Explicitly specified in config, should be copied exactly
 					PrimaryClusterName: "external-istiod",
 					ConfigClusterName:  "remote-config",
-				}},
+				},
+			},
 		},
 	}
 	var clusters cluster.Clusters

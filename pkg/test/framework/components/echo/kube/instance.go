@@ -623,7 +623,7 @@ func (c *instance) Restart() error {
 	return nil
 }
 
-//restartEchoDeployments performs a `kubectl rollout restart` on the echo deployment and waits for
+// restartEchoDeployments performs a `kubectl rollout restart` on the echo deployment and waits for
 // `kubectl rollout status` to complete before returning.
 func (c *instance) restartEchoDeployments() error {
 	var errs error

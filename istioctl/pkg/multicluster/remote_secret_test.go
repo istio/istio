@@ -258,7 +258,7 @@ func TestCreateRemoteSecrets(t *testing.T) {
 			opts := RemoteSecretOptions{
 				ServiceAccountName: testServiceAccountName,
 				AuthType:           RemoteSecretAuthTypeBearerToken,
-				//ClusterName: testCluster,
+				// ClusterName: testCluster,
 				KubeOptions: KubeOptions{
 					Namespace:  testNamespace,
 					Context:    testContext,
@@ -640,7 +640,6 @@ metadata:
 	if w.String() != want {
 		t.Errorf("got\n%q\nwant\n%q", w.String(), want)
 	}
-
 }
 
 func TestCreateRemoteSecretFromPlugin(t *testing.T) {
