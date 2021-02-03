@@ -35,7 +35,7 @@ var (
 	httpPort = flag.String("http", "8000", "HTTP server port")
 )
 
-// JWTServer implements the ext_authz v2/v3 gRPC and HTTP check request API.
+// JWTServer implements the sample server that serves jwt keys.
 type JWTServer struct {
 	httpServer *http.Server
 	// For test only

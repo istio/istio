@@ -72,6 +72,7 @@ func TestRequestAuthentication(t *testing.T) {
 				file.AsStringOrFail(t, "testdata/requestauthn/c-authn.yaml.tmpl"),
 				file.AsStringOrFail(t, "testdata/requestauthn/e-authn.yaml.tmpl"),
 				file.AsStringOrFail(t, "testdata/requestauthn/f-authn.yaml.tmpl"),
+				file.AsStringOrFail(t, "testdata/requestauthn/g-authn.yaml.tmpl"),
 			)
 			ctx.Config().ApplyYAMLOrFail(t, ns.Name(), jwtPolicies...)
 
@@ -81,6 +82,7 @@ func TestRequestAuthentication(t *testing.T) {
 			dSet := apps.D.Match(echo.Namespace(ns.Name()))
 			eSet := apps.E.Match(echo.Namespace(ns.Name()))
 			fSet := apps.F.Match(echo.Namespace(ns.Name()))
+			gSet := apps.G.Match(echo.Namespace(ns.Name()))
 
 			callCount := 1
 			if ctx.Clusters().IsMulticluster() {
@@ -246,6 +248,27 @@ func TestRequestAuthentication(t *testing.T) {
 									Count: callCount,
 								},
 								DestClusters: eSet.Clusters(),
+							},
+							ExpectResponseCode: response.StatusCodeOK,
+							ExpectHeaders: map[string]string{
+								authHeaderKey:    "Bearer " + jwt.TokenIssuer1,
+								"X-Test-Payload": payload1,
+							},
+						},
+						{
+							Name: "valid-token-forward-remote-jwks",
+							Request: connection.Checker{
+								From: a[0],
+								Options: echo.CallOptions{
+									Target:   gSet[0],
+									PortName: "http",
+									Scheme:   scheme.HTTP,
+									Headers: map[string][]string{
+										authHeaderKey: {"Bearer " + jwt.TokenIssuer1},
+									},
+									Count: callCount,
+								},
+								DestClusters: gSet.Clusters(),
 							},
 							ExpectResponseCode: response.StatusCodeOK,
 							ExpectHeaders: map[string]string{
