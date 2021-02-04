@@ -1,0 +1,9 @@
+apiVersion: release-notes/v2
+kind: feature
+area: installation
+issue:
+  - 28995
+
+releaseNotes:
+- |
+  **Added** local chart support in airgapped environment for upgrade, Use `--current-manifests` flag with `istioctl upgrade`.
