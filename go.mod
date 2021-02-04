@@ -19,9 +19,6 @@ replace github.com/imdario/mergo => github.com/imdario/mergo v0.3.5
 // See https://github.com/kubernetes/kubernetes/issues/92867, there is a bug in the library
 replace github.com/evanphx/json-patch => github.com/evanphx/json-patch v0.0.0-20190815234213-e83c0a1c26c8
 
-// TODO(harveyxia) remove after istio/api PR is merged
-replace istio.io/api => github.com/harveyxia/api v0.0.0-20210202205520-386fe635b6ac
-
 require (
 	cloud.google.com/go v0.73.0
 	contrib.go.opencensus.io/exporter/prometheus v0.2.0
@@ -103,7 +100,7 @@ require (
 	gopkg.in/yaml.v3 v3.0.0-20200615113413-eeeca48fe776
 	helm.sh/helm/v3 v3.4.2
 	honnef.co/go/tools v0.0.1-2020.1.5 // indirect
-	istio.io/api v0.0.0-20210204003627-8779b36cec99
+	istio.io/api v0.0.0-20210204152316-cb887ae4aceb
 	istio.io/client-go v0.0.0-20200908160912-f99162621a1a
 	istio.io/gogo-genproto v0.0.0-20210121190807-0ad02665e756
 	istio.io/pkg v0.0.0-20201230223204-2d0a1c8bd9e5
