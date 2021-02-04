@@ -549,11 +549,7 @@ func (c *instance) Config() echo.Config {
 }
 
 func (c *instance) Call(opts echo.CallOptions) (appEcho.ParsedResponses, error) {
-	out, err := common.ForwardEcho(c.cfg.Service, c.workloads[0].Instance, &opts, false)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
+	return c.aggregateResponses(opts, false)
 }
 
 func (c *instance) CallOrFail(t test.Failer, opts echo.CallOptions) appEcho.ParsedResponses {
@@ -567,11 +563,7 @@ func (c *instance) CallOrFail(t test.Failer, opts echo.CallOptions) appEcho.Pars
 
 func (c *instance) CallWithRetry(opts echo.CallOptions,
 	retryOptions ...retry.Option) (appEcho.ParsedResponses, error) {
-	out, err := common.ForwardEcho(c.cfg.Service, c.workloads[0].Instance, &opts, true, retryOptions...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
+	return c.aggregateResponses(opts, true, retryOptions...)
 }
 
 func (c *instance) CallWithRetryOrFail(t test.Failer, opts echo.CallOptions,
@@ -621,6 +613,40 @@ func (c *instance) Restart() error {
 		return err
 	}
 	return nil
+}
+
+func (c *instance) aggregateResponses(opts echo.CallOptions, retry bool, retryOptions ...retry.Option) (appEcho.ParsedResponses, error) {
+	resps := make([]*appEcho.ParsedResponse, 0)
+	var aggErr error
+	for _, w := range c.workloads {
+		out, err := common.ForwardEcho(c.cfg.Service, w.Instance, &opts, retry, retryOptions...)
+		if err != nil {
+			aggErr = multierror.Append(err, aggErr)
+			continue
+		}
+		for _, r := range out {
+			resps = append(resps, r)
+		}
+	}
+	if aggErr != nil {
+		return nil, aggErr
+	}
+
+	c.summarize(resps, opts)
+	return resps, nil
+}
+
+func (c *instance) summarize(responses appEcho.ParsedResponses, opts echo.CallOptions) {
+	fmt.Println("-=-=-=-=")
+	if opts.Target == nil {
+		fmt.Printf("Received: %d responses for %s->%s\n", len(responses), c.cfg.Service, opts.Target)
+	} else {
+		fmt.Printf("Received: %d responses for %s->%s\n", len(responses), c.cfg.Service, opts.Target.Address())
+	}
+	for i, r := range responses {
+		fmt.Printf("    %d: HOST->%s, RESPONSE->%s\n", i, r.Hostname, r.Code)
+	}
+	fmt.Println("-=-=-=-=")
 }
 
 // restartEchoDeployments performs a `kubectl rollout restart` on the echo deployment and waits for
