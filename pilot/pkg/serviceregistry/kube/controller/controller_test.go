@@ -1110,7 +1110,6 @@ func TestController_ServiceWithChangingDiscoveryNamespaces(t *testing.T) {
 	for mode, name := range EndpointModeNames {
 		mode := mode
 		t.Run(name, func(t *testing.T) {
-
 			meshWatcher := mesh.NewTestWatcher(&meshconfig.MeshConfig{})
 
 			controller, fx := NewFakeControllerWithOptions(FakeControllerOptions{
