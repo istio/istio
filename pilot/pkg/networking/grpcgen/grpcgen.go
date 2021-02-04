@@ -54,7 +54,6 @@ type GrpcConfigGenerator struct {
 
 func (g *GrpcConfigGenerator) Generate(proxy *model.Proxy, push *model.PushContext,
 	w *model.WatchedResource, updates *model.PushRequest) (model.Resources, error) {
-
 	switch w.TypeUrl {
 	case v3.ListenerType:
 		return g.BuildListeners(proxy, push, w.ResourceNames), nil

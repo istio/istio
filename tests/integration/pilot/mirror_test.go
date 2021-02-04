@@ -62,9 +62,7 @@ type mirrorTestOptions struct {
 	mirrorHost string
 }
 
-var (
-	mirrorProtocols = []protocol.Instance{protocol.HTTP, protocol.GRPC}
-)
+var mirrorProtocols = []protocol.Instance{protocol.HTTP, protocol.GRPC}
 
 func TestMirroring(t *testing.T) {
 	runMirrorTest(t, mirrorTestOptions{

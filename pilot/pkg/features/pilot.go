@@ -410,6 +410,12 @@ var (
 		"If enabled, Envoy will be configured to prevent traffic directly the the inbound/outbound "+
 			"ports (15001/15006). This prevents traffic loops. This option will be removed, and considered always enabled, in 1.9.").Get()
 
+	EnableDestinationRuleInheritance = env.RegisterBoolVar(
+		"PILOT_ENABLE_DESTINATION_RULE_INHERITANCE",
+		false,
+		"If set, workload specific DestinationRules will inherit configurations settings from mesh and namespace level rules",
+	).Get()
+
 	StatusMaxWorkers = env.RegisterIntVar("PILOT_STATUS_MAX_WORKERS", 100, "The maximum number of workers"+
 		" Pilot will use to keep configuration status up to date.  Smaller numbers will result in higher status latency, "+
 		"but larger numbers may impact CPU in high scale environments.")

@@ -62,7 +62,6 @@ func eventually(t test.Failer, cond func() bool) {
 }
 
 func TestServices(t *testing.T) {
-
 	networksWatcher := mesh.NewFixedNetworksWatcher(&meshconfig.MeshNetworks{
 		Networks: map[string]*meshconfig.Network{
 			"network1": {
@@ -309,7 +308,6 @@ func TestController_GetPodLocality(t *testing.T) {
 			}
 		})
 	}
-
 }
 
 func TestGetProxyServiceInstances(t *testing.T) {
@@ -331,7 +329,8 @@ func TestGetProxyServiceInstances(t *testing.T) {
 			createService(controller, "svc1", "nsa",
 				map[string]string{
 					annotation.AlphaKubernetesServiceAccounts.Name: k8sSaOnVM,
-					annotation.AlphaCanonicalServiceAccounts.Name:  canonicalSaOnVM},
+					annotation.AlphaCanonicalServiceAccounts.Name:  canonicalSaOnVM,
+				},
 				[]int32{8080}, map[string]string{"app": "prod-app"}, t)
 			ev := fx.Wait("service")
 			if ev == nil {
@@ -352,7 +351,8 @@ func TestGetProxyServiceInstances(t *testing.T) {
 				createService(controller, svcName, "nsfake",
 					map[string]string{
 						annotation.AlphaKubernetesServiceAccounts.Name: k8sSaOnVM,
-						annotation.AlphaCanonicalServiceAccounts.Name:  canonicalSaOnVM},
+						annotation.AlphaCanonicalServiceAccounts.Name:  canonicalSaOnVM,
+					},
 					[]int32{8080}, map[string]string{"app": "prod-app"}, t)
 				fx.Wait("service")
 
@@ -390,12 +390,14 @@ func TestGetProxyServiceInstances(t *testing.T) {
 				IPAddresses:     []string{"1.1.1.1"},
 				Locality:        &core.Locality{Region: "r", Zone: "z"},
 				ConfigNamespace: "nsa",
-				Metadata: &model.NodeMetadata{ServiceAccount: "account",
-					ClusterID: clusterID,
+				Metadata: &model.NodeMetadata{
+					ServiceAccount: "account",
+					ClusterID:      clusterID,
 					Labels: map[string]string{
 						"app":                      "prod-app",
 						label.SecurityTlsMode.Name: "mutual",
-					}},
+					},
+				},
 			})
 
 			expected := &model.ServiceInstance{
@@ -456,11 +458,13 @@ func TestGetProxyServiceInstances(t *testing.T) {
 				IPAddresses:     []string{"129.0.0.1"},
 				Locality:        &core.Locality{Region: "r", Zone: "z"},
 				ConfigNamespace: "nsa",
-				Metadata: &model.NodeMetadata{ServiceAccount: "account",
-					ClusterID: clusterID,
+				Metadata: &model.NodeMetadata{
+					ServiceAccount: "account",
+					ClusterID:      clusterID,
 					Labels: map[string]string{
 						"app": "prod-app",
-					}},
+					},
+				},
 			})
 
 			expected = &model.ServiceInstance{
@@ -518,11 +522,13 @@ func TestGetProxyServiceInstances(t *testing.T) {
 				IPAddresses:     []string{"129.0.0.2"},
 				Locality:        &core.Locality{Region: "r", Zone: "z"},
 				ConfigNamespace: "nsa",
-				Metadata: &model.NodeMetadata{ServiceAccount: "account",
-					ClusterID: clusterID,
+				Metadata: &model.NodeMetadata{
+					ServiceAccount: "account",
+					ClusterID:      clusterID,
 					Labels: map[string]string{
 						"app": "prod-app",
-					}},
+					},
+				},
 			})
 
 			expected = &model.ServiceInstance{
@@ -709,7 +715,8 @@ func TestGetProxyServiceInstancesWithMultiIPsAndTargetPorts(t *testing.T) {
 				createServiceWithTargetPorts(controller, "svc1", "nsa",
 					map[string]string{
 						annotation.AlphaKubernetesServiceAccounts.Name: "acct4",
-						annotation.AlphaCanonicalServiceAccounts.Name:  "acctvm2@gserviceaccount2.com"},
+						annotation.AlphaCanonicalServiceAccounts.Name:  "acctvm2@gserviceaccount2.com",
+					},
 					c.ports, map[string]string{"app": "test-app"}, t)
 
 				ev := fx.Wait("service")
@@ -753,7 +760,8 @@ func TestController_GetIstioServiceAccounts(t *testing.T) {
 			createService(controller, "svc1", "nsA",
 				map[string]string{
 					annotation.AlphaKubernetesServiceAccounts.Name: k8sSaOnVM,
-					annotation.AlphaCanonicalServiceAccounts.Name:  canonicalSaOnVM},
+					annotation.AlphaCanonicalServiceAccounts.Name:  canonicalSaOnVM,
+				},
 				[]int32{8080}, map[string]string{"app": "prod-app"}, t)
 			fx.Wait("service")
 			createService(controller, "svc2", "nsA", nil, []int32{8080}, map[string]string{"app": "staging-app"}, t)
@@ -1526,7 +1534,6 @@ func createServiceWithTargetPorts(controller *FakeController, name, namespace st
 
 func createService(controller *FakeController, name, namespace string, annotations map[string]string,
 	ports []int32, selector map[string]string, t *testing.T) {
-
 	svcPorts := make([]coreV1.ServicePort, 0)
 	for _, p := range ports {
 		svcPorts = append(svcPorts, coreV1.ServicePort{
@@ -1557,7 +1564,6 @@ func createService(controller *FakeController, name, namespace string, annotatio
 
 func createServiceWithoutClusterIP(controller *FakeController, name, namespace string, annotations map[string]string,
 	ports []int32, selector map[string]string, t *testing.T) {
-
 	svcPorts := make([]coreV1.ServicePort, 0)
 	for _, p := range ports {
 		svcPorts = append(svcPorts, coreV1.ServicePort{
@@ -1589,7 +1595,6 @@ func createServiceWithoutClusterIP(controller *FakeController, name, namespace s
 // nolint: unparam
 func createExternalNameService(controller *FakeController, name, namespace string,
 	ports []int32, externalName string, t *testing.T, xdsEvents <-chan FakeXdsEvent) *coreV1.Service {
-
 	defer func() {
 		<-xdsEvents
 	}()
@@ -1622,7 +1627,6 @@ func createExternalNameService(controller *FakeController, name, namespace strin
 }
 
 func deleteExternalNameService(controller *FakeController, name, namespace string, t *testing.T, xdsEvents <-chan FakeXdsEvent) {
-
 	defer func() {
 		<-xdsEvents
 	}()
@@ -1834,7 +1838,6 @@ func TestEndpointUpdateBeforePodUpdate(t *testing.T) {
 				if ev := fx.Wait("service"); ev == nil {
 					t.Fatal("Timeout creating service")
 				}
-
 			}
 			addEndpoint := func(svcName string, ips []string, pods []string) {
 				refs := []*coreV1.ObjectReference{}
@@ -1940,7 +1943,7 @@ func TestEndpointUpdateBeforePodUpdate(t *testing.T) {
 			// Remove the endpoint again, with no pod events in between. Should have no memory leaks
 			addEndpoint("svc", []string{"172.0.1.1", "172.0.1.2"}, []string{"pod1", "pod2"})
 			// TODO this case would leak
-			//assertPendingResync(0)
+			// assertPendingResync(0)
 
 			// completely remove the endpoint
 			addEndpoint("svc", []string{"172.0.1.1", "172.0.1.2", "172.0.1.3"}, []string{"pod1", "pod2", "pod3"})
@@ -1984,7 +1987,8 @@ func TestWorkloadInstanceHandlerMultipleEndpoints(t *testing.T) {
 	// Simulate adding a workload entry (fired through invocation of WorkloadInstanceHandler)
 	controller.WorkloadInstanceHandler(&model.WorkloadInstance{
 		Namespace: "nsA",
-		Endpoint: &model.IstioEndpoint{Labels: labels.Instance{"app": "prod-app"},
+		Endpoint: &model.IstioEndpoint{
+			Labels:         labels.Instance{"app": "prod-app"},
 			ServiceAccount: "account",
 			Address:        "2.2.2.2",
 			EndpointPort:   8080,

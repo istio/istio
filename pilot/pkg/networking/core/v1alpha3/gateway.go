@@ -187,7 +187,6 @@ func (configgen *ConfigGeneratorImpl) buildGatewayListeners(builder *ListenerBui
 
 func buildNameToServiceMapForHTTPRoutes(node *model.Proxy, push *model.PushContext,
 	virtualService config.Config) map[host.Name]*model.Service {
-
 	vs := virtualService.Spec.(*networking.VirtualService)
 	nameToServiceMap := map[host.Name]*model.Service{}
 
@@ -230,7 +229,6 @@ func buildNameToServiceMapForHTTPRoutes(node *model.Proxy, push *model.PushConte
 
 func (configgen *ConfigGeneratorImpl) buildGatewayHTTPRouteConfig(node *model.Proxy, push *model.PushContext,
 	routeName string) *route.RouteConfiguration {
-
 	if node.MergedGateway == nil {
 		log.Debug("buildGatewayRoutes: no gateways for router ", node.ID)
 		return nil
@@ -375,7 +373,6 @@ func (configgen *ConfigGeneratorImpl) buildGatewayHTTPRouteConfig(node *model.Pr
 // builds a HTTP connection manager for servers of type HTTP or HTTPS (mode: simple/mutual)
 func (configgen *ConfigGeneratorImpl) createGatewayHTTPFilterChainOpts(node *model.Proxy, server *networking.Server,
 	routeName string, sdsPath string, proxyConfig *meshconfig.ProxyConfig) *filterChainOpts {
-
 	serverProto := protocol.Parse(server.Port.Protocol)
 
 	httpProtoOpts := &core.Http1ProtocolOptions{}
@@ -508,7 +505,6 @@ func buildGatewayListenerTLSContext(
 	if len(server.Tls.CipherSuites) > 0 ||
 		server.Tls.MinProtocolVersion != networking.ServerTLSSettings_TLS_AUTO ||
 		server.Tls.MaxProtocolVersion != networking.ServerTLSSettings_TLS_AUTO {
-
 		ctx.CommonTlsContext.TlsParams = &tls.TlsParameters{
 			TlsMinimumProtocolVersion: convertTLSProtocol(server.Tls.MinProtocolVersion),
 			TlsMaximumProtocolVersion: convertTLSProtocol(server.Tls.MaxProtocolVersion),
@@ -531,7 +527,6 @@ func convertTLSProtocol(in networking.ServerTLSSettings_TLSProtocol) tls.TlsPara
 func (configgen *ConfigGeneratorImpl) createGatewayTCPFilterChainOpts(
 	node *model.Proxy, push *model.PushContext, server *networking.Server,
 	gatewayName string) []*filterChainOpts {
-
 	// We have a TCP/TLS server. This could be TLS termination (user specifies server.TLS with simple/mutual)
 	// or opaque TCP (server.TLS is nil). or it could be a TLS passthrough with SNI based routing.
 

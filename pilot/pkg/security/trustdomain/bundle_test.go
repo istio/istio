@@ -66,8 +66,10 @@ func TestReplaceTrustDomainAliases(t *testing.T) {
 			name:              "Two trust domain aliases, two principals",
 			trustDomainBundle: NewBundle("td2", []string{"td1", "cluster.local"}),
 			principals:        []string{"cluster.local/ns/foo/sa/bar", "td1/ns/yyy/sa/zzz"},
-			expect: []string{"td2/ns/foo/sa/bar", "td1/ns/foo/sa/bar", "cluster.local/ns/foo/sa/bar",
-				"td2/ns/yyy/sa/zzz", "td1/ns/yyy/sa/zzz", "cluster.local/ns/yyy/sa/zzz"},
+			expect: []string{
+				"td2/ns/foo/sa/bar", "td1/ns/foo/sa/bar", "cluster.local/ns/foo/sa/bar",
+				"td2/ns/yyy/sa/zzz", "td1/ns/yyy/sa/zzz", "cluster.local/ns/yyy/sa/zzz",
+			},
 		},
 		{
 			name:              "Two trust domain aliases with * prefix in trust domain",
@@ -91,8 +93,10 @@ func TestReplaceTrustDomainAliases(t *testing.T) {
 			name:              "One principal match one alias",
 			trustDomainBundle: NewBundle("new-td", []string{"td2", "td3"}),
 			principals:        []string{"td1/ns/some-ns/sa/some-sa", "td2/ns/foo/sa/bar"},
-			expect: []string{"td1/ns/some-ns/sa/some-sa", "new-td/ns/foo/sa/bar",
-				"td2/ns/foo/sa/bar", "td3/ns/foo/sa/bar"},
+			expect: []string{
+				"td1/ns/some-ns/sa/some-sa", "new-td/ns/foo/sa/bar",
+				"td2/ns/foo/sa/bar", "td3/ns/foo/sa/bar",
+			},
 		},
 		{
 			name:              "Trust domain is empty string",

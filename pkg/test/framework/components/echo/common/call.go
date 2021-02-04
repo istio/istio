@@ -40,7 +40,6 @@ type sendFunc func(req *proto.ForwardEchoRequest) (client.ParsedResponses, error
 
 func callInternal(srcName string, opts *echo.CallOptions, send sendFunc,
 	doRetry bool, retryOptions ...retry.Option) (client.ParsedResponses, error) {
-
 	if err := fillInCallOptions(opts); err != nil {
 		return nil, err
 	}

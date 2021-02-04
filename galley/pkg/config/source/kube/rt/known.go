@@ -360,7 +360,6 @@ func (p *Provider) initKnownAdapters() {
 					cache.Indexers{})
 
 				return inf, nil
-
 			},
 			parseJSON: func(input []byte) (interface{}, error) {
 				out := &v1beta12.CustomResourceDefinition{}

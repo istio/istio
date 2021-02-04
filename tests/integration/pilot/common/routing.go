@@ -315,7 +315,8 @@ spec:
 									return ExpectString(response[0].RawResponse["Access-Control-Allow-Origin"], "", "mismatched CORS origin")
 								}),
 						},
-					}},
+					},
+				},
 			},
 		)
 
@@ -854,8 +855,7 @@ func selfCallsCases(apps *EchoDeployments) []TrafficTestCase {
 // Todo merge with security TestReachability code
 func protocolSniffingCases(apps *EchoDeployments) []TrafficTestCase {
 	cases := []TrafficTestCase{}
-	// TODO add VMs to clients when DNS works for VMs. Blocked by https://github.com/istio/istio/issues/27154
-	for _, clients := range []echo.Instances{apps.PodA, apps.Naked, apps.Headless} {
+	for _, clients := range []echo.Instances{apps.PodA, apps.Naked, apps.Headless, apps.VM} {
 		for _, client := range clients {
 			destinationSets := []echo.Instances{
 				apps.PodA,
@@ -875,12 +875,16 @@ func protocolSniffingCases(apps *EchoDeployments) []TrafficTestCase {
 				destinations := destinations
 				// grabbing the 0th assumes all echos in destinations have the same service name
 				destination := destinations[0]
-				if (apps.Headless.Contains(client) || apps.Headless.Contains(destination)) && len(apps.Headless) > 1 {
-					// TODO(landow) fix DNS issues with multicluster/VMs/headless
+				if apps.Headless.Contains(destination) && len(apps.Headless) > 1 {
+					// TODO(landow) incompatibilities with multicluster & headless
 					continue
 				}
 				if apps.Naked.Contains(client) && apps.VM.Contains(destination) {
 					// Need a sidecar to connect to VMs
+					continue
+				}
+				if apps.VM.Contains(client) && apps.External.Contains(destination) {
+					// TODO VM won't resolve DNS in ServiceEntry https://github.com/istio/istio/issues/27154
 					continue
 				}
 

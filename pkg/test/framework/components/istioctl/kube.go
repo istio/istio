@@ -67,7 +67,7 @@ func (c *kubeComponent) WaitForConfigs(defaultNamespace string, configs string) 
 
 // Invoke implements Instance
 func (c *kubeComponent) Invoke(args []string) (string, string, error) {
-	var cmdArgs = append([]string{
+	cmdArgs := append([]string{
 		"--kubeconfig",
 		c.cluster.Filename(),
 	}, args...)

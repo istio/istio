@@ -543,7 +543,8 @@ func TestWorkloadInstances(t *testing.T) {
 						Name:       "http2",
 						Port:       90,
 						TargetPort: intstr.FromInt(9090),
-					}},
+					},
+				},
 				Selector:  labels,
 				ClusterIP: "9.9.9.9",
 			},
@@ -606,7 +607,7 @@ func TestWorkloadInstances(t *testing.T) {
 		}}
 		expectServiceInstances(t, wc, expectedSvc, 80, instances)
 
-		//when pods become unready, we should see the instances being removed from the registry
+		// when pods become unready, we should see the instances being removed from the registry
 		setPodUnready(pod)
 		_, err := kube.CoreV1().Pods(pod.Namespace).UpdateStatus(context.TODO(), pod, metav1.UpdateOptions{})
 		if err != nil {

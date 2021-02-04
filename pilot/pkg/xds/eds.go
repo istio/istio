@@ -383,7 +383,7 @@ func getOutlierDetectionAndLoadBalancerSettings(
 	if destinationRule == nil {
 		return false, nil
 	}
-	var outlierDetectionEnabled = false
+	outlierDetectionEnabled := false
 	var lbSettings *networkingapi.LoadBalancerSettings
 
 	port := &model.Port{Port: portNumber}

@@ -72,6 +72,7 @@ func IsPodReadyConditionTrue(status v1.PodStatus) bool {
 	condition := GetPodReadyCondition(status)
 	return condition != nil && condition.Status == v1.ConditionTrue
 }
+
 func GetPodReadyCondition(status v1.PodStatus) *v1.PodCondition {
 	_, condition := GetPodCondition(&status, v1.PodReady)
 	return condition

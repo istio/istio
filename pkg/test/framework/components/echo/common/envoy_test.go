@@ -27,8 +27,10 @@ import (
 	"istio.io/istio/pkg/test/util/retry"
 )
 
-var _ echo.Instance = &testConfig{}
-var _ echo.Workload = &testConfig{}
+var (
+	_ echo.Instance = &testConfig{}
+	_ echo.Workload = &testConfig{}
+)
 
 type testConfig struct {
 	protocol    protocol.Instance
@@ -78,7 +80,6 @@ func (e *testConfig) Workloads() ([]echo.Workload, error) {
 
 func (e *testConfig) PodName() string {
 	panic("not implemented")
-
 }
 
 func (*testConfig) ID() resource.ID {

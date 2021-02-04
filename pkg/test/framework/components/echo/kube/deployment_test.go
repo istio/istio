@@ -25,17 +25,14 @@ import (
 	"istio.io/istio/pkg/test/framework/image"
 )
 
-var (
-	settings = &image.Settings{
-		Hub:             "testing.hub",
-		Tag:             "latest",
-		PullPolicy:      "Always",
-		ImagePullSecret: "testdata/secret.yaml",
-	}
-)
+var settings = &image.Settings{
+	Hub:             "testing.hub",
+	Tag:             "latest",
+	PullPolicy:      "Always",
+	ImagePullSecret: "testdata/secret.yaml",
+}
 
 func TestDeploymentYAML(t *testing.T) {
-
 	testCase := []struct {
 		name         string
 		wantFilePath string

@@ -26,7 +26,7 @@ import (
 )
 
 func TestHasProxyIP(t *testing.T) {
-	var tests = []struct {
+	tests := []struct {
 		name      string
 		addresses []v1.EndpointAddress
 		proxyIP   string
@@ -57,7 +57,7 @@ func TestHasProxyIP(t *testing.T) {
 }
 
 func TestGetLabelValue(t *testing.T) {
-	var tests = []struct {
+	tests := []struct {
 		name               string
 		node               *v1.Node
 		expectedLabelValue string
@@ -140,7 +140,6 @@ func TestPodKeyByProxy(t *testing.T) {
 			}
 		})
 	}
-
 }
 
 func TestGetNodeSelectorsForService(t *testing.T) {

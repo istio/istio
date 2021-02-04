@@ -136,7 +136,6 @@ spec:
 
 			// Get WorkloadEntry to append to
 			we, err := ctx.Clusters().Default().Istio().NetworkingV1alpha3().WorkloadEntries(ns.Name()).Get(context.TODO(), "vm-1", metav1.GetOptions{})
-
 			if err != nil {
 				t.Error(err)
 			}
@@ -164,7 +163,8 @@ spec:
 						Type:   "SomeRandomType",
 						Reason: "ImNotHealthSoDontTouchMe",
 						Status: "True",
-					}})
+					},
+				})
 			})
 
 			// get the workload entry to replace the health condition field

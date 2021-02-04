@@ -85,12 +85,13 @@ func TestValidateChainingVirtualService(t *testing.T) {
 			name: "delegate with delegate",
 			in: &networking.VirtualService{
 				Hosts: []string{},
-				Http: []*networking.HTTPRoute{{
-					Delegate: &networking.Delegate{
-						Name:      "test",
-						Namespace: "test",
+				Http: []*networking.HTTPRoute{
+					{
+						Delegate: &networking.Delegate{
+							Name:      "test",
+							Namespace: "test",
+						},
 					},
-				},
 				},
 			},
 			valid: false,
@@ -202,7 +203,8 @@ func TestValidateRootHTTPRoute(t *testing.T) {
 						"header": nil,
 					},
 				}},
-			}, valid: false},
+			}, valid: false,
+		},
 		{
 			name: "prefix header match", route: &networking.HTTPRoute{
 				Delegate: &networking.Delegate{
@@ -216,7 +218,8 @@ func TestValidateRootHTTPRoute(t *testing.T) {
 						},
 					},
 				}},
-			}, valid: true},
+			}, valid: true,
+		},
 		{
 			name: "exact header match", route: &networking.HTTPRoute{
 				Delegate: &networking.Delegate{
@@ -230,7 +233,8 @@ func TestValidateRootHTTPRoute(t *testing.T) {
 						},
 					},
 				}},
-			}, valid: true},
+			}, valid: true,
+		},
 		{name: "regex header match", route: &networking.HTTPRoute{
 			Delegate: &networking.Delegate{
 				Name:      "test",
@@ -290,7 +294,8 @@ func TestValidateRootHTTPRoute(t *testing.T) {
 						},
 					},
 				}},
-			}, valid: true},
+			}, valid: true,
+		},
 		{
 			name: "exact queryParams match", route: &networking.HTTPRoute{
 				Delegate: &networking.Delegate{
@@ -304,7 +309,8 @@ func TestValidateRootHTTPRoute(t *testing.T) {
 						},
 					},
 				}},
-			}, valid: true},
+			}, valid: true,
+		},
 		{name: "regex queryParams match", route: &networking.HTTPRoute{
 			Delegate: &networking.Delegate{
 				Name:      "test",

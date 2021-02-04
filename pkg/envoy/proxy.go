@@ -108,7 +108,8 @@ func (e *envoy) args(fname string, epoch int, bootstrapConfig string) []string {
 	if isIPv6Proxy(e.NodeIPs) {
 		proxyLocalAddressType = "v6"
 	}
-	startupArgs := []string{"-c", fname,
+	startupArgs := []string{
+		"-c", fname,
 		"--restart-epoch", fmt.Sprint(epoch),
 		"--drain-time-s", fmt.Sprint(int(convertDuration(e.Config.DrainDuration) / time.Second)),
 		"--parent-shutdown-time-s", fmt.Sprint(int(convertDuration(e.Config.ParentShutdownDuration) / time.Second)),

@@ -745,7 +745,6 @@ func getIstioDestinationRuleNameForSvc(cd *configdump.Wrapper, svc v1.Service, p
 
 // getIstioDestinationRulePathForSvc returns something like "/apis/networking/v1alpha3/namespaces/default/destination-rule/reviews"
 func getIstioDestinationRulePathForSvc(cd *configdump.Wrapper, svc v1.Service, port int32) (string, error) {
-
 	svcHost := extendFQDN(fmt.Sprintf("%s.%s", svc.ObjectMeta.Name, svc.ObjectMeta.Namespace))
 	filter := istio_envoy_configdump.ClusterFilter{
 		FQDN: host.Name(svcHost),

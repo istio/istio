@@ -64,7 +64,6 @@ func (w *WebhookCertPatcher) Run(stopChan <-chan struct{}) {
 func NewWebhookCertPatcher(
 	client kubernetes.Interface,
 	revision, webhookName, caBundlePath string) (*WebhookCertPatcher, error) {
-
 	// ca from k8s
 	caCertPem, err := ioutil.ReadFile(caBundlePath)
 	if err != nil {

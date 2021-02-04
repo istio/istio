@@ -97,7 +97,6 @@ func retMap(filename, text string, err error) (map[string]string, error) {
 	return map[string]string{
 		filename: text,
 	}, nil
-
 }
 
 // GetK8sResources returns all k8s cluster resources.
