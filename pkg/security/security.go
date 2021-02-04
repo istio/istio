@@ -78,6 +78,10 @@ var (
 		"Token type in the Authorization header.").Get()
 
 	XDSBearerTokenPrefix = XDSTokenType + " "
+
+	K8sTokenPrefix = "Istio" + " "
+
+	DefaultTokenPrefix = "Bearer" + " "
 )
 
 // Options provides all of the configuration parameters for secret discovery service
@@ -309,6 +313,16 @@ func ExtractBearerToken(ctx context.Context) (string, error) {
 	for _, value := range authHeader {
 		if strings.HasPrefix(value, XDSBearerTokenPrefix) {
 			return strings.TrimPrefix(value, XDSBearerTokenPrefix), nil
+		}
+		if strings.HasPrefix(value, K8sTokenPrefix) {
+			// This code is to safely handle the upgrade from MCP private preview
+			// to MCP public preview, when the auth header type changes from "Istio"
+			// to "Bearer". After the transition period, this code can be removed.
+			return strings.TrimPrefix(value, K8sTokenPrefix), nil
+		}
+		// Otherwise, fall back to the default Bearer
+		if strings.HasPrefix(value, DefaultTokenPrefix) {
+			return strings.TrimPrefix(value, DefaultTokenPrefix), nil
 		}
 	}
 
