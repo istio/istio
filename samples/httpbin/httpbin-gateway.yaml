@@ -11,7 +11,7 @@ spec:
       name: http
       protocol: HTTP
     hosts:
-    - "*"
+    - "httpbin.example.com"
 ---
 apiVersion: networking.istio.io/v1alpha3
 kind: VirtualService
@@ -19,11 +19,16 @@ metadata:
   name: httpbin
 spec:
   hosts:
-  - "*"
+  - "httpbin.example.com"
   gateways:
   - httpbin-gateway
   http:
-  - route:
+  - match:
+    - uri:
+        prefix: /status
+    - uri:
+        prefix: /delay
+    route:
     - destination:
         host: httpbin
         port:
