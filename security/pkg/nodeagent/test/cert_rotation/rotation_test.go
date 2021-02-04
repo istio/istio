@@ -60,7 +60,6 @@ func TestCertRotation(t *testing.T) {
 		}
 		time.Sleep(sleepTime)
 		cert, err := GetInboundCert(setup.InboundListenerPort)
-
 		if err != nil {
 			continue
 		}

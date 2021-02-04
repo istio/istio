@@ -15,7 +15,6 @@
 package status
 
 import (
-	"encoding/json"
 	"fmt"
 	"strconv"
 	"strings"
@@ -227,12 +226,11 @@ func (c *DistributionController) configDeleted(res config.Config) {
 	c.workers.Delete(*r)
 }
 
-func GetTypedStatus(in interface{}) (out v1alpha1.IstioStatus, err error) {
-	var statusBytes []byte
-	if statusBytes, err = json.Marshal(in); err == nil {
-		err = json.Unmarshal(statusBytes, &out)
+func GetTypedStatus(in interface{}) (out *v1alpha1.IstioStatus, err error) {
+	if ret, ok := in.(*v1alpha1.IstioStatus); ok {
+		return ret, nil
 	}
-	return
+	return nil, fmt.Errorf("cannot cast %t: %v to IstioStatus", in, in)
 }
 
 func boolToConditionStatus(b bool) string {
@@ -259,11 +257,11 @@ func ReconcileStatuses(current *config.Config, desired Progress, generation int6
 		} else {
 			scope.Warn("Encountered unexpected status content.  Overwriting status.")
 		}
-		currentStatus = v1alpha1.IstioStatus{
+		currentStatus = &v1alpha1.IstioStatus{
 			Conditions: []*v1alpha1.IstioCondition{&desiredCondition},
 		}
 		currentStatus.ObservedGeneration = generation
-		return true, &currentStatus
+		return true, currentStatus
 	}
 	var currentCondition *v1alpha1.IstioCondition
 	conditionIndex := -1
@@ -284,7 +282,7 @@ func ReconcileStatuses(current *config.Config, desired Progress, generation int6
 		currentStatus.Conditions = append(currentStatus.Conditions, &desiredCondition)
 	}
 	currentStatus.ObservedGeneration = generation
-	return needsReconcile, &currentStatus
+	return needsReconcile, currentStatus
 }
 
 type DistroReportHandler struct {
@@ -313,7 +311,6 @@ func (drh *DistroReportHandler) HandleNew(obj interface{}) {
 		return
 	}
 	drh.dc.handleReport(dr)
-
 }
 
 func (drh *DistroReportHandler) OnDelete(obj interface{}) {

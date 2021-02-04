@@ -57,7 +57,6 @@ type Reporter struct {
 	// map from nonce to connection ids for which it is current
 	// using map[string]struct to approximate a hashset
 	reverseStatus          map[string]map[string]struct{}
-	dirty                  bool
 	inProgressResources    map[string]*inProgressEntry
 	client                 v1.ConfigMapInterface
 	cm                     *corev1.ConfigMap
@@ -71,8 +70,10 @@ type Reporter struct {
 
 var _ xds.DistributionStatusCache = &Reporter{}
 
-const labelKey = "internal.istio.io/distribution-report"
-const dataField = "distribution-report"
+const (
+	labelKey  = "internal.istio.io/distribution-report"
+	dataField = "distribution-report"
+)
 
 // Init starts all the read only features of the reporter, used for nonce generation
 // and responding to istioctl wait.
@@ -300,13 +301,11 @@ func (r *Reporter) readFromEventQueue() {
 		// TODO might need to batch this to prevent lock contention
 		r.processEvent(ev.conID, ev.distributionType, ev.nonce)
 	}
-
 }
 
 func (r *Reporter) processEvent(conID string, distributionType xds.EventType, nonce string) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
-	r.dirty = true
 	key := conID + distributionType // TODO: delimit?
 	r.deleteKeyFromReverseMap(key)
 	var version string
@@ -340,7 +339,6 @@ func (r *Reporter) deleteKeyFromReverseMap(key string) {
 func (r *Reporter) RegisterDisconnect(conID string, types []xds.EventType) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
-	r.dirty = true
 	for _, xdsType := range types {
 		key := conID + xdsType // TODO: delimit?
 		r.deleteKeyFromReverseMap(key)

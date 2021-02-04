@@ -38,9 +38,7 @@ const (
 	defaultInjectorConfigMapName = "istio-sidecar-injector"
 )
 
-var (
-	injectionEnabled = env.RegisterBoolVar("INJECT_ENABLED", true, "Enable mutating webhook handler.")
-)
+var injectionEnabled = env.RegisterBoolVar("INJECT_ENABLED", true, "Enable mutating webhook handler.")
 
 func (s *Server) initSidecarInjector(args *PilotArgs) (*inject.Webhook, error) {
 	// currently the constant: "./var/lib/istio/inject"

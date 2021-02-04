@@ -21,13 +21,16 @@ import (
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/echo/client"
 	"istio.io/istio/pkg/test/echo/proto"
+	"istio.io/istio/pkg/test/framework/components/cluster"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/resource"
 	"istio.io/istio/pkg/test/util/retry"
 )
 
-var _ echo.Instance = &testConfig{}
-var _ echo.Workload = &testConfig{}
+var (
+	_ echo.Instance = &testConfig{}
+	_ echo.Workload = &testConfig{}
+)
 
 type testConfig struct {
 	protocol    protocol.Instance
@@ -36,7 +39,7 @@ type testConfig struct {
 	service     string
 	domain      string
 	namespace   string
-	cluster     resource.Cluster
+	cluster     cluster.Cluster
 }
 
 func (e *testConfig) Owner() echo.Instance {
@@ -77,7 +80,6 @@ func (e *testConfig) Workloads() ([]echo.Workload, error) {
 
 func (e *testConfig) PodName() string {
 	panic("not implemented")
-
 }
 
 func (*testConfig) ID() resource.ID {

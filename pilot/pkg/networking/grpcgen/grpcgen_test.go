@@ -16,7 +16,6 @@ package grpcgen_test
 
 import (
 	"context"
-	"os"
 	"testing"
 	"time"
 
@@ -26,12 +25,16 @@ import (
 	"google.golang.org/grpc/resolver"
 	"google.golang.org/grpc/serviceconfig"
 
+	// To setup the env vars needed for grpc-go. Should be loaded before grpc/xds is loaded.
+	_ "istio.io/istio/pilot/test/grpcgen"
+
 	//  To install the xds resolvers and balancers.
 	_ "google.golang.org/grpc/xds"
 
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/xds"
+
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/schema/collections"
 )
@@ -100,22 +103,22 @@ func TestGRPC(t *testing.T) {
 	}
 	defer ds.GRPCListener.Close()
 
-	os.Setenv("GRPC_XDS_BOOTSTRAP", "testdata/xds_bootstrap.json")
-	os.Setenv("GRPC_XDS_EXPERIMENTAL_V3_SUPPORT", "true")
-
 	t.Run("gRPC-resolve", func(t *testing.T) {
 		rb := resolver.Get("xds")
-		ch := make(chan resolver.State)
+		stateCh := &Channel{ch: make(chan interface{}, 1)}
+		errorCh := &Channel{ch: make(chan interface{}, 1)}
 		_, err := rb.Build(resolver.Target{Endpoint: istiodSvcAddr},
-			&testClientConn{ch: ch}, resolver.BuildOptions{})
+			&testClientConn{stateCh: stateCh, errorCh: errorCh}, resolver.BuildOptions{})
 
 		if err != nil {
 			t.Fatal("Failed to resolve XDS ", err)
 		}
 		tm := time.After(10 * time.Second)
 		select {
-		case s := <-ch:
+		case s := <-stateCh.ch:
 			t.Log("Got state ", s)
+		case e := <-errorCh.ch:
+			t.Error("Error in resolve", e)
 		case <-tm:
 			t.Error("Didn't resolve")
 		}
@@ -152,20 +155,31 @@ type testLBClientConn struct {
 	balancer.ClientConn
 }
 
+type Channel struct {
+	ch chan interface{}
+}
+
+// Send sends value on the underlying channel.
+func (c *Channel) Send(value interface{}) {
+	c.ch <- value
+}
+
 // From xds_resolver_test
 // testClientConn is a fake implemetation of resolver.ClientConn. All is does
 // is to store the state received from the resolver locally and signal that
 // event through a channel.
 type testClientConn struct {
 	resolver.ClientConn
-	ch chan resolver.State
+	stateCh *Channel
+	errorCh *Channel
 }
 
 func (t *testClientConn) UpdateState(s resolver.State) {
-	t.ch <- s
+	t.stateCh.Send(s)
 }
 
 func (t *testClientConn) ReportError(err error) {
+	t.errorCh.Send(err)
 }
 
 func (t *testClientConn) ParseServiceConfig(jsonSC string) *serviceconfig.ParseResult {

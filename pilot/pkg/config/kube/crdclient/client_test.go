@@ -272,7 +272,5 @@ func TestClient(t *testing.T) {
 			}
 			return nil
 		})
-
 	})
-
 }

@@ -162,7 +162,7 @@ func parseInputsImpl(inputs string, withValidate bool) ([]config.Config, []Istio
 	var varr []config.Config
 	var others []IstioKind
 	reader := bytes.NewReader([]byte(inputs))
-	var empty = IstioKind{}
+	empty := IstioKind{}
 
 	// We store configs as a YaML stream; there may be more than one decoder.
 	yamlDecoder := kubeyaml.NewYAMLOrJSONDecoder(reader, 512*1024)

@@ -129,8 +129,10 @@ func (s *Server) validateStsRequest(req *http.Request) (security.StsRequestParam
 		return reqParam, errors.New("request is nil")
 	}
 
-	reqDump, _ := httputil.DumpRequest(req, true)
-	stsServerLog.Debugf("Received STS request: %s", string(reqDump))
+	if stsServerLog.DebugEnabled() {
+		reqDump, _ := httputil.DumpRequest(req, true)
+		stsServerLog.Debugf("Received STS request: %s", string(reqDump))
+	}
 	if req.Method != "POST" {
 		return reqParam, fmt.Errorf("request method is invalid, should be POST but get %s", req.Method)
 	}
@@ -201,8 +203,10 @@ func (s *Server) sendSuccessfulResponse(w http.ResponseWriter, tokenData []byte)
 // DumpStsStatus handles requests for dumping STS status, including STS requests being served,
 // tokens being fetched.
 func (s *Server) DumpStsStatus(w http.ResponseWriter, req *http.Request) {
-	reqDump, _ := httputil.DumpRequest(req, true)
-	stsServerLog.Debugf("Received STS request: %s", string(reqDump))
+	if stsServerLog.DebugEnabled() {
+		reqDump, _ := httputil.DumpRequest(req, true)
+		stsServerLog.Debugf("Received STS request: %s", string(reqDump))
+	}
 
 	stsStatusJSON, err := s.tokenManager.DumpTokenStatus()
 	if err != nil {

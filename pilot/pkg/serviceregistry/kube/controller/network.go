@@ -210,7 +210,7 @@ func (c *Controller) extractGatewaysInner(svc *model.Service) bool {
 // Zero values are returned if the service is not a cross-network gateway.
 func (c *Controller) getGatewayDetails(svc *model.Service) (uint32, string) {
 	// label based gateways
-	if nw := svc.Attributes.Labels[label.IstioNetwork]; nw != "" {
+	if nw := svc.Attributes.Labels[label.TopologyNetwork.Name]; nw != "" {
 		if gwPortStr := svc.Attributes.Labels[IstioGatewayPortLabel]; gwPortStr != "" {
 			if gwPort, err := strconv.Atoi(gwPortStr); err == nil {
 				return uint32(gwPort), nw
@@ -245,21 +245,13 @@ func (c *Controller) updateServiceNodePortAddresses(svcs ...*model.Service) bool
 		c.RUnlock()
 		// update external address
 		svc.Mutex.Lock()
-		if nodeSelector == nil {
-			var extAddresses []string
-			for _, n := range c.nodeInfoMap {
-				extAddresses = append(extAddresses, n.address)
+		var nodeAddresses []string
+		for _, n := range c.nodeInfoMap {
+			if nodeSelector.SubsetOf(n.labels) {
+				nodeAddresses = append(nodeAddresses, n.address)
 			}
-			svc.Attributes.ClusterExternalAddresses = map[string][]string{c.clusterID: extAddresses}
-		} else {
-			var nodeAddresses []string
-			for _, n := range c.nodeInfoMap {
-				if nodeSelector.SubsetOf(n.labels) {
-					nodeAddresses = append(nodeAddresses, n.address)
-				}
-			}
-			svc.Attributes.ClusterExternalAddresses = map[string][]string{c.clusterID: nodeAddresses}
 		}
+		svc.Attributes.ClusterExternalAddresses = map[string][]string{c.clusterID: nodeAddresses}
 		svc.Mutex.Unlock()
 		// update gateways that use the service
 		c.extractGatewaysFromService(svc)

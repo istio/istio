@@ -220,14 +220,12 @@ var (
 	emptyFilterChainMatch = &listener.FilterChainMatch{}
 )
 
-var (
-	// TODO: gauge should be reset on refresh, not the best way to represent errors but better
-	// than nothing.
-	// TODO: add dimensions - namespace of rule, service, rule name
-	invalidOutboundListeners = monitoring.NewGauge(
-		"pilot_invalid_out_listeners",
-		"Number of invalid outbound listeners.",
-	)
+// TODO: gauge should be reset on refresh, not the best way to represent errors but better
+// than nothing.
+// TODO: add dimensions - namespace of rule, service, rule name
+var invalidOutboundListeners = monitoring.NewGauge(
+	"pilot_invalid_out_listeners",
+	"Number of invalid outbound listeners.",
 )
 
 func init() {
@@ -269,7 +267,6 @@ func (configgen *ConfigGeneratorImpl) buildSidecarListeners(builder *ListenerBui
 func (configgen *ConfigGeneratorImpl) buildSidecarInboundListeners(
 	node *model.Proxy,
 	push *model.PushContext) []*listener.Listener {
-
 	var listeners []*listener.Listener
 	listenerMap := make(map[int]*inboundListenerEntry)
 
@@ -709,7 +706,6 @@ func (c outboundListenerConflict) addMetric(metrics model.Metrics) {
 // outbound connections from the proxy based on the sidecar scope associated with the proxy.
 func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(node *model.Proxy,
 	push *model.PushContext) []*listener.Listener {
-
 	noneMode := node.GetInterceptionMode() == model.InterceptionNone
 
 	actualWildcard, actualLocalHostAddress := getActualWildcardAndLocalHost(node)
@@ -1129,7 +1125,6 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundThriftListenerOptsForP
 func (configgen *ConfigGeneratorImpl) buildSidecarOutboundTCPListenerOptsForPortOrUDS(destinationCIDR *string, listenerMapKey *string,
 	currentListenerEntry **outboundListenerEntry, listenerOpts *buildListenerOpts, listenerMap map[string]*outboundListenerEntry,
 	virtualServices []config.Config, actualWildcard string) (bool, []*filterChainOpts) {
-
 	// first identify the bind if its not set. Then construct the key
 	// used to lookup the listener in the conflict map.
 
@@ -1759,7 +1754,6 @@ func updateTraceSamplingConfig(config *meshconfig.ProxyConfig, cfg *hcm.HttpConn
 }
 
 func buildCustomTags(customTags map[string]*meshconfig.Tracing_CustomTag) []*tracing.CustomTag {
-
 	var tags []*tracing.CustomTag
 
 	if features.EnableIstioTags {

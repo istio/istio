@@ -92,7 +92,7 @@ func augmentLabels(in labels.Instance, clusterID, locality string) labels.Instan
 		out[k] = v
 	}
 
-	// Don't need to add label.IstioNetwork, since that's already added by injection.
+	// Don't need to add label.TopologyNetwork.Name, since that's already added by injection.
 	region, zone, subzone := model.SplitLocalityLabel(locality)
 	if len(region) > 0 {
 		out[NodeRegionLabelGA] = region
@@ -101,10 +101,10 @@ func augmentLabels(in labels.Instance, clusterID, locality string) labels.Instan
 		out[NodeZoneLabelGA] = zone
 	}
 	if len(subzone) > 0 {
-		out[label.IstioSubZone] = subzone
+		out[label.TopologySubzone.Name] = subzone
 	}
 	if len(clusterID) > 0 {
-		out[label.IstioCluster] = clusterID
+		out[label.TopologyCluster.Name] = clusterID
 	}
 	return out
 }
@@ -150,7 +150,7 @@ func (b *EndpointBuilder) endpointNetwork(endpointIP string) string {
 	}
 
 	// If not using cidr-lookup, or non of the given ranges contain the address, use the pod-label
-	if nw := b.labels[label.IstioNetwork]; nw != "" {
+	if nw := b.labels[label.TopologyNetwork.Name]; nw != "" {
 		return nw
 	}
 

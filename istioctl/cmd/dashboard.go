@@ -304,6 +304,9 @@ func controlZDashCmd() *cobra.Command {
 		Example: `  # Open ControlZ web UI for the istiod-123-456.istio-system pod
   istioctl dashboard controlz istiod-123-456.istio-system
 
+  # Open ControlZ web UI for the istiod-56dd66799-jfdvs pod in a custom namespace
+  istioctl dashboard controlz istiod-123-456 -n custom-ns
+
   # Open ControlZ web UI for any Istiod pod
   istioctl dashboard controlz deployment/istiod.istio-system
 
@@ -329,7 +332,7 @@ func controlZDashCmd() *cobra.Command {
 
 			var podName, ns string
 			if labelSelector != "" {
-				pl, err := client.PodsForSelector(context.TODO(), handlers.HandleNamespace(namespace, defaultNamespace), labelSelector)
+				pl, err := client.PodsForSelector(context.TODO(), handlers.HandleNamespace(addonNamespace, defaultNamespace), labelSelector)
 				if err != nil {
 					return fmt.Errorf("not able to locate pod with selector %s: %v", labelSelector, err)
 				}
@@ -347,7 +350,7 @@ func controlZDashCmd() *cobra.Command {
 				ns = pl.Items[0].Namespace
 			} else {
 				podName, ns, err = handlers.InferPodInfoFromTypedResource(args[0],
-					handlers.HandleNamespace(namespace, defaultNamespace),
+					handlers.HandleNamespace(addonNamespace, defaultNamespace),
 					client.UtilFactory())
 				if err != nil {
 					return err
@@ -365,7 +368,6 @@ func controlZDashCmd() *cobra.Command {
 // portForward first tries to forward localhost:remotePort to podName:remotePort, falls back to dynamic local port
 func portForward(podName, namespace, flavor, urlFormat, localAddress string, remotePort int,
 	client kube.ExtendedClient, writer io.Writer, browser bool) error {
-
 	// port preference:
 	// - If --listenPort is specified, use it
 	// - without --listenPort, prefer the remotePort but fall back to a random port
@@ -412,6 +414,7 @@ func closePortForwarderOnInterrupt(fw kube.PortForwarder) {
 		fw.Close()
 	}()
 }
+
 func openBrowser(url string, writer io.Writer, browser bool) {
 	var err error
 
@@ -477,6 +480,8 @@ func dashboard() *cobra.Command {
 	controlz := controlZDashCmd()
 	controlz.PersistentFlags().IntVar(&controlZport, "ctrlz_port", 9876, "ControlZ port")
 	controlz.PersistentFlags().StringVarP(&labelSelector, "selector", "l", "", "Label selector")
+	controlz.PersistentFlags().StringVarP(&addonNamespace, "namespace", "n", istioNamespace,
+		"Namespace where the addon is running, if not specified, istio-system would be used")
 	dashboardCmd.AddCommand(controlz)
 
 	return dashboardCmd

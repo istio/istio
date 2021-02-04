@@ -65,6 +65,10 @@ pilot:
 
 
 sidecarInjectorWebhook:
+  # If enabled, the legacy webhook selection logic will be used. This relies on filtering of webhook
+  # requests in Istiod, rather than at the webhook selection level.
+  # This is option is intended for migration purposes only and will be removed in Istio 1.10.
+  useLegacySelectors: false
   # You can use the field called alwaysInjectSelector and neverInjectSelector which will always inject the sidecar or
   # always skip the injection on pods that match that label selector, regardless of the global policy.
   # See https://istio.io/docs/setup/kubernetes/additional-setup/sidecar-injection/#more-control-adding-exceptions
@@ -101,15 +105,30 @@ sidecarInjectorWebhook:
   # Templates defines a set of custom injection templates that can be used. For example, defining:
   #
   # templates:
-  #   hello:
-  #    metadata
-  #      labels:
-  #        hello: world
+  #   hello: |
+  #     metadata:
+  #       labels:
+  #         hello: world
   #
   # Then starting a pod with the `inject.istio.io/templates: hello` annotation, will result in the pod
   # being injected with the hello=world labels.
   # This is intended for advanced configuration only; most users should use the built in template
   templates: {}
+
+  # Default templates specifies a set of default templates that are used in sidecar injection.
+  # By default, a template `sidecar` is always provided, which contains the template of default sidecar. 
+  # To inject other additional templates, define it using the `templates` option, and add it to 
+  # the default templates list.
+  # For example:
+  #
+  # templates:
+  #   hello: |
+  #     metadata:
+  #       labels:
+  #         hello: world
+  #
+  # defaultTemplates: ["sidecar", "hello"]
+  defaultTemplates: []
 istiodRemote:
   # Sidecar injector mutating webhook configuration url
   # For example: https://$remotePilotAddress:15017/inject
@@ -157,6 +176,9 @@ telemetry:
 # Revision is set as 'version' label and part of the resource names when installing multiple control planes.
 revision: ""
 
+# Revision tags are aliases to Istio control plane revisions
+revisionTags: []
+
 # For Helm compatibility.
 ownerName: ""
 
@@ -177,6 +199,10 @@ meshConfig:
   # is processed as if it were declared in the leaf namespace.
 
   rootNamespace:
+
+  # The trust domain corresponds to the trust root of a system
+  # Refer to https://github.com/spiffe/spiffe/blob/master/standards/SPIFFE-ID.md#21-trust-domain
+  trustDomain: "cluster.local"
 
   # TODO: the intent is to eventually have this enabled by default when security is used.
   # It is not clear if user should normally need to configure - the metadata is typically
@@ -486,8 +512,6 @@ global:
   # Use the Mesh Control Protocol (MCP) for configuring Istiod. Requires an MCP source.
   useMCP: false
 
-  # Deprecated, use meshConfig.trustDomain
-  trustDomain: ""
 base:
   # For istioctl usage to disable istio config crds in base
   enableIstioConfigCRDs: true

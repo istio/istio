@@ -93,7 +93,6 @@ func fromFile(path string) *Allowlist {
 		result.hashset[i] = true
 	}
 	return result
-
 }
 
 func (w *Allowlist) Contains(suite, test string) bool {

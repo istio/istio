@@ -27,11 +27,11 @@ import (
 	"strconv"
 	"strings"
 	"sync"
-	"sync/atomic"
 	"testing"
 	"time"
 
 	endpoint "github.com/envoyproxy/go-control-plane/envoy/config/endpoint/v3"
+	uatomic "go.uber.org/atomic"
 
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking"
@@ -117,19 +117,23 @@ func TestIncrementalPush(t *testing.T) {
 }
 
 func TestEds(t *testing.T) {
-	s := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{ConfigString: mustReadFile(t, "tests/testdata/config/destination-rule-locality.yaml")})
-	addUdsEndpoint(s)
+	s := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{
+		ConfigString: mustReadFile(t, "tests/testdata/config/destination-rule-locality.yaml"),
+		DiscoveryServerModifier: func(s *xds.DiscoveryServer) {
+			addUdsEndpoint(s)
 
-	// enable locality load balancing and add relevant endpoints in order to test
-	addLocalityEndpoints(s, "locality.cluster.local")
-	addLocalityEndpoints(s, "locality-no-outlier-detection.cluster.local")
+			// enable locality load balancing and add relevant endpoints in order to test
+			addLocalityEndpoints(s, "locality.cluster.local")
+			addLocalityEndpoints(s, "locality-no-outlier-detection.cluster.local")
 
-	// Add the test ads clients to list of service instances in order to test the context dependent locality coloring.
-	addTestClientEndpoints(s)
+			// Add the test ads clients to list of service instances in order to test the context dependent locality coloring.
+			addTestClientEndpoints(s)
 
-	s.Discovery.MemRegistry.AddHTTPService(edsIncSvc, edsIncVip, 8080)
-	s.Discovery.MemRegistry.SetEndpoints(edsIncSvc, "",
-		newEndpointWithAccount("127.0.0.1", "hello-sa", "v1"))
+			s.MemRegistry.AddHTTPService(edsIncSvc, edsIncVip, 8080)
+			s.MemRegistry.SetEndpoints(edsIncSvc, "",
+				newEndpointWithAccount("127.0.0.1", "hello-sa", "v1"))
+		},
+	})
 
 	adscConn := s.Connect(&model.Proxy{IPAddresses: []string{"10.10.10.10"}}, nil, watchAll)
 	adscConn2 := s.Connect(&model.Proxy{IPAddresses: []string{"10.10.10.11"}}, nil, watchAll)
@@ -153,11 +157,11 @@ func TestEds(t *testing.T) {
 		edsUpdates(s, adscConn, t)
 	})
 	t.Run("MultipleRequest", func(t *testing.T) {
-		multipleRequest(s, false, 20, 5, 5*time.Second, nil, t)
+		multipleRequest(s, false, 20, 5, 25*time.Second, nil, t)
 	})
 	// 5 pushes for 100 clients, using EDS incremental only.
 	t.Run("MultipleRequestIncremental", func(t *testing.T) {
-		multipleRequest(s, true, 20, 5, 5*time.Second, nil, t)
+		multipleRequest(s, true, 20, 5, 25*time.Second, nil, t)
 	})
 	t.Run("CDSSave", func(t *testing.T) {
 		// Moved from cds_test, using new client
@@ -194,7 +198,7 @@ func TestTunnelServerEndpointEds(t *testing.T) {
 				Address:         "127.0.0.1",
 				ServicePortName: "http-main",
 				EndpointPort:    80,
-				//Labels:          map[string]string{"version": version},
+				// Labels:          map[string]string{"version": version},
 				ServiceAccount: "hello-sa",
 				TunnelAbility:  networking.MakeTunnelAbility(networking.H2Tunnel),
 			},
@@ -224,7 +228,7 @@ func TestNoTunnelServerEndpointEds(t *testing.T) {
 	s := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{})
 
 	// Add the test ads clients to list of service instances in order to test the context dependent locality coloring.
-	addTestClientEndpoints(s)
+	addTestClientEndpoints(s.Discovery)
 
 	s.Discovery.MemRegistry.AddHTTPService(edsIncSvc, edsIncVip, 8080)
 	s.Discovery.MemRegistry.SetEndpoints(edsIncSvc, "",
@@ -233,7 +237,7 @@ func TestNoTunnelServerEndpointEds(t *testing.T) {
 				Address:         "127.0.0.1",
 				ServicePortName: "http-main",
 				EndpointPort:    80,
-				//Labels:          map[string]string{"version": version},
+				// Labels:          map[string]string{"version": version},
 				ServiceAccount: "hello-sa",
 				// No Tunnel Support at this endpoint.
 				TunnelAbility: networking.MakeTunnelAbility(),
@@ -272,6 +276,7 @@ func mustReadFile(t *testing.T, fpaths ...string) string {
 	}
 	return result
 }
+
 func mustReadfolder(t *testing.T, folder string) string {
 	result := ""
 	fpathRoot := folder
@@ -320,8 +325,10 @@ func TestEdsWeightedServiceEntry(t *testing.T) {
 	}
 }
 
-var watchEds = []string{v3.ClusterType, v3.EndpointType}
-var watchAll = []string{v3.ClusterType, v3.EndpointType, v3.ListenerType, v3.RouteType}
+var (
+	watchEds = []string{v3.ClusterType, v3.EndpointType}
+	watchAll = []string{v3.ClusterType, v3.EndpointType, v3.ListenerType, v3.RouteType}
+)
 
 func TestEDSOverlapping(t *testing.T) {
 	s := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{})
@@ -396,7 +403,8 @@ func TestEndpointFlipFlops(t *testing.T) {
 				Address:         "10.10.1.1",
 				ServicePortName: "http",
 				EndpointPort:    8080,
-			}})
+			},
+		})
 
 	upd, _ = adscConn.Wait(5*time.Second, v3.EndpointType)
 
@@ -433,8 +441,8 @@ func fullPush(s *xds.FakeDiscoveryServer) {
 	s.Discovery.Push(&model.PushRequest{Full: true})
 }
 
-func addTestClientEndpoints(server *xds.FakeDiscoveryServer) {
-	server.Discovery.MemRegistry.AddService("test-1.default", &model.Service{
+func addTestClientEndpoints(server *xds.DiscoveryServer) {
+	server.MemRegistry.AddService("test-1.default", &model.Service{
 		Hostname: "test-1.default",
 		Ports: model.PortList{
 			{
@@ -444,7 +452,7 @@ func addTestClientEndpoints(server *xds.FakeDiscoveryServer) {
 			},
 		},
 	})
-	server.Discovery.MemRegistry.AddInstance("test-1.default", &model.ServiceInstance{
+	server.MemRegistry.AddInstance("test-1.default", &model.ServiceInstance{
 		Endpoint: &model.IstioEndpoint{
 			Address:         "10.10.10.10",
 			ServicePortName: "http",
@@ -457,7 +465,7 @@ func addTestClientEndpoints(server *xds.FakeDiscoveryServer) {
 			Protocol: protocol.HTTP,
 		},
 	})
-	server.Discovery.MemRegistry.AddInstance("test-1.default", &model.ServiceInstance{
+	server.MemRegistry.AddInstance("test-1.default", &model.ServiceInstance{
 		Endpoint: &model.IstioEndpoint{
 			Address:         "10.10.10.11",
 			ServicePortName: "http",
@@ -548,7 +556,8 @@ func testOverlappingPorts(s *xds.FakeDiscoveryServer, adsc *adsc.ADSC, t *testin
 		ConfigsUpdated: map[model.ConfigKey]struct{}{{
 			Kind: gvk.ServiceEntry,
 			Name: "overlapping.cluster.local",
-		}: {}}})
+		}: {}},
+	})
 	_, _ = adsc.Wait(5 * time.Second)
 
 	// After the incremental push, we should still see the endpoint
@@ -641,7 +650,6 @@ func edsFullUpdateCheck(adsc *adsc.ADSC, t *testing.T) {
 // - service account changes -> full ( in future: CDS only )
 // - label changes -> full
 func edsUpdateInc(s *xds.FakeDiscoveryServer, adsc *adsc.ADSC, t *testing.T) {
-
 	// TODO: set endpoints for a different cluster (new shard)
 
 	// Verify initial state
@@ -654,11 +662,11 @@ func edsUpdateInc(s *xds.FakeDiscoveryServer, adsc *adsc.ADSC, t *testing.T) {
 	s.Discovery.MemRegistry.SetEndpoints(edsIncSvc, "",
 		newEndpointWithAccount("127.0.0.2", "hello-sa", "v1"))
 
-	upd, err := adsc.Wait(5 * time.Second)
+	upd, err := adsc.Wait(5*time.Second, v3.EndpointType)
 	if err != nil {
 		t.Fatal("Incremental push failed", err)
 	}
-	if !reflect.DeepEqual(upd, []string{v3.EndpointType}) {
+	if contains(upd, v3.ClusterType) {
 		t.Fatal("Expecting EDS only update, got", upd)
 	}
 
@@ -734,8 +742,8 @@ func multipleRequest(s *xds.FakeDiscoveryServer, inc bool, nclients,
 	n := nclients
 	wg.Add(n)
 	wgConnect.Add(n)
-	rcvPush := int32(0)
-	rcvClients := int32(0)
+	rcvPush := uatomic.NewInt32(0)
+	rcvClients := uatomic.NewInt32(0)
 	for i := 0; i < n; i++ {
 		current := i
 		go func(id int) {
@@ -774,7 +782,7 @@ func multipleRequest(s *xds.FakeDiscoveryServer, inc bool, nclients,
 				}
 			}
 
-			atomic.AddInt32(&rcvPush, 1)
+			rcvPush.Inc()
 			if err != nil {
 				log.Println("Recv failed", err, id)
 				errChan <- fmt.Errorf("failed to receive a response in 15 s %v %v",
@@ -783,7 +791,7 @@ func multipleRequest(s *xds.FakeDiscoveryServer, inc bool, nclients,
 			}
 
 			log.Println("Received all pushes ", id)
-			atomic.AddInt32(&rcvClients, 1)
+			rcvClients.Inc()
 
 			adscConn.Close()
 		}(current)
@@ -814,7 +822,7 @@ func multipleRequest(s *xds.FakeDiscoveryServer, inc bool, nclients,
 
 	ok = waitTimeout(wg, to)
 	if !ok {
-		t.Errorf("Failed to receive all responses %d %d", rcvClients, rcvPush)
+		t.Errorf("Failed to receive all responses %d %d", rcvClients.Load(), rcvPush.Load())
 		buf := make([]byte, 1<<16)
 		runtime.Stack(buf, true)
 		fmt.Printf("%s", buf)
@@ -844,8 +852,8 @@ func waitTimeout(wg *sync.WaitGroup, timeout time.Duration) bool {
 
 const udsPath = "/var/run/test/socket"
 
-func addUdsEndpoint(s *xds.FakeDiscoveryServer) {
-	s.Discovery.MemRegistry.AddService("localuds.cluster.local", &model.Service{
+func addUdsEndpoint(s *xds.DiscoveryServer) {
+	s.MemRegistry.AddService("localuds.cluster.local", &model.Service{
 		Hostname: "localuds.cluster.local",
 		Ports: model.PortList{
 			{
@@ -857,7 +865,7 @@ func addUdsEndpoint(s *xds.FakeDiscoveryServer) {
 		MeshExternal: true,
 		Resolution:   model.ClientSideLB,
 	})
-	s.Discovery.MemRegistry.AddInstance("localuds.cluster.local", &model.ServiceInstance{
+	s.MemRegistry.AddInstance("localuds.cluster.local", &model.ServiceInstance{
 		Endpoint: &model.IstioEndpoint{
 			Address:         udsPath,
 			EndpointPort:    0,
@@ -876,11 +884,11 @@ func addUdsEndpoint(s *xds.FakeDiscoveryServer) {
 		Full:   true,
 		Reason: []model.TriggerReason{model.ConfigUpdate},
 	}
-	s.Discovery.ConfigUpdate(pushReq)
+	s.ConfigUpdate(pushReq)
 }
 
-func addLocalityEndpoints(server *xds.FakeDiscoveryServer, hostname host.Name) {
-	server.Discovery.MemRegistry.AddService(hostname, &model.Service{
+func addLocalityEndpoints(server *xds.DiscoveryServer, hostname host.Name) {
+	server.MemRegistry.AddService(hostname, &model.Service{
 		Hostname: hostname,
 		Ports: model.PortList{
 			{
@@ -900,7 +908,7 @@ func addLocalityEndpoints(server *xds.FakeDiscoveryServer, hostname host.Name) {
 		"region2/zone2/subzone2",
 	}
 	for i, locality := range localities {
-		server.Discovery.MemRegistry.AddInstance(hostname, &model.ServiceInstance{
+		server.MemRegistry.AddInstance(hostname, &model.ServiceInstance{
 			Endpoint: &model.IstioEndpoint{
 				Address:         fmt.Sprintf("10.0.0.%v", i),
 				EndpointPort:    80,

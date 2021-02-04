@@ -128,6 +128,7 @@ func (u *UpdateTracker) Callback(name string) {
 	defer u.mu.Unlock()
 	u.hits[name]++
 }
+
 func (u *UpdateTracker) Expect(want map[string]int) {
 	u.t.Helper()
 	retry.UntilSuccessOrFail(u.t, func() error {
@@ -139,6 +140,7 @@ func (u *UpdateTracker) Expect(want map[string]int) {
 		return nil
 	}, retry.Timeout(time.Second*2), retry.Delay(time.Millisecond))
 }
+
 func TestWorkloadAgentRefreshSecret(t *testing.T) {
 	cacheLog.SetOutputLevel(log.DebugLevel)
 	fakeCACli, err := mock.NewMockCAClient(time.Millisecond * 200)
@@ -323,6 +325,7 @@ func TestFileSecrets(t *testing.T) {
 		runFileAgentTest(t, true)
 	})
 }
+
 func runFileAgentTest(t *testing.T, sds bool) {
 	fakeCACli, err := mock.NewMockCAClient(time.Hour)
 	if err != nil {
@@ -527,6 +530,5 @@ func TestConcatCerts(t *testing.T) {
 				t.Fatalf("expected %q, got %q", c.expected, result)
 			}
 		})
-
 	}
 }

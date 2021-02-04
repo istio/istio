@@ -94,8 +94,9 @@ func TestBuildInboundFilterChain(t *testing.T) {
 										ResourceApiVersion:  core.ApiVersion_V3,
 										ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
 											ApiConfigSource: &core.ApiConfigSource{
-												ApiType:             core.ApiConfigSource_GRPC,
-												TransportApiVersion: core.ApiVersion_V3,
+												ApiType:                   core.ApiConfigSource_GRPC,
+												SetNodeOnFirstMessageOnly: true,
+												TransportApiVersion:       core.ApiVersion_V3,
 												GrpcServices: []*core.GrpcService{
 													{
 														TargetSpecifier: &core.GrpcService_EnvoyGrpc_{
@@ -118,8 +119,9 @@ func TestBuildInboundFilterChain(t *testing.T) {
 											ResourceApiVersion:  core.ApiVersion_V3,
 											ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
 												ApiConfigSource: &core.ApiConfigSource{
-													ApiType:             core.ApiConfigSource_GRPC,
-													TransportApiVersion: core.ApiVersion_V3,
+													ApiType:                   core.ApiConfigSource_GRPC,
+													SetNodeOnFirstMessageOnly: true,
+													TransportApiVersion:       core.ApiVersion_V3,
 													GrpcServices: []*core.GrpcService{
 														{
 															TargetSpecifier: &core.GrpcService_EnvoyGrpc_{
@@ -159,7 +161,7 @@ func TestBuildInboundFilterChain(t *testing.T) {
 				node: &model.Proxy{
 					Metadata: &model.NodeMetadata{},
 				},
-				listenerProtocol: networking.ListenerProtocolHTTP,
+				listenerProtocol: networking.ListenerProtocolTCP,
 				trustDomains:     []string{"cluster.local"},
 				tlsV2Enabled:     true,
 			},
@@ -175,8 +177,9 @@ func TestBuildInboundFilterChain(t *testing.T) {
 										ResourceApiVersion:  core.ApiVersion_V3,
 										ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
 											ApiConfigSource: &core.ApiConfigSource{
-												ApiType:             core.ApiConfigSource_GRPC,
-												TransportApiVersion: core.ApiVersion_V3,
+												ApiType:                   core.ApiConfigSource_GRPC,
+												SetNodeOnFirstMessageOnly: true,
+												TransportApiVersion:       core.ApiVersion_V3,
 												GrpcServices: []*core.GrpcService{
 													{
 														TargetSpecifier: &core.GrpcService_EnvoyGrpc_{
@@ -201,8 +204,9 @@ func TestBuildInboundFilterChain(t *testing.T) {
 											ResourceApiVersion:  core.ApiVersion_V3,
 											ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
 												ApiConfigSource: &core.ApiConfigSource{
-													ApiType:             core.ApiConfigSource_GRPC,
-													TransportApiVersion: core.ApiVersion_V3,
+													ApiType:                   core.ApiConfigSource_GRPC,
+													SetNodeOnFirstMessageOnly: true,
+													TransportApiVersion:       core.ApiVersion_V3,
 													GrpcServices: []*core.GrpcService{
 														{
 															TargetSpecifier: &core.GrpcService_EnvoyGrpc_{
@@ -216,7 +220,7 @@ func TestBuildInboundFilterChain(t *testing.T) {
 									},
 								},
 							},
-							AlpnProtocols: []string{"h2", "http/1.1"},
+							AlpnProtocols: []string{"istio-peer-exchange", "h2", "http/1.1"},
 							TlsParams: &auth.TlsParameters{
 								TlsMinimumProtocolVersion: auth.TlsParameters_TLSv1_2,
 								CipherSuites: []string{
@@ -258,8 +262,9 @@ func TestBuildInboundFilterChain(t *testing.T) {
 										ResourceApiVersion:  core.ApiVersion_V3,
 										ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
 											ApiConfigSource: &core.ApiConfigSource{
-												ApiType:             core.ApiConfigSource_GRPC,
-												TransportApiVersion: core.ApiVersion_V3,
+												ApiType:                   core.ApiConfigSource_GRPC,
+												SetNodeOnFirstMessageOnly: true,
+												TransportApiVersion:       core.ApiVersion_V3,
 												GrpcServices: []*core.GrpcService{
 													{
 														TargetSpecifier: &core.GrpcService_EnvoyGrpc_{
@@ -284,8 +289,9 @@ func TestBuildInboundFilterChain(t *testing.T) {
 											ResourceApiVersion:  core.ApiVersion_V3,
 											ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
 												ApiConfigSource: &core.ApiConfigSource{
-													ApiType:             core.ApiConfigSource_GRPC,
-													TransportApiVersion: core.ApiVersion_V3,
+													ApiType:                   core.ApiConfigSource_GRPC,
+													SetNodeOnFirstMessageOnly: true,
+													TransportApiVersion:       core.ApiVersion_V3,
 													GrpcServices: []*core.GrpcService{
 														{
 															TargetSpecifier: &core.GrpcService_EnvoyGrpc_{

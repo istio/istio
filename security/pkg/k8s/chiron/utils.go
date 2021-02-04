@@ -113,7 +113,6 @@ func GenKeyCertK8sCA(certClient certclient.CertificateSigningRequestInterface, d
 func SignCSRK8s(certClient certclient.CertificateSigningRequestInterface,
 	csrName string, csrSpec *cert.CertificateSigningRequestSpec,
 	dnsName, caFilePath string, appendCaCert bool) ([]byte, []byte, error) {
-
 	// 1. Submit the CSR
 	numRetries := 3
 	r, err := submitCSR(certClient, csrName, csrSpec, numRetries)
@@ -161,7 +160,6 @@ func SignCSRK8s(certClient certclient.CertificateSigningRequestInterface,
 	}
 	// If there is a failure of cleaning up CSR, the error is returned.
 	return certChain, caCert, err
-
 }
 
 // Read CA certificate and check whether it is a valid certificate.

@@ -18,6 +18,7 @@ import (
 	"context"
 	"crypto/tls"
 	"crypto/x509"
+	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"net"
@@ -32,6 +33,8 @@ import (
 	prometheus "github.com/grpc-ecosystem/go-grpc-prometheus"
 	prom "github.com/prometheus/client_golang/prometheus"
 	"github.com/soheilhy/cmux"
+	"golang.org/x/net/http2"
+	"golang.org/x/net/http2/h2c"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/keepalive"
@@ -41,6 +44,7 @@ import (
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/cache"
 
+	"istio.io/api/security/v1beta1"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	modelstatus "istio.io/istio/pilot/pkg/model/status"
@@ -76,15 +80,13 @@ import (
 	"istio.io/pkg/version"
 )
 
-var (
-	// DefaultPlugins is the default list of plugins to enable, when no plugin(s)
-	// is specified through the command line
-	DefaultPlugins = []string{
-		plugin.AuthzCustom,
-		plugin.Authn,
-		plugin.Authz,
-	}
-)
+// DefaultPlugins is the default list of plugins to enable, when no plugin(s)
+// is specified through the command line
+var DefaultPlugins = []string{
+	plugin.AuthzCustom,
+	plugin.Authn,
+	plugin.Authz,
+}
 
 const (
 	// debounce file watcher events to minimize noise in logs
@@ -148,6 +150,7 @@ type Server struct {
 	httpsMux *http.ServeMux // webhooks
 
 	HTTPListener       net.Listener
+	HTTP2Listener      net.Listener
 	GRPCListener       net.Listener
 	SecureGrpcListener net.Listener
 
@@ -308,11 +311,20 @@ func NewServer(args *PilotArgs) (*Server, error) {
 		&authenticate.ClientCertAuthenticator{},
 		kubeauth.NewKubeJWTAuthenticator(s.kubeClient, s.clusterID, s.multicluster.GetRemoteKubeClient, spiffe.GetTrustDomain(), features.JwtPolicy.Get()),
 	}
-
-	caOpts.Authenticators = authenticators
+	if args.JwtRule != "" {
+		jwtAuthn, err := initOIDC(args, s.environment.Mesh().TrustDomain)
+		if err != nil {
+			return nil, fmt.Errorf("error initializing OIDC: %v", err)
+		}
+		if jwtAuthn == nil {
+			return nil, fmt.Errorf("JWT authenticator is nil")
+		}
+		authenticators = append(authenticators, jwtAuthn)
+	}
 	if features.XDSAuth {
 		s.XDSServer.Authenticators = authenticators
 	}
+	caOpts.Authenticators = authenticators
 
 	// Start CA or RA server. This should be called after CA and Istiod certs have been created.
 	s.startCA(caOpts)
@@ -335,6 +347,23 @@ func NewServer(args *PilotArgs) (*Server, error) {
 	})
 
 	return s, nil
+}
+
+func initOIDC(args *PilotArgs, trustDomain string) (security.Authenticator, error) {
+	// JWTRule is from the JWT_RULE environment variable.
+	// An example of json string for JWTRule is:
+	//`{"issuer": "foo", "jwks_uri": "baz", "audiences": ["aud1", "aud2"]}`.
+	jwtRule := v1beta1.JWTRule{}
+	err := json.Unmarshal([]byte(args.JwtRule), &jwtRule)
+	if err != nil {
+		return nil, fmt.Errorf("failed to unmarshal JWT rule: %v", err)
+	}
+	log.Infof("Istiod authenticating using JWTRule: %v", jwtRule)
+	jwtAuthn, err := authenticate.NewJwtAuthenticator(&jwtRule, trustDomain)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create the JWT authenticator: %v", err)
+	}
+	return jwtAuthn, nil
 }
 
 func getClusterID(args *PilotArgs) string {
@@ -392,6 +421,20 @@ func (s *Server) Start(stop <-chan struct{}) error {
 			log.Errorf("error serving http server: %v", err)
 		}
 	}()
+
+	if s.HTTP2Listener != nil {
+		go func() {
+			log.Infof("starting Http2 muxed service at %s", s.HTTP2Listener.Addr())
+			h2s := &http2.Server{}
+			h1s := &http.Server{
+				Addr:    ":8080",
+				Handler: h2c.NewHandler(s.httpMux, h2s),
+			}
+			if err := h1s.Serve(s.HTTP2Listener); err != nil && err != http.ErrServerClosed {
+				log.Errorf("error serving http server: %v", err)
+			}
+		}()
+	}
 
 	if s.httpsServer != nil {
 		go func() {
@@ -572,6 +615,7 @@ func (s *Server) initDiscoveryService(args *PilotArgs) {
 		log.Info("multplexing gRPC on http port ", s.HTTPListener.Addr())
 		m := cmux.New(s.HTTPListener)
 		s.GRPCListener = m.Match(cmux.HTTP2HeaderField("content-type", "application/grpc"))
+		s.HTTP2Listener = m.Match(cmux.HTTP2())
 		s.HTTPListener = m.Match(cmux.Any())
 		go func() {
 			err := m.Serve()

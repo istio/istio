@@ -78,7 +78,8 @@ func TestCollection_Update(t *testing.T) {
 	expected := []event.Event{
 		data.Event1Col1AddItem1,
 		event.FullSyncFor(basicmeta.K8SCollection1),
-		data.Event1Col1UpdateItem1}
+		data.Event1Col1UpdateItem1,
+	}
 
 	actual := acc.Events()
 	g.Expect(actual).To(Equal(expected))
@@ -99,7 +100,8 @@ func TestCollection_Delete(t *testing.T) {
 	expected := []event.Event{
 		data.Event1Col1AddItem1,
 		event.FullSyncFor(basicmeta.K8SCollection1),
-		data.Event1Col1DeleteItem1}
+		data.Event1Col1DeleteItem1,
+	}
 
 	actual := acc.Events()
 	g.Expect(actual).To(Equal(expected))
@@ -119,7 +121,8 @@ func TestCollection_Delete_NoItem(t *testing.T) {
 
 	expected := []event.Event{
 		data.Event1Col1AddItem1,
-		event.FullSyncFor(basicmeta.K8SCollection1)}
+		event.FullSyncFor(basicmeta.K8SCollection1),
+	}
 
 	actual := acc.Events()
 	g.Expect(actual).To(Equal(expected))
@@ -179,7 +182,8 @@ func TestCollection_StopStart(t *testing.T) {
 
 	expected := []event.Event{
 		data.Event1Col1AddItem1,
-		event.FullSyncFor(basicmeta.K8SCollection1)}
+		event.FullSyncFor(basicmeta.K8SCollection1),
+	}
 
 	g.Eventually(acc.Events).Should(Equal(expected))
 

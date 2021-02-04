@@ -85,7 +85,7 @@ func TestStatsFilter(t *testing.T, feature features.Feature) {
 			for _, cltInstance := range client {
 				g.Go(func() error {
 					err := retry.UntilSuccess(func() error {
-						if err := SendTraffic(t, cltInstance); err != nil {
+						if err := SendTraffic(cltInstance); err != nil {
 							return err
 						}
 						c := cltInstance.Config().Cluster
@@ -140,7 +140,7 @@ func TestStatsTCPFilter(t *testing.T, feature features.Feature) {
 			for _, cltInstance := range client {
 				g.Go(func() error {
 					err := retry.UntilSuccess(func() error {
-						if err := SendTCPTraffic(t, cltInstance); err != nil {
+						if err := SendTCPTraffic(cltInstance); err != nil {
 							return err
 						}
 						c := cltInstance.Config().Cluster
@@ -178,71 +178,65 @@ func TestSetup(ctx resource.Context) (err error) {
 		return
 	}
 
-	builder := echoboot.NewBuilder(ctx)
-	for _, c := range ctx.Clusters() {
-		builder.
-			With(nil, echo.Config{
-				Service:   "client",
-				Namespace: appNsInst,
-				Cluster:   c,
-				Ports:     nil,
-				Subsets:   []echo.SubsetConfig{{}},
-			}).
-			With(nil, echo.Config{
-				Service:   "server",
-				Namespace: appNsInst,
-				Cluster:   c,
-				Subsets:   []echo.SubsetConfig{{}},
-				Ports: []echo.Port{
-					{
-						Name:         "http",
-						Protocol:     protocol.HTTP,
-						InstancePort: 8090,
-					},
-					{
-						Name:     "tcp",
-						Protocol: protocol.TCP,
-						// We use a port > 1024 to not require root
-						InstancePort: 9000,
-						ServicePort:  9000,
-					},
+	echos, err := echoboot.NewBuilder(ctx).
+		WithClusters(ctx.Clusters()...).
+		With(nil, echo.Config{
+			Service:   "client",
+			Namespace: appNsInst,
+			Ports:     nil,
+			Subsets:   []echo.SubsetConfig{{}},
+		}).
+		With(nil, echo.Config{
+			Service:   "server",
+			Namespace: appNsInst,
+			Subsets:   []echo.SubsetConfig{{}},
+			Ports: []echo.Port{
+				{
+					Name:         "http",
+					Protocol:     protocol.HTTP,
+					InstancePort: 8090,
 				},
-			}).
-			With(nil, echo.Config{
-				Service:   "server-no-sidecar",
-				Namespace: appNsInst,
-				Cluster:   c,
-				Subsets: []echo.SubsetConfig{
-					{
-						Annotations: map[echo.Annotation]*echo.AnnotationValue{
-							echo.SidecarInject: {
-								Value: strconv.FormatBool(false),
-							},
+				{
+					Name:     "tcp",
+					Protocol: protocol.TCP,
+					// We use a port > 1024 to not require root
+					InstancePort: 9000,
+					ServicePort:  9000,
+				},
+			},
+		}).
+		With(nil, echo.Config{
+			Service:   "server-no-sidecar",
+			Namespace: appNsInst,
+			Subsets: []echo.SubsetConfig{
+				{
+					Annotations: map[echo.Annotation]*echo.AnnotationValue{
+						echo.SidecarInject: {
+							Value: strconv.FormatBool(false),
 						},
 					},
 				},
-				Ports: []echo.Port{
-					{
-						Name:         "http",
-						Protocol:     protocol.HTTP,
-						InstancePort: 8090,
-					},
-					{
-						Name:     "tcp",
-						Protocol: protocol.TCP,
-						// We use a port > 1024 to not require root
-						InstancePort: 9000,
-						ServicePort:  9000,
-					},
+			},
+			Ports: []echo.Port{
+				{
+					Name:         "http",
+					Protocol:     protocol.HTTP,
+					InstancePort: 8090,
 				},
-			}).
-			Build()
-
-		ingr = append(ingr, ist.IngressFor(c))
-	}
-	echos, err := builder.Build()
+				{
+					Name:     "tcp",
+					Protocol: protocol.TCP,
+					// We use a port > 1024 to not require root
+					InstancePort: 9000,
+					ServicePort:  9000,
+				},
+			},
+		}).Build()
 	if err != nil {
 		return err
+	}
+	for _, c := range ctx.Clusters() {
+		ingr = append(ingr, ist.IngressFor(c))
 	}
 	client = echos.Match(echo.Service("client"))
 	server = echos.Match(echo.Service("server"))
@@ -255,11 +249,12 @@ func TestSetup(ctx resource.Context) (err error) {
 }
 
 // SendTraffic makes a client call to the "server" service on the http port.
-func SendTraffic(t *testing.T, cltInstance echo.Instance) error {
+func SendTraffic(cltInstance echo.Instance) error {
 	_, err := cltInstance.Call(echo.CallOptions{
-		Target:   server[0],
-		PortName: "http",
-		Count:    util.RequestCountMultipler * len(server),
+		Target:    server[0],
+		PortName:  "http",
+		Count:     util.RequestCountMultipler * len(server),
+		Validator: echo.ExpectOK(),
 	})
 	if err != nil {
 		return err
@@ -276,7 +271,7 @@ func SendTraffic(t *testing.T, cltInstance echo.Instance) error {
 }
 
 // SendTCPTraffic makes a client call to the "server" service on the tcp port.
-func SendTCPTraffic(t *testing.T, cltInstance echo.Instance) error {
+func SendTCPTraffic(cltInstance echo.Instance) error {
 	_, err := cltInstance.Call(echo.CallOptions{
 		Target:   server[0],
 		PortName: "tcp",

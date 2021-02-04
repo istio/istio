@@ -119,10 +119,6 @@ type Options struct {
 	// XDSUpdater will push changes to the xDS server.
 	XDSUpdater model.XDSUpdater
 
-	// TrustDomain used in SPIFFE identity
-	// Deprecated - MeshConfig should be used.
-	TrustDomain string
-
 	// NetworksWatcher observes changes to the mesh networks config.
 	NetworksWatcher mesh.NetworksWatcher
 
@@ -393,7 +389,11 @@ func (c *Controller) onServiceEvent(curr interface{}, event model.Event) error {
 		c.Unlock()
 	default:
 		needsFullPush := false
-		if isNodePortGatewayService(svc) {
+		// First, process nodePort gateway service, whose externalIPs specified
+		// and loadbalancer gateway service
+		if svcConv.Attributes.ClusterExternalAddresses != nil {
+			needsFullPush = c.extractGatewaysFromService(svcConv)
+		} else if isNodePortGatewayService(svc) {
 			// We need to know which services are using node selectors because during node events,
 			// we have to update all the node port services accordingly.
 			nodeSelector := getNodeSelectorsForService(svc)
@@ -402,9 +402,8 @@ func (c *Controller) onServiceEvent(curr interface{}, event model.Event) error {
 			c.nodeSelectorsForServices[svcConv.Hostname] = nodeSelector
 			c.Unlock()
 			needsFullPush = c.updateServiceNodePortAddresses(svcConv)
-		} else {
-			needsFullPush = c.extractGatewaysFromService(svcConv)
 		}
+
 		if needsFullPush {
 			// networks are different, we need to update all eds endpoints
 			c.xdsUpdater.ConfigUpdate(&model.PushRequest{Full: true, Reason: []model.TriggerReason{model.NetworksTrigger}})
@@ -708,7 +707,7 @@ func (c *Controller) getPodLocality(pod *v1.Pod) string {
 
 	region := getLabelValue(nodeMeta, NodeRegionLabel, NodeRegionLabelGA)
 	zone := getLabelValue(nodeMeta, NodeZoneLabel, NodeZoneLabelGA)
-	subzone := getLabelValue(nodeMeta, label.IstioSubZone, "")
+	subzone := getLabelValue(nodeMeta, label.TopologySubzone.Name, "")
 
 	if region == "" && zone == "" && subzone == "" {
 		return ""
@@ -1004,7 +1003,7 @@ func (c *Controller) onNamespaceEvent(obj interface{}, ev model.Event) error {
 			log.Warnf("Namespace watch getting wrong type in event: %T", obj)
 			return nil
 		}
-		nw = ns.Labels[label.IstioNetwork]
+		nw = ns.Labels[label.TopologyNetwork.Name]
 	}
 	c.Lock()
 	oldDefaultNetwork := c.network
@@ -1048,7 +1047,6 @@ func (c *Controller) getProxyServiceInstancesFromMetadata(proxy *model.Proxy) ([
 	services, err := getPodServices(c.serviceLister, dummyPod)
 	if err != nil {
 		return nil, fmt.Errorf("error getting instances for %s: %v", proxy.ID, err)
-
 	}
 	if len(services) == 0 {
 		return nil, fmt.Errorf("no instances found for %s: %v", proxy.ID, err)

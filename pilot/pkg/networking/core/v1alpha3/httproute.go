@@ -37,8 +37,10 @@ import (
 	"istio.io/istio/pkg/proto"
 )
 
-const wildcardDomainPrefix = "*."
-const inboundVirtualHostPrefix = string(model.TrafficDirectionInbound) + "|http|"
+const (
+	wildcardDomainPrefix     = "*."
+	inboundVirtualHostPrefix = string(model.TrafficDirectionInbound) + "|http|"
+)
 
 // BuildHTTPRoutes produces a list of routes for the proxy
 func (configgen *ConfigGeneratorImpl) BuildHTTPRoutes(node *model.Proxy, push *model.PushContext,
@@ -116,7 +118,6 @@ func traceOperation(host string, port int) string {
 // Based on port, will determine all virtual hosts that listen on the port.
 func (configgen *ConfigGeneratorImpl) buildSidecarOutboundHTTPRouteConfig(node *model.Proxy, push *model.PushContext,
 	routeName string, vHostCache map[int][]*route.VirtualHost) *route.RouteConfiguration {
-
 	var virtualHosts []*route.VirtualHost
 	listenerPort := 0
 	useSniffing := false
@@ -186,7 +187,6 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundHTTPRouteConfig(node *
 
 func (configgen *ConfigGeneratorImpl) buildSidecarOutboundVirtualHosts(node *model.Proxy, push *model.PushContext,
 	routeName string, listenerPort int) []*route.VirtualHost {
-
 	var virtualServices []config.Config
 	var services []*model.Service
 
@@ -423,16 +423,32 @@ func generateAltVirtualHosts(hostname string, port int, proxyDomain string) []st
 		return nil
 	}
 
-	// adds the uniq piece foo, foo:80
-	vhosts = append(vhosts, uniqHostname, domainName(uniqHostname, port))
+	sharedDNSDomainParts := strings.Split(sharedDNSDomain, ".")
+	if len(strings.Split(uniqHostname, ".")) == 2 {
+		// This is the case of uniqHostname having namespace already.
+		dnsHostName := uniqHostname + "." + sharedDNSDomainParts[0]
+		vhosts = append(vhosts, uniqHostname, domainName(uniqHostname, port), dnsHostName, domainName(dnsHostName, port))
+	} else {
+		if strings.Contains(proxyDomain, ".svc.") {
+			// Derive the namespace from sharedDNSDomain and add virtual host.
+			namespace := sharedDNSDomainParts[0]
+			if strings.HasPrefix(proxyDomain, namespace+".svc.") {
+				// Split the domain and add only for Kubernetes proxies.
+				vhosts = append(vhosts, uniqHostname, domainName(uniqHostname, port))
+				if len(sharedDNSDomainParts) > 1 {
+					dnsHostName := uniqHostname + "." + namespace + "." + sharedDNSDomainParts[1]
+					vhosts = append(vhosts, dnsHostName, domainName(dnsHostName, port))
+				}
+				hostNameWithNS := uniqHostname + "." + namespace
 
-	// adds all the other variants (foo.local, foo.local:80)
-	// TODO(https://github.com/istio/istio/issues/28407) splitting on each dot is not right
-	for i := len(sharedDNSDomain) - 1; i > 0; i-- {
-		if sharedDNSDomain[i] == '.' {
-			variant := uniqHostname + "." + sharedDNSDomain[:i]
-			variantWithPort := domainName(variant, port)
-			vhosts = append(vhosts, variant, variantWithPort)
+				// Don't add if they are same because we add it later and adding it here will result in duplicates.
+				if hostname != hostNameWithNS {
+					vhosts = append(vhosts, hostNameWithNS, domainName(hostNameWithNS, port))
+				}
+			}
+		} else {
+			// Add the uniqueHost if it is not a Kubernetes domain.
+			vhosts = append(vhosts, uniqHostname, domainName(uniqHostname, port))
 		}
 	}
 	return vhosts
@@ -470,6 +486,7 @@ func reverseArray(r []string) []string {
 	}
 	return r
 }
+
 func min(a, b int) int {
 	if a < b {
 		return a

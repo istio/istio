@@ -56,7 +56,15 @@ func (h *FileTemplateRenderer) RenderManifest(values string) (string, error) {
 	if !h.started {
 		return "", fmt.Errorf("fileTemplateRenderer for %s not started in renderChart", h.componentName)
 	}
-	return renderChart(h.namespace, values, h.chart)
+	return renderChart(h.namespace, values, h.chart, nil)
+}
+
+// RenderManifestFiltered filters templates to render using the supplied filter function.
+func (h *FileTemplateRenderer) RenderManifestFiltered(values string, filter TemplateFilterFunc) (string, error) {
+	if !h.started {
+		return "", fmt.Errorf("fileTemplateRenderer for %s not started in renderChart", h.componentName)
+	}
+	return renderChart(h.namespace, values, h.chart, filter)
 }
 
 var removedComponents = map[string]struct{}{

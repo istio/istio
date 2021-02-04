@@ -141,7 +141,7 @@ func newPortForwarder(restConfig *rest.Config, podName, ns, localAddress string,
 		stopCh:    stopCh,
 		readyCh:   readyCh,
 		output:    output,
-		address:   fmt.Sprintf("%s:%d", defaultLocalAddress, localPort),
+		address:   fmt.Sprintf("%s:%d", localAddress, localPort),
 	}, nil
 }
 

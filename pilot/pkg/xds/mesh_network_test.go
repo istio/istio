@@ -46,7 +46,7 @@ func TestNetworkGatewayUpdates(t *testing.T) {
 		name: "app", namespace: "pod",
 		ip: "10.10.10.10", port: 8080,
 		metaNetwork: "network-1",
-		labels:      map[string]string{label.IstioNetwork: "network-1"},
+		labels:      map[string]string{label.TopologyNetwork.Name: "network-1"},
 	}
 	vm := &workload{
 		kind: VirtualMachine,
@@ -81,7 +81,7 @@ func TestNetworkGatewayUpdates(t *testing.T) {
 				Name:      "istio-ingressgateway",
 				Namespace: "istio-system",
 				Labels: map[string]string{
-					label.IstioNetwork: "network-1",
+					label.TopologyNetwork.Name: "network-1",
 				},
 			},
 			Spec: corev1.ServiceSpec{Type: corev1.ServiceTypeLoadBalancer},
@@ -122,7 +122,7 @@ func TestMeshNetworking(t *testing.T) {
 					Name:      "istio-ingressgateway",
 					Namespace: "istio-system",
 					Labels: map[string]string{
-						label.IstioNetwork: "network-2",
+						label.TopologyNetwork.Name: "network-2",
 					},
 				},
 				Spec: corev1.ServiceSpec{Type: corev1.ServiceTypeLoadBalancer},
@@ -149,7 +149,7 @@ func TestMeshNetworking(t *testing.T) {
 					Name:      "istio-ingressgateway",
 					Namespace: "istio-system",
 					Labels: map[string]string{
-						label.IstioNetwork: "network-2",
+						label.TopologyNetwork.Name: "network-2",
 					},
 				},
 				Spec: corev1.ServiceSpec{
@@ -178,7 +178,7 @@ func TestMeshNetworking(t *testing.T) {
 						Namespace:   "istio-system",
 						Annotations: map[string]string{kube.NodeSelectorAnnotation: "{}"},
 						Labels: map[string]string{
-							label.IstioNetwork: "network-2",
+							label.TopologyNetwork.Name: "network-2",
 							// set the label here to test it = expectation doesn't change since we map back to that via NodePort
 							controller.IstioGatewayPortLabel: "443",
 						},
@@ -231,7 +231,7 @@ func TestMeshNetworking(t *testing.T) {
 						name: "labeled", namespace: "pod",
 						ip: "10.10.10.20", port: 9090,
 						metaNetwork: "network-2", clusterID: "cluster-2",
-						labels: map[string]string{label.IstioNetwork: "network-2"},
+						labels: map[string]string{label.TopologyNetwork.Name: "network-2"},
 					}
 					vm := &workload{
 						kind: VirtualMachine,
@@ -278,7 +278,6 @@ func TestMeshNetworking(t *testing.T) {
 						meshNetworkConfig: networkConfig,
 						kubeObjects:       ingressObjects,
 					})
-
 				})
 			}
 		})
@@ -429,8 +428,8 @@ func (w *workload) buildPodService() []runtime.Object {
 	baseMeta := metav1.ObjectMeta{
 		Name: w.name,
 		Labels: labels.Instance{
-			"app":         w.name,
-			label.TLSMode: model.IstioMutualTLSModeLabel,
+			"app":                      w.name,
+			label.SecurityTlsMode.Name: model.IstioMutualTLSModeLabel,
 		},
 		Namespace: w.namespace,
 	}

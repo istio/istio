@@ -30,10 +30,8 @@ import (
 // callsPerCluster is used to ensure cross-cluster load balancing has a chance to work
 const callsPerCluster = 5
 
-var (
-	// Slow down retries to allow for delayed_close_timeout. Also require 3 successive successes.
-	retryOptions = []retry.Option{retry.Delay(1000 * time.Millisecond), retry.Converge(3)}
-)
+// Slow down retries to allow for delayed_close_timeout. Also require 3 successive successes.
+var retryOptions = []retry.Option{retry.Delay(1000 * time.Millisecond), retry.Converge(3)}
 
 type TrafficCall struct {
 	name string
@@ -64,9 +62,6 @@ func (c TrafficTestCase) Run(ctx framework.TestContext, namespace string) {
 		if len(c.config) > 0 {
 			cfg := yml.MustApplyNamespace(ctx, c.config, namespace)
 			ctx.Config().ApplyYAMLOrFail(ctx, "", cfg)
-			ctx.Cleanup(func() {
-				_ = ctx.Config().DeleteYAML("", cfg)
-			})
 		}
 
 		if c.call != nil && len(c.children) > 0 {
@@ -95,6 +90,7 @@ func RunAllTrafficTests(ctx framework.TestContext, apps *EchoDeployments) {
 	cases := map[string][]TrafficTestCase{}
 	cases["virtualservice"] = virtualServiceCases(apps)
 	cases["sniffing"] = protocolSniffingCases(apps)
+	cases["selfcall"] = selfCallsCases(apps)
 	cases["serverfirst"] = serverFirstTestCases(apps)
 	cases["gateway"] = gatewayCases(apps)
 	cases["loop"] = trafficLoopCases(apps)
@@ -104,6 +100,7 @@ func RunAllTrafficTests(ctx framework.TestContext, apps *EchoDeployments) {
 	if !ctx.Settings().SkipVM {
 		cases["vm"] = VMTestCases(apps.VM, apps)
 	}
+	cases["dns"] = DNSTestCases(apps)
 	for name, tts := range cases {
 		ctx.NewSubTest(name).Run(func(ctx framework.TestContext) {
 			for _, tt := range tts {

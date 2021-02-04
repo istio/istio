@@ -23,9 +23,7 @@ import (
 	"istio.io/pkg/log"
 )
 
-var (
-	logOptionsFromCommandline = log.DefaultOptions()
-)
+var logOptionsFromCommandline = log.DefaultOptions()
 
 func init() {
 	logOptionsFromCommandline.AttachFlags(

@@ -240,8 +240,11 @@ func (p *Plugin) constructFederatedTokenRequest(parameters security.StsRequestPa
 		dJSONQuery, _ := json.Marshal(dQuery)
 		dReq, _ := http.NewRequest("POST", federatedTokenEndpoint, bytes.NewBuffer(dJSONQuery))
 		dReq.Header.Set("Content-Type", contentType)
-		reqDump, _ := httputil.DumpRequest(dReq, true)
-		pluginLog.Debugf("Prepared federated token request: \n%s", string(reqDump))
+
+		if pluginLog.DebugEnabled() {
+			reqDump, _ := httputil.DumpRequest(dReq, true)
+			pluginLog.Debugf("Prepared federated token request: \n%s", string(reqDump))
+		}
 	} else {
 		pluginLog.Info("Prepared federated token request")
 	}
@@ -298,7 +301,8 @@ func (p *Plugin) fetchFederatedToken(parameters security.StsRequestParameters) (
 	p.tokens.Store(federatedToken, stsservice.TokenInfo{
 		TokenType:  federatedToken,
 		IssueTime:  tokenReceivedTime,
-		ExpireTime: tokenReceivedTime.Add(time.Duration(respData.ExpiresIn) * time.Second)})
+		ExpireTime: tokenReceivedTime.Add(time.Duration(respData.ExpiresIn) * time.Second),
+	})
 	return respData, nil
 }
 
@@ -442,7 +446,8 @@ func (p *Plugin) fetchAccessToken(federatedToken *federatedTokenResponse) (*acce
 		TokenType:  accessToken,
 		IssueTime:  time.Now(),
 		ExpireTime: tokenExp,
-		Token:      respData.AccessToken})
+		Token:      respData.AccessToken,
+	})
 	p.mutex.Lock()
 	p.accessTokenCacheHit = 0
 	p.mutex.Unlock()
@@ -484,7 +489,8 @@ func (p *Plugin) DumpPluginStatus() ([]byte, error) {
 	p.tokens.Range(func(k interface{}, v interface{}) bool {
 		token := v.(stsservice.TokenInfo)
 		tokenStatus = append(tokenStatus, stsservice.TokenInfo{
-			TokenType: token.TokenType, IssueTime: token.IssueTime, ExpireTime: token.ExpireTime})
+			TokenType: token.TokenType, IssueTime: token.IssueTime, ExpireTime: token.ExpireTime,
+		})
 		return true
 	})
 	td := stsservice.TokensDump{

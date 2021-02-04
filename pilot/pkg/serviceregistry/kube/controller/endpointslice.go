@@ -285,8 +285,8 @@ func getLocalityFromTopology(topology map[string]string) string {
 	if _, f := topology[NodeZoneLabelGA]; f {
 		locality += "/" + topology[NodeZoneLabelGA]
 	}
-	if _, f := topology[label.IstioSubZone]; f {
-		locality += "/" + topology[label.IstioSubZone]
+	if _, f := topology[label.TopologySubzone.Name]; f {
+		locality += "/" + topology[label.TopologySubzone.Name]
 	}
 	return locality
 }

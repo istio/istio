@@ -1,7 +1,8 @@
 apiVersion: release-notes/v2
 kind: feature
 area: installation
-
+issue:
+  - 28346
 
 releaseNotes:
 - |

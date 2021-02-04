@@ -125,7 +125,6 @@ func DeleteOptionsForeground() kubeApiMeta.DeleteOptions {
 func WaitUntilPodsAreReady(fetchFunc PodFetchFunc, opts ...retry.Option) ([]kubeApiCore.Pod, error) {
 	var pods []kubeApiCore.Pod
 	_, err := retry.Do(func() (interface{}, bool, error) {
-
 		scopes.Framework.Infof("Checking pods ready...")
 
 		fetched, err := CheckPodsAreReady(fetchFunc)
@@ -168,7 +167,6 @@ func WaitUntilServiceEndpointsAreReady(a kubernetes.Interface, ns string, name s
 		}
 		return fmt.Errorf("%s/%v endpoint not ready: no ready addresses", ns, name)
 	}, newRetryOptions(opts...)...)
-
 	if err != nil {
 		return nil, nil, err
 	}

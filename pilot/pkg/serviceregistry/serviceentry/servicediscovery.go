@@ -237,7 +237,8 @@ func getUpdatedConfigs(services []*model.Service) map[model.ConfigKey]struct{} {
 		configsUpdated[model.ConfigKey{
 			Kind:      gvk.ServiceEntry,
 			Name:      string(svc.Hostname),
-			Namespace: svc.Attributes.Namespace}] = struct{}{}
+			Namespace: svc.Attributes.Namespace,
+		}] = struct{}{}
 	}
 	return configsUpdated
 }
@@ -928,7 +929,8 @@ func makeConfigKey(svc *model.Service) model.ConfigKey {
 	return model.ConfigKey{
 		Kind:      gvk.ServiceEntry,
 		Name:      string(svc.Hostname),
-		Namespace: svc.Attributes.Namespace}
+		Namespace: svc.Attributes.Namespace,
+	}
 }
 
 // isHealthy checks that the provided WorkloadEntry is healthy. If health checks are not enabled,

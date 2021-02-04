@@ -73,7 +73,7 @@ spec:
 {{.LocalitySetting | indent 8 }}
     outlierDetection:
       interval: 1s
-      baseEjectionTime: 3m
+      baseEjectionTime: 10m # if baseEjectionTime > default maxEjectionTime(300s), the maxEjectionTime will be upgraded
       maxEjectionPercent: 100`
 
 type LocalityInput struct {
@@ -89,6 +89,7 @@ const localityFailover = `
 failover:
 - from: region
   to: nearregion`
+
 const localityDistribute = `
 distribute:
 - from: region
@@ -182,7 +183,7 @@ func TestLocality(t *testing.T) {
 				ctx.NewSubTest(tt.name).Run(func(ctx framework.TestContext) {
 					hostname := fmt.Sprintf("%s-fake-locality.example.com", strings.ToLower(strings.ReplaceAll(tt.name, "/", "-")))
 					tt.input.Host = hostname
-					applyAndCleanup(ctx, apps.Namespace.Name(), runTemplate(ctx, localityTemplate, tt.input))
+					ctx.Config().ApplyYAMLOrFail(ctx, apps.Namespace.Name(), runTemplate(ctx, localityTemplate, tt.input))
 					sendTrafficOrFail(ctx, apps.PodA[0], hostname, tt.expected)
 				})
 			}
@@ -193,13 +194,6 @@ const sendCount = 50
 
 func expectAllTrafficTo(dest string) map[string]int {
 	return map[string]int{dest: sendCount}
-}
-
-func applyAndCleanup(ctx framework.TestContext, ns string, yaml ...string) {
-	ctx.Config().ApplyYAMLOrFail(ctx, ns, yaml...)
-	ctx.WhenDone(func() error {
-		return ctx.Config().DeleteYAML(ns, yaml...)
-	})
 }
 
 func sendTrafficOrFail(ctx framework.TestContext, from echo.Instance, host string, expected map[string]int) {

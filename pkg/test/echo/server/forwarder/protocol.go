@@ -209,6 +209,8 @@ func newProtocol(cfg Config) (protocol, error) {
 		return &websocketProtocol{
 			dialer: dialer,
 		}, nil
+	case scheme.DNS:
+		return &dnsProtocol{}, nil
 	case scheme.TCP:
 		return &tcpProtocol{
 			conn: func() (net.Conn, error) {
@@ -224,7 +226,6 @@ func newProtocol(cfg Config) (protocol, error) {
 					return cfg.Dialer.TCP(dialer, ctx, address)
 				}
 				return tls.Dial("tcp", address, tlsConfig)
-
 			},
 		}, nil
 	}
