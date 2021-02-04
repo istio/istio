@@ -74,7 +74,7 @@ func GKString(gvk schema.GroupKind) string {
 }
 
 // ValidateIOPCAConfig validates if the IstioOperator CA configs are applicable to the K8s cluster
-func ValidateIOPCAConfig(client *kubernetes.Clientset, iop *iopv1alpha1.IstioOperator) error {
+func ValidateIOPCAConfig(client kubernetes.Interface, iop *iopv1alpha1.IstioOperator) error {
 	globalI := iop.Spec.Values["global"]
 	global, ok := globalI.(map[string]interface{})
 	if !ok {
