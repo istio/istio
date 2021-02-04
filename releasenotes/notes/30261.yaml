@@ -1,8 +1,8 @@
 apiVersion: release-notes/v2
-kind: bug-fix
-area: networking
+kind: feature
+area: security
 issue:
 - 30261
 releaseNotes:
 - |
-  **Fixed**  Periodically resolve jwks_uri.
+  **Added**  Periodically resolve jwks_uri.

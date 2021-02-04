@@ -111,7 +111,7 @@ type JwksResolver struct {
 	PushFunc func()
 
 	// cache for JWT public key.
-	// map key is jwksURI, map value is jwtPubKeyEntry.
+	// map key is jwtKey, map value is jwtPubKeyEntry.
 	keyEntries sync.Map
 
 	secureHTTPClient *http.Client
@@ -143,8 +143,8 @@ func init() {
 	monitoring.MustRegister(networkFetchSuccessCounter, networkFetchFailCounter)
 }
 
-// NewJwksResolver creates new instance of JwksResolver.
-func NewJwksResolver(evictionDuration, refreshDefaultInterval, refreshIntervalOnFailure, retryInterval time.Duration) *JwksResolver {
+// newJwksResolver creates new instance of JwksResolver.
+func newJwksResolver(evictionDuration, refreshDefaultInterval, refreshIntervalOnFailure, retryInterval time.Duration) *JwksResolver {
 	return newJwksResolverWithCABundlePaths(
 		evictionDuration,
 		refreshDefaultInterval,
@@ -157,7 +157,7 @@ func NewJwksResolver(evictionDuration, refreshDefaultInterval, refreshIntervalOn
 // GetJwtKeyResolver lazy-creates JwtKeyResolver resolves JWT public key and JwksURI.
 func GetJwtKeyResolver() *JwksResolver {
 	jwtKeyResolverOnce.Do(func() {
-		jwtKeyResolver = NewJwksResolver(JwtPubKeyEvictionDuration, JwtPubKeyRefreshInterval, JwtPubKeyRefreshIntervalOnFailure, JwtPubKeyRetryInterval)
+		jwtKeyResolver = newJwksResolver(JwtPubKeyEvictionDuration, JwtPubKeyRefreshInterval, JwtPubKeyRefreshIntervalOnFailure, JwtPubKeyRetryInterval)
 	})
 	return jwtKeyResolver
 }
