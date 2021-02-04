@@ -91,7 +91,6 @@ func TestHelmReconciler_ApplyObject(t *testing.T) {
 					object.NewK8sObject(got, nil, nil).YAMLDebugString(),
 				)
 			}
-
 		})
 	}
 }

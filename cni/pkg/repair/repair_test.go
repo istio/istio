@@ -349,7 +349,7 @@ func TestBrokenPodReconciler_listBrokenPods(t *testing.T) {
 				Filters: tt.fields.Filters,
 				Options: tt.fields.Options,
 			}
-			var gotList, err = bpr.ListBrokenPods()
+			gotList, err := bpr.ListBrokenPods()
 			if err != nil {
 				t.Errorf("ListBrokenPods() got error listing pods: %v", err)
 				return
@@ -562,7 +562,6 @@ func TestBrokenPodReconciler_deleteBrokenPods(t *testing.T) {
 			if !reflect.DeepEqual(havePods.Items, tt.wantPods) {
 				t.Errorf("DeleteBrokenPods() error havePods = %v, wantPods = %v", havePods.Items, tt.wantPods)
 			}
-
 		})
 	}
 }

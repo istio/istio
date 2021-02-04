@@ -48,7 +48,6 @@ func TestEventConsistency(t *testing.T) {
 	lock := sync.Mutex{}
 
 	controller.RegisterEventHandler(collections.Mock.Resource().GroupVersionKind(), func(_, config config.Config, event model.Event) {
-
 		lock.Lock()
 		tc := testConfig
 		lock.Unlock()

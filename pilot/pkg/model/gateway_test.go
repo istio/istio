@@ -74,14 +74,14 @@ func TestMergeGateways(t *testing.T) {
 		},
 		{
 			"tcp-tcp-server-config",
-			[]config.Config{gwHTTPWildcard, gwTCPWildcard}, //order matters
+			[]config.Config{gwHTTPWildcard, gwTCPWildcard}, // order matters
 			1,
 			map[string]int{"http.8": 1},
 			2,
 		},
 		{
 			"http-http2-server-config",
-			[]config.Config{gwHTTPWildcard, gwHTTP2Wildcard}, //order matters
+			[]config.Config{gwHTTPWildcard, gwHTTP2Wildcard}, // order matters
 			1,
 			// http and http2 both present
 			map[string]int{"http.8": 2},

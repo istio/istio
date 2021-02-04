@@ -105,7 +105,7 @@ func TestADSC_Run(t *testing.T) {
 				},
 			},
 		},
-		//todo tests for listeners, clusters, eds, and routes, not sure how to do this.
+		// todo tests for listeners, clusters, eds, and routes, not sure how to do this.
 	}
 
 	for _, tt := range tests {

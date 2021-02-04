@@ -311,7 +311,6 @@ func (drh *DistroReportHandler) HandleNew(obj interface{}) {
 		return
 	}
 	drh.dc.handleReport(dr)
-
 }
 
 func (drh *DistroReportHandler) OnDelete(obj interface{}) {

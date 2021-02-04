@@ -605,9 +605,7 @@ func applyMetadata(pod *corev1.Pod, injectedPodData corev1.Pod, req InjectionPar
 
 // reorderPod ensures containers are properly ordered after merging
 func reorderPod(pod *corev1.Pod, req InjectionParameters) error {
-	var (
-		merr error
-	)
+	var merr error
 	mc := &meshconfig.MeshConfig{
 		DefaultConfig: &meshconfig.ProxyConfig{},
 	}

@@ -34,8 +34,8 @@ import (
 	"istio.io/istio/operator/pkg/object"
 	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/test/framework"
+	"istio.io/istio/pkg/test/framework/components/cluster"
 	"istio.io/istio/pkg/test/framework/components/istioctl"
-	"istio.io/istio/pkg/test/framework/resource"
 	"istio.io/istio/pkg/test/scopes"
 	"istio.io/istio/pkg/test/util/retry"
 )
@@ -44,9 +44,7 @@ const (
 	stableRevision = "stable"
 )
 
-var (
-	ManifestPath = filepath.Join(env.IstioSrc, "manifests")
-)
+var ManifestPath = filepath.Join(env.IstioSrc, "manifests")
 
 func TestUninstallByRevision(t *testing.T) {
 	framework.
@@ -161,8 +159,8 @@ func TestUninstallPurge(t *testing.T) {
 		})
 }
 
-//checkCPResourcesUninstalled is a helper function to check list of gvk resources matched with label are uninstalled
-func checkCPResourcesUninstalled(t *testing.T, cs resource.Cluster, gvkResources []schema.GroupVersionKind, label string) {
+// checkCPResourcesUninstalled is a helper function to check list of gvk resources matched with label are uninstalled
+func checkCPResourcesUninstalled(t *testing.T, cs cluster.Cluster, gvkResources []schema.GroupVersionKind, label string) {
 	retry.UntilSuccessOrFail(t, func() error {
 		for _, gvk := range gvkResources {
 			resources := strings.ToLower(gvk.Kind) + "s"
@@ -176,7 +174,7 @@ func checkCPResourcesUninstalled(t *testing.T, cs resource.Cluster, gvkResources
 	}, retry.Delay(time.Millisecond*100), retry.Timeout(time.Second*120))
 }
 
-func checkResourcesNotInCluster(cs resource.Cluster, gvr schema.GroupVersionResource, ls string) error {
+func checkResourcesNotInCluster(cs cluster.Cluster, gvr schema.GroupVersionResource, ls string) error {
 	usList, _ := cs.Dynamic().Resource(gvr).List(context.TODO(), kubeApiMeta.ListOptions{LabelSelector: ls})
 	if usList != nil && len(usList.Items) != 0 {
 		var stalelist []string

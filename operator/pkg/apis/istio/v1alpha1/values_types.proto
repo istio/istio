@@ -374,9 +374,6 @@ message GlobalConfig {
   // Specifies the Configuration for each of the supported tracers.
   TracerConfig tracer = 33;
 
-  // Specifies the trust domain that corresponds to the root cert of CA.
-  string trustDomain = 34;
-
   // Controls whether to use of Mesh Configuration Protocol to distribute configuration.
   google.protobuf.BoolValue useMCP = 35;
 

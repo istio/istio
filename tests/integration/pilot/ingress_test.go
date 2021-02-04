@@ -120,12 +120,7 @@ spec:
 }
 
 func skipIfIngressClassUnsupported(ctx framework.TestContext) {
-	ver, err := ctx.Clusters().Default().GetKubernetesVersion()
-	if err != nil {
-		ctx.Fatalf("failed to get Kubernetes version: %v", err)
-	}
-	serverVersion := fmt.Sprintf("%s.%s", ver.Major, ver.Minor)
-	if serverVersion < "1.18" {
+	if !ctx.Clusters().Default().MinKubeVersion(1, 18) {
 		ctx.Skip("IngressClass not supported")
 	}
 }
@@ -277,7 +272,6 @@ spec:
 					}
 					return nil
 				}, retry.Delay(time.Second*5), retry.Timeout(time.Second*90))
-
 			})
 
 			// setup another ingress pointing to a different route; the ingress will have an ingress class that should be targeted at first
@@ -349,6 +343,5 @@ spec:
 					apps.Ingress.CallEchoWithRetryOrFail(ctx, c.call, retry.Timeout(time.Minute))
 				})
 			}
-
 		})
 }

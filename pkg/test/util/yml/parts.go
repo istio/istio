@@ -26,12 +26,10 @@ const (
 	joinSeparator = "\n---\n"
 )
 
-var (
-	// Split where the '---' appears at the very beginning of a line. This will avoid
-	// accidentally splitting in cases where yaml resources contain nested yaml (which
-	// is indented).
-	splitRegex = regexp.MustCompile(`(^|\n)---`)
-)
+// Split where the '---' appears at the very beginning of a line. This will avoid
+// accidentally splitting in cases where yaml resources contain nested yaml (which
+// is indented).
+var splitRegex = regexp.MustCompile(`(^|\n)---`)
 
 // SplitYamlByKind splits the given YAML into parts indexed by kind.
 func SplitYamlByKind(content string) map[string]string {

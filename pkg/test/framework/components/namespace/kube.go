@@ -59,10 +59,12 @@ func (n *kubeNamespace) Dump(ctx resource.Context) {
 	kube2.DumpPods(n.ctx, d, n.name)
 }
 
-var _ Instance = &kubeNamespace{}
-var _ io.Closer = &kubeNamespace{}
-var _ resource.Resource = &kubeNamespace{}
-var _ resource.Dumper = &kubeNamespace{}
+var (
+	_ Instance          = &kubeNamespace{}
+	_ io.Closer         = &kubeNamespace{}
+	_ resource.Resource = &kubeNamespace{}
+	_ resource.Dumper   = &kubeNamespace{}
+)
 
 func (n *kubeNamespace) Name() string {
 	return n.name
@@ -87,8 +89,8 @@ func (n *kubeNamespace) Close() (err error) {
 		ns := n.name
 		n.name = ""
 
-		for _, cluster := range n.ctx.Clusters() {
-			err = cluster.CoreV1().Namespaces().Delete(context.TODO(), ns, kube2.DeleteOptionsForeground())
+		for _, c := range n.ctx.Clusters().Kube() {
+			err = c.CoreV1().Namespaces().Delete(context.TODO(), ns, kube2.DeleteOptionsForeground())
 		}
 	}
 
@@ -97,7 +99,7 @@ func (n *kubeNamespace) Close() (err error) {
 }
 
 func claimKube(ctx resource.Context, nsConfig *Config) (Instance, error) {
-	for _, cluster := range ctx.Clusters() {
+	for _, cluster := range ctx.Clusters().Kube() {
 		if !kube2.NamespaceExists(cluster, nsConfig.Prefix) {
 			if _, err := cluster.CoreV1().Namespaces().Create(context.TODO(), &kubeApiCore.Namespace{
 				ObjectMeta: kubeApiMeta.ObjectMeta{
@@ -116,7 +118,7 @@ func claimKube(ctx resource.Context, nsConfig *Config) (Instance, error) {
 func (n *kubeNamespace) setNamespaceLabel(key, value string) error {
 	// need to convert '/' to '~1' as per the JSON patch spec http://jsonpatch.com/#operations
 	jsonPatchEscapedKey := strings.ReplaceAll(key, "/", "~1")
-	for _, cluster := range n.ctx.Clusters() {
+	for _, cluster := range n.ctx.Clusters().Kube() {
 		nsLabelPatch := fmt.Sprintf(`[{"op":"replace","path":"/metadata/labels/%s","value":"%s"}]`, jsonPatchEscapedKey, value)
 		if _, err := cluster.CoreV1().Namespaces().Patch(context.TODO(), n.name, types.JSONPatchType, []byte(nsLabelPatch), kubeApiMeta.PatchOptions{}); err != nil {
 			return err
@@ -130,7 +132,7 @@ func (n *kubeNamespace) setNamespaceLabel(key, value string) error {
 func (n *kubeNamespace) removeNamespaceLabel(key string) error {
 	// need to convert '/' to '~1' as per the JSON patch spec http://jsonpatch.com/#operations
 	jsonPatchEscapedKey := strings.ReplaceAll(key, "/", "~1")
-	for _, cluster := range n.ctx.Clusters() {
+	for _, cluster := range n.ctx.Clusters().Kube() {
 		nsLabelPatch := fmt.Sprintf(`[{"op":"remove","path":"/metadata/labels/%s"}]`, jsonPatchEscapedKey)
 		if _, err := cluster.CoreV1().Namespaces().Patch(context.TODO(), n.name, types.JSONPatchType, []byte(nsLabelPatch), kubeApiMeta.PatchOptions{}); err != nil {
 			return err
@@ -156,7 +158,7 @@ func newKube(ctx resource.Context, nsConfig *Config) (Instance, error) {
 	id := ctx.TrackResource(n)
 	n.id = id
 
-	for _, cluster := range n.ctx.Clusters() {
+	for _, cluster := range n.ctx.Clusters().Kube() {
 		if _, err := cluster.CoreV1().Namespaces().Create(context.TODO(), &kubeApiCore.Namespace{
 			ObjectMeta: kubeApiMeta.ObjectMeta{
 				Name:   ns,

@@ -119,10 +119,6 @@ type Options struct {
 	// XDSUpdater will push changes to the xDS server.
 	XDSUpdater model.XDSUpdater
 
-	// TrustDomain used in SPIFFE identity
-	// Deprecated - MeshConfig should be used.
-	TrustDomain string
-
 	// NetworksWatcher observes changes to the mesh networks config.
 	NetworksWatcher mesh.NetworksWatcher
 
@@ -1051,7 +1047,6 @@ func (c *Controller) getProxyServiceInstancesFromMetadata(proxy *model.Proxy) ([
 	services, err := getPodServices(c.serviceLister, dummyPod)
 	if err != nil {
 		return nil, fmt.Errorf("error getting instances for %s: %v", proxy.ID, err)
-
 	}
 	if len(services) == 0 {
 		return nil, fmt.Errorf("no instances found for %s: %v", proxy.ID, err)

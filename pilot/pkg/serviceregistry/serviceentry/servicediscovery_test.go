@@ -439,8 +439,10 @@ func TestServiceDiscoveryServiceUpdate(t *testing.T) {
 		// now update the config
 		createConfigs([]*config.Config{tcpDNSUpdated}, store, t)
 		expectEvents(t, events,
-			Event{kind: "xds", pushReq: &model.PushRequest{ConfigsUpdated: map[model.ConfigKey]struct{}{{Kind: gvk.ServiceEntry, Name: "tcpdns.com",
-				Namespace: tcpDNSUpdated.Namespace}: {}}}}) // service deleted
+			Event{kind: "xds", pushReq: &model.PushRequest{ConfigsUpdated: map[model.ConfigKey]struct{}{{
+				Kind: gvk.ServiceEntry, Name: "tcpdns.com",
+				Namespace: tcpDNSUpdated.Namespace,
+			}: {}}}}) // service deleted
 		expectServiceInstances(t, sd, tcpDNS, 0, instances2)
 	})
 
@@ -540,8 +542,10 @@ func TestServiceDiscoveryWorkloadUpdate(t *testing.T) {
 		}
 		expectProxyInstances(t, sd, instances, "2.2.2.2")
 		expectServiceInstances(t, sd, selector, 0, instances)
-		expectEvents(t, events, Event{kind: "eds", host: "selector.com",
-			namespace: selector.Namespace, endpoints: 2},
+		expectEvents(t, events, Event{
+			kind: "eds", host: "selector.com",
+			namespace: selector.Namespace, endpoints: 2,
+		},
 			Event{kind: "xds", proxyIP: "2.2.2.2"})
 	})
 
@@ -645,6 +649,7 @@ func TestServiceDiscoveryWorkloadUpdate(t *testing.T) {
 		expectEvents(t, events, Event{kind: "eds", host: "selector.com", namespace: selector.Namespace, endpoints: 2})
 	})
 }
+
 func TestServiceDiscoveryWorkloadChangeLabel(t *testing.T) {
 	store, sd, events, stopFn := initServiceDiscovery()
 	defer stopFn()
@@ -1012,7 +1017,7 @@ func TestNonServiceConfig(t *testing.T) {
 
 // nolint: lll
 func TestServicesDiff(t *testing.T) {
-	var updatedHTTPDNS = &config.Config{
+	updatedHTTPDNS := &config.Config{
 		Meta: config.Meta{
 			GroupVersionKind:  collections.IstioNetworkingV1Alpha3Serviceentries.Resource().GroupVersionKind(),
 			Name:              "httpDNS",
@@ -1047,7 +1052,7 @@ func TestServicesDiff(t *testing.T) {
 		},
 	}
 
-	var updatedHTTPDNSPort = func() *config.Config {
+	updatedHTTPDNSPort := func() *config.Config {
 		c := updatedHTTPDNS.DeepCopy()
 		se := c.Spec.(*networking.ServiceEntry)
 		var ports []*networking.Port
@@ -1057,7 +1062,7 @@ func TestServicesDiff(t *testing.T) {
 		return &c
 	}()
 
-	var updatedEndpoint = func() *config.Config {
+	updatedEndpoint := func() *config.Config {
 		c := updatedHTTPDNS.DeepCopy()
 		se := c.Spec.(*networking.ServiceEntry)
 		var endpoints []*networking.WorkloadEntry
@@ -1231,7 +1236,6 @@ func sortPorts(ports []*model.Port) {
 }
 
 func Test_autoAllocateIP_conditions(t *testing.T) {
-
 	tests := []struct {
 		name         string
 		inServices   []*model.Service

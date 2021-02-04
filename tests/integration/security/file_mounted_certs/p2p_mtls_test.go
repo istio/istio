@@ -49,7 +49,6 @@ func TestClientToServiceTls(t *testing.T) {
 	framework.NewTest(t).
 		Features("security.peer.file-mounted-certs").
 		Run(func(ctx framework.TestContext) {
-
 			echoClient, echoServer, serviceNamespace := setupEcho(t, ctx)
 
 			createObject(ctx, serviceNamespace.Name(), DestinationRuleConfigMutual)
@@ -61,7 +60,6 @@ func TestClientToServiceTls(t *testing.T) {
 					PortName: "http",
 					Scheme:   scheme.HTTP,
 				})
-
 				if err != nil {
 					return fmt.Errorf("request failed: %v", err)
 				}
@@ -127,7 +125,6 @@ func createObject(ctx framework.TestContext, serviceNamespace string, yamlManife
 // setupEcho creates an `istio-fd-sds` namespace and brings up two echo instances server and
 // client in that namespace.
 func setupEcho(t *testing.T, ctx resource.Context) (echo.Instance, echo.Instance, namespace.Instance) {
-
 	appsNamespace := namespace.NewOrFail(t, ctx, namespace.Config{
 		Prefix: "istio-fd-sds",
 		Inject: true,

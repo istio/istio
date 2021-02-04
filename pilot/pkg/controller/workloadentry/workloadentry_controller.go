@@ -42,6 +42,42 @@ import (
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/queue"
 	istiolog "istio.io/pkg/log"
+	"istio.io/pkg/monitoring"
+)
+
+func init() {
+	monitoring.MustRegister(autoRegistrationSuccess)
+	monitoring.MustRegister(autoRegistrationUpdates)
+	monitoring.MustRegister(autoRegistrationUnregistrations)
+	monitoring.MustRegister(autoRegistrationDeletes)
+	monitoring.MustRegister(autoRegistrationErrors)
+}
+
+var (
+	autoRegistrationSuccess = monitoring.NewSum(
+		"auto_registration_success_total",
+		"Total number of successful auto registrations.",
+	)
+
+	autoRegistrationUpdates = monitoring.NewSum(
+		"auto_registration_updates_total",
+		"Total number of auto registration updates.",
+	)
+
+	autoRegistrationUnregistrations = monitoring.NewSum(
+		"auto_registration_unregister_total",
+		"Total number of unregistrations.",
+	)
+
+	autoRegistrationDeletes = monitoring.NewSum(
+		"auto_registration_deletes_total",
+		"Total number of auto registration cleaned up by periodic timer.",
+	)
+
+	autoRegistrationErrors = monitoring.NewSum(
+		"auto_registration_errors_total",
+		"Total number of auto registration errors.",
+	)
 )
 
 const (
@@ -253,6 +289,7 @@ func (c *Controller) registerWorkload(entryName string, proxy *model.Proxy, conT
 		if err != nil {
 			return fmt.Errorf("failed updating WorkloadEntry %s/%s err: %v", proxy.Metadata.Namespace, entryName, err)
 		}
+		autoRegistrationUpdates.Increment()
 		log.Infof("updated auto-registered WorkloadEntry %s/%s", proxy.Metadata.Namespace, entryName)
 		return nil
 	}
@@ -260,6 +297,7 @@ func (c *Controller) registerWorkload(entryName string, proxy *model.Proxy, conT
 	// No WorkloadEntry, create one using fields from the associated WorkloadGroup
 	groupCfg := c.store.Get(gvk.WorkloadGroup, proxy.Metadata.AutoRegisterGroup, proxy.Metadata.Namespace)
 	if groupCfg == nil {
+		autoRegistrationErrors.Increment()
 		return fmt.Errorf("auto-registration WorkloadEntry of %v failed: cannot find WorkloadGroup %s/%s",
 			proxy.ID, proxy.Metadata.Namespace, proxy.Metadata.AutoRegisterGroup)
 	}
@@ -267,12 +305,14 @@ func (c *Controller) registerWorkload(entryName string, proxy *model.Proxy, conT
 	setConnectMeta(entry, c.instanceID, conTime)
 	_, err := c.store.Create(*entry)
 	if err != nil {
+		autoRegistrationErrors.Increment()
 		return fmt.Errorf("auto-registration WorkloadEntry of %v failed: error creating WorkloadEntry: %v", proxy.ID, err)
 	}
 	hcMessage := ""
 	if _, f := entry.Annotations[status.WorkloadEntryHealthCheckAnnotation]; f {
 		hcMessage = " with health checking enabled"
 	}
+	autoRegistrationSuccess.Increment()
 	log.Infof("auto-registered WorkloadEntry %s/%s%s", proxy.Metadata.Namespace, entryName, hcMessage)
 	return nil
 }
@@ -344,8 +384,11 @@ func (c *Controller) unregisterWorkload(entryName string, proxy *model.Proxy, di
 	// use update instead of patch to prevent race condition
 	_, err := c.store.Update(wle)
 	if err != nil {
+		autoRegistrationErrors.Increment()
 		return fmt.Errorf("disconnect: failed updating WorkloadEntry %s/%s: %v", proxy.Metadata.Namespace, entryName, err)
 	}
+
+	autoRegistrationUnregistrations.Increment()
 
 	// after grace period, check if the workload ever reconnected
 	ns := proxy.Metadata.Namespace
@@ -486,8 +529,10 @@ func (c *Controller) cleanupEntry(wle config.Config) {
 	}
 	if err := c.store.Delete(gvk.WorkloadEntry, wle.Name, wle.Namespace, &wle.ResourceVersion); err != nil && !errors.IsNotFound(err) {
 		log.Warnf("failed cleaning up auto-registered WorkloadEntry %s/%s: %v", wle.Namespace, wle.Name, err)
+		autoRegistrationErrors.Increment()
 		return
 	}
+	autoRegistrationDeletes.Increment()
 	log.Infof("cleaned up auto-registered WorkloadEntry %s/%s", wle.Namespace, wle.Name)
 }
 

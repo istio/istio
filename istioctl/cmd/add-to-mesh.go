@@ -50,9 +50,7 @@ import (
 	"istio.io/pkg/log"
 )
 
-var (
-	crdFactory = createDynamicInterface
-)
+var crdFactory = createDynamicInterface
 
 // vmServiceOpts contains the options of a mesh expansion service running on VM.
 type vmServiceOpts struct {
@@ -392,7 +390,6 @@ func findDeploymentsForSvc(client kubernetes.Interface, ns, name string) ([]apps
 
 func createDynamicInterface(kubeconfig string) (dynamic.Interface, error) {
 	restConfig, err := kube.BuildClientConfig(kubeconfig, configContext)
-
 	if err != nil {
 		return nil, err
 	}
@@ -574,6 +571,7 @@ func convertToUnsignedInt32Map(s []string) map[string]uint32 {
 	}
 	return out
 }
+
 func convertToStringMap(s []string) map[string]string {
 	out := make(map[string]string, len(s))
 	for _, l := range s {

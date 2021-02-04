@@ -640,7 +640,8 @@ metadata:
     release: istio`,
 			i: []string{
 				"metadata.annotations.checksum/config-volume",
-				"metadata.labels.app"},
+				"metadata.labels.app",
+			},
 			want: ``,
 		},
 		{
@@ -666,7 +667,8 @@ metadata:
     app: istio-ingressgateway
     release: istio`,
 			i: []string{
-				"metadata.annotations.checksum/config-volume"},
+				"metadata.annotations.checksum/config-volume",
+			},
 			want: `metadata:
   labels:
     app: ingressgateway -> istio-ingressgateway

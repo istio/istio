@@ -39,7 +39,6 @@ func (r *RealDependencies) execute(cmd string, redirectStdout bool, args ...stri
 // RunOrFail runs a command and panics, if it fails
 func (r *RealDependencies) RunOrFail(cmd string, args ...string) {
 	err := r.execute(cmd, false, args...)
-
 	if err != nil {
 		panic(err)
 	}

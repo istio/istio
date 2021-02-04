@@ -70,9 +70,7 @@ var (
 	wantTrace            *cloudtrace.Trace
 )
 
-var (
-	clientBuilder, serverBuilder echo.Builder
-)
+var clientBuilder, serverBuilder echo.Builder
 
 var (
 	proxyConfigAnnotation = echo.Annotation{

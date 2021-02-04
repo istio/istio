@@ -161,7 +161,7 @@ func TestBuildInboundFilterChain(t *testing.T) {
 				node: &model.Proxy{
 					Metadata: &model.NodeMetadata{},
 				},
-				listenerProtocol: networking.ListenerProtocolHTTP,
+				listenerProtocol: networking.ListenerProtocolTCP,
 				trustDomains:     []string{"cluster.local"},
 				tlsV2Enabled:     true,
 			},
@@ -220,7 +220,7 @@ func TestBuildInboundFilterChain(t *testing.T) {
 									},
 								},
 							},
-							AlpnProtocols: []string{"h2", "http/1.1"},
+							AlpnProtocols: []string{"istio-peer-exchange", "h2", "http/1.1"},
 							TlsParams: &auth.TlsParameters{
 								TlsMinimumProtocolVersion: auth.TlsParameters_TLSv1_2,
 								CipherSuites: []string{

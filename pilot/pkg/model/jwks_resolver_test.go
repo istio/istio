@@ -68,6 +68,9 @@ func TestResolveJwksURIUsingOpenID(t *testing.T) {
 				c.in, c.expectedJwksURI, jwksURI)
 		}
 	}
+	jwksURI, err := r.resolveJwksURIUsingOpenID("http://xyz")
+	t.Logf("jwks: %s, err: %s", jwksURI, err)
+	t.Logf("%v", r.keyEntries)
 
 	// Verify mock openID discovery http://localhost:9999/.well-known/openid-configuration was called twice.
 	if got, want := ms.OpenIDHitNum, uint64(2); got != want {

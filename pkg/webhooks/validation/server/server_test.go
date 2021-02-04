@@ -53,7 +53,6 @@ func TestArgs_String(t *testing.T) {
 }
 
 func createTestWebhook(t testing.TB) (*Webhook, func()) {
-
 	t.Helper()
 	dir, err := ioutil.TempDir("", "galley_validation_webhook")
 	if err != nil {

@@ -51,18 +51,23 @@ type dirInfo struct {
 func (di dirInfo) Name() string {
 	return di.name
 }
+
 func (di dirInfo) Size() int64 {
 	return 0
 }
+
 func (di dirInfo) Mode() os.FileMode {
 	return os.FileMode(0)
 }
+
 func (di dirInfo) ModTime() time.Time {
 	return time.Unix(0, 0)
 }
+
 func (di dirInfo) IsDir() bool {
 	return true
 }
+
 func (di dirInfo) Sys() interface{} {
 	return nil
 }

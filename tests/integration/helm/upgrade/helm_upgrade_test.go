@@ -27,9 +27,9 @@ import (
 
 	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/test/framework"
+	"istio.io/istio/pkg/test/framework/components/cluster"
 	kubecluster "istio.io/istio/pkg/test/framework/components/cluster/kube"
 	"istio.io/istio/pkg/test/framework/image"
-	"istio.io/istio/pkg/test/framework/resource"
 	"istio.io/istio/pkg/test/helm"
 	kubetest "istio.io/istio/pkg/test/kube"
 	"istio.io/istio/pkg/test/scopes"
@@ -38,10 +38,8 @@ import (
 	"istio.io/istio/tests/util/sanitycheck"
 )
 
-var (
-	// previousChartPath is path of Helm charts for previous Istio deployments.
-	previousChartPath = filepath.Join(env.IstioSrc, "tests/integration/helm/testdata/")
-)
+// previousChartPath is path of Helm charts for previous Istio deployments.
+var previousChartPath = filepath.Join(env.IstioSrc, "tests/integration/helm/testdata/")
 
 const (
 	gcrHub                   = "gcr.io/istio-release"
@@ -99,7 +97,6 @@ func TestDefaultInPlaceUpgrades(t *testing.T) {
 // upgradeCharts upgrades Istio using Helm charts with the provided
 // override values file to the latest charts in $ISTIO_SRC/manifests
 func upgradeCharts(ctx framework.TestContext, h *helm.Helm, overrideValuesFile string) {
-
 	// Upgrade base chart
 	err := h.UpgradeChart(helmtest.BaseReleaseName, filepath.Join(helmtest.ChartPath, helmtest.BaseChart),
 		helmtest.IstioNamespace, overrideValuesFile, helmtest.HelmTimeout)
@@ -131,7 +128,7 @@ func upgradeCharts(ctx framework.TestContext, h *helm.Helm, overrideValuesFile s
 
 // installIstio install Istio using Helm charts with the provided
 // override values file and fails the tests on any failures.
-func installIstio(t *testing.T, cs resource.Cluster,
+func installIstio(t *testing.T, cs cluster.Cluster,
 	h *helm.Helm, overrideValuesFile string) {
 	helmtest.CreateIstioSystemNamespace(t, cs)
 
@@ -153,7 +150,7 @@ func installIstio(t *testing.T, cs resource.Cluster,
 }
 
 // deleteIstio deletes installed Istio Helm charts and resources
-func deleteIstio(cs resource.Cluster, h *helm.Helm) error {
+func deleteIstio(cs cluster.Cluster, h *helm.Helm) error {
 	scopes.Framework.Infof("cleaning up resources")
 	if err := h.DeleteChart(helmtest.EgressReleaseName, helmtest.IstioNamespace); err != nil {
 		return fmt.Errorf("failed to delete %s release", helmtest.EgressReleaseName)

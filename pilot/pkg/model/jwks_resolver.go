@@ -394,14 +394,6 @@ func (r *JwksResolver) refresh() time.Duration {
 				}
 			}
 
-			jwksURI, err := r.resolveJwksURIUsingOpenID(issuer)
-			if err != nil {
-				hasErrors = true
-				log.Errorf("Failed to resolve Jwks from issuer %q: %v", issuer, err)
-				atomic.AddUint64(&r.refreshJobFetchFailedCount, 1)
-				return
-			}
-
 			resp, err := r.getRemoteContentWithRetry(jwksURI, networkFetchRetryCountOnRefreshFlow)
 			if err != nil {
 				hasErrors = true
@@ -432,6 +424,12 @@ func (r *JwksResolver) refresh() time.Duration {
 
 	// Wait for all go routine to complete.
 	wg.Wait()
+
+	if hasErrors {
+		r.refreshInterval = r.refreshIntervalOnFailure
+	} else {
+		r.refreshInterval = r.refreshDefaultInterval
+	}
 
 	if hasChange {
 		atomic.AddUint64(&r.refreshJobKeyChangedCount, 1)

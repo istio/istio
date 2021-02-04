@@ -42,7 +42,6 @@ func TestMain(m *testing.M) {
 			return
 		}).
 		Run()
-
 }
 
 func setupConfig(_ resource.Context, cfg *istio.Config) {

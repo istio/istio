@@ -68,9 +68,7 @@ const (
 	certReadInterval = 500 * time.Millisecond
 )
 
-var (
-	certWatchTimeout = 5 * time.Second
-)
+var certWatchTimeout = 5 * time.Second
 
 // WebhookController manages the service accounts' secrets that contains Istio keys and certificates.
 type WebhookController struct {

@@ -315,7 +315,8 @@ spec:
 									return ExpectString(response[0].RawResponse["Access-Control-Allow-Origin"], "", "mismatched CORS origin")
 								}),
 						},
-					}},
+					},
+				},
 			},
 		)
 
@@ -380,7 +381,7 @@ spec:
 								errorThreshold := 10
 								for host, exp := range split {
 									hostResponses := responses.Match(func(r *echoclient.ParsedResponse) bool {
-										return strings.HasPrefix(r.Hostname, host+"-")
+										return strings.HasPrefix(r.Hostname, host)
 									})
 									if !AlmostEquals(len(hostResponses), exp, errorThreshold) {
 										return fmt.Errorf("expected %v calls to %q, got %v", exp, host, len(hostResponses))
@@ -627,6 +628,61 @@ spec:
 	return cases
 }
 
+func XFFGatewayCase(apps *EchoDeployments) []TrafficTestCase {
+	cases := []TrafficTestCase{}
+
+	destinationSets := []echo.Instances{
+		apps.PodA,
+	}
+
+	for _, d := range destinationSets {
+		d := d
+		if len(d) == 0 {
+			continue
+		}
+		fqdn := d[0].Config().FQDN()
+		cases = append(cases, TrafficTestCase{
+			name:   d[0].Config().Service,
+			config: httpGateway("*") + httpVirtualService("gateway", fqdn, d[0].Config().PortByName("http").ServicePort),
+			skip:   false,
+			call:   apps.Ingress.CallEchoWithRetryOrFail,
+			opts: echo.CallOptions{
+				Port: &echo.Port{
+					Protocol: protocol.HTTP,
+				},
+				Headers: map[string][]string{
+					"X-Forwarded-For": {"56.5.6.7, 72.9.5.6, 98.1.2.3"},
+					"Host":            {fqdn},
+				},
+				Validator: echo.ValidatorFunc(
+					func(response echoclient.ParsedResponses, _ error) error {
+						return response.Check(func(_ int, response *echoclient.ParsedResponse) error {
+							externalAddress, ok := response.RawResponse["X-Envoy-External-Address"]
+							if !ok {
+								return fmt.Errorf("missing X-Envoy-External-Address Header")
+							}
+							if err := ExpectString(externalAddress, "72.9.5.6", "envoy-external-address header"); err != nil {
+								return err
+							}
+							xffHeader, ok := response.RawResponse["X-Forwarded-For"]
+							if !ok {
+								return fmt.Errorf("missing X-Forwarded-For Header")
+							}
+
+							xffIPs := strings.Split(xffHeader, ",")
+							if len(xffIPs) != 4 {
+								return fmt.Errorf("did not receive expected 4 hosts in X-Forwarded-For header")
+							}
+
+							return ExpectString(strings.TrimSpace(xffIPs[1]), "72.9.5.6", "ip in xff header")
+						})
+					}),
+			},
+		})
+	}
+	return cases
+}
+
 // serviceCases tests overlapping Services. There are a few cases.
 // Consider we have our base service B, with service port P and target port T
 // 1) Another service, B', with P -> T. In this case, both the listener and the cluster will conflict.
@@ -799,8 +855,7 @@ func selfCallsCases(apps *EchoDeployments) []TrafficTestCase {
 // Todo merge with security TestReachability code
 func protocolSniffingCases(apps *EchoDeployments) []TrafficTestCase {
 	cases := []TrafficTestCase{}
-	// TODO add VMs to clients when DNS works for VMs. Blocked by https://github.com/istio/istio/issues/27154
-	for _, clients := range []echo.Instances{apps.PodA, apps.Naked, apps.Headless} {
+	for _, clients := range []echo.Instances{apps.PodA, apps.Naked, apps.Headless, apps.VM} {
 		for _, client := range clients {
 			destinationSets := []echo.Instances{
 				apps.PodA,
@@ -820,12 +875,16 @@ func protocolSniffingCases(apps *EchoDeployments) []TrafficTestCase {
 				destinations := destinations
 				// grabbing the 0th assumes all echos in destinations have the same service name
 				destination := destinations[0]
-				if (apps.Headless.Contains(client) || apps.Headless.Contains(destination)) && len(apps.Headless) > 1 {
-					// TODO(landow) fix DNS issues with multicluster/VMs/headless
+				if apps.Headless.Contains(destination) && len(apps.Headless) > 1 {
+					// TODO(landow) incompatibilities with multicluster & headless
 					continue
 				}
 				if apps.Naked.Contains(client) && apps.VM.Contains(destination) {
 					// Need a sidecar to connect to VMs
+					continue
+				}
+				if apps.VM.Contains(client) && apps.External.Contains(destination) {
+					// TODO VM won't resolve DNS in ServiceEntry https://github.com/istio/istio/issues/27154
 					continue
 				}
 
@@ -1072,14 +1131,19 @@ spec:
 	for _, client := range flatten(apps.VM, apps.PodA, apps.PodTproxy) {
 		for _, tt := range svcCases {
 			tt, client := tt, client
-			address := apps.PodA.Match(echo.InCluster(client.Config().Cluster))[0].Config().FQDN() + "?"
+			aInCluster := apps.PodA.Match(echo.InCluster(client.Config().Cluster))
+			if len(aInCluster) == 0 {
+				// The cluster doesn't contain A, but connects to a cluster containing A
+				aInCluster = apps.PodA.Match(echo.InCluster(client.Config().Cluster.Primary()))
+			}
+			address := aInCluster[0].Config().FQDN() + "?"
 			if tt.protocol != "" {
 				address += "&protocol=" + tt.protocol
 			}
 			if tt.server != "" {
 				address += "&server=" + tt.server
 			}
-			expected := apps.PodA.Match(echo.InCluster(client.Config().Cluster))[0].Address()
+			expected := aInCluster[0].Address()
 			tcases = append(tcases, TrafficTestCase{
 				name: fmt.Sprintf("svc/%s/%s", client.Config().Service, tt.name),
 				call: client.CallWithRetryOrFail,
@@ -1134,7 +1198,7 @@ func VMTestCases(vms echo.Instances, apps *EchoDeployments) []TrafficTestCase {
 			vmCase{
 				name: "dns: VM to k8s headless service",
 				from: vm,
-				to:   apps.Headless.Match(echo.InCluster(vm.Config().Cluster)),
+				to:   apps.Headless.Match(echo.InCluster(vm.Config().Cluster.Primary())),
 				host: apps.Headless[0].Config().FQDN(),
 			},
 		)

@@ -55,8 +55,10 @@ func TestGenerateVirtualHostDomains(t *testing.T) {
 			node: &model.Proxy{
 				DNSDomain: "local.campus.net",
 			},
-			want: []string{"foo", "foo.local.campus.net",
-				"foo:80", "foo.local.campus.net:80"},
+			want: []string{
+				"foo", "foo.local.campus.net",
+				"foo:80", "foo.local.campus.net:80",
+			},
 		},
 		{
 			name: "different domains with some shared dns",
@@ -68,8 +70,10 @@ func TestGenerateVirtualHostDomains(t *testing.T) {
 			node: &model.Proxy{
 				DNSDomain: "remote.campus.net",
 			},
-			want: []string{"foo.local", "foo.local.campus", "foo.local.campus.net",
-				"foo.local:80", "foo.local.campus:80", "foo.local.campus.net:80"},
+			want: []string{
+				"foo.local", "foo.local.campus", "foo.local.campus.net",
+				"foo.local:80", "foo.local.campus:80", "foo.local.campus.net:80",
+			},
 		},
 		{
 			name: "different domains with no shared dns",
@@ -93,8 +97,10 @@ func TestGenerateVirtualHostDomains(t *testing.T) {
 			node: &model.Proxy{
 				DNSDomain: "default.svc.cluster.local",
 			},
-			want: []string{"echo", "echo.default", "echo.default.svc", "echo.default.svc.cluster.local",
-				"echo:8123", "echo.default:8123", "echo.default.svc:8123", "echo.default.svc.cluster.local:8123"},
+			want: []string{
+				"echo", "echo.default", "echo.default.svc", "echo.default.svc.cluster.local",
+				"echo:8123", "echo.default:8123", "echo.default.svc:8123", "echo.default.svc.cluster.local:8123",
+			},
 		},
 		{
 			name: "k8s service with default domain and different namespace",
@@ -106,8 +112,10 @@ func TestGenerateVirtualHostDomains(t *testing.T) {
 			node: &model.Proxy{
 				DNSDomain: "mesh.svc.cluster.local",
 			},
-			want: []string{"echo.default", "echo.default.svc", "echo.default.svc.cluster.local",
-				"echo.default:8123", "echo.default.svc:8123", "echo.default.svc.cluster.local:8123"},
+			want: []string{
+				"echo.default", "echo.default.svc", "echo.default.svc.cluster.local",
+				"echo.default:8123", "echo.default.svc:8123", "echo.default.svc.cluster.local:8123",
+			},
 		},
 		{
 			name: "k8s service with custom domain 2",
@@ -341,7 +349,6 @@ func TestSidecarOutboundHTTPRouteConfigWithDuplicateHosts(t *testing.T) {
 			}
 		})
 	}
-
 }
 
 func TestSidecarOutboundHTTPRouteConfig(t *testing.T) {
@@ -551,7 +558,7 @@ func TestSidecarOutboundHTTPRouteConfig(t *testing.T) {
 				Route: []*networking.HTTPRouteDestination{
 					{
 						Destination: &networking.Destination{
-							//Subset: "some-subset",
+							// Subset: "some-subset",
 							Host: "example.org",
 							Port: &networking.PortSelector{
 								Number: 61,
@@ -774,8 +781,10 @@ func TestSidecarOutboundHTTPRouteConfig(t *testing.T) {
 			sidecarConfig:         sidecarConfig,
 			virtualServiceConfigs: nil,
 			expectedHosts: map[string]map[string]bool{
-				"bookinfo.com:9999": {"bookinfo.com:9999": true, "bookinfo.com": true,
-					"*.bookinfo.com:9999": true, "*.bookinfo.com": true},
+				"bookinfo.com:9999": {
+					"bookinfo.com:9999": true, "bookinfo.com": true,
+					"*.bookinfo.com:9999": true, "*.bookinfo.com": true,
+				},
 				"block_all": {
 					"*": true,
 				},
@@ -806,8 +815,10 @@ func TestSidecarOutboundHTTPRouteConfig(t *testing.T) {
 				"test-private.com:70": {
 					"test-private.com": true, "test-private.com:70": true, "9.9.9.9": true, "9.9.9.9:70": true,
 				},
-				"bookinfo.com:70": {"bookinfo.com": true, "bookinfo.com:70": true,
-					"*.bookinfo.com": true, "*.bookinfo.com:70": true},
+				"bookinfo.com:70": {
+					"bookinfo.com": true, "bookinfo.com:70": true,
+					"*.bookinfo.com": true, "*.bookinfo.com:70": true,
+				},
 				"block_all": {
 					"*": true,
 				},
@@ -820,8 +831,10 @@ func TestSidecarOutboundHTTPRouteConfig(t *testing.T) {
 			sidecarConfig:         nil,
 			virtualServiceConfigs: nil,
 			expectedHosts: map[string]map[string]bool{
-				"bookinfo.com:9999": {"bookinfo.com:9999": true, "bookinfo.com": true,
-					"*.bookinfo.com:9999": true, "*.bookinfo.com": true},
+				"bookinfo.com:9999": {
+					"bookinfo.com:9999": true, "bookinfo.com": true,
+					"*.bookinfo.com:9999": true, "*.bookinfo.com": true,
+				},
 				"block_all": {
 					"*": true,
 				},
@@ -835,7 +848,8 @@ func TestSidecarOutboundHTTPRouteConfig(t *testing.T) {
 			virtualServiceConfigs: nil,
 			expectedHosts: map[string]map[string]bool{
 				"test.com:8080": {
-					"test.com:8080": true, "test.com": true, "8.8.8.8": true, "8.8.8.8:8080": true},
+					"test.com:8080": true, "test.com": true, "8.8.8.8": true, "8.8.8.8:8080": true,
+				},
 				"block_all": {
 					"*": true,
 				},
@@ -866,8 +880,10 @@ func TestSidecarOutboundHTTPRouteConfig(t *testing.T) {
 				"test-private.com:70": {
 					"test-private.com": true, "test-private.com:70": true, "9.9.9.9": true, "9.9.9.9:70": true,
 				},
-				"bookinfo.com:70": {"bookinfo.com": true, "bookinfo.com:70": true,
-					"*.bookinfo.com": true, "*.bookinfo.com:70": true},
+				"bookinfo.com:70": {
+					"bookinfo.com": true, "bookinfo.com:70": true,
+					"*.bookinfo.com": true, "*.bookinfo.com:70": true,
+				},
 				"block_all": {
 					"*": true,
 				},

@@ -25,7 +25,7 @@ import (
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/echo/common/response"
 	"istio.io/istio/pkg/test/echo/proto"
-	"istio.io/istio/pkg/test/framework/resource"
+	"istio.io/istio/pkg/test/framework/components/cluster"
 )
 
 var (
@@ -202,7 +202,7 @@ func (r ParsedResponses) clusterDistribution() map[string]int {
 // CheckReachedClusters returns an error if there wasn't at least one response from each of the given clusters.
 // This can be used in combination with echo.Instances.Clusters(), for example:
 //     echoA[0].CallOrFail(t, ...).CheckReachedClusters(echoB.Clusters())
-func (r ParsedResponses) CheckReachedClusters(clusters resource.Clusters) error {
+func (r ParsedResponses) CheckReachedClusters(clusters cluster.Clusters) error {
 	hits := r.clusterDistribution()
 	exp := map[string]struct{}{}
 	for _, expCluster := range clusters {
@@ -222,7 +222,7 @@ func (r ParsedResponses) CheckReachedClusters(clusters resource.Clusters) error 
 // CheckEqualClusterTraffic checks that traffic was equally distributed across the given clusters, allowing some percent error.
 // For example, with 100 requests and 20 percent error, each cluster must given received 20±4 responses. Only the passed
 // in clusters will be validated.
-func (r ParsedResponses) CheckEqualClusterTraffic(clusters resource.Clusters, precisionPct int) error {
+func (r ParsedResponses) CheckEqualClusterTraffic(clusters cluster.Clusters, precisionPct int) error {
 	clusterHits := r.clusterDistribution()
 	expected := len(r) / len(clusters)
 	precision := int(float32(expected) * (float32(precisionPct) / 100))

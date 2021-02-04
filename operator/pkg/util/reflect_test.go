@@ -211,8 +211,10 @@ func TestIsTypeFuncs(t *testing.T) {
 	var testNilSlice []bool
 	var testNilMap map[bool]bool
 
-	allTypes := []interface{}{nil, testInt, &testInt, testStruct, &testStruct, testNilSlice,
-		testSlice, &testSlice, testSliceOfInterface, testNilMap, testMap, &testMap}
+	allTypes := []interface{}{
+		nil, testInt, &testInt, testStruct, &testStruct, testNilSlice,
+		testSlice, &testSlice, testSliceOfInterface, testNilMap, testMap, &testMap,
+	}
 
 	tests := []struct {
 		desc     string
@@ -367,7 +369,6 @@ var (
 )
 
 func TestIsInteger(t *testing.T) {
-
 	tests := []struct {
 		desc     string
 		function func(v reflect.Kind) bool

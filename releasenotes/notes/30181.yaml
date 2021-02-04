@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: networking
+issue:
+  - 30181
+releaseNotes:
+  - |
+    **Fixed** a bug when baseEjectionTime is greater than 300s, envoy will send a NACK to cds .

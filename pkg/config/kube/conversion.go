@@ -29,19 +29,19 @@ const (
 	MongoDB = 27017
 )
 
-var (
-	// Ports be skipped for protocol sniffing. Applications bound to these ports will be broken if
-	// protocol sniffing is enabled.
-	wellKnownPorts = map[int32]struct{}{
-		SMTP:    {},
-		DNS:     {},
-		MySQL:   {},
-		MongoDB: {},
-	}
-)
+// Ports be skipped for protocol sniffing. Applications bound to these ports will be broken if
+// protocol sniffing is enabled.
+var wellKnownPorts = map[int32]struct{}{
+	SMTP:    {},
+	DNS:     {},
+	MySQL:   {},
+	MongoDB: {},
+}
 
-var grpcWeb = string(protocol.GRPCWeb)
-var grpcWebLen = len(grpcWeb)
+var (
+	grpcWeb    = string(protocol.GRPCWeb)
+	grpcWebLen = len(grpcWeb)
+)
 
 // ConvertProtocol from k8s protocol and port name
 func ConvertProtocol(port int32, portName string, proto coreV1.Protocol, appProto *string) protocol.Instance {

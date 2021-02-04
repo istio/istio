@@ -41,9 +41,7 @@ const (
 	IstioIngressController = "istio.io/ingress-controller"
 )
 
-var (
-	errNotFound = errors.New("item not found")
-)
+var errNotFound = errors.New("item not found")
 
 // EncodeIngressRuleName encodes an ingress rule name for a given ingress resource name,
 // as well as the position of the rule and path specified within it, counting from 1.

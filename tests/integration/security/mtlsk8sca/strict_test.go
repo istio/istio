@@ -35,7 +35,6 @@ func TestMtlsStrictK8sCA(t *testing.T) {
 	framework.NewTest(t).
 		Features("security.control-plane.k8s-certs.k8sca").
 		Run(func(ctx framework.TestContext) {
-
 			systemNM := istio.ClaimSystemNamespaceOrFail(ctx, ctx)
 
 			testCases := []reachability.TestCase{

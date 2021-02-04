@@ -43,13 +43,11 @@ import (
 	"istio.io/istio/pkg/kube"
 )
 
-var (
-	istioOperatorGVR = apimachinery_schema.GroupVersionResource{
-		Group:    v1alpha1.SchemeGroupVersion.Group,
-		Version:  v1alpha1.SchemeGroupVersion.Version,
-		Resource: "istiooperators",
-	}
-)
+var istioOperatorGVR = apimachinery_schema.GroupVersionResource{
+	Group:    v1alpha1.SchemeGroupVersion.Group,
+	Version:  v1alpha1.SchemeGroupVersion.Version,
+	Resource: "istiooperators",
+}
 
 // StatusVerifier checks status of certain resources like deployment,
 // jobs and also verifies count of certain resource types.
@@ -139,6 +137,7 @@ func (v *StatusVerifier) verifyInstallIOPRevision() error {
 
 func (v *StatusVerifier) getRevision() (string, error) {
 	var revision string
+	var revs string
 	revCount := 0
 	kubeClient, err := v.createClient()
 	if err != nil {
@@ -156,7 +155,12 @@ func (v *StatusVerifier) getRevision() (string, error) {
 		}
 		revision = rev
 	}
-	v.logger.LogAndPrintf("%d Istio control planes detected, checking --revision %q only", revCount, revision)
+	if revision == "" {
+		revs = "default"
+	} else {
+		revs = revision
+	}
+	v.logger.LogAndPrintf("%d Istio control planes detected, checking --revision %q only", revCount, revs)
 	return revision, nil
 }
 

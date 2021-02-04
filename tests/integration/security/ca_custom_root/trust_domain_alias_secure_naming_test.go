@@ -67,7 +67,7 @@ func TestTrustDomainAliasSecureNaming(t *testing.T) {
 	framework.NewTest(t).
 		Features("security.peer.trust-domain-alias-secure-naming").
 		Run(func(ctx framework.TestContext) {
-			//TODO: remove the skip when https://github.com/istio/istio/issues/28798 is fixed
+			// TODO: remove the skip when https://github.com/istio/istio/issues/28798 is fixed
 			if ctx.Clusters().IsMulticluster() {
 				ctx.Skip()
 			}

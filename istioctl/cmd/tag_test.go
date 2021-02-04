@@ -22,7 +22,7 @@ import (
 	"strings"
 	"testing"
 
-	admit_v1 "k8s.io/api/admissionregistration/v1"
+	admit_v1 "k8s.io/api/admissionregistration/v1beta1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -31,8 +31,8 @@ import (
 
 	"istio.io/api/label"
 	"istio.io/istio/operator/pkg/helmreconciler"
+	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/test/env"
-	"istio.io/istio/pkg/test/kube"
 )
 
 var (
@@ -343,7 +343,7 @@ func TestRemoveTag(t *testing.T) {
 			}
 
 			// check mutating webhooks after run
-			webhooksAfter, _ := client.AdmissionregistrationV1().MutatingWebhookConfigurations().List(context.Background(), metav1.ListOptions{})
+			webhooksAfter, _ := client.AdmissionregistrationV1beta1().MutatingWebhookConfigurations().List(context.Background(), metav1.ListOptions{})
 			if len(webhooksAfter.Items) != len(tc.webhooksAfter.Items) {
 				t.Fatalf("expected %d after running, got %d", len(tc.webhooksAfter.Items), len(webhooksAfter.Items))
 			}

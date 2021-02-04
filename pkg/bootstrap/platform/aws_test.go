@@ -35,8 +35,10 @@ func TestAWSMetadata(t *testing.T) {
 	}{
 		{"empty", &awsEnv{}, map[string]string{}},
 		{"locality", &awsEnv{identity: localityIdentity}, map[string]string{AWSAvailabilityZone: "zone", AWSRegion: "region"}},
-		{"full", &awsEnv{identity: fullIdentity},
-			map[string]string{AWSAvailabilityZone: "zone", AWSRegion: "region", AWSAccountID: "account", AWSInstanceID: "instance"}},
+		{
+			"full", &awsEnv{identity: fullIdentity},
+			map[string]string{AWSAvailabilityZone: "zone", AWSRegion: "region", AWSAccountID: "account", AWSInstanceID: "instance"},
+		},
 	}
 
 	for _, v := range cases {

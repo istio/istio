@@ -29,7 +29,6 @@ import (
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"istio.io/istio/pkg/kube"
-	testKube "istio.io/istio/pkg/test/kube"
 )
 
 // mockPromAPI lets us mock calls to Prometheus API
@@ -38,7 +37,7 @@ type mockPromAPI struct {
 }
 
 func mockExecClientAuthNoPilot(_, _, _ string) (kube.ExtendedClient, error) {
-	return &testKube.MockClient{}, nil
+	return &kube.MockClient{}, nil
 }
 
 func TestMetricsNoPrometheus(t *testing.T) {
@@ -83,7 +82,7 @@ func TestMetrics(t *testing.T) {
 }
 
 func mockPortForwardClientAuthPrometheus(_, _, _ string) (kube.ExtendedClient, error) {
-	return &testKube.MockClient{
+	return &kube.MockClient{
 		DiscoverablePods: map[string]map[string]*v1.PodList{
 			"istio-system": {
 				"app=prometheus": {
@@ -184,6 +183,7 @@ func (client mockPromAPI) Query(ctx context.Context, query string, ts time.Time)
 func (client mockPromAPI) TSDB(ctx context.Context) (promv1.TSDBResult, error) {
 	return promv1.TSDBResult{}, nil
 }
+
 func (client mockPromAPI) QueryRange(ctx context.Context, query string, r promv1.Range) (prometheus_model.Value, promv1.Warnings, error) {
 	canned, ok := client.cannedResponse[query]
 	if !ok {

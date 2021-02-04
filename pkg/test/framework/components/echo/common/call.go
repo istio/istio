@@ -22,6 +22,7 @@ import (
 	"net/http"
 	"reflect"
 	"strconv"
+	"strings"
 	"time"
 
 	"istio.io/istio/pkg/config/protocol"
@@ -39,7 +40,6 @@ type sendFunc func(req *proto.ForwardEchoRequest) (client.ParsedResponses, error
 
 func callInternal(srcName string, opts *echo.CallOptions, send sendFunc,
 	doRetry bool, retryOptions ...retry.Option) (client.ParsedResponses, error) {
-
 	if err := fillInCallOptions(opts); err != nil {
 		return nil, err
 	}
@@ -138,9 +138,22 @@ func CallEcho(opts *echo.CallOptions, retry bool, retryOptions ...retry.Option) 
 
 func ForwardEcho(srcName string, c *client.Instance, opts *echo.CallOptions,
 	retry bool, retryOptions ...retry.Option) (client.ParsedResponses, error) {
-	return callInternal(srcName, opts, func(req *proto.ForwardEchoRequest) (client.ParsedResponses, error) {
+	res, err := callInternal(srcName, opts, func(req *proto.ForwardEchoRequest) (client.ParsedResponses, error) {
 		return c.ForwardEcho(context.Background(), req)
 	}, retry, retryOptions...)
+	if err != nil {
+		if opts.Port != nil {
+			err = fmt.Errorf("failed calling %s->'%s://%s:%d/%s': %v",
+				srcName,
+				strings.ToLower(string(opts.Port.Protocol)),
+				opts.Address,
+				opts.Port.ServicePort,
+				opts.Path,
+				err)
+		}
+		return nil, err
+	}
+	return res, nil
 }
 
 func fillInCallOptions(opts *echo.CallOptions) error {

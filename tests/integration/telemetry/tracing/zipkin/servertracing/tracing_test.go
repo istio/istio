@@ -59,10 +59,8 @@ func TestProxyTracing(t *testing.T) {
 						return nil
 					}, retry.Delay(3*time.Second), retry.Timeout(80*time.Second))
 				})
-
 			}
 		})
-
 }
 
 func TestMain(m *testing.M) {
