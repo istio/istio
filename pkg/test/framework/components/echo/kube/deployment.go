@@ -66,15 +66,15 @@ spec:
 `
 
 	deploymentYAML = `
-{{- $versions := .Versions }}
+{{- $versions := .Revisions }}
 {{- $subsets := .Subsets }}
 {{- $cluster := .Cluster }}
 {{- range $i, $subset := $subsets }}
-{{- range $j, $version := $versions }}
+{{- range $j, $revision := $versions }}
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: {{ $.Service }}-{{ $subset.Version }}-{{ $version }}
+  name: {{ $.Service }}-{{ $subset.Version }}-{{ $revision }}
 spec:
   replicas: 1
   selector:
@@ -89,10 +89,10 @@ spec:
       labels:
         app: {{ $.Service }}
         version: {{ $subset.Version }}
-{{- if eq $version "default" }}
+{{- if eq $revision "default" }}
         sidecar.istio.io/inject: "true"
-{{- else if ne $version "" }}
-        istio.io/rev: {{ $version }}
+{{- else if ne $revision "" }}
+        istio.io/rev: {{ $revision }}
 {{- end }}
 {{- if ne $.Locality "" }}
         istio-locality: {{ $.Locality }}
@@ -470,7 +470,7 @@ func templateParams(cfg echo.Config, settings *image.Settings) (map[string]inter
 		"Cluster":            cfg.Cluster.Name(),
 		"Namespace":          namespace,
 		"ImagePullSecret":    imagePullSecret,
-		"Versions":           cfg.Cluster.Versions(),
+		"Revisions":          cfg.Cluster.Revisions(),
 		"VM": map[string]interface{}{
 			"Image": vmImage,
 		},
