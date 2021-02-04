@@ -272,14 +272,23 @@ else
   DISABLED_TESTS+="|TestValidation|TestWebhook" # BROKEN: b/170404545 currently broken
   DISABLED_TESTS+="|TestAddToAndRemoveFromMesh" # BROKEN: Test current doesn't respect --istio.test.revision
   DISABLED_TESTS+="|TestGateway" # BROKEN: CRDs need to be deployed before Istiod runs. In this case, we install Istiod first, causing failure.
+  DISABLED_TESTS+="|TestRevisionedUpgrade" # UNSUPPORTED: OSS Control Plane upgrade is not supported by MCP.
   # telemetry/ tests
   DISABLED_TESTS+="|TestStackdriverHTTPAuditLogging" # UNKNOWN
+  DISABLED_TESTS+="|TestIstioctlMetrics" # UNKNOWN
+  DISABLED_TESTS+="|TestStatsFilter" # UNKNOWN
+  DISABLED_TESTS+="|TestTcpMetric" # UNKNOWN
+  DISABLED_TESTS+="|TestBadWasmRemoteLoad" # UNKNOWN
+  DISABLED_TESTS+="|TestWasmStatsFilter" # UNKNOWN
+  DISABLED_TESTS+="|TestWASMTcpMetric" # UNKNOWN
   DISABLED_TESTS+="|TestDashboard" # UNSUPPORTED: Relies on istiod in cluster. TODO: filter out only pilot-dashboard.json
   DISABLED_TESTS+="|TestCustomizeMetrics|TestProxyTracing|TestClientTracing|TestStackdriverMonitoring|TestTCPStackdriverMonitoring|TestRateLimiting" # UNKNOWN
   DISABLED_TESTS+="|TestOutboundTrafficPolicy" # UNSUPPORTED: Relies on egress gateway deployed to the cluster. TODO: filter out only Traffic_Egress
   # security/ tests
   DISABLED_TESTS+="|TestAuthorization_IngressGateway" # UNKNOWN
   DISABLED_TESTS+="|TestAuthorization_EgressGateway" # UNKNOWN
+  DISABLED_TESTS+="|TestMtlsHealthCheck" # UNKNOWN
+  DISABLED_TESTS+="|TestStrictMTLS" # UNKNOWN
   DISABLED_TESTS+="|TestAuthorization_Custom" # UNSUPPORTED: requires mesh config
   # DISABLED_PACKAGES contains a list of all packages we skip
   DISABLED_PACKAGES="/multicluster" # NOT SUPPORTED
