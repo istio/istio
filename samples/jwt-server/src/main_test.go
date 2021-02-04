@@ -32,7 +32,6 @@ func TestJwtServer(t *testing.T) {
 		t.Fatalf(err.Error())
 	}
 	resp, err := httpClient.Do(httpReq)
-
 	if err != nil {
 		t.Fatalf(err.Error())
 	}
