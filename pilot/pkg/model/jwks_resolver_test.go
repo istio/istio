@@ -354,6 +354,56 @@ func TestJwtPubKeyRefreshWithNetworkError(t *testing.T) {
 	verifyKeyLastRefreshedTime(t, r, ms, false /* wantChanged */)
 }
 
+func TestJwtRefreshIntervalOnFailureAndResetToDefault(t *testing.T) {
+	r := newJwksResolver(
+		JwtPubKeyEvictionDuration,
+		100*time.Millisecond, /*RefreshInterval*/
+		2*time.Millisecond,   /*RefreshIntervalOnFailure*/
+		testRetryInterval,
+	)
+	defer r.Close()
+
+	ms := startMockServer(t)
+	defer ms.Stop()
+
+	// Configures the mock server to return error after the first request.
+	ms.ReturnErrorAfterFirstNumHits = 2
+	ms.ReturnSuccessAfterFirstNumHits = 20
+
+	mockCertURL := ms.URL + "/oauth2/v3/certs"
+	_, err := r.GetPublicKey("", mockCertURL)
+	if err != nil {
+		t.Fatalf("GetPublicKey(\"\", %+v) fails: expected no error, got (%v)", mockCertURL, err)
+	}
+
+	// note that calling refresh has the side effect that it does hit the mockserver and hence we will already do the 2nd hit.
+	refreshInverval := r.refresh()
+	if refreshInverval != r.refreshDefaultInterval {
+		t.Errorf("first test on refresh interval failed, expected: %s, got: %s", r.refreshDefaultInterval, refreshInverval)
+	}
+
+	// sleep a bit more than the default refresh interval so we are expected to operate the refresh in failure mode.
+	time.Sleep(r.refreshDefaultInterval + 1*time.Millisecond)
+	refreshInverval = r.refresh()
+	if refreshInverval != r.refreshIntervalOnFailure {
+		t.Errorf("2nd test on refresh interval failed, expected: %s, got: %s", r.refreshIntervalOnFailure, refreshInverval)
+	}
+
+	// sleep long enough to get back to the default interval. Note that the refreshs also consume some time.
+	time.Sleep(20 * r.refreshIntervalOnFailure)
+	refreshInverval = r.refresh()
+	if refreshInverval != r.refreshDefaultInterval {
+		t.Errorf("3rd test on refresh interval failed, expected: %s, got: %s", r.refreshDefaultInterval, refreshInverval)
+	}
+
+	// test after two more default refresh intervals and expect that we are still on the default interval.
+	time.Sleep(2 * r.refreshDefaultInterval)
+	refreshInverval = r.refresh()
+	if refreshInverval != r.refreshDefaultInterval {
+		t.Errorf("4th test on refresh interval failed, expected: %s, got: %s", r.refreshDefaultInterval, refreshInverval)
+	}
+}
+
 func getCounterValue(counterName string, t *testing.T) float64 {
 	counterValue := 0.0
 	if data, err := view.RetrieveData(counterName); err == nil {
