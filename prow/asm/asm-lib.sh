@@ -298,6 +298,11 @@ function setup_private_ca() {
 # Cleanup the private CAs.
 # Parameters: $1 - a string of k8s contexts
 function cleanup_private_ca() {
+  # Install the uuid tool to generate uuid for the curl command to purge CA in
+  # the end.
+  apt-get update
+  apt-get install uuid -y
+
   for i in "${!CONTEXTS[@]}"; do
     IFS="_" read -r -a VALS <<< "${CONTEXTS[$i]}"
     PROJECT_ID="${VALS[1]}"
@@ -340,7 +345,20 @@ function purge-ca() {
   if gcloud beta privateca "$1" describe "$2" --format "value(state)" --location="$3" --project="$4" | grep -q "ENABLED" ; then
     echo "> Disabling and deleting CA.."
     gcloud beta privateca "$1" disable "$2" --location="$3" --project="$4" --quiet
-    gcloud beta privateca "$1" delete "$2" --location="$3" --project="$4" --quiet
+    # As suggested in
+    # https://buganizer.corp.google.com/issues/179162450#comment10, delete root
+    # CA with the curl command instead of calling `gcloud beta privateca roots
+    # delete`
+    if [[ "$4" == "${CENTRAL_GCP_PROJECT}" ]]; then
+      curl \
+        -H "Authorization: Bearer $(gcloud auth print-access-token)" \
+        -H "Content-Type: application/json" \
+        -X POST \
+        -d '{ "deletePendingDuration": "0s" }' \
+        "https://privateca.googleapis.com/v1beta1/projects/$4/locations/$3/certificateAuthorities/$2:scheduleDelete?requestId=$(uuid)"
+    else
+      gcloud beta privateca "$1" delete "$2" --location="$3" --project="$4" --quiet
+    fi
   fi
 }
 
