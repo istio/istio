@@ -81,6 +81,8 @@ type upgradeArgs struct {
 	force bool
 	// manifestsPath is a path to a charts and profiles directory in the local filesystem, or URL with a release tgz.
 	manifestsPath string
+	// currentManifestsPath is a path to a charts and profiles directory for the current version of istio, or URL with a release tgz.
+	currentManifestsPath string
 	// verify verifies control plane health
 	verify bool
 }
@@ -102,6 +104,7 @@ func addUpgradeFlags(cmd *cobra.Command, args *upgradeArgs) {
 	cmd.PersistentFlags().StringArrayVarP(&args.set, "set", "s", nil, setFlagHelpStr)
 	cmd.PersistentFlags().StringVarP(&args.manifestsPath, "charts", "", "", ChartsDeprecatedStr)
 	cmd.PersistentFlags().StringVarP(&args.manifestsPath, "manifests", "d", "", ManifestsFlagHelpStr)
+	cmd.PersistentFlags().StringVarP(&args.currentManifestsPath, "current-manifests", "", "", CurrentManifestsFlagHelpStr)
 	cmd.PersistentFlags().BoolVar(&args.verify, "verify", false, VerifyCRInstallHelpStr)
 }
 
@@ -199,7 +202,11 @@ func upgrade(rootArgs *rootArgs, args *upgradeArgs, l clog.Logger) (err error) {
 	// Read the current installation's profile IOP yaml to check the changed profile settings between versions.
 	currentSets := args.set
 	if currentVersion != "" {
-		currentSets = append(currentSets, "installPackagePath="+releaseURLFromVersion(currentVersion))
+		if args.currentManifestsPath != "" {
+			currentSets = append(currentSets, "installPackagePath="+args.currentManifestsPath)
+		} else {
+			currentSets = append(currentSets, "installPackagePath="+releaseURLFromVersion(currentVersion))
+		}
 	}
 	profile := targetIOP.Spec.Profile
 	if profile == "" {

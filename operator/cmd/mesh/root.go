@@ -35,6 +35,11 @@ settings (--set meshConfig.enableTracing=true). See documentation for more info:
 (e.g. ~/Downloads/istio-` + baseVersion + `/manifests)
 or release tar URL (e.g. ` + url.ReleaseTar + `).
 `
+	// CurrentManifestsFlagHelpStr is the command line description for --manifests
+	CurrentManifestsFlagHelpStr = `Specify a path to a directory of charts and profiles for the current version of istio
+(e.g. ~/Downloads/istio-1.9.0/manifests)
+or release tar URL (e.g. https://github.com/istio/istio/releases/download/1.9.0/istio-1.9.0-linux-amd64.tar.gz).
+`
 )
 
 const (
