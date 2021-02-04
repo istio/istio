@@ -174,8 +174,10 @@ func (cr *store) Update(cfg config.Config) (string, error) {
 	if !ok {
 		return "", errors.New("unknown type")
 	}
-	if _, err := s.Resource().ValidateConfig(cfg); err != nil {
-		return "", err
+	if !cr.skipValidation {
+		if _, err := s.Resource().ValidateConfig(cfg); err != nil {
+			return "", err
+		}
 	}
 
 	ns, exists := cr.data[kind][cfg.Namespace]
@@ -202,8 +204,10 @@ func (cr *store) UpdateStatus(cfg config.Config) (string, error) {
 	if !ok {
 		return "", errors.New("unknown type")
 	}
-	if _, err := s.Resource().ValidateConfig(cfg); err != nil {
-		return "", err
+	if !cr.skipValidation {
+		if _, err := s.Resource().ValidateConfig(cfg); err != nil {
+			return "", err
+		}
 	}
 
 	ns, exists := cr.data[kind][cfg.Namespace]
@@ -233,8 +237,10 @@ func (cr *store) Patch(orig config.Config, patchFn config.PatchFunc) (string, er
 	}
 
 	cfg, _ := patchFn(orig)
-	if _, err := s.Resource().ValidateConfig(cfg); err != nil {
-		return "", err
+	if !cr.skipValidation {
+		if _, err := s.Resource().ValidateConfig(cfg); err != nil {
+			return "", err
+		}
 	}
 
 	_, ok = cr.data[gvk]
