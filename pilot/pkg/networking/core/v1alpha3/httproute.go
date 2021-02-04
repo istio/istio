@@ -37,8 +37,10 @@ import (
 	"istio.io/istio/pkg/proto"
 )
 
-const wildcardDomainPrefix = "*."
-const inboundVirtualHostPrefix = string(model.TrafficDirectionInbound) + "|http|"
+const (
+	wildcardDomainPrefix     = "*."
+	inboundVirtualHostPrefix = string(model.TrafficDirectionInbound) + "|http|"
+)
 
 // BuildHTTPRoutes produces a list of routes for the proxy
 func (configgen *ConfigGeneratorImpl) BuildHTTPRoutes(node *model.Proxy, push *model.PushContext,
@@ -116,7 +118,6 @@ func traceOperation(host string, port int) string {
 // Based on port, will determine all virtual hosts that listen on the port.
 func (configgen *ConfigGeneratorImpl) buildSidecarOutboundHTTPRouteConfig(node *model.Proxy, push *model.PushContext,
 	routeName string, vHostCache map[int][]*route.VirtualHost) *route.RouteConfiguration {
-
 	var virtualHosts []*route.VirtualHost
 	listenerPort := 0
 	useSniffing := false
@@ -186,7 +187,6 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundHTTPRouteConfig(node *
 
 func (configgen *ConfigGeneratorImpl) buildSidecarOutboundVirtualHosts(node *model.Proxy, push *model.PushContext,
 	routeName string, listenerPort int) []*route.VirtualHost {
-
 	var virtualServices []config.Config
 	var services []*model.Service
 
@@ -486,6 +486,7 @@ func reverseArray(r []string) []string {
 	}
 	return r
 }
+
 func min(a, b int) int {
 	if a < b {
 		return a

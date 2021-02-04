@@ -114,7 +114,8 @@ func UninstallCmd(logOpts *log.Options) *cobra.Command {
 		},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return uninstall(cmd, rootArgs, uiArgs, logOpts)
-		}}
+		},
+	}
 	addUninstallFlags(uicmd, uiArgs)
 	return uicmd
 }

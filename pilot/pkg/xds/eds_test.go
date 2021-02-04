@@ -198,7 +198,7 @@ func TestTunnelServerEndpointEds(t *testing.T) {
 				Address:         "127.0.0.1",
 				ServicePortName: "http-main",
 				EndpointPort:    80,
-				//Labels:          map[string]string{"version": version},
+				// Labels:          map[string]string{"version": version},
 				ServiceAccount: "hello-sa",
 				TunnelAbility:  networking.MakeTunnelAbility(networking.H2Tunnel),
 			},
@@ -237,7 +237,7 @@ func TestNoTunnelServerEndpointEds(t *testing.T) {
 				Address:         "127.0.0.1",
 				ServicePortName: "http-main",
 				EndpointPort:    80,
-				//Labels:          map[string]string{"version": version},
+				// Labels:          map[string]string{"version": version},
 				ServiceAccount: "hello-sa",
 				// No Tunnel Support at this endpoint.
 				TunnelAbility: networking.MakeTunnelAbility(),
@@ -276,6 +276,7 @@ func mustReadFile(t *testing.T, fpaths ...string) string {
 	}
 	return result
 }
+
 func mustReadfolder(t *testing.T, folder string) string {
 	result := ""
 	fpathRoot := folder
@@ -324,8 +325,10 @@ func TestEdsWeightedServiceEntry(t *testing.T) {
 	}
 }
 
-var watchEds = []string{v3.ClusterType, v3.EndpointType}
-var watchAll = []string{v3.ClusterType, v3.EndpointType, v3.ListenerType, v3.RouteType}
+var (
+	watchEds = []string{v3.ClusterType, v3.EndpointType}
+	watchAll = []string{v3.ClusterType, v3.EndpointType, v3.ListenerType, v3.RouteType}
+)
 
 func TestEDSOverlapping(t *testing.T) {
 	s := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{})
@@ -400,7 +403,8 @@ func TestEndpointFlipFlops(t *testing.T) {
 				Address:         "10.10.1.1",
 				ServicePortName: "http",
 				EndpointPort:    8080,
-			}})
+			},
+		})
 
 	upd, _ = adscConn.Wait(5*time.Second, v3.EndpointType)
 
@@ -552,7 +556,8 @@ func testOverlappingPorts(s *xds.FakeDiscoveryServer, adsc *adsc.ADSC, t *testin
 		ConfigsUpdated: map[model.ConfigKey]struct{}{{
 			Kind: gvk.ServiceEntry,
 			Name: "overlapping.cluster.local",
-		}: {}}})
+		}: {}},
+	})
 	_, _ = adsc.Wait(5 * time.Second)
 
 	// After the incremental push, we should still see the endpoint
@@ -645,7 +650,6 @@ func edsFullUpdateCheck(adsc *adsc.ADSC, t *testing.T) {
 // - service account changes -> full ( in future: CDS only )
 // - label changes -> full
 func edsUpdateInc(s *xds.FakeDiscoveryServer, adsc *adsc.ADSC, t *testing.T) {
-
 	// TODO: set endpoints for a different cluster (new shard)
 
 	// Verify initial state

@@ -40,15 +40,13 @@ import (
 	"istio.io/pkg/log"
 )
 
-var (
-	dummyServiceInstance = &model.ServiceInstance{
-		Service:     &model.Service{},
-		ServicePort: &model.Port{},
-		Endpoint: &model.IstioEndpoint{
-			EndpointPort: 15006,
-		},
-	}
-)
+var dummyServiceInstance = &model.ServiceInstance{
+	Service:     &model.Service{},
+	ServicePort: &model.Port{},
+	Endpoint: &model.IstioEndpoint{
+		EndpointPort: 15006,
+	},
+}
 
 // A stateful listener builder
 // Support the below intentions
@@ -319,7 +317,6 @@ func (lb *ListenerBuilder) buildHTTPProxyListener(configgen *ConfigGeneratorImpl
 }
 
 func (lb *ListenerBuilder) buildVirtualOutboundListener(configgen *ConfigGeneratorImpl) *ListenerBuilder {
-
 	var isTransparentProxy *wrappers.BoolValue
 	if lb.node.GetInterceptionMode() == model.InterceptionTproxy {
 		isTransparentProxy = proto.BoolTrue
@@ -659,7 +656,6 @@ func buildInboundCatchAllHTTPFilterChains(configgen *ConfigGeneratorImpl, node *
 }
 
 func buildOutboundCatchAllNetworkFiltersOnly(push *model.PushContext, node *model.Proxy) []*listener.Filter {
-
 	filterStack := make([]*listener.Filter, 0)
 	var egressCluster string
 
@@ -697,7 +693,6 @@ func buildOutboundCatchAllNetworkFiltersOnly(push *model.PushContext, node *mode
 // See https://github.com/istio/istio/issues/21170
 func buildOutboundCatchAllNetworkFilterChains(_ *ConfigGeneratorImpl,
 	node *model.Proxy, push *model.PushContext) []*listener.FilterChain {
-
 	filterStack := buildOutboundCatchAllNetworkFiltersOnly(push, node)
 	chains := make([]*listener.FilterChain, 0, 2)
 	if features.PilotEnableLoopBlockers {

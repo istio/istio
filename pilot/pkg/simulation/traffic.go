@@ -63,9 +63,7 @@ func (c Call) IsHTTP() bool {
 	return httpProtocols.Contains(string(c.Protocol)) && (c.TLS == Plaintext || c.TLS == "")
 }
 
-var (
-	httpProtocols = sets.NewSet(string(HTTP), string(HTTP2))
-)
+var httpProtocols = sets.NewSet(string(HTTP), string(HTTP2))
 
 var (
 	ErrNoListener          = errors.New("no listener matched")

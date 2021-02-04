@@ -80,15 +80,13 @@ import (
 	"istio.io/pkg/version"
 )
 
-var (
-	// DefaultPlugins is the default list of plugins to enable, when no plugin(s)
-	// is specified through the command line
-	DefaultPlugins = []string{
-		plugin.AuthzCustom,
-		plugin.Authn,
-		plugin.Authz,
-	}
-)
+// DefaultPlugins is the default list of plugins to enable, when no plugin(s)
+// is specified through the command line
+var DefaultPlugins = []string{
+	plugin.AuthzCustom,
+	plugin.Authn,
+	plugin.Authz,
+}
 
 const (
 	// debounce file watcher events to minimize noise in logs
@@ -360,6 +358,7 @@ func initOIDC(args *PilotArgs, trustDomain string) (security.Authenticator, erro
 	if err != nil {
 		return nil, fmt.Errorf("failed to unmarshal JWT rule: %v", err)
 	}
+	log.Infof("Istiod authenticating using JWTRule: %v", jwtRule)
 	jwtAuthn, err := authenticate.NewJwtAuthenticator(&jwtRule, trustDomain)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create the JWT authenticator: %v", err)

@@ -33,13 +33,15 @@ type ServiceAssociationAnalyzer struct{}
 
 var _ analysis.Analyzer = &ServiceAssociationAnalyzer{}
 
-type PortMap map[int32]ProtocolMap
-type ProtocolMap map[core_v1.Protocol]ServiceNames
-type ServiceNames []string
-type ServiceSpecWithName struct {
-	Name string
-	Spec *core_v1.ServiceSpec
-}
+type (
+	PortMap             map[int32]ProtocolMap
+	ProtocolMap         map[core_v1.Protocol]ServiceNames
+	ServiceNames        []string
+	ServiceSpecWithName struct {
+		Name string
+		Spec *core_v1.ServiceSpec
+	}
+)
 
 // targetPort port serviceName
 type targetPortMap map[string]map[int32]string
@@ -55,6 +57,7 @@ func (s *ServiceAssociationAnalyzer) Metadata() analysis.Metadata {
 		},
 	}
 }
+
 func (s *ServiceAssociationAnalyzer) Analyze(c analysis.Context) {
 	c.ForEach(collections.K8SAppsV1Deployments.Name(), func(r *resource.Instance) bool {
 		if util.DeploymentInMesh(r, c) {

@@ -68,15 +68,13 @@ const (
 	KubernetesSecretTypeURI = KubernetesSecretType + "://"
 )
 
-var (
-	SDSAdsConfig = &core.ConfigSource{
-		ConfigSourceSpecifier: &core.ConfigSource_Ads{
-			Ads: &core.AggregatedConfigSource{},
-		},
-		ResourceApiVersion:  core.ApiVersion_V3,
-		InitialFetchTimeout: features.InitialFetchTimeout,
-	}
-)
+var SDSAdsConfig = &core.ConfigSource{
+	ConfigSourceSpecifier: &core.ConfigSource_Ads{
+		Ads: &core.AggregatedConfigSource{},
+	},
+	ResourceApiVersion:  core.ApiVersion_V3,
+	InitialFetchTimeout: features.InitialFetchTimeout,
+}
 
 // ConstructSdsSecretConfigForCredential constructs SDS secret configuration used
 // from certificates referenced by credentialName in DestinationRule or Gateway.

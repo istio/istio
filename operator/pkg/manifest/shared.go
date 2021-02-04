@@ -42,10 +42,8 @@ import (
 	pkgversion "istio.io/pkg/version"
 )
 
-var (
-	// installerScope is the scope for shared manifest package.
-	installerScope = log.RegisterScope("installer", "installer", 0)
-)
+// installerScope is the scope for shared manifest package.
+var installerScope = log.RegisterScope("installer", "installer", 0)
 
 // GenManifests generates a manifest map, keyed by the component name, from input file list and a YAML tree
 // representation of path-values passed through the --set flag.
@@ -102,7 +100,6 @@ func GenerateConfig(inFilenames []string, setFlags []string, force bool, kubeCon
 	}
 
 	iopsString, iops, err := GenIOPFromProfile(profile, fy, setFlags, force, false, kubeConfig, l)
-
 	if err != nil {
 		return "", nil, err
 	}
@@ -122,7 +119,6 @@ func GenerateConfig(inFilenames []string, setFlags []string, force bool, kubeCon
 // files and the --set flag. If successful, it returns an IstioOperator string and struct.
 func GenIOPFromProfile(profileOrPath, fileOverlayYAML string, setFlags []string, skipValidation, allowUnknownField bool,
 	kubeConfig *rest.Config, l clog.Logger) (string, *iopv1alpha1.IstioOperator, error) {
-
 	installPackagePath, err := getInstallPackagePath(fileOverlayYAML)
 	if err != nil {
 		return "", nil, err
@@ -370,7 +366,6 @@ func getClusterSpecificValues(config *rest.Config, force bool, l clog.Logger) (s
 	}
 
 	return makeTreeFromSetList(overlays)
-
 }
 
 func getFSGroupOverlay(config *rest.Config) (string, error) {

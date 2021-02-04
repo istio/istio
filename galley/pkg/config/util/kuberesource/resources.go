@@ -28,7 +28,6 @@ import (
 // In addition, any resources not needed as inputs by the specified collections are disabled
 func DisableExcludedCollections(in collection.Schemas, providers transformer.Providers,
 	requiredCols collection.Names, excludedResourceKinds []string, enableServiceDiscovery bool) collection.Schemas {
-
 	// Get upstream collections in terms of transformer configuration
 	// Required collections are specified in terms of transformer outputs, but we care here about the corresponding inputs
 	upstreamCols := providers.RequiredInputsFor(requiredCols)

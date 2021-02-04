@@ -172,7 +172,6 @@ func (s Schemas) Add(toAdd ...Schema) Schemas {
 	}
 
 	return b.Build()
-
 }
 
 // Remove creates a copy of this Schemas with the given schemas removed.

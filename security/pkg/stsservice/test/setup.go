@@ -145,9 +145,11 @@ func SetupTest(t *testing.T, cb *xdsService.XDSCallbacks, testID uint16, enableC
 	env.ProxyListenerPort = int(proxySetup.Ports().ClientProxyPort)
 	ls := &xdsService.DynamicListener{Port: env.ProxyListenerPort}
 	xds, err := xdsService.StartXDSServer(
-		xdsService.XDSConf{Port: int(proxySetup.Ports().DiscoveryPort),
+		xdsService.XDSConf{
+			Port:     int(proxySetup.Ports().DiscoveryPort),
 			CertFile: istioEnv.IstioSrc + "/security/pkg/stsservice/test/testdata/server-certificate.crt",
-			KeyFile:  istioEnv.IstioSrc + "/security/pkg/stsservice/test/testdata/server-key.key"}, cb, ls, true)
+			KeyFile:  istioEnv.IstioSrc + "/security/pkg/stsservice/test/testdata/server-key.key",
+		}, cb, ls, true)
 	if err != nil {
 		t.Fatalf("failed to start XDS server: %v", err)
 	}

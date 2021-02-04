@@ -176,7 +176,8 @@ func (p PodInfo) makeRequest(configType string) *discovery.DiscoveryRequest {
 		Node: &core.Node{
 			Id: p.makeNodeID(),
 		},
-		TypeUrl: configTypeToTypeURL(configType)}
+		TypeUrl: configTypeToTypeURL(configType),
+	}
 }
 
 func (p PodInfo) appendResources(req *discovery.DiscoveryRequest, resources []string) *discovery.DiscoveryRequest {

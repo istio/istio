@@ -416,7 +416,6 @@ func (s *Server) createIstioCA(client corev1.CoreV1Interface, opts *caOptions) (
 // the caOptions defines the external provider
 func (s *Server) createIstioRA(client kubelib.Client,
 	opts *caOptions) (ra.RegistrationAuthority, error) {
-
 	caCertFile := path.Join(ra.DefaultExtCACertDir, constants.CACertNamespaceConfigMapDataName)
 	if _, err := os.Stat(caCertFile); err != nil {
 		caCertFile = defaultCACertPath
@@ -432,5 +431,4 @@ func (s *Server) createIstioRA(client kubelib.Client,
 		TrustDomain:    opts.TrustDomain,
 	}
 	return ra.NewIstioRA(raOpts)
-
 }

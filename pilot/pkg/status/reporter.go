@@ -70,8 +70,10 @@ type Reporter struct {
 
 var _ xds.DistributionStatusCache = &Reporter{}
 
-const labelKey = "internal.istio.io/distribution-report"
-const dataField = "distribution-report"
+const (
+	labelKey  = "internal.istio.io/distribution-report"
+	dataField = "distribution-report"
+)
 
 // Init starts all the read only features of the reporter, used for nonce generation
 // and responding to istioctl wait.
@@ -299,7 +301,6 @@ func (r *Reporter) readFromEventQueue() {
 		// TODO might need to batch this to prevent lock contention
 		r.processEvent(ev.conID, ev.distributionType, ev.nonce)
 	}
-
 }
 
 func (r *Reporter) processEvent(conID string, distributionType xds.EventType, nonce string) {

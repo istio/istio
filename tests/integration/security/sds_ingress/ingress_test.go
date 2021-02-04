@@ -56,7 +56,6 @@ func TestSingleTlsGateway_SecretRotation(t *testing.T) {
 		NewTest(t).
 		Features("security.ingress.tls.secretrotation").
 		Run(func(ctx framework.TestContext) {
-
 			var (
 				credName = "testsingletlsgateway-secretrotation"
 				host     = "testsingletlsgateway-secretrotation.example.com"
@@ -112,7 +111,6 @@ func TestSingleMTLSGateway_ServerKeyCertRotation(t *testing.T) {
 		NewTest(t).
 		Features("security.ingress.mtls.secretrotation").
 		Run(func(ctx framework.TestContext) {
-
 			var (
 				credName   = []string{"testsinglemtlsgateway-serverkeycertrotation"}
 				credCaName = []string{"testsinglemtlsgateway-serverkeycertrotation-cacert"}
@@ -311,7 +309,6 @@ func TestMultiTlsGateway_InvalidSecret(t *testing.T) {
 		NewTest(t).
 		Features("security.ingress.tls.gateway.invalid-secret").
 		Run(func(ctx framework.TestContext) {
-
 			testCase := []struct {
 				name                     string
 				secretName               string
@@ -434,7 +431,6 @@ func TestMultiMtlsGateway_InvalidSecret(t *testing.T) {
 		NewTest(t).
 		Features("security.ingress.mtls.gateway").
 		Run(func(ctx framework.TestContext) {
-
 			testCase := []struct {
 				name                     string
 				secretName               string

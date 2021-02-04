@@ -45,16 +45,13 @@ const (
 	attrPath       = metaPrefix + "/instance/attributes/{" + attrKey + "}"
 )
 
-var (
-	instAttrs = map[string]string{
-		"instance-template": "some-template",
-		"created-by":        "some-creator",
-	}
-)
+var instAttrs = map[string]string{
+	"instance-template": "some-template",
+	"created-by":        "some-creator",
+}
 
 func checkMetadataHeaders(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-
 		log.Println("request for: " + r.URL.Path)
 		w.Header().Add("Server", "Metadata Server for VM (Fake)")
 		w.Header().Add("Metadata-Flavor", "Google")
@@ -83,7 +80,6 @@ func handleAttrs(w http.ResponseWriter, r *http.Request) {
 }
 
 func main() {
-
 	r := mux.NewRouter()
 	r.Use(checkMetadataHeaders)
 	r.HandleFunc(projIDPath, func(w http.ResponseWriter, r *http.Request) { fmt.Fprint(w, projID) }).Methods("GET")

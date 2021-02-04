@@ -44,9 +44,7 @@ import (
 	"istio.io/istio/pkg/url"
 )
 
-var (
-	clientFactory = createKubeClient
-)
+var clientFactory = createKubeClient
 
 type istioInstall struct {
 	namespace string
@@ -57,6 +55,7 @@ type preCheckClient struct {
 	client  *kubernetes.Clientset
 	dclient dynamic.Interface
 }
+
 type preCheckExecClient interface {
 	getNameSpace(ns string) (*v1.Namespace, error)
 	serverVersion() (*version.Info, error)
@@ -212,7 +211,6 @@ func installPreCheck(istioNamespaceFlag string, restClientGetter genericclioptio
 	}
 	fmt.Fprintf(writer, "\n")
 	return errs
-
 }
 
 func checkCanCreateResources(c preCheckExecClient, namespace, group, version, name string) error {
@@ -246,7 +244,6 @@ func checkCanCreateResources(c preCheckExecClient, namespace, group, version, na
 
 func createKubeClient(restClientGetter genericclioptions.RESTClientGetter) (preCheckExecClient, error) {
 	restConfig, err := restClientGetter.ToRESTConfig()
-
 	if err != nil {
 		return nil, err
 	}

@@ -25,9 +25,7 @@ import (
 	"istio.io/istio/tests/integration/security/util/cert"
 )
 
-var (
-	inst istio.Instance
-)
+var inst istio.Instance
 
 func TestMain(m *testing.M) {
 	framework.
@@ -39,7 +37,6 @@ func TestMain(m *testing.M) {
 		Label("CustomSetup").
 		Setup(istio.Setup(&inst, setupConfig, cert.CreateCustomEgressSecret)).
 		Run()
-
 }
 
 func setupConfig(_ resource.Context, cfg *istio.Config) {

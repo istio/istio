@@ -32,9 +32,7 @@ import (
 	"istio.io/istio/pkg/util/gogo"
 )
 
-var (
-	defaultDestinationRule = networking.DestinationRule{}
-)
+var defaultDestinationRule = networking.DestinationRule{}
 
 // ClusterBuilder interface provides an abstraction for building Envoy Clusters.
 type ClusterBuilder struct {

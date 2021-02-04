@@ -46,5 +46,4 @@ func (w *Wrapper) UnmarshalJSON(b []byte) error {
 	err := jsonum.Unmarshal(buf, cd)
 	*w = Wrapper{cd}
 	return err
-
 }

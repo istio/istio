@@ -22,8 +22,7 @@ import (
 	"istio.io/istio/pkg/test/cert"
 )
 
-var (
-	rootCAConf = `
+var rootCAConf = `
 [ req ]
 encrypt_key = no
 prompt = no
@@ -40,7 +39,6 @@ keyUsage = critical, digitalSignature, nonRepudiation, keyEncipherment, keyCertS
 [ req_dn ]
 O = Istio
 CN = Root CA`
-)
 
 // Root contains the cryptographic files for a self-signed root CA.
 type Root struct {

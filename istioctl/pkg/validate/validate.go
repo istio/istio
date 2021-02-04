@@ -309,7 +309,6 @@ func validateFiles(istioNamespace *string, filenames []string, writer io.Writer)
 			} else {
 				_, _ = fmt.Fprintf(writer, "%q is valid\n", fname)
 			}
-
 		}
 	}
 

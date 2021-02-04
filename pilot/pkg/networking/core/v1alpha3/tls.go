@@ -95,7 +95,6 @@ func hashRuntimeTLSMatchPredicates(match *v1alpha3.TLSMatchAttributes) string {
 func buildSidecarOutboundTLSFilterChainOpts(node *model.Proxy, push *model.PushContext, destinationCIDR string,
 	service *model.Service, listenPort *model.Port,
 	gateways map[string]bool, configs []config.Config) []*filterChainOpts {
-
 	if !listenPort.Protocol.IsTLS() {
 		return nil
 	}
@@ -206,7 +205,6 @@ func buildSidecarOutboundTLSFilterChainOpts(node *model.Proxy, push *model.PushC
 func buildSidecarOutboundTCPFilterChainOpts(node *model.Proxy, push *model.PushContext, destinationCIDR string,
 	service *model.Service, listenPort *model.Port,
 	gateways map[string]bool, configs []config.Config) []*filterChainOpts {
-
 	if listenPort.Protocol.IsTLS() {
 		return nil
 	}
@@ -313,7 +311,6 @@ TcpLoop:
 func buildSidecarOutboundTCPTLSFilterChainOpts(node *model.Proxy, push *model.PushContext,
 	configs []config.Config, destinationCIDR string, service *model.Service, listenPort *model.Port,
 	gateways map[string]bool) []*filterChainOpts {
-
 	out := make([]*filterChainOpts, 0)
 	var svcConfigs []config.Config
 	if service != nil {

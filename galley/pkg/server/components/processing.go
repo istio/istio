@@ -124,7 +124,6 @@ func (p *Processing) getKubeInterfaces() (k kube.Interfaces, err error) {
 
 func (p *Processing) createSourceAndStatusUpdater(schemas collection.Schemas) (
 	src event.Source, updater snapshotter.StatusUpdater, err error) {
-
 	var k kube.Interfaces
 	if k, err = p.getKubeInterfaces(); err != nil {
 		return

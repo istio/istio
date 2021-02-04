@@ -315,7 +315,8 @@ spec:
 									return ExpectString(response[0].RawResponse["Access-Control-Allow-Origin"], "", "mismatched CORS origin")
 								}),
 						},
-					}},
+					},
+				},
 			},
 		)
 

@@ -50,14 +50,14 @@ const (
 	helmTimeout       = 2 * time.Minute
 )
 
-var _ io.Closer = &helmComponent{}
-var _ Instance = &helmComponent{}
-var _ resource.Dumper = &helmComponent{}
-
 var (
-	// chartPath is path of local Helm charts used for testing.
-	chartPath = filepath.Join(env.IstioSrc, "manifests/charts")
+	_ io.Closer       = &helmComponent{}
+	_ Instance        = &helmComponent{}
+	_ resource.Dumper = &helmComponent{}
 )
+
+// chartPath is path of local Helm charts used for testing.
+var chartPath = filepath.Join(env.IstioSrc, "manifests/charts")
 
 type helmComponent struct {
 	id         resource.ID
