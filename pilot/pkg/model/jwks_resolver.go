@@ -436,7 +436,6 @@ func (r *JwksResolver) refresh() time.Duration {
 		return r.refreshIntervalOnFailure
 	}
 	return r.refreshDefaultInterval
-
 }
 
 // Close will shut down the refresher job.
