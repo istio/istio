@@ -60,6 +60,13 @@ var (
 			Name: util.EnvoyRawBufferSocketName,
 		},
 	}
+
+	// nolint: lll
+	// envoy outlier detection default max ejection time
+	// https://www.envoyproxy.io/docs/envoy/latest/api-v3/config/cluster/v3/outlier_detection.proto#envoy-v3-api-field-config-cluster-v3-outlierdetection-max-ejection-time
+	defaultMaxEjectionTime = &types.Duration{
+		Seconds: 300,
+	}
 )
 
 // getDefaultCircuitBreakerThresholds returns a copy of the default circuit breaker thresholds for the given traffic direction.
@@ -607,7 +614,7 @@ func applyTrafficPolicy(opts buildClusterOpts) {
 	applyConnectionPool(opts.mesh, opts.cluster, connectionPool)
 	if opts.direction != model.TrafficDirectionInbound {
 		applyH2Upgrade(opts, connectionPool)
-		applyOutlierDetection(opts.cluster, outlierDetection)
+		applyOutlierDetection(opts.cluster, outlierDetection, opts.proxy)
 		applyLoadBalancer(opts.cluster, loadBalancer, opts.port, opts.proxy, opts.mesh)
 	}
 
@@ -712,7 +719,7 @@ func setKeepAliveSettings(cluster *cluster.Cluster, keepalive *networking.Connec
 }
 
 // FIXME: there isn't a way to distinguish between unset values and zero values
-func applyOutlierDetection(c *cluster.Cluster, outlier *networking.OutlierDetection) {
+func applyOutlierDetection(c *cluster.Cluster, outlier *networking.OutlierDetection, proxy *model.Proxy) {
 	if outlier == nil {
 		return
 	}
@@ -748,6 +755,11 @@ func applyOutlierDetection(c *cluster.Cluster, outlier *networking.OutlierDetect
 	}
 	if outlier.BaseEjectionTime != nil {
 		out.BaseEjectionTime = gogo.DurationToProtoDuration(outlier.BaseEjectionTime)
+		if util.IsIstioVersionGE19(proxy) {
+			if outlier.BaseEjectionTime.Compare(defaultMaxEjectionTime) > 0 {
+				out.MaxEjectionTime = out.BaseEjectionTime
+			}
+		}
 	}
 	if outlier.MaxEjectionPercent > 0 {
 		out.MaxEjectionPercent = &wrappers.UInt32Value{Value: uint32(outlier.MaxEjectionPercent)}
