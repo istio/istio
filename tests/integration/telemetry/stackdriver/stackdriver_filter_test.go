@@ -203,7 +203,7 @@ func testSetup(ctx resource.Context) (err error) {
 
 	builder := echoboot.NewBuilder(ctx)
 	for _, cls := range ctx.Clusters() {
-		clName := cls.StableName()
+		clName := cls.Name()
 		builder.
 			WithConfig(echo.Config{
 				Service:   fmt.Sprintf("clt-%s", clName),
