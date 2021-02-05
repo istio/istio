@@ -21,13 +21,10 @@ import (
 
 	"github.com/hashicorp/go-multierror"
 
-	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/test/framework/components/cluster"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/resource"
-	"istio.io/istio/pkg/test/kube"
 	"istio.io/istio/pkg/test/scopes"
-	"istio.io/istio/pkg/test/util/retry"
 )
 
 func init() {
@@ -42,10 +39,10 @@ func build(ctx resource.Context, configs []echo.Config) (echo.Instances, error) 
 	}
 	scopes.Framework.Debugf("created echo deployments in %v", time.Since(t0))
 
-	if err := initializeInstances(instances); err != nil {
-		return nil, fmt.Errorf("initialize instances: %v", err)
+	if err := startAll(instances); err != nil {
+		return nil, fmt.Errorf("failed starting kube echo instances: %v", err)
 	}
-	scopes.Framework.Debugf("initialized kube echo deployments in %v", time.Since(t0))
+	scopes.Framework.Debugf("successfully started kube echo instances in %v", time.Since(t0))
 
 	return instances, nil
 }
@@ -64,7 +61,7 @@ func newInstances(ctx resource.Context, configs []echo.Config) (echo.Instances, 
 	return instances, nil
 }
 
-func initializeInstances(instances echo.Instances) error {
+func startAll(instances echo.Instances) error {
 	// Wait to receive the k8s Endpoints for each Echo Instance.
 	wg := sync.WaitGroup{}
 	aggregateErrMux := &sync.Mutex{}
@@ -73,30 +70,14 @@ func initializeInstances(instances echo.Instances) error {
 		inst := i.(*instance)
 		wg.Add(1)
 
-		serviceName := inst.Config().Service
-		serviceNamespace := inst.Config().Namespace.Name()
-		timeout := inst.Config().ReadinessTimeout
-		cluster := inst.cluster
-
 		// Run the waits in parallel.
 		go func() {
 			defer wg.Done()
-			selector := "app"
-			if inst.Config().DeployAsVM {
-				selector = constants.TestVMLabel
-			}
-			// Wait until all the pods are ready for this service
-			fetch := kube.NewPodMustFetch(cluster, serviceNamespace, fmt.Sprintf("%s=%s", selector, serviceName))
-			pods, err := kube.WaitUntilPodsAreReady(fetch, retry.Timeout(timeout))
-			if err != nil {
+
+			if err := inst.Start(); err != nil {
 				aggregateErrMux.Lock()
-				aggregateErr = multierror.Append(aggregateErr, err)
-				aggregateErrMux.Unlock()
-				return
-			}
-			if err := inst.initialize(pods); err != nil {
-				aggregateErrMux.Lock()
-				aggregateErr = multierror.Append(aggregateErr, fmt.Errorf("initialize %v/%v/%v: %v", inst.ID(), inst.Config().Service, inst.Address(), err))
+				aggregateErr = multierror.Append(aggregateErr, fmt.Errorf("start %v/%v/%v: %v",
+					inst.ID(), inst.Config().Service, inst.Address(), err))
 				aggregateErrMux.Unlock()
 			}
 		}()
