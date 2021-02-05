@@ -18,11 +18,10 @@ package main
 
 import (
 	"fmt"
+	"istio.io/pkg/monitoring"
 	"net/http"
 	"os"
 
-	"github.com/prometheus/client_golang/prometheus"
-	"github.com/prometheus/client_golang/prometheus/promauto"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/spf13/pflag"
 	"github.com/spf13/viper"
@@ -175,10 +174,9 @@ func logCurrentOptions(bpr *repair.BrokenPodReconciler, options *ControllerOptio
 }
 
 func init() {
-	metrics.PodsRepaired = promauto.NewCounter(prometheus.CounterOpts{
-		Name: "istio_cni_repair_pods_repaired_total",
-		Help: "Total number of pods repaired by repair controller",
-	})
+	metrics.PodsRepaired = monitoring.NewSum("istio_cni_repair_pods_repaired_total",
+		"Total number of pods repaired by repair controller")
+	monitoring.MustRegister(metrics.PodsRepaired)
 }
 
 func main() {
