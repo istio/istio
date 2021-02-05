@@ -21,6 +21,7 @@ import (
 	"github.com/golang/protobuf/proto"
 	"github.com/golang/protobuf/ptypes/wrappers"
 
+	"istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking"
 	"istio.io/istio/pilot/pkg/networking/util"
@@ -33,8 +34,6 @@ import (
 // (if gateway exists and its IP is an IP and not a dns name).
 // Information for the mesh networks is provided as a MeshNetwork config map.
 func (b *EndpointBuilder) EndpointsByNetworkFilter(endpoints []*LocLbEndpointsAndOptions) []*LocLbEndpointsAndOptions {
-	mtlsEnabled := b.push.Mesh.GetEnableAutoMtls().Value
-
 	// calculate the multiples of weight.
 	// It is needed to normalize the LB Weight across different networks.
 	multiples := 1
@@ -78,11 +77,9 @@ func (b *EndpointBuilder) EndpointsByNetworkFilter(endpoints []*LocLbEndpointsAn
 				if !b.canViewNetwork(epNetwork) {
 					continue
 				}
-
-				// TODO: check this by looking at the cluster's transportSocket(Matches) to cover all nonTLS configs
-				tlsMode := envoytransportSocketMetadata(lbEp, "tlsMode")
-				if mtlsEnabled || tlsMode == model.DisabledTLSModeLabel {
-					// dont allow cross-network endpoints for uninjected traffic
+				// cross-network traffic relies on mTLS to be enabled for SNI routing
+				// TODO BTS may allow us to work around this
+				if b.mTLSDisabled(lbEp) {
 					continue
 				}
 
@@ -136,6 +133,34 @@ func (b *EndpointBuilder) EndpointsByNetworkFilter(endpoints []*LocLbEndpointsAn
 	}
 
 	return filtered
+}
+
+func (b *EndpointBuilder) mTLSDisabled(lbEp *endpoint.LbEndpoint) bool {
+	// TODO share code with cluster builder. if the cluster does not have the transportSocket(Match), mTLS is disabled
+	if !b.push.Mesh.GetEnableAutoMtls().Value {
+		//
+		return false
+	}
+	if tlsMode := envoytransportSocketMetadata(lbEp, "tlsMode"); tlsMode == model.DisabledTLSModeLabel {
+		return true
+	}
+	if b.destinationRule != nil {
+		if dr, ok := b.destinationRule.Spec.(*v1alpha3.DestinationRule); ok {
+			// TODO handle port level DR settings
+			if dr.TrafficPolicy.Tls != nil && dr.TrafficPolicy.Tls.GetMode() == v1alpha3.ClientTLSSettings_DISABLE {
+				return true
+			}
+		}
+	}
+	if p, ok := b.service.Ports.GetByPort(b.port); ok {
+		// TODO handle workload/port level authn policies
+		if b.push.BestEffortInferServiceMTLSMode(b.service, p) == model.MTLSDisable {
+			return true
+		}
+	}
+
+	// assume mTLS is enabled
+	return false
 }
 
 // TODO: remove this, filtering should be done before generating the config, and
