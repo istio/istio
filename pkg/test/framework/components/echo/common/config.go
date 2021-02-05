@@ -33,7 +33,7 @@ const (
 	defaultDomain    = constants.DefaultKubernetesDomain
 )
 
-func FillInDefaults(c *echo.Config) {
+func FillInDefaults(ctx resource.Context, c *echo.Config) (err error) {
 	if c.Service == "" {
 		c.Service = defaultService
 	}
@@ -60,10 +60,6 @@ func FillInDefaults(c *echo.Config) {
 			c.Subsets[i].Version = c.Version
 		}
 	}
-}
-
-func FillInKubeDefaults(ctx resource.Context, c *echo.Config) (err error) {
-	FillInDefaults(c)
 	AddPortIfMissing(c, protocol.GRPC)
 	// If no namespace was provided, use the default.
 	if c.Namespace == nil && ctx != nil {

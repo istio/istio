@@ -75,10 +75,6 @@ type instance struct {
 
 func newInstance(ctx resource.Context, originalCfg echo.Config) (out *instance, err error) {
 	cfg := originalCfg.DeepCopy()
-	if err = common.FillInKubeDefaults(ctx, &cfg); err != nil {
-		return nil, err
-	}
-
 	if !cfg.Cluster.IsPrimary() && cfg.DeployAsVM {
 		return nil, fmt.Errorf("cannot deploy %s as VM on non-primary %s", cfg.Service, cfg.Cluster.Name())
 	}
