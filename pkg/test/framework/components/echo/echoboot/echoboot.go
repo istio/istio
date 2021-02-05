@@ -80,7 +80,10 @@ func (b builder) With(i *echo.Instance, cfg echo.Config) echo.Builder {
 	}
 
 	cfg = cfg.DeepCopy()
-	common.FillInDefaults(&cfg)
+	if err := common.FillInDefaults(b.ctx, &cfg); err != nil {
+		b.errs = multierror.Append(b.errs, err)
+		return b
+	}
 
 	targetClusters := b.clusters
 	if cfg.Cluster != nil {
@@ -157,10 +160,6 @@ func (b builder) deployServices() error {
 	services := map[string]string{}
 	for _, cfgs := range b.configs {
 		for _, cfg := range cfgs {
-			cfg := cfg.DeepCopy()
-			if err := common.FillInKubeDefaults(b.ctx, &cfg); err != nil {
-				return err
-			}
 			svc, err := kube.GenerateService(cfg)
 			if err != nil {
 				return err
