@@ -32,7 +32,7 @@ func NewTopology(config Config, allClusters Map) Topology {
 		PrimaryClusterName: config.PrimaryClusterName,
 		ConfigClusterName:  config.ConfigClusterName,
 		AllClusters:        allClusters,
-		index:              len(allClusters),
+		Index:              len(allClusters),
 	}
 }
 
@@ -44,7 +44,7 @@ type Topology struct {
 	Network            string
 	PrimaryClusterName string
 	ConfigClusterName  string
-	index              int
+	Index              int
 	// AllClusters should contain all AllClusters in the context
 	AllClusters Map
 }
@@ -82,7 +82,7 @@ func (c Topology) StableName() string {
 		prefix = string(c.Kind())
 	}
 
-	return fmt.Sprintf("%s-%d", prefix, c.index)
+	return fmt.Sprintf("%s-%d", prefix, c.Index)
 }
 
 func (c Topology) Kind() Kind {
