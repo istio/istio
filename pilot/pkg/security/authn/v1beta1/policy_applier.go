@@ -259,9 +259,9 @@ func convertToEnvoyJwtConfig(jwtRules []*v1beta1.JWTRule) *envoy_jwt.JwtAuthenti
 		jwtPubKey := jwtRule.Jwks
 		if jwtPubKey == "" {
 			var err error
-			jwtPubKey, err = model.GetJwtKeyResolver().GetPublicKey(jwtRule.JwksUri)
+			jwtPubKey, err = model.GetJwtKeyResolver().GetPublicKey(jwtRule.Issuer, jwtRule.JwksUri)
 			if err != nil {
-				log.Errorf("Failed to fetch jwt public key from %q: %s", jwtRule.JwksUri, err)
+				log.Errorf("Failed to fetch jwt public key from issuer %q, jwks uri %q: %s", jwtRule.Issuer, jwtRule.JwksUri, err)
 				// This is a temporary workaround to reject a request with JWT token by using a fake jwks when istiod failed to fetch it.
 				// TODO(xulingqing): Find a better way to reject the request without using the fake jwks.
 				jwtPubKey = createFakeJwks(jwtRule.JwksUri)

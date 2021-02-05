@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: feature
+area: security
+issue:
+- 30261
+releaseNotes:
+- |
+  **Added**  Periodically resolve jwks_uri.
