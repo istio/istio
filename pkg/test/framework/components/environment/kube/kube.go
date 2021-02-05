@@ -67,6 +67,16 @@ func (e *Environment) IsMultinetwork() bool {
 	return len(e.ClustersByNetwork()) > 1
 }
 
+// IsMultirevision returns true if there is more than a single cluster running multiple revisions
+func (e *Environment) IsMultirevision() bool {
+	for _, c := range e.Clusters() {
+		if len(c.Revisions()) > 1 {
+			return true
+		}
+	}
+	return false
+}
+
 func (e *Environment) Clusters() cluster.Clusters {
 	out := make([]cluster.Cluster, 0, len(e.clusters))
 	out = append(out, e.clusters...)

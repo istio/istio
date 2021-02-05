@@ -39,6 +39,10 @@ func (f FakeEnvironment) IsMultinetwork() bool {
 	return false
 }
 
+func (f FakeEnvironment) IsMultirevision() bool {
+	return false
+}
+
 func (f FakeEnvironment) EnvironmentName() string {
 	if len(f.Name) == 0 {
 		return "fake"

@@ -36,4 +36,6 @@ type Environment interface {
 	Clusters() cluster.Clusters
 
 	IsMultinetwork() bool
+
+	IsMultirevision() bool
 }
