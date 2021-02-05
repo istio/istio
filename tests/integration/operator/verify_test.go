@@ -26,6 +26,7 @@ import (
 	"istio.io/istio/pkg/test/framework/components/istioctl"
 	"istio.io/istio/pkg/test/framework/image"
 	"istio.io/istio/pkg/test/scopes"
+	"istio.io/istio/tests/integration/operator/common"
 )
 
 func TestPostInstallControlPlaneVerification(t *testing.T) {
@@ -47,13 +48,13 @@ func TestPostInstallControlPlaneVerification(t *testing.T) {
 				"install",
 				"--set", "hub=" + s.Hub,
 				"--set", "tag=" + s.Tag,
-				"--manifests=" + ManifestPath,
+				"--manifests=" + common.ManifestPath,
 				"-y",
 			}
 			istioCtl.InvokeOrFail(t, installCmd)
 
 			tfLogger := clog.NewConsoleLogger(ioutil.Discard, ioutil.Discard, scopes.Framework)
-			statusVerifier := verifier.NewStatusVerifier(IstioNamespace, ManifestPath, "",
+			statusVerifier := verifier.NewStatusVerifier(common.IstioNamespace, common.ManifestPath, "",
 				"", []string{}, clioptions.ControlPlaneOptions{}, tfLogger, nil)
 			if err := statusVerifier.Verify(); err != nil {
 				t.Fatal(err)

@@ -32,11 +32,12 @@ import (
 	kubeApiMeta "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 
+	"istio.io/istio/tests/integration/operator/common"
+
 	api "istio.io/api/operator/v1alpha1"
 	"istio.io/istio/operator/pkg/object"
 	"istio.io/istio/operator/pkg/util"
 	istioKube "istio.io/istio/pkg/kube"
-	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/cluster"
 	"istio.io/istio/pkg/test/framework/components/istioctl"
@@ -49,17 +50,7 @@ import (
 	"istio.io/pkg/log"
 )
 
-const (
-	IstioNamespace    = "istio-system"
-	OperatorNamespace = "istio-operator"
-	retryDelay        = time.Second
-	retryTimeOut      = 20 * time.Minute
-	nsDeletionTimeout = 5 * time.Minute
-)
-
 var (
-	// ManifestPath is path of local manifests which istioctl operator init refers to.
-	ManifestPath = filepath.Join(env.IstioSrc, "manifests")
 	// ManifestPathContainer is path of manifests in the operator container for controller to work with.
 	ManifestPathContainer = "/var/lib/istio/manifests"
 	iopCRFile             = ""
@@ -87,17 +78,17 @@ func TestController(t *testing.T) {
 				"operator", "init",
 				"--hub=" + s.Hub,
 				"--tag=" + s.Tag,
-				"--manifests=" + ManifestPath,
+				"--manifests=" + common.ManifestPath,
 			}
 			// install istio with default config for the first time by running operator init command
 			istioCtl.InvokeOrFail(t, initCmd)
 
 			if _, err := cs.CoreV1().Namespaces().Create(context.TODO(), &kubeApiCore.Namespace{
 				ObjectMeta: kubeApiMeta.ObjectMeta{
-					Name: IstioNamespace,
+					Name: common.IstioNamespace,
 				},
 			}, kubeApiMeta.CreateOptions{}); err != nil {
-				_, err := cs.CoreV1().Namespaces().Get(context.TODO(), IstioNamespace, kubeApiMeta.GetOptions{})
+				_, err := cs.CoreV1().Namespaces().Get(context.TODO(), common.IstioNamespace, kubeApiMeta.GetOptions{})
 				if err == nil {
 					log.Info("istio namespace already exist")
 				} else {
@@ -113,7 +104,7 @@ func TestController(t *testing.T) {
 				"operator", "init",
 				"--hub=" + s.Hub,
 				"--tag=" + s.Tag,
-				"--manifests=" + ManifestPath,
+				"--manifests=" + common.ManifestPath,
 				"--revision=" + "v2",
 			}
 			// install second operator deployment with different revision
@@ -132,15 +123,15 @@ func TestController(t *testing.T) {
 
 			retry.UntilSuccessOrFail(t, func() error {
 				for _, n := range []string{"istio-operator", "istio-operator-v2"} {
-					if svc, _ := cs.CoreV1().Services(OperatorNamespace).Get(context.TODO(), n, kubeApiMeta.GetOptions{}); svc.Name != "" {
+					if svc, _ := cs.CoreV1().Services(common.OperatorNamespace).Get(context.TODO(), n, kubeApiMeta.GetOptions{}); svc.Name != "" {
 						return fmt.Errorf("got operator service: %s from cluster, expected to be removed", svc.Name)
 					}
-					if dp, _ := cs.AppsV1().Deployments(OperatorNamespace).Get(context.TODO(), n, kubeApiMeta.GetOptions{}); dp.Name != "" {
+					if dp, _ := cs.AppsV1().Deployments(common.OperatorNamespace).Get(context.TODO(), n, kubeApiMeta.GetOptions{}); dp.Name != "" {
 						return fmt.Errorf("got operator deployment %s from cluster, expected to be removed", dp.Name)
 					}
 				}
 				return nil
-			}, retry.Timeout(retryTimeOut), retry.Delay(retryDelay))
+			}, retry.Timeout(common.RetryTimeOut), retry.Delay(common.RetryDelay))
 		})
 }
 
@@ -153,20 +144,20 @@ func cleanupIstioResources(t *testing.T, cs cluster.Cluster, istioCtl istioctl.I
 	out, _ := istioCtl.InvokeOrFail(t, unInstallCmd)
 	t.Logf("uninstall command output: %s", out)
 	// clean up operator namespace
-	if err := cs.CoreV1().Namespaces().Delete(context.TODO(), OperatorNamespace,
+	if err := cs.CoreV1().Namespaces().Delete(context.TODO(), common.OperatorNamespace,
 		kube2.DeleteOptionsForeground()); err != nil {
 		t.Logf("failed to delete operator namespace: %v", err)
 	}
-	if err := kube2.WaitForNamespaceDeletion(cs, OperatorNamespace, retry.Timeout(nsDeletionTimeout)); err != nil {
+	if err := kube2.WaitForNamespaceDeletion(cs, common.OperatorNamespace, retry.Timeout(common.NsDeletionTimeout)); err != nil {
 		t.Logf("failed wating for operator namespace to be deleted: %v", err)
 	}
 	var err error
 	// clean up dynamically created secret and configmaps
-	if e := cs.CoreV1().Secrets(IstioNamespace).DeleteCollection(
+	if e := cs.CoreV1().Secrets(common.IstioNamespace).DeleteCollection(
 		context.Background(), kubeApiMeta.DeleteOptions{}, kubeApiMeta.ListOptions{}); e != nil {
 		err = multierror.Append(err, e)
 	}
-	if e := cs.CoreV1().ConfigMaps(IstioNamespace).DeleteCollection(
+	if e := cs.CoreV1().ConfigMaps(common.IstioNamespace).DeleteCollection(
 		context.Background(), kubeApiMeta.DeleteOptions{}, kubeApiMeta.ListOptions{}); e != nil {
 		err = multierror.Append(err, e)
 	}
@@ -186,17 +177,17 @@ func checkInstallStatus(cs istioKube.ExtendedClient, revision string) error {
 
 	var unhealthyCN []string
 	retryFunc := func() error {
-		us, err := cs.Dynamic().Resource(gvr).Namespace(IstioNamespace).Get(context.TODO(), revName("test-istiocontrolplane", revision), kubeApiMeta.GetOptions{})
+		us, err := cs.Dynamic().Resource(gvr).Namespace(common.IstioNamespace).Get(context.TODO(), revName("test-istiocontrolplane", revision), kubeApiMeta.GetOptions{})
 		if err != nil {
 			return fmt.Errorf("failed to get istioOperator resource: %v", err)
 		}
 		usIOPStatus := us.UnstructuredContent()["status"]
 		if usIOPStatus == nil {
-			if _, err := cs.CoreV1().Services(OperatorNamespace).Get(context.TODO(), revName("istio-operator", revision),
+			if _, err := cs.CoreV1().Services(common.OperatorNamespace).Get(context.TODO(), revName("istio-operator", revision),
 				kubeApiMeta.GetOptions{}); err != nil {
 				return fmt.Errorf("istio operator svc is not ready: %v", err)
 			}
-			if _, err := kube2.CheckPodsAreReady(kube2.NewPodFetch(cs, OperatorNamespace, "")); err != nil {
+			if _, err := kube2.CheckPodsAreReady(kube2.NewPodFetch(cs, common.OperatorNamespace, "")); err != nil {
 				return fmt.Errorf("istio operator pod is not ready: %v", err)
 			}
 
@@ -226,7 +217,7 @@ func checkInstallStatus(cs istioKube.ExtendedClient, revision string) error {
 		}
 		return errs.ToError()
 	}
-	err := retry.UntilSuccess(retryFunc, retry.Timeout(retryTimeOut), retry.Delay(retryDelay))
+	err := retry.UntilSuccess(retryFunc, retry.Timeout(common.RetryTimeOut), retry.Delay(common.RetryDelay))
 	if err != nil {
 		return fmt.Errorf("istioOperator status is not healthy: %v", err)
 	}
@@ -241,12 +232,12 @@ func cleanupInClusterCRs(t *testing.T, cs cluster.Cluster) {
 		Version:  "v1alpha1",
 		Resource: "istiooperators",
 	}
-	crList, err := cs.Dynamic().Resource(gvr).Namespace(IstioNamespace).List(context.TODO(),
+	crList, err := cs.Dynamic().Resource(gvr).Namespace(common.IstioNamespace).List(context.TODO(),
 		kubeApiMeta.ListOptions{})
 	if err == nil {
 		for _, obj := range crList.Items {
 			t.Logf("deleting CR %v", obj.GetName())
-			if err := cs.Dynamic().Resource(gvr).Namespace(IstioNamespace).Delete(context.TODO(), obj.GetName(),
+			if err := cs.Dynamic().Resource(gvr).Namespace(common.IstioNamespace).Delete(context.TODO(), obj.GetName(),
 				kubeApiMeta.DeleteOptions{}); err != nil {
 				t.Logf("failed to delete existing CR: %v", err)
 			}
@@ -289,7 +280,7 @@ spec:
 		t.Fatalf("failed to write iop cr file: %v", err)
 	}
 
-	if err := cs.ApplyYAMLFiles(IstioNamespace, iopCRFile); err != nil {
+	if err := cs.ApplyYAMLFiles(common.IstioNamespace, iopCRFile); err != nil {
 		t.Fatalf("failed to apply IstioOperator CR file: %s, %v", iopCRFile, err)
 	}
 
@@ -305,14 +296,14 @@ func verifyInstallation(t *testing.T, ctx resource.Context,
 		t.Fatalf("IstioOperator status not healthy: %v", err)
 	}
 
-	if _, err := kube2.CheckPodsAreReady(kube2.NewSinglePodFetch(cs, IstioNamespace, "app=istiod")); err != nil {
+	if _, err := kube2.CheckPodsAreReady(kube2.NewSinglePodFetch(cs, common.IstioNamespace, "app=istiod")); err != nil {
 		t.Fatalf("istiod pod is not ready: %v", err)
 	}
 
 	// get manifests by running `manifest generate`
 	generateCmd := []string{
 		"manifest", "generate",
-		"--manifests", ManifestPath,
+		"--manifests", common.ManifestPath,
 	}
 	if profileName != "" {
 		generateCmd = append(generateCmd, "--set", fmt.Sprintf("profile=%s", profileName))
@@ -356,7 +347,7 @@ func compareInClusterAndGeneratedResources(t *testing.T, cs cluster.Cluster, k8s
 			case "ServiceAccount":
 				_, err = cs.CoreV1().ServiceAccounts(ns).Get(context.TODO(), name, kubeApiMeta.GetOptions{})
 			case "Deployment":
-				_, err = cs.AppsV1().Deployments(IstioNamespace).Get(context.TODO(), name,
+				_, err = cs.AppsV1().Deployments(common.IstioNamespace).Get(context.TODO(), name,
 					kubeApiMeta.GetOptions{})
 			case "ConfigMap":
 				_, err = cs.CoreV1().ConfigMaps(ns).Get(context.TODO(), name, kubeApiMeta.GetOptions{})

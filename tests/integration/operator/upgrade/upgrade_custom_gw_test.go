@@ -13,18 +13,16 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package gatewayupgrade
+package upgrade
 
 import (
 	"context"
 	"fmt"
-	"path/filepath"
 	"strings"
 	"testing"
 	"time"
 
 	"istio.io/istio/pkg/config/protocol"
-	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/cluster"
 	kubecluster "istio.io/istio/pkg/test/framework/components/cluster/kube"
@@ -41,7 +39,7 @@ import (
 	helmtest "istio.io/istio/tests/integration/helm"
 	"istio.io/istio/tests/util"
 
-	"github.com/hashicorp/go-multierror"
+	"istio.io/istio/tests/integration/operator/common"
 	kubeApiMeta "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -49,17 +47,12 @@ const (
 	fromVersion          = "1.8.2"
 	aSvc                 = "a" // Used by the custom gateway
 	bSvc                 = "b" // Used to verify access via the custom gateway
-	IstioNamespace       = "istio-system"
-	OperatorNamespace    = "istio-operator"
-	retryDelay           = 2 * time.Second
-	RetryTimeOut         = 5 * time.Minute
-	nsDeletionTimeout    = 5 * time.Minute
 	customServiceGateway = "custom-ingressgateway"
 	iopCPTemplate        = `
 apiVersion: install.istio.io/v1alpha1
 kind: IstioOperator
 metadata:
-  namespace: ` + IstioNamespace + `
+  namespace: ` + common.IstioNamespace + `
   name: control-plane
 spec:
   profile: default
@@ -69,7 +62,7 @@ apiVersion: install.istio.io/v1alpha1
 kind: IstioOperator
 metadata:
   name: custom-ingressgateway-iop
-  namespace: ` + IstioNamespace + `
+  namespace: ` + common.IstioNamespace + `
 spec:
   profile: empty
   hub: %s
@@ -126,8 +119,6 @@ type echoDeployments struct {
 var (
 	apps              = &echoDeployments{}
 	customGWNamespace namespace.Instance
-	// ManifestPath is path of local manifests which istioctl operator init refers to.
-	ManifestPath = filepath.Join(env.IstioSrc, "manifests")
 )
 
 // TestUpdateWithCustomGateway tests access to an application using an updated
@@ -143,7 +134,8 @@ func TestUpdateWithCustomGateway(t *testing.T) {
 			// Create Istio operator of the specified version
 			istioCtl := istioctl.NewOrFail(ctx, ctx, istioctl.Config{Cluster: ctx.Environment().Clusters()[0]})
 			initOperatorCmd := []string{
-				"operator", "init", "--manifests", ManifestPath, "--hub", "gcr.io/istio-release", "--tag", fromVersion,
+				"operator", "init", "--manifests", common.ManifestPath,
+				"--hub", "gcr.io/istio-release", "--tag", fromVersion,
 			}
 			_, _ = istioCtl.InvokeOrFail(t, initOperatorCmd)
 
@@ -154,7 +146,6 @@ func TestUpdateWithCustomGateway(t *testing.T) {
 				for _, config := range configs {
 					ctx.Config().DeleteYAML("istio-system", config)
 				}
-				cleanupIstioResources(t, cs, istioCtl)
 			})
 
 			// Create the istio-system namespace and Istio control plane of the specified version
@@ -219,7 +210,7 @@ func TestUpdateWithCustomGateway(t *testing.T) {
 				t.Fatalf("failed to get settings: %v", err)
 			}
 			istioCtl.InvokeOrFail(t, []string{
-				"operator", "init", "--manifests", ManifestPath, "--hub", s.Hub, "--tag", s.Tag,
+				"operator", "init", "--manifests", common.ManifestPath, "--hub", s.Hub, "--tag", s.Tag,
 			})
 
 			// Wait for control upgrade
@@ -261,9 +252,6 @@ func TestUpdateWithCustomGateway(t *testing.T) {
 					Validator: echo.ExpectOK(),
 				}, retry.Timeout(time.Minute))
 			})
-
-			// scopes.Framework.Infof("sleeping 5 minutes to see what was actually upgraded")
-			// time.Sleep(time.Minute * 5)
 		})
 }
 
@@ -272,14 +260,14 @@ func WaitForCPInstallation(ctx framework.TestContext, cs cluster.Cluster) {
 	scopes.Framework.Infof("=== waiting on istio control installation === ")
 
 	retry.UntilSuccessOrFail(ctx, func() error {
-		if _, err := kubetest.CheckPodsAreReady(kubetest.NewPodFetch(cs, IstioNamespace, "app=istiod")); err != nil {
+		if _, err := kubetest.CheckPodsAreReady(kubetest.NewPodFetch(cs, common.IstioNamespace, "app=istiod")); err != nil {
 			return fmt.Errorf("istiod pod is not ready: %v", err)
 		}
-		if _, err := kubetest.CheckPodsAreReady(kubetest.NewPodFetch(cs, IstioNamespace, "app=istio-ingressgateway")); err != nil {
+		if _, err := kubetest.CheckPodsAreReady(kubetest.NewPodFetch(cs, common.IstioNamespace, "app=istio-ingressgateway")); err != nil {
 			return fmt.Errorf("istio ingress gateway pod is not ready: %v", err)
 		}
 		return nil
-	}, retry.Timeout(RetryTimeOut), retry.Delay(retryDelay))
+	}, retry.Timeout(common.RetryTimeOut), retry.Delay(common.RetryDelay))
 
 	// At this point, creating namespaces and apps via SetupApps will typically see the apps
 	// not having Istio injected, so also wait on the mutating webhook.
@@ -288,7 +276,7 @@ func WaitForCPInstallation(ctx framework.TestContext, cs cluster.Cluster) {
 			return fmt.Errorf("mutating webhook is not ready: %v", err)
 		}
 		return nil
-	}, retry.Timeout(RetryTimeOut), retry.Delay(retryDelay))
+	}, retry.Timeout(common.RetryTimeOut), retry.Delay(common.RetryDelay))
 	scopes.Framework.Infof("=== succeeded ===")
 }
 
@@ -301,7 +289,7 @@ func WaitForCGWInstallation(ctx framework.TestContext, cs cluster.Cluster) {
 			return fmt.Errorf("custom gateway pod is not ready: %v", err)
 		}
 		return nil
-	}, retry.Timeout(RetryTimeOut), retry.Delay(retryDelay))
+	}, retry.Timeout(common.RetryTimeOut), retry.Delay(common.RetryDelay))
 	scopes.Framework.Infof("=== succeeded ===")
 }
 
@@ -389,38 +377,4 @@ func getIngressURL(ns, service string) (string, error) {
 		return url, fmt.Errorf("getIngressURL retry failed with err: %v", err)
 	}
 	return url, nil
-}
-
-func cleanupIstioResources(t *testing.T, cs cluster.Cluster, istioCtl istioctl.Instance) {
-	scopes.Framework.Infof("cleaning up resources")
-
-	// TODO - Verify the control plane and custom gateway namespaces are empty.
-
-	// clean up Istio control plane
-	unInstallCmd := []string{
-		"operator", "remove",
-	}
-	out, _ := istioCtl.InvokeOrFail(t, unInstallCmd)
-	t.Logf("uninstall command output: %s", out)
-	// clean up operator namespace
-	if err := cs.CoreV1().Namespaces().Delete(context.TODO(), OperatorNamespace,
-		kubetest.DeleteOptionsForeground()); err != nil {
-		t.Logf("failed to delete operator namespace: %v", err)
-	}
-	if err := kubetest.WaitForNamespaceDeletion(cs, OperatorNamespace, retry.Timeout(nsDeletionTimeout)); err != nil {
-		t.Logf("failed wating for operator namespace to be deleted: %v", err)
-	}
-	var err error
-	// clean up dynamically created secret and configmaps
-	if e := cs.CoreV1().Secrets(IstioNamespace).DeleteCollection(
-		context.Background(), kubeApiMeta.DeleteOptions{}, kubeApiMeta.ListOptions{}); e != nil {
-		err = multierror.Append(err, e)
-	}
-	if e := cs.CoreV1().ConfigMaps(IstioNamespace).DeleteCollection(
-		context.Background(), kubeApiMeta.DeleteOptions{}, kubeApiMeta.ListOptions{}); e != nil {
-		err = multierror.Append(err, e)
-	}
-	if err != nil {
-		scopes.Framework.Errorf("failed to cleanup dynamically created resources: %v", err)
-	}
 }
