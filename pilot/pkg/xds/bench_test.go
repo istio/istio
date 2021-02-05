@@ -93,6 +93,10 @@ var testCases = []ConfigInput{
 		Name:     "virtualservice",
 		Services: 100,
 	},
+	{
+		Name: "authorizationpolicy",
+		Services: 100,
+	},
 }
 
 func disableLogging() {

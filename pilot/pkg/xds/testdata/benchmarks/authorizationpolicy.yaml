@@ -1,0 +1,16 @@
+{{- range $i := until .Services }}
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: authn-{{$i}}
+  namespace: foo
+spec:
+  action: DENY
+  rules:
+    - from:
+        - source:
+            namespaces: ["default"]
+      to:
+        - operation:
+            methods: ["POST"]
+{{- end }}
