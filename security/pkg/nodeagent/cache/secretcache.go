@@ -16,9 +16,12 @@
 package cache
 
 import (
+	"bufio"
 	"bytes"
 	"fmt"
+	"io"
 	"io/ioutil"
+	"net/http"
 	"path/filepath"
 	"strings"
 	"sync"
@@ -115,6 +118,8 @@ type SecretManagerClient struct {
 	// queue maintains all certificate rotation events that need to be triggered when they are about to expire
 	queue queue.Delayed
 	stop  chan struct{}
+
+	lastLDSversion string
 }
 
 type secretCache struct {
@@ -180,6 +185,9 @@ func NewSecretManagerClient(caClient security.Client, options security.Options) 
 		fileCerts:   make(map[FileCert]struct{}),
 		stop:        make(chan struct{}),
 	}
+
+	m, _ := time.ParseDuration("5m")
+	ret.queue.PushDelayed(ret.handleIstiodWatch, m)
 
 	go ret.queue.Run(ret.stop)
 	go ret.handleFileWatch()
@@ -585,6 +593,95 @@ func (sc *SecretManagerClient) registerSecret(item security.SecretItem) {
 		sc.CallUpdateCallback(item.ResourceName)
 		return nil
 	}, delay)
+}
+
+func doHTTPGet(requestURL string) (*bytes.Buffer, error) {
+	response, err := http.Get(requestURL)
+	if err != nil {
+		return nil, err
+	}
+	defer func() { _ = response.Body.Close() }()
+	if response.StatusCode != 200 {
+		return nil, fmt.Errorf("unexpected status %d", response.StatusCode)
+	}
+
+	var b bytes.Buffer
+	if _, err := io.Copy(&b, response.Body); err != nil {
+		return nil, err
+	}
+	return &b, nil
+}
+
+func doEnvoyGet(path string, adminPort uint32) (*bytes.Buffer, error) {
+	requestURL := fmt.Sprintf("http://127.0.0.1:%d/%s", adminPort, path)
+	buffer, err := doHTTPGet(requestURL)
+	if err != nil {
+		return nil, err
+	}
+	return buffer, nil
+}
+
+// getListenerManagerLDSVersion returns the listener_manager.lds.version from Envoy statistics
+func getListenerManagerLDSVersion(adminPort uint32) (*string, error) {
+	buffer, err := doEnvoyGet("stats", adminPort)
+	if err != nil {
+		return nil, err
+	}
+
+	scanner := bufio.NewScanner(buffer)
+	for scanner.Scan() {
+		line := scanner.Text()
+		if strings.HasPrefix(line, "listener_manager.lds.version:") {
+			tokens := strings.Split(line, ":")
+			if len(tokens) > 0 {
+				version := strings.TrimSpace(tokens[(len(tokens) - 1)])
+				return &version, nil
+			}
+			return nil, fmt.Errorf("failed to parse Envoy listener manager LDS version")
+		}
+	}
+
+	return nil, fmt.Errorf("Envoy listener manager LDS version not found")
+}
+
+func hasIstiodRestarted(sc *SecretManagerClient) (bool, error) {
+	adminPort := uint32(15000)
+	version, err := getListenerManagerLDSVersion(adminPort)
+	changed := false
+
+	if err != nil {
+		return false, err
+	}
+
+	if sc.lastLDSversion == "" {
+		sc.lastLDSversion = *version
+		return false, nil
+	}
+
+	if sc.lastLDSversion != *version {
+		changed = true
+	}
+
+	sc.lastLDSversion = *version
+	return changed, nil
+}
+
+func (sc *SecretManagerClient) handleIstiodWatch() error {
+	m, _ := time.ParseDuration("5m")
+	sc.queue.PushDelayed(sc.handleIstiodWatch, m)
+
+	restarted, err := hasIstiodRestarted(sc)
+	if err == nil && restarted {
+		// Clear the cache so the next call generates a fresh certificate
+		sc.cache.SetWorkload(nil)
+		sc.CallUpdateCallback(security.WorkloadKeyCertResourceName)
+		return nil
+	} else if err != nil {
+		cacheLog.Warnf("LDS version check failed: ", err.Error())
+		return err
+	}
+
+	return nil
 }
 
 func (sc *SecretManagerClient) handleFileWatch() {
