@@ -22,6 +22,8 @@ import (
 	"testing"
 	"time"
 
+	kubeApiMeta "k8s.io/apimachinery/pkg/apis/meta/v1"
+
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/cluster"
@@ -37,10 +39,8 @@ import (
 	"istio.io/istio/pkg/test/shell"
 	"istio.io/istio/pkg/test/util/retry"
 	helmtest "istio.io/istio/tests/integration/helm"
-	"istio.io/istio/tests/util"
-
 	"istio.io/istio/tests/integration/operator/common"
-	kubeApiMeta "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"istio.io/istio/tests/util"
 )
 
 const (
@@ -272,7 +272,8 @@ func WaitForCPInstallation(ctx framework.TestContext, cs cluster.Cluster) {
 	// At this point, creating namespaces and apps via SetupApps will typically see the apps
 	// not having Istio injected, so also wait on the mutating webhook.
 	retry.UntilSuccessOrFail(ctx, func() error {
-		if _, err := cs.AdmissionregistrationV1().MutatingWebhookConfigurations().Get(context.TODO(), "istio-sidecar-injector", kubeApiMeta.GetOptions{}); err != nil {
+		if _, err := cs.AdmissionregistrationV1().MutatingWebhookConfigurations().Get(context.TODO(), "istio-sidecar-injector",
+			kubeApiMeta.GetOptions{}); err != nil {
 			return fmt.Errorf("mutating webhook is not ready: %v", err)
 		}
 		return nil
