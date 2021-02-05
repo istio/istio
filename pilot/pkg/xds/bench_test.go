@@ -94,7 +94,11 @@ var testCases = []ConfigInput{
 		Services: 100,
 	},
 	{
-		Name: "authorizationpolicy",
+		Name:     "authorizationpolicy",
+		Services: 100,
+	},
+	{
+		Name:     "peerauthentication",
 		Services: 100,
 	},
 }
