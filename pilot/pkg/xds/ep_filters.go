@@ -21,6 +21,7 @@ import (
 	"github.com/golang/protobuf/proto"
 	"github.com/golang/protobuf/ptypes/wrappers"
 
+	"istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking"
 	"istio.io/istio/pilot/pkg/networking/util"
@@ -76,8 +77,9 @@ func (b *EndpointBuilder) EndpointsByNetworkFilter(endpoints []*LocLbEndpointsAn
 				if !b.canViewNetwork(epNetwork) {
 					continue
 				}
-				if tlsMode := envoytransportSocketMetadata(lbEp, "tlsMode"); tlsMode == model.DisabledTLSModeLabel {
-					// dont allow cross-network endpoints for uninjected traffic
+				// cross-network traffic relies on mTLS to be enabled for SNI routing
+				// TODO BTS may allow us to work around this
+				if b.mTLSDisabled(lbEp) {
 					continue
 				}
 
@@ -131,6 +133,34 @@ func (b *EndpointBuilder) EndpointsByNetworkFilter(endpoints []*LocLbEndpointsAn
 	}
 
 	return filtered
+}
+
+func (b *EndpointBuilder) mTLSDisabled(lbEp *endpoint.LbEndpoint) bool {
+	// TODO share code with cluster builder. if the cluster does not have the transportSocket(Match), mTLS is disabled
+	if b.push.Mesh != nil && b.push.Mesh.EnableAutoMtls != nil && !b.push.Mesh.EnableAutoMtls.Value {
+		return true
+	}
+	if tlsMode := envoytransportSocketMetadata(lbEp, model.TLSModeLabelShortname); tlsMode == model.DisabledTLSModeLabel {
+		return true
+	}
+	if b.destinationRule != nil {
+		if dr, ok := b.destinationRule.Spec.(*v1alpha3.DestinationRule); ok && dr != nil {
+			if dr.GetTrafficPolicy().GetTls().GetMode() == v1alpha3.ClientTLSSettings_DISABLE {
+				return true
+			}
+		}
+	}
+	if b.service != nil {
+		if p, ok := b.service.Ports.GetByPort(b.port); ok {
+			// TODO handle workload/port level authn policies
+			if b.push.BestEffortInferServiceMTLSMode(b.service, p) == model.MTLSDisable {
+				return true
+			}
+		}
+	}
+
+	// assume mTLS is enabled
+	return false
 }
 
 // TODO: remove this, filtering should be done before generating the config, and

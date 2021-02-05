@@ -54,14 +54,15 @@ func GetTunnelBuilderType(clusterName string, proxy *model.Proxy, push *model.Pu
 
 type EndpointBuilder struct {
 	// These fields define the primary key for an endpoint, and can be used as a cache key
-	clusterName     string
-	network         string
-	networkView     map[string]bool
-	clusterID       string
-	locality        *core.Locality
-	destinationRule *config.Config
-	service         *model.Service
-	tunnelType      networking.TunnelType
+	clusterName         string
+	network             string
+	networkView         map[string]bool
+	clusterID           string
+	locality            *core.Locality
+	destinationRule     *config.Config
+	peerAuthentications []*config.Config
+	service             *model.Service
+	tunnelType          networking.TunnelType
 
 	// These fields are provided for convenience only
 	subsetName string
@@ -74,14 +75,15 @@ func NewEndpointBuilder(clusterName string, proxy *model.Proxy, push *model.Push
 	_, subsetName, hostname, port := model.ParseSubsetKey(clusterName)
 	svc := push.ServiceForHostname(proxy, hostname)
 	return EndpointBuilder{
-		clusterName:     clusterName,
-		network:         proxy.Metadata.Network,
-		networkView:     model.GetNetworkView(proxy),
-		clusterID:       proxy.Metadata.ClusterID,
-		locality:        proxy.Locality,
-		service:         svc,
-		destinationRule: push.DestinationRule(proxy, svc),
-		tunnelType:      GetTunnelBuilderType(clusterName, proxy, push),
+		clusterName:         clusterName,
+		network:             proxy.Metadata.Network,
+		networkView:         model.GetNetworkView(proxy),
+		clusterID:           proxy.Metadata.ClusterID,
+		locality:            proxy.Locality,
+		service:             svc,
+		destinationRule:     push.DestinationRule(proxy, svc),
+		peerAuthentications: push.AuthnPolicies.GetPeerAuthenticationsForNamespace(proxy.ConfigNamespace),
+		tunnelType:          GetTunnelBuilderType(clusterName, proxy, push),
 
 		push:       push,
 		subsetName: subsetName,
@@ -136,6 +138,9 @@ func (b EndpointBuilder) DependentConfigs() []model.ConfigKey {
 	}
 	if b.service != nil {
 		configs = append(configs, model.ConfigKey{Kind: gvk.ServiceEntry, Name: string(b.service.Hostname), Namespace: b.service.Attributes.Namespace})
+	}
+	for _, a := range b.peerAuthentications {
+		configs = append(configs, model.ConfigKey{Kind: gvk.PeerAuthentication, Name: a.Name, Namespace: a.Namespace})
 	}
 	return configs
 }

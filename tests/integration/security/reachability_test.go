@@ -141,22 +141,34 @@ func TestReachability(t *testing.T) {
 					ExpectMTLS: mtlsOnExpect,
 				},
 				{
-					ConfigFile: "no-peer-authn.yaml",
-					Namespace:  systemNM,
-					Include: func(src echo.Instance, opts echo.CallOptions) bool {
-						// Exclude calls to naked since we are applying ISTIO_MUTUAL
-						return !apps.IsNaked(opts.Target)
-					},
+					ConfigFile:    "no-peer-authn.yaml",
+					Namespace:     systemNM,
 					ExpectSuccess: Always, // No PeerAuthN should default to a PERMISSIVE.
 					ExpectMTLS:    mtlsOnExpect,
+					Include: func(src echo.Instance, opts echo.CallOptions) bool {
+						// TODO this should be fine...
+						if apps.IsNaked(opts.Target) {
+							return false
+						}
+						return true
+					},
 				},
 				{
-					ConfigFile:             "global-plaintext.yaml",
-					Namespace:              systemNM,
-					Include:                Always,
-					ExpectSuccess:          Always,
-					ExpectMTLS:             Never,
-					SkippedForMulticluster: true,
+					ConfigFile: "global-plaintext.yaml",
+					Namespace:  systemNM,
+					Include: func(src echo.Instance, opts echo.CallOptions) bool {
+						if apps.IsNaked(opts.Target) && len(apps.Naked.Clusters().ByNetwork()) > 1 {
+							// mTLS would be required for cross-network calls
+							return false
+						}
+						return true
+					},
+					ExpectDestinations: func(src echo.Instance, dest echo.Instances) echo.Instances {
+						// Without TLS we can't perform SNI routing required for multi-network
+						return dest.Match(echo.InNetwork(src.Config().Cluster.NetworkName()))
+					},
+					ExpectSuccess: Always,
+					ExpectMTLS:    Never,
 				},
 				{
 					ConfigFile: "automtls-passthrough.yaml",

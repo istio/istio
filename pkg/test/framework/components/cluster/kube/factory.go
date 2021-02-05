@@ -73,6 +73,10 @@ func validConfig(cfg cluster.Config) (cluster.Config, error) {
 }
 
 func buildClient(kubeconfig string) (istioKube.ExtendedClient, error) {
+	kubeconfig, err := file.NormalizeHomedir(kubeconfig)
+	if err != nil {
+		return nil, err
+	}
 	rc, err := istioKube.DefaultRestConfig(kubeconfig, "", func(config *rest.Config) {
 		config.QPS = 200
 		config.Burst = 400

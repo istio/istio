@@ -16,6 +16,8 @@
 package util
 
 import (
+	"sync"
+
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
@@ -232,12 +234,21 @@ func (apps *EchoDeployments) IsVM(i echo.Instance) bool {
 }
 
 func WaitForConfig(ctx framework.TestContext, configs string, namespace namespace.Instance) {
-	ik := istioctl.NewOrFail(ctx, ctx, istioctl.Config{})
-	if err := ik.WaitForConfigs(namespace.Name(), configs); err != nil {
-		// Continue anyways, so we can assess the effectiveness of using `istioctl wait`
-		ctx.Logf("warning: failed to wait for config: %v", err)
-		// Get proxy status for additional debugging
-		s, _, _ := ik.Invoke([]string{"ps"})
-		ctx.Logf("proxy status: %v", s)
+	wg := sync.WaitGroup{}
+	for _, c := range ctx.Clusters().Primaries() {
+		c := c
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			ik := istioctl.NewOrFail(ctx, ctx, istioctl.Config{Cluster: c})
+			if err := ik.WaitForConfigs(namespace.Name(), configs); err != nil {
+				// Continue anyways, so we can assess the effectiveness of using `istioctl wait`
+				ctx.Logf("warning: failed to wait for config: %v", err)
+				// Get proxy status for additional debugging
+				s, _, _ := ik.Invoke([]string{"ps"})
+				ctx.Logf("proxy status: %v", s)
+			}
+		}()
 	}
+	wg.Wait()
 }
