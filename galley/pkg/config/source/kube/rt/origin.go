@@ -49,7 +49,7 @@ func (o *Origin) FriendlyName() string {
 }
 
 func (o *Origin) Comparator() string {
-	return o.Kind + o.FullName.Name.String() + o.FullName.Namespace.String()
+	return o.Kind + "/" + o.FullName.Name.String() + "/" + o.FullName.Namespace.String()
 }
 
 // Namespace implements resource.Origin
