@@ -84,7 +84,6 @@ func WithPrimary(c cluster.Cluster) Matcher {
 	}
 }
 
-
 // InNetwork matches instances deployed in the given network.
 func InNetwork(n string) Matcher {
 	return func(i Instance) bool {
