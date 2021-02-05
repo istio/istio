@@ -123,7 +123,7 @@ func Run(testCases []TestCase, ctx framework.TestContext, apps *util.EchoDeploym
 							// only hit same cluster naked services
 							apps.Naked.Match(echo.InCluster(client.Config().Cluster)),
 							// we should hit VMs anywhere
-							apps.VM,
+							apps.VM.Match(echo.WithPrimary(client.Config().Cluster.Primary())),
 							// only hit same cluster headless services
 							apps.HeadlessNaked.Match(echo.InCluster(client.Config().Cluster)),
 						}
