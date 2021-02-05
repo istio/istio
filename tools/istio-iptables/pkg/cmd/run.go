@@ -339,6 +339,18 @@ func (iptConfigurator *IptablesConfigurator) shortCircuitKubeInternalInterface()
 	}
 }
 
+func splitV4V6(ips []string) (ipv4 []string, ipv6 []string) {
+	for _, i := range ips {
+		parsed := net.ParseIP(i)
+		if parsed.To4() != nil {
+			ipv4 = append(ipv4, i)
+		} else {
+			ipv6 = append(ipv6, i)
+		}
+	}
+	return
+}
+
 func (iptConfigurator *IptablesConfigurator) run() {
 	defer func() {
 		// Best effort since we don't know if the commands exist
@@ -412,7 +424,18 @@ func (iptConfigurator *IptablesConfigurator) run() {
 		// Redirect app calls back to itself via Envoy when using the service VIP
 		// e.g. appN => Envoy (client) => Envoy (server) => appN.
 		// nolint: lll
-		iptConfigurator.iptables.AppendRuleV4(constants.ISTIOOUTPUT, constants.NAT, "-o", "lo", "!", "-d", "127.0.0.1/32", "-m", "owner", "--uid-owner", uid, "-j", constants.ISTIOINREDIRECT)
+		if redirectDNS {
+			// When DNS is enabled, we skip this for port 53. This ensures we do not have:
+			// app => istio-agent => Envoy inbound => dns server
+			// Instead, we just have:
+			// app => istio-agent => dns server
+			iptConfigurator.iptables.AppendRuleV4(constants.ISTIOOUTPUT, constants.NAT, "-o", "lo", "!", "-d", "127.0.0.1/32",
+				"-p", "tcp", "!", "--dport", "53",
+				"-m", "owner", "--uid-owner", uid, "-j", constants.ISTIOINREDIRECT)
+		} else {
+			iptConfigurator.iptables.AppendRuleV4(constants.ISTIOOUTPUT, constants.NAT, "-o", "lo", "!", "-d", "127.0.0.1/32",
+				"-m", "owner", "--uid-owner", uid, "-j", constants.ISTIOINREDIRECT)
+		}
 
 		// Do not redirect app calls to back itself via Envoy when using the endpoint address
 		// e.g. appN => appN by lo
@@ -467,10 +490,22 @@ func (iptConfigurator *IptablesConfigurator) run() {
 	}
 
 	if redirectDNS {
-		// redirect all TCP dns traffic on port 53 to the agent on port 15053
-		iptConfigurator.iptables.AppendRuleV4(
-			constants.ISTIOOUTPUT, constants.NAT, "-p", constants.TCP, "--dport", "53", "-j", constants.REDIRECT, "--to-ports", constants.IstioAgentDNSListenerPort)
-		// the rest of the IPtables rules will take care of ensuring that the traffic does not loop, among other things.
+		for _, s := range iptConfigurator.cfg.DNSServersV4 {
+			// redirect all TCP dns traffic on port 53 to the agent on port 15053 for all servers
+			// in etc/resolv.conf
+			// We avoid redirecting all IP ranges to avoid infinite loops when there are local DNS proxies
+			// such as: app -> istio dns server -> dnsmasq -> upstream
+			// This ensures that we do not get requests from dnsmasq sent back to the agent dns server in a loop.
+			// Note: If a user somehow configured etc/resolv.conf to point to dnsmasq and server X, and dnsmasq also
+			// pointed to server X, this would not work. However, the assumption is that is not a common case.
+			iptConfigurator.iptables.AppendRuleV4(
+				constants.ISTIOOUTPUT, constants.NAT,
+				"-p", constants.TCP,
+				"--dport", "53",
+				"-d", s+"/32",
+				"-j", constants.REDIRECT,
+				"--to-ports", constants.IstioAgentDNSListenerPort)
+		}
 	}
 
 	// Skip redirection for Envoy-aware applications and
@@ -491,25 +526,28 @@ func (iptConfigurator *IptablesConfigurator) run() {
 
 	if redirectDNS {
 		// Make sure that upstream DNS requests from agent/envoy dont get captured.
+		// TODO: add ip6 as well
 		for _, uid := range split(iptConfigurator.cfg.ProxyUID) {
 			iptConfigurator.iptables.AppendRuleV4(constants.OUTPUT, constants.NAT,
 				"-p", "udp", "--dport", "53", "-m", "owner", "--uid-owner", uid, "-j", constants.RETURN)
 		}
 		for _, gid := range split(iptConfigurator.cfg.ProxyGID) {
-			// TODO: add ip6 as well
 			iptConfigurator.iptables.AppendRuleV4(constants.OUTPUT, constants.NAT,
 				"-p", "udp", "--dport", "53", "-m", "owner", "--gid-owner", gid, "-j", constants.RETURN)
 		}
 
-		// from app to agent/envoy - dnat to 127.0.0.1:port
-		iptConfigurator.iptables.AppendRuleV4(constants.OUTPUT, constants.NAT,
-			"-p", "udp", "--dport", "53",
-			"-j", "DNAT", "--to-destination", "127.0.0.1:"+constants.IstioAgentDNSListenerPort)
-		// overwrite the source IP so that when envoy/agent responds to the DNS request
-		// it responds to localhost on same interface. Otherwise, the connection will not
-		// match in the kernel. Note that the dest port here should be the rewritten port.
-		iptConfigurator.iptables.AppendRuleV4(constants.POSTROUTING, constants.NAT,
-			"-p", "udp", "--dport", constants.IstioAgentDNSListenerPort, "-j", "SNAT", "--to-source", "127.0.0.1")
+		// redirect all TCP dns traffic on port 53 to the agent on port 15053 for all servers
+		// in etc/resolv.conf
+		// We avoid redirecting all IP ranges to avoid infinite loops when there are local DNS proxies
+		// such as: app -> istio dns server -> dnsmasq -> upstream
+		// This ensures that we do not get requests from dnsmasq sent back to the agent dns server in a loop.
+		// Note: If a user somehow configured etc/resolv.conf to point to dnsmasq and server X, and dnsmasq also
+		// pointed to server X, this would not work. However, the assumption is that is not a common case.
+		for _, s := range iptConfigurator.cfg.DNSServersV4 {
+			iptConfigurator.iptables.AppendRuleV4(constants.OUTPUT, constants.NAT,
+				"-p", "udp", "--dport", "53", "-d", s+"/32",
+				"-j", constants.REDIRECT, "--to-port", constants.IstioAgentDNSListenerPort)
+		}
 	}
 
 	if iptConfigurator.cfg.InboundInterceptionMode == constants.TPROXY {
