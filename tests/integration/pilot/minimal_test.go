@@ -14,15 +14,16 @@ func TestMinimal(t *testing.T) {
 		RequiresSingleCluster().
 		Features("vm.autoregistration").
 		Run(func(ctx framework.TestContext) {
-			client := apps.PodA.GetOrFail(ctx, echo.InCluster(ctx.Clusters().Default()))
-			server := apps.PodB.GetOrFail(ctx, echo.InCluster(ctx.Clusters().Default()))
+			server := apps.PodA.GetOrFail(ctx, echo.InCluster(ctx.Clusters().Default()))
+			client := apps.VM.GetOrFail(ctx, echo.InCluster(ctx.Clusters().Default()))
 			resps, err := client.Call(echo.CallOptions{
 				Target:   server,
 				PortName: "http",
 			})
 			if err != nil {
-				fmt.Println("" +
-					"")
+				fmt.Printf("echo call failed with: %v\n", err)
+				ctx.Fatal()
 			}
+			fmt.Printf("SAM: got back %d responses: %v\n", len(resps), resps)
 		})
 }
