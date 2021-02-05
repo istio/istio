@@ -14,7 +14,12 @@
 
 package cache
 
-import "istio.io/pkg/monitoring"
+import (
+	"go.opencensus.io/stats"
+	"go.opencensus.io/tag"
+	"go.uber.org/atomic"
+	"istio.io/pkg/monitoring"
+)
 
 var RequestType = monitoring.MustCreateLabel("request_type")
 
@@ -44,7 +49,14 @@ var (
 	numFileSecretFailures = monitoring.NewSum(
 		"num_file_secret_failures_total",
 		"Number of times secret generation failed for files")
+	isReady = atomic.NewBool(true)
 )
+
+type readinessRecordHook struct{}
+
+func (r *readinessRecordHook) OnRecordFloat64Measure(f *stats.Float64Measure, tags []tag.Mutator, value float64) {
+	isReady.Store(false)
+}
 
 func init() {
 	monitoring.MustRegister(
@@ -54,4 +66,10 @@ func init() {
 		numFileWatcherFailures,
 		numFileSecretFailures,
 	)
+	monitoring.RegisterRecordHook(numFileWatcherFailures.Name(), &readinessRecordHook{})
+	monitoring.RegisterRecordHook(numFileSecretFailures.Name(), &readinessRecordHook{})
+}
+
+func IsNodeAgentReady() bool {
+	return isReady.Load()
 }
