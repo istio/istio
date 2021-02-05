@@ -77,13 +77,6 @@ func InCluster(c cluster.Cluster) Matcher {
 	}
 }
 
-// WithPrimary matches instances who are in a cluster that uses the given cluster as a Primary.
-func WithPrimary(c cluster.Cluster) Matcher {
-	return func(i Instance) bool {
-		return c.Name() == i.Config().Cluster.Primary().Name()
-	}
-}
-
 
 // InNetwork matches instances deployed in the given network.
 func InNetwork(n string) Matcher {
