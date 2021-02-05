@@ -33,6 +33,8 @@ import (
 // (if gateway exists and its IP is an IP and not a dns name).
 // Information for the mesh networks is provided as a MeshNetwork config map.
 func (b *EndpointBuilder) EndpointsByNetworkFilter(endpoints []*LocLbEndpointsAndOptions) []*LocLbEndpointsAndOptions {
+	mtlsEnabled := b.push.Mesh.GetEnableAutoMtls().Value
+
 	// calculate the multiples of weight.
 	// It is needed to normalize the LB Weight across different networks.
 	multiples := 1
@@ -76,7 +78,10 @@ func (b *EndpointBuilder) EndpointsByNetworkFilter(endpoints []*LocLbEndpointsAn
 				if !b.canViewNetwork(epNetwork) {
 					continue
 				}
-				if tlsMode := envoytransportSocketMetadata(lbEp, "tlsMode"); tlsMode == model.DisabledTLSModeLabel {
+
+				// TODO: check this by looking at the cluster's transportSocket(Matches) to cover all nonTLS configs
+				tlsMode := envoytransportSocketMetadata(lbEp, "tlsMode")
+				if mtlsEnabled || tlsMode == model.DisabledTLSModeLabel {
 					// dont allow cross-network endpoints for uninjected traffic
 					continue
 				}

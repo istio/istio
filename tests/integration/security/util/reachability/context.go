@@ -106,29 +106,16 @@ func Run(testCases []TestCase, ctx framework.TestContext, apps *util.EchoDeploym
 				for _, client := range clients {
 					ctx.NewSubTest(fmt.Sprintf("%s in %s",
 						client.Config().Service, client.Config().Cluster.StableName())).Run(func(ctx framework.TestContext) {
-						aSet := apps.A
-						bSet := apps.B
-						vmSet := apps.VM
-
-						if c.ConfigFile == "global-plaintext.yaml" {
-							// TODO: cross-network traffic fails because istiod can't filter endpoints set to non-mTLS via PeerAuthentication
-							// TODO (cont): setting callCount to 1 seems to avoid this somehow See https://github.com/istio/istio/issues/28798
-							aSet = apps.A.Match(echo.InCluster(client.Config().Cluster))
-							bSet = apps.B.Match(echo.InCluster(client.Config().Cluster))
-							if len(vmSet) > 0 {
-								vmSet = vmSet[:1]
-							}
-						}
 						destinationSets := []echo.Instances{
-							aSet,
-							bSet,
+							apps.A,
+							apps.B,
 							// only hit same cluster headless services
 							apps.Headless.Match(echo.InCluster(client.Config().Cluster)),
 							// only hit same cluster multiversion services
 							apps.Multiversion.Match(echo.InCluster(client.Config().Cluster)),
 							// only hit same cluster naked services
 							apps.Naked.Match(echo.InCluster(client.Config().Cluster)),
-							vmSet,
+							apps.VM,
 							// only hit same cluster headless services
 							apps.HeadlessNaked.Match(echo.InCluster(client.Config().Cluster)),
 						}
