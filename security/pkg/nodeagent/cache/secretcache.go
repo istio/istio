@@ -219,7 +219,7 @@ func (sc *SecretManagerClient) CallUpdateCallback(resourceName string) {
 
 // GenerateSecret passes the cached secret to SDS.StreamSecrets and SDS.FetchSecret.
 func (sc *SecretManagerClient) GenerateSecret(resourceName string) (secret *security.SecretItem, err error) {
-
+	var rootCertBundle []byte
 	// Setup the call to store generated secret to disk
 	defer func() {
 		if secret == nil || err != nil {
@@ -254,7 +254,7 @@ func (sc *SecretManagerClient) GenerateSecret(resourceName string) (secret *secu
 
 	// cache hit. this is expected to happen most of the time.
 	if c := sc.cache.GetWorkload(); c != nil {
-		var rootCertBundle []byte
+
 		cacheLog.WithLabels("ttl", time.Until(c.ExpireTime)).Info("returned workload certificate from cache")
 		if resourceName == RootCertReqResourceName {
 			rootCertBundle = sc.mergeConfigTrustBundle(c.RootCert)
@@ -272,13 +272,26 @@ func (sc *SecretManagerClient) GenerateSecret(resourceName string) (secret *secu
 		return ns, nil
 	}
 
+	// Grab Lock and then look at cache
 	t0 := time.Now()
 	sc.generateMutex.Lock()
 	defer sc.generateMutex.Unlock()
 	if c := sc.cache.GetWorkload(); c != nil {
 		// Now that we got the lock, check again if there is a cached secret (from the caller holding the lock previously)
 		cacheLog.WithLabels("ttl", time.Until(c.ExpireTime)).Info("returned delayed workload certificate from cache")
-		return c, nil
+		if resourceName == RootCertReqResourceName {
+			rootCertBundle = sc.mergeConfigTrustBundle(c.RootCert)
+		} else {
+			rootCertBundle = c.RootCert
+		}
+		ns = &security.SecretItem{
+			ResourceName:     resourceName,
+			CertificateChain: c.CertificateChain,
+			PrivateKey:       c.PrivateKey,
+			RootCert:         rootCertBundle,
+			ExpireTime:       c.ExpireTime,
+			CreatedTime:      c.CreatedTime,
+		}
 	}
 	if ts := time.Since(t0); ts > time.Second {
 		cacheLog.Warnf("slow generate secret lock: %v", ts)
@@ -306,7 +319,6 @@ func (sc *SecretManagerClient) GenerateSecret(resourceName string) (secret *secu
 	}
 
 	return ns, nil
-
 }
 
 func (sc *SecretManagerClient) addFileWatcher(file string, resourceName string) {
@@ -557,7 +569,6 @@ func (sc *SecretManagerClient) generateNewSecret(resourceName string) (*security
 		ExpireTime:       expireTime,
 		RootCert:         []byte(certChainPEM[len(certChainPEM)-1]),
 	}, nil
-
 }
 
 func (sc *SecretManagerClient) rotateTime(secret security.SecretItem) time.Duration {

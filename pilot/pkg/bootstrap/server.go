@@ -160,6 +160,9 @@ type Server struct {
 	certController *chiron.WebhookController
 	CA             *ca.IstioCA
 	RA             ra.RegistrationAuthority
+
+	// TrustAnchors for workload to workload mTLS
+	workloadTrustBundle *TrustBundle
 	// path to the caBundle that signs the DNS certs. This should be agnostic to provider.
 	caBundlePath string
 	certMu       sync.Mutex
@@ -237,6 +240,7 @@ func NewServer(args *PilotArgs) (*Server, error) {
 
 	s.initMeshNetworks(args, s.fileWatcher)
 	s.initMeshHandlers()
+	s.initWorkloadTrustBundle()
 
 	// Options based on the current 'defaults' in istio.
 	caOpts := &caOptions{
@@ -1196,5 +1200,13 @@ func (s *Server) initMeshHandlers() {
 			Full:   true,
 			Reason: []model.TriggerReason{model.GlobalUpdate},
 		})
+	})
+}
+
+func (s *Server) initWorkloadTrustBundle() {
+	s.workloadTrustBundle = NewTrustBundle()
+	s.addStartFunc(func(stop <-chan struct{}) error {
+		go s.workloadTrustBundle.processUpdates(stop)
+		return nil
 	})
 }
