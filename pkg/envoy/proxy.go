@@ -140,8 +140,12 @@ func (e *envoy) args(fname string, epoch int, bootstrapConfig string) []string {
 		}
 	}
 
-	if e.Config.Concurrency.GetValue() > 0 {
-		startupArgs = append(startupArgs, "--concurrency", fmt.Sprint(e.Config.Concurrency.GetValue()))
+	if e.Config.Concurrency != nil {
+		if e.Config.Concurrency.GetValue() >= 0 {
+			startupArgs = append(startupArgs, "--concurrency", fmt.Sprint(e.Config.Concurrency.GetValue()))
+		} else {
+			log.Warnf("Ignoring invalid concurrency %d", e.Config.Concurrency.GetValue())
+		}
 	}
 
 	return startupArgs
