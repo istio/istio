@@ -1053,17 +1053,20 @@ spec:
 			protocol: "udp",
 		},
 		{
+			// We should only capture traffic to servers in /etc/resolv.conf nameservers
+			// This checks we do not capture traffic to other servers.
+			// This is important for cases like app -> istio dns server -> dnsmasq -> upstream
+			// If we captured all DNS traffic, we would loop dnsmasq traffic back to our server.
 			name:     "tcp localhost server",
 			ips:      ipv4,
-			expected: []string{ipv4},
+			expected: []string{},
 			protocol: "tcp",
-			// iptables logic is different for traffic destined for localhost or external.
-			server: dummyLocalhostServer,
+			server:   dummyLocalhostServer,
 		},
 		{
 			name:     "udp localhost server",
 			ips:      ipv4,
-			expected: []string{ipv4},
+			expected: []string{},
 			protocol: "udp",
 			server:   dummyLocalhostServer,
 		},
@@ -1115,17 +1118,6 @@ spec:
 		{
 			name:     "udp",
 			protocol: "udp",
-		},
-		{
-			name:     "tcp localhost server",
-			protocol: "tcp",
-			// iptables logic is different for traffic destined for localhost or external.
-			server: dummyLocalhostServer,
-		},
-		{
-			name:     "udp localhost server",
-			protocol: "udp",
-			server:   dummyLocalhostServer,
 		},
 	}
 	for _, client := range flatten(apps.VM, apps.PodA, apps.PodTproxy) {
