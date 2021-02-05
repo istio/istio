@@ -174,9 +174,10 @@ func (m *Monitor) createConfig(c *config.Config) {
 }
 
 func (m *Monitor) updateConfig(c *config.Config) {
-	// Set the resource version based on the existing config.
+	// Set the resource version and create timestamp based on the existing config.
 	if prev := m.store.Get(c.GroupVersionKind, c.Name, c.Namespace); prev != nil {
 		c.ResourceVersion = prev.ResourceVersion
+		c.CreationTimestamp = prev.CreationTimestamp
 	}
 
 	if _, err := m.store.Update(*c); err != nil {
