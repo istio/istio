@@ -70,7 +70,7 @@ func TestSetup(ctx resource.Context) (err error) {
 	}
 	builder := echoboot.NewBuilder(ctx)
 	for _, c := range ctx.Clusters() {
-		clName := c.Name()
+		clName := c.StableName()
 		builder = builder.
 			WithConfig(echo.Config{
 				Service:   fmt.Sprintf("client-%s", clName),
