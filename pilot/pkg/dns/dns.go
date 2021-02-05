@@ -159,7 +159,7 @@ func (h *LocalDNSServer) UpdateLookupTable(nt *nds.NameTable) {
 // ServerDNS is the implementation of DNS interface
 func (h *LocalDNSServer) ServeDNS(proxy *dnsProxy, w dns.ResponseWriter, req *dns.Msg) {
 	var response *dns.Msg
-	log := log
+	log := log.WithLabels("protocol", proxy.protocol)
 	if log.DebugEnabled() {
 		id := uuid.New()
 		log = log.WithLabels("id", id)
