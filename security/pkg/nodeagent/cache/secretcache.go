@@ -335,9 +335,9 @@ func (sc *SecretManagerClient) addFileWatcher(file string, resourceName string) 
 	// File is not being watched, start watching now and trigger key push.
 	cacheLog.Infof("adding watcher for file certificate %s", file)
 	if err := sc.certWatcher.Add(file); err != nil {
-		cacheLog.Errorf("%v: error adding watcher for file, skipping watches [%s] %v", resourceName, file, err)
 		numFileWatcherFailures.Increment()
-		return
+		// This can happen if we have hit the limit on max_user_watches on the Node.
+		panic(fmt.Errorf("%v: error adding watcher for file, skipping watches [%s] %v", resourceName, file, err))
 	}
 }
 
@@ -642,7 +642,8 @@ func (sc *SecretManagerClient) handleFileWatch() {
 				return
 			}
 			numFileWatcherFailures.Increment()
-			cacheLog.Errorf("certificate watch error: %v", err)
+			// This should not happen typically - but still better to panic here.
+			panic(fmt.Errorf("certificate watch error: %v", err))
 		}
 	}
 }

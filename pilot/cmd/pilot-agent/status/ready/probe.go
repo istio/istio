@@ -18,11 +18,9 @@ import (
 	"fmt"
 
 	admin "github.com/envoyproxy/go-control-plane/envoy/admin/v3"
-	"github.com/pkg/errors"
 
 	"istio.io/istio/pilot/cmd/pilot-agent/metrics"
 	"istio.io/istio/pilot/cmd/pilot-agent/status/util"
-	"istio.io/istio/security/pkg/nodeagent/cache"
 )
 
 // Probe for readiness.
@@ -46,9 +44,6 @@ func (p *Probe) Check() error {
 	// First, check that Envoy has received a configuration update from Pilot.
 	if err := p.checkConfigStatus(); err != nil {
 		return err
-	}
-	if !cache.IsNodeAgentReady() {
-		return errors.Errorf("Node agent failed to load file certs")
 	}
 	return p.isEnvoyReady()
 }
