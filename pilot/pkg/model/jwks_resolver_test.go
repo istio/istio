@@ -49,7 +49,7 @@ func TestResolveJwksURIUsingOpenID(t *testing.T) {
 			expectedJwksURI: mockCertURL,
 		},
 		{
-			in:              ms.URL, // Send two same request, mock server is expected to hit only once because of the cache.
+			in:              ms.URL, // Send two same request, mock server is expected to hit twice.
 			expectedJwksURI: mockCertURL,
 		},
 		{
@@ -68,9 +68,6 @@ func TestResolveJwksURIUsingOpenID(t *testing.T) {
 				c.in, c.expectedJwksURI, jwksURI)
 		}
 	}
-	jwksURI, err := r.resolveJwksURIUsingOpenID("http://xyz")
-	t.Logf("jwks: %s, err: %s", jwksURI, err)
-	t.Logf("%v", r.keyEntries)
 
 	// Verify mock openID discovery http://localhost:9999/.well-known/openid-configuration was called twice.
 	if got, want := ms.OpenIDHitNum, uint64(2); got != want {
@@ -355,7 +352,7 @@ func TestJwtRefreshIntervalOnFailureAndResetToDefault(t *testing.T) {
 	r := newJwksResolver(
 		JwtPubKeyEvictionDuration,
 		100*time.Millisecond, /*RefreshInterval*/
-		2*time.Millisecond,   /*RefreshIntervalOnFailure*/
+		10*time.Millisecond,  /*RefreshIntervalOnFailure*/
 		testRetryInterval,
 	)
 	defer r.Close()

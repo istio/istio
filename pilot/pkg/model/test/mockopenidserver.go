@@ -85,7 +85,7 @@ type MockOpenIDDiscoveryServer struct {
 	ReturnErrorAfterFirstNumHits uint64
 
 	// The mock server will start to return a successful response after the first number of hits for public key,
-	// this is used to simulate network errors and test the refresh logic in jwks resolver. Note the idea is to\
+	// this is used to simulate network errors and test the refresh logic in jwks resolver. Note the idea is to
 	// use this in combination with ReturnErrorAfterFirstNumHits to simulate something like this:
 	// { success, success, error, error, success, success }
 	ReturnSuccessAfterFirstNumHits uint64

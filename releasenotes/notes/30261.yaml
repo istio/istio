@@ -5,4 +5,4 @@ issue:
 - 30261
 releaseNotes:
 - |
-  **Added**  Periodically resolve jwks_uri.
+  **Added**   `istiod` JWT public key refresh job will now retry the failed fetch of the `jwks_uri` with exponential backoff.
