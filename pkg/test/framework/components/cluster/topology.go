@@ -32,6 +32,7 @@ func NewTopology(config Config, allClusters Map) Topology {
 		PrimaryClusterName: config.PrimaryClusterName,
 		ConfigClusterName:  config.ConfigClusterName,
 		AllClusters:        allClusters,
+		Index:              len(allClusters),
 	}
 }
 
@@ -43,6 +44,7 @@ type Topology struct {
 	Network            string
 	PrimaryClusterName string
 	ConfigClusterName  string
+	Index              int
 	// AllClusters should contain all AllClusters in the context
 	AllClusters Map
 }
@@ -55,6 +57,32 @@ func (c Topology) NetworkName() string {
 // Name provides the ClusterName this cluster used by Istio.
 func (c Topology) Name() string {
 	return c.ClusterName
+}
+
+// StableName provides a name used for testcase names. Deterministic, so testgrid
+// can be consistent when the underlying cluster names are dynamic.
+func (c Topology) StableName() string {
+	var prefix string
+	switch c.Kind() {
+	case Kubernetes:
+		if c.IsPrimary() {
+			if c.IsConfig() {
+				prefix = "primary"
+			} else {
+				prefix = "externalistiod"
+			}
+		} else if c.IsRemote() {
+			if c.IsConfig() {
+				prefix = "config"
+			} else {
+				prefix = "remote"
+			}
+		}
+	default:
+		prefix = string(c.Kind())
+	}
+
+	return fmt.Sprintf("%s-%d", prefix, c.Index)
 }
 
 func (c Topology) Kind() Kind {
@@ -136,6 +164,7 @@ func (c Topology) String() string {
 	buf := &bytes.Buffer{}
 
 	_, _ = fmt.Fprintf(buf, "Name:               %s\n", c.Name())
+	_, _ = fmt.Fprintf(buf, "StableName:         %s\n", c.StableName())
 	_, _ = fmt.Fprintf(buf, "Kind:               %s\n", c.Kind())
 	_, _ = fmt.Fprintf(buf, "PrimaryCluster:     %s\n", c.Primary().Name())
 	_, _ = fmt.Fprintf(buf, "ConfigCluster:      %s\n", c.Config().Name())
