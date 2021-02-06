@@ -41,7 +41,7 @@ func TestProxyTracing(t *testing.T) {
 			appNsInst := tracing.GetAppNamespace()
 			// TODO fix tracing tests in multi-network https://github.com/istio/istio/issues/28890
 			for _, cluster := range ctx.Clusters().ByNetwork()[ctx.Clusters().Default().NetworkName()] {
-				t.Run(cluster.Name(), func(t *testing.T) {
+				t.Run(cluster.StableName(), func(t *testing.T) {
 					retry.UntilSuccessOrFail(ctx, func() error {
 						err := tracing.SendTraffic(ctx, nil, cluster)
 						if err != nil {

@@ -143,8 +143,14 @@ type Cluster interface {
 	fmt.Stringer
 	kube.ExtendedClient
 
-	// Name of this cluster
+	// Name of this cluster. Use for interacting with the cluster or validation against clusters.
+	// Use StableName instead of Name when creating subtests.
 	Name() string
+
+	// StableName gives a deterministic name for the cluster. Use this for test/subtest names to
+	// allow test grid to compare runs, even when the underlying cluster names are dynamic.
+	// Use Name for validation/interaction with the actual cluster.
+	StableName() string
 
 	// Kind of cluster
 	Kind() Kind

@@ -347,7 +347,7 @@ spec:
 		for _, split := range splits {
 			split := split
 			cases = append(cases, TrafficTestCase{
-				name: fmt.Sprintf("shifting-%d from %s", split["b"], podA.Config().Cluster.Name()),
+				name: fmt.Sprintf("shifting-%d from %s", split["b"], podA.Config().Cluster.StableName()),
 				config: fmt.Sprintf(`
 apiVersion: networking.istio.io/v1alpha3
 kind: VirtualService
@@ -443,7 +443,7 @@ spec:
 			e := e
 
 			tc.children = append(tc.children, TrafficCall{
-				name: fmt.Sprintf("%s: %s", c.Config().Cluster.Name(), e.alpn),
+				name: fmt.Sprintf("%s: %s", c.Config().Cluster.StableName(), e.alpn),
 				opts: echo.CallOptions{
 					Port:      &echo.Port{ServicePort: e.port, Protocol: protocol.HTTP},
 					Address:   apps.External[0].Address(),
@@ -875,7 +875,7 @@ func protocolSniffingCases(apps *EchoDeployments) []TrafficTestCase {
 					cases = append(cases, TrafficTestCase{
 						// TODO(https://github.com/istio/istio/issues/26798) enable sniffing tcp
 						skip: call.scheme == scheme.TCP,
-						name: fmt.Sprintf("%v %v->%v from %s", call.port, client.Config().Service, destination.Config().Service, client.Config().Cluster.Name()),
+						name: fmt.Sprintf("%v %v->%v from %s", call.port, client.Config().Service, destination.Config().Service, client.Config().Cluster.StableName()),
 						call: client.CallWithRetryOrFail,
 						opts: echo.CallOptions{
 							Target:   destination,
@@ -1231,7 +1231,7 @@ func VMTestCases(vms echo.Instances, apps *EchoDeployments) []TrafficTestCase {
 	for _, c := range testCases {
 		c := c
 		cases = append(cases, TrafficTestCase{
-			name: fmt.Sprintf("%s from %s", c.name, c.from.Config().Cluster.Name()),
+			name: fmt.Sprintf("%s from %s", c.name, c.from.Config().Cluster.StableName()),
 			call: c.from.CallWithRetryOrFail,
 			opts: echo.CallOptions{
 				// assume that all echos in `to` only differ in which cluster they're deployed in

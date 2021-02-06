@@ -124,7 +124,7 @@ func TestSecureNaming(t *testing.T) {
 			}
 			bSet := apps.B.Match(echo.Namespace(testNamespace.Name()))
 			for _, cluster := range ctx.Clusters() {
-				ctx.NewSubTest(fmt.Sprintf("From %s", cluster.Name())).Run(func(ctx framework.TestContext) {
+				ctx.NewSubTest(fmt.Sprintf("From %s", cluster.StableName())).Run(func(ctx framework.TestContext) {
 					a := apps.A.Match(echo.InCluster(cluster)).Match(echo.Namespace(testNamespace.Name()))[0]
 					ctx.NewSubTest("mTLS cert validation with plugin CA").
 						Run(func(ctx framework.TestContext) {

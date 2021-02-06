@@ -77,7 +77,7 @@ func TestRequestAuthentication(t *testing.T) {
 			}
 
 			for _, cluster := range ctx.Clusters() {
-				ctx.NewSubTest(fmt.Sprintf("From %s", cluster.Name())).Run(func(ctx framework.TestContext) {
+				ctx.NewSubTest(fmt.Sprintf("From %s", cluster.StableName())).Run(func(ctx framework.TestContext) {
 					a := apps.A.Match(echo.InCluster(cluster).And(echo.Namespace(apps.Namespace1.Name())))
 					b := apps.B.Match(echo.InCluster(cluster).And(echo.Namespace(apps.Namespace1.Name())))
 					testCases := []authn.TestCase{
@@ -387,7 +387,7 @@ func TestIngressRequestAuthentication(t *testing.T) {
 			}
 
 			for _, cluster := range ctx.Clusters() {
-				ctx.NewSubTest(fmt.Sprintf("In %s", cluster.Name())).Run(func(ctx framework.TestContext) {
+				ctx.NewSubTest(fmt.Sprintf("In %s", cluster.StableName())).Run(func(ctx framework.TestContext) {
 					a := apps.A.Match(echo.InCluster(cluster).And(echo.Namespace(apps.Namespace1.Name())))
 					// These test cases verify in-mesh traffic doesn't need tokens.
 					testCases := []authn.TestCase{

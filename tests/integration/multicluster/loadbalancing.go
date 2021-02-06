@@ -36,7 +36,7 @@ func LoadbalancingTest(t *testing.T, apps AppContext, features ...features.Featu
 				Run(func(ctx framework.TestContext) {
 					for _, src := range apps.LBEchos {
 						src := src
-						ctx.NewSubTest(fmt.Sprintf("from %s", src.Config().Cluster.Name())).
+						ctx.NewSubTest(fmt.Sprintf("from %s", src.Config().Cluster.StableName())).
 							Run(func(ctx framework.TestContext) {
 								srcNetwork := src.Config().Cluster.NetworkName()
 								callOrFail(ctx, src, apps.LBEchos[0],

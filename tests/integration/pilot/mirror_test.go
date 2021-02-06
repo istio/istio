@@ -148,7 +148,7 @@ func runMirrorTest(t *testing.T, options mirrorTestOptions) {
 
 					for _, podA := range apps.PodA {
 						podA := podA
-						ctx.NewSubTest(fmt.Sprintf("from %s", podA.Config().Cluster.Name())).Run(func(ctx framework.TestContext) {
+						ctx.NewSubTest(fmt.Sprintf("from %s", podA.Config().Cluster.StableName())).Run(func(ctx framework.TestContext) {
 							for _, proto := range mirrorProtocols {
 								ctx.NewSubTest(string(proto)).Run(func(ctx framework.TestContext) {
 									retry.UntilSuccessOrFail(ctx, func() error {
