@@ -18,8 +18,9 @@ import (
 	"strings"
 	"testing"
 
-	"istio.io/istio/operator/pkg/util"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+
+	"istio.io/istio/operator/pkg/util"
 )
 
 func TestHash(t *testing.T) {
