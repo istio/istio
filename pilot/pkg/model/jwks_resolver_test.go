@@ -16,6 +16,7 @@ package model
 
 import (
 	"fmt"
+	"reflect"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -354,11 +355,11 @@ func TestJwtPubKeyRefreshWithNetworkError(t *testing.T) {
 	verifyKeyLastRefreshedTime(t, r, ms, false /* wantChanged */)
 }
 
-func TestJwtRefreshIntervalOnFailureAndResetToDefault(t *testing.T) {
+func TestJwtRefreshIntervalImmediateReturnToDefault(t *testing.T) {
 	r := newJwksResolver(
 		JwtPubKeyEvictionDuration,
-		100*time.Millisecond, /*RefreshInterval*/
-		10*time.Millisecond,  /*RefreshIntervalOnFailure*/
+		50*time.Millisecond, /*RefreshInterval*/
+		2*time.Millisecond,  /*RefreshIntervalOnFailure*/
 		testRetryInterval,
 	)
 	defer r.Close()
@@ -367,8 +368,8 @@ func TestJwtRefreshIntervalOnFailureAndResetToDefault(t *testing.T) {
 	defer ms.Stop()
 
 	// Configures the mock server to return error after the first request.
-	ms.ReturnErrorAfterFirstNumHits = 2
-	ms.ReturnSuccessAfterFirstNumHits = 20
+	ms.ReturnErrorAfterFirstNumHits = 1
+	ms.ReturnSuccessAfterFirstNumHits = 10
 
 	mockCertURL := ms.URL + "/oauth2/v3/certs"
 	_, err := r.GetPublicKey("", mockCertURL)
@@ -376,32 +377,103 @@ func TestJwtRefreshIntervalOnFailureAndResetToDefault(t *testing.T) {
 		t.Fatalf("GetPublicKey(\"\", %+v) fails: expected no error, got (%v)", mockCertURL, err)
 	}
 
-	// note that calling refresh has the side effect that it does hit the mockserver and hence we will already do the 2nd hit.
-	refreshInverval := r.refresh()
-	if refreshInverval != r.refreshDefaultInterval {
-		t.Errorf("first test on refresh interval failed, expected: %s, got: %s", r.refreshDefaultInterval, refreshInverval)
+	// observing refresh interval for 0.2 seconds
+	stopTest := time.Now().Add(200 * time.Millisecond)
+	r.mu.Lock()
+	previousRefreshInterval := r.refreshInterval
+	r.mu.Unlock()
+	var refreshIntervals []time.Duration
+	refreshIntervals = append(refreshIntervals, r.refreshInterval)
+	for {
+		if time.Now().After(stopTest) {
+			break
+		}
+		r.mu.Lock()
+		if previousRefreshInterval != r.refreshInterval {
+			refreshIntervals = append(refreshIntervals, r.refreshInterval)
+		}
+		previousRefreshInterval = r.refreshInterval
+		r.mu.Unlock()
+		time.Sleep(time.Millisecond)
 	}
 
-	// sleep a bit more than the default refresh interval so we are expected to operate the refresh in failure mode.
-	time.Sleep(r.refreshDefaultInterval + 1*time.Millisecond)
-	refreshInverval = r.refresh()
-	if refreshInverval != r.refreshIntervalOnFailure {
-		t.Errorf("2nd test on refresh interval failed, expected: %s, got: %s", r.refreshIntervalOnFailure, refreshInverval)
+	expectedIntervals := []time.Duration{
+		50 * time.Millisecond,
+		2 * time.Millisecond,
+		4 * time.Millisecond,
+		50 * time.Millisecond,
+	}
+	if !reflect.DeepEqual(expectedIntervals, refreshIntervals) {
+		t.Fatalf("wrong refresh intervals expected (%+v), got (%+v)", expectedIntervals, refreshIntervals)
 	}
 
-	// sleep long enough to get back to the default interval. Note that the refreshs also consume some time.
-	time.Sleep(20 * r.refreshIntervalOnFailure)
-	refreshInverval = r.refresh()
-	if refreshInverval != r.refreshDefaultInterval {
-		t.Errorf("3rd test on refresh interval failed, expected: %s, got: %s", r.refreshDefaultInterval, refreshInverval)
+	t.Logf("public key hits: %d", ms.PubKeyHitNum)
+	t.Logf("refresh intervals observed: %+v", refreshIntervals)
+}
+
+func TestJwtRefreshIntervalStayOnFailureUntilSuccess(t *testing.T) {
+	r := newJwksResolver(
+		JwtPubKeyEvictionDuration,
+		50*time.Millisecond, /*RefreshInterval*/
+		2*time.Millisecond,  /*RefreshIntervalOnFailure*/
+		testRetryInterval,
+	)
+	// stop the refresher as in this test we directly call refresh.
+	r.Close()
+
+	ms := startMockServer(t)
+	defer ms.Stop()
+
+	// Configures the mock server to return error after the first request.
+	ms.ReturnErrorAfterFirstNumHits = 1
+	ms.ReturnSuccessAfterFirstNumHits = 38
+
+	mockCertURL := ms.URL + "/oauth2/v3/certs"
+	_, err := r.GetPublicKey("", mockCertURL)
+	if err != nil {
+		t.Fatalf("GetPublicKey(\"\", %+v) fails: expected no error, got (%v)", mockCertURL, err)
 	}
 
-	// test after two more default refresh intervals and expect that we are still on the default interval.
-	time.Sleep(2 * r.refreshDefaultInterval)
-	refreshInverval = r.refresh()
-	if refreshInverval != r.refreshDefaultInterval {
-		t.Errorf("4th test on refresh interval failed, expected: %s, got: %s", r.refreshDefaultInterval, refreshInverval)
+	// observing refresh interval for 0.5 seconds
+	var refreshIntervals []time.Duration
+	r.mu.Lock()
+	refreshIntervals = append(refreshIntervals, r.refreshInterval)
+	r.mu.Unlock()
+	var refreshs int
+	for {
+		r.refresh()
+		refreshs++
+		r.mu.Lock()
+		refreshIntervals = append(refreshIntervals, r.refreshInterval)
+		if r.refreshInterval == 50*time.Millisecond {
+			break
+		}
+		r.mu.Unlock()
 	}
+
+	expectedIntervals := []time.Duration{
+		50 * time.Millisecond,
+		2 * time.Millisecond,
+		4 * time.Millisecond,
+		8 * time.Millisecond,
+		16 * time.Millisecond,
+		32 * time.Millisecond,
+		32 * time.Millisecond,
+		32 * time.Millisecond,
+		32 * time.Millisecond,
+		32 * time.Millisecond,
+		50 * time.Millisecond,
+	}
+	if !reflect.DeepEqual(expectedIntervals, refreshIntervals) {
+		t.Fatalf("wrong refresh intervals expected (%+v), got (%+v)", expectedIntervals, refreshIntervals)
+	}
+
+	expectedRefreshs := 10
+	if refreshs != expectedRefreshs {
+		t.Fatalf("wrong number of refreshs expected %d, got %d", expectedRefreshs, refreshs)
+	}
+
+	t.Logf("public key hits: %d", ms.PubKeyHitNum)
 }
 
 func getCounterValue(counterName string, t *testing.T) float64 {

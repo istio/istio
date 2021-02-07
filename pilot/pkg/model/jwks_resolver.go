@@ -107,6 +107,9 @@ type jwtKey struct {
 
 // JwksResolver is resolver for jwksURI and jwt public key.
 type JwksResolver struct {
+	// mu mutex
+	mu sync.Mutex
+
 	// Callback function to invoke when detecting jwt public key change.
 	PushFunc func()
 
@@ -339,11 +342,12 @@ func (r *JwksResolver) refresher() {
 	for {
 		select {
 		case <-r.refreshTicker.C:
-			refreshInterval := r.refresh()
-			// update refresh interval on change.
-			if r.refreshInterval != refreshInterval {
-				r.refreshTicker.Stop()
-				r.refreshTicker = time.NewTicker(refreshInterval)
+			useDefault := r.refresh()
+			r.refreshTicker.Stop()
+			if useDefault {
+				r.refreshTicker = time.NewTicker(r.refreshDefaultInterval)
+			} else {
+				r.refreshTicker = time.NewTicker(r.refreshInterval)
 			}
 		case <-closeChan:
 			r.refreshTicker.Stop()
@@ -352,7 +356,7 @@ func (r *JwksResolver) refresher() {
 	}
 }
 
-func (r *JwksResolver) refresh() time.Duration {
+func (r *JwksResolver) refresh() bool {
 	var wg sync.WaitGroup
 	hasChange := false
 	hasErrors := false
@@ -432,10 +436,28 @@ func (r *JwksResolver) refresh() time.Duration {
 			r.PushFunc()
 		}
 	}
+
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	var useDefault bool
 	if hasErrors {
-		return r.refreshIntervalOnFailure
+		// on error use exponential backoff until refresh interval is bigger than the default interval.
+		if r.refreshInterval != r.refreshDefaultInterval {
+			if 2*r.refreshInterval > r.refreshDefaultInterval {
+				// use the default interval but do not update r.refreshInterval because we do not want the
+				// exponential backoff interval to bounce back to the r.refreshIntervalOnFailure on next refresh.
+				useDefault = true
+			} else {
+				r.refreshInterval = 2 * r.refreshInterval
+			}
+		} else {
+			r.refreshInterval = r.refreshIntervalOnFailure
+		}
+	} else {
+		r.refreshInterval = r.refreshDefaultInterval
 	}
-	return r.refreshDefaultInterval
+
+	return useDefault
 }
 
 // Close will shut down the refresher job.
