@@ -60,7 +60,7 @@ var (
 
 	// Snapshot charts are in testdata/manifest-generate/data-snapshot
 	snapshotCharts = func() chartSourceType {
-		d, err := os.MkdirTemp("", "data-snapshot-")
+		d, err := ioutil.TempDir("", "data-snapshot-*")
 		if err != nil {
 			panic(fmt.Errorf("failed to make temp dir: %v", err))
 		}
