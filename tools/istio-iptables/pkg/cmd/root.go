@@ -165,6 +165,18 @@ func handleErrorWithCode(err error, code int) {
 	os.Exit(code)
 }
 
+func bindProxyFlags(cmd *cobra.Command, args []string) {
+	if err := viper.BindPFlag(constants.ProxyUID, cmd.Flags().Lookup(constants.ProxyUID)); err != nil {
+		handleError(err)
+	}
+	viper.SetDefault(constants.ProxyUID, "")
+
+	if err := viper.BindPFlag(constants.ProxyGID, cmd.Flags().Lookup(constants.ProxyGID)); err != nil {
+		handleError(err)
+	}
+	viper.SetDefault(constants.ProxyGID, "")
+}
+
 func init() {
 	// Read in all environment variables
 	viper.AutomaticEnv()
@@ -195,19 +207,13 @@ func init() {
 	}
 	viper.SetDefault(constants.InboundTunnelPort, inboundTunnelPort)
 
+	// https://github.com/spf13/viper/issues/233.
 	rootCmd.Flags().StringP(constants.ProxyUID, "u", "",
 		"Specify the UID of the user for which the redirection is not applied. Typically, this is the UID of the proxy container")
-	if err := viper.BindPFlag(constants.ProxyUID, rootCmd.Flags().Lookup(constants.ProxyUID)); err != nil {
-		handleError(err)
-	}
-	viper.SetDefault(constants.ProxyUID, "")
 
+	// https://github.com/spf13/viper/issues/233.
 	rootCmd.Flags().StringP(constants.ProxyGID, "g", "",
 		"Specify the GID of the user for which the redirection is not applied. (same default value as -u param)")
-	if err := viper.BindPFlag(constants.ProxyGID, rootCmd.Flags().Lookup(constants.ProxyGID)); err != nil {
-		handleError(err)
-	}
-	viper.SetDefault(constants.ProxyGID, "")
 
 	rootCmd.Flags().StringP(constants.InboundInterceptionMode, "m", "",
 		"The mode used to redirect inbound connections to Envoy, either \"REDIRECT\" or \"TPROXY\"")

@@ -15,6 +15,9 @@
 package cmd
 
 import (
+	"strings"
+
+	"istio.io/istio/tools/istio-clean-iptables/pkg/config"
 	"istio.io/istio/tools/istio-iptables/pkg/constants"
 	dep "istio.io/istio/tools/istio-iptables/pkg/dependencies"
 )
@@ -26,12 +29,30 @@ func flushAndDeleteChains(ext dep.Dependencies, cmd string, table string, chains
 	}
 }
 
-func removeOldChains(ext dep.Dependencies, cmd string) {
+func removeOldChains(cfg *config.Config, ext dep.Dependencies, cmd string) {
+	// Remove the old TCP rules
 	for _, table := range []string{constants.NAT, constants.MANGLE} {
-		// Remove the old chains
 		ext.RunQuietlyAndIgnore(cmd, "-t", table, "-D", constants.PREROUTING, "-p", constants.TCP, "-j", constants.ISTIOINBOUND)
 	}
 	ext.RunQuietlyAndIgnore(cmd, "-t", constants.NAT, "-D", constants.OUTPUT, "-p", constants.TCP, "-j", constants.ISTIOOUTPUT)
+
+	// Remove the old DNS UDP rules
+	if dnsCaptureByAgent {
+		for _, uid := range split(cfg.ProxyUID) {
+			ext.RunQuietlyAndIgnore(
+				cmd, "-t", constants.NAT, "-D", constants.OUTPUT, "-p", constants.UDP, "--dport", "53", "-m", "owner", "--uid-owner", uid, "-j", constants.RETURN)
+		}
+		for _, gid := range split(cfg.ProxyGID) {
+			ext.RunQuietlyAndIgnore(
+				cmd, "-t", constants.NAT, "-D", constants.OUTPUT, "-p", constants.UDP, "--dport", "53", "-m", "owner", "--uid-owner", gid, "-j", constants.RETURN)
+		}
+
+		ext.RunQuietlyAndIgnore(
+			cmd, "-t", constants.NAT, "-D", constants.OUTPUT, "-p", constants.UDP, "--dport", "53", "-j", "DNAT", "--to-destination", "127.0.0.1:"+constants.IstioAgentDNSListenerPort)
+
+		ext.RunQuietlyAndIgnore(
+			cmd, "-t", constants.NAT, "-D", constants.POSTROUTING, "-p", constants.UDP, "--dport", constants.IstioAgentDNSListenerPort, "-j", "SNAT", "--to-source", "127.0.0.1")
+	}
 
 	// Flush and delete the istio chains from NAT table.
 	chains := []string{constants.ISTIOOUTPUT, constants.ISTIOINBOUND}
@@ -45,9 +66,9 @@ func removeOldChains(ext dep.Dependencies, cmd string) {
 	flushAndDeleteChains(ext, cmd, constants.NAT, chains)
 }
 
-func cleanup(dryRun bool) {
+func cleanup(cfg *config.Config) {
 	var ext dep.Dependencies
-	if dryRun {
+	if cfg.DryRun {
 		ext = &dep.StdoutStubDependencies{}
 	} else {
 		ext = &dep.RealDependencies{}
@@ -61,6 +82,24 @@ func cleanup(dryRun bool) {
 	}()
 
 	for _, cmd := range []string{constants.IPTABLES, constants.IP6TABLES} {
-		removeOldChains(ext, cmd)
+		removeOldChains(cfg, ext, cmd)
 	}
+}
+
+func filterEmpty(strs []string) []string {
+	filtered := make([]string, 0, len(strs))
+	for _, s := range strs {
+		if s == "" {
+			continue
+		}
+		filtered = append(filtered, s)
+	}
+	return filtered
+}
+
+func split(s string) []string {
+	if s == "" {
+		return nil
+	}
+	return filterEmpty(strings.Split(s, ","))
 }
