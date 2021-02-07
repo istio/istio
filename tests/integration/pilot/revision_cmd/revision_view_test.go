@@ -73,6 +73,7 @@ func TestRevisionCommand(t *testing.T) {
 		RequiresSingleCluster().
 		Features("installation.istioctl.revision_centric_view").
 		Run(func(ctx framework.TestContext) {
+			skipIfUnsupportedKubernetesVersion(ctx)
 			istioCtl := istioctl.NewOrFail(ctx, ctx, istioctl.Config{})
 
 			revisions := []string{"stable", "canary"}
@@ -350,4 +351,10 @@ func subsetOf(a map[string]bool, b map[string]bool) bool {
 		}
 	}
 	return true
+}
+
+func skipIfUnsupportedKubernetesVersion(ctx framework.TestContext) {
+	if !ctx.Clusters().Default().MinKubeVersion(1, 16) {
+		ctx.Skipf("k8s version not supported for %s (<%s)", ctx.Name(), "1.16")
+	}
 }
