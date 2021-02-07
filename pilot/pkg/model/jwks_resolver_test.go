@@ -362,7 +362,8 @@ func TestJwtRefreshIntervalImmediateReturnToDefault(t *testing.T) {
 		2*time.Millisecond,  /*RefreshIntervalOnFailure*/
 		testRetryInterval,
 	)
-	defer r.Close()
+	// stop the refresher as in this test we directly call refresh.
+	r.Close()
 
 	ms := startMockServer(t)
 	defer ms.Stop()
@@ -377,24 +378,20 @@ func TestJwtRefreshIntervalImmediateReturnToDefault(t *testing.T) {
 		t.Fatalf("GetPublicKey(\"\", %+v) fails: expected no error, got (%v)", mockCertURL, err)
 	}
 
-	// observing refresh interval for 0.2 seconds
-	stopTest := time.Now().Add(200 * time.Millisecond)
-	r.mu.Lock()
-	previousRefreshInterval := r.refreshInterval
-	r.mu.Unlock()
 	var refreshIntervals []time.Duration
+	r.mu.Lock()
 	refreshIntervals = append(refreshIntervals, r.refreshInterval)
+	r.mu.Unlock()
+	var refreshs int
 	for {
-		if time.Now().After(stopTest) {
+		r.refresh()
+		refreshs++
+		r.mu.Lock()
+		refreshIntervals = append(refreshIntervals, r.refreshInterval)
+		if r.refreshInterval == 50*time.Millisecond {
 			break
 		}
-		r.mu.Lock()
-		if previousRefreshInterval != r.refreshInterval {
-			refreshIntervals = append(refreshIntervals, r.refreshInterval)
-		}
-		previousRefreshInterval = r.refreshInterval
 		r.mu.Unlock()
-		time.Sleep(time.Millisecond)
 	}
 
 	expectedIntervals := []time.Duration{
@@ -434,7 +431,6 @@ func TestJwtRefreshIntervalStayOnFailureUntilSuccess(t *testing.T) {
 		t.Fatalf("GetPublicKey(\"\", %+v) fails: expected no error, got (%v)", mockCertURL, err)
 	}
 
-	// observing refresh interval for 0.5 seconds
 	var refreshIntervals []time.Duration
 	r.mu.Lock()
 	refreshIntervals = append(refreshIntervals, r.refreshInterval)
