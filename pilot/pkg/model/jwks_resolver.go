@@ -338,17 +338,21 @@ func (r *JwksResolver) getRemoteContentWithRetry(uri string, retry int) ([]byte,
 
 func (r *JwksResolver) refresher() {
 	// Wake up once in a while and refresh stale items.
+	r.mu.Lock()
 	r.refreshTicker = time.NewTicker(r.refreshInterval)
+	r.mu.Unlock()
 	for {
 		select {
 		case <-r.refreshTicker.C:
 			useDefault := r.refresh()
+			r.mu.Lock()
 			r.refreshTicker.Stop()
 			if useDefault {
 				r.refreshTicker = time.NewTicker(r.refreshDefaultInterval)
 			} else {
 				r.refreshTicker = time.NewTicker(r.refreshInterval)
 			}
+			r.mu.Unlock()
 		case <-closeChan:
 			r.refreshTicker.Stop()
 			return
