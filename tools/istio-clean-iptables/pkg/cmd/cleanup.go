@@ -39,19 +39,19 @@ func removeOldChains(cfg *config.Config, ext dep.Dependencies, cmd string) {
 	// Remove the old DNS UDP rules
 	if dnsCaptureByAgent {
 		for _, uid := range split(cfg.ProxyUID) {
-			ext.RunQuietlyAndIgnore(
-				cmd, "-t", constants.NAT, "-D", constants.OUTPUT, "-p", constants.UDP, "--dport", "53", "-m", "owner", "--uid-owner", uid, "-j", constants.RETURN)
+			ext.RunQuietlyAndIgnore(cmd, "-t", constants.NAT, "-D", constants.OUTPUT, "-p", constants.UDP,
+				"--dport", "53", "-m", "owner", "--uid-owner", uid, "-j", constants.RETURN)
 		}
 		for _, gid := range split(cfg.ProxyGID) {
-			ext.RunQuietlyAndIgnore(
-				cmd, "-t", constants.NAT, "-D", constants.OUTPUT, "-p", constants.UDP, "--dport", "53", "-m", "owner", "--uid-owner", gid, "-j", constants.RETURN)
+			ext.RunQuietlyAndIgnore(cmd, "-t", constants.NAT, "-D", constants.OUTPUT, "-p", constants.UDP,
+				"--dport", "53", "-m", "owner", "--uid-owner", gid, "-j", constants.RETURN)
 		}
 
-		ext.RunQuietlyAndIgnore(
-			cmd, "-t", constants.NAT, "-D", constants.OUTPUT, "-p", constants.UDP, "--dport", "53", "-j", "DNAT", "--to-destination", "127.0.0.1:"+constants.IstioAgentDNSListenerPort)
+		ext.RunQuietlyAndIgnore(cmd, "-t", constants.NAT, "-D", constants.OUTPUT, "-p", constants.UDP,
+			"--dport", "53", "-j", "DNAT", "--to-destination", "127.0.0.1:"+constants.IstioAgentDNSListenerPort)
 
-		ext.RunQuietlyAndIgnore(
-			cmd, "-t", constants.NAT, "-D", constants.POSTROUTING, "-p", constants.UDP, "--dport", constants.IstioAgentDNSListenerPort, "-j", "SNAT", "--to-source", "127.0.0.1")
+		ext.RunQuietlyAndIgnore(cmd, "-t", constants.NAT, "-D", constants.POSTROUTING, "-p", constants.UDP,
+			"--dport", constants.IstioAgentDNSListenerPort, "-j", "SNAT", "--to-source", "127.0.0.1")
 	}
 
 	// Flush and delete the istio chains from NAT table.
