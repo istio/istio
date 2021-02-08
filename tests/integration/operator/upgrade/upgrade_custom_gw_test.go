@@ -23,9 +23,11 @@ import (
 	"time"
 
 	"github.com/hashicorp/go-multierror"
+	kubeApiCore "k8s.io/api/core/v1"
 	kubeApiMeta "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"istio.io/istio/pkg/config/protocol"
+	istioKube "istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/cluster"
 	kubecluster "istio.io/istio/pkg/test/framework/components/cluster/kube"
@@ -42,9 +44,6 @@ import (
 	helmtest "istio.io/istio/tests/integration/helm"
 	"istio.io/istio/tests/integration/operator/common"
 	"istio.io/istio/tests/util"
-	kubeApiCore "k8s.io/api/core/v1"
-
-	istioKube "istio.io/istio/pkg/kube"
 )
 
 const (
@@ -218,8 +217,6 @@ func TestUpdateWithCustomGateway(t *testing.T) {
 			ctx.Config().ApplyYAMLOrFail(ctx, apps.appANamespace.Name(), vsYaml)
 
 			// Verify that one can access application A on the custom-gateway
-			// Unable to find the ingress for the custom gateway via the framework so retrieve URL and
-			// use in the echo call. TODO - fix to use framework - may need framework updates
 			gwIngressURL, err := getIngressURL(customGWNamespace.Name(), customServiceGateway)
 			if err != nil {
 				t.Fatalf("failed to get custom gateway URL: %v", err)

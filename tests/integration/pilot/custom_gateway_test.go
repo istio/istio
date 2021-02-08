@@ -143,8 +143,6 @@ func TestAccessAppViaCustomGateway(t *testing.T) {
 			// create the custom gateway
 			ctx.Config().ApplyYAMLOrFail(ctx, customGatewayNamespace, gwCreateYaml)
 
-			// Unable to find the ingress for the custom gateway install via the framework so retrieve URL and
-			// use in the echo call.  TODO - Fix to use framework GetIngress methods (may need to fix method)
 			gwIngressURL, err := getIngressURL(customGWNamespace.Name(), customServiceGateway)
 			if err != nil {
 				t.Fatalf("failed to get custom gateway URL: %v", err)
