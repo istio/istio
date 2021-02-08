@@ -69,6 +69,7 @@ import (
 	"istio.io/istio/pkg/kube/inject"
 	"istio.io/istio/pkg/security"
 	"istio.io/istio/pkg/spiffe"
+	"istio.io/istio/security/pkg/cmd"
 	"istio.io/istio/security/pkg/k8s/chiron"
 	"istio.io/istio/security/pkg/pki/ca"
 	"istio.io/istio/security/pkg/pki/ra"
@@ -1209,4 +1210,36 @@ func (s *Server) initWorkloadTrustBundle() {
 		go s.workloadTrustBundle.processUpdates(stop)
 		return nil
 	})
+
+	// MeshConfig: Add initial roots and callback
+	s.workloadTrustBundle.AddPeriodicMeshConfigUpdate(s.environment.Mesh())
+	s.environment.AddMeshHandler(func() {
+		s.workloadTrustBundle.AddPeriodicMeshConfigUpdate(s.environment.Mesh())
+	})
+
+	// IstioCA: Implicitly add roots corresponding to CA
+	if s.CA != nil {
+		rootCerts := []string{string(s.CA.GetCAKeyCertBundle().GetRootCertPem())}
+		s.workloadTrustBundle.EnqueueAnchorUpdate(&TrustAnchorUpdate{TrustAnchorConfig: TrustAnchorConfig{
+			source: SourceIstioCA,
+			certs:  rootCerts,
+		}})
+		s.addStartFunc(func(stop <-chan struct{}) error {
+			go s.workloadTrustBundle.AddPeriodicIstioCARootUpdate(stop, s.CA.GetCAKeyCertBundle(),
+				cmd.DefaultSelfSignedRootCertCheckInterval)
+			return nil
+		})
+	}
+
+	// IstioRA: Implicitly add roots corresponding to RA
+	if s.RA != nil {
+		// Implicitly add the Istio RA certificates to the Workload Trust Bundle
+		rootCerts := []string{string(s.RA.GetCAKeyCertBundle().GetRootCertPem())}
+		s.workloadTrustBundle.EnqueueAnchorUpdate(&TrustAnchorUpdate{TrustAnchorConfig: TrustAnchorConfig{
+			source: SourceIstioRA,
+			certs:  rootCerts,
+		}})
+
+		// Ensure all added watchers trigger Enqueue function
+	}
 }

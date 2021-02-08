@@ -17,6 +17,10 @@ import (
 	"fmt"
 	"reflect"
 	"sync"
+	"time"
+
+	meshconfig "istio.io/api/mesh/v1alpha1"
+	"istio.io/istio/security/pkg/pki/util"
 )
 
 // source is all possible sources of MeshConfig
@@ -39,18 +43,18 @@ type TrustBundle struct {
 }
 
 const (
-	SourcePluginCertConfigMap Source = iota
+	SourceIstioCA Source = iota
 	SourceMeshConfig
-	SourceSelfSigned
+	SourceIstioRA
 	// SOURCE_SPIFFE_ENDPOINT
 )
 
 func NewTrustBundle() *TrustBundle {
 	tb := &TrustBundle{
 		sourceConfig: map[Source]*TrustAnchorConfig{
-			SourcePluginCertConfigMap: &TrustAnchorConfig{source: SourcePluginCertConfigMap, certs: []string{}},
-			SourceMeshConfig:          &TrustAnchorConfig{source: SourceMeshConfig, certs: []string{}},
-			SourceSelfSigned:          &TrustAnchorConfig{source: SourceSelfSigned, certs: []string{}},
+			SourceIstioCA:    {source: SourceIstioCA, certs: []string{}},
+			SourceMeshConfig: {source: SourceMeshConfig, certs: []string{}},
+			SourceIstioRA:    {source: SourceIstioRA, certs: []string{}},
 			// SOURCE_SPIFFE_ENDPOINT:        &TrustAnchorConfig{source: SOURCE_SPIFFE_ENDPOINT, certs: []string{}},
 		},
 		mergedCerts:      []string{},
@@ -140,5 +144,33 @@ func (tb *TrustBundle) processUpdates(stop <-chan struct{}) {
 		// TODO: Log Debug
 		_ = tb.MergeTrustBundle(anchorConfig)
 		// TODO: Log Error messages
+	}
+}
+
+// AddPeriodicMeshConfigUpdate
+func (tb *TrustBundle) AddPeriodicMeshConfigUpdate(cfg *meshconfig.MeshConfig) {
+	if cfg != nil {
+		certs := []string{}
+		for _, pemCert := range cfg.GetCaCertificates() {
+			certs = append(certs, pemCert.GetPem())
+		}
+		tb.EnqueueAnchorUpdate(&TrustAnchorUpdate{TrustAnchorConfig{
+			source: SourceMeshConfig,
+			certs:  certs,
+		}})
+	}
+}
+
+// AddPeriodicIstioCAConfigUpdate
+func (tb *TrustBundle) AddPeriodicIstioCARootUpdate(stop <-chan struct{}, certBundle util.KeyCertBundle, periodicity time.Duration) {
+	select {
+	case <-time.After(periodicity):
+		rootCerts := []string{string(certBundle.GetRootCertPem())}
+		tb.EnqueueAnchorUpdate(&TrustAnchorUpdate{TrustAnchorConfig: TrustAnchorConfig{
+			source: SourceIstioCA,
+			certs:  rootCerts,
+		}})
+	case <-stop:
+		return
 	}
 }
