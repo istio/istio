@@ -33,4 +33,5 @@ spec:
       to:
         - operation:
             methods: ["POST"]
+---
   {{- end }}
