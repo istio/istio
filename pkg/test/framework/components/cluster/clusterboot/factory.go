@@ -71,8 +71,6 @@ func (a factory) Build() (cluster.Clusters, error) {
 			continue
 		}
 		allClusters[c.Name()] = c
-		scopes.Framework.Infof("Built Cluster: %s", c)
-		scopes.Framework.Infof("\n" + c.String())
 		clusters = append(clusters, c)
 	}
 	if errs != nil {
@@ -98,6 +96,10 @@ func (a factory) Build() (cluster.Clusters, error) {
 	}
 	if errs != nil {
 		return nil, errs
+	}
+
+	for _, c := range clusters {
+		scopes.Framework.Infof("Built Cluster:\n%s", c.String())
 	}
 
 	scopes.Framework.Infof("=== DONE: Building clusters ===")
