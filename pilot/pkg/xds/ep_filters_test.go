@@ -16,7 +16,6 @@ package xds
 
 import (
 	"github.com/gogo/protobuf/types"
-	"reflect"
 	"sort"
 	"testing"
 
@@ -45,12 +44,6 @@ type LbEpInfo struct {
 type LocLbEpInfo struct {
 	lbEps  []LbEpInfo
 	weight uint32
-}
-
-var expectedMetadata = &structpb.Struct{
-	Fields: map[string]*structpb.Value{
-		model.TLSModeLabelShortname: {Kind: &structpb.Value_StringValue{StringValue: "istio"}},
-	},
 }
 
 func TestEndpointsByNetworkFilter(t *testing.T) {
@@ -134,70 +127,92 @@ func TestEndpointsByNetworkFilter(t *testing.T) {
 }
 
 func TestEndpointsByNetworkFilter_MTLSDisabled(t *testing.T) {
-	env := environment()
-	// Disabling mTLS should prevent cross-network traffic
-	env.Watcher = mesh.NewFixedWatcher(&meshconfig.MeshConfig{EnableAutoMtls: &types.BoolValue{Value: false}})
-	testEndpoints := testEndpoints()
-	tests := []networkFilterCase{
-		{
-			name: "from_network1",
-			conn: xdsConnection("network1"),
-			want: []LocLbEpInfo{
-				{
-					lbEps: []LbEpInfo{
-						// 2 local endpoints
-						{address: "10.0.0.1", weight: 2},
-						{address: "10.0.0.2", weight: 2},
-						// network4 has no gateway, which means it can be accessed from network1
-						{address: "40.0.0.1", weight: 2},
+	perNetworkCases := func() []networkFilterCase {
+		return []networkFilterCase{
+			{
+				name: "from_network1",
+				conn: xdsConnection("network1"),
+				want: []LocLbEpInfo{
+					{
+						lbEps: []LbEpInfo{
+							// 2 local endpoints
+							{address: "10.0.0.1", weight: 2},
+							{address: "10.0.0.2", weight: 2},
+							// network4 has no gateway, which means it can be accessed from network1
+							{address: "40.0.0.1", weight: 2},
+						},
+						weight: 6,
 					},
-					weight: 6,
 				},
 			},
-		},
-		{
-			name: "from_network2",
-			conn: xdsConnection("network2"),
-			want: []LocLbEpInfo{
-				{
-					lbEps: []LbEpInfo{
-						// 1 local endpoint
-						{address: "20.0.0.1", weight: 2},
-						// network4 has no gateway, which means it can be accessed from network2
-						{address: "40.0.0.1", weight: 2},
+			{
+				name: "from_network2",
+				conn: xdsConnection("network2"),
+				want: []LocLbEpInfo{
+					{
+						lbEps: []LbEpInfo{
+							// 1 local endpoint
+							{address: "20.0.0.1", weight: 2},
+							// network4 has no gateway, which means it can be accessed from network2
+							{address: "40.0.0.1", weight: 2},
+						},
+						weight: 4,
 					},
-					weight: 4,
 				},
 			},
-		},
-		{
-			name: "from_network3",
-			conn: xdsConnection("network3"),
-			want: []LocLbEpInfo{
-				{
-					lbEps: []LbEpInfo{
-						// network4 has no gateway, which means it can be accessed from network3
-						{address: "40.0.0.1", weight: 2},
+			{
+				name: "from_network3",
+				conn: xdsConnection("network3"),
+				want: []LocLbEpInfo{
+					{
+						lbEps: []LbEpInfo{
+							// network4 has no gateway, which means it can be accessed from network3
+							{address: "40.0.0.1", weight: 2},
+						},
+						weight: 2,
 					},
-					weight: 2,
 				},
 			},
-		},
-		{
-			name: "from_network4",
-			conn: xdsConnection("network4"),
-			want: []LocLbEpInfo{
-				{
-					lbEps: []LbEpInfo{
-						// 1 local endpoint
-						{address: "40.0.0.1", weight: 2},
+			{
+				name: "from_network4",
+				conn: xdsConnection("network4"),
+				want: []LocLbEpInfo{
+					{
+						lbEps: []LbEpInfo{
+							// 1 local endpoint
+							{address: "40.0.0.1", weight: 2},
+						},
+						weight: 2,
 					},
-					weight: 2,
 				},
 			},
-		},
+		}
 	}
-	runNetworkFilterTest(t, env, testEndpoints, tests)
+
+	t.Run("global meshconfig", func(t *testing.T) {
+		// Disabling mTLS should prevent cross-network traffic
+		env := environment()
+		testEndpoints := testEndpoints()
+		env.Watcher = mesh.NewFixedWatcher(&meshconfig.MeshConfig{EnableAutoMtls: &types.BoolValue{Value: false}})
+		runNetworkFilterTest(t, env, testEndpoints, perNetworkCases())
+	})
+
+	t.Run("endpoint metadata", func(t *testing.T) {
+		// Disabling mTLS should prevent cross-network traffic
+		env := environment()
+		testEndpoints := testEndpoints()
+		for _, ep := range testEndpoints {
+			for _, lbEndpoint := range ep.llbEndpoints.LbEndpoints {
+				setTLSMode(lbEndpoint, model.DisabledTLSModeLabel)
+			}
+		}
+		tests := perNetworkCases()
+		for i, test := range tests {
+			test.expectedTLSMode = model.DisabledTLSModeLabel
+			tests[i] = test
+		}
+		runNetworkFilterTest(t, env, testEndpoints, tests)
+	})
 }
 
 func TestEndpointsByNetworkFilter_SkipLBWithHostname(t *testing.T) {
@@ -297,9 +312,10 @@ func TestEndpointsByNetworkFilter_SkipLBWithHostname(t *testing.T) {
 }
 
 type networkFilterCase struct {
-	name string
-	conn *Connection
-	want []LocLbEpInfo
+	name            string
+	conn            *Connection
+	want            []LocLbEpInfo
+	expectedTLSMode string
 }
 
 // runNetworkFilterTest calls the endpoints filter from each one of the
@@ -338,10 +354,12 @@ func runNetworkFilterTest(t *testing.T, env *model.Environment, testEndpoints []
 					if lbEp.Metadata == nil {
 						t.Errorf("Expected endpoint metadata")
 					} else {
-						// ensure that all endpoints (direct ones and remote gateway endpoints have the tls mode label.
-						m := lbEp.Metadata.FilterMetadata[util.EnvoyTransportSocketMetadataKey]
-						if !reflect.DeepEqual(m, expectedMetadata) {
-							t.Errorf("Did not find the expected tlsMode metadata. got %v, want %v", m, expectedMetadata)
+						expectedTLSMode := "istio"
+						if tt.expectedTLSMode != "" {
+							expectedTLSMode = tt.expectedTLSMode
+						}
+						if got := envoytransportSocketMetadata(lbEp, model.TLSModeLabelShortname); got != expectedTLSMode {
+							t.Errorf("Did not find the expected tlsMode metadata. got %v, want %v", got, expectedTLSMode)
 						}
 					}
 					addr := lbEp.GetEndpoint().Address.GetSocketAddress().Address
@@ -455,6 +473,11 @@ func testEndpoints() []*LocLbEndpointsAndOptions {
 			},
 		},
 	}
+}
+
+func setTLSMode(lbEp *endpoint.LbEndpoint, mode string) {
+	modeValue := &structpb.Value{Kind: &structpb.Value_StringValue{StringValue: mode}}
+	lbEp.Metadata.FilterMetadata[util.EnvoyTransportSocketMetadataKey].Fields[model.TLSModeLabelShortname] = modeValue
 }
 
 func createLbEndpoints(lbEpsInfo []*LbEpInfo) []*endpoint.LbEndpoint {

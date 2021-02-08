@@ -140,7 +140,7 @@ func (b *EndpointBuilder) mTLSDisabled(lbEp *endpoint.LbEndpoint) bool {
 	if b.push.Mesh != nil && b.push.Mesh.EnableAutoMtls != nil && !b.push.Mesh.EnableAutoMtls.Value {
 		return true
 	}
-	if tlsMode := envoytransportSocketMetadata(lbEp, "tlsMode"); tlsMode == model.DisabledTLSModeLabel {
+	if tlsMode := envoytransportSocketMetadata(lbEp, model.TLSModeLabelShortname); tlsMode == model.DisabledTLSModeLabel {
 		return true
 	}
 	if b.destinationRule != nil {
