@@ -22,6 +22,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/hashicorp/go-multierror"
 	kubeApiMeta "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"istio.io/istio/pkg/config/protocol"
@@ -41,6 +42,9 @@ import (
 	helmtest "istio.io/istio/tests/integration/helm"
 	"istio.io/istio/tests/integration/operator/common"
 	"istio.io/istio/tests/util"
+	kubeApiCore "k8s.io/api/core/v1"
+
+	istioKube "istio.io/istio/pkg/kube"
 )
 
 const (
@@ -146,6 +150,34 @@ func TestUpdateWithCustomGateway(t *testing.T) {
 				for _, config := range configs {
 					ctx.Config().DeleteYAML("istio-system", config)
 				}
+
+				// Wait until any deployments and services in the control plane and
+				// custom gateway namespaces are gone
+				retry.UntilSuccessOrFail(t, func() error {
+					for _, n := range []string{common.IstioNamespace, customGWNamespace.Name()} {
+						if svc, _ := cs.CoreV1().Services(n).Get(context.TODO(), n, kubeApiMeta.GetOptions{}); svc.Name != "" {
+							return fmt.Errorf("got service: %s in namespace: %s, expected to be removed", svc.Name, n)
+						}
+						if dp, _ := cs.AppsV1().Deployments(n).Get(context.TODO(), n, kubeApiMeta.GetOptions{}); dp.Name != "" {
+							return fmt.Errorf("got deployment %s in namespace: %s expected to be removed", dp.Name, n)
+						}
+					}
+					return nil
+				}, retry.Timeout(common.RetryTimeOut), retry.Delay(common.RetryDelay))
+
+				// now remove operator
+				removeCmd := []string{
+					"operator", "remove",
+				}
+				istioCtl.InvokeOrFail(t, removeCmd)
+
+				// wait until operator pods are gone
+				retry.UntilSuccessOrFail(t, func() error {
+					if pods, _ := cs.PodsForSelector(context.TODO(), common.OperatorNamespace); len(pods.Items) != 0 {
+						return fmt.Errorf("pods from cluster, expected to be removed: %+v", pods)
+					}
+					return nil
+				}, retry.Timeout(common.RetryTimeOut), retry.Delay(common.RetryDelay))
 			})
 
 			// Create the istio-system namespace and Istio control plane of the specified version
@@ -155,11 +187,6 @@ func TestUpdateWithCustomGateway(t *testing.T) {
 				ctx.Fatal(err)
 			}
 			WaitForCPInstallation(ctx, cs)
-
-			// Install the apps
-			if err = setupApps(ctx, apps); err != nil {
-				ctx.Fatal(err)
-			}
 
 			// Create Custom gateway of the specified version
 			// Create namespace for custom gateway
@@ -177,6 +204,11 @@ func TestUpdateWithCustomGateway(t *testing.T) {
 				ctx.Fatal(err)
 			}
 			WaitForCGWInstallation(ctx, cs)
+
+			// Install the apps
+			if err = setupApps(ctx, apps); err != nil {
+				ctx.Fatal(err)
+			}
 
 			// Apply a gateway to the custom-gateway and a virtual service for appplication A in its namespace.
 			// Application A will then be exposed externally on the custom-gateway
@@ -213,11 +245,8 @@ func TestUpdateWithCustomGateway(t *testing.T) {
 				"operator", "init", "--manifests", common.ManifestPath, "--hub", s.Hub, "--tag", s.Tag,
 			})
 
-			// Wait for control upgrade
-			// TODO - WaitForCPUpgrade(ctx, cs)
-			// Will want to wait until the control plane pod images are of the new version and ready
-			scopes.Framework.Infof("sleeping 1 minute for the control plane to get upgraded")
-			time.Sleep(time.Minute * 1)
+			// Wait for control plane upgrade
+			WaitForCPUpgrade(ctx, cs, s.Hub, s.Tag)
 
 			// Verify that one can access application A on the custom-gateway
 			ctx.NewSubTest("gateway and service applied, upgraded control plane").Run(func(ctx framework.TestContext) {
@@ -238,10 +267,7 @@ func TestUpdateWithCustomGateway(t *testing.T) {
 			}
 
 			// Wait for custom gateway upgrade
-			// TODO WaitForCGWUpgrade(ctx, cs)
-			// Will want to wait until the custom gateway pod images are of the new version and ready
-			scopes.Framework.Infof("sleeping 1 minute for custom gateway to get upgraded")
-			time.Sleep(time.Minute * 1)
+			WaitForCGWUpgrade(ctx, cs, s.Hub, s.Tag)
 
 			ctx.NewSubTest("gateway and service applied, upgraded control plane and custom gateway").Run(func(ctx framework.TestContext) {
 				apps.B[0].CallWithRetryOrFail(t, echo.CallOptions{
@@ -281,6 +307,23 @@ func WaitForCPInstallation(ctx framework.TestContext, cs cluster.Cluster) {
 	scopes.Framework.Infof("=== succeeded ===")
 }
 
+/// WaitForCPUpgrade waits until the control plane upgrade is complete using images with hub and tag.
+func WaitForCPUpgrade(ctx framework.TestContext, cs cluster.Cluster, hub, tag string) {
+	scopes.Framework.Infof("=== waiting on istio control upgrade === ")
+
+	retry.UntilSuccessOrFail(ctx, func() error {
+		if _, err := CheckPodsWithImageAreReady(kubetest.NewPodFetch(cs, common.IstioNamespace, "app=istiod"),
+			hub+"/pilot:"+tag); err != nil {
+			return fmt.Errorf("istiod pod is not ready: %v", err)
+		}
+		if _, err := CheckPodsWithImageAreReady(kubetest.NewPodFetch(cs, common.IstioNamespace, "app=istio-ingressgateway"),
+			hub+"/proxyv2:"+tag); err != nil {
+			return fmt.Errorf("istio ingress gateway pod is not ready: %v", err)
+		}
+		return nil
+	}, retry.Timeout(common.RetryTimeOut), retry.Delay(common.RetryDelay))
+}
+
 // WaitForCGWInstallation waits until the custom gateway installation is complete
 func WaitForCGWInstallation(ctx framework.TestContext, cs cluster.Cluster) {
 	scopes.Framework.Infof("=== waiting on custom gateway installation === ")
@@ -292,6 +335,19 @@ func WaitForCGWInstallation(ctx framework.TestContext, cs cluster.Cluster) {
 		return nil
 	}, retry.Timeout(common.RetryTimeOut), retry.Delay(common.RetryDelay))
 	scopes.Framework.Infof("=== succeeded ===")
+}
+
+/// WaitForCGWUpgrade waits until the custom gateway upgrade is complete using images with hub and tag.
+func WaitForCGWUpgrade(ctx framework.TestContext, cs cluster.Cluster, hub, tag string) {
+	scopes.Framework.Infof("=== waiting on istio control upgrade === ")
+
+	retry.UntilSuccessOrFail(ctx, func() error {
+		if _, err := CheckPodsWithImageAreReady(kubetest.NewPodFetch(cs, customGWNamespace.Name(), "app=istio-ingressgateway"),
+			hub+"/proxyv2:"+tag); err != nil {
+			return fmt.Errorf("istio ingress gateway pod is not ready: %v", err)
+		}
+		return nil
+	}, retry.Timeout(common.RetryTimeOut), retry.Delay(common.RetryDelay))
 }
 
 // setupApps creates two namespaces and starts an echo app in each namespace.
@@ -378,4 +434,36 @@ func getIngressURL(ns, service string) (string, error) {
 		return url, fmt.Errorf("getIngressURL retry failed with err: %v", err)
 	}
 	return url, nil
+}
+
+// CheckPodsWithImageAreReady checks whether the pods that are selected by the given function is in ready state or not.
+func CheckPodsWithImageAreReady(fetchFunc kubetest.PodFetchFunc, image string) ([]kubeApiCore.Pod, error) {
+	scopes.Framework.Infof("Checking pods with image %s ready...", image)
+
+	fetched, err := fetchFunc()
+	if err != nil {
+		scopes.Framework.Infof("Failed retrieving pods: %v", err)
+		return nil, err
+	}
+
+	for i, p := range fetched {
+		for _, container := range p.Spec.Containers {
+			if container.Image == image {
+				msg := "Ready"
+				if e := istioKube.CheckPodReady(&p); e != nil {
+					msg = e.Error()
+					err = multierror.Append(err, fmt.Errorf("%s/%s: %s", p.Namespace, p.Name, msg))
+				}
+				scopes.Framework.Infof("  [%2d] %45s %15s (%v)", i, p.Name, p.Status.Phase, msg)
+				break
+			}
+			err = fmt.Errorf("pod with image %s not found", image)
+		}
+	}
+
+	if err != nil {
+		return nil, err
+	}
+
+	return fetched, nil
 }
