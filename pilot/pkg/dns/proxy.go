@@ -31,7 +31,7 @@ type dnsProxy struct {
 	resolver       *LocalDNSServer
 }
 
-func newDNSProxy(protocol string, resolver *LocalDNSServer) (*dnsProxy, error) {
+func newDNSProxy(protocol string, addr string, resolver *LocalDNSServer) (*dnsProxy, error) {
 	p := &dnsProxy{
 		downstreamMux:    dns.NewServeMux(),
 		downstreamServer: &dns.Server{},
@@ -46,9 +46,9 @@ func newDNSProxy(protocol string, resolver *LocalDNSServer) (*dnsProxy, error) {
 	p.downstreamMux.Handle(".", p)
 	p.downstreamServer.Handler = p.downstreamMux
 	if protocol == "udp" {
-		p.downstreamServer.PacketConn, err = net.ListenPacket("udp", "localhost:15053")
+		p.downstreamServer.PacketConn, err = net.ListenPacket("udp", addr)
 	} else {
-		p.downstreamServer.Listener, err = net.Listen("tcp", "localhost:15053")
+		p.downstreamServer.Listener, err = net.Listen("tcp", addr)
 	}
 	if err != nil {
 		log.Errorf("Failed to listen on %s port 15053: %v", protocol, err)

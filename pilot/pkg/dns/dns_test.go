@@ -37,10 +37,12 @@ func init() {
 
 func initDNS() error {
 	var err error
-	testAgentDNS, err = NewLocalDNSServer("ns1", "ns1.svc.cluster.local")
+
+	testAgentDNS, err = NewLocalDNSServer("ns1", "ns1.svc.cluster.local", "")
 	if err != nil {
 		return err
 	}
+	testAgentDNS.resolvConfServers = []string{"127.0.0.1:5355"}
 	testAgentDNS.StartDNS()
 	testAgentDNS.searchNamespaces = []string{"ns1.svc.cluster.local", "svc.cluster.local", "cluster.local"}
 	testAgentDNS.UpdateLookupTable(&nds.NameTable{
@@ -81,6 +83,22 @@ func initDNS() error {
 			},
 		},
 	})
+	var testUpstream *LocalDNSServer
+	testUpstream, err = NewLocalDNSServer("", "", "127.0.0.1:5355")
+	if err != nil {
+		return err
+	}
+	testUpstream.resolvConfServers = nil
+	testUpstream.StartDNS()
+	testUpstream.UpdateLookupTable(&nds.NameTable{
+		Table: map[string]*nds.NameTable_NameInfo{
+			"www.bing.com": {
+				Ips:      []string{"1.1.1.1"},
+				Registry: "External",
+			},
+		},
+	})
+
 	return nil
 }
 
@@ -158,7 +176,7 @@ func TestDNS(t *testing.T) {
 		{
 			name:                    "failure: k8s host - non local namespace - shortname",
 			host:                    "example.",
-			expectResolutionFailure: dns.RcodeNameError,
+			expectResolutionFailure: dns.RcodeServerFailure,
 		},
 		{
 			name: "success: remote cluster k8s svc - same ns and different domain - fqdn",
@@ -169,7 +187,7 @@ func TestDNS(t *testing.T) {
 		{
 			name:                    "failure: remote cluster k8s svc - same ns and different domain - name.namespace",
 			host:                    "details.ns2.",
-			expectResolutionFailure: dns.RcodeNameError, // on home machines, the ISP may resolve to some generic webpage. So this test may fail on laptops
+			expectResolutionFailure: dns.RcodeServerFailure, // on home machines, the ISP may resolve to some generic webpage. So this test may fail on laptops
 		},
 		{
 			name:     "success: TypeA query returns A records only",

@@ -70,9 +70,11 @@ const (
 	// the latest IP for a host.
 	// TODO: make it configurable
 	defaultTTLInSeconds = 30
+
+	defaultListenAddr = "localhost:15053"
 )
 
-func NewLocalDNSServer(proxyNamespace, proxyDomain string) (*LocalDNSServer, error) {
+func NewLocalDNSServer(proxyNamespace, proxyDomain string, listenAddr string) (*LocalDNSServer, error) {
 	h := &LocalDNSServer{
 		proxyNamespace: proxyNamespace,
 	}
@@ -86,6 +88,10 @@ func NewLocalDNSServer(proxyNamespace, proxyDomain string) (*LocalDNSServer, err
 		}
 		h.proxyDomainParts = parts
 		h.proxyDomain = strings.Join(parts, ".")
+	}
+
+	if listenAddr == "" {
+		listenAddr = defaultListenAddr
 	}
 
 	// We will use the local resolv.conf for resolving unknown names.
@@ -111,10 +117,10 @@ func NewLocalDNSServer(proxyNamespace, proxyDomain string) (*LocalDNSServer, err
 
 	log.WithLabels("search", h.searchNamespaces, "servers", h.resolvConfServers).Debugf("initialized DNS")
 
-	if h.udpDNSProxy, err = newDNSProxy("udp", h); err != nil {
+	if h.udpDNSProxy, err = newDNSProxy("udp", listenAddr, h); err != nil {
 		return nil, err
 	}
-	if h.tcpDNSProxy, err = newDNSProxy("tcp", h); err != nil {
+	if h.tcpDNSProxy, err = newDNSProxy("tcp", listenAddr, h); err != nil {
 		return nil, err
 	}
 
