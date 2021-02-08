@@ -137,9 +137,8 @@ func (b *EndpointBuilder) EndpointsByNetworkFilter(endpoints []*LocLbEndpointsAn
 
 func (b *EndpointBuilder) mTLSDisabled(lbEp *endpoint.LbEndpoint) bool {
 	// TODO share code with cluster builder. if the cluster does not have the transportSocket(Match), mTLS is disabled
-	if !b.push.Mesh.GetEnableAutoMtls().Value {
-		//
-		return false
+	if b.push.Mesh != nil && b.push.Mesh.EnableAutoMtls != nil && !b.push.Mesh.EnableAutoMtls.Value {
+		return true
 	}
 	if tlsMode := envoytransportSocketMetadata(lbEp, "tlsMode"); tlsMode == model.DisabledTLSModeLabel {
 		return true
@@ -152,10 +151,12 @@ func (b *EndpointBuilder) mTLSDisabled(lbEp *endpoint.LbEndpoint) bool {
 			}
 		}
 	}
-	if p, ok := b.service.Ports.GetByPort(b.port); ok {
-		// TODO handle workload/port level authn policies
-		if b.push.BestEffortInferServiceMTLSMode(b.service, p) == model.MTLSDisable {
-			return true
+	if b.service != nil {
+		if p, ok := b.service.Ports.GetByPort(b.port); ok {
+			// TODO handle workload/port level authn policies
+			if b.push.BestEffortInferServiceMTLSMode(b.service, p) == model.MTLSDisable {
+				return true
+			}
 		}
 	}
 

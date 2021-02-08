@@ -15,6 +15,7 @@
 package xds
 
 import (
+	"github.com/gogo/protobuf/types"
 	"reflect"
 	"sort"
 	"testing"
@@ -53,34 +54,14 @@ var expectedMetadata = &structpb.Struct{
 }
 
 func TestEndpointsByNetworkFilter(t *testing.T) {
-	// Environment defines the networks with:
-	//  - 1 gateway for network1
-	//  - 2 gateway for network2
-	//  - 1 gateway for network3
-	//  - 0 gateways for network4
 	env := environment()
-
-	// Test endpoints creates:
-	//  - 2 endpoints in network1
-	//  - 1 endpoints in network2
-	//  - 0 endpoints in network3
-	//  - 1 endpoints in network4
 	testEndpoints := testEndpoints()
-
 	// The tests below are calling the endpoints filter from each one of the
 	// networks and examines the returned filtered endpoints
-	tests := []struct {
-		name      string
-		endpoints []*LocLbEndpointsAndOptions
-		conn      *Connection
-		env       *model.Environment
-		want      []LocLbEpInfo
-	}{
+	tests := []networkFilterCase{
 		{
-			name:      "from_network1",
-			conn:      xdsConnection("network1"),
-			env:       env,
-			endpoints: testEndpoints,
+			name: "from_network1",
+			conn: xdsConnection("network1"),
 			want: []LocLbEpInfo{
 				{
 					lbEps: []LbEpInfo{
@@ -98,10 +79,8 @@ func TestEndpointsByNetworkFilter(t *testing.T) {
 			},
 		},
 		{
-			name:      "from_network2",
-			conn:      xdsConnection("network2"),
-			env:       env,
-			endpoints: testEndpoints,
+			name: "from_network2",
+			conn: xdsConnection("network2"),
 			want: []LocLbEpInfo{
 				{
 					lbEps: []LbEpInfo{
@@ -116,10 +95,8 @@ func TestEndpointsByNetworkFilter(t *testing.T) {
 			},
 		},
 		{
-			name:      "from_network3",
-			conn:      xdsConnection("network3"),
-			env:       env,
-			endpoints: testEndpoints,
+			name: "from_network3",
+			conn: xdsConnection("network3"),
 			want: []LocLbEpInfo{
 				{
 					lbEps: []LbEpInfo{
@@ -135,10 +112,8 @@ func TestEndpointsByNetworkFilter(t *testing.T) {
 			},
 		},
 		{
-			name:      "from_network4",
-			conn:      xdsConnection("network4"),
-			env:       env,
-			endpoints: testEndpoints,
+			name: "from_network4",
+			conn: xdsConnection("network4"),
 			want: []LocLbEpInfo{
 				{
 					lbEps: []LbEpInfo{
@@ -155,60 +130,74 @@ func TestEndpointsByNetworkFilter(t *testing.T) {
 			},
 		},
 	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			push := model.NewPushContext()
-			_ = push.InitContext(tt.env, nil, nil)
-			b := NewEndpointBuilder("", tt.conn.proxy, push)
-			filtered := b.EndpointsByNetworkFilter(tt.endpoints)
-			for _, e := range tt.endpoints {
-				e.AssertInvarianceInTest()
-			}
-			if len(filtered) != len(tt.want) {
-				t.Errorf("Unexpected number of filtered endpoints: got %v, want %v", len(filtered), len(tt.want))
-				return
-			}
+	runNetworkFilterTest(t, env, testEndpoints, tests)
+}
 
-			sort.Slice(filtered, func(i, j int) bool {
-				addrI := filtered[i].llbEndpoints.LbEndpoints[0].GetEndpoint().Address.GetSocketAddress().Address
-				addrJ := filtered[j].llbEndpoints.LbEndpoints[0].GetEndpoint().Address.GetSocketAddress().Address
-				return addrI < addrJ
-			})
-
-			for i, ep := range filtered {
-				if len(ep.llbEndpoints.LbEndpoints) != len(tt.want[i].lbEps) {
-					t.Errorf("Unexpected number of LB endpoints within endpoint %d: %v, want %v", i, len(ep.llbEndpoints.LbEndpoints), len(tt.want[i].lbEps))
-				}
-
-				if ep.llbEndpoints.LoadBalancingWeight.GetValue() != tt.want[i].weight {
-					t.Errorf("Unexpected weight for endpoint %d: got %v, want %v", i, ep.llbEndpoints.LoadBalancingWeight.GetValue(), tt.want[i].weight)
-				}
-
-				for _, lbEp := range ep.llbEndpoints.LbEndpoints {
-					if lbEp.Metadata == nil {
-						t.Errorf("Expected endpoint metadata")
-					} else {
-						// ensure that all endpoints (direct ones and remote gateway endpoints have the tls mode label.
-						m := lbEp.Metadata.FilterMetadata[util.EnvoyTransportSocketMetadataKey]
-						if !reflect.DeepEqual(m, expectedMetadata) {
-							t.Errorf("Did not find the expected tlsMode metadata. got %v, want %v", m, expectedMetadata)
-						}
-					}
-					addr := lbEp.GetEndpoint().Address.GetSocketAddress().Address
-					found := false
-					for _, wantLbEp := range tt.want[i].lbEps {
-						if addr == wantLbEp.address {
-							found = true
-							break
-						}
-					}
-					if !found {
-						t.Errorf("Unexpected address for endpoint %d: %v", i, addr)
-					}
-				}
-			}
-		})
+func TestEndpointsByNetworkFilter_MTLSDisabled(t *testing.T) {
+	env := environment()
+	// Disabling mTLS should prevent cross-network traffic
+	env.Watcher = mesh.NewFixedWatcher(&meshconfig.MeshConfig{EnableAutoMtls: &types.BoolValue{Value: false}})
+	testEndpoints := testEndpoints()
+	tests := []networkFilterCase{
+		{
+			name: "from_network1",
+			conn: xdsConnection("network1"),
+			want: []LocLbEpInfo{
+				{
+					lbEps: []LbEpInfo{
+						// 2 local endpoints
+						{address: "10.0.0.1", weight: 2},
+						{address: "10.0.0.2", weight: 2},
+						// network4 has no gateway, which means it can be accessed from network1
+						{address: "40.0.0.1", weight: 2},
+					},
+					weight: 6,
+				},
+			},
+		},
+		{
+			name: "from_network2",
+			conn: xdsConnection("network2"),
+			want: []LocLbEpInfo{
+				{
+					lbEps: []LbEpInfo{
+						// 1 local endpoint
+						{address: "20.0.0.1", weight: 2},
+						// network4 has no gateway, which means it can be accessed from network2
+						{address: "40.0.0.1", weight: 2},
+					},
+					weight: 4,
+				},
+			},
+		},
+		{
+			name: "from_network3",
+			conn: xdsConnection("network3"),
+			want: []LocLbEpInfo{
+				{
+					lbEps: []LbEpInfo{
+						// network4 has no gateway, which means it can be accessed from network3
+						{address: "40.0.0.1", weight: 2},
+					},
+					weight: 2,
+				},
+			},
+		},
+		{
+			name: "from_network4",
+			conn: xdsConnection("network4"),
+			want: []LocLbEpInfo{
+				{
+					lbEps: []LbEpInfo{
+						// 1 local endpoint
+						{address: "40.0.0.1", weight: 2},
+					},
+					weight: 2,
+				},
+			},
+		},
 	}
+	runNetworkFilterTest(t, env, testEndpoints, tests)
 }
 
 func TestEndpointsByNetworkFilter_SkipLBWithHostname(t *testing.T) {
@@ -239,18 +228,10 @@ func TestEndpointsByNetworkFilter_SkipLBWithHostname(t *testing.T) {
 
 	// The tests below are calling the endpoints filter from each one of the
 	// networks and examines the returned filtered endpoints
-	tests := []struct {
-		name      string
-		endpoints []*LocLbEndpointsAndOptions
-		conn      *Connection
-		env       *model.Environment
-		want      []LocLbEpInfo
-	}{
+	tests := []networkFilterCase{
 		{
-			name:      "from_network1",
-			conn:      xdsConnection("network1"),
-			env:       env,
-			endpoints: testEndpoints,
+			name: "from_network1",
+			conn: xdsConnection("network1"),
 			want: []LocLbEpInfo{
 				{
 					lbEps: []LbEpInfo{
@@ -265,10 +246,8 @@ func TestEndpointsByNetworkFilter_SkipLBWithHostname(t *testing.T) {
 			},
 		},
 		{
-			name:      "from_network2",
-			conn:      xdsConnection("network2"),
-			env:       env,
-			endpoints: testEndpoints,
+			name: "from_network2",
+			conn: xdsConnection("network2"),
 			want: []LocLbEpInfo{
 				{
 					lbEps: []LbEpInfo{
@@ -283,10 +262,8 @@ func TestEndpointsByNetworkFilter_SkipLBWithHostname(t *testing.T) {
 			},
 		},
 		{
-			name:      "from_network3",
-			conn:      xdsConnection("network3"),
-			env:       env,
-			endpoints: testEndpoints,
+			name: "from_network3",
+			conn: xdsConnection("network3"),
 			want: []LocLbEpInfo{
 				{
 					lbEps: []LbEpInfo{
@@ -300,10 +277,8 @@ func TestEndpointsByNetworkFilter_SkipLBWithHostname(t *testing.T) {
 			},
 		},
 		{
-			name:      "from_network4",
-			conn:      xdsConnection("network4"),
-			env:       env,
-			endpoints: testEndpoints,
+			name: "from_network4",
+			conn: xdsConnection("network4"),
 			want: []LocLbEpInfo{
 				{
 					lbEps: []LbEpInfo{
@@ -318,12 +293,27 @@ func TestEndpointsByNetworkFilter_SkipLBWithHostname(t *testing.T) {
 			},
 		},
 	}
+	runNetworkFilterTest(t, env, testEndpoints, tests)
+}
+
+type networkFilterCase struct {
+	name string
+	conn *Connection
+	want []LocLbEpInfo
+}
+
+// runNetworkFilterTest calls the endpoints filter from each one of the
+// networks and examines the returned filtered endpoints
+func runNetworkFilterTest(t *testing.T, env *model.Environment, testEndpoints []*LocLbEndpointsAndOptions, tests []networkFilterCase) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			push := model.NewPushContext()
-			_ = push.InitContext(tt.env, nil, nil)
+			_ = push.InitContext(env, nil, nil)
 			b := NewEndpointBuilder("", tt.conn.proxy, push)
-			filtered := b.EndpointsByNetworkFilter(tt.endpoints)
+			filtered := b.EndpointsByNetworkFilter(testEndpoints)
+			for _, e := range testEndpoints {
+				e.AssertInvarianceInTest()
+			}
 			if len(filtered) != len(tt.want) {
 				t.Errorf("Unexpected number of filtered endpoints: got %v, want %v", len(filtered), len(tt.want))
 				return
@@ -379,7 +369,7 @@ func xdsConnection(network string) *Connection {
 	}
 }
 
-// environment creates an Environment object with the following MeshNetworks configurations:
+// environment defines the networks with:
 //  - 1 gateway for network1
 //  - 2 gateway for network2
 //  - 1 gateway for network3
@@ -435,8 +425,11 @@ func environment() *model.Environment {
 	}
 }
 
-// testEndpoints creates endpoints to be handed to the filter. It creates
-// 2 endpoints on network1, 1 endpoint on network2 and 1 endpoint on network4.
+// testEndpoints creates endpoints to be handed to the filter:
+//  - 2 endpoints in network1
+//  - 1 endpoints in network2
+//  - 0 endpoints in network3
+//  - 1 endpoints in network4
 func testEndpoints() []*LocLbEndpointsAndOptions {
 	lbEndpoints := createLbEndpoints(
 		[]*LbEpInfo{
