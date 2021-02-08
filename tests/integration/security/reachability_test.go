@@ -147,7 +147,6 @@ func TestReachability(t *testing.T) {
 						// When mTLS is disabled, all traffic should work.
 						return true
 					},
-					SkippedForMulticluster: true,
 				},
 				// --------start of auto mtls partial test cases ---------------
 				// The follow three consecutive test together ensures the auto mtls works as intended
