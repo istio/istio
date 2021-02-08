@@ -83,7 +83,8 @@ func (s *Server) initKubeRegistry(args *PilotArgs) (err error) {
 	}
 
 	mcsSettings := kubecontroller.MCSSettings{
-		EnableServiceExport: args.ServerOptions.MCSServiceExportEnabled, // todo This should eventually be set by the API agreed upon in https://github.com/istio/api/pull/1870 rather than the environment variable
+		// todo This should eventually be set by the API agreed upon in https://github.com/istio/api/pull/1870 rather than the environment variable
+		EnableServiceExport: args.ServerOptions.MCSServiceExportEnabled,
 		Environment:         s.environment,
 	}
 
