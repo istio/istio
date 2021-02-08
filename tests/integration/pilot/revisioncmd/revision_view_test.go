@@ -98,7 +98,7 @@ func TestRevisionCommand(t *testing.T) {
 
 			// Wait some time for things to settle down. This is very
 			// important for gateway pod related tests.
-			time.Sleep(60 * time.Second)
+			time.Sleep(30 * time.Second)
 
 			testCases := []struct {
 				name     string
@@ -353,6 +353,14 @@ func subsetOf(a map[string]bool, b map[string]bool) bool {
 	return true
 }
 
+// MutatingWebhookConfiguration version used in this feature is v1 which is only
+// supported from Kubernetes 1.16. For Kubernetes 1.15, we should be using v1beta1.
+// However, this feature is not available only in Istio versions later than 1.8
+// don't support Kubernetes 1.15. So we are fine. Not having this caused postsubmit
+// test flakes when run against 1.15
+//
+// K8s 1.15 - https://v1-16.docs.kubernetes.io/docs/reference/generated/kubernetes-api/v1.15/#mutatingwebhookconfiguration-v1beta1-admissionregistration-k8s-io
+// K8s 1.16 - https://v1-16.docs.kubernetes.io/docs/reference/generated/kubernetes-api/v1.16/#mutatingwebhookconfiguration-v1-admissionregistration-k8s-io
 func skipIfUnsupportedKubernetesVersion(ctx framework.TestContext) {
 	if !ctx.Clusters().Default().MinKubeVersion(1, 16) {
 		ctx.Skipf("k8s version not supported for %s (<%s)", ctx.Name(), "1.16")
