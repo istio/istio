@@ -15,9 +15,10 @@
 package xds
 
 import (
-	"github.com/gogo/protobuf/types"
 	"sort"
 	"testing"
+
+	"github.com/gogo/protobuf/types"
 
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	endpoint "github.com/envoyproxy/go-control-plane/envoy/config/endpoint/v3"
