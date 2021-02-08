@@ -86,18 +86,24 @@ func toConfigMeta(orig interface{}) (ConfigMeta, bool) {
 }
 
 func (m ConfigMeta) Bool(key string) *bool {
+	if m[key] == nil {
+		return nil
+	}
 	v, ok := m[key].(bool)
 	if !ok {
-		scopes.Framework.Warnf("failed to parse key %q as bool, defaulting to false", key)
+		scopes.Framework.Warnf("failed to parse key of type %T value %q as bool, defaulting to false", m[key], key)
 		return nil
 	}
 	return &v
 }
 
 func (m ConfigMeta) Int(key string) int {
+	if m[key] == nil {
+		return 0
+	}
 	v, ok := m[key].(int)
 	if !ok {
-		scopes.Framework.Warnf("failed to parse key %q as int, defaulting to 0", key)
+		scopes.Framework.Warnf("failed to parse key of type %T value %q as int, defaulting to 0", m[key], key)
 		return 0
 	}
 	return v

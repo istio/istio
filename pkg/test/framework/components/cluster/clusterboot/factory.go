@@ -59,6 +59,7 @@ func (a factory) Build() (cluster.Clusters, error) {
 	}()
 
 	allClusters := make(cluster.Map)
+	var clusters cluster.Clusters
 	for i, config := range a.configs {
 		c, err := buildCluster(config, allClusters)
 		if err != nil {
@@ -70,14 +71,14 @@ func (a factory) Build() (cluster.Clusters, error) {
 			continue
 		}
 		allClusters[c.Name()] = c
+		clusters = append(clusters, c)
 	}
 	if errs != nil {
 		return nil, errs
 	}
 
-	// validate the topology has no open edges and build the return slice
-	var clusters cluster.Clusters
-	for n, c := range allClusters {
+	// validate the topology has no open edges
+	for _, c := range allClusters {
 		if primary, ok := allClusters[c.PrimaryName()]; !ok {
 			errs = multierror.Append(errs, fmt.Errorf("primary %s for %s is not in the topology", c.PrimaryName(), c.Name()))
 			continue
@@ -92,12 +93,13 @@ func (a factory) Build() (cluster.Clusters, error) {
 			errs = multierror.Append(errs, fmt.Errorf("config %s for %s is of kind %s, primaries must be Kubernetes", config.Name(), c.Name(), config.Kind()))
 			continue
 		}
-		scopes.Framework.Infof("Built Cluster: %s", n)
-		scopes.Framework.Infof("\n" + c.String())
-		clusters = append(clusters, c)
 	}
 	if errs != nil {
 		return nil, errs
+	}
+
+	for _, c := range clusters {
+		scopes.Framework.Infof("Built Cluster:\n%s", c.String())
 	}
 
 	scopes.Framework.Infof("=== DONE: Building clusters ===")
