@@ -244,6 +244,23 @@ func TestCreateRemoteSecrets(t *testing.T) {
 			name:       "cluster-foo",
 			want:       "cal-want",
 		},
+		{
+			testName: "fail when non-existing secret name provided",
+			objs:     []runtime.Object{kubeSystemNamespace, sa2, saSecret, saSecret2},
+			config: &api.Config{
+				CurrentContext: testContext,
+				Contexts: map[string]*api.Context{
+					testContext: {Cluster: "cluster"},
+				},
+				Clusters: map[string]*api.Cluster{
+					"cluster": {Server: "server"},
+				},
+			},
+			secretName: "nonexistingSecret",
+			name:       "cluster-foo",
+			want:       "cal-want",
+			wantErrStr: "provided secret does not exist",
+		},
 	}
 
 	for i := range cases {
