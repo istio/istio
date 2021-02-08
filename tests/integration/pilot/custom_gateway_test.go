@@ -122,6 +122,7 @@ func TestAccessAppViaCustomGateway(t *testing.T) {
 			if err != nil {
 				t.Fatalf("failed to get settings: %v", err)
 			}
+
 			gatewayConfig := fmt.Sprintf(iopGWTemplate, customGatewayNamespace, customGatewayNamespace)
 			if iopGWFile, err = ioutil.TempFile(ctx.WorkDir(), "modified_customgw.yaml"); err != nil {
 				ctx.Fatal(err)
@@ -129,19 +130,18 @@ func TestAccessAppViaCustomGateway(t *testing.T) {
 			if _, err := iopGWFile.Write([]byte(gatewayConfig)); err != nil {
 				t.Fatalf("failed to write iop cr file: %v", err)
 			}
+
 			istioCtl := istioctl.NewOrFail(ctx, ctx, istioctl.Config{Cluster: ctx.Environment().Clusters()[0]})
 			createGateWayCmd := []string{
-				"manifest", "generate",
+				"install",
 				"--set", "hub=" + s.Hub,
 				"--set", "tag=" + s.Tag,
 				"--manifests=" + ManifestPath,
+				"--skip-confirmation",
 				"-f",
 				iopGWFile.Name(),
 			}
-			gwCreateYaml, _ := istioCtl.InvokeOrFail(t, createGateWayCmd)
-
-			// create the custom gateway
-			ctx.Config().ApplyYAMLOrFail(ctx, customGatewayNamespace, gwCreateYaml)
+			istioCtl.InvokeOrFail(t, createGateWayCmd)
 
 			gwIngressURL, err := getIngressURL(customGWNamespace.Name(), customServiceGateway)
 			if err != nil {
