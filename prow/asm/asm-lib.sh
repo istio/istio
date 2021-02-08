@@ -390,6 +390,9 @@ function install_asm() {
       echo "Environ project ID: ${PROJECT_ID}, project number: ${ENVIRON_PROJECT_NUMBER}"
     fi
 
+    # Create the istio-system ns before running the install_asm script.
+    # TODO(chizhg): remove this line after install_asm script can create it.
+    kubectl create namespace istio-system --context="${CONTEXTS[$i]}"
     if [[ "${CA}" == "MESHCA" || "${CA}" == "PRIVATECA" ]]; then
       INSTALL_ASM_CA="mesh_ca"
       if [[ "${CLUSTER_TOPOLOGY}" == "MULTIPROJECT_MULTICLUSTER" ]]; then
@@ -397,7 +400,7 @@ function install_asm() {
         for j in "${!CONTEXTS[@]}"; do
           if [[ "$i" != "$j" ]]; then
             IFS="_" read -r -a TMP <<< "${CONTEXTS[$j]}"
-            TRUSTED_GCP_PROJECTS="$TRUSTED_GCP_PROJECTS --trusted_gcp_project ${TMP[1]}"
+            TRUSTED_GCP_PROJECTS="${TMP[1]},$TRUSTED_GCP_PROJECTS"
           fi
         done
       fi
@@ -424,7 +427,6 @@ function install_asm() {
 --ca_key samples/certs/ca-key.pem \
 --root_cert samples/certs/root-cert.pem \
 --cert_chain samples/certs/cert-chain.pem"
-      kubectl create namespace istio-system --context="${CONTEXTS[$i]}"
     else
       echo "Invalid CA ${CA}"
       exit 1
@@ -448,10 +450,9 @@ function install_asm() {
         --enable-logging || echo "test-nat already exists"
     fi
 
-    # INSTALL_ASM_COMMIT is from a branch master-prow with more CI options on install_asm (not yet exposed to end users)
-    # TODO(taohe@): if install_asm is updated for prow tests, update the commit ID accordingly.
-    INSTALL_ASM_COMMIT="dbf24423b9fb44068f792669f36abbd97d606a48"
-    curl -O https://raw.githubusercontent.com/GoogleCloudPlatform/anthos-service-mesh-packages/"${INSTALL_ASM_COMMIT}"/scripts/asm-installer/install_asm
+    # INSTALL_ASM_BRANCH is one of the branches in https://github.com/GoogleCloudPlatform/anthos-service-mesh-packages
+    INSTALL_ASM_BRANCH="master"
+    curl -O https://raw.githubusercontent.com/GoogleCloudPlatform/anthos-service-mesh-packages/"${INSTALL_ASM_BRANCH}"/scripts/asm-installer/install_asm
     TRUSTED_GCP_PROJECTS="${TRUSTED_GCP_PROJECTS:=}"
     CUSTOM_CA_FLAGS="${CUSTOM_CA_FLAGS:=}"
     chmod +x install_asm
@@ -460,7 +461,7 @@ function install_asm() {
     export _CI_ISTIOCTL_REL_PATH="$PWD/out/linux_amd64/istioctl"
     export _CI_ASM_IMAGE_LOCATION="${HUB}"
     export _CI_ASM_IMAGE_TAG="${TAG}"
-    export _CI_ASM_KPT_BRANCH=master-prow
+    export _CI_ASM_KPT_BRANCH="${INSTALL_ASM_BRANCH}"
     export _CI_NO_VALIDATE=1
     export _CI_NO_REVISION=1
 
@@ -468,6 +469,8 @@ function install_asm() {
     SERVICE_ACCOUNT=$(gcloud config list --format "value(core.account)")
     if [[ "${WIP}" != "HUB" ]]; then
       if [[ "${CLUSTER_TOPOLOGY}" == "MULTIPROJECT_MULTICLUSTER" ]]; then
+        export _CI_ENVIRON_PROJECT_NUMBER="${ENVIRON_PROJECT_NUMBER}"
+        export _CI_TRUSTED_GCP_PROJECTS="${TRUSTED_GCP_PROJECTS}"
         eval ./install_asm \
           --project_id "${PROJECT_ID}" \
           --cluster_name "${CLUSTER}" \
@@ -478,8 +481,6 @@ function install_asm() {
           --enable_gcp_apis \
           --option multiproject \
           --option audit-authorizationpolicy \
-          --environ_project_number "${ENVIRON_PROJECT_NUMBER}" \
-          "${TRUSTED_GCP_PROJECTS}" \
           --custom_overlay "${CUSTOM_OVERLAY}" \
           --verbose
       else
@@ -499,6 +500,8 @@ function install_asm() {
       fi
     else
       if [[ "${CLUSTER_TOPOLOGY}" == "MULTIPROJECT_MULTICLUSTER" ]]; then
+        export _CI_ENVIRON_PROJECT_NUMBER="${ENVIRON_PROJECT_NUMBER}"
+        export _CI_TRUSTED_GCP_PROJECTS="${TRUSTED_GCP_PROJECTS}"
         eval ./install_asm \
           --project_id "${PROJECT_ID}" \
           --cluster_name "${CLUSTER}" \
@@ -509,8 +512,6 @@ function install_asm() {
           --enable_all \
           --option multiproject \
           --option hub-meshca \
-          --environ_project_number "${ENVIRON_PROJECT_NUMBER}" \
-          "${TRUSTED_GCP_PROJECTS}" \
           --custom_overlay "${CUSTOM_OVERLAY}" \
           --option audit-authorizationpolicy \
           --service_account "${SERVICE_ACCOUNT}" \
