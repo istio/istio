@@ -29,7 +29,7 @@ import (
 	"istio.io/pkg/log"
 )
 
-func ApplyClusterMerge(pctx networking.EnvoyFilter_PatchContext, efw *model.EnvoyFilterWrapper, c *cluster.Cluster) (out *cluster.Cluster) {
+func ApplyClusterMerge(pctx networking.EnvoyFilter_PatchContext, efw *model.EnvoyFilterWrapper, c *cluster.Cluster, host host.Name) (out *cluster.Cluster) {
 	defer runtime.HandleCrash(runtime.LogPanic, func(interface{}) {
 		log.Errorf("clusters patch caused panic, so the patches did not take effect")
 	})
@@ -42,7 +42,7 @@ func ApplyClusterMerge(pctx networking.EnvoyFilter_PatchContext, efw *model.Envo
 		if cp.Operation != networking.EnvoyFilter_Patch_MERGE {
 			continue
 		}
-		if commonConditionMatch(pctx, cp) && clusterMatch(c, cp) {
+		if commonConditionMatch(pctx, cp) && clusterMatch(c, cp, host) {
 
 			ret, err := mergeTransportSocketCluster(c, cp)
 			if err != nil {
@@ -102,7 +102,7 @@ func mergeTransportSocketCluster(c *cluster.Cluster, cp *model.EnvoyFilterConfig
 	return false, nil
 }
 
-func ShouldKeepCluster(pctx networking.EnvoyFilter_PatchContext, efw *model.EnvoyFilterWrapper, c *cluster.Cluster) bool {
+func ShouldKeepCluster(pctx networking.EnvoyFilter_PatchContext, efw *model.EnvoyFilterWrapper, c *cluster.Cluster, host host.Name) bool {
 	if efw == nil {
 		return true
 	}
@@ -110,7 +110,7 @@ func ShouldKeepCluster(pctx networking.EnvoyFilter_PatchContext, efw *model.Envo
 		if cp.Operation != networking.EnvoyFilter_Patch_REMOVE {
 			continue
 		}
-		if commonConditionMatch(pctx, cp) && clusterMatch(c, cp) {
+		if commonConditionMatch(pctx, cp) && clusterMatch(c, cp, host) {
 			return false
 		}
 	}
@@ -133,7 +133,7 @@ func InsertedClusters(pctx networking.EnvoyFilter_PatchContext, efw *model.Envoy
 	return result
 }
 
-func clusterMatch(cluster *cluster.Cluster, cp *model.EnvoyFilterConfigPatchWrapper) bool {
+func clusterMatch(cluster *cluster.Cluster, cp *model.EnvoyFilterConfigPatchWrapper, service host.Name) bool {
 	cMatch := cp.Match.GetCluster()
 	if cMatch == nil {
 		return true
@@ -143,13 +143,19 @@ func clusterMatch(cluster *cluster.Cluster, cp *model.EnvoyFilterConfigPatchWrap
 		return cMatch.Name == cluster.Name
 	}
 
-	_, subset, hostname, port := model.ParseSubsetKey(cluster.Name)
+	direction, subset, hostname, port := model.ParseSubsetKey(cluster.Name)
+
+	hostMatch := hostname
+	// For inbound clusters, host parsed from subset key will be empty. Use the passed in service name.
+	if direction == model.TrafficDirectionInbound && len(service) > 0 {
+		hostMatch = service
+	}
 
 	if cMatch.Subset != "" && cMatch.Subset != subset {
 		return false
 	}
 
-	if cMatch.Service != "" && host.Name(cMatch.Service) != hostname {
+	if cMatch.Service != "" && host.Name(cMatch.Service) != hostMatch {
 		return false
 	}
 

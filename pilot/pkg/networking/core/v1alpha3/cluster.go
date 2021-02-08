@@ -100,20 +100,20 @@ func (configgen *ConfigGeneratorImpl) BuildClusters(proxy *model.Proxy, push *mo
 		outboundPatcher := clusterPatcher{envoyFilterPatches, networking.EnvoyFilter_SIDECAR_OUTBOUND}
 		clusters = append(clusters, configgen.buildOutboundClusters(cb, outboundPatcher)...)
 		// Add a blackhole and passthrough cluster for catching traffic to unresolved routes
-		clusters = outboundPatcher.conditionallyAppend(clusters, cb.buildBlackHoleCluster(), cb.buildDefaultPassthroughCluster())
+		clusters = outboundPatcher.conditionallyAppend(clusters, "", cb.buildBlackHoleCluster(), cb.buildDefaultPassthroughCluster())
 		clusters = append(clusters, outboundPatcher.insertedClusters()...)
 
 		// Setup inbound clusters
 		inboundPatcher := clusterPatcher{envoyFilterPatches, networking.EnvoyFilter_SIDECAR_INBOUND}
 		clusters = append(clusters, configgen.buildInboundClusters(cb, instances, inboundPatcher)...)
 		// Pass through clusters for inbound traffic. These cluster bind loopback-ish src address to access node local service.
-		clusters = inboundPatcher.conditionallyAppend(clusters, cb.buildInboundPassthroughClusters()...)
+		clusters = inboundPatcher.conditionallyAppend(clusters, "", cb.buildInboundPassthroughClusters()...)
 		clusters = append(clusters, inboundPatcher.insertedClusters()...)
 	default: // Gateways
 		patcher := clusterPatcher{envoyFilterPatches, networking.EnvoyFilter_GATEWAY}
 		clusters = append(clusters, configgen.buildOutboundClusters(cb, patcher)...)
 		// Gateways do not require the default passthrough cluster as they do not have original dst listeners.
-		clusters = patcher.conditionallyAppend(clusters, cb.buildBlackHoleCluster())
+		clusters = patcher.conditionallyAppend(clusters, "", cb.buildBlackHoleCluster())
 		if proxy.Type == model.Router && proxy.GetRouterMode() == model.SniDnatRouter {
 			clusters = append(clusters, configgen.buildOutboundSniDnatClusters(proxy, push, patcher)...)
 		}
@@ -175,8 +175,8 @@ func (configgen *ConfigGeneratorImpl) buildOutboundClusters(cb *ClusterBuilder, 
 
 			subsetClusters := cb.applyDestinationRule(defaultCluster, DefaultClusterMode, service, port, networkView)
 
-			clusters = cp.conditionallyAppend(clusters, defaultCluster)
-			clusters = cp.conditionallyAppend(clusters, subsetClusters...)
+			clusters = cp.conditionallyAppend(clusters, "", defaultCluster)
+			clusters = cp.conditionallyAppend(clusters, "", subsetClusters...)
 		}
 	}
 
@@ -190,10 +190,10 @@ type clusterPatcher struct {
 	pctx networking.EnvoyFilter_PatchContext
 }
 
-func (p clusterPatcher) conditionallyAppend(l []*cluster.Cluster, clusters ...*cluster.Cluster) []*cluster.Cluster {
+func (p clusterPatcher) conditionallyAppend(l []*cluster.Cluster, host host.Name, clusters ...*cluster.Cluster) []*cluster.Cluster {
 	for _, c := range clusters {
-		if envoyfilter.ShouldKeepCluster(p.pctx, p.efw, c) {
-			l = append(l, envoyfilter.ApplyClusterMerge(p.pctx, p.efw, c))
+		if envoyfilter.ShouldKeepCluster(p.pctx, p.efw, c, host) {
+			l = append(l, envoyfilter.ApplyClusterMerge(p.pctx, p.efw, c, host))
 		}
 	}
 	return l
@@ -231,8 +231,8 @@ func (configgen *ConfigGeneratorImpl) buildOutboundSniDnatClusters(proxy *model.
 				continue
 			}
 			subsetClusters := cb.applyDestinationRule(defaultCluster, SniDnatClusterMode, service, port, networkView)
-			clusters = cp.conditionallyAppend(clusters, defaultCluster)
-			clusters = cp.conditionallyAppend(clusters, subsetClusters...)
+			clusters = cp.conditionallyAppend(clusters, "", defaultCluster)
+			clusters = cp.conditionallyAppend(clusters, "", subsetClusters...)
 		}
 	}
 
@@ -302,7 +302,7 @@ func (configgen *ConfigGeneratorImpl) buildInboundClusters(cb *ClusterBuilder, i
 		for _, instances := range clustersToBuild {
 			instance := instances[0]
 			localCluster := cb.buildInboundClusterForPortOrUDS(cb.proxy, int(instance.Endpoint.EndpointPort), actualLocalHost, instance, instances)
-			clusters = cp.conditionallyAppend(clusters, localCluster)
+			clusters = cp.conditionallyAppend(clusters, instance.Service.Hostname, localCluster)
 		}
 		return clusters
 	}
@@ -364,7 +364,7 @@ func (configgen *ConfigGeneratorImpl) buildInboundClusters(cb *ClusterBuilder, i
 				},
 			}
 		}
-		clusters = cp.conditionallyAppend(clusters, localCluster)
+		clusters = cp.conditionallyAppend(clusters, instance.Service.Hostname, localCluster)
 	}
 
 	return clusters
