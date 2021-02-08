@@ -29,6 +29,7 @@ import (
 	"istio.io/pkg/log"
 )
 
+// ApplyClusterMerge processes the MERGE operation and merges the supplied configuration to the matched clusters.
 func ApplyClusterMerge(pctx networking.EnvoyFilter_PatchContext, efw *model.EnvoyFilterWrapper, c *cluster.Cluster, host host.Name) (out *cluster.Cluster) {
 	defer runtime.HandleCrash(runtime.LogPanic, func(interface{}) {
 		log.Errorf("clusters patch caused panic, so the patches did not take effect")
@@ -102,6 +103,7 @@ func mergeTransportSocketCluster(c *cluster.Cluster, cp *model.EnvoyFilterConfig
 	return false, nil
 }
 
+// ShouldKeepCluster checks if there is a REMOVE patch on the cluster, returns false if there is on so that it is removed.
 func ShouldKeepCluster(pctx networking.EnvoyFilter_PatchContext, efw *model.EnvoyFilterWrapper, c *cluster.Cluster, host host.Name) bool {
 	if efw == nil {
 		return true
@@ -117,6 +119,7 @@ func ShouldKeepCluster(pctx networking.EnvoyFilter_PatchContext, efw *model.Envo
 	return true
 }
 
+// InsertedClusters collects all clusters that are added via ADD operation and match the patch context.
 func InsertedClusters(pctx networking.EnvoyFilter_PatchContext, efw *model.EnvoyFilterWrapper) []*cluster.Cluster {
 	if efw == nil {
 		return nil
