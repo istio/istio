@@ -223,7 +223,7 @@ func (e *Environment) SetLedger(l ledger.Ledger) {
 	e.ledger = l
 }
 
-//only user for testing
+// only user for testing
 func (e *Environment) SetClusterLocalHosts(hostList []string) {
 	e.clusterLocalHosts = make([]host.Name, len(hostList))
 	for _, hostName := range hostList {

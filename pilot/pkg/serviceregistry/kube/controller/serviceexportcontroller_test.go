@@ -35,11 +35,11 @@ import (
 func TestServiceExportController(t *testing.T) {
 	client := kube.NewFakeClient()
 
-	//create two services, one for export and one not
+	// create two services, one for export and one not
 	createSimpleService(t, client, "ns2", "foo")
 	createSimpleService(t, client, "ns1", "foo")
 
-	//start the controller
+	// start the controller
 	hosts := []string{"*.ns1.svc.cluster.local", "secretservice.*.svc.cluster.local", "service12.ns12.svc.cluster.local"}
 
 	env := model.Environment{}
@@ -56,25 +56,25 @@ func TestServiceExportController(t *testing.T) {
 	assertServiceExport(t, client.MCSApis(), "ns2", "foo", true)
 	assertServiceExport(t, client.MCSApis(), "ns1", "foo", false)
 
-	//add exportable service
+	// add exportable service
 	createSimpleService(t, client, "ns3", "bar")
 
-	//assert that the service export is created
+	// assert that the service export is created
 	assertServiceExport(t, client.MCSApis(), "ns3", "bar", true)
 
-	//add un-exportable service
+	// add un-exportable service
 	createSimpleService(t, client, "ns4", "secretservice")
 
-	//assert that the service export is not created
+	// assert that the service export is not created
 	assertServiceExport(t, client.MCSApis(), "ns4", "secretservice", false)
 
-	//delete exportable service
+	// delete exportable service
 	deleteSimpleService(t, client, "ns2", "foo")
 
-	//ensure serviceexport is deleted
+	// ensure serviceexport is deleted
 	assertServiceExport(t, client.MCSApis(), "ns2", "foo", false)
 
-	//manually create serviceexport
+	// manually create serviceexport
 	export := v1alpha1.ServiceExport{
 		Status: v1alpha1.ServiceExportStatus{
 			Conditions: []v1alpha1.ServiceExportCondition{
@@ -92,27 +92,26 @@ func TestServiceExportController(t *testing.T) {
 		t.Fatalf("Unexpected error %v", err)
 	}
 
-	//create the associated service
-	//no need for assertions, just trying to ensure no errors
+	// create the associated service
+	// no need for assertions, just trying to ensure no errors
 	createSimpleService(t, client, "ns5", "another-export")
 
-	//assert that we didn't wipe out the pre-existing serviceexport status
+	// assert that we didn't wipe out the pre-existing serviceexport status
 	assertServiceExportHasCondition(t, client.MCSApis(), "ns5", "another-export", v1alpha1.ServiceExportValid)
 
-	//delete un-exportable service
-	//trying to ensure no errors
+	// delete un-exportable service
+	// trying to ensure no errors
 	deleteSimpleService(t, client, "ns1", "foo")
 
-	//manually delete arbitrary serviceexport
+	// manually delete arbitrary serviceexport
 	err = client.MCSApis().MulticlusterV1alpha1().ServiceExports("ns3").Delete(context.TODO(), "bar", metav1.DeleteOptions{})
 	if err != nil {
 		t.Fatalf("Unexpected error %v", err)
 	}
 
-	//delete associated service
-	//again, just making sure no errors
+	// delete associated service
+	// again, just making sure no errors
 	deleteSimpleService(t, client, "ns3", "bar")
-
 }
 
 func createSimpleService(t *testing.T, client kubernetes.Interface, ns string, name string) {
@@ -151,7 +150,6 @@ func assertServiceExportHasCondition(t *testing.T, client versioned.Interface, n
 	t.Helper()
 	retry.UntilSuccessOrFail(t, func() error {
 		got, err := client.MulticlusterV1alpha1().ServiceExports(ns).Get(context.TODO(), name, metav1.GetOptions{})
-
 		if err != nil {
 			return fmt.Errorf("unexpected error %v", err)
 		}

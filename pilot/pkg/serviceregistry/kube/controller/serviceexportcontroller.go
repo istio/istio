@@ -90,7 +90,7 @@ func (sc *ServiceExportController) Run(stopCh <-chan struct{}) {
 
 func (sc *ServiceExportController) HandleNewService(obj *v1.Service) error {
 	if sc.environment.IsServiceClusterLocal(obj) {
-		return nil //don't do anything for marked clusterlocal services
+		return nil // don't do anything for marked clusterlocal services
 	}
 	return sc.createServiceExportIfNotPresent(obj)
 }
@@ -107,17 +107,17 @@ func (sc *ServiceExportController) createServiceExportIfNotPresent(service *v1.S
 	_, err := sc.client.MulticlusterV1alpha1().ServiceExports(service.Namespace).Create(context.TODO(), &serviceExport, metav1.CreateOptions{})
 
 	if err != nil && errors.IsAlreadyExists(err) {
-		err = nil //This is the error thrown by the client if there is already an object with the name in the namespace. If that's true, we do nothing
+		err = nil // This is the error thrown by the client if there is already an object with the name in the namespace. If that's true, we do nothing
 	}
 	return err
 }
 
 func (sc *ServiceExportController) deleteServiceExportIfPresent(service *v1.Service) error {
-	//cannot use the auto-generated client as it hardcodes the namespace in the client struct, and we can't have one client per watched ns
+	// cannot use the auto-generated client as it hardcodes the namespace in the client struct, and we can't have one client per watched ns
 	err := sc.client.MulticlusterV1alpha1().ServiceExports(service.Namespace).Delete(context.TODO(), service.Name, metav1.DeleteOptions{})
 
 	if err != nil && errors.IsNotFound(err) {
-		err = nil //If it's already gone, then we're happy
+		err = nil // If it's already gone, then we're happy
 	}
 	return err
 }

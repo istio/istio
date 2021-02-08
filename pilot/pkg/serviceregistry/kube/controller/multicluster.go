@@ -85,7 +85,7 @@ type Multicluster struct {
 	secretController *secretcontroller.Controller
 	syncInterval     time.Duration
 
-	//MCS Settings - settings for behavior of controllers relating to MCS
+	// MCS Settings - settings for behavior of controllers relating to MCS
 	mcsSettings MCSSettings
 }
 
@@ -235,8 +235,8 @@ func (m *Multicluster) AddMemberCluster(client kubelib.Client, clusterID string)
 		}
 	}
 
-	//setting up the serviceexport controller if and only if it is turned on in the meshconfig.
-	if m.mcsSettings.EnableServiceExport { //no reason to set up a new watcher if it will never do anything
+	// setting up the serviceexport controller if and only if it is turned on in the meshconfig.
+	if m.mcsSettings.EnableServiceExport { // no reason to set up a new watcher if it will never do anything
 		serviceExportController, err := NewServiceExportController(client, m.mcsSettings.Environment)
 		if err != nil {
 			log.Errorf("Failed to start the service export controller. Err: %v", err)
