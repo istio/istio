@@ -1,23 +1,13 @@
 {{- if .Values.global.remotePilotAddress }}
+apiVersion: v1
+kind: Service
+metadata:
   {{- if .Values.pilot.enabled }}
-# when istiod is enabled in remote cluster, we can't use istiod service name
-apiVersion: v1
-kind: Service
-metadata:
+  # when istiod is enabled in remote cluster, we can't use istiod service name
   name: istiod-remote
-  namespace: {{ .Release.Namespace }}
-spec:
-  ports:
-  - port: 15012
-    name: tcp-istiod
-    protocol: TCP
-  clusterIP: None
   {{- else }}
-# when istiod isn't enabled in remote cluster, we can use istiod service name
-apiVersion: v1
-kind: Service
-metadata:
   name: istiod
+  {{- end }}
   namespace: {{ .Release.Namespace }}
 spec:
   ports:
@@ -31,7 +21,6 @@ spec:
   {{- else }}
   type: ExternalName
   externalName: {{ .Values.global.remotePilotAddress }}
-  {{- end }}
   {{- end }}
 ---
 {{- end }}

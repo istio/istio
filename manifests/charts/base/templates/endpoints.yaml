@@ -1,22 +1,15 @@
 {{- if .Values.global.remotePilotAddress }}
-  {{- if .Values.pilot.enabled }}
+  {{- if regexMatch "^([0-9]*\\.){3}[0-9]*$" .Values.global.remotePilotAddress }}
+# only attempt to create an Endpoint if remotePilotAddress is an IP address
 apiVersion: v1
 kind: Endpoints
 metadata:
+    {{- if .Values.pilot.enabled }}
+  # when istiod is enabled in remote cluster, we can't use istiod service name
   name: istiod-remote
-  namespace: {{ .Release.Namespace }}
-subsets:
-- addresses:
-  - ip: {{ .Values.global.remotePilotAddress }}
-  ports:
-  - port: 15012
-    name: tcp-istiod
-    protocol: TCP
-  {{- else if regexMatch "^([0-9]*\\.){3}[0-9]*$" .Values.global.remotePilotAddress }}
-apiVersion: v1
-kind: Endpoints
-metadata:
+    {{- else }}
   name: istiod
+    {{- end }}
   namespace: {{ .Release.Namespace }}
 subsets:
 - addresses:
@@ -25,6 +18,6 @@ subsets:
   - port: 15012
     name: tcp-istiod
     protocol: TCP
-  {{- end }}
 ---
+  {{- end }}
 {{- end }}
