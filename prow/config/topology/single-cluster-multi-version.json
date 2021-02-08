@@ -7,7 +7,7 @@
     "network": "istio-testing",
     "meta": {
       "kubeconfig": "/home/samnaser/.kube/config",
-      "versions": ["orange", "default"]
+      "versions": ["1.8.2"]
     }
   }
 ]

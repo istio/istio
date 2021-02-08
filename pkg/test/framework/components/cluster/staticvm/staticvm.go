@@ -122,7 +122,7 @@ func (v vmcluster) GetKubernetesVersion() (*version.Info, error) {
 	return nil, nil
 }
 
-func (v vmcluster) Revisions() []string {
+func (v vmcluster) Versions() []string {
 	return nil
 }
 

@@ -48,6 +48,6 @@ func (f FakeCluster) GetKubernetesVersion() (*version.Info, error) {
 	return f.Version, nil
 }
 
-func (f FakeCluster) Revisions() []string {
+func (f FakeCluster) Versions() []string {
 	return nil
 }
