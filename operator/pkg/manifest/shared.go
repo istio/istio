@@ -23,6 +23,7 @@ import (
 	"strings"
 
 	"github.com/ghodss/yaml"
+	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 
 	"istio.io/api/operator/v1alpha1"
@@ -187,6 +188,18 @@ func GenIOPFromProfile(profileOrPath, fileOverlayYAML string, setFlags []string,
 	finalIOP, err := unmarshalAndValidateIOP(outYAML, skipValidation, allowUnknownField, l)
 	if err != nil {
 		return "", nil, err
+	}
+
+	// Validate Final IOP config against K8s cluster
+	if kubeConfig != nil {
+		client, err := kubernetes.NewForConfig(kubeConfig)
+		if err != nil {
+			return "", nil, err
+		}
+		err = util.ValidateIOPCAConfig(client, finalIOP)
+		if err != nil {
+			return "", nil, err
+		}
 	}
 	// InstallPackagePath may have been a URL, change to extracted to local file path.
 	finalIOP.Spec.InstallPackagePath = installPackagePath
@@ -364,7 +377,6 @@ func getClusterSpecificValues(config *rest.Config, force bool, l clog.Logger) (s
 	} else {
 		overlays = append(overlays, jwt)
 	}
-
 	return makeTreeFromSetList(overlays)
 }
 
