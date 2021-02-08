@@ -183,6 +183,12 @@ var (
 		"Protocol detection timeout for inbound listener",
 	).Lookup()
 
+	LegacyClusterName = env.RegisterBoolVar(
+		"PILOT_ENABLE_LEGACY_INBOUND_CLUSTER_NAME",
+		false,
+		"Enable the legacy inbound cluster format (inbound|port|port-name|hostname). This option will be removed soon.",
+	).Get()
+
 	EnableHeadlessService = env.RegisterBoolVar(
 		"PILOT_ENABLE_HEADLESS_SERVICE_POD_LISTENERS",
 		true,

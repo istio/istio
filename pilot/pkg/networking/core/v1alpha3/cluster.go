@@ -268,7 +268,6 @@ type ClusterInstances struct {
 }
 
 func (configgen *ConfigGeneratorImpl) buildInboundClusters(cb *ClusterBuilder, instances []*model.ServiceInstance, cp clusterPatcher) []*cluster.Cluster {
-
 	clusters := make([]*cluster.Cluster, 0)
 
 	// The inbound clusters for a node depends on whether the node has a SidecarScope with inbound listeners
@@ -299,7 +298,7 @@ func (configgen *ConfigGeneratorImpl) buildInboundClusters(cb *ClusterBuilder, i
 			// The first instance will be used as the "primary" instance; this means if we have an conflicts between
 			// Services the first one wins
 			ep := instance.ServicePort.Port
-			if util.IsIstioVersionGE181(cb.proxy) {
+			if util.IsIstioVersionGE181(cb.proxy) && !features.LegacyClusterName {
 				// Istio 1.8.1+ switched to keying on EndpointPort. We need both logics in place to support smooth upgrade from 1.8.0 to 1.8.x
 				ep = int(instance.Endpoint.EndpointPort)
 			}
@@ -307,7 +306,7 @@ func (configgen *ConfigGeneratorImpl) buildInboundClusters(cb *ClusterBuilder, i
 		}
 
 		// For each workload port, we will construct a cluster
-		if !util.IsIstioVersionGE18(cb.proxy) {
+		if !util.IsIstioVersionGE18(cb.proxy) || features.LegacyClusterName {
 			// For 1.7 clusters, we used an old cluster format
 			for _, instances := range clustersToBuild {
 				for _, instance := range instances {
