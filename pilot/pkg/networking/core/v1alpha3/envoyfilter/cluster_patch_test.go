@@ -403,7 +403,10 @@ func TestClusterPatching(t *testing.T) {
 		{Name: "inbound|7443||", DnsLookupFamily: cluster.Cluster_V4_ONLY, LbPolicy: cluster.Cluster_ROUND_ROBIN},
 	}
 	sidecarInboundServiceOut := []*cluster.Cluster{
-		{Name: "inbound|7443||", ProtocolSelection: cluster.Cluster_USE_DOWNSTREAM_PROTOCOL, DnsLookupFamily: cluster.Cluster_V6_ONLY, LbPolicy: cluster.Cluster_RING_HASH},
+		{
+			Name: "inbound|7443||", ProtocolSelection: cluster.Cluster_USE_DOWNSTREAM_PROTOCOL,
+			DnsLookupFamily: cluster.Cluster_V6_ONLY, LbPolicy: cluster.Cluster_RING_HASH,
+		},
 	}
 
 	gatewayInput := []*cluster.Cluster{
