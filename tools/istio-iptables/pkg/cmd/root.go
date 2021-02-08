@@ -45,6 +45,12 @@ var rootCmd = &cobra.Command{
 	Use:   "istio-iptables",
 	Short: "Set up iptables rules for Istio Sidecar",
 	Long:  "istio-iptables is responsible for setting up port forwarding for Istio Sidecar.",
+	PreRun: func(cmd *cobra.Command, args []string) {
+		if err := viper.BindPFlag(constants.DryRun, cmd.Flags().Lookup(constants.DryRun)); err != nil {
+			handleError(err)
+		}
+		viper.SetDefault(constants.DryRun, false)
+	},
 	Run: func(cmd *cobra.Command, args []string) {
 		cfg := constructConfig()
 		var ext dep.Dependencies
@@ -275,11 +281,11 @@ func init() {
 	}
 	viper.SetDefault(constants.InboundTProxyRouteTable, "133")
 
+	// https://github.com/spf13/viper/issues/233.
+	// The `dry-run` flag is bound in init() across both `istio-iptables` and `istio-clean-iptables` subcommands and
+	// will be overwritten by the last. Thus, only adding it here while moving its binding to Viper and value
+	// defaulting as part of the command execution.
 	rootCmd.Flags().BoolP(constants.DryRun, "n", false, "Do not call any external dependencies like iptables")
-	if err := viper.BindPFlag(constants.DryRun, rootCmd.Flags().Lookup(constants.DryRun)); err != nil {
-		handleError(err)
-	}
-	viper.SetDefault(constants.DryRun, false)
 
 	rootCmd.Flags().BoolP(constants.RestoreFormat, "f", true, "Print iptables rules in iptables-restore interpretable format")
 	if err := viper.BindPFlag(constants.RestoreFormat, rootCmd.Flags().Lookup(constants.RestoreFormat)); err != nil {
