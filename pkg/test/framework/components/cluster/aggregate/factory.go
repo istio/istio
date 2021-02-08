@@ -63,7 +63,8 @@ func (a aggregateFactory) Build(allClusters cluster.Map) (clusters resource.Clus
 	}
 
 	factories := make(map[cluster.Kind]cluster.Factory)
-
+	clusterOrdering := make(map[string]int)
+	clusterIndex := 0
 	// distribute configs to their factories
 	for _, origCfg := range a.configs {
 		cfg, err := validConfig(origCfg)
@@ -81,11 +82,14 @@ func (a aggregateFactory) Build(allClusters cluster.Map) (clusters resource.Clus
 			}
 		}
 		factories[cfg.Kind] = f.With(cfg)
+		clusterOrdering[cfg.Name] = clusterIndex
+		clusterIndex++
 	}
 	if errs != nil {
 		return
 	}
 	// initialize the clusters
+	clusters = make(resource.Clusters, clusterIndex)
 	for kind, factory := range factories {
 		scopes.Framework.Infof("Building %s clusters", kind)
 		built, err := factory.Build(allClusters)
@@ -99,8 +103,8 @@ func (a aggregateFactory) Build(allClusters cluster.Map) (clusters resource.Clus
 				continue
 			}
 			allClusters[c.Name()] = c
+			clusters[clusterOrdering[c.Name()]] = c
 		}
-		clusters = append(clusters, built...)
 	}
 	if errs != nil {
 		scopes.Framework.Infof("=== FAILED: Building clusters ===")
