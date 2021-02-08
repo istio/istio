@@ -470,7 +470,7 @@ func templateParams(cfg echo.Config, settings *image.Settings) (map[string]inter
 		"Cluster":            cfg.Cluster.Name(),
 		"Namespace":          namespace,
 		"ImagePullSecret":    imagePullSecret,
-		"Versions":           cfg.Cluster.Versions(),
+		"Versions":           cfg.Cluster.Versions().ToRevisions(),
 		"VM": map[string]interface{}{
 			"Image": vmImage,
 		},

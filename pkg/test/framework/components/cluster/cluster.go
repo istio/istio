@@ -183,5 +183,5 @@ type Cluster interface {
 
 	// Versions returns the set of Istio control plane versions running in this cluster
 	// returns nil if the cluster is not primary or there are no revisions running
-	Versions() []string
+	Versions() Versions
 }

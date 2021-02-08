@@ -26,6 +26,7 @@ import (
 const (
 	kubeconfigMetaKey = "kubeconfig"
 	vmSupportMetaKey  = "fakeVM"
+	versionsMetaKey   = "versions"
 )
 
 func init() {
@@ -44,9 +45,15 @@ func buildKube(origCfg cluster.Config, topology cluster.Topology) (cluster.Clust
 		return nil, err
 	}
 
-	versions := cfg.Meta.StringSlice("versions")
+	// if there are no versions specified, we should assume a single "default" revision
+	// is installed
+	versions := cfg.Meta.StringSlice(versionsMetaKey)
 	if versions == nil {
 		versions = []string{"default"}
+	}
+	vers, err := cluster.ParseVersions(versions)
+	if err != nil {
+		return nil, err
 	}
 
 	// support fake VMs by default
@@ -59,7 +66,7 @@ func buildKube(origCfg cluster.Config, topology cluster.Topology) (cluster.Clust
 		filename:       kubeconfigPath,
 		ExtendedClient: client,
 		vmSupport:      vmSupport,
-		versions:       versions,
+		versions:       vers,
 		Topology:       topology,
 	}, nil
 }

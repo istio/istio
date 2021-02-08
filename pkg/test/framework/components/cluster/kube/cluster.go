@@ -35,7 +35,7 @@ type Cluster struct {
 
 	// versions indicates what Istio control plane versions are deployed
 	// within this kube cluster
-	versions []string
+	versions cluster.Versions
 
 	// ExtendedClient is embedded to interact with the kube cluster.
 	kube.ExtendedClient
@@ -45,7 +45,7 @@ type Cluster struct {
 }
 
 // Versions returns the set of Istio control plane versions running in the cluster
-func (c *Cluster) Versions() []string {
+func (c *Cluster) Versions() cluster.Versions {
 	if c.IsPrimary() {
 		return c.versions
 	}
