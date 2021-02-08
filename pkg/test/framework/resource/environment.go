@@ -37,5 +37,5 @@ type Environment interface {
 
 	IsMultinetwork() bool
 
-	IsMultirevision() bool
+	IsMultiversion() bool
 }

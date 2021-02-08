@@ -1,6 +1,10 @@
 package cluster
 
-import "strings"
+import (
+	"strings"
+
+	"istio.io/istio/pilot/pkg/model"
+)
 
 const (
 	// Latest represents a version of Istio running from master
@@ -20,6 +24,27 @@ func (v Version) ToRevision() string {
 		return Latest
 	}
 	return strings.ReplaceAll(string(v), ".", "-")
+}
+
+func (v Version) Compare(other Version) int {
+	ver := model.ParseIstioVersion(string(v))
+	otherVer := model.ParseIstioVersion(string(other))
+	return ver.Compare(otherVer)
+}
+
+// Minimum returns the minimum from a set of Versions
+func (v Versions) Minimum() Version {
+	if len(v) == 0 {
+		panic("cannot find minimum version from empty versions")
+	}
+	min := v[0]
+	for i := 1; i < len(v); i++ {
+		ver := v[i]
+		if ver.Compare(min) > 1 {
+			min = ver
+		}
+	}
+	return min
 }
 
 // ToRevisions returns the list of canonical revisions for a set of versions

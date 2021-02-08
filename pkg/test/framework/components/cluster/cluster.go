@@ -107,6 +107,18 @@ func (c Clusters) OfKind(kind Kind) Clusters {
 	}, none)
 }
 
+// MinIstioVersion returns the minimum Istio version across the clusters
+func (c Clusters) MinIstioVersion() Version {
+	primaries := c.Primaries()
+	min := primaries[0].Versions().Minimum()
+	for _, c := range c.Primaries() {
+		if c.Versions().Minimum().Compare(min) < 0 {
+			min = c.Versions().Minimum()
+		}
+	}
+	return min
+}
+
 func none(Cluster) bool {
 	return false
 }

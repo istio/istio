@@ -67,8 +67,8 @@ func (e *Environment) IsMultinetwork() bool {
 	return len(e.ClustersByNetwork()) > 1
 }
 
-// IsMultirevision returns true if there is more than a single cluster running multiple revisions
-func (e *Environment) IsMultirevision() bool {
+// IsMultiversion returns true if there is more than a single cluster running multiple revisions
+func (e *Environment) IsMultiversion() bool {
 	for _, c := range e.Clusters() {
 		if len(c.Versions()) > 1 {
 			return true

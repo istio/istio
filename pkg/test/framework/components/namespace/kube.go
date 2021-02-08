@@ -188,7 +188,7 @@ func createNamespaceLabels(ctx resource.Context, cfg *Config) map[string]string 
 	if cfg.Inject {
 		// do not add namespace label when dealing with multiple revisions,
 		// disables the object selectors
-		if !ctx.Environment().IsMultirevision() {
+		if !ctx.Environment().IsMultiversion() {
 			if cfg.Revision != "" {
 				l[label.IoIstioRev.Name] = cfg.Revision
 			} else {

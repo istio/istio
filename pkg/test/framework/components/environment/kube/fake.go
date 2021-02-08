@@ -39,7 +39,7 @@ func (f FakeEnvironment) IsMultinetwork() bool {
 	return false
 }
 
-func (f FakeEnvironment) IsMultirevision() bool {
+func (f FakeEnvironment) IsMultiversion() bool {
 	return false
 }
 
