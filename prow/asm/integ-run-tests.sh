@@ -280,7 +280,7 @@ else
     DISABLED_TESTS+="|TestOutboundTrafficPolicy" # UNSUPPORTED: Relies on egress gateway deployed to the cluster. TODO: filter out only Traffic_Egress
     # security/ tests
     DISABLED_TESTS+="|TestAuthorization_IngressGateway" # UNKNOWN
-    DISABLED_TESTS+="|TestAuthorization_EgressGateway" # UNKNOWN
+    DISABLED_TESTS+="|TestAuthorization_EgressGateway" # UNSUPPORTED: Relies on egress gateway deployed to the cluster.
     DISABLED_TESTS+="|TestStrictMTLS" # UNSUPPORTED: Mesh CA does not support ECDSA
     DISABLED_TESTS+="|TestAuthorization_Custom" # UNSUPPORTED: requires mesh config
     # DISABLED_PACKAGES contains a list of all packages we skip
