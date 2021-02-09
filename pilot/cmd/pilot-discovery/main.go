@@ -161,8 +161,8 @@ func init() {
 	discoveryCmd.PersistentFlags().IntVar(&serverArgs.RegistryOptions.KubeOptions.KubernetesAPIBurst, "kubernetesApiBurst", 160,
 		"Maximum burst for throttle when communicating with the kubernetes API")
 
-	// discoveryCmd.PersistentFlags().BoolVar(&serverArgs.ServerOptions.MCSServiceExportEnabled, "mcsServiceExportEnabled", true,
-	//	"If enabled, Istio will watch K8s Service objects and create ServiceExports for those not marked as cluster local in the Mesh Config")
+	discoveryCmd.PersistentFlags().BoolVar(&serverArgs.ServerOptions.MCSServiceExportEnabled, "mcsServiceExportEnabled", false,
+		"If enabled, Istio will watch K8s Service objects and create ServiceExports for those not marked as cluster local in the Mesh Config")
 
 	// Attach the Istio logging options to the command.
 	loggingOptions.AttachCobraFlags(rootCmd)
