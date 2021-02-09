@@ -147,7 +147,7 @@ func TestUpdateWithCustomGateway(t *testing.T) {
 			configs := make(map[string]string)
 			ctx.ConditionalCleanup(func() {
 				for _, config := range configs {
-					ctx.Config().DeleteYAML("istio-system", config)
+					ctx.Config().DeleteYAML(common.IstioNamespace, config)
 				}
 
 				// Wait until any deployments and services in the control plane and
@@ -182,7 +182,7 @@ func TestUpdateWithCustomGateway(t *testing.T) {
 			// Create the istio-system namespace and Istio control plane of the specified version
 			helmtest.CreateIstioSystemNamespace(t, cs)
 			configs[iopCPTemplate] = iopCPTemplate
-			if err := ctx.Config().ApplyYAMLNoCleanup("istio-system", iopCPTemplate); err != nil {
+			if err := ctx.Config().ApplyYAMLNoCleanup(common.IstioNamespace, iopCPTemplate); err != nil {
 				ctx.Fatal(err)
 			}
 			WaitForCPInstallation(ctx, cs)
@@ -199,7 +199,7 @@ func TestUpdateWithCustomGateway(t *testing.T) {
 			// Install custom gateway of the specified version
 			gatewayConfig := fmt.Sprintf(iopCGWTemplate, "gcr.io/istio-release", fromVersion, customGWNamespace.Name())
 			configs[gatewayConfig] = gatewayConfig
-			if err := ctx.Config().ApplyYAMLNoCleanup("istio-system", gatewayConfig); err != nil {
+			if err := ctx.Config().ApplyYAMLNoCleanup(common.IstioNamespace, gatewayConfig); err != nil {
 				ctx.Fatal(err)
 			}
 			WaitForCGWInstallation(ctx, cs)
@@ -238,9 +238,10 @@ func TestUpdateWithCustomGateway(t *testing.T) {
 			if err != nil {
 				t.Fatalf("failed to get settings: %v", err)
 			}
-			istioCtl.InvokeOrFail(t, []string{
+			output, _ := istioCtl.InvokeOrFail(t, []string{
 				"operator", "init", "--manifests", common.ManifestPath, "--hub", s.Hub, "--tag", s.Tag,
 			})
+			scopes.Framework.Infof("\noperator init upgrade output: \n%s", output)
 
 			// Wait for control plane upgrade
 			WaitForCPUpgrade(ctx, cs, s.Hub, s.Tag)
@@ -259,7 +260,7 @@ func TestUpdateWithCustomGateway(t *testing.T) {
 			// Upgrade the custom gateway
 			upgradedGatewayConfig := fmt.Sprintf(iopCGWTemplate, s.Hub, s.Tag, customGWNamespace.Name())
 			configs[upgradedGatewayConfig] = upgradedGatewayConfig
-			if err := ctx.Config().ApplyYAMLNoCleanup("istio-system", upgradedGatewayConfig); err != nil {
+			if err := ctx.Config().ApplyYAMLNoCleanup(common.IstioNamespace, upgradedGatewayConfig); err != nil {
 				ctx.Fatal(err)
 			}
 
