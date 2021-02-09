@@ -1379,13 +1379,11 @@ func TestOnInboundFilterChain(t *testing.T) {
 	cases := []struct {
 		name         string
 		peerPolicies []*config.Config
-		sdsUdsPath   string
 		expected     []networking.FilterChain
 	}{
 		{
-			name:       "No policy - behave as permissive",
-			sdsUdsPath: "/tmp/sdsuds.sock",
-			expected:   expectedPermissive,
+			name:     "No policy - behave as permissive",
+			expected: expectedPermissive,
 		},
 		{
 			name: "Single policy - disable mode",
@@ -1398,8 +1396,7 @@ func TestOnInboundFilterChain(t *testing.T) {
 					},
 				},
 			},
-			sdsUdsPath: "/tmp/sdsuds.sock",
-			expected:   []networking.FilterChain{{}},
+			expected: []networking.FilterChain{{}},
 		},
 		{
 			name: "Single policy - permissive mode",
@@ -1412,8 +1409,7 @@ func TestOnInboundFilterChain(t *testing.T) {
 					},
 				},
 			},
-			sdsUdsPath: "/tmp/sdsuds.sock",
-			expected:   expectedPermissive,
+			expected: expectedPermissive,
 		},
 		{
 			name: "Single policy - strict mode",
@@ -1426,8 +1422,7 @@ func TestOnInboundFilterChain(t *testing.T) {
 					},
 				},
 			},
-			sdsUdsPath: "/tmp/sdsuds.sock",
-			expected:   expectedStrict,
+			expected: expectedStrict,
 		},
 		{
 			name: "Multiple policies resolved to STRICT",
@@ -1467,8 +1462,7 @@ func TestOnInboundFilterChain(t *testing.T) {
 					},
 				},
 			},
-			sdsUdsPath: "/tmp/sdsuds.sock",
-			expected:   expectedStrict,
+			expected: expectedStrict,
 		},
 		{
 			name: "Multiple policies resolved to PERMISSIVE",
@@ -1508,8 +1502,7 @@ func TestOnInboundFilterChain(t *testing.T) {
 					},
 				},
 			},
-			sdsUdsPath: "/tmp/sdsuds.sock",
-			expected:   expectedPermissive,
+			expected: expectedPermissive,
 		},
 		{
 			name: "Port level hit",
@@ -1532,8 +1525,7 @@ func TestOnInboundFilterChain(t *testing.T) {
 					},
 				},
 			},
-			sdsUdsPath: "/tmp/sdsuds.sock",
-			expected:   expectedStrict,
+			expected: expectedStrict,
 		},
 		{
 			name: "Port level miss",
@@ -1553,8 +1545,7 @@ func TestOnInboundFilterChain(t *testing.T) {
 					},
 				},
 			},
-			sdsUdsPath: "/tmp/sdsuds.sock",
-			expected:   expectedPermissive,
+			expected: expectedPermissive,
 		},
 	}
 
@@ -1569,7 +1560,6 @@ func TestOnInboundFilterChain(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			got := NewPolicyApplier("root-namespace", nil, tc.peerPolicies).InboundFilterChain(
 				8080,
-				tc.sdsUdsPath,
 				testNode,
 				networking.ListenerProtocolAuto,
 				[]string{},
