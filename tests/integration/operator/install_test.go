@@ -46,6 +46,10 @@ func TestInstallCommandInput(t *testing.T) {
 					command:   []string{"install", "--dry-run", "--revision", "1.8.0"},
 					errString: InvalidRevision,
 				},
+				{
+					command:   []string{"install", "--dry-run", "--set", "values.global.network=network1"},
+					errString: "",
+				},
 			}
 			for _, test := range testCases {
 				_, actualError, _ := istioCtl.Invoke(test.command)
