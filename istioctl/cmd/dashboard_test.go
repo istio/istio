@@ -111,6 +111,11 @@ func TestDashboard(t *testing.T) {
 			expectedRegexp: regexp.MustCompile(".*http://localhost:3456"),
 			wantException:  false,
 		},
+		{ // case 17
+			args:           strings.Split("dashboard envoy --browser=false pod-123456-7890 -n istio-system", " "),
+			expectedRegexp: regexp.MustCompile("http://localhost:3456"),
+			wantException:  false,
+		},
 	}
 
 	for i, c := range cases {
