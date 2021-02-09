@@ -321,7 +321,8 @@ func validateMetrics(t *testing.T, serverReqCount, clientReqCount, clName string
 		}
 	}
 	if !gotServer || !gotClient {
-		return fmt.Errorf("metrics: did not get expected metrics for cluster %s; got %v\n want client %v\n want server %v\n", clName, ts, wantClient, wantServer)
+		return fmt.Errorf("metrics: did not get expected metrics for cluster %s; got %v\n want client %v\n want server %v",
+			clName, ts, wantClient.String(), wantServer.String())
 	}
 	return nil
 }
@@ -344,7 +345,7 @@ func validateLogs(t *testing.T, srvLogEntry, clName string, filter stackdriver.L
 			return nil
 		}
 	}
-	return fmt.Errorf("logs: did not get expected log entry: got %v\n want %v", entries, wantLog)
+	return fmt.Errorf("logs: did not get expected log entry: got %v\n want %v", entries, wantLog.String())
 }
 
 func validateEdges(t *testing.T, clName string) error {
