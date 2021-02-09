@@ -33,9 +33,10 @@ func (v Version) Compare(other Version) int {
 }
 
 // Minimum returns the minimum from a set of Versions
+// returns empty value if no versions
 func (v Versions) Minimum() Version {
 	if len(v) == 0 {
-		panic("cannot find minimum version from empty versions")
+		return ""
 	}
 	min := v[0]
 	for i := 1; i < len(v); i++ {
