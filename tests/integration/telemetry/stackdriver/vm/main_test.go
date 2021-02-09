@@ -38,6 +38,7 @@ import (
 	edgespb "istio.io/istio/pkg/test/framework/components/stackdriver/edges"
 	"istio.io/istio/pkg/test/framework/resource"
 	"istio.io/istio/pkg/test/util/tmpl"
+	"istio.io/istio/tests/integration/telemetry"
 )
 
 const (
@@ -180,20 +181,21 @@ func testSetup(ctx resource.Context) error {
 		"ISTIO_BOOTSTRAP_OVERRIDE": "/etc/istio/custom-bootstrap/custom_bootstrap.json",
 	}
 
+	trustDomain := telemetry.GetTrustDomain(ctx.Clusters()[0], istioInst.Settings().SystemNamespace)
 	// read expected values from testdata
-	wantClientReqs, wantServerReqs, err = goldenRequestCounts()
+	wantClientReqs, wantServerReqs, err = goldenRequestCounts(trustDomain)
 	if err != nil {
 		return fmt.Errorf("failed to get golden metrics from file: %v", err)
 	}
-	wantLogEntry, err = goldenLogEntry()
+	wantLogEntry, err = goldenLogEntry(trustDomain)
 	if err != nil {
 		return fmt.Errorf("failed to get golden log entry from file: %v", err)
 	}
-	wantTrafficAssertion, err = goldenTrafficAssertion()
+	wantTrafficAssertion, err = goldenTrafficAssertion(trustDomain)
 	if err != nil {
 		return fmt.Errorf("failed to get golden traffic assertion from file: %v", err)
 	}
-	wantTrace, err = goldenTrace()
+	wantTrace, err = goldenTrace(trustDomain)
 	if err != nil {
 		return fmt.Errorf("failed to get golden trace from file: %v", err)
 	}
@@ -241,13 +243,14 @@ func testSetup(ctx resource.Context) error {
 	return nil
 }
 
-func goldenRequestCounts() (cltRequestCount, srvRequestCount *monitoring.TimeSeries, err error) {
+func goldenRequestCounts(trustDomain string) (cltRequestCount, srvRequestCount *monitoring.TimeSeries, err error) {
 	srvRequestCountTmpl, err := ioutil.ReadFile(serverRequestCount)
 	if err != nil {
 		return
 	}
 	sr, err := tmpl.Evaluate(string(srvRequestCountTmpl), map[string]interface{}{
 		"EchoNamespace": ns.Name(),
+		"TrustDomain":   trustDomain,
 	})
 	if err != nil {
 		return
@@ -263,6 +266,7 @@ func goldenRequestCounts() (cltRequestCount, srvRequestCount *monitoring.TimeSer
 	}
 	cr, err := tmpl.Evaluate(string(cltRequestCountTmpl), map[string]interface{}{
 		"EchoNamespace": ns.Name(),
+		"TrustDomain":   trustDomain,
 	})
 	if err != nil {
 		return
@@ -271,13 +275,14 @@ func goldenRequestCounts() (cltRequestCount, srvRequestCount *monitoring.TimeSer
 	return
 }
 
-func goldenLogEntry() (srvLogEntry *loggingpb.LogEntry, err error) {
+func goldenLogEntry(trustDomain string) (srvLogEntry *loggingpb.LogEntry, err error) {
 	srvlogEntryTmpl, err := ioutil.ReadFile(serverLogEntry)
 	if err != nil {
 		return
 	}
 	sr, err := tmpl.Evaluate(string(srvlogEntryTmpl), map[string]interface{}{
 		"EchoNamespace": ns.Name(),
+		"TrustDomain":   trustDomain,
 	})
 	if err != nil {
 		return
@@ -289,7 +294,7 @@ func goldenLogEntry() (srvLogEntry *loggingpb.LogEntry, err error) {
 	return
 }
 
-func goldenTrafficAssertion() (*edgespb.TrafficAssertion, error) {
+func goldenTrafficAssertion(trustDomain string) (*edgespb.TrafficAssertion, error) {
 	taTmpl, err := ioutil.ReadFile(serverEdgeFile)
 	if err != nil {
 		return nil, err
@@ -297,6 +302,7 @@ func goldenTrafficAssertion() (*edgespb.TrafficAssertion, error) {
 
 	taString, err := tmpl.Evaluate(string(taTmpl), map[string]interface{}{
 		"EchoNamespace": ns.Name(),
+		"TrustDomain":   trustDomain,
 	})
 	if err != nil {
 		return nil, err
@@ -309,13 +315,14 @@ func goldenTrafficAssertion() (*edgespb.TrafficAssertion, error) {
 	return &ta, nil
 }
 
-func goldenTrace() (*cloudtrace.Trace, error) {
+func goldenTrace(trustDomain string) (*cloudtrace.Trace, error) {
 	traceTmpl, err := ioutil.ReadFile(traceTmplFile)
 	if err != nil {
 		return nil, err
 	}
 	traceStr, err := tmpl.Evaluate(string(traceTmpl), map[string]interface{}{
 		"EchoNamespace": ns.Name(),
+		"TrustDomain":   trustDomain,
 	})
 	if err != nil {
 		return nil, err
