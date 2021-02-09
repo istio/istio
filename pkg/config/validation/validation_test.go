@@ -28,6 +28,7 @@ import (
 	networking "istio.io/api/networking/v1alpha3"
 	security_beta "istio.io/api/security/v1beta1"
 	api "istio.io/api/type/v1beta1"
+	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/constants"
 )
@@ -1769,6 +1770,85 @@ func TestValidateHTTPRedirect(t *testing.T) {
 				t.Fatalf("got valid=%v but wanted valid=%v: %v", err == nil, tc.valid, err)
 			}
 		})
+	}
+}
+
+func TestValidateDestinationWithInheritance(t *testing.T) {
+	features.EnableDestinationRuleInheritance = true
+	defer func() {
+		features.EnableDestinationRuleInheritance = false
+	}()
+	cases := []struct {
+		name  string
+		in    proto.Message
+		valid bool
+	}{
+		{name: "simple destination rule", in: &networking.DestinationRule{
+			Host: "reviews",
+			TrafficPolicy: &networking.TrafficPolicy{
+				Tls: &networking.ClientTLSSettings{
+					Mode: networking.ClientTLSSettings_SIMPLE,
+				},
+			},
+			Subsets: []*networking.Subset{
+				{Name: "v1", Labels: map[string]string{"version": "v1"}},
+				{Name: "v2", Labels: map[string]string{"version": "v2"}},
+			},
+		}, valid: true},
+		{name: "simple global destination rule", in: &networking.DestinationRule{
+			Host: "reviews",
+			TrafficPolicy: &networking.TrafficPolicy{
+				Tls: &networking.ClientTLSSettings{
+					Mode: networking.ClientTLSSettings_SIMPLE,
+				},
+			},
+		}, valid: true},
+		{name: "global rule with subsets", in: &networking.DestinationRule{
+			TrafficPolicy: &networking.TrafficPolicy{
+				Tls: &networking.ClientTLSSettings{
+					Mode: networking.ClientTLSSettings_SIMPLE,
+				},
+			},
+			Subsets: []*networking.Subset{
+				{Name: "v1", Labels: map[string]string{"version": "v1"}},
+				{Name: "v2", Labels: map[string]string{"version": "v2"}},
+			},
+		}, valid: false},
+		{name: "global rule with exportTo", in: &networking.DestinationRule{
+			TrafficPolicy: &networking.TrafficPolicy{
+				Tls: &networking.ClientTLSSettings{
+					Mode: networking.ClientTLSSettings_SIMPLE,
+				},
+			},
+			ExportTo: []string{"ns1", "ns2"},
+		}, valid: false},
+		{name: "global rule with portLevelSettings", in: &networking.DestinationRule{
+			TrafficPolicy: &networking.TrafficPolicy{
+				Tls: &networking.ClientTLSSettings{
+					Mode: networking.ClientTLSSettings_SIMPLE,
+				},
+				PortLevelSettings: []*networking.TrafficPolicy_PortTrafficPolicy{
+					{
+						Port: &networking.PortSelector{Number: 8000},
+						OutlierDetection: &networking.OutlierDetection{
+							MinHealthPercent: 20,
+						},
+					},
+				},
+			},
+		}, valid: false},
+	}
+	for _, c := range cases {
+		if _, got := ValidateDestinationRule(config.Config{
+			Meta: config.Meta{
+				Name:      someName,
+				Namespace: someNamespace,
+			},
+			Spec: c.in,
+		}); (got == nil) != c.valid {
+			t.Errorf("ValidateDestinationRule failed on %v: got valid=%v but wanted valid=%v: %v",
+				c.name, got == nil, c.valid, got)
+		}
 	}
 }
 
