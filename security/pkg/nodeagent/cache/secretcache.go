@@ -316,7 +316,6 @@ func (sc *SecretManagerClient) GenerateSecret(resourceName string) (secret *secu
 }
 
 func (sc *SecretManagerClient) addFileWatcher(file string, resourceName string) {
-	// TODO(ramaraochavali): add integration test for file watcher functionality.
 	// Check if this file is being already watched, if so ignore it. This check is needed here to
 	// avoid processing duplicate events for the same file.
 	sc.certMutex.Lock()
