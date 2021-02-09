@@ -281,8 +281,7 @@ else
     # security/ tests
     DISABLED_TESTS+="|TestAuthorization_IngressGateway" # UNKNOWN
     DISABLED_TESTS+="|TestAuthorization_EgressGateway" # UNKNOWN
-    DISABLED_TESTS+="|TestMtlsHealthCheck" # UNKNOWN
-    DISABLED_TESTS+="|TestStrictMTLS" # UNKNOWN
+    DISABLED_TESTS+="|TestStrictMTLS" # UNSUPPORTED: Mesh CA does not support ECDSA
     DISABLED_TESTS+="|TestAuthorization_Custom" # UNSUPPORTED: requires mesh config
     # DISABLED_PACKAGES contains a list of all packages we skip
     DISABLED_PACKAGES="/multicluster" # NOT SUPPORTED
