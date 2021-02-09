@@ -149,7 +149,7 @@ func Test_clusterMatch(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := clusterMatch(tt.args.cluster, &model.EnvoyFilterConfigPatchWrapper{Match: tt.args.matchCondition}, tt.args.host); got != tt.want {
+			if got := clusterMatch(tt.args.cluster, &model.EnvoyFilterConfigPatchWrapper{Match: tt.args.matchCondition}, []host.Name{tt.args.host}); got != tt.want {
 				t.Errorf("clusterMatch() = %v, want %v", got, tt.want)
 			}
 		})
@@ -479,8 +479,8 @@ func TestClusterPatching(t *testing.T) {
 			efw := push.EnvoyFilters(tc.proxy)
 			output := []*cluster.Cluster{}
 			for _, c := range tc.input {
-				if ShouldKeepCluster(tc.patchContext, efw, c, host.Name(tc.host)) {
-					output = append(output, ApplyClusterMerge(tc.patchContext, efw, c, host.Name(tc.host)))
+				if ShouldKeepCluster(tc.patchContext, efw, c, []host.Name{host.Name(tc.host)}) {
+					output = append(output, ApplyClusterMerge(tc.patchContext, efw, c, []host.Name{host.Name(tc.host)}))
 				}
 			}
 			output = append(output, InsertedClusters(tc.patchContext, efw)...)

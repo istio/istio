@@ -30,7 +30,7 @@ import (
 )
 
 // ApplyClusterMerge processes the MERGE operation and merges the supplied configuration to the matched clusters.
-func ApplyClusterMerge(pctx networking.EnvoyFilter_PatchContext, efw *model.EnvoyFilterWrapper, c *cluster.Cluster, host host.Name) (out *cluster.Cluster) {
+func ApplyClusterMerge(pctx networking.EnvoyFilter_PatchContext, efw *model.EnvoyFilterWrapper, c *cluster.Cluster, hosts []host.Name) (out *cluster.Cluster) {
 	defer runtime.HandleCrash(runtime.LogPanic, func(interface{}) {
 		log.Errorf("clusters patch caused panic, so the patches did not take effect")
 	})
@@ -43,7 +43,7 @@ func ApplyClusterMerge(pctx networking.EnvoyFilter_PatchContext, efw *model.Envo
 		if cp.Operation != networking.EnvoyFilter_Patch_MERGE {
 			continue
 		}
-		if commonConditionMatch(pctx, cp) && clusterMatch(c, cp, host) {
+		if commonConditionMatch(pctx, cp) && clusterMatch(c, cp, hosts) {
 
 			ret, err := mergeTransportSocketCluster(c, cp)
 			if err != nil {
@@ -104,7 +104,7 @@ func mergeTransportSocketCluster(c *cluster.Cluster, cp *model.EnvoyFilterConfig
 }
 
 // ShouldKeepCluster checks if there is a REMOVE patch on the cluster, returns false if there is on so that it is removed.
-func ShouldKeepCluster(pctx networking.EnvoyFilter_PatchContext, efw *model.EnvoyFilterWrapper, c *cluster.Cluster, host host.Name) bool {
+func ShouldKeepCluster(pctx networking.EnvoyFilter_PatchContext, efw *model.EnvoyFilterWrapper, c *cluster.Cluster, hosts []host.Name) bool {
 	if efw == nil {
 		return true
 	}
@@ -112,7 +112,7 @@ func ShouldKeepCluster(pctx networking.EnvoyFilter_PatchContext, efw *model.Envo
 		if cp.Operation != networking.EnvoyFilter_Patch_REMOVE {
 			continue
 		}
-		if commonConditionMatch(pctx, cp) && clusterMatch(c, cp, host) {
+		if commonConditionMatch(pctx, cp) && clusterMatch(c, cp, hosts) {
 			return false
 		}
 	}
@@ -136,7 +136,7 @@ func InsertedClusters(pctx networking.EnvoyFilter_PatchContext, efw *model.Envoy
 	return result
 }
 
-func clusterMatch(cluster *cluster.Cluster, cp *model.EnvoyFilterConfigPatchWrapper, service host.Name) bool {
+func clusterMatch(cluster *cluster.Cluster, cp *model.EnvoyFilterConfigPatchWrapper, hosts []host.Name) bool {
 	cMatch := cp.Match.GetCluster()
 	if cMatch == nil {
 		return true
@@ -148,17 +148,17 @@ func clusterMatch(cluster *cluster.Cluster, cp *model.EnvoyFilterConfigPatchWrap
 
 	direction, subset, hostname, port := model.ParseSubsetKey(cluster.Name)
 
-	hostMatch := hostname
+	hostMatches := []host.Name{hostname}
 	// For inbound clusters, host parsed from subset key will be empty. Use the passed in service name.
-	if direction == model.TrafficDirectionInbound && len(service) > 0 {
-		hostMatch = service
+	if direction == model.TrafficDirectionInbound && len(hosts) > 0 {
+		hostMatches = hosts
 	}
 
 	if cMatch.Subset != "" && cMatch.Subset != subset {
 		return false
 	}
 
-	if cMatch.Service != "" && host.Name(cMatch.Service) != hostMatch {
+	if cMatch.Service != "" && !hostContains(hostMatches, host.Name(cMatch.Service)) {
 		return false
 	}
 
@@ -168,4 +168,13 @@ func clusterMatch(cluster *cluster.Cluster, cp *model.EnvoyFilterConfigPatchWrap
 		return false
 	}
 	return true
+}
+
+func hostContains(hosts []host.Name, service host.Name) bool {
+	for _, h := range hosts {
+		if h == service {
+			return true
+		}
+	}
+	return false
 }
