@@ -130,24 +130,21 @@ func install(ctx resource.Context, ns string) error {
 	return ctx.Config().ApplyYAML(ns, y)
 }
 
-func installServiceEntry(cluster resource.Cluster, ctx resource.Context, ns, ingressAddr string) error {
+func installServiceEntry(ctx resource.Context, ns, ingressAddr string) error {
 	// Setup remote access to zipkin in cluster
 	yaml := strings.ReplaceAll(remoteOtelEntry, "{INGRESS_DOMAIN}", ingressAddr)
-	err := ctx.Config().ApplyYAMLInCluster(cluster, ns, yaml)
+	err := ctx.Config().ApplyYAML(ns, yaml)
 	if err != nil {
 		return err
 	}
 	// For all other clusters, add a service entry so that can access
 	// zipkin in cluster installed.
 	yaml = strings.ReplaceAll(extServiceEntry, "{INGRESS_DOMAIN}", ingressAddr)
-	for _, cl := range ctx.Clusters() {
-		if cluster.Name() != cl.Name() {
-			err := ctx.Config().ApplyYAMLInCluster(cl, ns, yaml)
-			if err != nil {
-				return err
-			}
-		}
+	err = ctx.Config().ApplyYAML(ns, yaml)
+	if err != nil {
+		return err
 	}
+
 	return nil
 }
 
@@ -186,7 +183,7 @@ func newCollector(ctx resource.Context, c Config) (*otel, error) {
 	}
 
 	ingressDomain := fmt.Sprintf("%s.nip.io", c.IngressAddr.IP.String())
-	err = installServiceEntry(o.cluster, ctx, istioCfg.TelemetryNamespace, ingressDomain)
+	err = installServiceEntry(ctx, istioCfg.TelemetryNamespace, ingressDomain)
 	if err != nil {
 		return nil, err
 	}
