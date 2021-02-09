@@ -493,6 +493,7 @@ func (sc *SecretManagerClient) generateFileSecret(resourceName string) (bool, *s
 		if err != nil {
 			cacheLog.Errorf("%s failed to generate secret for proxy from file: %v",
 				logPrefix, err)
+			numFileSecretFailures.Increment()
 			return sdsFromFile, nil, err
 		}
 		cacheLog.WithLabels("resource", resourceName).Info("read certificate from file")
