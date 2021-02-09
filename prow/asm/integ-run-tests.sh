@@ -281,6 +281,7 @@ else
     DISABLED_PACKAGES="/multicluster" # NOT SUPPORTED
     DISABLED_PACKAGES+="\|/pilot/cni" # NOT SUPPORTED
     DISABLED_PACKAGES+="\|/pilot/revisions" # Attempts to install Istio
+    DISABLED_PACKAGES+="\|/pilot/revisioncmd" # NOT SUPPORTED. Customize control plane values.
     DISABLED_PACKAGES+="\|pilot/analysis" # NOT SUPPORTED
     DISABLED_PACKAGES+="\|/pilot/endpointslice" # NOT SUPPORTED
     DISABLED_PACKAGES+="\|/helm" # NOT SUPPORTED
