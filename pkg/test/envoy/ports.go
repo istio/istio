@@ -12,10 +12,12 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package env
+package envoy
 
 import (
 	"log"
+
+	"istio.io/istio/pkg/test/env"
 )
 
 // Dynamic port allocation scheme
@@ -24,28 +26,7 @@ import (
 
 // All tests should be listed here to get their test ids
 const (
-	FailedRequestTest uint16 = iota
-	FaultInjectTest
-	NetworkFailureTest
-	XDSTest
-	IstioAuthnTestOriginRejectNoJwt
-	IstioAuthnTestPeerRejectNoJwt
-	IstioAuthnTestPeerRejectNoMtls
-	IstioAuthnTestPeerRejectNoTLS
-	RouteDirectiveTest
-	DynamicAttributeTest
-	DynamicListenerTest
-	PilotPluginTest
-	PilotPluginTCPTest
-	PilotPluginTLSTest
-	PilotMCPTest
-	RbacGlobalPermissiveTest
-	RbacPolicyPermissiveTest
-	GatewayTest
-	SidecarTest
-	SidecarConsumerOnlyTest
-	TracingHeaderTest
-	STSTest
+	STSTest uint16 = iota
 	STSCacheTest
 	STSRenewTest
 	STSFailureTest
@@ -111,7 +92,7 @@ func allocEnvoyPortBase(name uint16) uint16 {
 
 func allPortFree(base uint16, ports uint16) bool {
 	for port := base; port < base+ports; port++ {
-		if IsPortUsed(port) {
+		if env.IsPortUsed(port) {
 			log.Println("port is used ", port)
 			return false
 		}

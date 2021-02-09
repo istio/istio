@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package env
+package envoy
 
 import (
 	"context"
@@ -22,6 +22,7 @@ import (
 	"time"
 
 	"istio.io/istio/pkg/envoy"
+	env2 "istio.io/istio/pkg/test/env"
 	"istio.io/pkg/env"
 )
 
@@ -32,7 +33,7 @@ const (
 
 // newEnvoy creates a new Envoy struct and starts envoy.
 func (s *TestSetup) newEnvoy() (envoy.Instance, error) {
-	confPath := filepath.Join(IstioOut, fmt.Sprintf("config.conf.%v.yaml", s.ports.AdminPort))
+	confPath := filepath.Join(env2.IstioOut, fmt.Sprintf("config.conf.%v.yaml", s.ports.AdminPort))
 	log.Printf("Envoy config: in %v\n", confPath)
 	if err := s.CreateEnvoyConf(confPath); err != nil {
 		return nil, err
@@ -71,7 +72,7 @@ func (s *TestSetup) newEnvoy() (envoy.Instance, error) {
 	/* #nosec */
 	// Since we are possible running in a container, the OS may be different that what we are building (we build for host OS),
 	// we need to use the local container's OS bin found in LOCAL_OUT
-	envoyPath := filepath.Join(LocalOut, "envoy")
+	envoyPath := filepath.Join(env2.LocalOut, "envoy")
 	if path, exists := env.RegisterStringVar("ENVOY_PATH", "", "Specifies the path to an Envoy binary.").Lookup(); exists {
 		envoyPath = path
 	}
