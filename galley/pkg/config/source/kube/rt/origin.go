@@ -48,6 +48,10 @@ func (o *Origin) FriendlyName() string {
 	return fmt.Sprintf("%s %s", o.Kind, o.FullName.String())
 }
 
+func (o *Origin) Comparator() string {
+	return o.Kind + "/" + o.FullName.Name.String() + "/" + o.FullName.Namespace.String()
+}
+
 // Namespace implements resource.Origin
 func (o *Origin) Namespace() resource.Namespace {
 	// Special case: the namespace of a namespace resource is its own name

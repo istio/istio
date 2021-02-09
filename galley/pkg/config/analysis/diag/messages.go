@@ -39,8 +39,8 @@ func (ms *Messages) Sort() {
 			return true
 		case a.Resource != nil && b.Resource == nil:
 			return false
-		case a.Resource != nil && b.Resource != nil && a.Resource.Origin.FriendlyName() != b.Resource.Origin.FriendlyName():
-			return a.Resource.Origin.FriendlyName() < b.Resource.Origin.FriendlyName()
+		case a.Resource != nil && b.Resource != nil && a.Resource.Origin.Comparator() != b.Resource.Origin.Comparator():
+			return a.Resource.Origin.Comparator() < b.Resource.Origin.Comparator()
 		default:
 			return a.String() < b.String()
 		}

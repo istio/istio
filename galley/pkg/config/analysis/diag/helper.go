@@ -31,6 +31,10 @@ func (o testOrigin) FriendlyName() string {
 	return o.name
 }
 
+func (o testOrigin) Comparator() string {
+	return o.name
+}
+
 func (o testOrigin) Namespace() resource.Namespace {
 	return ""
 }
