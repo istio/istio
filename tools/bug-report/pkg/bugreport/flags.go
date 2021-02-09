@@ -65,9 +65,9 @@ func addFlags(cmd *cobra.Command, args *config2.BugReportConfig) {
 			"only the logs captured so far are saved to the archive.")
 	// include / exclude specs
 	cmd.PersistentFlags().StringSliceVar(&included, "include", bugReportDefaultInclude,
-		"Spec for which pods' proxy logs to include in the archive. See above for format and examples.")
+		"Spec for which pod's proxy logs to include in the archive. See above for format and examples.")
 	cmd.PersistentFlags().StringSliceVar(&excluded, "exclude", bugReportDefaultExclude,
-		"Spec for which pods' proxy logs to exclude from the archive, after the include spec "+
+		"Spec for which pod's proxy logs to exclude from the archive, after the include spec "+
 			"is processed. See above for format and examples.")
 
 	// log time ranges
@@ -82,11 +82,11 @@ func addFlags(cmd *cobra.Command, args *config2.BugReportConfig) {
 
 	// log error control
 	cmd.PersistentFlags().StringSliceVar(&args.CriticalErrors, "critical-errs", nil,
-		"List of comma separated glob patters to match against log error strings. "+
+		"List of comma separated glob patterns to match against log error strings. "+
 			"If any pattern matches an error in the log, the logs is given the highest priority for archive inclusion.")
 	cmd.PersistentFlags().StringSliceVar(&args.IgnoredErrors, "ignore-errs", nil,
-		"List of comma separated glob patters to match against log error strings. "+
-			"Any error matching these patters is ignored when calculating the log importance heuristic.")
+		"List of comma separated glob patterns to match against log error strings. "+
+			"Any error matching these patterns is ignored when calculating the log importance heuristic.")
 
 	// output/working dir
 	cmd.PersistentFlags().StringVar(&tempDir, "dir", "",
