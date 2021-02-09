@@ -31,6 +31,7 @@ import (
 	"google.golang.org/grpc"
 
 	istioEnv "istio.io/istio/pkg/test/env"
+	"istio.io/istio/pkg/test/envoy"
 	xdsService "istio.io/istio/security/pkg/stsservice/mock"
 	stsServer "istio.io/istio/security/pkg/stsservice/server"
 	"istio.io/istio/security/pkg/stsservice/tokenmanager"
@@ -44,7 +45,7 @@ const (
 
 // Env manages test setup and teardown.
 type Env struct {
-	ProxySetup *istioEnv.TestSetup
+	ProxySetup *envoy.TestSetup
 	AuthServer *tokenBackend.AuthorizationServer
 
 	stsServer           *stsServer.Server
@@ -106,7 +107,7 @@ func SetupTest(t *testing.T, cb *xdsService.XDSCallbacks, testID uint16, enableC
 		initialToken: jwtToken,
 	}
 	// Set up test environment for Proxy
-	proxySetup := istioEnv.NewTestSetup(testID, t)
+	proxySetup := envoy.NewTestSetup(testID, t)
 	proxySetup.EnvoyTemplate = getDataFromFile(istioEnv.IstioSrc+"/security/pkg/stsservice/test/testdata/bootstrap.yaml", t)
 	// Set up credential files for bootstrap config
 	if err := WriteDataToFile(proxySetup.JWTTokenPath(), jwtToken); err != nil {

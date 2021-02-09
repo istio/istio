@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package env
+package envoy
 
 import (
 	"encoding/json"
@@ -25,6 +25,7 @@ import (
 	// Import all XDS config types
 	_ "istio.io/istio/pkg/config/xds"
 	"istio.io/istio/pkg/envoy"
+	"istio.io/istio/pkg/test/env"
 )
 
 // TestSetup store data for a test.
@@ -34,7 +35,7 @@ type TestSetup struct {
 	ports *Ports
 
 	envoy             envoy.Instance
-	backend           *HTTPServer
+	backend           *env.HTTPServer
 	testName          uint16
 	stress            bool
 	noProxy           bool
@@ -142,7 +143,7 @@ func (s *TestSetup) SetUp() error {
 	}
 
 	if !s.noBackend {
-		s.backend, err = NewHTTPServer(s.ports.BackendPort)
+		s.backend, err = env.NewHTTPServer(s.ports.BackendPort)
 		if err != nil {
 			log.Printf("unable to create HTTP server %v", err)
 		} else {
@@ -207,7 +208,7 @@ func (s *TestSetup) ReStartEnvoy() {
 func (s *TestSetup) WaitForStatsUpdateAndGetStats(waitDuration int) (string, error) {
 	time.Sleep(time.Duration(waitDuration) * time.Second)
 	statsURL := fmt.Sprintf("http://localhost:%d/stats?format=json&usedonly", s.Ports().AdminPort)
-	code, respBody, err := HTTPGet(statsURL)
+	code, respBody, err := env.HTTPGet(statsURL)
 	if err != nil {
 		return "", fmt.Errorf("sending stats request returns an error: %v", err)
 	}
@@ -226,7 +227,7 @@ func (s *TestSetup) GetStatsMap() (map[string]uint64, error) {
 	var statsJSON string
 	for attempt := 0; attempt < int(total/delay); attempt++ {
 		statsURL := fmt.Sprintf("http://localhost:%d/stats?format=json&usedonly", s.Ports().AdminPort)
-		code, statsJSON, errGet = HTTPGet(statsURL)
+		code, statsJSON, errGet = env.HTTPGet(statsURL)
 		if errGet != nil {
 			log.Printf("sending stats request returns an error: %v", errGet)
 		} else if code != 200 {
@@ -259,7 +260,7 @@ func (s *TestSetup) WaitEnvoyReady() {
 	var stats map[string]uint64
 	for attempt := 0; attempt < int(total/delay); attempt++ {
 		statsURL := fmt.Sprintf("http://localhost:%d/stats?format=json&usedonly", s.Ports().AdminPort)
-		code, respBody, errGet := HTTPGet(statsURL)
+		code, respBody, errGet := env.HTTPGet(statsURL)
 		if errGet == nil && code == 200 {
 			stats = s.unmarshalStats(respBody)
 			warmingListeners, hasListeners := stats["listener_manager.total_listeners_warming"]
@@ -323,7 +324,7 @@ func (s *TestSetup) VerifyStats(expectedStats map[string]uint64) {
 	var err error
 	for attempt := 0; attempt < int(total/delay); attempt++ {
 		statsURL := fmt.Sprintf("http://localhost:%d/stats?format=json&usedonly", s.Ports().AdminPort)
-		code, respBody, errGet := HTTPGet(statsURL)
+		code, respBody, errGet := env.HTTPGet(statsURL)
 		if errGet != nil {
 			log.Printf("sending stats request returns an error: %v", errGet)
 		} else if code != 200 {
