@@ -127,6 +127,12 @@ func gotRequestCountMetrics(wantClient, wantServer *monitoring.TimeSeries) bool 
 		}
 	}
 
+	if !gotServer {
+		log.Errorf("incorrect metric: got %v\n want client %v\n", series, wantServer)
+	}
+	if !gotClient {
+		log.Errorf("incorrect metric: got %v\n want client %v\n", series, wantClient)
+	}
 	return gotServer && gotClient
 }
 
