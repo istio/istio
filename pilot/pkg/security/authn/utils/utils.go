@@ -86,15 +86,14 @@ func BuildInboundFilterChain(mTLSMode model.MutualTLSMode, sdsUdsPath string, no
 			},
 			RequireClientCertificate: protovalue.BoolTrue,
 		}
+	}
 
-		if features.EnableTLSv2OnInboundPath {
-			// Set Minimum TLS version to match the default client version and allowed strong cipher suites for sidecars.
-			ctx.CommonTlsContext.TlsParams = &tls.TlsParameters{
-				TlsMinimumProtocolVersion: tls.TlsParameters_TLSv1_2,
-				CipherSuites:              SupportedCiphers,
-			}
+	if features.EnableTLSv2OnInboundPath {
+		// Set Minimum TLS version to match the default client version and allowed strong cipher suites for sidecars.
+		ctx.CommonTlsContext.TlsParams = &tls.TlsParameters{
+			TlsMinimumProtocolVersion: tls.TlsParameters_TLSv1_2,
+			CipherSuites:              SupportedCiphers,
 		}
-
 	}
 
 	authn_model.ApplyToCommonTLSContext(ctx.CommonTlsContext, node, sdsUdsPath, []string{} /*subjectAltNames*/, trustDomainAliases)
