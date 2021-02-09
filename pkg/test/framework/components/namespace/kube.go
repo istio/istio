@@ -196,7 +196,11 @@ func createNamespaceLabels(ctx resource.Context, cfg *Config) map[string]string 
 			}
 		}
 	} else {
-		l["istio-injection"] = "disabled"
+		// for multi version environments, disable the entire
+		// namespace explicitly so that object selectors are ignored
+		if ctx.Environment().IsMultiversion() {
+			l["istio-injection"] = "disabled"
+		}
 	}
 
 	// bring over supplied labels
