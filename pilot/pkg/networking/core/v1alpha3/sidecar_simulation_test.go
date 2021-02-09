@@ -28,6 +28,7 @@ import (
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
+	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/core/v1alpha3"
 	"istio.io/istio/pilot/pkg/networking/util"
@@ -119,9 +120,10 @@ func TestInboundClusters(t *testing.T) {
 		services  []*model.Service
 		instances []*model.ServiceInstance
 		// Assertions
-		clusters  map[string][]string
-		telemetry map[string][]string
-		proxy     *model.Proxy
+		clusters            map[string][]string
+		telemetry           map[string][]string
+		proxy               *model.Proxy
+		legacyClusterFormat bool
 	}{
 		// Proxy 1.8.1+ tests
 		{name: "empty"},
@@ -600,6 +602,171 @@ func TestInboundClusters(t *testing.T) {
 				"inbound|81|http|sidecar.default": {"127.0.0.1:8080"},
 			},
 		},
+
+		// Legacy cluster format tests
+		{
+			name:                "single service, partial instance",
+			legacyClusterFormat: true,
+			services:            []*model.Service{service},
+			instances:           makeInstances(proxy175, service, 80, 8080),
+			clusters: map[string][]string{
+				"inbound|80|default|backend.default.svc.cluster.local": {"127.0.0.1:8080"},
+			},
+			telemetry: map[string][]string{
+				"inbound|80|default|backend.default.svc.cluster.local": {string(service.Hostname)},
+			},
+		},
+		{
+			name:                "single service, multiple instance",
+			legacyClusterFormat: true,
+			services:            []*model.Service{service},
+			instances: flattenInstances(
+				makeInstances(proxy175, service, 80, 8080),
+				makeInstances(proxy175, service, 81, 8081)),
+			clusters: map[string][]string{
+				"inbound|80|default|backend.default.svc.cluster.local": {"127.0.0.1:8080"},
+				"inbound|81|other|backend.default.svc.cluster.local":   {"127.0.0.1:8081"},
+			},
+			telemetry: map[string][]string{
+				"inbound|80|default|backend.default.svc.cluster.local": {string(service.Hostname)},
+				"inbound|81|other|backend.default.svc.cluster.local":   {string(service.Hostname)},
+			},
+		},
+		{
+			name:                "multiple services with same service port, different target",
+			legacyClusterFormat: true,
+			services:            []*model.Service{service, serviceAlt},
+			instances: flattenInstances(
+				makeInstances(proxy175, service, 80, 8080),
+				makeInstances(proxy175, service, 81, 8081),
+				makeInstances(proxy175, serviceAlt, 80, 8082),
+				makeInstances(proxy175, serviceAlt, 81, 8083)),
+			clusters: map[string][]string{
+				"inbound|80|default|backend.default.svc.cluster.local":     {"127.0.0.1:8080"},
+				"inbound|81|other|backend.default.svc.cluster.local":       {"127.0.0.1:8081"},
+				"inbound|80|default|backend-alt.default.svc.cluster.local": {"127.0.0.1:8082"},
+				"inbound|81|other|backend-alt.default.svc.cluster.local":   {"127.0.0.1:8083"},
+			},
+			telemetry: map[string][]string{
+				"inbound|80|default|backend.default.svc.cluster.local":     {string(serviceAlt.Hostname), string(service.Hostname)},
+				"inbound|80|default|backend-alt.default.svc.cluster.local": {string(serviceAlt.Hostname), string(service.Hostname)},
+				"inbound|81|other|backend-alt.default.svc.cluster.local":   {string(serviceAlt.Hostname), string(service.Hostname)},
+				"inbound|81|other|backend.default.svc.cluster.local":       {string(serviceAlt.Hostname), string(service.Hostname)},
+			},
+		},
+		{
+			name:                "multiple services with same service port and target",
+			legacyClusterFormat: true,
+			services:            []*model.Service{service, serviceAlt},
+			instances: flattenInstances(
+				makeInstances(proxy175, service, 80, 8080),
+				makeInstances(proxy175, service, 81, 8081),
+				makeInstances(proxy175, serviceAlt, 80, 8080),
+				makeInstances(proxy175, serviceAlt, 81, 8081)),
+			clusters: map[string][]string{
+				"inbound|80|default|backend.default.svc.cluster.local":     {"127.0.0.1:8080"},
+				"inbound|81|other|backend.default.svc.cluster.local":       {"127.0.0.1:8081"},
+				"inbound|80|default|backend-alt.default.svc.cluster.local": {"127.0.0.1:8080"},
+				"inbound|81|other|backend-alt.default.svc.cluster.local":   {"127.0.0.1:8081"},
+			},
+			telemetry: map[string][]string{
+				"inbound|80|default|backend.default.svc.cluster.local":     {string(serviceAlt.Hostname), string(service.Hostname)},
+				"inbound|80|default|backend-alt.default.svc.cluster.local": {string(serviceAlt.Hostname), string(service.Hostname)},
+				"inbound|81|other|backend-alt.default.svc.cluster.local":   {string(serviceAlt.Hostname), string(service.Hostname)},
+				"inbound|81|other|backend.default.svc.cluster.local":       {string(serviceAlt.Hostname), string(service.Hostname)},
+			},
+		},
+		{
+			name:                "ingress to same port",
+			legacyClusterFormat: true,
+			configs: []config.Config{
+				{
+					Meta: config.Meta{GroupVersionKind: gvk.Sidecar, Namespace: "default", Name: "sidecar"},
+					Spec: &networking.Sidecar{Ingress: []*networking.IstioIngressListener{{
+						Port: &networking.Port{
+							Number:   80,
+							Protocol: "HTTP",
+							Name:     "http",
+						},
+						DefaultEndpoint: "127.0.0.1:80",
+					}}},
+				},
+			},
+			clusters: map[string][]string{
+				"inbound|80|http|sidecar.default": {"127.0.0.1:80"},
+			},
+		},
+		{
+			name:                "ingress to different port",
+			legacyClusterFormat: true,
+			configs: []config.Config{
+				{
+					Meta: config.Meta{GroupVersionKind: gvk.Sidecar, Namespace: "default", Name: "sidecar"},
+					Spec: &networking.Sidecar{Ingress: []*networking.IstioIngressListener{{
+						Port: &networking.Port{
+							Number:   80,
+							Protocol: "HTTP",
+							Name:     "http",
+						},
+						DefaultEndpoint: "127.0.0.1:8080",
+					}}},
+				},
+			},
+			clusters: map[string][]string{
+				"inbound|80|http|sidecar.default": {"127.0.0.1:8080"},
+			},
+		},
+		{
+			name:                "ingress to socket",
+			legacyClusterFormat: true,
+			configs: []config.Config{
+				{
+					Meta: config.Meta{GroupVersionKind: gvk.Sidecar, Namespace: "default", Name: "sidecar"},
+					Spec: &networking.Sidecar{Ingress: []*networking.IstioIngressListener{{
+						Port: &networking.Port{
+							Number:   80,
+							Protocol: "HTTP",
+							Name:     "http",
+						},
+						DefaultEndpoint: "unix:///socket",
+					}}},
+				},
+			},
+			clusters: map[string][]string{
+				"inbound|80|http|sidecar.default": {"/socket"},
+			},
+		},
+		{
+			name:                "multiple ingress",
+			legacyClusterFormat: true,
+			configs: []config.Config{
+				{
+					Meta: config.Meta{GroupVersionKind: gvk.Sidecar, Namespace: "default", Name: "sidecar"},
+					Spec: &networking.Sidecar{Ingress: []*networking.IstioIngressListener{
+						{
+							Port: &networking.Port{
+								Number:   80,
+								Protocol: "HTTP",
+								Name:     "http",
+							},
+							DefaultEndpoint: "127.0.0.1:8080",
+						},
+						{
+							Port: &networking.Port{
+								Number:   81,
+								Protocol: "HTTP",
+								Name:     "http",
+							},
+							DefaultEndpoint: "127.0.0.1:8080",
+						},
+					}},
+				},
+			},
+			clusters: map[string][]string{
+				"inbound|80|http|sidecar.default": {"127.0.0.1:8080"},
+				"inbound|81|http|sidecar.default": {"127.0.0.1:8080"},
+			},
+		},
 	}
 	for _, tt := range cases {
 		name := tt.name
@@ -608,7 +775,12 @@ func TestInboundClusters(t *testing.T) {
 		} else {
 			name += "-" + tt.proxy.Metadata.IstioVersion
 		}
+		if tt.legacyClusterFormat {
+			name += "-legacy"
+		}
 		t.Run(name, func(t *testing.T) {
+			features.LegacyClusterName = tt.legacyClusterFormat
+			defer func() { features.LegacyClusterName = false }()
 			s := v1alpha3.NewConfigGenTest(t, v1alpha3.TestOptions{
 				Services:  tt.services,
 				Instances: tt.instances,
@@ -655,7 +827,8 @@ func TestInboundClusters(t *testing.T) {
 						}
 					}
 				}
-				if name == "multiple services with same service port and target-1.7.5" {
+				if name == "multiple services with same service port and target-1.7.5" ||
+					name == "multiple services with same service port and target-legacy" {
 					// This case is ambiguous in 1.7.5. We cannot determine which cluster to
 					// appropriately send to since they requests come in with identical port
 					continue
