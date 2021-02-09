@@ -175,6 +175,8 @@ func (d *discoveryNamespacesFilter) removeNamespace(ns string) {
 }
 
 func (d *discoveryNamespacesFilter) isSelected(labels labels.Set) bool {
+	d.lock.RLock()
+	defer d.lock.RUnlock()
 	// permit all objects if discovery selectors are not specified
 	if len(d.discoverySelectors) == 0 {
 		return true
