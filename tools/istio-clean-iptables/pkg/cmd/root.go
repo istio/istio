@@ -36,31 +36,14 @@ var (
 )
 
 var rootCmd = &cobra.Command{
-	Use:   "istio-clean-iptables",
-	Short: "Clean up iptables rules for Istio Sidecar",
-	Long:  "Script responsible for cleaning up iptables rules",
-	PreRun: func(cmd *cobra.Command, args []string) {
-		if err := viper.BindPFlag(constants.DryRun, cmd.Flags().Lookup(constants.DryRun)); err != nil {
-			handleError(err)
-		}
-		viper.SetDefault(constants.DryRun, false)
-	},
+	Use:    "istio-clean-iptables",
+	Short:  "Clean up iptables rules for Istio Sidecar",
+	Long:   "Script responsible for cleaning up iptables rules",
+	PreRun: bindFlags,
 	Run: func(cmd *cobra.Command, args []string) {
 		cfg := constructConfig()
 		cleanup(cfg)
 	},
-}
-
-func bindProxyFlags(cmd *cobra.Command, args []string) {
-	if err := viper.BindPFlag(constants.ProxyUID, cmd.Flags().Lookup(constants.ProxyUID)); err != nil {
-		handleError(err)
-	}
-	viper.SetDefault(constants.ProxyUID, "")
-
-	if err := viper.BindPFlag(constants.ProxyGID, cmd.Flags().Lookup(constants.ProxyGID)); err != nil {
-		handleError(err)
-	}
-	viper.SetDefault(constants.ProxyGID, "")
 }
 
 func constructConfig() *config.Config {
@@ -90,23 +73,39 @@ func constructConfig() *config.Config {
 	return cfg
 }
 
-func init() {
+// https://github.com/spf13/viper/issues/233.
+// Any viper mutation and binding should be placed in `PreRun` since they should be dynamically bound to the subcommand being executed.
+func bindFlags(cmd *cobra.Command, args []string) {
 	// Read in all environment variables
 	viper.AutomaticEnv()
 	// Replace - with _; so that environment variables are looked up correctly.
 	viper.SetEnvKeyReplacer(strings.NewReplacer("-", "_"))
 
-	// https://github.com/spf13/viper/issues/233.
-	// The `dry-run` flag is bound in init() across both `istio-iptables` and `istio-clean-iptables` subcommands and
-	// will be overwritten by the last. Thus, only adding it here while moving its binding to Viper and value
-	// defaulting as part of the command execution.
+	if err := viper.BindPFlag(constants.DryRun, cmd.Flags().Lookup(constants.DryRun)); err != nil {
+		handleError(err)
+	}
+	viper.SetDefault(constants.DryRun, false)
+
+	if err := viper.BindPFlag(constants.ProxyUID, cmd.Flags().Lookup(constants.ProxyUID)); err != nil {
+		handleError(err)
+	}
+	viper.SetDefault(constants.ProxyUID, "")
+
+	if err := viper.BindPFlag(constants.ProxyGID, cmd.Flags().Lookup(constants.ProxyGID)); err != nil {
+		handleError(err)
+	}
+	viper.SetDefault(constants.ProxyGID, "")
+}
+
+// https://github.com/spf13/viper/issues/233.
+// Only adding flags in `init()` while moving its binding to Viper and value defaulting as part of the command execution.
+// Otherwise, the flag with the same name shared across subcommands will be overwritten by the last.
+func init() {
 	rootCmd.Flags().BoolP(constants.DryRun, "n", false, "Do not call any external dependencies like iptables")
 
-	// https://github.com/spf13/viper/issues/233.
 	rootCmd.Flags().StringP(constants.ProxyUID, "u", "",
 		"Specify the UID of the user for which the redirection is not applied. Typically, this is the UID of the proxy container")
 
-	// https://github.com/spf13/viper/issues/233.
 	rootCmd.Flags().StringP(constants.ProxyGID, "g", "",
 		"Specify the GID of the user for which the redirection is not applied. (same default value as -u param)")
 }
