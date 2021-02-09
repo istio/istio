@@ -302,7 +302,11 @@ func (configgen *ConfigGeneratorImpl) buildInboundClusters(cb *ClusterBuilder, i
 		for _, instances := range clustersToBuild {
 			instance := instances[0]
 			localCluster := cb.buildInboundClusterForPortOrUDS(cb.proxy, int(instance.Endpoint.EndpointPort), actualLocalHost, instance, instances)
-			clusters = cp.conditionallyAppend(clusters, instance.Service.Hostname, localCluster)
+			// If inbound cluster match has service, we should see if it matches with any host name across all instances
+			// and merge the filter.
+			for _, si := range instances {
+				clusters = cp.conditionallyAppend(clusters, si.Service.Hostname, localCluster)
+			}
 		}
 		return clusters
 	}
