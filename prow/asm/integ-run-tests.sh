@@ -41,6 +41,11 @@ WIP="GKE"
 CONTROL_PLANE="UNMANAGED"
 # USE_VM = true or false
 USE_VM=false
+export USE_VM
+# STATIC_VMS = a directory in echo-vm-provisioner/configs
+STATIC_VMS=""
+export STATIC_VMS
+# Makefile target
 TEST_TARGET="test.integration.multicluster.kube.presubmit"
 # Passed by job config
 DISABLED_TESTS=""
@@ -48,7 +53,7 @@ DISABLED_TESTS=""
 declare -a ONPREM_MC_CONFIGS
 
 while (( "$#" )); do
-  case $1 in
+  case $(echo "${1}" | awk '{print tolower($0)}') in
     --ca)
       case $2 in
         "CITADEL" | "MESHCA" | "PRIVATECA" )
@@ -88,6 +93,15 @@ while (( "$#" )); do
     --vm)
       USE_VM=true
       shift 1
+      ;;
+    -vm)
+      # temporary - fat fingered the job change so i need this to be able to run in this PR
+      USE_VM=true
+      shift 1
+      ;;
+    --static-vms)
+      STATIC_VMS=$2
+      shift 2
       ;;
     --test)
       TEST_TARGET=$2
@@ -210,6 +224,13 @@ if [[ "${CONTROL_PLANE}" == "UNMANAGED" ]]; then
     multicloud::gen_topology_file "${INTEGRATION_TEST_TOPOLOGY_FILE}"
   fi
 
+  if [ -n "${STATIC_VMS}" ]; then
+    echo "Setting up GCP VMs to test against"
+    VM_CTX="${CONTEXTS[0]}"
+    setup_asm_vms "${STATIC_VMS}" "${VM_CTX}"
+    static_vm_topology_entry "${INTEGRATION_TEST_TOPOLOGY_FILE}" "${VM_CTX}"
+  fi
+
   echo "Processing kubeconfig files for running the tests..."
   process_kubeconfigs
 
@@ -269,12 +290,26 @@ if [[ "${CONTROL_PLANE}" == "UNMANAGED" ]]; then
 
   # Don't run VM tests. Echo deployment requires the eastwest gateway
   # which isn't deployed for all configurations.
-  INTEGRATION_TEST_FLAGS+=" --istio.test.skipVM"
+  if [[ "${USE_VM}" == false ]]; then
+    INTEGRATION_TEST_FLAGS+=" --istio.test.skipVM"
+  fi
+
+  if [[ -n "${STATIC_VMS}" ]]; then
+    # Static real VMs pre-create a namespace
+    INTEGRATION_TEST_FLAGS+=" --istio.test.stableNamespaces"
+    export DISABLED_PACKAGES+="\|/pilot/endpointslice" # we won't reinstall the CP in endpointslice mode
+    # waiting for an oSS change that fixes this test's incompatibility with stableNamespaces
+    INTEGRATION_TEST_FLAGS+=" --istio.test.skip=\"TestValidation\""
+  fi
 
   # Skip the tests that are known to be not working.
   INTEGRATION_TEST_FLAGS+=" --istio.test.skip=\"${DISABLED_TESTS}\""
   # Skip the subtests that are known to be not working.
   INTEGRATION_TEST_FLAGS+=" --istio.test.skip=\"TestRequestAuthentication/.*/valid-token-forward-remote-jwks\"" # UNSUPPORTED: relies on custom options
+
+  # TODO https://b.corp.google.com/issues/180521354
+  INTEGRATION_TEST_FLAGS+=" --istio.test.skip=\"TestTraffic/vm/dns:_VM_to_k8s_cluster_IP_service_name.namespace_host_from_*\" \
+  --istio.test.skip=\"TestTraffic/vm/dns:_VM_to_k8s_cluster_IP_service_short_name_host_from_*\""
 
   echo "Running e2e test: ${TEST_TARGET}..."
   export JUNIT_OUT="${ARTIFACTS}/junit1.xml"

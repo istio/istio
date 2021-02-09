@@ -1,0 +1,17 @@
+apiVersion: networking.istio.io/v1alpha3
+kind: WorkloadGroup
+metadata:
+  name: vm
+  namespace: test-ns1
+spec:
+  metadata:
+    annotations:
+      security.cloud.google.com/IdentityProvider: google
+    labels:
+      app: vm
+  template:
+    ports:
+      http: 8090
+      tcp: 9090
+      grpc: 7070
+      https: 8443

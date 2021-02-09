@@ -14,6 +14,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+# shellcheck source=prow/asm/echo-vm-provisioner/vm-lib.sh
+source "${WD}/echo-vm-provisioner/vm-lib.sh"
+
 # The GCP project we use when testing with multicloud clusters, or when we need to
 # hold some GCP resources that are centrally managed.
 export CENTRAL_GCP_PROJECT="istio-prow-build"
@@ -653,11 +656,14 @@ function gen_topology_file() {
       local CLUSTER_LOCATION=${VALS[2]}
       local CLUSTER_NAME=${VALS[3]}
       cat <<EOF >> "${file}"
-      - clusterName: "cn-${PROJECT_ID}-${CLUSTER_LOCATION}-${CLUSTER_NAME}"
-        kind: Kubernetes
-        meta:
-          kubeconfig: "${kubeconfpaths[i]}"
+- clusterName: "cn-${PROJECT_ID}-${CLUSTER_LOCATION}-${CLUSTER_NAME}"
+  kind: Kubernetes
+  meta:
+    kubeconfig: "${kubeconfpaths[i]}"
 EOF
+      if [ -n "${STATIC_VMS}" ]; then
+        echo '    fakeVM: false' >> "${file}"
+      fi
     done
 }
 
@@ -886,6 +892,42 @@ function filter_onprem_kubeconfigs() {
     [[ "${CONFIG}" =~ .*user-kubeconfig.yaml.* ]] && ONPREM_MC_CONFIGS+=( "${CONFIG}" )
   done
   KUBECONFIG=$( IFS=':'; echo "${ONPREM_MC_CONFIGS[*]}" )
+}
+
+# Creates virtual machines, registers them with the cluster and install the test echo app.
+# Parameters: $1 - the name of a directory in echo-vm-provisioner/configs describing how to setup the VMs.
+#             $2 - the context of the cluster VMs will connect to
+function setup_asm_vms() {
+  local VM_DIR="$PWD/prow/asm/echo-vm-provisioner/configs/$1"
+  local CONTEXT=$2
+
+  IFS="_" read -r -a VALS <<< "${CONTEXT}"
+  local PROJECT_ID=${VALS[1]}
+  local CLUSTER_LOCATION=${VALS[2]}
+  local CLUSTER_NAME=${VALS[3]}
+
+  local PROJECT_NUMBER
+  PROJECT_NUMBER=$(gcloud projects describe "${PROJECT_ID}" --format="value(projectNumber)")
+  local REVISION
+  REVISION="$(kubectl --context="${CONTEXT}" -n istio-system get service istio-eastwestgateway -ojsonpath='{.metadata.labels.istio\.io/rev}')"
+
+  # ASM_VM_BRANCH is one of the branches in https://github.com/GoogleCloudPlatform/anthos-service-mesh-packages
+  ASM_VM_BRANCH="master"
+  curl -O https://raw.githubusercontent.com/GoogleCloudPlatform/anthos-service-mesh-packages/"${ASM_VM_BRANCH}"/scripts/asm-installer/asm_vm
+  chmod +x asm_vm
+  VM_SCRIPT="$PWD/asm_vm"
+  export VM_SCRIPT
+
+  # Allow traffic from this Prow node to the VM
+  gcloud compute firewall-rules create \
+    --project "$PROJECT_ID" \
+    --allow=tcp:22,tcp:7070,tcp:17070 \
+    --source-ranges="$(curl ifconfig.me)/32" \
+    --target-tags=staticvm \
+    prow-to-static-vms
+
+  export ISTIO_OUT="$PWD/out"
+  setup_vms "${CONTEXT}" "${CLUSTER_NAME}" "${CLUSTER_LOCATION}" "${PROJECT_NUMBER}" "${REVISION}" "${VM_DIR}"
 }
 
 # Add function call to trap

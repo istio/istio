@@ -1,0 +1,24 @@
+apiVersion: networking.istio.io/v1alpha3
+kind: WorkloadGroup
+metadata:
+  name: vm
+  namespace: echo
+spec:
+  metadata:
+    annotations:
+      security.cloud.google.com/IdentityProvider: google
+    labels:
+      app: vm
+  template:
+    ports:
+      http: 18080
+      grpc: 17070
+      tcp: 19090
+      https: 18443
+      tcp-server: 16060
+      auto-tcp: 19091
+      auto-tcp-server: 16061
+      auto-http: 18081
+      auto-grpc: 17071
+      auto-https: 19443
+      http-instance: 18082
