@@ -12,13 +12,13 @@
       "destination_service_host": "srv.{{ .EchoNamespace }}.svc.cluster.local",
       "destination_app": "srv",
       "source_canonical_service": "clt-{{ .ClusterName }}",
-      "destination_principal": "spiffe://cluster.local/ns/{{ .EchoNamespace }}/sa/default",
+      "destination_principal": "spiffe://{{ .TrustDomain }}/ns/{{ .EchoNamespace }}/sa/default",
       "destination_namespace": "{{ .EchoNamespace }}",
       "destination_canonical_revision": "v1",
       "source_workload": "clt-{{ .ClusterName }}-v1",
       "source_namespace": "{{ .EchoNamespace }}",
       "destination_service_name": "srv",
-      "source_principal": "spiffe://cluster.local/ns/{{ .EchoNamespace }}/sa/default",
+      "source_principal": "spiffe://{{ .TrustDomain }}/ns/{{ .EchoNamespace }}/sa/default",
       "source_canonical_revision": "v1"
     },
     "trace_sampled":true
