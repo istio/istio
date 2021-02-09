@@ -74,6 +74,7 @@ func (s *Server) initKubeRegistry(args *PilotArgs) (err error) {
 	args.RegistryOptions.KubeOptions.Metrics = s.environment
 	args.RegistryOptions.KubeOptions.XDSUpdater = s.XDSServer
 	args.RegistryOptions.KubeOptions.NetworksWatcher = s.environment.NetworksWatcher
+	args.RegistryOptions.KubeOptions.MeshWatcher = s.environment.Watcher
 	args.RegistryOptions.KubeOptions.SystemNamespace = args.Namespace
 
 	caBundlePath := s.caBundlePath
