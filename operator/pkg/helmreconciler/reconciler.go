@@ -509,7 +509,8 @@ func CreateNamespace(cs kubernetes.Interface, namespace string, network string) 
 	if err != nil {
 		if errors.IsNotFound(err) {
 			ns := &v1.Namespace{ObjectMeta: v12.ObjectMeta{
-				Name: namespace,
+				Name:   namespace,
+				Labels: map[string]string{},
 			}}
 			if network != "" {
 				ns.Labels[label.TopologyNetwork.Name] = network
