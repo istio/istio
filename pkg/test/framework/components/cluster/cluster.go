@@ -111,7 +111,7 @@ func (c Clusters) OfKind(kind Kind) Clusters {
 func (c Clusters) MinIstioVersion() Version {
 	primaries := c.Primaries()
 	min := primaries[0].Versions().Minimum()
-	for _, c := range c.Primaries() {
+	for _, c := range primaries {
 		if c.Versions().Minimum().Compare(min) < 0 {
 			min = c.Versions().Minimum()
 		}
