@@ -18,10 +18,8 @@ import (
 	"reflect"
 	"strings"
 	"sync"
-	"time"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
-	"istio.io/istio/security/pkg/pki/util"
 	"istio.io/pkg/log"
 )
 
@@ -171,15 +169,11 @@ func (tb *TrustBundle) AddMeshConfigUpdate(cfg *meshconfig.MeshConfig) {
 }
 
 // AddPeriodicIstioCAConfigUpdate
-func (tb *TrustBundle) AddPeriodicIstioCARootUpdate(stop <-chan struct{}, certBundle util.KeyCertBundle, periodicity time.Duration) {
-	select {
-	case <-time.After(periodicity):
-		rootCerts := []string{string(certBundle.GetRootCertPem())}
-		tb.EnqueueAnchorUpdate(&TrustAnchorUpdate{TrustAnchorConfig: TrustAnchorConfig{
-			source: SourceIstioCA,
-			certs:  rootCerts,
-		}})
-	case <-stop:
-		return
-	}
+func (tb *TrustBundle) AddIstioCARootUpdate(rootCert string) error {
+	rootCerts := []string{rootCert}
+	tb.EnqueueAnchorUpdate(&TrustAnchorUpdate{TrustAnchorConfig: TrustAnchorConfig{
+		source: SourceIstioCA,
+		certs:  rootCerts,
+	}})
+	return nil
 }

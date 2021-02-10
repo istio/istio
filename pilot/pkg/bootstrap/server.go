@@ -69,7 +69,6 @@ import (
 	"istio.io/istio/pkg/kube/inject"
 	"istio.io/istio/pkg/security"
 	"istio.io/istio/pkg/spiffe"
-	"istio.io/istio/security/pkg/cmd"
 	"istio.io/istio/security/pkg/k8s/chiron"
 	"istio.io/istio/security/pkg/pki/ca"
 	"istio.io/istio/security/pkg/pki/ra"
@@ -1220,16 +1219,9 @@ func (s *Server) initWorkloadTrustBundle() {
 
 	// IstioCA: Implicitly add roots corresponding to CA
 	if s.CA != nil {
-		rootCerts := []string{string(s.CA.GetCAKeyCertBundle().GetRootCertPem())}
-		s.workloadTrustBundle.EnqueueAnchorUpdate(&TrustAnchorUpdate{TrustAnchorConfig: TrustAnchorConfig{
-			source: SourceIstioCA,
-			certs:  rootCerts,
-		}})
-		s.addStartFunc(func(stop <-chan struct{}) error {
-			go s.workloadTrustBundle.AddPeriodicIstioCARootUpdate(stop, s.CA.GetCAKeyCertBundle(),
-				cmd.DefaultSelfSignedRootCertCheckInterval)
-			return nil
-		})
+		rootCert := string(s.CA.GetCAKeyCertBundle().GetRootCertPem())
+		_ = s.workloadTrustBundle.AddIstioCARootUpdate(rootCert)
+		s.CA.AddRootCertCb(s.workloadTrustBundle.AddIstioCARootUpdate)
 	}
 
 	// IstioRA: Implicitly add roots corresponding to RA
