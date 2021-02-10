@@ -45,3 +45,6 @@ go mod tidy
 
 sed -i "s/^BUILDER_SHA=.*\$/BUILDER_SHA=$(getSha release-builder)/" prow/release-commit.sh
 sed -i '/PROXY_REPO_SHA/,/lastStableSHA/ { s/"lastStableSHA":.*/"lastStableSHA": "'"$(getSha proxy)"'"/  }' istio.deps
+
+LATEST_DISTROLESS_SHA256=$(docker image pull gcr.io/distroless/static-debian10 | grep Digest | awk -F\\: '{print $3}')
+sed -i -E "s/sha256:[a-z0-9]+/sha256:${LATEST_DISTROLESS_SHA256}/g" docker/Dockerfile.distroless
