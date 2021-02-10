@@ -56,6 +56,7 @@ import (
 	kubecontroller "istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
 	"istio.io/istio/pilot/pkg/serviceregistry/serviceentry"
 	"istio.io/istio/pilot/pkg/status"
+	tb "istio.io/istio/pilot/pkg/trustbundle"
 	"istio.io/istio/pilot/pkg/xds"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
 	"istio.io/istio/pkg/config"
@@ -162,7 +163,7 @@ type Server struct {
 	RA             ra.RegistrationAuthority
 
 	// TrustAnchors for workload to workload mTLS
-	workloadTrustBundle *TrustBundle
+	workloadTrustBundle *tb.TrustBundle
 	// path to the caBundle that signs the DNS certs. This should be agnostic to provider.
 	caBundlePath string
 	certMu       sync.Mutex
@@ -1204,10 +1205,14 @@ func (s *Server) initMeshHandlers() {
 }
 
 func (s *Server) initWorkloadTrustBundle() {
-	s.workloadTrustBundle = NewTrustBundle()
+	s.workloadTrustBundle = tb.NewTrustBundle(func() {
+		s.XDSServer.ConfigUpdate(&model.PushRequest{
+			Full:   true,
+			Reason: []model.TriggerReason{model.GlobalUpdate},
+		})
+	})
 	s.addStartFunc(func(stop <-chan struct{}) error {
-		go s.workloadTrustBundle.processUpdates(stop)
-		log.Debugf("starting TrustBundle update processing routine")
+		s.workloadTrustBundle.Start(stop)
 		return nil
 	})
 
@@ -1228,9 +1233,9 @@ func (s *Server) initWorkloadTrustBundle() {
 	if s.RA != nil {
 		// Implicitly add the Istio RA certificates to the Workload Trust Bundle
 		rootCerts := []string{string(s.RA.GetCAKeyCertBundle().GetRootCertPem())}
-		s.workloadTrustBundle.EnqueueAnchorUpdate(&TrustAnchorUpdate{TrustAnchorConfig: TrustAnchorConfig{
-			source: SourceIstioRA,
-			certs:  rootCerts,
+		s.workloadTrustBundle.EnqueueAnchorUpdate(&tb.TrustAnchorUpdate{TrustAnchorConfig: tb.TrustAnchorConfig{
+			Source: tb.SourceIstioRA,
+			Certs:  rootCerts,
 		}})
 
 		// Ensure all added watchers trigger Enqueue function

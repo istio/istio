@@ -55,6 +55,7 @@ import (
 	"istio.io/istio/pkg/util/gogo"
 	"istio.io/istio/pkg/wasm"
 	"istio.io/istio/security/pkg/nodeagent/caclient"
+	"istio.io/istio/security/pkg/pki/util"
 	"istio.io/pkg/log"
 )
 
@@ -163,11 +164,16 @@ func initXdsProxy(ia *Agent) (*XdsProxy, error) {
 				log.Errorf("failed to unmarshall proxy config: %v", err)
 				return err
 			}
-			log.Errorf("howardjohn: got new root certs: %v", pc.ConfigPath)
+			caCerts := pc.GetCaCertificatesPem()
+			log.Infof("received new certificates to add to mesh trust domain: %v", caCerts)
 			if ia.secretCache == nil {
 				return nil
 			}
-			return ia.secretCache.UpdateConfigTrustBundle([]byte(pc.ConfigPath))
+			trustBundle := []byte{}
+			for _, cert := range caCerts {
+				trustBundle, _ = util.AppendRootCertString(trustBundle, cert)
+			}
+			return ia.secretCache.UpdateConfigTrustBundle(trustBundle)
 		}
 	}
 

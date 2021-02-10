@@ -11,7 +11,7 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-package bootstrap
+package trustbundle
 
 import (
 	"crypto/x509"
@@ -25,14 +25,12 @@ import (
 	"istio.io/pkg/log"
 )
 
-var trustBundleLog = log.RegisterScope("trustBundle", "Workload mTLS trust bundle logs", 0)
-
 // source is all possible sources of MeshConfig
 type Source int
 
 type TrustAnchorConfig struct {
-	source Source
-	certs  []string
+	Source Source
+	Certs  []string
 }
 
 type TrustAnchorUpdate struct {
@@ -44,7 +42,15 @@ type TrustBundle struct {
 	mutex            sync.RWMutex
 	mergedCerts      []string
 	anchorUpdateChan chan *TrustAnchorUpdate
+	updatecb         func()
 }
+
+var (
+	trustBundleLog = log.RegisterScope("trustBundle", "Workload mTLS trust bundle logs", 0)
+
+	// GlobalWorkloadTrustbundle Needed to interface with XDS
+	GlobalWorkloadTrustbundle *TrustBundle = nil
+)
 
 const (
 	SourceIstioCA Source = iota
@@ -54,17 +60,20 @@ const (
 	UpdateChannelLen = 10
 )
 
-func NewTrustBundle() *TrustBundle {
+func NewTrustBundle(updatecb func()) *TrustBundle {
 	tb := &TrustBundle{
 		sourceConfig: map[Source]*TrustAnchorConfig{
-			SourceIstioCA:    {source: SourceIstioCA, certs: []string{}},
-			SourceMeshConfig: {source: SourceMeshConfig, certs: []string{}},
-			SourceIstioRA:    {source: SourceIstioRA, certs: []string{}},
+			SourceIstioCA:    {Source: SourceIstioCA, Certs: []string{}},
+			SourceMeshConfig: {Source: SourceMeshConfig, Certs: []string{}},
+			SourceIstioRA:    {Source: SourceIstioRA, Certs: []string{}},
 			// SOURCE_SPIFFE_ENDPOINT:        &TrustAnchorConfig{source: SOURCE_SPIFFE_ENDPOINT, certs: []string{}},
 		},
 		mergedCerts:      []string{},
 		anchorUpdateChan: make(chan *TrustAnchorUpdate, UpdateChannelLen),
+		updatecb:         updatecb,
 	}
+
+	GlobalWorkloadTrustbundle = tb
 	return tb
 }
 
@@ -89,11 +98,10 @@ func (tb *TrustBundle) verifyTrustAnchor(trustAnchor string) error {
 	if !cert.IsCA {
 		return fmt.Errorf("certificate is not a CA certificate")
 	}
-	/*
-		if cert.Issuer.String() != cert.Subject.String() {
-			return fmt.Errorf("intermediate certificates are not supported")
-		}
-	*/
+	//
+	//	if cert.Issuer.String() != cert.Subject.String() {
+	//		return fmt.Errorf("intermediate certificates are not supported")
+	//	}
 	// Check for Spiffe SAN corresponding to trustDomain?
 	return nil
 }
@@ -105,7 +113,7 @@ func (tb *TrustBundle) mergeInternal() {
 	certMap := make(map[string]bool)
 
 	for _, configSource := range tb.sourceConfig {
-		for _, cert := range configSource.certs {
+		for _, cert := range configSource.Certs {
 			if _, ok = certMap[cert]; !ok {
 				certMap[cert] = true
 				mergeCerts = append(mergeCerts, cert)
@@ -119,35 +127,35 @@ func (tb *TrustBundle) mergeInternal() {
 
 // External Function to merge a TrustAnchor config with the existing TrustBundle
 // Should only be one writer
-func (tb *TrustBundle) MergeTrustBundle(anchorConfig *TrustAnchorUpdate) error {
+func (tb *TrustBundle) mergeTrustBundle(anchorConfig *TrustAnchorUpdate) error {
 	var ok bool
 	var err error
 
-	cachedConfig, ok := tb.sourceConfig[anchorConfig.source]
+	cachedConfig, ok := tb.sourceConfig[anchorConfig.Source]
 	if !ok {
-		return fmt.Errorf("invalid source of TrustBundle configuration %v", anchorConfig.source)
+		return fmt.Errorf("invalid source of TrustBundle configuration %v", anchorConfig.Source)
 	}
 
 	// Check if anything needs to be changed at all
-	if reflect.DeepEqual(anchorConfig.certs, cachedConfig.certs) {
+	if reflect.DeepEqual(anchorConfig.Certs, cachedConfig.Certs) {
 		trustBundleLog.Infof("no change to trustAnchor configuration after recent update")
 		return nil
 	}
 
-	for _, cert := range anchorConfig.certs {
+	for _, cert := range anchorConfig.Certs {
 		err = tb.verifyTrustAnchor(cert)
 		if err != nil {
 			return err
 		}
 	}
-	tb.sourceConfig[anchorConfig.TrustAnchorConfig.source] = &anchorConfig.TrustAnchorConfig
+	tb.sourceConfig[anchorConfig.TrustAnchorConfig.Source] = &anchorConfig.TrustAnchorConfig
 	tb.mergeInternal()
 
 	log.Debugf("updating Source %v with certs %v",
-		anchorConfig.TrustAnchorConfig.source,
-		strings.Join(anchorConfig.TrustAnchorConfig.certs, "\n\n"))
+		anchorConfig.TrustAnchorConfig.Source,
+		strings.Join(anchorConfig.TrustAnchorConfig.Certs, "\n\n"))
 
-	// S,G: Make the call to notify XDS of the changes and request a push configuration
+	tb.updatecb()
 	return nil
 }
 
@@ -165,7 +173,7 @@ func (tb *TrustBundle) processUpdates(stop <-chan struct{}) {
 		return
 	case anchorConfig := <-tb.anchorUpdateChan:
 		trustBundleLog.Debugf("dequeued trustAnchor Update %v", anchorConfig)
-		err := tb.MergeTrustBundle(anchorConfig)
+		err := tb.mergeTrustBundle(anchorConfig)
 		if err != nil {
 			trustBundleLog.Errorf("unable to apply trustAnchor update. Encountered error %v", err)
 		}
@@ -180,8 +188,8 @@ func (tb *TrustBundle) AddMeshConfigUpdate(cfg *meshconfig.MeshConfig) {
 			certs = append(certs, pemCert.GetPem())
 		}
 		tb.EnqueueAnchorUpdate(&TrustAnchorUpdate{TrustAnchorConfig{
-			source: SourceMeshConfig,
-			certs:  certs,
+			Source: SourceMeshConfig,
+			Certs:  certs,
 		}})
 	}
 }
@@ -190,8 +198,13 @@ func (tb *TrustBundle) AddMeshConfigUpdate(cfg *meshconfig.MeshConfig) {
 func (tb *TrustBundle) AddIstioCARootUpdate(rootCert string) error {
 	rootCerts := []string{rootCert}
 	tb.EnqueueAnchorUpdate(&TrustAnchorUpdate{TrustAnchorConfig: TrustAnchorConfig{
-		source: SourceIstioCA,
-		certs:  rootCerts,
+		Source: SourceIstioCA,
+		Certs:  rootCerts,
 	}})
 	return nil
+}
+
+func (tb *TrustBundle) Start(stop <-chan struct{}) {
+	go tb.processUpdates(stop)
+	log.Debugf("starting TrustBundle update processing routine")
 }
