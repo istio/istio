@@ -34,6 +34,7 @@ import (
 	"google.golang.org/protobuf/testing/protocmp"
 
 	networking "istio.io/api/networking/v1alpha3"
+
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry"
@@ -1295,6 +1296,45 @@ func TestLbPriority(t *testing.T) {
 			priority:         0,
 		},
 		{
+			name: "region match", // for compatibility
+			locality: &core.Locality{
+				Region:  "region1",
+				Zone:    "zone2",
+				SubZone: "subzone2",
+			},
+			priority: 4,
+		},
+		{
+			name: "region not match but can failover to a specified region", // for compatibility
+			locality: &core.Locality{
+				Region:  "region2",
+				Zone:    "zone1",
+				SubZone: "subzone2",
+			},
+			failoverSettings: []*networking.LocalityLoadBalancerSetting_Failover{
+				{
+					From: "region1",
+					To:   "region2",
+				},
+			},
+			priority: 5,
+		},
+		{
+			name: "region not match and no specified region can failover to", // for compatibility
+			locality: &core.Locality{
+				Region:  "region2",
+				Zone:    "zone1",
+				SubZone: "subzone2",
+			},
+			failoverSettings: []*networking.LocalityLoadBalancerSetting_Failover{
+				{
+					From: "region1",
+					To:   "region3",
+				},
+			},
+			priority: 6,
+		},
+		{
 			name: "subzone not match but can failover to a specified subzone",
 			locality: &core.Locality{
 				Region:  "region1",
@@ -1370,7 +1410,7 @@ func TestLbPriority(t *testing.T) {
 			priority: 5,
 		},
 		{
-			name: "region not match and not region can failover to",
+			name: "region not match and no specified region can failover to",
 			locality: &core.Locality{
 				Region:  "region3",
 				Zone:    "zone1",
