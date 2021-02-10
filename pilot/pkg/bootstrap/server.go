@@ -1212,9 +1212,9 @@ func (s *Server) initWorkloadTrustBundle() {
 	})
 
 	// MeshConfig: Add initial roots and callback
-	s.workloadTrustBundle.AddPeriodicMeshConfigUpdate(s.environment.Mesh())
+	s.workloadTrustBundle.AddMeshConfigUpdate(s.environment.Mesh())
 	s.environment.AddMeshHandler(func() {
-		s.workloadTrustBundle.AddPeriodicMeshConfigUpdate(s.environment.Mesh())
+		s.workloadTrustBundle.AddMeshConfigUpdate(s.environment.Mesh())
 	})
 
 	// IstioCA: Implicitly add roots corresponding to CA

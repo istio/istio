@@ -47,6 +47,7 @@ const (
 	SourceMeshConfig
 	SourceIstioRA
 	// SOURCE_SPIFFE_ENDPOINT
+	UpdateChannelLen = 10
 )
 
 func NewTrustBundle() *TrustBundle {
@@ -58,7 +59,7 @@ func NewTrustBundle() *TrustBundle {
 			// SOURCE_SPIFFE_ENDPOINT:        &TrustAnchorConfig{source: SOURCE_SPIFFE_ENDPOINT, certs: []string{}},
 		},
 		mergedCerts:      []string{},
-		anchorUpdateChan: make(chan *TrustAnchorUpdate),
+		anchorUpdateChan: make(chan *TrustAnchorUpdate, UpdateChannelLen),
 	}
 	return tb
 }
@@ -148,7 +149,7 @@ func (tb *TrustBundle) processUpdates(stop <-chan struct{}) {
 }
 
 // AddPeriodicMeshConfigUpdate
-func (tb *TrustBundle) AddPeriodicMeshConfigUpdate(cfg *meshconfig.MeshConfig) {
+func (tb *TrustBundle) AddMeshConfigUpdate(cfg *meshconfig.MeshConfig) {
 	if cfg != nil {
 		certs := []string{}
 		for _, pemCert := range cfg.GetCaCertificates() {
