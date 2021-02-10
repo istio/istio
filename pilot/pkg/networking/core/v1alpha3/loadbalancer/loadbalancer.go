@@ -24,6 +24,7 @@ import (
 	"github.com/golang/protobuf/ptypes/wrappers"
 
 	"istio.io/api/networking/v1alpha3"
+
 	"istio.io/istio/pilot/pkg/networking/util"
 )
 
@@ -143,25 +144,17 @@ func applyLocalityFailover(
 	// key is priority, value is the index of the LocalityLbEndpoints in ClusterLoadAssignment
 	priorityMap := map[int][]int{}
 
-	// 1. calculate the LocalityLbEndpoints.Priority compared with proxy locality
+	// 1. calculate the LocalityLbEndpoints.Priority compared with proxy locality and failover settings
 	for i, localityEndpoint := range loadAssignment.Endpoints {
-		// if region/zone/subZone all match, the priority is 0.
-		// if region/zone match, the priority is 1.
-		// if region matches, the priority is 2.
-		// if locality not match, the priority is 3.
-		priority := util.LbPriority(locality, localityEndpoint.Locality)
-		// region not match, apply failover settings when specified
-		// update localityLbEndpoints' priority to 4 if failover not match
-		if priority == 3 {
-			for _, failoverSetting := range failover {
-				if failoverSetting.From == locality.Region {
-					if localityEndpoint.Locality == nil || localityEndpoint.Locality.Region != failoverSetting.To {
-						priority = 4
-					}
-					break
-				}
-			}
-		}
+		// if region/zone/subzone all match, the priority is 0.
+		// if region/zone match, and can failover to another subzone specified by failoverSettings, the priority is 1.
+		// if region/zone match, and no specified subzone can failover to, the priority is 2.
+		// if region matches, and can failover to another zone specified by failoverSettings, the priority is 3.
+		// if region matches, and no specified zone can failover to, the priority is 4.
+		// if region not match, and can failover to another region specified by failoverSettings, the priority is 5.
+		// if region not match, and no specified region can failover to, the priority is 6.
+		priority := util.LbPriority(locality, localityEndpoint.Locality, failover)
+
 		loadAssignment.Endpoints[i].Priority = uint32(priority)
 		priorityMap[priority] = append(priorityMap[priority], i)
 	}

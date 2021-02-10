@@ -1271,3 +1271,127 @@ func TestByteCount(t *testing.T) {
 		})
 	}
 }
+
+func TestLbPriority(t *testing.T) {
+	proxyLocality := &core.Locality{
+		Region:  "region1",
+		Zone:    "zone1",
+		SubZone: "subzone1",
+	}
+	tests := []struct {
+		name             string
+		locality         *core.Locality
+		failoverSettings []*networking.LocalityLoadBalancerSetting_Failover
+		priority         int
+	}{
+		{
+			name: "all match",
+			locality: &core.Locality{
+				Region:  "region1",
+				Zone:    "zone1",
+				SubZone: "subzone1",
+			},
+			failoverSettings: nil,
+			priority:         0,
+		},
+		{
+			name: "subzone not match but can failover to a specified subzone",
+			locality: &core.Locality{
+				Region:  "region1",
+				Zone:    "zone1",
+				SubZone: "subzone2",
+			},
+			failoverSettings: []*networking.LocalityLoadBalancerSetting_Failover{
+				{
+					From: "region1/zone1/subzone1",
+					To:   "region1/zone1/subzone2",
+				},
+			},
+			priority: 1,
+		},
+		{
+			name: "subzone not match and no specified subzone can failover to",
+			locality: &core.Locality{
+				Region:  "region1",
+				Zone:    "zone1",
+				SubZone: "subzone3",
+			},
+			failoverSettings: []*networking.LocalityLoadBalancerSetting_Failover{
+				{
+					From: "region1/zone1/subzone1",
+					To:   "region1/zone1/subzone2",
+				},
+			},
+			priority: 2,
+		},
+		{
+			name: "zone not match but can failover to a specified zone",
+			locality: &core.Locality{
+				Region:  "region1",
+				Zone:    "zone2",
+				SubZone: "subzone1",
+			},
+			failoverSettings: []*networking.LocalityLoadBalancerSetting_Failover{
+				{
+					From: "region1/zone1/subzone1",
+					To:   "region1/zone2/subzone3",
+				},
+			},
+			priority: 3,
+		},
+		{
+			name: "zone not match and no specified zone can failover to",
+			locality: &core.Locality{
+				Region:  "region1",
+				Zone:    "zone3",
+				SubZone: "subzone1",
+			},
+			failoverSettings: []*networking.LocalityLoadBalancerSetting_Failover{
+				{
+					From: "region1/zone1/subzone1",
+					To:   "region1/zone2/subzone3",
+				},
+			},
+			priority: 4,
+		},
+		{
+			name: "region not match but can failover to a specified region",
+			locality: &core.Locality{
+				Region:  "region2",
+				Zone:    "zone1",
+				SubZone: "subzone1",
+			},
+			failoverSettings: []*networking.LocalityLoadBalancerSetting_Failover{
+				{
+					From: "region1/zone1/subzone1",
+					To:   "region2/zone2/subzone2",
+				},
+			},
+			priority: 5,
+		},
+		{
+			name: "region not match and not region can failover to",
+			locality: &core.Locality{
+				Region:  "region3",
+				Zone:    "zone1",
+				SubZone: "subzone1",
+			},
+			failoverSettings: []*networking.LocalityLoadBalancerSetting_Failover{
+				{
+					From: "region1/zone1/subzone1",
+					To:   "region2/zone2/subzone2",
+				},
+			},
+			priority: 6,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			priority := LbPriority(proxyLocality, tt.locality, tt.failoverSettings)
+			if priority != tt.priority {
+				t.Errorf("Expected priority result %d, but got %d", tt.priority, priority)
+			}
+		})
+	}
+}

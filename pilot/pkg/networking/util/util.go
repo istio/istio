@@ -363,17 +363,50 @@ func LocalityMatch(proxyLocality *core.Locality, ruleLocality string) bool {
 	return false
 }
 
-func LbPriority(proxyLocality, endpointsLocality *core.Locality) int {
+func LbPriority(proxyLocality, endpointsLocality *core.Locality, failoverSettings []*networking.LocalityLoadBalancerSetting_Failover) int {
 	if proxyLocality.GetRegion() == endpointsLocality.GetRegion() {
 		if proxyLocality.GetZone() == endpointsLocality.GetZone() {
 			if proxyLocality.GetSubZone() == endpointsLocality.GetSubZone() {
 				return 0
+			} else {
+				// looking for if any specified subzone can failover to
+				for _, failoverSetting := range failoverSettings {
+					if LocalityMatch(proxyLocality, failoverSetting.From) {
+						failoverTo := ConvertLocality(failoverSetting.To)
+						if endpointsLocality != nil && failoverTo.Region == endpointsLocality.Region && failoverTo.Zone == endpointsLocality.Zone && failoverTo.SubZone == endpointsLocality.SubZone {
+							return 1
+						}
+					}
+				}
+				// no specified subzone can failover to
+				return 2
 			}
-			return 1
+		} else {
+			// looking for if any specified zone can failover to
+			for _, failoverSetting := range failoverSettings {
+				if LocalityMatch(proxyLocality, failoverSetting.From) {
+					failoverTo := ConvertLocality(failoverSetting.To)
+					if endpointsLocality != nil && failoverTo.Region == endpointsLocality.Region && failoverTo.Zone == endpointsLocality.Zone {
+						return 3
+					}
+				}
+			}
+			// no specified zone can failover
+			return 4
 		}
-		return 2
+	} else {
+		// looking for if any specified region can failover to
+		for _, failoverSetting := range failoverSettings {
+			if LocalityMatch(proxyLocality, failoverSetting.From) {
+				failoverTo := ConvertLocality(failoverSetting.To)
+				if endpointsLocality != nil && failoverTo.Region == endpointsLocality.Region {
+					return 5
+				}
+			}
+		}
+		// no specified region can failover to
+		return 6
 	}
-	return 3
 }
 
 // return a shallow copy ClusterLoadAssignment
