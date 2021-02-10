@@ -40,14 +40,7 @@ func TestBadWasmRemoteLoad(t *testing.T) {
 		Run(func(ctx framework.TestContext) {
 			// Test bad wasm remote load in only one cluster.
 			// There is no need to repeat the same testing logic in several different clusters.
-			var cltInstance echo.Instance
-			for _, i := range common.GetClientInstances() {
-				// only run this test in primary cluster.
-				if i.Config().Cluster.IsPrimary() {
-					cltInstance = i
-					break
-				}
-			}
+			cltInstance := common.GetClientInstances().GetOrFail(ctx, echo.InCluster(ctx.Clusters().Default()))
 			// Verify that echo server could return 200
 			retry.UntilSuccessOrFail(t, func() error {
 				if err := common.SendTraffic(cltInstance); err != nil {
