@@ -61,6 +61,7 @@ import (
 	"istio.io/istio/pkg/wasm"
 	"istio.io/istio/security/pkg/nodeagent/caclient"
 	"istio.io/istio/security/pkg/pki/util"
+	"istio.io/pkg/env"
 	"istio.io/pkg/log"
 )
 
@@ -76,6 +77,8 @@ var connectionNumber = atomic.NewUint32(0)
 // Currently, all handlers function on a single resource per type, so the API only exposes one
 // resource.
 type ResponseHandler func(resp *any.Any) error
+
+var xdsInsecure = env.RegisterBoolVar("XDS_INSECURE", false, "Disables TLS certificate valiadation in xDS connections").Get()
 
 // XDS Proxy proxies all XDS requests from envoy to istiod, in addition to allowing
 // subsystems inside the agent to also communicate with either istiod/envoy (eg dns, sds, etc).
@@ -632,6 +635,7 @@ func (p *XdsProxy) getTLSDialOption(agent *Agent) (grpc.DialOption, error) {
 	}
 
 	config := tls.Config{
+		InsecureSkipVerify: xdsInsecure,
 		GetClientCertificate: func(*tls.CertificateRequestInfo) (*tls.Certificate, error) {
 			var certificate tls.Certificate
 			key, cert := p.getCertKeyPaths(agent)
