@@ -1,6 +1,9 @@
 apiVersion: release-notes/v2
 kind: feature
 area: installation
+issue:
+  - 30013
+
 releaseNotes:
 - |
   **Improved** the sidecar injector to better utilize pod labels to determine if injection is required. This is not enabled
