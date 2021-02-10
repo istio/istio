@@ -105,10 +105,10 @@ func Test_clusterMatch(t *testing.T) {
 						},
 					},
 				},
-				cluster: &cluster.Cluster{Name: "inbond|80||"},
+				cluster: &cluster.Cluster{Name: "inbound|80||"},
 				host:    "foo.bar",
 			},
-			want: false,
+			want: true,
 		},
 		{
 			name: "port mismatch",
