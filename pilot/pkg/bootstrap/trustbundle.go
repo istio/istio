@@ -14,6 +14,8 @@
 package bootstrap
 
 import (
+	"crypto/x509"
+	"encoding/pem"
 	"fmt"
 	"reflect"
 	"strings"
@@ -76,7 +78,23 @@ func (tb *TrustBundle) FetchTrustBundle() []string {
 }
 
 func (tb *TrustBundle) verifyTrustAnchor(trustAnchor string) error {
-	// S,G: TODO Validate that these are CA certs. Any other checks?
+	block, _ := pem.Decode([]byte(trustAnchor))
+	if block == nil {
+		return fmt.Errorf("failed to decode pem certificate")
+	}
+	cert, err := x509.ParseCertificate(block.Bytes)
+	if err != nil {
+		return fmt.Errorf("failed to parse X.509 certificate")
+	}
+	if !cert.IsCA {
+		return fmt.Errorf("certificate is not a CA certificate")
+	}
+	/*
+		if cert.Issuer.String() != cert.Subject.String() {
+			return fmt.Errorf("intermediate certificates are not supported")
+		}
+	*/
+	// Check for Spiffe SAN corresponding to trustDomain?
 	return nil
 }
 
