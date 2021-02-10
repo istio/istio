@@ -15,9 +15,9 @@
 package cmd
 
 import (
-	"strings"
-
 	"istio.io/istio/tools/istio-clean-iptables/pkg/config"
+	"istio.io/istio/tools/istio-iptables/pkg/builder"
+	common "istio.io/istio/tools/istio-iptables/pkg/cmd"
 	"istio.io/istio/tools/istio-iptables/pkg/constants"
 	dep "istio.io/istio/tools/istio-iptables/pkg/dependencies"
 )
@@ -36,22 +36,10 @@ func removeOldChains(cfg *config.Config, ext dep.Dependencies, cmd string) {
 	}
 	ext.RunQuietlyAndIgnore(cmd, "-t", constants.NAT, "-D", constants.OUTPUT, "-p", constants.TCP, "-j", constants.ISTIOOUTPUT)
 
+	redirectDNS := cfg.RedirectDNS
 	// Remove the old DNS UDP rules
-	if dnsCaptureByAgent {
-		for _, uid := range split(cfg.ProxyUID) {
-			ext.RunQuietlyAndIgnore(cmd, "-t", constants.NAT, "-D", constants.OUTPUT, "-p", constants.UDP,
-				"--dport", "53", "-m", "owner", "--uid-owner", uid, "-j", constants.RETURN)
-		}
-		for _, gid := range split(cfg.ProxyGID) {
-			ext.RunQuietlyAndIgnore(cmd, "-t", constants.NAT, "-D", constants.OUTPUT, "-p", constants.UDP,
-				"--dport", "53", "-m", "owner", "--uid-owner", gid, "-j", constants.RETURN)
-		}
-
-		ext.RunQuietlyAndIgnore(cmd, "-t", constants.NAT, "-D", constants.OUTPUT, "-p", constants.UDP,
-			"--dport", "53", "-j", "DNAT", "--to-destination", "127.0.0.1:"+constants.IstioAgentDNSListenerPort)
-
-		ext.RunQuietlyAndIgnore(cmd, "-t", constants.NAT, "-D", constants.POSTROUTING, "-p", constants.UDP,
-			"--dport", constants.IstioAgentDNSListenerPort, "-j", "SNAT", "--to-source", "127.0.0.1")
+	if redirectDNS {
+		common.HandleDnsUdp(common.DeleteOps, builder.NewIptablesBuilder(), ext, cmd, cfg.ProxyUID, cfg.ProxyGID, cfg.DNSServersV4)
 	}
 
 	// Flush and delete the istio chains from NAT table.
@@ -84,22 +72,4 @@ func cleanup(cfg *config.Config) {
 	for _, cmd := range []string{constants.IPTABLES, constants.IP6TABLES} {
 		removeOldChains(cfg, ext, cmd)
 	}
-}
-
-func filterEmpty(strs []string) []string {
-	filtered := make([]string, 0, len(strs))
-	for _, s := range strs {
-		if s == "" {
-			continue
-		}
-		filtered = append(filtered, s)
-	}
-	return filtered
-}
-
-func split(s string) []string {
-	if s == "" {
-		return nil
-	}
-	return filterEmpty(strings.Split(s, ","))
 }

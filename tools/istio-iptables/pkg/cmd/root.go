@@ -131,7 +131,7 @@ func constructConfig() *config.Config {
 		if err != nil {
 			panic(fmt.Sprintf("failed to load /etc/resolv.conf: %v", err))
 		}
-		cfg.DNSServersV4, cfg.DNSServersV6 = splitV4V6(dnsConfig.Servers)
+		cfg.DNSServersV4, cfg.DNSServersV6 = SplitV4V6(dnsConfig.Servers)
 	}
 	return cfg
 }
