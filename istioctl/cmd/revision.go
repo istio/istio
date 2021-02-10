@@ -129,13 +129,13 @@ func revisionDescribeCommand() *cobra.Command {
 		Short: "Show information about a revision, including customizations, " +
 			"istiod version and which pods/gateways are using it.",
 		PreRunE: func(cmd *cobra.Command, args []string) error {
-			revArgs.name = args[0]
 			if len(args) == 0 {
 				return fmt.Errorf("revision must be specified")
 			}
 			if len(args) != 1 {
 				return fmt.Errorf("exactly 1 revision should be specified")
 			}
+			revArgs.name = args[0]
 			if !validFormats[revArgs.output] {
 				return fmt.Errorf("unknown format %s. It should be %#v", revArgs.output, validFormats)
 			}
