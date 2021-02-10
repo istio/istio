@@ -16,12 +16,16 @@ package bootstrap
 import (
 	"fmt"
 	"reflect"
+	"strings"
 	"sync"
 	"time"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/security/pkg/pki/util"
+	"istio.io/pkg/log"
 )
+
+var trustBundleLog = log.RegisterScope("trustBundle", "Workload mTLS trust bundle logs", 0)
 
 // source is all possible sources of MeshConfig
 type Source int
@@ -73,9 +77,9 @@ func (tb *TrustBundle) FetchTrustBundle() []string {
 	return trustedCerts
 }
 
-func (tb *TrustBundle) verifyTrustAnchor(trustAnchor string) bool {
+func (tb *TrustBundle) verifyTrustAnchor(trustAnchor string) error {
 	// S,G: TODO Validate that these are CA certs. Any other checks?
-	return true
+	return nil
 }
 
 // Should be done as part of a go thread
@@ -94,13 +98,14 @@ func (tb *TrustBundle) mergeInternal() {
 	}
 	tb.mutex.Lock()
 	tb.mergedCerts = mergeCerts
-	defer tb.mutex.Unlock()
+	tb.mutex.Unlock()
 }
 
 // External Function to merge a TrustAnchor config with the existing TrustBundle
 // Should only be one writer
 func (tb *TrustBundle) MergeTrustBundle(anchorConfig *TrustAnchorUpdate) error {
 	var ok bool
+	var err error
 
 	cachedConfig, ok := tb.sourceConfig[anchorConfig.source]
 	if !ok {
@@ -109,21 +114,22 @@ func (tb *TrustBundle) MergeTrustBundle(anchorConfig *TrustAnchorUpdate) error {
 
 	// Check if anything needs to be changed at all
 	if reflect.DeepEqual(anchorConfig.certs, cachedConfig.certs) {
+		trustBundleLog.Infof("no change to trustAnchor configuration after recent update")
 		return nil
 	}
 
-	verifiedAnchorConfig := &TrustAnchorConfig{source: anchorConfig.source, certs: []string{}}
 	for _, cert := range anchorConfig.certs {
-		if !tb.verifyTrustAnchor(cert) {
-			// S,G Log Error Identifying PEM certificate and source
-			continue
+		err = tb.verifyTrustAnchor(cert)
+		if err != nil {
+			return err
 		}
-		verifiedAnchorConfig.certs = append(verifiedAnchorConfig.certs, cert)
 	}
-
-	tb.sourceConfig[verifiedAnchorConfig.source] = verifiedAnchorConfig
-
+	tb.sourceConfig[anchorConfig.TrustAnchorConfig.source] = &anchorConfig.TrustAnchorConfig
 	tb.mergeInternal()
+
+	log.Debugf("updating Source %v with certs %v",
+		anchorConfig.TrustAnchorConfig.source,
+		strings.Join(anchorConfig.TrustAnchorConfig.certs, "\n\n"))
 
 	// S,G: Make the call to notify XDS of the changes and request a push configuration
 	return nil
@@ -131,7 +137,7 @@ func (tb *TrustBundle) MergeTrustBundle(anchorConfig *TrustAnchorUpdate) error {
 
 // EnqueueAnchorUpdate: Enqueue a Anchor Configuration Update to the TrustBundle
 func (tb *TrustBundle) EnqueueAnchorUpdate(cfg *TrustAnchorUpdate) {
-	// TODO: Log Info
+	trustBundleLog.Debugf("enqueued trustAnchor Update %v", cfg)
 	tb.anchorUpdateChan <- cfg
 }
 
@@ -142,9 +148,11 @@ func (tb *TrustBundle) processUpdates(stop <-chan struct{}) {
 	case <-stop:
 		return
 	case anchorConfig := <-tb.anchorUpdateChan:
-		// TODO: Log Debug
-		_ = tb.MergeTrustBundle(anchorConfig)
-		// TODO: Log Error messages
+		trustBundleLog.Debugf("dequeued trustAnchor Update %v", anchorConfig)
+		err := tb.MergeTrustBundle(anchorConfig)
+		if err != nil {
+			trustBundleLog.Errorf("unable to apply trustAnchor update. Encountered error %v", err)
+		}
 	}
 }
 

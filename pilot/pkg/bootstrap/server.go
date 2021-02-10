@@ -1208,6 +1208,7 @@ func (s *Server) initWorkloadTrustBundle() {
 	s.workloadTrustBundle = NewTrustBundle()
 	s.addStartFunc(func(stop <-chan struct{}) error {
 		go s.workloadTrustBundle.processUpdates(stop)
+		log.Debugf("starting TrustBundle update processing routine")
 		return nil
 	})
 
@@ -1242,4 +1243,5 @@ func (s *Server) initWorkloadTrustBundle() {
 
 		// Ensure all added watchers trigger Enqueue function
 	}
+	log.Infof("done initializing workload trustBundle")
 }
