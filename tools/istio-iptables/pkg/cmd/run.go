@@ -28,6 +28,20 @@ import (
 	dep "istio.io/istio/tools/istio-iptables/pkg/dependencies"
 )
 
+type Ops int
+
+const (
+	// AppendOps performs append operations of rules
+	AppendOps Ops = iota
+	// DeleteOps performs delete operations of rules
+	DeleteOps
+)
+
+var opsToString = map[Ops]string{
+	AppendOps: "-A",
+	DeleteOps: "-D",
+}
+
 type IptablesConfigurator struct {
 	iptables *builder.IptablesBuilderImpl
 	// TODO(abhide): Fix dep.Dependencies with better interface
@@ -339,7 +353,7 @@ func (iptConfigurator *IptablesConfigurator) shortCircuitKubeInternalInterface()
 	}
 }
 
-func splitV4V6(ips []string) (ipv4 []string, ipv6 []string) {
+func SplitV4V6(ips []string) (ipv4 []string, ipv6 []string) {
 	for _, i := range ips {
 		parsed := net.ParseIP(i)
 		if parsed.To4() != nil {
@@ -525,29 +539,9 @@ func (iptConfigurator *IptablesConfigurator) run() {
 	}
 
 	if redirectDNS {
-		// Make sure that upstream DNS requests from agent/envoy dont get captured.
-		// TODO: add ip6 as well
-		for _, uid := range split(iptConfigurator.cfg.ProxyUID) {
-			iptConfigurator.iptables.AppendRuleV4(constants.OUTPUT, constants.NAT,
-				"-p", "udp", "--dport", "53", "-m", "owner", "--uid-owner", uid, "-j", constants.RETURN)
-		}
-		for _, gid := range split(iptConfigurator.cfg.ProxyGID) {
-			iptConfigurator.iptables.AppendRuleV4(constants.OUTPUT, constants.NAT,
-				"-p", "udp", "--dport", "53", "-m", "owner", "--gid-owner", gid, "-j", constants.RETURN)
-		}
-
-		// redirect all TCP dns traffic on port 53 to the agent on port 15053 for all servers
-		// in etc/resolv.conf
-		// We avoid redirecting all IP ranges to avoid infinite loops when there are local DNS proxies
-		// such as: app -> istio dns server -> dnsmasq -> upstream
-		// This ensures that we do not get requests from dnsmasq sent back to the agent dns server in a loop.
-		// Note: If a user somehow configured etc/resolv.conf to point to dnsmasq and server X, and dnsmasq also
-		// pointed to server X, this would not work. However, the assumption is that is not a common case.
-		for _, s := range iptConfigurator.cfg.DNSServersV4 {
-			iptConfigurator.iptables.AppendRuleV4(constants.OUTPUT, constants.NAT,
-				"-p", "udp", "--dport", "53", "-d", s+"/32",
-				"-j", constants.REDIRECT, "--to-port", constants.IstioAgentDNSListenerPort)
-		}
+		HandleDNSUDP(
+			AppendOps, iptConfigurator.iptables, iptConfigurator.ext, "",
+			iptConfigurator.cfg.ProxyUID, iptConfigurator.cfg.ProxyGID, iptConfigurator.cfg.DNSServersV4)
 	}
 
 	if iptConfigurator.cfg.InboundInterceptionMode == constants.TPROXY {
@@ -562,6 +556,66 @@ func (iptConfigurator *IptablesConfigurator) run() {
 			"-p", constants.TCP, "-m", "mark", "--mark", iptConfigurator.cfg.InboundTProxyMark, "-j", constants.RETURN)
 	}
 	iptConfigurator.executeCommands()
+}
+
+// HandleDNSUDP is a helper function to tackle with DNS UDP specific operations.
+// This helps the creation logic of DNS UDP rules in sync with the deletion.
+func HandleDNSUDP(
+	ops Ops, iptables *builder.IptablesBuilderImpl, ext dep.Dependencies,
+	cmd, proxyUID, proxyGID string, dnsServersV4 []string) {
+	const paramIdxRaw = 4
+	var raw []string
+	opsStr := opsToString[ops]
+	table := constants.NAT
+	chain := constants.OUTPUT
+
+	// Make sure that upstream DNS requests from agent/envoy dont get captured.
+	// TODO: add ip6 as well
+	for _, uid := range split(proxyUID) {
+		raw = []string{
+			"-t", table, opsStr, chain,
+			"-p", "udp", "--dport", "53", "-m", "owner", "--uid-owner", uid, "-j", constants.RETURN,
+		}
+		switch ops {
+		case AppendOps:
+			iptables.AppendRuleV4(chain, table, raw[paramIdxRaw:]...)
+		case DeleteOps:
+			ext.RunQuietlyAndIgnore(cmd, raw...)
+		}
+	}
+	for _, gid := range split(proxyGID) {
+		raw = []string{
+			"-t", table, opsStr, chain,
+			"-p", "udp", "--dport", "53", "-m", "owner", "--gid-owner", gid, "-j", constants.RETURN,
+		}
+		switch ops {
+		case AppendOps:
+			iptables.AppendRuleV4(chain, table, raw[paramIdxRaw:]...)
+		case DeleteOps:
+			ext.RunQuietlyAndIgnore(cmd, raw...)
+		}
+	}
+
+	// redirect all TCP dns traffic on port 53 to the agent on port 15053 for all servers
+	// in etc/resolv.conf
+	// We avoid redirecting all IP ranges to avoid infinite loops when there are local DNS proxies
+	// such as: app -> istio dns server -> dnsmasq -> upstream
+	// This ensures that we do not get requests from dnsmasq sent back to the agent dns server in a loop.
+	// Note: If a user somehow configured etc/resolv.conf to point to dnsmasq and server X, and dnsmasq also
+	// pointed to server X, this would not work. However, the assumption is that is not a common case.
+	for _, s := range dnsServersV4 {
+		raw = []string{
+			"-t", table, opsStr, chain,
+			"-p", "udp", "--dport", "53", "-d", s + "/32",
+			"-j", constants.REDIRECT, "--to-port", constants.IstioAgentDNSListenerPort,
+		}
+		switch ops {
+		case AppendOps:
+			iptables.AppendRuleV4(chain, table, raw[paramIdxRaw:]...)
+		case DeleteOps:
+			ext.RunQuietlyAndIgnore(cmd, raw...)
+		}
+	}
 }
 
 func (iptConfigurator *IptablesConfigurator) handleOutboundPortsInclude() {
