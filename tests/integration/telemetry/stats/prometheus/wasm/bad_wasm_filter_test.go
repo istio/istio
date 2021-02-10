@@ -42,6 +42,7 @@ func TestBadWasmRemoteLoad(t *testing.T) {
 			// There is no need to repeat the same testing logic in several different clusters.
 			var cltInstance echo.Instance
 			for _, i := range common.GetClientInstances() {
+				// only run this test in primary cluster.
 				if i.Config().Cluster.IsPrimary() {
 					cltInstance = i
 					break
