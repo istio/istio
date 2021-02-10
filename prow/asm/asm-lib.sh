@@ -577,9 +577,11 @@ function install_asm() {
 # Parameters: $1 - array of k8s contexts
 # Depends on env var ${HUB} and ${TAG}
 function install_asm_managed_control_plane() {
-  # Obtain 1.8 Scriptaro for ASM MCP instead of the latest from github.
-  # We'll manually bump up the version here upon new ASM release.
-  curl https://storage.googleapis.com/csm-artifacts/asm/install_asm_1.8 > install_asm
+  # For installation, we'll use the corresponding master branch Scriptaro for ASM branch master-asm.
+  git clone --branch master https://github.com/GoogleCloudPlatform/anthos-service-mesh-packages.git
+  cp anthos-service-mesh-packages/scripts/asm-installer/install_asm .
+  # ASM MCP Prow job connects to staging meshconfig API.
+  # The reason is currently, we also use this job to test/alert our staging ADS proxy.
   sed -i 's/meshconfig\.googleapis\.com/staging-meshconfig.sandbox.googleapis.com/g' install_asm
   chmod +x install_asm
 
