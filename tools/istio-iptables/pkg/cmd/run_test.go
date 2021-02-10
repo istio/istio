@@ -676,7 +676,7 @@ func TestHandleInboundPortsIncludeWithWildcardInboundPortsAndTproxy(t *testing.T
 }
 
 func TestHandleInboundIpv4RulesWithUidGid(t *testing.T) {
-	cfg := constructConfig()
+	cfg := constructTestConfig()
 	cfg.DryRun = true
 	cfg.RedirectDNS = true
 	cfg.DNSServersV4 = []string{"127.0.0.53"}
@@ -723,7 +723,7 @@ func TestHandleInboundIpv4RulesWithUidGid(t *testing.T) {
 }
 
 func TestGenerateEmptyV6ConfigOnV4OnlyEnv(t *testing.T) {
-	cfg := constructConfig()
+	cfg := constructTestConfig()
 	cfg.DryRun = true
 	cfg.RedirectDNS = true
 	iptConfigurator := NewIptablesConfigurator(cfg, &dep.StdoutStubDependencies{})
