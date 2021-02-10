@@ -20,10 +20,9 @@ import (
 	"os/user"
 	"strings"
 
+	"github.com/miekg/dns"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
-
-	"github.com/miekg/dns"
 
 	"istio.io/istio/tools/istio-clean-iptables/pkg/config"
 	common "istio.io/istio/tools/istio-iptables/pkg/cmd"

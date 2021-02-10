@@ -539,7 +539,7 @@ func (iptConfigurator *IptablesConfigurator) run() {
 	}
 
 	if redirectDNS {
-		HandleDnsUdp(
+		HandleDNSUDP(
 			AppendOps, iptConfigurator.iptables, iptConfigurator.ext, "",
 			iptConfigurator.cfg.ProxyUID, iptConfigurator.cfg.ProxyGID, iptConfigurator.cfg.DNSServersV4)
 	}
@@ -558,12 +558,12 @@ func (iptConfigurator *IptablesConfigurator) run() {
 	iptConfigurator.executeCommands()
 }
 
-// HandleDnsUdp is a helper function to tackle with DNS UDP specific operations.
+// HandleDNSUDP is a helper function to tackle with DNS UDP specific operations.
 // This helps the creation logic of DNS UDP rules in sync with the deletion.
-func HandleDnsUdp(
+func HandleDNSUDP(
 	ops Ops, iptables *builder.IptablesBuilderImpl, ext dep.Dependencies,
 	cmd, proxyUID, proxyGID string, dnsServersV4 []string) {
-	const paramIdxRaw = 5
+	const paramIdxRaw = 4
 	var raw []string
 	opsStr := opsToString[ops]
 	table := constants.NAT
@@ -572,8 +572,10 @@ func HandleDnsUdp(
 	// Make sure that upstream DNS requests from agent/envoy dont get captured.
 	// TODO: add ip6 as well
 	for _, uid := range split(proxyUID) {
-		raw = []string{cmd, "-t", table, opsStr, chain,
-			"-p", "udp", "--dport", "53", "-m", "owner", "--uid-owner", uid, "-j", constants.RETURN}
+		raw = []string{
+			"-t", table, opsStr, chain,
+			"-p", "udp", "--dport", "53", "-m", "owner", "--uid-owner", uid, "-j", constants.RETURN,
+		}
 		switch ops {
 		case AppendOps:
 			iptables.AppendRuleV4(chain, table, raw[paramIdxRaw:]...)
@@ -582,8 +584,10 @@ func HandleDnsUdp(
 		}
 	}
 	for _, gid := range split(proxyGID) {
-		raw = []string{cmd, "-t", table, opsStr, chain,
-			"-p", "udp", "--dport", "53", "-m", "owner", "--gid-owner", gid, "-j", constants.RETURN}
+		raw = []string{
+			"-t", table, opsStr, chain,
+			"-p", "udp", "--dport", "53", "-m", "owner", "--gid-owner", gid, "-j", constants.RETURN,
+		}
 		switch ops {
 		case AppendOps:
 			iptables.AppendRuleV4(chain, table, raw[paramIdxRaw:]...)
@@ -600,9 +604,11 @@ func HandleDnsUdp(
 	// Note: If a user somehow configured etc/resolv.conf to point to dnsmasq and server X, and dnsmasq also
 	// pointed to server X, this would not work. However, the assumption is that is not a common case.
 	for _, s := range dnsServersV4 {
-		raw = []string{cmd, "-t", table, opsStr, chain,
+		raw = []string{
+			"-t", table, opsStr, chain,
 			"-p", "udp", "--dport", "53", "-d", s + "/32",
-			"-j", constants.REDIRECT, "--to-port", constants.IstioAgentDNSListenerPort}
+			"-j", constants.REDIRECT, "--to-port", constants.IstioAgentDNSListenerPort,
+		}
 		switch ops {
 		case AppendOps:
 			iptables.AppendRuleV4(chain, table, raw[paramIdxRaw:]...)
