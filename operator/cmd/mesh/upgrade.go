@@ -181,7 +181,7 @@ func upgrade(rootArgs *rootArgs, args *upgradeArgs, l clog.Logger) (err error) {
 		return fmt.Errorf("failed to fetch the existing istiod pod for checking revision, error: %v", err)
 	}
 	for _, pod := range pods.Items {
-		revision := pod.ObjectMeta.GetLabels()[label.IstioRev]
+		revision := pod.ObjectMeta.GetLabels()[label.IoIstioRev.Name]
 		// If --revision is not passed, istio.io/rev: default
 		if revision != "" && revision != "default" {
 			err = fmt.Errorf("can not upgrade because the previous version of Istio is installed with revision." +
