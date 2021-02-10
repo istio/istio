@@ -50,4 +50,4 @@ LATEST_DEB10_DISTROLESS_SHA256=$(docker image pull gcr.io/distroless/static-debi
 sed -i -E "s/sha256:[a-z0-9]+/sha256:${LATEST_DEB10_DISTROLESS_SHA256}/g" docker/Dockerfile.distroless
 
 LATEST_IPTABLES_DISTROLESS_SHA256=$(docker image pull gcr.io/istio-release/iptables | grep Digest | awk -F\\: '{print $3}')
-sed -i -E "s/iptables:[a-z0-9]+/iptables:${LATEST_IPTABLES_DISTROLESS_SHA256}/g" pilot/docker/Dockerfile.proxyv2
+sed -i -E "s/sha256:[a-z0-9]+/sha256:${LATEST_IPTABLES_DISTROLESS_SHA256}/g" pilot/docker/Dockerfile.proxyv2
