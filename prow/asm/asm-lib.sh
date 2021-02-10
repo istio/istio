@@ -585,11 +585,6 @@ function install_asm_managed_control_plane() {
   sed -i 's/meshconfig\.googleapis\.com/staging-meshconfig.sandbox.googleapis.com/g' install_asm
   chmod +x install_asm
 
-  # TODO(ruigu): A hacky walkaround for b/178629331.
-  # Scriptaro will fail during Gateway installation. We'll ignore the error.
-  # After that, we manually modify the env in the Gateway deployment.
-  sed -i 's/retry 5 run/retry 1 run/g' install_asm
-
   for i in "${!CONTEXTS[@]}"; do
     IFS="_" read -r -a VALS <<< "${CONTEXTS[$i]}"
     local PROJECT_ID="${VALS[1]}"
@@ -606,13 +601,6 @@ function install_asm_managed_control_plane() {
       --key_file "/etc/service-account/service-account.json" \
       --enable_cluster_labels \
       --verbose || true
-
-    # TODO(ruigu): Remove the following hack when Scriptaro is ready.
-    # Manually set ISTIO_META_CLOUDRUN_ADDR env to the cloudrun address.
-    # http://doc/163UaaQcYzCSHSewolZOq7X1DYFRfblY0CZkIBQczZO4#heading=h.xh7sh1ybhy43
-    # shellcheck disable=SC2155
-    local CLOUDRUN_ADDR=$(kubectl get mutatingwebhookconfigurations istiod-asm-managed -ojson | jq ".webhooks[0].clientConfig.url" | cut -d'/' -f3)
-    kubectl set env deployment/istio-ingressgateway ISTIO_META_CLOUDRUN_ADDR="${CLOUDRUN_ADDR}" -n istio-system
   done
 
   for i in "${!CONTEXTS[@]}"; do
