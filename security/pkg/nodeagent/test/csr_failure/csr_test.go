@@ -20,6 +20,7 @@ import (
 	"time"
 
 	"istio.io/istio/pkg/test/env"
+	"istio.io/istio/pkg/test/envoy"
 	sdsTest "istio.io/istio/security/pkg/nodeagent/test"
 )
 
@@ -27,7 +28,7 @@ func TestCSRFailure(t *testing.T) {
 	t.Skip("https://github.com/istio/istio/issues/24220")
 	rotateInterval := 1 * time.Second
 	sdsTest.RotateCert(rotateInterval)
-	setup := sdsTest.SetupTest(t, env.CSRFailure)
+	setup := sdsTest.SetupTest(t, envoy.CSRFailure)
 	defer setup.TearDown()
 
 	setup.StartProxy(t)

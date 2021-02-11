@@ -326,7 +326,7 @@ func ConvertLocality(locality string) *core.Locality {
 	}
 }
 
-// ConvertLocality converts '/' separated locality string to Locality struct.
+// LocalityToString converts Locality struct to '/' separated locality string.
 func LocalityToString(l *core.Locality) string {
 	if l == nil {
 		return ""

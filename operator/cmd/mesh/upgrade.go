@@ -479,7 +479,7 @@ func (client *Client) GetIstioVersions(namespace string) ([]ComponentVersion, er
 			if pv == "" {
 				pv = cv
 			} else if pv != cv {
-				err := fmt.Errorf("differrent versions of containers in the same pod: %v", pod.Name)
+				err := fmt.Errorf("different versions of containers in the same pod: %v", pod.Name)
 				errs = util.AppendErr(errs, err)
 			}
 		}

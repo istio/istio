@@ -36,7 +36,6 @@ import (
 func TestBuildInboundFilterChain(t *testing.T) {
 	type args struct {
 		mTLSMode         model.MutualTLSMode
-		sdsUdsPath       string
 		node             *model.Proxy
 		listenerProtocol networking.ListenerProtocol
 		trustDomains     []string
@@ -74,8 +73,7 @@ func TestBuildInboundFilterChain(t *testing.T) {
 		{
 			name: "MTLSStrict using SDS",
 			args: args{
-				mTLSMode:   model.MTLSStrict,
-				sdsUdsPath: "/tmp/sdsuds.sock",
+				mTLSMode: model.MTLSStrict,
 				node: &model.Proxy{
 					Metadata: &model.NodeMetadata{},
 				},
@@ -156,8 +154,7 @@ func TestBuildInboundFilterChain(t *testing.T) {
 		{
 			name: "MTLSStrict using SDS with local trust domain",
 			args: args{
-				mTLSMode:   model.MTLSStrict,
-				sdsUdsPath: "/tmp/sdsuds.sock",
+				mTLSMode: model.MTLSStrict,
 				node: &model.Proxy{
 					Metadata: &model.NodeMetadata{},
 				},
@@ -241,8 +238,7 @@ func TestBuildInboundFilterChain(t *testing.T) {
 		{
 			name: "MTLSStrict using SDS with local trust domain and TLSv2 feature disabled",
 			args: args{
-				mTLSMode:   model.MTLSStrict,
-				sdsUdsPath: "/tmp/sdsuds.sock",
+				mTLSMode: model.MTLSStrict,
 				node: &model.Proxy{
 					Metadata: &model.NodeMetadata{},
 				},
@@ -320,7 +316,7 @@ func TestBuildInboundFilterChain(t *testing.T) {
 			defer func() {
 				features.EnableTLSv2OnInboundPath = defaultValue
 			}()
-			got := BuildInboundFilterChain(tt.args.mTLSMode, tt.args.sdsUdsPath, tt.args.node, tt.args.listenerProtocol, tt.args.trustDomains)
+			got := BuildInboundFilterChain(tt.args.mTLSMode, tt.args.node, tt.args.listenerProtocol, tt.args.trustDomains)
 			if diff := cmp.Diff(got, tt.want, protocmp.Transform()); diff != "" {
 				t.Errorf("BuildInboundFilterChain() = %v", diff)
 			}

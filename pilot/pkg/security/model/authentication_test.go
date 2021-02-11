@@ -138,14 +138,12 @@ func TestConstructValidationContext(t *testing.T) {
 func TestApplyToCommonTLSContext(t *testing.T) {
 	testCases := []struct {
 		name               string
-		sdsUdsPath         string
 		node               *model.Proxy
 		trustDomainAliases []string
 		expected           *auth.CommonTlsContext
 	}{
 		{
-			name:       "MTLSStrict using SDS",
-			sdsUdsPath: "/tmp/sdsuds.sock",
+			name: "MTLSStrict using SDS",
 			node: &model.Proxy{
 				Metadata: &model.NodeMetadata{},
 			},
@@ -202,8 +200,7 @@ func TestApplyToCommonTLSContext(t *testing.T) {
 			},
 		},
 		{
-			name:       "MTLSStrict using SDS and SAN aliases",
-			sdsUdsPath: "/tmp/sdsuds.sock",
+			name: "MTLSStrict using SDS and SAN aliases",
 			node: &model.Proxy{
 				Metadata: &model.NodeMetadata{},
 			},
@@ -265,8 +262,7 @@ func TestApplyToCommonTLSContext(t *testing.T) {
 			},
 		},
 		{
-			name:       "MTLS using SDS with custom certs in metadata",
-			sdsUdsPath: "/tmp/sdsuds.sock",
+			name: "MTLS using SDS with custom certs in metadata",
 			node: &model.Proxy{
 				Metadata: &model.NodeMetadata{
 					TLSServerCertChain: "serverCertChain",
@@ -325,8 +321,7 @@ func TestApplyToCommonTLSContext(t *testing.T) {
 			},
 		},
 		{
-			name:       "ISTIO_MUTUAL SDS without node meta",
-			sdsUdsPath: "/tmp/sdsuds.sock",
+			name: "ISTIO_MUTUAL SDS without node meta",
 			node: &model.Proxy{
 				Metadata: &model.NodeMetadata{},
 			},
@@ -383,8 +378,7 @@ func TestApplyToCommonTLSContext(t *testing.T) {
 			},
 		},
 		{
-			name:       "ISTIO_MUTUAL with custom cert paths from proxy node metadata",
-			sdsUdsPath: "/tmp/sdsuds.sock",
+			name: "ISTIO_MUTUAL with custom cert paths from proxy node metadata",
 			node: &model.Proxy{
 				Metadata: &model.NodeMetadata{
 					TLSServerCertChain: "/custom/path/to/cert-chain.pem",
@@ -447,7 +441,7 @@ func TestApplyToCommonTLSContext(t *testing.T) {
 	for _, test := range testCases {
 		t.Run(test.name, func(t *testing.T) {
 			tlsContext := &auth.CommonTlsContext{}
-			ApplyToCommonTLSContext(tlsContext, test.node, test.sdsUdsPath, []string{}, test.trustDomainAliases)
+			ApplyToCommonTLSContext(tlsContext, test.node, []string{}, test.trustDomainAliases)
 
 			if !cmp.Equal(tlsContext, test.expected, protocmp.Transform()) {
 				t.Errorf("got(%#v), want(%#v)\n", spew.Sdump(tlsContext), spew.Sdump(test.expected))

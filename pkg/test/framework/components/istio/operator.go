@@ -137,21 +137,25 @@ func (i *operatorComponent) IngressFor(cluster cluster.Cluster) ingress.Instance
 	return i.CustomIngressFor(cluster, defaultIngressServiceName, defaultIngressIstioLabel)
 }
 
-func (i *operatorComponent) CustomIngressFor(cluster cluster.Cluster, serviceName, istioLabel string) ingress.Instance {
+func (i *operatorComponent) CustomIngressFor(c cluster.Cluster, serviceName, istioLabel string) ingress.Instance {
 	i.mu.Lock()
 	defer i.mu.Unlock()
-	if i.ingress[cluster.Name()] == nil {
-		i.ingress[cluster.Name()] = map[string]ingress.Instance{}
+	if c.Kind() != cluster.Kubernetes {
+		c = c.Primary()
 	}
-	if _, ok := i.ingress[cluster.Name()][istioLabel]; !ok {
-		i.ingress[cluster.Name()][istioLabel] = newIngress(i.ctx, ingressConfig{
+
+	if i.ingress[c.Name()] == nil {
+		i.ingress[c.Name()] = map[string]ingress.Instance{}
+	}
+	if _, ok := i.ingress[c.Name()][istioLabel]; !ok {
+		i.ingress[c.Name()][istioLabel] = newIngress(i.ctx, ingressConfig{
 			Namespace:   i.settings.IngressNamespace,
-			Cluster:     cluster,
+			Cluster:     c,
 			ServiceName: serviceName,
 			IstioLabel:  istioLabel,
 		})
 	}
-	return i.ingress[cluster.Name()][istioLabel]
+	return i.ingress[c.Name()][istioLabel]
 }
 
 func appendToFile(contents string, file string) error {

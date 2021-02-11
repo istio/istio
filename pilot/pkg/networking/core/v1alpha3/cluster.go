@@ -100,20 +100,20 @@ func (configgen *ConfigGeneratorImpl) BuildClusters(proxy *model.Proxy, push *mo
 		outboundPatcher := clusterPatcher{envoyFilterPatches, networking.EnvoyFilter_SIDECAR_OUTBOUND}
 		clusters = append(clusters, configgen.buildOutboundClusters(cb, outboundPatcher)...)
 		// Add a blackhole and passthrough cluster for catching traffic to unresolved routes
-		clusters = outboundPatcher.conditionallyAppend(clusters, cb.buildBlackHoleCluster(), cb.buildDefaultPassthroughCluster())
+		clusters = outboundPatcher.conditionallyAppend(clusters, nil, cb.buildBlackHoleCluster(), cb.buildDefaultPassthroughCluster())
 		clusters = append(clusters, outboundPatcher.insertedClusters()...)
 
 		// Setup inbound clusters
 		inboundPatcher := clusterPatcher{envoyFilterPatches, networking.EnvoyFilter_SIDECAR_INBOUND}
 		clusters = append(clusters, configgen.buildInboundClusters(cb, instances, inboundPatcher)...)
 		// Pass through clusters for inbound traffic. These cluster bind loopback-ish src address to access node local service.
-		clusters = inboundPatcher.conditionallyAppend(clusters, cb.buildInboundPassthroughClusters()...)
+		clusters = inboundPatcher.conditionallyAppend(clusters, nil, cb.buildInboundPassthroughClusters()...)
 		clusters = append(clusters, inboundPatcher.insertedClusters()...)
 	default: // Gateways
 		patcher := clusterPatcher{envoyFilterPatches, networking.EnvoyFilter_GATEWAY}
 		clusters = append(clusters, configgen.buildOutboundClusters(cb, patcher)...)
 		// Gateways do not require the default passthrough cluster as they do not have original dst listeners.
-		clusters = patcher.conditionallyAppend(clusters, cb.buildBlackHoleCluster())
+		clusters = patcher.conditionallyAppend(clusters, nil, cb.buildBlackHoleCluster())
 		if proxy.Type == model.Router && proxy.GetRouterMode() == model.SniDnatRouter {
 			clusters = append(clusters, configgen.buildOutboundSniDnatClusters(proxy, push, patcher)...)
 		}
@@ -175,8 +175,8 @@ func (configgen *ConfigGeneratorImpl) buildOutboundClusters(cb *ClusterBuilder, 
 
 			subsetClusters := cb.applyDestinationRule(defaultCluster, DefaultClusterMode, service, port, networkView)
 
-			clusters = cp.conditionallyAppend(clusters, defaultCluster)
-			clusters = cp.conditionallyAppend(clusters, subsetClusters...)
+			clusters = cp.conditionallyAppend(clusters, nil, defaultCluster)
+			clusters = cp.conditionallyAppend(clusters, nil, subsetClusters...)
 		}
 	}
 
@@ -190,10 +190,10 @@ type clusterPatcher struct {
 	pctx networking.EnvoyFilter_PatchContext
 }
 
-func (p clusterPatcher) conditionallyAppend(l []*cluster.Cluster, clusters ...*cluster.Cluster) []*cluster.Cluster {
+func (p clusterPatcher) conditionallyAppend(l []*cluster.Cluster, hosts []host.Name, clusters ...*cluster.Cluster) []*cluster.Cluster {
 	for _, c := range clusters {
-		if envoyfilter.ShouldKeepCluster(p.pctx, p.efw, c) {
-			l = append(l, envoyfilter.ApplyClusterMerge(p.pctx, p.efw, c))
+		if envoyfilter.ShouldKeepCluster(p.pctx, p.efw, c, hosts) {
+			l = append(l, envoyfilter.ApplyClusterMerge(p.pctx, p.efw, c, hosts))
 		}
 	}
 	return l
@@ -231,8 +231,8 @@ func (configgen *ConfigGeneratorImpl) buildOutboundSniDnatClusters(proxy *model.
 				continue
 			}
 			subsetClusters := cb.applyDestinationRule(defaultCluster, SniDnatClusterMode, service, port, networkView)
-			clusters = cp.conditionallyAppend(clusters, defaultCluster)
-			clusters = cp.conditionallyAppend(clusters, subsetClusters...)
+			clusters = cp.conditionallyAppend(clusters, nil, defaultCluster)
+			clusters = cp.conditionallyAppend(clusters, nil, subsetClusters...)
 		}
 	}
 
@@ -302,7 +302,12 @@ func (configgen *ConfigGeneratorImpl) buildInboundClusters(cb *ClusterBuilder, i
 		for _, instances := range clustersToBuild {
 			instance := instances[0]
 			localCluster := cb.buildInboundClusterForPortOrUDS(cb.proxy, int(instance.Endpoint.EndpointPort), actualLocalHost, instance, instances)
-			clusters = cp.conditionallyAppend(clusters, localCluster)
+			// If inbound cluster match has service, we should see if it matches with any host name across all instances.
+			var hosts []host.Name
+			for _, si := range instances {
+				hosts = append(hosts, si.Service.Hostname)
+			}
+			clusters = cp.conditionallyAppend(clusters, hosts, localCluster)
 		}
 		return clusters
 	}
@@ -350,7 +355,7 @@ func (configgen *ConfigGeneratorImpl) buildInboundClusters(cb *ClusterBuilder, i
 		instance.Endpoint.ServicePortName = listenPort.Name
 		instance.Endpoint.EndpointPort = uint32(port)
 
-		localCluster := cb.buildInboundClusterForPortOrUDS(nil, int(ingressListener.Port.Number), endpointAddress, instance, nil)
+		localCluster := cb.buildInboundClusterForPortOrUDS(cb.proxy, int(ingressListener.Port.Number), endpointAddress, instance, nil)
 		if instanceIPCluster {
 			// IPTables will redirect our own traffic back to us if we do not use the "magic" upstream bind
 			// config which will be skipped. This mirrors the "passthrough" clusters.
@@ -364,7 +369,7 @@ func (configgen *ConfigGeneratorImpl) buildInboundClusters(cb *ClusterBuilder, i
 				},
 			}
 		}
-		clusters = cp.conditionallyAppend(clusters, localCluster)
+		clusters = cp.conditionallyAppend(clusters, []host.Name{instance.Service.Hostname}, localCluster)
 	}
 
 	return clusters

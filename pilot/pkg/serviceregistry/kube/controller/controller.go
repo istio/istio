@@ -29,6 +29,7 @@ import (
 	"k8s.io/apimachinery/pkg/fields"
 	klabels "k8s.io/apimachinery/pkg/labels"
 	"k8s.io/client-go/informers"
+	coreinformers "k8s.io/client-go/informers/core/v1"
 	"k8s.io/client-go/kubernetes"
 	listerv1 "k8s.io/client-go/listers/core/v1"
 	"k8s.io/client-go/tools/cache"
@@ -38,6 +39,7 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube"
+	"istio.io/istio/pilot/pkg/serviceregistry/kube/controller/filter"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/mesh"
@@ -122,6 +124,9 @@ type Options struct {
 	// NetworksWatcher observes changes to the mesh networks config.
 	NetworksWatcher mesh.NetworksWatcher
 
+	// MeshWatcher observes changes to the mesh config
+	MeshWatcher mesh.Watcher
+
 	// EndpointMode decides what source to use to get endpoint information
 	EndpointMode EndpointMode
 
@@ -191,9 +196,11 @@ type Controller struct {
 
 	queue queue.Instance
 
-	nsInformer cache.SharedIndexInformer
+	// TODO merge the namespace informers/listers
+	systemNsInformer cache.SharedIndexInformer
+	nsInformer       coreinformers.NamespaceInformer
 
-	serviceInformer cache.SharedIndexInformer
+	serviceInformer filter.FilteredSharedIndexInformer
 	serviceLister   listerv1.ServiceLister
 
 	endpoints kubeEndpointsController
@@ -282,22 +289,37 @@ func NewController(kubeClient kubelib.Client, options Options) *Controller {
 	}
 
 	if options.SystemNamespace != "" {
-		c.nsInformer = informers.NewSharedInformerFactoryWithOptions(c.client, options.ResyncPeriod,
+		c.systemNsInformer = informers.NewSharedInformerFactoryWithOptions(c.client, options.ResyncPeriod,
 			informers.WithTweakListOptions(func(listOpts *metav1.ListOptions) {
 				listOpts.FieldSelector = fields.OneTermEqualSelector("metadata.name", options.SystemNamespace).String()
 			})).Core().V1().Namespaces().Informer()
-		registerHandlers(c.nsInformer, c.queue, "Namespaces", c.onNamespaceEvent, nil)
+		registerHandlers(c.systemNsInformer, c.queue, "Namespaces", c.onSystemNamespaceEvent, nil)
 	}
 
-	c.serviceInformer = kubeClient.KubeInformer().Core().V1().Services().Informer()
-	c.serviceLister = kubeClient.KubeInformer().Core().V1().Services().Lister()
+	c.nsInformer = kubeClient.KubeInformer().Core().V1().Namespaces()
+
+	discoveryNamespaceFilter := filter.NewDiscoveryNamespacesFilter(c.nsInformer.Lister(), options.MeshWatcher.Mesh().DiscoverySelectors)
+
+	c.initDiscoveryHandlers(kubeClient, options.EndpointMode, options.MeshWatcher, discoveryNamespaceFilter)
+
+	c.serviceInformer = filter.NewFilteredSharedIndexInformer(discoveryNamespaceFilter.Filter, kubeClient.KubeInformer().Core().V1().Services().Informer())
+	c.serviceLister = listerv1.NewServiceLister(c.serviceInformer.GetIndexer())
+
 	registerHandlers(c.serviceInformer, c.queue, "Services", c.onServiceEvent, nil)
 
 	switch options.EndpointMode {
 	case EndpointsOnly:
-		c.endpoints = newEndpointsController(c, kubeClient.KubeInformer().Core().V1().Endpoints())
+		endpointsInformer := filter.NewFilteredSharedIndexInformer(
+			discoveryNamespaceFilter.Filter,
+			kubeClient.KubeInformer().Core().V1().Endpoints().Informer(),
+		)
+		c.endpoints = newEndpointsController(c, endpointsInformer)
 	case EndpointSliceOnly:
-		c.endpoints = newEndpointSliceController(c, kubeClient.KubeInformer().Discovery().V1beta1().EndpointSlices())
+		endpointSliceInformer := filter.NewFilteredSharedIndexInformer(
+			discoveryNamespaceFilter.Filter,
+			kubeClient.KubeInformer().Discovery().V1beta1().EndpointSlices().Informer(),
+		)
+		c.endpoints = newEndpointSliceController(c, endpointSliceInformer)
 	}
 
 	// This is for getting the node IPs of a selected set of nodes
@@ -305,8 +327,9 @@ func NewController(kubeClient kubelib.Client, options Options) *Controller {
 	c.nodeLister = kubeClient.KubeInformer().Core().V1().Nodes().Lister()
 	registerHandlers(c.nodeInformer, c.queue, "Nodes", c.onNodeEvent, nil)
 
-	c.pods = newPodCache(c, kubeClient.KubeInformer().Core().V1().Pods(), func(key string) {
-		item, exists, err := c.endpoints.getInformer().GetStore().GetByKey(key)
+	podInformer := filter.NewFilteredSharedIndexInformer(discoveryNamespaceFilter.Filter, kubeClient.KubeInformer().Core().V1().Pods().Informer())
+	c.pods = newPodCache(c, podInformer, func(key string) {
+		item, exists, err := c.endpoints.getInformer().GetIndexer().GetByKey(key)
 		if err != nil {
 			log.Debugf("Endpoint %v lookup failed with error %v, skipping stale endpoint", key, err)
 			return
@@ -498,7 +521,7 @@ func (c *Controller) onNodeEvent(obj interface{}, event model.Event) error {
 // FilterOutFunc func for filtering out objects during update callback
 type FilterOutFunc func(old, cur interface{}) bool
 
-func registerHandlers(informer cache.SharedIndexInformer, q queue.Instance, otype string,
+func registerHandlers(informer filter.FilteredSharedIndexInformer, q queue.Instance, otype string,
 	handler func(interface{}, model.Event) error, filter FilterOutFunc) {
 	if filter == nil {
 		filter = func(old, cur interface{}) bool {
@@ -547,7 +570,7 @@ func registerHandlers(informer cache.SharedIndexInformer, q queue.Instance, otyp
 
 // tryGetLatestObject attempts to fetch the latest version of the object from the cache.
 // Changes may have occurred between queuing and processing.
-func tryGetLatestObject(informer cache.SharedIndexInformer, obj interface{}) interface{} {
+func tryGetLatestObject(informer filter.FilteredSharedIndexInformer, obj interface{}) interface{} {
 	key, err := cache.MetaNamespaceKeyFunc(obj)
 	if err != nil {
 		log.Warnf("failed creating key for informer object: %v", err)
@@ -568,7 +591,7 @@ func (c *Controller) HasSynced() bool {
 	if !c.initialized.Load() {
 		return false
 	}
-	if (c.nsInformer != nil && !c.nsInformer.HasSynced()) ||
+	if (c.systemNsInformer != nil && !c.systemNsInformer.HasSynced()) ||
 		!c.serviceInformer.HasSynced() ||
 		!c.endpoints.HasSynced() ||
 		!c.pods.informer.HasSynced() ||
@@ -593,20 +616,20 @@ func (c *Controller) HasSynced() bool {
 func (c *Controller) SyncAll() error {
 	var err *multierror.Error
 
-	if c.nsInformer != nil {
-		ns := c.nsInformer.GetStore().List()
+	if c.systemNsInformer != nil {
+		ns := c.systemNsInformer.GetStore().List()
 		for _, ns := range ns {
-			err = multierror.Append(err, c.onNamespaceEvent(ns, model.EventAdd))
+			err = multierror.Append(err, c.onSystemNamespaceEvent(ns, model.EventAdd))
 		}
 	}
 
-	nodes := c.nodeInformer.GetStore().List()
+	nodes := c.nodeInformer.GetIndexer().List()
 	log.Debugf("initializing %d nodes", len(nodes))
 	for _, s := range nodes {
 		err = multierror.Append(err, c.onNodeEvent(s, model.EventAdd))
 	}
 
-	services := c.serviceInformer.GetStore().List()
+	services := c.serviceInformer.GetIndexer().List()
 	log.Debugf("initializing %d services", len(services))
 	for _, s := range services {
 		err = multierror.Append(err, c.onServiceEvent(s, model.EventAdd))
@@ -620,7 +643,7 @@ func (c *Controller) SyncAll() error {
 
 func (c *Controller) syncPods() error {
 	var err *multierror.Error
-	pods := c.pods.informer.GetStore().List()
+	pods := c.pods.informer.GetIndexer().List()
 	log.Debugf("initializing %d pods", len(pods))
 	for _, s := range pods {
 		err = multierror.Append(err, c.pods.onEvent(s, model.EventAdd))
@@ -630,7 +653,7 @@ func (c *Controller) syncPods() error {
 
 func (c *Controller) syncEndpoints() error {
 	var err *multierror.Error
-	endpoints := c.endpoints.getInformer().GetStore().List()
+	endpoints := c.endpoints.getInformer().GetIndexer().List()
 	log.Debugf("initializing %d endpoints", len(endpoints))
 	for _, s := range endpoints {
 		err = multierror.Append(err, c.endpoints.onEvent(s, model.EventAdd))
@@ -645,8 +668,8 @@ func (c *Controller) Run(stop <-chan struct{}) {
 		c.reloadMeshNetworks()
 		c.reloadNetworkGateways()
 	}
-	if c.nsInformer != nil {
-		go c.nsInformer.Run(stop)
+	if c.systemNsInformer != nil {
+		go c.systemNsInformer.Run(stop)
 	}
 	c.initialized.Store(true)
 	kubelib.WaitForCacheSyncInterval(stop, c.syncInterval, c.HasSynced)
@@ -995,7 +1018,7 @@ func (c *Controller) WorkloadInstanceHandler(si *model.WorkloadInstance, event m
 	}
 }
 
-func (c *Controller) onNamespaceEvent(obj interface{}, ev model.Event) error {
+func (c *Controller) onSystemNamespaceEvent(obj interface{}, ev model.Event) error {
 	var nw string
 	if ev != model.EventDelete {
 		ns, ok := obj.(*v1.Namespace)
@@ -1010,7 +1033,7 @@ func (c *Controller) onNamespaceEvent(obj interface{}, ev model.Event) error {
 	c.network = nw
 	c.Unlock()
 	// network changed, not using mesh networks, and controller has been initialized
-	if oldDefaultNetwork != c.network && c.network == c.defaultNetwork() && c.nsInformer.HasSynced() {
+	if oldDefaultNetwork != c.network && c.network == c.defaultNetwork() && c.systemNsInformer.HasSynced() {
 		// refresh pods/endpoints/services
 		c.onNetworkChanged()
 	}

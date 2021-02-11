@@ -20,7 +20,7 @@ import (
 
 	"github.com/onsi/gomega"
 
-	testID "istio.io/istio/pkg/test/env"
+	"istio.io/istio/pkg/test/envoy"
 	xdsService "istio.io/istio/security/pkg/stsservice/mock"
 	stsTest "istio.io/istio/security/pkg/stsservice/test"
 )
@@ -35,7 +35,7 @@ func TestProxyCachedToken(t *testing.T) {
 	// Force XDS server to close streams 3 times and keep the 4th stream open.
 	cb.SetNumberOfStreamClose(numCloseStream, 0)
 	// Start all test servers and proxy
-	setup := stsTest.SetupTest(t, cb, testID.STSCacheTest, false)
+	setup := stsTest.SetupTest(t, cb, envoy.STSCacheTest, false)
 	// Explicitly set token life time to a long duration.
 	setup.AuthServer.SetTokenLifeTime(3600)
 	// Explicitly set auth server to return different access token to each call.
