@@ -55,6 +55,7 @@ require (
 	github.com/kr/text v0.2.0 // indirect
 	github.com/kylelemons/godebug v1.1.0
 	github.com/lestrrat-go/jwx v1.0.6
+	github.com/lucas-clemente/quic-go v0.19.3
 	github.com/mattn/go-isatty v0.0.12
 	github.com/mholt/archiver/v3 v3.5.0
 	github.com/miekg/dns v1.1.35
