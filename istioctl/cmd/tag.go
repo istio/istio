@@ -29,8 +29,10 @@ import (
 	"k8s.io/client-go/kubernetes"
 
 	"istio.io/api/label"
+	"istio.io/istio/istioctl/pkg/clioptions"
 	"istio.io/istio/operator/cmd/mesh"
 	"istio.io/istio/operator/pkg/helm"
+	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/kube"
 )
 
@@ -41,6 +43,7 @@ const (
 	defaultRevisionName         = "default"
 	pilotDiscoveryChart         = "istio-control/istio-discovery"
 	revisionTagTemplateName     = "revision-tags.yaml"
+	minRevisionTagIstioVersion  = "1.10"
 
 	// help strings and long formatted user outputs
 	skipConfirmationFlagHelpStr = `The skipConfirmation determines whether the user is prompted for confirmation.
@@ -52,6 +55,7 @@ overwrite existing revision tags.`
 revision tag, use 'kubectl label namespace <NAMESPACE> istio.io/rev=%s'
 `
 	webhookNameHelpStr = "Name to use for a revision tag's mutating webhook configuration."
+	versionCheckStr    = "Revision %q on version %q, must be at least version %q to patch revision tag webhooks. Continue anyways? (y/N)"
 )
 
 var (
@@ -262,6 +266,17 @@ revision tag before removing using the "istioctl x tag list" command.
 
 // setTag creates or modifies a revision tag.
 func setTag(ctx context.Context, kubeClient kube.ExtendedClient, tag, revision string, generate bool, w io.Writer) error {
+	// ensure that the revision is recent enough to patch tag webhooks
+	if !skipConfirmation {
+		sufficient, version, err := versionCheck(revision)
+		if err != nil {
+			return err
+		}
+		if !sufficient {
+			confirm(fmt.Sprintf(versionCheckStr, revision, version, minRevisionTagIstioVersion), w)
+		}
+	}
+
 	// abort if there exists a revision with the target tag name
 	revWebhookCollisions, err := getWebhooksWithRevision(ctx, kubeClient, tag)
 	if err != nil {
@@ -581,4 +596,32 @@ func confirm(msg string, w io.Writer) bool {
 	}
 	response = strings.ToUpper(response)
 	return response == "Y" || response == "YES"
+}
+
+// versionCheck returns true if revision tag being created is pointed to a CP version
+// >=1.10 since that's the first version that patches all matching istio.io/rev webhooks
+func versionCheck(rev string) (bool, string, error) {
+	meshInfo, err := getRemoteInfo(clioptions.ControlPlaneOptions{
+		Revision: revision,
+	})
+	if err != nil {
+		return false, "", err
+	}
+	if meshInfo == nil {
+		return false, "", fmt.Errorf("could not retrieve control plane version for revision: %s", rev)
+	}
+	minVersion := model.ParseIstioVersion(minRevisionTagIstioVersion)
+	revVersion := model.ParseIstioVersion((*meshInfo)[0].Info.Version)
+	if minVersion.Compare(revVersion) > 0 {
+		return false, versionToString(revVersion), nil
+	}
+
+	return true, versionToString(revVersion), nil
+}
+
+func versionToString(v *model.IstioVersion) string {
+	if v.Patch != 65535 {
+		return fmt.Sprintf("%d.%d.%d", v.Major, v.Minor, v.Patch)
+	}
+	return fmt.Sprintf("%d.%d", v.Major, v.Minor)
 }
