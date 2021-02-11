@@ -43,7 +43,7 @@ while [[ "$#" -gt 0 ]]; do
         -test.count=*) COUNT="${1#-test.count=}" ;;
         -stress.runs=*) RUNS="${1#-stress.runs=}" ;;
         -stress.runs) RUNS="${2}"; shift ;;
-        -stress.time=*) echo "abc";TIME="${1#-stress.time=}" ;;
+        -stress.time=*) TIME="${1#-stress.time=}" ;;
         -stress.time) TIME="${2}"; shift ;;
     esac
     shift
@@ -54,7 +54,7 @@ mkdir -p "${RESULTS}"
 code=0
 
 for testname in $("${binary}" -test.list "${RUN}"); do
-  stress -f --max-time "${MAX_TIME:-10s}" --max-runs "${MAX_RUNS:-1000}" "${binary}" -test.run '^'"${testname}"'$' -test.count "${COUNT}" -test.v &> "${RESULTS}/${testname}"
+  stress -f --max-time "${TIME:-10s}" --max-runs "${RUNS:-1000}" "${binary}" -test.run '^'"${testname}"'$' -test.count "${COUNT}" -test.v &> "${RESULTS}/${testname}"
   # shellcheck disable=SC2181
   if [[ $? != 0 ]]; then
     echo -e "--- ${red}FAIL:${clr} ${testname}. See ${RESULTS}/${testname} for full logs"
