@@ -303,6 +303,7 @@ func generateGRPCConfig(cluster string, failOpen bool, status *envoytypev3.HttpS
 				Authority:   authority,
 			},
 		},
+		Timeout: &duration.Duration{Seconds: 600},
 	}
 	http := &extauthzhttp.ExtAuthz{
 		StatusOnError:    status,

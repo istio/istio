@@ -13,5 +13,6 @@ typedConfig:
     envoyGrpc:
       authority: outbound_.9000_._.my-custom-ext-authz.foo.svc.cluster.local
       clusterName: outbound|9000||my-custom-ext-authz.foo.svc.cluster.local
+    timeout: 600s
   statPrefix: tcp.
   transportApiVersion: V3
