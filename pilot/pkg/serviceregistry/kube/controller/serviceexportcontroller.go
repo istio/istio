@@ -40,6 +40,9 @@ type ServiceExportController struct {
 	serviceInformer cache.SharedInformer
 
 	environment *model.Environment
+
+	// We use this flag to short-circuit the logic and stop the controller if the CRD does not exist (or is deleted)
+	crdExists bool
 }
 
 func NewServiceExportController(kubeClient kube.Client, environment *model.Environment) (*ServiceExportController, error) {
@@ -48,6 +51,7 @@ func NewServiceExportController(kubeClient kube.Client, environment *model.Envir
 		serviceClient: kubeClient.Kube().CoreV1(),
 		queue:         queue.NewQueue(time.Second),
 		environment:   environment,
+		crdExists:     true,
 	}
 
 	serviceExportController.serviceInformer = kubeClient.KubeInformer().Core().V1().Services().Informer()
@@ -89,6 +93,9 @@ func (sc *ServiceExportController) Run(stopCh <-chan struct{}) {
 }
 
 func (sc *ServiceExportController) HandleNewService(obj *v1.Service) error {
+	if !sc.crdExists {
+		return nil
+	}
 	if sc.environment.IsServiceClusterLocal(obj) {
 		return nil // don't do anything for marked clusterlocal services
 	}
@@ -108,6 +115,11 @@ func (sc *ServiceExportController) createServiceExportIfNotPresent(service *v1.S
 
 	if err != nil && errors.IsAlreadyExists(err) {
 		err = nil // This is the error thrown by the client if there is already an object with the name in the namespace. If that's true, we do nothing
+	}
+
+	if err != nil && errors.IsNotFound(err) {
+		log.Errorf("ServiceExport CRD Not found, shutting down MCS ServiceExport sync. Please add the CRD then restart the istiod deployment")
+		sc.crdExists = false
 	}
 	return err
 }
