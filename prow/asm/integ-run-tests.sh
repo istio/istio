@@ -260,56 +260,92 @@ else
     kubectl wait --for=condition=Ready --timeout=2m -n istio-system --all pod --context="${CONTEXTS[$i]}"
   done
 
+  # DISABLED_TESTS contains a list of all tests we skip
+  # pilot/ tests
+  DISABLED_TESTS="TestWait|TestVersion|TestProxyStatus" # UNSUPPORTED: istioctl doesn't work
+  DISABLED_TESTS+="|TestMultiVersionRevision" # UNSUPPORTED: deploys istiod in the cluster, which fails since its using the wrong root cert
+  DISABLED_TESTS+="|TestVmOSPost" # BROKEN: temp, pending oss pr
+  DISABLED_TESTS+="|TestVMRegistrationLifecycle" # UNSUPPORTED: Attempts to interact with Istiod directly
+  DISABLED_TESTS+="|TestValidation|TestWebhook" # BROKEN: b/170404545 currently broken
+  DISABLED_TESTS+="|TestAddToAndRemoveFromMesh" # BROKEN: Test current doesn't respect --istio.test.revision
+  DISABLED_TESTS+="|TestGateway" # BROKEN: CRDs need to be deployed before Istiod runs. In this case, we install Istiod first, causing failure.
+  DISABLED_TESTS+="|TestRevisionedUpgrade" # UNSUPPORTED: OSS Control Plane upgrade is not supported by MCP.
+  # telemetry/ tests
+  DISABLED_TESTS+="|TestStackdriverHTTPAuditLogging" # UNKNOWN
+  DISABLED_TESTS+="|TestIstioctlMetrics" # UNKNOWN
+  DISABLED_TESTS+="|TestStatsFilter" # UNKNOWN
+  DISABLED_TESTS+="|TestTcpMetric" # UNKNOWN
+  DISABLED_TESTS+="|TestBadWasmRemoteLoad" # UNKNOWN
+  DISABLED_TESTS+="|TestWasmStatsFilter" # UNKNOWN
+  DISABLED_TESTS+="|TestWASMTcpMetric" # UNKNOWN
+  DISABLED_TESTS+="|TestDashboard" # UNSUPPORTED: Relies on istiod in cluster. TODO: filter out only pilot-dashboard.json
+  DISABLED_TESTS+="|TestCustomizeMetrics|TestProxyTracing|TestClientTracing|TestStackdriverMonitoring|TestTCPStackdriverMonitoring|TestRateLimiting" # UNKNOWN
+  DISABLED_TESTS+="|TestOutboundTrafficPolicy" # UNSUPPORTED: Relies on egress gateway deployed to the cluster. TODO: filter out only Traffic_Egress
+  # security/ tests
+  DISABLED_TESTS+="|TestAuthorization_IngressGateway" # UNKNOWN
+  DISABLED_TESTS+="|TestAuthorization_EgressGateway" # UNSUPPORTED: Relies on egress gateway deployed to the cluster.
+  DISABLED_TESTS+="|TestStrictMTLS" # UNSUPPORTED: Mesh CA does not support ECDSA
+  DISABLED_TESTS+="|TestAuthorization_Custom" # UNSUPPORTED: requires mesh config
+  # DISABLED_PACKAGES contains a list of all packages we skip
+  DISABLED_PACKAGES="/multicluster" # NOT SUPPORTED
+  DISABLED_PACKAGES+="\|/pilot/cni" # NOT SUPPORTED
+  DISABLED_PACKAGES+="\|/pilot/revisions" # Attempts to install Istio
+  DISABLED_PACKAGES+="\|/pilot/revisioncmd" # NOT SUPPORTED. Customize control plane values.
+  DISABLED_PACKAGES+="\|pilot/analysis" # NOT SUPPORTED
+  DISABLED_PACKAGES+="\|/pilot/endpointslice" # NOT SUPPORTED
+  DISABLED_PACKAGES+="\|/helm" # NOT SUPPORTED
+  DISABLED_PACKAGES+="\|/operator" # NOT SUPPORTED
+  DISABLED_PACKAGES+="\|/telemetry/stackdriver/vm" # NOT SUPPORTED (vm)
+  DISABLED_PACKAGES+="\|/security/chiron" # NOT SUPPORTED
+  DISABLED_PACKAGES+="\|/security/file_mounted_certs" # NOT SUPPORTED
+  DISABLED_PACKAGES+="\|/security/ca_custom_root" # NOT SUPPORTED
+  DISABLED_PACKAGES+="\|/security/filebased_tls_origination" # NOT SUPPORTED
+  DISABLED_PACKAGES+="\|/security/mtls_first_party_jwt" # NOT SUPPORTED
+  DISABLED_PACKAGES+="\|/security/mtlsk8sca" # NOT SUPPORTED
+  DISABLED_PACKAGES+="\|/security/sds_ingress_k8sca" # NOT SUPPORTED
+  DISABLED_PACKAGES+="\|/security/sds_tls_origination" # NOT SUPPORTED
+
   if [[ "${CLUSTER_TOPOLOGY}" == "SINGLECLUSTER" ]]; then
-    # DISABLED_TESTS contains a list of all tests we skip
-    # pilot/ tests
-    DISABLED_TESTS="TestWait|TestVersion|TestProxyStatus" # UNSUPPORTED: istioctl doesn't work
-    DISABLED_TESTS+="|TestMultiVersionRevision" # UNSUPPORTED: deploys istiod in the cluster, which fails since its using the wrong root cert
-    DISABLED_TESTS+="|TestVmOSPost" # BROKEN: temp, pending oss pr
-    DISABLED_TESTS+="|TestVMRegistrationLifecycle" # UNSUPPORTED: Attempts to interact with Istiod directly
-    DISABLED_TESTS+="|TestValidation|TestWebhook" # BROKEN: b/170404545 currently broken
-    DISABLED_TESTS+="|TestAddToAndRemoveFromMesh" # BROKEN: Test current doesn't respect --istio.test.revision
-    DISABLED_TESTS+="|TestGateway" # BROKEN: CRDs need to be deployed before Istiod runs. In this case, we install Istiod first, causing failure.
-    DISABLED_TESTS+="|TestRevisionedUpgrade" # UNSUPPORTED: OSS Control Plane upgrade is not supported by MCP.
-    # telemetry/ tests
-    DISABLED_TESTS+="|TestStackdriverHTTPAuditLogging" # UNSUPPORTED: Relies on customized installation of the stackdriver envoyfilter.
-    DISABLED_TESTS+="|TestIstioctlMetrics" # UNSUPPORTED: istioctl doesn't work
-    DISABLED_TESTS+="|TestBadWasmRemoteLoad|TestWasmStatsFilter|TestWASMTcpMetric" # UNSUPPORTED Relies on enabling WASM during installation.
-    DISABLED_TESTS+="|TestDashboard" # UNSUPPORTED: Relies on istiod in cluster. TODO: filter out only pilot-dashboard.json
-    DISABLED_TESTS+="|TestProxyTracing|TestClientTracing|TestRateLimiting" # NOT SUPPORTED: requires customized meshConfig setting
-    DISABLED_TESTS+="|TestCustomizeMetrics" # NOT SUPPORTED: Replies on customization on the stats envoyFilter
-    DISABLED_TESTS+="|TestOutboundTrafficPolicy" # UNSUPPORTED: Relies on egress gateway deployed to the cluster. TODO: filter out only Traffic_Egress
-    # security/ tests
-    DISABLED_TESTS+="|TestAuthorization_IngressGateway" # UNKNOWN
-    DISABLED_TESTS+="|TestAuthorization_EgressGateway" # UNSUPPORTED: Relies on egress gateway deployed to the cluster.
-    DISABLED_TESTS+="|TestStrictMTLS" # UNSUPPORTED: Mesh CA does not support ECDSA
-    DISABLED_TESTS+="|TestAuthorization_Custom" # UNSUPPORTED: requires mesh config
-    # DISABLED_PACKAGES contains a list of all packages we skip
-    DISABLED_PACKAGES="/multicluster" # NOT SUPPORTED
-    DISABLED_PACKAGES+="\|/pilot/cni" # NOT SUPPORTED
-    DISABLED_PACKAGES+="\|/pilot/revisions" # Attempts to install Istio
-    DISABLED_PACKAGES+="\|/pilot/revisioncmd" # NOT SUPPORTED. Customize control plane values.
-    DISABLED_PACKAGES+="\|pilot/analysis" # NOT SUPPORTED
-    DISABLED_PACKAGES+="\|/pilot/endpointslice" # NOT SUPPORTED
-    DISABLED_PACKAGES+="\|/helm" # NOT SUPPORTED
-    DISABLED_PACKAGES+="\|/operator" # NOT SUPPORTED
-    DISABLED_PACKAGES+="\|/telemetry/stackdriver/vm" # NOT SUPPORTED (vm)
-    DISABLED_PACKAGES+="\|/security/chiron" # NOT SUPPORTED
-    DISABLED_PACKAGES+="\|/security/file_mounted_certs" # NOT SUPPORTED
-    DISABLED_PACKAGES+="\|/security/ca_custom_root" # NOT SUPPORTED
-    DISABLED_PACKAGES+="\|/security/filebased_tls_origination" # NOT SUPPORTED
-    DISABLED_PACKAGES+="\|/security/mtls_first_party_jwt" # NOT SUPPORTED
-    DISABLED_PACKAGES+="\|/security/mtlsk8sca" # NOT SUPPORTED
-    DISABLED_PACKAGES+="\|/security/sds_ingress_k8sca" # NOT SUPPORTED
-    DISABLED_PACKAGES+="\|/security/sds_tls_origination" # NOT SUPPORTED
+    echo "Running integration test with ASM managed control plane and ${CLUSTER_TOPOLOGY} topology"
 
     export DISABLED_PACKAGES
-    echo "Running full integration test with ASM managed control plane"
     TAG="latest" HUB="gcr.io/istio-testing" \
       make test.integration.asm.mcp \
       INTEGRATION_TEST_FLAGS="--istio.test.kube.deploy=false \
   --istio.test.revision=asm-managed \
   --istio.test.skipVM=true \
   --istio.test.skip=\"${DISABLED_TESTS}\""
+  elif [[ "${CLUSTER_TOPOLOGY}" == "MULTICLUSTER" ]]; then
+    echo "Running integration test with ASM managed control plane and ${CLUSTER_TOPOLOGY} topology"
+
+    echo "Processing kubeconfig files for running the tests..."
+    process_kubeconfigs
+
+    export CA
+    export WIP
+
+    export INTEGRATION_TEST_FLAGS="${INTEGRATION_TEST_FLAGS:-}"
+    # TODO(nmittler): Remove this once we no longer run the multicluster tests.
+    export TEST_SELECT="${TEST_SELECT:-}"
+    if [[ $TEST_TARGET == "test.integration.multicluster.kube.presubmit" ]]; then
+      TEST_SELECT="+multicluster"
+    fi
+
+    DISABLED_TESTS+="|TestSecurity" # UNKNOWN
+
+    # ASM MCP requires revision to be asm-managed.
+    INTEGRATION_TEST_FLAGS+=" --istio.test.revision=asm-managed"
+    # Don't deploy Istio. Instead just use the pre-installed ASM
+    INTEGRATION_TEST_FLAGS+=" --istio.test.kube.deploy=false"
+    # Don't run VM tests. Echo deployment requires the eastwest gateway
+    # which isn't deployed for all configurations.
+    INTEGRATION_TEST_FLAGS+=" --istio.test.skipVM"
+    # Skip the tests that are known to be not working.
+    INTEGRATION_TEST_FLAGS+=" --istio.test.skip=\"${DISABLED_TESTS}\""
+
+    echo "Running e2e test: ${TEST_TARGET}..."
+    export DISABLED_PACKAGES
+    export JUNIT_OUT="${ARTIFACTS}/junit1.xml"
+    make "${TEST_TARGET}"
   fi
 fi

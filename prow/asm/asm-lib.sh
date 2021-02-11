@@ -58,7 +58,7 @@ function prepare_images() {
 # Depends on env var ${HUB} and ${TAG}
 function prepare_images_for_managed_control_plane() {
   # Build images from the current branch and push the images to gcr.
-  HUB="${HUB}" TAG="${TAG}" make push.docker.cloudrun push.docker.proxyv2
+  HUB="${HUB}" TAG="${TAG}" make push.docker.cloudrun push.docker.proxyv2 push.docker.app
 }
 
 # Build istioctl in the current branch to install ASM.
