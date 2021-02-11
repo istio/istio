@@ -200,6 +200,13 @@ var (
 			"if headless services have a large number of pods.",
 	).Get()
 
+	EnableRemoteJwks = env.RegisterBoolVar(
+		"PILOT_JWT_ENABLE_REMOTE_JWKS",
+		false,
+		"If enabled, checks to see if the configured JwksUri in RequestAuthentication is a mesh cluster URL "+
+			"and configures Remote Jwks to let Envoy fetch the Jwks instead of Istiod.",
+	).Get()
+
 	EnableEDSForHeadless = env.RegisterBoolVar(
 		"PILOT_ENABLE_EDS_FOR_HEADLESS_SERVICES",
 		false,
