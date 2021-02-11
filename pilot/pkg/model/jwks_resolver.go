@@ -232,30 +232,30 @@ func (r *JwksResolver) GetPublicKey(issuer string, jwksURI string) (string, erro
 		return e.pubKey, nil
 	}
 
+	var err error
+	var pubKey string
 	if jwksURI == "" {
 		// Fetch the jwks URI if it is not hardcoded on config.
-		var err error
 		jwksURI, err = r.resolveJwksURIUsingOpenID(issuer)
-		if err != nil {
-			log.Errorf("Failed to jwks URI from %q: %v", issuer, err)
-			return "", err
-		}
 	}
-
-	resp, err := r.getRemoteContentWithRetry(jwksURI, networkFetchRetryCountOnMainFlow)
 	if err != nil {
-		log.Errorf("Failed to fetch public key from %q: %v", jwksURI, err)
-		return "", err
+		log.Errorf("Failed to jwks URI from %q: %v", issuer, err)
+	} else {
+		var resp []byte
+		resp, err = r.getRemoteContentWithRetry(jwksURI, networkFetchRetryCountOnMainFlow)
+		if err != nil {
+			log.Errorf("Failed to fetch public key from %q: %v", jwksURI, err)
+		}
+		pubKey = string(resp)
 	}
 
-	pubKey := string(resp)
 	r.keyEntries.Store(key, jwtPubKeyEntry{
 		pubKey:            pubKey,
 		lastRefreshedTime: now,
 		lastUsedTime:      now,
 	})
 
-	return pubKey, nil
+	return pubKey, err
 }
 
 // Resolve jwks_uri through openID discovery.

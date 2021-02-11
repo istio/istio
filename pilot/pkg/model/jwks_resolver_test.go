@@ -390,7 +390,7 @@ func TestJwtRefreshIntervalRecoverFromInitialFailOnFirstHit(t *testing.T) {
 	ms := startMockServer(t)
 	defer ms.Stop()
 
-	// Configures the mock server to return error after the first request.
+	// Configures the mock server to return error for the first request 3 requests.
 	ms.ReturnErrorForFirstNumHits = 3
 
 	mockCertURL := ms.URL + "/oauth2/v3/certs"
@@ -399,12 +399,9 @@ func TestJwtRefreshIntervalRecoverFromInitialFailOnFirstHit(t *testing.T) {
 		t.Fatalf("GetPublicKey(%q, %+v) fails: expected error, got no error: (%v)", pk, mockCertURL, err)
 	}
 
-	time.Sleep(1 * time.Millisecond)
+	time.Sleep(150 * time.Millisecond)
 	r.Close()
 
-	// Note(Marco) only to illustrate the current issue...
-	// We should be in failure mode and expect refresh interval on fail but we do not because
-	// only on successful jwk lookup in r.GetPublicKey we add key to cache. Hence we are still in defaultRefreshInterval...
 	i := 0
 	r.keyEntries.Range(func(_ interface{}, _ interface{}) bool {
 		i++
@@ -416,8 +413,8 @@ func TestJwtRefreshIntervalRecoverFromInitialFailOnFirstHit(t *testing.T) {
 		t.Errorf("expected entries in cache: %d , got %d", expectedEntries, i)
 	}
 
-	if r.refreshInterval != refreshIntervalOnFail {
-		t.Errorf("expected refreshIntervalOnFail: %v , got %v", refreshIntervalOnFail, r.refreshInterval)
+	if r.refreshInterval != defaultRefreshInterval {
+		t.Errorf("expected refreshInterval to be refreshDefaultInterval: %v, got %v", defaultRefreshInterval, r.refreshInterval)
 	}
 }
 
