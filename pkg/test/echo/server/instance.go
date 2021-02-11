@@ -35,15 +35,16 @@ import (
 
 // Config for an echo server Instance.
 type Config struct {
-	Ports          common.PortList
-	BindIPPortsMap map[int]struct{}
-	Metrics        int
-	TLSCert        string
-	TLSKey         string
-	Version        string
-	UDSServer      string
-	Cluster        string
-	Dialer         common.Dialer
+	Ports                 common.PortList
+	BindIPPortsMap        map[int]struct{}
+	BindLocalhostPortsMap map[int]struct{}
+	Metrics               int
+	TLSCert               string
+	TLSKey                string
+	Version               string
+	UDSServer             string
+	Cluster               string
+	Dialer                common.Dialer
 }
 
 var _ io.Closer = &Instance{}
@@ -116,6 +117,9 @@ func (s *Instance) getListenerIP(port *common.Port) (string, error) {
 	// Not 0.0.0.0 in case we want IPv6
 	if port == nil {
 		return "", nil
+	}
+	if _, f := s.BindLocalhostPortsMap[port.Port]; f {
+		return "localhost", nil
 	}
 	if _, f := s.BindIPPortsMap[port.Port]; !f {
 		return "", nil
