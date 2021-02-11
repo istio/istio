@@ -56,6 +56,9 @@ const (
 	// content from network.
 	JwtPubKeyRetryInterval = time.Second
 
+	// JwtPubKeyRefreshIntervalOnFailureResetThreshold is the threshold to reset the refresh interval on failure.
+	JwtPubKeyRefreshIntervalOnFailureResetThreshold = 60 * time.Minute
+
 	// How many times should we retry the failed network fetch on main flow. The main flow
 	// means it's called when Pilot is pushing configs. Do not retry to make sure not to block Pilot
 	// too long.
@@ -107,9 +110,6 @@ type jwtKey struct {
 
 // JwksResolver is resolver for jwksURI and jwt public key.
 type JwksResolver struct {
-	// mu mutex
-	mu sync.Mutex
-
 	// Callback function to invoke when detecting jwt public key change.
 	PushFunc func()
 
@@ -338,21 +338,30 @@ func (r *JwksResolver) getRemoteContentWithRetry(uri string, retry int) ([]byte,
 
 func (r *JwksResolver) refresher() {
 	// Wake up once in a while and refresh stale items.
-	r.mu.Lock()
 	r.refreshTicker = time.NewTicker(r.refreshInterval)
-	r.mu.Unlock()
+	lastHasError := false
 	for {
 		select {
 		case <-r.refreshTicker.C:
-			useDefault := r.refresh()
-			r.mu.Lock()
-			r.refreshTicker.Stop()
-			if useDefault {
-				r.refreshTicker = time.NewTicker(r.refreshDefaultInterval)
+			currentHasError := r.refresh()
+			if currentHasError {
+				if lastHasError {
+					// update to exponential backoff if last time also failed.
+					r.refreshInterval *= 2
+					if r.refreshInterval > JwtPubKeyRefreshIntervalOnFailureResetThreshold {
+						r.refreshInterval = r.refreshIntervalOnFailure
+					}
+				} else {
+					// change to the refreshIntervalOnFailure if failed for the first time.
+					r.refreshInterval = r.refreshIntervalOnFailure
+				}
 			} else {
-				r.refreshTicker = time.NewTicker(r.refreshInterval)
+				// reset the refresh interval if success.
+				r.refreshInterval = r.refreshDefaultInterval
 			}
-			r.mu.Unlock()
+			lastHasError = currentHasError
+			r.refreshTicker.Stop()
+			r.refreshTicker = time.NewTicker(r.refreshInterval)
 		case <-closeChan:
 			r.refreshTicker.Stop()
 			return
@@ -440,28 +449,7 @@ func (r *JwksResolver) refresh() bool {
 			r.PushFunc()
 		}
 	}
-
-	r.mu.Lock()
-	defer r.mu.Unlock()
-	var useDefault bool
-	if hasErrors {
-		// on error use exponential backoff until refresh interval is bigger than the default interval.
-		if r.refreshInterval != r.refreshDefaultInterval {
-			if 2*r.refreshInterval > r.refreshDefaultInterval {
-				// use the default interval but do not update r.refreshInterval because we do not want the
-				// exponential backoff interval to bounce back to the r.refreshIntervalOnFailure on next refresh.
-				useDefault = true
-			} else {
-				r.refreshInterval = 2 * r.refreshInterval
-			}
-		} else {
-			r.refreshInterval = r.refreshIntervalOnFailure
-		}
-	} else {
-		r.refreshInterval = r.refreshDefaultInterval
-	}
-
-	return useDefault
+	return hasErrors
 }
 
 // Close will shut down the refresher job.
