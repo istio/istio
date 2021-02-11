@@ -43,6 +43,7 @@ var (
 	msg             string
 	method          string
 	http2           bool
+	http3           bool
 	alpn            []string
 	serverFirst     bool
 	followRedirects bool
@@ -123,7 +124,9 @@ func init() {
 		"message to send (for websockets)")
 	rootCmd.PersistentFlags().StringVar(&method, "method", "", "method to use (for HTTP)")
 	rootCmd.PersistentFlags().BoolVar(&http2, "http2", false,
-		"send http requests as HTTP with prior knowledge")
+		"send http requests as HTTP2 with prior knowledge")
+	rootCmd.PersistentFlags().BoolVar(&http3, "http3", false,
+		"send http requests as HTTP 3")
 	rootCmd.PersistentFlags().BoolVar(&serverFirst, "server-first", false,
 		"Treat as a server first protocol; do not send request until magic string is received")
 	rootCmd.PersistentFlags().BoolVarP(&followRedirects, "follow-redirects", "L", false,
@@ -157,6 +160,7 @@ func getRequest(url string) (*proto.ForwardEchoRequest, error) {
 		Qps:             int32(qps),
 		Message:         msg,
 		Http2:           http2,
+		Http3:           http3,
 		ServerFirst:     serverFirst,
 		FollowRedirects: followRedirects,
 		Method:          method,
