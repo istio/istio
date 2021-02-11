@@ -129,6 +129,7 @@ func TestStatsTCPFilter(t *testing.T, feature features.Feature) {
 
 			g, _ := errgroup.WithContext(context.Background())
 			for _, cltInstance := range client {
+				cltInstance := cltInstance
 				g.Go(func() error {
 					err := retry.UntilSuccess(func() error {
 						if err := SendTCPTraffic(t, cltInstance); err != nil {
