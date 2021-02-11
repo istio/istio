@@ -584,7 +584,6 @@ func TestBrokenPodReconciler_deleteBrokenPods(t *testing.T) {
 
 // Tests the ReconcilePod method and checks that metrics are working
 func TestBrokenPodReconciler_ReconcilePod_metrics(t *testing.T) {
-
 	type fields struct {
 		client  kubernetes.Interface
 		Filters *Filters

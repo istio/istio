@@ -19,8 +19,6 @@ import (
 	"fmt"
 	"strings"
 
-	"istio.io/pkg/monitoring"
-
 	"go.uber.org/multierr"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -48,7 +46,7 @@ type Filters struct {
 }
 
 type Metrics struct {
-	//PodsRepaired prometheus.Counter
+	// PodsRepaired prometheus.Counter
 	PodsRepaired monitoring.Metric
 }
 

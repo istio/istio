@@ -201,7 +201,7 @@ func main() {
 
 	// Start metrics server
 	go func() {
-		setupMonitoring(":2112", "/metrics")
+		setupMonitoring(":15014", "/metrics")
 	}()
 
 	if options.RunAsDaemon {
@@ -226,14 +226,12 @@ func main() {
 	}
 }
 
-func setupMonitoring(addr, path string) {
+func setupMonitoring(addr, path string, stop chan struct{}) {
 	mux := http.NewServeMux()
 	var listener net.Listener
-	if addr != "" {
-		var err error
-		if listener, err = net.Listen("tcp", addr); err != nil {
-			log.Errorf("unable to listen on socket: %v", err)
-		}
+	var err error
+	if listener, err = net.Listen("tcp", addr); err != nil {
+		log.Errorf("unable to listen on socket: %v", err)
 	}
 	exporter, err := ocprom.NewExporter(ocprom.Options{Registry: prometheus.DefaultRegisterer.(*prometheus.Registry)})
 	if err != nil {
@@ -241,10 +239,18 @@ func setupMonitoring(addr, path string) {
 	}
 	view.RegisterExporter(exporter)
 	mux.Handle(path, exporter)
-	if addr != "" {
-		monitoringServer := &http.Server{
-			Handler: mux,
+	monitoringServer := &http.Server{
+		Handler: mux,
+	}
+	go func() {
+		err = monitoringServer.Serve(listener)
+		if err != nil {
+			log.Errorf("could not start monitoring http server: %s", err)
 		}
-		_ = monitoringServer.Serve(listener)
+	}()
+	<-stop
+	err = monitoringServer.Close()
+	if err != nil {
+		log.Errorf("error closing monitoring http server: %s", err)
 	}
 }
