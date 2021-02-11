@@ -198,10 +198,11 @@ func main() {
 
 	podFixer := repair.NewBrokenPodReconciler(clientSet, filters, options.RepairOptions, &metrics)
 	logCurrentOptions(&podFixer, options)
+	stopCh := make(chan struct{})
 
 	// Start metrics server
 	go func() {
-		setupMonitoring(":15014", "/metrics")
+		setupMonitoring(":15014", "/metrics", stopCh)
 	}()
 
 	if options.RunAsDaemon {
@@ -209,7 +210,6 @@ func main() {
 		if err != nil {
 			log.Fatalf("Fatal error constructing repair controller: %+v", err)
 		}
-		stopCh := make(chan struct{})
 		rc.Run(stopCh)
 
 	} else {
