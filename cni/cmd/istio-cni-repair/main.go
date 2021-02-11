@@ -18,13 +18,15 @@ package main
 
 import (
 	"fmt"
-	"istio.io/pkg/monitoring"
+	"net"
 	"net/http"
 	"os"
 
-	"github.com/prometheus/client_golang/prometheus/promhttp"
+	ocprom "contrib.go.opencensus.io/exporter/prometheus"
+	"github.com/prometheus/client_golang/prometheus"
 	"github.com/spf13/pflag"
 	"github.com/spf13/viper"
+	"go.opencensus.io/stats/view"
 	"go.uber.org/multierr"
 	client "k8s.io/client-go/kubernetes"
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
@@ -33,6 +35,7 @@ import (
 	"istio.io/istio/cni/pkg/repair"
 	"istio.io/istio/tools/istio-iptables/pkg/constants"
 	"istio.io/pkg/log"
+	"istio.io/pkg/monitoring"
 )
 
 type ControllerOptions struct {
@@ -198,8 +201,7 @@ func main() {
 
 	// Start metrics server
 	go func() {
-		http.Handle("/metrics", promhttp.Handler())
-		http.ListenAndServe(":2112", nil)
+		setupMonitoring(":2112", "/metrics")
 	}()
 
 	if options.RunAsDaemon {
@@ -221,5 +223,28 @@ func main() {
 		if err != nil {
 			log.Fatalf(err.Error())
 		}
+	}
+}
+
+func setupMonitoring(addr, path string) {
+	mux := http.NewServeMux()
+	var listener net.Listener
+	if addr != "" {
+		var err error
+		if listener, err = net.Listen("tcp", addr); err != nil {
+			log.Errorf("unable to listen on socket: %v", err)
+		}
+	}
+	exporter, err := ocprom.NewExporter(ocprom.Options{Registry: prometheus.DefaultRegisterer.(*prometheus.Registry)})
+	if err != nil {
+		log.Errorf("could not set up prometheus exporter: %v", err)
+	}
+	view.RegisterExporter(exporter)
+	mux.Handle(path, exporter)
+	if addr != "" {
+		monitoringServer := &http.Server{
+			Handler: mux,
+		}
+		_ = monitoringServer.Serve(listener)
 	}
 }

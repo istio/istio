@@ -17,8 +17,9 @@ package repair
 import (
 	"context"
 	"fmt"
-	"istio.io/pkg/monitoring"
 	"strings"
+
+	"istio.io/pkg/monitoring"
 
 	"go.uber.org/multierr"
 	v1 "k8s.io/api/core/v1"
@@ -26,6 +27,7 @@ import (
 	client "k8s.io/client-go/kubernetes"
 
 	"istio.io/pkg/log"
+	"istio.io/pkg/monitoring"
 )
 
 type Options struct {

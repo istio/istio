@@ -34,9 +34,9 @@ import (
 
 var (
 	ignoreCounter prometheus.Counter = prometheus.NewCounter(prometheus.CounterOpts{
-			Name: "pods_repaired_counter",
-			Help: "Number of pods repaired",
-		})
+		Name: "pods_repaired_counter",
+		Help: "Number of pods repaired",
+	})
 	ignoreMetrics *Metrics = &Metrics{
 		PodsRepaired: ignoreCounter,
 	}
@@ -592,10 +592,10 @@ func TestBrokenPodReconciler_ReconcilePod_metrics(t *testing.T) {
 		Metrics *Metrics
 	}
 	tests := []struct {
-	name      string
-	fields    fields
-	wantCount float64
-	fn        func(reconciler BrokenPodReconciler) error
+		name      string
+		fields    fields
+		wantCount float64
+		fn        func(reconciler BrokenPodReconciler) error
 	}{
 		{
 			name: "No broken pods",
@@ -615,7 +615,7 @@ func TestBrokenPodReconciler_ReconcilePod_metrics(t *testing.T) {
 				},
 			},
 			wantCount: 0,
-			fn: func(reconciler BrokenPodReconciler) error { return reconciler.DeleteBrokenPods()},
+			fn:        func(reconciler BrokenPodReconciler) error { return reconciler.DeleteBrokenPods() },
 		},
 		{
 			name: "No broken pods, one died previously",
@@ -635,7 +635,7 @@ func TestBrokenPodReconciler_ReconcilePod_metrics(t *testing.T) {
 				},
 			},
 			wantCount: 0,
-			fn: func(reconciler BrokenPodReconciler) error { return reconciler.DeleteBrokenPods()},
+			fn:        func(reconciler BrokenPodReconciler) error { return reconciler.DeleteBrokenPods() },
 		},
 		{
 			name: "With broken pods",
@@ -655,9 +655,7 @@ func TestBrokenPodReconciler_ReconcilePod_metrics(t *testing.T) {
 				},
 			},
 			wantCount: 1,
-			fn: func(reconciler BrokenPodReconciler) error { return reconciler.DeleteBrokenPods()},
-
-
+			fn:        func(reconciler BrokenPodReconciler) error { return reconciler.DeleteBrokenPods() },
 		},
 		{
 			name: "Label Broken -- No broken pods",
@@ -677,7 +675,7 @@ func TestBrokenPodReconciler_ReconcilePod_metrics(t *testing.T) {
 				},
 			},
 			wantCount: 0,
-			fn: func(reconciler BrokenPodReconciler) error { return reconciler.LabelBrokenPods()},
+			fn:        func(reconciler BrokenPodReconciler) error { return reconciler.LabelBrokenPods() },
 		},
 		{
 			name: "Label Broken --No broken pods, one died previously",
@@ -697,7 +695,7 @@ func TestBrokenPodReconciler_ReconcilePod_metrics(t *testing.T) {
 				},
 			},
 			wantCount: 0,
-			fn: func(reconciler BrokenPodReconciler) error { return reconciler.LabelBrokenPods()},
+			fn:        func(reconciler BrokenPodReconciler) error { return reconciler.LabelBrokenPods() },
 		},
 		{
 			name: "Label Broken -- With broken pods",
@@ -717,7 +715,7 @@ func TestBrokenPodReconciler_ReconcilePod_metrics(t *testing.T) {
 				},
 			},
 			wantCount: 1,
-			fn: func(reconciler BrokenPodReconciler) error { return reconciler.LabelBrokenPods()},
+			fn:        func(reconciler BrokenPodReconciler) error { return reconciler.LabelBrokenPods() },
 		},
 	}
 	for _, tt := range tests {
