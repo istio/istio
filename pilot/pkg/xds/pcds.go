@@ -53,7 +53,7 @@ func (e *PcdsGenerator) Generate(proxy *model.Proxy, push *model.PushContext, w 
 		return nil, nil
 	}
 	pc := &mesh.ProxyConfig{
-		CaCertificatesPem: tb.GlobalWorkloadTrustbundle.FetchTrustBundle(),
+		CaCertificatesPem: tb.GlobalWorkloadTrustbundle.GetTrustBundle(),
 	}
 
 	return model.Resources{gogo.MessageToAny(pc)}, nil

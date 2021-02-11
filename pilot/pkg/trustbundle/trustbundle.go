@@ -38,11 +38,10 @@ type TrustAnchorUpdate struct {
 }
 
 type TrustBundle struct {
-	sourceConfig     map[Source]*TrustAnchorConfig
-	mutex            sync.RWMutex
-	mergedCerts      []string
-	anchorUpdateChan chan *TrustAnchorUpdate
-	updatecb         func()
+	sourceConfig map[Source]TrustAnchorConfig
+	mutex        sync.RWMutex
+	mergedCerts  []string
+	updatecb     func()
 }
 
 var (
@@ -62,23 +61,22 @@ const (
 
 func NewTrustBundle(updatecb func()) *TrustBundle {
 	tb := &TrustBundle{
-		sourceConfig: map[Source]*TrustAnchorConfig{
+		sourceConfig: map[Source]TrustAnchorConfig{
 			SourceIstioCA:    {Source: SourceIstioCA, Certs: []string{}},
 			SourceMeshConfig: {Source: SourceMeshConfig, Certs: []string{}},
 			SourceIstioRA:    {Source: SourceIstioRA, Certs: []string{}},
 			// SOURCE_SPIFFE_ENDPOINT:        &TrustAnchorConfig{source: SOURCE_SPIFFE_ENDPOINT, certs: []string{}},
 		},
-		mergedCerts:      []string{},
-		anchorUpdateChan: make(chan *TrustAnchorUpdate, UpdateChannelLen),
-		updatecb:         updatecb,
+		mergedCerts: []string{},
+		updatecb:    updatecb,
 	}
 
 	GlobalWorkloadTrustbundle = tb
 	return tb
 }
 
-// FetchTrustBundle : Retrieves all the trustAnchors for current Spiffee Trust Domain
-func (tb *TrustBundle) FetchTrustBundle() []string {
+// GetTrustBundle : Retrieves all the trustAnchors for current Spiffee Trust Domain
+func (tb *TrustBundle) GetTrustBundle() []string {
 	tb.mutex.RLock()
 	defer tb.mutex.RUnlock()
 	trustedCerts := make([]string, len(tb.mergedCerts))
@@ -98,19 +96,16 @@ func (tb *TrustBundle) verifyTrustAnchor(trustAnchor string) error {
 	if !cert.IsCA {
 		return fmt.Errorf("certificate is not a CA certificate")
 	}
-	//
-	//	if cert.Issuer.String() != cert.Subject.String() {
-	//		return fmt.Errorf("intermediate certificates are not supported")
-	//	}
-	// Check for Spiffe SAN corresponding to trustDomain?
 	return nil
 }
 
-// Should be done as part of a go thread
 func (tb *TrustBundle) mergeInternal() {
 	var ok bool
 	mergeCerts := []string{}
 	certMap := make(map[string]bool)
+
+	tb.mutex.Lock()
+	defer tb.mutex.Unlock()
 
 	for _, configSource := range tb.sourceConfig {
 		for _, cert := range configSource.Certs {
@@ -120,14 +115,12 @@ func (tb *TrustBundle) mergeInternal() {
 			}
 		}
 	}
-	tb.mutex.Lock()
 	tb.mergedCerts = mergeCerts
-	tb.mutex.Unlock()
 }
 
 // External Function to merge a TrustAnchor config with the existing TrustBundle
 // Should only be one writer
-func (tb *TrustBundle) mergeTrustBundle(anchorConfig *TrustAnchorUpdate) error {
+func (tb *TrustBundle) UpdateTrustAnchor(anchorConfig *TrustAnchorUpdate) error {
 	var ok bool
 	var err error
 
@@ -148,36 +141,15 @@ func (tb *TrustBundle) mergeTrustBundle(anchorConfig *TrustAnchorUpdate) error {
 			return err
 		}
 	}
-	tb.sourceConfig[anchorConfig.TrustAnchorConfig.Source] = &anchorConfig.TrustAnchorConfig
+	tb.sourceConfig[anchorConfig.TrustAnchorConfig.Source] = anchorConfig.TrustAnchorConfig
 	tb.mergeInternal()
 
-	log.Debugf("updating Source %v with certs %v",
+	trustBundleLog.Debugf("updating Source %v with certs %v",
 		anchorConfig.TrustAnchorConfig.Source,
 		strings.Join(anchorConfig.TrustAnchorConfig.Certs, "\n\n"))
 
 	tb.updatecb()
 	return nil
-}
-
-// EnqueueAnchorUpdate: Enqueue a Anchor Configuration Update to the TrustBundle
-func (tb *TrustBundle) EnqueueAnchorUpdate(cfg *TrustAnchorUpdate) {
-	trustBundleLog.Debugf("enqueued trustAnchor Update %v", cfg)
-	tb.anchorUpdateChan <- cfg
-}
-
-// processUpdates: R
-func (tb *TrustBundle) processUpdates(stop <-chan struct{}) {
-	// TODO: Log
-	select {
-	case <-stop:
-		return
-	case anchorConfig := <-tb.anchorUpdateChan:
-		trustBundleLog.Debugf("dequeued trustAnchor Update %v", anchorConfig)
-		err := tb.mergeTrustBundle(anchorConfig)
-		if err != nil {
-			trustBundleLog.Errorf("unable to apply trustAnchor update. Encountered error %v", err)
-		}
-	}
 }
 
 // AddPeriodicMeshConfigUpdate
@@ -187,24 +159,12 @@ func (tb *TrustBundle) AddMeshConfigUpdate(cfg *meshconfig.MeshConfig) {
 		for _, pemCert := range cfg.GetCaCertificates() {
 			certs = append(certs, pemCert.GetPem())
 		}
-		tb.EnqueueAnchorUpdate(&TrustAnchorUpdate{TrustAnchorConfig{
+		err := tb.UpdateTrustAnchor(&TrustAnchorUpdate{TrustAnchorConfig{
 			Source: SourceMeshConfig,
 			Certs:  certs,
 		}})
+		if err != nil {
+			trustBundleLog.Errorf("failed to update meshConfig trustAnchors because %v")
+		}
 	}
-}
-
-// AddPeriodicIstioCAConfigUpdate
-func (tb *TrustBundle) AddIstioCARootUpdate(rootCert string) error {
-	rootCerts := []string{rootCert}
-	tb.EnqueueAnchorUpdate(&TrustAnchorUpdate{TrustAnchorConfig: TrustAnchorConfig{
-		Source: SourceIstioCA,
-		Certs:  rootCerts,
-	}})
-	return nil
-}
-
-func (tb *TrustBundle) Start(stop <-chan struct{}) {
-	go tb.processUpdates(stop)
-	log.Debugf("starting TrustBundle update processing routine")
 }

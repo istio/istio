@@ -405,10 +405,3 @@ func (ca *IstioCA) signWithCertChain(csrPEM []byte, subjectIDs []string, request
 	}
 	return cert, nil
 }
-
-// Adds Callback for when the CA root changes
-func (ca *IstioCA) AddRootCertCb(cb func(string) error) {
-	if ca.rootCertRotator != nil {
-		ca.rootCertRotator.rootChangecb = cb
-	}
-}

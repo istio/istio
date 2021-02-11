@@ -52,7 +52,6 @@ type SelfSignedCARootCertRotator struct {
 	config             *SelfSignedCARootCertRotatorConfig
 	backOffTime        time.Duration
 	ca                 *IstioCA
-	rootChangecb       func(string) error
 }
 
 // NewSelfSignedCARootCertRotator returns a new root cert rotator instance that
@@ -63,7 +62,6 @@ func NewSelfSignedCARootCertRotator(config *SelfSignedCARootCertRotatorConfig,
 		caSecretController: controller.NewCaSecretController(config.client),
 		config:             config,
 		ca:                 ca,
-		rootChangecb:       nil,
 	}
 	if config.enableJitter {
 		// Select a back off time in seconds, which is in the range of [0, rotator.config.CheckInterval).
@@ -155,12 +153,6 @@ func (rotator *SelfSignedCARootCertRotator) checkAndRotateRootCertForSigningCert
 			} else {
 				rootCertRotatorLog.Info("Successfully reloaded root cert into KeyCertBundle.")
 			}
-			if rotator.rootChangecb != nil {
-				err = rotator.rootChangecb(string(rotator.ca.GetCAKeyCertBundle().GetRootCertPem()))
-				if err != nil {
-					rootCertRotatorLog.Errorf("callack invocation failed after root Certificate rotation: %s", err.Error())
-				}
-			}
 		}
 		return
 	}
@@ -243,10 +235,6 @@ func (rotator *SelfSignedCARootCertRotator) updateRootCertificate(caSecret *v1.S
 			return true, fmt.Errorf("failed to update CA KeyCertBundle (error: %s)", err.Error())
 		}
 		return false, fmt.Errorf("failed to update CA KeyCertBundle (error: %s)", err.Error())
-	}
-	if rotator.rootChangecb != nil {
-		err = rotator.rootChangecb(string(rotator.ca.GetCAKeyCertBundle().GetRootCertPem()))
-		rootCertRotatorLog.Errorf("callack invocation failed after root Certificate rotation: %s", err.Error())
 	}
 	rootCertRotatorLog.Infof("Root certificate is updated in CA KeyCertBundle: %v", string(cert))
 
