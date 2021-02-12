@@ -77,7 +77,7 @@ func SecurityTest(t *testing.T, apps AppContext, features ...features.Feature) {
 					})
 
 					// For non GKE clusters or ASM with Citadel, the trust domain is cluster.local.
-					if os.Getenv("GCR_PROJECT_ID_1") == "" || os.Getenv("CA") == "CITADEL" {
+					if (os.Getenv("GCR_PROJECT_ID") == "" && os.Getenv("GCR_PROJECT_ID_1") == "") || os.Getenv("CA") == "CITADEL" {
 						checkClusterLocalPrincipal(t, responses, ns)
 					} else {
 						checkGCPPrincipal(t, responses, ns)
