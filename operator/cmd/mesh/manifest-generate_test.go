@@ -304,22 +304,19 @@ func TestManifestGenerateFlagsSetValues(t *testing.T) {
 func TestDefaultRevision(t *testing.T) {
 	g := NewWithT(t)
 	tcs := []struct {
-		operatorFile string
-		webhooks     int
-		webhookName  string
-		serviceName  string
+		operatorFile        string
+		serviceNames        []string
+		expectIstiodService bool
 	}{
 		{
 			"default_revision",
-			1,
-			"istiod-istio-system",
-			"istiod-canary",
+			[]string{"istiod", "istiod-canary", "istio-ingressgateway"},
+			true,
 		},
 		{
 			"revision_not_default",
-			0,
-			"",
-			"",
+			[]string{"istiod-canary", "istio-ingressgateway"},
+			false,
 		},
 	}
 
@@ -330,14 +327,12 @@ func TestDefaultRevision(t *testing.T) {
 		}
 
 		for _, objs := range objss {
-			g.Expect(objs.kind(name.ValidatingWebhookConfigurationStr).size()).Should(Equal(tc.webhooks))
-			// no webhooks expected, no need for further checks
-			if tc.webhooks == 0 {
+			g.Expect(objs.kind(name.ServiceStr).size()).Should(Equal(len(tc.serviceNames)))
+			if !tc.expectIstiodService {
 				continue
 			}
-			vwc := mustGetValidatingWebhookConfiguration(g, objs, tc.webhookName).Unstructured()
-			g.Expect(vwc).Should(HavePathValueEqual(PathValue{"metadata.name", tc.webhookName}))
-			g.Expect(vwc).Should(HavePathValueEqual(PathValue{"webhooks.[0].clientConfig.service.name", tc.serviceName}))
+			svc := mustGetService(g, objs, "istiod").Unstructured()
+			g.Expect(svc).Should(HavePathValueContain(PathValue{"spec.selector", toMap("app:istiod,istio.io/rev:canary")}))
 		}
 	}
 }
