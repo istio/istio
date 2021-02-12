@@ -251,7 +251,7 @@ func reconcileHelper(t *testing.T, c *fakeController) {
 	t.Helper()
 
 	c.ClearActions()
-	if err := c.reconcileRequest(&reconcileRequest{description: "test"}); err != nil {
+	if err := c.reconcileRequest(&reconcileRequest{"test"}); err != nil {
 		t.Fatalf("unexpected reconciliation error: %v", err)
 	}
 }
