@@ -209,7 +209,9 @@ func toEnvoySecret(s *security.SecretItem) *tls.Secret {
 	secret := &tls.Secret{
 		Name: s.ResourceName,
 	}
-	if s.ResourceName == security.RootCertReqResourceName {
+
+	cfg, ok := model.SdsCertificateConfigFromResourceName(s.ResourceName)
+	if s.ResourceName == security.RootCertReqResourceName || (ok && cfg.IsRootCertificate()) {
 		secret.Type = &tls.Secret_ValidationContext{
 			ValidationContext: &tls.CertificateValidationContext{
 				TrustedCa: &core.DataSource{

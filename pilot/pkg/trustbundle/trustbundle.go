@@ -163,7 +163,7 @@ func (tb *TrustBundle) UpdateTrustAnchor(anchorConfig *TrustAnchorUpdate) error 
 	return nil
 }
 
-// AddPeriodicMeshConfigUpdate
+// AddMeshConfigUpdate : Update trustAnchor configurations from meshConfig
 func (tb *TrustBundle) AddMeshConfigUpdate(cfg *meshconfig.MeshConfig) {
 	if cfg != nil {
 		certs := []string{}

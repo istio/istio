@@ -209,9 +209,32 @@ func (sc *SecretManagerClient) CallUpdateCallback(resourceName string) {
 	}
 }
 
+func (sc *SecretManagerClient) getCachedSecret(resourceName string) (secret *security.SecretItem) {
+	var rootCertBundle []byte
+	if c := sc.cache.GetWorkload(); c != nil {
+
+		cacheLog.WithLabels("ttl", time.Until(c.ExpireTime)).Info("returned workload certificate from cache")
+		if resourceName == security.RootCertReqResourceName {
+			rootCertBundle = sc.mergeConfigTrustBundle(c.RootCert)
+		} else {
+			rootCertBundle = c.RootCert
+		}
+		ns := &security.SecretItem{
+			ResourceName:     resourceName,
+			CertificateChain: c.CertificateChain,
+			PrivateKey:       c.PrivateKey,
+			RootCert:         rootCertBundle,
+			ExpireTime:       c.ExpireTime,
+			CreatedTime:      c.CreatedTime,
+		}
+		return ns
+	}
+	return nil
+}
+
 // GenerateSecret passes the cached secret to SDS.StreamSecrets and SDS.FetchSecret.
 func (sc *SecretManagerClient) GenerateSecret(resourceName string) (secret *security.SecretItem, err error) {
-	var rootCertBundle []byte
+
 	// Setup the call to store generated secret to disk
 	defer func() {
 		if secret == nil || err != nil {
@@ -244,52 +267,26 @@ func (sc *SecretManagerClient) GenerateSecret(resourceName string) (secret *secu
 		return ns, nil
 	}
 
-	// cache hit. this is expected to happen most of the time.
-	if c := sc.cache.GetWorkload(); c != nil {
-
-		cacheLog.WithLabels("ttl", time.Until(c.ExpireTime)).Info("returned workload certificate from cache")
-		if resourceName == security.RootCertReqResourceName {
-			rootCertBundle = sc.mergeConfigTrustBundle(c.RootCert)
-		} else {
-			rootCertBundle = c.RootCert
-		}
-		ns = &security.SecretItem{
-			ResourceName:     resourceName,
-			CertificateChain: c.CertificateChain,
-			PrivateKey:       c.PrivateKey,
-			RootCert:         rootCertBundle,
-			ExpireTime:       c.ExpireTime,
-			CreatedTime:      c.CreatedTime,
-		}
+	ns = sc.getCachedSecret(resourceName)
+	if ns != nil {
 		return ns, nil
 	}
 
-	// Grab Lock and then look at cache
 	t0 := time.Now()
 	sc.generateMutex.Lock()
 	defer sc.generateMutex.Unlock()
-	if c := sc.cache.GetWorkload(); c != nil {
-		// Now that we got the lock, check again if there is a cached secret (from the caller holding the lock previously)
-		cacheLog.WithLabels("ttl", time.Until(c.ExpireTime)).Info("returned delayed workload certificate from cache")
-		if resourceName == security.RootCertReqResourceName {
-			rootCertBundle = sc.mergeConfigTrustBundle(c.RootCert)
-		} else {
-			rootCertBundle = c.RootCert
-		}
-		ns = &security.SecretItem{
-			ResourceName:     resourceName,
-			CertificateChain: c.CertificateChain,
-			PrivateKey:       c.PrivateKey,
-			RootCert:         rootCertBundle,
-			ExpireTime:       c.ExpireTime,
-			CreatedTime:      c.CreatedTime,
-		}
+
+	// Look at cache again before sending request to avoid overwhelming CA
+	ns = sc.getCachedSecret(resourceName)
+	if ns != nil {
+		return ns, nil
 	}
+
 	if ts := time.Since(t0); ts > time.Second {
 		cacheLog.Warnf("slow generate secret lock: %v", ts)
 	}
 
-	// exception cases
+	// send request to CA to get new workload certificate
 	ns, err = sc.generateNewSecret(resourceName)
 	if err != nil {
 		return nil, fmt.Errorf("failed to generate workload certificate: %v", err)
@@ -298,16 +295,17 @@ func (sc *SecretManagerClient) GenerateSecret(resourceName string) (secret *secu
 	// Store the new secret in the secretCache and trigger the periodic rotation for workload certificate
 	sc.registerSecret(*ns)
 
-	oldRoot := sc.cache.GetRoot()
-	if !bytes.Equal(oldRoot, ns.RootCert) {
-		cacheLog.Info("Root cert has changed, start rotating root cert")
-
-		// We store the oldRoot only for comparison and not for serving
-		sc.cache.SetRoot(ns.RootCert)
-		sc.CallUpdateCallback(security.RootCertReqResourceName)
-	}
 	if resourceName == security.RootCertReqResourceName {
 		ns.RootCert = sc.mergeConfigTrustBundle(ns.RootCert)
+	} else {
+		// If periodic cert refresh resulted in discovery of a new root, trigger a ROOTCA request to refresh trust anchor
+		oldRoot := sc.cache.GetRoot()
+		if !bytes.Equal(oldRoot, ns.RootCert) {
+			cacheLog.Info("Root cert has changed, start rotating root cert")
+			// We store the oldRoot only for comparison and not for serving
+			sc.cache.SetRoot(ns.RootCert)
+			sc.CallUpdateCallback(security.RootCertReqResourceName)
+		}
 	}
 
 	return ns, nil
@@ -673,14 +671,12 @@ func concatCerts(certsPEM []string) []byte {
 	return certChain.Bytes()
 }
 
-// getConfigTrustBundle : Retrieve the Configured Trust Bundle from the secret manager client
 func (sc *SecretManagerClient) getConfigTrustBundle() []byte {
 	sc.configTrustBundleMutex.RLock()
 	defer sc.configTrustBundleMutex.RUnlock()
 	return sc.configTrustBundle
 }
 
-// setConfigTrustBundle : Retrieve the Configured Trust Bundle from the secret manager client
 func (sc *SecretManagerClient) setConfigTrustBundle(trustBundle []byte) {
 	sc.configTrustBundleMutex.Lock()
 	defer sc.configTrustBundleMutex.Unlock()
@@ -690,13 +686,10 @@ func (sc *SecretManagerClient) setConfigTrustBundle(trustBundle []byte) {
 // UpdateConfigTrustBundle : Update the Configured Trust Bundle in the secret Manager client
 func (sc *SecretManagerClient) UpdateConfigTrustBundle(trustBundle []byte) error {
 	sc.setConfigTrustBundle(trustBundle)
-	// S,G: Any need to check if the TrustBundle configs have changed and only then trigger a callback?
 	sc.CallUpdateCallback(security.RootCertReqResourceName)
 	return nil
 }
 
-// mergeTrustBundle : Merge
 func (sc *SecretManagerClient) mergeConfigTrustBundle(rootCert []byte) []byte {
-	// S,G: Perform possible dedup logic here
 	return append(sc.getConfigTrustBundle(), rootCert...)
 }

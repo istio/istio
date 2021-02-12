@@ -129,17 +129,13 @@ func AppendRootCerts(pemCert []byte, rootCertFile string) ([]byte, error) {
 }
 
 func AppendRootCertString(pemCert []byte, rootCert string) ([]byte, error) {
-	var rootCerts []byte
+	var mergedRootCerts []byte
 	if len(pemCert) > 0 {
 		// Copy the input certificate
-		rootCerts = make([]byte, len(pemCert))
-		copy(rootCerts, pemCert)
+		mergedRootCerts = make([]byte, len(pemCert))
+		copy(mergedRootCerts, pemCert)
+		mergedRootCerts = []byte(strings.TrimSuffix(string(mergedRootCerts), "\n") + "\n")
 	}
-	certBytes := []byte(rootCert)
-	if len(rootCerts) > 0 {
-		// Append a newline after the last cert
-		rootCerts = []byte(strings.TrimSuffix(string(rootCerts), "\n") + "\n")
-	}
-	rootCerts = append(rootCerts, certBytes...)
-	return rootCerts, nil
+	mergedRootCerts = append(mergedRootCerts, []byte(rootCert)...)
+	return mergedRootCerts, nil
 }
