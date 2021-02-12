@@ -334,8 +334,6 @@ else
       TEST_SELECT="+multicluster"
     fi
 
-    DISABLED_TESTS+="|TestSecurity" # UNKNOWN
-
     # ASM MCP requires revision to be asm-managed.
     INTEGRATION_TEST_FLAGS+=" --istio.test.revision=asm-managed"
     # Don't deploy Istio. Instead just use the pre-installed ASM
