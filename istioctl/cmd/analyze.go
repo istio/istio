@@ -131,7 +131,7 @@ func Analyze() *cobra.Command {
 			selectedNamespace = handlers.HandleNamespace(namespace, defaultNamespace)
 
 			// check whether selected namespace exists.
-			if namespace != "" {
+			if namespace != "" && useKube {
 				client, err := kube.NewExtendedClient(kube.BuildClientCmd(kubeconfig, configContext), "")
 				if err != nil {
 					return err
