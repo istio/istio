@@ -395,7 +395,7 @@ function install_asm() {
     kubectl create namespace istio-system --context="${CONTEXTS[$i]}"
     if [[ "${CA}" == "MESHCA" || "${CA}" == "PRIVATECA" ]]; then
       INSTALL_ASM_CA="mesh_ca"
-      if [[ "${CLUSTER_TOPOLOGY}" == "MULTIPROJECT_MULTICLUSTER" ]]; then
+      if [[ "${CLUSTER_TOPOLOGY}" == "MULTIPROJECT_MULTICLUSTER" || "${CLUSTER_TOPOLOGY}" == "mp"  ]]; then
         TRUSTED_GCP_PROJECTS=""
         for j in "${!CONTEXTS[@]}"; do
           if [[ "$i" != "$j" ]]; then
@@ -470,7 +470,7 @@ function install_asm() {
     local SERVICE_ACCOUNT
     SERVICE_ACCOUNT=$(gcloud config list --format "value(core.account)")
     if [[ "${WIP}" != "HUB" ]]; then
-      if [[ "${CLUSTER_TOPOLOGY}" == "MULTIPROJECT_MULTICLUSTER" ]]; then
+      if [[ "${CLUSTER_TOPOLOGY}" == "MULTIPROJECT_MULTICLUSTER" || "${CLUSTER_TOPOLOGY}" == "mp" ]]; then
         export _CI_ENVIRON_PROJECT_NUMBER="${ENVIRON_PROJECT_NUMBER}"
         export _CI_TRUSTED_GCP_PROJECTS="${TRUSTED_GCP_PROJECTS}"
         eval ./install_asm \
@@ -501,7 +501,7 @@ function install_asm() {
           --verbose
       fi
     else
-      if [[ "${CLUSTER_TOPOLOGY}" == "MULTIPROJECT_MULTICLUSTER" ]]; then
+      if [[ "${CLUSTER_TOPOLOGY}" == "MULTIPROJECT_MULTICLUSTER" || "${CLUSTER_TOPOLOGY}" == "mp" ]]; then
         export _CI_ENVIRON_PROJECT_NUMBER="${ENVIRON_PROJECT_NUMBER}"
         export _CI_TRUSTED_GCP_PROJECTS="${TRUSTED_GCP_PROJECTS}"
         eval ./install_asm \

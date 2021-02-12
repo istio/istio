@@ -116,22 +116,8 @@ func (o *options) setEnvVars() {
 
 func (o *options) installTools() error {
 	if o.deployerName == tailorbirdDeployerName {
-		log.Println("Installing kubetest2 tailorbird deployer...")
-		cookieFile := "/secrets/cookiefile/cookies"
-		exec.Run("git config --global http.cookiefile " + cookieFile)
-		goPath := os.Getenv("GOPATH")
-		clonePath := goPath + "/src/gke-internal/test-infra"
-		exec.Run(fmt.Sprintf("git clone https://gke-internal.googlesource.com/test-infra %s", clonePath))
-		if err := exec.Run(fmt.Sprintf("bash -c 'cd %s &&"+
-			" go install %s/anthos/tailorbird/cmd/kubetest2-tailorbird'", clonePath, clonePath)); err != nil {
-			return fmt.Errorf("error installing kubetest2 tailorbird deployer: %w", err)
-		}
-		exec.Run("rm -r " + clonePath)
-
-		log.Println("Installing herc CLI...")
-		if err := exec.Run(fmt.Sprintf("bash -c 'gsutil cp gs://anthos-hercules-public-artifacts/herc/latest/herc /usr/local/bin/ &&" +
-			" chmod 755 /usr/local/bin/herc'")); err != nil {
-			return fmt.Errorf("error installing the herc CLI: %w", err)
+		if err := tailorbird.InstallTools(o.clusterType); err != nil {
+			return fmt.Errorf("")
 		}
 	}
 
@@ -151,7 +137,10 @@ func (o *options) runKubetest2(deployerFlags, testFlags []string) error {
 	case tailorbirdDeployerName:
 		log.Println("Will run kubetest2 tailorbird deployer to create the clusters...")
 
-		extraFlags := tailorbird.DeployerFlags(o.clusterType, o.clusterTopology, o.featureToTest)
+		extraFlags, err := tailorbird.DeployerFlags(o.clusterType, o.clusterTopology, o.featureToTest)
+		if err != nil {
+			return fmt.Errorf("error getting deployer flags for tailorbird: %w", err)
+		}
 		deployerFlags = append(deployerFlags, extraFlags...)
 	default:
 		return fmt.Errorf("unsupported deployer: %q", o.deployerName)

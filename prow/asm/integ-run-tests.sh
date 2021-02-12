@@ -100,28 +100,34 @@ echo "Running with CA ${CA}, ${WIP} Workload Identity Pool, ${CONTROL_PLANE} and
 # used in telemetry test to decide expected source/destination principal.
 export CONTROL_PLANE
 
-echo "Using ${KUBECONFIG} to connect to the cluster(s)"
 if [[ -z "${KUBECONFIG}" ]]; then
   echo "Error: ${KUBECONFIG} cannot be empty."
   exit 1
 fi
+echo "Using ${KUBECONFIG} to connect to the cluster(s)"
 
-echo "The kubetest2 deployer is ${DEPLOYER}"
 if [[ -z ${DEPLOYER} ]]; then
   echo "Error: ${DEPLOYER} cannot be empty."
   exit 1
 fi
+echo "The kubetest2 deployer is ${DEPLOYER}"
 
-echo "The cluster topology is ${CLUSTER_TOPOLOGY}"
 if [[ -z "${CLUSTER_TOPOLOGY}" ]]; then
   echo "Error: ${CLUSTER_TOPOLOGY} cannot be empty."
   exit 1
 fi
+echo "The cluster topology is ${CLUSTER_TOPOLOGY}"
+
+if [[ -z "${TEST_TARGET}" ]]; then
+  echo "Error: ${TEST_TARGET} cannot be empty."
+  exit 1
+fi
+echo "The test target is ${TEST_TARGET}"
 
 # For MULTIPROJECT_MULTICLUSTER topology, firewall rules need to be added to
 # allow the clusters talking with each other for security tests.
 # See the details in b/175599359 and b/177919868
-if [[ "${CLUSTER_TOPOLOGY}" == "MULTIPROJECT_MULTICLUSTER" ]]; then
+if [[ "${CLUSTER_TOPOLOGY}" == "MULTIPROJECT_MULTICLUSTER" || "${CLUSTER_TOPOLOGY}" == "mp" ]]; then
   gcloud compute --project="${HOST_PROJECT}" firewall-rules create extended-firewall-rule --network=test-network --allow=tcp,udp,icmp --direction=INGRESS
 fi
 
@@ -184,7 +190,6 @@ if [[ "${CONTROL_PLANE}" == "UNMANAGED" ]]; then
   build_istioctl
 
   echo "Installing ASM control plane..."
-  gcloud components install kpt
   if [[ "${DEPLOYER}" == "gke" ]]; then
     install_asm "${WD}/kpt-pkg" "${CA}" "${WIP}" "${CONTEXTS[@]}"
   elif [[ "${DEPLOYER}" == "tailorbird" ]]; then
@@ -220,13 +225,17 @@ if [[ "${CONTROL_PLANE}" == "UNMANAGED" ]]; then
   DISABLED_TESTS+="|TestCustomizeMetrics|TestStatsFilter|TestTcpMetric|TestWasmStatsFilter|TestWASMTcpMetric" # UNKNOWN: b/177606974
   # security/ tests
 
-  export INTEGRATION_TEST_FLAGS="${INTEGRATION_TEST_FLAGS:-}"
-
-  # TODO(nmittler): Remove this once we no longer run the multicluster tests.
+  # For security tests, do not run tests that require custom setups.
   export TEST_SELECT="${TEST_SELECT:-}"
+  # TODO(nmittler): Remove this once we no longer run the multicluster tests.
   if [[ $TEST_TARGET == "test.integration.multicluster.kube.presubmit" ]]; then
     TEST_SELECT="+multicluster"
   fi
+  if [[ $TEST_TARGET == "test.integration.asm.security" ]]; then
+    TEST_SELECT="-customsetup"
+  fi
+
+  export INTEGRATION_TEST_FLAGS="${INTEGRATION_TEST_FLAGS:-}"
 
   # Don't deploy Istio. Instead just use the pre-installed ASM
   INTEGRATION_TEST_FLAGS+=" --istio.test.kube.deploy=false"
@@ -307,7 +316,7 @@ else
   DISABLED_PACKAGES+="\|/security/sds_ingress_k8sca" # NOT SUPPORTED
   DISABLED_PACKAGES+="\|/security/sds_tls_origination" # NOT SUPPORTED
 
-  if [[ "${CLUSTER_TOPOLOGY}" == "SINGLECLUSTER" ]]; then
+  if [[ "${CLUSTER_TOPOLOGY}" == "SINGLECLUSTER" || "${CLUSTER_TOPOLOGY}" == "sc" ]]; then
     echo "Running integration test with ASM managed control plane and ${CLUSTER_TOPOLOGY} topology"
 
     export DISABLED_PACKAGES
@@ -328,10 +337,14 @@ else
     export WIP
 
     export INTEGRATION_TEST_FLAGS="${INTEGRATION_TEST_FLAGS:-}"
-    # TODO(nmittler): Remove this once we no longer run the multicluster tests.
+    # For security tests, do not run tests that require custom setups.
     export TEST_SELECT="${TEST_SELECT:-}"
+    # TODO(nmittler): Remove this once we no longer run the multicluster tests.
     if [[ $TEST_TARGET == "test.integration.multicluster.kube.presubmit" ]]; then
       TEST_SELECT="+multicluster"
+    fi
+    if [[ $TEST_TARGET == "test.integration.asm.security" ]]; then
+      TEST_SELECT="-customsetup"
     fi
 
     # ASM MCP requires revision to be asm-managed.
