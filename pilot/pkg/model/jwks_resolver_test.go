@@ -457,19 +457,13 @@ func getCounterValue(counterName string, t *testing.T) float64 {
 }
 
 func TestJwtPubKeyMetric(t *testing.T) {
-	r := newJwksResolver(
-		JwtPubKeyEvictionDuration,
-		JwtPubKeyRefreshInterval,
-		JwtPubKeyRefreshIntervalOnFailure,
-		testRetryInterval,
-	)
-	defer r.Close()
+	defaultRefreshInterval := 50 * time.Millisecond
+	refreshIntervalOnFail := 2 * time.Millisecond
+	r := newJwksResolver(JwtPubKeyEvictionDuration, defaultRefreshInterval, refreshIntervalOnFail, 1*time.Millisecond)
 
-	ms, err := test.StartNewServer()
+	ms := startMockServer(t)
 	defer ms.Stop()
-	if err != nil {
-		t.Fatal("failed to start a mock server")
-	}
+
 	ms.ReturnErrorForFirstNumHits = 1
 
 	successValueBefore := getCounterValue(networkFetchSuccessCounter.Name(), t)
@@ -491,6 +485,7 @@ func TestJwtPubKeyMetric(t *testing.T) {
 	}
 	for _, c := range cases {
 		pk, _ := r.GetPublicKey(c.in[0], c.in[1])
+		time.Sleep(60 * time.Millisecond)
 		if c.expectedJwtPubkey != pk {
 			t.Errorf("GetPublicKey(\"\", %+v): expected (%s), got (%s)", c.in, c.expectedJwtPubkey, pk)
 		}
