@@ -43,7 +43,9 @@ const (
 	defaultRevisionName         = "default"
 	pilotDiscoveryChart         = "istio-control/istio-discovery"
 	revisionTagTemplateName     = "revision-tags.yaml"
-	minRevisionTagIstioVersion  = "1.10"
+	// Revision tags require that the target istiod patches ALL webhooks with matching istio.io/rev label,
+	// a behavior that just made it into 1.10 (https://github.com/istio/istio/pull/29583)
+	minRevisionTagIstioVersion = "1.10"
 
 	// help strings and long formatted user outputs
 	skipConfirmationFlagHelpStr = `The skipConfirmation determines whether the user is prompted for confirmation.
