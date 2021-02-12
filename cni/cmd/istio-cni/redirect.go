@@ -75,6 +75,7 @@ type Redirect struct {
 	excludeInboundPorts  string
 	excludeOutboundPorts string
 	kubevirtInterfaces   string
+	dnsRedirect          bool
 }
 
 type annotationValidationFunc func(value string) error
@@ -191,7 +192,7 @@ func getAnnotationOrDefault(name string, annotations map[string]string) (isFound
 }
 
 // NewRedirect returns a new Redirect Object constructed from a list of ports and annotations
-func NewRedirect(annotations map[string]string) (*Redirect, error) {
+func NewRedirect(annotations map[string]string, istioEnvVars map[string]string) (*Redirect, error) {
 	var isFound bool
 	var valErr error
 
@@ -253,5 +254,15 @@ func NewRedirect(annotations map[string]string) (*Redirect, error) {
 		return nil, valErr
 	}
 
+	// dnsRedirect Check from sidecar env variables
+	temp, isFound := istioEnvVars["ISTIO_META_DNS_CAPTURE"]
+	if isFound {
+		// parse and set the bool value of dnsRedirect
+		redir.dnsRedirect, valErr = strconv.ParseBool(temp)
+		if valErr != nil {
+			log.Warnf("environment value error for value %s: envFound = %t: %v",
+				"ISTIO_META_DNS_CAPTURE", isFound, valErr)
+		}
+	}
 	return redir, nil
 }

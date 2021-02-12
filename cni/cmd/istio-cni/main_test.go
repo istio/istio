@@ -44,6 +44,9 @@ var (
 	testInitContainers = map[string]struct{}{
 		"foo-init": {},
 	}
+	testEnvVars = map[string]string{
+		"ISTIO_META_DNS_CAPTURE": "true",
+	}
 	singletonMockInterceptRuleMgr = &mockInterceptRuleMgr{}
 )
 
@@ -121,13 +124,14 @@ func mocknewK8sClient(conf PluginConf) (*kubernetes.Clientset, error) {
 }
 
 func mockgetK8sPodInfo(client *kubernetes.Clientset, podName, podNamespace string) (containers []string,
-	initContainers map[string]struct{}, labels map[string]string, annotations map[string]string, err error) {
+	initContainers map[string]struct{}, labels map[string]string, annotations map[string]string, istioEnvVar map[string]string, err error) {
 	containers = testContainers
 	labels = testLabels
 	annotations = testAnnotations
 	initContainers = testInitContainers
+	istioEnvVar = testEnvVars
 
-	return containers, initContainers, labels, annotations, nil
+	return containers, initContainers, labels, annotations, istioEnvVar, nil
 }
 
 func resetGlobalTestVariables() {

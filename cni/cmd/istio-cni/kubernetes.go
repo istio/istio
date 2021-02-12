@@ -56,11 +56,11 @@ func newK8sClient(conf PluginConf) (*kubernetes.Clientset, error) {
 
 // getK8sPodInfo returns information of a POD
 func getK8sPodInfo(client *kubernetes.Clientset, podName, podNamespace string) (containers []string,
-	initContainers map[string]struct{}, labels map[string]string, annotations map[string]string, err error) {
+	initContainers map[string]struct{}, labels map[string]string, annotations map[string]string, istioEnvVar map[string]string, err error) {
 	pod, err := client.CoreV1().Pods(podNamespace).Get(context.TODO(), podName, metav1.GetOptions{})
 	log.Infof("pod info %+v", pod)
 	if err != nil {
-		return nil, nil, nil, nil, err
+		return nil, nil, nil, nil, nil, err
 	}
 
 	initContainers = map[string]struct{}{}
@@ -68,15 +68,20 @@ func getK8sPodInfo(client *kubernetes.Clientset, podName, podNamespace string) (
 		initContainers[initContainer.Name] = struct{}{}
 	}
 	containers = make([]string, len(pod.Spec.Containers))
+	istioEnvVar = map[string]string{}
 	for containerIdx, container := range pod.Spec.Containers {
 		log.WithLabels("pod", podName, "container", container.Name).Debug("Inspecting container")
 		containers[containerIdx] = container.Name
 
 		if container.Name == "istio-proxy" {
+			// Populate istio sidecar environment variables.
+			for _, env := range container.Env {
+				istioEnvVar[env.Name] = env.Value
+			}
 			// don't include ports from istio-proxy in the redirect ports
 			continue
 		}
 	}
 
-	return containers, initContainers, pod.Labels, pod.Annotations, nil
+	return containers, initContainers, pod.Labels, pod.Annotations, istioEnvVar, nil
 }
