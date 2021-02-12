@@ -114,7 +114,7 @@ func TestMergeGateways(t *testing.T) {
 			}
 			ns := 0
 			for _, ms := range mgw.MergedServers {
-				ns = ns + len(ms.Servers)
+				ns += len(ms.Servers)
 			}
 			if ns != tt.serverNum {
 				t.Errorf("Incorrect number of total merged servers. Expected: %v Got: %d", tt.serverNum, ns)
