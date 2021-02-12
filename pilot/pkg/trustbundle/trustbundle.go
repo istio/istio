@@ -17,7 +17,6 @@ import (
 	"crypto/x509"
 	"encoding/pem"
 	"fmt"
-	"reflect"
 	"strings"
 	"sync"
 
@@ -58,6 +57,18 @@ const (
 	// SOURCE_SPIFFE_ENDPOINT
 	UpdateChannelLen = 10
 )
+
+func checkSameCerts(certs1 []string, certs2 []string) bool {
+	if len(certs1) != len(certs2) {
+		return false
+	}
+	for i := range certs1 {
+		if certs1[i] != certs2[i] {
+			return false
+		}
+	}
+	return true
+}
 
 func NewTrustBundle(updatecb func()) *TrustBundle {
 	tb := &TrustBundle{
@@ -130,7 +141,7 @@ func (tb *TrustBundle) UpdateTrustAnchor(anchorConfig *TrustAnchorUpdate) error 
 	}
 
 	// Check if anything needs to be changed at all
-	if reflect.DeepEqual(anchorConfig.Certs, cachedConfig.Certs) {
+	if checkSameCerts(anchorConfig.Certs, cachedConfig.Certs) {
 		trustBundleLog.Infof("no change to trustAnchor configuration after recent update")
 		return nil
 	}
