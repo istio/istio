@@ -202,7 +202,7 @@ spec:
 		}
 	}
 
-	if err := ioutil.WriteFile(path.Join(dir, "workloadgroup.yaml"), []byte(wg), 0600); err != nil {
+	if err := ioutil.WriteFile(path.Join(dir, "workloadgroup.yaml"), []byte(wg), 0o600); err != nil {
 		return err
 	}
 
@@ -344,7 +344,7 @@ func patchProxyConfigFile(file string, overrides string) error {
 	if err != nil {
 		return err
 	}
-	return ioutil.WriteFile(file, []byte(outYAML), 0744)
+	return ioutil.WriteFile(file, []byte(outYAML), 0o744)
 }
 
 func readMeshConfig(file string) (*meshconfig.MeshConfig, error) {
@@ -438,6 +438,7 @@ func getContainerPorts(ports []echo.Port) echoCommon.PortList {
 			TLS:         p.TLS,
 			ServerFirst: p.ServerFirst,
 			InstanceIP:  p.InstanceIP,
+			LocalhostIP: p.LocalhostIP,
 		}
 		containerPorts = append(containerPorts, cport)
 

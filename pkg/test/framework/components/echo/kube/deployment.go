@@ -138,6 +138,9 @@ spec:
 {{- if $p.InstanceIP }}
           - --bind-ip={{ $p.Port }}
 {{- end }}
+{{- if $p.LocalhostIP }}
+          - --bind-localhost={{ $p.Port }}
+{{- end }}
 {{- end }}
 {{- range $i, $p := $.WorkloadOnlyPorts }}
 {{- if eq .Protocol "TCP" }}
@@ -323,6 +326,9 @@ spec:
 {{- end }}
 {{- if $p.InstanceIP }}
              --bind-ip={{ $p.Port }} \
+{{- end }}
+{{- if $p.LocalhostIP }}
+             --bind-localhost={{ $p.Port }} \
 {{- end }}
 {{- end }}
              --crt=/var/lib/istio/cert.crt \
