@@ -52,7 +52,6 @@ import (
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/security"
-	"istio.io/istio/security/pkg/nodeagent/cache"
 	"istio.io/pkg/log"
 )
 
@@ -318,7 +317,7 @@ func (a *ADSC) tlsConfig() (*tls.Config, error) {
 		serverCABytes, err = ioutil.ReadFile(a.cfg.XDSRootCAFile)
 	} else if a.cfg.SecretManager != nil {
 		// This is a bit crazy - we could just use the file
-		rootCA, err := a.cfg.SecretManager.GenerateSecret(cache.RootCertReqResourceName)
+		rootCA, err := a.cfg.SecretManager.GenerateSecret(security.RootCertReqResourceName)
 		if err != nil {
 			return nil, err
 		}

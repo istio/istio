@@ -47,14 +47,6 @@ const (
 	// The size of a private key for a leaf certificate.
 	keySize = 2048
 
-	// RootCertReqResourceName is resource name of discovery request for root certificate.
-	RootCertReqResourceName = "ROOTCA"
-
-	// WorkloadKeyCertResourceName is the resource name of the discovery request for workload
-	// identity.
-	// TODO: change all the pilot one reference definition here instead.
-	WorkloadKeyCertResourceName = "default"
-
 	// firstRetryBackOffInMilliSec is the initial backoff time interval when hitting
 	// non-retryable error in CSR request or while there is an error in reading file mounts.
 	firstRetryBackOffInMilliSec = 50
@@ -231,7 +223,7 @@ func (sc *SecretManagerClient) GenerateSecret(resourceName string) (secret *secu
 		// possible by keeping the output in a directory with clever use of symlinks in the future,
 		// if needed.
 		sc.outputMutex.Lock()
-		if resourceName == RootCertReqResourceName || resourceName == WorkloadKeyCertResourceName {
+		if resourceName == security.RootCertReqResourceName || resourceName == security.WorkloadKeyCertResourceName {
 			if err := nodeagentutil.OutputKeyCertToDir(sc.configOptions.OutputKeyCertToDir, secret.PrivateKey,
 				secret.CertificateChain, secret.RootCert); err != nil {
 				cacheLog.Errorf("error when output the resource: %v", err)
@@ -256,7 +248,7 @@ func (sc *SecretManagerClient) GenerateSecret(resourceName string) (secret *secu
 	if c := sc.cache.GetWorkload(); c != nil {
 
 		cacheLog.WithLabels("ttl", time.Until(c.ExpireTime)).Info("returned workload certificate from cache")
-		if resourceName == RootCertReqResourceName {
+		if resourceName == security.RootCertReqResourceName {
 			rootCertBundle = sc.mergeConfigTrustBundle(c.RootCert)
 		} else {
 			rootCertBundle = c.RootCert
@@ -279,7 +271,7 @@ func (sc *SecretManagerClient) GenerateSecret(resourceName string) (secret *secu
 	if c := sc.cache.GetWorkload(); c != nil {
 		// Now that we got the lock, check again if there is a cached secret (from the caller holding the lock previously)
 		cacheLog.WithLabels("ttl", time.Until(c.ExpireTime)).Info("returned delayed workload certificate from cache")
-		if resourceName == RootCertReqResourceName {
+		if resourceName == security.RootCertReqResourceName {
 			rootCertBundle = sc.mergeConfigTrustBundle(c.RootCert)
 		} else {
 			rootCertBundle = c.RootCert
@@ -312,9 +304,9 @@ func (sc *SecretManagerClient) GenerateSecret(resourceName string) (secret *secu
 
 		// We store the oldRoot only for comparison and not for serving
 		sc.cache.SetRoot(ns.RootCert)
-		sc.CallUpdateCallback(RootCertReqResourceName)
+		sc.CallUpdateCallback(security.RootCertReqResourceName)
 	}
-	if resourceName == RootCertReqResourceName {
+	if resourceName == security.RootCertReqResourceName {
 		ns.RootCert = sc.mergeConfigTrustBundle(ns.RootCert)
 	}
 
@@ -463,13 +455,13 @@ func (sc *SecretManagerClient) generateFileSecret(resourceName string) (bool, *s
 
 	switch {
 	// Default root certificate.
-	case resourceName == RootCertReqResourceName && sc.rootCertificateExist(cf.CaCertificatePath) && !outputToCertificatePath:
+	case resourceName == security.RootCertReqResourceName && sc.rootCertificateExist(cf.CaCertificatePath) && !outputToCertificatePath:
 		sdsFromFile = true
 		if sitem, err = sc.generateRootCertFromExistingFile(cf.CaCertificatePath, resourceName, true); err == nil {
 			sc.addFileWatcher(cf.CaCertificatePath, resourceName)
 		}
 	// Default workload certificate.
-	case resourceName == WorkloadKeyCertResourceName && sc.keyCertificateExist(cf.CertificatePath, cf.PrivateKeyPath) && !outputToCertificatePath:
+	case resourceName == security.WorkloadKeyCertResourceName && sc.keyCertificateExist(cf.CertificatePath, cf.PrivateKeyPath) && !outputToCertificatePath:
 		sdsFromFile = true
 		if sitem, err = sc.generateKeyCertFromExistingFiles(cf.CertificatePath, cf.PrivateKeyPath, resourceName); err == nil {
 			// Adding cert is sufficient here as key can't change without changing the cert.
@@ -583,7 +575,7 @@ func (sc *SecretManagerClient) rotateTime(secret security.SecretItem) time.Durat
 
 func (sc *SecretManagerClient) registerSecret(item security.SecretItem) {
 	delay := sc.rotateTime(item)
-	item.ResourceName = WorkloadKeyCertResourceName
+	item.ResourceName = security.WorkloadKeyCertResourceName
 	// In case there are two calls to GenerateSecret at once, we don't want both to be concurrently registered
 	if sc.cache.GetWorkload() != nil {
 		resourceLog(item.ResourceName).Infof("skip scheduling certificate rotation, already scheduled")
@@ -699,7 +691,7 @@ func (sc *SecretManagerClient) setConfigTrustBundle(trustBundle []byte) {
 func (sc *SecretManagerClient) UpdateConfigTrustBundle(trustBundle []byte) error {
 	sc.setConfigTrustBundle(trustBundle)
 	// S,G: Any need to check if the TrustBundle configs have changed and only then trigger a callback?
-	sc.CallUpdateCallback(RootCertReqResourceName)
+	sc.CallUpdateCallback(security.RootCertReqResourceName)
 	return nil
 }
 

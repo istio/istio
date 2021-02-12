@@ -96,8 +96,10 @@ func TestUpdateTrustAnchor(t *testing.T) {
 
 	// Add Second Cert update
 	// ensure intermediate CA certs accepted, it replaces the first completely, and lib dedupes duplicate cert
-	tb.UpdateTrustAnchor(&TrustAnchorUpdate{TrustAnchorConfig{Source: SourceMeshConfig,
-		Certs: []string{testCerts["IntermediateCACert"], testCerts["IntermediateCACert"]}}})
+	tb.UpdateTrustAnchor(&TrustAnchorUpdate{TrustAnchorConfig{
+		Source: SourceMeshConfig,
+		Certs:  []string{testCerts["IntermediateCACert"], testCerts["IntermediateCACert"]},
+	}})
 	trustedCerts = tb.GetTrustBundle()
 	if !checkSameCerts(trustedCerts, []string{testCerts["IntermediateCACert"]}) || cbCounter != 2 {
 		t.Errorf("trustbundle intermediate cert update test failed. Callback value is %v", cbCounter)

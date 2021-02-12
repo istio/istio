@@ -74,7 +74,7 @@ func testWorkloadAgentGenerateSecret(t *testing.T, isUsingPluginProvider bool) {
 	}
 
 	sc := createCache(t, fakeCACli, func(resourceName string) {}, security.Options{})
-	gotSecret, err := sc.GenerateSecret(WorkloadKeyCertResourceName)
+	gotSecret, err := sc.GenerateSecret(security.WorkloadKeyCertResourceName)
 	if err != nil {
 		t.Fatalf("Failed to get secrets: %v", err)
 	}
@@ -83,7 +83,7 @@ func testWorkloadAgentGenerateSecret(t *testing.T, isUsingPluginProvider bool) {
 		t.Errorf("Got unexpected certificate chain #1. Got: %v, want: %v", string(got), string(want))
 	}
 
-	gotSecretRoot, err := sc.GenerateSecret(RootCertReqResourceName)
+	gotSecretRoot, err := sc.GenerateSecret(security.RootCertReqResourceName)
 	if err != nil {
 		t.Fatalf("Failed to get secrets: %v", err)
 	}
@@ -93,7 +93,7 @@ func testWorkloadAgentGenerateSecret(t *testing.T, isUsingPluginProvider bool) {
 	}
 
 	// Try to get secret again, verify secret is not generated.
-	gotSecret, err = sc.GenerateSecret(WorkloadKeyCertResourceName)
+	gotSecret, err = sc.GenerateSecret(security.WorkloadKeyCertResourceName)
 	if err != nil {
 		t.Fatalf("Failed to get secrets: %v", err)
 	}
@@ -150,20 +150,20 @@ func TestWorkloadAgentRefreshSecret(t *testing.T) {
 	u := NewUpdateTracker(t)
 	sc := createCache(t, fakeCACli, u.Callback, security.Options{})
 
-	_, err = sc.GenerateSecret(WorkloadKeyCertResourceName)
+	_, err = sc.GenerateSecret(security.WorkloadKeyCertResourceName)
 	if err != nil {
 		t.Fatalf("failed to get secrets: %v", err)
 	}
 
 	// First update will trigger root cert immediately, then workload cert once it expires in 200ms
-	u.Expect(map[string]int{WorkloadKeyCertResourceName: 1, RootCertReqResourceName: 1})
+	u.Expect(map[string]int{security.WorkloadKeyCertResourceName: 1, security.RootCertReqResourceName: 1})
 
-	_, err = sc.GenerateSecret(WorkloadKeyCertResourceName)
+	_, err = sc.GenerateSecret(security.WorkloadKeyCertResourceName)
 	if err != nil {
 		t.Fatalf("failed to get secrets: %v", err)
 	}
 
-	u.Expect(map[string]int{WorkloadKeyCertResourceName: 2, RootCertReqResourceName: 1})
+	u.Expect(map[string]int{security.WorkloadKeyCertResourceName: 2, security.RootCertReqResourceName: 1})
 }
 
 // Compare times, with 5s error allowance
@@ -338,8 +338,8 @@ func runFileAgentTest(t *testing.T, sds bool) {
 
 	setupTestDir(t, sc)
 
-	workloadResource := WorkloadKeyCertResourceName
-	rootResource := RootCertReqResourceName
+	workloadResource := security.WorkloadKeyCertResourceName
+	rootResource := security.RootCertReqResourceName
 	if sds {
 		workloadResource = sc.existingCertificateFile.GetResourceName()
 		rootResource = sc.existingCertificateFile.GetRootResourceName()
