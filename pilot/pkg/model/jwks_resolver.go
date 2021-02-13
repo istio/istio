@@ -18,6 +18,7 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"net/http"
@@ -220,6 +221,8 @@ func newJwksResolverWithCABundlePaths(
 	return ret
 }
 
+var errEmptyPubKeyFoundInCache = errors.New("empty public key found in cache")
+
 // GetPublicKey gets JWT public key and cache the key for future use.
 func (r *JwksResolver) GetPublicKey(issuer string, jwksURI string) (string, error) {
 	now := time.Now()
@@ -229,6 +232,9 @@ func (r *JwksResolver) GetPublicKey(issuer string, jwksURI string) (string, erro
 		// Update cached key's last used time.
 		e.lastUsedTime = now
 		r.keyEntries.Store(key, e)
+		if e.pubKey == "" {
+			return e.pubKey, errEmptyPubKeyFoundInCache
+		}
 		return e.pubKey, nil
 	}
 
