@@ -31,20 +31,19 @@ func TestMergeGateways(t *testing.T) {
 
 	gwHTTPWildcardAlternate := makeConfig("foo2", "not-default", "*", "name2", "http", 7, "ingressgateway2")
 
+	// TODO(ramaraochavali): Add more test cases here.
 	tests := []struct {
-		name               string
-		gwConfig           []config.Config
-		mergedServersNum   int
-		serverNum          int
-		serversForRouteNum map[string]int
-		gatewaysNum        int
+		name             string
+		gwConfig         []config.Config
+		mergedServersNum int
+		serverNum        int
+		gatewaysNum      int
 	}{
 		{
 			"single-server-config",
 			[]config.Config{gwHTTPFoo},
 			1,
 			1,
-			map[string]int{"http.7": 1},
 			1,
 		},
 		{
@@ -52,7 +51,6 @@ func TestMergeGateways(t *testing.T) {
 			[]config.Config{gwHTTPFoo, gwHTTPbar},
 			1,
 			2,
-			map[string]int{"http.7": 2},
 			2,
 		},
 		{
@@ -60,7 +58,6 @@ func TestMergeGateways(t *testing.T) {
 			[]config.Config{gwHTTPFoo, gwHTTPWildcardAlternate},
 			1,
 			2,
-			map[string]int{"http.7": 2},
 			2,
 		},
 		{
@@ -68,7 +65,6 @@ func TestMergeGateways(t *testing.T) {
 			[]config.Config{gwHTTPFoo, gwHTTPWildcardAlternate, gwHTTPWildcard},
 			2,
 			3,
-			map[string]int{"http.7": 2, "http.8": 1},
 			3,
 		},
 		{
@@ -76,7 +72,6 @@ func TestMergeGateways(t *testing.T) {
 			[]config.Config{gwHTTPFoo, gwTCPWildcard},
 			2,
 			2,
-			map[string]int{"http.7": 1},
 			2,
 		},
 		{
@@ -84,7 +79,6 @@ func TestMergeGateways(t *testing.T) {
 			[]config.Config{gwTCPWildcard, gwHTTPWildcard},
 			1,
 			1,
-			map[string]int{},
 			2,
 		},
 		{
@@ -92,7 +86,6 @@ func TestMergeGateways(t *testing.T) {
 			[]config.Config{gwHTTPWildcard, gwTCPWildcard}, // order matters
 			1,
 			1,
-			map[string]int{"http.8": 1},
 			2,
 		},
 		{
@@ -100,8 +93,6 @@ func TestMergeGateways(t *testing.T) {
 			[]config.Config{gwHTTPWildcard, gwHTTP2Wildcard}, // order matters
 			1,
 			2,
-			// http and http2 both present
-			map[string]int{"http.8": 2},
 			2,
 		},
 	}
@@ -118,14 +109,6 @@ func TestMergeGateways(t *testing.T) {
 			}
 			if ns != tt.serverNum {
 				t.Errorf("Incorrect number of total merged servers. Expected: %v Got: %d", tt.serverNum, ns)
-			}
-			if len(mgw.ServersByRouteName) != len(tt.serversForRouteNum) {
-				t.Errorf("Incorrect number of routes. Expected: %v Got: %d", len(tt.serversForRouteNum), len(mgw.ServersByRouteName))
-			}
-			for k, v := range mgw.ServersByRouteName {
-				if tt.serversForRouteNum[k] != len(v) {
-					t.Errorf("for route %v expected %v servers got %v", k, tt.serversForRouteNum[k], len(v))
-				}
 			}
 			if len(mgw.GatewayNameForServer) != tt.gatewaysNum {
 				t.Errorf("Incorrect number of gateways. Expected: %v Got: %d", tt.gatewaysNum, len(mgw.GatewayNameForServer))

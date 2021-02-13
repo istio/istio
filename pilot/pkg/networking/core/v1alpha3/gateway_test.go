@@ -1099,10 +1099,10 @@ func TestCreateGatewayHTTPFilterChainOpts(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			cgi := NewConfigGenerator([]plugin.Plugin{}, &pilot_model.DisabledCache{})
-			tc.node.MergedGateway = &pilot_model.MergedGateway{SNIHostsByServer: map[*networking.Server][]string{
-				tc.server: pilot_model.GetSNIHostsForServer(tc.server),
+			tc.node.MergedGateway = &pilot_model.MergedGateway{TLSServerInfo: map[*networking.Server]*pilot_model.TLSServerInfo{
+				tc.server: {SNIHosts: pilot_model.GetSNIHostsForServer(tc.server)},
 			}}
-			ret := cgi.createGatewayHTTPFilterChainOpts(tc.node, tc.server, tc.routeName, tc.proxyConfig)
+			ret := cgi.createGatewayHTTPFilterChainOpts(tc.node, tc.server.Port, tc.server, tc.routeName, tc.proxyConfig)
 			if diff := cmp.Diff(tc.result.tlsContext, ret.tlsContext, protocmp.Transform()); diff != "" {
 				t.Errorf("got diff in tls context: %v", diff)
 			}
