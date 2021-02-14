@@ -622,26 +622,40 @@ func (sc *SecretManagerClient) handleFileWatch() {
 			if !(isWrite(event) || isRemove(event) || isCreate(event)) {
 				continue
 			}
-			cacheLog.Debugf("file cert update: %v", event)
-
-			sc.certMutex.RLock()
-			resources := sc.fileCerts
-			sc.certMutex.RUnlock()
-			// Trigger callbacks for all resources referencing this file. This is practically always
-			// a single resource.
-			for k := range resources {
-				if k.Filename == event.Name {
-					sc.CallUpdateCallback(k.ResourceName)
+			// Typically inotify notifies about file change after the event i.e. write is complete. It only
+			// does some housekeeping tasks after the event is generated. However in some cases, multiple events
+			// are triggered in quick succession - to handle that case we debounce here.
+			go debounce(100*time.Millisecond, func() {
+				cacheLog.Debugf("file cert update: %v", event)
+				sc.certMutex.RLock()
+				resources := sc.fileCerts
+				sc.certMutex.RUnlock()
+				// Trigger callbacks for all resources referencing this file. This is practically always
+				// a single resource.
+				for k := range resources {
+					if k.Filename == event.Name {
+						sc.CallUpdateCallback(k.ResourceName)
+					}
 				}
-			}
+			})
 
 		case err, ok := <-sc.certWatcher.Errors:
 			// Channel is closed.
 			if !ok {
 				return
 			}
-
+			numFileWatcherFailures.Increment()
 			cacheLog.Errorf("certificate watch error: %v", err)
+		}
+	}
+}
+
+func debounce(interval time.Duration, cb func()) {
+	timer := time.NewTimer(interval)
+	for {
+		select {
+		case <-timer.C:
+			cb()
 		}
 	}
 }
