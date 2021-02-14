@@ -32,7 +32,7 @@ import (
 type MergedServers struct {
 	Port      *networking.Port
 	Servers   []*networking.Server
-	RouteName string
+	RouteName string // RouteName for http servers. For HTTPS, TLSServerInfo will hold the route name.
 }
 
 // TLSServerInfo contains additional information for TLS Servers.
@@ -55,7 +55,7 @@ type MergedGateway struct {
 	// The typical length of the value is always 1, except for HTTP (not HTTPS),
 	ServersByRouteName map[string][]*networking.Server
 
-	// TLSServerInfo maps from server to a corresponding TLS information.
+	// TLSServerInfo maps from server to a corresponding TLS information like TLS Routename and SNIHosts.
 	TLSServerInfo map[*networking.Server]*TLSServerInfo
 }
 
