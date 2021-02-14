@@ -652,12 +652,8 @@ func (sc *SecretManagerClient) handleFileWatch() {
 
 func debounce(interval time.Duration, cb func()) {
 	timer := time.NewTimer(interval)
-	for {
-		select {
-		case <-timer.C:
-			cb()
-		}
-	}
+	<-timer.C
+	cb()
 }
 
 func isWrite(event fsnotify.Event) bool {
