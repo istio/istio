@@ -50,8 +50,10 @@ type MergedGateway struct {
 	// Used for select the set of virtual services that apply to a port.
 	GatewayNameForServer map[*networking.Server]string
 
-	// PortsByRouteName maps from route names to ports.
-	PortsByRouteName map[string]uint32
+	// ServersByRouteName maps from port names to virtual hosts
+	// Used for RDS. No two port names share same port except for HTTPS
+	// The typical length of the value is always 1, except for HTTP (not HTTPS),
+	ServersByRouteName map[string][]*networking.Server
 
 	// TLSServerInfo maps from server to a corresponding TLS information.
 	TLSServerInfo map[*networking.Server]*TLSServerInfo
@@ -82,7 +84,7 @@ func RecordRejectedConfig(gatewayName string) {
 func MergeGateways(gateways ...config.Config) *MergedGateway {
 	gatewayPorts := make(map[uint32]bool)
 	mergedServers := make(map[uint32]*MergedServers)
-	portsByRouteName := make(map[string]uint32)
+	serversByRouteName := make(map[string][]*networking.Server)
 	tlsServerInfo := make(map[*networking.Server]*TLSServerInfo)
 	gatewayNameForServer := make(map[*networking.Server]string)
 	tlsHostsByPort := map[uint32]sets.Set{} // port -> host set
@@ -143,7 +145,7 @@ func MergeGateways(gateways ...config.Config) *MergedGateway {
 						RecordRejectedConfig(gatewayName)
 						continue
 					}
-					portsByRouteName[routeName] = s.Port.Number
+					serversByRouteName[routeName] = append(serversByRouteName[routeName], s)
 					ms.RouteName = routeName
 					ms.Servers = append(ms.Servers, s)
 				} else {
@@ -163,13 +165,14 @@ func MergeGateways(gateways ...config.Config) *MergedGateway {
 						// of the keys are same. So we treat them as effectively different TLS settings.
 						// This check is largely redundant now since we create rds names for https using gateway name, namespace
 						// and validation ensures that all port names within a single gateway config are unique.
-						if _, exists := portsByRouteName[routeName]; exists {
+						if _, exists := serversByRouteName[routeName]; exists {
 							log.Infof("skipping server on gateway %s port %s.%d.%s: non unique port name for HTTPS port",
 								gatewayConfig.Name, s.Port.Name, s.Port.Number, s.Port.Protocol)
 							RecordRejectedConfig(gatewayName)
 							continue
 						}
-						portsByRouteName[routeName] = s.Port.Number
+						serversByRouteName[routeName] = []*networking.Server{s}
+						tlsServerInfo[s].RouteName = routeName
 					}
 
 					// We have another TLS server on the same port. Can differentiate servers using SNI
@@ -184,8 +187,8 @@ func MergeGateways(gateways ...config.Config) *MergedGateway {
 				ms := &MergedServers{Servers: []*networking.Server{s}, Port: s.Port}
 				routeName := gatewayRDSRouteName(s, gatewayConfig)
 				if gateway.IsHTTPServer(s) {
-					portsByRouteName[routeName] = s.Port.Number
 					ms.RouteName = routeName
+					serversByRouteName[routeName] = []*networking.Server{s}
 				}
 				if s.Tls != nil {
 					tlsServerInfo[s].RouteName = routeName
@@ -200,7 +203,7 @@ func MergeGateways(gateways ...config.Config) *MergedGateway {
 		MergedServers:        mergedServers,
 		GatewayNameForServer: gatewayNameForServer,
 		TLSServerInfo:        tlsServerInfo,
-		PortsByRouteName:     portsByRouteName,
+		ServersByRouteName:   serversByRouteName,
 	}
 }
 

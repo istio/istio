@@ -237,7 +237,7 @@ func (configgen *ConfigGeneratorImpl) buildGatewayHTTPRouteConfig(node *model.Pr
 	log.Debugf("buildGatewayRoutes: gateways after merging: %v", merged)
 
 	// make sure that there is some server listening on this port
-	if _, ok := merged.PortsByRouteName[routeName]; !ok {
+	if _, ok := merged.ServersByRouteName[routeName]; !ok {
 		log.Warnf("Gateway missing for route %s. This is normal if gateway was recently deleted.", routeName)
 
 		// This can happen when a gateway has recently been deleted. Envoy will still request route
@@ -245,8 +245,8 @@ func (configgen *ConfigGeneratorImpl) buildGatewayHTTPRouteConfig(node *model.Pr
 		return nil
 	}
 
-	port := merged.PortsByRouteName[routeName]
-	servers := merged.MergedServers[port].Servers
+	servers := merged.ServersByRouteName[routeName]
+	port := int(servers[0].Port.Number) // all these servers are for the same routeName, and therefore same port
 
 	gatewayRoutes := make(map[string]map[string][]*route.Route)
 	gatewayVirtualServices := make(map[string][]config.Config)
@@ -273,8 +273,8 @@ func (configgen *ConfigGeneratorImpl) buildGatewayHTTPRouteConfig(node *model.Pr
 					}
 				} else {
 					newVHost := &route.VirtualHost{
-						Name:                       domainName(hostname, int(port)),
-						Domains:                    buildGatewayVirtualHostDomains(hostname, int(port)),
+						Name:                       domainName(hostname, port),
+						Domains:                    buildGatewayVirtualHostDomains(hostname, port),
 						IncludeRequestAttemptCount: true,
 					}
 					if server.Tls != nil && server.Tls.HttpsRedirect {
@@ -310,7 +310,7 @@ func (configgen *ConfigGeneratorImpl) buildGatewayHTTPRouteConfig(node *model.Pr
 			vskey := virtualService.Name + "/" + virtualService.Namespace
 
 			if routes, exists = gatewayRoutes[gatewayName][vskey]; !exists {
-				routes, err = istio_route.BuildHTTPRoutesForVirtualService(node, push, virtualService, nameToServiceMap, int(port), map[string]bool{gatewayName: true})
+				routes, err = istio_route.BuildHTTPRoutesForVirtualService(node, push, virtualService, nameToServiceMap, port, map[string]bool{gatewayName: true})
 				if err != nil {
 					log.Debugf("%s omitting routes for virtual service %v/%v due to error: %v", node.ID, virtualService.Namespace, virtualService.Name, err)
 					continue
@@ -326,8 +326,8 @@ func (configgen *ConfigGeneratorImpl) buildGatewayHTTPRouteConfig(node *model.Pr
 					}
 				} else {
 					newVHost := &route.VirtualHost{
-						Name:                       domainName(string(hostname), int(port)),
-						Domains:                    buildGatewayVirtualHostDomains(string(hostname), int(port)),
+						Name:                       domainName(string(hostname), port),
+						Domains:                    buildGatewayVirtualHostDomains(string(hostname), port),
 						Routes:                     routes,
 						IncludeRequestAttemptCount: true,
 					}
@@ -344,7 +344,7 @@ func (configgen *ConfigGeneratorImpl) buildGatewayHTTPRouteConfig(node *model.Pr
 	if len(vHostDedupMap) == 0 {
 		log.Warnf("constructed http route config for route %s on port %d with no vhosts; Setting up a default 404 vhost", routeName, port)
 		virtualHosts = []*route.VirtualHost{{
-			Name:    domainName("blackhole", int(port)),
+			Name:    domainName("blackhole", port),
 			Domains: []string{"*"},
 			// Empty route list will cause Envoy to 404 NR any requests
 			Routes: []*route.Route{},
