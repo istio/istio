@@ -172,7 +172,6 @@ func validateHTTPRouteMatchRequest(http *networking.HTTPRoute, routeType HTTPRou
 
 			}
 		}
-
 	}
 
 	for _, match := range http.Match {

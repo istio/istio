@@ -39,32 +39,34 @@ import (
 
 func GetAdditionVMImages() []string {
 	// Note - bionic is not here as its the default
-	return []string{"app_sidecar_ubuntu_xenial", "app_sidecar_ubuntu_focal",
-		"app_sidecar_debian_9", "app_sidecar_debian_10", "app_sidecar_centos_7", "app_sidecar_centos_8"}
+	return []string{
+		"app_sidecar_ubuntu_xenial", "app_sidecar_ubuntu_focal",
+		"app_sidecar_debian_9", "app_sidecar_debian_10", "app_sidecar_centos_7", "app_sidecar_centos_8",
+	}
 }
 
 func TestVmOSPost(t *testing.T) {
 	framework.
 		NewTest(t).
-		RequiresSingleCluster(). // TODO(landow) fix DNS issues with multicluster/VMs/headless
 		Features("traffic.reachability").
 		Label(label.Postsubmit).
 		Run(func(ctx framework.TestContext) {
-			b := echoboot.NewBuilder(ctx)
+			if ctx.Settings().SkipVM {
+				ctx.Skip("VM tests are disabled")
+			}
+			b := echoboot.NewBuilder(ctx, ctx.Clusters().Primaries().Default())
 			images := GetAdditionVMImages()
-			instances := make([]echo.Instance, len(images))
-			for i, image := range images {
-				b = b.With(&instances[i], echo.Config{
+			for _, image := range images {
+				b = b.WithConfig(echo.Config{
 					Service:    "vm-" + strings.ReplaceAll(image, "_", "-"),
 					Namespace:  apps.Namespace,
 					Ports:      common.EchoPorts,
 					DeployAsVM: true,
 					VMImage:    image,
 					Subsets:    []echo.SubsetConfig{{}},
-					Cluster:    ctx.Clusters().Default(),
 				})
 			}
-			b.BuildOrFail(ctx)
+			instances := b.BuildOrFail(ctx)
 
 			for i, image := range images {
 				i, image := i, image

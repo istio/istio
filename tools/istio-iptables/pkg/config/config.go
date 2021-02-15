@@ -48,6 +48,8 @@ type Config struct {
 	RunValidation           bool          `json:"RUN_VALIDATION"`
 	RedirectDNS             bool          `json:"REDIRECT_DNS"`
 	EnableInboundIPv6       bool          `json:"ENABLE_INBOUND_IPV6"`
+	DNSServersV4            []string      `json:"DNS_SERVERS_V4"`
+	DNSServersV6            []string      `json:"DNS_SERVERS_V6"`
 }
 
 func (c *Config) String() string {
@@ -77,5 +79,7 @@ func (c *Config) Print() {
 	fmt.Printf("OUTBOUND_PORTS_EXCLUDE=%s\n", c.OutboundPortsExclude)
 	fmt.Printf("KUBEVIRT_INTERFACES=%s\n", c.KubevirtInterfaces)
 	fmt.Printf("ENABLE_INBOUND_IPV6=%t\n", c.EnableInboundIPv6)
+	fmt.Printf("DNS_CAPTURE=%t\n", c.RedirectDNS)
+	fmt.Printf("DNS_SERVERS=%s,%s\n", c.DNSServersV4, c.DNSServersV6)
 	fmt.Println("")
 }

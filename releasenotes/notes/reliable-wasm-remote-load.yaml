@@ -1,0 +1,9 @@
+apiVersion: release-notes/v2
+kind: feature
+area: extensibility
+issue:
+  - 29989
+
+releaseNotes:
+- |
+  **Added** Reliable Wasm module remote load with istio-agent.

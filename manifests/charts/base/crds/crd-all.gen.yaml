@@ -2821,6 +2821,11 @@ spec:
 apiVersion: apiextensions.k8s.io/v1beta1
 kind: CustomResourceDefinition
 metadata:
+  labels:
+    app: istio-pilot
+    chart: istio
+    heritage: Tiller
+    release: istio
   name: workloadgroups.networking.istio.io
 spec:
   additionalPrinterColumns:
@@ -3052,6 +3057,7 @@ spec:
               - CUSTOM
               type: string
             provider:
+              description: Specifies detailed configuration of the CUSTOM action.
               properties:
                 name:
                   description: Specifies the name of the extension provider.

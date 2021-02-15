@@ -17,14 +17,16 @@ package kube
 import (
 	"bufio"
 	"fmt"
+	"io/ioutil"
 	"strings"
 	"text/template"
 
 	"github.com/Masterminds/sprig/v3"
+	"gopkg.in/yaml.v3"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/image"
-	"istio.io/istio/pkg/test/framework/resource"
 	"istio.io/istio/pkg/test/util/tmpl"
 )
 
@@ -98,6 +100,10 @@ spec:
 {{- if $.ServiceAccount }}
       serviceAccountName: {{ $.Service }}
 {{- end }}
+{{- if ne $.ImagePullSecret "" }}
+      imagePullSecrets:
+      - name: {{ $.ImagePullSecret }}
+{{- end }}
       containers:
 {{- if $.IncludeExtAuthz }}
       - name: ext-authz
@@ -131,6 +137,9 @@ spec:
 {{- end }}
 {{- if $p.InstanceIP }}
           - --bind-ip={{ $p.Port }}
+{{- end }}
+{{- if $p.LocalhostIP }}
+          - --bind-localhost={{ $p.Port }}
 {{- end }}
 {{- end }}
 {{- range $i, $p := $.WorkloadOnlyPorts }}
@@ -258,6 +267,10 @@ spec:
           value: "1"
       # Disable service account mount, to mirror VM
       automountServiceAccountToken: false
+      {{- if $.ImagePullSecret }}
+      imagePullSecrets:
+      - name: {{ $.ImagePullSecret }}
+      {{- end }}
       containers:
       - name: istio-proxy
         image: {{ $.Hub }}/{{ $.VM.Image }}:{{ $.Tag }}
@@ -313,6 +326,9 @@ spec:
 {{- end }}
 {{- if $p.InstanceIP }}
              --bind-ip={{ $p.Port }} \
+{{- end }}
+{{- if $p.LocalhostIP }}
+             --bind-localhost={{ $p.Port }} \
 {{- end }}
 {{- end }}
              --crt=/var/lib/istio/cert.crt \
@@ -374,28 +390,44 @@ func init() {
 	}
 }
 
-func generateYAML(cfg echo.Config, cluster resource.Cluster) (serviceYAML string, deploymentYAML string, err error) {
-	// Create the parameters for the YAML template.
-	settings, err := image.SettingsFromCommandLine()
+func generateDeploymentWithSettings(cfg echo.Config, settings *image.Settings) (string, error) {
+	params, err := templateParams(cfg, settings)
 	if err != nil {
-		return "", "", err
+		return "", err
 	}
-	return generateYAMLWithSettings(cfg, settings, cluster)
+
+	deploy := deploymentTemplate
+	if cfg.DeployAsVM {
+		deploy = vmDeploymentTemplate
+	}
+
+	return tmpl.Execute(deploy, params)
+}
+
+func generateDeployment(cfg echo.Config) (string, error) {
+	return generateDeploymentWithSettings(cfg, nil)
+}
+
+func GenerateService(cfg echo.Config) (string, error) {
+	params, err := templateParams(cfg, nil)
+	if err != nil {
+		return "", err
+	}
+
+	return tmpl.Execute(serviceTemplate, params)
 }
 
 const DefaultVMImage = "app_sidecar_ubuntu_bionic"
 
-func generateYAMLWithSettings(cfg echo.Config,
-	settings *image.Settings, cluster resource.Cluster) (serviceYAML string, deploymentYAML string, err error) {
-	ver, err := cluster.GetKubernetesVersion()
-	if err != nil {
-		return "", "", err
+func templateParams(cfg echo.Config, settings *image.Settings) (map[string]interface{}, error) {
+	if settings == nil {
+		var err error
+		settings, err = image.SettingsFromCommandLine()
+		if err != nil {
+			return nil, err
+		}
 	}
-	supportStartupProbe := true
-	if ver.Minor < "16" {
-		// Added in Kubernetes 1.16
-		supportStartupProbe = false
-	}
+	supportStartupProbe := cfg.Cluster.MinKubeVersion(16, 0)
 
 	// if image is not provided, default to app_sidecar
 	vmImage := DefaultVMImage
@@ -405,6 +437,18 @@ func generateYAMLWithSettings(cfg echo.Config,
 	namespace := ""
 	if cfg.Namespace != nil {
 		namespace = cfg.Namespace.Name()
+	}
+	imagePullSecret := ""
+	if settings.ImagePullSecret != "" {
+		data, err := ioutil.ReadFile(settings.ImagePullSecret)
+		if err != nil {
+			return nil, err
+		}
+		secret := unstructured.Unstructured{Object: map[string]interface{}{}}
+		if err := yaml.Unmarshal(data, secret.Object); err != nil {
+			return nil, err
+		}
+		imagePullSecret = secret.GetName()
 	}
 	params := map[string]interface{}{
 		"Hub":                settings.Hub,
@@ -423,25 +467,14 @@ func generateYAMLWithSettings(cfg echo.Config,
 		"TLSSettings":        cfg.TLSSettings,
 		"Cluster":            cfg.Cluster.Name(),
 		"Namespace":          namespace,
+		"ImagePullSecret":    imagePullSecret,
 		"VM": map[string]interface{}{
 			"Image": vmImage,
 		},
 		"StartupProbe":    supportStartupProbe,
 		"IncludeExtAuthz": cfg.IncludeExtAuthz,
 	}
-	serviceYAML, err = tmpl.Execute(serviceTemplate, params)
-	if err != nil {
-		return
-	}
-
-	deploy := deploymentTemplate
-	if cfg.DeployAsVM {
-		deploy = vmDeploymentTemplate
-	}
-
-	// Generate the YAML content.
-	deploymentYAML, err = tmpl.Execute(deploy, params)
-	return
+	return params, nil
 }
 
 func lines(input string) []string {

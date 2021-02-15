@@ -1,0 +1,33 @@
+apiVersion: release-notes/v2
+kind: feature
+area: installation
+issue:
+  - 30013
+
+releaseNotes:
+- |
+  **Improved** the sidecar injector to better utilize pod labels to determine if injection is required.
+upgradeNotes:
+- title: Sidecar Injector Changes
+  content: |
+    The logic to determine if a pod requires sideacr injection or not has been updated to make use of
+    new Kubernetes features. Previously, the webhook was triggered at a coarse grain level, selecting any
+    pods in a namespace with a matching `istio-injection=enabled` label.
+
+    This has two limitations:
+
+    * Opting out individual pods with the `sidecar.istio.io/inject` label would still trigger the webhook,
+      only to be filtered out by Istio. This can have the unexpected impact of adding a dependency on Istio
+      when one is not expected.
+
+    * There is no way to opt-in an individual pod, with `sidecar.istio.io/inject`, without enabling injection
+      for the entire namespace.
+
+    These limitations have both been resolved. As a result, additional pods may be injected that were not in previous versions,
+    if they exist in a namespace without an `istio-injection` label set but have the `sidecar.istio.io/inject` label set on the pod.
+    This is expected to be an uncommon case, so for most users there will be no behavioral changes to existing pods.
+
+    If this behavior is not desired, it can be temporarily disabled with `--set values.sidecarInjectorWebhook.useLegacySelectors=true`.
+    This option will be removed in future releases.
+
+    See the updated [Automatic sidecar injection](/docs/setup/additional-setup/sidecar-injection/) documentation for more information.

@@ -44,9 +44,10 @@ const (
 	NotesFileNameSuffix = ".txt"
 )
 
-var (
-	scope = log.RegisterScope("installer", "installer", 0)
-)
+var scope = log.RegisterScope("installer", "installer", 0)
+
+// TemplateFilterFunc filters templates to render by their file name
+type TemplateFilterFunc func(string) bool
 
 // TemplateRenderer defines a helm template renderer interface.
 type TemplateRenderer interface {
@@ -55,6 +56,8 @@ type TemplateRenderer interface {
 	// RenderManifest renders the associated helm charts with the given values YAML string and returns the resulting
 	// string.
 	RenderManifest(values string) (string, error)
+	// RenderManifestFiltered filters manifests to render by template file name
+	RenderManifestFiltered(values string, filter TemplateFilterFunc) (string, error)
 }
 
 // NewHelmRenderer creates a new helm renderer with the given parameters and returns an interface to it.
@@ -96,7 +99,7 @@ func ReadProfileYAML(profile, manifestsPath string) (string, error) {
 }
 
 // renderChart renders the given chart with the given values and returns the resulting YAML manifest string.
-func renderChart(namespace, values string, chrt *chart.Chart) (string, error) {
+func renderChart(namespace, values string, chrt *chart.Chart, filterFunc TemplateFilterFunc) (string, error) {
 	options := chartutil.ReleaseOptions{
 		Name:      "istio",
 		Namespace: namespace,
@@ -109,6 +112,16 @@ func renderChart(namespace, values string, chrt *chart.Chart) (string, error) {
 	vals, err := chartutil.ToRenderValues(chrt, valuesMap, options, nil)
 	if err != nil {
 		return "", err
+	}
+
+	if filterFunc != nil {
+		filteredTemplates := []*chart.File{}
+		for _, t := range chrt.Templates {
+			if filterFunc(t.Name) {
+				filteredTemplates = append(filteredTemplates, t)
+			}
+		}
+		chrt.Templates = filteredTemplates
 	}
 
 	files, err := engine.Render(chrt, vals)

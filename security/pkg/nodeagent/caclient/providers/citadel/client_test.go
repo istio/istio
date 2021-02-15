@@ -94,6 +94,7 @@ func tlsOptions(t *testing.T) grpc.ServerOption {
 		ClientCAs:    peerCertVerifier.GetGeneralCertPool(),
 	}))
 }
+
 func serve(t *testing.T, ca mockCAServer, opts ...grpc.ServerOption) string {
 	// create a local grpc server
 	s := grpc.NewServer(opts...)

@@ -25,9 +25,7 @@ import (
 	"istio.io/pkg/log"
 )
 
-var (
-	gcecredLog = log.RegisterScope("gcecred", "GCE credential fetcher for istio agent", 0)
-)
+var gcecredLog = log.RegisterScope("gcecred", "GCE credential fetcher for istio agent", 0)
 
 // The plugin object.
 type GCEPlugin struct {

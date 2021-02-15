@@ -60,8 +60,10 @@ func init() {
 }
 
 // ComponentTree represents a tree of component dependencies.
-type ComponentTree map[name.ComponentName]interface{}
-type componentNameToListMap map[name.ComponentName][]name.ComponentName
+type (
+	ComponentTree          map[name.ComponentName]interface{}
+	componentNameToListMap map[name.ComponentName][]name.ComponentName
+)
 
 var (
 	// ComponentDependencies is a tree of component dependencies. The semantics are ComponentDependencies[cname] gives
@@ -145,7 +147,7 @@ func applyOverlay(current, overlay *unstructured.Unstructured) error {
 // createPortMap returns a map, mapping the value of the port and value of the nodePort
 func createPortMap(current *unstructured.Unstructured) map[string]uint32 {
 	portMap := make(map[string]uint32)
-	var svc = &v1.Service{}
+	svc := &v1.Service{}
 	if err := scheme.Scheme.Convert(current, svc, nil); err != nil {
 		log.Error(err.Error())
 		return portMap

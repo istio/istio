@@ -57,7 +57,6 @@ type Reporter struct {
 	// map from nonce to connection ids for which it is current
 	// using map[string]struct to approximate a hashset
 	reverseStatus          map[string]map[string]struct{}
-	dirty                  bool
 	inProgressResources    map[string]*inProgressEntry
 	client                 v1.ConfigMapInterface
 	cm                     *corev1.ConfigMap
@@ -66,12 +65,15 @@ type Reporter struct {
 	clock                  clock.Clock
 	ledger                 ledger.Ledger
 	distributionEventQueue chan distributionEvent
+	controller             *DistributionController
 }
 
 var _ xds.DistributionStatusCache = &Reporter{}
 
-const labelKey = "internal.istio.io/distribution-report"
-const dataField = "distribution-report"
+const (
+	labelKey  = "internal.istio.io/distribution-report"
+	dataField = "distribution-report"
+)
 
 // Init starts all the read only features of the reporter, used for nonce generation
 // and responding to istioctl wait.
@@ -156,7 +158,7 @@ func (r *Reporter) buildReport() (DistributionReport, []Resource) {
 			// check to see if this version of the config contains this version of the resource
 			// it might be more optimal to provide for a full dump of the config at a certain version?
 			dpVersion, err := r.ledger.GetPreviousValue(nonce, res.ToModelKey())
-			if err == nil && dpVersion == res.ResourceVersion {
+			if err == nil && dpVersion == res.Generation {
 				if _, ok := out.InProgressResources[key]; !ok {
 					out.InProgressResources[key] = len(dataplanes)
 				} else {
@@ -221,6 +223,9 @@ func (r *Reporter) AddInProgressResource(res config.Config) {
 
 func (r *Reporter) DeleteInProgressResource(res config.Config) {
 	tryLedgerDelete(r.ledger, res)
+	if r.controller != nil {
+		r.controller.configDeleted(res)
+	}
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	delete(r.inProgressResources, res.Key())
@@ -296,13 +301,11 @@ func (r *Reporter) readFromEventQueue() {
 		// TODO might need to batch this to prevent lock contention
 		r.processEvent(ev.conID, ev.distributionType, ev.nonce)
 	}
-
 }
 
 func (r *Reporter) processEvent(conID string, distributionType xds.EventType, nonce string) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
-	r.dirty = true
 	key := conID + distributionType // TODO: delimit?
 	r.deleteKeyFromReverseMap(key)
 	var version string
@@ -336,10 +339,13 @@ func (r *Reporter) deleteKeyFromReverseMap(key string) {
 func (r *Reporter) RegisterDisconnect(conID string, types []xds.EventType) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
-	r.dirty = true
 	for _, xdsType := range types {
 		key := conID + xdsType // TODO: delimit?
 		r.deleteKeyFromReverseMap(key)
 		delete(r.status, key)
 	}
+}
+
+func (r *Reporter) SetController(controller *DistributionController) {
+	r.controller = controller
 }

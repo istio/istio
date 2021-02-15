@@ -21,6 +21,7 @@ import (
 	"time"
 
 	"istio.io/istio/pkg/test/env"
+	"istio.io/istio/pkg/test/envoy"
 	sdsTest "istio.io/istio/security/pkg/nodeagent/test"
 )
 
@@ -41,7 +42,7 @@ var (
 func TestCertRotation(t *testing.T) {
 	t.Skip("https://github.com/istio/istio/issues/24220")
 	sdsTest.RotateCert(rotateInterval)
-	setup := sdsTest.SetupTest(t, env.SDSCertRotation)
+	setup := sdsTest.SetupTest(t, envoy.SDSCertRotation)
 	defer setup.TearDown()
 	setup.StartProxy(t)
 	start := time.Now()
@@ -60,7 +61,6 @@ func TestCertRotation(t *testing.T) {
 		}
 		time.Sleep(sleepTime)
 		cert, err := GetInboundCert(setup.InboundListenerPort)
-
 		if err != nil {
 			continue
 		}

@@ -15,16 +15,18 @@
 package controller
 
 import (
+	"reflect"
 	"testing"
 
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pkg/config/labels"
 )
 
 func TestHasProxyIP(t *testing.T) {
-	var tests = []struct {
+	tests := []struct {
 		name      string
 		addresses []v1.EndpointAddress
 		proxyIP   string
@@ -55,7 +57,7 @@ func TestHasProxyIP(t *testing.T) {
 }
 
 func TestGetLabelValue(t *testing.T) {
-	var tests = []struct {
+	tests := []struct {
 		name               string
 		node               *v1.Node
 		expectedLabelValue string
@@ -138,5 +140,66 @@ func TestPodKeyByProxy(t *testing.T) {
 			}
 		})
 	}
+}
 
+func TestGetNodeSelectorsForService(t *testing.T) {
+	testCases := []struct {
+		name                  string
+		svc                   *v1.Service
+		expectedLabelSelector labels.Instance
+	}{
+		{
+			name:                  "empty selector",
+			svc:                   makeFakeSvc(""),
+			expectedLabelSelector: nil,
+		},
+		{
+			name:                  "invalid selector",
+			svc:                   makeFakeSvc("invalid value"),
+			expectedLabelSelector: nil,
+		},
+		{
+			name:                  "wildcard match",
+			svc:                   makeFakeSvc("{}"),
+			expectedLabelSelector: labels.Instance{},
+		},
+		{
+			name:                  "specific match",
+			svc:                   makeFakeSvc(`{"kubernetes.io/hostname": "node1"}`),
+			expectedLabelSelector: labels.Instance{"kubernetes.io/hostname": "node1"},
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			selector := getNodeSelectorsForService(tc.svc)
+			if !reflect.DeepEqual(selector, tc.expectedLabelSelector) {
+				t.Errorf("expected selector %v != %v", tc.expectedLabelSelector, selector)
+			}
+		})
+	}
+}
+
+func makeFakeSvc(nodeSelector string) *v1.Service {
+	svc := &v1.Service{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "service",
+			Namespace: "ns",
+		},
+		Spec: v1.ServiceSpec{
+			Ports: []v1.ServicePort{{
+				Name: "http",
+				Port: 80,
+			}},
+			Selector:  map[string]string{"app": "helloworld"},
+			ClusterIP: "9.9.9.9",
+		},
+	}
+
+	if nodeSelector != "" {
+		svc.Annotations = map[string]string{
+			"traffic.istio.io/nodeSelector": nodeSelector,
+		}
+	}
+	return svc
 }

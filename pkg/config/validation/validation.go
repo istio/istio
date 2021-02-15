@@ -78,6 +78,8 @@ var (
 		"retriable-4xx":          true,
 		"refused-stream":         true,
 		"retriable-status-codes": true,
+		"retriable-headers":      true,
+		"envoy-ratelimited":      true,
 
 		// 'x-envoy-retry-grpc-on' supported policies:
 		// https://www.envoyproxy.io/docs/envoy/latest/configuration/http/http_filters/router_filter#x-envoy-retry-grpc-on
@@ -480,9 +482,28 @@ var ValidateDestinationRule = registerValidateFunc("ValidateDestinationRule",
 		}
 
 		v := Validation{}
-		v = appendValidation(v,
-			ValidateWildcardDomain(rule.Host),
-			validateTrafficPolicy(rule.TrafficPolicy))
+		if features.EnableDestinationRuleInheritance {
+			if rule.Host == "" {
+				if len(rule.Subsets) != 0 {
+					v = appendValidation(v,
+						fmt.Errorf("mesh/namespace destination rule cannot have subsets"))
+				}
+				if len(rule.ExportTo) != 0 {
+					v = appendValidation(v,
+						fmt.Errorf("mesh/namespace destination rule cannot have exportTo configured"))
+				}
+				if rule.TrafficPolicy != nil && len(rule.TrafficPolicy.PortLevelSettings) != 0 {
+					v = appendValidation(v,
+						fmt.Errorf("mesh/namespace destination rule cannot have portLevelSettings configured"))
+				}
+			} else {
+				v = appendValidation(v, ValidateWildcardDomain(rule.Host))
+			}
+		} else {
+			v = appendValidation(v, ValidateWildcardDomain(rule.Host))
+		}
+
+		v = appendValidation(v, validateTrafficPolicy(rule.TrafficPolicy))
 
 		for _, subset := range rule.Subsets {
 			if subset == nil {
@@ -944,7 +965,6 @@ func validateSidecarOutboundTrafficPolicy(tp *networking.OutboundTrafficPolicy) 
 
 func validateSidecarEgressPortBindAndCaptureMode(port *networking.Port, bind string,
 	captureMode networking.CaptureMode) (errs error) {
-
 	// Port name is optional. Validate if exists.
 	if len(port.Name) > 0 {
 		errs = appendErrors(errs, ValidatePortName(port.Name))
@@ -979,7 +999,6 @@ func validateSidecarEgressPortBindAndCaptureMode(port *networking.Port, bind str
 }
 
 func validateSidecarIngressPortAndBind(port *networking.Port, bind string) (errs error) {
-
 	// Port name is optional. Validate if exists.
 	if len(port.Name) > 0 {
 		errs = appendErrors(errs, ValidatePortName(port.Name))
@@ -1147,7 +1166,6 @@ func validatePortTrafficPolicies(pls []*networking.TrafficPolicy_PortTrafficPoli
 			t.LoadBalancer == nil && t.Tls == nil {
 			errs = appendErrors(errs, fmt.Errorf("port traffic policy must have at least one field"))
 		} else {
-
 			errs = appendErrors(errs, validateOutlierDetection(t.OutlierDetection),
 				validateConnectionPool(t.ConnectionPool),
 				validateLoadBalancer(t.LoadBalancer),
@@ -2691,7 +2709,6 @@ func validateNetwork(network *meshconfig.Network) (errs error) {
 				errs = multierror.Append(errs, fmt.Errorf("invalid registry name: %v", e.FromRegistry))
 			}
 		}
-
 	}
 	for _, n := range network.Gateways {
 		switch g := n.Gw.(type) {

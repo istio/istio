@@ -55,6 +55,7 @@ require (
 	github.com/kr/text v0.2.0 // indirect
 	github.com/kylelemons/godebug v1.1.0
 	github.com/lestrrat-go/jwx v1.0.6
+	github.com/lucas-clemente/quic-go v0.19.3
 	github.com/mattn/go-isatty v0.0.12
 	github.com/mholt/archiver/v3 v3.5.0
 	github.com/miekg/dns v1.1.35
@@ -82,15 +83,16 @@ require (
 	go.uber.org/multierr v1.6.0
 	go.uber.org/zap v1.16.0 // indirect
 	golang.org/x/crypto v0.0.0-20201221181555-eec23a3978ad // indirect
-	golang.org/x/net v0.0.0-20201224014010-6772e930b67b
+	golang.org/x/net v0.0.0-20210119194325-5f4716e94777
 	golang.org/x/oauth2 v0.0.0-20201208152858-08078c50e5b5
 	golang.org/x/sync v0.0.0-20201207232520-09787c993a3a
-	golang.org/x/sys v0.0.0-20201214210602-f9fddec55a1e
+	golang.org/x/sys v0.0.0-20210124154548-22da62e12c0c
+	golang.org/x/text v0.3.5 // indirect
 	golang.org/x/time v0.0.0-20201208040808-7e3f01d25324
 	gomodules.xyz/jsonpatch/v2 v2.1.0
 	gomodules.xyz/jsonpatch/v3 v3.0.1
-	google.golang.org/genproto v0.0.0-20201203001206-6486ece9c497
-	google.golang.org/grpc v1.33.2
+	google.golang.org/genproto v0.0.0-20210126160654-44e461bb6506
+	google.golang.org/grpc v1.35.0
 	google.golang.org/grpc/examples v0.0.0-20200825162801-44d73dff99bf // indirect
 	google.golang.org/protobuf v1.25.0
 	gopkg.in/check.v1 v1.0.0-20200227125254-8fa46927fb4f // indirect
@@ -99,13 +101,13 @@ require (
 	gopkg.in/yaml.v3 v3.0.0-20200615113413-eeeca48fe776
 	helm.sh/helm/v3 v3.4.2
 	honnef.co/go/tools v0.0.1-2020.1.5 // indirect
-	istio.io/api v0.0.0-20210115162953-da389fc06d2c
+	istio.io/api v0.0.0-20210204152316-cb887ae4aceb
 	istio.io/client-go v0.0.0-20200908160912-f99162621a1a
-	istio.io/gogo-genproto v0.0.0-20210113155706-4daf5697332f
+	istio.io/gogo-genproto v0.0.0-20210121190807-0ad02665e756
 	istio.io/pkg v0.0.0-20201230223204-2d0a1c8bd9e5
-	k8s.io/api v0.20.1
+	k8s.io/api v0.20.2
 	k8s.io/apiextensions-apiserver v0.20.1
-	k8s.io/apimachinery v0.20.1
+	k8s.io/apimachinery v0.20.2
 	k8s.io/cli-runtime v0.20.1
 	k8s.io/client-go v0.20.1
 	k8s.io/kube-openapi v0.0.0-20201113171705-d219536bb9fd

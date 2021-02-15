@@ -30,7 +30,7 @@ func TestIsHTTP(t *testing.T) {
 }
 
 func TestParse(t *testing.T) {
-	var testPairs = []struct {
+	testPairs := []struct {
 		name string
 		out  protocol.Instance
 	}{

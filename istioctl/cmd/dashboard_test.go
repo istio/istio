@@ -21,7 +21,6 @@ import (
 	"testing"
 
 	"istio.io/istio/pkg/kube"
-	testKube "istio.io/istio/pkg/test/kube"
 )
 
 func TestDashboard(t *testing.T) {
@@ -107,6 +106,16 @@ func TestDashboard(t *testing.T) {
 			args:           strings.Split("-n test dashboard", " "),
 			expectedRegexp: regexp.MustCompile("Access to Istio web UIs"),
 		},
+		{ // case 16
+			args:           strings.Split("dashboard controlz --browser=false pod-123456-7890 -n istio-system", " "),
+			expectedRegexp: regexp.MustCompile(".*http://localhost:3456"),
+			wantException:  false,
+		},
+		{ // case 17
+			args:           strings.Split("dashboard envoy --browser=false pod-123456-7890 -n istio-system", " "),
+			expectedRegexp: regexp.MustCompile("http://localhost:3456"),
+			wantException:  false,
+		},
 	}
 
 	for i, c := range cases {
@@ -117,9 +126,9 @@ func TestDashboard(t *testing.T) {
 }
 
 func mockExecClientDashboard(_, _, _ string) (kube.ExtendedClient, error) {
-	return testKube.MockClient{}, nil
+	return kube.MockClient{}, nil
 }
 
 func mockEnvoyClientDashboard(_, _ string) (kube.ExtendedClient, error) {
-	return testKube.MockClient{}, nil
+	return kube.MockClient{}, nil
 }

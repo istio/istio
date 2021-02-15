@@ -270,16 +270,16 @@ func SortVirtualHosts(hosts []*route.VirtualHost) {
 	})
 }
 
-// IsIstioVersionGE19 checks whether the given Istio version is greater than or equals 1.9.
-func IsIstioVersionGE19(node *model.Proxy) bool {
-	return node == nil || node.IstioVersion == nil ||
-		node.IstioVersion.Compare(&model.IstioVersion{Major: 1, Minor: 9, Patch: -1}) >= 0
-}
-
 // IsIstioVersionGE18 checks whether the given Istio version is greater than or equals 1.8.
 func IsIstioVersionGE18(node *model.Proxy) bool {
 	return node == nil || node.IstioVersion == nil ||
 		node.IstioVersion.Compare(&model.IstioVersion{Major: 1, Minor: 8, Patch: -1}) >= 0
+}
+
+// IsIstioVersionGE19 checks whether the given Istio version is greater than or equals 1.9.
+func IsIstioVersionGE19(node *model.Proxy) bool {
+	return node == nil || node.IstioVersion == nil ||
+		node.IstioVersion.Compare(&model.IstioVersion{Major: 1, Minor: 9, Patch: -1}) >= 0
 }
 
 // IsIstioVersionGE181 checks whether the given Istio version is greater than or equals 1.8.1
@@ -326,7 +326,7 @@ func ConvertLocality(locality string) *core.Locality {
 	}
 }
 
-// ConvertLocality converts '/' separated locality string to Locality struct.
+// LocalityToString converts Locality struct to '/' separated locality string.
 func LocalityToString(l *core.Locality) string {
 	if l == nil {
 		return ""

@@ -34,8 +34,10 @@ type Origin struct {
 	FieldsMap  map[string]int
 }
 
-var _ resource.Origin = &Origin{}
-var _ resource.Reference = &Position{}
+var (
+	_ resource.Origin    = &Origin{}
+	_ resource.Reference = &Position{}
+)
 
 // FriendlyName implements resource.Origin
 func (o *Origin) FriendlyName() string {
@@ -46,6 +48,10 @@ func (o *Origin) FriendlyName() string {
 		return fmt.Sprintf("%s %s.%s", o.Kind, parts[1], parts[0])
 	}
 	return fmt.Sprintf("%s %s", o.Kind, o.FullName.String())
+}
+
+func (o *Origin) Comparator() string {
+	return o.Kind + "/" + o.FullName.Name.String() + "/" + o.FullName.Namespace.String()
 }
 
 // Namespace implements resource.Origin

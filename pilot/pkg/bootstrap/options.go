@@ -61,6 +61,7 @@ type PilotArgs struct {
 	Plugins            []string
 	KeepaliveOptions   *keepalive.Options
 	ShutdownDuration   time.Duration
+	JwtRule            string
 }
 
 // DiscoveryServerOptions contains options for create a new discovery server instance.
@@ -106,8 +107,12 @@ type TLSOptions struct {
 	KeyFile    string
 }
 
-var PodNamespaceVar = env.RegisterStringVar("POD_NAMESPACE", constants.IstioSystemNamespace, "")
-var podNameVar = env.RegisterStringVar("POD_NAME", "", "")
+var (
+	PodNamespaceVar = env.RegisterStringVar("POD_NAMESPACE", constants.IstioSystemNamespace, "")
+	podNameVar      = env.RegisterStringVar("POD_NAME", "", "")
+	jwtRuleVar      = env.RegisterStringVar("JWT_RULE", "",
+		"The JWT rule used by istiod authentication")
+)
 
 // RevisionVar is the value of the Istio control plane revision, e.g. "canary",
 // and is the value used by the "istio.io/rev" label.
@@ -140,6 +145,7 @@ func (p *PilotArgs) applyDefaults() {
 	p.Namespace = PodNamespaceVar.Get()
 	p.PodName = podNameVar.Get()
 	p.Revision = RevisionVar.Get()
+	p.JwtRule = jwtRuleVar.Get()
 	p.KeepaliveOptions = keepalive.DefaultOption()
 	p.RegistryOptions.DistributionTrackingEnabled = features.EnableDistributionTracking
 	p.RegistryOptions.DistributionCacheRetention = features.DistributionHistoryRetention

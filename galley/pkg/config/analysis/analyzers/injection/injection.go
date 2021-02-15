@@ -38,8 +38,8 @@ var _ analysis.Analyzer = &Analyzer{}
 // We assume that enablement is via an istio-injection=enabled or istio.io/rev namespace label
 // In theory, there can be alternatives using Mutatingwebhookconfiguration, but they're very uncommon
 // See https://istio.io/docs/ops/troubleshooting/injection/ for more info.
-const (
-	RevisionInjectionLabelName = label.IstioRev
+var (
+	RevisionInjectionLabelName = label.IoIstioRev.Name
 )
 
 // Metadata implements Analyzer
@@ -59,7 +59,6 @@ func (a *Analyzer) Analyze(c analysis.Context) {
 	injectedNamespaces := make(map[string]bool)
 
 	c.ForEach(collections.K8SCoreV1Namespaces.Name(), func(r *resource.Instance) bool {
-
 		ns := r.Metadata.FullName.String()
 		if util.IsSystemNamespace(resource.Namespace(ns)) {
 			return true

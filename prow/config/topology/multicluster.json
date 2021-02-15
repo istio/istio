@@ -1,26 +1,27 @@
 [
   {
-    "cluster_name": "cluster-0",
-    "pod_subnet": "10.10.0.0/16",
-    "svc_subnet": "10.255.10.0/24",
-    "network_id": 0,
-    "control_plane_index": 0,
-    "config_index": 0
+    "kind": "Kubernetes",
+    "clusterName": "primary",
+    "podSubnet": "10.10.0.0/16",
+    "svcSubnet": "10.255.10.0/24",
+    "network": "network-1"
   },
   {
-    "cluster_name": "cluster-1",
-    "pod_subnet": "10.20.0.0/16",
-    "svc_subnet": "10.255.20.0/24",
-    "network_id": 0,
-    "control_plane_index": 0,
-    "config_index": 0
+    "kind": "Kubernetes",
+    "clusterName": "remote",
+    "podSubnet": "10.20.0.0/16",
+    "svcSubnet": "10.255.20.0/24",
+    "network": "network-1",
+    "primaryClusterName": "primary",
+    "meta": {
+      "fakeVM": false
+    }
   },
   {
-    "cluster_name": "cluster-2",
-    "pod_subnet": "10.30.0.0/16",
-    "svc_subnet": "10.255.30.0/24",
-    "network_id": 1,
-    "control_plane_index": 2,
-    "config_index": 2
+    "kind": "Kubernetes",
+    "clusterName": "cross-network-primary",
+    "podSubnet": "10.30.0.0/16",
+    "svcSubnet": "10.255.30.0/24",
+    "network": "network-2"
   }
 ]

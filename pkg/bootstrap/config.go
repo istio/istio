@@ -70,7 +70,6 @@ type Config struct {
 	PilotCertProvider   string
 	ProvCert            string
 	DiscoveryHost       string
-	CallCredentials     bool
 }
 
 // newTemplateParams creates a new template configuration for the given configuration.
@@ -92,7 +91,6 @@ func (cfg Config) toTemplateParams() (map[string]interface{}, error) {
 		option.PilotCertProvider(cfg.PilotCertProvider),
 		option.OutlierLogPath(cfg.OutlierLogPath),
 		option.ProvCert(cfg.ProvCert),
-		option.CallCredentials(cfg.CallCredentials),
 		option.DiscoveryHost(cfg.DiscoveryHost))
 
 	if cfg.STSPort > 0 {
@@ -154,42 +152,40 @@ func substituteValues(patterns []string, varName string, values []string) []stri
 	return ret
 }
 
-var (
-	// DefaultStatTags for telemetry v2 tag extraction.
-	DefaultStatTags = []string{
-		"reporter",
-		"source_namespace",
-		"source_workload",
-		"source_workload_namespace",
-		"source_principal",
-		"source_app",
-		"source_version",
-		"source_cluster",
-		"destination_namespace",
-		"destination_workload",
-		"destination_workload_namespace",
-		"destination_principal",
-		"destination_app",
-		"destination_version",
-		"destination_service",
-		"destination_service_name",
-		"destination_service_namespace",
-		"destination_port",
-		"destination_cluster",
-		"request_protocol",
-		"request_operation",
-		"request_host",
-		"response_flags",
-		"grpc_response_status",
-		"connection_security_policy",
-		"permissive_response_code",
-		"permissive_response_policyid",
-		"source_canonical_service",
-		"destination_canonical_service",
-		"source_canonical_revision",
-		"destination_canonical_revision",
-	}
-)
+// DefaultStatTags for telemetry v2 tag extraction.
+var DefaultStatTags = []string{
+	"reporter",
+	"source_namespace",
+	"source_workload",
+	"source_workload_namespace",
+	"source_principal",
+	"source_app",
+	"source_version",
+	"source_cluster",
+	"destination_namespace",
+	"destination_workload",
+	"destination_workload_namespace",
+	"destination_principal",
+	"destination_app",
+	"destination_version",
+	"destination_service",
+	"destination_service_name",
+	"destination_service_namespace",
+	"destination_port",
+	"destination_cluster",
+	"request_protocol",
+	"request_operation",
+	"request_host",
+	"response_flags",
+	"grpc_response_status",
+	"connection_security_policy",
+	"permissive_response_code",
+	"permissive_response_policyid",
+	"source_canonical_service",
+	"destination_canonical_service",
+	"source_canonical_revision",
+	"destination_canonical_revision",
+}
 
 func getStatsOptions(meta *model.BootstrapNodeMetadata, nodeIPs []string, config *meshAPI.ProxyConfig) []option.Instance {
 	parseOption := func(metaOption string, required string, proxyConfigOption []string) []string {

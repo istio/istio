@@ -140,7 +140,6 @@ func TestMonitorForChange(t *testing.T) {
 	g.Eventually(func() ([]config.Config, error) {
 		return store.List(gvk.Gateway, "")
 	}).Should(gomega.HaveLen(0))
-
 }
 
 func TestMonitorForError(t *testing.T) {
@@ -181,8 +180,8 @@ func TestMonitorForError(t *testing.T) {
 			time.Sleep(time.Millisecond * 10)
 		}
 	}()
-	//Test ensures that after a coplilot connection error the data remains
-	//nil data return and error return keeps the existing data aka createConfigSet
+	// Test ensures that after a coplilot connection error the data remains
+	// nil data return and error return keeps the existing data aka createConfigSet
 	<-delay
 	g.Eventually(func() error {
 		c, err := store.List(gvk.Gateway, "")

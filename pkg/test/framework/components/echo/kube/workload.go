@@ -26,6 +26,7 @@ import (
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/echo/client"
 	"istio.io/istio/pkg/test/echo/common"
+	"istio.io/istio/pkg/test/framework/components/cluster"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/errors"
 	"istio.io/istio/pkg/test/framework/resource"
@@ -36,9 +37,7 @@ const (
 	appContainerName = "app"
 )
 
-var (
-	_ echo.Workload = &workload{}
-)
+var _ echo.Workload = &workload{}
 
 type workload struct {
 	*client.Instance
@@ -46,13 +45,12 @@ type workload struct {
 	pod       kubeCore.Pod
 	forwarder istioKube.PortForwarder
 	sidecar   *sidecar
-	cluster   resource.Cluster
+	cluster   cluster.Cluster
 	ctx       resource.Context
 }
 
-func newWorkload(pod kubeCore.Pod, sidecared bool, grpcPort uint16, cluster resource.Cluster,
+func newWorkload(pod kubeCore.Pod, sidecared bool, grpcPort uint16, cluster cluster.Cluster,
 	tls *common.TLSSettings, ctx resource.Context) (*workload, error) {
-
 	// Create a forwarder to the command port of the app.
 	var forwarder istioKube.PortForwarder
 	if err := retry.UntilSuccess(func() error {

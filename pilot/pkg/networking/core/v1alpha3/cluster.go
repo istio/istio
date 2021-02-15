@@ -60,6 +60,13 @@ var (
 			Name: util.EnvoyRawBufferSocketName,
 		},
 	}
+
+	// nolint: lll
+	// envoy outlier detection default max ejection time
+	// https://www.envoyproxy.io/docs/envoy/latest/api-v3/config/cluster/v3/outlier_detection.proto#envoy-v3-api-field-config-cluster-v3-outlierdetection-max-ejection-time
+	defaultMaxEjectionTime = &types.Duration{
+		Seconds: 300,
+	}
 )
 
 // getDefaultCircuitBreakerThresholds returns a copy of the default circuit breaker thresholds for the given traffic direction.
@@ -93,20 +100,20 @@ func (configgen *ConfigGeneratorImpl) BuildClusters(proxy *model.Proxy, push *mo
 		outboundPatcher := clusterPatcher{envoyFilterPatches, networking.EnvoyFilter_SIDECAR_OUTBOUND}
 		clusters = append(clusters, configgen.buildOutboundClusters(cb, outboundPatcher)...)
 		// Add a blackhole and passthrough cluster for catching traffic to unresolved routes
-		clusters = outboundPatcher.conditionallyAppend(clusters, cb.buildBlackHoleCluster(), cb.buildDefaultPassthroughCluster())
+		clusters = outboundPatcher.conditionallyAppend(clusters, nil, cb.buildBlackHoleCluster(), cb.buildDefaultPassthroughCluster())
 		clusters = append(clusters, outboundPatcher.insertedClusters()...)
 
 		// Setup inbound clusters
 		inboundPatcher := clusterPatcher{envoyFilterPatches, networking.EnvoyFilter_SIDECAR_INBOUND}
 		clusters = append(clusters, configgen.buildInboundClusters(cb, instances, inboundPatcher)...)
 		// Pass through clusters for inbound traffic. These cluster bind loopback-ish src address to access node local service.
-		clusters = inboundPatcher.conditionallyAppend(clusters, cb.buildInboundPassthroughClusters()...)
+		clusters = inboundPatcher.conditionallyAppend(clusters, nil, cb.buildInboundPassthroughClusters()...)
 		clusters = append(clusters, inboundPatcher.insertedClusters()...)
 	default: // Gateways
 		patcher := clusterPatcher{envoyFilterPatches, networking.EnvoyFilter_GATEWAY}
 		clusters = append(clusters, configgen.buildOutboundClusters(cb, patcher)...)
 		// Gateways do not require the default passthrough cluster as they do not have original dst listeners.
-		clusters = patcher.conditionallyAppend(clusters, cb.buildBlackHoleCluster())
+		clusters = patcher.conditionallyAppend(clusters, nil, cb.buildBlackHoleCluster())
 		if proxy.Type == model.Router && proxy.GetRouterMode() == model.SniDnatRouter {
 			clusters = append(clusters, configgen.buildOutboundSniDnatClusters(proxy, push, patcher)...)
 		}
@@ -168,8 +175,8 @@ func (configgen *ConfigGeneratorImpl) buildOutboundClusters(cb *ClusterBuilder, 
 
 			subsetClusters := cb.applyDestinationRule(defaultCluster, DefaultClusterMode, service, port, networkView)
 
-			clusters = cp.conditionallyAppend(clusters, defaultCluster)
-			clusters = cp.conditionallyAppend(clusters, subsetClusters...)
+			clusters = cp.conditionallyAppend(clusters, nil, defaultCluster)
+			clusters = cp.conditionallyAppend(clusters, nil, subsetClusters...)
 		}
 	}
 
@@ -183,10 +190,10 @@ type clusterPatcher struct {
 	pctx networking.EnvoyFilter_PatchContext
 }
 
-func (p clusterPatcher) conditionallyAppend(l []*cluster.Cluster, clusters ...*cluster.Cluster) []*cluster.Cluster {
+func (p clusterPatcher) conditionallyAppend(l []*cluster.Cluster, hosts []host.Name, clusters ...*cluster.Cluster) []*cluster.Cluster {
 	for _, c := range clusters {
-		if envoyfilter.ShouldKeepCluster(p.pctx, p.efw, c) {
-			l = append(l, envoyfilter.ApplyClusterMerge(p.pctx, p.efw, c))
+		if envoyfilter.ShouldKeepCluster(p.pctx, p.efw, c, hosts) {
+			l = append(l, envoyfilter.ApplyClusterMerge(p.pctx, p.efw, c, hosts))
 		}
 	}
 	return l
@@ -224,8 +231,8 @@ func (configgen *ConfigGeneratorImpl) buildOutboundSniDnatClusters(proxy *model.
 				continue
 			}
 			subsetClusters := cb.applyDestinationRule(defaultCluster, SniDnatClusterMode, service, port, networkView)
-			clusters = cp.conditionallyAppend(clusters, defaultCluster)
-			clusters = cp.conditionallyAppend(clusters, subsetClusters...)
+			clusters = cp.conditionallyAppend(clusters, nil, defaultCluster)
+			clusters = cp.conditionallyAppend(clusters, nil, subsetClusters...)
 		}
 	}
 
@@ -254,7 +261,6 @@ type ClusterInstances struct {
 }
 
 func (configgen *ConfigGeneratorImpl) buildInboundClusters(cb *ClusterBuilder, instances []*model.ServiceInstance, cp clusterPatcher) []*cluster.Cluster {
-
 	clusters := make([]*cluster.Cluster, 0)
 
 	// The inbound clusters for a node depends on whether the node has a SidecarScope with inbound listeners
@@ -296,7 +302,12 @@ func (configgen *ConfigGeneratorImpl) buildInboundClusters(cb *ClusterBuilder, i
 		for _, instances := range clustersToBuild {
 			instance := instances[0]
 			localCluster := cb.buildInboundClusterForPortOrUDS(cb.proxy, int(instance.Endpoint.EndpointPort), actualLocalHost, instance, instances)
-			clusters = cp.conditionallyAppend(clusters, localCluster)
+			// If inbound cluster match has service, we should see if it matches with any host name across all instances.
+			var hosts []host.Name
+			for _, si := range instances {
+				hosts = append(hosts, si.Service.Hostname)
+			}
+			clusters = cp.conditionallyAppend(clusters, hosts, localCluster)
 		}
 		return clusters
 	}
@@ -344,7 +355,7 @@ func (configgen *ConfigGeneratorImpl) buildInboundClusters(cb *ClusterBuilder, i
 		instance.Endpoint.ServicePortName = listenPort.Name
 		instance.Endpoint.EndpointPort = uint32(port)
 
-		localCluster := cb.buildInboundClusterForPortOrUDS(nil, int(ingressListener.Port.Number), endpointAddress, instance, nil)
+		localCluster := cb.buildInboundClusterForPortOrUDS(cb.proxy, int(ingressListener.Port.Number), endpointAddress, instance, nil)
 		if instanceIPCluster {
 			// IPTables will redirect our own traffic back to us if we do not use the "magic" upstream bind
 			// config which will be skipped. This mirrors the "passthrough" clusters.
@@ -358,7 +369,7 @@ func (configgen *ConfigGeneratorImpl) buildInboundClusters(cb *ClusterBuilder, i
 				},
 			}
 		}
-		clusters = cp.conditionallyAppend(clusters, localCluster)
+		clusters = cp.conditionallyAppend(clusters, []host.Name{instance.Service.Hostname}, localCluster)
 	}
 
 	return clusters
@@ -748,6 +759,9 @@ func applyOutlierDetection(c *cluster.Cluster, outlier *networking.OutlierDetect
 	}
 	if outlier.BaseEjectionTime != nil {
 		out.BaseEjectionTime = gogo.DurationToProtoDuration(outlier.BaseEjectionTime)
+		if outlier.BaseEjectionTime.Compare(defaultMaxEjectionTime) > 0 {
+			out.MaxEjectionTime = out.BaseEjectionTime
+		}
 	}
 	if outlier.MaxEjectionPercent > 0 {
 		out.MaxEjectionPercent = &wrappers.UInt32Value{Value: uint32(outlier.MaxEjectionPercent)}
@@ -929,13 +943,13 @@ func buildUpstreamClusterTLSContext(opts *buildClusterOpts, tls *networking.Clie
 		metadataCerts := metadataSDS.IsRootCertificate() && metadataSDS.IsKeyCertificate()
 
 		tlsContext.CommonTlsContext.TlsCertificateSdsSecretConfigs = append(tlsContext.CommonTlsContext.TlsCertificateSdsSecretConfigs,
-			authn_model.ConstructSdsSecretConfig(model.GetOrDefault(metadataSDS.GetResourceName(), authn_model.SDSDefaultResourceName)))
+			authn_model.ConstructSdsSecretConfig(model.GetOrDefault(metadataSDS.GetResourceName(), authn_model.SDSDefaultResourceName), proxy))
 
 		tlsContext.CommonTlsContext.ValidationContextType = &auth.CommonTlsContext_CombinedValidationContext{
 			CombinedValidationContext: &auth.CommonTlsContext_CombinedCertificateValidationContext{
 				DefaultValidationContext: &auth.CertificateValidationContext{MatchSubjectAltNames: util.StringToExactMatch(tls.SubjectAltNames)},
 				ValidationContextSdsSecretConfig: authn_model.ConstructSdsSecretConfig(model.GetOrDefault(metadataSDS.GetRootResourceName(),
-					authn_model.SDSRootResourceName)),
+					authn_model.SDSRootResourceName), proxy),
 			},
 		}
 		// Set default SNI of cluster name for istio_mutual if sni is not set.
@@ -994,7 +1008,7 @@ func buildUpstreamClusterTLSContext(opts *buildClusterOpts, tls *networking.Clie
 				tlsContext.CommonTlsContext.ValidationContextType = &auth.CommonTlsContext_CombinedValidationContext{
 					CombinedValidationContext: &auth.CommonTlsContext_CombinedCertificateValidationContext{
 						DefaultValidationContext:         &auth.CertificateValidationContext{MatchSubjectAltNames: util.StringToExactMatch(tls.SubjectAltNames)},
-						ValidationContextSdsSecretConfig: authn_model.ConstructSdsSecretConfig(res.GetRootResourceName()),
+						ValidationContextSdsSecretConfig: authn_model.ConstructSdsSecretConfig(res.GetRootResourceName(), proxy),
 					},
 				}
 			}
@@ -1045,7 +1059,7 @@ func buildUpstreamClusterTLSContext(opts *buildClusterOpts, tls *networking.Clie
 				}
 			}
 			tlsContext.CommonTlsContext.TlsCertificateSdsSecretConfigs = append(tlsContext.CommonTlsContext.TlsCertificateSdsSecretConfigs,
-				authn_model.ConstructSdsSecretConfig(res.GetResourceName()))
+				authn_model.ConstructSdsSecretConfig(res.GetResourceName(), proxy))
 
 			// If tls.CaCertificate or CaCertificate in Metadata isn't configured don't set up RootSdsSecretConfig
 			if !res.IsRootCertificate() {
@@ -1054,7 +1068,7 @@ func buildUpstreamClusterTLSContext(opts *buildClusterOpts, tls *networking.Clie
 				tlsContext.CommonTlsContext.ValidationContextType = &auth.CommonTlsContext_CombinedValidationContext{
 					CombinedValidationContext: &auth.CommonTlsContext_CombinedCertificateValidationContext{
 						DefaultValidationContext:         &auth.CertificateValidationContext{MatchSubjectAltNames: util.StringToExactMatch(tls.SubjectAltNames)},
-						ValidationContextSdsSecretConfig: authn_model.ConstructSdsSecretConfig(res.GetRootResourceName()),
+						ValidationContextSdsSecretConfig: authn_model.ConstructSdsSecretConfig(res.GetRootResourceName(), proxy),
 					},
 				}
 			}

@@ -620,7 +620,7 @@ func (s *Service) GetServiceAddressForProxy(node *Proxy, push *PushContext) stri
 // and apply custom transport socket matchers here.
 func GetTLSModeFromEndpointLabels(labels map[string]string) string {
 	if labels != nil {
-		if val, exists := labels[label.TLSMode]; exists {
+		if val, exists := labels[label.SecurityTlsMode.Name]; exists {
 			return val
 		}
 	}

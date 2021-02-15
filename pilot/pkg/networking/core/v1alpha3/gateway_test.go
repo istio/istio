@@ -36,16 +36,17 @@ import (
 	"istio.io/istio/pilot/pkg/security/model"
 	"istio.io/istio/pilot/test/xdstest"
 	"istio.io/istio/pkg/config"
+	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/schema/gvk"
+	"istio.io/istio/pkg/config/visibility"
 	"istio.io/istio/pkg/proto"
 )
 
 func TestBuildGatewayListenerTlsContext(t *testing.T) {
 	testCases := []struct {
-		name    string
-		server  *networking.Server
-		sdsPath string
-		result  *auth.DownstreamTlsContext
+		name   string
+		server *networking.Server
+		result *auth.DownstreamTlsContext
 	}{
 		{
 			name: "mesh SDS enabled, tls mode ISTIO_MUTUAL",
@@ -55,7 +56,6 @@ func TestBuildGatewayListenerTlsContext(t *testing.T) {
 					Mode: networking.ServerTLSSettings_ISTIO_MUTUAL,
 				},
 			},
-			sdsPath: "unix:/var/run/sds/uds_path",
 			result: &auth.DownstreamTlsContext{
 				CommonTlsContext: &auth.CommonTlsContext{
 					AlpnProtocols: util.ALPNHttp,
@@ -67,8 +67,9 @@ func TestBuildGatewayListenerTlsContext(t *testing.T) {
 								ResourceApiVersion:  core.ApiVersion_V3,
 								ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
 									ApiConfigSource: &core.ApiConfigSource{
-										ApiType:             core.ApiConfigSource_GRPC,
-										TransportApiVersion: core.ApiVersion_V3,
+										ApiType:                   core.ApiConfigSource_GRPC,
+										SetNodeOnFirstMessageOnly: true,
+										TransportApiVersion:       core.ApiVersion_V3,
 										GrpcServices: []*core.GrpcService{
 											{
 												TargetSpecifier: &core.GrpcService_EnvoyGrpc_{
@@ -91,8 +92,9 @@ func TestBuildGatewayListenerTlsContext(t *testing.T) {
 									ResourceApiVersion:  core.ApiVersion_V3,
 									ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
 										ApiConfigSource: &core.ApiConfigSource{
-											ApiType:             core.ApiConfigSource_GRPC,
-											TransportApiVersion: core.ApiVersion_V3,
+											ApiType:                   core.ApiConfigSource_GRPC,
+											SetNodeOnFirstMessageOnly: true,
+											TransportApiVersion:       core.ApiVersion_V3,
 											GrpcServices: []*core.GrpcService{
 												{
 													TargetSpecifier: &core.GrpcService_EnvoyGrpc_{
@@ -118,7 +120,6 @@ func TestBuildGatewayListenerTlsContext(t *testing.T) {
 					Mode: networking.ServerTLSSettings_SIMPLE,
 				},
 			},
-			sdsPath: "unix:/var/run/sds/uds_path",
 			result: &auth.DownstreamTlsContext{
 				CommonTlsContext: &auth.CommonTlsContext{
 					AlpnProtocols: util.ALPNHttp,
@@ -130,8 +131,9 @@ func TestBuildGatewayListenerTlsContext(t *testing.T) {
 								ResourceApiVersion:  core.ApiVersion_V3,
 								ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
 									ApiConfigSource: &core.ApiConfigSource{
-										ApiType:             core.ApiConfigSource_GRPC,
-										TransportApiVersion: core.ApiVersion_V3,
+										ApiType:                   core.ApiConfigSource_GRPC,
+										SetNodeOnFirstMessageOnly: true,
+										TransportApiVersion:       core.ApiVersion_V3,
 										GrpcServices: []*core.GrpcService{
 											{
 												TargetSpecifier: &core.GrpcService_EnvoyGrpc_{
@@ -154,8 +156,9 @@ func TestBuildGatewayListenerTlsContext(t *testing.T) {
 									ResourceApiVersion:  core.ApiVersion_V3,
 									ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
 										ApiConfigSource: &core.ApiConfigSource{
-											ApiType:             core.ApiConfigSource_GRPC,
-											TransportApiVersion: core.ApiVersion_V3,
+											ApiType:                   core.ApiConfigSource_GRPC,
+											SetNodeOnFirstMessageOnly: true,
+											TransportApiVersion:       core.ApiVersion_V3,
 											GrpcServices: []*core.GrpcService{
 												{
 													TargetSpecifier: &core.GrpcService_EnvoyGrpc_{
@@ -245,8 +248,9 @@ func TestBuildGatewayListenerTlsContext(t *testing.T) {
 								ResourceApiVersion: core.ApiVersion_V3,
 								ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
 									ApiConfigSource: &core.ApiConfigSource{
-										ApiType:             core.ApiConfigSource_GRPC,
-										TransportApiVersion: core.ApiVersion_V3,
+										ApiType:                   core.ApiConfigSource_GRPC,
+										SetNodeOnFirstMessageOnly: true,
+										TransportApiVersion:       core.ApiVersion_V3,
 										GrpcServices: []*core.GrpcService{
 											{
 												TargetSpecifier: &core.GrpcService_EnvoyGrpc_{
@@ -268,8 +272,9 @@ func TestBuildGatewayListenerTlsContext(t *testing.T) {
 									ResourceApiVersion: core.ApiVersion_V3,
 									ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
 										ApiConfigSource: &core.ApiConfigSource{
-											ApiType:             core.ApiConfigSource_GRPC,
-											TransportApiVersion: core.ApiVersion_V3,
+											ApiType:                   core.ApiConfigSource_GRPC,
+											SetNodeOnFirstMessageOnly: true,
+											TransportApiVersion:       core.ApiVersion_V3,
 											GrpcServices: []*core.GrpcService{
 												{
 													TargetSpecifier: &core.GrpcService_EnvoyGrpc_{
@@ -298,7 +303,6 @@ func TestBuildGatewayListenerTlsContext(t *testing.T) {
 					CaCertificates:    "ca-cert.crt",
 				},
 			},
-			sdsPath: "unix:/var/run/sds/uds_path",
 			result: &auth.DownstreamTlsContext{
 				CommonTlsContext: &auth.CommonTlsContext{
 					AlpnProtocols: util.ALPNHttp,
@@ -309,8 +313,9 @@ func TestBuildGatewayListenerTlsContext(t *testing.T) {
 								ResourceApiVersion: core.ApiVersion_V3,
 								ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
 									ApiConfigSource: &core.ApiConfigSource{
-										ApiType:             core.ApiConfigSource_GRPC,
-										TransportApiVersion: core.ApiVersion_V3,
+										ApiType:                   core.ApiConfigSource_GRPC,
+										SetNodeOnFirstMessageOnly: true,
+										TransportApiVersion:       core.ApiVersion_V3,
 										GrpcServices: []*core.GrpcService{
 											{
 												TargetSpecifier: &core.GrpcService_EnvoyGrpc_{
@@ -332,8 +337,9 @@ func TestBuildGatewayListenerTlsContext(t *testing.T) {
 									ResourceApiVersion: core.ApiVersion_V3,
 									ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
 										ApiConfigSource: &core.ApiConfigSource{
-											ApiType:             core.ApiConfigSource_GRPC,
-											TransportApiVersion: core.ApiVersion_V3,
+											ApiType:                   core.ApiConfigSource_GRPC,
+											SetNodeOnFirstMessageOnly: true,
+											TransportApiVersion:       core.ApiVersion_V3,
 											GrpcServices: []*core.GrpcService{
 												{
 													TargetSpecifier: &core.GrpcService_EnvoyGrpc_{
@@ -363,7 +369,6 @@ func TestBuildGatewayListenerTlsContext(t *testing.T) {
 					SubjectAltNames:   []string{"subject.name.a.com", "subject.name.b.com"},
 				},
 			},
-			sdsPath: "unix:/var/run/sds/uds_path",
 			result: &auth.DownstreamTlsContext{
 				CommonTlsContext: &auth.CommonTlsContext{
 					AlpnProtocols: util.ALPNHttp,
@@ -374,8 +379,9 @@ func TestBuildGatewayListenerTlsContext(t *testing.T) {
 								ResourceApiVersion: core.ApiVersion_V3,
 								ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
 									ApiConfigSource: &core.ApiConfigSource{
-										ApiType:             core.ApiConfigSource_GRPC,
-										TransportApiVersion: core.ApiVersion_V3,
+										ApiType:                   core.ApiConfigSource_GRPC,
+										SetNodeOnFirstMessageOnly: true,
+										TransportApiVersion:       core.ApiVersion_V3,
 										GrpcServices: []*core.GrpcService{
 											{
 												TargetSpecifier: &core.GrpcService_EnvoyGrpc_{
@@ -399,8 +405,9 @@ func TestBuildGatewayListenerTlsContext(t *testing.T) {
 									ResourceApiVersion: core.ApiVersion_V3,
 									ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
 										ApiConfigSource: &core.ApiConfigSource{
-											ApiType:             core.ApiConfigSource_GRPC,
-											TransportApiVersion: core.ApiVersion_V3,
+											ApiType:                   core.ApiConfigSource_GRPC,
+											SetNodeOnFirstMessageOnly: true,
+											TransportApiVersion:       core.ApiVersion_V3,
 											GrpcServices: []*core.GrpcService{
 												{
 													TargetSpecifier: &core.GrpcService_EnvoyGrpc_{
@@ -544,7 +551,9 @@ func TestBuildGatewayListenerTlsContext(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			ret := buildGatewayListenerTLSContext(tc.server, tc.sdsPath, &pilot_model.NodeMetadata{})
+			ret := buildGatewayListenerTLSContext(tc.server, &pilot_model.Proxy{
+				Metadata: &pilot_model.NodeMetadata{},
+			})
 			if diff := cmp.Diff(tc.result, ret, protocmp.Transform()); diff != "" {
 				t.Errorf("got diff: %v", diff)
 			}
@@ -621,8 +630,9 @@ func TestCreateGatewayHTTPFilterChainOpts(t *testing.T) {
 									InitialFetchTimeout: ptypes.DurationProto(time.Second * 0),
 									ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
 										ApiConfigSource: &core.ApiConfigSource{
-											ApiType:             core.ApiConfigSource_GRPC,
-											TransportApiVersion: core.ApiVersion_V3,
+											ApiType:                   core.ApiConfigSource_GRPC,
+											SetNodeOnFirstMessageOnly: true,
+											TransportApiVersion:       core.ApiVersion_V3,
 											GrpcServices: []*core.GrpcService{
 												{
 													TargetSpecifier: &core.GrpcService_EnvoyGrpc_{
@@ -645,8 +655,9 @@ func TestCreateGatewayHTTPFilterChainOpts(t *testing.T) {
 										InitialFetchTimeout: ptypes.DurationProto(time.Second * 0),
 										ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
 											ApiConfigSource: &core.ApiConfigSource{
-												ApiType:             core.ApiConfigSource_GRPC,
-												TransportApiVersion: core.ApiVersion_V3,
+												ApiType:                   core.ApiConfigSource_GRPC,
+												SetNodeOnFirstMessageOnly: true,
+												TransportApiVersion:       core.ApiVersion_V3,
 												GrpcServices: []*core.GrpcService{
 													{
 														TargetSpecifier: &core.GrpcService_EnvoyGrpc_{
@@ -708,8 +719,9 @@ func TestCreateGatewayHTTPFilterChainOpts(t *testing.T) {
 									InitialFetchTimeout: ptypes.DurationProto(time.Second * 0),
 									ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
 										ApiConfigSource: &core.ApiConfigSource{
-											ApiType:             core.ApiConfigSource_GRPC,
-											TransportApiVersion: core.ApiVersion_V3,
+											ApiType:                   core.ApiConfigSource_GRPC,
+											SetNodeOnFirstMessageOnly: true,
+											TransportApiVersion:       core.ApiVersion_V3,
 											GrpcServices: []*core.GrpcService{
 												{
 													TargetSpecifier: &core.GrpcService_EnvoyGrpc_{
@@ -732,8 +744,9 @@ func TestCreateGatewayHTTPFilterChainOpts(t *testing.T) {
 										InitialFetchTimeout: ptypes.DurationProto(time.Second * 0),
 										ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
 											ApiConfigSource: &core.ApiConfigSource{
-												ApiType:             core.ApiConfigSource_GRPC,
-												TransportApiVersion: core.ApiVersion_V3,
+												ApiType:                   core.ApiConfigSource_GRPC,
+												SetNodeOnFirstMessageOnly: true,
+												TransportApiVersion:       core.ApiVersion_V3,
 												GrpcServices: []*core.GrpcService{
 													{
 														TargetSpecifier: &core.GrpcService_EnvoyGrpc_{
@@ -795,8 +808,9 @@ func TestCreateGatewayHTTPFilterChainOpts(t *testing.T) {
 									InitialFetchTimeout: ptypes.DurationProto(time.Second * 0),
 									ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
 										ApiConfigSource: &core.ApiConfigSource{
-											ApiType:             core.ApiConfigSource_GRPC,
-											TransportApiVersion: core.ApiVersion_V3,
+											ApiType:                   core.ApiConfigSource_GRPC,
+											SetNodeOnFirstMessageOnly: true,
+											TransportApiVersion:       core.ApiVersion_V3,
 											GrpcServices: []*core.GrpcService{
 												{
 													TargetSpecifier: &core.GrpcService_EnvoyGrpc_{
@@ -819,8 +833,9 @@ func TestCreateGatewayHTTPFilterChainOpts(t *testing.T) {
 										InitialFetchTimeout: ptypes.DurationProto(time.Second * 0),
 										ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
 											ApiConfigSource: &core.ApiConfigSource{
-												ApiType:             core.ApiConfigSource_GRPC,
-												TransportApiVersion: core.ApiVersion_V3,
+												ApiType:                   core.ApiConfigSource_GRPC,
+												SetNodeOnFirstMessageOnly: true,
+												TransportApiVersion:       core.ApiVersion_V3,
 												GrpcServices: []*core.GrpcService{
 													{
 														TargetSpecifier: &core.GrpcService_EnvoyGrpc_{
@@ -921,8 +936,9 @@ func TestCreateGatewayHTTPFilterChainOpts(t *testing.T) {
 									InitialFetchTimeout: ptypes.DurationProto(time.Second * 0),
 									ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
 										ApiConfigSource: &core.ApiConfigSource{
-											ApiType:             core.ApiConfigSource_GRPC,
-											TransportApiVersion: core.ApiVersion_V3,
+											ApiType:                   core.ApiConfigSource_GRPC,
+											SetNodeOnFirstMessageOnly: true,
+											TransportApiVersion:       core.ApiVersion_V3,
 											GrpcServices: []*core.GrpcService{
 												{
 													TargetSpecifier: &core.GrpcService_EnvoyGrpc_{
@@ -945,8 +961,9 @@ func TestCreateGatewayHTTPFilterChainOpts(t *testing.T) {
 										InitialFetchTimeout: ptypes.DurationProto(time.Second * 0),
 										ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
 											ApiConfigSource: &core.ApiConfigSource{
-												ApiType:             core.ApiConfigSource_GRPC,
-												TransportApiVersion: core.ApiVersion_V3,
+												ApiType:                   core.ApiConfigSource_GRPC,
+												SetNodeOnFirstMessageOnly: true,
+												TransportApiVersion:       core.ApiVersion_V3,
 												GrpcServices: []*core.GrpcService{
 													{
 														TargetSpecifier: &core.GrpcService_EnvoyGrpc_{
@@ -1015,8 +1032,9 @@ func TestCreateGatewayHTTPFilterChainOpts(t *testing.T) {
 									InitialFetchTimeout: ptypes.DurationProto(time.Second * 0),
 									ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
 										ApiConfigSource: &core.ApiConfigSource{
-											ApiType:             core.ApiConfigSource_GRPC,
-											TransportApiVersion: core.ApiVersion_V3,
+											ApiType:                   core.ApiConfigSource_GRPC,
+											SetNodeOnFirstMessageOnly: true,
+											TransportApiVersion:       core.ApiVersion_V3,
 											GrpcServices: []*core.GrpcService{
 												{
 													TargetSpecifier: &core.GrpcService_EnvoyGrpc_{
@@ -1039,8 +1057,9 @@ func TestCreateGatewayHTTPFilterChainOpts(t *testing.T) {
 										InitialFetchTimeout: ptypes.DurationProto(time.Second * 0),
 										ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
 											ApiConfigSource: &core.ApiConfigSource{
-												ApiType:             core.ApiConfigSource_GRPC,
-												TransportApiVersion: core.ApiVersion_V3,
+												ApiType:                   core.ApiConfigSource_GRPC,
+												SetNodeOnFirstMessageOnly: true,
+												TransportApiVersion:       core.ApiVersion_V3,
 												GrpcServices: []*core.GrpcService{
 													{
 														TargetSpecifier: &core.GrpcService_EnvoyGrpc_{
@@ -1083,7 +1102,7 @@ func TestCreateGatewayHTTPFilterChainOpts(t *testing.T) {
 			tc.node.MergedGateway = &pilot_model.MergedGateway{SNIHostsByServer: map[*networking.Server][]string{
 				tc.server: pilot_model.GetSNIHostsForServer(tc.server),
 			}}
-			ret := cgi.createGatewayHTTPFilterChainOpts(tc.node, tc.server, tc.routeName, "", tc.proxyConfig)
+			ret := cgi.createGatewayHTTPFilterChainOpts(tc.node, tc.server, tc.routeName, tc.proxyConfig)
 			if diff := cmp.Diff(tc.result.tlsContext, ret.tlsContext, protocmp.Transform()); diff != "" {
 				t.Errorf("got diff in tls context: %v", diff)
 			}
@@ -1409,7 +1428,6 @@ func TestGatewayHTTPRouteConfig(t *testing.T) {
 			}
 		})
 	}
-
 }
 
 func TestBuildGatewayListeners(t *testing.T) {
@@ -1516,5 +1534,130 @@ func TestBuildGatewayListeners(t *testing.T) {
 			t.Fatalf("Expected listeners: %v, got: %v\n%v", tt.expectedListeners, listeners, proxyGateway.MergedGateway.Servers)
 		}
 		xdstest.ValidateListeners(t, builder.gatewayListeners)
+	}
+}
+
+func TestBuildNameToServiceMapForHttpRoutes(t *testing.T) {
+	virtualServiceSpec := &networking.VirtualService{
+		Hosts: []string{"*.example.org"},
+		Http: []*networking.HTTPRoute{
+			{
+				Route: []*networking.HTTPRouteDestination{
+					{
+						Destination: &networking.Destination{
+							Host: "foo.example.org",
+						},
+					},
+					{
+						Destination: &networking.Destination{
+							Host: "bar.example.org",
+						},
+					},
+				},
+				Mirror: &networking.Destination{
+					Host: "baz.example.org",
+				},
+			},
+		},
+	}
+	virtualService := config.Config{
+		Meta: config.Meta{
+			GroupVersionKind: gvk.VirtualService,
+			Name:             "virtual-service",
+			Namespace:        "test",
+		},
+		Spec: virtualServiceSpec,
+	}
+
+	fooHostName := host.Name("foo.example.org")
+	fooServiceInTestNamespace := &pilot_model.Service{
+		Hostname: fooHostName,
+		Ports: []*pilot_model.Port{{
+			Name:     "http",
+			Protocol: "HTTP",
+			Port:     80,
+		}},
+		Attributes: pilot_model.ServiceAttributes{
+			Namespace: "test",
+			ExportTo: map[visibility.Instance]bool{
+				visibility.Private: true,
+			},
+		},
+	}
+
+	barHostName := host.Name("bar.example.org")
+	barServiceInDefaultNamespace := &pilot_model.Service{
+		Hostname: barHostName,
+		Ports: []*pilot_model.Port{{
+			Name:     "http",
+			Protocol: "HTTP",
+			Port:     8080,
+		}},
+		Attributes: pilot_model.ServiceAttributes{
+			Namespace: "default",
+			ExportTo: map[visibility.Instance]bool{
+				visibility.Public: true,
+			},
+		},
+	}
+
+	bazHostName := host.Name("baz.example.org")
+	bazServiceInDefaultNamespace := &pilot_model.Service{
+		Hostname: bazHostName,
+		Ports: []*pilot_model.Port{{
+			Name:     "http",
+			Protocol: "HTTP",
+			Port:     8090,
+		}},
+		Attributes: pilot_model.ServiceAttributes{
+			Namespace: "default",
+			ExportTo: map[visibility.Instance]bool{
+				visibility.Private: true,
+			},
+		},
+	}
+
+	cg := NewConfigGenTest(t, TestOptions{
+		Configs:  []config.Config{virtualService},
+		Services: []*pilot_model.Service{fooServiceInTestNamespace, barServiceInDefaultNamespace, bazServiceInDefaultNamespace},
+	})
+	proxy := &pilot_model.Proxy{
+		Type:            pilot_model.Router,
+		ConfigNamespace: "test",
+	}
+	proxy = cg.SetupProxy(proxy)
+
+	nameToServiceMap := buildNameToServiceMapForHTTPRoutes(proxy, cg.env.PushContext, virtualService)
+
+	if len(nameToServiceMap) != 3 {
+		t.Errorf("The length of nameToServiceMap is wrong.")
+	}
+
+	if service, exist := nameToServiceMap[fooHostName]; !exist || service == nil {
+		t.Errorf("The service of %s not found or should be not nil.", fooHostName)
+	} else {
+		if service.Ports[0].Port != 80 {
+			t.Errorf("The port of %s is wrong.", fooHostName)
+		}
+
+		if service.Attributes.Namespace != "test" {
+			t.Errorf("The namespace of %s is wrong.", fooHostName)
+		}
+	}
+
+	if service, exist := nameToServiceMap[barHostName]; !exist || service == nil {
+		t.Errorf("The service of %s not found or should be not nil", barHostName)
+	} else {
+		if service.Ports[0].Port != 8080 {
+			t.Errorf("The port of %s is wrong.", barHostName)
+		}
+
+		if service.Attributes.Namespace != "default" {
+			t.Errorf("The namespace of %s is wrong.", barHostName)
+		}
+	}
+
+	if service, exist := nameToServiceMap[bazHostName]; !exist || service != nil {
+		t.Errorf("The value of hostname %s mapping must be exist and it should be nil.", bazHostName)
 	}
 }

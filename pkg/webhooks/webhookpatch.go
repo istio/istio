@@ -20,6 +20,7 @@ import (
 	"errors"
 	"fmt"
 	"io/ioutil"
+	"strings"
 	"time"
 
 	"k8s.io/api/admissionregistration/v1beta1"
@@ -63,7 +64,6 @@ func (w *WebhookCertPatcher) Run(stopChan <-chan struct{}) {
 func NewWebhookCertPatcher(
 	client kubernetes.Interface,
 	revision, webhookName, caBundlePath string) (*WebhookCertPatcher, error) {
-
 	// ca from k8s
 	caCertPem, err := ioutil.ReadFile(caBundlePath)
 	if err != nil {
@@ -86,7 +86,7 @@ func (w *WebhookCertPatcher) runWebhookController(stopChan <-chan struct{}) {
 		"mutatingwebhookconfigurations",
 		"",
 		func(options *metav1.ListOptions) {
-			options.LabelSelector = fmt.Sprintf("%s=%s", label.IstioRev, w.revision)
+			options.LabelSelector = fmt.Sprintf("%s=%s", label.IoIstioRev.Name, w.revision)
 		})
 
 	_, c := cache.NewInformer(
@@ -112,7 +112,7 @@ func (w *WebhookCertPatcher) runWebhookController(stopChan <-chan struct{}) {
 func (w *WebhookCertPatcher) updateWebhookHandler(oldConfig, newConfig *v1beta1.MutatingWebhookConfiguration) {
 	if oldConfig.ResourceVersion != newConfig.ResourceVersion {
 		for i, wh := range newConfig.Webhooks {
-			if wh.Name == w.webhookName && !bytes.Equal(newConfig.Webhooks[i].ClientConfig.CABundle, w.caCertPem) {
+			if strings.HasSuffix(wh.Name, w.webhookName) && !bytes.Equal(newConfig.Webhooks[i].ClientConfig.CABundle, w.caCertPem) {
 				w.queue.Push(func() error {
 					return w.webhookPatchTask(newConfig.Name)
 				})
@@ -124,7 +124,7 @@ func (w *WebhookCertPatcher) updateWebhookHandler(oldConfig, newConfig *v1beta1.
 
 func (w *WebhookCertPatcher) addWebhookHandler(config *v1beta1.MutatingWebhookConfiguration) {
 	for i, wh := range config.Webhooks {
-		if wh.Name == w.webhookName && !bytes.Equal(config.Webhooks[i].ClientConfig.CABundle, w.caCertPem) {
+		if strings.HasSuffix(wh.Name, w.webhookName) && !bytes.Equal(config.Webhooks[i].ClientConfig.CABundle, w.caCertPem) {
 			log.Infof("New webhook config added, patching MutatingWebhookConfiguration for %s", config.Name)
 			w.queue.Push(func() error {
 				return w.webhookPatchTask(config.Name)
@@ -158,14 +158,14 @@ func (w *WebhookCertPatcher) patchMutatingWebhookConfig(
 		return err
 	}
 	// prevents a race condition between multiple istiods when the revision is changed or modified
-	v, ok := config.Labels[label.IstioRev]
+	v, ok := config.Labels[label.IoIstioRev.Name]
 	if v != w.revision || !ok {
 		return errWrongRevision
 	}
 
 	found := false
 	for i, wh := range config.Webhooks {
-		if wh.Name == w.webhookName {
+		if strings.HasSuffix(wh.Name, w.webhookName) {
 			config.Webhooks[i].ClientConfig.CABundle = w.caCertPem
 			found = true
 		}

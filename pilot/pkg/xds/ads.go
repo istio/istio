@@ -52,6 +52,7 @@ var (
 
 // Used only when running in KNative, to handle the load banlancing behavior.
 var firstRequest = uatomic.NewBool(true)
+
 var knativeEnv = env.RegisterStringVar("K_REVISION", "",
 	"KNative revision, set if running in knative").Get()
 
@@ -717,6 +718,7 @@ func (s *DiscoveryServer) pushConnection(con *Connection, pushEv *Event) error {
 // PushOrder defines the order that updates will be pushed in. Any types not listed here will be pushed in random
 // order after the types listed here
 var PushOrder = []string{v3.ClusterType, v3.EndpointType, v3.ListenerType, v3.RouteType, v3.SecretType}
+
 var KnownPushOrder = map[string]struct{}{
 	v3.ClusterType:  {},
 	v3.EndpointType: {},
@@ -834,7 +836,6 @@ func (s *DiscoveryServer) AdsPushAll(version string, req *model.PushRequest) {
 func (s *DiscoveryServer) startPush(req *model.PushRequest) {
 	// Push config changes, iterating over connected envoys. This cover ADS and EDS(0.7), both share
 	// the same connection table
-
 	if adsLog.DebugEnabled() {
 		currentlyPending := s.pushQueue.Pending()
 		if currentlyPending != 0 {

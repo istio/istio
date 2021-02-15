@@ -29,7 +29,6 @@ import (
 	"istio.io/istio/pkg/test/util/retry"
 	"istio.io/istio/tests/integration/security/util"
 	"istio.io/istio/tests/integration/security/util/connection"
-	"istio.io/pkg/log"
 )
 
 // TestCase represents reachability test cases.
@@ -103,24 +102,22 @@ func Run(testCases []TestCase, ctx framework.TestContext, apps *util.EchoDeploym
 			ctx.NewSubTest("wait for config").Run(func(ctx framework.TestContext) {
 				util.WaitForConfigWithSleep(ctx, policyYAML, c.Namespace)
 			})
-
-			ctx.Cleanup(func() {
-				if err := retry.UntilSuccess(func() error {
-					return ctx.Config().DeleteYAML(c.Namespace.Name(), policyYAML)
-				}); err != nil {
-					log.Errorf("failed to delete configuration: %v", err)
-				}
-			})
 			for _, clients := range []echo.Instances{apps.A, apps.B.Match(echo.Namespace(apps.Namespace1.Name())), apps.Headless, apps.Naked, apps.HeadlessNaked} {
 				for _, client := range clients {
 					ctx.NewSubTest(fmt.Sprintf("%s in %s",
-						client.Config().Service, client.Config().Cluster.Name())).Run(func(ctx framework.TestContext) {
+						client.Config().Service, client.Config().Cluster.StableName())).Run(func(ctx framework.TestContext) {
 						aSet := apps.A
 						bSet := apps.B
-						// TODO: check why 503 is received for global-plaintext.yaml (https://github.com/istio/istio/issues/28766)
+						vmSet := apps.VM
+
 						if c.ConfigFile == "global-plaintext.yaml" {
+							// TODO: cross-network traffic fails because istiod can't filter endpoints set to non-mTLS via PeerAuthentication
+							// TODO (cont): setting callCount to 1 seems to avoid this somehow See https://github.com/istio/istio/issues/28798
 							aSet = apps.A.Match(echo.InCluster(client.Config().Cluster))
 							bSet = apps.B.Match(echo.InCluster(client.Config().Cluster))
+							if len(vmSet) > 0 {
+								vmSet = vmSet[:1]
+							}
 						}
 						destinationSets := []echo.Instances{
 							aSet,
@@ -131,8 +128,7 @@ func Run(testCases []TestCase, ctx framework.TestContext, apps *util.EchoDeploym
 							apps.Multiversion.Match(echo.InCluster(client.Config().Cluster)),
 							// only hit same cluster naked services
 							apps.Naked.Match(echo.InCluster(client.Config().Cluster)),
-							// only hit same cluster vm services
-							apps.VM.Match(echo.InCluster(client.Config().Cluster)),
+							vmSet,
 							// only hit same cluster headless services
 							apps.HeadlessNaked.Match(echo.InCluster(client.Config().Cluster)),
 						}

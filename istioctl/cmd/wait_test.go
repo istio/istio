@@ -15,15 +15,21 @@
 package cmd
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"strings"
+	"sync"
 	"testing"
 
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/dynamic/fake"
+	ktesting "k8s.io/client-go/testing"
 
 	"istio.io/istio/pilot/pkg/xds"
 )
@@ -43,22 +49,22 @@ func TestWaitCmd(t *testing.T) {
 	cases := []execTestCase{
 		{
 			execClientConfig: cannedResponseMap,
-			args:             strings.Split("x wait --resource-version=2 --timeout=2s virtual-service foo.default", " "),
+			args:             strings.Split("x wait --generation=2 --timeout=2s virtual-service foo.default", " "),
 			wantException:    true,
 		},
 		{
 			execClientConfig: cannedResponseMap,
-			args:             strings.Split("x wait --resource-version=1 virtual-service foo.default", " "),
+			args:             strings.Split("x wait --generation=1 virtual-service foo.default", " "),
 			wantException:    false,
 		},
 		{
 			execClientConfig: cannedResponseMap,
-			args:             strings.Split("x wait --resource-version=1 VirtualService foo.default", " "),
+			args:             strings.Split("x wait --generation=1 VirtualService foo.default", " "),
 			wantException:    false,
 		},
 		{
 			execClientConfig: cannedResponseMap,
-			args:             strings.Split("x wait --resource-version=1 not-service foo.default", " "),
+			args:             strings.Split("x wait --generation=1 not-service foo.default", " "),
 			wantException:    true,
 		},
 		{
@@ -74,41 +80,57 @@ func TestWaitCmd(t *testing.T) {
 		},
 		{
 			execClientConfig: cannedResponseMap,
-			args:             strings.Split("x wait --revision canary virtualservice foo.default", " "),
+			args:             strings.Split("x wait --timeout 2s --revision canary virtualservice foo.default", " "),
 			wantException:    false,
 		},
 	}
 
-	_ = setupK8Sfake()
-
 	for i, c := range cases {
 		t.Run(fmt.Sprintf("case %d %s", i, strings.Join(c.args, " ")), func(t *testing.T) {
+			_ = setupK8Sfake()
 			verifyExecTestOutput(t, c)
 		})
 	}
 }
 
 func setupK8Sfake() *fake.FakeDynamicClient {
-	objs := []runtime.Object{
-		newUnstructured("networking.istio.io/v1alpha3", "virtualservice", "default", "foo", "1"),
-		newUnstructured("networking.istio.io/v1alpha3", "virtualservice", "default", "bar", "3"),
-	}
-	client := fake.NewSimpleDynamicClient(runtime.NewScheme(), objs...)
+	client := fake.NewSimpleDynamicClient(runtime.NewScheme())
 	clientGetter = func(_, _ string) (dynamic.Interface, error) {
 		return client, nil
 	}
+	l := sync.Mutex{}
+	l.Lock()
+	client.PrependWatchReactor("*", func(action ktesting.Action) (handled bool, ret watch.Interface, err error) {
+		l.Unlock()
+		return false, nil, nil
+	})
+	go func() {
+		// wait till watch created, then send create events.
+		// by default, k8s sends all existing objects at the beginning of a watch, but the test mock does not.  This
+		// function forces the test to behave like kubernetes does, but creates a race condition on watch creation.
+		l.Lock()
+		gvr := schema.GroupVersionResource{Group: "networking.istio.io", Version: "v1alpha3", Resource: "virtualservices"}
+		x := client.Resource(gvr).Namespace("default")
+
+		x.Create(context.TODO(),
+			newUnstructured("networking.istio.io/v1alpha3", "virtualservice", "default", "foo", int64(1)),
+			metav1.CreateOptions{})
+		x.Create(context.TODO(),
+			newUnstructured("networking.istio.io/v1alpha3", "virtualservice", "default", "bar", int64(3)),
+			metav1.CreateOptions{})
+	}()
 	return client
 }
 
-func newUnstructured(apiVersion, kind, namespace, name, resourceVersion string) *unstructured.Unstructured {
+func newUnstructured(apiVersion, kind, namespace, name string, generation int64) *unstructured.Unstructured {
 	return &unstructured.Unstructured{
 		Object: map[string]interface{}{
 			"apiVersion": apiVersion,
 			"kind":       kind,
 			"metadata": map[string]interface{}{
-				"namespace":       namespace,
-				"name":            name,
-				"resourceVersion": resourceVersion,
+				"namespace":  namespace,
+				"name":       name,
+				"generation": generation,
 			},
 		},
 	}

@@ -149,7 +149,6 @@ func (c *Cache) Watch(
 }
 
 func (c *Cache) fillStatus(group string, request *source.Request, peerAddr string) *StatusInfo {
-
 	info, ok := c.status[group]
 	if !ok {
 		info = &StatusInfo{
@@ -286,7 +285,6 @@ func (c *Cache) GetGroups() []string {
 
 // GetResource returns the mcp resource detailed information for the specified group
 func (c *Cache) GetResource(group string, collection string, resourceName string) *sink.Object {
-
 	c.mu.Lock()
 	defer c.mu.Unlock()
 

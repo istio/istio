@@ -141,6 +141,10 @@ func (s *Server) initK8SConfigStore(args *PilotArgs) error {
 			return err
 		}
 	}
+	s.RWConfigStore, err = configaggregate.MakeWriteableCache(s.ConfigStores, configController)
+	if err != nil {
+		return err
+	}
 	s.XDSServer.WorkloadEntryController = workloadentry.NewController(configController, args.PodName, args.KeepaliveOptions.MaxServerConnectionAge)
 	return nil
 }
@@ -210,7 +214,6 @@ func (s *Server) initConfigSources(args *PilotArgs) (err error) {
 // running Analyzers for status updates.  The Status Updater will eventually need to allow input from istiod
 // to support config distribution status as well.
 func (s *Server) initInprocessAnalysisController(args *PilotArgs) error {
-
 	processingArgs := settings.DefaultArgs()
 	processingArgs.KubeConfig = args.RegistryOptions.KubeConfig
 	processingArgs.WatchedNamespaces = args.RegistryOptions.KubeOptions.WatchedNamespaces
@@ -223,11 +226,29 @@ func (s *Server) initInprocessAnalysisController(args *PilotArgs) error {
 		go leaderelection.
 			NewLeaderElection(args.Namespace, args.PodName, leaderelection.AnalyzeController, s.kubeClient).
 			AddRunFunction(func(stop <-chan struct{}) {
-				if err := processing.Start(); err != nil {
-					log.Fatalf("Error starting Background Analysis: %s", err)
+				// to protect pilot from panics in analysis (which should never cause pilot to exit), recover from
+				// panics in analysis and, unless stop is called, restart the analysis controller.
+				for {
+					select {
+					case <-stop:
+						return
+					default:
+						func() {
+							defer func() {
+								if r := recover(); r != nil {
+									log.Warnf("Analysis experienced fatal error, requires restart", r)
+								}
+							}()
+							log.Info("Starting Background Analysis")
+							if err := processing.Start(); err != nil {
+								log.Fatalf("Error starting Background Analysis: %s", err)
+							}
+							<-stop
+							log.Warnf("Stopping Background Analysis")
+							processing.Stop()
+						}()
+					}
 				}
-				<-stop
-				processing.Stop()
 			}).Run(stop)
 		return nil
 	})
@@ -249,10 +270,11 @@ func (s *Server) initStatusController(args *PilotArgs, writeStatus bool) {
 	s.XDSServer.StatusReporter = s.statusReporter
 	if writeStatus {
 		s.addTerminatingStartFunc(func(stop <-chan struct{}) error {
-			controller := status.NewController(*s.kubeRestConfig, args.Namespace)
+			controller := status.NewController(*s.kubeRestConfig, args.Namespace, s.RWConfigStore)
 			leaderelection.
 				NewLeaderElection(args.Namespace, args.PodName, leaderelection.StatusController, s.kubeClient).
 				AddRunFunction(func(stop <-chan struct{}) {
+					s.statusReporter.SetController(controller)
 					controller.Start(stop)
 				}).Run(stop)
 			return nil

@@ -1,0 +1,16 @@
+apiVersion: release-notes/v2
+
+kind:
+  bug-fix
+
+area:
+  istiod
+
+issue:
+  - 29275
+
+# releaseNotes is a markdown listing of any user facing changes. This will appear in the
+# release notes.
+releaseNotes:
+  - |
+    **Fixed** Prevent goroutine leak when using alpha status feature.

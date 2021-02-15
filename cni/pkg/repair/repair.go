@@ -150,7 +150,6 @@ func (bpr BrokenPodReconciler) deleteBrokenPod(pod v1.Pod) error {
 
 // Lists all pods identified as broken by our Filter criteria
 func (bpr BrokenPodReconciler) ListBrokenPods() (list v1.PodList, err error) {
-
 	var rawList *v1.PodList
 	rawList, err = bpr.client.CoreV1().Pods("").List(context.TODO(), metav1.ListOptions{
 		LabelSelector: bpr.Filters.LabelSelectors,

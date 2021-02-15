@@ -42,6 +42,9 @@ const (
 	// LocalSDS is the location of the in-process SDS server - must be in a writeable dir.
 	DefaultLocalSDSPath = "./etc/istio/proxy/SDS"
 
+	// SystemRootCerts is special case input for root cert configuration to use system root certificates.
+	SystemRootCerts = "SYSTEM"
+
 	// Credential fetcher type
 	GCE  = "GoogleComputeEngine"
 	Mock = "Mock" // testing only
@@ -63,10 +66,7 @@ var (
 		"A list of comma separated audiences to check in the JWT token before issuing a certificate. "+
 			"The token is accepted if it matches with one of the audiences").Get(), ",")
 
-	XDSTokenType = env.RegisterStringVar("XDS_TOKEN_TYPE", "Bearer",
-		"Token type in the Authorization header.").Get()
-
-	BearerTokenPrefix = XDSTokenType + " "
+	BearerTokenPrefix = "Bearer" + " "
 )
 
 // Options provides all of the configuration parameters for secret discovery service

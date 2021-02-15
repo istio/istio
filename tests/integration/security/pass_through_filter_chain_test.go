@@ -45,7 +45,6 @@ func TestPassThroughFilterChain(t *testing.T) {
 			policies := tmpl.EvaluateAllOrFail(t, args,
 				file.AsStringOrFail(t, "testdata/pass-through-filter-chain.yaml.tmpl"))
 			ctx.Config().ApplyYAMLOrFail(t, ns.Name(), policies...)
-			defer ctx.Config().DeleteYAMLOrFail(t, ns.Name(), policies...)
 
 			for _, cluster := range ctx.Clusters() {
 				a := apps.A.Match(echo.Namespace(ns.Name())).GetOrFail(ctx, echo.InCluster(cluster))
@@ -223,7 +222,7 @@ func TestPassThroughFilterChain(t *testing.T) {
 						want:   true,
 					},
 				}
-				ctx.NewSubTest(fmt.Sprintf("In %s", cluster.Name())).Run(func(ctx framework.TestContext) {
+				ctx.NewSubTest(fmt.Sprintf("In %s", cluster.StableName())).Run(func(ctx framework.TestContext) {
 					for _, tc := range cases {
 						name := fmt.Sprintf("A->%s:%d[%t]", tc.target.Config().Service, tc.port, tc.want)
 						a := apps.A.Match(echo.InCluster(cluster)).GetOrFail(ctx, echo.Namespace(ns.Name()))

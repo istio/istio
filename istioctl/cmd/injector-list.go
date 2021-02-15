@@ -127,7 +127,6 @@ func getNamespaces(ctx context.Context, client kube.ExtendedClient) ([]v1.Namesp
 
 func printNS(writer io.Writer, namespaces []v1.Namespace, hooks []admit_v1.MutatingWebhookConfiguration,
 	allPods map[resource.Namespace][]v1.Pod) error {
-
 	outputCount := 0
 
 	w := new(tabwriter.Writer).Init(writer, 0, 8, 1, ' ', 0)
@@ -177,7 +176,7 @@ func printHooks(writer io.Writer, namespaces []v1.Namespace, hooks []admit_v1.Mu
 	w := new(tabwriter.Writer).Init(writer, 0, 8, 1, ' ', 0)
 	fmt.Fprintln(w, "NAMESPACES\tINJECTOR-HOOK\tISTIO-REVISION\tSIDECAR-IMAGE")
 	for _, hook := range hooks {
-		revision := hook.ObjectMeta.GetLabels()[label.IstioRev]
+		revision := hook.ObjectMeta.GetLabels()[label.IoIstioRev.Name]
 		namespaces := getMatchingNamespaces(&hook, namespaces)
 		if len(namespaces) == 0 {
 			fmt.Fprintf(w, "%s\t%s\t%s\t%s\n", "DOES NOT AUTOINJECT", hook.Name, revision, injectedImages[revision])
@@ -209,9 +208,9 @@ func getInjector(namespace *v1.Namespace, hooks []admit_v1.MutatingWebhookConfig
 func getInjectedRevision(namespace *v1.Namespace, hooks []admit_v1.MutatingWebhookConfiguration) string {
 	injector := getInjector(namespace, hooks)
 	if injector != nil {
-		return injector.ObjectMeta.GetLabels()[label.IstioRev]
+		return injector.ObjectMeta.GetLabels()[label.IoIstioRev.Name]
 	}
-	newRev := namespace.ObjectMeta.GetLabels()[label.IstioRev]
+	newRev := namespace.ObjectMeta.GetLabels()[label.IoIstioRev.Name]
 	oldLabel, ok := namespace.ObjectMeta.GetLabels()[analyzer_util.InjectionLabelName]
 	// If there is no istio-injection=disabled and no istio.io/rev, the namespace isn't injected
 	if newRev == "" && (ok && oldLabel == "disabled" || !ok) {
@@ -263,7 +262,7 @@ func getInjectedImages(ctx context.Context, client kube.ExtendedClient) (map[str
 	retval := map[string]string{}
 
 	// All configs in all namespaces that are Istio revisioned
-	configMaps, err := client.CoreV1().ConfigMaps("").List(ctx, metav1.ListOptions{LabelSelector: label.IstioRev})
+	configMaps, err := client.CoreV1().ConfigMaps("").List(ctx, metav1.ListOptions{LabelSelector: label.IoIstioRev.Name})
 	if err != nil {
 		return retval, err
 	}
@@ -271,7 +270,7 @@ func getInjectedImages(ctx context.Context, client kube.ExtendedClient) (map[str
 	for _, configMap := range configMaps.Items {
 		image := injection.GetIstioProxyImage(&configMap)
 		if image != "" {
-			retval[configMap.ObjectMeta.GetLabels()[label.IstioRev]] = image
+			retval[configMap.ObjectMeta.GetLabels()[label.IoIstioRev.Name]] = image
 		}
 	}
 
@@ -282,7 +281,7 @@ func getInjectedImages(ctx context.Context, client kube.ExtendedClient) (map[str
 func podCountByRevision(pods []v1.Pod, expectedRevision string) map[string]revisionCount {
 	retval := map[string]revisionCount{}
 	for _, pod := range pods {
-		revision := pod.ObjectMeta.GetLabels()[label.IstioRev]
+		revision := pod.ObjectMeta.GetLabels()[label.IoIstioRev.Name]
 		revisionLabel := revision
 		if revision == "" {
 			revisionLabel = "<non-Istio>"

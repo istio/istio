@@ -492,7 +492,6 @@ func TestAnalyzeSuppressesMessagesWhenResourceIsAnnotated(t *testing.T) {
 			}
 		})
 	}
-
 }
 
 func getTestSnapshot(schemas ...collection.Schema) *Snapshot {
@@ -517,8 +516,10 @@ func newSchema(name string) collection.Schema {
 	}.MustBuild()
 }
 
-var _ resource.Origin = fakeOrigin{}
-var _ resource.Reference = fakeReference{}
+var (
+	_ resource.Origin    = fakeOrigin{}
+	_ resource.Reference = fakeReference{}
+)
 
 type fakeOrigin struct {
 	namespace    resource.Namespace
@@ -528,6 +529,7 @@ type fakeOrigin struct {
 
 func (f fakeOrigin) Namespace() resource.Namespace { return f.namespace }
 func (f fakeOrigin) FriendlyName() string          { return f.friendlyName }
+func (f fakeOrigin) Comparator() string            { return f.friendlyName }
 func (f fakeOrigin) Reference() resource.Reference { return f.reference }
 func (f fakeOrigin) FieldMap() map[string]int      { return make(map[string]int) }
 

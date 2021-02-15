@@ -15,17 +15,22 @@
 package envoyfilter
 
 import (
+	"fmt"
+
 	cluster "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
+	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	"github.com/golang/protobuf/proto"
 
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pilot/pkg/util/runtime"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/pkg/log"
 )
 
-func ApplyClusterMerge(pctx networking.EnvoyFilter_PatchContext, efw *model.EnvoyFilterWrapper, c *cluster.Cluster) (out *cluster.Cluster) {
+// ApplyClusterMerge processes the MERGE operation and merges the supplied configuration to the matched clusters.
+func ApplyClusterMerge(pctx networking.EnvoyFilter_PatchContext, efw *model.EnvoyFilterWrapper, c *cluster.Cluster, hosts []host.Name) (out *cluster.Cluster) {
 	defer runtime.HandleCrash(runtime.LogPanic, func(interface{}) {
 		log.Errorf("clusters patch caused panic, so the patches did not take effect")
 	})
@@ -38,14 +43,68 @@ func ApplyClusterMerge(pctx networking.EnvoyFilter_PatchContext, efw *model.Envo
 		if cp.Operation != networking.EnvoyFilter_Patch_MERGE {
 			continue
 		}
-		if commonConditionMatch(pctx, cp) && clusterMatch(c, cp) {
-			proto.Merge(c, cp.Value)
+		if commonConditionMatch(pctx, cp) && clusterMatch(c, cp, hosts) {
+
+			ret, err := mergeTransportSocketCluster(c, cp)
+			if err != nil {
+				log.Debugf("Merge of transport socket failed for cluster: %v", err)
+				continue
+			}
+			if !ret {
+				proto.Merge(c, cp.Value)
+			}
 		}
 	}
 	return c
 }
 
-func ShouldKeepCluster(pctx networking.EnvoyFilter_PatchContext, efw *model.EnvoyFilterWrapper, c *cluster.Cluster) bool {
+// Test if the patch contains a config for TransportSocket
+func mergeTransportSocketCluster(c *cluster.Cluster, cp *model.EnvoyFilterConfigPatchWrapper) (bool, error) {
+	cpValueCast, okCpCast := (cp.Value).(*cluster.Cluster)
+	if !okCpCast {
+		return false, fmt.Errorf("cast of cp.Value failed: %v", okCpCast)
+	}
+
+	var tsmPatch *core.TransportSocket
+
+	// Test if the patch contains a config for TransportSocket
+	// and if the cluster contains a config for Transport Socket Matches
+	if cpValueCast.GetTransportSocket() != nil && c.GetTransportSocketMatches() != nil {
+		for _, tsm := range c.GetTransportSocketMatches() {
+			if tsm.GetTransportSocket() != nil && cpValueCast.GetTransportSocket().Name == tsm.GetTransportSocket().Name {
+				tsmPatch = tsm.GetTransportSocket()
+				break
+			}
+		}
+	} else if cpValueCast.GetTransportSocket() != nil && c.GetTransportSocket() != nil {
+		if cpValueCast.GetTransportSocket().Name == c.GetTransportSocket().Name {
+			tsmPatch = c.GetTransportSocket()
+		}
+	}
+
+	if tsmPatch != nil {
+		// Merge the patch and the cluster at a lower level
+		dstCluster := tsmPatch.GetTypedConfig()
+		srcPatch := cpValueCast.GetTransportSocket().GetTypedConfig()
+
+		if dstCluster != nil && srcPatch != nil {
+
+			retVal, errMerge := util.MergeAnyWithAny(dstCluster, srcPatch)
+			if errMerge != nil {
+				return false, fmt.Errorf("function MergeAnyWithAny failed for ApplyClusterMerge: %v", errMerge)
+			}
+
+			// Merge the above result with the whole cluster
+			proto.Merge(dstCluster, retVal)
+			return true, nil
+		}
+	}
+
+	return false, nil
+}
+
+// ShouldKeepCluster checks if there is a REMOVE patch on the cluster, returns false if there is on so that it is removed.
+func ShouldKeepCluster(pctx networking.EnvoyFilter_PatchContext, efw *model.EnvoyFilterWrapper, c *cluster.Cluster, hosts []host.Name) bool {
 	if efw == nil {
 		return true
 	}
@@ -53,13 +112,14 @@ func ShouldKeepCluster(pctx networking.EnvoyFilter_PatchContext, efw *model.Envo
 		if cp.Operation != networking.EnvoyFilter_Patch_REMOVE {
 			continue
 		}
-		if commonConditionMatch(pctx, cp) && clusterMatch(c, cp) {
+		if commonConditionMatch(pctx, cp) && clusterMatch(c, cp, hosts) {
 			return false
 		}
 	}
 	return true
 }
 
+// InsertedClusters collects all clusters that are added via ADD operation and match the patch context.
 func InsertedClusters(pctx networking.EnvoyFilter_PatchContext, efw *model.EnvoyFilterWrapper) []*cluster.Cluster {
 	if efw == nil {
 		return nil
@@ -76,7 +136,7 @@ func InsertedClusters(pctx networking.EnvoyFilter_PatchContext, efw *model.Envoy
 	return result
 }
 
-func clusterMatch(cluster *cluster.Cluster, cp *model.EnvoyFilterConfigPatchWrapper) bool {
+func clusterMatch(cluster *cluster.Cluster, cp *model.EnvoyFilterConfigPatchWrapper, hosts []host.Name) bool {
 	cMatch := cp.Match.GetCluster()
 	if cMatch == nil {
 		return true
@@ -86,13 +146,19 @@ func clusterMatch(cluster *cluster.Cluster, cp *model.EnvoyFilterConfigPatchWrap
 		return cMatch.Name == cluster.Name
 	}
 
-	_, subset, hostname, port := model.ParseSubsetKey(cluster.Name)
+	direction, subset, hostname, port := model.ParseSubsetKey(cluster.Name)
+
+	hostMatches := []host.Name{hostname}
+	// For inbound clusters, host parsed from subset key will be empty. Use the passed in service name.
+	if direction == model.TrafficDirectionInbound && len(hosts) > 0 {
+		hostMatches = hosts
+	}
 
 	if cMatch.Subset != "" && cMatch.Subset != subset {
 		return false
 	}
 
-	if cMatch.Service != "" && host.Name(cMatch.Service) != hostname {
+	if cMatch.Service != "" && !hostContains(hostMatches, host.Name(cMatch.Service)) {
 		return false
 	}
 
@@ -102,4 +168,13 @@ func clusterMatch(cluster *cluster.Cluster, cp *model.EnvoyFilterConfigPatchWrap
 		return false
 	}
 	return true
+}
+
+func hostContains(hosts []host.Name, service host.Name) bool {
+	for _, h := range hosts {
+		if h == service {
+			return true
+		}
+	}
+	return false
 }

@@ -414,7 +414,6 @@ func (c *Controller) isDryRunOfInvalidConfigRejected() (rejected bool, reason st
 
 func (c *Controller) updateValidatingWebhookConfiguration(caBundle []byte, failurePolicy kubeApiAdmission.FailurePolicyType) error {
 	current, err := c.webhookInformer.Lister().Get(c.o.WebhookConfigName)
-
 	if err != nil {
 		if kubeErrors.IsNotFound(err) {
 			scope.Warn(err.Error())

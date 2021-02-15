@@ -18,8 +18,10 @@ import (
 	"istio.io/istio/pkg/config/resource"
 )
 
-var _ resource.Origin = &testOrigin{}
-var _ resource.Reference = &testReference{}
+var (
+	_ resource.Origin    = &testOrigin{}
+	_ resource.Reference = &testReference{}
+)
 
 type testOrigin struct {
 	name     string
@@ -28,6 +30,10 @@ type testOrigin struct {
 }
 
 func (o testOrigin) FriendlyName() string {
+	return o.name
+}
+
+func (o testOrigin) Comparator() string {
 	return o.name
 }
 

@@ -147,12 +147,12 @@ data:
             "address": ""
           }
         },
-        "trustDomain": "",
         "useMCP": false
       },
       "revision": "",
       "sidecarInjectorWebhook": {
         "alwaysInjectSelector": [],
+        "defaultTemplates": [],
         "enableNamespacesByDefault": false,
         "injectedAnnotations": {},
         "neverInjectSelector": [],
@@ -161,7 +161,8 @@ data:
           "enabled": true
         },
         "rewriteAppHTTPProbe": true,
-        "templates": {}
+        "templates": {},
+        "useLegacySelectors": false
       }
     }
 
@@ -172,7 +173,6 @@ data:
   # to fine tune it or use it with kube-inject.
   config: |-
     # defaultTemplates defines the default template to use for pods that do not explicitly specify a template
-    # NOTE: this currently only allows a single element
     defaultTemplates: [sidecar]
     policy: enabled
     alwaysInjectSelector:
@@ -180,16 +180,17 @@ data:
     neverInjectSelector:
       []
     injectedAnnotations:
+    template: "{{ Template_Version_And_Istio_Version_Mismatched_Check_Installation }}"
     templates:
       sidecar: |
         {{- $containers := list }}
         {{- range $index, $container := .Spec.Containers }}{{ if not (eq $container.Name "istio-proxy") }}{{ $containers = append $containers $container.Name }}{{end}}{{- end}}
         metadata:
           labels:
-            security.istio.io/tlsMode: {{ index .ObjectMeta.Labels `security.istio.io/tlsMode` | default "istio" }}
-            service.istio.io/canonical-name: {{ index .ObjectMeta.Labels `service.istio.io/canonical-name` | default (index .ObjectMeta.Labels `app.kubernetes.io/name`) | default (index .ObjectMeta.Labels `app`) | default .DeploymentMeta.Name }}
-            service.istio.io/canonical-revision: {{ index .ObjectMeta.Labels `service.istio.io/canonical-revision` | default (index .ObjectMeta.Labels `app.kubernetes.io/version`) | default (index .ObjectMeta.Labels `version`) | default "latest" }}
-            istio.io/rev: {{ .Revision | default "default" }}
+            security.istio.io/tlsMode: {{ index .ObjectMeta.Labels `security.istio.io/tlsMode` | default "istio"  | quote }}
+            service.istio.io/canonical-name: {{ index .ObjectMeta.Labels `service.istio.io/canonical-name` | default (index .ObjectMeta.Labels `app.kubernetes.io/name`) | default (index .ObjectMeta.Labels `app`) | default .DeploymentMeta.Name  | quote }}
+            service.istio.io/canonical-revision: {{ index .ObjectMeta.Labels `service.istio.io/canonical-revision` | default (index .ObjectMeta.Labels `app.kubernetes.io/version`) | default (index .ObjectMeta.Labels `version`) | default "latest"  | quote }}
+            istio.io/rev: {{ .Revision | default "default" | quote }}
           annotations: {
             {{- if eq (len $containers) 1 }}
             kubectl.kubernetes.io/default-logs-container: "{{ index $containers 0 }}",
@@ -264,7 +265,7 @@ data:
             - "--run-validation"
             - "--skip-rule-apply"
             {{ end -}}
-            imagePullPolicy: "{{ valueOrDefault .Values.global.imagePullPolicy `Always` }}"
+            {{with .Values.global.imagePullPolicy }}imagePullPolicy: "{{.}}"{{end}}
           {{- if .ProxyConfig.ProxyMetadata }}
             env:
             {{- range $key, $value := .ProxyConfig.ProxyMetadata }}
@@ -333,7 +334,7 @@ data:
           {{- else }}
             image: "{{ .Values.global.hub }}/{{ .Values.global.proxy_init.image }}:{{ .Values.global.tag }}"
           {{- end }}
-            imagePullPolicy: "{{ valueOrDefault .Values.global.imagePullPolicy `Always` }}"
+            {{with .Values.global.imagePullPolicy }}imagePullPolicy: "{{.}}"{{end}}
             resources: {}
             securityContext:
               allowPrivilegeEscalation: true
@@ -497,7 +498,7 @@ data:
             - name: {{ $key }}
               value: "{{ $value }}"
             {{- end }}
-            imagePullPolicy: "{{ valueOrDefault .Values.global.imagePullPolicy `Always` }}"
+            {{with .Values.global.imagePullPolicy }}imagePullPolicy: "{{.}}"{{end}}
             {{ if ne (annotation .ObjectMeta `status.sidecar.istio.io/port` .Values.global.proxy.statusPort) `0` }}
             readinessProbe:
               httpGet:
@@ -675,12 +676,10 @@ data:
           {{- end }}
 ---
 # Source: istiod-remote/templates/mutatingwebhook.yaml
-# Installed for each revision - not installed for cluster resources ( cluster roles, bindings, crds)
 apiVersion: admissionregistration.k8s.io/v1beta1
 kind: MutatingWebhookConfiguration
 metadata:
   name: istio-sidecar-injector
-
   labels:
     istio.io/rev: default
     install.operator.istio.io/owning-resource: unknown
@@ -688,27 +687,59 @@ metadata:
     app: sidecar-injector
     release: istiod-remote
 webhooks:
-  - name: sidecar-injector.istio.io
-    clientConfig:
-      service:
-        name: istiod
-        namespace: istio-system
-        path: "/inject"
-      caBundle: ""
-    sideEffects: None
-    rules:
-      - operations: [ "CREATE" ]
-        apiGroups: [""]
-        apiVersions: ["v1"]
-        resources: ["pods"]
-    failurePolicy: Fail
-    admissionReviewVersions: ["v1beta1", "v1"]
-    namespaceSelector:
-      matchLabels:
-        istio-injection: enabled
-    objectSelector:
-      matchExpressions:
-      - key: "sidecar.istio.io/inject"
-        operator: NotIn
-        values:
-        - "false"
+- name: namespace.sidecar-injector.istio.io
+  clientConfig:
+    service:
+      name: istiod
+      namespace: istio-system
+      path: "/inject"
+    caBundle: ""
+  sideEffects: None
+  rules:
+  - operations: [ "CREATE" ]
+    apiGroups: [""]
+    apiVersions: ["v1"]
+    resources: ["pods"]
+  failurePolicy: Fail
+  admissionReviewVersions: ["v1beta1", "v1"]
+  namespaceSelector:
+    matchExpressions:
+    - key: istio-injection
+      operator: In
+      values:
+      - enabled
+  objectSelector:
+    matchExpressions:
+    - key: sidecar.istio.io/inject
+      operator: NotIn
+      values:
+      - "false"
+- name: object.sidecar-injector.istio.io
+  clientConfig:
+    service:
+      name: istiod
+      namespace: istio-system
+      path: "/inject"
+    caBundle: ""
+  sideEffects: None
+  rules:
+  - operations: [ "CREATE" ]
+    apiGroups: [""]
+    apiVersions: ["v1"]
+    resources: ["pods"]
+  failurePolicy: Fail
+  admissionReviewVersions: ["v1beta1", "v1"]
+  namespaceSelector:
+    matchExpressions:
+    - key: istio-injection
+      operator: DoesNotExist
+    - key: istio.io/rev
+      operator: DoesNotExist
+  objectSelector:
+    matchExpressions:
+    - key: sidecar.istio.io/inject
+      operator: In
+      values:
+      - "true"
+    - key: istio.io/rev
+      operator: DoesNotExist

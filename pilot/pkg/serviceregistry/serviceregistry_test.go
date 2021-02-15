@@ -30,6 +30,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/client-go/kubernetes"
 
+	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/api/meta/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/config/memory"
@@ -44,6 +45,7 @@ import (
 	"istio.io/istio/pilot/test/xdstest"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/host"
+	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/config/schema/gvk"
 	kubeclient "istio.io/istio/pkg/kube"
@@ -123,7 +125,14 @@ func setupTest(t *testing.T) (
 	xdsUpdater := &FakeXdsUpdater{
 		Events: eventch,
 	}
-	kc := kubecontroller.NewController(client, kubecontroller.Options{XDSUpdater: xdsUpdater, DomainSuffix: "cluster.local"})
+	kc := kubecontroller.NewController(
+		client,
+		kubecontroller.Options{
+			XDSUpdater:   xdsUpdater,
+			DomainSuffix: "cluster.local",
+			MeshWatcher:  mesh.NewFixedWatcher(&meshconfig.MeshConfig{}),
+		},
+	)
 	configController := memory.NewController(memory.Make(collections.Pilot))
 
 	stop := make(chan struct{})
@@ -534,7 +543,8 @@ func TestWorkloadInstances(t *testing.T) {
 						Name:       "http2",
 						Port:       90,
 						TargetPort: intstr.FromInt(9090),
-					}},
+					},
+				},
 				Selector:  labels,
 				ClusterIP: "9.9.9.9",
 			},
@@ -597,7 +607,7 @@ func TestWorkloadInstances(t *testing.T) {
 		}}
 		expectServiceInstances(t, wc, expectedSvc, 80, instances)
 
-		//when pods become unready, we should see the instances being removed from the registry
+		// when pods become unready, we should see the instances being removed from the registry
 		setPodUnready(pod)
 		_, err := kube.CoreV1().Pods(pod.Namespace).UpdateStatus(context.TODO(), pod, metav1.UpdateOptions{})
 		if err != nil {

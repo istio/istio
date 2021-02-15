@@ -21,10 +21,10 @@ import (
 
 	"istio.io/istio/pkg/test/echo/client"
 	"istio.io/istio/pkg/test/framework"
+	"istio.io/istio/pkg/test/framework/components/cluster"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/features"
 	"istio.io/istio/pkg/test/framework/label"
-	"istio.io/istio/pkg/test/framework/resource"
 )
 
 func LoadbalancingTest(t *testing.T, apps AppContext, features ...features.Feature) {
@@ -36,7 +36,7 @@ func LoadbalancingTest(t *testing.T, apps AppContext, features ...features.Featu
 				Run(func(ctx framework.TestContext) {
 					for _, src := range apps.LBEchos {
 						src := src
-						ctx.NewSubTest(fmt.Sprintf("from %s", src.Config().Cluster.Name())).
+						ctx.NewSubTest(fmt.Sprintf("from %s", src.Config().Cluster.StableName())).
 							Run(func(ctx framework.TestContext) {
 								srcNetwork := src.Config().Cluster.NetworkName()
 								callOrFail(ctx, src, apps.LBEchos[0],
@@ -67,7 +67,7 @@ func checkReachedAllSubsets(echos echo.Instances) echo.Validator {
 	})
 }
 
-func checkEqualIntraNetworkTraffic(clusters resource.Clusters, srcNetwork string) echo.Validator {
+func checkEqualIntraNetworkTraffic(clusters cluster.Clusters, srcNetwork string) echo.Validator {
 	// expect same network traffic to have very equal distribution (20% error)
 	intraNetworkClusters := clusters.ByNetwork()[srcNetwork]
 	return echo.ValidatorFunc(func(res client.ParsedResponses, _ error) error {

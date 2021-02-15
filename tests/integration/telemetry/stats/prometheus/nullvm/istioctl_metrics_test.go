@@ -35,16 +35,13 @@ func TestIstioctlMetrics(t *testing.T) {
 	framework.NewTest(t).
 		Features("observability.telemetry.istioctl").
 		Run(func(ctx framework.TestContext) {
-
 			retry.UntilSuccessOrFail(t, func() error {
-				if err := common.SendTraffic(t, common.GetClientInstances()[0]); err != nil {
+				if err := common.SendTraffic(common.GetClientInstances()[0]); err != nil {
 					return err
 				}
 				return validateDefaultOutput(t, ctx, "server")
 			}, retry.Delay(telemetrypkg.RetryDelay), retry.Timeout(telemetrypkg.RetryTimeout))
-
 		})
-
 }
 
 func validateDefaultOutput(t *testing.T, ctx framework.TestContext, workload string) error { // nolint:interfacer

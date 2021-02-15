@@ -24,6 +24,7 @@ import (
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/echo/client"
 	"istio.io/istio/pkg/test/echo/proto"
+	"istio.io/istio/pkg/test/framework/components/cluster"
 	"istio.io/istio/pkg/test/framework/resource"
 	"istio.io/istio/pkg/test/util/retry"
 )
@@ -46,6 +47,14 @@ type Builder interface {
 	// With adds a new Echo configuration to the Builder. Once built, the instance
 	// pointer will be updated to point at the new Instance.
 	With(i *Instance, cfg Config) Builder
+
+	// WithConfig mimics the behavior of With, but does not allow passing a reference
+	// and returns an echoboot builder rather than a generic echo builder.
+	// TODO rename this to With, and the old method to WithInstance
+	WithConfig(cfg Config) Builder
+
+	// WithClusters will cause subsequent With or WithConfig calls to be applied to the given clusters.
+	WithClusters(...cluster.Cluster) Builder
 
 	// Build and initialize all Echo Instances. Upon returning, the Instance pointers
 	// are assigned and all Instances are ready to communicate with each other.
@@ -119,8 +128,11 @@ type Port struct {
 	// ServerFirst determines whether the port will use server first communication, meaning the client will not send the first byte.
 	ServerFirst bool
 
-	// InstanceIP determines if echo will listen on the instance IP, or wildcard
+	// InstanceIP determines if echo will listen on the instance IP; otherwise, it will listen on wildcard
 	InstanceIP bool
+
+	// LocalhostIP determines if echo will listen on the localhost IP; otherwise, it will listen on wildcard
+	LocalhostIP bool
 }
 
 // Workload provides an interface for a single deployed echo server.

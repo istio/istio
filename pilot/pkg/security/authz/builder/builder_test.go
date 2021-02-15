@@ -158,7 +158,8 @@ func TestGenerator_GenerateHTTP(t *testing.T) {
 			input: "action-both-in.yaml",
 			want: []string{
 				"action-both-deny-out.yaml",
-				"action-both-allow-out.yaml"},
+				"action-both-allow-out.yaml",
+			},
 		},
 		{
 			name:  "all-fields",

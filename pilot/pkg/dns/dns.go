@@ -159,7 +159,7 @@ func (h *LocalDNSServer) UpdateLookupTable(nt *nds.NameTable) {
 // ServerDNS is the implementation of DNS interface
 func (h *LocalDNSServer) ServeDNS(proxy *dnsProxy, w dns.ResponseWriter, req *dns.Msg) {
 	var response *dns.Msg
-	log := log
+	log := log.WithLabels("protocol", proxy.protocol)
 	if log.DebugEnabled() {
 		id := uuid.New()
 		log = log.WithLabels("id", id)
@@ -343,8 +343,11 @@ func (table *LookupTable) buildDNSAnswers(altHosts map[string]struct{}, ipv4 []n
 			// do sequential dns resolution, starting with the first search namespace)
 
 			// host h already ends with a .
-			// search namespace does not. So we append one in the end
-			expandedHost := strings.ToLower(h + searchNamespaces[0] + ".")
+			// search namespace might not. So we append one in the end if needed
+			expandedHost := strings.ToLower(h + searchNamespaces[0])
+			if !strings.HasSuffix(searchNamespaces[0], ".") {
+				expandedHost += "."
+			}
 			// make sure this is not a proper hostname
 			// if host is productpage, and search namespace is ns1.svc.cluster.local
 			// then the expanded host productpage.ns1.svc.cluster.local is a valid hostname

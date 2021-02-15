@@ -832,6 +832,21 @@ No
 </tr>
 </thead>
 <tbody>
+<tr id="GlobalConfig-arch">
+<td><code>arch</code></td>
+<td><code><a href="#ArchConfig">ArchConfig</a></code></td>
+<td>
+<p>Specifies pod scheduling arch(amd64, ppc64le, s390x) and weight as follows:
+  0 - Never scheduled
+  1 - Least preferred
+  2 - No preference
+  3 - Most preferred</p>
+
+</td>
+<td>
+No
+</td>
+</tr>
 <tr id="GlobalConfig-configRootNamespace">
 <td><code>configRootNamespace</code></td>
 <td><code>string</code></td>
@@ -1091,17 +1106,6 @@ No
 No
 </td>
 </tr>
-<tr id="GlobalConfig-trustDomain">
-<td><code>trustDomain</code></td>
-<td><code>string</code></td>
-<td>
-<p>Specifies the trust domain that corresponds to the root cert of CA.</p>
-
-</td>
-<td>
-No
-</td>
-</tr>
 <tr id="GlobalConfig-useMCP">
 <td><code>useMCP</code></td>
 <td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#boolvalue">BoolValue</a></code></td>
@@ -1208,23 +1212,6 @@ No
 <td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#boolvalue">BoolValue</a></code></td>
 <td>
 <p>Controls whether one external istiod is enabled.</p>
-
-</td>
-<td>
-No
-</td>
-</tr>
-<tr id="GlobalConfig-arch" class="deprecated ">
-<td><code>arch</code></td>
-<td><code><a href="#ArchConfig">ArchConfig</a></code></td>
-<td>
-<p>Specifies pod scheduling arch(amd64, ppc64le, s390x) and weight as follows:
-  0 - Never scheduled
-  1 - Least preferred
-  2 - No preference
-  3 - Most preferred</p>
-
-<p>Deprecated: replaced by the affinity k8s settings which allows architecture nodeAffinity configuration of this behavior.</p>
 
 </td>
 <td>
@@ -3204,6 +3191,17 @@ No
 <p>Then starting a pod with the <code>inject.istio.io/templates: hello</code> annotation, will result in the pod
 being injected with the hello=world labels.
 This is intended for advanced configuration only; most users should use the built in template</p>
+
+</td>
+<td>
+No
+</td>
+</tr>
+<tr id="SidecarInjectorConfig-defaultTemplates">
+<td><code>defaultTemplates</code></td>
+<td><code>string[]</code></td>
+<td>
+<p>defaultTemplates: [&ldquo;sidecar&rdquo;, &ldquo;hello&rdquo;]</p>
 
 </td>
 <td>

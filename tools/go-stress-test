@@ -1,0 +1,67 @@
+#!/usr/bin/env bash
+
+# Copyright Istio Authors
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+# This script runs go tests in a package, but each test is run individually in a loop. This helps
+# determine which tests are flaky.
+# This requires https://github.com/howardjohn/golang-tools/tree/master/cmd/stress to be installed in $PATH.
+
+# Usage: `go test -p 1 -exec $PWD/tools/go-stress-test ./...`
+# Supported `go test` flags: -v, -race, -run, -count. All others are ignored (-timeout, etc)
+# Addition flags:
+# * -stress.runs: exit successfully after this many runs. Default 1000.
+# * -stress.time: exit successfully after this much time has passed. Default 10s.
+
+set -u
+
+red='\e[0;31m'
+green='\e[0;32m'
+yellow='\e[0;33m'
+clr='\e[0m'
+
+binary="${1}"
+RUN="."
+COUNT=1
+RUNS=1000
+TIME=10s
+while [[ "$#" -gt 0 ]]; do
+    case $1 in
+        -test.v=true) VERBOSE=true ;;
+        -test.run=*) RUN="${1#-test.run=}" ;;
+        -test.count=*) COUNT="${1#-test.count=}" ;;
+        -stress.runs=*) RUNS="${1#-stress.runs=}" ;;
+        -stress.runs) RUNS="${2}"; shift ;;
+        -stress.time=*) TIME="${1#-stress.time=}" ;;
+        -stress.time) TIME="${2}"; shift ;;
+    esac
+    shift
+done
+
+RESULTS=/tmp/test-results"$(dirname ${binary})"
+mkdir -p "${RESULTS}"
+code=0
+
+for testname in $("${binary}" -test.list "${RUN}"); do
+  stress -f --max-time "${TIME:-10s}" --max-runs "${RUNS:-1000}" "${binary}" -test.run '^'"${testname}"'$' -test.count "${COUNT}" -test.v &> "${RESULTS}/${testname}"
+  # shellcheck disable=SC2181
+  if [[ $? != 0 ]]; then
+    echo -e "--- ${red}FAIL:${clr} ${testname}. See ${RESULTS}/${testname} for full logs"
+    code=1
+  elif [[ "${VERBOSE:-}" == true ]]; then
+    echo -e "--- ${green}PASS:${clr} ${testname}. $(cat ${RESULTS}/${testname} | tail -n2 | head -n1)"
+  fi
+done
+
+exit ${code}

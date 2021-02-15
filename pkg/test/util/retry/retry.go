@@ -33,13 +33,11 @@ const (
 	DefaultConverge = 1
 )
 
-var (
-	defaultConfig = config{
-		timeout:  DefaultTimeout,
-		delay:    DefaultDelay,
-		converge: DefaultConverge,
-	}
-)
+var defaultConfig = config{
+	timeout:  DefaultTimeout,
+	delay:    DefaultDelay,
+	converge: DefaultConverge,
+}
 
 type config struct {
 	error    string
@@ -147,16 +145,18 @@ func Do(fn RetriableFunc, options ...Option) (interface{}, error) {
 	}
 
 	successes := 0
+	attempts := 0
 	var lasterr error
 	to := time.After(cfg.timeout)
 	for {
 		select {
 		case <-to:
-			return nil, fmt.Errorf("timeout while waiting (last error: %v)", lasterr)
+			return nil, fmt.Errorf("timeout while waiting after %d attempts (last error: %v)", attempts, lasterr)
 		default:
 		}
 
 		result, completed, err := fn()
+		attempts++
 		if completed {
 			if err == nil {
 				successes++
@@ -176,6 +176,11 @@ func Do(fn RetriableFunc, options ...Option) (interface{}, error) {
 			lasterr = err
 		}
 
-		<-time.After(cfg.delay)
+		select {
+		case <-to:
+			return nil, fmt.Errorf("timeout while waiting after %d attempts (last error: %v)", attempts, lasterr)
+		case <-time.After(cfg.delay):
+		}
+
 	}
 }

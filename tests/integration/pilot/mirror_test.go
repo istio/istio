@@ -62,9 +62,7 @@ type mirrorTestOptions struct {
 	mirrorHost string
 }
 
-var (
-	mirrorProtocols = []protocol.Instance{protocol.HTTP, protocol.GRPC}
-)
+var mirrorProtocols = []protocol.Instance{protocol.HTTP, protocol.GRPC}
 
 func TestMirroring(t *testing.T) {
 	runMirrorTest(t, mirrorTestOptions{
@@ -142,13 +140,10 @@ func runMirrorTest(t *testing.T, options mirrorTestOptions) {
 					deployment := tmpl.EvaluateOrFail(ctx,
 						file.AsStringOrFail(ctx, "testdata/traffic-mirroring-template.yaml"), vsc)
 					ctx.Config().ApplyYAMLOrFail(ctx, apps.Namespace.Name(), deployment)
-					ctx.WhenDone(func() error {
-						return ctx.Config().DeleteYAML(apps.Namespace.Name(), deployment)
-					})
 
 					for _, podA := range apps.PodA {
 						podA := podA
-						ctx.NewSubTest(fmt.Sprintf("from %s", podA.Config().Cluster.Name())).Run(func(ctx framework.TestContext) {
+						ctx.NewSubTest(fmt.Sprintf("from %s", podA.Config().Cluster.StableName())).Run(func(ctx framework.TestContext) {
 							for _, proto := range mirrorProtocols {
 								ctx.NewSubTest(string(proto)).Run(func(ctx framework.TestContext) {
 									retry.UntilSuccessOrFail(ctx, func() error {

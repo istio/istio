@@ -141,6 +141,14 @@ var (
 	// Description: An Istio annotation may not be suitable for production.
 	AlphaAnnotation = diag.NewMessageType(diag.Info, "IST0136", "Annotation %q is part of an alpha-phase feature and may be incompletely supported.")
 
+	// DeploymentConflictingPorts defines a diag.MessageType for message "DeploymentConflictingPorts".
+	// Description: Two services selecting the same workload with same target port are MUST refer to the same port.
+	DeploymentConflictingPorts = diag.NewMessageType(diag.Warning, "IST0137", "This deployment %s is associated with multiple services %v using targetPort %q but different ports: %v.")
+
+	// GatewayDuplicateCertificate defines a diag.MessageType for message "GatewayDuplicateCertificate".
+	// Description: Duplicate certificate in multiple gateways may cause 404s if clients re-use HTTP2 connections.
+	GatewayDuplicateCertificate = diag.NewMessageType(diag.Warning, "IST0138", "Duplicate certificate in multiple gateways %v may cause 404s if clients re-use HTTP2 connections.")
+
 	// IngressRouteRulesNotAffected defines a diag.MessageType for message "IngressRouteRulesNotAffected".
 	// Description: Virtualservice not affected Ingress route
 	IngressRouteRulesNotAffected = diag.NewMessageType(diag.Warning, "IST0137", "Subset configuration in %s not affected ingress route in %s.")
@@ -182,7 +190,12 @@ func All() []*diag.MessageType {
 		ServiceEntryAddressesRequired,
 		DeprecatedAnnotation,
 		AlphaAnnotation,
+<<<<<<< HEAD
 		IngressRouteRulesNotAffected,
+=======
+		DeploymentConflictingPorts,
+		GatewayDuplicateCertificate,
+>>>>>>> c12ac4fc94fa1b99db84bf2394cc8fdafe54c0dc
 	}
 }
 
@@ -518,6 +531,7 @@ func NewAlphaAnnotation(r *resource.Instance, annotation string) diag.Message {
 	)
 }
 
+<<<<<<< HEAD
 // NewIngressRouteRulesNotAffected returns a new diag.Message based on IngressRouteRulesNotAffected.
 func NewIngressRouteRulesNotAffected(r *resource.Instance, virtualservice string, virtualserviceingress string) diag.Message {
 	return diag.NewMessage(
@@ -525,5 +539,25 @@ func NewIngressRouteRulesNotAffected(r *resource.Instance, virtualservice string
 		r,
 		virtualservice,
 		virtualserviceingress,
+=======
+// NewDeploymentConflictingPorts returns a new diag.Message based on DeploymentConflictingPorts.
+func NewDeploymentConflictingPorts(r *resource.Instance, deployment string, services []string, targetPort string, ports []int32) diag.Message {
+	return diag.NewMessage(
+		DeploymentConflictingPorts,
+		r,
+		deployment,
+		services,
+		targetPort,
+		ports,
+	)
+}
+
+// NewGatewayDuplicateCertificate returns a new diag.Message based on GatewayDuplicateCertificate.
+func NewGatewayDuplicateCertificate(r *resource.Instance, gateways []string) diag.Message {
+	return diag.NewMessage(
+		GatewayDuplicateCertificate,
+		r,
+		gateways,
+>>>>>>> c12ac4fc94fa1b99db84bf2394cc8fdafe54c0dc
 	)
 }

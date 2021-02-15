@@ -1,0 +1,31 @@
+# Set up a Service associated with our proxy, which will run as 1.1.1.1 IP
+apiVersion: networking.istio.io/v1alpha3
+kind: ServiceEntry
+metadata:
+  name: proxy-service-instance
+spec:
+  hosts:
+    - example.com
+  ports:
+    - number: 80
+      name: http
+      protocol: HTTP
+    - number: 443
+      name: https
+      protocol: HTTPS
+  resolution: STATIC
+  endpoints:
+    - address: 1.1.1.1
+      labels:
+        istio.io/benchmark: "true"
+---
+  {{- range $i := until .Services }}
+apiVersion: security.istio.io/v1beta1
+kind: PeerAuthentication
+metadata:
+  name: authz-{{$i}}
+spec:
+  mtls:
+    mode: STRICT
+---
+  {{- end }}

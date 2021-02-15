@@ -72,6 +72,7 @@ func makeInstances(proxy *model.Proxy, svc *model.Service, servicePort int, targ
 func TestInboundClusters(t *testing.T) {
 	proxy := &model.Proxy{
 		IPAddresses: []string{"1.2.3.4"},
+		Metadata:    &model.NodeMetadata{},
 	}
 	proxy180 := &model.Proxy{
 		IPAddresses: []string{"1.2.3.4"},
@@ -114,9 +115,9 @@ func TestInboundClusters(t *testing.T) {
 		services  []*model.Service
 		instances []*model.ServiceInstance
 		// Assertions
-		clusters    map[string][]string
-		telemetry   map[string][]string
-		legacyProxy bool
+		clusters  map[string][]string
+		telemetry map[string][]string
+		proxy     *model.Proxy
 	}{
 		// Proxy 1.8.1+ tests
 		{name: "empty"},
@@ -294,10 +295,10 @@ func TestInboundClusters(t *testing.T) {
 
 		// Proxy 1.8.0 tests
 		{
-			name:        "single service, partial instance",
-			legacyProxy: true,
-			services:    []*model.Service{service},
-			instances:   makeInstances(proxy180, service, 80, 8080),
+			name:      "single service, partial instance",
+			proxy:     proxy180,
+			services:  []*model.Service{service},
+			instances: makeInstances(proxy180, service, 80, 8080),
 			clusters: map[string][]string{
 				"inbound|80||": {"127.0.0.1:8080"},
 			},
@@ -306,9 +307,9 @@ func TestInboundClusters(t *testing.T) {
 			},
 		},
 		{
-			name:        "single service, multiple instance",
-			legacyProxy: true,
-			services:    []*model.Service{service},
+			name:     "single service, multiple instance",
+			proxy:    proxy180,
+			services: []*model.Service{service},
 			instances: flattenInstances(
 				makeInstances(proxy180, service, 80, 8080),
 				makeInstances(proxy180, service, 81, 8081)),
@@ -322,9 +323,9 @@ func TestInboundClusters(t *testing.T) {
 			},
 		},
 		{
-			name:        "multiple services with same service port, different target",
-			legacyProxy: true,
-			services:    []*model.Service{service, serviceAlt},
+			name:     "multiple services with same service port, different target",
+			proxy:    proxy180,
+			services: []*model.Service{service, serviceAlt},
 			instances: flattenInstances(
 				makeInstances(proxy180, service, 80, 8080),
 				makeInstances(proxy180, service, 81, 8081),
@@ -341,9 +342,9 @@ func TestInboundClusters(t *testing.T) {
 			},
 		},
 		{
-			name:        "multiple services with same service port and target",
-			legacyProxy: true,
-			services:    []*model.Service{service, serviceAlt},
+			name:     "multiple services with same service port and target",
+			proxy:    proxy180,
+			services: []*model.Service{service, serviceAlt},
 			instances: flattenInstances(
 				makeInstances(proxy180, service, 80, 8080),
 				makeInstances(proxy180, service, 81, 8081),
@@ -359,8 +360,8 @@ func TestInboundClusters(t *testing.T) {
 			},
 		},
 		{
-			name:        "ingress to same port",
-			legacyProxy: true,
+			name:  "ingress to same port",
+			proxy: proxy180,
 			configs: []config.Config{
 				{
 					Meta: config.Meta{GroupVersionKind: gvk.Sidecar, Namespace: "default", Name: "sidecar"},
@@ -379,8 +380,8 @@ func TestInboundClusters(t *testing.T) {
 			},
 		},
 		{
-			name:        "ingress to different port",
-			legacyProxy: true,
+			name:  "ingress to different port",
+			proxy: proxy180,
 			configs: []config.Config{
 				{
 					Meta: config.Meta{GroupVersionKind: gvk.Sidecar, Namespace: "default", Name: "sidecar"},
@@ -399,8 +400,8 @@ func TestInboundClusters(t *testing.T) {
 			},
 		},
 		{
-			name:        "ingress to instance IP",
-			legacyProxy: true,
+			name:  "ingress to instance IP",
+			proxy: proxy180,
 			configs: []config.Config{
 				{
 					Meta: config.Meta{GroupVersionKind: gvk.Sidecar, Namespace: "default", Name: "sidecar"},
@@ -419,8 +420,8 @@ func TestInboundClusters(t *testing.T) {
 			},
 		},
 		{
-			name:        "ingress to socket",
-			legacyProxy: true,
+			name:  "ingress to socket",
+			proxy: proxy180,
 			configs: []config.Config{
 				{
 					Meta: config.Meta{GroupVersionKind: gvk.Sidecar, Namespace: "default", Name: "sidecar"},
@@ -439,8 +440,8 @@ func TestInboundClusters(t *testing.T) {
 			},
 		},
 		{
-			name:        "multiple ingress",
-			legacyProxy: true,
+			name:  "multiple ingress",
+			proxy: proxy180,
 			configs: []config.Config{
 				{
 					Meta: config.Meta{GroupVersionKind: gvk.Sidecar, Namespace: "default", Name: "sidecar"},
@@ -472,8 +473,10 @@ func TestInboundClusters(t *testing.T) {
 	}
 	for _, tt := range cases {
 		name := tt.name
-		if tt.legacyProxy {
-			name += "-legacy"
+		if tt.proxy == nil {
+			tt.proxy = proxy
+		} else {
+			name += "-" + tt.proxy.Metadata.IstioVersion
 		}
 		t.Run(name, func(t *testing.T) {
 			s := v1alpha3.NewConfigGenTest(t, v1alpha3.TestOptions{
@@ -481,11 +484,7 @@ func TestInboundClusters(t *testing.T) {
 				Instances: tt.instances,
 				Configs:   tt.configs,
 			})
-			testProxy := proxy
-			if tt.legacyProxy {
-				testProxy = proxy180
-			}
-			sim := simulation.NewSimulationFromConfigGen(t, s, s.SetupProxy(testProxy))
+			sim := simulation.NewSimulationFromConfigGen(t, s, s.SetupProxy(tt.proxy))
 
 			clusters := xdstest.FilterClusters(sim.Clusters, func(c *cluster.Cluster) bool {
 				return strings.HasPrefix(c.Name, "inbound")
@@ -502,30 +501,37 @@ func TestInboundClusters(t *testing.T) {
 				t.Errorf("expected clusters: %v, got: %v", xdstest.MapKeys(tt.clusters), got)
 			}
 
-			for name, c := range cmap {
+			for cname, c := range cmap {
 				// Check the upstream endpoints match
-				got := xdstest.ExtractLoadAssignments([]*endpoint.ClusterLoadAssignment{c.GetLoadAssignment()})[name]
-				if !reflect.DeepEqual(tt.clusters[name], got) {
-					t.Errorf("%v: expected endpoints %v, got %v", name, tt.clusters[name], got)
+				got := xdstest.ExtractLoadAssignments([]*endpoint.ClusterLoadAssignment{c.GetLoadAssignment()})[cname]
+				if !reflect.DeepEqual(tt.clusters[cname], got) {
+					t.Errorf("%v: expected endpoints %v, got %v", cname, tt.clusters[cname], got)
 				}
 				gotTelemetry := extractClusterMetadataServices(t, c)
-				if !reflect.DeepEqual(tt.telemetry[name], gotTelemetry) {
-					t.Errorf("%v: expected telemetry services %v, got %v", name, tt.telemetry[name], gotTelemetry)
+				if !reflect.DeepEqual(tt.telemetry[cname], gotTelemetry) {
+					t.Errorf("%v: expected telemetry services %v, got %v", cname, tt.telemetry[cname], gotTelemetry)
 				}
 
-				if tt.legacyProxy {
-					// This doesn't work with the legacy proxies which have issues (https://github.com/istio/istio/issues/29199)
-					continue
-				}
 				// simulate an actual call, this ensures we are aligned with the inbound listener configuration
-				_, _, _, port := model.ParseSubsetKey(name)
+				_, _, hostname, port := model.ParseSubsetKey(cname)
+				if tt.proxy.Metadata.IstioVersion != "" {
+					// This doesn't work with the legacy proxies which have issues (https://github.com/istio/istio/issues/29199)
+					for _, i := range tt.instances {
+						if len(hostname) > 0 && i.Service.Hostname != hostname {
+							continue
+						}
+						if i.ServicePort.Port == port {
+							port = int(i.Endpoint.EndpointPort)
+						}
+					}
+				}
 				sim.Run(simulation.Call{
 					Port:     port,
 					Protocol: simulation.HTTP,
 					Address:  "1.2.3.4",
 					CallMode: simulation.CallModeInbound,
 				}).Matches(t, simulation.Result{
-					ClusterMatched: fmt.Sprintf("inbound|%d||", port),
+					ClusterMatched: cname,
 				})
 			}
 		})

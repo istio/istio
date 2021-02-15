@@ -1,0 +1,9 @@
+apiVersion: release-notes/v2
+kind: bug-fix 
+area: installation
+issue:
+  - 30203
+releaseNotes:
+- |
+  **Fixed** revision is not applied to the scale target reference of HorizontalPodAutoscaler when helm values for hpa are specified explicitly.
+

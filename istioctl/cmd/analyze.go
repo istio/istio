@@ -199,7 +199,6 @@ func Analyze() *cobra.Command {
 
 			// Do the analysis
 			result, err := sa.Analyze(cancel)
-
 			if err != nil {
 				return err
 			}

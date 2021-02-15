@@ -329,17 +329,17 @@ spec:
           requests:
             cpu: 1000m # override from default 500m
             memory: 4096Mi # ... default 2048Mi
-          hpaSpec:
-            maxReplicas: 10 # ... default 5
-            minReplicas: 2  # ... default 1
-          nodeSelector: # ... default empty
-            master: "true"
-          tolerations: # ... default empty
-          - key: dedicated
-            operator: Exists
-            effect: NoSchedule
-          - key: CriticalAddonsOnly
-            operator: Exists
+        hpaSpec:
+          maxReplicas: 10 # ... default 5
+          minReplicas: 2  # ... default 1
+        nodeSelector: # ... default empty
+          master: "true"
+        tolerations: # ... default empty
+        - key: dedicated
+          operator: Exists
+          effect: NoSchedule
+        - key: CriticalAddonsOnly
+          operator: Exists
 ```
 
 The K8s settings are defined in detail in the

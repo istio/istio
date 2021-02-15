@@ -65,6 +65,7 @@ func updateCallback(_ kube.Client, id string) error {
 	updated = id
 	return nil
 }
+
 func deleteCallback(id string) error {
 	mu.Lock()
 	defer mu.Unlock()

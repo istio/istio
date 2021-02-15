@@ -57,7 +57,6 @@ func TestEgressGatewayTls(t *testing.T) {
 	framework.NewTest(t).
 		Features("security.egress.tls.filebased").
 		Run(func(ctx framework.TestContext) {
-
 			internalClient, externalServer, _, serviceNamespace := setupEcho(t, ctx)
 			// Set up Host Name
 			host := "server." + serviceNamespace.Name() + ".svc.cluster.local"
@@ -101,7 +100,7 @@ func TestEgressGatewayTls(t *testing.T) {
 					response:            []string{response.StatusCodeBadRequest},
 					gateway:             false, // 400 response will not contain header
 				},
-				//5. SIMPLE TLS origination with "fake" root cert::
+				// 5. SIMPLE TLS origination with "fake" root cert::
 				//   internalClient ) ---HTTP request (Host: some-external-site.com----> Hits listener 0.0.0.0_80 ->
 				//     VS Routing (add Egress Header) --> Egress Gateway(originates simple TLS)
 				//     --> externalServer(443 with TLS enforced)
@@ -123,7 +122,6 @@ func TestEgressGatewayTls(t *testing.T) {
 						systemNamespace := namespace.ClaimOrFail(t, ctx, istioCfg.SystemNamespace)
 
 						ctx.Config().ApplyYAMLOrFail(ctx, systemNamespace.Name(), bufDestinationRule.String())
-						defer ctx.Config().DeleteYAMLOrFail(ctx, systemNamespace.Name(), bufDestinationRule.String())
 
 						retry.UntilSuccessOrFail(t, func() error {
 							resp, err := internalClient.Call(echo.CallOptions{
@@ -233,8 +231,10 @@ func createDestinationRule(t *testing.T, serviceNamespace namespace.Instance,
 	}
 
 	var buf bytes.Buffer
-	if err := tmpl.Execute(&buf, map[string]string{"AppNamespace": serviceNamespace.Name(),
-		"Mode": destinationRuleMode, "RootCertPath": rootCertPathToUse}); err != nil {
+	if err := tmpl.Execute(&buf, map[string]string{
+		"AppNamespace": serviceNamespace.Name(),
+		"Mode":         destinationRuleMode, "RootCertPath": rootCertPathToUse,
+	}); err != nil {
 		t.Fatalf("failed to create template: %v", err)
 	}
 	return buf

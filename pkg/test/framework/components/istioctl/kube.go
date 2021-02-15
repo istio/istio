@@ -22,20 +22,20 @@ import (
 
 	"istio.io/istio/istioctl/cmd"
 	"istio.io/istio/pilot/pkg/config/kube/crd"
-	"istio.io/istio/pkg/test/framework/components/environment/kube"
+	kubecluster "istio.io/istio/pkg/test/framework/components/cluster/kube"
 	"istio.io/istio/pkg/test/framework/resource"
 )
 
 type kubeComponent struct {
 	config  Config
 	id      resource.ID
-	cluster *kube.Cluster
+	cluster *kubecluster.Cluster
 }
 
 func newKube(ctx resource.Context, config Config) Instance {
 	n := &kubeComponent{
 		config:  config,
-		cluster: ctx.Clusters().GetOrDefault(config.Cluster).(*kube.Cluster),
+		cluster: ctx.Clusters().GetOrDefault(config.Cluster).(*kubecluster.Cluster),
 	}
 	n.id = ctx.TrackResource(n)
 
@@ -67,7 +67,7 @@ func (c *kubeComponent) WaitForConfigs(defaultNamespace string, configs string) 
 
 // Invoke implements Instance
 func (c *kubeComponent) Invoke(args []string) (string, string, error) {
-	var cmdArgs = append([]string{
+	cmdArgs := append([]string{
 		"--kubeconfig",
 		c.cluster.Filename(),
 	}, args...)

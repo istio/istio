@@ -40,6 +40,7 @@ func All() []analysis.Analyzer {
 		&deployment.ServiceAssociationAnalyzer{},
 		&deprecation.FieldAnalyzer{},
 		&gateway.IngressGatewayPortAnalyzer{},
+		&gateway.CertificateAnalyzer{},
 		&gateway.SecretAnalyzer{},
 		&injection.Analyzer{},
 		&injection.ImageAnalyzer{},

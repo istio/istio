@@ -80,10 +80,6 @@ var testGrid = []testCase{
 			{msg.MisplacedAnnotation, "Deployment fortio-deploy"},
 			{msg.MisplacedAnnotation, "Namespace staging"},
 			{msg.DeprecatedAnnotation, "Deployment fortio-deploy"},
-			{msg.AlphaAnnotation, "Deployment fortio-deploy"},
-			{msg.AlphaAnnotation, "Pod invalid-annotations"},
-			{msg.AlphaAnnotation, "Pod invalid-annotations"},
-			{msg.AlphaAnnotation, "Service httpbin"},
 		},
 	},
 	{
@@ -285,6 +281,7 @@ var testGrid = []testCase{
 			{msg.DeploymentAssociatedToMultipleServices, "Deployment multiple-without-port.bookinfo"},
 			{msg.DeploymentRequiresServiceAssociated, "Deployment no-services.bookinfo"},
 			{msg.DeploymentRequiresServiceAssociated, "Deployment ann-enabled-ns-disabled.injection-disabled-ns"},
+			{msg.DeploymentConflictingPorts, "Deployment conflicting-ports.bookinfo"},
 		},
 	},
 	{
@@ -447,6 +444,19 @@ var testGrid = []testCase{
 			{msg.ServiceEntryAddressesRequired, "ServiceEntry service-entry-test-03.default"},
 			{msg.ServiceEntryAddressesRequired, "ServiceEntry service-entry-test-04.default"},
 			{msg.ServiceEntryAddressesRequired, "ServiceEntry service-entry-test-07.default"},
+		},
+	},
+	{
+		name: "certificate duplication in Gateway",
+		inputFiles: []string{
+			"testdata/gateway-duplicate-certificate.yaml",
+		},
+		analyzer: &gateway.CertificateAnalyzer{},
+		expected: []message{
+			{msg.GatewayDuplicateCertificate, "Gateway gateway-01-test-01.istio-system"},
+			{msg.GatewayDuplicateCertificate, "Gateway gateway-02-test-01.istio-system"},
+			{msg.GatewayDuplicateCertificate, "Gateway gateway-01-test-02.istio-system"},
+			{msg.GatewayDuplicateCertificate, "Gateway gateway-01-test-03.default"},
 		},
 	},
 	{

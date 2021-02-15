@@ -165,7 +165,7 @@ func TestTagToVersionString(t *testing.T) {
 	//}
 	tests := []struct {
 		name string
-		//args    args
+		// args    args
 		want    string
 		wantErr bool
 	}{

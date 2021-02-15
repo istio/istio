@@ -21,6 +21,7 @@ import (
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/test/echo/common/scheme"
 	"istio.io/istio/pkg/test/framework"
+	"istio.io/istio/pkg/test/framework/components/cluster"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/echo/echoboot"
 	"istio.io/istio/pkg/test/framework/components/namespace"
@@ -90,11 +91,12 @@ func SetupApps(appCtx *AppContext) resource.SetupFn {
 			echoLbCfg := newEchoConfig("echolb", appCtx.Namespace, cluster)
 			echoLbCfg.Subsets = append(echoLbCfg.Subsets, echo.SubsetConfig{Version: "v2"})
 
-			builder.With(nil, echoLbCfg)
-			builder.With(nil, newEchoConfig("local", appCtx.LocalNamespace, cluster))
+			builder = builder.
+				WithConfig(echoLbCfg).
+				WithConfig(newEchoConfig("local", appCtx.LocalNamespace, cluster))
 			for i := 0; i < uniqSvcPerCluster; i++ {
-				svcName := fmt.Sprintf("echo-%d-%d", cluster.Index(), i)
-				builder = builder.With(nil, newEchoConfig(svcName, appCtx.Namespace, cluster))
+				svcName := fmt.Sprintf("echo-%s-%d", cluster.StableName(), i)
+				builder = builder.WithConfig(newEchoConfig(svcName, appCtx.Namespace, cluster))
 			}
 		}
 		echos, err := builder.Build()
@@ -112,7 +114,7 @@ func SetupApps(appCtx *AppContext) resource.SetupFn {
 	}
 }
 
-func newEchoConfig(service string, ns namespace.Instance, cluster resource.Cluster) echo.Config {
+func newEchoConfig(service string, ns namespace.Instance, cluster cluster.Cluster) echo.Config {
 	return echo.Config{
 		Service:        service,
 		Namespace:      ns,
