@@ -95,7 +95,7 @@ func waitCmd() *cobra.Command {
 			for {
 				// run the check here as soon as we start
 				// because tickers won't run immediately
-				present, notpresent, err := poll(generations, targetResource, opts)
+				present, notpresent, err := poll(cmd, generations, targetResource, opts)
 				printVerbosef(cmd, "Received poll result: %d/%d", present, present+notpresent)
 				if err != nil {
 					return err
@@ -174,7 +174,7 @@ func countVersions(versionCount map[string]int, configVersion string) {
 	}
 }
 
-func poll(acceptedVersions []string, targetResource string, opts clioptions.ControlPlaneOptions) (present, notpresent int, err error) {
+func poll(cmd *cobra.Command, acceptedVersions []string, targetResource string, opts clioptions.ControlPlaneOptions) (present, notpresent int, err error) {
 	kubeClient, err := kubeClientWithRevision(kubeconfig, configContext, opts.Revision)
 	if err != nil {
 		return 0, 0, err
@@ -192,6 +192,7 @@ func poll(acceptedVersions []string, targetResource string, opts clioptions.Cont
 		if err != nil {
 			return 0, 0, err
 		}
+		printVerbosef(cmd, "sync status: %v", configVersions)
 		for _, configVersion := range configVersions {
 			countVersions(versionCount, configVersion.ClusterVersion)
 			countVersions(versionCount, configVersion.RouteVersion)
