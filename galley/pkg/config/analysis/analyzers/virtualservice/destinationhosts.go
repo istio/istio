@@ -73,10 +73,8 @@ func (a *DestinationHostAnalyzer) analyzeSubset(r *resource.Instance, ctx analys
 	for ruleIndex, http := range vs.Http {
 		for routeIndex, route := range http.Route {
 			if route.Destination.Subset == "" {
-
 				for virtualservice, destinations := range vsDestinations {
 					for _, destination := range destinations {
-
 						if destination.Host == route.Destination.Host {
 							m := msg.NewIngressRouteRulesNotAffected(r, virtualservice.String(), r.Metadata.FullName.String())
 

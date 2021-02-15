@@ -398,12 +398,12 @@ messages:
         type: "[]string"
 
   - name: "IngressRouteRulesNotAffected"
-    code: IST0137
+    code: IST0139
     level: Warning
-    description: "Virtualservice not affected Ingress route"
-    template: "Subset configuration in %s not affected ingress route in %s."
+    description: "Route rules have no effect on ingress gateway requests"
+    template: "Subset in virtual service %s has no effect on ingress gateway %s requests"
     args:
-      - name: virtualservice
+      - name: virtualservicesubset
         type: string
-      - name: virtualserviceingress
+      - name: virtualservice
         type: string

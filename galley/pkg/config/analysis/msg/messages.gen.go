@@ -150,8 +150,8 @@ var (
 	GatewayDuplicateCertificate = diag.NewMessageType(diag.Warning, "IST0138", "Duplicate certificate in multiple gateways %v may cause 404s if clients re-use HTTP2 connections.")
 
 	// IngressRouteRulesNotAffected defines a diag.MessageType for message "IngressRouteRulesNotAffected".
-	// Description: Virtualservice not affected Ingress route
-	IngressRouteRulesNotAffected = diag.NewMessageType(diag.Warning, "IST0137", "Subset configuration in %s not affected ingress route in %s.")
+	// Description: Route rules have no effect on ingress gateway requests
+	IngressRouteRulesNotAffected = diag.NewMessageType(diag.Warning, "IST0139", "Subset in virtual service %s has no effect on ingress gateway %s requests")
 )
 
 // All returns a list of all known message types.
@@ -190,12 +190,9 @@ func All() []*diag.MessageType {
 		ServiceEntryAddressesRequired,
 		DeprecatedAnnotation,
 		AlphaAnnotation,
-<<<<<<< HEAD
-		IngressRouteRulesNotAffected,
-=======
 		DeploymentConflictingPorts,
 		GatewayDuplicateCertificate,
->>>>>>> c12ac4fc94fa1b99db84bf2394cc8fdafe54c0dc
+		IngressRouteRulesNotAffected,
 	}
 }
 
@@ -531,15 +528,6 @@ func NewAlphaAnnotation(r *resource.Instance, annotation string) diag.Message {
 	)
 }
 
-<<<<<<< HEAD
-// NewIngressRouteRulesNotAffected returns a new diag.Message based on IngressRouteRulesNotAffected.
-func NewIngressRouteRulesNotAffected(r *resource.Instance, virtualservice string, virtualserviceingress string) diag.Message {
-	return diag.NewMessage(
-		IngressRouteRulesNotAffected,
-		r,
-		virtualservice,
-		virtualserviceingress,
-=======
 // NewDeploymentConflictingPorts returns a new diag.Message based on DeploymentConflictingPorts.
 func NewDeploymentConflictingPorts(r *resource.Instance, deployment string, services []string, targetPort string, ports []int32) diag.Message {
 	return diag.NewMessage(
@@ -558,6 +546,15 @@ func NewGatewayDuplicateCertificate(r *resource.Instance, gateways []string) dia
 		GatewayDuplicateCertificate,
 		r,
 		gateways,
->>>>>>> c12ac4fc94fa1b99db84bf2394cc8fdafe54c0dc
+	)
+}
+
+// NewIngressRouteRulesNotAffected returns a new diag.Message based on IngressRouteRulesNotAffected.
+func NewIngressRouteRulesNotAffected(r *resource.Instance, virtualservicesubset string, virtualservice string) diag.Message {
+	return diag.NewMessage(
+		IngressRouteRulesNotAffected,
+		r,
+		virtualservicesubset,
+		virtualservice,
 	)
 }
