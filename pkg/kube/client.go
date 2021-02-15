@@ -171,6 +171,9 @@ type ExtendedClient interface {
 
 	// DeleteYAMLFilesDryRun performs a dry run for deleting the resources in the given YAML files.
 	DeleteYAMLFilesDryRun(namespace string, yamlFiles ...string) error
+
+	// UtilFactory returns a kubectl factory
+	UtilFactory() util.Factory
 }
 
 var _ Client = &client{}
@@ -706,6 +709,10 @@ func (c *client) ApplyYAMLFilesDryRun(namespace string, yamlFiles ...string) err
 		}
 	}
 	return nil
+}
+
+func (c *client) UtilFactory() util.Factory {
+	return c.clientFactory
 }
 
 func (c *client) applyYAMLFile(namespace string, dryRun bool, file string) error {
