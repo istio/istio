@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: networking
+issue:
+  - 30387
+releaseNotes:
+  - |
+    **Fixed** namespace isn't resolved correctly in VirtualService delegation's short destination host.
