@@ -134,7 +134,15 @@ func isExpectedGRPCError(err error) bool {
 }
 
 func (s *DiscoveryServer) receive(con *Connection, reqChannel chan *discovery.DiscoveryRequest, errP *error) {
-	defer close(reqChannel) // indicates close of the remote side.
+	defer func() {
+		close(reqChannel)
+		// Close the initialized channel, if its not already closed, to prevent blocking the stream
+		select {
+		case <-con.initialized:
+		default:
+			close(con.initialized)
+		}
+	}()
 	firstReq := true
 	for {
 		req, err := con.stream.Recv()
