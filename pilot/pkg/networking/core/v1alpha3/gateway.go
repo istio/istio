@@ -58,12 +58,12 @@ func (configgen *ConfigGeneratorImpl) buildGatewayListeners(builder *ListenerBui
 	}
 	listeners := make([]*listener.Listener, 0)
 	proxyConfig := builder.node.Metadata.ProxyConfigOrDefault(builder.push.Mesh.DefaultConfig)
-	for portNumber, ms := range mergedGateway.MergedServers {
+	for port, ms := range mergedGateway.MergedServers {
 		servers := ms.Servers
 		var si *model.ServiceInstance
 		services := make(map[host.Name]struct{}, len(builder.node.ServiceInstances))
 		for _, w := range builder.node.ServiceInstances {
-			if w.ServicePort.Port == int(portNumber) {
+			if w.ServicePort.Port == int(port.Number) {
 				if si == nil {
 					si = w
 				}
@@ -72,15 +72,15 @@ func (configgen *ConfigGeneratorImpl) buildGatewayListeners(builder *ListenerBui
 		}
 		if len(services) != 1 {
 			log.Warnf("buildGatewayListeners: found %d services on port %d: %v",
-				len(services), portNumber, services)
+				len(services), port.Number, services)
 		}
 		// if we found a ServiceInstance with matching ServicePort, listen on TargetPort
 		if si != nil && si.Endpoint != nil {
-			portNumber = si.Endpoint.EndpointPort
+			port.Number = si.Endpoint.EndpointPort
 		}
-		if builder.node.Metadata.UnprivilegedPod != "" && portNumber < 1024 {
+		if builder.node.Metadata.UnprivilegedPod != "" && port.Number < 1024 {
 			log.Warnf("buildGatewayListeners: skipping privileged gateway port %d for node %s as it is an unprivileged pod",
-				portNumber, builder.node.ID)
+				port.Number, builder.node.ID)
 			continue
 		}
 
@@ -90,19 +90,19 @@ func (configgen *ConfigGeneratorImpl) buildGatewayListeners(builder *ListenerBui
 			push:       builder.push,
 			proxy:      builder.node,
 			bind:       actualWildcard,
-			port:       &model.Port{Port: int(portNumber)},
+			port:       &model.Port{Port: int(port.Number)},
 			bindToPort: true,
 			class:      ListenerClassGateway,
 		}
 
-		p := protocol.Parse(ms.Port.Protocol)
+		p := protocol.Parse(port.Protocol)
 		listenerProtocol := istionetworking.ModelProtocolToListenerProtocol(p, core.TrafficDirection_OUTBOUND)
 		filterChains := make([]istionetworking.FilterChain, 0)
 		if p.IsHTTP() {
 			// We have a list of HTTP servers on this port. Build a single listener for the server port.
 			// We only need to look at the first server in the list as the merge logic
 			// ensures that all servers are of same type.
-			opts.filterChainOpts = []*filterChainOpts{configgen.createGatewayHTTPFilterChainOpts(builder.node, ms.Port, nil, ms.RouteName, proxyConfig)}
+			opts.filterChainOpts = []*filterChainOpts{configgen.createGatewayHTTPFilterChainOpts(builder.node, &networking.Port{Number: port.Number, Protocol: port.Protocol}, nil, ms.RouteName, proxyConfig)}
 			filterChains = append(filterChains, istionetworking.FilterChain{ListenerProtocol: istionetworking.ListenerProtocolHTTP})
 		} else {
 			// build http connection manager with TLS context, for HTTPS servers using simple/mutual TLS

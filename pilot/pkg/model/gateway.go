@@ -28,9 +28,16 @@ import (
 	"istio.io/pkg/monitoring"
 )
 
+// ServerPort defines port for the gateway server.
+type ServerPort struct {
+	// A valid non-negative integer port number.
+	Number uint32
+	// The protocol exposed on the port.
+	Protocol string
+}
+
 // MergedServers describes set of servers defined in all gateways per port.
 type MergedServers struct {
-	Port      *networking.Port
 	Servers   []*networking.Server
 	RouteName string // RouteName for http servers. For HTTPS, TLSServerInfo will hold the route name.
 }
@@ -44,7 +51,7 @@ type TLSServerInfo struct {
 // MergedGateway describes a set of gateways for a workload merged into a single logical gateway.
 type MergedGateway struct {
 	// MergedServers maps from physical port to virtual servers.
-	MergedServers map[uint32]*MergedServers
+	MergedServers map[ServerPort]*MergedServers
 
 	// GatewayNameForServer maps from server to the owning gateway name.
 	// Used for select the set of virtual services that apply to a port.
@@ -83,7 +90,7 @@ func RecordRejectedConfig(gatewayName string) {
 // If servers with different protocols attempt to listen on the same port, one of the protocols will be chosen at random.
 func MergeGateways(gateways ...config.Config) *MergedGateway {
 	gatewayPorts := make(map[uint32]bool)
-	mergedServers := make(map[uint32]*MergedServers)
+	mergedServers := make(map[ServerPort]*MergedServers)
 	serversByRouteName := make(map[string][]*networking.Server)
 	tlsServerInfo := make(map[*networking.Server]*TLSServerInfo)
 	gatewayNameForServer := make(map[*networking.Server]string)
@@ -123,6 +130,7 @@ func MergeGateways(gateways ...config.Config) *MergedGateway {
 					continue
 				}
 			}
+			serverPort := ServerPort{s.Port.Number, s.Port.Protocol}
 			if gatewayPorts[s.Port.Number] {
 				// We have two servers on the same port. Should we merge?
 				// 1. Yes if both servers are plain text and HTTP
@@ -131,11 +139,11 @@ func MergeGateways(gateways ...config.Config) *MergedGateway {
 				//    for each server (as each server ends up as a separate http connection manager due to filter chain match
 				// 3. No for everything else.
 				routeName := gatewayRDSRouteName(s, gatewayConfig)
-				if ms, exists := mergedServers[s.Port.Number]; exists && !gateway.IsTLSServer(s) {
-					msproto := protocol.Parse(ms.Port.Protocol)
+				if ms, exists := mergedServers[serverPort]; exists && !gateway.IsTLSServer(s) {
+					msproto := protocol.Parse(serverPort.Protocol)
 					if !canMergeProtocols(msproto, p) {
-						log.Debugf("skipping server on gateway %s port %s.%d.%s: conflict with existing server %s.%d.%s",
-							gatewayConfig.Name, s.Port.Name, s.Port.Number, s.Port.Protocol, ms.Port.Protocol, ms.Port.Protocol, ms.Port.Protocol)
+						log.Debugf("skipping server on gateway %s port %s.%d.%s: conflict with existing server %s.%s",
+							gatewayConfig.Name, s.Port.Name, s.Port.Number, s.Port.Protocol, serverPort.Protocol, serverPort)
 						RecordRejectedConfig(gatewayName)
 						continue
 					}
@@ -172,6 +180,9 @@ func MergeGateways(gateways ...config.Config) *MergedGateway {
 							continue
 						}
 						serversByRouteName[routeName] = []*networking.Server{s}
+						if _, exists := tlsServerInfo[s]; !exists {
+							tlsServerInfo[s] = &TLSServerInfo{SNIHosts: GetSNIHostsForServer(s)}
+						}
 						tlsServerInfo[s].RouteName = routeName
 					}
 
@@ -184,7 +195,7 @@ func MergeGateways(gateways ...config.Config) *MergedGateway {
 				}
 			} else {
 				gatewayPorts[s.Port.Number] = true
-				ms := &MergedServers{Servers: []*networking.Server{s}, Port: s.Port}
+				ms := &MergedServers{Servers: []*networking.Server{s}}
 				routeName := gatewayRDSRouteName(s, gatewayConfig)
 				if gateway.IsHTTPServer(s) {
 					ms.RouteName = routeName
@@ -193,7 +204,7 @@ func MergeGateways(gateways ...config.Config) *MergedGateway {
 				if s.Tls != nil {
 					tlsServerInfo[s].RouteName = routeName
 				}
-				mergedServers[s.Port.Number] = ms
+				mergedServers[serverPort] = ms
 			}
 			log.Debugf("MergeGateways: gateway %q merged server %v", gatewayName, s.Hosts)
 		}
