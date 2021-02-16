@@ -563,7 +563,7 @@ func TestProxyConfigAnchors(t *testing.T) {
 	// Ensure that contents of the rootCert are correct.
 	checkSecret(t, sc, security.RootCertReqResourceName, security.SecretItem{
 		ResourceName: security.RootCertReqResourceName,
-		RootCert:     []byte(caClientRootCert),
+		RootCert:     caClientRootCert,
 	})
 
 	rootCert, err := ioutil.ReadFile(filepath.Join("./testdata", "root-cert.pem"))
@@ -604,5 +604,4 @@ func TestProxyConfigAnchors(t *testing.T) {
 		ResourceName: sc.existingCertificateFile.GetRootResourceName(),
 		RootCert:     rootCert,
 	})
-
 }
