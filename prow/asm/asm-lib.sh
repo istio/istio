@@ -464,6 +464,8 @@ function install_asm() {
     export _CI_ASM_KPT_BRANCH="${INSTALL_ASM_BRANCH}"
     export _CI_NO_VALIDATE=1
     export _CI_NO_REVISION=1
+    # Required when using unreleased Scriptaro
+    export _CI_ASM_PKG_LOCATION="asm-staging-images"
 
     local SERVICE_ACCOUNT
     SERVICE_ACCOUNT=$(gcloud config list --format "value(core.account)")
@@ -591,7 +593,10 @@ function install_asm_managed_control_plane() {
     local LOCATION="${VALS[2]}"
     local CLUSTER_NAME="${VALS[3]}"
 
-    _CI_CLOUDRUN_IMAGE_HUB="${HUB}/cloudrun" _CI_CLOUDRUN_IMAGE_TAG="${TAG}" "./install_asm" \
+    # _CI_ASM_PKG_LOCATION _CI_ASM_IMAGE_LOCATION are required for unreleased Scriptaro.
+    # Managed control plane installation will not used _CI_ASM_PKG_LOCATION, _CI_ASM_IMAGE_LOCATION.
+    # The two variables are there to keep Scriptaro running.
+    _CI_ASM_PKG_LOCATION="asm-staging-images" _CI_ASM_IMAGE_LOCATION="gcr.io/asm-staging-images/asm" _CI_CLOUDRUN_IMAGE_HUB="${HUB}/cloudrun" _CI_CLOUDRUN_IMAGE_TAG="${TAG}" "./install_asm" \
       --mode install \
       --project_id "${PROJECT_ID}" \
       --cluster_location "${LOCATION}" \
@@ -600,7 +605,7 @@ function install_asm_managed_control_plane() {
       --service_account "prow-gob-storage@istio-prow-build.iam.gserviceaccount.com" \
       --key_file "/etc/service-account/service-account.json" \
       --enable_cluster_labels \
-      --verbose || true
+      --verbose
   done
 
   for i in "${!CONTEXTS[@]}"; do

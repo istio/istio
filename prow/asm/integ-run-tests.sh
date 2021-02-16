@@ -237,6 +237,8 @@ if [[ "${CONTROL_PLANE}" == "UNMANAGED" ]]; then
 
   # Skip the tests that are known to be not working.
   INTEGRATION_TEST_FLAGS+=" --istio.test.skip=\"${DISABLED_TESTS}\""
+  # Skip the subtests that are known to be not working.
+  INTEGRATION_TEST_FLAGS+=" --istio.test.skip=\"TestRequestAuthentication/.*/valid-token-forward-remote-jwks\"" # UNSUPPORTED: relies on custom options
 
   echo "Running e2e test: ${TEST_TARGET}..."
   export JUNIT_OUT="${ARTIFACTS}/junit1.xml"
@@ -314,7 +316,8 @@ else
       INTEGRATION_TEST_FLAGS="--istio.test.kube.deploy=false \
   --istio.test.revision=asm-managed \
   --istio.test.skipVM=true \
-  --istio.test.skip=\"${DISABLED_TESTS}\""
+  --istio.test.skip=\"${DISABLED_TESTS}\" \
+  --istio.test.skip=\"TestRequestAuthentication/.*/valid-token-forward-remote-jwks\"" # UNSUPPORTED: relies on custom options
   elif [[ "${CLUSTER_TOPOLOGY}" == "MULTICLUSTER" ]]; then
     echo "Running integration test with ASM managed control plane and ${CLUSTER_TOPOLOGY} topology"
 
