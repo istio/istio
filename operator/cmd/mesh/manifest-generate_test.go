@@ -818,9 +818,12 @@ func TestWebhookSelector(t *testing.T) {
 	objEnabledAndRev := klabels.Set{"sidecar.istio.io/inject": "true", "istio.io/rev": "canary"}
 	objDisableAndRev := klabels.Set{"sidecar.istio.io/inject": "false", "istio.io/rev": "canary"}
 
-	defaultWebhook := getWebhooks(t, "", "istio-sidecar-injector")
+	defaultWebhook := getWebhooks(t, "", "istio-sidecar-injector-default")
+	defaultRevWebhook := mergeWebhooks(
+		getWebhooks(t, "--set revision=canary --set defaultRevision=true", "istio-sidecar-injector-canary"),
+		getWebhooks(t, "--set revision=canary --set defaultRevision=true", "istio-sidecar-injector-default"))
 	revWebhook := getWebhooks(t, "--set revision=canary", "istio-sidecar-injector-canary")
-	autoWebhook := getWebhooks(t, "--set values.sidecarInjectorWebhook.enableNamespacesByDefault=true", "istio-sidecar-injector")
+	autoWebhook := getWebhooks(t, "--set values.sidecarInjectorWebhook.enableNamespacesByDefault=true", "istio-sidecar-injector-default")
 	legacyWebhook := getWebhooks(t, "--set values.sidecarInjectorWebhook.useLegacySelectors=true", "istio-sidecar-injector")
 	legacyRevWebhook := getWebhooks(t, "--set values.sidecarInjectorWebhook.useLegacySelectors=true --set revision=canary", "istio-sidecar-injector-canary")
 
@@ -885,6 +888,11 @@ func TestWebhookSelector(t *testing.T) {
 		{
 			name:     "base",
 			webhooks: mergeWebhooks(defaultWebhook, revWebhook),
+			checks:   baseAssertions,
+		},
+		{
+			name:     "default revision",
+			webhooks: defaultRevWebhook,
 			checks:   baseAssertions,
 		},
 		{
