@@ -91,6 +91,7 @@ func RecordRejectedConfig(gatewayName string) {
 func MergeGateways(gateways ...config.Config) *MergedGateway {
 	gatewayPorts := make(map[uint32]bool)
 	mergedServers := make(map[ServerPort]*MergedServers)
+	plainTextServers := make(map[uint32]ServerPort)
 	serversByRouteName := make(map[string][]*networking.Server)
 	tlsServerInfo := make(map[*networking.Server]*TLSServerInfo)
 	gatewayNameForServer := make(map[*networking.Server]string)
@@ -114,10 +115,9 @@ func MergeGateways(gateways ...config.Config) *MergedGateway {
 			sanitizeServerHostNamespace(s, gatewayConfig.Namespace)
 			gatewayNameForServer[s] = gatewayName
 			log.Debugf("MergeGateways: gateway %q processing server %s :%v", gatewayName, s.Name, s.Hosts)
-			p := protocol.Parse(s.Port.Protocol)
+			routeName := gatewayRDSRouteName(s, gatewayConfig)
 
 			if s.Tls != nil {
-				tlsServerInfo[s] = &TLSServerInfo{SNIHosts: GetSNIHostsForServer(s)}
 				// Envoy will reject config that has multiple filter chain matches with the same matching rules.
 				// To avoid this, we need to make sure we don't have duplicated hosts, which will become
 				// SNI filter chain matches.
@@ -129,21 +129,21 @@ func MergeGateways(gateways ...config.Config) *MergedGateway {
 					RecordRejectedConfig(gatewayName)
 					continue
 				}
+				tlsServerInfo[s] = &TLSServerInfo{SNIHosts: GetSNIHostsForServer(s), RouteName: routeName}
 			}
 			serverPort := ServerPort{s.Port.Number, s.Port.Protocol}
+			serverProtocol := protocol.Parse(serverPort.Protocol)
 			if gatewayPorts[s.Port.Number] {
 				// We have two servers on the same port. Should we merge?
 				// 1. Yes if both servers are plain text and HTTP
 				// 2. Yes if both servers are using TLS
 				//    if using HTTPS ensure that port name is distinct so that we can setup separate RDS
-				//    for each server (as each server ends up as a separate http connection manager due to filter chain match
+				//    for each server (as each server ends up as a separate http connection manager due to filter chain match)
 				// 3. No for everything else.
-				routeName := gatewayRDSRouteName(s, gatewayConfig)
-				if ms, exists := mergedServers[serverPort]; exists && !gateway.IsTLSServer(s) {
-					msproto := protocol.Parse(serverPort.Protocol)
-					if !canMergeProtocols(msproto, p) {
-						log.Debugf("skipping server on gateway %s port %s.%d.%s: conflict with existing server %s.%s",
-							gatewayConfig.Name, s.Port.Name, s.Port.Number, s.Port.Protocol, serverPort.Protocol, serverPort)
+				if current, exists := plainTextServers[s.Port.Number]; exists {
+					if !canMergeProtocols(serverProtocol, protocol.Parse(current.Protocol)) {
+						log.Infof("skipping server on gateway %s port %s.%d.%s: conflict with existing server %d.%s",
+							gatewayConfig.Name, s.Port.Name, s.Port.Number, s.Port.Protocol, serverPort.Number, serverPort.Protocol)
 						RecordRejectedConfig(gatewayName)
 						continue
 					}
@@ -154,11 +154,13 @@ func MergeGateways(gateways ...config.Config) *MergedGateway {
 						continue
 					}
 					serversByRouteName[routeName] = append(serversByRouteName[routeName], s)
+					// Merge this to current known port.
+					ms := mergedServers[current]
 					ms.RouteName = routeName
 					ms.Servers = append(ms.Servers, s)
 				} else {
-					// We have duplicate port. Its not in plaintext servers. So, this has to be in TLS servers
-					// Check if this is also a HTTP server and if so, ensure uniqueness of port name
+					// We have duplicate port. Its not in plaintext servers. So, this has to be a TLS server.
+					// Check if this is also a HTTP server and if so, ensure uniqueness of port name.
 					if gateway.IsHTTPServer(s) {
 						if routeName == "" {
 							log.Debugf("skipping server on gateway %s port %s.%d.%s: could not build RDS name from server",
@@ -180,10 +182,6 @@ func MergeGateways(gateways ...config.Config) *MergedGateway {
 							continue
 						}
 						serversByRouteName[routeName] = []*networking.Server{s}
-						if _, exists := tlsServerInfo[s]; !exists {
-							tlsServerInfo[s] = &TLSServerInfo{SNIHosts: GetSNIHostsForServer(s)}
-						}
-						tlsServerInfo[s].RouteName = routeName
 					}
 
 					// We have another TLS server on the same port. Can differentiate servers using SNI
@@ -191,20 +189,22 @@ func MergeGateways(gateways ...config.Config) *MergedGateway {
 						log.Warnf("TLS server without TLS options %s %s", gatewayName, s.String())
 						continue
 					}
-					ms.Servers = append(ms.Servers, s)
+					if mergedServers[serverPort] == nil {
+						mergedServers[serverPort] = &MergedServers{Servers: []*networking.Server{s}}
+					} else {
+						mergedServers[serverPort].Servers = append(mergedServers[serverPort].Servers, s)
+					}
 				}
 			} else {
+				// This is a new gateway on this port. Create MergedServers for it.
 				gatewayPorts[s.Port.Number] = true
-				ms := &MergedServers{Servers: []*networking.Server{s}}
-				routeName := gatewayRDSRouteName(s, gatewayConfig)
+				if !gateway.IsTLSServer(s) {
+					plainTextServers[serverPort.Number] = serverPort
+				}
 				if gateway.IsHTTPServer(s) {
-					ms.RouteName = routeName
 					serversByRouteName[routeName] = []*networking.Server{s}
 				}
-				if s.Tls != nil {
-					tlsServerInfo[s].RouteName = routeName
-				}
-				mergedServers[serverPort] = ms
+				mergedServers[serverPort] = &MergedServers{Servers: []*networking.Server{s}, RouteName: routeName}
 			}
 			log.Debugf("MergeGateways: gateway %q merged server %v", gatewayName, s.Hosts)
 		}

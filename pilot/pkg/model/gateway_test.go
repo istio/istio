@@ -73,7 +73,7 @@ func TestMergeGateways(t *testing.T) {
 			3,
 		},
 		{
-			"http-tcp-server-config",
+			"http-tcp-wildcard-server-config",
 			[]config.Config{gwHTTPFoo, gwTCPWildcard},
 			2,
 			2,
@@ -81,7 +81,7 @@ func TestMergeGateways(t *testing.T) {
 			2,
 		},
 		{
-			"tcp-tcp-server-config",
+			"tcp-http-server-config",
 			[]config.Config{gwTCPWildcard, gwHTTPWildcard},
 			1,
 			1,
@@ -98,7 +98,7 @@ func TestMergeGateways(t *testing.T) {
 		},
 		{
 			"http-http2-server-config",
-			[]config.Config{gwHTTPWildcard, gwHTTP2Wildcard}, // order matters
+			[]config.Config{gwHTTPWildcard, gwHTTP2Wildcard},
 			1,
 			2,
 			// http and http2 both present
@@ -111,7 +111,7 @@ func TestMergeGateways(t *testing.T) {
 		t.Run(fmt.Sprintf("[%d] %s", idx, tt.name), func(t *testing.T) {
 			mgw := MergeGateways(tt.gwConfig...)
 			if len(mgw.MergedServers) != tt.mergedServersNum {
-				t.Errorf("Incorrect number of servers. Expected: %v Got: %d", tt.mergedServersNum, len(mgw.MergedServers))
+				t.Errorf("Incorrect number of merged servers. Expected: %v Got: %d", tt.mergedServersNum, len(mgw.MergedServers))
 			}
 			if len(mgw.ServersByRouteName) != len(tt.serversForRouteNum) {
 				t.Errorf("Incorrect number of routes. Expected: %v Got: %d", len(tt.serversForRouteNum), len(mgw.ServersByRouteName))
@@ -126,7 +126,7 @@ func TestMergeGateways(t *testing.T) {
 				ns += len(ms.Servers)
 			}
 			if ns != tt.serverNum {
-				t.Errorf("Incorrect number of total merged servers. Expected: %v Got: %d", tt.serverNum, ns)
+				t.Errorf("Incorrect number of total servers. Expected: %v Got: %d", tt.serverNum, ns)
 			}
 			if len(mgw.GatewayNameForServer) != tt.gatewaysNum {
 				t.Errorf("Incorrect number of gateways. Expected: %v Got: %d", tt.gatewaysNum, len(mgw.GatewayNameForServer))
