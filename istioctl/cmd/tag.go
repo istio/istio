@@ -37,6 +37,7 @@ import (
 const (
 	// TODO(Monkeyanator) move into istio/api
 	istioTagLabel               = "istio.io/tag"
+	istioDefaultRevisionLabel   = "istio.io/default-revision"
 	istioInjectionWebhookSuffix = "sidecar-injector.istio.io"
 	defaultRevisionName         = "default"
 	pilotDiscoveryChart         = "istio-control/istio-discovery"
@@ -408,7 +409,7 @@ func getWebhooksWithTag(ctx context.Context, client kubernetes.Interface, tag st
 // this retrieves the webhook created at revision installation rather than tag webhooks
 func getWebhooksWithRevision(ctx context.Context, client kubernetes.Interface, rev string) ([]admit_v1.MutatingWebhookConfiguration, error) {
 	webhooks, err := client.AdmissionregistrationV1().MutatingWebhookConfigurations().List(ctx, metav1.ListOptions{
-		LabelSelector: fmt.Sprintf("%s=%s,!%s", label.IoIstioRev.Name, rev, istioTagLabel),
+		LabelSelector: fmt.Sprintf("%s=%s,!%s,!%s", label.IoIstioRev.Name, rev, istioTagLabel, istioDefaultRevisionLabel),
 	})
 	if err != nil {
 		return nil, err
