@@ -37,7 +37,7 @@ import (
 const (
 	// TODO(Monkeyanator) move into istio/api
 	istioTagLabel               = "istio.io/tag"
-	istioDefaultRevisionLabel   = "istio.io/default-revision"
+	istioDefaultRevisionLabel   = "istio.io/default"
 	istioInjectionWebhookSuffix = "sidecar-injector.istio.io"
 	defaultRevisionName         = "default"
 	pilotDiscoveryChart         = "istio-control/istio-discovery"
