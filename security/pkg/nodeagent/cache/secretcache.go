@@ -456,6 +456,8 @@ func (sc *SecretManagerClient) generateFileSecret(resourceName string) (bool, *s
 	case resourceName == security.RootCertReqResourceName && sc.rootCertificateExist(cf.CaCertificatePath) && !outputToCertificatePath:
 		sdsFromFile = true
 		if sitem, err = sc.generateRootCertFromExistingFile(cf.CaCertificatePath, resourceName, true); err == nil {
+			// If retrieving workload trustBundle, then merge other configured trustAnchors in ProxyConfig
+			sitem.RootCert = sc.mergeConfigTrustBundle(sitem.RootCert)
 			sc.addFileWatcher(cf.CaCertificatePath, resourceName)
 		}
 	// Default workload certificate.
