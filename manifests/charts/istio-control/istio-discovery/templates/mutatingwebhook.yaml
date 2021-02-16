@@ -45,9 +45,9 @@ a unique prefix to each. */}}
   admissionReviewVersions: ["v1beta1", "v1"]
 {{- end }}
 {{- if not .Values.global.operatorManageWebhooks }}
-{{- /* Default mutating webhook - single instance should exist across all revisions */}}
-{{- /* Needs to be conditionally created so that it is marked with the correct revision label which allows */}}
-{{- /* for it to be patched by the correct revision and remain intact when uninstalling other revisions */}}
+{{- /* Default mutating webhook - single instance should exist across all revisions
+Needs to be conditionally created so that it is marked with the correct revision label. This allows
+for the webhook to be patched by the default revision and remain intact when uninstalling other revisions */}}
 {{- if or (eq .Values.revision "") (eq .Values.defaultRevision true) }}
 {{- if not .Values.sidecarInjectorWebhook.useLegacySelectors}}
 apiVersion: admissionregistration.k8s.io/v1beta1
