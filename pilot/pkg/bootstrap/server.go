@@ -56,6 +56,7 @@ import (
 	kubecontroller "istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
 	"istio.io/istio/pilot/pkg/serviceregistry/serviceentry"
 	"istio.io/istio/pilot/pkg/status"
+	tb "istio.io/istio/pilot/pkg/trustbundle"
 	"istio.io/istio/pilot/pkg/xds"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
 	"istio.io/istio/pkg/config"
@@ -160,6 +161,9 @@ type Server struct {
 	certController *chiron.WebhookController
 	CA             *ca.IstioCA
 	RA             ra.RegistrationAuthority
+
+	// TrustAnchors for workload to workload mTLS
+	workloadTrustBundle *tb.TrustBundle
 	// path to the caBundle that signs the DNS certs. This should be agnostic to provider.
 	caBundlePath string
 	certMu       sync.Mutex
@@ -237,6 +241,7 @@ func NewServer(args *PilotArgs) (*Server, error) {
 
 	s.initMeshNetworks(args, s.fileWatcher)
 	s.initMeshHandlers()
+	s.initWorkloadTrustBundle()
 
 	// Options based on the current 'defaults' in istio.
 	caOpts := &caOptions{
@@ -1197,4 +1202,47 @@ func (s *Server) initMeshHandlers() {
 			Reason: []model.TriggerReason{model.GlobalUpdate},
 		})
 	})
+}
+
+func (s *Server) initWorkloadTrustBundle() {
+	var err error
+	s.workloadTrustBundle = tb.NewTrustBundle(func() {
+		s.XDSServer.ConfigUpdate(&model.PushRequest{
+			Full:   true,
+			Reason: []model.TriggerReason{model.GlobalUpdate},
+		})
+	})
+
+	// MeshConfig: Add initial roots and callback
+	s.workloadTrustBundle.AddMeshConfigUpdate(s.environment.Mesh())
+	s.environment.AddMeshHandler(func() {
+		s.workloadTrustBundle.AddMeshConfigUpdate(s.environment.Mesh())
+	})
+
+	// IstioCA: Implicitly add roots corresponding to CA
+	if s.CA != nil {
+		rootCerts := []string{string(s.CA.GetCAKeyCertBundle().GetRootCertPem())}
+		err = s.workloadTrustBundle.UpdateTrustAnchor(&tb.TrustAnchorUpdate{TrustAnchorConfig: tb.TrustAnchorConfig{
+			Source: tb.SourceIstioCA,
+			Certs:  rootCerts,
+		}})
+		if err != nil {
+			log.Errorf("fatal: unable to add CA root as trustAnchor")
+		}
+	}
+
+	// IstioRA: Implicitly add roots corresponding to RA
+	if s.RA != nil {
+		// Implicitly add the Istio RA certificates to the Workload Trust Bundle
+		rootCerts := []string{string(s.RA.GetCAKeyCertBundle().GetRootCertPem())}
+		err = s.workloadTrustBundle.UpdateTrustAnchor(&tb.TrustAnchorUpdate{TrustAnchorConfig: tb.TrustAnchorConfig{
+			Source: tb.SourceIstioRA,
+			Certs:  rootCerts,
+		}})
+		if err != nil {
+			log.Errorf("fatal: unable to add RA root as trustAnchor")
+		}
+		// Ensure all added watchers trigger Enqueue function
+	}
+	log.Infof("done initializing workload trustBundle")
 }
