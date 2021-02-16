@@ -17,13 +17,13 @@ package adsc
 import (
 	"crypto/tls"
 
-	"istio.io/istio/security/pkg/nodeagent/cache"
+	"istio.io/istio/pkg/security"
 )
 
 func getClientCertFn(config *Config) func(requestInfo *tls.CertificateRequestInfo) (*tls.Certificate, error) {
 	if config.SecretManager != nil {
 		return func(requestInfo *tls.CertificateRequestInfo) (*tls.Certificate, error) {
-			key, err := config.SecretManager.GenerateSecret(cache.WorkloadKeyCertResourceName)
+			key, err := config.SecretManager.GenerateSecret(security.WorkloadKeyCertResourceName)
 			if err != nil {
 				return nil, err
 			}

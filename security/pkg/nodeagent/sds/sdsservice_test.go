@@ -28,7 +28,6 @@ import (
 	"istio.io/istio/pilot/pkg/xds"
 	"istio.io/istio/pilot/test/xdstest"
 	ca2 "istio.io/istio/pkg/security"
-	"istio.io/istio/security/pkg/nodeagent/cache"
 	"istio.io/istio/tests/util/leak"
 	"istio.io/pkg/log"
 )
@@ -109,9 +108,9 @@ func setupSDS(t *testing.T) *TestServer {
 		PrivateKey:       fakePrivateKey,
 		ResourceName:     testResourceName,
 	})
-	st.Set(cache.RootCertReqResourceName, &ca2.SecretItem{
+	st.Set(ca2.RootCertReqResourceName, &ca2.SecretItem{
 		RootCert:     fakeRootCert,
-		ResourceName: cache.RootCertReqResourceName,
+		ResourceName: ca2.RootCertReqResourceName,
 	})
 
 	opts := ca2.Options{
