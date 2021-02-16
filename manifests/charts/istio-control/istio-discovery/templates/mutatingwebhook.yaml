@@ -46,8 +46,8 @@ a unique prefix to each. */}}
 {{- end }}
 {{- if not .Values.global.operatorManageWebhooks }}
 {{- /* Default mutating webhook - single instance should exist across all revisions */}}
-{{- /* Needs to be conditionally created so that it is marked with the correct revision label */}}
-{{- /* gets patched by the correct revision and doesn't get removed when uninstalling other revisions */}}
+{{- /* Needs to be conditionally created so that it is marked with the correct revision label which allows */}}
+{{- /* for it to be patched by the correct revision and remain intact when uninstalling other revisions */}}
 {{- if or (eq .Values.revision "") (eq .Values.defaultRevision true) }}
 {{- if not .Values.sidecarInjectorWebhook.useLegacySelectors}}
 apiVersion: admissionregistration.k8s.io/v1beta1
@@ -56,9 +56,11 @@ metadata:
 {{- if eq .Release.Namespace "istio-system"}}
   name: istio-sidecar-injector-default
 {{- else }}
-  name: istio-default-sidecar-default-{{ .Release.Namespace }}
+  name: istio-sidecar-injector-default-{{ .Release.Namespace }}
 {{- end }}
   labels:
+    istio.io/rev: {{ .Values.revision | default "default" }}
+    istio.io/default-revision: true
     install.operator.istio.io/owning-resource: {{ .Values.ownerName | default "unknown" }}
     operator.istio.io/component: "Pilot"
     app: sidecar-injector
@@ -184,7 +186,7 @@ webhooks:
   {{- end }}
 {{- else }}
 
-{{- /* Set up the selectors. These selectors are for revision, the "default" revision selectors exist in separate webhook */}}
+{{- /* Set up the selectors. These selectors are for revision, the "default" revision selectors exist in a separate webhook configuration */}}
 {{- if .Values.revision }}
 
 {{- /* Case 1: namespace selector matches, and object doesn't disable */}}
