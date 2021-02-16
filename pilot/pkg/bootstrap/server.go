@@ -257,6 +257,9 @@ func NewServer(args *PilotArgs) (*Server, error) {
 		return nil, err
 	}
 
+	// used in initControllers()
+	args.ServerOptions.MCSServiceExportEnabled = features.EnableMCSServiceExport
+
 	if err := s.initControllers(args); err != nil {
 		return nil, err
 	}
