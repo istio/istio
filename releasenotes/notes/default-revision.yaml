@@ -5,6 +5,6 @@ issue:
   - 27501
 releaseNotes:
   - |
-    **Added** adds the `defaultRevision` option to the `IstioOperator`. Makes it possible to specify which Istio control plane
+    **Added** the `defaultRevision` option to the `IstioOperator`. Makes it possible to specify which Istio control plane
     revision should handle validation for the cluster. This fixes a bug that broke Istio resource validation when there
     was no revisioned installation of Istio in the cluster.
