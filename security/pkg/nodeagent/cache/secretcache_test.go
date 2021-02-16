@@ -141,6 +141,12 @@ func (u *UpdateTracker) Expect(want map[string]int) {
 	}, retry.Timeout(time.Second*2), retry.Delay(time.Millisecond))
 }
 
+func (u *UpdateTracker) Reset() {
+	u.mu.Lock()
+	defer u.mu.Unlock()
+	u.hits = map[string]int{}
+}
+
 func TestWorkloadAgentRefreshSecret(t *testing.T) {
 	cacheLog.SetOutputLevel(log.DebugLevel)
 	fakeCACli, err := mock.NewMockCAClient(time.Millisecond * 200)
@@ -478,16 +484,20 @@ func verifySecret(t *testing.T, gotSecret *security.SecretItem, expectedSecret *
 		t.Fatalf("resource name:: expected %s but got %s", expectedSecret.ResourceName,
 			gotSecret.ResourceName)
 	}
-	if !bytes.Equal(expectedSecret.CertificateChain, gotSecret.CertificateChain) {
-		t.Fatalf("cert chain: expected %s but got %s", string(expectedSecret.CertificateChain),
-			string(gotSecret.CertificateChain))
-	}
-	if !bytes.Equal(expectedSecret.PrivateKey, gotSecret.PrivateKey) {
-		t.Fatalf("private key: expected %s but got %s", string(expectedSecret.PrivateKey), string(gotSecret.PrivateKey))
-	}
-	if !bytes.Equal(expectedSecret.RootCert, gotSecret.RootCert) {
-		t.Fatalf("root cert: expected %v but got %v", expectedSecret.RootCert,
-			gotSecret.RootCert)
+	cfg, ok := model.SdsCertificateConfigFromResourceName(expectedSecret.ResourceName)
+	if expectedSecret.ResourceName == security.RootCertReqResourceName || (ok && cfg.IsRootCertificate()) {
+		if !bytes.Equal(expectedSecret.RootCert, gotSecret.RootCert) {
+			t.Fatalf("root cert: expected %v but got %v", expectedSecret.RootCert,
+				gotSecret.RootCert)
+		}
+	} else {
+		if !bytes.Equal(expectedSecret.CertificateChain, gotSecret.CertificateChain) {
+			t.Fatalf("cert chain: expected %s but got %s", string(expectedSecret.CertificateChain),
+				string(gotSecret.CertificateChain))
+		}
+		if !bytes.Equal(expectedSecret.PrivateKey, gotSecret.PrivateKey) {
+			t.Fatalf("private key: expected %s but got %s", string(expectedSecret.PrivateKey), string(gotSecret.PrivateKey))
+		}
 	}
 	if !expectedSecret.ExpireTime.IsZero() && expectedSecret.ExpireTime != gotSecret.ExpireTime {
 		t.Fatalf("expiration: expected %v but got %v",
@@ -531,4 +541,68 @@ func TestConcatCerts(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestProxyConfigAnchors(t *testing.T) {
+	fakeCACli, err := mock.NewMockCAClient(time.Hour)
+	if err != nil {
+		t.Fatalf("Error creating Mock CA client: %v", err)
+	}
+	u := NewUpdateTracker(t)
+
+	sc := createCache(t, fakeCACli, u.Callback, security.Options{})
+	_, err = sc.GenerateSecret(security.WorkloadKeyCertResourceName)
+	if err != nil {
+		t.Errorf("failed to generate certificate for trustAnchor test case")
+	}
+	// Ensure Root cert call back gets invoked once
+	u.Expect(map[string]int{security.RootCertReqResourceName: 1})
+	u.Reset()
+
+	caClientRootCert := []byte(fakeCACli.GeneratedCerts[0][2])
+	// Ensure that contents of the rootCert are correct.
+	checkSecret(t, sc, security.RootCertReqResourceName, security.SecretItem{
+		ResourceName: security.RootCertReqResourceName,
+		RootCert:     []byte(caClientRootCert),
+	})
+
+	rootCert, err := ioutil.ReadFile(filepath.Join("./testdata", "root-cert.pem"))
+	if err != nil {
+		t.Fatalf("Error reading the root cert file: %v", err)
+	}
+
+	// Update the proxyConfig with certs
+	sc.UpdateConfigTrustBundle(rootCert)
+
+	// Ensure Callback gets invoked when updating proxyConfig trust bundle
+	u.Expect(map[string]int{security.RootCertReqResourceName: 1})
+	u.Reset()
+
+	// Ensure that contents of the rootCert are correct.
+	checkSecret(t, sc, security.RootCertReqResourceName, security.SecretItem{
+		ResourceName: security.RootCertReqResourceName,
+		RootCert:     sc.mergeConfigTrustBundle(caClientRootCert),
+	})
+
+	// Update the proxyConfig with fakeCaClient certs
+	sc.UpdateConfigTrustBundle(caClientRootCert)
+	setupTestDir(t, sc)
+
+	rootCert, err = ioutil.ReadFile(sc.existingCertificateFile.CaCertificatePath)
+	if err != nil {
+		t.Fatalf("Error reading the root cert file: %v", err)
+	}
+
+	// Check request for workload root-certs merges configuration with ProxyConfig TrustAnchor
+	checkSecret(t, sc, security.RootCertReqResourceName, security.SecretItem{
+		ResourceName: security.RootCertReqResourceName,
+		RootCert:     sc.mergeConfigTrustBundle(rootCert),
+	})
+
+	// Check request for non-workload root-certs doesn't configuration with ProxyConfig TrustAnchor
+	checkSecret(t, sc, sc.existingCertificateFile.GetRootResourceName(), security.SecretItem{
+		ResourceName: sc.existingCertificateFile.GetRootResourceName(),
+		RootCert:     rootCert,
+	})
+
 }
