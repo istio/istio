@@ -31,22 +31,49 @@ func readCertFromFile(filename string) string {
 	return string(csrBytes)
 }
 
-var testCerts map[string]string = map[string]string{
-	"MalformedCert":      "Malformed",
-	"RootCACert":         readCertFromFile(path.Join(env.IstioSrc, "samples/certs", "root-cert.pem")),
-	"NonCaCert":          readCertFromFile(path.Join(env.IstioSrc, "samples/certs", "workload-bar-cert.pem")),
-	"IntermediateCACert": readCertFromFile(path.Join(env.IstioSrc, "samples/certs", "ca-cert.pem")),
+var (
+	malformedCert      string = "Malformed"
+	rootCACert         string = readCertFromFile(path.Join(env.IstioSrc, "samples/certs", "root-cert.pem"))
+	nonCaCert          string = readCertFromFile(path.Join(env.IstioSrc, "samples/certs", "workload-bar-cert.pem"))
+	intermediateCACert string = readCertFromFile(path.Join(env.IstioSrc, "samples/certs", "ca-cert.pem"))
+)
+
+func TestSetGlobalWorkloadTrustBundle(t *testing.T) {
+	tb := NewTrustBundle(func() {})
+	SetGlobalTrustBundle(tb)
+	g := GetGlobalTrustBundle()
+	if tb != g {
+		t.Errorf("global trustbundle test failed! ")
+	}
 }
 
 func TestCheckSameCerts(t *testing.T) {
-	if checkSameCerts([]string{"a", "b"}, []string{}) {
-		t.Errorf("cert check test case 1 failed")
+	testCases := []struct {
+		certs1  []string
+		certs2  []string
+		expSame bool
+	}{
+		{
+			certs1:  []string{"a", "b"},
+			certs2:  []string{},
+			expSame: false,
+		},
+		{
+			certs1:  []string{"a", "b"},
+			certs2:  []string{"b"},
+			expSame: false,
+		},
+		{
+			certs1:  []string{"a", "b"},
+			certs2:  []string{"a", "b"},
+			expSame: true,
+		},
 	}
-	if checkSameCerts([]string{"a", "b"}, []string{"b"}) {
-		t.Errorf("cert check test case 2 failed")
-	}
-	if !checkSameCerts([]string{"a", "b", "c"}, []string{"a", "b", "c"}) {
-		t.Errorf("cert check test case 3 failed")
+	for _, tc := range testCases {
+		certSame := checkSameCerts(tc.certs1, tc.certs2)
+		if (certSame && !tc.expSame) || (!certSame && tc.expSame) {
+			t.Errorf("cert compare testcase failed. tc: %v", tc)
+		}
 	}
 }
 
@@ -56,19 +83,19 @@ func TestVerifyTrustAnchor(t *testing.T) {
 		cert   string
 	}{
 		{
-			cert:   testCerts["RootCACert"],
+			cert:   rootCACert,
 			errExp: false,
 		},
 		{
-			cert:   testCerts["MalformedCert"],
+			cert:   malformedCert,
 			errExp: true,
 		},
 		{
-			cert:   testCerts["NonCaCert"],
+			cert:   nonCaCert,
 			errExp: true,
 		},
 		{
-			cert:   testCerts["IntermediateCACert"],
+			cert:   intermediateCACert,
 			errExp: false,
 		},
 	}
@@ -86,49 +113,74 @@ func TestUpdateTrustAnchor(t *testing.T) {
 	var cbCounter int = 0
 	tb := NewTrustBundle(func() { cbCounter++ })
 	var trustedCerts []string
+	var err error
 
 	// Add First Cert update
-	tb.UpdateTrustAnchor(&TrustAnchorUpdate{TrustAnchorConfig{Source: SourceMeshConfig, Certs: []string{testCerts["RootCACert"]}}})
+	err = tb.UpdateTrustAnchor(&TrustAnchorUpdate{
+		TrustAnchorConfig: TrustAnchorConfig{Certs: []string{rootCACert}},
+		Source:            SourceMeshConfig,
+	})
+	if err != nil {
+		t.Errorf("Basic trustbundle update test failed. Error: %v", err)
+	}
 	trustedCerts = tb.GetTrustBundle()
-	if !checkSameCerts(trustedCerts, []string{testCerts["RootCACert"]}) || cbCounter != 1 {
+	if !checkSameCerts(trustedCerts, []string{rootCACert}) || cbCounter != 1 {
 		t.Errorf("Basic trustbundle update test failed. Callback value is %v", cbCounter)
 	}
 
 	// Add Second Cert update
 	// ensure intermediate CA certs accepted, it replaces the first completely, and lib dedupes duplicate cert
-	tb.UpdateTrustAnchor(&TrustAnchorUpdate{TrustAnchorConfig{
-		Source: SourceMeshConfig,
-		Certs:  []string{testCerts["IntermediateCACert"], testCerts["IntermediateCACert"]},
-	}})
+	err = tb.UpdateTrustAnchor(&TrustAnchorUpdate{
+		TrustAnchorConfig: TrustAnchorConfig{Certs: []string{intermediateCACert, intermediateCACert}},
+		Source:            SourceMeshConfig,
+	})
+	if err != nil {
+		t.Errorf("trustbundle intermediate cert update test failed. Error: %v", err)
+	}
 	trustedCerts = tb.GetTrustBundle()
-	if !checkSameCerts(trustedCerts, []string{testCerts["IntermediateCACert"]}) || cbCounter != 2 {
+	if !checkSameCerts(trustedCerts, []string{intermediateCACert}) || cbCounter != 2 {
 		t.Errorf("trustbundle intermediate cert update test failed. Callback value is %v", cbCounter)
 	}
 
 	// Try adding one more cert to a different source
 	// Ensure both certs are not present
-	tb.UpdateTrustAnchor(&TrustAnchorUpdate{TrustAnchorConfig{Source: SourceIstioCA, Certs: []string{testCerts["RootCACert"]}}})
+	err = tb.UpdateTrustAnchor(&TrustAnchorUpdate{
+		TrustAnchorConfig: TrustAnchorConfig{Certs: []string{rootCACert}},
+		Source:            SourceIstioCA,
+	})
+	if err != nil {
+		t.Errorf("multicert update failed. Error: %v", err)
+	}
 	trustedCerts = tb.GetTrustBundle()
-	sort.Strings(trustedCerts)
-	result := []string{testCerts["IntermediateCACert"], testCerts["RootCACert"]}
+	result := []string{intermediateCACert, rootCACert}
 	sort.Strings(result)
 	if !checkSameCerts(trustedCerts, result) || cbCounter != 3 {
 		t.Errorf("multicert update failed. Callback value is %v", cbCounter)
 	}
 
 	// Try added same cert again. Ensure cb doesn't increment
-	tb.UpdateTrustAnchor(&TrustAnchorUpdate{TrustAnchorConfig{Source: SourceIstioCA, Certs: []string{testCerts["RootCACert"]}}})
+	err = tb.UpdateTrustAnchor(&TrustAnchorUpdate{
+		TrustAnchorConfig: TrustAnchorConfig{Certs: []string{rootCACert}},
+		Source:            SourceIstioCA,
+	})
+	if err != nil {
+		t.Errorf("duplicate multicert update failed. Error: %v", err)
+	}
 	trustedCerts = tb.GetTrustBundle()
-	sort.Strings(trustedCerts)
 	if !checkSameCerts(trustedCerts, result) || cbCounter != 3 {
 		t.Errorf("duplicate multicert update failed. Callback value is %v", cbCounter)
 	}
 
 	// Try added one good cert, one bogus Cert
 	// Verify Update should not go through and no change to cb
-	tb.UpdateTrustAnchor(&TrustAnchorUpdate{TrustAnchorConfig{Source: SourceIstioCA, Certs: []string{testCerts["Malformed"]}}})
+	err = tb.UpdateTrustAnchor(&TrustAnchorUpdate{
+		TrustAnchorConfig: TrustAnchorConfig{Certs: []string{malformedCert}},
+		Source:            SourceIstioCA,
+	})
+	if err == nil {
+		t.Errorf("bad cert update failed. Expected error")
+	}
 	trustedCerts = tb.GetTrustBundle()
-	sort.Strings(trustedCerts)
 	if !checkSameCerts(trustedCerts, result) || cbCounter != 3 {
 		t.Errorf("bad cert update failed. Callback value is %v", cbCounter)
 	}
