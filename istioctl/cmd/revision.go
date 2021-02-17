@@ -116,7 +116,7 @@ func revisionCommand() *cobra.Command {
 func revisionDescribeCommand() *cobra.Command {
 	describeCmd := &cobra.Command{
 		Use: "describe",
-		Example: `  # View the details of a revision named 'canary'    
+		Example: `  # View the details of a revision named 'canary'
   istioctl experimental revision describe canary
 
   # View the details of a revision named 'canary' and also the pods
@@ -124,7 +124,7 @@ func revisionDescribeCommand() *cobra.Command {
   istioctl experimental revision describe canary -v
 
   # Get details about a revision in json format (default format is human-friendly table format)
-  istioctl experimental revision describe canary -v -o json 
+  istioctl experimental revision describe canary -v -o json
 `,
 		Short: "Show information about a revision, including customizations, " +
 			"istiod version and which pods/gateways are using it.",
@@ -158,7 +158,7 @@ func revisionListCommand() *cobra.Command {
 		Use:   "list",
 		Short: "Show list of control plane and gateway revisions that are currently installed in cluster",
 		Example: `  # View summary of revisions installed in the current cluster
-  # which can be overridden with --context parameter. 
+  # which can be overridden with --context parameter.
   istioctl experimental revision list
 
   # View list of revisions including customizations, istiod and gateway pods
