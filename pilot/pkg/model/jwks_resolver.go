@@ -30,6 +30,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	"istio.io/istio/pilot/pkg/features"
 	"istio.io/pkg/monitoring"
 )
 
@@ -46,9 +47,6 @@ const (
 	// Cached item will be removed from the cache if it hasn't been used longer than JwtPubKeyEvictionDuration or if pilot
 	// has failed to refresh it for more than JwtPubKeyEvictionDuration.
 	JwtPubKeyEvictionDuration = 24 * 7 * time.Hour
-
-	// JwtPubKeyRefreshInterval is the running interval of JWT pubKey refresh job on default.
-	JwtPubKeyRefreshInterval = time.Minute * 20
 
 	// JwtPubKeyRefreshIntervalOnFailure is the running interval of JWT pubKey refresh job on failure.
 	JwtPubKeyRefreshIntervalOnFailure = time.Minute
