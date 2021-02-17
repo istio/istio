@@ -129,6 +129,8 @@ const (
 
 	TestVMLabel = "istio.io/test-vm"
 
+	TestVMVersionLabel = "istio.io/test-vm-version"
+
 	// TrustworthyJWTPath is the defaut 3P token to authenticate with third party services
 	TrustworthyJWTPath = "./var/run/secrets/tokens/istio-token"
 )

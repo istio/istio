@@ -71,7 +71,7 @@ func init() {
 	flag.StringVar(&settingsFromCommandLine.SelectorString, "istio.test.select", settingsFromCommandLine.SelectorString,
 		"Comma separated list of labels for selecting tests to run (e.g. 'foo,+bar-baz').")
 
-	flag.StringVar(&settingsFromCommandLine.SkipString, "istio.test.skip", settingsFromCommandLine.SkipString,
+	flag.Var(&settingsFromCommandLine.SkipString, "istio.test.skip",
 		"Skip tests matching the regular expression. This follows the semantics of -test.run.")
 
 	flag.IntVar(&settingsFromCommandLine.Retries, "istio.test.retries", settingsFromCommandLine.Retries,
@@ -88,4 +88,15 @@ func init() {
 
 	flag.BoolVar(&settingsFromCommandLine.SkipVM, "istio.test.skipVM", settingsFromCommandLine.SkipVM,
 		"Skip VM related parts in all tests.")
+}
+
+type arrayFlags []string
+
+func (i *arrayFlags) String() string {
+	return fmt.Sprint([]string(*i))
+}
+
+func (i *arrayFlags) Set(value string) error {
+	*i = append(*i, value)
+	return nil
 }

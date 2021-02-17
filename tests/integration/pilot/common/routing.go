@@ -933,30 +933,83 @@ func protocolSniffingCases(apps *EchoDeployments) []TrafficTestCase {
 // Todo merge with security TestReachability code
 func instanceIPTests(apps *EchoDeployments) []TrafficTestCase {
 	cases := []TrafficTestCase{}
-	for _, client := range apps.PodA {
-		client := client
-		destination := apps.PodB[0]
-		// so we can validate all clusters are hit
-		callCount := callsPerCluster * len(apps.PodB)
-		cases = append(cases,
-			TrafficTestCase{
-				// TODO fix flakes where 503 does not occur from one or more clusters (https://github.com/istio/istio/issues/28834)
-				skip: apps.PodB.Clusters().IsMulticluster(),
-				name: "without sidecar",
-				call: client.CallWithRetryOrFail,
-				opts: echo.CallOptions{
-					Target:    destination,
-					PortName:  "http-instance",
-					Scheme:    scheme.HTTP,
-					Count:     callCount,
-					Timeout:   time.Second * 5,
-					Validator: echo.And(echo.ExpectCode("503")),
-				},
-			},
-			TrafficTestCase{
-				name: "with sidecar",
-				call: client.CallWithRetryOrFail,
-				config: `
+	ipCases := []struct {
+		name           string
+		endpoint       string
+		disableSidecar bool
+		port           string
+		code           int
+	}{
+		// instance IP bind
+		{
+			name:           "instance IP without sidecar",
+			disableSidecar: true,
+			port:           "http-instance",
+			code:           503,
+		},
+		{
+			name:     "instance IP with wildcard sidecar",
+			endpoint: "0.0.0.0",
+			port:     "http-instance",
+			code:     200,
+		},
+		{
+			name:     "instance IP with localhost sidecar",
+			endpoint: "127.0.0.1",
+			port:     "http-instance",
+			code:     503,
+		},
+
+		// Localhost bind
+		{
+			name:           "localhost IP without sidecar",
+			disableSidecar: true,
+			port:           "http-localhost",
+			code:           200,
+		},
+		{
+			name:     "localhost IP with wildcard sidecar",
+			endpoint: "0.0.0.0",
+			port:     "http-localhost",
+			code:     503,
+		},
+		{
+			name:     "localhost IP with localhost sidecar",
+			endpoint: "127.0.0.1",
+			port:     "http-localhost",
+			code:     200,
+		},
+
+		// Wildcard bind
+		{
+			name:           "wildcard IP without sidecar",
+			disableSidecar: true,
+			port:           "http",
+			code:           200,
+		},
+		{
+			name:     "wildcard IP with wildcard sidecar",
+			endpoint: "0.0.0.0",
+			port:     "http",
+			code:     200,
+		},
+		{
+			name:     "wildcard IP with localhost sidecar",
+			endpoint: "127.0.0.1",
+			port:     "http",
+			code:     200,
+		},
+	}
+	for _, ipCase := range ipCases {
+		for _, client := range apps.PodA {
+			ipCase := ipCase
+			client := client
+			destination := apps.PodB[0]
+			// so we can validate all clusters are hit
+			callCount := callsPerCluster * len(apps.PodB)
+			var config string
+			if !ipCase.disableSidecar {
+				config = fmt.Sprintf(`
 apiVersion: networking.istio.io/v1alpha3
 kind: Sidecar
 metadata:
@@ -970,19 +1023,26 @@ spec:
     - "./*"
   ingress:
   - port:
-      number: 82
+      number: %d
       protocol: HTTP
-    defaultEndpoint: 0.0.0.0:82
-`,
-				opts: echo.CallOptions{
-					Target:    destination,
-					PortName:  "http-instance",
-					Scheme:    scheme.HTTP,
-					Count:     callCount,
-					Timeout:   time.Second * 5,
-					Validator: echo.And(echo.ExpectOK()),
-				},
-			})
+    defaultEndpoint: %s:%d
+`, FindPortByName(ipCase.port).InstancePort, ipCase.endpoint, FindPortByName(ipCase.port).InstancePort)
+			}
+			cases = append(cases,
+				TrafficTestCase{
+					name:   ipCase.name,
+					call:   client.CallWithRetryOrFail,
+					config: config,
+					opts: echo.CallOptions{
+						Target:    destination,
+						PortName:  ipCase.port,
+						Scheme:    scheme.HTTP,
+						Count:     callCount,
+						Timeout:   time.Second * 5,
+						Validator: echo.ExpectCode(fmt.Sprint(ipCase.code)),
+					},
+				})
+		}
 	}
 	return cases
 }
