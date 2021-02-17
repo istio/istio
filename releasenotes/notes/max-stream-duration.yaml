@@ -4,4 +4,4 @@ area: networking
 issue: []
 releaseNotes:
 - |
-  **Fixed** an issue causing `x-envoy-upstream-rq-timeout-ms` header was not honoured.
+  **Fixed** an issue causing the timeout header `x-envoy-upstream-rq-timeout-ms` was not honoured.
