@@ -98,6 +98,7 @@ func TestStackdriverMonitoring(t *testing.T) {
 		Run(func(ctx framework.TestContext) {
 			g, _ := errgroup.WithContext(context.Background())
 			for _, cltInstance := range clt {
+				cltInstance := cltInstance
 				g.Go(func() error {
 					err := retry.UntilSuccess(func() error {
 						if err := sendTraffic(t, cltInstance); err != nil {
