@@ -611,8 +611,27 @@ func (sc *SecretManagerClient) registerSecret(item security.SecretItem) {
 }
 
 func (sc *SecretManagerClient) handleFileWatch() {
+	var timerC <-chan time.Time
+	events := make(map[string]fsnotify.Event)
+
 	for {
 		select {
+		case <-timerC:
+			timerC = nil
+			for resource, event := range events {
+				cacheLog.Debugf("file cert update: %v", event)
+				sc.certMutex.RLock()
+				resources := sc.fileCerts
+				sc.certMutex.RUnlock()
+				// Trigger callbacks for all resources referencing this file. This is practically always
+				// a single resource.
+				for k := range resources {
+					if k.Filename == resource {
+						sc.CallUpdateCallback(k.ResourceName)
+					}
+				}
+			}
+			events = make(map[string]fsnotify.Event)
 		case event, ok := <-sc.certWatcher.Events:
 			// Channel is closed.
 			if !ok {
@@ -625,20 +644,13 @@ func (sc *SecretManagerClient) handleFileWatch() {
 			// Typically inotify notifies about file change after the event i.e. write is complete. It only
 			// does some housekeeping tasks after the event is generated. However in some cases, multiple events
 			// are triggered in quick succession - to handle that case we debounce here.
-			eventChan := make(chan fsnotify.Event)
-			go debounce(100*time.Millisecond, eventChan, func() {
-				cacheLog.Debugf("file cert update: %v", event)
-				sc.certMutex.RLock()
-				resources := sc.fileCerts
-				sc.certMutex.RUnlock()
-				// Trigger callbacks for all resources referencing this file. This is practically always
-				// a single resource.
-				for k := range resources {
-					if k.Filename == event.Name {
-						sc.CallUpdateCallback(k.ResourceName)
-					}
+			if len(event.Op.String()) > 0 { // To avoid spurious events, mainly coming from tests.
+				// Use a timer to debounce watch updates
+				if timerC == nil {
+					timerC = time.After(100 * time.Millisecond) // TODO: Make this configurable if needed.
+					events[event.Name] = event
 				}
-			})
+			}
 
 		case err, ok := <-sc.certWatcher.Errors:
 			// Channel is closed.
@@ -647,20 +659,6 @@ func (sc *SecretManagerClient) handleFileWatch() {
 			}
 			numFileWatcherFailures.Increment()
 			cacheLog.Errorf("certificate watch error: %v", err)
-		}
-	}
-}
-
-func debounce(interval time.Duration, event chan fsnotify.Event, cb func()) {
-	timer := time.NewTimer(interval)
-	for {
-		select {
-		case newEvent := <-event:
-			if newEvent.Name != "" {
-				timer.Reset(interval)
-			}
-		case <-timer.C:
-			cb()
 		}
 	}
 }
