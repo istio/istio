@@ -120,22 +120,21 @@ type SecretManagerClient struct {
 type secretCache struct {
 	mu       sync.RWMutex
 	workload *security.SecretItem
-	// currentCSRroot: Needed to compare old and new roots when workload is empty
-	currentCertroot []byte
+	certRoot []byte
 }
 
 // GetRoot returns cached root cert and cert expiration time. This method is thread safe.
 func (s *secretCache) GetRoot() (rootCert []byte) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
-	return s.currentCertroot
+	return s.certRoot
 }
 
 // SetRoot sets root cert into cache. This method is thread safe.
 func (s *secretCache) SetRoot(rootCert []byte) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	s.currentCertroot = rootCert
+	s.certRoot = rootCert
 }
 
 func (s *secretCache) GetWorkload() *security.SecretItem {
@@ -212,22 +211,28 @@ func (sc *SecretManagerClient) CallUpdateCallback(resourceName string) {
 // getCachedSecret: retrieve cached Secret Item (workload-certificate/workload-root) from secretManager client
 func (sc *SecretManagerClient) getCachedSecret(resourceName string) (secret *security.SecretItem) {
 	var rootCertBundle []byte
-	if c := sc.cache.GetWorkload(); c != nil {
+	var ns *security.SecretItem
 
-		cacheLog.WithLabels("ttl", time.Until(c.ExpireTime)).Info("returned workload certificate from cache")
+	if c := sc.cache.GetWorkload(); c != nil {
 		if resourceName == security.RootCertReqResourceName {
 			rootCertBundle = sc.mergeConfigTrustBundle(c.RootCert)
+			ns = &security.SecretItem{
+				ResourceName: resourceName,
+				RootCert:     rootCertBundle,
+			}
+			cacheLog.WithLabels("ttl", time.Until(c.ExpireTime)).Info("returned workload trust anchor from cache")
+
 		} else {
-			rootCertBundle = c.RootCert
+			ns = &security.SecretItem{
+				ResourceName:     resourceName,
+				CertificateChain: c.CertificateChain,
+				PrivateKey:       c.PrivateKey,
+				ExpireTime:       c.ExpireTime,
+				CreatedTime:      c.CreatedTime,
+			}
+			cacheLog.WithLabels("ttl", time.Until(c.ExpireTime)).Info("returned workload certificate from cache")
 		}
-		ns := &security.SecretItem{
-			ResourceName:     resourceName,
-			CertificateChain: c.CertificateChain,
-			PrivateKey:       c.PrivateKey,
-			RootCert:         rootCertBundle,
-			ExpireTime:       c.ExpireTime,
-			CreatedTime:      c.CreatedTime,
-		}
+
 		return ns
 	}
 	return nil
@@ -258,16 +263,14 @@ func (sc *SecretManagerClient) GenerateSecret(resourceName string) (secret *secu
 	}()
 
 	// First try to generate secret from file.
-	sdsFromFile, ns, err := sc.generateFileSecret(resourceName)
-
-	if sdsFromFile {
+	if sdsFromFile, ns, err := sc.generateFileSecret(resourceName); sdsFromFile {
 		if err != nil {
 			return nil, err
 		}
 		return ns, nil
 	}
 
-	ns = sc.getCachedSecret(resourceName)
+	ns := sc.getCachedSecret(resourceName)
 	if ns != nil {
 		return ns, nil
 	}
@@ -276,7 +279,7 @@ func (sc *SecretManagerClient) GenerateSecret(resourceName string) (secret *secu
 	sc.generateMutex.Lock()
 	defer sc.generateMutex.Unlock()
 
-	// Look at cache again before sending request to avoid overwhelming CA
+	// Now that we got the lock, look at cache again before sending request to avoid overwhelming CA
 	ns = sc.getCachedSecret(resourceName)
 	if ns != nil {
 		return ns, nil
