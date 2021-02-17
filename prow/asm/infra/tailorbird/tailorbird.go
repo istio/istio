@@ -116,7 +116,7 @@ func execTmpl(tmplFile string) (string, error) {
 	return tmpFile.Name(), nil
 }
 
-var letters = []rune("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ")
+var letters = []rune("abcdefghijklmnopqrstuvwxyz")
 
 func randSeq(n int) string {
 	rand.Seed(time.Now().UnixNano())
