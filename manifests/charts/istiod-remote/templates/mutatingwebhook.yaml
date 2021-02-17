@@ -1,4 +1,4 @@
-{{- /* Core defines the common configuration used by all webhook segments */}}
+{{- /* Core defines the common configuration used by all revisioned webhook segments */}}
 {{- define "core" }}
 {{- /* Kubernetes unfortunately requires a unique name for the webhook in some newer versions, so we assign
 a unique prefix to each. */}}
@@ -22,9 +22,103 @@ a unique prefix to each. */}}
   failurePolicy: Fail
   admissionReviewVersions: ["v1beta1", "v1"]
 {{- end }}
-{{- /* Installed for each revision - not installed for cluster resources ( cluster roles, bindings, crds) */}}
+{{- /* Core-default defines the common configuration used by the default webhook segments */}}
+{{- define "core-default" }}
+- name: {{.Prefix}}sidecar-injector.istio.io
+  clientConfig:
+    {{- if .Values.istiodRemote.injectionURL }}
+    url: {{ .Values.istiodRemote.injectionURL }}
+    {{- else }}
+    service:
+      name: istiod
+      namespace: {{ .Release.Namespace }}
+      path: "/inject"
+    {{- end }}
+    caBundle: ""
+  sideEffects: None
+  rules:
+    - operations: [ "CREATE" ]
+      apiGroups: [""]
+      apiVersions: ["v1"]
+      resources: ["pods"]
+  failurePolicy: Fail
+  admissionReviewVersions: ["v1beta1", "v1"]
+{{- end }}
 {{- if not .Values.global.operatorManageWebhooks }}
-apiVersion: admissionregistration.k8s.io/v1
+{{- /* Default mutating webhook - single instance should exist across all revisions
+Needs to be conditionally created so that it is marked with the correct revision label. This allows
+for the webhook to be patched by the default revision and remain intact when uninstalling other revisions */}}
+{{- if or (eq .Values.revision "") (eq .Values.defaultRevision true) }}
+{{- if not .Values.sidecarInjectorWebhook.useLegacySelectors}}
+apiVersion: admissionregistration.k8s.io/v1beta1
+kind: MutatingWebhookConfiguration
+metadata:
+{{- if eq .Release.Namespace "istio-system"}}
+  name: istio-sidecar-injector-default
+{{- else }}
+  name: istio-sidecar-injector-default-{{ .Release.Namespace }}
+{{- end }}
+  labels:
+    istio.io/rev: {{ .Values.revision | default "default" }}
+    istio.io/default: true
+    install.operator.istio.io/owning-resource: {{ .Values.ownerName | default "unknown" }}
+    operator.istio.io/component: "Pilot"
+    app: sidecar-injector
+    release: {{ .Release.Name }}
+webhooks:
+{{- /* Case 1: Namespace selector enabled, and object selector is not injected */}}
+{{- include "core-default" (mergeOverwrite (deepCopy .) (dict "Prefix" "namespace.") ) }}
+  namespaceSelector:
+    matchExpressions:
+      - key: istio-injection
+        operator: In
+        values:
+          - enabled
+  objectSelector:
+    matchExpressions:
+      - key: sidecar.istio.io/inject
+        operator: NotIn
+        values:
+          - "false"
+
+{{- /* Case 2: no namespace label, but object selector is enabled (and revision label is not, which has priority) */}}
+{{- include "core-default" (mergeOverwrite (deepCopy .) (dict "Prefix" "object.") ) }}
+  namespaceSelector:
+    matchExpressions:
+      - key: istio-injection
+        operator: DoesNotExist
+      - key: istio.io/rev
+        operator: DoesNotExist
+  objectSelector:
+    matchExpressions:
+      - key: sidecar.istio.io/inject
+        operator: In
+        values:
+          - "true"
+      - key: istio.io/rev
+        operator: DoesNotExist
+
+{{- if .Values.sidecarInjectorWebhook.enableNamespacesByDefault }}
+{{- /* Special case 3: no labels at all */}}
+{{- include "core-default" (mergeOverwrite (deepCopy .) (dict "Prefix" "auto.") ) }}
+  namespaceSelector:
+    matchExpressions:
+      - key: istio-injection
+        operator: DoesNotExist
+      - key: istio.io/rev
+        operator: DoesNotExist
+  objectSelector:
+    matchExpressions:
+      - key: sidecar.istio.io/inject
+        operator: DoesNotExist
+      - key: istio.io/rev
+        operator: DoesNotExist
+{{- end }}
+{{- end }}
+{{- end }}
+---
+{{- /* Installed for each revision - not installed for cluster resources ( cluster roles, bindings, crds) */}}
+apiVersion: admissionregistration.k8s.io/v1beta1
 kind: MutatingWebhookConfiguration
 metadata:
 {{- if eq .Release.Namespace "istio-system"}}
@@ -92,7 +186,7 @@ webhooks:
   {{- end }}
 {{- else }}
 
-{{- /* Set up the selectors. First section is for revision, rest is for "default" revision */}}
+{{- /* Set up the selectors. These selectors are for revision, the "default" revision selectors exist in a separate webhook configuration */}}
 {{- if .Values.revision }}
 
 {{- /* Case 1: namespace selector matches, and object doesn't disable */}}
@@ -131,58 +225,6 @@ webhooks:
       operator: In
       values:
       - "{{ .Values.revision }}"
-
-{{- else }}
-{{- /* "default" revision */}}
-
-{{- /* Case 1: Namespace selector enabled, and object selector is not injected */}}
-{{- include "core" (mergeOverwrite (deepCopy .) (dict "Prefix" "namespace.") ) }}
-  namespaceSelector:
-    matchExpressions:
-    - key: istio-injection
-      operator: In
-      values:
-      - enabled
-  objectSelector:
-    matchExpressions:
-    - key: sidecar.istio.io/inject
-      operator: NotIn
-      values:
-      - "false"
-
-{{- /* Case 2: no namespace label, but object selector is enabled (and revision label is not, which has priority) */}}
-{{- include "core" (mergeOverwrite (deepCopy .) (dict "Prefix" "object.") ) }}
-  namespaceSelector:
-    matchExpressions:
-    - key: istio-injection
-      operator: DoesNotExist
-    - key: istio.io/rev
-      operator: DoesNotExist
-  objectSelector:
-    matchExpressions:
-    - key: sidecar.istio.io/inject
-      operator: In
-      values:
-      - "true"
-    - key: istio.io/rev
-      operator: DoesNotExist
-
-{{- if .Values.sidecarInjectorWebhook.enableNamespacesByDefault }}
-{{- /* Special case 3: no labels at all */}}
-{{- include "core" (mergeOverwrite (deepCopy .) (dict "Prefix" "auto.") ) }}
-  namespaceSelector:
-    matchExpressions:
-    - key: istio-injection
-      operator: DoesNotExist
-    - key: istio.io/rev
-      operator: DoesNotExist
-  objectSelector:
-    matchExpressions:
-    - key: sidecar.istio.io/inject
-      operator: DoesNotExist
-    - key: istio.io/rev
-      operator: DoesNotExist
-{{- end }}
 
 {{- end }}
 {{- end }}
