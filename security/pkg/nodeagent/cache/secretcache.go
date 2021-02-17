@@ -625,7 +625,8 @@ func (sc *SecretManagerClient) handleFileWatch() {
 			// Typically inotify notifies about file change after the event i.e. write is complete. It only
 			// does some housekeeping tasks after the event is generated. However in some cases, multiple events
 			// are triggered in quick succession - to handle that case we debounce here.
-			go debounce(100*time.Millisecond, func() {
+			eventChan := make(chan fsnotify.Event)
+			go debounce(100*time.Millisecond, eventChan, func() {
 				cacheLog.Debugf("file cert update: %v", event)
 				sc.certMutex.RLock()
 				resources := sc.fileCerts
@@ -650,10 +651,18 @@ func (sc *SecretManagerClient) handleFileWatch() {
 	}
 }
 
-func debounce(interval time.Duration, cb func()) {
+func debounce(interval time.Duration, event chan fsnotify.Event, cb func()) {
 	timer := time.NewTimer(interval)
-	<-timer.C
-	cb()
+	for {
+		select {
+		case newEvent := <-event:
+			if newEvent.Name != "" {
+				timer.Reset(interval)
+			}
+		case <-timer.C:
+			cb()
+		}
+	}
 }
 
 func isWrite(event fsnotify.Event) bool {
