@@ -334,7 +334,9 @@ func (s *ServiceEntryStore) serviceEntryHandler(old, curr config.Config, event m
 
 	// Recomputing the index here is too expensive - lazy build when it is needed.
 	// Only recompute indexes if services have changed.
+	s.storeMutex.Lock()
 	s.refreshIndexes.Store(true)
+	s.storeMutex.Unlock()
 
 	// When doing a full push, the non DNS added, updated, unchanged services trigger an eds update
 	// so that endpoint shards are updated.
@@ -639,6 +641,12 @@ func (s *ServiceEntryStore) edsUpdateByKeys(keys map[instancesKey]struct{}, push
 // maybeRefreshIndexes will iterate all ServiceEntries, convert to ServiceInstance (expensive),
 // and populate the 'by host' and 'by ip' maps, if needed.
 func (s *ServiceEntryStore) maybeRefreshIndexes() {
+	// We need to take a full lock here, rather than just a read lock and then later updating s.instances
+	// otherwise, what may happen is both the refresh thread and workload entry/pod handler both generate their own
+	// view of s.instances and then write them, leading to inconsistent state. This lock ensures that both threads do
+	// a full R+W before the other can start, rather than R,R,W,W.
+	s.storeMutex.Lock()
+	defer s.storeMutex.Unlock()
 	// Without this pilot becomes very unstable even with few 100 ServiceEntry objects
 	// - the N_clusters * N_update generates too much garbage ( yaml to proto)
 	// This is reset on any change in ServiceEntries that needs index recomputation.
@@ -670,11 +678,6 @@ func (s *ServiceEntryStore) maybeRefreshIndexes() {
 		}
 	}
 
-	// We need to take a full lock here, rather than just a read lock and then later updating s.instances
-	// otherwise, what may happen is both the refresh thread and workload entry/pod handler both generate their own
-	// view of s.instances and then write them, leading to inconsistent state. This lock ensures that both threads do
-	// a full R+W before the other can start, rather than R,R,W,W.
-	s.storeMutex.Lock()
 	// Second, refresh workload instances(pods)
 	for _, workloadInstance := range s.workloadInstancesByIP {
 		key := configKey{
@@ -726,7 +729,6 @@ func (s *ServiceEntryStore) maybeRefreshIndexes() {
 	s.seWithSelectorByNamespace = seWithSelectorByNamespace
 	s.instances = instanceMap
 	s.ip2instance = ip2instances
-	s.storeMutex.Unlock()
 }
 
 func (s *ServiceEntryStore) deleteExistingInstances(ckey configKey, instances []*model.ServiceInstance) {

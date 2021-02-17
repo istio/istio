@@ -90,6 +90,9 @@ var (
 	// jwtKeyResolverOnce lazy init jwt key resolver
 	jwtKeyResolverOnce sync.Once
 	jwtKeyResolver     *JwksResolver
+
+	// JwtPubKeyRefreshInterval is the running interval of JWT pubKey refresh job.
+	JwtPubKeyRefreshInterval = features.PilotJwtPubKeyRefreshInterval
 )
 
 // jwtPubKeyEntry is a single cached entry for jwt public key.
