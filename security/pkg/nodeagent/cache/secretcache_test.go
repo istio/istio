@@ -32,7 +32,6 @@ import (
 	"istio.io/istio/pkg/test/util/retry"
 	"istio.io/istio/pkg/testcerts"
 	"istio.io/istio/security/pkg/nodeagent/caclient/providers/mock"
-	nodeagentutil "istio.io/istio/security/pkg/nodeagent/util"
 	"istio.io/istio/tests/util/leak"
 	"istio.io/pkg/log"
 )
@@ -363,10 +362,6 @@ func runFileAgentTest(t *testing.T, sds bool) {
 	if err != nil {
 		t.Fatalf("Error reading the root cert file: %v", err)
 	}
-	rootExpiration, err := nodeagentutil.ParseCertAndGetExpiryTimestamp(rootCert)
-	if err != nil {
-		t.Fatalf("Failed to get the expiration time from the existing root file")
-	}
 
 	// Check we can load key, cert, and root
 	checkSecret(t, sc, workloadResource, security.SecretItem{
@@ -377,7 +372,6 @@ func runFileAgentTest(t *testing.T, sds bool) {
 	checkSecret(t, sc, rootResource, security.SecretItem{
 		ResourceName: rootResource,
 		RootCert:     rootCert,
-		ExpireTime:   rootExpiration,
 	})
 	// We shouldn't get an pushes; these only happen on changes
 	u.Expect(map[string]int{})
@@ -410,16 +404,11 @@ func runFileAgentTest(t *testing.T, sds bool) {
 	if err := file.AtomicWrite(sc.existingCertificateFile.CaCertificatePath, testcerts.CACert, os.FileMode(0644)); err != nil {
 		t.Fatal(err)
 	}
-	rootExpiration, err = nodeagentutil.ParseCertAndGetExpiryTimestamp(testcerts.CACert)
-	if err != nil {
-		t.Fatalf("Failed to get the expiration time from the existing root file")
-	}
 	// We expect to get an update notification, and the new root cert to be read
 	u.Expect(map[string]int{workloadResource: 1, rootResource: 1})
 	checkSecret(t, sc, rootResource, security.SecretItem{
 		ResourceName: rootResource,
 		RootCert:     testcerts.CACert,
-		ExpireTime:   rootExpiration,
 	})
 	// Double check workload cert is untouched
 	checkSecret(t, sc, workloadResource, security.SecretItem{

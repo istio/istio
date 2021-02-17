@@ -209,6 +209,7 @@ func (sc *SecretManagerClient) CallUpdateCallback(resourceName string) {
 	}
 }
 
+// getCachedSecret: retrieve cached Secret Item (workload-certificate/workload-root) from secretManager client
 func (sc *SecretManagerClient) getCachedSecret(resourceName string) (secret *security.SecretItem) {
 	var rootCertBundle []byte
 	if c := sc.cache.GetWorkload(); c != nil {
@@ -367,13 +368,6 @@ func (sc *SecretManagerClient) generateRootCertFromExistingFile(rootCertPath, re
 		return nil, err
 	}
 
-	now := time.Now()
-	var certExpireTime time.Time
-	if certExpireTime, err = nodeagentutil.ParseCertAndGetExpiryTimestamp(rootCert); err != nil {
-		cacheLog.Errorf("failed to extract expiration time in the root certificate loaded from file: %v", err)
-		return nil, fmt.Errorf("failed to extract expiration time in the root certificate loaded from file: %v", err)
-	}
-
 	// Set the rootCert only if it is workload root cert.
 	if workload {
 		sc.cache.SetRoot(rootCert)
@@ -381,8 +375,6 @@ func (sc *SecretManagerClient) generateRootCertFromExistingFile(rootCertPath, re
 	return &security.SecretItem{
 		ResourceName: resourceName,
 		RootCert:     rootCert,
-		ExpireTime:   certExpireTime,
-		CreatedTime:  now,
 	}, nil
 }
 
