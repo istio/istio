@@ -608,9 +608,7 @@ func reorderPod(pod *corev1.Pod, req InjectionParameters) error {
 	var (
 		merr error
 	)
-	mc := &meshconfig.MeshConfig{
-		DefaultConfig: &meshconfig.ProxyConfig{},
-	}
+	mc := req.meshConfig
 	// Get copy of pod proxyconfig, to determine container ordering
 	if pca, f := req.pod.ObjectMeta.GetAnnotations()[annotation.ProxyConfig.Name]; f {
 		mc, merr = mesh.ApplyProxyConfig(pca, *req.meshConfig)
@@ -624,7 +622,7 @@ func reorderPod(pod *corev1.Pod, req InjectionParameters) error {
 		return fmt.Errorf("could not parse configuration values: %v", err)
 	}
 	// nolint: staticcheck
-	holdPod := mc.DefaultConfig.HoldApplicationUntilProxyStarts.GetValue() ||
+	holdPod := mc.GetDefaultConfig().GetHoldApplicationUntilProxyStarts().GetValue() ||
 		valuesStruct.GetGlobal().GetProxy().GetHoldApplicationUntilProxyStarts().GetValue()
 
 	proxyLocation := MoveLast
