@@ -24,7 +24,7 @@ import (
 
 	"github.com/hashicorp/go-multierror"
 	"github.com/spf13/cobra"
-	admit_v1 "k8s.io/api/admissionregistration/v1beta1"
+	admit_v1 "k8s.io/api/admissionregistration/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 
@@ -314,7 +314,7 @@ func listTags(ctx context.Context, kubeClient kubernetes.Interface, writer io.Wr
 
 // getTagWebhooks returns all webhooks tagged with istio.io/tag.
 func getTagWebhooks(ctx context.Context, client kubernetes.Interface) ([]admit_v1.MutatingWebhookConfiguration, error) {
-	webhooks, err := client.AdmissionregistrationV1beta1().MutatingWebhookConfigurations().List(ctx, metav1.ListOptions{
+	webhooks, err := client.AdmissionregistrationV1().MutatingWebhookConfigurations().List(ctx, metav1.ListOptions{
 		LabelSelector: istioTagLabel,
 	})
 	if err != nil {
@@ -325,7 +325,7 @@ func getTagWebhooks(ctx context.Context, client kubernetes.Interface) ([]admit_v
 
 // getWebhooksWithTag returns webhooks tagged with istio.io/tag=<tag>.
 func getWebhooksWithTag(ctx context.Context, client kubernetes.Interface, tag string) ([]admit_v1.MutatingWebhookConfiguration, error) {
-	webhooks, err := client.AdmissionregistrationV1beta1().MutatingWebhookConfigurations().List(ctx, metav1.ListOptions{
+	webhooks, err := client.AdmissionregistrationV1().MutatingWebhookConfigurations().List(ctx, metav1.ListOptions{
 		LabelSelector: fmt.Sprintf("%s=%s", istioTagLabel, tag),
 	})
 	if err != nil {
@@ -337,7 +337,7 @@ func getWebhooksWithTag(ctx context.Context, client kubernetes.Interface, tag st
 // getWebhooksWithRevision returns webhooks tagged with istio.io/rev=<rev> and NOT TAGGED with istio.io/tag.
 // this retrieves the webhook created at revision installation rather than tag webhooks
 func getWebhooksWithRevision(ctx context.Context, client kubernetes.Interface, rev string) ([]admit_v1.MutatingWebhookConfiguration, error) {
-	webhooks, err := client.AdmissionregistrationV1beta1().MutatingWebhookConfigurations().List(ctx, metav1.ListOptions{
+	webhooks, err := client.AdmissionregistrationV1().MutatingWebhookConfigurations().List(ctx, metav1.ListOptions{
 		LabelSelector: fmt.Sprintf("%s=%s,!%s", label.IoIstioRev.Name, rev, istioTagLabel),
 	})
 	if err != nil {
@@ -382,7 +382,7 @@ func getWebhookRevision(wh admit_v1.MutatingWebhookConfiguration) (string, error
 func deleteTagWebhooks(ctx context.Context, client kubernetes.Interface, webhooks []admit_v1.MutatingWebhookConfiguration) error {
 	var result error
 	for _, wh := range webhooks {
-		result = multierror.Append(client.AdmissionregistrationV1beta1().MutatingWebhookConfigurations().Delete(ctx, wh.Name, metav1.DeleteOptions{})).ErrorOrNil()
+		result = multierror.Append(client.AdmissionregistrationV1().MutatingWebhookConfigurations().Delete(ctx, wh.Name, metav1.DeleteOptions{})).ErrorOrNil()
 	}
 	return result
 }
