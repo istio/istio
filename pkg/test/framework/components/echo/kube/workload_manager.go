@@ -213,9 +213,6 @@ func (m *workloadManager) onPodAddOrUpdate(pod *kubeCore.Pod) error {
 			if newWorkload.IsReady() {
 				workloadReady = newWorkload
 			}
-
-			// Now add the previous workload.
-			newWorkloads = append(newWorkloads, workload)
 			added = true
 		default:
 			// Should never happen.
