@@ -30,6 +30,7 @@ import (
 	"time"
 
 	"istio.io/api/security/v1beta1"
+	"istio.io/istio/pilot/pkg/features"
 	"istio.io/pkg/cache"
 	"istio.io/pkg/monitoring"
 )
@@ -55,9 +56,6 @@ const (
 	// Cached item will be removed from the cache if it hasn't been used longer than JwtPubKeyEvictionDuration or if pilot
 	// has failed to refresh it for more than JwtPubKeyEvictionDuration.
 	JwtPubKeyEvictionDuration = 24 * 7 * time.Hour
-
-	// JwtPubKeyRefreshInterval is the running interval of JWT pubKey refresh job.
-	JwtPubKeyRefreshInterval = time.Minute * 20
 
 	// JwtPubKeyRetryInterval is the retry interval between the attempt to retry getting the remote
 	// content from network.
@@ -93,6 +91,9 @@ var (
 	// jwtKeyResolverOnce lazy init jwt key resolver
 	jwtKeyResolverOnce sync.Once
 	jwtKeyResolver     *JwksResolver
+
+	// JwtPubKeyRefreshInterval is the running interval of JWT pubKey refresh job.
+	JwtPubKeyRefreshInterval = features.PilotJwtPubKeyRefreshInterval
 )
 
 // jwtPubKeyEntry is a single cached entry for jwt public key.
