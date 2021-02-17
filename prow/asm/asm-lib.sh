@@ -193,23 +193,31 @@ function cleanup_hub_setup() {
 # Set permissions to allow test projects to read images for gcr for testing with
 # multicloud.
 # Parameters: $1 - project hosts gcr
-#             $2 - a string of k8s contexts
 function set_multicloud_permissions() {
   local GCR_PROJECT_ID="$1"
-  IFS="," read -r -a CONTEXTS <<< "$2"
 
   local SECRETNAME="test-gcr-secret"
-  for i in "${!CONTEXTS[@]}"; do
-    kubectl --context="${CONTEXTS[$i]}" create ns istio-system
+  for i in "${!ONPREM_MC_CONFIGS[@]}"; do
+    kubectl create ns istio-system --kubeconfig="${ONPREM_MC_CONFIGS[$i]}"
+
     kubectl create secret -n istio-system docker-registry "${SECRETNAME}" \
       --docker-server=https://gcr.io \
       --docker-username=_json_key \
       --docker-email="$(gcloud config get-value account)" \
       --docker-password="$(cat "${GOOGLE_APPLICATION_CREDENTIALS}")" \
-      --context="${CONTEXTS[$i]}"
+      --kubeconfig="${ONPREM_MC_CONFIGS[$i]}"
+
+    # Save secret data once, to be passed into the test framework
+    if [[ "${i}" == 0 ]]; then
+      export TEST_IMAGE_PULL_SECRET="${ARTIFACTS}/test_image_pull_secret.yaml"
+      kubectl -n istio-system get secrets test-gcr-secret \
+        --kubeconfig="${ONPREM_MC_CONFIGS[$i]}" \
+        -o yaml \
+      | sed '/namespace/d' > "${TEST_IMAGE_PULL_SECRET}"
+    fi
 
     while read -r SA; do
-      add_image_pull_secret_to_sa "${SA}" "${SECRETNAME}" "${CONTEXTS[$i]}"
+      add_image_pull_secret_to_sa "${SA}" "${SECRETNAME}" "${ONPREM_MC_CONFIGS[$i]}" cluster
     done <<EOF
 default
 istio-ingressgateway-service-account
@@ -223,9 +231,10 @@ EOF
 # Add the imagePullSecret to the service account
 # Parameters: $1 - service account
 #             $2 - secret name
-#             $3 - cluster context
+#             $3 - kubeconfig
+#             $4 - cluster context
 function add_image_pull_secret_to_sa() {
-  cat <<EOF | kubectl --context="${3}" apply -f -
+  cat <<EOF | kubectl --kubeconfig="${3}" --context="${4}" apply -f -
 apiVersion: v1
 kind: ServiceAccount
 metadata:
@@ -653,14 +662,230 @@ EOF
 }
 
 # Install ASM on the clusters.
-# Parameters: $1 - PKG: Path of Kpt package
+# Parameters: $1 - INFRA: Path of infra dir
 #             $2 - CA: CITADEL, MESHCA or PRIVATECA
 #             $3 - WIP: GKE or HUB
 #             $4 - array of k8s contexts
 # Depends on env var ${HUB} and ${TAG}
-# TODO remove this function once b/176177944 is fixed
+# TODO(gzip) remove this function once b/176177944 is fixed
 function install_asm_on_multicloud() {
-  exit 0
+  local INFRA="$1"; shift
+  local CA="$1"; shift
+  local WIP="$1"; shift
+  local MESH_ID="test-mesh"
+
+  export HERCULES_CLI_LAB="atl_shared"
+  USER=${USER:-prowuser}
+  export USER
+
+  create_asm_revision_label
+  for i in "${!ONPREM_MC_CONFIGS[@]}"; do
+    install_certs "${ONPREM_MC_CONFIGS[$i]}"
+
+    echo "----------Installing ASM----------"
+    cat <<EOF | istioctl install -y --kubeconfig="${ONPREM_MC_CONFIGS[$i]}" -f -
+apiVersion: install.istio.io/v1alpha1
+kind: IstioOperator
+spec:
+  profile: asm-multicloud
+  revision: ${ASM_REVISION_LABEL}
+  hub: ${HUB}
+  tag: ${TAG}
+  values:
+    global:
+      meshID: ${MESH_ID}
+      multiCluster:
+        clusterName: cluster${i}
+      network: network${i}
+EOF
+
+    install_expansion_gw "${MESH_ID}" "cluster${i}" "network${i}" "${ASM_REVISION_LABEL}" "${HUB}" "${TAG}" "${ONPREM_MC_CONFIGS[$i]}"
+    expose_services "${ONPREM_MC_CONFIGS[$i]}"
+    configure_validating_webhook "${ASM_REVISION_LABEL}" "${ONPREM_MC_CONFIGS[$i]}"
+    onprem::configure_external_ip "${INFRA}" "${ONPREM_MC_CONFIGS[$i]}"
+
+  done
+
+  configure_remote_secrets
+}
+
+# Outputs YAML to the given file, in the structure of []cluster.Config to inform the test framework of details about
+# each cluster under test. cluster.Config is defined in pkg/test/framework/components/cluster/factory.go.
+# Parameters: $1 - path to the file to append to
+# Depends on env var ${KUBECONFIG} and that ASM is already installed (istio-system is present)
+function multicloud::gen_topology_file() {
+    local TOPO_FILE="$1"; shift
+    local KUBECONFIGPATHS
+    IFS=":" read -r -a KUBECONFIGPATHS <<< "${KUBECONFIG}"
+
+    # Each kubeconfig file should have one and only one cluster context.
+    for i in "${!KUBECONFIGPATHS[@]}"; do
+      local CLUSTER_NAME
+      CLUSTER_NAME=$(kubectl -n istio-system get pod -l app=istiod -o json --kubeconfig="${KUBECONFIGPATHS[$i]}" | \
+        jq -r '.items[0].spec.containers[0].env[] | select(.name == "CLUSTER_ID") | .value')
+
+      cat <<EOF >> "${TOPO_FILE}"
+      - clusterName: "${CLUSTER_NAME}"
+        kind: Kubernetes
+        meta:
+          kubeconfig: "${KUBECONFIGPATHS[$i]}"
+EOF
+    done
+}
+
+# Exports variable ASM_REVISION_LABEL with the value being a function of istioctl client version.
+function create_asm_revision_label() {
+  local ISTIO_CLIENT_TAG
+  ISTIO_CLIENT_TAG=$(istioctl version --remote=false -o json | jq -r '.clientVersion.tag')
+  IFS='-'; read -r -a tag_tokens <<< "${ISTIO_CLIENT_TAG}"
+  unset IFS
+  ASM_REVISION_LABEL="asm-${tag_tokens[0]}-${tag_tokens[1]}"
+  ASM_REVISION_LABEL=${ASM_REVISION_LABEL//.}
+  export ASM_REVISION_LABEL
+}
+
+# Creates ca certs on the cluster
+# $1    kubeconfig
+function install_certs() {
+  kubectl create secret generic cacerts -n istio-system \
+    --kubeconfig="$1" \
+    --from-file=samples/certs/ca-cert.pem \
+    --from-file=samples/certs/ca-key.pem \
+    --from-file=samples/certs/root-cert.pem \
+    --from-file=samples/certs/cert-chain.pem
+}
+
+# Creates remote secrets for each cluster pair for all the clusters under test
+function configure_remote_secrets() {
+  for i in "${!ONPREM_MC_CONFIGS[@]}"; do
+    for j in "${!ONPREM_MC_CONFIGS[@]}"; do
+      if [[ "$i" != "$j" ]]; then
+        istioctl x create-remote-secret \
+          --kubeconfig="${ONPREM_MC_CONFIGS[$j]}" \
+          --name="secret-${j}" \
+        | kubectl apply --kubeconfig="${ONPREM_MC_CONFIGS[$i]}" -f -
+      fi
+    done
+  done
+}
+
+# on-prem specific fucntion to configure external ips for the gateways
+# Parameters:
+# $1    Path of infra dir
+# $2    kubeconfig
+function onprem::configure_external_ip() {
+  local HERC_ENV_ID
+  HERC_ENV_ID=$(echo "$2" | rev | cut -d '/' -f 2 | rev)
+  local INGRESS_ID=\"lb-test-ip\"
+  local EXPANSION_ID=\"expansion-ip\"
+  local INGRESS_IP
+  INGRESS_IP=$(herc getEnvironment "${HERC_ENV_ID}" -o json | \
+    jq -r ".environment.resources.vcenter_server.datacenter.networks.fe.ip_addresses.${INGRESS_ID}.ip_address")
+
+  # Request additional external IP for expansion gw
+  local HERC_PARENT
+  HERC_PARENT=$(herc getEnvironment "${HERC_ENV_ID}" | \
+    grep "name: environments.*lb-test-ip$" | awk -F' ' '{print $2}' | sed 's/\/ips\/lb-test-ip//')
+  local EXPANSION_IP
+  EXPANSION_IP=$(herc getEnvironment "${HERC_ENV_ID}" -o json | \
+    jq -r ".environment.resources.vcenter_server.datacenter.networks.fe.ip_addresses.${EXPANSION_ID}.ip_address")
+  if [[ -z "${EXPANSION_IP}" || "${EXPANSION_IP}" == "null" ]]; then
+    echo "Requesting herc for expansion IP"
+    herc allocateIPs --parent "${HERC_PARENT}" -f "$1"/herc-configs/expansion-ip.yaml
+    EXPANSION_IP=$(herc getEnvironment "${HERC_ENV_ID}" -o json | \
+      jq -r ".environment.resources.vcenter_server.datacenter.networks.fe.ip_addresses.${EXPANSION_ID}.ip_address")
+  else
+    echo "Using ${EXPANSION_IP} as the expansion IP"
+  fi
+
+  # Inject the external IPs for GWs
+  echo "----------Configuring external IP for ingress gw----------"
+  kubectl patch svc istio-ingressgateway -n istio-system \
+    --type='json' -p '[{"op": "add", "path": "/spec/loadBalancerIP", "value": "'"${INGRESS_IP}"'"}]' \
+    --kubeconfig="$2"
+  echo "----------Configuring external IP for expansion gw----------"
+  kubectl patch svc istio-eastwestgateway -n istio-system \
+    --type='json' -p '[{"op": "add", "path": "/spec/loadBalancerIP", "value": "'"${EXPANSION_IP}"'"}]' \
+    --kubeconfig="$2"
+}
+
+# Installs expansion gw
+# Parameters:
+# $1    mesh id
+# $2    cluster
+# $3    network
+# $4    revision
+# $5    hub
+# $6    tag
+# $7    kubeconfig
+function install_expansion_gw() {
+  echo "----------Installing expansion gw----------"
+  samples/multicluster/gen-eastwest-gateway.sh \
+    --mesh "$1" \
+    --cluster "$2" \
+    --network "$3" \
+    --revision "$4" \
+  | istioctl install -y -f - \
+    --set hub="$5" \
+    --set tag="$6" \
+    --kubeconfig="$7"
+}
+
+# Exposes service in istio-system ns
+# Parameters:
+# $1    kubeconfig
+function expose_services() {
+  echo "----------Exposing Services----------"
+  kubectl apply -n istio-system -f samples/multicluster/expose-services.yaml --kubeconfig="$1"
+}
+
+# Configures validating webhook for istiod
+# Parameters:
+# $1    revision
+# $2    kubeconfig
+function configure_validating_webhook() {
+  echo "----------Configuring validating webhook----------"
+  cat <<EOF | kubectl apply --kubeconfig="$2" -f -
+apiVersion: v1
+kind: Service
+metadata:
+ name: istiod
+ namespace: istio-system
+ labels:
+   istio.io/rev: ${1}
+   app: istiod
+   istio: pilot
+   release: istio
+spec:
+ ports:
+   - port: 15010
+     name: grpc-xds # plaintext
+     protocol: TCP
+   - port: 15012
+     name: https-dns # mTLS with k8s-signed cert
+     protocol: TCP
+   - port: 443
+     name: https-webhook # validation and injection
+     targetPort: 15017
+     protocol: TCP
+   - port: 15014
+     name: http-monitoring # prometheus stats
+     protocol: TCP
+ selector:
+   app: istiod
+   istio.io/rev: ${1}
+EOF
+}
+
+# Keeps only the user-kubeconfig.yaml entries in the KUBECONFIG for onprem
+# Removes any others including the admin-kubeconfig.yaml entries
+# This function will modify the KUBECONFIG env variable
+function filter_onprem_kubeconfigs() {
+  IFS=':' read -r -a CONFIGS <<< "${KUBECONFIG}"
+  for CONFIG in "${CONFIGS[@]}"; do
+    [[ "${CONFIG}" =~ .*user-kubeconfig.yaml.* ]] && ONPREM_MC_CONFIGS+=( "${CONFIG}" )
+  done
+  KUBECONFIG=$( IFS=':'; echo "${ONPREM_MC_CONFIGS[*]}" )
 }
 
 # Add function call to trap

@@ -112,6 +112,7 @@ func (o *options) setEnvVars() {
 	os.Setenv("DEPLOYER", o.deployerName)
 	os.Setenv("CLUSTER_TOPOLOGY", o.clusterTopology)
 	os.Setenv("FEATURE_TO_TEST", o.featureToTest)
+	os.Setenv("CLUSTER_TYPE", o.clusterType)
 }
 
 func (o *options) installTools() error {

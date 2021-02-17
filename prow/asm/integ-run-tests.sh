@@ -42,6 +42,10 @@ CONTROL_PLANE="UNMANAGED"
 # USE_VM = true or false
 USE_VM=false
 TEST_TARGET="test.integration.multicluster.kube.presubmit"
+# Passed by job config
+DISABLED_TESTS=""
+# holds multiple kubeconfigs for onprem MC
+declare -a ONPREM_MC_CONFIGS
 
 while (( "$#" )); do
   case $1 in
@@ -89,6 +93,10 @@ while (( "$#" )); do
       TEST_TARGET=$2
       shift 2
       ;;
+    --disabled-tests)
+      DISABLED_TESTS=$2
+      shift 2
+      ;;
     *)
       echo "Error: Unsupported input $1" >&2
       exit 1
@@ -104,6 +112,9 @@ if [[ -z "${KUBECONFIG}" ]]; then
   echo "Error: ${KUBECONFIG} cannot be empty."
   exit 1
 fi
+
+# only use user-kubeconfig.yaml files on onprem
+[[ "${CLUSTER_TYPE}" == "gke-on-prem" ]] && filter_onprem_kubeconfigs
 echo "Using ${KUBECONFIG} to connect to the cluster(s)"
 
 if [[ -z ${DEPLOYER} ]]; then
@@ -154,8 +165,10 @@ fi
 
 # The Makefile passes the path defined in INTEGRATION_TEST_TOPOLOGY_FILE to --istio.test.kube.topology on go test.
 export INTEGRATION_TEST_TOPOLOGY_FILE
-INTEGRATION_TEST_TOPOLOGY_FILE="${WD}/topology.yaml"
-gen_topology_file "${INTEGRATION_TEST_TOPOLOGY_FILE}" "${CONTEXTS[@]}"
+INTEGRATION_TEST_TOPOLOGY_FILE="${ARTIFACTS}/integration_test_topology.yaml"
+if [[ "${CLUSTER_TYPE}" == "gke" ]]; then
+  gen_topology_file "${INTEGRATION_TEST_TOPOLOGY_FILE}" "${CONTEXTS[@]}"
+fi
 
 # TODO(ruigu): extract the common part of MANAGED and UNMANAGED when MANAGED test is added.
 if [[ "${CONTROL_PLANE}" == "UNMANAGED" ]]; then
@@ -193,7 +206,8 @@ if [[ "${CONTROL_PLANE}" == "UNMANAGED" ]]; then
   if [[ "${DEPLOYER}" == "gke" ]]; then
     install_asm "${WD}/kpt-pkg" "${CA}" "${WIP}" "${CONTEXTS[@]}"
   elif [[ "${DEPLOYER}" == "tailorbird" ]]; then
-    install_asm_on_multicloud "${WD}/pkg" "CITADEL" "${WIP}" "${CONTEXTS[@]}"
+    install_asm_on_multicloud "${WD}/infra" "${CA}" "${WIP}"
+    multicloud::gen_topology_file "${INTEGRATION_TEST_TOPOLOGY_FILE}"
   fi
 
   echo "Processing kubeconfig files for running the tests..."
@@ -218,7 +232,10 @@ if [[ "${CONTROL_PLANE}" == "UNMANAGED" ]]; then
 
   # DISABLED_TESTS contains a list of all tests we skip
   # pilot/ tests
-  DISABLED_TESTS="TestWait|TestVersion|TestProxyStatus" # UNSUPPORTED: istioctl doesn't work
+  if [[ -n "${DISABLED_TESTS}" ]]; then
+    DISABLED_TESTS+="|"
+  fi
+  DISABLED_TESTS+="TestWait|TestVersion|TestProxyStatus" # UNSUPPORTED: istioctl doesn't work
   DISABLED_TESTS+="|TestAnalysisWritesStatus" # UNSUPPORTED: require custom installation
   # telemetry/ tests
   DISABLED_TESTS+="|TestDashboard" # UNSUPPORTED: Relies on istiod in cluster. TODO: filter out only pilot-dashboard.json
@@ -239,6 +256,16 @@ if [[ "${CONTROL_PLANE}" == "UNMANAGED" ]]; then
 
   # Don't deploy Istio. Instead just use the pre-installed ASM
   INTEGRATION_TEST_FLAGS+=" --istio.test.kube.deploy=false"
+
+  if [[ "${DEPLOYER}" == "tailorbird" ]]; then
+    if [[ -n "${ASM_REVISION_LABEL}" ]]; then
+      INTEGRATION_TEST_FLAGS+=" --istio.test.revision ${ASM_REVISION_LABEL}"
+    fi
+
+    if [[ -n "${TEST_IMAGE_PULL_SECRET}" ]]; then
+      INTEGRATION_TEST_FLAGS+=" --istio.test.imagePullSecret ${TEST_IMAGE_PULL_SECRET}"
+    fi
+  fi
 
   # Don't run VM tests. Echo deployment requires the eastwest gateway
   # which isn't deployed for all configurations.
