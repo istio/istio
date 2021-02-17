@@ -36,7 +36,8 @@ import (
 
 const (
 	// TODO(Monkeyanator) move into istio/api
-	istioTagLabel               = "istio.io/tag"
+	istioTagLabel = "istio.io/tag"
+	// Needed to differentiate the per-revision webhooks from the shared default webhook
 	istioDefaultRevisionLabel   = "istio.io/default"
 	istioInjectionWebhookSuffix = "sidecar-injector.istio.io"
 	defaultRevisionName         = "default"
