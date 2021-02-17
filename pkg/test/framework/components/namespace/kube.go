@@ -23,6 +23,7 @@ import (
 	"time"
 
 	kubeApiCore "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/errors"
 	kubeApiMeta "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"istio.io/api/label"
@@ -94,7 +95,7 @@ func claimKube(ctx resource.Context, nsConfig *Config) (Instance, error) {
 					Name:   nsConfig.Prefix,
 					Labels: createNamespaceLabels(nsConfig),
 				},
-			}, kubeApiMeta.CreateOptions{}); err != nil {
+			}, kubeApiMeta.CreateOptions{}); err != nil && !errors.IsAlreadyExists(err) {
 				return nil, err
 			}
 		}
