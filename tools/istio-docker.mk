@@ -53,7 +53,7 @@ $(foreach FILE,$(DOCKER_FILES_FROM_ISTIO_OUT_LINUX), \
 $(ISTIO_DOCKER)/certs:
 	mkdir -p $(ISTIO_DOCKER)
 	cp -a tests/testdata/certs $(ISTIO_DOCKER)/.
-	chmod o+r $(ISTIO_DOCKER)/certs
+	chmod -R o+r $(ISTIO_DOCKER)/certs
 
 # tell make which files are copied from the source tree and generate rules to copy them to the proper location:
 # TODO(sdake)                      $(NODE_AGENT_TEST_FILES) $(GRAFANA_FILES)
