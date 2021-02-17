@@ -153,6 +153,9 @@ telemetry:
       logWindowDuration: "43200s"
 # Revision is set as 'version' label and part of the resource names when installing multiple control planes.
 revision: ""
+# Default revision specifies whether a given installation is the default installation to be
+# targeted for validation and injection
+defaultRevision: false
 # Revision tags are aliases to Istio control plane revisions
 revisionTags: []
 # For Helm compatibility.
