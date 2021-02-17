@@ -37,9 +37,11 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube"
+	"istio.io/istio/pilot/pkg/serviceregistry/kube/controller/filter"
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/config/protocol"
+	kubelib "istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/spiffe"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/util/retry"
@@ -1110,11 +1112,18 @@ func TestController_ServiceWithChangingDiscoveryNamespaces(t *testing.T) {
 	for mode, name := range EndpointModeNames {
 		mode := mode
 		t.Run(name, func(t *testing.T) {
+			client := kubelib.NewFakeClient()
 			meshWatcher := mesh.NewTestWatcher(&meshconfig.MeshConfig{})
+			discoveryNamespacesFilter := filter.NewDiscoveryNamespacesFilter(
+				client.KubeInformer().Core().V1().Namespaces().Lister(),
+				meshWatcher.Mesh().DiscoverySelectors,
+			)
 
 			controller, fx := NewFakeControllerWithOptions(FakeControllerOptions{
-				Mode:        mode,
-				MeshWatcher: meshWatcher,
+				Client:                    client,
+				Mode:                      mode,
+				MeshWatcher:               meshWatcher,
+				DiscoveryNamespacesFilter: discoveryNamespacesFilter,
 			})
 			defer controller.Stop()
 
@@ -1133,6 +1142,12 @@ func TestController_ServiceWithChangingDiscoveryNamespaces(t *testing.T) {
 					t.Fatalf("error listing namespaces: %v", err)
 				}
 				return len(list.Items) == 3
+			})
+
+			// assert that namespace membership has been updated
+			eventually(t, func() bool {
+				members := discoveryNamespacesFilter.GetMembers()
+				return members.Has(nsA) && members.Has(nsB) && members.Has(nsC)
 			})
 
 			// service event handlers should trigger for all svcs
