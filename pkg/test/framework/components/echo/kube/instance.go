@@ -118,12 +118,12 @@ func (c *instance) WorkloadsOrFail(t test.Failer) []echo.Workload {
 	return out
 }
 
-func (c *instance) firstWorkload() (echo.Workload, error) {
+func (c *instance) firstClient() (*appEcho.Instance, error) {
 	workloads, err := c.Workloads()
 	if err != nil {
 		return nil, err
 	}
-	return workloads[0], nil
+	return workloads[0].(*workload).Instance, nil
 }
 
 // Start this echo instance
@@ -140,11 +140,7 @@ func (c *instance) Config() echo.Config {
 }
 
 func (c *instance) Call(opts echo.CallOptions) (appEcho.ParsedResponses, error) {
-	w, err := c.firstWorkload()
-	if err != nil {
-		return nil, err
-	}
-	out, err := common.ForwardEcho(c.cfg.Service, w.(*workload).Instance, &opts, false)
+	out, err := common.ForwardEcho(c.cfg.Service, c.firstClient, &opts, false)
 	if err != nil {
 		return nil, err
 	}
@@ -162,11 +158,7 @@ func (c *instance) CallOrFail(t test.Failer, opts echo.CallOptions) appEcho.Pars
 
 func (c *instance) CallWithRetry(opts echo.CallOptions,
 	retryOptions ...retry.Option) (appEcho.ParsedResponses, error) {
-	w, err := c.firstWorkload()
-	if err != nil {
-		return nil, err
-	}
-	out, err := common.ForwardEcho(c.cfg.Service, w.(*workload).Instance, &opts, true, retryOptions...)
+	out, err := common.ForwardEcho(c.cfg.Service, c.firstClient, &opts, true, retryOptions...)
 	if err != nil {
 		return nil, err
 	}
@@ -184,8 +176,8 @@ func (c *instance) CallWithRetryOrFail(t test.Failer, opts echo.CallOptions,
 }
 
 func (c *instance) Restart() error {
-	// Get the number of workloads before the restart.
-	origWorkloads, err := c.Workloads()
+	// Wait for all current workloads to become ready and preserve the original count.
+	origWorkloads, err := c.workloadMgr.WaitForReadyWorkloads()
 	if err != nil {
 		return fmt.Errorf("restart failed to get initial workloads: %v", err)
 	}

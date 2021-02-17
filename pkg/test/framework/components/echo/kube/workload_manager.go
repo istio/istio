@@ -18,7 +18,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"strings"
 	"sync"
 
 	"github.com/hashicorp/go-multierror"
@@ -29,7 +28,6 @@ import (
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/echo/common"
 	"istio.io/istio/pkg/test/framework/resource"
-	kubeTest "istio.io/istio/pkg/test/kube"
 	"istio.io/istio/pkg/test/util/retry"
 )
 
@@ -84,23 +82,41 @@ func newWorkloadManager(ctx resource.Context, cfg echo.Config, handler workloadH
 	return m, nil
 }
 
-// ReadyWorkloads returns all ready workloads in ascending order by pod name.
-func (m *workloadManager) ReadyWorkloads() ([]echo.Workload, error) {
-	workloads := make([]echo.Workload, 0, len(m.workloads))
+// WaitForReadyWorkloads waits until all known workloads are ready.
+func (m *workloadManager) WaitForReadyWorkloads() (out []echo.Workload, err error) {
+	err = retry.UntilSuccess(func() error {
+		m.mutex.Lock()
+		out, err = m.readyWorkloads()
+		if err == nil && len(out) != len(m.workloads) {
+			err = fmt.Errorf("failed waiting for workloads for echo %s/%s to be ready",
+				m.cfg.Namespace.Name(),
+				m.cfg.Service)
+		}
+		m.mutex.Unlock()
+		return err
+	}, retry.Timeout(m.cfg.ReadinessTimeout), startDelay)
+	return
+}
 
-	m.mutex.Lock()
-	for _, workload := range m.workloads {
-		if workload.IsReady() {
-			workloads = append(workloads, workload)
+func (m *workloadManager) readyWorkloads() ([]echo.Workload, error) {
+	out := make([]echo.Workload, 0, len(m.workloads))
+	for _, w := range m.workloads {
+		if w.IsReady() {
+			out = append(out, w)
 		}
 	}
-	var err error
-	if len(workloads) == 0 {
-		err = fmt.Errorf("no workloads ready for echo %s/%s", m.cfg.Namespace.Name(), m.cfg.Service)
+	if len(out) == 0 {
+		return nil, fmt.Errorf("no workloads ready for echo %s/%s", m.cfg.Namespace.Name(), m.cfg.Service)
 	}
-	m.mutex.Unlock()
+	return out, nil
+}
 
-	return workloads, err
+// ReadyWorkloads returns all ready workloads in ascending order by pod name.
+func (m *workloadManager) ReadyWorkloads() ([]echo.Workload, error) {
+	m.mutex.Lock()
+	out, err := m.readyWorkloads()
+	m.mutex.Unlock()
+	return out, err
 }
 
 func (m *workloadManager) Start() error {
@@ -116,40 +132,7 @@ func (m *workloadManager) Start() error {
 	}
 
 	// Wait until all pods are ready.
-	_, err := retry.Do(func() (result interface{}, completed bool, err error) {
-		m.mutex.Lock()
-		defer m.mutex.Unlock()
-
-		if m.closing {
-			// Terminal error... exit the retry loop now.
-			return nil, true, fmt.Errorf(
-				"failed starting echo %s/%s: already closing",
-				m.cfg.Namespace.Name(), m.cfg.Service)
-		}
-
-		// Gather all the pods.
-		var pods []kubeCore.Pod
-		for _, workload := range m.workloads {
-			pods = append(pods, workload.pod)
-		}
-		if len(pods) == 0 {
-			return nil, false, fmt.Errorf(
-				"failed starting echo %s/%s: No ready pods found",
-				m.cfg.Namespace.Name(), m.cfg.Service)
-		}
-
-		// Make sure that all pods are ready.
-		fetchFn := func() ([]kubeCore.Pod, error) {
-			return pods, nil
-		}
-		if _, err = kubeTest.CheckPodsAreReady(fetchFn); err != nil {
-			return nil, false, err
-		}
-
-		// We've successfully started.
-		return nil, true, nil
-	}, retry.Timeout(m.cfg.ReadinessTimeout), startDelay)
-
+	_, err := m.WaitForReadyWorkloads()
 	return err
 }
 
@@ -170,72 +153,41 @@ func (m *workloadManager) onPodAddOrUpdate(pod *kubeCore.Pod) error {
 		}
 	}()
 
-	podWorkload := func() (*workload, error) {
-		return newWorkload(workloadConfig{
-			pod:        *pod,
-			hasSidecar: workloadHasSidecar(m.cfg, pod.Name),
-			cluster:    m.cfg.Cluster,
-			grpcPort:   m.grpcPort,
-			tls:        m.tls,
-		}, m.ctx)
-	}
-
-	// Update the workloads list, in ascending order by pod name.
-	added := false
-	newWorkloads := make([]*workload, 0, len(m.workloads))
-	for _, workload := range m.workloads {
-		switch strings.Compare(workload.pod.Name, pod.Name) {
-		case -1:
-			// This workload comes before this pod alphabetically. Just add it
-			// the the output list.
-			newWorkloads = append(newWorkloads, workload)
-		case 0:
-			// We found the workload for this pod. Update it.
-			prevReady := workload.IsReady()
-			if err := workload.Update(*pod); err != nil {
+	// First, check to see if we already have a workload for the pod. If we do, just update it.
+	for _, w := range m.workloads {
+		if w.pod.Name == pod.Name {
+			prevReady := w.IsReady()
+			if err := w.Update(*pod); err != nil {
 				return err
 			}
-			if !prevReady && workload.IsReady() {
-				workloadReady = workload
-			} else if prevReady && !workload.IsReady() {
-				workloadNotReady = workload
-			}
-			newWorkloads = append(newWorkloads, workload)
-			added = true
-		case 1:
-			// The pod comes before the workload. Add it first.
-			newWorkload, err := podWorkload()
-			if err != nil {
-				return err
-			}
-			newWorkloads = append(newWorkloads, newWorkload)
 
-			if newWorkload.IsReady() {
-				workloadReady = newWorkload
+			// Defer notifying the handler until after we release the mutex.
+			if !prevReady && w.IsReady() {
+				workloadReady = w
+			} else if prevReady && !w.IsReady() {
+				workloadNotReady = w
 			}
-
-			// Now add the previous workload.
-			newWorkloads = append(newWorkloads, workload)
-			added = true
-		default:
-			// Should never happen.
-			panic("strings.Compare generated unexpected output for pod names")
+			return nil
 		}
 	}
 
-	if !added {
-		// The workload wasn't added. Add it now.
-		newWorkload, err := podWorkload()
-		if err != nil {
-			return err
-		}
-		if newWorkload.IsReady() {
-			workloadReady = newWorkload
-		}
-		newWorkloads = append(newWorkloads, newWorkload)
+	// Add the pod to the end of the workload list.
+	newWorkload, err := newWorkload(workloadConfig{
+		pod:        *pod,
+		hasSidecar: workloadHasSidecar(m.cfg, pod.Name),
+		cluster:    m.cfg.Cluster,
+		grpcPort:   m.grpcPort,
+		tls:        m.tls,
+	}, m.ctx)
+	if err != nil {
+		return err
+	}
+	m.workloads = append(m.workloads, newWorkload)
+
+	if newWorkload.IsReady() {
+		workloadReady = newWorkload
 	}
 
-	m.workloads = newWorkloads
 	return nil
 }
 
@@ -253,17 +205,17 @@ func (m *workloadManager) onPodDeleted(pod *kubeCore.Pod) (err error) {
 	}()
 
 	newWorkloads := make([]*workload, 0, len(m.workloads))
-	for _, workload := range m.workloads {
-		if workload.pod.Name == pod.Name {
+	for _, w := range m.workloads {
+		if w.pod.Name == pod.Name {
 			// Close the workload and remove it from the list. If an
 			// error occurs, just continue.
-			if workload.IsReady() {
-				workloadNotReady = workload
+			if w.IsReady() {
+				workloadNotReady = w
 			}
-			err = workload.Close()
+			err = w.Close()
 		} else {
 			// Just add all other workloads.
-			newWorkloads = append(newWorkloads, workload)
+			newWorkloads = append(newWorkloads, w)
 		}
 	}
 
