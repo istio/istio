@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 ---
 # Source: istio-discovery/templates/poddisruptionbudget.yaml
 apiVersion: policy/v1beta1
@@ -2042,3 +2043,5 @@ webhooks:
       - "true"
     - key: istio.io/rev
       operator: DoesNotExist
+=======
+>>>>>>> f5805fee97 (add quotes to true value)
