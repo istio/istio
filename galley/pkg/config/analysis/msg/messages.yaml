@@ -34,11 +34,13 @@ messages:
     code: IST0102
     level: Info
     description: "A namespace is not enabled for Istio injection."
-    template: "The namespace is not enabled for Istio injection. Run 'kubectl label namespace %s istio-injection=enabled' to enable it, or 'kubectl label namespace %s istio-injection=disabled' to explicitly mark it as not needing injection."
+    template: "The namespace is not enabled for Istio injection. Run 'kubectl label namespace %s istio-injection=enabled' to enable it, or 'kubectl label namespace %s istio-injection=disabled' to explicitly mark it as not needing injection. You can also unset 'istio-injection' by running 'kubectl label namespace %s istio-injection-'"
     args:
       - name: namespace
         type: string
       - name: namespace2
+        type: string
+      - name: namespace3
         type: string
 
   - name: "PodMissingProxy"

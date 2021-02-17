@@ -71,7 +71,7 @@ func (a *Analyzer) Analyze(c analysis.Context) {
 			// TODO: if Istio is installed with sidecarInjectorWebhook.enableNamespacesByDefault=true
 			// (in the istio-sidecar-injector configmap), we need to reverse this logic and treat this as an injected namespace
 
-			m := msg.NewNamespaceNotInjected(r, ns, ns)
+			m := msg.NewNamespaceNotInjected(r, ns, ns, ns)
 
 			if line, ok := util.ErrorLine(r, fmt.Sprintf(util.MetadataName)); ok {
 				m.Line = line
