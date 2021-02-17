@@ -59,9 +59,8 @@ type Kubernetes struct {
 // is passed in on stdin. Your plugin may wish to expose its functionality via
 // runtime args, see CONVENTIONS.md in the CNI spec.
 type PluginConf struct {
-	types.NetConf // You may wish to not nest this type
-	RuntimeConfig *struct {
-		// SampleConfig map[string]interface{} `json:"sample"`
+	types.NetConf           // You may wish to not nest this type
+	RuntimeConfig *struct { // SampleConfig map[string]interface{} `json:"sample"`
 	} `json:"runtimeConfig"`
 
 	// This is the previous result, when called in the context of a chained

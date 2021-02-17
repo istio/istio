@@ -72,13 +72,13 @@ func NewTaintSetterController(ts *Setter) (*Controller, error) {
 	return c, nil
 }
 
-//build a listwatch based on the config
-//monitoring on pod with namespace and labelselectors defined in configmap
-//and add store to cache given namespace and labelsalector,
-//return a controller built by listwatch function
-//add : add it to workqueue
-//update: add it to workquueue
-//remove: retaint the node
+// build a listwatch based on the config
+// monitoring on pod with namespace and labelselectors defined in configmap
+// and add store to cache given namespace and labelsalector,
+// return a controller built by listwatch function
+// add : add it to workqueue
+// update: add it to workquueue
+// remove: retaint the node
 func buildPodController(c *Controller, config ConfigSettings, source cache.ListerWatcher) cache.Controller {
 	tempstore, tempcontroller := cache.NewInformer(source, &v1.Pod{}, 0, cache.ResourceEventHandlerFuncs{
 		AddFunc: func(newObj interface{}) {

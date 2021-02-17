@@ -428,13 +428,13 @@ func writeFile(path, text string) {
 		return
 	}
 	mkdirOrExit(path)
-	if err := ioutil.WriteFile(path, []byte(text), 0644); err != nil {
+	if err := ioutil.WriteFile(path, []byte(text), 0o644); err != nil {
 		log.Errorf(err.Error())
 	}
 }
 
 func mkdirOrExit(fpath string) {
-	if err := os.MkdirAll(path.Dir(fpath), 0755); err != nil {
+	if err := os.MkdirAll(path.Dir(fpath), 0o755); err != nil {
 		fmt.Printf("Could not create output directories: %s", err)
 		os.Exit(-1)
 	}

@@ -22,8 +22,7 @@ import (
 )
 
 // RealDependencies implementation of interface Dependencies, which is used in production
-type RealDependencies struct {
-}
+type RealDependencies struct{}
 
 func (r *RealDependencies) execute(cmd string, redirectStdout bool, args ...string) error {
 	fmt.Printf("%s %s\n", cmd, strings.Join(args, " "))
