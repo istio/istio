@@ -269,6 +269,7 @@ func gatherInfo(client kube.ExtendedClient, config *config.BugReportConfig, reso
 	getFromCluster(content.GetCRs, params, clusterDir, &mandatoryWg)
 	getFromCluster(content.GetEvents, params, clusterDir, &mandatoryWg)
 	getFromCluster(content.GetClusterInfo, params, clusterDir, &mandatoryWg)
+	getFromCluster(content.GetNodeInfo, params, clusterDir, &mandatoryWg)
 	getFromCluster(content.GetSecrets, params.SetVerbose(config.FullSecrets), clusterDir, &mandatoryWg)
 	getFromCluster(content.GetDescribePods, params.SetIstioNamespace(config.IstioNamespace), clusterDir, &mandatoryWg)
 
