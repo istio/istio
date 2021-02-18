@@ -30,6 +30,7 @@ import (
 	metaV1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/tools/cache"
 
 	"istio.io/api/annotation"
 	"istio.io/api/label"
@@ -2048,5 +2049,38 @@ func TestWorkloadInstanceHandlerMultipleEndpoints(t *testing.T) {
 			t.Fatalf("eds update after adding pod did not match expected list. got %v, want %v",
 				gotEndpointIPs, expectedEndpointIPs)
 		}
+	}
+}
+
+func TestKubeEndpointsControllerOnEvent(t *testing.T) {
+	testCases := []struct {
+		mode      EndpointMode
+		tombstone cache.DeletedFinalStateUnknown
+	}{
+		{
+			mode: EndpointsOnly,
+			tombstone: cache.DeletedFinalStateUnknown{
+				Key: "namespace/name",
+				Obj: &coreV1.Endpoints{},
+			},
+		},
+		{
+			mode: EndpointSliceOnly,
+			tombstone: cache.DeletedFinalStateUnknown{
+				Key: "namespace/name",
+				Obj: &discovery.EndpointSlice{},
+			},
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(EndpointModeNames[tc.mode], func(t *testing.T) {
+			controller, _ := NewFakeControllerWithOptions(FakeControllerOptions{Mode: tc.mode})
+			defer controller.Stop()
+
+			if err := controller.endpoints.onEvent(tc.tombstone, model.EventDelete); err != nil {
+				t.Errorf("unexpected error: %v", err)
+			}
+		})
 	}
 }

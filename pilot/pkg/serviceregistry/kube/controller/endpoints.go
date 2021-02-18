@@ -174,7 +174,7 @@ func (e *endpointsController) onEvent(curr interface{}, event model.Event) error
 		}
 	}
 
-	return processEndpointEvent(e.c, e, ep.Name, ep.Namespace, event, curr)
+	return processEndpointEvent(e.c, e, ep.Name, ep.Namespace, event, ep)
 }
 
 func (e *endpointsController) forgetEndpoint(endpoint interface{}) {
