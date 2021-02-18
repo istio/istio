@@ -951,9 +951,13 @@ metadata:
   labels:
     istio.io/rev: default
 <<<<<<< HEAD
+<<<<<<< HEAD
 =======
     istio.io/default: true
 >>>>>>> ff60deb3f1 (make gen)
+=======
+    istio.io/default: "true"
+>>>>>>> d7cab73601 (fix istio.io/default true label)
     install.operator.istio.io/owning-resource: unknown
     operator.istio.io/component: "Pilot"
     app: istiod
