@@ -54,7 +54,7 @@ for details.
 
 The quick start describes how to install and use the operator `mesh` CLI command and/or controller.
 
-#### CLI
+### CLI
 
 To build the operator CLI, simply:
 
@@ -64,7 +64,7 @@ make build
 
 Ensure the created binary is in your PATH to run the examples below.
 
-#### Controller (in cluster)
+### Controller (in cluster)
 
 Building a custom controller requires a Dockerhub (or similar) account. To build using the container based build:
 
@@ -86,7 +86,7 @@ kubectl apply -f operator/samples/default-install.yaml
 This installs the controller into the cluster in the istio-operator namespace. The controller in turns installs
 the Istio control plane into the istio-system namespace by default.
 
-#### Controller (running locally)
+### Controller (running locally)
 
 1. Set env $WATCH_NAMESPACE (default value is "istio-system") and $LEADER_ELECTION_NAMESPACE (default value is "istio-operator")
 
