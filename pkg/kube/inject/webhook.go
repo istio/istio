@@ -212,7 +212,7 @@ func (wh *Webhook) Run(stop <-chan struct{}) {
 		select {
 		case <-healthC:
 			content := []byte(`ok`)
-			if err := ioutil.WriteFile(wh.healthCheckFile, content, 0644); err != nil {
+			if err := ioutil.WriteFile(wh.healthCheckFile, content, 0o644); err != nil {
 				log.Errorf("Health check update of %q failed: %v", wh.healthCheckFile, err)
 			}
 		case <-stop:

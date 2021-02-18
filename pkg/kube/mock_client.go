@@ -44,8 +44,7 @@ import (
 
 var _ ExtendedClient = MockClient{}
 
-type MockPortForwarder struct {
-}
+type MockPortForwarder struct{}
 
 func (m MockPortForwarder) Start() error {
 	return nil
