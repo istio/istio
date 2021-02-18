@@ -82,7 +82,7 @@ type Client struct {
 	istioClient istioclient.Interface
 
 	// The gateway-api client we will use to access objects
-	gatewayApiClient gatewayapiclient.Interface
+	gatewayAPIClient gatewayapiclient.Interface
 }
 
 var _ model.ConfigStoreCache = &Client{}
@@ -149,7 +149,7 @@ func NewForSchemas(client kube.Client, revision, domainSuffix string, schemas co
 		queue:            queue.NewQueue(1 * time.Second),
 		kinds:            map[config.GroupVersionKind]*cacheHandler{},
 		istioClient:      client.Istio(),
-		gatewayApiClient: client.GatewayApi(),
+		gatewayAPIClient: client.GatewayAPI(),
 	}
 	known := knownCRDs(client.Ext())
 	for _, s := range out.schemas.All() {
@@ -159,7 +159,7 @@ func NewForSchemas(client kube.Client, revision, domainSuffix string, schemas co
 			var i informers.GenericInformer
 			var err error
 			if s.Resource().Group() == "networking.x-k8s.io" {
-				i, err = client.GatewayApiInformer().ForResource(s.Resource().GroupVersionResource())
+				i, err = client.GatewayAPIInformer().ForResource(s.Resource().GroupVersionResource())
 			} else {
 				i, err = client.IstioInformer().ForResource(s.Resource().GroupVersionResource())
 			}
@@ -216,7 +216,7 @@ func (cl *Client) Create(cfg config.Config) (string, error) {
 		return "", fmt.Errorf("nil spec for %v/%v", cfg.Name, cfg.Namespace)
 	}
 
-	meta, err := create(cl.istioClient, cl.gatewayApiClient, cfg, getObjectMetadata(cfg))
+	meta, err := create(cl.istioClient, cl.gatewayAPIClient, cfg, getObjectMetadata(cfg))
 	if err != nil {
 		return "", err
 	}
@@ -229,7 +229,7 @@ func (cl *Client) Update(cfg config.Config) (string, error) {
 		return "", fmt.Errorf("nil spec for %v/%v", cfg.Name, cfg.Namespace)
 	}
 
-	meta, err := update(cl.istioClient, cl.gatewayApiClient, cfg, getObjectMetadata(cfg))
+	meta, err := update(cl.istioClient, cl.gatewayAPIClient, cfg, getObjectMetadata(cfg))
 	if err != nil {
 		return "", err
 	}
@@ -241,7 +241,7 @@ func (cl *Client) UpdateStatus(cfg config.Config) (string, error) {
 		return "", fmt.Errorf("nil status for %v/%v on updateStatus()", cfg.Name, cfg.Namespace)
 	}
 
-	meta, err := updateStatus(cl.istioClient, cl.gatewayApiClient, cfg, getObjectMetadata(cfg))
+	meta, err := updateStatus(cl.istioClient, cl.gatewayAPIClient, cfg, getObjectMetadata(cfg))
 	if err != nil {
 		return "", err
 	}
@@ -253,7 +253,7 @@ func (cl *Client) UpdateStatus(cfg config.Config) (string, error) {
 func (cl *Client) Patch(orig config.Config, patchFn config.PatchFunc) (string, error) {
 	modified, patchType := patchFn(orig.DeepCopy())
 
-	meta, err := patch(cl.istioClient, cl.gatewayApiClient, orig, getObjectMetadata(orig), modified, getObjectMetadata(modified), patchType)
+	meta, err := patch(cl.istioClient, cl.gatewayAPIClient, orig, getObjectMetadata(orig), modified, getObjectMetadata(modified), patchType)
 	if err != nil {
 		return "", err
 	}
@@ -263,7 +263,7 @@ func (cl *Client) Patch(orig config.Config, patchFn config.PatchFunc) (string, e
 // Delete implements store interface
 // `resourceVersion` must be matched before deletion is carried out. If not possible, a 409 Conflict status will be
 func (cl *Client) Delete(typ config.GroupVersionKind, name, namespace string, resourceVersion *string) error {
-	return delete(cl.istioClient, cl.gatewayApiClient, typ, name, namespace, resourceVersion)
+	return delete(cl.istioClient, cl.gatewayAPIClient, typ, name, namespace, resourceVersion)
 }
 
 // List implements store interface

@@ -108,7 +108,7 @@ type Client interface {
 	Istio() istioclient.Interface
 
 	// GatewayApi returns the gateway-api kube client.
-	GatewayApi() gatewayapiclient.Interface
+	GatewayAPI() gatewayapiclient.Interface
 
 	// KubeInformer returns an informer for core kube client
 	KubeInformer() informers.SharedInformerFactory
@@ -123,7 +123,7 @@ type Client interface {
 	IstioInformer() istioinformer.SharedInformerFactory
 
 	// GatewayApiInformer returns an informer for the gateway-api client
-	GatewayApiInformer() gatewayapiinformer.SharedInformerFactory
+	GatewayAPIInformer() gatewayapiinformer.SharedInformerFactory
 
 	// RunAndWait starts all informers and waits for their caches to sync.
 	// Warning: this must be called AFTER .Informer() is called, which will register the informer.
@@ -392,7 +392,7 @@ func (c *client) Istio() istioclient.Interface {
 	return c.istio
 }
 
-func (c *client) GatewayApi() gatewayapiclient.Interface {
+func (c *client) GatewayAPI() gatewayapiclient.Interface {
 	return c.gatewayapi
 }
 
@@ -412,7 +412,7 @@ func (c *client) IstioInformer() istioinformer.SharedInformerFactory {
 	return c.istioInformer
 }
 
-func (c *client) GatewayApiInformer() gatewayapiinformer.SharedInformerFactory {
+func (c *client) GatewayAPIInformer() gatewayapiinformer.SharedInformerFactory {
 	return c.gatewayapiInformer
 }
 

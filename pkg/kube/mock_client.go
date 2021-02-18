@@ -78,7 +78,7 @@ func (c MockClient) Istio() istioclient.Interface {
 	panic("not used in mock")
 }
 
-func (c MockClient) GatewayApi() serviceapisclient.Interface {
+func (c MockClient) GatewayAPI() serviceapisclient.Interface {
 	panic("not used in mock")
 }
 
@@ -86,7 +86,7 @@ func (c MockClient) IstioInformer() istioinformer.SharedInformerFactory {
 	panic("not used in mock")
 }
 
-func (c MockClient) GatewayApiInformer() serviceapisinformer.SharedInformerFactory {
+func (c MockClient) GatewayAPIInformer() serviceapisinformer.SharedInformerFactory {
 	panic("not used in mock")
 }
 
