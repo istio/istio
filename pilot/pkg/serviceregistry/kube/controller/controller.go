@@ -138,6 +138,9 @@ type Options struct {
 
 	// Duration to wait for cache syncs
 	SyncInterval time.Duration
+
+	// If meshConfig.DiscoverySelectors are specified, the DiscoveryNamespacesFilter tracks the namespaces this controller watches.
+	DiscoveryNamespacesFilter filter.DiscoveryNamespacesFilter
 }
 
 func (o Options) GetSyncInterval() time.Duration {
@@ -262,6 +265,9 @@ type Controller struct {
 
 	// Duration to wait for cache syncs
 	syncInterval time.Duration
+
+	// If meshConfig.DiscoverySelectors are specified, the DiscoveryNamespacesFilter tracks the namespaces this controller watches.
+	discoveryNamespacesFilter filter.DiscoveryNamespacesFilter
 }
 
 // NewController creates a new Kubernetes controller
@@ -286,6 +292,7 @@ func NewController(kubeClient kubelib.Client, options Options) *Controller {
 		metrics:                     options.Metrics,
 		syncInterval:                options.GetSyncInterval(),
 		initialized:                 atomic.NewBool(false),
+		discoveryNamespacesFilter:   options.DiscoveryNamespacesFilter,
 	}
 
 	if options.SystemNamespace != "" {
@@ -298,11 +305,13 @@ func NewController(kubeClient kubelib.Client, options Options) *Controller {
 
 	c.nsInformer = kubeClient.KubeInformer().Core().V1().Namespaces()
 
-	discoveryNamespaceFilter := filter.NewDiscoveryNamespacesFilter(c.nsInformer.Lister(), options.MeshWatcher.Mesh().DiscoverySelectors)
+	if c.discoveryNamespacesFilter == nil {
+		c.discoveryNamespacesFilter = filter.NewDiscoveryNamespacesFilter(c.nsInformer.Lister(), options.MeshWatcher.Mesh().DiscoverySelectors)
+	}
 
-	c.initDiscoveryHandlers(kubeClient, options.EndpointMode, options.MeshWatcher, discoveryNamespaceFilter)
+	c.initDiscoveryHandlers(kubeClient, options.EndpointMode, options.MeshWatcher, c.discoveryNamespacesFilter)
 
-	c.serviceInformer = filter.NewFilteredSharedIndexInformer(discoveryNamespaceFilter.Filter, kubeClient.KubeInformer().Core().V1().Services().Informer())
+	c.serviceInformer = filter.NewFilteredSharedIndexInformer(c.discoveryNamespacesFilter.Filter, kubeClient.KubeInformer().Core().V1().Services().Informer())
 	c.serviceLister = listerv1.NewServiceLister(c.serviceInformer.GetIndexer())
 
 	registerHandlers(c.serviceInformer, c.queue, "Services", c.onServiceEvent, nil)
@@ -310,13 +319,13 @@ func NewController(kubeClient kubelib.Client, options Options) *Controller {
 	switch options.EndpointMode {
 	case EndpointsOnly:
 		endpointsInformer := filter.NewFilteredSharedIndexInformer(
-			discoveryNamespaceFilter.Filter,
+			c.discoveryNamespacesFilter.Filter,
 			kubeClient.KubeInformer().Core().V1().Endpoints().Informer(),
 		)
 		c.endpoints = newEndpointsController(c, endpointsInformer)
 	case EndpointSliceOnly:
 		endpointSliceInformer := filter.NewFilteredSharedIndexInformer(
-			discoveryNamespaceFilter.Filter,
+			c.discoveryNamespacesFilter.Filter,
 			kubeClient.KubeInformer().Discovery().V1beta1().EndpointSlices().Informer(),
 		)
 		c.endpoints = newEndpointSliceController(c, endpointSliceInformer)
@@ -327,7 +336,7 @@ func NewController(kubeClient kubelib.Client, options Options) *Controller {
 	c.nodeLister = kubeClient.KubeInformer().Core().V1().Nodes().Lister()
 	registerHandlers(c.nodeInformer, c.queue, "Nodes", c.onNodeEvent, nil)
 
-	podInformer := filter.NewFilteredSharedIndexInformer(discoveryNamespaceFilter.Filter, kubeClient.KubeInformer().Core().V1().Pods().Informer())
+	podInformer := filter.NewFilteredSharedIndexInformer(c.discoveryNamespacesFilter.Filter, kubeClient.KubeInformer().Core().V1().Pods().Informer())
 	c.pods = newPodCache(c, podInformer, func(key string) {
 		item, exists, err := c.endpoints.getInformer().GetIndexer().GetByKey(key)
 		if err != nil {
