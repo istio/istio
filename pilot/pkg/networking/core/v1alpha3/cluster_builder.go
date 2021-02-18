@@ -29,7 +29,6 @@ import (
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/util/gogo"
-	"istio.io/pkg/log"
 )
 
 var defaultDestinationRule = networking.DestinationRule{}
@@ -264,7 +263,6 @@ func (cb *ClusterBuilder) buildInboundClusterForPortOrUDS(clusterPort int, bind 
 	if len(localityLbEndpoints) > 0 {
 		clusterType = cluster.Cluster_STATIC
 	}
-	log.Errorf("howardjohn: %v %v %v %v", clusterPort, bind, len(localityLbEndpoints), clusterType)
 	localCluster := cb.buildDefaultCluster(clusterName, clusterType, localityLbEndpoints,
 		model.TrafficDirectionInbound, instance.ServicePort, instance.Service, allInstance)
 	// If stat name is configured, build the alt statname.
@@ -291,7 +289,7 @@ func (cb *ClusterBuilder) buildInboundClusterForPortOrUDS(clusterPort int, bind 
 		}
 	}
 	if bind != LocalhostAddress && bind != LocalhostIPv6Address {
-		// IPTables will redirect our own traffic to localhost back to us if we do not use the "magic" upstream bind
+		// iptables will redirect our own traffic to localhost back to us if we do not use the "magic" upstream bind
 		// config which will be skipped.
 		localCluster.UpstreamBindConfig = &core.BindConfig{
 			SourceAddress: &core.SocketAddress{
