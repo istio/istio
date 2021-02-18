@@ -58,6 +58,8 @@ var knativeEnv = env.RegisterStringVar("K_REVISION", "",
 // DiscoveryStream is a server interface for XDS.
 type DiscoveryStream = discovery.AggregatedDiscoveryService_StreamAggregatedResourcesServer
 
+type DeltaDiscoveryStream = discovery.AggregatedDiscoveryService_DeltaAggregatedResourcesServer
+
 // DiscoveryClient is a client interface for XDS.
 type DiscoveryClient = discovery.AggregatedDiscoveryService_StreamAggregatedResourcesClient
 
@@ -85,6 +87,8 @@ type Connection struct {
 	// Both ADS and SDS streams implement this interface
 	stream DiscoveryStream
 
+	deltaStream DeltaDiscoveryStream
+
 	// Original node metadata, to avoid unmarshal/marshal.
 	// This is included in internal events.
 	node *core.Node
@@ -111,7 +115,7 @@ type Event struct {
 	done func()
 }
 
-func newConnection(peerAddr string, stream DiscoveryStream) *Connection {
+func newConnection(peerAddr string, stream DiscoveryStream, deltaStream DeltaDiscoveryStream) *Connection {
 	return &Connection{
 		pushChannel:   make(chan *Event),
 		initialized:   make(chan struct{}),
@@ -119,6 +123,7 @@ func newConnection(peerAddr string, stream DiscoveryStream) *Connection {
 		PeerAddr:      peerAddr,
 		Connect:       time.Now(),
 		stream:        stream,
+		deltaStream: deltaStream,
 		blockedPushes: map[string]*model.PushRequest{},
 	}
 }
@@ -236,10 +241,10 @@ func (s *DiscoveryServer) processRequest(req *discovery.DiscoveryRequest, con *C
 
 // StreamAggregatedResources implements the ADS interface.
 func (s *DiscoveryServer) StreamAggregatedResources(stream discovery.AggregatedDiscoveryService_StreamAggregatedResourcesServer) error {
-	return s.Stream(stream)
+	return s.Stream(stream, nil)
 }
 
-func (s *DiscoveryServer) Stream(stream DiscoveryStream) error {
+func (s *DiscoveryServer) Stream(stream DiscoveryStream, deltaStream DeltaDiscoveryStream) error {
 	if knativeEnv != "" && firstRequest.Load() {
 		// How scaling works in knative is the first request is the "loading" request. During
 		// loading request, concurrency=1. Once that request is done, concurrency is enabled.
@@ -283,7 +288,7 @@ func (s *DiscoveryServer) Stream(stream DiscoveryStream) error {
 		adsLog.Warnf("Error reading config %v", err)
 		return status.Error(codes.Unavailable, "error reading config")
 	}
-	con := newConnection(peerAddr, stream)
+	con := newConnection(peerAddr, stream, deltaStream)
 	con.Identities = ids
 
 	// Do not call: defer close(con.pushChannel). The push channel will be garbage collected
@@ -652,8 +657,10 @@ func (s *DiscoveryServer) preProcessRequest(proxy *model.Proxy, req *discovery.D
 //
 // The delta protocol changes the request, adding unsubscribe/subscribe instead of sending full
 // list of resources. On the response it adds 'removed resources' and sends changes for everything.
-// TODO: we could implement this method if needed, the change is not very big.
 func (s *DiscoveryServer) DeltaAggregatedResources(stream discovery.AggregatedDiscoveryService_DeltaAggregatedResourcesServer) error {
+	if features.DeltaXds.Get() {
+		return s.Stream(nil, stream)
+	}
 	return status.Errorf(codes.Unimplemented, "not implemented")
 }
 
@@ -910,6 +917,50 @@ func (conn *Connection) send(res *discovery.DiscoveryResponse) error {
 				}
 				conn.proxy.WatchedResources[res.TypeUrl].NonceSent = res.Nonce
 				conn.proxy.WatchedResources[res.TypeUrl].VersionSent = res.VersionInfo
+				conn.proxy.WatchedResources[res.TypeUrl].LastSent = time.Now()
+				conn.proxy.WatchedResources[res.TypeUrl].LastSize = sz
+			}
+			conn.proxy.Unlock()
+		}
+		// To ensure the channel is empty after a call to Stop, check the
+		// return value and drain the channel (from Stop docs).
+		if !t.Stop() {
+			<-t.C
+		}
+		return err
+	}
+}
+
+func (conn *Connection) sendDelta(res *discovery.DeltaDiscoveryResponse) error {
+	errChan := make(chan error, 1)
+
+	// sendTimeout may be modified via environment
+	t := time.NewTimer(sendTimeout)
+	go func() {
+		start := time.Now()
+		defer func() { recordSendTime(time.Since(start)) }()
+		errChan <- conn.deltaStream.Send(res)
+		close(errChan)
+	}()
+
+	select {
+	case <-t.C:
+		adsLog.Infof("Timeout writing %s", conn.ConID)
+		xdsResponseWriteTimeouts.Increment()
+		return status.Errorf(codes.DeadlineExceeded, "timeout sending")
+	case err := <-errChan:
+		if err == nil {
+			sz := 0
+			for _, rc := range res.Resources {
+				sz += len(rc.Resource.Value)
+			}
+			conn.proxy.Lock()
+			if res.Nonce != "" {
+				if conn.proxy.WatchedResources[res.TypeUrl] == nil {
+					conn.proxy.WatchedResources[res.TypeUrl] = &model.WatchedResource{TypeUrl: res.TypeUrl}
+				}
+				conn.proxy.WatchedResources[res.TypeUrl].NonceSent = res.Nonce
+				conn.proxy.WatchedResources[res.TypeUrl].VersionSent = res.SystemVersionInfo
 				conn.proxy.WatchedResources[res.TypeUrl].LastSent = time.Now()
 				conn.proxy.WatchedResources[res.TypeUrl].LastSize = sz
 			}
