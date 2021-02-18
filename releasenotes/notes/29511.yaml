@@ -1,6 +1,6 @@
 apiVersion: release-notes/v2
 kind: bug-fix
-area: istioctl
+area: istio-cni
 issue:
   - 29511
 releaseNotes:
