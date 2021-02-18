@@ -60,6 +60,14 @@ spec:
 {{- end }}
       securityContext:
         fsGroup: 1337
+{{- if .Values.pilot.nodeSelector }}
+      nodeSelector:
+{{ toYaml .Values.pilot.nodeSelector | indent 8 }}
+{{- end }}
+{{- if .Values.pilot.tolerations }}
+      tolerations:
+{{ toYaml .Values.pilot.tolerations | indent 8 }}
+{{- end }}
       containers:
         - name: discovery
 {{- if contains "/" .Values.pilot.image }}
