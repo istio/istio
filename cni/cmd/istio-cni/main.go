@@ -173,7 +173,8 @@ func cmdAdd(args *skel.CmdArgs) error {
 			var istioEnvVars map[string]string
 			var k8sErr error
 			for attempt := 1; attempt <= podRetrievalMaxRetries; attempt++ {
-				containers, initContainersMap, _, annotations, istioEnvVars, k8sErr = getKubePodInfo(client, string(k8sArgs.K8S_POD_NAME), string(k8sArgs.K8S_POD_NAMESPACE))
+				containers, initContainersMap, _, annotations, istioEnvVars, k8sErr = getKubePodInfo(client,
+					string(k8sArgs.K8S_POD_NAME), string(k8sArgs.K8S_POD_NAMESPACE))
 				if k8sErr == nil {
 					break
 				}

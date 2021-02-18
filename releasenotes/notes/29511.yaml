@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: istioctl
+issue:
+  - 29511
+releaseNotes:
+  - |
+    **Fixed** Dns redirect iptables rule addition by istio-cni if Smart DNS enabled
