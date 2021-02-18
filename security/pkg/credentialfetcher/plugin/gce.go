@@ -40,10 +40,6 @@ var gracePeriod = 25 * time.Minute
 // This is enabled by default.
 var rotateToken = true
 
-func RotateToken() bool {
-	return rotateToken
-}
-
 // SetTokenRotation enable/disable periodic token rotation job.
 // This is only for testing purpose, not thread safe.
 func SetTokenRotation(enable bool) {
@@ -77,7 +73,7 @@ func CreateGCEPlugin(audience, jwtPath, identityProvider string) *GCEPlugin {
 		jwtPath:          jwtPath,
 		identityProvider: identityProvider,
 	}
-	if RotateToken() {
+	if rotateToken {
 		go p.startTokenRotationJob()
 	}
 	return p
@@ -118,12 +114,12 @@ func (p *GCEPlugin) shouldRotate(now time.Time) bool {
 		return true
 	}
 	exp, err := util.GetExp(p.tokenCache)
-	// When fails to get expiration time from token, always refresh the token
+	// When fails to get expiration time from token, always refresh the token.
 	if err != nil || exp.IsZero() {
 		return true
 	}
 	rotate := now.After(exp.Add(-gracePeriod))
-	gcecredLog.Debugf("credential expiration: %s, graceperiod: %s, should rotate: %b",
+	gcecredLog.Debugf("credential expiration: %s, grace period: %s, should rotate: %t",
 		exp.String(), gracePeriod.String(), rotate)
 	return rotate
 }
