@@ -58,7 +58,7 @@ func TestMain(m *testing.M) {
 				if err != nil {
 					return err
 				}
-				return ctx.Config().ApplyYAML("", string(crd))
+				return ctx.Config().ApplyYAMLNoCleanup("", string(crd))
 			}
 			return nil
 		}).
