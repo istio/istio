@@ -18,6 +18,7 @@ import (
 	"testing"
 
 	"istio.io/istio/pkg/security"
+	"istio.io/istio/security/pkg/credentialfetcher/plugin"
 )
 
 func TestNewCredFetcher(t *testing.T) {
@@ -59,11 +60,16 @@ func TestNewCredFetcher(t *testing.T) {
 		},
 	}
 
+	// Disable token refresh for GCE VM credential fetcher.
+	plugin.SetTokenRotation(false)
 	for id, tc := range testCases {
 		t.Run(id, func(t *testing.T) {
 			t.Parallel()
 			cf, err := NewCredFetcher(
 				tc.fetcherType, tc.trustdomain, tc.jwtPath, tc.identityProvider)
+			if cf != nil {
+				defer cf.Stop()
+			}
 			if len(tc.expectedErr) > 0 {
 				if err == nil {
 					t.Errorf("%s: succeeded. Error expected: %v", id, err)
@@ -88,8 +94,9 @@ func TestNewCredFetcher(t *testing.T) {
 						t.Errorf("%s: GetPlatformCredential returned %s, expected %s", id, token, tc.expectedToken)
 					}
 				}
-				cf.Stop()
 			}
 		})
 	}
+	// Restore token refresh for other tests.
+	plugin.SetTokenRotation(true)
 }

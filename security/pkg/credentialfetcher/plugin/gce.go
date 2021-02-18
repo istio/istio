@@ -36,6 +36,20 @@ var rotationInterval = 5 * time.Minute
 // GCE VM credential needs refresh if remaining life time is below 25 minutes.
 var gracePeriod = 25 * time.Minute
 
+// rotateToken determines whether to start periodic token rotation job.
+// This is enabled by default.
+var rotateToken = true
+
+func RotateToken() bool {
+	return rotateToken
+}
+
+// SetTokenRotation enable/disable periodic token rotation job.
+// This is only for testing purpose, not thread safe.
+func SetTokenRotation(enable bool) {
+	rotateToken = enable
+}
+
 // The plugin object.
 type GCEPlugin struct {
 	// aud is the unique URI agreed upon by both the instance and the system verifying the instance's identity.
@@ -63,7 +77,9 @@ func CreateGCEPlugin(audience, jwtPath, identityProvider string) *GCEPlugin {
 		jwtPath:          jwtPath,
 		identityProvider: identityProvider,
 	}
-	go p.startTokenRotationJob()
+	if RotateToken() {
+		go p.startTokenRotationJob()
+	}
 	return p
 }
 
@@ -133,7 +149,7 @@ func (p *GCEPlugin) GetPlatformCredential() (string, error) {
 	p.tokenCache = token
 	gcecredLog.Debugf("Got GCE identity token: %d", len(token))
 	tokenbytes := []byte(token)
-	err = ioutil.WriteFile(p.jwtPath, tokenbytes, 0640)
+	err = ioutil.WriteFile(p.jwtPath, tokenbytes, 0o640)
 	if err != nil {
 		gcecredLog.Errorf("Encountered error when writing vm identity token: %v", err)
 		return "", err
