@@ -390,7 +390,7 @@ func TestJwtRefreshIntervalRecoverFromInitialFailOnFirstHit(t *testing.T) {
 	ms := startMockServer(t)
 	defer ms.Stop()
 
-	// Configures the mock server to return error for the first request 3 requests.
+	// Configures the mock server to return error for the first 3 requests.
 	ms.ReturnErrorForFirstNumHits = 3
 
 	mockCertURL := ms.URL + "/oauth2/v3/certs"
