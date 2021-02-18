@@ -75,7 +75,7 @@ func (c *Controller) DeleteRegistry(clusterID string, providerID serviceregistry
 		log.Warnf("Registry list is empty, nothing to delete")
 		return
 	}
-	index, ok := c.GetRegistryIndex(clusterID, providerID)
+	index, ok := c.getRegistryIndex(clusterID, providerID)
 	if !ok {
 		log.Warnf("Registry is not found in the registries list, nothing to delete")
 		return
@@ -94,6 +94,13 @@ func (c *Controller) GetRegistries() []serviceregistry.Instance {
 
 // GetRegistryIndex returns the index of a registry
 func (c *Controller) GetRegistryIndex(clusterID string, provider serviceregistry.ProviderID) (int, bool) {
+	c.storeLock.RLock()
+	defer c.storeLock.RUnlock()
+
+	return c.getRegistryIndex(clusterID, provider)
+}
+
+func (c *Controller) getRegistryIndex(clusterID string, provider serviceregistry.ProviderID) (int, bool) {
 	for i, r := range c.registries {
 		if r.Cluster() == clusterID && r.Provider() == provider {
 			return i, true
