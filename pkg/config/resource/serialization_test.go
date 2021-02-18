@@ -369,8 +369,7 @@ func TestDeserializeAll_Error(t *testing.T) {
 	}
 }
 
-type invalidProto struct {
-}
+type invalidProto struct{}
 
 var (
 	_ proto.Message     = &invalidProto{}

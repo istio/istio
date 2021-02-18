@@ -63,8 +63,7 @@ Example resource specifications include:
 	serviceProtocolUDP = "UDP"
 )
 
-type validator struct {
-}
+type validator struct{}
 
 func checkFields(un *unstructured.Unstructured) error {
 	var errs error

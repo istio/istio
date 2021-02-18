@@ -30,8 +30,7 @@ type generator interface {
 	principal(key, value string, forTCP bool) (*rbacpb.Principal, error)
 }
 
-type destIPGenerator struct {
-}
+type destIPGenerator struct{}
 
 func (destIPGenerator) permission(_, value string, _ bool) (*rbacpb.Permission, error) {
 	cidrRange, err := matcher.CidrRange(value)
@@ -45,8 +44,7 @@ func (destIPGenerator) principal(_, _ string, _ bool) (*rbacpb.Principal, error)
 	return nil, fmt.Errorf("unimplemented")
 }
 
-type destPortGenerator struct {
-}
+type destPortGenerator struct{}
 
 func (destPortGenerator) permission(_, value string, _ bool) (*rbacpb.Permission, error) {
 	portValue, err := convertToPort(value)
@@ -60,8 +58,7 @@ func (destPortGenerator) principal(_, _ string, _ bool) (*rbacpb.Principal, erro
 	return nil, fmt.Errorf("unimplemented")
 }
 
-type connSNIGenerator struct {
-}
+type connSNIGenerator struct{}
 
 func (connSNIGenerator) permission(_, value string, _ bool) (*rbacpb.Permission, error) {
 	m := matcher.StringMatcher(value)
@@ -72,8 +69,7 @@ func (connSNIGenerator) principal(_, _ string, _ bool) (*rbacpb.Principal, error
 	return nil, fmt.Errorf("unimplemented")
 }
 
-type envoyFilterGenerator struct {
-}
+type envoyFilterGenerator struct{}
 
 func (envoyFilterGenerator) permission(key, value string, _ bool) (*rbacpb.Permission, error) {
 	// Split key of format "experimental.envoy.filters.a.b[c]" to "envoy.filters.a.b" and "c".
@@ -93,8 +89,7 @@ func (envoyFilterGenerator) principal(_, _ string, _ bool) (*rbacpb.Principal, e
 	return nil, fmt.Errorf("unimplemented")
 }
 
-type srcIPGenerator struct {
-}
+type srcIPGenerator struct{}
 
 func (srcIPGenerator) permission(_, _ string, _ bool) (*rbacpb.Permission, error) {
 	return nil, fmt.Errorf("unimplemented")
@@ -108,8 +103,7 @@ func (srcIPGenerator) principal(_, value string, _ bool) (*rbacpb.Principal, err
 	return principalDirectRemoteIP(cidr), nil
 }
 
-type remoteIPGenerator struct {
-}
+type remoteIPGenerator struct{}
 
 func (remoteIPGenerator) permission(_, _ string, _ bool) (*rbacpb.Permission, error) {
 	return nil, fmt.Errorf("unimplemented")
@@ -123,8 +117,7 @@ func (remoteIPGenerator) principal(_, value string, _ bool) (*rbacpb.Principal, 
 	return principalRemoteIP(cidr), nil
 }
 
-type srcNamespaceGenerator struct {
-}
+type srcNamespaceGenerator struct{}
 
 func (srcNamespaceGenerator) permission(_, _ string, _ bool) (*rbacpb.Permission, error) {
 	return nil, fmt.Errorf("unimplemented")
@@ -142,8 +135,7 @@ func (srcNamespaceGenerator) principal(_, value string, forTCP bool) (*rbacpb.Pr
 	return principalMetadata(metadata), nil
 }
 
-type srcPrincipalGenerator struct {
-}
+type srcPrincipalGenerator struct{}
 
 func (srcPrincipalGenerator) permission(_, _ string, _ bool) (*rbacpb.Permission, error) {
 	return nil, fmt.Errorf("unimplemented")
@@ -158,8 +150,7 @@ func (srcPrincipalGenerator) principal(key, value string, forTCP bool) (*rbacpb.
 	return principalMetadata(metadata), nil
 }
 
-type requestPrincipalGenerator struct {
-}
+type requestPrincipalGenerator struct{}
 
 func (requestPrincipalGenerator) permission(_, _ string, _ bool) (*rbacpb.Permission, error) {
 	return nil, fmt.Errorf("unimplemented")
@@ -174,8 +165,7 @@ func (requestPrincipalGenerator) principal(key, value string, forTCP bool) (*rba
 	return principalMetadata(m), nil
 }
 
-type requestAudiencesGenerator struct {
-}
+type requestAudiencesGenerator struct{}
 
 func (requestAudiencesGenerator) permission(key, value string, forTCP bool) (*rbacpb.Permission, error) {
 	return requestPrincipalGenerator{}.permission(key, value, forTCP)
@@ -185,8 +175,7 @@ func (requestAudiencesGenerator) principal(key, value string, forTCP bool) (*rba
 	return requestPrincipalGenerator{}.principal(key, value, forTCP)
 }
 
-type requestPresenterGenerator struct {
-}
+type requestPresenterGenerator struct{}
 
 func (requestPresenterGenerator) permission(key, value string, forTCP bool) (*rbacpb.Permission, error) {
 	return requestPrincipalGenerator{}.permission(key, value, forTCP)
@@ -196,8 +185,7 @@ func (requestPresenterGenerator) principal(key, value string, forTCP bool) (*rba
 	return requestPrincipalGenerator{}.principal(key, value, forTCP)
 }
 
-type requestHeaderGenerator struct {
-}
+type requestHeaderGenerator struct{}
 
 func (requestHeaderGenerator) permission(_, _ string, _ bool) (*rbacpb.Permission, error) {
 	return nil, fmt.Errorf("unimplemented")
@@ -216,8 +204,7 @@ func (requestHeaderGenerator) principal(key, value string, forTCP bool) (*rbacpb
 	return principalHeader(m), nil
 }
 
-type requestClaimGenerator struct {
-}
+type requestClaimGenerator struct{}
 
 func (requestClaimGenerator) permission(_, _ string, _ bool) (*rbacpb.Permission, error) {
 	return nil, fmt.Errorf("unimplemented")
@@ -238,8 +225,7 @@ func (requestClaimGenerator) principal(key, value string, forTCP bool) (*rbacpb.
 	return principalMetadata(m), nil
 }
 
-type hostGenerator struct {
-}
+type hostGenerator struct{}
 
 func (hostGenerator) permission(key, value string, forTCP bool) (*rbacpb.Permission, error) {
 	if forTCP {
@@ -254,8 +240,7 @@ func (hostGenerator) principal(key, value string, forTCP bool) (*rbacpb.Principa
 	return nil, fmt.Errorf("unimplemented")
 }
 
-type pathGenerator struct {
-}
+type pathGenerator struct{}
 
 func (g pathGenerator) permission(key, value string, forTCP bool) (*rbacpb.Permission, error) {
 	if forTCP {
@@ -270,8 +255,7 @@ func (pathGenerator) principal(key, value string, forTCP bool) (*rbacpb.Principa
 	return nil, fmt.Errorf("unimplemented")
 }
 
-type methodGenerator struct {
-}
+type methodGenerator struct{}
 
 func (methodGenerator) permission(key, value string, forTCP bool) (*rbacpb.Permission, error) {
 	if forTCP {
