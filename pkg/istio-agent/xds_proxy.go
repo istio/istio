@@ -151,7 +151,7 @@ func initXdsProxy(ia *Agent) (*XdsProxy, error) {
 			return nil
 		}
 	}
-	if true { // TODO: add a config option for this
+	if ia.secretCache != nil { // TODO: add a config option for this
 		proxy.handlers[v3.ProxyConfigType] = func(resp *discovery.DiscoveryResponse) error {
 			if ia.secretCache == nil {
 				return nil
@@ -171,7 +171,7 @@ func initXdsProxy(ia *Agent) (*XdsProxy, error) {
 			}
 			trustBundle := []byte{}
 			for _, cert := range caCerts {
-				trustBundle, _ = util.AppendRootCertString(trustBundle, cert)
+				trustBundle = util.AppendCertByte(trustBundle, []byte(cert))
 			}
 			return ia.secretCache.UpdateConfigTrustBundle(trustBundle)
 		}

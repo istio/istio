@@ -52,11 +52,12 @@ func (e *PcdsGenerator) Generate(proxy *model.Proxy, push *model.PushContext, w 
 	if !pcdsNeedsPush(req) {
 		return nil, nil
 	}
-	if tb.GlobalWorkloadTrustbundle == nil {
+	gTrustBundle := tb.GetGlobalTrustBundle()
+	if gTrustBundle == nil {
 		return nil, nil
 	}
 	pc := &mesh.ProxyConfig{
-		CaCertificatesPem: tb.GlobalWorkloadTrustbundle.GetTrustBundle(),
+		CaCertificatesPem: gTrustBundle.GetTrustBundle(),
 	}
 	return model.Resources{gogo.MessageToAny(pc)}, nil
 }

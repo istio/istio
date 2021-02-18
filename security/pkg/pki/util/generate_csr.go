@@ -106,24 +106,25 @@ func GenCSRTemplate(options CertOptions) (*x509.CertificateRequest, error) {
 
 // AppendRootCerts appends root certificates in RootCertFile to the input certificate.
 func AppendRootCerts(pemCert []byte, rootCertFile string) ([]byte, error) {
-	var rootCerts []byte
-	if len(pemCert) > 0 {
-		// Copy the input certificate
-		rootCerts = make([]byte, len(pemCert))
-		copy(rootCerts, pemCert)
-	}
+	rootCerts := pemCert
 	if len(rootCertFile) > 0 {
 		log.Debugf("append root certificates from %v", rootCertFile)
 		certBytes, err := ioutil.ReadFile(rootCertFile)
 		if err != nil {
 			return rootCerts, fmt.Errorf("failed to read root certificates (%v)", err)
 		}
-		log.Debugf("The root certificates to be appended is: %v", rootCertFile)
-		if len(rootCerts) > 0 {
-			// Append a newline after the last cert
-			rootCerts = []byte(strings.TrimSuffix(string(rootCerts), "\n") + "\n")
-		}
-		rootCerts = append(rootCerts, certBytes...)
+		rootCerts = AppendCertByte(pemCert, certBytes)
 	}
 	return rootCerts, nil
+}
+
+// AppendCertByte: Append x.509 rootCert in bytes to existing certificate chain (in bytes)
+func AppendCertByte(pemCert []byte, rootCert []byte) []byte {
+	rootCerts := []byte{}
+	if len(pemCert) > 0 {
+		// Copy the input certificate
+		rootCerts = []byte(strings.TrimSuffix(string(pemCert), "\n") + "\n")
+	}
+	rootCerts = append(rootCerts, rootCert...)
+	return rootCerts
 }
