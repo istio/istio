@@ -919,7 +919,7 @@ data:
 apiVersion: admissionregistration.k8s.io/v1
 kind: MutatingWebhookConfiguration
 metadata:
-  name: istio-sidecar-injector-default
+  name: istio-sidecar-injector
   labels:
     istio.io/rev: default
     istio.io/default: "true"
@@ -928,7 +928,7 @@ metadata:
     app: sidecar-injector
     release: istiod-remote
 webhooks:
-- name: namespace.sidecar-injector.istio.io
+- name: sidecar-injector.istio.io
   clientConfig:
     service:
       name: istiod
@@ -989,7 +989,7 @@ webhooks:
 apiVersion: admissionregistration.k8s.io/v1beta1
 kind: MutatingWebhookConfiguration
 metadata:
-  name: istio-sidecar-injector
+  name: istio-sidecar-injector-default
   labels:
     istio.io/rev: default
     install.operator.istio.io/owning-resource: unknown

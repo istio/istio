@@ -222,7 +222,7 @@ func TestManifestGenerateIstiodRemote(t *testing.T) {
 		g.Expect(objs.kind(name.SAStr).nameEquals("istio-reader-service-account")).Should(Not(BeNil()))
 		g.Expect(objs.kind(name.SAStr).nameEquals("istiod-service-account")).Should(Not(BeNil()))
 
-		mwc := mustGetMutatingWebhookConfiguration(g, objs, "istio-sidecar-injector-default").Unstructured()
+		mwc := mustGetMutatingWebhookConfiguration(g, objs, "istio-sidecar-injector").Unstructured()
 		g.Expect(mwc).Should(HavePathValueEqual(PathValue{"webhooks.[0].clientConfig.url", "https://xxx:15017/inject"}))
 
 		vwc := mustGetValidatingWebhookConfiguration(g, objs, "istiod-istio-system").Unstructured()
@@ -818,13 +818,13 @@ func TestWebhookSelector(t *testing.T) {
 	objEnabledAndRev := klabels.Set{"sidecar.istio.io/inject": "true", "istio.io/rev": "canary"}
 	objDisableAndRev := klabels.Set{"sidecar.istio.io/inject": "false", "istio.io/rev": "canary"}
 
-	defaultWebhook := getWebhooks(t, "", "istio-sidecar-injector-default")
+	defaultWebhook := getWebhooks(t, "", "istio-sidecar-injector")
 	defaultRevWebhook := mergeWebhooks(
 		getWebhooks(t, "--set revision=canary --set defaultRevision=true", "istio-sidecar-injector-canary"),
-		getWebhooks(t, "--set revision=canary --set defaultRevision=true", "istio-sidecar-injector-default"))
+		getWebhooks(t, "--set revision=canary --set defaultRevision=true", "istio-sidecar-injector"))
 	revWebhook := getWebhooks(t, "--set revision=canary", "istio-sidecar-injector-canary")
-	autoWebhook := getWebhooks(t, "--set values.sidecarInjectorWebhook.enableNamespacesByDefault=true", "istio-sidecar-injector-default")
-	legacyWebhook := getWebhooks(t, "--set values.sidecarInjectorWebhook.useLegacySelectors=true", "istio-sidecar-injector")
+	autoWebhook := getWebhooks(t, "--set values.sidecarInjectorWebhook.enableNamespacesByDefault=true", "istio-sidecar-injector")
+	legacyWebhook := getWebhooks(t, "--set values.sidecarInjectorWebhook.useLegacySelectors=true", "istio-sidecar-injector-default")
 	legacyRevWebhook := getWebhooks(t, "--set values.sidecarInjectorWebhook.useLegacySelectors=true --set revision=canary", "istio-sidecar-injector-canary")
 
 	// predicate is used to filter out "obvious" test cases, to avoid enumerating all cases

@@ -54,9 +54,9 @@ apiVersion: admissionregistration.k8s.io/v1beta1
 kind: MutatingWebhookConfiguration
 metadata:
 {{- if eq .Release.Namespace "istio-system"}}
-  name: istio-sidecar-injector-default
+  name: istio-sidecar-injector
 {{- else }}
-  name: istio-sidecar-injector-default-{{ .Release.Namespace }}
+  name: istio-sidecar-injector-{{ .Release.Namespace }}
 {{- end }}
   labels:
     istio.io/rev: {{ .Values.revision | default "default" }}
@@ -67,7 +67,7 @@ metadata:
     release: {{ .Release.Name }}
 webhooks:
 {{- /* Case 1: Namespace selector enabled, and object selector is not injected */}}
-{{- include "core-default" (mergeOverwrite (deepCopy .) (dict "Prefix" "namespace.") ) }}
+{{- include "core-default" (mergeOverwrite (deepCopy .) (dict "Prefix" "") ) }}
   namespaceSelector:
     matchExpressions:
       - key: istio-injection
@@ -122,9 +122,9 @@ apiVersion: admissionregistration.k8s.io/v1beta1
 kind: MutatingWebhookConfiguration
 metadata:
 {{- if eq .Release.Namespace "istio-system"}}
-  name: istio-sidecar-injector{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}
+  name: istio-sidecar-injector{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- else }}-default{{- end }}
 {{- else }}
-  name: istio-sidecar-injector{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}-{{ .Release.Namespace }}
+  name: istio-sidecar-injector{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- else }}-default{{- end }}-{{ .Release.Namespace }}
 {{- end }}
   labels:
     istio.io/rev: {{ .Values.revision | default "default" }}
@@ -191,7 +191,7 @@ webhooks:
 
 {{- /* Case 1: namespace selector matches, and object doesn't disable */}}
 {{- /* Note: if both revision and legacy selector, we give precedence to the legacy one */}}
-{{- include "core" (mergeOverwrite (deepCopy .) (dict "Prefix" "namespace.") ) }}
+{{- include "core" (mergeOverwrite (deepCopy .) (dict "Prefix" "") ) }}
   namespaceSelector:
     matchExpressions:
     - key: istio.io/rev

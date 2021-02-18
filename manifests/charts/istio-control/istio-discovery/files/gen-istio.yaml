@@ -2435,11 +2435,15 @@ apiVersion: admissionregistration.k8s.io/v1
 kind: MutatingWebhookConfiguration
 metadata:
 <<<<<<< HEAD
+<<<<<<< HEAD
   name: istio-sidecar-injector
   labels:
     istio.io/rev: default
 =======
   name: istio-sidecar-injector-default
+=======
+  name: istio-sidecar-injector
+>>>>>>> 3e780f41b6 (make merge overwrite previous webhook)
   labels:
     istio.io/rev: default
     istio.io/default: "true"
@@ -2449,7 +2453,7 @@ metadata:
     app: sidecar-injector
     release: istio
 webhooks:
-- name: namespace.sidecar-injector.istio.io
+- name: sidecar-injector.istio.io
   clientConfig:
     service:
       name: istiod
@@ -2553,7 +2557,7 @@ webhooks:
 apiVersion: admissionregistration.k8s.io/v1beta1
 kind: MutatingWebhookConfiguration
 metadata:
-  name: istio-sidecar-injector
+  name: istio-sidecar-injector-default
   labels:
     istio.io/rev: default
     install.operator.istio.io/owning-resource: unknown
