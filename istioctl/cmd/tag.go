@@ -409,8 +409,14 @@ func getWebhooksWithTag(ctx context.Context, client kubernetes.Interface, tag st
 // getWebhooksWithRevision returns webhooks tagged with istio.io/rev=<rev> and NOT TAGGED with istio.io/tag.
 // this retrieves the webhook created at revision installation rather than tag webhooks
 func getWebhooksWithRevision(ctx context.Context, client kubernetes.Interface, rev string) ([]admit_v1.MutatingWebhookConfiguration, error) {
+	whLabelSelector := fmt.Sprintf("%s=%s,!%s,!%s", label.IoIstioRev.Name, rev, istioTagLabel, istioDefaultRevisionLabel)
+	// when retrieving webhooks for default revision, we should use the default webhook configuration, since the other
+	// will not contain webhooks
+	if revision == defaultRevisionName {
+		whLabelSelector = fmt.Sprintf("%s=%s,!%s,%s", label.IoIstioRev.Name, rev, istioTagLabel, istioDefaultRevisionLabel)
+	}
 	webhooks, err := client.AdmissionregistrationV1().MutatingWebhookConfigurations().List(ctx, metav1.ListOptions{
-		LabelSelector: fmt.Sprintf("%s=%s,!%s,!%s", label.IoIstioRev.Name, rev, istioTagLabel, istioDefaultRevisionLabel),
+		LabelSelector: whLabelSelector,
 	})
 	if err != nil {
 		return nil, err
