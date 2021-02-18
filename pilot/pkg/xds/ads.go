@@ -58,10 +58,14 @@ var knativeEnv = env.RegisterStringVar("K_REVISION", "",
 // DiscoveryStream is a server interface for XDS.
 type DiscoveryStream = discovery.AggregatedDiscoveryService_StreamAggregatedResourcesServer
 
+// DeltaDiscoveryStream is a server interface for Delta XDS.
 type DeltaDiscoveryStream = discovery.AggregatedDiscoveryService_DeltaAggregatedResourcesServer
 
 // DiscoveryClient is a client interface for XDS.
 type DiscoveryClient = discovery.AggregatedDiscoveryService_StreamAggregatedResourcesClient
+
+// DeltaDiscoveryClient is a client interface for Delta XDS.
+type DeltaDiscoveryClient = discovery.AggregatedDiscoveryService_DeltaAggregatedResourcesClient
 
 // Connection holds information about connected client.
 type Connection struct {
@@ -86,7 +90,7 @@ type Connection struct {
 
 	// Both ADS and SDS streams implement this interface
 	stream DiscoveryStream
-
+	// deltaStream is used for Delta XDS. Only one of deltaStream or stream will be set
 	deltaStream DeltaDiscoveryStream
 
 	// Original node metadata, to avoid unmarshal/marshal.
@@ -115,7 +119,7 @@ type Event struct {
 	done func()
 }
 
-func newConnection(peerAddr string, stream DiscoveryStream, deltaStream DeltaDiscoveryStream) *Connection {
+func newConnection(peerAddr string, stream DiscoveryStream) *Connection {
 	return &Connection{
 		pushChannel:   make(chan *Event),
 		initialized:   make(chan struct{}),
@@ -123,7 +127,6 @@ func newConnection(peerAddr string, stream DiscoveryStream, deltaStream DeltaDis
 		PeerAddr:      peerAddr,
 		Connect:       time.Now(),
 		stream:        stream,
-		deltaStream: deltaStream,
 		blockedPushes: map[string]*model.PushRequest{},
 	}
 }
@@ -288,7 +291,7 @@ func (s *DiscoveryServer) Stream(stream DiscoveryStream) error {
 		adsLog.Warnf("Error reading config %v", err)
 		return status.Error(codes.Unavailable, "error reading config")
 	}
-	con := newConnection(peerAddr, stream, nil)
+	con := newConnection(peerAddr, stream)
 	con.Identities = ids
 
 	// Do not call: defer close(con.pushChannel). The push channel will be garbage collected
@@ -658,11 +661,10 @@ func (s *DiscoveryServer) preProcessRequest(proxy *model.Proxy, req *discovery.D
 // The delta protocol changes the request, adding unsubscribe/subscribe instead of sending full
 // list of resources. On the response it adds 'removed resources' and sends changes for everything.
 func (s *DiscoveryServer) DeltaAggregatedResources(stream discovery.AggregatedDiscoveryService_DeltaAggregatedResourcesServer) error {
-	return s.StreamDeltas(stream)
-	//if features.DeltaXds.Get() {
-	//	return s.StreamDeltas(stream)
-	//}
-	//return status.Errorf(codes.Unimplemented, "not implemented")
+	if features.DeltaXds.Get() {
+		return s.StreamDeltas(stream)
+	}
+	return status.Errorf(codes.Unimplemented, "not implemented")
 }
 
 // Compute and send the new configuration for a connection. This is blocking and may be slow
@@ -918,50 +920,6 @@ func (conn *Connection) send(res *discovery.DiscoveryResponse) error {
 				}
 				conn.proxy.WatchedResources[res.TypeUrl].NonceSent = res.Nonce
 				conn.proxy.WatchedResources[res.TypeUrl].VersionSent = res.VersionInfo
-				conn.proxy.WatchedResources[res.TypeUrl].LastSent = time.Now()
-				conn.proxy.WatchedResources[res.TypeUrl].LastSize = sz
-			}
-			conn.proxy.Unlock()
-		}
-		// To ensure the channel is empty after a call to Stop, check the
-		// return value and drain the channel (from Stop docs).
-		if !t.Stop() {
-			<-t.C
-		}
-		return err
-	}
-}
-
-func (conn *Connection) sendDelta(res *discovery.DeltaDiscoveryResponse) error {
-	errChan := make(chan error, 1)
-
-	// sendTimeout may be modified via environment
-	t := time.NewTimer(sendTimeout)
-	go func() {
-		start := time.Now()
-		defer func() { recordSendTime(time.Since(start)) }()
-		errChan <- conn.deltaStream.Send(res)
-		close(errChan)
-	}()
-
-	select {
-	case <-t.C:
-		adsLog.Infof("Timeout writing %s", conn.ConID)
-		xdsResponseWriteTimeouts.Increment()
-		return status.Errorf(codes.DeadlineExceeded, "timeout sending")
-	case err := <-errChan:
-		if err == nil {
-			sz := 0
-			for _, rc := range res.Resources {
-				sz += len(rc.Resource.Value)
-			}
-			conn.proxy.Lock()
-			if res.Nonce != "" {
-				if conn.proxy.WatchedResources[res.TypeUrl] == nil {
-					conn.proxy.WatchedResources[res.TypeUrl] = &model.WatchedResource{TypeUrl: res.TypeUrl}
-				}
-				conn.proxy.WatchedResources[res.TypeUrl].NonceSent = res.Nonce
-				conn.proxy.WatchedResources[res.TypeUrl].VersionSent = res.SystemVersionInfo
 				conn.proxy.WatchedResources[res.TypeUrl].LastSent = time.Now()
 				conn.proxy.WatchedResources[res.TypeUrl].LastSize = sz
 			}
