@@ -216,7 +216,7 @@ func applyFlagAliases(flags []string, manifestsPath, revision string, defaultRev
 		flags = append(flags, fmt.Sprintf("revision=%s", revision))
 	}
 	if defaultRevision {
-		flags = append(flags, fmt.Sprintf("defaultRevision=true"))
+		flags = append(flags, fmt.Sprintf("defaultRevision=%t", defaultRevision))
 	}
 	return flags
 }
