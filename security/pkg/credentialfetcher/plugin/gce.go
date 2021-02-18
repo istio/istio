@@ -87,14 +87,14 @@ func (p *GCEPlugin) startTokenRotationJob() {
 }
 
 func (p *GCEPlugin) rotate() {
-	if p.shouldRotate() {
+	if p.shouldRotate(time.Now()) {
 		if _, err := p.GetPlatformCredential(); err != nil {
 			gcecredLog.Errorf("credential refresh failed: %+v", err)
 		}
 	}
 }
 
-func (p *GCEPlugin) shouldRotate() bool {
+func (p *GCEPlugin) shouldRotate(now time.Time) bool {
 	p.tokenMutex.RLock()
 	defer p.tokenMutex.RUnlock()
 
@@ -106,7 +106,7 @@ func (p *GCEPlugin) shouldRotate() bool {
 	if err != nil || exp.IsZero() {
 		return true
 	}
-	rotate := time.Now().After(exp.Add(-gracePeriod))
+	rotate := now.After(exp.Add(-gracePeriod))
 	gcecredLog.Debugf("credential expiration: %s, graceperiod: %s, should rotate: %b",
 		exp.String(), gracePeriod.String(), rotate)
 	return rotate
