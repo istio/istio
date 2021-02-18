@@ -784,10 +784,12 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(node *model.
 			// we will bind to user specified IP (if any) or to the VIPs of services in
 			// this egress listener.
 			bind := egressListener.IstioListener.Bind
-			if bindToPort && bind == "" {
-				bind = actualLocalHostAddress
-			} else if len(bind) == 0 {
-				bind = actualWildcard
+			if bind == "" {
+				if bindToPort {
+					bind = actualLocalHostAddress
+				} else {
+					bind = actualWildcard
+				}
 			}
 
 			// Build ListenerOpts and PluginParams once and reuse across all Services to avoid unnecessary allocations.
