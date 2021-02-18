@@ -619,7 +619,7 @@ func (sc *SecretManagerClient) handleFileWatch() {
 		case <-timerC:
 			timerC = nil
 			for resource, event := range events {
-				cacheLog.Debugf("file cert update: %v", event)
+				cacheLog.Infof("file certificate %s changed with event %s, pushing to proxy", resource, event)
 				sc.certMutex.RLock()
 				resources := sc.fileCerts
 				sc.certMutex.RUnlock()
