@@ -25,6 +25,8 @@ import (
 	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	apiextensionsv1beta1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
+	structuralschema "k8s.io/apiextensions-apiserver/pkg/apiserver/schema"
+	structuraldefaulting "k8s.io/apiextensions-apiserver/pkg/apiserver/schema/defaulting"
 	"k8s.io/apiextensions-apiserver/pkg/apiserver/validation"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -33,7 +35,7 @@ import (
 	kubeyaml "k8s.io/apimachinery/pkg/util/yaml"
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/kube-openapi/pkg/validation/validate"
-	serviceapis "sigs.k8s.io/service-apis/apis/v1alpha1"
+	serviceapis "sigs.k8s.io/gateway-api/apis/v1alpha1"
 
 	clientnetworkingalpha "istio.io/client-go/pkg/apis/networking/v1alpha3"
 	clientnetworkingbeta "istio.io/client-go/pkg/apis/networking/v1beta1"
@@ -46,7 +48,8 @@ import (
 // Validator returns a new validator for custom resources
 // Warning: this is meant for usage in tests only
 type Validator struct {
-	byGvk map[schema.GroupVersionKind]*validate.SchemaValidator
+	byGvk      map[schema.GroupVersionKind]*validate.SchemaValidator
+	structural map[schema.GroupVersionKind]*structuralschema.Structural
 	// If enabled, resources without a validator will be ignored. Otherwise, they will fail.
 	SkipMissing bool
 	Scheme      *runtime.Scheme
@@ -80,7 +83,8 @@ func (v *Validator) ValidateCustomResource(o runtime.Object) error {
 		}
 		return fmt.Errorf("failed to validate type %v: no validator found", un.GroupVersionKind())
 	}
-
+	// Fill in defaults
+	structuraldefaulting.Default(un.Object, v.structural[un.GroupVersionKind()])
 	if err := validation.ValidateCustomResource(nil, un.Object, vd).Filter(func(err error) bool {
 		// It turns out to be extremely hard to 100% match the api-servers validation, in particular around
 		// null vs unset objects. See https://github.com/kubernetes/kubernetes/issues/95407
@@ -90,8 +94,7 @@ func (v *Validator) ValidateCustomResource(o runtime.Object) error {
 		// by omitting the entire parent object.
 		return strings.Contains(err.Error(), `must be of type object: "null"`) ||
 			strings.Contains(err.Error(), `must be of type array: "null"`) ||
-			strings.Contains(err.Error(), `must be of type string: "null"`) ||
-			strings.Contains(err.Error(), `Unsupported value: "": supported values`)
+			strings.Contains(err.Error(), `must be of type string: "null"`)
 	}).ToAggregate(); err != nil {
 		return fmt.Errorf("%v/%v/%v: %v", un.GroupVersionKind().Kind, un.GetName(), un.GetNamespace(), err)
 	}
@@ -154,7 +157,10 @@ func NewValidatorFromFiles(files ...string) (*Validator, error) {
 }
 
 func NewValidatorFromCRDs(crds ...apiextensions.CustomResourceDefinition) (*Validator, error) {
-	v := &Validator{byGvk: map[schema.GroupVersionKind]*validate.SchemaValidator{}}
+	v := &Validator{
+		byGvk:      map[schema.GroupVersionKind]*validate.SchemaValidator{},
+		structural: map[schema.GroupVersionKind]*structuralschema.Structural{},
+	}
 	for _, crd := range crds {
 		versions := crd.Spec.Versions
 		if len(versions) == 0 {
@@ -178,8 +184,13 @@ func NewValidatorFromCRDs(crds ...apiextensions.CustomResourceDefinition) (*Vali
 			if err != nil {
 				return nil, err
 			}
+			structural, err := structuralschema.NewStructural(crdSchema.OpenAPIV3Schema)
+			if err != nil {
+				return nil, err
+			}
 
 			v.byGvk[gvk] = schemaValidator
+			v.structural[gvk] = structural
 		}
 	}
 

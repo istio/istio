@@ -34,8 +34,8 @@ import (
 	"k8s.io/client-go/rest/fake"
 	cmdtesting "k8s.io/kubectl/pkg/cmd/testing"
 	"k8s.io/kubectl/pkg/cmd/util"
-	serviceapisclient "sigs.k8s.io/service-apis/pkg/client/clientset/versioned"
-	serviceapisinformer "sigs.k8s.io/service-apis/pkg/client/informers/externalversions"
+	serviceapisclient "sigs.k8s.io/gateway-api/pkg/client/clientset/versioned"
+	serviceapisinformer "sigs.k8s.io/gateway-api/pkg/client/informers/externalversions"
 
 	istioclient "istio.io/client-go/pkg/clientset/versioned"
 	istioinformer "istio.io/client-go/pkg/informers/externalversions"
@@ -44,8 +44,7 @@ import (
 
 var _ ExtendedClient = MockClient{}
 
-type MockPortForwarder struct {
-}
+type MockPortForwarder struct{}
 
 func (m MockPortForwarder) Start() error {
 	return nil
@@ -79,7 +78,7 @@ func (c MockClient) Istio() istioclient.Interface {
 	panic("not used in mock")
 }
 
-func (c MockClient) ServiceApis() serviceapisclient.Interface {
+func (c MockClient) GatewayApi() serviceapisclient.Interface {
 	panic("not used in mock")
 }
 
@@ -87,7 +86,7 @@ func (c MockClient) IstioInformer() istioinformer.SharedInformerFactory {
 	panic("not used in mock")
 }
 
-func (c MockClient) ServiceApisInformer() serviceapisinformer.SharedInformerFactory {
+func (c MockClient) GatewayApiInformer() serviceapisinformer.SharedInformerFactory {
 	panic("not used in mock")
 }
 

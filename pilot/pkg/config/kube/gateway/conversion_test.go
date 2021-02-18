@@ -24,7 +24,7 @@ import (
 	"github.com/google/go-cmp/cmp"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	k8s "sigs.k8s.io/service-apis/apis/v1alpha1"
+	k8s "sigs.k8s.io/gateway-api/apis/v1alpha1"
 
 	"istio.io/istio/pilot/pkg/config/kube/crd"
 	"istio.io/istio/pilot/test/util"
@@ -52,7 +52,7 @@ func TestConvertResources(t *testing.T) {
 			if util.Refresh() {
 				res := append(output.Gateway, output.VirtualService...)
 				res = append(res, output.DestinationRule...)
-				if err := ioutil.WriteFile(goldenFile, marshalYaml(t, res), 0644); err != nil {
+				if err := ioutil.WriteFile(goldenFile, marshalYaml(t, res), 0o644); err != nil {
 					t.Fatal(err)
 				}
 			}
@@ -222,7 +222,7 @@ func TestIsRouteMatch(t *testing.T) {
 			},
 			gateway: config.Meta{Name: "gateway", Namespace: "not-default"},
 			routes: k8s.RouteBindingSelector{
-				Namespaces: &k8s.RouteNamespaces{From: k8s.RouteSelectAll},
+				Namespaces: k8s.RouteNamespaces{From: k8s.RouteSelectAll},
 				Group:      gvk.HTTPRoute.Group,
 				Kind:       gvk.HTTPRoute.Kind,
 			},
@@ -252,7 +252,7 @@ func TestIsRouteMatch(t *testing.T) {
 			},
 			gateway: config.Meta{Name: "gateway", Namespace: "not-default"},
 			routes: k8s.RouteBindingSelector{
-				Namespaces: &k8s.RouteNamespaces{From: k8s.RouteSelectAll},
+				Namespaces: k8s.RouteNamespaces{From: k8s.RouteSelectAll},
 				Group:      gvk.HTTPRoute.Group,
 				Kind:       gvk.HTTPRoute.Kind,
 			},
@@ -271,7 +271,7 @@ func TestIsRouteMatch(t *testing.T) {
 			},
 			gateway: config.Meta{Name: "gateway", Namespace: "not-default"},
 			routes: k8s.RouteBindingSelector{
-				Namespaces: &k8s.RouteNamespaces{From: k8s.RouteSelectAll},
+				Namespaces: k8s.RouteNamespaces{From: k8s.RouteSelectAll},
 				Group:      gvk.HTTPRoute.Group,
 				Kind:       gvk.HTTPRoute.Kind,
 			},
@@ -290,7 +290,7 @@ func TestIsRouteMatch(t *testing.T) {
 			},
 			gateway: config.Meta{Name: "gateway", Namespace: "not-default"},
 			routes: k8s.RouteBindingSelector{
-				Namespaces: &k8s.RouteNamespaces{From: k8s.RouteSelectAll},
+				Namespaces: k8s.RouteNamespaces{From: k8s.RouteSelectAll},
 				Group:      gvk.HTTPRoute.Group,
 				Kind:       gvk.HTTPRoute.Kind,
 			},
@@ -307,7 +307,7 @@ func TestIsRouteMatch(t *testing.T) {
 			},
 			gateway: config.Meta{Name: "gateway", Namespace: "not-default"},
 			routes: k8s.RouteBindingSelector{
-				Namespaces: &k8s.RouteNamespaces{From: k8s.RouteSelectSelector, Selector: metav1.LabelSelector{MatchLabels: map[string]string{
+				Namespaces: k8s.RouteNamespaces{From: k8s.RouteSelectSelector, Selector: metav1.LabelSelector{MatchLabels: map[string]string{
 					"selected": "true",
 				}}},
 				Group: gvk.HTTPRoute.Group,
@@ -326,7 +326,7 @@ func TestIsRouteMatch(t *testing.T) {
 			},
 			gateway: config.Meta{Name: "gateway", Namespace: "not-default"},
 			routes: k8s.RouteBindingSelector{
-				Namespaces: &k8s.RouteNamespaces{From: k8s.RouteSelectSelector, Selector: metav1.LabelSelector{MatchLabels: map[string]string{
+				Namespaces: k8s.RouteNamespaces{From: k8s.RouteSelectSelector, Selector: metav1.LabelSelector{MatchLabels: map[string]string{
 					"selected": "true",
 				}}},
 				Group: gvk.HTTPRoute.Group,
