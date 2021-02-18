@@ -2473,7 +2473,8 @@ spec:
                         format: int32
                         type: integer
                       perTryTimeout:
-                        description: Timeout per retry attempt for a given request.
+                        description: Timeout per attempt for a given request, including
+                          the initial call and any retries.
                         type: string
                       retryOn:
                         description: Specifies the conditions under which retry takes
