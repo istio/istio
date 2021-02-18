@@ -18,14 +18,23 @@ package plugin
 import (
 	"fmt"
 	"io/ioutil"
+	"sync"
+	"time"
 
 	"cloud.google.com/go/compute/metadata"
 
 	"istio.io/istio/pkg/security"
+	"istio.io/istio/security/pkg/util"
 	"istio.io/pkg/log"
 )
 
 var gcecredLog = log.RegisterScope("gcecred", "GCE credential fetcher for istio agent", 0)
+
+// Token refresh frequency is default to 5 minutes.
+var rotationInterval = 5 * time.Minute
+
+// GCE VM credential needs refresh if remaining life time is below 25 minutes.
+var gracePeriod = 25 * time.Minute
 
 // The plugin object.
 type GCEPlugin struct {
@@ -38,6 +47,13 @@ type GCEPlugin struct {
 
 	// identity provider
 	identityProvider string
+
+	// token refresh
+	rotationTicker *time.Ticker
+	closing        chan bool
+	tokenCache     string
+	// mutex lock is required to avoid race condition when updating token file and token cache.
+	tokenMutex sync.RWMutex
 }
 
 // CreateGCEPlugin creates a Google credential fetcher plugin. Return the pointer to the created plugin.
@@ -47,7 +63,53 @@ func CreateGCEPlugin(audience, jwtPath, identityProvider string) *GCEPlugin {
 		jwtPath:          jwtPath,
 		identityProvider: identityProvider,
 	}
+	go p.startTokenRotationJob()
 	return p
+}
+
+func (p *GCEPlugin) Stop() {
+	p.closing <- true
+}
+
+func (p *GCEPlugin) startTokenRotationJob() {
+	// Wake up once in a while and refresh GCE VM credential.
+	p.rotationTicker = time.NewTicker(rotationInterval)
+	for {
+		select {
+		case <-p.rotationTicker.C:
+			p.rotate()
+		case <-p.closing:
+			if p.rotationTicker != nil {
+				p.rotationTicker.Stop()
+			}
+		}
+	}
+}
+
+func (p *GCEPlugin) rotate() {
+	if p.shouldRotate() {
+		_, err := p.GetPlatformCredential()
+		gcecredLog.Errorf("credential refresh failed: %+v", err)
+	}
+}
+
+func (p *GCEPlugin) shouldRotate() bool {
+	p.tokenMutex.RLock()
+	defer p.tokenMutex.RUnlock()
+
+	if p.tokenCache == "" {
+		return true
+	}
+	exp, err := util.GetExp(p.tokenCache)
+	// When fails to get expiration time from token, always refresh the token
+	if err != nil || exp.IsZero() {
+		return true
+	}
+	rotate := time.Now().After(exp.Add(-gracePeriod))
+	// TODO(JimmyCYJ): change this log to Debug level once token refresh is stable.
+	gcecredLog.Infof("credential expiration: %s, graceperiod: %s, should rotate: %b",
+		exp.String(), gracePeriod.String(), rotate)
+	return rotate
 }
 
 // GetPlatformCredential fetches the GCE VM identity jwt token from its metadata server,
@@ -55,6 +117,9 @@ func CreateGCEPlugin(audience, jwtPath, identityProvider string) *GCEPlugin {
 // Envoy STS client and istio agent to fetch certificate and access token.
 // Note: this function only works in a GCE VM environment.
 func (p *GCEPlugin) GetPlatformCredential() (string, error) {
+	p.tokenMutex.Lock()
+	defer p.tokenMutex.Unlock()
+
 	if p.jwtPath == "" {
 		return "", fmt.Errorf("jwtPath is unset")
 	}
@@ -64,9 +129,11 @@ func (p *GCEPlugin) GetPlatformCredential() (string, error) {
 		gcecredLog.Errorf("Failed to get vm identity token from metadata server: %v", err)
 		return "", err
 	}
+	// Update token cache.
+	p.tokenCache = token
 	gcecredLog.Debugf("Got GCE identity token: %d", len(token))
 	tokenbytes := []byte(token)
-	err = ioutil.WriteFile(p.jwtPath, tokenbytes, 0640)
+	err = ioutil.WriteFile(p.jwtPath, tokenbytes, 0o640)
 	if err != nil {
 		gcecredLog.Errorf("Encountered error when writing vm identity token: %v", err)
 		return "", err

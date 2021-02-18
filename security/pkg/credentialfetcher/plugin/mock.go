@@ -50,3 +50,5 @@ func (p *MockPlugin) GetType() string {
 func (p *MockPlugin) GetIdentityProvider() string {
 	return "fakeIDP"
 }
+
+func (p *MockPlugin) Stop() {}

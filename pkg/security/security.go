@@ -250,6 +250,9 @@ type CredFetcher interface {
 
 	// The name of the IdentityProvider that can authenticate the workload credential.
 	GetIdentityProvider() string
+
+	// Stop releases resources and cleans up.
+	Stop()
 }
 
 // AuthSource represents where authentication result is derived from.
