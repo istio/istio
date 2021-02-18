@@ -611,8 +611,27 @@ func (sc *SecretManagerClient) registerSecret(item security.SecretItem) {
 }
 
 func (sc *SecretManagerClient) handleFileWatch() {
+	var timerC <-chan time.Time
+	events := make(map[string]fsnotify.Event)
+
 	for {
 		select {
+		case <-timerC:
+			timerC = nil
+			for resource, event := range events {
+				cacheLog.Debugf("file cert update: %v", event)
+				sc.certMutex.RLock()
+				resources := sc.fileCerts
+				sc.certMutex.RUnlock()
+				// Trigger callbacks for all resources referencing this file. This is practically always
+				// a single resource.
+				for k := range resources {
+					if k.Filename == resource {
+						sc.CallUpdateCallback(k.ResourceName)
+					}
+				}
+			}
+			events = make(map[string]fsnotify.Event)
 		case event, ok := <-sc.certWatcher.Events:
 			// Channel is closed.
 			if !ok {
@@ -622,16 +641,14 @@ func (sc *SecretManagerClient) handleFileWatch() {
 			if !(isWrite(event) || isRemove(event) || isCreate(event)) {
 				continue
 			}
-			cacheLog.Debugf("file cert update: %v", event)
-
-			sc.certMutex.RLock()
-			resources := sc.fileCerts
-			sc.certMutex.RUnlock()
-			// Trigger callbacks for all resources referencing this file. This is practically always
-			// a single resource.
-			for k := range resources {
-				if k.Filename == event.Name {
-					sc.CallUpdateCallback(k.ResourceName)
+			// Typically inotify notifies about file change after the event i.e. write is complete. It only
+			// does some housekeeping tasks after the event is generated. However in some cases, multiple events
+			// are triggered in quick succession - to handle that case we debounce here.
+			if len(event.Op.String()) > 0 { // To avoid spurious events, mainly coming from tests.
+				// Use a timer to debounce watch updates
+				if timerC == nil {
+					timerC = time.After(100 * time.Millisecond) // TODO: Make this configurable if needed.
+					events[event.Name] = event
 				}
 			}
 
@@ -640,7 +657,7 @@ func (sc *SecretManagerClient) handleFileWatch() {
 			if !ok {
 				return
 			}
-
+			numFileWatcherFailures.Increment()
 			cacheLog.Errorf("certificate watch error: %v", err)
 		}
 	}
