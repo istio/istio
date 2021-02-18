@@ -41,6 +41,7 @@ const (
 	ChartsDeprecatedStr         = "Deprecated, use --manifests instead."
 	ControlPlaneRevStr          = "Control plane revision"
 	revisionFlagHelpStr         = `Target control plane revision for the command.`
+	defaultRevisionFlagHelpStr  = "Determines whether this installation should handle validation and default injection."
 	skipConfirmationFlagHelpStr = `The skipConfirmation determines whether the user is prompted for confirmation.
 If set to true, the user is not prompted and a Yes response is assumed in all cases.`
 	filenameFlagHelpStr = `Path to file containing IstioOperator custom resource

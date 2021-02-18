@@ -71,6 +71,8 @@ type installArgs struct {
 	manifestsPath string
 	// revision is the Istio control plane revision the command targets.
 	revision string
+	// defaultRevision determines whether this installation should handle validation and default injection.
+	defaultRevision bool
 }
 
 func addInstallFlags(cmd *cobra.Command, args *installArgs) {
@@ -82,6 +84,7 @@ func addInstallFlags(cmd *cobra.Command, args *installArgs) {
 	cmd.PersistentFlags().BoolVarP(&args.skipConfirmation, "skip-confirmation", "y", false, skipConfirmationFlagHelpStr)
 	cmd.PersistentFlags().BoolVar(&args.force, "force", false, ForceFlagHelpStr)
 	cmd.PersistentFlags().BoolVar(&args.verify, "verify", false, VerifyCRInstallHelpStr)
+	cmd.PersistentFlags().BoolVar(&args.defaultRevision, "defaultRevision", false, defaultRevisionFlagHelpStr)
 	cmd.PersistentFlags().StringArrayVarP(&args.set, "set", "s", nil, setFlagHelpStr)
 	cmd.PersistentFlags().StringVarP(&args.manifestsPath, "charts", "", "", ChartsDeprecatedStr)
 	cmd.PersistentFlags().StringVarP(&args.manifestsPath, "manifests", "d", "", ManifestsFlagHelpStr)
@@ -146,7 +149,7 @@ func runApplyCmd(cmd *cobra.Command, rootArgs *rootArgs, iArgs *installArgs, log
 	if err != nil {
 		return err
 	}
-	setFlags := applyFlagAliases(iArgs.set, iArgs.manifestsPath, iArgs.revision)
+	setFlags := applyFlagAliases(iArgs.set, iArgs.manifestsPath, iArgs.revision, iArgs.defaultRevision)
 
 	_, iop, err := manifest.GenerateConfig(iArgs.inFilenames, setFlags, iArgs.force, restConfig, l)
 	if err != nil {
