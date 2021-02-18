@@ -89,8 +89,8 @@ type XdsProxy struct {
 	connectedMutex sync.RWMutex
 
 	// Wasm cache and ecds channel are used to replace wasm remote load with local file.
-	wasmCache      wasm.Cache
-	ecdsUpdateChan chan *discovery.DiscoveryResponse
+	wasmCache wasm.Cache
+
 	// ecds version and nonce uses atomic only to prevent race in testing.
 	// In reality there should not be race as istiod will only have one
 	// in flight update for each type of resource.
@@ -127,7 +127,6 @@ func initXdsProxy(ia *Agent) (*XdsProxy, error) {
 		xdsHeaders:     ia.cfg.XDSHeaders,
 		xdsUdsPath:     ia.cfg.XdsUdsPath,
 		wasmCache:      wasm.NewLocalFileCache(constants.IstioDataDir, wasm.DefaultWasmModulePurgeInteval, wasm.DefaultWasmModuleExpiry),
-		ecdsUpdateChan: make(chan *discovery.DiscoveryResponse, 10),
 	}
 
 	proxyLog.Infof("Initializing with upstream address %q and cluster %q", proxy.istiodAddress, proxy.clusterID)
@@ -310,11 +309,6 @@ func (p *XdsProxy) HandleUpstream(ctx context.Context, con *ProxyConnection, xds
 	go p.handleUpstreamRequest(ctx, con)
 	go p.handleUpstreamResponse(con)
 
-	if features.WasmRemoteLoadConversion {
-		// Handle ECDS update asynchronously for Wasm config rewriting, since it might need to download Wasm modules.
-		go p.handleUpstreamECDSResponse(con)
-	}
-
 	for {
 		select {
 		case err := <-con.upstreamError:
@@ -396,9 +390,8 @@ func (p *XdsProxy) handleUpstreamResponse(con *ProxyConnection) {
 				}
 			case v3.ExtensionConfigurationType:
 				if features.WasmRemoteLoadConversion {
-					// If Wasm remote load conversion feature is enabled, push ECDS update into
-					// conversion channel.
-					p.ecdsUpdateChan <- resp
+					// If Wasm remote load conversion feature is enabled, rewrite and send.
+					go p.rewriteAndForward(con, resp)
 				} else {
 					// Otherwise, forward ECDS resource update directly to Envoy.
 					forwardToEnvoy(con, resp)
@@ -412,35 +405,30 @@ func (p *XdsProxy) handleUpstreamResponse(con *ProxyConnection) {
 	}
 }
 
-func (p *XdsProxy) handleUpstreamECDSResponse(con *ProxyConnection) {
-	// TODO(bianpengyuan): Add metrics about ecds handling.
-	for {
-		select {
-		case resp := <-p.ecdsUpdateChan:
-			sendNack := wasm.MaybeConvertWasmExtensionConfig(resp.Resources, p.wasmCache)
-			if sendNack {
-				con.requestsChan <- &discovery.DiscoveryRequest{
-					VersionInfo:   p.ecdsLastAckVersion.Load(),
-					TypeUrl:       v3.ExtensionConfigurationType,
-					ResponseNonce: resp.Nonce,
-					ErrorDetail: &google_rpc.Status{
-						// TODO(bianpengyuan): make error message more informative.
-						Message: "failed to fetch wasm module",
-					},
-				}
-				return
-			}
-			proxyLog.Debugf("forward ECDS resources %+v", resp.Resources)
-			forwardToEnvoy(con, resp)
-
-		case <-con.stopChan:
-			return
+func (p *XdsProxy) rewriteAndForward(con *ProxyConnection, resp *discovery.DiscoveryResponse) {
+	sendNack := wasm.MaybeConvertWasmExtensionConfig(resp.Resources, p.wasmCache)
+	if sendNack {
+		proxyLog.Debugf("sending NACK for ECDS resources %+v", resp.Resources)
+		con.requestsChan <- &discovery.DiscoveryRequest{
+			VersionInfo:   p.ecdsLastAckVersion.Load(),
+			TypeUrl:       v3.ExtensionConfigurationType,
+			ResponseNonce: resp.Nonce,
+			ErrorDetail: &google_rpc.Status{
+				// TODO(bianpengyuan): make error message more informative.
+				Message: "failed to fetch wasm module",
+			},
 		}
+		return
 	}
+	proxyLog.Debugf("forward ECDS resources %+v", resp.Resources)
+	forwardToEnvoy(con, resp)
 }
 
 func forwardToEnvoy(con *ProxyConnection, resp *discovery.DiscoveryResponse) {
-	// TODO: Validate the known type urls before forwarding them to Envoy.
+	if !v3.IsEnvoyType(resp.TypeUrl) {
+		proxyLog.Errorf("Skipping forwarding type url %s to Envoy as is not a valid Envoy type", resp.TypeUrl)
+		return
+	}
 	if err := sendDownstreamWithTimeout(con.downstream, resp); err != nil {
 		select {
 		case con.downstreamError <- err:

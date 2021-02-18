@@ -15,10 +15,15 @@
 package v3
 
 import (
+	"strings"
+
 	"github.com/envoyproxy/go-control-plane/pkg/resource/v3"
 )
 
 const (
+	apiTypePrefix   = "type.googleapis.com/"
+	envoyTypePrefix = apiTypePrefix + "envoy."
+
 	ClusterType                = resource.ClusterType
 	EndpointType               = resource.EndpointType
 	ListenerType               = resource.ListenerType
@@ -26,8 +31,8 @@ const (
 	SecretType                 = resource.SecretType
 	ExtensionConfigurationType = resource.ExtensionConfigType
 
-	NameTableType  = "type.googleapis.com/istio.networking.nds.v1.NameTable"
-	HealthInfoType = "type.googleapis.com/istio.v1.HealthInformation"
+	NameTableType  = apiTypePrefix + "istio.networking.nds.v1.NameTable"
+	HealthInfoType = apiTypePrefix + "istio.v1.HealthInformation"
 )
 
 // GetShortType returns an abbreviated form of a type, useful for logging or human friendly messages
@@ -68,4 +73,9 @@ func GetMetricType(typeURL string) string {
 	default:
 		return typeURL
 	}
+}
+
+// IsEnvoyType checks whether the typeURL is a valid Envoy type.
+func IsEnvoyType(typeURL string) bool {
+	return strings.HasPrefix(typeURL, envoyTypePrefix)
 }
