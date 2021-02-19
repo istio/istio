@@ -82,12 +82,15 @@ func (configgen *ConfigGeneratorImpl) BuildHTTPRoutes(node *model.Proxy, push *m
 	return routeConfigurations
 }
 
-// buildSidecarInboundHTTPRouteConfig builds the route config with a single wildcard virtual host on the inbound path
+// buildSidecarInboundHTTPRouteConfig builds the route config with hosts and a single wildcard virtual host on the inbound path
 // TODO: trace decorators, inbound timeouts
 func (configgen *ConfigGeneratorImpl) buildSidecarInboundHTTPRouteConfig(
 	node *model.Proxy, push *model.PushContext, instance *model.ServiceInstance, clusterName string, hostnames []host.Name) *route.RouteConfiguration {
-
+	port := instance.ServicePort.Port
 	virtualHosts := make([]*route.VirtualHost, 0)
+
+	vhdomains := sets.Set{}
+	knownFQDN := sets.Set{}
 
 	for _, hostname := range hostnames {
 		hostnameStr := string(hostname)
@@ -99,28 +102,34 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundHTTPRouteConfig(
 		if clusterName != "" {
 			clusterNameForEachHost = clusterName
 		} else {
-			clusterNameForEachHost = util.BuildInboundSubsetKey(node, instance.ServicePort.Name,hostname,
-				instance.ServicePort.Port, int(instance.Endpoint.EndpointPort))
+			clusterNameForEachHost = util.BuildInboundSubsetKey(node, instance.ServicePort.Name, hostname,
+				port, int(instance.Endpoint.EndpointPort))
 		}
 
+		altHosts := generateAltVirtualHosts(hostnameStr, port, node.DNSDomain)
+		domains := []string{hostnameStr, domainName(hostnameStr, port)}
+		domains = append(domains, altHosts...)
+
+		domains = dedupeDomains(domains, vhdomains, altHosts, knownFQDN)
+
 		virtualHosts = append(virtualHosts, &route.VirtualHost{
-			Name:    inboundVirtualHostPrefix + hostnameStr + "|" + strconv.Itoa(instance.ServicePort.Port), // Format: "inbound|http|%s|%d"
-			Domains: []string{fmt.Sprintf("%s:%d", hostname, instance.ServicePort.Port), hostnameStr},
+			Name:    inboundVirtualHostPrefix + hostnameStr + "|" + strconv.Itoa(port), // Format: "inbound|http|%s|%d"
+			Domains: domains,
 			Routes: []*route.Route{
-				istio_route.BuildDefaultHTTPInboundRoute(node, clusterNameForEachHost, traceOperation(hostnameStr, instance.ServicePort.Port)),
+				istio_route.BuildDefaultHTTPInboundRoute(node, clusterNameForEachHost, traceOperation(hostnameStr, port)),
 			},
 		})
 	}
 
 	if clusterName == "" {
 		clusterName = util.BuildInboundSubsetKey(node, instance.ServicePort.Name, instance.Service.Hostname,
-			instance.ServicePort.Port, int(instance.Endpoint.EndpointPort))
+			port, int(instance.Endpoint.EndpointPort))
 	}
 	virtualHosts = append(virtualHosts, &route.VirtualHost{
-		Name:    inboundVirtualHostPrefix + strconv.Itoa(instance.ServicePort.Port), // Format: "inbound|http|%d"
+		Name:    inboundVirtualHostPrefix + strconv.Itoa(port), // Format: "inbound|http|%d"
 		Domains: []string{"*"},
 		Routes: []*route.Route{
-			istio_route.BuildDefaultHTTPInboundRoute(node, clusterName, traceOperation(string(instance.Service.Hostname), instance.ServicePort.Port)),
+			istio_route.BuildDefaultHTTPInboundRoute(node, clusterName, traceOperation(string(instance.Service.Hostname), port)),
 		},
 	})
 
