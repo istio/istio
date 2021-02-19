@@ -50,7 +50,6 @@ import (
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/test/util/retry"
-	"istio.io/pkg/log"
 )
 
 // Validates basic xds proxy flow by proxying one CDS requests end to end.
@@ -369,7 +368,6 @@ func (f *fakeNackCache) Get(string, string, time.Duration) (string, error) {
 func (f *fakeNackCache) Cleanup() {}
 
 func TestECDSWasmConversion(t *testing.T) {
-	proxyLog.SetOutputLevel(log.DebugLevel)
 	node := model.NodeMetadata{
 		Namespace:   "default",
 		InstanceIPs: []string{"1.1.1.1"},
