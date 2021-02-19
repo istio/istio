@@ -38,25 +38,16 @@ func tailorbirdDeployerBaseFlags() []string {
 }
 
 // InstallTools installs the required tools to enable interacting with Tailorbird.
-func InstallTools(clusterType string) error {
+func InstallTools(gitCookiesFile, clusterType string) error {
 	log.Println("Installing kubetest2 tailorbird deployer...")
-	cookieFile := "/secrets/cookiefile/cookies"
-	exec.Run("git config --global http.cookiefile " + cookieFile)
+	exec.Run("git config --global http.cookiefile " + gitCookiesFile)
 	goPath := os.Getenv("GOPATH")
 	clonePath := goPath + "/src/gke-internal/test-infra"
 	exec.Run(fmt.Sprintf("git clone https://gke-internal.googlesource.com/test-infra %s", clonePath))
+	defer os.RemoveAll(clonePath)
 	if err := exec.Run(fmt.Sprintf("bash -c 'cd %s &&"+
 		" go install %s/anthos/tailorbird/cmd/kubetest2-tailorbird'", clonePath, clonePath)); err != nil {
 		return fmt.Errorf("error installing kubetest2 tailorbird deployer: %w", err)
-	}
-	exec.Run("rm -r " + clonePath)
-
-	if clusterType == "gke-on-prem" {
-		log.Println("Installing herc CLI...")
-		if err := exec.Run(fmt.Sprintf("bash -c 'gsutil cp gs://anthos-hercules-public-artifacts/herc/latest/herc /usr/local/bin/ &&" +
-			" chmod 755 /usr/local/bin/herc'")); err != nil {
-			return fmt.Errorf("error installing the herc CLI: %w", err)
-		}
 	}
 
 	return nil

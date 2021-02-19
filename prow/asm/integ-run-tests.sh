@@ -30,6 +30,8 @@ set -x
 
 # shellcheck source=prow/asm/asm-lib.sh
 source "${WD}/asm-lib.sh"
+# shellcheck source=prow/asm/infra-lib.sh
+source "${WD}/infra-lib.sh"
 
 export BUILD_WITH_CONTAINER=0
 
@@ -123,16 +125,15 @@ if [[ -z "${KUBECONFIG}" ]]; then
   echo "Error: ${KUBECONFIG} cannot be empty."
   exit 1
 fi
-
-# only use user-kubeconfig.yaml files on onprem
-[[ "${CLUSTER_TYPE}" == "gke-on-prem" ]] && filter_onprem_kubeconfigs
 echo "Using ${KUBECONFIG} to connect to the cluster(s)"
 
-if [[ -z ${DEPLOYER} ]]; then
-  echo "Error: ${DEPLOYER} cannot be empty."
+if [[ -z "${CLUSTER_TYPE}" ]]; then
+  echo "Error: ${CLUSTER_TYPE} cannot be empty."
   exit 1
 fi
-echo "The kubetest2 deployer is ${DEPLOYER}"
+echo "The cluster type is ${CLUSTER_TYPE}"
+# only use user-kubeconfig.yaml files on onprem
+[[ "${CLUSTER_TYPE}" == "gke-on-prem" ]] && filter_onprem_kubeconfigs
 
 if [[ -z "${CLUSTER_TOPOLOGY}" ]]; then
   echo "Error: ${CLUSTER_TOPOLOGY} cannot be empty."
@@ -158,20 +159,20 @@ CONTEXTSTR=$(kubectl config view -o jsonpath="{range .contexts[*]}{.name}{','}{e
 CONTEXTSTR="${CONTEXTSTR::-1}"
 IFS="," read -r -a CONTEXTS <<< "$CONTEXTSTR"
 
-# Set up the private CA if it's using the gke deployer.
-if [[ "${DEPLOYER}" == "gke" && "${CA}" == "PRIVATECA" ]]; then
+# Set up the private CA if it's using the gke clusters.
+if [[ "${CLUSTER_TYPE}" == "gke" && "${CA}" == "PRIVATECA" ]]; then
   setup_private_ca "${CONTEXTSTR}"
   add_trap "cleanup_private_ca ${CONTEXTSTR}" EXIT SIGKILL SIGTERM SIGQUIT
 fi
 
-# If it's using the gke deployer, use one of the projects to hold the images.
-if [[ "${DEPLOYER}" == "gke" ]]; then
+# If it's using the gke clusters, use one of the projects to hold the images.
+if [[ "${CLUSTER_TYPE}" == "gke" ]]; then
   # Use the gcr of the first project to store required images.
   IFS="_" read -r -a VALS <<< "${CONTEXTS[0]}"
   GCR_PROJECT_ID=${VALS[1]}
 # Otherwise use the central GCP project to hold these images.
 else
-  GCR_PROJECT_ID="${CENTRAL_GCP_PROJECT}"
+  GCR_PROJECT_ID="${SHARED_GCP_PROJECT}"
 fi
 
 # The Makefile passes the path defined in INTEGRATION_TEST_TOPOLOGY_FILE to --istio.test.kube.topology on go test.
@@ -198,11 +199,11 @@ if [[ "${CONTROL_PLANE}" == "UNMANAGED" ]]; then
   export HUB="gcr.io/${GCR_PROJECT_ID}/asm"
   export TAG="BUILD_ID_${BUILD_ID}"
 
-  if [[ "${DEPLOYER}" == "gke" ]]; then
+  if [[ "${CLUSTER_TYPE}" == "gke" ]]; then
     echo "Set permissions to allow the Pods on the GKE clusters to pull images..."
     set_gcp_permissions "${GCR_PROJECT_ID}" "${CONTEXTSTR}"
     add_trap "remove_gcp_permissions ${GCR_PROJECT_ID} ${CONTEXTSTR}" EXIT SIGKILL SIGTERM SIGQUIT
-  elif [[ "${DEPLOYER}" == "tailorbird" ]]; then
+  else
     echo "Set permissions to allow the Pods on the multicloud clusters to pull images..."
     # TODO: remove it if there is a general solution for b/174580152
     set_multicloud_permissions "${GCR_PROJECT_ID}" "${CONTEXTSTR}"
@@ -224,9 +225,9 @@ if [[ "${CONTROL_PLANE}" == "UNMANAGED" ]]; then
   build_istioctl
 
   echo "Installing ASM control plane..."
-  if [[ "${DEPLOYER}" == "gke" ]]; then
+  if [[ "${CLUSTER_TYPE}" == "gke" ]]; then
     install_asm "${WD}/kpt-pkg" "${CA}" "${WIP}" "${CONTEXTS[@]}"
-  elif [[ "${DEPLOYER}" == "tailorbird" ]]; then
+  else
     install_asm_on_multicloud "${WD}/infra" "${CA}" "${WIP}"
     multicloud::gen_topology_file "${INTEGRATION_TEST_TOPOLOGY_FILE}"
   fi
@@ -303,7 +304,7 @@ if [[ "${CONTROL_PLANE}" == "UNMANAGED" ]]; then
   # Don't deploy Istio. Instead just use the pre-installed ASM
   INTEGRATION_TEST_FLAGS+=" --istio.test.kube.deploy=false"
 
-  if [[ "${DEPLOYER}" == "tailorbird" ]]; then
+  if [[ "${CLUSTER_TYPE}" != "gke" ]]; then
     if [[ -n "${ASM_REVISION_LABEL}" ]]; then
       INTEGRATION_TEST_FLAGS+=" --istio.test.revision ${ASM_REVISION_LABEL}"
     fi
@@ -450,4 +451,10 @@ else
     export JUNIT_OUT="${ARTIFACTS}/junit1.xml"
     make "${TEST_TARGET}"
   fi
+fi
+
+# If in the CI, post-process the JUnit xml files to support aggregated view of
+# multiple Prow jobs in testgrid.
+if [[ "${CI}" == "true" ]]; then
+  post_process_junit_xmls
 fi

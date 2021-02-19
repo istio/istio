@@ -18,8 +18,8 @@
 source "${WD}/echo-vm-provisioner/vm-lib.sh"
 
 # The GCP project we use when testing with multicloud clusters, or when we need to
-# hold some GCP resources that are centrally managed.
-export CENTRAL_GCP_PROJECT="istio-prow-build"
+# hold some GCP resources that are shared across multiple jobs that are run in parallel.
+export SHARED_GCP_PROJECT=${SHARED_GCP_PROJECT:-istio-prow-build}
 
 readonly ROOT_CA_ID_PREFIX="asm-test-root-ca"
 readonly ROOT_CA_LOC="us-central1"
@@ -46,6 +46,8 @@ function process_kubeconfigs() {
 # Prepare images required for the e2e test.
 # Depends on env var ${HUB} and ${TAG}
 function prepare_images() {
+  # Configure Docker to authenticate with Container Registry.
+  gcloud auth configure-docker
   # Build images from the current branch and push the images to gcr.
   make docker.all HUB="${HUB}" TAG="${TAG}" DOCKER_TARGETS="docker.pilot docker.proxyv2 docker.app"
   docker push "${HUB}/app:${TAG}"
@@ -60,16 +62,14 @@ function prepare_images() {
 # Prepare images (istiod, proxyv2) required for the managed control plane e2e test.
 # Depends on env var ${HUB} and ${TAG}
 function prepare_images_for_managed_control_plane() {
+  # Configure Docker to authenticate with Container Registry.
+  gcloud auth configure-docker
   # Build images from the current branch and push the images to gcr.
   HUB="${HUB}" TAG="${TAG}" make push.docker.cloudrun push.docker.proxyv2 push.docker.app
 }
 
 # Build istioctl in the current branch to install ASM.
 function build_istioctl() {
-  GO111MODULE=on go get github.com/jteeuwen/go-bindata/go-bindata@6025e8de665b
-  PATH="$(go env GOPATH)/bin:$PATH"
-  export PATH
-  make gen-charts
   make istioctl
   PATH="$PWD/out/linux_amd64:$PATH"
   export PATH
@@ -255,11 +255,11 @@ function setup_private_ca() {
 
   local ROOT_CA_ID="${ROOT_CA_ID_PREFIX}-${BUILD_ID}"
   # Create root CA in the central project if it does not exist.
-  if ! gcloud beta privateca roots list --project "${CENTRAL_GCP_PROJECT}" --location "${ROOT_CA_LOC}" | grep -q "${ROOT_CA_ID}"; then
+  if ! gcloud beta privateca roots list --project "${SHARED_GCP_PROJECT}" --location "${ROOT_CA_LOC}" | grep -q "${ROOT_CA_ID}"; then
     echo "Creating root CA ${ROOT_CA_ID}..."
     gcloud beta privateca roots create "${ROOT_CA_ID}" \
       --location "${ROOT_CA_LOC}" \
-      --project "${CENTRAL_GCP_PROJECT}" \
+      --project "${SHARED_GCP_PROJECT}" \
       --subject "CN=ASM Test Root CA, O=Google LLC" \
       --tier enterprise \
       --reusable-config root-unconstrained \
@@ -293,7 +293,7 @@ function setup_private_ca() {
       gcloud beta privateca certificates create "${CERT_ID}" \
         --issuer "${ROOT_CA_ID}" \
         --issuer-location "${ROOT_CA_LOC}" \
-        --project "${CENTRAL_GCP_PROJECT}" \
+        --project "${SHARED_GCP_PROJECT}" \
         --csr "${CSR_FILE}" \
         --cert-output-file "${CERT_FILE}" \
         --validity "P3Y" # Change this as needed - 3Y is the default for subordinate CAs.
@@ -328,9 +328,9 @@ function cleanup_private_ca() {
     fi
   done
   local ROOT_CA_ID="${ROOT_CA_ID_PREFIX}-${BUILD_ID}"
-  if gcloud beta privateca roots list --project "${CENTRAL_GCP_PROJECT}" --location "${ROOT_CA_LOC}" | grep -q "${ROOT_CA_ID}"; then
+  if gcloud beta privateca roots list --project "${SHARED_GCP_PROJECT}" --location "${ROOT_CA_LOC}" | grep -q "${ROOT_CA_ID}"; then
     echo "Purging root CA $ROOT_CA_ID.."
-    purge-ca "roots" "${ROOT_CA_ID}" "${ROOT_CA_LOC}" "${CENTRAL_GCP_PROJECT}"
+    purge-ca "roots" "${ROOT_CA_ID}" "${ROOT_CA_LOC}" "${SHARED_GCP_PROJECT}"
   fi
 }
 
@@ -361,7 +361,7 @@ function purge-ca() {
     # https://buganizer.corp.google.com/issues/179162450#comment10, delete root
     # CA with the curl command instead of calling `gcloud beta privateca roots
     # delete`
-    if [[ "$4" == "${CENTRAL_GCP_PROJECT}" ]]; then
+    if [[ "$4" == "${SHARED_GCP_PROJECT}" ]]; then
       curl \
         -H "Authorization: Bearer $(gcloud auth print-access-token)" \
         -H "Content-Type: application/json" \
@@ -404,7 +404,7 @@ function install_asm() {
 
     # Create the istio-system ns before running the install_asm script.
     # TODO(chizhg): remove this line after install_asm script can create it.
-    kubectl create namespace istio-system --context="${CONTEXTS[$i]}"
+    kubectl create namespace istio-system --dry-run=client -o yaml | kubectl apply -f - --context="${CONTEXTS[$i]}"
     if [[ "${CA}" == "MESHCA" || "${CA}" == "PRIVATECA" ]]; then
       INSTALL_ASM_CA="mesh_ca"
       if [[ "${CLUSTER_TOPOLOGY}" == "MULTIPROJECT_MULTICLUSTER" || "${CLUSTER_TOPOLOGY}" == "mp"  ]]; then
@@ -479,8 +479,6 @@ function install_asm() {
     # Required when using unreleased Scriptaro
     export _CI_ASM_PKG_LOCATION="asm-staging-images"
 
-    local SERVICE_ACCOUNT
-    SERVICE_ACCOUNT=$(gcloud config list --format "value(core.account)")
     if [[ "${WIP}" != "HUB" ]]; then
       if [[ "${CLUSTER_TOPOLOGY}" == "MULTIPROJECT_MULTICLUSTER" || "${CLUSTER_TOPOLOGY}" == "mp" ]]; then
         export _CI_ENVIRON_PROJECT_NUMBER="${ENVIRON_PROJECT_NUMBER}"
@@ -508,8 +506,6 @@ function install_asm() {
           --enable_all \
           --custom_overlay "${CUSTOM_OVERLAY}" \
           --option audit-authorizationpolicy \
-          --service_account "${SERVICE_ACCOUNT}" \
-          --key-file "${GOOGLE_APPLICATION_CREDENTIALS}" \
           --verbose
       fi
     else
@@ -528,8 +524,6 @@ function install_asm() {
           --option hub-meshca \
           --custom_overlay "${CUSTOM_OVERLAY}" \
           --option audit-authorizationpolicy \
-          --service_account "${SERVICE_ACCOUNT}" \
-          --key-file "${GOOGLE_APPLICATION_CREDENTIALS}" \
           --verbose
       else
         if [[ "${USE_VM}" == false ]]; then
@@ -544,8 +538,6 @@ function install_asm() {
             --option hub-meshca \
             --custom_overlay "${CUSTOM_OVERLAY}" \
             --option audit-authorizationpolicy \
-            --service_account "${SERVICE_ACCOUNT}" \
-            --key-file "${GOOGLE_APPLICATION_CREDENTIALS}" \
             --verbose
         else
           eval ./install_asm \
@@ -560,8 +552,6 @@ function install_asm() {
             --option vm \
             --custom_overlay "${CUSTOM_OVERLAY}" \
             --option audit-authorizationpolicy \
-            --service_account "${SERVICE_ACCOUNT}" \
-            --key-file "${GOOGLE_APPLICATION_CREDENTIALS}" \
             --verbose
         fi
       fi
@@ -622,8 +612,6 @@ function install_asm_managed_control_plane() {
       --cluster_location "${LOCATION}" \
       --cluster_name "${CLUSTER_NAME}" \
       --managed \
-      --service_account "prow-gob-storage@istio-prow-build.iam.gserviceaccount.com" \
-      --key_file "/etc/service-account/service-account.json" \
       --enable_cluster_labels \
       --output_dir "${TMPDIR}" \
       --verbose
@@ -836,6 +824,10 @@ function onprem::configure_external_ip() {
   local INGRESS_ID=\"lb-test-ip\"
   local EXPANSION_ID=\"expansion-ip\"
   local INGRESS_IP
+
+  echo "Installing herc CLI..."
+  gsutil cp "gs://anthos-hercules-public-artifacts/herc/latest/herc" "/usr/local/bin/" && chmod 755 "/usr/local/bin/herc"
+
   INGRESS_IP=$(herc getEnvironment "${HERC_ENV_ID}" -o json | \
     jq -r ".environment.resources.vcenter_server.datacenter.networks.fe.ip_addresses.${INGRESS_ID}.ip_address")
 

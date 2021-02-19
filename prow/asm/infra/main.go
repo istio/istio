@@ -42,6 +42,7 @@ var (
 
 type options struct {
 	kubetest2WorkingDir string
+	gitCookiesFile      string
 	deployerName        string
 	clusterType         string
 	extraDeployerFlags  string
@@ -54,6 +55,7 @@ type options struct {
 func main() {
 	o := options{}
 	flag.StringVar(&o.kubetest2WorkingDir, "kubetest2-working-dir", "", "the working directory for running the kubetest2 command")
+	flag.StringVar(&o.gitCookiesFile, "--git-cookies-file", "/secrets/cookiefile/cookies", "the git cookies file to ues for interacting with GoB repositories")
 	flag.StringVar(&o.deployerName, "deployer", "", "kubetest2 deployer name, can be gke or tailorbird. Will be deprecated, use --cluster-type instead.")
 	flag.StringVar(&o.clusterType, "cluster-type", "gke", "the cluster type, can be one of gke, gke-on-prem, bare-metal, etc")
 	flag.StringVar(&o.extraDeployerFlags, "deployer-flags", "", "extra flags corresponding to the deployer being used, supported flags can be"+
@@ -117,7 +119,7 @@ func (o *options) setEnvVars() {
 
 func (o *options) installTools() error {
 	if o.deployerName == tailorbirdDeployerName {
-		if err := tailorbird.InstallTools(o.clusterType); err != nil {
+		if err := tailorbird.InstallTools(o.gitCookiesFile, o.clusterType); err != nil {
 			return fmt.Errorf("")
 		}
 	}

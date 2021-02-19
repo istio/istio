@@ -154,9 +154,9 @@ function setup_vm() {
   # Create the namespace and push the WorkloadGroup
   kubectl create namespace "${NAMESPACE}" --dry-run -o yaml --context="${CONTEXT}" | kubectl apply -f - --context="${CONTEXT}"
   if [ "${REVISION}" == "default" ]; then
-    kubectl --context="${CONTEXT}" label ns "${NAMESPACE}" "istio-injection=enabled"
+    kubectl --context="${CONTEXT}" label ns "${NAMESPACE}" "istio-injection=enabled" --overwrite
   fi
-  kubectl --context="${CONTEXT}" label ns "${NAMESPACE}" "istio.io/rev=${REVISION}"
+  kubectl --context="${CONTEXT}" label ns "${NAMESPACE}" "istio.io/rev=${REVISION}" --overwrite
   kubectl --context="${CONTEXT}" apply -f "$DIR/workloadgroup.yaml"
   kubectl --context="${CONTEXT}" -n "$NAMESPACE" patch wg "${NAME}" --type merge --patch "$(cat <<EOF
 spec:
