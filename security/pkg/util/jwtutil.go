@@ -23,22 +23,6 @@ import (
 	"time"
 )
 
-// IsJwtExpired checks if the JWT token is expired compared with the given time, without validating it.
-func IsJwtExpired(token string, now time.Time) (bool, error) {
-	expiration, err := GetExp(token)
-	if expiration.IsZero() {
-		if err != nil {
-			return true, err
-		}
-		return false, nil
-	}
-
-	if now.After(expiration) {
-		return true, nil
-	}
-	return false, nil
-}
-
 // GetExp returns token expiration time, or error on failures.
 func GetExp(token string) (time.Time, error) {
 	claims, err := parseJwtClaims(token)
