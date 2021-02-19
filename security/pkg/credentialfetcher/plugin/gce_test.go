@@ -302,13 +302,6 @@ func TestTokenRotationJob(t *testing.T) {
 				return nil
 			}, retry.Delay(time.Second), retry.Timeout(retryTimeout))
 
-			jwtFile, err := getJWTFromFile(tc.jwtPath)
-			if err != nil {
-				t.Fatalf("%s, failed to read token from file %s: %v", id, tc.jwtPath, err)
-			}
-			if jwtFile != tc.expectedToken {
-				t.Errorf("%s, %s has token %s, want %s", id, tc.jwtPath, jwtFile, tc.expectedToken)
-			}
 			p.Stop()
 		})
 	}
