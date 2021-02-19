@@ -58,13 +58,20 @@ type BrokenPodReconciler struct {
 	Metrics *Metrics
 }
 
+var PodsRepaired = monitoring.NewSum("istio_cni_repair_pods_repaired_total",
+	"Total number of pods repaired by repair controller")
+
+func init() {
+	monitoring.MustRegister(PodsRepaired)
+}
+
 // Constructs a new BrokenPodReconciler struct.
-func NewBrokenPodReconciler(client client.Interface, filters *Filters, options *Options, metrics *Metrics) BrokenPodReconciler {
+func NewBrokenPodReconciler(client client.Interface, filters *Filters, options *Options) BrokenPodReconciler {
 	return BrokenPodReconciler{
 		client:  client,
 		Filters: filters,
 		Options: options,
-		Metrics: metrics,
+		Metrics: &Metrics{PodsRepaired: PodsRepaired},
 	}
 }
 
@@ -153,8 +160,11 @@ func (bpr BrokenPodReconciler) deleteBrokenPod(pod v1.Pod) error {
 		return nil
 	}
 	log.Infof("Pod detected as broken, deleting: %s/%s", pod.Namespace, pod.Name)
-	defer bpr.Metrics.PodsRepaired.Increment()
-	return bpr.client.CoreV1().Pods(pod.Namespace).Delete(context.TODO(), pod.Name, metav1.DeleteOptions{})
+	err := bpr.client.CoreV1().Pods(pod.Namespace).Delete(context.TODO(), pod.Name, metav1.DeleteOptions{})
+	if err == nil {
+		bpr.Metrics.PodsRepaired.Increment()
+	}
+	return err
 }
 
 // Lists all pods identified as broken by our Filter criteria

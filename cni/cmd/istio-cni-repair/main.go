@@ -37,7 +37,6 @@ import (
 	"istio.io/istio/cni/pkg/repair"
 	"istio.io/istio/tools/istio-iptables/pkg/constants"
 	"istio.io/pkg/log"
-	"istio.io/pkg/monitoring"
 )
 
 type ControllerOptions struct {
@@ -45,11 +44,7 @@ type ControllerOptions struct {
 	RunAsDaemon   bool            `json:"run_as_daemon"`
 }
 
-var (
-	loggingOptions = log.DefaultOptions()
-
-	metrics = repair.Metrics{}
-)
+var loggingOptions = log.DefaultOptions()
 
 // Parse command line options
 func parseFlags() (filters *repair.Filters, options *ControllerOptions) {
@@ -178,12 +173,6 @@ func logCurrentOptions(bpr *repair.BrokenPodReconciler, options *ControllerOptio
 	}
 }
 
-func init() {
-	metrics.PodsRepaired = monitoring.NewSum("istio_cni_repair_pods_repaired_total",
-		"Total number of pods repaired by repair controller")
-	monitoring.MustRegister(metrics.PodsRepaired)
-}
-
 func main() {
 	loggingOptions.OutputPaths = []string{"stderr"}
 	loggingOptions.JSONEncoding = true
@@ -198,7 +187,7 @@ func main() {
 		log.Fatalf("Could not construct clientSet: %s", err)
 	}
 
-	podFixer := repair.NewBrokenPodReconciler(clientSet, filters, options.RepairOptions, &metrics)
+	podFixer := repair.NewBrokenPodReconciler(clientSet, filters, options.RepairOptions)
 	logCurrentOptions(&podFixer, options)
 	stopCh := make(chan struct{})
 
@@ -257,7 +246,7 @@ func setupMonitoring(addr, path string, stop chan struct{}) {
 	go func() {
 		err = monitoringServer.Serve(listener)
 		if err != nil {
-			log.Errorf("could not start monitoring http server: %s", err)
+			log.Errorf("error running monitoring http server: %s", err)
 		}
 	}()
 	<-stop
