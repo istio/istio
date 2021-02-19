@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: extensibility
+issue:
+- 29843
+releaseNotes:
+- |
+  **Fixed** an issue where Wasm plugin configuration update will cause request to fail.
