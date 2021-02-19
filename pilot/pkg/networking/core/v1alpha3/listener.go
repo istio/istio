@@ -309,10 +309,11 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundListeners(
 
 		portHostnameMap := make(map[int]map[host.Name]bool)
 		for _, instance := range node.ServiceInstances {
-			if _, exist := portHostnameMap[instance.ServicePort.Port]; !exist {
-				portHostnameMap[instance.ServicePort.Port] = make(map[host.Name]bool)
+			port := int(instance.Endpoint.EndpointPort)
+			if _, exist := portHostnameMap[port]; !exist {
+				portHostnameMap[port] = make(map[host.Name]bool)
 			}
-			portHostnameMap[instance.ServicePort.Port][instance.Service.Hostname] = true
+			portHostnameMap[port][instance.Service.Hostname] = true
 		}
 
 		for _, instance := range node.ServiceInstances {
@@ -348,15 +349,15 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundListeners(
 				Push:             push,
 			}
 
-			if !portSet[instance.ServicePort.Port] {
-				hosts := make([]host.Name, 0, len(portHostnameMap[instance.ServicePort.Port]))
-				for h := range portHostnameMap[instance.ServicePort.Port] {
+			if !portSet[listenerOpts.port.Port] {
+				hosts := make([]host.Name, 0, len(portHostnameMap[listenerOpts.port.Port]))
+				for h := range portHostnameMap[listenerOpts.port.Port] {
 					hosts = append(hosts, h)
 				}
 				if l := configgen.buildSidecarInboundListenerForPortOrUDS(node, listenerOpts, pluginParams, hosts); l != nil {
 					listeners = append(listeners, l)
 				}
-				portSet[instance.ServicePort.Port] = true
+				portSet[listenerOpts.port.Port] = true
 			}
 		}
 		return listeners
