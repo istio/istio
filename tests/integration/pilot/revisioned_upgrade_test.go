@@ -100,9 +100,8 @@ func testUpgradeFromVersion(ctx framework.TestContext, fromVersion string) {
 		Interval: callInterval,
 	})
 
-	// Run the traffic generator.
-	stop := make(chan struct{})
-	go g.Run(stop)
+	// Start the traffic generator.
+	g.Start()
 
 	if err := enableDefaultInjection(revisionedNamespace); err != nil {
 		ctx.Fatalf("could not relabel namespace to enable default injection: %v", err)
@@ -125,11 +124,8 @@ func testUpgradeFromVersion(ctx framework.TestContext, fromVersion string) {
 		}
 	}
 
-	// Stop the traffic generator.
-	close(stop)
-
-	// Get the result.
-	r, err := g.WaitForResult(waitTimeout)
+	// Stop the traffic generator and get the result.
+	r, err := g.Stop(waitTimeout)
 	if err != nil {
 		ctx.Fatalf("failed waiting for traffic result: %v", err)
 	}
