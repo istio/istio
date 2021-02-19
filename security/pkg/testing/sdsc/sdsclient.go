@@ -30,7 +30,7 @@ import (
 	"google.golang.org/grpc/metadata"
 
 	authn_model "istio.io/istio/pilot/pkg/security/model"
-	sdscache "istio.io/istio/security/pkg/nodeagent/cache"
+	"istio.io/istio/pkg/security"
 	agent_sds "istio.io/istio/security/pkg/nodeagent/sds"
 	"istio.io/pkg/log"
 )
@@ -134,7 +134,7 @@ func (c *Client) Send() error {
 			Id: "sidecar~127.0.0.1~id2~local",
 		},
 		ResourceNames: []string{
-			sdscache.WorkloadKeyCertResourceName,
+			security.WorkloadKeyCertResourceName,
 		},
 		TypeUrl: agent_sds.SecretTypeV3,
 	})
