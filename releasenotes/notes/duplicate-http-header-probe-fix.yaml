@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: networking
+issue:
+  - 28466
+releaseNotes:
+  - |
+    **Fixed** an issue causing HTTP headers to be duplicated when using Istio probe rewrite.
