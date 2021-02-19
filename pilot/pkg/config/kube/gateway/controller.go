@@ -98,7 +98,7 @@ func (c controller) List(typ config.GroupVersionKind, namespace string) ([]confi
 	}
 
 	if !anyApisUsed(input) {
-		// Early exit for common case of no service-apis used.
+		// Early exit for common case of no gateway-api used.
 		return nil, nil
 	}
 
