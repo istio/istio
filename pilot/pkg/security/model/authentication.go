@@ -71,8 +71,7 @@ var SDSAdsConfig = &core.ConfigSource{
 	ConfigSourceSpecifier: &core.ConfigSource_Ads{
 		Ads: &core.AggregatedConfigSource{},
 	},
-	ResourceApiVersion:  core.ApiVersion_V3,
-	InitialFetchTimeout: ptypes.DurationProto(time.Second * 0),
+	ResourceApiVersion: core.ApiVersion_V3,
 }
 
 // ConstructSdsSecretConfigForCredential constructs SDS secret configuration used
