@@ -58,52 +58,41 @@ var (
 	twoAudList = "header.eyJhdWQiOlsiYWJjIiwieHl6Il0sImV4cCI6NDczMjk5NDgwMSwiaWF0IjoxNTc5Mzk0ODAxLCJpc3MiOiJ0ZXN0LWlzc3Vlci0xQGlzdGlvLmlvIiwic3ViIjoic3ViLTEifQ.signature" // nolint: lll
 )
 
-func TestIsJwtExpired(t *testing.T) {
+func TestGetExp(t *testing.T) {
 	testCases := map[string]struct {
-		jwt       string
-		now       time.Time
-		expResult bool
-		expErr    error
+		jwt         string
+		expectedExp time.Time
+		expectedErr error
 	}{
-		"Not expired JWT": {
-			jwt:       thirdPartyJwt,
-			now:       time.Date(2020, time.April, 5, 6, 0, 0, 0, time.FixedZone("UTC-7", 0)),
-			expResult: false,
-			expErr:    nil,
+		"jwt with expiration time": {
+			jwt:         thirdPartyJwt,
+			expectedExp: time.Date(2020, time.April, 5, 10, 13, 54, 0, time.FixedZone("PDT", -int((7*time.Hour).Seconds()))),
+			expectedErr: nil,
 		},
-		"Expired JWT": {
-			jwt:       thirdPartyJwt,
-			now:       time.Now(),
-			expResult: true,
-			expErr:    nil,
+		"jwt with no expiration time": {
+			jwt:         firstPartyJwt,
+			expectedExp: time.Time{},
+			expectedErr: nil,
 		},
-		"JWT without expiration": {
-			jwt:       firstPartyJwt,
-			now:       time.Now(),
-			expResult: false,
-			expErr:    nil,
-		},
-		"Invalid JWT - wrong number of sections": {
-			jwt:    "invalid-section1.invalid-section2",
-			now:    time.Now(),
-			expErr: fmt.Errorf("token contains an invalid number of segments: 2, expected: 3"),
-		},
-		"Invalid JWT - wrong encoding": {
-			jwt:    "invalid-section1.invalid-section2.invalid-section3",
-			now:    time.Now(),
-			expErr: fmt.Errorf("failed to decode the JWT claims"),
+		"invalid jwt": {
+			jwt:         "invalid-section1.invalid-section2.invalid-section3",
+			expectedExp: time.Time{},
+			expectedErr: fmt.Errorf("failed to decode the JWT claims"),
 		},
 	}
 
 	for id, tc := range testCases {
-		expired, err := IsJwtExpired(tc.jwt, tc.now)
-		if err != nil && tc.expErr == nil || err == nil && tc.expErr != nil {
-			t.Errorf("%s: Got error \"%v\" not matching expected error \"%v\"", id, err, tc.expErr)
-		} else if err != nil && tc.expErr != nil && err.Error() != tc.expErr.Error() {
-			t.Errorf("%s: Got error \"%v\" not matching expected error \"%v\"", id, err, tc.expErr)
-		} else if err == nil && expired != tc.expResult {
-			t.Errorf("%s: Got expiration %v not matching expected expiration %v", id, expired, tc.expResult)
-		}
+		t.Run(id, func(t *testing.T) {
+			exp, err := GetExp(tc.jwt)
+			if err != nil && tc.expectedErr == nil || err == nil && tc.expectedErr != nil {
+				t.Errorf("%s: Got error \"%v\", expected error \"%v\"", id, err, tc.expectedErr)
+			} else if err != nil && tc.expectedErr != nil && err.Error() != tc.expectedErr.Error() {
+				t.Errorf("%s: Got error \"%v\", expected error \"%v\"", id, err, tc.expectedErr)
+			} else if err == nil && exp.Sub(tc.expectedExp) != time.Duration(0) {
+				t.Errorf("%s: Got expiration time: %s, expected expiration time: %s",
+					id, exp.String(), tc.expectedExp.String())
+			}
+		})
 	}
 }
 
