@@ -944,3 +944,17 @@ function add_trap {
     trap -- "${new_cmd}" "$trap_signal"
   done
 }
+
+# Split the disabled tests around pipe delim and individually sets the
+# --istio.test.skip flag for each. This is needed to enable regex and
+# fine grained test disabling.
+# Parameters:
+# $1    Disabled tests pipe-separated string
+function apply_skip_disabled_tests() {
+  if [[ -n "${1}" ]]; then
+    IFS='|' read -r -a TESTS_TO_SKIP <<< "${1}"
+    for test in "${TESTS_TO_SKIP[@]}"; do
+      INTEGRATION_TEST_FLAGS+=" --istio.test.skip=\"${test}\""
+    done
+  fi
+}

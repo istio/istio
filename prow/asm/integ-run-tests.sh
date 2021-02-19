@@ -263,6 +263,9 @@ if [[ "${CONTROL_PLANE}" == "UNMANAGED" ]]; then
   DISABLED_TESTS+="|TestCustomizeMetrics|TestStatsFilter|TestTcpMetric|TestWasmStatsFilter|TestWASMTcpMetric" # UNKNOWN: b/177606974
   # security/ tests
 
+  # Skip the subtests that are known to be not working.
+  DISABLED_TESTS+="|TestRequestAuthentication/.*/valid-token-forward-remote-jwks" # UNSUPPORTED: relies on custom options
+
   # For security tests, do not run tests that require custom setups.
   export TEST_SELECT="${TEST_SELECT:-}"
   # TODO(nmittler): Remove this once we no longer run the multicluster tests.
@@ -303,9 +306,7 @@ if [[ "${CONTROL_PLANE}" == "UNMANAGED" ]]; then
   fi
 
   # Skip the tests that are known to be not working.
-  INTEGRATION_TEST_FLAGS+=" --istio.test.skip=\"${DISABLED_TESTS}\""
-  # Skip the subtests that are known to be not working.
-  INTEGRATION_TEST_FLAGS+=" --istio.test.skip=\"TestRequestAuthentication/.*/valid-token-forward-remote-jwks\"" # UNSUPPORTED: relies on custom options
+  apply_skip_disabled_tests "${DISABLED_TESTS}"
 
   # TODO https://b.corp.google.com/issues/180521354
   INTEGRATION_TEST_FLAGS+=" --istio.test.skip=\"TestTraffic/vm/dns:_VM_to_k8s_cluster_IP_service_name.namespace_host_from_*\" \
