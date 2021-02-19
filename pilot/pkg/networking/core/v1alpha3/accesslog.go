@@ -338,6 +338,7 @@ func buildTCPGrpcAccessLog(isListener bool) *accesslog.AccessLog {
 					},
 				},
 			},
+			TransportApiVersion:     core.ApiVersion_V3,
 			FilterStateObjectsToLog: envoyWasmStateToLog,
 		},
 	}
@@ -364,6 +365,7 @@ func buildHTTPGrpcAccessLog() *accesslog.AccessLog {
 					},
 				},
 			},
+			TransportApiVersion:     core.ApiVersion_V3,
 			FilterStateObjectsToLog: envoyWasmStateToLog,
 		},
 	}
