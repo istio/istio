@@ -23,6 +23,7 @@ import (
 	"github.com/golang/protobuf/ptypes"
 
 	networking "istio.io/api/networking/v1alpha3"
+
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/core/v1alpha3/envoyfilter"
@@ -98,7 +99,8 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundHTTPRouteConfig(
 		if clusterName != "" {
 			clusterNameForEachHost = clusterName
 		} else {
-			clusterNameForEachHost = model.BuildSubsetKey(model.TrafficDirectionInbound, instance.ServicePort.Name, hostname, instance.ServicePort.Port)
+			clusterNameForEachHost = util.BuildInboundSubsetKey(node, instance.ServicePort.Name,hostname,
+				instance.ServicePort.Port, int(instance.Endpoint.EndpointPort))
 		}
 
 		virtualHosts = append(virtualHosts, &route.VirtualHost{
@@ -111,7 +113,8 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundHTTPRouteConfig(
 	}
 
 	if clusterName == "" {
-		clusterName = model.BuildSubsetKey(model.TrafficDirectionInbound, instance.ServicePort.Name, instance.Service.Hostname, instance.ServicePort.Port)
+		clusterName = util.BuildInboundSubsetKey(node, instance.ServicePort.Name, instance.Service.Hostname,
+			instance.ServicePort.Port, int(instance.Endpoint.EndpointPort))
 	}
 	virtualHosts = append(virtualHosts, &route.VirtualHost{
 		Name:    inboundVirtualHostPrefix + strconv.Itoa(instance.ServicePort.Port), // Format: "inbound|http|%d"

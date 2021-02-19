@@ -31,6 +31,8 @@ import (
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
+	"istio.io/pkg/log"
+
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/core/v1alpha3/envoyfilter"
@@ -42,7 +44,6 @@ import (
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/util/gogo"
-	"istio.io/pkg/log"
 )
 
 const (
@@ -283,7 +284,6 @@ func (configgen *ConfigGeneratorImpl) buildInboundClusters(cb *ClusterBuilder, i
 			return nil
 		}
 
-		clustersToBuild := make(map[int][]*model.ServiceInstance)
 		for _, instance := range instances {
 			// Filter out service instances with the same port as we are going to mark them as duplicates any way
 			// in normalizeClusters method.
@@ -295,20 +295,10 @@ func (configgen *ConfigGeneratorImpl) buildInboundClusters(cb *ClusterBuilder, i
 				// Istio 1.8.1+ switched to keying on EndpointPort. We need both logics in place to support smooth upgrade from 1.8.0 to 1.8.x
 				ep = int(instance.Endpoint.EndpointPort)
 			}
-			clustersToBuild[ep] = append(clustersToBuild[ep], instance)
+			localCluster := cb.buildInboundClusterForPortOrUDS(cb.proxy, ep, actualLocalHost, instance, instances)
+			clusters = cp.conditionallyAppend(clusters, []host.Name{instance.Service.Hostname}, localCluster)
 		}
 
-		// For each workload port, we will construct a cluster
-		for _, instances := range clustersToBuild {
-			instance := instances[0]
-			localCluster := cb.buildInboundClusterForPortOrUDS(cb.proxy, int(instance.Endpoint.EndpointPort), actualLocalHost, instance, instances)
-			// If inbound cluster match has service, we should see if it matches with any host name across all instances.
-			var hosts []host.Name
-			for _, si := range instances {
-				hosts = append(hosts, si.Service.Hostname)
-			}
-			clusters = cp.conditionallyAppend(clusters, hosts, localCluster)
-		}
 		return clusters
 	}
 

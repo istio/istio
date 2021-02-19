@@ -291,11 +291,11 @@ func IsIstioVersionGE181(node *model.Proxy) bool {
 func BuildInboundSubsetKey(node *model.Proxy, subsetName string, hostname host.Name, servicePort int, endpointPort int) string {
 	if IsIstioVersionGE181(node) {
 		// On 1.8.1+ Proxies, we use format inbound|endpointPort||. Telemetry no longer requires the hostname
-		return model.BuildSubsetKey(model.TrafficDirectionInbound, "", "", endpointPort)
+		return model.BuildSubsetKey(model.TrafficDirectionInbound, "", hostname, endpointPort)
 	} else if IsIstioVersionGE18(node) {
 		// On 1.8.0 Proxies, we used format inbound|servicePort||. Since changing a cluster name leads to a 503
 		// blip on upgrade, we will support this legacy format.
-		return model.BuildSubsetKey(model.TrafficDirectionInbound, "", "", servicePort)
+		return model.BuildSubsetKey(model.TrafficDirectionInbound, "", hostname, servicePort)
 	}
 	return model.BuildSubsetKey(model.TrafficDirectionInbound, subsetName, hostname, servicePort)
 }
