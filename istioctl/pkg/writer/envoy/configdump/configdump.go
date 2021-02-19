@@ -100,15 +100,15 @@ func (c *ConfigWriter) PrintFullSummary(cf ClusterFilter, lf ListenerFilter, rf 
 	if err := c.PrintClusterSummary(cf); err != nil {
 		return err
 	}
-	c.Stdout.Write([]byte("\n"))
+	_, _ = c.Stdout.Write([]byte("\n"))
 	if err := c.PrintListenerSummary(lf); err != nil {
 		return err
 	}
-	c.Stdout.Write([]byte("\n"))
+	_, _ = c.Stdout.Write([]byte("\n"))
 	if err := c.PrintRouteSummary(rf); err != nil {
 		return err
 	}
-	c.Stdout.Write([]byte("\n"))
+	_, _ = c.Stdout.Write([]byte("\n"))
 	if err := c.PrintSecretSummary(); err != nil {
 		return err
 	}

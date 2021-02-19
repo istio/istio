@@ -397,18 +397,21 @@ func allConfigCmd() *cobra.Command {
 				}
 			case summaryOutput:
 				var configWriter *configdump.ConfigWriter
-				var err error
 				if len(args) == 1 {
 					podName, podNamespace, err := getPodName(args[0])
 					if err != nil {
 						return err
 					}
 					configWriter, err = setupPodConfigdumpWriter(podName, podNamespace, c.OutOrStdout())
+					if err != nil {
+						return err
+					}
 				} else {
+					var err error
 					configWriter, err = setupFileConfigdumpWriter(configDumpFile, c.OutOrStdout())
-				}
-				if err != nil {
-					return err
+					if err != nil {
+						return err
+					}
 				}
 				return configWriter.PrintFullSummary(
 					configdump.ClusterFilter{
