@@ -297,7 +297,10 @@ var (
 		"If this is set to false, will not create CA server in istiod.").Get()
 
 	EnableDebugOnHTTP = env.RegisterBoolVar("ENABLE_DEBUG_ON_HTTP", true,
-		"If this is set to false, the debug interface will not be ebabled on Http, recommended for production").Get()
+		"If this is set to false, the debug interface will not be enabled, recommended for production").Get()
+
+	EnableAuthDebug = env.RegisterBoolVar("ENABLE_AUTH_DEBUG", false,
+		"If this is set to true, the debug endpoints will require same auth as XDS. Recommended for production").Get()
 
 	EnableUnsafeAdminEndpoints = env.RegisterBoolVar("UNSAFE_ENABLE_ADMIN_ENDPOINTS", false,
 		"If this is set to true, dangerous admin endpoins will be exposed on the debug interface. Not recommended for production.").Get()

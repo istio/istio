@@ -17,6 +17,7 @@ package security
 import (
 	"context"
 	"fmt"
+	"net/http"
 	"strings"
 	"time"
 
@@ -297,6 +298,7 @@ type Caller struct {
 type Authenticator interface {
 	Authenticate(ctx context.Context) (*Caller, error)
 	AuthenticatorType() string
+	AuthenticateRequest(req *http.Request) (*Caller, error)
 }
 
 func ExtractBearerToken(ctx context.Context) (string, error) {
@@ -324,6 +326,22 @@ func ExtractBearerToken(ctx context.Context) (string, error) {
 		if strings.HasPrefix(value, DefaultTokenPrefix) {
 			return strings.TrimPrefix(value, DefaultTokenPrefix), nil
 		}
+	}
+
+	return "", fmt.Errorf("no bearer token exists in HTTP authorization header")
+}
+
+func ExtractRequestToken(req *http.Request) (string, error) {
+	value := req.Header.Get(authorizationMeta)
+	if value == "" {
+		return "", fmt.Errorf("no HTTP authorization header exists")
+	}
+
+	if strings.HasPrefix(value, XDSBearerTokenPrefix) {
+		return strings.TrimPrefix(value, XDSBearerTokenPrefix), nil
+	}
+	if strings.HasPrefix(value, K8sTokenPrefix) {
+		return strings.TrimPrefix(value, K8sTokenPrefix), nil
 	}
 
 	return "", fmt.Errorf("no bearer token exists in HTTP authorization header")

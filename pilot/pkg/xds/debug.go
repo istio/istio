@@ -201,7 +201,33 @@ func (s *DiscoveryServer) AddDebugHandlers(mux *http.ServeMux, enableProfiling b
 func (s *DiscoveryServer) addDebugHandler(mux *http.ServeMux, path string, help string,
 	handler func(http.ResponseWriter, *http.Request)) {
 	s.debugHandlers[path] = help
-	mux.HandleFunc(path, handler)
+	if features.EnableAuthDebug {
+		mux.HandleFunc(path, func(w http.ResponseWriter, req *http.Request) {
+			// Authenticate request with the same method as XDS
+			authFailMsgs := []string{}
+			var ids []string
+			for _, authn := range s.Authenticators {
+				u, err := authn.AuthenticateRequest(req)
+				// If one authenticator passes, return
+				if u != nil && u.Identities != nil && err == nil {
+					ids = u.Identities
+					break
+				}
+				authFailMsgs = append(authFailMsgs, fmt.Sprintf("Authenticator %s: %v", authn.AuthenticatorType(), err))
+			}
+			if ids == nil {
+				adsLog.Errorf("Failed to authenticate %s %v", req.URL, authFailMsgs)
+				// Not including detailed info in the response, XDS doesn't either (returns a generic "authentication failure).
+				w.WriteHeader(401)
+				return
+			}
+			// TODO: Check that the identity contains istio-system namespace, else block or restrict to only info that
+			// is visible to the authenticated SA. Will require changes in docs and istioctl too.
+			handler(w, req)
+		})
+	} else {
+		mux.HandleFunc(path, handler)
+	}
 }
 
 // Syncz dumps the synchronization status of all Envoys connected to this Pilot instance

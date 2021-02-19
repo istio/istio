@@ -18,8 +18,10 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"crypto/x509/pkix"
+	"errors"
 	"fmt"
 	"net"
+	"net/http"
 	"testing"
 
 	"golang.org/x/net/context"
@@ -44,6 +46,10 @@ type mockAuthenticator struct {
 
 func (authn *mockAuthenticator) AuthenticatorType() string {
 	return "mockAuthenticator"
+}
+
+func (authn *mockAuthenticator) AuthenticateRequest(req *http.Request) (*security.Caller, error) {
+	return nil, errors.New("not implemented")
 }
 
 func (authn *mockAuthenticator) Authenticate(ctx context.Context) (*security.Caller, error) {
