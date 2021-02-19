@@ -115,8 +115,7 @@ func waitForEvent(t *testing.T, ch chan Event) Event {
 	}
 }
 
-type channelTerminal struct {
-}
+type channelTerminal struct{}
 
 func initServiceDiscovery() (model.IstioConfigStore, *ServiceEntryStore, chan Event, func()) {
 	return initServiceDiscoveryWithOpts()
