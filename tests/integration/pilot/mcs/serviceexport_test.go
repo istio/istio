@@ -22,7 +22,6 @@ import (
 	"testing"
 
 	k8sErrors "k8s.io/apimachinery/pkg/api/errors"
-	k8sErrors "k8s.io/apimachinery/pkg/api/errors"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	mcsapisClient "sigs.k8s.io/mcs-api/pkg/client/clientset/versioned"
 
