@@ -31,7 +31,6 @@ import (
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
-	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pilot/test/xdstest"
@@ -603,8 +602,7 @@ func TestApplyEdsConfig(t *testing.T) {
 					ConfigSourceSpecifier: &core.ConfigSource_Ads{
 						Ads: &core.AggregatedConfigSource{},
 					},
-					InitialFetchTimeout: features.InitialFetchTimeout,
-					ResourceApiVersion:  core.ApiVersion_V3,
+					ResourceApiVersion: core.ApiVersion_V3,
 				},
 			},
 		},

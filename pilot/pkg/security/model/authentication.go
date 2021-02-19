@@ -22,7 +22,6 @@ import (
 	"github.com/golang/protobuf/ptypes"
 
 	networking "istio.io/api/networking/v1alpha3"
-	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pkg/spiffe"
@@ -73,7 +72,7 @@ var SDSAdsConfig = &core.ConfigSource{
 		Ads: &core.AggregatedConfigSource{},
 	},
 	ResourceApiVersion:  core.ApiVersion_V3,
-	InitialFetchTimeout: features.InitialFetchTimeout,
+	InitialFetchTimeout: ptypes.DurationProto(time.Second * 0),
 }
 
 // ConstructSdsSecretConfigForCredential constructs SDS secret configuration used
@@ -215,7 +214,7 @@ func ConstructSdsSecretConfig(name string, node *model.Proxy) *tls.SdsSecretConf
 				},
 			},
 			ResourceApiVersion:  core.ApiVersion_V3,
-			InitialFetchTimeout: features.InitialFetchTimeout,
+			InitialFetchTimeout: ptypes.DurationProto(time.Second * 0),
 		},
 	}
 

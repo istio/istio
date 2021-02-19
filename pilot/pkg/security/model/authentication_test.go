@@ -25,8 +25,8 @@ import (
 	"github.com/golang/protobuf/ptypes"
 	"github.com/google/go-cmp/cmp"
 	"google.golang.org/protobuf/testing/protocmp"
+	"google.golang.org/protobuf/types/known/durationpb"
 
-	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/spiffe"
 )
@@ -43,7 +43,7 @@ func TestConstructSdsSecretConfig(t *testing.T) {
 			expected: &auth.SdsSecretConfig{
 				Name: "spiffe://cluster.local/ns/bar/sa/foo",
 				SdsConfig: &core.ConfigSource{
-					InitialFetchTimeout: features.InitialFetchTimeout,
+					InitialFetchTimeout: &durationpb.Duration{Seconds: 0},
 					ResourceApiVersion:  core.ApiVersion_V3,
 					ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
 						ApiConfigSource: &core.ApiConfigSource{
@@ -289,7 +289,8 @@ func TestApplyToCommonTLSContext(t *testing.T) {
 									},
 								},
 							},
-							ResourceApiVersion: core.ApiVersion_V3,
+							ResourceApiVersion:  core.ApiVersion_V3,
+							InitialFetchTimeout: ptypes.DurationProto(time.Second * 0),
 						},
 					},
 				},
@@ -313,7 +314,8 @@ func TestApplyToCommonTLSContext(t *testing.T) {
 										},
 									},
 								},
-								ResourceApiVersion: core.ApiVersion_V3,
+								ResourceApiVersion:  core.ApiVersion_V3,
+								InitialFetchTimeout: ptypes.DurationProto(time.Second * 0),
 							},
 						},
 					},
@@ -405,7 +407,8 @@ func TestApplyToCommonTLSContext(t *testing.T) {
 									},
 								},
 							},
-							ResourceApiVersion: core.ApiVersion_V3,
+							ResourceApiVersion:  core.ApiVersion_V3,
+							InitialFetchTimeout: ptypes.DurationProto(time.Second * 0),
 						},
 					},
 				},
@@ -429,7 +432,8 @@ func TestApplyToCommonTLSContext(t *testing.T) {
 										},
 									},
 								},
-								ResourceApiVersion: core.ApiVersion_V3,
+								ResourceApiVersion:  core.ApiVersion_V3,
+								InitialFetchTimeout: ptypes.DurationProto(time.Second * 0),
 							},
 						},
 					},

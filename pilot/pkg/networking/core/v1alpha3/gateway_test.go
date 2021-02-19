@@ -245,7 +245,8 @@ func TestBuildGatewayListenerTlsContext(t *testing.T) {
 						{
 							Name: "file-cert:server-cert.crt~private-key.key",
 							SdsConfig: &core.ConfigSource{
-								ResourceApiVersion: core.ApiVersion_V3,
+								ResourceApiVersion:  core.ApiVersion_V3,
+								InitialFetchTimeout: ptypes.DurationProto(time.Second * 0),
 								ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
 									ApiConfigSource: &core.ApiConfigSource{
 										ApiType:                   core.ApiConfigSource_GRPC,
@@ -269,7 +270,8 @@ func TestBuildGatewayListenerTlsContext(t *testing.T) {
 							ValidationContextSdsSecretConfig: &auth.SdsSecretConfig{
 								Name: "file-root:ca-cert.crt",
 								SdsConfig: &core.ConfigSource{
-									ResourceApiVersion: core.ApiVersion_V3,
+									ResourceApiVersion:  core.ApiVersion_V3,
+									InitialFetchTimeout: ptypes.DurationProto(time.Second * 0),
 									ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
 										ApiConfigSource: &core.ApiConfigSource{
 											ApiType:                   core.ApiConfigSource_GRPC,
@@ -310,7 +312,8 @@ func TestBuildGatewayListenerTlsContext(t *testing.T) {
 						{
 							Name: "file-cert:server-cert.crt~private-key.key",
 							SdsConfig: &core.ConfigSource{
-								ResourceApiVersion: core.ApiVersion_V3,
+								ResourceApiVersion:  core.ApiVersion_V3,
+								InitialFetchTimeout: ptypes.DurationProto(time.Second * 0),
 								ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
 									ApiConfigSource: &core.ApiConfigSource{
 										ApiType:                   core.ApiConfigSource_GRPC,
@@ -334,7 +337,8 @@ func TestBuildGatewayListenerTlsContext(t *testing.T) {
 							ValidationContextSdsSecretConfig: &auth.SdsSecretConfig{
 								Name: "file-root:ca-cert.crt",
 								SdsConfig: &core.ConfigSource{
-									ResourceApiVersion: core.ApiVersion_V3,
+									ResourceApiVersion:  core.ApiVersion_V3,
+									InitialFetchTimeout: ptypes.DurationProto(time.Second * 0),
 									ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
 										ApiConfigSource: &core.ApiConfigSource{
 											ApiType:                   core.ApiConfigSource_GRPC,
@@ -376,7 +380,8 @@ func TestBuildGatewayListenerTlsContext(t *testing.T) {
 						{
 							Name: "file-cert:server-cert.crt~private-key.key",
 							SdsConfig: &core.ConfigSource{
-								ResourceApiVersion: core.ApiVersion_V3,
+								ResourceApiVersion:  core.ApiVersion_V3,
+								InitialFetchTimeout: ptypes.DurationProto(time.Second * 0),
 								ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
 									ApiConfigSource: &core.ApiConfigSource{
 										ApiType:                   core.ApiConfigSource_GRPC,
@@ -402,7 +407,8 @@ func TestBuildGatewayListenerTlsContext(t *testing.T) {
 							ValidationContextSdsSecretConfig: &auth.SdsSecretConfig{
 								Name: "file-root:ca-cert.crt",
 								SdsConfig: &core.ConfigSource{
-									ResourceApiVersion: core.ApiVersion_V3,
+									ResourceApiVersion:  core.ApiVersion_V3,
+									InitialFetchTimeout: ptypes.DurationProto(time.Second * 0),
 									ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
 										ApiConfigSource: &core.ApiConfigSource{
 											ApiType:                   core.ApiConfigSource_GRPC,
