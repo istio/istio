@@ -62,7 +62,7 @@ func TestInboundNetworkFilterStatPrefix(t *testing.T) {
 		{
 			"no pattern",
 			"",
-			"inbound|8888||",
+			"inbound|8888||v0.default.example.org",
 		},
 		{
 			"service only pattern",

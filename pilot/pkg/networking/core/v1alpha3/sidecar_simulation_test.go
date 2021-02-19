@@ -28,6 +28,7 @@ import (
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
+
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/core/v1alpha3"
 	"istio.io/istio/pilot/pkg/networking/util"
@@ -127,10 +128,10 @@ func TestInboundClusters(t *testing.T) {
 			services:  []*model.Service{service},
 			instances: makeInstances(proxy, service, 80, 8080),
 			clusters: map[string][]string{
-				"inbound|8080||": {"127.0.0.1:8080"},
+				"inbound|8080||" + string(service.Hostname): {"127.0.0.1:8080"},
 			},
 			telemetry: map[string][]string{
-				"inbound|8080||": {string(service.Hostname)},
+				"inbound|8080||" + string(service.Hostname): {string(service.Hostname)},
 			},
 		},
 		{
@@ -140,12 +141,12 @@ func TestInboundClusters(t *testing.T) {
 				makeInstances(proxy, service, 80, 8080),
 				makeInstances(proxy, service, 81, 8081)),
 			clusters: map[string][]string{
-				"inbound|8080||": {"127.0.0.1:8080"},
-				"inbound|8081||": {"127.0.0.1:8081"},
+				"inbound|8080||" + string(service.Hostname): {"127.0.0.1:8080"},
+				"inbound|8081||" + string(service.Hostname): {"127.0.0.1:8081"},
 			},
 			telemetry: map[string][]string{
-				"inbound|8080||": {string(service.Hostname)},
-				"inbound|8081||": {string(service.Hostname)},
+				"inbound|8080||" + string(service.Hostname): {string(service.Hostname)},
+				"inbound|8081||" + string(service.Hostname): {string(service.Hostname)},
 			},
 		},
 		{
@@ -157,16 +158,16 @@ func TestInboundClusters(t *testing.T) {
 				makeInstances(proxy, serviceAlt, 80, 8082),
 				makeInstances(proxy, serviceAlt, 81, 8083)),
 			clusters: map[string][]string{
-				"inbound|8080||": {"127.0.0.1:8080"},
-				"inbound|8081||": {"127.0.0.1:8081"},
-				"inbound|8082||": {"127.0.0.1:8082"},
-				"inbound|8083||": {"127.0.0.1:8083"},
+				"inbound|8080||" + string(service.Hostname):    {"127.0.0.1:8080"},
+				"inbound|8081||" + string(service.Hostname):    {"127.0.0.1:8081"},
+				"inbound|8082||" + string(serviceAlt.Hostname): {"127.0.0.1:8082"},
+				"inbound|8083||" + string(serviceAlt.Hostname): {"127.0.0.1:8083"},
 			},
 			telemetry: map[string][]string{
-				"inbound|8080||": {string(service.Hostname)},
-				"inbound|8081||": {string(service.Hostname)},
-				"inbound|8082||": {string(serviceAlt.Hostname)},
-				"inbound|8083||": {string(serviceAlt.Hostname)},
+				"inbound|8080||" + string(service.Hostname):    {string(serviceAlt.Hostname), string(service.Hostname)},
+				"inbound|8081||" + string(service.Hostname):    {string(serviceAlt.Hostname), string(service.Hostname)},
+				"inbound|8082||" + string(serviceAlt.Hostname): {string(serviceAlt.Hostname), string(service.Hostname)},
+				"inbound|8083||" + string(serviceAlt.Hostname): {string(serviceAlt.Hostname), string(service.Hostname)},
 			},
 		},
 		{
@@ -178,12 +179,16 @@ func TestInboundClusters(t *testing.T) {
 				makeInstances(proxy, serviceAlt, 80, 8080),
 				makeInstances(proxy, serviceAlt, 81, 8081)),
 			clusters: map[string][]string{
-				"inbound|8080||": {"127.0.0.1:8080"},
-				"inbound|8081||": {"127.0.0.1:8081"},
+				"inbound|8080||" + string(service.Hostname):    {"127.0.0.1:8080"},
+				"inbound|8080||" + string(serviceAlt.Hostname): {"127.0.0.1:8080"},
+				"inbound|8081||" + string(service.Hostname):    {"127.0.0.1:8081"},
+				"inbound|8081||" + string(serviceAlt.Hostname): {"127.0.0.1:8081"},
 			},
 			telemetry: map[string][]string{
-				"inbound|8080||": {string(serviceAlt.Hostname), string(service.Hostname)},
-				"inbound|8081||": {string(serviceAlt.Hostname), string(service.Hostname)},
+				"inbound|8080||" + string(service.Hostname):    {string(serviceAlt.Hostname), string(service.Hostname)},
+				"inbound|8081||" + string(service.Hostname):    {string(serviceAlt.Hostname), string(service.Hostname)},
+				"inbound|8080||" + string(serviceAlt.Hostname): {string(serviceAlt.Hostname), string(service.Hostname)},
+				"inbound|8081||" + string(serviceAlt.Hostname): {string(serviceAlt.Hostname), string(service.Hostname)},
 			},
 		},
 		{
@@ -202,7 +207,7 @@ func TestInboundClusters(t *testing.T) {
 				},
 			},
 			clusters: map[string][]string{
-				"inbound|80||": {"127.0.0.1:80"},
+				"inbound|80||sidecar.default": {"127.0.0.1:80"},
 			},
 		},
 		{
@@ -221,7 +226,7 @@ func TestInboundClusters(t *testing.T) {
 				},
 			},
 			clusters: map[string][]string{
-				"inbound|80||": {"127.0.0.1:8080"},
+				"inbound|80||sidecar.default": {"127.0.0.1:8080"},
 			},
 		},
 		{
@@ -240,7 +245,7 @@ func TestInboundClusters(t *testing.T) {
 				},
 			},
 			clusters: map[string][]string{
-				"inbound|80||": {"1.2.3.4:8080"},
+				"inbound|80||sidecar.default": {"1.2.3.4:8080"},
 			},
 		},
 		{
@@ -259,7 +264,7 @@ func TestInboundClusters(t *testing.T) {
 				},
 			},
 			clusters: map[string][]string{
-				"inbound|80||": {"/socket"},
+				"inbound|80||sidecar.default": {"/socket"},
 			},
 		},
 		{
@@ -288,8 +293,8 @@ func TestInboundClusters(t *testing.T) {
 				},
 			},
 			clusters: map[string][]string{
-				"inbound|80||": {"127.0.0.1:8080"},
-				"inbound|81||": {"127.0.0.1:8080"},
+				"inbound|80||sidecar.default": {"127.0.0.1:8080"},
+				"inbound|81||sidecar.default": {"127.0.0.1:8080"},
 			},
 		},
 
@@ -300,10 +305,10 @@ func TestInboundClusters(t *testing.T) {
 			services:  []*model.Service{service},
 			instances: makeInstances(proxy180, service, 80, 8080),
 			clusters: map[string][]string{
-				"inbound|80||": {"127.0.0.1:8080"},
+				"inbound|80||" + string(service.Hostname): {"127.0.0.1:8080"},
 			},
 			telemetry: map[string][]string{
-				"inbound|80||": {string(service.Hostname)},
+				"inbound|80||" + string(service.Hostname): {string(service.Hostname)},
 			},
 		},
 		{
@@ -314,12 +319,12 @@ func TestInboundClusters(t *testing.T) {
 				makeInstances(proxy180, service, 80, 8080),
 				makeInstances(proxy180, service, 81, 8081)),
 			clusters: map[string][]string{
-				"inbound|80||": {"127.0.0.1:8080"},
-				"inbound|81||": {"127.0.0.1:8081"},
+				"inbound|80||" + string(service.Hostname): {"127.0.0.1:8080"},
+				"inbound|81||" + string(service.Hostname): {"127.0.0.1:8081"},
 			},
 			telemetry: map[string][]string{
-				"inbound|80||": {string(service.Hostname)},
-				"inbound|81||": {string(service.Hostname)},
+				"inbound|80||" + string(service.Hostname): {string(service.Hostname)},
+				"inbound|81||" + string(service.Hostname): {string(service.Hostname)},
 			},
 		},
 		{
@@ -333,12 +338,16 @@ func TestInboundClusters(t *testing.T) {
 				makeInstances(proxy180, serviceAlt, 81, 8083)),
 			clusters: map[string][]string{
 				// BUG: we are missing 8080 and 8081. This is fixed for 1.8.1+
-				"inbound|80||": {"127.0.0.1:8082"},
-				"inbound|81||": {"127.0.0.1:8083"},
+				"inbound|80||" + string(service.Hostname):    {"127.0.0.1:8080"},
+				"inbound|81||" + string(service.Hostname):    {"127.0.0.1:8081"},
+				"inbound|80||" + string(serviceAlt.Hostname): {"127.0.0.1:8082"},
+				"inbound|81||" + string(serviceAlt.Hostname): {"127.0.0.1:8083"},
 			},
 			telemetry: map[string][]string{
-				"inbound|80||": {string(serviceAlt.Hostname), string(service.Hostname)},
-				"inbound|81||": {string(serviceAlt.Hostname), string(service.Hostname)},
+				"inbound|80||" + string(service.Hostname):    {string(serviceAlt.Hostname), string(service.Hostname)},
+				"inbound|80||" + string(serviceAlt.Hostname): {string(serviceAlt.Hostname), string(service.Hostname)},
+				"inbound|81||" + string(service.Hostname):    {string(serviceAlt.Hostname), string(service.Hostname)},
+				"inbound|81||" + string(serviceAlt.Hostname): {string(serviceAlt.Hostname), string(service.Hostname)},
 			},
 		},
 		{
@@ -351,12 +360,16 @@ func TestInboundClusters(t *testing.T) {
 				makeInstances(proxy180, serviceAlt, 80, 8080),
 				makeInstances(proxy180, serviceAlt, 81, 8081)),
 			clusters: map[string][]string{
-				"inbound|80||": {"127.0.0.1:8080"},
-				"inbound|81||": {"127.0.0.1:8081"},
+				"inbound|80||" + string(service.Hostname):    {"127.0.0.1:8080"},
+				"inbound|80||" + string(serviceAlt.Hostname): {"127.0.0.1:8080"},
+				"inbound|81||" + string(service.Hostname):    {"127.0.0.1:8081"},
+				"inbound|81||" + string(serviceAlt.Hostname): {"127.0.0.1:8081"},
 			},
 			telemetry: map[string][]string{
-				"inbound|80||": {string(serviceAlt.Hostname), string(service.Hostname)},
-				"inbound|81||": {string(serviceAlt.Hostname), string(service.Hostname)},
+				"inbound|80||" + string(service.Hostname):    {string(serviceAlt.Hostname), string(service.Hostname)},
+				"inbound|80||" + string(serviceAlt.Hostname): {string(serviceAlt.Hostname), string(service.Hostname)},
+				"inbound|81||" + string(service.Hostname):    {string(serviceAlt.Hostname), string(service.Hostname)},
+				"inbound|81||" + string(serviceAlt.Hostname): {string(serviceAlt.Hostname), string(service.Hostname)},
 			},
 		},
 		{
@@ -376,7 +389,7 @@ func TestInboundClusters(t *testing.T) {
 				},
 			},
 			clusters: map[string][]string{
-				"inbound|80||": {"127.0.0.1:80"},
+				"inbound|80||sidecar.default": {"127.0.0.1:80"},
 			},
 		},
 		{
@@ -396,7 +409,7 @@ func TestInboundClusters(t *testing.T) {
 				},
 			},
 			clusters: map[string][]string{
-				"inbound|80||": {"127.0.0.1:8080"},
+				"inbound|80||sidecar.default": {"127.0.0.1:8080"},
 			},
 		},
 		{
@@ -416,7 +429,7 @@ func TestInboundClusters(t *testing.T) {
 				},
 			},
 			clusters: map[string][]string{
-				"inbound|80||": {"1.2.3.4:8080"},
+				"inbound|80||sidecar.default": {"1.2.3.4:8080"},
 			},
 		},
 		{
@@ -436,7 +449,7 @@ func TestInboundClusters(t *testing.T) {
 				},
 			},
 			clusters: map[string][]string{
-				"inbound|80||": {"/socket"},
+				"inbound|80||sidecar.default": {"/socket"},
 			},
 		},
 		{
@@ -466,8 +479,8 @@ func TestInboundClusters(t *testing.T) {
 				},
 			},
 			clusters: map[string][]string{
-				"inbound|80||": {"127.0.0.1:8080"},
-				"inbound|81||": {"127.0.0.1:8080"},
+				"inbound|80||sidecar.default": {"127.0.0.1:8080"},
+				"inbound|81||sidecar.default": {"127.0.0.1:8080"},
 			},
 		},
 	}
@@ -530,6 +543,7 @@ func TestInboundClusters(t *testing.T) {
 					Protocol: simulation.HTTP,
 					Address:  "1.2.3.4",
 					CallMode: simulation.CallModeInbound,
+					Headers:  map[string][]string{"Host": {string(hostname)}},
 				}).Matches(t, simulation.Result{
 					ClusterMatched: cname,
 				})
@@ -616,10 +630,10 @@ spec:
 				CallMode: simulation.CallModeInbound,
 			},
 			Disabled: simulation.Result{
-				ClusterMatched: "inbound|70||",
+				ClusterMatched: "inbound|70||foo.bar",
 			},
 			Permissive: simulation.Result{
-				ClusterMatched: "inbound|70||",
+				ClusterMatched: "inbound|70||foo.bar",
 			},
 			Strict: simulation.Result{
 				// Plaintext to strict, should fail
@@ -634,10 +648,10 @@ spec:
 				CallMode: simulation.CallModeInbound,
 			},
 			Disabled: simulation.Result{
-				ClusterMatched: "inbound|70||",
+				ClusterMatched: "inbound|70||foo.bar",
 			},
 			Permissive: simulation.Result{
-				ClusterMatched: "inbound|70||",
+				ClusterMatched: "inbound|70||foo.bar",
 			},
 			Strict: simulation.Result{
 				// Plaintext to strict, should fail
@@ -653,10 +667,10 @@ spec:
 				CallMode: simulation.CallModeInbound,
 			},
 			Disabled: simulation.Result{
-				ClusterMatched: "inbound|70||",
+				ClusterMatched: "inbound|70||foo.bar",
 			},
 			Permissive: simulation.Result{
-				ClusterMatched: "inbound|70||",
+				ClusterMatched: "inbound|70||foo.bar",
 			},
 			Strict: simulation.Result{
 				// TLS, but not mTLS
@@ -672,10 +686,10 @@ spec:
 				CallMode: simulation.CallModeInbound,
 			},
 			Disabled: simulation.Result{
-				ClusterMatched: "inbound|70||",
+				ClusterMatched: "inbound|70||foo.bar",
 			},
 			Permissive: simulation.Result{
-				ClusterMatched: "inbound|70||",
+				ClusterMatched: "inbound|70||foo.bar",
 			},
 			Strict: simulation.Result{
 				// TLS, but not mTLS
@@ -693,13 +707,13 @@ spec:
 			Disabled: simulation.Result{
 				// This is probably a user error, but there is no reason we should block mTLS traffic
 				// we just will not terminate it
-				ClusterMatched: "inbound|70||",
+				ClusterMatched: "inbound|70||foo.bar",
 			},
 			Permissive: simulation.Result{
-				ClusterMatched: "inbound|70||",
+				ClusterMatched: "inbound|70||foo.bar",
 			},
 			Strict: simulation.Result{
-				ClusterMatched: "inbound|70||",
+				ClusterMatched: "inbound|70||foo.bar",
 			},
 		},
 		{
@@ -713,13 +727,13 @@ spec:
 			Disabled: simulation.Result{
 				// This is probably a user error, but there is no reason we should block mTLS traffic
 				// we just will not terminate it
-				ClusterMatched: "inbound|70||",
+				ClusterMatched: "inbound|70||foo.bar",
 			},
 			Permissive: simulation.Result{
-				ClusterMatched: "inbound|70||",
+				ClusterMatched: "inbound|70||foo.bar",
 			},
 			Strict: simulation.Result{
-				ClusterMatched: "inbound|70||",
+				ClusterMatched: "inbound|70||foo.bar",
 			},
 		},
 		{
@@ -731,11 +745,11 @@ spec:
 			},
 			Disabled: simulation.Result{
 				VirtualHostMatched: "inbound|http|80",
-				ClusterMatched:     "inbound|80||",
+				ClusterMatched:     "inbound|80||foo.bar",
 			},
 			Permissive: simulation.Result{
 				VirtualHostMatched: "inbound|http|80",
-				ClusterMatched:     "inbound|80||",
+				ClusterMatched:     "inbound|80||foo.bar",
 			},
 			Strict: simulation.Result{
 				// Plaintext to strict, should fail
@@ -802,11 +816,11 @@ spec:
 			},
 			Permissive: simulation.Result{
 				VirtualHostMatched: "inbound|http|80",
-				ClusterMatched:     "inbound|80||",
+				ClusterMatched:     "inbound|80||foo.bar",
 			},
 			Strict: simulation.Result{
 				VirtualHostMatched: "inbound|http|80",
-				ClusterMatched:     "inbound|80||",
+				ClusterMatched:     "inbound|80||foo.bar",
 			},
 		},
 		{
@@ -838,11 +852,11 @@ spec:
 			},
 			Disabled: simulation.Result{
 				VirtualHostMatched: "inbound|http|81",
-				ClusterMatched:     "inbound|81||",
+				ClusterMatched:     "inbound|81||foo.bar",
 			},
 			Permissive: simulation.Result{
 				VirtualHostMatched: "inbound|http|81",
-				ClusterMatched:     "inbound|81||",
+				ClusterMatched:     "inbound|81||foo.bar",
 			},
 			Strict: simulation.Result{
 				// Plaintext to strict fails
@@ -858,11 +872,11 @@ spec:
 			},
 			Disabled: simulation.Result{
 				VirtualHostMatched: "inbound|http|81",
-				ClusterMatched:     "inbound|81||",
+				ClusterMatched:     "inbound|81||foo.bar",
 			},
 			Permissive: simulation.Result{
 				VirtualHostMatched: "inbound|http|81",
-				ClusterMatched:     "inbound|81||",
+				ClusterMatched:     "inbound|81||foo.bar",
 			},
 			Strict: simulation.Result{
 				// Plaintext to strict fails
@@ -879,13 +893,13 @@ spec:
 			Disabled: simulation.Result{
 				ListenerMatched:    "virtualInbound",
 				FilterChainMatched: "0.0.0.0_81",
-				ClusterMatched:     "inbound|81||",
+				ClusterMatched:     "inbound|81||foo.bar",
 				StrictMatch:        true,
 			},
 			Permissive: simulation.Result{
 				ListenerMatched:    "virtualInbound",
 				FilterChainMatched: "0.0.0.0_81",
-				ClusterMatched:     "inbound|81||",
+				ClusterMatched:     "inbound|81||foo.bar",
 				StrictMatch:        true,
 			},
 			Strict: simulation.Result{
@@ -905,14 +919,14 @@ spec:
 				// Should go through the TCP chains
 				ListenerMatched:    "virtualInbound",
 				FilterChainMatched: "0.0.0.0_81",
-				ClusterMatched:     "inbound|81||",
+				ClusterMatched:     "inbound|81||foo.bar",
 				StrictMatch:        true,
 			},
 			Permissive: simulation.Result{
 				// Should go through the TCP chains
 				ListenerMatched:    "virtualInbound",
 				FilterChainMatched: "0.0.0.0_81",
-				ClusterMatched:     "inbound|81||",
+				ClusterMatched:     "inbound|81||foo.bar",
 				StrictMatch:        true,
 			},
 			Strict: simulation.Result{
@@ -932,14 +946,14 @@ spec:
 				// Should go through the TCP chains
 				ListenerMatched:    "virtualInbound",
 				FilterChainMatched: "0.0.0.0_81",
-				ClusterMatched:     "inbound|81||",
+				ClusterMatched:     "inbound|81||foo.bar",
 				StrictMatch:        true,
 			},
 			Permissive: simulation.Result{
 				// Should go through the TCP chains
 				ListenerMatched:    "virtualInbound",
 				FilterChainMatched: "0.0.0.0_81",
-				ClusterMatched:     "inbound|81||",
+				ClusterMatched:     "inbound|81||foo.bar",
 				StrictMatch:        true,
 			},
 			Strict: simulation.Result{
@@ -958,20 +972,20 @@ spec:
 			Disabled: simulation.Result{
 				// This is probably a user error, but there is no reason we should block mTLS traffic
 				// we just will not terminate it
-				ClusterMatched: "inbound|81||",
+				ClusterMatched: "inbound|81||foo.bar",
 			},
 			Permissive: simulation.Result{
 				// Should go through the TCP chains
 				ListenerMatched:    "virtualInbound",
 				FilterChainMatched: "0.0.0.0_81",
-				ClusterMatched:     "inbound|81||",
+				ClusterMatched:     "inbound|81||foo.bar",
 				StrictMatch:        true,
 			},
 			Strict: simulation.Result{
 				// Should go through the TCP chains
 				ListenerMatched:    "virtualInbound",
 				FilterChainMatched: "0.0.0.0_81",
-				ClusterMatched:     "inbound|81||",
+				ClusterMatched:     "inbound|81||foo.bar",
 				StrictMatch:        true,
 			},
 		},
@@ -986,17 +1000,17 @@ spec:
 			Disabled: simulation.Result{
 				// This is probably a user error, but there is no reason we should block mTLS traffic
 				// we just will not terminate it
-				ClusterMatched: "inbound|81||",
+				ClusterMatched: "inbound|81||foo.bar",
 			},
 			Permissive: simulation.Result{
 				// Should go through the HTTP chains
 				VirtualHostMatched: "inbound|http|81",
-				ClusterMatched:     "inbound|81||",
+				ClusterMatched:     "inbound|81||foo.bar",
 			},
 			Strict: simulation.Result{
 				// Should go through the HTTP chains
 				VirtualHostMatched: "inbound|http|81",
-				ClusterMatched:     "inbound|81||",
+				ClusterMatched:     "inbound|81||foo.bar",
 			},
 		},
 		{
