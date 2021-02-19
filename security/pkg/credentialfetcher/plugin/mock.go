@@ -16,6 +16,13 @@
 package plugin
 
 import (
+	"fmt"
+	"net/http"
+	"net/http/httptest"
+	"os"
+	"strings"
+	"sync"
+
 	"istio.io/istio/pkg/security"
 	"istio.io/pkg/log"
 )
@@ -23,6 +30,8 @@ import (
 var (
 	mockcredLog = log.RegisterScope("mockcred", "Mock credential fetcher for istio agent", 0)
 )
+
+const fakeTokenPrefix = "fake-token-"
 
 // The plugin object.
 type MockPlugin struct {
@@ -51,4 +60,69 @@ func (p *MockPlugin) GetType() string {
 // GetIdentityProvider returns the name of the identity provider that can authenticate the workload credential.
 func (p *MockPlugin) GetIdentityProvider() string {
 	return "fakeIDP"
+}
+
+func (p *MockPlugin) Stop() {}
+
+// MetadataServer mocks GCE metadata server.
+// nolint: maligned
+type MetadataServer struct {
+	server *httptest.Server
+
+	numGetTokenCall int
+	credential      string
+	mutex           sync.RWMutex
+}
+
+// StartMetadataServer starts a mock GCE metadata server.
+func StartMetadataServer() (*MetadataServer, error) {
+	ms := &MetadataServer{}
+	httpServer := httptest.NewServer(http.HandlerFunc(ms.getToken))
+	ms.server = httpServer
+	// nolint: staticcheck
+	if err := os.Setenv("GCE_METADATA_HOST", strings.Trim(httpServer.URL, "http://")); err != nil {
+		fmt.Printf("Error running os.Setenv: %v", err)
+		ms.Stop()
+		return nil, err
+	}
+	return ms, nil
+}
+
+func (ms *MetadataServer) setToken(t string) {
+	ms.mutex.Lock()
+	defer ms.mutex.Unlock()
+	ms.credential = t
+}
+
+// NumGetTokenCall returns the number of token fetching request.
+func (ms *MetadataServer) NumGetTokenCall() int {
+	ms.mutex.RLock()
+	defer ms.mutex.RUnlock()
+
+	return ms.numGetTokenCall
+}
+
+// ResetGetTokenCall resets members to default values.
+func (ms *MetadataServer) Reset() {
+	ms.mutex.Lock()
+	defer ms.mutex.Unlock()
+
+	ms.numGetTokenCall = 0
+	ms.credential = ""
+}
+
+func (ms *MetadataServer) getToken(w http.ResponseWriter, req *http.Request) {
+	ms.mutex.Lock()
+	defer ms.mutex.Unlock()
+
+	ms.numGetTokenCall++
+	token := fmt.Sprintf("%s%d", fakeTokenPrefix, ms.numGetTokenCall)
+	if ms.credential != "" {
+		token = ms.credential
+	}
+	fmt.Fprint(w, token)
+}
+
+func (ms *MetadataServer) Stop() {
+	ms.server.Close()
 }
