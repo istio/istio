@@ -1,7 +1,7 @@
 ARG VM_IMAGE_VERSION=8
 FROM centos:${VM_IMAGE_VERSION}
 
-# hadolint ignore=DL3005,DL3008
+# hadolint ignore=DL3005,DL3008,DL3031,DL3032,DL3033
 RUN yum upgrade -y && \
     yum install -y \
     iptables \
