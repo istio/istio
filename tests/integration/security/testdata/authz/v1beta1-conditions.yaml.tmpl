@@ -67,6 +67,42 @@ spec:
 apiVersion: security.istio.io/v1beta1
 kind: AuthorizationPolicy
 metadata:
+  name: condition-request-regex-headers
+  namespace: "{{ .NamespaceC }}"
+spec:
+  selector:
+    matchLabels:
+      app: c
+  rules:
+  - to:
+    - operation:
+        paths: ["/request-regex-headers"]
+    when:
+    - key: request.regex.headers[x-foo]
+      values: ["foo-[0-9]+"]
+---
+
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: condition-request-regex-headers-notvalues
+  namespace: "{{ .NamespaceC }}"
+spec:
+  selector:
+    matchLabels:
+      app: c
+  rules:
+  - to:
+    - operation:
+        paths: ["/request-regex-headers-notValues-bar"]
+    when:
+    - key: request.regex.headers[x-foo]
+      notValues: ["bar-[0-9]+"]
+---
+
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
   name: condition-source-ip
   namespace: "{{ .NamespaceC }}"
 spec:

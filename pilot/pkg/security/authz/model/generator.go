@@ -204,6 +204,25 @@ func (requestHeaderGenerator) principal(key, value string, forTCP bool) (*rbacpb
 	return principalHeader(m), nil
 }
 
+type requestRegexHeaderGenerator struct{}
+
+func (requestRegexHeaderGenerator) permission(_, _ string, _ bool) (*rbacpb.Permission, error) {
+	return nil, fmt.Errorf("unimplemented")
+}
+
+func (requestRegexHeaderGenerator) principal(key, value string, forTCP bool) (*rbacpb.Principal, error) {
+	if forTCP {
+		return nil, fmt.Errorf("%q is HTTP only", key)
+	}
+
+	header, err := extractNameInBrackets(strings.TrimPrefix(key, attrRequestRegexHeader))
+	if err != nil {
+		return nil, err
+	}
+	m := matcher.HeaderMatcherRegex(header, value)
+	return principalHeader(m), nil
+}
+
 type requestClaimGenerator struct{}
 
 func (requestClaimGenerator) permission(_, _ string, _ bool) (*rbacpb.Permission, error) {

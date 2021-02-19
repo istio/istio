@@ -63,3 +63,16 @@ func PathMatcher(path string) *matcherpb.PathMatcher {
 		},
 	}
 }
+
+// HeaderMatcherRegex converts a key, value string pair to a corresponding SafeRegex HeaderMatcher.
+func HeaderMatcherRegex(k, v string) *routepb.HeaderMatcher {
+	return &routepb.HeaderMatcher{
+		Name: k,
+		HeaderMatchSpecifier: &routepb.HeaderMatcher_SafeRegexMatch{
+			SafeRegexMatch: &matcherpb.RegexMatcher{
+				EngineType: &matcherpb.RegexMatcher_GoogleRe2{GoogleRe2: &matcherpb.RegexMatcher_GoogleRE2{}},
+				Regex:      v,
+			},
+		},
+	}
+}

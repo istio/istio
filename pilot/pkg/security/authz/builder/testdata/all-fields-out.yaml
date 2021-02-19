@@ -498,6 +498,13 @@ typedConfig:
                       presentMatch: true
             - orIds:
                 ids:
+                - header:
+                    name: X-header-regex
+                    safeRegexMatch:
+                      googleRe2: {}
+                      regex: some.*value
+            - orIds:
+                ids:
                 - directRemoteIp:
                     addressPrefix: 10.10.10.10
                     prefixLen: 32

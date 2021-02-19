@@ -46,6 +46,8 @@ const (
 	attrConnSNI          = "connection.sni"              // server name indication, e.g. "www.example.com".
 	attrEnvoyFilter      = "experimental.envoy.filters." // an experimental attribute for checking Envoy Metadata directly.
 
+	attrRequestRegexHeader = "request.regex.headers" // header name is surrounded by brackets, e.g. "request.regex.headers[User-Agent]".
+
 	// Internal names used to generate corresponding Envoy matcher.
 	methodHeader = ":method"
 	pathMatcher  = "path-matcher"
@@ -105,6 +107,8 @@ func New(r *authzpb.Rule) (*Model, error) {
 			basePrincipal.appendLast(requestPresenterGenerator{}, k, when.Values, when.NotValues)
 		case strings.HasPrefix(k, attrRequestHeader):
 			basePrincipal.appendLast(requestHeaderGenerator{}, k, when.Values, when.NotValues)
+		case strings.HasPrefix(k, attrRequestRegexHeader):
+			basePrincipal.appendLast(requestRegexHeaderGenerator{}, k, when.Values, when.NotValues)
 		case strings.HasPrefix(k, attrRequestClaims):
 			basePrincipal.appendLast(requestClaimGenerator{}, k, when.Values, when.NotValues)
 		default:

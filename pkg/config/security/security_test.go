@@ -108,6 +108,16 @@ func TestValidateCondition(t *testing.T) {
 			wantError: true,
 		},
 		{
+			key:       "request.regex.headers[]",
+			values:    []string{"some.*value"},
+			wantError: true,
+		},
+		{
+			key:       "request.regex.headers[X-header-regex]",
+			values:    []string{"some.*value"},
+			wantError: false,
+		},
+		{
 			key:    "source.ip",
 			values: []string{"1.2.3.4", "5.6.7.0/24"},
 		},
