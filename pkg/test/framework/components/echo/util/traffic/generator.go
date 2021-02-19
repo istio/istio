@@ -43,13 +43,12 @@ type Config struct {
 // causing it to send a request to the destination echo server. Results are
 // captured for each request for later processing.
 type Generator interface {
-	// Run the Generator and start sending traffic.
-	Run(stop chan struct{})
+	// Start sending traffic.
+	Start()
 
-	// WaitForResult waits for a short while for in-flight requests to complete.
-	// It is expected that the stop channel will be closed in order for this function
-	// to return successfully. Returns the Result, or an error if the wait timed out.
-	WaitForResult(timeout time.Duration) (Result, error)
+	// Stop sending traffic and wait for any in-flight requests to complete.
+	// Returns the Result, or an error if the wait timed out.
+	Stop(timeout time.Duration) (Result, error)
 }
 
 // NewGenerator returns a new Generator with the given configuration.
@@ -57,6 +56,7 @@ func NewGenerator(cfg Config) Generator {
 	fillInDefaults(&cfg)
 	return &generator{
 		Config:  cfg,
+		stop:    make(chan struct{}),
 		stopped: make(chan struct{}),
 	}
 }
@@ -66,25 +66,32 @@ var _ Generator = &generator{}
 type generator struct {
 	Config
 	result  Result
+	stop    chan struct{}
 	stopped chan struct{}
 }
 
-func (g *generator) Run(stop chan struct{}) {
-	for {
+func (g *generator) Start() {
+	go func() {
 		t := time.NewTimer(g.Interval)
-		select {
-		case <-stop:
-			t.Stop()
-			close(g.stopped)
-			return
-		case <-t.C:
-			g.result.add(g.Source.Call(g.Options))
-			t.Reset(g.Interval)
+		for {
+			select {
+			case <-g.stop:
+				t.Stop()
+				close(g.stopped)
+				return
+			case <-t.C:
+				g.result.add(g.Source.Call(g.Options))
+				t.Reset(g.Interval)
+			}
 		}
-	}
+	}()
 }
 
-func (g *generator) WaitForResult(timeout time.Duration) (Result, error) {
+func (g *generator) Stop(timeout time.Duration) (Result, error) {
+	// Trigger the generator to stop.
+	close(g.stop)
+
+	// Wait for the generator to exit.
 	t := time.NewTimer(timeout)
 	select {
 	case <-g.stopped:
