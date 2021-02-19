@@ -1,0 +1,10 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: installation
+issue:
+  - 30833
+
+releaseNotes:
+  - |
+    **Fixed** istio operator prunes the resource that doesn't belong to specific istio operator CR.
+
