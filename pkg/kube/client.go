@@ -31,7 +31,7 @@ import (
 	"github.com/hashicorp/go-multierror"
 	"go.uber.org/atomic"
 	"google.golang.org/grpc/credentials"
-	"k8s.io/api/core/v1"
+	v1 "k8s.io/api/core/v1"
 	kubeExtClient "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	extfake "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset/fake"
 	"k8s.io/apimachinery/pkg/api/meta"
@@ -68,13 +68,9 @@ import (
 	gatewayapiclient "sigs.k8s.io/gateway-api/pkg/client/clientset/versioned"
 	gatewayapifake "sigs.k8s.io/gateway-api/pkg/client/clientset/versioned/fake"
 	gatewayapiinformer "sigs.k8s.io/gateway-api/pkg/client/informers/externalversions"
-
 	mcsapisClient "sigs.k8s.io/mcs-api/pkg/client/clientset/versioned"
 	mcsapisfake "sigs.k8s.io/mcs-api/pkg/client/clientset/versioned/fake"
 	mcsapisInformer "sigs.k8s.io/mcs-api/pkg/client/informers/externalversions"
-	serviceapisclient "sigs.k8s.io/service-apis/pkg/client/clientset/versioned"
-	serviceapisfake "sigs.k8s.io/service-apis/pkg/client/clientset/versioned/fake"
-	serviceapisinformer "sigs.k8s.io/service-apis/pkg/client/informers/externalversions"
 
 	"istio.io/api/label"
 	istioclient "istio.io/client-go/pkg/clientset/versioned"

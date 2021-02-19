@@ -20,7 +20,8 @@ import (
 	"errors"
 	"io/ioutil"
 	"testing"
-	"k8s.io/apimachinery/pkg/apis/meta/v1"
+
+	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/istio"
