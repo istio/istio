@@ -261,6 +261,11 @@ type ClusterInstances struct {
 	AllInstances    []*model.ServiceInstance
 }
 
+type clusterKey struct {
+	Hostname host.Name
+	Port     int
+}
+
 func (configgen *ConfigGeneratorImpl) buildInboundClusters(cb *ClusterBuilder, instances []*model.ServiceInstance, cp clusterPatcher) []*cluster.Cluster {
 	clusters := make([]*cluster.Cluster, 0)
 
@@ -284,6 +289,7 @@ func (configgen *ConfigGeneratorImpl) buildInboundClusters(cb *ClusterBuilder, i
 			return nil
 		}
 
+		clustersToBuild := make(map[clusterKey][]*model.ServiceInstance)
 		for _, instance := range instances {
 			// Filter out service instances with the same port as we are going to mark them as duplicates any way
 			// in normalizeClusters method.
@@ -295,8 +301,14 @@ func (configgen *ConfigGeneratorImpl) buildInboundClusters(cb *ClusterBuilder, i
 				// Istio 1.8.1+ switched to keying on EndpointPort. We need both logics in place to support smooth upgrade from 1.8.0 to 1.8.x
 				ep = int(instance.Endpoint.EndpointPort)
 			}
-			localCluster := cb.buildInboundClusterForPortOrUDS(cb.proxy, ep, actualLocalHost, instance, instances)
-			clusters = cp.conditionallyAppend(clusters, []host.Name{instance.Service.Hostname}, localCluster)
+			key := clusterKey{Port: ep, Hostname: instance.Service.Hostname}
+			clustersToBuild[key] = append(clustersToBuild[key], instance)
+		}
+
+		for key, instancesToBuild := range clustersToBuild {
+			instance := instancesToBuild[0]
+			localCluster := cb.buildInboundClusterForPortOrUDS(cb.proxy, key.Port, actualLocalHost, instance, instancesToBuild)
+			clusters = cp.conditionallyAppend(clusters, []host.Name{key.Hostname}, localCluster)
 		}
 
 		return clusters
