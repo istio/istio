@@ -15,12 +15,12 @@ telemetry:
     enabled: true
     metadataExchange:
       # Indicates whether to enable WebAssembly runtime for metadata exchange filter.
-      wasmEnabled: true
+      wasmEnabled: false
     # Indicate if prometheus stats filter is enabled or not
     prometheus:
       enabled: true
       # Indicates whether to enable WebAssembly runtime for stats filter.
-      wasmEnabled: true
+      wasmEnabled: false
       # overrides stats EnvoyFilter configuration.
       configOverride:
         gateway: {}
@@ -29,10 +29,9 @@ telemetry:
     # stackdriver filter settings.
     stackdriver:
       enabled: false
-      logging: true
-      monitoring: true
+      inboundAccessLogging: "FULL"
+      outboundAccessLogging: "ERRORS_ONLY"
       topology: true
-      disableOutbound: false
       #  configOverride parts give you the ability to override the low level configuration params passed to envoy filter.
 
       configOverride: {}
@@ -43,7 +42,7 @@ telemetry:
       #  disable_host_header_fallback: true
     # Access Log Policy Filter Settings. This enables filtering of access logs from stackdriver.
     accessLogPolicy:
-      enabled: true
+      enabled: false
       # To reduce the number of successful logs, default log window duration is
       # set to 12 hours.
       logWindowDuration: "43200s"
