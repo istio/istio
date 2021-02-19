@@ -84,19 +84,46 @@ func (configgen *ConfigGeneratorImpl) BuildHTTPRoutes(node *model.Proxy, push *m
 // buildSidecarInboundHTTPRouteConfig builds the route config with a single wildcard virtual host on the inbound path
 // TODO: trace decorators, inbound timeouts
 func (configgen *ConfigGeneratorImpl) buildSidecarInboundHTTPRouteConfig(
-	node *model.Proxy, push *model.PushContext, instance *model.ServiceInstance, clusterName string) *route.RouteConfiguration {
-	traceOperation := traceOperation(string(instance.Service.Hostname), instance.ServicePort.Port)
-	defaultRoute := istio_route.BuildDefaultHTTPInboundRoute(node, clusterName, traceOperation)
+	node *model.Proxy, push *model.PushContext, instance *model.ServiceInstance, clusterName string, hostnames []host.Name) *route.RouteConfiguration {
 
-	inboundVHost := &route.VirtualHost{
+	virtualHosts := make([]*route.VirtualHost, 0)
+
+	for _, hostname := range hostnames {
+		hostnameStr := string(hostname)
+		if hostnameStr == "" {
+			continue
+		}
+
+		var clusterNameForEachHost string
+		if clusterName != "" {
+			clusterNameForEachHost = clusterName
+		} else {
+			clusterNameForEachHost = model.BuildSubsetKey(model.TrafficDirectionInbound, instance.ServicePort.Name, hostname, instance.ServicePort.Port)
+		}
+
+		virtualHosts = append(virtualHosts, &route.VirtualHost{
+			Name:    inboundVirtualHostPrefix + hostnameStr + "|" + strconv.Itoa(instance.ServicePort.Port), // Format: "inbound|http|%s|%d"
+			Domains: []string{fmt.Sprintf("%s:%d", hostname, instance.ServicePort.Port), hostnameStr},
+			Routes: []*route.Route{
+				istio_route.BuildDefaultHTTPInboundRoute(node, clusterNameForEachHost, traceOperation(hostnameStr, instance.ServicePort.Port)),
+			},
+		})
+	}
+
+	if clusterName == "" {
+		clusterName = model.BuildSubsetKey(model.TrafficDirectionInbound, instance.ServicePort.Name, instance.Service.Hostname, instance.ServicePort.Port)
+	}
+	virtualHosts = append(virtualHosts, &route.VirtualHost{
 		Name:    inboundVirtualHostPrefix + strconv.Itoa(instance.ServicePort.Port), // Format: "inbound|http|%d"
 		Domains: []string{"*"},
-		Routes:  []*route.Route{defaultRoute},
-	}
+		Routes: []*route.Route{
+			istio_route.BuildDefaultHTTPInboundRoute(node, clusterName, traceOperation(string(instance.Service.Hostname), instance.ServicePort.Port)),
+		},
+	})
 
 	r := &route.RouteConfiguration{
 		Name:             clusterName,
-		VirtualHosts:     []*route.VirtualHost{inboundVHost},
+		VirtualHosts:     virtualHosts,
 		ValidateClusters: proto.BoolFalse,
 	}
 

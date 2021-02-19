@@ -39,6 +39,9 @@ import (
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
+	"istio.io/pkg/log"
+	"istio.io/pkg/monitoring"
+
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	istionetworking "istio.io/istio/pilot/pkg/networking"
@@ -53,8 +56,6 @@ import (
 	"istio.io/istio/pkg/proto"
 	"istio.io/istio/pkg/util/gogo"
 	"istio.io/istio/pkg/util/protomarshal"
-	"istio.io/pkg/log"
-	"istio.io/pkg/monitoring"
 )
 
 const (
@@ -268,10 +269,11 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundListeners(
 	node *model.Proxy,
 	push *model.PushContext) []*listener.Listener {
 	var listeners []*listener.Listener
-	listenerMap := make(map[int]*inboundListenerEntry)
 
 	sidecarScope := node.SidecarScope
 	noneMode := node.GetInterceptionMode() == model.InterceptionNone
+
+	portSet := make(map[int]bool)
 
 	if !sidecarScope.HasCustomIngressListeners {
 		// There is no user supplied sidecarScope for this namespace
@@ -304,6 +306,15 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundListeners(
 		//
 		//	The pilot will generate three listeners, the last one will use protocol sniffing.
 		//
+
+		portHostnameMap := make(map[int]map[host.Name]bool)
+		for _, instance := range node.ServiceInstances {
+			if _, exist := portHostnameMap[instance.ServicePort.Port]; !exist {
+				portHostnameMap[instance.ServicePort.Port] = make(map[host.Name]bool)
+			}
+			portHostnameMap[instance.ServicePort.Port][instance.Service.Hostname] = true
+		}
+
 		for _, instance := range node.ServiceInstances {
 			endpoint := instance.Endpoint
 			// Inbound listeners will be aggregated into a single virtual listener (port 15006)
@@ -337,8 +348,15 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundListeners(
 				Push:             push,
 			}
 
-			if l := configgen.buildSidecarInboundListenerForPortOrUDS(node, listenerOpts, pluginParams, listenerMap); l != nil {
-				listeners = append(listeners, l)
+			if !portSet[instance.ServicePort.Port] {
+				hosts := make([]host.Name, 0, len(portHostnameMap[instance.ServicePort.Port]))
+				for h := range portHostnameMap[instance.ServicePort.Port] {
+					hosts = append(hosts, h)
+				}
+				if l := configgen.buildSidecarInboundListenerForPortOrUDS(node, listenerOpts, pluginParams, hosts); l != nil {
+					listeners = append(listeners, l)
+				}
+				portSet[instance.ServicePort.Port] = true
 			}
 		}
 		return listeners
@@ -399,29 +417,21 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundListeners(
 			Push:            push,
 		}
 
-		if l := configgen.buildSidecarInboundListenerForPortOrUDS(node, listenerOpts, pluginParams, listenerMap); l != nil {
-			listeners = append(listeners, l)
+		if !portSet[listenPort.Port] {
+			if l := configgen.buildSidecarInboundListenerForPortOrUDS(node, listenerOpts, pluginParams, nil); l != nil {
+				listeners = append(listeners, l)
+			}
+			portSet[listenPort.Port] = true
 		}
 	}
 
 	return listeners
 }
 
-func (configgen *ConfigGeneratorImpl) buildSidecarInboundHTTPListenerOptsForPortOrUDS(node *model.Proxy,
-	pluginParams *plugin.InputParams, clusterName string) *httpListenerOpts {
-	if clusterName == "" {
-		// In case of unix domain sockets, the service port will be 0. So use the port name to distinguish the
-		// inbound listeners that a user specifies in Sidecar. Otherwise, all inbound clusters will be the same.
-		// We use the port name as the subset in the inbound cluster for differentiation. Its fine to use port
-		// names here because the inbound clusters are not referred to anywhere in the API, unlike the outbound
-		// clusters and these are static endpoint clusters used only for sidecar (proxy -> app)
-		clusterName = util.BuildInboundSubsetKey(node, pluginParams.ServiceInstance.ServicePort.Name,
-			pluginParams.ServiceInstance.Service.Hostname, pluginParams.ServiceInstance.ServicePort.Port, int(pluginParams.ServiceInstance.Endpoint.EndpointPort))
-	}
-
+func (configgen *ConfigGeneratorImpl) buildSidecarInboundHTTPListenerOptsForPortOrUDS(node *model.Proxy, pluginParams *plugin.InputParams, clusterName string, hostnames []host.Name) *httpListenerOpts {
 	httpOpts := &httpListenerOpts{
 		routeConfig: configgen.buildSidecarInboundHTTPRouteConfig(pluginParams.Node,
-			pluginParams.Push, pluginParams.ServiceInstance, clusterName),
+			pluginParams.Push, pluginParams.ServiceInstance, clusterName, hostnames),
 		rds:              "", // no RDS for inbound traffic
 		useRemoteAddress: false,
 		connectionManager: &hcm.HttpConnectionManager{
@@ -473,7 +483,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarThriftListenerOptsForPortOrUDS
 // buildSidecarInboundListenerForPortOrUDS creates a single listener on the server-side (inbound)
 // for a given port or unix domain socket
 func (configgen *ConfigGeneratorImpl) buildSidecarInboundListenerForPortOrUDS(node *model.Proxy, listenerOpts buildListenerOpts,
-	pluginParams *plugin.InputParams, listenerMap map[int]*inboundListenerEntry) *listener.Listener {
+	pluginParams *plugin.InputParams, hostnames []host.Name) *listener.Listener {
 	// Local service instances can be accessed through one of four addresses:
 	// unix domain socket, localhost, endpoint IP, and service
 	// VIP. Localhost bypasses the proxy and doesn't need any TCP
@@ -482,21 +492,6 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundListenerForPortOrUDS(no
 	// remote services' kubeproxy to our specific endpoint IP.
 
 	listenerOpts.class = ListenerClassSidecarInbound
-
-	if old, exists := listenerMap[listenerOpts.port.Port]; exists {
-		// If we already setup this hostname, its not a conflict. This may just mean there are multiple
-		// IPs for this hostname
-		if old.instanceHostname != pluginParams.ServiceInstance.Service.Hostname {
-			// For sidecar specified listeners, the caller is expected to supply a dummy service instance
-			// with the right port and a hostname constructed from the sidecar config's name+namespace
-			// TODO everything in inbound listener is now workload oriented. We should no longer have listener conflicts.
-			pluginParams.Push.AddMetric(model.ProxyStatusConflictInboundListener, pluginParams.Node.ID, pluginParams.Node.ID,
-				fmt.Sprintf("Conflicting inbound listener:%d. existing: %s, incoming: %s", listenerOpts.port.Port,
-					old.instanceHostname, pluginParams.ServiceInstance.Service.Hostname))
-		}
-		// Skip building listener for the same port
-		return nil
-	}
 
 	var allChains []istionetworking.FilterChain
 	for _, p := range configgen.Plugins {
@@ -573,7 +568,7 @@ allChainsLabel:
 				filterChainMatch.ApplicationProtocols = append(filterChainMatch.ApplicationProtocols, mtlsHTTPALPNs...)
 			}
 
-			httpOpts = configgen.buildSidecarInboundHTTPListenerOptsForPortOrUDS(node, pluginParams, "")
+			httpOpts = configgen.buildSidecarInboundHTTPListenerOptsForPortOrUDS(node, pluginParams, "", hostnames)
 
 		case istionetworking.ListenerProtocolThrift:
 			filterChainMatch = chain.FilterChainMatch
@@ -599,7 +594,7 @@ allChainsLabel:
 			fcm.TransportProtocol = filterChainMatchOption[id].TransportProtocol
 			filterChainMatch = fcm
 			if filterChainMatchOption[id].Protocol == istionetworking.ListenerProtocolHTTP {
-				httpOpts = configgen.buildSidecarInboundHTTPListenerOptsForPortOrUDS(node, pluginParams, "")
+				httpOpts = configgen.buildSidecarInboundHTTPListenerOptsForPortOrUDS(node, pluginParams, "", hostnames)
 				if chain.TLSContext != nil && chain.TLSContext.CommonTlsContext != nil {
 					chain.TLSContext.CommonTlsContext.AlpnProtocols = dropAlpnFromList(
 						chain.TLSContext.CommonTlsContext.AlpnProtocols, tcpMxcALPN)
@@ -641,14 +636,7 @@ allChainsLabel:
 		return nil
 	}
 
-	listenerMap[listenerOpts.port.Port] = &inboundListenerEntry{
-		instanceHostname: pluginParams.ServiceInstance.Service.Hostname,
-	}
 	return mutable.Listener
-}
-
-type inboundListenerEntry struct {
-	instanceHostname host.Name // could be empty if generated via Sidecar CRD
 }
 
 type outboundListenerEntry struct {
