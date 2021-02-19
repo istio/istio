@@ -77,7 +77,7 @@ var testMesh = meshconfig.MeshConfig{
 }
 
 func TestHTTPCircuitBreakerThresholds(t *testing.T) {
-	checkClusters := []string{"outbound|8080||*.example.org", "inbound|10001||"}
+	checkClusters := []string{"outbound|8080||*.example.org", "inbound|10001||*.example.org"}
 	settings := []*networking.ConnectionPoolSettings{
 		nil,
 		{
@@ -153,7 +153,7 @@ func TestCommonHttpProtocolOptions(t *testing.T) {
 			clusters:                  8,
 		},
 		{
-			clusterName:               "inbound|10001||",
+			clusterName:               "inbound|10001||*.example.org",
 			useDownStreamProtocol:     false,
 			sniffingEnabledForInbound: false,
 			proxyType:                 model.SidecarProxy,
@@ -167,7 +167,7 @@ func TestCommonHttpProtocolOptions(t *testing.T) {
 			clusters:                  8,
 		},
 		{
-			clusterName:               "inbound|10002||",
+			clusterName:               "inbound|10002||*.example.org",
 			useDownStreamProtocol:     true,
 			sniffingEnabledForInbound: true,
 			proxyType:                 model.SidecarProxy,
@@ -1089,7 +1089,7 @@ func TestStatNamePattern(t *testing.T) {
 		},
 	})
 	g.Expect(xdstest.ExtractCluster("outbound|8080||*.example.org", clusters).AltStatName).To(Equal("*.example.org_default_8080"))
-	g.Expect(xdstest.ExtractCluster("inbound|10001||", clusters).AltStatName).To(Equal("LocalService_*.example.org"))
+	g.Expect(xdstest.ExtractCluster("inbound|10001||*.example.org", clusters).AltStatName).To(Equal("LocalService_*.example.org"))
 }
 
 func TestDuplicateClusters(t *testing.T) {
