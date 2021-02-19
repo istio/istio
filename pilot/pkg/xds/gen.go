@@ -124,13 +124,17 @@ func (s *DiscoveryServer) pushXds(con *Connection, push *model.PushContext,
 
 	// Some types handle logs inside Generate, skip them here
 	if _, f := SkipLogTypes[w.TypeUrl]; !f {
+		typeMessage := ""
+		if req.PushType == model.PushTypeRequest {
+			typeMessage = " for request"
+		}
 		if adsLog.DebugEnabled() {
 			// Add additional information to logs when debug mode enabled
-			adsLog.Infof("%s: PUSH for node:%s resources:%d size:%s nonce:%v version:%v",
-				v3.GetShortType(w.TypeUrl), con.proxy.ID, len(res), util.ByteCount(ResourceSize(res)), resp.Nonce, resp.VersionInfo)
+			adsLog.Infof("%s: PUSH%s for node:%s resources:%d size:%s nonce:%v version:%v",
+				v3.GetShortType(w.TypeUrl), typeMessage, con.proxy.ID, len(res), util.ByteCount(ResourceSize(res)), resp.Nonce, resp.VersionInfo)
 		} else {
-			adsLog.Infof("%s: PUSH for node:%s resources:%d size:%s",
-				v3.GetShortType(w.TypeUrl), con.proxy.ID, len(res), util.ByteCount(ResourceSize(res)))
+			adsLog.Infof("%s: PUSH%s for node:%s resources:%d size:%s",
+				v3.GetShortType(w.TypeUrl), typeMessage, con.proxy.ID, len(res), util.ByteCount(ResourceSize(res)))
 		}
 	}
 	return nil

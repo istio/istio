@@ -307,7 +307,18 @@ type PushRequest struct {
 	// There should only be multiple reasons if the push request is the result of two distinct triggers, rather than
 	// classifying a single trigger as having multiple reasons.
 	Reason []TriggerReason
+
+	// PushType declares the type of push this is. Support values are currently PushTypeRequest, for
+	// responses to XDS requests, and PushTypePush for Istiod-originated pushes.
+	PushType PushType
 }
+
+type PushType string
+
+const (
+	PushTypeRequest PushType = "request"
+	PushTypePush    PushType = "push"
+)
 
 type TriggerReason string
 
