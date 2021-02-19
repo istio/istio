@@ -164,10 +164,10 @@ func TestInboundClusters(t *testing.T) {
 				"inbound|8083||" + string(serviceAlt.Hostname): {"127.0.0.1:8083"},
 			},
 			telemetry: map[string][]string{
-				"inbound|8080||" + string(service.Hostname):    {string(serviceAlt.Hostname), string(service.Hostname)},
-				"inbound|8081||" + string(service.Hostname):    {string(serviceAlt.Hostname), string(service.Hostname)},
-				"inbound|8082||" + string(serviceAlt.Hostname): {string(serviceAlt.Hostname), string(service.Hostname)},
-				"inbound|8083||" + string(serviceAlt.Hostname): {string(serviceAlt.Hostname), string(service.Hostname)},
+				"inbound|8080||" + string(service.Hostname):    {string(service.Hostname)},
+				"inbound|8081||" + string(service.Hostname):    {string(service.Hostname)},
+				"inbound|8082||" + string(serviceAlt.Hostname): {string(serviceAlt.Hostname)},
+				"inbound|8083||" + string(serviceAlt.Hostname): {string(serviceAlt.Hostname)},
 			},
 		},
 		{
@@ -185,10 +185,10 @@ func TestInboundClusters(t *testing.T) {
 				"inbound|8081||" + string(serviceAlt.Hostname): {"127.0.0.1:8081"},
 			},
 			telemetry: map[string][]string{
-				"inbound|8080||" + string(service.Hostname):    {string(serviceAlt.Hostname), string(service.Hostname)},
-				"inbound|8081||" + string(service.Hostname):    {string(serviceAlt.Hostname), string(service.Hostname)},
-				"inbound|8080||" + string(serviceAlt.Hostname): {string(serviceAlt.Hostname), string(service.Hostname)},
-				"inbound|8081||" + string(serviceAlt.Hostname): {string(serviceAlt.Hostname), string(service.Hostname)},
+				"inbound|8080||" + string(service.Hostname):    {string(service.Hostname)},
+				"inbound|8081||" + string(service.Hostname):    {string(service.Hostname)},
+				"inbound|8080||" + string(serviceAlt.Hostname): {string(serviceAlt.Hostname)},
+				"inbound|8081||" + string(serviceAlt.Hostname): {string(serviceAlt.Hostname)},
 			},
 		},
 		{
@@ -344,10 +344,10 @@ func TestInboundClusters(t *testing.T) {
 				"inbound|81||" + string(serviceAlt.Hostname): {"127.0.0.1:8083"},
 			},
 			telemetry: map[string][]string{
-				"inbound|80||" + string(service.Hostname):    {string(serviceAlt.Hostname), string(service.Hostname)},
-				"inbound|80||" + string(serviceAlt.Hostname): {string(serviceAlt.Hostname), string(service.Hostname)},
-				"inbound|81||" + string(service.Hostname):    {string(serviceAlt.Hostname), string(service.Hostname)},
-				"inbound|81||" + string(serviceAlt.Hostname): {string(serviceAlt.Hostname), string(service.Hostname)},
+				"inbound|80||" + string(service.Hostname):    {string(service.Hostname)},
+				"inbound|80||" + string(serviceAlt.Hostname): {string(serviceAlt.Hostname)},
+				"inbound|81||" + string(service.Hostname):    {string(service.Hostname)},
+				"inbound|81||" + string(serviceAlt.Hostname): {string(serviceAlt.Hostname)},
 			},
 		},
 		{
@@ -366,10 +366,10 @@ func TestInboundClusters(t *testing.T) {
 				"inbound|81||" + string(serviceAlt.Hostname): {"127.0.0.1:8081"},
 			},
 			telemetry: map[string][]string{
-				"inbound|80||" + string(service.Hostname):    {string(serviceAlt.Hostname), string(service.Hostname)},
-				"inbound|80||" + string(serviceAlt.Hostname): {string(serviceAlt.Hostname), string(service.Hostname)},
-				"inbound|81||" + string(service.Hostname):    {string(serviceAlt.Hostname), string(service.Hostname)},
-				"inbound|81||" + string(serviceAlt.Hostname): {string(serviceAlt.Hostname), string(service.Hostname)},
+				"inbound|80||" + string(service.Hostname):    {string(service.Hostname)},
+				"inbound|80||" + string(serviceAlt.Hostname): {string(serviceAlt.Hostname)},
+				"inbound|81||" + string(service.Hostname):    {string(service.Hostname)},
+				"inbound|81||" + string(serviceAlt.Hostname): {string(serviceAlt.Hostname)},
 			},
 		},
 		{
