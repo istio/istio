@@ -15,8 +15,16 @@
 package plugin
 
 import (
+	"fmt"
+	"io/ioutil"
+	"os"
 	"testing"
 	"time"
+
+	"github.com/google/uuid"
+
+	"istio.io/istio/pkg/test/util/retry"
+	"istio.io/istio/tests/util/leak"
 )
 
 var (
@@ -94,4 +102,218 @@ func TestShouldRotate(t *testing.T) {
 			}
 		})
 	}
+}
+
+func creatJWTFile(path string) error {
+	if path == "" {
+		return nil
+	}
+	f, err := os.Create(path)
+	if err != nil {
+		return err
+	}
+	f.Close()
+	return nil
+}
+
+func getJWTFromFile(path string) (string, error) {
+	if path == "" {
+		return "", nil
+	}
+	data, err := ioutil.ReadFile(path)
+	if err != nil {
+		return "", err
+	}
+	return string(data), nil
+}
+
+func getTokenFromServer(t *testing.T, p *GCEPlugin, callReps int) ([]string, []error) {
+	t.Helper()
+	var tokens []string
+	var errs []error
+	for i := 0; i < callReps; i++ {
+		token, err := p.GetPlatformCredential()
+		tokens = append(tokens, token)
+		errs = append(errs, err)
+	}
+	return tokens, errs
+}
+
+func verifyError(t *testing.T, id string, errs []error, expectedErr error) {
+	t.Helper()
+	for _, err := range errs {
+		if err == nil && expectedErr != nil || err != nil && expectedErr == nil {
+			t.Errorf("%s, GetPlatformCredential() returns err: %v, want: %v", id, err, expectedErr)
+		} else if err != nil && expectedErr != nil && err.Error() != expectedErr.Error() {
+			t.Errorf("%s, GetPlatformCredential() returns err: %v, want: %v", id, err, expectedErr)
+		}
+	}
+}
+
+func verifyToken(t *testing.T, id, jwtPath string, tokens []string, expectedToken string) {
+	t.Helper()
+	for i, token := range tokens {
+		// if expectedToken is not set, mock metadata server returns an auto-generated fake token.
+		wantToken := fmt.Sprintf("%s%d", fakeTokenPrefix, i+1)
+		if expectedToken != "" {
+			wantToken = expectedToken
+		}
+		if token != wantToken {
+			t.Errorf("%s, #%d call to GetPlatformCredential() returns token: %s, want: %s",
+				id, i, token, wantToken)
+		}
+		if jwtPath != "" && i+1 == len(tokens) {
+			// If this is the last round, and JWT path is set, check JWT in the file.
+			jwtFile, err := getJWTFromFile(jwtPath)
+			if err != nil {
+				t.Fatalf("%s, failed to read token from file %s: %v", id, jwtPath, err)
+			}
+			if jwtFile != wantToken {
+				t.Errorf("%s, %s has token %s, want %s", id, jwtPath, jwtFile, wantToken)
+			}
+		}
+	}
+}
+
+func TestGCEPlugin(t *testing.T) {
+	testCases := map[string]struct {
+		jwt           string
+		jwtPath       string
+		expectedToken string
+		expectedCall  int
+		expectedErr   error
+	}{
+		"get VM credential": {
+			jwt:           thirdPartyJwt,
+			jwtPath:       fmt.Sprintf("/tmp/security-pkg-credentialfetcher-plugin-gcetest-%s", uuid.New().String()),
+			expectedToken: thirdPartyJwt,
+			expectedCall:  1,
+		},
+		"jwt path not set": {
+			jwt:          thirdPartyJwt,
+			expectedCall: 1,
+			expectedErr:  fmt.Errorf("jwtPath is unset"),
+		},
+		"fetch credential multiple times": {
+			expectedCall: 5,
+			jwtPath:      fmt.Sprintf("/tmp/security-pkg-credentialfetcher-plugin-gcetest-%s", uuid.New().String()),
+		},
+	}
+
+	SetTokenRotation(false)
+	ms, err := StartMetadataServer()
+	if err != nil {
+		t.Fatalf("StartMetadataServer() returns err: %v", err)
+	}
+	t.Cleanup(func() {
+		ms.Stop()
+		SetTokenRotation(true)
+	})
+
+	for id, tc := range testCases {
+		p := GCEPlugin{
+			tokenCache: tc.jwt,
+			jwtPath:    tc.jwtPath,
+		}
+		if err := creatJWTFile(tc.jwtPath); err != nil {
+			t.Fatalf("%s, creatJWTFile() returns err: %v", id, err)
+		}
+		ms.Reset()
+		ms.setToken(tc.jwt)
+
+		tokens, errs := getTokenFromServer(t, &p, tc.expectedCall)
+
+		verifyError(t, id, errs, tc.expectedErr)
+		if tc.expectedErr == nil {
+			if ms.NumGetTokenCall() != tc.expectedCall {
+				t.Errorf("%s, metadata server receives %d calls, want %d",
+					id, ms.NumGetTokenCall(), tc.expectedCall)
+			}
+			if tc.jwtPath != "" {
+				verifyToken(t, id, tc.jwtPath, tokens, tc.expectedToken)
+			}
+		}
+	}
+}
+
+func TestTokenRotationJob(t *testing.T) {
+	testCases := map[string]struct {
+		jwt           string
+		jwtPath       string
+		expectedToken string
+		expectedCall  int
+	}{
+		// mock metadata server returns an expired token, that forces rotation job
+		// to fetch new token during each rotation.
+		"expired token needs rotation": {
+			jwt:           thirdPartyJwt,
+			jwtPath:       fmt.Sprintf("/tmp/security-pkg-credentialfetcher-plugin-gcetest-%s", uuid.New().String()),
+			expectedToken: thirdPartyJwt,
+			expectedCall:  5,
+		},
+		// mock metadata server returns a token which has no exp field, that forces rotation job
+		// to fetch new token during each rotation.
+		"token with no expiration time needs rotation": {
+			jwt:           firstPartyJwt,
+			jwtPath:       fmt.Sprintf("/tmp/security-pkg-credentialfetcher-plugin-gcetest-%s", uuid.New().String()),
+			expectedToken: firstPartyJwt,
+			expectedCall:  5,
+		},
+		// mock metadata server returns an invalid token, that forces rotation job
+		// to fetch new token during each rotation.
+		"invalid token needs rotation": {
+			jwt:           "invalid-token-section-1.invalid-token-section-2",
+			jwtPath:       fmt.Sprintf("/tmp/security-pkg-credentialfetcher-plugin-gcetest-%s", uuid.New().String()),
+			expectedCall:  5,
+			expectedToken: "invalid-token-section-1.invalid-token-section-2",
+		},
+	}
+
+	// starts rotation job every 1 second.
+	rotationInterval = 1 * time.Second
+	SetTokenRotation(true)
+	ms, err := StartMetadataServer()
+	if err != nil {
+		t.Fatalf("StartMetadataServer() returns err: %v", err)
+	}
+	t.Cleanup(func() {
+		ms.Stop()
+		rotationInterval = 5 * time.Minute
+	})
+
+	for id, tc := range testCases {
+		// These tests should not run in parallel because they share one metadata server.
+		t.Run(id, func(t *testing.T) {
+			p := CreateGCEPlugin("", tc.jwtPath, "")
+			if err := creatJWTFile(tc.jwtPath); err != nil {
+				t.Fatalf("%s, creatJWTFile() returns err: %v", id, err)
+			}
+			ms.Reset()
+			ms.setToken(tc.jwt)
+
+			// Verify that rotation job is kicked multiple times.
+			retryTimeout := time.Duration(2+tc.expectedCall) * rotationInterval
+			retry.UntilSuccessOrFail(t, func() error {
+				callNumber := ms.NumGetTokenCall()
+				if callNumber < tc.expectedCall {
+					return fmt.Errorf("%s, got %d token fetch calls, expected %d",
+						id, callNumber, tc.expectedCall)
+				}
+				return nil
+			}, retry.Delay(time.Second), retry.Timeout(retryTimeout))
+
+			jwtFile, err := getJWTFromFile(tc.jwtPath)
+			if err != nil {
+				t.Fatalf("%s, failed to read token from file %s: %v", id, tc.jwtPath, err)
+			}
+			if jwtFile != tc.expectedToken {
+				t.Errorf("%s, %s has token %s, want %s", id, tc.jwtPath, jwtFile, tc.expectedToken)
+			}
+			p.Stop()
+		})
+	}
+}
+
+func TestMain(m *testing.M) {
+	leak.CheckMain(m)
 }

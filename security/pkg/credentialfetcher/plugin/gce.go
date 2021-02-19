@@ -72,6 +72,7 @@ func CreateGCEPlugin(audience, jwtPath, identityProvider string) *GCEPlugin {
 		aud:              audience,
 		jwtPath:          jwtPath,
 		identityProvider: identityProvider,
+		closing:          make(chan bool),
 	}
 	if rotateToken {
 		go p.startTokenRotationJob()
@@ -80,7 +81,7 @@ func CreateGCEPlugin(audience, jwtPath, identityProvider string) *GCEPlugin {
 }
 
 func (p *GCEPlugin) Stop() {
-	p.closing <- true
+	close(p.closing)
 }
 
 func (p *GCEPlugin) startTokenRotationJob() {
@@ -94,6 +95,7 @@ func (p *GCEPlugin) startTokenRotationJob() {
 			if p.rotationTicker != nil {
 				p.rotationTicker.Stop()
 			}
+			return
 		}
 	}
 }
