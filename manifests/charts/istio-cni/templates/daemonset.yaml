@@ -34,7 +34,7 @@ spec:
         sidecar.istio.io/inject: "false"
         # Add Prometheus Scrape annotations
         prometheus.io/scrape: 'true'
-        prometheus.io/port: 2112
+        prometheus.io/port: "15014"
         prometheus.io/path: '/metrics'
         # Custom annotations
         {{- if .Values.cni.podAnnotations }}
