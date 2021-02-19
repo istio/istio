@@ -174,6 +174,14 @@ kubectl get -n istio-system cm "istio-${REVISION}"
 if [[ "$?" != "0" ]]; then
   echo "Initializing revision"
   kubectl -n istio-system create cm "istio-${REVISION}" --from-file mesh=/etc/istio/config/mesh.yaml
+  # Kube-inject requires the injection files
+  # Note that we don't support cluster-side modifications of the files. Istiod
+  # will use the local files from the image (config, values).
+  # Any customization to injection template will need to have a support policy and
+  # use mesh config or other APIs.
+  kubectl -n istio-system create cm "istio-sidecar-injector-${REVISION}" \
+    --from-file config=/var/lib/istio/inject/config \
+    --from-file values=/var/lib/istio/inject/values
 fi
 
 
@@ -203,7 +211,7 @@ export TOKEN_AUDIENCES="${PROJECT}.svc.id.goog,istio-ca"
 export ENABLE_STACKDRIVER_MONITORING="${ENABLE_STACKDRIVER_MONITORING:-1}"
 
 export ASM_NODE_ON_FIRST_WORKAROUND=1
-
+export ENABLE_AUTH_DEBUG=1
 env
 
 # shellcheck disable=SC2068

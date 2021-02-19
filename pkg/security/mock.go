@@ -16,7 +16,9 @@ package security
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"net/http"
 	"sync"
 
 	"go.uber.org/atomic"
@@ -79,6 +81,10 @@ func NewFakeAuthenticator(name string) *FakeAuthenticator {
 		Successes: atomic.NewInt32(0),
 		Failures:  atomic.NewInt32(0),
 	}
+}
+
+func (f *FakeAuthenticator) AuthenticateRequest(req *http.Request) (*Caller, error) {
+	return nil, errors.New("not implemented")
 }
 
 func (f *FakeAuthenticator) Authenticate(ctx context.Context) (*Caller, error) {
