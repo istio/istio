@@ -5,4 +5,4 @@ issue:
 - 29843
 releaseNotes:
 - |
-  **Fixed** an issue where Wasm plugin configuration update will cause request to be rejected.
+  **Fixed** an issue where Wasm plugin configuration update will cause request to fail.
