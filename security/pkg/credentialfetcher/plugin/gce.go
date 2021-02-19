@@ -18,16 +18,35 @@ package plugin
 import (
 	"fmt"
 	"io/ioutil"
+	"sync"
+	"time"
 
 	"cloud.google.com/go/compute/metadata"
 
 	"istio.io/istio/pkg/security"
+	"istio.io/istio/security/pkg/util"
 	"istio.io/pkg/log"
 )
 
 var (
 	gcecredLog = log.RegisterScope("gcecred", "GCE credential fetcher for istio agent", 0)
 )
+
+// Token refresh frequency is default to 5 minutes.
+var rotationInterval = 5 * time.Minute
+
+// GCE VM credential needs refresh if remaining life time is below 25 minutes.
+var gracePeriod = 25 * time.Minute
+
+// rotateToken determines whether to start periodic token rotation job.
+// This is enabled by default.
+var rotateToken = true
+
+// SetTokenRotation enable/disable periodic token rotation job.
+// This is only for testing purpose, not thread safe.
+func SetTokenRotation(enable bool) {
+	rotateToken = enable
+}
 
 // The plugin object.
 type GCEPlugin struct {
@@ -40,6 +59,13 @@ type GCEPlugin struct {
 
 	// identity provider
 	identityProvider string
+
+	// token refresh
+	rotationTicker *time.Ticker
+	closing        chan bool
+	tokenCache     string
+	// mutex lock is required to avoid race condition when updating token file and token cache.
+	tokenMutex sync.RWMutex
 }
 
 // CreateGCEPlugin creates a Google credential fetcher plugin. Return the pointer to the created plugin.
@@ -48,8 +74,58 @@ func CreateGCEPlugin(audience, jwtPath, identityProvider string) *GCEPlugin {
 		aud:              audience,
 		jwtPath:          jwtPath,
 		identityProvider: identityProvider,
+		closing:          make(chan bool),
+	}
+	if rotateToken {
+		go p.startTokenRotationJob()
 	}
 	return p
+}
+
+func (p *GCEPlugin) Stop() {
+	close(p.closing)
+}
+
+func (p *GCEPlugin) startTokenRotationJob() {
+	// Wake up once in a while and refresh GCE VM credential.
+	p.rotationTicker = time.NewTicker(rotationInterval)
+	for {
+		select {
+		case <-p.rotationTicker.C:
+			p.rotate()
+		case <-p.closing:
+			if p.rotationTicker != nil {
+				p.rotationTicker.Stop()
+			}
+			return
+		}
+	}
+}
+
+func (p *GCEPlugin) rotate() {
+	if p.shouldRotate(time.Now()) {
+		if _, err := p.GetPlatformCredential(); err != nil {
+			gcecredLog.Errorf("credential refresh failed: %+v", err)
+		}
+	}
+}
+
+func (p *GCEPlugin) shouldRotate(now time.Time) bool {
+	p.tokenMutex.RLock()
+	defer p.tokenMutex.RUnlock()
+
+	if p.tokenCache == "" {
+		return true
+	}
+	exp, err := util.GetExp(p.tokenCache)
+	// When fails to get expiration time from token, always refresh the token.
+	if err != nil || exp.IsZero() {
+		return true
+	}
+	rotate := now.After(exp.Add(-gracePeriod))
+	gcecredLog.Debugf("credential expiration: %s, grace period: %s, should rotate: %t",
+		exp.String(), gracePeriod.String(), rotate)
+	return rotate
 }
 
 // GetPlatformCredential fetches the GCE VM identity jwt token from its metadata server,
@@ -57,6 +133,9 @@ func CreateGCEPlugin(audience, jwtPath, identityProvider string) *GCEPlugin {
 // Envoy STS client and istio agent to fetch certificate and access token.
 // Note: this function only works in a GCE VM environment.
 func (p *GCEPlugin) GetPlatformCredential() (string, error) {
+	p.tokenMutex.Lock()
+	defer p.tokenMutex.Unlock()
+
 	if p.jwtPath == "" {
 		return "", fmt.Errorf("jwtPath is unset")
 	}
@@ -66,6 +145,8 @@ func (p *GCEPlugin) GetPlatformCredential() (string, error) {
 		gcecredLog.Errorf("Failed to get vm identity token from metadata server: %v", err)
 		return "", err
 	}
+	// Update token cache.
+	p.tokenCache = token
 	gcecredLog.Debugf("Got GCE identity token: %d", len(token))
 	tokenbytes := []byte(token)
 	err = ioutil.WriteFile(p.jwtPath, tokenbytes, 0640)

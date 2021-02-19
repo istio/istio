@@ -23,18 +23,19 @@ import (
 	"time"
 )
 
-// IsJwtExpired checks if the JWT token is expired compared with the given time, without validating it.
-func IsJwtExpired(token string, now time.Time) (bool, error) {
+// GetExp returns token expiration time, or error on failures.
+func GetExp(token string) (time.Time, error) {
 	claims, err := parseJwtClaims(token)
 	if err != nil {
-		return true, err
+		return time.Time{}, err
+	}
+
+	if claims["exp"] == nil {
+		// The JWT doesn't have "exp", so it's always valid. E.g., the K8s first party JWT.
+		return time.Time{}, nil
 	}
 
 	var expiration time.Time
-	if claims["exp"] == nil {
-		// The JWT doesn't have "exp", so it's always valid. E.g., the K8s first party JWT.
-		return false, nil
-	}
 	switch exp := claims["exp"].(type) {
 	case float64:
 		expiration = time.Unix(int64(exp), 0)
@@ -42,11 +43,7 @@ func IsJwtExpired(token string, now time.Time) (bool, error) {
 		v, _ := exp.Int64()
 		expiration = time.Unix(v, 0)
 	}
-	if now.After(expiration) {
-		return true, nil
-	}
-	return false, nil
-
+	return expiration, nil
 }
 
 // GetAud returns the claim `aud` from the token. Returns nil if not found.

@@ -119,7 +119,7 @@ func (p *SecureTokenServiceExchanger) ExchangeToken(k8sSAjwt string) (string, er
 
 	body, err := p.requestWithRetry(jsonStr)
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("token exchange failed (aud: %s): %v", aud, err)
 	}
 	respData := &federatedTokenResponse{}
 	if err := json.Unmarshal(body, respData); err != nil {
