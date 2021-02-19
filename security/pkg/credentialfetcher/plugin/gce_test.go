@@ -249,7 +249,7 @@ func TestTokenRotationJob(t *testing.T) {
 			jwt:           thirdPartyJwt,
 			jwtPath:       fmt.Sprintf("/tmp/security-pkg-credentialfetcher-plugin-gcetest-%s", uuid.New().String()),
 			expectedToken: thirdPartyJwt,
-			expectedCall:  5,
+			expectedCall:  3,
 		},
 		// mock metadata server returns a token which has no exp field, that forces rotation job
 		// to fetch new token during each rotation.
@@ -257,20 +257,20 @@ func TestTokenRotationJob(t *testing.T) {
 			jwt:           firstPartyJwt,
 			jwtPath:       fmt.Sprintf("/tmp/security-pkg-credentialfetcher-plugin-gcetest-%s", uuid.New().String()),
 			expectedToken: firstPartyJwt,
-			expectedCall:  5,
+			expectedCall:  3,
 		},
 		// mock metadata server returns an invalid token, that forces rotation job
 		// to fetch new token during each rotation.
 		"invalid token needs rotation": {
 			jwt:           "invalid-token-section-1.invalid-token-section-2",
 			jwtPath:       fmt.Sprintf("/tmp/security-pkg-credentialfetcher-plugin-gcetest-%s", uuid.New().String()),
-			expectedCall:  5,
+			expectedCall:  3,
 			expectedToken: "invalid-token-section-1.invalid-token-section-2",
 		},
 	}
 
-	// starts rotation job every 1 second.
-	rotationInterval = 1 * time.Second
+	// starts rotation job every 0.5 second.
+	rotationInterval = 500 * time.Millisecond
 	SetTokenRotation(true)
 	ms, err := StartMetadataServer()
 	if err != nil {
