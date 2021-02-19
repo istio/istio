@@ -29,10 +29,12 @@ import (
 
 	"istio.io/api/label"
 	"istio.io/api/operator/v1alpha1"
+	v1alpha12 "istio.io/istio/operator/pkg/apis/istio/v1alpha1"
 	"istio.io/istio/operator/pkg/cache"
 	"istio.io/istio/operator/pkg/metrics"
 	"istio.io/istio/operator/pkg/name"
 	"istio.io/istio/operator/pkg/object"
+	"istio.io/istio/operator/pkg/translate"
 	"istio.io/istio/operator/pkg/util"
 	"istio.io/istio/pkg/proxy"
 )
@@ -98,15 +100,21 @@ func (h *HelmReconciler) Prune(manifests name.ManifestMap, all bool) error {
 	})
 }
 
-// PruneControlPlaneByRevisionWithController is called to remove specific control plane revision in specific namespace
+// PruneControlPlaneByRevisionWithController is called to remove specific control plane revision
 // during reconciliation process of controller.
 // It returns the install status and any error encountered.
-func (h *HelmReconciler) PruneControlPlaneByRevisionWithController(ns, revision string) (*v1alpha1.InstallStatus, error) {
+func (h *HelmReconciler) PruneControlPlaneByRevisionWithController(iopSpec *v1alpha1.IstioOperatorSpec) (*v1alpha1.InstallStatus, error) {
+	ns := v1alpha12.Namespace(iopSpec)
 	if ns == "" {
 		ns = name.IstioDefaultNamespace
 	}
 	errStatus := &v1alpha1.InstallStatus{Status: v1alpha1.InstallStatus_ERROR}
-	pids, err := proxy.GetIDsFromProxyInfo("", "", revision, ns)
+	enabledComponents, err := translate.GetEnabledComponents(iopSpec)
+	if err != nil {
+		return errStatus,
+			fmt.Errorf("failed to get enabled components: %v", err)
+	}
+	pids, err := proxy.GetIDsFromProxyInfo("", "", iopSpec.Revision, ns)
 	if err != nil {
 		return errStatus,
 			fmt.Errorf("failed to check proxy infos: %v", err)
@@ -118,11 +126,15 @@ func (h *HelmReconciler) PruneControlPlaneByRevisionWithController(ns, revision 
 		st := &v1alpha1.InstallStatus{Status: v1alpha1.InstallStatus_ACTION_REQUIRED, Message: msg}
 		return st, nil
 	}
-	uslist, err := h.GetPrunedResources(revision, false, "")
-	if err != nil {
-		return errStatus, err
+	var allUslist []*unstructured.UnstructuredList
+	for _, c := range enabledComponents {
+		uslist, err := h.GetPrunedResources(iopSpec.Revision, false, c)
+		if err != nil {
+			return errStatus, err
+		}
+		allUslist = append(allUslist, uslist...)
 	}
-	if err := h.DeleteObjectsList(uslist); err != nil {
+	if err := h.DeleteObjectsList(allUslist); err != nil {
 		return errStatus, err
 	}
 	return &v1alpha1.InstallStatus{Status: v1alpha1.InstallStatus_HEALTHY}, nil
