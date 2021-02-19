@@ -5,4 +5,4 @@ issue:
 - 30939
 releaseNotes:
 - |
-  **Fixed** an issue where access log service causes Istio proxy rejects configuration.
+  **Fixed** an issue where access log service causes Istio proxy to reject configuration.
