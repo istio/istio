@@ -114,7 +114,7 @@ func Run(testCases []TestCase, ctx framework.TestContext, apps *util.EchoDeploym
 			for _, clients := range []echo.Instances{apps.A, apps.B.Match(echo.Namespace(apps.Namespace1.Name())), apps.Headless, apps.Naked, apps.HeadlessNaked} {
 				for _, client := range clients {
 					ctx.NewSubTest(fmt.Sprintf("%s in %s",
-						client.Config().Service, client.Config().Cluster.Name())).Run(func(ctx framework.TestContext) {
+						client.Config().Service, client.Config().Cluster.StableName())).Run(func(ctx framework.TestContext) {
 						aSet := apps.A
 						bSet := apps.B
 						vmSet := apps.VM

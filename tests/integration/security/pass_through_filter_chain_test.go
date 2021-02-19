@@ -223,7 +223,7 @@ func TestPassThroughFilterChain(t *testing.T) {
 						want:   true,
 					},
 				}
-				ctx.NewSubTest(fmt.Sprintf("In %s", cluster.Name())).Run(func(ctx framework.TestContext) {
+				ctx.NewSubTest(fmt.Sprintf("In %s", cluster.StableName())).Run(func(ctx framework.TestContext) {
 					for _, tc := range cases {
 						name := fmt.Sprintf("A->%s:%d[%t]", tc.target.Config().Service, tc.port, tc.want)
 						a := apps.A.Match(echo.InCluster(cluster)).GetOrFail(ctx, echo.Namespace(ns.Name()))

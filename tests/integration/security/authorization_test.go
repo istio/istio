@@ -85,7 +85,7 @@ func TestAuthorization_mTLS(t *testing.T) {
 			ctx.Config().ApplyYAMLOrFail(t, apps.Namespace1.Name(), policies...)
 			defer ctx.Config().DeleteYAMLOrFail(t, apps.Namespace1.Name(), policies...)
 			for _, cluster := range ctx.Clusters() {
-				ctx.NewSubTest(fmt.Sprintf("From %s", cluster.Name())).Run(func(ctx framework.TestContext) {
+				ctx.NewSubTest(fmt.Sprintf("From %s", cluster.StableName())).Run(func(ctx framework.TestContext) {
 					a := apps.A.Match(echo.InCluster(cluster).And(echo.Namespace(apps.Namespace1.Name())))
 					c := apps.C.Match(echo.InCluster(cluster).And(echo.Namespace(apps.Namespace2.Name())))
 					newTestCase := func(from echo.Instance, path string, expectAllowed bool) rbacUtil.TestCase {
@@ -137,7 +137,7 @@ func TestAuthorization_JWT(t *testing.T) {
 			ctx.Config().ApplyYAMLOrFail(t, ns.Name(), policies...)
 			defer ctx.Config().DeleteYAMLOrFail(t, ns.Name(), policies...)
 			for _, srcCluster := range ctx.Clusters() {
-				ctx.NewSubTest(fmt.Sprintf("From %s", srcCluster.Name())).Run(func(ctx framework.TestContext) {
+				ctx.NewSubTest(fmt.Sprintf("From %s", srcCluster.StableName())).Run(func(ctx framework.TestContext) {
 					a := apps.A.Match(echo.InCluster(srcCluster).And(echo.Namespace(ns.Name())))
 					callCount := 1
 					b := apps.B.Match(echo.Namespace(ns.Name()))
@@ -253,7 +253,7 @@ func TestAuthorization_WorkloadSelector(t *testing.T) {
 			policyNSRoot := applyPolicy("testdata/authz/v1beta1-workload-ns-root.yaml.tmpl", rootns)
 			defer ctx.Config().DeleteYAMLOrFail(t, rootns.Name(), policyNSRoot...)
 			for _, srcCluster := range ctx.Clusters() {
-				ctx.NewSubTest(fmt.Sprintf("From %s", srcCluster.Name())).Run(func(ctx framework.TestContext) {
+				ctx.NewSubTest(fmt.Sprintf("From %s", srcCluster.StableName())).Run(func(ctx framework.TestContext) {
 					a := apps.A.Match(echo.InCluster(srcCluster).And(echo.Namespace(apps.Namespace1.Name())))
 					bInNS1 := apps.B.Match(echo.Namespace(apps.Namespace1.Name()))
 					cInNS1 := apps.C.Match(echo.Namespace(apps.Namespace1.Name()))
@@ -348,7 +348,7 @@ func TestAuthorization_Deny(t *testing.T) {
 				callCount = util.CallsPerCluster * len(ctx.Clusters())
 			}
 			for _, srcCluster := range ctx.Clusters() {
-				ctx.NewSubTest(fmt.Sprintf("From %s", srcCluster.Name())).Run(func(ctx framework.TestContext) {
+				ctx.NewSubTest(fmt.Sprintf("From %s", srcCluster.StableName())).Run(func(ctx framework.TestContext) {
 					a := apps.A.Match(echo.InCluster(srcCluster).And(echo.Namespace(apps.Namespace1.Name())))
 					b := apps.B.Match(echo.Namespace(apps.Namespace1.Name()))
 					c := apps.C.Match(echo.Namespace(apps.Namespace1.Name()))
@@ -427,7 +427,7 @@ func TestAuthorization_NegativeMatch(t *testing.T) {
 				callCount = util.CallsPerCluster * len(ctx.Clusters())
 			}
 			for _, srcCluster := range ctx.Clusters() {
-				ctx.NewSubTest(fmt.Sprintf("From %s", srcCluster.Name())).Run(func(ctx framework.TestContext) {
+				ctx.NewSubTest(fmt.Sprintf("From %s", srcCluster.StableName())).Run(func(ctx framework.TestContext) {
 					srcA := apps.A.Match(echo.InCluster(srcCluster).And(echo.Namespace(apps.Namespace1.Name())))
 					srcBInNS2 := apps.B.Match(echo.InCluster(srcCluster).And(echo.Namespace(apps.Namespace2.Name())))
 					destB := apps.B.Match(echo.Namespace(apps.Namespace1.Name()))
@@ -980,7 +980,7 @@ func TestAuthorization_Conditions(t *testing.T) {
 			IPC = IPC[:lengthC-1]
 			portC := 8090
 			for i := 0; i < len(ctx.Clusters()); i++ {
-				ctx.NewSubTest(fmt.Sprintf("IpA IpB IpC in %s", ctx.Clusters()[i].Name())).Run(func(ctx framework.TestContext) {
+				ctx.NewSubTest(fmt.Sprintf("IpA IpB IpC in %s", ctx.Clusters()[i].StableName())).Run(func(ctx framework.TestContext) {
 					podAWithIPA := apps.A.Match(echo.InCluster(ctx.Clusters()[i])).Match(echo.Namespace(nsA.Name()))[0]
 					podBWithIPB := apps.B.Match(echo.InCluster(ctx.Clusters()[i])).Match(echo.Namespace(nsB.Name()))[0]
 
@@ -999,7 +999,7 @@ func TestAuthorization_Conditions(t *testing.T) {
 					defer ctx.Config().DeleteYAMLOrFail(t, "", policies...)
 
 					for _, srcCluster := range ctx.Clusters() {
-						ctx.NewSubTest(fmt.Sprintf("From %s", srcCluster.Name())).Run(func(ctx framework.TestContext) {
+						ctx.NewSubTest(fmt.Sprintf("From %s", srcCluster.StableName())).Run(func(ctx framework.TestContext) {
 							a := apps.A.Match(echo.InCluster(srcCluster).And(echo.Namespace(nsA.Name())))
 							b := apps.B.Match(echo.InCluster(srcCluster).And(echo.Namespace(nsB.Name())))
 							callCount := 1
@@ -1170,7 +1170,7 @@ func TestAuthorization_Path(t *testing.T) {
 			ctx.Config().ApplyYAMLOrFail(t, ns.Name(), policies...)
 			defer ctx.Config().DeleteYAMLOrFail(t, ns.Name(), policies...)
 			for _, srcCluster := range ctx.Clusters() {
-				ctx.NewSubTest(fmt.Sprintf("In %s", srcCluster.Name())).Run(func(ctx framework.TestContext) {
+				ctx.NewSubTest(fmt.Sprintf("In %s", srcCluster.StableName())).Run(func(ctx framework.TestContext) {
 					b := apps.B.GetOrFail(ctx, echo.InCluster(srcCluster).And(echo.Namespace(ns.Name())))
 					a := apps.A.Match(echo.Namespace(ns.Name()))
 					callCount := 1

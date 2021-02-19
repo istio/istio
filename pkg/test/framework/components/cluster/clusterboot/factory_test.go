@@ -52,6 +52,7 @@ func TestBuild(t *testing.T) {
 					PrimaryClusterName: "auto-fill-primary",
 					// The config cluster should match the primary cluster when not specified
 					ConfigClusterName: "auto-fill-primary",
+					Index:             1,
 				},
 			},
 		},
@@ -64,6 +65,7 @@ func TestBuild(t *testing.T) {
 					ClusterKind:        cluster.Fake,
 					PrimaryClusterName: "external-istiod",
 					ConfigClusterName:  "remote-config",
+					Index:              2,
 				},
 			},
 		},
@@ -82,7 +84,9 @@ func TestBuild(t *testing.T) {
 					// Explicitly specified in config, should be copied exactly
 					PrimaryClusterName: "external-istiod",
 					ConfigClusterName:  "remote-config",
-				}},
+					Index:              3,
+				},
+			},
 		},
 	}
 	var clusters cluster.Clusters

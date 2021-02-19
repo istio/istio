@@ -77,7 +77,7 @@ func TestTrustDomainAliasSecureNaming(t *testing.T) {
 			defer ctx.Config().DeleteYAMLOrFail(ctx, testNS.Name(), POLICY)
 
 			for _, cluster := range ctx.Clusters() {
-				ctx.NewSubTest(fmt.Sprintf("From %s", cluster.Name())).Run(func(ctx framework.TestContext) {
+				ctx.NewSubTest(fmt.Sprintf("From %s", cluster.StableName())).Run(func(ctx framework.TestContext) {
 					verify := func(ctx framework.TestContext, src echo.Instance, dest echo.Instance, s scheme.Instance, success bool) {
 						want := "success"
 						if !success {
