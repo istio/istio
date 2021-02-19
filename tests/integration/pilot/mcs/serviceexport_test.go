@@ -21,7 +21,10 @@ import (
 	"io/ioutil"
 	"testing"
 
+	k8sErrors "k8s.io/apimachinery/pkg/api/errors"
+	k8sErrors "k8s.io/apimachinery/pkg/api/errors"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	mcsapisClient "sigs.k8s.io/mcs-api/pkg/client/clientset/versioned"
 
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/istio"
@@ -55,7 +58,7 @@ values:
 			if err != nil {
 				return err
 			}
-			err := ctx.Config().ApplyYAML("", string(crd))
+			err = ctx.Config().ApplyYAML("", string(crd))
 			if err != nil {
 				return err
 			}
@@ -88,7 +91,7 @@ func TestServiceExports(t *testing.T) {
 		}
 
 		retry.UntilSuccessOrFail(t, func() error {
-			serviceExport, err := mcsapis.MulticlusterV1alpha1().ServiceExports("test-ns1").Get(context.TODO(), "a", metav1.GetOptions{})
+			serviceExport, err := mcsapis.MulticlusterV1alpha1().ServiceExports("test-ns1").Get(context.TODO(), "a", v1.GetOptions{})
 			if err != nil {
 				return err
 			}
@@ -103,9 +106,9 @@ func TestServiceExports(t *testing.T) {
 		cluster.CoreV1().Services("test-ns1").Delete(context.TODO(), "a", v1.DeleteOptions{})
 
 		retry.UntilSuccessOrFail(t, func() error {
-			serviceExport, err := mcsapis.MulticlusterV1alpha1().ServiceExports("test-ns1").Get(context.TODO(), "a", metav1.GetOptions{})
+			_, err := mcsapis.MulticlusterV1alpha1().ServiceExports("test-ns1").Get(context.TODO(), "a", v1.GetOptions{})
 
-			if err != nil && errors.IsNotFound(err) {
+			if err != nil && k8sErrors.IsNotFound(err) {
 				return nil // we don't want a serviceexport to exist in kube-system
 			}
 
@@ -116,17 +119,17 @@ func TestServiceExports(t *testing.T) {
 			return errors.New("Found serviceExport when one should not have existed")
 		})
 
-		services, err := cluster.CoreV1().Services("kube-system").List(context.TODO(), v1.ListOptions{})
-		if err != nil {
-			return err
-		}
-
-		svcName := services.Items[0].Name
-
 		retry.UntilSuccessOrFail(t, func() error {
-			serviceExport, err := mcsapis.MulticlusterV1alpha1().ServiceExports("kube-system").Get(context.TODO(), svcName, metav1.GetOptions{})
+			services, err := cluster.CoreV1().Services("kube-system").List(context.TODO(), v1.ListOptions{})
+			if err != nil {
+				return err
+			}
 
-			if err != nil && errors.IsNotFound(err) {
+			svcName := services.Items[0].Name
+
+			_, err = mcsapis.MulticlusterV1alpha1().ServiceExports("kube-system").Get(context.TODO(), svcName, v1.GetOptions{})
+
+			if err != nil && k8sErrors.IsNotFound(err) {
 				return nil // we don't want a serviceexport to exist in kube-system
 			}
 
