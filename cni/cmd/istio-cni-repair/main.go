@@ -21,6 +21,8 @@ import (
 	"net"
 	"net/http"
 	"os"
+	"os/signal"
+	"syscall"
 
 	ocprom "contrib.go.opencensus.io/exporter/prometheus"
 	"github.com/prometheus/client_golang/prometheus"
@@ -224,6 +226,16 @@ func main() {
 			log.Fatalf(err.Error())
 		}
 	}
+	handleSigTerm(stopCh)
+}
+
+func handleSigTerm(ch chan struct{}) {
+	sigs := make(chan os.Signal, 1)
+	signal.Notify(sigs, syscall.SIGTERM)
+	go func() {
+		<-sigs
+		close(ch)
+	}()
 }
 
 func setupMonitoring(addr, path string, stop chan struct{}) {

@@ -19,10 +19,11 @@ import (
 	"fmt"
 	"reflect"
 	"strings"
+	"sync"
 	"testing"
+	"time"
 
-	"github.com/prometheus/client_golang/prometheus"
-	"github.com/prometheus/client_golang/prometheus/testutil"
+	"go.opencensus.io/stats/view"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -30,17 +31,24 @@ import (
 	"k8s.io/client-go/kubernetes/fake"
 
 	"istio.io/istio/tools/istio-iptables/pkg/constants"
+	"istio.io/pkg/monitoring"
 )
 
 var (
-	ignoreCounter prometheus.Counter = prometheus.NewCounter(prometheus.CounterOpts{
-		Name: "pods_repaired_counter",
-		Help: "Number of pods repaired",
-	})
+	ignoreCounter = monitoring.NewSum(
+		"pods_repaired_counter",
+		"Number of pods repaired",
+	)
 	ignoreMetrics *Metrics = &Metrics{
-		PodsRepaired: ignoreCounter,
+		// PodsRepaired: ignoreCounter,
 	}
 )
+
+func init() {
+	ignoreMetrics.PodsRepaired = monitoring.NewSum("istio_cni_repair_pods_repaired_total",
+		"Total number of pods repaired by repair controller")
+	monitoring.MustRegister(ignoreMetrics.PodsRepaired)
+}
 
 func TestBrokenPodReconciler_detectPod(t *testing.T) {
 	makeDetectPod := func(name string, terminationMessage string, exitCode int) *v1.Pod {
@@ -606,12 +614,7 @@ func TestBrokenPodReconciler_ReconcilePod_metrics(t *testing.T) {
 					InitContainerTerminationMessage: "Died for some reason",
 				},
 				Options: &Options{},
-				Metrics: &Metrics{
-					PodsRepaired: prometheus.NewCounter(prometheus.CounterOpts{
-						Name: "test",
-						Help: "test",
-					}),
-				},
+				Metrics: ignoreMetrics,
 			},
 			wantCount: 0,
 			fn:        func(reconciler BrokenPodReconciler) error { return reconciler.DeleteBrokenPods() },
@@ -626,12 +629,7 @@ func TestBrokenPodReconciler_ReconcilePod_metrics(t *testing.T) {
 					InitContainerTerminationMessage: "Died for some reason",
 				},
 				Options: &Options{},
-				Metrics: &Metrics{
-					PodsRepaired: prometheus.NewCounter(prometheus.CounterOpts{
-						Name: "test",
-						Help: "test",
-					}),
-				},
+				Metrics: ignoreMetrics,
 			},
 			wantCount: 0,
 			fn:        func(reconciler BrokenPodReconciler) error { return reconciler.DeleteBrokenPods() },
@@ -646,12 +644,7 @@ func TestBrokenPodReconciler_ReconcilePod_metrics(t *testing.T) {
 					InitContainerTerminationMessage: "Died for some reason",
 				},
 				Options: &Options{},
-				Metrics: &Metrics{
-					PodsRepaired: prometheus.NewCounter(prometheus.CounterOpts{
-						Name: "test",
-						Help: "test",
-					}),
-				},
+				Metrics: ignoreMetrics,
 			},
 			wantCount: 1,
 			fn:        func(reconciler BrokenPodReconciler) error { return reconciler.DeleteBrokenPods() },
@@ -666,12 +659,7 @@ func TestBrokenPodReconciler_ReconcilePod_metrics(t *testing.T) {
 					InitContainerTerminationMessage: "Died for some reason",
 				},
 				Options: &Options{},
-				Metrics: &Metrics{
-					PodsRepaired: prometheus.NewCounter(prometheus.CounterOpts{
-						Name: "test",
-						Help: "test",
-					}),
-				},
+				Metrics: ignoreMetrics,
 			},
 			wantCount: 0,
 			fn:        func(reconciler BrokenPodReconciler) error { return reconciler.LabelBrokenPods() },
@@ -686,12 +674,7 @@ func TestBrokenPodReconciler_ReconcilePod_metrics(t *testing.T) {
 					InitContainerTerminationMessage: "Died for some reason",
 				},
 				Options: &Options{},
-				Metrics: &Metrics{
-					PodsRepaired: prometheus.NewCounter(prometheus.CounterOpts{
-						Name: "test",
-						Help: "test",
-					}),
-				},
+				Metrics: ignoreMetrics,
 			},
 			wantCount: 0,
 			fn:        func(reconciler BrokenPodReconciler) error { return reconciler.LabelBrokenPods() },
@@ -706,19 +689,18 @@ func TestBrokenPodReconciler_ReconcilePod_metrics(t *testing.T) {
 					InitContainerTerminationMessage: "Died for some reason",
 				},
 				Options: &Options{},
-				Metrics: &Metrics{
-					PodsRepaired: prometheus.NewCounter(prometheus.CounterOpts{
-						Name: "test",
-						Help: "test",
-					}),
-				},
+				Metrics: ignoreMetrics,
 			},
 			wantCount: 1,
 			fn:        func(reconciler BrokenPodReconciler) error { return reconciler.LabelBrokenPods() },
 		},
 	}
+
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			exp := &testExporter{rows: make(map[string][]*view.Row)}
+			view.RegisterExporter(exp)
+			view.SetReportingPeriod(1 * time.Millisecond)
 			bpr := BrokenPodReconciler{
 				client:  tt.fields.client,
 				Filters: tt.fields.Filters,
@@ -728,10 +710,69 @@ func TestBrokenPodReconciler_ReconcilePod_metrics(t *testing.T) {
 			if err := tt.fn(bpr); err != nil {
 				t.Errorf("DeleteBrokenPods() error in ReconcilePod(): %v", err)
 			}
-			haveCount := testutil.ToFloat64(tt.fields.Metrics.PodsRepaired)
-			if haveCount != tt.wantCount {
-				t.Errorf("Counter error in ReconcilePod(): haveCount = %v, wantCount = %v", haveCount, tt.wantCount)
+			if tt.wantCount > 0 {
+				var haveCount float64
+				if err := retry(func() error {
+					exp.Lock()
+					defer exp.Unlock()
+					for _, r := range exp.rows[ignoreMetrics.PodsRepaired.Name()] {
+						if sd, ok := r.Data.(*view.SumData); ok {
+							haveCount = sd.Value
+							if haveCount != tt.wantCount {
+								return fmt.Errorf("Counter error in ReconcilePod(): haveCount = %v, wantCount = %v", haveCount, tt.wantCount)
+							} else {
+								return nil
+							}
+						}
+					}
+					return fmt.Errorf("no metrics exported")
+				}); err != nil {
+					t.Error(err)
+				}
+				// reset the metric for the next test
+				tt.fields.Metrics.PodsRepaired.Record(haveCount * -1)
 			}
 		})
+	}
+}
+
+type testExporter struct {
+	sync.Mutex
+
+	rows        map[string][]*view.Row
+	invalidTags bool
+}
+
+func (t *testExporter) ExportView(d *view.Data) {
+	t.Lock()
+	for _, tk := range d.View.TagKeys {
+		if len(tk.Name()) < 1 {
+			t.invalidTags = true
+		}
+	}
+	t.rows[d.View.Name] = append(t.rows[d.View.Name], d.Rows...)
+	t.Unlock()
+}
+
+// because OC uses goroutines to async export, validating proper export
+// can introduce timing problems. this helper just trys validation over
+// and over until the supplied method either succeeds or it times out.
+func retry(fn func() error) error {
+	var lasterr error
+	to := time.After(1 * time.Second)
+	var i int
+	for {
+		select {
+		case <-to:
+			return fmt.Errorf("timeout while waiting after %d iterations (last error: %v)", i, lasterr)
+		default:
+		}
+		i++
+		if err := fn(); err != nil {
+			lasterr = err
+		} else {
+			return nil
+		}
+		<-time.After(10 * time.Millisecond)
 	}
 }
