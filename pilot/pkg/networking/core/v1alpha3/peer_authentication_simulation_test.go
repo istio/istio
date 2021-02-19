@@ -221,7 +221,7 @@ spec:
 				{
 					Name:   "plaintext on port 8000",
 					Call:   mkCall(8000, simulation.Plaintext),
-					Result: simulation.Result{ClusterMatched: "inbound|8000||"},
+					Result: simulation.Result{ClusterMatched: "inbound|8000||foo.bar"},
 				},
 				{
 					Name: "mtls on port 8000",
@@ -283,7 +283,7 @@ spec:
 				{
 					Name:   "mtls on port 8000",
 					Call:   mkCall(8000, simulation.MTLS),
-					Result: simulation.Result{ClusterMatched: "inbound|8000||"},
+					Result: simulation.Result{ClusterMatched: "inbound|8000||foo.bar"},
 				},
 				{
 					Name:   "plaintext port 9000",
@@ -334,7 +334,7 @@ spec:
 				{
 					Name:   "plaintext on port 8000",
 					Call:   mkCall(8000, simulation.Plaintext),
-					Result: simulation.Result{ClusterMatched: "inbound|8000||"},
+					Result: simulation.Result{ClusterMatched: "inbound|8000||foo.bar"},
 				},
 				{
 					Name: "mtls on port 8000",
@@ -492,18 +492,18 @@ spec:
 				{
 					Name:   "tls on tls port",
 					Call:   mkCall(8080, simulation.MTLS),
-					Result: simulation.Result{ClusterMatched: "inbound|8080||"},
+					Result: simulation.Result{ClusterMatched: "inbound|8080||foo.bar"},
 				},
 				{
 					Name:   "plaintext on plaintext port",
 					Call:   mkCall(9090, simulation.Plaintext),
-					Result: simulation.Result{ClusterMatched: "inbound|9090||"},
+					Result: simulation.Result{ClusterMatched: "inbound|9090||foo.bar"},
 				},
 				{
 					Name: "tls on plaintext port",
 					Call: mkCall(9090, simulation.MTLS),
 					// TLS is fine here; we are not sniffing TLS at all so anything is allowed
-					Result: simulation.Result{ClusterMatched: "inbound|9090||"},
+					Result: simulation.Result{ClusterMatched: "inbound|9090||foo.bar"},
 				},
 			},
 		},
@@ -519,18 +519,18 @@ spec:
 				{
 					Name:   "tls on tls port",
 					Call:   mkCall(8080, simulation.MTLS),
-					Result: simulation.Result{ClusterMatched: "inbound|8080||"},
+					Result: simulation.Result{ClusterMatched: "inbound|8080||foo.bar"},
 				},
 				{
 					Name:   "plaintext on plaintext port",
 					Call:   mkCall(9090, simulation.Plaintext),
-					Result: simulation.Result{ClusterMatched: "inbound|9090||"},
+					Result: simulation.Result{ClusterMatched: "inbound|9090||foo.bar"},
 				},
 				{
 					Name: "tls on plaintext port",
 					Call: mkCall(9090, simulation.MTLS),
 					// TLS is fine here; we are not sniffing TLS at all so anything is allowed
-					Result: simulation.Result{ClusterMatched: "inbound|9090||"},
+					Result: simulation.Result{ClusterMatched: "inbound|9090||foo.bar"},
 				},
 			},
 		},
@@ -575,18 +575,18 @@ spec:
 				{
 					Name:   "tls on tls port",
 					Call:   mkCall(8080, simulation.MTLS),
-					Result: simulation.Result{ClusterMatched: "inbound|8080||"},
+					Result: simulation.Result{ClusterMatched: "inbound|8080||sidecar.default"},
 				},
 				{
 					Name:   "plaintext on plaintext port",
 					Call:   mkCall(9090, simulation.Plaintext),
-					Result: simulation.Result{ClusterMatched: "inbound|9090||"},
+					Result: simulation.Result{ClusterMatched: "inbound|9090||sidecar.default"},
 				},
 				{
 					Name: "tls on plaintext port",
 					Call: mkCall(9090, simulation.MTLS),
 					// TLS is fine here; we are not sniffing TLS at all so anything is allowed
-					Result: simulation.Result{ClusterMatched: "inbound|9090||"},
+					Result: simulation.Result{ClusterMatched: "inbound|9090||sidecar.default"},
 				},
 			},
 		},
@@ -602,7 +602,7 @@ spec:
 				{
 					Name:   "tls on tls port",
 					Call:   mkCall(8080, simulation.MTLS),
-					Result: simulation.Result{ClusterMatched: "inbound|8080||"},
+					Result: simulation.Result{ClusterMatched: "inbound|8080||foo.bar"},
 				},
 				// Despite being defined in the Service, we get no filter chain since its not in Sidecar
 				{
