@@ -842,8 +842,6 @@ spec:
               drop:
               - ALL
           volumeMounts:
-          - name: config-volume
-            mountPath: /etc/istio/config
           - name: istio-token
             mountPath: /var/run/secrets/tokens
             readOnly: true
@@ -854,9 +852,6 @@ spec:
             readOnly: true
           - name: istio-kubeconfig
             mountPath: /var/run/secrets/remote
-            readOnly: true
-          - name: inject
-            mountPath: /var/lib/istio/inject
             readOnly: true
       volumes:
       # Technically not needed on this pod - but it helps debugging/testing SDS
@@ -880,13 +875,6 @@ spec:
         secret:
           secretName: istio-kubeconfig
           optional: true
-      # Optional - image should have
-      - name: inject
-        configMap:
-          name: istio-sidecar-injector
-      - name: config-volume
-        configMap:
-          name: istio
 ---
 # Source: istio-discovery/templates/autoscale.yaml
 apiVersion: autoscaling/v2beta1
