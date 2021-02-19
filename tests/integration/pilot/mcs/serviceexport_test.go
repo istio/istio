@@ -53,7 +53,7 @@ values:
       PILOT_ENABLE_MCS_SERVICEEXPORT: "true"`
 		})).
 		Setup(func(ctx resource.Context) error {
-			crd, err := ioutil.ReadFile("testdata/mcs-serviceexport-crd.yaml")
+			crd, err := ioutil.ReadFile("../testdata/mcs-serviceexport-crd.yaml")
 			if err != nil {
 				return err
 			}
@@ -96,7 +96,7 @@ func TestServiceExports(t *testing.T) {
 			}
 
 			if serviceExport == nil {
-				return errors.New("Expected serviceexport not found")
+				return errors.New("expected serviceexport not found")
 			}
 
 			return nil
@@ -115,7 +115,7 @@ func TestServiceExports(t *testing.T) {
 				return err
 			}
 
-			return errors.New("Found serviceExport when one should not have existed")
+			return errors.New("found serviceExport when one should not have existed")
 		})
 
 		retry.UntilSuccessOrFail(t, func() error {
@@ -136,7 +136,7 @@ func TestServiceExports(t *testing.T) {
 				return err
 			}
 
-			return errors.New("Found serviceExport when one should not have been created")
+			return errors.New("found serviceExport when one should not have been created")
 		})
 	})
 }
