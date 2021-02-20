@@ -18,6 +18,7 @@ package mcs
 import (
 	"context"
 	"errors"
+	"fmt"
 	"io/ioutil"
 	"testing"
 
@@ -81,13 +82,24 @@ func TestServiceExports(t *testing.T) {
 	// 2. delete service `a` in `test-ns1` and assert for no serviceexport
 	// 3. assert no serviceexports in kube-system
 
-	framework.NewTest(t).RequiresSingleCluster().Run(func(ctx framework.TestContext) {
+	framework.NewTest(t).
+		Features("traffic.mcs.serviceexport").
+		RequiresSingleCluster().
+		Run(func(ctx framework.TestContext) {
 		cluster := ctx.Clusters().Default()
 
 		mcsapis, err := mcsapisClient.NewForConfig(cluster.RESTConfig())
 		if err != nil {
 			t.Fatalf("Failed to get the MCS API client, failing test with error %v", err)
 		}
+
+		//printing for validation. todo Remove later.
+		namespaces, _ := cluster.CoreV1().Namespaces().List(context.TODO(), v1.ListOptions{})
+		fmt.Printf("Namespaces: %v", namespaces.Items)
+
+		svcs, _ := cluster.CoreV1().Services("").List(context.TODO(), v1.ListOptions{})
+		fmt.Printf("Services: %v", svcs.Items)
+
 
 		retry.UntilSuccessOrFail(t, func() error {
 			serviceExport, err := mcsapis.MulticlusterV1alpha1().ServiceExports("test-ns1").Get(context.TODO(), "a", v1.GetOptions{})
