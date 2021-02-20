@@ -20,9 +20,11 @@ import (
 	"errors"
 	"io/ioutil"
 	"testing"
+
 	corev1 "k8s.io/api/core/v1"
 	k8sErrors "k8s.io/apimachinery/pkg/api/errors"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/intstr"
 	mcsapisClient "sigs.k8s.io/mcs-api/pkg/client/clientset/versioned"
 
 	"istio.io/istio/pkg/test/framework"
@@ -102,6 +104,14 @@ func TestServiceExports(t *testing.T) {
 			}
 
 			svc := corev1.Service{}
+			svc.Spec = corev1.ServiceSpec{
+				Ports: []corev1.ServicePort{corev1.ServicePort{
+					Name:       "http",
+					Protocol:   "TCP",
+					Port:       80,
+					TargetPort: intstr.FromInt(9837),
+				}},
+			}
 			svc.Name = "svc1"
 			_, err = cluster.CoreV1().Services("svc-namespace").Create(context.TODO(), &svc, v1.CreateOptions{})
 
