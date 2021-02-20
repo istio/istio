@@ -6470,7 +6470,7 @@ subjects:
     name: istiod-service-account
     namespace: istio-system
 ---
-apiVersion: admissionregistration.k8s.io/v1beta1
+apiVersion: admissionregistration.k8s.io/v1
 kind: ValidatingWebhookConfiguration
 metadata:
   name: istiod-istio-system
@@ -8160,7 +8160,7 @@ data:
         {{- end }}
       {{- end }}
 ---
-apiVersion: admissionregistration.k8s.io/v1beta1
+apiVersion: admissionregistration.k8s.io/v1
 kind: MutatingWebhookConfiguration
 metadata:
   name: istio-sidecar-injector

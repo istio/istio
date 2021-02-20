@@ -27,9 +27,4 @@ spec:
       port: 443
       protocol: TCP
       targetPort: 8443
-    -
-      name: tls
-      port: 15443
-      protocol: TCP
-      targetPort: 15443
 ---

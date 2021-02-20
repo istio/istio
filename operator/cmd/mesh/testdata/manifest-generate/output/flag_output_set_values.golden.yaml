@@ -55,10 +55,6 @@ spec:
               protocol: TCP
             - containerPort: 8443
               protocol: TCP
-            - containerPort: 15012
-              protocol: TCP
-            - containerPort: 15443
-              protocol: TCP
             - containerPort: 15090
               protocol: TCP
               name: http-envoy-prom
@@ -144,6 +140,10 @@ spec:
             value: istio-ingressgateway
           - name: ISTIO_META_OWNER
             value: kubernetes://apis/apps/v1/namespaces/istio-system/deployments/istio-ingressgateway
+          - name: ISTIO_META_MESH_ID
+            value: "cluster.local"
+          - name: TRUST_DOMAIN
+            value: "cluster.local"
           - name: ISTIO_META_UNPRIVILEGED_POD
             value: "true"
           - name: ISTIO_META_ROUTER_MODE

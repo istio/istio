@@ -47,6 +47,7 @@ spec:
               - CUSTOM
               type: string
             provider:
+              description: Specifies detailed configuration of the CUSTOM action.
               properties:
                 name:
                   description: Specifies the name of the extension provider.
@@ -2966,7 +2967,8 @@ spec:
                         format: int32
                         type: integer
                       perTryTimeout:
-                        description: Timeout per retry attempt for a given request.
+                        description: Timeout per attempt for a given request, including
+                          the initial call and any retries.
                         type: string
                       retryOn:
                         description: Specifies the conditions under which retry takes
@@ -3312,6 +3314,11 @@ spec:
 apiVersion: apiextensions.k8s.io/v1beta1
 kind: CustomResourceDefinition
 metadata:
+  labels:
+    app: istio-pilot
+    chart: istio
+    heritage: Tiller
+    release: istio
   name: workloadgroups.networking.istio.io
 spec:
   additionalPrinterColumns:
@@ -3698,7 +3705,7 @@ subjects:
     name: istiod-service-account
     namespace: istio-system
 ---
-apiVersion: admissionregistration.k8s.io/v1beta1
+apiVersion: admissionregistration.k8s.io/v1
 kind: ValidatingWebhookConfiguration
 metadata:
   name: istiod-istio-system
@@ -5074,7 +5081,6 @@ data:
             "address": ""
           }
         },
-        "trustDomain": "",
         "useMCP": false
       },
       "istio_cni": {
@@ -5118,10 +5124,10 @@ data:
         {{- range $index, $container := .Spec.Containers }}{{ if not (eq $container.Name "istio-proxy") }}{{ $containers = append $containers $container.Name }}{{end}}{{- end}}
         metadata:
           labels:
-            security.istio.io/tlsMode: {{ index .ObjectMeta.Labels `security.istio.io/tlsMode` | default "istio" }}
-            service.istio.io/canonical-name: {{ index .ObjectMeta.Labels `service.istio.io/canonical-name` | default (index .ObjectMeta.Labels `app.kubernetes.io/name`) | default (index .ObjectMeta.Labels `app`) | default .DeploymentMeta.Name }}
-            service.istio.io/canonical-revision: {{ index .ObjectMeta.Labels `service.istio.io/canonical-revision` | default (index .ObjectMeta.Labels `app.kubernetes.io/version`) | default (index .ObjectMeta.Labels `version`) | default "latest" }}
-            istio.io/rev: {{ .Revision | default "default" }}
+            security.istio.io/tlsMode: {{ index .ObjectMeta.Labels `security.istio.io/tlsMode` | default "istio"  | quote }}
+            service.istio.io/canonical-name: {{ index .ObjectMeta.Labels `service.istio.io/canonical-name` | default (index .ObjectMeta.Labels `app.kubernetes.io/name`) | default (index .ObjectMeta.Labels `app`) | default .DeploymentMeta.Name  | quote }}
+            service.istio.io/canonical-revision: {{ index .ObjectMeta.Labels `service.istio.io/canonical-revision` | default (index .ObjectMeta.Labels `app.kubernetes.io/version`) | default (index .ObjectMeta.Labels `version`) | default "latest"  | quote }}
+            istio.io/rev: {{ .Revision | default "default" | quote }}
           annotations: {
             {{- if eq (len $containers) 1 }}
             kubectl.kubernetes.io/default-logs-container: "{{ index $containers 0 }}",
@@ -5606,7 +5612,7 @@ data:
             fsGroup: 1337
           {{- end }}
 ---
-apiVersion: admissionregistration.k8s.io/v1beta1
+apiVersion: admissionregistration.k8s.io/v1
 kind: MutatingWebhookConfiguration
 metadata:
   name: istio-sidecar-injector
@@ -5729,8 +5735,6 @@ spec:
               protocol: TCP
             - containerPort: 8443
               protocol: TCP
-            - containerPort: 15443
-              protocol: TCP
             - containerPort: 15090
               protocol: TCP
               name: http-envoy-prom
@@ -5816,6 +5820,10 @@ spec:
             value: istio-egressgateway
           - name: ISTIO_META_OWNER
             value: kubernetes://apis/apps/v1/namespaces/istio-system/deployments/istio-egressgateway
+          - name: ISTIO_META_MESH_ID
+            value: "cluster.local"
+          - name: TRUST_DOMAIN
+            value: "cluster.local"
           - name: ISTIO_META_UNPRIVILEGED_POD
             value: "true"
           - name: ISTIO_META_ROUTER_MODE
@@ -5979,10 +5987,6 @@ spec:
               protocol: TCP
             - containerPort: 8443
               protocol: TCP
-            - containerPort: 15012
-              protocol: TCP
-            - containerPort: 15443
-              protocol: TCP
             - containerPort: 15090
               protocol: TCP
               name: http-envoy-prom
@@ -6068,6 +6072,10 @@ spec:
             value: istio-ingressgateway
           - name: ISTIO_META_OWNER
             value: kubernetes://apis/apps/v1/namespaces/istio-system/deployments/istio-ingressgateway
+          - name: ISTIO_META_MESH_ID
+            value: "cluster.local"
+          - name: TRUST_DOMAIN
+            value: "cluster.local"
           - name: ISTIO_META_UNPRIVILEGED_POD
             value: "true"
           - name: ISTIO_META_ROUTER_MODE
@@ -6593,11 +6601,6 @@ spec:
       port: 443
       protocol: TCP
       targetPort: 8443
-    -
-      name: tls
-      port: 15443
-      protocol: TCP
-      targetPort: 15443
 ---
 apiVersion: v1
 kind: Service
@@ -6633,16 +6636,6 @@ spec:
       port: 443
       protocol: TCP
       targetPort: 8443
-    -
-      name: tcp-istiod
-      port: 15012
-      protocol: TCP
-      targetPort: 15012
-    -
-      name: tls
-      port: 15443
-      protocol: TCP
-      targetPort: 15443
 ---
 apiVersion: v1
 kind: Service

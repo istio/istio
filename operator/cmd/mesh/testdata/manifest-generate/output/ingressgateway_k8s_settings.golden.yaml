@@ -131,6 +131,10 @@ spec:
           value: istio-ingressgateway
         - name: ISTIO_META_OWNER
           value: kubernetes://apis/apps/v1/namespaces/istio-system/deployments/istio-ingressgateway
+        - name: ISTIO_META_MESH_ID
+          value: cluster.local
+        - name: TRUST_DOMAIN
+          value: cluster.local
         - name: ISTIO_META_UNPRIVILEGED_POD
           value: "true"
         - name: ISTIO_META_ROUTER_MODE
@@ -145,10 +149,6 @@ spec:
         - containerPort: 8080
           protocol: TCP
         - containerPort: 8443
-          protocol: TCP
-        - containerPort: 15012
-          protocol: TCP
-        - containerPort: 15443
           protocol: TCP
         - containerPort: 15090
           name: http-envoy-prom
@@ -312,10 +312,6 @@ spec:
               protocol: TCP
             - containerPort: 8443
               protocol: TCP
-            - containerPort: 15012
-              protocol: TCP
-            - containerPort: 15443
-              protocol: TCP
             - containerPort: 15090
               protocol: TCP
               name: http-envoy-prom
@@ -401,6 +397,10 @@ spec:
             value: istio-ingressgateway-custom
           - name: ISTIO_META_OWNER
             value: kubernetes://apis/apps/v1/namespaces/istio-system/deployments/istio-ingressgateway-custom
+          - name: ISTIO_META_MESH_ID
+            value: "cluster.local"
+          - name: TRUST_DOMAIN
+            value: "cluster.local"
           - name: ISTIO_META_UNPRIVILEGED_POD
             value: "true"
           - name: ISTIO_META_ROUTER_MODE
@@ -538,14 +538,6 @@ spec:
     port: 443
     protocol: TCP
     targetPort: 8443
-  - name: tcp-istiod
-    port: 15012
-    protocol: TCP
-    targetPort: 15012
-  - name: tls
-    port: 15443
-    protocol: TCP
-    targetPort: 15443
   selector:
     app: istio-ingressgateway
     istio: ingressgateway
@@ -581,14 +573,6 @@ spec:
     port: 443
     protocol: TCP
     targetPort: 8443
-  - name: tcp-istiod
-    port: 15012
-    protocol: TCP
-    targetPort: 15012
-  - name: tls
-    port: 15443
-    protocol: TCP
-    targetPort: 15443
   selector:
     app: istio-ingressgateway
     istio: ingressgateway
