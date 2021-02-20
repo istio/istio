@@ -137,6 +137,15 @@ func TestAdsReconnect(t *testing.T) {
 	ads2.ExpectResponse()
 }
 
+// Regression for connection with a bad ID
+func TestAdsBadId(t *testing.T) {
+	leak.Check(t)
+	s := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{})
+	ads := s.ConnectADS().WithID("").WithType(v3.ClusterType)
+	xds.AdsPushAll(s.Discovery)
+	ads.ExpectNoResponse()
+}
+
 func TestAdsClusterUpdate(t *testing.T) {
 	s := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{})
 	ads := s.ConnectADS().WithType(v3.EndpointType)
