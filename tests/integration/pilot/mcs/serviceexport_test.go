@@ -120,7 +120,7 @@ func TestServiceExports(t *testing.T) {
 			}
 
 			retry.UntilSuccessOrFail(t, func() error {
-				serviceExport, err := mcsapis.MulticlusterV1alpha1().ServiceExports("test-ns1").Get(context.TODO(), "a", v1.GetOptions{})
+				serviceExport, err := mcsapis.MulticlusterV1alpha1().ServiceExports("svc-namespace").Get(context.TODO(), "svc1", v1.GetOptions{})
 				if err != nil {
 					return err
 				}
