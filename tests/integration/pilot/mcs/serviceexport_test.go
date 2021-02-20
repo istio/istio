@@ -18,10 +18,9 @@ package mcs
 import (
 	"context"
 	"errors"
-	"fmt"
 	"io/ioutil"
 	"testing"
-
+	corev1 "k8s.io/api/core/v1"
 	k8sErrors "k8s.io/apimachinery/pkg/api/errors"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	mcsapisClient "sigs.k8s.io/mcs-api/pkg/client/clientset/versioned"
@@ -86,69 +85,82 @@ func TestServiceExports(t *testing.T) {
 		Features("traffic.mcs.serviceexport").
 		RequiresSingleCluster().
 		Run(func(ctx framework.TestContext) {
-		cluster := ctx.Clusters().Default()
+			cluster := ctx.Clusters().Default()
 
-		mcsapis, err := mcsapisClient.NewForConfig(cluster.RESTConfig())
-		if err != nil {
-			t.Fatalf("Failed to get the MCS API client, failing test with error %v", err)
-		}
-
-		//printing for validation. todo Remove later.
-		namespaces, _ := cluster.CoreV1().Namespaces().List(context.TODO(), v1.ListOptions{})
-		fmt.Printf("Namespaces: %v", namespaces.Items)
-
-		svcs, _ := cluster.CoreV1().Services("").List(context.TODO(), v1.ListOptions{})
-		fmt.Printf("Services: %v", svcs.Items)
-
-
-		retry.UntilSuccessOrFail(t, func() error {
-			serviceExport, err := mcsapis.MulticlusterV1alpha1().ServiceExports("test-ns1").Get(context.TODO(), "a", v1.GetOptions{})
+			mcsapis, err := mcsapisClient.NewForConfig(cluster.RESTConfig())
 			if err != nil {
-				return err
+				t.Fatalf("Failed to get the MCS API client, failing test with error %v", err)
 			}
 
-			if serviceExport == nil {
-				return errors.New("expected serviceexport not found")
+			// creating namespaces and services ourselves
+			ns := corev1.Namespace{}
+			ns.Name = "svc-namespace"
+			_, err = cluster.CoreV1().Namespaces().Create(context.TODO(), &ns, v1.CreateOptions{})
+
+			if err != nil {
+				t.Fatalf("Failed during namespace setup with error %v", err)
 			}
 
-			return nil
+			svc := corev1.Service{}
+			svc.Name = "svc1"
+			_, err = cluster.CoreV1().Services("svc-namespace").Create(context.TODO(), &svc, v1.CreateOptions{})
+
+			if err != nil {
+				t.Fatalf("Failed during service setup with error %v", err)
+			}
+
+			retry.UntilSuccessOrFail(t, func() error {
+				serviceExport, err := mcsapis.MulticlusterV1alpha1().ServiceExports("test-ns1").Get(context.TODO(), "a", v1.GetOptions{})
+				if err != nil {
+					return err
+				}
+
+				if serviceExport == nil {
+					return errors.New("expected serviceexport not found")
+				}
+
+				return nil
+			})
+
+			err = cluster.CoreV1().Services("svc-namespace").Delete(context.TODO(), "svc1", v1.DeleteOptions{})
+
+			if err != nil {
+				t.Fatalf("Failed manually deleting service with error %v", err)
+			}
+
+			retry.UntilSuccessOrFail(t, func() error {
+				_, err := mcsapis.MulticlusterV1alpha1().ServiceExports("svc-namespace").Get(context.TODO(), "svc1", v1.GetOptions{})
+
+				if err != nil && k8sErrors.IsNotFound(err) {
+					return nil // we don't want a serviceexport to exist in kube-system
+				}
+
+				if err != nil {
+					return err
+				}
+
+				return errors.New("found serviceExport when one should not have existed")
+			})
+
+			retry.UntilSuccessOrFail(t, func() error {
+				services, err := cluster.CoreV1().Services("kube-system").List(context.TODO(), v1.ListOptions{})
+				if err != nil {
+					return err
+				}
+
+				svcName := services.Items[0].Name
+
+				_, err = mcsapis.MulticlusterV1alpha1().ServiceExports("kube-system").Get(context.TODO(), svcName, v1.GetOptions{})
+
+				if err != nil && k8sErrors.IsNotFound(err) {
+					return nil // we don't want a serviceexport to exist in kube-system
+				}
+
+				if err != nil {
+					return err
+				}
+
+				return errors.New("found serviceExport when one should not have been created")
+			})
 		})
-
-		cluster.CoreV1().Services("test-ns1").Delete(context.TODO(), "a", v1.DeleteOptions{})
-
-		retry.UntilSuccessOrFail(t, func() error {
-			_, err := mcsapis.MulticlusterV1alpha1().ServiceExports("test-ns1").Get(context.TODO(), "a", v1.GetOptions{})
-
-			if err != nil && k8sErrors.IsNotFound(err) {
-				return nil // we don't want a serviceexport to exist in kube-system
-			}
-
-			if err != nil {
-				return err
-			}
-
-			return errors.New("found serviceExport when one should not have existed")
-		})
-
-		retry.UntilSuccessOrFail(t, func() error {
-			services, err := cluster.CoreV1().Services("kube-system").List(context.TODO(), v1.ListOptions{})
-			if err != nil {
-				return err
-			}
-
-			svcName := services.Items[0].Name
-
-			_, err = mcsapis.MulticlusterV1alpha1().ServiceExports("kube-system").Get(context.TODO(), svcName, v1.GetOptions{})
-
-			if err != nil && k8sErrors.IsNotFound(err) {
-				return nil // we don't want a serviceexport to exist in kube-system
-			}
-
-			if err != nil {
-				return err
-			}
-
-			return errors.New("found serviceExport when one should not have been created")
-		})
-	})
 }
