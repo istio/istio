@@ -97,6 +97,21 @@ var (
 		"Enables the use of HTTP 1.0 in the outbound HTTP listeners, to support legacy applications.",
 	).Get()
 
+	initialFetchTimeoutVar = env.RegisterDurationVar(
+		"PILOT_INITIAL_FETCH_TIMEOUT",
+		0,
+		"Specifies the initial_fetch_timeout for config. If this time is reached without "+
+			"a response to the config requested by Envoy, the Envoy will move on with the init phase. "+
+			"This prevents envoy from getting stuck waiting on config during startup.",
+	)
+	InitialFetchTimeout = func() *duration.Duration {
+		timeout, f := initialFetchTimeoutVar.Lookup()
+		if !f {
+			return nil
+		}
+		return ptypes.DurationProto(timeout)
+	}()
+
 	TerminationDrainDuration = env.RegisterIntVar(
 		"TERMINATION_DRAIN_DURATION_SECONDS",
 		5,
