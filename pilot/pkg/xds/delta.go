@@ -13,6 +13,7 @@ import (
 	"google.golang.org/grpc/status"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/util"
+	"istio.io/istio/pilot/pkg/util/sets"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
 	"time"
 )
@@ -101,6 +102,7 @@ func (s *DiscoveryServer) StreamDeltas(stream DeltaDiscoveryStream) error {
 			}
 			// processRequest is calling pushXXX, accessing common structs with pushConnection.
 			// Adding sync is the second issue to be resolved if we want to save 1/2 of the threads.
+			adsLog.Infof("Got Delta Request: %+v", req.TypeUrl)
 			err := s.processDeltaRequest(req, con)
 			if err != nil {
 				return err
@@ -165,7 +167,7 @@ func (s *DiscoveryServer) receiveDelta(con *Connection, reqChannel chan *discove
 
 		select {
 		case reqChannel <- req:
-		case <-con.stream.Context().Done():
+		case <-con.deltaStream.Context().Done():
 			adsLog.Infof("ADS: %q %s terminated with stream closed", con.PeerAddr, con.ConID)
 			return
 		}
@@ -180,7 +182,8 @@ func (s *DiscoveryServer) processDeltaRequest(req *discovery.DeltaDiscoveryReque
 	if s.StatusReporter != nil {
 		s.StatusReporter.RegisterEvent(con.ConID, req.TypeUrl, req.ResponseNonce)
 	}
-	shouldRespond := s.shouldRespond(con, req)
+	shouldRespond := s.shouldRespondDelta(con, req)
+	adsLog.Infof("ShouldRespond: %v", shouldRespond)
 
 	// Check if we have a blocked push. If this was an ACK, we will send it. Either way we remove the blocked push
 	// as we will send a push.
@@ -218,9 +221,6 @@ func (s *DiscoveryServer) shouldRespondDelta(con *Connection, request *discovery
 		errCode := codes.Code(request.ErrorDetail.Code)
 		adsLog.Warnf("ADS:%s: ACK ERROR %s %s:%s", stype, con.ConID, errCode.String(), request.ErrorDetail.GetMessage())
 		incrementXDSRejects(request.TypeUrl, con.proxy.ID, errCode.String())
-		if s.StatusGen != nil {
-			s.StatusGen.OnNack(con.proxy, request)
-		}
 		con.proxy.Lock()
 		con.proxy.WatchedResources[request.TypeUrl].NonceNacked = request.ResponseNonce
 		con.proxy.Unlock()
@@ -275,7 +275,7 @@ func (s *DiscoveryServer) shouldRespondDelta(con *Connection, request *discovery
 	con.proxy.WatchedResources[request.TypeUrl].NonceAcked = request.ResponseNonce
 	con.proxy.WatchedResources[request.TypeUrl].NonceNacked = ""
 	// add subscribe, remove unsubscribed
-	removedSubs := generateDeltaSubcription(con.proxy.WatchedResources[request.TypeUrl].ResourceNames,
+	removedSubs := generateDiff(con.proxy.WatchedResources[request.TypeUrl].ResourceNames,
 		request.ResourceNamesUnsubscribe)
 	con.proxy.WatchedResources[request.TypeUrl].ResourceNames = append(removedSubs, request.ResourceNamesSubscribe...)
 	//con.proxy.WatchedResources[request.TypeUrl].LastRequest = request
@@ -287,8 +287,8 @@ func (s *DiscoveryServer) shouldRespondDelta(con *Connection, request *discovery
 	//	adsLog.Debugf("ADS:%s: ACK %s %s %s", stype, con.ConID, request.VersionInfo, request.ResponseNonce)
 	//	return false
 	//}
-	adsLog.Debugf("ADS:%s: RESOURCE CHANGE previous resources: %v, new resources: %v %s %s %s", stype,
-		previousResources, request.ResourceNames, con.ConID, request.VersionInfo, request.ResponseNonce)
+	adsLog.Debugf("ADS:%s: RESOURCE CHANGE previous resources: %v, new resources (subscribed): %v unsubscribed:%v %s %s", stype,
+		previousResources, request.ResourceNamesSubscribe, request.ResourceNamesUnsubscribe, con.ConID, request.ResponseNonce)
 
 	return true
 }
@@ -319,6 +319,7 @@ func (s *DiscoveryServer) pushDeltaXds(con *Connection, push *model.PushContext,
 	deltaResources := convertResponseToDelta(curVersion, res)
 	removedResources := generateResourceDiff(deltaResources,
 		w.ResourceNames)
+	adsLog.Infof("removed: %+v", removedResources)
 
 	deltaResp := &discovery.DeltaDiscoveryResponse{
 		TypeUrl:           w.TypeUrl,
@@ -346,38 +347,23 @@ func (s *DiscoveryServer) pushDeltaXds(con *Connection, push *model.PushContext,
 	return nil
 }
 
-// returns resource names that do not appear in res that do appear in subscriptions
-// todo this is wrong
+// Returns any config that do exist in subscriptions (watched resources) that do not exist in resources (generated).
 func generateResourceDiff(resources []*discovery.Resource, subscriptions []string) []string {
 	resourceNames := []string{}
 	for _, res := range resources {
 		resourceNames = append(resourceNames, res.Name)
 	}
 	// this is O(n^2) - can we make it faster?
-	for i := 0; i < len(subscriptions); i++ {
-		for _, resourceName := range resourceNames {
-			if subscriptions[i] == resourceName {
-				// found resource - remove
-				// potential memory leak (?)
-				subscriptions = append(subscriptions[:i], subscriptions[i+1:]...)
-				i--
-			}
-		}
-	}
-	return subscriptions
+	return generateDiff(resourceNames, subscriptions)
 }
 
-// removes unsub from resources
-func generateDeltaSubcription(resources []string, unsub []string) []string {
-	for i := 0; i < len(resources); i++ {
-		for _, rem := range unsub {
-			if rem == resources[i] {
-				resources = append(resources[:i], resources[i+1:]...)
-				i--
-			}
-		}
-	}
-	return resources
+// removes all resources from subscriptions and returns it
+// resourceNames -> "new" config
+// subscriptions -> "old" config
+func generateDiff(resourceNames []string, subscriptions []string) []string {
+	r1 := sets.NewSet(resourceNames...)
+	s1 := sets.NewSet(subscriptions...)
+	return s1.Difference(r1).UnsortedList()
 }
 
 // just for experimentation

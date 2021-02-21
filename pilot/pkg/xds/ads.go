@@ -241,10 +241,10 @@ func (s *DiscoveryServer) processRequest(req *discovery.DiscoveryRequest, con *C
 
 // StreamAggregatedResources implements the ADS interface.
 func (s *DiscoveryServer) StreamAggregatedResources(stream discovery.AggregatedDiscoveryService_StreamAggregatedResourcesServer) error {
-	return s.Stream(stream, nil)
+	return s.Stream(stream)
 }
 
-func (s *DiscoveryServer) Stream(stream DiscoveryStream, deltaStream DeltaDiscoveryStream) error {
+func (s *DiscoveryServer) Stream(stream DiscoveryStream) error {
 	if knativeEnv != "" && firstRequest.Load() {
 		// How scaling works in knative is the first request is the "loading" request. During
 		// loading request, concurrency=1. Once that request is done, concurrency is enabled.
@@ -288,7 +288,7 @@ func (s *DiscoveryServer) Stream(stream DiscoveryStream, deltaStream DeltaDiscov
 		adsLog.Warnf("Error reading config %v", err)
 		return status.Error(codes.Unavailable, "error reading config")
 	}
-	con := newConnection(peerAddr, stream, deltaStream)
+	con := newConnection(peerAddr, stream, nil)
 	con.Identities = ids
 
 	// Do not call: defer close(con.pushChannel). The push channel will be garbage collected
@@ -658,10 +658,11 @@ func (s *DiscoveryServer) preProcessRequest(proxy *model.Proxy, req *discovery.D
 // The delta protocol changes the request, adding unsubscribe/subscribe instead of sending full
 // list of resources. On the response it adds 'removed resources' and sends changes for everything.
 func (s *DiscoveryServer) DeltaAggregatedResources(stream discovery.AggregatedDiscoveryService_DeltaAggregatedResourcesServer) error {
-	if features.DeltaXds.Get() {
-		return s.Stream(nil, stream)
-	}
-	return status.Errorf(codes.Unimplemented, "not implemented")
+	return s.StreamDeltas(stream)
+	//if features.DeltaXds.Get() {
+	//	return s.StreamDeltas(stream)
+	//}
+	//return status.Errorf(codes.Unimplemented, "not implemented")
 }
 
 // Compute and send the new configuration for a connection. This is blocking and may be slow
