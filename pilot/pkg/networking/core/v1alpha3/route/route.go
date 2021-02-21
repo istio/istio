@@ -404,7 +404,7 @@ func translateRoute(push *model.PushContext, node *model.Proxy, in *networking.H
 		// Set the GrpcTimeoutHeaderMax so that Envoy respects grpc-timeout header.
 		// Only set if explicit timeout is defined otherwise Envoy will just use grpc-timeout header
 		// instead of disabling the timeout which is Istio's default behavior.
-		if action.Timeout.Nanos > 0 {
+		if action.Timeout.AsDuration().Nanoseconds() > 0 {
 			action.MaxStreamDuration.GrpcTimeoutHeaderMax = action.Timeout
 		}
 		out.Action = &route.Route_Route{Route: action}
