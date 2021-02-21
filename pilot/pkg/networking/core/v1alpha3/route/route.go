@@ -828,9 +828,9 @@ func BuildDefaultHTTPInboundRoute(node *model.Proxy, clusterName string, operati
 		Timeout:          notimeout,
 	}
 	routeAction.MaxStreamDuration = &route.RouteAction_MaxStreamDuration{
+		MaxStreamDuration: notimeout,
 		// If not configured at all, the grpc-timeout header is not used and
 		// gRPC requests time out like any other requests using timeout or its default.
-		MaxStreamDuration:    notimeout,
 		GrpcTimeoutHeaderMax: notimeout,
 	}
 	val := &route.Route{
