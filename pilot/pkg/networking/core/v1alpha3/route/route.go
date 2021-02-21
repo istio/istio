@@ -387,7 +387,7 @@ func translateRoute(push *model.PushContext, node *model.Proxy, in *networking.H
 		out.Action = action
 	} else {
 		action := &route.RouteAction{
-			Cors:        translateCORSPolicy(in.CorsPolicy, node),
+			Cors:        translateCORSPolicy(in.CorsPolicy),
 			RetryPolicy: retry.ConvertPolicy(in.Retries),
 		}
 
@@ -736,7 +736,7 @@ func convertToExactEnvoyMatch(in []string) []*matcher.StringMatcher {
 	return res
 }
 
-func convertToEnvoyMatch(in []*networking.StringMatch, node *model.Proxy) []*matcher.StringMatcher {
+func convertToEnvoyMatch(in []*networking.StringMatch) []*matcher.StringMatcher {
 	res := make([]*matcher.StringMatcher, 0, len(in))
 
 	for _, istioMatcher := range in {
@@ -761,7 +761,7 @@ func convertToEnvoyMatch(in []*networking.StringMatch, node *model.Proxy) []*mat
 }
 
 // translateCORSPolicy translates CORS policy
-func translateCORSPolicy(in *networking.CorsPolicy, node *model.Proxy) *route.CorsPolicy {
+func translateCORSPolicy(in *networking.CorsPolicy) *route.CorsPolicy {
 	if in == nil {
 		return nil
 	}
@@ -769,7 +769,7 @@ func translateCORSPolicy(in *networking.CorsPolicy, node *model.Proxy) *route.Co
 	// CORS filter is enabled by default
 	out := route.CorsPolicy{}
 	if in.AllowOrigins != nil {
-		out.AllowOriginStringMatch = convertToEnvoyMatch(in.AllowOrigins, node)
+		out.AllowOriginStringMatch = convertToEnvoyMatch(in.AllowOrigins)
 	} else if in.AllowOrigin != nil {
 		out.AllowOriginStringMatch = convertToExactEnvoyMatch(in.AllowOrigin)
 	}

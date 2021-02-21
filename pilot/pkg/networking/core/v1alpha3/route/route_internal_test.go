@@ -25,7 +25,6 @@ import (
 	"github.com/gogo/protobuf/types"
 
 	networking "istio.io/api/networking/v1alpha3"
-	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/config/labels"
 )
 
@@ -310,7 +309,7 @@ func TestTranslateCORSPolicy(t *testing.T) {
 			},
 		},
 	}
-	if got := translateCORSPolicy(corsPolicy, &model.Proxy{}); !reflect.DeepEqual(got, expectedCorsPolicy) {
+	if got := translateCORSPolicy(corsPolicy); !reflect.DeepEqual(got, expectedCorsPolicy) {
 		t.Errorf("translateCORSPolicy() = \n%v, want \n%v", got, expectedCorsPolicy)
 	}
 }
