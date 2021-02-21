@@ -24,6 +24,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/cenkalti/backoff"
 	"github.com/fsnotify/fsnotify"
 
 	"istio.io/istio/pilot/pkg/model"
@@ -315,6 +316,22 @@ func (sc *SecretManagerClient) GenerateSecret(resourceName string) (secret *secu
 }
 
 func (sc *SecretManagerClient) addFileWatcher(file string, resourceName string) {
+	// Retry file watcher as some times it might fail to add and we will miss change
+	// notifications on those files. For now, retry for ever till the watcher is added.
+	// TODO(ramaraochavali): Think about tieing these failures to liveness probe with a
+	// reasonable threshold (when the problem is not transient) and restart the pod.
+	go func() {
+		b := backoff.NewExponentialBackOff()
+		for {
+			if err := sc.tryAddFileWatcher(file, resourceName); err == nil {
+				break
+			}
+			time.Sleep(b.NextBackOff())
+		}
+	}()
+}
+
+func (sc *SecretManagerClient) tryAddFileWatcher(file string, resourceName string) error {
 	// Check if this file is being already watched, if so ignore it. This check is needed here to
 	// avoid processing duplicate events for the same file.
 	sc.certMutex.Lock()
@@ -327,7 +344,7 @@ func (sc *SecretManagerClient) addFileWatcher(file string, resourceName string) 
 	if _, alreadyWatching := sc.fileCerts[key]; alreadyWatching {
 		cacheLog.Debugf("already watching file for %s", file)
 		// Already watching, no need to do anything
-		return
+		return nil
 	}
 	sc.fileCerts[key] = struct{}{}
 	// File is not being watched, start watching now and trigger key push.
@@ -335,8 +352,9 @@ func (sc *SecretManagerClient) addFileWatcher(file string, resourceName string) 
 	if err := sc.certWatcher.Add(file); err != nil {
 		cacheLog.Errorf("%v: error adding watcher for file, skipping watches [%s] %v", resourceName, file, err)
 		numFileWatcherFailures.Increment()
-		return
+		return err
 	}
+	return nil
 }
 
 // If there is existing root certificates under a well known path, return true.
