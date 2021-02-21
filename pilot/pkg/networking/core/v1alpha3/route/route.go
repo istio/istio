@@ -340,7 +340,7 @@ func translateRoute(push *model.PushContext, node *model.Proxy, in *networking.H
 	}
 
 	out := &route.Route{
-		Match:    translateRouteMatch(match, node),
+		Match:    translateRouteMatch(match),
 		Metadata: util.BuildConfigInfoMetadata(virtualService.Meta),
 	}
 
@@ -588,19 +588,19 @@ func translateHeadersOperations(headers *networking.Headers) headersOperations {
 }
 
 // translateRouteMatch translates match condition
-func translateRouteMatch(in *networking.HTTPMatchRequest, node *model.Proxy) *route.RouteMatch {
+func translateRouteMatch(in *networking.HTTPMatchRequest) *route.RouteMatch {
 	out := &route.RouteMatch{PathSpecifier: &route.RouteMatch_Prefix{Prefix: "/"}}
 	if in == nil {
 		return out
 	}
 
 	for name, stringMatch := range in.Headers {
-		matcher := translateHeaderMatch(name, stringMatch, node)
+		matcher := translateHeaderMatch(name, stringMatch)
 		out.Headers = append(out.Headers, matcher)
 	}
 
 	for name, stringMatch := range in.WithoutHeaders {
-		matcher := translateHeaderMatch(name, stringMatch, node)
+		matcher := translateHeaderMatch(name, stringMatch)
 		matcher.InvertMatch = true
 		out.Headers = append(out.Headers, matcher)
 	}
@@ -630,22 +630,22 @@ func translateRouteMatch(in *networking.HTTPMatchRequest, node *model.Proxy) *ro
 	out.CaseSensitive = &wrappers.BoolValue{Value: !in.IgnoreUriCase}
 
 	if in.Method != nil {
-		matcher := translateHeaderMatch(HeaderMethod, in.Method, node)
+		matcher := translateHeaderMatch(HeaderMethod, in.Method)
 		out.Headers = append(out.Headers, matcher)
 	}
 
 	if in.Authority != nil {
-		matcher := translateHeaderMatch(HeaderAuthority, in.Authority, node)
+		matcher := translateHeaderMatch(HeaderAuthority, in.Authority)
 		out.Headers = append(out.Headers, matcher)
 	}
 
 	if in.Scheme != nil {
-		matcher := translateHeaderMatch(HeaderScheme, in.Scheme, node)
+		matcher := translateHeaderMatch(HeaderScheme, in.Scheme)
 		out.Headers = append(out.Headers, matcher)
 	}
 
 	for name, stringMatch := range in.QueryParams {
-		matcher := translateQueryParamMatch(name, stringMatch, node)
+		matcher := translateQueryParamMatch(name, stringMatch)
 		out.QueryParameters = append(out.QueryParameters, matcher)
 	}
 
@@ -653,7 +653,7 @@ func translateRouteMatch(in *networking.HTTPMatchRequest, node *model.Proxy) *ro
 }
 
 // translateQueryParamMatch translates a StringMatch to a QueryParameterMatcher.
-func translateQueryParamMatch(name string, in *networking.StringMatch, node *model.Proxy) *route.QueryParameterMatcher {
+func translateQueryParamMatch(name string, in *networking.StringMatch) *route.QueryParameterMatcher {
 	out := &route.QueryParameterMatcher{
 		Name: name,
 	}
@@ -697,7 +697,7 @@ func isCatchAllHeaderMatch(in *networking.StringMatch) bool {
 }
 
 // translateHeaderMatch translates to HeaderMatcher
-func translateHeaderMatch(name string, in *networking.StringMatch, node *model.Proxy) *route.HeaderMatcher {
+func translateHeaderMatch(name string, in *networking.StringMatch) *route.HeaderMatcher {
 	out := &route.HeaderMatcher{
 		Name: name,
 	}
@@ -834,7 +834,7 @@ func BuildDefaultHTTPInboundRoute(node *model.Proxy, clusterName string, operati
 		GrpcTimeoutHeaderMax: notimeout,
 	}
 	val := &route.Route{
-		Match: translateRouteMatch(nil, node),
+		Match: translateRouteMatch(nil),
 		Decorator: &route.Decorator{
 			Operation: operation,
 		},

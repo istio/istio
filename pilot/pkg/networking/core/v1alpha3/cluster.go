@@ -297,7 +297,7 @@ func (configgen *ConfigGeneratorImpl) buildInboundClusters(cb *ClusterBuilder, i
 		// For each workload port, we will construct a cluster
 		for _, instances := range clustersToBuild {
 			instance := instances[0]
-			localCluster := cb.buildInboundClusterForPortOrUDS(cb.proxy, int(instance.Endpoint.EndpointPort), actualLocalHost, instance, instances)
+			localCluster := cb.buildInboundClusterForPortOrUDS(int(instance.Endpoint.EndpointPort), actualLocalHost, instance, instances)
 			// If inbound cluster match has service, we should see if it matches with any host name across all instances.
 			var hosts []host.Name
 			for _, si := range instances {
@@ -351,7 +351,7 @@ func (configgen *ConfigGeneratorImpl) buildInboundClusters(cb *ClusterBuilder, i
 		instance.Endpoint.ServicePortName = listenPort.Name
 		instance.Endpoint.EndpointPort = uint32(port)
 
-		localCluster := cb.buildInboundClusterForPortOrUDS(cb.proxy, int(ingressListener.Port.Number), endpointAddress, instance, nil)
+		localCluster := cb.buildInboundClusterForPortOrUDS(int(ingressListener.Port.Number), endpointAddress, instance, nil)
 		if instanceIPCluster {
 			// IPTables will redirect our own traffic back to us if we do not use the "magic" upstream bind
 			// config which will be skipped. This mirrors the "passthrough" clusters.

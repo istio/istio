@@ -256,7 +256,7 @@ func (cb *ClusterBuilder) buildDefaultCluster(name string, discoveryType cluster
 // requires a single protocol per port, and the DestinationRule issue is slated to move to Sidecar.
 // Note: clusterPort and instance.Endpoint.EndpointPort are identical for standard Services; however,
 // Sidecar.Ingress allows these to be different.
-func (cb *ClusterBuilder) buildInboundClusterForPortOrUDS(proxy *model.Proxy, clusterPort int, bind string,
+func (cb *ClusterBuilder) buildInboundClusterForPortOrUDS(clusterPort int, bind string,
 	instance *model.ServiceInstance, allInstance []*model.ServiceInstance) *cluster.Cluster {
 	clusterName := model.BuildInboundSubsetKey(instance.ServicePort.Name,
 		instance.Service.Hostname, clusterPort)
