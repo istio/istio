@@ -22,7 +22,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	klabels "k8s.io/apimachinery/pkg/labels"
-	k8s "sigs.k8s.io/service-apis/apis/v1alpha1"
+	k8s "sigs.k8s.io/gateway-api/apis/v1alpha1"
 
 	istio "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pkg/config"
@@ -81,11 +81,10 @@ func isRouteMatch(cfg config.Config, gateway config.Meta,
 
 	// Check the gateway's namespace selector
 	namespaceSelector := routes.Namespaces
-	if namespaceSelector == nil {
+
+	if namespaceSelector.From == "" {
 		// Setup default if not provided
-		namespaceSelector = &k8s.RouteNamespaces{
-			From: k8s.RouteSelectSame,
-		}
+		namespaceSelector.From = k8s.RouteSelectSame
 	}
 	switch namespaceSelector.From {
 	case k8s.RouteSelectAll:
@@ -496,8 +495,12 @@ func buildHTTPDestination(action []k8s.HTTPRouteForwardTo, ns string) []*istio.H
 }
 
 func buildDestination(to k8s.HTTPRouteForwardTo, ns string) *istio.Destination {
-	res := &istio.Destination{
-		Port: &istio.PortSelector{Number: uint32(to.Port)},
+	res := &istio.Destination{}
+	if to.Port != nil {
+		// TODO: "If unspecified, the destination port in the request is used when forwarding to a backendRef or serviceName."
+		// We need to link up with the gateway and construct a per gateway virtual service. This is not actually
+		// possible with targetPort in some scenarios; need to reconsider the API.
+		res.Port = &istio.PortSelector{Number: uint32(*to.Port)}
 	}
 	if to.ServiceName != nil {
 		res.Host = fmt.Sprintf("%s.%s.svc.%s", *to.ServiceName, ns, constants.DefaultKubernetesDomain)
@@ -509,8 +512,12 @@ func buildDestination(to k8s.HTTPRouteForwardTo, ns string) *istio.Destination {
 }
 
 func buildGenericDestination(to k8s.RouteForwardTo, ns string) *istio.Destination {
-	res := &istio.Destination{
-		Port: &istio.PortSelector{Number: uint32(to.Port)},
+	res := &istio.Destination{}
+	if to.Port != nil {
+		// TODO: "If unspecified, the destination port in the request is used when forwarding to a backendRef or serviceName."
+		// We need to link up with the gateway and construct a per gateway virtual service. This is not actually
+		// possible with targetPort in some scenarios; need to reconsider the API.
+		res.Port = &istio.PortSelector{Number: uint32(*to.Port)}
 	}
 	if to.ServiceName != nil {
 		res.Host = fmt.Sprintf("%s.%s.svc.%s", *to.ServiceName, ns, constants.DefaultKubernetesDomain)
@@ -584,6 +591,7 @@ func createHeadersFilter(filter *k8s.HTTPRequestHeaderFilter) *istio.Headers {
 		Request: &istio.Headers_HeaderOperations{
 			Add:    filter.Add,
 			Remove: filter.Remove,
+			Set:    filter.Set,
 		},
 	}
 }
@@ -718,7 +726,12 @@ func buildTLS(tls *k8s.GatewayTLSConfig) *istio.ServerTLSSettings {
 	switch tls.Mode {
 	case "", k8s.TLSModeTerminate:
 		out.Mode = istio.ServerTLSSettings_SIMPLE
-		out.CredentialName = buildSecretReference(tls.CertificateRef)
+		if tls.CertificateRef == nil {
+			// This is required in the API, should be rejected in validation
+			log.Warnf("invalid tls certificate ref: %v", tls)
+			return nil
+		}
+		out.CredentialName = buildSecretReference(*tls.CertificateRef)
 	case k8s.TLSModePassthrough:
 		out.Mode = istio.ServerTLSSettings_PASSTHROUGH
 	}
@@ -734,9 +747,9 @@ func buildSecretReference(ref k8s.LocalObjectReference) string {
 }
 
 func buildHostnameMatch(hostname *k8s.Hostname) []string {
-	// service-apis hostname semantics match ours, so pass directly. The one
+	// gateway-api hostname semantics match ours, so pass directly. The one
 	// exception is they allow unset, which is equivalent to * for us
-	if hostname == nil {
+	if hostname == nil || *hostname == "" {
 		return []string{"*"}
 	}
 	return []string{string(*hostname)}

@@ -440,6 +440,9 @@ func createMeshConfig(kubeClient kube.ExtendedClient, wg *clientv1alpha3.Workloa
 	meshConfig.DefaultConfig.ReadinessProbe = wg.Spec.Probe
 
 	md := meshConfig.DefaultConfig.ProxyMetadata
+	if md == nil {
+		md = map[string]string{}
+	}
 	md["CANONICAL_SERVICE"], md["CANONICAL_REVISION"] = inject.ExtractCanonicalServiceLabels(labels, wg.Name)
 	md["POD_NAMESPACE"] = wg.Namespace
 	md["SERVICE_ACCOUNT"] = we.ServiceAccount

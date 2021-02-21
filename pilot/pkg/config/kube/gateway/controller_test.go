@@ -19,7 +19,7 @@ import (
 
 	. "github.com/onsi/gomega"
 	"k8s.io/client-go/kubernetes/fake"
-	svc "sigs.k8s.io/service-apis/apis/v1alpha1"
+	svc "sigs.k8s.io/gateway-api/apis/v1alpha1"
 
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/config/memory"
@@ -41,7 +41,7 @@ var (
 				Port:     9009,
 				Protocol: "HTTP",
 				Routes: svc.RouteBindingSelector{
-					Namespaces: &svc.RouteNamespaces{From: svc.RouteSelectAll},
+					Namespaces: svc.RouteNamespaces{From: svc.RouteSelectAll},
 					Group:      gvk.HTTPRoute.Group,
 					Kind:       gvk.HTTPRoute.Kind,
 				},
