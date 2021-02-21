@@ -1986,12 +1986,6 @@ func getMatchAllFilterChain(l *listener.Listener) (int, *listener.FilterChain) {
 // TODO(lambdai): Calculate the filter chain match to replace the wildcard and replace appendListenerFallthroughRoute.
 func (configgen *ConfigGeneratorImpl) appendListenerFallthroughRouteForCompleteListener(l *listener.Listener, node *model.Proxy, push *model.PushContext) {
 	matchIndex, matchAll := getMatchAllFilterChain(l)
-	if matchAll != nil {
-		// We can only have one wildcard match. If the filter chain already has one, skip it
-		// This happens in the case of HTTP, which will get a fallthrough route added later,
-		// or TCP, which is not supported
-		return
-	}
 
 	fallthroughNetworkFilters := buildOutboundCatchAllNetworkFiltersOnly(push, node)
 
