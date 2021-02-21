@@ -415,8 +415,8 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundHTTPListenerOptsForPort
 		// We use the port name as the subset in the inbound cluster for differentiation. Its fine to use port
 		// names here because the inbound clusters are not referred to anywhere in the API, unlike the outbound
 		// clusters and these are static endpoint clusters used only for sidecar (proxy -> app)
-		clusterName = util.BuildInboundSubsetKey(node, pluginParams.ServiceInstance.ServicePort.Name,
-			pluginParams.ServiceInstance.Service.Hostname, pluginParams.ServiceInstance.ServicePort.Port, int(pluginParams.ServiceInstance.Endpoint.EndpointPort))
+		clusterName = model.BuildInboundSubsetKey(pluginParams.ServiceInstance.ServicePort.Name,
+			pluginParams.ServiceInstance.Service.Hostname, int(pluginParams.ServiceInstance.Endpoint.EndpointPort))
 	}
 
 	httpOpts := &httpListenerOpts{
@@ -458,8 +458,8 @@ func (configgen *ConfigGeneratorImpl) buildSidecarThriftListenerOptsForPortOrUDS
 	// We use the port name as the subset in the inbound cluster for differentiation. Its fine to use port
 	// names here because the inbound clusters are not referred to anywhere in the API, unlike the outbound
 	// clusters and these are static endpoint clusters used only for sidecar (proxy -> app)
-	clusterName := util.BuildInboundSubsetKey(pluginParams.Node, pluginParams.ServiceInstance.ServicePort.Name,
-		pluginParams.ServiceInstance.Service.Hostname, pluginParams.ServiceInstance.ServicePort.Port, int(pluginParams.ServiceInstance.Endpoint.EndpointPort))
+	clusterName := model.BuildInboundSubsetKey(pluginParams.ServiceInstance.ServicePort.Name,
+		pluginParams.ServiceInstance.Service.Hostname, int(pluginParams.ServiceInstance.Endpoint.EndpointPort))
 
 	thriftOpts := &thriftListenerOpts{
 		transport:   thrift.TransportType_AUTO_TRANSPORT,
@@ -1986,11 +1986,10 @@ func getMatchAllFilterChain(l *listener.Listener) (int, *listener.FilterChain) {
 // TODO(lambdai): Calculate the filter chain match to replace the wildcard and replace appendListenerFallthroughRoute.
 func (configgen *ConfigGeneratorImpl) appendListenerFallthroughRouteForCompleteListener(l *listener.Listener, node *model.Proxy, push *model.PushContext) {
 	matchIndex, matchAll := getMatchAllFilterChain(l)
-	if matchAll != nil && !util.IsIstioVersionGE18(node) {
+	if matchAll != nil {
 		// We can only have one wildcard match. If the filter chain already has one, skip it
 		// This happens in the case of HTTP, which will get a fallthrough route added later,
 		// or TCP, which is not supported
-		// This check is skipped for Proxy's newer than 1.8, as we can use DefaultFilterChain
 		return
 	}
 
@@ -2002,23 +2001,19 @@ func (configgen *ConfigGeneratorImpl) appendListenerFallthroughRouteForCompleteL
 		Filters:          fallthroughNetworkFilters,
 	}
 
-	// On proxy 1.8+, we can set a default filter chain. This allows us to avoid issues where
+	// Set a default filter chain. This allows us to avoid issues where
 	// traffic starts to match a filter chain but then doesn't match latter criteria, leading to
 	// dropped requests. See https://github.com/istio/istio/issues/26079 for details.
-	if util.IsIstioVersionGE18(node) {
-		// If there are multiple filter chains and a match all chain, move it to DefaultFilterChain
-		// This ensures it will always be used as the fallback
-		if matchAll != nil && len(l.FilterChains) > 1 {
-			copy(l.FilterChains[matchIndex:], l.FilterChains[matchIndex+1:]) // Shift l.FilterChains[i+1:] left one index.
-			l.FilterChains[len(l.FilterChains)-1] = nil                      // Erase last element (write zero value).
-			l.FilterChains = l.FilterChains[:len(l.FilterChains)-1]          // Truncate slice.
-			l.DefaultFilterChain = matchAll
-		} else if matchAll == nil {
-			// Otherwise, if there is no match all already, set a passthrough match all
-			l.DefaultFilterChain = outboundPassThroughFilterChain
-		}
-	} else {
-		l.FilterChains = append(l.FilterChains, outboundPassThroughFilterChain)
+	// If there are multiple filter chains and a match all chain, move it to DefaultFilterChain
+	// This ensures it will always be used as the fallback.
+	if matchAll != nil && len(l.FilterChains) > 1 {
+		copy(l.FilterChains[matchIndex:], l.FilterChains[matchIndex+1:]) // Shift l.FilterChains[i+1:] left one index.
+		l.FilterChains[len(l.FilterChains)-1] = nil                      // Erase last element (write zero value).
+		l.FilterChains = l.FilterChains[:len(l.FilterChains)-1]          // Truncate slice.
+		l.DefaultFilterChain = matchAll
+	} else if matchAll == nil {
+		// Otherwise, if there is no match all already, set a passthrough match all
+		l.DefaultFilterChain = outboundPassThroughFilterChain
 	}
 }
 
