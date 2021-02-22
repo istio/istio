@@ -144,13 +144,10 @@ func isExpectedGRPCError(err error) bool {
 func (s *DiscoveryServer) receive(con *Connection, reqChannel chan *discovery.DiscoveryRequest, errP *error) {
 	defer func() {
 		close(reqChannel)
-		// Close the initialized channel, if its not already closed, to prevent blocking the stream
-		select {
-		case <-con.initialized:
-		default:
-			close(con.initialized)
-		}
+		// Close the stop channel, to prevent blocking the stream
+		con.Stop()
 	}()
+
 	firstReq := true
 	for {
 		req, err := con.stream.Recv()
@@ -299,12 +296,16 @@ func (s *DiscoveryServer) Stream(stream DiscoveryStream) error {
 	reqChannel := make(chan *discovery.DiscoveryRequest, 1)
 	go s.receive(con, reqChannel, &receiveError)
 
+	select {
 	// Wait for the proxy to be fully initialized before we start serving traffic. Because
 	// initialization doesn't have dependencies that will block, there is no need to add any timeout
 	// here. Prior to this explicit wait, we were implicitly waiting by receive() not sending to
 	// reqChannel and the connection not being enqueued for pushes to pushChannel until the
 	// initialization is complete.
-	<-con.initialized
+	case <-con.initialized:
+	case <-con.stop:
+		return receiveError
+	}
 
 	for {
 		// Block until either a request is received or a push is triggered.
@@ -995,5 +996,5 @@ func (conn *Connection) Watched(typeUrl string) *model.WatchedResource {
 }
 
 func (conn *Connection) Stop() {
-	conn.stop <- struct{}{}
+	close(conn.stop)
 }
