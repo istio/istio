@@ -384,6 +384,13 @@ func TestAdsPushScoping(t *testing.T) {
 			},
 		},
 	}
+	scc := config.Config{
+		Meta: config.Meta{
+			GroupVersionKind: gvk.Sidecar,
+			Name:             "sc", Namespace: model.IstioDefaultConfigNamespace,
+		},
+		Spec: sc,
+	}
 	notMatchedScc := config.Config{
 		Meta: config.Meta{GroupVersionKind: gvk.Sidecar,
 			Name: "notMatchedSc", Namespace: model.IstioDefaultConfigNamespace},
@@ -392,13 +399,7 @@ func TestAdsPushScoping(t *testing.T) {
 				Labels: map[string]string{"notMatched": "notMatched"},
 			},
 		}}
-	if _, err := s.Store().Create(config.Config{
-		Meta: config.Meta{
-			GroupVersionKind: gvk.Sidecar,
-			Name:             "sc", Namespace: model.IstioDefaultConfigNamespace,
-		},
-		Spec: sc,
-	}); err != nil {
+	if _, err := s.Store().Create(scc); err != nil {
 		t.Fatal(err)
 	}
 	addService(model.IstioDefaultConfigNamespace, 1, 2, 3)
@@ -635,9 +636,16 @@ func TestAdsPushScoping(t *testing.T) {
 			unexpectUpdates: []string{v3.ClusterType},
 		}, // then: default 1,2,3
 		{
-			desc:          "Add an unmatched Sidecar config",
-			ev:            model.EventAdd,
-			cfgs:          []config.Config{notMatchedScc},
+			desc:            "Add an unmatched Sidecar config",
+			ev:              model.EventAdd,
+			cfgs:            []config.Config{notMatchedScc},
+			ns:              model.IstioDefaultConfigNamespace,
+			unexpectUpdates: []string{v3.ListenerType, v3.RouteType, v3.ClusterType, v3.EndpointType},
+		},
+		{
+			desc:          "Update the Sidecar config",
+			ev:            model.EventUpdate,
+			cfgs:          []config.Config{scc},
 			ns:            model.IstioDefaultConfigNamespace,
 			expectUpdates: []string{v3.ListenerType, v3.RouteType, v3.ClusterType, v3.EndpointType},
 		},
@@ -691,6 +699,13 @@ func TestAdsPushScoping(t *testing.T) {
 				if len(c.delegatevsIndexes) > 0 {
 					for _, vsIndex := range c.delegatevsIndexes {
 						updateDelegateVirtualService(vsIndex.index, vsIndex.dest)
+					}
+				}
+				if len(c.cfgs) > 0 {
+					for _, cfg := range c.cfgs {
+						if _, err := s.Store().Update(cfg); err != nil {
+							t.Fatal(err)
+						}
 					}
 				}
 			case model.EventDelete:
