@@ -79,8 +79,10 @@ type ServiceEntryStore struct { // nolint:golint
 	workloadInstancesIPsByName map[string]string
 	// seWithSelectorByNamespace keeps track of ServiceEntries with selectors, keyed by namespaces
 	seWithSelectorByNamespace map[string][]servicesWithEntry
-	refreshIndexes            *atomic.Bool
-	workloadHandlers          []func(*model.WorkloadInstance, model.Event)
+	// services keeps track of all services - mainly used to return from Services() to avoid reconversion.
+	services         []*model.Service
+	refreshIndexes   *atomic.Bool
+	workloadHandlers []func(*model.WorkloadInstance, model.Event)
 
 	processServiceEntry bool
 }
@@ -484,40 +486,27 @@ func (s *ServiceEntryStore) Services() ([]*model.Service, error) {
 	if !s.processServiceEntry {
 		return nil, nil
 	}
-	services := make([]*model.Service, 0)
-	for _, cfg := range s.store.ServiceEntries() {
-		services = append(services, convertServices(cfg)...)
-	}
-
-	return autoAllocateIPs(services), nil
+	s.maybeRefreshIndexes()
+	s.storeMutex.RLock()
+	defer s.storeMutex.RUnlock()
+	return autoAllocateIPs(s.services), nil
 }
 
-// GetService retrieves a service by host name if it exists
-// THIS IS A LINEAR SEARCH WHICH CAUSES ALL SERVICE ENTRIES TO BE RECONVERTED -
-// DO NOT USE
+// GetService retrieves a service by host name if it exists.
 // NOTE: This does not auto allocate IPs. The service entry implementation is used only for tests.
 func (s *ServiceEntryStore) GetService(hostname host.Name) (*model.Service, error) {
 	if !s.processServiceEntry {
 		return nil, nil
 	}
-	for _, service := range s.getServices() {
+	s.storeMutex.RLock()
+	defer s.storeMutex.RUnlock()
+	for _, service := range s.services {
 		if service.Hostname == hostname {
 			return service, nil
 		}
 	}
 
 	return nil, nil
-}
-
-func (s *ServiceEntryStore) getServices() []*model.Service {
-	if !s.processServiceEntry {
-		return nil
-	}
-	services := make([]*model.Service, 0)
-	for _, cfg := range s.store.ServiceEntries() {
-		services = append(services, convertServices(cfg)...)
-	}
-	return services
 }
 
 // InstancesByPort retrieves instances for a service on the given ports with labels that
@@ -544,7 +533,6 @@ func (s *ServiceEntryStore) InstancesByPort(svc *model.Service, port int, labels
 }
 
 // servicesWithEntry contains a ServiceEntry and associated model.Services
-// This is used only as a key to a map, not intended for external usage
 type servicesWithEntry struct {
 	entry    *networking.ServiceEntry
 	services []*model.Service
@@ -660,6 +648,7 @@ func (s *ServiceEntryStore) maybeRefreshIndexes() {
 
 	// First refresh service entry
 	seWithSelectorByNamespace := map[string][]servicesWithEntry{}
+	allServices := []*model.Service{}
 	if s.processServiceEntry {
 		for _, cfg := range s.store.ServiceEntries() {
 			key := configKey{
@@ -675,6 +664,7 @@ func (s *ServiceEntryStore) maybeRefreshIndexes() {
 			if se.WorkloadSelector != nil {
 				seWithSelectorByNamespace[cfg.Namespace] = append(seWithSelectorByNamespace[cfg.Namespace], servicesWithEntry{se, services})
 			}
+			allServices = append(allServices, services...)
 		}
 	}
 
@@ -727,6 +717,7 @@ func (s *ServiceEntryStore) maybeRefreshIndexes() {
 	}
 
 	s.seWithSelectorByNamespace = seWithSelectorByNamespace
+	s.services = allServices
 	s.instances = instanceMap
 	s.ip2instance = ip2instances
 }
