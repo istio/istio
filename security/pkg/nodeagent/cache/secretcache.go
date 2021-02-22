@@ -350,7 +350,7 @@ func (sc *SecretManagerClient) tryAddFileWatcher(file string, resourceName strin
 	// File is not being watched, start watching now and trigger key push.
 	cacheLog.Infof("adding watcher for file certificate %s", file)
 	if err := sc.certWatcher.Add(file); err != nil {
-		cacheLog.Errorf("%v: error adding watcher for file, skipping watches [%s] %v", resourceName, file, err)
+		cacheLog.Errorf("%v: error adding watcher for file, retrying watches [%s] %v", resourceName, file, err)
 		numFileWatcherFailures.Increment()
 		return err
 	}
