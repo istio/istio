@@ -44,20 +44,13 @@ type TrustBundle struct {
 	updatecb     func()
 }
 
-var (
-	trustBundleLog = log.RegisterScope("trustBundle", "Workload mTLS trust bundle logs", 0)
-
-	// globalWorkloadTrustbundle Needed to interface with XDS
-	globalWorkloadTrustbundle      *TrustBundle = nil
-	globalWorkloadTrustBundleMutex sync.RWMutex
-)
+var trustBundleLog = log.RegisterScope("trustBundle", "Workload mTLS trust bundle logs", 0)
 
 const (
 	SourceIstioCA Source = iota
 	SourceMeshConfig
 	SourceIstioRA
 	// SOURCE_SPIFFE_ENDPOINT
-	UpdateChannelLen = 10
 )
 
 func checkSameCerts(certs1 []string, certs2 []string) bool {
@@ -73,7 +66,7 @@ func checkSameCerts(certs1 []string, certs2 []string) bool {
 }
 
 // NewTrustBundle: Returns a new trustbundle
-func NewTrustBundle(updatecb func()) *TrustBundle {
+func NewTrustBundle() *TrustBundle {
 	tb := &TrustBundle{
 		sourceConfig: map[Source]TrustAnchorConfig{
 			SourceIstioCA:    {Certs: []string{}},
@@ -82,24 +75,13 @@ func NewTrustBundle(updatecb func()) *TrustBundle {
 			// SOURCE_SPIFFE_ENDPOINT:        &TrustAnchorConfig{source: SOURCE_SPIFFE_ENDPOINT, certs: []string{}},
 		},
 		mergedCerts: []string{},
-		updatecb:    updatecb,
+		updatecb:    nil,
 	}
 	return tb
 }
 
-// SetGlobalTrustBundle: Sets a global TrustBundle.
-// This should only be done once
-func SetGlobalTrustBundle(tb *TrustBundle) {
-	globalWorkloadTrustBundleMutex.Lock()
-	globalWorkloadTrustbundle = tb
-	globalWorkloadTrustBundleMutex.Unlock()
-}
-
-// GetGlobalTrustBundle: Retrieves global trust bundle that was set.
-func GetGlobalTrustBundle() *TrustBundle {
-	globalWorkloadTrustBundleMutex.RLock()
-	defer globalWorkloadTrustBundleMutex.RUnlock()
-	return globalWorkloadTrustbundle
+func (tb *TrustBundle) UpdateCb(updatecb func()) {
+	tb.updatecb = updatecb
 }
 
 // GetTrustBundle : Retrieves all the trustAnchors for current Spiffee Trust Domain
@@ -111,14 +93,14 @@ func (tb *TrustBundle) GetTrustBundle() []string {
 	return trustedCerts
 }
 
-func (tb *TrustBundle) verifyTrustAnchor(trustAnchor string) error {
+func verifyTrustAnchor(trustAnchor string) error {
 	block, _ := pem.Decode([]byte(trustAnchor))
 	if block == nil {
 		return fmt.Errorf("failed to decode pem certificate")
 	}
 	cert, err := x509.ParseCertificate(block.Bytes)
 	if err != nil {
-		return fmt.Errorf("failed to parse X.509 certificate. Error: %v", err)
+		return fmt.Errorf("failed to parse X.509 certificate: %v", err)
 	}
 	if !cert.IsCA {
 		return fmt.Errorf("certificate is not a CA certificate")
@@ -163,7 +145,7 @@ func (tb *TrustBundle) UpdateTrustAnchor(anchorConfig *TrustAnchorUpdate) error 
 	}
 
 	for _, cert := range anchorConfig.Certs {
-		err = tb.verifyTrustAnchor(cert)
+		err = verifyTrustAnchor(cert)
 		if err != nil {
 			return err
 		}
@@ -175,7 +157,9 @@ func (tb *TrustBundle) UpdateTrustAnchor(anchorConfig *TrustAnchorUpdate) error 
 		anchorConfig.Source,
 		strings.Join(anchorConfig.TrustAnchorConfig.Certs, "\n"))
 
-	tb.updatecb()
+	if tb.updatecb != nil {
+		tb.updatecb()
+	}
 	return nil
 }
 
@@ -191,7 +175,7 @@ func (tb *TrustBundle) AddMeshConfigUpdate(cfg *meshconfig.MeshConfig) {
 			Source:            SourceMeshConfig,
 		})
 		if err != nil {
-			trustBundleLog.Errorf("failed to update meshConfig trustAnchors because: %v")
+			trustBundleLog.Errorf("failed to update meshConfig trustAnchors: %v", err)
 		}
 	}
 }
