@@ -112,7 +112,7 @@ func TestAuthenticate(t *testing.T) {
 			ctx := context.Background()
 			if tc.metadata != nil {
 				if tc.token != "" {
-					token := security.XDSBearerTokenPrefix + tc.token
+					token := security.BearerTokenPrefix + tc.token
 					tc.metadata.Append("authorization", token)
 				}
 				ctx = metadata.NewIncomingContext(ctx, tc.metadata)

@@ -75,14 +75,9 @@ var (
 		"A list of comma separated audiences to check in the JWT token before issuing a certificate. "+
 			"The token is accepted if it matches with one of the audiences").Get(), ",")
 
-	XDSTokenType = env.RegisterStringVar("XDS_TOKEN_TYPE", "Bearer",
-		"Token type in the Authorization header.").Get()
-
-	XDSBearerTokenPrefix = XDSTokenType + " "
+	BearerTokenPrefix = "Bearer" + " "
 
 	K8sTokenPrefix = "Istio" + " "
-
-	DefaultTokenPrefix = "Bearer" + " "
 )
 
 // Options provides all of the configuration parameters for secret discovery service
@@ -313,18 +308,14 @@ func ExtractBearerToken(ctx context.Context) (string, error) {
 	}
 
 	for _, value := range authHeader {
-		if strings.HasPrefix(value, XDSBearerTokenPrefix) {
-			return strings.TrimPrefix(value, XDSBearerTokenPrefix), nil
+		if strings.HasPrefix(value, BearerTokenPrefix) {
+			return strings.TrimPrefix(value, BearerTokenPrefix), nil
 		}
 		if strings.HasPrefix(value, K8sTokenPrefix) {
 			// This code is to safely handle the upgrade from MCP private preview
 			// to MCP public preview, when the auth header type changes from "Istio"
 			// to "Bearer". After the transition period, this code can be removed.
 			return strings.TrimPrefix(value, K8sTokenPrefix), nil
-		}
-		// Otherwise, fall back to the default Bearer
-		if strings.HasPrefix(value, DefaultTokenPrefix) {
-			return strings.TrimPrefix(value, DefaultTokenPrefix), nil
 		}
 	}
 
@@ -337,8 +328,8 @@ func ExtractRequestToken(req *http.Request) (string, error) {
 		return "", fmt.Errorf("no HTTP authorization header exists")
 	}
 
-	if strings.HasPrefix(value, XDSBearerTokenPrefix) {
-		return strings.TrimPrefix(value, XDSBearerTokenPrefix), nil
+	if strings.HasPrefix(value, BearerTokenPrefix) {
+		return strings.TrimPrefix(value, BearerTokenPrefix), nil
 	}
 	if strings.HasPrefix(value, K8sTokenPrefix) {
 		return strings.TrimPrefix(value, K8sTokenPrefix), nil
