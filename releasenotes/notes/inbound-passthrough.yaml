@@ -7,7 +7,7 @@ upradeNotes:
   title: Inbound Forwarding Configuration
   content: |
     The behavior of inbound forwarding will be modified in the near future. While this change is not enabled
-    by default in Istio 1.10, it will can be enabled today by configuring the `PILOT_ENABLE_INBOUND_PASSTHROUGH=true` environment
+    by default in Istio 1.10, it can be enabled today by configuring the `PILOT_ENABLE_INBOUND_PASSTHROUGH=true` environment
     variable in Istiod.
 
     Previously, requests would be forwarded to `localhost`. This leads to two important differences compared to running applications

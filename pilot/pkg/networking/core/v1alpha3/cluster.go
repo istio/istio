@@ -324,9 +324,11 @@ func (configgen *ConfigGeneratorImpl) buildInboundClusters(cb *ClusterBuilder, i
 			Name:     ingressListener.Port.Name,
 		}
 
-		// When building an inbound cluster for the ingress listener, we take the defaultEndpoint specified
-		// by the user and parse it into host:port or a unix domain socket
-		// The default endpoint can be 127.0.0.1:port or :port or unix domain socket
+		// Set up the endpoint. By default, we set this empty which will use ORIGINAL_DST passthrough.
+		// This can be overridden by ingress.defaultEndpoint.
+		// * 127.0.0.1: send to localhost
+		// * 0.0.0.0: send to INSTANCE_IP
+		// * unix:///...: send to configured unix domain socket
 		endpointAddress := ""
 		port := 0
 		if strings.HasPrefix(ingressListener.DefaultEndpoint, model.UnixAddressPrefix) {
@@ -610,7 +612,8 @@ func applyTrafficPolicy(opts buildClusterOpts) {
 		applyH2Upgrade(opts, connectionPool)
 		applyOutlierDetection(opts.cluster, outlierDetection)
 		applyLoadBalancer(opts.cluster, loadBalancer, opts.port, opts.proxy, opts.mesh)
-	} else if opts.cluster.GetType() == cluster.Cluster_ORIGINAL_DST {
+	}
+	if opts.cluster.GetType() == cluster.Cluster_ORIGINAL_DST {
 		opts.cluster.LbPolicy = cluster.Cluster_CLUSTER_PROVIDED
 	}
 

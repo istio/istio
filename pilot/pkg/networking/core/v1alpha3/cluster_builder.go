@@ -21,6 +21,7 @@ import (
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	endpoint "github.com/envoyproxy/go-control-plane/envoy/config/endpoint/v3"
 	"github.com/gogo/protobuf/types"
+	"github.com/golang/protobuf/ptypes/duration"
 	"github.com/golang/protobuf/ptypes/wrappers"
 
 	networking "istio.io/api/networking/v1alpha3"
@@ -265,6 +266,12 @@ func (cb *ClusterBuilder) buildInboundClusterForPortOrUDS(clusterPort int, bind 
 	}
 	localCluster := cb.buildDefaultCluster(clusterName, clusterType, localityLbEndpoints,
 		model.TrafficDirectionInbound, instance.ServicePort, instance.Service, allInstance)
+	if clusterType == cluster.Cluster_ORIGINAL_DST {
+		// Extend cleanupInterval beyond 5s default. This ensures that upstream connections will stay
+		// open for up to 60s. With the default of 5s, we may tear things down too quickly for
+		// infrequently accessed services.
+		localCluster.CleanupInterval = &duration.Duration{Seconds: 60}
+	}
 	// If stat name is configured, build the alt statname.
 	if len(cb.push.Mesh.InboundClusterStatName) != 0 {
 		localCluster.AltStatName = util.BuildStatPrefix(cb.push.Mesh.InboundClusterStatName,
