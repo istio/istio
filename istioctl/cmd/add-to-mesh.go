@@ -150,7 +150,7 @@ See also 'istioctl experimental remove-from-mesh deployment' which does the reve
 
 			var valuesConfig string
 			var sidecarTemplate inject.Templates
-			meshConfig, err := setupParameters(&sidecarTemplate, &valuesConfig)
+			meshConfig, err := setupParameters(&sidecarTemplate, &valuesConfig, opts.Revision)
 			if err != nil {
 				return err
 			}
@@ -205,7 +205,7 @@ See also 'istioctl experimental remove-from-mesh service' which does the reverse
 
 			var valuesConfig string
 			var sidecarTemplate inject.Templates
-			meshConfig, err := setupParameters(&sidecarTemplate, &valuesConfig)
+			meshConfig, err := setupParameters(&sidecarTemplate, &valuesConfig, opts.Revision)
 			if err != nil {
 				return err
 			}
@@ -286,7 +286,7 @@ See also 'istioctl experimental remove-from-mesh external-service' which does th
 	return cmd
 }
 
-func setupParameters(sidecarTemplate *inject.Templates, valuesConfig *string) (*meshconfig.MeshConfig, error) {
+func setupParameters(sidecarTemplate *inject.Templates, valuesConfig *string, revision string) (*meshconfig.MeshConfig, error) {
 	var meshConfig *meshconfig.MeshConfig
 	var err error
 	if meshConfigFile != "" {
@@ -294,7 +294,7 @@ func setupParameters(sidecarTemplate *inject.Templates, valuesConfig *string) (*
 			return nil, err
 		}
 	} else {
-		if meshConfig, err = getMeshConfigFromConfigMap(kubeconfig, "add-to-mesh"); err != nil {
+		if meshConfig, err = getMeshConfigFromConfigMap(kubeconfig, "add-to-mesh", revision); err != nil {
 			return nil, err
 		}
 	}
@@ -308,7 +308,7 @@ func setupParameters(sidecarTemplate *inject.Templates, valuesConfig *string) (*
 			return nil, multierror.Append(err, fmt.Errorf("loading --injectConfigFile"))
 		}
 		*sidecarTemplate = injectConfig
-	} else if *sidecarTemplate, err = getInjectConfigFromConfigMap(kubeconfig); err != nil {
+	} else if *sidecarTemplate, err = getInjectConfigFromConfigMap(kubeconfig, revision); err != nil {
 		return nil, err
 	}
 	if valuesFile != "" {
@@ -317,7 +317,7 @@ func setupParameters(sidecarTemplate *inject.Templates, valuesConfig *string) (*
 			return nil, err
 		}
 		*valuesConfig = string(valuesConfigBytes)
-	} else if *valuesConfig, err = getValuesFromConfigMap(kubeconfig); err != nil {
+	} else if *valuesConfig, err = getValuesFromConfigMap(kubeconfig, revision); err != nil {
 		return nil, err
 	}
 	return meshConfig, err

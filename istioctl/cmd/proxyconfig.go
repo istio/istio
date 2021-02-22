@@ -210,7 +210,7 @@ func setupEnvoyLogConfig(param, podName, podNamespace string) (string, error) {
 }
 
 func getLogLevelFromConfigMap() (string, error) {
-	valuesConfig, err := getValuesFromConfigMap(kubeconfig)
+	valuesConfig, err := getValuesFromConfigMap(kubeconfig, "")
 	if err != nil {
 		return "", err
 	}
