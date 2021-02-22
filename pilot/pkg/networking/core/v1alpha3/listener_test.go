@@ -2885,3 +2885,23 @@ func TestFilterChainMatchEqual(t *testing.T) {
 		})
 	}
 }
+
+func BenchmarkFilterChainHash(b *testing.B) {
+	b.Helper()
+	p := &fakePlugin{}
+	env := buildListenerEnv(nil)
+	listeners := buildAllListeners(p, env, nil)
+
+	var filterChainHashTests []*listener.FilterChain
+	for _, l := range listeners {
+		filterChainHashTests = append(filterChainHashTests, l.FilterChains...)
+	}
+
+	for _, fc := range filterChainHashTests {
+		b.Run(fc.Name, func(b *testing.B) {
+			for i := 0; i < b.N; i++ {
+				hash(fc)
+			}
+		})
+	}
+}

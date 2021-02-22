@@ -15,8 +15,9 @@
 package v1alpha3
 
 import (
+	"encoding/json"
 	"fmt"
-	"hash/fnv"
+	"hash/crc32"
 	"net"
 	"sort"
 	"strconv"
@@ -2028,15 +2029,20 @@ func (configgen *ConfigGeneratorImpl) appendListenerFallthroughRouteForCompleteL
 	}
 }
 
-// hash returns a unique hash based on listener.FilterChain, default to 32-bit FNV-1a hash for now
+// hash returns a unique hash based on listener.FilterChain, default to 32-bit CRC hash for performance considerations
 func hash(fc *listener.FilterChain) (res string, err error) {
-	h := fnv.New32a()
+	var fcJSON []byte
 
-	if _, err = h.Write([]byte(fmt.Sprintf("%v", fc))); err != nil {
+	h := crc32.New(crc32.MakeTable(crc32.Castagnoli))
+
+	if fcJSON, _ = json.Marshal(fc); err != nil {
+		return
+	}
+	if _, err = h.Write(fcJSON); err != nil {
 		return
 	}
 
-	return fmt.Sprintf("%b", h.Sum32()), nil
+	return strconv.FormatUint(uint64(h.Sum32()), 16), nil
 }
 
 // buildCompleteFilterChain adds the provided TCP and HTTP filters to the provided Listener and serializes them.
