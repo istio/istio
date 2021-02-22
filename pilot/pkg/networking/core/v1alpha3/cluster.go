@@ -290,18 +290,14 @@ func (configgen *ConfigGeneratorImpl) buildInboundClusters(cb *ClusterBuilder, i
 			// However, we still need to capture all the instances on this port, as its required to populate telemetry metadata
 			// The first instance will be used as the "primary" instance; this means if we have an conflicts between
 			// Services the first one wins
-			ep := instance.ServicePort.Port
-			if util.IsIstioVersionGE181(cb.proxy) {
-				// Istio 1.8.1+ switched to keying on EndpointPort. We need both logics in place to support smooth upgrade from 1.8.0 to 1.8.x
-				ep = int(instance.Endpoint.EndpointPort)
-			}
+			ep := int(instance.Endpoint.EndpointPort)
 			clustersToBuild[ep] = append(clustersToBuild[ep], instance)
 		}
 
 		// For each workload port, we will construct a cluster
 		for _, instances := range clustersToBuild {
 			instance := instances[0]
-			localCluster := cb.buildInboundClusterForPortOrUDS(cb.proxy, int(instance.Endpoint.EndpointPort), actualLocalHost, instance, instances)
+			localCluster := cb.buildInboundClusterForPortOrUDS(int(instance.Endpoint.EndpointPort), actualLocalHost, instance, instances)
 			// If inbound cluster match has service, we should see if it matches with any host name across all instances.
 			var hosts []host.Name
 			for _, si := range instances {
@@ -355,7 +351,7 @@ func (configgen *ConfigGeneratorImpl) buildInboundClusters(cb *ClusterBuilder, i
 		instance.Endpoint.ServicePortName = listenPort.Name
 		instance.Endpoint.EndpointPort = uint32(port)
 
-		localCluster := cb.buildInboundClusterForPortOrUDS(cb.proxy, int(ingressListener.Port.Number), endpointAddress, instance, nil)
+		localCluster := cb.buildInboundClusterForPortOrUDS(int(ingressListener.Port.Number), endpointAddress, instance, nil)
 		if instanceIPCluster {
 			// IPTables will redirect our own traffic back to us if we do not use the "magic" upstream bind
 			// config which will be skipped. This mirrors the "passthrough" clusters.
