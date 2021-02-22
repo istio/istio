@@ -367,7 +367,7 @@ func compareInClusterAndGeneratedResources(t *testing.T, cs cluster.Cluster, k8s
 				_, err = cs.AdmissionregistrationV1().MutatingWebhookConfigurations().Get(context.TODO(),
 					name, kubeApiMeta.GetOptions{})
 			case "CustomResourceDefinition":
-				_, err = cs.Ext().ApiextensionsV1beta1().CustomResourceDefinitions().Get(context.TODO(), name,
+				_, err = cs.Ext().ApiextensionsV1().CustomResourceDefinitions().Get(context.TODO(), name,
 					kubeApiMeta.GetOptions{})
 			case "EnvoyFilter":
 				_, err = cs.Dynamic().Resource(efgvr).Namespace(ns).Get(context.TODO(), name,
