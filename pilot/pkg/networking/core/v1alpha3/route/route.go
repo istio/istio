@@ -420,7 +420,8 @@ func translateRoute(push *model.PushContext, node *model.Proxy, in *networking.H
 			if action.MaxStreamDuration == nil {
 				action.MaxStreamDuration = &route.RouteAction_MaxStreamDuration{}
 			}
-			action.MaxStreamDuration.MaxStreamDuration = d
+			// Disable MaxStream duration to let the request timeout/gRPC timeout drive the timeout for request.
+			action.MaxStreamDuration.MaxStreamDuration = ptypes.DurationProto(0)
 
 			// Set the GrpcTimeoutHeaderMax so that Envoy respects grpc-timeout header.
 			// Only set if explicit timeout is defined otherwise Envoy will just use grpc-timeout header
