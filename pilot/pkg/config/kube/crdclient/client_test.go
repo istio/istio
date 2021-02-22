@@ -21,7 +21,7 @@ import (
 	"testing"
 	"time"
 
-	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
+	v1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/cache"
@@ -41,7 +41,7 @@ func makeClient(t *testing.T, schemas collection.Schemas) model.ConfigStoreCache
 	features.EnableServiceApis = true
 	fake := kube.NewFakeClient()
 	for _, s := range schemas.All() {
-		fake.Ext().ApiextensionsV1beta1().CustomResourceDefinitions().Create(context.TODO(), &v1beta1.CustomResourceDefinition{
+		fake.Ext().ApiextensionsV1().CustomResourceDefinitions().Create(context.TODO(), &v1.CustomResourceDefinition{
 			ObjectMeta: metav1.ObjectMeta{
 				Name: fmt.Sprintf("%s.%s", s.Resource().Plural(), s.Resource().Group()),
 			},

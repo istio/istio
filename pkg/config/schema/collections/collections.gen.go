@@ -10,7 +10,7 @@ import (
 	k8sioapiappsv1 "k8s.io/api/apps/v1"
 	k8sioapicorev1 "k8s.io/api/core/v1"
 	k8sioapiextensionsv1beta1 "k8s.io/api/extensions/v1beta1"
-	k8sioapiextensionsapiserverpkgapisapiextensionsv1beta1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
+	k8sioapiextensionsapiserverpkgapisapiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	sigsk8siogatewayapiapisv1alpha1 "sigs.k8s.io/gateway-api/apis/v1alpha1"
 
 	istioioapimeshv1alpha1 "istio.io/api/mesh/v1alpha1"
@@ -271,20 +271,20 @@ var (
 		}.MustBuild(),
 	}.MustBuild()
 
-	// K8SApiextensionsK8SIoV1Beta1Customresourcedefinitions describes the
-	// collection k8s/apiextensions.k8s.io/v1beta1/customresourcedefinitions
-	K8SApiextensionsK8SIoV1Beta1Customresourcedefinitions = collection.Builder{
-		Name:         "k8s/apiextensions.k8s.io/v1beta1/customresourcedefinitions",
-		VariableName: "K8SApiextensionsK8SIoV1Beta1Customresourcedefinitions",
+	// K8SApiextensionsK8SIoV1Customresourcedefinitions describes the
+	// collection k8s/apiextensions.k8s.io/v1/customresourcedefinitions
+	K8SApiextensionsK8SIoV1Customresourcedefinitions = collection.Builder{
+		Name:         "k8s/apiextensions.k8s.io/v1/customresourcedefinitions",
+		VariableName: "K8SApiextensionsK8SIoV1Customresourcedefinitions",
 		Disabled:     false,
 		Resource: resource.Builder{
 			Group:         "apiextensions.k8s.io",
 			Kind:          "CustomResourceDefinition",
 			Plural:        "CustomResourceDefinitions",
-			Version:       "v1beta1",
-			Proto:         "k8s.io.apiextensions_apiserver.pkg.apis.apiextensions.v1beta1.CustomResourceDefinition",
-			ReflectType:   reflect.TypeOf(&k8sioapiextensionsapiserverpkgapisapiextensionsv1beta1.CustomResourceDefinition{}).Elem(),
-			ProtoPackage:  "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1",
+			Version:       "v1",
+			Proto:         "k8s.io.apiextensions_apiserver.pkg.apis.apiextensions.v1.CustomResourceDefinition",
+			ReflectType:   reflect.TypeOf(&k8sioapiextensionsapiserverpkgapisapiextensionsv1.CustomResourceDefinition{}).Elem(),
+			ProtoPackage:  "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1",
 			ClusterScoped: false,
 			ValidateProto: validation.EmptyValidate,
 		}.MustBuild(),
@@ -791,7 +791,7 @@ var (
 		MustAdd(IstioSecurityV1Beta1Authorizationpolicies).
 		MustAdd(IstioSecurityV1Beta1Peerauthentications).
 		MustAdd(IstioSecurityV1Beta1Requestauthentications).
-		MustAdd(K8SApiextensionsK8SIoV1Beta1Customresourcedefinitions).
+		MustAdd(K8SApiextensionsK8SIoV1Customresourcedefinitions).
 		MustAdd(K8SAppsV1Deployments).
 		MustAdd(K8SCoreV1Configmaps).
 		MustAdd(K8SCoreV1Endpoints).
@@ -839,7 +839,7 @@ var (
 
 	// Kube contains only kubernetes collections.
 	Kube = collection.NewSchemasBuilder().
-		MustAdd(K8SApiextensionsK8SIoV1Beta1Customresourcedefinitions).
+		MustAdd(K8SApiextensionsK8SIoV1Customresourcedefinitions).
 		MustAdd(K8SAppsV1Deployments).
 		MustAdd(K8SCoreV1Configmaps).
 		MustAdd(K8SCoreV1Endpoints).

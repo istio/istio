@@ -12,7 +12,7 @@ var (
 	AuthorizationPolicy = config.GroupVersionKind{Group: "security.istio.io", Version: "v1beta1", Kind: "AuthorizationPolicy"}
 	BackendPolicy = config.GroupVersionKind{Group: "networking.x-k8s.io", Version: "v1alpha1", Kind: "BackendPolicy"}
 	ConfigMap = config.GroupVersionKind{Group: "", Version: "v1", Kind: "ConfigMap"}
-	CustomResourceDefinition = config.GroupVersionKind{Group: "apiextensions.k8s.io", Version: "v1beta1", Kind: "CustomResourceDefinition"}
+	CustomResourceDefinition = config.GroupVersionKind{Group: "apiextensions.k8s.io", Version: "v1", Kind: "CustomResourceDefinition"}
 	Deployment = config.GroupVersionKind{Group: "apps", Version: "v1", Kind: "Deployment"}
 	DestinationRule = config.GroupVersionKind{Group: "networking.istio.io", Version: "v1alpha3", Kind: "DestinationRule"}
 	Endpoints = config.GroupVersionKind{Group: "", Version: "v1", Kind: "Endpoints"}
