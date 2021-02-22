@@ -38,15 +38,6 @@ var (
 	intermediateCACert string = readCertFromFile(path.Join(env.IstioSrc, "samples/certs", "ca-cert.pem"))
 )
 
-func TestSetGlobalWorkloadTrustBundle(t *testing.T) {
-	tb := NewTrustBundle(func() {})
-	SetGlobalTrustBundle(tb)
-	g := GetGlobalTrustBundle()
-	if tb != g {
-		t.Errorf("global trustbundle test failed! ")
-	}
-}
-
 func TestCheckSameCerts(t *testing.T) {
 	testCases := []struct {
 		certs1  []string
@@ -100,7 +91,7 @@ func TestVerifyTrustAnchor(t *testing.T) {
 		},
 	}
 	for i, tc := range testCases {
-		err := NewTrustBundle(func() {}).verifyTrustAnchor(tc.cert)
+		err := verifyTrustAnchor(tc.cert)
 		if tc.errExp && err == nil {
 			t.Errorf("test case %v failed. Expected Error but got none", i)
 		} else if !tc.errExp && err != nil {
@@ -111,7 +102,9 @@ func TestVerifyTrustAnchor(t *testing.T) {
 
 func TestUpdateTrustAnchor(t *testing.T) {
 	var cbCounter int = 0
-	tb := NewTrustBundle(func() { cbCounter++ })
+	tb := NewTrustBundle()
+	tb.UpdateCb(func() { cbCounter++ })
+
 	var trustedCerts []string
 	var err error
 

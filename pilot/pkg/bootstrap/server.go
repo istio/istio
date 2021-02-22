@@ -195,6 +195,7 @@ func NewServer(args *PilotArgs) (*Server, error) {
 		DomainSuffix: args.RegistryOptions.KubeOptions.DomainSuffix,
 	}
 	e.SetLedger(buildLedger(args.RegistryOptions))
+
 	ac := aggregate.NewController(aggregate.Options{
 		MeshHolder: e,
 	})
@@ -203,12 +204,14 @@ func NewServer(args *PilotArgs) (*Server, error) {
 	s := &Server{
 		clusterID:       getClusterID(args),
 		environment:     e,
-		XDSServer:       xds.NewDiscoveryServer(e, args.Plugins, args.PodName),
 		fileWatcher:     filewatcher.NewWatcher(),
 		httpMux:         http.NewServeMux(),
 		monitoringMux:   http.NewServeMux(),
 		readinessProbes: make(map[string]readinessProbe),
 	}
+	// Initialize workload Trust Bundle before XDS Server
+	s.workloadTrustBundle = tb.NewTrustBundle()
+	s.XDSServer = xds.NewDiscoveryServer(e, args.Plugins, args.PodName)
 
 	if args.ShutdownDuration == 0 {
 		s.shutdownDuration = 10 * time.Second // If not specified set to 10 seconds.
@@ -1206,20 +1209,22 @@ func (s *Server) initMeshHandlers() {
 
 func (s *Server) initWorkloadTrustBundle() {
 	var err error
-	s.workloadTrustBundle = tb.NewTrustBundle(func() {
+
+	s.workloadTrustBundle.UpdateCb(func() {
 		s.XDSServer.ConfigUpdate(&model.PushRequest{
 			Full:   true,
 			Reason: []model.TriggerReason{model.GlobalUpdate},
 		})
 	})
-	tb.SetGlobalTrustBundle(s.workloadTrustBundle)
-	// MeshConfig: Add initial roots and callback
+	// MeshConfig: Add initial roots
 	s.workloadTrustBundle.AddMeshConfigUpdate(s.environment.Mesh())
+
+	// MeshConfig:Add callback for mesh config update
 	s.environment.AddMeshHandler(func() {
 		s.workloadTrustBundle.AddMeshConfigUpdate(s.environment.Mesh())
 	})
 
-	// IstioCA: Implicitly add roots corresponding to CA
+	// IstioCA: Explicitly add roots corresponding to CA
 	if s.CA != nil {
 		rootCerts := []string{string(s.CA.GetCAKeyCertBundle().GetRootCertPem())}
 		err = s.workloadTrustBundle.UpdateTrustAnchor(&tb.TrustAnchorUpdate{
@@ -1231,7 +1236,7 @@ func (s *Server) initWorkloadTrustBundle() {
 		}
 	}
 
-	// IstioRA: Implicitly add roots corresponding to RA
+	// IstioRA: Explicitly add roots corresponding to RA
 	if s.RA != nil {
 		// Implicitly add the Istio RA certificates to the Workload Trust Bundle
 		rootCerts := []string{string(s.RA.GetCAKeyCertBundle().GetRootCertPem())}
@@ -1242,7 +1247,6 @@ func (s *Server) initWorkloadTrustBundle() {
 		if err != nil {
 			log.Errorf("fatal: unable to add RA root as trustAnchor")
 		}
-		// Ensure all added watchers trigger Enqueue function
 	}
 	log.Infof("done initializing workload trustBundle")
 }
