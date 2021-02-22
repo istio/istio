@@ -392,13 +392,16 @@ func TestAdsPushScoping(t *testing.T) {
 		Spec: sc,
 	}
 	notMatchedScc := config.Config{
-		Meta: config.Meta{GroupVersionKind: gvk.Sidecar,
-			Name: "notMatchedSc", Namespace: model.IstioDefaultConfigNamespace},
+		Meta: config.Meta{
+			GroupVersionKind: gvk.Sidecar,
+			Name:             "notMatchedSc", Namespace: model.IstioDefaultConfigNamespace,
+		},
 		Spec: &networking.Sidecar{
 			WorkloadSelector: &networking.WorkloadSelector{
 				Labels: map[string]string{"notMatched": "notMatched"},
 			},
-		}}
+		},
+	}
 	if _, err := s.Store().Create(scc); err != nil {
 		t.Fatal(err)
 	}
