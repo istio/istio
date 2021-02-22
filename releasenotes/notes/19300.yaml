@@ -9,4 +9,4 @@ releaseNotes:
   **Added** CNI metrics counting repair operations.
 
 docs:
-  "https://preliminary.istio.io/latest/docs/reference/commands/cni/#metrics"
+  - "https://preliminary.istio.io/latest/docs/reference/commands/cni/#metrics"
