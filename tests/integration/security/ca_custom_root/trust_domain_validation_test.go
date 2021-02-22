@@ -116,7 +116,7 @@ func TestTrustDomainValidation(t *testing.T) {
 			}
 
 			for _, cluster := range ctx.Clusters() {
-				ctx.NewSubTest(fmt.Sprintf("From %s", cluster.Name())).Run(func(ctx framework.TestContext) {
+				ctx.NewSubTest(fmt.Sprintf("From %s", cluster.StableName())).Run(func(ctx framework.TestContext) {
 					// naked: only test app without sidecar, send requests from trust domain aliases
 					// client: app with sidecar, send request from cluster.local
 					// server: app with sidecar, verify requests from cluster.local or trust domain aliases
