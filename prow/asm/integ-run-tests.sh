@@ -53,7 +53,7 @@ DISABLED_TESTS=""
 declare -a ONPREM_MC_CONFIGS
 
 while (( "$#" )); do
-  case $(echo "${1}" | awk '{print tolower($0)}') in
+  case $1 in
     --ca)
       case $2 in
         "CITADEL" | "MESHCA" | "PRIVATECA" )
@@ -91,11 +91,6 @@ while (( "$#" )); do
       esac
       ;;
     --vm)
-      USE_VM=true
-      shift 1
-      ;;
-    -vm)
-      # temporary - fat fingered the job change so i need this to be able to run in this PR
       USE_VM=true
       shift 1
       ;;
@@ -303,6 +298,10 @@ if [[ "${CONTROL_PLANE}" == "UNMANAGED" ]]; then
     export DISABLED_PACKAGES+="\|/pilot/endpointslice" # we won't reinstall the CP in endpointslice mode
     # waiting for an oSS change that fixes this test's incompatibility with stableNamespaces
     INTEGRATION_TEST_FLAGS+=" --istio.test.skip=\"TestValidation\""
+    # TODO these are the only security tests that excercise VMs. The other tests are written in a way they panic with StaticVMs.
+    if [ "${TEST_TARGET}" == "test.integration.asm.security" ]; then
+      INTEGRATION_TEST_FLAGS+=" -run=TestReachability\|TestMtlsStrictK8sCA"
+    fi
   fi
 
   # Skip the tests that are known to be not working.

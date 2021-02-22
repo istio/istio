@@ -662,6 +662,7 @@ function gen_topology_file() {
   meta:
     kubeconfig: "${kubeconfpaths[i]}"
 EOF
+      # Disable using simulated Pod-based "VMs" when testing real VMs
       if [ -n "${STATIC_VMS}" ]; then
         echo '    fakeVM: false' >> "${file}"
       fi
@@ -919,7 +920,7 @@ function setup_asm_vms() {
   VM_SCRIPT="$PWD/asm_vm"
   export VM_SCRIPT
 
-  # Allow traffic from this Prow node to the VM
+  # Allow traffic from this Prow node to all VMs tagged `staticvm` in the PROJECT_ID where ASM/VMs live.
   gcloud compute firewall-rules create \
     --project "$PROJECT_ID" \
     --allow=tcp:22,tcp:7070,tcp:17070 \
