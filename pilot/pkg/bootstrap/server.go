@@ -56,6 +56,7 @@ import (
 	kubecontroller "istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
 	"istio.io/istio/pilot/pkg/serviceregistry/serviceentry"
 	"istio.io/istio/pilot/pkg/status"
+	tb "istio.io/istio/pilot/pkg/trustbundle"
 	"istio.io/istio/pilot/pkg/xds"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
 	"istio.io/istio/pkg/config"
@@ -160,6 +161,9 @@ type Server struct {
 	certController *chiron.WebhookController
 	CA             *ca.IstioCA
 	RA             ra.RegistrationAuthority
+
+	// TrustAnchors for workload to workload mTLS
+	workloadTrustBundle *tb.TrustBundle
 	// path to the caBundle that signs the DNS certs. This should be agnostic to provider.
 	caBundlePath string
 	certMu       sync.Mutex
@@ -191,6 +195,7 @@ func NewServer(args *PilotArgs) (*Server, error) {
 		DomainSuffix: args.RegistryOptions.KubeOptions.DomainSuffix,
 	}
 	e.SetLedger(buildLedger(args.RegistryOptions))
+
 	ac := aggregate.NewController(aggregate.Options{
 		MeshHolder: e,
 	})
@@ -199,12 +204,14 @@ func NewServer(args *PilotArgs) (*Server, error) {
 	s := &Server{
 		clusterID:       getClusterID(args),
 		environment:     e,
-		XDSServer:       xds.NewDiscoveryServer(e, args.Plugins, args.PodName),
 		fileWatcher:     filewatcher.NewWatcher(),
 		httpMux:         http.NewServeMux(),
 		monitoringMux:   http.NewServeMux(),
 		readinessProbes: make(map[string]readinessProbe),
 	}
+	// Initialize workload Trust Bundle before XDS Server
+	s.workloadTrustBundle = tb.NewTrustBundle()
+	s.XDSServer = xds.NewDiscoveryServer(e, args.Plugins, args.PodName)
 
 	if args.ShutdownDuration == 0 {
 		s.shutdownDuration = 10 * time.Second // If not specified set to 10 seconds.
@@ -237,6 +244,7 @@ func NewServer(args *PilotArgs) (*Server, error) {
 
 	s.initMeshNetworks(args, s.fileWatcher)
 	s.initMeshHandlers()
+	s.initWorkloadTrustBundle()
 
 	// Options based on the current 'defaults' in istio.
 	caOpts := &caOptions{
@@ -1197,4 +1205,48 @@ func (s *Server) initMeshHandlers() {
 			Reason: []model.TriggerReason{model.GlobalUpdate},
 		})
 	})
+}
+
+func (s *Server) initWorkloadTrustBundle() {
+	var err error
+
+	s.workloadTrustBundle.UpdateCb(func() {
+		s.XDSServer.ConfigUpdate(&model.PushRequest{
+			Full:   true,
+			Reason: []model.TriggerReason{model.GlobalUpdate},
+		})
+	})
+	// MeshConfig: Add initial roots
+	s.workloadTrustBundle.AddMeshConfigUpdate(s.environment.Mesh())
+
+	// MeshConfig:Add callback for mesh config update
+	s.environment.AddMeshHandler(func() {
+		s.workloadTrustBundle.AddMeshConfigUpdate(s.environment.Mesh())
+	})
+
+	// IstioCA: Explicitly add roots corresponding to CA
+	if s.CA != nil {
+		rootCerts := []string{string(s.CA.GetCAKeyCertBundle().GetRootCertPem())}
+		err = s.workloadTrustBundle.UpdateTrustAnchor(&tb.TrustAnchorUpdate{
+			TrustAnchorConfig: tb.TrustAnchorConfig{Certs: rootCerts},
+			Source:            tb.SourceIstioCA,
+		})
+		if err != nil {
+			log.Errorf("fatal: unable to add CA root as trustAnchor")
+		}
+	}
+
+	// IstioRA: Explicitly add roots corresponding to RA
+	if s.RA != nil {
+		// Implicitly add the Istio RA certificates to the Workload Trust Bundle
+		rootCerts := []string{string(s.RA.GetCAKeyCertBundle().GetRootCertPem())}
+		err = s.workloadTrustBundle.UpdateTrustAnchor(&tb.TrustAnchorUpdate{
+			TrustAnchorConfig: tb.TrustAnchorConfig{Certs: rootCerts},
+			Source:            tb.SourceIstioRA,
+		})
+		if err != nil {
+			log.Errorf("fatal: unable to add RA root as trustAnchor")
+		}
+	}
+	log.Infof("done initializing workload trustBundle")
 }
