@@ -1644,8 +1644,7 @@ func buildHTTPConnectionManager(listenerOpts buildListenerOpts, httpOpts *httpLi
 					ConfigSourceSpecifier: &core.ConfigSource_Ads{
 						Ads: &core.AggregatedConfigSource{},
 					},
-					ResourceApiVersion:  core.ApiVersion_V3,
-					InitialFetchTimeout: features.InitialFetchTimeout,
+					ResourceApiVersion: core.ApiVersion_V3,
 				},
 				RouteConfigName: httpOpts.rds,
 			},

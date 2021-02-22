@@ -24,7 +24,6 @@ import (
 	"github.com/golang/protobuf/ptypes/wrappers"
 
 	networking "istio.io/api/networking/v1alpha3"
-	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pkg/config"
@@ -460,8 +459,7 @@ func maybeApplyEdsConfig(c *cluster.Cluster) {
 			ConfigSourceSpecifier: &core.ConfigSource_Ads{
 				Ads: &core.AggregatedConfigSource{},
 			},
-			ResourceApiVersion:  core.ApiVersion_V3,
-			InitialFetchTimeout: features.InitialFetchTimeout,
+			ResourceApiVersion: core.ApiVersion_V3,
 		},
 	}
 }
