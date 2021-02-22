@@ -41,8 +41,7 @@ var redisOpTimeout = 5 * time.Second
 
 // buildInboundNetworkFilters generates a TCP proxy network filter on the inbound path
 func buildInboundNetworkFilters(push *model.PushContext, instance *model.ServiceInstance, node *model.Proxy) []*listener.Filter {
-	clusterName := util.BuildInboundSubsetKey(node, instance.ServicePort.Name,
-		instance.Service.Hostname, instance.ServicePort.Port, int(instance.Endpoint.EndpointPort))
+	clusterName := model.BuildInboundSubsetKey(int(instance.Endpoint.EndpointPort))
 	statPrefix := clusterName
 	// If stat name is configured, build the stat prefix from configured pattern.
 	if len(push.Mesh.InboundClusterStatName) != 0 {
