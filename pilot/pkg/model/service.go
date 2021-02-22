@@ -559,7 +559,7 @@ func BuildSubsetKey(direction TrafficDirection, subsetName string, hostname host
 }
 
 // BuildInboundSubsetKey generates a unique string referencing service instances with port.
-func BuildInboundSubsetKey(subsetName string, hostname host.Name, port int) string {
+func BuildInboundSubsetKey(port int) string {
 	return BuildSubsetKey(TrafficDirectionInbound, "", "", port)
 }
 

@@ -258,8 +258,7 @@ func (cb *ClusterBuilder) buildDefaultCluster(name string, discoveryType cluster
 // Sidecar.Ingress allows these to be different.
 func (cb *ClusterBuilder) buildInboundClusterForPortOrUDS(clusterPort int, bind string,
 	instance *model.ServiceInstance, allInstance []*model.ServiceInstance) *cluster.Cluster {
-	clusterName := model.BuildInboundSubsetKey(instance.ServicePort.Name,
-		instance.Service.Hostname, clusterPort)
+	clusterName := model.BuildInboundSubsetKey(clusterPort)
 	localityLbEndpoints := buildInboundLocalityLbEndpoints(bind, instance.Endpoint.EndpointPort)
 	localCluster := cb.buildDefaultCluster(clusterName, cluster.Cluster_STATIC, localityLbEndpoints,
 		model.TrafficDirectionInbound, instance.ServicePort, instance.Service, allInstance)

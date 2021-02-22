@@ -415,8 +415,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundHTTPListenerOptsForPort
 		// We use the port name as the subset in the inbound cluster for differentiation. Its fine to use port
 		// names here because the inbound clusters are not referred to anywhere in the API, unlike the outbound
 		// clusters and these are static endpoint clusters used only for sidecar (proxy -> app)
-		clusterName = model.BuildInboundSubsetKey(pluginParams.ServiceInstance.ServicePort.Name,
-			pluginParams.ServiceInstance.Service.Hostname, int(pluginParams.ServiceInstance.Endpoint.EndpointPort))
+		clusterName = model.BuildInboundSubsetKey(int(pluginParams.ServiceInstance.Endpoint.EndpointPort))
 	}
 
 	httpOpts := &httpListenerOpts{
@@ -458,8 +457,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarThriftListenerOptsForPortOrUDS
 	// We use the port name as the subset in the inbound cluster for differentiation. Its fine to use port
 	// names here because the inbound clusters are not referred to anywhere in the API, unlike the outbound
 	// clusters and these are static endpoint clusters used only for sidecar (proxy -> app)
-	clusterName := model.BuildInboundSubsetKey(pluginParams.ServiceInstance.ServicePort.Name,
-		pluginParams.ServiceInstance.Service.Hostname, int(pluginParams.ServiceInstance.Endpoint.EndpointPort))
+	clusterName := model.BuildInboundSubsetKey(int(pluginParams.ServiceInstance.Endpoint.EndpointPort))
 
 	thriftOpts := &thriftListenerOpts{
 		transport:   thrift.TransportType_AUTO_TRANSPORT,
