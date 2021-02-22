@@ -173,7 +173,7 @@ EOF
   INSTANCE_EXISTS="$(gcloud compute instances describe --zone="${ZONE}" "${INSTANCE_NAME}" || true)"
 
   # eventually this will be a static URL - for the time being this needs to be updated to use the latest agent
-  AGENT_BUCKET="gs://gce-service-proxy-canary/service-proxy-agent/releases/asm-4ca7c0e.tgz"
+  AGENT_BUCKET="gs://gce-service-proxy-canary/service-proxy-agent/releases/service-proxy-agent-latest.tgz"
   [ -z "$TEMPLATE_EXISTS" ] && ASM_REVISION_PREFIX="${REVISION}" _CI_ASM_IMAGE_TAG="${TAG}" SERVICE_PROXY_AGENT_BUCKET="${AGENT_BUCKET}" $VM_SCRIPT create_gce_instance_template \
     "${TEMPLATE_NAME}" \
     -v \

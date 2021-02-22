@@ -307,10 +307,6 @@ if [[ "${CONTROL_PLANE}" == "UNMANAGED" ]]; then
   # Skip the tests that are known to be not working.
   apply_skip_disabled_tests "${DISABLED_TESTS}"
 
-  # TODO https://b.corp.google.com/issues/180521354
-  INTEGRATION_TEST_FLAGS+=" --istio.test.skip=\"TestTraffic/vm/dns:_VM_to_k8s_cluster_IP_service_name.namespace_host_from_*\" \
-  --istio.test.skip=\"TestTraffic/vm/dns:_VM_to_k8s_cluster_IP_service_short_name_host_from_*\""
-
   echo "Running e2e test: ${TEST_TARGET}..."
   export JUNIT_OUT="${ARTIFACTS}/junit1.xml"
   make "${TEST_TARGET}"
