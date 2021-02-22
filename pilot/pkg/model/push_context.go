@@ -316,8 +316,8 @@ type PushRequest struct {
 type PushType string
 
 const (
-	PushTypeRequest PushType = "request"
-	PushTypePush    PushType = "push"
+	PushTypeRequest PushType = " for request"
+	PushTypePush    PushType = ""
 )
 
 type TriggerReason string

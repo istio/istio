@@ -366,16 +366,12 @@ func (eds *EdsGenerator) Generate(proxy *model.Proxy, push *model.PushContext, w
 			eds.Server.Cache.Add(builder, resource)
 		}
 	}
-	typeMessage := ""
-	if req.PushType == model.PushTypeRequest {
-		typeMessage = " for request"
-	}
 	if len(edsUpdatedServices) == 0 {
 		adsLog.Infof("EDS: PUSH%s for node:%s resources:%d size:%s empty:%v cached:%v/%v",
-			typeMessage, proxy.ID, len(resources), util.ByteCount(ResourceSize(resources)), empty, cached, cached+regenerated)
+			req.PushType, proxy.ID, len(resources), util.ByteCount(ResourceSize(resources)), empty, cached, cached+regenerated)
 	} else if adsLog.DebugEnabled() {
 		adsLog.Debugf("EDS: PUSH INC%s for node:%s clusters:%d size:%s empty:%v cached:%v/%v",
-			typeMessage, proxy.ID, len(resources), util.ByteCount(ResourceSize(resources)), empty, cached, cached+regenerated)
+			req.PushType, proxy.ID, len(resources), util.ByteCount(ResourceSize(resources)), empty, cached, cached+regenerated)
 	}
 	return resources, nil
 }
