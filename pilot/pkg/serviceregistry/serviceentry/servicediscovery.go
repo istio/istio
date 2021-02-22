@@ -498,9 +498,8 @@ func (s *ServiceEntryStore) GetService(hostname host.Name) (*model.Service, erro
 	if !s.processServiceEntry {
 		return nil, nil
 	}
-	s.storeMutex.RLock()
-	defer s.storeMutex.RUnlock()
-	for _, service := range s.services {
+	services, _ := s.Services()
+	for _, service := range services {
 		if service.Hostname == hostname {
 			return service, nil
 		}
