@@ -50,7 +50,6 @@ const (
 	SourceIstioCA Source = iota
 	SourceMeshConfig
 	SourceIstioRA
-	// SOURCE_SPIFFE_ENDPOINT
 )
 
 func checkSameCerts(certs1 []string, certs2 []string) bool {
@@ -72,7 +71,6 @@ func NewTrustBundle() *TrustBundle {
 			SourceIstioCA:    {Certs: []string{}},
 			SourceMeshConfig: {Certs: []string{}},
 			SourceIstioRA:    {Certs: []string{}},
-			// SOURCE_SPIFFE_ENDPOINT:        &TrustAnchorConfig{source: SOURCE_SPIFFE_ENDPOINT, certs: []string{}},
 		},
 		mergedCerts: []string{},
 		updatecb:    nil,
