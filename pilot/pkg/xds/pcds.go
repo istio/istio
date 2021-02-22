@@ -23,7 +23,8 @@ import (
 
 // PcdsGenerator generates ECDS configuration.
 type PcdsGenerator struct {
-	Server *DiscoveryServer
+	Server      *DiscoveryServer
+	TrustBundle *tb.TrustBundle
 }
 
 var _ model.XdsResourceGenerator = &PcdsGenerator{}
@@ -52,12 +53,8 @@ func (e *PcdsGenerator) Generate(proxy *model.Proxy, push *model.PushContext, w 
 	if !pcdsNeedsPush(req) {
 		return nil, nil
 	}
-	gTrustBundle := tb.GetGlobalTrustBundle()
-	if gTrustBundle == nil {
-		return nil, nil
-	}
 	pc := &mesh.ProxyConfig{
-		CaCertificatesPem: gTrustBundle.GetTrustBundle(),
+		CaCertificatesPem: e.TrustBundle.GetTrustBundle(),
 	}
 	return model.Resources{gogo.MessageToAny(pc)}, nil
 }
