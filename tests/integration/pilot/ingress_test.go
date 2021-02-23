@@ -419,10 +419,10 @@ spec:
           number: 80
 `, apps.PodA[0].Config().FQDN()))
 			apps.PodB[0].CallWithRetryOrFail(t, echo.CallOptions{
-				Port:            &echo.Port{ServicePort: 80},
-				Scheme:          scheme.HTTP,
-				Address:         fmt.Sprintf("custom-gateway.%s.svc.cluster.local", gatewayNs.Name()),
-				Validator:       echo.ExpectOK(),
+				Port:      &echo.Port{ServicePort: 80},
+				Scheme:    scheme.HTTP,
+				Address:   fmt.Sprintf("custom-gateway.%s.svc.cluster.local", gatewayNs.Name()),
+				Validator: echo.ExpectOK(),
 			})
 		})
 }
