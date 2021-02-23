@@ -7,8 +7,11 @@ Instructions are available [here](https://istio.io/docs/tasks/security/cert-mana
 The included sample files are:
 
 - `root-cert.pem`: root CA certificate.
+- `root-cert-alt.pem`: alterative CA certificate.
 - `ca-[cert|key].pem`: Citadel intermediate certificate and corresponding private key.
+- `ca-[cert-alt|key-alt].pem`: alternative intermediate certificate and corresponding private key.
 - `cert-chain.pem`: certificate trust chain.
+- `cert-chain-alt.pem`: alternative certificate chain.
 - `workload-foo-[cert|key].pem`: workload certificate and key for URI SAN `spiffe://trust-domain-foo/ns/foo/sa/foo` signed by `ca-cert.key`.
 - `workload-bar-[cert|key].pem`: workload certificate and key for URI SAN `spiffe://trust-domain-bar/ns/bar/sa/bar` signed by `ca-cert.key`.
 
