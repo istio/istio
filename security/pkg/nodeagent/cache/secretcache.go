@@ -24,6 +24,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/cenkalti/backoff"
 	"github.com/fsnotify/fsnotify"
 
 	"istio.io/istio/pilot/pkg/model"
@@ -315,6 +316,22 @@ func (sc *SecretManagerClient) GenerateSecret(resourceName string) (secret *secu
 }
 
 func (sc *SecretManagerClient) addFileWatcher(file string, resourceName string) {
+	// Retry file watcher as some times it might fail to add and we will miss change
+	// notifications on those files. For now, retry for ever till the watcher is added.
+	// TODO(ramaraochavali): Think about tieing these failures to liveness probe with a
+	// reasonable threshold (when the problem is not transient) and restart the pod.
+	go func() {
+		b := backoff.NewExponentialBackOff()
+		for {
+			if err := sc.tryAddFileWatcher(file, resourceName); err == nil {
+				break
+			}
+			time.Sleep(b.NextBackOff())
+		}
+	}()
+}
+
+func (sc *SecretManagerClient) tryAddFileWatcher(file string, resourceName string) error {
 	// Check if this file is being already watched, if so ignore it. This check is needed here to
 	// avoid processing duplicate events for the same file.
 	sc.certMutex.Lock()
@@ -327,16 +344,17 @@ func (sc *SecretManagerClient) addFileWatcher(file string, resourceName string) 
 	if _, alreadyWatching := sc.fileCerts[key]; alreadyWatching {
 		cacheLog.Debugf("already watching file for %s", file)
 		// Already watching, no need to do anything
-		return
+		return nil
 	}
 	sc.fileCerts[key] = struct{}{}
 	// File is not being watched, start watching now and trigger key push.
 	cacheLog.Infof("adding watcher for file certificate %s", file)
 	if err := sc.certWatcher.Add(file); err != nil {
-		cacheLog.Errorf("%v: error adding watcher for file, skipping watches [%s] %v", resourceName, file, err)
+		cacheLog.Errorf("%v: error adding watcher for file, retrying watches [%s] %v", resourceName, file, err)
 		numFileWatcherFailures.Increment()
-		return
+		return err
 	}
+	return nil
 }
 
 // If there is existing root certificates under a well known path, return true.
@@ -596,7 +614,7 @@ func (sc *SecretManagerClient) handleFileWatch() {
 		case <-timerC:
 			timerC = nil
 			for resource, event := range events {
-				cacheLog.Infof("file certificate %s changed with event %s, pushing to proxy", resource, event)
+				cacheLog.Infof("file certificate %s changed with event %s, pushing to proxy", resource, event.Op.String())
 				sc.certMutex.RLock()
 				resources := sc.fileCerts
 				sc.certMutex.RUnlock()
@@ -621,14 +639,12 @@ func (sc *SecretManagerClient) handleFileWatch() {
 			// Typically inotify notifies about file change after the event i.e. write is complete. It only
 			// does some housekeeping tasks after the event is generated. However in some cases, multiple events
 			// are triggered in quick succession - to handle that case we debounce here.
-			if len(event.Op.String()) > 0 { // To avoid spurious events, mainly coming from tests.
-				// Use a timer to debounce watch updates
-				if timerC == nil {
-					timerC = time.After(100 * time.Millisecond) // TODO: Make this configurable if needed.
-					events[event.Name] = event
-				}
+			// Use a timer to debounce watch updates
+			cacheLog.Infof("event for file certificate %s : %s, debouncing ", event.Name, event.Op.String())
+			if timerC == nil {
+				timerC = time.After(100 * time.Millisecond) // TODO: Make this configurable if needed.
+				events[event.Name] = event
 			}
-
 		case err, ok := <-sc.certWatcher.Errors:
 			// Channel is closed.
 			if !ok {
