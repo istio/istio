@@ -31,6 +31,7 @@ import (
 	"time"
 
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
+	gogotypes "github.com/gogo/protobuf/types"
 	"github.com/golang/protobuf/ptypes"
 	"go.uber.org/atomic"
 	google_rpc "google.golang.org/genproto/googleapis/rpc/status"
@@ -43,7 +44,6 @@ import (
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/cmd/pilot-agent/status/ready"
-	"istio.io/istio/pilot/pkg/dns"
 	"istio.io/istio/pilot/pkg/features"
 	nds "istio.io/istio/pilot/pkg/proto"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
@@ -52,8 +52,10 @@ import (
 	"istio.io/istio/pkg/istio-agent/metrics"
 	"istio.io/istio/pkg/mcp/status"
 	"istio.io/istio/pkg/uds"
+	"istio.io/istio/pkg/util/gogo"
 	"istio.io/istio/pkg/wasm"
 	"istio.io/istio/security/pkg/nodeagent/caclient"
+	"istio.io/istio/security/pkg/pki/util"
 	"istio.io/pkg/log"
 )
 
@@ -63,6 +65,8 @@ const (
 	defaultInitialWindowSize           = 1024 * 1024     // default gRPC ConnWindowSize
 	sendTimeout                        = 5 * time.Second // default upstream send timeout.
 )
+
+type ResponseHandler func(resp *discovery.DiscoveryResponse) error
 
 // XDS Proxy proxies all XDS requests from envoy to istiod, in addition to allowing
 // subsystems inside the agent to also communicate with either istiod/envoy (eg dns, sds, etc).
@@ -78,7 +82,7 @@ type XdsProxy struct {
 	downstreamGrpcServer *grpc.Server
 	istiodAddress        string
 	istiodDialOptions    []grpc.DialOption
-	localDNSServer       *dns.LocalDNSServer
+	handlers             map[string]ResponseHandler
 	healthChecker        *health.WorkloadHealthChecker
 	xdsHeaders           map[string]string
 	xdsUdsPath           string
@@ -119,14 +123,57 @@ func initXdsProxy(ia *Agent) (*XdsProxy, error) {
 		LocalHostAddr: localHostAddr,
 	}
 	proxy := &XdsProxy{
-		istiodAddress:  ia.proxyConfig.DiscoveryAddress,
-		clusterID:      ia.secOpts.ClusterID,
-		localDNSServer: ia.localDNSServer,
-		stopChan:       make(chan struct{}),
-		healthChecker:  health.NewWorkloadHealthChecker(ia.proxyConfig.ReadinessProbe, envoyProbe),
-		xdsHeaders:     ia.cfg.XDSHeaders,
-		xdsUdsPath:     ia.cfg.XdsUdsPath,
-		wasmCache:      wasm.NewLocalFileCache(constants.IstioDataDir, wasm.DefaultWasmModulePurgeInteval, wasm.DefaultWasmModuleExpiry),
+		istiodAddress: ia.proxyConfig.DiscoveryAddress,
+		clusterID:     ia.secOpts.ClusterID,
+		handlers:      map[string]ResponseHandler{},
+		stopChan:      make(chan struct{}),
+		healthChecker: health.NewWorkloadHealthChecker(ia.proxyConfig.ReadinessProbe, envoyProbe),
+		xdsHeaders:    ia.cfg.XDSHeaders,
+		xdsUdsPath:    ia.cfg.XdsUdsPath,
+		wasmCache:     wasm.NewLocalFileCache(constants.IstioDataDir, wasm.DefaultWasmModulePurgeInteval, wasm.DefaultWasmModuleExpiry),
+	}
+
+	if ia.localDNSServer != nil {
+		proxy.handlers[v3.NameTableType] = func(resp *discovery.DiscoveryResponse) error {
+			if ia.localDNSServer == nil {
+				return nil
+			}
+			if len(resp.Resources) == 0 {
+				return fmt.Errorf("empty response")
+			}
+			var nt nds.NameTable
+			if err := ptypes.UnmarshalAny(resp.Resources[0], &nt); err != nil {
+				log.Errorf("failed to unmarshall name table: %v", err)
+				return err
+			}
+			ia.localDNSServer.UpdateLookupTable(&nt)
+			return nil
+		}
+	}
+	if ia.secretCache != nil { // TODO: add a config option for this
+		proxy.handlers[v3.ProxyConfigType] = func(resp *discovery.DiscoveryResponse) error {
+			if ia.secretCache == nil {
+				return nil
+			}
+			if len(resp.Resources) == 0 {
+				return fmt.Errorf("empty response")
+			}
+			var pc meshconfig.ProxyConfig
+			if err := gogotypes.UnmarshalAny(gogo.ConvertAny(resp.Resources[0]), &pc); err != nil {
+				log.Errorf("failed to unmarshall proxy config: %v", err)
+				return err
+			}
+			caCerts := pc.GetCaCertificatesPem()
+			log.Infof("received new certificates to add to mesh trust domain: %v", caCerts)
+			if ia.secretCache == nil {
+				return nil
+			}
+			trustBundle := []byte{}
+			for _, cert := range caCerts {
+				trustBundle = util.AppendCertByte(trustBundle, []byte(cert))
+			}
+			return ia.secretCache.UpdateConfigTrustBundle(trustBundle)
+		}
 	}
 
 	proxyLog.Infof("Initializing with upstream address %q and cluster %q", proxy.istiodAddress, proxy.clusterID)
@@ -153,7 +200,7 @@ func initXdsProxy(ia *Agent) (*XdsProxy, error) {
 			req = &discovery.DiscoveryRequest{
 				TypeUrl: v3.HealthInfoType,
 				ErrorDetail: &google_rpc.Status{
-					Code:    500,
+					Code:    13,
 					Message: healthEvent.UnhealthyMessage,
 				},
 			}
@@ -247,9 +294,15 @@ func (p *XdsProxy) StreamAggregatedResources(downstream discovery.AggregatedDisc
 			con.requestsChan <- req
 			if !initialRequestsSent && req.TypeUrl == v3.ListenerType {
 				// fire off an initial NDS request
-				if p.localDNSServer != nil {
+				if _, f := p.handlers[v3.NameTableType]; f {
 					con.requestsChan <- &discovery.DiscoveryRequest{
 						TypeUrl: v3.NameTableType,
+					}
+				}
+				// fire off an initial PCDS request
+				if _, f := p.handlers[v3.ProxyConfigType]; f {
+					con.requestsChan <- &discovery.DiscoveryRequest{
+						TypeUrl: v3.ProxyConfigType,
 					}
 				}
 				// Fire of a configured initial request, if there is one
@@ -370,24 +423,25 @@ func (p *XdsProxy) handleUpstreamResponse(con *ProxyConnection) {
 			// TODO: separate upstream response handling from requests sending, which are both time costly
 			proxyLog.Debugf("response for type url %s", resp.TypeUrl)
 			metrics.XdsProxyResponses.Increment()
-			switch resp.TypeUrl {
-			case v3.NameTableType:
-				// intercept. This is for the dns server
-				if p.localDNSServer != nil && len(resp.Resources) > 0 {
-					var nt nds.NameTable
-					// TODO we should probably send ACK and not update nametable here
-					if err := ptypes.UnmarshalAny(resp.Resources[0], &nt); err != nil {
-						log.Errorf("failed to unmarshall name table: %v", err)
+			if h, f := p.handlers[resp.TypeUrl]; f {
+				err := h(resp)
+				var errorResp *google_rpc.Status
+				if err != nil {
+					errorResp = &google_rpc.Status{
+						Code:    13,
+						Message: err.Error(),
 					}
-					p.localDNSServer.UpdateLookupTable(&nt)
 				}
-
-				// Send ACK
+				// Send ACK/NACK
 				con.requestsChan <- &discovery.DiscoveryRequest{
 					VersionInfo:   resp.VersionInfo,
-					TypeUrl:       v3.NameTableType,
+					TypeUrl:       resp.TypeUrl,
 					ResponseNonce: resp.Nonce,
+					ErrorDetail:   errorResp,
 				}
+				continue
+			}
+			switch resp.TypeUrl {
 			case v3.ExtensionConfigurationType:
 				if features.WasmRemoteLoadConversion {
 					// If Wasm remote load conversion feature is enabled, rewrite and send.
