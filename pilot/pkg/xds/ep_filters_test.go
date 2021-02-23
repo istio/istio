@@ -211,7 +211,7 @@ func TestEndpointsByNetworkFilter(t *testing.T) {
 	}
 }
 
-func TestEndpointsByNetworkFilter_IgnoreHostnameGateways(t *testing.T) {
+func TestEndpointsByNetworkFilter_SkipLBWithHostname(t *testing.T) {
 	//  - 1 IP gateway for network1
 	//  - 1 DNS gateway for network2
 	//  - 1 IP gateway for network3
@@ -227,6 +227,7 @@ func TestEndpointsByNetworkFilter_IgnoreHostnameGateways(t *testing.T) {
 		},
 	}})
 	serviceDiscovery.SetGatewaysForNetwork("network2", &model.Gateway{Addr: "aeiou.scooby.do", Port: 80})
+
 	env.ServiceDiscovery = serviceDiscovery
 
 	// Test endpoints creates:
@@ -256,12 +257,10 @@ func TestEndpointsByNetworkFilter_IgnoreHostnameGateways(t *testing.T) {
 						// 2 local endpoints
 						{address: "10.0.0.1", weight: 1},
 						{address: "10.0.0.2", weight: 1},
-						// non-gateway endpoint to gateway of network2 a its a dns name instead of IP
-						{address: "20.0.0.1", weight: 1},
-						// non-gateway endpoint to network4 since there is no gateway specified
+						// 0 endpoint to gateway of network2 a its a dns name instead of IP
 						{address: "40.0.0.1", weight: 1},
 					},
-					weight: 4,
+					weight: 3,
 				},
 			},
 		},
@@ -293,12 +292,10 @@ func TestEndpointsByNetworkFilter_IgnoreHostnameGateways(t *testing.T) {
 					lbEps: []LbEpInfo{
 						// 1 endpoint to gateway of network1 with weight 2 because it has 2 endpoints
 						{address: "1.1.1.1", weight: 2},
-						// non-gateway endpoint to gateway of network2 a its a dns name instead of IP
-						{address: "20.0.0.1", weight: 1},
-						// non-gateway endpoint to network4 since there is no gateway specified
+						// 0 endpoint to gateway of network2 as its a DNS gateway
 						{address: "40.0.0.1", weight: 1},
 					},
-					weight: 4,
+					weight: 3,
 				},
 			},
 		},
@@ -314,10 +311,9 @@ func TestEndpointsByNetworkFilter_IgnoreHostnameGateways(t *testing.T) {
 						{address: "40.0.0.1", weight: 1},
 						// 1 endpoint to gateway of network1 with weight 2 because it has 2 endpoints
 						{address: "1.1.1.1", weight: 2},
-						// non-gateway endpoint to gateway of network2 a its a dns name instead of IP
-						{address: "20.0.0.1", weight: 1},
+						// 0 endpoint to gateway of network2 as its a dns gateway
 					},
-					weight: 4,
+					weight: 3,
 				},
 			},
 		},
