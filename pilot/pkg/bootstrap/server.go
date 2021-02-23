@@ -19,6 +19,7 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"net"
@@ -384,6 +385,22 @@ func getClusterID(args *PilotArgs) string {
 	return clusterID
 }
 
+func isUnexpectedListenerError(err error) bool {
+	if err == nil {
+		return false
+	}
+	if errors.Is(err, net.ErrClosed) {
+		return false
+	}
+	if errors.Is(err, http.ErrServerClosed) {
+		return false
+	}
+	if errors.Is(err, cmux.ErrListenerClosed) {
+		return false
+	}
+	return true
+}
+
 // Start starts all components of the Pilot discovery service on the port specified in DiscoveryServerOptions.
 // If Port == 0, a port number is automatically chosen. Content serving is started by this method,
 // but is executed asynchronously. Serving can be canceled at any time by closing the provided stop channel.
@@ -425,7 +442,7 @@ func (s *Server) Start(stop <-chan struct{}) error {
 	// At this point we are ready - start Http Listener so that it can respond to readiness events.
 	go func() {
 		log.Infof("starting Http service at %s", s.HTTPListener.Addr())
-		if err := s.httpServer.Serve(s.HTTPListener); err != nil && err != http.ErrServerClosed {
+		if err := s.httpServer.Serve(s.HTTPListener); isUnexpectedListenerError(err) {
 			log.Errorf("error serving http server: %v", err)
 		}
 	}()
@@ -438,7 +455,7 @@ func (s *Server) Start(stop <-chan struct{}) error {
 				Addr:    ":8080",
 				Handler: h2c.NewHandler(s.httpMux, h2s),
 			}
-			if err := h1s.Serve(s.HTTP2Listener); err != nil && err != http.ErrServerClosed {
+			if err := h1s.Serve(s.HTTP2Listener); isUnexpectedListenerError(err) {
 				log.Errorf("error serving http server: %v", err)
 			}
 		}()
@@ -447,7 +464,7 @@ func (s *Server) Start(stop <-chan struct{}) error {
 	if s.httpsServer != nil {
 		go func() {
 			log.Infof("starting webhook service at %s", s.HTTPListener.Addr())
-			if err := s.httpsServer.ListenAndServeTLS("", ""); err != nil && err != http.ErrServerClosed {
+			if err := s.httpsServer.ListenAndServeTLS("", ""); isUnexpectedListenerError(err) {
 				log.Errorf("error serving https server: %v", err)
 			}
 		}()
@@ -620,14 +637,13 @@ func (s *Server) initDiscoveryService(args *PilotArgs) {
 	} else if s.GRPCListener == nil {
 		// This happens only if the GRPC port (15010) is disabled. We will multiplex
 		// it on the HTTP port. Does not impact the HTTPS gRPC or HTTPS.
-		log.Info("multplexing gRPC on http port ", s.HTTPListener.Addr())
+		log.Info("multiplexing gRPC on http port ", s.HTTPListener.Addr())
 		m := cmux.New(s.HTTPListener)
 		s.GRPCListener = m.Match(cmux.HTTP2HeaderField("content-type", "application/grpc"))
 		s.HTTP2Listener = m.Match(cmux.HTTP2())
 		s.HTTPListener = m.Match(cmux.Any())
 		go func() {
-			err := m.Serve()
-			if err != nil {
+			if err := m.Serve(); isUnexpectedListenerError(err) {
 				log.Warnf("Failed to listen on multiplexed port %v", err)
 			}
 		}()
