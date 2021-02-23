@@ -147,6 +147,7 @@ func newProtocol(cfg Config) (protocol, error) {
 					IdleConnTimeout: time.Second,
 					TLSClientConfig: tlsConfig,
 					DialContext:     httpDialContext,
+					Proxy:           http.ProxyFromEnvironment,
 				},
 				Timeout: timeout,
 			},
