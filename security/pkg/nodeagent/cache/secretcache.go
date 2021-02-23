@@ -614,7 +614,7 @@ func (sc *SecretManagerClient) handleFileWatch() {
 		case <-timerC:
 			timerC = nil
 			for resource, event := range events {
-				cacheLog.Infof("file certificate %s changed with event %s, pushing to proxy", resource, event)
+				cacheLog.Infof("file certificate %s changed with event %s, pushing to proxy", resource, event.Op.String())
 				sc.certMutex.RLock()
 				resources := sc.fileCerts
 				sc.certMutex.RUnlock()
@@ -639,14 +639,12 @@ func (sc *SecretManagerClient) handleFileWatch() {
 			// Typically inotify notifies about file change after the event i.e. write is complete. It only
 			// does some housekeeping tasks after the event is generated. However in some cases, multiple events
 			// are triggered in quick succession - to handle that case we debounce here.
-			if len(event.Op.String()) > 0 { // To avoid spurious events, mainly coming from tests.
-				// Use a timer to debounce watch updates
-				if timerC == nil {
-					timerC = time.After(100 * time.Millisecond) // TODO: Make this configurable if needed.
-					events[event.Name] = event
-				}
+			// Use a timer to debounce watch updates
+			cacheLog.Infof("event for file certificate %s : %s, debouncing ", event.Name, event.Op.String())
+			if timerC == nil {
+				timerC = time.After(100 * time.Millisecond) // TODO: Make this configurable if needed.
+				events[event.Name] = event
 			}
-
 		case err, ok := <-sc.certWatcher.Errors:
 			// Channel is closed.
 			if !ok {
