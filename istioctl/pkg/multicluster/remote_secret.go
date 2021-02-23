@@ -238,18 +238,28 @@ func getServiceAccountSecret(client kube.ExtendedClient, opt RemoteSecretOptions
 		return nil, fmt.Errorf("no secret found in the service account: %s", serviceAccount)
 	}
 
-	if len(serviceAccount.Secrets) != 1 && opt.SecretName == "" {
-		return nil, fmt.Errorf("wrong number of secrets (%v) in serviceaccount %s/%s, please use --secret-name to specify one",
-			len(serviceAccount.Secrets), opt.Namespace, opt.ServiceAccountName)
-	}
-
-	secretName := serviceAccount.Secrets[0].Name
-	secretNamespace := serviceAccount.Secrets[0].Namespace
-	for _, secret := range serviceAccount.Secrets {
-		if secret.Name == opt.SecretName {
-			secretName = secret.Name
-			secretNamespace = secret.Namespace
-			break
+	secretName := ""
+	secretNamespace := ""
+	if opt.SecretName != "" {
+		found := false
+		for _, secret := range serviceAccount.Secrets {
+			if secret.Name == opt.SecretName {
+				found = true
+				secretName = secret.Name
+				secretNamespace = secret.Namespace
+				break
+			}
+		}
+		if !found {
+			return nil, fmt.Errorf("provided secret does not exist: %s", opt.SecretName)
+		}
+	} else {
+		if len(serviceAccount.Secrets) == 1 {
+			secretName = serviceAccount.Secrets[0].Name
+			secretNamespace = serviceAccount.Secrets[0].Namespace
+		} else {
+			return nil, fmt.Errorf("wrong number of secrets (%v) in serviceaccount %s/%s, please use --secret-name to specify one",
+				len(serviceAccount.Secrets), opt.Namespace, opt.ServiceAccountName)
 		}
 	}
 

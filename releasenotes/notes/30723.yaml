@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: istioctl
+issue:
+  - 30723
+releaseNotes:
+  - |
+    **Fixed** Fail correctly when `istioctl x create-remote-secret --secret-name` points to a non-existing secret in the remote cluster.
