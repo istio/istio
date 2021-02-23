@@ -2112,6 +2112,13 @@ func getActualWildcardAndLocalHost(node *model.Proxy) (string, string) {
 	return WildcardIPv6Address, LocalhostIPv6Address
 }
 
+func getPassthroughBindIP(node *model.Proxy) string {
+	if node.SupportsIPv4() {
+		return util.InboundPassthroughBindIpv4
+	}
+	return util.InboundPassthroughBindIpv6
+}
+
 // getSidecarInboundBindIP returns the IP that the proxy can bind to along with the sidecar specified port.
 // It looks for an unicast address, if none found, then the default wildcard address is used.
 // This will make the inbound listener bind to instance_ip:port instead of 0.0.0.0:port where applicable.

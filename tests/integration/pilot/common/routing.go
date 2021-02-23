@@ -945,7 +945,7 @@ func instanceIPTests(apps *EchoDeployments) []TrafficTestCase {
 			name:           "instance IP without sidecar",
 			disableSidecar: true,
 			port:           "http-instance",
-			code:           503,
+			code:           200,
 		},
 		{
 			name:     "instance IP with wildcard sidecar",
@@ -959,13 +959,19 @@ func instanceIPTests(apps *EchoDeployments) []TrafficTestCase {
 			port:     "http-instance",
 			code:     503,
 		},
+		{
+			name:     "instance IP with empty sidecar",
+			endpoint: "",
+			port:     "http-instance",
+			code:     200,
+		},
 
 		// Localhost bind
 		{
 			name:           "localhost IP without sidecar",
 			disableSidecar: true,
 			port:           "http-localhost",
-			code:           200,
+			code:           503,
 		},
 		{
 			name:     "localhost IP with wildcard sidecar",
@@ -978,6 +984,12 @@ func instanceIPTests(apps *EchoDeployments) []TrafficTestCase {
 			endpoint: "127.0.0.1",
 			port:     "http-localhost",
 			code:     200,
+		},
+		{
+			name:     "localhost IP with empty sidecar",
+			endpoint: "",
+			port:     "http-localhost",
+			code:     503,
 		},
 
 		// Wildcard bind
@@ -996,6 +1008,12 @@ func instanceIPTests(apps *EchoDeployments) []TrafficTestCase {
 		{
 			name:     "wildcard IP with localhost sidecar",
 			endpoint: "127.0.0.1",
+			port:     "http",
+			code:     200,
+		},
+		{
+			name:     "wildcard IP with empty sidecar",
+			endpoint: "",
 			port:     "http",
 			code:     200,
 		},

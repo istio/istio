@@ -1,0 +1,44 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: networking
+issue:
+- 29940
+upradeNotes:
+  title: Inbound Forwarding Configuration
+  content: |
+    The behavior of inbound forwarding will be modified in the near future. While this change is not enabled
+    by default in Istio 1.10, it can be enabled today by configuring the `PILOT_ENABLE_INBOUND_PASSTHROUGH=true` environment
+    variable in Istiod.
+
+    Previously, requests would be forwarded to `localhost`. This leads to two important differences compared to running applications
+    without Istio:
+
+    * Applications that bind to `localhost` will be exposed to external pods.
+    * Applications that bind to `<POD_IP>` will not be exposed to external pods.
+
+    The latter is a common source of friction when adopting Istio, in particular with stateful services where this is common.
+
+    The new behavior instead forwards the request as is. This matches the behavior a user would see without Istio installed.
+    However, as a result, applications that have come to rely on `localhost` being exposed externally by Istio, may stop working.
+
+    The [check-binds.sh](https://gist.github.com/howardjohn/edcdbe5a85ae2e5ba7809739bd55c566) script can be used to detect what binds your applications are using.
+
+    Regardless of Istio version, the behavior can be explicitly controlled by the `Sidecar`.
+    For example, to configure the 9080 port to explicitly be sent to localhost:
+
+    ```yaml
+    apiVersion: networking.istio.io/v1beta1
+    kind: Sidecar
+    metadata:
+      name: ratings
+    spec:
+      workloadSelector:
+        labels:
+          app: ratings
+      ingress:
+      - port:
+          number: 9080
+          protocol: HTTP
+          name: http
+        defaultEndpoint: 127.0.0.1:9080
+    ```
