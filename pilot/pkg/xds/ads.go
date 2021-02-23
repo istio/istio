@@ -231,6 +231,7 @@ func (s *DiscoveryServer) processRequest(req *discovery.DiscoveryRequest, con *C
 
 	push := s.globalPushContext()
 
+	request.PushType = model.PushTypeRequest
 	return s.pushXds(con, push, versionInfo(), con.Watched(req.TypeUrl), request)
 }
 
