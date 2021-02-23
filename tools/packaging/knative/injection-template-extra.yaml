@@ -1,9 +1,2 @@
 policy: enabled
 templates:
-  gateway: |-
-    spec:
-      containers:
-      - name: istio-proxy
-        env:
-        - name: PROXY_CONFIG
-          value: {{ protoToJSON .ProxyConfig | quote }}

@@ -47,6 +47,8 @@ $(ISTIO_OUT)/knative/injection-template.yaml: manifests/charts/istio-control/ist
 	cp tools/packaging/knative/injection-template-extra.yaml ${ISTIO_OUT}/knative/injection-template.yaml
 	echo -e "\n  sidecar: |-" >> ${ISTIO_OUT}/knative/injection-template.yaml
 	cat manifests/charts/istio-control/istio-discovery/files/injection-template.yaml | sed 's/^/    /g' >> ${ISTIO_OUT}/knative/injection-template.yaml
+	echo -e "\n  gateway: |-" >> ${ISTIO_OUT}/knative/injection-template.yaml
+	cat manifests/charts/istio-control/istio-discovery/files/gateway-injection-template.yaml | sed 's/^/    /g' >> ${ISTIO_OUT}/knative/injection-template.yaml
 
 $(ISTIO_OUT)/knative/mutatingwebhook.yaml: manifests/charts/istio-control/istio-discovery/templates/mutatingwebhook.yaml
 	mkdir -p $(ISTIO_OUT)/knative-wh/templates
