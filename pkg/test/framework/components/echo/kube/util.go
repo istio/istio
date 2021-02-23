@@ -44,12 +44,15 @@ func newPodSelector(cfg echo.Config) podSelector {
 	if cfg.DeployAsVM {
 		appLabel = constants.TestVMLabel
 	}
-	return podSelector{
+	ps := podSelector{
 		labels: map[string]string{
-			appLabel:  cfg.Service,
-			"version": cfg.Version,
+			appLabel: cfg.Service,
 		},
 	}
+	if cfg.Version != "" {
+		ps.labels["version"] = cfg.Version
+	}
+	return ps
 }
 
 func serviceAccount(cfg echo.Config) string {
