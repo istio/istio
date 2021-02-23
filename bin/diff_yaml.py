@@ -141,7 +141,7 @@ def compare(args):
     for k in sorted(removed):
         print("-", k)
 
-    print("## *************************")
+    print("##", "*" * 25)
 
     for k in sorted(common):
         if q0[k] != q1[k]:
