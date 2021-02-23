@@ -352,6 +352,7 @@ spec:
 func TestCustomGateway(t *testing.T) {
 	framework.
 		NewTest(t).
+		Features("traffic.ingress.custom").
 		Run(func(ctx framework.TestContext) {
 			gatewayNs := namespace.NewOrFail(t, ctx, namespace.Config{Prefix: "custom-gateway"})
 			ctx.Config().ApplyYAMLOrFail(t, gatewayNs.Name(), fmt.Sprintf(`apiVersion: v1
