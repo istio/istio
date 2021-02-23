@@ -43,7 +43,7 @@ var previousChartPath = filepath.Join(env.IstioSrc, "tests/integration/helm/test
 
 const (
 	gcrHub                   = "gcr.io/istio-release"
-	previousSupportedVersion = "1.8.1"
+	previousSupportedVersion = "1.9.0"
 
 	defaultValues = `
 global:
