@@ -48,6 +48,10 @@ data:
       sidecar: |
 {{ .Files.Get "files/injection-template.yaml" | trim | indent 8 }}
 {{- end }}
+{{- if not (hasKey .Values.sidecarInjectorWebhook.templates "gateway") }}
+      gateway: |
+{{ .Files.Get "files/gateway-injection-template.yaml" | trim | indent 8 }}
+{{- end }}
 {{- with .Values.sidecarInjectorWebhook.templates }}
 {{ toYaml . | trim | indent 6 }}
 {{- end }}
