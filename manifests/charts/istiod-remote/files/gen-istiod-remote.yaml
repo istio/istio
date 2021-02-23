@@ -825,10 +825,6 @@ data:
               periodSeconds: {{ .Values.global.proxy.readinessPeriodSeconds }}
               timeoutSeconds: 3
               failureThreshold: {{ .Values.global.proxy.readinessFailureThreshold }}
-            {{- if .Values.global.proxy.resources }}
-            resources:
-              {{ toYaml .Values.global.proxy.resources | indent 6 }}
-            {{- end }}
             volumeMounts:
             {{- if eq .Values.global.pilotCertProvider "istiod" }}
             - mountPath: /var/run/secrets/istio
