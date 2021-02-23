@@ -100,7 +100,7 @@ require (
 	helm.sh/helm/v3 v3.4.2
 	honnef.co/go/tools v0.0.1-2020.1.5 // indirect
 	istio.io/api v0.0.0-20210219142745-68975986cccb
-	istio.io/client-go v0.0.0-20200908160912-f99162621a1a
+	istio.io/client-go v0.0.0-20210218000043-b598dd019200
 	istio.io/gogo-genproto v0.0.0-20210218000043-b2cfc07e0f6b
 	istio.io/pkg v0.0.0-20210219215147-6639dbf1271c
 	k8s.io/api v0.20.2
