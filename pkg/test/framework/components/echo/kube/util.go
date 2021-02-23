@@ -18,33 +18,32 @@ import (
 	"fmt"
 	"strings"
 
-	kubeCore "k8s.io/api/core/v1"
-
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/test/framework/components/echo"
 )
 
 type podSelector struct {
-	Label string
-	Value string
+	labels map[string]string
 }
 
 func (s podSelector) String() string {
-	return s.Label + "=" + s.Value
-}
-
-func (s podSelector) MatchesPod(pod *kubeCore.Pod) bool {
-	return pod.ObjectMeta.Labels[s.Label] == s.Value
+	str := ""
+	for l, v := range s.labels {
+		str += l + "=" + v + ","
+	}
+	return str
 }
 
 func newPodSelector(cfg echo.Config) podSelector {
-	label := "app"
+	appLabel := "app"
 	if cfg.DeployAsVM {
-		label = constants.TestVMLabel
+		appLabel = constants.TestVMLabel
 	}
 	return podSelector{
-		Label: label,
-		Value: cfg.Service,
+		labels: map[string]string{
+			appLabel:  cfg.Service,
+			"version": cfg.Version,
+		},
 	}
 }
 
