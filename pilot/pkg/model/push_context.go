@@ -1735,9 +1735,7 @@ func (ps *PushContext) initMeshNetworks(meshNetworks *meshconfig.MeshNetworks) {
 	for nw, nwGateways := range ps.networkGateways {
 		valid := make([]*Gateway, 0, len(nwGateways))
 		for _, gw := range nwGateways {
-			if ip := net.ParseIP(gw.Addr); ip != nil {
-				valid = append(valid, gw)
-			} else if features.ResolveGatewayHostname {
+			if ip := net.ParseIP(gw.Addr); ip == nil && features.ResolveGatewayHostname {
 				ips, err := net.LookupIP(gw.Addr)
 				if err == nil {
 					for _, ip := range ips {
@@ -1745,9 +1743,12 @@ func (ps *PushContext) initMeshNetworks(meshNetworks *meshconfig.MeshNetworks) {
 					}
 				} else {
 					log.Errorf("failed resolving gateway hostname %s: %v", gw.Addr, err)
+					// hostnames are filtered out later
+					valid = append(valid, gw)
 				}
 			} else {
-				log.Errorf("invalid IP address %s in gateway config", gw.Addr)
+				// good IP or hostname - hostnames are filtered out later
+				valid = append(valid, gw)
 			}
 		}
 		ps.networkGateways[nw] = valid
