@@ -65,7 +65,7 @@ type Settings struct {
 
 // Config is the structure of the topology configuration file.
 type Config struct {
-	Name string `yaml:"name,omitempty"`
+	Name     string           `yaml:"name,omitempty"`
 	Clusters []cluster.Config `yaml:"clusters,omitempty"`
 }
 
