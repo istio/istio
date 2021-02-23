@@ -674,6 +674,7 @@ data:
           securityContext:
             fsGroup: 1337
           {{- end }}
+      gateway: |
 ---
 # Source: istiod-remote/templates/mutatingwebhook.yaml
 apiVersion: admissionregistration.k8s.io/v1beta1
