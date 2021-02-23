@@ -360,6 +360,7 @@ gen-check: check-no-modify gen check-clean-repo
 # Copy the injection template file and configmap from istiod chart to istiod-remote chart
 sync-configs-from-istiod:
 	cp manifests/charts/istio-control/istio-discovery/files/injection-template.yaml manifests/charts/istiod-remote/files/
+	cp manifests/charts/istio-control/istio-discovery/files/gateway-injection-template.yaml manifests/charts/istiod-remote/files/
 
 	# Copy over values, but apply some local customizations
 	cp manifests/charts/istio-control/istio-discovery/values.yaml manifests/charts/istiod-remote/
