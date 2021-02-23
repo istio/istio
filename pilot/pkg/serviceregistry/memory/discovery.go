@@ -331,5 +331,9 @@ func (sd *ServiceDiscovery) SetGatewaysForNetwork(nw string, gws ...*model.Gatew
 }
 
 func (sd *ServiceDiscovery) NetworkGateways() map[string][]*model.Gateway {
-	return sd.networkGateways
+	out := make(map[string][]*model.Gateway, len(sd.networkGateways))
+	for k, v := range sd.networkGateways {
+		out[k] = append([]*model.Gateway{}, v...)
+	}
+	return out
 }

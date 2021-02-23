@@ -421,4 +421,10 @@ var (
 		20*time.Minute,
 		"The interval for istiod to fetch the jwks_uri for the jwks public key.",
 	).Get()
+
+	ResolveGatewayHostname = env.RegisterBoolVar(
+		"PILOT_RESOLVE_GATEWAY_HOSTNAME",
+		false,
+		"If set, Pilot will eagerly resolve DNS names from meshNetworks gateway addresses or the status.loadBalancer[].hostname field.",
+	).Get()
 )

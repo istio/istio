@@ -546,7 +546,7 @@ func NewPushContext() *PushContext {
 	}
 }
 
-// JSON implements json.Marshaller, with a lock.
+// StatusJSON implements json.Marshaller, with a lock.
 func (ps *PushContext) StatusJSON() ([]byte, error) {
 	if ps == nil {
 		return []byte{'{', '}'}, nil
@@ -1718,26 +1718,39 @@ func (ps *PushContext) mergeGateways(proxy *Proxy) *MergedGateway {
 func (ps *PushContext) initMeshNetworks(meshNetworks *meshconfig.MeshNetworks) {
 	ps.networksMu.Lock()
 	defer ps.networksMu.Unlock()
-	ps.networkGateways = map[string][]*Gateway{}
 
-	// First, use addresses directly specified in meshNetworks
+	// First, load registry specific gateways
+	ps.networkGateways = ps.ServiceDiscovery.NetworkGateways()
+
+	// Then, merge addresses directly specified in meshNetworks
 	if meshNetworks != nil {
 		for network, networkConf := range meshNetworks.Networks {
-			gws := networkConf.Gateways
-			for _, gw := range gws {
-				if gwIP := net.ParseIP(gw.GetAddress()); gwIP != nil {
-					ps.networkGateways[network] = append(ps.networkGateways[network], &Gateway{gw.GetAddress(), gw.Port})
-				}
+			for _, gw := range networkConf.Gateways {
+				ps.networkGateways[network] = append(ps.networkGateways[network], &Gateway{gw.GetAddress(), gw.Port})
 			}
-
 		}
 	}
 
-	// Second, load registry specific gateways.
-	for network, gateways := range ps.ServiceDiscovery.NetworkGateways() {
-		// - the internal map of label gateways - these get deleted if the service is deleted, updated if the ip changes etc.
-		// - the computed map from meshNetworks (triggered by reloadNetworkLookup, the ported logic from getGatewayAddresses)
-		ps.networkGateways[network] = append(ps.networkGateways[network], gateways...)
+	// Finally, make sure we only have IPs
+	for nw, nwGateways := range ps.networkGateways {
+		valid := make([]*Gateway, 0, len(nwGateways))
+		for _, gw := range nwGateways {
+			if ip := net.ParseIP(gw.Addr); ip != nil {
+				valid = append(valid, gw)
+			} else if features.ResolveGatewayHostname {
+				ips, err := net.LookupIP(gw.Addr)
+				if err == nil {
+					for _, ip := range ips {
+						valid = append(valid, &Gateway{Addr: ip.String(), Port: gw.Port})
+					}
+				} else {
+					log.Errorf("failed resolving gateway hostname %s: %v", gw.Addr, err)
+				}
+			} else {
+				log.Errorf("invalid IP address %s in gateway config", gw.Addr)
+			}
+		}
+		ps.networkGateways[nw] = valid
 	}
 }
 

@@ -168,9 +168,6 @@ func (c *Controller) extractGatewaysInner(svc *model.Service) bool {
 	}
 
 	gws := make([]*model.Gateway, 0, len(svc.Attributes.ClusterExternalAddresses))
-
-	// TODO(landow) ClusterExternalAddresses doesn't need to get used outside of the kube controller, and spreads
-	// TODO(cont)   logic between ConvertService, extractGatewaysInner, and updateServiceNodePortAddresses.
 	if svc.Attributes.ClusterExternalAddresses != nil {
 		// check if we have node port mappings
 		if svc.Attributes.ClusterExternalPorts != nil {
