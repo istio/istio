@@ -354,6 +354,10 @@ update-golden: refresh-goldens
 
 gen: mod-download-go go-gen mirror-licenses format update-crds operator-proto sync-configs-from-istiod gen-kustomize update-golden ## Update all generated code.
 
+update-operator-data-snapshot:
+	@tar czf data-snapshot.tar.gz manifests
+	@mv data-snapshot.tar.gz ./operator/cmd/mesh/testdata/manifest-generate/
+
 check-no-modify:
 	@bin/check_no_modify.sh
 
