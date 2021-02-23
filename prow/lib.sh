@@ -200,5 +200,5 @@ function set_topology_value() {
     local VALUE="$4"
     VALUE=$(echo "${VALUE}" | awk '{$1=$1};1')
 
-    echo "${JSON}" | jq '(.[] | select(.clusterName =="'"${CLUSTER_NAME}"'") | .'"${KEY}"') |="'"${VALUE}"'"'
+    echo "${JSON}" | jq '(.clusters[] | select(.clusterName =="'"${CLUSTER_NAME}"'") | .'"${KEY}"') |="'"${VALUE}"'"'
 }

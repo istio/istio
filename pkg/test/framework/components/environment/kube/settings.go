@@ -63,6 +63,12 @@ type Settings struct {
 	configTopology clusterTopology
 }
 
+// Config is the structure of the topology configuration file.
+type Config struct {
+	Name string `yaml:"name,omitempty"`
+	Clusters []cluster.Config `yaml:"clusters,omitempty"`
+}
+
 func (s *Settings) clone() *Settings {
 	c := *s
 	return &c
@@ -121,10 +127,12 @@ func (s *Settings) clusterConfigsFromFile() ([]cluster.Config, error) {
 	if err != nil {
 		return nil, err
 	}
-	configs := []cluster.Config{}
-	if err := yaml.Unmarshal(topologyBytes, &configs); err != nil {
+	config := Config{}
+	if err := yaml.Unmarshal(topologyBytes, &config); err != nil {
 		return nil, fmt.Errorf("failed to parse %s: %v", topologyFile, err)
 	}
+	scopes.Framework.Infof("Parsed topology configuration %q.", config.Name)
+	configs := config.Clusters
 
 	// Allow kubeconfig flag to override file
 	configs, err = replaceKubeconfigs(configs, s.KubeConfig)
