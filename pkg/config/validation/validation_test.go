@@ -5163,7 +5163,7 @@ func TestValidateSidecar(t *testing.T) {
 					Hosts: []string{"*/*"},
 				},
 			},
-		}, false},
+		}, true},
 		{"ingress with invalid default endpoint IP", &networking.Sidecar{
 			Ingress: []*networking.IstioIngressListener{
 				{

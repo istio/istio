@@ -860,9 +860,7 @@ var ValidateSidecar = registerValidateFunc("ValidateSidecar",
 			}
 			portMap[i.Port.Number] = struct{}{}
 
-			if len(i.DefaultEndpoint) == 0 {
-				errs = appendErrors(errs, fmt.Errorf("sidecar: default endpoint must be set for all ingress listeners"))
-			} else {
+			if len(i.DefaultEndpoint) != 0 {
 				if strings.HasPrefix(i.DefaultEndpoint, UnixAddressPrefix) {
 					errs = appendErrors(errs, ValidateUnixAddress(strings.TrimPrefix(i.DefaultEndpoint, UnixAddressPrefix)))
 				} else {

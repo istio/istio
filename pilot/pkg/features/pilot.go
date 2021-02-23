@@ -421,4 +421,14 @@ var (
 		20*time.Minute,
 		"The interval for istiod to fetch the jwks_uri for the jwks public key.",
 	).Get()
+
+	EnableInboundPassthrough = env.RegisterBoolVar(
+		"PILOT_ENABLE_INBOUND_PASSTHROUGH",
+		true,
+		"If enabled, inbound clusters will be configured as ORIGINAL_DST clusters. When disabled, "+
+			"requests are always sent to localhost. The primary implication of this is that when enabled, binding to POD_IP "+
+			"will work while localhost will not; when disable, bind to POD_IP will not work, while localhost will. "+
+			"The enabled behavior matches the behavior without Istio enabled at all; this flag exists only for backwards compatibility. "+
+			"Regardless of this setting, the configuration can be overridden with the Sidecar.Ingress.DefaultEndpoint configuration.",
+	).Get()
 )
