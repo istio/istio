@@ -266,7 +266,7 @@ func TestApplyDestinationRule(t *testing.T) {
 				Services:       []*model.Service{tt.service},
 			})
 			cg.MemRegistry.WantGetProxyServiceInstances = instances
-			cb := NewClusterBuilder(cg.SetupProxy(nil), cg.PushContext())
+			cb := NewClusterBuilder(cg.SetupProxy(nil), cg.PushContext(), nil)
 
 			subsetClusters := cb.applyDestinationRule(tt.cluster, tt.clusterMode, tt.service, tt.port, tt.networkView)
 			if len(subsetClusters) != len(tt.expectedSubsetClusters) {
@@ -781,7 +781,7 @@ func TestBuildDefaultCluster(t *testing.T) {
 	for _, tt := range cases {
 		t.Run(tt.name, func(t *testing.T) {
 			cg := NewConfigGenTest(t, TestOptions{MeshConfig: &testMesh})
-			cb := NewClusterBuilder(cg.SetupProxy(nil), cg.PushContext())
+			cb := NewClusterBuilder(cg.SetupProxy(nil), cg.PushContext(), nil)
 
 			defaultCluster := cb.buildDefaultCluster(tt.clusterName, tt.discovery, tt.endpoints, tt.direction, servicePort, &model.Service{
 				Ports: model.PortList{
@@ -1074,7 +1074,7 @@ func TestBuildLocalityLbEndpoints(t *testing.T) {
 				Instances:  tt.instances,
 			})
 
-			cb := NewClusterBuilder(cg.SetupProxy(proxy), cg.PushContext())
+			cb := NewClusterBuilder(cg.SetupProxy(proxy), cg.PushContext(), nil)
 			nv := map[string]bool{
 				"nw-0":               true,
 				"nw-1":               true,
@@ -1120,7 +1120,7 @@ func TestBuildPassthroughClusters(t *testing.T) {
 			proxy := &model.Proxy{IPAddresses: tt.ips}
 			cg := NewConfigGenTest(t, TestOptions{})
 
-			cb := NewClusterBuilder(cg.SetupProxy(proxy), cg.PushContext())
+			cb := NewClusterBuilder(cg.SetupProxy(proxy), cg.PushContext(), nil)
 			clusters := cb.buildInboundPassthroughClusters()
 
 			var hasIpv4, hasIpv6 bool

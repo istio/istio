@@ -38,13 +38,15 @@ var defaultDestinationRule = networking.DestinationRule{}
 type ClusterBuilder struct {
 	proxy *model.Proxy
 	push  *model.PushContext
+	cache model.XdsCache
 }
 
 // NewClusterBuilder builds an instance of ClusterBuilder.
-func NewClusterBuilder(proxy *model.Proxy, push *model.PushContext) *ClusterBuilder {
+func NewClusterBuilder(proxy *model.Proxy, push *model.PushContext, cache model.XdsCache) *ClusterBuilder {
 	return &ClusterBuilder{
 		proxy: proxy,
 		push:  push,
+		cache: cache,
 	}
 }
 
@@ -63,6 +65,7 @@ func (cb *ClusterBuilder) applyDestinationRule(c *cluster.Cluster, clusterMode C
 		clusterMode: clusterMode,
 		direction:   model.TrafficDirectionOutbound,
 		proxy:       cb.proxy,
+		cache:       cb.cache,
 	}
 
 	if clusterMode == DefaultClusterMode {
@@ -237,6 +240,7 @@ func (cb *ClusterBuilder) buildDefaultCluster(name string, discoveryType cluster
 		clusterMode:     DefaultClusterMode,
 		direction:       direction,
 		proxy:           cb.proxy,
+		cache:           cb.cache,
 	}
 	// decides whether the cluster corresponds to a service external to mesh or not.
 	if direction == model.TrafficDirectionInbound {

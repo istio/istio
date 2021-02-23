@@ -178,19 +178,19 @@ var (
 )
 
 // ConstructSdsSecretConfig constructs SDS Secret Configuration for workload proxy.
-func ConstructSdsSecretConfig(name string, node *model.Proxy) *tls.SdsSecretConfig {
+func ConstructSdsSecretConfig(name string, proxyGE19 bool) *tls.SdsSecretConfig {
 	if name == "" {
 		return nil
 	}
 
 	if name == SDSDefaultResourceName {
-		if util.IsIstioVersionGE19(node) {
+		if proxyGE19 {
 			return defaultSDSConfig
 		}
 		return legacyDefaultSDSConfig
 	}
 	if name == SDSRootResourceName {
-		if util.IsIstioVersionGE19(node) {
+		if proxyGE19 {
 			return rootSDSConfig
 		}
 		return legacyRootSDSConfig
@@ -216,7 +216,7 @@ func ConstructSdsSecretConfig(name string, node *model.Proxy) *tls.SdsSecretConf
 		},
 	}
 
-	if util.IsIstioVersionGE19(node) {
+	if proxyGE19 {
 		cfg.SdsConfig.GetApiConfigSource().SetNodeOnFirstMessageOnly = true
 	}
 	return cfg
@@ -272,11 +272,11 @@ func ApplyToCommonTLSContext(tlsContext *tls.CommonTlsContext, proxy *model.Prox
 	tlsContext.ValidationContextType = &tls.CommonTlsContext_CombinedValidationContext{
 		CombinedValidationContext: &tls.CommonTlsContext_CombinedCertificateValidationContext{
 			DefaultValidationContext:         &tls.CertificateValidationContext{MatchSubjectAltNames: matchSAN},
-			ValidationContextSdsSecretConfig: ConstructSdsSecretConfig(model.GetOrDefault(res.GetRootResourceName(), SDSRootResourceName), proxy),
+			ValidationContextSdsSecretConfig: ConstructSdsSecretConfig(model.GetOrDefault(res.GetRootResourceName(), SDSRootResourceName), util.IsIstioVersionGE19(proxy)),
 		},
 	}
 	tlsContext.TlsCertificateSdsSecretConfigs = []*tls.SdsSecretConfig{
-		ConstructSdsSecretConfig(model.GetOrDefault(res.GetResourceName(), SDSDefaultResourceName), proxy),
+		ConstructSdsSecretConfig(model.GetOrDefault(res.GetResourceName(), SDSDefaultResourceName), util.IsIstioVersionGE19(proxy)),
 	}
 }
 

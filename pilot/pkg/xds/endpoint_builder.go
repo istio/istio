@@ -129,6 +129,11 @@ func (b EndpointBuilder) Cacheable() bool {
 	return b.service != nil
 }
 
+// DependentTypes is not needed; we know exactly which configs impact EDS, so we can scope at DependentConfigs level
+func (b EndpointBuilder) DependentTypes() []config.GroupVersionKind {
+	return nil
+}
+
 func (b EndpointBuilder) DependentConfigs() []model.ConfigKey {
 	configs := []model.ConfigKey{}
 	if b.destinationRule != nil {

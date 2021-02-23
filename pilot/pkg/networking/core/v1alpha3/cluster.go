@@ -26,6 +26,7 @@ import (
 	auth "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
 	xdstype "github.com/envoyproxy/go-control-plane/envoy/type/v3"
 	"github.com/gogo/protobuf/types"
+	"github.com/golang/protobuf/ptypes/any"
 	structpb "github.com/golang/protobuf/ptypes/struct"
 	"github.com/golang/protobuf/ptypes/wrappers"
 
@@ -39,8 +40,10 @@ import (
 	authn_model "istio.io/istio/pilot/pkg/security/model"
 	"istio.io/istio/pilot/pkg/serviceregistry"
 	"istio.io/istio/pilot/pkg/util/sets"
+	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/protocol"
+	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/util/gogo"
 	"istio.io/pkg/log"
 )
@@ -82,9 +85,8 @@ func getDefaultCircuitBreakerThresholds() *cluster.CircuitBreakers_Thresholds {
 func (configgen *ConfigGeneratorImpl) BuildClusters(proxy *model.Proxy, push *model.PushContext) []*cluster.Cluster {
 	clusters := make([]*cluster.Cluster, 0)
 	envoyFilterPatches := push.EnvoyFilters(proxy)
-	cb := NewClusterBuilder(proxy, push)
+	cb := NewClusterBuilder(proxy, push, configgen.Cache)
 	instances := proxy.ServiceInstances
-
 	switch proxy.Type {
 	case model.SidecarProxy:
 		// Setup outbound clusters
@@ -199,7 +201,7 @@ func (p clusterPatcher) insertedClusters() []*cluster.Cluster {
 func (configgen *ConfigGeneratorImpl) buildOutboundSniDnatClusters(proxy *model.Proxy, push *model.PushContext,
 	cp clusterPatcher) []*cluster.Cluster {
 	clusters := make([]*cluster.Cluster, 0)
-	cb := NewClusterBuilder(proxy, push)
+	cb := NewClusterBuilder(proxy, push, nil)
 
 	networkView := model.GetNetworkView(proxy)
 
@@ -507,6 +509,7 @@ type buildClusterOpts struct {
 	proxy           *model.Proxy
 	meshExternal    bool
 	serviceMTLSMode model.MutualTLSMode
+	cache           model.XdsCache
 }
 
 type upgradeTuple struct {
@@ -846,16 +849,39 @@ func applyUpstreamTLSSettings(opts *buildClusterOpts, tls *networking.ClientTLSS
 
 	c := opts.cluster
 
-	tlsContext, err := buildUpstreamClusterTLSContext(opts, tls)
-	if err != nil {
-		log.Errorf("failed to build Upstream TLSContext: %s", err.Error())
-		return
+	builder := &tlsBuilder{
+		proxyGE19:    util.IsIstioVersionGE19(opts.proxy),
+		proxySidecar: opts.proxy.Type == model.SidecarProxy,
+		// TODO(https://github.com/istio/istio/issues/29735) remove nolint
+		// nolint: staticcheck
+		http2:              c.Http2ProtocolOptions != nil,
+		clusterName:        c.Name,
+		tlsClientCertChain: opts.proxy.Metadata.TLSClientCertChain,
+		tlsClientKey:       opts.proxy.Metadata.TLSClientKey,
+		tlsClientRootCert:  opts.proxy.Metadata.TLSClientRootCert,
+		tls:                tls,
+	}
+	var marshalledTlsContext *any.Any
+	if m, f := opts.cache.Get(builder); f && !features.EnableUnsafeAssertions {
+		marshalledTlsContext = m
+	} else {
+		tlsContext, err := builder.buildUpstreamClusterTLSContext()
+		if err != nil {
+			log.Errorf("failed to build Upstream TLSContext: %s", err.Error())
+			return
+		}
+		// If tlsContext is unset, no need to cache (and cache wouldn't handle nil, anyways).
+		// Generating nil is cheap, so no performance loss here.
+		if tlsContext != nil {
+			marshalledTlsContext = util.MessageToAny(tlsContext)
+			opts.cache.Add(builder, marshalledTlsContext)
+		}
 	}
 
-	if tlsContext != nil {
+	if marshalledTlsContext != nil {
 		c.TransportSocket = &core.TransportSocket{
 			Name:       util.EnvoyTLSSocketName,
-			ConfigType: &core.TransportSocket_TypedConfig{TypedConfig: util.MessageToAny(tlsContext)},
+			ConfigType: &core.TransportSocket_TypedConfig{TypedConfig: marshalledTlsContext},
 		}
 	}
 
@@ -884,13 +910,57 @@ var istioMtlsTransportSocketMatch = &structpb.Struct{
 	},
 }
 
-func buildUpstreamClusterTLSContext(opts *buildClusterOpts, tls *networking.ClientTLSSettings) (*auth.UpstreamTlsContext, error) {
-	c := opts.cluster
-	proxy := opts.proxy
+type tlsBuilder struct {
+	proxyGE19          bool
+	proxySidecar       bool
+	http2              bool
+	clusterName        string
+	tlsClientCertChain string
+	tlsClientKey       string
+	tlsClientRootCert  string
 
+	tls *networking.ClientTLSSettings
+}
+
+func (t *tlsBuilder) Key() string {
+	params := []string{
+		t.clusterName, t.tlsClientCertChain, t.tlsClientKey, t.tlsClientRootCert,
+		strconv.FormatBool(t.proxyGE19), strconv.FormatBool(t.proxySidecar), strconv.FormatBool(t.http2),
+	}
+	if t.tls != nil {
+		params = append(params,
+			t.tls.Sni,
+			t.tls.PrivateKey,
+			t.tls.ClientCertificate,
+			t.tls.CaCertificates,
+			t.tls.Mode.String(),
+			strings.Join(t.tls.SubjectAltNames, "/"),
+		)
+	}
+	return strings.Join(params, "~")
+}
+
+func (t tlsBuilder) DependentConfigs() []model.ConfigKey {
+	// We depend on DestinationRule, but determining *which* destination rule we depend on is not trivial.
+	// Instead, we invalid on any changed DR (via DependentTypes)
+	return nil
+}
+
+func (t *tlsBuilder) DependentTypes() []config.GroupVersionKind {
+	return []config.GroupVersionKind{gvk.DestinationRule}
+}
+
+func (t tlsBuilder) Cacheable() bool {
+	return true
+}
+
+var _ model.XdsCacheEntry = &tlsBuilder{}
+
+func (b *tlsBuilder) buildUpstreamClusterTLSContext() (*auth.UpstreamTlsContext, error) {
+	tls := b.tls
 	// Hack to avoid egress sds cluster config generation for sidecar when
 	// CredentialName is set in DestinationRule
-	if tls.CredentialName != "" && proxy.Type == model.SidecarProxy {
+	if tls.CredentialName != "" && b.proxySidecar {
 		if tls.Mode == networking.ClientTLSSettings_SIMPLE || tls.Mode == networking.ClientTLSSettings_MUTUAL {
 			return nil, nil
 		}
@@ -924,18 +994,18 @@ func buildUpstreamClusterTLSContext(opts *buildClusterOpts, tls *networking.Clie
 		metadataCerts := metadataSDS.IsRootCertificate() && metadataSDS.IsKeyCertificate()
 
 		tlsContext.CommonTlsContext.TlsCertificateSdsSecretConfigs = append(tlsContext.CommonTlsContext.TlsCertificateSdsSecretConfigs,
-			authn_model.ConstructSdsSecretConfig(model.GetOrDefault(metadataSDS.GetResourceName(), authn_model.SDSDefaultResourceName), proxy))
+			authn_model.ConstructSdsSecretConfig(model.GetOrDefault(metadataSDS.GetResourceName(), authn_model.SDSDefaultResourceName), b.proxyGE19))
 
 		tlsContext.CommonTlsContext.ValidationContextType = &auth.CommonTlsContext_CombinedValidationContext{
 			CombinedValidationContext: &auth.CommonTlsContext_CombinedCertificateValidationContext{
 				DefaultValidationContext: &auth.CertificateValidationContext{MatchSubjectAltNames: util.StringToExactMatch(tls.SubjectAltNames)},
 				ValidationContextSdsSecretConfig: authn_model.ConstructSdsSecretConfig(model.GetOrDefault(metadataSDS.GetRootResourceName(),
-					authn_model.SDSRootResourceName), proxy),
+					authn_model.SDSRootResourceName), b.proxyGE19),
 			},
 		}
 		// Set default SNI of cluster name for istio_mutual if sni is not set.
 		if len(tls.Sni) == 0 {
-			tlsContext.Sni = c.Name
+			tlsContext.Sni = b.clusterName
 		}
 
 		// `istio-peer-exchange` alpn is only used when using mtls communication between peers.
@@ -943,18 +1013,12 @@ func buildUpstreamClusterTLSContext(opts *buildClusterOpts, tls *networking.Clie
 		// The code has repeated snippets because We want to use predefined alpn strings for efficiency.
 		switch {
 		case metadataCerts:
-
-			// TODO(https://github.com/istio/istio/issues/29735) remove nolint
-			// nolint: staticcheck
-			if c.Http2ProtocolOptions != nil {
+			if b.http2 {
 				// This is HTTP/2 cluster, advertise it with ALPN.
 				tlsContext.CommonTlsContext.AlpnProtocols = util.ALPNH2Only
 			}
 		default:
-
-			// TODO(https://github.com/istio/istio/issues/29735) remove nolint
-			// nolint: staticcheck
-			if c.Http2ProtocolOptions != nil {
+			if b.http2 {
 				// This is HTTP/2 in-mesh cluster, advertise it with ALPN.
 				tlsContext.CommonTlsContext.AlpnProtocols = util.ALPNInMeshH2WithMxc
 			} else {
@@ -979,7 +1043,7 @@ func buildUpstreamClusterTLSContext(opts *buildClusterOpts, tls *networking.Clie
 		} else {
 			// If CredentialName is not set fallback to files specified in DR.
 			res := model.SdsCertificateConfig{
-				CaCertificatePath: model.GetOrDefault(proxy.Metadata.TLSClientRootCert, tls.CaCertificates),
+				CaCertificatePath: model.GetOrDefault(b.tlsClientRootCert, tls.CaCertificates),
 			}
 
 			// If tls.CaCertificate or CaCertificate in Metadata isn't configured don't set up SdsSecretConfig
@@ -989,15 +1053,13 @@ func buildUpstreamClusterTLSContext(opts *buildClusterOpts, tls *networking.Clie
 				tlsContext.CommonTlsContext.ValidationContextType = &auth.CommonTlsContext_CombinedValidationContext{
 					CombinedValidationContext: &auth.CommonTlsContext_CombinedCertificateValidationContext{
 						DefaultValidationContext:         &auth.CertificateValidationContext{MatchSubjectAltNames: util.StringToExactMatch(tls.SubjectAltNames)},
-						ValidationContextSdsSecretConfig: authn_model.ConstructSdsSecretConfig(res.GetRootResourceName(), proxy),
+						ValidationContextSdsSecretConfig: authn_model.ConstructSdsSecretConfig(res.GetRootResourceName(), b.proxyGE19),
 					},
 				}
 			}
 		}
 
-		// TODO(https://github.com/istio/istio/issues/29735) remove nolint
-		// nolint: staticcheck
-		if c.Http2ProtocolOptions != nil {
+		if b.http2 {
 			// This is HTTP/2 cluster, advertise it with ALPN.
 			tlsContext.CommonTlsContext.AlpnProtocols = util.ALPNH2Only
 		}
@@ -1015,7 +1077,7 @@ func buildUpstreamClusterTLSContext(opts *buildClusterOpts, tls *networking.Clie
 			// If CredentialName is not set fallback to file based approach
 			if tls.ClientCertificate == "" || tls.PrivateKey == "" {
 				err := fmt.Errorf("failed to apply tls setting for %s: client certificate and private key must not be empty",
-					c.Name)
+					b.clusterName)
 				return nil, err
 			}
 
@@ -1025,9 +1087,9 @@ func buildUpstreamClusterTLSContext(opts *buildClusterOpts, tls *networking.Clie
 				// Rather than reading directly in Envoy, which does not support rotation, we will
 				// serve them over SDS by reading the files. This is only enabled for temporary migration.
 				res = model.SdsCertificateConfig{
-					CertificatePath:   model.GetOrDefault(proxy.Metadata.TLSClientCertChain, tls.ClientCertificate),
-					PrivateKeyPath:    model.GetOrDefault(proxy.Metadata.TLSClientKey, tls.PrivateKey),
-					CaCertificatePath: model.GetOrDefault(proxy.Metadata.TLSClientRootCert, tls.CaCertificates),
+					CertificatePath:   model.GetOrDefault(b.tlsClientCertChain, tls.ClientCertificate),
+					PrivateKeyPath:    model.GetOrDefault(b.tlsClientCertChain, tls.PrivateKey),
+					CaCertificatePath: model.GetOrDefault(b.tlsClientCertChain, tls.CaCertificates),
 				}
 			} else {
 				// These are certs being mounted from within the pod and specified in Destination Rules.
@@ -1040,7 +1102,7 @@ func buildUpstreamClusterTLSContext(opts *buildClusterOpts, tls *networking.Clie
 				}
 			}
 			tlsContext.CommonTlsContext.TlsCertificateSdsSecretConfigs = append(tlsContext.CommonTlsContext.TlsCertificateSdsSecretConfigs,
-				authn_model.ConstructSdsSecretConfig(res.GetResourceName(), proxy))
+				authn_model.ConstructSdsSecretConfig(res.GetResourceName(), b.proxyGE19))
 
 			// If tls.CaCertificate or CaCertificate in Metadata isn't configured don't set up RootSdsSecretConfig
 			if !res.IsRootCertificate() {
@@ -1049,7 +1111,7 @@ func buildUpstreamClusterTLSContext(opts *buildClusterOpts, tls *networking.Clie
 				tlsContext.CommonTlsContext.ValidationContextType = &auth.CommonTlsContext_CombinedValidationContext{
 					CombinedValidationContext: &auth.CommonTlsContext_CombinedCertificateValidationContext{
 						DefaultValidationContext:         &auth.CertificateValidationContext{MatchSubjectAltNames: util.StringToExactMatch(tls.SubjectAltNames)},
-						ValidationContextSdsSecretConfig: authn_model.ConstructSdsSecretConfig(res.GetRootResourceName(), proxy),
+						ValidationContextSdsSecretConfig: authn_model.ConstructSdsSecretConfig(res.GetRootResourceName(), b.proxyGE19),
 					},
 				}
 			}
@@ -1057,7 +1119,7 @@ func buildUpstreamClusterTLSContext(opts *buildClusterOpts, tls *networking.Clie
 
 		// TODO(https://github.com/istio/istio/issues/29735) remove nolint
 		// nolint: staticcheck
-		if c.Http2ProtocolOptions != nil {
+		if b.http2 {
 			// This is HTTP/2 cluster, advertise it with ALPN.
 			tlsContext.CommonTlsContext.AlpnProtocols = util.ALPNH2Only
 		}
