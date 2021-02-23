@@ -28,8 +28,13 @@ type podSelector struct {
 
 func (s podSelector) String() string {
 	str := ""
+	i := 0
 	for l, v := range s.labels {
-		str += l + "=" + v + ","
+		str += l + "=" + v
+		i++
+		if i != len(s.labels) {
+			str += ","
+		}
 	}
 	return str
 }
