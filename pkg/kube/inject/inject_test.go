@@ -810,3 +810,42 @@ func TestAppendMultusNetwork(t *testing.T) {
 		})
 	}
 }
+
+func Test_updateClusterEnvs(t *testing.T) {
+	type args struct {
+		container *corev1.Container
+		newKVs    map[string]string
+	}
+	tests := []struct {
+		name string
+		args args
+		want *corev1.Container
+	}{
+		{
+			args: args{
+				container: &corev1.Container{},
+				newKVs:    parseInjectEnvs("/inject/net/network1/cluster/cluster1"),
+			},
+			want: &corev1.Container{
+				Env: []corev1.EnvVar{
+					{
+						Name:  "ISTIO_META_CLUSTER_ID",
+						Value: "cluster1",
+					},
+					{
+						Name:  "ISTIO_META_NETWORK",
+						Value: "network1",
+					},
+				},
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			updateClusterEnvs(tt.args.container, tt.args.newKVs)
+			if !cmp.Equal(tt.args.container.Env, tt.want.Env) {
+				t.Fatalf("updateClusterEnvs got \n%+v, expected \n%+v", tt.args.container.Env, tt.want.Env)
+			}
+		})
+	}
+}
