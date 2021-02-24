@@ -143,7 +143,6 @@ func initServiceDiscoveryWithOpts(opts ...ServiceDiscoveryOption) (model.IstioCo
 
 func TestServiceDiscoveryServices(t *testing.T) {
 	store, sd, _, stopFn := initServiceDiscovery()
-	sd.refreshIndexes.Store(true)
 	defer stopFn()
 
 	expectedServices := []*model.Service{
@@ -152,6 +151,10 @@ func TestServiceDiscoveryServices(t *testing.T) {
 	}
 
 	createConfigs([]*config.Config{httpDNS, tcpStatic}, store, t)
+
+	sd.storeMutex.Lock()
+	sd.refreshIndexes.Store(true)
+	sd.storeMutex.Unlock()
 
 	services, err := sd.Services()
 	if err != nil {
@@ -169,10 +172,13 @@ func TestServiceDiscoveryGetService(t *testing.T) {
 	hostDNE := "does.not.exist.local"
 
 	store, sd, _, stopFn := initServiceDiscovery()
-	sd.refreshIndexes.Store(true)
 	defer stopFn()
 
 	createConfigs([]*config.Config{httpDNS, tcpStatic}, store, t)
+
+	sd.storeMutex.Lock()
+	sd.refreshIndexes.Store(true)
+	sd.storeMutex.Unlock()
 
 	service, err := sd.GetService(host.Name(hostDNE))
 	if err != nil {
