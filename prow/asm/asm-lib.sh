@@ -693,7 +693,47 @@ function install_asm_on_multicloud() {
     install_certs "${ONPREM_MC_CONFIGS[$i]}"
 
     echo "----------Installing ASM----------"
-    cat <<EOF | istioctl install -y --kubeconfig="${ONPREM_MC_CONFIGS[$i]}" -f -
+    if [[ "${WIP}" == "HUB" ]]; then
+      local IDENTITY_PROVIDER
+      local IDENTITY
+      local HUB_MEMBERSHIP_ID
+      IDENTITY_PROVIDER="$(kubectl --kubeconfig="${ONPREM_MC_CONFIGS[$i]}" --context=cluster get memberships membership -o=json | jq .spec.identity_provider)"
+      IDENTITY="$(echo "${IDENTITY_PROVIDER}" | sed 's/^\"https:\/\/gkehub.googleapis.com\/projects\/\(.*\)\/locations\/global\/memberships\/\(.*\)\"$/\1 \2/g')"
+      read -r ENVIRON_PROJECT_ID HUB_MEMBERSHIP_ID <<EOF
+${IDENTITY}
+EOF
+      local ENVIRON_PROJECT_NUMBER
+      ENVIRON_PROJECT_NUMBER=$(gcloud projects describe "${ENVIRON_PROJECT_ID}" --format="value(projectNumber)")
+      local PROJECT_ID="${ENVIRON_PROJECT_ID}"
+      local CLUSTER_NAME="${HUB_MEMBERSHIP_ID}"
+      local CLUSTER_LOCATION="us-central1-a"
+      local MESH_ID="proj-${ENVIRON_PROJECT_NUMBER}"
+
+      kpt pkg get https://github.com/GoogleCloudPlatform/anthos-service-mesh-packages.git/asm@master tmp
+      kpt cfg set tmp gcloud.compute.network "network${i}"
+      kpt cfg set tmp gcloud.core.project "${PROJECT_ID}"
+      kpt cfg set tmp gcloud.project.environProjectNumber "${ENVIRON_PROJECT_NUMBER}"
+      kpt cfg set tmp gcloud.container.cluster "${CLUSTER_NAME}"
+      kpt cfg set tmp gcloud.compute.location "${CLUSTER_LOCATION}"
+      kpt cfg set tmp anthos.servicemesh.rev "${ASM_REVISION_LABEL}"
+      kpt cfg set tmp anthos.servicemesh.tag "${TAG}"
+      kpt cfg set tmp anthos.servicemesh.hub "${HUB}"
+      kpt cfg set tmp anthos.servicemesh.hubMembershipID "${HUB_MEMBERSHIP_ID}"
+      kpt cfg set tmp gcloud.project.environProjectID "${ENVIRON_PROJECT_ID}"
+
+      echo "----------Istio Operator YAML and Hub Overlay YAML----------"
+      cat "tmp/istio/istio-operator.yaml"
+      cat "tmp/istio/options/hub-meshca.yaml"
+
+      echo "----------Generating expansion gw YAML----------"
+      samples/multicluster/gen-eastwest-gateway.sh \
+        --mesh "${MESH_ID}" \
+        --cluster "${CLUSTER_NAME}" \
+        --network "network${i}" > "tmp/eastwest-gateway.yaml"
+      cat "tmp/eastwest-gateway.yaml"
+      istioctl install -y --kubeconfig="${ONPREM_MC_CONFIGS[$i]}" --context=cluster -f "tmp/istio/istio-operator.yaml" -f "tmp/istio/options/hub-meshca.yaml" -f "tmp/eastwest-gateway.yaml"
+    else
+      cat <<EOF | istioctl install -y --kubeconfig="${ONPREM_MC_CONFIGS[$i]}" -f -
 apiVersion: install.istio.io/v1alpha1
 kind: IstioOperator
 spec:
@@ -708,8 +748,8 @@ spec:
         clusterName: cluster${i}
       network: network${i}
 EOF
-
-    install_expansion_gw "${MESH_ID}" "cluster${i}" "network${i}" "${ASM_REVISION_LABEL}" "${HUB}" "${TAG}" "${ONPREM_MC_CONFIGS[$i]}"
+      install_expansion_gw "${MESH_ID}" "cluster${i}" "network${i}" "${ASM_REVISION_LABEL}" "${HUB}" "${TAG}" "${ONPREM_MC_CONFIGS[$i]}"
+    fi
     expose_services "${ONPREM_MC_CONFIGS[$i]}"
     configure_validating_webhook "${ASM_REVISION_LABEL}" "${ONPREM_MC_CONFIGS[$i]}"
     onprem::configure_external_ip "${INFRA}" "${ONPREM_MC_CONFIGS[$i]}"

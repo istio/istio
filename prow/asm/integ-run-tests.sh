@@ -52,6 +52,8 @@ DISABLED_TESTS=""
 # holds multiple kubeconfigs for onprem MC
 declare -a ONPREM_MC_CONFIGS
 
+declare ENVIRON_PROJECT_ID
+
 while (( "$#" )); do
   case $1 in
     --ca)
@@ -238,6 +240,12 @@ if [[ "${CONTROL_PLANE}" == "UNMANAGED" ]]; then
   else
     export GCR_PROJECT_ID_2="${GCR_PROJECT_ID_1}"
   fi
+  # when CLUSTER_TYPE is gke-on-prem, GCR_PROJECT_ID is set to CENTRAL_GCP_PROJECT istio-prow-build
+  # istio-prow-build is not the environ project
+  # ENVIRON_PROJECT_ID is the project ID of the environ project where the Onprem cluster is registered
+  if [[ "${CLUSTER_TYPE}" == "gke-on-prem" && "${WIP}" == "HUB" ]]; then
+    export GCR_PROJECT_ID_1="${ENVIRON_PROJECT_ID}"
+  fi
   # When HUB Workload Identity Pool is used in the case of multi projects setup, clusters in different projects
   # will use the same WIP and P4SA of the Hub host project.
   if [[ "${WIP}" == "HUB" ]] && [[ "${TEST_TARGET}" =~ "security" ]]; then
@@ -260,6 +268,15 @@ if [[ "${CONTROL_PLANE}" == "UNMANAGED" ]]; then
 
   # Skip the subtests that are known to be not working.
   DISABLED_TESTS+="|TestRequestAuthentication/.*/valid-token-forward-remote-jwks" # UNSUPPORTED: relies on custom options
+  if [[ "${CLUSTER_TYPE}" == "gke-on-prem" && "${WIP}" == "HUB" ]]; then
+    # TODO: Unskip test cases when the same tests in https://b.corp.google.com/issues/174440952 are fixed
+    # pilot/ tests
+    DISABLED_TESTS+="|TestMirroring/mirror-percent-absent/.*|TestMirroring/mirror-50/.*|TestTraffic/sniffing/.*|TestTraffic/virtualservice/shifting.*|TestMirroring/mirror-10/from_primary-0/.*"
+    # telemetry/ tests
+    DISABLED_TESTS+="|TestMetrics/telemetry_asm|TestMetricsAudit/telemetry_asm"
+    # security/ tests
+    DISABLED_TESTS+="|TestAuthorization_WorkloadSelector/From_primary-1/.*|TestAuthorization_NegativeMatch/From_primary-1/.*|TestAuthorization_Conditions/IpA_IpB_IpC_in_primary-0/From_primary-1/.*|TestAuthorization_mTLS/From_primary-1/.*|TestAuthorization_JWT/From_primary-1/.*"
+  fi
 
   # For security tests, do not run tests that require custom setups.
   export TEST_SELECT="${TEST_SELECT:-}"
