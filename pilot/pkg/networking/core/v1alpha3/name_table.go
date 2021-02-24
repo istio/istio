@@ -84,7 +84,7 @@ func (configgen *ConfigGeneratorImpl) BuildNameTable(node *model.Proxy, push *mo
 					addressList = append(addressList, instance.Endpoint.Address)
 					if pod, ok := instance.Endpoint.Labels["statefulset.kubernetes.io/pod-name"]; ok {
 						address := []string{instance.Endpoint.Address}
-						host := pod + svc.Attributes.Name + svc.Attributes.Namespace + node.DNSDomain // Follow k8s name convention.
+						host := pod + "." + svc.Attributes.Name + "." + svc.Attributes.Namespace + "." + node.DNSDomain // Follow k8s name convention.
 						nameInfo := &nds.NameTable_NameInfo{
 							Ips:      address,
 							Registry: svc.Attributes.ServiceRegistry,
