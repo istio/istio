@@ -7,6 +7,7 @@ package collections
 import (
 	"reflect"
 
+	k8sioapiadmissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	k8sioapiappsv1 "k8s.io/api/apps/v1"
 	k8sioapicorev1 "k8s.io/api/core/v1"
 	k8sioapiextensionsv1beta1 "k8s.io/api/extensions/v1beta1"
@@ -268,6 +269,26 @@ var (
 			ProtoPackage: "istio.io/api/security/v1beta1", StatusPackage: "istio.io/api/meta/v1alpha1",
 			ClusterScoped: false,
 			ValidateProto: validation.ValidateRequestAuthentication,
+		}.MustBuild(),
+	}.MustBuild()
+
+	// K8SAdmissionregistrationK8SIoV1Mutatingwebhookconfigurations describes
+	// the collection
+	// k8s/admissionregistration.k8s.io/v1/mutatingwebhookconfigurations
+	K8SAdmissionregistrationK8SIoV1Mutatingwebhookconfigurations = collection.Builder{
+		Name:         "k8s/admissionregistration.k8s.io/v1/mutatingwebhookconfigurations",
+		VariableName: "K8SAdmissionregistrationK8SIoV1Mutatingwebhookconfigurations",
+		Disabled:     false,
+		Resource: resource.Builder{
+			Group:         "admissionregistration.k8s.io",
+			Kind:          "MutatingWebhookConfiguration",
+			Plural:        "MutatingWebhookConfigurations",
+			Version:       "v1",
+			Proto:         "k8s.io.api.admissionregistration.v1.MutatingWebhookConfiguration",
+			ReflectType:   reflect.TypeOf(&k8sioapiadmissionregistrationv1.MutatingWebhookConfiguration{}).Elem(),
+			ProtoPackage:  "k8s.io/api/admissionregistration/v1",
+			ClusterScoped: false,
+			ValidateProto: validation.EmptyValidate,
 		}.MustBuild(),
 	}.MustBuild()
 
@@ -791,6 +812,7 @@ var (
 		MustAdd(IstioSecurityV1Beta1Authorizationpolicies).
 		MustAdd(IstioSecurityV1Beta1Peerauthentications).
 		MustAdd(IstioSecurityV1Beta1Requestauthentications).
+		MustAdd(K8SAdmissionregistrationK8SIoV1Mutatingwebhookconfigurations).
 		MustAdd(K8SApiextensionsK8SIoV1Customresourcedefinitions).
 		MustAdd(K8SAppsV1Deployments).
 		MustAdd(K8SCoreV1Configmaps).
@@ -839,6 +861,7 @@ var (
 
 	// Kube contains only kubernetes collections.
 	Kube = collection.NewSchemasBuilder().
+		MustAdd(K8SAdmissionregistrationK8SIoV1Mutatingwebhookconfigurations).
 		MustAdd(K8SApiextensionsK8SIoV1Customresourcedefinitions).
 		MustAdd(K8SAppsV1Deployments).
 		MustAdd(K8SCoreV1Configmaps).
