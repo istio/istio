@@ -231,7 +231,7 @@ EOF
       sed "s/${CLUSTER_NAME}-control-plane/${CONTAINER_IP}/g" > "${CLUSTER_KUBECONFIG}"
 
     # Enable core dumps
-    docker exec "${CLUSTER_NAME}" bash -c "sysctl -w kernel.core_pattern=/var/lib/istio/data/core.proxy && ulimit -c unlimited"
+    docker exec "${CLUSTER_NAME}"-control-plane bash -c "sysctl -w kernel.core_pattern=/var/lib/istio/data/core.proxy && ulimit -c unlimited"
   }
 
   # Now deploy the specified number of KinD clusters and
