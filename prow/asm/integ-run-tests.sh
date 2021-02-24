@@ -245,7 +245,7 @@ if [[ "${CONTROL_PLANE}" == "UNMANAGED" ]]; then
   fi
   # When HUB Workload Identity Pool is used in the case of multi projects setup, clusters in different projects
   # will use the same WIP and P4SA of the Hub host project.
-  if [[ "${WIP}" == "HUB" ]]; then
+  if [[ "${WIP}" == "HUB" ]] && [[ "${TEST_TARGET}" =~ "security" ]]; then
     export GCR_PROJECT_ID_2="${GCR_PROJECT_ID_1}"
   fi
   export CA

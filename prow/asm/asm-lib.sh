@@ -463,7 +463,8 @@ function install_asm() {
     fi
 
     # INSTALL_ASM_BRANCH is one of the branches in https://github.com/GoogleCloudPlatform/anthos-service-mesh-packages
-    INSTALL_ASM_BRANCH="master"
+    # TODO: change back to master when fix merges: https://github.com/GoogleCloudPlatform/anthos-service-mesh-packages/pull/496
+    INSTALL_ASM_BRANCH="272c27b25f5b40fd38e46192b4fe8ffc46aeffe9"
     curl -O https://raw.githubusercontent.com/GoogleCloudPlatform/anthos-service-mesh-packages/"${INSTALL_ASM_BRANCH}"/scripts/asm-installer/install_asm
     TRUSTED_GCP_PROJECTS="${TRUSTED_GCP_PROJECTS:=}"
     CUSTOM_CA_FLAGS="${CUSTOM_CA_FLAGS:=}"

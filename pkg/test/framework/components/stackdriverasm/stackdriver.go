@@ -24,7 +24,6 @@ import (
 	"net/http"
 	"os"
 	"strings"
-	"testing"
 	"text/template"
 	"time"
 
@@ -34,6 +33,7 @@ import (
 	logging "google.golang.org/api/logging/v2"
 	monitoring "google.golang.org/api/monitoring/v3"
 
+	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/util/retry"
 )
 
@@ -82,7 +82,7 @@ func (param *ResourceFilterParam) String() string {
 }
 
 // NewOrFail creates a new stackdriver instance.
-func NewOrFail(ctx context.Context, t *testing.T) *Instance {
+func NewOrFail(ctx context.Context, t framework.TestContext) *Instance {
 	monitoringService, err := monitoring.NewService(ctx)
 	if err != nil {
 		t.Fatalf("failed to get monitoring service: %v", err)
@@ -104,7 +104,7 @@ func NewOrFail(ctx context.Context, t *testing.T) *Instance {
 }
 
 // fetchTimeSeries fetches first time series within a project that match the labels provided.
-func fetchTimeSeries(ctx context.Context, t *testing.T, ms *monitoring.Service, project, filter, aligner, startTime,
+func fetchTimeSeries(ctx context.Context, t framework.TestContext, ms *monitoring.Service, project, filter, aligner, startTime,
 	endTime string) ([]*monitoring.TimeSeries, error) {
 	lr := ms.Projects.TimeSeries.List(fmt.Sprintf("projects/%s", project)).
 		IntervalStartTime(startTime).
@@ -126,7 +126,7 @@ func fetchTimeSeries(ctx context.Context, t *testing.T, ms *monitoring.Service, 
 	return resp.TimeSeries, nil
 }
 
-func execute(t *testing.T, tpl string, data interface{}) []byte {
+func execute(t framework.TestContext, tpl string, data interface{}) []byte {
 	t.Helper()
 	temp, err := template.New("test template").Parse(tpl)
 	if err != nil {
@@ -141,7 +141,7 @@ func execute(t *testing.T, tpl string, data interface{}) []byte {
 
 // GetTimeSeries gets timeseries from stackdriver based on the filters and duration provided.
 // If multiple filters are provided, timeseries retrieved with any one of them could be returned.
-func (d *Instance) GetAndValidateTimeSeries(ctx context.Context, t *testing.T, filters []string, aligner, startTime,
+func (d *Instance) GetAndValidateTimeSeries(ctx context.Context, t framework.TestContext, filters []string, aligner, startTime,
 	endTime, projectID string, expLabel []byte, templlabels map[string]interface{}) ([]*monitoring.TimeSeries, error) {
 	var timeSeries []*monitoring.TimeSeries
 	t.Log("fetching metrics using filters:")
@@ -171,7 +171,7 @@ func (d *Instance) GetAndValidateTimeSeries(ctx context.Context, t *testing.T, f
 }
 
 // CheckForLogEntry validates logs entry from stackdriver.
-func (d *Instance) CheckForLogEntry(ctx context.Context, t *testing.T, filter, projectID string, want map[string]string) {
+func (d *Instance) CheckForLogEntry(ctx context.Context, t framework.TestContext, filter, projectID string, want map[string]string) {
 	t.Logf("fetching logs using filter: %s", filter)
 	t.Logf("fetching logs using project: %s", projectID)
 	retry.UntilSuccessOrFail(t, func() error {
@@ -204,7 +204,7 @@ func (d *Instance) CheckForLogEntry(ctx context.Context, t *testing.T, filter, p
 }
 
 // fetchLog fetches log from a project that match the filter provided.
-func fetchLog(ctx context.Context, t *testing.T, loggingService *logging.Service, projectID, filter string) ([]*logging.LogEntry, error) {
+func fetchLog(ctx context.Context, t framework.TestContext, loggingService *logging.Service, projectID, filter string) ([]*logging.LogEntry, error) {
 	t.Logf("fetching log with projectID: %s", projectID)
 	t.Logf("fetching log with filter: %s", filter)
 
@@ -237,7 +237,7 @@ func fetchLog(ctx context.Context, t *testing.T, loggingService *logging.Service
 }
 
 // ValidateMetrics validate metrics from stackdriver.
-func (d *Instance) ValidateMetrics(t *testing.T, ts []*monitoring.TimeSeries, expLabel []byte,
+func (d *Instance) ValidateMetrics(t framework.TestContext, ts []*monitoring.TimeSeries, expLabel []byte,
 	templlabels map[string]interface{}) error {
 	expLabel = execute(t, string(expLabel), templlabels)
 	expm := make(map[string]string)
@@ -264,7 +264,7 @@ func cleanupLabels(labels map[string]string) {
 }
 
 // ValidateMetricsWithLabels validate metrics from stackdriver based on the given labels.
-func (d *Instance) ValidateMetricsWithLabels(t *testing.T, tss []*monitoring.TimeSeries, expLabels map[string]string) error {
+func (d *Instance) ValidateMetricsWithLabels(t framework.TestContext, tss []*monitoring.TimeSeries, expLabels map[string]string) error {
 	found := false
 	for _, ts := range tss {
 		metrics := ts.Metric
@@ -293,7 +293,7 @@ func (d *Instance) ValidateMetricsWithLabels(t *testing.T, tss []*monitoring.Tim
 	return nil
 }
 
-func fetchTrace(ctx context.Context, t *testing.T, traceService *cloudtrace.Service, projectID, filter string,
+func fetchTrace(ctx context.Context, t framework.TestContext, traceService *cloudtrace.Service, projectID, filter string,
 	functionStartTime string) (*cloudtrace.Trace, error) {
 	listTracesResponse, err := traceService.Projects.Traces.List(projectID).
 		StartTime(functionStartTime).
@@ -333,7 +333,7 @@ func sanitizeSpans(spans []*cloudtrace.TraceSpan, want cloudtrace.TraceSpan) {
 }
 
 // ValidateTraces validates traces received from stackdriver.
-func (d *Instance) ValidateTraces(ctx context.Context, t *testing.T, filter string, functionStartTime string, want []*cloudtrace.TraceSpan) {
+func (d *Instance) ValidateTraces(ctx context.Context, t framework.TestContext, filter string, functionStartTime string, want []*cloudtrace.TraceSpan) {
 	if len(want) == 0 {
 		return
 	}
