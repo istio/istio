@@ -23,6 +23,9 @@ import (
 	"time"
 
 	"github.com/spf13/cobra"
+	kerrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
@@ -42,6 +45,7 @@ import (
 	"istio.io/istio/operator/pkg/util/progress"
 	pkgversion "istio.io/istio/operator/pkg/version"
 	operatorVer "istio.io/istio/operator/version"
+	"istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/kube"
 	"istio.io/pkg/log"
@@ -73,6 +77,8 @@ type installArgs struct {
 	revision string
 	// defaultRevision determines whether this installation should handle validation and default injection.
 	defaultRevision bool
+	// istioNamespace is the namespace the Istio control plane is running in.
+	istioNamespace string
 }
 
 func addInstallFlags(cmd *cobra.Command, args *installArgs) {
@@ -89,6 +95,8 @@ func addInstallFlags(cmd *cobra.Command, args *installArgs) {
 	cmd.PersistentFlags().StringVarP(&args.manifestsPath, "charts", "", "", ChartsDeprecatedStr)
 	cmd.PersistentFlags().StringVarP(&args.manifestsPath, "manifests", "d", "", ManifestsFlagHelpStr)
 	cmd.PersistentFlags().StringVarP(&args.revision, "revision", "r", "", revisionFlagHelpStr)
+	cmd.PersistentFlags().StringVarP(&args.istioNamespace, "istioNamespace", "i", controller.IstioNamespace,
+		"Istio system namespace")
 }
 
 // InstallCmd generates an Istio install manifest and applies it to a cluster
@@ -148,6 +156,9 @@ func runApplyCmd(cmd *cobra.Command, rootArgs *rootArgs, iArgs *installArgs, log
 	tag, err := GetTagVersion(operatorVer.OperatorVersionString)
 	if err != nil {
 		return err
+	}
+	if iArgs.revision != "" && !existingDefaultRevision(clientset, iArgs.istioNamespace) {
+		iArgs.defaultRevision = true
 	}
 	setFlags := applyFlagAliases(iArgs.set, iArgs.manifestsPath, iArgs.revision, iArgs.defaultRevision)
 
@@ -347,4 +358,10 @@ func getProfileNSAndEnabledComponents(iop *v1alpha12.IstioOperator) (string, str
 		return iop.Spec.Profile, configuredNamespace, enabledComponents, nil
 	}
 	return iop.Spec.Profile, name.IstioDefaultNamespace, enabledComponents, nil
+}
+
+// existingDefaultRevision determines if there's an existing default revision in the cluster.
+func existingDefaultRevision(cs kubernetes.Interface, istioNs string) bool {
+	_, err := cs.CoreV1().Services(istioNs).Get(context.TODO(), "istiod", metav1.GetOptions{})
+	return kerrors.IsNotFound(err)
 }
