@@ -21,7 +21,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"istio.io/istio/pkg/test/framework"
 	"net/http"
 	"os"
 	"strings"
@@ -83,7 +82,7 @@ func (param *ResourceFilterParam) String() string {
 }
 
 // NewOrFail creates a new stackdriver instance.
-func NewOrFail(ctx context.Context, t framework.TestContext) *Instance {
+func NewOrFail(ctx context.Context, t *testing.T) *Instance {
 	monitoringService, err := monitoring.NewService(ctx)
 	if err != nil {
 		t.Fatalf("failed to get monitoring service: %v", err)
@@ -172,7 +171,7 @@ func (d *Instance) GetAndValidateTimeSeries(ctx context.Context, t *testing.T, f
 }
 
 // CheckForLogEntry validates logs entry from stackdriver.
-func (d *Instance) CheckForLogEntry(ctx context.Context, t framework.TestContext, filter, projectID string, want map[string]string) {
+func (d *Instance) CheckForLogEntry(ctx context.Context, t *testing.T, filter, projectID string, want map[string]string) {
 	t.Logf("fetching logs using filter: %s", filter)
 	t.Logf("fetching logs using project: %s", projectID)
 	retry.UntilSuccessOrFail(t, func() error {
