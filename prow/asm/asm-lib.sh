@@ -605,6 +605,7 @@ function install_asm_managed_control_plane() {
     local LOCATION="${VALS[2]}"
     local CLUSTER_NAME="${VALS[3]}"
 
+    TMPDIR=$(mktemp -d)
     # _CI_ASM_PKG_LOCATION _CI_ASM_IMAGE_LOCATION are required for unreleased Scriptaro.
     # Managed control plane installation will not used _CI_ASM_PKG_LOCATION, _CI_ASM_IMAGE_LOCATION.
     # The two variables are there to keep Scriptaro running.
@@ -617,7 +618,9 @@ function install_asm_managed_control_plane() {
       --service_account "prow-gob-storage@istio-prow-build.iam.gserviceaccount.com" \
       --key_file "/etc/service-account/service-account.json" \
       --enable_cluster_labels \
+      --output_dir "${TMPDIR}" \
       --verbose
+    istioctl install -f "${TMPDIR}"/managed_control_plane_gateway.yaml --set revision=asm-managed --skip-confirmation --context="${CONTEXTS[$i]}"
   done
 
   for i in "${!CONTEXTS[@]}"; do
