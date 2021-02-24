@@ -9,7 +9,7 @@
   "destination_workload_name": "{{ .destSvc}}-v1",
   "destination_workload_namespace": "{{ .namespace}}",
   "request_operation": "/proto.EchoTestService/Echo",
-  "request_protocol": "grpc",
+  "request_protocol": "{{.protocol}}",
   "response_code": "200",
   "service_authentication_policy": "MUTUAL_TLS",
   "source_canonical_revision": "v1",
