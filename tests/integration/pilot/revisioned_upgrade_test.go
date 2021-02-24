@@ -46,7 +46,7 @@ func TestRevisionedUpgrade(t *testing.T) {
 		RequiresSingleCluster().
 		Features("installation.upgrade").
 		Run(func(ctx framework.TestContext) {
-			versions := []string{"1.8.0"}
+			versions := []string{NMinusOne, NMinusTwo, NMinusThree, NMinusFour}
 			for _, v := range versions {
 				ctx.NewSubTest(fmt.Sprintf("%s->master", v)).Run(func(ctx framework.TestContext) {
 					testUpgradeFromVersion(ctx, v)
@@ -107,7 +107,7 @@ func testUpgradeFromVersion(ctx framework.TestContext, fromVersion string) {
 		ctx.Fatalf("could not relabel namespace to enable default injection: %v", err)
 	}
 
-	log.Infof("rolling out echo workloads behind service %q", revisionedInstance.Config().Service)
+	log.Infof("rolling out echo workloads for service %q", revisionedInstance.Config().Service)
 	if err := revisionedInstance.Restart(); err != nil {
 		ctx.Fatalf("revisioned instance rollout failed with: %v", err)
 	}
@@ -119,7 +119,7 @@ func testUpgradeFromVersion(ctx framework.TestContext, fromVersion string) {
 	for _, p := range pods {
 		for _, c := range p.Spec.Containers {
 			if strings.Contains(c.Image, fromVersion) {
-				ctx.Fatalf("expected post-upgrade container image not to include %q, got %s", fromVersion, c.Image)
+				ctx.Fatalf("expected post-upgrade container image not to include %q, got %q", fromVersion, c.Image)
 			}
 		}
 	}
