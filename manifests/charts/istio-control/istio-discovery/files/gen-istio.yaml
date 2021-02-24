@@ -704,6 +704,9 @@ data:
             fsGroup: 1337
           {{- end }}
 <<<<<<< HEAD
+<<<<<<< HEAD
+=======
+>>>>>>> b73c7f414f (make gen)
       gateway: |
         {{- $containers := list }}
         {{- range $index, $container := .Spec.Containers }}{{ if not (eq $container.Name "istio-proxy") }}{{ $containers = append $containers $container.Name }}{{end}}{{- end}}
@@ -939,8 +942,11 @@ data:
           securityContext:
             fsGroup: 1337
           {{- end }}
+<<<<<<< HEAD
 =======
 >>>>>>> ff60deb3f1 (make gen)
+=======
+>>>>>>> b73c7f414f (make gen)
 ---
 # Source: istio-discovery/templates/service.yaml
 apiVersion: v1
