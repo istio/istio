@@ -437,10 +437,7 @@ func tagWebhookConfigFromCanonicalWebhook(wh admit_v1.MutatingWebhookConfigurati
 
 // tagWebhookYAML generates YAML for the tag webhook MutatingWebhookConfiguration.
 func tagWebhookYAML(config *tagWebhookConfig, chartPath string) (string, error) {
-	r, err := helm.NewHelmRenderer(chartPath, pilotDiscoveryChart, "Pilot", istioNamespace)
-	if err != nil {
-		return "", fmt.Errorf("failed creating Helm renderer: %v", err)
-	}
+	r := helm.NewHelmRenderer(chartPath, pilotDiscoveryChart, "Pilot", istioNamespace)
 
 	if err := r.Run(); err != nil {
 		return "", fmt.Errorf("failed running Helm renderer: %v", err)
