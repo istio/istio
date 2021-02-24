@@ -928,7 +928,7 @@ metadata:
     app: sidecar-injector
     release: istiod-remote
 webhooks:
-- name: sidecar-injector.istio.io
+- name: namespace.sidecar-injector.istio.io
   clientConfig:
     service:
       name: istiod

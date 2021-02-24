@@ -67,7 +67,7 @@ metadata:
     release: {{ .Release.Name }}
 webhooks:
 {{- /* Case 1: Namespace selector enabled, and object selector is not injected */}}
-{{- include "core-default" (mergeOverwrite (deepCopy .) (dict "Prefix" "") ) }}
+{{- include "core-default" (mergeOverwrite (deepCopy .) (dict "Prefix" "namespace.") ) }}
   namespaceSelector:
     matchExpressions:
       - key: istio-injection
@@ -191,7 +191,7 @@ webhooks:
 
 {{- /* Case 1: namespace selector matches, and object doesn't disable */}}
 {{- /* Note: if both revision and legacy selector, we give precedence to the legacy one */}}
-{{- include "core" (mergeOverwrite (deepCopy .) (dict "Prefix" "") ) }}
+{{- include "core" (mergeOverwrite (deepCopy .) (dict "Prefix" "namespace.") ) }}
   namespaceSelector:
     matchExpressions:
     - key: istio.io/rev
