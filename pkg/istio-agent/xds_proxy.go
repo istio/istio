@@ -135,11 +135,8 @@ func initXdsProxy(ia *Agent) (*XdsProxy, error) {
 
 	if ia.localDNSServer != nil {
 		proxy.handlers[v3.NameTableType] = func(resp *discovery.DiscoveryResponse) error {
-			if ia.localDNSServer == nil {
-				return nil
-			}
 			if len(resp.Resources) == 0 {
-				return fmt.Errorf("empty response")
+				return nil
 			}
 			var nt nds.NameTable
 			if err := ptypes.UnmarshalAny(resp.Resources[0], &nt); err != nil {
@@ -152,9 +149,6 @@ func initXdsProxy(ia *Agent) (*XdsProxy, error) {
 	}
 	if ia.secretCache != nil { // TODO: add a config option for this
 		proxy.handlers[v3.ProxyConfigType] = func(resp *discovery.DiscoveryResponse) error {
-			if ia.secretCache == nil {
-				return nil
-			}
 			if len(resp.Resources) == 0 {
 				return fmt.Errorf("empty response")
 			}
@@ -164,10 +158,7 @@ func initXdsProxy(ia *Agent) (*XdsProxy, error) {
 				return err
 			}
 			caCerts := pc.GetCaCertificatesPem()
-			log.Infof("received new certificates to add to mesh trust domain: %v", caCerts)
-			if ia.secretCache == nil {
-				return nil
-			}
+			log.Debugf("received new certificates to add to mesh trust domain: %v", caCerts)
 			trustBundle := []byte{}
 			for _, cert := range caCerts {
 				trustBundle = util.AppendCertByte(trustBundle, []byte(cert))

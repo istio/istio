@@ -43,6 +43,7 @@ func pcdsNeedsPush(req *model.PushRequest) bool {
 	if len(req.ConfigsUpdated) == 0 {
 		return true
 	}
+	// TODO: This needs to be optimized
 	return true
 }
 
