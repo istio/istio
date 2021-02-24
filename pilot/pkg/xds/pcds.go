@@ -21,7 +21,7 @@ import (
 	"istio.io/istio/pkg/util/gogo"
 )
 
-// PcdsGenerator generates ECDS configuration.
+// ProxyConfigGenerator generates proxy configuration for proxies to consume
 type PcdsGenerator struct {
 	Server      *DiscoveryServer
 	TrustBundle *tb.TrustBundle
@@ -35,16 +35,15 @@ func pcdsNeedsPush(req *model.PushRequest) bool {
 	}
 
 	if !req.Full {
-		// PCDS only handles full push
 		return false
 	}
 
-	// If none set, we will always push
 	if len(req.ConfigsUpdated) == 0 {
+		// This needs to be better optimized
 		return true
 	}
-	// TODO: This needs to be optimized
-	return true
+
+	return false
 }
 
 // Generate returns ProxyConfig protobuf containing TrustBundle for given proxy
@@ -55,6 +54,7 @@ func (e *PcdsGenerator) Generate(proxy *model.Proxy, push *model.PushContext, w 
 	if e.TrustBundle == nil {
 		return nil, nil
 	}
+	// TODO: For now, only TrustBundle updates are pushed. Eventually, this should push entire Proxy Configuration
 	pc := &mesh.ProxyConfig{
 		CaCertificatesPem: e.TrustBundle.GetTrustBundle(),
 	}

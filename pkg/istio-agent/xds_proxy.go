@@ -147,7 +147,7 @@ func initXdsProxy(ia *Agent) (*XdsProxy, error) {
 			return nil
 		}
 	}
-	if ia.secretCache != nil { // TODO: add a config option for this
+	if ia.secretCache != nil {
 		proxy.handlers[v3.ProxyConfigType] = func(resp *discovery.DiscoveryResponse) error {
 			if len(resp.Resources) == 0 {
 				return fmt.Errorf("empty response")
@@ -191,7 +191,7 @@ func initXdsProxy(ia *Agent) (*XdsProxy, error) {
 			req = &discovery.DiscoveryRequest{
 				TypeUrl: v3.HealthInfoType,
 				ErrorDetail: &google_rpc.Status{
-					Code:    13,
+					Code:    int32(codes.Internal),
 					Message: healthEvent.UnhealthyMessage,
 				},
 			}
@@ -419,7 +419,7 @@ func (p *XdsProxy) handleUpstreamResponse(con *ProxyConnection) {
 				var errorResp *google_rpc.Status
 				if err != nil {
 					errorResp = &google_rpc.Status{
-						Code:    13,
+						Code:    int32(codes.Internal),
 						Message: err.Error(),
 					}
 				}

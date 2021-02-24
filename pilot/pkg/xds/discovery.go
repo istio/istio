@@ -33,7 +33,6 @@ import (
 	"istio.io/istio/pilot/pkg/serviceregistry"
 	"istio.io/istio/pilot/pkg/serviceregistry/aggregate"
 	"istio.io/istio/pilot/pkg/serviceregistry/memory"
-	"istio.io/istio/pilot/pkg/trustbundle"
 	"istio.io/istio/pilot/pkg/util/sets"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
 	"istio.io/istio/pkg/security"
@@ -163,13 +162,8 @@ type EndpointShards struct {
 	ServiceAccounts sets.Set
 }
 
-// GeneratorParams: Parameters for the various discover server generators
-type GeneratorParams struct {
-	ProxyTrustBundle *trustbundle.TrustBundle
-}
-
 // NewDiscoveryServer creates DiscoveryServer that sources data from Pilot's internal mesh data structures
-func NewDiscoveryServer(env *model.Environment, plugins []string, instanceID string, params *GeneratorParams) *DiscoveryServer {
+func NewDiscoveryServer(env *model.Environment, plugins []string, instanceID string) *DiscoveryServer {
 	out := &DiscoveryServer{
 		Env:                     env,
 		Generators:              map[string]model.XdsResourceGenerator{},
@@ -196,7 +190,7 @@ func NewDiscoveryServer(env *model.Environment, plugins []string, instanceID str
 		out.ConfigUpdate(&model.PushRequest{Full: true, Reason: []model.TriggerReason{model.UnknownTrigger}})
 	}
 
-	out.initGenerators(params)
+	out.initGenerators(env)
 
 	if features.EnableXDSCaching {
 		out.Cache = model.NewXdsCache()
@@ -494,7 +488,7 @@ func (s *DiscoveryServer) sendPushes(stopCh <-chan struct{}) {
 }
 
 // initGenerators initializes generators to be used by XdsServer.
-func (s *DiscoveryServer) initGenerators(genParams *GeneratorParams) {
+func (s *DiscoveryServer) initGenerators(env *model.Environment) {
 	edsGen := &EdsGenerator{Server: s}
 	s.StatusGen = NewStatusGen(s)
 	s.Generators[v3.ClusterType] = &CdsGenerator{Server: s}
@@ -503,12 +497,7 @@ func (s *DiscoveryServer) initGenerators(genParams *GeneratorParams) {
 	s.Generators[v3.EndpointType] = edsGen
 	s.Generators[v3.NameTableType] = &NdsGenerator{Server: s}
 	s.Generators[v3.ExtensionConfigurationType] = &EcdsGenerator{Server: s}
-
-	if genParams != nil {
-		s.Generators[v3.ProxyConfigType] = &PcdsGenerator{Server: s, TrustBundle: genParams.ProxyTrustBundle}
-	} else {
-		s.Generators[v3.ProxyConfigType] = &PcdsGenerator{Server: s, TrustBundle: nil}
-	}
+	s.Generators[v3.ProxyConfigType] = &PcdsGenerator{Server: s, TrustBundle: env.TrustBundle}
 
 	s.Generators["grpc"] = &grpcgen.GrpcConfigGenerator{}
 	s.Generators["grpc/"+v3.EndpointType] = edsGen
