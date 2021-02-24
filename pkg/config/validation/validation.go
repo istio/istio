@@ -2589,7 +2589,7 @@ func validateLocalityLbSetting(lb *networking.LocalityLoadBalancerSetting) error
 		return fmt.Errorf("can not simultaneously specify 'distribute' and 'failover'")
 	}
 
-	srcLocalities := make([]string, 0)
+	srcLocalities := make([]string, 0, len(lb.GetDistribute()))
 	for _, locality := range lb.GetDistribute() {
 		srcLocalities = append(srcLocalities, locality.From)
 		var totalWeight uint32
