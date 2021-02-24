@@ -128,6 +128,12 @@ spec:
       - name: {{ $.ImagePullSecret }}
 {{- end }}
       containers:
+{{- if ne ($subset.Annotations.GetByName "sidecar.istio.io/inject") "false" }}
+      - name: istio-proxy
+        image: auto
+        securityContext: # to allow core dumps
+          readOnlyRootFilesystem: false
+{{- end }}
 {{- if $.IncludeExtAuthz }}
       - name: ext-authz
         image: docker.io/istio/ext-authz:0.6

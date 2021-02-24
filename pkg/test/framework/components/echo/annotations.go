@@ -118,6 +118,15 @@ func (a Annotations) getOrDefault(k Annotation) *AnnotationValue {
 	return anno
 }
 
+func (a Annotations) GetByName(k string) string {
+	for keys := range a {
+		if keys.Name == k {
+			return a.Get(keys)
+		}
+	}
+	return ""
+}
+
 func (a Annotations) Get(k Annotation) string {
 	return a.getOrDefault(k).Value
 }
