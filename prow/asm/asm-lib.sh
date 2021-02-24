@@ -84,6 +84,12 @@ function cleanup_images() {
   gcloud beta container images delete "${HUB}/stackdriver-prometheus-sidecar:${TAG}" --force-delete-tags --quiet
 }
 
+# Unset the exported HTTP_PROXY and HTTPS_PROXY in Baremetal Installation
+function unset_http_proxy() {
+  unset HTTP_PROXY
+  unset HTTPS_PROXY
+}
+
 # Delete temporary images created for the managed control plane e2e test.
 # Depends on env var ${HUB} and ${TAG}
 function cleanup_images_for_managed_control_plane() {
@@ -198,29 +204,35 @@ function cleanup_hub_setup() {
 # Parameters: $1 - project hosts gcr
 function set_multicloud_permissions() {
   local GCR_PROJECT_ID="$1"
-
+  declare -a CONFIGS
+  if [[ "${CLUSTER_TYPE}" == "gke-on-prem" ]]; then
+    CONFIGS=( "${ONPREM_MC_CONFIGS[@]}" )
+  elif [[ "${CLUSTER_TYPE}" == "bare-metal" ]]; then
+    CONFIGS=( "${BAREMETAL_SC_CONFIG[@]}" )
+    export HTTP_PROXY
+  fi
   local SECRETNAME="test-gcr-secret"
-  for i in "${!ONPREM_MC_CONFIGS[@]}"; do
-    kubectl create ns istio-system --kubeconfig="${ONPREM_MC_CONFIGS[$i]}"
+  for i in "${!CONFIGS[@]}"; do
+    kubectl create ns istio-system --kubeconfig="${CONFIGS[$i]}"
 
     kubectl create secret -n istio-system docker-registry "${SECRETNAME}" \
       --docker-server=https://gcr.io \
       --docker-username=_json_key \
       --docker-email="$(gcloud config get-value account)" \
       --docker-password="$(cat "${GOOGLE_APPLICATION_CREDENTIALS}")" \
-      --kubeconfig="${ONPREM_MC_CONFIGS[$i]}"
+      --kubeconfig="${CONFIGS[$i]}"
 
     # Save secret data once, to be passed into the test framework
     if [[ "${i}" == 0 ]]; then
       export TEST_IMAGE_PULL_SECRET="${ARTIFACTS}/test_image_pull_secret.yaml"
       kubectl -n istio-system get secrets test-gcr-secret \
-        --kubeconfig="${ONPREM_MC_CONFIGS[$i]}" \
+        --kubeconfig="${CONFIGS[$i]}" \
         -o yaml \
       | sed '/namespace/d' > "${TEST_IMAGE_PULL_SECRET}"
     fi
 
     while read -r SA; do
-      add_image_pull_secret_to_sa "${SA}" "${SECRETNAME}" "${ONPREM_MC_CONFIGS[$i]}" cluster
+      add_image_pull_secret_to_sa "${SA}" "${SECRETNAME}" "${CONFIGS[$i]}"
     done <<EOF
 default
 istio-ingressgateway-service-account
@@ -229,15 +241,17 @@ istiod-service-account
 EOF
 
   done
+  if [[ "${CLUSTER_TYPE}" == "bare-metal" ]]; then
+    export -n HTTP_PROXY
+  fi
 }
 
 # Add the imagePullSecret to the service account
 # Parameters: $1 - service account
 #             $2 - secret name
 #             $3 - kubeconfig
-#             $4 - cluster context
 function add_image_pull_secret_to_sa() {
-  cat <<EOF | kubectl --kubeconfig="${3}" --context="${4}" apply -f -
+  cat <<EOF | kubectl --kubeconfig="${3}" apply -f -
 apiVersion: v1
 kind: ServiceAccount
 metadata:
@@ -937,6 +951,31 @@ function filter_onprem_kubeconfigs() {
   KUBECONFIG=$( IFS=':'; echo "${ONPREM_MC_CONFIGS[*]}" )
 }
 
+# Keeps only the artifacts/kubeconfig entries in the KUBECONFIG for baremetal
+# Removes any others entries
+# This function will modify the KUBECONFIG env variable
+function filter_baremetal_kubeconfigs() {
+  IFS=':' read -r -a CONFIGS <<< "${KUBECONFIG}"
+  unset IFS
+  for CONFIG in "${CONFIGS[@]}"; do
+    [[ "${CONFIG}" =~ .artifacts/kubeconfig ]] && BAREMETAL_SC_CONFIG+=( "${CONFIG}" )
+  done
+  KUBECONFIG=$( IFS=':'; echo "${BAREMETAL_SC_CONFIG[*]}" )
+}
+
+# Construct correct HTTP_PROXY env value used by baremetal according to the tunnel
+function init_baremetal_http_proxy() {
+  for CONFIG in "${BAREMETAL_SC_CONFIG[@]}"; do
+    local ARTIFACTS_PATH=${CONFIG%/*}
+    local PORT_NUMBER
+    PORT_NUMBER=$(grep "localhost" "${ARTIFACTS_PATH}/tunnel.sh" | sed 's/.*\-L\([0-9]*\):localhost.*/\1/')
+    HTTP_PROXY="localhost:${PORT_NUMBER}"
+    HTTPS_PROXY="${HTTP_PROXY}"
+    echo "----------PROXY env----------"
+    echo "HTTP_PROXY: ${HTTP_PROXY}, HTTPS_PROXY: ${HTTPS_PROXY}"
+  done
+}
+
 # Creates virtual machines, registers them with the cluster and install the test echo app.
 # Parameters: $1 - the name of a directory in echo-vm-provisioner/configs describing how to setup the VMs.
 #             $2 - the context of the cluster VMs will connect to
@@ -1000,4 +1039,29 @@ function apply_skip_disabled_tests() {
       INTEGRATION_TEST_FLAGS+=" --istio.test.skip=\"${test}\""
     done
   fi
+}
+
+function install_asm_on_baremetal() {
+  local MESH_ID="test-mesh"
+  create_asm_revision_label
+  for i in "${!BAREMETAL_SC_CONFIG[@]}"; do
+    install_certs "${BAREMETAL_SC_CONFIG[$i]}"
+    echo "----------Installing ASM----------"
+    cat <<EOF | istioctl install -y --kubeconfig="${BAREMETAL_SC_CONFIG[$i]}" -f -
+apiVersion: install.istio.io/v1alpha1
+kind: IstioOperator
+spec:
+  profile: asm-multicloud
+  revision: ${ASM_REVISION_LABEL}
+  hub: ${HUB}
+  tag: ${TAG}
+  values:
+    global:
+      meshID: ${MESH_ID}
+      multiCluster:
+        clusterName: cluster${i}
+      network: network${i}
+EOF
+    configure_validating_webhook "${ASM_REVISION_LABEL}" "${BAREMETAL_SC_CONFIG[$i]}"
+  done
 }

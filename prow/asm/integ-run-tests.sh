@@ -53,8 +53,14 @@ TEST_TARGET="test.integration.multicluster.kube.presubmit"
 DISABLED_TESTS=""
 # holds multiple kubeconfigs for onprem MC
 declare -a ONPREM_MC_CONFIGS
+# hold the kubeconfig for baremetal SC
+declare -a BAREMETAL_SC_CONFIG
 
+# hold the ENVIRON_PROJECT_ID used for ASM Onprem cluster installation with Hub
 declare ENVIRON_PROJECT_ID
+# hold the http proxy used for connected to baremetal SC
+declare HTTP_PROXY
+declare HTTPS_PROXY
 
 while (( "$#" )); do
   case $1 in
@@ -125,6 +131,7 @@ if [[ -z "${KUBECONFIG}" ]]; then
   echo "Error: ${KUBECONFIG} cannot be empty."
   exit 1
 fi
+
 echo "Using ${KUBECONFIG} to connect to the cluster(s)"
 
 if [[ -z "${CLUSTER_TYPE}" ]]; then
@@ -134,6 +141,8 @@ fi
 echo "The cluster type is ${CLUSTER_TYPE}"
 # only use user-kubeconfig.yaml files on onprem
 [[ "${CLUSTER_TYPE}" == "gke-on-prem" ]] && filter_onprem_kubeconfigs
+# only use kubeconfig files on baremetal and construct http proxy value
+[[ "${CLUSTER_TYPE}" == "bare-metal" ]] && filter_baremetal_kubeconfigs && init_baremetal_http_proxy
 
 if [[ -z "${CLUSTER_TOPOLOGY}" ]]; then
   echo "Error: ${CLUSTER_TOPOLOGY} cannot be empty."
@@ -211,6 +220,10 @@ if [[ "${CONTROL_PLANE}" == "UNMANAGED" ]]; then
 
   echo "Preparing images..."
   prepare_images
+  if [[ "${CLUSTER_TYPE}" == "bare-metal" ]]; then
+    # Proxy env needs to be unset to let gcloud command run correctly
+    add_trap "unset_http_proxy" EXIT SIGKILL SIGTERM SIGQUIT
+  fi
   add_trap "cleanup_images" EXIT SIGKILL SIGTERM SIGQUIT
 
   if [[ "${WIP}" == "HUB" ]]; then
@@ -228,8 +241,17 @@ if [[ "${CONTROL_PLANE}" == "UNMANAGED" ]]; then
   if [[ "${CLUSTER_TYPE}" == "gke" ]]; then
     install_asm "${WD}/kpt-pkg" "${CA}" "${WIP}" "${CONTEXTS[@]}"
   else
-    install_asm_on_multicloud "${WD}/infra" "${CA}" "${WIP}"
-    multicloud::gen_topology_file "${INTEGRATION_TEST_TOPOLOGY_FILE}"
+    if [[ "${CLUSTER_TYPE}" == "bare-metal" ]]; then
+      export HTTP_PROXY
+      export HTTPS_PROXY
+      install_asm_on_baremetal
+      multicloud::gen_topology_file "${INTEGRATION_TEST_TOPOLOGY_FILE}"
+      export -n HTTP_PROXY
+      export -n HTTPS_PROXY
+    else
+      install_asm_on_multicloud "${WD}/infra" "${CA}" "${WIP}"
+      multicloud::gen_topology_file "${INTEGRATION_TEST_TOPOLOGY_FILE}"
+    fi
   fi
 
   if [ -n "${STATIC_VMS}" ]; then
@@ -278,6 +300,13 @@ if [[ "${CONTROL_PLANE}" == "UNMANAGED" ]]; then
     DISABLED_TESTS+="|TestMetrics/telemetry_asm|TestMetricsAudit/telemetry_asm"
     # security/ tests
     DISABLED_TESTS+="|TestAuthorization_WorkloadSelector/From_primary-1/.*|TestAuthorization_NegativeMatch/From_primary-1/.*|TestAuthorization_Conditions/IpA_IpB_IpC_in_primary-0/From_primary-1/.*|TestAuthorization_mTLS/From_primary-1/.*|TestAuthorization_JWT/From_primary-1/.*"
+  fi
+  if [[ "${CLUSTER_TYPE}" == "bare-metal" ]]; then
+    # TODO: Fix the ingress connection issue via proxy
+    DISABLED_TESTS+="|TestAuthorization_IngressGateway|TestIngressRequestAuthentication|TestPassThroughFilterChain"
+    DISABLED_TESTS+="|TestAuthorization_EgressGateway" # UNSUPPORTED: Relies on egress gateway deployed to the cluster.
+    DISABLED_TESTS+="|TestStrictMTLS" # UNSUPPORTED: Mesh CA does not support ECDSA
+    DISABLED_TESTS+="|TestAuthorization_Custom" # UNSUPPORTED: requires mesh config
   fi
 
   DISABLED_PACKAGES="/pilot/cni" # NOT SUPPORTED
@@ -336,7 +365,11 @@ if [[ "${CONTROL_PLANE}" == "UNMANAGED" ]]; then
   echo "Running e2e test: ${TEST_TARGET}..."
   export DISABLED_PACKAGES
   export JUNIT_OUT="${ARTIFACTS}/junit1.xml"
-  make "${TEST_TARGET}"
+  if [[ "${CLUSTER_TYPE}" == "bare-metal" ]]; then
+    HTTP_PROXY="${HTTP_PROXY}" make "${TEST_TARGET}"
+  else
+    make "${TEST_TARGET}"
+  fi
 else
   echo "Setting up ASM ${CONTROL_PLANE} control plane for test"
   export HUB="gcr.io/wlhe-cr/asm-mcp-e2e-test"

@@ -1,0 +1,36 @@
+apiVersion: sut.tailorbird.io/v1alpha1
+kind: Rookery
+metadata:
+  # !!!IMPORTANT!!!! READ BELOW
+  # Use names that are unique and easily identifiable
+  # To see list of currently running rookeries:
+  # kubectl get rookeries -n tailorbird-users
+  # e.g., use your Google username as prefix.
+  # !!!IMPORTANT!!!! READ ABOVE
+  name: asm-baremetal-onprem-scsn-rookery-1
+  namespace: tailorbird-users
+spec:
+  knests:
+    - apiVersion: sut.tailorbird.io/v1alpha1
+      kind: Knest
+      metadata:
+        name: asm-baremetal-onprem-scsn-knest-1
+      spec:
+        clusters:
+          - apiVersion: sut.tailorbird.io/v1alpha1
+            kind: Cluster
+            metadata:
+              # !!!IMPORTANT!!!! READ BELOW
+              # Use names that are unique and easily identifiable
+              # To see list of currently running clusters:
+              # kubectl get clusters -n tailorbird-users
+              # e.g., use your Google username as prefix.
+              # !!!IMPORTANT!!!! READ ABOVE
+              name: asm-baremetal-onprem-scsn-cluster-1
+              namespace: tailorbird-users
+            spec:
+              provider: baremetal
+              distribution: gke
+              provisionerArgs:
+                username: prowuser
+                bmctlVersion: "1.6.1-gke.8"

@@ -16,6 +16,7 @@ package echoboot
 
 import (
 	"fmt"
+	"os"
 	"strings"
 	"sync"
 
@@ -174,6 +175,20 @@ func (b builder) deployServices() error {
 		}
 	}
 
+	// HTTP_PROXY is used by Baremetal env and there is limiting on number of connections
+	if len(os.Getenv("HTTP_PROXY")) > 0 {
+		for svcNs, svcYaml := range services {
+			svcYaml := svcYaml
+
+			ns := strings.Split(svcNs, ".")[1]
+
+			if err := b.ctx.Config().ApplyYAMLNoCleanup(ns, svcYaml); err != nil {
+				return err
+			}
+		}
+		return nil
+	}
+
 	errG := multierror.Group{}
 	for svcNs, svcYaml := range services {
 		svcYaml := svcYaml
@@ -186,8 +201,31 @@ func (b builder) deployServices() error {
 }
 
 func (b builder) deployInstances() (echo.Instances, error) {
-	m := sync.Mutex{}
 	out := echo.Instances{}
+	// HTTP_PROXY is used by Baremetal env and there is limiting on number of connections
+	if len(os.Getenv("HTTP_PROXY")) > 0 {
+		for kind, configs := range b.configs {
+			kind := kind
+			configs := configs
+
+			buildFunc, err := echo.GetBuilder(kind)
+			if err != nil {
+				return out, err
+			}
+			instances, err := buildFunc(b.ctx, configs)
+			if err != nil {
+				return out, err
+			}
+
+			// link reference pointers
+			if err := assignRefs(b.refs[kind], instances); err != nil {
+				return out, err
+			}
+			out = append(out, instances...)
+		}
+		return out, nil
+	}
+	m := sync.Mutex{}
 	errGroup := multierror.Group{}
 	// run the builder func for each kind of config in parallel
 	for kind, configs := range b.configs {

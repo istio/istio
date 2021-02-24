@@ -2,6 +2,11 @@
 # Target: test.integration.asm.*
 #-----------------------------------------------------------------------------
 
+ifeq ($(CLUSTER_TYPE), bare-metal)
+	export HTTP_PROXY
+	export HTTPS_PROXY=$(HTTP_PROXY)
+endif
+
 # Presubmit integration tests targeting Kubernetes environment.
 .PHONY: test.integration.asm
 test.integration.asm: | $(JUNIT_REPORT)
