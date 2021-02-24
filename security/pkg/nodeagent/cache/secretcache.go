@@ -316,6 +316,10 @@ func (sc *SecretManagerClient) GenerateSecret(resourceName string) (secret *secu
 }
 
 func (sc *SecretManagerClient) addFileWatcher(file string, resourceName string) {
+	// Try adding file watcher and if it fails start a retryloop.
+	if err := sc.tryAddFileWatcher(file, resourceName); err == nil {
+		return
+	}
 	// Retry file watcher as some times it might fail to add and we will miss change
 	// notifications on those files. For now, retry for ever till the watcher is added.
 	// TODO(ramaraochavali): Think about tieing these failures to liveness probe with a
