@@ -26,41 +26,39 @@ import (
 	"istio.io/istio/pkg/config/schema/collections"
 )
 
-type ProtocolAdressesAnalyzer struct{}
+type HTTPSOnHTTPAnalyzer struct{}
 
-var _ analysis.Analyzer = &ProtocolAdressesAnalyzer{}
+var _ analysis.Analyzer = &HTTPSOnHTTPAnalyzer{}
 
-func (serviceEntry *ProtocolAdressesAnalyzer) Metadata() analysis.Metadata {
+func (serviceEntry *HTTPSOnHTTPAnalyzer) Metadata() analysis.Metadata {
 	return analysis.Metadata{
-		Name:        "serviceentry.ProtocolAdressesAnalyzer",
-		Description: "Checks if addresses is not set with protocol TCP or unset protocol",
+		Name:        "serviceentry.HTTPSOnHTTPAnalyzer",
+		Description: "Checks if HTTPS traffic on HTTP port",
 		Inputs: collection.Names{
 			collections.IstioNetworkingV1Alpha3Serviceentries.Name(),
 		},
 	}
 }
 
-func (serviceEntry *ProtocolAdressesAnalyzer) Analyze(context analysis.Context) {
+func (serviceEntry *HTTPSOnHTTPAnalyzer) Analyze(context analysis.Context) {
 	context.ForEach(collections.IstioNetworkingV1Alpha3Serviceentries.Name(), func(resource *resource.Instance) bool {
-		serviceEntry.analyzeProtocolAddresses(resource, context)
+		serviceEntry.analyzeProtocol(resource, context)
 		return true
 	})
 }
 
-func (serviceEntry *ProtocolAdressesAnalyzer) analyzeProtocolAddresses(resource *resource.Instance, context analysis.Context) {
+func (serviceEntry *HTTPSOnHTTPAnalyzer) analyzeProtocol(resource *resource.Instance, context analysis.Context) {
 	se := resource.Message.(*v1alpha3.ServiceEntry)
 
-	if se.Addresses == nil {
-		for index, port := range se.Ports {
-			if port.Protocol == "" || port.Protocol == "TCP" {
-				message := msg.NewServiceEntryAddressesRequired(resource)
+	for index, port := range se.Ports {
+		if port.Number == 443 && port.Protocol == "HTTP" {
+			message := msg.NewServiceEntryHTTPSTrafficOnHTTPPort(resource, se.Hosts)
 
-				if line, ok := util.ErrorLine(resource, fmt.Sprintf(util.ServiceEntryPort, index)); ok {
-					message.Line = line
-				}
-
-				context.Report(collections.IstioNetworkingV1Alpha3Serviceentries.Name(), message)
+			if line, ok := util.ErrorLine(resource, fmt.Sprintf(util.ServiceEntryPort, index)); ok {
+				message.Line = line
 			}
+
+			context.Report(collections.IstioNetworkingV1Alpha3Serviceentries.Name(), message)
 		}
 	}
 }

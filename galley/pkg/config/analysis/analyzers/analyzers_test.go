@@ -459,6 +459,16 @@ var testGrid = []testCase{
 			{msg.GatewayDuplicateCertificate, "Gateway gateway-01-test-03.default"},
 		},
 	},
+	{
+		name: "HTTPS traffic on HTTP port in Service Entry",
+		inputFiles: []string{
+			"testdata/serviceentry-https-on-http-port.yaml",
+		},
+		analyzer: &serviceentry.HTTPSOnHTTPAnalyzer{},
+		expected: []message{
+			{msg.ServiceEntryHTTPSTrafficOnHTTPPort, "ServiceEntry service-entry-test-01.default"},
+		},
+	},
 }
 
 // regex patterns for analyzer names that should be explicitly ignored for testing

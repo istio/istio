@@ -148,6 +148,10 @@ var (
 	// GatewayDuplicateCertificate defines a diag.MessageType for message "GatewayDuplicateCertificate".
 	// Description: Duplicate certificate in multiple gateways may cause 404s if clients re-use HTTP2 connections.
 	GatewayDuplicateCertificate = diag.NewMessageType(diag.Warning, "IST0138", "Duplicate certificate in multiple gateways %v may cause 404s if clients re-use HTTP2 connections.")
+
+	// ServiceEntryHTTPSTrafficOnHTTPPort defines a diag.MessageType for message "ServiceEntryHTTPSTrafficOnHTTPPort".
+	// Description: ServiceEntry Sending HTTPS to HTTP port.
+	ServiceEntryHTTPSTrafficOnHTTPPort = diag.NewMessageType(diag.Error, "IST0139", "ServiceEntry Sending HTTPS to HTTP port on %v hosts.")
 )
 
 // All returns a list of all known message types.
@@ -188,6 +192,7 @@ func All() []*diag.MessageType {
 		AlphaAnnotation,
 		DeploymentConflictingPorts,
 		GatewayDuplicateCertificate,
+		ServiceEntryHTTPSTrafficOnHTTPPort,
 	}
 }
 
@@ -541,5 +546,14 @@ func NewGatewayDuplicateCertificate(r *resource.Instance, gateways []string) dia
 		GatewayDuplicateCertificate,
 		r,
 		gateways,
+	)
+}
+
+// NewServiceEntryHTTPSTrafficOnHTTPPort returns a new diag.Message based on ServiceEntryHTTPSTrafficOnHTTPPort.
+func NewServiceEntryHTTPSTrafficOnHTTPPort(r *resource.Instance, hosts []string) diag.Message {
+	return diag.NewMessage(
+		ServiceEntryHTTPSTrafficOnHTTPPort,
+		r,
+		hosts,
 	)
 }

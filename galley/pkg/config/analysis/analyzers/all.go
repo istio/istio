@@ -56,6 +56,7 @@ func All() []analysis.Analyzer {
 		&virtualservice.MatchesAnalyzer{},
 		&destinationrule.CaCertificateAnalyzer{},
 		&serviceentry.ProtocolAdressesAnalyzer{},
+		&serviceentry.HTTPSOnHTTPAnalyzer{},
 	}
 
 	analyzers = append(analyzers, schema.AllValidationAnalyzers()...)

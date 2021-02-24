@@ -1,0 +1,30 @@
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: ServiceEntry
+metadata:
+  name: service-entry-test-01 # Expected: validation error
+  namespace: default
+spec:
+  hosts:
+  - istio.io
+  ports:
+  - number: 443
+    name: http
+    protocol: HTTP
+  resolution: DNS
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: ServiceEntry
+metadata:
+  name: service-entry-test-02  # Expected: no validation error
+  namespace: default
+spec:
+  hosts:
+  - istio.io
+  ports:
+  - number: 443
+    name: https
+    protocol: HTTPS
+  resolution: DNS
+
+

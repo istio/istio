@@ -396,3 +396,12 @@ messages:
     args:
       - name: gateways
         type: "[]string"
+
+  - name: "ServiceEntryHTTPSTrafficOnHTTPPort"
+    code: IST0139
+    level: Error
+    description: "ServiceEntry Sending HTTPS to HTTP port."
+    template: "ServiceEntry Sending HTTPS to HTTP port on %v hosts."
+    args:
+      - name: hosts
+        type: "[]string"
