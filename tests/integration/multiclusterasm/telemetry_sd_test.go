@@ -44,7 +44,6 @@ const (
 	appCN = "app"
 	// metricDuration defines time range backward to check metrics
 	metricDuration         = 5 * time.Minute
-	containerResourceType  = "k8s_container"
 	auditPolicyForLogEntry = "testdata/security/v1beta1-audit-authorization-policy.yaml.tmpl"
 	requestCount           = 100
 )
@@ -58,8 +57,6 @@ func TestMain(m *testing.M) {
 	framework.
 		NewSuite(m).
 		Label(label.Multicluster).
-		RequireMinClusters(2).
-		RequireMaxClusters(2).
 		Setup(setupApps).
 		Run()
 }
@@ -155,7 +152,11 @@ func validateTelemetry(ctx framework.TestContext,
 	param := &stackdriver.ResourceFilterParam{
 		Namespace:     ns.Name(),
 		ContainerName: appCN,
-		ResourceType:  containerResourceType,
+		ResourceType:  stackdriver.ContainerResourceType,
+	}
+	// TODO be mopre dynamic than checking only dest res type.. for now tests only query server/request_count
+	if dest.Config().DeployAsVM {
+		param.ResourceType = stackdriver.VMResourceType
 	}
 
 	now := time.Now()
@@ -195,7 +196,9 @@ func sendTraffic(t framework.TestContext, src, dest echo.Instance, portName stri
 
 func validateMetrics(t framework.TestContext, portName string, projectID string, sd *stackdriver.Instance, ns namespace.Instance, src, dest echo.Instance,
 	startTime, endTime string, param *stackdriver.ResourceFilterParam) error {
-	filter := fmt.Sprintf("%s AND metric.type = %q", param, "istio.io/service/server/request_count")
+	metricParam := *param
+	metricParam.FilterFor = "metric"
+	filter := fmt.Sprintf("%s AND metric.type = %q", metricParam, "istio.io/service/server/request_count")
 
 	expLabel, err := ioutil.ReadFile("testdata/server_request_count.json")
 	if err != nil {
@@ -206,14 +209,28 @@ func validateMetrics(t framework.TestContext, portName string, projectID string,
 		t.Fatal("%s does not have a port %s", dest.Config().Service, portName)
 		return nil
 	}
+
+	// TODO We don't have an easy way to get the full owner string for VMs, so we just verify the prefix.
+	k8sOwnerFmt := "kubernetes://apis/apps/v1/namespaces/%s/deployments/%s-v1"
+	srcOwner := fmt.Sprintf(k8sOwnerFmt, src.Config().Namespace.Name(), src.Config().Service)
+	destOwner := fmt.Sprintf(k8sOwnerFmt, dest.Config().Namespace.Name(), dest.Config().Service)
+	if src.Config().DeployAsVM {
+		srcOwner = stackdriver.VMOwnerPrefix
+	}
+	if dest.Config().DeployAsVM {
+		destOwner = stackdriver.VMOwnerPrefix
+	}
+
 	_, err = sd.GetAndValidateTimeSeries(context.Background(), t, []string{filter}, "ALIGN_RATE", startTime, endTime, projectID, expLabel, map[string]interface{}{
-		"projectID": projectID,
-		"namespace": ns.Name(),
-		"meshID":    os.Getenv("MESH_ID"),
-		"srcSvc":    src.Config().Service,
-		"destSvc":   dest.Config().Service,
-		"protocol":  strings.ToLower(string(echoPort.Protocol)),
-		"port":      echoPort.InstancePort,
+		"projectID":        projectID,
+		"namespace":        ns.Name(),
+		"meshID":           os.Getenv("MESH_ID"),
+		"srcSvc":           src.Config().Service,
+		"destSvc":          dest.Config().Service,
+		"protocol":         strings.ToLower(string(echoPort.Protocol)),
+		"port":             echoPort.InstancePort,
+		"sourceOwner":      srcOwner,
+		"destinationOwner": destOwner,
 	})
 	if err != nil {
 		t.Errorf("failed to fetch time series for %s container: %v", "test", err)
@@ -223,7 +240,9 @@ func validateMetrics(t framework.TestContext, portName string, projectID string,
 
 func validateLog(ctx framework.TestContext, projectID string, sd *stackdriver.Instance, src, dest echo.Instance,
 	param *stackdriver.ResourceFilterParam, startTime string, filter string) {
-	lf := fmt.Sprintf("%s AND timestamp > %q AND logName=\"projects/%s/logs/%s\"", param, startTime, projectID, filter)
+	logParam := *param
+	logParam.FilterFor = "log"
+	lf := fmt.Sprintf("%s AND timestamp > %q AND logName=\"projects/%s/logs/%s\"", logParam, startTime, projectID, filter)
 	sd.CheckForLogEntry(context.Background(), ctx, lf, projectID, map[string]string{
 		"source_workload":      fmt.Sprintf("%s-v1", src.Config().Service),
 		"destination_workload": fmt.Sprintf("%s-v1", dest.Config().Service),

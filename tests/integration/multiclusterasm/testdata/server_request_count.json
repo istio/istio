@@ -2,7 +2,7 @@
   "destination_canonical_revision": "v1",
   "destination_canonical_service_name": "{{ .destSvc}}",
   "destination_canonical_service_namespace": "{{ .namespace}}",
-  "destination_owner": "kubernetes://apis/apps/v1/namespaces/{{ .namespace}}/deployments/{{ .destSvc}}-v1",
+  "destination_owner": "{{.destinationOwner}}",
   "destination_port": "{{.port}}",
   "destination_service_name": "{{ .destSvc}}",
   "destination_service_namespace": "{{ .namespace}}",
@@ -19,7 +19,7 @@
   "source_canonical_revision": "v1",
   "source_canonical_service_name": "{{ .srcSvc}}",
   "source_canonical_service_namespace": "{{ .namespace}}",
-  "source_owner": "kubernetes://apis/apps/v1/namespaces/{{ .namespace}}/deployments/{{ .srcSvc}}-v1",
+  "source_owner": "{{.sourceOwner}}",
   "source_workload_name": "{{ .srcSvc}}-v1",
   "source_workload_namespace": "{{ .namespace}}",
   "mesh_uid": "{{ .meshID}}"

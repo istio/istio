@@ -1,0 +1,32 @@
+[Unit]
+Description=Echo app for testing Istio
+After=service-proxy-agent.service
+Requires=service-proxy-agent.service
+
+[Service]
+EnvironmentFile=/etc/.echoconfig
+ExecStart=/usr/sbin/echo \
+  --cluster "$CLUSTER_ID" \
+  --version "v1" \
+  --port "18080" \
+  --grpc "17070" \
+  --tcp "19090" \
+  --port "18443" \
+  --tls=18443 \
+  --tcp "16060" \
+  --server-first=16060 \
+  --tcp "19091" \
+  --tcp "16061" \
+  --server-first=16061 \
+  --port "18081" \
+  --grpc "17071" \
+  --port "19443" \
+  --port "18082" \
+  --bind-ip=18082 \
+  --port "8080" \
+  --port "3333" \
+  --crt=/etc/certs/cert-chain.pem \
+  --key=/etc/certs/key.pem
+
+[Install]
+WantedBy=multi-user.target

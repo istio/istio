@@ -148,6 +148,8 @@ function setup_vm() {
   NAME=$(yq r "$DIR/workloadgroup.yaml" "metadata.name")
   local NAMESPACE
   NAMESPACE=$(yq r "$DIR/workloadgroup.yaml" "metadata.namespace")
+  local SERVICE
+  SERVICE=$(yq r "$DIR/workloadgroup.yaml" "spec.metadata.labels.app")
 
   # Create the namespace and push the WorkloadGroup
   kubectl create namespace "${NAMESPACE}" --dry-run -o yaml --context="${CONTEXT}" | kubectl apply -f - --context="${CONTEXT}"
@@ -156,7 +158,7 @@ function setup_vm() {
   fi
   kubectl --context="${CONTEXT}" label ns "${NAMESPACE}" "istio.io/rev=${REVISION}"
   kubectl --context="${CONTEXT}" apply -f "$DIR/workloadgroup.yaml"
-  kubectl --context="${CONTEXT}" -n "$NAMESPACE" patch wg vm --type merge --patch "$(cat <<EOF
+  kubectl --context="${CONTEXT}" -n "$NAMESPACE" patch wg "${NAME}" --type merge --patch "$(cat <<EOF
 spec:
   template:
     serviceAccount: "${PROJECT_NUMBER}-compute@developer.gserviceaccount.com"
@@ -183,7 +185,7 @@ EOF
     --workload_name "${NAME}" \
     --workload_namespace "${NAMESPACE}"
   [ -z "$INSTANCE_EXISTS" ] && gcloud compute --project="${PROJECT_ID}" instances create "${INSTANCE_NAME}" --zone="${ZONE}" \
-    --labels="service=${NAME},namespace=${NAMESPACE}" --tags="staticvm" \
+    --labels="service=${SERVICE},namespace=${NAMESPACE}" --tags="staticvm" \
     --source-instance-template "${TEMPLATE_NAME}"
 
   # copy echo to the cluster

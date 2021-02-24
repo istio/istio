@@ -2,7 +2,7 @@ apiVersion: networking.istio.io/v1alpha3
 kind: WorkloadGroup
 metadata:
   name: vm-v1
-  namespace: echo
+  namespace: echo-stackdriver
 spec:
   metadata:
     annotations:

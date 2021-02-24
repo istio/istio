@@ -35,10 +35,14 @@ import (
 
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/util/retry"
+	"istio.io/pkg/log"
 )
 
 const (
-	containerResourceType = "k8s_container"
+	ContainerResourceType = "k8s_container"
+	VMResourceType        = "gce_instance"
+
+	VMOwnerPrefix = "//compute.googleapis.com/projects/"
 )
 
 // Instance represents a staging stackdriver service that test will talk to.
@@ -50,34 +54,71 @@ type Instance struct {
 
 // ResourceFilterParam defines param needed to generate stackdriver filters
 type ResourceFilterParam struct {
+	// FilterFor defaults to "metric" although it can filter logs.
+	FilterFor string
+
 	Zone          string
 	ClusterName   string
 	Namespace     string
-	PodName       string
+	WorkloadName  string
 	ContainerName string
 	ResourceType  string
 }
 
-// String implements the Stringer interface.
-func (param *ResourceFilterParam) String() string {
-	var s strings.Builder
-	if param.ResourceType != "" {
-		fmt.Fprintf(&s, "resource.type = %q", param.ResourceType)
-	}
-	if param.Zone != "" {
-		fmt.Fprintf(&s, " AND resource.labels.location = %q", param.Zone)
-	}
-	if param.ClusterName != "" {
-		fmt.Fprintf(&s, " AND resource.labels.cluster_name = %q", param.ClusterName)
-	}
-	fmt.Fprintf(&s, " AND resource.labels.namespace_name = %q", param.Namespace)
+var containerFilters = map[string]string{
+	"zone":      "resource.labels.location",
+	"namespace": "resource.labels.namespace_name",
+	"workload":  "resource.labels.pod_name",
+	"cluster":   "resource.labels.cluster_name",
+	"container": "resource.labels.container_name",
+}
 
-	if param.ResourceType == containerResourceType && param.ContainerName != "" {
-		fmt.Fprintf(&s, " AND resource.labels.container_name = %q", param.ContainerName)
+var filters = map[string]map[string]map[string]string{
+	ContainerResourceType: {
+		"log":    containerFilters,
+		"metric": containerFilters,
+	},
+	VMResourceType: {
+		"log": {
+			"zone":      "resource.labels.location",
+			"namespace": "labels.source_namespace",
+			"workload":  "labels.source_workload",
+		},
+		"metric": {
+			"zone":      "resource.labels.location",
+			"namespace": "metric.labels.source_workload_namespace",
+			"workload":  "metric.labels.source_workload_name",
+		},
+	},
+}
+
+// String implements the Stringer interface.
+func (param ResourceFilterParam) String() string {
+	filterFor := param.FilterFor
+	if filterFor == "" {
+		filterFor = "metric"
 	}
-	if param.PodName != "" {
-		fmt.Fprintf(&s, " AND resource.labels.pod_name = %q", param.PodName)
+
+	var s strings.Builder
+	if filters[param.ResourceType] == nil {
+		log.Warnf("invalid resource type for filter")
+		return ""
 	}
+	fmt.Fprintf(&s, "resource.type = %q", param.ResourceType)
+	for filterKey, value := range map[string]string{
+		"zone":      param.Zone,
+		"namespace": param.Namespace,
+		"workload":  param.WorkloadName,
+		"container": param.ContainerName,
+		"cluster":   param.ClusterName,
+	} {
+		filter := filters[param.ResourceType][filterFor][filterKey]
+		if value == "" || filter == "" {
+			continue
+		}
+		fmt.Fprintf(&s, " AND %s = %q", filter, value)
+	}
+
 	return s.String()
 }
 
@@ -155,7 +196,7 @@ func (d *Instance) GetAndValidateTimeSeries(ctx context.Context, t framework.Tes
 		for _, filter := range filters {
 			timeSeries, err = fetchTimeSeries(ctx, t, d.ms, projectID, filter, aligner, startTime, endTime)
 			if err == nil {
-				t.Log("succeeded getting metrics response ")
+				t.Logf("succeeded getting metrics response with %d time series items", len(timeSeries))
 				err = d.ValidateMetrics(t, timeSeries, expLabel, templlabels)
 				if err == nil {
 					return nil
@@ -261,6 +302,13 @@ func cleanupLabels(labels map[string]string) {
 	if ok {
 		delete(labels, "destination_principal")
 	}
+
+	// TODO hack since we don't have an easy way to know the instance id
+	for _, k := range []string{"source_owner", "destination_owner"} {
+		if v, ok := labels[k]; ok && strings.HasPrefix(v, VMOwnerPrefix) {
+			labels[k] = VMOwnerPrefix
+		}
+	}
 }
 
 // ValidateMetricsWithLabels validate metrics from stackdriver based on the given labels.
@@ -278,7 +326,7 @@ func (d *Instance) ValidateMetricsWithLabels(t framework.TestContext, tss []*mon
 			continue
 		}
 		cleanupLabels(labels)
-		if diff := cmp.Diff(labels, expLabels); diff != "" {
+		if diff := cmp.Diff(expLabels, labels); diff != "" {
 			t.Log("comparing got labels and expect labels")
 			msg := fmt.Sprintf("Retry due to unexpected logging labels, (-want +got):\n %s difference is", diff)
 			t.Log(msg)
@@ -288,7 +336,7 @@ func (d *Instance) ValidateMetricsWithLabels(t framework.TestContext, tss []*mon
 		break
 	}
 	if !found {
-		return fmt.Errorf("could not find metrics")
+		return fmt.Errorf("could not find metrics with matching labels")
 	}
 	return nil
 }
