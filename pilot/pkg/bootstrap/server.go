@@ -1234,6 +1234,12 @@ func (s *Server) initWorkloadTrustBundle() {
 		}
 		s.XDSServer.ConfigUpdate(pushReq)
 	})
+
+	s.addStartFunc(func(stop <-chan struct{}) error {
+		go s.workloadTrustBundle.ProcessRemoteTrustAnchors(stop, tb.RemoteDefaultPollPeriod)
+		return nil
+	})
+
 	// MeshConfig: Add initial roots
 	s.workloadTrustBundle.AddMeshConfigUpdate(s.environment.Mesh())
 
