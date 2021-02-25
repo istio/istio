@@ -273,8 +273,9 @@ func (configgen *ConfigGeneratorImpl) buildGatewayHTTPRouteConfig(node *model.Pr
 					}
 				} else {
 					newVHost := &route.VirtualHost{
-						Name:                       domainName(hostname, port),
-						Domains:                    buildGatewayVirtualHostDomains(hostname),
+						Name: domainName(hostname, port),
+						// as we have stripped any host port, so do not care about port anymore
+						Domains:                    []string{hostname},
 						IncludeRequestAttemptCount: true,
 					}
 					if server.Tls != nil && server.Tls.HttpsRedirect {
@@ -326,8 +327,9 @@ func (configgen *ConfigGeneratorImpl) buildGatewayHTTPRouteConfig(node *model.Pr
 					}
 				} else {
 					newVHost := &route.VirtualHost{
-						Name:                       domainName(string(hostname), port),
-						Domains:                    buildGatewayVirtualHostDomains(string(hostname)),
+						Name: domainName(string(hostname), port),
+						// as we have stripped any host port, so do not care about port anymore
+						Domains:                    []string{string(hostname)},
 						Routes:                     routes,
 						IncludeRequestAttemptCount: true,
 					}
@@ -412,7 +414,7 @@ func (configgen *ConfigGeneratorImpl) createGatewayHTTPFilterChainOpts(node *mod
 					},
 					ServerName:          EnvoyServerName,
 					HttpProtocolOptions: httpProtoOpts,
-					// Per https://www.envoyproxy.io/docs/envoy/latest/api-v2/api/v2/route/route_components.proto#route-virtualhost
+					// Per https://www.envoyproxy.io/docs/envoy/latest/api-v3/config/route/v3/route_components.proto#config-route-v3-virtualhost
 					// we can only have one wildcard. Ideally, we want to match any port, as the host
 					// header may have a different port (behind a LB, nodeport, etc). However, if we
 					// have a wildcard domain we cannot do that since we would need two wildcards.
@@ -448,7 +450,7 @@ func (configgen *ConfigGeneratorImpl) createGatewayHTTPFilterChainOpts(node *mod
 				},
 				ServerName:          EnvoyServerName,
 				HttpProtocolOptions: httpProtoOpts,
-				// Per https://www.envoyproxy.io/docs/envoy/latest/api-v2/api/v2/route/route_components.proto#route-virtualhost
+				// Per https://www.envoyproxy.io/docs/envoy/latest/api-v3/config/route/v3/route_components.proto#config-route-v3-virtualhost
 				// we can only have one wildcard. Ideally, we want to match any port, as the host
 				// header may have a different port (behind a LB, nodeport, etc). However, if we
 				// have a wildcard domain we cannot do that since we would need two wildcards.
@@ -772,10 +774,4 @@ func isGatewayMatch(gateway string, gatewayNames []string) bool {
 		}
 	}
 	return false
-}
-
-func buildGatewayVirtualHostDomains(hostname string) []string {
-	// as we have stripped any host port, so do not care about port anymore
-	domains := []string{hostname}
-	return domains
 }
