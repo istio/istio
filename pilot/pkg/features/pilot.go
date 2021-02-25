@@ -358,7 +358,7 @@ var (
 		"If true, Pilot will collect metrics for XDS cache efficiency.").Get()
 
 	XDSCacheMaxSize = env.RegisterIntVar("PILOT_XDS_CACHE_SIZE", 20000,
-		"The maximum number of cache entries for the XDS cache. If the size is <= 0, the cache will have no upper bound.").Get()
+		"The maximum number of cache entries for the XDS cache.").Get()
 
 	AllowMetadataCertsInMutualTLS = env.RegisterBoolVar("PILOT_ALLOW_METADATA_CERTS_DR_MUTUAL_TLS", false,
 		"If true, Pilot will allow certs specified in Metadata to override DR certs in MUTUAL TLS mode. "+
