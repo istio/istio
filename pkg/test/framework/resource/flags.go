@@ -42,6 +42,11 @@ func SettingsFromCommandLine(testID string) (*Settings, error) {
 	}
 	s.Selector = f
 
+	s.SkipMatcher, err = NewMatcher(s.SkipString)
+	if err != nil {
+		return nil, err
+	}
+
 	if s.FailOnDeprecation && s.NoCleanup {
 		return nil,
 			fmt.Errorf("checking for deprecation occurs at cleanup level, thus flags -istio.test.nocleanup and" +
@@ -68,6 +73,9 @@ func init() {
 	flag.StringVar(&settingsFromCommandLine.SelectorString, "istio.test.select", settingsFromCommandLine.SelectorString,
 		"Comma separated list of labels for selecting tests to run (e.g. 'foo,+bar-baz').")
 
+	flag.Var(&settingsFromCommandLine.SkipString, "istio.test.skip",
+		"Skip tests matching the regular expression. This follows the semantics of -test.run.")
+
 	flag.IntVar(&settingsFromCommandLine.Retries, "istio.test.retries", settingsFromCommandLine.Retries,
 		"Number of times to retry tests")
 
@@ -82,4 +90,15 @@ func init() {
 
 	flag.BoolVar(&settingsFromCommandLine.SkipVM, "istio.test.skipVM", settingsFromCommandLine.SkipVM,
 		"Skip VM related parts in all tests.")
+}
+
+type arrayFlags []string
+
+func (i *arrayFlags) String() string {
+	return fmt.Sprint([]string(*i))
+}
+
+func (i *arrayFlags) Set(value string) error {
+	*i = append(*i, value)
+	return nil
 }

@@ -60,6 +60,13 @@ type Settings struct {
 	// The label selector that the user has specified.
 	SelectorString string
 
+	// The regex specifying which tests to skip. This follows inverted semantics of golang's
+	// -test.run flag, which only supports positive match. If an entire package is meant to be
+	// excluded, it can be filtered with `go list` and explicitly passing the list of desired
+	// packages. For example: `go test $(go list ./... | grep -v bad-package)`.
+	SkipString  arrayFlags
+	SkipMatcher *Matcher
+
 	// The label selector, in parsed form.
 	Selector label.Selector
 
