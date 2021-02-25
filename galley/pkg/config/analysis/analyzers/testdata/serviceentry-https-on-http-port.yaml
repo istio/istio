@@ -6,7 +6,7 @@ metadata:
   namespace: default
 spec:
   hosts:
-  - istio.io
+  - test-01.istio.io
   ports:
   - number: 443
     name: http
@@ -20,11 +20,149 @@ metadata:
   namespace: default
 spec:
   hosts:
-  - istio.io
+  - test-02.istio.io
   ports:
   - number: 443
     name: https
     protocol: HTTPS
   resolution: DNS
-
-
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: ServiceEntry
+metadata:
+  name: service-entry-test-03 # Expected: validation error
+  namespace: default
+spec:
+  hosts:
+  - test-03.istio.io
+  ports:
+  - number: 443
+    name: http
+    protocol: HTTP
+  resolution: DNS
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: DestinationRule
+metadata:
+  name: destination-rule-test-03
+spec:
+  host: test-03.istio.io
+  trafficPolicy:
+    portLevelSettings:
+    - port:
+        number: 443
+      tls:
+        mode: DISABLE
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: ServiceEntry
+metadata:
+  name: service-entry-test-04 # Expected: no validation error
+  namespace: default
+spec:
+  hosts:
+  - test-04.istio.io
+  ports:
+  - number: 443
+    name: http
+    protocol: HTTP
+  resolution: DNS
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: DestinationRule
+metadata:
+  name: destination-rule-test-04
+spec:
+  host: test-04.istio.io
+  trafficPolicy:
+    portLevelSettings:
+    - port:
+        number: 443
+      tls:
+        mode: ISTIO_MUTUAL
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: ServiceEntry
+metadata:
+  name: service-entry-test-05 # Expected: no validation error
+  namespace: default
+spec:
+  hosts:
+  - test-05.istio.io
+  ports:
+  - number: 443
+    name: http
+    protocol: HTTP
+    targetPort: 80
+  resolution: DNS
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: ServiceEntry
+metadata:
+  name: service-entry-test-06 # Expected: validation error
+  namespace: default
+spec:
+  hosts:
+  - test-06.istio.io
+  ports:
+  - number: 443
+    name: http
+    protocol: HTTP
+    targetPort: 443
+  resolution: DNS
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: ServiceEntry
+metadata:
+  name: service-entry-test-07 # Expected: no validation error
+  namespace: default
+spec:
+  hosts:
+  - test-07.istio.io
+  ports:
+  - number: 443
+    name: http
+    protocol: HTTP
+    targetPort: 443
+  resolution: DNS
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: DestinationRule
+metadata:
+  name: destination-rule-test-07
+spec:
+  host: test-07.istio.io
+  trafficPolicy:
+    portLevelSettings:
+    - port:
+        number: 443
+      tls:
+        mode: ISTIO_MUTUAL
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: ServiceEntry
+metadata:
+  name: service-entry-test-08 # Expected: validation error
+  namespace: default
+spec:
+  hosts:
+  - test-08.istio.io
+  ports:
+  - number: 443
+    name: http
+    protocol: HTTP
+    targetPort: 443
+  resolution: DNS
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: DestinationRule
+metadata:
+  name: destination-rule-test-08
+spec:
+  host: test-08.istio.io
+  trafficPolicy:
+    portLevelSettings:
+    - port:
+        number: 443
+      tls:
+        mode: DISABLE

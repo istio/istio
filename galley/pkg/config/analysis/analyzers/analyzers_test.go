@@ -467,6 +467,9 @@ var testGrid = []testCase{
 		analyzer: &serviceentry.HTTPSOnHTTPAnalyzer{},
 		expected: []message{
 			{msg.ServiceEntryHTTPSTrafficOnHTTPPort, "ServiceEntry service-entry-test-01.default"},
+			{msg.ServiceEntryHTTPSTrafficOnHTTPPort, "ServiceEntry service-entry-test-03.default"},
+			{msg.ServiceEntryHTTPSTrafficOnHTTPPort, "ServiceEntry service-entry-test-06.default"},
+			{msg.ServiceEntryHTTPSTrafficOnHTTPPort, "ServiceEntry service-entry-test-08.default"},
 		},
 	},
 }

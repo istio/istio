@@ -151,7 +151,7 @@ var (
 
 	// ServiceEntryHTTPSTrafficOnHTTPPort defines a diag.MessageType for message "ServiceEntryHTTPSTrafficOnHTTPPort".
 	// Description: ServiceEntry Sending HTTPS to HTTP port.
-	ServiceEntryHTTPSTrafficOnHTTPPort = diag.NewMessageType(diag.Error, "IST0139", "ServiceEntry Sending HTTPS to HTTP port on %v hosts.")
+	ServiceEntryHTTPSTrafficOnHTTPPort = diag.NewMessageType(diag.Warning, "IST0139", "ServiceEntry Sending HTTPS to HTTP port on %s")
 )
 
 // All returns a list of all known message types.
@@ -550,10 +550,10 @@ func NewGatewayDuplicateCertificate(r *resource.Instance, gateways []string) dia
 }
 
 // NewServiceEntryHTTPSTrafficOnHTTPPort returns a new diag.Message based on ServiceEntryHTTPSTrafficOnHTTPPort.
-func NewServiceEntryHTTPSTrafficOnHTTPPort(r *resource.Instance, hosts []string) diag.Message {
+func NewServiceEntryHTTPSTrafficOnHTTPPort(r *resource.Instance, host string) diag.Message {
 	return diag.NewMessage(
 		ServiceEntryHTTPSTrafficOnHTTPPort,
 		r,
-		hosts,
+		host,
 	)
 }

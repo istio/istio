@@ -399,9 +399,9 @@ messages:
 
   - name: "ServiceEntryHTTPSTrafficOnHTTPPort"
     code: IST0139
-    level: Error
+    level: Warning
     description: "ServiceEntry Sending HTTPS to HTTP port."
-    template: "ServiceEntry Sending HTTPS to HTTP port on %v hosts."
+    template: "ServiceEntry Sending HTTPS to HTTP port on %s"
     args:
-      - name: hosts
-        type: "[]string"
+      - name: host
+        type: "string"
