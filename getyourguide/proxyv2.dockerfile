@@ -11,4 +11,6 @@ RUN PROXY_REPO_SHA=4157a97bd82940cff8f775c42ac00c5219d5609b bash -c "make pilot-
 
 FROM istio/proxyv2:1.1.8
 
+RUN sudo apt update; sudo apt --only-upgrade install sudo
+
 COPY --from=builder /go/out/linux_amd64/release/pilot-agent /usr/local/bin/pilot-agent
