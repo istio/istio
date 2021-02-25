@@ -142,21 +142,25 @@ func extractRevisions(wh *v1.MutatingWebhookConfiguration) []string {
 		revs.Insert(r)
 	}
 	for _, webhook := range wh.Webhooks {
-		if r, f := webhook.NamespaceSelector.MatchLabels[label.IoIstioRev.Name]; f {
-			revs.Insert(r)
+		if webhook.NamespaceSelector != nil {
+			if r, f := webhook.NamespaceSelector.MatchLabels[label.IoIstioRev.Name]; f {
+				revs.Insert(r)
+			}
 		}
-		if r, f := webhook.ObjectSelector.MatchLabels[label.IoIstioRev.Name]; f {
-			revs.Insert(r)
-		}
-
 		for _, ls := range webhook.NamespaceSelector.MatchExpressions {
 			if ls.Key == label.IoIstioRev.Name {
 				revs.Insert(ls.Values...)
 			}
 		}
-		for _, ls := range webhook.ObjectSelector.MatchExpressions {
-			if ls.Key == label.IoIstioRev.Name {
-				revs.Insert(ls.Values...)
+		if webhook.ObjectSelector != nil {
+			if r, f := webhook.ObjectSelector.MatchLabels[label.IoIstioRev.Name]; f {
+				revs.Insert(r)
+			}
+
+			for _, ls := range webhook.ObjectSelector.MatchExpressions {
+				if ls.Key == label.IoIstioRev.Name {
+					revs.Insert(ls.Values...)
+				}
 			}
 		}
 	}
