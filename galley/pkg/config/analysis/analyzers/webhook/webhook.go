@@ -192,23 +192,3 @@ func selectorMatches(selector *metav1.LabelSelector, labels klabels.Set) bool {
 	}
 	return s.Matches(labels)
 }
-
-//
-//func (a *Analyzer) analyzeProtocolAddresses(resource *resource.Instance, context analysis.Context) {
-//	se := resource.Message.(*v1alpha3.ServiceEntry)
-//
-//	if se.Addresses == nil {
-//		for index, port := range se.Ports {
-//			if port.Protocol == "" || port.Protocol == "TCP" {
-//				message := msg.NewServiceEntryAddressesRequired(resource)
-//
-//				if line, ok := util.ErrorLine(resource, fmt.Sprintf(util.ServiceEntryPort, index)); ok {
-//					message.Line = line
-//				}
-//
-//				context.Report(collections.IstioNetworkingV1Alpha3Serviceentries.Name(), message)
-//			}
-//		}
-//	}
-//}
-//
