@@ -21,6 +21,7 @@ import (
 	"time"
 
 	"github.com/miekg/dns"
+	"go.uber.org/atomic"
 
 	nds "istio.io/istio/pilot/pkg/proto"
 )
@@ -92,6 +93,7 @@ func TestDNS(t *testing.T) {
 	testCases := []struct {
 		name                     string
 		host                     string
+		id                       int
 		queryAAAA                bool
 		expected                 []dns.RR
 		expectResolutionFailure  int
@@ -163,6 +165,14 @@ func TestDNS(t *testing.T) {
 		{
 			name: "success: remote cluster k8s svc - same ns and different domain - fqdn",
 			host: "details.ns2.svc.cluster.remote.",
+			id:   2,
+			expected: a("details.ns2.svc.cluster.remote.",
+				[]net.IP{net.ParseIP("12.12.12.12").To4(), net.ParseIP("11.11.11.11").To4()}),
+		},
+		{
+			name: "success: remote cluster k8s svc round robin",
+			host: "details.ns2.svc.cluster.remote.",
+			id:   1,
 			expected: a("details.ns2.svc.cluster.remote.",
 				[]net.IP{net.ParseIP("11.11.11.11").To4(), net.ParseIP("12.12.12.12").To4()}),
 		},
@@ -205,7 +215,12 @@ func TestDNS(t *testing.T) {
 			Net:     "tcp",
 		},
 	}
-
+	currentID := atomic.NewInt32(0)
+	oldID := dns.Id
+	dns.Id = func() uint16 {
+		return uint16(currentID.Load())
+	}
+	defer func() { dns.Id = oldID }()
 	for i := range clients {
 		for _, tt := range testCases {
 			t.Run(clients[i].Net+"-"+tt.name, func(t *testing.T) {
@@ -215,6 +230,10 @@ func TestDNS(t *testing.T) {
 					q = dns.TypeAAAA
 				}
 				m.SetQuestion(tt.host, q)
+				if tt.id != 0 {
+					currentID.Store(int32(tt.id))
+					defer func() { currentID.Store(0) }()
+				}
 				res, _, err := clients[i].Exchange(m, testAgentDNSAddr)
 
 				if err != nil {
