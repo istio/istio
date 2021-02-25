@@ -93,7 +93,7 @@ func (configgen *ConfigGeneratorImpl) BuildNameTable(node *model.Proxy, push *mo
 						// TODO: We should ideally look at pod's DNSDomain. But currently we do not have to
 						// get proxy by IP. We could build that cache in DiscoveryServer or ConfigGenerator.
 						// For now, this serves majority of the use cases.
-						host := pod + "." + svc.Attributes.Name + "." + node.DNSDomain
+						host := pod + "." + string(svc.Hostname)
 						nameInfo := &nds.NameTable_NameInfo{
 							Ips:      address,
 							Registry: svc.Attributes.ServiceRegistry,
