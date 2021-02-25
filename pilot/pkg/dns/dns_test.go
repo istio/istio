@@ -216,12 +216,12 @@ func TestDNS(t *testing.T) {
 			Net:     "tcp",
 		},
 	}
-	currentId := atomic.NewInt32(0)
-	oldId := dns.Id
+	currentID := atomic.NewInt32(0)
+	oldID := dns.Id
 	dns.Id = func() uint16 {
-		return uint16(currentId.Load())
+		return uint16(currentID.Load())
 	}
-	defer func() { dns.Id = oldId }()
+	defer func() { dns.Id = oldID }()
 	for i := range clients {
 		for _, tt := range testCases {
 			t.Run(clients[i].Net+"-"+tt.name, func(t *testing.T) {
@@ -232,8 +232,8 @@ func TestDNS(t *testing.T) {
 				}
 				m.SetQuestion(tt.host, q)
 				if tt.id != 0 {
-					currentId.Store(int32(tt.id))
-					defer func() { currentId.Store(0) }()
+					currentID.Store(int32(tt.id))
+					defer func() { currentID.Store(0) }()
 				}
 				res, _, err := clients[i].Exchange(m, testAgentDNSAddr)
 
