@@ -2558,6 +2558,7 @@ webhooks:
           - "true"
       - key: istio.io/rev
         operator: DoesNotExist
+<<<<<<< HEAD
 ---
 # Source: istio-discovery/templates/mutatingwebhook.yaml
 apiVersion: admissionregistration.k8s.io/v1beta1
@@ -2572,3 +2573,5 @@ metadata:
     release: istio
 webhooks:
 >>>>>>> ff60deb3f1 (make gen)
+=======
+>>>>>>> 7649d94531 (gaurd against empty istio-sidecar-injector-default webhook configuration)

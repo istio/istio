@@ -118,6 +118,7 @@ webhooks:
 {{- end }}
 ---
 {{- /* Installed for each revision - not installed for cluster resources ( cluster roles, bindings, crds) */}}
+{{- if or (ne .Values.revision "") (eq .Values.sidecarInjectorWebhook.useLegacySelectors true) }}
 apiVersion: admissionregistration.k8s.io/v1beta1
 kind: MutatingWebhookConfiguration
 metadata:
@@ -226,6 +227,7 @@ webhooks:
       values:
       - "{{ .Values.revision }}"
 
+{{- end }}
 {{- end }}
 {{- end }}
 {{- end }}
