@@ -2216,6 +2216,7 @@ func filterChainMatchEqual(first *listener.FilterChainMatch, second *listener.Fi
 	if first.DestinationPort.GetValue() != second.DestinationPort.GetValue() {
 		return false
 	}
+	// TODO the cidr ranges order shouldn't matter... also the ranges overlapping should cause conflict
 	if !util.CidrRangeSliceEqual(first.PrefixRanges, second.PrefixRanges) {
 		return false
 	}
