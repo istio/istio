@@ -27,7 +27,7 @@ func toStatusValue(msgs diag.Messages) interface{} {
 		return nil
 	}
 
-	result := make([]interface{}, 0)
+	result := make([]interface{}, 0, len(msgs))
 	for _, m := range msgs {
 		m.DocRef = DocRef
 
