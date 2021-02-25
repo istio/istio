@@ -30,7 +30,7 @@ spec:
           distribution: gke
           provisionerArgs:
             username: prowuser
-            workerNumNodes: "2"
+            workerNumNodes: "4"
             gkectlVersion: "latest"
             vipNetwork: "fe"
             # Assign the first cluster under one VPC
@@ -51,7 +51,7 @@ spec:
           distribution: gke
           provisionerArgs:
             username: prowuser
-            workerNumNodes: "2"
+            workerNumNodes: "4"
             gkectlVersion: "latest"
             vipNetwork: "fe"
             # Assign the second cluster under a second VPC
