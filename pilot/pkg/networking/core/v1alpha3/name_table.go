@@ -23,6 +23,11 @@ import (
 	"istio.io/istio/pkg/config/constants"
 )
 
+// This is used to identify the stateful set pod name so that we can build the service name
+// and add per pod entry to the name table.
+// Refer to https://kubernetes.io/docs/concepts/workloads/controllers/statefulset/#pod-name-label.
+const StatefulSetPodLabel = "statefulset.kubernetes.io/pod-name"
+
 // BuildNameTable produces a table of hostnames and their associated IPs that can then
 // be used by the agent to resolve DNS. This logic is always active. However, local DNS resolution
 // will only be effective if DNS capture is enabled in the proxy
@@ -82,9 +87,13 @@ func (configgen *ConfigGeneratorImpl) BuildNameTable(node *model.Proxy, push *mo
 				for _, instance := range push.ServiceInstancesByPort(svc, svc.Ports[0].Port, nil) {
 					// TODO: should we skip the node's own IP like we do in listener?
 					addressList = append(addressList, instance.Endpoint.Address)
-					if pod, ok := instance.Endpoint.Labels["statefulset.kubernetes.io/pod-name"]; ok {
+					if pod, ok := instance.Endpoint.Labels[StatefulSetPodLabel]; ok {
 						address := []string{instance.Endpoint.Address}
-						host := pod + "." + svc.Attributes.Name + "." + svc.Attributes.Namespace + "." + node.DNSDomain // Follow k8s name convention.
+						// Follow k8s naming convention of "pod.svcname.namespace.dnsdomain".
+						// TODO: We should ideally look at pod's DNSDomain. But currently we do not have to
+						// get proxy by IP. We could build that cache in DiscoveryServer or ConfigGenerator.
+						// For now, this serves majority of the use cases.
+						host := pod + "." + svc.Attributes.Name + "." + node.DNSDomain
 						nameInfo := &nds.NameTable_NameInfo{
 							Ips:      address,
 							Registry: svc.Attributes.ServiceRegistry,
@@ -93,7 +102,7 @@ func (configgen *ConfigGeneratorImpl) BuildNameTable(node *model.Proxy, push *mo
 							// The agent will take care of resolving a, a.ns, a.ns.svc, etc.
 							// No need to provide a DNS entry for each variant.
 							nameInfo.Namespace = svc.Attributes.Namespace
-							nameInfo.Shortname = pod + svc.Attributes.Name
+							nameInfo.Shortname = pod + "." + svc.Attributes.Name
 						}
 						out.Table[string(host)] = nameInfo
 					}
