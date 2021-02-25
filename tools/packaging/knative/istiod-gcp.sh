@@ -194,7 +194,7 @@ kubectl get mutatingwebhookconfiguration "istiod-${REVISION}"
 # shellcheck disable=SC2181
 if [[ "$?" == "1" ]]; then
   echo "Mutating webhook missing, initializing"
-  envsubst < /var/lib/istio/inject/mutating_template.yaml > /var/lib/istio/inject/mutating.yaml
+  envsubst < /var/lib/istio/inject/mutatingwebhook.yaml > /var/lib/istio/inject/mutating.yaml
   cat /var/lib/istio/inject/mutating.yaml
   kubectl apply -f /var/lib/istio/inject/mutating.yaml
 else

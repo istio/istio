@@ -50,6 +50,12 @@ $(ISTIO_OUT)/knative/injection-template.yaml: manifests/charts/istio-control/ist
 	echo -e "\n  sidecar: |-" >> ${ISTIO_OUT}/knative/injection-template.yaml
 	cat manifests/charts/istio-control/istio-discovery/files/injection-template.yaml | sed 's/^/    /g' >> ${ISTIO_OUT}/knative/injection-template.yaml
 
+$(ISTIO_OUT)/knative/mutatingwebhook.yaml: manifests/charts/istio-control/istio-discovery/templates/mutatingwebhook.yaml
+	mkdir -p $(ISTIO_OUT)/knative-wh/templates
+	cp manifests/charts/istio-control/istio-discovery/templates/mutatingwebhook.yaml ${ISTIO_OUT}/knative-wh/templates
+	cp manifests/charts/istio-control/istio-discovery/Chart.yaml ${ISTIO_OUT}/knative-wh/Chart.yaml
+	helm template istio $(ISTIO_OUT)/knative-wh -n istio-system -f tools/packaging/knative/values.webhook.yaml | sed 's/name: istio-sidecar-injector-/name: istiod-/g' > $@
+
 gen-gateway:
 	helm template istio-asm manifests/charts/gateways/istio-ingress \
  		-n istio-system \
