@@ -73,6 +73,7 @@ func (configgen *ConfigGeneratorImpl) BuildNameTable(node *model.Proxy, push *mo
 		// IP allocation logic for service entry was unable to allocate an IP.
 		if svcAddress == constants.UnspecifiedIP {
 			// For all k8s headless services, populate the dns table with the endpoint IPs as k8s does.
+			// We return a stable list to the proxy, which will randomize the response in each DNS query.
 			// TODO: Need to have an entry per pod hostname of stateful set but for this, we need to parse
 			// the stateful set object, associate the object with the appropriate kubernetes headless service
 			// and then derive the stable network identities.
@@ -81,6 +82,17 @@ func (configgen *ConfigGeneratorImpl) BuildNameTable(node *model.Proxy, push *mo
 				// TODO: this is used in two places now. Needs to be cached as part of the headless service
 				// object to avoid the costly lookup in the registry code
 				for _, instance := range push.ServiceInstancesByPort(svc, svc.Ports[0].Port, nil) {
+					if instance.Endpoint.Locality.ClusterID != node.Metadata.ClusterID {
+						// We take only cluster-local endpoints. While this seems contradictory to
+						// our logic other parts of the code, where cross-cluster is the default.
+						// However, this only impacts the DNS response. If we were to send all
+						// endpoints, cross network routing would break, as we do passthrough LB and
+						// don't go through the network gateway. While we could, hypothetically, send
+						// "network-local" endpoints, this would still make enabling DNS give vastly
+						// different load balancing than without, so its probably best to filter.
+						// This ends up matching the behavior of Kubernetes DNS.
+						continue
+					}
 					// TODO: should we skip the node's own IP like we do in listener?
 					addressList = append(addressList, instance.Endpoint.Address)
 				}
