@@ -499,6 +499,8 @@ func (s *DiscoveryServer) adsz(w http.ResponseWriter, req *http.Request) {
 	}
 
 	adsClients := &AdsClients{}
+	connections := s.Clients()
+	adsClients.Total = len(connections)
 	for _, c := range s.Clients() {
 		adsClient := AdsClient{
 			ConnectionID: c.ConID,
