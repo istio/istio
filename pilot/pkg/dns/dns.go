@@ -259,7 +259,6 @@ func roundRobinShuffle(records []dns.RR) {
 	case 0, 1:
 		break
 	case 2:
-		log.Errorf("howardjohn: ID: %v", dns.Id())
 		if dns.Id()%2 == 0 {
 			records[0], records[1] = records[1], records[0]
 		}
