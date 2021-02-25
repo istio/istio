@@ -104,7 +104,7 @@ func (configgen *ConfigGeneratorImpl) BuildNameTable(node *model.Proxy, push *mo
 							nameInfo.Namespace = svc.Attributes.Namespace
 							nameInfo.Shortname = pod + "." + svc.Attributes.Name
 						}
-						out.Table[string(host)] = nameInfo
+						out.Table[host] = nameInfo
 					}
 				}
 			}
