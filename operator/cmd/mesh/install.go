@@ -363,5 +363,5 @@ func getProfileNSAndEnabledComponents(iop *v1alpha12.IstioOperator) (string, str
 // existingDefaultRevision determines if there's an existing default revision in the cluster.
 func existingDefaultRevision(cs kubernetes.Interface, istioNs string) bool {
 	_, err := cs.CoreV1().Services(istioNs).Get(context.TODO(), "istiod", metav1.GetOptions{})
-	return kerrors.IsNotFound(err)
+	return !kerrors.IsNotFound(err)
 }
