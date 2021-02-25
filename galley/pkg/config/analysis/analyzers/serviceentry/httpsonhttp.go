@@ -91,7 +91,10 @@ func (serviceEntry *HTTPSOnHTTPAnalyzer) getDestinationRules(host string, contex
 	return destinationRules
 }
 
-func (serviceEntry *HTTPSOnHTTPAnalyzer) checkDestinationRulesPerformTLSOrigination(destinationRulesName []resource.FullName, port uint32, context analysis.Context) bool {
+func (serviceEntry *HTTPSOnHTTPAnalyzer) checkDestinationRulesPerformTLSOrigination(
+	destinationRulesName []resource.FullName,
+	port uint32,
+	context analysis.Context) bool {
 	for _, destinationRuleName := range destinationRulesName {
 		destinationRuleInstance := context.Find(collections.IstioNetworkingV1Alpha3Destinationrules.Name(), destinationRuleName)
 		destinationRule := destinationRuleInstance.Message.(*v1alpha3.DestinationRule)
