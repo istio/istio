@@ -2217,6 +2217,8 @@ func filterChainMatchEqual(first *listener.FilterChainMatch, second *listener.Fi
 		return false
 	}
 	// TODO the cidr ranges order shouldn't matter... also the ranges overlapping should cause conflict
+	// TODO need to check if the serviceentry_simulation sample (significant bits of cidr range are identical) triggers this conflict.
+	// TODO can we merge them?
 	if !util.CidrRangeSliceEqual(first.PrefixRanges, second.PrefixRanges) {
 		return false
 	}

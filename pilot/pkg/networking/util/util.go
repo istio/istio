@@ -656,6 +656,17 @@ func CidrRangeSliceEqual(a, b []*core.CidrRange) bool {
 	return true
 }
 
+func CidrRangeSliceOverlap(a, b []*core.CidrRange) bool {
+	for _, a := range a {
+		for _, b := range b {
+			if CIDRRangeOverlap(a, b) {
+				return true
+			}
+		}
+	}
+	return false
+}
+
 // meshconfig ForwardClientCertDetails and the Envoy config enum are off by 1
 // due to the UNDEFINED in the meshconfig ForwardClientCertDetails
 func MeshConfigToEnvoyForwardClientCertDetails(c meshconfig.Topology_ForwardClientCertDetails) http_conn.HttpConnectionManager_ForwardClientCertDetails {
