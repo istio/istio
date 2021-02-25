@@ -15,21 +15,57 @@
 package gogo
 
 import (
+	"fmt"
+
+	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"
+	"github.com/golang/protobuf/ptypes/any"
 	"github.com/golang/protobuf/ptypes/duration"
 	"github.com/golang/protobuf/ptypes/wrappers"
 
-	"istio.io/istio/pkg/proto"
+	iproto "istio.io/istio/pkg/proto"
+	"istio.io/pkg/log"
 )
+
+// MessageToAnyWithError converts from proto message to proto Any
+func MessageToAnyWithError(msg proto.Message) (*any.Any, error) {
+	b := proto.NewBuffer(nil)
+	err := b.Marshal(msg)
+	if err != nil {
+		return nil, err
+	}
+	return &any.Any{
+		// nolint: staticcheck
+		TypeUrl: "type.googleapis.com/" + proto.MessageName(msg),
+		Value:   b.Bytes(),
+	}, nil
+}
+
+// MessageToAny converts from proto message to proto Any
+func MessageToAny(msg proto.Message) *any.Any {
+	out, err := MessageToAnyWithError(msg)
+	if err != nil {
+		log.Error(fmt.Sprintf("error marshaling Any %s: %v", msg.String(), err))
+		return nil
+	}
+	return out
+}
+
+func ConvertAny(golang *any.Any) *types.Any {
+	if golang == nil {
+		return nil
+	}
+	return &types.Any{Value: golang.Value, TypeUrl: golang.TypeUrl}
+}
 
 func BoolToProtoBool(gogo *types.BoolValue) *wrappers.BoolValue {
 	if gogo == nil {
 		return nil
 	}
 	if gogo.Value {
-		return proto.BoolTrue
+		return iproto.BoolTrue
 	}
-	return proto.BoolFalse
+	return iproto.BoolFalse
 }
 
 func DurationToProtoDuration(gogo *types.Duration) *duration.Duration {

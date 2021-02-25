@@ -190,7 +190,7 @@ func NewDiscoveryServer(env *model.Environment, plugins []string, instanceID str
 		out.ConfigUpdate(&model.PushRequest{Full: true, Reason: []model.TriggerReason{model.UnknownTrigger}})
 	}
 
-	out.initGenerators()
+	out.initGenerators(env)
 
 	if features.EnableXDSCaching {
 		out.Cache = model.NewXdsCache()
@@ -488,7 +488,7 @@ func (s *DiscoveryServer) sendPushes(stopCh <-chan struct{}) {
 }
 
 // initGenerators initializes generators to be used by XdsServer.
-func (s *DiscoveryServer) initGenerators() {
+func (s *DiscoveryServer) initGenerators(env *model.Environment) {
 	edsGen := &EdsGenerator{Server: s}
 	s.StatusGen = NewStatusGen(s)
 	s.Generators[v3.ClusterType] = &CdsGenerator{Server: s}
@@ -497,6 +497,7 @@ func (s *DiscoveryServer) initGenerators() {
 	s.Generators[v3.EndpointType] = edsGen
 	s.Generators[v3.NameTableType] = &NdsGenerator{Server: s}
 	s.Generators[v3.ExtensionConfigurationType] = &EcdsGenerator{Server: s}
+	s.Generators[v3.ProxyConfigType] = &PcdsGenerator{Server: s, TrustBundle: env.TrustBundle}
 
 	s.Generators["grpc"] = &grpcgen.GrpcConfigGenerator{}
 	s.Generators["grpc/"+v3.EndpointType] = edsGen

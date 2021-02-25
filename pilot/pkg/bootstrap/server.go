@@ -203,15 +203,16 @@ func NewServer(args *PilotArgs) (*Server, error) {
 	e.ServiceDiscovery = ac
 
 	s := &Server{
-		clusterID:       getClusterID(args),
-		environment:     e,
-		fileWatcher:     filewatcher.NewWatcher(),
-		httpMux:         http.NewServeMux(),
-		monitoringMux:   http.NewServeMux(),
-		readinessProbes: make(map[string]readinessProbe),
+		clusterID:           getClusterID(args),
+		environment:         e,
+		fileWatcher:         filewatcher.NewWatcher(),
+		httpMux:             http.NewServeMux(),
+		monitoringMux:       http.NewServeMux(),
+		readinessProbes:     make(map[string]readinessProbe),
+		workloadTrustBundle: tb.NewTrustBundle(),
 	}
 	// Initialize workload Trust Bundle before XDS Server
-	s.workloadTrustBundle = tb.NewTrustBundle()
+	e.TrustBundle = s.workloadTrustBundle
 	s.XDSServer = xds.NewDiscoveryServer(e, args.Plugins, args.PodName)
 
 	if args.ShutdownDuration == 0 {
@@ -1227,10 +1228,11 @@ func (s *Server) initWorkloadTrustBundle() {
 	var err error
 
 	s.workloadTrustBundle.UpdateCb(func() {
-		s.XDSServer.ConfigUpdate(&model.PushRequest{
+		pushReq := &model.PushRequest{
 			Full:   true,
 			Reason: []model.TriggerReason{model.GlobalUpdate},
-		})
+		}
+		s.XDSServer.ConfigUpdate(pushReq)
 	})
 	// MeshConfig: Add initial roots
 	s.workloadTrustBundle.AddMeshConfigUpdate(s.environment.Mesh())

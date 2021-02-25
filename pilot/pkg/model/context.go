@@ -34,6 +34,7 @@ import (
 	structpb "github.com/golang/protobuf/ptypes/struct"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
+	"istio.io/istio/pilot/pkg/trustbundle"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/labels"
@@ -78,6 +79,9 @@ type Environment struct {
 	DomainSuffix string
 
 	ledger ledger.Ledger
+
+	// TrustBundle: List of Mesh TrustAnchors
+	TrustBundle *trustbundle.TrustBundle
 }
 
 func (e *Environment) GetDomainSuffix() string {
