@@ -399,7 +399,10 @@ func TestJwtRefreshIntervalRecoverFromInitialFailOnFirstHit(t *testing.T) {
 		t.Fatalf("GetPublicKey(%q, %+v) fails: expected error, got no error: (%v)", pk, mockCertURL, err)
 	}
 
-	time.Sleep(150 * time.Millisecond)
+	retry.UntilOrFail(t, func() bool {
+		pk, _ := r.GetPublicKey("", mockCertURL)
+		return test.JwtPubKey1 == pk
+	}, retry.Delay(time.Millisecond))
 	r.Close()
 
 	i := 0
@@ -436,7 +439,10 @@ func TestJwtRefreshIntervalRecoverFromFail(t *testing.T) {
 		t.Fatalf("GetPublicKey(%q, %+v) fails: expected no error, got (%v)", "", mockCertURL, err)
 	}
 
-	time.Sleep(150 * time.Millisecond)
+	retry.UntilOrFail(t, func() bool {
+		pk, _ := r.GetPublicKey("", mockCertURL)
+		return test.JwtPubKey1 == pk
+	}, retry.Delay(time.Millisecond))
 	r.Close()
 
 	if r.refreshInterval != defaultRefreshInterval {
@@ -483,12 +489,12 @@ func TestJwtPubKeyMetric(t *testing.T) {
 			expectedJwtPubkey: test.JwtPubKey1,
 		},
 	}
+
 	for _, c := range cases {
-		pk, _ := r.GetPublicKey(c.in[0], c.in[1])
-		time.Sleep(60 * time.Millisecond)
-		if c.expectedJwtPubkey != pk {
-			t.Errorf("GetPublicKey(\"\", %+v): expected (%s), got (%s)", c.in, c.expectedJwtPubkey, pk)
-		}
+		retry.UntilOrFail(t, func() bool {
+			pk, _ := r.GetPublicKey(c.in[0], c.in[1])
+			return c.expectedJwtPubkey == pk
+		}, retry.Delay(time.Millisecond))
 	}
 
 	successValueAfter := getCounterValue(networkFetchSuccessCounter.Name(), t)
