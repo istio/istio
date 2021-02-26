@@ -368,10 +368,10 @@ func (eds *EdsGenerator) Generate(proxy *model.Proxy, push *model.PushContext, w
 	}
 	if len(edsUpdatedServices) == 0 {
 		adsLog.Infof("EDS: PUSH%s for node:%s resources:%d size:%s empty:%v cached:%v/%v",
-			req.PushType, proxy.ID, len(resources), util.ByteCount(ResourceSize(resources)), empty, cached, cached+regenerated)
+			req.PushReason(), proxy.ID, len(resources), util.ByteCount(ResourceSize(resources)), empty, cached, cached+regenerated)
 	} else if adsLog.DebugEnabled() {
 		adsLog.Debugf("EDS: PUSH INC%s for node:%s clusters:%d size:%s empty:%v cached:%v/%v",
-			req.PushType, proxy.ID, len(resources), util.ByteCount(ResourceSize(resources)), empty, cached, cached+regenerated)
+			req.PushReason(), proxy.ID, len(resources), util.ByteCount(ResourceSize(resources)), empty, cached, cached+regenerated)
 	}
 	return resources, nil
 }

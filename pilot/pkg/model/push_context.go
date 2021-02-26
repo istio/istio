@@ -307,18 +307,7 @@ type PushRequest struct {
 	// There should only be multiple reasons if the push request is the result of two distinct triggers, rather than
 	// classifying a single trigger as having multiple reasons.
 	Reason []TriggerReason
-
-	// PushType declares the type of push this is. Support values are currently PushTypeRequest, for
-	// responses to XDS requests, and PushTypePush for Istiod-originated pushes.
-	PushType PushType
 }
-
-type PushType string
-
-const (
-	PushTypeRequest PushType = " for request"
-	PushTypePush    PushType = ""
-)
 
 type TriggerReason string
 
@@ -341,26 +330,28 @@ const (
 	SecretTrigger TriggerReason = "secret"
 	// Describes a push triggered for Networks change
 	NetworksTrigger TriggerReason = "networks"
+	// Desribes a push triggered based on proxy request
+	ProxyRequest TriggerReason = "proxyrequest"
 )
 
 // Merge two update requests together
-func (first *PushRequest) Merge(other *PushRequest) *PushRequest {
-	if first == nil {
+func (pr *PushRequest) Merge(other *PushRequest) *PushRequest {
+	if pr == nil {
 		return other
 	}
 	if other == nil {
-		return first
+		return pr
 	}
 
-	reason := make([]TriggerReason, 0, len(first.Reason)+len(other.Reason))
-	reason = append(reason, first.Reason...)
+	reason := make([]TriggerReason, 0, len(pr.Reason)+len(other.Reason))
+	reason = append(reason, pr.Reason...)
 	reason = append(reason, other.Reason...)
 	merged := &PushRequest{
 		// Keep the first (older) start time
-		Start: first.Start,
+		Start: pr.Start,
 
 		// If either is full we need a full push
-		Full: first.Full || other.Full,
+		Full: pr.Full || other.Full,
 
 		// The other push context is presumed to be later and more up to date
 		Push: other.Push,
@@ -370,9 +361,9 @@ func (first *PushRequest) Merge(other *PushRequest) *PushRequest {
 	}
 
 	// Do not merge when any one is empty
-	if len(first.ConfigsUpdated) > 0 && len(other.ConfigsUpdated) > 0 {
-		merged.ConfigsUpdated = make(map[ConfigKey]struct{}, len(first.ConfigsUpdated)+len(other.ConfigsUpdated))
-		for conf := range first.ConfigsUpdated {
+	if len(pr.ConfigsUpdated) > 0 && len(other.ConfigsUpdated) > 0 {
+		merged.ConfigsUpdated = make(map[ConfigKey]struct{}, len(pr.ConfigsUpdated)+len(other.ConfigsUpdated))
+		for conf := range pr.ConfigsUpdated {
 			merged.ConfigsUpdated[conf] = struct{}{}
 		}
 		for conf := range other.ConfigsUpdated {
@@ -381,6 +372,13 @@ func (first *PushRequest) Merge(other *PushRequest) *PushRequest {
 	}
 
 	return merged
+}
+
+func (pr *PushRequest) PushReason() string {
+	if len(pr.Reason) == 1 && pr.Reason[0] == ProxyRequest {
+		return "for request"
+	}
+	return ""
 }
 
 // ProxyPushStatus represents an event captured during config push to proxies.
