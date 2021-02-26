@@ -1800,12 +1800,7 @@ func TestApplyLoadBalancer(t *testing.T) {
 		expectedLocalityWeightedConfig bool
 	}{
 		{
-			name:             "lb = nil ORIGINAL_DST discovery type",
-			discoveryType:    cluster.Cluster_ORIGINAL_DST,
-			expectedLbPolicy: cluster.Cluster_CLUSTER_PROVIDED,
-		},
-		{
-			name:             "lb = nil redis protocol",
+			name:             "redis protocol",
 			discoveryType:    cluster.Cluster_EDS,
 			port:             &model.Port{Protocol: protocol.Redis},
 			expectedLbPolicy: cluster.Cluster_MAGLEV,
