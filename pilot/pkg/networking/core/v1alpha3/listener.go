@@ -1224,7 +1224,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundTCPListenerOptsForPort
 	return true, buildSidecarOutboundTCPTLSFilterChainOpts(listenerOpts.proxy,
 		listenerOpts.push, virtualServices,
 		*destinationCIDR, listenerOpts.service,
-		listenerOpts.port, meshGateway)
+		listenerOpts.bind, listenerOpts.port, meshGateway)
 }
 
 // buildSidecarOutboundListenerForPortOrUDS builds a single listener and
