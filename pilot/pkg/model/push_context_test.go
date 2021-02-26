@@ -330,7 +330,7 @@ func TestServiceIndex(t *testing.T) {
 	si := pc.ServiceIndex
 
 	// Should have all 5 services
-	g.Expect(si.InstancesByPort).To(HaveLen(5))
+	g.Expect(si.instancesByPort).To(HaveLen(5))
 	g.Expect(si.ClusterVIPs).To(HaveLen(5))
 	g.Expect(si.HostnameAndNamespace).To(HaveLen(5))
 
@@ -338,7 +338,7 @@ func TestServiceIndex(t *testing.T) {
 	g.Expect(si.exportedToNamespace).To(HaveLen(1))
 	g.Expect(serviceNames(si.exportedToNamespace["namespace"])).To(Equal([]string{"svc-namespace"}))
 
-	g.Expect(serviceNames(si.Public)).To(Equal([]string{"svc-public", "svc-unset"}))
+	g.Expect(serviceNames(si.public)).To(Equal([]string{"svc-public", "svc-unset"}))
 
 	// Should just have "test1"
 	g.Expect(si.privateByNamespace).To(HaveLen(1))
