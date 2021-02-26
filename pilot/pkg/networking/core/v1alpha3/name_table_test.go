@@ -18,7 +18,6 @@ import (
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
-
 	v1 "k8s.io/api/apps/v1"
 
 	"istio.io/istio/pilot/pkg/model"
