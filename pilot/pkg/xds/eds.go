@@ -22,6 +22,7 @@ import (
 	"github.com/golang/protobuf/ptypes/any"
 
 	networkingapi "istio.io/api/networking/v1alpha3"
+	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	networking "istio.io/istio/pilot/pkg/networking/core/v1alpha3"
 	"istio.io/istio/pilot/pkg/networking/core/v1alpha3/loadbalancer"
@@ -163,6 +164,18 @@ func (s *DiscoveryServer) edsCacheUpdate(clusterID, hostname string, namespace s
 	}
 	ep.Shards[clusterID] = istioEndpoints
 	ep.ServiceAccounts = serviceAccounts
+	// Clear the cache here. While it would likely be cleared later when we trigger a push, a race
+	// condition is introduced where an XDS response may be generated before the update, but not
+	// completed until after a response after the update. Essentially, we transition from v0 -> v1 ->
+	// v0 -> invalidate -> v1. Reverting a change we pushed violates our contract of monotonically
+	// moving forward in version. In practice, this is pretty rare and self corrects nearly
+	// immediately. However, clearing the cache here has almost no impact on cache performance as we
+	// would clear it shortly after anyways.
+	s.Cache.Clear(map[model.ConfigKey]struct{}{{
+		Kind:      gvk.ServiceEntry,
+		Name:      hostname,
+		Namespace: namespace,
+	}: {}})
 	ep.mutex.Unlock()
 
 	return fullPush
@@ -197,6 +210,12 @@ func (s *DiscoveryServer) deleteEndpointShards(cluster, serviceName, namespace s
 		s.EndpointShardsByService[serviceName][namespace] != nil {
 		s.EndpointShardsByService[serviceName][namespace].mutex.Lock()
 		delete(s.EndpointShardsByService[serviceName][namespace].Shards, cluster)
+		// Clear the cache here to avoid race in cache writes (see edsCacheUpdate for details).
+		s.Cache.Clear(map[model.ConfigKey]struct{}{{
+			Kind:      gvk.ServiceEntry,
+			Name:      serviceName,
+			Namespace: namespace,
+		}: {}})
 		s.EndpointShardsByService[serviceName][namespace].mutex.Unlock()
 	}
 }
@@ -213,6 +232,12 @@ func (s *DiscoveryServer) deleteService(cluster, serviceName, namespace string) 
 		s.EndpointShardsByService[serviceName][namespace].mutex.Lock()
 		delete(s.EndpointShardsByService[serviceName][namespace].Shards, cluster)
 		shards := len(s.EndpointShardsByService[serviceName][namespace].Shards)
+		// Clear the cache here to avoid race in cache writes (see edsCacheUpdate for details).
+		s.Cache.Clear(map[model.ConfigKey]struct{}{{
+			Kind:      gvk.ServiceEntry,
+			Name:      serviceName,
+			Namespace: namespace,
+		}: {}})
 		s.EndpointShardsByService[serviceName][namespace].mutex.Unlock()
 
 		if shards == 0 {
@@ -348,7 +373,8 @@ func (eds *EdsGenerator) Generate(proxy *model.Proxy, push *model.PushContext, w
 			}
 		}
 		builder := NewEndpointBuilder(clusterName, proxy, push)
-		if marshalledEndpoint, f := eds.Server.Cache.Get(builder); f {
+		if marshalledEndpoint, token, f := eds.Server.Cache.Get(builder); f && !features.EnableUnsafeAssertions {
+			// We skip cache if assertions are enabled, so that the cache will assert our eviction logic is correct
 			resources = append(resources, marshalledEndpoint)
 			cached++
 		} else {
@@ -363,7 +389,7 @@ func (eds *EdsGenerator) Generate(proxy *model.Proxy, push *model.PushContext, w
 			}
 			resource := util.MessageToAny(l)
 			resources = append(resources, resource)
-			eds.Server.Cache.Add(builder, resource)
+			eds.Server.Cache.Add(builder, token, resource)
 		}
 	}
 	if len(edsUpdatedServices) == 0 {
