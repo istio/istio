@@ -349,6 +349,7 @@ else
   # DISABLED_TESTS contains a list of all tests we skip
   # pilot/ tests
   DISABLED_TESTS="TestWait|TestVersion|TestProxyStatus" # UNSUPPORTED: istioctl doesn't work
+  DISABLED_TESTS+="|TestAnalysisWritesStatus" # UNSUPPORTED: require custom installation
   DISABLED_TESTS+="|TestMultiVersionRevision" # UNSUPPORTED: deploys istiod in the cluster, which fails since its using the wrong root cert
   DISABLED_TESTS+="|TestVmOSPost" # BROKEN: temp, pending oss pr
   DISABLED_TESTS+="|TestVMRegistrationLifecycle" # UNSUPPORTED: Attempts to interact with Istiod directly
@@ -402,7 +403,7 @@ else
   --istio.test.skipVM=true \
   --istio.test.skip=\"${DISABLED_TESTS}\" \
   --istio.test.skip=\"TestRequestAuthentication/.*/valid-token-forward-remote-jwks\"" # UNSUPPORTED: relies on custom options
-  elif [[ "${CLUSTER_TOPOLOGY}" == "MULTICLUSTER" ]]; then
+  elif [[ "${CLUSTER_TOPOLOGY}" == "MULTICLUSTER" || "${CLUSTER_TOPOLOGY}" == "mc" ]]; then
     echo "Running integration test with ASM managed control plane and ${CLUSTER_TOPOLOGY} topology"
 
     echo "Processing kubeconfig files for running the tests..."
@@ -431,6 +432,7 @@ else
     INTEGRATION_TEST_FLAGS+=" --istio.test.skipVM"
     # Skip the tests that are known to be not working.
     INTEGRATION_TEST_FLAGS+=" --istio.test.skip=\"${DISABLED_TESTS}\""
+    INTEGRATION_TEST_FLAGS+=" --istio.test.skip=\"TestRequestAuthentication/.*/valid-token-forward-remote-jwks\"" # UNSUPPORTED: relies on custom options
 
     echo "Running e2e test: ${TEST_TARGET}..."
     export DISABLED_PACKAGES
