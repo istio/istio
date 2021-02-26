@@ -150,7 +150,7 @@ var (
 	GatewayDuplicateCertificate = diag.NewMessageType(diag.Warning, "IST0138", "Duplicate certificate in multiple gateways %v may cause 404s if clients re-use HTTP2 connections.")
 
 	// InvalidWebhook defines a diag.MessageType for message "InvalidWebhook".
-	// Description: Webhook is invalid
+	// Description: Webhook is invalid or references a control plane service that does not exist.
 	InvalidWebhook = diag.NewMessageType(diag.Error, "IST0139", "%v")
 )
 

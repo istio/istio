@@ -400,7 +400,7 @@ messages:
   - name: "InvalidWebhook"
     code: IST0139
     level: Error
-    description: "Webhook is invalid"
+    description: "Webhook is invalid or references a control plane service that does not exist."
     template: "%v"
     args:
       - name: error

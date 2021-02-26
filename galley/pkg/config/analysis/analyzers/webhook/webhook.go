@@ -135,7 +135,7 @@ func (a *Analyzer) Analyze(context analysis.Context) {
 				resource.LocalName(wh.ClientConfig.Service.Name))
 			if !context.Exists(serviceCol, fname) {
 				context.Report(webhookCol, msg.NewInvalidWebhook(resources[fmt.Sprintf("%v/%v", name, wh.Name)],
-					fmt.Sprintf("Webhook refers to a service that does not exist: %v.", fname)))
+					fmt.Sprintf("Injector refers to a control plane service that does not exist: %v.", fname)))
 			}
 		}
 	}
