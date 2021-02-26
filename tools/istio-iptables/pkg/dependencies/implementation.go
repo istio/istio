@@ -39,7 +39,7 @@ func (r *RealDependencies) execute(cmd string, redirectStdout bool, args ...stri
 func (r *RealDependencies) RunOrFail(cmd string, args ...string) {
 	err := r.execute(cmd, false, args...)
 	if err != nil {
-		fmt.Println("error occurreed panicking ..", err.Error())
+		fmt.Printf("error occurred while executing command %s: %s \n", cmd, err.Error())
 		panic(err)
 	}
 }
