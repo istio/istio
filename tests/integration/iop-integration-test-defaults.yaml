@@ -54,6 +54,7 @@ spec:
 
     pilot:
       env:
+        GORACE: "halt_on_error=1"
         ENABLE_ADMIN_ENDPOINTS: true
         PILOT_ENABLE_CROSS_CLUSTER_WORKLOAD_ENTRY: true
 

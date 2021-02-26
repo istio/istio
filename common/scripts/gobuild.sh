@@ -49,7 +49,7 @@ GOBUILDFLAGS=${GOBUILDFLAGS:-""}
 IFS=' ' read -r -a GOBUILDFLAGS_ARRAY <<< "$GOBUILDFLAGS"
 
 GCFLAGS=${GCFLAGS:-}
-export CGO_ENABLED=0
+export CGO_ENABLED=1
 
 if [[ "${STATIC}" !=  "1" ]];then
     LDFLAGS=""
@@ -85,7 +85,7 @@ fi
 
 time GOOS=${BUILD_GOOS} GOARCH=${BUILD_GOARCH} ${GOBINARY} build \
         ${V} "${GOBUILDFLAGS_ARRAY[@]}" ${GCFLAGS:+-gcflags "${GCFLAGS}"} \
-        -o "${OUT}" \
+        -o "${OUT}" -race \
         "${OPTIMIZATION_FLAGS[@]}" \
         -pkgdir="${GOPKG}/${BUILD_GOOS}_${BUILD_GOARCH}" \
         -ldflags "${LDFLAGS} ${LD_EXTRAFLAGS}" "${@}"
