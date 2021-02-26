@@ -193,6 +193,21 @@ spec:
           host: c
           subset: v2
         weight: 25`
+	validVirtualService2 = `
+apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
+metadata:
+  name: valid-virtual-service2
+spec:
+  exportTo:
+  - '.'
+  hosts:
+  - d
+  http:
+  - route:
+    - destination:
+        host: c
+        subset: v1`
 	invalidVirtualService = `
 apiVersion: networking.istio.io/v1alpha3
 kind: VirtualService
@@ -420,6 +435,11 @@ func TestValidateResource(t *testing.T) {
 			valid: true,
 			warn:  true,
 		},
+		{
+			name:  "exportTo=.",
+			in:    validVirtualService2,
+			valid: true,
+		},
 	}
 
 	for i, c := range cases {
@@ -427,7 +447,7 @@ func TestValidateResource(t *testing.T) {
 			defer func() { recover() }()
 			v := &validator{}
 			var writer io.Writer
-			warn, err := v.validateResource("istio-system", fromYAML(c.in), writer)
+			warn, err := v.validateResource("istio-system", "", fromYAML(c.in), writer)
 			if (err == nil) != c.valid {
 				tt.Fatalf("unexpected validation result: got %v want %v: err=%v", err == nil, c.valid, err)
 			}
@@ -592,9 +612,10 @@ Error: 1 error occurred:
 		},
 	}
 	istioNamespace := "istio-system"
+	defaultNamespace := ""
 	for i, c := range cases {
 		t.Run(fmt.Sprintf("[%v] %v", i, c.name), func(t *testing.T) {
-			validateCmd := NewValidateCommand(&istioNamespace)
+			validateCmd := NewValidateCommand(&istioNamespace, &defaultNamespace)
 			validateCmd.SilenceUsage = true
 			validateCmd.SetArgs(c.args)
 
