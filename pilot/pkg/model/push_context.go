@@ -52,8 +52,8 @@ var _ Metrics = &PushContext{}
 type serviceIndex struct {
 	// privateServices are reachable within the same namespace, with exportTo "."
 	privateByNamespace map[string][]*Service
-	// public are services reachable within the mesh with exportTo "*"
-	public []*Service
+	// Public are services reachable within the mesh with exportTo "*"
+	Public []*Service
 	// exportedToNamespace are services that were made visible to this namespace
 	// by an exportTo explicitly specifying this namespace.
 	exportedToNamespace map[string][]*Service
@@ -65,20 +65,20 @@ type serviceIndex struct {
 	// to avoid locking each service for every proxy during push.
 	ClusterVIPs map[*Service]map[string]string
 
-	// instancesByPort contains a map of service and instances by port. It is stored here
+	// InstancesByPort contains a map of service and instances by port. It is stored here
 	// to avoid recomputations during push. This caches instanceByPort calls with empty labels.
 	// Call InstancesByPort directly when instances need to be filtered by actual labels.
-	instancesByPort map[*Service]map[int][]*ServiceInstance
+	InstancesByPort map[*Service]map[int][]*ServiceInstance
 }
 
 func newServiceIndex() serviceIndex {
 	return serviceIndex{
-		public:               []*Service{},
+		Public:               []*Service{},
 		privateByNamespace:   map[string][]*Service{},
 		exportedToNamespace:  map[string][]*Service{},
 		HostnameAndNamespace: map[host.Name]map[string]*Service{},
 		ClusterVIPs:          map[*Service]map[string]string{},
-		instancesByPort:      map[*Service]map[int][]*ServiceInstance{},
+		InstancesByPort:      map[*Service]map[int][]*ServiceInstance{},
 	}
 }
 
@@ -675,7 +675,7 @@ func (ps *PushContext) Services(proxy *Proxy) []*Service {
 	}
 
 	// Second add public services
-	out = append(out, ps.ServiceIndex.public...)
+	out = append(out, ps.ServiceIndex.Public...)
 
 	return out
 }
@@ -1134,12 +1134,12 @@ func (ps *PushContext) initServiceRegistry(env *Environment) error {
 
 		// Precache instances
 		for _, port := range s.Ports {
-			if _, ok := ps.ServiceIndex.instancesByPort[s]; !ok {
-				ps.ServiceIndex.instancesByPort[s] = make(map[int][]*ServiceInstance)
+			if _, ok := ps.ServiceIndex.InstancesByPort[s]; !ok {
+				ps.ServiceIndex.InstancesByPort[s] = make(map[int][]*ServiceInstance)
 			}
 			instances := make([]*ServiceInstance, 0)
 			instances = append(instances, ps.InstancesByPort(s, port.Port, nil)...)
-			ps.ServiceIndex.instancesByPort[s][port.Port] = instances
+			ps.ServiceIndex.InstancesByPort[s][port.Port] = instances
 		}
 
 		if _, f := ps.ServiceIndex.HostnameAndNamespace[s.Hostname]; !f {
@@ -1152,14 +1152,14 @@ func (ps *PushContext) initServiceRegistry(env *Environment) error {
 			if ps.exportToDefaults.service[visibility.Private] {
 				ps.ServiceIndex.privateByNamespace[ns] = append(ps.ServiceIndex.privateByNamespace[ns], s)
 			} else if ps.exportToDefaults.service[visibility.Public] {
-				ps.ServiceIndex.public = append(ps.ServiceIndex.public, s)
+				ps.ServiceIndex.Public = append(ps.ServiceIndex.Public, s)
 			}
 		} else {
 			// if service has exportTo ~ - i.e. not visible to anyone, ignore all exportTos
 			// if service has exportTo *, make public and ignore all other exportTos
 			// if service has exportTo ., replace with current namespace
 			if s.Attributes.ExportTo[visibility.Public] {
-				ps.ServiceIndex.public = append(ps.ServiceIndex.public, s)
+				ps.ServiceIndex.Public = append(ps.ServiceIndex.Public, s)
 				continue
 			} else if s.Attributes.ExportTo[visibility.None] {
 				continue
@@ -1846,7 +1846,7 @@ func (ps *PushContext) ServiceInstancesByPort(svc *Service, port int, labels lab
 	// Use cached version of instances by port when labels are empty. If there are labels,
 	// we will have to make actual call and filter instances by pod labels.
 	if len(labels) == 0 {
-		if instances, exists := ps.ServiceIndex.instancesByPort[svc][port]; exists {
+		if instances, exists := ps.ServiceIndex.InstancesByPort[svc][port]; exists {
 			return instances
 		}
 	}
