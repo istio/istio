@@ -114,7 +114,7 @@ func (b EndpointBuilder) Key() string {
 		sort.Strings(nv)
 		params = append(params, nv...)
 	}
-	return strings.Join(params, "~")
+	return "eds://" + strings.Join(params, "~")
 }
 
 // MultiNetworkConfigured determines if we have gateways to use for building cross-network endpoints.

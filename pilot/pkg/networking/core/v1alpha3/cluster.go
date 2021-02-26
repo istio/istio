@@ -924,6 +924,7 @@ type tlsBuilder struct {
 
 func (t *tlsBuilder) Key() string {
 	params := []string{
+
 		t.clusterName, t.tlsClientCertChain, t.tlsClientKey, t.tlsClientRootCert,
 		strconv.FormatBool(t.proxyGE19), strconv.FormatBool(t.proxySidecar), strconv.FormatBool(t.http2),
 	}
@@ -937,7 +938,7 @@ func (t *tlsBuilder) Key() string {
 			strings.Join(t.tls.SubjectAltNames, "/"),
 		)
 	}
-	return strings.Join(params, "~")
+	return "tls://" + strings.Join(params, "~")
 }
 
 func (t tlsBuilder) DependentConfigs() []model.ConfigKey {
