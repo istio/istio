@@ -15,7 +15,6 @@
 package xds
 
 import (
-	"errors"
 	"fmt"
 	"io"
 	"strconv"
@@ -168,7 +167,7 @@ func (s *DiscoveryServer) receive(con *Connection, reqChannel chan *discovery.Di
 		if firstReq {
 			firstReq = false
 			if req.Node == nil || req.Node.Id == "" {
-				*errP = errors.New("missing node ID")
+				*errP = status.New(codes.InvalidArgument, "missing node ID").Err()
 				return
 			}
 			// TODO: We should validate that the namespace in the cert matches the claimed namespace in metadata.
@@ -258,7 +257,7 @@ func (s *DiscoveryServer) Stream(stream DiscoveryStream) error {
 	// ip tables update latencies.
 	// See https://github.com/istio/istio/issues/25495.
 	if !s.IsServerReady() {
-		return errors.New("server is not ready to serve discovery information")
+		return status.Error(codes.Unavailable, "server is not ready to serve discovery information")
 	}
 
 	ctx := stream.Context()
@@ -282,7 +281,7 @@ func (s *DiscoveryServer) Stream(stream DiscoveryStream) error {
 		// Error accessing the data - log and close, maybe a different pilot replica
 		// has more luck
 		adsLog.Warnf("Error reading config %v", err)
-		return err
+		return status.Error(codes.Unavailable, "error reading config")
 	}
 	con := newConnection(peerAddr, stream)
 	con.Identities = ids
@@ -496,7 +495,7 @@ func (s *DiscoveryServer) initConnection(node *core.Node, con *Connection) error
 		id, err := checkConnectionIdentity(con)
 		if err != nil {
 			adsLog.Warnf("Unauthorized XDS: %v with identity %v: %v", con.PeerAddr, con.Identities, err)
-			return fmt.Errorf("authorization failed: %v", err)
+			return status.Newf(codes.PermissionDenied, "authorization failed: %v", err).Err()
 		}
 		con.proxy.VerifiedIdentity = id
 	}
