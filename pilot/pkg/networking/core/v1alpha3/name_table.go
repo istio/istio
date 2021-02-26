@@ -89,10 +89,7 @@ func (configgen *ConfigGeneratorImpl) BuildNameTable(node *model.Proxy, push *mo
 					addressList = append(addressList, instance.Endpoint.Address)
 					if pod, ok := instance.Endpoint.Labels[StatefulSetPodLabel]; ok {
 						address := []string{instance.Endpoint.Address}
-						// Follow k8s naming convention of "pod.svcname.namespace.dnsdomain".
-						// TODO: We should ideally look at pod's DNSDomain. But currently we do not have to
-						// get proxy by IP. We could build that cache in DiscoveryServer or ConfigGenerator.
-						// For now, this serves majority of the use cases.
+						// Follow k8s naming convention of "pod.svcHostname" i,e. "pod.svc.svcns.dnsdomain".
 						host := pod + "." + string(svc.Hostname)
 						nameInfo := &nds.NameTable_NameInfo{
 							Ips:      address,
