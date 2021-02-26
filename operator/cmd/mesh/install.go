@@ -47,7 +47,6 @@ import (
 	pkgversion "istio.io/istio/operator/pkg/version"
 	operatorVer "istio.io/istio/operator/version"
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/kube"
 	"istio.io/pkg/log"
@@ -79,8 +78,6 @@ type installArgs struct {
 	revision string
 	// defaultRevision determines whether this installation should handle validation and default injection.
 	defaultRevision bool
-	// istioNamespace is the namespace the Istio control plane is running in.
-	istioNamespace string
 }
 
 func addInstallFlags(cmd *cobra.Command, args *installArgs) {
@@ -97,8 +94,6 @@ func addInstallFlags(cmd *cobra.Command, args *installArgs) {
 	cmd.PersistentFlags().StringVarP(&args.manifestsPath, "charts", "", "", ChartsDeprecatedStr)
 	cmd.PersistentFlags().StringVarP(&args.manifestsPath, "manifests", "d", "", ManifestsFlagHelpStr)
 	cmd.PersistentFlags().StringVarP(&args.revision, "revision", "r", "", revisionFlagHelpStr)
-	cmd.PersistentFlags().StringVarP(&args.istioNamespace, "istioNamespace", "i", controller.IstioNamespace,
-		"Istio system namespace")
 }
 
 // InstallCmd generates an Istio install manifest and applies it to a cluster
@@ -159,9 +154,10 @@ func runApplyCmd(cmd *cobra.Command, rootArgs *rootArgs, iArgs *installArgs, log
 	if err != nil {
 		return err
 	}
-	useDefaultRevision := iArgs.defaultRevision || (iArgs.revision != "" && !existingDefaultRevision(clientset, iArgs.istioNamespace))
+	useDefaultRevision := iArgs.defaultRevision ||
+		(iArgs.revision != "" && !existingDefaultRevision(clientset, name.IstioDefaultNamespace))
 	if useDefaultRevision {
-		warnDefaultRevisionMinVersion(cmd.OutOrStdout(), kubeClient, iArgs.istioNamespace)
+		warnDefaultRevisionMinVersion(cmd.OutOrStdout(), kubeClient, name.IstioDefaultNamespace)
 	}
 	setFlags := applyFlagAliases(iArgs.set, iArgs.manifestsPath, iArgs.revision, useDefaultRevision)
 
@@ -370,8 +366,8 @@ func existingDefaultRevision(cs kubernetes.Interface, istioNs string) bool {
 	return !kerrors.IsNotFound(err)
 }
 
-// warnDefaultRevisionMinVersion makes a best-effort warning to alert users if installed Istio versions are too old for use with defaultRevision
-// required because of a bug in Istio operator resource merge behavior https://github.com/istio/istio/issues/31028
+// warnDefaultRevisionMinVersion gives a best-effort warning to alert users if installed Istio versions are too old for use with defaultRevision
+// required because of a bug in Istio operator resource merge behavior https://github.com/istio/istio/issues/31028, remove once fixed
 func warnDefaultRevisionMinVersion(w io.Writer, client kube.ExtendedClient, istioNs string) {
 	minRequiredVersion := model.ParseIstioVersion("1.9.0")
 	icps, err := client.GetIstioVersions(context.TODO(), istioNs)
