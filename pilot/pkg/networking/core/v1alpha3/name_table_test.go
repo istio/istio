@@ -19,9 +19,10 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 
+	v1 "k8s.io/api/apps/v1"
+
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/core"
-	"istio.io/istio/pilot/pkg/networking/core/v1alpha3"
 	nds "istio.io/istio/pilot/pkg/proto"
 	"istio.io/istio/pilot/pkg/serviceregistry"
 	"istio.io/istio/pkg/config/constants"
@@ -76,13 +77,12 @@ func TestNameTable(t *testing.T) {
 			ServiceRegistry: string(serviceregistry.Kubernetes),
 		},
 	}
-	statefulPush := &model.PushContext{}
-	statefulPush.ServiceIndex.Public = []*model.Service{statefulsetService}
-	instancesByPort := make(map[*model.Service]map[int][]*model.ServiceInstance)
-	instancesByPort[statefulsetService] = makeServiceInstances(stpod1, statefulsetService, labels.Instance{v1alpha3.StatefulSetPodLabel: "stateful-0"})
-	instancesByPort[statefulsetService][9000] = append(instancesByPort[statefulsetService][9000],
-		makeServiceInstances(stpod2, statefulsetService, labels.Instance{v1alpha3.StatefulSetPodLabel: "stateful-1"})[9000]...)
-	statefulPush.ServiceIndex.InstancesByPort = instancesByPort
+	statefulPush := model.NewPushContext()
+	statefulPush.AddPublicServices([]*model.Service{statefulsetService})
+	statefulPush.AddServiceInstances(statefulsetService,
+		makeServiceInstances(stpod1, statefulsetService, labels.Instance{v1.StatefulSetPodNameLabel: "stateful-0"}))
+	statefulPush.AddServiceInstances(statefulsetService,
+		makeServiceInstances(stpod2, statefulsetService, labels.Instance{v1.StatefulSetPodNameLabel: "stateful-1"}))
 
 	cases := []struct {
 		name              string

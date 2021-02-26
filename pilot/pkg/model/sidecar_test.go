@@ -1011,7 +1011,7 @@ func TestCreateSidecarScope(t *testing.T) {
 			meshConfig := mesh.DefaultMeshConfig()
 			ps.Mesh = &meshConfig
 			if tt.services != nil {
-				ps.ServiceIndex.Public = append(ps.ServiceIndex.Public, tt.services...)
+				ps.ServiceIndex.public = append(ps.ServiceIndex.public, tt.services...)
 
 				for _, s := range tt.services {
 					if _, f := ps.ServiceIndex.HostnameAndNamespace[s.Hostname]; !f {
@@ -1292,7 +1292,7 @@ func TestContainsEgressDependencies(t *testing.T) {
 					},
 				},
 			}
-			ps.ServiceIndex.Public = append(ps.ServiceIndex.Public, services...)
+			ps.ServiceIndex.public = append(ps.ServiceIndex.public, services...)
 			// nolint lll
 			ps.virtualServiceIndex.publicByGateway[constants.IstioMeshGateway] = append(ps.virtualServiceIndex.publicByGateway[constants.IstioMeshGateway], virtualServices...)
 			ps.SetDestinationRules(destinationRules)
