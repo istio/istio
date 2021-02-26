@@ -99,7 +99,7 @@ func (serviceEntry *HTTPSOnHTTPAnalyzer) checkDestinationRulesPerformTLSOriginat
 		destinationRuleInstance := context.Find(collections.IstioNetworkingV1Alpha3Destinationrules.Name(), destinationRuleName)
 		destinationRule := destinationRuleInstance.Message.(*v1alpha3.DestinationRule)
 		for _, portLevelSetting := range destinationRule.TrafficPolicy.PortLevelSettings {
-			if portLevelSetting.Port.Number == port && portLevelSetting.Tls.Mode != 0 {
+			if portLevelSetting.Port.Number == port && portLevelSetting.Tls.Mode != v1alpha3.ClientTLSSettings_DISABLE {
 				return true
 			}
 		}
