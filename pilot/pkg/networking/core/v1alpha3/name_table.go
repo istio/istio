@@ -23,6 +23,11 @@ import (
 	"istio.io/istio/pkg/config/constants"
 )
 
+// This is used to identify the stateful set pod name so that we can build the service name
+// and add per pod entry to the name table.
+// Refer to https://kubernetes.io/docs/concepts/workloads/controllers/statefulset/#pod-name-label.
+const StatefulSetPodLabel = "statefulset.kubernetes.io/pod-name"
+
 // BuildNameTable produces a table of hostnames and their associated IPs that can then
 // be used by the agent to resolve DNS. This logic is always active. However, local DNS resolution
 // will only be effective if DNS capture is enabled in the proxy
@@ -73,10 +78,8 @@ func (configgen *ConfigGeneratorImpl) BuildNameTable(node *model.Proxy, push *mo
 		// IP allocation logic for service entry was unable to allocate an IP.
 		if svcAddress == constants.UnspecifiedIP {
 			// For all k8s headless services, populate the dns table with the endpoint IPs as k8s does.
-			// We return a stable list to the proxy, which will randomize the response in each DNS query.
-			// TODO: Need to have an entry per pod hostname of stateful set but for this, we need to parse
-			// the stateful set object, associate the object with the appropriate kubernetes headless service
-			// and then derive the stable network identities.
+			// And for each individual pod, populate the dns table with the endpoint IP with a manufactured host name from
+			// "statefulset.kubernetes.io/pod-name" that k8s sets.
 			if svc.Attributes.ServiceRegistry == string(serviceregistry.Kubernetes) &&
 				svc.Resolution == model.Passthrough && len(svc.Ports) > 0 {
 				// TODO: this is used in two places now. Needs to be cached as part of the headless service
@@ -95,6 +98,22 @@ func (configgen *ConfigGeneratorImpl) BuildNameTable(node *model.Proxy, push *mo
 					}
 					// TODO: should we skip the node's own IP like we do in listener?
 					addressList = append(addressList, instance.Endpoint.Address)
+					if pod, ok := instance.Endpoint.Labels[StatefulSetPodLabel]; ok {
+						address := []string{instance.Endpoint.Address}
+						// Follow k8s naming convention of "pod.svcHostname" i,e. "pod.svc.svcns.dnsdomain".
+						host := pod + "." + string(svc.Hostname)
+						nameInfo := &nds.NameTable_NameInfo{
+							Ips:      address,
+							Registry: svc.Attributes.ServiceRegistry,
+						}
+						if svc.Attributes.ServiceRegistry == string(serviceregistry.Kubernetes) {
+							// The agent will take care of resolving a, a.ns, a.ns.svc, etc.
+							// No need to provide a DNS entry for each variant.
+							nameInfo.Namespace = svc.Attributes.Namespace
+							nameInfo.Shortname = pod + "." + svc.Attributes.Name
+						}
+						out.Table[host] = nameInfo
+					}
 				}
 			}
 
