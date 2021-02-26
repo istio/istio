@@ -34,6 +34,13 @@ import (
 	"istio.io/istio/pkg/test/util/retry"
 )
 
+const (
+	NMinusOne   = "1.9.0"
+	NMinusTwo   = "1.8.3"
+	NMinusThree = "1.7.6"
+	NMinusFour  = "1.6.11"
+)
+
 type revisionedNamespace struct {
 	revision  string
 	namespace namespace.Instance
@@ -49,7 +56,7 @@ func TestMultiVersionRevision(t *testing.T) {
 			skipIfK8sVersionUnsupported(ctx)
 
 			// keep these at the latest patch version of each minor version
-			installVersions := []string{"1.6.11", "1.7.6", "1.8.0"}
+			installVersions := []string{NMinusOne, NMinusTwo, NMinusThree, NMinusFour}
 
 			// keep track of applied configurations and clean up after the test
 			configs := make(map[string]string)
