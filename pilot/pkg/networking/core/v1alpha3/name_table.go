@@ -17,16 +17,13 @@ package v1alpha3
 import (
 	"net"
 
+	v1 "k8s.io/api/apps/v1"
+
 	"istio.io/istio/pilot/pkg/model"
 	nds "istio.io/istio/pilot/pkg/proto"
 	"istio.io/istio/pilot/pkg/serviceregistry"
 	"istio.io/istio/pkg/config/constants"
 )
-
-// This is used to identify the stateful set pod name so that we can build the service name
-// and add per pod entry to the name table.
-// Refer to https://kubernetes.io/docs/concepts/workloads/controllers/statefulset/#pod-name-label.
-const StatefulSetPodLabel = "statefulset.kubernetes.io/pod-name"
 
 // BuildNameTable produces a table of hostnames and their associated IPs that can then
 // be used by the agent to resolve DNS. This logic is always active. However, local DNS resolution
@@ -98,7 +95,7 @@ func (configgen *ConfigGeneratorImpl) BuildNameTable(node *model.Proxy, push *mo
 					}
 					// TODO: should we skip the node's own IP like we do in listener?
 					addressList = append(addressList, instance.Endpoint.Address)
-					if pod, ok := instance.Endpoint.Labels[StatefulSetPodLabel]; ok {
+					if pod, ok := instance.Endpoint.Labels[v1.StatefulSetPodNameLabel]; ok {
 						address := []string{instance.Endpoint.Address}
 						// Follow k8s naming convention of "pod.svcHostname" i,e. "pod.svc.svcns.dnsdomain".
 						host := pod + "." + string(svc.Hostname)
