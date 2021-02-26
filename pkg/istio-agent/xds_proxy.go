@@ -18,7 +18,6 @@ import (
 	"context"
 	"crypto/tls"
 	"crypto/x509"
-	"errors"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -90,6 +89,7 @@ type XdsProxy struct {
 	// connected stores the active gRPC stream. The proxy will only have 1 connection at a time
 	connected      *ProxyConnection
 	initialRequest *discovery.DiscoveryRequest
+	initialDeltaRequest *discovery.DeltaDiscoveryRequest
 	connectedMutex sync.RWMutex
 
 	// Wasm cache and ecds channel are used to replace wasm remote load with local file.
@@ -184,11 +184,11 @@ func initXdsProxy(ia *Agent) (*XdsProxy, error) {
 	}()
 
 	go proxy.healthChecker.PerformApplicationHealthCheck(func(healthEvent *health.ProbeEvent) {
-		var req *discovery.DiscoveryRequest
+		var req *discovery.DeltaDiscoveryRequest
 		if healthEvent.Healthy {
-			req = &discovery.DiscoveryRequest{TypeUrl: v3.HealthInfoType}
+			req = &discovery.DeltaDiscoveryRequest{TypeUrl: v3.HealthInfoType}
 		} else {
-			req = &discovery.DiscoveryRequest{
+			req = &discovery.DeltaDiscoveryRequest{
 				TypeUrl: v3.HealthInfoType,
 				ErrorDetail: &google_rpc.Status{
 					Code:    int32(codes.Internal),
@@ -196,7 +196,7 @@ func initXdsProxy(ia *Agent) (*XdsProxy, error) {
 				},
 			}
 		}
-		proxy.PersistRequest(req)
+		proxy.PersistDeltaRequest(req)
 	}, proxy.stopChan)
 	return proxy, nil
 }
@@ -243,9 +243,13 @@ type ProxyConnection struct {
 	downstreamError chan error
 	requestsChan    chan *discovery.DiscoveryRequest
 	responsesChan   chan *discovery.DiscoveryResponse
+	deltaRequestsChan chan *discovery.DeltaDiscoveryRequest
+	deltaResponsesChan chan* discovery.DeltaDiscoveryResponse
 	stopChan        chan struct{}
 	downstream      discovery.AggregatedDiscoveryService_StreamAggregatedResourcesServer
 	upstream        discovery.AggregatedDiscoveryService_StreamAggregatedResourcesClient
+	downstreamDeltas discovery.AggregatedDiscoveryService_DeltaAggregatedResourcesServer
+	upstreamDeltas discovery.AggregatedDiscoveryService_DeltaAggregatedResourcesClient
 }
 
 // Every time envoy makes a fresh connection to the agent, we reestablish a new connection to the upstream xds
@@ -491,10 +495,6 @@ func forwardToEnvoy(con *ProxyConnection, resp *discovery.DiscoveryResponse) {
 
 		return
 	}
-}
-
-func (p *XdsProxy) DeltaAggregatedResources(server discovery.AggregatedDiscoveryService_DeltaAggregatedResourcesServer) error {
-	return errors.New("delta XDS is not implemented")
 }
 
 func (p *XdsProxy) close() {
