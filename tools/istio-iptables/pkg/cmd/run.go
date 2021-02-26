@@ -546,7 +546,7 @@ func (iptConfigurator *IptablesConfigurator) run() {
 
 	if iptConfigurator.cfg.InboundInterceptionMode == constants.TPROXY {
 		// rule to skip app ==> app traffic
-		iptConfigurator.iptables.InsertRuleV4(constants.PREROUTING, constants.MANGLE, 1, "-p", constants.TCP, "-o", "lo",
+		iptConfigurator.iptables.InsertRuleV4(constants.PREROUTING, constants.MANGLE, 1, "-o", "lo", "-p", constants.TCP,
 			"-j", constants.RETURN)
 		// save packet mark set by envoy.filters.listener.original_src as connection mark
 		iptConfigurator.iptables.AppendRuleV4(constants.PREROUTING, constants.MANGLE,
