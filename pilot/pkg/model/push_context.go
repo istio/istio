@@ -52,7 +52,7 @@ var _ Metrics = &PushContext{}
 type serviceIndex struct {
 	// privateServices are reachable within the same namespace, with exportTo "."
 	privateByNamespace map[string][]*Service
-	// Public are services reachable within the mesh with exportTo "*"
+	// public are services reachable within the mesh with exportTo "*"
 	public []*Service
 	// exportedToNamespace are services that were made visible to this namespace
 	// by an exportTo explicitly specifying this namespace.
@@ -65,7 +65,7 @@ type serviceIndex struct {
 	// to avoid locking each service for every proxy during push.
 	ClusterVIPs map[*Service]map[string]string
 
-	// InstancesByPort contains a map of service and instances by port. It is stored here
+	// instancesByPort contains a map of service and instances by port. It is stored here
 	// to avoid recomputations during push. This caches instanceByPort calls with empty labels.
 	// Call InstancesByPort directly when instances need to be filtered by actual labels.
 	instancesByPort map[*Service]map[int][]*ServiceInstance
