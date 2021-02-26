@@ -862,7 +862,7 @@ func applyUpstreamTLSSettings(opts *buildClusterOpts, tls *networking.ClientTLSS
 		tls:                tls,
 	}
 	var marshalledTlsContext *any.Any
-	if m, f := opts.cache.Get(builder); f && !features.EnableUnsafeAssertions {
+	if m, token, f := opts.cache.Get(builder); f && !features.EnableUnsafeAssertions {
 		marshalledTlsContext = m
 	} else {
 		tlsContext, err := builder.buildUpstreamClusterTLSContext()
@@ -874,7 +874,7 @@ func applyUpstreamTLSSettings(opts *buildClusterOpts, tls *networking.ClientTLSS
 		// Generating nil is cheap, so no performance loss here.
 		if tlsContext != nil {
 			marshalledTlsContext = util.MessageToAny(tlsContext)
-			opts.cache.Add(builder, marshalledTlsContext)
+			opts.cache.Add(builder, token, marshalledTlsContext)
 		}
 	}
 
