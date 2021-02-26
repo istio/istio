@@ -17,6 +17,7 @@ package mesh
 import (
 	"context"
 	"fmt"
+	"io"
 	"os"
 	"sort"
 	"strings"
@@ -45,6 +46,7 @@ import (
 	"istio.io/istio/operator/pkg/util/progress"
 	pkgversion "istio.io/istio/operator/pkg/version"
 	operatorVer "istio.io/istio/operator/version"
+	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/kube"
@@ -157,10 +159,11 @@ func runApplyCmd(cmd *cobra.Command, rootArgs *rootArgs, iArgs *installArgs, log
 	if err != nil {
 		return err
 	}
-	if iArgs.revision != "" && !existingDefaultRevision(clientset, iArgs.istioNamespace) {
-		iArgs.defaultRevision = true
+	useDefaultRevision := iArgs.defaultRevision || (iArgs.revision != "" && !existingDefaultRevision(clientset, iArgs.istioNamespace))
+	if useDefaultRevision {
+		warnDefaultRevisionMinVersion(cmd.OutOrStdout(), kubeClient, iArgs.istioNamespace)
 	}
-	setFlags := applyFlagAliases(iArgs.set, iArgs.manifestsPath, iArgs.revision, iArgs.defaultRevision)
+	setFlags := applyFlagAliases(iArgs.set, iArgs.manifestsPath, iArgs.revision, useDefaultRevision)
 
 	_, iop, err := manifest.GenerateConfig(iArgs.inFilenames, setFlags, iArgs.force, restConfig, l)
 	if err != nil {
@@ -187,6 +190,7 @@ func runApplyCmd(cmd *cobra.Command, rootArgs *rootArgs, iArgs *installArgs, log
 			os.Exit(1)
 		}
 	}
+
 	if err := configLogs(logOpts); err != nil {
 		return fmt.Errorf("could not configure logs: %s", err)
 	}
@@ -364,4 +368,25 @@ func getProfileNSAndEnabledComponents(iop *v1alpha12.IstioOperator) (string, str
 func existingDefaultRevision(cs kubernetes.Interface, istioNs string) bool {
 	_, err := cs.CoreV1().Services(istioNs).Get(context.TODO(), "istiod", metav1.GetOptions{})
 	return !kerrors.IsNotFound(err)
+}
+
+// warnDefaultRevisionMinVersion makes a best-effort warning to alert users if installed Istio versions are too old for use with defaultRevision
+// required because of a bug in Istio operator resource merge behavior https://github.com/istio/istio/issues/31028
+func warnDefaultRevisionMinVersion(w io.Writer, client kube.ExtendedClient, istioNs string) {
+	minRequiredVersion := model.ParseIstioVersion("1.9.0")
+	icps, err := client.GetIstioVersions(context.TODO(), istioNs)
+	if err != nil {
+		// this is a best effort warning,
+		// if we can't complete the version check just return
+		return
+	}
+	if len(*icps) == 0 {
+		return
+	}
+	for _, v := range *icps {
+		parsed := model.ParseIstioVersion(v.Info.Version)
+		if minRequiredVersion.Compare(parsed) > 0 {
+			_, _ = fmt.Fprintf(w, "! Istio CP version %s not the minimum required version to use `defaultRevision` (must be 1.9.0+)\n", v.Info.Version)
+		}
+	}
 }
