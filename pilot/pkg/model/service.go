@@ -405,11 +405,17 @@ type IstioEndpoint struct {
 	// TLSMode endpoint is injected with istio sidecar and ready to configure Istio mTLS
 	TLSMode string
 
-	// Namespace that this endpont belongs to. This is for telemetry purpose.
+	// Namespace that this endpoint belongs to. This is for telemetry purpose.
 	Namespace string
 
 	// Name of the workload that this endpoint belongs to. This is for telemetry purpose.
 	WorkloadName string
+
+	// Specifies the hostname of the Pod, empty for vm workload.
+	HostName string
+
+	// If specified, the fully qualified Pod hostname will be "<hostname>.<subdomain>.<pod namespace>.svc.<cluster domain>".
+	SubDomain string
 
 	// The ingress tunnel supportability of this endpoint.
 	// If this endpoint sidecar proxy does not support h2 tunnel, this endpoint will not show up in the EDS clusters
