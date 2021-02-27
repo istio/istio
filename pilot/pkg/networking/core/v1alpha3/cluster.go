@@ -50,24 +50,15 @@ const (
 	DefaultLbType = networking.LoadBalancerSettings_ROUND_ROBIN
 )
 
-var (
-	// defaultTransportSocketMatch applies to endpoints that have no security.istio.io/tlsMode label
-	// or those whose label value does not match "istio"
-	defaultTransportSocketMatch = &cluster.Cluster_TransportSocketMatch{
-		Name:  "tlsMode-disabled",
-		Match: &structpb.Struct{},
-		TransportSocket: &core.TransportSocket{
-			Name: util.EnvoyRawBufferSocketName,
-		},
-	}
-
-	// nolint: lll
-	// envoy outlier detection default max ejection time
-	// https://www.envoyproxy.io/docs/envoy/latest/api-v3/config/cluster/v3/outlier_detection.proto#envoy-v3-api-field-config-cluster-v3-outlierdetection-max-ejection-time
-	defaultMaxEjectionTime = &types.Duration{
-		Seconds: 300,
-	}
-)
+// defaultTransportSocketMatch applies to endpoints that have no security.istio.io/tlsMode label
+// or those whose label value does not match "istio"
+var defaultTransportSocketMatch = &cluster.Cluster_TransportSocketMatch{
+	Name:  "tlsMode-disabled",
+	Match: &structpb.Struct{},
+	TransportSocket: &core.TransportSocket{
+		Name: util.EnvoyRawBufferSocketName,
+	},
+}
 
 // getDefaultCircuitBreakerThresholds returns a copy of the default circuit breaker thresholds for the given traffic direction.
 func getDefaultCircuitBreakerThresholds() *cluster.CircuitBreakers_Thresholds {
@@ -754,9 +745,6 @@ func applyOutlierDetection(c *cluster.Cluster, outlier *networking.OutlierDetect
 	}
 	if outlier.BaseEjectionTime != nil {
 		out.BaseEjectionTime = gogo.DurationToProtoDuration(outlier.BaseEjectionTime)
-		if outlier.BaseEjectionTime.Compare(defaultMaxEjectionTime) > 0 {
-			out.MaxEjectionTime = out.BaseEjectionTime
-		}
 	}
 	if outlier.MaxEjectionPercent > 0 {
 		out.MaxEjectionPercent = &wrappers.UInt32Value{Value: uint32(outlier.MaxEjectionPercent)}
