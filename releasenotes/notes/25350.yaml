@@ -5,5 +5,5 @@ issue:
   - 25350
 releaseNotes:
   - |
-    **Fixed** wildcard hosts fail to match when port is included in host header.
+    **Added** `ISTIO_GATEWAY_STRIP_HOST_PORT` env to control gateway strip any host port before any processing of request by HTTP filters or routing.
 
