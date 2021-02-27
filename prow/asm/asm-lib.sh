@@ -606,10 +606,10 @@ function install_asm_managed_control_plane() {
     local CLUSTER_NAME="${VALS[3]}"
 
     TMPDIR=$(mktemp -d)
-    # _CI_ASM_PKG_LOCATION _CI_ASM_IMAGE_LOCATION are required for unreleased Scriptaro.
-    # Managed control plane installation will not used _CI_ASM_PKG_LOCATION, _CI_ASM_IMAGE_LOCATION.
-    # The two variables are there to keep Scriptaro running.
-    _CI_ASM_PKG_LOCATION="asm-staging-images" _CI_ASM_IMAGE_LOCATION="gcr.io/asm-staging-images/asm" _CI_ASM_KPT_BRANCH="master" _CI_CLOUDRUN_IMAGE_HUB="${HUB}/cloudrun" _CI_CLOUDRUN_IMAGE_TAG="${TAG}" "./install_asm" \
+    # _CI_ASM_PKG_LOCATION _CI_ASM_IMAGE_LOCATION are required for unreleased Scriptaro (master and staging branch).
+    # Managed control plane installation will use _CI_ASM_PKG_LOCATION, _CI_ASM_IMAGE_LOCATION for Gateway.
+    # For sidecar proxy and Istiod, _CI_CLOUDRUN_IMAGE_HUB and _CI_CLOUDRUN_IMAGE_TAG are used.
+    _CI_ASM_PKG_LOCATION="asm-staging-images" _CI_ASM_IMAGE_LOCATION="${HUB}" _CI_ASM_IMAGE_TAG="${TAG}" _CI_ASM_KPT_BRANCH="master" _CI_CLOUDRUN_IMAGE_HUB="${HUB}/cloudrun" _CI_CLOUDRUN_IMAGE_TAG="${TAG}" "./install_asm" \
       --mode install \
       --project_id "${PROJECT_ID}" \
       --cluster_location "${LOCATION}" \
