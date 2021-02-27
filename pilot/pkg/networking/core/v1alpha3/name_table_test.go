@@ -18,7 +18,6 @@ import (
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
-	v1 "k8s.io/api/apps/v1"
 
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/core"
@@ -26,15 +25,16 @@ import (
 	"istio.io/istio/pilot/pkg/serviceregistry"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/host"
-	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/protocol"
 )
 
-func makeServiceInstances(proxy *model.Proxy, service *model.Service, labels labels.Instance) map[int][]*model.ServiceInstance {
+func makeServiceInstances(proxy *model.Proxy, service *model.Service, hostname, subdomain string) map[int][]*model.ServiceInstance {
 	instances := make(map[int][]*model.ServiceInstance)
 	for _, port := range service.Ports {
 		instances[port.Port] = makeInstances(proxy, service, port.Port, port.Port)
-		instances[port.Port][0].Endpoint.Labels = labels
+		instances[port.Port][0].Endpoint.HostName = hostname
+		instances[port.Port][0].Endpoint.SubDomain = subdomain
+
 	}
 	return instances
 }
@@ -44,24 +44,24 @@ func TestNameTable(t *testing.T) {
 		IPAddresses: []string{"9.9.9.9"},
 		Metadata:    &model.NodeMetadata{},
 		Type:        model.SidecarProxy,
-		DNSDomain:   "stsns.svc.cluster.local",
+		DNSDomain:   "testns.svc.cluster.local",
 	}
 
-	stpod1 := &model.Proxy{
+	pod1 := &model.Proxy{
 		IPAddresses: []string{"1.2.3.4"},
 		Metadata:    &model.NodeMetadata{},
 		Type:        model.SidecarProxy,
-		DNSDomain:   "stsns.svc.cluster.local",
+		DNSDomain:   "testns.svc.cluster.local",
 	}
-	stpod2 := &model.Proxy{
+	pod2 := &model.Proxy{
 		IPAddresses: []string{"9.6.7.8"},
 		Metadata:    &model.NodeMetadata{},
 		Type:        model.SidecarProxy,
-		DNSDomain:   "stsns.svc.cluster.local",
+		DNSDomain:   "testns.svc.cluster.local",
 	}
 
-	statefulsetService := &model.Service{
-		Hostname:    host.Name("stateful.stsns.svc.cluster.local"),
+	headlessService := &model.Service{
+		Hostname:    host.Name("headless-svc.testns.svc.cluster.local"),
 		Address:     constants.UnspecifiedIP,
 		ClusterVIPs: make(map[string]string),
 		Ports: model.PortList{&model.Port{
@@ -71,17 +71,17 @@ func TestNameTable(t *testing.T) {
 		}},
 		Resolution: model.Passthrough,
 		Attributes: model.ServiceAttributes{
-			Name:            "stateful",
-			Namespace:       "stsns",
+			Name:            "headless-svc",
+			Namespace:       "testns",
 			ServiceRegistry: string(serviceregistry.Kubernetes),
 		},
 	}
-	statefulPush := model.NewPushContext()
-	statefulPush.AddPublicServices([]*model.Service{statefulsetService})
-	statefulPush.AddServiceInstances(statefulsetService,
-		makeServiceInstances(stpod1, statefulsetService, labels.Instance{v1.StatefulSetPodNameLabel: "stateful-0"}))
-	statefulPush.AddServiceInstances(statefulsetService,
-		makeServiceInstances(stpod2, statefulsetService, labels.Instance{v1.StatefulSetPodNameLabel: "stateful-1"}))
+	push := model.NewPushContext()
+	push.AddPublicServices([]*model.Service{headlessService})
+	push.AddServiceInstances(headlessService,
+		makeServiceInstances(pod1, headlessService, "pod1", "headless-svc"))
+	push.AddServiceInstances(headlessService,
+		makeServiceInstances(pod2, headlessService, "pod2", "headless-svc"))
 
 	cases := []struct {
 		name              string
@@ -90,28 +90,28 @@ func TestNameTable(t *testing.T) {
 		expectedNameTable *nds.NameTable
 	}{
 		{
-			name:  "stateful service pods",
+			name:  "headless service pods",
 			proxy: proxy,
-			push:  statefulPush,
+			push:  push,
 			expectedNameTable: &nds.NameTable{
 				Table: map[string]*nds.NameTable_NameInfo{
-					"stateful-0.stateful.stsns.svc.cluster.local": {
+					"pod1.headless-svc.testns.svc.cluster.local": {
 						Ips:       []string{"1.2.3.4"},
 						Registry:  "Kubernetes",
-						Shortname: "stateful-0.stateful",
-						Namespace: "stsns",
+						Shortname: "pod1.headless-svc",
+						Namespace: "testns",
 					},
-					"stateful-1.stateful.stsns.svc.cluster.local": {
+					"pod2.headless-svc.testns.svc.cluster.local": {
 						Ips:       []string{"9.6.7.8"},
 						Registry:  "Kubernetes",
-						Shortname: "stateful-1.stateful",
-						Namespace: "stsns",
+						Shortname: "pod2.headless-svc",
+						Namespace: "testns",
 					},
-					"stateful.stsns.svc.cluster.local": {
+					"headless-svc.testns.svc.cluster.local": {
 						Ips:       []string{"1.2.3.4", "9.6.7.8"},
 						Registry:  "Kubernetes",
-						Shortname: "stateful",
-						Namespace: "stsns",
+						Shortname: "headless-svc",
+						Namespace: "testns",
 					},
 				},
 			},
