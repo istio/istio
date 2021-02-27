@@ -21,6 +21,7 @@ import (
 	"istio.io/istio/galley/pkg/config/analysis"
 	"istio.io/istio/galley/pkg/config/analysis/analyzers/util"
 	"istio.io/istio/galley/pkg/config/analysis/msg"
+	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/config/resource"
 	"istio.io/istio/pkg/config/schema/collection"
 	"istio.io/istio/pkg/config/schema/collections"
@@ -55,13 +56,15 @@ func (serviceEntry *HTTPSOnHTTPAnalyzer) analyzeProtocol(resource *resource.Inst
 		relatedDestinationRules := serviceEntry.getDestinationRules(host, context)
 
 		for index, port := range se.Ports {
-			if port.Protocol == "HTTP" {
+			seProtocol := protocol.Parse(port.Protocol)
+			if seProtocol.IsHTTP() {
 				usedPort := port.Number
+
 				if port.TargetPort != 0 {
 					usedPort = port.TargetPort
 				}
 
-				if usedPort == 443 {
+				if serviceEntry.isCommonHTTPSPortNumber(usedPort) {
 					if len(relatedDestinationRules) == 0 {
 						serviceEntry.sendMessage(resource, host, index, context)
 					}
@@ -73,6 +76,17 @@ func (serviceEntry *HTTPSOnHTTPAnalyzer) analyzeProtocol(resource *resource.Inst
 			}
 		}
 	}
+}
+
+func (serviceEntry *HTTPSOnHTTPAnalyzer) isCommonHTTPSPortNumber(portNumber uint32) bool {
+	commonHTTPSPort := []uint32{443, 8443}
+	for _, port := range commonHTTPSPort {
+		if port == portNumber {
+			return true
+		}
+	}
+
+	return false
 }
 
 func (serviceEntry *HTTPSOnHTTPAnalyzer) getDestinationRules(host string, context analysis.Context) []resource.FullName {

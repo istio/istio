@@ -470,6 +470,8 @@ var testGrid = []testCase{
 			{msg.ServiceEntryHTTPSTrafficOnHTTPPort, "ServiceEntry service-entry-test-03.default"},
 			{msg.ServiceEntryHTTPSTrafficOnHTTPPort, "ServiceEntry service-entry-test-06.default"},
 			{msg.ServiceEntryHTTPSTrafficOnHTTPPort, "ServiceEntry service-entry-test-08.default"},
+			{msg.ServiceEntryHTTPSTrafficOnHTTPPort, "ServiceEntry service-entry-test-09.default"},
+			{msg.ServiceEntryHTTPSTrafficOnHTTPPort, "ServiceEntry service-entry-test-12.default"},
 		},
 	},
 }
