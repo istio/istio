@@ -2483,8 +2483,9 @@ var ValidateServiceEntry = registerValidateFunc("ValidateServiceEntry",
 					}
 				}
 				if hasTCPPort && len(serviceEntry.Hosts) > 1 {
-					errs = appendValidation(errs,
-						fmt.Errorf("service entry can not have more than one host specified when address and tcp port set simultaneously"))
+					// TODO: prevent this invalid setting, maybe in 1.11+
+					errs = appendValidation(errs, WrapWarning(fmt.Errorf("service entry can not have more than one host specified "+
+						"simultaneously with address and tcp port")))
 				}
 			}
 		default:

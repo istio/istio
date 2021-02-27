@@ -3681,6 +3681,38 @@ func TestValidateServiceEntries(t *testing.T) {
 		},
 
 		{
+			name: "discovery type DNS, one host set with IP address and tcp port",
+			in: networking.ServiceEntry{
+				Hosts:     []string{"httpbin.org"},
+				Addresses: []string{"10.10.10.10"},
+				Ports: []*networking.Port{
+					{Number: 80, Protocol: "http", Name: "http-valid1"},
+					{Number: 8080, Protocol: "http", Name: "http-valid2"},
+					{Number: 443, Protocol: "https", Name: "https"},
+				},
+				Resolution: networking.ServiceEntry_DNS,
+			},
+			valid:   true,
+			warning: false,
+		},
+
+		{
+			name: "discovery type DNS, multi hosts set with IP address and tcp port",
+			in: networking.ServiceEntry{
+				Hosts:     []string{"httpbin.org", "wikipedia.org"},
+				Addresses: []string{"10.10.10.10"},
+				Ports: []*networking.Port{
+					{Number: 80, Protocol: "http", Name: "http-valid1"},
+					{Number: 8080, Protocol: "http", Name: "http-valid2"},
+					{Number: 443, Protocol: "https", Name: "https"},
+				},
+				Resolution: networking.ServiceEntry_DNS,
+			},
+			valid:   true,
+			warning: true,
+		},
+
+		{
 			name: "discovery type DNS, IP address set",
 			in: networking.ServiceEntry{
 				Hosts:     []string{"*.google.com"},
@@ -3696,7 +3728,7 @@ func TestValidateServiceEntries(t *testing.T) {
 				Resolution: networking.ServiceEntry_DNS,
 			},
 			valid:   true,
-			warning: true,
+			warning: false,
 		},
 
 		{
