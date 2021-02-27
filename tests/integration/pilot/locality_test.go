@@ -73,7 +73,7 @@ spec:
 {{.LocalitySetting | indent 8 }}
     outlierDetection:
       interval: 1s
-      baseEjectionTime: 3m
+      baseEjectionTime: 10m
       maxEjectionPercent: 100`
 
 type LocalityInput struct {
