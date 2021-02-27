@@ -16,8 +16,7 @@ package v1alpha3
 
 import (
 	"net"
-
-	v1 "k8s.io/api/apps/v1"
+	"strings"
 
 	"istio.io/istio/pilot/pkg/model"
 	nds "istio.io/istio/pilot/pkg/proto"
@@ -95,22 +94,25 @@ func (configgen *ConfigGeneratorImpl) BuildNameTable(node *model.Proxy, push *mo
 					}
 					// TODO: should we skip the node's own IP like we do in listener?
 					addressList = append(addressList, instance.Endpoint.Address)
-					if pod, ok := instance.Endpoint.Labels[v1.StatefulSetPodNameLabel]; ok {
+					if instance.Endpoint.SubDomain != "" {
 						address := []string{instance.Endpoint.Address}
-						// Follow k8s naming convention of "pod.svcHostname" i,e. "pod.svc.svcns.dnsdomain".
-						host := pod + "." + string(svc.Hostname)
-						nameInfo := &nds.NameTable_NameInfo{
-							Ips:      address,
-							Registry: svc.Attributes.ServiceRegistry,
+						// Follow k8s pods dns naming convention of "<hostname>.<subdomain>.<pod namespace>.svc.<cluster domain>"
+						// i,e. "mysql-0.mysql.default.svc.cluster.local".
+						parts := strings.SplitN(string(svc.Hostname), ".", 2)
+						if len(parts) != 2 {
+							break
 						}
-						if svc.Attributes.ServiceRegistry == string(serviceregistry.Kubernetes) {
-							// The agent will take care of resolving a, a.ns, a.ns.svc, etc.
-							// No need to provide a DNS entry for each variant.
-							nameInfo.Namespace = svc.Attributes.Namespace
-							nameInfo.Shortname = pod + "." + svc.Attributes.Name
+						shortName := instance.Endpoint.HostName + "." + instance.Endpoint.SubDomain
+						host := shortName + "." + parts[1]
+						nameInfo := &nds.NameTable_NameInfo{
+							Ips:       address,
+							Registry:  svc.Attributes.ServiceRegistry,
+							Namespace: svc.Attributes.Namespace,
+							Shortname: shortName,
 						}
 						out.Table[host] = nameInfo
 					}
+
 				}
 			}
 
