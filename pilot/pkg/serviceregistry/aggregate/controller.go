@@ -89,7 +89,10 @@ func (c *Controller) GetRegistries() []serviceregistry.Instance {
 	c.storeLock.RLock()
 	defer c.storeLock.RUnlock()
 
-	return c.registries
+	// copy registries to prevent race.
+	out := make([]serviceregistry.Instance, len(c.registries))
+	copy(out, c.registries)
+	return out
 }
 
 // GetRegistryIndex returns the index of a registry
