@@ -137,7 +137,10 @@ func (cb *ClusterBuilder) applyDestinationRule(c *cluster.Cluster, clusterMode C
 
 		maybeApplyEdsConfig(subsetCluster)
 
-		subsetCluster.Metadata = util.AddSubsetToMetadata(clusterMetadata, subset.Name)
+		// Add the DestinationRule+subsets metadata. Metadata here is generated on a per-cluster
+		// basis in buildDefaultCluster, so we can just insert without a copy.
+		subsetCluster.Metadata = util.AddConfigInfoMetadata(subsetCluster.Metadata, destRule.Meta)
+		util.AddSubsetToMetadata(subsetCluster.Metadata, subset.Name)
 		subsetClusters = append(subsetClusters, subsetCluster)
 	}
 	return subsetClusters
