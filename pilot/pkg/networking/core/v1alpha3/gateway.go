@@ -16,6 +16,7 @@ package v1alpha3
 
 import (
 	"fmt"
+	"strconv"
 	"strings"
 
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
@@ -273,9 +274,8 @@ func (configgen *ConfigGeneratorImpl) buildGatewayHTTPRouteConfig(node *model.Pr
 					}
 				} else {
 					newVHost := &route.VirtualHost{
-						Name: domainName(hostname, port),
-						// as we have stripped any host port, so do not care about port anymore
-						Domains:                    []string{hostname},
+						Name:                       domainName(hostname, port),
+						Domains:                    buildGatewayVirtualHostDomains(hostname, port),
 						IncludeRequestAttemptCount: true,
 					}
 					if server.Tls != nil && server.Tls.HttpsRedirect {
@@ -327,9 +327,8 @@ func (configgen *ConfigGeneratorImpl) buildGatewayHTTPRouteConfig(node *model.Pr
 					}
 				} else {
 					newVHost := &route.VirtualHost{
-						Name: domainName(string(hostname), port),
-						// as we have stripped any host port, so do not care about port anymore
-						Domains:                    []string{string(hostname)},
+						Name:                       domainName(string(hostname), port),
+						Domains:                    buildGatewayVirtualHostDomains(string(hostname), port),
 						Routes:                     routes,
 						IncludeRequestAttemptCount: true,
 					}
@@ -414,12 +413,7 @@ func (configgen *ConfigGeneratorImpl) createGatewayHTTPFilterChainOpts(node *mod
 					},
 					ServerName:          EnvoyServerName,
 					HttpProtocolOptions: httpProtoOpts,
-					// Per https://www.envoyproxy.io/docs/envoy/latest/api-v3/config/route/v3/route_components.proto#config-route-v3-virtualhost
-					// we can only have one wildcard. Ideally, we want to match any port, as the host
-					// header may have a different port (behind a LB, nodeport, etc). However, if we
-					// have a wildcard domain we cannot do that since we would need two wildcards.
-					// Therefore, we always strip host port.
-					StripPortMode: &hcm.HttpConnectionManager_StripAnyHostPort{StripAnyHostPort: true},
+					StripPortMode:       &hcm.HttpConnectionManager_StripAnyHostPort{StripAnyHostPort: features.StripHostPort},
 				},
 				addGRPCWebFilter: serverProto == protocol.GRPCWeb,
 			},
@@ -450,12 +444,7 @@ func (configgen *ConfigGeneratorImpl) createGatewayHTTPFilterChainOpts(node *mod
 				},
 				ServerName:          EnvoyServerName,
 				HttpProtocolOptions: httpProtoOpts,
-				// Per https://www.envoyproxy.io/docs/envoy/latest/api-v3/config/route/v3/route_components.proto#config-route-v3-virtualhost
-				// we can only have one wildcard. Ideally, we want to match any port, as the host
-				// header may have a different port (behind a LB, nodeport, etc). However, if we
-				// have a wildcard domain we cannot do that since we would need two wildcards.
-				// Therefore, we always strip host port.
-				StripPortMode: &hcm.HttpConnectionManager_StripAnyHostPort{StripAnyHostPort: true},
+				StripPortMode:       &hcm.HttpConnectionManager_StripAnyHostPort{StripAnyHostPort: features.StripHostPort},
 			},
 			addGRPCWebFilter: serverProto == protocol.GRPCWeb,
 			statPrefix:       server.Name,
@@ -774,4 +763,24 @@ func isGatewayMatch(gateway string, gatewayNames []string) bool {
 		}
 	}
 	return false
+}
+
+func buildGatewayVirtualHostDomains(hostname string, port int) []string {
+	domains := []string{hostname}
+	if features.StripHostPort || hostname == "*" {
+		return domains
+	}
+
+	// Per https://www.envoyproxy.io/docs/envoy/latest/api-v3/config/route/v3/route_components.proto#config-route-v3-virtualhost
+	// we can only have one wildcard. Ideally, we want to match any port, as the host
+	// header may have a different port (behind a LB, nodeport, etc). However, if we
+	// have a wildcard domain we cannot do that since we would need two wildcards.
+	// Therefore, we we will preserve the original port if there is a wildcard host.
+	// TODO(https://github.com/envoyproxy/envoy/issues/12647) support wildcard host with wildcard port.
+	if len(hostname) > 0 && hostname[0] == '*' {
+		domains = append(domains, hostname+":"+strconv.Itoa(port))
+	} else {
+		domains = append(domains, hostname+":*")
+	}
+	return domains
 }
