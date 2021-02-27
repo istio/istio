@@ -1090,9 +1090,9 @@ func TestHeadlessServices(t *testing.T) {
 
 		{Address: "1.2.3.4", Port: 82, Protocol: simulation.TCP, HostHeader: "headless.default.svc.cluster.local"},
 
-		// TODO: https://github.com/istio/istio/issues/27677 use short host name
-		{Address: "1.2.3.4", Port: 83, Protocol: simulation.TCP, TLS: simulation.TLS, HostHeader: "headless.default.svc.cluster.local"},
-		{Address: "1.2.3.4", Port: 84, Protocol: simulation.HTTP, TLS: simulation.TLS, HostHeader: "headless.default.svc.cluster.local"},
+		// Use short host name
+		{Address: "1.2.3.4", Port: 83, Protocol: simulation.TCP, TLS: simulation.TLS, HostHeader: "headless.default"},
+		{Address: "1.2.3.4", Port: 84, Protocol: simulation.HTTP, TLS: simulation.TLS, HostHeader: "headless.default"},
 	} {
 		calls = append(calls, simulation.Expect{
 			Name: fmt.Sprintf("%s-%d", call.Protocol, call.Port),

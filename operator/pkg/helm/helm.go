@@ -28,6 +28,7 @@ import (
 	"helm.sh/helm/v3/pkg/engine"
 	"sigs.k8s.io/yaml"
 
+	"istio.io/istio/manifests"
 	"istio.io/istio/operator/pkg/util"
 	"istio.io/pkg/log"
 )
@@ -63,14 +64,9 @@ type TemplateRenderer interface {
 // NewHelmRenderer creates a new helm renderer with the given parameters and returns an interface to it.
 // The format of helmBaseDir and profile strings determines the type of helm renderer returned (compiled-in, file,
 // HTTP etc.)
-func NewHelmRenderer(operatorDataDir, helmSubdir, componentName, namespace string) (TemplateRenderer, error) {
+func NewHelmRenderer(operatorDataDir, helmSubdir, componentName, namespace string) TemplateRenderer {
 	dir := filepath.Join(ChartsSubdirName, helmSubdir)
-	switch {
-	case operatorDataDir == "":
-		return NewVFSRenderer(dir, componentName, namespace), nil
-	default:
-		return NewFileTemplateRenderer(filepath.Join(operatorDataDir, dir), componentName, namespace), nil
-	}
+	return NewGenericRenderer(manifests.BuiltinOrDir(operatorDataDir), dir, componentName, namespace)
 }
 
 // ReadProfileYAML reads the YAML values associated with the given profile. It uses an appropriate reader for the
@@ -81,10 +77,6 @@ func ReadProfileYAML(profile, manifestsPath string) (string, error) {
 
 	// Get global values from profile.
 	switch {
-	case manifestsPath == "":
-		if globalValues, err = LoadValuesVFS(profile); err != nil {
-			return "", err
-		}
 	case util.IsFilePath(profile):
 		if globalValues, err = readFile(profile); err != nil {
 			return "", err

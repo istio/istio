@@ -397,8 +397,17 @@ messages:
       - name: gateways
         type: "[]string"
 
-  - name: "ServiceEntryHTTPSTrafficOnHTTPPort"
+  - name: "InvalidWebhook"
     code: IST0139
+    level: Error
+    description: "Webhook is invalid or references a control plane service that does not exist."
+    template: "%v"
+    args:
+      - name: error
+        type: string
+
+  - name: "ServiceEntryHTTPSTrafficOnHTTPPort"
+    code: IST0140
     level: Warning
     description: "ServiceEntry Sending HTTPS to HTTP port."
     template: "ServiceEntry Sending HTTPS to HTTP port on %s"

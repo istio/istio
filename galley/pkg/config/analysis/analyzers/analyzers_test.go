@@ -37,6 +37,7 @@ import (
 	"istio.io/istio/galley/pkg/config/analysis/analyzers/serviceentry"
 	"istio.io/istio/galley/pkg/config/analysis/analyzers/sidecar"
 	"istio.io/istio/galley/pkg/config/analysis/analyzers/virtualservice"
+	"istio.io/istio/galley/pkg/config/analysis/analyzers/webhook"
 	"istio.io/istio/galley/pkg/config/analysis/diag"
 	"istio.io/istio/galley/pkg/config/analysis/local"
 	"istio.io/istio/galley/pkg/config/analysis/msg"
@@ -457,6 +458,18 @@ var testGrid = []testCase{
 			{msg.GatewayDuplicateCertificate, "Gateway gateway-02-test-01.istio-system"},
 			{msg.GatewayDuplicateCertificate, "Gateway gateway-01-test-02.istio-system"},
 			{msg.GatewayDuplicateCertificate, "Gateway gateway-01-test-03.default"},
+		},
+	},
+	{
+		name: "webook",
+		inputFiles: []string{
+			"testdata/webhook.yaml",
+		},
+		analyzer: &webhook.Analyzer{},
+		expected: []message{
+			{msg.InvalidWebhook, "MutatingWebhookConfiguration istio-sidecar-injector-missing-overlap"},
+			{msg.InvalidWebhook, "MutatingWebhookConfiguration istio-sidecar-injector-missing-overlap"},
+			{msg.InvalidWebhook, "MutatingWebhookConfiguration istio-sidecar-injector-overlap"},
 		},
 	},
 	{

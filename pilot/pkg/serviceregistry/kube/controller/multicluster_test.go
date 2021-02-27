@@ -39,7 +39,7 @@ const (
 	ResyncPeriod        = 1 * time.Second
 )
 
-var mockserviceController = &aggregate.Controller{}
+var mockserviceController = aggregate.NewController(aggregate.Options{})
 
 func createMultiClusterSecret(k8s kube.Client) error {
 	data := map[string][]byte{}

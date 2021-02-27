@@ -115,83 +115,12 @@ type XdsCache interface {
 	Keys() []string
 }
 
-// inMemoryCache is a simple implementation of Cache that uses in memory map.
-type inMemoryCache struct {
-	store       map[string]*any.Any
-	configIndex map[ConfigKey]sets.Set
-	mu          sync.RWMutex
-}
-
 // NewXdsCache returns an instance of a cache.
 func NewXdsCache() XdsCache {
-	if features.XDSCacheMaxSize <= 0 {
-		return &inMemoryCache{
-			store:       map[string]*any.Any{},
-			configIndex: map[ConfigKey]sets.Set{},
-		}
-	}
 	return &lruCache{
 		store:       newLru(),
 		configIndex: map[ConfigKey]sets.Set{},
 	}
-}
-
-func (c *inMemoryCache) Add(entry XdsCacheEntry, value *any.Any) {
-	if !entry.Cacheable() {
-		return
-	}
-	c.mu.Lock()
-	defer c.mu.Unlock()
-	k := entry.Key()
-	c.store[k] = value
-	indexConfig(c.configIndex, k, entry)
-	size(len(c.store))
-}
-
-func (c *inMemoryCache) Get(entry XdsCacheEntry) (*any.Any, bool) {
-	if !entry.Cacheable() {
-		return nil, false
-	}
-	c.mu.RLock()
-	defer c.mu.RUnlock()
-	k, f := c.store[entry.Key()]
-	if f {
-		hit()
-	} else {
-		miss()
-	}
-	return k, f
-}
-
-func (c *inMemoryCache) Clear(configs map[ConfigKey]struct{}) {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-	for ckey := range configs {
-		referenced := c.configIndex[ckey]
-		delete(c.configIndex, ckey)
-		for keys := range referenced {
-			delete(c.store, keys)
-		}
-	}
-	size(len(c.store))
-}
-
-func (c *inMemoryCache) ClearAll() {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-	c.store = map[string]*any.Any{}
-	c.configIndex = map[ConfigKey]sets.Set{}
-	size(len(c.store))
-}
-
-func (c *inMemoryCache) Keys() []string {
-	c.mu.RLock()
-	defer c.mu.RUnlock()
-	keys := []string{}
-	for k := range c.store {
-		keys = append(keys, k)
-	}
-	return keys
 }
 
 type lruCache struct {
@@ -204,7 +133,11 @@ type lruCache struct {
 var _ XdsCache = &lruCache{}
 
 func newLru() simplelru.LRUCache {
-	l, err := simplelru.NewLRU(features.XDSCacheMaxSize, evict)
+	sz := features.XDSCacheMaxSize
+	if sz <= 0 {
+		sz = 20000
+	}
+	l, err := simplelru.NewLRU(sz, evict)
 	if err != nil {
 		panic(fmt.Errorf("invalid lru configuration: %v", err))
 	}

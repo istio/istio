@@ -591,7 +591,8 @@ func TestAddSubsetToMetadata(t *testing.T) {
 
 	for _, v := range cases {
 		t.Run(v.name, func(tt *testing.T) {
-			got := AddSubsetToMetadata(v.in, v.subset)
+			AddSubsetToMetadata(v.in, v.subset)
+			got := v.in
 			if diff := cmp.Diff(got, v.want, protocmp.Transform()); diff != "" {
 				tt.Errorf("AddSubsetToMetadata(%v, %s) produced incorrect result:\ngot: %v\nwant: %v\nDiff: %s", v.in, v.subset, got, v.want, diff)
 			}

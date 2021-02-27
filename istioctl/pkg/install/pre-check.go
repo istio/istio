@@ -176,7 +176,7 @@ func installPreCheck(istioNamespaceFlag string, restClientGetter genericclioptio
 		},
 	}
 	var createErrors error
-	resourceNames := make([]string, 0)
+	resourceNames := make([]string, 0, len(Resources))
 	errResourceNames := make([]string, 0)
 	for _, r := range Resources {
 		err = checkCanCreateResources(c, r.namespace, r.group, r.version, r.name)

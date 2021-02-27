@@ -145,6 +145,10 @@ collections:
     kind: "CustomResourceDefinition"
     group: "apiextensions.k8s.io"
 
+  - name: "k8s/admissionregistration.k8s.io/v1/mutatingwebhookconfigurations"
+    kind: "MutatingWebhookConfiguration"
+    group: "admissionregistration.k8s.io"
+
   - name: "k8s/apps/v1/deployments"
     kind: "Deployment"
     group: "apps"
@@ -285,6 +289,7 @@ snapshots:
       - "istio/networking/v1alpha3/virtualservices"
       - "istio/security/v1beta1/authorizationpolicies"
       - "k8s/apiextensions.k8s.io/v1/customresourcedefinitions"
+      - "k8s/admissionregistration.k8s.io/v1/mutatingwebhookconfigurations"
       - "k8s/apps/v1/deployments"
       - "k8s/core/v1/namespaces"
       - "k8s/core/v1/pods"
@@ -301,6 +306,13 @@ resources:
     version: "v1"
     proto: "k8s.io.apiextensions_apiserver.pkg.apis.apiextensions.v1.CustomResourceDefinition"
     protoPackage: "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
+
+  - kind: "MutatingWebhookConfiguration"
+    plural: "MutatingWebhookConfigurations"
+    group: "admissionregistration.k8s.io"
+    version: "v1"
+    proto: "k8s.io.api.admissionregistration.v1.MutatingWebhookConfiguration"
+    protoPackage: "k8s.io/api/admissionregistration/v1"
 
   - kind: "Deployment"
     plural: "Deployments"
@@ -551,6 +563,7 @@ transforms:
   - type: direct
     mapping:
       "k8s/apiextensions.k8s.io/v1/customresourcedefinitions": "k8s/apiextensions.k8s.io/v1/customresourcedefinitions"
+      "k8s/admissionregistration.k8s.io/v1/mutatingwebhookconfigurations": "k8s/admissionregistration.k8s.io/v1/mutatingwebhookconfigurations"
       "k8s/networking.istio.io/v1alpha3/destinationrules": "istio/networking/v1alpha3/destinationrules"
       "k8s/networking.istio.io/v1alpha3/envoyfilters": "istio/networking/v1alpha3/envoyfilters"
       "k8s/networking.istio.io/v1alpha3/gateways": "istio/networking/v1alpha3/gateways"

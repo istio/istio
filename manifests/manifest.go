@@ -12,27 +12,32 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package status
+package manifests
 
 import (
-	"istio.io/istio/galley/pkg/config/analysis/diag"
+	"embed"
+	"io/fs"
+	"os"
 )
 
-// DocRef is the doc ref value used by the status controller
-const DocRef = "status-controller"
+// FS embeds the manifests
+//go:embed charts/* profiles/*
+//go:embed charts/gateways/istio-egress/templates/_affinity.tpl
+//go:embed charts/gateways/istio-egress/templates/_helpers.tpl
+//go:embed charts/gateways/istio-ingress/templates/_affinity.tpl
+var FS embed.FS
 
-// toStatusValue converts a set of diag.Messages to a status value.
-func toStatusValue(msgs diag.Messages) interface{} {
-	if len(msgs) == 0 {
-		return nil
+var (
+	_ fs.FS         = FS
+	_ fs.ReadFileFS = FS
+	_ fs.ReadDirFS  = FS
+)
+
+// BuiltinOrDir returns a FS for the provided directory. If no directory is passed, the compiled in
+// FS will be used
+func BuiltinOrDir(dir string) fs.FS {
+	if dir == "" {
+		return FS
 	}
-
-	result := make([]interface{}, 0, len(msgs))
-	for _, m := range msgs {
-		m.DocRef = DocRef
-
-		result = append(result, m.UnstructuredAnalysisMessageBase())
-	}
-
-	return result
+	return os.DirFS(dir)
 }

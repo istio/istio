@@ -23,6 +23,7 @@ var (
 	Ingress = config.GroupVersionKind{Group: "extensions", Version: "v1beta1", Kind: "Ingress"}
 	MeshConfig = config.GroupVersionKind{Group: "", Version: "v1alpha1", Kind: "MeshConfig"}
 	MeshNetworks = config.GroupVersionKind{Group: "", Version: "v1alpha1", Kind: "MeshNetworks"}
+	MutatingWebhookConfiguration = config.GroupVersionKind{Group: "admissionregistration.k8s.io", Version: "v1", Kind: "MutatingWebhookConfiguration"}
 	Namespace = config.GroupVersionKind{Group: "", Version: "v1", Kind: "Namespace"}
 	Node = config.GroupVersionKind{Group: "", Version: "v1", Kind: "Node"}
 	PeerAuthentication = config.GroupVersionKind{Group: "security.istio.io", Version: "v1beta1", Kind: "PeerAuthentication"}

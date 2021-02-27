@@ -50,7 +50,7 @@ func MetadataListMatcher(filter string, keys []string, value string) *matcherpb.
 		},
 	}
 
-	paths := make([]*matcherpb.MetadataMatcher_PathSegment, 0)
+	paths := make([]*matcherpb.MetadataMatcher_PathSegment, 0, len(keys))
 	for _, k := range keys {
 		paths = append(paths, &matcherpb.MetadataMatcher_PathSegment{
 			Segment: &matcherpb.MetadataMatcher_PathSegment_Key{

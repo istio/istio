@@ -12,7 +12,7 @@ apiVersion: install.istio.io/v1alpha1
 kind: IstioOperator
 spec:
   hub: gcr.io/istio-release
-  revision: 1-8-0
+  revision: 1-x-y
   components:
     base:
       enabled: false
@@ -28,7 +28,7 @@ spec:
         resources:
           requests:
             cpu: 10m
-            memory:
+            memory: 40m
 ```
 
 1. Run `tar cf 1.x.y-install.yaml.tar 1.x.y-install.yaml`

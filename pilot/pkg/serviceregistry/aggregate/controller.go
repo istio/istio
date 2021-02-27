@@ -19,6 +19,7 @@ import (
 	"sync"
 
 	"github.com/hashicorp/go-multierror"
+	"go.uber.org/atomic"
 
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry"
@@ -43,7 +44,7 @@ type Controller struct {
 	registries []serviceregistry.Instance
 	storeLock  sync.RWMutex
 	meshHolder mesh.Holder
-	running    bool
+	running    *atomic.Bool
 }
 
 type Options struct {
@@ -55,6 +56,7 @@ func NewController(opt Options) *Controller {
 	return &Controller{
 		registries: make([]serviceregistry.Instance, 0),
 		meshHolder: opt.MeshHolder,
+		running:    atomic.NewBool(false),
 	}
 }
 
@@ -89,7 +91,12 @@ func (c *Controller) GetRegistries() []serviceregistry.Instance {
 	c.storeLock.RLock()
 	defer c.storeLock.RUnlock()
 
-	return c.registries
+	// copy registries to prevent race, no need to deep copy here.
+	out := make([]serviceregistry.Instance, len(c.registries))
+	for i := range c.registries {
+		out[i] = c.registries[i]
+	}
+	return out
 }
 
 // GetRegistryIndex returns the index of a registry
@@ -271,7 +278,7 @@ func (c *Controller) Run(stop <-chan struct{}) {
 	for _, r := range c.GetRegistries() {
 		go r.Run(stop)
 	}
-	c.running = true
+	c.running.Store(true)
 	<-stop
 	log.Info("Registry Aggregator terminated")
 }
@@ -279,7 +286,7 @@ func (c *Controller) Run(stop <-chan struct{}) {
 // Running returns true after Run has been called. If already running, registries passed to AddRegistry
 // should be started outside of this aggregate controller.
 func (c *Controller) Running() bool {
-	return c.running
+	return c.running.Load()
 }
 
 // HasSynced returns true when all registries have synced

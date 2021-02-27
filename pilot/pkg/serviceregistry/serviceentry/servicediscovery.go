@@ -634,6 +634,7 @@ func (s *ServiceEntryStore) maybeRefreshIndexes() {
 	// a full R+W before the other can start, rather than R,R,W,W.
 	s.storeMutex.Lock()
 	defer s.storeMutex.Unlock()
+
 	// Without this pilot becomes very unstable even with few 100 ServiceEntry objects
 	// - the N_clusters * N_update generates too much garbage ( yaml to proto)
 	// This is reset on any change in ServiceEntries that needs index recomputation.
