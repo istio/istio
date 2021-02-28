@@ -656,7 +656,6 @@ func CidrRangeSliceEqual(a, b []*core.CidrRange) bool {
 		if err != nil {
 			return false
 		}
-		fmt.Println(netA, netB)
 		if netA.IP.String() != netB.IP.String() {
 			return false
 		}
