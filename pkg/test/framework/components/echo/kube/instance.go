@@ -21,6 +21,7 @@ import (
 	"time"
 
 	"github.com/hashicorp/go-multierror"
+
 	kubeCore "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
@@ -200,10 +201,15 @@ func (c *instance) Restart() error {
 }
 
 func (c *instance) aggregateResponses(opts echo.CallOptions, retry bool, retryOptions ...retry.Option) (appEcho.ParsedResponses, error) {
+	//return common.ForwardEcho(c.cfg.Service, c.firstClient, &opts, retry, retryOptions...)
 	resps := make([]*appEcho.ParsedResponse, 0)
+	workloads, err := c.Workloads()
+	if err != nil {
+		return nil, err
+	}
 	var aggErr error
-	for _, w := range c.workloadMgr.workloads {
-		out, err := common.ForwardEcho(c.cfg.Service, w.Client, &opts, retry, retryOptions...)
+	for _, w := range workloads {
+		out, err := common.ForwardEcho(c.cfg.Service, w.(*workload).Client, &opts, retry, retryOptions...)
 		if err != nil {
 			aggErr = multierror.Append(err, aggErr)
 			continue
@@ -223,7 +229,7 @@ func (c *instance) aggregateResponses(opts echo.CallOptions, retry bool, retryOp
 func (c *instance) summarize(responses appEcho.ParsedResponses, opts echo.CallOptions) {
 	fmt.Println("-=-=-=-=")
 	if opts.Target == nil {
-		fmt.Printf("Received: %d responses for %s->%s\n", len(responses), c.cfg.Service, opts.Target)
+		fmt.Printf("Received: %d responses for %s->%s\n", len(responses), c.cfg.Service, "[NIL TARGET]")
 	} else {
 		fmt.Printf("Received: %d responses for %s->%s\n", len(responses), c.cfg.Service, opts.Target.Address())
 	}
