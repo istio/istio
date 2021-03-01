@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: feature
+area: istioctl
+issues:
+- 28191
+releaseNotes:
+- |
+  **Added** the `istioctl proxy-config all` command to view the full proxy configuration.
