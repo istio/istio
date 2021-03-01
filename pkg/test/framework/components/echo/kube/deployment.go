@@ -448,7 +448,7 @@ func newDeployment(ctx resource.Context, cfg echo.Config) (*deployment, error) {
 		}
 	}
 
-	deploymentYAML, err := generateDeploymentYAML(cfg, nil, nil)
+	deploymentYAML, err := generateDeploymentYAML(cfg, nil, ctx.Settings().Versions)
 	if err != nil {
 		return nil, fmt.Errorf("failed generating echo deployment YAML for %s/%s",
 			cfg.Namespace.Name(),
