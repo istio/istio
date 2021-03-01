@@ -51,6 +51,12 @@ func SettingsFromCommandLine(testID string) (*Settings, error) {
 				" -istio.test.deprecation_failure must not be used at the same time")
 	}
 
+	if s.Revision != "" && s.Versions != nil {
+		return nil,
+			fmt.Errorf("cannot use --istio.test.revision and --istio.test.versions at the same time," +
+				" --istio.test.versions will take precedence and --istio.test.revision will be ignored")
+	}
+
 	return s, nil
 }
 
