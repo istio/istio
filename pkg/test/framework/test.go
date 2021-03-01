@@ -20,6 +20,8 @@ import (
 	"testing"
 	"time"
 
+	"istio.io/istio/pkg/test/framework/resource"
+
 	"istio.io/istio/pkg/test/framework/features"
 	"istio.io/istio/pkg/test/framework/label"
 	"istio.io/istio/pkg/test/scopes"
@@ -32,6 +34,9 @@ type Test interface {
 	// Label applies the given labels to this test.
 	Features(feats ...features.Feature) Test
 	NotImplementedYet(features ...features.Feature) Test
+	// RequireIstioVersion ensures that all installed versions of Istio are at least the
+	// required version for the annotated test to pass
+	RequireIstioVersion(version string) Test
 	// RequiresMinClusters ensures that the current environment contains at least the expected number of clusters.
 	// Otherwise it stops test execution and skips the test.
 	RequiresMinClusters(minClusters int) Test
@@ -104,6 +109,7 @@ type testImpl struct {
 	s                   *suiteContext
 	requiredMinClusters int
 	requiredMaxClusters int
+	minIstioVersion     string
 
 	ctx *testContext
 
@@ -173,6 +179,11 @@ func (t *testImpl) RequiresSingleCluster() Test {
 	return t.RequiresMaxClusters(1).RequiresMinClusters(1)
 }
 
+func (t *testImpl) RequireIstioVersion(version string) Test {
+	t.minIstioVersion = version
+	return t
+}
+
 func (t *testImpl) Run(fn func(ctx TestContext)) {
 	t.runInternal(fn, false)
 }
@@ -229,6 +240,14 @@ func (t *testImpl) doRun(ctx *testContext, fn func(ctx TestContext), parallel bo
 		t.goTest.Skipf("Skipping %q: number of clusters %d is above required max %d",
 			t.goTest.Name(), len(t.s.Environment().Clusters()), t.requiredMaxClusters)
 		return
+	}
+
+	if t.minIstioVersion != "" {
+		if resource.Version(t.minIstioVersion).Compare(t.ctx.Settings().Versions.Minimum()) > 0 {
+			ctx.Done()
+			t.goTest.Skipf("Skipping %q: running with min Istio version %s, test requires %s",
+				t.goTest.Name(), t.ctx.Settings().Versions.Minimum(), t.minIstioVersion)
+		}
 	}
 
 	start := time.Now()
