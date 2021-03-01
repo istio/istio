@@ -89,7 +89,7 @@ func (s *Server) initConfigController(args *PilotArgs) error {
 		// Since supporting both in a monolith controller is painful due to lack of usable conversion logic between
 		// the two versions.
 		// As a compromise, we instead just fork the controller. Once 1.18 support is no longer needed, we can drop the old controller
-		ingressV1 := ingress.IngressV1Available(s.kubeClient)
+		ingressV1 := ingress.V1Available(s.kubeClient)
 		if ingressV1 {
 			s.ConfigStores = append(s.ConfigStores,
 				ingressv1.NewController(s.kubeClient, s.environment.Watcher, args.RegistryOptions.KubeOptions))

@@ -97,7 +97,7 @@ var ingressNamespace = env.RegisterStringVar("K8S_INGRESS_NS", "", "").Get()
 var errUnsupportedOp = errors.New("unsupported operation: the ingress config store is a read-only view")
 
 // Check if the "networking/v1" Ingress is available. Implementation borrowed from ingress-nginx
-func IngressV1Available(client kubernetes.Interface) bool {
+func V1Available(client kubernetes.Interface) bool {
 	// check kubernetes version to use new ingress package or not
 	version119, _ := version.ParseGeneric("v1.19.0")
 
