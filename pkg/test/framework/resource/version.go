@@ -53,7 +53,7 @@ func (v Versions) Minimum() Version {
 
 // IsMultiVersion returns whether the associated Versions have multiple specified versions.
 func (v Versions) IsMultiVersion() bool {
-	return v == nil || len(v) == 0
+	return v != nil && len(v) > 0
 }
 
 // ToRevisions returns the list of canonical revisions for a set of versions.
