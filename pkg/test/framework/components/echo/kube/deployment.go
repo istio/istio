@@ -89,15 +89,19 @@ spec:
 `
 
 	deploymentYAML = `
-{{- $versions := .Versions }}
+{{- $revisions := .Revisions }}
 {{- $subsets := .Subsets }}
 {{- $cluster := .Cluster }}
 {{- range $i, $subset := $subsets }}
-{{- range $j, $version := $versions }}
+{{- range $j, $revision := $revisions }}
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: {{ $.Service }}-{{ $subset.Version }}-{{ $version }}
+{{- if $.IsMultiVersion }}
+  name: {{ $.Service }}-{{ $subset.Version }}-{{ $revision }}
+{{- else }}
+  name: {{ $.Service }}-{{ $subset.Version }}
+{{- end }}
 spec:
   replicas: 1
   selector:
@@ -112,7 +116,9 @@ spec:
       labels:
         app: {{ $.Service }}
         version: {{ $subset.Version }}
-        istio.io/rev: {{ $version }}
+{{- if $.IsMultiVersion }}
+        istio.io/rev: {{ $revision }}
+{{- end }}
 {{- if ne $.Locality "" }}
         istio-locality: {{ $.Locality }}
 {{- end }}
@@ -601,6 +607,10 @@ func templateParams(cfg echo.Config, settings *image.Settings, versions resource
 		}
 		imagePullSecret = secret.GetName()
 	}
+	revisions := versions.ToRevisions()
+	if len(revisions) == 0 {
+		revisions = []string{""}
+	}
 	params := map[string]interface{}{
 		"Hub":                settings.Hub,
 		"Tag":                strings.TrimSuffix(settings.Tag, "-distroless"),
@@ -624,7 +634,8 @@ func templateParams(cfg echo.Config, settings *image.Settings, versions resource
 		},
 		"StartupProbe":    supportStartupProbe,
 		"IncludeExtAuthz": cfg.IncludeExtAuthz,
-		"Versions":        versions.ToRevisions(),
+		"Revisions":       revisions,
+		"IsMultiVersion":  versions.IsMultiVersion(),
 	}
 	return params, nil
 }
