@@ -77,12 +77,12 @@ func SetupApps(ctx resource.Context, apps *EchoDeployments) error {
 	builder := echoboot.NewBuilder(ctx)
 	for _, cluster := range ctx.Clusters() {
 		builder.
-			With(nil, echo.Config{
+			With(&apps.Client, echo.Config{
 				Namespace: apps.Namespace,
 				Service:   "client",
 				Cluster:   cluster,
 			}).
-			With(nil, echo.Config{
+			With(&apps.Server, echo.Config{
 				Subsets:        []echo.SubsetConfig{{}},
 				Namespace:      apps.Namespace,
 				Service:        "server",
@@ -98,16 +98,8 @@ func SetupApps(ctx resource.Context, apps *EchoDeployments) error {
 				Cluster: cluster,
 			})
 	}
-	echoes, err := builder.Build()
-	if err != nil {
-		return err
-	}
-	apps.Client, err = echoes.Get(echo.Service("client"))
-	if err != nil {
-		return err
-	}
+	err = builder.Build()
 
-	apps.Server, err = echoes.Get(echo.Service("server"))
 	if err != nil {
 		return err
 	}
