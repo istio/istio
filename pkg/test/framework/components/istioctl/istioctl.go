@@ -30,6 +30,7 @@ type Instance interface {
 
 	// InvokeOrFail calls Invoke and fails tests if it returns en err
 	InvokeOrFail(t *testing.T, args []string) (string, string)
+	WaitForConfigs(defaultNamespace string, configs string) error
 }
 
 // Config is structured config for the istioctl component

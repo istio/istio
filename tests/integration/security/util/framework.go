@@ -62,7 +62,7 @@ func EchoConfig(name string, ns namespace.Instance, headless bool, annos echo.An
 	return out
 }
 
-func WaitForConfigWithSleep(ctx framework.TestContext, testName, configs string, namespace namespace.Instance) {
+func WaitForConfigWithSleep(ctx framework.TestContext, configs string, namespace namespace.Instance) {
 	ik := istioctl.NewOrFail(ctx, ctx, istioctl.Config{})
 	t0 := time.Now()
 	if err := ik.WaitForConfigs(namespace.Name(), configs); err != nil {
@@ -76,7 +76,7 @@ func WaitForConfigWithSleep(ctx framework.TestContext, testName, configs string,
 	// to work around this, we will temporarily make sure we are always sleeping at least 10s, even if istioctl wait is faster.
 	// This allows us to debug istioctl wait, while still ensuring tests are stable
 	sleep := time.Second*10 - time.Since(t0)
-	ctx.Logf("[%s] [%v] Wait for additional %v config propagate to endpoints...", testName, time.Now(), sleep)
+	//ctx.Logf("[%s] [%v] Wait for additional %v config propagate to endpoints...", testName, time.Now(), sleep)
 	time.Sleep(sleep)
-	ctx.Logf("[%s] [%v] Finish waiting. Continue testing.", testName, time.Now())
+	//ctx.Logf("[%s] [%v] Finish waiting. Continue testing.", testName, time.Now())
 }
