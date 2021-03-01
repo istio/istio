@@ -1,0 +1,6 @@
+apiVersion: release-notes/v2
+kind: feature
+area: networking
+releaseNotes:
+- |
+  **Improved** the full push scoping by adding `Sidecar` config to sidecarScopeKnownConfigTypes.
