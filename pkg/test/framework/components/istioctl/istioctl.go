@@ -30,6 +30,8 @@ type Instance interface {
 
 	// InvokeOrFail calls Invoke and fails tests if it returns en err
 	InvokeOrFail(t *testing.T, args []string) (string, string)
+
+	// WaitForConfigs will wait until all passed in config has been distributed
 	WaitForConfigs(defaultNamespace string, configs string) error
 }
 
