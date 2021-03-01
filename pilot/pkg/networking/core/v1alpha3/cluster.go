@@ -782,9 +782,7 @@ func applyLoadBalancer(c *cluster.Cluster, lb *networking.LoadBalancerSettings, 
 	// and port is named as redis-xxx we end up creating a cluster with type Original DST and LbPolicy as MAGLEV which would be
 	// rejected by Envoy.
 
-	// Original destination service discovery must be used with the original destination load balancer.
 	if c.GetType() == cluster.Cluster_ORIGINAL_DST {
-		c.LbPolicy = cluster.Cluster_CLUSTER_PROVIDED
 		return
 	}
 
