@@ -150,8 +150,9 @@ kind: EnvoyFilter
 metadata:
   name: simple-envoy-filter
 spec:
-  workloadSelector:
-    labels:
+  configPatches:
+  - applyTo: LISTENER
+    patch: {}
 `)
 
 func datasetNetworkingV1alpha3EnvoyfilterInvalidYamlBytes() ([]byte, error) {
