@@ -1800,12 +1800,12 @@ func TestApplyLoadBalancer(t *testing.T) {
 		expectedLocalityWeightedConfig bool
 	}{
 		{
-			name:             "lb = nil ORIGINAL_DST discovery type",
+			name:             "ORIGINAL_DST discovery type is a no op",
 			discoveryType:    cluster.Cluster_ORIGINAL_DST,
 			expectedLbPolicy: cluster.Cluster_CLUSTER_PROVIDED,
 		},
 		{
-			name:             "lb = nil redis protocol",
+			name:             "redis protocol",
 			discoveryType:    cluster.Cluster_EDS,
 			port:             &model.Port{Protocol: protocol.Redis},
 			expectedLbPolicy: cluster.Cluster_MAGLEV,
@@ -1842,8 +1842,12 @@ func TestApplyLoadBalancer(t *testing.T) {
 
 	for _, test := range testcases {
 		t.Run(test.name, func(t *testing.T) {
-			cluster := &cluster.Cluster{
+			c := &cluster.Cluster{
 				ClusterDiscoveryType: &cluster.Cluster_Type{Type: test.discoveryType},
+			}
+
+			if test.discoveryType == cluster.Cluster_ORIGINAL_DST {
+				c.LbPolicy = cluster.Cluster_CLUSTER_PROVIDED
 			}
 
 			if test.port != nil && test.port.Protocol == protocol.Redis {
@@ -1852,13 +1856,13 @@ func TestApplyLoadBalancer(t *testing.T) {
 				defer func() { features.EnableRedisFilter = defaultValue }()
 			}
 
-			applyLoadBalancer(cluster, test.lbSettings, test.port, &proxy, &meshconfig.MeshConfig{})
+			applyLoadBalancer(c, test.lbSettings, test.port, &proxy, &meshconfig.MeshConfig{})
 
-			if cluster.LbPolicy != test.expectedLbPolicy {
-				t.Errorf("cluster LbPolicy %s != expected %s", cluster.LbPolicy, test.expectedLbPolicy)
+			if c.LbPolicy != test.expectedLbPolicy {
+				t.Errorf("cluster LbPolicy %s != expected %s", c.LbPolicy, test.expectedLbPolicy)
 			}
 
-			if test.expectedLocalityWeightedConfig && cluster.CommonLbConfig.GetLocalityWeightedLbConfig() == nil {
+			if test.expectedLocalityWeightedConfig && c.CommonLbConfig.GetLocalityWeightedLbConfig() == nil {
 				t.Errorf("cluster expected to have weighed config, but is nil")
 			}
 		})
