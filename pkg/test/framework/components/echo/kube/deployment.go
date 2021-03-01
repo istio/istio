@@ -89,13 +89,15 @@ spec:
 `
 
 	deploymentYAML = `
+{{- $versions := .Versions }}
 {{- $subsets := .Subsets }}
 {{- $cluster := .Cluster }}
 {{- range $i, $subset := $subsets }}
+{{- range $j, $version := $versions }}
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: {{ $.Service }}-{{ $subset.Version }}
+  name: {{ $.Service }}-{{ $subset.Version }}-{{ $version }}
 spec:
   replicas: 1
   selector:
@@ -110,6 +112,7 @@ spec:
       labels:
         app: {{ $.Service }}
         version: {{ $subset.Version }}
+        istio.io/rev: {{ $version }}
 {{- if ne $.Locality "" }}
         istio-locality: {{ $.Locality }}
 {{- end }}
@@ -234,9 +237,10 @@ spec:
       - configMap:
           name: {{ $.Service }}-certs
         name: custom-certs
-{{- end}}
+{{- end }}
 ---
-{{- end}}
+{{- end }}
+{{- end }}
 {{- if .TLSSettings }}
 apiVersion: v1
 kind: ConfigMap
@@ -444,7 +448,7 @@ func newDeployment(ctx resource.Context, cfg echo.Config) (*deployment, error) {
 		}
 	}
 
-	deploymentYAML, err := generateDeploymentYAML(cfg, nil)
+	deploymentYAML, err := generateDeploymentYAML(cfg, nil, nil)
 	if err != nil {
 		return nil, fmt.Errorf("failed generating echo deployment YAML for %s/%s",
 			cfg.Namespace.Name(),
@@ -541,8 +545,8 @@ spec:
 `, name, podIP, sa, network, service, version)
 }
 
-func generateDeploymentYAML(cfg echo.Config, settings *image.Settings) (string, error) {
-	params, err := templateParams(cfg, settings)
+func generateDeploymentYAML(cfg echo.Config, settings *image.Settings, versions resource.Versions) (string, error) {
+	params, err := templateParams(cfg, settings, versions)
 	if err != nil {
 		return "", err
 	}
@@ -556,7 +560,7 @@ func generateDeploymentYAML(cfg echo.Config, settings *image.Settings) (string, 
 }
 
 func GenerateService(cfg echo.Config) (string, error) {
-	params, err := templateParams(cfg, nil)
+	params, err := templateParams(cfg, nil, nil)
 	if err != nil {
 		return "", err
 	}
@@ -566,7 +570,7 @@ func GenerateService(cfg echo.Config) (string, error) {
 
 const DefaultVMImage = "app_sidecar_ubuntu_bionic"
 
-func templateParams(cfg echo.Config, settings *image.Settings) (map[string]interface{}, error) {
+func templateParams(cfg echo.Config, settings *image.Settings, versions resource.Versions) (map[string]interface{}, error) {
 	if settings == nil {
 		var err error
 		settings, err = image.SettingsFromCommandLine()
@@ -620,6 +624,7 @@ func templateParams(cfg echo.Config, settings *image.Settings) (map[string]inter
 		},
 		"StartupProbe":    supportStartupProbe,
 		"IncludeExtAuthz": cfg.IncludeExtAuthz,
+		"Versions":        versions.ToRevisions(),
 	}
 	return params, nil
 }

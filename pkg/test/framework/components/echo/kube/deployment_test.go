@@ -150,7 +150,7 @@ func TestDeploymentYAML(t *testing.T) {
 			if err != nil {
 				t.Errorf("failed to generate service %v", err)
 			}
-			deploymentYAML, err := generateDeploymentYAML(tc.config, settings)
+			deploymentYAML, err := generateDeploymentYAML(tc.config, settings, nil)
 			if err != nil {
 				t.Errorf("failed to generate deployment %v", err)
 			}
