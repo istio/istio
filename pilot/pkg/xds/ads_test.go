@@ -384,13 +384,25 @@ func TestAdsPushScoping(t *testing.T) {
 			},
 		},
 	}
-	if _, err := s.Store().Create(config.Config{
+	scc := config.Config{
 		Meta: config.Meta{
 			GroupVersionKind: gvk.Sidecar,
 			Name:             "sc", Namespace: model.IstioDefaultConfigNamespace,
 		},
 		Spec: sc,
-	}); err != nil {
+	}
+	notMatchedScc := config.Config{
+		Meta: config.Meta{
+			GroupVersionKind: gvk.Sidecar,
+			Name:             "notMatchedSc", Namespace: model.IstioDefaultConfigNamespace,
+		},
+		Spec: &networking.Sidecar{
+			WorkloadSelector: &networking.WorkloadSelector{
+				Labels: map[string]string{"notMatched": "notMatched"},
+			},
+		},
+	}
+	if _, err := s.Store().Create(scc); err != nil {
 		t.Fatal(err)
 	}
 	addService(model.IstioDefaultConfigNamespace, 1, 2, 3)
@@ -422,6 +434,7 @@ func TestAdsPushScoping(t *testing.T) {
 			index int
 			host  string
 		}
+		cfgs []config.Config
 
 		expectUpdates   []string
 		unexpectUpdates []string
@@ -625,6 +638,20 @@ func TestAdsPushScoping(t *testing.T) {
 			ns:              ns1,
 			unexpectUpdates: []string{v3.ClusterType},
 		}, // then: default 1,2,3
+		{
+			desc:            "Add an unmatched Sidecar config",
+			ev:              model.EventAdd,
+			cfgs:            []config.Config{notMatchedScc},
+			ns:              model.IstioDefaultConfigNamespace,
+			unexpectUpdates: []string{v3.ListenerType, v3.RouteType, v3.ClusterType, v3.EndpointType},
+		},
+		{
+			desc:          "Update the Sidecar config",
+			ev:            model.EventUpdate,
+			cfgs:          []config.Config{scc},
+			ns:            model.IstioDefaultConfigNamespace,
+			expectUpdates: []string{v3.ListenerType, v3.RouteType, v3.ClusterType, v3.EndpointType},
+		},
 	}
 
 	for _, c := range svcCases {
@@ -664,10 +691,24 @@ func TestAdsPushScoping(t *testing.T) {
 						addDestinationRule(drIndex.index, drIndex.host)
 					}
 				}
+				if len(c.cfgs) > 0 {
+					for _, cfg := range c.cfgs {
+						if _, err := s.Store().Create(cfg); err != nil {
+							t.Fatal(err)
+						}
+					}
+				}
 			case model.EventUpdate:
 				if len(c.delegatevsIndexes) > 0 {
 					for _, vsIndex := range c.delegatevsIndexes {
 						updateDelegateVirtualService(vsIndex.index, vsIndex.dest)
+					}
+				}
+				if len(c.cfgs) > 0 {
+					for _, cfg := range c.cfgs {
+						if _, err := s.Store().Update(cfg); err != nil {
+							t.Fatal(err)
+						}
 					}
 				}
 			case model.EventDelete:

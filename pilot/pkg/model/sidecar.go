@@ -38,12 +38,12 @@ var (
 		gvk.ServiceEntry:    {},
 		gvk.VirtualService:  {},
 		gvk.DestinationRule: {},
+		gvk.Sidecar:         {},
 	}
 
 	// clusterScopedConfigTypes includes configs when they are in root namespace,
 	// they will be applied to all namespaces within the cluster.
 	clusterScopedConfigTypes = map[config.GroupVersionKind]struct{}{
-		gvk.Sidecar:               {},
 		gvk.EnvoyFilter:           {},
 		gvk.AuthorizationPolicy:   {},
 		gvk.RequestAuthentication: {},
@@ -268,6 +268,12 @@ func ConvertToSidecarScope(ps *PushContext, sidecarConfig *config.Config, config
 		RootNamespace:      ps.Mesh.RootNamespace,
 		Version:            ps.PushVersion,
 	}
+
+	out.AddConfigDependencies(ConfigKey{
+		sidecarConfig.GroupVersionKind,
+		sidecarConfig.Name,
+		sidecarConfig.Namespace,
+	})
 
 	out.EgressListeners = make([]*IstioEgressListenerWrapper, 0)
 	egressConfigs := sidecar.Egress
