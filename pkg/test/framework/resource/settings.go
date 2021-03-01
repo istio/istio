@@ -80,6 +80,10 @@ type Settings struct {
 
 	// Skip VM related parts for all the tests.
 	SkipVM bool
+
+	// Versions are the Istio versions accessible to each of the clusters.
+	// represented as comma-separated versions, such as "1.7.3,1.8.2,1.9.0"
+	Versions Versions
 }
 
 // RunDir is the name of the dir to output, for this particular run.
@@ -124,5 +128,6 @@ func (s *Settings) String() string {
 	result += fmt.Sprintf("StableNamespaces:  %v\n", s.StableNamespaces)
 	result += fmt.Sprintf("Revision:          %v\n", s.Revision)
 	result += fmt.Sprintf("SkipVM:            %v\n", s.SkipVM)
+	result += fmt.Sprintf("Versions:          %v\n", s.Versions)
 	return result
 }

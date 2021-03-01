@@ -88,6 +88,8 @@ func init() {
 
 	flag.BoolVar(&settingsFromCommandLine.SkipVM, "istio.test.skipVM", settingsFromCommandLine.SkipVM,
 		"Skip VM related parts in all tests.")
+
+	flag.Var(&settingsFromCommandLine.Versions, "istio.test.versions", "Istio CP versions available to the test framework.")
 }
 
 type arrayFlags []string
