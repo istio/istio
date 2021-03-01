@@ -50,7 +50,7 @@ Needs to be conditionally created so that it is marked with the correct revision
 for the webhook to be patched by the default revision and remain intact when uninstalling other revisions */}}
 {{- if or (eq .Values.revision "") (eq .Values.defaultRevision true) }}
 {{- if not .Values.sidecarInjectorWebhook.useLegacySelectors}}
-apiVersion: admissionregistration.k8s.io/v1beta1
+apiVersion: admissionregistration.k8s.io/v1
 kind: MutatingWebhookConfiguration
 metadata:
 {{- if eq .Release.Namespace "istio-system"}}
@@ -119,7 +119,7 @@ webhooks:
 ---
 {{- /* Installed for each revision - not installed for cluster resources ( cluster roles, bindings, crds) */}}
 {{- if or (ne .Values.revision "") (eq .Values.sidecarInjectorWebhook.useLegacySelectors true) }}
-apiVersion: admissionregistration.k8s.io/v1beta1
+apiVersion: admissionregistration.k8s.io/v1
 kind: MutatingWebhookConfiguration
 metadata:
 {{- if eq .Release.Namespace "istio-system"}}
