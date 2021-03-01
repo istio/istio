@@ -551,7 +551,7 @@ spec:
 `, name, podIP, sa, network, service, version)
 }
 
-func generateDeploymentYAML(cfg echo.Config, settings *image.Settings, versions istio.Versions) (string, error) {
+func generateDeploymentYAML(cfg echo.Config, settings *image.Settings, versions resource.Versions) (string, error) {
 	params, err := templateParams(cfg, settings, versions)
 	if err != nil {
 		return "", err
@@ -576,7 +576,7 @@ func GenerateService(cfg echo.Config) (string, error) {
 
 const DefaultVMImage = "app_sidecar_ubuntu_bionic"
 
-func templateParams(cfg echo.Config, settings *image.Settings, versions istio.Versions) (map[string]interface{}, error) {
+func templateParams(cfg echo.Config, settings *image.Settings, versions resource.Versions) (map[string]interface{}, error) {
 	if settings == nil {
 		var err error
 		settings, err = image.SettingsFromCommandLine()

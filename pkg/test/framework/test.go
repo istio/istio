@@ -20,10 +20,9 @@ import (
 	"testing"
 	"time"
 
-	"istio.io/istio/pkg/test/framework/components/istio"
-
 	"istio.io/istio/pkg/test/framework/features"
 	"istio.io/istio/pkg/test/framework/label"
+	"istio.io/istio/pkg/test/framework/resource"
 	"istio.io/istio/pkg/test/scopes"
 	"istio.io/pkg/log"
 )
@@ -243,7 +242,7 @@ func (t *testImpl) doRun(ctx *testContext, fn func(ctx TestContext), parallel bo
 	}
 
 	if t.minIstioVersion != "" {
-		if istio.Version(t.minIstioVersion).Compare(t.ctx.Settings().Versions.Minimum()) > 0 {
+		if resource.Version(t.minIstioVersion).Compare(t.ctx.Settings().Versions.Minimum()) > 0 {
 			ctx.Done()
 			t.goTest.Skipf("Skipping %q: running with min Istio version %s, test requires %s",
 				t.goTest.Name(), t.ctx.Settings().Versions.Minimum(), t.minIstioVersion)
