@@ -6,17 +6,17 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 )
 
-// Version is an Istio version running within a cluster
+// Version is an Istio version running within a cluster.
 type Version string
 
-// Versions represents a collection of Istio versions running in a cluster
+// Versions represents a collection of Istio versions running in a cluster.
 type Versions []Version
 
 // Set parses Versions from a string flag in the form "1.5.6,1.9.0,1.4".
 func (v *Versions) Set(value string) error {
 	vers := strings.Split(value, ",")
 	for _, ver := range vers {
-		parsed, err := parseVersion(ver)
+		parsed, err := ParseVersion(ver)
 		if err != nil {
 			return err
 		}
@@ -29,11 +29,6 @@ func (v *Versions) String() string {
 	return "todo"
 }
 
-// ToRevision goes from an Istio version to the canonical revision for that version
-func (v Version) ToRevision() string {
-	return strings.ReplaceAll(string(v), ".", "-")
-}
-
 func (v Version) Compare(other Version) int {
 	ver := model.ParseIstioVersion(string(v))
 	otherVer := model.ParseIstioVersion(string(other))
@@ -41,7 +36,7 @@ func (v Version) Compare(other Version) int {
 }
 
 // Minimum returns the minimum from a set of Versions
-// returns empty value if no versions
+// returns empty value if no versions.
 func (v Versions) Minimum() Version {
 	if len(v) == 0 {
 		return ""
@@ -56,7 +51,12 @@ func (v Versions) Minimum() Version {
 	return min
 }
 
-// ToRevisions returns the list of canonical revisions for a set of versions
+// IsMultiVersion returns whether the associated Versions have multiple specified versions.
+func (v Versions) IsMultiVersion() bool {
+	return v == nil || len(v) == 0
+}
+
+// ToRevisions returns the list of canonical revisions for a set of versions.
 func (v Versions) ToRevisions() []string {
 	revs := make([]string, len(v))
 	for i, ver := range v {
@@ -65,11 +65,16 @@ func (v Versions) ToRevisions() []string {
 	return revs
 }
 
-// ParseVersions attempts to construct Versions from a string slice
+// ToRevision goes from an Istio version to the canonical revision for that version.
+func (v Version) ToRevision() string {
+	return strings.ReplaceAll(string(v), ".", "-")
+}
+
+// ParseVersions attempts to construct Versions from a string slice.
 func ParseVersions(versions []string) (Versions, error) {
 	vers := make([]Version, len(versions))
 	for i, v := range versions {
-		parsedVer, err := parseVersion(v)
+		parsedVer, err := ParseVersion(v)
 		if err != nil {
 			return nil, err
 		}
@@ -78,7 +83,7 @@ func ParseVersions(versions []string) (Versions, error) {
 	return vers, nil
 }
 
-// TODO(Monkeyanator) validate the versions
-func parseVersion(version string) (Version, error) {
+// ParseVersion parses a version string into a Version.
+func ParseVersion(version string) (Version, error) {
 	return Version(version), nil
 }
