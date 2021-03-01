@@ -607,6 +607,10 @@ func templateParams(cfg echo.Config, settings *image.Settings, versions resource
 		}
 		imagePullSecret = secret.GetName()
 	}
+	revisions := versions.ToRevisions()
+	if len(revisions) == 0 {
+		revisions = []string{""}
+	}
 	params := map[string]interface{}{
 		"Hub":                settings.Hub,
 		"Tag":                strings.TrimSuffix(settings.Tag, "-distroless"),
