@@ -1,7 +1,3 @@
-<<<<<<< HEAD
-<<<<<<< HEAD
-=======
->>>>>>> ff60deb3f1 (make gen)
 ---
 # Source: istio-discovery/templates/poddisruptionbudget.yaml
 apiVersion: policy/v1beta1
@@ -703,10 +699,6 @@ data:
           securityContext:
             fsGroup: 1337
           {{- end }}
-<<<<<<< HEAD
-<<<<<<< HEAD
-=======
->>>>>>> b73c7f414f (make gen)
       gateway: |
         {{- $containers := list }}
         {{- range $index, $container := .Spec.Containers }}{{ if not (eq $container.Name "istio-proxy") }}{{ $containers = append $containers $container.Name }}{{end}}{{- end}}
@@ -942,11 +934,6 @@ data:
           securityContext:
             fsGroup: 1337
           {{- end }}
-<<<<<<< HEAD
-=======
->>>>>>> ff60deb3f1 (make gen)
-=======
->>>>>>> b73c7f414f (make gen)
 ---
 # Source: istio-discovery/templates/service.yaml
 apiVersion: v1
@@ -956,14 +943,7 @@ metadata:
   namespace: istio-system
   labels:
     istio.io/rev: default
-<<<<<<< HEAD
-<<<<<<< HEAD
-=======
-    istio.io/default: true
->>>>>>> ff60deb3f1 (make gen)
-=======
     istio.io/default: "true"
->>>>>>> d7cab73601 (fix istio.io/default true label)
     install.operator.istio.io/owning-resource: unknown
     operator.istio.io/component: "Pilot"
     app: istiod
@@ -1571,446 +1551,6 @@ spec:
                     local:
                       inline_string: "envoy.wasm.stats"
 ---
-<<<<<<< HEAD
-# Source: istio-discovery/templates/telemetryv2_1.9.yaml
-=======
-# Source: istio-discovery/templates/telemetryv2_1.8.yaml
->>>>>>> ff60deb3f1 (make gen)
-# Note: metadata exchange filter is wasm enabled only in sidecars.
-apiVersion: networking.istio.io/v1alpha3
-kind: EnvoyFilter
-metadata:
-<<<<<<< HEAD
-  name: metadata-exchange-1.9
-=======
-  name: metadata-exchange-1.8
->>>>>>> ff60deb3f1 (make gen)
-  namespace: istio-system
-  labels:
-    istio.io/rev: default
-    install.operator.istio.io/owning-resource: unknown
-    operator.istio.io/component: "Pilot"
-spec:
-  configPatches:
-    - applyTo: HTTP_FILTER
-      match:
-        context: SIDECAR_INBOUND
-        proxy:
-<<<<<<< HEAD
-          proxyVersion: '^1\.9.*'
-=======
-          proxyVersion: '^1\.8.*'
->>>>>>> ff60deb3f1 (make gen)
-        listener:
-          filterChain:
-            filter:
-              name: "envoy.filters.network.http_connection_manager"
-      patch:
-        operation: INSERT_BEFORE
-        value:
-          name: istio.metadata_exchange
-          typed_config:
-            "@type": type.googleapis.com/udpa.type.v1.TypedStruct
-            type_url: type.googleapis.com/envoy.extensions.filters.http.wasm.v3.Wasm
-            value:
-              config:
-                configuration:
-                  "@type": "type.googleapis.com/google.protobuf.StringValue"
-                  value: |
-                    {}
-                vm_config:
-                  runtime: envoy.wasm.runtime.null
-                  code:
-                    local:
-                      inline_string: envoy.wasm.metadata_exchange
-    - applyTo: HTTP_FILTER
-      match:
-        context: SIDECAR_OUTBOUND
-        proxy:
-<<<<<<< HEAD
-          proxyVersion: '^1\.9.*'
-=======
-          proxyVersion: '^1\.8.*'
->>>>>>> ff60deb3f1 (make gen)
-        listener:
-          filterChain:
-            filter:
-              name: "envoy.filters.network.http_connection_manager"
-      patch:
-        operation: INSERT_BEFORE
-        value:
-          name: istio.metadata_exchange
-          typed_config:
-            "@type": type.googleapis.com/udpa.type.v1.TypedStruct
-            type_url: type.googleapis.com/envoy.extensions.filters.http.wasm.v3.Wasm
-            value:
-              config:
-                configuration:
-                  "@type": "type.googleapis.com/google.protobuf.StringValue"
-                  value: |
-                    {}
-                vm_config:
-                  runtime: envoy.wasm.runtime.null
-                  code:
-                    local:
-                      inline_string: envoy.wasm.metadata_exchange
-    - applyTo: HTTP_FILTER
-      match:
-        context: GATEWAY
-        proxy:
-<<<<<<< HEAD
-          proxyVersion: '^1\.9.*'
-=======
-          proxyVersion: '^1\.8.*'
->>>>>>> ff60deb3f1 (make gen)
-        listener:
-          filterChain:
-            filter:
-              name: "envoy.filters.network.http_connection_manager"
-      patch:
-        operation: INSERT_BEFORE
-        value:
-          name: istio.metadata_exchange
-          typed_config:
-            "@type": type.googleapis.com/udpa.type.v1.TypedStruct
-            type_url: type.googleapis.com/envoy.extensions.filters.http.wasm.v3.Wasm
-            value:
-              config:
-                configuration:
-                  "@type": "type.googleapis.com/google.protobuf.StringValue"
-                  value: |
-                    {}
-                vm_config:
-                  runtime: envoy.wasm.runtime.null
-                  code:
-                    local:
-                      inline_string: envoy.wasm.metadata_exchange
----
-<<<<<<< HEAD
-# Source: istio-discovery/templates/telemetryv2_1.9.yaml
-apiVersion: networking.istio.io/v1alpha3
-kind: EnvoyFilter
-metadata:
-  name: tcp-metadata-exchange-1.9
-=======
-# Source: istio-discovery/templates/telemetryv2_1.8.yaml
-apiVersion: networking.istio.io/v1alpha3
-kind: EnvoyFilter
-metadata:
-  name: tcp-metadata-exchange-1.8
->>>>>>> ff60deb3f1 (make gen)
-  namespace: istio-system
-  labels:
-    istio.io/rev: default
-spec:
-  configPatches:
-    - applyTo: NETWORK_FILTER
-      match:
-        context: SIDECAR_INBOUND
-        proxy:
-<<<<<<< HEAD
-          proxyVersion: '^1\.9.*'
-=======
-          proxyVersion: '^1\.8.*'
->>>>>>> ff60deb3f1 (make gen)
-        listener: {}
-      patch:
-        operation: INSERT_BEFORE
-        value:
-          name: istio.metadata_exchange
-          typed_config:
-            "@type": type.googleapis.com/udpa.type.v1.TypedStruct
-            type_url: type.googleapis.com/envoy.tcp.metadataexchange.config.MetadataExchange
-            value:
-              protocol: istio-peer-exchange
-    - applyTo: CLUSTER
-      match:
-        context: SIDECAR_OUTBOUND
-        proxy:
-<<<<<<< HEAD
-          proxyVersion: '^1\.9.*'
-=======
-          proxyVersion: '^1\.8.*'
->>>>>>> ff60deb3f1 (make gen)
-        cluster: {}
-      patch:
-        operation: MERGE
-        value:
-          filters:
-          - name: istio.metadata_exchange
-            typed_config:
-              "@type": type.googleapis.com/udpa.type.v1.TypedStruct
-              type_url: type.googleapis.com/envoy.tcp.metadataexchange.config.MetadataExchange
-              value:
-                protocol: istio-peer-exchange
-    - applyTo: CLUSTER
-      match:
-        context: GATEWAY
-        proxy:
-<<<<<<< HEAD
-          proxyVersion: '^1\.9.*'
-=======
-          proxyVersion: '^1\.8.*'
->>>>>>> ff60deb3f1 (make gen)
-        cluster: {}
-      patch:
-        operation: MERGE
-        value:
-          filters:
-          - name: istio.metadata_exchange
-            typed_config:
-              "@type": type.googleapis.com/udpa.type.v1.TypedStruct
-              type_url: type.googleapis.com/envoy.tcp.metadataexchange.config.MetadataExchange
-              value:
-                protocol: istio-peer-exchange
----
-<<<<<<< HEAD
-# Source: istio-discovery/templates/telemetryv2_1.9.yaml
-=======
-# Source: istio-discovery/templates/telemetryv2_1.8.yaml
->>>>>>> ff60deb3f1 (make gen)
-# Note: http stats filter is wasm enabled only in sidecars.
-apiVersion: networking.istio.io/v1alpha3
-kind: EnvoyFilter
-metadata:
-<<<<<<< HEAD
-  name: stats-filter-1.9
-=======
-  name: stats-filter-1.8
->>>>>>> ff60deb3f1 (make gen)
-  namespace: istio-system
-  labels:
-    istio.io/rev: default
-spec:
-  configPatches:
-    - applyTo: HTTP_FILTER
-      match:
-        context: SIDECAR_OUTBOUND
-        proxy:
-<<<<<<< HEAD
-          proxyVersion: '^1\.9.*'
-=======
-          proxyVersion: '^1\.8.*'
->>>>>>> ff60deb3f1 (make gen)
-        listener:
-          filterChain:
-            filter:
-              name: "envoy.filters.network.http_connection_manager"
-              subFilter:
-                name: "envoy.filters.http.router"
-      patch:
-        operation: INSERT_BEFORE
-        value:
-          name: istio.stats
-          typed_config:
-            "@type": type.googleapis.com/udpa.type.v1.TypedStruct
-            type_url: type.googleapis.com/envoy.extensions.filters.http.wasm.v3.Wasm
-            value:
-              config:
-                root_id: stats_outbound
-                configuration:
-                  "@type": "type.googleapis.com/google.protobuf.StringValue"
-                  value: |
-                    {
-<<<<<<< HEAD
-                      "debug": "false",
-                      "stat_prefix": "istio",
-                      "metrics": [
-                        {
-                          "dimensions": {
-                            "source_cluster": "node.metadata['CLUSTER_ID']",
-                            "destination_cluster": "upstream_peer.cluster_id"
-                          }
-                        }
-                      ]
-=======
->>>>>>> ff60deb3f1 (make gen)
-                    }
-                vm_config:
-                  vm_id: stats_outbound
-                  runtime: envoy.wasm.runtime.null
-                  code:
-                    local:
-                      inline_string: envoy.wasm.stats
-    - applyTo: HTTP_FILTER
-      match:
-        context: SIDECAR_INBOUND
-        proxy:
-<<<<<<< HEAD
-          proxyVersion: '^1\.9.*'
-=======
-          proxyVersion: '^1\.8.*'
->>>>>>> ff60deb3f1 (make gen)
-        listener:
-          filterChain:
-            filter:
-              name: "envoy.filters.network.http_connection_manager"
-              subFilter:
-                name: "envoy.filters.http.router"
-      patch:
-        operation: INSERT_BEFORE
-        value:
-          name: istio.stats
-          typed_config:
-            "@type": type.googleapis.com/udpa.type.v1.TypedStruct
-            type_url: type.googleapis.com/envoy.extensions.filters.http.wasm.v3.Wasm
-            value:
-              config:
-                root_id: stats_inbound
-                configuration:
-                  "@type": "type.googleapis.com/google.protobuf.StringValue"
-                  value: |
-                    {
-<<<<<<< HEAD
-                      "debug": "false",
-                      "stat_prefix": "istio",
-                      "metrics": [
-                        {
-                          "dimensions": {
-=======
-                    }
-                vm_config:
-                  vm_id: stats_inbound
-                  runtime: envoy.wasm.runtime.null
-                  code:
-                    local:
-                      inline_string: envoy.wasm.stats
-    - applyTo: HTTP_FILTER
-      match:
-        context: GATEWAY
-        proxy:
-          proxyVersion: '^1\.8.*'
-        listener:
-          filterChain:
-            filter:
-              name: "envoy.filters.network.http_connection_manager"
-              subFilter:
-                name: "envoy.filters.http.router"
-      patch:
-        operation: INSERT_BEFORE
-        value:
-          name: istio.stats
-          typed_config:
-            "@type": type.googleapis.com/udpa.type.v1.TypedStruct
-            type_url: type.googleapis.com/envoy.extensions.filters.http.wasm.v3.Wasm
-            value:
-              config:
-                root_id: stats_outbound
-                configuration:
-                  "@type": "type.googleapis.com/google.protobuf.StringValue"
-                  value: |
-                    {
-                      "disable_host_header_fallback": true
-                    }
-                vm_config:
-                  vm_id: stats_outbound
-                  runtime: envoy.wasm.runtime.null
-                  code:
-                    local:
-                      inline_string: envoy.wasm.stats
----
-# Source: istio-discovery/templates/telemetryv2_1.8.yaml
-# Note: tcp stats filter is wasm enabled only in sidecars.
-apiVersion: networking.istio.io/v1alpha3
-kind: EnvoyFilter
-metadata:
-  name: tcp-stats-filter-1.8
-  namespace: istio-system
-  labels:
-    istio.io/rev: default
-spec:
-  configPatches:
-    - applyTo: NETWORK_FILTER
-      match:
-        context: SIDECAR_INBOUND
-        proxy:
-          proxyVersion: '^1\.8.*'
-        listener:
-          filterChain:
-            filter:
-              name: "envoy.filters.network.tcp_proxy"
-      patch:
-        operation: INSERT_BEFORE
-        value:
-          name: istio.stats
-          typed_config:
-            "@type": type.googleapis.com/udpa.type.v1.TypedStruct
-            type_url: type.googleapis.com/envoy.extensions.filters.network.wasm.v3.Wasm
-            value:
-              config:
-                root_id: stats_inbound
-                configuration:
-                  "@type": "type.googleapis.com/google.protobuf.StringValue"
-                  value: |
-                    {
-                    }
-                vm_config:
-                  vm_id: tcp_stats_inbound
-                  runtime: envoy.wasm.runtime.null
-                  code:
-                    local:
-                      inline_string: "envoy.wasm.stats"
-    - applyTo: NETWORK_FILTER
-      match:
-        context: SIDECAR_OUTBOUND
-        proxy:
-          proxyVersion: '^1\.8.*'
-        listener:
-          filterChain:
-            filter:
-              name: "envoy.filters.network.tcp_proxy"
-      patch:
-        operation: INSERT_BEFORE
-        value:
-          name: istio.stats
-          typed_config:
-            "@type": type.googleapis.com/udpa.type.v1.TypedStruct
-            type_url: type.googleapis.com/envoy.extensions.filters.network.wasm.v3.Wasm
-            value:
-              config:
-                root_id: stats_outbound
-                configuration:
-                  "@type": "type.googleapis.com/google.protobuf.StringValue"
-                  value: |
-                    {
-                    }
-                vm_config:
-                  vm_id: tcp_stats_outbound
-                  runtime: envoy.wasm.runtime.null
-                  code:
-                    local:
-                      inline_string: "envoy.wasm.stats"
-    - applyTo: NETWORK_FILTER
-      match:
-        context: GATEWAY
-        proxy:
-          proxyVersion: '^1\.8.*'
-        listener:
-          filterChain:
-            filter:
-              name: "envoy.filters.network.tcp_proxy"
-      patch:
-        operation: INSERT_BEFORE
-        value:
-          name: istio.stats
-          typed_config:
-            "@type": type.googleapis.com/udpa.type.v1.TypedStruct
-            type_url: type.googleapis.com/envoy.extensions.filters.network.wasm.v3.Wasm
-            value:
-              config:
-                root_id: stats_outbound
-                configuration:
-                  "@type": "type.googleapis.com/google.protobuf.StringValue"
-                  value: |
-                    {
-                    }
-                vm_config:
-                  vm_id: tcp_stats_outbound
-                  runtime: envoy.wasm.runtime.null
-                  code:
-                    local:
-                      inline_string: "envoy.wasm.stats"
----
 # Source: istio-discovery/templates/telemetryv2_1.9.yaml
 # Note: metadata exchange filter is wasm enabled only in sidecars.
 apiVersion: networking.istio.io/v1alpha3
@@ -2247,7 +1787,6 @@ spec:
                       "metrics": [
                         {
                           "dimensions": {
->>>>>>> ff60deb3f1 (make gen)
                             "destination_cluster": "node.metadata['CLUSTER_ID']",
                             "source_cluster": "downstream_peer.cluster_id"
                           }
@@ -2440,20 +1979,10 @@ spec:
 apiVersion: admissionregistration.k8s.io/v1
 kind: MutatingWebhookConfiguration
 metadata:
-<<<<<<< HEAD
-<<<<<<< HEAD
   name: istio-sidecar-injector
-  labels:
-    istio.io/rev: default
-=======
-  name: istio-sidecar-injector-default
-=======
-  name: istio-sidecar-injector
->>>>>>> 3e780f41b6 (make merge overwrite previous webhook)
   labels:
     istio.io/rev: default
     istio.io/default: "true"
->>>>>>> ff60deb3f1 (make gen)
     install.operator.istio.io/owning-resource: unknown
     operator.istio.io/component: "Pilot"
     app: sidecar-injector
@@ -2468,33 +1997,14 @@ webhooks:
     caBundle: ""
   sideEffects: None
   rules:
-<<<<<<< HEAD
-  - operations: [ "CREATE" ]
-    apiGroups: [""]
-    apiVersions: ["v1"]
-    resources: ["pods"]
-=======
     - operations: [ "CREATE" ]
       apiGroups: [""]
       apiVersions: ["v1"]
       resources: ["pods"]
->>>>>>> ff60deb3f1 (make gen)
   failurePolicy: Fail
   admissionReviewVersions: ["v1beta1", "v1"]
   namespaceSelector:
     matchExpressions:
-<<<<<<< HEAD
-    - key: istio-injection
-      operator: In
-      values:
-      - enabled
-  objectSelector:
-    matchExpressions:
-    - key: sidecar.istio.io/inject
-      operator: NotIn
-      values:
-      - "false"
-=======
       - key: istio-injection
         operator: In
         values:
@@ -2505,7 +2015,6 @@ webhooks:
         operator: NotIn
         values:
           - "false"
->>>>>>> ff60deb3f1 (make gen)
 - name: object.sidecar-injector.istio.io
   clientConfig:
     service:
@@ -2515,37 +2024,14 @@ webhooks:
     caBundle: ""
   sideEffects: None
   rules:
-<<<<<<< HEAD
-  - operations: [ "CREATE" ]
-    apiGroups: [""]
-    apiVersions: ["v1"]
-    resources: ["pods"]
-=======
     - operations: [ "CREATE" ]
       apiGroups: [""]
       apiVersions: ["v1"]
       resources: ["pods"]
->>>>>>> ff60deb3f1 (make gen)
   failurePolicy: Fail
   admissionReviewVersions: ["v1beta1", "v1"]
   namespaceSelector:
     matchExpressions:
-<<<<<<< HEAD
-    - key: istio-injection
-      operator: DoesNotExist
-    - key: istio.io/rev
-      operator: DoesNotExist
-  objectSelector:
-    matchExpressions:
-    - key: sidecar.istio.io/inject
-      operator: In
-      values:
-      - "true"
-    - key: istio.io/rev
-      operator: DoesNotExist
-=======
->>>>>>> f5805fee97 (add quotes to true value)
-=======
       - key: istio-injection
         operator: DoesNotExist
       - key: istio.io/rev
@@ -2558,20 +2044,3 @@ webhooks:
           - "true"
       - key: istio.io/rev
         operator: DoesNotExist
-<<<<<<< HEAD
----
-# Source: istio-discovery/templates/mutatingwebhook.yaml
-apiVersion: admissionregistration.k8s.io/v1beta1
-kind: MutatingWebhookConfiguration
-metadata:
-  name: istio-sidecar-injector-default
-  labels:
-    istio.io/rev: default
-    install.operator.istio.io/owning-resource: unknown
-    operator.istio.io/component: "Pilot"
-    app: sidecar-injector
-    release: istio
-webhooks:
->>>>>>> ff60deb3f1 (make gen)
-=======
->>>>>>> 7649d94531 (gaurd against empty istio-sidecar-injector-default webhook configuration)
