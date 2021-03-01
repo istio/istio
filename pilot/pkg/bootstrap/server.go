@@ -39,6 +39,7 @@ import (
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/keepalive"
 	"google.golang.org/grpc/reflection"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	v1 "k8s.io/client-go/kubernetes/typed/core/v1"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/cache"
@@ -259,7 +260,7 @@ func NewServer(args *PilotArgs) (*Server, error) {
 	}
 
 	// Initialize workloadTrustBundle after CA has been initialized
-	s.initWorkloadTrustBundle()
+	s.initWorkloadTrustBundle(args)
 
 	// Parse and validate Istiod Address.
 	istiodHost, _, err := e.GetDiscoveryAddress()
@@ -1171,7 +1172,64 @@ func (s *Server) initMeshHandlers() {
 	})
 }
 
-func (s *Server) initWorkloadTrustBundle() {
+func (s *Server) addIstioCAToTrustBundle(args *PilotArgs) {
+	// TODO: unify with CreateIstioCA instead of mirroring it
+
+	var err error
+	if s.CA != nil {
+		// If IstioCA is setup, derive trustAnchor directly from CA
+		rootCerts := []string{string(s.CA.GetCAKeyCertBundle().GetRootCertPem())}
+		err = s.workloadTrustBundle.UpdateTrustAnchor(&tb.TrustAnchorUpdate{
+			TrustAnchorConfig: tb.TrustAnchorConfig{Certs: rootCerts},
+			Source:            tb.SourceIstioCA,
+		})
+		if err != nil {
+			log.Errorf("unable to add CA root as trustAnchor")
+		}
+		return
+	}
+
+	// If CA is not running, derive root certificates from the configured CA secrets
+	signingKeyFile := path.Join(LocalCertDir.Get(), "ca-key.pem")
+	if _, err := os.Stat(signingKeyFile); err != nil && s.kubeClient != nil {
+		// Fetch self signed certificates
+		caSecret, scrtErr := s.kubeClient.CoreV1().Secrets(args.Namespace).
+			Get(context.TODO(), ca.CASecret, metav1.GetOptions{})
+		if scrtErr != nil {
+			log.Errorf("unable to retrieve self signed CA secret: %v", scrtErr)
+			return
+		}
+		rootCertBytes, ok := caSecret.Data[ca.RootCertID]
+		if !ok {
+			rootCertBytes = caSecret.Data[ca.CaCertID]
+		}
+		err = s.workloadTrustBundle.UpdateTrustAnchor(&tb.TrustAnchorUpdate{
+			TrustAnchorConfig: tb.TrustAnchorConfig{Certs: []string{string(rootCertBytes)}},
+			Source:            tb.SourceIstioCA,
+		})
+		if err != nil {
+			log.Errorf("unable to update trustbundle with self signed CA root: %v", err)
+		}
+	} else {
+		// If NOT self signed certificates
+		rootCertFile := path.Join(LocalCertDir.Get(), "root-cert.pem")
+		if _, err := os.Stat(rootCertFile); err != nil {
+			rootCertFile = path.Join(LocalCertDir.Get(), "ca-cert.pem")
+		}
+		certBytes, err := ioutil.ReadFile(rootCertFile)
+		if err == nil {
+			err = s.workloadTrustBundle.UpdateTrustAnchor(&tb.TrustAnchorUpdate{
+				TrustAnchorConfig: tb.TrustAnchorConfig{Certs: []string{string(certBytes)}},
+				Source:            tb.SourceIstioCA,
+			})
+			if err != nil {
+				log.Errorf("unable to update trustbundle with plugin CA root: %v", err)
+			}
+		}
+	}
+}
+
+func (s *Server) initWorkloadTrustBundle(args *PilotArgs) {
 	var err error
 
 	s.workloadTrustBundle.UpdateCb(func() {
@@ -1195,17 +1253,7 @@ func (s *Server) initWorkloadTrustBundle() {
 		s.workloadTrustBundle.AddMeshConfigUpdate(s.environment.Mesh())
 	})
 
-	// IstioCA: Explicitly add roots corresponding to CA
-	if s.CA != nil {
-		rootCerts := []string{string(s.CA.GetCAKeyCertBundle().GetRootCertPem())}
-		err = s.workloadTrustBundle.UpdateTrustAnchor(&tb.TrustAnchorUpdate{
-			TrustAnchorConfig: tb.TrustAnchorConfig{Certs: rootCerts},
-			Source:            tb.SourceIstioCA,
-		})
-		if err != nil {
-			log.Errorf("fatal: unable to add CA root as trustAnchor")
-		}
-	}
+	s.addIstioCAToTrustBundle(args)
 
 	// IstioRA: Explicitly add roots corresponding to RA
 	if s.RA != nil {
