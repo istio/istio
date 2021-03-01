@@ -25,6 +25,6 @@ type ControlPlaneOptions struct {
 // AttachControlPlaneFlags attaches control-plane flags to a Cobra command.
 // (Currently just --revision)
 func (o *ControlPlaneOptions) AttachControlPlaneFlags(cmd *cobra.Command) {
-	cmd.PersistentFlags().StringVar(&o.Revision, "revision", "",
+	cmd.PersistentFlags().StringVarP(&o.Revision, "revision", "r", "",
 		"Control plane revision")
 }
