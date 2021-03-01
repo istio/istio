@@ -40,7 +40,14 @@ func (v *Versions) Set(value string) error {
 }
 
 func (v *Versions) String() string {
-	return "todo"
+	if v == nil {
+		return ""
+	}
+	var vers []string
+	for _, ver := range *v {
+		vers = append(vers, string(ver))
+	}
+	return strings.Join(vers, ",")
 }
 
 // Compare compares two Istio versions. Returns -1 if version "v" is less than "other", 0 if the same,
