@@ -1481,7 +1481,6 @@ func TestGatewayHTTPRouteConfig(t *testing.T) {
 			})
 		}
 	}
-
 }
 
 func TestBuildGatewayListeners(t *testing.T) {
