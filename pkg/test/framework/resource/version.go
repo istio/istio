@@ -43,6 +43,8 @@ func (v *Versions) String() string {
 	return "todo"
 }
 
+// Compare compares two Istio versions. Returns -1 if version "v" is less than "other", 0 if the same,
+// and 1 if "v" is greater than "other".
 func (v Version) Compare(other Version) int {
 	ver := model.ParseIstioVersion(string(v))
 	otherVer := model.ParseIstioVersion(string(other))
@@ -65,8 +67,8 @@ func (v Versions) Minimum() Version {
 	return min
 }
 
-// IsMultiVersion returns whether the associated Versions have multiple specified versions.
-func (v Versions) IsMultiVersion() bool {
+// IsCrossVersion returns whether the associated Versions have multiple specified versions.
+func (v Versions) IsCrossVersion() bool {
 	return v != nil && len(v) > 0
 }
 
