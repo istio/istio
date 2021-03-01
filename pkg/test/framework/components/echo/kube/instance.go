@@ -199,6 +199,7 @@ func (c *instance) Restart() error {
 	}, retry.Timeout(c.cfg.ReadinessTimeout), startDelay)
 }
 
+// aggregateResponses forwards an echo request from all workloads belonging to this echo instance and aggregates the results.
 func (c *instance) aggregateResponses(opts echo.CallOptions, retry bool, retryOptions ...retry.Option) (appEcho.ParsedResponses, error) {
 	resps := make([]*appEcho.ParsedResponse, 0)
 	workloads, err := c.Workloads()
@@ -220,19 +221,5 @@ func (c *instance) aggregateResponses(opts echo.CallOptions, retry bool, retryOp
 		return nil, aggErr
 	}
 
-	c.summarize(resps, opts)
 	return resps, nil
-}
-
-func (c *instance) summarize(responses appEcho.ParsedResponses, opts echo.CallOptions) {
-	fmt.Println("-=-=-=-=")
-	if opts.Target == nil {
-		fmt.Printf("Received: %d responses for %s->%s\n", len(responses), c.cfg.Service, "[NIL TARGET]")
-	} else {
-		fmt.Printf("Received: %d responses for %s->%s\n", len(responses), c.cfg.Service, opts.Target.Address())
-	}
-	for i, r := range responses {
-		fmt.Printf("    %d: HOST->%s, RESPONSE->%s\n", i, r.Hostname, r.Code)
-	}
-	fmt.Println("-=-=-=-=")
 }
