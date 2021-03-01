@@ -73,7 +73,7 @@ spec:
 {{.LocalitySetting | indent 8 }}
     outlierDetection:
       interval: 1s
-      baseEjectionTime: 10m # if baseEjectionTime > default maxEjectionTime(300s), the maxEjectionTime will be upgraded
+      baseEjectionTime: 10m
       maxEjectionPercent: 100`
 
 type LocalityInput struct {
