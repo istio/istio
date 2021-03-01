@@ -21,6 +21,7 @@ import (
 	"time"
 
 	"github.com/hashicorp/go-multierror"
+
 	kubeCore "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
@@ -204,6 +205,7 @@ func (c *instance) Restart() error {
 
 // aggregateResponses forwards an echo request from all workloads belonging to this echo instance and aggregates the results.
 func (c *instance) aggregateResponses(opts echo.CallOptions, retry bool, retryOptions ...retry.Option) (appEcho.ParsedResponses, error) {
+	//return common.ForwardEcho(c.cfg.Service, c.firstClient, &opts, retry, retryOptions...)
 	resps := make([]*appEcho.ParsedResponse, 0)
 	workloads, err := c.Workloads()
 	if err != nil {
