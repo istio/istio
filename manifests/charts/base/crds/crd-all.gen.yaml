@@ -2567,6 +2567,7 @@ spec:
                         value:
                           description: The JSON config of the object being patched.
                           type: object
+                          x-kubernetes-preserve-unknown-fields: true
                       type: object
                   type: object
                 type: array
