@@ -19,6 +19,8 @@ import (
 	"path"
 	"strings"
 
+	"istio.io/istio/pkg/test/framework/components/istio"
+
 	"github.com/google/uuid"
 
 	"istio.io/istio/pkg/test/framework/label"
