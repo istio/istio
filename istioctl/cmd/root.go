@@ -267,7 +267,7 @@ debug and diagnose their Istio mesh.
 		Manual:  "Istio Control",
 	}))
 
-	validateCmd := validate.NewValidateCommand(&istioNamespace)
+	validateCmd := validate.NewValidateCommand(&istioNamespace, &namespace)
 	hideInheritedFlags(validateCmd, "kubeconfig")
 	rootCmd.AddCommand(validateCmd)
 
