@@ -81,6 +81,7 @@ func singleClusterFlags() ([]string, error) {
 	}); err != nil {
 		return nil, fmt.Errorf("error acquiring GCP projects for singlecluster setup: %w", err)
 	}
+	flags = append(flags, "--create-command='beta container clusters create --quiet --enable-network-policy'")
 	flags = append(flags, "--cluster-name=prow-test", "--machine-type=e2-standard-4", "--num-nodes=2")
 	flags = append(flags, "--network=default", "--release-channel=regular", "--version=latest", "--enable-workload-identity")
 	// TODO(chizhg): uncomment after b/162609408 is fixed upstream
@@ -99,6 +100,7 @@ func multiClusterFlags(boskosResourceType string) ([]string, error) {
 	}); err != nil {
 		return nil, fmt.Errorf("error acquiring GCP projects for multicluster setup: %w", err)
 	}
+	flags = append(flags, "--create-command='beta container clusters create --quiet --enable-network-policy'")
 	flags = append(flags, "--cluster-name=prow-test1,prow-test2", "--machine-type=e2-standard-4", "--num-nodes=2")
 	flags = append(flags, "--network=default", "--release-channel=regular", "--version=latest", "--enable-workload-identity")
 	// TODO(chizhg): uncomment after b/162609408 is fixed upstream
@@ -145,7 +147,7 @@ func multiProjectMultiClusterFlags() ([]string, error) {
 	if err := configureProjectFlag(&flags, acquireMultiGCPProjects); err != nil {
 		return nil, fmt.Errorf("error acquiring GCP projects for multi-project multi-cluster setup: %w", err)
 	}
-	flags = append(flags, "--create-command='beta container clusters create --quiet'")
+	flags = append(flags, "--create-command='beta container clusters create --quiet --enable-network-policy'")
 	flags = append(flags, "--cluster-name=prow-test1:1,prow-test2:2", "--machine-type=e2-standard-4", "--num-nodes=2")
 	flags = append(flags, "--network=test-network", "--subnetwork-ranges='172.16.4.0/22 172.16.16.0/20 172.20.0.0/14,10.0.4.0/22 10.0.32.0/20 10.4.0.0/14'")
 	flags = append(flags, "--release-channel=regular", "--version=latest", "--enable-workload-identity")
