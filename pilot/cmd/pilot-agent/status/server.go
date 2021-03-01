@@ -94,7 +94,9 @@ type Prober struct {
 
 // Config for the status server.
 type Config struct {
-	PodIp string
+	// Ip of the pod. Note: this is only applicable for Kubernetes pods and should only be used for
+	// the prober.
+	PodIP string
 	// KubeAppProbers is a json with Kubernetes application prober config encoded.
 	KubeAppProbers string
 	NodeType       model.NodeType
@@ -143,7 +145,7 @@ func NewServer(config Config) (*Server, error) {
 			LocalHostAddr: localhost,
 			AdminPort:     config.AdminPort,
 		},
-		appProbersDestination: config.PodIp,
+		appProbersDestination: config.PodIP,
 		envoyStatsPort:        15090,
 	}
 	if legacyLocalhostProbeDestination.Get() {

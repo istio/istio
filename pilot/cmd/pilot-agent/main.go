@@ -375,7 +375,7 @@ func initStatusServer(ctx context.Context, proxyIPv6 bool, proxyConfig meshconfi
 	prober := kubeAppProberNameVar.Get()
 	statusServer, err := status.NewServer(status.Config{
 		IPv6:           proxyIPv6,
-		PodIp:          instanceIPVar.Get(),
+		PodIP:          instanceIPVar.Get(),
 		AdminPort:      uint16(proxyConfig.ProxyAdminPort),
 		StatusPort:     uint16(proxyConfig.StatusPort),
 		KubeAppProbers: prober,
