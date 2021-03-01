@@ -74,12 +74,9 @@ func (configgen *ConfigGeneratorImpl) BuildNameTable(node *model.Proxy, push *mo
 		// IP allocation logic for service entry was unable to allocate an IP.
 		if svcAddress == constants.UnspecifiedIP {
 			// For all k8s headless services, populate the dns table with the endpoint IPs as k8s does.
-			// And for each individual pod, populate the dns table with the endpoint IP with a manufactured host name from
-			// "statefulset.kubernetes.io/pod-name" that k8s sets.
+			// And for each individual pod, populate the dns table with the endpoint IP with a manufactured host name.
 			if svc.Attributes.ServiceRegistry == string(serviceregistry.Kubernetes) &&
 				svc.Resolution == model.Passthrough && len(svc.Ports) > 0 {
-				// TODO: this is used in two places now. Needs to be cached as part of the headless service
-				// object to avoid the costly lookup in the registry code
 				for _, instance := range push.ServiceInstancesByPort(svc, svc.Ports[0].Port, nil) {
 					if instance.Endpoint.Locality.ClusterID != node.Metadata.ClusterID {
 						// We take only cluster-local endpoints. While this seems contradictory to
@@ -95,15 +92,15 @@ func (configgen *ConfigGeneratorImpl) BuildNameTable(node *model.Proxy, push *mo
 					// TODO: should we skip the node's own IP like we do in listener?
 					addressList = append(addressList, instance.Endpoint.Address)
 					if instance.Endpoint.SubDomain != "" {
-						address := []string{instance.Endpoint.Address}
 						// Follow k8s pods dns naming convention of "<hostname>.<subdomain>.<pod namespace>.svc.<cluster domain>"
-						// i,e. "mysql-0.mysql.default.svc.cluster.local".
+						// i.e. "mysql-0.mysql.default.svc.cluster.local".
 						parts := strings.SplitN(string(svc.Hostname), ".", 2)
 						if len(parts) != 2 {
-							break
+							continue
 						}
+						address := []string{instance.Endpoint.Address}
 						shortName := instance.Endpoint.HostName + "." + instance.Endpoint.SubDomain
-						host := shortName + "." + parts[1]
+						host := shortName + "." + parts[1] // Add cluster domain.
 						nameInfo := &nds.NameTable_NameInfo{
 							Ips:       address,
 							Registry:  svc.Attributes.ServiceRegistry,
