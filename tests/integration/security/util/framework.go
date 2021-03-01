@@ -15,8 +15,12 @@
 package util
 
 import (
+	"time"
+
 	"istio.io/istio/pkg/config/protocol"
+	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
+	"istio.io/istio/pkg/test/framework/components/istioctl"
 	"istio.io/istio/pkg/test/framework/components/namespace"
 )
 
@@ -56,4 +60,23 @@ func EchoConfig(name string, ns namespace.Instance, headless bool, annos echo.An
 		out.Ports[0].ServicePort = 8090
 	}
 	return out
+}
+
+func WaitForConfigWithSleep(ctx framework.TestContext, testName, configs string, namespace namespace.Instance) {
+	ik := istioctl.NewOrFail(ctx, ctx, istioctl.Config{})
+	t0 := time.Now()
+	if err := ik.WaitForConfigs(namespace.Name(), configs); err != nil {
+		// Continue anyways, so we can assess the effectiveness of using `istioctl wait`
+		ctx.Logf("warning: failed to wait for config: %v", err)
+		// Get proxy status for additional debugging
+		s, _, _ := ik.Invoke([]string{"ps"})
+		ctx.Logf("proxy status: %v", s)
+	}
+	// TODO(https://github.com/istio/istio/issues/25945) introducing istioctl wait in favor of a 10s sleep lead to flakes
+	// to work around this, we will temporarily make sure we are always sleeping at least 10s, even if istioctl wait is faster.
+	// This allows us to debug istioctl wait, while still ensuring tests are stable
+	sleep := time.Second*10 - time.Since(t0)
+	ctx.Logf("[%s] [%v] Wait for additional %v config propagate to endpoints...", testName, time.Now(), sleep)
+	time.Sleep(sleep)
+	ctx.Logf("[%s] [%v] Finish waiting. Continue testing.", testName, time.Now())
 }
