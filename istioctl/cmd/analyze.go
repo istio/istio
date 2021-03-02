@@ -251,7 +251,15 @@ func Analyze() *cobra.Command {
 			// An extra message on success
 			if len(outputMessages) == 0 {
 				if parseErrors == 0 {
-					fmt.Fprintf(cmd.ErrOrStderr(), "\u2714 No validation issues found when analyzing %s.\n", analyzeTargetAsString())
+					if len(readers) > 0 {
+						var files []string
+						for _, r := range readers {
+							files = append(files, r.Name)
+						}
+						fmt.Fprintf(cmd.ErrOrStderr(), "\u2714 No validation issues found when analyzing %s.\n", strings.Join(files, "\n"))
+					} else {
+						fmt.Fprintf(cmd.ErrOrStderr(), "\u2714 No validation issues found when analyzing %s.\n", analyzeTargetAsString())
+					}
 				} else {
 					fileOrFiles := "files"
 					if parseErrors == 1 {
