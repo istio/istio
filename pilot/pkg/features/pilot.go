@@ -438,17 +438,3 @@ func RegisterTestOnlyFeatures() {
 	EnableAdminEndpoints = env.RegisterBoolVar("ENABLE_ADMIN_ENDPOINTS", false,
 		"If this is set to true, dangerous admin endpoins will be exposed on the debug interface.")
 }
-
-type AlwaysFalseVar struct{}
-
-func (v AlwaysFalseVar) Get() bool {
-	return false
-}
-
-func (v AlwaysFalseVar) Type() env.VarType {
-	return env.BOOL
-}
-
-func (v AlwaysFalseVar) Name() string {
-	return ""
-}

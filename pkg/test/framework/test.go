@@ -120,7 +120,10 @@ type testImpl struct {
 var globalParentLock = new(sync.Map)
 
 // register test only features that Pilot needs.
-var _ = pilotfeatures.RegisterTestOnlyFeatures
+var _ = (func() interface{} {
+	pilotfeatures.RegisterTestOnlyFeatures()
+	return nil
+})()
 
 // NewTest returns a new test wrapper for running a single test.
 func NewTest(t *testing.T) Test {

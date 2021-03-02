@@ -15,4 +15,7 @@
 package features
 
 // Only read env variables in tests so that they are not set accidentally in production code.
-var _ = RegisterTestOnlyFeatures
+var _ = (func() interface{} {
+	RegisterTestOnlyFeatures()
+	return nil
+})()
