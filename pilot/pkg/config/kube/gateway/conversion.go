@@ -319,7 +319,7 @@ func buildHTTPVirtualServices(obj config.Config, gateways []string, domain strin
 			}
 		}
 
-		vs.Route = buildHTTPDestination(r.ForwardTo, obj.Namespace)
+		vs.Route = buildHTTPDestination(r.ForwardTo, obj.Namespace, domain)
 		httproutes = append(httproutes, vs)
 	}
 	vsConfig := config.Config{
@@ -354,7 +354,7 @@ func buildTCPVirtualService(obj config.Config, gateways []string, domain string)
 	for _, r := range route.Rules {
 		ir := &istio.TCPRoute{
 			Match: buildTCPMatch(r.Matches),
-			Route: buildTCPDestination(r.ForwardTo, obj.Namespace),
+			Route: buildTCPDestination(r.ForwardTo, obj.Namespace, domain),
 		}
 		routes = append(routes, ir)
 	}
@@ -383,7 +383,7 @@ func buildTLSVirtualService(obj config.Config, gateways []string, domain string)
 	for _, r := range route.Rules {
 		ir := &istio.TLSRoute{
 			Match: buildTLSMatch(r.Matches),
-			Route: buildTCPDestination(r.ForwardTo, obj.Namespace),
+			Route: buildTCPDestination(r.ForwardTo, obj.Namespace, domain),
 		}
 		routes = append(routes, ir)
 	}
@@ -406,7 +406,7 @@ func buildTLSVirtualService(obj config.Config, gateways []string, domain string)
 	return vsConfig
 }
 
-func buildTCPDestination(action []k8s.RouteForwardTo, ns string) []*istio.RouteDestination {
+func buildTCPDestination(action []k8s.RouteForwardTo, ns, domain string) []*istio.RouteDestination {
 	if len(action) == 0 {
 		return nil
 	}
@@ -418,7 +418,7 @@ func buildTCPDestination(action []k8s.RouteForwardTo, ns string) []*istio.RouteD
 	weights = standardizeWeights(weights)
 	res := []*istio.RouteDestination{}
 	for i, fwd := range action {
-		dst := buildGenericDestination(fwd, ns)
+		dst := buildGenericDestination(fwd, ns, domain)
 		res = append(res, &istio.RouteDestination{
 			Destination: dst,
 			Weight:      int32(weights[i]),
@@ -464,7 +464,7 @@ func intSum(n []int) int {
 	return r
 }
 
-func buildHTTPDestination(action []k8s.HTTPRouteForwardTo, ns string) []*istio.HTTPRouteDestination {
+func buildHTTPDestination(action []k8s.HTTPRouteForwardTo, ns string, domain string) []*istio.HTTPRouteDestination {
 	if action == nil {
 		return nil
 	}
@@ -476,7 +476,7 @@ func buildHTTPDestination(action []k8s.HTTPRouteForwardTo, ns string) []*istio.H
 	weights = standardizeWeights(weights)
 	res := []*istio.HTTPRouteDestination{}
 	for i, fwd := range action {
-		dst := buildDestination(fwd, ns)
+		dst := buildDestination(fwd, ns, domain)
 		rd := &istio.HTTPRouteDestination{
 			Destination: dst,
 			Weight:      int32(weights[i]),
@@ -494,7 +494,7 @@ func buildHTTPDestination(action []k8s.HTTPRouteForwardTo, ns string) []*istio.H
 	return res
 }
 
-func buildDestination(to k8s.HTTPRouteForwardTo, ns string) *istio.Destination {
+func buildDestination(to k8s.HTTPRouteForwardTo, ns, domain string) *istio.Destination {
 	res := &istio.Destination{}
 	if to.Port != nil {
 		// TODO: "If unspecified, the destination port in the request is used when forwarding to a backendRef or serviceName."
@@ -503,7 +503,7 @@ func buildDestination(to k8s.HTTPRouteForwardTo, ns string) *istio.Destination {
 		res.Port = &istio.PortSelector{Number: uint32(*to.Port)}
 	}
 	if to.ServiceName != nil {
-		res.Host = fmt.Sprintf("%s.%s.svc.%s", *to.ServiceName, ns, constants.DefaultKubernetesDomain)
+		res.Host = fmt.Sprintf("%s.%s.svc.%s", *to.ServiceName, ns, domain)
 	} else if to.BackendRef != nil {
 		// TODO support this
 		log.Errorf("referencing unsupported destination; backendRef is not supported")
@@ -511,7 +511,7 @@ func buildDestination(to k8s.HTTPRouteForwardTo, ns string) *istio.Destination {
 	return res
 }
 
-func buildGenericDestination(to k8s.RouteForwardTo, ns string) *istio.Destination {
+func buildGenericDestination(to k8s.RouteForwardTo, ns, domain string) *istio.Destination {
 	res := &istio.Destination{}
 	if to.Port != nil {
 		// TODO: "If unspecified, the destination port in the request is used when forwarding to a backendRef or serviceName."
@@ -520,7 +520,7 @@ func buildGenericDestination(to k8s.RouteForwardTo, ns string) *istio.Destinatio
 		res.Port = &istio.PortSelector{Number: uint32(*to.Port)}
 	}
 	if to.ServiceName != nil {
-		res.Host = fmt.Sprintf("%s.%s.svc.%s", *to.ServiceName, ns, constants.DefaultKubernetesDomain)
+		res.Host = fmt.Sprintf("%s.%s.svc.%s", *to.ServiceName, ns, domain)
 	} else if to.BackendRef != nil {
 		// TODO support this
 		log.Errorf("referencing unsupported destination; backendRef is not supported")

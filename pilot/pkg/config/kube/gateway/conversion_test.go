@@ -71,6 +71,7 @@ func splitOutput(configs []config.Config) IstioResources {
 		DestinationRule: []config.Config{},
 	}
 	for _, c := range configs {
+		c.Domain = "domain.suffix"
 		switch c.GroupVersionKind {
 		case gvk.Gateway:
 			out.Gateway = append(out.Gateway, c)
@@ -101,6 +102,7 @@ func splitInput(configs []config.Config) *KubernetesResources {
 			out.BackendPolicy = append(out.BackendPolicy, c)
 		}
 	}
+	out.Domain = "domain.suffix"
 	return out
 }
 
