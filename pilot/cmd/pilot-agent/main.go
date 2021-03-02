@@ -372,13 +372,10 @@ func extractXDSHeadersFromEnv(config *istio_agent.AgentConfig) {
 }
 
 func initStatusServer(ctx context.Context, proxyIPv6 bool, proxyConfig meshconfig.ProxyConfig) error {
-	localHostAddr := localHostIPv4
-	if proxyIPv6 {
-		localHostAddr = localHostIPv6
-	}
 	prober := kubeAppProberNameVar.Get()
 	statusServer, err := status.NewServer(status.Config{
-		LocalHostAddr:  localHostAddr,
+		IPv6:           proxyIPv6,
+		PodIP:          instanceIPVar.Get(),
 		AdminPort:      uint16(proxyConfig.ProxyAdminPort),
 		StatusPort:     uint16(proxyConfig.StatusPort),
 		KubeAppProbers: prober,
