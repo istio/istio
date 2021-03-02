@@ -428,4 +428,8 @@ var (
 			"The enabled behavior matches the behavior without Istio enabled at all; this flag exists only for backwards compatibility. "+
 			"Regardless of this setting, the configuration can be overridden with the Sidecar.Ingress.DefaultEndpoint configuration.",
 	).Get()
+
+	StripHostPort = env.RegisterBoolVar("ISTIO_GATEWAY_STRIP_HOST_PORT", false,
+		"If enabled, Gateway will remove any port from host/authority header "+
+			"before any processing of request by HTTP filters or routing.").Get()
 )
