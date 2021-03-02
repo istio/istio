@@ -216,7 +216,8 @@ func TestRulesWithTproxy(t *testing.T) {
 		"iptables -t nat -A OUTPUT -p udp --dport 53 -d 127.0.0.53/32 -j REDIRECT --to-port 15053",
 		"iptables -t mangle -A PREROUTING -p tcp -m mark --mark 1337 -j CONNMARK --save-mark",
 		"iptables -t mangle -A OUTPUT -p tcp -m connmark --mark 1337 -j CONNMARK --restore-mark",
-		"iptables -t mangle -I ISTIO_INBOUND 1 -p tcp -m mark --mark 1337 -j RETURN",
+		"iptables -t mangle -A ISTIO_INBOUND -p tcp -i lo -j RETURN",
+		"iptables -t mangle -A ISTIO_INBOUND -p tcp -m mark --mark 1337 -j RETURN",
 	}
 
 	if !reflect.DeepEqual(actual, expected) {
