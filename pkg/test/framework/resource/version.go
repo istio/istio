@@ -79,17 +79,17 @@ func (v IstioVersions) IsCrossVersion() bool {
 	return v != nil && len(v) > 0
 }
 
-// ToRevisions returns the list of canonical revisions for a set of versions.
-func (v IstioVersions) ToRevisions() []string {
+// RevisionLabels returns the list of canonical revisions for a set of versions.
+func (v IstioVersions) RevisionLabels() []string {
 	revs := make([]string, len(v))
 	for i, ver := range v {
-		revs[i] = ver.ToRevision()
+		revs[i] = ver.RevisionLabel()
 	}
 	return revs
 }
 
-// ToRevision goes from an Istio version to the canonical revision for that version.
-func (v IstioVersion) ToRevision() string {
+// RevisionLabel goes from an Istio version to the canonical revision for that version.
+func (v IstioVersion) RevisionLabel() string {
 	return strings.ReplaceAll(string(v), ".", "-")
 }
 
