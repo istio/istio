@@ -29,7 +29,7 @@ spec:
   tcp:
   - route:
     - destination:
-        host: httpbin.default.svc.cluster.local
+        host: httpbin.default.svc.domain.suffix
         port:
           number: 9090
 ---
