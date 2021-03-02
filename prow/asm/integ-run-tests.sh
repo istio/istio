@@ -278,6 +278,8 @@ if [[ "${CONTROL_PLANE}" == "UNMANAGED" ]]; then
     DISABLED_TESTS+="|TestAuthorization_WorkloadSelector/From_primary-1/.*|TestAuthorization_NegativeMatch/From_primary-1/.*|TestAuthorization_Conditions/IpA_IpB_IpC_in_primary-0/From_primary-1/.*|TestAuthorization_mTLS/From_primary-1/.*|TestAuthorization_JWT/From_primary-1/.*"
   fi
 
+  DISABLED_PACKAGES="/pilot/cni" # NOT SUPPORTED
+
   # For security tests, do not run tests that require custom setups.
   export TEST_SELECT="${TEST_SELECT:-}"
   # TODO(nmittler): Remove this once we no longer run the multicluster tests.
@@ -323,8 +325,8 @@ if [[ "${CONTROL_PLANE}" == "UNMANAGED" ]]; then
 
   # Skip the tests that are known to be not working.
   apply_skip_disabled_tests "${DISABLED_TESTS}"
-
   echo "Running e2e test: ${TEST_TARGET}..."
+  export DISABLED_PACKAGES
   export JUNIT_OUT="${ARTIFACTS}/junit1.xml"
   make "${TEST_TARGET}"
 else
