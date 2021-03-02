@@ -261,7 +261,7 @@ func setTag(ctx context.Context, kubeClient kube.ExtendedClient, tag, revision s
 	if err != nil {
 		return err
 	}
-	if len(revWebhookCollisions) > 0 {
+	if !generate && !overwrite && len(revWebhookCollisions) > 0 {
 		return fmt.Errorf("cannot create revision tag %q: found existing control plane revision with same name", tag)
 	}
 
