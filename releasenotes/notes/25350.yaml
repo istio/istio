@@ -1,0 +1,9 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+issue:
+  - 25350
+releaseNotes:
+  - |
+    **Added** `ISTIO_GATEWAY_STRIP_HOST_PORT` env to control gateway strip any host port before any processing of request by HTTP filters or routing.
+
