@@ -152,8 +152,8 @@ injection labels.`,
 func tagGenerateCommand() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "generate <revision-tag>",
-		Short: "Create or modify revision tags",
-		Long: `Create or modify revision tags. Tag an Istio control plane revision for use with namespace istio.io/rev
+		Short: "Generate configuration for a revision tag to stdout",
+		Long: `Create a revision tag and output to the command's stdout. Tag an Istio control plane revision for use with namespace istio.io/rev
 injection labels.`,
 		Example: ` # Create a revision tag from the "1-8-0" revision
 	istioctl x tag generate prod --revision 1-8-0 > tag.yaml
@@ -164,10 +164,7 @@ injection labels.`,
 	# Point namespace "test-ns" at the revision pointed to by the "prod" revision tag
 	kubectl label ns test-ns istio.io/rev=prod
 
-	# Change the revision tag to reference the "1-8-1" revision
-	istioctl x tag set prod --revision 1-8-1 --overwrite
-
-	# Rollout namespace "test-ns" to update workloads to the "1-8-1" revision
+	# Rollout namespace "test-ns" to update workloads to the "1-8-0" revision
 	kubectl rollout restart deployments -n test-ns
 `,
 		RunE: func(cmd *cobra.Command, args []string) error {
