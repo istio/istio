@@ -376,7 +376,7 @@ func (pr *PushRequest) Merge(other *PushRequest) *PushRequest {
 
 func (pr *PushRequest) PushReason() string {
 	if len(pr.Reason) == 1 && pr.Reason[0] == ProxyRequest {
-		return "for request"
+		return " request"
 	}
 	return ""
 }
