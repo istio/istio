@@ -430,11 +430,25 @@ var (
 	).Get()
 
 	// EnableAdminEndpoints should never be enabled in production code.
-	EnableAdminEndpoints = false
+	EnableAdminEndpoints = env.BoolVar{}
 )
 
 // RegisterTestOnlyFeatures registers features that are only used in tests.
 func RegisterTestOnlyFeatures() {
 	EnableAdminEndpoints = env.RegisterBoolVar("ENABLE_ADMIN_ENDPOINTS", false,
-		"If this is set to true, dangerous admin endpoins will be exposed on the debug interface.").Get()
+		"If this is set to true, dangerous admin endpoins will be exposed on the debug interface.")
+}
+
+type AlwaysFalseVar struct{}
+
+func (v AlwaysFalseVar) Get() bool {
+	return false
+}
+
+func (v AlwaysFalseVar) Type() env.VarType {
+	return env.BOOL
+}
+
+func (v AlwaysFalseVar) Name() string {
+	return ""
 }
