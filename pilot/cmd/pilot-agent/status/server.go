@@ -59,6 +59,14 @@ const (
 	// indicates that httpbin container liveness prober port is 8080 and probing path is /hello.
 	// This environment variable should never be set manually.
 	KubeAppProberEnvName = "ISTIO_KUBE_APP_PROBERS"
+
+	localHostIPv4 = "127.0.0.1"
+	localHostIPv6 = "[::1]"
+)
+
+var (
+	upstreamLocalAddressIPv4 = &net.TCPAddr{IP: net.ParseIP("127.0.0.6")}
+	upstreamLocalAddressIPv6 = &net.TCPAddr{IP: net.ParseIP("[::6]")}
 )
 
 var PrometheusScrapingConfig = env.RegisterStringVar("ISTIO_PROMETHEUS_ANNOTATIONS", "", "")
@@ -67,6 +75,9 @@ var (
 	appProberPattern = regexp.MustCompile(`^/app-health/[^/]+/(livez|readyz|startupz)$`)
 
 	promRegistry *prometheus.Registry
+
+	legacyLocalhostProbeDestination = env.RegisterBoolVar("REWRITE_PROBE_LEGACY_LOCALHOST_DESTINATION", false,
+		"If enabled, readiness probes will be sent to 'localhost'. Otherwise, they will be sent to the Pod's IP, matching Kubernetes' behavior.")
 )
 
 // KubeAppProbers holds the information about a Kubernetes pod prober.
@@ -83,24 +94,28 @@ type Prober struct {
 
 // Config for the status server.
 type Config struct {
-	LocalHostAddr string
+	// Ip of the pod. Note: this is only applicable for Kubernetes pods and should only be used for
+	// the prober.
+	PodIP string
 	// KubeAppProbers is a json with Kubernetes application prober config encoded.
 	KubeAppProbers string
 	NodeType       model.NodeType
 	StatusPort     uint16
 	AdminPort      uint16
+	IPv6           bool
 }
 
 // Server provides an endpoint for handling status probes.
 type Server struct {
-	ready               *ready.Probe
-	prometheus          *PrometheusScrapeConfiguration
-	mutex               sync.RWMutex
-	appKubeProbers      KubeAppProbers
-	appProbeClient      map[string]*http.Client
-	statusPort          uint16
-	lastProbeSuccessful bool
-	envoyStatsPort      int
+	ready                 *ready.Probe
+	prometheus            *PrometheusScrapeConfiguration
+	mutex                 sync.RWMutex
+	appProbersDestination string
+	appKubeProbers        KubeAppProbers
+	appProbeClient        map[string]*http.Client
+	statusPort            uint16
+	lastProbeSuccessful   bool
+	envoyStatsPort        int
 }
 
 func init() {
@@ -120,13 +135,21 @@ func init() {
 
 // NewServer creates a new status server.
 func NewServer(config Config) (*Server, error) {
+	localhost := localHostIPv4
+	if config.IPv6 {
+		localhost = localHostIPv6
+	}
 	s := &Server{
 		statusPort: config.StatusPort,
 		ready: &ready.Probe{
-			LocalHostAddr: config.LocalHostAddr,
+			LocalHostAddr: localhost,
 			AdminPort:     config.AdminPort,
 		},
-		envoyStatsPort: 15090,
+		appProbersDestination: config.PodIP,
+		envoyStatsPort:        15090,
+	}
+	if legacyLocalhostProbeDestination.Get() {
+		s.appProbersDestination = "localhost"
 	}
 
 	// Enable prometheus server if its configured and a sidecar
@@ -173,6 +196,13 @@ func NewServer(config Config) (*Server, error) {
 		if prober.HTTPGet.Port.Type != intstr.Int {
 			return nil, fmt.Errorf("invalid prober config for %v, the port must be int type", path)
 		}
+		localAddr := upstreamLocalAddressIPv4
+		if config.IPv6 {
+			localAddr = upstreamLocalAddressIPv6
+		}
+		d := &net.Dialer{
+			LocalAddr: localAddr,
+		}
 		// Construct a http client and cache it in order to reuse the connection.
 		s.appProbeClient[path] = &http.Client{
 			Timeout: time.Duration(prober.TimeoutSeconds) * time.Second,
@@ -180,6 +210,7 @@ func NewServer(config Config) (*Server, error) {
 			// https://kubernetes.io/docs/tasks/configure-pod-container/configure-liveness-readiness-probes/#configure-probes
 			Transport: &http.Transport{
 				TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
+				DialContext:     d.DialContext,
 			},
 		}
 	}
@@ -485,9 +516,9 @@ func (s *Server) handleAppProbe(w http.ResponseWriter, req *http.Request) {
 	}
 	var url string
 	if prober.HTTPGet.Scheme == apimirror.URISchemeHTTPS {
-		url = fmt.Sprintf("https://localhost:%v%s", prober.HTTPGet.Port.IntValue(), proberPath)
+		url = fmt.Sprintf("https://%s:%v%s", s.appProbersDestination, prober.HTTPGet.Port.IntValue(), proberPath)
 	} else {
-		url = fmt.Sprintf("http://localhost:%v%s", prober.HTTPGet.Port.IntValue(), proberPath)
+		url = fmt.Sprintf("http://%s:%v%s", s.appProbersDestination, prober.HTTPGet.Port.IntValue(), proberPath)
 	}
 	appReq, err := http.NewRequest("GET", url, nil)
 	if err != nil {
