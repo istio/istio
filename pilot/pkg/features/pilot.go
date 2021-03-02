@@ -429,6 +429,6 @@ var (
 			"Regardless of this setting, the configuration can be overridden with the Sidecar.Ingress.DefaultEndpoint configuration.",
 	).Get()
 
-	// This should never be enabled in production code.
+	// EnableAdminEndpoints should never be enabled in production code.
 	EnableAdminEndpoints = false
 )
