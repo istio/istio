@@ -19,34 +19,34 @@ import (
 	"testing"
 )
 
-func TestCompareVersion(t *testing.T) {
+func TestCompareIstioVersion(t *testing.T) {
 	tcs := []struct {
-		a, b   Version
+		a, b   IstioVersion
 		result int
 	}{
 		{
-			Version("1.4"),
-			Version("1.5"),
+			IstioVersion("1.4"),
+			IstioVersion("1.5"),
 			-1,
 		},
 		{
-			Version("1.9.0"),
-			Version("1.10"),
+			IstioVersion("1.9.0"),
+			IstioVersion("1.10"),
 			-1,
 		},
 		{
-			Version("1.8.0"),
-			Version("1.8.1"),
+			IstioVersion("1.8.0"),
+			IstioVersion("1.8.1"),
 			-1,
 		},
 		{
-			Version("1.9.1"),
-			Version("1.9.1"),
+			IstioVersion("1.9.1"),
+			IstioVersion("1.9.1"),
 			0,
 		},
 		{
-			Version("1.12"),
-			Version("1.3"),
+			IstioVersion("1.12"),
+			IstioVersion("1.3"),
 			1,
 		},
 	}
@@ -61,32 +61,32 @@ func TestCompareVersion(t *testing.T) {
 	}
 }
 
-func TestMinimumVersion(t *testing.T) {
+func TestMinimumIstioVersion(t *testing.T) {
 	tcs := []struct {
 		name     string
-		versions Versions
-		result   Version
+		versions IstioVersions
+		result   IstioVersion
 	}{
 		{
 			"two versions",
-			Versions([]Version{
+			IstioVersions([]IstioVersion{
 				"1.4", "1.5",
 			}),
-			Version("1.4"),
+			IstioVersion("1.4"),
 		},
 		{
 			"three versions",
-			Versions([]Version{
+			IstioVersions([]IstioVersion{
 				"1.9", "1.13", "1.10",
 			}),
-			Version("1.9"),
+			IstioVersion("1.9"),
 		},
 		{
 			"single version",
-			Versions([]Version{
+			IstioVersions([]IstioVersion{
 				"1.9",
 			}),
-			Version("1.9"),
+			IstioVersion("1.9"),
 		},
 	}
 

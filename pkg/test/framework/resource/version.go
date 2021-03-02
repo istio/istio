@@ -20,17 +20,17 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 )
 
-// Version is an Istio version running within a cluster.
-type Version string
+// IstioVersion is an Istio version running within a cluster.
+type IstioVersion string
 
-// Versions represents a collection of Istio versions running in a cluster.
-type Versions []Version
+// IstioVersions represents a collection of Istio versions running in a cluster.
+type IstioVersions []IstioVersion
 
-// Set parses Versions from a string flag in the form "1.5.6,1.9.0,1.4".
-func (v *Versions) Set(value string) error {
+// Set parses IstioVersions from a string flag in the form "1.5.6,1.9.0,1.4".
+func (v *IstioVersions) Set(value string) error {
 	vers := strings.Split(value, ",")
 	for _, ver := range vers {
-		parsed, err := ParseVersion(ver)
+		parsed, err := ParseIstioVersion(ver)
 		if err != nil {
 			return err
 		}
@@ -39,7 +39,7 @@ func (v *Versions) Set(value string) error {
 	return nil
 }
 
-func (v *Versions) String() string {
+func (v *IstioVersions) String() string {
 	if v == nil {
 		return ""
 	}
@@ -52,15 +52,15 @@ func (v *Versions) String() string {
 
 // Compare compares two Istio versions. Returns -1 if version "v" is less than "other", 0 if the same,
 // and 1 if "v" is greater than "other".
-func (v Version) Compare(other Version) int {
+func (v IstioVersion) Compare(other IstioVersion) int {
 	ver := model.ParseIstioVersion(string(v))
 	otherVer := model.ParseIstioVersion(string(other))
 	return ver.Compare(otherVer)
 }
 
-// Minimum returns the minimum from a set of Versions
+// Minimum returns the minimum from a set of IstioVersions
 // returns empty value if no versions.
-func (v Versions) Minimum() Version {
+func (v IstioVersions) Minimum() IstioVersion {
 	if len(v) == 0 {
 		return ""
 	}
@@ -74,13 +74,13 @@ func (v Versions) Minimum() Version {
 	return min
 }
 
-// IsCrossVersion returns whether the associated Versions have multiple specified versions.
-func (v Versions) IsCrossVersion() bool {
+// IsCrossVersion returns whether the associated IstioVersions have multiple specified versions.
+func (v IstioVersions) IsCrossVersion() bool {
 	return v != nil && len(v) > 0
 }
 
 // ToRevisions returns the list of canonical revisions for a set of versions.
-func (v Versions) ToRevisions() []string {
+func (v IstioVersions) ToRevisions() []string {
 	revs := make([]string, len(v))
 	for i, ver := range v {
 		revs[i] = ver.ToRevision()
@@ -89,24 +89,11 @@ func (v Versions) ToRevisions() []string {
 }
 
 // ToRevision goes from an Istio version to the canonical revision for that version.
-func (v Version) ToRevision() string {
+func (v IstioVersion) ToRevision() string {
 	return strings.ReplaceAll(string(v), ".", "-")
 }
 
-// ParseVersions attempts to construct Versions from a string slice.
-func ParseVersions(versions []string) (Versions, error) {
-	vers := make([]Version, len(versions))
-	for i, v := range versions {
-		parsedVer, err := ParseVersion(v)
-		if err != nil {
-			return nil, err
-		}
-		vers[i] = parsedVer
-	}
-	return vers, nil
-}
-
-// ParseVersion parses a version string into a Version.
-func ParseVersion(version string) (Version, error) {
-	return Version(version), nil
+// ParseIstioVersion parses a version string into a IstioVersion.
+func ParseIstioVersion(version string) (IstioVersion, error) {
+	return IstioVersion(version), nil
 }

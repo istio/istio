@@ -83,7 +83,7 @@ type Settings struct {
 
 	// Versions are the Istio versions accessible to each of the clusters.
 	// represented as comma-separated versions, such as "1.7.3,1.8.2,1.9.0"
-	Versions Versions
+	Versions IstioVersions
 }
 
 // RunDir is the name of the dir to output, for this particular run.
