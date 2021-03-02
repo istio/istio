@@ -51,7 +51,7 @@ overwrite existing revision tags.`
 	tagCreatedStr   = `Revision tag %q created, referencing control plane revision %q. To enable injection using this
 revision tag, use 'kubectl label namespace <NAMESPACE> istio.io/rev=%s'
 `
-	webhookNameHelpStr = "Name to use to for a revision tag's mutating webhook configuration."
+	webhookNameHelpStr = "Name to use for a revision tag's mutating webhook configuration."
 )
 
 var (
@@ -85,12 +85,14 @@ at some later point.
 This allows operators to change which Istio control plane revision should handle injection for a namespace or set of namespaces
 without manual relabeling of the "istio.io/rev" tag.
 `,
-		RunE: func(cmd *cobra.Command, args []string) error {
-			cmd.HelpFunc()(cmd, args)
+		Args: func(cmd *cobra.Command, args []string) error {
 			if len(args) != 0 {
 				return fmt.Errorf("unknown subcommand %q", args[0])
 			}
-
+			return nil
+		},
+		RunE: func(cmd *cobra.Command, args []string) error {
+			cmd.HelpFunc()(cmd, args)
 			return nil
 		},
 	}
@@ -122,14 +124,16 @@ injection labels.`,
 	kubectl rollout restart deployments -n test-ns
 `,
 		SuggestFor: []string{"create"},
-		RunE: func(cmd *cobra.Command, args []string) error {
+		Args: func(cmd *cobra.Command, args []string) error {
 			if len(args) == 0 {
 				return fmt.Errorf("must provide a tag for modification")
 			}
 			if len(args) > 1 {
 				return fmt.Errorf("must provide a single tag for creation")
 			}
-
+			return nil
+		},
+		RunE: func(cmd *cobra.Command, args []string) error {
 			client, err := kubeClient(kubeconfig, configContext)
 			if err != nil {
 				return fmt.Errorf("failed to create Kubernetes client: %v", err)
@@ -167,14 +171,16 @@ injection labels.`,
 	# Rollout namespace "test-ns" to update workloads to the "1-8-0" revision
 	kubectl rollout restart deployments -n test-ns
 `,
-		RunE: func(cmd *cobra.Command, args []string) error {
+		Args: func(cmd *cobra.Command, args []string) error {
 			if len(args) == 0 {
 				return fmt.Errorf("must provide a tag for modification")
 			}
 			if len(args) > 1 {
 				return fmt.Errorf("must provide a single tag for creation")
 			}
-
+			return nil
+		},
+		RunE: func(cmd *cobra.Command, args []string) error {
 			client, err := kubeClient(kubeconfig, configContext)
 			if err != nil {
 				return fmt.Errorf("failed to create Kubernetes client: %v", err)
@@ -200,11 +206,13 @@ func tagListCommand() *cobra.Command {
 		Short:   "List existing revision tags",
 		Example: "istioctl x tag list",
 		Aliases: []string{"show"},
-		RunE: func(cmd *cobra.Command, args []string) error {
+		Args: func(cmd *cobra.Command, args []string) error {
 			if len(args) != 0 {
 				return fmt.Errorf("tag list command does not accept arguments")
 			}
-
+			return nil
+		},
+		RunE: func(cmd *cobra.Command, args []string) error {
 			client, err := kubeClient(kubeconfig, configContext)
 			if err != nil {
 				return fmt.Errorf("failed to create Kubernetes client: %v", err)
@@ -230,14 +238,16 @@ revision tag before removing using the "istioctl x tag list" command.
 	istioctl x tag remove prod
 `,
 		Aliases: []string{"delete"},
-		RunE: func(cmd *cobra.Command, args []string) error {
+		Args: func(cmd *cobra.Command, args []string) error {
 			if len(args) == 0 {
 				return fmt.Errorf("must provide a tag for removal")
 			}
 			if len(args) > 1 {
 				return fmt.Errorf("must provide a single tag for removal")
 			}
-
+			return nil
+		},
+		RunE: func(cmd *cobra.Command, args []string) error {
 			client, err := kubeClient(kubeconfig, configContext)
 			if err != nil {
 				return fmt.Errorf("failed to create Kubernetes client: %v", err)
