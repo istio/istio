@@ -548,11 +548,24 @@ func (iptConfigurator *IptablesConfigurator) run() {
 		// save packet mark set by envoy.filters.listener.original_src as connection mark
 		iptConfigurator.iptables.AppendRuleV4(constants.PREROUTING, constants.MANGLE,
 			"-p", constants.TCP, "-m", "mark", "--mark", iptConfigurator.cfg.InboundTProxyMark, "-j", "CONNMARK", "--save-mark")
+		for _, uid := range split(iptConfigurator.cfg.ProxyUID) {
+			// mark outgoing packets from envoy to workload by pod ip
+			// app call VIP --> envoy outbound -(mark 1338)-> envoy inbound --> app
+			iptConfigurator.iptables.AppendRuleV4(constants.OUTPUT, constants.MANGLE,
+				"!", "-d", "127.0.0.1/32", "-p", constants.TCP, "-o", "lo", "-m", "owner", "--uid-owner", uid, "-j", constants.MARK, "--set-mark", "1338")
+		}
+		for _, gid := range split(iptConfigurator.cfg.ProxyGID) {
+			// mark outgoing packets from envoy to workload by pod ip
+			// app call VIP --> envoy outbound -(mark 1338)-> envoy inbound --> app
+			iptConfigurator.iptables.AppendRuleV4(constants.OUTPUT, constants.MANGLE,
+				"!", "-d", "127.0.0.1/32", "-p", constants.TCP, "-o", "lo", "-m", "owner", "--gid-owner", gid, "-j", constants.MARK, "--set-mark", "1338")
+		}
 		// mark outgoing packets from workload, match it to policy routing entry setup for TPROXY mode
 		iptConfigurator.iptables.AppendRuleV4(constants.OUTPUT, constants.MANGLE,
 			"-p", constants.TCP, "-m", "connmark", "--mark", iptConfigurator.cfg.InboundTProxyMark, "-j", "CONNMARK", "--restore-mark")
 		// prevent intercept traffic from app ==> app by pod ip
-		iptConfigurator.iptables.AppendRuleV4(constants.ISTIOINBOUND, constants.MANGLE, "-p", constants.TCP, "-i", "lo", "-j", constants.RETURN)
+		iptConfigurator.iptables.AppendRuleV4(constants.ISTIOINBOUND, constants.MANGLE,
+			"-p", constants.TCP, "-i", "lo", "-m", constants.MARK, "!", "--mark", " 1338", "-j", constants.RETURN)
 		// prevent infinite redirect
 		iptConfigurator.iptables.AppendRuleV4(constants.ISTIOINBOUND, constants.MANGLE,
 			"-p", constants.TCP, "-m", "mark", "--mark", iptConfigurator.cfg.InboundTProxyMark, "-j", constants.RETURN)
