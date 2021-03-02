@@ -181,6 +181,16 @@ if [[ "${CLUSTER_TYPE}" == "gke" ]]; then
   gen_topology_file "${INTEGRATION_TEST_TOPOLOGY_FILE}" "${CONTEXTS[@]}"
 fi
 
+# exported GCR_PROJECT_ID_1, GCR_PROJECT_ID_2, WIP and CA values are needed
+# for security and telemetry test.
+export GCR_PROJECT_ID_1=${GCR_PROJECT_ID}
+if [[ "${#CONTEXTS[@]}" -gt 1 ]]; then
+  IFS="_" read -r -a VALS_2 <<< "${CONTEXTS[1]}"
+  export GCR_PROJECT_ID_2=${VALS_2[1]}
+else
+  export GCR_PROJECT_ID_2="${GCR_PROJECT_ID_1}"
+fi
+
 # TODO(ruigu): extract the common part of MANAGED and UNMANAGED when MANAGED test is added.
 if [[ "${CONTROL_PLANE}" == "UNMANAGED" ]]; then
   echo "Setting up ASM ${CONTROL_PLANE} control plane for test"
@@ -231,15 +241,6 @@ if [[ "${CONTROL_PLANE}" == "UNMANAGED" ]]; then
   echo "Processing kubeconfig files for running the tests..."
   process_kubeconfigs
 
-  # exported GCR_PROJECT_ID_1, GCR_PROJECT_ID_2, WIP and CA values are needed
-  # for security and telemetry test.
-  export GCR_PROJECT_ID_1=${GCR_PROJECT_ID}
-  if [[ "${#CONTEXTS[@]}" -gt 1 ]]; then
-    IFS="_" read -r -a VALS_2 <<< "${CONTEXTS[1]}"
-    export GCR_PROJECT_ID_2=${VALS_2[1]}
-  else
-    export GCR_PROJECT_ID_2="${GCR_PROJECT_ID_1}"
-  fi
   # when CLUSTER_TYPE is gke-on-prem, GCR_PROJECT_ID is set to CENTRAL_GCP_PROJECT istio-prow-build
   # istio-prow-build is not the environ project
   # ENVIRON_PROJECT_ID is the project ID of the environ project where the Onprem cluster is registered
@@ -264,7 +265,7 @@ if [[ "${CONTROL_PLANE}" == "UNMANAGED" ]]; then
   DISABLED_TESTS+="|TestCustomGateway" # UNSUPPORTED: wait for John to check in the missing code.
   # telemetry/ tests
   DISABLED_TESTS+="|TestDashboard" # UNSUPPORTED: Relies on istiod in cluster. TODO: filter out only pilot-dashboard.json
-  DISABLED_TESTS+="|TestCustomizeMetrics|TestStatsFilter|TestTcpMetric|TestWasmStatsFilter|TestWASMTcpMetric" # UNKNOWN: b/177606974
+  DISABLED_TESTS+="|TestCustomizeMetrics" # UNKNOWN: b/177606974
   # security/ tests
 
   # Skip the subtests that are known to be not working.
@@ -280,6 +281,12 @@ if [[ "${CONTROL_PLANE}" == "UNMANAGED" ]]; then
   fi
 
   DISABLED_PACKAGES="/pilot/cni" # NOT SUPPORTED
+
+  # TODO: Unskip telemetry stats tests when https://b.corp.google.com/issues/177606974 is fixed
+  # stats filter tests are flaky for multiproject
+  if [[ "${CLUSTER_TOPOLOGY}" == "MULTIPROJECT" || "${CLUSTER_TOPOLOGY}" == "mp" ]]; then
+    DISABLED_TESTS+="|TestStatsFilter|TestTcpMetric|TestWasmStatsFilter|TestWASMTcpMetric"
+  fi
 
   # For security tests, do not run tests that require custom setups.
   export TEST_SELECT="${TEST_SELECT:-}"
