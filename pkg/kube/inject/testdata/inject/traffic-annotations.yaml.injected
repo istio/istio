@@ -12,6 +12,7 @@ spec:
   template:
     metadata:
       annotations:
+        kubectl.kubernetes.io/default-container: traffic
         kubectl.kubernetes.io/default-logs-container: traffic
         prometheus.io/path: /stats/prometheus
         prometheus.io/port: "15020"
