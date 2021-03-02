@@ -15,6 +15,7 @@
 package cmd
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -25,6 +26,8 @@ import (
 
 	"github.com/mattn/go-isatty"
 	"github.com/spf13/cobra"
+	"k8s.io/apimachinery/pkg/api/errors"
+	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"istio.io/istio/galley/pkg/config/analysis"
 	"istio.io/istio/galley/pkg/config/analysis/analyzers"
@@ -126,6 +129,19 @@ func Analyze() *cobra.Command {
 			// We use the "namespace" arg that's provided as part of root istioctl as a flag for specifying what namespace to use
 			// for file resources that don't have one specified.
 			selectedNamespace = handlers.HandleNamespace(namespace, defaultNamespace)
+
+			// check whether selected namespace exists.
+			if namespace != "" && useKube {
+				client, err := kube.NewExtendedClient(kube.BuildClientCmd(kubeconfig, configContext), "")
+				if err != nil {
+					return err
+				}
+				_, err = client.CoreV1().Namespaces().Get(context.TODO(), namespace, v1.GetOptions{})
+				if errors.IsNotFound(err) {
+					fmt.Fprintf(cmd.ErrOrStderr(), "namespace %q not found\n", namespace)
+					return nil
+				}
+			}
 
 			// If we've explicitly asked for all namespaces, blank the selectedNamespace var out
 			if allNamespaces {
