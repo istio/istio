@@ -209,7 +209,7 @@ func NewServer(args *PilotArgs) (*Server, error) {
 		httpMux:             http.NewServeMux(),
 		monitoringMux:       http.NewServeMux(),
 		readinessProbes:     make(map[string]readinessProbe),
-		workloadTrustBundle: tb.NewTrustBundle(),
+		workloadTrustBundle: tb.NewTrustBundle(nil),
 	}
 	// Initialize workload Trust Bundle before XDS Server
 	e.TrustBundle = s.workloadTrustBundle

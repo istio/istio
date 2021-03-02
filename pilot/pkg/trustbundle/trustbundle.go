@@ -64,7 +64,7 @@ const (
 	RemoteDefaultPollPeriod = 30 * time.Minute
 )
 
-func isEqSpliceStr(certs1 []string, certs2 []string) bool {
+func isEqSliceStr(certs1 []string, certs2 []string) bool {
 	if len(certs1) != len(certs2) {
 		return false
 	}
@@ -77,7 +77,8 @@ func isEqSpliceStr(certs1 []string, certs2 []string) bool {
 }
 
 // NewTrustBundle: Returns a new trustbundle
-func NewTrustBundle() *TrustBundle {
+func NewTrustBundle(remoteCaCertPool *x509.CertPool) *TrustBundle {
+	var err error
 	tb := &TrustBundle{
 		sourceConfig: map[Source]TrustAnchorConfig{
 			SourceIstioCA:         {Certs: []string{}},
@@ -88,8 +89,15 @@ func NewTrustBundle() *TrustBundle {
 		mergedCerts:        []string{},
 		updatecb:           nil,
 		endpointUpdateChan: make(chan struct{}, 1),
-		remoteCaCertPool:   nil,
 		endpoints:          []string{},
+	}
+	if remoteCaCertPool == nil {
+		tb.remoteCaCertPool, err = x509.SystemCertPool()
+		if err != nil {
+			trustBundleLog.Errorf("failed to initialize remote Cert pool: %v", err)
+		}
+	} else {
+		tb.remoteCaCertPool = remoteCaCertPool
 	}
 	return tb
 }
@@ -153,7 +161,7 @@ func (tb *TrustBundle) UpdateTrustAnchor(anchorConfig *TrustAnchorUpdate) error 
 	}
 
 	// Check if anything needs to be changed at all
-	if isEqSpliceStr(anchorConfig.Certs, cachedConfig.Certs) {
+	if isEqSliceStr(anchorConfig.Certs, cachedConfig.Certs) {
 		trustBundleLog.Debugf("no change to trustAnchor configuration after recent update")
 		return nil
 	}
@@ -182,16 +190,14 @@ func (tb *TrustBundle) updateRemoteEndpoint(spiffeEndpoints []string) {
 	remoteEndpoints := tb.endpoints
 	tb.mutex.RUnlock()
 
-	endpointChange := !isEqSpliceStr(spiffeEndpoints, remoteEndpoints)
-	if !endpointChange {
+	if isEqSliceStr(spiffeEndpoints, remoteEndpoints) {
 		return
 	}
-	trustBundleLog.Infof("updated trustAnchor Remote Endpoint  :%v", spiffeEndpoints)
-
+	trustBundleLog.Infof("updated remote endpoints  :%v", spiffeEndpoints)
 	tb.mutex.Lock()
 	tb.endpoints = spiffeEndpoints
-	tb.endpointUpdateChan <- struct{}{}
 	tb.mutex.Unlock()
+	tb.endpointUpdateChan <- struct{}{}
 }
 
 // AddMeshConfigUpdate : Update trustAnchor configurations from meshConfig
@@ -229,14 +235,6 @@ func (tb *TrustBundle) fetchRemoteTrustAnchors() {
 	tb.endpointMutex.RUnlock()
 	remoteCerts := []string{}
 
-	if tb.remoteCaCertPool == nil {
-		tb.remoteCaCertPool, err = x509.SystemCertPool()
-		if err != nil {
-			trustBundleLog.Error("unable to retrieve certs to validate spiffe endpoint")
-			return
-		}
-	}
-
 	currentTrustDomain := spiffe.GetTrustDomain()
 	for _, endpoint := range remoteEndpoints {
 		trustDomainAnchorMap, err := spiffe.RetrieveSpiffeBundleRootCerts(
@@ -263,6 +261,7 @@ func (tb *TrustBundle) fetchRemoteTrustAnchors() {
 
 func (tb *TrustBundle) ProcessRemoteTrustAnchors(stop <-chan struct{}, pollInterval time.Duration) {
 	ticker := time.NewTicker(pollInterval)
+	defer ticker.Stop()
 	for {
 		select {
 		case <-ticker.C:
