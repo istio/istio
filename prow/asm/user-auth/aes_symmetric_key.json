@@ -2,8 +2,9 @@
    "keys":[
       {
          "kty":"oct",
-         "kid":"aes-v1",
-         "k":"7BdPwMwhda+ZZgijtDT39L3tP33JSa0G4QgA2FolC0s="
+         "kid":"key-0",
+         "k":"c7WsUB6msAgIdDxTnT13Yw",
+         "useAfter": 1612813735
       }
    ]
 }

@@ -35,8 +35,3 @@ func TestMain(m *testing.M) {
 		Setup(istio.Setup(&ist, nil)).
 		Run()
 }
-
-func TestUserAuth(t *testing.T) {
-	framework.
-		NewTest(t).NotImplementedYet("security.user.auth")
-}

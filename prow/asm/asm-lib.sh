@@ -1090,31 +1090,84 @@ EOF
 # Install ASM User Auth on the cluster.
 # Parameters: $1 - Path of working directory
 function install_asm_user_auth() {
-  # create RSA signing key for RC token signing.
-  openssl req -newkey rsa:2048 -x509 -sha256 -days 365 -nodes -subj \
-	  "/C=US/ST=California/L=Sunnyvale/O=Google/OU=Cloud/CN=iap-service.iap.svc.cluster.local"  \
-	   -keyout "${1}/user-auth/rsa_signing_key.pem"
+  WORK_DIR=${1}
 
-  create_asm_revision_label
-  kubectl create namespace iap
-  kubectl label namespace iap istio.io/rev=asm-190-3 --overwrite
+  kubectl create namespace asm-user-auth
+  kubectl label namespace asm-user-auth istio-injection=enabled --overwrite
+
+  kubectl create namespace userauth-test
+  kubectl label namespace userauth-test istio-injection=enabled --overwrite
+  # TODO(b/182914654): deploy app in go code
+  kubectl -n userauth-test apply -f https://raw.githubusercontent.com/istio/istio/master/samples/httpbin/httpbin.yaml
 
   # Create the kubernetes secret for the encryption and signing key.
+  # shellcheck disable=SC2140
   kubectl create secret generic secret-key  \
-       --from-file=encryption-key="${WD}/user-auth/aes_symmetric_key.json"  \
-       --from-file=signing-key="${WD}/user-auth/rsa_signing_key.pem"  \
-       --namespace=iap
+       --from-file="session_cookie.key"="${WORK_DIR}/user-auth/aes_symmetric_key.json"  \
+       --from-file="rctoken.key"="${WORK_DIR}/user-auth/rsa_signing_key.json"  \
+       --namespace=asm-user-auth
 
-  # TODO: Fetch image from GCR release repo and GitHub packet.
-  kpt cfg set "${1}/user-auth/pkg" iap-image gcr.io/jianfeih-test/asm-user-auth:20200212-rc0
-  kpt live init "${1}/user-auth/pkg"
-  kpt live apply "${1}/user-auth/pkg"
+  kubectl apply -f "${WORK_DIR}/user-auth/asm_user_auth_config_v1alpha1.yaml"
+
+  # The following account is from IAP team
+  # TODO(b/182940034): use ASM owned account once created
+  OIDC_CLIENT_ID="1042451928015-7voa7j6bvjp28eqcfhj5dvhbp6n248ip.apps.googleusercontent.com"
+  OIDC_CLIENT_SECRET="X20PzlEEKgEomFYR0alkXF3P"
+  OIDC_ISSUER_URI="https://accounts.google.com"
+
+  # TODO(b/182918059): Fetch image from GCR release repo and GitHub packet.
+  kpt cfg set "${WORK_DIR}/user-auth/pkg" iap-image gcr.io/jianfeih-test/asm-user-auth:20210224-rc0
+  kpt cfg set "${WORK_DIR}/user-auth/pkg" anthos.servicemesh.user-auth.oidc.clientID "${OIDC_CLIENT_ID}"
+  kpt cfg set "${WORK_DIR}/user-auth/pkg" anthos.servicemesh.user-auth.oidc.clientSecret "${OIDC_CLIENT_SECRET}"
+  kpt cfg set "${WORK_DIR}/user-auth/pkg" anthos.servicemesh.user-auth.oidc.issuerURI "${OIDC_ISSUER_URI}"
+  kubectl apply -R -f "${WORK_DIR}/user-auth/pkg/"
+
+  kubectl wait --for=condition=Ready --timeout=2m -n --namespace={userauth-test,asm-user-auth} --all pod
 }
 
 # Cleanup ASM User Auth manifest.
 # Parameters: $1 - Path of working directory
 function cleanup_asm_user_auth() {
-  kubectl delete ns iap
-  rm -rf "${1}/user-auth/rsa_signing_key.pem"
-  rm -rf "${1}/user-auth/pkg/inventory-template.yaml"
+  WORK_DIR=${1}
+  kubectl delete -R -f "${WORK_DIR}/user-auth/pkg/"
+  kubectl delete -f "${WORK_DIR}/user-auth/asm_user_auth_config_v1alpha1.yaml"
+  kubectl -n userauth-test delete -f https://raw.githubusercontent.com/istio/istio/master/samples/httpbin/httpbin.yaml
+  rm -rf "${WORK_DIR}/user-auth/pkg/inventory-template.yaml"
+  kubectl delete ns asm-user-auth userauth-test
+}
+
+# Download dependencies: Chrome, Selenium
+# Parameters: $1 - Path of working directory
+function download_dependencies() {
+  WORK_DIR=${1}
+  # need this mkdir for installing jre: https://bugs.debian.org/cgi-bin/bugreport.cgi?bug=863199
+  mkdir -p /usr/share/man/man1
+  # TODO(b/182939536): add apt-get to https://github.com/istio/tools/blob/master/docker/build-tools/Dockerfile
+  apt-get update && apt-get install -y --no-install-recommends unzip openjdk-11-jre xvfb chromium-browser
+
+  mkdir "${WORK_DIR}/user-auth/dependencies"
+
+  LASTCHANGE_URL="https://www.googleapis.com/download/storage/v1/b/chromium-browser-snapshots/o/Linux_x64%2FLAST_CHANGE?alt=media"
+  REVISION=$(curl -s -S "${LASTCHANGE_URL}")
+  CHROMIUM_URL="https://www.googleapis.com/download/storage/v1/b/chromium-browser-snapshots/o/Linux_x64%2F$REVISION%2Fchrome-linux.zip?alt=media"
+  DRIVER_URL="https://www.googleapis.com/download/storage/v1/b/chromium-browser-snapshots/o/Linux_x64%2F$REVISION%2Fchromedriver_linux64.zip?alt=media"
+  SELENIUM_URL="https://selenium-release.storage.googleapis.com/3.141/selenium-server-standalone-3.141.59.jar"
+
+  curl -# "${CHROMIUM_URL}" > "${WORK_DIR}/user-auth/dependencies/chrome-linux.zip"
+  curl -# "${DRIVER_URL}" > "${WORK_DIR}/user-auth/dependencies/chromedriver-linux.zip"
+
+  unzip "${WORK_DIR}/user-auth/dependencies/chrome-linux.zip" -d "${WORK_DIR}/user-auth/dependencies"
+  unzip "${WORK_DIR}/user-auth/dependencies/chromedriver-linux.zip" -d "${WORK_DIR}/user-auth/dependencies"
+  rm -rf "${WORK_DIR}/user-auth/dependencies/chrome-linux.zip" "${WORK_DIR}/user-auth/dependencies/chromedriver-linux.zip"
+
+  curl -# "${SELENIUM_URL}" > "${WORK_DIR}/user-auth/dependencies/selenium-server.jar"
+
+  # need below for DevToolsActivePorts error, https://yaqs.corp.google.com/eng/q/5322136407900160
+  echo "export DISPLAY=:20" >> ~/.bashrc
+}
+
+# Cleanup dependencies
+# Parameters: $1 - Path of working directory
+function cleanup_dependencies() {
+  rm -rf "${1}/user-auth/dependencies"
 }

@@ -6,13 +6,23 @@ packageMetadata:
   shortDescription: IAP kpt package for anthos service mesh.
 openAPI:
   definitions:
-    io.k8s.cli.setters.iap-service-address:
-      x-k8s-cli:
-        setter:
-          name: iap-service-address
-          value: iap-service.istio-system.svc.cluster.local
     io.k8s.cli.setters.iap-image:
       x-k8s-cli:
         setter:
           name: iap-image
-          value: gcr.io/onprem-idp-release/iap:staging
+          value: gcr.io/onprem-idp-release/asm_user_auth:dev
+    io.k8s.cli.setters.anthos.servicemesh.user-auth.oidc.clientID:
+      x-k8s-cli:
+        setter:
+          name: anthos.servicemesh.user-auth.oidc.clientID
+          value: your-oidc-client-id
+    io.k8s.cli.setters.anthos.servicemesh.user-auth.oidc.clientSecret:
+      x-k8s-cli:
+        setter:
+          name: anthos.servicemesh.user-auth.oidc.clientSecret
+          value: your-oidc-clientSecret
+    io.k8s.cli.setters.anthos.servicemesh.user-auth.oidc.issuerURI:
+      x-k8s-cli:
+        setter:
+          name: anthos.servicemesh.user-auth.oidc.issuerURI
+          value: your-oidc-issuer-uri

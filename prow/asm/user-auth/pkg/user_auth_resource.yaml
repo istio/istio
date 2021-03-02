@@ -1,46 +1,46 @@
-# IAP is deployed to its own namespace with istio-injection=enabled label rather then "istio-system".
-# Since the Istio sidecar injector webhook only monitors the istio-injection=enabled labeled
-# namespaces for auto injection.
 ---
 apiVersion: v1
 kind: Service
 metadata:
-  name: iap-service
-  namespace: iap
+  name: authservice
+  namespace: asm-user-auth
   labels:
-    app: iap
-    service: iap
+    app: authservice
 spec:
   selector:
-    app: iap
+    app: authservice
   ports:
   - name: grpc
     port: 10003
+    targetPort: 10003
+  - name: http
+    port: 10004
+    targetPort: 10004
 ---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: iap-deployment
-  namespace: iap
+  name: authservice
+  namespace: asm-user-auth
   labels:
-    app: iap
-    deployment: iap
+    app: authservice
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: iap
+      app: authservice
   template:
     metadata:
       labels:
-        app: iap
+        app: authservice
     spec:
       containers:
-      - name: iap-authservice
-        image: gcr.io/onprem-idp-release/iap:hybrid_identity_charon_20210207_RC00  # {"$ref":"#/definitions/io.k8s.cli.setters.iap-image"}
+      - name: authservice
+        image: gcr.io/jianfeih-test/asm-user-auth:20210224-rc0 # {"$ref":"#/definitions/io.k8s.cli.setters.iap-image"}
         imagePullPolicy: IfNotPresent
         ports:
         - containerPort: 10003
+        - containerPort: 10004
         volumeMounts:
         - name: key-volume
           mountPath: /etc/charon/certs
@@ -52,8 +52,14 @@ spec:
 apiVersion: security.istio.io/v1beta1
 kind: PeerAuthentication
 metadata:
-  name: iap-peer-authn-mtls
-  namespace: iap
+  name: authservice-mtls
+  namespace: asm-user-auth
 spec:
+  selector:
+    matchLabels:
+      app: authservice
   mtls:
     mode: STRICT
+  portLevelMtls:
+    10004:
+      mode: DISABLE

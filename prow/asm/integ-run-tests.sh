@@ -308,12 +308,19 @@ if [[ "${CONTROL_PLANE}" == "UNMANAGED" ]]; then
   export WIP
 
   if [[ "${FEATURE_TO_TEST}" == "USER_AUTH" ]]; then
+    add_trap "cleanup_asm_user_auth ${WD}" EXIT SIGKILL SIGTERM SIGQUIT
     install_asm_user_auth "${WD}"
-    kubectl wait --for=condition=Ready --timeout=2m -n iap --all pod --context="${CONTEXTS[$i]}"
+
     kubectl get configmap istio -n istio-system -o yaml
     kubectl get ns --show-labels
     kubectl get pods --all-namespaces
-    add_trap "cleanup_asm_user_auth ${WD}" EXIT SIGKILL SIGTERM SIGQUIT
+
+    add_trap "cleanup_dependencies ${WD}" EXIT SIGKILL SIGTERM SIGQUIT
+    download_dependencies "${WD}"
+
+    # TODO(b/182912549): port-forward in go code
+    kubectl port-forward service/istio-ingressgateway 8443:443 -n istio-system &
+    add_trap "kill -9 $(pgrep -f "kubectl port-forward")" EXIT SIGKILL SIGTERM SIGQUIT
   fi
 
   # DISABLED_TESTS contains a list of all tests we skip
@@ -368,8 +375,6 @@ if [[ "${CONTROL_PLANE}" == "UNMANAGED" ]]; then
   if [[ $TEST_TARGET == "test.integration.asm.security" ]]; then
     if [[ -z "${TEST_SELECT}" ]]; then
       TEST_SELECT="-customsetup"
-    else
-      TEST_SELECT+=",-customsetup"
     fi
   fi
 

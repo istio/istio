@@ -3,7 +3,7 @@ kind: IstioOperator
 spec:
   meshConfig:
     extensionProviders:
-      - name: "iap-ext-authz-grpc"
+      - name: "asm-userauth-grpc"
         envoyExtAuthzGrpc:
-          service: "iap-service.iap.svc.cluster.local"
+          service: "authservice.asm-user-auth.svc.cluster.local"
           port: "10003"
