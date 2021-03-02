@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: feature
+area: security
+issue:
+- 30261
+releaseNotes:
+- |
+  **Added**   `istiod` JWT public key refresh job will now retry the failed fetch of the `jwks_uri` with exponential backoff.
