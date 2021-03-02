@@ -607,9 +607,9 @@ func templateParams(cfg echo.Config, settings *image.Settings, versions resource
 		}
 		imagePullSecret = secret.GetName()
 	}
-	revisions := versions.ToRevisions()
-	if len(revisions) == 0 {
-		revisions = []string{""}
+	revisionLabels := versions.RevisionLabels()
+	if len(revisionLabels) == 0 {
+		revisionLabels = []string{""}
 	}
 	params := map[string]interface{}{
 		"Hub":                settings.Hub,
