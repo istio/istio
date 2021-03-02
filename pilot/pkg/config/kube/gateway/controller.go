@@ -21,13 +21,16 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
+	k8s "sigs.k8s.io/gateway-api/apis/v1alpha1"
 
+	gatewaymodel "istio.io/istio/pilot/pkg/config/kube/gateway/api"
 	"istio.io/istio/pilot/pkg/model"
 	controller2 "istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/schema/collection"
 	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/config/schema/gvk"
+	"istio.io/pkg/log"
 )
 
 var (
@@ -111,6 +114,7 @@ func (c controller) List(typ config.GroupVersionKind, namespace string) ([]confi
 		namespaces[ns.Name] = &nsl.Items[i]
 	}
 	input.Namespaces = namespaces
+	input.GatewayClassConfiguration = gatewayClassReferences(c.client, input.GatewayClass)
 	output := convertResources(input)
 
 	switch typ {
@@ -131,6 +135,51 @@ func anyApisUsed(input *KubernetesResources) bool {
 		len(input.TCPRoute) > 0 ||
 		len(input.TLSRoute) > 0 ||
 		len(input.BackendPolicy) > 0
+}
+
+func paramsToName(obj k8s.ParametersReference) scopedResourceName {
+	return scopedResourceName{name: obj.Name, namespace: obj.Namespace}
+}
+
+func gatewayClassReferences(client kubernetes.Interface, gatewayClass []config.Config) map[scopedResourceName]gatewaymodel.GatewayClassConfiguration {
+	classes := map[scopedResourceName]gatewaymodel.GatewayClassConfiguration{}
+	for _, obj := range gatewayClass {
+		gwc := obj.Spec.(*k8s.GatewayClassSpec)
+
+		if gwc.Controller != ControllerName {
+			continue
+		}
+		if gwc.ParametersRef != nil {
+			if gwc.ParametersRef.Kind != "ConfigMap" {
+				log.Warnf("unsupported parameter kind: %v", gwc.ParametersRef.Kind)
+				continue
+			}
+			if gwc.ParametersRef.Group != "core" {
+				log.Warnf("unsupported parameter group: %v", gwc.ParametersRef.Group)
+				continue
+			}
+			if gwc.ParametersRef.Scope != "Namespace" {
+				log.Warnf("unsupported parameter scope: %v", gwc.ParametersRef.Scope)
+				continue
+			}
+			key := paramsToName(*gwc.ParametersRef)
+			if _, f := classes[key]; f {
+				continue // already have this one
+			}
+			cm, err := client.CoreV1().ConfigMaps(gwc.ParametersRef.Namespace).Get(context.Background(), gwc.ParametersRef.Name, metav1.GetOptions{})
+			if err != nil {
+				log.Warnf("failed to get configmap reference: %v/%v", gwc.ParametersRef.Name, gwc.ParametersRef.Namespace)
+				continue
+			}
+			gwcc, err := gatewaymodel.GatewayClassConfigurationFromMap(cm.Data)
+			if err != nil {
+				log.Warnf("failed to get unmarshal configmap: %v", err)
+				continue
+			}
+			classes[key] = gwcc
+		}
+	}
+	return classes
 }
 
 func (c controller) Create(config config.Config) (revision string, err error) {

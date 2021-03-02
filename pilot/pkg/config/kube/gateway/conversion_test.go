@@ -27,6 +27,7 @@ import (
 	k8s "sigs.k8s.io/gateway-api/apis/v1alpha1"
 
 	"istio.io/istio/pilot/pkg/config/kube/crd"
+	gatewaymodel "istio.io/istio/pilot/pkg/config/kube/gateway/api"
 	"istio.io/istio/pilot/test/util"
 	"istio.io/istio/pkg/config"
 	crdvalidation "istio.io/istio/pkg/config/crd"
@@ -42,6 +43,7 @@ func TestConvertResources(t *testing.T) {
 		"mismatch",
 		"weighted",
 		"backendpolicy",
+		"multigateway",
 	}
 	for _, tt := range cases {
 		t.Run(tt, func(t *testing.T) {
@@ -100,6 +102,19 @@ func splitInput(configs []config.Config) *KubernetesResources {
 		case gvk.BackendPolicy:
 			out.BackendPolicy = append(out.BackendPolicy, c)
 		}
+	}
+	// Setup a few gateway class params. Its a bit painful to do in the YAML today, so we do it here
+	out.GatewayClassConfiguration = map[scopedResourceName]gatewaymodel.GatewayClassConfiguration{
+		{"istio-gateway-class", "istio-system"}: {Workload: gatewaymodel.GatewayWorkload{
+			Selector: map[string]string{
+				"istio": "ingressgateway",
+			},
+		}},
+		{"istio-cluster-local-gateway-class", "istio-system"}: {Workload: gatewaymodel.GatewayWorkload{
+			Selector: map[string]string{
+				"istio": "cluster-local",
+			},
+		}},
 	}
 	return out
 }

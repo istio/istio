@@ -25,9 +25,9 @@ import (
 	k8s "sigs.k8s.io/gateway-api/apis/v1alpha1"
 
 	istio "istio.io/api/networking/v1alpha3"
+	gatewaymodel "istio.io/istio/pilot/pkg/config/kube/gateway/api"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/constants"
-	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/pkg/log"
 )
@@ -36,14 +36,20 @@ const (
 	ControllerName = "istio.io/gateway-controller"
 )
 
+type scopedResourceName struct {
+	name      string
+	namespace string
+}
+
 type KubernetesResources struct {
-	GatewayClass  []config.Config
-	Gateway       []config.Config
-	HTTPRoute     []config.Config
-	TCPRoute      []config.Config
-	TLSRoute      []config.Config
-	BackendPolicy []config.Config
-	Namespaces    map[string]*corev1.Namespace
+	GatewayClass              []config.Config
+	Gateway                   []config.Config
+	HTTPRoute                 []config.Config
+	TCPRoute                  []config.Config
+	TLSRoute                  []config.Config
+	BackendPolicy             []config.Config
+	Namespaces                map[string]*corev1.Namespace
+	GatewayClassConfiguration map[scopedResourceName]gatewaymodel.GatewayClassConfiguration
 
 	// Domain for the cluster. Typically cluster.local
 	Domain string
@@ -636,14 +642,23 @@ func createURIMatch(match k8s.HTTPRouteMatch) *istio.StringMatch {
 }
 
 // getGatewayClass finds all gateway class that are owned by Istio
-func getGatewayClasses(r *KubernetesResources) map[string]struct{} {
-	classes := map[string]struct{}{}
+func getGatewayClasses(r *KubernetesResources) map[string]gatewaymodel.GatewayClassConfiguration {
+	classes := map[string]gatewaymodel.GatewayClassConfiguration{}
 	for _, obj := range r.GatewayClass {
 		gwc := obj.Spec.(*k8s.GatewayClassSpec)
-		if gwc.Controller == ControllerName {
-			// TODO we can add any settings we need here needed for the controller
-			// For now, we have none, so just add a struct
-			classes[obj.Name] = struct{}{}
+
+		if gwc.Controller != ControllerName {
+			continue
+		}
+		if gwc.ParametersRef != nil {
+			params, f := r.GatewayClassConfiguration[paramsToName(*gwc.ParametersRef)]
+			if f {
+				classes[obj.Name] = params
+			} else {
+				classes[obj.Name] = gatewaymodel.DefaultGatewayClassConfiguration()
+			}
+		} else {
+			classes[obj.Name] = gatewaymodel.DefaultGatewayClassConfiguration()
 		}
 	}
 	return classes
@@ -655,7 +670,8 @@ func convertGateway(r *KubernetesResources) ([]config.Config, map[RouteKey][]str
 	classes := getGatewayClasses(r)
 	for _, obj := range r.Gateway {
 		kgw := obj.Spec.(*k8s.GatewaySpec)
-		if _, f := classes[kgw.GatewayClassName]; !f {
+		params, f := classes[kgw.GatewayClassName]
+		if !f {
 			// No gateway class found, this may be meant for another controller; should be skipped.
 			continue
 		}
@@ -701,9 +717,8 @@ func convertGateway(r *KubernetesResources) ([]config.Config, map[RouteKey][]str
 				Domain:            r.Domain,
 			},
 			Spec: &istio.Gateway{
-				Servers: servers,
-				// TODO derive this from gatewayclass param ref
-				Selector: labels.Instance{constants.IstioLabel: "ingressgateway"},
+				Servers:  servers,
+				Selector: params.Workload.Selector,
 			},
 		}
 		result = append(result, gatewayConfig)
