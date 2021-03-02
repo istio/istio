@@ -60,7 +60,6 @@ var (
 	manifestsPath    = ""
 	overwrite        = false
 	skipConfirmation = false
-	generate         = false
 	webhookName      = ""
 )
 
