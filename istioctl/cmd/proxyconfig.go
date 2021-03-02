@@ -363,11 +363,14 @@ func allConfigCmd() *cobra.Command {
   # Retrieve full cluster dump as JSON
   istioctl proxy-config all <pod-name[.namespace]> -o json
 
+  # Retrieve full cluster dump with short syntax
+  istioctl pc a <pod-name[.namespace]>
+
   # Retrieve cluster summary without using Kubernetes API
   ssh <user@hostname> 'curl localhost:15000/config_dump' > envoy-config.json
   istioctl proxy-config all --file envoy-config.json
 `,
-		Aliases: []string{"all", "a"},
+		Aliases: []string{"a"},
 		Args: func(cmd *cobra.Command, args []string) error {
 			if (len(args) == 1) != (configDumpFile == "") {
 				cmd.Println(cmd.UsageString())
