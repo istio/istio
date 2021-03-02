@@ -20,7 +20,7 @@ name=${1:-foo}
 ns=${2:-$name}
 sa=${3:-$name}
 tmp=${4:-""}
-alt=${5:-"false"}
+rootselect=${5:-""}
 san="spiffe://trust-domain-$name/ns/$ns/sa/$sa"
 
 DIR=$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )
@@ -89,7 +89,7 @@ cacert="$FINAL_DIR"/ca-cert.pem
 cakey="$FINAL_DIR"/ca-key.pem
 rootcert="$FINAL_DIR"/root-cert.pem
 
-if [[ "$alt" = "true" ]] ; then
+if [[ "$rootselect" = "use-alternative-root" ]] ; then
   certchain="$FINAL_DIR"/cert-chain-alt.pem
   cacert="$FINAL_DIR"/ca-cert-alt.pem
   cakey="$FINAL_DIR"/ca-key-alt.pem
