@@ -42,7 +42,7 @@ spec:
       - '*'
     route:
     - destination:
-        host: httpbin.default.svc.cluster.local
+        host: httpbin.default.svc.domain.suffix
         port:
           number: 443
 ---
@@ -63,7 +63,7 @@ spec:
       - foo.com
     route:
     - destination:
-        host: httpbin.default.svc.cluster.local
+        host: httpbin.default.svc.domain.suffix
         port:
           number: 443
 ---
@@ -81,7 +81,7 @@ spec:
   http:
   - route:
     - destination:
-        host: httpbin.default.svc.cluster.local
+        host: httpbin.default.svc.domain.suffix
         port:
           number: 80
 ---

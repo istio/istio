@@ -42,7 +42,7 @@ spec:
         prefix: /get
     route:
     - destination:
-        host: httpbin.default.svc.cluster.local
+        host: httpbin.default.svc.domain.suffix
         port:
           number: 80
 ---
@@ -63,7 +63,7 @@ spec:
         prefix: /second
     route:
     - destination:
-        host: httpbin-second.default.svc.cluster.local
+        host: httpbin-second.default.svc.domain.suffix
         port:
           number: 80
 ---
