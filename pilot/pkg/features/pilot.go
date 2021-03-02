@@ -432,3 +432,9 @@ var (
 	// EnableAdminEndpoints should never be enabled in production code.
 	EnableAdminEndpoints = false
 )
+
+// RegisterTestOnlyFeatures registers features that are only used in tests.
+func RegisterTestOnlyFeatures() {
+	EnableAdminEndpoints = env.RegisterBoolVar("ENABLE_ADMIN_ENDPOINTS", false,
+		"If this is set to true, dangerous admin endpoins will be exposed on the debug interface.").Get()
+}

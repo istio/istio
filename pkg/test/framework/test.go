@@ -20,6 +20,7 @@ import (
 	"testing"
 	"time"
 
+	pilotfeatures "istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pkg/test/framework/features"
 	"istio.io/istio/pkg/test/framework/label"
 	"istio.io/istio/pkg/test/scopes"
@@ -117,6 +118,9 @@ type testImpl struct {
 
 // globalCleanupLock defines a global wait group to synchronize cleanup of test suites
 var globalParentLock = new(sync.Map)
+
+// register test only features that Pilot needs.
+var _ = pilotfeatures.RegisterTestOnlyFeatures
 
 // NewTest returns a new test wrapper for running a single test.
 func NewTest(t *testing.T) Test {

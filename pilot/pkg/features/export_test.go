@@ -14,12 +14,5 @@
 
 package features
 
-import "istio.io/pkg/env"
-
 // Only read env variables in tests so that they are not set accidentally in production code.
-var _ = registerTestOnlyFeatures
-
-func registerTestOnlyFeatures() {
-	EnableAdminEndpoints = env.RegisterBoolVar("ENABLE_ADMIN_ENDPOINTS", false,
-		"If this is set to true, dangerous admin endpoins will be exposed on the debug interface.").Get()
-}
+var _ = RegisterTestOnlyFeatures
