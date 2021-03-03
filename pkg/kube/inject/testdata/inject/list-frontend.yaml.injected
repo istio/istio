@@ -29,6 +29,7 @@ items:
     template:
       metadata:
         annotations:
+          kubectl.kubernetes.io/default-container: nginx
           kubectl.kubernetes.io/default-logs-container: nginx
           prometheus.io/path: /stats/prometheus
           prometheus.io/port: "15020"
