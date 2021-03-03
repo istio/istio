@@ -97,14 +97,6 @@ func (c *Controller) GetRegistries() []serviceregistry.Instance {
 	return out
 }
 
-// GetRegistryIndex returns the index of a registry
-func (c *Controller) GetRegistryIndex(clusterID string, provider serviceregistry.ProviderID) (int, bool) {
-	c.storeLock.RLock()
-	defer c.storeLock.RUnlock()
-
-	return c.getRegistryIndex(clusterID, provider)
-}
-
 func (c *Controller) getRegistryIndex(clusterID string, provider serviceregistry.ProviderID) (int, bool) {
 	for i, r := range c.registries {
 		if r.Cluster() == clusterID && r.Provider() == provider {

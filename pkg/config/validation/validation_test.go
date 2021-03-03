@@ -3642,9 +3642,10 @@ func TestValidateEnvoyFilter(t *testing.T) {
 
 func TestValidateServiceEntries(t *testing.T) {
 	cases := []struct {
-		name  string
-		in    networking.ServiceEntry
-		valid bool
+		name    string
+		in      networking.ServiceEntry
+		valid   bool
+		warning bool
 	}{
 		{
 			name: "discovery type DNS", in: networking.ServiceEntry{
@@ -3676,6 +3677,57 @@ func TestValidateServiceEntries(t *testing.T) {
 				Resolution: networking.ServiceEntry_DNS,
 			},
 			valid: true,
+		},
+
+		{
+			name: "discovery type DNS, one host set with IP address and https port",
+			in: networking.ServiceEntry{
+				Hosts:     []string{"httpbin.org"},
+				Addresses: []string{"10.10.10.10"},
+				Ports: []*networking.Port{
+					{Number: 80, Protocol: "http", Name: "http-valid1"},
+					{Number: 8080, Protocol: "http", Name: "http-valid2"},
+					{Number: 443, Protocol: "https", Name: "https"},
+				},
+				Resolution: networking.ServiceEntry_DNS,
+			},
+			valid:   true,
+			warning: false,
+		},
+
+		{
+			name: "discovery type DNS, multi hosts set with IP address and https port",
+			in: networking.ServiceEntry{
+				Hosts:     []string{"httpbin.org", "wikipedia.org"},
+				Addresses: []string{"10.10.10.10"},
+				Ports: []*networking.Port{
+					{Number: 80, Protocol: "http", Name: "http-valid1"},
+					{Number: 8080, Protocol: "http", Name: "http-valid2"},
+					{Number: 443, Protocol: "https", Name: "https"},
+				},
+				Resolution: networking.ServiceEntry_DNS,
+			},
+			valid:   true,
+			warning: true,
+		},
+
+		{
+			name: "discovery type DNS, IP address set",
+			in: networking.ServiceEntry{
+				Hosts:     []string{"*.google.com"},
+				Addresses: []string{"10.10.10.10"},
+				Ports: []*networking.Port{
+					{Number: 80, Protocol: "http", Name: "http-valid1"},
+					{Number: 8080, Protocol: "http", Name: "http-valid2"},
+				},
+				Endpoints: []*networking.WorkloadEntry{
+					{Address: "lon.google.com", Ports: map[string]uint32{"http-valid1": 8080}},
+					{Address: "in.google.com", Ports: map[string]uint32{"http-valid2": 9080}},
+				},
+				Resolution: networking.ServiceEntry_DNS,
+			},
+			valid:   true,
+			warning: false,
 		},
 
 		{
@@ -4068,15 +4120,20 @@ func TestValidateServiceEntries(t *testing.T) {
 
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
-			if _, got := ValidateServiceEntry(config.Config{
+			warning, err := ValidateServiceEntry(config.Config{
 				Meta: config.Meta{
 					Name:      someName,
 					Namespace: someNamespace,
 				},
 				Spec: &c.in,
-			}); (got == nil) != c.valid {
+			})
+			if (err == nil) != c.valid {
 				t.Errorf("ValidateServiceEntry got valid=%v but wanted valid=%v: %v",
-					got == nil, c.valid, got)
+					err == nil, c.valid, err)
+			}
+			if (warning != nil) != c.warning {
+				t.Errorf("ValidateServiceEntry got warning=%v but wanted warning=%v: %v",
+					warning != nil, c.warning, warning)
 			}
 		})
 	}
