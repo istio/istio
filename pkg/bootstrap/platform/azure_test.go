@@ -28,6 +28,9 @@ const (
 		`"vmId": "13f56399-bd52-4150-9748-7190aae1ff21", "zone": "1"}}`
 	MockMetadataWithValuelessTag = `{"compute": {"location": "centralus", "name": "negasonic", "tags": "Department", ` +
 		`"vmId": "13f56399-bd52-4150-9748-7190aae1ff21", "zone": "1"}}`
+	MockMetadataTagsList = `{"compute": {"location": "centralus", "name": "negasonic", ` +
+		`"tagsList": [{"name": "Department", "value":"IT"}, {"name": "Environment", "value": "Prod"}, {"name": "Role", "value": "WorkerRole; OtherWorker"}], ` +
+		`"vmId": "13f56399-bd52-4150-9748-7190aae1ff21", "zone": "1"}}`
 )
 
 func TestAzureVersionUpdate(t *testing.T) {
@@ -77,6 +80,13 @@ func TestAzureMetadata(t *testing.T) {
 			"handle tags without values", MockMetadataWithValuelessTag,
 			map[string]string{
 				"azure_Department": "", "azure_name": "negasonic", "azure_location": "centralus", "azure_vmId": "13f56399-bd52-4150-9748-7190aae1ff21",
+			},
+		},
+		{
+			"handle tagsList", MockMetadataTagsList,
+			map[string]string{
+				"azure_Department": "IT", "azure_Environment": "Prod", "azure_Role": "WorkerRole; OtherWorker",
+				"azure_name": "negasonic", "azure_location": "centralus", "azure_vmId": "13f56399-bd52-4150-9748-7190aae1ff21",
 			},
 		},
 	}
