@@ -30,8 +30,6 @@ import (
 	"istio.io/pkg/log"
 )
 
-var clusterAddressesMutex sync.Mutex
-
 // The aggregate controller does not implement serviceregistry.Instance since it may be comprised of various
 // providers and clusters.
 var (
@@ -131,13 +129,10 @@ func (c *Controller) Services() ([]*model.Service, error) {
 			errs = multierror.Append(errs, err)
 			continue
 		}
-		// Race condition: multiple threads may call Services, and multiple services
-		// may modify one of the service's cluster ID
-		clusterAddressesMutex.Lock()
+
 		if r.Provider() != serviceregistry.Kubernetes {
 			services = append(services, svcs...)
 		} else {
-			// This is K8S typically
 			for _, s := range svcs {
 				sp, ok := smap[s.Hostname]
 				if !ok {
@@ -148,11 +143,12 @@ func (c *Controller) Services() ([]*model.Service, error) {
 					sp = s
 					smap[s.Hostname] = sp
 					services = append(services, sp)
+				} else {
+					// If it is seen second time, that means it is from a different cluster, update cluster VIPs.
+					mergeService(sp, s, r.Cluster())
 				}
-				mergeService(sp, s, r.Cluster())
 			}
 		}
-		clusterAddressesMutex.Unlock()
 	}
 	return services, errs
 }
@@ -185,11 +181,6 @@ func (c *Controller) GetService(hostname host.Name) (*model.Service, error) {
 
 func mergeService(dst, src *model.Service, srcCluster string) {
 	dst.Mutex.Lock()
-	// If the registry has a cluster ID, keep track of the cluster and the
-	// local address inside the cluster.
-	if dst.ClusterVIPs == nil {
-		dst.ClusterVIPs = make(map[string]string)
-	}
 	dst.ClusterVIPs[srcCluster] = src.Address
 	dst.Mutex.Unlock()
 }
