@@ -5,5 +5,5 @@ issue:
   - 31141
 releaseNotes:
 - |
-   **Added** An environment variable XDS_SEND_TIMEOUT for config the timeout of xdsproxy.
+   **Added** an environment variable `XDS_SEND_TIMEOUT` for configuring the timeout of xdsproxy.
    The default timeout is 5s. Valid time units are "ns", "us", "ms", "s", "m", "h".
