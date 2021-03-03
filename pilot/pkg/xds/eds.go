@@ -22,7 +22,7 @@ import (
 	"github.com/golang/protobuf/ptypes/any"
 
 	networkingapi "istio.io/api/networking/v1alpha3"
-
+	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	networking "istio.io/istio/pilot/pkg/networking/core/v1alpha3"
 	"istio.io/istio/pilot/pkg/networking/core/v1alpha3/loadbalancer"
@@ -373,11 +373,11 @@ func (eds *EdsGenerator) Generate(proxy *model.Proxy, push *model.PushContext, w
 			}
 		}
 		builder := NewEndpointBuilder(clusterName, proxy, push)
-		//if marshalledEndpoint, token, f := eds.Server.Cache.Get(builder); f && !features.EnableUnsafeAssertions {
-		//	// We skip cache if assertions are enabled, so that the cache will assert our eviction logic is correct
-		//	resources = append(resources, marshalledEndpoint)
-		//	cached++
-		//} else {
+		if marshalledEndpoint, token, f := eds.Server.Cache.Get(builder); f && !features.EnableUnsafeAssertions {
+			// We skip cache if assertions are enabled, so that the cache will assert our eviction logic is correct
+			resources = append(resources, marshalledEndpoint)
+			cached++
+		} else {
 			l := eds.Server.generateEndpoints(builder)
 			if l == nil {
 				continue
@@ -389,8 +389,8 @@ func (eds *EdsGenerator) Generate(proxy *model.Proxy, push *model.PushContext, w
 			}
 			resource := util.MessageToAny(l)
 			resources = append(resources, resource)
-			//eds.Server.Cache.Add(builder, token, resource)
-		//}
+			eds.Server.Cache.Add(builder, token, resource)
+		}
 	}
 	if len(edsUpdatedServices) == 0 {
 		adsLog.Infof("EDS: PUSH%s for node:%s resources:%d size:%s empty:%v cached:%v/%v",

@@ -114,13 +114,14 @@ func (configgen *ConfigGeneratorImpl) BuildClustersv2(proxy *model.Proxy, push *
 		clusters = append(clusters, patcher.insertedClusters()...)
 	}
 
-	//clusters = normalizeClusters(push, proxy, clusters)
+	// clusters = normalizeClusters(push, proxy, clusters)
 
 	for _, c := range clusters {
 		resources = append(resources, util.MessageToAny(c))
 	}
 	return resources
 }
+
 func (configgen *ConfigGeneratorImpl) BuildClusters(proxy *model.Proxy, push *model.PushContext) []*cluster.Cluster {
 	clusters := make([]*cluster.Cluster, 0)
 	envoyFilterPatches := push.EnvoyFilters(proxy)
@@ -130,7 +131,7 @@ func (configgen *ConfigGeneratorImpl) BuildClusters(proxy *model.Proxy, push *mo
 	case model.SidecarProxy:
 		// Setup outbound clusters
 		outboundPatcher := clusterPatcher{envoyFilterPatches, networking.EnvoyFilter_SIDECAR_OUTBOUND}
-		//clusters = append(clusters, configgen.buildOutboundClusters(cb, outboundPatcher)...)
+		// clusters = append(clusters, configgen.buildOutboundClusters(cb, outboundPatcher)...)
 		// Add a blackhole and passthrough cluster for catching traffic to unresolved routes
 		clusters = outboundPatcher.conditionallyAppend(clusters, nil, cb.buildBlackHoleCluster(), cb.buildDefaultPassthroughCluster())
 		clusters = append(clusters, outboundPatcher.insertedClusters()...)
@@ -143,7 +144,7 @@ func (configgen *ConfigGeneratorImpl) BuildClusters(proxy *model.Proxy, push *mo
 		clusters = append(clusters, inboundPatcher.insertedClusters()...)
 	default: // Gateways
 		patcher := clusterPatcher{envoyFilterPatches, networking.EnvoyFilter_GATEWAY}
-		//clusters = append(clusters, configgen.buildOutboundClusters(cb, patcher)...)
+		// clusters = append(clusters, configgen.buildOutboundClusters(cb, patcher)...)
 		// Gateways do not require the default passthrough cluster as they do not have original dst listeners.
 		clusters = patcher.conditionallyAppend(clusters, nil, cb.buildBlackHoleCluster())
 		if proxy.Type == model.Router && proxy.GetRouterMode() == model.SniDnatRouter {
@@ -207,7 +208,14 @@ func (configgen *ConfigGeneratorImpl) buildOutboundClusters(cb *ClusterBuilder, 
 				downstreamAuto:  cb.proxy.Type == model.SidecarProxy && util.IsProtocolSniffingEnabledForOutboundPort(port),
 			}
 			cachedCluster, token, f := cb.cache.Get(clusterKey)
-
+			destinationRule := castDestinationRuleOrDefault(clusterKey.destinationRule)
+			if len(destinationRule.Subsets) == 0 {
+				if f && !features.EnableUnsafeAssertions {
+					hit++
+					resources = append(resources, cachedCluster)
+					continue
+				}
+			}
 			defaultCluster := cb.buildDefaultCluster(clusterName, discoveryType, lbEndpoints, model.TrafficDirectionOutbound, port, service, nil)
 			if defaultCluster == nil {
 				continue
@@ -258,6 +266,7 @@ func (p clusterPatcher) apply(hosts []host.Name, c *cluster.Cluster) *cluster.Cl
 	}
 	return envoyfilter.ApplyClusterMerge(p.pctx, p.efw, c, hosts)
 }
+
 func (p clusterPatcher) conditionallyAppend(l []*cluster.Cluster, hosts []host.Name, clusters ...*cluster.Cluster) []*cluster.Cluster {
 	for _, c := range clusters {
 		if envoyfilter.ShouldKeepCluster(p.pctx, p.efw, c, hosts) {
