@@ -3680,7 +3680,7 @@ func TestValidateServiceEntries(t *testing.T) {
 		},
 
 		{
-			name: "discovery type DNS, one host set with IP address and tcp port",
+			name: "discovery type DNS, one host set with IP address and https port",
 			in: networking.ServiceEntry{
 				Hosts:     []string{"httpbin.org"},
 				Addresses: []string{"10.10.10.10"},
@@ -3696,7 +3696,7 @@ func TestValidateServiceEntries(t *testing.T) {
 		},
 
 		{
-			name: "discovery type DNS, multi hosts set with IP address and tcp port",
+			name: "discovery type DNS, multi hosts set with IP address and https port",
 			in: networking.ServiceEntry{
 				Hosts:     []string{"httpbin.org", "wikipedia.org"},
 				Addresses: []string{"10.10.10.10"},
