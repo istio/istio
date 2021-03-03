@@ -20,13 +20,14 @@ import (
 	"github.com/golang/protobuf/ptypes"
 	"github.com/golang/protobuf/ptypes/duration"
 
-	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pilot/pkg/server"
 	"istio.io/istio/pkg/jwt"
 	"istio.io/pkg/env"
 )
 
 var (
-	ServerMode = model.Release
+	// ServerMode indicates the mode in which server is running.
+	ServerMode = server.Release
 
 	MaxConcurrentStreams = env.RegisterIntVar(
 		"ISTIO_GPRC_MAXSTREAMS",
@@ -447,5 +448,5 @@ var (
 
 //  isReleaseServer returns true if the server is running in release mode.
 func isReleaseServer() bool {
-	return ServerMode == "Release"
+	return ServerMode == server.Release
 }

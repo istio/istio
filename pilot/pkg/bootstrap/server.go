@@ -52,6 +52,7 @@ import (
 	"istio.io/istio/pilot/pkg/networking/plugin"
 	kubesecrets "istio.io/istio/pilot/pkg/secrets/kube"
 	securityModel "istio.io/istio/pilot/pkg/security/model"
+	"istio.io/istio/pilot/pkg/server"
 	"istio.io/istio/pilot/pkg/serviceregistry"
 	"istio.io/istio/pilot/pkg/serviceregistry/aggregate"
 	kubecontroller "istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
@@ -191,7 +192,7 @@ type Server struct {
 
 // NewServer creates a new Server instance based on the provided arguments.
 func NewServer(args *PilotArgs) (*Server, error) {
-	features.ServerMode = args.ServerOptions.Mode
+	features.ServerMode = server.Mode(args.ServerOptions.Mode)
 	e := &model.Environment{
 		PushContext:  model.NewPushContext(),
 		DomainSuffix: args.RegistryOptions.KubeOptions.DomainSuffix,
