@@ -189,8 +189,13 @@ func (e *azureEnv) azureTags() map[string]string {
 	tags := map[string]string{}
 	if at, ok := e.computeMetadata["tags"]; ok && len(at.(string)) > 0 {
 		for _, tag := range strings.Split(at.(string), ";") {
-			kv := strings.Split(tag, ":")
-			tags[e.prefixName(kv[0])] = kv[1]
+			kv := strings.SplitN(tag, ":", 2)
+			switch len(kv) {
+			case 2:
+				tags[e.prefixName(kv[0])] = kv[1]
+			case 1:
+				tags[e.prefixName(kv[0])] = ""
+			}
 		}
 	}
 	return tags
