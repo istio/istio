@@ -111,16 +111,16 @@ func tagSetCommand() *cobra.Command {
 		Long: `Create or modify revision tags. Tag an Istio control plane revision for use with namespace istio.io/rev
 injection labels.`,
 		Example: ` # Create a revision tag from the "1-8-0" revision
-	istioctl x tag set prod --revision 1-8-0
+ istioctl x tag set prod --revision 1-8-0
 
-	# Point namespace "test-ns" at the revision pointed to by the "prod" revision tag
-	kubectl label ns test-ns istio.io/rev=prod
+ # Point namespace "test-ns" at the revision pointed to by the "prod" revision tag
+ kubectl label ns test-ns istio.io/rev=prod
 
-	# Change the revision tag to reference the "1-8-1" revision
-	istioctl x tag set prod --revision 1-8-1 --overwrite
+ # Change the revision tag to reference the "1-8-1" revision
+ istioctl x tag set prod --revision 1-8-1 --overwrite
 
-	# Rollout namespace "test-ns" to update workloads to the "1-8-1" revision
-	kubectl rollout restart deployments -n test-ns
+ # Rollout namespace "test-ns" to update workloads to the "1-8-1" revision
+ kubectl rollout restart deployments -n test-ns
 `,
 		SuggestFor: []string{"create"},
 		Args: func(cmd *cobra.Command, args []string) error {
@@ -159,16 +159,16 @@ func tagGenerateCommand() *cobra.Command {
 		Long: `Create a revision tag and output to the command's stdout. Tag an Istio control plane revision for use with namespace istio.io/rev
 injection labels.`,
 		Example: ` # Create a revision tag from the "1-8-0" revision
-	istioctl x tag generate prod --revision 1-8-0 > tag.yaml
+ istioctl x tag generate prod --revision 1-8-0 > tag.yaml
 
-	# Apply the tag to cluster
-	kubectl apply -f tag.yaml
+ # Apply the tag to cluster
+ kubectl apply -f tag.yaml
 
-	# Point namespace "test-ns" at the revision pointed to by the "prod" revision tag
-	kubectl label ns test-ns istio.io/rev=prod
+ # Point namespace "test-ns" at the revision pointed to by the "prod" revision tag
+ kubectl label ns test-ns istio.io/rev=prod
 
-	# Rollout namespace "test-ns" to update workloads to the "1-8-0" revision
-	kubectl rollout restart deployments -n test-ns
+ # Rollout namespace "test-ns" to update workloads to the "1-8-0" revision
+ kubectl rollout restart deployments -n test-ns
 `,
 		Args: func(cmd *cobra.Command, args []string) error {
 			if len(args) == 0 {
