@@ -439,10 +439,11 @@ var (
 
 	EnableAdminEndpoints = func() bool {
 		enabled, f := unsafeEnableAdminEndpointVar.Lookup()
-		if !f {
+		// If the server is running in release mode - we should not enable this unsafe flag.
+		if !f || isReleaseServer() {
 			return false
 		}
-		return !isReleaseServer() && enabled
+		return enabled
 	}
 )
 
