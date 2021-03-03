@@ -263,7 +263,6 @@ if [[ "${CONTROL_PLANE}" == "UNMANAGED" ]]; then
   fi
   DISABLED_TESTS+="TestWait|TestVersion|TestProxyStatus" # UNSUPPORTED: istioctl doesn't work
   DISABLED_TESTS+="|TestAnalysisWritesStatus" # UNSUPPORTED: require custom installation
-  DISABLED_TESTS+="|TestCustomGateway" # UNSUPPORTED: wait for John to check in the missing code.
   # telemetry/ tests
   DISABLED_TESTS+="|TestDashboard" # UNSUPPORTED: Relies on istiod in cluster. TODO: filter out only pilot-dashboard.json
   DISABLED_TESTS+="|TestCustomizeMetrics" # UNKNOWN: b/177606974
@@ -368,7 +367,6 @@ else
   DISABLED_TESTS+="|TestAddToAndRemoveFromMesh" # BROKEN: Test current doesn't respect --istio.test.revision
   DISABLED_TESTS+="|TestGateway" # BROKEN: CRDs need to be deployed before Istiod runs. In this case, we install Istiod first, causing failure.
   DISABLED_TESTS+="|TestRevisionedUpgrade" # UNSUPPORTED: OSS Control Plane upgrade is not supported by MCP.
-  DISABLED_TESTS+="|TestCustomGateway" # UNSUPPORTED: wait for John to check in the missing code.
   # telemetry/ tests
   DISABLED_TESTS+="|TestStackdriverAudit|TestStackdriverHTTPAuditLogging" # UNSUPPORTED: Relies on customized installation of the stackdriver envoyfilter.
   DISABLED_TESTS+="|TestIstioctlMetrics" # UNSUPPORTED: istioctl doesn't work
