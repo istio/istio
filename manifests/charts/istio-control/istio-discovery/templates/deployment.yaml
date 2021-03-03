@@ -107,10 +107,14 @@ spec:
           env:
           - name: REVISION
             value: "{{ .Values.revision | default `default` }}"
+          {{- with .Values.global.jwtPolicy }}
           - name: JWT_POLICY
-            value: {{ .Values.global.jwtPolicy }}
+            value: {{ . }}
+          {{- end }}
+          {{- with .Values.global.pilotCertProvider }}
           - name: PILOT_CERT_PROVIDER
-            value: {{ .Values.global.pilotCertProvider }}
+            value: {{ . }}
+          {{- end }}
           - name: POD_NAME
             valueFrom:
               fieldRef:
@@ -170,7 +174,7 @@ spec:
           volumeMounts:
           - name: config-volume
             mountPath: /etc/istio/config
-          {{- if eq .Values.global.jwtPolicy "third-party-jwt" }}
+          {{- if or (eq .Values.global.jwtPolicy "third-party-jwt") (eq .Values.global.jwtPolicy "")  }}
           - name: istio-token
             mountPath: /var/run/secrets/tokens
             readOnly: true
@@ -196,7 +200,7 @@ spec:
       - emptyDir:
           medium: Memory
         name: local-certs
-      {{- if eq .Values.global.jwtPolicy "third-party-jwt" }}
+      {{- if or (eq .Values.global.jwtPolicy "third-party-jwt") (eq .Values.global.jwtPolicy "")  }}
       - name: istio-token
         projected:
           sources:

@@ -24,7 +24,6 @@ data:
           address: zipkin.istio-system:9411
     enablePrometheusMerge: true
     rootNamespace: istio-system
-    trustDomain: cluster.local
 ---
 # Source: istiod-remote/templates/istiod-injector-configmap.yaml
 apiVersion: v1
@@ -59,7 +58,7 @@ data:
         "istiod": {
           "enableAnalysis": false
         },
-        "jwtPolicy": "third-party-jwt",
+        "jwtPolicy": "",
         "logAsJson": false,
         "logging": {
           "level": "default:info"
@@ -75,7 +74,7 @@ data:
         "omitSidecarInjectorConfigMap": false,
         "oneNamespace": false,
         "operatorManageWebhooks": false,
-        "pilotCertProvider": "istiod",
+        "pilotCertProvider": "",
         "priorityClassName": "",
         "proxy": {
           "autoInject": "enabled",
@@ -401,15 +400,17 @@ data:
             - name: REWRITE_PROBE_LEGACY_LOCALHOST_DESTINATION
               value: "true"
             {{- end }}
+            {{- with .Values.global.jwtPolicy }}
             - name: JWT_POLICY
-              value: {{ .Values.global.jwtPolicy }}
+              value: {{ . }}
+            {{- end }}
+            {{- with .Values.global.pilotCertProvider }}
             - name: PILOT_CERT_PROVIDER
-              value: {{ .Values.global.pilotCertProvider }}
+              value: {{ . }}
+            {{- end }}
+            {{- with .Values.global.caAddress }}
             - name: CA_ADDR
-            {{- if .Values.global.caAddress }}
-              value: {{ .Values.global.caAddress }}
-            {{- else }}
-              value: istiod{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}.{{ .Values.global.istioNamespace }}.svc:15012
+              value: {{ . }}
             {{- end }}
             - name: POD_NAME
               valueFrom:
@@ -565,7 +566,7 @@ data:
             {{- end }}
           {{- end }}
             volumeMounts:
-            {{- if eq .Values.global.pilotCertProvider "istiod" }}
+            {{- if or (eq .Values.global.pilotCertProvider "istiod") (eq .Values.global.pilotCertProvider "")  }}
             - mountPath: /var/run/secrets/istio
               name: istiod-ca-cert
             {{- end }}
@@ -578,7 +579,7 @@ data:
             # SDS channel between istioagent and Envoy
             - mountPath: /etc/istio/proxy
               name: istio-envoy
-            {{- if eq .Values.global.jwtPolicy "third-party-jwt" }}
+            {{- if or (eq .Values.global.jwtPolicy "third-party-jwt") (eq .Values.global.jwtPolicy "")  }}
             - mountPath: /var/run/secrets/tokens
               name: istio-token
             {{- end }}
@@ -632,7 +633,7 @@ data:
                     containerName: istio-proxy
                     resource: requests.cpu
                     divisor: 1m
-          {{- if eq .Values.global.jwtPolicy "third-party-jwt" }}
+          {{- if or (eq .Values.global.jwtPolicy "third-party-jwt") (eq .Values.global.jwtPolicy "")  }}
           - name: istio-token
             projected:
               sources:
@@ -641,7 +642,7 @@ data:
                   expirationSeconds: 43200
                   audience: {{ .Values.global.sds.token.aud }}
           {{- end }}
-          {{- if eq .Values.global.pilotCertProvider "istiod" }}
+          {{- if or (eq .Values.global.pilotCertProvider "istiod") (eq .Values.global.pilotCertProvider "")  }}
           - name: istiod-ca-cert
             configMap:
               name: istio-ca-root-cert
@@ -730,15 +731,17 @@ data:
               {{ toYaml .Values.global.proxy.lifecycle | indent 6 }}
           {{- end }}
             env:
+            {{- with .Values.global.jwtPolicy }}
             - name: JWT_POLICY
-              value: {{ .Values.global.jwtPolicy }}
+              value: {{ . }}
+            {{- end }}
+            {{- with .Values.global.pilotCertProvider }}
             - name: PILOT_CERT_PROVIDER
-              value: {{ .Values.global.pilotCertProvider }}
+              value: {{ . }}
+            {{- end }}
+            {{- with .Values.global.caAddress }}
             - name: CA_ADDR
-            {{- if .Values.global.caAddress }}
-              value: {{ .Values.global.caAddress }}
-            {{- else }}
-              value: istiod{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}.{{ .Values.global.istioNamespace }}.svc:15012
+              value: {{ . }}
             {{- end }}
             - name: POD_NAME
               valueFrom:
@@ -832,7 +835,7 @@ data:
               timeoutSeconds: 3
               failureThreshold: {{ .Values.global.proxy.readinessFailureThreshold }}
             volumeMounts:
-            {{- if eq .Values.global.pilotCertProvider "istiod" }}
+            {{- if or (eq .Values.global.pilotCertProvider "istiod") (eq .Values.global.pilotCertProvider "")  }}
             - mountPath: /var/run/secrets/istio
               name: istiod-ca-cert
             {{- end }}
@@ -841,7 +844,7 @@ data:
             # SDS channel between istioagent and Envoy
             - mountPath: /etc/istio/proxy
               name: istio-envoy
-            {{- if eq .Values.global.jwtPolicy "third-party-jwt" }}
+            {{- if or (eq .Values.global.jwtPolicy "third-party-jwt") (eq .Values.global.jwtPolicy "")  }}
             - mountPath: /var/run/secrets/tokens
               name: istio-token
             {{- end }}
@@ -879,7 +882,7 @@ data:
                     containerName: istio-proxy
                     resource: requests.cpu
                     divisor: 1m
-          {{- if eq .Values.global.jwtPolicy "third-party-jwt" }}
+          {{- if or (eq .Values.global.jwtPolicy "third-party-jwt") (eq .Values.global.jwtPolicy "")  }}
           - name: istio-token
             projected:
               sources:
@@ -888,7 +891,7 @@ data:
                   expirationSeconds: 43200
                   audience: {{ .Values.global.sds.token.aud }}
           {{- end }}
-          {{- if eq .Values.global.pilotCertProvider "istiod" }}
+          {{- if or (eq .Values.global.pilotCertProvider "istiod") (eq .Values.global.pilotCertProvider "")  }}
           - name: istiod-ca-cert
             configMap:
               name: istio-ca-root-cert

@@ -156,15 +156,17 @@ spec:
 {{ toYaml .Values.global.defaultResources | indent 12 }}
 {{- end }}
           env:
+          {{- with .Values.global.jwtPolicy }}
           - name: JWT_POLICY
-            value: {{ .Values.global.jwtPolicy }}
+            value: {{ . }}
+          {{- end }}
+          {{- with .Values.global.pilotCertProvider }}
           - name: PILOT_CERT_PROVIDER
-            value: {{ .Values.global.pilotCertProvider }}
+            value: {{ . }}
+          {{- end }}
+          {{- with .Values.global.caAddress }}
           - name: CA_ADDR
-          {{- if .Values.global.caAddress }}
-            value: {{ .Values.global.caAddress }}
-          {{- else }}
-            value: istiod{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}.{{ .Values.global.istioNamespace }}.svc:15012
+            value: {{ . }}
           {{- end }}
           - name: NODE_NAME
             valueFrom:
@@ -247,11 +249,11 @@ spec:
             mountPath: /etc/istio/proxy
           - name: config-volume
             mountPath: /etc/istio/config
-{{- if eq .Values.global.pilotCertProvider "istiod" }}
+{{- if or (eq .Values.global.pilotCertProvider "istiod") (eq .Values.global.pilotCertProvider "")  }}
           - mountPath: /var/run/secrets/istio
             name: istiod-ca-cert
 {{- end }}
-{{- if eq .Values.global.jwtPolicy "third-party-jwt" }}
+{{- if or (eq .Values.global.jwtPolicy "third-party-jwt") (eq .Values.global.jwtPolicy "")  }}
           - name: istio-token
             mountPath: /var/run/secrets/tokens
             readOnly: true
@@ -282,7 +284,7 @@ spec:
 {{ toYaml $gateway.additionalContainers | indent 8 }}
 {{- end }}
       volumes:
-{{- if eq .Values.global.pilotCertProvider "istiod" }}
+{{- if or (eq .Values.global.pilotCertProvider "istiod") (eq .Values.global.pilotCertProvider "")  }}
       - name: istiod-ca-cert
         configMap:
           name: istio-ca-root-cert
@@ -310,7 +312,7 @@ spec:
         emptyDir: {}
       - name: istio-data
         emptyDir: {}
-{{- if eq .Values.global.jwtPolicy "third-party-jwt" }}
+{{- if or (eq .Values.global.jwtPolicy "third-party-jwt") (eq .Values.global.jwtPolicy "")  }}
       - name: istio-token
         projected:
           sources:

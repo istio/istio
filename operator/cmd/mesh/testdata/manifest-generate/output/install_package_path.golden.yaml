@@ -64,9 +64,9 @@ spec:
           - name: REVISION
             value: "default"
           - name: JWT_POLICY
-            value: third-party-jwt
+            value: 
           - name: PILOT_CERT_PROVIDER
-            value: istiod
+            value: 
           - name: POD_NAME
             valueFrom:
               fieldRef:
@@ -112,9 +112,6 @@ spec:
           volumeMounts:
           - name: config-volume
             mountPath: /etc/istio/config
-          - name: istio-token
-            mountPath: /var/run/secrets/tokens
-            readOnly: true
           - name: local-certs
             mountPath: /var/run/secrets/istio-dns
           - name: cacerts
@@ -132,13 +129,6 @@ spec:
       - emptyDir:
           medium: Memory
         name: local-certs
-      - name: istio-token
-        projected:
-          sources:
-            - serviceAccountToken:
-                audience: istio-ca
-                expirationSeconds: 43200
-                path: istio-token
       # Optional: user-generated root
       - name: cacerts
         secret:

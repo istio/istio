@@ -48,5 +48,5 @@ spec:
             - kind: Deployment
               name: ilb-gateway
               patches:
-                - path: spec.template.spec.containers.[name:istio-proxy].env.[name:PILOT_CERT_PROVIDER].value
+                - path: spec.template.spec.containers.[name:istio-proxy].env.[name:ISTIO_META_UNPRIVILEGED_POD].value
                   value: foobar # OVERRIDDEN

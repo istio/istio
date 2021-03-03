@@ -216,15 +216,17 @@ spec:
     - name: REWRITE_PROBE_LEGACY_LOCALHOST_DESTINATION
       value: "true"
     {{- end }}
+    {{- with .Values.global.jwtPolicy }}
     - name: JWT_POLICY
-      value: {{ .Values.global.jwtPolicy }}
+      value: {{ . }}
+    {{- end }}
+    {{- with .Values.global.pilotCertProvider }}
     - name: PILOT_CERT_PROVIDER
-      value: {{ .Values.global.pilotCertProvider }}
+      value: {{ . }}
+    {{- end }}
+    {{- with .Values.global.caAddress }}
     - name: CA_ADDR
-    {{- if .Values.global.caAddress }}
-      value: {{ .Values.global.caAddress }}
-    {{- else }}
-      value: istiod{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}.{{ .Values.global.istioNamespace }}.svc:15012
+      value: {{ . }}
     {{- end }}
     - name: POD_NAME
       valueFrom:
@@ -380,7 +382,7 @@ spec:
     {{- end }}
   {{- end }}
     volumeMounts:
-    {{- if eq .Values.global.pilotCertProvider "istiod" }}
+    {{- if or (eq .Values.global.pilotCertProvider "istiod") (eq .Values.global.pilotCertProvider "")  }}
     - mountPath: /var/run/secrets/istio
       name: istiod-ca-cert
     {{- end }}
@@ -393,7 +395,7 @@ spec:
     # SDS channel between istioagent and Envoy
     - mountPath: /etc/istio/proxy
       name: istio-envoy
-    {{- if eq .Values.global.jwtPolicy "third-party-jwt" }}
+    {{- if or (eq .Values.global.jwtPolicy "third-party-jwt") (eq .Values.global.jwtPolicy "")  }}
     - mountPath: /var/run/secrets/tokens
       name: istio-token
     {{- end }}
@@ -447,7 +449,7 @@ spec:
             containerName: istio-proxy
             resource: requests.cpu
             divisor: 1m
-  {{- if eq .Values.global.jwtPolicy "third-party-jwt" }}
+  {{- if or (eq .Values.global.jwtPolicy "third-party-jwt") (eq .Values.global.jwtPolicy "")  }}
   - name: istio-token
     projected:
       sources:
@@ -456,7 +458,7 @@ spec:
           expirationSeconds: 43200
           audience: {{ .Values.global.sds.token.aud }}
   {{- end }}
-  {{- if eq .Values.global.pilotCertProvider "istiod" }}
+  {{- if or (eq .Values.global.pilotCertProvider "istiod") (eq .Values.global.pilotCertProvider "")  }}
   - name: istiod-ca-cert
     configMap:
       name: istio-ca-root-cert

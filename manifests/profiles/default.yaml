@@ -48,8 +48,8 @@ spec:
       logging:
         level: "default:info"
       logAsJson: false
-      pilotCertProvider: istiod
-      jwtPolicy: third-party-jwt
+      pilotCertProvider: ""
+      jwtPolicy: ""
       proxy:
         image: proxyv2
         clusterDomain: "cluster.local"

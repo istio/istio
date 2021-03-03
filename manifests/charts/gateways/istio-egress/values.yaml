@@ -228,7 +228,7 @@ global:
 
   # Configure the policy for validating JWT.
   # Currently, two options are supported: "third-party-jwt" and "first-party-jwt".
-  jwtPolicy: "third-party-jwt"
+  jwtPolicy: ""
 
   # Mesh ID means Mesh Identifier. It should be unique within the scope where
   # meshes will interact with each other, but it is not required to be
@@ -274,7 +274,7 @@ global:
   # Currently, two providers are supported: "kubernetes" and "istiod".
   # As some platforms may not have kubernetes signing APIs,
   # Istiod is the default
-  pilotCertProvider: istiod
+  pilotCertProvider: ""
 
   sds:
     # The JWT token for SDS and the aud field of such JWT. See RFC 7519, section 4.1.3.
@@ -290,10 +290,6 @@ global:
 
 meshConfig:
   enablePrometheusMerge: true
-
-  # The trust domain corresponds to the trust root of a system
-  # Refer to https://github.com/spiffe/spiffe/blob/master/standards/SPIFFE-ID.md#21-trust-domain
-  trustDomain: "cluster.local"
 
   defaultConfig:
     proxyMetadata: {}
