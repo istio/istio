@@ -391,7 +391,7 @@ func (configgen *ConfigGeneratorImpl) createGatewayHTTPFilterChainOpts(node *mod
 		}
 	}
 
-	var stripPortMode *hcm.HttpConnectionManager_StripAnyHostPort
+	var stripPortMode *hcm.HttpConnectionManager_StripAnyHostPort = nil
 	if features.StripHostPort {
 		stripPortMode = &hcm.HttpConnectionManager_StripAnyHostPort{StripAnyHostPort: true}
 	}
