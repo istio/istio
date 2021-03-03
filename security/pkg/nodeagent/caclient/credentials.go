@@ -24,7 +24,6 @@ import (
 	"google.golang.org/grpc/credentials"
 
 	"istio.io/istio/pkg/security"
-	"istio.io/istio/security/pkg/nodeagent/plugin/providers/google/stsclient"
 	"istio.io/istio/security/pkg/stsservice"
 	"istio.io/istio/security/pkg/stsservice/server"
 	"istio.io/istio/security/pkg/stsservice/tokenmanager/google"
@@ -110,7 +109,7 @@ func (t *TokenProvider) GetToken() (string, error) {
 	}
 
 	// Regardless of where the token came from, we (optionally) can exchange the token for a different
-	// one using the configured TokenExchanger.
+	// one using the configured TokenManager.
 	return t.exchangeToken(token)
 }
 
@@ -148,7 +147,7 @@ func (t *TokenProvider) getTokenForGCP() (string, error) {
 		return "", fmt.Errorf("the JWT token for XDS token exchange is empty")
 	}
 	params := security.StsRequestParameters{
-		Scope:            stsclient.Scope,
+		Scope:            google.Scope,
 		GrantType:        server.TokenExchangeGrantType,
 		SubjectToken:     strings.TrimSpace(string(tok)),
 		SubjectTokenType: server.SubjectTokenType,
@@ -164,11 +163,11 @@ func (t *TokenProvider) getTokenForGCP() (string, error) {
 	return respData.AccessToken, nil
 }
 
-// exchangeToken exchanges the provided token using TokenExchanger, if configured. If not, the
+// exchangeToken exchanges the provided token using TokenManager, if configured. If not, the
 // original token is returned.
 func (t *TokenProvider) exchangeToken(token string) (string, error) {
-	if t.opts.TokenExchanger == nil {
+	if t.opts.TokenManager == nil {
 		return token, nil
 	}
-	return t.opts.TokenExchanger.ExchangeToken(token)
+	return t.opts.TokenManager.ExchangeToken(token)
 }

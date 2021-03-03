@@ -65,7 +65,7 @@ func TestTokenExchangePlugin(t *testing.T) {
 		if tc.genFederatedTokenError != nil {
 			ms.SetGenFedTokenError(tc.genFederatedTokenError)
 		}
-		stsRespJSON, err := tmPlugin.ExchangeToken(defaultSTSRequest())
+		stsRespJSON, err := tmPlugin.FetchToken(defaultSTSRequest())
 		verifyToken(t, k, stsRespJSON, err, tc.expectedError)
 		stsDumpJSON, _ := tmPlugin.DumpPluginStatus()
 		lastStatusDumpMap = verifyDumpStatus(t, k, stsDumpJSON, lastStatusDumpMap, tc.expectedStatusDumpUpdate)
@@ -130,7 +130,7 @@ func defaultSTSRequest() security.StsRequestParameters {
 	return security.StsRequestParameters{
 		GrantType:        "urn:ietf:params:oauth:grant-type:token-exchange",
 		Audience:         mock.FakeTrustDomain,
-		Scope:            scope,
+		Scope:            Scope,
 		SubjectToken:     mock.FakeSubjectToken,
 		SubjectTokenType: "urn:ietf:params:oauth:token-type:jwt",
 	}
@@ -169,7 +169,7 @@ func TestTokenExchangePluginWithCache(t *testing.T) {
 	}()
 
 	// Make the first token exchange call to plugin. Plugin should call backend.
-	stsRespJSON, _ := tmPlugin.ExchangeToken(defaultSTSRequest())
+	stsRespJSON, _ := tmPlugin.FetchToken(defaultSTSRequest())
 	stsResp := &stsservice.StsResponseParameters{}
 	if err := json.Unmarshal(stsRespJSON, stsResp); err != nil {
 		t.Errorf("failed to unmarshal STS response: %v", err)
@@ -184,7 +184,7 @@ func TestTokenExchangePluginWithCache(t *testing.T) {
 		t.Errorf("number of get access token API calls does not match, expected 1 but got %d", numATCalls)
 	}
 	// Make the second token exchange call to plugin. Plugin should return cached token.
-	stsRespJSON, _ = tmPlugin.ExchangeToken(defaultSTSRequest())
+	stsRespJSON, _ = tmPlugin.FetchToken(defaultSTSRequest())
 	stsResp = &stsservice.StsResponseParameters{}
 	if err := json.Unmarshal(stsRespJSON, stsResp); err != nil {
 		t.Errorf("failed to unmarshal STS response: %v", err)
@@ -207,7 +207,7 @@ func TestTokenExchangePluginWithCache(t *testing.T) {
 	// Set token life time to 4 min, which is shorter than token grace period.
 	ms.SetTokenLifeTime(4 * 60)
 	// Make the third token exchange call to plugin. Cache is deleted, plugin should call backend.
-	stsRespJSON, _ = tmPlugin.ExchangeToken(defaultSTSRequest())
+	stsRespJSON, _ = tmPlugin.FetchToken(defaultSTSRequest())
 	stsResp = &stsservice.StsResponseParameters{}
 	if err := json.Unmarshal(stsRespJSON, stsResp); err != nil {
 		t.Errorf("failed to unmarshal STS response: %v", err)
@@ -226,7 +226,7 @@ func TestTokenExchangePluginWithCache(t *testing.T) {
 	}
 
 	// Make the fourth token exchange call to plugin. Cached token is going to expire, plugin should call backend.
-	stsRespJSON, _ = tmPlugin.ExchangeToken(defaultSTSRequest())
+	stsRespJSON, _ = tmPlugin.FetchToken(defaultSTSRequest())
 	stsResp = &stsservice.StsResponseParameters{}
 	if err := json.Unmarshal(stsRespJSON, stsResp); err != nil {
 		t.Errorf("failed to unmarshal STS response: %v", err)

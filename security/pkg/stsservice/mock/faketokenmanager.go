@@ -30,6 +30,7 @@ type FakeTokenManager struct {
 	dumpTokenError     error
 	tokens             sync.Map
 	stsRespParam       stsservice.StsResponseParameters
+	exchangeMap        map[string]string
 }
 
 func CreateFakeTokenManager() *FakeTokenManager {
@@ -38,6 +39,7 @@ func CreateFakeTokenManager() *FakeTokenManager {
 		dumpTokenError:     nil,
 		tokens:             sync.Map{},
 		stsRespParam:       stsservice.StsResponseParameters{},
+		exchangeMap:        nil,
 	}
 	return tm
 }
@@ -67,6 +69,10 @@ func (tm *FakeTokenManager) SetToken(t stsservice.TokenInfo) {
 		return true
 	})
 	tm.tokens.Store(t.IssueTime, t)
+}
+
+func (tm *FakeTokenManager) SetExchangeMap(exchangeMap map[string]string) {
+	tm.exchangeMap = exchangeMap
 }
 
 // GenerateToken returns a fake token, or error if generateTokenError is set.
@@ -123,4 +129,16 @@ func (tm *FakeTokenManager) GetMetadata(forCA bool, xdsAuthProvider, token strin
 	return map[string]string{
 		"authorization": "Bearer " + token,
 	}, nil
+}
+
+// ExchangeToken returns a dumb token or errors depending on the settings.
+func (tm *FakeTokenManager) ExchangeToken(token string) (string, error) {
+	if len(tm.exchangeMap) == 0 {
+		return "some-token", nil
+	}
+	ex, f := tm.exchangeMap[token]
+	if !f {
+		return "", fmt.Errorf("token %v not found", token)
+	}
+	return ex, nil
 }

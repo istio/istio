@@ -47,9 +47,9 @@ import (
 	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/test/util/retry"
 	"istio.io/istio/security/pkg/credentialfetcher/plugin"
-	camock "istio.io/istio/security/pkg/nodeagent/caclient/providers/mock"
 	"istio.io/istio/security/pkg/nodeagent/test/mock"
 	pkiutil "istio.io/istio/security/pkg/pki/util"
+	stsmock "istio.io/istio/security/pkg/stsservice/mock"
 	"istio.io/istio/tests/util/leak"
 	"istio.io/pkg/log"
 )
@@ -273,7 +273,9 @@ func TestAgent(t *testing.T) {
 		// exchanges it for another form using TokenExchanger
 		Setup(t, func(a AgentTest) AgentTest {
 			a.CaAuthenticator.Set("some-token", "")
-			a.Security.TokenExchanger = camock.NewMockTokenExchangeServer(map[string]string{"fake": "some-token"})
+			tokenManager := stsmock.CreateFakeTokenManager()
+			tokenManager.SetExchangeMap(map[string]string{"fake": "some-token"})
+			a.Security.TokenManager = tokenManager
 			return a
 		}).Check(security.WorkloadKeyCertResourceName, security.RootCertReqResourceName)
 	})
@@ -285,7 +287,9 @@ func TestAgent(t *testing.T) {
 		a := Setup(t, func(a AgentTest) AgentTest {
 			a.CaAuthenticator.Set("some-token", "")
 			a.XdsAuthenticator.Set("", fakeSpiffeID)
-			a.Security.TokenExchanger = camock.NewMockTokenExchangeServer(map[string]string{"platform-cred": "some-token"})
+			tokenManager := stsmock.CreateFakeTokenManager()
+			tokenManager.SetExchangeMap(map[string]string{"platform-cred": "some-token"})
+			a.Security.TokenManager = tokenManager
 			a.Security.CredFetcher = plugin.CreateMockPlugin("platform-cred")
 			a.Security.OutputKeyCertToDir = dir
 			a.Security.ProvCert = dir
@@ -302,7 +306,9 @@ func TestAgent(t *testing.T) {
 			// Make CA deny all requests to simulate downtime
 			a.CaAuthenticator.Set("", "")
 			a.XdsAuthenticator.Set("", fakeSpiffeID)
-			a.Security.TokenExchanger = camock.NewMockTokenExchangeServer(map[string]string{"platform-cred": "some-token"})
+			tokenManager := stsmock.CreateFakeTokenManager()
+			tokenManager.SetExchangeMap(map[string]string{"platform-cred": "some-token"})
+			a.Security.TokenManager = tokenManager
 			a.Security.CredFetcher = plugin.CreateMockPlugin("platform-cred")
 			a.Security.OutputKeyCertToDir = dir
 			a.Security.ProvCert = dir

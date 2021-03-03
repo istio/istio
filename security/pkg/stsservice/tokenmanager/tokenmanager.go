@@ -29,9 +29,13 @@ const (
 
 // Plugin provides common interfaces for specific token exchange services.
 type Plugin interface {
-	ExchangeToken(parameters security.StsRequestParameters) ([]byte, error)
+	// FetchToken takes STS request parameters and fetches token, returns StsResponseParameters in JSON.
+	FetchToken(parameters security.StsRequestParameters) ([]byte, error)
+	// ExchangeToken exchanges oauth access token from K8s SA jwt.
+	ExchangeToken(k8sSAjwt string) (string, error)
+	// DumpTokenStatus dumps all token status in JSON.
 	DumpPluginStatus() ([]byte, error)
-	// GetMetadata returns the metadata headers related to the token
+	// GetMetadata returns the metadata headers related to the token.
 	GetMetadata(forCA bool, xdsAuthProvider, token string) (map[string]string, error)
 }
 
@@ -97,7 +101,7 @@ func CreateTokenManager(tokenManagerType string, config Config) security.TokenMa
 
 func (tm *TokenManager) GenerateToken(parameters security.StsRequestParameters) ([]byte, error) {
 	if tm.plugin != nil {
-		return tm.plugin.ExchangeToken(parameters)
+		return tm.plugin.FetchToken(parameters)
 	}
 	return nil, errors.New("no plugin is found")
 }
@@ -121,6 +125,13 @@ func (tm *TokenManager) GetMetadata(forCA bool, xdsAuthProvider, token string) (
 	}
 	// Otherwise, return an error
 	return nil, errors.New("no plugin is found and token is empty in token manager")
+}
+
+func (tm *TokenManager) ExchangeToken(serviceAccountToken string) (string, error) {
+	if tm.plugin != nil {
+		return tm.plugin.ExchangeToken(serviceAccountToken)
+	}
+	return "", errors.New("no plugin is found")
 }
 
 // SetPlugin sets token exchange plugin for testing purposes only.

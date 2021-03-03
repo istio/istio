@@ -243,7 +243,8 @@ var (
 				return err
 			}
 			var tokenManager security.TokenManager
-			if stsPort > 0 || xdsAuthProvider.Get() != "" {
+			if stsPort > 0 || xdsAuthProvider.Get() != "" ||
+				secOpts.CAEndpoint == "GoogleCA" || strings.Contains(secOpts.CAEndpoint, "googleapis.com") {
 				// tokenManager is gcp token manager when using the default token manager plugin.
 				tokenManager = tokenmanager.CreateTokenManager(tokenManagerPlugin,
 					tokenmanager.Config{CredFetcher: secOpts.CredFetcher, TrustDomain: secOpts.TrustDomain})

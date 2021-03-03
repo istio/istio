@@ -140,12 +140,6 @@ type Options struct {
 	// we would refresh 6 minutes before expiration.
 	SecretRotationGracePeriodRatio float64
 
-	// authentication provider specific plugins, will exchange the token
-	// For example exchange long lived refresh with access tokens.
-	// Used by the secret fetcher when signing CSRs.
-	// Optional; if not present the token will be used directly
-	TokenExchanger TokenExchanger
-
 	// credential fetcher.
 	CredFetcher CredFetcher
 
@@ -161,12 +155,20 @@ type Options struct {
 	// XDS auth provider
 	XdsAuthProvider string
 
-	// Token manager for the token exchange of XDS
+	// Token manager is the authentication provider specific plugins for token exchange.
+	// For example exchange long lived refresh with access tokens.
+	// Optional; if not present the token will be used directly
 	TokenManager TokenManager
 }
 
-// TokenManager contains methods for generating token.
+// TokenManager contains methods for managing tokens.
 type TokenManager interface {
+	TokenGenerator
+	TokenExchanger
+}
+
+// TokenGenerator contains methods for generating token.
+type TokenGenerator interface {
 	// GenerateToken takes STS request parameters and generates token. Returns
 	// StsResponseParameters in JSON.
 	GenerateToken(parameters StsRequestParameters) ([]byte, error)

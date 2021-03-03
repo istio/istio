@@ -32,6 +32,7 @@ import (
 	"istio.io/istio/pkg/test/util/retry"
 	"istio.io/istio/pkg/testcerts"
 	"istio.io/istio/security/pkg/nodeagent/caclient/providers/mock"
+	stsmock "istio.io/istio/security/pkg/stsservice/mock"
 	"istio.io/istio/tests/util/leak"
 	"istio.io/pkg/log"
 )
@@ -68,8 +69,7 @@ func testWorkloadAgentGenerateSecret(t *testing.T, isUsingPluginProvider bool) {
 	opt := &security.Options{}
 
 	if isUsingPluginProvider {
-		fakePlugin := mock.NewMockTokenExchangeServer(nil)
-		opt.TokenExchanger = fakePlugin
+		opt.TokenManager = stsmock.CreateFakeTokenManager()
 	}
 
 	sc := createCache(t, fakeCACli, func(resourceName string) {}, security.Options{})

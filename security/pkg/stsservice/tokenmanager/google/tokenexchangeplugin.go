@@ -28,6 +28,7 @@ import (
 	"time"
 
 	"istio.io/istio/pkg/security"
+	"istio.io/istio/security/pkg/monitoring"
 	"istio.io/istio/security/pkg/stsservice"
 	"istio.io/istio/security/pkg/util"
 	"istio.io/pkg/env"
@@ -39,7 +40,7 @@ const (
 	maxRequestRetry  = 5
 	cacheHitDivisor  = 50
 	contentType      = "application/json"
-	scope            = "https://www.googleapis.com/auth/cloud-platform"
+	Scope            = "https://www.googleapis.com/auth/cloud-platform"
 	tokenType        = "urn:ietf:params:oauth:token-type:access_token"
 	federatedToken   = "federated token"
 	accessToken      = "access token"
@@ -47,7 +48,8 @@ const (
 )
 
 var (
-	pluginLog              = log.RegisterScope("token", "token manager plugin debugging", 0)
+	pluginLog = log.RegisterScope("token", "token manager plugin debugging", 0)
+	// federatedTokenEndpoint is the Endpoint the STS client calls to.
 	federatedTokenEndpoint = "https://securetoken.googleapis.com/v1/identitybindingtoken"
 	accessTokenEndpoint    = "https://iamcredentials.googleapis.com/v1/projects/-/" +
 		"serviceAccounts/service-%s@gcp-sa-meshdataplane.iam.gserviceaccount.com:generateAccessToken"
@@ -64,6 +66,7 @@ type Plugin struct {
 	httpClient  *http.Client
 	credFetcher security.CredFetcher
 	trustDomain string
+	backoff     time.Duration
 	// tokens is the cache for fetched tokens.
 	// map key is token type, map value is tokenInfo.
 	tokens           sync.Map
@@ -94,6 +97,7 @@ func CreateTokenManagerPlugin(credFetcher security.CredFetcher, trustDomain, gcp
 		},
 		credFetcher:      credFetcher,
 		trustDomain:      trustDomain,
+		backoff:          time.Millisecond * 50, // TODO: make it configurable if needed
 		gcpProjectNumber: gcpProjectNumber,
 		gkeClusterURL:    gkeClusterURL,
 		enableCache:      enableCache,
@@ -108,9 +112,9 @@ type federatedTokenResponse struct {
 	ExpiresIn       int64  `json:"expires_in"` // Expiration time in seconds
 }
 
-// GenerateToken takes STS request parameters and fetches token, returns StsResponseParameters in JSON.
-func (p *Plugin) ExchangeToken(parameters security.StsRequestParameters) ([]byte, error) {
-	if tokenSTS, ok := p.useCachedToken(); ok {
+// FetchToken takes STS request parameters and fetches token, returns StsResponseParameters in JSON.
+func (p *Plugin) FetchToken(parameters security.StsRequestParameters) ([]byte, error) {
+	if tokenSTS, ok := p.useCachedAccessToken(); ok {
 		return tokenSTS, nil
 	}
 	pluginLog.Debugf("Start to fetch token with STS request parameters: %v", parameters)
@@ -125,9 +129,9 @@ func (p *Plugin) ExchangeToken(parameters security.StsRequestParameters) ([]byte
 	return p.generateSTSResp(atResp)
 }
 
-// useCachedToken checks if there is a cached access token which is not going to expire soon. Returns
+// useCachedAccessToken checks if there is a cached access token which is not going to expire soon. Returns
 // cached token in STS response or false if token is not available.
-func (p *Plugin) useCachedToken() ([]byte, bool) {
+func (p *Plugin) useCachedAccessToken() ([]byte, bool) {
 	if !p.enableCache {
 		return nil, false
 	}
@@ -206,7 +210,7 @@ func (p *Plugin) constructAudience(subjectToken string) string {
 //    Scope: https://www.googleapis.com/auth/cloud-platform
 // }
 func (p *Plugin) constructFederatedTokenRequest(parameters security.StsRequestParameters) (*http.Request, error) {
-	reqScope := scope
+	reqScope := Scope
 	if len(parameters.Scope) != 0 {
 		reqScope = parameters.Scope
 	}
@@ -306,6 +310,38 @@ func (p *Plugin) fetchFederatedToken(parameters security.StsRequestParameters) (
 	return respData, nil
 }
 
+// ExchangeToken exchanges oauth access token from K8s SA jwt.
+func (p *Plugin) ExchangeToken(k8sSAjwt string) (string, error) {
+	// TODO: use cached federated token if needed.
+
+	parameters := security.StsRequestParameters{
+		Audience:           p.constructAudience(k8sSAjwt),
+		GrantType:          "urn:ietf:params:oauth:grant-type:token-exchange",
+		RequestedTokenType: "urn:ietf:params:oauth:token-type:access_token",
+		SubjectTokenType:   "urn:ietf:params:oauth:token-type:jwt",
+		SubjectToken:       k8sSAjwt,
+		Scope:              Scope,
+	}
+
+	pluginLog.Debugf("Start to fetch token with K8s SA jwt: %v", k8sSAjwt)
+	ftResp, err := p.fetchFederatedToken(parameters)
+	if err != nil {
+		return "", err
+	}
+
+	if ftResp.AccessToken == "" {
+		return "", fmt.Errorf(
+			"exchanged empty token, response: %v", ftResp)
+	}
+
+	return ftResp.AccessToken, nil
+}
+
+func retryable(code int) bool {
+	return code >= http.StatusInternalServerError &&
+		!(code == http.StatusNotImplemented || code == http.StatusHTTPVersionNotSupported || code == http.StatusNetworkAuthenticationRequired)
+}
+
 // Send HTTP request every 0.01 seconds until successfully receive response or hit max retry numbers.
 // If response code is 4xx, return immediately without retry.
 func (p *Plugin) sendRequestWithRetry(req *http.Request) (resp *http.Response, elapsedTime time.Duration, err error) {
@@ -318,10 +354,11 @@ func (p *Plugin) sendRequestWithRetry(req *http.Request) (resp *http.Response, e
 		if resp != nil && resp.StatusCode == http.StatusOK {
 			return resp, time.Since(start), err
 		}
-		if resp != nil && resp.StatusCode >= http.StatusBadRequest && resp.StatusCode < http.StatusInternalServerError {
+		if resp != nil && !retryable(resp.StatusCode) {
 			return resp, time.Since(start), err
 		}
-		time.Sleep(10 * time.Millisecond)
+		time.Sleep(p.backoff)
+		monitoring.NumOutgoingRetries.With(monitoring.RequestType.Value(monitoring.TokenExchange)).Increment()
 	}
 	if resp != nil && resp.StatusCode != http.StatusOK {
 		bodyBytes, _ := ioutil.ReadAll(resp.Body)
@@ -367,7 +404,7 @@ func (p *Plugin) constructGenerateAccessTokenRequest(fResp *federatedTokenRespon
 	query := accessTokenRequest{
 		LifeTime: Duration{Seconds: 3600},
 	}
-	query.Scope = append(query.Scope, scope)
+	query.Scope = append(query.Scope, Scope)
 
 	jsonQuery, err := json.Marshal(query)
 	if err != nil {
@@ -483,7 +520,7 @@ func (p *Plugin) generateSTSRespInner(token string, expire int64) ([]byte, error
 	return statusJSON, err
 }
 
-// DumpTokenStatus dumps all token status in JSON
+// DumpTokenStatus dumps all token status in JSON.
 func (p *Plugin) DumpPluginStatus() ([]byte, error) {
 	tokenStatus := make([]stsservice.TokenInfo, 0)
 	p.tokens.Range(func(k interface{}, v interface{}) bool {
@@ -500,7 +537,7 @@ func (p *Plugin) DumpPluginStatus() ([]byte, error) {
 	return statusJSON, err
 }
 
-// GetMetadata returns the metadata headers related to the token
+// GetMetadata returns the metadata headers related to the token.
 func (p *Plugin) GetMetadata(forCA bool, xdsAuthProvider, token string) (map[string]string, error) {
 	if token == "" {
 		return nil, fmt.Errorf("empty token in plugin GetMetadata")

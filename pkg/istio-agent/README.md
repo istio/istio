@@ -50,7 +50,7 @@ For a standard Kubernetes deployment, both CA and discovery will use JWT authent
 For discovery, the JWT token will be read directly from a file and sent as is. For CA, this logic is a bit more complex,
 as the support for external CAs is more mature than external discovery servers. This supports some additional
 configuration, a `CredentialFetcher` which allows fetching a token from places other than a file (for example, a local
-metadata server), and a `TokenExchanger` which allows exchanging a token for another form to match the CA server requirements.
+metadata server), and a `TokenManager` which allows exchanging a token for another form to match the CA server requirements.
 
 For VMs, the standard flow is for the user to provision a short-lived JWT token onto the VM. After the initial
 CSR, certificates are written to disk and mTLS is used for future requests. If the VM restarted, it would continue

@@ -16,7 +16,6 @@ package security
 
 import (
 	"fmt"
-	"strings"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	securityModel "istio.io/istio/pilot/pkg/security/model"
@@ -24,7 +23,6 @@ import (
 	"istio.io/istio/pkg/jwt"
 	"istio.io/istio/pkg/security"
 	"istio.io/istio/security/pkg/credentialfetcher"
-	"istio.io/istio/security/pkg/nodeagent/plugin/providers/google/stsclient"
 	"istio.io/pkg/log"
 )
 
@@ -59,10 +57,6 @@ func SetupSecurityOptions(proxyConfig meshconfig.ProxyConfig, secOpt security.Op
 		}
 		log.Infof("using credential fetcher of %s type in %s trust domain", credFetcherTypeEnv, o.TrustDomain)
 		o.CredFetcher = credFetcher
-	}
-	// TODO extract this logic out to a plugin
-	if o.CAProviderName == "GoogleCA" || strings.Contains(o.CAEndpoint, "googleapis.com") {
-		o.TokenExchanger = stsclient.NewSecureTokenServiceExchanger(o.CredFetcher, o.TrustDomain)
 	}
 
 	if o.ProvCert != "" && o.FileMountedCerts {
