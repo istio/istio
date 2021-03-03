@@ -53,8 +53,10 @@ spec:
             memory: 40Mi
 
     pilot:
+      args:
+          - --serverMode=Debug
       env:
-        ENABLE_ADMIN_ENDPOINTS: true
+        UNSAFE_ENABLE_ADMIN_ENDPOINTS: true
         PILOT_ENABLE_CROSS_CLUSTER_WORKLOAD_ENTRY: true
 
     gateways:

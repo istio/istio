@@ -20,11 +20,14 @@ import (
 	"github.com/golang/protobuf/ptypes"
 	"github.com/golang/protobuf/ptypes/duration"
 
+	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/jwt"
 	"istio.io/pkg/env"
 )
 
 var (
+	ServerMode = model.Release
+
 	MaxConcurrentStreams = env.RegisterIntVar(
 		"ISTIO_GPRC_MAXSTREAMS",
 		100000,
@@ -307,9 +310,6 @@ var (
 	EnableDebugOnHTTP = env.RegisterBoolVar("ENABLE_DEBUG_ON_HTTP", true,
 		"If this is set to false, the debug interface will not be ebabled on Http, recommended for production").Get()
 
-	EnableAdminEndpoints = env.RegisterBoolVar("ENABLE_ADMIN_ENDPOINTS", false,
-		"If this is set to true, dangerous admin endpoins will be exposed on the debug interface. Not recommended for production.").Get()
-
 	XDSAuth = env.RegisterBoolVar("XDS_AUTH", true,
 		"If true, will authenticate XDS clients.").Get()
 
@@ -432,4 +432,20 @@ var (
 	StripHostPort = env.RegisterBoolVar("ISTIO_GATEWAY_STRIP_HOST_PORT", false,
 		"If enabled, Gateway will remove any port from host/authority header "+
 			"before any processing of request by HTTP filters or routing.").Get()
+
+	unsafeEnableAdminEndpointVar = env.RegisterBoolVar("UNSAFE_ENABLE_ADMIN_ENDPOINTS", false,
+		"If this is set to true, dangerous admin endpoins will be exposed on the debug interface. Not recommended for production.")
+
+	EnableAdminEndpoints = func() bool {
+		enabled, f := unsafeEnableAdminEndpointVar.Lookup()
+		if !f {
+			return false
+		}
+		return !isReleaseServer() && enabled
+	}
 )
+
+//  isReleaseServer returns true if the server is running in release mode.
+func isReleaseServer() bool {
+	return ServerMode == "Release"
+}

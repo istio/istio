@@ -93,6 +93,9 @@ type DiscoveryServerOptions struct {
 	// The listening address for secured gRPC. If the port in the address is empty or "0" (as in "127.0.0.1:" or "[::1]:0")
 	// a port number is automatically chosen.
 	SecureGRPCAddr string
+
+	// Mode indicates the mode in which server runs. Defaults to "Release".
+	Mode string
 }
 
 type InjectionOptions struct {
