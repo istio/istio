@@ -116,13 +116,12 @@ func TestStackdriverAudit(t *testing.T) {
 			}
 
 			st := stackdriver.NewOrFail(context.Background(), ctx)
+			args := map[string]string{
+				"Namespace": ns.Name(),
+			}
+			policies := tmpl.EvaluateAllOrFail(ctx, args, file.AsStringOrFail(ctx, auditPolicyForLogEntry))
+			ctx.Config().ApplyYAMLOrFail(ctx, ns.Name(), policies...)
 			testMulticluster(ctx, func(ctx framework.TestContext, ns namespace.Instance, src, dest echo.Instance) {
-				args := map[string]string{
-					"Namespace": ns.Name(),
-				}
-				policies := tmpl.EvaluateAllOrFail(ctx, args, file.AsStringOrFail(ctx, auditPolicyForLogEntry))
-				ctx.Config().ApplyYAMLOrFail(ctx, ns.Name(), policies...)
-
 				ctx.Logf("Validating Telemetry for for Cluster in project %v", projectID)
 				validateTelemetry(ctx, projectID, st, ns, src, dest, "http", "server-istio-audit-log")
 			})
