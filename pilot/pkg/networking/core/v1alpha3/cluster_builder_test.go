@@ -268,7 +268,7 @@ func TestApplyDestinationRule(t *testing.T) {
 			cg.MemRegistry.WantGetProxyServiceInstances = instances
 			cb := NewClusterBuilder(cg.SetupProxy(nil), cg.PushContext(), nil)
 
-			subsetClusters := cb.applyDestinationRule(tt.cluster, tt.clusterMode, tt.service, tt.port, tt.networkView)
+			subsetClusters := cb.applyDestinationRule(tt.cluster, tt.clusterMode, tt.service, tt.port, tt.networkView, nil)
 			if len(subsetClusters) != len(tt.expectedSubsetClusters) {
 				t.Errorf("Unexpected subset clusters want %v, got %v", len(tt.expectedSubsetClusters), len(subsetClusters))
 			}

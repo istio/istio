@@ -16,6 +16,8 @@ package v1alpha3
 
 import (
 	"fmt"
+	"strconv"
+	"strings"
 
 	cluster "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
@@ -29,6 +31,7 @@ import (
 	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/labels"
+	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/util/gogo"
 )
 
@@ -52,9 +55,8 @@ func NewClusterBuilder(proxy *model.Proxy, push *model.PushContext, cache model.
 
 // applyDestinationRule applies the destination rule if it exists for the Service. It returns the subset clusters if any created as it
 // applies the destination rule.
-func (cb *ClusterBuilder) applyDestinationRule(c *cluster.Cluster, clusterMode ClusterMode, service *model.Service, port *model.Port,
-	proxyNetworkView map[string]bool) []*cluster.Cluster {
-	destRule := cb.push.DestinationRule(cb.proxy, service)
+func (cb *ClusterBuilder) applyDestinationRule(c *cluster.Cluster, clusterMode ClusterMode, service *model.Service, port *model.Port, proxyNetworkView map[string]bool, destRule *config.Config) []*cluster.Cluster {
+	//destRule := cb.push.DestinationRule(cb.proxy, service)
 	destinationRule := castDestinationRuleOrDefault(destRule)
 
 	opts := buildClusterOpts{
@@ -255,6 +257,45 @@ func (cb *ClusterBuilder) buildDefaultCluster(name string, discoveryType cluster
 	addNetworkingMetadata(opts, service, direction)
 	return c
 }
+
+type clusterCache struct {
+	clusterName     string
+	destinationRule *config.Config
+	envoyfilters    uint64 // todo need more than 64 bits
+	proxyGE19       bool
+	proxySidecar    bool
+	http2           bool
+	downstreamAuto  bool
+	pushVersion     string
+}
+
+func (t *clusterCache) Key() string {
+	params := []string{
+		t.clusterName, t.pushVersion,
+		strconv.FormatBool(t.proxyGE19), strconv.FormatBool(t.proxySidecar), strconv.FormatBool(t.http2), strconv.FormatBool(t.downstreamAuto),
+		strconv.FormatUint(t.envoyfilters, 10),
+	}
+	if t.destinationRule != nil {
+		params = append(params, t.destinationRule.Name+"/"+t.destinationRule.Namespace)
+	}
+	return "cds://" + strings.Join(params, "~")
+}
+
+func (t clusterCache) DependentConfigs() []model.ConfigKey {
+	// We depend on DestinationRule, but determining *which* destination rule we depend on is not trivial.
+	// Instead, we invalid on any changed DR (via DependentTypes)
+	return nil
+}
+
+func (t *clusterCache) DependentTypes() []config.GroupVersionKind {
+	return []config.GroupVersionKind{gvk.DestinationRule, gvk.PeerAuthentication}
+}
+
+func (t clusterCache) Cacheable() bool {
+	return true
+}
+
+var _ model.XdsCacheEntry = &tlsBuilder{}
 
 // buildInboundClusterForPortOrUDS constructs a single inbound listener. The cluster will be bound to
 // `inbound|clusterPort||`, and send traffic to <bind>:<instance.Endpoint.EndpointPort>. A workload

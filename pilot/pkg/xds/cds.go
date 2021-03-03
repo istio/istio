@@ -16,7 +16,6 @@ package xds
 
 import (
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/schema/gvk"
 )
@@ -73,10 +72,5 @@ func (c CdsGenerator) Generate(proxy *model.Proxy, push *model.PushContext, w *m
 	if !cdsNeedsPush(req, proxy) {
 		return nil, nil
 	}
-	rawClusters := c.Server.ConfigGenerator.BuildClusters(proxy, push)
-	resources := model.Resources{}
-	for _, c := range rawClusters {
-		resources = append(resources, util.MessageToAny(c))
-	}
-	return resources, nil
+	return c.Server.ConfigGenerator.BuildClustersv2(proxy, push), nil
 }

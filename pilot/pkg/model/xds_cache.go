@@ -18,6 +18,7 @@ import (
 	"fmt"
 	"sync"
 
+	"github.com/golang/protobuf/proto"
 	"github.com/golang/protobuf/ptypes/any"
 	"github.com/google/go-cmp/cmp"
 	"github.com/hashicorp/golang-lru/simplelru"
@@ -180,21 +181,23 @@ func newLru() simplelru.LRUCache {
 	return l
 }
 
+var tm = &proto.TextMarshaler{ExpandAny: true}
+
 // assertUnchanged checks that a cache entry is not changed. This helps catch bad cache invalidation
 // We should never have a case where we overwrite an existing item with a new change. Instead, when
 // config sources change, Clear/ClearAll should be called. At this point, we may get multiple writes
 // because multiple writers may get cache misses concurrently, but they ought to generate identical
 // configuration. This also checks that our XDS config generation is deterministic, which is a very
 // important property.
-func assertUnchanged(existing *any.Any, replacement *any.Any) {
+func assertUnchanged(key string, existing *any.Any, replacement *any.Any) {
 	if features.EnableUnsafeAssertions {
 		if existing == nil {
 			// This is a new addition, not an update
 			return
 		}
-		if !cmp.Equal(existing, replacement, protocmp.Transform()) {
-			warning := fmt.Errorf("assertion failed, cache entry changed but not cleared: %v\n%v\n%v",
-				cmp.Diff(existing, replacement, protocmp.Transform()), existing, replacement)
+		if tm.Text(existing) != tm.Text(replacement) {
+			warning := fmt.Errorf("assertion failed, cache entry %q changed but not cleared: %v\n%v\n\n%v",
+				key, cmp.Diff(existing, replacement, protocmp.Transform()), existing, replacement)
 			panic(warning)
 		}
 	}
@@ -223,11 +226,12 @@ func (l *lruCache) Add(entry XdsCacheEntry, token CacheToken, value *any.Any) {
 		// first write, or we forgot to call Get before.
 		return
 	}
+	log.Errorf("howardjohn: add %v -> %v with token %v", k, len(value.Value), token)
 	if features.EnableUnsafeAssertions {
 		if toWrite.token == 0 {
 			panic("token cannot be empty. was Get() called before Add()?")
 		}
-		assertUnchanged(cur.(cacheValue).value, value)
+		assertUnchanged(k, cur.(cacheValue).value, value)
 	}
 	l.store.Add(k, toWrite)
 	indexConfig(l.configIndex, entry.Key(), entry)
@@ -270,6 +274,7 @@ func (l *lruCache) Get(entry XdsCacheEntry) (*any.Any, CacheToken, bool) {
 func (l *lruCache) Clear(configs map[ConfigKey]struct{}) {
 	l.mu.Lock()
 	defer l.mu.Unlock()
+	log.Errorf("howardjohn: cache was %v", l.store.Len())
 	for ckey := range configs {
 		referenced := l.configIndex[ckey]
 		delete(l.configIndex, ckey)
@@ -278,10 +283,13 @@ func (l *lruCache) Clear(configs map[ConfigKey]struct{}) {
 		}
 		tReferenced := l.typesIndex[ckey.Kind]
 		delete(l.typesIndex, ckey.Kind)
+		log.Errorf("howardjohn: evict %v", tReferenced)
 		for key := range tReferenced {
 			l.store.Remove(key)
 		}
 	}
+	log.Errorf("howardjohn: cache is now %v", l.store.Len())
+	log.Errorf("howardjohn: %v", l.store.Keys())
 	size(l.store.Len())
 }
 

@@ -82,8 +82,9 @@ func getDefaultCircuitBreakerThresholds() *cluster.CircuitBreakers_Thresholds {
 // For outbound: Cluster for each service/subset hostname or cidr with SNI set to service hostname
 // Cluster type based on resolution
 // For inbound (sidecar only): Cluster for each inbound endpoint port and for each service port
-func (configgen *ConfigGeneratorImpl) BuildClusters(proxy *model.Proxy, push *model.PushContext) []*cluster.Cluster {
+func (configgen *ConfigGeneratorImpl) BuildClustersv2(proxy *model.Proxy, push *model.PushContext) []*any.Any {
 	clusters := make([]*cluster.Cluster, 0)
+	resources := model.Resources{}
 	envoyFilterPatches := push.EnvoyFilters(proxy)
 	cb := NewClusterBuilder(proxy, push, configgen.Cache)
 	instances := proxy.ServiceInstances
@@ -91,7 +92,7 @@ func (configgen *ConfigGeneratorImpl) BuildClusters(proxy *model.Proxy, push *mo
 	case model.SidecarProxy:
 		// Setup outbound clusters
 		outboundPatcher := clusterPatcher{envoyFilterPatches, networking.EnvoyFilter_SIDECAR_OUTBOUND}
-		clusters = append(clusters, configgen.buildOutboundClusters(cb, outboundPatcher)...)
+		resources = append(resources, configgen.buildOutboundClusters(cb, outboundPatcher)...)
 		// Add a blackhole and passthrough cluster for catching traffic to unresolved routes
 		clusters = outboundPatcher.conditionallyAppend(clusters, nil, cb.buildBlackHoleCluster(), cb.buildDefaultPassthroughCluster())
 		clusters = append(clusters, outboundPatcher.insertedClusters()...)
@@ -104,7 +105,45 @@ func (configgen *ConfigGeneratorImpl) BuildClusters(proxy *model.Proxy, push *mo
 		clusters = append(clusters, inboundPatcher.insertedClusters()...)
 	default: // Gateways
 		patcher := clusterPatcher{envoyFilterPatches, networking.EnvoyFilter_GATEWAY}
-		clusters = append(clusters, configgen.buildOutboundClusters(cb, patcher)...)
+		resources = append(resources, configgen.buildOutboundClusters(cb, patcher)...)
+		// Gateways do not require the default passthrough cluster as they do not have original dst listeners.
+		clusters = patcher.conditionallyAppend(clusters, nil, cb.buildBlackHoleCluster())
+		if proxy.Type == model.Router && proxy.GetRouterMode() == model.SniDnatRouter {
+			clusters = append(clusters, configgen.buildOutboundSniDnatClusters(proxy, push, patcher)...)
+		}
+		clusters = append(clusters, patcher.insertedClusters()...)
+	}
+
+	//clusters = normalizeClusters(push, proxy, clusters)
+
+	for _, c := range clusters {
+		resources = append(resources, util.MessageToAny(c))
+	}
+	return resources
+}
+func (configgen *ConfigGeneratorImpl) BuildClusters(proxy *model.Proxy, push *model.PushContext) []*cluster.Cluster {
+	clusters := make([]*cluster.Cluster, 0)
+	envoyFilterPatches := push.EnvoyFilters(proxy)
+	cb := NewClusterBuilder(proxy, push, configgen.Cache)
+	instances := proxy.ServiceInstances
+	switch proxy.Type {
+	case model.SidecarProxy:
+		// Setup outbound clusters
+		outboundPatcher := clusterPatcher{envoyFilterPatches, networking.EnvoyFilter_SIDECAR_OUTBOUND}
+		//clusters = append(clusters, configgen.buildOutboundClusters(cb, outboundPatcher)...)
+		// Add a blackhole and passthrough cluster for catching traffic to unresolved routes
+		clusters = outboundPatcher.conditionallyAppend(clusters, nil, cb.buildBlackHoleCluster(), cb.buildDefaultPassthroughCluster())
+		clusters = append(clusters, outboundPatcher.insertedClusters()...)
+
+		// Setup inbound clusters
+		inboundPatcher := clusterPatcher{envoyFilterPatches, networking.EnvoyFilter_SIDECAR_INBOUND}
+		clusters = append(clusters, configgen.buildInboundClusters(cb, instances, inboundPatcher)...)
+		// Pass through clusters for inbound traffic. These cluster bind loopback-ish src address to access node local service.
+		clusters = inboundPatcher.conditionallyAppend(clusters, nil, cb.buildInboundPassthroughClusters()...)
+		clusters = append(clusters, inboundPatcher.insertedClusters()...)
+	default: // Gateways
+		patcher := clusterPatcher{envoyFilterPatches, networking.EnvoyFilter_GATEWAY}
+		//clusters = append(clusters, configgen.buildOutboundClusters(cb, patcher)...)
 		// Gateways do not require the default passthrough cluster as they do not have original dst listeners.
 		clusters = patcher.conditionallyAppend(clusters, nil, cb.buildBlackHoleCluster())
 		if proxy.Type == model.Router && proxy.GetRouterMode() == model.SniDnatRouter {
@@ -135,10 +174,10 @@ func normalizeClusters(metrics model.Metrics, proxy *model.Proxy, clusters []*cl
 	return out
 }
 
-func (configgen *ConfigGeneratorImpl) buildOutboundClusters(cb *ClusterBuilder, cp clusterPatcher) []*cluster.Cluster {
-	clusters := make([]*cluster.Cluster, 0)
+func (configgen *ConfigGeneratorImpl) buildOutboundClusters(cb *ClusterBuilder, cp clusterPatcher) []*any.Any {
+	resources := make([]*any.Any, 0)
 	networkView := model.GetNetworkView(cb.proxy)
-
+	hit, miss := 0, 0
 	var services []*model.Service
 	if features.FilterGatewayClusterConfig && cb.proxy.Type == model.Router {
 		services = cb.push.GatewayServices(cb.proxy)
@@ -155,6 +194,20 @@ func (configgen *ConfigGeneratorImpl) buildOutboundClusters(cb *ClusterBuilder, 
 			// create default cluster
 			discoveryType := convertResolution(cb.proxy, service)
 			clusterName := model.BuildSubsetKey(model.TrafficDirectionOutbound, "", service.Hostname, port.Port)
+
+			var bitmap uint64 = 1 // todo make this real. For now, we just apply to everything
+			clusterKey := &clusterCache{
+				clusterName:     clusterName,
+				pushVersion:     cb.push.PushVersion,
+				envoyfilters:    bitmap,
+				destinationRule: cb.push.DestinationRule(cb.proxy, service),
+				proxyGE19:       util.IsIstioVersionGE19(cb.proxy),
+				proxySidecar:    cb.proxy.Type == model.SidecarProxy,
+				http2:           port.Protocol.IsHTTP2(),
+				downstreamAuto:  cb.proxy.Type == model.SidecarProxy && util.IsProtocolSniffingEnabledForOutboundPort(port),
+			}
+			cachedCluster, token, f := cb.cache.Get(clusterKey)
+
 			defaultCluster := cb.buildDefaultCluster(clusterName, discoveryType, lbEndpoints, model.TrafficDirectionOutbound, port, service, nil)
 			if defaultCluster == nil {
 				continue
@@ -166,14 +219,30 @@ func (configgen *ConfigGeneratorImpl) buildOutboundClusters(cb *ClusterBuilder, 
 
 			setUpstreamProtocol(cb.proxy, defaultCluster, port, model.TrafficDirectionOutbound)
 
-			subsetClusters := cb.applyDestinationRule(defaultCluster, DefaultClusterMode, service, port, networkView)
+			subsetClusters := cb.applyDestinationRule(defaultCluster, DefaultClusterMode, service, port, networkView, clusterKey.destinationRule)
 
-			clusters = cp.conditionallyAppend(clusters, nil, defaultCluster)
-			clusters = cp.conditionallyAppend(clusters, nil, subsetClusters...)
+			if f {
+				hit++
+			} else {
+				miss++
+			}
+			if f && !features.EnableUnsafeAssertions {
+				resources = append(resources, cachedCluster)
+			} else {
+				if patched := cp.apply(nil, defaultCluster); patched != nil {
+					cc := util.MessageToAny(patched)
+					resources = append(resources, cc)
+					cb.cache.Add(clusterKey, token, cc)
+				}
+			}
+			for _, ss := range subsetClusters {
+				resources = append(resources, util.MessageToAny(ss))
+			}
 		}
 	}
+	log.Errorf("howardjohn: hits=%v miss=%v", hit, miss)
 
-	return clusters
+	return resources
 }
 
 var NilClusterPatcher = clusterPatcher{}
@@ -183,6 +252,12 @@ type clusterPatcher struct {
 	pctx networking.EnvoyFilter_PatchContext
 }
 
+func (p clusterPatcher) apply(hosts []host.Name, c *cluster.Cluster) *cluster.Cluster {
+	if !envoyfilter.ShouldKeepCluster(p.pctx, p.efw, c, hosts) {
+		return nil
+	}
+	return envoyfilter.ApplyClusterMerge(p.pctx, p.efw, c, hosts)
+}
 func (p clusterPatcher) conditionallyAppend(l []*cluster.Cluster, hosts []host.Name, clusters ...*cluster.Cluster) []*cluster.Cluster {
 	for _, c := range clusters {
 		if envoyfilter.ShouldKeepCluster(p.pctx, p.efw, c, hosts) {
@@ -223,7 +298,8 @@ func (configgen *ConfigGeneratorImpl) buildOutboundSniDnatClusters(proxy *model.
 			if defaultCluster == nil {
 				continue
 			}
-			subsetClusters := cb.applyDestinationRule(defaultCluster, SniDnatClusterMode, service, port, networkView)
+			destRule := cb.push.DestinationRule(cb.proxy, service)
+			subsetClusters := cb.applyDestinationRule(defaultCluster, SniDnatClusterMode, service, port, networkView, destRule)
 			clusters = cp.conditionallyAppend(clusters, nil, defaultCluster)
 			clusters = cp.conditionallyAppend(clusters, nil, subsetClusters...)
 		}

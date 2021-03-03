@@ -154,8 +154,13 @@ func (e *Environment) SetLedger(l ledger.Ledger) {
 	e.ledger = l
 }
 
-// Request is an alias for array of marshaled resources.
+// Resources is an alias for array of marshaled resources.
 type Resources = []*any.Any
+
+type WrappedResource struct {
+	Name string
+	value *any.Any
+}
 
 // XdsUpdates include information about the subset of updated resources.
 // See for example EDS incremental updates.
