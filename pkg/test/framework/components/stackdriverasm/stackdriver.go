@@ -328,7 +328,7 @@ func (d *Instance) ValidateMetricsWithLabels(t framework.TestContext, tss []*mon
 		cleanupLabels(labels)
 		if diff := cmp.Diff(expLabels, labels); diff != "" {
 			t.Log("comparing got labels and expect labels")
-			msg := fmt.Sprintf("Retry due to unexpected logging labels, (-want +got):\n %s difference is", diff)
+			msg := fmt.Sprintf("Retry due to unexpected metric labels, (-want +got):\n %s difference is", diff)
 			t.Log(msg)
 			continue
 		}

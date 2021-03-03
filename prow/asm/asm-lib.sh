@@ -604,7 +604,14 @@ function install_asm_managed_control_plane() {
     local PROJECT_ID="${VALS[1]}"
     local LOCATION="${VALS[2]}"
     local CLUSTER_NAME="${VALS[3]}"
-
+    PROJECT_NUMBER=$(gcloud projects describe "${PROJECT_ID}" --format="value(projectNumber)")
+    # Use the first project as the environ project
+    if [[ $i == 0 ]]; then
+      ENVIRON_PROJECT_NUMBER="${PROJECT_NUMBER}"
+      MESH_ID="proj-${ENVIRON_PROJECT_NUMBER}"
+      export MESH_ID="proj-${ENVIRON_PROJECT_NUMBER}"
+      echo "Environ project ID: ${PROJECT_ID}, project number: ${ENVIRON_PROJECT_NUMBER}"
+    fi
     TMPDIR=$(mktemp -d)
     # _CI_ASM_PKG_LOCATION _CI_ASM_IMAGE_LOCATION are required for unreleased Scriptaro (master and staging branch).
     # Managed control plane installation will use _CI_ASM_PKG_LOCATION, _CI_ASM_IMAGE_LOCATION for Gateway.

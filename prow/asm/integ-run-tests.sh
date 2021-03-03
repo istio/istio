@@ -369,7 +369,7 @@ else
   DISABLED_TESTS+="|TestRevisionedUpgrade" # UNSUPPORTED: OSS Control Plane upgrade is not supported by MCP.
   DISABLED_TESTS+="|TestCustomGateway" # UNSUPPORTED: wait for John to check in the missing code.
   # telemetry/ tests
-  DISABLED_TESTS+="|TestStackdriverHTTPAuditLogging" # UNKNOWN
+  DISABLED_TESTS+="|TestStackdriverAudit|TestStackdriverHTTPAuditLogging" # UNKNOWN
   DISABLED_TESTS+="|TestIstioctlMetrics" # UNKNOWN
   DISABLED_TESTS+="|TestStatsFilter" # UNKNOWN
   DISABLED_TESTS+="|TestTcpMetric" # UNKNOWN
