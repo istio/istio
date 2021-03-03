@@ -56,6 +56,7 @@ import (
 	"istio.io/istio/pkg/wasm"
 	"istio.io/istio/security/pkg/nodeagent/caclient"
 	"istio.io/istio/security/pkg/pki/util"
+	"istio.io/pkg/env"
 	"istio.io/pkg/log"
 )
 
@@ -66,18 +67,11 @@ const (
 )
 
 var (
-	sendTimeout = 5 * time.Second // default upstream send timeout.
+	sendTimeout = env.RegisterDurationVar("XDS_SEND_TIMEOUT",
+		5*time.Second,
+		"The timeout to send the XDS configuration to proxies. After this timeout is reached, XDSProxy will discard that push.").
+		Get()
 )
-
-func init() {
-	timeout := os.Getenv("XDS_SEND_TIMEOUT")
-	if timeout != "" {
-		d, _ := time.ParseDuration(timeout)
-		if d >= time.Millisecond {
-			sendTimeout = d
-		}
-	}
-}
 
 type ResponseHandler func(resp *discovery.DiscoveryResponse) error
 
