@@ -218,8 +218,9 @@ func TestRulesWithTproxy(t *testing.T) {
 		"iptables -t mangle -A OUTPUT ! -d 127.0.0.1/32 -p tcp -o lo -m owner --uid-owner 1337 -j MARK --set-mark 1338",
 		"iptables -t mangle -A OUTPUT ! -d 127.0.0.1/32 -p tcp -o lo -m owner --gid-owner 1337 -j MARK --set-mark 1338",
 		"iptables -t mangle -A OUTPUT -p tcp -m connmark --mark 1337 -j CONNMARK --restore-mark",
-		"iptables -t mangle -I ISTIO_INBOUND 1 -p tcp -i lo -m mark ! --mark  1338 -j RETURN",
-		"iptables -t mangle -I ISTIO_INBOUND 2 -p tcp -m mark --mark 1337 -j RETURN",
+		"iptables -t mangle -I ISTIO_INBOUND 1 -p tcp -i lo -s 127.0.0.6/32 -j RETURN",
+		"iptables -t mangle -I ISTIO_INBOUND 2 -p tcp -i lo -m mark ! --mark  1338 -j RETURN",
+		"iptables -t mangle -I ISTIO_INBOUND 3 -p tcp -m mark --mark 1337 -j RETURN",
 	}
 
 	if !reflect.DeepEqual(actual, expected) {
