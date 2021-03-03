@@ -78,6 +78,9 @@ type CallOptions struct {
 	// Validator for server responses. If no validator is provided, only the number of responses received
 	// will be verified.
 	Validator Validator
+
+	// CallInstance indicates whether call app directly or not.
+	CallInstance bool
 }
 
 // Validator validates that the given responses are expected.

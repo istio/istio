@@ -47,6 +47,9 @@ func callInternal(srcName string, opts *echo.CallOptions, send sendFunc,
 	var targetURL string
 	port := opts.Port.ServicePort
 	addressAndPort := net.JoinHostPort(opts.Address, strconv.Itoa(port))
+	if opts.CallInstance {
+		addressAndPort = net.JoinHostPort(opts.Address, strconv.Itoa(opts.Port.InstancePort))
+	}
 	// Forward a request from 'this' service to the destination service.
 	switch opts.Scheme {
 	case scheme.DNS:
