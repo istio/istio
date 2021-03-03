@@ -66,12 +66,10 @@ const (
 	defaultInitialWindowSize           = 1024 * 1024 // default gRPC ConnWindowSize
 )
 
-var (
-	sendTimeout = env.RegisterDurationVar("XDS_SEND_TIMEOUT",
-		5*time.Second,
-		"The timeout to send the XDS configuration to proxies. After this timeout is reached, XDSProxy will discard that push.").
-		Get()
-)
+var sendTimeout = env.RegisterDurationVar("XDS_SEND_TIMEOUT",
+	5*time.Second,
+	"The timeout to send the XDS configuration to proxies. After this timeout is reached, XDSProxy will discard that push.").
+	Get()
 
 type ResponseHandler func(resp *discovery.DiscoveryResponse) error
 
