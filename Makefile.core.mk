@@ -250,7 +250,7 @@ ${GEN_CERT}:
 #-----------------------------------------------------------------------------
 # Target: precommit
 #-----------------------------------------------------------------------------
-.PHONY: precommit format format.gofmt format.goimports lint buildcache
+.PHONY: precommit format lint buildcache
 
 # Target run by the pre-commit script, to automate formatting and lint
 # If pre-commit script is not used, please run this manually.
