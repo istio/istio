@@ -121,10 +121,10 @@ func (c *Controller) Services() ([]*model.Service, error) {
 			errs = multierror.Append(errs, err)
 			continue
 		}
+
 		if r.Provider() != serviceregistry.Kubernetes {
 			services = append(services, svcs...)
 		} else {
-			// This is K8S typically
 			for _, s := range svcs {
 				sp, ok := smap[s.Hostname]
 				if !ok {
@@ -135,8 +135,10 @@ func (c *Controller) Services() ([]*model.Service, error) {
 					sp = s
 					smap[s.Hostname] = sp
 					services = append(services, sp)
+				} else {
+					// If it is seen second time, that means it is from a different cluster, update cluster VIPs.
+					mergeService(sp, s, r.Cluster())
 				}
-				mergeService(sp, s, r.Cluster())
 			}
 		}
 	}
@@ -159,20 +161,21 @@ func (c *Controller) GetService(hostname host.Name) (*model.Service, error) {
 		if r.Provider() != serviceregistry.Kubernetes {
 			return service, nil
 		}
-		service.Mutex.RLock()
 		if out == nil {
 			out = service.DeepCopy()
+		} else {
+			// If we are seeing the service for the second time, it means it is available in multiple clusters.
+			mergeService(out, service, r.Cluster())
 		}
-		mergeService(out, service, r.Cluster())
-		service.Mutex.RUnlock()
 	}
 	return out, errs
 }
 
 func mergeService(dst, src *model.Service, srcCluster string) {
+	if dst.MultiCluster == nil {
+		dst.MultiCluster = atomic.NewBool(true)
+	}
 	dst.Mutex.Lock()
-	// If the registry has a cluster ID, keep track of the cluster and the
-	// local address inside the cluster.
 	if dst.ClusterVIPs == nil {
 		dst.ClusterVIPs = make(map[string]string)
 	}
