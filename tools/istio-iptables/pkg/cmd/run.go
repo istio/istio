@@ -548,6 +548,9 @@ func (iptConfigurator *IptablesConfigurator) run() {
 		// save packet mark set by envoy.filters.listener.original_src as connection mark
 		iptConfigurator.iptables.AppendRuleV4(constants.PREROUTING, constants.MANGLE,
 			"-p", constants.TCP, "-m", "mark", "--mark", iptConfigurator.cfg.InboundTProxyMark, "-j", "CONNMARK", "--save-mark")
+		// If the packet is already marked with 1337, then return. This is to prevent mark envoy --> app traffic again.
+		iptConfigurator.iptables.AppendRuleV4(constants.OUTPUT, constants.MANGLE,
+			"-p", constants.TCP, "-o", "lo", "-m", "mark", "--mark", iptConfigurator.cfg.InboundTProxyMark, "-j", constants.RETURN)
 		for _, uid := range split(iptConfigurator.cfg.ProxyUID) {
 			// mark outgoing packets from envoy to workload by pod ip
 			// app call VIP --> envoy outbound -(mark 1338)-> envoy inbound --> app
