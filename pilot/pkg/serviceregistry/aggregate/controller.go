@@ -30,8 +30,6 @@ import (
 	"istio.io/pkg/log"
 )
 
-var clusterAddressesMutex sync.Mutex
-
 // The aggregate controller does not implement serviceregistry.Instance since it may be comprised of various
 // providers and clusters.
 var (
@@ -99,14 +97,6 @@ func (c *Controller) GetRegistries() []serviceregistry.Instance {
 	return out
 }
 
-// GetRegistryIndex returns the index of a registry
-func (c *Controller) GetRegistryIndex(clusterID string, provider serviceregistry.ProviderID) (int, bool) {
-	c.storeLock.RLock()
-	defer c.storeLock.RUnlock()
-
-	return c.getRegistryIndex(clusterID, provider)
-}
-
 func (c *Controller) getRegistryIndex(clusterID string, provider serviceregistry.ProviderID) (int, bool) {
 	for i, r := range c.registries {
 		if r.Cluster() == clusterID && r.Provider() == provider {
@@ -131,9 +121,6 @@ func (c *Controller) Services() ([]*model.Service, error) {
 			errs = multierror.Append(errs, err)
 			continue
 		}
-		// Race condition: multiple threads may call Services, and multiple services
-		// may modify one of the service's cluster ID
-		clusterAddressesMutex.Lock()
 		if r.Provider() != serviceregistry.Kubernetes {
 			services = append(services, svcs...)
 		} else {
@@ -152,7 +139,6 @@ func (c *Controller) Services() ([]*model.Service, error) {
 				mergeService(sp, s, r.Cluster())
 			}
 		}
-		clusterAddressesMutex.Unlock()
 	}
 	return services, errs
 }
