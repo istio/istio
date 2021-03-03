@@ -172,8 +172,13 @@ func (c *Controller) GetService(hostname host.Name) (*model.Service, error) {
 }
 
 func mergeService(dst, src *model.Service, srcCluster string) {
-	dst.MultiCluster.Store(true)
+	if dst.MultiCluster == nil {
+		dst.MultiCluster = atomic.NewBool(true)
+	}
 	dst.Mutex.Lock()
+	if dst.ClusterVIPs == nil {
+		dst.ClusterVIPs = make(map[string]string)
+	}
 	dst.ClusterVIPs[srcCluster] = src.Address
 	dst.Mutex.Unlock()
 }
