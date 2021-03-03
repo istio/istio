@@ -83,12 +83,12 @@ func buildMockController() *Controller {
 func buildMockControllerForMultiCluster() *Controller {
 	discovery1 = mock.NewDiscovery(
 		map[host.Name]*model.Service{
-			mock.HelloService.Hostname: mock.MakeService("hello.default.svc.cluster.local", "10.1.1.0", []string{}),
+			mock.HelloService.Hostname: mock.MakeService("hello.default.svc.cluster.local", "10.1.1.0", []string{}, "cluster-1"),
 		}, 2)
 
 	discovery2 = mock.NewDiscovery(
 		map[host.Name]*model.Service{
-			mock.HelloService.Hostname: mock.MakeService("hello.default.svc.cluster.local", "10.1.2.0", []string{}),
+			mock.HelloService.Hostname: mock.MakeService("hello.default.svc.cluster.local", "10.1.2.0", []string{}, "cluster-2"),
 			mock.WorldService.Hostname: mock.WorldService.DeepCopy(),
 		}, 2)
 
