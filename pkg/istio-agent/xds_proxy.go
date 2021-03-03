@@ -68,7 +68,7 @@ const (
 
 var sendTimeout = env.RegisterDurationVar("XDS_SEND_TIMEOUT",
 	5*time.Second,
-	"The timeout to send the XDS configuration to proxies. After this timeout is reached, XDSProxy will discard that push.").
+	"The timeout to send the XDS configuration to proxies. After this timeout is reached, XDSProxy will discard that push. The default timeout is 5s. Valid time units are 'ns', 'us', 'ms', 's', 'm', 'h'").
 	Get()
 
 type ResponseHandler func(resp *discovery.DiscoveryResponse) error
