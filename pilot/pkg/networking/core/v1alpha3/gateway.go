@@ -391,6 +391,11 @@ func (configgen *ConfigGeneratorImpl) createGatewayHTTPFilterChainOpts(node *mod
 		}
 	}
 
+	var stripPortMode *hcm.HttpConnectionManager_StripAnyHostPort
+	if features.StripHostPort {
+		stripPortMode = &hcm.HttpConnectionManager_StripAnyHostPort{StripAnyHostPort: true}
+	}
+
 	if serverProto.IsHTTP() {
 		return &filterChainOpts{
 			// This works because we validate that only HTTPS servers can have same port but still different port names
@@ -413,7 +418,7 @@ func (configgen *ConfigGeneratorImpl) createGatewayHTTPFilterChainOpts(node *mod
 					},
 					ServerName:          EnvoyServerName,
 					HttpProtocolOptions: httpProtoOpts,
-					StripPortMode:       &hcm.HttpConnectionManager_StripAnyHostPort{StripAnyHostPort: features.StripHostPort},
+					StripPortMode:       stripPortMode,
 				},
 				addGRPCWebFilter: serverProto == protocol.GRPCWeb,
 			},
@@ -444,7 +449,7 @@ func (configgen *ConfigGeneratorImpl) createGatewayHTTPFilterChainOpts(node *mod
 				},
 				ServerName:          EnvoyServerName,
 				HttpProtocolOptions: httpProtoOpts,
-				StripPortMode:       &hcm.HttpConnectionManager_StripAnyHostPort{StripAnyHostPort: features.StripHostPort},
+				StripPortMode:       stripPortMode,
 			},
 			addGRPCWebFilter: serverProto == protocol.GRPCWeb,
 			statPrefix:       server.Name,
