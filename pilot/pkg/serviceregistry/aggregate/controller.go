@@ -161,17 +161,18 @@ func (c *Controller) GetService(hostname host.Name) (*model.Service, error) {
 		if r.Provider() != serviceregistry.Kubernetes {
 			return service, nil
 		}
-		service.Mutex.RLock()
 		if out == nil {
 			out = service.DeepCopy()
+		} else {
+			// If we are seeing the service for the second time, it means it is available in multiple clusters.
+			mergeService(out, service, r.Cluster())
 		}
-		mergeService(out, service, r.Cluster())
-		service.Mutex.RUnlock()
 	}
 	return out, errs
 }
 
 func mergeService(dst, src *model.Service, srcCluster string) {
+	dst.MultiCluster.Store(true)
 	dst.Mutex.Lock()
 	dst.ClusterVIPs[srcCluster] = src.Address
 	dst.Mutex.Unlock()
