@@ -565,7 +565,7 @@ func (iptConfigurator *IptablesConfigurator) run() {
 			"-p", constants.TCP, "-m", "connmark", "--mark", iptConfigurator.cfg.InboundTProxyMark, "-j", "CONNMARK", "--restore-mark")
 		// prevent intercept traffic from app ==> app by pod ip
 		iptConfigurator.iptables.AppendRuleV4(constants.ISTIOINBOUND, constants.MANGLE,
-			"-p", constants.TCP, "-i", "lo", "-m", constants.MARK, "!", "--mark", " 1338", "-j", constants.RETURN)
+			"-p", constants.TCP, "-i", "lo", "-m", "mark", "!", "--mark", " 1338", "-j", constants.RETURN)
 		// prevent infinite redirect
 		iptConfigurator.iptables.AppendRuleV4(constants.ISTIOINBOUND, constants.MANGLE,
 			"-p", constants.TCP, "-m", "mark", "--mark", iptConfigurator.cfg.InboundTProxyMark, "-j", constants.RETURN)
