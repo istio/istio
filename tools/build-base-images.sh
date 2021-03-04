@@ -29,7 +29,21 @@ TAG="${TAG:?specify a tag}"
 # * export DOCKER_ARCHITECTURES="linux/amd64,linux/arm64"
 # Note: if you already have a container builder before running the qemu setup you will need to restart them
 
-for hub in ${HUBS//,/ }
+index=0
+DOCKER_TARGETS="docker.base docker.distroless docker.app_sidecar_base_debian_9 docker.app_sidecar_base_debian_10 docker.app_sidecar_base_ubuntu_xenial docker.app_sidecar_base_ubuntu_bionic docker.app_sidecar_base_ubuntu_focal docker.app_sidecar_base_centos_7 docker.app_sidecar_base_centos_8"
+
+for hub in ${HUBS//,/ }  # Iterate over comma seperated hubs
 do
-  HUB=${hub} BUILDX_BAKE_EXTRA_OPTIONS="--no-cache --pull" DOCKER_TARGETS="docker.base docker.distroless docker.app_sidecar_base_debian_9 docker.app_sidecar_base_debian_10 docker.app_sidecar_base_ubuntu_xenial docker.app_sidecar_base_ubuntu_bionic docker.app_sidecar_base_ubuntu_focal docker.app_sidecar_base_centos_7 docker.app_sidecar_base_centos_8" make dockerx.pushx
+ if (( index == 0 )) ; then # For first HUB, build and push the images
+    hubBuilt=${hub}
+    HUB=${hub} BUILDX_BAKE_EXTRA_OPTIONS="--no-cache --pull" DOCKER_TARGETS=${DOCKER_TARGETS} make dockerx.pushx
+  else
+    for target in ${DOCKER_TARGETS// / } # For successive HUBs, iterate of the images, retagging for the HUB and pushing
+    do
+      image=${target#*.}
+      docker tag "${hubBuilt}"/"${image}":"${TAG}" "${hub}"/"${image}":"${TAG}"
+      docker push "${hub}"/"${image}":"${TAG}"
+    done
+  fi
+  ((index=index+1))
 done
