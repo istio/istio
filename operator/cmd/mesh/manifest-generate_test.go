@@ -698,9 +698,17 @@ func runTestGroup(t *testing.T, tests testGroup) {
 			}
 
 			for _, v := range []bool{true, false} {
+				if diffSelect == "no:resources:selected" {
+					continue
+				}
+
 				diff, err := compare.ManifestDiffWithRenameSelectIgnore(got, want,
-					"", diffSelect, tt.diffIgnore, v)
+					"", diffSelect, tt.diffIgnore, v, inPath, outPath)
 				if err != nil {
+					// Ignore errors when manifests are empty; it is now expected
+					if diffSelect == "no:resources:selected" {
+						continue
+					}
 					t.Fatal(err)
 				}
 				if diff != "" {

@@ -122,7 +122,7 @@ func compareManifestsFromFiles(rootArgs *rootArgs, args []string, verbose bool,
 	}
 
 	diff, err := compare.ManifestDiffWithRenameSelectIgnore(string(a), string(b), renameResources, selectResources,
-		ignoreResources, verbose)
+		ignoreResources, verbose, args[0], args[1])
 	if err != nil {
 		return false, err
 	}
@@ -154,7 +154,7 @@ func compareManifestsFromDirs(rootArgs *rootArgs, verbose bool, dirName1, dirNam
 	}
 
 	diff, err := compare.ManifestDiffWithRenameSelectIgnore(mf1, mf2, renameResources, selectResources,
-		ignoreResources, verbose)
+		ignoreResources, verbose, dirName1, dirName2)
 	if err != nil {
 		return false, err
 	}

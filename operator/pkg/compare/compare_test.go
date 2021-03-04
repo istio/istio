@@ -1286,7 +1286,7 @@ spec:
 		for _, v := range []bool{true, false} {
 			t.Run(tt.desc, func(t *testing.T) {
 				got, err := ManifestDiffWithRenameSelectIgnore(tt.yamlStringA, tt.yamlStringB,
-					"", tt.selectResources, tt.ignoreResources, v)
+					"", tt.selectResources, tt.ignoreResources, v, "a", "b")
 				if err != nil {
 					t.Fatalf("unexpected error: %v", err)
 				}
@@ -1479,7 +1479,7 @@ Object Deployment:istio-system:istio-citadel is missing in B:
 	for _, tt := range manifestDiffWithRenameSelectIgnoreTests {
 		t.Run(tt.desc, func(t *testing.T) {
 			got, err := ManifestDiffWithRenameSelectIgnore(tt.yamlStringA, tt.yamlStringB,
-				tt.renameResources, tt.selectResources, tt.ignoreResources, false)
+				tt.renameResources, tt.selectResources, tt.ignoreResources, false, "a", "b")
 			if err != nil {
 				t.Fatalf("unexpected error: %v", err)
 			}

@@ -236,7 +236,7 @@ func ManifestDiff(a, b string, verbose bool) (string, error) {
 
 // ManifestDiffWithSelect checks the manifest differences with selected and ignored resources.
 // The selected filter will apply before the ignored filter.
-func ManifestDiffWithRenameSelectIgnore(a, b, renameResources, selectResources, ignoreResources string, verbose bool) (string, error) {
+func ManifestDiffWithRenameSelectIgnore(a, b, renameResources, selectResources, ignoreResources string, verbose bool, aname, bname string) (string, error) {
 	rnm := getKeyValueMap(renameResources)
 	sm := getObjPathMap(selectResources)
 	im := getObjPathMap(ignoreResources)
@@ -252,6 +252,14 @@ func ManifestDiffWithRenameSelectIgnore(a, b, renameResources, selectResources, 
 		return "", err
 	}
 	bom := bo.ToMap()
+
+	if len(aom) == 0 && len(bom) == 0 {
+		return "", fmt.Errorf("Neither %q nor %q is a manifest", aname, bname)
+	} else if len(aom) == 0 {
+		return "", fmt.Errorf("%q is not a manifest", aname)
+	} else if len(bom) == 0 {
+		return "", fmt.Errorf("%q is not a manifest", bname)
+	}
 
 	if len(rnm) != 0 {
 		aom, err = renameResource(aom, rnm)
