@@ -34,7 +34,7 @@ const (
 )
 
 func tailorbirdDeployerBaseFlags() []string {
-	return []string{"--down", "--status-check-interval=60", "--verbose", "--gkectl-config-seed-version=v1"}
+	return []string{"--down", "--status-check-interval=60", "--verbose"}
 }
 
 // InstallTools installs the required tools to enable interacting with Tailorbird.

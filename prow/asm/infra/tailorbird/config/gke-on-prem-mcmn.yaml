@@ -32,6 +32,8 @@ spec:
             username: prowuser
             workerNumNodes: "4"
             gkectlVersion: "latest"
+            # workaround for b/181781346
+            gkectlConfigSeedVersion: "v1"
             vipNetwork: "fe"
             # Assign the first cluster under one VPC
             vsphereVpc: "atl-shared-vpc-02"
@@ -53,6 +55,8 @@ spec:
             username: prowuser
             workerNumNodes: "4"
             gkectlVersion: "latest"
+            # workaround for b/181781346
+            gkectlConfigSeedVersion: "v1"
             vipNetwork: "fe"
             # Assign the second cluster under a second VPC
             vsphereVpc: "atl-shared-vpc-03"
