@@ -89,6 +89,31 @@ spec:
   - forwardTo:
      - serviceName: b
        port: 80
+---
+apiVersion: networking.x-k8s.io/v1alpha1
+kind: HTTPRoute
+metadata:
+  name: b
+spec:
+  gateways:
+    allow: FromList
+    gatewayRefs:
+      - name: mesh
+        namespace: istio-system
+  hostnames: ["b"]
+  rules:
+  - matches:
+    - path:
+        type: Prefix
+        value: /path
+    filters:
+    - type: RequestHeaderModifier
+      requestHeaderModifier:
+        add:
+          my-added-header: added-value
+    forwardTo:
+    - serviceName: b
+      port: 80
 `)
 
 			ctx.NewSubTest("http").Run(func(ctx framework.TestContext) {
@@ -116,6 +141,14 @@ spec:
 						"Host": {"my.domain.example"},
 					},
 					Validator: echo.ExpectOK(),
+				})
+			})
+			ctx.NewSubTest("mesh").Run(func(ctx framework.TestContext) {
+				_ = apps.PodA[0].CallWithRetryOrFail(ctx, echo.CallOptions{
+					Target:    apps.PodB[0],
+					PortName:  "http",
+					Path:      "/path",
+					Validator: echo.And(echo.ExpectOK(), echo.ExpectKey("My-Added-Header", "added-value")),
 				})
 			})
 		})
