@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: telemetry
+issue:
+  - 29373
+releaseNotes:
+- |
+  **Fixed** missing `destination_cluster` label at metric reported by client proxy on request failures.
