@@ -129,6 +129,9 @@ func SetRestDefaults(config *rest.Config) *rest.Config {
 
 // CheckPodReady returns nil if the given pod and all of its containers are ready.
 func CheckPodReady(pod *kubeApiCore.Pod) error {
+	if pod.ObjectMeta.DeletionTimestamp != nil {
+		return fmt.Errorf("pod not ready, being deleted")
+	}
 	switch pod.Status.Phase {
 	case kubeApiCore.PodSucceeded:
 		return nil
