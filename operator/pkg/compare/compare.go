@@ -254,7 +254,7 @@ func ManifestDiffWithRenameSelectIgnore(a, b, renameResources, selectResources, 
 	bom := bo.ToMap()
 
 	if len(aom) == 0 && len(bom) == 0 {
-		return "", fmt.Errorf("Neither %q nor %q is a manifest", aname, bname)
+		return "", fmt.Errorf("neither %q nor %q is a manifest", aname, bname)
 	} else if len(aom) == 0 {
 		return "", fmt.Errorf("%q is not a manifest", aname)
 	} else if len(bom) == 0 {
