@@ -42,6 +42,7 @@ func TestConvertResources(t *testing.T) {
 		"mismatch",
 		"weighted",
 		"backendpolicy",
+		"mesh",
 	}
 	for _, tt := range cases {
 		t.Run(tt, func(t *testing.T) {

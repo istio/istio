@@ -708,7 +708,33 @@ func convertGateway(r *KubernetesResources) ([]config.Config, map[RouteKey][]str
 		}
 		result = append(result, gatewayConfig)
 	}
+	for _, k := range r.fetchMeshRoutes() {
+		routeToGateway[k] = append(routeToGateway[k], constants.IstioMeshGateway)
+	}
 	return result, routeToGateway
+}
+
+// experimentalMeshGatewayName defines the magic mesh gateway name.
+// TODO: replace this with a more suitable API. This is just added now to allow early adopters to experiment with the API
+const experimentalMeshGatewayName = "mesh"
+
+func (r *KubernetesResources) fetchMeshRoutes() []RouteKey {
+	keys := []RouteKey{}
+	// We only look at HTTP routes for now
+	// TODO(https://github.com/kubernetes-sigs/gateway-api/issues) add TLS. We can do it today, but its a bit annoying
+	// TODO: add TCP. Need an annotation or API change to associate a route with a service (hostname).
+	for _, hr := range r.HTTPRoute {
+		gatewaySelector := getGatewaySelectorFromSpec(hr.Spec)
+		if gatewaySelector == nil || len(gatewaySelector.GatewayRefs) == 0 {
+			continue
+		}
+		for _, ref := range gatewaySelector.GatewayRefs {
+			if ref.Name == experimentalMeshGatewayName { // we ignore namespace. it is required in the spec though
+				keys = append(keys, toRouteKey(hr))
+			}
+		}
+	}
+	return keys
 }
 
 func buildTLS(tls *k8s.GatewayTLSConfig) *istio.ServerTLSSettings {
