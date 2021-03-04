@@ -29,7 +29,7 @@ spec:
   http:
   - route:
     - destination:
-        host: echo.default.svc.cluster.local
+        host: echo.default.svc.domain.suffix
         port:
           number: 80
 ---
@@ -48,7 +48,7 @@ spec:
   http:
   - route:
     - destination:
-        host: example.default.svc.cluster.local
+        host: example.default.svc.domain.suffix
         port:
           number: 80
 ---
