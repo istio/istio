@@ -1114,6 +1114,7 @@ func TestEndpointMetadata(t *testing.T) {
 		network      string
 		tlsMode      string
 		workloadName string
+		clusterID    string
 		namespace    string
 		labels       labels.Instance
 		want         *core.Metadata
@@ -1123,6 +1124,7 @@ func TestEndpointMetadata(t *testing.T) {
 			tlsMode:      string(model.DisabledTLSModeLabel),
 			network:      "",
 			workloadName: "",
+			clusterID:    "",
 			want:         nil,
 		},
 		{
@@ -1130,6 +1132,7 @@ func TestEndpointMetadata(t *testing.T) {
 			tlsMode:      string(model.IstioMutualTLSModeLabel),
 			network:      "",
 			workloadName: "",
+			clusterID:    "",
 			want: &core.Metadata{
 				FilterMetadata: map[string]*structpb.Struct{
 					EnvoyTransportSocketMetadataKey: {
@@ -1149,6 +1152,7 @@ func TestEndpointMetadata(t *testing.T) {
 			tlsMode:      string(model.IstioMutualTLSModeLabel),
 			network:      "network",
 			workloadName: "",
+			clusterID:    "",
 			want: &core.Metadata{
 				FilterMetadata: map[string]*structpb.Struct{
 					EnvoyTransportSocketMetadataKey: {
@@ -1177,6 +1181,7 @@ func TestEndpointMetadata(t *testing.T) {
 			tlsMode:      string(model.IstioMutualTLSModeLabel),
 			network:      "network",
 			workloadName: "workload",
+			clusterID:    "cluster",
 			namespace:    "default",
 			labels: labels.Instance{
 				model.IstioCanonicalServiceLabelName:         "service",
@@ -1202,7 +1207,7 @@ func TestEndpointMetadata(t *testing.T) {
 							},
 							"workload": {
 								Kind: &structpb.Value_StringValue{
-									StringValue: "workload;default;service;v1",
+									StringValue: "workload;default;service;v1;cluster",
 								},
 							},
 						},
@@ -1215,6 +1220,7 @@ func TestEndpointMetadata(t *testing.T) {
 			tlsMode:      string(model.IstioMutualTLSModeLabel),
 			network:      "network",
 			workloadName: "workload",
+			clusterID:    "cluster",
 			namespace:    "default",
 			want: &core.Metadata{
 				FilterMetadata: map[string]*structpb.Struct{
@@ -1236,7 +1242,7 @@ func TestEndpointMetadata(t *testing.T) {
 							},
 							"workload": {
 								Kind: &structpb.Value_StringValue{
-									StringValue: "workload;default;;",
+									StringValue: "workload;default;;;cluster",
 								},
 							},
 						},
@@ -1247,7 +1253,7 @@ func TestEndpointMetadata(t *testing.T) {
 	}
 	for _, tt := range cases {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := BuildLbEndpointMetadata(tt.network, tt.tlsMode, tt.workloadName, tt.namespace, tt.labels); !reflect.DeepEqual(got, tt.want) {
+			if got := BuildLbEndpointMetadata(tt.network, tt.tlsMode, tt.workloadName, tt.namespace, tt.clusterID, tt.labels); !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("Unexpected Endpoint metadata got %v, want %v", got, tt.want)
 			}
 		})
