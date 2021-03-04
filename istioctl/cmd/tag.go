@@ -51,6 +51,7 @@ overwrite existing revision tags.`
 	tagCreatedStr   = `Revision tag %q created, referencing control plane revision %q. To enable injection using this
 revision tag, use 'kubectl label namespace <NAMESPACE> istio.io/rev=%s'
 `
+	webhookNameHelpStr = "Name to use for a revision tag's mutating webhook configuration."
 )
 
 var (
@@ -59,6 +60,7 @@ var (
 	manifestsPath    = ""
 	overwrite        = false
 	skipConfirmation = false
+	webhookName      = ""
 )
 
 type tagWebhookConfig struct {
@@ -82,17 +84,20 @@ at some later point.
 This allows operators to change which Istio control plane revision should handle injection for a namespace or set of namespaces
 without manual relabeling of the "istio.io/rev" tag.
 `,
-		RunE: func(cmd *cobra.Command, args []string) error {
-			cmd.HelpFunc()(cmd, args)
+		Args: func(cmd *cobra.Command, args []string) error {
 			if len(args) != 0 {
 				return fmt.Errorf("unknown subcommand %q", args[0])
 			}
-
+			return nil
+		},
+		RunE: func(cmd *cobra.Command, args []string) error {
+			cmd.HelpFunc()(cmd, args)
 			return nil
 		},
 	}
 
 	cmd.AddCommand(tagSetCommand())
+	cmd.AddCommand(tagGenerateCommand())
 	cmd.AddCommand(tagListCommand())
 	cmd.AddCommand(tagRemoveCommand())
 
@@ -106,32 +111,34 @@ func tagSetCommand() *cobra.Command {
 		Long: `Create or modify revision tags. Tag an Istio control plane revision for use with namespace istio.io/rev
 injection labels.`,
 		Example: ` # Create a revision tag from the "1-8-0" revision
-	istioctl x tag set prod --revision 1-8-0
+ istioctl x tag set prod --revision 1-8-0
 
-	# Point namespace "test-ns" at the revision pointed to by the "prod" revision tag
-	kubectl label ns test-ns istio.io/rev=prod
+ # Point namespace "test-ns" at the revision pointed to by the "prod" revision tag
+ kubectl label ns test-ns istio.io/rev=prod
 
-	# Change the revision tag to reference the "1-8-1" revision
-	istioctl x tag set prod --revision 1-8-1 --overwrite
+ # Change the revision tag to reference the "1-8-1" revision
+ istioctl x tag set prod --revision 1-8-1 --overwrite
 
-	# Rollout namespace "test-ns" to update workloads to the "1-8-1" revision
-	kubectl rollout restart deployments -n test-ns
+ # Rollout namespace "test-ns" to update workloads to the "1-8-1" revision
+ kubectl rollout restart deployments -n test-ns
 `,
 		SuggestFor: []string{"create"},
-		RunE: func(cmd *cobra.Command, args []string) error {
+		Args: func(cmd *cobra.Command, args []string) error {
 			if len(args) == 0 {
 				return fmt.Errorf("must provide a tag for modification")
 			}
 			if len(args) > 1 {
 				return fmt.Errorf("must provide a single tag for creation")
 			}
-
+			return nil
+		},
+		RunE: func(cmd *cobra.Command, args []string) error {
 			client, err := kubeClient(kubeconfig, configContext)
 			if err != nil {
 				return fmt.Errorf("failed to create Kubernetes client: %v", err)
 			}
 
-			return setTag(context.Background(), client, args[0], revision, cmd.OutOrStdout())
+			return setTag(context.Background(), client, args[0], revision, false, cmd.OutOrStdout())
 		},
 	}
 
@@ -139,6 +146,54 @@ injection labels.`,
 	cmd.PersistentFlags().StringVarP(&manifestsPath, "manifests", "d", "", mesh.ManifestsFlagHelpStr)
 	cmd.PersistentFlags().BoolVarP(&skipConfirmation, "skip-confirmation", "y", false, skipConfirmationFlagHelpStr)
 	cmd.PersistentFlags().StringVarP(&revision, "revision", "r", "", revisionHelpStr)
+	cmd.PersistentFlags().StringVarP(&webhookName, "webhook-name", "", "", webhookNameHelpStr)
+	_ = cmd.MarkPersistentFlagRequired("revision")
+
+	return cmd
+}
+
+func tagGenerateCommand() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "generate <revision-tag>",
+		Short: "Generate configuration for a revision tag to stdout",
+		Long: `Create a revision tag and output to the command's stdout. Tag an Istio control plane revision for use with namespace istio.io/rev
+injection labels.`,
+		Example: ` # Create a revision tag from the "1-8-0" revision
+ istioctl x tag generate prod --revision 1-8-0 > tag.yaml
+
+ # Apply the tag to cluster
+ kubectl apply -f tag.yaml
+
+ # Point namespace "test-ns" at the revision pointed to by the "prod" revision tag
+ kubectl label ns test-ns istio.io/rev=prod
+
+ # Rollout namespace "test-ns" to update workloads to the "1-8-0" revision
+ kubectl rollout restart deployments -n test-ns
+`,
+		Args: func(cmd *cobra.Command, args []string) error {
+			if len(args) == 0 {
+				return fmt.Errorf("must provide a tag for modification")
+			}
+			if len(args) > 1 {
+				return fmt.Errorf("must provide a single tag for creation")
+			}
+			return nil
+		},
+		RunE: func(cmd *cobra.Command, args []string) error {
+			client, err := kubeClient(kubeconfig, configContext)
+			if err != nil {
+				return fmt.Errorf("failed to create Kubernetes client: %v", err)
+			}
+
+			return setTag(context.Background(), client, args[0], revision, true, cmd.OutOrStdout())
+		},
+	}
+
+	cmd.PersistentFlags().BoolVar(&overwrite, "overwrite", false, overrideHelpStr)
+	cmd.PersistentFlags().StringVarP(&manifestsPath, "manifests", "d", "", mesh.ManifestsFlagHelpStr)
+	cmd.PersistentFlags().BoolVarP(&skipConfirmation, "skip-confirmation", "y", false, skipConfirmationFlagHelpStr)
+	cmd.PersistentFlags().StringVarP(&revision, "revision", "r", "", revisionHelpStr)
+	cmd.PersistentFlags().StringVarP(&webhookName, "webhook-name", "", "", webhookNameHelpStr)
 	_ = cmd.MarkPersistentFlagRequired("revision")
 
 	return cmd
@@ -150,11 +205,13 @@ func tagListCommand() *cobra.Command {
 		Short:   "List existing revision tags",
 		Example: "istioctl x tag list",
 		Aliases: []string{"show"},
-		RunE: func(cmd *cobra.Command, args []string) error {
+		Args: func(cmd *cobra.Command, args []string) error {
 			if len(args) != 0 {
 				return fmt.Errorf("tag list command does not accept arguments")
 			}
-
+			return nil
+		},
+		RunE: func(cmd *cobra.Command, args []string) error {
 			client, err := kubeClient(kubeconfig, configContext)
 			if err != nil {
 				return fmt.Errorf("failed to create Kubernetes client: %v", err)
@@ -180,14 +237,16 @@ revision tag before removing using the "istioctl x tag list" command.
 	istioctl x tag remove prod
 `,
 		Aliases: []string{"delete"},
-		RunE: func(cmd *cobra.Command, args []string) error {
+		Args: func(cmd *cobra.Command, args []string) error {
 			if len(args) == 0 {
 				return fmt.Errorf("must provide a tag for removal")
 			}
 			if len(args) > 1 {
 				return fmt.Errorf("must provide a single tag for removal")
 			}
-
+			return nil
+		},
+		RunE: func(cmd *cobra.Command, args []string) error {
 			client, err := kubeClient(kubeconfig, configContext)
 			if err != nil {
 				return fmt.Errorf("failed to create Kubernetes client: %v", err)
@@ -202,13 +261,13 @@ revision tag before removing using the "istioctl x tag list" command.
 }
 
 // setTag creates or modifies a revision tag.
-func setTag(ctx context.Context, kubeClient kube.ExtendedClient, tag, revision string, w io.Writer) error {
+func setTag(ctx context.Context, kubeClient kube.ExtendedClient, tag, revision string, generate bool, w io.Writer) error {
 	// abort if there exists a revision with the target tag name
 	revWebhookCollisions, err := getWebhooksWithRevision(ctx, kubeClient, tag)
 	if err != nil {
 		return err
 	}
-	if len(revWebhookCollisions) > 0 {
+	if !generate && !overwrite && len(revWebhookCollisions) > 0 {
 		return fmt.Errorf("cannot create revision tag %q: found existing control plane revision with same name", tag)
 	}
 
@@ -240,10 +299,21 @@ func setTag(ctx context.Context, kubeClient kube.ExtendedClient, tag, revision s
 	if err != nil {
 		return fmt.Errorf("failed to create tag webhook: %v", err)
 	}
+	// custom webhook name specified, change the generated tag webhook configuration
+	if webhookName != "" {
+		tagWhYAML = renameTagWebhookConfiguration(tagWhYAML, tag, webhookName)
+	}
+	if generate {
+		_, err := w.Write([]byte(tagWhYAML))
+		if err != nil {
+			return err
+		}
+		return nil
+	}
+
 	if err := applyYAML(kubeClient, tagWhYAML, "istio-system"); err != nil {
 		return fmt.Errorf("failed to apply tag webhook MutatingWebhookConfiguration to cluster: %v", err)
 	}
-
 	fmt.Fprintf(w, tagCreatedStr, tag, revision, tag)
 	return nil
 }
@@ -479,6 +549,11 @@ func applyYAML(client kube.ExtendedClient, yamlContent, ns string) error {
 		return fmt.Errorf("failed applying manifest %s: %v", yamlFile, err)
 	}
 	return nil
+}
+
+func renameTagWebhookConfiguration(wh, tag, name string) string {
+	webhookNameStr := fmt.Sprintf("%s-%s", "istio-revision-tag", tag)
+	return strings.ReplaceAll(wh, webhookNameStr, name)
 }
 
 // writeToTempFile taken from remote_secret.go
