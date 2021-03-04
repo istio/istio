@@ -148,7 +148,7 @@ spec:
           - name: "TAINT_CONFIGMAP-NAME"
             value: "istio-cni-taint-configmap"
           - name: "TAINT_CONFIGMAP-NAMESPACE"
-            value: "kube-system"
+            value: {{ .Release.Namespace | quote }}
 {{- end }}
       volumes:
         # Used to install CNI.
