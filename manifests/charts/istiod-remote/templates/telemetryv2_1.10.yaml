@@ -225,14 +225,6 @@ spec:
                     {
                       "debug": "false",
                       "stat_prefix": "istio",
-                      "metrics": [
-                        {
-                          "dimensions": {
-                            "source_cluster": "node.metadata['CLUSTER_ID']",
-                            "destination_cluster": "upstream_peer.cluster_id"
-                          }
-                        }
-                      ]
                     }
                     {{- else }}
                     {{ toJson .Values.telemetry.v2.prometheus.configOverride.outboundSidecar | indent 18 }}
@@ -334,14 +326,6 @@ spec:
                       "debug": "false",
                       "stat_prefix": "istio",
                       "disable_host_header_fallback": true,
-                      "metrics": [
-                        {
-                          "dimensions": {
-                            "source_cluster": "node.metadata['CLUSTER_ID']",
-                            "destination_cluster": "upstream_peer.cluster_id"
-                          }
-                        }
-                      ]
                     }
                     {{- else }}
                     {{ toJson .Values.telemetry.v2.prometheus.configOverride.gateway | indent 18 }}
@@ -453,14 +437,6 @@ spec:
                     {
                       "debug": "false",
                       "stat_prefix": "istio",
-                      "metrics": [
-                        {
-                          "dimensions": {
-                            "source_cluster": "node.metadata['CLUSTER_ID']",
-                            "destination_cluster": "upstream_peer.cluster_id"
-                          }
-                        }
-                      ]
                     }
                     {{- else }}
                     {{ toJson .Values.telemetry.v2.prometheus.configOverride.outboundSidecar | indent 18 }}
@@ -505,14 +481,6 @@ spec:
                     {
                       "debug": "false",
                       "stat_prefix": "istio",
-                      "metrics": [
-                        {
-                          "dimensions": {
-                            "source_cluster": "node.metadata['CLUSTER_ID']",
-                            "destination_cluster": "upstream_peer.cluster_id"
-                          }
-                        }
-                      ]
                     }
                     {{- else }}
                     {{ toJson .Values.telemetry.v2.prometheus.configOverride.gateway | indent 18 }}

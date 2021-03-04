@@ -1349,14 +1349,6 @@ spec:
                     {
                       "debug": "false",
                       "stat_prefix": "istio",
-                      "metrics": [
-                        {
-                          "dimensions": {
-                            "source_cluster": "node.metadata['CLUSTER_ID']",
-                            "destination_cluster": "upstream_peer.cluster_id"
-                          }
-                        }
-                      ]
                     }
                 vm_config:
                   vm_id: stats_outbound
@@ -1434,14 +1426,6 @@ spec:
                       "debug": "false",
                       "stat_prefix": "istio",
                       "disable_host_header_fallback": true,
-                      "metrics": [
-                        {
-                          "dimensions": {
-                            "source_cluster": "node.metadata['CLUSTER_ID']",
-                            "destination_cluster": "upstream_peer.cluster_id"
-                          }
-                        }
-                      ]
                     }
                 vm_config:
                   vm_id: stats_outbound
@@ -1526,14 +1510,6 @@ spec:
                     {
                       "debug": "false",
                       "stat_prefix": "istio",
-                      "metrics": [
-                        {
-                          "dimensions": {
-                            "source_cluster": "node.metadata['CLUSTER_ID']",
-                            "destination_cluster": "upstream_peer.cluster_id"
-                          }
-                        }
-                      ]
                     }
                 vm_config:
                   vm_id: tcp_stats_outbound
@@ -1566,14 +1542,6 @@ spec:
                     {
                       "debug": "false",
                       "stat_prefix": "istio",
-                      "metrics": [
-                        {
-                          "dimensions": {
-                            "source_cluster": "node.metadata['CLUSTER_ID']",
-                            "destination_cluster": "upstream_peer.cluster_id"
-                          }
-                        }
-                      ]
                     }
                 vm_config:
                   vm_id: tcp_stats_outbound
