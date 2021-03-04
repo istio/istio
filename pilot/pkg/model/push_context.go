@@ -623,7 +623,8 @@ func virtualServiceDestinations(v *networking.VirtualService) []*networking.Dest
 func (ps *PushContext) GatewayServices(proxy *Proxy) []*Service {
 	svcs := ps.Services(proxy)
 	// host set.
-	hostsFromGateways := map[string]bool{}
+	hostsFromGateways := map[string]struct{}{}
+
 	// MergedGateway will be nil when there are no configs in the
 	// system during initial installation.
 	if proxy.MergedGateway == nil {
@@ -639,7 +640,7 @@ func (ps *PushContext) GatewayServices(proxy *Proxy) []*Service {
 			}
 
 			for _, d := range virtualServiceDestinations(vs) {
-				hostsFromGateways[d.Host] = false
+				hostsFromGateways[d.Host] = struct{}{}
 			}
 		}
 	}
@@ -652,21 +653,6 @@ func (ps *PushContext) GatewayServices(proxy *Proxy) []*Service {
 		svcHost := string(s.Hostname)
 		if _, ok := hostsFromGateways[svcHost]; ok {
 			gwSvcs = append(gwSvcs, s)
-			hostsFromGateways[svcHost] = true
-		}
-	}
-
-	if len(hostsFromGateways) != len(gwSvcs) {
-		// This means that we have not found clusters for all gateway hosts.
-		for svc, found := range hostsFromGateways {
-			if !found {
-				service, err := ps.ServiceDiscovery.GetService(host.Name(svc))
-				if service == nil || err != nil {
-					log.Warnf("Service %s does not exist, but is referred in gateway virtual service :%s", svc, proxy.ID)
-					continue
-				}
-				gwSvcs = append(gwSvcs, service)
-			}
 		}
 	}
 
