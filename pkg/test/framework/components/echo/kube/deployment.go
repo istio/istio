@@ -97,7 +97,7 @@ spec:
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-{{- if $.IsCrossVersion }}
+{{- if $.IsMultiVersion }}
   name: {{ $.Service }}-{{ $subset.Version }}-{{ $revision }}
 {{- else }}
   name: {{ $.Service }}-{{ $subset.Version }}
@@ -116,7 +116,7 @@ spec:
       labels:
         app: {{ $.Service }}
         version: {{ $subset.Version }}
-{{- if $.IsCrossVersion }}
+{{- if $.IsMultiVersion }}
         istio.io/rev: {{ $revision }}
 {{- end }}
 {{- if ne $.Locality "" }}
