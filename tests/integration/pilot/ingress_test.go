@@ -269,7 +269,7 @@ spec:
 
 			ctx.NewSubTest("status").Run(func(ctx framework.TestContext) {
 				if !ctx.Environment().(*kube.Environment).Settings().LoadBalancerSupported {
-					t.Skip("ingress status not supported without load balancer")
+					ctx.Skip("ingress status not supported without load balancer")
 				}
 
 				ip := apps.Ingress.HTTPAddress().IP.String()

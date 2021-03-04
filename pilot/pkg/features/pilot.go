@@ -423,4 +423,13 @@ var (
 	WasmRemoteLoadConversion = env.RegisterBoolVar("ISTIO_AGENT_ENABLE_WASM_REMOTE_LOAD_CONVERSION", true,
 		"If enabled, Istio agent will intercept ECDS resource update, downloads Wasm module, "+
 			"and replaces Wasm module remote load with downloaded local module file.").Get()
+
+	// EnableUnsafeAssertions enables runtime checks to test assertions in our code. This should never be enabled in
+	// production; when assertions fail Istio will panic.
+	EnableUnsafeAssertions = env.RegisterBoolVar(
+		"PILOT_ENABLE_UNSAFE_RUNTIME_ASSERTIONS",
+		false,
+		"If enabled, addition runtime asserts will be performed. "+
+			"These checks are both expensive and panic on failure. As a result, this should be used only for testing.",
+	).Get()
 )
