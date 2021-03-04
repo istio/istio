@@ -81,12 +81,12 @@ type Settings struct {
 	// Skip VM related parts for all the tests.
 	SkipVM bool
 
-	// Versions are the Istio versions that are available to each cluster.
+	// IstioVersions are the Istio versions that are available to each cluster.
 	// In the future these versions should be automatically deployed to each primary cluster, but for now,
 	// this flag must be used with --istio.test.kube.deploy=false with the versions pre-installed.
 	// The versions should be passed in as comma-separated values, such as "1.7.3,1.8.2,1.9.0", and the test framework will
 	// spin up echo deployments pods with "istio.io/rev=1.7.3", "istio.io/rev=1.8.2", and "istio.io/rev=1.9.0" respectively.
-	Versions IstioVersions
+	IstioVersions IstioVersions
 }
 
 // RunDir is the name of the dir to output, for this particular run.
@@ -131,6 +131,6 @@ func (s *Settings) String() string {
 	result += fmt.Sprintf("StableNamespaces:  %v\n", s.StableNamespaces)
 	result += fmt.Sprintf("Revision:          %v\n", s.Revision)
 	result += fmt.Sprintf("SkipVM:            %v\n", s.SkipVM)
-	result += fmt.Sprintf("Versions:          %v\n", s.Versions)
+	result += fmt.Sprintf("IstioVersions:          %v\n", s.IstioVersions)
 	return result
 }

@@ -51,7 +51,7 @@ func SettingsFromCommandLine(testID string) (*Settings, error) {
 				" -istio.test.deprecation_failure must not be used at the same time")
 	}
 
-	if s.Revision != "" && s.Versions != nil {
+	if s.Revision != "" && s.IstioVersions != nil {
 		return nil,
 			fmt.Errorf("cannot use --istio.test.revision and --istio.test.versions at the same time," +
 				" --istio.test.versions will take precedence and --istio.test.revision will be ignored")
@@ -95,7 +95,7 @@ func init() {
 	flag.BoolVar(&settingsFromCommandLine.SkipVM, "istio.test.skipVM", settingsFromCommandLine.SkipVM,
 		"Skip VM related parts in all tests.")
 
-	flag.Var(&settingsFromCommandLine.Versions, "istio.test.versions", "Istio CP versions available to the test framework.")
+	flag.Var(&settingsFromCommandLine.IstioVersions, "istio.test.versions", "Istio CP versions available to the test framework.")
 }
 
 type arrayFlags []string

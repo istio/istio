@@ -74,8 +74,8 @@ func (v IstioVersions) Minimum() IstioVersion {
 	return min
 }
 
-// IsCrossVersion returns whether the associated IstioVersions have multiple specified versions.
-func (v IstioVersions) IsCrossVersion() bool {
+// IsMultiVersion returns whether the associated IstioVersions have multiple specified versions.
+func (v IstioVersions) IsMultiVersion() bool {
 	return v != nil && len(v) > 0
 }
 
