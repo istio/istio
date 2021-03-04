@@ -31,6 +31,8 @@ const (
 	Public Instance = "*"
 	// None implies service is visible to no one. Used for services only
 	None Instance = "~"
+	// Gateway implies service is visible to gateway. Used for services only
+	Gateway Instance = "gateway"
 )
 
 // Validate a visibility value ( ./*/~/some namespace name which is DNS1123 label)

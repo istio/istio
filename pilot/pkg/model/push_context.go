@@ -54,6 +54,9 @@ type serviceIndex struct {
 	privateByNamespace map[string][]*Service
 	// public are services reachable within the mesh with exportTo "*"
 	public []*Service
+	// gateway are services that are exposed to gateway for using them in Envoy filters for example.
+	// with exportTo "gateway"
+	gateway []*Service
 	// exportedToNamespace are services that were made visible to this namespace
 	// by an exportTo explicitly specifying this namespace.
 	exportedToNamespace map[string][]*Service
@@ -70,6 +73,7 @@ type serviceIndex struct {
 func newServiceIndex() serviceIndex {
 	return serviceIndex{
 		public:               []*Service{},
+		gateway:              []*Service{},
 		privateByNamespace:   map[string][]*Service{},
 		exportedToNamespace:  map[string][]*Service{},
 		HostnameAndNamespace: map[host.Name]map[string]*Service{},
@@ -622,43 +626,40 @@ func virtualServiceDestinations(v *networking.VirtualService) []*networking.Dest
 // GatewayServices returns the set of services which are referred from the proxy gateways.
 func (ps *PushContext) GatewayServices(proxy *Proxy) []*Service {
 	svcs := ps.Services(proxy)
-	// host set.
 	hostsFromGateways := map[string]struct{}{}
 
 	// MergedGateway will be nil when there are no configs in the
 	// system during initial installation.
-	if proxy.MergedGateway == nil {
-		return nil
-	}
-
-	for _, gw := range proxy.MergedGateway.GatewayNameForServer {
-		for _, vsConfig := range ps.VirtualServicesForGateway(proxy, gw) {
-			vs, ok := vsConfig.Spec.(*networking.VirtualService)
-			if !ok { // should never happen
-				log.Errorf("Failed in getting a virtual service: %v", vsConfig.Labels)
-				return svcs
-			}
-
-			for _, d := range virtualServiceDestinations(vs) {
-				hostsFromGateways[d.Host] = struct{}{}
+	if proxy.MergedGateway != nil {
+		for _, gw := range proxy.MergedGateway.GatewayNameForServer {
+			for _, vsConfig := range ps.VirtualServicesForGateway(proxy, gw) {
+				vs, _ := vsConfig.Spec.(*networking.VirtualService)
+				for _, d := range virtualServiceDestinations(vs) {
+					hostsFromGateways[d.Host] = struct{}{}
+				}
 			}
 		}
 	}
-
 	log.Debugf("GatewayServices: gateway %v is exposing these hosts:%v", proxy.ID, hostsFromGateways)
 
 	gwSvcs := make([]*Service, 0, len(svcs))
-
-	for _, s := range svcs {
-		svcHost := string(s.Hostname)
-
-		if _, ok := hostsFromGateways[svcHost]; ok {
-			gwSvcs = append(gwSvcs, s)
+	// Add VS defined hosts for gateways.
+	if len(hostsFromGateways) > 0 {
+		for _, s := range svcs {
+			if _, ok := hostsFromGateways[string(s.Hostname)]; ok {
+				gwSvcs = append(gwSvcs, s)
+			}
 		}
 	}
 
+	// Add gateway exported services.
+	for _, s := range ps.ServiceIndex.gateway {
+		// Add if it is not already added above.
+		if _, added := hostsFromGateways[string(s.Hostname)]; !added {
+			gwSvcs = append(gwSvcs, s)
+		}
+	}
 	log.Debugf("GatewayServices:: gateways len(services)=%d, len(filtered)=%d", len(svcs), len(gwSvcs))
-
 	return gwSvcs
 }
 
@@ -1157,15 +1158,18 @@ func (ps *PushContext) initServiceRegistry(env *Environment) error {
 			}
 		} else {
 			// if service has exportTo ~ - i.e. not visible to anyone, ignore all exportTos
+			if s.Attributes.ExportTo[visibility.None] {
+				continue
+			}
+			// if service has exportTo gateway, make it available to gateway
+			if s.Attributes.ExportTo[visibility.Gateway] {
+				ps.ServiceIndex.gateway = append(ps.ServiceIndex.gateway, s)
+			}
 			// if service has exportTo *, make public and ignore all other exportTos
-			// if service has exportTo ., replace with current namespace
 			if s.Attributes.ExportTo[visibility.Public] {
 				ps.ServiceIndex.public = append(ps.ServiceIndex.public, s)
-				continue
-			} else if s.Attributes.ExportTo[visibility.None] {
-				continue
 			} else {
-				// . or other namespaces
+				// if service has exportTo ., replace with current namespace
 				for exportTo := range s.Attributes.ExportTo {
 					if exportTo == visibility.Private || string(exportTo) == ns {
 						// exportTo with same namespace is effectively private
