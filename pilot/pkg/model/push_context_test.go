@@ -1282,7 +1282,7 @@ func TestVirtualServiceWithExportTo(t *testing.T) {
 	store := istioConfigStore{ConfigStore: configStore}
 	env.IstioConfigStore = &store
 	ps.initDefaultExportMaps()
-	if err := ps.initVirtualServices(env); err != nil {
+	if err := ps.initVirtualServices(env, true); err != nil {
 		t.Fatalf("init virtual services failed: %v", err)
 	}
 
@@ -1421,7 +1421,7 @@ func TestInitVirtualService(t *testing.T) {
 	store := istioConfigStore{ConfigStore: configStore}
 	env.IstioConfigStore = &store
 	ps.initDefaultExportMaps()
-	if err := ps.initVirtualServices(env); err != nil {
+	if err := ps.initVirtualServices(env, true); err != nil {
 		t.Fatalf("init virtual services failed: %v", err)
 	}
 

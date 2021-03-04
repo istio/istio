@@ -999,7 +999,7 @@ func (ps *PushContext) createNewContext(env *Environment) error {
 		return err
 	}
 
-	if err := ps.initVirtualServices(env); err != nil {
+	if err := ps.initVirtualServices(env, true); err != nil {
 		return err
 	}
 
@@ -1075,7 +1075,7 @@ func (ps *PushContext) updateContext(
 	}
 
 	if virtualServicesChanged {
-		if err := ps.initVirtualServices(env); err != nil {
+		if err := ps.initVirtualServices(env, servicesChanged); err != nil {
 			return err
 		}
 	} else {
@@ -1229,7 +1229,7 @@ func (ps *PushContext) initAuthnPolicies(env *Environment) error {
 }
 
 // Caches list of virtual services
-func (ps *PushContext) initVirtualServices(env *Environment) error {
+func (ps *PushContext) initVirtualServices(env *Environment, servicesRefreshed bool) error {
 	ps.virtualServiceIndex.exportedToNamespaceByGateway = map[string]map[string][]config.Config{}
 	ps.virtualServiceIndex.privateByNamespaceAndGateway = map[string]map[string][]config.Config{}
 	ps.virtualServiceIndex.publicByGateway = map[string][]config.Config{}
@@ -1261,11 +1261,21 @@ func (ps *PushContext) initVirtualServices(env *Environment) error {
 	}
 
 	vservices, ps.virtualServiceIndex.delegates = mergeVirtualServicesIfNeeded(vservices, ps.exportToDefaults.virtualService)
-
+	refreshServices := false
 	for _, virtualService := range vservices {
 		ns := virtualService.Namespace
 		rule := virtualService.Spec.(*networking.VirtualService)
 		gwNames := getGatewayNames(rule, virtualService.Meta)
+		if features.FilterGatewayClusterConfig {
+			for _, gw := range gwNames {
+				// Check if a virtual service with gateway is updated. If it updated and
+				// if filter gateway cluster config is enabled, we need to refresh services
+				// so that new clusters would go to gateways.
+				if gw != constants.IstioMeshGateway {
+					refreshServices = true
+				}
+			}
+		}
 		if len(rule.ExportTo) == 0 {
 			// No exportTo in virtualService. Use the global default
 			// We only honor ., *
@@ -1321,6 +1331,12 @@ func (ps *PushContext) initVirtualServices(env *Environment) error {
 					}
 				}
 			}
+		}
+	}
+
+	if refreshServices && !servicesRefreshed {
+		if err := ps.initServiceRegistry(env); err != nil {
+			return err
 		}
 	}
 
