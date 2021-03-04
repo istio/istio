@@ -484,19 +484,19 @@ func TestInstallPackagePath(t *testing.T) {
 		{
 			// Use some arbitrary small test input (pilot only) since we are testing the local filesystem code here, not
 			// manifest generation.
-			desc:       "install_package_path",
+			desc:       "install_package_path_live",
 			diffSelect: "Deployment:*:istiod",
 			flags:      "--set installPackagePath=" + string(liveCharts),
 		},
 		{
 			// Specify both charts and profile from local filesystem.
-			desc:       "install_package_path",
+			desc:       "install_package_path_profile",
 			diffSelect: "Deployment:*:istiod",
 			flags:      fmt.Sprintf("--set installPackagePath=%s --set profile=%s/profiles/default.yaml", string(liveCharts), string(liveCharts)),
 		},
 		{
 			// --force is needed for version mismatch.
-			desc:       "install_package_path",
+			desc:       "install_package_path_url",
 			diffSelect: "Deployment:*:istiod",
 			flags:      "--force --set installPackagePath=" + srv.URL() + "/" + testTGZFilename,
 		},
