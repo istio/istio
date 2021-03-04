@@ -228,14 +228,6 @@ var (
 			"To ensure proper security, PILOT_ENABLE_XDS_IDENTITY_CHECK=true is required as well.",
 	).Get()
 
-	EnableCRDValidation = env.RegisterBoolVar(
-		"PILOT_ENABLE_CRD_VALIDATION",
-		false,
-		"If enabled, pilot will validate CRDs while retrieving CRDs from kubernetes cache."+
-			"Use this flag to enable validation of CRDs in Pilot, especially in deployments "+
-			"that do not have galley installed.",
-	).Get()
-
 	EnableAnalysis = env.RegisterBoolVar(
 		"PILOT_ENABLE_ANALYSIS",
 		false,
