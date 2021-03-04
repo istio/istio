@@ -652,6 +652,25 @@ func TestApplyListenerPatches(t *testing.T) {
 									"tls_minimum_protocol_version":"TLSv1_2"}}}}}`),
 			},
 		},
+		{
+			ApplyTo: networking.EnvoyFilter_NETWORK_FILTER,
+			Match: &networking.EnvoyFilter_EnvoyConfigObjectMatch{
+				ObjectTypes: &networking.EnvoyFilter_EnvoyConfigObjectMatch_Listener{
+					Listener: &networking.EnvoyFilter_ListenerMatch{
+						Name: VirtualInboundListenerName,
+						FilterChain: &networking.EnvoyFilter_ListenerMatch_FilterChainMatch{
+							Name: "filter-chain-name-match",
+							Filter: &networking.EnvoyFilter_ListenerMatch_FilterMatch{
+								Name: "custom-network-filter-2",
+							},
+						},
+					},
+				},
+			},
+			Patch: &networking.EnvoyFilter_Patch{
+				Operation: networking.EnvoyFilter_Patch_REMOVE,
+			},
+		},
 	}
 
 	sidecarOutboundIn := []*listener.Listener{
@@ -1241,6 +1260,20 @@ func TestApplyListenerPatches(t *testing.T) {
 					},
 				},
 				{
+					Name: "filter-chain-name-not-match",
+					Filters: []*listener.Filter{
+						{Name: "custom-network-filter-1"},
+						{Name: "custom-network-filter-2"},
+					},
+				},
+				{
+					Name: "filter-chain-name-match",
+					Filters: []*listener.Filter{
+						{Name: "custom-network-filter-1"},
+						{Name: "custom-network-filter-2"},
+					},
+				},
+				{
 					Name:             "catch-all",
 					FilterChainMatch: &listener.FilterChainMatch{},
 					Filters: []*listener.Filter{
@@ -1332,6 +1365,19 @@ func TestApplyListenerPatches(t *testing.T) {
 								}),
 							},
 						},
+					},
+				},
+				{
+					Name: "filter-chain-name-not-match",
+					Filters: []*listener.Filter{
+						{Name: "custom-network-filter-1"},
+						{Name: "custom-network-filter-2"},
+					},
+				},
+				{
+					Name: "filter-chain-name-match",
+					Filters: []*listener.Filter{
+						{Name: "custom-network-filter-1"},
 					},
 				},
 				{
