@@ -370,15 +370,12 @@ else
   DISABLED_TESTS+="|TestRevisionedUpgrade" # UNSUPPORTED: OSS Control Plane upgrade is not supported by MCP.
   DISABLED_TESTS+="|TestCustomGateway" # UNSUPPORTED: wait for John to check in the missing code.
   # telemetry/ tests
-  DISABLED_TESTS+="|TestStackdriverAudit|TestStackdriverHTTPAuditLogging" # UNKNOWN
-  DISABLED_TESTS+="|TestIstioctlMetrics" # UNKNOWN
-  DISABLED_TESTS+="|TestStatsFilter" # UNKNOWN
-  DISABLED_TESTS+="|TestTcpMetric" # UNKNOWN
-  DISABLED_TESTS+="|TestBadWasmRemoteLoad" # UNKNOWN
-  DISABLED_TESTS+="|TestWasmStatsFilter" # UNKNOWN
-  DISABLED_TESTS+="|TestWASMTcpMetric" # UNKNOWN
+  DISABLED_TESTS+="|TestStackdriverAudit|TestStackdriverHTTPAuditLogging" # UNSUPPORTED: Relies on customized installation of the stackdriver envoyfilter.
+  DISABLED_TESTS+="|TestIstioctlMetrics" # UNSUPPORTED: istioctl doesn't work
+  DISABLED_TESTS+="|TestBadWasmRemoteLoad|TestWasmStatsFilter|TestWASMTcpMetric" # UNSUPPORTED Relies on enabling WASM during installation.
   DISABLED_TESTS+="|TestDashboard" # UNSUPPORTED: Relies on istiod in cluster. TODO: filter out only pilot-dashboard.json
-  DISABLED_TESTS+="|TestCustomizeMetrics|TestProxyTracing|TestClientTracing|TestStackdriverMonitoring|TestTCPStackdriverMonitoring|TestRateLimiting" # UNKNOWN
+  DISABLED_TESTS+="|TestProxyTracing|TestClientTracing|TestRateLimiting" # NOT SUPPORTED: requires customized meshConfig setting
+  DISABLED_TESTS+="|TestCustomizeMetrics" # NOT SUPPORTED: Replies on customization on the stats envoyFilter
   DISABLED_TESTS+="|TestOutboundTrafficPolicy" # UNSUPPORTED: Relies on egress gateway deployed to the cluster. TODO: filter out only Traffic_Egress
   # security/ tests
   DISABLED_TESTS+="|TestAuthorization_IngressGateway" # UNKNOWN
@@ -406,6 +403,8 @@ else
 
   if [[ "${CLUSTER_TOPOLOGY}" == "SINGLECLUSTER" || "${CLUSTER_TOPOLOGY}" == "sc" ]]; then
     echo "Running integration test with ASM managed control plane and ${CLUSTER_TOPOLOGY} topology"
+
+    DISABLED_TESTS+="|TestStackdriverMonitoring" # NOT NEEDED (duplication): This one uses fake stackdriver. Multi-cluster MCP telemetry tests uses real stackdriver.
 
     export DISABLED_PACKAGES
     TAG="latest" HUB="gcr.io/istio-testing" \
