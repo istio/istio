@@ -395,4 +395,13 @@ var (
 	PilotEnableLoopBlockers = env.RegisterBoolVar("PILOT_ENABLE_LOOP_BLOCKER", true,
 		"If enabled, Envoy will be configured to prevent traffic directly the the inbound/outbound "+
 			"ports (15001/15006). This prevents traffic loops. This option will be removed, and considered always enabled, in 1.9.").Get()
+
+	// EnableUnsafeAssertions enables runtime checks to test assertions in our code. This should never be enabled in
+	// production; when assertions fail Istio will panic.
+	EnableUnsafeAssertions = env.RegisterBoolVar(
+		"PILOT_ENABLE_UNSAFE_RUNTIME_ASSERTIONS",
+		false,
+		"If enabled, addition runtime asserts will be performed. "+
+			"These checks are both expensive and panic on failure. As a result, this should be used only for testing.",
+	).Get()
 )
