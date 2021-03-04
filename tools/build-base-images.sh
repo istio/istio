@@ -19,7 +19,7 @@
 
 set -ex
 
-HUBS="${HUBS:?specify a comma seperated list of hubs}"
+HUBS="${HUBS:?specify a space seperated list of hubs}"
 TAG="${TAG:?specify a tag}"
 
 # For multi architecture building:
@@ -29,7 +29,4 @@ TAG="${TAG:?specify a tag}"
 # * export DOCKER_ARCHITECTURES="linux/amd64,linux/arm64"
 # Note: if you already have a container builder before running the qemu setup you will need to restart them
 
-for hub in ${HUBS//,/ }
-do
-  HUB=${hub} BUILDX_BAKE_EXTRA_OPTIONS="--no-cache --pull" DOCKER_TARGETS="docker.base docker.distroless docker.app_sidecar_base_debian_9 docker.app_sidecar_base_debian_10 docker.app_sidecar_base_ubuntu_xenial docker.app_sidecar_base_ubuntu_bionic docker.app_sidecar_base_ubuntu_focal docker.app_sidecar_base_centos_7 docker.app_sidecar_base_centos_8" make dockerx.pushx
-done
+BUILDX_BAKE_EXTRA_OPTIONS="--no-cache --pull" DOCKER_TARGETS="docker.base docker.distroless docker.app_sidecar_base_debian_9 docker.app_sidecar_base_debian_10 docker.app_sidecar_base_ubuntu_xenial docker.app_sidecar_base_ubuntu_bionic docker.app_sidecar_base_ubuntu_focal docker.app_sidecar_base_centos_7 docker.app_sidecar_base_centos_8" make dockerx.pushx

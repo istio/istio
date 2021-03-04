@@ -87,11 +87,19 @@ for file in "$@"; do
       VM_IMAGE_VERSION="${split[-1]}"
     fi
 
+    # Create a list of tags by iterating over HUBs
+    tags=""
+    for hub in ${HUBS};
+    do
+      tags=${tags}"\"${hub}/${image}:${tag}\", "
+    done
+    tags="${tags%, *}" # remove training ', '
+
     cat <<EOF >> "${config}"
 target "$image-$variant" {
     context = "${out}/${file}"
     dockerfile = "Dockerfile.$image"
-    tags = ["${HUB}/${image}:${tag}"]
+    tags = [${tags}]
     platforms = [$(to_platform_list "${image}" "${DOCKER_ARCHITECTURES}")]
     args = {
       BASE_VERSION = "${BASE_VERSION}"

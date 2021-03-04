@@ -185,6 +185,9 @@ ifeq ($(HUB),)
   $(error "HUB cannot be empty")
 endif
 
+# For dockerx builds, allow HUBS which is a space seperated list of hubs. Default to HUB.
+HUBS ?= $(HUB)
+
 # If tag not explicitly set in users' .istiorc.mk or command line, default to the git sha.
 TAG ?= $(shell git rev-parse --verify HEAD)
 ifeq ($(TAG),)
