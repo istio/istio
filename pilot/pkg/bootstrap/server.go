@@ -179,9 +179,6 @@ type Server struct {
 	// duration used for graceful shutdown.
 	shutdownDuration time.Duration
 
-	// The SPIFFE based cert verifier
-	peerCertVerifier *spiffe.PeerCertVerifier
-
 	statusReporter *status.Reporter
 	// RWConfigStore is the configstore which allows updates, particularly for status.
 	RWConfigStore model.ConfigStoreCache
@@ -275,11 +272,6 @@ func NewServer(args *PilotArgs) (*Server, error) {
 
 	// Create Istiod certs and setup watches.
 	if err := s.initIstiodCerts(args, string(istiodHost)); err != nil {
-		return nil, err
-	}
-
-	// Initialize the SPIFFE peer cert verifier.
-	if err := s.setPeerCertVerifier(args.ServerOptions.TLSOptions); err != nil {
 		return nil, err
 	}
 
@@ -707,7 +699,11 @@ func (s *Server) initSecureDiscoveryService(args *PilotArgs) error {
 		return nil
 	}
 
-	if s.peerCertVerifier == nil {
+	peerCertVerifier, err := s.createPeerCertVerifier(args.ServerOptions.TLSOptions)
+	if err != nil {
+		return err
+	}
+	if peerCertVerifier == nil {
 		// Running locally without configured certs - no TLS mode
 		log.Warnf("The secure discovery service is disabled")
 		return nil
@@ -717,9 +713,9 @@ func (s *Server) initSecureDiscoveryService(args *PilotArgs) error {
 	cfg := &tls.Config{
 		GetCertificate: s.getIstiodCertificate,
 		ClientAuth:     tls.VerifyClientCertIfGiven,
-		ClientCAs:      s.peerCertVerifier.GetGeneralCertPool(),
+		ClientCAs:      peerCertVerifier.GetGeneralCertPool(),
 		VerifyPeerCertificate: func(rawCerts [][]byte, verifiedChains [][]*x509.Certificate) error {
-			err := s.peerCertVerifier.VerifyPeerCert(rawCerts, verifiedChains)
+			err := peerCertVerifier.VerifyPeerCert(rawCerts, verifiedChains)
 			if err != nil {
 				log.Infof("Could not verify certificate: %v", err)
 			}
@@ -1048,18 +1044,18 @@ func (s *Server) getCertKeyPaths(tlsOptions TLSOptions) (string, string) {
 	return key, cert
 }
 
-// setPeerCertVerifier sets up a SPIFFE certificate verifier with the current istiod configuration.
-func (s *Server) setPeerCertVerifier(tlsOptions TLSOptions) error {
+// createPeerCertVerifier creates a SPIFFE certificate verifier with the current istiod configuration.
+func (s *Server) createPeerCertVerifier(tlsOptions TLSOptions) (*spiffe.PeerCertVerifier, error) {
 	if tlsOptions.CaCertFile == "" && s.CA == nil && features.SpiffeBundleEndpoints == "" {
 		// Running locally without configured certs - no TLS mode
-		return nil
+		return nil, nil
 	}
-	s.peerCertVerifier = spiffe.NewPeerCertVerifier()
+	peerCertVerifier := spiffe.NewPeerCertVerifier()
 	var rootCertBytes []byte
 	var err error
 	if tlsOptions.CaCertFile != "" {
 		if rootCertBytes, err = ioutil.ReadFile(tlsOptions.CaCertFile); err != nil {
-			return err
+			return nil, err
 		}
 	} else {
 		if s.RA != nil {
@@ -1071,10 +1067,9 @@ func (s *Server) setPeerCertVerifier(tlsOptions TLSOptions) error {
 	}
 
 	if len(rootCertBytes) != 0 {
-		err := s.peerCertVerifier.AddMappingFromPEM(spiffe.GetTrustDomain(), rootCertBytes)
+		err := peerCertVerifier.AddMappingFromPEM(spiffe.GetTrustDomain(), rootCertBytes)
 		if err != nil {
-			log.Errorf("Add Root CAs into peerCertVerifier failed: %v", err)
-			return fmt.Errorf("add root CAs into peerCertVerifier failed: %v", err)
+			return nil, fmt.Errorf("add root CAs into peerCertVerifier failed: %v", err)
 		}
 	}
 
@@ -1082,12 +1077,12 @@ func (s *Server) setPeerCertVerifier(tlsOptions TLSOptions) error {
 		certMap, err := spiffe.RetrieveSpiffeBundleRootCertsFromStringInput(
 			features.SpiffeBundleEndpoints, []*x509.Certificate{})
 		if err != nil {
-			return err
+			return nil, err
 		}
-		s.peerCertVerifier.AddMappings(certMap)
+		peerCertVerifier.AddMappings(certMap)
 	}
 
-	return nil
+	return peerCertVerifier, nil
 }
 
 // hasCustomTLSCerts returns true if custom TLS certificates are configured via args.
