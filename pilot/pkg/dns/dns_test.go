@@ -32,7 +32,7 @@ import (
 var testAgentDNSAddr = "127.0.0.1:15053"
 
 func TestDNS(t *testing.T) {
-	initDNS(t)
+	srv := initDNS(t)
 	testCases := []struct {
 		name                     string
 		host                     string
@@ -199,7 +199,7 @@ func TestDNS(t *testing.T) {
 	dns.Id = func() uint16 {
 		return uint16(currentID.Inc())
 	}
-	defer func() { dns.Id = oldID }()
+	defer func() { srv.Close(); dns.Id = oldID }()
 	for i := range clients {
 		for _, tt := range testCases {
 			// Test is for explicit network
