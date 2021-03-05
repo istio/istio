@@ -1058,6 +1058,26 @@ func TestCidrRangeSliceEqual(t *testing.T) {
 			true,
 		},
 		{
+			"equal cidr with different insignificant bits",
+			[]*core.CidrRange{
+				{
+					AddressPrefix: "1.2.3.4",
+					PrefixLen: &wrappers.UInt32Value{
+						Value: 24,
+					},
+				},
+			},
+			[]*core.CidrRange{
+				{
+					AddressPrefix: "1.2.3.5",
+					PrefixLen: &wrappers.UInt32Value{
+						Value: 24,
+					},
+				},
+			},
+			true,
+		},
+		{
 			"unequal cidr address prefix mismatch",
 			[]*core.CidrRange{
 				{

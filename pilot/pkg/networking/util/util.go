@@ -645,12 +645,28 @@ func CidrRangeSliceEqual(a, b []*core.CidrRange) bool {
 	}
 
 	for i := range a {
-		if a[i].GetAddressPrefix() != b[i].GetAddressPrefix() || a[i].GetPrefixLen().GetValue() != b[i].GetPrefixLen().GetValue() {
+		netA, err := toIPNet(a[i])
+		if err != nil {
+			return false
+		}
+		netB, err := toIPNet(b[i])
+		if err != nil {
+			return false
+		}
+		if netA.IP.String() != netB.IP.String() {
 			return false
 		}
 	}
 
 	return true
+}
+
+func toIPNet(c *core.CidrRange) (*net.IPNet, error) {
+	_, cA, err := net.ParseCIDR(c.AddressPrefix + "/" + strconv.Itoa(int(c.PrefixLen.GetValue())))
+	if err != nil {
+		log.Errorf("failed to parse CidrRange %v as IPNet: %v", c, err)
+	}
+	return cA, err
 }
 
 // meshconfig ForwardClientCertDetails and the Envoy config enum are off by 1
