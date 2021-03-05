@@ -16,6 +16,7 @@ package mesh
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/fatih/color"
 	"github.com/spf13/cobra"
@@ -126,14 +127,23 @@ func operatorInit(args *rootArgs, oiArgs *operatorInitArgs, l clog.Logger) {
 		}
 	}
 
+	// create watched namespaces
+	namespaces := strings.Split(oiArgs.common.watchedNamespaces, ",")
+	// if the namespace in the CR is provided, consider creating it too.
+	if istioNamespace != "" {
+		namespaces = append(namespaces, istioNamespace)
+	}
+	for _, ns := range namespaces {
+		if err := createNamespace(clientset, ns, ""); err != nil {
+			l.LogAndFatal(err)
+		}
+	}
+
 	if err := applyManifest(restConfig, client, mstr, name.IstioOperatorComponentName, opts, iop, l); err != nil {
 		l.LogAndFatal(err)
 	}
 
 	if customResource != "" {
-		if err := createNamespace(clientset, istioNamespace, ""); err != nil {
-			l.LogAndFatal(err)
-		}
 		if err := applyManifest(restConfig, client, customResource, name.IstioOperatorComponentName, opts, iop, l); err != nil {
 			l.LogAndFatal(err)
 		}
