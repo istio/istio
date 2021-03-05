@@ -97,8 +97,8 @@ function load_cluster_topology() {
 # cleanup_kind_cluster takes a single parameter NAME
 # and deletes the KinD cluster with that name
 function cleanup_kind_cluster() {
-  NAME="${1}"
   echo "Test exited with exit code $?."
+  NAME="${1}"
   kind export logs --name "${NAME}" "${ARTIFACTS}/kind" -v9 || true
   if [[ -z "${SKIP_CLEANUP:-}" ]]; then
     echo "Cleaning up kind cluster"
@@ -180,6 +180,7 @@ EOF
 # It expects CLUSTER_NAMES to be present which means that
 # load_cluster_topology must be called before invoking it
 function cleanup_kind_clusters() {
+  echo "Test exited with exit code $?."
   for c in "${CLUSTER_NAMES[@]}"; do
     cleanup_kind_cluster "${c}"
   done
