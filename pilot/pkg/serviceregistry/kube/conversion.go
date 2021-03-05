@@ -19,10 +19,10 @@ import (
 	"sort"
 	"strings"
 
-	"go.uber.org/atomic"
 	coreV1 "k8s.io/api/core/v1"
 
 	"istio.io/api/annotation"
+
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry"
 	"istio.io/istio/pkg/config/constants"
@@ -104,7 +104,6 @@ func ConvertService(svc coreV1.Service, domainSuffix string, clusterID string) *
 		Address:         addr,
 		ServiceAccounts: serviceaccounts,
 		MeshExternal:    meshExternal,
-		MultiCluster:    atomic.NewBool(false),
 		Resolution:      resolution,
 		CreationTime:    svc.CreationTimestamp.Time,
 		ClusterVIPs:     map[string]string{clusterID: addr},
