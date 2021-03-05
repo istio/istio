@@ -105,7 +105,7 @@ func TestAdminDebug(t *testing.T) {
 			defer os.Unsetenv(unsafeFeatures)
 			defer os.Unsetenv("UNSAFE_ENABLE_ADMIN_ENDPOINTS")
 
-			if enabled := UnsafeEnableAdminEndpoints(); enabled != tc.expected {
+			if enabled := EnableUnsafeAdminEndpoints(); enabled != tc.expected {
 				t.Fatalf("expected : %v got %v", tc.expected, enabled)
 			}
 		})

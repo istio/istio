@@ -311,7 +311,7 @@ var (
 	enableUnsafeAdminEndpointsVar = registerUnsafeBoolVar(unsafePrefix+"ENABLE_ADMIN_ENDPOINTS", "false",
 		"If this is set to true, dangerous admin endpoins will be exposed on the debug interface. Not recommended for production.")
 
-	UnsafeEnableAdminEndpoints = func() bool {
+	EnableUnsafeAdminEndpoints = func() bool {
 		return unsafeFearturesAllowedVar.Get() && enableUnsafeAdminEndpointsVar.Get()
 	}
 
