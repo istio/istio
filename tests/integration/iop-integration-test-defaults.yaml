@@ -54,7 +54,8 @@ spec:
 
     pilot:
       env:
-        ENABLE_ADMIN_ENDPOINTS: true
+        ISTIO_ALLOW_UNSAFE_FEATURES: true
+        UNSAFE_ENABLE_ADMIN_ENDPOINTS: true
         PILOT_ENABLE_CROSS_CLUSTER_WORKLOAD_ENTRY: true
 
     gateways:

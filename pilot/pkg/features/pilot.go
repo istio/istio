@@ -15,6 +15,9 @@
 package features
 
 import (
+	"os"
+	"strconv"
+	"strings"
 	"time"
 
 	"github.com/golang/protobuf/ptypes"
@@ -23,6 +26,8 @@ import (
 	"istio.io/istio/pkg/jwt"
 	"istio.io/pkg/env"
 )
+
+const unsafePrefix = "UNSAFE_"
 
 var (
 	MaxConcurrentStreams = env.RegisterIntVar(
@@ -299,8 +304,15 @@ var (
 	EnableDebugOnHTTP = env.RegisterBoolVar("ENABLE_DEBUG_ON_HTTP", true,
 		"If this is set to false, the debug interface will not be ebabled on Http, recommended for production").Get()
 
-	EnableAdminEndpoints = env.RegisterBoolVar("ENABLE_ADMIN_ENDPOINTS", false,
-		"If this is set to true, dangerous admin endpoins will be exposed on the debug interface. Not recommended for production.").Get()
+	enableAdminEndpointsVar = registerUnsafeVar(unsafePrefix+"ENABLE_ADMIN_ENDPOINTS", "false",
+		"If this is set to true, dangerous admin endpoins will be exposed on the debug interface. Not recommended for production.",
+		env.BOOL)
+
+	EnableAdminEndpoints = func() bool {
+		value, exists := os.LookupEnv(enableAdminEndpointsVar.Name)
+		enabled, _ := strconv.ParseBool(value)
+		return unsafeFeaturesAllowed() && exists && enabled
+	}
 
 	XDSAuth = env.RegisterBoolVar("XDS_AUTH", true,
 		"If true, will authenticate XDS clients.").Get()
@@ -427,10 +439,49 @@ var (
 
 	// EnableUnsafeAssertions enables runtime checks to test assertions in our code. This should never be enabled in
 	// production; when assertions fail Istio will panic.
-	EnableUnsafeAssertions = env.RegisterBoolVar(
-		"PILOT_ENABLE_UNSAFE_RUNTIME_ASSERTIONS",
-		false,
+	unsafeEnableAssertionsVar = registerUnsafeVar(
+		unsafePrefix+"PILOT_ENABLE_RUNTIME_ASSERTIONS",
+		"false",
 		"If enabled, addition runtime asserts will be performed. "+
 			"These checks are both expensive and panic on failure. As a result, this should be used only for testing.",
-	).Get()
+		env.BOOL,
+	)
+	EnableUnsafeAssertions = func() bool {
+		value, exists := os.LookupEnv(unsafeEnableAssertionsVar.Name)
+		enabled, _ := strconv.ParseBool(value)
+		return unsafeFeaturesAllowed() && exists && enabled
+	}
 )
+
+// registerUnsafeVar registers an unsafe var to env.
+func registerUnsafeVar(name string, defaultValue string, description string, t env.VarType) env.Var {
+	// Set hidden to true so that it does not show up in the docs.
+	v := env.Var{Name: name, DefaultValue: defaultValue, Description: description, Hidden: true, Deprecated: false, Type: t}
+	env.RegisterVar(v)
+	return v
+}
+
+// unsafeFeaturesAllowed returns true if unsafe features are allowed.
+func unsafeFeaturesAllowed() bool {
+	// This is intentionally not registered to env so that it does not show up in the docs.
+	value, exists := os.LookupEnv("ISTIO_ALLOW_UNSAFE_FEATURES")
+	allowed, _ := strconv.ParseBool(value)
+	return exists && allowed
+}
+
+// UnsafeFeaturesEnabled returns true if any unsafe features are enabled.
+func UnsafeFeaturesEnabled() bool {
+	if !unsafeFeaturesAllowed() {
+		return false
+	}
+	for _, v := range env.VarDescriptions() {
+		if !strings.HasPrefix(v.Name, unsafePrefix) {
+			continue
+		}
+		value, exists := os.LookupEnv(v.Name)
+		if exists && value != v.DefaultValue {
+			return true
+		}
+	}
+	return true
+}
