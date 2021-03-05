@@ -87,10 +87,10 @@ type XdsProxy struct {
 	xdsUdsPath           string
 
 	// connected stores the active gRPC stream. The proxy will only have 1 connection at a time
-	connected      *ProxyConnection
-	initialRequest *discovery.DiscoveryRequest
+	connected           *ProxyConnection
+	initialRequest      *discovery.DiscoveryRequest
 	initialDeltaRequest *discovery.DeltaDiscoveryRequest
-	connectedMutex sync.RWMutex
+	connectedMutex      sync.RWMutex
 
 	// Wasm cache and ecds channel are used to replace wasm remote load with local file.
 	wasmCache wasm.Cache
@@ -239,17 +239,17 @@ func (p *XdsProxy) RegisterStream(c *ProxyConnection) {
 }
 
 type ProxyConnection struct {
-	upstreamError   chan error
-	downstreamError chan error
-	requestsChan    chan *discovery.DiscoveryRequest
-	responsesChan   chan *discovery.DiscoveryResponse
-	deltaRequestsChan chan *discovery.DeltaDiscoveryRequest
-	deltaResponsesChan chan* discovery.DeltaDiscoveryResponse
-	stopChan        chan struct{}
-	downstream      discovery.AggregatedDiscoveryService_StreamAggregatedResourcesServer
-	upstream        discovery.AggregatedDiscoveryService_StreamAggregatedResourcesClient
-	downstreamDeltas discovery.AggregatedDiscoveryService_DeltaAggregatedResourcesServer
-	upstreamDeltas discovery.AggregatedDiscoveryService_DeltaAggregatedResourcesClient
+	upstreamError      chan error
+	downstreamError    chan error
+	requestsChan       chan *discovery.DiscoveryRequest
+	responsesChan      chan *discovery.DiscoveryResponse
+	deltaRequestsChan  chan *discovery.DeltaDiscoveryRequest
+	deltaResponsesChan chan *discovery.DeltaDiscoveryResponse
+	stopChan           chan struct{}
+	downstream         discovery.AggregatedDiscoveryService_StreamAggregatedResourcesServer
+	upstream           discovery.AggregatedDiscoveryService_StreamAggregatedResourcesClient
+	downstreamDeltas   discovery.AggregatedDiscoveryService_DeltaAggregatedResourcesServer
+	upstreamDeltas     discovery.AggregatedDiscoveryService_DeltaAggregatedResourcesClient
 }
 
 // Every time envoy makes a fresh connection to the agent, we reestablish a new connection to the upstream xds
