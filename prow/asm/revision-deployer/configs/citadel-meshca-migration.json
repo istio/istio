@@ -3,11 +3,11 @@
     {
       "name": "asm-revision-citadel",
       "ca": "CITADEL",
-      "overlay": "./kpt-pkg/overlay/trustanchor-meshca.yaml"
+      "overlay": "overlay/trustanchor-meshca.yaml"
     },
     {
       "name": "asm-revision-meshca",
-      "ca": "MESH_CA"
+      "ca": "MESHCA"
     }
   ]
 }

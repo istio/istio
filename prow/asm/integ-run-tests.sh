@@ -32,6 +32,9 @@ set -x
 source "${WD}/asm-lib.sh"
 # shellcheck source=prow/asm/infra-lib.sh
 source "${WD}/infra-lib.sh"
+# shellcheck source=prow/asm/revision-deployer/revision-lib.sh
+source "${WD}/revision-deployer/revision-lib.sh"
+
 
 export BUILD_WITH_CONTAINER=0
 
@@ -47,6 +50,8 @@ export USE_VM
 # STATIC_VMS = a directory in echo-vm-provisioner/configs
 STATIC_VMS=""
 export STATIC_VMS
+# REVISION_CONFIG_FILE = path to revision config file (see revision-deployer/README.md)
+REVISION_CONFIG_FILE=""
 # Makefile target
 TEST_TARGET="test.integration.multicluster.kube.presubmit"
 # Passed by job config
@@ -106,6 +111,10 @@ while (( "$#" )); do
       ;;
     --static-vms)
       STATIC_VMS=$2
+      shift 2
+      ;;
+    --revision-config)
+      REVISION_CONFIG_FILE=$2
       shift 2
       ;;
     --test)
@@ -239,7 +248,11 @@ if [[ "${CONTROL_PLANE}" == "UNMANAGED" ]]; then
 
   echo "Installing ASM control plane..."
   if [[ "${CLUSTER_TYPE}" == "gke" ]]; then
-    install_asm "${WD}/kpt-pkg" "${CA}" "${WIP}" "${CONTEXTS[@]}"
+    if [ -z "${REVISION_CONFIG_FILE}" ]; then
+      install_asm "${WD}/kpt-pkg" "${CA}" "${WIP}" "" "" "${CONTEXTS[@]}"
+    else
+      install_asm_revisions "${REVISION_CONFIG_FILE}" "${WD}/kpt-pkg" "${WIP}" "${CONTEXTS[@]}"
+    fi
   else
     if [[ "${CLUSTER_TYPE}" == "bare-metal" ]]; then
       export HTTP_PROXY
@@ -321,6 +334,8 @@ if [[ "${CONTROL_PLANE}" == "UNMANAGED" ]]; then
   fi
 
   DISABLED_PACKAGES="/pilot/cni" # NOT SUPPORTED
+  DISABLED_PACKAGES+="\|/security/ca_migration" # NOT SUPPORTED in most tests. Has its own target
+
 
   # TODO: Unskip telemetry stats tests when https://b.corp.google.com/issues/177606974 is fixed
   # stats filter tests are flaky for multiproject
@@ -446,6 +461,7 @@ else
   DISABLED_PACKAGES+="\|/security/mtlsk8sca" # NOT SUPPORTED
   DISABLED_PACKAGES+="\|/security/sds_ingress_k8sca" # NOT SUPPORTED
   DISABLED_PACKAGES+="\|/security/sds_tls_origination" # NOT SUPPORTED
+  DISABLED_PACKAGES+="\|/security/ca_migration" # NOT SUPPORTED in most tests. Has its own target
 
   if [[ "${CLUSTER_TOPOLOGY}" == "SINGLECLUSTER" || "${CLUSTER_TOPOLOGY}" == "sc" ]]; then
     echo "Running integration test with ASM managed control plane and ${CLUSTER_TOPOLOGY} topology"

@@ -76,6 +76,8 @@ features:
       file-mounted-certs:
       ecc-signature-algorithm:
       multiple-root:
+    migrationca:
+      citadel-meshca:
     user:
       auth:
     ingress:

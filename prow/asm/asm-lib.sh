@@ -392,14 +392,25 @@ function purge-ca() {
 # Parameters: $1 - PKG: Path of Kpt package
 #             $2 - CA: CITADEL, MESHCA or PRIVATECA
 #             $3 - WIP: GKE or HUB
-#             $4 - array of k8s contexts
+#             $4 - OVERLAY: custom install options
+#             $5 - CUSTOM_REVISION_FLAGS: per-revision scriptaro options
+#             $6 - array of k8s contexts
 # Depends on env var ${HUB} and ${TAG}
 function install_asm() {
   local PKG="$1"; shift
   local CA="$1"; shift
   local WIP="$1"; shift
+  local OVERLAY="$1"; shift
+  local CUSTOM_REVISION_FLAGS="$1"; shift
   local CONTEXTS=("${@}")
+
   local CUSTOM_OVERLAY="${PKG}/overlay/default.yaml"
+  if [ -n "${OVERLAY}" ]; then
+    CUSTOM_OVERLAY="${CUSTOM_OVERLAY},${PKG}/${OVERLAY}"
+  fi
+
+  # variables that should not persist across install_asm calls should be added here
+  local CUSTOM_CA_FLAGS
 
   for i in "${!CONTEXTS[@]}"; do
     IFS="_" read -r -a VALS <<< "${CONTEXTS[$i]}"
@@ -511,6 +522,7 @@ function install_asm() {
           --option multiproject \
           --option audit-authorizationpolicy \
           --custom_overlay "${CUSTOM_OVERLAY}" \
+          "${CUSTOM_REVISION_FLAGS}" \
           --verbose
       else
         eval ./install_asm \
@@ -523,6 +535,7 @@ function install_asm() {
           --enable_all \
           --custom_overlay "${CUSTOM_OVERLAY}" \
           --option audit-authorizationpolicy \
+          "${CUSTOM_REVISION_FLAGS}" \
           --verbose
       fi
     else
@@ -541,6 +554,7 @@ function install_asm() {
           --option hub-meshca \
           --custom_overlay "${CUSTOM_OVERLAY}" \
           --option audit-authorizationpolicy \
+          "${CUSTOM_REVISION_FLAGS}" \
           --verbose
       else
         if [[ "${USE_VM}" == false ]]; then
@@ -555,6 +569,7 @@ function install_asm() {
             --option hub-meshca \
             --custom_overlay "${CUSTOM_OVERLAY}" \
             --option audit-authorizationpolicy \
+            "${CUSTOM_REVISION_FLAGS}" \
             --verbose
         else
           eval ./install_asm \
@@ -569,6 +584,7 @@ function install_asm() {
             --option vm \
             --custom_overlay "${CUSTOM_OVERLAY}" \
             --option audit-authorizationpolicy \
+            "${CUSTOM_REVISION_FLAGS}" \
             --verbose
         fi
       fi
