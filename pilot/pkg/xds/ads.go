@@ -27,6 +27,7 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/peer"
 	"google.golang.org/grpc/status"
+	"k8s.io/utils/trace"
 
 	"istio.io/istio/pilot/pkg/controller/workloadentry"
 	"istio.io/istio/pilot/pkg/features"
@@ -49,7 +50,7 @@ var (
 	connectionNumber = int64(0)
 )
 
-// Used only when running in KNative, to handle the load banlancing behavior.
+// Used only when running in KNative, to handle the load balancing behavior.
 var firstRequest = uatomic.NewBool(true)
 
 var knativeEnv = env.RegisterStringVar("K_REVISION", "",
@@ -198,6 +199,9 @@ func (s *DiscoveryServer) receive(con *Connection, reqChannel chan *discovery.Di
 // handles 'push' requests and close - the code will eventually call the 'push' code, and it needs more mutex
 // protection. Original code avoided the mutexes by doing both 'push' and 'process requests' in same thread.
 func (s *DiscoveryServer) processRequest(req *discovery.DiscoveryRequest, con *Connection) error {
+	initTrace := trace.New("Process xds request", trace.Field{"connectionID", con.ConID},
+		trace.Field{"peerAddress", con.PeerAddr})
+	defer initTrace.LogIfLong(1 * time.Second)
 	if !s.preProcessRequest(con.proxy, req) {
 		return nil
 	}
@@ -296,7 +300,9 @@ func (s *DiscoveryServer) Stream(stream DiscoveryStream) error {
 	// go routine. If go grpc adds gochannel support for streams this will not be needed.
 	// This also detects close.
 	var receiveError error
-	reqChannel := make(chan *discovery.DiscoveryRequest, 1)
+	// In case the ads handler is too busy in a time period, this can happen when
+	// requests come in burst and `processRequest` or `pushConnection` takes too much time.
+	reqChannel := make(chan *discovery.DiscoveryRequest, 10)
 	go s.receive(con, reqChannel, &receiveError)
 
 	// Wait for the proxy to be fully initialized before we start serving traffic. Because
@@ -660,8 +666,11 @@ func (s *DiscoveryServer) DeltaAggregatedResources(stream discovery.AggregatedDi
 // Compute and send the new configuration for a connection. This is blocking and may be slow
 // for large configs. The method will hold a lock on con.pushMutex.
 func (s *DiscoveryServer) pushConnection(con *Connection, pushEv *Event) error {
-	pushRequest := pushEv.pushRequest
+	initTrace := trace.New("Push xds to connection", trace.Field{"connectionID", con.ConID},
+		trace.Field{"peerAddress", con.PeerAddr})
+	defer initTrace.LogIfLong(1 * time.Second)
 
+	pushRequest := pushEv.pushRequest
 	if pushRequest.Full {
 		// Update Proxy with current information.
 		s.updateProxy(con.proxy, pushRequest.Push)
