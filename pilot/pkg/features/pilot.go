@@ -15,7 +15,7 @@
 package features
 
 import (
-	"os"
+	"strconv"
 	"strings"
 	"time"
 
@@ -26,9 +26,14 @@ import (
 	"istio.io/pkg/env"
 )
 
-const unsafePrefix = "UNSAFE_"
+const (
+	unsafePrefix   = "UNSAFE_"
+	unsafeFeatures = "ISTIO_ALLOW_UNSAFE_FEATURES"
+)
 
 var (
+	unsafeVars = map[string]env.BoolVar{}
+
 	MaxConcurrentStreams = env.RegisterIntVar(
 		"ISTIO_GPRC_MAXSTREAMS",
 		100000,
@@ -303,11 +308,11 @@ var (
 	EnableDebugOnHTTP = env.RegisterBoolVar("ENABLE_DEBUG_ON_HTTP", true,
 		"If this is set to false, the debug interface will not be ebabled on Http, recommended for production").Get()
 
-	enableAdminEndpointsVar = registerUnsafeBoolVar(unsafePrefix+"ENABLE_ADMIN_ENDPOINTS", "false",
+	enableUnsafeAdminEndpointsVar = registerUnsafeBoolVar(unsafePrefix+"ENABLE_ADMIN_ENDPOINTS", "false",
 		"If this is set to true, dangerous admin endpoins will be exposed on the debug interface. Not recommended for production.")
 
-	EnableAdminEndpoints = func() bool {
-		return unsafeFearturesAllowedVar.Get() && enableAdminEndpointsVar.Get()
+	UnsafeEnableAdminEndpoints = func() bool {
+		return unsafeFearturesAllowedVar.Get() && enableUnsafeAdminEndpointsVar.Get()
 	}
 
 	XDSAuth = env.RegisterBoolVar("XDS_AUTH", true,
@@ -446,7 +451,7 @@ var (
 	}
 
 	unsafeFearturesAllowedVar = registerUnsafeBoolVar(
-		unsafePrefix+"ISTIO_ALLOW_UNSAFE_FEATURES",
+		unsafeFeatures,
 		"false",
 		"If enabled, Unsafe feature flags are evaluated. This is not recommended for production.",
 	)
@@ -457,7 +462,9 @@ func registerUnsafeBoolVar(name string, defaultValue string, description string)
 	// Set hidden to true so that it does not show up in the docs.
 	v := env.Var{Name: name, DefaultValue: defaultValue, Description: description, Hidden: true, Deprecated: false, Type: env.BOOL}
 	env.RegisterVar(v)
-	return env.BoolVar{Var: v}
+	bv := env.BoolVar{Var: v}
+	unsafeVars[name] = bv
+	return bv
 }
 
 // UnsafeFeaturesEnabled returns true if any unsafe features are enabled.
@@ -469,8 +476,9 @@ func UnsafeFeaturesEnabled() bool {
 		if !strings.HasPrefix(v.Name, unsafePrefix) {
 			continue
 		}
-		value, exists := os.LookupEnv(v.Name)
-		if exists && value != v.DefaultValue {
+		value, exists := unsafeVars[v.Name]
+		dv, _ := strconv.ParseBool(v.DefaultValue)
+		if exists && value.Get() != dv {
 			return true
 		}
 	}
