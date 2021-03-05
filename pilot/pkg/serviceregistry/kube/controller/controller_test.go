@@ -24,7 +24,6 @@ import (
 	"time"
 
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
-	"go.uber.org/atomic"
 	coreV1 "k8s.io/api/core/v1"
 	discovery "k8s.io/api/discovery/v1beta1"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -419,7 +418,6 @@ func TestGetProxyServiceInstances(t *testing.T) {
 						UID:             "istio://nsa/services/svc1",
 						LabelSelectors:  map[string]string{"app": "prod-app"},
 					},
-					MultiCluster: atomic.NewBool(false),
 				},
 				ServicePort: &model.Port{Name: "tcp-port", Port: 8080, Protocol: protocol.TCP},
 				Endpoint: &model.IstioEndpoint{
@@ -489,7 +487,6 @@ func TestGetProxyServiceInstances(t *testing.T) {
 						UID:             "istio://nsa/services/svc1",
 						LabelSelectors:  map[string]string{"app": "prod-app"},
 					},
-					MultiCluster: atomic.NewBool(false),
 				},
 				ServicePort: &model.Port{Name: "tcp-port", Port: 8080, Protocol: protocol.TCP},
 				Endpoint: &model.IstioEndpoint{
@@ -555,7 +552,6 @@ func TestGetProxyServiceInstances(t *testing.T) {
 						UID:             "istio://nsa/services/svc1",
 						LabelSelectors:  map[string]string{"app": "prod-app"},
 					},
-					MultiCluster: atomic.NewBool(false),
 				},
 				ServicePort: &model.Port{Name: "tcp-port", Port: 8080, Protocol: protocol.TCP},
 				Endpoint: &model.IstioEndpoint{
