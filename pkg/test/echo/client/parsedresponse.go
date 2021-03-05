@@ -43,6 +43,9 @@ var (
 
 // ParsedResponse represents a response to a single echo request.
 type ParsedResponse struct {
+	// RequestURL is the requested URL. This differs from URL, which is the just the path.
+	// For example, RequestURL=http://foo/bar, URL=/bar
+	RequestURL string
 	// Body is the body of the response
 	Body string
 	// ID is a unique identifier of the resource in the response
@@ -171,6 +174,25 @@ func (r ParsedResponses) CheckHostOrFail(t test.Failer, expected string) ParsedR
 		t.Fatal(err)
 	}
 	return r
+}
+
+// CheckMTLS asserts that mutual TLS was used.
+// Note: this only is detectable for *successful* HTTP based traffic. Other types will always pass
+func (r ParsedResponses) CheckMTLS() error {
+	return r.Check(func(i int, response *ParsedResponse) error {
+		if !strings.HasPrefix(response.RequestURL, "http://") &&
+			!strings.HasPrefix(response.RequestURL, "grpc://") &&
+			!strings.HasPrefix(response.RequestURL, "ws://") {
+			// Non-HTTP traffic. Fail open, we cannot check mTLS.
+			return nil
+		}
+		_, f1 := response.RawResponse["X-Forwarded-Client-Cert"]
+		_, f2 := response.RawResponse["x-forwarded-client-cert"] // grpc has different casing
+		if !f1 && !f2 {
+			return fmt.Errorf("response[%d] X-Forwarded-Client-Cert expected but not found: %v", i, response)
+		}
+		return nil
+	})
 }
 
 func (r ParsedResponses) CheckPort(expected int) error {
@@ -314,10 +336,11 @@ func (r ParsedResponses) String() string {
 	return out
 }
 
-func ParseForwardedResponse(resp *proto.ForwardEchoResponse) ParsedResponses {
+func ParseForwardedResponse(req *proto.ForwardEchoRequest, resp *proto.ForwardEchoResponse) ParsedResponses {
 	responses := make([]*ParsedResponse, len(resp.Output))
 	for i, output := range resp.Output {
 		responses[i] = parseResponse(output)
+		responses[i].RequestURL = req.Url
 	}
 	return responses
 }
