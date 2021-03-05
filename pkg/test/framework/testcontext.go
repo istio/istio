@@ -283,7 +283,7 @@ func (c *testContext) Cleanup(fn func()) {
 }
 
 func (c *testContext) Done() {
-	if c.Failed() {
+	if c.Failed() && c.Settings().CIMode {
 		scopes.Framework.Debugf("Begin dumping testContext: %q", c.id)
 		rt.Dump(c)
 		scopes.Framework.Debugf("Completed dumping testContext: %q", c.id)
