@@ -47,6 +47,7 @@ gateways:
     loadBalancerIP: ""
     loadBalancerSourceRanges: []
     serviceAnnotations: {}
+    serviceAccountRoleArn: ""
 
     # Enable cross-cluster access using SNI matching
     zvpn:
