@@ -1,0 +1,16 @@
+apiVersion: install.istio.io/v1alpha1
+kind: IstioOperator
+metadata:
+  name: gateway # We need a different name than the control plane one or we would prune it
+spec:
+  profile: empty
+  values:
+    gateways:
+      istio-ingressgateway:
+        injectionTemplate: gateway
+        type: ClusterIP # LoadBalancer is slow and not necessary for this tests
+        autoscaleMax: 1
+        resources:
+          requests:
+            cpu: 10m
+            memory: 40Mi

@@ -28,7 +28,9 @@ import (
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/environment/kube"
+	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/components/namespace"
+	"istio.io/istio/pkg/test/framework/resource"
 	"istio.io/istio/pkg/test/util/retry"
 	ingressutil "istio.io/istio/tests/integration/security/sds_ingress/util"
 )
@@ -392,7 +394,8 @@ func TestCustomGateway(t *testing.T) {
 			if len(ctx.Settings().Revision) > 0 {
 				injectLabel = fmt.Sprintf(`istio.io/rev: "%v"`, ctx.Settings().Revision)
 			}
-			ctx.Config().ApplyYAMLOrFail(t, gatewayNs.Name(), fmt.Sprintf(`apiVersion: v1
+			ctx.NewSubTest("minimal").Run(func(ctx framework.TestContext) {
+				ctx.Config().ApplyYAMLOrFail(t, gatewayNs.Name(), fmt.Sprintf(`apiVersion: v1
 kind: Service
 metadata:
   name: custom-gateway
@@ -456,11 +459,70 @@ spec:
         port:
           number: 80
 `, injectLabel, apps.PodA[0].Config().FQDN()))
-			apps.PodB[0].CallWithRetryOrFail(t, echo.CallOptions{
-				Port:      &echo.Port{ServicePort: 80},
-				Scheme:    scheme.HTTP,
-				Address:   fmt.Sprintf("custom-gateway.%s.svc.cluster.local", gatewayNs.Name()),
-				Validator: echo.ExpectOK(),
+				apps.PodB[0].CallWithRetryOrFail(t, echo.CallOptions{
+					Port:      &echo.Port{ServicePort: 80},
+					Scheme:    scheme.HTTP,
+					Address:   fmt.Sprintf("custom-gateway.%s.svc.cluster.local", gatewayNs.Name()),
+					Validator: echo.ExpectOK(),
+				})
+			})
+			ctx.NewSubTest("istioctl").Run(func(ctx framework.TestContext) {
+				err := istio.Setup(nil, func(ctx resource.Context, cfg *istio.Config) {
+					// Even if the user says not to, we will still deploy istio.
+					// The intent of injection is that it works regardless of environment - just like sidecars
+					cfg.DeployIstio = true
+					cfg.PrimaryClusterIOPFile = "tests/integration/pilot/testdata/gateway-iop.yaml"
+					cfg.ControlPlaneValues = fmt.Sprintf(`
+revision: %v
+components:
+  ingressGateways:
+  - namespace: %s
+    name: custom-gateway-istioctl
+    enabled: true
+    label:
+      istio: custom-gateway-istioctl
+`, ctx.Settings().Revision, gatewayNs.Name())
+				})(ctx)
+				if err != nil {
+					ctx.Fatal(err)
+				}
+				ctx.Config().ApplyYAMLOrFail(ctx, gatewayNs.Name(), fmt.Sprintf(`apiVersion: networking.istio.io/v1alpha3
+kind: Gateway
+metadata:
+  name: app
+spec:
+  selector:
+    istio: custom-gateway-istioctl
+  servers:
+  - port:
+      number: 80
+      name: http
+      protocol: HTTP
+    hosts:
+    - "*"
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
+metadata:
+  name: app
+spec:
+  hosts:
+  - "*"
+  gateways:
+  - app
+  http:
+  - route:
+    - destination:
+        host: %s
+        port:
+          number: 80
+`, apps.PodA[0].Config().FQDN()))
+				apps.PodB[0].CallWithRetryOrFail(ctx, echo.CallOptions{
+					Port:      &echo.Port{ServicePort: 80},
+					Scheme:    scheme.HTTP,
+					Address:   fmt.Sprintf("custom-gateway-istioctl.%s.svc.cluster.local", gatewayNs.Name()),
+					Validator: echo.ExpectOK(),
+				})
 			})
 		})
 }
