@@ -18,6 +18,16 @@ readonly ROOT_CA_ID_PREFIX="asm-test-root-ca"
 readonly ROOT_CA_LOC="us-central1"
 readonly SUB_CA_ID_PREFIX="asm-test-sub-ca"
 
+function buildx-create() {
+  export DOCKER_CLI_EXPERIMENTAL=enabled
+  if ! docker buildx ls | grep -q container-builder; then
+    docker buildx create --driver-opt network=host,image=gcr.io/istio-testing/buildkit:buildx-stable-1 --name container-builder
+    # Pre-warm the builder. If it fails, fetch logs, but continue
+    docker buildx inspect --bootstrap container-builder || docker logs buildx_buildkit_container-builder0 || true
+  fi
+  docker buildx use container-builder
+}
+
 # Process kubeconfig files to make sure current-context in each file
 # is set correctly.
 # Depends on env var ${KUBECONFIG}
@@ -39,13 +49,11 @@ function process_kubeconfigs() {
 # Prepare images required for the e2e test.
 # Depends on env var ${HUB} and ${TAG}
 function prepare_images() {
+  buildx-create
   # Configure Docker to authenticate with Container Registry.
   gcloud auth configure-docker
   # Build images from the current branch and push the images to gcr.
-  make docker.all HUB="${HUB}" TAG="${TAG}" DOCKER_TARGETS="docker.pilot docker.proxyv2 docker.app"
-  docker push "${HUB}/app:${TAG}"
-  docker push "${HUB}/pilot:${TAG}"
-  docker push "${HUB}/proxyv2:${TAG}"
+  make dockerx.pushx HUB="${HUB}" TAG="${TAG}" DOCKER_TARGETS="docker.pilot docker.proxyv2 docker.app"
 
   docker pull gcr.io/asm-staging-images/asm/stackdriver-prometheus-sidecar:e2e-test
   docker tag gcr.io/asm-staging-images/asm/stackdriver-prometheus-sidecar:e2e-test "${HUB}/stackdriver-prometheus-sidecar:${TAG}"
@@ -55,10 +63,11 @@ function prepare_images() {
 # Prepare images (istiod, proxyv2) required for the managed control plane e2e test.
 # Depends on env var ${HUB} and ${TAG}
 function prepare_images_for_managed_control_plane() {
+  buildx-create
   # Configure Docker to authenticate with Container Registry.
   gcloud auth configure-docker
   # Build images from the current branch and push the images to gcr.
-  HUB="${HUB}" TAG="${TAG}" make push.docker.cloudrun push.docker.proxyv2 push.docker.app
+  HUB="${HUB}" TAG="${TAG}" DOCKER_TARGETS="docker.cloudrun docker.proxyv2 docker.app" make dockerx.pushx
 }
 
 # Build istioctl in the current branch to install ASM.
