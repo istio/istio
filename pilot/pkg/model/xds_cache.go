@@ -33,6 +33,7 @@ func init() {
 	monitoring.MustRegister(xdsCacheReads)
 	monitoring.MustRegister(xdsCacheEvictions)
 	monitoring.MustRegister(xdsCacheSize)
+	monitoring.MustRegister(xdsCacheErrors)
 }
 
 var (
@@ -47,13 +48,20 @@ var (
 		"Total number of xds cache evictions.",
 	)
 
+	xdsCacheErrors = monitoring.NewSum(
+		"xds_cache_errors",
+		"Total number of invalid xds cache access.",
+	)
+
 	xdsCacheSize = monitoring.NewGauge(
 		"xds_cache_size",
 		"Current size of xds cache",
 	)
 
-	xdsCacheHits   = xdsCacheReads.With(typeTag.Value("hit"))
-	xdsCacheMisses = xdsCacheReads.With(typeTag.Value("miss"))
+	xdsCacheHits          = xdsCacheReads.With(typeTag.Value("hit"))
+	xdsCacheMisses        = xdsCacheReads.With(typeTag.Value("miss"))
+	xdsCacheStaleUpdate   = xdsCacheErrors.With(typeTag.Value("stale"))
+	xdsCacheInvalidUpdate = xdsCacheErrors.With(typeTag.Value("notoken"))
 )
 
 func hit() {
@@ -135,14 +143,16 @@ type XdsCache interface {
 // NewXdsCache returns an instance of a cache.
 func NewXdsCache() XdsCache {
 	return &lruCache{
-		store:       newLru(),
-		configIndex: map[ConfigKey]sets.Set{},
-		nextToken:   atomic.NewUint64(0),
+		enableAssertions: features.EnableUnsafeAssertions,
+		store:            newLru(),
+		configIndex:      map[ConfigKey]sets.Set{},
+		nextToken:        atomic.NewUint64(0),
 	}
 }
 
 type lruCache struct {
-	store simplelru.LRUCache
+	enableAssertions bool
+	store            simplelru.LRUCache
 	// nextToken stores the next token to use. The content here doesn't matter, we just need a cheap
 	// unique identifier.
 	nextToken   *atomic.Uint64
@@ -171,16 +181,14 @@ func newLru() simplelru.LRUCache {
 // configuration. This also checks that our XDS config generation is deterministic, which is a very
 // important property.
 func assertUnchanged(existing *any.Any, replacement *any.Any) {
-	if features.EnableUnsafeAssertions {
-		if existing == nil {
-			// This is a new addition, not an update
-			return
-		}
-		if !cmp.Equal(existing, replacement, protocmp.Transform()) {
-			warning := fmt.Errorf("assertion failed, cache entry changed but not cleared: %v\n%v\n%v",
-				cmp.Diff(existing, replacement, protocmp.Transform()), existing, replacement)
-			panic(warning)
-		}
+	if existing == nil {
+		// This is a new addition, not an update
+		return
+	}
+	if !cmp.Equal(existing, replacement, protocmp.Transform()) {
+		warning := fmt.Errorf("assertion failed, cache entry changed but not cleared: %v\n%v\n%v",
+			cmp.Diff(existing, replacement, protocmp.Transform()), existing, replacement)
+		panic(warning)
 	}
 }
 
@@ -197,6 +205,7 @@ func (l *lruCache) Add(entry XdsCacheEntry, token CacheToken, value *any.Any) {
 		if token != cur.(cacheValue).token {
 			// entry may be stale, we need to drop it. This can happen when the cache is invalidated
 			// after we call Get.
+			xdsCacheStaleUpdate.Increment()
 			return
 		}
 		// Otherwise, make sure we write the current token again. We don't change the key on writes; the
@@ -207,10 +216,11 @@ func (l *lruCache) Add(entry XdsCacheEntry, token CacheToken, value *any.Any) {
 		// first write, or we forgot to call Get before.
 		return
 	}
-	if features.EnableUnsafeAssertions {
+	if l.enableAssertions {
 		if toWrite.token == 0 {
 			panic("token cannot be empty. was Get() called before Add()?")
 		}
+		xdsCacheInvalidUpdate.Increment()
 		assertUnchanged(cur.(cacheValue).value, value)
 	}
 	l.store.Add(k, toWrite)
