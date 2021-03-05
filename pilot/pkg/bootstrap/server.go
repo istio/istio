@@ -51,7 +51,6 @@ import (
 	modelstatus "istio.io/istio/pilot/pkg/model/status"
 	"istio.io/istio/pilot/pkg/networking/plugin"
 	kubesecrets "istio.io/istio/pilot/pkg/secrets/kube"
-	securityModel "istio.io/istio/pilot/pkg/security/model"
 	"istio.io/istio/pilot/pkg/serviceregistry"
 	"istio.io/istio/pilot/pkg/serviceregistry/aggregate"
 	kubecontroller "istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
@@ -65,7 +64,6 @@ import (
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/config/schema/gvk"
-	"istio.io/istio/pkg/jwt"
 	istiokeepalive "istio.io/istio/pkg/keepalive"
 	kubelib "istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/inject"
@@ -167,9 +165,8 @@ type Server struct {
 	workloadTrustBundle *tb.TrustBundle
 	// path to the caBundle that signs the DNS certs. This should be agnostic to provider.
 	caBundlePath string
-	certMu       sync.Mutex
+	certMu       sync.RWMutex
 	istiodCert   *tls.Certificate
-	jwtPath      string
 
 	// startFuncs keeps track of functions that need to be executed when Istiod starts.
 	startFuncs []startFunc
@@ -177,7 +174,6 @@ type Server struct {
 	// if they are not stopped. This allows important cleanup tasks to be completed.
 	// Note: this is still best effort; a process can die at any time.
 	requiredTerminations sync.WaitGroup
-	statusReporter       *status.Reporter
 	readinessProbes      map[string]readinessProbe
 
 	// duration used for graceful shutdown.
@@ -185,6 +181,8 @@ type Server struct {
 
 	// The SPIFFE based cert verifier
 	peerCertVerifier *spiffe.PeerCertVerifier
+
+	statusReporter *status.Reporter
 	// RWConfigStore is the configstore which allows updates, particularly for status.
 	RWConfigStore model.ConfigStoreCache
 }
@@ -268,8 +266,6 @@ func NewServer(args *PilotArgs) (*Server, error) {
 	if err := s.initControllers(args); err != nil {
 		return nil, err
 	}
-
-	s.initJwtPolicy()
 
 	// Parse and validate Istiod Address.
 	istiodHost, _, err := e.GetDiscoveryAddress()
@@ -566,7 +562,6 @@ func (s *Server) istiodReadyHandler(w http.ResponseWriter, _ *http.Request) {
 			return
 		}
 	}
-	// TODO check readiness of other secure gRPC and HTTP servers.
 	w.WriteHeader(http.StatusOK)
 }
 
@@ -1102,8 +1097,8 @@ func hasCustomTLSCerts(tlsOptions TLSOptions) bool {
 
 // getIstiodCertificate returns the istiod certificate.
 func (s *Server) getIstiodCertificate(info *tls.ClientHelloInfo) (*tls.Certificate, error) {
-	s.certMu.Lock()
-	defer s.certMu.Unlock()
+	s.certMu.RLock()
+	defer s.certMu.RUnlock()
 	return s.istiodCert, nil
 }
 
@@ -1122,22 +1117,6 @@ func (s *Server) initControllers(args *PilotArgs) error {
 		return fmt.Errorf("error initializing service controllers: %v", err)
 	}
 	return nil
-}
-
-// initJwtPolicy initializes JwtPolicy.
-func (s *Server) initJwtPolicy() {
-	if features.JwtPolicy.Get() != jwt.PolicyThirdParty {
-		log.Info("JWT policy is ", features.JwtPolicy.Get())
-	}
-
-	switch features.JwtPolicy.Get() {
-	case jwt.PolicyThirdParty:
-		s.jwtPath = ThirdPartyJWTPath
-	case jwt.PolicyFirstParty:
-		s.jwtPath = securityModel.K8sSAJwtFileName
-	default:
-		log.Infof("unknown JWT policy %v, default to certificates ", features.JwtPolicy.Get())
-	}
 }
 
 // maybeCreateCA creates and initializes CA Key if needed.
