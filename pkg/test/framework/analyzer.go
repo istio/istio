@@ -19,6 +19,8 @@ import (
 	"strings"
 	"testing"
 
+	"istio.io/istio/pkg/test/framework/components/echo"
+
 	"github.com/hashicorp/go-multierror"
 
 	"istio.io/istio/pkg/test/env"
@@ -149,6 +151,7 @@ type testAnalyzer struct {
 	notImplemented bool
 	featureLabels  map[features.Feature][]string
 	hasRun         bool
+	forAll         bool
 }
 
 func (t *testAnalyzer) Label(labels ...label.Instance) Test {
@@ -206,6 +209,11 @@ func (t *testAnalyzer) RequiresSingleCluster() Test {
 	return t
 }
 
+func (t *testAnalyzer) RunForAll(_ EchoSet, _ func(ctx TestContext, _ echo.Instance, _ echo.Instances)) {
+	t.forAll = true
+	t.Run(nil)
+}
+
 func (t *testAnalyzer) Run(_ func(ctx TestContext)) {
 	defer t.track()
 	if t.hasRun {
@@ -238,5 +246,6 @@ func (t *testAnalyzer) track() {
 		MultiCluster:     t.maxClusters != 1 && analysis.MultiCluster,
 		MultiClusterOnly: t.minCusters > 1 || analysis.MultiClusterOnly,
 		NotImplemented:   t.notImplemented,
+		ForAll:           t.forAll,
 	})
 }

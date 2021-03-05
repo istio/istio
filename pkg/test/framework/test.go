@@ -20,6 +20,8 @@ import (
 	"testing"
 	"time"
 
+	"istio.io/istio/pkg/test/framework/components/echo"
+
 	"istio.io/istio/pkg/test/framework/features"
 	"istio.io/istio/pkg/test/framework/label"
 	"istio.io/istio/pkg/test/scopes"
@@ -29,7 +31,7 @@ import (
 type Test interface {
 	// Label applies the given labels to this test.
 	Label(labels ...label.Instance) Test
-	// Label applies the given labels to this test.
+	// Features applies the given feature labels to this test.
 	Features(feats ...features.Feature) Test
 	NotImplementedYet(features ...features.Feature) Test
 	// RequiresMinClusters ensures that the current environment contains at least the expected number of clusters.
@@ -42,6 +44,8 @@ type Test interface {
 	RequiresSingleCluster() Test
 	// Run the test, supplied as a lambda.
 	Run(fn func(ctx TestContext))
+	// RunForAll combinations of apps in the given EchoSet
+	RunForAll(apps EchoSet, fn func(ctx TestContext, src echo.Instance, dest echo.Instances))
 	// RunParallel runs this test in parallel with other children of the same parent test/suite. Under the hood,
 	// this relies on Go's t.Parallel() and will, therefore, have the same behavior.
 	//
@@ -179,6 +183,39 @@ func (t *testImpl) Run(fn func(ctx TestContext)) {
 
 func (t *testImpl) RunParallel(fn func(ctx TestContext)) {
 	t.runInternal(fn, true)
+}
+
+// EchoSet contains a common set of apps
+type EchoSet interface {
+	Deployments() map[string]echo.Instances
+	All() echo.Instances
+}
+
+func (t *testImpl) RunForAll(apps EchoSet, fn func(ctx TestContext, src echo.Instance, dest echo.Instances)) {
+	t.runInternal(func(ctx TestContext) {
+		for srcName, srcs := range apps.Deployments() {
+			srcName, srcs := srcName, srcs
+			ctx.NewSubTest("from " + srcName).Run(func(ctx TestContext) {
+				if len(srcs) == 0 {
+					ctx.Skipf("no instances for source %s", srcName)
+				}
+				for _, src := range srcs {
+					src := src
+					ctx.NewSubTest("in " + src.Config().Cluster.StableName()).Run(func(ctx TestContext) {
+						for dstname, dsts := range apps.Deployments() {
+							dstname, dsts := dstname, dsts
+							ctx.NewSubTest("to " + dstname).Run(func(ctx TestContext) {
+								if len(dsts) == 0 {
+									ctx.Skipf("no instances for destination %s", dstname)
+								}
+								fn(ctx, src, dsts)
+							})
+						}
+					})
+				}
+			})
+		}
+	}, false)
 }
 
 func (t *testImpl) runInternal(fn func(ctx TestContext), parallel bool) {
