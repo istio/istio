@@ -176,9 +176,9 @@ func (r ParsedResponses) CheckHostOrFail(t test.Failer, expected string) ParsedR
 	return r
 }
 
-// CheckMTLS asserts that mutual TLS was used.
+// CheckMTLSForHTTP asserts that mutual TLS was used.
 // Note: this only is detectable for *successful* HTTP based traffic. Other types will always pass
-func (r ParsedResponses) CheckMTLS() error {
+func (r ParsedResponses) CheckMTLSForHTTP() error {
 	return r.Check(func(i int, response *ParsedResponse) error {
 		if !strings.HasPrefix(response.RequestURL, "http://") &&
 			!strings.HasPrefix(response.RequestURL, "grpc://") &&

@@ -53,7 +53,7 @@ func (c *Checker) Check() error {
 			}
 		}
 		if c.ExpectMTLS {
-			err := results.CheckMTLS()
+			err := results.CheckMTLSForHTTP()
 			gotMtls := err == nil
 			if gotMtls != c.ExpectMTLS {
 				return fmt.Errorf("%s to %s:%s using %s: expected mtls=%v, got mtls=%v",
