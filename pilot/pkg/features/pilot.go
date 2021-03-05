@@ -309,6 +309,7 @@ var (
 		env.BOOL)
 
 	EnableAdminEndpoints = func() bool {
+		// nolint
 		value, exists := os.LookupEnv(enableAdminEndpointsVar.Name)
 		enabled, _ := strconv.ParseBool(value)
 		return unsafeFeaturesAllowed() && exists && enabled
@@ -447,6 +448,7 @@ var (
 		env.BOOL,
 	)
 	EnableUnsafeAssertions = func() bool {
+		// nolint
 		value, exists := os.LookupEnv(unsafeEnableAssertionsVar.Name)
 		enabled, _ := strconv.ParseBool(value)
 		return unsafeFeaturesAllowed() && exists && enabled
@@ -464,6 +466,7 @@ func registerUnsafeVar(name string, defaultValue string, description string, t e
 // unsafeFeaturesAllowed returns true if unsafe features are allowed.
 func unsafeFeaturesAllowed() bool {
 	// This is intentionally not registered to env so that it does not show up in the docs.
+	// nolint
 	value, exists := os.LookupEnv("ISTIO_ALLOW_UNSAFE_FEATURES")
 	allowed, _ := strconv.ParseBool(value)
 	return exists && allowed
@@ -478,6 +481,7 @@ func UnsafeFeaturesEnabled() bool {
 		if !strings.HasPrefix(v.Name, unsafePrefix) {
 			continue
 		}
+		// nolint
 		value, exists := os.LookupEnv(v.Name)
 		if exists && value != v.DefaultValue {
 			return true
