@@ -48,6 +48,9 @@ gateways:
     loadBalancerSourceRanges: []
     serviceAnnotations: {}
 
+    # link service account to aws iam role for LB permissions
+    serviceAccountRoleArn: ""
+
     # Enable cross-cluster access using SNI matching
     zvpn:
       enabled: false
