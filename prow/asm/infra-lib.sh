@@ -33,15 +33,3 @@ function upgrade_gke_clusters() {
   # Wait until all the upgrades finishes.
   wait
 }
-
-# Post process the JUnit xml files before uploading them to GCS.
-# This is to enable the use of regexp in TestGrid to be able to group tests by Prow Jobs.
-function post_process_junit_xmls() {
-  git config --global http.cookiefile "/secrets/cookiefile/cookies"
-  local clone_path="${GOPATH}/src/gke-internal/knative/cloudrun-test-infra"
-  git clone https://gke-internal.googlesource.com/knative/cloudrun-test-infra "${clone_path}"
-  cd "${clone_path}" && go install "${clone_path}/tools/crtest/cmd/crtest"
-  for filename in "${ARTIFACTS}"/*.xml; do
-    crtest xmlpost --file="${filename}" --save
-  done
-}

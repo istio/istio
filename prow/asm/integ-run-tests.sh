@@ -482,9 +482,3 @@ else
     make "${TEST_TARGET}"
   fi
 fi
-
-# If in the CI, post-process the JUnit xml files to support aggregated view of
-# multiple Prow jobs in testgrid.
-if [[ "${CI}" == "true" ]]; then
-  post_process_junit_xmls
-fi

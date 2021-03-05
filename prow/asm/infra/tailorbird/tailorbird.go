@@ -17,7 +17,6 @@ package tailorbird
 import (
 	"fmt"
 	"io/ioutil"
-	"log"
 	"math/rand"
 	"os"
 	"path"
@@ -38,16 +37,15 @@ func tailorbirdDeployerBaseFlags() []string {
 }
 
 // InstallTools installs the required tools to enable interacting with Tailorbird.
-func InstallTools(gitCookiesFile, clusterType string) error {
-	log.Println("Installing kubetest2 tailorbird deployer...")
-	exec.Run("git config --global http.cookiefile " + gitCookiesFile)
-	goPath := os.Getenv("GOPATH")
-	clonePath := goPath + "/src/gke-internal/test-infra"
-	exec.Run(fmt.Sprintf("git clone https://gke-internal.googlesource.com/test-infra %s", clonePath))
+func InstallTools() error {
+	clonePath := os.Getenv("GOPATH") + "/src/gke-internal/test-infra"
 	defer os.RemoveAll(clonePath)
-	if err := exec.Run(fmt.Sprintf("bash -c 'cd %s &&"+
-		" go install %s/anthos/tailorbird/cmd/kubetest2-tailorbird'", clonePath, clonePath)); err != nil {
-		return fmt.Errorf("error installing kubetest2 tailorbird deployer: %w", err)
+	if _, err := os.Stat(clonePath); !os.IsNotExist(err) {
+		if err := exec.Run(fmt.Sprintf("bash -c 'cd %s && go install ./anthos/tailorbird/cmd/kubetest2-tailorbird'", clonePath)); err != nil {
+			return fmt.Errorf("error installing kubetest2 tailorbird deployer: %w", err)
+		}
+	} else {
+		return fmt.Errorf("path %q does not seem to exist, please double check", clonePath)
 	}
 
 	return nil
