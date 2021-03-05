@@ -15,6 +15,7 @@ spans:{
     labels:{key:"response_flags"  value:"-"}
     labels:{key:"span"  value:"server.{{ .EchoNamespace }}.svc.cluster.local:8090/*"}
     labels:{key:"upstream_cluster"  value:"inbound|8090||"}
+    labels:{key:"upstream_cluster.name"  value:"inbound|8090||"}
     labels:{key:"user_agent"  value:"Go-http-client/1.1"}}
 spans:{
     labels:{key:"OperationName" value:"Egress"}
@@ -32,4 +33,5 @@ spans:{
     labels:{key:"response_flags"  value:"-"}
     labels:{key:"span"  value:"server.{{ .EchoNamespace }}.svc.cluster.local:8090/*"}
     labels:{key:"upstream_cluster"  value:"outbound|8090||server.{{ .EchoNamespace }}.svc.cluster.local"}
+    labels:{key:"upstream_cluster.name"  value:"outbound|8090||server.{{ .EchoNamespace }}.svc.cluster.local"}
     labels:{key:"user_agent"  value:"Go-http-client/1.1"}}
