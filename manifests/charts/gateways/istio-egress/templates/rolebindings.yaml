@@ -2,7 +2,7 @@
 apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
 metadata:
-  name: {{ $gateway.name | default "istio-egressgateway" }}-sds
+  name: {{ $gateway.name }}-sds
   namespace: {{ .Release.Namespace }}
   labels:
     release: {{ .Release.Name }}
@@ -12,8 +12,8 @@ metadata:
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: Role
-  name: {{ $gateway.name | default "istio-egressgateway" }}-sds
+  name: {{ $gateway.name }}-sds
 subjects:
-  - kind: ServiceAccount
-    name: {{ $gateway.name | default "istio-egressgateway" }}-service-account
+- kind: ServiceAccount
+  name: {{ $gateway.name }}-service-account
 ---
