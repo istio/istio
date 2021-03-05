@@ -44,6 +44,7 @@ var (
 	nonCaCert          string = readCertFromFile(path.Join(env.IstioSrc, "samples/certs", "workload-bar-cert.pem"))
 	intermediateCACert string = readCertFromFile(path.Join(env.IstioSrc, "samples/certs", "ca-cert.pem"))
 
+	// borrowed from the spiffe package, spiffe_test.go
 	validSpiffeX509Bundle = `
 {
 	"spiffe_sequence": 1,
@@ -308,12 +309,12 @@ func TestAddMeshConfigUpdate(t *testing.T) {
 		t.Errorf("server1 endpoint not correctly updated in trustbundle. Trustbundle endpoints: %v", tb.endpoints)
 	}
 	// Check server1's anchor has been added along with meshConfig pem cert
-	expectTbCount(t, tb, 2, 1*time.Second, "server1(running) trustAnchor not updated in bundle")
+	expectTbCount(t, tb, 2, 3*time.Second, "server1(running) trustAnchor not updated in bundle")
 
 	// Test3: Stop server1
 	server1.Close()
 	// Check server1's valid trustAnchor is no longer in the trustbundle within poll frequency window
-	expectTbCount(t, tb, 1, 3*time.Second, "server1(stopped) trustAnchor not removed from bundle")
+	expectTbCount(t, tb, 1, 6*time.Second, "server1(stopped) trustAnchor not removed from bundle")
 
 	// Test4: Update with server1, server2 and mesh pem ca
 	tb.AddMeshConfigUpdate(&meshconfig.MeshConfig{CaCertificates: []*meshconfig.MeshConfig_CertificateData{
@@ -325,9 +326,9 @@ func TestAddMeshConfigUpdate(t *testing.T) {
 		t.Errorf("server2 endpoint not correctly updated in trustbundle. Trustbundle endpoints: %v", tb.endpoints)
 	}
 	// Check only server 2's trustanchor is present along with meshConfig pem and not server 1 (since it is down)
-	expectTbCount(t, tb, 2, 1*time.Second, "server2(running) trustAnchor not updated in bundle")
+	expectTbCount(t, tb, 2, 3*time.Second, "server2(running) trustAnchor not updated in bundle")
 
 	// Test5. remove everything
 	tb.AddMeshConfigUpdate(&meshconfig.MeshConfig{CaCertificates: []*meshconfig.MeshConfig_CertificateData{}})
-	expectTbCount(t, tb, 0, 1*time.Second, "trustAnchor not updated in bundle after meshConfig cleared")
+	expectTbCount(t, tb, 0, 3*time.Second, "trustAnchor not updated in bundle after meshConfig cleared")
 }
