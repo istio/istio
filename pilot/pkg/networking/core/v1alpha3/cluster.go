@@ -24,8 +24,11 @@ import (
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	endpoint "github.com/envoyproxy/go-control-plane/envoy/config/endpoint/v3"
 	auth "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
+	http "github.com/envoyproxy/go-control-plane/envoy/extensions/upstreams/http/v3"
 	xdstype "github.com/envoyproxy/go-control-plane/envoy/type/v3"
 	"github.com/gogo/protobuf/types"
+	"github.com/golang/protobuf/ptypes"
+	"github.com/golang/protobuf/ptypes/any"
 	structpb "github.com/golang/protobuf/ptypes/struct"
 	"github.com/golang/protobuf/ptypes/wrappers"
 
@@ -572,13 +575,34 @@ func shouldH2Upgrade(clusterName string, direction model.TrafficDirection, port 
 }
 
 // setH2Options make the cluster an h2 cluster by setting http2ProtocolOptions.
-// TODO(https://github.com/istio/istio/issues/29735) remove nolint
-// nolint: staticcheck
 func setH2Options(cluster *cluster.Cluster) {
-	if cluster == nil || cluster.Http2ProtocolOptions != nil {
+	if cluster == nil || cluster.GetTypedExtensionProtocolOptions() != nil {
 		return
 	}
-	cluster.Http2ProtocolOptions = &core.Http2ProtocolOptions{
+	cluster.TypedExtensionProtocolOptions = httpProtocolOptions()
+}
+
+func httpProtocolOptions() map[string]*any.Any {
+	options, err := ptypes.MarshalAny(
+		&http.HttpProtocolOptions{
+			UpstreamProtocolOptions: &http.HttpProtocolOptions_ExplicitHttpConfig_{
+				ExplicitHttpConfig: &http.HttpProtocolOptions_ExplicitHttpConfig{
+					ProtocolConfig: &http.HttpProtocolOptions_ExplicitHttpConfig_Http2ProtocolOptions{
+						Http2ProtocolOptions: http2ProtocolOptions(),
+					},
+				},
+			},
+		})
+	if err != nil {
+		return nil
+	}
+	return map[string]*any.Any{
+		"envoy.extensions.upstreams.http.v3.HttpProtocolOptions": options,
+	}
+}
+
+func http2ProtocolOptions() *core.Http2ProtocolOptions {
+	return &core.Http2ProtocolOptions{
 		// Envoy default value of 100 is too low for data path.
 		MaxConcurrentStreams: &wrappers.UInt32Value{
 			Value: 1073741824,
