@@ -32,6 +32,11 @@ spec:
         # if it ever gets evicted.
         scheduler.alpha.kubernetes.io/critical-pod: ''
         sidecar.istio.io/inject: "false"
+        # Add Prometheus Scrape annotations
+        prometheus.io/scrape: 'true'
+        prometheus.io/port: "15014"
+        prometheus.io/path: '/metrics'
+        # Custom annotations
         {{- if .Values.cni.podAnnotations }}
 {{ toYaml .Values.cni.podAnnotations | indent 8 }}
         {{- end }}
@@ -148,7 +153,7 @@ spec:
           - name: "TAINT_CONFIGMAP-NAME"
             value: "istio-cni-taint-configmap"
           - name: "TAINT_CONFIGMAP-NAMESPACE"
-            value: "kube-system"
+            value: {{ .Release.Namespace | quote }}
 {{- end }}
       volumes:
         # Used to install CNI.

@@ -293,7 +293,7 @@ spec:
 
 			ctx.NewSubTest("status").Run(func(ctx framework.TestContext) {
 				if !ctx.Environment().(*kube.Environment).Settings().LoadBalancerSupported {
-					t.Skip("ingress status not supported without load balancer")
+					ctx.Skip("ingress status not supported without load balancer")
 				}
 
 				ip := apps.Ingress.HTTPAddress().IP.String()
@@ -388,6 +388,10 @@ func TestCustomGateway(t *testing.T) {
 		Features("traffic.ingress.custom").
 		Run(func(ctx framework.TestContext) {
 			gatewayNs := namespace.NewOrFail(t, ctx, namespace.Config{Prefix: "custom-gateway"})
+			injectLabel := `sidecar.istio.io/inject: "true"`
+			if len(ctx.Settings().Revision) > 0 {
+				injectLabel = fmt.Sprintf(`istio.io/rev: "%v"`, ctx.Settings().Revision)
+			}
 			ctx.Config().ApplyYAMLOrFail(t, gatewayNs.Name(), fmt.Sprintf(`apiVersion: v1
 kind: Service
 metadata:
@@ -415,7 +419,7 @@ spec:
         inject.istio.io/templates: gateway
       labels:
         istio: custom
-        sidecar.istio.io/inject: "true"
+        %v
     spec:
       containers:
       - name: istio-proxy
@@ -451,7 +455,7 @@ spec:
         host: %s
         port:
           number: 80
-`, apps.PodA[0].Config().FQDN()))
+`, injectLabel, apps.PodA[0].Config().FQDN()))
 			apps.PodB[0].CallWithRetryOrFail(t, echo.CallOptions{
 				Port:      &echo.Port{ServicePort: 80},
 				Scheme:    scheme.HTTP,

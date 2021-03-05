@@ -199,14 +199,6 @@ func (cl *Client) Get(typ config.GroupVersionKind, name, namespace string) *conf
 	if !cl.objectInRevision(cfg) {
 		return nil
 	}
-	if features.EnableCRDValidation {
-		schema, _ := cl.Schemas().FindByGroupVersionKind(typ)
-		if _, err = schema.Resource().ValidateConfig(*cfg); err != nil {
-			handleValidationFailure(cfg, err)
-			return nil
-		}
-
-	}
 	return cfg
 }
 
@@ -280,17 +272,6 @@ func (cl *Client) List(kind config.GroupVersionKind, namespace string) ([]config
 	out := make([]config.Config, 0, len(list))
 	for _, item := range list {
 		cfg := TranslateObject(item, kind, cl.domainSuffix)
-		if features.EnableCRDValidation {
-			schema, _ := cl.Schemas().FindByGroupVersionKind(kind)
-			if _, err = schema.Resource().ValidateConfig(*cfg); err != nil {
-				handleValidationFailure(cfg, err)
-				// DO NOT RETURN ERROR: if a single object is bad, it'll be ignored (with a log message), but
-				// the rest should still be processed.
-				continue
-			}
-
-		}
-
 		if cl.objectInRevision(cfg) {
 			out = append(out, *cfg)
 		}

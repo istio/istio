@@ -24,6 +24,9 @@ metadata:
   labels:
     app: istio-cni
     release: {{ .Release.Name }}
+    istio.io/rev: {{ .Values.revision | default "default" }}
+    install.operator.istio.io/owning-resource: {{ .Values.ownerName | default "unknown" }}
+    operator.istio.io/component: "Cni"
 rules:
 - apiGroups: [""]
   resources: ["pods"]
@@ -41,6 +44,9 @@ metadata:
   labels:
     app: istio-cni
     release: {{ .Release.Name }}
+    istio.io/rev: {{ .Values.revision | default "default" }}
+    install.operator.istio.io/owning-resource: {{ .Values.ownerName | default "unknown" }}
+    operator.istio.io/component: "Cni"
 rules:
   - apiGroups: [""]
     resources: ["pods"]

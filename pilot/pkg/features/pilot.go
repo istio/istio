@@ -228,14 +228,6 @@ var (
 			"To ensure proper security, PILOT_ENABLE_XDS_IDENTITY_CHECK=true is required as well.",
 	).Get()
 
-	EnableCRDValidation = env.RegisterBoolVar(
-		"PILOT_ENABLE_CRD_VALIDATION",
-		false,
-		"If enabled, pilot will validate CRDs while retrieving CRDs from kubernetes cache."+
-			"Use this flag to enable validation of CRDs in Pilot, especially in deployments "+
-			"that do not have galley installed.",
-	).Get()
-
 	EnableAnalysis = env.RegisterBoolVar(
 		"PILOT_ENABLE_ANALYSIS",
 		false,
@@ -432,4 +424,13 @@ var (
 	StripHostPort = env.RegisterBoolVar("ISTIO_GATEWAY_STRIP_HOST_PORT", false,
 		"If enabled, Gateway will remove any port from host/authority header "+
 			"before any processing of request by HTTP filters or routing.").Get()
+
+	// EnableUnsafeAssertions enables runtime checks to test assertions in our code. This should never be enabled in
+	// production; when assertions fail Istio will panic.
+	EnableUnsafeAssertions = env.RegisterBoolVar(
+		"PILOT_ENABLE_UNSAFE_RUNTIME_ASSERTIONS",
+		false,
+		"If enabled, addition runtime asserts will be performed. "+
+			"These checks are both expensive and panic on failure. As a result, this should be used only for testing.",
+	).Get()
 )
