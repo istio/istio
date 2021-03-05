@@ -375,7 +375,7 @@ func (s *Server) createIstioCA(client corev1.CoreV1Interface, opts *caOptions) (
 	// rootCertRotatorChan channel accepts signals to stop root cert rotator for
 	// self-signed CA.
 	s.addStartFunc(func(stop <-chan struct{}) error {
-		go istioCA.Run(stop)
+		istioCA.Run(stop)
 		return nil
 	})
 	return istioCA, nil
