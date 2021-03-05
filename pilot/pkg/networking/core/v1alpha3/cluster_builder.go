@@ -109,7 +109,7 @@ func (cb *ClusterBuilder) applyDestinationRule(ic *IstioCluster, clusterMode Clu
 		opts.istioMtlsSni = model.BuildDNSSrvSubsetKey(model.TrafficDirectionOutbound, "", service.Hostname, port.Port)
 		opts.simpleTLSSni = string(service.Hostname)
 		opts.meshExternal = service.MeshExternal
-		opts.serviceMTLSMode = cb.push.BestEffortInferServiceMTLSMode(service, port)
+		opts.serviceMTLSMode = cb.push.BestEffortInferServiceMTLSMode(destinationRule.GetTrafficPolicy(), service, port)
 	}
 
 	// merge with applicable port level traffic policy settings
@@ -128,6 +128,7 @@ func (cb *ClusterBuilder) applyDestinationRule(ic *IstioCluster, clusterMode Clu
 	}
 	subsetClusters := make([]*cluster.Cluster, 0)
 	for _, subset := range destinationRule.Subsets {
+		opts.serviceMTLSMode = cb.push.BestEffortInferServiceMTLSMode(subset.GetTrafficPolicy(), service, port)
 		var subsetClusterName string
 		var defaultSni string
 		if clusterMode == DefaultClusterMode {

@@ -756,10 +756,10 @@ func TestBestEffortInferServiceMTLSMode(t *testing.T) {
 			port := &Port{
 				Port: tc.servicePort,
 			}
-			if got := ps.BestEffortInferServiceMTLSMode(service, port); got != tc.wanted {
+			if got := ps.BestEffortInferServiceMTLSMode(nil, service, port); got != tc.wanted {
 				t.Fatalf("want %s, but got %s", tc.wanted, got)
 			}
-			if got := ps.BestEffortInferServiceMTLSMode(externalService, port); got != MTLSUnknown {
+			if got := ps.BestEffortInferServiceMTLSMode(nil, externalService, port); got != MTLSUnknown {
 				t.Fatalf("MTLS mode for external service should always be %s, but got %s", MTLSUnknown, got)
 			}
 		})
