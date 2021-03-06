@@ -198,7 +198,7 @@ func MergeTrafficPolicy(original, subsetPolicy *networking.TrafficPolicy, port *
 // buildDefaultCluster builds the default cluster and also applies default traffic policy.
 func (cb *ClusterBuilder) buildDefaultCluster(name string, discoveryType cluster.Cluster_DiscoveryType,
 	localityLbEndpoints []*endpoint.LocalityLbEndpoints, direction model.TrafficDirection,
-	port *model.Port, service *model.Service, allInstances []*model.ServiceInstance) *cluster.Cluster {
+	port *model.Port, service *model.Service, allInstances []*model.ServiceInstance) *cluster.Cluster, buildClusterOpts {
 	if allInstances == nil {
 		allInstances = cb.proxy.ServiceInstances
 	}
@@ -237,6 +237,7 @@ func (cb *ClusterBuilder) buildDefaultCluster(name string, discoveryType cluster
 		clusterMode:     DefaultClusterMode,
 		direction:       direction,
 		proxy:           cb.proxy,
+		httpProtocolOptions: nil,
 	}
 	// decides whether the cluster corresponds to a service external to mesh or not.
 	if direction == model.TrafficDirectionInbound {
@@ -249,7 +250,7 @@ func (cb *ClusterBuilder) buildDefaultCluster(name string, discoveryType cluster
 	applyTrafficPolicy(opts)
 	addTelemetryMetadata(opts, service, direction, allInstances)
 	addNetworkingMetadata(opts, service, direction)
-	return c
+	return c,opts
 }
 
 // buildInboundClusterForPortOrUDS constructs a single inbound listener. The cluster will be bound to

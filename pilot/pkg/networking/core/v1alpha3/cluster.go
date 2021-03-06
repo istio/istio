@@ -510,6 +510,8 @@ type buildClusterOpts struct {
 	proxy           *model.Proxy
 	meshExternal    bool
 	serviceMTLSMode model.MutualTLSMode
+	// This is used to store the HttpProtocolOptions that gets applied during construction of cluster.
+	httpProtocolOptions *http.HttpProtocolOptions
 }
 
 type upgradeTuple struct {
@@ -530,7 +532,7 @@ var h2UpgradeMap = map[upgradeTuple]bool{
 // applyH2Upgrade function will upgrade outbound cluster to http2 if specified by configuration.
 func applyH2Upgrade(opts buildClusterOpts, connectionPool *networking.ConnectionPoolSettings) {
 	if shouldH2Upgrade(opts.cluster.Name, opts.direction, opts.port, opts.mesh, connectionPool) {
-		setH2Options(opts.cluster)
+		setHttpProtocolOptions(opts.cluster, false)
 	}
 }
 
@@ -574,17 +576,29 @@ func shouldH2Upgrade(clusterName string, direction model.TrafficDirection, port 
 	return true
 }
 
-// setH2Options make the cluster an h2 cluster by setting http2ProtocolOptions.
-func setH2Options(cluster *cluster.Cluster) {
+// setHttpProtocolOptions make the cluster an h2 cluster by setting http2ProtocolOptions.
+func setHttpProtocolOptions(cluster *cluster.Cluster, clientProtocol bool) {
 	if cluster == nil || cluster.GetTypedExtensionProtocolOptions() != nil {
 		return
 	}
-	cluster.TypedExtensionProtocolOptions = httpProtocolOptions()
+	cluster.TypedExtensionProtocolOptions = httpUpstreamProtocolOptions(clientProtocol)
 }
 
-func httpProtocolOptions() map[string]*any.Any {
-	options, err := ptypes.MarshalAny(
-		&http.HttpProtocolOptions{
+func httpUpstreamProtocolOptions(downstreamProtocol bool) map[string]*any.Any {
+	var options *http.HttpProtocolOptions
+	// Use downstream protocol. If the incoming traffic use HTTP 1.1, the
+	// upstream cluster will use HTTP 1.1, if incoming traffic use HTTP2,
+	// the upstream cluster will use HTTP2.
+	if downstreamProtocol {
+		options = &http.HttpProtocolOptions{
+			UpstreamProtocolOptions: &http.HttpProtocolOptions_UseDownstreamProtocolConfig{
+				UseDownstreamProtocolConfig: &http.HttpProtocolOptions_UseDownstreamHttpConfig{
+					Http2ProtocolOptions: http2ProtocolOptions(),
+				},
+			},
+		}
+	} else {
+		options = &http.HttpProtocolOptions{
 			UpstreamProtocolOptions: &http.HttpProtocolOptions_ExplicitHttpConfig_{
 				ExplicitHttpConfig: &http.HttpProtocolOptions_ExplicitHttpConfig{
 					ProtocolConfig: &http.HttpProtocolOptions_ExplicitHttpConfig_Http2ProtocolOptions{
@@ -592,12 +606,14 @@ func httpProtocolOptions() map[string]*any.Any {
 					},
 				},
 			},
-		})
+		}
+	}
+	moptions, err := ptypes.MarshalAny(options)
 	if err != nil {
 		return nil
 	}
 	return map[string]*any.Any{
-		"envoy.extensions.upstreams.http.v3.HttpProtocolOptions": options,
+		"envoy.extensions.upstreams.http.v3.HttpProtocolOptions": moptions,
 	}
 }
 
@@ -613,13 +629,7 @@ func http2ProtocolOptions() *core.Http2ProtocolOptions {
 func applyTrafficPolicy(opts buildClusterOpts) {
 	connectionPool, outlierDetection, loadBalancer, tls := selectTrafficPolicyComponents(opts.policy)
 	if opts.direction == model.TrafficDirectionOutbound && connectionPool != nil && connectionPool.Http != nil && connectionPool.Http.UseClientProtocol {
-		setH2Options(opts.cluster)
-		// Use downstream protocol. If the incoming traffic use HTTP 1.1, the
-		// upstream cluster will use HTTP 1.1, if incoming traffic use HTTP2,
-		// the upstream cluster will use HTTP2.
-		// TODO(https://github.com/istio/istio/issues/29735) remove nolint
-		// nolint: staticcheck
-		opts.cluster.ProtocolSelection = cluster.Cluster_USE_DOWNSTREAM_PROTOCOL
+		setHttpProtocolOptions(opts.cluster, true)
 	}
 	// Connection pool settings are applicable for both inbound and outbound clusters.
 	applyConnectionPool(opts.mesh, opts.cluster, connectionPool)
@@ -690,10 +700,16 @@ func applyConnectionPool(mesh *meshconfig.MeshConfig, c *cluster.Cluster, settin
 
 	if idleTimeout != nil {
 		idleTimeoutDuration := gogo.DurationToProtoDuration(idleTimeout)
+		commonOptions := &http.HttpProtocolOptions{
+			CommonHttpProtocolOptions: &core.HttpProtocolOptions{
+				IdleTimeout: idleTimeoutDuration,
+			},
+		}
+		moptions, _ := ptypes.MarshalAny(commonOptions)
 
-		// TODO(https://github.com/istio/istio/issues/29735) remove nolint
-		// nolint: staticcheck
-		c.CommonHttpProtocolOptions = &core.HttpProtocolOptions{IdleTimeout: idleTimeoutDuration}
+		c.TypedExtensionProtocolOptions = map[string]*any.Any{
+			"envoy.extensions.upstreams.http.v3.HttpProtocolOptions": moptions,
+		}
 	}
 }
 
@@ -1091,7 +1107,7 @@ func buildUpstreamClusterTLSContext(opts *buildClusterOpts, tls *networking.Clie
 
 func setUpstreamProtocol(node *model.Proxy, c *cluster.Cluster, port *model.Port, direction model.TrafficDirection) {
 	if port.Protocol.IsHTTP2() {
-		setH2Options(c)
+		setHttpProtocolOptions(c, false)
 	}
 
 	// Add use_downstream_protocol for sidecar proxy only if protocol sniffing is enabled.
@@ -1100,16 +1116,7 @@ func setUpstreamProtocol(node *model.Proxy, c *cluster.Cluster, port *model.Port
 	// the service port is unnamed. use_downstream_protocol should be disabled for gateway.
 	if node.Type == model.SidecarProxy && ((util.IsProtocolSniffingEnabledForInboundPort(port) && direction == model.TrafficDirectionInbound) ||
 		(util.IsProtocolSniffingEnabledForOutboundPort(port) && direction == model.TrafficDirectionOutbound)) {
-		// setup http2 protocol options for upstream connection.
-		setH2Options(c)
-
-		// Use downstream protocol. If the incoming traffic use HTTP 1.1, the
-		// upstream cluster will use HTTP 1.1, if incoming traffic use HTTP2,
-		// the upstream cluster will use HTTP2.
-
-		// TODO(https://github.com/istio/istio/issues/29735) remove nolint
-		// nolint: staticcheck
-		c.ProtocolSelection = cluster.Cluster_USE_DOWNSTREAM_PROTOCOL
+		setHttpProtocolOptions(c, true)
 	}
 }
 

@@ -26,6 +26,7 @@ import (
 	cluster "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	tls "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
+	http "github.com/envoyproxy/go-control-plane/envoy/extensions/upstreams/http/v3"
 	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"
 	"github.com/golang/protobuf/ptypes"
@@ -202,8 +203,6 @@ func TestCommonHttpProtocolOptions(t *testing.T) {
 			settingsName = "override"
 		}
 		testName := fmt.Sprintf("%s-%s-%s", tc.clusterName, settingsName, tc.proxyType)
-		// TODO(https://github.com/istio/istio/issues/29735) remove nolint
-		// nolint: staticcheck
 		t.Run(testName, func(t *testing.T) {
 			g := NewWithT(t)
 			clusters := xdstest.ExtractClusters(buildTestClusters(clusterTest{
@@ -222,9 +221,25 @@ func TestCommonHttpProtocolOptions(t *testing.T) {
 			commonHTTPProtocolOptions := c.CommonHttpProtocolOptions
 
 			if tc.useDownStreamProtocol && tc.proxyType == model.SidecarProxy {
-				g.Expect(c.ProtocolSelection).To(Equal(cluster.Cluster_USE_DOWNSTREAM_PROTOCOL))
+				if c.TypedExtensionProtocolOptions["envoy.extensions.upstreams.http.v3.HttpProtocolOptions"] == nil {
+					t.Errorf("Expected cluster to have http2 protocol options but they are absent")
+				}
+				anyOptions := c.TypedExtensionProtocolOptions["envoy.extensions.upstreams.http.v3.HttpProtocolOptions"]
+				typedConfig := &http.HttpProtocolOptions{}
+				ptypes.UnmarshalAny(anyOptions, typedConfig)
+				if typedConfig.GetUseDownstreamProtocolConfig() == nil {
+					t.Errorf("Expected cluster to use downstream protocol but got %v", typedConfig)
+				}
 			} else {
-				g.Expect(c.ProtocolSelection).To(Equal(cluster.Cluster_USE_CONFIGURED_PROTOCOL))
+				if c.TypedExtensionProtocolOptions["envoy.extensions.upstreams.http.v3.HttpProtocolOptions"] == nil {
+					t.Errorf("Expected cluster to have http2 protocol options but they are absent")
+				}
+				anyOptions := c.TypedExtensionProtocolOptions["envoy.extensions.upstreams.http.v3.HttpProtocolOptions"]
+				typedConfig := &http.HttpProtocolOptions{}
+				ptypes.UnmarshalAny(anyOptions, typedConfig)
+				if typedConfig.GetUseDownstreamProtocolConfig() != nil {
+					t.Errorf("Expected cluster to not to use downstream protocol but got %v", typedConfig)
+				}
 			}
 
 			// Verify that the values were set correctly.

@@ -23,6 +23,8 @@ import (
 	cluster "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	endpoint "github.com/envoyproxy/go-control-plane/envoy/config/endpoint/v3"
+	http "github.com/envoyproxy/go-control-plane/envoy/extensions/upstreams/http/v3"
+	"github.com/golang/protobuf/ptypes"
 	"github.com/golang/protobuf/ptypes/duration"
 	structpb "github.com/golang/protobuf/ptypes/struct"
 	"github.com/golang/protobuf/ptypes/wrappers"
@@ -231,8 +233,6 @@ func TestApplyDestinationRule(t *testing.T) {
 	}
 
 	for _, tt := range cases {
-		// TODO(https://github.com/istio/istio/issues/29735) remove nolint
-		// nolint: staticcheck
 		t.Run(tt.name, func(t *testing.T) {
 			instances := []*model.ServiceInstance{
 				{
@@ -277,11 +277,14 @@ func TestApplyDestinationRule(t *testing.T) {
 			}
 			// Validate that use client protocol configures cluster correctly.
 			if tt.destRule != nil && tt.destRule.TrafficPolicy != nil && tt.destRule.TrafficPolicy.GetConnectionPool().GetHttp().UseClientProtocol {
-				if tt.cluster.ProtocolSelection != cluster.Cluster_USE_DOWNSTREAM_PROTOCOL {
-					t.Errorf("Expected cluster to have USE_DOWNSTREAM_PROTOCOL but has %v", tt.cluster.ProtocolSelection)
-				}
-				if tt.cluster.Http2ProtocolOptions == nil {
+				if tt.cluster.TypedExtensionProtocolOptions["envoy.extensions.upstreams.http.v3.HttpProtocolOptions"] == nil {
 					t.Errorf("Expected cluster to have http2 protocol options but they are absent")
+				}
+				anyOptions := tt.cluster.TypedExtensionProtocolOptions["envoy.extensions.upstreams.http.v3.HttpProtocolOptions"]
+				typedConfig := &http.HttpProtocolOptions{}
+				ptypes.UnmarshalAny(anyOptions, typedConfig)
+				if typedConfig.GetUseDownstreamProtocolConfig() == nil {
+					t.Errorf("Expected cluster to use downstream protocol but got %v", typedConfig)
 				}
 			}
 
@@ -783,7 +786,7 @@ func TestBuildDefaultCluster(t *testing.T) {
 			cg := NewConfigGenTest(t, TestOptions{MeshConfig: &testMesh})
 			cb := NewClusterBuilder(cg.SetupProxy(nil), cg.PushContext())
 
-			defaultCluster := cb.buildDefaultCluster(tt.clusterName, tt.discovery, tt.endpoints, tt.direction, servicePort, &model.Service{
+			defaultCluster, _ := cb.buildDefaultCluster(tt.clusterName, tt.discovery, tt.endpoints, tt.direction, servicePort, &model.Service{
 				Ports: model.PortList{
 					servicePort,
 				},
