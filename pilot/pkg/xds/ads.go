@@ -268,7 +268,7 @@ func (s *DiscoveryServer) Stream(stream DiscoveryStream) error {
 
 	ids, err := s.authenticate(ctx)
 	if err != nil {
-		return err
+		return status.Error(codes.Unauthenticated, err.Error())
 	}
 	if ids != nil {
 		adsLog.Debugf("Authenticated XDS: %v with identity %v", peerAddr, ids)
