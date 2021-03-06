@@ -371,12 +371,12 @@ func (cb *ClusterBuilder) buildUpstreamClusterTLSContext(opts *buildClusterOpts,
 		// The code has repeated snippets because We want to use predefined alpn strings for efficiency.
 		switch {
 		case metadataCerts:
-			if cb.httpProtocolOptions[c.Name] != nil && cb.httpProtocolOptions[c.Name].UpstreamProtocolOptions != nil {
+			if cb.IsHttp2Cluster(c) {
 				// This is HTTP/2 cluster, advertise it with ALPN.
 				tlsContext.CommonTlsContext.AlpnProtocols = util.ALPNH2Only
 			}
 		default:
-			if cb.httpProtocolOptions[c.Name] != nil && cb.httpProtocolOptions[c.Name].UpstreamProtocolOptions != nil {
+			if cb.IsHttp2Cluster(c) {
 				// This is HTTP/2 in-mesh cluster, advertise it with ALPN.
 				tlsContext.CommonTlsContext.AlpnProtocols = util.ALPNInMeshH2WithMxc
 			} else {
@@ -417,7 +417,7 @@ func (cb *ClusterBuilder) buildUpstreamClusterTLSContext(opts *buildClusterOpts,
 			}
 		}
 
-		if cb.httpProtocolOptions[c.Name] != nil && cb.httpProtocolOptions[c.Name].UpstreamProtocolOptions != nil {
+		if cb.IsHttp2Cluster(c) {
 			// This is HTTP/2 cluster, advertise it with ALPN.
 			tlsContext.CommonTlsContext.AlpnProtocols = util.ALPNH2Only
 		}
@@ -475,7 +475,7 @@ func (cb *ClusterBuilder) buildUpstreamClusterTLSContext(opts *buildClusterOpts,
 			}
 		}
 
-		if cb.httpProtocolOptions[c.Name] != nil && cb.httpProtocolOptions[c.Name].UpstreamProtocolOptions != nil {
+		if cb.IsHttp2Cluster(c) {
 			// This is HTTP/2 cluster, advertise it with ALPN.
 			tlsContext.CommonTlsContext.AlpnProtocols = util.ALPNH2Only
 		}
@@ -490,6 +490,13 @@ func http2ProtocolOptions() *core.Http2ProtocolOptions {
 			Value: 1073741824,
 		},
 	}
+}
+
+// nolint
+func (cb *ClusterBuilder) IsHttp2Cluster(c *cluster.Cluster) bool {
+	options := cb.httpProtocolOptions[c.Name]
+	return options != nil && (options.GetExplicitHttpConfig().GetHttp2ProtocolOptions() != nil ||
+		options.GetUseDownstreamProtocolConfig().Http2ProtocolOptions != nil)
 }
 
 // FIXME: there isn't a way to distinguish between unset values and zero values

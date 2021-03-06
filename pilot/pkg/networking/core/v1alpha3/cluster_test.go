@@ -1904,12 +1904,6 @@ func TestApplyUpstreamTLSSettings(t *testing.T) {
 		SubjectAltNames: []string{"custom.foo.com"},
 		Sni:             "custom.foo.com",
 	}
-
-	http2ProtocolOptions := &core.Http2ProtocolOptions{
-		AllowConnect:  true,
-		AllowMetadata: true,
-	}
-
 	expectedNodeMetadataClientKeyPath := "/clientKeyFromNodeMetadata.pem"
 	expectedNodeMetadataClientCertPath := "/clientCertFromNodeMetadata.pem"
 	expectedNodeMetadataRootCertPath := "/clientRootCertFromNodeMetadata.pem"
@@ -1921,9 +1915,9 @@ func TestApplyUpstreamTLSSettings(t *testing.T) {
 		tls                        *networking.ClientTLSSettings
 		customMetadata             *model.NodeMetadata
 		allowCustomMetadataMutual  bool
+		h2                         bool
 		expectTransportSocket      bool
 		expectTransportSocketMatch bool
-		http2ProtocolOptions       *core.Http2ProtocolOptions
 
 		validateTLSContext func(t *testing.T, ctx *tls.UpstreamTlsContext)
 	}{
@@ -1955,7 +1949,7 @@ func TestApplyUpstreamTLSSettings(t *testing.T) {
 			tls:                        istioMutualTLSSettingsWithCerts,
 			expectTransportSocket:      true,
 			expectTransportSocketMatch: false,
-			http2ProtocolOptions:       http2ProtocolOptions,
+			h2:                         true,
 			validateTLSContext: func(t *testing.T, ctx *tls.UpstreamTlsContext) {
 				if got := ctx.CommonTlsContext.GetAlpnProtocols(); !reflect.DeepEqual(got, util.ALPNH2Only) {
 					t.Fatalf("expected alpn list %v; got %v", util.ALPNH2Only, got)
@@ -1982,7 +1976,7 @@ func TestApplyUpstreamTLSSettings(t *testing.T) {
 			tls:                        istioMutualTLSSettings,
 			expectTransportSocket:      true,
 			expectTransportSocketMatch: false,
-			http2ProtocolOptions:       http2ProtocolOptions,
+			h2:                         true,
 			validateTLSContext: func(t *testing.T, ctx *tls.UpstreamTlsContext) {
 				if got := ctx.CommonTlsContext.GetAlpnProtocols(); !reflect.DeepEqual(got, util.ALPNInMeshH2WithMxc) {
 					t.Fatalf("expected alpn list %v; got %v", util.ALPNInMeshH2WithMxc, got)
@@ -2016,7 +2010,7 @@ func TestApplyUpstreamTLSSettings(t *testing.T) {
 			tls:                        simpleTLSSettingsWithCerts,
 			expectTransportSocket:      true,
 			expectTransportSocketMatch: false,
-			http2ProtocolOptions:       http2ProtocolOptions,
+			h2:                         true,
 			validateTLSContext: func(t *testing.T, ctx *tls.UpstreamTlsContext) {
 				rootName := "file-root:" + mutualTLSSettingsWithCerts.CaCertificates
 				if got := ctx.CommonTlsContext.GetCombinedValidationContext().GetValidationContextSdsSecretConfig().GetName(); rootName != got {
@@ -2061,7 +2055,7 @@ func TestApplyUpstreamTLSSettings(t *testing.T) {
 			tls:                        mutualTLSSettingsWithCerts,
 			expectTransportSocket:      true,
 			expectTransportSocketMatch: false,
-			http2ProtocolOptions:       http2ProtocolOptions,
+			h2:                         true,
 			validateTLSContext: func(t *testing.T, ctx *tls.UpstreamTlsContext) {
 				rootName := "file-root:" + mutualTLSSettingsWithCerts.CaCertificates
 				certName := fmt.Sprintf("file-cert:%s~%s", mutualTLSSettingsWithCerts.ClientCertificate, mutualTLSSettingsWithCerts.PrivateKey)
@@ -2099,7 +2093,7 @@ func TestApplyUpstreamTLSSettings(t *testing.T) {
 			tls:                        istioMutualTLSSettings,
 			expectTransportSocket:      false,
 			expectTransportSocketMatch: true,
-			http2ProtocolOptions:       http2ProtocolOptions,
+			h2:                         true,
 			validateTLSContext: func(t *testing.T, ctx *tls.UpstreamTlsContext) {
 				if got := ctx.CommonTlsContext.GetAlpnProtocols(); !reflect.DeepEqual(got, util.ALPNInMeshH2WithMxc) {
 					t.Fatalf("expected alpn list %v; got %v", util.ALPNInMeshH2WithMxc, got)
@@ -2175,9 +2169,9 @@ func TestApplyUpstreamTLSSettings(t *testing.T) {
 		IstioVersion: &model.IstioVersion{Major: 1, Minor: 5},
 	}
 	push := model.NewPushContext()
-	cb := NewClusterBuilder(proxy, push)
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
+			cb := NewClusterBuilder(proxy, push)
 			customMetadataMutual := features.AllowMetadataCertsInMutualTLS
 			if test.allowCustomMetadataMutual {
 				features.AllowMetadataCertsInMutualTLS = true
@@ -2191,10 +2185,12 @@ func TestApplyUpstreamTLSSettings(t *testing.T) {
 			opts := &buildClusterOpts{
 				cluster: &cluster.Cluster{
 					ClusterDiscoveryType: &cluster.Cluster_Type{Type: test.discoveryType},
-					Http2ProtocolOptions: test.http2ProtocolOptions,
 				},
 				proxy: proxy,
 				mesh:  push.Mesh,
+			}
+			if test.h2 {
+				cb.setH2Options(opts.cluster)
 			}
 			cb.applyUpstreamTLSSettings(opts, test.tls, test.mtlsCtx)
 
@@ -2241,12 +2237,11 @@ func TestBuildUpstreamClusterTLSContext(t *testing.T) {
 
 	credentialName := "some-fake-credential"
 
-	cb := NewClusterBuilder(nil, nil)
-
 	testCases := []struct {
 		name   string
 		opts   *buildClusterOpts
 		tls    *networking.ClientTLSSettings
+		h2     bool
 		result expectedResult
 	}{
 		{
@@ -2339,8 +2334,7 @@ func TestBuildUpstreamClusterTLSContext(t *testing.T) {
 			name: "tls mode ISTIO_MUTUAL with metadata certs and H2",
 			opts: &buildClusterOpts{
 				cluster: &cluster.Cluster{
-					Name:                 "test-cluster",
-					Http2ProtocolOptions: &core.Http2ProtocolOptions{},
+					Name: "test-cluster",
 				},
 				proxy: &model.Proxy{
 					Metadata: &model.NodeMetadata{},
@@ -2354,6 +2348,7 @@ func TestBuildUpstreamClusterTLSContext(t *testing.T) {
 				SubjectAltNames:   []string{"SAN"},
 				Sni:               "some-sni.com",
 			},
+			h2: true,
 			result: expectedResult{
 				tlsContext: &tls.UpstreamTlsContext{
 					CommonTlsContext: &tls.CommonTlsContext{
@@ -2503,6 +2498,7 @@ func TestBuildUpstreamClusterTLSContext(t *testing.T) {
 				SubjectAltNames: []string{"SAN"},
 				Sni:             "some-sni.com",
 			},
+			h2: true,
 			result: expectedResult{
 				tlsContext: &tls.UpstreamTlsContext{
 					CommonTlsContext: &tls.CommonTlsContext{
@@ -2838,6 +2834,7 @@ func TestBuildUpstreamClusterTLSContext(t *testing.T) {
 				CredentialName: credentialName,
 				Sni:            "some-sni.com",
 			},
+			h2: true,
 			result: expectedResult{
 				tlsContext: &tls.UpstreamTlsContext{
 					CommonTlsContext: &tls.CommonTlsContext{
@@ -2917,6 +2914,7 @@ func TestBuildUpstreamClusterTLSContext(t *testing.T) {
 				CredentialName: credentialName,
 				Sni:            "some-sni.com",
 			},
+			h2: true,
 			result: expectedResult{
 				tlsContext: &tls.UpstreamTlsContext{
 					CommonTlsContext: &tls.CommonTlsContext{
@@ -2985,6 +2983,10 @@ func TestBuildUpstreamClusterTLSContext(t *testing.T) {
 	}
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
+			cb := NewClusterBuilder(nil, nil)
+			if tc.h2 {
+				cb.setH2Options(tc.opts.cluster)
+			}
 			ret, err := cb.buildUpstreamClusterTLSContext(tc.opts, tc.tls)
 			if err != nil && tc.result.err == nil || err == nil && tc.result.err != nil {
 				t.Errorf("expecting:\n err=%v but got err=%v", tc.result.err, err)
