@@ -35,6 +35,7 @@ const (
 	HealthInfoType  = apiTypePrefix + "istio.v1.HealthInformation"
 	ProxyConfigType = apiTypePrefix + "istio.mesh.v1alpha1.ProxyConfig"
 
+	// nolint
 	HttpProtocolOptionsType = "envoy.extensions.upstreams.http.v3.HttpProtocolOptions"
 )
 

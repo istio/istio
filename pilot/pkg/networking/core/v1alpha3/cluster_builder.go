@@ -735,7 +735,7 @@ func (cb *ClusterBuilder) setUpstreamProtocol(node *model.Proxy, c *cluster.Clus
 	}
 }
 
-// finalizeClusters does any final cluster field marshalling. This should be called
+// finalizeClusters does any final cluster field marshaling. This should be called
 // at the end before adding the cluster to list of clusters.
 func (cb *ClusterBuilder) finalizeClusters(clusters []*cluster.Cluster) []*cluster.Cluster {
 	// resolve cluster name conflicts. there can be duplicate cluster names if there are conflicting service definitions.
