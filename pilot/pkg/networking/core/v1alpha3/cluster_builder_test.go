@@ -23,8 +23,6 @@ import (
 	cluster "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	endpoint "github.com/envoyproxy/go-control-plane/envoy/config/endpoint/v3"
-	http "github.com/envoyproxy/go-control-plane/envoy/extensions/upstreams/http/v3"
-	"github.com/golang/protobuf/ptypes"
 	"github.com/golang/protobuf/ptypes/duration"
 	structpb "github.com/golang/protobuf/ptypes/struct"
 	"github.com/golang/protobuf/ptypes/wrappers"
@@ -277,14 +275,12 @@ func TestApplyDestinationRule(t *testing.T) {
 			}
 			// Validate that use client protocol configures cluster correctly.
 			if tt.destRule != nil && tt.destRule.TrafficPolicy != nil && tt.destRule.TrafficPolicy.GetConnectionPool().GetHttp().UseClientProtocol {
-				if tt.cluster.TypedExtensionProtocolOptions["envoy.extensions.upstreams.http.v3.HttpProtocolOptions"] == nil {
-					t.Errorf("Expected cluster to have http2 protocol options but they are absent")
+				if cb.httpProtocolOptions[tt.cluster.Name] == nil {
+					t.Errorf("Expected cluster %s to have http protocol options but not found", tt.cluster.Name)
 				}
-				anyOptions := tt.cluster.TypedExtensionProtocolOptions["envoy.extensions.upstreams.http.v3.HttpProtocolOptions"]
-				typedConfig := &http.HttpProtocolOptions{}
-				ptypes.UnmarshalAny(anyOptions, typedConfig)
-				if typedConfig.GetUseDownstreamProtocolConfig() == nil {
-					t.Errorf("Expected cluster to use downstream protocol but got %v", typedConfig)
+				if cb.httpProtocolOptions[tt.cluster.Name].UpstreamProtocolOptions == nil &&
+					cb.httpProtocolOptions[tt.cluster.Name].GetUseDownstreamProtocolConfig() == nil {
+					t.Errorf("Expected cluster %s to have downstream protocol options but not found", tt.cluster.Name)
 				}
 			}
 
@@ -786,7 +782,7 @@ func TestBuildDefaultCluster(t *testing.T) {
 			cg := NewConfigGenTest(t, TestOptions{MeshConfig: &testMesh})
 			cb := NewClusterBuilder(cg.SetupProxy(nil), cg.PushContext())
 
-			defaultCluster, _ := cb.buildDefaultCluster(tt.clusterName, tt.discovery, tt.endpoints, tt.direction, servicePort, &model.Service{
+			defaultCluster := cb.buildDefaultCluster(tt.clusterName, tt.discovery, tt.endpoints, tt.direction, servicePort, &model.Service{
 				Ports: model.PortList{
 					servicePort,
 				},

@@ -45,6 +45,7 @@ import (
 	"istio.io/istio/pilot/pkg/networking/plugin"
 	"istio.io/istio/pilot/pkg/networking/util"
 	authn_model "istio.io/istio/pilot/pkg/security/model"
+	v3 "istio.io/istio/pilot/pkg/xds/v3"
 	"istio.io/istio/pilot/test/xdstest"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/constants"
@@ -217,34 +218,25 @@ func TestCommonHttpProtocolOptions(t *testing.T) {
 			g.Expect(len(clusters)).To(Equal(tc.clusters))
 			c := clusters[tc.clusterName]
 
-			g.Expect(c.GetCommonHttpProtocolOptions()).To(Not(BeNil()))
-			commonHTTPProtocolOptions := c.CommonHttpProtocolOptions
+			anyOptions := c.TypedExtensionProtocolOptions[v3.HttpProtocolOptionsType]
+			httpProtocolOptions := &http.HttpProtocolOptions{}
+			if anyOptions != nil {
+				ptypes.UnmarshalAny(anyOptions, httpProtocolOptions)
+			}
 
 			if tc.useDownStreamProtocol && tc.proxyType == model.SidecarProxy {
-				if c.TypedExtensionProtocolOptions["envoy.extensions.upstreams.http.v3.HttpProtocolOptions"] == nil {
-					t.Errorf("Expected cluster to have http2 protocol options but they are absent")
-				}
-				anyOptions := c.TypedExtensionProtocolOptions["envoy.extensions.upstreams.http.v3.HttpProtocolOptions"]
-				typedConfig := &http.HttpProtocolOptions{}
-				ptypes.UnmarshalAny(anyOptions, typedConfig)
-				if typedConfig.GetUseDownstreamProtocolConfig() == nil {
-					t.Errorf("Expected cluster to use downstream protocol but got %v", typedConfig)
+				if httpProtocolOptions.GetUseDownstreamProtocolConfig() == nil {
+					t.Errorf("Expected cluster to use downstream protocol but got %v", httpProtocolOptions)
 				}
 			} else {
-				if c.TypedExtensionProtocolOptions["envoy.extensions.upstreams.http.v3.HttpProtocolOptions"] == nil {
-					t.Errorf("Expected cluster to have http2 protocol options but they are absent")
-				}
-				anyOptions := c.TypedExtensionProtocolOptions["envoy.extensions.upstreams.http.v3.HttpProtocolOptions"]
-				typedConfig := &http.HttpProtocolOptions{}
-				ptypes.UnmarshalAny(anyOptions, typedConfig)
-				if typedConfig.GetUseDownstreamProtocolConfig() != nil {
-					t.Errorf("Expected cluster to not to use downstream protocol but got %v", typedConfig)
+				if httpProtocolOptions.GetUseDownstreamProtocolConfig() != nil {
+					t.Errorf("Expected cluster to not to use downstream protocol but got %v", httpProtocolOptions)
 				}
 			}
 
 			// Verify that the values were set correctly.
-			g.Expect(commonHTTPProtocolOptions.IdleTimeout).To(Not(BeNil()))
-			g.Expect(commonHTTPProtocolOptions.IdleTimeout).To(Equal(ptypes.DurationProto(time.Duration(15000000000))))
+			g.Expect(httpProtocolOptions.CommonHttpProtocolOptions.IdleTimeout).To(Not(BeNil()))
+			g.Expect(httpProtocolOptions.CommonHttpProtocolOptions.IdleTimeout).To(Equal(ptypes.DurationProto(time.Duration(15000000000))))
 		})
 	}
 }
@@ -2183,7 +2175,7 @@ func TestApplyUpstreamTLSSettings(t *testing.T) {
 		IstioVersion: &model.IstioVersion{Major: 1, Minor: 5},
 	}
 	push := model.NewPushContext()
-
+	cb := NewClusterBuilder(proxy, push)
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			customMetadataMutual := features.AllowMetadataCertsInMutualTLS
@@ -2204,7 +2196,7 @@ func TestApplyUpstreamTLSSettings(t *testing.T) {
 				proxy: proxy,
 				mesh:  push.Mesh,
 			}
-			applyUpstreamTLSSettings(opts, test.tls, test.mtlsCtx)
+			cb.applyUpstreamTLSSettings(opts, test.tls, test.mtlsCtx)
 
 			if test.expectTransportSocket && opts.cluster.TransportSocket == nil ||
 				!test.expectTransportSocket && opts.cluster.TransportSocket != nil {
@@ -2248,6 +2240,8 @@ func TestBuildUpstreamClusterTLSContext(t *testing.T) {
 	clientKey := "/path/to/key"
 
 	credentialName := "some-fake-credential"
+
+	cb := NewClusterBuilder(nil, nil)
 
 	testCases := []struct {
 		name   string
@@ -2991,7 +2985,7 @@ func TestBuildUpstreamClusterTLSContext(t *testing.T) {
 	}
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			ret, err := buildUpstreamClusterTLSContext(tc.opts, tc.tls)
+			ret, err := cb.buildUpstreamClusterTLSContext(tc.opts, tc.tls)
 			if err != nil && tc.result.err == nil || err == nil && tc.result.err != nil {
 				t.Errorf("expecting:\n err=%v but got err=%v", tc.result.err, err)
 			} else if diff := cmp.Diff(tc.result.tlsContext, ret, protocmp.Transform()); diff != "" {
@@ -3149,9 +3143,10 @@ func TestShouldH2Upgrade(t *testing.T) {
 		},
 	}
 
+	cb := NewClusterBuilder(nil, nil)
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			upgrade := shouldH2Upgrade(test.clusterName, test.direction, &test.port, &test.mesh, &test.connectionPool)
+			upgrade := cb.shouldH2Upgrade(test.clusterName, test.direction, &test.port, &test.mesh, &test.connectionPool)
 
 			if upgrade != test.upgrade {
 				t.Fatalf("got: %t, want: %t (%v, %v)", upgrade, test.upgrade, test.mesh.H2UpgradePolicy, test.connectionPool.Http.H2UpgradePolicy)
