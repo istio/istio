@@ -23,7 +23,6 @@ import (
 	auth "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
 	http "github.com/envoyproxy/go-control-plane/envoy/extensions/upstreams/http/v3"
 	"github.com/gogo/protobuf/types"
-	"github.com/golang/protobuf/ptypes"
 	"github.com/golang/protobuf/ptypes/any"
 	"github.com/golang/protobuf/ptypes/duration"
 	structpb "github.com/golang/protobuf/ptypes/struct"
@@ -764,10 +763,8 @@ func (cb *ClusterBuilder) finalizeClusters(clusters []*cluster.Cluster) []*clust
 func (cb *ClusterBuilder) finalize(c *cluster.Cluster) *cluster.Cluster {
 	// Marshall Http Protocol options if they exist.
 	if httpOptions := cb.httpProtocolOptions[c.Name]; httpOptions != nil {
-		if moptions, err := ptypes.MarshalAny(httpOptions); err == nil {
-			c.TypedExtensionProtocolOptions = map[string]*any.Any{
-				v3.HttpProtocolOptionsType: moptions,
-			}
+		c.TypedExtensionProtocolOptions = map[string]*any.Any{
+			v3.HttpProtocolOptionsType: util.MessageToAny(httpOptions),
 		}
 	}
 	return c
