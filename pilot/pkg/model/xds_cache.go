@@ -60,7 +60,6 @@ var (
 
 	xdsCacheHits          = xdsCacheReads.With(typeTag.Value("hit"))
 	xdsCacheMisses        = xdsCacheReads.With(typeTag.Value("miss"))
-	xdsCacheStaleUpdate   = xdsCacheErrors.With(typeTag.Value("stale"))
 	xdsCacheInvalidUpdate = xdsCacheErrors.With(typeTag.Value("notoken"))
 )
 
@@ -180,7 +179,10 @@ func newLru() simplelru.LRUCache {
 // because multiple writers may get cache misses concurrently, but they ought to generate identical
 // configuration. This also checks that our XDS config generation is deterministic, which is a very
 // important property.
-func assertUnchanged(existing *any.Any, replacement *any.Any) {
+func (l *lruCache) assertUnchanged(existing *any.Any, replacement *any.Any) {
+	if !l.enableAssertions {
+		return
+	}
 	if existing == nil {
 		// This is a new addition, not an update
 		return
@@ -205,7 +207,6 @@ func (l *lruCache) Add(entry XdsCacheEntry, token CacheToken, value *any.Any) {
 		if token != cur.(cacheValue).token {
 			// entry may be stale, we need to drop it. This can happen when the cache is invalidated
 			// after we call Get.
-			xdsCacheStaleUpdate.Increment()
 			return
 		}
 		// Otherwise, make sure we write the current token again. We don't change the key on writes; the
@@ -218,10 +219,10 @@ func (l *lruCache) Add(entry XdsCacheEntry, token CacheToken, value *any.Any) {
 	}
 	if l.enableAssertions {
 		if toWrite.token == 0 {
+			xdsCacheInvalidUpdate.Increment()
 			panic("token cannot be empty. was Get() called before Add()?")
 		}
-		xdsCacheInvalidUpdate.Increment()
-		assertUnchanged(cur.(cacheValue).value, value)
+		l.assertUnchanged(cur.(cacheValue).value, value)
 	}
 	l.store.Add(k, toWrite)
 	indexConfig(l.configIndex, entry.Key(), entry)
