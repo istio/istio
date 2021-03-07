@@ -460,21 +460,19 @@ func buildInboundCatchAllNetworkFilterChains(configgen *ConfigGeneratorImpl,
 		ipVersions = append(ipVersions, util.InboundPassthroughClusterIpv6)
 	}
 	filterChains := make([]*listener.FilterChain, 0, 3)
-	if features.PilotEnableLoopBlockers {
-		filterChains = append(filterChains, &listener.FilterChain{
-			Name: VirtualInboundBlackholeFilterChainName,
-			FilterChainMatch: &listener.FilterChainMatch{
-				DestinationPort: &wrappers.UInt32Value{Value: ProxyInboundListenPort},
-			},
-			Filters: []*listener.Filter{{
-				Name: wellknown.TCPProxy,
-				ConfigType: &listener.Filter_TypedConfig{TypedConfig: util.MessageToAny(&tcp.TcpProxy{
-					StatPrefix:       util.BlackHoleCluster,
-					ClusterSpecifier: &tcp.TcpProxy_Cluster{Cluster: util.BlackHoleCluster},
-				})},
-			}},
-		})
-	}
+	filterChains = append(filterChains, &listener.FilterChain{
+		Name: VirtualInboundBlackholeFilterChainName,
+		FilterChainMatch: &listener.FilterChainMatch{
+			DestinationPort: &wrappers.UInt32Value{Value: ProxyInboundListenPort},
+		},
+		Filters: []*listener.Filter{{
+			Name: wellknown.TCPProxy,
+			ConfigType: &listener.Filter_TypedConfig{TypedConfig: util.MessageToAny(&tcp.TcpProxy{
+				StatPrefix:       util.BlackHoleCluster,
+				ClusterSpecifier: &tcp.TcpProxy_Cluster{Cluster: util.BlackHoleCluster},
+			})},
+		}},
+	})
 
 	needTLS := false
 	for _, clusterName := range ipVersions {
@@ -695,24 +693,22 @@ func buildOutboundCatchAllNetworkFilterChains(_ *ConfigGeneratorImpl,
 	node *model.Proxy, push *model.PushContext) []*listener.FilterChain {
 	filterStack := buildOutboundCatchAllNetworkFiltersOnly(push, node)
 	chains := make([]*listener.FilterChain, 0, 2)
-	if features.PilotEnableLoopBlockers {
-		chains = append(chains, &listener.FilterChain{
-			Name: VirtualOutboundBlackholeFilterChainName,
-			FilterChainMatch: &listener.FilterChainMatch{
-				// We should not allow requests to the listen port directly. Requests must be
-				// sent to some other original port and iptables redirected to 15001. This
-				// ensures we do not passthrough back to the listen port.
-				DestinationPort: &wrappers.UInt32Value{Value: uint32(push.Mesh.ProxyListenPort)},
-			},
-			Filters: []*listener.Filter{{
-				Name: wellknown.TCPProxy,
-				ConfigType: &listener.Filter_TypedConfig{TypedConfig: util.MessageToAny(&tcp.TcpProxy{
-					StatPrefix:       util.BlackHoleCluster,
-					ClusterSpecifier: &tcp.TcpProxy_Cluster{Cluster: util.BlackHoleCluster},
-				})},
-			}},
-		})
-	}
+	chains = append(chains, &listener.FilterChain{
+		Name: VirtualOutboundBlackholeFilterChainName,
+		FilterChainMatch: &listener.FilterChainMatch{
+			// We should not allow requests to the listen port directly. Requests must be
+			// sent to some other original port and iptables redirected to 15001. This
+			// ensures we do not passthrough back to the listen port.
+			DestinationPort: &wrappers.UInt32Value{Value: uint32(push.Mesh.ProxyListenPort)},
+		},
+		Filters: []*listener.Filter{{
+			Name: wellknown.TCPProxy,
+			ConfigType: &listener.Filter_TypedConfig{TypedConfig: util.MessageToAny(&tcp.TcpProxy{
+				StatPrefix:       util.BlackHoleCluster,
+				ClusterSpecifier: &tcp.TcpProxy_Cluster{Cluster: util.BlackHoleCluster},
+			})},
+		}},
+	})
 	chains = append(chains, &listener.FilterChain{Name: VirtualOutboundCatchAllTCPFilterChainName, Filters: filterStack})
 	return chains
 }

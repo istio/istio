@@ -442,7 +442,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundHTTPListenerOptsForPort
 		}
 	}
 
-	if features.HTTP10 || node.Metadata.HTTP10 == "1" {
+	if node.Metadata.HTTP10 == "1" {
 		httpOpts.connectionManager.HttpProtocolOptions = &core.Http1ProtocolOptions{
 			AcceptHttp_10: true,
 		}
@@ -942,7 +942,7 @@ func (configgen *ConfigGeneratorImpl) buildHTTPProxy(node *model.Proxy,
 	httpOpts := &core.Http1ProtocolOptions{
 		AllowAbsoluteUrl: proto.BoolTrue,
 	}
-	if features.HTTP10 || node.Metadata.HTTP10 == "1" {
+	if node.Metadata.HTTP10 == "1" {
 		httpOpts.AcceptHttp_10 = true
 	}
 
@@ -1060,7 +1060,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundHTTPListenerOptsForPor
 		rds:              rdsName,
 	}
 
-	if features.HTTP10 || listenerOpts.proxy.Metadata.HTTP10 == "1" {
+	if listenerOpts.proxy.Metadata.HTTP10 == "1" {
 		httpOpts.connectionManager = &hcm.HttpConnectionManager{
 			HttpProtocolOptions: &core.Http1ProtocolOptions{
 				AcceptHttp_10: true,

@@ -30,7 +30,6 @@ import (
 	"istio.io/istio/pilot/cmd/pilot-agent/config"
 	secopt "istio.io/istio/pilot/cmd/pilot-agent/security"
 	"istio.io/istio/pilot/cmd/pilot-agent/status"
-	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/util/network"
 	"istio.io/istio/pkg/cmd"
@@ -337,11 +336,6 @@ var (
 			})
 
 			drainDuration, _ := types.DurationFromProto(proxyConfig.TerminationDrainDuration)
-			if ds, f := features.TerminationDrainDuration.Lookup(); f {
-				// Legacy environment variable is set, us that instead
-				drainDuration = time.Second * time.Duration(ds)
-			}
-
 			agent := envoy.NewAgent(envoyProxy, drainDuration)
 
 			// Watcher is also kicking envoy start.
