@@ -115,6 +115,12 @@ func EchoConfig(name string, ns namespace.Instance, headless bool, annos echo.An
 			{
 				Port:     8089,
 				Protocol: protocol.HTTPS,
+				TLS:      true,
+			},
+			{
+				Port:     8084,
+				Protocol: protocol.HTTPS,
+				TLS:      true,
 			},
 		},
 	}
