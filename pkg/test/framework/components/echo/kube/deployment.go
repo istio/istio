@@ -454,7 +454,7 @@ func newDeployment(ctx resource.Context, cfg echo.Config) (*deployment, error) {
 		}
 	}
 
-	deploymentYAML, err := generateDeploymentYAML(cfg, nil, ctx.Settings().IstioVersions)
+	deploymentYAML, err := generateDeploymentYAML(cfg, nil, ctx.Settings().RevVerMap)
 	if err != nil {
 		return nil, fmt.Errorf("failed generating echo deployment YAML for %s/%s",
 			cfg.Namespace.Name(),
@@ -606,10 +606,6 @@ func templateParams(cfg echo.Config, settings *image.Settings, versions resource
 			return nil, err
 		}
 		imagePullSecret = secret.GetName()
-	}
-	revisionLabels := versions.RevisionLabels()
-	if len(revisionLabels) == 0 {
-		revisionLabels = []string{""}
 	}
 	params := map[string]interface{}{
 		"Hub":                settings.Hub,
