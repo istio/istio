@@ -105,18 +105,17 @@ type Webhook struct {
 }
 
 // New creates a new instance of the admission webhook server.
-func New(p Options) (*Webhook, error) {
-	if p.Mux == nil {
+func New(o Options) (*Webhook, error) {
+	if o.Mux == nil {
 		scope.Error("mux not set correctly")
 		return nil, errors.New("expected mux to be passed, but was not passed")
 	}
 	wh := &Webhook{
-		schemas: p.Schemas,
+		schemas:      o.Schemas,
+		domainSuffix: o.DomainSuffix,
 	}
 
-	p.Mux.HandleFunc("/validate", wh.serveValidate)
-	// old handlers retained backwards compatibility during upgrades
-	p.Mux.HandleFunc("/admitpilot", wh.serveAdmitPilot)
+	o.Mux.HandleFunc("/validate", wh.serveValidate)
 
 	return wh, nil
 }
@@ -205,22 +204,11 @@ func serve(w http.ResponseWriter, r *http.Request, admit admitFunc) {
 	}
 }
 
-func (wh *Webhook) serveAdmitPilot(w http.ResponseWriter, r *http.Request) {
-	serve(w, r, wh.admitPilot)
-}
-
 func (wh *Webhook) serveValidate(w http.ResponseWriter, r *http.Request) {
 	serve(w, r, wh.validate)
 }
 
 func (wh *Webhook) validate(request *kube.AdmissionRequest) *kube.AdmissionResponse {
-	switch request.Kind.Kind {
-	default:
-		return wh.admitPilot(request)
-	}
-}
-
-func (wh *Webhook) admitPilot(request *kube.AdmissionRequest) *kube.AdmissionResponse {
 	switch request.Operation {
 	case kube.Create, kube.Update:
 	default:
