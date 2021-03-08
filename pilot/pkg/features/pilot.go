@@ -97,15 +97,6 @@ var (
 		"Enables the use of HTTP 1.0 in the outbound HTTP listeners, to support legacy applications.",
 	).Get()
 
-	TerminationDrainDuration = env.RegisterIntVar(
-		"TERMINATION_DRAIN_DURATION_SECONDS",
-		5,
-		"The amount of time allowed for connections to complete on pilot-agent shutdown. "+
-			"On receiving SIGTERM or SIGINT, pilot-agent tells the active Envoy to start draining, "+
-			"preventing any new connections and allowing existing connections to complete. It then "+
-			"sleeps for the TerminationDrainDuration and then kills any remaining active Envoy processes.",
-	)
-
 	// EnableMysqlFilter enables injection of `envoy.filters.network.mysql_proxy` in the filter chain.
 	// Pilot injects this outbound filter if the service port name is `mysql`.
 	EnableMysqlFilter = env.RegisterBoolVar(
@@ -314,9 +305,11 @@ var (
 	EnableServiceEntrySelectPods = env.RegisterBoolVar("PILOT_ENABLE_SERVICEENTRY_SELECT_PODS", true,
 		"If enabled, service entries with selectors will select pods from the cluster. "+
 			"It is safe to disable it if you are quite sure you don't need this feature").Get()
+
 	EnableK8SServiceSelectWorkloadEntries = env.RegisterBoolVar("PILOT_ENABLE_K8S_SELECT_WORKLOAD_ENTRIES", true,
 		"If enabled, Kubernetes services with selectors will select workload entries with matching labels. "+
 			"It is safe to disable it if you are quite sure you don't need this feature").Get()
+
 	InjectionWebhookConfigName = env.RegisterStringVar("INJECTION_WEBHOOK_CONFIG_NAME", "istio-sidecar-injector",
 		"Name of the mutatingwebhookconfiguration to patch, if istioctl is not used.")
 
@@ -386,10 +379,6 @@ var (
 		15*time.Second,
 		"If set, the max amount of time to delay a push by. Depends on PILOT_ENABLE_FLOW_CONTROL.",
 	).Get()
-
-	PilotEnableLoopBlockers = env.RegisterBoolVar("PILOT_ENABLE_LOOP_BLOCKER", true,
-		"If enabled, Envoy will be configured to prevent traffic directly the the inbound/outbound "+
-			"ports (15001/15006). This prevents traffic loops. This option will be removed, and considered always enabled, in 1.9.").Get()
 
 	EnableDestinationRuleInheritance = env.RegisterBoolVar(
 		"PILOT_ENABLE_DESTINATION_RULE_INHERITANCE",
