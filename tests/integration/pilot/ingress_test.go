@@ -471,6 +471,7 @@ spec:
 					// Even if the user says not to, we will still deploy istio.
 					// The intent of injection is that it works regardless of environment - just like sidecars
 					cfg.DeployIstio = true
+					cfg.DeployEastWestGW = false
 					cfg.PrimaryClusterIOPFile = "tests/integration/pilot/testdata/gateway-iop.yaml"
 					cfg.ControlPlaneValues = fmt.Sprintf(`
 revision: %v
