@@ -23,6 +23,7 @@ import (
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/echo/common"
 	"istio.io/istio/pkg/test/framework/image"
+	"istio.io/istio/pkg/test/framework/resource"
 )
 
 var settings = &image.Settings{
@@ -150,7 +151,7 @@ func TestDeploymentYAML(t *testing.T) {
 			if err != nil {
 				t.Errorf("failed to generate service %v", err)
 			}
-			deploymentYAML, err := generateDeploymentYAML(tc.config, settings, nil)
+			deploymentYAML, err := generateDeploymentYAML(tc.config, settings, resource.RevVerMap{})
 			if err != nil {
 				t.Errorf("failed to generate deployment %v", err)
 			}

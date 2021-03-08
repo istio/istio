@@ -89,11 +89,11 @@ spec:
 `
 
 	deploymentYAML = `
-{{- $revisions := .Revisions }}
+{{- $revVerMap := .RevVerMap }}
 {{- $subsets := .Subsets }}
 {{- $cluster := .Cluster }}
 {{- range $i, $subset := $subsets }}
-{{- range $j, $revision := $revisions }}
+{{- range $revision, $version := $revVerMap }}
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -454,7 +454,7 @@ func newDeployment(ctx resource.Context, cfg echo.Config) (*deployment, error) {
 		}
 	}
 
-	deploymentYAML, err := generateDeploymentYAML(cfg, nil, ctx.Settings().IstioVersions)
+	deploymentYAML, err := generateDeploymentYAML(cfg, nil, ctx.Settings().RevVerMap)
 	if err != nil {
 		return nil, fmt.Errorf("failed generating echo deployment YAML for %s/%s",
 			cfg.Namespace.Name(),
@@ -551,7 +551,7 @@ spec:
 `, name, podIP, sa, network, service, version)
 }
 
-func generateDeploymentYAML(cfg echo.Config, settings *image.Settings, versions resource.IstioVersions) (string, error) {
+func generateDeploymentYAML(cfg echo.Config, settings *image.Settings, versions resource.RevVerMap) (string, error) {
 	params, err := templateParams(cfg, settings, versions)
 	if err != nil {
 		return "", err
@@ -566,7 +566,7 @@ func generateDeploymentYAML(cfg echo.Config, settings *image.Settings, versions 
 }
 
 func GenerateService(cfg echo.Config) (string, error) {
-	params, err := templateParams(cfg, nil, nil)
+	params, err := templateParams(cfg, nil, resource.RevVerMap{})
 	if err != nil {
 		return "", err
 	}
@@ -576,7 +576,7 @@ func GenerateService(cfg echo.Config) (string, error) {
 
 const DefaultVMImage = "app_sidecar_ubuntu_bionic"
 
-func templateParams(cfg echo.Config, settings *image.Settings, versions resource.IstioVersions) (map[string]interface{}, error) {
+func templateParams(cfg echo.Config, settings *image.Settings, revVerMap resource.RevVerMap) (map[string]interface{}, error) {
 	if settings == nil {
 		var err error
 		settings, err = image.SettingsFromCommandLine()
@@ -607,10 +607,6 @@ func templateParams(cfg echo.Config, settings *image.Settings, versions resource
 		}
 		imagePullSecret = secret.GetName()
 	}
-	revisionLabels := versions.RevisionLabels()
-	if len(revisionLabels) == 0 {
-		revisionLabels = []string{""}
-	}
 	params := map[string]interface{}{
 		"Hub":                settings.Hub,
 		"Tag":                strings.TrimSuffix(settings.Tag, "-distroless"),
@@ -634,8 +630,8 @@ func templateParams(cfg echo.Config, settings *image.Settings, versions resource
 		},
 		"StartupProbe":    supportStartupProbe,
 		"IncludeExtAuthz": cfg.IncludeExtAuthz,
-		"Revisions":       revisionLabels,
-		"IsMultiVersion":  versions.IsMultiVersion(),
+		"RevVerMap":       revVerMap.TemplateMap(),
+		"IsMultiVersion":  revVerMap.Versions().IsMultiVersion(),
 	}
 	return params, nil
 }

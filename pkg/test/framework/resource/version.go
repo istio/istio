@@ -20,35 +20,66 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 )
 
+// RevVerMap maps installed revisions to their Istio versions.
+type RevVerMap map[string]IstioVersion
+
+// Set parses IstioVersions from a string flag in the form "a=1.5.6,b=1.9.0,c=1.4".
+func (rv *RevVerMap) Set(value string) error {
+	m := make(map[string]IstioVersion)
+	rvPairs := strings.Split(value, ",")
+	for _, rvPair := range rvPairs {
+		s := strings.Split(rvPair, "=")
+		rev, ver := s[0], s[1]
+		parsedVer, err := ParseIstioVersion(ver)
+		if err != nil {
+			return err
+		}
+		m[rev] = parsedVer
+	}
+	*rv = m
+	return nil
+}
+
+func (rv *RevVerMap) String() string {
+	if rv == nil {
+		return ""
+	}
+	var vers []string
+	for _, ver := range *rv {
+		vers = append(vers, string(ver))
+	}
+	return strings.Join(vers, ",")
+}
+
+// Versions returns an ordered list of Istio versions from the given RevVerMap.
+func (rv *RevVerMap) Versions() IstioVersions {
+	if rv == nil {
+		return nil
+	}
+	var vers []IstioVersion
+	for _, v := range *rv {
+		vers = append(vers, v)
+	}
+	return vers
+}
+
+// TemplateMap creates a map of revisions and versions suitable for templating.
+func (rv *RevVerMap) TemplateMap() map[string]string {
+	if rv == nil {
+		return nil
+	}
+	templateMap := make(map[string]string)
+	for r, v := range *rv {
+		templateMap[r] = string(v)
+	}
+	return templateMap
+}
+
 // IstioVersion is an Istio version running within a cluster.
 type IstioVersion string
 
 // IstioVersions represents a collection of Istio versions running in a cluster.
 type IstioVersions []IstioVersion
-
-// Set parses IstioVersions from a string flag in the form "1.5.6,1.9.0,1.4".
-func (v *IstioVersions) Set(value string) error {
-	vers := strings.Split(value, ",")
-	for _, ver := range vers {
-		parsed, err := ParseIstioVersion(ver)
-		if err != nil {
-			return err
-		}
-		*v = append(*v, parsed)
-	}
-	return nil
-}
-
-func (v *IstioVersions) String() string {
-	if v == nil {
-		return ""
-	}
-	var vers []string
-	for _, ver := range *v {
-		vers = append(vers, string(ver))
-	}
-	return strings.Join(vers, ",")
-}
 
 // Compare compares two Istio versions. Returns -1 if version "v" is less than "other", 0 if the same,
 // and 1 if "v" is greater than "other".
@@ -77,20 +108,6 @@ func (v IstioVersions) Minimum() IstioVersion {
 // IsMultiVersion returns whether the associated IstioVersions have multiple specified versions.
 func (v IstioVersions) IsMultiVersion() bool {
 	return v != nil && len(v) > 0
-}
-
-// RevisionLabels returns the list of canonical revisions for a set of versions.
-func (v IstioVersions) RevisionLabels() []string {
-	revs := make([]string, len(v))
-	for i, ver := range v {
-		revs[i] = ver.RevisionLabel()
-	}
-	return revs
-}
-
-// RevisionLabel goes from an Istio version to the canonical revision for that version.
-func (v IstioVersion) RevisionLabel() string {
-	return strings.ReplaceAll(string(v), ".", "-")
 }
 
 // ParseIstioVersion parses a version string into a IstioVersion.
