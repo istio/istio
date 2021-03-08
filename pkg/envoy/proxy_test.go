@@ -56,6 +56,8 @@ func TestEnvoyArgs(t *testing.T) {
 		"--service-node", "my-node",
 		"--local-address-ip-version", "v4",
 		"--bootstrap-version", "3",
+		"--use-dynamic-base-id",
+		"--disable-hot-restart",
 		"--log-format", "%Y-%m-%dT%T.%fZ\t%l\tenvoy %n\t%v",
 		"-l", "trace",
 		"--component-log-level", "misc:error",
