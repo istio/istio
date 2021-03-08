@@ -316,6 +316,8 @@ if [[ "${CONTROL_PLANE}" == "UNMANAGED" ]]; then
     DISABLED_TESTS+="|TestAuthorization_EgressGateway" # UNSUPPORTED: Relies on egress gateway deployed to the cluster.
     DISABLED_TESTS+="|TestStrictMTLS" # UNSUPPORTED: Mesh CA does not support ECDSA
     DISABLED_TESTS+="|TestAuthorization_Custom" # UNSUPPORTED: requires mesh config
+    # telemetry/ tests
+    DISABLED_TESTS+="|TestStackdriver|TestStackdriverAudit|TestVMTelemetry" # Stackdriver is not enabled with ASM Distro Baremetal installation
   fi
 
   DISABLED_PACKAGES="/pilot/cni" # NOT SUPPORTED

@@ -204,7 +204,7 @@ func getSourceClusterName(ctx framework.TestContext, cltInstance echo.Instance) 
 	c := cltInstance.Config().Cluster
 	// TODO: remove when MCP tests all run with multiclusters
 	cpType := os.Getenv(ControlPlaneENV)
-	if len(ctx.Clusters()) > 1 || cpType == "MANAGED" {
+	if len(ctx.Clusters()) > 1 || cpType == "MANAGED" || os.Getenv("CLUSTER_TYPE") == "bare-metal" {
 		sourceCluster = c.Name()
 	}
 	return
