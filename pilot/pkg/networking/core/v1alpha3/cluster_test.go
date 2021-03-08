@@ -2171,6 +2171,7 @@ func TestApplyUpstreamTLSSettings(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
+			cb := NewClusterBuilder(proxy, push)
 			customMetadataMutual := features.AllowMetadataCertsInMutualTLS
 			if test.allowCustomMetadataMutual {
 				features.AllowMetadataCertsInMutualTLS = true
@@ -2189,7 +2190,7 @@ func TestApplyUpstreamTLSSettings(t *testing.T) {
 				proxy: proxy,
 				mesh:  push.Mesh,
 			}
-			applyUpstreamTLSSettings(opts, test.tls, test.mtlsCtx)
+			cb.applyUpstreamTLSSettings(opts, test.tls, test.mtlsCtx)
 
 			if test.expectTransportSocket && opts.cluster.TransportSocket == nil ||
 				!test.expectTransportSocket && opts.cluster.TransportSocket != nil {
@@ -2976,7 +2977,8 @@ func TestBuildUpstreamClusterTLSContext(t *testing.T) {
 	}
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			ret, err := buildUpstreamClusterTLSContext(tc.opts, tc.tls)
+			cb := NewClusterBuilder(tc.opts.proxy, nil)
+			ret, err := cb.buildUpstreamClusterTLSContext(tc.opts, tc.tls)
 			if err != nil && tc.result.err == nil || err == nil && tc.result.err != nil {
 				t.Errorf("expecting:\n err=%v but got err=%v", tc.result.err, err)
 			} else if diff := cmp.Diff(tc.result.tlsContext, ret, protocmp.Transform()); diff != "" {
@@ -3134,9 +3136,11 @@ func TestShouldH2Upgrade(t *testing.T) {
 		},
 	}
 
+	cb := NewClusterBuilder(nil, nil)
+
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			upgrade := shouldH2Upgrade(test.clusterName, test.direction, &test.port, &test.mesh, &test.connectionPool)
+			upgrade := cb.shouldH2Upgrade(test.clusterName, test.direction, &test.port, &test.mesh, &test.connectionPool)
 
 			if upgrade != test.upgrade {
 				t.Fatalf("got: %t, want: %t (%v, %v)", upgrade, test.upgrade, test.mesh.H2UpgradePolicy, test.connectionPool.Http.H2UpgradePolicy)
