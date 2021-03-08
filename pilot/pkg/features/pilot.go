@@ -87,6 +87,16 @@ var (
 			" EDS pushes may be delayed, but there will be fewer pushes. By default this is enabled",
 	)
 
+	// HTTP10 will add "accept_http_10" to http outbound listeners. Can also be set only for specific sidecars via meta.
+	//
+	// Alpha in 1.1, may become the default or be turned into a Sidecar API or mesh setting. Only applies to namespaces
+	// where Sidecar is enabled.
+	HTTP10 = env.RegisterBoolVar(
+		"PILOT_HTTP10",
+		false,
+		"Enables the use of HTTP 1.0 in the outbound HTTP listeners, to support legacy applications.",
+	).Get()
+
 	// EnableMysqlFilter enables injection of `envoy.filters.network.mysql_proxy` in the filter chain.
 	// Pilot injects this outbound filter if the service port name is `mysql`.
 	EnableMysqlFilter = env.RegisterBoolVar(

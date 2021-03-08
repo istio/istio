@@ -377,7 +377,7 @@ func (configgen *ConfigGeneratorImpl) createGatewayHTTPFilterChainOpts(node *mod
 
 	httpProtoOpts := &core.Http1ProtocolOptions{}
 
-	if node.Metadata.HTTP10 == "1" {
+	if features.HTTP10 || node.Metadata.HTTP10 == "1" {
 		httpProtoOpts.AcceptHttp_10 = true
 	}
 
