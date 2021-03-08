@@ -69,6 +69,12 @@ func (rv *RevVerMap) TemplateMap() map[string]string {
 		return nil
 	}
 	templateMap := make(map[string]string)
+	if len(*rv) == 0 {
+		// if there are no entries, generate a dummy value so that we don't render
+		// deployment template with empty loop
+		templateMap[""] = ""
+		return templateMap
+	}
 	for r, v := range *rv {
 		templateMap[r] = string(v)
 	}
