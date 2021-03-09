@@ -218,7 +218,7 @@ func (m *Multicluster) AddMemberCluster(client kubelib.Client, clusterID string)
 		if m.caBundlePath != "" {
 			webhookConfigName := strings.ReplaceAll(validationWebhookConfigNameTemplate, validationWebhookConfigNameTemplateVar, m.secretNamespace)
 			validationWebhookController := webhooks.CreateValidationWebhookController(client, webhookConfigName,
-				m.secretNamespace, m.caBundlePath, true)
+				m.secretNamespace, m.caBundlePath)
 			if validationWebhookController != nil {
 				go validationWebhookController.Start(stopCh)
 			}
