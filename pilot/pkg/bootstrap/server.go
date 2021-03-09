@@ -204,7 +204,7 @@ func NewServer(args *PilotArgs) (*Server, error) {
 		httpMux:             http.NewServeMux(),
 		monitoringMux:       http.NewServeMux(),
 		readinessProbes:     make(map[string]readinessProbe),
-		workloadTrustBundle: tb.NewTrustBundle(),
+		workloadTrustBundle: tb.NewTrustBundle(nil),
 	}
 	// Initialize workload Trust Bundle before XDS Server
 	e.TrustBundle = s.workloadTrustBundle
@@ -1208,6 +1208,12 @@ func (s *Server) initWorkloadTrustBundle() {
 		}
 		s.XDSServer.ConfigUpdate(pushReq)
 	})
+
+	s.addStartFunc(func(stop <-chan struct{}) error {
+		go s.workloadTrustBundle.ProcessRemoteTrustAnchors(stop, tb.RemoteDefaultPollPeriod)
+		return nil
+	})
+
 	// MeshConfig: Add initial roots
 	s.workloadTrustBundle.AddMeshConfigUpdate(s.environment.Mesh())
 

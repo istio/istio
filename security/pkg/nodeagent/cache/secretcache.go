@@ -701,6 +701,10 @@ func (sc *SecretManagerClient) setConfigTrustBundle(trustBundle []byte) {
 
 // UpdateConfigTrustBundle : Update the Configured Trust Bundle in the secret Manager client
 func (sc *SecretManagerClient) UpdateConfigTrustBundle(trustBundle []byte) error {
+	existingBundle := sc.getConfigTrustBundle()
+	if bytes.Equal(existingBundle, trustBundle) {
+		return nil
+	}
 	sc.setConfigTrustBundle(trustBundle)
 	sc.CallUpdateCallback(security.RootCertReqResourceName)
 	return nil

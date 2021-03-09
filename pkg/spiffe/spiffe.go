@@ -50,9 +50,10 @@ var (
 	trustDomainMutex sync.RWMutex
 
 	firstRetryBackOffTime = time.Millisecond * 50
-	totalRetryTimeout     = time.Second * 10
 
 	spiffeLog = log.RegisterScope("spiffe", "SPIFFE library logging", 0)
+
+	totalRetryTimeout = time.Second * 10
 )
 
 type Identity struct {
@@ -174,14 +175,7 @@ func RetrieveSpiffeBundleRootCertsFromStringInput(inputString string, extraTrust
 		endpoint := items[1]
 		config[trustDomain] = endpoint
 	}
-	return RetrieveSpiffeBundleRootCerts(config, extraTrustedCerts)
-}
 
-// RetrieveSpiffeBundleRootCerts retrieves the trusted CA certificates from a list of SPIFFE bundle endpoints.
-// It can use the system cert pool and the supplied certificates to validate the endpoints.
-func RetrieveSpiffeBundleRootCerts(config map[string]string, extraTrustedCerts []*x509.Certificate) (
-	map[string][]*x509.Certificate, error) {
-	httpClient := &http.Client{}
 	caCertPool, err := x509.SystemCertPool()
 	if err != nil {
 		return nil, fmt.Errorf("failed to get SystemCertPool: %v", err)
@@ -189,6 +183,14 @@ func RetrieveSpiffeBundleRootCerts(config map[string]string, extraTrustedCerts [
 	for _, cert := range extraTrustedCerts {
 		caCertPool.AddCert(cert)
 	}
+	return RetrieveSpiffeBundleRootCerts(config, caCertPool, totalRetryTimeout)
+}
+
+// RetrieveSpiffeBundleRootCerts retrieves the trusted CA certificates from a list of SPIFFE bundle endpoints.
+// It can use the system cert pool and the supplied certificates to validate the endpoints.
+func RetrieveSpiffeBundleRootCerts(config map[string]string, caCertPool *x509.CertPool, retryTimeout time.Duration) (
+	map[string][]*x509.Certificate, error) {
+	httpClient := &http.Client{}
 
 	ret := map[string][]*x509.Certificate{}
 	for trustdomain, endpoint := range config {
@@ -228,7 +230,7 @@ func RetrieveSpiffeBundleRootCerts(config map[string]string, extraTrustedCerts [
 				break
 			}
 
-			if startTime.Add(totalRetryTimeout).Before(time.Now()) {
+			if startTime.Add(retryTimeout).Before(time.Now()) {
 				return nil, fmt.Errorf("exhausted retries to fetch the SPIFFE bundle %s from url %s. Latest error: %v",
 					trustdomain, endpoint, errMsg)
 			}
