@@ -44,11 +44,10 @@ import (
 
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/client-go/pkg/apis/networking/v1alpha3"
-	"istio.io/pkg/filewatcher"
-	"istio.io/pkg/log"
-
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/kube"
+	"istio.io/pkg/filewatcher"
+	"istio.io/pkg/log"
 )
 
 var scope = log.RegisterScope("validationController", "validation webhook controller", 0)
