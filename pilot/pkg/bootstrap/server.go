@@ -396,6 +396,10 @@ func isUnexpectedListenerError(err error) bool {
 func (s *Server) Start(stop <-chan struct{}) error {
 	log.Infof("Starting Istiod Server with primary cluster %s", s.clusterID)
 
+	if features.UnsafeFeaturesEnabled() {
+		log.Warn("Server is starting with unsafe features enabled")
+	}
+
 	// Now start all of the components.
 	for _, fn := range s.startFuncs {
 		if err := fn(stop); err != nil {
