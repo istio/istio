@@ -426,5 +426,5 @@ var (
 
 // UnsafeFeaturesEnabled returns true if any unsafe features are enabled.
 func UnsafeFeaturesEnabled() bool {
-	return EnableUnsafeAdminEndpoints && EnableUnsafeAssertions
+	return EnableUnsafeAdminEndpoints || EnableUnsafeAssertions
 }
