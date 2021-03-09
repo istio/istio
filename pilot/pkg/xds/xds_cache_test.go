@@ -111,7 +111,7 @@ func TestXdsCache(t *testing.T) {
 	})
 
 	t.Run("multiple hostnames", func(t *testing.T) {
-		c := model.NewXdsCache()
+		c := model.NewLenientXdsCache()
 		addWithToken(c, ep1, any1)
 		addWithToken(c, ep2, any2)
 
@@ -131,7 +131,7 @@ func TestXdsCache(t *testing.T) {
 	})
 
 	t.Run("multiple destinationRules", func(t *testing.T) {
-		c := model.NewXdsCache()
+		c := model.NewLenientXdsCache()
 		ep1 := ep1
 		ep1.destinationRule = &config.Config{Meta: config.Meta{Name: "a", Namespace: "b"}}
 		ep2 := ep2
@@ -161,7 +161,7 @@ func TestXdsCache(t *testing.T) {
 	})
 
 	t.Run("clear all", func(t *testing.T) {
-		c := model.NewXdsCache()
+		c := model.NewLenientXdsCache()
 		addWithToken(c, ep1, any1)
 		addWithToken(c, ep2, any2)
 
@@ -178,7 +178,7 @@ func TestXdsCache(t *testing.T) {
 	})
 
 	t.Run("write without token", func(t *testing.T) {
-		c := model.NewXdsCache()
+		c := model.NewLenientXdsCache()
 		c.Add(ep1, 0, any1)
 		if len(c.Keys()) != 0 {
 			t.Fatalf("expected no keys, got: %v", c.Keys())
@@ -186,7 +186,7 @@ func TestXdsCache(t *testing.T) {
 	})
 
 	t.Run("write with evicted token", func(t *testing.T) {
-		c := model.NewXdsCache()
+		c := model.NewLenientXdsCache()
 		addWithToken(c, ep1, any1)
 		if len(c.Keys()) != 1 {
 			t.Fatalf("expected 1 keys, got: %v", c.Keys())
