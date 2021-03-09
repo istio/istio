@@ -474,7 +474,7 @@ spec:
 			// that mess with certs, multicluster, etc
 			ctx.NewSubTest("helm").Run(func(ctx framework.TestContext) {
 				d := filepath.Join(t.TempDir(), "gateway-values.yaml")
-				rev := "default"
+				rev := ""
 				if len(ctx.Settings().Revision) > 0 {
 					rev = ctx.Settings().Revision
 				}
