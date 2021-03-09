@@ -171,7 +171,7 @@ func newLru() simplelru.LRUCache {
 // configuration. This also checks that our XDS config generation is deterministic, which is a very
 // important property.
 func assertUnchanged(existing *any.Any, replacement *any.Any) {
-	if features.EnableUnsafeAssertions() {
+	if features.EnableUnsafeAssertions {
 		if existing == nil {
 			// This is a new addition, not an update
 			return
@@ -207,7 +207,7 @@ func (l *lruCache) Add(entry XdsCacheEntry, token CacheToken, value *any.Any) {
 		// first write, or we forgot to call Get before.
 		return
 	}
-	if features.EnableUnsafeAssertions() {
+	if features.EnableUnsafeAssertions {
 		if toWrite.token == 0 {
 			panic("token cannot be empty. was Get() called before Add()?")
 		}

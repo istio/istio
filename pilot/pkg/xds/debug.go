@@ -156,7 +156,7 @@ func (s *DiscoveryServer) AddDebugHandlers(mux *http.ServeMux, enableProfiling b
 
 	mux.HandleFunc("/debug", s.Debug)
 
-	if features.EnableUnsafeAdminEndpoints() {
+	if features.EnableUnsafeAdminEndpoints {
 		s.addDebugHandler(mux, "/debug/force_disconnect", "Disconnects a proxy from this Pilot", s.ForceDisconnect)
 	}
 

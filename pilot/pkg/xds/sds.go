@@ -137,7 +137,7 @@ func (s *SecretGen) Generate(proxy *model.Proxy, push *model.PushContext, w *mod
 			continue
 		}
 		cachedItem, token, f := s.cache.Get(sr)
-		if f && !features.EnableUnsafeAssertions() {
+		if f && !features.EnableUnsafeAssertions {
 			// If it is in the Cache, add it and continue
 			// We skip cache if assertions are enabled, so that the cache will assert our eviction logic is correct
 			results = append(results, cachedItem)
