@@ -1,0 +1,10 @@
+apiVersion: release-notes/v2
+kind: feature
+area: istioctl
+issue:
+  - 22274
+
+releaseNotes:
+- |
+  **Added** `istioctl experimental proxy-status` will find istiod using meshConfig if neither --xds-address nor --xds-port is supplied
+

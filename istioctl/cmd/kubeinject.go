@@ -34,7 +34,6 @@ import (
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/inject"
 	"istio.io/pkg/log"
-	"istio.io/pkg/version"
 )
 
 const (
@@ -51,34 +50,13 @@ func createInterface(kubeconfig string) (kubernetes.Interface, error) {
 	return kubernetes.NewForConfig(restConfig)
 }
 
-func getMeshConfigFromConfigMap(kubeconfig, command, revision string) (*meshconfig.MeshConfig, error) {
-	client, err := createInterface(kubeconfig)
+func getMeshConfigFromConfigMap(kubeconfig, revision string) (*meshconfig.MeshConfig, error) {
+	client, err := kubeClientWithRevision(kubeconfig, configContext, revision)
 	if err != nil {
 		return nil, err
 	}
 
-	if meshConfigMapName == defaultMeshConfigMapName && revision != "" {
-		meshConfigMapName = fmt.Sprintf("%s-%s", defaultMeshConfigMapName, revision)
-	}
-	meshConfigMap, err := client.CoreV1().ConfigMaps(istioNamespace).Get(context.TODO(), meshConfigMapName, metav1.GetOptions{})
-	if err != nil {
-		return nil, fmt.Errorf("could not read valid configmap %q from namespace %q: %v - "+
-			"Use --meshConfigFile or re-run "+command+" with `-i <istioSystemNamespace> and ensure valid MeshConfig exists",
-			meshConfigMapName, istioNamespace, err)
-	}
-	// values in the data are strings, while proto might use a
-	// different data type.  therefore, we have to get a value by a
-	// key
-	configYaml, exists := meshConfigMap.Data[configMapKey]
-	if !exists {
-		return nil, fmt.Errorf("missing configuration map key %q", configMapKey)
-	}
-	cfg, err := mesh.ApplyMeshConfigDefaults(configYaml)
-	if err != nil {
-		err = multierror.Append(err, fmt.Errorf("istioctl version %s cannot parse mesh config.  Install istioctl from the latest Istio release",
-			version.Info.Version))
-	}
-	return cfg, err
+	return clioptions.GetMeshConfigFromConfigMap(client, istioNamespace, revision)
 }
 
 // grabs the raw values from the ConfigMap. These are encoded as JSON.
@@ -281,7 +259,7 @@ kube-inject on deployments to get the most up-to-date changes.
 					return err
 				}
 			} else {
-				if meshConfig, err = getMeshConfigFromConfigMap(kubeconfig, "kube-inject", opts.Revision); err != nil {
+				if meshConfig, err = getMeshConfigFromConfigMap(kubeconfig, opts.Revision); err != nil {
 					return err
 				}
 			}

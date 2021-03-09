@@ -29,6 +29,7 @@ import (
 	"istio.io/istio/istioctl/pkg/util/handlers"
 	"istio.io/istio/istioctl/pkg/writer/compare"
 	"istio.io/istio/istioctl/pkg/writer/pilot"
+	"istio.io/istio/istioctl/pkg/xds"
 	pilotxds "istio.io/istio/pilot/pkg/xds"
 	"istio.io/istio/pkg/kube"
 	"istio.io/pkg/log"
@@ -148,6 +149,7 @@ func newKubeClient(kubeconfig, configContext string) (kube.ExtendedClient, error
 func xdsStatusCommand() *cobra.Command {
 	var opts clioptions.ControlPlaneOptions
 	var centralOpts clioptions.CentralControlPlaneOptions
+	var meshConfigFile string
 
 	statusCmd := &cobra.Command{
 		Use:   "proxy-status [<type>/]<name>[.<namespace>]",
@@ -182,6 +184,11 @@ Retrieves last sent and last acknowledged xDS sync from Istiod to each Envoy in 
 		Aliases: []string{"ps"},
 		RunE: func(c *cobra.Command, args []string) error {
 			kubeClient, err := kubeClientWithRevision(kubeconfig, configContext, opts.Revision)
+			if err != nil {
+				return err
+			}
+
+			err = xds.ApplyXdsFlagDefaults(&centralOpts, istioNamespace, opts.Revision, meshConfigFile, kubeClient)
 			if err != nil {
 				return err
 			}
@@ -234,6 +241,8 @@ Retrieves last sent and last acknowledged xDS sync from Istiod to each Envoy in 
 
 	opts.AttachControlPlaneFlags(statusCmd)
 	centralOpts.AttachControlPlaneFlags(statusCmd)
+	statusCmd.PersistentFlags().StringVar(&meshConfigFile, "meshConfigFile", "",
+		"Mesh configuration filename.")
 
 	return statusCmd
 }

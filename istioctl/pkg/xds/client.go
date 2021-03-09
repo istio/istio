@@ -20,14 +20,18 @@ import (
 	"context"
 	"crypto/tls"
 	"fmt"
+	"strconv"
+	"strings"
 
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 
+	"istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/istioctl/pkg/clioptions"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/adsc"
+	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/kube"
 )
 
@@ -92,4 +96,50 @@ func DialOptions(opts *clioptions.CentralControlPlaneOptions, kubeClient kube.Ex
 			})),
 		grpc.WithPerRPCCredentials(supplier),
 	}, err
+}
+
+// ApplyXdsFlagDefaults uses values from the injector config for unset flags needed to contact istiod
+func ApplyXdsFlagDefaults(centralOpts *clioptions.CentralControlPlaneOptions, istioNamespace, revision, meshConfigFile string, kubeClient kube.Client) error {
+	// If the user did not specify any XDS address or Istiod selector, get them from injector config
+	if centralOpts.Xds == "" && centralOpts.XdsPodLabel == "" && centralOpts.XdsPodPort == 0 {
+		var meshConfig *v1alpha1.MeshConfig
+		var err error
+		if meshConfigFile != "" {
+			if meshConfig, err = mesh.ReadMeshConfig(meshConfigFile); err != nil {
+				return err
+			}
+		} else {
+			if meshConfig, err = clioptions.GetMeshConfigFromConfigMap(kubeClient, istioNamespace, revision); err != nil {
+				return err
+			}
+		}
+
+		if localClusterAddress(meshConfig.DefaultConfig.DiscoveryAddress) {
+			// The discovery address looks local.  Default istioctl to using local Istiod via K8s
+			centralOpts.XdsPodPort = xdsPort(meshConfig.DefaultConfig.DiscoveryAddress)
+		} else {
+			// The discovery address looks non-local.  Use it as default for istioctl.
+			centralOpts.Xds = meshConfig.DefaultConfig.DiscoveryAddress
+		}
+	}
+
+	return nil
+}
+
+// Returns true if the XDS address is <host>.svc:<port>
+func localClusterAddress(discoveryAddress string) bool {
+	discHost := strings.Split(discoveryAddress, ":")[0]
+	return strings.HasSuffix(discHost, ".svc")
+}
+
+// Returns the XDS port from an address "host:port", defaulting to 15012 if not present
+func xdsPort(discoveryAddress string) int {
+	parts := strings.Split(discoveryAddress, ":")
+	if len(parts) == 2 {
+		port, err := strconv.Atoi(parts[1])
+		if err != nil {
+			return port
+		}
+	}
+	return 15012
 }

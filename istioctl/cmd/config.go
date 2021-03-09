@@ -31,7 +31,7 @@ import (
 var settableFlags = map[string]interface{}{
 	"istioNamespace":      env.RegisterStringVar("ISTIOCTL_ISTIONAMESPACE", controller.IstioNamespace, "The istioctl --istioNamespace override"),
 	"xds-address":         env.RegisterStringVar("ISTIOCTL_XDS_ADDRESS", "", "The istioctl --xds-address override"),
-	"xds-port":            env.RegisterIntVar("ISTIOCTL_XDS_PORT", 15012, "The istioctl --xds-port override"),
+	"xds-port":            env.RegisterIntVar("ISTIOCTL_XDS_PORT", 0, "The istioctl --xds-port override"),
 	"authority":           env.RegisterStringVar("ISTIOCTL_AUTHORITY", "", "The istioctl --authority override"),
 	"cert-dir":            env.RegisterStringVar("ISTIOCTL_CERT_DIR", "", "The istioctl --cert-dir override"),
 	"insecure":            env.RegisterBoolVar("ISTIOCTL_INSECURE", false, "The istioctl --insecure override"),

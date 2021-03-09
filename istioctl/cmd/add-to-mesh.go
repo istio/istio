@@ -294,7 +294,7 @@ func setupParameters(sidecarTemplate *inject.Templates, valuesConfig *string, re
 			return nil, err
 		}
 	} else {
-		if meshConfig, err = getMeshConfigFromConfigMap(kubeconfig, "add-to-mesh", revision); err != nil {
+		if meshConfig, err = getMeshConfigFromConfigMap(kubeconfig, revision); err != nil {
 			return nil, err
 		}
 	}
