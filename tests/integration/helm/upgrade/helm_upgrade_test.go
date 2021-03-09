@@ -38,10 +38,8 @@ import (
 	"istio.io/istio/tests/util/sanitycheck"
 )
 
-var (
-	// previousChartPath is path of Helm charts for previous Istio deployments.
-	previousChartPath = filepath.Join(env.IstioSrc, "tests/integration/helm/testdata/")
-)
+// previousChartPath is path of Helm charts for previous Istio deployments.
+var previousChartPath = filepath.Join(env.IstioSrc, "tests/integration/helm/testdata/")
 
 const (
 	gcrHub                   = "gcr.io/istio-release"
@@ -99,7 +97,6 @@ func TestDefaultInPlaceUpgrades(t *testing.T) {
 // upgradeCharts upgrades Istio using Helm charts with the provided
 // override values file to the latest charts in $ISTIO_SRC/manifests
 func upgradeCharts(ctx framework.TestContext, h *helm.Helm, overrideValuesFile string) {
-
 	// Upgrade base chart
 	err := h.UpgradeChart(helmtest.BaseReleaseName, filepath.Join(helmtest.ChartPath, helmtest.BaseChart),
 		helmtest.IstioNamespace, overrideValuesFile, helmtest.HelmTimeout)
@@ -133,7 +130,7 @@ func upgradeCharts(ctx framework.TestContext, h *helm.Helm, overrideValuesFile s
 // override values file and fails the tests on any failures.
 func installIstio(t *testing.T, cs cluster.Cluster,
 	h *helm.Helm, overrideValuesFile string) {
-	helmtest.CreateIstioSystemNamespace(t, cs)
+	helmtest.CreateNamespace(t, cs, helmtest.IstioNamespace)
 
 	// Install base chart
 	err := h.InstallChart(helmtest.BaseReleaseName, helmtest.BaseChart+helmtest.TarGzSuffix,
@@ -149,7 +146,7 @@ func installIstio(t *testing.T, cs cluster.Cluster,
 		t.Errorf("failed to install istio %s chart", helmtest.DiscoveryChart)
 	}
 
-	helmtest.InstallGatewaysCharts(t, cs, h, helmtest.TarGzSuffix, overrideValuesFile)
+	helmtest.InstallGatewaysCharts(t, cs, h, helmtest.TarGzSuffix, helmtest.IstioNamespace, overrideValuesFile)
 }
 
 // deleteIstio deletes installed Istio Helm charts and resources

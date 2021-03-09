@@ -1,4 +1,5 @@
 {{- $gateway := index .Values "gateways" "istio-egressgateway" }}
+{{- if eq $gateway.injectionTemplate "" }}
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -350,4 +351,5 @@ spec:
 {{- else if .Values.global.defaultTolerations }}
       tolerations:
 {{ toYaml .Values.global.defaultTolerations | indent 6 }}
+{{- end }}
 {{- end }}
