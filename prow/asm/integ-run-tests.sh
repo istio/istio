@@ -60,8 +60,10 @@ VM_DISTRO="debian-10"
 IMAGE_PROJECT="debian-cloud"
 # holds multiple kubeconfigs for onprem MC
 declare -a ONPREM_MC_CONFIGS
-# hold the kubeconfig for baremetal SC
+# hold the configs for baremetal SC
 declare -a BAREMETAL_SC_CONFIG
+declare BM_ARTIFACTS_PATH
+declare BM_HOST_IP
 
 # hold the ENVIRON_PROJECT_ID used for ASM Onprem cluster installation with Hub
 declare ENVIRON_PROJECT_ID
@@ -347,8 +349,6 @@ if [[ "${CONTROL_PLANE}" == "UNMANAGED" ]]; then
     DISABLED_TESTS+="|TestAuthorization_WorkloadSelector/From_primary-1/.*|TestAuthorization_NegativeMatch/From_primary-1/.*|TestAuthorization_Conditions/IpA_IpB_IpC_in_primary-0/From_primary-1/.*|TestAuthorization_mTLS/From_primary-1/.*|TestAuthorization_JWT/From_primary-1/.*"
   fi
   if [[ "${CLUSTER_TYPE}" == "bare-metal" ]]; then
-    # TODO: Fix the ingress connection issue via proxy
-    DISABLED_TESTS+="|TestAuthorization_IngressGateway|TestIngressRequestAuthentication|TestPassThroughFilterChain"
     DISABLED_TESTS+="|TestAuthorization_EgressGateway" # UNSUPPORTED: Relies on egress gateway deployed to the cluster.
     DISABLED_TESTS+="|TestStrictMTLS" # UNSUPPORTED: Mesh CA does not support ECDSA
     DISABLED_TESTS+="|TestAuthorization_Custom" # UNSUPPORTED: requires mesh config
@@ -417,7 +417,7 @@ if [[ "${CONTROL_PLANE}" == "UNMANAGED" ]]; then
   export DISABLED_PACKAGES
   export JUNIT_OUT="${ARTIFACTS}/junit1.xml"
   if [[ "${CLUSTER_TYPE}" == "bare-metal" ]]; then
-    HTTP_PROXY="${HTTP_PROXY}" make "${TEST_TARGET}"
+    HTTP_PROXY="${HTTP_PROXY}" BM_ARTIFACTS_PATH="${BM_ARTIFACTS_PATH}" BM_HOST_IP="${BM_HOST_IP}" make "${TEST_TARGET}"
   else
     make "${TEST_TARGET}"
   fi

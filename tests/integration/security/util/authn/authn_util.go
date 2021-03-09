@@ -17,6 +17,8 @@ package authn
 
 import (
 	"fmt"
+	"os"
+	"os/exec"
 	"strconv"
 	"strings"
 
@@ -86,6 +88,13 @@ func CheckIngressOrFail(ctx framework.TestContext, ingr ingress.Instance, host s
 	} else {
 		headers["Host"] = []string{host}
 	}
+	if os.Getenv("CLUSTER_TYPE") == "bare-metal" {
+		// Request will be sent to host in the host header with HTTP proxy
+		// Modify the /etc/hosts file on the bare metal bootstrap VM to direct the request to ingress gateway
+		if err := setupEtcHostsFile(ingr, host); err != nil {
+			ctx.Fatal(err)
+		}
+	}
 	opts := echo.CallOptions{
 		Port: &echo.Port{
 			Protocol: protocol.HTTP,
@@ -100,4 +109,28 @@ func CheckIngressOrFail(ctx framework.TestContext, ingr ingress.Instance, host s
 		}
 	}
 	ingr.CallWithRetryOrFail(ctx, opts)
+}
+
+func setupEtcHostsFile(ingr ingress.Instance, host string) error {
+	cmd := exec.Command("ssh", "-o", "UserKnownHostsFile=/dev/null", "-o", "StrictHostKeyChecking=no",
+		"-i", os.Getenv("BM_ARTIFACTS_PATH")+"/id_rsa", "root@"+os.Getenv("BM_HOST_IP"),
+		"grep", host, "/etc/hosts")
+	out, _ := cmd.Output()
+	hostEntry := ingr.HTTPAddress().IP.String() + " " + host
+	if !strings.Contains(string(out), hostEntry) {
+		cmd = exec.Command("ssh", "-o", "UserKnownHostsFile=/dev/null", "-o", "StrictHostKeyChecking=no",
+			"-i", os.Getenv("BM_ARTIFACTS_PATH")+"/id_rsa", "root@"+os.Getenv("BM_HOST_IP"),
+			"sed", "-i", "'/"+host+"/d'", "/etc/hosts")
+		out, err := cmd.CombinedOutput()
+		if err != nil {
+			return fmt.Errorf("command %s failed: %q %v", cmd.String(), string(out), err)
+		}
+		cmd := exec.Command("ssh", "-o", "UserKnownHostsFile=/dev/null", "-o", "StrictHostKeyChecking=no",
+			"-i", os.Getenv("BM_ARTIFACTS_PATH")+"/id_rsa", "root@"+os.Getenv("BM_HOST_IP"),
+			"echo", "\""+hostEntry+"\"", ">>", "/etc/hosts")
+		if out, err := cmd.CombinedOutput(); err != nil {
+			return fmt.Errorf("command %s failed: %q %v", cmd.String(), string(out), err)
+		}
+	}
+	return nil
 }

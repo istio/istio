@@ -985,14 +985,18 @@ function filter_baremetal_kubeconfigs() {
 # Construct correct HTTP_PROXY env value used by baremetal according to the tunnel
 function init_baremetal_http_proxy() {
   for CONFIG in "${BAREMETAL_SC_CONFIG[@]}"; do
-    local ARTIFACTS_PATH=${CONFIG%/*}
+    BM_ARTIFACTS_PATH=${CONFIG%/*}
     local PORT_NUMBER
-    PORT_NUMBER=$(grep "localhost" "${ARTIFACTS_PATH}/tunnel.sh" | sed 's/.*\-L\([0-9]*\):localhost.*/\1/')
+    read -r PORT_NUMBER BM_HOST_IP <<<"$(grep "localhost" "${BM_ARTIFACTS_PATH}/tunnel.sh" | sed 's/.*\-L\([0-9]*\):localhost.* root@\([0-9]*\.[0-9]*\.[0-9]*\.[0-9]*\) -N/\1 \2/')"
     HTTP_PROXY="localhost:${PORT_NUMBER}"
     HTTPS_PROXY="${HTTP_PROXY}"
     echo "----------PROXY env----------"
     echo "HTTP_PROXY: ${HTTP_PROXY}, HTTPS_PROXY: ${HTTPS_PROXY}"
   done
+  echo "----------BM Cluster env----------"
+  echo "BM_ARTIFACTS_PATH: ${BM_ARTIFACTS_PATH}, BM_HOST_IP: ${BM_HOST_IP}"
+  export BM_ARTIFACTS_PATH
+  export BM_HOST_IP
 }
 
 # Creates virtual machines, registers them with the cluster and install the test echo app.
