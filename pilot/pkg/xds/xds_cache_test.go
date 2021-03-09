@@ -24,7 +24,6 @@ import (
 	"github.com/golang/protobuf/ptypes/any"
 	"go.uber.org/atomic"
 
-	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/schema/gvk"
@@ -77,7 +76,6 @@ func TestXdsCacheToken(t *testing.T) {
 }
 
 func TestXdsCache(t *testing.T) {
-	features.EnableUnsafeAssertions = false
 	ep1 := EndpointBuilder{
 		clusterName: "outbound|1||foo.com",
 		service:     &model.Service{Hostname: "foo.com"},
@@ -91,7 +89,7 @@ func TestXdsCache(t *testing.T) {
 		c.Add(entry, tok, value)
 	}
 	t.Run("simple", func(t *testing.T) {
-		c := model.NewXdsCache()
+		c := model.NewLenientXdsCache()
 
 		addWithToken(c, ep1, any1)
 		if !reflect.DeepEqual(c.Keys(), []string{ep1.Key()}) {
@@ -113,7 +111,7 @@ func TestXdsCache(t *testing.T) {
 	})
 
 	t.Run("multiple hostnames", func(t *testing.T) {
-		c := model.NewXdsCache()
+		c := model.NewLenientXdsCache()
 		addWithToken(c, ep1, any1)
 		addWithToken(c, ep2, any2)
 
@@ -133,7 +131,7 @@ func TestXdsCache(t *testing.T) {
 	})
 
 	t.Run("multiple destinationRules", func(t *testing.T) {
-		c := model.NewXdsCache()
+		c := model.NewLenientXdsCache()
 		ep1 := ep1
 		ep1.destinationRule = &config.Config{Meta: config.Meta{Name: "a", Namespace: "b"}}
 		ep2 := ep2
@@ -163,7 +161,7 @@ func TestXdsCache(t *testing.T) {
 	})
 
 	t.Run("clear all", func(t *testing.T) {
-		c := model.NewXdsCache()
+		c := model.NewLenientXdsCache()
 		addWithToken(c, ep1, any1)
 		addWithToken(c, ep2, any2)
 
@@ -180,7 +178,7 @@ func TestXdsCache(t *testing.T) {
 	})
 
 	t.Run("write without token", func(t *testing.T) {
-		c := model.NewXdsCache()
+		c := model.NewLenientXdsCache()
 		c.Add(ep1, 0, any1)
 		if len(c.Keys()) != 0 {
 			t.Fatalf("expected no keys, got: %v", c.Keys())
@@ -188,7 +186,7 @@ func TestXdsCache(t *testing.T) {
 	})
 
 	t.Run("write with evicted token", func(t *testing.T) {
-		c := model.NewXdsCache()
+		c := model.NewLenientXdsCache()
 		addWithToken(c, ep1, any1)
 		if len(c.Keys()) != 1 {
 			t.Fatalf("expected 1 keys, got: %v", c.Keys())
