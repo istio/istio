@@ -1,0 +1,12 @@
+gateways:
+  istio-ingressgateway:
+    name: custom-gateway-helm
+    injectionTemplate: gateway
+    type: ClusterIP # LoadBalancer is slow and not necessary for this tests
+    autoscaleMax: 1
+    resources:
+      requests:
+        cpu: 10m
+        memory: 40Mi
+    labels:
+      istio: custom-gateway-helm

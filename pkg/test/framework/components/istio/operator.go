@@ -82,9 +82,11 @@ type operatorComponent struct {
 	deployTime time.Duration
 }
 
-var _ io.Closer = &operatorComponent{}
-var _ Instance = &operatorComponent{}
-var _ resource.Dumper = &operatorComponent{}
+var (
+	_ io.Closer       = &operatorComponent{}
+	_ Instance        = &operatorComponent{}
+	_ resource.Dumper = &operatorComponent{}
+)
 
 // ID implements resource.Instance
 func (i *operatorComponent) ID() resource.ID {
@@ -152,7 +154,7 @@ func (i *operatorComponent) CustomIngressFor(cluster cluster.Cluster, serviceNam
 }
 
 func appendToFile(contents string, file string) error {
-	f, err := os.OpenFile(file, os.O_APPEND|os.O_WRONLY|os.O_CREATE, 0600)
+	f, err := os.OpenFile(file, os.O_APPEND|os.O_WRONLY|os.O_CREATE, 0o600)
 	if err != nil {
 		return err
 	}
@@ -290,7 +292,7 @@ func deploy(ctx resource.Context, env *kube.Environment, cfg Config) (Instance, 
 		})
 	}
 	if err := errG.Wait(); err != nil {
-		scopes.Framework.Errorf("one or more errors occurred instlaling control-plane clusters: %v", err)
+		scopes.Framework.Errorf("one or more errors occurred installing control-plane clusters: %v", err)
 		return i, err
 	}
 
@@ -402,7 +404,7 @@ func initIOPFile(cfg Config, iopFile string, valuesYaml string) (*opAPI.IstioOpe
 	if err := gogoprotomarshal.ApplyYAML(operatorYaml, operatorCfg); err != nil {
 		return nil, fmt.Errorf("failed to unmarshal base iop: %v, %v", err, operatorYaml)
 	}
-	var values = &pkgAPI.Values{}
+	values := &pkgAPI.Values{}
 	if operatorCfg.Spec.Values != nil {
 		valuesYml, err := yaml.Marshal(operatorCfg.Spec.Values)
 		if err != nil {
@@ -573,7 +575,6 @@ func installRemoteClusters(i *operatorComponent, cfg Config, cluster cluster.Clu
 				"--set", fmt.Sprintf("values.istiodRemote.injectionURL=https://%s:%d/inject/net/%s/cluster/%s",
 					remoteIstiodAddress.IP.String(), 15017, cluster.NetworkName(), cluster.Name()),
 				"--set", fmt.Sprintf("values.base.validationURL=https://%s:%d/validate", remoteIstiodAddress.IP.String(), 15017))
-
 		}
 	}
 
@@ -592,7 +593,6 @@ func installRemoteClusters(i *operatorComponent, cfg Config, cluster cluster.Clu
 }
 
 func (i *operatorComponent) generateCommonInstallSettings(cfg Config, cluster cluster.Cluster, defaultsIOPFile, iopFile string) ([]string, error) {
-
 	s, err := image.SettingsFromCommandLine()
 	if err != nil {
 		return nil, err
@@ -703,7 +703,7 @@ func createRemoteSecret(ctx resource.Context, cluster cluster.Cluster, cfg Confi
 
 func deployCACerts(workDir string, env *kube.Environment, cfg Config) error {
 	certsDir := filepath.Join(workDir, "cacerts")
-	if err := os.Mkdir(certsDir, 0700); err != nil {
+	if err := os.Mkdir(certsDir, 0o700); err != nil {
 		return err
 	}
 
@@ -715,7 +715,7 @@ func deployCACerts(workDir string, env *kube.Environment, cfg Config) error {
 	for _, cluster := range env.Clusters() {
 		// Create a subdir for the cluster certs.
 		clusterDir := filepath.Join(certsDir, cluster.Name())
-		if err := os.Mkdir(clusterDir, 0700); err != nil {
+		if err := os.Mkdir(clusterDir, 0o700); err != nil {
 			return err
 		}
 
