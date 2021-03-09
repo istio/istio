@@ -23,11 +23,9 @@ import (
 	"sort"
 	"time"
 
-	ingress "k8s.io/api/networking/v1beta1"
+	knetworking "k8s.io/api/networking/v1"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/util/version"
-	"k8s.io/client-go/informers/networking/v1beta1"
-	"k8s.io/client-go/kubernetes"
+	ingressinformer "k8s.io/client-go/informers/networking/v1"
 	listerv1 "k8s.io/client-go/listers/core/v1"
 	"k8s.io/client-go/tools/cache"
 
@@ -43,7 +41,6 @@ import (
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/queue"
 	"istio.io/pkg/env"
-	"istio.io/pkg/log"
 )
 
 // In 1.0, the Gateway is defined in the namespace where the actual controller runs, and needs to be managed by
@@ -88,51 +85,13 @@ type controller struct {
 	serviceInformer cache.SharedInformer
 	serviceLister   listerv1.ServiceLister
 	// May be nil if ingress class is not supported in the cluster
-	classes v1beta1.IngressClassInformer
+	classes ingressinformer.IngressClassInformer
 }
 
 // TODO: move to features ( and remove in 1.2 )
 var ingressNamespace = env.RegisterStringVar("K8S_INGRESS_NS", "", "").Get()
 
 var errUnsupportedOp = errors.New("unsupported operation: the ingress config store is a read-only view")
-
-// Check if the "networking/v1" Ingress is available. Implementation borrowed from ingress-nginx
-func V1Available(client kubernetes.Interface) bool {
-	// check kubernetes version to use new ingress package or not
-	version119, _ := version.ParseGeneric("v1.19.0")
-
-	serverVersion, err := client.Discovery().ServerVersion()
-	if err != nil {
-		return false
-	}
-
-	runningVersion, err := version.ParseGeneric(serverVersion.String())
-	if err != nil {
-		log.Errorf("unexpected error parsing running Kubernetes version: %v", err)
-		return false
-	}
-
-	return runningVersion.AtLeast(version119)
-}
-
-// Check if the "networking" group Ingress is available. Implementation borrowed from ingress-nginx
-func NetworkingIngressAvailable(client kubernetes.Interface) bool {
-	// check kubernetes version to use new ingress package or not
-	version118, _ := version.ParseGeneric("v1.18.0")
-
-	serverVersion, err := client.Discovery().ServerVersion()
-	if err != nil {
-		return false
-	}
-
-	runningVersion, err := version.ParseGeneric(serverVersion.String())
-	if err != nil {
-		log.Errorf("unexpected error parsing running Kubernetes version: %v", err)
-		return false
-	}
-
-	return runningVersion.AtLeast(version118)
-}
 
 // NewController creates a new Kubernetes controller
 func NewController(client kube.Client, meshWatcher mesh.Holder,
@@ -144,18 +103,12 @@ func NewController(client kube.Client, meshWatcher mesh.Holder,
 		ingressNamespace = constants.IstioIngressNamespace
 	}
 
-	ingressInformer := client.KubeInformer().Networking().V1beta1().Ingresses().Informer()
+	ingressInformer := client.KubeInformer().Networking().V1().Ingresses().Informer()
 
 	serviceInformer := client.KubeInformer().Core().V1().Services()
 
-	var classes v1beta1.IngressClassInformer
-	if NetworkingIngressAvailable(client) {
-		classes = client.KubeInformer().Networking().V1beta1().IngressClasses()
-		// Register the informer now, so it will be properly started
-		_ = classes.Informer()
-	} else {
-		log.Infof("Skipping IngressClass, resource not supported")
-	}
+	classes := client.KubeInformer().Networking().V1().IngressClasses()
+	classes.Informer()
 
 	c := &controller{
 		meshWatcher:     meshWatcher,
@@ -191,8 +144,8 @@ func NewController(client kube.Client, meshWatcher mesh.Holder,
 	return c
 }
 
-func (c *controller) shouldProcessIngress(mesh *meshconfig.MeshConfig, i *ingress.Ingress) (bool, error) {
-	var class *ingress.IngressClass
+func (c *controller) shouldProcessIngress(mesh *meshconfig.MeshConfig, i *knetworking.Ingress) (bool, error) {
+	var class *knetworking.IngressClass
 	if c.classes != nil && i.Spec.IngressClassName != nil {
 		c, err := c.classes.Lister().Get(*i.Spec.IngressClassName)
 		if err != nil && !kerrors.IsNotFound(err) {
@@ -208,7 +161,7 @@ func (c *controller) shouldProcessIngressUpdate(oldObj, curObj interface{}) (boo
 	var shouldProcess bool
 
 	// should always have curObj passed
-	ing, ok := curObj.(*ingress.Ingress)
+	ing, ok := curObj.(*knetworking.Ingress)
 	if !ok {
 		return false, nil
 	}
@@ -220,7 +173,7 @@ func (c *controller) shouldProcessIngressUpdate(oldObj, curObj interface{}) (boo
 		}
 		shouldProcess = shouldProcessUpdate
 	} else { // this case corresponds to an update to an existing ingress resource
-		oldIng, ok := oldObj.(*ingress.Ingress)
+		oldIng, ok := oldObj.(*knetworking.Ingress)
 		if !ok {
 			return false, nil
 		}
@@ -307,10 +260,10 @@ func (c *controller) Get(typ config.GroupVersionKind, name, namespace string) *c
 }
 
 // sortIngressByCreationTime sorts the list of config objects in ascending order by their creation time (if available).
-func sortIngressByCreationTime(configs []interface{}) []*ingress.Ingress {
-	ingr := make([]*ingress.Ingress, 0, len(configs))
+func sortIngressByCreationTime(configs []interface{}) []*knetworking.Ingress {
+	ingr := make([]*knetworking.Ingress, 0, len(configs))
 	for _, i := range configs {
-		ingr = append(ingr, i.(*ingress.Ingress))
+		ingr = append(ingr, i.(*knetworking.Ingress))
 	}
 	sort.SliceStable(ingr, func(i, j int) bool {
 		// If creation time is the same, then behavior is nondeterministic. In this case, we can
