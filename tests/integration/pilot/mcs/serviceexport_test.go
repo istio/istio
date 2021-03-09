@@ -19,6 +19,7 @@ import (
 	"context"
 	"errors"
 	"io/ioutil"
+	"istio.io/pkg/log"
 	"testing"
 
 	corev1 "k8s.io/api/core/v1"
@@ -120,6 +121,12 @@ func TestServiceExports(t *testing.T) {
 			}
 
 			retry.UntilSuccessOrFail(t, func() error {
+				serviceExports, err := mcsapis.MulticlusterV1alpha1().ServiceExports("").List(context.TODO(), v1.ListOptions{})
+				log.Info("Listing All ServiceExports")
+				for export := range serviceExports.Items {
+					log.Infof("%v \n", export)
+				}
+
 				serviceExport, err := mcsapis.MulticlusterV1alpha1().ServiceExports("svc-namespace").Get(context.TODO(), "svc1", v1.GetOptions{})
 				if err != nil {
 					return err
