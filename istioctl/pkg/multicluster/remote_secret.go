@@ -384,8 +384,8 @@ func getServerFromKubeconfig(context string, config *api.Config) (string, error)
 		return "", fmt.Errorf("could not find server for context %q", context)
 	}
 	if strings.Contains(cluster.Server, "127.0.0.1") || strings.Contains(cluster.Server, "localhost") {
-		log.Warnf("Server in Kubeconfig is %s. This is likely not reachable from inside the cluster.\n" +
-			"If you're using Kubernetes in Docker, pass --server with the container IP for the API Server.")
+		log.Warnf("Server in Kubeconfig is %s. This is likely not reachable from inside the cluster.\n"+
+			"If you're using Kubernetes in Docker, pass --server with the container IP for the API Server.", cluster.Server)
 	}
 	return cluster.Server, nil
 }
