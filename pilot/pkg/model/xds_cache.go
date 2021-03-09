@@ -135,14 +135,26 @@ type XdsCache interface {
 // NewXdsCache returns an instance of a cache.
 func NewXdsCache() XdsCache {
 	return &lruCache{
-		store:       newLru(),
-		configIndex: map[ConfigKey]sets.Set{},
-		nextToken:   atomic.NewUint64(0),
+		enableAssertions: features.EnableUnsafeAssertions,
+		store:            newLru(),
+		configIndex:      map[ConfigKey]sets.Set{},
+		nextToken:        atomic.NewUint64(0),
+	}
+}
+
+// NewLenientXdsCache returns an instance of a cache that does not validate token based get/set and enable assertions.
+func NewLenientXdsCache() XdsCache {
+	return &lruCache{
+		enableAssertions: false,
+		store:            newLru(),
+		configIndex:      map[ConfigKey]sets.Set{},
+		nextToken:        atomic.NewUint64(0),
 	}
 }
 
 type lruCache struct {
-	store simplelru.LRUCache
+	enableAssertions bool
+	store            simplelru.LRUCache
 	// nextToken stores the next token to use. The content here doesn't matter, we just need a cheap
 	// unique identifier.
 	nextToken   *atomic.Uint64
@@ -170,8 +182,8 @@ func newLru() simplelru.LRUCache {
 // because multiple writers may get cache misses concurrently, but they ought to generate identical
 // configuration. This also checks that our XDS config generation is deterministic, which is a very
 // important property.
-func assertUnchanged(existing *any.Any, replacement *any.Any) {
-	if features.EnableUnsafeAssertions {
+func (l *lruCache) assertUnchanged(existing *any.Any, replacement *any.Any) {
+	if l.enableAssertions {
 		if existing == nil {
 			// This is a new addition, not an update
 			return
@@ -207,11 +219,11 @@ func (l *lruCache) Add(entry XdsCacheEntry, token CacheToken, value *any.Any) {
 		// first write, or we forgot to call Get before.
 		return
 	}
-	if features.EnableUnsafeAssertions {
+	if l.enableAssertions {
 		if toWrite.token == 0 {
 			panic("token cannot be empty. was Get() called before Add()?")
 		}
-		assertUnchanged(cur.(cacheValue).value, value)
+		l.assertUnchanged(cur.(cacheValue).value, value)
 	}
 	l.store.Add(k, toWrite)
 	indexConfig(l.configIndex, entry.Key(), entry)
