@@ -32,7 +32,7 @@ for hub in ${HUBS}
 do
   for image in ${DOCKER_TARGETS#docker.}  # assume the image name is the target without the leading docker.
   do
-    docker manifest inspect "$hub"/"$image":"$TAG" && exit  # will exit if it finds the manifest
+    docker manifest inspect "$hub"/"$image":"$TAG" && exit 1 # will exit if it finds the manifest
   done
 done
 set -e
