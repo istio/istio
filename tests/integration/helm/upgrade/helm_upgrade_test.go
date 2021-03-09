@@ -146,7 +146,7 @@ func installIstio(t *testing.T, cs cluster.Cluster,
 		t.Errorf("failed to install istio %s chart", helmtest.DiscoveryChart)
 	}
 
-	helmtest.InstallGatewaysCharts(t, cs, h, helmtest.TarGzSuffix, overrideValuesFile)
+	helmtest.InstallGatewaysCharts(t, cs, h, helmtest.TarGzSuffix, helmtest.IstioNamespace, overrideValuesFile)
 }
 
 // deleteIstio deletes installed Istio Helm charts and resources

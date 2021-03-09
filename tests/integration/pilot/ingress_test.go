@@ -18,6 +18,7 @@ package pilot
 import (
 	"context"
 	"fmt"
+	"path/filepath"
 	"testing"
 	"time"
 
@@ -25,13 +26,15 @@ import (
 
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/test/echo/common/scheme"
+	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/test/framework"
+	kubecluster "istio.io/istio/pkg/test/framework/components/cluster/kube"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/environment/kube"
-	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/components/namespace"
-	"istio.io/istio/pkg/test/framework/resource"
+	"istio.io/istio/pkg/test/helm"
 	"istio.io/istio/pkg/test/util/retry"
+	helmtest "istio.io/istio/tests/integration/helm"
 	ingressutil "istio.io/istio/tests/integration/security/sds_ingress/util"
 )
 
@@ -466,34 +469,19 @@ spec:
 					Validator: echo.ExpectOK(),
 				})
 			})
-			ctx.NewSubTest("istioctl").Run(func(ctx framework.TestContext) {
-				err := istio.Setup(nil, func(ctx resource.Context, cfg *istio.Config) {
-					// Even if the user says not to, we will still deploy istio.
-					// The intent of injection is that it works regardless of environment - just like sidecars
-					cfg.DeployIstio = true
-					cfg.DeployEastWestGW = false
-					cfg.PrimaryClusterIOPFile = "tests/integration/pilot/testdata/gateway-iop.yaml"
-					cfg.ControlPlaneValues = fmt.Sprintf(`
-revision: %v
-components:
-  ingressGateways:
-  - namespace: %s
-    name: custom-gateway-istioctl
-    enabled: true
-    label:
-      istio: custom-gateway-istioctl
-`, ctx.Settings().Revision, gatewayNs.Name())
-				})(ctx)
-				if err != nil {
-					ctx.Fatal(err)
-				}
+			// TODO we could add istioctl as well, but the framework adds a bunch of stuff beyond just `istioctl install`
+			// that mess with certs, multicluster, etc
+			ctx.NewSubTest("helm").Run(func(ctx framework.TestContext) {
+				cs := ctx.Clusters().Default().(*kubecluster.Cluster)
+				h := helm.New(cs.Filename(), filepath.Join(env.IstioSrc, "manifests/charts"))
+				helmtest.InstallGatewaysCharts(ctx, cs, h, "", gatewayNs.Name(), "testdata/gateway-values.yaml")
 				ctx.Config().ApplyYAMLOrFail(ctx, gatewayNs.Name(), fmt.Sprintf(`apiVersion: networking.istio.io/v1alpha3
 kind: Gateway
 metadata:
   name: app
 spec:
   selector:
-    istio: custom-gateway-istioctl
+    istio: custom-gateway-helm
   servers:
   - port:
       number: 80
@@ -521,7 +509,7 @@ spec:
 				apps.PodB[0].CallWithRetryOrFail(ctx, echo.CallOptions{
 					Port:      &echo.Port{ServicePort: 80},
 					Scheme:    scheme.HTTP,
-					Address:   fmt.Sprintf("custom-gateway-istioctl.%s.svc.cluster.local", gatewayNs.Name()),
+					Address:   fmt.Sprintf("custom-gateway-helm.%s.svc.cluster.local", gatewayNs.Name()),
 					Validator: echo.ExpectOK(),
 				})
 			})
