@@ -189,9 +189,9 @@ func (r ParsedResponses) CheckMTLSForHTTP() error {
 		_, f1 := response.RawResponse["X-Forwarded-Client-Cert"]
 		_, f2 := response.RawResponse["x-forwarded-client-cert"] // grpc has different casing
 		if f1 || f2 {
-			return fmt.Errorf("response[%d] X-Forwarded-Client-Cert expected but not found: %v", i, response)
+			return nil
 		}
-		return nil
+		return fmt.Errorf("response[%d] X-Forwarded-Client-Cert expected but not found: %v", i, response)
 	})
 }
 
