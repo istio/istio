@@ -31,7 +31,6 @@ import (
 
 	endpoint "github.com/envoyproxy/go-control-plane/envoy/config/endpoint/v3"
 	"github.com/mitchellh/copystructure"
-	"go.uber.org/atomic"
 
 	"istio.io/api/label"
 	"istio.io/istio/pilot/pkg/networking"
@@ -105,9 +104,6 @@ type Service struct {
 	// MeshExternal (if true) indicates that the service is external to the mesh.
 	// These services are defined using Istio's ServiceEntry spec.
 	MeshExternal bool
-
-	// MultiCluster indicates whether the service exists in multiple clusters.
-	MultiCluster *atomic.Bool
 }
 
 // Resolution indicates how the service instances need to be resolved before routing
@@ -562,14 +558,6 @@ func (s *Service) External() bool {
 	return s.MeshExternal
 }
 
-// IsMultiCluster predicate checks whether the service is multi cluster.
-func (s *Service) IsMultiCluster() bool {
-	if s.MultiCluster == nil {
-		return false
-	}
-	return s.MultiCluster.Load()
-}
-
 // BuildSubsetKey generates a unique string referencing service instances for a given service name, a subset and a port.
 // The proxy queries Pilot with this key to obtain the list of instances in a subset.
 func BuildSubsetKey(direction TrafficDirection, subsetName string, hostname host.Name, port int) string {
@@ -630,10 +618,6 @@ func (s *Service) GetServiceAddressForProxy(node *Proxy) string {
 	clusterIP := func() string {
 		if node.Metadata == nil || node.Metadata.ClusterID == "" {
 			return ""
-		}
-		// If it is not multi clustered, there will be a single one - just return that.
-		if !s.IsMultiCluster() {
-			return s.ClusterVIPs[node.Metadata.ClusterID]
 		}
 		s.Mutex.RLock()
 		defer s.Mutex.RUnlock()

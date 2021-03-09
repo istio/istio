@@ -54,7 +54,7 @@ global:
 			if err := ioutil.WriteFile(overrideValuesFile, []byte(overrideValues), os.ModePerm); err != nil {
 				t.Fatalf("failed to write iop cr file: %v", err)
 			}
-			InstallGatewaysCharts(t, cs, h, "", overrideValuesFile)
+			InstallGatewaysCharts(t, cs, h, "", IstioNamespace, overrideValuesFile)
 
 			VerifyInstallation(ctx, cs)
 
@@ -92,7 +92,7 @@ global:
 			if err := ioutil.WriteFile(overrideValuesFile, []byte(overrideValues), os.ModePerm); err != nil {
 				t.Fatalf("failed to write iop cr file: %v", err)
 			}
-			InstallGatewaysCharts(t, cs, h, "", overrideValuesFile)
+			InstallGatewaysCharts(t, cs, h, "", IstioNamespace, overrideValuesFile)
 
 			VerifyInstallation(ctx, cs)
 

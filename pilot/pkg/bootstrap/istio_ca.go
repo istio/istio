@@ -33,8 +33,10 @@ import (
 
 	"istio.io/api/security/v1beta1"
 	"istio.io/istio/pilot/pkg/features"
+	securityModel "istio.io/istio/pilot/pkg/security/model"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
 	"istio.io/istio/pkg/config/constants"
+	"istio.io/istio/pkg/jwt"
 	kubelib "istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/security"
 	"istio.io/istio/security/pkg/cmd"
@@ -119,9 +121,6 @@ var (
 	k8sInCluster = env.RegisterStringVar("KUBERNETES_SERVICE_HOST", "",
 		"Kuberenetes service host, set automatically when running in-cluster")
 
-	// ThirdPartyJWTPath is the well-known location of the projected K8S JWT. This is mounted on all workloads, as well as istiod.
-	ThirdPartyJWTPath = "./var/run/secrets/tokens/istio-token"
-
 	// This value can also be extracted from the mounted token
 	trustedIssuer = env.RegisterStringVar("TOKEN_ISSUER", "",
 		"OIDC token issuer. If set, will be used to check the tokens.")
@@ -180,7 +179,7 @@ func (s *Server) RunCA(grpc *grpc.Server, ca caserver.CertificateAuthority, opts
 	iss := trustedIssuer.Get()
 	aud := audience.Get()
 
-	token, err := ioutil.ReadFile(s.jwtPath)
+	token, err := ioutil.ReadFile(getJwtPath())
 	if err == nil {
 		tok, err := detectAuthEnv(string(token))
 		if err != nil {
@@ -431,4 +430,18 @@ func (s *Server) createIstioRA(client kubelib.Client,
 		TrustDomain:    opts.TrustDomain,
 	}
 	return ra.NewIstioRA(raOpts)
+}
+
+// getJwtPath returns jwt path.
+func getJwtPath() string {
+	log.Info("JWT policy is ", features.JwtPolicy.Get())
+	switch features.JwtPolicy.Get() {
+	case jwt.PolicyThirdParty:
+		return securityModel.K8sSATrustworthyJwtFileName
+	case jwt.PolicyFirstParty:
+		return securityModel.K8sSAJwtFileName
+	default:
+		log.Infof("unknown JWT policy %v, default to certificates ", features.JwtPolicy.Get())
+		return ""
+	}
 }
