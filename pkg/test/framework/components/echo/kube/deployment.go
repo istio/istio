@@ -89,7 +89,7 @@ spec:
 `
 
 	deploymentYAML = `
-{{- $revVerMap := .RevVerMap }}
+{{- $revVerMap := .IstioVersions }}
 {{- $subsets := .Subsets }}
 {{- $cluster := .Cluster }}
 {{- range $i, $subset := $subsets }}
@@ -454,7 +454,7 @@ func newDeployment(ctx resource.Context, cfg echo.Config) (*deployment, error) {
 		}
 	}
 
-	deploymentYAML, err := generateDeploymentYAML(cfg, nil, ctx.Settings().RevVerMap)
+	deploymentYAML, err := generateDeploymentYAML(cfg, nil, ctx.Settings().IstioVersions)
 	if err != nil {
 		return nil, fmt.Errorf("failed generating echo deployment YAML for %s/%s",
 			cfg.Namespace.Name(),
@@ -576,7 +576,7 @@ func GenerateService(cfg echo.Config) (string, error) {
 
 const DefaultVMImage = "app_sidecar_ubuntu_bionic"
 
-func templateParams(cfg echo.Config, settings *image.Settings, revVerMap resource.RevVerMap) (map[string]interface{}, error) {
+func templateParams(cfg echo.Config, settings *image.Settings, versions resource.RevVerMap) (map[string]interface{}, error) {
 	if settings == nil {
 		var err error
 		settings, err = image.SettingsFromCommandLine()
@@ -630,8 +630,8 @@ func templateParams(cfg echo.Config, settings *image.Settings, revVerMap resourc
 		},
 		"StartupProbe":    supportStartupProbe,
 		"IncludeExtAuthz": cfg.IncludeExtAuthz,
-		"RevVerMap":       revVerMap.TemplateMap(),
-		"IsMultiVersion":  revVerMap.Versions().IsMultiVersion(),
+		"IstioVersions":   versions.TemplateMap(),
+		"IsMultiVersion":  versions.IsMultiVersion(),
 	}
 	return params, nil
 }

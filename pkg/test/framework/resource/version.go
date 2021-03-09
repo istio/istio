@@ -63,6 +63,16 @@ func (rv *RevVerMap) Versions() IstioVersions {
 	return vers
 }
 
+// Minimum returns the minimum version from the revision-version mapping.
+func (rv *RevVerMap) Minimum() IstioVersion {
+	return rv.Versions().Minimum()
+}
+
+// IsMultiVersion returns whether the associated IstioVersions have multiple specified versions.
+func (rv *RevVerMap) IsMultiVersion() bool {
+	return rv != nil && len(*rv) > 0
+}
+
 // TemplateMap creates a map of revisions and versions suitable for templating.
 func (rv *RevVerMap) TemplateMap() map[string]string {
 	if rv == nil {
@@ -109,11 +119,6 @@ func (v IstioVersions) Minimum() IstioVersion {
 		}
 	}
 	return min
-}
-
-// IsMultiVersion returns whether the associated IstioVersions have multiple specified versions.
-func (v IstioVersions) IsMultiVersion() bool {
-	return v != nil && len(v) > 0
 }
 
 // ParseIstioVersion parses a version string into a IstioVersion.
