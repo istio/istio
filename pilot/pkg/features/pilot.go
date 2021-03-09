@@ -25,8 +25,6 @@ import (
 )
 
 var (
-	unsafeVars = map[string]env.BoolVar{}
-
 	MaxConcurrentStreams = env.RegisterIntVar(
 		"ISTIO_GPRC_MAXSTREAMS",
 		100000,
