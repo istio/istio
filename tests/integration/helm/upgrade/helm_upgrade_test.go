@@ -130,7 +130,7 @@ func upgradeCharts(ctx framework.TestContext, h *helm.Helm, overrideValuesFile s
 // override values file and fails the tests on any failures.
 func installIstio(t *testing.T, cs cluster.Cluster,
 	h *helm.Helm, overrideValuesFile string) {
-	helmtest.CreateIstioSystemNamespace(t, cs)
+	helmtest.CreateNamespace(t, cs, helmtest.IstioNamespace)
 
 	// Install base chart
 	err := h.InstallChart(helmtest.BaseReleaseName, helmtest.BaseChart+helmtest.TarGzSuffix,
