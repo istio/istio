@@ -45,6 +45,7 @@ type Config struct {
 	UDSServer             string
 	Cluster               string
 	Dialer                common.Dialer
+	IstioVersion          string
 }
 
 var _ io.Closer = &Instance{}
@@ -145,6 +146,7 @@ func (s *Instance) newEndpoint(port *common.Port, udsServer string) (endpoint.In
 		TLSKey:        s.TLSKey,
 		Dialer:        s.Dialer,
 		ListenerIP:    ip,
+		IstioVersion:  s.IstioVersion,
 	})
 }
 
