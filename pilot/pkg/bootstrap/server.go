@@ -51,7 +51,6 @@ import (
 	modelstatus "istio.io/istio/pilot/pkg/model/status"
 	"istio.io/istio/pilot/pkg/networking/plugin"
 	kubesecrets "istio.io/istio/pilot/pkg/secrets/kube"
-	securityModel "istio.io/istio/pilot/pkg/security/model"
 	"istio.io/istio/pilot/pkg/serviceregistry"
 	"istio.io/istio/pilot/pkg/serviceregistry/aggregate"
 	kubecontroller "istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
@@ -65,7 +64,6 @@ import (
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/config/schema/gvk"
-	"istio.io/istio/pkg/jwt"
 	istiokeepalive "istio.io/istio/pkg/keepalive"
 	kubelib "istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/inject"
@@ -167,9 +165,8 @@ type Server struct {
 	workloadTrustBundle *tb.TrustBundle
 	// path to the caBundle that signs the DNS certs. This should be agnostic to provider.
 	caBundlePath string
-	certMu       sync.Mutex
+	certMu       sync.RWMutex
 	istiodCert   *tls.Certificate
-	jwtPath      string
 
 	// startFuncs keeps track of functions that need to be executed when Istiod starts.
 	startFuncs []startFunc
@@ -177,14 +174,12 @@ type Server struct {
 	// if they are not stopped. This allows important cleanup tasks to be completed.
 	// Note: this is still best effort; a process can die at any time.
 	requiredTerminations sync.WaitGroup
-	statusReporter       *status.Reporter
 	readinessProbes      map[string]readinessProbe
 
 	// duration used for graceful shutdown.
 	shutdownDuration time.Duration
 
-	// The SPIFFE based cert verifier
-	peerCertVerifier *spiffe.PeerCertVerifier
+	statusReporter *status.Reporter
 	// RWConfigStore is the configstore which allows updates, particularly for status.
 	RWConfigStore model.ConfigStoreCache
 }
@@ -269,8 +264,6 @@ func NewServer(args *PilotArgs) (*Server, error) {
 		return nil, err
 	}
 
-	s.initJwtPolicy()
-
 	// Parse and validate Istiod Address.
 	istiodHost, _, err := e.GetDiscoveryAddress()
 	if err != nil {
@@ -279,11 +272,6 @@ func NewServer(args *PilotArgs) (*Server, error) {
 
 	// Create Istiod certs and setup watches.
 	if err := s.initIstiodCerts(args, string(istiodHost)); err != nil {
-		return nil, err
-	}
-
-	// Initialize the SPIFFE peer cert verifier.
-	if err := s.setPeerCertVerifier(args.ServerOptions.TLSOptions); err != nil {
 		return nil, err
 	}
 
@@ -570,7 +558,6 @@ func (s *Server) istiodReadyHandler(w http.ResponseWriter, _ *http.Request) {
 			return
 		}
 	}
-	// TODO check readiness of other secure gRPC and HTTP servers.
 	w.WriteHeader(http.StatusOK)
 }
 
@@ -716,7 +703,11 @@ func (s *Server) initSecureDiscoveryService(args *PilotArgs) error {
 		return nil
 	}
 
-	if s.peerCertVerifier == nil {
+	peerCertVerifier, err := s.createPeerCertVerifier(args.ServerOptions.TLSOptions)
+	if err != nil {
+		return err
+	}
+	if peerCertVerifier == nil {
 		// Running locally without configured certs - no TLS mode
 		log.Warnf("The secure discovery service is disabled")
 		return nil
@@ -726,9 +717,9 @@ func (s *Server) initSecureDiscoveryService(args *PilotArgs) error {
 	cfg := &tls.Config{
 		GetCertificate: s.getIstiodCertificate,
 		ClientAuth:     tls.VerifyClientCertIfGiven,
-		ClientCAs:      s.peerCertVerifier.GetGeneralCertPool(),
+		ClientCAs:      peerCertVerifier.GetGeneralCertPool(),
 		VerifyPeerCertificate: func(rawCerts [][]byte, verifiedChains [][]*x509.Certificate) error {
-			err := s.peerCertVerifier.VerifyPeerCert(rawCerts, verifiedChains)
+			err := peerCertVerifier.VerifyPeerCert(rawCerts, verifiedChains)
 			if err != nil {
 				log.Infof("Could not verify certificate: %v", err)
 			}
@@ -1057,18 +1048,18 @@ func (s *Server) getCertKeyPaths(tlsOptions TLSOptions) (string, string) {
 	return key, cert
 }
 
-// setPeerCertVerifier sets up a SPIFFE certificate verifier with the current istiod configuration.
-func (s *Server) setPeerCertVerifier(tlsOptions TLSOptions) error {
+// createPeerCertVerifier creates a SPIFFE certificate verifier with the current istiod configuration.
+func (s *Server) createPeerCertVerifier(tlsOptions TLSOptions) (*spiffe.PeerCertVerifier, error) {
 	if tlsOptions.CaCertFile == "" && s.CA == nil && features.SpiffeBundleEndpoints == "" {
 		// Running locally without configured certs - no TLS mode
-		return nil
+		return nil, nil
 	}
-	s.peerCertVerifier = spiffe.NewPeerCertVerifier()
+	peerCertVerifier := spiffe.NewPeerCertVerifier()
 	var rootCertBytes []byte
 	var err error
 	if tlsOptions.CaCertFile != "" {
 		if rootCertBytes, err = ioutil.ReadFile(tlsOptions.CaCertFile); err != nil {
-			return err
+			return nil, err
 		}
 	} else {
 		if s.RA != nil {
@@ -1080,10 +1071,9 @@ func (s *Server) setPeerCertVerifier(tlsOptions TLSOptions) error {
 	}
 
 	if len(rootCertBytes) != 0 {
-		err := s.peerCertVerifier.AddMappingFromPEM(spiffe.GetTrustDomain(), rootCertBytes)
+		err := peerCertVerifier.AddMappingFromPEM(spiffe.GetTrustDomain(), rootCertBytes)
 		if err != nil {
-			log.Errorf("Add Root CAs into peerCertVerifier failed: %v", err)
-			return fmt.Errorf("add root CAs into peerCertVerifier failed: %v", err)
+			return nil, fmt.Errorf("add root CAs into peerCertVerifier failed: %v", err)
 		}
 	}
 
@@ -1091,12 +1081,12 @@ func (s *Server) setPeerCertVerifier(tlsOptions TLSOptions) error {
 		certMap, err := spiffe.RetrieveSpiffeBundleRootCertsFromStringInput(
 			features.SpiffeBundleEndpoints, []*x509.Certificate{})
 		if err != nil {
-			return err
+			return nil, err
 		}
-		s.peerCertVerifier.AddMappings(certMap)
+		peerCertVerifier.AddMappings(certMap)
 	}
 
-	return nil
+	return peerCertVerifier, nil
 }
 
 // hasCustomTLSCerts returns true if custom TLS certificates are configured via args.
@@ -1106,8 +1096,8 @@ func hasCustomTLSCerts(tlsOptions TLSOptions) bool {
 
 // getIstiodCertificate returns the istiod certificate.
 func (s *Server) getIstiodCertificate(info *tls.ClientHelloInfo) (*tls.Certificate, error) {
-	s.certMu.Lock()
-	defer s.certMu.Unlock()
+	s.certMu.RLock()
+	defer s.certMu.RUnlock()
 	return s.istiodCert, nil
 }
 
@@ -1126,22 +1116,6 @@ func (s *Server) initControllers(args *PilotArgs) error {
 		return fmt.Errorf("error initializing service controllers: %v", err)
 	}
 	return nil
-}
-
-// initJwtPolicy initializes JwtPolicy.
-func (s *Server) initJwtPolicy() {
-	if features.JwtPolicy.Get() != jwt.PolicyThirdParty {
-		log.Info("JWT policy is ", features.JwtPolicy.Get())
-	}
-
-	switch features.JwtPolicy.Get() {
-	case jwt.PolicyThirdParty:
-		s.jwtPath = ThirdPartyJWTPath
-	case jwt.PolicyFirstParty:
-		s.jwtPath = securityModel.K8sSAJwtFileName
-	default:
-		log.Infof("unknown JWT policy %v, default to certificates ", features.JwtPolicy.Get())
-	}
 }
 
 // maybeCreateCA creates and initializes CA Key if needed.

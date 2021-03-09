@@ -3,7 +3,7 @@
 apiVersion: autoscaling/v2beta1
 kind: HorizontalPodAutoscaler
 metadata:
-  name: {{ $gateway.name | default "istio-egressgateway" }}
+  name: {{ $gateway.name }}
   namespace: {{ .Release.Namespace }}
   labels:
 {{ $gateway.labels | toYaml | indent 4 }}
@@ -17,7 +17,7 @@ spec:
   scaleTargetRef:
     apiVersion: apps/v1
     kind: Deployment
-    name: {{ $gateway.name | default "istio-egressgateway" }}
+    name: {{ $gateway.name }}
   metrics:
     - type: Resource
       resource:

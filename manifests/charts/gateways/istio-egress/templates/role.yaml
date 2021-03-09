@@ -2,7 +2,7 @@
 apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
 metadata:
-  name: {{ $gateway.name | default "istio-egressgateway" }}-sds
+  name: {{ $gateway.name }}-sds
   namespace: {{ .Release.Namespace }}
   labels:
     release: {{ .Release.Name }}
@@ -10,7 +10,7 @@ metadata:
     install.operator.istio.io/owning-resource: {{ .Values.ownerName | default "unknown" }}
     operator.istio.io/component: "EgressGateways"
 rules:
-  - apiGroups: [""]
-    resources: ["secrets"]
-    verbs: ["get", "watch", "list"]
+- apiGroups: [""]
+  resources: ["secrets"]
+  verbs: ["get", "watch", "list"]
 ---
