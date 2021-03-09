@@ -22,7 +22,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
-
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/kube"
 	"istio.io/pkg/version"
@@ -52,7 +51,7 @@ Use --meshConfigFile or run with -i <istioSystemNamespace> and ensure configmap 
 	}
 	cfg, err := mesh.ApplyMeshConfigDefaults(configYaml)
 	if err != nil {
-		err = multierror.Append(err, fmt.Errorf("istioctl version %s cannot parse mesh config.",
+		err = multierror.Append(err, fmt.Errorf("istioctl version %s cannot parse mesh config",
 			version.Info.Version))
 	}
 	return cfg, err

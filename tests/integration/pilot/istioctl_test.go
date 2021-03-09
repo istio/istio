@@ -389,7 +389,7 @@ func TestXdsProxyStatus(t *testing.T) {
 			var args []string
 			g := gomega.NewWithT(t)
 
-			args = []string{"experimenta", "proxy-status"}
+			args = []string{"experimental", "proxy-status"}
 			output, _ = istioCtl.InvokeOrFail(t, args)
 			// Just verify pod A is known to Pilot; implicitly this verifies that
 			// the printing code printed it.
