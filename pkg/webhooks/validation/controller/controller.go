@@ -31,7 +31,6 @@ import (
 	kubeApiAdmission "k8s.io/api/admissionregistration/v1"
 	kubeErrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
-	kubeApiMeta "k8s.io/apimachinery/pkg/apis/meta/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -107,8 +106,6 @@ type Controller struct {
 	dryRunOfInvalidConfigRejected bool
 	fw                            filewatcher.FileWatcher
 
-	stopCh <-chan struct{}
-
 	// unittest hooks
 	readFile      readFileFunc
 	reconcileDone func()
@@ -124,7 +121,7 @@ func (rr reconcileRequest) String() string {
 	return rr.description
 }
 
-func filterWatchedObject(obj kubeApiMeta.Object, name string) (skip bool, key string) {
+func filterWatchedObject(obj metav1.Object, name string) (skip bool, key string) {
 	if name != "" && obj.GetName() != name {
 		return true, ""
 	}
@@ -171,7 +168,7 @@ func makeHandler(queue workqueue.Interface, gvk schema.GroupVersionKind, name st
 			queue.Add(req)
 		},
 		DeleteFunc: func(curr interface{}) {
-			if _, ok := curr.(kubeApiMeta.Object); !ok {
+			if _, ok := curr.(metav1.Object); !ok {
 				// If the object doesn't have Metadata, assume it is a tombstone object
 				// of type DeletedFinalStateUnknown
 				tombstone, ok := curr.(cache.DeletedFinalStateUnknown)
@@ -358,11 +355,11 @@ func (c *Controller) isDryRunOfInvalidConfigRejected() (rejected bool, reason st
 		Spec: networking.Gateway{},
 	}
 
-	createOptions := kubeApiMeta.CreateOptions{DryRun: []string{kubeApiMeta.DryRunAll}}
+	createOptions := metav1.CreateOptions{DryRun: []string{metav1.DryRunAll}}
 	istioClient := c.client.Istio().NetworkingV1alpha3()
 	_, err := istioClient.Gateways(c.o.WatchedNamespace).Create(context.TODO(), invalidGateway, createOptions)
 	if kubeErrors.IsAlreadyExists(err) {
-		updateOptions := kubeApiMeta.UpdateOptions{DryRun: []string{kubeApiMeta.DryRunAll}}
+		updateOptions := metav1.UpdateOptions{DryRun: []string{metav1.DryRunAll}}
 		_, err = istioClient.Gateways(c.o.WatchedNamespace).Update(context.TODO(), invalidGateway, updateOptions)
 	}
 	if err == nil {
@@ -404,7 +401,7 @@ func (c *Controller) updateValidatingWebhookConfiguration(caBundle []byte, failu
 
 	if !reflect.DeepEqual(updated, current) {
 		latest, err := c.client.AdmissionregistrationV1().
-			ValidatingWebhookConfigurations().Update(context.TODO(), updated, kubeApiMeta.UpdateOptions{})
+			ValidatingWebhookConfigurations().Update(context.TODO(), updated, metav1.UpdateOptions{})
 		if err != nil {
 			scope.Errorf("Failed to update validatingwebhookconfiguration %v (failurePolicy=%v, resourceVersion=%v): %v",
 				c.o.WebhookConfigName, failurePolicy, updated.ResourceVersion, err)

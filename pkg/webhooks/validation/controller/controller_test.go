@@ -23,7 +23,6 @@ import (
 	"testing"
 
 	. "github.com/onsi/gomega"
-	"istio.io/client-go/pkg/apis/networking/v1alpha3"
 	kubeApiAdmission "k8s.io/api/admissionregistration/v1"
 	kubeErrors "k8s.io/apimachinery/pkg/api/errors"
 	kubeApiMeta "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -33,6 +32,7 @@ import (
 	ktesting "k8s.io/client-go/testing"
 	"k8s.io/client-go/tools/cache"
 
+	"istio.io/client-go/pkg/apis/networking/v1alpha3"
 	istiofake "istio.io/client-go/pkg/clientset/versioned/fake"
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/testcerts"
@@ -146,8 +146,7 @@ func init() {
 type fakeController struct {
 	*Controller
 
-	endpointStore cache.Store
-	configStore   cache.Store
+	configStore cache.Store
 
 	caChangedCh chan bool
 
