@@ -1,13 +1,14 @@
 {
   "revisions": [
     {
-      "name": "asm-revision-citadel",
+      "name": "asm-revision-istiodca",
       "ca": "CITADEL",
       "overlay": "overlay/trustanchor-meshca.yaml"
     },
     {
       "name": "asm-revision-meshca",
-      "ca": "MESHCA"
+      "ca": "MESHCA",
+      "overlay": "overlay/trustdomain-migrate.yaml"
     }
   ]
 }

@@ -278,6 +278,9 @@ func NewServer(args *PilotArgs, initFuncs ...func(*Server)) (*Server, error) {
 		return nil, err
 	}
 
+	// Initialize workloadTrustBundle after CA has been initialized
+	s.initWorkloadTrustBundle()
+
 	// Secure gRPC Server must be initialized after CA is created as may use a Citadel generated cert.
 	if err := s.initSecureDiscoveryService(args); err != nil {
 		return nil, fmt.Errorf("error initializing secure gRPC Listener: %v", err)

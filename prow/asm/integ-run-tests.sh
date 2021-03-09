@@ -267,7 +267,7 @@ if [[ "${CONTROL_PLANE}" == "UNMANAGED" ]]; then
   echo "Installing ASM control plane..."
   if [[ "${CLUSTER_TYPE}" == "gke" ]]; then
     if [ -z "${REVISION_CONFIG_FILE}" ]; then
-      install_asm "${WD}/kpt-pkg" "${CA}" "${WIP}" "" "" "${CONTEXTS[@]}"
+      install_asm "${WD}/kpt-pkg" "${CA}" "${WIP}" "" "" "" "${CONTEXTS[@]}"
     else
       install_asm_revisions "${REVISION_CONFIG_FILE}" "${WD}/kpt-pkg" "${WIP}" "${CONTEXTS[@]}"
     fi
@@ -358,7 +358,6 @@ if [[ "${CONTROL_PLANE}" == "UNMANAGED" ]]; then
 
   DISABLED_PACKAGES="/pilot/cni" # NOT SUPPORTED
   DISABLED_PACKAGES+="\|/security/ca_migration" # NOT SUPPORTED in most tests. Has its own target
-
 
   # TODO: Unskip telemetry stats tests when https://b.corp.google.com/issues/177606974 is fixed
   # stats filter tests are flaky for multiproject

@@ -402,11 +402,16 @@ function install_asm() {
   local WIP="$1"; shift
   local OVERLAY="$1"; shift
   local CUSTOM_REVISION_FLAGS="$1"; shift
+  local REVISION="$1"; shift
   local CONTEXTS=("${@}")
 
   local CUSTOM_OVERLAY="${PKG}/overlay/default.yaml"
   if [ -n "${OVERLAY}" ]; then
     CUSTOM_OVERLAY="${CUSTOM_OVERLAY},${PKG}/${OVERLAY}"
+  fi
+
+  if [ -n "$REVISION" ]; then
+    CUSTOM_REVISION_FLAGS+=" --revision_name ${REVISION}"
   fi
 
   # variables that should not persist across install_asm calls should be added here
@@ -503,7 +508,13 @@ function install_asm() {
     export _CI_ASM_IMAGE_TAG="${TAG}"
     export _CI_ASM_KPT_BRANCH="${INSTALL_ASM_BRANCH}"
     export _CI_NO_VALIDATE=1
-    export _CI_NO_REVISION=1
+
+    if [ -n "$REVISION" ]; then
+      export _CI_NO_REVISION=0
+    else
+      export _CI_NO_REVISION=1
+    fi
+
     # Required when using unreleased Scriptaro
     export _CI_ASM_PKG_LOCATION="asm-staging-images"
 

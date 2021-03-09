@@ -38,14 +38,7 @@ function install_asm_revisions() {
     OVERLAY=$(jq -r '.overlay // ""' <<< "$v");
     SCRIPTARO_FLAGS=$(jq -r '.scriptaro_flags // ""' <<< "$v")
 
-    if [ -n "$REVISION" ]; then
-      SCRIPTARO_FLAGS+=" --revision_name ${REVISION}"
-    fi
-
-    echo "Installing ASM CP revision ${REVISION}..."
-    echo "--> ca: $CA, overlay: $OVERLAY, scriptaro flags: $SCRIPTARO_FLAGS"
-
     # Script is sourced from `integ-suite-kind.sh` so we can count on `asm-lib.sh` being available
-    install_asm "${PKG}" "${CA}" "${WIP}" "${OVERLAY}" "${SCRIPTARO_FLAGS}" "${CONTEXTS[@]}"
+    install_asm "${PKG}" "${CA}" "${WIP}" "${OVERLAY}" "${SCRIPTARO_FLAGS}" "${REVISION}" "${CONTEXTS[@]}"
   done
 }
