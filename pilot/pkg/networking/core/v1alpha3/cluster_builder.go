@@ -50,6 +50,16 @@ var istioMtlsTransportSocketMatch = &structpb.Struct{
 	},
 }
 
+// h2UpgradeMap specifies the truth table when upgrade takes place.
+var h2UpgradeMap = map[upgradeTuple]bool{
+	{meshconfig.MeshConfig_DO_NOT_UPGRADE, networking.ConnectionPoolSettings_HTTPSettings_UPGRADE}:        true,
+	{meshconfig.MeshConfig_DO_NOT_UPGRADE, networking.ConnectionPoolSettings_HTTPSettings_DO_NOT_UPGRADE}: false,
+	{meshconfig.MeshConfig_DO_NOT_UPGRADE, networking.ConnectionPoolSettings_HTTPSettings_DEFAULT}:        false,
+	{meshconfig.MeshConfig_UPGRADE, networking.ConnectionPoolSettings_HTTPSettings_UPGRADE}:               true,
+	{meshconfig.MeshConfig_UPGRADE, networking.ConnectionPoolSettings_HTTPSettings_DO_NOT_UPGRADE}:        false,
+	{meshconfig.MeshConfig_UPGRADE, networking.ConnectionPoolSettings_HTTPSettings_DEFAULT}:               true,
+}
+
 // ClusterBuilder interface provides an abstraction for building Envoy Clusters.
 type ClusterBuilder struct {
 	proxy *model.Proxy
@@ -165,31 +175,318 @@ func (cb *ClusterBuilder) applyDestinationRule(c *cluster.Cluster, clusterMode C
 	return subsetClusters
 }
 
-func (cb *ClusterBuilder) applyTrafficPolicy(opts buildClusterOpts) {
-	connectionPool, outlierDetection, loadBalancer, tls := selectTrafficPolicyComponents(opts.policy)
-	if opts.direction == model.TrafficDirectionOutbound && connectionPool != nil && connectionPool.Http != nil && connectionPool.Http.UseClientProtocol {
-		// Use downstream protocol. If the incoming traffic use HTTP 1.1, the
-		// upstream cluster will use HTTP 1.1, if incoming traffic use HTTP2,
-		// the upstream cluster will use HTTP2.
-		cb.setUseDownstreamProtocol(opts.cluster)
-	}
-	// Connection pool settings are applicable for both inbound and outbound clusters.
-	cb.applyConnectionPool(opts.mesh, opts.cluster, connectionPool)
-	if opts.direction != model.TrafficDirectionInbound {
-		cb.applyH2Upgrade(opts, connectionPool)
-		applyOutlierDetection(opts.cluster, outlierDetection)
-		applyLoadBalancer(opts.cluster, loadBalancer, opts.port, opts.proxy, opts.mesh)
-	}
-	if opts.cluster.GetType() == cluster.Cluster_ORIGINAL_DST {
-		opts.cluster.LbPolicy = cluster.Cluster_CLUSTER_PROVIDED
+// MergeTrafficPolicy returns the merged TrafficPolicy for a destination-level and subset-level policy on a given port.
+func MergeTrafficPolicy(original, subsetPolicy *networking.TrafficPolicy, port *model.Port) *networking.TrafficPolicy {
+	if subsetPolicy == nil {
+		return original
 	}
 
-	if opts.clusterMode != SniDnatClusterMode && opts.direction != model.TrafficDirectionInbound {
-		autoMTLSEnabled := opts.mesh.GetEnableAutoMtls().Value
-		var mtlsCtxType mtlsContextType
-		tls, mtlsCtxType = buildAutoMtlsSettings(tls, opts.serviceAccounts, opts.istioMtlsSni, opts.proxy,
-			autoMTLSEnabled, opts.meshExternal, opts.serviceMTLSMode)
-		cb.applyUpstreamTLSSettings(&opts, tls, mtlsCtxType)
+	// Sanity check that top-level port level settings have already been merged for the given port
+	if original != nil && len(original.PortLevelSettings) != 0 {
+		original = MergeTrafficPolicy(nil, original, port)
+	}
+
+	mergedPolicy := &networking.TrafficPolicy{}
+	if original != nil {
+		mergedPolicy.ConnectionPool = original.ConnectionPool
+		mergedPolicy.LoadBalancer = original.LoadBalancer
+		mergedPolicy.OutlierDetection = original.OutlierDetection
+		mergedPolicy.Tls = original.Tls
+	}
+
+	// Override with subset values.
+	if subsetPolicy.ConnectionPool != nil {
+		mergedPolicy.ConnectionPool = subsetPolicy.ConnectionPool
+	}
+	if subsetPolicy.OutlierDetection != nil {
+		mergedPolicy.OutlierDetection = subsetPolicy.OutlierDetection
+	}
+	if subsetPolicy.LoadBalancer != nil {
+		mergedPolicy.LoadBalancer = subsetPolicy.LoadBalancer
+	}
+	if subsetPolicy.Tls != nil {
+		mergedPolicy.Tls = subsetPolicy.Tls
+	}
+
+	// Check if port level overrides exist, if yes override with them.
+	if port != nil && len(subsetPolicy.PortLevelSettings) > 0 {
+		for _, p := range subsetPolicy.PortLevelSettings {
+			if p.Port != nil && uint32(port.Port) == p.Port.Number {
+				// per the docs, port level policies do not inherit and intead to defaults if not provided
+				mergedPolicy.ConnectionPool = p.ConnectionPool
+				mergedPolicy.OutlierDetection = p.OutlierDetection
+				mergedPolicy.LoadBalancer = p.LoadBalancer
+				mergedPolicy.Tls = p.Tls
+				break
+			}
+		}
+	}
+	return mergedPolicy
+}
+
+// buildDefaultCluster builds the default cluster and also applies default traffic policy.
+func (cb *ClusterBuilder) buildDefaultCluster(name string, discoveryType cluster.Cluster_DiscoveryType,
+	localityLbEndpoints []*endpoint.LocalityLbEndpoints, direction model.TrafficDirection,
+	port *model.Port, service *model.Service, allInstances []*model.ServiceInstance) *cluster.Cluster {
+	if allInstances == nil {
+		allInstances = cb.proxy.ServiceInstances
+	}
+	c := &cluster.Cluster{
+		Name:                 name,
+		ClusterDiscoveryType: &cluster.Cluster_Type{Type: discoveryType},
+	}
+	switch discoveryType {
+	case cluster.Cluster_STRICT_DNS:
+		c.DnsLookupFamily = cluster.Cluster_V4_ONLY
+		dnsRate := gogo.DurationToProtoDuration(cb.push.Mesh.DnsRefreshRate)
+		c.DnsRefreshRate = dnsRate
+		c.RespectDnsTtl = true
+		fallthrough
+	case cluster.Cluster_STATIC:
+		if len(localityLbEndpoints) == 0 {
+			cb.push.AddMetric(model.DNSNoEndpointClusters, c.Name, cb.proxy.ID,
+				fmt.Sprintf("%s cluster without endpoints %s found while pushing CDS", discoveryType.String(), c.Name))
+			return nil
+		}
+		c.LoadAssignment = &endpoint.ClusterLoadAssignment{
+			ClusterName: name,
+			Endpoints:   localityLbEndpoints,
+		}
+	}
+
+	// For inbound clusters, the default traffic policy is used. For outbound clusters, the default traffic policy
+	// will be applied, which would be overridden by traffic policy specified in destination rule, if any.
+	opts := buildClusterOpts{
+		mesh:                cb.push.Mesh,
+		cluster:             c,
+		policy:              cb.defaultTrafficPolicy(discoveryType),
+		port:                port,
+		serviceAccounts:     nil,
+		istioMtlsSni:        "",
+		clusterMode:         DefaultClusterMode,
+		direction:           direction,
+		proxy:               cb.proxy,
+		httpProtocolOptions: nil,
+	}
+	// decides whether the cluster corresponds to a service external to mesh or not.
+	if direction == model.TrafficDirectionInbound {
+		// Inbound cluster always corresponds to service in the mesh.
+		opts.meshExternal = false
+	} else if service != nil {
+		// otherwise, read this information from service object.
+		opts.meshExternal = service.MeshExternal
+	}
+	cb.applyTrafficPolicy(opts)
+	addTelemetryMetadata(opts, service, direction, allInstances)
+	addNetworkingMetadata(opts, service, direction)
+	return c
+}
+
+// buildInboundClusterForPortOrUDS constructs a single inbound listener. The cluster will be bound to
+// `inbound|clusterPort||`, and send traffic to <bind>:<instance.Endpoint.EndpointPort>. A workload
+// will have a single inbound cluster per port. In general this works properly, with the exception of
+// the Service-oriented DestinationRule, and upstream protocol selection. Our documentation currently
+// requires a single protocol per port, and the DestinationRule issue is slated to move to Sidecar.
+// Note: clusterPort and instance.Endpoint.EndpointPort are identical for standard Services; however,
+// Sidecar.Ingress allows these to be different.
+func (cb *ClusterBuilder) buildInboundClusterForPortOrUDS(clusterPort int, bind string,
+	instance *model.ServiceInstance, allInstance []*model.ServiceInstance) *cluster.Cluster {
+	clusterName := model.BuildInboundSubsetKey(clusterPort)
+	localityLbEndpoints := buildInboundLocalityLbEndpoints(bind, instance.Endpoint.EndpointPort)
+	clusterType := cluster.Cluster_ORIGINAL_DST
+	if len(localityLbEndpoints) > 0 {
+		clusterType = cluster.Cluster_STATIC
+	}
+	localCluster := cb.buildDefaultCluster(clusterName, clusterType, localityLbEndpoints,
+		model.TrafficDirectionInbound, instance.ServicePort, instance.Service, allInstance)
+	if clusterType == cluster.Cluster_ORIGINAL_DST {
+		// Extend cleanupInterval beyond 5s default. This ensures that upstream connections will stay
+		// open for up to 60s. With the default of 5s, we may tear things down too quickly for
+		// infrequently accessed services.
+		localCluster.CleanupInterval = &duration.Duration{Seconds: 60}
+	}
+	// If stat name is configured, build the alt statname.
+	if len(cb.push.Mesh.InboundClusterStatName) != 0 {
+		localCluster.AltStatName = util.BuildStatPrefix(cb.push.Mesh.InboundClusterStatName,
+			string(instance.Service.Hostname), "", instance.ServicePort, instance.Service.Attributes)
+	}
+	cb.setUpstreamProtocol(cb.proxy, localCluster, instance.ServicePort, model.TrafficDirectionInbound)
+
+	// When users specify circuit breakers, they need to be set on the receiver end
+	// (server side) as well as client side, so that the server has enough capacity
+	// (not the defaults) to handle the increased traffic volume
+	// TODO: This is not foolproof - if instance is part of multiple services listening on same port,
+	// choice of inbound cluster is arbitrary. So the connection pool settings may not apply cleanly.
+	cfg := cb.push.DestinationRule(cb.proxy, instance.Service)
+	if cfg != nil {
+		destinationRule := cfg.Spec.(*networking.DestinationRule)
+		if destinationRule.TrafficPolicy != nil {
+			connectionPool, _, _, _ := selectTrafficPolicyComponents(MergeTrafficPolicy(nil, destinationRule.TrafficPolicy, instance.ServicePort))
+			// only connection pool settings make sense on the inbound path.
+			// upstream TLS settings/outlier detection/load balancer don't apply here.
+			cb.applyConnectionPool(cb.push.Mesh, localCluster, connectionPool)
+			util.AddConfigInfoMetadata(localCluster.Metadata, cfg.Meta)
+		}
+	}
+	if bind != LocalhostAddress && bind != LocalhostIPv6Address {
+		// iptables will redirect our own traffic to localhost back to us if we do not use the "magic" upstream bind
+		// config which will be skipped.
+		localCluster.UpstreamBindConfig = &core.BindConfig{
+			SourceAddress: &core.SocketAddress{
+				Address: getPassthroughBindIP(cb.proxy),
+				PortSpecifier: &core.SocketAddress_PortValue{
+					PortValue: uint32(0),
+				},
+			},
+		}
+	}
+	return localCluster
+}
+
+func (cb *ClusterBuilder) buildLocalityLbEndpoints(proxyNetworkView map[string]bool, service *model.Service,
+	port int, labels labels.Collection) []*endpoint.LocalityLbEndpoints {
+	if service.Resolution != model.DNSLB {
+		return nil
+	}
+
+	instances := cb.push.ServiceInstancesByPort(service, port, labels)
+
+	// Determine whether or not the target service is considered local to the cluster
+	// and should, therefore, not be accessed from outside the cluster.
+	isClusterLocal := cb.push.IsClusterLocal(service)
+
+	lbEndpoints := make(map[string][]*endpoint.LbEndpoint)
+	for _, instance := range instances {
+		// Only send endpoints from the networks in the network view requested by the proxy.
+		// The default network view assigned to the Proxy is nil, in that case match any network.
+		if proxyNetworkView != nil && !proxyNetworkView[instance.Endpoint.Network] {
+			// Endpoint's network doesn't match the set of networks that the proxy wants to see.
+			continue
+		}
+		// If the downstream service is configured as cluster-local, only include endpoints that
+		// reside in the same cluster.
+		if isClusterLocal && (cb.proxy.Metadata.ClusterID != instance.Endpoint.Locality.ClusterID) {
+			continue
+		}
+		addr := util.BuildAddress(instance.Endpoint.Address, instance.Endpoint.EndpointPort)
+		ep := &endpoint.LbEndpoint{
+			HostIdentifier: &endpoint.LbEndpoint_Endpoint{
+				Endpoint: &endpoint.Endpoint{
+					Address: addr,
+				},
+			},
+			LoadBalancingWeight: &wrappers.UInt32Value{
+				Value: 1,
+			},
+		}
+		if instance.Endpoint.LbWeight > 0 {
+			ep.LoadBalancingWeight.Value = instance.Endpoint.LbWeight
+		}
+		ep.Metadata = util.BuildLbEndpointMetadata(instance.Endpoint.Network, instance.Endpoint.TLSMode, instance.Endpoint.WorkloadName,
+			instance.Endpoint.Namespace, instance.Endpoint.Locality.ClusterID, instance.Endpoint.Labels)
+		locality := instance.Endpoint.Locality.Label
+		lbEndpoints[locality] = append(lbEndpoints[locality], ep)
+	}
+
+	localityLbEndpoints := make([]*endpoint.LocalityLbEndpoints, 0, len(lbEndpoints))
+
+	for locality, eps := range lbEndpoints {
+		var weight uint32
+		for _, ep := range eps {
+			weight += ep.LoadBalancingWeight.GetValue()
+		}
+		localityLbEndpoints = append(localityLbEndpoints, &endpoint.LocalityLbEndpoints{
+			Locality:    util.ConvertLocality(locality),
+			LbEndpoints: eps,
+			LoadBalancingWeight: &wrappers.UInt32Value{
+				Value: weight,
+			},
+		})
+	}
+
+	return localityLbEndpoints
+}
+
+// buildInboundPassthroughClusters builds passthrough clusters for inbound.
+func (cb *ClusterBuilder) buildInboundPassthroughClusters() []*cluster.Cluster {
+	// ipv4 and ipv6 feature detection. Envoy cannot ignore a config where the ip version is not supported
+	clusters := make([]*cluster.Cluster, 0, 2)
+	if cb.proxy.SupportsIPv4() {
+		inboundPassthroughClusterIpv4 := cb.buildDefaultPassthroughCluster()
+		inboundPassthroughClusterIpv4.Name = util.InboundPassthroughClusterIpv4
+		inboundPassthroughClusterIpv4.UpstreamBindConfig = &core.BindConfig{
+			SourceAddress: &core.SocketAddress{
+				Address: util.InboundPassthroughBindIpv4,
+				PortSpecifier: &core.SocketAddress_PortValue{
+					PortValue: uint32(0),
+				},
+			},
+		}
+		clusters = append(clusters, inboundPassthroughClusterIpv4)
+	}
+	if cb.proxy.SupportsIPv6() {
+		inboundPassthroughClusterIpv6 := cb.buildDefaultPassthroughCluster()
+		inboundPassthroughClusterIpv6.Name = util.InboundPassthroughClusterIpv6
+		inboundPassthroughClusterIpv6.UpstreamBindConfig = &core.BindConfig{
+			SourceAddress: &core.SocketAddress{
+				Address: util.InboundPassthroughBindIpv6,
+				PortSpecifier: &core.SocketAddress_PortValue{
+					PortValue: uint32(0),
+				},
+			},
+		}
+		clusters = append(clusters, inboundPassthroughClusterIpv6)
+	}
+	return clusters
+}
+
+// generates a cluster that sends traffic to dummy localport 0
+// This cluster is used to catch all traffic to unresolved destinations in virtual service
+func (cb *ClusterBuilder) buildBlackHoleCluster() *cluster.Cluster {
+	c := &cluster.Cluster{
+		Name:                 util.BlackHoleCluster,
+		ClusterDiscoveryType: &cluster.Cluster_Type{Type: cluster.Cluster_STATIC},
+		ConnectTimeout:       gogo.DurationToProtoDuration(cb.push.Mesh.ConnectTimeout),
+		LbPolicy:             cluster.Cluster_ROUND_ROBIN,
+	}
+	return c
+}
+
+// generates a cluster that sends traffic to the original destination.
+// This cluster is used to catch all traffic to unknown listener ports
+func (cb *ClusterBuilder) buildDefaultPassthroughCluster() *cluster.Cluster {
+	cluster := &cluster.Cluster{
+		Name:                 util.PassthroughCluster,
+		ClusterDiscoveryType: &cluster.Cluster_Type{Type: cluster.Cluster_ORIGINAL_DST},
+		ConnectTimeout:       gogo.DurationToProtoDuration(cb.push.Mesh.ConnectTimeout),
+		LbPolicy:             cluster.Cluster_CLUSTER_PROVIDED,
+		ProtocolSelection:    cluster.Cluster_USE_DOWNSTREAM_PROTOCOL,
+	}
+	passthroughSettings := &networking.ConnectionPoolSettings{}
+	cb.applyConnectionPool(cb.push.Mesh, cluster, passthroughSettings)
+	return cluster
+}
+
+// defaultTrafficPolicy builds a default traffic policy applying default connection timeouts.
+func (cb *ClusterBuilder) defaultTrafficPolicy(discoveryType cluster.Cluster_DiscoveryType) *networking.TrafficPolicy {
+	lbPolicy := DefaultLbType
+	if discoveryType == cluster.Cluster_ORIGINAL_DST {
+		lbPolicy = networking.LoadBalancerSettings_PASSTHROUGH
+	}
+	return &networking.TrafficPolicy{
+		LoadBalancer: &networking.LoadBalancerSettings{
+			LbPolicy: &networking.LoadBalancerSettings_Simple{
+				Simple: lbPolicy,
+			},
+		},
+		ConnectionPool: &networking.ConnectionPoolSettings{
+			Tcp: &networking.ConnectionPoolSettings_TCPSettings{
+				ConnectTimeout: &types.Duration{
+					Seconds: cb.push.Mesh.ConnectTimeout.Seconds,
+					Nanos:   cb.push.Mesh.ConnectTimeout.Nanos,
+				},
+			},
+		},
 	}
 }
 
@@ -260,15 +557,90 @@ func (cb *ClusterBuilder) setH2Options(cluster *cluster.Cluster) {
 	}
 }
 
-func (cb *ClusterBuilder) setUseDownstreamProtocol(cluster *cluster.Cluster) {
-	if cb.httpProtocolOptions[cluster.Name] == nil {
-		cb.httpProtocolOptions[cluster.Name] = &http.HttpProtocolOptions{}
+func (cb *ClusterBuilder) applyTrafficPolicy(opts buildClusterOpts) {
+	connectionPool, outlierDetection, loadBalancer, tls := selectTrafficPolicyComponents(opts.policy)
+	if opts.direction == model.TrafficDirectionOutbound && connectionPool != nil && connectionPool.Http != nil && connectionPool.Http.UseClientProtocol {
+		// Use downstream protocol. If the incoming traffic use HTTP 1.1, the
+		// upstream cluster will use HTTP 1.1, if incoming traffic use HTTP2,
+		// the upstream cluster will use HTTP2.
+		cb.setUseDownstreamProtocol(opts.cluster)
 	}
-	options := cb.httpProtocolOptions[cluster.Name]
-	options.UpstreamProtocolOptions = &http.HttpProtocolOptions_UseDownstreamProtocolConfig{
-		UseDownstreamProtocolConfig: &http.HttpProtocolOptions_UseDownstreamHttpConfig{
-			Http2ProtocolOptions: http2ProtocolOptions(),
-		},
+	// Connection pool settings are applicable for both inbound and outbound clusters.
+	cb.applyConnectionPool(opts.mesh, opts.cluster, connectionPool)
+	if opts.direction != model.TrafficDirectionInbound {
+		cb.applyH2Upgrade(opts, connectionPool)
+		applyOutlierDetection(opts.cluster, outlierDetection)
+		applyLoadBalancer(opts.cluster, loadBalancer, opts.port, opts.proxy, opts.mesh)
+	}
+	if opts.cluster.GetType() == cluster.Cluster_ORIGINAL_DST {
+		opts.cluster.LbPolicy = cluster.Cluster_CLUSTER_PROVIDED
+	}
+
+	if opts.clusterMode != SniDnatClusterMode && opts.direction != model.TrafficDirectionInbound {
+		autoMTLSEnabled := opts.mesh.GetEnableAutoMtls().Value
+		var mtlsCtxType mtlsContextType
+		tls, mtlsCtxType = buildAutoMtlsSettings(tls, opts.serviceAccounts, opts.istioMtlsSni, opts.proxy,
+			autoMTLSEnabled, opts.meshExternal, opts.serviceMTLSMode)
+		cb.applyUpstreamTLSSettings(&opts, tls, mtlsCtxType)
+	}
+}
+
+// FIXME: there isn't a way to distinguish between unset values and zero values
+func (cb *ClusterBuilder) applyConnectionPool(mesh *meshconfig.MeshConfig, c *cluster.Cluster, settings *networking.ConnectionPoolSettings) {
+	if settings == nil {
+		return
+	}
+
+	threshold := getDefaultCircuitBreakerThresholds()
+	var idleTimeout *types.Duration
+
+	if settings.Http != nil {
+		if settings.Http.Http2MaxRequests > 0 {
+			// Envoy only applies MaxRequests in HTTP/2 clusters
+			threshold.MaxRequests = &wrappers.UInt32Value{Value: uint32(settings.Http.Http2MaxRequests)}
+		}
+		if settings.Http.Http1MaxPendingRequests > 0 {
+			// Envoy only applies MaxPendingRequests in HTTP/1.1 clusters
+			threshold.MaxPendingRequests = &wrappers.UInt32Value{Value: uint32(settings.Http.Http1MaxPendingRequests)}
+		}
+
+		if settings.Http.MaxRequestsPerConnection > 0 {
+			c.MaxRequestsPerConnection = &wrappers.UInt32Value{Value: uint32(settings.Http.MaxRequestsPerConnection)}
+		}
+
+		// FIXME: zero is a valid value if explicitly set, otherwise we want to use the default
+		if settings.Http.MaxRetries > 0 {
+			threshold.MaxRetries = &wrappers.UInt32Value{Value: uint32(settings.Http.MaxRetries)}
+		}
+
+		idleTimeout = settings.Http.IdleTimeout
+	}
+
+	if settings.Tcp != nil {
+		if settings.Tcp.ConnectTimeout != nil {
+			c.ConnectTimeout = gogo.DurationToProtoDuration(settings.Tcp.ConnectTimeout)
+		}
+
+		if settings.Tcp.MaxConnections > 0 {
+			threshold.MaxConnections = &wrappers.UInt32Value{Value: uint32(settings.Tcp.MaxConnections)}
+		}
+
+		applyTCPKeepalive(mesh, c, settings)
+	}
+
+	c.CircuitBreakers = &cluster.CircuitBreakers{
+		Thresholds: []*cluster.CircuitBreakers_Thresholds{threshold},
+	}
+
+	if idleTimeout != nil {
+		idleTimeoutDuration := gogo.DurationToProtoDuration(idleTimeout)
+		if cb.httpProtocolOptions[c.Name] == nil {
+			cb.httpProtocolOptions[c.Name] = &http.HttpProtocolOptions{}
+		}
+		commonOptions := cb.httpProtocolOptions[c.Name]
+		commonOptions.CommonHttpProtocolOptions = &core.HttpProtocolOptions{
+			IdleTimeout: idleTimeoutDuration,
+		}
 	}
 }
 
@@ -482,6 +854,18 @@ func (cb *ClusterBuilder) buildUpstreamClusterTLSContext(opts *buildClusterOpts,
 	return tlsContext, nil
 }
 
+func (cb *ClusterBuilder) setUseDownstreamProtocol(cluster *cluster.Cluster) {
+	if cb.httpProtocolOptions[cluster.Name] == nil {
+		cb.httpProtocolOptions[cluster.Name] = &http.HttpProtocolOptions{}
+	}
+	options := cb.httpProtocolOptions[cluster.Name]
+	options.UpstreamProtocolOptions = &http.HttpProtocolOptions_UseDownstreamProtocolConfig{
+		UseDownstreamProtocolConfig: &http.HttpProtocolOptions_UseDownstreamHttpConfig{
+			Http2ProtocolOptions: http2ProtocolOptions(),
+		},
+	}
+}
+
 func http2ProtocolOptions() *core.Http2ProtocolOptions {
 	return &core.Http2ProtocolOptions{
 		// Envoy default value of 100 is too low for data path.
@@ -496,233 +880,6 @@ func (cb *ClusterBuilder) IsHttp2Cluster(c *cluster.Cluster) bool {
 	options := cb.httpProtocolOptions[c.Name]
 	return options != nil && (options.GetExplicitHttpConfig().GetHttp2ProtocolOptions() != nil ||
 		options.GetUseDownstreamProtocolConfig().Http2ProtocolOptions != nil)
-}
-
-// FIXME: there isn't a way to distinguish between unset values and zero values
-func (cb *ClusterBuilder) applyConnectionPool(mesh *meshconfig.MeshConfig, c *cluster.Cluster, settings *networking.ConnectionPoolSettings) {
-	if settings == nil {
-		return
-	}
-
-	threshold := getDefaultCircuitBreakerThresholds()
-	var idleTimeout *types.Duration
-
-	if settings.Http != nil {
-		if settings.Http.Http2MaxRequests > 0 {
-			// Envoy only applies MaxRequests in HTTP/2 clusters
-			threshold.MaxRequests = &wrappers.UInt32Value{Value: uint32(settings.Http.Http2MaxRequests)}
-		}
-		if settings.Http.Http1MaxPendingRequests > 0 {
-			// Envoy only applies MaxPendingRequests in HTTP/1.1 clusters
-			threshold.MaxPendingRequests = &wrappers.UInt32Value{Value: uint32(settings.Http.Http1MaxPendingRequests)}
-		}
-
-		if settings.Http.MaxRequestsPerConnection > 0 {
-			c.MaxRequestsPerConnection = &wrappers.UInt32Value{Value: uint32(settings.Http.MaxRequestsPerConnection)}
-		}
-
-		// FIXME: zero is a valid value if explicitly set, otherwise we want to use the default
-		if settings.Http.MaxRetries > 0 {
-			threshold.MaxRetries = &wrappers.UInt32Value{Value: uint32(settings.Http.MaxRetries)}
-		}
-
-		idleTimeout = settings.Http.IdleTimeout
-	}
-
-	if settings.Tcp != nil {
-		if settings.Tcp.ConnectTimeout != nil {
-			c.ConnectTimeout = gogo.DurationToProtoDuration(settings.Tcp.ConnectTimeout)
-		}
-
-		if settings.Tcp.MaxConnections > 0 {
-			threshold.MaxConnections = &wrappers.UInt32Value{Value: uint32(settings.Tcp.MaxConnections)}
-		}
-
-		applyTCPKeepalive(mesh, c, settings)
-	}
-
-	c.CircuitBreakers = &cluster.CircuitBreakers{
-		Thresholds: []*cluster.CircuitBreakers_Thresholds{threshold},
-	}
-
-	if idleTimeout != nil {
-		idleTimeoutDuration := gogo.DurationToProtoDuration(idleTimeout)
-		if cb.httpProtocolOptions[c.Name] == nil {
-			cb.httpProtocolOptions[c.Name] = &http.HttpProtocolOptions{}
-		}
-		commonOptions := cb.httpProtocolOptions[c.Name]
-		commonOptions.CommonHttpProtocolOptions = &core.HttpProtocolOptions{
-			IdleTimeout: idleTimeoutDuration,
-		}
-	}
-}
-
-// MergeTrafficPolicy returns the merged TrafficPolicy for a destination-level and subset-level policy on a given port.
-func MergeTrafficPolicy(original, subsetPolicy *networking.TrafficPolicy, port *model.Port) *networking.TrafficPolicy {
-	if subsetPolicy == nil {
-		return original
-	}
-
-	// Sanity check that top-level port level settings have already been merged for the given port
-	if original != nil && len(original.PortLevelSettings) != 0 {
-		original = MergeTrafficPolicy(nil, original, port)
-	}
-
-	mergedPolicy := &networking.TrafficPolicy{}
-	if original != nil {
-		mergedPolicy.ConnectionPool = original.ConnectionPool
-		mergedPolicy.LoadBalancer = original.LoadBalancer
-		mergedPolicy.OutlierDetection = original.OutlierDetection
-		mergedPolicy.Tls = original.Tls
-	}
-
-	// Override with subset values.
-	if subsetPolicy.ConnectionPool != nil {
-		mergedPolicy.ConnectionPool = subsetPolicy.ConnectionPool
-	}
-	if subsetPolicy.OutlierDetection != nil {
-		mergedPolicy.OutlierDetection = subsetPolicy.OutlierDetection
-	}
-	if subsetPolicy.LoadBalancer != nil {
-		mergedPolicy.LoadBalancer = subsetPolicy.LoadBalancer
-	}
-	if subsetPolicy.Tls != nil {
-		mergedPolicy.Tls = subsetPolicy.Tls
-	}
-
-	// Check if port level overrides exist, if yes override with them.
-	if port != nil && len(subsetPolicy.PortLevelSettings) > 0 {
-		for _, p := range subsetPolicy.PortLevelSettings {
-			if p.Port != nil && uint32(port.Port) == p.Port.Number {
-				// per the docs, port level policies do not inherit and intead to defaults if not provided
-				mergedPolicy.ConnectionPool = p.ConnectionPool
-				mergedPolicy.OutlierDetection = p.OutlierDetection
-				mergedPolicy.LoadBalancer = p.LoadBalancer
-				mergedPolicy.Tls = p.Tls
-				break
-			}
-		}
-	}
-	return mergedPolicy
-}
-
-// buildDefaultCluster builds the default cluster and also applies default traffic policy.
-func (cb *ClusterBuilder) buildDefaultCluster(name string, discoveryType cluster.Cluster_DiscoveryType,
-	localityLbEndpoints []*endpoint.LocalityLbEndpoints, direction model.TrafficDirection,
-	port *model.Port, service *model.Service, allInstances []*model.ServiceInstance) *cluster.Cluster {
-	if allInstances == nil {
-		allInstances = cb.proxy.ServiceInstances
-	}
-	c := &cluster.Cluster{
-		Name:                 name,
-		ClusterDiscoveryType: &cluster.Cluster_Type{Type: discoveryType},
-	}
-	switch discoveryType {
-	case cluster.Cluster_STRICT_DNS:
-		c.DnsLookupFamily = cluster.Cluster_V4_ONLY
-		dnsRate := gogo.DurationToProtoDuration(cb.push.Mesh.DnsRefreshRate)
-		c.DnsRefreshRate = dnsRate
-		c.RespectDnsTtl = true
-		fallthrough
-	case cluster.Cluster_STATIC:
-		if len(localityLbEndpoints) == 0 {
-			cb.push.AddMetric(model.DNSNoEndpointClusters, c.Name, cb.proxy.ID,
-				fmt.Sprintf("%s cluster without endpoints %s found while pushing CDS", discoveryType.String(), c.Name))
-			return nil
-		}
-		c.LoadAssignment = &endpoint.ClusterLoadAssignment{
-			ClusterName: name,
-			Endpoints:   localityLbEndpoints,
-		}
-	}
-
-	// For inbound clusters, the default traffic policy is used. For outbound clusters, the default traffic policy
-	// will be applied, which would be overridden by traffic policy specified in destination rule, if any.
-	opts := buildClusterOpts{
-		mesh:                cb.push.Mesh,
-		cluster:             c,
-		policy:              cb.defaultTrafficPolicy(discoveryType),
-		port:                port,
-		serviceAccounts:     nil,
-		istioMtlsSni:        "",
-		clusterMode:         DefaultClusterMode,
-		direction:           direction,
-		proxy:               cb.proxy,
-		httpProtocolOptions: nil,
-	}
-	// decides whether the cluster corresponds to a service external to mesh or not.
-	if direction == model.TrafficDirectionInbound {
-		// Inbound cluster always corresponds to service in the mesh.
-		opts.meshExternal = false
-	} else if service != nil {
-		// otherwise, read this information from service object.
-		opts.meshExternal = service.MeshExternal
-	}
-	cb.applyTrafficPolicy(opts)
-	addTelemetryMetadata(opts, service, direction, allInstances)
-	addNetworkingMetadata(opts, service, direction)
-	return c
-}
-
-// buildInboundClusterForPortOrUDS constructs a single inbound listener. The cluster will be bound to
-// `inbound|clusterPort||`, and send traffic to <bind>:<instance.Endpoint.EndpointPort>. A workload
-// will have a single inbound cluster per port. In general this works properly, with the exception of
-// the Service-oriented DestinationRule, and upstream protocol selection. Our documentation currently
-// requires a single protocol per port, and the DestinationRule issue is slated to move to Sidecar.
-// Note: clusterPort and instance.Endpoint.EndpointPort are identical for standard Services; however,
-// Sidecar.Ingress allows these to be different.
-func (cb *ClusterBuilder) buildInboundClusterForPortOrUDS(clusterPort int, bind string,
-	instance *model.ServiceInstance, allInstance []*model.ServiceInstance) *cluster.Cluster {
-	clusterName := model.BuildInboundSubsetKey(clusterPort)
-	localityLbEndpoints := buildInboundLocalityLbEndpoints(bind, instance.Endpoint.EndpointPort)
-	clusterType := cluster.Cluster_ORIGINAL_DST
-	if len(localityLbEndpoints) > 0 {
-		clusterType = cluster.Cluster_STATIC
-	}
-	localCluster := cb.buildDefaultCluster(clusterName, clusterType, localityLbEndpoints,
-		model.TrafficDirectionInbound, instance.ServicePort, instance.Service, allInstance)
-	if clusterType == cluster.Cluster_ORIGINAL_DST {
-		// Extend cleanupInterval beyond 5s default. This ensures that upstream connections will stay
-		// open for up to 60s. With the default of 5s, we may tear things down too quickly for
-		// infrequently accessed services.
-		localCluster.CleanupInterval = &duration.Duration{Seconds: 60}
-	}
-	// If stat name is configured, build the alt statname.
-	if len(cb.push.Mesh.InboundClusterStatName) != 0 {
-		localCluster.AltStatName = util.BuildStatPrefix(cb.push.Mesh.InboundClusterStatName,
-			string(instance.Service.Hostname), "", instance.ServicePort, instance.Service.Attributes)
-	}
-	cb.setUpstreamProtocol(cb.proxy, localCluster, instance.ServicePort, model.TrafficDirectionInbound)
-
-	// When users specify circuit breakers, they need to be set on the receiver end
-	// (server side) as well as client side, so that the server has enough capacity
-	// (not the defaults) to handle the increased traffic volume
-	// TODO: This is not foolproof - if instance is part of multiple services listening on same port,
-	// choice of inbound cluster is arbitrary. So the connection pool settings may not apply cleanly.
-	cfg := cb.push.DestinationRule(cb.proxy, instance.Service)
-	if cfg != nil {
-		destinationRule := cfg.Spec.(*networking.DestinationRule)
-		if destinationRule.TrafficPolicy != nil {
-			connectionPool, _, _, _ := selectTrafficPolicyComponents(MergeTrafficPolicy(nil, destinationRule.TrafficPolicy, instance.ServicePort))
-			// only connection pool settings make sense on the inbound path.
-			// upstream TLS settings/outlier detection/load balancer don't apply here.
-			cb.applyConnectionPool(cb.push.Mesh, localCluster, connectionPool)
-			util.AddConfigInfoMetadata(localCluster.Metadata, cfg.Meta)
-		}
-	}
-	if bind != LocalhostAddress && bind != LocalhostIPv6Address {
-		// iptables will redirect our own traffic to localhost back to us if we do not use the "magic" upstream bind
-		// config which will be skipped.
-		localCluster.UpstreamBindConfig = &core.BindConfig{
-			SourceAddress: &core.SocketAddress{
-				Address: getPassthroughBindIP(cb.proxy),
-				PortSpecifier: &core.SocketAddress_PortValue{
-					PortValue: uint32(0),
-				},
-			},
-		}
-	}
-	return localCluster
 }
 
 func (cb *ClusterBuilder) setUpstreamProtocol(node *model.Proxy, c *cluster.Cluster, port *model.Port, direction model.TrafficDirection) {
@@ -768,163 +925,6 @@ func (cb *ClusterBuilder) finalize(c *cluster.Cluster) *cluster.Cluster {
 		}
 	}
 	return c
-}
-
-func (cb *ClusterBuilder) buildLocalityLbEndpoints(proxyNetworkView map[string]bool, service *model.Service,
-	port int, labels labels.Collection) []*endpoint.LocalityLbEndpoints {
-	if service.Resolution != model.DNSLB {
-		return nil
-	}
-
-	instances := cb.push.ServiceInstancesByPort(service, port, labels)
-
-	// Determine whether or not the target service is considered local to the cluster
-	// and should, therefore, not be accessed from outside the cluster.
-	isClusterLocal := cb.push.IsClusterLocal(service)
-
-	lbEndpoints := make(map[string][]*endpoint.LbEndpoint)
-	for _, instance := range instances {
-		// Only send endpoints from the networks in the network view requested by the proxy.
-		// The default network view assigned to the Proxy is nil, in that case match any network.
-		if proxyNetworkView != nil && !proxyNetworkView[instance.Endpoint.Network] {
-			// Endpoint's network doesn't match the set of networks that the proxy wants to see.
-			continue
-		}
-		// If the downstream service is configured as cluster-local, only include endpoints that
-		// reside in the same cluster.
-		if isClusterLocal && (cb.proxy.Metadata.ClusterID != instance.Endpoint.Locality.ClusterID) {
-			continue
-		}
-		addr := util.BuildAddress(instance.Endpoint.Address, instance.Endpoint.EndpointPort)
-		ep := &endpoint.LbEndpoint{
-			HostIdentifier: &endpoint.LbEndpoint_Endpoint{
-				Endpoint: &endpoint.Endpoint{
-					Address: addr,
-				},
-			},
-			LoadBalancingWeight: &wrappers.UInt32Value{
-				Value: 1,
-			},
-		}
-		if instance.Endpoint.LbWeight > 0 {
-			ep.LoadBalancingWeight.Value = instance.Endpoint.LbWeight
-		}
-		ep.Metadata = util.BuildLbEndpointMetadata(instance.Endpoint.Network, instance.Endpoint.TLSMode, instance.Endpoint.WorkloadName,
-			instance.Endpoint.Namespace, instance.Endpoint.Locality.ClusterID, instance.Endpoint.Labels)
-		locality := instance.Endpoint.Locality.Label
-		lbEndpoints[locality] = append(lbEndpoints[locality], ep)
-	}
-
-	localityLbEndpoints := make([]*endpoint.LocalityLbEndpoints, 0, len(lbEndpoints))
-
-	for locality, eps := range lbEndpoints {
-		var weight uint32
-		for _, ep := range eps {
-			weight += ep.LoadBalancingWeight.GetValue()
-		}
-		localityLbEndpoints = append(localityLbEndpoints, &endpoint.LocalityLbEndpoints{
-			Locality:    util.ConvertLocality(locality),
-			LbEndpoints: eps,
-			LoadBalancingWeight: &wrappers.UInt32Value{
-				Value: weight,
-			},
-		})
-	}
-
-	return localityLbEndpoints
-}
-
-// buildInboundPassthroughClusters builds passthrough clusters for inbound.
-func (cb *ClusterBuilder) buildInboundPassthroughClusters() []*cluster.Cluster {
-	// ipv4 and ipv6 feature detection. Envoy cannot ignore a config where the ip version is not supported
-	clusters := make([]*cluster.Cluster, 0, 2)
-	if cb.proxy.SupportsIPv4() {
-		inboundPassthroughClusterIpv4 := cb.buildDefaultPassthroughCluster()
-		inboundPassthroughClusterIpv4.Name = util.InboundPassthroughClusterIpv4
-		inboundPassthroughClusterIpv4.UpstreamBindConfig = &core.BindConfig{
-			SourceAddress: &core.SocketAddress{
-				Address: util.InboundPassthroughBindIpv4,
-				PortSpecifier: &core.SocketAddress_PortValue{
-					PortValue: uint32(0),
-				},
-			},
-		}
-		clusters = append(clusters, inboundPassthroughClusterIpv4)
-	}
-	if cb.proxy.SupportsIPv6() {
-		inboundPassthroughClusterIpv6 := cb.buildDefaultPassthroughCluster()
-		inboundPassthroughClusterIpv6.Name = util.InboundPassthroughClusterIpv6
-		inboundPassthroughClusterIpv6.UpstreamBindConfig = &core.BindConfig{
-			SourceAddress: &core.SocketAddress{
-				Address: util.InboundPassthroughBindIpv6,
-				PortSpecifier: &core.SocketAddress_PortValue{
-					PortValue: uint32(0),
-				},
-			},
-		}
-		clusters = append(clusters, inboundPassthroughClusterIpv6)
-	}
-	return clusters
-}
-
-// generates a cluster that sends traffic to dummy localport 0
-// This cluster is used to catch all traffic to unresolved destinations in virtual service
-func (cb *ClusterBuilder) buildBlackHoleCluster() *cluster.Cluster {
-	c := &cluster.Cluster{
-		Name:                 util.BlackHoleCluster,
-		ClusterDiscoveryType: &cluster.Cluster_Type{Type: cluster.Cluster_STATIC},
-		ConnectTimeout:       gogo.DurationToProtoDuration(cb.push.Mesh.ConnectTimeout),
-		LbPolicy:             cluster.Cluster_ROUND_ROBIN,
-	}
-	return c
-}
-
-// generates a cluster that sends traffic to the original destination.
-// This cluster is used to catch all traffic to unknown listener ports
-func (cb *ClusterBuilder) buildDefaultPassthroughCluster() *cluster.Cluster {
-	cluster := &cluster.Cluster{
-		Name:                 util.PassthroughCluster,
-		ClusterDiscoveryType: &cluster.Cluster_Type{Type: cluster.Cluster_ORIGINAL_DST},
-		ConnectTimeout:       gogo.DurationToProtoDuration(cb.push.Mesh.ConnectTimeout),
-		LbPolicy:             cluster.Cluster_CLUSTER_PROVIDED,
-		ProtocolSelection:    cluster.Cluster_USE_DOWNSTREAM_PROTOCOL,
-	}
-	passthroughSettings := &networking.ConnectionPoolSettings{}
-	cb.applyConnectionPool(cb.push.Mesh, cluster, passthroughSettings)
-	return cluster
-}
-
-// defaultTrafficPolicy builds a default traffic policy applying default connection timeouts.
-func (cb *ClusterBuilder) defaultTrafficPolicy(discoveryType cluster.Cluster_DiscoveryType) *networking.TrafficPolicy {
-	lbPolicy := DefaultLbType
-	if discoveryType == cluster.Cluster_ORIGINAL_DST {
-		lbPolicy = networking.LoadBalancerSettings_PASSTHROUGH
-	}
-	return &networking.TrafficPolicy{
-		LoadBalancer: &networking.LoadBalancerSettings{
-			LbPolicy: &networking.LoadBalancerSettings_Simple{
-				Simple: lbPolicy,
-			},
-		},
-		ConnectionPool: &networking.ConnectionPoolSettings{
-			Tcp: &networking.ConnectionPoolSettings_TCPSettings{
-				ConnectTimeout: &types.Duration{
-					Seconds: cb.push.Mesh.ConnectTimeout.Seconds,
-					Nanos:   cb.push.Mesh.ConnectTimeout.Nanos,
-				},
-			},
-		},
-	}
-}
-
-// h2UpgradeMap specifies the truth table when upgrade takes place.
-var h2UpgradeMap = map[upgradeTuple]bool{
-	{meshconfig.MeshConfig_DO_NOT_UPGRADE, networking.ConnectionPoolSettings_HTTPSettings_UPGRADE}:        true,
-	{meshconfig.MeshConfig_DO_NOT_UPGRADE, networking.ConnectionPoolSettings_HTTPSettings_DO_NOT_UPGRADE}: false,
-	{meshconfig.MeshConfig_DO_NOT_UPGRADE, networking.ConnectionPoolSettings_HTTPSettings_DEFAULT}:        false,
-	{meshconfig.MeshConfig_UPGRADE, networking.ConnectionPoolSettings_HTTPSettings_UPGRADE}:               true,
-	{meshconfig.MeshConfig_UPGRADE, networking.ConnectionPoolSettings_HTTPSettings_DO_NOT_UPGRADE}:        false,
-	{meshconfig.MeshConfig_UPGRADE, networking.ConnectionPoolSettings_HTTPSettings_DEFAULT}:               true,
 }
 
 // castDestinationRuleOrDefault returns the destination rule enclosed by the config, if not null.
