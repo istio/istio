@@ -21,7 +21,6 @@ import (
 	"os"
 	"sync"
 	"testing"
-	"time"
 
 	. "github.com/onsi/gomega"
 	kubeApiAdmission "k8s.io/api/admissionregistration/v1"
@@ -36,9 +35,10 @@ import (
 	ktesting "k8s.io/client-go/testing"
 	"k8s.io/client-go/tools/cache"
 
+	"istio.io/pkg/filewatcher"
+
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/testcerts"
-	"istio.io/pkg/filewatcher"
 )
 
 var (
@@ -185,7 +185,6 @@ func createTestController(t *testing.T) *fakeController {
 	fakeClient := kube.NewFakeClient()
 	o := Options{
 		WatchedNamespace:  namespace,
-		ResyncPeriod:      time.Minute,
 		CAPath:            caPath,
 		WebhookConfigName: istiod,
 		ServiceName:       istiod,
