@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: networking
+issue:
+- 29556
+releaseNotes:
+- |
+  **Improved** virtual machine integration to cleanup `iptables` rules when the service is stopped.
