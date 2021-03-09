@@ -24,7 +24,6 @@ import (
 	"github.com/golang/protobuf/ptypes/any"
 	"go.uber.org/atomic"
 
-	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/schema/gvk"
@@ -77,7 +76,6 @@ func TestXdsCacheToken(t *testing.T) {
 }
 
 func TestXdsCache(t *testing.T) {
-	features.EnableUnsafeAssertions = false
 	ep1 := EndpointBuilder{
 		clusterName: "outbound|1||foo.com",
 		service:     &model.Service{Hostname: "foo.com"},
@@ -91,7 +89,7 @@ func TestXdsCache(t *testing.T) {
 		c.Add(entry, tok, value)
 	}
 	t.Run("simple", func(t *testing.T) {
-		c := model.NewXdsCache()
+		c := model.NewLenientXdsCache()
 
 		addWithToken(c, ep1, any1)
 		if !reflect.DeepEqual(c.Keys(), []string{ep1.Key()}) {
