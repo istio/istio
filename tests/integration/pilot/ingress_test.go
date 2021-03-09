@@ -18,6 +18,7 @@ package pilot
 import (
 	"context"
 	"fmt"
+	"path/filepath"
 	"testing"
 	"time"
 
@@ -25,11 +26,15 @@ import (
 
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/test/echo/common/scheme"
+	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/test/framework"
+	kubecluster "istio.io/istio/pkg/test/framework/components/cluster/kube"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/environment/kube"
 	"istio.io/istio/pkg/test/framework/components/namespace"
+	"istio.io/istio/pkg/test/helm"
 	"istio.io/istio/pkg/test/util/retry"
+	helmtest "istio.io/istio/tests/integration/helm"
 	ingressutil "istio.io/istio/tests/integration/security/sds_ingress/util"
 )
 
@@ -392,7 +397,8 @@ func TestCustomGateway(t *testing.T) {
 			if len(ctx.Settings().Revision) > 0 {
 				injectLabel = fmt.Sprintf(`istio.io/rev: "%v"`, ctx.Settings().Revision)
 			}
-			ctx.Config().ApplyYAMLOrFail(t, gatewayNs.Name(), fmt.Sprintf(`apiVersion: v1
+			ctx.NewSubTest("minimal").Run(func(ctx framework.TestContext) {
+				ctx.Config().ApplyYAMLOrFail(t, gatewayNs.Name(), fmt.Sprintf(`apiVersion: v1
 kind: Service
 metadata:
   name: custom-gateway
@@ -456,11 +462,56 @@ spec:
         port:
           number: 80
 `, injectLabel, apps.PodA[0].Config().FQDN()))
-			apps.PodB[0].CallWithRetryOrFail(t, echo.CallOptions{
-				Port:      &echo.Port{ServicePort: 80},
-				Scheme:    scheme.HTTP,
-				Address:   fmt.Sprintf("custom-gateway.%s.svc.cluster.local", gatewayNs.Name()),
-				Validator: echo.ExpectOK(),
+				apps.PodB[0].CallWithRetryOrFail(t, echo.CallOptions{
+					Port:      &echo.Port{ServicePort: 80},
+					Scheme:    scheme.HTTP,
+					Address:   fmt.Sprintf("custom-gateway.%s.svc.cluster.local", gatewayNs.Name()),
+					Validator: echo.ExpectOK(),
+				})
+			})
+			// TODO we could add istioctl as well, but the framework adds a bunch of stuff beyond just `istioctl install`
+			// that mess with certs, multicluster, etc
+			ctx.NewSubTest("helm").Run(func(ctx framework.TestContext) {
+				cs := ctx.Clusters().Default().(*kubecluster.Cluster)
+				h := helm.New(cs.Filename(), filepath.Join(env.IstioSrc, "manifests/charts"))
+				helmtest.InstallGatewaysCharts(ctx, cs, h, "", gatewayNs.Name(), "testdata/gateway-values.yaml")
+				ctx.Config().ApplyYAMLOrFail(ctx, gatewayNs.Name(), fmt.Sprintf(`apiVersion: networking.istio.io/v1alpha3
+kind: Gateway
+metadata:
+  name: app
+spec:
+  selector:
+    istio: custom-gateway-helm
+  servers:
+  - port:
+      number: 80
+      name: http
+      protocol: HTTP
+    hosts:
+    - "*"
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
+metadata:
+  name: app
+spec:
+  hosts:
+  - "*"
+  gateways:
+  - app
+  http:
+  - route:
+    - destination:
+        host: %s
+        port:
+          number: 80
+`, apps.PodA[0].Config().FQDN()))
+				apps.PodB[0].CallWithRetryOrFail(ctx, echo.CallOptions{
+					Port:      &echo.Port{ServicePort: 80},
+					Scheme:    scheme.HTTP,
+					Address:   fmt.Sprintf("custom-gateway-helm.%s.svc.cluster.local", gatewayNs.Name()),
+					Validator: echo.ExpectOK(),
+				})
 			})
 		})
 }
