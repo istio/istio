@@ -26,13 +26,14 @@ import (
 
 	"istio.io/api/annotation"
 	meshconfig "istio.io/api/mesh/v1alpha1"
+	"istio.io/pkg/log"
+
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/util/network"
 	"istio.io/istio/pkg/bootstrap"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/config/validation"
-	"istio.io/pkg/log"
 )
 
 // return proxyConfig and trustDomain
@@ -145,6 +146,14 @@ func getMeshConfig(fileOverride, annotationOverride, proxyConfigEnv string) (mes
 			return meshconfig.MeshConfig{}, fmt.Errorf("failed to unmarshal mesh config from annotation [%v]: %v", annotationOverride, err)
 		}
 		mc = *annotationMesh
+	}
+
+	// If after resolving the Mesh config, tracing has been disabled , make sure there are no tracing bits set
+	// in the proxy configuration. Otherwise, the Envoy bootstrap config will contain the default tracing configuration
+	// and the Zipkin cluster, and Envoy will periodically do unnecessary DNS requests to resolve the Zipkin cluster addresses.
+	if !mc.EnableTracing || !mc.DefaultConfig.EnableTracing {
+		log.Info("Tracing is disabled")
+		mc.DefaultConfig.Tracing = nil
 	}
 
 	return mc, nil

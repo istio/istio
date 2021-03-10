@@ -20,8 +20,8 @@ import (
 	"time"
 
 	"github.com/gogo/protobuf/types"
-
 	meshconfig "istio.io/api/mesh/v1alpha1"
+
 	"istio.io/istio/pkg/config/mesh"
 )
 
@@ -32,18 +32,22 @@ defaultConfig:
   controlPlaneAuthPolicy: NONE
   proxyMetadata:
     SOME: setting
-  drainDuration: 1s`
+  drainDuration: 1s
+  enableTracing: false`
 	proxyOverride := `discoveryAddress: foo:123
 proxyMetadata:
   SOME: setting
 drainDuration: 1s
-controlPlaneAuthPolicy: NONE`
+controlPlaneAuthPolicy: NONE
+enableTracing: false`
 	overridesExpected := func() meshconfig.ProxyConfig {
 		m := mesh.DefaultProxyConfig()
 		m.DiscoveryAddress = "foo:123"
 		m.ProxyMetadata = map[string]string{"SOME": "setting"}
 		m.DrainDuration = types.DurationProto(time.Second)
 		m.ControlPlaneAuthPolicy = meshconfig.AuthenticationPolicy_NONE
+		m.EnableTracing = false
+		m.Tracing = nil
 		return m
 	}()
 	cases := []struct {
