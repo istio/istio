@@ -15,6 +15,8 @@
 package plugin
 
 import (
+	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
+	hcm "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
 	tls "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
 	"istio.io/istio/pilot/pkg/model"
 	istionetworking "istio.io/istio/pilot/pkg/networking"
@@ -81,7 +83,13 @@ type MTLSSettings struct {
 	TLSContext *tls.DownstreamTlsContext
 }
 
+type Filters struct {
+	TCP []*listener.Filter
+	HTTP []*hcm.HttpFilter
+}
+
 type PassthroughChainConfiguration struct {
+	// TODO return HTTP and TCP
 	Passthrough MTLSSettings
 	PerPort     map[int]MTLSSettings
 }

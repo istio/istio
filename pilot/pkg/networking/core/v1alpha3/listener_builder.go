@@ -15,6 +15,7 @@
 package v1alpha3
 
 import (
+	"encoding/json"
 	"sort"
 
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
@@ -466,9 +467,9 @@ func buildInboundCatchAllFilterChains(configgen *ConfigGeneratorImpl, node *mode
 	if node.SupportsIPv4() {
 		ipVersions = append(ipVersions, util.InboundPassthroughClusterIpv4)
 	}
-	if node.SupportsIPv6() {
-		ipVersions = append(ipVersions, util.InboundPassthroughClusterIpv6)
-	}
+	//if node.SupportsIPv6() {
+	//	ipVersions = append(ipVersions, util.InboundPassthroughClusterIpv6)
+	//}
 	filterChains := make([]*listener.FilterChain, 0, 5*len(ipVersions))
 	filterChains = append(filterChains, &listener.FilterChain{
 		Name: VirtualInboundBlackholeFilterChainName,
@@ -538,8 +539,8 @@ func buildInboundCatchAllFilterChains(configgen *ConfigGeneratorImpl, node *mode
 			fcm.TransportProtocol = match.TransportProtocol
 			fcm.PrefixRanges = []*core.CidrRange{util.ConvertAddressToCidr(matchingIP)}
 			fc.FilterChainMatch = fcm
-			filterChainsOpts[id] = fc
 			// TODO TLs context, anything else??
+			filterChainsOpts[id] = fc
 		}
 		mutable := &istionetworking.MutableObjects{
 			FilterChains: filterChainsOpts,
@@ -549,17 +550,20 @@ func buildInboundCatchAllFilterChains(configgen *ConfigGeneratorImpl, node *mode
 				log.Errorf("Build inbound passthrough filter chains error: %v", err)
 			}
 		}
+		filterChainsOpts = mutable.FilterChains
 		for id := range filterChainMatchOption {
 			match := filterChainMatchOption[id]
 			opts := filterChainsOpts[id]
 
+			debug, _ := json.MarshalIndent(opts, "howardjohn", "  ")
+			log.Errorf("howardjohn: %s", debug)
 			filterChain := &listener.FilterChain{
 				FilterChainMatch: opts.FilterChainMatch,
 			}
 			if match.Protocol == istionetworking.ListenerProtocolHTTP {
 				httpOpts := configgen.buildSidecarInboundHTTPListenerOptsForPortOrUDS(node, in, clusterName)
 				httpOpts.statPrefix = clusterName
-				connectionManager := buildHTTPConnectionManager(listenerOpts, httpOpts, nil)
+				connectionManager := buildHTTPConnectionManager(listenerOpts, httpOpts, opts.HTTP)
 
 				filter := &listener.Filter{
 					Name:       wellknown.HTTPConnectionManager,
@@ -579,6 +583,7 @@ func buildInboundCatchAllFilterChains(configgen *ConfigGeneratorImpl, node *mode
 				}
 				filterChain.Filters = append(opts.TCP, tcpProxyFilter)
 			}
+
 			if match.MTLS && mtlsConfig.Passthrough.TLSContext != nil {
 				needTLS = true
 				// Update transport socket from the TLS context configured by the plugin.
