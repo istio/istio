@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
+	"path/filepath"
 	"regexp"
 	"strings"
 	"testing"
@@ -406,7 +407,7 @@ func TestXdsProxyStatus(t *testing.T) {
 
 			retry.UntilSuccessOrFail(t, func() error {
 				args = []string{
-					"experimenta", "proxy-status", fmt.Sprintf("%s.%s", podID, apps.Namespace.Name()),
+					"experimental", "proxy-status", fmt.Sprintf("%s.%s", podID, apps.Namespace.Name()),
 				}
 				output, _ = istioCtl.InvokeOrFail(t, args)
 				return expectSubstrings(output, "Clusters Match", "Listeners Match", "Routes Match")
@@ -414,7 +415,7 @@ func TestXdsProxyStatus(t *testing.T) {
 
 			// test the --file param
 			retry.UntilSuccessOrFail(t, func() error {
-				filename := "ps-configdump.json"
+				filename := filepath.Join(t.TempDir(), "ps-configdump.json")
 				cs := ctx.Clusters().Default()
 				dump, err := cs.EnvoyDo(context.TODO(), podID, apps.Namespace.Name(), "GET", "config_dump", nil)
 				g.Expect(err).ShouldNot(gomega.HaveOccurred())

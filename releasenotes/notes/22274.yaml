@@ -6,5 +6,5 @@ issue:
 
 releaseNotes:
 - |
-  **Added** `istioctl experimental proxy-status` will find istiod using meshConfig if neither --xds-address nor --xds-port is supplied
+  **Added** The `istioctl experimental proxy-status` command will find istiod using meshConfig if neither `--xds-address` nor `--xds-port` is supplied
 
