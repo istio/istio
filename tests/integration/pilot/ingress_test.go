@@ -18,6 +18,7 @@ package pilot
 import (
 	"context"
 	"fmt"
+	"io/ioutil"
 	"path/filepath"
 	"testing"
 	"time"
@@ -441,9 +442,33 @@ spec:
 			// TODO we could add istioctl as well, but the framework adds a bunch of stuff beyond just `istioctl install`
 			// that mess with certs, multicluster, etc
 			ctx.NewSubTest("helm").Run(func(ctx framework.TestContext) {
+				d := filepath.Join(t.TempDir(), "gateway-values.yaml")
+				rev := ""
+				if len(ctx.Settings().Revision) > 0 {
+					rev = ctx.Settings().Revision
+				}
+				ioutil.WriteFile(d, []byte(fmt.Sprintf(`
+revision: %v
+gateways:
+  istio-ingressgateway:
+    name: custom-gateway-helm
+    injectionTemplate: gateway
+    type: ClusterIP # LoadBalancer is slow and not necessary for this tests
+    autoscaleMax: 1
+    resources:
+      requests:
+        cpu: 10m
+        memory: 40Mi
+    labels:
+      istio: custom-gateway-helm
+`, rev)), 0o644)
 				cs := ctx.Clusters().Default().(*kubecluster.Cluster)
 				h := helm.New(cs.Filename(), filepath.Join(env.IstioSrc, "manifests/charts"))
-				helmtest.InstallGatewaysCharts(ctx, cs, h, "", gatewayNs.Name(), "testdata/gateway-values.yaml")
+				// Install ingress gateway chart
+				if err := h.InstallChart("ingress", filepath.Join("gateways/istio-ingress"), gatewayNs.Name(),
+					d, helmtest.HelmTimeout); err != nil {
+					ctx.Fatal(err)
+				}
 				ctx.Config().ApplyYAMLOrFail(ctx, gatewayNs.Name(), fmt.Sprintf(`apiVersion: networking.istio.io/v1alpha3
 kind: Gateway
 metadata:
