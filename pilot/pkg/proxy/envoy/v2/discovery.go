@@ -140,6 +140,10 @@ type DiscoveryServer struct {
 
 	// mutex used for config update scheduling (former cache update mutex)
 	updateMutex sync.RWMutex
+
+	// ingressGateways contais a map with the IG pod name (XDSConnection.PeerAddress) and if is > 1 request con
+	ingressGatewaysMu sync.Mutex
+	ingressGateways   map[string]bool
 }
 
 // updateReq includes info about the requested update.
@@ -192,6 +196,7 @@ func NewDiscoveryServer(
 		KubeController:          kuebController,
 		EndpointShardsByService: map[string]*EndpointShards{},
 		edsUpdates:              map[string]struct{}{},
+		ingressGateways:         map[string]bool{},
 		concurrentPushLimit:     make(chan struct{}, 20), // TODO(hzxuzhonghu): support configuration
 		updateChannel:           make(chan *updateReq, 10),
 	}
