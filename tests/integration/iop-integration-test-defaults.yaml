@@ -7,8 +7,8 @@ spec:
   meshConfig:
     accessLogFile: "/dev/stdout"
     defaultConfig:
-#      proxyMetadata:
-#        ISTIO_META_DNS_CAPTURE: "true"
+      proxyMetadata:
+        ISTIO_META_DNS_CAPTURE: "true"
   components:
     ingressGateways:
       - name: istio-ingressgateway
