@@ -521,9 +521,9 @@ func buildInboundCatchAllFilterChains(configgen *ConfigGeneratorImpl, node *mode
 	if node.SupportsIPv4() {
 		ipVersions = append(ipVersions, util.InboundPassthroughClusterIpv4)
 	}
-	//if node.SupportsIPv6() {
-	//	ipVersions = append(ipVersions, util.InboundPassthroughClusterIpv6)
-	//}
+	if node.SupportsIPv6() {
+		ipVersions = append(ipVersions, util.InboundPassthroughClusterIpv6)
+	}
 	filterChains := make([]*listener.FilterChain, 0, 5*len(ipVersions))
 	filterChains = append(filterChains, &listener.FilterChain{
 		Name: VirtualInboundBlackholeFilterChainName,
