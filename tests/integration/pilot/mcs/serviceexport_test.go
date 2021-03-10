@@ -20,6 +20,7 @@ import (
 	"errors"
 	"io/ioutil"
 	"testing"
+	"time"
 
 	corev1 "k8s.io/api/core/v1"
 	k8sErrors "k8s.io/apimachinery/pkg/api/errors"
@@ -88,6 +89,38 @@ func TestServiceExports(t *testing.T) {
 		RequiresSingleCluster().
 		Run(func(ctx framework.TestContext) {
 			cluster := ctx.Clusters().Default()
+
+			// restarting the istiod deployment because we short-circuit the serviceexport controller if the CRD isn't there on istiod startup
+			istiodPods, err := cluster.CoreV1().Pods("istio-system").List(context.TODO(), v1.ListOptions{
+				LabelSelector: "app=istiod",
+			})
+			if err != nil {
+				t.Fatalf("Failed getting istiod pods to restart with error %v", err)
+			}
+			for _, pod := range istiodPods.Items {
+				err = cluster.CoreV1().Pods("istio-system").Delete(context.TODO(), pod.Name, v1.DeleteOptions{})
+				if err != nil {
+					t.Fatalf("Failed deleting istiod pod with error %v", err)
+				}
+			}
+
+			podReady := false
+			for !podReady {
+				istiodPods, err := cluster.CoreV1().Pods("istio-system").List(context.TODO(), v1.ListOptions{
+					LabelSelector: "app=istiod",
+				})
+				if err != nil {
+					t.Fatalf("Failed getting istiod pods to restart with error %v", err)
+				}
+				for _, pod := range istiodPods.Items {
+					if pod.Status.ContainerStatuses[0].Ready {
+						podReady = true
+					}
+				}
+			}
+
+			// need to give the container some time to get properly spun up
+			time.Sleep(30 * time.Second)
 
 			mcsapis, err := mcsapisClient.NewForConfig(cluster.RESTConfig())
 			if err != nil {
