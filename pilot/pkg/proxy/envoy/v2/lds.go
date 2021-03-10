@@ -24,26 +24,29 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 )
 
-func (s *DiscoveryServer) pushLds(con *XdsConnection, push *model.PushContext, version string) error {
+func (s *DiscoveryServer) pushLds(con *XdsConnection, push *model.PushContext, version string, caller string) error {
 	// TODO: Modify interface to take services, and config instead of making library query registry
-
+	adsLog.Warnf("gyg::pushLds::%s(%q)", caller, con.PeerAddr)
 	rawListeners, err := s.generateRawListeners(con, push)
 	if err != nil {
+		adsLog.Errorf("gyg::pushLds::%s::generateRawListeners(%q) %v", caller, con.PeerAddr, err)
 		return err
 	}
 	if s.DebugConfigs {
+		adsLog.Warnf("gyg::pushLds::%s::DebugConfigs(%q) == true", caller, con.PeerAddr)
 		con.LDSListeners = rawListeners
 	}
 	response := ldsDiscoveryResponse(rawListeners, version)
 	err = con.send(response)
 	if err != nil {
+		adsLog.Errorf("gyg::pushLds::%s::con.send(%q) %v", caller, con.PeerAddr, err)
 		adsLog.Warnf("LDS: Send failure %s: %v", con.ConID, err)
 		pushes.With(prometheus.Labels{"type": "lds_senderr"}).Add(1)
 		return err
 	}
 	pushes.With(prometheus.Labels{"type": "lds"}).Add(1)
 
-	adsLog.Infof("LDS: PUSH for node:%s addr:%q listeners:%d %d", con.modelNode.ID, con.PeerAddr, len(rawListeners),
+	adsLog.Infof("gyg::pushLds::%s::LDS: PUSH for node:%s addr:%q listeners:%d %d", caller, con.modelNode.ID, con.PeerAddr, len(rawListeners),
 		response.Size())
 	return nil
 }
@@ -51,7 +54,7 @@ func (s *DiscoveryServer) pushLds(con *XdsConnection, push *model.PushContext, v
 func (s *DiscoveryServer) generateRawListeners(con *XdsConnection, push *model.PushContext) ([]*xdsapi.Listener, error) {
 	rawListeners, err := s.ConfigGenerator.BuildListeners(s.Env, con.modelNode, push)
 	if err != nil {
-		adsLog.Warnf("LDS: Failed to generate listeners for node %s: %v", con.modelNode.ID, err)
+		adsLog.Warnf("gyg::(%q) LDS: Failed to generate listeners for node %s: %v", con.PeerAddr, con.modelNode.ID, err)
 		pushes.With(prometheus.Labels{"type": "lds_builderr"}).Add(1)
 		return nil, err
 	}

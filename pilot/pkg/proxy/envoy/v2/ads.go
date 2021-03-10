@@ -340,25 +340,33 @@ func newXdsConnection(peerAddr string, stream DiscoveryStream) *XdsConnection {
 }
 
 func receiveThread(con *XdsConnection, reqChannel chan *xdsapi.DiscoveryRequest, errP *error) {
+	listeners := make(map[string]string)
+	for _, l := range con.LDSListeners {
+		listeners[l.Name] = l.Address.String()
+	}
+
+	adsLog.Warnf("gyg::receiveThread %q ldswatch=%v listeners=%v lastfailure=%v", con.PeerAddr, con.LDSWatch, listeners, con.LastPushFailure)
+
 	defer close(reqChannel) // indicates close of the remote side.
 	for {
 		req, err := con.stream.Recv()
 		if err != nil {
 			if status.Code(err) == codes.Canceled || err == io.EOF {
 				con.mu.RLock()
-				adsLog.Infof("ADS: %q %s terminated %v", con.PeerAddr, con.ConID, err)
+				adsLog.Infof("gyg::receiveThread::ADS: %q %s terminated %v", con.PeerAddr, con.ConID, err)
 				con.mu.RUnlock()
 				return
 			}
 			*errP = err
-			adsLog.Errorf("ADS: %q %s terminated with errors %v", con.PeerAddr, con.ConID, err)
+			adsLog.Errorf("gyg::receiveThread:: ADS: %q %s terminated with errors %v", con.PeerAddr, con.ConID, err)
 			totalXDSInternalErrors.Add(1)
 			return
 		}
 		select {
 		case reqChannel <- req:
+			adsLog.Warnf("gyg::receiveThread::sentToReqChannel::%s(%q)", req.TypeUrl, con.PeerAddr)
 		case <-con.stream.Context().Done():
-			adsLog.Errorf("ADS: %q %s terminated with stream closed", con.PeerAddr, con.ConID)
+			adsLog.Errorf("gyg::receiveThread::ADS: %q %s terminated with stream closed", con.PeerAddr, con.ConID)
 			return
 		}
 	}
@@ -366,6 +374,8 @@ func receiveThread(con *XdsConnection, reqChannel chan *xdsapi.DiscoveryRequest,
 
 // StreamAggregatedResources implements the ADS interface.
 func (s *DiscoveryServer) StreamAggregatedResources(stream ads.AggregatedDiscoveryService_StreamAggregatedResourcesServer) error {
+	adsLog.Warnf("gyg::StreamAggregatedResources")
+
 	peerInfo, ok := peer.FromContext(stream.Context())
 	peerAddr := "0.0.0.0"
 	if ok {
@@ -411,6 +421,7 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream ads.AggregatedDiscove
 		select {
 		case discReq, ok := <-reqChannel:
 			if !ok {
+				adsLog.Errorf("gyg::sar:discReq(%q) -> remote side closed connection", con.PeerAddr)
 				// Remote side closed connection.
 				return receiveError
 			}
@@ -444,23 +455,26 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream ads.AggregatedDiscove
 				}
 
 			case ListenerType:
+				adsLog.Warnf("gyg::sar:discReq:listener_type(%q)", con.PeerAddr)
 				if con.LDSWatch {
+					adsLog.Warnf("gyg::sar:discReq:listener_type:watch_true(%q)", con.PeerAddr)
 					// Already received a cluster watch request, this is an ACK
 					if discReq.ErrorDetail != nil {
-						adsLog.Warnf("ADS:LDS: ACK ERROR %v %s %v", peerAddr, con.modelNode.ID, discReq.String())
+						adsLog.Warnf("gyg::ADS:LDS: ACK ERROR %v %s %v", peerAddr, con.modelNode.ID, discReq.String())
 						ldsReject.With(prometheus.Labels{"node": discReq.Node.Id, "err": discReq.ErrorDetail.Message}).Add(1)
 						totalXDSRejects.Add(1)
 					} else if discReq.ResponseNonce != "" {
 						con.ListenerNonceAcked = discReq.ResponseNonce
 					}
-					adsLog.Debugf("ADS:LDS: ACK %v", discReq.String())
+					adsLog.Warnf("gyg::ADS:LDS: ACK %v", discReq.String())
 					continue
 				}
 				// too verbose - sent immediately after EDS response is received
-				adsLog.Debugf("ADS:LDS: REQ %s %v", con.ConID, peerAddr)
+				adsLog.Warnf("gyg::ADS:LDS: REQ %s %v", con.ConID, peerAddr)
 				con.LDSWatch = true
-				err := s.pushLds(con, s.globalPushContext(), versionInfo())
+				err := s.pushLds(con, s.globalPushContext(), versionInfo(), "reqChannel")
 				if err != nil {
+
 					return err
 				}
 
@@ -584,6 +598,8 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream ads.AggregatedDiscove
 				defer s.removeCon(con.ConID, con)
 			}
 		case pushEv := <-con.pushChannel:
+			adsLog.Warnf("gyg::sar:pushEv(%q)", con.PeerAddr)
+
 			// It is called when config changes.
 			// This is not optimized yet - we should detect what changed based on event and only
 			// push resources that need to be pushed.
@@ -667,9 +683,15 @@ func (s *DiscoveryServer) DeltaAggregatedResources(stream ads.AggregatedDiscover
 // Compute and send the new configuration for a connection. This is blocking and may be slow
 // for large configs. The method will hold a lock on con.pushMutex.
 func (s *DiscoveryServer) pushConnection(con *XdsConnection, pushEv *XdsEvent) error {
+	listeners := make(map[string]string)
+	for _, l := range con.LDSListeners {
+		listeners[l.Name] = l.Address.String()
+	}
+	adsLog.Warnf("gyg::pushConnection(%q) ldswatch=%v listeners=%v model=%v lastfailure=%v", con.PeerAddr, con.LDSWatch, listeners, con.modelNode.Type, con.LastPushFailure)
 	// TODO: update the service deps based on NetworkScope
 
 	if pushEv.edsUpdatedServices != nil {
+		adsLog.Warnf("gyg::edsUpdatedServices(%q) == nil", con.PeerAddr)
 		// Push only EDS. This is indexed already - push immediately
 		// (may need a throttle)
 		if len(con.Clusters) > 0 {
@@ -681,13 +703,16 @@ func (s *DiscoveryServer) pushConnection(con *XdsConnection, pushEv *XdsEvent) e
 	}
 
 	if err := con.modelNode.SetWorkloadLabels(s.Env); err != nil {
+		adsLog.Errorf("gyg::SetWorkloadLabels(%q) %v", con.PeerAddr, err)
 		return err
 	}
 
 	if err := con.modelNode.SetServiceInstances(pushEv.push.Env); err != nil {
+		adsLog.Errorf("gyg::SetServiceInstances(%q) %v", con.PeerAddr, err)
 		return err
 	}
 	if util.IsLocalityEmpty(con.modelNode.Locality) {
+		adsLog.Warnf("gyg::IsLocalityEmpty(%q) == true", con.PeerAddr)
 		// Get the locality from the proxy's service instances.
 		// We expect all instances to have the same locality. So its enough to look at the first instance
 		if len(con.modelNode.ServiceInstances) > 0 {
@@ -700,10 +725,12 @@ func (s *DiscoveryServer) pushConnection(con *XdsConnection, pushEv *XdsEvent) e
 	// have to compute this because as part of a config change, a new Sidecar could become
 	// applicable to this proxy
 	if con.modelNode.Type == model.SidecarProxy {
+		adsLog.Warnf("gyg::modelNode(%q) == SidecarProxy", con.PeerAddr)
 		con.modelNode.SetSidecarScope(pushEv.push)
 	}
+	// broken doesn't go here
 
-	adsLog.Infof("Pushing %v", con.ConID)
+	adsLog.Infof("gyg::(%q) Pushing %v", con.PeerAddr, con.ConID)
 
 	s.rateLimiter.Wait(context.TODO()) // rate limit the actual push
 
@@ -745,7 +772,7 @@ func (s *DiscoveryServer) pushConnection(con *XdsConnection, pushEv *XdsEvent) e
 		}
 	}
 	if con.LDSWatch {
-		err := s.pushLds(con, pushEv.push, pushEv.version)
+		err := s.pushLds(con, pushEv.push, pushEv.version, "pushConnection")
 		if err != nil {
 			return err
 		}
@@ -956,6 +983,7 @@ func (conn *XdsConnection) send(res *xdsapi.DiscoveryResponse) error {
 			case ClusterType:
 				conn.ClusterNonceSent = res.Nonce
 			case ListenerType:
+				adsLog.Warnf("gyg::send::ListenerType::Nonce(%q) %v", conn.PeerAddr, res)
 				conn.ListenerNonceSent = res.Nonce
 			case RouteType:
 				conn.RouteNonceSent = res.Nonce
