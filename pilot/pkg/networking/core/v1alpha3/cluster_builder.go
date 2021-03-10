@@ -268,16 +268,15 @@ func (cb *ClusterBuilder) buildDefaultCluster(name string, discoveryType cluster
 	// For inbound clusters, the default traffic policy is used. For outbound clusters, the default traffic policy
 	// will be applied, which would be overridden by traffic policy specified in destination rule, if any.
 	opts := buildClusterOpts{
-		mesh:                cb.push.Mesh,
-		ec:                  ec,
-		policy:              cb.defaultTrafficPolicy(discoveryType),
-		port:                port,
-		serviceAccounts:     nil,
-		istioMtlsSni:        "",
-		clusterMode:         DefaultClusterMode,
-		direction:           direction,
-		proxy:               cb.proxy,
-		httpProtocolOptions: nil,
+		mesh:            cb.push.Mesh,
+		ec:              ec,
+		policy:          cb.defaultTrafficPolicy(discoveryType),
+		port:            port,
+		serviceAccounts: nil,
+		istioMtlsSni:    "",
+		clusterMode:     DefaultClusterMode,
+		direction:       direction,
+		proxy:           cb.proxy,
 	}
 	// decides whether the cluster corresponds to a service external to mesh or not.
 	if direction == model.TrafficDirectionInbound {
