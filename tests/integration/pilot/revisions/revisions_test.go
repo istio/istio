@@ -57,20 +57,20 @@ components:
 // belong to different control planes.
 func TestMultiRevision(t *testing.T) {
 	framework.NewTest(t).
-		Run(func(ctx framework.TestContext) {
-			stable := namespace.NewOrFail(t, ctx, namespace.Config{
+		Run(func(t framework.TestContext) {
+			stable := namespace.NewOrFail(t, t, namespace.Config{
 				Prefix:   "stable",
 				Inject:   true,
 				Revision: "stable",
 			})
-			canary := namespace.NewOrFail(t, ctx, namespace.Config{
+			canary := namespace.NewOrFail(t, t, namespace.Config{
 				Prefix:   "canary",
 				Inject:   true,
 				Revision: "canary",
 			})
 
 			var client, server echo.Instance
-			echoboot.NewBuilder(ctx).
+			echoboot.NewBuilder(t).
 				With(&client, echo.Config{
 					Service:   "client",
 					Namespace: stable,

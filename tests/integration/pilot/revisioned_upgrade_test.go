@@ -45,11 +45,11 @@ func TestRevisionedUpgrade(t *testing.T) {
 	framework.NewTest(t).
 		RequiresSingleCluster().
 		Features("installation.upgrade").
-		Run(func(ctx framework.TestContext) {
+		Run(func(t framework.TestContext) {
 			versions := []string{NMinusOne, NMinusTwo, NMinusThree, NMinusFour}
 			for _, v := range versions {
-				ctx.NewSubTest(fmt.Sprintf("%s->master", v)).Run(func(ctx framework.TestContext) {
-					testUpgradeFromVersion(ctx, v)
+				t.NewSubTest(fmt.Sprintf("%s->master", v)).Run(func(t framework.TestContext) {
+					testUpgradeFromVersion(t, v)
 				})
 			}
 		})
@@ -58,25 +58,25 @@ func TestRevisionedUpgrade(t *testing.T) {
 // testUpgradeFromVersion tests an upgrade from the target version to the master version
 // provided fromVersion must be present in tests/integration/pilot/testdata/upgrade for the installation to succeed
 // TODO(monkeyanator) pass this a generic UpgradeFunc allowing for reuse across in-place and revisioned upgrades
-func testUpgradeFromVersion(ctx framework.TestContext, fromVersion string) {
+func testUpgradeFromVersion(t framework.TestContext, fromVersion string) {
 	configs := make(map[string]string)
-	ctx.ConditionalCleanup(func() {
+	t.ConditionalCleanup(func() {
 		for _, config := range configs {
-			_ = ctx.Config().DeleteYAML("istio-system", config)
+			_ = t.Config().DeleteYAML("istio-system", config)
 		}
 	})
 
 	// install control plane on the specified version and create namespace pointed to that control plane
-	installRevisionOrFail(ctx, fromVersion, configs)
+	installRevisionOrFail(t, fromVersion, configs)
 	revision := strings.ReplaceAll(fromVersion, ".", "-")
-	revisionedNamespace := namespace.NewOrFail(ctx, ctx, namespace.Config{
+	revisionedNamespace := namespace.NewOrFail(t, t, namespace.Config{
 		Prefix:   revision,
 		Inject:   true,
 		Revision: revision,
 	})
 
 	var revisionedInstance echo.Instance
-	builder := echoboot.NewBuilder(ctx)
+	builder := echoboot.NewBuilder(t)
 	builder.With(&revisionedInstance, echo.Config{
 		Service:   fmt.Sprintf("svc-%s", revision),
 		Namespace: revisionedNamespace,
@@ -88,7 +88,7 @@ func testUpgradeFromVersion(ctx framework.TestContext, fromVersion string) {
 			},
 		},
 	})
-	builder.BuildOrFail(ctx)
+	builder.BuildOrFail(t)
 
 	// Create a traffic generator between A and B.
 	g := traffic.NewGenerator(traffic.Config{
@@ -104,22 +104,22 @@ func testUpgradeFromVersion(ctx framework.TestContext, fromVersion string) {
 	g.Start()
 
 	if err := enableDefaultInjection(revisionedNamespace); err != nil {
-		ctx.Fatalf("could not relabel namespace to enable default injection: %v", err)
+		t.Fatalf("could not relabel namespace to enable default injection: %v", err)
 	}
 
 	log.Infof("rolling out echo workloads for service %q", revisionedInstance.Config().Service)
 	if err := revisionedInstance.Restart(); err != nil {
-		ctx.Fatalf("revisioned instance rollout failed with: %v", err)
+		t.Fatalf("revisioned instance rollout failed with: %v", err)
 	}
-	fetch := kubetest.NewPodMustFetch(ctx.Clusters().Default(), revisionedInstance.Config().Namespace.Name(), fmt.Sprintf("app=%s", revisionedInstance.Config().Service)) // nolint: lll
+	fetch := kubetest.NewPodMustFetch(t.Clusters().Default(), revisionedInstance.Config().Namespace.Name(), fmt.Sprintf("app=%s", revisionedInstance.Config().Service)) // nolint: lll
 	pods, err := kubetest.CheckPodsAreReady(fetch)
 	if err != nil {
-		ctx.Fatalf("failed to retrieve upgraded pods: %v", err)
+		t.Fatalf("failed to retrieve upgraded pods: %v", err)
 	}
 	for _, p := range pods {
 		for _, c := range p.Spec.Containers {
 			if strings.Contains(c.Image, fromVersion) {
-				ctx.Fatalf("expected post-upgrade container image not to include %q, got %q", fromVersion, c.Image)
+				t.Fatalf("expected post-upgrade container image not to include %q, got %q", fromVersion, c.Image)
 			}
 		}
 	}
@@ -127,11 +127,11 @@ func testUpgradeFromVersion(ctx framework.TestContext, fromVersion string) {
 	// Stop the traffic generator and get the result.
 	r, err := g.Stop(waitTimeout)
 	if err != nil {
-		ctx.Fatalf("failed waiting for traffic result: %v", err)
+		t.Fatalf("failed waiting for traffic result: %v", err)
 	}
 
 	if r.PercentSuccess() < successThreshold {
-		ctx.Fatalf("percentage of successful calls %f less than threshold %f:\n%s",
+		t.Fatalf("percentage of successful calls %f less than threshold %f:\n%s",
 			r.PercentSuccess(), successThreshold, r)
 	}
 

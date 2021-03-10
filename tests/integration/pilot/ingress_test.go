@@ -42,11 +42,11 @@ import (
 func TestGateway(t *testing.T) {
 	framework.
 		NewTest(t).
-		Run(func(ctx framework.TestContext) {
-			if !supportsCRDv1(ctx) {
+		Run(func(t framework.TestContext) {
+			if !supportsCRDv1(t) {
 				t.Skip("Not supported; requires CRDv1 support.")
 			}
-			ctx.Config().ApplyYAMLOrFail(ctx, apps.Namespace.Name(), `
+			t.Config().ApplyYAMLOrFail(t, apps.Namespace.Name(), `
 apiVersion: networking.x-k8s.io/v1alpha1
 kind: GatewayClass
 metadata:
@@ -122,8 +122,8 @@ spec:
       port: 80
 `)
 
-			ctx.NewSubTest("http").Run(func(ctx framework.TestContext) {
-				_ = apps.Ingress.CallEchoWithRetryOrFail(ctx, echo.CallOptions{
+			t.NewSubTest("http").Run(func(t framework.TestContext) {
+				_ = apps.Ingress.CallEchoWithRetryOrFail(t, echo.CallOptions{
 					Port: &echo.Port{
 						Protocol: protocol.HTTP,
 					},
@@ -134,9 +134,9 @@ spec:
 					Validator: echo.ExpectOK(),
 				})
 			})
-			ctx.NewSubTest("tcp").Run(func(ctx framework.TestContext) {
+			t.NewSubTest("tcp").Run(func(t framework.TestContext) {
 				address := apps.Ingress.TCPAddress()
-				_ = apps.Ingress.CallEchoWithRetryOrFail(ctx, echo.CallOptions{
+				_ = apps.Ingress.CallEchoWithRetryOrFail(t, echo.CallOptions{
 					Port: &echo.Port{
 						Protocol:    protocol.HTTP,
 						ServicePort: address.Port,
@@ -149,8 +149,8 @@ spec:
 					Validator: echo.ExpectOK(),
 				})
 			})
-			ctx.NewSubTest("mesh").Run(func(ctx framework.TestContext) {
-				_ = apps.PodA[0].CallWithRetryOrFail(ctx, echo.CallOptions{
+			t.NewSubTest("mesh").Run(func(t framework.TestContext) {
+				_ = apps.PodA[0].CallWithRetryOrFail(t, echo.CallOptions{
 					Target:    apps.PodB[0],
 					PortName:  "http",
 					Path:      "/path",
@@ -160,9 +160,9 @@ spec:
 		})
 }
 
-func skipIfIngressClassUnsupported(ctx framework.TestContext) {
-	if !ctx.Clusters().Default().MinKubeVersion(1, 18) {
-		ctx.Skip("IngressClass not supported")
+func skipIfIngressClassUnsupported(t framework.TestContext) {
+	if !t.Clusters().Default().MinKubeVersion(1, 18) {
+		t.Skip("IngressClass not supported")
 	}
 }
 
@@ -170,22 +170,22 @@ func skipIfIngressClassUnsupported(ctx framework.TestContext) {
 func TestIngress(t *testing.T) {
 	framework.
 		NewTest(t).
-		Run(func(ctx framework.TestContext) {
-			if ctx.Clusters().IsMulticluster() {
+		Run(func(t framework.TestContext) {
+			if t.Clusters().IsMulticluster() {
 				t.Skip("TODO convert this test to support multicluster")
 			}
-			skipIfIngressClassUnsupported(ctx)
+			skipIfIngressClassUnsupported(t)
 			// Set up secret contain some TLS certs for *.example.com
 			// we will define one for foo.example.com and one for bar.example.com, to ensure both can co-exist
 			credName := "k8s-ingress-secret-foo"
-			ingressutil.CreateIngressKubeSecret(ctx, []string{credName}, ingressutil.TLS, ingressutil.IngressCredentialA, false)
-			ctx.ConditionalCleanup(func() {
-				ingressutil.DeleteKubeSecret(ctx, []string{credName})
+			ingressutil.CreateIngressKubeSecret(t, []string{credName}, ingressutil.TLS, ingressutil.IngressCredentialA, false)
+			t.ConditionalCleanup(func() {
+				ingressutil.DeleteKubeSecret(t, []string{credName})
 			})
 			credName2 := "k8s-ingress-secret-bar"
-			ingressutil.CreateIngressKubeSecret(ctx, []string{credName2}, ingressutil.TLS, ingressutil.IngressCredentialB, false)
-			ctx.ConditionalCleanup(func() {
-				ingressutil.DeleteKubeSecret(ctx, []string{credName2})
+			ingressutil.CreateIngressKubeSecret(t, []string{credName2}, ingressutil.TLS, ingressutil.IngressCredentialB, false)
+			t.ConditionalCleanup(func() {
+				ingressutil.DeleteKubeSecret(t, []string{credName2})
 			})
 
 			ingressClassConfig := `
@@ -220,7 +220,7 @@ spec:
               serviceName: b
               servicePort: 80`
 
-			if err := ctx.Config().ApplyYAML(apps.Namespace.Name(), ingressClassConfig,
+			if err := t.Config().ApplyYAML(apps.Namespace.Name(), ingressClassConfig,
 				fmt.Sprintf(ingressConfigTemplate, "ingress", "istio-test", "/test", "/test")); err != nil {
 				t.Fatal(err)
 			}
@@ -292,19 +292,19 @@ spec:
 			}
 			for _, c := range cases {
 				c := c
-				ctx.NewSubTest(c.name).Run(func(ctx framework.TestContext) {
-					apps.Ingress.CallEchoWithRetryOrFail(ctx, c.call, retry.Timeout(time.Minute*2))
+				t.NewSubTest(c.name).Run(func(t framework.TestContext) {
+					apps.Ingress.CallEchoWithRetryOrFail(t, c.call, retry.Timeout(time.Minute*2))
 				})
 			}
 
-			ctx.NewSubTest("status").Run(func(ctx framework.TestContext) {
-				if !ctx.Environment().(*kube.Environment).Settings().LoadBalancerSupported {
-					ctx.Skip("ingress status not supported without load balancer")
+			t.NewSubTest("status").Run(func(t framework.TestContext) {
+				if !t.Environment().(*kube.Environment).Settings().LoadBalancerSupported {
+					t.Skip("ingress status not supported without load balancer")
 				}
 
 				ip := apps.Ingress.HTTPAddress().IP.String()
-				retry.UntilSuccessOrFail(ctx, func() error {
-					ing, err := ctx.Clusters().Default().NetworkingV1beta1().Ingresses(apps.Namespace.Name()).Get(context.Background(), "ingress", metav1.GetOptions{})
+				retry.UntilSuccessOrFail(t, func() error {
+					ing, err := t.Clusters().Default().NetworkingV1beta1().Ingresses(apps.Namespace.Name()).Get(context.Background(), "ingress", metav1.GetOptions{})
 					if err != nil {
 						return err
 					}
@@ -317,7 +317,7 @@ spec:
 
 			// setup another ingress pointing to a different route; the ingress will have an ingress class that should be targeted at first
 			const updateIngressName = "update-test-ingress"
-			if err := ctx.Config().ApplyYAML(apps.Namespace.Name(), ingressClassConfig,
+			if err := t.Config().ApplyYAML(apps.Namespace.Name(), ingressClassConfig,
 				fmt.Sprintf(ingressConfigTemplate, updateIngressName, "istio-test", "/update-test", "/update-test")); err != nil {
 				t.Fatal(err)
 			}
@@ -379,9 +379,9 @@ spec:
 			for _, c := range ingressUpdateCases {
 				c := c
 				updatedIngress := fmt.Sprintf(ingressConfigTemplate, updateIngressName, c.ingressClass, c.path, c.path)
-				ctx.Config().ApplyYAMLOrFail(ctx, apps.Namespace.Name(), updatedIngress)
-				ctx.NewSubTest(c.name).Run(func(ctx framework.TestContext) {
-					apps.Ingress.CallEchoWithRetryOrFail(ctx, c.call, retry.Timeout(time.Minute))
+				t.Config().ApplyYAMLOrFail(t, apps.Namespace.Name(), updatedIngress)
+				t.NewSubTest(c.name).Run(func(t framework.TestContext) {
+					apps.Ingress.CallEchoWithRetryOrFail(t, c.call, retry.Timeout(time.Minute))
 				})
 			}
 		})
@@ -392,14 +392,14 @@ func TestCustomGateway(t *testing.T) {
 	framework.
 		NewTest(t).
 		Features("traffic.ingress.custom").
-		Run(func(ctx framework.TestContext) {
-			gatewayNs := namespace.NewOrFail(t, ctx, namespace.Config{Prefix: "custom-gateway"})
+		Run(func(t framework.TestContext) {
+			gatewayNs := namespace.NewOrFail(t, t, namespace.Config{Prefix: "custom-gateway"})
 			injectLabel := `sidecar.istio.io/inject: "true"`
-			if len(ctx.Settings().Revision) > 0 {
-				injectLabel = fmt.Sprintf(`istio.io/rev: "%v"`, ctx.Settings().Revision)
+			if len(t.Settings().Revision) > 0 {
+				injectLabel = fmt.Sprintf(`istio.io/rev: "%v"`, t.Settings().Revision)
 			}
-			ctx.NewSubTest("minimal").Run(func(ctx framework.TestContext) {
-				ctx.Config().ApplyYAMLOrFail(t, gatewayNs.Name(), fmt.Sprintf(`apiVersion: v1
+			t.NewSubTest("minimal").Run(func(t framework.TestContext) {
+				t.Config().ApplyYAMLOrFail(t, gatewayNs.Name(), fmt.Sprintf(`apiVersion: v1
 kind: Service
 metadata:
   name: custom-gateway
@@ -472,11 +472,11 @@ spec:
 			})
 			// TODO we could add istioctl as well, but the framework adds a bunch of stuff beyond just `istioctl install`
 			// that mess with certs, multicluster, etc
-			ctx.NewSubTest("helm").Run(func(ctx framework.TestContext) {
+			t.NewSubTest("helm").Run(func(t framework.TestContext) {
 				d := filepath.Join(t.TempDir(), "gateway-values.yaml")
 				rev := ""
-				if len(ctx.Settings().Revision) > 0 {
-					rev = ctx.Settings().Revision
+				if len(t.Settings().Revision) > 0 {
+					rev = t.Settings().Revision
 				}
 				ioutil.WriteFile(d, []byte(fmt.Sprintf(`
 revision: %v
@@ -493,14 +493,14 @@ gateways:
     labels:
       istio: custom-gateway-helm
 `, rev)), 0o644)
-				cs := ctx.Clusters().Default().(*kubecluster.Cluster)
+				cs := t.Clusters().Default().(*kubecluster.Cluster)
 				h := helm.New(cs.Filename(), filepath.Join(env.IstioSrc, "manifests/charts"))
 				// Install ingress gateway chart
 				if err := h.InstallChart("ingress", filepath.Join("gateways/istio-ingress"), gatewayNs.Name(),
 					d, helmtest.HelmTimeout); err != nil {
-					ctx.Fatal(err)
+					t.Fatal(err)
 				}
-				ctx.Config().ApplyYAMLOrFail(ctx, gatewayNs.Name(), fmt.Sprintf(`apiVersion: networking.istio.io/v1alpha3
+				t.Config().ApplyYAMLOrFail(t, gatewayNs.Name(), fmt.Sprintf(`apiVersion: networking.istio.io/v1alpha3
 kind: Gateway
 metadata:
   name: app
@@ -531,7 +531,7 @@ spec:
         port:
           number: 80
 `, apps.PodA[0].Config().FQDN()))
-				apps.PodB[0].CallWithRetryOrFail(ctx, echo.CallOptions{
+				apps.PodB[0].CallWithRetryOrFail(t, echo.CallOptions{
 					Port:      &echo.Port{ServicePort: 80},
 					Scheme:    scheme.HTTP,
 					Address:   fmt.Sprintf("custom-gateway-helm.%s.svc.cluster.local", gatewayNs.Name()),
