@@ -121,6 +121,7 @@ type FilterChainMatchOptions struct {
 	TransportProtocol string
 	// Filter chain protocol. HTTP for HTTP proxy and TCP for TCP proxy
 	Protocol istionetworking.ListenerProtocol
+	MTLS     bool
 }
 
 // A set of pre-allocated variables related to protocol sniffing logic for
@@ -146,6 +147,7 @@ var (
 			// If client sends mTLS traffic, transport protocol will be set by the TLS inspector
 			TransportProtocol: xdsfilters.TLSTransportProtocol,
 			Protocol:          istionetworking.ListenerProtocolHTTP,
+			MTLS:              true,
 		},
 		{
 			// client side traffic was detected as HTTP by the outbound listener, sent out as plain text
@@ -160,6 +162,7 @@ var (
 			// If client sends mTLS traffic, transport protocol will be set by the TLS inspector
 			TransportProtocol: xdsfilters.TLSTransportProtocol,
 			Protocol:          istionetworking.ListenerProtocolTCP,
+			MTLS:              true,
 		},
 		{
 			// client side traffic could not be identified by the outbound listener, sent over plaintext
@@ -187,11 +190,13 @@ var (
 			ApplicationProtocols: mtlsHTTPALPNs,
 			Protocol:             istionetworking.ListenerProtocolHTTP,
 			TransportProtocol:    xdsfilters.TLSTransportProtocol,
+			MTLS:                 true,
 		},
 		{
 			// Could not detect traffic on the client side. Server side has no mTLS.
 			Protocol:          istionetworking.ListenerProtocolTCP,
 			TransportProtocol: xdsfilters.TLSTransportProtocol,
+			MTLS:              true,
 		},
 	}
 

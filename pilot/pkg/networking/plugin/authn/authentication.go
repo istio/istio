@@ -36,6 +36,9 @@ func NewPlugin() plugin.Plugin {
 	return Plugin{}
 }
 
+var _ plugin.Plugin = Plugin{}
+var _ plugin.NewPlugin = Plugin{}
+
 // OnInboundFilterChains setups filter chains based on the authentication policy.
 func (Plugin) OnInboundFilterChains(in *plugin.InputParams) []networking.FilterChain {
 	return factory.NewPolicyApplier(in.Push,
@@ -131,6 +134,27 @@ func (Plugin) OnInboundPassthroughFilterChains(in *plugin.InputParams) []network
 	}
 
 	return filterChains
+}
+
+func (p Plugin) InboundPassthroughFilterChains(in *plugin.InputParams) *plugin.PassthroughChainConfiguration {
+	applier := factory.NewPolicyApplier(in.Push, in.Node.Metadata.Namespace, labels.Collection{in.Node.Metadata.Labels})
+	trustDomains := trustDomainsForValidation(in.Push.Mesh)
+	resp := plugin.PassthroughChainConfiguration{
+		PerPort: map[int]plugin.MTLSSettings{},
+	}
+	resp.Passthrough = applier.InboundMTLSSettings(0, in.Node, in.ListenerProtocol, trustDomains)
+
+	// Then generate the per-port passthrough filter chains.
+	for port := range applier.PortLevelSetting() {
+		// Skip the per-port passthrough filterchain if the port is already handled by OnInboundFilterChains().
+		if !needPerPortPassthroughFilterChain(port, in.Node) {
+			continue
+		}
+
+		authnLog.Debugf("InboundPassthroughFilterChains: build extra pass through filter chain for %v:%d", in.Node.ID, port)
+		resp.PerPort[int(port)] = applier.InboundMTLSSettings(port, in.Node, in.ListenerProtocol, trustDomains)
+	}
+	return &resp
 }
 
 func needPerPortPassthroughFilterChain(port uint32, node *model.Proxy) bool {

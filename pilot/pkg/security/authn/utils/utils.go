@@ -118,3 +118,47 @@ func BuildInboundFilterChain(mTLSMode model.MutualTLSMode, node *model.Proxy,
 	}
 	return []networking.FilterChain{{}}
 }
+
+// BuildInboundFilterChain returns the filter chain(s) corresponding to the mTLS mode.
+func BuildInboundTLS(mTLSMode model.MutualTLSMode, node *model.Proxy, listenerProtocol networking.ListenerProtocol, trustDomainAliases []string) *tls.DownstreamTlsContext {
+	if mTLSMode == model.MTLSDisable || mTLSMode == model.MTLSUnknown {
+		return nil
+	}
+	var ctx *tls.DownstreamTlsContext
+	if listenerProtocol == networking.ListenerProtocolTCP || listenerProtocol == networking.ListenerProtocolAuto {
+		ctx = &tls.DownstreamTlsContext{
+			CommonTlsContext: &tls.CommonTlsContext{
+				// For TCP with mTLS, we advertise "istio-peer-exchange" from client and
+				// expect the same from server. This  is so that secure metadata exchange
+				// transfer can take place between sidecars for TCP with mTLS.
+				AlpnProtocols: util.ALPNDownstream,
+			},
+			RequireClientCertificate: protovalue.BoolTrue,
+		}
+	} else {
+		ctx = &tls.DownstreamTlsContext{
+			CommonTlsContext: &tls.CommonTlsContext{
+				// Note that in the PERMISSIVE mode, we match filter chain on "istio" ALPN,
+				// which is used to differentiate between service mesh and legacy traffic.
+				//
+				// Client sidecar outbound cluster's TLSContext.ALPN must include "istio".
+				//
+				// Server sidecar filter chain's FilterChainMatch.ApplicationProtocols must
+				// include "istio" for the secure traffic, but its TLSContext.ALPN must not
+				// include "istio", which would interfere with negotiation of the underlying
+				// protocol, e.g. HTTP/2.
+				AlpnProtocols: util.ALPNHttp,
+			},
+			RequireClientCertificate: protovalue.BoolTrue,
+		}
+	}
+
+	// Set Minimum TLS version to match the default client version and allowed strong cipher suites for sidecars.
+	ctx.CommonTlsContext.TlsParams = &tls.TlsParameters{
+		TlsMinimumProtocolVersion: tls.TlsParameters_TLSv1_2,
+		CipherSuites:              SupportedCiphers,
+	}
+
+	authn_model.ApplyToCommonTLSContext(ctx.CommonTlsContext, node, []string{} /*subjectAltNames*/, trustDomainAliases)
+	return ctx
+}

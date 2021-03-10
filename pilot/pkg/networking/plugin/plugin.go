@@ -15,6 +15,7 @@
 package plugin
 
 import (
+	tls "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
 	"istio.io/istio/pilot/pkg/model"
 	istionetworking "istio.io/istio/pilot/pkg/networking"
 )
@@ -69,4 +70,18 @@ type Plugin interface {
 
 	// OnInboundPassthroughFilterChains is called whenever a plugin needs to setup custom pass through filter chain.
 	OnInboundPassthroughFilterChains(in *InputParams) []istionetworking.FilterChain
+}
+
+type NewPlugin interface {
+	InboundPassthroughFilterChains(in *InputParams) *PassthroughChainConfiguration
+}
+
+type MTLSSettings struct {
+	Mode       model.MutualTLSMode
+	TLSContext *tls.DownstreamTlsContext
+}
+
+type PassthroughChainConfiguration struct {
+	Passthrough MTLSSettings
+	PerPort     map[int]MTLSSettings
 }
