@@ -19,7 +19,6 @@ import (
 	"context"
 	"fmt"
 	"testing"
-	"time"
 
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/test"
@@ -700,7 +699,6 @@ spec:
 					for _, tc := range cases {
 						ctx.NewSubTest(fmt.Sprintf("In %s/%v/%v", cluster.StableName(), tc.name, nameSuffix)).Run(func(ctx framework.TestContext) {
 							ctx.Config().ApplyYAMLOrFail(ctx, ns.Name(), tc.config)
-							time.Sleep(time.Second * 5)
 							for _, expect := range tc.expected {
 								want := expect.plaintext
 								if mtls {
