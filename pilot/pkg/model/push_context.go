@@ -41,6 +41,7 @@ import (
 
 var (
 	defaultClusterLocalNamespaces = []string{"kube-system"}
+	defaultClusterLocalServices   = []string{"kubernetes.default.svc"}
 )
 
 // Metrics is an interface for capturing metrics on a per-node basis.
@@ -1658,6 +1659,9 @@ func (ps *PushContext) initClusterLocalHosts(e *Environment) {
 	for _, n := range defaultClusterLocalNamespaces {
 		defaultClusterLocalHosts = append(defaultClusterLocalHosts, host.Name("*."+n+".svc."+domainSuffix))
 	}
+	for _, s := range defaultClusterLocalServices {
+		defaultClusterLocalHosts = append(defaultClusterLocalHosts, host.Name(s+"."+domainSuffix))
+	}
 
 	if discoveryHost, _, err := e.GetDiscoveryAddress(); err != nil {
 		log.Errorf("failed to make discoveryAddress cluster-local: %v", err)
@@ -1679,9 +1683,13 @@ func (ps *PushContext) initClusterLocalHosts(e *Environment) {
 			// Remove defaults if specified to be non-cluster-local.
 			for _, h := range serviceSettings.Hosts {
 				for i, defaultClusterLocalHost := range defaultClusterLocalHosts {
-					if len(defaultClusterLocalHost) > 0 && strings.HasSuffix(h, string(defaultClusterLocalHost[1:])) {
-						// This default was explicitly overridden, so remove it.
-						defaultClusterLocalHosts[i] = ""
+					if len(defaultClusterLocalHost) > 0 {
+						if h == string(defaultClusterLocalHost) ||
+							(defaultClusterLocalHost.IsWildCarded() &&
+								strings.HasSuffix(h, string(defaultClusterLocalHost[1:]))) {
+							// This default was explicitly overridden, so remove it.
+							defaultClusterLocalHosts[i] = ""
+						}
 					}
 				}
 			}

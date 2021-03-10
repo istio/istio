@@ -1166,9 +1166,15 @@ func TestIsClusterLocal(t *testing.T) {
 		expected bool
 	}{
 		{
-			name:     "local by default",
+			name:     "kube-system is local",
 			m:        mesh.DefaultMeshConfig(),
 			host:     "s.kube-system.svc.cluster.local",
+			expected: true,
+		},
+		{
+			name:     "api server local is local",
+			m:        mesh.DefaultMeshConfig(),
+			host:     "kubernetes.default.svc.cluster.local",
 			expected: true,
 		},
 		{
@@ -1184,7 +1190,7 @@ func TestIsClusterLocal(t *testing.T) {
 			expected: false,
 		},
 		{
-			name: "override default",
+			name: "override default namespace",
 			m: meshconfig.MeshConfig{
 				// Remove the cluster-local setting for kube-system.
 				ServiceSettings: []*meshconfig.MeshConfig_ServiceSettings{
@@ -1197,6 +1203,22 @@ func TestIsClusterLocal(t *testing.T) {
 				},
 			},
 			host:     "s.kube-system.svc.cluster.local",
+			expected: false,
+		},
+		{
+			name: "override default service",
+			m: meshconfig.MeshConfig{
+				// Remove the cluster-local setting for kube-system.
+				ServiceSettings: []*meshconfig.MeshConfig_ServiceSettings{
+					{
+						Settings: &meshconfig.MeshConfig_ServiceSettings_Settings{
+							ClusterLocal: false,
+						},
+						Hosts: []string{"kubernetes.default.svc.cluster.local"},
+					},
+				},
+			},
+			host:     "kubernetes.default.svc.cluster.local",
 			expected: false,
 		},
 		{
