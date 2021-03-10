@@ -596,7 +596,12 @@ func buildInboundCatchAllFilterChains(configgen *ConfigGeneratorImpl, node *mode
 			fcm.PrefixRanges = []*core.CidrRange{util.ConvertAddressToCidr(matchingIP)}
 			fc.FilterChainMatch = fcm
 			fc.ListenerProtocol = match.Protocol
-			fc.TLSContext = mtlsConfig.Passthrough.TLSContext
+
+			if fc.ListenerProtocol == istionetworking.ListenerProtocolHTTP {
+				fc.TLSContext = mtlsConfig.Passthrough.HTTPTLSContext
+			} else {
+				fc.TLSContext = mtlsConfig.Passthrough.TCPTLSContext
+			}
 			// TODO TLs context, anything else??
 			filterChainsOpts = append(filterChainsOpts, fc)
 		}
@@ -614,7 +619,12 @@ func buildInboundCatchAllFilterChains(configgen *ConfigGeneratorImpl, node *mode
 				fcm.DestinationPort = &wrappers.UInt32Value{Value: uint32(port)}
 				fc.FilterChainMatch = fcm
 				fc.ListenerProtocol = match.Protocol
-				fc.TLSContext = setting.TLSContext
+
+				if fc.ListenerProtocol == istionetworking.ListenerProtocolHTTP {
+					fc.TLSContext = mtlsConfig.Passthrough.HTTPTLSContext
+				} else {
+					fc.TLSContext = mtlsConfig.Passthrough.TCPTLSContext
+				}
 				// TODO TLs context, anything else??
 				filterChainsOpts = append(filterChainsOpts, fc)
 			}

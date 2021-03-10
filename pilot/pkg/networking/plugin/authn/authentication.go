@@ -36,8 +36,10 @@ func NewPlugin() plugin.Plugin {
 	return Plugin{}
 }
 
-var _ plugin.Plugin = Plugin{}
-var _ plugin.NewPlugin = Plugin{}
+var (
+	_ plugin.Plugin    = Plugin{}
+	_ plugin.NewPlugin = Plugin{}
+)
 
 // OnInboundFilterChains setups filter chains based on the authentication policy.
 func (Plugin) OnInboundFilterChains(in *plugin.InputParams) []networking.FilterChain {
@@ -142,7 +144,7 @@ func (p Plugin) InboundPassthroughFilterChains(in *plugin.InputParams) *plugin.P
 	resp := plugin.PassthroughChainConfiguration{
 		PerPort: map[int]plugin.MTLSSettings{},
 	}
-	resp.Passthrough = applier.InboundMTLSSettings(0, in.Node, in.ListenerProtocol, trustDomains)
+	resp.Passthrough = applier.InboundMTLSSettings(0, in.Node, trustDomains)
 
 	// Then generate the per-port passthrough filter chains.
 	for port := range applier.PortLevelSetting() {
@@ -152,7 +154,7 @@ func (p Plugin) InboundPassthroughFilterChains(in *plugin.InputParams) *plugin.P
 		}
 
 		authnLog.Debugf("InboundPassthroughFilterChains: build extra pass through filter chain for %v:%d", in.Node.ID, port)
-		resp.PerPort[int(port)] = applier.InboundMTLSSettings(port, in.Node, in.ListenerProtocol, trustDomains)
+		resp.PerPort[int(port)] = applier.InboundMTLSSettings(port, in.Node, trustDomains)
 	}
 	return &resp
 }

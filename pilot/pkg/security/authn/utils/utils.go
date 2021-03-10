@@ -120,7 +120,8 @@ func BuildInboundFilterChain(mTLSMode model.MutualTLSMode, node *model.Proxy,
 }
 
 // BuildInboundFilterChain returns the filter chain(s) corresponding to the mTLS mode.
-func BuildInboundTLS(mTLSMode model.MutualTLSMode, node *model.Proxy, listenerProtocol networking.ListenerProtocol, trustDomainAliases []string) *tls.DownstreamTlsContext {
+func BuildInboundTLS(mTLSMode model.MutualTLSMode, node *model.Proxy,
+	listenerProtocol networking.ListenerProtocol, trustDomainAliases []string) *tls.DownstreamTlsContext {
 	if mTLSMode == model.MTLSDisable || mTLSMode == model.MTLSUnknown {
 		return nil
 	}

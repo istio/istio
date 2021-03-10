@@ -27,12 +27,12 @@ import (
 	http_conn "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
 	duration "github.com/golang/protobuf/ptypes/duration"
 	"github.com/golang/protobuf/ptypes/empty"
-	"istio.io/istio/pilot/pkg/networking/plugin"
 
 	"istio.io/api/security/v1beta1"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking"
+	"istio.io/istio/pilot/pkg/networking/plugin"
 	"istio.io/istio/pilot/pkg/networking/util"
 	security_utils "istio.io/istio/pilot/pkg/security"
 	"istio.io/istio/pilot/pkg/security/authn"
@@ -192,13 +192,13 @@ func (a *v1beta1PolicyApplier) AuthNFilter(proxyType model.NodeType, port uint32
 	}
 }
 
-func (a *v1beta1PolicyApplier) InboundMTLSSettings(endpointPort uint32, node *model.Proxy,
-	listenerProtocol networking.ListenerProtocol, trustDomainAliases []string) plugin.MTLSSettings {
+func (a *v1beta1PolicyApplier) InboundMTLSSettings(endpointPort uint32, node *model.Proxy, trustDomainAliases []string) plugin.MTLSSettings {
 	effectiveMTLSMode := a.getMutualTLSModeForPort(endpointPort)
 	authnLog.Debugf("InboundFilterChain: build inbound filter change for %v:%d in %s mode", node.ID, endpointPort, effectiveMTLSMode)
 	return plugin.MTLSSettings{
-		Mode:       effectiveMTLSMode,
-		TLSContext: authn_utils.BuildInboundTLS(effectiveMTLSMode, node, listenerProtocol, trustDomainAliases),
+		Mode:           effectiveMTLSMode,
+		TCPTLSContext:  authn_utils.BuildInboundTLS(effectiveMTLSMode, node, networking.ListenerProtocolTCP, trustDomainAliases),
+		HTTPTLSContext: authn_utils.BuildInboundTLS(effectiveMTLSMode, node, networking.ListenerProtocolHTTP, trustDomainAliases),
 	}
 }
 

@@ -18,6 +18,7 @@ import (
 	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
 	hcm "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
 	tls "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
+
 	"istio.io/istio/pilot/pkg/model"
 	istionetworking "istio.io/istio/pilot/pkg/networking"
 )
@@ -79,12 +80,13 @@ type NewPlugin interface {
 }
 
 type MTLSSettings struct {
-	Mode       model.MutualTLSMode
-	TLSContext *tls.DownstreamTlsContext
+	Mode           model.MutualTLSMode
+	TCPTLSContext  *tls.DownstreamTlsContext
+	HTTPTLSContext *tls.DownstreamTlsContext
 }
 
 type Filters struct {
-	TCP []*listener.Filter
+	TCP  []*listener.Filter
 	HTTP []*hcm.HttpFilter
 }
 

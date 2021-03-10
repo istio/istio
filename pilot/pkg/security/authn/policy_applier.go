@@ -16,6 +16,7 @@ package authn
 
 import (
 	http_conn "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
+
 	"istio.io/api/security/v1beta1"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking"
@@ -30,8 +31,7 @@ type PolicyApplier interface {
 	InboundFilterChain(endpointPort uint32, node *model.Proxy,
 		listenerProtocol networking.ListenerProtocol, trustDomainAliases []string) []networking.FilterChain
 
-	InboundMTLSSettings(endpointPort uint32, node *model.Proxy,
-		listenerProtocol networking.ListenerProtocol, trustDomainAliases []string) plugin.MTLSSettings
+	InboundMTLSSettings(endpointPort uint32, node *model.Proxy, trustDomainAliases []string) plugin.MTLSSettings
 
 	// AuthNFilter returns the JWT HTTP filter to enforce the underlying authentication policy.
 	// It may return nil, if no JWT validation is needed.
