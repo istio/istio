@@ -79,7 +79,7 @@ func (sc *ServiceExportController) onServiceDelete(obj interface{}) {
 		if err != nil {
 			return err
 		}
-		return sc.HandleDeletedService(serviceObj)
+		return sc.handleDeletedService(serviceObj)
 	})
 }
 
@@ -102,7 +102,7 @@ func (sc *ServiceExportController) HandleNewService(obj *v1.Service) error {
 	return sc.createServiceExportIfNotPresent(obj)
 }
 
-func (sc *ServiceExportController) HandleDeletedService(obj *v1.Service) error {
+func (sc *ServiceExportController) handleDeletedService(obj *v1.Service) error {
 	return sc.deleteServiceExportIfPresent(obj)
 }
 
