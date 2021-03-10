@@ -498,6 +498,7 @@ func (c *Controller) InstancesByPort(hostname model.Hostname, reqSvcPort int,
 // GetProxyServiceInstances returns service instances co-located with a given proxy
 func (c *Controller) GetProxyServiceInstances(proxy *model.Proxy) ([]*model.ServiceInstance, error) {
 	out := make([]*model.ServiceInstance, 0)
+
 	// There is only one IP for kube registry
 	proxyIP := proxy.IPAddresses[0]
 	proxyNamespace := ""

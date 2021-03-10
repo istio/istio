@@ -458,6 +458,7 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream ads.AggregatedDiscove
 					continue
 				}
 				// too verbose - sent immediately after EDS response is received
+				adsLog.Debugf("ADS:LDS: REQ %s %v", con.ConID, peerAddr)
 				con.LDSWatch = true
 				err := s.pushLds(con, s.globalPushContext(), versionInfo())
 				if err != nil {
@@ -579,13 +580,11 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream ads.AggregatedDiscove
 			}
 
 			if !con.added {
-
 				con.added = true
 				s.addCon(con.ConID, con)
 				defer s.removeCon(con.ConID, con)
 			}
 		case pushEv := <-con.pushChannel:
-
 			// It is called when config changes.
 			// This is not optimized yet - we should detect what changed based on event and only
 			// push resources that need to be pushed.
@@ -720,6 +719,8 @@ func (s *DiscoveryServer) pushConnection(con *XdsConnection, pushEv *XdsEvent) e
 	if con.modelNode.Type == model.SidecarProxy {
 		con.modelNode.SetSidecarScope(pushEv.push)
 	}
+
+	adsLog.Infof("Pushing %v", con.ConID)
 
 	s.rateLimiter.Wait(context.TODO()) // rate limit the actual push
 

@@ -50,7 +50,7 @@ func (s *DiscoveryServer) pushLds(con *XdsConnection, push *model.PushContext, v
 func (s *DiscoveryServer) generateRawListeners(con *XdsConnection, push *model.PushContext) ([]*xdsapi.Listener, error) {
 	rawListeners, err := s.ConfigGenerator.BuildListeners(s.Env, con.modelNode, push)
 	if err != nil {
-		adsLog.Warnf("LDS: Failed to generate listeners for node %s: %v", con.PeerAddr, con.modelNode.ID, err)
+		adsLog.Warnf("LDS: Failed to generate listeners for node %s: %v", con.modelNode.ID, err)
 		pushes.With(prometheus.Labels{"type": "lds_builderr"}).Add(1)
 		return nil, err
 	}
