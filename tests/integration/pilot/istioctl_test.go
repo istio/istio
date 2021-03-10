@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
+	"path/filepath"
 	"regexp"
 	"strings"
 	"testing"
@@ -358,7 +359,8 @@ func TestProxyStatus(t *testing.T) {
 
 			// test the --file param
 			retry.UntilSuccessOrFail(t, func() error {
-				filename := "ps-configdump.json"
+				d := t.TempDir()
+				filename := filepath.Join(d, "ps-configdump.json")
 				cs := ctx.Clusters().Default()
 				dump, err := cs.EnvoyDo(context.TODO(), podID, apps.Namespace.Name(), "GET", "config_dump", nil)
 				g.Expect(err).ShouldNot(gomega.HaveOccurred())

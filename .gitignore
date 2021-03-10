@@ -8,6 +8,7 @@ tools/vagrant/.vagrant/
 # Intellij
 *.iml
 .idea/
+.run/
 # Visual Studio Code
 .vscode/
 # Bazel

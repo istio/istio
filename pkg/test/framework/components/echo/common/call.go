@@ -130,7 +130,7 @@ func CallEcho(opts *echo.CallOptions, retry bool, retryOptions ...retry.Option) 
 		if err != nil {
 			return nil, err
 		}
-		resp := client.ParseForwardedResponse(ret)
+		resp := client.ParseForwardedResponse(req, ret)
 		return resp, nil
 	}
 	return callInternal("TestRunner", opts, send, retry, retryOptions...)

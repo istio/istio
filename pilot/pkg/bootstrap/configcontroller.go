@@ -26,6 +26,7 @@ import (
 	"istio.io/istio/pilot/pkg/config/kube/crdclient"
 	"istio.io/istio/pilot/pkg/config/kube/gateway"
 	"istio.io/istio/pilot/pkg/config/kube/ingress"
+	ingressv1 "istio.io/istio/pilot/pkg/config/kube/ingressv1"
 	"istio.io/istio/pilot/pkg/config/memory"
 	configmonitor "istio.io/istio/pilot/pkg/config/monitor"
 	"istio.io/istio/pilot/pkg/controller/workloadentry"
@@ -83,22 +84,45 @@ func (s *Server) initConfigController(args *PilotArgs) error {
 	// If running in ingress mode (requires k8s), wrap the config controller.
 	if hasKubeRegistry(args.RegistryOptions.Registries) && meshConfig.IngressControllerMode != meshconfig.MeshConfig_OFF {
 		// Wrap the config controller with a cache.
-		s.ConfigStores = append(s.ConfigStores,
-			ingress.NewController(s.kubeClient, s.environment.Watcher, args.RegistryOptions.KubeOptions))
+		// Supporting only Ingress/v1 means we lose support of Kubernetes 1.18
+		// Supporting only Ingress/v1beta1 means we lose support of Kubernetes 1.22
+		// Since supporting both in a monolith controller is painful due to lack of usable conversion logic between
+		// the two versions.
+		// As a compromise, we instead just fork the controller. Once 1.18 support is no longer needed, we can drop the old controller
+		ingressV1 := ingress.V1Available(s.kubeClient)
+		if ingressV1 {
+			s.ConfigStores = append(s.ConfigStores,
+				ingressv1.NewController(s.kubeClient, s.environment.Watcher, args.RegistryOptions.KubeOptions))
+		} else {
+			s.ConfigStores = append(s.ConfigStores,
+				ingress.NewController(s.kubeClient, s.environment.Watcher, args.RegistryOptions.KubeOptions))
+		}
 
 		s.addTerminatingStartFunc(func(stop <-chan struct{}) error {
 			leaderelection.
 				NewLeaderElection(args.Namespace, args.PodName, leaderelection.IngressController, s.kubeClient.Kube()).
 				AddRunFunction(func(leaderStop <-chan struct{}) {
-					ingressSyncer := ingress.NewStatusSyncer(s.environment.Watcher, s.kubeClient)
-					// Start informers again. This fixes the case where informers for namespace do not start,
-					// as we create them only after acquiring the leader lock
-					// Note: stop here should be the overall pilot stop, NOT the leader election stop. We are
-					// basically lazy loading the informer, if we stop it when we lose the lock we will never
-					// recreate it again.
-					s.kubeClient.RunAndWait(stop)
-					log.Infof("Starting ingress controller")
-					ingressSyncer.Run(leaderStop)
+					if ingressV1 {
+						ingressSyncer := ingressv1.NewStatusSyncer(s.environment.Watcher, s.kubeClient)
+						// Start informers again. This fixes the case where informers for namespace do not start,
+						// as we create them only after acquiring the leader lock
+						// Note: stop here should be the overall pilot stop, NOT the leader election stop. We are
+						// basically lazy loading the informer, if we stop it when we lose the lock we will never
+						// recreate it again.
+						s.kubeClient.RunAndWait(stop)
+						log.Infof("Starting ingress controller")
+						ingressSyncer.Run(leaderStop)
+					} else {
+						ingressSyncer := ingress.NewStatusSyncer(s.environment.Watcher, s.kubeClient)
+						// Start informers again. This fixes the case where informers for namespace do not start,
+						// as we create them only after acquiring the leader lock
+						// Note: stop here should be the overall pilot stop, NOT the leader election stop. We are
+						// basically lazy loading the informer, if we stop it when we lose the lock we will never
+						// recreate it again.
+						s.kubeClient.RunAndWait(stop)
+						log.Infof("Starting ingress controller")
+						ingressSyncer.Run(leaderStop)
+					}
 				}).
 				Run(stop)
 			return nil

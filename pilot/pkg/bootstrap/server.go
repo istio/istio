@@ -204,7 +204,7 @@ func NewServer(args *PilotArgs) (*Server, error) {
 		httpMux:             http.NewServeMux(),
 		monitoringMux:       http.NewServeMux(),
 		readinessProbes:     make(map[string]readinessProbe),
-		workloadTrustBundle: tb.NewTrustBundle(),
+		workloadTrustBundle: tb.NewTrustBundle(nil),
 	}
 	// Initialize workload Trust Bundle before XDS Server
 	e.TrustBundle = s.workloadTrustBundle
@@ -395,6 +395,10 @@ func isUnexpectedListenerError(err error) bool {
 // but is executed asynchronously. Serving can be canceled at any time by closing the provided stop channel.
 func (s *Server) Start(stop <-chan struct{}) error {
 	log.Infof("Starting Istiod Server with primary cluster %s", s.clusterID)
+
+	if features.UnsafeFeaturesEnabled() {
+		log.Warn("Server is starting with unsafe features enabled")
+	}
 
 	// Now start all of the components.
 	for _, fn := range s.startFuncs {
@@ -1208,6 +1212,12 @@ func (s *Server) initWorkloadTrustBundle() {
 		}
 		s.XDSServer.ConfigUpdate(pushReq)
 	})
+
+	s.addStartFunc(func(stop <-chan struct{}) error {
+		go s.workloadTrustBundle.ProcessRemoteTrustAnchors(stop, tb.RemoteDefaultPollPeriod)
+		return nil
+	})
+
 	// MeshConfig: Add initial roots
 	s.workloadTrustBundle.AddMeshConfigUpdate(s.environment.Mesh())
 

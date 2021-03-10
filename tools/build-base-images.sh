@@ -21,7 +21,7 @@ set -ex
 
 HUBS="${HUBS:?specify a space seperated list of hubs}"
 TAG="${TAG:?specify a tag}"
-DOCKER_TARGETS="docker.base docker.distroless docker.app_sidecar_base_debian_9 docker.app_sidecar_base_debian_10 docker.app_sidecar_base_ubuntu_xenial docker.app_sidecar_base_ubuntu_bionic docker.app_sidecar_base_ubuntu_focal docker.app_sidecar_base_centos_7 docker.app_sidecar_base_centos_8"
+DOCKER_TARGETS="${DOCKER_TARGETS:-docker.base docker.distroless docker.app_sidecar_base_debian_9 docker.app_sidecar_base_debian_10 docker.app_sidecar_base_ubuntu_xenial docker.app_sidecar_base_ubuntu_bionic docker.app_sidecar_base_ubuntu_focal docker.app_sidecar_base_centos_7 docker.app_sidecar_base_centos_8}"
 
 # Verify that the specified TAG does not exist for the HUBS/TARGETS
 # Will also fail if user doesn't have authorization to repository, but they shouldn't
@@ -32,7 +32,7 @@ for hub in ${HUBS}
 do
   for image in ${DOCKER_TARGETS#docker.}  # assume the image name is the target without the leading docker.
   do
-    docker manifest inspect "$hub"/"$image":"$TAG" && exit  # will exit if it finds the manifest
+    docker manifest inspect "$hub"/"$image":"$TAG" && exit 1 # will exit if it finds the manifest
   done
 done
 set -e
