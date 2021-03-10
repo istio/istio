@@ -29,23 +29,23 @@ func TestTproxy(t *testing.T) {
 		NewTest(t).
 		Features("traffic.original-source-ip").
 		RequiresSingleCluster().
-		Run(func(ctx framework.TestContext) {
+		Run(func(t framework.TestContext) {
 			workloads, err := apps.PodA[0].Workloads()
 			if err != nil {
 				t.Errorf("failed to get Subsets: %v", err)
 				return
 			}
 			// check the server can see the client's original ip
-			checkOriginalSrcIP(ctx, apps.PodA[0], apps.PodTproxy[0], workloads[0].Address())
+			checkOriginalSrcIP(t, apps.PodA[0], apps.PodTproxy[0], workloads[0].Address())
 		})
 }
 
-func checkOriginalSrcIP(ctx framework.TestContext, src, dest echo.Instance, expected string) {
-	ctx.Helper()
+func checkOriginalSrcIP(t framework.TestContext, src, dest echo.Instance, expected string) {
+	t.Helper()
 	validator := echo.ValidatorFunc(func(resp client.ParsedResponses, inErr error) error {
 		return resp.CheckIP(expected)
 	})
-	_ = src.CallWithRetryOrFail(ctx, echo.CallOptions{
+	_ = src.CallWithRetryOrFail(t, echo.CallOptions{
 		Target:    dest,
 		PortName:  "http",
 		Scheme:    scheme.HTTP,

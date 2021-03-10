@@ -29,7 +29,6 @@ import (
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/framework/features"
-	"istio.io/istio/pkg/test/framework/resource"
 	"istio.io/istio/pkg/test/util/retry"
 )
 
@@ -44,15 +43,15 @@ func TestAnalysisWritesStatus(t *testing.T) {
 		Features(features.Usability_Observability_Status).
 		// TODO: make feature labels heirarchical constants like:
 		// Label(features.Usability.Observability.Status).
-		Run(func(ctx framework.TestContext) {
-			ns := namespace.NewOrFail(t, ctx, namespace.Config{
+		Run(func(t framework.TestContext) {
+			ns := namespace.NewOrFail(t, t, namespace.Config{
 				Prefix:   "default",
 				Inject:   true,
 				Revision: "",
 				Labels:   nil,
 			})
 			// Apply bad config (referencing invalid host)
-			ctx.Config().ApplyYAMLOrFail(t, ns.Name(), `
+			t.Config().ApplyYAMLOrFail(t, ns.Name(), `
 apiVersion: networking.istio.io/v1alpha3
 kind: VirtualService
 metadata:
@@ -68,10 +67,10 @@ spec:
 `)
 			// Status should report error
 			retry.UntilSuccessOrFail(t, func() error {
-				return expectVirtualServiceStatus(t, ctx, ns, true)
+				return expectVirtualServiceStatus(t, ns, true)
 			}, retry.Timeout(time.Minute*5))
 			// Apply config to make this not invalid
-			ctx.Config().ApplyYAMLOrFail(t, ns.Name(), `
+			t.Config().ApplyYAMLOrFail(t, ns.Name(), `
 apiVersion: networking.istio.io/v1alpha3
 kind: Gateway
 metadata:
@@ -89,7 +88,7 @@ spec:
 `)
 			// Status should no longer report error
 			retry.UntilSuccessOrFail(t, func() error {
-				return expectVirtualServiceStatus(t, ctx, ns, false)
+				return expectVirtualServiceStatus(t, ns, false)
 			})
 		})
 }
@@ -97,8 +96,8 @@ spec:
 func TestWorkloadEntryUpdatesStatus(t *testing.T) {
 	framework.NewTest(t).
 		Features(features.Usability_Observability_Status).
-		Run(func(ctx framework.TestContext) {
-			ns := namespace.NewOrFail(t, ctx, namespace.Config{
+		Run(func(t framework.TestContext) {
+			ns := namespace.NewOrFail(t, t, namespace.Config{
 				Prefix:   "default",
 				Inject:   true,
 				Revision: "",
@@ -106,7 +105,7 @@ func TestWorkloadEntryUpdatesStatus(t *testing.T) {
 			})
 
 			// create WorkloadEntry
-			ctx.Config().ApplyYAMLOrFail(t, ns.Name(), `
+			t.Config().ApplyYAMLOrFail(t, ns.Name(), `
 apiVersion: networking.istio.io/v1alpha3
 kind: WorkloadEntry
 metadata:
@@ -117,7 +116,7 @@ spec:
 
 			retry.UntilSuccessOrFail(t, func() error {
 				// we should expect an empty array not nil
-				return expectWorkloadEntryStatus(t, ctx, ns, nil)
+				return expectWorkloadEntryStatus(t, ns, nil)
 			})
 
 			// add one health condition and one other condition
@@ -135,7 +134,7 @@ spec:
 			}
 
 			// Get WorkloadEntry to append to
-			we, err := ctx.Clusters().Default().Istio().NetworkingV1alpha3().WorkloadEntries(ns.Name()).Get(context.TODO(), "vm-1", metav1.GetOptions{})
+			we, err := t.Clusters().Default().Istio().NetworkingV1alpha3().WorkloadEntries(ns.Name()).Get(context.TODO(), "vm-1", metav1.GetOptions{})
 			if err != nil {
 				t.Error(err)
 			}
@@ -146,14 +145,14 @@ spec:
 			// append to conditions
 			we.Status.Conditions = append(we.Status.Conditions, addedConds...)
 			// update the status
-			_, err = ctx.Clusters().Default().Istio().NetworkingV1alpha3().WorkloadEntries(ns.Name()).UpdateStatus(context.TODO(), we, metav1.UpdateOptions{})
+			_, err = t.Clusters().Default().Istio().NetworkingV1alpha3().WorkloadEntries(ns.Name()).UpdateStatus(context.TODO(), we, metav1.UpdateOptions{})
 			if err != nil {
 				t.Error(err)
 			}
 			// we should have all the conditions present
 			retry.UntilSuccessOrFail(t, func() error {
 				// should update
-				return expectWorkloadEntryStatus(t, ctx, ns, []*v1alpha1.IstioCondition{
+				return expectWorkloadEntryStatus(t, ns, []*v1alpha1.IstioCondition{
 					{
 						Type:   "Health",
 						Reason: "DontTellAnyoneButImNotARealReason",
@@ -168,7 +167,7 @@ spec:
 			})
 
 			// get the workload entry to replace the health condition field
-			we, err = ctx.Clusters().Default().Istio().NetworkingV1alpha3().WorkloadEntries(ns.Name()).Get(context.TODO(), "vm-1", metav1.GetOptions{})
+			we, err = t.Clusters().Default().Istio().NetworkingV1alpha3().WorkloadEntries(ns.Name()).Get(context.TODO(), "vm-1", metav1.GetOptions{})
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -184,14 +183,14 @@ spec:
 			}
 
 			// update this new status
-			_, err = ctx.Clusters().Default().Istio().NetworkingV1alpha3().WorkloadEntries(ns.Name()).UpdateStatus(context.TODO(), we, metav1.UpdateOptions{})
+			_, err = t.Clusters().Default().Istio().NetworkingV1alpha3().WorkloadEntries(ns.Name()).UpdateStatus(context.TODO(), we, metav1.UpdateOptions{})
 
 			if err != nil {
 				t.Error(err)
 			}
 			retry.UntilSuccessOrFail(t, func() error {
 				// should update
-				return expectWorkloadEntryStatus(t, ctx, ns, []*v1alpha1.IstioCondition{
+				return expectWorkloadEntryStatus(t, ns, []*v1alpha1.IstioCondition{
 					{
 						Type:   "Health",
 						Reason: "LooksLikeIHavebeenReplaced",
@@ -207,8 +206,8 @@ spec:
 		})
 }
 
-func expectVirtualServiceStatus(t *testing.T, ctx resource.Context, ns namespace.Instance, hasError bool) error {
-	c := ctx.Clusters().Default()
+func expectVirtualServiceStatus(t framework.TestContext, ns namespace.Instance, hasError bool) error {
+	c := t.Clusters().Default()
 
 	x, err := c.Istio().NetworkingV1alpha3().VirtualServices(ns.Name()).Get(context.TODO(), "reviews", metav1.GetOptions{})
 	if err != nil {
@@ -252,8 +251,8 @@ func expectVirtualServiceStatus(t *testing.T, ctx resource.Context, ns namespace
 	return nil
 }
 
-func expectWorkloadEntryStatus(t *testing.T, ctx resource.Context, ns namespace.Instance, expectedConds []*v1alpha1.IstioCondition) error {
-	c := ctx.Clusters().Default()
+func expectWorkloadEntryStatus(t framework.TestContext, ns namespace.Instance, expectedConds []*v1alpha1.IstioCondition) error {
+	c := t.Clusters().Default()
 
 	x, err := c.Istio().NetworkingV1alpha3().WorkloadEntries(ns.Name()).Get(context.TODO(), "vm-1", metav1.GetOptions{})
 	if err != nil {
