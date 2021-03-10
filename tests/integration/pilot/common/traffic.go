@@ -19,10 +19,13 @@ import (
 	"fmt"
 	"time"
 
+	"istio.io/istio/pkg/test/util/tmpl"
+
 	"istio.io/istio/pkg/test"
 	echoclient "istio.io/istio/pkg/test/echo/client"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
+	"istio.io/istio/pkg/test/framework/components/echo/echotest"
 	"istio.io/istio/pkg/test/util/retry"
 	"istio.io/istio/pkg/test/util/yml"
 )
@@ -40,7 +43,8 @@ type TrafficCall struct {
 }
 
 type TrafficTestCase struct {
-	name   string
+	name string
+	// config can optionally be templated using the params src, dst (each are []echo.Instance)
 	config string
 
 	// Multiple calls. Cannot be used with call/opts
@@ -52,6 +56,46 @@ type TrafficTestCase struct {
 
 	// setting cases to skipped is better than not adding them - gives visibility to what needs to be fixed
 	skip bool
+}
+
+func (c TrafficTestCase) RunForApps(t framework.TestContext, apps echo.Instances, namespace string) {
+	if c.opts.Target != nil {
+		t.Fatal("TrafficTestCase.RunForApps: opts.Target must not be specified")
+	}
+	if c.call != nil {
+		t.Fatal("TrafficTestCase.RunForApps: call must not be specified")
+	}
+	// just check if any of the required fields are set
+	optsSpecified := c.opts.Port != nil || c.opts.PortName != "" || c.opts.Scheme != ""
+	if optsSpecified && len(c.children) > 0 {
+		t.Fatal("TrafficTestCase: must not specify both opts and children")
+	}
+
+	echotest.New(t, apps).
+		SetupForPair(func(t framework.TestContext, src, dst echo.Instances) error {
+			cfg := tmpl.MustEvaluate(
+				yml.MustApplyNamespace(t, c.config, namespace),
+				map[string]echo.Instances{
+					"src": src,
+					"dst": dst,
+				},
+			)
+			t.Config().ApplyYAMLOrFail(t, "", cfg)
+		}).
+		Run(func(t framework.TestContext, src echo.Instance, dest echo.Instances) {
+			if optsSpecified {
+				opts := c.opts
+				opts.Target = dest[0]
+				src.CallWithRetryOrFail(t, opts, retryOptions...)
+			}
+			for _, child := range c.children {
+				t.NewSubTest(child.name).Run(func(t framework.TestContext) {
+					opts := child.opts
+					opts.Target = dest[0]
+					src.CallWithRetryOrFail(t, opts, retryOptions...)
+				})
+			}
+		})
 }
 
 func (c TrafficTestCase) Run(t framework.TestContext, namespace string) {
