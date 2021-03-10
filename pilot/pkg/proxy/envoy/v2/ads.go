@@ -631,6 +631,10 @@ func (s *DiscoveryServer) initConnectionNode(discReq *xdsapi.DiscoveryRequest, c
 		return err
 	}
 
+	// In some cases, Envoy of ingress gateways doesn't startup as Listeners are not pushed by Pilot.
+	// The root cause lies somewhere in SetServiceInstances function. We were not able to tell exactly in which
+	// conditions and this hack was introduced to return an error on the first request from Envoy, forcing a
+	// re-discovery of listeners. We expect this is fixed in newer versions of Istio.
 	if nt.Type == model.Router && len(nt.ServiceInstances) > 0 {
 		s.ingressGatewaysMu.Lock()
 		var podID string
@@ -642,7 +646,7 @@ func (s *DiscoveryServer) initConnectionNode(discReq *xdsapi.DiscoveryRequest, c
 			s.ingressGateways[gwKey] = true
 			s.ingressGatewaysMu.Unlock()
 
-			return errors.New("first connection requires a hacky re-discovery")
+			return errors.New("first request requires a hacky re-discovery")
 		}
 		s.ingressGatewaysMu.Unlock()
 	}
