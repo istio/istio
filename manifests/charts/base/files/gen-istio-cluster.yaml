@@ -6014,7 +6014,7 @@ rules:
     verbs: ["get", "watch", "list"]
 
   # Used for MCS serviceexport management
-  - apiGroups: [""]
+  - apiGroups: ["multicluster.x-k8s.io"]
     resources: ["serviceexports"]
     verbs: ["create", "delete"]
 ---

@@ -19,12 +19,11 @@ import (
 	"context"
 	"errors"
 	"io/ioutil"
-	"istio.io/pkg/log"
 	"testing"
 
 	corev1 "k8s.io/api/core/v1"
 	k8sErrors "k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/apis/meta/v1"
+	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	mcsapisClient "sigs.k8s.io/mcs-api/pkg/client/clientset/versioned"
 
@@ -120,16 +119,7 @@ func TestServiceExports(t *testing.T) {
 				t.Fatalf("Failed during service setup with error %v", err)
 			}
 
-			log.Infof("Service Setup Done")
-
-			serviceExports, err := mcsapis.MulticlusterV1alpha1().ServiceExports("").List(context.TODO(), v1.ListOptions{})
-			log.Info("Listing All ServiceExports")
-			for export := range serviceExports.Items {
-				log.Infof("%v \n", export)
-			}
-
 			retry.UntilSuccessOrFail(t, func() error {
-
 				serviceExport, err := mcsapis.MulticlusterV1alpha1().ServiceExports("svc-namespace").Get(context.TODO(), "svc1", v1.GetOptions{})
 				if err != nil {
 					return err
@@ -182,5 +172,7 @@ func TestServiceExports(t *testing.T) {
 
 				return errors.New("found serviceExport when one should not have been created")
 			})
+
+			_ := cluster.CoreV1().Namespaces().Delete(context.TODO(), "svc-namespace", v1.DeleteOptions{})
 		})
 }
