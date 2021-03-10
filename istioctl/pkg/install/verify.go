@@ -16,6 +16,7 @@ package install
 
 import (
 	"fmt"
+
 	"github.com/spf13/cobra"
 
 	"k8s.io/cli-runtime/pkg/genericclioptions"
@@ -24,6 +25,7 @@ import (
 	"istio.io/istio/istioctl/pkg/util/formatting"
 	"istio.io/istio/istioctl/pkg/verifier"
 	"istio.io/istio/operator/cmd/mesh"
+	"istio.io/istio/operator/pkg/apis/istio/v1alpha1"
 	"istio.io/istio/operator/pkg/manifest"
 	"istio.io/istio/operator/pkg/util/clog"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
@@ -77,14 +79,18 @@ istioctl experimental precheck.
 			return nil
 		},
 		RunE: func(c *cobra.Command, args []string) error {
+			var mergedIOP *v1alpha1.IstioOperator
+			var err error
 			restConfig, _, _, err := mesh.K8sConfig(*kubeConfigFlags.KubeConfig, *kubeConfigFlags.Context)
 			if err != nil {
-				return fmt.Errorf("error while building kube-client")
+				return fmt.Errorf("error while building kube-client REST configuration: %v", err)
 			}
 			clogger := clog.NewDefaultLogger()
-			_, mergedIOP, err := manifest.GenerateConfig(filenames, []string{}, false, restConfig, clogger)
-			if err != nil {
-				return fmt.Errorf("error while merging given IstioOperator CR with base profile")
+			if len(filenames) > 0 {
+				_, mergedIOP, err = manifest.GenerateConfig(filenames, []string{}, false, restConfig, clogger)
+				if err != nil {
+					return fmt.Errorf("error while merging given IstioOperator CR with base profile: %v", err)
+				}
 			}
 			installationVerifier := verifier.NewStatusVerifier(istioNamespace, manifestsPath,
 				*kubeConfigFlags.KubeConfig, *kubeConfigFlags.Context,
