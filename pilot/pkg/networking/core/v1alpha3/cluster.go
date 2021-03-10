@@ -22,7 +22,6 @@ import (
 	cluster "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	endpoint "github.com/envoyproxy/go-control-plane/envoy/config/endpoint/v3"
-	http "github.com/envoyproxy/go-control-plane/envoy/extensions/upstreams/http/v3"
 	xdstype "github.com/envoyproxy/go-control-plane/envoy/type/v3"
 	structpb "github.com/golang/protobuf/ptypes/struct"
 	"github.com/golang/protobuf/ptypes/wrappers"
@@ -483,8 +482,6 @@ type buildClusterOpts struct {
 	proxy           *model.Proxy
 	meshExternal    bool
 	serviceMTLSMode model.MutualTLSMode
-	// This is used to store the HttpProtocolOptions that gets applied during construction of cluster.
-	httpProtocolOptions *http.HttpProtocolOptions
 }
 
 type upgradeTuple struct {
