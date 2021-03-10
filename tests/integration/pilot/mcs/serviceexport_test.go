@@ -19,14 +19,13 @@ import (
 	"context"
 	"errors"
 	"io/ioutil"
-	"testing"
-	"time"
-
 	corev1 "k8s.io/api/core/v1"
 	k8sErrors "k8s.io/apimachinery/pkg/api/errors"
-	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	mcsapisClient "sigs.k8s.io/mcs-api/pkg/client/clientset/versioned"
+	"testing"
+	"time"
 
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/istio"
@@ -48,6 +47,13 @@ func TestMain(m *testing.M) {
 	framework.
 		NewSuite(m).
 		RequireEnvironmentVersion("1.17").
+		Setup(func(ctx resource.Context) error {
+			crd, err := ioutil.ReadFile("../testdata/mcs-serviceexport-crd.yaml")
+			if err != nil {
+				return err
+			}
+			return ctx.Config().ApplyYAML("", string(crd))
+		}).
 		Setup(istio.Setup(&i, func(ctx resource.Context, cfg *istio.Config) {
 			cfg.ControlPlaneValues = `
 values:
@@ -56,14 +62,6 @@ values:
       PILOT_ENABLE_MCS_SERVICEEXPORT: "true"`
 		})).
 		Setup(func(ctx resource.Context) error {
-			crd, err := ioutil.ReadFile("../testdata/mcs-serviceexport-crd.yaml")
-			if err != nil {
-				return err
-			}
-			err = ctx.Config().ApplyYAML("", string(crd))
-			if err != nil {
-				return err
-			}
 			return common.SetupApps(ctx, i, apps)
 		}).
 		Run()
@@ -103,25 +101,7 @@ func TestServiceExports(t *testing.T) {
 					t.Fatalf("Failed deleting istiod pod with error %v", err)
 				}
 			}
-
-			podReady := false
-			for !podReady {
-				istiodPods, err := cluster.CoreV1().Pods("istio-system").List(context.TODO(), v1.ListOptions{
-					LabelSelector: "app=istiod",
-				})
-				if err != nil {
-					t.Fatalf("Failed getting istiod pods to restart with error %v", err)
-				}
-				for _, pod := range istiodPods.Items {
-					if pod.Status.ContainerStatuses[0].Ready {
-						podReady = true
-					}
-				}
-			}
-
-			// need to give the container some time to get properly spun up
-			time.Sleep(30 * time.Second)
-
+			
 			mcsapis, err := mcsapisClient.NewForConfig(cluster.RESTConfig())
 			if err != nil {
 				t.Fatalf("Failed to get the MCS API client, failing test with error %v", err)
@@ -163,7 +143,7 @@ func TestServiceExports(t *testing.T) {
 				}
 
 				return nil
-			})
+			}, retry.Timeout(90*time.Second))
 
 			err = cluster.CoreV1().Services("svc-namespace").Delete(context.TODO(), "svc1", v1.DeleteOptions{})
 
@@ -183,7 +163,7 @@ func TestServiceExports(t *testing.T) {
 				}
 
 				return errors.New("found serviceExport when one should not have existed")
-			})
+			}, retry.Timeout(90*time.Second))
 
 			retry.UntilSuccessOrFail(t, func() error {
 				services, err := cluster.CoreV1().Services("kube-system").List(context.TODO(), v1.ListOptions{})
@@ -204,7 +184,7 @@ func TestServiceExports(t *testing.T) {
 				}
 
 				return errors.New("found serviceExport when one should not have been created")
-			})
+			}, retry.Timeout(90*time.Second))
 
 			_ = cluster.CoreV1().Namespaces().Delete(context.TODO(), "svc-namespace", v1.DeleteOptions{})
 		})
