@@ -69,7 +69,7 @@ func (sc *ServiceExportController) onServiceAdd(obj interface{}) {
 		if err != nil {
 			return err
 		}
-		return sc.HandleNewService(serviceObj)
+		return sc.handleNewService(serviceObj)
 	})
 }
 
@@ -92,7 +92,7 @@ func (sc *ServiceExportController) Run(stopCh <-chan struct{}) {
 	go sc.queue.Run(stopCh)
 }
 
-func (sc *ServiceExportController) HandleNewService(obj *v1.Service) error {
+func (sc *ServiceExportController) handleNewService(obj *v1.Service) error {
 	if !sc.crdExists {
 		return nil
 	}
