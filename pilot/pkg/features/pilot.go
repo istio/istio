@@ -24,6 +24,16 @@ import (
 	"istio.io/pkg/env"
 )
 
+const (
+	// DefaultInboundCiphers for server side TLS configuration.
+	DefaultInboundCiphers string = "ECDHE-ECDSA-AES256-GCM-SHA384," +
+		"ECDHE-RSA-AES256-GCM-SHA384," +
+		"ECDHE-ECDSA-AES128-GCM-SHA256," +
+		"ECDHE-RSA-AES128-GCM-SHA256," +
+		"AES256-GCM-SHA384," +
+		"AES128-GCM-SHA256"
+)
+
 var (
 	MaxConcurrentStreams = env.RegisterIntVar(
 		"ISTIO_GPRC_MAXSTREAMS",
@@ -422,6 +432,9 @@ var (
 		"If enabled, addition runtime asserts will be performed. "+
 			"These checks are both expensive and panic on failure. As a result, this should be used only for testing.",
 	).Get()
+
+	TLSInboundCipherSuites = env.RegisterStringVar("TLS_INBOUND_CIPHER_SUITES", DefaultInboundCiphers,
+		"The cipher suites for inbound TLS connections, delimited by comma.").Get()
 )
 
 // UnsafeFeaturesEnabled returns true if any unsafe features are enabled.

@@ -24,6 +24,7 @@ import (
 	"github.com/golang/protobuf/ptypes"
 	"github.com/google/go-cmp/cmp"
 	"google.golang.org/protobuf/testing/protocmp"
+	"istio.io/istio/pilot/pkg/features"
 
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking"
@@ -32,12 +33,20 @@ import (
 	"istio.io/istio/pkg/spiffe"
 )
 
+const (
+	tlsInboundCiphers1 string = "ECDHE-ECDSA-AES256-GCM-SHA384," +
+		"ECDHE-RSA-AES256-GCM-SHA384," +
+		"ECDHE-ECDSA-AES128-GCM-SHA256," +
+		"ECDHE-RSA-AES128-GCM-SHA256"
+)
+
 func TestBuildInboundFilterChain(t *testing.T) {
 	type args struct {
-		mTLSMode         model.MutualTLSMode
-		node             *model.Proxy
-		listenerProtocol networking.ListenerProtocol
-		trustDomains     []string
+		mTLSMode               model.MutualTLSMode
+		node                   *model.Proxy
+		listenerProtocol       networking.ListenerProtocol
+		trustDomains           []string
+		tlsInboundCipherSuites string
 	}
 	tests := []struct {
 		name string
@@ -51,7 +60,8 @@ func TestBuildInboundFilterChain(t *testing.T) {
 				node: &model.Proxy{
 					Metadata: &model.NodeMetadata{},
 				},
-				listenerProtocol: networking.ListenerProtocolAuto,
+				listenerProtocol:       networking.ListenerProtocolAuto,
+				tlsInboundCipherSuites: features.TLSInboundCipherSuites,
 			},
 			want: []networking.FilterChain{{}},
 		},
@@ -62,7 +72,8 @@ func TestBuildInboundFilterChain(t *testing.T) {
 				node: &model.Proxy{
 					Metadata: &model.NodeMetadata{},
 				},
-				listenerProtocol: networking.ListenerProtocolAuto,
+				listenerProtocol:       networking.ListenerProtocolAuto,
+				tlsInboundCipherSuites: features.TLSInboundCipherSuites,
 			},
 			want: []networking.FilterChain{{}},
 		},
@@ -73,7 +84,8 @@ func TestBuildInboundFilterChain(t *testing.T) {
 				node: &model.Proxy{
 					Metadata: &model.NodeMetadata{},
 				},
-				listenerProtocol: networking.ListenerProtocolHTTP,
+				listenerProtocol:       networking.ListenerProtocolHTTP,
+				tlsInboundCipherSuites: features.TLSInboundCipherSuites,
 			},
 			want: []networking.FilterChain{
 				{
@@ -147,14 +159,94 @@ func TestBuildInboundFilterChain(t *testing.T) {
 			},
 		},
 		{
+			name: "MTLSStrict using SDS and custom cipher suites",
+			args: args{
+				mTLSMode: model.MTLSStrict,
+				node: &model.Proxy{
+					Metadata: &model.NodeMetadata{},
+				},
+				listenerProtocol:       networking.ListenerProtocolHTTP,
+				tlsInboundCipherSuites: tlsInboundCiphers1,
+			},
+			want: []networking.FilterChain{
+				{
+					TLSContext: &auth.DownstreamTlsContext{
+						CommonTlsContext: &auth.CommonTlsContext{
+							TlsCertificateSdsSecretConfigs: []*auth.SdsSecretConfig{
+								{
+									Name: "default",
+									SdsConfig: &core.ConfigSource{
+										InitialFetchTimeout: ptypes.DurationProto(0 * time.Second),
+										ResourceApiVersion:  core.ApiVersion_V3,
+										ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
+											ApiConfigSource: &core.ApiConfigSource{
+												ApiType:                   core.ApiConfigSource_GRPC,
+												SetNodeOnFirstMessageOnly: true,
+												TransportApiVersion:       core.ApiVersion_V3,
+												GrpcServices: []*core.GrpcService{
+													{
+														TargetSpecifier: &core.GrpcService_EnvoyGrpc_{
+															EnvoyGrpc: &core.GrpcService_EnvoyGrpc{ClusterName: authn_model.SDSClusterName},
+														},
+													},
+												},
+											},
+										},
+									},
+								},
+							},
+							ValidationContextType: &auth.CommonTlsContext_CombinedValidationContext{
+								CombinedValidationContext: &auth.CommonTlsContext_CombinedCertificateValidationContext{
+									DefaultValidationContext: &auth.CertificateValidationContext{},
+									ValidationContextSdsSecretConfig: &auth.SdsSecretConfig{
+										Name: "ROOTCA",
+										SdsConfig: &core.ConfigSource{
+											InitialFetchTimeout: ptypes.DurationProto(0 * time.Second),
+											ResourceApiVersion:  core.ApiVersion_V3,
+											ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
+												ApiConfigSource: &core.ApiConfigSource{
+													ApiType:                   core.ApiConfigSource_GRPC,
+													SetNodeOnFirstMessageOnly: true,
+													TransportApiVersion:       core.ApiVersion_V3,
+													GrpcServices: []*core.GrpcService{
+														{
+															TargetSpecifier: &core.GrpcService_EnvoyGrpc_{
+																EnvoyGrpc: &core.GrpcService_EnvoyGrpc{ClusterName: authn_model.SDSClusterName},
+															},
+														},
+													},
+												},
+											},
+										},
+									},
+								},
+							},
+							AlpnProtocols: []string{"h2", "http/1.1"},
+							TlsParams: &auth.TlsParameters{
+								TlsMinimumProtocolVersion: auth.TlsParameters_TLSv1_2,
+								CipherSuites: []string{
+									"ECDHE-ECDSA-AES256-GCM-SHA384",
+									"ECDHE-RSA-AES256-GCM-SHA384",
+									"ECDHE-ECDSA-AES128-GCM-SHA256",
+									"ECDHE-RSA-AES128-GCM-SHA256",
+								},
+							},
+						},
+						RequireClientCertificate: protovalue.BoolTrue,
+					},
+				},
+			},
+		},
+		{
 			name: "MTLSStrict using SDS with local trust domain",
 			args: args{
 				mTLSMode: model.MTLSStrict,
 				node: &model.Proxy{
 					Metadata: &model.NodeMetadata{},
 				},
-				listenerProtocol: networking.ListenerProtocolTCP,
-				trustDomains:     []string{"cluster.local"},
+				listenerProtocol:       networking.ListenerProtocolTCP,
+				trustDomains:           []string{"cluster.local"},
+				tlsInboundCipherSuites: features.TLSInboundCipherSuites,
 			},
 			want: []networking.FilterChain{
 				{
@@ -232,6 +324,12 @@ func TestBuildInboundFilterChain(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			defaultCipherSuites := features.TLSInboundCipherSuites
+
+			features.TLSInboundCipherSuites = tt.args.tlsInboundCipherSuites
+			defer func() {
+				features.TLSInboundCipherSuites = defaultCipherSuites
+			}()
 			got := BuildInboundFilterChain(tt.args.mTLSMode, tt.args.node, tt.args.listenerProtocol, tt.args.trustDomains)
 			if diff := cmp.Diff(got, tt.want, protocmp.Transform()); diff != "" {
 				t.Errorf("BuildInboundFilterChain() = %v", diff)

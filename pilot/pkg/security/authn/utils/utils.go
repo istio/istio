@@ -15,8 +15,11 @@
 package utils
 
 import (
+	"strings"
+
 	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
 	tls "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
+	"istio.io/istio/pilot/pkg/features"
 
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking"
@@ -31,16 +34,6 @@ const (
 	// Service account for Pilot (hardcoded values at setup time)
 	PilotSvcAccName string = "istio-pilot-service-account"
 )
-
-// SupportedCiphers for server side TLS configuration.
-var SupportedCiphers = []string{
-	"ECDHE-ECDSA-AES256-GCM-SHA384",
-	"ECDHE-RSA-AES256-GCM-SHA384",
-	"ECDHE-ECDSA-AES128-GCM-SHA256",
-	"ECDHE-RSA-AES128-GCM-SHA256",
-	"AES256-GCM-SHA384",
-	"AES128-GCM-SHA256",
-}
 
 // BuildInboundFilterChain returns the filter chain(s) corresponding to the mTLS mode.
 func BuildInboundFilterChain(mTLSMode model.MutualTLSMode, node *model.Proxy,
@@ -85,10 +78,14 @@ func BuildInboundFilterChain(mTLSMode model.MutualTLSMode, node *model.Proxy,
 		}
 	}
 
+	ciphers := []string{}
+	for _, c := range strings.Split(features.TLSInboundCipherSuites, ",") {
+		ciphers = append(ciphers, strings.TrimSpace(c))
+	}
 	// Set Minimum TLS version to match the default client version and allowed strong cipher suites for sidecars.
 	ctx.CommonTlsContext.TlsParams = &tls.TlsParameters{
 		TlsMinimumProtocolVersion: tls.TlsParameters_TLSv1_2,
-		CipherSuites:              SupportedCiphers,
+		CipherSuites:              ciphers,
 	}
 
 	authn_model.ApplyToCommonTLSContext(ctx.CommonTlsContext, node, []string{} /*subjectAltNames*/, trustDomainAliases)
