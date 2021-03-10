@@ -25,6 +25,21 @@ import (
 // Instances contains the instances created by the builder with methods for filtering
 type Instances []Instance
 
+type Deployment struct {
+	Service   string
+	Namespace string
+}
+
+// Deployments groups the Instances by Service and Namespace names.
+func (i Instances) Deployments() map[Deployment]Instances {
+	out := map[Deployment]Instances{}
+	for _, instance := range i {
+		k := Deployment{Service: instance.Config().Service, Namespace: instance.Config().Namespace.Name()}
+		out[k] = append(out[k], instance)
+	}
+	return out
+}
+
 // Clusters returns a list of cluster names that the instances are deployed in
 func (i Instances) Clusters() cluster.Clusters {
 	clusters := map[string]cluster.Cluster{}
