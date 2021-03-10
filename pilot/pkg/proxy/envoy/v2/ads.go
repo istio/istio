@@ -341,18 +341,13 @@ func newXdsConnection(peerAddr string, stream DiscoveryStream) *XdsConnection {
 }
 
 func receiveThread(con *XdsConnection, reqChannel chan *xdsapi.DiscoveryRequest, errP *error) {
-	listeners := make(map[string]string)
-	for _, l := range con.LDSListeners {
-		listeners[l.Name] = l.Address.String()
-	}
-
 	defer close(reqChannel) // indicates close of the remote side.
 	for {
 		req, err := con.stream.Recv()
 		if err != nil {
 			if status.Code(err) == codes.Canceled || err == io.EOF {
 				con.mu.RLock()
-
+				adsLog.Infof("ADS: %q %s terminated %v", con.PeerAddr, con.ConID, err)
 				con.mu.RUnlock()
 				return
 			}
@@ -372,7 +367,6 @@ func receiveThread(con *XdsConnection, reqChannel chan *xdsapi.DiscoveryRequest,
 
 // StreamAggregatedResources implements the ADS interface.
 func (s *DiscoveryServer) StreamAggregatedResources(stream ads.AggregatedDiscoveryService_StreamAggregatedResourcesServer) error {
-
 	peerInfo, ok := peer.FromContext(stream.Context())
 	peerAddr := "0.0.0.0"
 	if ok {
@@ -423,7 +417,6 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream ads.AggregatedDiscove
 			}
 			err = s.initConnectionNode(discReq, con)
 			if err != nil {
-
 				return err
 			}
 
@@ -432,13 +425,13 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream ads.AggregatedDiscove
 				if con.CDSWatch {
 					// Already received a cluster watch request, this is an ACK
 					if discReq.ErrorDetail != nil {
+						adsLog.Warnf("ADS:CDS: ACK ERROR %v %s %v", peerAddr, con.ConID, discReq.String())
 						cdsReject.With(prometheus.Labels{"node": discReq.Node.Id, "err": discReq.ErrorDetail.Message}).Add(1)
 						totalXDSRejects.Add(1)
 					} else if discReq.ResponseNonce != "" {
-						con.mu.Lock()
 						con.ClusterNonceAcked = discReq.ResponseNonce
-						con.mu.Unlock()
 					}
+					adsLog.Debugf("ADS:CDS: ACK %v %v", peerAddr, discReq.String())
 					continue
 				}
 				// CDS REQ is the first request an envoy makes. This shows up
@@ -455,20 +448,19 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream ads.AggregatedDiscove
 				if con.LDSWatch {
 					// Already received a cluster watch request, this is an ACK
 					if discReq.ErrorDetail != nil {
+						adsLog.Warnf("ADS:LDS: ACK ERROR %v %s %v", peerAddr, con.modelNode.ID, discReq.String())
 						ldsReject.With(prometheus.Labels{"node": discReq.Node.Id, "err": discReq.ErrorDetail.Message}).Add(1)
 						totalXDSRejects.Add(1)
 					} else if discReq.ResponseNonce != "" {
-						con.mu.Lock()
 						con.ListenerNonceAcked = discReq.ResponseNonce
-						con.mu.Unlock()
 					}
+					adsLog.Debugf("ADS:LDS: ACK %v", discReq.String())
 					continue
 				}
 				// too verbose - sent immediately after EDS response is received
 				con.LDSWatch = true
-				err := s.pushLds(con, s.globalPushContext(), versionInfo(), "reqChannel")
+				err := s.pushLds(con, s.globalPushContext(), versionInfo())
 				if err != nil {
-
 					return err
 				}
 
@@ -693,10 +685,6 @@ func (s *DiscoveryServer) DeltaAggregatedResources(stream ads.AggregatedDiscover
 // Compute and send the new configuration for a connection. This is blocking and may be slow
 // for large configs. The method will hold a lock on con.pushMutex.
 func (s *DiscoveryServer) pushConnection(con *XdsConnection, pushEv *XdsEvent) error {
-	listeners := make(map[string]string)
-	for _, l := range con.LDSListeners {
-		listeners[l.Name] = l.Address.String()
-	}
 	// TODO: update the service deps based on NetworkScope
 
 	if pushEv.edsUpdatedServices != nil {
@@ -732,7 +720,6 @@ func (s *DiscoveryServer) pushConnection(con *XdsConnection, pushEv *XdsEvent) e
 	if con.modelNode.Type == model.SidecarProxy {
 		con.modelNode.SetSidecarScope(pushEv.push)
 	}
-	// broken doesn't go here
 
 	s.rateLimiter.Wait(context.TODO()) // rate limit the actual push
 
@@ -774,7 +761,7 @@ func (s *DiscoveryServer) pushConnection(con *XdsConnection, pushEv *XdsEvent) e
 		}
 	}
 	if con.LDSWatch {
-		err := s.pushLds(con, pushEv.push, pushEv.version, "pushConnection")
+		err := s.pushLds(con, pushEv.push, pushEv.version)
 		if err != nil {
 			return err
 		}
