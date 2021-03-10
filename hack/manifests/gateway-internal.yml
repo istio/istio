@@ -1,0 +1,17 @@
+apiVersion: networking.istio.io/v1alpha3
+kind: Gateway
+metadata:
+  clusterName: ""
+  name: internal-ingressgateway-dev
+  namespace: istio-system
+spec:
+  selector:
+    app: internal-ingressgateway-dev
+    istio: ingressgateway
+  servers:
+  - hosts:
+    - '*'
+    port:
+      name: http
+      number: 80
+      protocol: HTTP2
