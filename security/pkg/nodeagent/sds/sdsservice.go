@@ -39,11 +39,6 @@ import (
 	"istio.io/pkg/log"
 )
 
-const (
-	// SecretType is used for secret discovery service to construct response.
-	SecretTypeV3 = "type.googleapis.com/envoy.extensions.transport_sockets.tls.v3.Secret"
-)
-
 var sdsServiceLog = log.RegisterScope("sds", "SDS service debugging", 0)
 
 type sdsservice struct {
