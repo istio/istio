@@ -36,10 +36,10 @@ const (
 func TestWebhook(t *testing.T) {
 	framework.NewTest(t).
 		RequiresSingleCluster().
-		Run(func(ctx framework.TestContext) {
+		Run(func(t framework.TestContext) {
 			// clear the updated fields and verify istiod updates them
 
-			cluster := ctx.Clusters().Default()
+			cluster := t.Clusters().Default()
 			retry.UntilSuccessOrFail(t, func() error {
 				got, err := getValidatingWebhookConfiguration(cluster, vwcName)
 				if err != nil {

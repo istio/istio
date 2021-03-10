@@ -18,10 +18,10 @@ import (
 	"bytes"
 	"fmt"
 	"strings"
-	"testing"
 
 	"istio.io/istio/istioctl/cmd"
 	"istio.io/istio/pilot/pkg/config/kube/crd"
+	"istio.io/istio/pkg/test"
 	kubecluster "istio.io/istio/pkg/test/framework/components/cluster/kube"
 	"istio.io/istio/pkg/test/framework/resource"
 )
@@ -82,7 +82,7 @@ func (c *kubeComponent) Invoke(args []string) (string, string, error) {
 }
 
 // InvokeOrFail implements Instance
-func (c *kubeComponent) InvokeOrFail(t *testing.T, args []string) (string, string) {
+func (c *kubeComponent) InvokeOrFail(t test.Failer, args []string) (string, string) {
 	output, stderr, err := c.Invoke(args)
 	if err != nil {
 		t.Logf("Unwanted exception for 'istioctl %s': %v", strings.Join(args, " "), err)
