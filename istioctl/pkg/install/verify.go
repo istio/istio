@@ -87,7 +87,8 @@ istioctl experimental precheck.
 			}
 			clogger := clog.NewDefaultLogger()
 			if len(filenames) > 0 {
-				_, mergedIOP, err = manifest.GenerateConfig(filenames, []string{}, false, restConfig, clogger)
+				setFlags := mesh.ApplyFlagAliases([]string{}, manifestsPath, opts.Revision)
+				_, mergedIOP, err = manifest.GenerateConfig(filenames, setFlags, false, restConfig, clogger)
 				if err != nil {
 					return fmt.Errorf("error while merging given IstioOperator CR with base profile: %v", err)
 				}

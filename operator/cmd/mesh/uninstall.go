@@ -164,7 +164,7 @@ func uninstall(cmd *cobra.Command, rootArgs *rootArgs, uiArgs *uninstallArgs, lo
 		return nil
 	}
 	manifestMap, iop, err := manifest.GenManifests([]string{uiArgs.filename},
-		applyFlagAliases(uiArgs.set, uiArgs.manifestsPath, uiArgs.revision), uiArgs.force, restConfig, l)
+		ApplyFlagAliases(uiArgs.set, uiArgs.manifestsPath, uiArgs.revision), uiArgs.force, restConfig, l)
 	if err != nil {
 		return err
 	}
