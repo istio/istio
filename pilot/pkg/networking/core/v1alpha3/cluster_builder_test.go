@@ -1460,34 +1460,34 @@ func TestApplyUpstreamTLSSettings(t *testing.T) {
 				proxy.Metadata = &model.NodeMetadata{}
 			}
 			opts := &buildClusterOpts{
-				ec: NewEnvoyCluster(&cluster.Cluster{
+				ic: NewEnvoyCluster(&cluster.Cluster{
 					ClusterDiscoveryType: &cluster.Cluster_Type{Type: test.discoveryType},
 				}),
 				proxy: proxy,
 				mesh:  push.Mesh,
 			}
 			if test.h2 {
-				cb.setH2Options(opts.ec)
+				cb.setH2Options(opts.ic)
 			}
 			cb.applyUpstreamTLSSettings(opts, test.tls, test.mtlsCtx)
 
-			if test.expectTransportSocket && opts.ec.cluster.TransportSocket == nil ||
-				!test.expectTransportSocket && opts.ec.cluster.TransportSocket != nil {
+			if test.expectTransportSocket && opts.ic.cluster.TransportSocket == nil ||
+				!test.expectTransportSocket && opts.ic.cluster.TransportSocket != nil {
 				t.Errorf("Expected TransportSocket %v", test.expectTransportSocket)
 			}
-			if test.expectTransportSocketMatch && opts.ec.cluster.TransportSocketMatches == nil ||
-				!test.expectTransportSocketMatch && opts.ec.cluster.TransportSocketMatches != nil {
+			if test.expectTransportSocketMatch && opts.ic.cluster.TransportSocketMatches == nil ||
+				!test.expectTransportSocketMatch && opts.ic.cluster.TransportSocketMatches != nil {
 				t.Errorf("Expected TransportSocketMatch %v", test.expectTransportSocketMatch)
 			}
 
 			if test.validateTLSContext != nil {
 				ctx := &tls.UpstreamTlsContext{}
 				if test.expectTransportSocket {
-					if err := ptypes.UnmarshalAny(opts.ec.cluster.TransportSocket.GetTypedConfig(), ctx); err != nil {
+					if err := ptypes.UnmarshalAny(opts.ic.cluster.TransportSocket.GetTypedConfig(), ctx); err != nil {
 						t.Fatal(err)
 					}
 				} else if test.expectTransportSocketMatch {
-					if err := ptypes.UnmarshalAny(opts.ec.cluster.TransportSocketMatches[0].TransportSocket.GetTypedConfig(), ctx); err != nil {
+					if err := ptypes.UnmarshalAny(opts.ic.cluster.TransportSocketMatches[0].TransportSocket.GetTypedConfig(), ctx); err != nil {
 						t.Fatal(err)
 					}
 				}
@@ -1524,7 +1524,7 @@ func TestBuildUpstreamClusterTLSContext(t *testing.T) {
 		{
 			name: "tls mode disabled",
 			opts: &buildClusterOpts{
-				ec: NewEnvoyCluster(&cluster.Cluster{
+				ic: NewEnvoyCluster(&cluster.Cluster{
 					Name: "test-cluster",
 				}),
 			},
@@ -1536,7 +1536,7 @@ func TestBuildUpstreamClusterTLSContext(t *testing.T) {
 		{
 			name: "tls mode ISTIO_MUTUAL with metadata certs",
 			opts: &buildClusterOpts{
-				ec: newTestCluster(),
+				ic: newTestCluster(),
 				proxy: &model.Proxy{
 					Metadata: &model.NodeMetadata{},
 				},
@@ -1608,7 +1608,7 @@ func TestBuildUpstreamClusterTLSContext(t *testing.T) {
 		{
 			name: "tls mode ISTIO_MUTUAL with metadata certs and H2",
 			opts: &buildClusterOpts{
-				ec: newTestCluster(),
+				ic: newTestCluster(),
 				proxy: &model.Proxy{
 					Metadata: &model.NodeMetadata{},
 				},
@@ -1682,7 +1682,7 @@ func TestBuildUpstreamClusterTLSContext(t *testing.T) {
 		{
 			name: "tls mode SIMPLE, with no certs specified in tls",
 			opts: &buildClusterOpts{
-				ec: newTestCluster(),
+				ic: newTestCluster(),
 				proxy: &model.Proxy{
 					Metadata: &model.NodeMetadata{},
 				},
@@ -1705,7 +1705,7 @@ func TestBuildUpstreamClusterTLSContext(t *testing.T) {
 		{
 			name: "tls mode SIMPLE, with certs specified in tls",
 			opts: &buildClusterOpts{
-				ec: newTestCluster(),
+				ic: newTestCluster(),
 				proxy: &model.Proxy{
 					Metadata: &model.NodeMetadata{},
 				},
@@ -1753,7 +1753,7 @@ func TestBuildUpstreamClusterTLSContext(t *testing.T) {
 		{
 			name: "tls mode SIMPLE, with certs specified in tls with h2",
 			opts: &buildClusterOpts{
-				ec: newH2TestCluster(),
+				ic: newH2TestCluster(),
 				proxy: &model.Proxy{
 					Metadata: &model.NodeMetadata{},
 				},
@@ -1803,7 +1803,7 @@ func TestBuildUpstreamClusterTLSContext(t *testing.T) {
 		{
 			name: "tls mode SIMPLE, with certs specified in tls with overridden metadata certs",
 			opts: &buildClusterOpts{
-				ec: newTestCluster(),
+				ic: newTestCluster(),
 				proxy: &model.Proxy{
 					Metadata: &model.NodeMetadata{
 						TLSClientRootCert: metadataRootCert,
@@ -1853,7 +1853,7 @@ func TestBuildUpstreamClusterTLSContext(t *testing.T) {
 		{
 			name: "tls mode MUTUAL, with no client certificate",
 			opts: &buildClusterOpts{
-				ec: newTestCluster(),
+				ic: newTestCluster(),
 			},
 			tls: &networking.ClientTLSSettings{
 				Mode:              networking.ClientTLSSettings_MUTUAL,
@@ -1868,7 +1868,7 @@ func TestBuildUpstreamClusterTLSContext(t *testing.T) {
 		{
 			name: "tls mode MUTUAL, with no client key",
 			opts: &buildClusterOpts{
-				ec: newTestCluster(),
+				ic: newTestCluster(),
 			},
 			tls: &networking.ClientTLSSettings{
 				Mode:              networking.ClientTLSSettings_MUTUAL,
@@ -1883,7 +1883,7 @@ func TestBuildUpstreamClusterTLSContext(t *testing.T) {
 		{
 			name: "tls mode MUTUAL, with node metadata sdsEnabled true no root CA specified",
 			opts: &buildClusterOpts{
-				ec: newTestCluster(),
+				ic: newTestCluster(),
 				proxy: &model.Proxy{
 					Metadata: &model.NodeMetadata{},
 				},
@@ -1930,7 +1930,7 @@ func TestBuildUpstreamClusterTLSContext(t *testing.T) {
 		{
 			name: "tls mode MUTUAL, with node metadata sdsEnabled true",
 			opts: &buildClusterOpts{
-				ec: newTestCluster(),
+				ic: newTestCluster(),
 				proxy: &model.Proxy{
 					Metadata: &model.NodeMetadata{},
 				},
@@ -2002,7 +2002,7 @@ func TestBuildUpstreamClusterTLSContext(t *testing.T) {
 		{
 			name: "tls mode SIMPLE, with CredentialName specified",
 			opts: &buildClusterOpts{
-				ec: newTestCluster(),
+				ic: newTestCluster(),
 				proxy: &model.Proxy{
 					Metadata: &model.NodeMetadata{},
 					Type:     model.Router,
@@ -2037,7 +2037,7 @@ func TestBuildUpstreamClusterTLSContext(t *testing.T) {
 		{
 			name: "tls mode SIMPLE, with CredentialName specified",
 			opts: &buildClusterOpts{
-				ec: newTestCluster(),
+				ic: newTestCluster(),
 				proxy: &model.Proxy{
 					Metadata: &model.NodeMetadata{},
 					Type:     model.Router,
@@ -2072,7 +2072,7 @@ func TestBuildUpstreamClusterTLSContext(t *testing.T) {
 		{
 			name: "tls mode SIMPLE, with CredentialName specified with h2 and no SAN",
 			opts: &buildClusterOpts{
-				ec: newH2TestCluster(),
+				ic: newH2TestCluster(),
 				proxy: &model.Proxy{
 					Metadata: &model.NodeMetadata{},
 					Type:     model.Router,
@@ -2106,7 +2106,7 @@ func TestBuildUpstreamClusterTLSContext(t *testing.T) {
 		{
 			name: "tls mode MUTUAL, with CredentialName specified",
 			opts: &buildClusterOpts{
-				ec: newTestCluster(),
+				ic: newTestCluster(),
 				proxy: &model.Proxy{
 					Metadata: &model.NodeMetadata{},
 					Type:     model.Router,
@@ -2147,7 +2147,7 @@ func TestBuildUpstreamClusterTLSContext(t *testing.T) {
 		{
 			name: "tls mode MUTUAL, with CredentialName specified with h2 and no SAN",
 			opts: &buildClusterOpts{
-				ec: newH2TestCluster(),
+				ic: newH2TestCluster(),
 				proxy: &model.Proxy{
 					Metadata: &model.NodeMetadata{},
 					Type:     model.Router,
@@ -2187,7 +2187,7 @@ func TestBuildUpstreamClusterTLSContext(t *testing.T) {
 		{
 			name: "tls mode MUTUAL, credentialName is set with proxy type Sidecar",
 			opts: &buildClusterOpts{
-				ec: newTestCluster(),
+				ic: newTestCluster(),
 				proxy: &model.Proxy{
 					Metadata: &model.NodeMetadata{},
 					Type:     model.SidecarProxy,
@@ -2205,7 +2205,7 @@ func TestBuildUpstreamClusterTLSContext(t *testing.T) {
 		{
 			name: "tls mode SIMPLE, credentialName is set with proxy type Sidecar",
 			opts: &buildClusterOpts{
-				ec: newTestCluster(),
+				ic: newTestCluster(),
 				proxy: &model.Proxy{
 					Metadata: &model.NodeMetadata{},
 					Type:     model.SidecarProxy,
@@ -2225,7 +2225,7 @@ func TestBuildUpstreamClusterTLSContext(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			cb := NewClusterBuilder(nil, nil)
 			if tc.h2 {
-				cb.setH2Options(tc.opts.ec)
+				cb.setH2Options(tc.opts.ic)
 			}
 			ret, err := cb.buildUpstreamClusterTLSContext(tc.opts, tc.tls)
 			if err != nil && tc.result.err == nil || err == nil && tc.result.err != nil {
@@ -2237,13 +2237,13 @@ func TestBuildUpstreamClusterTLSContext(t *testing.T) {
 	}
 }
 
-func newTestCluster() *EnvoyCluster {
+func newTestCluster() *IstioCluster {
 	return NewEnvoyCluster(&cluster.Cluster{
 		Name: "test-cluster",
 	})
 }
 
-func newH2TestCluster() *EnvoyCluster {
+func newH2TestCluster() *IstioCluster {
 	return NewEnvoyCluster(&cluster.Cluster{
 		Name:                 "test-cluster",
 		Http2ProtocolOptions: &core.Http2ProtocolOptions{},
