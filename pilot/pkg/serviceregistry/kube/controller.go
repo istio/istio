@@ -498,16 +498,13 @@ func (c *Controller) InstancesByPort(hostname model.Hostname, reqSvcPort int,
 // GetProxyServiceInstances returns service instances co-located with a given proxy
 func (c *Controller) GetProxyServiceInstances(proxy *model.Proxy) ([]*model.ServiceInstance, error) {
 	out := make([]*model.ServiceInstance, 0)
-	log.Warnf("gyg::GetProxyServiceInstances::pod:%v", proxy.IPAddresses)
 	// There is only one IP for kube registry
 	proxyIP := proxy.IPAddresses[0]
 	proxyNamespace := ""
 
 	pod := c.pods.getPodByIP(proxyIP)
 	if pod != nil {
-		log.Warnf("gyg::GetProxyServiceInstances::pod:%s", proxyIP)
 		if !pilot.DisableSplitHorizonEdsProxyNetworkCompare() {
-			log.Warnf("gyg::GetProxyServiceInstances::pod:%s:DisableSplitHorizonEdsProxyNetworkCompare::nodeMetadataNetwork=[%s] ; endpointNetwork=[%s]", proxyIP, proxy.Metadata[model.NodeMetadataNetwork], c.endpointNetwork(proxyIP))
 			// for split horizon EDS k8s multi cluster, in case there are pods of the same ip across clusters,
 			// which can happen when multi clusters using same pod cidr.
 			// As we have proxy Network meta, compare it with the network which endpoint belongs to,
@@ -523,13 +520,10 @@ func (c *Controller) GetProxyServiceInstances(proxy *model.Proxy) ([]*model.Serv
 		svcLister := listerv1.NewServiceLister(c.services.informer.GetIndexer())
 		if services, err := svcLister.GetPodServices(pod); err == nil && len(services) > 0 {
 			for _, svc := range services {
-				log.Warnf("gyg::GetProxyServiceInstances::pod:%v:services:%s/%s", proxyIP, svc.Namespace, svc.Name)
 				out = append(out, c.getProxyServiceInstancesByPod(pod, svc, proxy)...)
 			}
 			return out, nil
 		}
-	} else {
-		log.Warnf("gyg::GetProxyServiceInstances::pod == nil %s", proxyIP)
 	}
 
 	// 2. Headless service
