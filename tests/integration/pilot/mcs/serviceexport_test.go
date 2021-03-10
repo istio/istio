@@ -173,6 +173,6 @@ func TestServiceExports(t *testing.T) {
 				return errors.New("found serviceExport when one should not have been created")
 			})
 
-			_ := cluster.CoreV1().Namespaces().Delete(context.TODO(), "svc-namespace", v1.DeleteOptions{})
+			_ = cluster.CoreV1().Namespaces().Delete(context.TODO(), "svc-namespace", v1.DeleteOptions{})
 		})
 }
