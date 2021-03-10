@@ -184,13 +184,13 @@ func ConstructSdsSecretConfig(name string, node *model.Proxy) *tls.SdsSecretConf
 	}
 
 	if name == SDSDefaultResourceName {
-		if util.IsIstioVersionGE19(node) {
+		if util.IsIstioVersionGE110(node) {
 			return defaultSDSConfig
 		}
 		return legacyDefaultSDSConfig
 	}
 	if name == SDSRootResourceName {
-		if util.IsIstioVersionGE19(node) {
+		if util.IsIstioVersionGE110(node) {
 			return rootSDSConfig
 		}
 		return legacyRootSDSConfig
@@ -216,7 +216,7 @@ func ConstructSdsSecretConfig(name string, node *model.Proxy) *tls.SdsSecretConf
 		},
 	}
 
-	if util.IsIstioVersionGE19(node) {
+	if util.IsIstioVersionGE110(node) {
 		cfg.SdsConfig.GetApiConfigSource().SetNodeOnFirstMessageOnly = true
 	}
 	return cfg
