@@ -118,3 +118,5 @@ require (
 
 // Pending https://github.com/kubernetes/kube-openapi/pull/220
 replace k8s.io/kube-openapi => github.com/howardjohn/kube-openapi v0.0.0-20210104181841-c0b40d2cb1c8
+
+replace istio.io/api => github.com/nacx/api v0.0.0-20210310223803-6b9d5a2c467d
