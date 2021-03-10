@@ -162,10 +162,11 @@ func SetupEcho(t *testing.T, ctx resource.Context) (echo.Instance, echo.Instance
 		Prefix: "server",
 		Inject: true,
 	})
-
+	cluster := ctx.Clusters().Default()
 	var internalClient, externalServer echo.Instance
 	echoboot.NewBuilder(ctx).
 		With(&internalClient, echo.Config{
+			Cluster:   cluster,
 			Service:   "client",
 			Namespace: clientNamespace,
 			Ports:     []echo.Port{},
@@ -174,6 +175,7 @@ func SetupEcho(t *testing.T, ctx resource.Context) (echo.Instance, echo.Instance
 			}},
 		}).
 		With(&externalServer, echo.Config{
+			Cluster:   cluster,
 			Service:   "server",
 			Namespace: serverNamespace,
 			Ports: []echo.Port{
@@ -307,7 +309,7 @@ func createGateway(t *testing.T, ctx resource.Context, clientNamespace namespace
 	if err := tmplGateway.Execute(&bufGateway, map[string]string{"ServerNamespace": serverNamespace.Name()}); err != nil {
 		t.Fatalf("failed to create template: %v", err)
 	}
-	if err := ctx.Config().ApplyYAML(clientNamespace.Name(), bufGateway.String()); err != nil {
+	if err := ctx.Config(ctx.Clusters().Default()).ApplyYAML(clientNamespace.Name(), bufGateway.String()); err != nil {
 		t.Fatalf("failed to apply gateway: %v. template: %v", err, bufGateway.String())
 	}
 
@@ -323,7 +325,7 @@ func createGateway(t *testing.T, ctx resource.Context, clientNamespace namespace
 	if err := tmplVS.Execute(&bufVS, map[string]string{"ServerNamespace": serverNamespace.Name()}); err != nil {
 		t.Fatalf("failed to create template: %v", err)
 	}
-	if err := ctx.Config().ApplyYAML(clientNamespace.Name(), bufVS.String()); err != nil {
+	if err := ctx.Config(ctx.Clusters().Default()).ApplyYAML(clientNamespace.Name(), bufVS.String()); err != nil {
 		t.Fatalf("failed to apply gateway: %v. template: %v", err, bufVS.String())
 	}
 }
