@@ -48,7 +48,6 @@ import (
 	"istio.io/api/security/v1beta1"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
-	modelstatus "istio.io/istio/pilot/pkg/model/status"
 	"istio.io/istio/pilot/pkg/networking/plugin"
 	kubesecrets "istio.io/istio/pilot/pkg/secrets/kube"
 	"istio.io/istio/pilot/pkg/serviceregistry"
@@ -872,22 +871,11 @@ func (s *Server) initRegistryEventHandlers() {
 
 	if s.configController != nil {
 		configHandler := func(old config.Config, curr config.Config, event model.Event) {
-			if old.Generation == curr.Generation && curr.Generation != 0 {
-				// Kubernetes will start generation at 1, but some internally generated configurations
-				// may not set resource version at all and we still want updates from these
-				if curr.GroupVersionKind == gvk.WorkloadEntry {
-					oldCond := modelstatus.GetConditionFromSpec(old, modelstatus.ConditionHealthy)
-					newCond := modelstatus.GetConditionFromSpec(curr, modelstatus.ConditionHealthy)
-					if oldCond == newCond {
-						return
-					}
-				} else if onlyStatusUpdated(old, curr) {
-					log.Debugf("skipping push for %v/%v, due to no change in spec or labels\n",
-						old.Namespace, old.Name)
-					return
-				}
+			if onlyStatusUpdated(old, curr) {
+				log.Debugf("skipping push for %v/%v, due to no change in spec or labels\n",
+					old.Namespace, old.Name)
+				return
 			}
-
 			pushReq := &model.PushRequest{
 				Full: true,
 				ConfigsUpdated: map[model.ConfigKey]struct{}{{
@@ -915,6 +903,10 @@ func (s *Server) initRegistryEventHandlers() {
 				continue
 			}
 			if schema.Resource().GroupVersionKind() == collections.IstioNetworkingV1Alpha3Workloadentries.
+				Resource().GroupVersionKind() {
+				continue
+			}
+			if schema.Resource().GroupVersionKind() == collections.IstioNetworkingV1Alpha3Workloadgroups.
 				Resource().GroupVersionKind() {
 				continue
 			}
