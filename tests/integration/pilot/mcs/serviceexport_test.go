@@ -19,13 +19,14 @@ import (
 	"context"
 	"errors"
 	"io/ioutil"
-	corev1 "k8s.io/api/core/v1"
-	k8sErrors "k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/util/intstr"
-	mcsapisClient "sigs.k8s.io/mcs-api/pkg/client/clientset/versioned"
 	"testing"
 	"time"
+
+	corev1 "k8s.io/api/core/v1"
+	k8sErrors "k8s.io/apimachinery/pkg/api/errors"
+	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/intstr"
+	mcsapisClient "sigs.k8s.io/mcs-api/pkg/client/clientset/versioned"
 
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/istio"
@@ -101,7 +102,7 @@ func TestServiceExports(t *testing.T) {
 					t.Fatalf("Failed deleting istiod pod with error %v", err)
 				}
 			}
-			
+
 			mcsapis, err := mcsapisClient.NewForConfig(cluster.RESTConfig())
 			if err != nil {
 				t.Fatalf("Failed to get the MCS API client, failing test with error %v", err)
@@ -143,7 +144,7 @@ func TestServiceExports(t *testing.T) {
 				}
 
 				return nil
-			}, retry.Timeout(90*time.Second))
+			}, retry.Timeout(120*time.Second))
 
 			err = cluster.CoreV1().Services("svc-namespace").Delete(context.TODO(), "svc1", v1.DeleteOptions{})
 
@@ -163,7 +164,7 @@ func TestServiceExports(t *testing.T) {
 				}
 
 				return errors.New("found serviceExport when one should not have existed")
-			}, retry.Timeout(90*time.Second))
+			}, retry.Timeout(120*time.Second))
 
 			retry.UntilSuccessOrFail(t, func() error {
 				services, err := cluster.CoreV1().Services("kube-system").List(context.TODO(), v1.ListOptions{})
@@ -184,7 +185,7 @@ func TestServiceExports(t *testing.T) {
 				}
 
 				return errors.New("found serviceExport when one should not have been created")
-			}, retry.Timeout(90*time.Second))
+			}, retry.Timeout(120*time.Second))
 
 			_ = cluster.CoreV1().Namespaces().Delete(context.TODO(), "svc-namespace", v1.DeleteOptions{})
 		})

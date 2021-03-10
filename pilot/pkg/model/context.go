@@ -218,6 +218,8 @@ func (e *Environment) GetClusterLocalHosts() []host.Name {
 
 func (e *Environment) IsServiceClusterLocal(service *v1.Service) bool {
 	hostname := fmt.Sprintf("%s.%s.svc.cluster.local", service.Name, service.Namespace)
+	e.mutex.Lock()
+	defer e.mutex.Lock()
 	_, ok := MostSpecificHostMatch(host.Name(hostname), nil, e.clusterLocalHosts)
 	return ok
 }
@@ -232,10 +234,13 @@ func (e *Environment) SetLedger(l ledger.Ledger) {
 
 // only user for testing
 func (e *Environment) SetClusterLocalHosts(hostList []string) {
-	e.clusterLocalHosts = make([]host.Name, len(hostList))
+	clusterLocalHosts := make([]host.Name, len(hostList))
 	for _, hostName := range hostList {
-		e.clusterLocalHosts = append(e.clusterLocalHosts, host.Name(hostName))
+		clusterLocalHosts = append(clusterLocalHosts, host.Name(hostName))
 	}
+	e.mutex.Lock()
+	defer e.mutex.Lock()
+	e.clusterLocalHosts = clusterLocalHosts
 }
 
 // Request is an alias for array of marshaled resources.
