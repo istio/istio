@@ -15,6 +15,8 @@
 package authz
 
 import (
+	"fmt"
+
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking"
 	"istio.io/istio/pilot/pkg/networking/plugin"
@@ -93,51 +95,20 @@ func (p Plugin) buildFilter(in *plugin.InputParams, mutable *networking.MutableO
 	if b == nil {
 		return
 	}
-
-	switch in.ListenerProtocol {
-	case networking.ListenerProtocolTCP:
-		option.Logger.AppendDebugf("building filters for TCP listener protocol")
-		tcpFilters := b.BuildTCP()
-		if in.Node.Type == model.Router {
-			// For gateways, due to TLS termination, a listener marked as TCP could very well
-			// be using a HTTP connection manager. So check the filterChain.listenerProtocol
-			// to decide the type of filter to attach
-			httpFilters := b.BuildHTTP()
-			for cnum := range mutable.FilterChains {
-				if mutable.FilterChains[cnum].ListenerProtocol == networking.ListenerProtocolHTTP {
-					option.Logger.AppendDebugf("added %d HTTP filters to gateway filter chain %d", len(httpFilters), cnum)
-					mutable.FilterChains[cnum].HTTP = append(mutable.FilterChains[cnum].HTTP, httpFilters...)
-				} else {
-					option.Logger.AppendDebugf("added %d TCP filters to gateway filter chain %d", len(tcpFilters), cnum)
-					mutable.FilterChains[cnum].TCP = append(mutable.FilterChains[cnum].TCP, tcpFilters...)
-				}
-			}
-		} else {
-			for cnum := range mutable.FilterChains {
-				option.Logger.AppendDebugf("added %d TCP filter to filter chain %d", len(tcpFilters), cnum)
-				mutable.FilterChains[cnum].TCP = append(mutable.FilterChains[cnum].TCP, tcpFilters...)
-			}
-		}
-	case networking.ListenerProtocolHTTP:
-		option.Logger.AppendDebugf("building filters for HTTP listener protocol")
-		httpFilters := b.BuildHTTP()
-		for cnum := range mutable.FilterChains {
+	// TODO lazy
+	httpFilters := b.BuildHTTP()
+	tcpFilters := b.BuildTCP()
+	for cnum := range mutable.FilterChains {
+		switch mutable.FilterChains[cnum].ListenerProtocol {
+		case networking.ListenerProtocolTCP:
+			option.Logger.AppendDebugf("added %d TCP filters to filter chain %d", len(tcpFilters), cnum)
+			mutable.FilterChains[cnum].TCP = append(mutable.FilterChains[cnum].TCP, tcpFilters...)
+		case networking.ListenerProtocolHTTP:
 			option.Logger.AppendDebugf("added %d HTTP filters to filter chain %d", len(httpFilters), cnum)
 			mutable.FilterChains[cnum].HTTP = append(mutable.FilterChains[cnum].HTTP, httpFilters...)
-		}
-	case networking.ListenerProtocolAuto:
-		option.Logger.AppendDebugf("building filters for AUTO listener protocol")
-		httpFilters := b.BuildHTTP()
-		tcpFilters := b.BuildTCP()
-		for cnum := range mutable.FilterChains {
-			switch mutable.FilterChains[cnum].ListenerProtocol {
-			case networking.ListenerProtocolTCP:
-				option.Logger.AppendDebugf("added %d TCP filters to filter chain %d", len(tcpFilters), cnum)
-				mutable.FilterChains[cnum].TCP = append(mutable.FilterChains[cnum].TCP, tcpFilters...)
-			case networking.ListenerProtocolHTTP:
-				option.Logger.AppendDebugf("added %d HTTP filters to filter chain %d", len(httpFilters), cnum)
-				mutable.FilterChains[cnum].HTTP = append(mutable.FilterChains[cnum].HTTP, httpFilters...)
-			}
+		default:
+			// TODO don't panic
+			panic(fmt.Sprintf("unknown: %v", mutable.FilterChains[cnum].ListenerProtocol))
 		}
 	}
 }
