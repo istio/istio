@@ -2459,15 +2459,15 @@ func TestTelemetryMetadata(t *testing.T) {
 	for _, tt := range cases {
 		t.Run(tt.name, func(t *testing.T) {
 			opt := buildClusterOpts{
-				cluster: tt.cluster,
-				port:    &model.Port{Port: 80},
+				ec:   NewEnvoyCluster(tt.cluster),
+				port: &model.Port{Port: 80},
 				proxy: &model.Proxy{
 					ServiceInstances: tt.svcInsts,
 				},
 			}
 			addTelemetryMetadata(opt, tt.service, tt.direction, tt.svcInsts)
-			if opt.cluster != nil && !reflect.DeepEqual(opt.cluster.Metadata, tt.want) {
-				t.Errorf("cluster metadata does not match expectation want %+v, got %+v", tt.want, opt.cluster.Metadata)
+			if opt.ec.cluster != nil && !reflect.DeepEqual(opt.ec.cluster.Metadata, tt.want) {
+				t.Errorf("cluster metadata does not match expectation want %+v, got %+v", tt.want, opt.ec.cluster.Metadata)
 			}
 		})
 	}

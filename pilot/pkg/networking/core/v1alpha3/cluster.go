@@ -85,7 +85,6 @@ func (configgen *ConfigGeneratorImpl) BuildClusters(proxy *model.Proxy, push *mo
 		// Setup outbound clusters
 		outboundPatcher := clusterPatcher{envoyFilterPatches, networking.EnvoyFilter_SIDECAR_OUTBOUND}
 		clusters = append(clusters, configgen.buildOutboundClusters(cb, outboundPatcher)...)
-		clusters = cb.finalizeClusters(clusters)
 		// Add a blackhole and passthrough cluster for catching traffic to unresolved routes
 		clusters = outboundPatcher.conditionallyAppend(clusters, nil, cb.buildBlackHoleCluster(), cb.buildDefaultPassthroughCluster())
 		clusters = append(clusters, outboundPatcher.insertedClusters()...)
@@ -93,7 +92,6 @@ func (configgen *ConfigGeneratorImpl) BuildClusters(proxy *model.Proxy, push *mo
 		// Setup inbound clusters
 		inboundPatcher := clusterPatcher{envoyFilterPatches, networking.EnvoyFilter_SIDECAR_INBOUND}
 		clusters = append(clusters, configgen.buildInboundClusters(cb, instances, inboundPatcher)...)
-		clusters = cb.finalizeClusters(clusters)
 		// Pass through clusters for inbound traffic. These cluster bind loopback-ish src address to access node local service.
 		clusters = inboundPatcher.conditionallyAppend(clusters, nil, cb.buildInboundPassthroughClusters()...)
 		clusters = append(clusters, inboundPatcher.insertedClusters()...)
@@ -103,13 +101,12 @@ func (configgen *ConfigGeneratorImpl) BuildClusters(proxy *model.Proxy, push *mo
 		if proxy.Type == model.Router && proxy.GetRouterMode() == model.SniDnatRouter {
 			clusters = append(clusters, configgen.buildOutboundSniDnatClusters(proxy, push, patcher)...)
 		}
-		clusters = cb.finalizeClusters(clusters)
 		// Gateways do not require the default passthrough cluster as they do not have original dst listeners.
 		clusters = patcher.conditionallyAppend(clusters, nil, cb.buildBlackHoleCluster())
 		clusters = append(clusters, patcher.insertedClusters()...)
 	}
 
-	return clusters
+	return cb.normalizeClusters(clusters)
 }
 
 func (configgen *ConfigGeneratorImpl) buildOutboundClusters(cb *ClusterBuilder, cp clusterPatcher) []*cluster.Cluster {
@@ -138,14 +135,14 @@ func (configgen *ConfigGeneratorImpl) buildOutboundClusters(cb *ClusterBuilder, 
 			}
 			// If stat name is configured, build the alternate stats name.
 			if len(cb.push.Mesh.OutboundClusterStatName) != 0 {
-				defaultCluster.AltStatName = util.BuildStatPrefix(cb.push.Mesh.OutboundClusterStatName, string(service.Hostname), "", port, service.Attributes)
+				defaultCluster.cluster.AltStatName = util.BuildStatPrefix(cb.push.Mesh.OutboundClusterStatName, string(service.Hostname), "", port, service.Attributes)
 			}
 
 			cb.setUpstreamProtocol(cb.proxy, defaultCluster, port, model.TrafficDirectionOutbound)
 
 			subsetClusters := cb.applyDestinationRule(defaultCluster, DefaultClusterMode, service, port, networkView)
 
-			clusters = cp.conditionallyAppend(clusters, nil, defaultCluster)
+			clusters = cp.conditionallyAppend(clusters, nil, defaultCluster.build())
 			clusters = cp.conditionallyAppend(clusters, nil, subsetClusters...)
 		}
 	}
@@ -201,7 +198,7 @@ func (configgen *ConfigGeneratorImpl) buildOutboundSniDnatClusters(proxy *model.
 				continue
 			}
 			subsetClusters := cb.applyDestinationRule(defaultCluster, SniDnatClusterMode, service, port, networkView)
-			clusters = cp.conditionallyAppend(clusters, nil, defaultCluster)
+			clusters = cp.conditionallyAppend(clusters, nil, defaultCluster.build())
 			clusters = cp.conditionallyAppend(clusters, nil, subsetClusters...)
 		}
 	}
@@ -280,7 +277,7 @@ func (configgen *ConfigGeneratorImpl) buildInboundClusters(cb *ClusterBuilder, i
 			for _, si := range instances {
 				hosts = append(hosts, si.Service.Hostname)
 			}
-			clusters = cp.conditionallyAppend(clusters, hosts, localCluster)
+			clusters = cp.conditionallyAppend(clusters, hosts, localCluster.build())
 		}
 		return clusters
 	}
@@ -331,7 +328,7 @@ func (configgen *ConfigGeneratorImpl) buildInboundClusters(cb *ClusterBuilder, i
 		instance.Endpoint.EndpointPort = uint32(port)
 
 		localCluster := cb.buildInboundClusterForPortOrUDS(int(ingressListener.Port.Number), endpointAddress, instance, nil)
-		clusters = cp.conditionallyAppend(clusters, []host.Name{instance.Service.Hostname}, localCluster)
+		clusters = cp.conditionallyAppend(clusters, []host.Name{instance.Service.Hostname}, localCluster.build())
 	}
 
 	return clusters
@@ -467,7 +464,7 @@ const (
 
 type buildClusterOpts struct {
 	mesh            *meshconfig.MeshConfig
-	cluster         *cluster.Cluster
+	ec              *EnvoyCluster
 	policy          *networking.TrafficPolicy
 	port            *model.Port
 	serviceAccounts []string
@@ -662,7 +659,7 @@ func applyLocalityLBSetting(locality *core.Locality, cluster *cluster.Cluster, l
 }
 
 func addTelemetryMetadata(opts buildClusterOpts, service *model.Service, direction model.TrafficDirection, instances []*model.ServiceInstance) {
-	if opts.cluster == nil {
+	if opts.ec.cluster == nil {
 		return
 	}
 	if direction == model.TrafficDirectionInbound && (opts.proxy == nil || opts.proxy.ServiceInstances == nil ||
@@ -675,7 +672,7 @@ func addTelemetryMetadata(opts buildClusterOpts, service *model.Service, directi
 		return
 	}
 
-	im := getOrCreateIstioMetadata(opts.cluster)
+	im := getOrCreateIstioMetadata(opts.ec.cluster)
 
 	// Add services field into istio metadata
 	im.Fields["services"] = &structpb.Value{
@@ -715,7 +712,7 @@ func addTelemetryMetadata(opts buildClusterOpts, service *model.Service, directi
 // Insert the original port into the istio metadata. The port is used in BTS delivered from client sidecar to server sidecar.
 // Server side car uses this port after de-multiplexed from tunnel.
 func addNetworkingMetadata(opts buildClusterOpts, service *model.Service, direction model.TrafficDirection) {
-	if opts.cluster == nil || direction == model.TrafficDirectionInbound {
+	if opts.ec == nil || direction == model.TrafficDirectionInbound {
 		return
 	}
 	if service == nil {
@@ -724,7 +721,7 @@ func addNetworkingMetadata(opts buildClusterOpts, service *model.Service, direct
 	}
 
 	if port, ok := service.Ports.GetByPort(opts.port.Port); ok {
-		im := getOrCreateIstioMetadata(opts.cluster)
+		im := getOrCreateIstioMetadata(opts.ec.cluster)
 
 		// Add original_port field into istio metadata
 		// Endpoint could override this port but the chance should be small.
