@@ -401,7 +401,7 @@ func TestJwtRefreshIntervalRecoverFromInitialFailOnFirstHit(t *testing.T) {
 
 	retry.UntilOrFail(t, func() bool {
 		pk, _ := r.GetPublicKey("", mockCertURL)
-		return test.JwtPubKey1 == pk
+		return test.JwtPubKey2 == pk
 	}, retry.Delay(time.Millisecond))
 	r.Close()
 
@@ -486,7 +486,7 @@ func TestJwtPubKeyMetric(t *testing.T) {
 		},
 		{
 			in:                []string{"", mockCertURL},
-			expectedJwtPubkey: test.JwtPubKey1,
+			expectedJwtPubkey: test.JwtPubKey2,
 		},
 	}
 
