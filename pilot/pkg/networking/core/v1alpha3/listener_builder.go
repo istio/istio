@@ -197,10 +197,8 @@ func (lb *ListenerBuilder) aggregateVirtualInboundListener(needTLSForPassThrough
 	// Note: the HTTP inspector should be after TLS inspector.
 	// If TLS inspector sets transport protocol to tls, the http inspector
 	// won't inspect the packet.
-	if features.EnableProtocolSniffingForInbound {
-		lb.virtualInboundListener.ListenerFilters =
-			append(lb.virtualInboundListener.ListenerFilters, buildHTTPInspector(inspectors))
-	}
+	lb.virtualInboundListener.ListenerFilters =
+		append(lb.virtualInboundListener.ListenerFilters, buildHTTPInspector(inspectors))
 
 	timeout := util.GogoDurationToDuration(lb.push.Mesh.GetProtocolDetectionTimeout())
 	if features.InboundProtocolDetectionTimeoutSet {
@@ -359,11 +357,9 @@ func (lb *ListenerBuilder) buildVirtualInboundListener(configgen *ConfigGenerato
 	actualWildcard, _ := getActualWildcardAndLocalHost(lb.node)
 	// add an extra listener that binds to the port that is the recipient of the iptables redirect
 	filterChains, needTLSForPassThroughFilterChain := buildInboundCatchAllNetworkFilterChains(configgen, lb.node, lb.push)
-	if features.EnableProtocolSniffingForInbound {
-		fc, needTLS := buildInboundCatchAllHTTPFilterChains(configgen, lb.node, lb.push)
-		needTLSForPassThroughFilterChain = needTLSForPassThroughFilterChain || needTLS
-		filterChains = append(filterChains, fc...)
-	}
+	fc, needTLS := buildInboundCatchAllHTTPFilterChains(configgen, lb.node, lb.push)
+	needTLSForPassThroughFilterChain = needTLSForPassThroughFilterChain || needTLS
+	filterChains = append(filterChains, fc...)
 	lb.virtualInboundListener = &listener.Listener{
 		Name:             VirtualInboundListenerName,
 		Address:          util.BuildAddress(actualWildcard, ProxyInboundListenPort),

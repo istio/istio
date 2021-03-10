@@ -136,18 +136,6 @@ var (
 		false,
 		"Skip validating the peer is from the same trust domain when mTLS is enabled in authentication policy")
 
-	EnableProtocolSniffingForOutbound = env.RegisterBoolVar(
-		"PILOT_ENABLE_PROTOCOL_SNIFFING_FOR_OUTBOUND",
-		true,
-		"If enabled, protocol sniffing will be used for outbound listeners whose port protocol is not specified or unsupported",
-	).Get()
-
-	EnableProtocolSniffingForInbound = env.RegisterBoolVar(
-		"PILOT_ENABLE_PROTOCOL_SNIFFING_FOR_INBOUND",
-		true,
-		"If enabled, protocol sniffing will be used for inbound listeners whose port protocol is not specified or unsupported",
-	).Get()
-
 	EnableWasmTelemetry = env.RegisterBoolVar(
 		"ENABLE_WASM_TELEMETRY",
 		false,

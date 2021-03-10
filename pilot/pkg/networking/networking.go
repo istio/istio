@@ -42,24 +42,7 @@ const (
 )
 
 // ModelProtocolToListenerProtocol converts from a config.Protocol to its corresponding plugin.ListenerProtocol
-func ModelProtocolToListenerProtocol(p protocol.Instance,
-	trafficDirection core.TrafficDirection) ListenerProtocol {
-	// If protocol sniffing is not enabled, the default value is TCP
-	if p == protocol.Unsupported {
-		switch trafficDirection {
-		case core.TrafficDirection_INBOUND:
-			if !features.EnableProtocolSniffingForInbound {
-				p = protocol.TCP
-			}
-		case core.TrafficDirection_OUTBOUND:
-			if !features.EnableProtocolSniffingForOutbound {
-				p = protocol.TCP
-			}
-		default:
-			// Should not reach here.
-		}
-	}
-
+func ModelProtocolToListenerProtocol(p protocol.Instance, trafficDirection core.TrafficDirection) ListenerProtocol {
 	switch p {
 	case protocol.HTTP, protocol.HTTP2, protocol.GRPC, protocol.GRPCWeb:
 		return ListenerProtocolHTTP

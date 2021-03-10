@@ -137,46 +137,40 @@ func TestHTTPCircuitBreakerThresholds(t *testing.T) {
 
 func TestCommonHttpProtocolOptions(t *testing.T) {
 	cases := []struct {
-		clusterName               string
-		useDownStreamProtocol     bool
-		sniffingEnabledForInbound bool
-		proxyType                 model.NodeType
-		clusters                  int
+		clusterName           string
+		useDownStreamProtocol bool
+		proxyType             model.NodeType
+		clusters              int
 	}{
 		{
-			clusterName:               "outbound|8080||*.example.org",
-			useDownStreamProtocol:     false,
-			sniffingEnabledForInbound: false,
-			proxyType:                 model.SidecarProxy,
-			clusters:                  8,
+			clusterName:           "outbound|8080||*.example.org",
+			useDownStreamProtocol: false,
+			proxyType:             model.SidecarProxy,
+			clusters:              8,
 		},
 		{
-			clusterName:               "inbound|10001||",
-			useDownStreamProtocol:     false,
-			sniffingEnabledForInbound: false,
-			proxyType:                 model.SidecarProxy,
-			clusters:                  8,
+			clusterName:           "inbound|10001||",
+			useDownStreamProtocol: false,
+			proxyType:             model.SidecarProxy,
+			clusters:              8,
 		},
 		{
-			clusterName:               "outbound|9090||*.example.org",
-			useDownStreamProtocol:     true,
-			sniffingEnabledForInbound: false,
-			proxyType:                 model.SidecarProxy,
-			clusters:                  8,
+			clusterName:           "outbound|9090||*.example.org",
+			useDownStreamProtocol: true,
+			proxyType:             model.SidecarProxy,
+			clusters:              8,
 		},
 		{
-			clusterName:               "inbound|10002||",
-			useDownStreamProtocol:     true,
-			sniffingEnabledForInbound: true,
-			proxyType:                 model.SidecarProxy,
-			clusters:                  8,
+			clusterName:           "inbound|10002||",
+			useDownStreamProtocol: true,
+			proxyType:             model.SidecarProxy,
+			clusters:              8,
 		},
 		{
-			clusterName:               "outbound|8080||*.example.org",
-			useDownStreamProtocol:     true,
-			sniffingEnabledForInbound: true,
-			proxyType:                 model.Router,
-			clusters:                  3,
+			clusterName:           "outbound|8080||*.example.org",
+			useDownStreamProtocol: true,
+			proxyType:             model.Router,
+			clusters:              3,
 		},
 	}
 	settings := &networking.ConnectionPoolSettings{
@@ -187,10 +181,6 @@ func TestCommonHttpProtocolOptions(t *testing.T) {
 	}
 
 	for _, tc := range cases {
-		defaultValue := features.EnableProtocolSniffingForInbound
-		features.EnableProtocolSniffingForInbound = tc.sniffingEnabledForInbound
-		defer func() { features.EnableProtocolSniffingForInbound = defaultValue }()
-
 		gwClusters := features.FilterGatewayClusterConfig
 		features.FilterGatewayClusterConfig = false
 		defer func() { features.FilterGatewayClusterConfig = gwClusters }()

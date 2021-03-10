@@ -27,7 +27,6 @@ import (
 	"github.com/gogo/protobuf/types"
 
 	networking "istio.io/api/networking/v1alpha3"
-	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/plugin"
 	"istio.io/istio/pilot/pkg/networking/util"
@@ -152,10 +151,6 @@ func prepareListeners(t *testing.T, services []*model.Service, mode model.Traffi
 }
 
 func TestVirtualInboundListenerBuilder(t *testing.T) {
-	defaultValue := features.EnableProtocolSniffingForInbound
-	features.EnableProtocolSniffingForInbound = true
-	defer func() { features.EnableProtocolSniffingForInbound = defaultValue }()
-
 	// prepare
 	t.Helper()
 	listeners := prepareListeners(t, testServices, model.InterceptionRedirect)
@@ -198,9 +193,6 @@ func TestVirtualInboundListenerBuilder(t *testing.T) {
 }
 
 func TestVirtualInboundHasPassthroughClusters(t *testing.T) {
-	defaultValue := features.EnableProtocolSniffingForInbound
-	features.EnableProtocolSniffingForInbound = true
-	defer func() { features.EnableProtocolSniffingForInbound = defaultValue }()
 	// prepare
 	t.Helper()
 	listeners := prepareListeners(t, testServices, model.InterceptionRedirect)

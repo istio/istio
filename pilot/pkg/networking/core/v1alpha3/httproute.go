@@ -23,7 +23,6 @@ import (
 	"github.com/golang/protobuf/ptypes"
 
 	networking "istio.io/api/networking/v1alpha3"
-	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/core/v1alpha3/envoyfilter"
 	istio_route "istio.io/istio/pilot/pkg/networking/core/v1alpha3/route"
@@ -122,8 +121,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundHTTPRouteConfig(node *
 	listenerPort := 0
 	useSniffing := false
 	var err error
-	if features.EnableProtocolSniffingForOutbound &&
-		!strings.HasPrefix(routeName, model.UnixAddressPrefix) {
+	if !strings.HasPrefix(routeName, model.UnixAddressPrefix) {
 		index := strings.IndexRune(routeName, ':')
 		if index != -1 {
 			useSniffing = true
