@@ -161,7 +161,8 @@ func (cb *ClusterBuilder) applyDestinationRule(ec *EnvoyCluster, clusterMode Clu
 			continue
 		}
 		if len(cb.push.Mesh.OutboundClusterStatName) != 0 {
-			subsetCluster.cluster.AltStatName = util.BuildStatPrefix(cb.push.Mesh.OutboundClusterStatName, string(service.Hostname), subset.Name, port, service.Attributes)
+			subsetCluster.cluster.AltStatName = util.BuildStatPrefix(cb.push.Mesh.OutboundClusterStatName,
+				string(service.Hostname), subset.Name, port, service.Attributes)
 		}
 		cb.setUpstreamProtocol(cb.proxy, subsetCluster, port, model.TrafficDirectionOutbound)
 
