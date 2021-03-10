@@ -17,6 +17,7 @@ package v2
 import (
 	"context"
 	"errors"
+	"fmt"
 	"io"
 	"reflect"
 	"sort"
@@ -427,6 +428,7 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream ads.AggregatedDiscove
 			}
 			err = s.initConnectionNode(discReq, con)
 			if err != nil {
+
 				return err
 			}
 
@@ -435,13 +437,16 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream ads.AggregatedDiscove
 				if con.CDSWatch {
 					// Already received a cluster watch request, this is an ACK
 					if discReq.ErrorDetail != nil {
-						adsLog.Warnf("ADS:CDS: ACK ERROR %v %s %v", peerAddr, con.ConID, discReq.String())
+						adsLog.Warnf("gyg::ADS:CDS: ACK ERROR %v %s %v", peerAddr, con.ConID, discReq.String())
 						cdsReject.With(prometheus.Labels{"node": discReq.Node.Id, "err": discReq.ErrorDetail.Message}).Add(1)
 						totalXDSRejects.Add(1)
 					} else if discReq.ResponseNonce != "" {
+						adsLog.Warnf("gyg::sar:discReq:ResponseNonce(%q) not empty", con.PeerAddr)
+						con.mu.Lock()
 						con.ClusterNonceAcked = discReq.ResponseNonce
+						con.mu.Unlock()
 					}
-					adsLog.Debugf("ADS:CDS: ACK %v %v", peerAddr, discReq.String())
+					adsLog.Warnf("gyg::ADS:CDS: ACK %v %v", peerAddr, discReq.String())
 					continue
 				}
 				// CDS REQ is the first request an envoy makes. This shows up
@@ -464,7 +469,9 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream ads.AggregatedDiscove
 						ldsReject.With(prometheus.Labels{"node": discReq.Node.Id, "err": discReq.ErrorDetail.Message}).Add(1)
 						totalXDSRejects.Add(1)
 					} else if discReq.ResponseNonce != "" {
+						con.mu.Lock()
 						con.ListenerNonceAcked = discReq.ResponseNonce
+						con.mu.Unlock()
 					}
 					adsLog.Warnf("gyg::ADS:LDS: ACK %v", discReq.String())
 					continue
@@ -592,7 +599,9 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream ads.AggregatedDiscove
 				adsLog.Warnf("ADS: Unknown watched resources %s", discReq.String())
 			}
 
+			adsLog.Warnf("gyg::sar::con_added::%v(%q)", con.added, con.PeerAddr)
 			if !con.added {
+
 				con.added = true
 				s.addCon(con.ConID, con)
 				defer s.removeCon(con.ConID, con)
@@ -645,8 +654,25 @@ func (s *DiscoveryServer) initConnectionNode(discReq *xdsapi.DiscoveryRequest, c
 	if err := nt.SetWorkloadLabels(s.Env); err != nil {
 		return err
 	}
+
+	if nt.Type == model.Router && len(nt.ServiceInstances) > 0 {
+		s.ingressGatewaysMu.Lock()
+		var podID string
+		if con.modelNode != nil {
+			podID = con.modelNode.ID
+		}
+		gwKey := fmt.Sprintf("%s:%s", podID, con.PeerAddr)
+		if !s.ingressGateways[gwKey] {
+			s.ingressGateways[gwKey] = true
+			s.ingressGatewaysMu.Unlock()
+
+			return errors.New("first connection requires a hacky re-discovery")
+		}
+		s.ingressGatewaysMu.Unlock()
+	}
 	// If the proxy has no service instances and its a gateway, kill the XDS connection as we cannot
 	// serve any gateway config if we dont know the proxy's service instances
+	adsLog.Warnf("gyg::initConnectionNode:router(%q):%v %v", con.PeerAddr, discReq.TypeUrl, nt.ServiceInstances)
 	if nt.Type == model.Router && (nt.ServiceInstances == nil || len(nt.ServiceInstances) == 0) {
 		return errors.New("gateway has no associated service instances")
 	}
@@ -691,14 +717,15 @@ func (s *DiscoveryServer) pushConnection(con *XdsConnection, pushEv *XdsEvent) e
 	// TODO: update the service deps based on NetworkScope
 
 	if pushEv.edsUpdatedServices != nil {
-		adsLog.Warnf("gyg::edsUpdatedServices(%q) == nil", con.PeerAddr)
 		// Push only EDS. This is indexed already - push immediately
 		// (may need a throttle)
 		if len(con.Clusters) > 0 {
+			adsLog.Warnf("gyg::pushConnection:edsUpdatedServices(%q) != nil", con.PeerAddr)
 			if err := s.pushEds(pushEv.push, con, pushEv.edsUpdatedServices); err != nil {
 				return err
 			}
 		}
+		adsLog.Warnf("gyg::pushConnection::emptyListOfClusters(%q) %v", con.PeerAddr, con.Clusters)
 		return nil
 	}
 
@@ -942,6 +969,8 @@ func (s *DiscoveryServer) addCon(conID string, con *XdsConnection) {
 		} else {
 			adsSidecarIDConnectionsMap[con.modelNode.ID][conID] = con
 		}
+	} else {
+		adsLog.Errorf("gyg::addCon:modelNode == nil")
 	}
 }
 

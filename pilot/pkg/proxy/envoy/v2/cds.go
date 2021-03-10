@@ -58,14 +58,14 @@ func (s *DiscoveryServer) pushCds(con *XdsConnection, push *model.PushContext, v
 	response := con.clusters(rawClusters)
 	err = con.send(response)
 	if err != nil {
-		adsLog.Warnf("CDS: Send failure %s: %v", con.ConID, err)
+		adsLog.Warnf("gyg::CDS: Send failure %s: %v", con.ConID, err)
 		pushes.With(prometheus.Labels{"type": "cds_senderr"}).Add(1)
 		return err
 	}
 	pushes.With(prometheus.Labels{"type": "cds"}).Add(1)
 
 	// The response can't be easily read due to 'any' marshaling.
-	adsLog.Infof("CDS: PUSH %s for %s %q, Clusters: %d, Services %d", version,
+	adsLog.Infof("gyg::CDS: PUSH %s for %s %q, Clusters: %d, Services %d", version,
 		con.ConID, con.PeerAddr, len(rawClusters), len(push.Services(nil)))
 	return nil
 }
