@@ -69,14 +69,14 @@ values:
 }
 
 // ensuring that existing routing functionality is unaffected
-func TestTraffic(t *testing.T) {
-	framework.
-		NewTest(t).
-		Features("traffic.routing", "traffic.reachability", "traffic.shifting").
-		Run(func(ctx framework.TestContext) {
-			common.RunAllTrafficTests(ctx, apps)
-		})
-}
+//func TestTraffic(t *testing.T) {
+//	framework.
+//		NewTest(t).
+//		Features("traffic.routing", "traffic.reachability", "traffic.shifting").
+//		Run(func(ctx framework.TestContext) {
+//			common.RunAllTrafficTests(ctx, apps)
+//		})
+//}
 
 func TestServiceExports(t *testing.T) {
 	// 1. assert for the presence of a serviceexport for service `a` in `test-ns1`

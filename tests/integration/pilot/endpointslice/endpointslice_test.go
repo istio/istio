@@ -42,7 +42,8 @@ func TestMain(m *testing.M) {
 values:
   pilot:
     env:
-      PILOT_USE_ENDPOINT_SLICE: "true"`
+      PILOT_USE_ENDPOINT_SLICE: "true"
+      PILOT_ENABLE_MCS_SERVICEEXPORT: "true"`
 		})).
 		Setup(func(t resource.Context) error {
 			return common.SetupApps(t, i, apps)
