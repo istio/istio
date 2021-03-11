@@ -241,7 +241,6 @@ func NewServer(args *PilotArgs) (*Server, error) {
 
 	s.initMeshNetworks(args, s.fileWatcher)
 	s.initMeshHandlers()
-	s.initWorkloadTrustBundle()
 
 	// Options based on the current 'defaults' in istio.
 	caOpts := &caOptions{
@@ -263,6 +262,9 @@ func NewServer(args *PilotArgs) (*Server, error) {
 	if err := s.initControllers(args); err != nil {
 		return nil, err
 	}
+
+	// Initialize workloadTrustBundle after CA has been initialized
+	s.initWorkloadTrustBundle()
 
 	// Parse and validate Istiod Address.
 	istiodHost, _, err := e.GetDiscoveryAddress()
