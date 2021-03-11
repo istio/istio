@@ -39,8 +39,8 @@ func TestRevisionedUpgrade(t *testing.T) {
 		Run(func(ctx framework.TestContext) {
 			versions := []string{"1.8.0"}
 			for _, v := range versions {
-				t.Run(fmt.Sprintf("%s->master", v), func(t *testing.T) {
-					testUpgradeFromVersion(ctx, t, v)
+				ctx.NewSubTest(fmt.Sprintf("%s->master", v)).Run(func(ctx framework.TestContext) {
+					testUpgradeFromVersion(ctx, v)
 				})
 			}
 		})
@@ -49,12 +49,12 @@ func TestRevisionedUpgrade(t *testing.T) {
 // testUpgradeFromVersion tests an upgrade from the target version to the master version
 // provided fromVersion must be present in tests/integration/pilot/testdata/upgrade for the installation to succeed
 // TODO(monkeyanator) pass this a generic UpgradeFunc allowing for reuse across in-place and revisioned upgrades
-func testUpgradeFromVersion(ctx framework.TestContext, t *testing.T, fromVersion string) {
+func testUpgradeFromVersion(ctx framework.TestContext, fromVersion string) {
 	configs := make(map[string]string)
 	ctx.WhenDone(func() error {
 		var errs *multierror.Error
 		for _, config := range configs {
-			multierror.Append(errs, ctx.Config().DeleteYAML("istio-system", config))
+			_ = ctx.Config().DeleteYAML("istio-system", config)
 		}
 		return errs.ErrorOrNil()
 	})
@@ -62,7 +62,7 @@ func testUpgradeFromVersion(ctx framework.TestContext, t *testing.T, fromVersion
 	// install control plane on the specified version and create namespace pointed to that control plane
 	installRevisionOrFail(ctx, fromVersion, configs)
 	revision := strings.ReplaceAll(fromVersion, ".", "-")
-	revisionedNamespace := namespace.NewOrFail(t, ctx, namespace.Config{
+	revisionedNamespace := namespace.NewOrFail(ctx, ctx, namespace.Config{
 		Prefix:   revision,
 		Inject:   true,
 		Revision: revision,
@@ -81,8 +81,8 @@ func testUpgradeFromVersion(ctx framework.TestContext, t *testing.T, fromVersion
 			},
 		},
 	})
-	builder.BuildOrFail(t)
-	sendSimpleTrafficOrFail(t, revisionedInstance)
+	builder.BuildOrFail(ctx)
+	sendSimpleTrafficOrFail(ctx, revisionedInstance)
 
 	if err := enableDefaultInjection(revisionedNamespace); err != nil {
 		ctx.Fatalf("could not relabel namespace to enable default injection: %v", err)
@@ -105,19 +105,16 @@ func testUpgradeFromVersion(ctx framework.TestContext, t *testing.T, fromVersion
 		}
 	}
 
-	sendSimpleTrafficOrFail(t, revisionedInstance)
+	sendSimpleTrafficOrFail(ctx, revisionedInstance)
 }
 
 // sendSimpleTrafficOrFail sends an echo call to the upgrading echo instance
-func sendSimpleTrafficOrFail(ctx *testing.T, i echo.Instance) {
+func sendSimpleTrafficOrFail(ctx framework.TestContext, i echo.Instance) {
 	ctx.Helper()
-	resp, err := apps.PodA[0].Call(echo.CallOptions{
+	apps.PodA[0].CallWithRetryOrFail(ctx, echo.CallOptions{
 		Target:   i,
 		PortName: "http",
 	})
-	if resp.CheckOK() != nil {
-		ctx.Fatalf("error in call: %v", err)
-	}
 }
 
 // enableDefaultInjection takes a namespaces and relabels it such that it will have a default sidecar injected

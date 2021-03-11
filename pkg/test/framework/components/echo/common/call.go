@@ -137,9 +137,17 @@ func CallEcho(opts *echo.CallOptions, retry bool, retryOptions ...retry.Option) 
 	return callInternal("TestRunner", opts, send, retry, retryOptions...)
 }
 
-func ForwardEcho(srcName string, c *client.Instance, opts *echo.CallOptions,
+// EchoClientProvider provides dynamic creation of Echo clients. This allows retries to potentially make
+// use of different (ready) workloads for forward requests.
+type EchoClientProvider func() (*client.Instance, error)
+
+func ForwardEcho(srcName string, clientProvider EchoClientProvider, opts *echo.CallOptions,
 	retry bool, retryOptions ...retry.Option) (client.ParsedResponses, error) {
 	res, err := callInternal(srcName, opts, func(req *proto.ForwardEchoRequest) (client.ParsedResponses, error) {
+		c, err := clientProvider()
+		if err != nil {
+			return nil, err
+		}
 		return c.ForwardEcho(context.Background(), req)
 	}, retry, retryOptions...)
 	if err != nil {

@@ -17,6 +17,7 @@ package kube
 import (
 	"context"
 	"fmt"
+	"sync"
 	"time"
 
 	"github.com/hashicorp/go-multierror"
@@ -26,6 +27,7 @@ import (
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/echo/client"
 	"istio.io/istio/pkg/test/echo/common"
+	"istio.io/istio/pkg/test/echo/proto"
 	"istio.io/istio/pkg/test/framework/components/cluster"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/errors"
@@ -41,93 +43,115 @@ var (
 	_ echo.Workload = &workload{}
 )
 
-type workload struct {
-	*client.Instance
-
-	pod       kubeCore.Pod
-	forwarder istioKube.PortForwarder
-	sidecar   *sidecar
-	cluster   cluster.Cluster
-	ctx       resource.Context
+type workloadConfig struct {
+	pod        kubeCore.Pod
+	hasSidecar bool
+	grpcPort   uint16
+	cluster    cluster.Cluster
+	tls        *common.TLSSettings
 }
 
-func newWorkload(pod kubeCore.Pod, sidecared bool, grpcPort uint16, cluster cluster.Cluster,
-	tls *common.TLSSettings, ctx resource.Context) (*workload, error) {
+type workload struct {
+	client *client.Instance
 
-	// Create a forwarder to the command port of the app.
-	var forwarder istioKube.PortForwarder
-	if err := retry.UntilSuccess(func() error {
-		fw, err := cluster.NewPortForwarder(pod.Name, pod.Namespace, "", 0, int(grpcPort))
-		if err != nil {
-			return fmt.Errorf("new port forwarder: %v", err)
-		}
-		if err = fw.Start(); err != nil {
-			fw.Close()
-			return fmt.Errorf("forwarder start: %v", err)
-		}
-		forwarder = fw
-		return nil
-	}, retry.Delay(1*time.Second), retry.Timeout(10*time.Second)); err != nil {
+	workloadConfig
+	forwarder istioKube.PortForwarder
+	sidecar   *sidecar
+	ctx       resource.Context
+	mutex     sync.Mutex
+}
+
+func newWorkload(cfg workloadConfig, ctx resource.Context) (*workload, error) {
+	w := &workload{
+		workloadConfig: cfg,
+		ctx:            ctx,
+	}
+
+	// If the pod is ready, connect.
+	if err := w.Update(cfg.pod); err != nil {
 		return nil, err
 	}
 
-	// Create a gRPC client to this workload.
-	c, err := client.New(forwarder.Address(), tls)
-	if err != nil {
-		forwarder.Close()
-		return nil, fmt.Errorf("grpc client: %v", err)
-	}
-
-	var s *sidecar
-	if sidecared {
-		if s, err = newSidecar(pod, cluster); err != nil {
-			return nil, err
-		}
-	}
-
-	return &workload{
-		pod:       pod,
-		forwarder: forwarder,
-		Instance:  c,
-		sidecar:   s,
-		cluster:   cluster,
-		ctx:       ctx,
-	}, nil
+	return w, nil
 }
 
-func (w *workload) Close() (err error) {
-	if w.Instance != nil {
-		err = multierror.Append(err, w.Instance.Close()).ErrorOrNil()
+func (w *workload) IsReady() bool {
+	w.mutex.Lock()
+	ready := w.isConnected()
+	w.mutex.Unlock()
+	return ready
+}
+
+func (w *workload) Client() (c *client.Instance, err error) {
+	w.mutex.Lock()
+	c = w.client
+	if c == nil {
+		err = fmt.Errorf("attempt to use disconnected client for echo %s/%s",
+			w.pod.Namespace, w.pod.Name)
 	}
-	if w.forwarder != nil {
-		w.forwarder.Close()
-	}
-	if w.ctx.Settings().FailOnDeprecation && w.sidecar != nil {
-		err = multierror.Append(err, w.checkDeprecation()).ErrorOrNil()
-	}
+	w.mutex.Unlock()
 	return
 }
 
-func (w *workload) checkDeprecation() error {
-	logs, err := w.sidecar.Logs()
-	if err != nil {
-		return fmt.Errorf("could not get sidecar logs to inspect for deprecation messages: %v", err)
+func (w *workload) Update(pod kubeCore.Pod) error {
+	w.mutex.Lock()
+	defer w.mutex.Unlock()
+
+	if isPodReady(pod) && !w.isConnected() {
+		if err := w.connect(pod); err != nil {
+			return err
+		}
+	} else if !isPodReady(pod) && w.isConnected() {
+		w.pod = pod
+		return w.disconnect()
 	}
 
-	info := fmt.Sprintf("pod: %s/%s", w.pod.Namespace, w.pod.Name)
-	return errors.FindDeprecatedMessagesInEnvoyLog(logs, info)
+	// Update the pod.
+	w.pod = pod
+	return nil
+}
+
+func (w *workload) Close() (err error) {
+	w.mutex.Lock()
+	defer w.mutex.Unlock()
+
+	if w.isConnected() {
+		return w.disconnect()
+	}
+	return nil
 }
 
 func (w *workload) PodName() string {
-	return w.pod.Name
+	w.mutex.Lock()
+	n := w.pod.Name
+	w.mutex.Unlock()
+	return n
 }
 
 func (w *workload) Address() string {
-	return w.pod.Status.PodIP
+	w.mutex.Lock()
+	ip := w.pod.Status.PodIP
+	w.mutex.Unlock()
+	return ip
+}
+
+func (w *workload) ForwardEcho(ctx context.Context, request *proto.ForwardEchoRequest) (client.ParsedResponses, error) {
+	w.mutex.Lock()
+	c := w.client
+	if c == nil {
+		return nil, fmt.Errorf("failed forwarding echo for disconnected pod %s/%s",
+			w.pod.Namespace, w.pod.Name)
+	}
+	w.mutex.Unlock()
+
+	return c.ForwardEcho(ctx, request)
 }
 
 func (w *workload) Sidecar() echo.Sidecar {
-	return w.sidecar
+	w.mutex.Lock()
+	s := w.sidecar
+	w.mutex.Unlock()
+	return s
 }
 
 func (w *workload) Logs() (string, error) {
@@ -141,4 +165,78 @@ func (w *workload) LogsOrFail(t test.Failer) string {
 		t.Fatal(err)
 	}
 	return logs
+}
+
+func isPodReady(pod kubeCore.Pod) bool {
+	return istioKube.CheckPodReady(&pod) == nil
+}
+
+func (w *workload) isConnected() bool {
+	return w.forwarder != nil
+}
+
+func (w *workload) connect(pod kubeCore.Pod) (err error) {
+	defer func() {
+		if err != nil {
+			_ = w.disconnect()
+		}
+	}()
+
+	// Create a forwarder to the command port of the app.
+	if err = retry.UntilSuccess(func() error {
+		w.forwarder, err = w.cluster.NewPortForwarder(pod.Name, pod.Namespace, "", 0, int(w.grpcPort))
+		if err != nil {
+			return fmt.Errorf("failed creating new port forwarder for pod %s/%s: %v",
+				pod.Namespace, pod.Name, err)
+		}
+		if err = w.forwarder.Start(); err != nil {
+			return fmt.Errorf("failed starting port forwarder for pod %s/%s: %v",
+				pod.Namespace, pod.Name, err)
+		}
+		return nil
+	}, retry.Delay(1*time.Second), retry.Timeout(10*time.Second)); err != nil {
+		return err
+	}
+
+	// Create a gRPC client to this workload.
+	w.client, err = client.New(w.forwarder.Address(), w.tls)
+	if err != nil {
+		return fmt.Errorf("failed connecting to grpc client to pod %s/%s : %v",
+			pod.Namespace, pod.Name, err)
+	}
+
+	if w.hasSidecar {
+		if w.sidecar, err = newSidecar(pod, w.cluster); err != nil {
+			return fmt.Errorf("failed creating sidecar for pod %s/%s: %v",
+				pod.Namespace, pod.Name, err)
+		}
+	}
+
+	return nil
+}
+
+func (w *workload) disconnect() (err error) {
+	if w.client != nil {
+		err = multierror.Append(err, w.client.Close()).ErrorOrNil()
+		w.client = nil
+	}
+	if w.forwarder != nil {
+		w.forwarder.Close()
+		w.forwarder = nil
+	}
+	if w.ctx.Settings().FailOnDeprecation && w.sidecar != nil {
+		err = multierror.Append(err, w.checkDeprecation()).ErrorOrNil()
+		w.sidecar = nil
+	}
+	return err
+}
+
+func (w *workload) checkDeprecation() error {
+	logs, err := w.sidecar.Logs()
+	if err != nil {
+		return fmt.Errorf("could not get sidecar logs to inspect for deprecation messages: %v", err)
+	}
+
+	info := fmt.Sprintf("pod: %s/%s", w.pod.Namespace, w.pod.Name)
+	return errors.FindDeprecatedMessagesInEnvoyLog(logs, info)
 }
