@@ -23,8 +23,6 @@ data:
       controlPlaneAuthPolicy: NONE
       discoveryAddress: my-discovery:123
       drainDuration: 12s
-      proxyMetadata:
-        TERMINATION_DRAIN_DURATION_SECONDS: "120"
       tracing:
         zipkin:
           address: zipkin.istio-system:9411
