@@ -1,0 +1,9 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: networking
+issue:
+  - 31340
+releaseNotes:
+  - |
+    **Fixed** the Kubernetes API server is now considered to be cluster-local by default. This means that any
+    pod attempting to reach `kubernetes.default.svc` will always be directed to the in-cluster server.
