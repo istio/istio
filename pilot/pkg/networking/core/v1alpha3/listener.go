@@ -220,14 +220,12 @@ var (
 	emptyFilterChainMatch = &listener.FilterChainMatch{}
 )
 
-var (
-	// TODO: gauge should be reset on refresh, not the best way to represent errors but better
-	// than nothing.
-	// TODO: add dimensions - namespace of rule, service, rule name
-	invalidOutboundListeners = monitoring.NewGauge(
-		"pilot_invalid_out_listeners",
-		"Number of invalid outbound listeners.",
-	)
+// TODO: gauge should be reset on refresh, not the best way to represent errors but better
+// than nothing.
+// TODO: add dimensions - namespace of rule, service, rule name
+var invalidOutboundListeners = monitoring.NewGauge(
+	"pilot_invalid_out_listeners",
+	"Number of invalid outbound listeners.",
 )
 
 func init() {
@@ -269,7 +267,6 @@ func (configgen *ConfigGeneratorImpl) buildSidecarListeners(builder *ListenerBui
 func (configgen *ConfigGeneratorImpl) buildSidecarInboundListeners(
 	node *model.Proxy,
 	push *model.PushContext) []*listener.Listener {
-
 	var listeners []*listener.Listener
 	listenerMap := make(map[int]*inboundListenerEntry)
 
@@ -418,8 +415,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundHTTPListenerOptsForPort
 		// We use the port name as the subset in the inbound cluster for differentiation. Its fine to use port
 		// names here because the inbound clusters are not referred to anywhere in the API, unlike the outbound
 		// clusters and these are static endpoint clusters used only for sidecar (proxy -> app)
-		clusterName = util.BuildInboundSubsetKey(node, pluginParams.ServiceInstance.ServicePort.Name,
-			pluginParams.ServiceInstance.Service.Hostname, pluginParams.ServiceInstance.ServicePort.Port, int(pluginParams.ServiceInstance.Endpoint.EndpointPort))
+		clusterName = model.BuildInboundSubsetKey(int(pluginParams.ServiceInstance.Endpoint.EndpointPort))
 	}
 
 	httpOpts := &httpListenerOpts{
@@ -461,8 +457,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarThriftListenerOptsForPortOrUDS
 	// We use the port name as the subset in the inbound cluster for differentiation. Its fine to use port
 	// names here because the inbound clusters are not referred to anywhere in the API, unlike the outbound
 	// clusters and these are static endpoint clusters used only for sidecar (proxy -> app)
-	clusterName := util.BuildInboundSubsetKey(pluginParams.Node, pluginParams.ServiceInstance.ServicePort.Name,
-		pluginParams.ServiceInstance.Service.Hostname, pluginParams.ServiceInstance.ServicePort.Port, int(pluginParams.ServiceInstance.Endpoint.EndpointPort))
+	clusterName := model.BuildInboundSubsetKey(int(pluginParams.ServiceInstance.Endpoint.EndpointPort))
 
 	thriftOpts := &thriftListenerOpts{
 		transport:   thrift.TransportType_AUTO_TRANSPORT,
@@ -709,7 +704,6 @@ func (c outboundListenerConflict) addMetric(metrics model.Metrics) {
 // outbound connections from the proxy based on the sidecar scope associated with the proxy.
 func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(node *model.Proxy,
 	push *model.PushContext) []*listener.Listener {
-
 	noneMode := node.GetInterceptionMode() == model.InterceptionNone
 
 	actualWildcard, actualLocalHostAddress := getActualWildcardAndLocalHost(node)
@@ -788,10 +782,12 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(node *model.
 			// we will bind to user specified IP (if any) or to the VIPs of services in
 			// this egress listener.
 			bind := egressListener.IstioListener.Bind
-			if bindToPort && bind == "" {
-				bind = actualLocalHostAddress
-			} else if len(bind) == 0 {
-				bind = actualWildcard
+			if bind == "" {
+				if bindToPort {
+					bind = actualLocalHostAddress
+				} else {
+					bind = actualWildcard
+				}
 			}
 
 			// Build ListenerOpts and PluginParams once and reuse across all Services to avoid unnecessary allocations.
@@ -854,7 +850,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(node *model.
 			}
 
 			for _, service := range services {
-				saddress := service.GetServiceAddressForProxy(node, push)
+				saddress := service.GetServiceAddressForProxy(node)
 				for _, servicePort := range service.Ports {
 					// bind might have been modified by below code, so reset it for every Service.
 					listenerOpts.bind = bind
@@ -1129,7 +1125,6 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundThriftListenerOptsForP
 func (configgen *ConfigGeneratorImpl) buildSidecarOutboundTCPListenerOptsForPortOrUDS(destinationCIDR *string, listenerMapKey *string,
 	currentListenerEntry **outboundListenerEntry, listenerOpts *buildListenerOpts, listenerMap map[string]*outboundListenerEntry,
 	virtualServices []config.Config, actualWildcard string) (bool, []*filterChainOpts) {
-
 	// first identify the bind if its not set. Then construct the key
 	// used to lookup the listener in the conflict map.
 
@@ -1142,7 +1137,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundTCPListenerOptsForPort
 	// ip:port. This will reduce the impact of a listener reload
 
 	if len(listenerOpts.bind) == 0 {
-		svcListenAddress := listenerOpts.service.GetServiceAddressForProxy(listenerOpts.proxy, listenerOpts.push)
+		svcListenAddress := listenerOpts.service.GetServiceAddressForProxy(listenerOpts.proxy)
 		// We should never get an empty address.
 		// This is a safety guard, in case some platform adapter isn't doing things
 		// properly
@@ -1229,7 +1224,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundTCPListenerOptsForPort
 	return true, buildSidecarOutboundTCPTLSFilterChainOpts(listenerOpts.proxy,
 		listenerOpts.push, virtualServices,
 		*destinationCIDR, listenerOpts.service,
-		listenerOpts.port, meshGateway)
+		listenerOpts.bind, listenerOpts.port, meshGateway)
 }
 
 // buildSidecarOutboundListenerForPortOrUDS builds a single listener and
@@ -1631,7 +1626,7 @@ func buildHTTPConnectionManager(listenerOpts buildListenerOpts, httpOpts *httpLi
 	connectionManager.UpgradeConfigs = []*hcm.HttpConnectionManager_UpgradeConfig{websocketUpgrade}
 
 	idleTimeout, err := time.ParseDuration(listenerOpts.proxy.Metadata.IdleTimeout)
-	if idleTimeout > 0 && err == nil {
+	if err == nil {
 		connectionManager.CommonHttpProtocolOptions = &core.HttpProtocolOptions{
 			IdleTimeout: ptypes.DurationProto(idleTimeout),
 		}
@@ -1647,8 +1642,7 @@ func buildHTTPConnectionManager(listenerOpts buildListenerOpts, httpOpts *httpLi
 					ConfigSourceSpecifier: &core.ConfigSource_Ads{
 						Ads: &core.AggregatedConfigSource{},
 					},
-					ResourceApiVersion:  core.ApiVersion_V3,
-					InitialFetchTimeout: features.InitialFetchTimeout,
+					ResourceApiVersion: core.ApiVersion_V3,
 				},
 				RouteConfigName: httpOpts.rds,
 			},
@@ -1759,7 +1753,6 @@ func updateTraceSamplingConfig(config *meshconfig.ProxyConfig, cfg *hcm.HttpConn
 }
 
 func buildCustomTags(customTags map[string]*meshconfig.Tracing_CustomTag) []*tracing.CustomTag {
-
 	var tags []*tracing.CustomTag
 
 	if features.EnableIstioTags {
@@ -1918,12 +1911,14 @@ func buildListener(opts buildListenerOpts, trafficDirection core.TrafficDirectio
 				}
 			}
 			if !fullWildcardFound {
-				sort.Strings(chain.sniHosts)
+				chain.sniHosts = append([]string{}, chain.sniHosts...)
+				sort.Stable(sort.StringSlice(chain.sniHosts))
 				match.ServerNames = chain.sniHosts
 			}
 		}
 		if len(chain.destinationCIDRs) > 0 {
-			sort.Strings(chain.destinationCIDRs)
+			chain.destinationCIDRs = append([]string{}, chain.destinationCIDRs...)
+			sort.Stable(sort.StringSlice(chain.destinationCIDRs))
 			for _, d := range chain.destinationCIDRs {
 				if len(d) == 0 {
 					continue
@@ -1988,13 +1983,6 @@ func getMatchAllFilterChain(l *listener.Listener) (int, *listener.FilterChain) {
 // TODO(lambdai): Calculate the filter chain match to replace the wildcard and replace appendListenerFallthroughRoute.
 func (configgen *ConfigGeneratorImpl) appendListenerFallthroughRouteForCompleteListener(l *listener.Listener, node *model.Proxy, push *model.PushContext) {
 	matchIndex, matchAll := getMatchAllFilterChain(l)
-	if matchAll != nil && !util.IsIstioVersionGE18(node) {
-		// We can only have one wildcard match. If the filter chain already has one, skip it
-		// This happens in the case of HTTP, which will get a fallthrough route added later,
-		// or TCP, which is not supported
-		// This check is skipped for Proxy's newer than 1.8, as we can use DefaultFilterChain
-		return
-	}
 
 	fallthroughNetworkFilters := buildOutboundCatchAllNetworkFiltersOnly(push, node)
 
@@ -2004,23 +1992,19 @@ func (configgen *ConfigGeneratorImpl) appendListenerFallthroughRouteForCompleteL
 		Filters:          fallthroughNetworkFilters,
 	}
 
-	// On proxy 1.8+, we can set a default filter chain. This allows us to avoid issues where
+	// Set a default filter chain. This allows us to avoid issues where
 	// traffic starts to match a filter chain but then doesn't match latter criteria, leading to
 	// dropped requests. See https://github.com/istio/istio/issues/26079 for details.
-	if util.IsIstioVersionGE18(node) {
-		// If there are multiple filter chains and a match all chain, move it to DefaultFilterChain
-		// This ensures it will always be used as the fallback
-		if matchAll != nil && len(l.FilterChains) > 1 {
-			copy(l.FilterChains[matchIndex:], l.FilterChains[matchIndex+1:]) // Shift l.FilterChains[i+1:] left one index.
-			l.FilterChains[len(l.FilterChains)-1] = nil                      // Erase last element (write zero value).
-			l.FilterChains = l.FilterChains[:len(l.FilterChains)-1]          // Truncate slice.
-			l.DefaultFilterChain = matchAll
-		} else if matchAll == nil {
-			// Otherwise, if there is no match all already, set a passthrough match all
-			l.DefaultFilterChain = outboundPassThroughFilterChain
-		}
-	} else {
-		l.FilterChains = append(l.FilterChains, outboundPassThroughFilterChain)
+	// If there are multiple filter chains and a match all chain, move it to DefaultFilterChain
+	// This ensures it will always be used as the fallback.
+	if matchAll != nil && len(l.FilterChains) > 1 {
+		copy(l.FilterChains[matchIndex:], l.FilterChains[matchIndex+1:]) // Shift l.FilterChains[i+1:] left one index.
+		l.FilterChains[len(l.FilterChains)-1] = nil                      // Erase last element (write zero value).
+		l.FilterChains = l.FilterChains[:len(l.FilterChains)-1]          // Truncate slice.
+		l.DefaultFilterChain = matchAll
+	} else if matchAll == nil {
+		// Otherwise, if there is no match all already, set a passthrough match all
+		l.DefaultFilterChain = outboundPassThroughFilterChain
 	}
 }
 
@@ -2126,6 +2110,13 @@ func getActualWildcardAndLocalHost(node *model.Proxy) (string, string) {
 		return WildcardAddress, LocalhostAddress
 	}
 	return WildcardIPv6Address, LocalhostIPv6Address
+}
+
+func getPassthroughBindIP(node *model.Proxy) string {
+	if node.SupportsIPv4() {
+		return util.InboundPassthroughBindIpv4
+	}
+	return util.InboundPassthroughBindIpv6
 }
 
 // getSidecarInboundBindIP returns the IP that the proxy can bind to along with the sidecar specified port.

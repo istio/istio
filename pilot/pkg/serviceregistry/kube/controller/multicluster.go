@@ -218,7 +218,7 @@ func (m *Multicluster) AddMemberCluster(client kubelib.Client, clusterID string)
 		if m.caBundlePath != "" {
 			webhookConfigName := strings.ReplaceAll(validationWebhookConfigNameTemplate, validationWebhookConfigNameTemplateVar, m.secretNamespace)
 			validationWebhookController := webhooks.CreateValidationWebhookController(client, webhookConfigName,
-				m.secretNamespace, m.caBundlePath, true)
+				m.secretNamespace, m.caBundlePath)
 			if validationWebhookController != nil {
 				go validationWebhookController.Start(stopCh)
 			}
@@ -240,7 +240,6 @@ func (m *Multicluster) UpdateMemberCluster(clients kubelib.Client, clusterID str
 // when a remote cluster is deleted.  Also must clear the cache so remote resources
 // are removed.
 func (m *Multicluster) DeleteMemberCluster(clusterID string) error {
-
 	m.m.Lock()
 	defer m.m.Unlock()
 	m.serviceController.DeleteRegistry(clusterID, serviceregistry.Kubernetes)

@@ -53,7 +53,6 @@ var expectedMetadata = &structpb.Struct{
 }
 
 func TestEndpointsByNetworkFilter(t *testing.T) {
-
 	// Environment defines the networks with:
 	//  - 1 gateway for network1
 	//  - 2 gateway for network2

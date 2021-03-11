@@ -22,8 +22,7 @@ import (
 )
 
 // RealDependencies implementation of interface Dependencies, which is used in production
-type RealDependencies struct {
-}
+type RealDependencies struct{}
 
 func (r *RealDependencies) execute(cmd string, redirectStdout bool, args ...string) error {
 	fmt.Printf("%s %s\n", cmd, strings.Join(args, " "))
@@ -39,7 +38,6 @@ func (r *RealDependencies) execute(cmd string, redirectStdout bool, args ...stri
 // RunOrFail runs a command and panics, if it fails
 func (r *RealDependencies) RunOrFail(cmd string, args ...string) {
 	err := r.execute(cmd, false, args...)
-
 	if err != nil {
 		panic(err)
 	}

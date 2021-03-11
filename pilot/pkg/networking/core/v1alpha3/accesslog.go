@@ -222,16 +222,17 @@ func buildFileAccessLogHelper(mesh *meshconfig.MeshConfig, isVersionGE19 bool) *
 			},
 		}
 	case meshconfig.MeshConfig_JSON:
-		parsedJSONLogStruct := structpb.Struct{}
-		var jsonLogStruct *structpb.Struct
-		if err := protomarshal.ApplyJSON(mesh.AccessLogFormat, &parsedJSONLogStruct); err != nil {
-			log.Errorf("error parsing provided json log format, default log format will be used: %v", err)
-			jsonLogStruct = EnvoyJSONLogFormat
-			if isVersionGE19 {
-				jsonLogStruct = EnvoyJSONLogFormatIstio19
+		jsonLogStruct := EnvoyJSONLogFormat
+		if isVersionGE19 {
+			jsonLogStruct = EnvoyJSONLogFormatIstio19
+		}
+		if len(mesh.AccessLogFormat) > 0 {
+			parsedJSONLogStruct := structpb.Struct{}
+			if err := protomarshal.ApplyJSON(mesh.AccessLogFormat, &parsedJSONLogStruct); err != nil {
+				log.Errorf("error parsing provided json log format, default log format will be used: %v", err)
+			} else {
+				jsonLogStruct = &parsedJSONLogStruct
 			}
-		} else {
-			jsonLogStruct = &parsedJSONLogStruct
 		}
 		fl.AccessLogFormat = &fileaccesslog.FileAccessLog_LogFormat{
 			LogFormat: &core.SubstitutionFormatString{
@@ -338,6 +339,7 @@ func buildTCPGrpcAccessLog(isListener bool) *accesslog.AccessLog {
 					},
 				},
 			},
+			TransportApiVersion:     core.ApiVersion_V3,
 			FilterStateObjectsToLog: envoyWasmStateToLog,
 		},
 	}
@@ -364,6 +366,7 @@ func buildHTTPGrpcAccessLog() *accesslog.AccessLog {
 					},
 				},
 			},
+			TransportApiVersion:     core.ApiVersion_V3,
 			FilterStateObjectsToLog: envoyWasmStateToLog,
 		},
 	}

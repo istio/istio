@@ -23,7 +23,9 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/tools/cache"
 
+	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/pkg/serviceregistry/aggregate"
+	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/secretcontroller"
 	pkgtest "istio.io/istio/pkg/test"
@@ -37,7 +39,7 @@ const (
 	ResyncPeriod        = 1 * time.Second
 )
 
-var mockserviceController = &aggregate.Controller{}
+var mockserviceController = aggregate.NewController(aggregate.Options{})
 
 func createMultiClusterSecret(k8s kube.Client) error {
 	data := map[string][]byte{}
@@ -93,6 +95,7 @@ func Test_KubeSecretController(t *testing.T) {
 			DomainSuffix:      DomainSuffix,
 			ResyncPeriod:      ResyncPeriod,
 			SyncInterval:      time.Microsecond,
+			MeshWatcher:       mesh.NewFixedWatcher(&meshconfig.MeshConfig{}),
 		}, mockserviceController, nil, "", "default", nil, nil)
 	mc.InitSecretController(stop)
 	cache.WaitForCacheSync(stop, mc.HasSynced)
@@ -116,5 +119,4 @@ func Test_KubeSecretController(t *testing.T) {
 
 	// Test - Verify that the remote controller has been removed.
 	verifyControllers(t, mc, 0, "delete remote controller")
-
 }

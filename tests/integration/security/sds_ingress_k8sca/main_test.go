@@ -20,12 +20,14 @@ import (
 
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/istio"
+	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/framework/resource"
 	"istio.io/istio/tests/integration/security/sds_ingress/util"
 )
 
 var (
 	inst istio.Instance
+	ns   namespace.Instance
 )
 
 func TestMain(m *testing.M) {
@@ -35,8 +37,11 @@ func TestMain(m *testing.M) {
 		NewSuite(m).
 		RequireSingleCluster().
 		Setup(istio.Setup(&inst, setupConfig)).
+		Setup(func(ctx resource.Context) (err error) {
+			ns, err = util.SetupTest(ctx)
+			return
+		}).
 		Run()
-
 }
 
 func setupConfig(_ resource.Context, cfg *istio.Config) {
@@ -56,7 +61,7 @@ func TestMtlsGatewaysK8sca(t *testing.T) {
 		NewTest(t).
 		Features("security.ingress.mtls.gateway").
 		Run(func(ctx framework.TestContext) {
-			util.RunTestMultiMtlsGateways(ctx, inst)
+			util.RunTestMultiMtlsGateways(ctx, inst, ns)
 		})
 }
 
@@ -65,6 +70,6 @@ func TestTlsGatewaysK8sca(t *testing.T) {
 		NewTest(t).
 		Features("security.ingress.tls.gateway.K8sca").
 		Run(func(ctx framework.TestContext) {
-			util.RunTestMultiTLSGateways(ctx, inst)
+			util.RunTestMultiTLSGateways(ctx, inst, ns)
 		})
 }

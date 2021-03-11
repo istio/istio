@@ -408,6 +408,7 @@ func (fs *authzFakeStore) List(typ config.GroupVersionKind, namespace string) ([
 func (fs *authzFakeStore) Delete(_ config.GroupVersionKind, _, _ string, _ *string) error {
 	return fmt.Errorf("not implemented")
 }
+
 func (fs *authzFakeStore) Create(config.Config) (string, error) {
 	return "not implemented", nil
 }

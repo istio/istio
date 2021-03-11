@@ -30,10 +30,8 @@ import (
 	"istio.io/istio/pkg/config/schema/gvk"
 )
 
-var (
-	// Statically link protobuf descriptors from UDPA
-	_ = udpa.TypedStruct{}
-)
+// Statically link protobuf descriptors from UDPA
+var _ = udpa.TypedStruct{}
 
 // ConfigKey describe a specific config item.
 // In most cases, the name is the config's name. However, for ServiceEntry it is service's FQDN.

@@ -187,10 +187,31 @@ func (e *azureEnv) azureName() string {
 // Returns the Azure tags
 func (e *azureEnv) azureTags() map[string]string {
 	tags := map[string]string{}
+	if tl, ok := e.computeMetadata["tagsList"]; ok {
+		tlByte, err := json.Marshal(tl)
+		if err != nil {
+			return tags
+		}
+		var atl []azureTag
+		err = json.Unmarshal(tlByte, &atl)
+		if err != nil {
+			return tags
+		}
+		for _, tag := range atl {
+			tags[e.prefixName(tag.Name)] = tag.Value
+		}
+		return tags
+	}
+	// fall back to tags if tagsList is not available
 	if at, ok := e.computeMetadata["tags"]; ok && len(at.(string)) > 0 {
 		for _, tag := range strings.Split(at.(string), ";") {
-			kv := strings.Split(tag, ":")
-			tags[e.prefixName(kv[0])] = kv[1]
+			kv := strings.SplitN(tag, ":", 2)
+			switch len(kv) {
+			case 2:
+				tags[e.prefixName(kv[0])] = kv[1]
+			case 1:
+				tags[e.prefixName(kv[0])] = ""
+			}
 		}
 	}
 	return tags
@@ -215,4 +236,10 @@ func (e *azureEnv) azureVMID() string {
 		return aid.(string)
 	}
 	return ""
+}
+
+// used for simpler JSON parsing
+type azureTag struct {
+	Name  string `json:"name"`
+	Value string `json:"value"`
 }

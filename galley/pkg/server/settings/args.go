@@ -81,7 +81,7 @@ func DefaultArgs() *Args {
 func (a *Args) String() string {
 	buf := &bytes.Buffer{}
 
-	_, _ = fmt.Fprintf(buf, "KubeConfig: %s\n", a.KubeConfig)
+	_, _ = fmt.Fprintf(buf, "Kubeconfigs: %s\n", a.KubeConfig)
 	_, _ = fmt.Fprintf(buf, "WatchedNamespaces: %s\n", a.WatchedNamespaces)
 	_, _ = fmt.Fprintf(buf, "ResyncPeriod: %v\n", a.ResyncPeriod)
 	_, _ = fmt.Fprintf(buf, "MeshConfigFile: %s\n", a.MeshConfigFile)

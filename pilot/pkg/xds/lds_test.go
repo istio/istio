@@ -117,7 +117,6 @@ func TestLDSIsolated(t *testing.T) {
 			ConfigNamespace: "exampleegressgw",
 		}, nil, watchAll)
 	})
-
 }
 
 // TestLDS using default sidecar in root namespace

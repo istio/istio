@@ -74,40 +74,35 @@ func SetupApps(ctx resource.Context, apps *EchoDeployments) error {
 		return err
 	}
 
-	builder := echoboot.NewBuilder(ctx)
-	for _, cluster := range ctx.Clusters() {
-		builder.
-			With(nil, echo.Config{
-				Namespace: apps.Namespace,
-				Service:   "client",
-				Cluster:   cluster,
-			}).
-			With(nil, echo.Config{
-				Subsets:        []echo.SubsetConfig{{}},
-				Namespace:      apps.Namespace,
-				Service:        "server",
-				ServiceAccount: true,
-				Ports: []echo.Port{
-					{
-						Name:         "http",
-						Protocol:     protocol.HTTP,
-						ServicePort:  8091,
-						InstancePort: 8091,
-					},
+	echos, err := echoboot.NewBuilder(ctx).
+		WithClusters(ctx.Clusters()...).
+		WithConfig(echo.Config{
+			Namespace: apps.Namespace,
+			Service:   "client",
+		}).
+		WithConfig(echo.Config{
+			Subsets:        []echo.SubsetConfig{{}},
+			Namespace:      apps.Namespace,
+			Service:        "server",
+			ServiceAccount: true,
+			Ports: []echo.Port{
+				{
+					Name:         "http",
+					Protocol:     protocol.HTTP,
+					ServicePort:  8091,
+					InstancePort: 8091,
 				},
-				Cluster: cluster,
-			})
-	}
-	echoes, err := builder.Build()
+			},
+		}).Build()
 	if err != nil {
 		return err
 	}
-	apps.Client, err = echoes.Get(echo.Service("client"))
+	apps.Client, err = echos.Get(echo.Service("client"))
 	if err != nil {
 		return err
 	}
 
-	apps.Server, err = echoes.Get(echo.Service("server"))
+	apps.Server, err = echos.Get(echo.Service("server"))
 	if err != nil {
 		return err
 	}

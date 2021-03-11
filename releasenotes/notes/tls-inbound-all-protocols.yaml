@@ -1,0 +1,6 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: security
+releaseNotes:
+- |
+  **Fixed** an issue where the TLSv2 version was enforced only on HTTP ports. This option is now applied to all ports.

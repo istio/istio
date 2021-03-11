@@ -17,19 +17,24 @@ package v1beta1
 import (
 	"encoding/base64"
 	"fmt"
+	"net/url"
 	"sort"
+	"strconv"
 	"strings"
 
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	route "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
 	envoy_jwt "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/jwt_authn/v3"
 	http_conn "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
+	duration "github.com/golang/protobuf/ptypes/duration"
 	"github.com/golang/protobuf/ptypes/empty"
 
 	"istio.io/api/security/v1beta1"
+	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking"
 	"istio.io/istio/pilot/pkg/networking/util"
+	security_utils "istio.io/istio/pilot/pkg/security"
 	"istio.io/istio/pilot/pkg/security/authn"
 	authn_utils "istio.io/istio/pilot/pkg/security/authn/utils"
 	authn_model "istio.io/istio/pilot/pkg/security/model"
@@ -39,9 +44,7 @@ import (
 	"istio.io/pkg/log"
 )
 
-var (
-	authnLog = log.RegisterScope("authn", "authn debugging", 0)
-)
+var authnLog = log.RegisterScope("authn", "authn debugging", 0)
 
 // Implemenation of authn.PolicyApplier with v1beta1 API.
 type v1beta1PolicyApplier struct {
@@ -53,6 +56,8 @@ type v1beta1PolicyApplier struct {
 	processedJwtRules []*v1beta1.JWTRule
 
 	consolidatedPeerPolicy *v1beta1.PeerAuthentication
+
+	push *model.PushContext
 }
 
 func (a *v1beta1PolicyApplier) JwtFilter() *http_conn.HttpFilter {
@@ -60,7 +65,7 @@ func (a *v1beta1PolicyApplier) JwtFilter() *http_conn.HttpFilter {
 		return nil
 	}
 
-	filterConfigProto := convertToEnvoyJwtConfig(a.processedJwtRules)
+	filterConfigProto := convertToEnvoyJwtConfig(a.processedJwtRules, a.push)
 
 	if filterConfigProto == nil {
 		return nil
@@ -181,17 +186,18 @@ func (a *v1beta1PolicyApplier) AuthNFilter(proxyType model.NodeType, port uint32
 	}
 }
 
-func (a *v1beta1PolicyApplier) InboundFilterChain(endpointPort uint32, sdsUdsPath string, node *model.Proxy,
+func (a *v1beta1PolicyApplier) InboundFilterChain(endpointPort uint32, node *model.Proxy,
 	listenerProtocol networking.ListenerProtocol, trustDomainAliases []string) []networking.FilterChain {
 	effectiveMTLSMode := a.getMutualTLSModeForPort(endpointPort)
 	authnLog.Debugf("InboundFilterChain: build inbound filter change for %v:%d in %s mode", node.ID, endpointPort, effectiveMTLSMode)
-	return authn_utils.BuildInboundFilterChain(effectiveMTLSMode, sdsUdsPath, node, listenerProtocol, trustDomainAliases)
+	return authn_utils.BuildInboundFilterChain(effectiveMTLSMode, node, listenerProtocol, trustDomainAliases)
 }
 
 // NewPolicyApplier returns new applier for v1beta1 authentication policies.
 func NewPolicyApplier(rootNamespace string,
 	jwtPolicies []*config.Config,
-	peerPolicies []*config.Config) authn.PolicyApplier {
+	peerPolicies []*config.Config,
+	push *model.PushContext) authn.PolicyApplier {
 	processedJwtRules := []*v1beta1.JWTRule{}
 
 	// TODO(diemtvu) should we need to deduplicate JWT with the same issuer.
@@ -213,6 +219,7 @@ func NewPolicyApplier(rootNamespace string,
 		peerPolices:            peerPolicies,
 		processedJwtRules:      processedJwtRules,
 		consolidatedPeerPolicy: composePeerAuthentication(rootNamespace, peerPolicies),
+		push:                   push,
 	}
 }
 
@@ -226,7 +233,7 @@ func createFakeJwks(jwksURI string) string {
 // Each rule is expected corresponding to one JWT issuer (provider).
 // The behavior of the filter should reject all requests with invalid token. On the other hand,
 // if no token provided, the request is allowed.
-func convertToEnvoyJwtConfig(jwtRules []*v1beta1.JWTRule) *envoy_jwt.JwtAuthentication {
+func convertToEnvoyJwtConfig(jwtRules []*v1beta1.JWTRule, push *model.PushContext) *envoy_jwt.JwtAuthentication {
 	if len(jwtRules) == 0 {
 		return nil
 	}
@@ -258,23 +265,45 @@ func convertToEnvoyJwtConfig(jwtRules []*v1beta1.JWTRule) *envoy_jwt.JwtAuthenti
 		}
 		provider.FromParams = jwtRule.FromParams
 
-		jwtPubKey := jwtRule.Jwks
-		if jwtPubKey == "" {
-			var err error
-			jwtPubKey, err = model.GetJwtKeyResolver().GetPublicKey(jwtRule.JwksUri)
-			if err != nil {
-				log.Errorf("Failed to fetch jwt public key from %q: %s", jwtRule.JwksUri, err)
-				// This is a temporary workaround to reject a request with JWT token by using a fake jwks when istiod failed to fetch it.
-				// TODO(xulingqing): Find a better way to reject the request without using the fake jwks.
-				jwtPubKey = createFakeJwks(jwtRule.JwksUri)
+		if features.EnableRemoteJwks && jwtRule.JwksUri != "" {
+			// Use remote jwks if jwksUri is non empty. Parse the jwksUri to get the cluster name,
+			// generate the jwt filter config using remoteJwks.
+			// If failed to parse the cluster name, fallback to let istiod to fetch the jwksUri.
+			// TODO: Implement the logic to auto-generate the cluster so that when the flag is enabled,
+			// it will always let envoy to fetch the jwks for consistent behavior.
+			u, _ := url.Parse(jwtRule.JwksUri)
+			hostAndPort := strings.Split(u.Host, ":")
+			host := hostAndPort[0]
+			// TODO: Default port based on scheme ?
+			port := 80
+			if len(hostAndPort) == 2 {
+				var err error
+				if port, err = strconv.Atoi(hostAndPort[1]); err != nil {
+					port = 80 // If port is not specified or there is an error in parsing default to 80.
+				}
 			}
-		}
-		provider.JwksSourceSpecifier = &envoy_jwt.JwtProvider_LocalJwks{
-			LocalJwks: &core.DataSource{
-				Specifier: &core.DataSource_InlineString{
-					InlineString: jwtPubKey,
-				},
-			},
+			_, cluster, err := security_utils.LookupCluster(push, host, port)
+
+			if err == nil && len(cluster) > 0 {
+				// This is a case of URI pointing to mesh cluster. Setup Remote Jwks and let Envoy fetch the key.
+				provider.JwksSourceSpecifier = &envoy_jwt.JwtProvider_RemoteJwks{
+					RemoteJwks: &envoy_jwt.RemoteJwks{
+						HttpUri: &core.HttpUri{
+							Uri: jwtRule.JwksUri,
+							HttpUpstreamType: &core.HttpUri_Cluster{
+								Cluster: cluster,
+							},
+							Timeout: &duration.Duration{Seconds: 5}, // TODO: Make this configurable.
+						},
+						CacheDuration: &duration.Duration{Seconds: 5 * 60}, // TODO: Make this configurable if needed.
+					},
+				}
+			} else {
+				provider.JwksSourceSpecifier = buildLocalJwks(jwtRule.JwksUri, jwtRule.Issuer, "")
+			}
+		} else {
+			// Use inline jwks as existing flow, either jwtRule.jwks is non empty or let istiod to fetch the jwtRule.jwksUri
+			provider.JwksSourceSpecifier = buildLocalJwks(jwtRule.JwksUri, jwtRule.Issuer, jwtRule.Jwks)
 		}
 
 		name := fmt.Sprintf("origins-%d", i)
@@ -356,6 +385,27 @@ func convertToEnvoyJwtConfig(jwtRules []*v1beta1.JWTRule) *envoy_jwt.JwtAuthenti
 			},
 		},
 		Providers: providers,
+	}
+}
+
+// buildLocalJwks builds local Jwks by fetching the Jwt Public Key from the URL passed if it is empty.
+func buildLocalJwks(jwksURI, jwtIssuer, jwtPubKey string) *envoy_jwt.JwtProvider_LocalJwks {
+	if jwtPubKey == "" {
+		var err error
+		jwtPubKey, err = model.GetJwtKeyResolver().GetPublicKey(jwtIssuer, jwksURI)
+		if err != nil {
+			log.Errorf("Failed to fetch jwt public key from issuer %q, jwks uri %q: %s", jwtIssuer, jwksURI, err)
+			// This is a temporary workaround to reject a request with JWT token by using a fake jwks when istiod failed to fetch it.
+			// TODO(xulingqing): Find a better way to reject the request without using the fake jwks.
+			jwtPubKey = createFakeJwks(jwksURI)
+		}
+	}
+	return &envoy_jwt.JwtProvider_LocalJwks{
+		LocalJwks: &core.DataSource{
+			Specifier: &core.DataSource_InlineString{
+				InlineString: jwtPubKey,
+			},
+		},
 	}
 }
 

@@ -20,9 +20,7 @@ import (
 	"k8s.io/apimachinery/pkg/watch"
 )
 
-var (
-	defaultWatchQueueSize = 1024 * 10
-)
+var defaultWatchQueueSize = 1024 * 10
 
 // Watch is a mock implementation of watch.Interface.
 type Watch struct {

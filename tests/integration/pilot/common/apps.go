@@ -84,6 +84,7 @@ var EchoPorts = []echo.Port{
 	{Name: "auto-grpc", Protocol: protocol.GRPC, ServicePort: 7071, InstancePort: 17071},
 	{Name: "auto-https", Protocol: protocol.HTTPS, ServicePort: 9443, InstancePort: 19443},
 	{Name: "http-instance", Protocol: protocol.HTTP, ServicePort: 82, InstancePort: 18082, InstanceIP: true},
+	{Name: "http-localhost", Protocol: protocol.HTTP, ServicePort: 84, InstancePort: 18084, LocalhostIP: true},
 }
 
 var WorkloadPorts = []echo.WorkloadPort{
@@ -113,16 +114,16 @@ func serviceEntryPorts() []echo.Port {
 	return res
 }
 
-func SetupApps(ctx resource.Context, i istio.Instance, apps *EchoDeployments) error {
+func SetupApps(t resource.Context, i istio.Instance, apps *EchoDeployments) error {
 	var err error
-	apps.Namespace, err = namespace.New(ctx, namespace.Config{
+	apps.Namespace, err = namespace.New(t, namespace.Config{
 		Prefix: "echo",
 		Inject: true,
 	})
 	if err != nil {
 		return err
 	}
-	apps.ExternalNamespace, err = namespace.New(ctx, namespace.Config{
+	apps.ExternalNamespace, err = namespace.New(t, namespace.Config{
 		Prefix: "external",
 		Inject: false,
 	})
@@ -130,7 +131,7 @@ func SetupApps(ctx resource.Context, i istio.Instance, apps *EchoDeployments) er
 		return err
 	}
 
-	apps.Ingress = i.IngressFor(ctx.Clusters().Default())
+	apps.Ingress = i.IngressFor(t.Clusters().Default())
 
 	// Headless services don't work with targetPort, set to same port
 	headlessPorts := make([]echo.Port, len(EchoPorts))
@@ -138,100 +139,87 @@ func SetupApps(ctx resource.Context, i istio.Instance, apps *EchoDeployments) er
 		p.ServicePort = p.InstancePort
 		headlessPorts[i] = p
 	}
-	builder := echoboot.NewBuilder(ctx)
-	for _, c := range ctx.Environment().Clusters() {
-		builder.
-			With(nil, echo.Config{
-				Service:           PodASvc,
-				Namespace:         apps.Namespace,
-				Ports:             EchoPorts,
-				Subsets:           []echo.SubsetConfig{{}},
-				Locality:          "region.zone.subzone",
-				Cluster:           c,
-				WorkloadOnlyPorts: WorkloadPorts,
-			}).
-			With(nil, echo.Config{
-				Service:           PodBSvc,
-				Namespace:         apps.Namespace,
-				Ports:             EchoPorts,
-				Subsets:           []echo.SubsetConfig{{}},
-				Cluster:           c,
-				WorkloadOnlyPorts: WorkloadPorts,
-			}).
-			With(nil, echo.Config{
-				Service:           PodCSvc,
-				Namespace:         apps.Namespace,
-				Ports:             EchoPorts,
-				Subsets:           []echo.SubsetConfig{{}},
-				Cluster:           c,
-				WorkloadOnlyPorts: WorkloadPorts,
-			}).
-			With(nil, echo.Config{
-				Service:           HeadlessSvc,
-				Headless:          true,
-				Namespace:         apps.Namespace,
-				Ports:             headlessPorts,
-				Subsets:           []echo.SubsetConfig{{}},
-				Cluster:           c,
-				WorkloadOnlyPorts: WorkloadPorts,
-			}).
-			With(nil, echo.Config{
-				Service:   NakedSvc,
-				Namespace: apps.Namespace,
-				Ports:     EchoPorts,
-				Subsets: []echo.SubsetConfig{
-					{
-						Annotations: map[echo.Annotation]*echo.AnnotationValue{
-							echo.SidecarInject: {
-								Value: strconv.FormatBool(false)},
+	builder := echoboot.NewBuilder(t).
+		WithClusters(t.Clusters()...).
+		WithConfig(echo.Config{
+			Service:           PodASvc,
+			Namespace:         apps.Namespace,
+			Ports:             EchoPorts,
+			Subsets:           []echo.SubsetConfig{{}},
+			Locality:          "region.zone.subzone",
+			WorkloadOnlyPorts: WorkloadPorts,
+		}).
+		WithConfig(echo.Config{
+			Service:           PodBSvc,
+			Namespace:         apps.Namespace,
+			Ports:             EchoPorts,
+			Subsets:           []echo.SubsetConfig{{}},
+			WorkloadOnlyPorts: WorkloadPorts,
+		}).
+		WithConfig(echo.Config{
+			Service:           PodCSvc,
+			Namespace:         apps.Namespace,
+			Ports:             EchoPorts,
+			Subsets:           []echo.SubsetConfig{{}},
+			WorkloadOnlyPorts: WorkloadPorts,
+		}).
+		WithConfig(echo.Config{
+			Service:           HeadlessSvc,
+			Headless:          true,
+			Namespace:         apps.Namespace,
+			Ports:             headlessPorts,
+			Subsets:           []echo.SubsetConfig{{}},
+			WorkloadOnlyPorts: WorkloadPorts,
+		}).
+		WithConfig(echo.Config{
+			Service:   NakedSvc,
+			Namespace: apps.Namespace,
+			Ports:     EchoPorts,
+			Subsets: []echo.SubsetConfig{
+				{
+					Annotations: map[echo.Annotation]*echo.AnnotationValue{
+						echo.SidecarInject: {
+							Value: strconv.FormatBool(false),
 						},
 					},
 				},
-				Cluster:           c,
-				WorkloadOnlyPorts: WorkloadPorts,
-			}).
-			With(nil, echo.Config{
-				Service:           ExternalSvc,
-				Namespace:         apps.ExternalNamespace,
-				DefaultHostHeader: externalHostname,
-				Ports:             EchoPorts,
-				Subsets: []echo.SubsetConfig{
-					{
-						Annotations: map[echo.Annotation]*echo.AnnotationValue{
-							echo.SidecarInject: {
-								Value: strconv.FormatBool(false)},
+			},
+			WorkloadOnlyPorts: WorkloadPorts,
+		}).
+		WithConfig(echo.Config{
+			Service:           ExternalSvc,
+			Namespace:         apps.ExternalNamespace,
+			DefaultHostHeader: externalHostname,
+			Ports:             EchoPorts,
+			Subsets: []echo.SubsetConfig{
+				{
+					Annotations: map[echo.Annotation]*echo.AnnotationValue{
+						echo.SidecarInject: {
+							Value: strconv.FormatBool(false),
 						},
 					},
 				},
-				Cluster:           c,
-				WorkloadOnlyPorts: WorkloadPorts,
-			}).
-			With(nil, echo.Config{
-				Service:   PodTproxySvc,
-				Namespace: apps.Namespace,
-				Ports:     EchoPorts,
-				Subsets: []echo.SubsetConfig{{
-					Annotations: echo.NewAnnotations().Set(echo.SidecarInterceptionMode, "TPROXY"),
-				}},
-				Cluster:           c,
-				WorkloadOnlyPorts: WorkloadPorts,
-			})
-	}
-	if !ctx.Settings().SkipVM {
-		// It only makes sense to deploy echo VMs on a primary cluster.
-		for _, cluster := range ctx.Clusters().Primaries() {
-			builder.With(nil, echo.Config{
-				Service:           VMSvc,
-				Namespace:         apps.Namespace,
-				Ports:             EchoPorts,
-				DeployAsVM:        true,
-				AutoRegisterVM:    true,
-				Subsets:           []echo.SubsetConfig{{}},
-				Cluster:           cluster,
-				WorkloadOnlyPorts: WorkloadPorts,
-			})
-		}
-	}
+			},
+			WorkloadOnlyPorts: WorkloadPorts,
+		}).
+		WithConfig(echo.Config{
+			Service:   PodTproxySvc,
+			Namespace: apps.Namespace,
+			Ports:     EchoPorts,
+			Subsets: []echo.SubsetConfig{{
+				Annotations: echo.NewAnnotations().Set(echo.SidecarInterceptionMode, "TPROXY"),
+			}},
+			WorkloadOnlyPorts: WorkloadPorts,
+		}).
+		WithConfig(echo.Config{
+			Service:           VMSvc,
+			Namespace:         apps.Namespace,
+			Ports:             EchoPorts,
+			DeployAsVM:        true,
+			AutoRegisterVM:    true,
+			Subsets:           []echo.SubsetConfig{{}},
+			WorkloadOnlyPorts: WorkloadPorts,
+		})
 
 	echos, err := builder.Build()
 	if err != nil {
@@ -245,11 +233,11 @@ func SetupApps(ctx resource.Context, i istio.Instance, apps *EchoDeployments) er
 	apps.Headless = echos.Match(echo.Service(HeadlessSvc))
 	apps.Naked = echos.Match(echo.Service(NakedSvc))
 	apps.External = echos.Match(echo.Service(ExternalSvc))
-	if !ctx.Settings().SkipVM {
+	if !t.Settings().SkipVM {
 		apps.VM = echos.Match(echo.Service(VMSvc))
 	}
 
-	if err := ctx.Config().ApplyYAML(apps.Namespace.Name(), `
+	if err := t.Config().ApplyYAML(apps.Namespace.Name(), `
 apiVersion: networking.istio.io/v1alpha3
 kind: Sidecar
 metadata:
@@ -292,7 +280,7 @@ spec:
 	if err != nil {
 		return err
 	}
-	if err := ctx.Config().ApplyYAML(apps.Namespace.Name(), se); err != nil {
+	if err := t.Config().ApplyYAML(apps.Namespace.Name(), se); err != nil {
 		return err
 	}
 	return nil

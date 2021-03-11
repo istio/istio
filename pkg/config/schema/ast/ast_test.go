@@ -23,7 +23,7 @@ import (
 )
 
 func TestParse(t *testing.T) {
-	var cases = []struct {
+	cases := []struct {
 		input    string
 		expected *Metadata
 	}{
@@ -107,7 +107,7 @@ transforms:
 }
 
 func TestTransformParseError(t *testing.T) {
-	var cases = []string{
+	cases := []string{
 		`
 collections:
   - name:  "istio/meshconfig"

@@ -18,6 +18,7 @@ package prometheus
 import (
 	"context"
 	"fmt"
+	"strconv"
 	"testing"
 
 	"golang.org/x/sync/errgroup"
@@ -38,11 +39,12 @@ import (
 )
 
 var (
-	client, server echo.Instances
-	ist            istio.Instance
-	appNsInst      namespace.Instance
-	promInst       prometheus.Instance
-	ingr           []ingress.Instance
+	client, server    echo.Instances
+	nonInjectedServer echo.Instances
+	ist               istio.Instance
+	appNsInst         namespace.Instance
+	promInst          prometheus.Instance
+	ingr              []ingress.Instance
 )
 
 // GetIstioInstance gets Istio instance.
@@ -81,9 +83,10 @@ func TestStatsFilter(t *testing.T, feature features.Feature) {
 		Run(func(ctx framework.TestContext) {
 			g, _ := errgroup.WithContext(context.Background())
 			for _, cltInstance := range client {
+				cltInstance := cltInstance
 				g.Go(func() error {
 					err := retry.UntilSuccess(func() error {
-						if err := SendTraffic(t, cltInstance); err != nil {
+						if err := SendTraffic(cltInstance); err != nil {
 							return err
 						}
 						c := cltInstance.Config().Cluster
@@ -97,6 +100,13 @@ func TestStatsFilter(t *testing.T, feature features.Feature) {
 							t.Logf("prometheus values for istio_requests_total for cluster %v: \n%s", c, util.PromDump(c, promInst, "istio_requests_total"))
 							return err
 						}
+						// Query client side metrics for non-injected server
+						outOfMeshServerQuery := buildOutOfMeshServerQuery(sourceCluster)
+						if _, err := QueryPrometheus(t, c, outOfMeshServerQuery, GetPromInstance()); err != nil {
+							t.Logf("prometheus values for istio_requests_total for cluster %v: \n%s", c, util.PromDump(c, promInst, "istio_requests_total"))
+							return err
+						}
+						// Query server side metrics.
 						if _, err := QueryPrometheus(t, c, destinationQuery, GetPromInstance()); err != nil {
 							t.Logf("prometheus values for istio_requests_total for cluster %v: \n%s", c, util.PromDump(c, promInst, "istio_requests_total"))
 							return err
@@ -129,9 +139,10 @@ func TestStatsTCPFilter(t *testing.T, feature features.Feature) {
 		Run(func(ctx framework.TestContext) {
 			g, _ := errgroup.WithContext(context.Background())
 			for _, cltInstance := range client {
+				cltInstance := cltInstance
 				g.Go(func() error {
 					err := retry.UntilSuccess(func() error {
-						if err := SendTCPTraffic(t, cltInstance); err != nil {
+						if err := SendTCPTraffic(cltInstance); err != nil {
 							return err
 						}
 						c := cltInstance.Config().Cluster
@@ -169,46 +180,69 @@ func TestSetup(ctx resource.Context) (err error) {
 		return
 	}
 
-	builder := echoboot.NewBuilder(ctx)
-	for _, c := range ctx.Clusters() {
-		builder.
-			With(nil, echo.Config{
-				Service:   "client",
-				Namespace: appNsInst,
-				Cluster:   c,
-				Ports:     nil,
-				Subsets:   []echo.SubsetConfig{{}},
-			}).
-			With(nil, echo.Config{
-				Service:   "server",
-				Namespace: appNsInst,
-				Cluster:   c,
-				Subsets:   []echo.SubsetConfig{{}},
-				Ports: []echo.Port{
-					{
-						Name:         "http",
-						Protocol:     protocol.HTTP,
-						InstancePort: 8090,
-					},
-					{
-						Name:     "tcp",
-						Protocol: protocol.TCP,
-						// We use a port > 1024 to not require root
-						InstancePort: 9000,
-						ServicePort:  9000,
+	echos, err := echoboot.NewBuilder(ctx).
+		WithClusters(ctx.Clusters()...).
+		With(nil, echo.Config{
+			Service:   "client",
+			Namespace: appNsInst,
+			Ports:     nil,
+			Subsets:   []echo.SubsetConfig{{}},
+		}).
+		With(nil, echo.Config{
+			Service:   "server",
+			Namespace: appNsInst,
+			Subsets:   []echo.SubsetConfig{{}},
+			Ports: []echo.Port{
+				{
+					Name:         "http",
+					Protocol:     protocol.HTTP,
+					InstancePort: 8090,
+				},
+				{
+					Name:     "tcp",
+					Protocol: protocol.TCP,
+					// We use a port > 1024 to not require root
+					InstancePort: 9000,
+					ServicePort:  9000,
+				},
+			},
+		}).
+		With(nil, echo.Config{
+			Service:   "server-no-sidecar",
+			Namespace: appNsInst,
+			Subsets: []echo.SubsetConfig{
+				{
+					Annotations: map[echo.Annotation]*echo.AnnotationValue{
+						echo.SidecarInject: {
+							Value: strconv.FormatBool(false),
+						},
 					},
 				},
-			}).
-			Build()
-
-		ingr = append(ingr, ist.IngressFor(c))
-	}
-	echos, err := builder.Build()
+			},
+			Ports: []echo.Port{
+				{
+					Name:         "http",
+					Protocol:     protocol.HTTP,
+					InstancePort: 8090,
+				},
+				{
+					Name:     "tcp",
+					Protocol: protocol.TCP,
+					// We use a port > 1024 to not require root
+					InstancePort: 9000,
+					ServicePort:  9000,
+				},
+			},
+		}).Build()
 	if err != nil {
 		return err
 	}
+	for _, c := range ctx.Clusters() {
+		ingr = append(ingr, ist.IngressFor(c))
+	}
 	client = echos.Match(echo.Service("client"))
 	server = echos.Match(echo.Service("server"))
+	nonInjectedServer = echos.Match(echo.Service("server-no-sidecar"))
 	promInst, err = prometheus.New(ctx, prometheus.Config{})
 	if err != nil {
 		return
@@ -217,11 +251,20 @@ func TestSetup(ctx resource.Context) (err error) {
 }
 
 // SendTraffic makes a client call to the "server" service on the http port.
-func SendTraffic(t *testing.T, cltInstance echo.Instance) error {
+func SendTraffic(cltInstance echo.Instance) error {
 	_, err := cltInstance.Call(echo.CallOptions{
-		Target:   server[0],
+		Target:    server[0],
+		PortName:  "http",
+		Count:     util.RequestCountMultipler * len(server),
+		Validator: echo.ExpectOK(),
+	})
+	if err != nil {
+		return err
+	}
+	_, err = cltInstance.Call(echo.CallOptions{
+		Target:   nonInjectedServer[0],
 		PortName: "http",
-		Count:    util.RequestCountMultipler * len(server),
+		Count:    util.RequestCountMultipler * len(nonInjectedServer),
 	})
 	if err != nil {
 		return err
@@ -230,7 +273,7 @@ func SendTraffic(t *testing.T, cltInstance echo.Instance) error {
 }
 
 // SendTCPTraffic makes a client call to the "server" service on the tcp port.
-func SendTCPTraffic(t *testing.T, cltInstance echo.Instance) error {
+func SendTCPTraffic(cltInstance echo.Instance) error {
 	_, err := cltInstance.Call(echo.CallOptions{
 		Target:   server[0],
 		PortName: "tcp",
@@ -276,6 +319,37 @@ func buildQuery(sourceCluster string) (sourceQuery, destinationQuery, appQuery s
 	}
 
 	return BuildQueryCommon(labels, ns.Name())
+}
+
+func buildOutOfMeshServerQuery(sourceCluster string) string {
+	ns := GetAppNamespace()
+	labels := map[string]string{
+		"request_protocol": "http",
+		"response_code":    "200",
+		// For out of mesh server, client side metrics rely on endpoint resource metadata
+		// to fill in workload labels. To limit size of endpoint resource, we only populate
+		// workload name and namespace, canonical service name and version in endpoint metadata.
+		// Thus destination_app and destination_version labels are unknown.
+		"destination_app":                "unknown",
+		"destination_version":            "unknown",
+		"destination_service":            "server-no-sidecar." + ns.Name() + ".svc.cluster.local",
+		"destination_service_name":       "server-no-sidecar",
+		"destination_workload_namespace": ns.Name(),
+		"destination_service_namespace":  ns.Name(),
+		"source_app":                     "client",
+		"source_version":                 "v1",
+		"source_workload":                "client-v1",
+		"source_workload_namespace":      ns.Name(),
+		"source_cluster":                 sourceCluster,
+	}
+
+	q := `istio_requests_total{reporter="source",`
+
+	for k, v := range labels {
+		q += fmt.Sprintf(`%s=%q,`, k, v)
+	}
+	q += "}"
+	return q
 }
 
 func buildTCPQuery(sourceCluster string) (destinationQuery string) {

@@ -52,14 +52,16 @@ func TestWorkloadHealthChecker_PerformApplicationHealthCheck(t *testing.T) {
 
 		quitChan := make(chan struct{})
 
-		expectedTCPEvents := [6]*ProbeEvent{
-			{Healthy: true},
+		expectedTCPEvents := [7]*ProbeEvent{
 			{Healthy: false},
 			{Healthy: true},
 			{Healthy: false},
 			{Healthy: true},
-			{Healthy: false}}
-		tcpHealthStatuses := [6]bool{true, false, true, false, true, false}
+			{Healthy: false},
+			{Healthy: true},
+			{Healthy: false},
+		}
+		tcpHealthStatuses := [7]bool{false, true, false, true, false, true, false}
 
 		cont := make(chan struct{}, 6)
 		// wait for go-ahead for state change
@@ -86,7 +88,7 @@ func TestWorkloadHealthChecker_PerformApplicationHealthCheck(t *testing.T) {
 
 		eventNum := atomic.NewInt32(0)
 		go tcpHealthChecker.PerformApplicationHealthCheck(func(event *ProbeEvent) {
-			if eventNum.Load() >= 6 {
+			if eventNum.Load() >= 7 {
 				return
 			}
 			if event.Healthy != expectedTCPEvents[eventNum.Load()].Healthy {

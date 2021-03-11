@@ -8,6 +8,7 @@ tools/vagrant/.vagrant/
 # Intellij
 *.iml
 .idea/
+.run/
 # Visual Studio Code
 .vscode/
 # Bazel
@@ -51,6 +52,5 @@ vendor
 out/
 etc/
 var/
-.idea/
 # Go compiled tests
 *.test

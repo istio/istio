@@ -66,6 +66,7 @@ This field describes the area of Istio that the note affects. Valid values inclu
 * traffic-management
 * security
 * telemetry
+* extensibility
 * installation
 * istioctl
 * documentation

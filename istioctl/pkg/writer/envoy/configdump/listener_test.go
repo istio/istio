@@ -77,12 +77,14 @@ func TestListenerFilter_Verify(t *testing.T) {
 				Type: "HTTP",
 			},
 			inListener: &listener.Listener{
-				FilterChains: []*listener.FilterChain{{
-					Filters: []*listener.Filter{{
-						Name: wellknown.HTTPConnectionManager,
+				FilterChains: []*listener.FilterChain{
+					{
+						Filters: []*listener.Filter{
+							{
+								Name: wellknown.HTTPConnectionManager,
+							},
+						},
 					},
-					},
-				},
 				},
 			},
 			expect: true,
@@ -94,15 +96,17 @@ func TestListenerFilter_Verify(t *testing.T) {
 			},
 			inListener: &listener.Listener{
 				FilterChains: []*listener.FilterChain{{
-					Filters: []*listener.Filter{{
-						Name: wellknown.TCPProxy,
-					},
+					Filters: []*listener.Filter{
+						{
+							Name: wellknown.TCPProxy,
+						},
 						{
 							Name: wellknown.TCPProxy,
 						},
 						{
 							Name: wellknown.HTTPConnectionManager,
-						}},
+						},
+					},
 				}},
 			},
 			expect: true,

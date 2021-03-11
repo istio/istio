@@ -32,9 +32,7 @@ import (
 	"istio.io/istio/pkg/config/schema/collections"
 )
 
-var (
-	testSchema = collections.IstioMeshV1Alpha1MeshConfig.Resource()
-)
+var testSchema = collections.IstioMeshV1Alpha1MeshConfig.Resource()
 
 func TestSerialization_Basic(t *testing.T) {
 	e := resource.Instance{
@@ -371,12 +369,13 @@ func TestDeserializeAll_Error(t *testing.T) {
 	}
 }
 
-type invalidProto struct {
-}
+type invalidProto struct{}
 
-var _ proto.Message = &invalidProto{}
-var _ proto.Marshaler = &invalidProto{}
-var _ proto.Unmarshaler = &invalidProto{}
+var (
+	_ proto.Message     = &invalidProto{}
+	_ proto.Marshaler   = &invalidProto{}
+	_ proto.Unmarshaler = &invalidProto{}
+)
 
 func (i *invalidProto) Reset()                   {}
 func (i *invalidProto) String() string           { return "" }

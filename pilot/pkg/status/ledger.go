@@ -15,13 +15,15 @@
 package status
 
 import (
+	"strconv"
+
 	"istio.io/istio/pkg/config"
 	"istio.io/pkg/ledger"
 )
 
 func tryLedgerPut(configLedger ledger.Ledger, obj config.Config) {
 	key := config.Key(obj.GroupVersionKind.Kind, obj.Name, obj.Namespace)
-	if _, err := configLedger.Put(key, obj.ResourceVersion); err != nil {
+	if _, err := configLedger.Put(key, strconv.FormatInt(obj.Generation, 10)); err != nil {
 		scope.Errorf("Failed to update %s in ledger, status will be out of date.", key)
 	}
 }

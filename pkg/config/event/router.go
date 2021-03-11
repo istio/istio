@@ -28,8 +28,7 @@ type Router interface {
 }
 
 // emptyRouter
-type emptyRouter struct {
-}
+type emptyRouter struct{}
 
 var _ Router = &emptyRouter{}
 

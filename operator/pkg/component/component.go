@@ -40,9 +40,7 @@ const (
 	yamlCommentStr       = "#"
 )
 
-var (
-	scope = log.RegisterScope("installer", "installer", 0)
-)
+var scope = log.RegisterScope("installer", "installer", 0)
 
 // Options defines options for a component.
 type Options struct {
@@ -389,10 +387,7 @@ func (c *EgressComponent) Enabled() bool {
 
 // runComponent performs startup tasks for the component defined by the given CommonComponentFields.
 func runComponent(c *CommonComponentFields) error {
-	r, err := createHelmRenderer(c)
-	if err != nil {
-		return err
-	}
+	r := createHelmRenderer(c)
 	if err := r.Run(); err != nil {
 		return err
 	}
@@ -474,7 +469,7 @@ func renderManifest(c IstioComponent, cf *CommonComponentFields) (string, error)
 
 // createHelmRenderer creates a helm renderer for the component defined by c and returns a ptr to it.
 // If a helm subdir is not found in ComponentMap translations, it is assumed to be "addon/<component name>.
-func createHelmRenderer(c *CommonComponentFields) (helm.TemplateRenderer, error) {
+func createHelmRenderer(c *CommonComponentFields) helm.TemplateRenderer {
 	iop := c.InstallSpec
 	cns := string(c.ComponentName)
 	helmSubdir := c.Translator.ComponentMap(cns).HelmSubdir

@@ -54,7 +54,7 @@ func (c *controller) Schemas() collection.Schemas {
 }
 
 func (c controller) Get(typ config.GroupVersionKind, name, namespace string) *config.Config {
-	panic("get is not supported")
+	return nil
 }
 
 func (c controller) List(typ config.GroupVersionKind, namespace string) ([]config.Config, error) {
@@ -98,7 +98,7 @@ func (c controller) List(typ config.GroupVersionKind, namespace string) ([]confi
 	}
 
 	if !anyApisUsed(input) {
-		// Early exit for common case of no service-apis used.
+		// Early exit for common case of no gateway-api used.
 		return nil, nil
 	}
 

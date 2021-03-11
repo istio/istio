@@ -66,7 +66,6 @@ spec:
     mode: STRICT
 `, name, name)
 	ctx.Config().ApplyYAMLOrFail(t, ns.Name(), policyYAML)
-	defer ctx.Config().DeleteYAMLOrFail(t, ns.Name(), policyYAML)
 
 	var healthcheck echo.Instance
 	cfg := echo.Config{

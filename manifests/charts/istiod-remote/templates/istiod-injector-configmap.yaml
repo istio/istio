@@ -21,8 +21,14 @@ data:
   # to fine tune it or use it with kube-inject.
   config: |-
     # defaultTemplates defines the default template to use for pods that do not explicitly specify a template
-    # NOTE: this currently only allows a single element
+    {{- if .Values.sidecarInjectorWebhook.defaultTemplates }}
+    defaultTemplates:
+{{- range .Values.sidecarInjectorWebhook.defaultTemplates}}
+    - {{ . }}
+{{- end }}
+    {{- else }}
     defaultTemplates: [sidecar]
+    {{- end }}
     policy: {{ .Values.global.proxy.autoInject }}
     alwaysInjectSelector:
 {{ toYaml .Values.sidecarInjectorWebhook.alwaysInjectSelector | trim | indent 6 }}
@@ -32,10 +38,19 @@ data:
       {{- range $key, $val := .Values.sidecarInjectorWebhook.injectedAnnotations }}
       "{{ $key }}": "{{ $val }}"
       {{- end }}
+    {{- /* If someone ends up with this new template, but an older Istiod image, they will attempt to render this template
+         which will fail with "Pod injection failed: template: inject:1: function "Istio_1_9_Required_Template_And_Version_Mismatched" not defined".
+         This should make it obvious that their installation is broken.
+     */}}
+    template: {{ `{{ Template_Version_And_Istio_Version_Mismatched_Check_Installation }}` | quote }}
     templates:
 {{- if not (hasKey .Values.sidecarInjectorWebhook.templates "sidecar") }}
       sidecar: |
 {{ .Files.Get "files/injection-template.yaml" | trim | indent 8 }}
+{{- end }}
+{{- if not (hasKey .Values.sidecarInjectorWebhook.templates "gateway") }}
+      gateway: |
+{{ .Files.Get "files/gateway-injection-template.yaml" | trim | indent 8 }}
 {{- end }}
 {{- with .Values.sidecarInjectorWebhook.templates }}
 {{ toYaml . | trim | indent 6 }}

@@ -15,6 +15,7 @@ package deployment
 
 import (
 	"fmt"
+	"strconv"
 
 	apps_v1 "k8s.io/api/apps/v1"
 	core_v1 "k8s.io/api/core/v1"
@@ -32,13 +33,18 @@ type ServiceAssociationAnalyzer struct{}
 
 var _ analysis.Analyzer = &ServiceAssociationAnalyzer{}
 
-type PortMap map[int32]ProtocolMap
-type ProtocolMap map[core_v1.Protocol]ServiceNames
-type ServiceNames []string
-type ServiceSpecWithName struct {
-	Name string
-	Spec *core_v1.ServiceSpec
-}
+type (
+	PortMap             map[int32]ProtocolMap
+	ProtocolMap         map[core_v1.Protocol]ServiceNames
+	ServiceNames        []string
+	ServiceSpecWithName struct {
+		Name string
+		Spec *core_v1.ServiceSpec
+	}
+)
+
+// targetPort port serviceName
+type targetPortMap map[string]map[int32]string
 
 func (s *ServiceAssociationAnalyzer) Metadata() analysis.Metadata {
 	return analysis.Metadata{
@@ -51,17 +57,19 @@ func (s *ServiceAssociationAnalyzer) Metadata() analysis.Metadata {
 		},
 	}
 }
+
 func (s *ServiceAssociationAnalyzer) Analyze(c analysis.Context) {
 	c.ForEach(collections.K8SAppsV1Deployments.Name(), func(r *resource.Instance) bool {
 		if util.DeploymentInMesh(r, c) {
-			s.analyzeDeployment(r, c)
+			s.analyzeDeploymentPortProtocol(r, c)
+			s.analyzeDeploymentTargetPorts(r, c)
 		}
 		return true
 	})
 }
 
-// analyzeDeployment analyzes the specific service mesh deployment
-func (s *ServiceAssociationAnalyzer) analyzeDeployment(r *resource.Instance, c analysis.Context) {
+// analyzeDeploymentPortProtocol analyzes the specific service mesh deployment
+func (s *ServiceAssociationAnalyzer) analyzeDeploymentPortProtocol(r *resource.Instance, c analysis.Context) {
 	d := r.Message.(*apps_v1.Deployment)
 
 	// Find matching services with resulting pod from deployment
@@ -89,6 +97,43 @@ func (s *ServiceAssociationAnalyzer) analyzeDeployment(r *resource.Instance, c a
 				svcNames = append(svcNames, protMap[protocol]...)
 			}
 			m := msg.NewDeploymentAssociatedToMultipleServices(r, d.Name, port, svcNames)
+
+			if line, ok := util.ErrorLine(r, fmt.Sprintf(util.MetadataName)); ok {
+				m.Line = line
+			}
+
+			// Reporting the message for the deployment, port and conflicting services.
+			c.Report(collections.K8SAppsV1Deployments.Name(), m)
+		}
+	}
+}
+
+// analyzeDeploymentPortProtocol analyzes the targetPorts conflicting
+func (s *ServiceAssociationAnalyzer) analyzeDeploymentTargetPorts(r *resource.Instance, c analysis.Context) {
+	d := r.Message.(*apps_v1.Deployment)
+
+	// Find matching services with resulting pod from deployment
+	matchingSvcs := s.findMatchingServices(d, c)
+
+	// If there isn't any matching service, generate message: At least one service is needed.
+	if len(matchingSvcs) == 0 {
+		c.Report(collections.K8SAppsV1Deployments.Name(), msg.NewDeploymentRequiresServiceAssociated(r))
+		return
+	}
+
+	tpm := serviceTargetPortsMap(matchingSvcs)
+
+	// Determining which ports use more than one protocol.
+	for targetPort, portServices := range tpm {
+		if len(portServices) > 1 {
+			// Collect names from both protocols
+			svcNames := make(ServiceNames, 0, len(portServices))
+			ports := make([]int32, 0, len(portServices))
+			for p, s := range portServices {
+				svcNames = append(svcNames, s)
+				ports = append(ports, p)
+			}
+			m := msg.NewDeploymentConflictingPorts(r, d.Name, svcNames, targetPort, ports)
 
 			if line, ok := util.ErrorLine(r, fmt.Sprintf(util.MetadataName)); ok {
 				m.Line = line
@@ -143,4 +188,24 @@ func servicePortMap(svcs []ServiceSpecWithName) PortMap {
 	}
 
 	return portMap
+}
+
+// serviceTargetPortsMap build a map of targetPort and ports for each Service. e.g. m["80"][80] -> svc
+func serviceTargetPortsMap(svcs []ServiceSpecWithName) targetPortMap {
+	pm := targetPortMap{}
+	for _, swn := range svcs {
+		svc := swn.Spec
+		for _, sPort := range svc.Ports {
+			p := sPort.TargetPort.String()
+			if p == "0" || p == "" {
+				// By default and for convenience, the targetPort is set to the same value as the port field.
+				p = strconv.Itoa(int(sPort.Port))
+			}
+			if _, ok := pm[p]; !ok {
+				pm[p] = map[int32]string{}
+			}
+			pm[p][sPort.Port] = swn.Name
+		}
+	}
+	return pm
 }

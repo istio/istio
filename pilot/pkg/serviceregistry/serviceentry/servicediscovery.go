@@ -79,8 +79,10 @@ type ServiceEntryStore struct { // nolint:golint
 	workloadInstancesIPsByName map[string]string
 	// seWithSelectorByNamespace keeps track of ServiceEntries with selectors, keyed by namespaces
 	seWithSelectorByNamespace map[string][]servicesWithEntry
-	refreshIndexes            *atomic.Bool
-	workloadHandlers          []func(*model.WorkloadInstance, model.Event)
+	// services keeps track of all services - mainly used to return from Services() to avoid reconversion.
+	services         []*model.Service
+	refreshIndexes   *atomic.Bool
+	workloadHandlers []func(*model.WorkloadInstance, model.Event)
 
 	processServiceEntry bool
 }
@@ -237,7 +239,8 @@ func getUpdatedConfigs(services []*model.Service) map[model.ConfigKey]struct{} {
 		configsUpdated[model.ConfigKey{
 			Kind:      gvk.ServiceEntry,
 			Name:      string(svc.Hostname),
-			Namespace: svc.Attributes.Namespace}] = struct{}{}
+			Namespace: svc.Attributes.Namespace,
+		}] = struct{}{}
 	}
 	return configsUpdated
 }
@@ -333,7 +336,9 @@ func (s *ServiceEntryStore) serviceEntryHandler(old, curr config.Config, event m
 
 	// Recomputing the index here is too expensive - lazy build when it is needed.
 	// Only recompute indexes if services have changed.
+	s.storeMutex.Lock()
 	s.refreshIndexes.Store(true)
+	s.storeMutex.Unlock()
 
 	// When doing a full push, the non DNS added, updated, unchanged services trigger an eds update
 	// so that endpoint shards are updated.
@@ -481,40 +486,26 @@ func (s *ServiceEntryStore) Services() ([]*model.Service, error) {
 	if !s.processServiceEntry {
 		return nil, nil
 	}
-	services := make([]*model.Service, 0)
-	for _, cfg := range s.store.ServiceEntries() {
-		services = append(services, convertServices(cfg)...)
-	}
-
-	return autoAllocateIPs(services), nil
+	s.maybeRefreshIndexes()
+	s.storeMutex.RLock()
+	defer s.storeMutex.RUnlock()
+	return autoAllocateIPs(s.services), nil
 }
 
-// GetService retrieves a service by host name if it exists
-// THIS IS A LINEAR SEARCH WHICH CAUSES ALL SERVICE ENTRIES TO BE RECONVERTED -
-// DO NOT USE
+// GetService retrieves a service by host name if it exists.
 // NOTE: This does not auto allocate IPs. The service entry implementation is used only for tests.
 func (s *ServiceEntryStore) GetService(hostname host.Name) (*model.Service, error) {
 	if !s.processServiceEntry {
 		return nil, nil
 	}
-	for _, service := range s.getServices() {
+	services, _ := s.Services()
+	for _, service := range services {
 		if service.Hostname == hostname {
 			return service, nil
 		}
 	}
 
 	return nil, nil
-}
-
-func (s *ServiceEntryStore) getServices() []*model.Service {
-	if !s.processServiceEntry {
-		return nil
-	}
-	services := make([]*model.Service, 0)
-	for _, cfg := range s.store.ServiceEntries() {
-		services = append(services, convertServices(cfg)...)
-	}
-	return services
 }
 
 // InstancesByPort retrieves instances for a service on the given ports with labels that
@@ -541,7 +532,6 @@ func (s *ServiceEntryStore) InstancesByPort(svc *model.Service, port int, labels
 }
 
 // servicesWithEntry contains a ServiceEntry and associated model.Services
-// This is used only as a key to a map, not intended for external usage
 type servicesWithEntry struct {
 	entry    *networking.ServiceEntry
 	services []*model.Service
@@ -638,6 +628,13 @@ func (s *ServiceEntryStore) edsUpdateByKeys(keys map[instancesKey]struct{}, push
 // maybeRefreshIndexes will iterate all ServiceEntries, convert to ServiceInstance (expensive),
 // and populate the 'by host' and 'by ip' maps, if needed.
 func (s *ServiceEntryStore) maybeRefreshIndexes() {
+	// We need to take a full lock here, rather than just a read lock and then later updating s.instances
+	// otherwise, what may happen is both the refresh thread and workload entry/pod handler both generate their own
+	// view of s.instances and then write them, leading to inconsistent state. This lock ensures that both threads do
+	// a full R+W before the other can start, rather than R,R,W,W.
+	s.storeMutex.Lock()
+	defer s.storeMutex.Unlock()
+
 	// Without this pilot becomes very unstable even with few 100 ServiceEntry objects
 	// - the N_clusters * N_update generates too much garbage ( yaml to proto)
 	// This is reset on any change in ServiceEntries that needs index recomputation.
@@ -651,6 +648,7 @@ func (s *ServiceEntryStore) maybeRefreshIndexes() {
 
 	// First refresh service entry
 	seWithSelectorByNamespace := map[string][]servicesWithEntry{}
+	allServices := []*model.Service{}
 	if s.processServiceEntry {
 		for _, cfg := range s.store.ServiceEntries() {
 			key := configKey{
@@ -666,14 +664,10 @@ func (s *ServiceEntryStore) maybeRefreshIndexes() {
 			if se.WorkloadSelector != nil {
 				seWithSelectorByNamespace[cfg.Namespace] = append(seWithSelectorByNamespace[cfg.Namespace], servicesWithEntry{se, services})
 			}
+			allServices = append(allServices, services...)
 		}
 	}
 
-	// We need to take a full lock here, rather than just a read lock and then later updating s.instances
-	// otherwise, what may happen is both the refresh thread and workload entry/pod handler both generate their own
-	// view of s.instances and then write them, leading to inconsistent state. This lock ensures that both threads do
-	// a full R+W before the other can start, rather than R,R,W,W.
-	s.storeMutex.Lock()
 	// Second, refresh workload instances(pods)
 	for _, workloadInstance := range s.workloadInstancesByIP {
 		key := configKey{
@@ -723,9 +717,9 @@ func (s *ServiceEntryStore) maybeRefreshIndexes() {
 	}
 
 	s.seWithSelectorByNamespace = seWithSelectorByNamespace
+	s.services = allServices
 	s.instances = instanceMap
 	s.ip2instance = ip2instances
-	s.storeMutex.Unlock()
 }
 
 func (s *ServiceEntryStore) deleteExistingInstances(ckey configKey, instances []*model.ServiceInstance) {
@@ -928,7 +922,8 @@ func makeConfigKey(svc *model.Service) model.ConfigKey {
 	return model.ConfigKey{
 		Kind:      gvk.ServiceEntry,
 		Name:      string(svc.Hostname),
-		Namespace: svc.Attributes.Namespace}
+		Namespace: svc.Attributes.Namespace,
+	}
 }
 
 // isHealthy checks that the provided WorkloadEntry is healthy. If health checks are not enabled,

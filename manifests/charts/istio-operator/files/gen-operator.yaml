@@ -75,9 +75,7 @@ rules:
   - daemonsets
   - deployments
   - deployments/finalizers
-  - ingresses
   - replicasets
-  - statefulsets
   verbs:
   - '*'
 - apiGroups:
@@ -183,7 +181,7 @@ spec:
       serviceAccountName: istio-operator
       containers:
         - name: istio-operator
-          image: gcr.io/istio-testing/operator:1.9-dev
+          image: gcr.io/istio-testing/operator:1.10-dev
           command:
           - operator
           - server

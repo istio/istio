@@ -31,24 +31,40 @@ func TestNameMatches(t *testing.T) {
 		{"first empty", "", "foo.com", false},
 		{"second empty", "foo.com", "", false},
 
-		{"non-wildcard domain",
-			"foo.com", "foo.com", true},
-		{"non-wildcard domain",
-			"bar.com", "foo.com", false},
-		{"non-wildcard domain - order doesn't matter",
-			"foo.com", "bar.com", false},
+		{
+			"non-wildcard domain",
+			"foo.com", "foo.com", true,
+		},
+		{
+			"non-wildcard domain",
+			"bar.com", "foo.com", false,
+		},
+		{
+			"non-wildcard domain - order doesn't matter",
+			"foo.com", "bar.com", false,
+		},
 
-		{"domain does not match subdomain",
-			"bar.foo.com", "foo.com", false},
-		{"domain does not match subdomain - order doesn't matter",
-			"foo.com", "bar.foo.com", false},
+		{
+			"domain does not match subdomain",
+			"bar.foo.com", "foo.com", false,
+		},
+		{
+			"domain does not match subdomain - order doesn't matter",
+			"foo.com", "bar.foo.com", false,
+		},
 
-		{"wildcard matches subdomains",
-			"*.com", "foo.com", true},
-		{"wildcard matches subdomains",
-			"*.com", "bar.com", true},
-		{"wildcard matches subdomains",
-			"*.foo.com", "bar.foo.com", true},
+		{
+			"wildcard matches subdomains",
+			"*.com", "foo.com", true,
+		},
+		{
+			"wildcard matches subdomains",
+			"*.com", "bar.com", true,
+		},
+		{
+			"wildcard matches subdomains",
+			"*.foo.com", "bar.foo.com", true,
+		},
 
 		{"wildcard matches anything", "*", "foo.com", true},
 		{"wildcard matches anything", "*", "*.com", true},
@@ -85,24 +101,40 @@ func TestNameSubsetOf(t *testing.T) {
 		{"first empty", "", "foo.com", false},
 		{"second empty", "foo.com", "", false},
 
-		{"non-wildcard domain",
-			"foo.com", "foo.com", true},
-		{"non-wildcard domain",
-			"bar.com", "foo.com", false},
-		{"non-wildcard domain - order doesn't matter",
-			"foo.com", "bar.com", false},
+		{
+			"non-wildcard domain",
+			"foo.com", "foo.com", true,
+		},
+		{
+			"non-wildcard domain",
+			"bar.com", "foo.com", false,
+		},
+		{
+			"non-wildcard domain - order doesn't matter",
+			"foo.com", "bar.com", false,
+		},
 
-		{"domain does not match subdomain",
-			"bar.foo.com", "foo.com", false},
-		{"domain does not match subdomain - order doesn't matter",
-			"foo.com", "bar.foo.com", false},
+		{
+			"domain does not match subdomain",
+			"bar.foo.com", "foo.com", false,
+		},
+		{
+			"domain does not match subdomain - order doesn't matter",
+			"foo.com", "bar.foo.com", false,
+		},
 
-		{"wildcard matches subdomains",
-			"foo.com", "*.com", true},
-		{"wildcard matches subdomains",
-			"bar.com", "*.com", true},
-		{"wildcard matches subdomains",
-			"bar.foo.com", "*.foo.com", true},
+		{
+			"wildcard matches subdomains",
+			"foo.com", "*.com", true,
+		},
+		{
+			"wildcard matches subdomains",
+			"bar.com", "*.com", true,
+		},
+		{
+			"wildcard matches subdomains",
+			"bar.foo.com", "*.foo.com", true,
+		},
 
 		{"wildcard matches anything", "foo.com", "*", true},
 		{"wildcard matches anything", "*.com", "*", true},

@@ -30,10 +30,8 @@ import (
 // callsPerCluster is used to ensure cross-cluster load balancing has a chance to work
 const callsPerCluster = 5
 
-var (
-	// Slow down retries to allow for delayed_close_timeout. Also require 3 successive successes.
-	retryOptions = []retry.Option{retry.Delay(1000 * time.Millisecond), retry.Converge(3)}
-)
+// Slow down retries to allow for delayed_close_timeout. Also require 3 successive successes.
+var retryOptions = []retry.Option{retry.Delay(1000 * time.Millisecond), retry.Converge(3)}
 
 type TrafficCall struct {
 	name string
@@ -56,58 +54,57 @@ type TrafficTestCase struct {
 	skip bool
 }
 
-func (c TrafficTestCase) Run(ctx framework.TestContext, namespace string) {
-	job := func(ctx framework.TestContext) {
+func (c TrafficTestCase) Run(t framework.TestContext, namespace string) {
+	job := func(t framework.TestContext) {
 		if c.skip {
-			ctx.SkipNow()
+			t.SkipNow()
 		}
 		if len(c.config) > 0 {
-			cfg := yml.MustApplyNamespace(ctx, c.config, namespace)
-			ctx.Config().ApplyYAMLOrFail(ctx, "", cfg)
-			ctx.Cleanup(func() {
-				_ = ctx.Config().DeleteYAML("", cfg)
-			})
+			cfg := yml.MustApplyNamespace(t, c.config, namespace)
+			t.Config().ApplyYAMLOrFail(t, "", cfg)
 		}
 
 		if c.call != nil && len(c.children) > 0 {
-			ctx.Fatal("TrafficTestCase: must not specify both call and children")
+			t.Fatal("TrafficTestCase: must not specify both call and children")
 		}
 
 		if c.call != nil {
 			// Call the function with a few custom retry options.
-			c.call(ctx, c.opts, retryOptions...)
+			c.call(t, c.opts, retryOptions...)
 		}
 
 		for _, child := range c.children {
-			ctx.NewSubTest(child.name).Run(func(ctx framework.TestContext) {
-				child.call(ctx, child.opts, retryOptions...)
+			t.NewSubTest(child.name).Run(func(t framework.TestContext) {
+				child.call(t, child.opts, retryOptions...)
 			})
 		}
 	}
 	if c.name != "" {
-		ctx.NewSubTest(c.name).Run(job)
+		t.NewSubTest(c.name).Run(job)
 	} else {
-		job(ctx)
+		job(t)
 	}
 }
 
-func RunAllTrafficTests(ctx framework.TestContext, apps *EchoDeployments) {
+func RunAllTrafficTests(t framework.TestContext, apps *EchoDeployments) {
 	cases := map[string][]TrafficTestCase{}
 	cases["virtualservice"] = virtualServiceCases(apps)
 	cases["sniffing"] = protocolSniffingCases(apps)
+	cases["selfcall"] = selfCallsCases(apps)
 	cases["serverfirst"] = serverFirstTestCases(apps)
 	cases["gateway"] = gatewayCases(apps)
 	cases["loop"] = trafficLoopCases(apps)
 	cases["tls-origination"] = tlsOriginationCases(apps)
 	cases["instanceip"] = instanceIPTests(apps)
 	cases["services"] = serviceCases(apps)
-	if !ctx.Settings().SkipVM {
+	if !t.Settings().SkipVM {
 		cases["vm"] = VMTestCases(apps.VM, apps)
 	}
+	cases["dns"] = DNSTestCases(apps)
 	for name, tts := range cases {
-		ctx.NewSubTest(name).Run(func(ctx framework.TestContext) {
+		t.NewSubTest(name).Run(func(t framework.TestContext) {
 			for _, tt := range tts {
-				tt.Run(ctx, apps.Namespace.Name())
+				tt.Run(t, apps.Namespace.Name())
 			}
 		})
 	}

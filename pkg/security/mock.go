@@ -26,7 +26,6 @@ import (
 	"istio.io/istio/pilot/pkg/util/sets"
 	"istio.io/istio/pkg/spiffe"
 	"istio.io/istio/security/pkg/pki/util"
-	"istio.io/istio/security/pkg/server/ca/authenticate"
 	"istio.io/pkg/log"
 )
 
@@ -82,7 +81,7 @@ func NewFakeAuthenticator(name string) *FakeAuthenticator {
 	}
 }
 
-func (f *FakeAuthenticator) Authenticate(ctx context.Context) (*authenticate.Caller, error) {
+func (f *FakeAuthenticator) Authenticate(ctx context.Context) (*Caller, error) {
 	f.mu.Lock()
 	at := f.AllowedToken
 	ac := f.AllowedCert
@@ -97,15 +96,15 @@ func (f *FakeAuthenticator) Authenticate(ctx context.Context) (*authenticate.Cal
 	log.WithLabels("name", f.Name, "cert", cert, "token", token).Infof("authentication complete")
 	if cert == nil {
 		f.Successes.Inc()
-		return &authenticate.Caller{
-			AuthSource: authenticate.AuthSourceClientCertificate,
+		return &Caller{
+			AuthSource: AuthSourceClientCertificate,
 			Identities: id,
 		}, nil
 	}
 	if token == nil {
 		f.Successes.Inc()
-		return &authenticate.Caller{
-			AuthSource: authenticate.AuthSourceIDToken,
+		return &Caller{
+			AuthSource: AuthSourceIDToken,
 			Identities: id,
 		}, nil
 	}
@@ -125,13 +124,13 @@ func (f *FakeAuthenticator) Set(token string, identity string) *FakeAuthenticato
 	return f
 }
 
-var _ authenticate.Authenticator = &FakeAuthenticator{}
+var _ Authenticator = &FakeAuthenticator{}
 
 func checkToken(ctx context.Context, expected string) error {
 	if expected == "" {
 		return fmt.Errorf("jwt authentication not allowed")
 	}
-	targetJWT, err := authenticate.ExtractBearerToken(ctx)
+	targetJWT, err := ExtractBearerToken(ctx)
 	if err != nil {
 		return fmt.Errorf("target JWT extraction error: %v", err)
 	}

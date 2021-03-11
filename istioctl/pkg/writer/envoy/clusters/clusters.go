@@ -159,7 +159,6 @@ func (c *ConfigWriter) PrintEndpoints(filter EndpointFilter) error {
 				break
 			}
 		}
-
 	}
 	out, err := json.MarshalIndent(filteredClusters, "", "    ")
 	if err != nil {

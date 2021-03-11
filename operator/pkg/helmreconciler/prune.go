@@ -186,7 +186,7 @@ func (h *HelmReconciler) GetPrunedResources(revision string, includeClusterResou
 	var usList []*unstructured.UnstructuredList
 	labels := make(map[string]string)
 	if revision != "" {
-		labels[label.IstioRev] = revision
+		labels[label.IoIstioRev.Name] = revision
 	}
 	if componentName != "" {
 		labels[IstioComponentLabelStr] = componentName
@@ -195,8 +195,6 @@ func (h *HelmReconciler) GetPrunedResources(revision string, includeClusterResou
 	gvkList := append(NamespacedResources, ClusterCPResources...)
 	if includeClusterResources {
 		gvkList = append(NamespacedResources, AllClusterResources...)
-	}
-	if includeClusterResources {
 		if ioplist := h.getIstioOperatorCR(); ioplist.Items != nil {
 			usList = append(usList, ioplist)
 		}
@@ -234,8 +232,10 @@ func (h *HelmReconciler) GetPrunedResources(revision string, includeClusterResou
 // And it is needed to remove the IstioOperator CRD.
 func (h *HelmReconciler) getIstioOperatorCR() *unstructured.UnstructuredList {
 	objects := &unstructured.UnstructuredList{}
-	objects.SetGroupVersionKind(schema.GroupVersionKind{Group: "install.istio.io",
-		Version: "v1alpha1", Kind: name.IstioOperatorStr})
+	objects.SetGroupVersionKind(schema.GroupVersionKind{
+		Group:   "install.istio.io",
+		Version: "v1alpha1", Kind: name.IstioOperatorStr,
+	})
 	if err := h.client.List(context.TODO(), objects); err != nil {
 		scope.Errorf("failed to list IstioOperator CR: %v", err)
 	}
@@ -251,7 +251,7 @@ func (h *HelmReconciler) DeleteControlPlaneByManifests(manifestMap name.Manifest
 	}
 	cpManifestMap := make(name.ManifestMap)
 	if revision != "" {
-		labels[label.IstioRev] = revision
+		labels[label.IoIstioRev.Name] = revision
 	}
 	if !includeClusterResources {
 		// only delete istiod resources if revision is empty and --purge flag is not true.

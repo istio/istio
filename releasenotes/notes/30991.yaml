@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: installation
+issue:
+  - 30991
+releaseNotes:
+  - |
+    **Fixed** a bug preventing `istioctl kube-inject` from working with revisions.

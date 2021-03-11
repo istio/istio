@@ -130,7 +130,7 @@ func TestGenKeyCertK8sCA(t *testing.T) {
 		client.PrependReactor("get", "certificatesigningrequests", defaultReactionFunc(csr))
 
 		wc, err := NewWebhookController(tc.gracePeriodRatio, tc.minGracePeriod,
-			client.CoreV1(), client.AdmissionregistrationV1beta1(), client.CertificatesV1beta1(),
+			client.CoreV1(), client.CertificatesV1beta1(),
 			tc.k8sCaCertFile, tc.secretNames, tc.dnsNames, tc.serviceNamespaces)
 		if err != nil {
 			t.Errorf("failed at creating webhook controller: %v", err)
@@ -243,7 +243,7 @@ func TestReloadCACert(t *testing.T) {
 	for _, tc := range testCases {
 		client := fake.NewSimpleClientset()
 		wc, err := NewWebhookController(tc.gracePeriodRatio, tc.minGracePeriod,
-			client.CoreV1(), client.AdmissionregistrationV1beta1(), client.CertificatesV1beta1(),
+			client.CoreV1(), client.CertificatesV1beta1(),
 			tc.k8sCaCertFile, tc.secretNames, tc.dnsNames, tc.serviceNamespaces)
 		if err != nil {
 			t.Errorf("failed at creating webhook controller: %v", err)
@@ -323,7 +323,7 @@ func TestSubmitCSR(t *testing.T) {
 		client.PrependReactor("get", "certificatesigningrequests", defaultReactionFunc(csr))
 
 		wc, err := NewWebhookController(tc.gracePeriodRatio, tc.minGracePeriod,
-			client.CoreV1(), client.AdmissionregistrationV1beta1(), client.CertificatesV1beta1(),
+			client.CoreV1(), client.CertificatesV1beta1(),
 			tc.k8sCaCertFile, tc.secretNames, tc.dnsNames, tc.serviceNamespaces)
 		if err != nil {
 			t.Errorf("failed at creating webhook controller: %v", err)
@@ -446,9 +446,8 @@ func TestReadSignedCertificate(t *testing.T) {
 		client.PrependReactor("get", "certificatesigningrequests", defaultReactionFunc(csr))
 
 		wc, err := NewWebhookController(tc.gracePeriodRatio, tc.minGracePeriod,
-			client.CoreV1(), client.AdmissionregistrationV1beta1(), client.CertificatesV1beta1(),
+			client.CoreV1(), client.CertificatesV1beta1(),
 			tc.k8sCaCertFile, tc.secretNames, tc.dnsNames, tc.serviceNamespaces)
-
 		if err != nil {
 			t.Errorf("failed at creating webhook controller: %v", err)
 			continue

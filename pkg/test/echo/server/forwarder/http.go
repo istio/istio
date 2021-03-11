@@ -23,6 +23,7 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/lucas-clemente/quic-go/http3"
 	"golang.org/x/net/http2"
 
 	"istio.io/istio/pkg/test/echo/common"
@@ -45,9 +46,19 @@ func (c *httpProtocol) setHost(r *http.Request, host string) {
 		httpTransport, ok := c.client.Transport.(*http.Transport)
 		if ok {
 			httpTransport.TLSClientConfig.ServerName = host
-		} else {
-			httpTransport := c.client.Transport.(*http2.Transport)
-			httpTransport.TLSClientConfig.ServerName = host
+			return
+		}
+
+		http2Transport, ok := c.client.Transport.(*http2.Transport)
+		if ok {
+			http2Transport.TLSClientConfig.ServerName = host
+			return
+		}
+
+		http3Transport, ok := c.client.Transport.(*http3.RoundTripper)
+		if ok {
+			http3Transport.TLSClientConfig.ServerName = host
+			return
 		}
 	}
 }

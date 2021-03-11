@@ -25,7 +25,7 @@ import (
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/echo/common/response"
 	"istio.io/istio/pkg/test/echo/proto"
-	"istio.io/istio/pkg/test/framework/resource"
+	"istio.io/istio/pkg/test/framework/components/cluster"
 )
 
 var (
@@ -38,11 +38,15 @@ var (
 	responseHeaderFieldRegex = regexp.MustCompile(string(response.ResponseHeader) + "=(.*)")
 	URLFieldRegex            = regexp.MustCompile(string(response.URLField) + "=(.*)")
 	ClusterFieldRegex        = regexp.MustCompile(string(response.ClusterField) + "=(.*)")
+	IstioVersionFieldRegex   = regexp.MustCompile(string(response.IstioVersionField) + "=(.*)")
 	IPFieldRegex             = regexp.MustCompile(string(response.IPField) + "=(.*)")
 )
 
 // ParsedResponse represents a response to a single echo request.
 type ParsedResponse struct {
+	// RequestURL is the requested URL. This differs from URL, which is the just the path.
+	// For example, RequestURL=http://foo/bar, URL=/bar
+	RequestURL string
 	// Body is the body of the response
 	Body string
 	// ID is a unique identifier of the resource in the response
@@ -61,6 +65,8 @@ type ParsedResponse struct {
 	Hostname string
 	// The cluster where the server is deployed.
 	Cluster string
+	// IstioVersion for the Istio sidecar.
+	IstioVersion string
 	// IP is the requester's ip address
 	IP string
 	// RawResponse gives a map of all values returned in the response (headers, etc)
@@ -79,16 +85,17 @@ func (r *ParsedResponse) Count(text string) int {
 
 func (r *ParsedResponse) String() string {
 	out := ""
-	out += fmt.Sprintf("Body:     %s\n", r.Body)
-	out += fmt.Sprintf("ID:       %s\n", r.ID)
-	out += fmt.Sprintf("URL:      %s\n", r.URL)
-	out += fmt.Sprintf("Version:  %s\n", r.Version)
-	out += fmt.Sprintf("Port:     %s\n", r.Port)
-	out += fmt.Sprintf("Code:     %s\n", r.Code)
-	out += fmt.Sprintf("Host:     %s\n", r.Host)
-	out += fmt.Sprintf("Hostname: %s\n", r.Hostname)
-	out += fmt.Sprintf("Cluster:  %s\n", r.Cluster)
-	out += fmt.Sprintf("IP:       %s\n", r.IP)
+	out += fmt.Sprintf("Body:         %s\n", r.Body)
+	out += fmt.Sprintf("ID:           %s\n", r.ID)
+	out += fmt.Sprintf("URL:          %s\n", r.URL)
+	out += fmt.Sprintf("Version:      %s\n", r.Version)
+	out += fmt.Sprintf("Port:         %s\n", r.Port)
+	out += fmt.Sprintf("Code:         %s\n", r.Code)
+	out += fmt.Sprintf("Host:         %s\n", r.Host)
+	out += fmt.Sprintf("Hostname:     %s\n", r.Hostname)
+	out += fmt.Sprintf("Cluster:      %s\n", r.Cluster)
+	out += fmt.Sprintf("IstioVersion: %s\n", r.IstioVersion)
+	out += fmt.Sprintf("IP:           %s\n", r.IP)
 
 	return out
 }
@@ -173,6 +180,25 @@ func (r ParsedResponses) CheckHostOrFail(t test.Failer, expected string) ParsedR
 	return r
 }
 
+// CheckMTLSForHTTP asserts that mutual TLS was used.
+// Note: this only is detectable for *successful* HTTP based traffic. Other types will always pass
+func (r ParsedResponses) CheckMTLSForHTTP() error {
+	return r.Check(func(i int, response *ParsedResponse) error {
+		if !strings.HasPrefix(response.RequestURL, "http://") &&
+			!strings.HasPrefix(response.RequestURL, "grpc://") &&
+			!strings.HasPrefix(response.RequestURL, "ws://") {
+			// Non-HTTP traffic. Fail open, we cannot check mTLS.
+			return nil
+		}
+		_, f1 := response.RawResponse["X-Forwarded-Client-Cert"]
+		_, f2 := response.RawResponse["x-forwarded-client-cert"] // grpc has different casing
+		if f1 || f2 {
+			return nil
+		}
+		return fmt.Errorf("response[%d] X-Forwarded-Client-Cert expected but not found: %v", i, response)
+	})
+}
+
 func (r ParsedResponses) CheckPort(expected int) error {
 	expectedStr := strconv.Itoa(expected)
 	return r.Check(func(i int, response *ParsedResponse) error {
@@ -202,7 +228,7 @@ func (r ParsedResponses) clusterDistribution() map[string]int {
 // CheckReachedClusters returns an error if there wasn't at least one response from each of the given clusters.
 // This can be used in combination with echo.Instances.Clusters(), for example:
 //     echoA[0].CallOrFail(t, ...).CheckReachedClusters(echoB.Clusters())
-func (r ParsedResponses) CheckReachedClusters(clusters resource.Clusters) error {
+func (r ParsedResponses) CheckReachedClusters(clusters cluster.Clusters) error {
 	hits := r.clusterDistribution()
 	exp := map[string]struct{}{}
 	for _, expCluster := range clusters {
@@ -222,7 +248,7 @@ func (r ParsedResponses) CheckReachedClusters(clusters resource.Clusters) error 
 // CheckEqualClusterTraffic checks that traffic was equally distributed across the given clusters, allowing some percent error.
 // For example, with 100 requests and 20 percent error, each cluster must given received 20±4 responses. Only the passed
 // in clusters will be validated.
-func (r ParsedResponses) CheckEqualClusterTraffic(clusters resource.Clusters, precisionPct int) error {
+func (r ParsedResponses) CheckEqualClusterTraffic(clusters cluster.Clusters, precisionPct int) error {
 	clusterHits := r.clusterDistribution()
 	expected := len(r) / len(clusters)
 	precision := int(float32(expected) * (float32(precisionPct) / 100))
@@ -314,10 +340,11 @@ func (r ParsedResponses) String() string {
 	return out
 }
 
-func ParseForwardedResponse(resp *proto.ForwardEchoResponse) ParsedResponses {
+func ParseForwardedResponse(req *proto.ForwardEchoRequest, resp *proto.ForwardEchoResponse) ParsedResponses {
 	responses := make([]*ParsedResponse, len(resp.Output))
 	for i, output := range resp.Output {
 		responses[i] = parseResponse(output)
+		responses[i].RequestURL = req.Url
 	}
 	return responses
 }
@@ -365,6 +392,11 @@ func parseResponse(output string) *ParsedResponse {
 	match = ClusterFieldRegex.FindStringSubmatch(output)
 	if match != nil {
 		out.Cluster = match[1]
+	}
+
+	match = IstioVersionFieldRegex.FindStringSubmatch(output)
+	if match != nil {
+		out.IstioVersion = match[1]
 	}
 
 	match = IPFieldRegex.FindStringSubmatch(output)

@@ -20,7 +20,7 @@ import (
 	"istio.io/istio/pkg/config/schema/gvk"
 )
 
-// configKindAffectedProxyTypes contains known config types which will affect certain node types.
+// configKindAffectedProxyTypes contains known config types which may affect certain node types.
 var configKindAffectedProxyTypes = map[config.GroupVersionKind][]model.NodeType{
 	gvk.Gateway: {model.Router},
 	gvk.Secret:  {model.Router},

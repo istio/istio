@@ -745,7 +745,6 @@ func getIstioDestinationRuleNameForSvc(cd *configdump.Wrapper, svc v1.Service, p
 
 // getIstioDestinationRulePathForSvc returns something like "/apis/networking/v1alpha3/namespaces/default/destination-rule/reviews"
 func getIstioDestinationRulePathForSvc(cd *configdump.Wrapper, svc v1.Service, port int32) (string, error) {
-
 	svcHost := extendFQDN(fmt.Sprintf("%s.%s", svc.ObjectMeta.Name, svc.ObjectMeta.Namespace))
 	filter := istio_envoy_configdump.ClusterFilter{
 		FQDN: host.Name(svcHost),
@@ -984,7 +983,7 @@ func getIngressIP(service v1.Service, pod v1.Pod) string {
 	}
 
 	// The scope of this function is to get the IP from Kubernetes, we do not
-	// ask Docker or Minikube for an IP.
+	// ask Docker or minikube for an IP.
 	// See https://istio.io/docs/tasks/traffic-management/ingress/ingress-control/#determining-the-ingress-ip-and-ports
 
 	return "unknown"

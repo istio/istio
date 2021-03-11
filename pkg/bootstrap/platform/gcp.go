@@ -44,9 +44,7 @@ const (
 	GCEInstanceCreatedBy = "gcp_gce_instance_created_by"
 )
 
-var (
-	gcpMetadataVar = env.RegisterStringVar("GCP_METADATA", "", "Pipe separted GCP metadata, schemed as PROJECT_ID|PROJECT_NUMBER|CLUSTER_NAME|CLUSTER_ZONE")
-)
+var gcpMetadataVar = env.RegisterStringVar("GCP_METADATA", "", "Pipe separted GCP metadata, schemed as PROJECT_ID|PROJECT_NUMBER|CLUSTER_NAME|CLUSTER_ZONE")
 
 var (
 	shouldFillMetadata = metadata.OnGCE
@@ -102,8 +100,10 @@ var (
 	}
 )
 
-type shouldFillFn func() bool
-type metadataFn func() (string, error)
+type (
+	shouldFillFn func() bool
+	metadataFn   func() (string, error)
+)
 
 type gcpEnv struct {
 	sync.Mutex

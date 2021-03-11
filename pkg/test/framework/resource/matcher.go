@@ -20,41 +20,57 @@ import (
 	"strings"
 )
 
+// testFilter is a regex matcher on a test. It is split by / following go subtest format
+type testFilter []*regexp.Regexp
+
 type Matcher struct {
-	filter []*regexp.Regexp
+	filters []testFilter
 }
 
-// Matcher reimplements the logic of Go's -test.run. The code is mostly directly copied from Go's
-// source.
-func NewMatcher(regex string) (*Matcher, error) {
-	if regex == "" {
-		return &Matcher{}, nil
-	}
-	filter := splitRegexp(regex)
-	for i, s := range filter {
-		filter[i] = rewrite(s)
-	}
-	rxs := []*regexp.Regexp{}
-	for _, f := range filter {
-		r, err := regexp.Compile(f)
-		if err != nil {
-			return nil, err
+// NewMatcher reimplements the logic of Go's -test.run. The code is mostly directly copied from Go's source.
+func NewMatcher(regexs []string) (*Matcher, error) {
+	filters := []testFilter{}
+	for _, regex := range regexs {
+		filter := splitRegexp(regex)
+		for i, s := range filter {
+			filter[i] = rewrite(s)
 		}
-		rxs = append(rxs, r)
+		rxs := []*regexp.Regexp{}
+		for _, f := range filter {
+			r, err := regexp.Compile(f)
+			if err != nil {
+				return nil, err
+			}
+			rxs = append(rxs, r)
+		}
+		filters = append(filters, rxs)
 	}
-	return &Matcher{filter: rxs}, nil
+	return &Matcher{filters: filters}, nil
 }
 
 func (m *Matcher) MatchTest(testName string) bool {
+	for _, f := range m.filters {
+		if matchSingle(f, testName) {
+			return true
+		}
+	}
+	return false
+}
+
+func matchSingle(filter testFilter, testName string) bool {
+	if len(filter) == 0 {
+		// No regex defined, we default to NOT matching. This ensures our default skips nothing
+		return false
+	}
 	elem := strings.Split(testName, "/")
-	if len(m.filter) > len(elem) {
+	if len(filter) > len(elem) {
 		return false
 	}
 	for i, s := range elem {
-		if i >= len(m.filter) {
+		if i >= len(filter) {
 			break
 		}
-		if !m.filter[i].MatchString(s) {
+		if !filter[i].MatchString(s) {
 			return false
 		}
 	}

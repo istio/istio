@@ -25,12 +25,10 @@ import (
 	"istio.io/istio/pkg/config/schema/collections"
 )
 
-var (
-	virtualServiceResource = collections.IstioNetworkingV1Alpha3Virtualservices.Resource()
-)
+var virtualServiceResource = collections.IstioNetworkingV1Alpha3Virtualservices.Resource()
 
 func TestSchema_ParseAndBuild(t *testing.T) {
-	var cases = []struct {
+	cases := []struct {
 		Input    string
 		Expected *Metadata
 	}{
@@ -132,7 +130,7 @@ transforms:
 }
 
 func TestSchema_ParseAndBuild_Error(t *testing.T) {
-	var cases = []struct {
+	cases := []struct {
 		name     string
 		input    string
 		expected string
@@ -309,7 +307,8 @@ func TestSchemaBasic(t *testing.T) {
 		Name:     "k8s/networking.istio.io/v1alpha3/virtualservices",
 		Resource: virtualServiceResource,
 	}.MustBuild())
-	b.MustAdd(collection.Builder{Name: "istio/networking.istio.io/v1alpha3/virtualservices",
+	b.MustAdd(collection.Builder{
+		Name:     "istio/networking.istio.io/v1alpha3/virtualservices",
 		Resource: virtualServiceResource,
 	}.MustBuild())
 	fixtures.ExpectEqual(t, s.AllCollections(), b.Build())
@@ -384,8 +383,7 @@ func TestBuild_UnknownTransform(t *testing.T) {
 	g.Expect(err).NotTo(BeNil())
 }
 
-type unknownXformSettings struct {
-}
+type unknownXformSettings struct{}
 
 var _ ast.TransformSettings = &unknownXformSettings{}
 

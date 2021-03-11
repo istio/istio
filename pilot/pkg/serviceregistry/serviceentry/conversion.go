@@ -17,6 +17,7 @@ package serviceentry
 import (
 	"net"
 	"strings"
+	"time"
 
 	"istio.io/api/label"
 	networking "istio.io/api/networking/v1alpha3"
@@ -31,14 +32,17 @@ import (
 	"istio.io/istio/pkg/spiffe"
 )
 
-// TODO: rename 'external' to service_entries or other specific name, the term 'external' is too broad
-
 func convertPort(port *networking.Port) *model.Port {
 	return &model.Port{
 		Name:     port.Name,
 		Port:     int(port.Number),
 		Protocol: protocol.Parse(port.Protocol),
 	}
+}
+
+type HostAddress struct {
+	host    string
+	address string
 }
 
 // ServiceToServiceEntry converts from internal Service representation to ServiceEntry
@@ -167,71 +171,55 @@ func convertServices(cfg config.Config) []*model.Service {
 	if serviceEntry.WorkloadSelector != nil {
 		labelSelectors = serviceEntry.WorkloadSelector.Labels
 	}
+	hostAddresses := []*HostAddress{}
 	for _, hostname := range serviceEntry.Hosts {
 		if len(serviceEntry.Addresses) > 0 {
 			for _, address := range serviceEntry.Addresses {
-				if ip, network, cidrErr := net.ParseCIDR(address); cidrErr == nil {
+				// Check if address is an IP first because that is the most common case.
+				if net.ParseIP(address) != nil {
+					hostAddresses = append(hostAddresses, &HostAddress{hostname, address})
+				} else if ip, network, cidrErr := net.ParseCIDR(address); cidrErr == nil {
 					newAddress := address
 					ones, zeroes := network.Mask.Size()
 					if ones == zeroes {
 						// /32 mask. Remove the /32 and make it a normal IP address
 						newAddress = ip.String()
 					}
-					out = append(out, &model.Service{
-						CreationTime: creationTime,
-						MeshExternal: serviceEntry.Location == networking.ServiceEntry_MESH_EXTERNAL,
-						Hostname:     host.Name(hostname),
-						Address:      newAddress,
-						Ports:        svcPorts,
-						Resolution:   resolution,
-						Attributes: model.ServiceAttributes{
-							ServiceRegistry: string(serviceregistry.External),
-							Name:            hostname,
-							Namespace:       cfg.Namespace,
-							ExportTo:        exportTo,
-							LabelSelectors:  labelSelectors,
-						},
-						ServiceAccounts: serviceEntry.SubjectAltNames,
-					})
-				} else if net.ParseIP(address) != nil {
-					out = append(out, &model.Service{
-						CreationTime: creationTime,
-						MeshExternal: serviceEntry.Location == networking.ServiceEntry_MESH_EXTERNAL,
-						Hostname:     host.Name(hostname),
-						Address:      address,
-						Ports:        svcPorts,
-						Resolution:   resolution,
-						Attributes: model.ServiceAttributes{
-							ServiceRegistry: string(serviceregistry.External),
-							Name:            hostname,
-							Namespace:       cfg.Namespace,
-							ExportTo:        exportTo,
-							LabelSelectors:  labelSelectors,
-						},
-						ServiceAccounts: serviceEntry.SubjectAltNames,
-					})
+					hostAddresses = append(hostAddresses, &HostAddress{hostname, newAddress})
 				}
 			}
 		} else {
-			out = append(out, &model.Service{
-				CreationTime: creationTime,
-				MeshExternal: serviceEntry.Location == networking.ServiceEntry_MESH_EXTERNAL,
-				Hostname:     host.Name(hostname),
-				Address:      constants.UnspecifiedIP,
-				Ports:        svcPorts,
-				Resolution:   resolution,
-				Attributes: model.ServiceAttributes{
-					ServiceRegistry: string(serviceregistry.External),
-					Name:            hostname,
-					Namespace:       cfg.Namespace,
-					ExportTo:        exportTo,
-					LabelSelectors:  labelSelectors,
-				},
-				ServiceAccounts: serviceEntry.SubjectAltNames,
-			})
+			hostAddresses = append(hostAddresses, &HostAddress{hostname, constants.UnspecifiedIP})
 		}
 	}
 
+	out = append(out, buildServices(hostAddresses, cfg.Namespace, svcPorts, serviceEntry.Location, resolution,
+		exportTo, labelSelectors, serviceEntry.SubjectAltNames, creationTime)...)
+	return out
+}
+
+func buildServices(hostAddresses []*HostAddress, namespace string, ports model.PortList, location networking.ServiceEntry_Location,
+	resolution model.Resolution, exportTo map[visibility.Instance]bool, selectors map[string]string, saccounts []string,
+	ctime time.Time) []*model.Service {
+	out := make([]*model.Service, 0, len(hostAddresses))
+	for _, ha := range hostAddresses {
+		out = append(out, &model.Service{
+			CreationTime: ctime,
+			MeshExternal: location == networking.ServiceEntry_MESH_EXTERNAL,
+			Hostname:     host.Name(ha.host),
+			Address:      ha.address,
+			Ports:        ports,
+			Resolution:   resolution,
+			Attributes: model.ServiceAttributes{
+				ServiceRegistry: string(serviceregistry.External),
+				Name:            ha.host,
+				Namespace:       namespace,
+				ExportTo:        exportTo,
+				LabelSelectors:  selectors,
+			},
+			ServiceAccounts: saccounts,
+		})
+	}
 	return out
 }
 
@@ -339,7 +327,7 @@ func getTLSModeFromWorkloadEntry(wle *networking.WorkloadEntry) string {
 	// * Use security.istio.io/tlsMode if its present
 	// * If not, set TLS mode if ServiceAccount is specified
 	tlsMode := model.DisabledTLSModeLabel
-	if val, exists := wle.Labels[label.TLSMode]; exists {
+	if val, exists := wle.Labels[label.SecurityTlsMode.Name]; exists {
 		tlsMode = val
 	} else if wle.ServiceAccount != "" {
 		tlsMode = model.IstioMutualTLSModeLabel

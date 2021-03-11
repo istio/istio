@@ -1,0 +1,366 @@
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: Gateway
+metadata:
+  name: gateway-01-test-01
+  namespace: istio-system
+spec:
+  selector:
+    istio: ingressgateway
+  servers:
+  - port:
+      number: 443
+      name: https
+      protocol: HTTPS
+    tls:
+      mode: SIMPLE
+      credentialName: "test-01-wildcard-cert" # validation error since have same certificate with gateway-02-test-01
+    hosts:
+    - "01.test-01.com"
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: Gateway
+metadata:
+  name: gateway-02-test-01
+  namespace: istio-system
+spec:
+  selector:
+    istio: ingressgateway
+  servers:
+  - port:
+      number: 443
+      name: https
+      protocol: HTTPS
+    tls:
+      mode: SIMPLE
+      credentialName: "test-01-wildcard-cert" # validation error since have same certificate with gateway-01-test-01
+    hosts:
+    - "02.test-01.com"
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: Gateway
+metadata:
+  name: gateway-01-test-02
+  namespace: istio-system
+spec:
+  selector:
+    istio: ingressgateway
+  servers:
+  - port:
+      number: 443
+      name: https
+      protocol: HTTPS
+    tls:
+      mode: SIMPLE
+      credentialName: "test-02-wildcard-cert" # validation error since have same certificate with gateway-01-test-02
+    hosts:
+    - "01.test-02.com"
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: Gateway
+metadata:
+  name: gateway-02-test-02
+  namespace: istio-system
+spec:
+  selector:
+    istio: ingressgateway
+    type: internal
+  servers:
+  - port:
+      number: 443
+      name: https
+      protocol: HTTPS
+    tls:
+      mode: SIMPLE
+      credentialName: "test-02-wildcard-cert" # no validation error, because this gateway selector is not subset of other gateway selector
+    hosts:
+    - "02.test-02.com"
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: Gateway
+metadata:
+  name: gateway-01-test-03
+  namespace: default
+spec:
+  selector:
+    istio: ingressgateway
+  servers:
+  - port:
+      number: 443
+      name: https
+      protocol: HTTPS
+    tls:
+      mode: SIMPLE
+      credentialName: "test-03-wildcard-cert"  # validation error, since have same certificate with gateway-02-test-03
+    hosts:
+    - "01.test-03.com"
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: Gateway
+metadata:
+  name: gateway-02-test-03
+  namespace: istio-system
+spec:
+  selector:
+    istio: ingressgateway
+    type: internal
+  servers:
+  - port:
+      number: 443
+      name: https
+      protocol: HTTPS
+    tls:
+      mode: SIMPLE
+      credentialName: "test-03-wildcard-cert" # no validation error, because this gateway selector is not subset of other gateway selector
+    hosts:
+    - "02.test-03.com"
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: Gateway
+metadata:
+  name: gateway-01-test-04
+  namespace: istio-system
+spec:
+  selector:
+    istio: ingressgateway
+  servers:
+  - port:
+      number: 443
+      name: https
+      protocol: HTTPS
+    tls:
+      mode: SIMPLE
+      credentialName: "01-test-04-wildcard-cert" # no validation error
+    hosts:
+    - "01.test-04.com"
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: Gateway
+metadata:
+  name: gateway-02-test-04
+  namespace: istio-system
+spec:
+  selector:
+    istio: ingressgateway
+  servers:
+  - port:
+      number: 443
+      name: https
+      protocol: HTTPS
+    tls:
+      mode: SIMPLE
+      credentialName: "02-test-04-wildcard-cert" # no validation error
+    hosts:
+    - "02.test-04.com"
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: Gateway
+metadata:
+  name: gateway-01-test-05
+  namespace: istio-system
+spec:
+  selector:
+    istio: ingressgateway
+  servers:
+  - port:
+      number: 443
+      name: https
+      protocol: HTTPS
+    tls:
+      mode: SIMPLE
+      credentialName: "01-test-05-wildcard-cert" # no validation error
+    hosts:
+    - "01.test-05.com"
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: Gateway
+metadata:
+  name: gateway-02-test-05
+  namespace: istio-system
+spec:
+  selector:
+    istio: ingressgateway
+    type: internal
+  servers:
+  - port:
+      number: 443
+      name: https
+      protocol: HTTPS
+    tls:
+      mode: SIMPLE
+      credentialName: "02-test-05-wildcard-cert" # no validation error
+    hosts:
+    - "02.test-05.com"
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: Gateway
+metadata:
+  name: gateway-01-test-06
+  namespace: default
+spec:
+  selector:
+    istio: ingressgateway
+  servers:
+  - port:
+      number: 443
+      name: https
+      protocol: HTTPS
+    tls:
+      mode: SIMPLE
+      credentialName: "01-test-06-wildcard-cert" # no validation error
+    hosts:
+    - "01.test-06.com"
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: Gateway
+metadata:
+  name: gateway-02-test-06
+  namespace: istio-system
+spec:
+  selector:
+    istio: ingressgateway
+  servers:
+  - port:
+      number: 443
+      name: https
+      protocol: HTTPS
+    tls:
+      mode: SIMPLE
+      credentialName: "02-test-06-wildcard-cert" # no validation error
+    hosts:
+    - "02.test-06.com"
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: Gateway
+metadata:
+  name: gateway-03-test-06
+  namespace: default
+spec:
+  selector:
+    istio: ingressgateway
+  servers:
+  - port:
+      number: 80
+      name: http
+      protocol: HTTP
+    hosts:
+    - "03.test-06.com" # no validation error
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: Gateway
+metadata:
+  name: gateway-04-test-06
+  namespace: default
+spec:
+  selector:
+    istio: ingressgateway
+  servers:
+  - port:
+      number: 80
+      name: http
+      protocol: HTTP
+    hosts:
+    - "04.test-06.com" # no validation error
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  labels:
+    type: internal
+    istio: ingressgateway
+  name: internal-ingressgateway
+  namespace: istio-system
+spec:
+  containers:
+    - args:
+      name: istio-proxy
+---
+apiVersion: v1
+data:
+  cert: aHVzaCBodXNoIGh1c2gK
+  key: c2VjcmV0IHNlY3JldAo=
+kind: Secret
+metadata:
+  name: test-01-wildcard-cert
+  namespace: istio-system
+type: Opaque
+---
+apiVersion: v1
+data:
+  cert: aHVzaCBodXNoIGh1c2gK
+  key: c2VjcmV0IHNlY3JldAo=
+kind: Secret
+metadata:
+  name: test-02-wildcard-cert
+  namespace: istio-system
+type: Opaque
+---
+apiVersion: v1
+data:
+  cert: aHVzaCBodXNoIGh1c2gK
+  key: c2VjcmV0IHNlY3JldAo=
+kind: Secret
+metadata:
+  name: test-03-wildcard-cert
+  namespace: istio-system
+type: Opaque
+---
+apiVersion: v1
+data:
+  cert: aHVzaCBodXNoIGh1c2gK
+  key: c2VjcmV0IHNlY3JldAo=
+kind: Secret
+metadata:
+  name: 01-test-04-wildcard-cert
+  namespace: istio-system
+type: Opaque
+---
+apiVersion: v1
+data:
+  cert: aHVzaCBodXNoIGh1c2gK
+  key: c2VjcmV0IHNlY3JldAo=
+kind: Secret
+metadata:
+  name: 02-test-04-wildcard-cert
+  namespace: istio-system
+type: Opaque
+---
+apiVersion: v1
+data:
+  cert: aHVzaCBodXNoIGh1c2gK
+  key: c2VjcmV0IHNlY3JldAo=
+kind: Secret
+metadata:
+  name: 01-test-05-wildcard-cert
+  namespace: istio-system
+type: Opaque
+---
+apiVersion: v1
+data:
+  cert: aHVzaCBodXNoIGh1c2gK
+  key: c2VjcmV0IHNlY3JldAo=
+kind: Secret
+metadata:
+  name: 02-test-05-wildcard-cert
+  namespace: istio-system
+type: Opaque
+---
+apiVersion: v1
+data:
+  cert: aHVzaCBodXNoIGh1c2gK
+  key: c2VjcmV0IHNlY3JldAo=
+kind: Secret
+metadata:
+  name: 01-test-06-wildcard-cert
+  namespace: istio-system
+type: Opaque
+---
+apiVersion: v1
+data:
+  cert: aHVzaCBodXNoIGh1c2gK
+  key: c2VjcmV0IHNlY3JldAo=
+kind: Secret
+metadata:
+  name: 02-test-06-wildcard-cert
+  namespace: istio-system
+type: Opaque

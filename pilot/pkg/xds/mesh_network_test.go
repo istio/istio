@@ -15,6 +15,7 @@
 package xds
 
 import (
+	"context"
 	"fmt"
 	"strings"
 	"testing"
@@ -36,7 +37,70 @@ import (
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/config/schema/collections"
+	"istio.io/istio/pkg/test/util/retry"
 )
+
+func TestNetworkGatewayUpdates(t *testing.T) {
+	pod := &workload{
+		kind: Pod,
+		name: "app", namespace: "pod",
+		ip: "10.10.10.10", port: 8080,
+		metaNetwork: "network-1",
+		labels:      map[string]string{label.TopologyNetwork.Name: "network-1"},
+	}
+	vm := &workload{
+		kind: VirtualMachine,
+		name: "vm", namespace: "default",
+		ip: "10.10.10.30", port: 9090,
+		metaNetwork: "vm",
+	}
+	workloads := []*workload{pod, vm}
+
+	kubeObjects := []runtime.Object{}
+	var configObjects []config.Config
+	for _, w := range workloads {
+		_, objs := w.kubeObjects()
+		kubeObjects = append(kubeObjects, objs...)
+		configObjects = append(configObjects, w.configs()...)
+	}
+	s := NewFakeDiscoveryServer(t, FakeOptions{
+		KubernetesObjects: kubeObjects,
+		Configs:           configObjects,
+	})
+	for _, w := range workloads {
+		w.setupProxy(s)
+	}
+
+	t.Run("no gateway", func(t *testing.T) {
+		vm.Expect(pod, "10.10.10.10:8080")
+		vm.Test(t, s)
+	})
+	t.Run("gateway added", func(t *testing.T) {
+		_, err := s.KubeClient().CoreV1().Services("istio-system").Create(context.TODO(), &corev1.Service{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "istio-ingressgateway",
+				Namespace: "istio-system",
+				Labels: map[string]string{
+					label.TopologyNetwork.Name: "network-1",
+				},
+			},
+			Spec: corev1.ServiceSpec{Type: corev1.ServiceTypeLoadBalancer},
+			Status: corev1.ServiceStatus{
+				LoadBalancer: corev1.LoadBalancerStatus{Ingress: []corev1.LoadBalancerIngress{{IP: "3.3.3.3"}}},
+			},
+		}, metav1.CreateOptions{})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err := retry.Until(func() bool {
+			return len(s.PushContext().NetworkGatewaysByNetwork("network-1")) == 1
+		}); err != nil {
+			t.Fatal("push context did not reinitialize with gateways; xds event may not have been triggred")
+		}
+		vm.Expect(pod, "3.3.3.3:15443")
+		vm.Test(t, s)
+	})
+}
 
 func TestMeshNetworking(t *testing.T) {
 	ingressServiceScenarios := map[corev1.ServiceType]map[string][]runtime.Object{
@@ -58,7 +122,7 @@ func TestMeshNetworking(t *testing.T) {
 					Name:      "istio-ingressgateway",
 					Namespace: "istio-system",
 					Labels: map[string]string{
-						label.IstioNetwork: "network-2",
+						label.TopologyNetwork.Name: "network-2",
 					},
 				},
 				Spec: corev1.ServiceSpec{Type: corev1.ServiceTypeLoadBalancer},
@@ -85,7 +149,7 @@ func TestMeshNetworking(t *testing.T) {
 					Name:      "istio-ingressgateway",
 					Namespace: "istio-system",
 					Labels: map[string]string{
-						label.IstioNetwork: "network-2",
+						label.TopologyNetwork.Name: "network-2",
 					},
 				},
 				Spec: corev1.ServiceSpec{
@@ -114,7 +178,7 @@ func TestMeshNetworking(t *testing.T) {
 						Namespace:   "istio-system",
 						Annotations: map[string]string{kube.NodeSelectorAnnotation: "{}"},
 						Labels: map[string]string{
-							label.IstioNetwork: "network-2",
+							label.TopologyNetwork.Name: "network-2",
 							// set the label here to test it = expectation doesn't change since we map back to that via NodePort
 							controller.IstioGatewayPortLabel: "443",
 						},
@@ -167,7 +231,7 @@ func TestMeshNetworking(t *testing.T) {
 						name: "labeled", namespace: "pod",
 						ip: "10.10.10.20", port: 9090,
 						metaNetwork: "network-2", clusterID: "cluster-2",
-						labels: map[string]string{label.IstioNetwork: "network-2"},
+						labels: map[string]string{label.TopologyNetwork.Name: "network-2"},
 					}
 					vm := &workload{
 						kind: VirtualMachine,
@@ -214,7 +278,6 @@ func TestMeshNetworking(t *testing.T) {
 						meshNetworkConfig: networkConfig,
 						kubeObjects:       ingressObjects,
 					})
-
 				})
 			}
 		})
@@ -248,19 +311,8 @@ func runMeshNetworkingTest(t *testing.T, tt meshNetworkingTest) {
 	for _, w := range tt.workloads {
 		w.setupProxy(s)
 	}
-
 	for _, w := range tt.workloads {
-		if w.expectations == nil {
-			continue
-		}
-		eps := xdstest.ExtractLoadAssignments(s.Endpoints(w.proxy))
-		t.Run(fmt.Sprintf("from %s", w.proxy.ID), func(t *testing.T) {
-			for c, ips := range w.expectations {
-				t.Run(c, func(t *testing.T) {
-					assertListEqual(t, eps[c], ips)
-				})
-			}
-		})
+		w.Test(t, s)
 	}
 }
 
@@ -297,6 +349,21 @@ func (w *workload) Expect(target *workload, ips ...string) {
 		w.expectations = map[string][]string{}
 	}
 	w.expectations[target.clusterName()] = ips
+}
+
+func (w *workload) Test(t *testing.T, s *FakeDiscoveryServer) {
+	if w.expectations == nil {
+		return
+	}
+
+	t.Run(fmt.Sprintf("from %s", w.proxy.ID), func(t *testing.T) {
+		eps := xdstest.ExtractLoadAssignments(s.Endpoints(w.proxy))
+		for c, ips := range w.expectations {
+			t.Run(c, func(t *testing.T) {
+				assertListEqual(t, eps[c], ips)
+			})
+		}
+	})
 }
 
 func (w *workload) clusterName() string {
@@ -340,32 +407,29 @@ func (w *workload) configs() []config.Config {
 	return nil
 }
 
-func (w *workload) setupProxy(s *FakeDiscoveryServer) *model.Proxy {
-	if w.proxy == nil {
-		p := &model.Proxy{
-			ID: strings.Join([]string{w.name, w.namespace}, "."),
-			Metadata: &model.NodeMetadata{
-				Network:              w.metaNetwork,
-				Labels:               w.labels,
-				RequestedNetworkView: w.networkView,
-			},
-		}
-		if w.kind == Pod {
-			p.Metadata.ClusterID = w.clusterID
-		} else {
-			p.Metadata.InterceptionMode = "NONE"
-		}
-		w.proxy = s.SetupProxy(p)
+func (w *workload) setupProxy(s *FakeDiscoveryServer) {
+	p := &model.Proxy{
+		ID: strings.Join([]string{w.name, w.namespace}, "."),
+		Metadata: &model.NodeMetadata{
+			Network:              w.metaNetwork,
+			Labels:               w.labels,
+			RequestedNetworkView: w.networkView,
+		},
 	}
-	return w.proxy
+	if w.kind == Pod {
+		p.Metadata.ClusterID = w.clusterID
+	} else {
+		p.Metadata.InterceptionMode = "NONE"
+	}
+	w.proxy = s.SetupProxy(p)
 }
 
 func (w *workload) buildPodService() []runtime.Object {
 	baseMeta := metav1.ObjectMeta{
 		Name: w.name,
 		Labels: labels.Instance{
-			"app":         w.name,
-			label.TLSMode: model.IstioMutualTLSModeLabel,
+			"app":                      w.name,
+			label.SecurityTlsMode.Name: model.IstioMutualTLSModeLabel,
 		},
 		Namespace: w.namespace,
 	}

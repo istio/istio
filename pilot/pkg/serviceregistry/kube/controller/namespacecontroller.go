@@ -39,9 +39,7 @@ const (
 	CACertNamespaceConfigMap = "istio-ca-root-cert"
 )
 
-var (
-	configMapLabel = map[string]string{"istio.io/config": "true"}
-)
+var configMapLabel = map[string]string{"istio.io/config": "true"}
 
 // NamespaceController manages reconciles a configmap in each namespace with a desired set of data.
 type NamespaceController struct {

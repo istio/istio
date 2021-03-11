@@ -40,10 +40,8 @@ const (
 	tokenNamespace      = "default"
 )
 
-var (
-	// Audience to create tokens for
-	tokenAudiences = []string{"istio-ca"}
-)
+// Audience to create tokens for
+var tokenAudiences = []string{"istio-ca"}
 
 // GetXdsResponse opens a gRPC connection to opts.xds and waits for a single response
 func GetXdsResponse(dr *xdsapi.DiscoveryRequest, opts *clioptions.CentralControlPlaneOptions, grpcOpts []grpc.DialOption) (*xdsapi.DiscoveryResponse, error) {

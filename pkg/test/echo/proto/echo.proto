@@ -46,6 +46,8 @@ message ForwardEchoRequest {
   string method = 9;
   // If true, requests will be sent using h2c prior knowledge
   bool http2 = 7;
+  // If true, requests will be sent using http3
+  bool http3 = 15;
   // If true, requests will not be sent until magic string is received
   bool serverFirst = 8;
   // If true, 301 redirects will be followed

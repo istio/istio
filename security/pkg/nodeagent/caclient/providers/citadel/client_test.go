@@ -42,7 +42,6 @@ import (
 	"istio.io/istio/security/pkg/monitoring"
 	"istio.io/istio/security/pkg/nodeagent/util"
 	ca2 "istio.io/istio/security/pkg/server/ca"
-	"istio.io/istio/security/pkg/server/ca/authenticate"
 	"istio.io/istio/tests/util/leak"
 )
 
@@ -65,7 +64,7 @@ type mockCAServer struct {
 
 func (ca *mockCAServer) CreateCertificate(ctx context.Context, in *pb.IstioCertificateRequest) (*pb.IstioCertificateResponse, error) {
 	if ca.Authenticator != nil {
-		caller := ca2.Authenticate(ctx, []authenticate.Authenticator{ca.Authenticator})
+		caller := ca2.Authenticate(ctx, []security.Authenticator{ca.Authenticator})
 		if caller == nil {
 			return nil, status.Error(codes.Unauthenticated, "request authenticate failure")
 		}
@@ -95,6 +94,7 @@ func tlsOptions(t *testing.T) grpc.ServerOption {
 		ClientCAs:    peerCertVerifier.GetGeneralCertPool(),
 	}))
 }
+
 func serve(t *testing.T, ca mockCAServer, opts ...grpc.ServerOption) string {
 	// create a local grpc server
 	s := grpc.NewServer(opts...)

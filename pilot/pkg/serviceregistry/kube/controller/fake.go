@@ -19,7 +19,9 @@ import (
 
 	"k8s.io/client-go/tools/cache"
 
+	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pilot/pkg/serviceregistry/kube/controller/filter"
 	"istio.io/istio/pkg/config/mesh"
 	kubelib "istio.io/istio/pkg/kube"
 )
@@ -125,14 +127,16 @@ func (fx *FakeXdsUpdater) Clear() {
 }
 
 type FakeControllerOptions struct {
-	Client            kubelib.Client
-	NetworksWatcher   mesh.NetworksWatcher
-	ServiceHandler    func(service *model.Service, event model.Event)
-	Mode              EndpointMode
-	ClusterID         string
-	WatchedNamespaces string
-	DomainSuffix      string
-	XDSUpdater        model.XDSUpdater
+	Client                    kubelib.Client
+	NetworksWatcher           mesh.NetworksWatcher
+	MeshWatcher               mesh.Watcher
+	ServiceHandler            func(service *model.Service, event model.Event)
+	Mode                      EndpointMode
+	ClusterID                 string
+	WatchedNamespaces         string
+	DomainSuffix              string
+	XDSUpdater                model.XDSUpdater
+	DiscoveryNamespacesFilter filter.DiscoveryNamespacesFilter
 
 	// when calling from NewFakeDiscoveryServer, we wait for the aggregate cache to sync. Waiting here can cause deadlock.
 	SkipCacheSyncWait bool
@@ -156,16 +160,21 @@ func NewFakeControllerWithOptions(opts FakeControllerOptions) (*FakeController, 
 	if opts.Client == nil {
 		opts.Client = kubelib.NewFakeClient()
 	}
+	if opts.MeshWatcher == nil {
+		opts.MeshWatcher = mesh.NewFixedWatcher(&meshconfig.MeshConfig{})
+	}
 
 	options := Options{
-		WatchedNamespaces: opts.WatchedNamespaces, // default is all namespaces
-		DomainSuffix:      domainSuffix,
-		XDSUpdater:        xdsUpdater,
-		Metrics:           &model.Environment{},
-		NetworksWatcher:   opts.NetworksWatcher,
-		EndpointMode:      opts.Mode,
-		ClusterID:         opts.ClusterID,
-		SyncInterval:      time.Microsecond,
+		WatchedNamespaces:         opts.WatchedNamespaces, // default is all namespaces
+		DomainSuffix:              domainSuffix,
+		XDSUpdater:                xdsUpdater,
+		Metrics:                   &model.Environment{},
+		NetworksWatcher:           opts.NetworksWatcher,
+		MeshWatcher:               opts.MeshWatcher,
+		EndpointMode:              opts.Mode,
+		ClusterID:                 opts.ClusterID,
+		SyncInterval:              time.Microsecond,
+		DiscoveryNamespacesFilter: opts.DiscoveryNamespacesFilter,
 	}
 	c := NewController(opts.Client, options)
 	if opts.ServiceHandler != nil {

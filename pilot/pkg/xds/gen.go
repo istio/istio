@@ -40,9 +40,7 @@ type IstioControlPlaneInstance struct {
 	Info istioversion.BuildInfo
 }
 
-var (
-	controlPlane *corev3.ControlPlane
-)
+var controlPlane *corev3.ControlPlane
 
 // ControlPlane identifies the instance and Istio version.
 func ControlPlane() *corev3.ControlPlane {
@@ -128,11 +126,11 @@ func (s *DiscoveryServer) pushXds(con *Connection, push *model.PushContext,
 	if _, f := SkipLogTypes[w.TypeUrl]; !f {
 		if adsLog.DebugEnabled() {
 			// Add additional information to logs when debug mode enabled
-			adsLog.Infof("%s: PUSH for node:%s resources:%d size:%s nonce:%v version:%v",
-				v3.GetShortType(w.TypeUrl), con.proxy.ID, len(res), util.ByteCount(ResourceSize(res)), resp.Nonce, resp.VersionInfo)
+			adsLog.Infof("%s: PUSH%s for node:%s resources:%d size:%s nonce:%v version:%v",
+				v3.GetShortType(w.TypeUrl), req.PushReason(), con.proxy.ID, len(res), util.ByteCount(ResourceSize(res)), resp.Nonce, resp.VersionInfo)
 		} else {
-			adsLog.Infof("%s: PUSH for node:%s resources:%d size:%s",
-				v3.GetShortType(w.TypeUrl), con.proxy.ID, len(res), util.ByteCount(ResourceSize(res)))
+			adsLog.Infof("%s: PUSH%s for node:%s resources:%d size:%s",
+				v3.GetShortType(w.TypeUrl), req.PushReason(), con.proxy.ID, len(res), util.ByteCount(ResourceSize(res)))
 		}
 	}
 	return nil

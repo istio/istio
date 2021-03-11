@@ -84,7 +84,7 @@ func TestScopedFqdn_GetScopeAndFqdn(t *testing.T) {
 }
 
 func TestScopedFqdn_InScopeOf(t *testing.T) {
-	var tests = []struct {
+	tests := []struct {
 		ScFqdn    ScopedFqdn
 		Namespace string
 		Want      bool

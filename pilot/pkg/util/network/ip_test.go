@@ -43,7 +43,7 @@ func determineLocalHostIPString(t *testing.T) string {
 }
 
 func MockLookupIPAddr(_ context.Context, _ string) ([]net.IPAddr, error) {
-	var ret = []net.IPAddr{
+	ret := []net.IPAddr{
 		{IP: net.ParseIP("2001:db8::68")},
 		{IP: net.IPv4(1, 2, 3, 4)},
 		{IP: net.IPv4(1, 2, 3, 5)},
@@ -52,15 +52,16 @@ func MockLookupIPAddr(_ context.Context, _ string) ([]net.IPAddr, error) {
 }
 
 func MockLookupIPAddrIPv6(_ context.Context, _ string) ([]net.IPAddr, error) {
-	var ret = []net.IPAddr{
+	ret := []net.IPAddr{
 		{IP: net.ParseIP("2001:db8::68")},
 	}
 	return ret, nil
 }
+
 func TestResolveAddr(t *testing.T) {
 	localIP := determineLocalHostIPString(t)
 
-	var testCases = []struct {
+	testCases := []struct {
 		name     string
 		input    string
 		expected string

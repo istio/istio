@@ -38,17 +38,16 @@ func TestSimpleTlsOrigination(t *testing.T) {
 	framework.NewTest(t).
 		Features("security.egress.tls.sds").
 		Run(func(ctx framework.TestContext) {
-
 			var (
 				credName        = "tls-credential-cacert"
 				fakeCredName    = "fake-tls-credential-cacert"
 				credNameMissing = "tls-credential-not-created-cacert"
 			)
 
-			var credentialA = sdstlsutil.TLSCredential{
+			credentialA := sdstlsutil.TLSCredential{
 				CaCert: sdstlsutil.MustReadCert(t, "root-cert.pem"),
 			}
-			var CredentialB = sdstlsutil.TLSCredential{
+			CredentialB := sdstlsutil.TLSCredential{
 				CaCert: sdstlsutil.FakeRoot,
 			}
 			// Add kubernetes secret to provision key/cert for gateway.
@@ -94,17 +93,16 @@ func TestSimpleTlsOrigination(t *testing.T) {
 			}
 
 			for name, tc := range testCases {
-				t.Run(name, func(t *testing.T) {
-					bufDestinationRule := sdstlsutil.CreateDestinationRule(t, serverNamespace, "SIMPLE", tc.credentialToUse)
+				ctx.NewSubTest(name).Run(func(ctx framework.TestContext) {
+					bufDestinationRule := sdstlsutil.CreateDestinationRule(ctx, serverNamespace, "SIMPLE", tc.credentialToUse)
 
 					// Get namespace for gateway pod.
 					istioCfg := istio.DefaultConfigOrFail(ctx, ctx)
 					systemNS := namespace.ClaimOrFail(ctx, ctx, istioCfg.SystemNamespace)
 
-					ctx.Config().ApplyYAMLOrFail(ctx, systemNS.Name(), bufDestinationRule.String())
-					defer ctx.Config().DeleteYAMLOrFail(ctx, systemNS.Name(), bufDestinationRule.String())
+					ctx.Config(ctx.Clusters().Default()).ApplyYAMLOrFail(ctx, systemNS.Name(), bufDestinationRule.String())
 
-					retry.UntilSuccessOrFail(t, func() error {
+					retry.UntilSuccessOrFail(ctx, func() error {
 						resp, err := internalClient.Call(echo.CallOptions{
 							Target:   externalServer,
 							PortName: "http",
@@ -140,7 +138,6 @@ func TestMutualTlsOrigination(t *testing.T) {
 	framework.NewTest(t).
 		Features("security.egress.mtls.sds").
 		Run(func(ctx framework.TestContext) {
-
 			var (
 				credNameGeneric    = "mtls-credential-generic"
 				credNameNotGeneric = "mtls-credential-not-generic"
@@ -150,29 +147,29 @@ func TestMutualTlsOrigination(t *testing.T) {
 				simpleCredName     = "tls-credential-simple-cacert"
 			)
 
-			var credentialASimple = sdstlsutil.TLSCredential{
+			credentialASimple := sdstlsutil.TLSCredential{
 				CaCert: sdstlsutil.MustReadCert(t, "root-cert.pem"),
 			}
 
-			var credentialAGeneric = sdstlsutil.TLSCredential{
+			credentialAGeneric := sdstlsutil.TLSCredential{
 				ClientCert: sdstlsutil.MustReadCert(t, "cert-chain.pem"),
 				PrivateKey: sdstlsutil.MustReadCert(t, "key.pem"),
 				CaCert:     sdstlsutil.MustReadCert(t, "root-cert.pem"),
 			}
 
-			var credentialANonGeneric = sdstlsutil.TLSCredential{
+			credentialANonGeneric := sdstlsutil.TLSCredential{
 				ClientCert: sdstlsutil.MustReadCert(t, "cert-chain.pem"),
 				PrivateKey: sdstlsutil.MustReadCert(t, "key.pem"),
 				CaCert:     sdstlsutil.MustReadCert(t, "root-cert.pem"),
 			}
 			// Configured with an invalid ClientCert
-			var credentialBCert = sdstlsutil.TLSCredential{
+			credentialBCert := sdstlsutil.TLSCredential{
 				ClientCert: sdstlsutil.FakeCert,
 				PrivateKey: sdstlsutil.MustReadCert(t, "key.pem"),
 				CaCert:     sdstlsutil.MustReadCert(t, "root-cert.pem"),
 			}
 			// Configured with an invalid ClientCert and PrivateKey
-			var credentialBCertAndKey = sdstlsutil.TLSCredential{
+			credentialBCertAndKey := sdstlsutil.TLSCredential{
 				ClientCert: sdstlsutil.FakeCert,
 				PrivateKey: sdstlsutil.FakeKey,
 				CaCert:     sdstlsutil.MustReadCert(t, "root-cert.pem"),
@@ -251,8 +248,7 @@ func TestMutualTlsOrigination(t *testing.T) {
 						istioCfg := istio.DefaultConfigOrFail(t, ctx)
 						systemNS := namespace.ClaimOrFail(ctx, ctx, istioCfg.SystemNamespace)
 
-						ctx.Config().ApplyYAMLOrFail(ctx, systemNS.Name(), bufDestinationRule.String())
-						defer ctx.Config().DeleteYAMLOrFail(ctx, systemNS.Name(), bufDestinationRule.String())
+						ctx.Config(ctx.Clusters().Default()).ApplyYAMLOrFail(ctx, systemNS.Name(), bufDestinationRule.String())
 
 						retry.UntilSuccessOrFail(t, func() error {
 							resp, err := internalClient.Call(echo.CallOptions{

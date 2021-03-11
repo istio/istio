@@ -66,7 +66,6 @@ func (s *StatusSyncer) Run(stopCh <-chan struct{}) {
 
 // NewStatusSyncer creates a new instance
 func NewStatusSyncer(meshHolder mesh.Holder, client kubelib.Client) *StatusSyncer {
-
 	// as in controller, ingressClassListener can be nil since not supported in k8s version <1.18
 	var ingressClassLister listerv1beta1.IngressClassLister
 	if NetworkingIngressAvailable(client) {
@@ -117,7 +116,6 @@ func (s *StatusSyncer) runUpdateStatus(stop <-chan struct{}) {
 		s.queue.Push(s.onEvent)
 		return false, nil
 	}, stop)
-
 	if err != nil {
 		log.Errorf("Stop requested")
 	}

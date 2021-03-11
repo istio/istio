@@ -59,6 +59,10 @@ func setupConfig(ctx resource.Context, cfg *istio.Config) {
 	serviceWithNamespace := fmt.Sprintf("%s/%s", extAuthzNamespace, service)
 
 	cfg.ControlPlaneValues = fmt.Sprintf(`
+values:
+  pilot: 
+    env: 
+      PILOT_JWT_ENABLE_REMOTE_JWKS: true
 meshConfig:
   accessLogEncoding: JSON
   accessLogFile: /dev/stdout

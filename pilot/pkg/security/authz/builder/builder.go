@@ -33,16 +33,14 @@ import (
 	"istio.io/istio/pkg/config/labels"
 )
 
-var (
-	rbacPolicyMatchNever = &rbacpb.Policy{
-		Permissions: []*rbacpb.Permission{{Rule: &rbacpb.Permission_NotRule{
-			NotRule: &rbacpb.Permission{Rule: &rbacpb.Permission_Any{Any: true}},
-		}}},
-		Principals: []*rbacpb.Principal{{Identifier: &rbacpb.Principal_NotId{
-			NotId: &rbacpb.Principal{Identifier: &rbacpb.Principal_Any{Any: true}},
-		}}},
-	}
-)
+var rbacPolicyMatchNever = &rbacpb.Policy{
+	Permissions: []*rbacpb.Permission{{Rule: &rbacpb.Permission_NotRule{
+		NotRule: &rbacpb.Permission{Rule: &rbacpb.Permission_Any{Any: true}},
+	}}},
+	Principals: []*rbacpb.Principal{{Identifier: &rbacpb.Principal_NotId{
+		NotId: &rbacpb.Principal{Identifier: &rbacpb.Principal_Any{Any: true}},
+	}}},
+}
 
 // General setting to control behavior
 type Option struct {
@@ -74,13 +72,9 @@ func New(trustDomainBundle trustdomain.Bundle, in *plugin.InputParams, option Op
 		if len(policies.Custom) == 0 {
 			return nil
 		}
-		extAuthzExtensions, err := processExtensionProvider(in)
-		if err != nil {
-			option.Logger.AppendError(err)
-		}
 		return &Builder{
 			customPolicies:    policies.Custom,
-			extensions:        extAuthzExtensions,
+			extensions:        processExtensionProvider(in),
 			trustDomainBundle: trustDomainBundle,
 			option:            option,
 		}

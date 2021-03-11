@@ -7,16 +7,8 @@ spec:
     defaultConfig:
       proxyMetadata:
         ISTIO_META_DNS_CAPTURE: "true"
-  components:
-    base:
-      enabled: true
-    pilot:
-      enabled: false
-    istiodRemote:
-      enabled: true
   values:
     global:
-      externalIstiod: true
       proxy:
         resources:
           requests:

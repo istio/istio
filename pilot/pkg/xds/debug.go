@@ -96,6 +96,7 @@ type AdsClient struct {
 
 // AdsClients is collection of AdsClient connected to this Istiod.
 type AdsClients struct {
+	Total     int         `json:"totalClients"`
 	Connected []AdsClient `json:"clients"`
 }
 
@@ -155,7 +156,7 @@ func (s *DiscoveryServer) AddDebugHandlers(mux *http.ServeMux, enableProfiling b
 
 	mux.HandleFunc("/debug", s.Debug)
 
-	if features.EnableAdminEndpoints {
+	if features.EnableUnsafeAdminEndpoints {
 		s.addDebugHandler(mux, "/debug/force_disconnect", "Disconnects a proxy from this Pilot", s.ForceDisconnect)
 	}
 
@@ -179,6 +180,8 @@ func (s *DiscoveryServer) AddDebugHandlers(mux *http.ServeMux, enableProfiling b
 	s.addDebugHandler(mux, "/debug/authorizationz", "Internal authorization policies", s.Authorizationz)
 	s.addDebugHandler(mux, "/debug/config_dump", "ConfigDump in the form of the Envoy admin config dump API for passed in proxyID", s.ConfigDump)
 	s.addDebugHandler(mux, "/debug/push_status", "Last PushContext Details", s.PushStatusHandler)
+	s.addDebugHandler(mux, "/debug/pushcontext", "Debug support for current push context", s.PushContextHandler)
+	s.addDebugHandler(mux, "/debug/connections", "Info about the connected XDS clients", s.ConnectionsHandler)
 
 	s.addDebugHandler(mux, "/debug/inject", "Active inject template", s.InjectTemplateHandler(webhook))
 	s.addDebugHandler(mux, "/debug/mesh", "Active mesh config", s.MeshHandler)
@@ -453,11 +456,33 @@ type AuthorizationDebug struct {
 // Authorizationz dumps the internal authorization policies.
 func (s *DiscoveryServer) Authorizationz(w http.ResponseWriter, req *http.Request) {
 	w.Header().Add("Content-Type", "application/json")
-
 	info := AuthorizationDebug{
 		AuthorizationPolicies: s.globalPushContext().AuthzPolicies,
 	}
 	if b, err := json.MarshalIndent(info, "  ", "  "); err == nil {
+		_, _ = w.Write(b)
+	}
+}
+
+// ConnectionsHandler implements interface for displaying current connections.
+// It is mapped to /debug/connections.
+func (s *DiscoveryServer) ConnectionsHandler(w http.ResponseWriter, req *http.Request) {
+	_ = req.ParseForm()
+	w.Header().Add("Content-Type", "application/json")
+
+	adsClients := &AdsClients{}
+	connections := s.Clients()
+	adsClients.Total = len(connections)
+
+	for _, c := range connections {
+		adsClient := AdsClient{
+			ConnectionID: c.ConID,
+			ConnectedAt:  c.Connect,
+			PeerAddress:  c.PeerAddr,
+		}
+		adsClients.Connected = append(adsClients.Connected, adsClient)
+	}
+	if b, err := json.MarshalIndent(adsClients, "  ", "  "); err == nil {
 		_, _ = w.Write(b)
 	}
 }
@@ -474,6 +499,8 @@ func (s *DiscoveryServer) adsz(w http.ResponseWriter, req *http.Request) {
 	}
 
 	adsClients := &AdsClients{}
+	connections := s.Clients()
+	adsClients.Total = len(connections)
 	for _, c := range s.Clients() {
 		adsClient := AdsClient{
 			ConnectionID: c.ConID,
@@ -557,7 +584,8 @@ func (s *DiscoveryServer) configDump(conn *Connection) (*adminapi.ConfigDump, er
 		}
 		dynamicActiveListeners = append(dynamicActiveListeners, &adminapi.ListenersConfigDump_DynamicListener{
 			Name:        cs.Name,
-			ActiveState: &adminapi.ListenersConfigDump_DynamicListenerState{Listener: listener}})
+			ActiveState: &adminapi.ListenersConfigDump_DynamicListenerState{Listener: listener},
+		})
 	}
 	listenersAny, err := util.MessageToAnyWithError(&adminapi.ListenersConfigDump{
 		VersionInfo:      versionInfo(),
@@ -669,6 +697,30 @@ func (s *DiscoveryServer) PushStatusHandler(w http.ResponseWriter, req *http.Req
 	_, _ = w.Write(out)
 }
 
+// PushContextDebug holds debug information for push context.
+type PushContextDebug struct {
+	AuthorizationPolicies *model.AuthorizationPolicies
+	NetworkGateways       map[string][]*model.Gateway
+}
+
+// PushContextHandler dumps the current PushContext
+func (s *DiscoveryServer) PushContextHandler(w http.ResponseWriter, req *http.Request) {
+	push := PushContextDebug{
+		AuthorizationPolicies: s.globalPushContext().AuthzPolicies,
+		NetworkGateways:       s.globalPushContext().NetworkGateways(),
+	}
+
+	out, err := json.MarshalIndent(push, "", "  ")
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		_, _ = fmt.Fprintf(w, "unable to marshal push context information: %v", err)
+		return
+	}
+	w.Header().Add("Content-Type", "application/json")
+
+	_, _ = w.Write(out)
+}
+
 // lists all the supported debug endpoints.
 func (s *DiscoveryServer) Debug(w http.ResponseWriter, req *http.Request) {
 	type debugEndpoint struct {
@@ -694,7 +746,6 @@ func (s *DiscoveryServer) Debug(w http.ResponseWriter, req *http.Request) {
 		adsLog.Errorf("Error in rendering index template %v", err)
 		w.WriteHeader(500)
 	}
-	w.WriteHeader(200)
 }
 
 // Ndsz implements a status and debug interface for NDS.

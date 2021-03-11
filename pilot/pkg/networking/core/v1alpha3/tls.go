@@ -93,9 +93,8 @@ func hashRuntimeTLSMatchPredicates(match *v1alpha3.TLSMatchAttributes) string {
 }
 
 func buildSidecarOutboundTLSFilterChainOpts(node *model.Proxy, push *model.PushContext, destinationCIDR string,
-	service *model.Service, listenPort *model.Port,
+	service *model.Service, bind string, listenPort *model.Port,
 	gateways map[string]bool, configs []config.Config) []*filterChainOpts {
-
 	if !listenPort.Protocol.IsTLS() {
 		return nil
 	}
@@ -176,20 +175,24 @@ func buildSidecarOutboundTLSFilterChainOpts(node *model.Proxy, push *model.PushC
 		if len(push.Mesh.OutboundClusterStatName) != 0 {
 			statPrefix = util.BuildStatPrefix(push.Mesh.OutboundClusterStatName, string(service.Hostname), "", &model.Port{Port: port}, service.Attributes)
 		}
-		// Use the hostname as the SNI value if and only if we do not have a destination VIP or if the destination is a CIDR.
-		// In both cases, the listener will be bound to 0.0.0.0. So SNI match is the only way to distinguish different
-		// target services. If we have a VIP, then we know the destination. There is no need to do a SNI match. It saves us from
-		// having to generate expensive permutations of the host name just like RDS does..
+		// Use the hostname as the SNI value if and only:
+		// 1) if the destination is a CIDR;
+		// 2) or if we have an empty destination VIP (i.e. which we should never get in case some platform adapter improper handlings);
+		// 3) or if the destination is a wildcard destination VIP with the listener bound to the wildcard as well.
+		// In the above cited cases, the listener will be bound to 0.0.0.0. So SNI match is the only way to distinguish different
+		// target services. If we have a VIP, then we know the destination. Or if we do not have an VIP, but have
+		// `PILOT_ENABLE_HEADLESS_SERVICE_POD_LISTENERS` enabled (by default) and applicable to all that's needed, pilot will generate
+		// an outbound listener for each pod in a headless service. There is thus no need to do a SNI match. It saves us from having to
+		// generate expensive permutations of the host name just like RDS does..
 		// NOTE that we cannot have two services with the same VIP as our listener build logic will treat it as a collision and
 		// ignore one of the services.
-		// TODO: https://github.com/istio/istio/issues/27677 reconsider this logic
-		svcListenAddress := service.GetServiceAddressForProxy(node, push)
+		svcListenAddress := service.GetServiceAddressForProxy(node)
 		if strings.Contains(svcListenAddress, "/") {
 			// Address is a CIDR, already captured by destinationCIDR parameter.
 			svcListenAddress = ""
 		}
 
-		if len(destinationCIDR) > 0 || len(svcListenAddress) == 0 || svcListenAddress == actualWildcard {
+		if len(destinationCIDR) > 0 || len(svcListenAddress) == 0 || (svcListenAddress == actualWildcard && bind == actualWildcard) {
 			sniHosts = []string{string(service.Hostname)}
 		}
 
@@ -206,7 +209,6 @@ func buildSidecarOutboundTLSFilterChainOpts(node *model.Proxy, push *model.PushC
 func buildSidecarOutboundTCPFilterChainOpts(node *model.Proxy, push *model.PushContext, destinationCIDR string,
 	service *model.Service, listenPort *model.Port,
 	gateways map[string]bool, configs []config.Config) []*filterChainOpts {
-
 	if listenPort.Protocol.IsTLS() {
 		return nil
 	}
@@ -311,9 +313,8 @@ TcpLoop:
 // In the latter case, there is no service associated with this listen port. So we have to account for this
 // missing service throughout this file
 func buildSidecarOutboundTCPTLSFilterChainOpts(node *model.Proxy, push *model.PushContext,
-	configs []config.Config, destinationCIDR string, service *model.Service, listenPort *model.Port,
+	configs []config.Config, destinationCIDR string, service *model.Service, bind string, listenPort *model.Port,
 	gateways map[string]bool) []*filterChainOpts {
-
 	out := make([]*filterChainOpts, 0)
 	var svcConfigs []config.Config
 	if service != nil {
@@ -323,7 +324,7 @@ func buildSidecarOutboundTCPTLSFilterChainOpts(node *model.Proxy, push *model.Pu
 	}
 
 	out = append(out, buildSidecarOutboundTLSFilterChainOpts(node, push, destinationCIDR, service,
-		listenPort, gateways, svcConfigs)...)
+		bind, listenPort, gateways, svcConfigs)...)
 	out = append(out, buildSidecarOutboundTCPFilterChainOpts(node, push, destinationCIDR, service,
 		listenPort, gateways, svcConfigs)...)
 	return out

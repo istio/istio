@@ -267,7 +267,7 @@ func TestSidecarListeners(t *testing.T) {
 			Equals(wellknown.TCPProxy, "{.filterChains[1].filters[0].name}").
 			Equals("PassthroughCluster", "{.filterChains[1].filters[0].typedConfig.cluster}").
 			Equals("PassthroughCluster", "{.filterChains[1].filters[0].typedConfig.statPrefix}").
-			Equals(true, "{.hiddenEnvoyDeprecatedUseOriginalDst}").
+			Equals(true, "{.useOriginalDst}").
 			CheckOrFail(t)
 	})
 

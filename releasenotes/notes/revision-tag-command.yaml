@@ -1,0 +1,11 @@
+apiVersion: release-notes/v2
+kind: feature
+area: installation
+issue:
+releaseNotes:
+  - |
+    **Added** `istioctl experimental tag` command group. Revision tags act as aliases for
+    control plane revisions. Users can label their namespaces with a revision tag rather than pointing them
+    directly at a revision and selectively decide the granularity of their namespace labels. This makes it possible
+    to perform upgrades with the ease of in-place upgrades while having the safety revision-based upgrades
+    under the hood.

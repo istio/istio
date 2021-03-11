@@ -26,7 +26,7 @@ import yaml  # pyyaml
 # returns fully qualified resource name of the k8s resource
 
 
-def byResourceName(res):
+def by_resource_name(res):
     if res is None:
         return ""
 
@@ -118,8 +118,8 @@ def compare(args):
     j0 = normalize(list(yaml.safe_load_all(open(args.orig))), args)
     j1 = normalize(list(yaml.safe_load_all(open(args.new))), args)
 
-    q0 = {byResourceName(res): res for res in j0 if res is not None}
-    q1 = {byResourceName(res): res for res in j1 if res is not None}
+    q0 = {by_resource_name(res): res for res in j0 if res is not None}
+    q1 = {by_resource_name(res): res for res in j1 if res is not None}
 
     added, removed, common = keydiff(q0.keys(), q1.keys())
 
@@ -141,7 +141,7 @@ def compare(args):
     for k in sorted(removed):
         print("-", k)
 
-    print("## *************************")
+    print("##", "*" * 25)
 
     for k in sorted(common):
         if q0[k] != q1[k]:

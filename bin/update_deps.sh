@@ -39,9 +39,16 @@ make update-common
 
 export GO111MODULE=on
 go get -u "istio.io/api@${UPDATE_BRANCH}"
+go get -u "istio.io/client-go@${UPDATE_BRANCH}"
 go get -u "istio.io/gogo-genproto@${UPDATE_BRANCH}"
 go get -u "istio.io/pkg@${UPDATE_BRANCH}"
 go mod tidy
 
 sed -i "s/^BUILDER_SHA=.*\$/BUILDER_SHA=$(getSha release-builder)/" prow/release-commit.sh
 sed -i '/PROXY_REPO_SHA/,/lastStableSHA/ { s/"lastStableSHA":.*/"lastStableSHA": "'"$(getSha proxy)"'"/  }' istio.deps
+
+LATEST_DEB10_DISTROLESS_SHA256=$(docker image pull gcr.io/distroless/static-debian10 | grep Digest | awk -F\\: '{print $3}')
+sed -i -E "s/sha256:[a-z0-9]+/sha256:${LATEST_DEB10_DISTROLESS_SHA256}/g" docker/Dockerfile.distroless
+
+LATEST_IPTABLES_DISTROLESS_SHA256=$(docker image pull gcr.io/istio-release/iptables | grep Digest | awk -F\\: '{print $3}')
+sed -i -E "s/sha256:[a-z0-9]+/sha256:${LATEST_IPTABLES_DISTROLESS_SHA256}/g" pilot/docker/Dockerfile.proxyv2

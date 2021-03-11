@@ -19,6 +19,8 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"reflect"
+	"sort"
 	"strings"
 	"time"
 
@@ -313,7 +315,8 @@ spec:
 									return ExpectString(response[0].RawResponse["Access-Control-Allow-Origin"], "", "mismatched CORS origin")
 								}),
 						},
-					}},
+					},
+				},
 			},
 		)
 
@@ -345,7 +348,7 @@ spec:
 		for _, split := range splits {
 			split := split
 			cases = append(cases, TrafficTestCase{
-				name: fmt.Sprintf("shifting-%d from %s", split["b"], podA.Config().Cluster.Name()),
+				name: fmt.Sprintf("shifting-%d from %s", split["b"], podA.Config().Cluster.StableName()),
 				config: fmt.Sprintf(`
 apiVersion: networking.istio.io/v1alpha3
 kind: VirtualService
@@ -378,7 +381,7 @@ spec:
 								errorThreshold := 10
 								for host, exp := range split {
 									hostResponses := responses.Match(func(r *echoclient.ParsedResponse) bool {
-										return strings.HasPrefix(r.Hostname, host+"-")
+										return strings.HasPrefix(r.Hostname, host)
 									})
 									if !AlmostEquals(len(hostResponses), exp, errorThreshold) {
 										return fmt.Errorf("expected %v calls to %q, got %v", exp, host, len(hostResponses))
@@ -441,7 +444,7 @@ spec:
 			e := e
 
 			tc.children = append(tc.children, TrafficCall{
-				name: fmt.Sprintf("%s: %s", c.Config().Cluster.Name(), e.alpn),
+				name: fmt.Sprintf("%s: %s", c.Config().Cluster.StableName(), e.alpn),
 				opts: echo.CallOptions{
 					Port:      &echo.Port{ServicePort: e.port, Protocol: protocol.HTTP},
 					Address:   apps.External[0].Address(),
@@ -625,6 +628,61 @@ spec:
 	return cases
 }
 
+func XFFGatewayCase(apps *EchoDeployments) []TrafficTestCase {
+	cases := []TrafficTestCase{}
+
+	destinationSets := []echo.Instances{
+		apps.PodA,
+	}
+
+	for _, d := range destinationSets {
+		d := d
+		if len(d) == 0 {
+			continue
+		}
+		fqdn := d[0].Config().FQDN()
+		cases = append(cases, TrafficTestCase{
+			name:   d[0].Config().Service,
+			config: httpGateway("*") + httpVirtualService("gateway", fqdn, d[0].Config().PortByName("http").ServicePort),
+			skip:   false,
+			call:   apps.Ingress.CallEchoWithRetryOrFail,
+			opts: echo.CallOptions{
+				Port: &echo.Port{
+					Protocol: protocol.HTTP,
+				},
+				Headers: map[string][]string{
+					"X-Forwarded-For": {"56.5.6.7, 72.9.5.6, 98.1.2.3"},
+					"Host":            {fqdn},
+				},
+				Validator: echo.ValidatorFunc(
+					func(response echoclient.ParsedResponses, _ error) error {
+						return response.Check(func(_ int, response *echoclient.ParsedResponse) error {
+							externalAddress, ok := response.RawResponse["X-Envoy-External-Address"]
+							if !ok {
+								return fmt.Errorf("missing X-Envoy-External-Address Header")
+							}
+							if err := ExpectString(externalAddress, "72.9.5.6", "envoy-external-address header"); err != nil {
+								return err
+							}
+							xffHeader, ok := response.RawResponse["X-Forwarded-For"]
+							if !ok {
+								return fmt.Errorf("missing X-Forwarded-For Header")
+							}
+
+							xffIPs := strings.Split(xffHeader, ",")
+							if len(xffIPs) != 4 {
+								return fmt.Errorf("did not receive expected 4 hosts in X-Forwarded-For header")
+							}
+
+							return ExpectString(strings.TrimSpace(xffIPs[1]), "72.9.5.6", "ip in xff header")
+						})
+					}),
+			},
+		})
+	}
+	return cases
+}
+
 // serviceCases tests overlapping Services. There are a few cases.
 // Consider we have our base service B, with service port P and target port T
 // 1) Another service, B', with P -> T. In this case, both the listener and the cluster will conflict.
@@ -755,11 +813,49 @@ spec:
 	return cases
 }
 
+func flatten(clients ...[]echo.Instance) []echo.Instance {
+	instances := []echo.Instance{}
+	for _, c := range clients {
+		instances = append(instances, c...)
+	}
+	return instances
+}
+
+// selfCallsCases checks that pods can call themselves
+func selfCallsCases(apps *EchoDeployments) []TrafficTestCase {
+	cases := []TrafficTestCase{}
+	for _, cl := range flatten(apps.PodA, apps.VM, apps.PodTproxy) {
+		cl := cl
+		cases = append(cases,
+			// Calls to the Service will go through envoy outbound and inbound, so we get envoy headers added
+			TrafficTestCase{
+				name: fmt.Sprintf("to service %v", cl.Config().Service),
+				call: cl.CallWithRetryOrFail,
+				opts: echo.CallOptions{
+					Target:    cl,
+					PortName:  "http",
+					Validator: echo.And(echo.ExpectOK(), echo.ExpectKey("X-Envoy-Attempt-Count", "1")),
+				},
+			},
+			// Localhost calls will go directly to localhost, bypassing Envoy. No envoy headers added.
+			TrafficTestCase{
+				name: fmt.Sprintf("to localhost %v", cl.Config().Service),
+				call: cl.CallWithRetryOrFail,
+				opts: echo.CallOptions{
+					Address:   "localhost",
+					Scheme:    scheme.HTTP,
+					Port:      &echo.Port{ServicePort: 8080},
+					Validator: echo.And(echo.ExpectOK(), echo.ExpectKey("X-Envoy-Attempt-Count", "")),
+				},
+			})
+	}
+	return cases
+}
+
 // Todo merge with security TestReachability code
 func protocolSniffingCases(apps *EchoDeployments) []TrafficTestCase {
 	cases := []TrafficTestCase{}
-	// TODO add VMs to clients when DNS works for VMs. Blocked by https://github.com/istio/istio/issues/27154
-	for _, clients := range []echo.Instances{apps.PodA, apps.Naked, apps.Headless} {
+	for _, clients := range []echo.Instances{apps.PodA, apps.Naked, apps.Headless, apps.VM} {
 		for _, client := range clients {
 			destinationSets := []echo.Instances{
 				apps.PodA,
@@ -779,12 +875,16 @@ func protocolSniffingCases(apps *EchoDeployments) []TrafficTestCase {
 				destinations := destinations
 				// grabbing the 0th assumes all echos in destinations have the same service name
 				destination := destinations[0]
-				if (apps.Headless.Contains(client) || apps.Headless.Contains(destination)) && len(apps.Headless) > 1 {
-					// TODO(landow) fix DNS issues with multicluster/VMs/headless
+				if apps.Headless.Contains(destination) && len(apps.Headless) > 1 {
+					// TODO(landow) incompatibilities with multicluster & headless
 					continue
 				}
 				if apps.Naked.Contains(client) && apps.VM.Contains(destination) {
 					// Need a sidecar to connect to VMs
+					continue
+				}
+				if apps.VM.Contains(client) && apps.External.Contains(destination) {
+					// TODO VM won't resolve DNS in ServiceEntry https://github.com/istio/istio/issues/27154
 					continue
 				}
 
@@ -810,7 +910,7 @@ func protocolSniffingCases(apps *EchoDeployments) []TrafficTestCase {
 					cases = append(cases, TrafficTestCase{
 						// TODO(https://github.com/istio/istio/issues/26798) enable sniffing tcp
 						skip: call.scheme == scheme.TCP,
-						name: fmt.Sprintf("%v %v->%v from %s", call.port, client.Config().Service, destination.Config().Service, client.Config().Cluster.Name()),
+						name: fmt.Sprintf("%v %v->%v from %s", call.port, client.Config().Service, destination.Config().Service, client.Config().Cluster.StableName()),
 						call: client.CallWithRetryOrFail,
 						opts: echo.CallOptions{
 							Target:   destination,
@@ -833,30 +933,101 @@ func protocolSniffingCases(apps *EchoDeployments) []TrafficTestCase {
 // Todo merge with security TestReachability code
 func instanceIPTests(apps *EchoDeployments) []TrafficTestCase {
 	cases := []TrafficTestCase{}
-	for _, client := range apps.PodA {
-		client := client
-		destination := apps.PodB[0]
-		// so we can validate all clusters are hit
-		callCount := callsPerCluster * len(apps.PodB)
-		cases = append(cases,
-			TrafficTestCase{
-				// TODO fix flakes where 503 does not occur from one or more clusters (https://github.com/istio/istio/issues/28834)
-				skip: apps.PodB.Clusters().IsMulticluster(),
-				name: "without sidecar",
-				call: client.CallWithRetryOrFail,
-				opts: echo.CallOptions{
-					Target:    destination,
-					PortName:  "http-instance",
-					Scheme:    scheme.HTTP,
-					Count:     callCount,
-					Timeout:   time.Second * 5,
-					Validator: echo.And(echo.ExpectCode("503")),
-				},
-			},
-			TrafficTestCase{
-				name: "with sidecar",
-				call: client.CallWithRetryOrFail,
-				config: `
+	ipCases := []struct {
+		name           string
+		endpoint       string
+		disableSidecar bool
+		port           string
+		code           int
+	}{
+		// instance IP bind
+		{
+			name:           "instance IP without sidecar",
+			disableSidecar: true,
+			port:           "http-instance",
+			code:           200,
+		},
+		{
+			name:     "instance IP with wildcard sidecar",
+			endpoint: "0.0.0.0",
+			port:     "http-instance",
+			code:     200,
+		},
+		{
+			name:     "instance IP with localhost sidecar",
+			endpoint: "127.0.0.1",
+			port:     "http-instance",
+			code:     503,
+		},
+		{
+			name:     "instance IP with empty sidecar",
+			endpoint: "",
+			port:     "http-instance",
+			code:     200,
+		},
+
+		// Localhost bind
+		{
+			name:           "localhost IP without sidecar",
+			disableSidecar: true,
+			port:           "http-localhost",
+			code:           503,
+		},
+		{
+			name:     "localhost IP with wildcard sidecar",
+			endpoint: "0.0.0.0",
+			port:     "http-localhost",
+			code:     503,
+		},
+		{
+			name:     "localhost IP with localhost sidecar",
+			endpoint: "127.0.0.1",
+			port:     "http-localhost",
+			code:     200,
+		},
+		{
+			name:     "localhost IP with empty sidecar",
+			endpoint: "",
+			port:     "http-localhost",
+			code:     503,
+		},
+
+		// Wildcard bind
+		{
+			name:           "wildcard IP without sidecar",
+			disableSidecar: true,
+			port:           "http",
+			code:           200,
+		},
+		{
+			name:     "wildcard IP with wildcard sidecar",
+			endpoint: "0.0.0.0",
+			port:     "http",
+			code:     200,
+		},
+		{
+			name:     "wildcard IP with localhost sidecar",
+			endpoint: "127.0.0.1",
+			port:     "http",
+			code:     200,
+		},
+		{
+			name:     "wildcard IP with empty sidecar",
+			endpoint: "",
+			port:     "http",
+			code:     200,
+		},
+	}
+	for _, ipCase := range ipCases {
+		for _, client := range apps.PodA {
+			ipCase := ipCase
+			client := client
+			destination := apps.PodB[0]
+			// so we can validate all clusters are hit
+			callCount := callsPerCluster * len(apps.PodB)
+			var config string
+			if !ipCase.disableSidecar {
+				config = fmt.Sprintf(`
 apiVersion: networking.istio.io/v1alpha3
 kind: Sidecar
 metadata:
@@ -870,19 +1041,26 @@ spec:
     - "./*"
   ingress:
   - port:
-      number: 82
+      number: %d
       protocol: HTTP
-    defaultEndpoint: 0.0.0.0:82
-`,
-				opts: echo.CallOptions{
-					Target:    destination,
-					PortName:  "http-instance",
-					Scheme:    scheme.HTTP,
-					Count:     callCount,
-					Timeout:   time.Second * 5,
-					Validator: echo.And(echo.ExpectOK()),
-				},
-			})
+    defaultEndpoint: %s:%d
+`, FindPortByName(ipCase.port).InstancePort, ipCase.endpoint, FindPortByName(ipCase.port).InstancePort)
+			}
+			cases = append(cases,
+				TrafficTestCase{
+					name:   ipCase.name,
+					call:   client.CallWithRetryOrFail,
+					config: config,
+					opts: echo.CallOptions{
+						Target:    destination,
+						PortName:  ipCase.port,
+						Scheme:    scheme.HTTP,
+						Count:     callCount,
+						Timeout:   time.Second * 5,
+						Validator: echo.ExpectCode(fmt.Sprint(ipCase.code)),
+					},
+				})
+		}
 	}
 	return cases
 }
@@ -892,6 +1070,176 @@ type vmCase struct {
 	from echo.Instance
 	to   echo.Instances
 	host string
+}
+
+func DNSTestCases(apps *EchoDeployments) []TrafficTestCase {
+	makeSE := func(ips ...string) string {
+		return tmpl.MustEvaluate(`
+apiVersion: networking.istio.io/v1alpha3
+kind: ServiceEntry
+metadata:
+  name: dns
+spec:
+  hosts:
+  - "fake.service.local"
+  addresses:
+{{ range $ip := .IPs }}
+  - "{{$ip}}"
+{{ end }}
+  resolution: STATIC
+  endpoints: []
+  ports:
+  - number: 80
+    name: http
+    protocol: HTTP
+`, map[string]interface{}{"IPs": ips})
+	}
+	tcases := []TrafficTestCase{}
+	ipv4 := "1.2.3.4"
+	ipv6 := "1234:1234:1234::1234:1234:1234"
+	dummyLocalhostServer := "127.0.0.1"
+	cases := []struct {
+		name string
+		// TODO(https://github.com/istio/istio/issues/30282) support multiple vips
+		ips      string
+		protocol string
+		server   string
+		expected []string
+	}{
+		{
+			name:     "tcp ipv4",
+			ips:      ipv4,
+			expected: []string{ipv4},
+			protocol: "tcp",
+		},
+		{
+			name:     "udp ipv4",
+			ips:      ipv4,
+			expected: []string{ipv4},
+			protocol: "udp",
+		},
+		{
+			name:     "tcp ipv6",
+			ips:      ipv6,
+			expected: []string{ipv6},
+			protocol: "tcp",
+		},
+		{
+			name:     "udp ipv6",
+			ips:      ipv6,
+			expected: []string{ipv6},
+			protocol: "udp",
+		},
+		{
+			// We should only capture traffic to servers in /etc/resolv.conf nameservers
+			// This checks we do not capture traffic to other servers.
+			// This is important for cases like app -> istio dns server -> dnsmasq -> upstream
+			// If we captured all DNS traffic, we would loop dnsmasq traffic back to our server.
+			name:     "tcp localhost server",
+			ips:      ipv4,
+			expected: []string{},
+			protocol: "tcp",
+			server:   dummyLocalhostServer,
+		},
+		{
+			name:     "udp localhost server",
+			ips:      ipv4,
+			expected: []string{},
+			protocol: "udp",
+			server:   dummyLocalhostServer,
+		},
+	}
+	for _, client := range flatten(apps.VM, apps.PodA, apps.PodTproxy) {
+		for _, tt := range cases {
+			tt, client := tt, client
+			address := "fake.service.local?"
+			if tt.protocol != "" {
+				address += "&protocol=" + tt.protocol
+			}
+			if tt.server != "" {
+				address += "&server=" + tt.server
+			}
+			tcases = append(tcases, TrafficTestCase{
+				name:   fmt.Sprintf("%s/%s", client.Config().Service, tt.name),
+				config: makeSE(tt.ips),
+				call:   client.CallWithRetryOrFail,
+				opts: echo.CallOptions{
+					Scheme:  scheme.DNS,
+					Address: address,
+					Validator: echo.ValidatorFunc(
+						func(response echoclient.ParsedResponses, _ error) error {
+							return response.Check(func(_ int, response *echoclient.ParsedResponse) error {
+								ips := []string{}
+								for _, v := range response.RawResponse {
+									ips = append(ips, v)
+								}
+								sort.Strings(ips)
+								if !reflect.DeepEqual(ips, tt.expected) {
+									return fmt.Errorf("unexpected dns response: wanted %v, got %v", tt.expected, ips)
+								}
+								return nil
+							})
+						}),
+				},
+			})
+		}
+	}
+	svcCases := []struct {
+		name     string
+		protocol string
+		server   string
+	}{
+		{
+			name:     "tcp",
+			protocol: "tcp",
+		},
+		{
+			name:     "udp",
+			protocol: "udp",
+		},
+	}
+	for _, client := range flatten(apps.VM, apps.PodA, apps.PodTproxy) {
+		for _, tt := range svcCases {
+			tt, client := tt, client
+			aInCluster := apps.PodA.Match(echo.InCluster(client.Config().Cluster))
+			if len(aInCluster) == 0 {
+				// The cluster doesn't contain A, but connects to a cluster containing A
+				aInCluster = apps.PodA.Match(echo.InCluster(client.Config().Cluster.Primary()))
+			}
+			address := aInCluster[0].Config().FQDN() + "?"
+			if tt.protocol != "" {
+				address += "&protocol=" + tt.protocol
+			}
+			if tt.server != "" {
+				address += "&server=" + tt.server
+			}
+			expected := aInCluster[0].Address()
+			tcases = append(tcases, TrafficTestCase{
+				name: fmt.Sprintf("svc/%s/%s", client.Config().Service, tt.name),
+				call: client.CallWithRetryOrFail,
+				opts: echo.CallOptions{
+					Scheme:  scheme.DNS,
+					Address: address,
+					Validator: echo.ValidatorFunc(
+						func(response echoclient.ParsedResponses, _ error) error {
+							return response.Check(func(_ int, response *echoclient.ParsedResponse) error {
+								ips := []string{}
+								for _, v := range response.RawResponse {
+									ips = append(ips, v)
+								}
+								sort.Strings(ips)
+								exp := []string{expected}
+								if !reflect.DeepEqual(ips, exp) {
+									return fmt.Errorf("unexpected dns response: wanted %v, got %v", exp, ips)
+								}
+								return nil
+							})
+						}),
+				},
+			})
+		}
+	}
+	return tcases
 }
 
 func VMTestCases(vms echo.Instances, apps *EchoDeployments) []TrafficTestCase {
@@ -920,7 +1268,7 @@ func VMTestCases(vms echo.Instances, apps *EchoDeployments) []TrafficTestCase {
 			vmCase{
 				name: "dns: VM to k8s headless service",
 				from: vm,
-				to:   apps.Headless.Match(echo.InCluster(vm.Config().Cluster)),
+				to:   apps.Headless.Match(echo.InCluster(vm.Config().Cluster.Primary())),
 				host: apps.Headless[0].Config().FQDN(),
 			},
 		)
@@ -936,7 +1284,7 @@ func VMTestCases(vms echo.Instances, apps *EchoDeployments) []TrafficTestCase {
 	for _, c := range testCases {
 		c := c
 		cases = append(cases, TrafficTestCase{
-			name: fmt.Sprintf("%s from %s", c.name, c.from.Config().Cluster.Name()),
+			name: fmt.Sprintf("%s from %s", c.name, c.from.Config().Cluster.StableName()),
 			call: c.from.CallWithRetryOrFail,
 			opts: echo.CallOptions{
 				// assume that all echos in `to` only differ in which cluster they're deployed in

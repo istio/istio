@@ -100,7 +100,7 @@ func NewConfigGenTest(t test.Failer, opts TestOptions) *ConfigGenTest {
 	})
 
 	configs := getConfigs(t, opts)
-	configStore := memory.MakeSkipValidation(collections.Pilot, true)
+	configStore := memory.MakeSkipValidation(collections.Pilot)
 
 	cc := memory.NewSyncController(configStore)
 	controllers := []model.ConfigStoreCache{cc}

@@ -140,6 +140,18 @@ var (
 	// AlphaAnnotation defines a diag.MessageType for message "AlphaAnnotation".
 	// Description: An Istio annotation may not be suitable for production.
 	AlphaAnnotation = diag.NewMessageType(diag.Info, "IST0136", "Annotation %q is part of an alpha-phase feature and may be incompletely supported.")
+
+	// DeploymentConflictingPorts defines a diag.MessageType for message "DeploymentConflictingPorts".
+	// Description: Two services selecting the same workload with same target port are MUST refer to the same port.
+	DeploymentConflictingPorts = diag.NewMessageType(diag.Warning, "IST0137", "This deployment %s is associated with multiple services %v using targetPort %q but different ports: %v.")
+
+	// GatewayDuplicateCertificate defines a diag.MessageType for message "GatewayDuplicateCertificate".
+	// Description: Duplicate certificate in multiple gateways may cause 404s if clients re-use HTTP2 connections.
+	GatewayDuplicateCertificate = diag.NewMessageType(diag.Warning, "IST0138", "Duplicate certificate in multiple gateways %v may cause 404s if clients re-use HTTP2 connections.")
+
+	// InvalidWebhook defines a diag.MessageType for message "InvalidWebhook".
+	// Description: Webhook is invalid or references a control plane service that does not exist.
+	InvalidWebhook = diag.NewMessageType(diag.Error, "IST0139", "%v")
 )
 
 // All returns a list of all known message types.
@@ -178,6 +190,9 @@ func All() []*diag.MessageType {
 		ServiceEntryAddressesRequired,
 		DeprecatedAnnotation,
 		AlphaAnnotation,
+		DeploymentConflictingPorts,
+		GatewayDuplicateCertificate,
+		InvalidWebhook,
 	}
 }
 
@@ -510,5 +525,35 @@ func NewAlphaAnnotation(r *resource.Instance, annotation string) diag.Message {
 		AlphaAnnotation,
 		r,
 		annotation,
+	)
+}
+
+// NewDeploymentConflictingPorts returns a new diag.Message based on DeploymentConflictingPorts.
+func NewDeploymentConflictingPorts(r *resource.Instance, deployment string, services []string, targetPort string, ports []int32) diag.Message {
+	return diag.NewMessage(
+		DeploymentConflictingPorts,
+		r,
+		deployment,
+		services,
+		targetPort,
+		ports,
+	)
+}
+
+// NewGatewayDuplicateCertificate returns a new diag.Message based on GatewayDuplicateCertificate.
+func NewGatewayDuplicateCertificate(r *resource.Instance, gateways []string) diag.Message {
+	return diag.NewMessage(
+		GatewayDuplicateCertificate,
+		r,
+		gateways,
+	)
+}
+
+// NewInvalidWebhook returns a new diag.Message based on InvalidWebhook.
+func NewInvalidWebhook(r *resource.Instance, error string) diag.Message {
+	return diag.NewMessage(
+		InvalidWebhook,
+		r,
+		error,
 	)
 }

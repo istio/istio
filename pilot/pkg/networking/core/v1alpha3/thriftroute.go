@@ -68,7 +68,6 @@ func buildDefaultThriftRoute(clusterName, rateLimitClusterName string) *thrift.R
 // Builds the route config with a single blank method route on the inbound path.
 // We route inbound and outbound identically.
 func (configgen *ConfigGeneratorImpl) buildSidecarThriftRouteConfig(clusterName, rateLimitURL string) *thrift.RouteConfiguration {
-
 	rlsClusterName, err := thriftRLSClusterNameFromAuthority(rateLimitURL)
 	if err != nil {
 		rlsClusterName = ""

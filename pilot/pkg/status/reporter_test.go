@@ -105,8 +105,8 @@ func TestBuildReport(t *testing.T) {
 		r.processEvent(con, "", firstNoncePrefix)
 	}
 	// modify one resource to version 2
-	resources[1].ResourceVersion = "2"
-	myResources[1].ResourceVersion = "2"
+	resources[1].Generation = int64(2)
+	myResources[1].Generation = "2"
 	// notify the ledger of the new version
 	r.AddInProgressResource(*resources[1])
 	// mark only one connection as having acked version 2

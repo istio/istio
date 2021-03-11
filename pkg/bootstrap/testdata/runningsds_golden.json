@@ -22,6 +22,12 @@
               }
           },
           {
+            "name": "global config",
+            "static_layer": {
+                "overload.global_downstream_max_connections": 2147483647
+            }
+          },
+          {
               "name": "admin",
               "admin_layer": {}
           }
@@ -252,14 +258,13 @@
     },
     "ads_config": {
       "api_type": "GRPC",
+      "set_node_on_first_message_only": true,
       "transport_api_version": "V3",
       "grpc_services": [
         {
-        
           "envoy_grpc": {
             "cluster_name": "xds-grpc"
           }
-        
         }
       ]
     }

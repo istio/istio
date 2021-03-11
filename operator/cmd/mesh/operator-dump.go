@@ -47,7 +47,8 @@ func operatorDumpCmd(rootArgs *rootArgs, odArgs *operatorDumpArgs) *cobra.Comman
 		Run: func(cmd *cobra.Command, args []string) {
 			l := clog.NewConsoleLogger(cmd.OutOrStdout(), cmd.ErrOrStderr(), installerScope)
 			operatorDump(rootArgs, odArgs, l)
-		}}
+		},
+	}
 }
 
 // operatorDump dumps the manifest used to install the operator.

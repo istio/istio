@@ -24,7 +24,7 @@ import (
 // been registered.
 func TestRemoveIPFromEndpoint(t *testing.T) {
 	var match bool
-	var tests = []struct {
+	tests := []struct {
 		input1   *v1.Endpoints
 		input2   string
 		expected bool

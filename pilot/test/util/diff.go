@@ -32,9 +32,7 @@ const (
 	statusReplacement = "sidecar.istio.io/status: '{\"version\":\"\","
 )
 
-var (
-	statusPattern = regexp.MustCompile("sidecar.istio.io/status: '{\"version\":\"([0-9a-f]+)\",")
-)
+var statusPattern = regexp.MustCompile("sidecar.istio.io/status: '{\"version\":\"([0-9a-f]+)\",")
 
 // Refresh controls whether to update the golden artifacts instead.
 // It is set using the environment variable REFRESH_GOLDEN.

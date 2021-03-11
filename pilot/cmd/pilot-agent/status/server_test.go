@@ -335,7 +335,6 @@ func TestStatsError(t *testing.T) {
 	}
 	for _, tt := range cases {
 		t.Run(tt.name, func(t *testing.T) {
-
 			server := &Server{
 				prometheus: &PrometheusScrapeConfiguration{
 					Port: strconv.Itoa(tt.app),

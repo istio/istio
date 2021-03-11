@@ -35,7 +35,7 @@ import (
 	"istio.io/istio/pilot/pkg/serviceregistry/memory"
 	"istio.io/istio/pilot/pkg/util/sets"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
-	"istio.io/istio/security/pkg/server/ca/authenticate"
+	"istio.io/istio/pkg/security"
 )
 
 var (
@@ -125,7 +125,7 @@ type DiscoveryServer struct {
 	StatusReporter DistributionStatusCache
 
 	// Authenticators for XDS requests. Should be same/subset of the CA authenticators.
-	Authenticators []authenticate.Authenticator
+	Authenticators []security.Authenticator
 
 	// StatusGen is notified of connect/disconnect/nack on all connections
 	StatusGen               *StatusGen
@@ -190,7 +190,7 @@ func NewDiscoveryServer(env *model.Environment, plugins []string, instanceID str
 		out.ConfigUpdate(&model.PushRequest{Full: true, Reason: []model.TriggerReason{model.UnknownTrigger}})
 	}
 
-	out.initGenerators()
+	out.initGenerators(env)
 
 	if features.EnableXDSCaching {
 		out.Cache = model.NewXdsCache()
@@ -207,9 +207,7 @@ func (s *DiscoveryServer) Register(rpcs *grpc.Server) {
 	discovery.RegisterAggregatedDiscoveryServiceServer(rpcs, s)
 }
 
-var (
-	processStartTime = time.Now()
-)
+var processStartTime = time.Now()
 
 // CachesSynced is called when caches have been synced so that server can accept connections.
 func (s *DiscoveryServer) CachesSynced() {
@@ -490,7 +488,7 @@ func (s *DiscoveryServer) sendPushes(stopCh <-chan struct{}) {
 }
 
 // initGenerators initializes generators to be used by XdsServer.
-func (s *DiscoveryServer) initGenerators() {
+func (s *DiscoveryServer) initGenerators(env *model.Environment) {
 	edsGen := &EdsGenerator{Server: s}
 	s.StatusGen = NewStatusGen(s)
 	s.Generators[v3.ClusterType] = &CdsGenerator{Server: s}
@@ -499,6 +497,7 @@ func (s *DiscoveryServer) initGenerators() {
 	s.Generators[v3.EndpointType] = edsGen
 	s.Generators[v3.NameTableType] = &NdsGenerator{Server: s}
 	s.Generators[v3.ExtensionConfigurationType] = &EcdsGenerator{Server: s}
+	s.Generators[v3.ProxyConfigType] = &PcdsGenerator{Server: s, TrustBundle: env.TrustBundle}
 
 	s.Generators["grpc"] = &grpcgen.GrpcConfigGenerator{}
 	s.Generators["grpc/"+v3.EndpointType] = edsGen
@@ -552,20 +551,8 @@ func (s *DiscoveryServer) AllClients() []*Connection {
 
 // SendResponse will immediately send the response to all connections.
 // TODO: additional filters can be added, for example namespace.
-func (s *DiscoveryServer) SendResponse(res *discovery.DiscoveryResponse) {
-	pending := []*Connection{}
-	for _, v := range s.Clients() {
-		if v.Watching(res.TypeUrl) {
-			pending = append(pending, v)
-		}
-	}
-
-	// only marshal resources if there are connected clients
-	if len(pending) == 0 {
-		return
-	}
-
-	for _, p := range pending {
+func (s *DiscoveryServer) SendResponse(connections []*Connection, res *discovery.DiscoveryResponse) {
+	for _, p := range connections {
 		// p.send() waits for an ACK - which is reasonable for normal push,
 		// but in this case we want to sync fast and not bother with stuck connections.
 		// This is expecting a relatively small number of watchers - each other istiod
@@ -579,4 +566,17 @@ func (s *DiscoveryServer) SendResponse(res *discovery.DiscoveryResponse) {
 			}
 		}()
 	}
+}
+
+// nolint
+// ClientsOf returns the clients that are watching the given resource.
+func (s *DiscoveryServer) ClientsOf(typeUrl string) []*Connection {
+	pending := []*Connection{}
+	for _, v := range s.Clients() {
+		if v.Watching(typeUrl) {
+			pending = append(pending, v)
+		}
+	}
+
+	return pending
 }

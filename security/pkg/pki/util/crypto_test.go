@@ -277,6 +277,7 @@ func TestParsePemEncodedKey(t *testing.T) {
 		}
 	}
 }
+
 func TestGetRSAKeySize(t *testing.T) {
 	testCases := map[string]struct {
 		pem    string

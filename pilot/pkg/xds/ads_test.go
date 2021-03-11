@@ -100,7 +100,8 @@ func TestAdsReconnectAfterRestart(t *testing.T) {
 	ads.RequestResponseAck(&discovery.DiscoveryRequest{
 		ResourceNames: []string{"fake-cluster"},
 		ResponseNonce: res.Nonce,
-		VersionInfo:   res.VersionInfo})
+		VersionInfo:   res.VersionInfo,
+	})
 }
 
 func TestAdsUnsubscribe(t *testing.T) {
@@ -112,7 +113,8 @@ func TestAdsUnsubscribe(t *testing.T) {
 	ads.Request(&discovery.DiscoveryRequest{
 		ResourceNames: nil,
 		ResponseNonce: res.Nonce,
-		VersionInfo:   res.VersionInfo})
+		VersionInfo:   res.VersionInfo,
+	})
 	ads.ExpectNoResponse()
 }
 
@@ -135,13 +137,22 @@ func TestAdsReconnect(t *testing.T) {
 	ads2.ExpectResponse()
 }
 
+// Regression for connection with a bad ID
+func TestAdsBadId(t *testing.T) {
+	leak.Check(t)
+	s := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{})
+	ads := s.ConnectADS().WithID("").WithType(v3.ClusterType)
+	xds.AdsPushAll(s.Discovery)
+	ads.ExpectNoResponse()
+}
+
 func TestAdsClusterUpdate(t *testing.T) {
 	s := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{})
 	ads := s.ConnectADS().WithType(v3.EndpointType)
 
 	version := ""
 	nonce := ""
-	var sendEDSReqAndVerify = func(clusterName string) {
+	sendEDSReqAndVerify := func(clusterName string) {
 		res := ads.RequestResponseAck(&discovery.DiscoveryRequest{
 			ResourceNames: []string{clusterName},
 			VersionInfo:   version,
@@ -188,7 +199,6 @@ func TestAdsPushScoping(t *testing.T) {
 		}
 
 		s.Discovery.ConfigUpdate(&model.PushRequest{Full: true, ConfigsUpdated: configsUpdated})
-
 	}
 	removeService := func(ns string, indexes ...int) {
 		var names []string
@@ -250,7 +260,8 @@ func TestAdsPushScoping(t *testing.T) {
 		if _, err := s.Store().Create(config.Config{
 			Meta: config.Meta{
 				GroupVersionKind: gvk.VirtualService,
-				Name:             fmt.Sprintf("vs%d", i), Namespace: model.IstioDefaultConfigNamespace},
+				Name:             fmt.Sprintf("vs%d", i), Namespace: model.IstioDefaultConfigNamespace,
+			},
 			Spec: &networking.VirtualService{
 				Hosts: hosts,
 				Http: []*networking.HTTPRoute{{
@@ -275,7 +286,8 @@ func TestAdsPushScoping(t *testing.T) {
 		if _, err := s.Store().Create(config.Config{
 			Meta: config.Meta{
 				GroupVersionKind: gvk.VirtualService,
-				Name:             fmt.Sprintf("rootvs%d", i), Namespace: model.IstioDefaultConfigNamespace},
+				Name:             fmt.Sprintf("rootvs%d", i), Namespace: model.IstioDefaultConfigNamespace,
+			},
 			Spec: &networking.VirtualService{
 				Hosts: hosts,
 
@@ -295,7 +307,8 @@ func TestAdsPushScoping(t *testing.T) {
 		if _, err := s.Store().Create(config.Config{
 			Meta: config.Meta{
 				GroupVersionKind: gvk.VirtualService,
-				Name:             fmt.Sprintf("delegatevs%d", i), Namespace: model.IstioDefaultConfigNamespace},
+				Name:             fmt.Sprintf("delegatevs%d", i), Namespace: model.IstioDefaultConfigNamespace,
+			},
 			Spec: &networking.VirtualService{
 				Http: []*networking.HTTPRoute{{
 					Name: "dest-foo",
@@ -316,7 +329,8 @@ func TestAdsPushScoping(t *testing.T) {
 		if _, err := s.Store().Update(config.Config{
 			Meta: config.Meta{
 				GroupVersionKind: gvk.VirtualService,
-				Name:             fmt.Sprintf("delegatevs%d", i), Namespace: model.IstioDefaultConfigNamespace},
+				Name:             fmt.Sprintf("delegatevs%d", i), Namespace: model.IstioDefaultConfigNamespace,
+			},
 			Spec: &networking.VirtualService{
 				Http: []*networking.HTTPRoute{{
 					Name: "dest-foo",
@@ -349,7 +363,8 @@ func TestAdsPushScoping(t *testing.T) {
 		if _, err := s.Store().Create(config.Config{
 			Meta: config.Meta{
 				GroupVersionKind: gvk.DestinationRule,
-				Name:             fmt.Sprintf("dr%d", i), Namespace: model.IstioDefaultConfigNamespace},
+				Name:             fmt.Sprintf("dr%d", i), Namespace: model.IstioDefaultConfigNamespace,
+			},
 			Spec: &networking.DestinationRule{
 				Host:     host,
 				ExportTo: nil,
@@ -369,12 +384,25 @@ func TestAdsPushScoping(t *testing.T) {
 			},
 		},
 	}
-	if _, err := s.Store().Create(config.Config{
+	scc := config.Config{
 		Meta: config.Meta{
 			GroupVersionKind: gvk.Sidecar,
-			Name:             "sc", Namespace: model.IstioDefaultConfigNamespace},
+			Name:             "sc", Namespace: model.IstioDefaultConfigNamespace,
+		},
 		Spec: sc,
-	}); err != nil {
+	}
+	notMatchedScc := config.Config{
+		Meta: config.Meta{
+			GroupVersionKind: gvk.Sidecar,
+			Name:             "notMatchedSc", Namespace: model.IstioDefaultConfigNamespace,
+		},
+		Spec: &networking.Sidecar{
+			WorkloadSelector: &networking.WorkloadSelector{
+				Labels: map[string]string{"notMatched": "notMatched"},
+			},
+		},
+	}
+	if _, err := s.Store().Create(scc); err != nil {
 		t.Fatal(err)
 	}
 	addService(model.IstioDefaultConfigNamespace, 1, 2, 3)
@@ -406,6 +434,7 @@ func TestAdsPushScoping(t *testing.T) {
 			index int
 			host  string
 		}
+		cfgs []config.Config
 
 		expectUpdates   []string
 		unexpectUpdates []string
@@ -609,6 +638,20 @@ func TestAdsPushScoping(t *testing.T) {
 			ns:              ns1,
 			unexpectUpdates: []string{v3.ClusterType},
 		}, // then: default 1,2,3
+		{
+			desc:            "Add an unmatched Sidecar config",
+			ev:              model.EventAdd,
+			cfgs:            []config.Config{notMatchedScc},
+			ns:              model.IstioDefaultConfigNamespace,
+			unexpectUpdates: []string{v3.ListenerType, v3.RouteType, v3.ClusterType, v3.EndpointType},
+		},
+		{
+			desc:          "Update the Sidecar config",
+			ev:            model.EventUpdate,
+			cfgs:          []config.Config{scc},
+			ns:            model.IstioDefaultConfigNamespace,
+			expectUpdates: []string{v3.ListenerType, v3.RouteType, v3.ClusterType, v3.EndpointType},
+		},
 	}
 
 	for _, c := range svcCases {
@@ -648,10 +691,24 @@ func TestAdsPushScoping(t *testing.T) {
 						addDestinationRule(drIndex.index, drIndex.host)
 					}
 				}
+				if len(c.cfgs) > 0 {
+					for _, cfg := range c.cfgs {
+						if _, err := s.Store().Create(cfg); err != nil {
+							t.Fatal(err)
+						}
+					}
+				}
 			case model.EventUpdate:
 				if len(c.delegatevsIndexes) > 0 {
 					for _, vsIndex := range c.delegatevsIndexes {
 						updateDelegateVirtualService(vsIndex.index, vsIndex.dest)
+					}
+				}
+				if len(c.cfgs) > 0 {
+					for _, cfg := range c.cfgs {
+						if _, err := s.Store().Update(cfg); err != nil {
+							t.Fatal(err)
+						}
 					}
 				}
 			case model.EventDelete:

@@ -73,7 +73,7 @@ spec:
 {{.LocalitySetting | indent 8 }}
     outlierDetection:
       interval: 1s
-      baseEjectionTime: 3m
+      baseEjectionTime: 10m
       maxEjectionPercent: 100`
 
 type LocalityInput struct {
@@ -89,6 +89,7 @@ const localityFailover = `
 failover:
 - from: region
   to: nearregion`
+
 const localityDistribute = `
 distribute:
 - from: region
@@ -101,7 +102,7 @@ func TestLocality(t *testing.T) {
 		NewTest(t).
 		Features("traffic.locality").
 		RequiresSingleCluster().
-		Run(func(ctx framework.TestContext) {
+		Run(func(t framework.TestContext) {
 			cases := []struct {
 				name     string
 				input    LocalityInput
@@ -179,11 +180,11 @@ func TestLocality(t *testing.T) {
 				},
 			}
 			for _, tt := range cases {
-				ctx.NewSubTest(tt.name).Run(func(ctx framework.TestContext) {
+				t.NewSubTest(tt.name).Run(func(t framework.TestContext) {
 					hostname := fmt.Sprintf("%s-fake-locality.example.com", strings.ToLower(strings.ReplaceAll(tt.name, "/", "-")))
 					tt.input.Host = hostname
-					applyAndCleanup(ctx, apps.Namespace.Name(), runTemplate(ctx, localityTemplate, tt.input))
-					sendTrafficOrFail(ctx, apps.PodA[0], hostname, tt.expected)
+					t.Config().ApplyYAMLOrFail(t, apps.Namespace.Name(), runTemplate(t, localityTemplate, tt.input))
+					sendTrafficOrFail(t, apps.PodA[0], hostname, tt.expected)
 				})
 			}
 		})
@@ -195,15 +196,8 @@ func expectAllTrafficTo(dest string) map[string]int {
 	return map[string]int{dest: sendCount}
 }
 
-func applyAndCleanup(ctx framework.TestContext, ns string, yaml ...string) {
-	ctx.Config().ApplyYAMLOrFail(ctx, ns, yaml...)
-	ctx.WhenDone(func() error {
-		return ctx.Config().DeleteYAML(ns, yaml...)
-	})
-}
-
-func sendTrafficOrFail(ctx framework.TestContext, from echo.Instance, host string, expected map[string]int) {
-	ctx.Helper()
+func sendTrafficOrFail(t framework.TestContext, from echo.Instance, host string, expected map[string]int) {
+	t.Helper()
 	headers := http.Header{}
 	headers.Add("Host", host)
 	validator := echo.ValidatorFunc(func(resp client.ParsedResponses, inErr error) error {
@@ -231,7 +225,7 @@ func sendTrafficOrFail(ctx framework.TestContext, from echo.Instance, host strin
 	})
 	// This is a hack to remain infrastructure agnostic when running these tests
 	// We actually call the host set above not the endpoint we pass
-	_ = from.CallWithRetryOrFail(ctx, echo.CallOptions{
+	_ = from.CallWithRetryOrFail(t, echo.CallOptions{
 		Target:    from,
 		PortName:  "http",
 		Headers:   headers,

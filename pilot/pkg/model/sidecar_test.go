@@ -236,12 +236,14 @@ var (
 						Name:     "outbound-tcp",
 					},
 					Bind: "7.7.7.7",
-					Hosts: []string{"*/bookinginfo.com",
+					Hosts: []string{
+						"*/bookinginfo.com",
 						"*/private.com",
 					},
 				},
 				{
-					Hosts: []string{"ns1/*",
+					Hosts: []string{
+						"ns1/*",
 						"*/*.tcp.com",
 					},
 				},
@@ -901,7 +903,8 @@ func TestCreateSidecarScope(t *testing.T) {
 					Hostname: "bar",
 				},
 				{
-					Hostname: "barprime"},
+					Hostname: "barprime",
+				},
 				{
 					Hostname: "foo",
 				},
@@ -1352,11 +1355,9 @@ func TestRootNsSidecarDependencies(t *testing.T) {
 			}
 		})
 	}
-
 }
 
 func TestSidecarOutboundTrafficPolicy(t *testing.T) {
-
 	configWithoutOutboundTrafficPolicy := &config.Config{
 		Meta: config.Meta{
 			Name:      "foo",
@@ -1483,7 +1484,6 @@ outboundTrafficPolicy:
 				t.Errorf("Unexpected sidecar outbound traffic, want %v, found %v",
 					test.outboundTrafficPolicy, sidecarScope.OutboundTrafficPolicy)
 			}
-
 		})
 	}
 }

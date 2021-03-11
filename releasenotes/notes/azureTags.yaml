@@ -1,0 +1,9 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: telemetry
+issue:
+- 31176
+releaseNotes:
+- |
+  **Fixed** issue with metadata handling for Azure platform. Support added for
+  tagsList serialization of tags on instance metadata.

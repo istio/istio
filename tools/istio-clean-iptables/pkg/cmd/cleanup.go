@@ -15,6 +15,9 @@
 package cmd
 
 import (
+	"istio.io/istio/tools/istio-clean-iptables/pkg/config"
+	"istio.io/istio/tools/istio-iptables/pkg/builder"
+	common "istio.io/istio/tools/istio-iptables/pkg/cmd"
 	"istio.io/istio/tools/istio-iptables/pkg/constants"
 	dep "istio.io/istio/tools/istio-iptables/pkg/dependencies"
 )
@@ -26,12 +29,18 @@ func flushAndDeleteChains(ext dep.Dependencies, cmd string, table string, chains
 	}
 }
 
-func removeOldChains(ext dep.Dependencies, cmd string) {
+func removeOldChains(cfg *config.Config, ext dep.Dependencies, cmd string) {
+	// Remove the old TCP rules
 	for _, table := range []string{constants.NAT, constants.MANGLE} {
-		// Remove the old chains
 		ext.RunQuietlyAndIgnore(cmd, "-t", table, "-D", constants.PREROUTING, "-p", constants.TCP, "-j", constants.ISTIOINBOUND)
 	}
 	ext.RunQuietlyAndIgnore(cmd, "-t", constants.NAT, "-D", constants.OUTPUT, "-p", constants.TCP, "-j", constants.ISTIOOUTPUT)
+
+	redirectDNS := cfg.RedirectDNS
+	// Remove the old DNS UDP rules
+	if redirectDNS {
+		common.HandleDNSUDP(common.DeleteOps, builder.NewIptablesBuilder(), ext, cmd, cfg.ProxyUID, cfg.ProxyGID, cfg.DNSServersV4)
+	}
 
 	// Flush and delete the istio chains from NAT table.
 	chains := []string{constants.ISTIOOUTPUT, constants.ISTIOINBOUND}
@@ -45,9 +54,9 @@ func removeOldChains(ext dep.Dependencies, cmd string) {
 	flushAndDeleteChains(ext, cmd, constants.NAT, chains)
 }
 
-func cleanup(dryRun bool) {
+func cleanup(cfg *config.Config) {
 	var ext dep.Dependencies
-	if dryRun {
+	if cfg.DryRun {
 		ext = &dep.StdoutStubDependencies{}
 	} else {
 		ext = &dep.RealDependencies{}
@@ -61,6 +70,6 @@ func cleanup(dryRun bool) {
 	}()
 
 	for _, cmd := range []string{constants.IPTABLES, constants.IP6TABLES} {
-		removeOldChains(ext, cmd)
+		removeOldChains(cfg, ext, cmd)
 	}
 }

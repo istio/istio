@@ -32,7 +32,7 @@ function retry {
   local max=5
   while true; do
     exec 5>&1
-    out="$("$@" 2>&1 | tee /dev/fd/5)"
+    out="$(set -o pipefail; "$@" 2>&1 | tee /dev/fd/5)"
     # shellcheck disable=SC2181
     if [[ $? == 0 ]]; then
       break

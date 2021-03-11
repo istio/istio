@@ -148,7 +148,8 @@ var (
 				Fields: map[string]*structpb.Value{
 					"protocol": {
 						Kind: &structpb.Value_StringValue{StringValue: "istio-peer-exchange"},
-					}},
+					},
+				},
 			},
 		})},
 	}
@@ -183,7 +184,8 @@ func buildHTTPMxFilter() *hcm.HttpFilter {
 						},
 					},
 				}},
-			}}
+			},
+		}
 	} else {
 		vmConfig = &v3.PluginConfig_VmConfig{
 			VmConfig: &v3.VmConfig{

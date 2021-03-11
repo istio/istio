@@ -26,11 +26,12 @@ import (
 	goversion "github.com/hashicorp/go-version"
 	"github.com/spf13/cobra"
 	v1 "k8s.io/api/core/v1"
-	client_v1beta1 "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset/typed/apiextensions/v1beta1"
+	client_v1 "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset/typed/apiextensions/v1"
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/rest"
 
 	"istio.io/istio/istioctl/pkg/clioptions"
+	"istio.io/istio/istioctl/pkg/install/k8sversion"
 	"istio.io/istio/istioctl/pkg/verifier"
 	"istio.io/istio/operator/pkg/compare"
 	"istio.io/istio/operator/pkg/manifest"
@@ -137,9 +138,16 @@ func upgrade(rootArgs *rootArgs, args *upgradeArgs, l clog.Logger) (err error) {
 	if err != nil {
 		return fmt.Errorf("failed to connect Kubernetes API server, error: %v", err)
 	}
+	restConfig, clientset, client, err := K8sConfig(args.kubeConfigPath, args.context)
+	if err != nil {
+		return err
+	}
+	if err := k8sversion.IsK8VersionSupported(clientset, l); err != nil {
+		return err
+	}
 	setFlags := applyFlagAliases(args.set, args.manifestsPath, "")
 	// Generate IOPS parseObjectSetFromManifest
-	targetIOPYaml, targetIOP, err := manifest.GenerateConfig(args.inFilenames, setFlags, args.force, nil, l)
+	targetIOPYaml, targetIOP, err := manifest.GenerateConfig(args.inFilenames, setFlags, args.force, restConfig, l)
 	if err != nil {
 		return fmt.Errorf("failed to generate Istio configs from file %s, error: %s", args.inFilenames, err)
 	}
@@ -209,7 +217,7 @@ func upgrade(rootArgs *rootArgs, args *upgradeArgs, l clog.Logger) (err error) {
 	waitForConfirmation(args.skipConfirmation && !rootArgs.dryRun, l)
 
 	// Apply the Istio Control Plane specs reading from inFilenames to the cluster
-	iop, err := InstallManifests(targetIOP, args.force, rootArgs.dryRun, args.kubeConfigPath, args.context, args.readinessTimeout, l)
+	iop, err := InstallManifests(targetIOP, args.force, rootArgs.dryRun, restConfig, client, args.readinessTimeout, l)
 	if err != nil {
 		return fmt.Errorf("failed to apply the Istio Control Plane specs. Error: %v", err)
 	}
@@ -471,7 +479,7 @@ func (client *Client) GetIstioVersions(namespace string) ([]ComponentVersion, er
 			if pv == "" {
 				pv = cv
 			} else if pv != cv {
-				err := fmt.Errorf("differrent versions of containers in the same pod: %v", pod.Name)
+				err := fmt.Errorf("different versions of containers in the same pod: %v", pod.Name)
 				errs = util.AppendErr(errs, err)
 			}
 		}
@@ -539,7 +547,7 @@ func (client *Client) ConfigMapForSelector(namespace, labelSelector string) (*v1
 }
 
 func (client *Client) CheckUnsupportedAlphaSecurityCRD() error {
-	c, err := client_v1beta1.NewForConfig(client.Config)
+	c, err := client_v1.NewForConfig(client.Config)
 	if err != nil {
 		return err
 	}

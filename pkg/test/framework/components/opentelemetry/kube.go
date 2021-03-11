@@ -20,6 +20,7 @@ import (
 	"strings"
 
 	"istio.io/istio/pkg/test/env"
+	"istio.io/istio/pkg/test/framework/components/cluster"
 	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/resource"
 	testKube "istio.io/istio/pkg/test/kube"
@@ -27,8 +28,7 @@ import (
 
 type otel struct {
 	id      resource.ID
-	cluster resource.Cluster
-	close   func()
+	cluster cluster.Cluster
 }
 
 const (
@@ -130,33 +130,19 @@ func install(ctx resource.Context, ns string) error {
 	return ctx.Config().ApplyYAML(ns, y)
 }
 
-func installServiceEntry(cluster resource.Cluster, ctx resource.Context, ns, ingressAddr string) error {
+func installServiceEntry(ctx resource.Context, ns, ingressAddr string) error {
 	// Setup remote access to zipkin in cluster
 	yaml := strings.ReplaceAll(remoteOtelEntry, "{INGRESS_DOMAIN}", ingressAddr)
-	err := ctx.Config().ApplyYAMLInCluster(cluster, ns, yaml)
-	if err != nil {
+	if err := ctx.Config().ApplyYAML(ns, yaml); err != nil {
 		return err
 	}
 	// For all other clusters, add a service entry so that can access
 	// zipkin in cluster installed.
 	yaml = strings.ReplaceAll(extServiceEntry, "{INGRESS_DOMAIN}", ingressAddr)
-	for _, cl := range ctx.Clusters() {
-		if cluster.Name() != cl.Name() {
-			err := ctx.Config().ApplyYAMLInCluster(cl, ns, yaml)
-			if err != nil {
-				return err
-			}
-		}
-	}
-	return nil
-}
-
-func remove(ctx resource.Context, ns string) error {
-	y, err := getYaml()
-	if err != nil {
+	if err := ctx.Config().ApplyYAML(ns, yaml); err != nil {
 		return err
 	}
-	return ctx.Config().DeleteYAML(ns, y)
+	return nil
 }
 
 func newCollector(ctx resource.Context, c Config) (*otel, error) {
@@ -175,10 +161,6 @@ func newCollector(ctx resource.Context, c Config) (*otel, error) {
 		return nil, err
 	}
 
-	o.close = func() {
-		_ = remove(ctx, ns)
-	}
-
 	f := testKube.NewSinglePodFetch(o.cluster, ns, fmt.Sprintf("app=%s", appName))
 	_, err = testKube.WaitUntilPodsAreReady(f)
 	if err != nil {
@@ -186,7 +168,7 @@ func newCollector(ctx resource.Context, c Config) (*otel, error) {
 	}
 
 	ingressDomain := fmt.Sprintf("%s.nip.io", c.IngressAddr.IP.String())
-	err = installServiceEntry(o.cluster, ctx, istioCfg.TelemetryNamespace, ingressDomain)
+	err = installServiceEntry(ctx, istioCfg.TelemetryNamespace, ingressDomain)
 	if err != nil {
 		return nil, err
 	}
@@ -195,12 +177,4 @@ func newCollector(ctx resource.Context, c Config) (*otel, error) {
 
 func (o *otel) ID() resource.ID {
 	return o.id
-}
-
-// Close implements io.Closer.
-func (o *otel) Close() error {
-	if o.close != nil {
-		o.close()
-	}
-	return nil
 }

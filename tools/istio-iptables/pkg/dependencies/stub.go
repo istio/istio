@@ -20,8 +20,7 @@ import (
 )
 
 // StdoutStubDependencies implementation of interface Dependencies, which is used for testing
-type StdoutStubDependencies struct {
-}
+type StdoutStubDependencies struct{}
 
 // RunOrFail runs a command and panics, if it fails
 func (s *StdoutStubDependencies) RunOrFail(cmd string, args ...string) {

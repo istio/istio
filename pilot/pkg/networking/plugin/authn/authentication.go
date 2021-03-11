@@ -22,14 +22,11 @@ import (
 	"istio.io/istio/pilot/pkg/networking"
 	"istio.io/istio/pilot/pkg/networking/plugin"
 	"istio.io/istio/pilot/pkg/security/authn/factory"
-	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/pkg/log"
 )
 
-var (
-	authnLog = log.RegisterScope("authn", "authn debugging", 0)
-)
+var authnLog = log.RegisterScope("authn", "authn debugging", 0)
 
 // Plugin implements Istio mTLS auth
 type Plugin struct{}
@@ -43,7 +40,7 @@ func NewPlugin() plugin.Plugin {
 func (Plugin) OnInboundFilterChains(in *plugin.InputParams) []networking.FilterChain {
 	return factory.NewPolicyApplier(in.Push,
 		in.Node.Metadata.Namespace, labels.Collection{in.Node.Metadata.Labels}).InboundFilterChain(
-		in.ServiceInstance.Endpoint.EndpointPort, constants.DefaultSdsUdsPath, in.Node,
+		in.ServiceInstance.Endpoint.EndpointPort, in.Node,
 		in.ListenerProtocol, trustDomainsForValidation(in.Push.Mesh))
 }
 
@@ -112,7 +109,7 @@ func (Plugin) OnInboundPassthroughFilterChains(in *plugin.InputParams) []network
 	applier := factory.NewPolicyApplier(in.Push, in.Node.Metadata.Namespace, labels.Collection{in.Node.Metadata.Labels})
 	trustDomains := trustDomainsForValidation(in.Push.Mesh)
 	// First generate the default passthrough filter chains, pass 0 for endpointPort so that it never matches any port-level policy.
-	filterChains := applier.InboundFilterChain(0, constants.DefaultSdsUdsPath, in.Node, in.ListenerProtocol, trustDomains)
+	filterChains := applier.InboundFilterChain(0, in.Node, in.ListenerProtocol, trustDomains)
 
 	// Then generate the per-port passthrough filter chains.
 	for port := range applier.PortLevelSetting() {
@@ -122,7 +119,7 @@ func (Plugin) OnInboundPassthroughFilterChains(in *plugin.InputParams) []network
 		}
 
 		authnLog.Debugf("InboundPassthroughFilterChains: build extra pass through filter chain for %v:%d", in.Node.ID, port)
-		portLevelFilterChains := applier.InboundFilterChain(port, constants.DefaultSdsUdsPath, in.Node, in.ListenerProtocol, trustDomains)
+		portLevelFilterChains := applier.InboundFilterChain(port, in.Node, in.ListenerProtocol, trustDomains)
 		for _, fc := range portLevelFilterChains {
 			// Set the port to distinguish from the default passthrough filter chain.
 			if fc.FilterChainMatch == nil {

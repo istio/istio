@@ -40,15 +40,21 @@ import (
 	"istio.io/pkg/log"
 )
 
-var (
-	dummyServiceInstance = &model.ServiceInstance{
-		Service:     &model.Service{},
-		ServicePort: &model.Port{},
-		Endpoint: &model.IstioEndpoint{
-			EndpointPort: 15006,
-		},
-	}
-)
+var dummyServiceInstance = &model.ServiceInstance{
+	Service:     &model.Service{},
+	ServicePort: &model.Port{},
+	Endpoint: &model.IstioEndpoint{
+		EndpointPort: 15006,
+	},
+}
+
+var blackholeFilters = []*listener.Filter{{
+	Name: wellknown.TCPProxy,
+	ConfigType: &listener.Filter_TypedConfig{TypedConfig: util.MessageToAny(&tcp.TcpProxy{
+		StatPrefix:       util.BlackHoleCluster,
+		ClusterSpecifier: &tcp.TcpProxy_Cluster{Cluster: util.BlackHoleCluster},
+	})},
+}}
 
 // A stateful listener builder
 // Support the below intentions
@@ -103,6 +109,7 @@ func amendFilterChainMatchFromInboundListener(chain *listener.FilterChain, l *li
 }
 
 func isBindtoPort(l *listener.Listener) bool {
+	// nolint: staticcheck
 	v1 := l.GetDeprecatedV1()
 	if v1 == nil {
 		// Default is true
@@ -164,8 +171,7 @@ func (lb *ListenerBuilder) aggregateVirtualInboundListener(needTLSForPassThrough
 	// 1. filter chains in this listener
 	// 2. explicit original_dst listener filter
 	// UseOriginalDst: proto.BoolTrue,
-	// nolint: staticcheck
-	lb.virtualInboundListener.HiddenEnvoyDeprecatedUseOriginalDst = nil
+	lb.virtualInboundListener.UseOriginalDst = nil
 	lb.virtualInboundListener.ListenerFilters = append(lb.virtualInboundListener.ListenerFilters,
 		xdsfilters.OriginalDestination,
 	)
@@ -319,7 +325,6 @@ func (lb *ListenerBuilder) buildHTTPProxyListener(configgen *ConfigGeneratorImpl
 }
 
 func (lb *ListenerBuilder) buildVirtualOutboundListener(configgen *ConfigGeneratorImpl) *ListenerBuilder {
-
 	var isTransparentProxy *wrappers.BoolValue
 	if lb.node.GetInterceptionMode() == model.InterceptionTproxy {
 		isTransparentProxy = proto.BoolTrue
@@ -331,12 +336,12 @@ func (lb *ListenerBuilder) buildVirtualOutboundListener(configgen *ConfigGenerat
 
 	// add an extra listener that binds to the port that is the recipient of the iptables redirect
 	ipTablesListener := &listener.Listener{
-		Name:                                VirtualOutboundListenerName,
-		Address:                             util.BuildAddress(actualWildcard, uint32(lb.push.Mesh.ProxyListenPort)),
-		Transparent:                         isTransparentProxy,
-		HiddenEnvoyDeprecatedUseOriginalDst: proto.BoolTrue,
-		FilterChains:                        filterChains,
-		TrafficDirection:                    core.TrafficDirection_OUTBOUND,
+		Name:             VirtualOutboundListenerName,
+		Address:          util.BuildAddress(actualWildcard, uint32(lb.push.Mesh.ProxyListenPort)),
+		Transparent:      isTransparentProxy,
+		UseOriginalDst:   proto.BoolTrue,
+		FilterChains:     filterChains,
+		TrafficDirection: core.TrafficDirection_OUTBOUND,
 	}
 	accessLogBuilder.setListenerAccessLog(lb.push.Mesh, ipTablesListener, lb.node)
 	lb.virtualOutboundListener = ipTablesListener
@@ -360,12 +365,12 @@ func (lb *ListenerBuilder) buildVirtualInboundListener(configgen *ConfigGenerato
 		filterChains = append(filterChains, fc...)
 	}
 	lb.virtualInboundListener = &listener.Listener{
-		Name:                                VirtualInboundListenerName,
-		Address:                             util.BuildAddress(actualWildcard, ProxyInboundListenPort),
-		Transparent:                         isTransparentProxy,
-		HiddenEnvoyDeprecatedUseOriginalDst: proto.BoolTrue,
-		TrafficDirection:                    core.TrafficDirection_INBOUND,
-		FilterChains:                        filterChains,
+		Name:             VirtualInboundListenerName,
+		Address:          util.BuildAddress(actualWildcard, ProxyInboundListenPort),
+		Transparent:      isTransparentProxy,
+		UseOriginalDst:   proto.BoolTrue,
+		TrafficDirection: core.TrafficDirection_INBOUND,
+		FilterChains:     filterChains,
 	}
 	accessLogBuilder.setListenerAccessLog(lb.push.Mesh, lb.virtualInboundListener, lb.node)
 	lb.aggregateVirtualInboundListener(needTLSForPassThroughFilterChain)
@@ -463,21 +468,19 @@ func buildInboundCatchAllNetworkFilterChains(configgen *ConfigGeneratorImpl,
 		ipVersions = append(ipVersions, util.InboundPassthroughClusterIpv6)
 	}
 	filterChains := make([]*listener.FilterChain, 0, 3)
-	if features.PilotEnableLoopBlockers {
-		filterChains = append(filterChains, &listener.FilterChain{
-			Name: VirtualInboundBlackholeFilterChainName,
-			FilterChainMatch: &listener.FilterChainMatch{
-				DestinationPort: &wrappers.UInt32Value{Value: ProxyInboundListenPort},
-			},
-			Filters: []*listener.Filter{{
-				Name: wellknown.TCPProxy,
-				ConfigType: &listener.Filter_TypedConfig{TypedConfig: util.MessageToAny(&tcp.TcpProxy{
-					StatPrefix:       util.BlackHoleCluster,
-					ClusterSpecifier: &tcp.TcpProxy_Cluster{Cluster: util.BlackHoleCluster},
-				})},
-			}},
-		})
-	}
+	filterChains = append(filterChains, &listener.FilterChain{
+		Name: VirtualInboundBlackholeFilterChainName,
+		FilterChainMatch: &listener.FilterChainMatch{
+			DestinationPort: &wrappers.UInt32Value{Value: ProxyInboundListenPort},
+		},
+		Filters: []*listener.Filter{{
+			Name: wellknown.TCPProxy,
+			ConfigType: &listener.Filter_TypedConfig{TypedConfig: util.MessageToAny(&tcp.TcpProxy{
+				StatPrefix:       util.BlackHoleCluster,
+				ClusterSpecifier: &tcp.TcpProxy_Cluster{Cluster: util.BlackHoleCluster},
+			})},
+		}},
+	})
 
 	needTLS := false
 	for _, clusterName := range ipVersions {
@@ -659,7 +662,6 @@ func buildInboundCatchAllHTTPFilterChains(configgen *ConfigGeneratorImpl, node *
 }
 
 func buildOutboundCatchAllNetworkFiltersOnly(push *model.PushContext, node *model.Proxy) []*listener.Filter {
-
 	filterStack := make([]*listener.Filter, 0)
 	var egressCluster string
 
@@ -697,27 +699,24 @@ func buildOutboundCatchAllNetworkFiltersOnly(push *model.PushContext, node *mode
 // See https://github.com/istio/istio/issues/21170
 func buildOutboundCatchAllNetworkFilterChains(_ *ConfigGeneratorImpl,
 	node *model.Proxy, push *model.PushContext) []*listener.FilterChain {
-
 	filterStack := buildOutboundCatchAllNetworkFiltersOnly(push, node)
 	chains := make([]*listener.FilterChain, 0, 2)
-	if features.PilotEnableLoopBlockers {
-		chains = append(chains, &listener.FilterChain{
-			Name: VirtualOutboundBlackholeFilterChainName,
-			FilterChainMatch: &listener.FilterChainMatch{
-				// We should not allow requests to the listen port directly. Requests must be
-				// sent to some other original port and iptables redirected to 15001. This
-				// ensures we do not passthrough back to the listen port.
-				DestinationPort: &wrappers.UInt32Value{Value: uint32(push.Mesh.ProxyListenPort)},
-			},
-			Filters: []*listener.Filter{{
-				Name: wellknown.TCPProxy,
-				ConfigType: &listener.Filter_TypedConfig{TypedConfig: util.MessageToAny(&tcp.TcpProxy{
-					StatPrefix:       util.BlackHoleCluster,
-					ClusterSpecifier: &tcp.TcpProxy_Cluster{Cluster: util.BlackHoleCluster},
-				})},
-			}},
-		})
-	}
-	chains = append(chains, &listener.FilterChain{Name: VirtualOutboundCatchAllTCPFilterChainName, Filters: filterStack})
+	chains = append(chains, blackholeFilterChain(push.Mesh.ProxyListenPort), &listener.FilterChain{
+		Name:    VirtualOutboundCatchAllTCPFilterChainName,
+		Filters: filterStack,
+	})
 	return chains
+}
+
+func blackholeFilterChain(proxyListenPort int32) *listener.FilterChain {
+	return &listener.FilterChain{
+		Name: VirtualOutboundBlackholeFilterChainName,
+		FilterChainMatch: &listener.FilterChainMatch{
+			// We should not allow requests to the listen port directly. Requests must be
+			// sent to some other original port and iptables redirected to 15001. This
+			// ensures we do not passthrough back to the listen port.
+			DestinationPort: &wrappers.UInt32Value{Value: uint32(proxyListenPort)},
+		},
+		Filters: blackholeFilters,
+	}
 }

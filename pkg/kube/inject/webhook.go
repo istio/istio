@@ -26,7 +26,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/ghodss/yaml"
 	"gomodules.xyz/jsonpatch/v3"
 	kubeApiAdmissionv1 "k8s.io/api/admission/v1"
 	kubeApiAdmissionv1beta1 "k8s.io/api/admission/v1beta1"
@@ -38,6 +37,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/strategicpatch"
 
 	"istio.io/api/annotation"
+	"istio.io/api/label"
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	opconfig "istio.io/istio/operator/pkg/apis/istio/v1alpha1"
 	"istio.io/istio/pilot/cmd/pilot-agent/status"
@@ -212,7 +212,7 @@ func (wh *Webhook) Run(stop <-chan struct{}) {
 		select {
 		case <-healthC:
 			content := []byte(`ok`)
-			if err := ioutil.WriteFile(wh.healthCheckFile, content, 0644); err != nil {
+			if err := ioutil.WriteFile(wh.healthCheckFile, content, 0o644); err != nil {
 				log.Errorf("Health check update of %q failed: %v", wh.healthCheckFile, err)
 			}
 		case <-stop:
@@ -591,6 +591,9 @@ func postProcessPod(pod *corev1.Pod, injectedPod corev1.Pod, req InjectionParame
 }
 
 func applyMetadata(pod *corev1.Pod, injectedPodData corev1.Pod, req InjectionParameters) {
+	if nw, ok := req.proxyEnvs["ISTIO_META_NETWORK"]; ok {
+		pod.Labels[label.TopologyNetwork.Name] = nw
+	}
 	// Add all additional injected annotations. These are overridden if needed
 	pod.Annotations[annotation.SidecarStatus.Name] = getInjectionStatus(injectedPodData.Spec)
 
@@ -602,12 +605,8 @@ func applyMetadata(pod *corev1.Pod, injectedPodData corev1.Pod, req InjectionPar
 
 // reorderPod ensures containers are properly ordered after merging
 func reorderPod(pod *corev1.Pod, req InjectionParameters) error {
-	var (
-		merr error
-	)
-	mc := &meshconfig.MeshConfig{
-		DefaultConfig: &meshconfig.ProxyConfig{},
-	}
+	var merr error
+	mc := req.meshConfig
 	// Get copy of pod proxyconfig, to determine container ordering
 	if pca, f := req.pod.ObjectMeta.GetAnnotations()[annotation.ProxyConfig.Name]; f {
 		mc, merr = mesh.ApplyProxyConfig(pca, *req.meshConfig)
@@ -621,7 +620,7 @@ func reorderPod(pod *corev1.Pod, req InjectionParameters) error {
 		return fmt.Errorf("could not parse configuration values: %v", err)
 	}
 	// nolint: staticcheck
-	holdPod := mc.DefaultConfig.HoldApplicationUntilProxyStarts.GetValue() ||
+	holdPod := mc.GetDefaultConfig().GetHoldApplicationUntilProxyStarts().GetValue() ||
 		valuesStruct.GetGlobal().GetProxy().GetHoldApplicationUntilProxyStarts().GetValue()
 
 	proxyLocation := MoveLast
@@ -752,16 +751,6 @@ func applyOverlay(target *corev1.Pod, overlayJSON []byte) (*corev1.Pod, error) {
 		return nil, fmt.Errorf("unmarshal patched pod: %v", err)
 	}
 	return &pod, nil
-}
-
-func mergeInjectedConfig(req *corev1.Pod, injected []byte) (*corev1.Pod, error) {
-	// The template is yaml, StrategicMergePatch expects JSON
-	injectedJSON, err := yaml.YAMLToJSON(injected)
-	if err != nil {
-		return nil, fmt.Errorf("yaml to json: %v", err)
-	}
-
-	return applyOverlay(req, injectedJSON)
 }
 
 func (wh *Webhook) inject(ar *kube.AdmissionReview, path string) *kube.AdmissionResponse {

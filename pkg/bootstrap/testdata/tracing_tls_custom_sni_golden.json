@@ -17,6 +17,12 @@
               }
           },
           {
+            "name": "global config",
+            "static_layer": {
+                "overload.global_downstream_max_connections": 2147483647
+            }
+          },
+          {
               "name": "admin",
               "admin_layer": {}
           }
@@ -247,14 +253,13 @@
     },
     "ads_config": {
       "api_type": "GRPC",
+      "set_node_on_first_message_only": true,
       "transport_api_version": "V3",
       "grpc_services": [
         {
-        
           "envoy_grpc": {
             "cluster_name": "xds-grpc"
           }
-        
         }
       ]
     }
@@ -374,7 +379,7 @@
       ,
       {
         "name": "zipkin",
-        "transport_socket": {"name":"envoy.transport_sockets.tls","typed_config":{"@type":"type.googleapis.com/envoy.extensions.transport_sockets.tls.v3.UpstreamTlsContext","common_tls_context":{"combined_validation_context":{"default_validation_context":{},"validation_context_sds_secret_config":{"name":"file-root:/etc/zipkin/ca.pem","sds_config":{"api_config_source":{"api_type":"GRPC","grpc_services":[{"envoy_grpc":{"cluster_name":"sds-grpc"}}],"transport_api_version":"V3"},"resource_api_version":"V3"}}}},"sni":"zipkin-custom-sni"}},
+        "transport_socket": {"name":"envoy.transport_sockets.tls","typed_config":{"@type":"type.googleapis.com/envoy.extensions.transport_sockets.tls.v3.UpstreamTlsContext","common_tls_context":{"combined_validation_context":{"default_validation_context":{},"validation_context_sds_secret_config":{"name":"file-root:/etc/zipkin/ca.pem","sds_config":{"api_config_source":{"api_type":"GRPC","grpc_services":[{"envoy_grpc":{"cluster_name":"sds-grpc"}}],"set_node_on_first_message_only":true,"transport_api_version":"V3"},"resource_api_version":"V3"}}}},"sni":"zipkin-custom-sni"}},
         "type": "STRICT_DNS",
         "respect_dns_ttl": true,
         "dns_lookup_family": "V4_ONLY",

@@ -38,12 +38,12 @@ var (
 		gvk.ServiceEntry:    {},
 		gvk.VirtualService:  {},
 		gvk.DestinationRule: {},
+		gvk.Sidecar:         {},
 	}
 
 	// clusterScopedConfigTypes includes configs when they are in root namespace,
 	// they will be applied to all namespaces within the cluster.
 	clusterScopedConfigTypes = map[config.GroupVersionKind]struct{}{
-		gvk.Sidecar:               {},
 		gvk.EnvoyFilter:           {},
 		gvk.AuthorizationPolicy:   {},
 		gvk.RequestAuthentication: {},
@@ -269,9 +269,15 @@ func ConvertToSidecarScope(ps *PushContext, sidecarConfig *config.Config, config
 		Version:            ps.PushVersion,
 	}
 
+	out.AddConfigDependencies(ConfigKey{
+		sidecarConfig.GroupVersionKind,
+		sidecarConfig.Name,
+		sidecarConfig.Namespace,
+	})
+
 	out.EgressListeners = make([]*IstioEgressListenerWrapper, 0)
 	egressConfigs := sidecar.Egress
-	//If egress not set, setup a default listener
+	// If egress not set, setup a default listener
 	if len(egressConfigs) == 0 {
 		egressConfigs = append(egressConfigs, &networking.IstioEgressListener{Hosts: []string{"*/*"}})
 	}
@@ -408,7 +414,6 @@ func ConvertToSidecarScope(ps *PushContext, sidecarConfig *config.Config, config
 
 func convertIstioListenerToWrapper(ps *PushContext, configNamespace string,
 	istioListener *networking.IstioEgressListener) *IstioEgressListenerWrapper {
-
 	out := &IstioEgressListenerWrapper{
 		IstioListener: istioListener,
 		listenerHosts: make(map[string][]host.Name),
@@ -614,7 +619,6 @@ func (ilw *IstioEgressListenerWrapper) selectVirtualServices(virtualServices []c
 // Return filtered services through the hosts field in the egress portion of the Sidecar config.
 // Note that the returned service could be trimmed.
 func (ilw *IstioEgressListenerWrapper) selectServices(services []*Service, configNamespace string) []*Service {
-
 	importedServices := make([]*Service, 0)
 	wildcardHosts, wnsFound := ilw.listenerHosts[wildcardNamespace]
 	for _, s := range services {
@@ -635,7 +639,7 @@ func (ilw *IstioEgressListenerWrapper) selectServices(services []*Service, confi
 		}
 	}
 
-	var validServices = make(map[host.Name]string)
+	validServices := make(map[host.Name]string)
 	for _, svc := range importedServices {
 		_, f := validServices[svc.Hostname]
 		// Select a single namespace for a given hostname.

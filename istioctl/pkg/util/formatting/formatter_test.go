@@ -89,14 +89,14 @@ func TestFormatter_PrintJSON(t *testing.T) {
 	expectedOutput := `[
 	{
 		"code": "B1",
-		"documentation_url": "` + url.ConfigAnalysis + `/b1/",
+		"documentationUrl": "` + url.ConfigAnalysis + `/b1/",
 		"level": "Error",
 		"message": "Explosion accident: the bubble is too big",
 		"origin": "SoapBubble"
 	},
 	{
 		"code": "C1",
-		"documentation_url": "` + url.ConfigAnalysis + `/c1/",
+		"documentationUrl": "` + url.ConfigAnalysis + `/c1/",
 		"level": "Warning",
 		"message": "Collapse danger: the castle is too old",
 		"origin": "GrandCastle"
@@ -124,12 +124,12 @@ func TestFormatter_PrintYAML(t *testing.T) {
 	output, _ := Print(msgs, YAMLFormat, false)
 
 	expectedOutput := `- code: B1
-  documentation_url: ` + url.ConfigAnalysis + `/b1/
+  documentationUrl: ` + url.ConfigAnalysis + `/b1/
   level: Error
   message: 'Explosion accident: the bubble is too big'
   origin: SoapBubble
 - code: C1
-  documentation_url: ` + url.ConfigAnalysis + `/c1/
+  documentationUrl: ` + url.ConfigAnalysis + `/c1/
   level: Warning
   message: 'Collapse danger: the castle is too old'
   origin: GrandCastle

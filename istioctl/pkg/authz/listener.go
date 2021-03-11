@@ -37,10 +37,8 @@ const (
 	anonymousName = "_anonymous_match_nothing_"
 )
 
-var (
-	// Matches the policy name in RBAC filter config with format like ns[default]-policy[some-policy]-rule[1].
-	re = regexp.MustCompile(`ns\[(.+)\]-policy\[(.+)\]-rule\[(.+)\]`)
-)
+// Matches the policy name in RBAC filter config with format like ns[default]-policy[some-policy]-rule[1].
+var re = regexp.MustCompile(`ns\[(.+)\]-policy\[(.+)\]-rule\[(.+)\]`)
 
 type filterChain struct {
 	rbacHTTP []*rbac_http_filter.RBAC

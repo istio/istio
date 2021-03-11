@@ -30,7 +30,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
-	serviceapisclient "sigs.k8s.io/service-apis/pkg/client/clientset/versioned"
+	serviceapisclient "sigs.k8s.io/gateway-api/pkg/client/clientset/versioned"
 
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/schema/collections"
@@ -40,7 +40,7 @@ import (
 	clientnetworkingv1alpha3 "istio.io/client-go/pkg/apis/networking/v1alpha3"
 	clientsecurityv1beta1 "istio.io/client-go/pkg/apis/security/v1beta1"
 
-	servicev1alpha1 "sigs.k8s.io/service-apis/apis/v1alpha1"
+	servicev1alpha1 "sigs.k8s.io/gateway-api/apis/v1alpha1"
 )
 
 func create(ic versionedclient.Interface, sc serviceapisclient.Interface, cfg config.Config, objMeta metav1.ObjectMeta) (metav1.Object, error) {
@@ -644,6 +644,7 @@ var translationMap = map[config.GroupVersionKind]func(r runtime.Object) *config.
 				CreationTimestamp: obj.CreationTimestamp.Time,
 				OwnerReferences:   obj.OwnerReferences,
 				UID:               string(obj.UID),
+				Generation:        obj.Generation,
 			},
 			Spec:   &obj.Spec,
 			Status: &obj.Status,
@@ -662,6 +663,7 @@ var translationMap = map[config.GroupVersionKind]func(r runtime.Object) *config.
 				CreationTimestamp: obj.CreationTimestamp.Time,
 				OwnerReferences:   obj.OwnerReferences,
 				UID:               string(obj.UID),
+				Generation:        obj.Generation,
 			},
 			Spec:   &obj.Spec,
 			Status: &obj.Status,
@@ -680,6 +682,7 @@ var translationMap = map[config.GroupVersionKind]func(r runtime.Object) *config.
 				CreationTimestamp: obj.CreationTimestamp.Time,
 				OwnerReferences:   obj.OwnerReferences,
 				UID:               string(obj.UID),
+				Generation:        obj.Generation,
 			},
 			Spec:   &obj.Spec,
 			Status: &obj.Status,
@@ -698,6 +701,7 @@ var translationMap = map[config.GroupVersionKind]func(r runtime.Object) *config.
 				CreationTimestamp: obj.CreationTimestamp.Time,
 				OwnerReferences:   obj.OwnerReferences,
 				UID:               string(obj.UID),
+				Generation:        obj.Generation,
 			},
 			Spec:   &obj.Spec,
 			Status: &obj.Status,
@@ -716,6 +720,7 @@ var translationMap = map[config.GroupVersionKind]func(r runtime.Object) *config.
 				CreationTimestamp: obj.CreationTimestamp.Time,
 				OwnerReferences:   obj.OwnerReferences,
 				UID:               string(obj.UID),
+				Generation:        obj.Generation,
 			},
 			Spec:   &obj.Spec,
 			Status: &obj.Status,
@@ -734,6 +739,7 @@ var translationMap = map[config.GroupVersionKind]func(r runtime.Object) *config.
 				CreationTimestamp: obj.CreationTimestamp.Time,
 				OwnerReferences:   obj.OwnerReferences,
 				UID:               string(obj.UID),
+				Generation:        obj.Generation,
 			},
 			Spec:   &obj.Spec,
 			Status: &obj.Status,
@@ -752,6 +758,7 @@ var translationMap = map[config.GroupVersionKind]func(r runtime.Object) *config.
 				CreationTimestamp: obj.CreationTimestamp.Time,
 				OwnerReferences:   obj.OwnerReferences,
 				UID:               string(obj.UID),
+				Generation:        obj.Generation,
 			},
 			Spec:   &obj.Spec,
 			Status: &obj.Status,
@@ -770,6 +777,7 @@ var translationMap = map[config.GroupVersionKind]func(r runtime.Object) *config.
 				CreationTimestamp: obj.CreationTimestamp.Time,
 				OwnerReferences:   obj.OwnerReferences,
 				UID:               string(obj.UID),
+				Generation:        obj.Generation,
 			},
 			Spec:   &obj.Spec,
 			Status: &obj.Status,
@@ -788,6 +796,7 @@ var translationMap = map[config.GroupVersionKind]func(r runtime.Object) *config.
 				CreationTimestamp: obj.CreationTimestamp.Time,
 				OwnerReferences:   obj.OwnerReferences,
 				UID:               string(obj.UID),
+				Generation:        obj.Generation,
 			},
 			Spec:   &obj.Spec,
 			Status: &obj.Status,
@@ -806,6 +815,7 @@ var translationMap = map[config.GroupVersionKind]func(r runtime.Object) *config.
 				CreationTimestamp: obj.CreationTimestamp.Time,
 				OwnerReferences:   obj.OwnerReferences,
 				UID:               string(obj.UID),
+				Generation:        obj.Generation,
 			},
 			Spec:   &obj.Spec,
 			Status: &obj.Status,
@@ -824,6 +834,7 @@ var translationMap = map[config.GroupVersionKind]func(r runtime.Object) *config.
 				CreationTimestamp: obj.CreationTimestamp.Time,
 				OwnerReferences:   obj.OwnerReferences,
 				UID:               string(obj.UID),
+				Generation:        obj.Generation,
 			},
 			Spec:   &obj.Spec,
 			Status: &obj.Status,
@@ -842,6 +853,7 @@ var translationMap = map[config.GroupVersionKind]func(r runtime.Object) *config.
 				CreationTimestamp: obj.CreationTimestamp.Time,
 				OwnerReferences:   obj.OwnerReferences,
 				UID:               string(obj.UID),
+				Generation:        obj.Generation,
 			},
 			Spec:   &obj.Spec,
 			Status: &obj.Status,
@@ -860,6 +872,7 @@ var translationMap = map[config.GroupVersionKind]func(r runtime.Object) *config.
 				CreationTimestamp: obj.CreationTimestamp.Time,
 				OwnerReferences:   obj.OwnerReferences,
 				UID:               string(obj.UID),
+				Generation:        obj.Generation,
 			},
 			Spec:   &obj.Spec,
 			Status: &obj.Status,
@@ -878,6 +891,7 @@ var translationMap = map[config.GroupVersionKind]func(r runtime.Object) *config.
 				CreationTimestamp: obj.CreationTimestamp.Time,
 				OwnerReferences:   obj.OwnerReferences,
 				UID:               string(obj.UID),
+				Generation:        obj.Generation,
 			},
 			Spec:   &obj.Spec,
 			Status: &obj.Status,
@@ -896,6 +910,7 @@ var translationMap = map[config.GroupVersionKind]func(r runtime.Object) *config.
 				CreationTimestamp: obj.CreationTimestamp.Time,
 				OwnerReferences:   obj.OwnerReferences,
 				UID:               string(obj.UID),
+				Generation:        obj.Generation,
 			},
 			Spec:   &obj.Spec,
 			Status: &obj.Status,
@@ -914,6 +929,7 @@ var translationMap = map[config.GroupVersionKind]func(r runtime.Object) *config.
 				CreationTimestamp: obj.CreationTimestamp.Time,
 				OwnerReferences:   obj.OwnerReferences,
 				UID:               string(obj.UID),
+				Generation:        obj.Generation,
 			},
 			Spec:   &obj.Spec,
 			Status: &obj.Status,
@@ -932,6 +948,7 @@ var translationMap = map[config.GroupVersionKind]func(r runtime.Object) *config.
 				CreationTimestamp: obj.CreationTimestamp.Time,
 				OwnerReferences:   obj.OwnerReferences,
 				UID:               string(obj.UID),
+				Generation:        obj.Generation,
 			},
 			Spec:   &obj.Spec,
 			Status: &obj.Status,

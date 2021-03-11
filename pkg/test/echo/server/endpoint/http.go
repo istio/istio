@@ -42,14 +42,12 @@ const (
 	readyInterval = 2 * time.Second
 )
 
-var (
-	webSocketUpgrader = websocket.Upgrader{
-		CheckOrigin: func(r *http.Request) bool {
-			// allow all connections by default
-			return true
-		},
-	}
-)
+var webSocketUpgrader = websocket.Upgrader{
+	CheckOrigin: func(r *http.Request) bool {
+		// allow all connections by default
+		return true
+	},
+}
 
 var _ Instance = &httpInstance{}
 
@@ -203,7 +201,11 @@ type codeAndSlices struct {
 func (h *httpHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	epLog.Infof("HTTP Request:\n  Method: %s\n  URL: %v,\n  Host: %s\n  Headers: %v",
 		r.Method, r.URL, r.Host, r.Header)
-	defer common.Metrics.HTTPRequests.With(common.PortLabel.Value(strconv.Itoa(h.Port.Port))).Increment()
+	if h.Port == nil {
+		defer common.Metrics.HTTPRequests.With(common.PortLabel.Value("uds")).Increment()
+	} else {
+		defer common.Metrics.HTTPRequests.With(common.PortLabel.Value(strconv.Itoa(h.Port.Port))).Increment()
+	}
 	if !h.IsServerReady() {
 		// Handle readiness probe failure.
 		epLog.Infof("HTTP service not ready, returning 503")
@@ -302,6 +304,7 @@ func (h *httpHandler) addResponsePayload(r *http.Request, body *bytes.Buffer) {
 	writeField(body, response.HostField, r.Host)
 	writeField(body, response.URLField, r.URL.String())
 	writeField(body, response.ClusterField, h.Cluster)
+	writeField(body, response.IstioVersionField, h.IstioVersion)
 
 	writeField(body, "Method", r.Method)
 	writeField(body, "Proto", r.Proto)
@@ -332,6 +335,7 @@ func (h *httpHandler) addResponsePayload(r *http.Request, body *bytes.Buffer) {
 		writeField(body, response.HostnameField, hostname)
 	}
 }
+
 func delayResponse(request *http.Request) error {
 	d := request.FormValue("delay")
 	if len(d) == 0 {
@@ -374,7 +378,7 @@ func setResponseFromCodes(request *http.Request, response http.ResponseWriter) e
 	}
 
 	// Choose a random "slice" from a pie
-	var totalSlices = 0
+	totalSlices := 0
 	for _, flavor := range codes {
 		totalSlices += flavor.slices
 	}

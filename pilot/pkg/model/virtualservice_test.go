@@ -621,7 +621,6 @@ func TestMergeVirtualServices(t *testing.T) {
 			}
 		})
 	}
-
 }
 
 func TestMergeHttpRoutes(t *testing.T) {
@@ -1241,7 +1240,8 @@ func TestMergeHTTPMatchRequests(t *testing.T) {
 					Port: 8080,
 					Authority: &networking.StringMatch{
 						MatchType: &networking.StringMatch_Exact{Exact: "productpage.com"},
-					}},
+					},
+				},
 			},
 		},
 		{

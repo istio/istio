@@ -28,6 +28,7 @@ import (
 
 	istioKube "istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/test/env"
+	"istio.io/istio/pkg/test/framework/components/cluster"
 	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/resource"
 	testKube "istio.io/istio/pkg/test/kube"
@@ -142,8 +143,7 @@ type kubeComponent struct {
 	id        resource.ID
 	address   string
 	forwarder istioKube.PortForwarder
-	cluster   resource.Cluster
-	close     func()
+	cluster   cluster.Cluster
 }
 
 func getZipkinYaml() (string, error) {
@@ -155,18 +155,18 @@ func getZipkinYaml() (string, error) {
 	return yaml, nil
 }
 
-func installZipkin(cluster resource.Cluster, ctx resource.Context, ns string) error {
+func installZipkin(ctx resource.Context, ns string) error {
 	yaml, err := getZipkinYaml()
 	if err != nil {
 		return err
 	}
-	return ctx.Config().ApplyYAMLInCluster(cluster, ns, yaml)
+	return ctx.Config().ApplyYAML(ns, yaml)
 }
 
-func installServiceEntry(cluster resource.Cluster, ctx resource.Context, ns, ingressAddr string) error {
+func installServiceEntry(ctx resource.Context, ns, ingressAddr string) error {
 	// Setup remote access to zipkin in cluster
 	yaml := strings.ReplaceAll(remoteZipkinEntry, "{INGRESS_DOMAIN}", ingressAddr)
-	err := ctx.Config().ApplyYAMLInCluster(cluster, ns, yaml)
+	err := ctx.Config().ApplyYAML(ns, yaml)
 	if err != nil {
 		return err
 	}
@@ -176,14 +176,6 @@ func installServiceEntry(cluster resource.Cluster, ctx resource.Context, ns, ing
 		return err
 	}
 	return nil
-}
-
-func removeZipkin(ctx resource.Context, ns string) error {
-	yaml, err := getZipkinYaml()
-	if err != nil {
-		return err
-	}
-	return ctx.Config().DeleteYAML(ns, yaml)
 }
 
 func newKube(ctx resource.Context, cfgIn Config) (Instance, error) {
@@ -198,12 +190,8 @@ func newKube(ctx resource.Context, cfgIn Config) (Instance, error) {
 		return nil, err
 	}
 
-	if err := installZipkin(c.cluster, ctx, cfg.TelemetryNamespace); err != nil {
+	if err := installZipkin(ctx, cfg.TelemetryNamespace); err != nil {
 		return nil, err
-	}
-
-	c.close = func() {
-		_ = removeZipkin(ctx, cfg.TelemetryNamespace)
 	}
 
 	fetchFn := testKube.NewSinglePodFetch(c.cluster, cfg.SystemNamespace, fmt.Sprintf("app=%s", appName))
@@ -227,7 +215,7 @@ func newKube(ctx resource.Context, cfgIn Config) (Instance, error) {
 	ingressDomain := fmt.Sprintf("%s.nip.io", cfgIn.IngressAddr.IP.String())
 	c.address = fmt.Sprintf("http://tracing.%s", ingressDomain)
 	scopes.Framework.Debugf("Zipkin address: %s ", c.address)
-	err = installServiceEntry(c.cluster, ctx, cfg.TelemetryNamespace, ingressDomain)
+	err = installServiceEntry(ctx, cfg.TelemetryNamespace, ingressDomain)
 	if err != nil {
 		return nil, err
 	}
@@ -267,9 +255,6 @@ func (c *kubeComponent) QueryTraces(limit int, spanName, annotationQuery string)
 
 // Close implements io.Closer.
 func (c *kubeComponent) Close() error {
-	if c.close != nil {
-		c.close()
-	}
 	c.forwarder.Close()
 	return nil
 }

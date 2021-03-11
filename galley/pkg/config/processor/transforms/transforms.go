@@ -22,7 +22,7 @@ import (
 	"istio.io/istio/pkg/config/schema"
 )
 
-//Providers builds and returns a list of all transformer objects
+// Providers builds and returns a list of all transformer objects
 func Providers(m *schema.Metadata) transformer.Providers {
 	providers := make([]transformer.Provider, 0)
 

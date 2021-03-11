@@ -17,6 +17,7 @@ package tgz
 import (
 	"archive/tar"
 	"compress/gzip"
+	"fmt"
 	"io"
 	"os"
 	"path/filepath"
@@ -64,4 +65,43 @@ func Create(srcDir, outPath string) error {
 
 		return nil
 	})
+}
+
+func Extract(gzipStream io.Reader, destination string) error {
+	uncompressedStream, err := gzip.NewReader(gzipStream)
+	if err != nil {
+		return fmt.Errorf("create gzip reader: %v", err)
+	}
+
+	tarReader := tar.NewReader(uncompressedStream)
+
+	for {
+		header, err := tarReader.Next()
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			return fmt.Errorf("next: %v", err)
+		}
+
+		dest := filepath.Join(destination, header.Name)
+		switch header.Typeflag {
+		case tar.TypeDir:
+			if err := os.Mkdir(dest, 0755); err != nil {
+				return fmt.Errorf("mkdir: %v", err)
+			}
+		case tar.TypeReg:
+			outFile, err := os.Create(dest)
+			if err != nil {
+				return fmt.Errorf("create: %v", err)
+			}
+			if _, err := io.Copy(outFile, tarReader); err != nil {
+				return fmt.Errorf("copy: %v", err)
+			}
+			outFile.Close()
+		default:
+			return fmt.Errorf("uknown type: %v in %v", header.Typeflag, header.Name)
+		}
+	}
+	return nil
 }

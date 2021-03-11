@@ -77,7 +77,6 @@ func TestInboundNetworkFilterStatPrefix(t *testing.T) {
 
 	for _, tt := range cases {
 		t.Run(tt.name, func(t *testing.T) {
-
 			env := buildListenerEnv(services)
 			env.PushContext.InitContext(&env, nil, nil)
 			env.PushContext.Mesh.InboundClusterStatName = tt.statPattern
@@ -206,7 +205,6 @@ func TestOutboundNetworkFilterStatPrefix(t *testing.T) {
 
 	for _, tt := range cases {
 		t.Run(tt.name, func(t *testing.T) {
-
 			env := buildListenerEnv(services)
 			env.PushContext.InitContext(&env, nil, nil)
 			env.PushContext.Mesh.OutboundClusterStatName = tt.statPattern

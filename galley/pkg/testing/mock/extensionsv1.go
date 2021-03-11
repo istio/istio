@@ -40,6 +40,7 @@ func (e *extensionsv1Impl) DaemonSets(namespace string) extensionsv1.DaemonSetIn
 func (e *extensionsv1Impl) Deployments(namespace string) extensionsv1.DeploymentInterface {
 	panic("not implemented")
 }
+
 func (e *extensionsv1Impl) PodSecurityPolicies() extensionsv1.PodSecurityPolicyInterface {
 	panic("not implemented")
 }

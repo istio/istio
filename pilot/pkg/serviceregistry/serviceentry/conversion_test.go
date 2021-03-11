@@ -33,25 +33,27 @@ import (
 	"istio.io/istio/pkg/spiffe"
 )
 
-var GlobalTime = time.Now()
-var httpNone = &config.Config{
-	Meta: config.Meta{
-		GroupVersionKind:  gvk.ServiceEntry,
-		Name:              "httpNone",
-		Namespace:         "httpNone",
-		Domain:            "svc.cluster.local",
-		CreationTimestamp: GlobalTime,
-	},
-	Spec: &networking.ServiceEntry{
-		Hosts: []string{"*.google.com"},
-		Ports: []*networking.Port{
-			{Number: 80, Name: "http-number", Protocol: "http"},
-			{Number: 8080, Name: "http2-number", Protocol: "http2"},
+var (
+	GlobalTime = time.Now()
+	httpNone   = &config.Config{
+		Meta: config.Meta{
+			GroupVersionKind:  gvk.ServiceEntry,
+			Name:              "httpNone",
+			Namespace:         "httpNone",
+			Domain:            "svc.cluster.local",
+			CreationTimestamp: GlobalTime,
 		},
-		Location:   networking.ServiceEntry_MESH_EXTERNAL,
-		Resolution: networking.ServiceEntry_NONE,
-	},
-}
+		Spec: &networking.ServiceEntry{
+			Hosts: []string{"*.google.com"},
+			Ports: []*networking.Port{
+				{Number: 80, Name: "http-number", Protocol: "http"},
+				{Number: 8080, Name: "http2-number", Protocol: "http2"},
+			},
+			Location:   networking.ServiceEntry_MESH_EXTERNAL,
+			Resolution: networking.ServiceEntry_NONE,
+		},
+	}
+)
 
 var tcpNone = &config.Config{
 	Meta: config.Meta{
@@ -88,12 +90,12 @@ var httpStatic = &config.Config{
 			{
 				Address: "2.2.2.2",
 				Ports:   map[string]uint32{"http-port": 7080, "http-alt-port": 18080},
-				Labels:  map[string]string{label.TLSMode: model.IstioMutualTLSModeLabel},
+				Labels:  map[string]string{label.SecurityTlsMode.Name: model.IstioMutualTLSModeLabel},
 			},
 			{
 				Address: "3.3.3.3",
 				Ports:   map[string]uint32{"http-port": 1080},
-				Labels:  map[string]string{label.TLSMode: model.IstioMutualTLSModeLabel},
+				Labels:  map[string]string{label.SecurityTlsMode.Name: model.IstioMutualTLSModeLabel},
 			},
 			{
 				Address: "4.4.4.4",
@@ -136,7 +138,7 @@ var httpDNSnoEndpoints = &config.Config{
 		Name:              "httpDNSnoEndpoints",
 		Namespace:         "httpDNSnoEndpoints",
 		CreationTimestamp: GlobalTime,
-		Labels:            map[string]string{label.TLSMode: model.IstioMutualTLSModeLabel},
+		Labels:            map[string]string{label.SecurityTlsMode.Name: model.IstioMutualTLSModeLabel},
 	},
 	Spec: &networking.ServiceEntry{
 		Hosts: []string{"google.com", "www.wikipedia.org"},
@@ -172,7 +174,7 @@ var httpDNS = &config.Config{
 		Name:              "httpDNS",
 		Namespace:         "httpDNS",
 		CreationTimestamp: GlobalTime,
-		Labels:            map[string]string{label.TLSMode: model.IstioMutualTLSModeLabel},
+		Labels:            map[string]string{label.SecurityTlsMode.Name: model.IstioMutualTLSModeLabel},
 	},
 	Spec: &networking.ServiceEntry{
 		Hosts: []string{"*.google.com"},
@@ -184,16 +186,16 @@ var httpDNS = &config.Config{
 			{
 				Address: "us.google.com",
 				Ports:   map[string]uint32{"http-port": 7080, "http-alt-port": 18080},
-				Labels:  map[string]string{label.TLSMode: model.IstioMutualTLSModeLabel},
+				Labels:  map[string]string{label.SecurityTlsMode.Name: model.IstioMutualTLSModeLabel},
 			},
 			{
 				Address: "uk.google.com",
 				Ports:   map[string]uint32{"http-port": 1080},
-				Labels:  map[string]string{label.TLSMode: model.IstioMutualTLSModeLabel},
+				Labels:  map[string]string{label.SecurityTlsMode.Name: model.IstioMutualTLSModeLabel},
 			},
 			{
 				Address: "de.google.com",
-				Labels:  map[string]string{"foo": "bar", label.TLSMode: model.IstioMutualTLSModeLabel},
+				Labels:  map[string]string{"foo": "bar", label.SecurityTlsMode.Name: model.IstioMutualTLSModeLabel},
 			},
 		},
 		Location:   networking.ServiceEntry_MESH_EXTERNAL,
@@ -207,7 +209,7 @@ var tcpDNS = &config.Config{
 		Name:              "tcpDNS",
 		Namespace:         "tcpDNS",
 		CreationTimestamp: GlobalTime,
-		Labels:            map[string]string{label.TLSMode: model.IstioMutualTLSModeLabel},
+		Labels:            map[string]string{label.SecurityTlsMode.Name: model.IstioMutualTLSModeLabel},
 	},
 	Spec: &networking.ServiceEntry{
 		Hosts: []string{"tcpdns.com"},
@@ -217,11 +219,11 @@ var tcpDNS = &config.Config{
 		Endpoints: []*networking.WorkloadEntry{
 			{
 				Address: "lon.google.com",
-				Labels:  map[string]string{label.TLSMode: model.IstioMutualTLSModeLabel},
+				Labels:  map[string]string{label.SecurityTlsMode.Name: model.IstioMutualTLSModeLabel},
 			},
 			{
 				Address: "in.google.com",
-				Labels:  map[string]string{label.TLSMode: model.IstioMutualTLSModeLabel},
+				Labels:  map[string]string{label.SecurityTlsMode.Name: model.IstioMutualTLSModeLabel},
 			},
 		},
 		Location:   networking.ServiceEntry_MESH_EXTERNAL,
@@ -235,7 +237,7 @@ var tcpStatic = &config.Config{
 		Name:              "tcpStatic",
 		Namespace:         "tcpStatic",
 		CreationTimestamp: GlobalTime,
-		Labels:            map[string]string{label.TLSMode: model.IstioMutualTLSModeLabel},
+		Labels:            map[string]string{label.SecurityTlsMode.Name: model.IstioMutualTLSModeLabel},
 	},
 	Spec: &networking.ServiceEntry{
 		Hosts:     []string{"tcpstatic.com"},
@@ -246,11 +248,11 @@ var tcpStatic = &config.Config{
 		Endpoints: []*networking.WorkloadEntry{
 			{
 				Address: "1.1.1.1",
-				Labels:  map[string]string{label.TLSMode: model.IstioMutualTLSModeLabel},
+				Labels:  map[string]string{label.SecurityTlsMode.Name: model.IstioMutualTLSModeLabel},
 			},
 			{
 				Address: "2.2.2.2",
-				Labels:  map[string]string{label.TLSMode: model.IstioMutualTLSModeLabel},
+				Labels:  map[string]string{label.SecurityTlsMode.Name: model.IstioMutualTLSModeLabel},
 			},
 		},
 		Location:   networking.ServiceEntry_MESH_EXTERNAL,
@@ -264,7 +266,7 @@ var httpNoneInternal = &config.Config{
 		Name:              "httpNoneInternal",
 		Namespace:         "httpNoneInternal",
 		CreationTimestamp: GlobalTime,
-		Labels:            map[string]string{label.TLSMode: model.IstioMutualTLSModeLabel},
+		Labels:            map[string]string{label.SecurityTlsMode.Name: model.IstioMutualTLSModeLabel},
 	},
 	Spec: &networking.ServiceEntry{
 		Hosts: []string{"*.google.com"},
@@ -283,7 +285,7 @@ var tcpNoneInternal = &config.Config{
 		Name:              "tcpNoneInternal",
 		Namespace:         "tcpNoneInternal",
 		CreationTimestamp: GlobalTime,
-		Labels:            map[string]string{label.TLSMode: model.IstioMutualTLSModeLabel},
+		Labels:            map[string]string{label.SecurityTlsMode.Name: model.IstioMutualTLSModeLabel},
 	},
 	Spec: &networking.ServiceEntry{
 		Hosts:     []string{"tcpinternal.com"},
@@ -302,7 +304,7 @@ var multiAddrInternal = &config.Config{
 		Name:              "multiAddrInternal",
 		Namespace:         "multiAddrInternal",
 		CreationTimestamp: GlobalTime,
-		Labels:            map[string]string{label.TLSMode: model.IstioMutualTLSModeLabel},
+		Labels:            map[string]string{label.SecurityTlsMode.Name: model.IstioMutualTLSModeLabel},
 	},
 	Spec: &networking.ServiceEntry{
 		Hosts:     []string{"tcp1.com", "tcp2.com"},
@@ -321,7 +323,7 @@ var udsLocal = &config.Config{
 		Name:              "udsLocal",
 		Namespace:         "udsLocal",
 		CreationTimestamp: GlobalTime,
-		Labels:            map[string]string{label.TLSMode: model.IstioMutualTLSModeLabel},
+		Labels:            map[string]string{label.SecurityTlsMode.Name: model.IstioMutualTLSModeLabel},
 	},
 	Spec: &networking.ServiceEntry{
 		Hosts: []string{"uds.cluster.local"},
@@ -329,7 +331,7 @@ var udsLocal = &config.Config{
 			{Number: 6553, Name: "grpc-1", Protocol: "grpc"},
 		},
 		Endpoints: []*networking.WorkloadEntry{
-			{Address: "unix:///test/sock", Labels: map[string]string{label.TLSMode: model.IstioMutualTLSModeLabel}},
+			{Address: "unix:///test/sock", Labels: map[string]string{label.SecurityTlsMode.Name: model.IstioMutualTLSModeLabel}},
 		},
 		Resolution: networking.ServiceEntry_STATIC,
 	},
@@ -342,7 +344,7 @@ var selectorDNS = &config.Config{
 		Name:              "selector",
 		Namespace:         "selector",
 		CreationTimestamp: GlobalTime,
-		Labels:            map[string]string{label.TLSMode: model.IstioMutualTLSModeLabel},
+		Labels:            map[string]string{label.SecurityTlsMode.Name: model.IstioMutualTLSModeLabel},
 	},
 	Spec: &networking.ServiceEntry{
 		Hosts: []string{"selector.com"},
@@ -364,7 +366,7 @@ var selector = &config.Config{
 		Name:              "selector",
 		Namespace:         "selector",
 		CreationTimestamp: GlobalTime,
-		Labels:            map[string]string{label.TLSMode: model.IstioMutualTLSModeLabel},
+		Labels:            map[string]string{label.SecurityTlsMode.Name: model.IstioMutualTLSModeLabel},
 	},
 	Spec: &networking.ServiceEntry{
 		Hosts: []string{"selector.com"},
@@ -386,7 +388,7 @@ var dnsSelector = &config.Config{
 		Name:              "dns-selector",
 		Namespace:         "dns-selector",
 		CreationTimestamp: GlobalTime,
-		Labels:            map[string]string{label.TLSMode: model.IstioMutualTLSModeLabel},
+		Labels:            map[string]string{label.SecurityTlsMode.Name: model.IstioMutualTLSModeLabel},
 	},
 	Spec: &networking.ServiceEntry{
 		Hosts: []string{"dns.selector.com"},
@@ -424,7 +426,6 @@ func convertPortNameToProtocol(name string) protocol.Instance {
 
 func makeService(hostname host.Name, configNamespace, address string, ports map[string]int,
 	external bool, resolution model.Resolution) *model.Service {
-
 	svc := &model.Service{
 		CreationTime: GlobalTime,
 		Hostname:     hostname,
@@ -491,7 +492,7 @@ func makeInstance(cfg *config.Config, address string, port int,
 		if svcLabels == nil {
 			svcLabels = map[string]string{}
 		}
-		svcLabels[label.TLSMode] = model.IstioMutualTLSModeLabel
+		svcLabels[label.SecurityTlsMode.Name] = model.IstioMutualTLSModeLabel
 	}
 	return &model.ServiceInstance{
 		Service: svc,
@@ -518,22 +519,25 @@ func TestConvertService(t *testing.T) {
 		{
 			// service entry http
 			externalSvc: httpNone,
-			services: []*model.Service{makeService("*.google.com", "httpNone", constants.UnspecifiedIP,
-				map[string]int{"http-number": 80, "http2-number": 8080}, true, model.Passthrough),
+			services: []*model.Service{
+				makeService("*.google.com", "httpNone", constants.UnspecifiedIP,
+					map[string]int{"http-number": 80, "http2-number": 8080}, true, model.Passthrough),
 			},
 		},
 		{
 			// service entry tcp
 			externalSvc: tcpNone,
-			services: []*model.Service{makeService("tcpnone.com", "tcpNone", "172.217.0.0/16",
-				map[string]int{"tcp-444": 444}, true, model.Passthrough),
+			services: []*model.Service{
+				makeService("tcpnone.com", "tcpNone", "172.217.0.0/16",
+					map[string]int{"tcp-444": 444}, true, model.Passthrough),
 			},
 		},
 		{
 			// service entry http  static
 			externalSvc: httpStatic,
-			services: []*model.Service{makeService("*.google.com", "httpStatic", constants.UnspecifiedIP,
-				map[string]int{"http-port": 80, "http-alt-port": 8080}, true, model.ClientSideLB),
+			services: []*model.Service{
+				makeService("*.google.com", "httpStatic", constants.UnspecifiedIP,
+					map[string]int{"http-port": 80, "http-alt-port": 8080}, true, model.ClientSideLB),
 			},
 		},
 		{
@@ -549,43 +553,49 @@ func TestConvertService(t *testing.T) {
 		{
 			// service entry dns
 			externalSvc: httpDNS,
-			services: []*model.Service{makeService("*.google.com", "httpDNS", constants.UnspecifiedIP,
-				map[string]int{"http-port": 80, "http-alt-port": 8080}, true, model.DNSLB),
+			services: []*model.Service{
+				makeService("*.google.com", "httpDNS", constants.UnspecifiedIP,
+					map[string]int{"http-port": 80, "http-alt-port": 8080}, true, model.DNSLB),
 			},
 		},
 		{
 			// service entry dns with target port
 			externalSvc: dnsTargetPort,
-			services: []*model.Service{makeService("google.com", "dnsTargetPort", constants.UnspecifiedIP,
-				map[string]int{"http-port": 80}, true, model.DNSLB),
+			services: []*model.Service{
+				makeService("google.com", "dnsTargetPort", constants.UnspecifiedIP,
+					map[string]int{"http-port": 80}, true, model.DNSLB),
 			},
 		},
 		{
 			// service entry tcp DNS
 			externalSvc: tcpDNS,
-			services: []*model.Service{makeService("tcpdns.com", "tcpDNS", constants.UnspecifiedIP,
-				map[string]int{"tcp-444": 444}, true, model.DNSLB),
+			services: []*model.Service{
+				makeService("tcpdns.com", "tcpDNS", constants.UnspecifiedIP,
+					map[string]int{"tcp-444": 444}, true, model.DNSLB),
 			},
 		},
 		{
 			// service entry tcp static
 			externalSvc: tcpStatic,
-			services: []*model.Service{makeService("tcpstatic.com", "tcpStatic", "172.217.0.1",
-				map[string]int{"tcp-444": 444}, true, model.ClientSideLB),
+			services: []*model.Service{
+				makeService("tcpstatic.com", "tcpStatic", "172.217.0.1",
+					map[string]int{"tcp-444": 444}, true, model.ClientSideLB),
 			},
 		},
 		{
 			// service entry http internal
 			externalSvc: httpNoneInternal,
-			services: []*model.Service{makeService("*.google.com", "httpNoneInternal", constants.UnspecifiedIP,
-				map[string]int{"http-number": 80, "http2-number": 8080}, false, model.Passthrough),
+			services: []*model.Service{
+				makeService("*.google.com", "httpNoneInternal", constants.UnspecifiedIP,
+					map[string]int{"http-number": 80, "http2-number": 8080}, false, model.Passthrough),
 			},
 		},
 		{
 			// service entry tcp internal
 			externalSvc: tcpNoneInternal,
-			services: []*model.Service{makeService("tcpinternal.com", "tcpNoneInternal", "172.217.0.0/16",
-				map[string]int{"tcp-444": 444}, false, model.Passthrough),
+			services: []*model.Service{
+				makeService("tcpinternal.com", "tcpNoneInternal", "172.217.0.0/16",
+					map[string]int{"tcp-444": 444}, false, model.Passthrough),
 			},
 		},
 		{
@@ -812,7 +822,8 @@ func TestConvertWorkloadEntryToWorkloadInstance(t *testing.T) {
 						"http": 80,
 					},
 					ServiceAccount: "scooby",
-				}},
+				},
+			},
 			out: &model.WorkloadInstance{
 				Namespace: "ns1",
 				Endpoint: &model.IstioEndpoint{
@@ -841,7 +852,8 @@ func TestConvertWorkloadEntryToWorkloadInstance(t *testing.T) {
 						"http": 80,
 					},
 					ServiceAccount: "scooby",
-				}},
+				},
+			},
 			out: &model.WorkloadInstance{
 				Namespace: "ns1",
 				Endpoint: &model.IstioEndpoint{
@@ -866,7 +878,8 @@ func TestConvertWorkloadEntryToWorkloadInstance(t *testing.T) {
 				Spec: &networking.WorkloadEntry{
 					Address:        "unix://foo/bar",
 					ServiceAccount: "scooby",
-				}},
+				},
+			},
 			out: nil,
 		},
 		{
@@ -878,7 +891,8 @@ func TestConvertWorkloadEntryToWorkloadInstance(t *testing.T) {
 				Spec: &networking.WorkloadEntry{
 					Address:        "scooby.com",
 					ServiceAccount: "scooby",
-				}},
+				},
+			},
 			out: nil,
 		},
 		{
@@ -894,7 +908,8 @@ func TestConvertWorkloadEntryToWorkloadInstance(t *testing.T) {
 						"http": 80,
 					},
 					ServiceAccount: "scooby",
-				}},
+				},
+			},
 			out: &model.WorkloadInstance{
 				Namespace: "ns1",
 				Endpoint: &model.IstioEndpoint{
@@ -924,7 +939,8 @@ func TestConvertWorkloadEntryToWorkloadInstance(t *testing.T) {
 						"http": 80,
 					},
 					ServiceAccount: "scooby",
-				}},
+				},
+			},
 			out: &model.WorkloadInstance{
 				Namespace: "ns1",
 				Endpoint: &model.IstioEndpoint{

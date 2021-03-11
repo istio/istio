@@ -1,0 +1,10 @@
+apiVersion: release-notes/v2
+kind: feature
+area: security
+
+releaseNotes:
+- |
+  **Added** An environment variable PILOT_JWT_PUB_KEY_REFRESH_INTERVAL for config the interval of
+  istiod to fetch the jwks_uri for the jwks public key. User can use set the refresh interval with command
+  `--set values.pilot.env.PILOT_JWT_PUB_KEY_REFRESH_INTERVAL=<duration>` while istioctl installation.
+  The default interval is 20m. Valid time units are "ns", "us", "ms", "s", "m", "h".

@@ -19,6 +19,7 @@ import (
 	"strings"
 	"time"
 
+	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/namespace"
@@ -29,9 +30,10 @@ const (
 	defaultService   = "echo"
 	defaultVersion   = "v1"
 	defaultNamespace = "echo"
+	defaultDomain    = constants.DefaultKubernetesDomain
 )
 
-func FillInDefaults(ctx resource.Context, defaultDomain string, c *echo.Config) (err error) {
+func FillInDefaults(ctx resource.Context, c *echo.Config) (err error) {
 	if c.Service == "" {
 		c.Service = defaultService
 	}
@@ -58,12 +60,7 @@ func FillInDefaults(ctx resource.Context, defaultDomain string, c *echo.Config) 
 			c.Subsets[i].Version = c.Version
 		}
 	}
-
-	// Fill in the default cluster.
-	if ctx != nil {
-		c.Cluster = ctx.Clusters().GetOrDefault(c.Cluster)
-	}
-
+	AddPortIfMissing(c, protocol.GRPC)
 	// If no namespace was provided, use the default.
 	if c.Namespace == nil && ctx != nil {
 		nsConfig := namespace.Config{

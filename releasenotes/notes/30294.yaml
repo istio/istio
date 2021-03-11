@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: feature
+area: security
+issue:
+- 30295
+releaseNotes:
+- |
+  **Added** OIDC JWT authenticator that supports both JWKS-URI and OIDC discovery. The OIDC JWT authenticator will be used when configured through the JWT_RULE env variable.

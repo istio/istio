@@ -20,7 +20,7 @@ import (
 
 	"github.com/onsi/gomega"
 
-	testID "istio.io/istio/pkg/test/env"
+	"istio.io/istio/pkg/test/envoy"
 	xdsService "istio.io/istio/security/pkg/stsservice/mock"
 	stsTest "istio.io/istio/security/pkg/stsservice/test"
 )
@@ -37,7 +37,7 @@ func TestRenewToken(t *testing.T) {
 	// stream should present a new token.
 	cb.SetNumberOfStreamClose(numCloseStream, tokenLifeTimeInSec+1)
 	// Start all test servers and proxy
-	setup := stsTest.SetupTest(t, cb, testID.STSRenewTest, false)
+	setup := stsTest.SetupTest(t, cb, envoy.STSRenewTest, false)
 	// Explicitly set token life time to a short duration.
 	setup.AuthServer.SetTokenLifeTime(tokenLifeTimeInSec)
 	// Explicitly set auth server to return different access token to each call.

@@ -39,9 +39,11 @@ func NewKubernetesRA(raOpts *IstioRAOptions) (*KubernetesRA, error) {
 	if err != nil {
 		return nil, raerror.NewError(raerror.CAInitFail, fmt.Errorf("error processing Certificate Bundle for Kubernetes RA"))
 	}
-	istioRA := &KubernetesRA{csrInterface: raOpts.K8sClient,
+	istioRA := &KubernetesRA{
+		csrInterface:  raOpts.K8sClient,
 		raOpts:        raOpts,
-		keyCertBundle: keyCertBundle}
+		keyCertBundle: keyCertBundle,
+	}
 	return istioRA, nil
 }
 

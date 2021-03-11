@@ -47,11 +47,12 @@ func NewDiscovery(services map[host.Name]*model.Service, versions int) *ServiceD
 }
 
 // MakeService creates a memory service
-func MakeService(hostname host.Name, address string, serviceAccounts []string) *model.Service {
+func MakeService(hostname host.Name, address string, serviceAccounts []string, clusterID string) *model.Service {
 	return &model.Service{
 		CreationTime:    time.Now(),
 		Hostname:        hostname,
 		Address:         address,
+		ClusterVIPs:     map[string]string{clusterID: address},
 		ServiceAccounts: serviceAccounts,
 		Ports: []*model.Port{
 			{
@@ -219,7 +220,6 @@ func (sd *ServiceDiscovery) GetProxyServiceInstances(node *model.Proxy) []*model
 					}
 				}
 			}
-
 		}
 	}
 	return out

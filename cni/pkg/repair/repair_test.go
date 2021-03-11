@@ -19,8 +19,11 @@ import (
 	"fmt"
 	"reflect"
 	"strings"
+	"sync"
 	"testing"
+	"time"
 
+	"go.opencensus.io/stats/view"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -28,6 +31,15 @@ import (
 	"k8s.io/client-go/kubernetes/fake"
 
 	"istio.io/istio/tools/istio-iptables/pkg/constants"
+	"istio.io/pkg/monitoring"
+)
+
+var (
+	ignoreCounter = monitoring.NewSum("istio_cni_repair_pods_repaired_total",
+		"Total number of pods repaired by repair controller")
+	ignoreMetrics *Metrics = &Metrics{
+		PodsRepaired: ignoreCounter,
+	}
 )
 
 func TestBrokenPodReconciler_detectPod(t *testing.T) {
@@ -348,8 +360,9 @@ func TestBrokenPodReconciler_listBrokenPods(t *testing.T) {
 				client:  tt.fields.client,
 				Filters: tt.fields.Filters,
 				Options: tt.fields.Options,
+				Metrics: ignoreMetrics,
 			}
-			var gotList, err = bpr.ListBrokenPods()
+			gotList, err := bpr.ListBrokenPods()
 			if err != nil {
 				t.Errorf("ListBrokenPods() got error listing pods: %v", err)
 				return
@@ -392,12 +405,15 @@ func TestNewBrokenPodReconciler(t *testing.T) {
 				client:  client,
 				Filters: &filter,
 				Options: &options,
+				Metrics: ignoreMetrics,
 			},
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if gotBpr := NewBrokenPodReconciler(tt.args.client, tt.args.filters, tt.args.options); !reflect.DeepEqual(gotBpr, tt.wantBpr) {
+			gotBpr := NewBrokenPodReconciler(tt.args.client, tt.args.filters, tt.args.options)
+			gotBpr.Metrics = tt.wantBpr.Metrics
+			if !reflect.DeepEqual(gotBpr, tt.wantBpr) {
 				t.Errorf("NewBrokenPodReconciler() = %v, want %v", gotBpr, tt.wantBpr)
 			}
 		})
@@ -487,6 +503,7 @@ func TestBrokenPodReconciler_labelBrokenPods(t *testing.T) {
 				client:  tt.fields.client,
 				Filters: tt.fields.Filters,
 				Options: tt.fields.Options,
+				Metrics: ignoreMetrics,
 			}
 			if err := bpr.LabelBrokenPods(); (err != nil) != tt.wantErr {
 				t.Errorf("LabelBrokenPods() error = %v, wantErr %v", err, tt.wantErr)
@@ -551,6 +568,7 @@ func TestBrokenPodReconciler_deleteBrokenPods(t *testing.T) {
 				client:  tt.fields.client,
 				Filters: tt.fields.Filters,
 				Options: tt.fields.Options,
+				Metrics: ignoreMetrics,
 			}
 			if err := bpr.DeleteBrokenPods(); (err != nil) != tt.wantErr {
 				t.Errorf("DeleteBrokenPods() error = %v, wantErr %v", err, tt.wantErr)
@@ -562,7 +580,195 @@ func TestBrokenPodReconciler_deleteBrokenPods(t *testing.T) {
 			if !reflect.DeepEqual(havePods.Items, tt.wantPods) {
 				t.Errorf("DeleteBrokenPods() error havePods = %v, wantPods = %v", havePods.Items, tt.wantPods)
 			}
-
 		})
 	}
+}
+
+// Tests the ReconcilePod method and checks that metrics are working
+func TestBrokenPodReconciler_ReconcilePod_metrics(t *testing.T) {
+	type fields struct {
+		client  kubernetes.Interface
+		Filters *Filters
+		Options *Options
+		Metrics *Metrics
+	}
+	tests := []struct {
+		name      string
+		fields    fields
+		wantCount float64
+		fn        func(reconciler BrokenPodReconciler) error
+	}{
+		{
+			name: "No broken pods",
+			fields: fields{
+				client: labelBrokenPodsClientset(workingPod),
+				Filters: &Filters{
+					InitContainerName:               constants.ValidationContainerName,
+					InitContainerExitCode:           126,
+					InitContainerTerminationMessage: "Died for some reason",
+				},
+				Options: &Options{},
+				Metrics: &Metrics{PodsRepaired: monitoring.NewSum("one", "text")},
+			},
+			wantCount: 0,
+			fn:        func(reconciler BrokenPodReconciler) error { return reconciler.DeleteBrokenPods() },
+		},
+		{
+			name: "No broken pods, one died previously",
+			fields: fields{
+				client: labelBrokenPodsClientset(workingPod, workingPodDiedPreviously),
+				Filters: &Filters{
+					InitContainerName:               constants.ValidationContainerName,
+					InitContainerExitCode:           126,
+					InitContainerTerminationMessage: "Died for some reason",
+				},
+				Options: &Options{},
+				Metrics: &Metrics{PodsRepaired: monitoring.NewSum("two", "text")},
+			},
+			wantCount: 0,
+			fn:        func(reconciler BrokenPodReconciler) error { return reconciler.DeleteBrokenPods() },
+		},
+		{
+			name: "With broken pods",
+			fields: fields{
+				client: labelBrokenPodsClientset(workingPod, workingPodDiedPreviously, brokenPodWaiting),
+				Filters: &Filters{
+					InitContainerName:               constants.ValidationContainerName,
+					InitContainerExitCode:           126,
+					InitContainerTerminationMessage: "Died for some reason",
+				},
+				Options: &Options{},
+				Metrics: &Metrics{PodsRepaired: monitoring.NewSum("three", "text")},
+			},
+			wantCount: 1,
+			fn:        func(reconciler BrokenPodReconciler) error { return reconciler.DeleteBrokenPods() },
+		},
+		{
+			name: "Label Broken -- No broken pods",
+			fields: fields{
+				client: labelBrokenPodsClientset(workingPod),
+				Filters: &Filters{
+					InitContainerName:               constants.ValidationContainerName,
+					InitContainerExitCode:           126,
+					InitContainerTerminationMessage: "Died for some reason",
+				},
+				Options: &Options{},
+				Metrics: &Metrics{PodsRepaired: monitoring.NewSum("four", "text")},
+			},
+			wantCount: 0,
+			fn:        func(reconciler BrokenPodReconciler) error { return reconciler.LabelBrokenPods() },
+		},
+		{
+			name: "Label Broken --No broken pods, one died previously",
+			fields: fields{
+				client: labelBrokenPodsClientset(workingPod, workingPodDiedPreviously),
+				Filters: &Filters{
+					InitContainerName:               constants.ValidationContainerName,
+					InitContainerExitCode:           126,
+					InitContainerTerminationMessage: "Died for some reason",
+				},
+				Options: &Options{},
+				Metrics: &Metrics{PodsRepaired: monitoring.NewSum("five", "text")},
+			},
+			wantCount: 0,
+			fn:        func(reconciler BrokenPodReconciler) error { return reconciler.LabelBrokenPods() },
+		},
+		{
+			name: "Label Broken -- With broken pods",
+			fields: fields{
+				client: labelBrokenPodsClientset(workingPod, workingPodDiedPreviously, brokenPodWaiting),
+				Filters: &Filters{
+					InitContainerName:               constants.ValidationContainerName,
+					InitContainerExitCode:           126,
+					InitContainerTerminationMessage: "Died for some reason",
+				},
+				Options: &Options{},
+				Metrics: &Metrics{PodsRepaired: monitoring.NewSum("six", "text")},
+			},
+			wantCount: 1,
+			fn:        func(reconciler BrokenPodReconciler) error { return reconciler.LabelBrokenPods() },
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			monitoring.MustRegister(tt.fields.Metrics.PodsRepaired)
+			exp := &testExporter{rows: make(map[string][]*view.Row)}
+			view.RegisterExporter(exp)
+			view.SetReportingPeriod(1 * time.Millisecond)
+			bpr := BrokenPodReconciler{
+				client:  tt.fields.client,
+				Filters: tt.fields.Filters,
+				Options: tt.fields.Options,
+				Metrics: tt.fields.Metrics,
+			}
+			if err := tt.fn(bpr); err != nil {
+				t.Errorf("DeleteBrokenPods() error in ReconcilePod(): %v", err)
+			}
+			if tt.wantCount > 0 {
+				if err := retry(func() error {
+					haveCount := readFloat64(exp, tt.fields.Metrics.PodsRepaired)
+					if haveCount != tt.wantCount {
+						return fmt.Errorf("counter error in ReconcilePod(): haveCount = %v, wantCount = %v", haveCount, tt.wantCount)
+					}
+					return nil
+				}); err != nil {
+					t.Error(err)
+				}
+			}
+		})
+	}
+}
+
+type testExporter struct {
+	sync.Mutex
+
+	rows        map[string][]*view.Row
+	invalidTags bool
+}
+
+func (t *testExporter) ExportView(d *view.Data) {
+	t.Lock()
+	for _, tk := range d.View.TagKeys {
+		if len(tk.Name()) < 1 {
+			t.invalidTags = true
+		}
+	}
+	t.rows[d.View.Name] = append(t.rows[d.View.Name], d.Rows...)
+	t.Unlock()
+}
+
+// because OC uses goroutines to async export, validating proper export
+// can introduce timing problems. this helper just trys validation over
+// and over until the supplied method either succeeds or it times out.
+func retry(fn func() error) error {
+	var lasterr error
+	to := time.After(1 * time.Second)
+	var i int
+	for {
+		select {
+		case <-to:
+			return fmt.Errorf("timeout while waiting after %d iterations (last error: %v)", i, lasterr)
+		default:
+		}
+		i++
+		if err := fn(); err != nil {
+			lasterr = err
+		} else {
+			return nil
+		}
+		<-time.After(10 * time.Millisecond)
+	}
+}
+
+// returns 0 when the metric has not been incremented.
+func readFloat64(exp *testExporter, metric monitoring.Metric) float64 {
+	exp.Lock()
+	defer exp.Unlock()
+	for _, r := range exp.rows[metric.Name()] {
+		if sd, ok := r.Data.(*view.SumData); ok {
+			return sd.Value
+		}
+	}
+	return 0
 }

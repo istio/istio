@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+	"strings"
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
@@ -42,6 +43,7 @@ import (
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/secretcontroller"
+	"istio.io/pkg/log"
 )
 
 var (
@@ -234,13 +236,35 @@ func getServiceAccountSecret(client kube.ExtendedClient, opt RemoteSecretOptions
 		return nil, err
 	}
 
-	if len(serviceAccount.Secrets) != 1 {
-		return nil, fmt.Errorf("wrong number of secrets (%v) in serviceaccount %s/%s",
-			len(serviceAccount.Secrets), opt.Namespace, opt.ServiceAccountName)
+	if len(serviceAccount.Secrets) == 0 {
+		return nil, fmt.Errorf("no secret found in the service account: %s", serviceAccount)
 	}
 
-	secretName := serviceAccount.Secrets[0].Name
-	secretNamespace := serviceAccount.Secrets[0].Namespace
+	secretName := ""
+	secretNamespace := ""
+	if opt.SecretName != "" {
+		found := false
+		for _, secret := range serviceAccount.Secrets {
+			if secret.Name == opt.SecretName {
+				found = true
+				secretName = secret.Name
+				secretNamespace = secret.Namespace
+				break
+			}
+		}
+		if !found {
+			return nil, fmt.Errorf("provided secret does not exist: %s", opt.SecretName)
+		}
+	} else {
+		if len(serviceAccount.Secrets) == 1 {
+			secretName = serviceAccount.Secrets[0].Name
+			secretNamespace = serviceAccount.Secrets[0].Namespace
+		} else {
+			return nil, fmt.Errorf("wrong number of secrets (%v) in serviceaccount %s/%s, please use --secret-name to specify one",
+				len(serviceAccount.Secrets), opt.Namespace, opt.ServiceAccountName)
+		}
+	}
+
 	if secretNamespace == "" {
 		secretNamespace = opt.Namespace
 	}
@@ -277,10 +301,7 @@ func getOrCreateServiceAccount(client kube.ExtendedClient, opt RemoteSecretOptio
 
 func createServiceAccount(client kube.ExtendedClient, opt RemoteSecretOptions) error {
 	// Create a renderer for the base installation.
-	r, err := helm.NewHelmRenderer(opt.ManifestsPath, "base", "Base", opt.Namespace)
-	if err != nil {
-		return fmt.Errorf("failed creating Helm renderer: %v", err)
-	}
+	r := helm.NewHelmRenderer(opt.ManifestsPath, "base", "Base", opt.Namespace)
 
 	if err := r.Run(); err != nil {
 		return fmt.Errorf("failed running Helm renderer: %v", err)
@@ -362,6 +383,10 @@ func getServerFromKubeconfig(context string, config *api.Config) (string, error)
 	if !ok {
 		return "", fmt.Errorf("could not find server for context %q", context)
 	}
+	if strings.Contains(cluster.Server, "127.0.0.1") || strings.Contains(cluster.Server, "localhost") {
+		log.Warnf("Server in Kubeconfig is %s. This is likely not reachable from inside the cluster.\n"+
+			"If you're using Kubernetes in Docker, pass --server with the container IP for the API Server.", cluster.Server)
+	}
 	return cluster.Server, nil
 }
 
@@ -395,8 +420,10 @@ func makeOutputWriter() writer {
 var makeOutputWriterTestHook = makeOutputWriter
 
 // RemoteSecretAuthType is a strongly typed authentication type suitable for use with pflags.Var().
-type RemoteSecretAuthType string
-type SecretType string
+type (
+	RemoteSecretAuthType string
+	SecretType           string
+)
 
 var _ pflag.Value = (*RemoteSecretAuthType)(nil)
 
@@ -459,6 +486,9 @@ type RemoteSecretOptions struct {
 
 	// ServerOverride overrides the server IP/hostname field from the Kubeconfig
 	ServerOverride string
+
+	// SecretName selects a specific secret from the remote service account, if there are multiple
+	SecretName string
 }
 
 func (o *RemoteSecretOptions) addFlags(flagset *pflag.FlagSet) {
@@ -475,6 +505,8 @@ func (o *RemoteSecretOptions) addFlags(flagset *pflag.FlagSet) {
 			"the local cluster will be used.")
 	flagset.StringVar(&o.ServerOverride, "server", "",
 		"The address and port of the Kubernetes API server.")
+	flagset.StringVar(&o.SecretName, "secret-name", "",
+		"The name of the specific secret to use from the service-account. Needed when there are multiple secrets in the service account.")
 	var supportedAuthType []string
 	for _, at := range []RemoteSecretAuthType{RemoteSecretAuthTypeBearerToken, RemoteSecretAuthTypePlugin} {
 		supportedAuthType = append(supportedAuthType, string(at))
@@ -495,7 +527,6 @@ func (o *RemoteSecretOptions) addFlags(flagset *pflag.FlagSet) {
 	flagset.Var(&o.Type, "type",
 		fmt.Sprintf("Type of the generated secret. supported values = %v", supportedSecretType))
 	flagset.StringVarP(&o.ManifestsPath, "manifests", "d", "", mesh.ManifestsFlagHelpStr)
-
 }
 
 func (o *RemoteSecretOptions) prepare(flags *pflag.FlagSet) error {

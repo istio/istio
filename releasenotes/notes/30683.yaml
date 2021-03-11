@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: networking
+issue:
+  - 30683
+releaseNotes:
+  - |
+    **Fixed** Avoid unnecessary full push in service entry store.

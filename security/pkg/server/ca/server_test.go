@@ -29,6 +29,7 @@ import (
 	"google.golang.org/grpc/status"
 
 	pb "istio.io/api/security/v1alpha1"
+	"istio.io/istio/pkg/security"
 	mockca "istio.io/istio/security/pkg/pki/ca/mock"
 	caerror "istio.io/istio/security/pkg/pki/error"
 	"istio.io/istio/security/pkg/pki/util"
@@ -37,7 +38,7 @@ import (
 )
 
 type mockAuthenticator struct {
-	authSource authenticate.AuthSource
+	authSource security.AuthSource
 	identities []string
 	errMsg     string
 }
@@ -46,12 +47,12 @@ func (authn *mockAuthenticator) AuthenticatorType() string {
 	return "mockAuthenticator"
 }
 
-func (authn *mockAuthenticator) Authenticate(ctx context.Context) (*authenticate.Caller, error) {
+func (authn *mockAuthenticator) Authenticate(ctx context.Context) (*security.Caller, error) {
 	if len(authn.errMsg) > 0 {
 		return nil, fmt.Errorf("%v", authn.errMsg)
 	}
 
-	return &authenticate.Caller{
+	return &security.Caller{
 		AuthSource: authn.authSource,
 		Identities: authn.identities,
 	}, nil
@@ -87,19 +88,19 @@ func TestCreateCertificateE2EUsingClientCertAuthenticator(t *testing.T) {
 				RootCertBytes:  []byte("root_cert"),
 			},
 		},
-		Authenticators: []authenticate.Authenticator{auth},
+		Authenticators: []security.Authenticator{auth},
 		monitoring:     newMonitoringMetrics(),
 	}
 	mockCertChain := []string{"cert", "cert_chain", "root_cert"}
 	mockIPAddr := &net.IPAddr{IP: net.IPv4(192, 168, 1, 1)}
 	testCerts := map[string]struct {
 		certChain    [][]*x509.Certificate
-		caller       *authenticate.Caller
+		caller       *security.Caller
 		fakeAuthInfo *mockAuthInfo
 		code         codes.Code
 		ipAddr       *net.IPAddr
 	}{
-		//no client certificate is presented
+		// no client certificate is presented
 		"No client certificate": {
 			certChain: nil,
 			caller:    nil,
@@ -114,14 +115,14 @@ func TestCreateCertificateE2EUsingClientCertAuthenticator(t *testing.T) {
 			ipAddr:       mockIPAddr,
 			code:         codes.Unauthenticated,
 		},
-		//no cert chain presented
+		// no cert chain presented
 		"Empty cert chain": {
 			certChain: [][]*x509.Certificate{},
 			caller:    nil,
 			ipAddr:    mockIPAddr,
 			code:      codes.Unauthenticated,
 		},
-		//certificate misses the the SAN field
+		// certificate misses the the SAN field
 		"Certificate has no SAN": {
 			certChain: [][]*x509.Certificate{
 				{
@@ -133,7 +134,7 @@ func TestCreateCertificateE2EUsingClientCertAuthenticator(t *testing.T) {
 			ipAddr: mockIPAddr,
 			code:   codes.Unauthenticated,
 		},
-		//successful testcase with valid client certificate
+		// successful testcase with valid client certificate
 		"With client certificate": {
 			certChain: [][]*x509.Certificate{
 				{
@@ -142,7 +143,7 @@ func TestCreateCertificateE2EUsingClientCertAuthenticator(t *testing.T) {
 					},
 				},
 			},
-			caller: &authenticate.Caller{Identities: []string{callerID}},
+			caller: &security.Caller{Identities: []string{callerID}},
 			ipAddr: mockIPAddr,
 			code:   codes.OK,
 		},
@@ -184,7 +185,7 @@ func TestCreateCertificateE2EUsingClientCertAuthenticator(t *testing.T) {
 
 func TestCreateCertificate(t *testing.T) {
 	testCases := map[string]struct {
-		authenticators []authenticate.Authenticator
+		authenticators []security.Authenticator
 		ca             CertificateAuthority
 		certChain      []string
 		code           codes.Code
@@ -195,34 +196,34 @@ func TestCreateCertificate(t *testing.T) {
 			ca:             &mockca.FakeCA{},
 		},
 		"Unauthenticated request": {
-			authenticators: []authenticate.Authenticator{&mockAuthenticator{
+			authenticators: []security.Authenticator{&mockAuthenticator{
 				errMsg: "Not authorized",
 			}},
 			code: codes.Unauthenticated,
 			ca:   &mockca.FakeCA{},
 		},
 		"CA not ready": {
-			authenticators: []authenticate.Authenticator{&mockAuthenticator{}},
+			authenticators: []security.Authenticator{&mockAuthenticator{}},
 			ca:             &mockca.FakeCA{SignErr: caerror.NewError(caerror.CANotReady, fmt.Errorf("cannot sign"))},
 			code:           codes.Internal,
 		},
 		"Invalid CSR": {
-			authenticators: []authenticate.Authenticator{&mockAuthenticator{}},
+			authenticators: []security.Authenticator{&mockAuthenticator{}},
 			ca:             &mockca.FakeCA{SignErr: caerror.NewError(caerror.CSRError, fmt.Errorf("cannot sign"))},
 			code:           codes.InvalidArgument,
 		},
 		"Invalid TTL": {
-			authenticators: []authenticate.Authenticator{&mockAuthenticator{}},
+			authenticators: []security.Authenticator{&mockAuthenticator{}},
 			ca:             &mockca.FakeCA{SignErr: caerror.NewError(caerror.TTLError, fmt.Errorf("cannot sign"))},
 			code:           codes.InvalidArgument,
 		},
 		"Failed to sign": {
-			authenticators: []authenticate.Authenticator{&mockAuthenticator{}},
+			authenticators: []security.Authenticator{&mockAuthenticator{}},
 			ca:             &mockca.FakeCA{SignErr: caerror.NewError(caerror.CertGenError, fmt.Errorf("cannot sign"))},
 			code:           codes.Internal,
 		},
 		"Successful signing": {
-			authenticators: []authenticate.Authenticator{&mockAuthenticator{}},
+			authenticators: []security.Authenticator{&mockAuthenticator{}},
 			ca: &mockca.FakeCA{
 				SignedCert: []byte("cert"),
 				KeyCertBundle: &mockutil.FakeKeyCertBundle{

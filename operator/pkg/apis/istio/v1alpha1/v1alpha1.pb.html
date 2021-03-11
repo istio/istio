@@ -1106,17 +1106,6 @@ No
 No
 </td>
 </tr>
-<tr id="GlobalConfig-trustDomain">
-<td><code>trustDomain</code></td>
-<td><code>string</code></td>
-<td>
-<p>Specifies the trust domain that corresponds to the root cert of CA.</p>
-
-</td>
-<td>
-No
-</td>
-</tr>
 <tr id="GlobalConfig-useMCP">
 <td><code>useMCP</code></td>
 <td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#boolvalue">BoolValue</a></code></td>
@@ -3202,6 +3191,17 @@ No
 <p>Then starting a pod with the <code>inject.istio.io/templates: hello</code> annotation, will result in the pod
 being injected with the hello=world labels.
 This is intended for advanced configuration only; most users should use the built in template</p>
+
+</td>
+<td>
+No
+</td>
+</tr>
+<tr id="SidecarInjectorConfig-defaultTemplates">
+<td><code>defaultTemplates</code></td>
+<td><code>string[]</code></td>
+<td>
+<p>defaultTemplates: [&ldquo;sidecar&rdquo;, &ldquo;hello&rdquo;]</p>
 
 </td>
 <td>

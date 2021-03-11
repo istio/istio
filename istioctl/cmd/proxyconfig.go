@@ -150,7 +150,7 @@ var (
 	reset             = false
 )
 
-func setupPodConfigdumpWriter(podName, podNamespace string, out io.Writer) (*configdump.ConfigWriter, error) {
+func extractConfigDump(podName, podNamespace string) ([]byte, error) {
 	kubeClient, err := kubeClient(kubeconfig, configContext)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create k8s client: %v", err)
@@ -160,10 +160,18 @@ func setupPodConfigdumpWriter(podName, podNamespace string, out io.Writer) (*con
 	if err != nil {
 		return nil, fmt.Errorf("failed to execute command on %s.%s sidecar: %v", podName, podNamespace, err)
 	}
+	return debug, err
+}
+
+func setupPodConfigdumpWriter(podName, podNamespace string, out io.Writer) (*configdump.ConfigWriter, error) {
+	debug, err := extractConfigDump(podName, podNamespace)
+	if err != nil {
+		return nil, err
+	}
 	return setupConfigdumpEnvoyConfigWriter(debug, out)
 }
 
-func setupFileConfigdumpWriter(filename string, out io.Writer) (*configdump.ConfigWriter, error) {
+func readFile(filename string) ([]byte, error) {
 	file := os.Stdin
 	if filename != "-" {
 		var err error
@@ -177,7 +185,11 @@ func setupFileConfigdumpWriter(filename string, out io.Writer) (*configdump.Conf
 			log.Errorf("failed to close %s: %s", filename, err)
 		}
 	}()
-	data, err := ioutil.ReadAll(file)
+	return ioutil.ReadAll(file)
+}
+
+func setupFileConfigdumpWriter(filename string, out io.Writer) (*configdump.ConfigWriter, error) {
+	data, err := readFile(filename)
 	if err != nil {
 		return nil, err
 	}
@@ -210,7 +222,7 @@ func setupEnvoyLogConfig(param, podName, podNamespace string) (string, error) {
 }
 
 func getLogLevelFromConfigMap() (string, error) {
-	valuesConfig, err := getValuesFromConfigMap(kubeconfig)
+	valuesConfig, err := getValuesFromConfigMap(kubeconfig, "")
 	if err != nil {
 		return "", err
 	}
@@ -338,6 +350,118 @@ func clusterConfigCmd() *cobra.Command {
 		"Envoy config dump JSON file")
 
 	return clusterConfigCmd
+}
+
+func allConfigCmd() *cobra.Command {
+	allConfigCmd := &cobra.Command{
+		Use:   "all [<type>/]<name>[.<namespace>]",
+		Short: "Retrieves all configuration for the Envoy in the specified pod",
+		Long:  `Retrieve information about all configuration for the Envoy instance in the specified pod.`,
+		Example: `  # Retrieve summary about all configuration for a given pod from Envoy.
+  istioctl proxy-config all <pod-name[.namespace]>
+
+  # Retrieve full cluster dump as JSON
+  istioctl proxy-config all <pod-name[.namespace]> -o json
+
+  # Retrieve full cluster dump with short syntax
+  istioctl pc a <pod-name[.namespace]>
+
+  # Retrieve cluster summary without using Kubernetes API
+  ssh <user@hostname> 'curl localhost:15000/config_dump' > envoy-config.json
+  istioctl proxy-config all --file envoy-config.json
+`,
+		Aliases: []string{"a"},
+		Args: func(cmd *cobra.Command, args []string) error {
+			if (len(args) == 1) != (configDumpFile == "") {
+				cmd.Println(cmd.UsageString())
+				return fmt.Errorf("all requires pod name or --file parameter")
+			}
+			return nil
+		},
+		RunE: func(c *cobra.Command, args []string) error {
+			switch outputFormat {
+			case jsonOutput:
+				if len(args) == 1 {
+					podName, podNamespace, err := getPodName(args[0])
+					if err != nil {
+						return err
+					}
+					dump, err := extractConfigDump(podName, podNamespace)
+					if err != nil {
+						return err
+					}
+					fmt.Fprintln(c.OutOrStdout(), string(dump))
+				} else {
+					dump, err := readFile(configDumpFile)
+					if err != nil {
+						return err
+					}
+					fmt.Fprintln(c.OutOrStdout(), string(dump))
+				}
+			case summaryOutput:
+				var configWriter *configdump.ConfigWriter
+				if len(args) == 1 {
+					podName, podNamespace, err := getPodName(args[0])
+					if err != nil {
+						return err
+					}
+					configWriter, err = setupPodConfigdumpWriter(podName, podNamespace, c.OutOrStdout())
+					if err != nil {
+						return err
+					}
+				} else {
+					var err error
+					configWriter, err = setupFileConfigdumpWriter(configDumpFile, c.OutOrStdout())
+					if err != nil {
+						return err
+					}
+				}
+				return configWriter.PrintFullSummary(
+					configdump.ClusterFilter{
+						FQDN:      host.Name(fqdn),
+						Port:      port,
+						Subset:    subset,
+						Direction: model.TrafficDirection(direction),
+					},
+					configdump.ListenerFilter{
+						Address: address,
+						Port:    uint32(port),
+						Type:    listenerType,
+						Verbose: verboseProxyConfig,
+					},
+					configdump.RouteFilter{
+						Name:    routeName,
+						Verbose: verboseProxyConfig,
+					},
+				)
+			default:
+				return fmt.Errorf("output format %q not supported", outputFormat)
+			}
+			return nil
+		},
+	}
+
+	allConfigCmd.PersistentFlags().StringVarP(&outputFormat, "output", "o", summaryOutput, "Output format: one of json|short")
+	allConfigCmd.PersistentFlags().StringVarP(&configDumpFile, "file", "f", "",
+		"Envoy config dump JSON file")
+	allConfigCmd.PersistentFlags().BoolVar(&verboseProxyConfig, "verbose", true, "Output more information")
+
+	// cluster
+	allConfigCmd.PersistentFlags().StringVar(&fqdn, "fqdn", "", "Filter clusters by substring of Service FQDN field")
+	allConfigCmd.PersistentFlags().StringVar(&direction, "direction", "", "Filter clusters by Direction field")
+	allConfigCmd.PersistentFlags().StringVar(&subset, "subset", "", "Filter clusters by substring of Subset field")
+
+	// applies to cluster and route
+	allConfigCmd.PersistentFlags().IntVar(&port, "port", 0, "Filter clusters and listeners by Port field")
+
+	// Listener
+	allConfigCmd.PersistentFlags().StringVar(&address, "address", "", "Filter listeners by address field")
+	allConfigCmd.PersistentFlags().StringVar(&listenerType, "type", "", "Filter listeners by type field")
+
+	// route
+	allConfigCmd.PersistentFlags().StringVar(&routeName, "name", "", "Filter listeners by route name field")
+
+	return allConfigCmd
 }
 
 func listenerConfigCmd() *cobra.Command {
@@ -804,6 +928,7 @@ func proxyConfig() *cobra.Command {
 	configCmd.PersistentFlags().StringVarP(&outputFormat, "output", "o", summaryOutput, "Output format: one of json|short")
 
 	configCmd.AddCommand(clusterConfigCmd())
+	configCmd.AddCommand(allConfigCmd())
 	configCmd.AddCommand(listenerConfigCmd())
 	configCmd.AddCommand(logCmd())
 	configCmd.AddCommand(routeConfigCmd())

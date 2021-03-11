@@ -27,7 +27,7 @@ spec:
       protocol: TCP
   selector:
     app: istiod
-    {{- if ne .Values.revision ""}}
+    {{- if ne .Values.revision "" }}
     istio.io/rev: {{ .Values.revision }}
     {{- else }}
     # Label used by the 'default' service. For versioned deployments we match with app and version.

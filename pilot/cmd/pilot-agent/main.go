@@ -27,10 +27,10 @@ import (
 	"github.com/spf13/cobra/doc"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
+	"istio.io/istio/pilot/cmd/pilot-agent/config"
+	secopt "istio.io/istio/pilot/cmd/pilot-agent/security"
 	"istio.io/istio/pilot/cmd/pilot-agent/status"
-	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
-	securityModel "istio.io/istio/pilot/pkg/security/model"
 	"istio.io/istio/pilot/pkg/util/network"
 	"istio.io/istio/pkg/cmd"
 	"istio.io/istio/pkg/config/constants"
@@ -39,8 +39,6 @@ import (
 	"istio.io/istio/pkg/jwt"
 	"istio.io/istio/pkg/security"
 	"istio.io/istio/pkg/util/gogoprotomarshal"
-	"istio.io/istio/security/pkg/credentialfetcher"
-	"istio.io/istio/security/pkg/nodeagent/plugin/providers/google/stsclient"
 	stsserver "istio.io/istio/security/pkg/stsservice/server"
 	"istio.io/istio/security/pkg/stsservice/tokenmanager"
 	cleaniptables "istio.io/istio/tools/istio-clean-iptables/pkg/cmd"
@@ -83,7 +81,8 @@ var (
 	kubeAppProberNameVar = env.RegisterStringVar(status.KubeAppProberEnvName, "", "")
 	serviceAccountVar    = env.RegisterStringVar("SERVICE_ACCOUNT", "", "Name of service account")
 	clusterIDVar         = env.RegisterStringVar("ISTIO_META_CLUSTER_ID", "", "")
-	callCredentials      = env.RegisterBoolVar("CALL_CREDENTIALS", false, "Use JWT directly instead of MTLS")
+	// Provider for XDS auth, e.g., gcp. By default, it is empty, meaning no auth provider.
+	xdsAuthProvider = env.RegisterStringVar("XDS_AUTH_PROVIDER", "", "Provider for XDS auth")
 
 	pilotCertProvider = env.RegisterStringVar("PILOT_CERT_PROVIDER", "istiod",
 		"The provider of Pilot DNS certificate.").Get()
@@ -95,11 +94,11 @@ var (
 	provCert = env.RegisterStringVar("PROV_CERT", "",
 		"Set to a directory containing provisioned certs, for VMs").Get()
 
-	// set to "/etc/ssl/certs/ca-certificates.crt" on debian/ubuntu for ACME/public signed XDS servers.
+	// set to "SYSTEM" for ACME/public signed XDS servers.
 	xdsRootCA = env.RegisterStringVar("XDS_ROOT_CA", "",
 		"Explicitly set the root CA to expect for the XDS connection.").Get()
 
-	// set to "/etc/ssl/certs/ca-certificates.crt" on debian/ubuntu for ACME/public signed CA servers.
+	// set to "SYSTEM" for ACME/public signed CA servers.
 	caRootCA = env.RegisterStringVar("CA_ROOT_CA", "",
 		"Explicitly set the root CA to expect for the CA connection.").Get()
 
@@ -113,7 +112,7 @@ var (
 	).Get()
 
 	caProviderEnv = env.RegisterStringVar("CA_PROVIDER", "Citadel", "name of authentication provider").Get()
-	caEndpointEnv = env.RegisterStringVar("CA_ADDR", "", "Address of the spiffee certificate provider. Defaults to discoveryAddress").Get()
+	caEndpointEnv = env.RegisterStringVar("CA_ADDR", "", "Address of the spiffe certificate provider. Defaults to discoveryAddress").Get()
 
 	trustDomainEnv = env.RegisterStringVar("TRUST_DOMAIN", "cluster.local",
 		"The trust domain for spiffe certificates").Get()
@@ -204,7 +203,7 @@ var (
 			// operational parameters correctly.
 			proxyIPv6 := isIPv6Proxy(role.IPAddresses)
 
-			proxyConfig, err := constructProxyConfig(role)
+			proxyConfig, err := config.ConstructProxyConfig(meshConfigFile, serviceCluster, proxyConfigEnv, concurrency, role)
 			if err != nil {
 				return fmt.Errorf("failed to get proxy config: %v", err)
 			}
@@ -219,10 +218,56 @@ var (
 			role.DNSDomain = getDNSDomain(podNamespace, role.DNSDomain)
 			log.WithLabels("ips", role.IPAddresses, "type", role.Type, "id", role.ID, "domain", role.DNSDomain).Info("Proxy role")
 
-			secOpts, err := setupSecurityOptions(proxyConfig)
+			sop := security.Options{
+				CAEndpoint:                     caEndpointEnv,
+				CAProviderName:                 caProviderEnv,
+				PilotCertProvider:              pilotCertProvider,
+				OutputKeyCertToDir:             outputKeyCertToDir,
+				ProvCert:                       provCert,
+				WorkloadUDSPath:                security.DefaultLocalSDSPath,
+				ClusterID:                      clusterIDVar.Get(),
+				FileMountedCerts:               fileMountedCertsEnv,
+				WorkloadNamespace:              podNamespaceVar.Get(),
+				ServiceAccount:                 serviceAccountVar.Get(),
+				XdsAuthProvider:                xdsAuthProvider.Get(),
+				TrustDomain:                    trustDomainEnv,
+				Pkcs8Keys:                      pkcs8KeysEnv,
+				ECCSigAlg:                      eccSigAlgEnv,
+				SecretTTL:                      secretTTLEnv,
+				SecretRotationGracePeriodRatio: secretRotationGracePeriodRatioEnv,
+			}
+			secOpts, err := secopt.SetupSecurityOptions(proxyConfig, sop, jwtPolicy.Get(),
+				credFetcherTypeEnv, credIdentityProvider)
 			if err != nil {
 				return err
 			}
+			var tokenManager security.TokenManager
+			if stsPort > 0 || xdsAuthProvider.Get() != "" {
+				// tokenManager is gcp token manager when using the default token manager plugin.
+				tokenManager = tokenmanager.CreateTokenManager(tokenManagerPlugin,
+					tokenmanager.Config{CredFetcher: secOpts.CredFetcher, TrustDomain: secOpts.TrustDomain})
+			}
+			secOpts.TokenManager = tokenManager
+
+			// If security token service (STS) port is not zero, start STS server and
+			// listen on STS port for STS requests. For STS, see
+			// https://tools.ietf.org/html/draft-ietf-oauth-token-exchange-16.
+			// STS is used for stackdriver or other Envoy services using google gRPC.
+			if stsPort > 0 {
+				localHostAddr := localHostIPv4
+				if proxyIPv6 {
+					localHostAddr = localHostIPv6
+				}
+				stsServer, err := stsserver.NewServer(stsserver.Config{
+					LocalHostAddr: localHostAddr,
+					LocalPort:     stsPort,
+				}, tokenManager)
+				if err != nil {
+					return err
+				}
+				defer stsServer.Stop()
+			}
+
 			agentConfig := &istio_agent.AgentConfig{
 				XDSRootCerts: xdsRootCA,
 				CARootCerts:  caRootCA,
@@ -243,7 +288,7 @@ var (
 			var pilotSAN []string
 			if proxyConfig.ControlPlaneAuthPolicy == meshconfig.AuthenticationPolicy_MUTUAL_TLS {
 				// Obtain Pilot SAN, using DNS.
-				pilotSAN = []string{getPilotSan(proxyConfig.DiscoveryAddress)}
+				pilotSAN = []string{config.GetPilotSan(proxyConfig.DiscoveryAddress)}
 			}
 			log.Infof("Pilot SAN: %v", pilotSAN)
 
@@ -267,26 +312,13 @@ var (
 				}
 			}
 
-			// If security token service (STS) port is not zero, start STS server and
-			// listen on STS port for STS requests. For STS, see
-			// https://tools.ietf.org/html/draft-ietf-oauth-token-exchange-16.
-			if stsPort > 0 {
-				localHostAddr := localHostIPv4
-				if proxyIPv6 {
-					localHostAddr = localHostIPv6
-				}
-				tokenManager := tokenmanager.CreateTokenManager(tokenManagerPlugin,
-					tokenmanager.Config{CredFetcher: secOpts.CredFetcher, TrustDomain: secOpts.TrustDomain})
-				stsServer, err := stsserver.NewServer(stsserver.Config{
-					LocalHostAddr: localHostAddr,
-					LocalPort:     stsPort,
-				}, tokenManager)
-				if err != nil {
-					return err
-				}
-				defer stsServer.Stop()
+			provCert := sa.FindRootCAForXDS()
+			if provCert == "" {
+				// Envoy only supports load from file. If we want to use system certs, use best guess
+				// To be more correct this could lookup all the "well known" paths but this is extremely \
+				// unlikely to run on a non-debian based machine, and if it is it can be explicitly configured
+				provCert = "/etc/ssl/certs/ca-certificates.crt"
 			}
-
 			envoyProxy := envoy.NewProxy(envoy.ProxyConfig{
 				Config:              proxyConfig,
 				Node:                role.ServiceNode(),
@@ -298,18 +330,12 @@ var (
 				STSPort:             stsPort,
 				OutlierLogPath:      outlierLogPath,
 				PilotCertProvider:   pilotCertProvider,
-				ProvCert:            sa.FindRootCAForXDS(),
+				ProvCert:            provCert,
 				Sidecar:             role.Type == model.SidecarProxy,
 				ProxyViaAgent:       agentConfig.ProxyXDSViaAgent,
-				CallCredentials:     callCredentials.Get(),
 			})
 
 			drainDuration, _ := types.DurationFromProto(proxyConfig.TerminationDrainDuration)
-			if ds, f := features.TerminationDrainDuration.Lookup(); f {
-				// Legacy environment variable is set, us that instead
-				drainDuration = time.Second * time.Duration(ds)
-			}
-
 			agent := envoy.NewAgent(envoyProxy, drainDuration)
 
 			// Watcher is also kicking envoy start.
@@ -323,63 +349,6 @@ var (
 		},
 	}
 )
-
-func setupSecurityOptions(proxyConfig meshconfig.ProxyConfig) (security.Options, error) {
-	var jwtPath string
-	if jwtPolicy.Get() == jwt.PolicyThirdParty {
-		log.Info("JWT policy is third-party-jwt")
-		jwtPath = constants.TrustworthyJWTPath
-	} else if jwtPolicy.Get() == jwt.PolicyFirstParty {
-		log.Info("JWT policy is first-party-jwt")
-		jwtPath = securityModel.K8sSAJwtFileName
-	} else {
-		log.Info("Using existing certs")
-	}
-
-	o := security.Options{
-		CAEndpoint:                     caEndpointEnv,
-		CAProviderName:                 caProviderEnv,
-		PilotCertProvider:              pilotCertProvider,
-		OutputKeyCertToDir:             outputKeyCertToDir,
-		ProvCert:                       provCert,
-		JWTPath:                        jwtPath,
-		WorkloadUDSPath:                security.DefaultLocalSDSPath,
-		ClusterID:                      clusterIDVar.Get(),
-		FileMountedCerts:               fileMountedCertsEnv,
-		WorkloadNamespace:              podNamespaceVar.Get(),
-		ServiceAccount:                 serviceAccountVar.Get(),
-		TrustDomain:                    trustDomainEnv,
-		Pkcs8Keys:                      pkcs8KeysEnv,
-		ECCSigAlg:                      eccSigAlgEnv,
-		SecretTTL:                      secretTTLEnv,
-		SecretRotationGracePeriodRatio: secretRotationGracePeriodRatioEnv,
-	}
-	// If not set explicitly, default to the discovery address.
-	if o.CAEndpoint == "" {
-		o.CAEndpoint = proxyConfig.DiscoveryAddress
-	}
-
-	// TODO (liminw): CredFetcher is a general interface. In 1.7, we limit the use on GCE only because
-	// GCE is the only supported plugin at the moment.
-	if credFetcherTypeEnv == security.GCE {
-		o.CredIdentityProvider = credIdentityProvider
-		credFetcher, err := credentialfetcher.NewCredFetcher(credFetcherTypeEnv, o.TrustDomain, jwtPath, o.CredIdentityProvider)
-		if err != nil {
-			return security.Options{}, fmt.Errorf("failed to create credential fetcher: %v", err)
-		}
-		log.Infof("using credential fetcher of %s type in %s trust domain", credFetcherTypeEnv, o.TrustDomain)
-		o.CredFetcher = credFetcher
-	}
-	// TODO extract this logic out to a plugin
-	if o.CAProviderName == "GoogleCA" || strings.Contains(o.CAEndpoint, "googleapis.com") {
-		o.TokenExchanger = stsclient.NewSecureTokenServiceExchanger(o.CredFetcher, o.TrustDomain)
-	}
-
-	if o.ProvCert != "" && o.FileMountedCerts {
-		return security.Options{}, fmt.Errorf("invalid options: PROV_CERT and FILE_MOUNTED_CERTS are mutually exclusive")
-	}
-	return o, nil
-}
 
 // Simplified extraction of gRPC headers from environment.
 // Unlike ISTIO_META, where we need JSON and advanced features - this is just for small string headers.
@@ -397,13 +366,10 @@ func extractXDSHeadersFromEnv(config *istio_agent.AgentConfig) {
 }
 
 func initStatusServer(ctx context.Context, proxyIPv6 bool, proxyConfig meshconfig.ProxyConfig) error {
-	localHostAddr := localHostIPv4
-	if proxyIPv6 {
-		localHostAddr = localHostIPv6
-	}
 	prober := kubeAppProberNameVar.Get()
 	statusServer, err := status.NewServer(status.Config{
-		LocalHostAddr:  localHostAddr,
+		IPv6:           proxyIPv6,
+		PodIP:          instanceIPVar.Get(),
 		AdminPort:      uint16(proxyConfig.ProxyAdminPort),
 		StatusPort:     uint16(proxyConfig.StatusPort),
 		KubeAppProbers: prober,

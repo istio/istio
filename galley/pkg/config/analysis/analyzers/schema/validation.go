@@ -89,5 +89,4 @@ func (a *ValidationAnalyzer) Analyze(ctx analysis.Context) {
 
 		return true
 	})
-
 }

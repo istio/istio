@@ -38,9 +38,7 @@ import (
 	"istio.io/pkg/log"
 )
 
-var (
-	scope = log.RegisterScope("tpath", "tree traverser", 0)
-)
+var scope = log.RegisterScope("tpath", "tree traverser", 0)
 
 // PathContext provides a means for traversing a tree towards the root.
 type PathContext struct {

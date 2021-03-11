@@ -83,12 +83,12 @@ func buildMockController() *Controller {
 func buildMockControllerForMultiCluster() *Controller {
 	discovery1 = mock.NewDiscovery(
 		map[host.Name]*model.Service{
-			mock.HelloService.Hostname: mock.MakeService("hello.default.svc.cluster.local", "10.1.1.0", []string{}),
+			mock.HelloService.Hostname: mock.MakeService("hello.default.svc.cluster.local", "10.1.1.0", []string{}, "cluster-1"),
 		}, 2)
 
 	discovery2 = mock.NewDiscovery(
 		map[host.Name]*model.Service{
-			mock.HelloService.Hostname: mock.MakeService("hello.default.svc.cluster.local", "10.1.2.0", []string{}),
+			mock.HelloService.Hostname: mock.MakeService("hello.default.svc.cluster.local", "10.1.2.0", []string{}, "cluster-2"),
 			mock.WorldService.Hostname: mock.WorldService.DeepCopy(),
 		}, 2)
 
@@ -124,6 +124,7 @@ func TestServicesError(t *testing.T) {
 		t.Fatal("Aggregate controller should return error if one discovery client experience error")
 	}
 }
+
 func TestServicesForMultiCluster(t *testing.T) {
 	aggregateCtl := buildMockControllerForMultiCluster()
 	// List Services from aggregate controller
@@ -151,7 +152,7 @@ func TestServicesForMultiCluster(t *testing.T) {
 		t.Fatalf("Service map expected size %d, actual %v", svcCount, serviceMap)
 	}
 
-	//Now verify ClusterVIPs for each service
+	// Now verify ClusterVIPs for each service
 	ClusterVIPs := map[host.Name]map[string]string{
 		mock.HelloService.Hostname: {
 			"cluster-1": "10.1.1.0",
@@ -404,7 +405,6 @@ func TestGetIstioServiceAccounts(t *testing.T) {
 }
 
 func TestAddRegistry(t *testing.T) {
-
 	registries := []serviceregistry.Simple{
 		{
 			ProviderID: "registry1",

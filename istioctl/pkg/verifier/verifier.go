@@ -43,13 +43,11 @@ import (
 	"istio.io/istio/pkg/kube"
 )
 
-var (
-	istioOperatorGVR = apimachinery_schema.GroupVersionResource{
-		Group:    v1alpha1.SchemeGroupVersion.Group,
-		Version:  v1alpha1.SchemeGroupVersion.Version,
-		Resource: "istiooperators",
-	}
-)
+var istioOperatorGVR = apimachinery_schema.GroupVersionResource{
+	Group:    v1alpha1.SchemeGroupVersion.Group,
+	Version:  v1alpha1.SchemeGroupVersion.Version,
+	Resource: "istiooperators",
+}
 
 // StatusVerifier checks status of certain resources like deployment,
 // jobs and also verifies count of certain resource types.
@@ -139,6 +137,7 @@ func (v *StatusVerifier) verifyInstallIOPRevision() error {
 
 func (v *StatusVerifier) getRevision() (string, error) {
 	var revision string
+	var revs string
 	revCount := 0
 	kubeClient, err := v.createClient()
 	if err != nil {
@@ -149,14 +148,19 @@ func (v *StatusVerifier) getRevision() (string, error) {
 		return "", fmt.Errorf("failed to fetch istiod pod, error: %v", err)
 	}
 	for _, pod := range pods.Items {
-		rev := pod.ObjectMeta.GetLabels()[label.IstioRev]
+		rev := pod.ObjectMeta.GetLabels()[label.IoIstioRev.Name]
 		revCount++
 		if rev == "default" {
 			continue
 		}
 		revision = rev
 	}
-	v.logger.LogAndPrintf("%d Istio control planes detected, checking --revision %q only", revCount, revision)
+	if revision == "" {
+		revs = "default"
+	} else {
+		revs = revision
+	}
+	v.logger.LogAndPrintf("%d Istio control planes detected, checking --revision %q only", revCount, revs)
 	return revision, nil
 }
 
@@ -370,7 +374,7 @@ func (v *StatusVerifier) injectorFromCluster(revision string) (*admit_v1.Mutatin
 	revCount := 0
 	var hookmatch *admit_v1.MutatingWebhookConfiguration
 	for _, hook := range hooks.Items {
-		rev := hook.ObjectMeta.GetLabels()[label.IstioRev]
+		rev := hook.ObjectMeta.GetLabels()[label.IoIstioRev.Name]
 		if rev != "" {
 			revCount++
 			revision = rev

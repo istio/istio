@@ -46,7 +46,6 @@ spec:
         enabled: true
   values:
     global:
-      externalIstiod: true
       proxy:
         resources:
           requests:
@@ -55,10 +54,7 @@ spec:
 
     pilot:
       env:
-        PILOT_ENABLED_SERVICE_APIS: true
-        ENABLE_ADMIN_ENDPOINTS: true
-        PILOT_ENABLE_WORKLOAD_ENTRY_AUTOREGISTRATION: true
-        PILOT_ENABLE_WORKLOAD_ENTRY_HEALTHCHECKS: true
+        UNSAFE_ENABLE_ADMIN_ENDPOINTS: true
         PILOT_ENABLE_CROSS_CLUSTER_WORKLOAD_ENTRY: true
 
     gateways:

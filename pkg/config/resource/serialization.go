@@ -29,7 +29,6 @@ var scope = log.RegisterScope("resource", "Core resource model scope", 0)
 
 // Serialize converts a resource entry into its enveloped form.
 func Serialize(r *Instance) (*mcp.Resource, error) {
-
 	a, err := types.MarshalAny(r.Message)
 	if err != nil {
 		scope.Errorf("Error serializing proto from source r: %v:", r)

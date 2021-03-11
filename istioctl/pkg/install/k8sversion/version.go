@@ -29,7 +29,7 @@ import (
 const (
 	// MinK8SVersion is the minimum k8s version required to run this version of Istio
 	// https://istio.io/docs/setup/platform-setup/
-	MinK8SVersion = 16
+	MinK8SVersion = 17
 )
 
 // CheckKubernetesVersion checks if this Istio version is supported in the k8s version

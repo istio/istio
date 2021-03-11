@@ -98,7 +98,7 @@ func TestBuildHTTPRoutes(t *testing.T) {
 		g.Expect(len(routes)).To(gomega.Equal(1))
 		// Validate that when timeout is not specified, we send what is set in the timeout flag.
 		g.Expect(routes[0].GetRoute().Timeout.Seconds).To(gomega.Equal(int64(1)))
-		g.Expect(routes[0].GetRoute().MaxStreamDuration.MaxStreamDuration.Seconds).To(gomega.Equal(int64(1)))
+		g.Expect(routes[0].GetRoute().MaxStreamDuration.MaxStreamDuration.Seconds).To(gomega.Equal(int64(0)))
 		g.Expect(routes[0].GetRoute().MaxStreamDuration.GrpcTimeoutHeaderMax.Seconds).To(gomega.Equal(int64(1)))
 	})
 
@@ -112,7 +112,7 @@ func TestBuildHTTPRoutes(t *testing.T) {
 		g.Expect(len(routes)).To(gomega.Equal(1))
 		// Validate that when timeout specified, we send the configured timeout to Envoys.
 		g.Expect(routes[0].GetRoute().Timeout.Seconds).To(gomega.Equal(int64(10)))
-		g.Expect(routes[0].GetRoute().MaxStreamDuration.MaxStreamDuration.Seconds).To(gomega.Equal(int64(10)))
+		g.Expect(routes[0].GetRoute().MaxStreamDuration.MaxStreamDuration.Seconds).To(gomega.Equal(int64(0)))
 		g.Expect(routes[0].GetRoute().MaxStreamDuration.GrpcTimeoutHeaderMax.Seconds).To(gomega.Equal(int64(10)))
 	})
 
@@ -216,7 +216,6 @@ func TestBuildHTTPRoutes(t *testing.T) {
 	})
 
 	t.Run("for virtual service with regex matching for all cases on header", func(t *testing.T) {
-
 		cset := createVirtualServiceWithRegexMatchingForAllCasesOnHeader()
 
 		for _, c := range cset {
@@ -398,10 +397,11 @@ func TestBuildHTTPRoutes(t *testing.T) {
 	t.Run("for virtual service with subsets with port level settings with ring hash", func(t *testing.T) {
 		g := gomega.NewWithT(t)
 
-		virtualService := config.Config{Meta: config.Meta{
-			GroupVersionKind: collections.IstioNetworkingV1Alpha3Virtualservices.Resource().GroupVersionKind(),
-			Name:             "acme",
-		},
+		virtualService := config.Config{
+			Meta: config.Meta{
+				GroupVersionKind: collections.IstioNetworkingV1Alpha3Virtualservices.Resource().GroupVersionKind(),
+				Name:             "acme",
+			},
 			Spec: virtualServiceWithSubsetWithPortLevelSettings,
 		}
 
@@ -418,7 +418,8 @@ func TestBuildHTTPRoutes(t *testing.T) {
 					Name:             "acme",
 				},
 				Spec: portLevelDestinationRuleWithSubsetPolicy,
-			}})
+			},
+		})
 
 		routes, err := route.BuildHTTPRoutesForVirtualService(node, push, virtualService, serviceRegistry, 8080, gatewayNames)
 		xdstest.ValidateRoutes(t, routes)
@@ -463,7 +464,8 @@ func TestBuildHTTPRoutes(t *testing.T) {
 		}
 
 		push.SetDestinationRules([]config.Config{
-			cnfg})
+			cnfg,
+		})
 
 		routes, err := route.BuildHTTPRoutesForVirtualService(node, push, virtualService, serviceRegistry, 8080, gatewayNames)
 		xdstest.ValidateRoutes(t, routes)
@@ -496,7 +498,8 @@ func TestBuildHTTPRoutes(t *testing.T) {
 					Name:             "acme",
 				},
 				Spec: portLevelDestinationRule,
-			}})
+			},
+		})
 
 		gatewayNames := map[string]bool{"some-gateway": true}
 		routes, err := route.BuildHTTPRoutesForVirtualService(node, push, virtualServicePlain, serviceRegistry, 8080, gatewayNames)
@@ -625,7 +628,6 @@ func TestBuildHTTPRoutes(t *testing.T) {
 		g.Expect(routes[0].ResponseHeadersToAdd[0].Append.Value).To(gomega.BeFalse())
 		g.Expect(routes[0].ResponseHeadersToAdd[0].Header.Key).To(gomega.Equal("Strict-Transport-Security"))
 		g.Expect(routes[0].ResponseHeadersToAdd[0].Header.Value).To(gomega.Equal("max-age=31536000; includeSubDomains; preload"))
-
 	})
 
 	t.Run("for no virtualservice but has destinationrule with consistentHash loadbalancer", func(t *testing.T) {
@@ -641,7 +643,8 @@ func TestBuildHTTPRoutes(t *testing.T) {
 					Name:             "acme",
 				},
 				Spec: networkingDestinationRule,
-			}})
+			},
+		})
 		vhosts := route.BuildSidecarVirtualHostsFromConfigAndRegistry(node, push, serviceRegistry, []config.Config{}, 8080)
 		g.Expect(vhosts[0].Routes[0].Action.(*envoyroute.Route_Route).Route.HashPolicy).NotTo(gomega.BeNil())
 	})
@@ -658,7 +661,8 @@ func TestBuildHTTPRoutes(t *testing.T) {
 					Name:             "acme",
 				},
 				Spec: networkingDestinationRuleWithPortLevelTrafficPolicy,
-			}})
+			},
+		})
 
 		vhosts := route.BuildSidecarVirtualHostsFromConfigAndRegistry(node, push, serviceRegistry, []config.Config{}, 8080)
 
@@ -1329,6 +1333,7 @@ var networkingDestinationRule = &networking.DestinationRule{
 		},
 	},
 }
+
 var networkingDestinationRuleWithPortLevelTrafficPolicy = &networking.DestinationRule{
 	Host: "*.example.org",
 	TrafficPolicy: &networking.TrafficPolicy{
@@ -1347,6 +1352,7 @@ var networkingDestinationRuleWithPortLevelTrafficPolicy = &networking.Destinatio
 		},
 	},
 }
+
 var networkingSubset = &networking.Subset{
 	Name:   "some-subset",
 	Labels: map[string]string{},

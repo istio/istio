@@ -56,7 +56,6 @@ type ProxyConfig struct {
 	ProvCert            string
 	Sidecar             bool
 	ProxyViaAgent       bool
-	CallCredentials     bool
 	LogAsJSON           bool
 }
 
@@ -109,7 +108,8 @@ func (e *envoy) args(fname string, epoch int, bootstrapConfig string) []string {
 	if isIPv6Proxy(e.NodeIPs) {
 		proxyLocalAddressType = "v6"
 	}
-	startupArgs := []string{"-c", fname,
+	startupArgs := []string{
+		"-c", fname,
 		"--restart-epoch", fmt.Sprint(epoch),
 		"--drain-time-s", fmt.Sprint(int(convertDuration(e.Config.DrainDuration) / time.Second)),
 		"--parent-shutdown-time-s", fmt.Sprint(int(convertDuration(e.Config.ParentShutdownDuration) / time.Second)),
@@ -117,11 +117,12 @@ func (e *envoy) args(fname string, epoch int, bootstrapConfig string) []string {
 		"--service-node", e.Node,
 		"--local-address-ip-version", proxyLocalAddressType,
 		"--bootstrap-version", "3",
+		"--disable-hot-restart", // We don't use it, so disable it to simplify Envoy's logic
 	}
 	if e.ProxyConfig.LogAsJSON {
 		startupArgs = append(startupArgs,
 			"--log-format",
-			`{"level":"%l","time":"%Y-%m-%dT%T.%fZ","scope":"%n","msg":"%_"}`,
+			`{"level":"%l","time":"%Y-%m-%dT%T.%fZ","scope":"envoy %n","msg":"%j"}`,
 		)
 	} else {
 		// format is like `2020-04-07T16:52:30.471425Z     info    envoy config   ...message..
@@ -170,7 +171,6 @@ func (e *envoy) Run(config interface{}, epoch int, abort <-chan error) error {
 			OutlierLogPath:      e.OutlierLogPath,
 			PilotCertProvider:   e.PilotCertProvider,
 			ProvCert:            e.ProvCert,
-			CallCredentials:     e.CallCredentials,
 			DiscoveryHost:       discHost,
 		}).CreateFileForEpoch(epoch)
 		if err != nil {

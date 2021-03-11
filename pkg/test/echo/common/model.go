@@ -52,6 +52,9 @@ type Port struct {
 
 	// InstanceIP determines if echo will listen on the instance IP, or wildcard
 	InstanceIP bool
+
+	// LocalhostIP determines if echo will listen on the localhost IP; otherwise, it will listen on wildcard
+	LocalhostIP bool
 }
 
 // PortList is a set of ports

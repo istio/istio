@@ -41,38 +41,36 @@ type resourceNames struct {
 	proxyDebugURLs  []string
 }
 
-var (
-	versionMap = map[string]*resourceNames{
-		latestKey: {
-			discoveryLabels: []kv{
-				{k: "app", v: "istiod"},
-			},
-			istioDebugURLs: []string{
-				"debug/adsz",
-				"debug/cdsz",
-				"debug/syncz",
-				"debug/registryz",
-				"debug/endpointz",
-				"debug/endpointShardz",
-				"debug/configz",
-				"debug/resourcesz",
-				"debug/authorizationz",
-				"debug/push_status",
-				"debug/inject",
-			},
-			proxyDebugURLs: []string{
-				"certs",
-				"clusters",
-				"config_dump?include_eds",
-				"listeners",
-				"memory",
-				"server_info",
-				"stats/prometheus",
-				"runtime",
-			},
+var versionMap = map[string]*resourceNames{
+	latestKey: {
+		discoveryLabels: []kv{
+			{k: "app", v: "istiod"},
 		},
-	}
-)
+		istioDebugURLs: []string{
+			"debug/adsz",
+			"debug/cdsz",
+			"debug/syncz",
+			"debug/registryz",
+			"debug/endpointz",
+			"debug/endpointShardz",
+			"debug/configz",
+			"debug/resourcesz",
+			"debug/authorizationz",
+			"debug/push_status",
+			"debug/inject",
+		},
+		proxyDebugURLs: []string{
+			"certs",
+			"clusters",
+			"config_dump?include_eds",
+			"listeners",
+			"memory",
+			"server_info",
+			"stats/prometheus",
+			"runtime",
+		},
+	},
+}
 
 // IstiodDebugURLs returns a list of Istiod debug URLs for the given version.
 func IstiodDebugURLs(clusterVersion string) []string {

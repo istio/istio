@@ -7,6 +7,9 @@ metadata:
     app: healthcheck
 spec:
   ports:
+  - name: grpc
+    port: 7070
+    targetPort: 7070
   - name: http-8080
     port: 8080
     targetPort: 8080
@@ -33,7 +36,13 @@ spec:
         prometheus.io/port: "15014"
         sidecar.istio.io/rewriteAppHTTPProbers: "true"
     spec:
+      imagePullSecrets:
+      - name: myregistrykey
       containers:
+      - name: istio-proxy
+        image: auto
+        securityContext: # to allow core dumps
+          readOnlyRootFilesystem: false
       - name: app
         image: testing.hub/app:latest
         imagePullPolicy: Always
@@ -41,15 +50,20 @@ spec:
           - --metrics=15014
           - --cluster
           - "cluster-0"
+          - --grpc
+          - "7070"
           - --port
           - "8080"
           - --port
           - "3333"
           - --version
           - "v1"
+          - --istio-version
+          - ""
           - --crt=/cert.crt
           - --key=/cert.key
         ports:
+        - containerPort: 7070
         - containerPort: 8080
         - containerPort: 3333
           name: tcp-health-port

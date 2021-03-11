@@ -29,6 +29,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/sets"
+	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
@@ -77,10 +78,8 @@ var (
 	watchedResources = []schema.GroupVersionKind{
 		{Group: "autoscaling", Version: "v2beta1", Kind: name.HPAStr},
 		{Group: "policy", Version: "v1beta1", Kind: name.PDBStr},
-		{Group: "apps", Version: "v1", Kind: name.StatefulSetStr},
 		{Group: "apps", Version: "v1", Kind: name.DeploymentStr},
 		{Group: "apps", Version: "v1", Kind: name.DaemonSetStr},
-		{Group: "extensions", Version: "v1beta1", Kind: name.IngressStr},
 		{Group: "", Version: "v1", Kind: name.ServiceStr},
 		// Endpoints should not be pruned because these are generated and not in the manifest.
 		// {Group: "", Version: "v1", Kind: name.EndpointStr},
@@ -324,6 +323,15 @@ func (r *ReconcileIstioOperator) Reconcile(_ context.Context, request reconcile.
 		}
 		globalValues["jwtPolicy"] = string(jwtPolicy)
 	}
+	client, err := kubernetes.NewForConfig(r.config)
+	if err != nil {
+		return reconcile.Result{}, err
+	}
+	err = util.ValidateIOPCAConfig(client, iopMerged)
+	if err != nil {
+		scope.Errorf(errdict.OperatorFailedToConfigure, "failed to apply IstioOperator resources. Error %s", err)
+		return reconcile.Result{}, err
+	}
 	reconciler, err := helmreconciler.NewHelmReconciler(r.client, r.config, iopMerged, nil)
 	if err != nil {
 		return reconcile.Result{}, err
@@ -422,7 +430,7 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 	if err != nil {
 		return err
 	}
-	//watch for changes to Istio resources
+	// watch for changes to Istio resources
 	err = watchIstioResources(c)
 	if err != nil {
 		return err

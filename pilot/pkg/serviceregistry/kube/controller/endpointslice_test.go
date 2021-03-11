@@ -38,9 +38,9 @@ func TestGetLocalityFromTopology(t *testing.T) {
 		{
 			"all standard kubernetes labels and Istio custom labels",
 			map[string]string{
-				NodeRegionLabelGA:  "region",
-				NodeZoneLabelGA:    "zone",
-				label.IstioSubZone: "subzone",
+				NodeRegionLabelGA:          "region",
+				NodeZoneLabelGA:            "zone",
+				label.TopologySubzone.Name: "subzone",
 			},
 			"region/zone/subzone",
 		},

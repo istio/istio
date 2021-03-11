@@ -20,6 +20,7 @@ import (
 	monitoringpb "google.golang.org/genproto/googleapis/monitoring/v3"
 
 	"istio.io/istio/pkg/test"
+	"istio.io/istio/pkg/test/framework/components/cluster"
 	edgespb "istio.io/istio/pkg/test/framework/components/stackdriver/edges"
 	"istio.io/istio/pkg/test/framework/resource"
 )
@@ -37,7 +38,7 @@ type Instance interface {
 
 type Config struct {
 	// Cluster to be used in a multicluster environment
-	Cluster resource.Cluster
+	Cluster cluster.Cluster
 }
 
 // New returns a new instance of stackdriver.

@@ -34,6 +34,7 @@ import (
 	structpb "github.com/golang/protobuf/ptypes/struct"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
+	"istio.io/istio/pilot/pkg/trustbundle"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/labels"
@@ -43,8 +44,10 @@ import (
 	"istio.io/pkg/monitoring"
 )
 
-var _ mesh.Holder = &Environment{}
-var _ mesh.NetworksHolder = &Environment{}
+var (
+	_ mesh.Holder         = &Environment{}
+	_ mesh.NetworksHolder = &Environment{}
+)
 
 // Environment provides an aggregate environmental API for Pilot
 type Environment struct {
@@ -76,6 +79,9 @@ type Environment struct {
 	DomainSuffix string
 
 	ledger ledger.Ledger
+
+	// TrustBundle: List of Mesh TrustAnchors
+	TrustBundle *trustbundle.TrustBundle
 }
 
 func (e *Environment) GetDomainSuffix() string {
@@ -292,9 +298,7 @@ type WatchedResource struct {
 	LastRequest *discovery.DiscoveryRequest
 }
 
-var (
-	istioVersionRegexp = regexp.MustCompile(`^([1-9]+)\.([0-9]+)(\.([0-9]+))?`)
-)
+var istioVersionRegexp = regexp.MustCompile(`^([1-9]+)\.([0-9]+)(\.([0-9]+))?`)
 
 // StringList is a list that will be marshaled to a comma separate string in Json
 type StringList []string
@@ -579,9 +583,7 @@ type IstioVersion struct {
 	Patch int
 }
 
-var (
-	MaxIstioVersion = &IstioVersion{Major: 65535, Minor: 65535, Patch: 65535}
-)
+var MaxIstioVersion = &IstioVersion{Major: 65535, Minor: 65535, Patch: 65535}
 
 // Compare returns -1/0/1 if version is less than, equal or greater than inv
 // To compare only on major, call this function with { X, -1, -1}.
@@ -629,6 +631,8 @@ const (
 	Router NodeType = "router"
 )
 
+var NodeTypes = [...]NodeType{SidecarProxy, Router}
+
 // IsApplicationNodeType verifies that the NodeType is one of the declared constants in the model
 func IsApplicationNodeType(nType NodeType) bool {
 	switch nType {
@@ -648,7 +652,6 @@ func (node *Proxy) ServiceNode() string {
 	return strings.Join([]string{
 		string(node.Type), ip, node.ID, node.DNSDomain,
 	}, serviceNodeSeparator)
-
 }
 
 // RouterMode decides the behavior of Istio Gateway (normal or sni-dnat)

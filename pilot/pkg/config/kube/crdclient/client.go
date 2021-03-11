@@ -30,7 +30,7 @@ import (
 
 	jsonmerge "github.com/evanphx/json-patch/v5"
 	"gomodules.xyz/jsonpatch/v2"
-	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
+	crd "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	apiextensionsclient "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	klabels "k8s.io/apimachinery/pkg/labels"
@@ -45,7 +45,7 @@ import (
 	//  import OIDC cluster authentication plugin, e.g. for Tectonic
 	_ "k8s.io/client-go/plugin/pkg/client/auth/oidc"
 	"k8s.io/client-go/tools/cache"
-	serviceapisclient "sigs.k8s.io/service-apis/pkg/client/clientset/versioned"
+	gatewayapiclient "sigs.k8s.io/gateway-api/pkg/client/clientset/versioned"
 
 	"istio.io/api/label"
 	istioclient "istio.io/client-go/pkg/clientset/versioned"
@@ -81,8 +81,8 @@ type Client struct {
 	// The istio/client-go client we will use to access objects
 	istioClient istioclient.Interface
 
-	// The service-apis client we will use to access objects
-	serviceApisClient serviceapisclient.Interface
+	// The gateway-api client we will use to access objects
+	gatewayAPIClient gatewayapiclient.Interface
 }
 
 var _ model.ConfigStoreCache = &Client{}
@@ -143,13 +143,13 @@ func New(client kube.Client, revision, domainSuffix string) (model.ConfigStoreCa
 
 func NewForSchemas(client kube.Client, revision, domainSuffix string, schemas collection.Schemas) (model.ConfigStoreCache, error) {
 	out := &Client{
-		domainSuffix:      domainSuffix,
-		schemas:           schemas,
-		revision:          revision,
-		queue:             queue.NewQueue(1 * time.Second),
-		kinds:             map[config.GroupVersionKind]*cacheHandler{},
-		istioClient:       client.Istio(),
-		serviceApisClient: client.ServiceApis(),
+		domainSuffix:     domainSuffix,
+		schemas:          schemas,
+		revision:         revision,
+		queue:            queue.NewQueue(1 * time.Second),
+		kinds:            map[config.GroupVersionKind]*cacheHandler{},
+		istioClient:      client.Istio(),
+		gatewayAPIClient: client.GatewayAPI(),
 	}
 	known := knownCRDs(client.Ext())
 	for _, s := range out.schemas.All() {
@@ -159,7 +159,7 @@ func NewForSchemas(client kube.Client, revision, domainSuffix string, schemas co
 			var i informers.GenericInformer
 			var err error
 			if s.Resource().Group() == "networking.x-k8s.io" {
-				i, err = client.ServiceApisInformer().ForResource(s.Resource().GroupVersionResource())
+				i, err = client.GatewayAPIInformer().ForResource(s.Resource().GroupVersionResource())
 			} else {
 				i, err = client.IstioInformer().ForResource(s.Resource().GroupVersionResource())
 			}
@@ -199,14 +199,6 @@ func (cl *Client) Get(typ config.GroupVersionKind, name, namespace string) *conf
 	if !cl.objectInRevision(cfg) {
 		return nil
 	}
-	if features.EnableCRDValidation {
-		schema, _ := cl.Schemas().FindByGroupVersionKind(typ)
-		if _, err = schema.Resource().ValidateConfig(*cfg); err != nil {
-			handleValidationFailure(cfg, err)
-			return nil
-		}
-
-	}
 	return cfg
 }
 
@@ -216,7 +208,7 @@ func (cl *Client) Create(cfg config.Config) (string, error) {
 		return "", fmt.Errorf("nil spec for %v/%v", cfg.Name, cfg.Namespace)
 	}
 
-	meta, err := create(cl.istioClient, cl.serviceApisClient, cfg, getObjectMetadata(cfg))
+	meta, err := create(cl.istioClient, cl.gatewayAPIClient, cfg, getObjectMetadata(cfg))
 	if err != nil {
 		return "", err
 	}
@@ -229,7 +221,7 @@ func (cl *Client) Update(cfg config.Config) (string, error) {
 		return "", fmt.Errorf("nil spec for %v/%v", cfg.Name, cfg.Namespace)
 	}
 
-	meta, err := update(cl.istioClient, cl.serviceApisClient, cfg, getObjectMetadata(cfg))
+	meta, err := update(cl.istioClient, cl.gatewayAPIClient, cfg, getObjectMetadata(cfg))
 	if err != nil {
 		return "", err
 	}
@@ -241,7 +233,7 @@ func (cl *Client) UpdateStatus(cfg config.Config) (string, error) {
 		return "", fmt.Errorf("nil status for %v/%v on updateStatus()", cfg.Name, cfg.Namespace)
 	}
 
-	meta, err := updateStatus(cl.istioClient, cl.serviceApisClient, cfg, getObjectMetadata(cfg))
+	meta, err := updateStatus(cl.istioClient, cl.gatewayAPIClient, cfg, getObjectMetadata(cfg))
 	if err != nil {
 		return "", err
 	}
@@ -253,7 +245,7 @@ func (cl *Client) UpdateStatus(cfg config.Config) (string, error) {
 func (cl *Client) Patch(orig config.Config, patchFn config.PatchFunc) (string, error) {
 	modified, patchType := patchFn(orig.DeepCopy())
 
-	meta, err := patch(cl.istioClient, cl.serviceApisClient, orig, getObjectMetadata(orig), modified, getObjectMetadata(modified), patchType)
+	meta, err := patch(cl.istioClient, cl.gatewayAPIClient, orig, getObjectMetadata(orig), modified, getObjectMetadata(modified), patchType)
 	if err != nil {
 		return "", err
 	}
@@ -263,7 +255,7 @@ func (cl *Client) Patch(orig config.Config, patchFn config.PatchFunc) (string, e
 // Delete implements store interface
 // `resourceVersion` must be matched before deletion is carried out. If not possible, a 409 Conflict status will be
 func (cl *Client) Delete(typ config.GroupVersionKind, name, namespace string, resourceVersion *string) error {
-	return delete(cl.istioClient, cl.serviceApisClient, typ, name, namespace, resourceVersion)
+	return delete(cl.istioClient, cl.gatewayAPIClient, typ, name, namespace, resourceVersion)
 }
 
 // List implements store interface
@@ -280,17 +272,6 @@ func (cl *Client) List(kind config.GroupVersionKind, namespace string) ([]config
 	out := make([]config.Config, 0, len(list))
 	for _, item := range list {
 		cfg := TranslateObject(item, kind, cl.domainSuffix)
-		if features.EnableCRDValidation {
-			schema, _ := cl.Schemas().FindByGroupVersionKind(kind)
-			if _, err = schema.Resource().ValidateConfig(*cfg); err != nil {
-				handleValidationFailure(cfg, err)
-				// DO NOT RETURN ERROR: if a single object is bad, it'll be ignored (with a log message), but
-				// the rest should still be processed.
-				continue
-			}
-
-		}
-
 		if cl.objectInRevision(cfg) {
 			out = append(out, *cfg)
 		}
@@ -300,7 +281,7 @@ func (cl *Client) List(kind config.GroupVersionKind, namespace string) ([]config
 }
 
 func (cl *Client) objectInRevision(o *config.Config) bool {
-	configEnv, f := o.Labels[label.IstioRev]
+	configEnv, f := o.Labels[label.IoIstioRev.Name]
 	if !f {
 		// This is a global object, and always included
 		return true
@@ -313,10 +294,10 @@ func (cl *Client) objectInRevision(o *config.Config) bool {
 func knownCRDs(crdClient apiextensionsclient.Interface) map[string]struct{} {
 	delay := time.Second
 	maxDelay := time.Minute
-	var res *v1beta1.CustomResourceDefinitionList
+	var res *crd.CustomResourceDefinitionList
 	for {
 		var err error
-		res, err = crdClient.ApiextensionsV1beta1().CustomResourceDefinitions().List(context.TODO(), metav1.ListOptions{})
+		res, err = crdClient.ApiextensionsV1().CustomResourceDefinitions().List(context.TODO(), metav1.ListOptions{})
 		if err == nil {
 			break
 		}

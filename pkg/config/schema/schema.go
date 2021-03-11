@@ -88,7 +88,7 @@ func (m *Metadata) AllCollectionsInSnapshots(snapshotNames []string) []string {
 		}
 	}
 
-	var result = make([]string, 0, len(names))
+	result := make([]string, 0, len(names))
 	for name := range names {
 		result = append(result, name.String())
 	}

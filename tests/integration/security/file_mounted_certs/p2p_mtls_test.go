@@ -49,14 +49,10 @@ func TestClientToServiceTls(t *testing.T) {
 	framework.NewTest(t).
 		Features("security.peer.file-mounted-certs").
 		Run(func(ctx framework.TestContext) {
-
 			echoClient, echoServer, serviceNamespace := setupEcho(t, ctx)
 
-			bufDestinationRule := createObject(ctx, serviceNamespace.Name(), DestinationRuleConfigMutual)
-			defer ctx.Config().DeleteYAMLOrFail(ctx, serviceNamespace.Name(), bufDestinationRule)
-
-			bufPeerAuthentication := createObject(ctx, "istio-system", PeerAuthenticationConfig)
-			defer ctx.Config().DeleteYAMLOrFail(ctx, "istio-system", bufPeerAuthentication)
+			createObject(ctx, serviceNamespace.Name(), DestinationRuleConfigMutual)
+			createObject(ctx, "istio-system", PeerAuthenticationConfig)
 
 			retry.UntilSuccessOrFail(t, func() error {
 				resp, err := echoClient.Call(echo.CallOptions{
@@ -64,7 +60,6 @@ func TestClientToServiceTls(t *testing.T) {
 					PortName: "http",
 					Scheme:   scheme.HTTP,
 				})
-
 				if err != nil {
 					return fmt.Errorf("request failed: %v", err)
 				}
@@ -122,16 +117,14 @@ spec:
 `
 )
 
-func createObject(ctx framework.TestContext, serviceNamespace string, yamlManifest string) string {
+func createObject(ctx framework.TestContext, serviceNamespace string, yamlManifest string) {
 	template := tmpl.EvaluateOrFail(ctx, yamlManifest, map[string]string{"AppNamespace": serviceNamespace})
 	ctx.Config().ApplyYAMLOrFail(ctx, serviceNamespace, template)
-	return template
 }
 
 // setupEcho creates an `istio-fd-sds` namespace and brings up two echo instances server and
 // client in that namespace.
 func setupEcho(t *testing.T, ctx resource.Context) (echo.Instance, echo.Instance, namespace.Instance) {
-
 	appsNamespace := namespace.NewOrFail(t, ctx, namespace.Config{
 		Prefix: "istio-fd-sds",
 		Inject: true,

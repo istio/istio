@@ -119,7 +119,7 @@ func (b *EndpointBuilder) EndpointsByNetworkFilter(endpoints []*LocLbEndpointsAn
 					},
 				}
 				// TODO: figure out a way to extract locality data from the gateway public endpoints in meshNetworks
-				gwEp.Metadata = util.BuildLbEndpointMetadata(network, model.IstioMutualTLSModeLabel, "", "", labels.Instance{})
+				gwEp.Metadata = util.BuildLbEndpointMetadata(network, model.IstioMutualTLSModeLabel, "", "", b.clusterID, labels.Instance{})
 				// Currently gateway endpoint does not support tunnel.
 				lbEndpoints.append(gwEp, networking.MakeTunnelAbility())
 			}

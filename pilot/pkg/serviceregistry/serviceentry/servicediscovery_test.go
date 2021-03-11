@@ -115,8 +115,7 @@ func waitForEvent(t *testing.T, ch chan Event) Event {
 	}
 }
 
-type channelTerminal struct {
-}
+type channelTerminal struct{}
 
 func initServiceDiscovery() (model.IstioConfigStore, *ServiceEntryStore, chan Event, func()) {
 	return initServiceDiscoveryWithOpts()
@@ -153,6 +152,10 @@ func TestServiceDiscoveryServices(t *testing.T) {
 
 	createConfigs([]*config.Config{httpDNS, tcpStatic}, store, t)
 
+	sd.storeMutex.Lock()
+	sd.refreshIndexes.Store(true)
+	sd.storeMutex.Unlock()
+
 	services, err := sd.Services()
 	if err != nil {
 		t.Errorf("Services() encountered unexpected error: %v", err)
@@ -172,6 +175,10 @@ func TestServiceDiscoveryGetService(t *testing.T) {
 	defer stopFn()
 
 	createConfigs([]*config.Config{httpDNS, tcpStatic}, store, t)
+
+	sd.storeMutex.Lock()
+	sd.refreshIndexes.Store(true)
+	sd.storeMutex.Unlock()
 
 	service, err := sd.GetService(host.Name(hostDNE))
 	if err != nil {
@@ -418,7 +425,7 @@ func TestServiceDiscoveryServiceUpdate(t *testing.T) {
 			se.Endpoints = []*networking.WorkloadEntry{
 				{
 					Address: "lon.google.com",
-					Labels:  map[string]string{label.TLSMode: model.IstioMutualTLSModeLabel},
+					Labels:  map[string]string{label.SecurityTlsMode.Name: model.IstioMutualTLSModeLabel},
 				},
 			}
 			return &c
@@ -439,8 +446,10 @@ func TestServiceDiscoveryServiceUpdate(t *testing.T) {
 		// now update the config
 		createConfigs([]*config.Config{tcpDNSUpdated}, store, t)
 		expectEvents(t, events,
-			Event{kind: "xds", pushReq: &model.PushRequest{ConfigsUpdated: map[model.ConfigKey]struct{}{{Kind: gvk.ServiceEntry, Name: "tcpdns.com",
-				Namespace: tcpDNSUpdated.Namespace}: {}}}}) // service deleted
+			Event{kind: "xds", pushReq: &model.PushRequest{ConfigsUpdated: map[model.ConfigKey]struct{}{{
+				Kind: gvk.ServiceEntry, Name: "tcpdns.com",
+				Namespace: tcpDNSUpdated.Namespace,
+			}: {}}}}) // service deleted
 		expectServiceInstances(t, sd, tcpDNS, 0, instances2)
 	})
 
@@ -540,8 +549,10 @@ func TestServiceDiscoveryWorkloadUpdate(t *testing.T) {
 		}
 		expectProxyInstances(t, sd, instances, "2.2.2.2")
 		expectServiceInstances(t, sd, selector, 0, instances)
-		expectEvents(t, events, Event{kind: "eds", host: "selector.com",
-			namespace: selector.Namespace, endpoints: 2},
+		expectEvents(t, events, Event{
+			kind: "eds", host: "selector.com",
+			namespace: selector.Namespace, endpoints: 2,
+		},
 			Event{kind: "xds", proxyIP: "2.2.2.2"})
 	})
 
@@ -645,6 +656,7 @@ func TestServiceDiscoveryWorkloadUpdate(t *testing.T) {
 		expectEvents(t, events, Event{kind: "eds", host: "selector.com", namespace: selector.Namespace, endpoints: 2})
 	})
 }
+
 func TestServiceDiscoveryWorkloadChangeLabel(t *testing.T) {
 	store, sd, events, stopFn := initServiceDiscovery()
 	defer stopFn()
@@ -1012,13 +1024,13 @@ func TestNonServiceConfig(t *testing.T) {
 
 // nolint: lll
 func TestServicesDiff(t *testing.T) {
-	var updatedHTTPDNS = &config.Config{
+	updatedHTTPDNS := &config.Config{
 		Meta: config.Meta{
 			GroupVersionKind:  collections.IstioNetworkingV1Alpha3Serviceentries.Resource().GroupVersionKind(),
 			Name:              "httpDNS",
 			Namespace:         "httpDNS",
 			CreationTimestamp: GlobalTime,
-			Labels:            map[string]string{label.TLSMode: model.IstioMutualTLSModeLabel},
+			Labels:            map[string]string{label.SecurityTlsMode.Name: model.IstioMutualTLSModeLabel},
 		},
 		Spec: &networking.ServiceEntry{
 			Hosts: []string{"*.google.com", "*.mail.com"},
@@ -1030,16 +1042,16 @@ func TestServicesDiff(t *testing.T) {
 				{
 					Address: "us.google.com",
 					Ports:   map[string]uint32{"http-port": 7080, "http-alt-port": 18080},
-					Labels:  map[string]string{label.TLSMode: model.IstioMutualTLSModeLabel},
+					Labels:  map[string]string{label.SecurityTlsMode.Name: model.IstioMutualTLSModeLabel},
 				},
 				{
 					Address: "uk.google.com",
 					Ports:   map[string]uint32{"http-port": 1080},
-					Labels:  map[string]string{label.TLSMode: model.IstioMutualTLSModeLabel},
+					Labels:  map[string]string{label.SecurityTlsMode.Name: model.IstioMutualTLSModeLabel},
 				},
 				{
 					Address: "de.google.com",
-					Labels:  map[string]string{"foo": "bar", label.TLSMode: model.IstioMutualTLSModeLabel},
+					Labels:  map[string]string{"foo": "bar", label.SecurityTlsMode.Name: model.IstioMutualTLSModeLabel},
 				},
 			},
 			Location:   networking.ServiceEntry_MESH_EXTERNAL,
@@ -1047,7 +1059,7 @@ func TestServicesDiff(t *testing.T) {
 		},
 	}
 
-	var updatedHTTPDNSPort = func() *config.Config {
+	updatedHTTPDNSPort := func() *config.Config {
 		c := updatedHTTPDNS.DeepCopy()
 		se := c.Spec.(*networking.ServiceEntry)
 		var ports []*networking.Port
@@ -1057,14 +1069,14 @@ func TestServicesDiff(t *testing.T) {
 		return &c
 	}()
 
-	var updatedEndpoint = func() *config.Config {
+	updatedEndpoint := func() *config.Config {
 		c := updatedHTTPDNS.DeepCopy()
 		se := c.Spec.(*networking.ServiceEntry)
 		var endpoints []*networking.WorkloadEntry
 		endpoints = append(endpoints, se.Endpoints...)
 		endpoints = append(endpoints, &networking.WorkloadEntry{
 			Address: "in.google.com",
-			Labels:  map[string]string{"foo": "bar", label.TLSMode: model.IstioMutualTLSModeLabel},
+			Labels:  map[string]string{"foo": "bar", label.SecurityTlsMode.Name: model.IstioMutualTLSModeLabel},
 		})
 		se.Endpoints = endpoints
 		return &c
@@ -1231,7 +1243,6 @@ func sortPorts(ports []*model.Port) {
 }
 
 func Test_autoAllocateIP_conditions(t *testing.T) {
-
 	tests := []struct {
 		name         string
 		inServices   []*model.Service

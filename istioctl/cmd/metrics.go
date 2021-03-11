@@ -146,7 +146,6 @@ func prometheusAPI(address string) (promv1.API, error) {
 }
 
 func metrics(promAPI promv1.API, workload string) (workloadMetrics, error) {
-
 	parts := strings.Split(workload, ".")
 	wname := parts[0]
 	wns := ""

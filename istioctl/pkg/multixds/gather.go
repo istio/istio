@@ -35,7 +35,6 @@ import (
 // consider using AllRequestAndProcessXds or FirstRequestAndProcessXds
 // nolint: lll
 func RequestAndProcessXds(dr *xdsapi.DiscoveryRequest, centralOpts *clioptions.CentralControlPlaneOptions, istioNamespace string, kubeClient kube.ExtendedClient) (*xdsapi.DiscoveryResponse, error) {
-
 	// If Central Istiod case, just call it
 	if centralOpts.Xds != "" {
 		dialOpts, err := xds.DialOptions(centralOpts, kubeClient)
@@ -142,7 +141,6 @@ func FirstRequestAndProcessXds(dr *xdsapi.DiscoveryRequest, centralOpts *cliopti
 
 // nolint: lll
 func multiRequestAndProcessXds(all bool, dr *xdsapi.DiscoveryRequest, centralOpts *clioptions.CentralControlPlaneOptions, istioNamespace string, kubeClient kube.ExtendedClient) (map[string]*xdsapi.DiscoveryResponse, error) {
-
 	// If Central Istiod case, just call it
 	if centralOpts.Xds != "" {
 		dialOpts, err := xds.DialOptions(centralOpts, kubeClient)

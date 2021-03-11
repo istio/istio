@@ -1,0 +1,9 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: security
+issue:
+- 22161
+releaseNotes:
+- |
+  **Updated** Configuration to sign Istiod certificates using Kubernetes CA (PILOT_CERT_PROVIDER=kubernetes) will not be honored in
+  clusters with version 1.22 and greater. 

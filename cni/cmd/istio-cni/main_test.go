@@ -122,7 +122,6 @@ func mocknewK8sClient(conf PluginConf) (*kubernetes.Clientset, error) {
 
 func mockgetK8sPodInfo(client *kubernetes.Clientset, podName, podNamespace string) (containers []string,
 	initContainers map[string]struct{}, labels map[string]string, annotations map[string]string, err error) {
-
 	containers = testContainers
 	labels = testLabels
 	annotations = testAnnotations
@@ -182,7 +181,6 @@ func testCmdAddWithStdinData(t *testing.T, stdinData string) {
 
 	result, _, err := testutils.CmdAddWithResult(
 		sandboxDirectory, ifname, []byte(stdinData), func() error { return cmdAdd(args) })
-
 	if err != nil {
 		t.Fatalf("failed with error: %v", err)
 	}
@@ -409,7 +407,7 @@ func TestCmdAddInvalidVersion(t *testing.T) {
 }
 
 func TestCmdAddNoPrevResult(t *testing.T) {
-	var confNoPrevResult = `{
+	confNoPrevResult := `{
     "cniVersion": "0.3.0",
 	"name": "istio-plugin-sample-test",
 	"type": "sample",
@@ -447,6 +445,7 @@ func TestCmdDelInvalidVersion(t *testing.T) {
 func MockInterceptRuleMgrCtor() InterceptRuleMgr {
 	return NewMockInterceptRuleMgr()
 }
+
 func TestMain(m *testing.M) {
 	// call flag.Parse() here if TestMain uses flags
 

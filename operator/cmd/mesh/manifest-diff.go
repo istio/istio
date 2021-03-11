@@ -102,11 +102,12 @@ func manifestDiffCmd(rootArgs *rootArgs, diffArgs *manifestDiffArgs) *cobra.Comm
 				os.Exit(1)
 			}
 			return nil
-		}}
+		},
+	}
 	return cmd
 }
 
-//compareManifestsFromFiles compares two manifest files
+// compareManifestsFromFiles compares two manifest files
 func compareManifestsFromFiles(rootArgs *rootArgs, args []string, verbose bool,
 	renameResources, selectResources, ignoreResources string) (bool, error) {
 	initLogsOrExit(rootArgs)
@@ -138,7 +139,7 @@ func yamlFileFilter(path string) bool {
 	return filepath.Ext(path) == YAMLSuffix
 }
 
-//compareManifestsFromDirs compares manifests from two directories
+// compareManifestsFromDirs compares manifests from two directories
 func compareManifestsFromDirs(rootArgs *rootArgs, verbose bool, dirName1, dirName2,
 	renameResources, selectResources, ignoreResources string) (bool, error) {
 	initLogsOrExit(rootArgs)

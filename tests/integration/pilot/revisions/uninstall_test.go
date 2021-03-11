@@ -32,10 +32,11 @@ import (
 	"istio.io/istio/operator/pkg/manifest"
 	"istio.io/istio/operator/pkg/name"
 	"istio.io/istio/operator/pkg/object"
+	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/test/framework"
+	"istio.io/istio/pkg/test/framework/components/cluster"
 	"istio.io/istio/pkg/test/framework/components/istioctl"
-	"istio.io/istio/pkg/test/framework/resource"
 	"istio.io/istio/pkg/test/scopes"
 	"istio.io/istio/pkg/test/util/retry"
 )
@@ -44,17 +45,15 @@ const (
 	stableRevision = "stable"
 )
 
-var (
-	ManifestPath = filepath.Join(env.IstioSrc, "manifests")
-)
+var ManifestPath = filepath.Join(env.IstioSrc, "manifests")
 
 func TestUninstallByRevision(t *testing.T) {
 	framework.
 		NewTest(t).
 		Features("installation.istioctl.uninstall_revision").
-		Run(func(ctx framework.TestContext) {
-			ctx.NewSubTest("uninstall_revision").Run(func(ctx framework.TestContext) {
-				istioCtl := istioctl.NewOrFail(ctx, ctx, istioctl.Config{})
+		Run(func(t framework.TestContext) {
+			t.NewSubTest("uninstall_revision").Run(func(t framework.TestContext) {
+				istioCtl := istioctl.NewOrFail(t, t, istioctl.Config{})
 				uninstallCmd := []string{
 					"x", "uninstall",
 					"--revision=" + stableRevision, "--skip-confirmation",
@@ -63,19 +62,31 @@ func TestUninstallByRevision(t *testing.T) {
 				if err != nil {
 					scopes.Framework.Errorf("failed to uninstall: %v, output: %v", err, out)
 				}
-				cs := ctx.Clusters().Default()
+				cs := t.Clusters().Default()
+				ls := fmt.Sprintf("istio.io/rev=%s", stableRevision)
+				checkCPResourcesUninstalled(t, cs, append(helmreconciler.NamespacedResources, helmreconciler.ClusterCPResources...), ls)
+			})
+		})
+}
 
-				retry.UntilSuccessOrFail(t, func() error {
-					for _, gvk := range append(helmreconciler.NamespacedResources, helmreconciler.ClusterCPResources...) {
-						resources := strings.ToLower(gvk.Kind) + "s"
-						gvr := schema.GroupVersionResource{Group: gvk.Group, Version: gvk.Version, Resource: resources}
-						ls := fmt.Sprintf("istio.io/rev=%s", stableRevision)
-						if err := checkResourcesNotInCluster(cs, gvr, ls); err != nil {
-							return err
-						}
-					}
-					return nil
-				}, retry.Delay(time.Millisecond*100), retry.Timeout(time.Second*120))
+func TestUninstallWithSetFlag(t *testing.T) {
+	framework.
+		NewTest(t).
+		Features("installation.istioctl.uninstall_revision").
+		Run(func(t framework.TestContext) {
+			t.NewSubTest("uninstall_revision").Run(func(t framework.TestContext) {
+				istioCtl := istioctl.NewOrFail(t, t, istioctl.Config{})
+				uninstallCmd := []string{
+					"x", "uninstall", "--set",
+					"revision=" + stableRevision, "--skip-confirmation",
+				}
+				out, _, err := istioCtl.Invoke(uninstallCmd)
+				if err != nil {
+					scopes.Framework.Errorf("failed to uninstall: %v, output: %v", err, out)
+				}
+				cs := t.Clusters().Default()
+				ls := fmt.Sprintf("istio.io/rev=%s", stableRevision)
+				checkCPResourcesUninstalled(t, cs, append(helmreconciler.NamespacedResources, helmreconciler.ClusterCPResources...), ls)
 			})
 		})
 }
@@ -84,12 +95,12 @@ func TestUninstallByManifest(t *testing.T) {
 	framework.
 		NewTest(t).
 		Features("installation.istioctl.uninstall_manifest").
-		Run(func(ctx framework.TestContext) {
-			workDir, err := ctx.CreateTmpDirectory("uninstall-test")
+		Run(func(t framework.TestContext) {
+			workDir, err := t.CreateTmpDirectory("uninstall-test")
 			if err != nil {
 				t.Fatal("failed to create test directory")
 			}
-			istioCtl := istioctl.NewOrFail(ctx, ctx, istioctl.Config{})
+			istioCtl := istioctl.NewOrFail(t, t, istioctl.Config{})
 			iopFile := filepath.Join(workDir, "iop.yaml")
 			iopYAML := `
 apiVersion: install.istio.io/v1alpha1
@@ -107,7 +118,7 @@ spec:
 				"--filename=" + iopFile, "--skip-confirmation",
 			}
 			istioCtl.InvokeOrFail(t, uninstallCmd)
-			cs := ctx.Clusters().Default()
+			cs := t.Clusters().Default()
 			retry.UntilSuccessOrFail(t, func() error {
 				manifestMap, _, err := manifest.GenManifests([]string{iopFile}, []string{}, true, nil, nil)
 				if err != nil {
@@ -136,29 +147,35 @@ func TestUninstallPurge(t *testing.T) {
 	framework.
 		NewTest(t).
 		Features("installation.istioctl.uninstall_purge").
-		Run(func(ctx framework.TestContext) {
-			istioCtl := istioctl.NewOrFail(ctx, ctx, istioctl.Config{})
+		Run(func(t framework.TestContext) {
+			istioCtl := istioctl.NewOrFail(t, t, istioctl.Config{})
 			uninstallCmd := []string{
 				"x", "uninstall",
 				"--purge", "--skip-confirmation",
 			}
 			istioCtl.InvokeOrFail(t, uninstallCmd)
-			cs := ctx.Clusters().Default()
-
-			retry.UntilSuccessOrFail(t, func() error {
-				for _, gvk := range append(helmreconciler.NamespacedResources, helmreconciler.AllClusterResources...) {
-					resources := strings.ToLower(gvk.Kind) + "s"
-					gvr := schema.GroupVersionResource{Group: gvk.Group, Version: gvk.Version, Resource: resources}
-					if err := checkResourcesNotInCluster(cs, gvr, helmreconciler.IstioComponentLabelStr); err != nil {
-						return err
-					}
-				}
-				return nil
-			}, retry.Delay(time.Millisecond*100), retry.Timeout(time.Second*180))
+			cs := t.Clusters().Default()
+			checkCPResourcesUninstalled(t, cs, append(helmreconciler.NamespacedResources, helmreconciler.AllClusterResources...),
+				helmreconciler.IstioComponentLabelStr)
 		})
 }
 
-func checkResourcesNotInCluster(cs resource.Cluster, gvr schema.GroupVersionResource, ls string) error {
+// checkCPResourcesUninstalled is a helper function to check list of gvk resources matched with label are uninstalled
+func checkCPResourcesUninstalled(t test.Failer, cs cluster.Cluster, gvkResources []schema.GroupVersionKind, label string) {
+	retry.UntilSuccessOrFail(t, func() error {
+		for _, gvk := range gvkResources {
+			resources := strings.ToLower(gvk.Kind) + "s"
+			gvr := schema.GroupVersionResource{Group: gvk.Group, Version: gvk.Version, Resource: resources}
+
+			if err := checkResourcesNotInCluster(cs, gvr, label); err != nil {
+				return err
+			}
+		}
+		return nil
+	}, retry.Delay(time.Millisecond*100), retry.Timeout(time.Second*120))
+}
+
+func checkResourcesNotInCluster(cs cluster.Cluster, gvr schema.GroupVersionResource, ls string) error {
 	usList, _ := cs.Dynamic().Resource(gvr).List(context.TODO(), kubeApiMeta.ListOptions{LabelSelector: ls})
 	if usList != nil && len(usList.Items) != 0 {
 		var stalelist []string

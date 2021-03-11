@@ -32,6 +32,12 @@
               }
           },
           {
+            "name": "global config",
+            "static_layer": {
+                "overload.global_downstream_max_connections": 2147483647
+            }
+          },
+          {
               "name": "admin",
               "admin_layer": {}
           }
@@ -144,47 +150,13 @@
     },
     "ads_config": {
       "api_type": "GRPC",
+      "set_node_on_first_message_only": true,
       "transport_api_version": "V3",
       "grpc_services": [
         {
-        {{ if .call_credentials }}
-        "google_grpc": {
-          "target_uri": "{{ .discovery_address }}",
-          "stat_prefix": "googlegrpcxds",
-          "channel_credentials": {
-            "ssl_credentials": {
-              "root_certs": {
-                "filename": "{{- .provisioned_cert }}"
-              }
-            }
-          },
-          "call_credentials": {
-              "sts_service": {
-                "token_exchange_service_uri": "http://localhost:{{ .sts_port }}/token",
-                "subject_token_path": "./var/run/secrets/tokens/istio-token",
-                "subject_token_type": "urn:ietf:params:oauth:token-type:jwt",
-              }
-           },
-           "channel_args": {
-              "args": {
-                "grpc.http2.max_pings_without_data": {
-                  "int_value": 0
-                },
-                "grpc.keepalive_time_ms": {
-                  "int_value": 10000
-                },
-                "grpc.keepalive_timeout_ms": {
-                  "int_value": 20000
-                }
-              }
-            }
-
-       }
-         {{ else }}
           "envoy_grpc": {
             "cluster_name": "xds-grpc"
           }
-        {{ end }}
         }
       ]
     }
@@ -715,6 +687,7 @@
       "name": "envoy.stat_sinks.metrics_service",
       "typed_config": {
         "@type": "type.googleapis.com/envoy.config.metrics.v3.MetricsServiceConfig",
+        "transport_api_version": "V3",
         "grpc_service": {
           "envoy_grpc": {
             "cluster_name": "envoy_metrics_service"

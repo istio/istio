@@ -24,9 +24,7 @@ import (
 	"istio.io/istio/pkg/test/env"
 )
 
-var (
-	envoyFileNamePattern = regexp.MustCompile("^envoy$|^envoy-[a-f0-9]+$|^envoy-debug-[a-f0-9]+$")
-)
+var envoyFileNamePattern = regexp.MustCompile("^envoy$|^envoy-[a-f0-9]+$|^envoy-debug-[a-f0-9]+$")
 
 // FindBinary searches for an Envoy debug binary under ISTIO_OUT. If the ISTIO_OUT environment variable
 // is not set, the default location under GOPATH is assumed. If ISTIO_OUT contains multiple debug binaries,

@@ -18,6 +18,8 @@ import (
 	"strings"
 	"testing"
 
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+
 	"istio.io/istio/operator/pkg/util"
 )
 
@@ -39,6 +41,30 @@ func TestHash(t *testing.T) {
 			got := Hash(tt.kind, tt.namespace, tt.name)
 			if got != tt.want {
 				t.Errorf("Hash(%s): got %s for kind %s, namespace %s, name %s, want %s", tt.desc, got, tt.kind, tt.namespace, tt.name, tt.want)
+			}
+		})
+	}
+}
+
+func TestFromHash(t *testing.T) {
+	hashTests := []struct {
+		desc      string
+		hash      string
+		kind      string
+		namespace string
+		name      string
+	}{
+		{"ParseHashWithNormalCharacter", "Service:default:ingressgateway", "Service", "default", "ingressgateway"},
+		{"ParseHashForObjectWithDash", "Deployment:istio-system:istio-pilot", "Deployment", "istio-system", "istio-pilot"},
+		{"ParseHashForObjectWithDot", "ConfigMap:istio-system:my.config", "ConfigMap", "istio-system", "my.config"},
+		{"InvalidHash", "test", "Bad hash string: test", "", ""},
+	}
+
+	for _, tt := range hashTests {
+		t.Run(tt.desc, func(t *testing.T) {
+			k, ns, name := FromHash(tt.hash)
+			if k != tt.kind || ns != tt.namespace || name != tt.name {
+				t.Errorf("FromHash(%s): got kind %s, namespace %s, name %s, want kind %s, namespace %s, name %s", tt.desc, k, ns, name, tt.kind, tt.namespace, tt.name)
 			}
 		})
 	}
@@ -204,6 +230,8 @@ func TestParseJSONToK8sObject(t *testing.T) {
 	}
 }`
 
+	testInvalidJSON := `invalid json`
+
 	parseJSONToK8sObjectTests := []struct {
 		desc          string
 		objString     string
@@ -211,16 +239,21 @@ func TestParseJSONToK8sObject(t *testing.T) {
 		wantKind      string
 		wantName      string
 		wantNamespace string
+		wantErr       bool
 	}{
-		{"ParseJsonToK8sDeployment", testDeploymentJSON, "apps", "Deployment", "istio-citadel", "istio-system"},
-		{"ParseJsonToK8sPod", testPodJSON, "", "Pod", "istio-galley-75bcd59768-hpt5t", "istio-system"},
-		{"ParseJsonToK8sService", testServiceJSON, "", "Service", "istio-pilot", "istio-system"},
+		{"ParseJsonToK8sDeployment", testDeploymentJSON, "apps", "Deployment", "istio-citadel", "istio-system", false},
+		{"ParseJsonToK8sPod", testPodJSON, "", "Pod", "istio-galley-75bcd59768-hpt5t", "istio-system", false},
+		{"ParseJsonToK8sService", testServiceJSON, "", "Service", "istio-pilot", "istio-system", false},
+		{"ParseJsonError", testInvalidJSON, "", "", "", "", true},
 	}
 
 	for _, tt := range parseJSONToK8sObjectTests {
 		t.Run(tt.desc, func(t *testing.T) {
 			k8sObj, err := ParseJSONToK8sObject([]byte(tt.objString))
-			if err != nil {
+			if err == nil {
+				if tt.wantErr {
+					t.Errorf("ParseJsonToK8sObject(%s): should be error", tt.desc)
+				}
 				k8sObjStr := k8sObj.YAMLDebugString()
 				if k8sObj.Group != tt.wantGroup {
 					t.Errorf("ParseJsonToK8sObject(%s): got group %s for k8s object %s, want %s", tt.desc, k8sObj.Group, k8sObjStr, tt.wantGroup)
@@ -234,6 +267,8 @@ func TestParseJSONToK8sObject(t *testing.T) {
 				if k8sObj.Namespace != tt.wantNamespace {
 					t.Errorf("ParseJsonToK8sObject(%s): got group %s for k8s object %s, want %s", tt.desc, k8sObj.Namespace, k8sObjStr, tt.wantNamespace)
 				}
+			} else if !tt.wantErr {
+				t.Errorf("ParseJsonToK8sObject(%s): got unexpected error: %v", tt.desc, err)
 			}
 		})
 	}
@@ -490,6 +525,64 @@ spec:
 						}
 					}
 				}
+			}
+		})
+	}
+}
+
+func TestK8sObject_Equal(t *testing.T) {
+	obj1 := K8sObject{
+		object: &unstructured.Unstructured{Object: map[string]interface{}{
+			"key": "value1",
+		}},
+	}
+	obj2 := K8sObject{
+		object: &unstructured.Unstructured{Object: map[string]interface{}{
+			"key": "value2",
+		}},
+	}
+	cases := []struct {
+		desc string
+		o1   *K8sObject
+		o2   *K8sObject
+		want bool
+	}{
+		{
+			desc: "Equals",
+			o1:   &obj1,
+			o2:   &obj1,
+			want: true,
+		},
+		{
+			desc: "NotEquals",
+			o1:   &obj1,
+			o2:   &obj2,
+			want: false,
+		},
+		{
+			desc: "NilSource",
+			o1:   nil,
+			o2:   &obj2,
+			want: false,
+		},
+		{
+			desc: "NilDest",
+			o1:   &obj1,
+			o2:   nil,
+			want: false,
+		},
+		{
+			desc: "TwoNils",
+			o1:   nil,
+			o2:   nil,
+			want: true,
+		},
+	}
+	for _, tt := range cases {
+		t.Run(tt.desc, func(t *testing.T) {
+			res := tt.o1.Equal(tt.o2)
+			if res != tt.want {
+				t.Errorf("got %v, want: %v", res, tt.want)
 			}
 		})
 	}

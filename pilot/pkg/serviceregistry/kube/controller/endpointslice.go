@@ -21,13 +21,13 @@ import (
 	discovery "k8s.io/api/discovery/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	klabels "k8s.io/apimachinery/pkg/labels"
-	discoveryinformer "k8s.io/client-go/informers/discovery/v1beta1"
 	discoverylister "k8s.io/client-go/listers/discovery/v1beta1"
 	"k8s.io/client-go/tools/cache"
 
 	"istio.io/api/label"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube"
+	"istio.io/istio/pilot/pkg/serviceregistry/kube/controller/filter"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/pkg/log"
@@ -40,21 +40,21 @@ type endpointSliceController struct {
 
 var _ kubeEndpointsController = &endpointSliceController{}
 
-func newEndpointSliceController(c *Controller, informer discoveryinformer.EndpointSliceInformer) *endpointSliceController {
+func newEndpointSliceController(c *Controller, informer filter.FilteredSharedIndexInformer) *endpointSliceController {
 	// TODO Endpoints has a special cache, to filter out irrelevant updates to kube-system
 	// Investigate if we need this, or if EndpointSlice is makes this not relevant
 	out := &endpointSliceController{
 		kubeEndpoints: kubeEndpoints{
 			c:        c,
-			informer: informer.Informer(),
+			informer: informer,
 		},
 		endpointCache: newEndpointSliceCache(),
 	}
-	registerHandlers(informer.Informer(), c.queue, "EndpointSlice", out.onEvent, nil)
+	registerHandlers(informer, c.queue, "EndpointSlice", out.onEvent, nil)
 	return out
 }
 
-func (esc *endpointSliceController) getInformer() cache.SharedIndexInformer {
+func (esc *endpointSliceController) getInformer() filter.FilteredSharedIndexInformer {
 	return esc.informer
 }
 
@@ -73,7 +73,7 @@ func (esc *endpointSliceController) onEvent(curr interface{}, event model.Event)
 		}
 	}
 
-	return processEndpointEvent(esc.c, esc, ep.Labels[discovery.LabelServiceName], ep.Namespace, event, curr)
+	return processEndpointEvent(esc.c, esc, ep.Labels[discovery.LabelServiceName], ep.Namespace, event, ep)
 }
 
 // GetProxyServiceInstances returns service instances co-located with a given proxy
@@ -285,8 +285,8 @@ func getLocalityFromTopology(topology map[string]string) string {
 	if _, f := topology[NodeZoneLabelGA]; f {
 		locality += "/" + topology[NodeZoneLabelGA]
 	}
-	if _, f := topology[label.IstioSubZone]; f {
-		locality += "/" + topology[label.IstioSubZone]
+	if _, f := topology[label.TopologySubzone.Name]; f {
+		locality += "/" + topology[label.TopologySubzone.Name]
 	}
 	return locality
 }

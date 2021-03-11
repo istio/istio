@@ -15,21 +15,25 @@
 package v3
 
 import (
+	"strings"
+
 	"github.com/envoyproxy/go-control-plane/pkg/resource/v3"
 )
 
 const (
-	ClusterType  = resource.ClusterType
-	EndpointType = resource.EndpointType
-	ListenerType = resource.ListenerType
-	RouteType    = resource.RouteType
-	SecretType   = resource.SecretType
+	apiTypePrefix   = "type.googleapis.com/"
+	envoyTypePrefix = apiTypePrefix + "envoy."
 
-	NameTableType  = "type.googleapis.com/istio.networking.nds.v1.NameTable"
-	HealthInfoType = "type.googleapis.com/istio.v1.HealthInformation"
+	ClusterType                = resource.ClusterType
+	EndpointType               = resource.EndpointType
+	ListenerType               = resource.ListenerType
+	RouteType                  = resource.RouteType
+	SecretType                 = resource.SecretType
+	ExtensionConfigurationType = resource.ExtensionConfigType
 
-	// TODO(bianpengyuan): uses upstream resource url one go control plane is updated.
-	ExtensionConfigurationType = "type.googleapis.com/envoy.config.core.v3.TypedExtensionConfig"
+	NameTableType   = apiTypePrefix + "istio.networking.nds.v1.NameTable"
+	HealthInfoType  = apiTypePrefix + "istio.v1.HealthInformation"
+	ProxyConfigType = apiTypePrefix + "istio.mesh.v1alpha1.ProxyConfig"
 )
 
 // GetShortType returns an abbreviated form of a type, useful for logging or human friendly messages
@@ -47,6 +51,8 @@ func GetShortType(typeURL string) string {
 		return "SDS"
 	case NameTableType:
 		return "NDS"
+	case ProxyConfigType:
+		return "PCDS"
 	default:
 		return typeURL
 	}
@@ -67,7 +73,14 @@ func GetMetricType(typeURL string) string {
 		return "sds"
 	case NameTableType:
 		return "nds"
+	case ProxyConfigType:
+		return "pcds"
 	default:
 		return typeURL
 	}
+}
+
+// IsEnvoyType checks whether the typeURL is a valid Envoy type.
+func IsEnvoyType(typeURL string) bool {
+	return strings.HasPrefix(typeURL, envoyTypePrefix)
 }

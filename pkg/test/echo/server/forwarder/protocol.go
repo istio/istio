@@ -29,6 +29,8 @@ import (
 	"time"
 
 	"github.com/gorilla/websocket"
+	"github.com/lucas-clemente/quic-go"
+	"github.com/lucas-clemente/quic-go/http3"
 	"golang.org/x/net/http2"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
@@ -145,12 +147,20 @@ func newProtocol(cfg Config) (protocol, error) {
 					IdleConnTimeout: time.Second,
 					TLSClientConfig: tlsConfig,
 					DialContext:     httpDialContext,
+					Proxy:           http.ProxyFromEnvironment,
 				},
 				Timeout: timeout,
 			},
 			do: cfg.Dialer.HTTP,
 		}
-		if cfg.Request.Http2 && scheme.Instance(u.Scheme) == scheme.HTTPS {
+		if cfg.Request.Http3 && scheme.Instance(u.Scheme) == scheme.HTTP {
+			return nil, fmt.Errorf("http3 requires HTTPS")
+		} else if cfg.Request.Http3 {
+			proto.client.Transport = &http3.RoundTripper{
+				TLSClientConfig: tlsConfig,
+				QuicConfig:      &quic.Config{},
+			}
+		} else if cfg.Request.Http2 && scheme.Instance(u.Scheme) == scheme.HTTPS {
 			if cfg.Request.Alpn == nil {
 				tlsConfig.NextProtos = []string{"h2"}
 			}
@@ -209,6 +219,8 @@ func newProtocol(cfg Config) (protocol, error) {
 		return &websocketProtocol{
 			dialer: dialer,
 		}, nil
+	case scheme.DNS:
+		return &dnsProtocol{}, nil
 	case scheme.TCP:
 		return &tcpProtocol{
 			conn: func() (net.Conn, error) {
@@ -224,7 +236,6 @@ func newProtocol(cfg Config) (protocol, error) {
 					return cfg.Dialer.TCP(dialer, ctx, address)
 				}
 				return tls.Dial("tcp", address, tlsConfig)
-
 			},
 		}, nil
 	}

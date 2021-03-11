@@ -70,11 +70,9 @@ import (
 //   If we need more flexibility - we can add it (but likely we'll deprecate ingress support first)
 // -
 
-var (
-	schemas = collection.SchemasFor(
-		collections.IstioNetworkingV1Alpha3Virtualservices,
-		collections.IstioNetworkingV1Alpha3Gateways)
-)
+var schemas = collection.SchemasFor(
+	collections.IstioNetworkingV1Alpha3Virtualservices,
+	collections.IstioNetworkingV1Alpha3Gateways)
 
 // Control needs RBAC permissions to write to Pods.
 
@@ -93,14 +91,29 @@ type controller struct {
 	classes v1beta1.IngressClassInformer
 }
 
-var (
-	// TODO: move to features ( and remove in 1.2 )
-	ingressNamespace = env.RegisterStringVar("K8S_INGRESS_NS", "", "").Get()
-)
+// TODO: move to features ( and remove in 1.2 )
+var ingressNamespace = env.RegisterStringVar("K8S_INGRESS_NS", "", "").Get()
 
-var (
-	errUnsupportedOp = errors.New("unsupported operation: the ingress config store is a read-only view")
-)
+var errUnsupportedOp = errors.New("unsupported operation: the ingress config store is a read-only view")
+
+// Check if the "networking/v1" Ingress is available. Implementation borrowed from ingress-nginx
+func V1Available(client kubernetes.Interface) bool {
+	// check kubernetes version to use new ingress package or not
+	version119, _ := version.ParseGeneric("v1.19.0")
+
+	serverVersion, err := client.Discovery().ServerVersion()
+	if err != nil {
+		return false
+	}
+
+	runningVersion, err := version.ParseGeneric(serverVersion.String())
+	if err != nil {
+		log.Errorf("unexpected error parsing running Kubernetes version: %v", err)
+		return false
+	}
+
+	return runningVersion.AtLeast(version119)
+}
 
 // Check if the "networking" group Ingress is available. Implementation borrowed from ingress-nginx
 func NetworkingIngressAvailable(client kubernetes.Interface) bool {
@@ -124,7 +137,6 @@ func NetworkingIngressAvailable(client kubernetes.Interface) bool {
 // NewController creates a new Kubernetes controller
 func NewController(client kube.Client, meshWatcher mesh.Holder,
 	options kubecontroller.Options) model.ConfigStoreCache {
-
 	// queue requires a time duration for a retry delay after a handler error
 	q := queue.NewQueue(1 * time.Second)
 

@@ -166,6 +166,7 @@ func TestOverlayTrees(t *testing.T) {
 		})
 	}
 }
+
 func TestOverlayYAML(t *testing.T) {
 	tests := []struct {
 		desc    string

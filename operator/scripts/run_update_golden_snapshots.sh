@@ -26,10 +26,14 @@ SCRIPTPATH="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 ROOTDIR="${SCRIPTPATH}/../.."
 
 MANIFESTS_DIR="${ROOTDIR}/manifests"
-CHARTS_SNAPSHOT="${ROOTDIR}/operator/cmd/mesh/testdata/manifest-generate/data-snapshot"
+CHARTS_SNAPSHOT="${ROOTDIR}/operator/cmd/mesh/testdata/manifest-generate"
 
 # Clean up existing files
-rm -Rf "${CHARTS_SNAPSHOT:?}/"
+rm -Rf "${CHARTS_SNAPSHOT:?}/data-snapshot.tar.gz"
 
-cp -Rf "${MANIFESTS_DIR}" "${CHARTS_SNAPSHOT}"/
-rm -f "${CHARTS_SNAPSHOT}"/**/*.md
+cd "$(mktemp -d)"
+cp -Rf "${MANIFESTS_DIR}" ./
+rm -f ./**/*.md
+tar cfz data-snapshot.tar.gz manifests
+cp data-snapshot.tar.gz "${CHARTS_SNAPSHOT}"
+rm -r "${PWD}"

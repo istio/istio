@@ -15,7 +15,6 @@
 package adsc
 
 import (
-	"fmt"
 	"io/ioutil"
 	"log"
 	"net"
@@ -57,21 +56,18 @@ func TestADSC_Run(t *testing.T) {
 	tests := []struct {
 		desc                 string
 		inAdsc               *ADSC
-		port                 uint32
 		streamHandler        func(server xdsapi.AggregatedDiscoveryService_StreamAggregatedResourcesServer) error
 		expectedADSResources *ADSC
 	}{
 		{
 			desc: "stream-no-resources",
 			inAdsc: &ADSC{
-				url:        "127.0.0.1:49133",
 				Received:   make(map[string]*xdsapi.DiscoveryResponse),
 				Updates:    make(chan string),
 				XDSUpdates: make(chan *xdsapi.DiscoveryResponse),
 				RecvWg:     sync.WaitGroup{},
 				cfg:        &Config{},
 			},
-			port: uint32(49133),
 			streamHandler: func(server xdsapi.AggregatedDiscoveryService_StreamAggregatedResourcesServer) error {
 				return nil
 			},
@@ -82,7 +78,6 @@ func TestADSC_Run(t *testing.T) {
 		{
 			desc: "stream-2-unnamed-resources",
 			inAdsc: &ADSC{
-				url:         "127.0.0.1:49133",
 				Received:    make(map[string]*xdsapi.DiscoveryResponse),
 				Updates:     make(chan string),
 				XDSUpdates:  make(chan *xdsapi.DiscoveryResponse),
@@ -90,7 +85,6 @@ func TestADSC_Run(t *testing.T) {
 				cfg:         &Config{},
 				VersionInfo: map[string]string{},
 			},
-			port: uint32(49133),
 			streamHandler: func(stream xdsapi.AggregatedDiscoveryService_StreamAggregatedResourcesServer) error {
 				_ = stream.Send(&xdsapi.DiscoveryResponse{
 					TypeUrl: "foo",
@@ -111,17 +105,18 @@ func TestADSC_Run(t *testing.T) {
 				},
 			},
 		},
-		//todo tests for listeners, clusters, eds, and routes, not sure how to do this.
+		// todo tests for listeners, clusters, eds, and routes, not sure how to do this.
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.desc, func(t *testing.T) {
 			StreamHandler = tt.streamHandler
-			l, err := net.Listen("tcp", ":"+fmt.Sprint(tt.port))
+			l, err := net.Listen("tcp", ":0")
 			if err != nil {
-				t.Errorf("Unable to listen on port %v with tcp err %v", tt.port, err)
+				t.Errorf("Unable to listen with tcp err %v", err)
 				return
 			}
+			tt.inAdsc.url = l.Addr().String()
 			xds := grpc.NewServer()
 			xdsapi.RegisterAggregatedDiscoveryServiceServer(xds, new(testAdscRunServer))
 			go func() {
@@ -155,14 +150,12 @@ func TestADSC_Run(t *testing.T) {
 func TestADSC_Save(t *testing.T) {
 	tests := []struct {
 		desc         string
-		base         string
 		expectedJSON map[string]string
 		adsc         *ADSC
 		err          error
 	}{
 		{
 			desc: "empty",
-			base: "out/test",
 			expectedJSON: map[string]string{
 				"_lds_tcp":  `{}`,
 				"_lds_http": `{}`,
@@ -183,7 +176,6 @@ func TestADSC_Save(t *testing.T) {
 		},
 		{
 			desc: "populated",
-			base: "out/test",
 			err:  nil,
 			expectedJSON: map[string]string{
 				"_lds_tcp": `{
@@ -270,29 +262,29 @@ func TestADSC_Save(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.desc, func(t *testing.T) {
-			_ = os.Mkdir("out", 0777)
-			if err := tt.adsc.Save(tt.base); (err == nil && tt.err != nil) || (err != nil && tt.err == nil) {
+			base := t.TempDir()
+			if err := tt.adsc.Save(base); (err == nil && tt.err != nil) || (err != nil && tt.err == nil) {
 				t.Errorf("AdscSave() => %v expected err %v", err, tt.err)
 			}
-			if ldsTCP := readFile(tt.base+"_lds_tcp.json", t); ldsTCP != tt.expectedJSON["_lds_tcp"] {
+			if ldsTCP := readFile(base+"_lds_tcp.json", t); ldsTCP != tt.expectedJSON["_lds_tcp"] {
 				t.Errorf("AdscSave() => %s expected ldsTcp %s", ldsTCP, tt.expectedJSON["_lds_tcp"])
 			}
-			if ldsHTTP := readFile(tt.base+"_lds_http.json", t); ldsHTTP != tt.expectedJSON["_lds_http"] {
+			if ldsHTTP := readFile(base+"_lds_http.json", t); ldsHTTP != tt.expectedJSON["_lds_http"] {
 				t.Errorf("AdscSave() => %s expected ldsHttp %s", ldsHTTP, tt.expectedJSON["_lds_http"])
 			}
-			if rds := readFile(tt.base+"_rds.json", t); rds != tt.expectedJSON["_rds"] {
+			if rds := readFile(base+"_rds.json", t); rds != tt.expectedJSON["_rds"] {
 				t.Errorf("AdscSave() => %s expected rds %s", rds, tt.expectedJSON["_rds"])
 			}
-			if ecds := readFile(tt.base+"_ecds.json", t); ecds != tt.expectedJSON["_ecds"] {
+			if ecds := readFile(base+"_ecds.json", t); ecds != tt.expectedJSON["_ecds"] {
 				t.Errorf("AdscSave() => %s expected ecds %s", ecds, tt.expectedJSON["_ecds"])
 			}
-			if cds := readFile(tt.base+"_cds.json", t); cds != tt.expectedJSON["_cds"] {
+			if cds := readFile(base+"_cds.json", t); cds != tt.expectedJSON["_cds"] {
 				t.Errorf("AdscSave() => %s expected cds %s", cds, tt.expectedJSON["_cds"])
 			}
-			if eds := readFile(tt.base+"_eds.json", t); eds != tt.expectedJSON["_eds"] {
+			if eds := readFile(base+"_eds.json", t); eds != tt.expectedJSON["_eds"] {
 				t.Errorf("AdscSave() => %s expected eds %s", eds, tt.expectedJSON["_eds"])
 			}
-			saveTeardown(tt.base, t)
+			saveTeardown(base, t)
 		})
 	}
 }

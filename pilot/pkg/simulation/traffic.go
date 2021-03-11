@@ -63,9 +63,7 @@ func (c Call) IsHTTP() bool {
 	return httpProtocols.Contains(string(c.Protocol)) && (c.TLS == Plaintext || c.TLS == "")
 }
 
-var (
-	httpProtocols = sets.NewSet(string(HTTP), string(HTTP2))
-)
+var httpProtocols = sets.NewSet(string(HTTP), string(HTTP2))
 
 var (
 	ErrNoListener          = errors.New("no listener matched")
@@ -248,7 +246,7 @@ func hasFilterOnPort(l *listener.Listener, filter string, port int) bool {
 	if got.FilterDisabled == nil {
 		return true
 	}
-	return !xdstest.EvaluateListenerFilterPredicates(got.FilterDisabled, false, port)
+	return !xdstest.EvaluateListenerFilterPredicates(got.FilterDisabled, port)
 }
 
 func (sim *Simulation) Run(input Call) (result Result) {

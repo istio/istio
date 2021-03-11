@@ -217,7 +217,9 @@ func (sa *Agent) Close() {
 //
 // TODO: additional checks for existence. Fail early, instead of obscure envoy errors.
 func (sa *Agent) FindRootCAForXDS() string {
-	if sa.cfg.XDSRootCerts != "" {
+	if sa.cfg.XDSRootCerts == security.SystemRootCerts {
+		return ""
+	} else if sa.cfg.XDSRootCerts != "" {
 		return sa.cfg.XDSRootCerts
 	} else if _, err := os.Stat("./etc/certs/root-cert.pem"); err == nil {
 		// Old style - mounted cert. This is used for XDS auth only,
@@ -243,7 +245,9 @@ func (sa *Agent) FindRootCAForXDS() string {
 
 // Find the root CA to use when connecting to the CA (Istiod or external).
 func (sa *Agent) FindRootCAForCA() string {
-	if sa.cfg.CARootCerts != "" {
+	if sa.cfg.CARootCerts == security.SystemRootCerts {
+		return ""
+	} else if sa.cfg.CARootCerts != "" {
 		return sa.cfg.CARootCerts
 	} else if sa.secOpts.PilotCertProvider == "kubernetes" {
 		// Using K8S - this is likely incorrect, may work by accident.
@@ -295,7 +299,9 @@ func (sa *Agent) newSecretManager() (*cache.SecretManagerClient, error) {
 	}
 	if tls {
 		caCertFile := sa.FindRootCAForCA()
-		if rootCert, err = ioutil.ReadFile(caCertFile); err != nil {
+		if caCertFile == "" {
+			log.Infof("Using CA %s cert with system certs", sa.secOpts.CAEndpoint)
+		} else if rootCert, err = ioutil.ReadFile(caCertFile); err != nil {
 			log.Fatalf("invalid config - %s missing a root certificate %s", sa.secOpts.CAEndpoint, caCertFile)
 		} else {
 			log.Infof("Using CA %s cert with certs: %s", sa.secOpts.CAEndpoint, caCertFile)

@@ -13,8 +13,6 @@ spec:
       discoveryAddress: my-discovery:123
       drainDuration: 12s
       controlPlaneAuthPolicy: NONE
-      proxyMetadata:
-        TERMINATION_DRAIN_DURATION_SECONDS: "120"
     accessLogFormat: |
       {
         "key": "val"

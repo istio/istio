@@ -88,8 +88,8 @@ func manifestGenerateCmd(rootArgs *rootArgs, mgArgs *manifestGenerateArgs, logOp
 		RunE: func(cmd *cobra.Command, args []string) error {
 			l := clog.NewConsoleLogger(cmd.OutOrStdout(), cmd.ErrOrStderr(), installerScope)
 			return manifestGenerate(rootArgs, mgArgs, logOpts, l)
-		}}
-
+		},
+	}
 }
 
 func manifestGenerate(args *rootArgs, mgArgs *manifestGenerateArgs, logopts *log.Options, l clog.Logger) error {

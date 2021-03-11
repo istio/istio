@@ -33,7 +33,7 @@ func ClusterLocalTest(t *testing.T, apps AppContext, features ...features.Featur
 			ctx.NewSubTest("respect-cluster-local-config").Run(func(ctx framework.TestContext) {
 				for _, c := range ctx.Clusters() {
 					c := c
-					ctx.NewSubTest(c.Name()).
+					ctx.NewSubTest(c.StableName()).
 						Label(label.Multicluster).
 						Run(func(ctx framework.TestContext) {
 							local := apps.LocalEchos.GetOrFail(ctx, echo.InCluster(c))

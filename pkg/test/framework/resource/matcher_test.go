@@ -19,38 +19,44 @@ import "testing"
 func TestMatcher(t *testing.T) {
 	cases := []struct {
 		name      string
-		input     string
+		input     []string
 		matches   []string
 		nomatches []string
 	}{
 		{
 			name:      "empty",
-			input:     "",
-			matches:   []string{"", "foo", "foo/bar", ".*"},
-			nomatches: []string{},
+			input:     []string{},
+			matches:   []string{},
+			nomatches: []string{"", "foo", "foo/bar", ".*"},
 		},
 		{
 			name:      "single",
-			input:     "Foo",
+			input:     []string{"Foo"},
 			matches:   []string{"TestFoo", "TestMyFooBar", "TestFoo/TestBar"},
 			nomatches: []string{"baz", "baz/foo", "TestBar/TestFoo"},
 		},
 		{
 			name:      "double",
-			input:     "Foo/Bar",
+			input:     []string{"Foo/Bar"},
 			matches:   []string{"TestFoo/TestBar", "TestFoo/TestBar/TestBaz"},
 			nomatches: []string{"TestFoo", "TestBar", "TestMyFooBar"},
 		},
 		{
 			name:    "space",
-			input:   "TestFoo/with space",
+			input:   []string{"TestFoo/with space"},
 			matches: []string{"TestFoo/with_space"},
 		},
 		{
 			name:      "regex",
-			input:     "Foo/.*/Baz",
+			input:     []string{"Foo/.*/Baz"},
 			matches:   []string{"TestFoo/something/TestBaz"},
 			nomatches: []string{"TestFoo", "TestFoo/TestBaz", "TestFoo/something/TestBar"},
+		},
+		{
+			name:      "multiple",
+			input:     []string{"TestFoo/subset", "TestBar"},
+			matches:   []string{"TestBar", "TestBar/subtest", "TestFoo/subset"},
+			nomatches: []string{"TestFoo/something/subset", "TestFoo/something", "TestFoo", "TestFoo/TestBar"},
 		},
 	}
 	for _, tt := range cases {
@@ -62,13 +68,13 @@ func TestMatcher(t *testing.T) {
 			for _, m := range tt.matches {
 				got := matcher.MatchTest(m)
 				if !got {
-					t.Fatalf("expected match for %q", m)
+					t.Errorf("expected match for %q", m)
 				}
 			}
 			for _, m := range tt.nomatches {
 				got := matcher.MatchTest(m)
 				if got {
-					t.Fatalf("expected no match for %q", m)
+					t.Errorf("expected no match for %q", m)
 				}
 			}
 		})

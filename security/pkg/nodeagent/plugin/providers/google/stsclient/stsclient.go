@@ -41,7 +41,7 @@ var (
 const (
 	httpTimeout = time.Second * 5
 	contentType = "application/json"
-	scope       = "https://www.googleapis.com/auth/cloud-platform"
+	Scope       = "https://www.googleapis.com/auth/cloud-platform"
 )
 
 type federatedTokenResponse struct {
@@ -119,7 +119,7 @@ func (p *SecureTokenServiceExchanger) ExchangeToken(k8sSAjwt string) (string, er
 
 	body, err := p.requestWithRetry(jsonStr)
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("token exchange failed (aud: %s): %v", aud, err)
 	}
 	respData := &federatedTokenResponse{}
 	if err := json.Unmarshal(body, respData); err != nil {
@@ -161,7 +161,7 @@ func constructFederatedTokenRequest(aud, jwt string) []byte {
 		"requestedTokenType": "urn:ietf:params:oauth:token-type:access_token",
 		"subjectTokenType":   "urn:ietf:params:oauth:token-type:jwt",
 		"subjectToken":       jwt,
-		"scope":              scope,
+		"scope":              Scope,
 	}
 	jsonValue, _ := json.Marshal(values)
 	return jsonValue

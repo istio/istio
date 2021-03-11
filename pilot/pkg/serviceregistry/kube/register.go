@@ -26,17 +26,15 @@ import (
 	"istio.io/pkg/log"
 )
 
-var (
-	// For most common ports allow the protocol to be guessed, this isn't meant
-	// to replace /etc/services. Fully qualified proto[-extra]:port is the
-	// recommended usage.
-	portsToName = map[int32]string{
-		80:   "http",
-		443:  "https",
-		3306: "mysql",
-		8080: "http",
-	}
-)
+// For most common ports allow the protocol to be guessed, this isn't meant
+// to replace /etc/services. Fully qualified proto[-extra]:port is the
+// recommended usage.
+var portsToName = map[int32]string{
+	80:   "http",
+	443:  "https",
+	3306: "mysql",
+	8080: "http",
+}
 
 // NamedPort defines the Port and Name tuple needed for services and endpoints.
 type NamedPort struct {

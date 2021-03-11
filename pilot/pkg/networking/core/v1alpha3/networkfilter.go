@@ -36,15 +36,12 @@ import (
 	"istio.io/istio/pkg/config/protocol"
 )
 
-var (
-	// redisOpTimeout is the default operation timeout for the Redis proxy filter.
-	redisOpTimeout = 5 * time.Second
-)
+// redisOpTimeout is the default operation timeout for the Redis proxy filter.
+var redisOpTimeout = 5 * time.Second
 
 // buildInboundNetworkFilters generates a TCP proxy network filter on the inbound path
 func buildInboundNetworkFilters(push *model.PushContext, instance *model.ServiceInstance, node *model.Proxy) []*listener.Filter {
-	clusterName := util.BuildInboundSubsetKey(node, instance.ServicePort.Name,
-		instance.Service.Hostname, instance.ServicePort.Port, int(instance.Endpoint.EndpointPort))
+	clusterName := model.BuildInboundSubsetKey(int(instance.Endpoint.EndpointPort))
 	statPrefix := clusterName
 	// If stat name is configured, build the stat prefix from configured pattern.
 	if len(push.Mesh.InboundClusterStatName) != 0 {
@@ -74,7 +71,6 @@ func setAccessLogAndBuildTCPFilter(push *model.PushContext, config *tcp.TcpProxy
 // and builds a stack of network filters.
 func buildOutboundNetworkFiltersWithSingleDestination(push *model.PushContext, node *model.Proxy,
 	statPrefix, clusterName string, port *model.Port) []*listener.Filter {
-
 	tcpProxy := &tcp.TcpProxy{
 		StatPrefix:       statPrefix,
 		ClusterSpecifier: &tcp.TcpProxy_Cluster{Cluster: clusterName},
@@ -82,7 +78,7 @@ func buildOutboundNetworkFiltersWithSingleDestination(push *model.PushContext, n
 	}
 
 	idleTimeout, err := time.ParseDuration(node.Metadata.IdleTimeout)
-	if idleTimeout > 0 && err == nil {
+	if err == nil {
 		tcpProxy.IdleTimeout = ptypes.DurationProto(idleTimeout)
 	}
 
@@ -94,7 +90,6 @@ func buildOutboundNetworkFiltersWithSingleDestination(push *model.PushContext, n
 // destination routes and builds a stack of network filters.
 func buildOutboundNetworkFiltersWithWeightedClusters(node *model.Proxy, routes []*networking.RouteDestination,
 	push *model.PushContext, port *model.Port, configMeta config.Meta) []*listener.Filter {
-
 	statPrefix := configMeta.Name + "." + configMeta.Namespace
 	clusterSpecifier := &tcp.TcpProxy_WeightedClusters{
 		WeightedClusters: &tcp.TcpProxy_WeightedCluster{},
@@ -107,7 +102,7 @@ func buildOutboundNetworkFiltersWithWeightedClusters(node *model.Proxy, routes [
 	}
 
 	idleTimeout, err := time.ParseDuration(node.Metadata.IdleTimeout)
-	if idleTimeout > 0 && err == nil {
+	if err == nil {
 		proxyConfig.IdleTimeout = ptypes.DurationProto(idleTimeout)
 	}
 

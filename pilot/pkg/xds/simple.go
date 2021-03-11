@@ -170,9 +170,13 @@ type ProxyGen struct {
 // HandleResponse will dispatch a response from a federated
 // XDS server to all connections listening for that type.
 func (p *ProxyGen) HandleResponse(con *adsc.ADSC, res *discovery.DiscoveryResponse) {
+	clients := p.server.DiscoveryServer.ClientsOf(res.TypeUrl)
+	if len(clients) == 0 {
+		return
+	}
 	// TODO: filter the push to only connections that
 	// match a filter.
-	p.server.DiscoveryServer.SendResponse(res)
+	p.server.DiscoveryServer.SendResponse(clients, res)
 }
 
 func (s *SimpleServer) NewProxy() *ProxyGen {

@@ -21,9 +21,7 @@ import (
 	istiolog "istio.io/pkg/log"
 )
 
-var (
-	authzLog = istiolog.RegisterScope("authorization", "Istio Authorization Policy", 0)
-)
+var authzLog = istiolog.RegisterScope("authorization", "Istio Authorization Policy", 0)
 
 type AuthorizationPolicy struct {
 	Name      string                      `json:"name"`

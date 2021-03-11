@@ -99,15 +99,16 @@ func (p *Adapter) JSONToEntry(s string) (*resource.Instance, error) {
 	}
 
 	return ToResource(obj, nil, item, nil, nil), nil
-
 }
 
-type extractObjectFn func(o interface{}) metav1.Object
-type extractResourceFn func(o interface{}) (proto.Message, error)
-type newInformerFn func() (cache.SharedIndexInformer, error)
-type parseJSONFn func(input []byte) (interface{}, error)
-type getStatusFn func(o interface{}) interface{}
-type isEqualFn func(o1 interface{}, o2 interface{}) bool
+type (
+	extractObjectFn   func(o interface{}) metav1.Object
+	extractResourceFn func(o interface{}) (proto.Message, error)
+	newInformerFn     func() (cache.SharedIndexInformer, error)
+	parseJSONFn       func(input []byte) (interface{}, error)
+	getStatusFn       func(o interface{}) interface{}
+	isEqualFn         func(o1 interface{}, o2 interface{}) bool
+)
 
 // resourceVersionsMatch is a resourceEqualFn that determines equality by the resource version.
 func resourceVersionsMatch(o1 interface{}, o2 interface{}) bool {

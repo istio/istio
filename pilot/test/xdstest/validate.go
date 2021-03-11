@@ -204,6 +204,7 @@ func ValidateRoute(t testing.TB, r *route.Route) {
 		t.Errorf("route %v is invalid: %v", r.Name, err)
 	}
 }
+
 func ValidateRouteConfigurations(t testing.TB, ls []*route.RouteConfiguration) {
 	found := sets.String{}
 	for _, l := range ls {

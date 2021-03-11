@@ -38,14 +38,29 @@ func TestReachability(t *testing.T) {
 		Features("security.reachability").
 		Run(func(ctx framework.TestContext) {
 			systemNM := istio.ClaimSystemNamespaceOrFail(ctx, ctx)
-
+			// mtlsOnExpect defines our expectations for when mTLS is expected when its enabled
+			mtlsOnExpect := func(src echo.Instance, opts echo.CallOptions) bool {
+				if apps.IsNaked(src) || apps.IsNaked(opts.Target) {
+					// If one of the two endpoints is naked, we don't send mTLS
+					return false
+				}
+				if apps.IsHeadless(opts.Target) && opts.Target == src {
+					// pod calling its own pod IP will not be intercepted
+					return false
+				}
+				return true
+			}
+			Always := func(src echo.Instance, opts echo.CallOptions) bool {
+				return true
+			}
+			Never := func(src echo.Instance, opts echo.CallOptions) bool {
+				return false
+			}
 			testCases := []reachability.TestCase{
 				{
 					ConfigFile: "beta-mtls-on.yaml",
 					Namespace:  systemNM,
-					Include: func(src echo.Instance, opts echo.CallOptions) bool {
-						return true
-					},
+					Include:    Always,
 					ExpectSuccess: func(src echo.Instance, opts echo.CallOptions) bool {
 						if apps.IsNaked(src) && apps.IsNaked(opts.Target) {
 							// naked->naked should always succeed.
@@ -54,6 +69,7 @@ func TestReachability(t *testing.T) {
 						// If one of the two endpoints is naked, expect failure.
 						return !apps.IsNaked(src) && !apps.IsNaked(opts.Target)
 					},
+					ExpectMTLS: mtlsOnExpect,
 				},
 				{
 					ConfigFile: "beta-mtls-permissive.yaml",
@@ -62,30 +78,23 @@ func TestReachability(t *testing.T) {
 						// Exclude calls to naked since we are applying ISTIO_MUTUAL
 						return !apps.IsNaked(opts.Target)
 					},
-					ExpectSuccess: func(src echo.Instance, opts echo.CallOptions) bool {
-						return true
-					},
+					ExpectSuccess: Always,
+					ExpectMTLS:    mtlsOnExpect,
 				},
 				{
-					ConfigFile: "beta-mtls-off.yaml",
-					Namespace:  systemNM,
-					Include: func(src echo.Instance, opts echo.CallOptions) bool {
-						return true
-					},
-					ExpectSuccess: func(src echo.Instance, opts echo.CallOptions) bool {
-						return true
-					},
+					ConfigFile:             "beta-mtls-off.yaml",
+					Namespace:              systemNM,
+					Include:                Always,
+					ExpectSuccess:          Always,
+					ExpectMTLS:             Never,
 					SkippedForMulticluster: true,
 				},
 				{
-					ConfigFile: "plaintext-to-permissive.yaml",
-					Namespace:  systemNM,
-					Include: func(src echo.Instance, opts echo.CallOptions) bool {
-						return true
-					},
-					ExpectSuccess: func(src echo.Instance, opts echo.CallOptions) bool {
-						return true
-					},
+					ConfigFile:             "plaintext-to-permissive.yaml",
+					Namespace:              systemNM,
+					Include:                Always,
+					ExpectSuccess:          Always,
+					ExpectMTLS:             Never,
 					SkippedForMulticluster: true,
 				},
 				{
@@ -98,14 +107,13 @@ func TestReachability(t *testing.T) {
 					ExpectSuccess: func(src echo.Instance, opts echo.CallOptions) bool {
 						return opts.PortName != "http"
 					},
+					ExpectMTLS:             Never,
 					SkippedForMulticluster: true,
 				},
 				{
 					ConfigFile: "beta-mtls-automtls.yaml",
 					Namespace:  apps.Namespace1,
-					Include: func(src echo.Instance, opts echo.CallOptions) bool {
-						return true
-					},
+					Include:    Always,
 					ExpectSuccess: func(src echo.Instance, opts echo.CallOptions) bool {
 						// autoMtls doesn't work for client that doesn't have proxy, unless target doesn't
 						// have proxy neither.
@@ -114,40 +122,30 @@ func TestReachability(t *testing.T) {
 						}
 						return true
 					},
+					ExpectMTLS: mtlsOnExpect,
 				},
 				{
 					ConfigFile: "beta-mtls-partial-automtls.yaml",
 					Namespace:  apps.Namespace1,
-					Include: func(src echo.Instance, opts echo.CallOptions) bool {
-						return true
-					},
+					Include:    Always,
 					ExpectSuccess: func(src echo.Instance, opts echo.CallOptions) bool {
 						// autoMtls doesn't work for client that doesn't have proxy, unless target doesn't
 						// have proxy or have mTLS disabled
 						if apps.IsNaked(src) {
 							return apps.IsNaked(opts.Target) || (apps.B.Contains(opts.Target) && opts.PortName != "http")
-
 						}
 						// PeerAuthentication disable mTLS for workload app:b, except http port. Thus, autoMTLS
 						// will fail on all ports on b, except http port.
 						return !apps.B.Contains(opts.Target) || opts.PortName == "http"
 					},
+					ExpectMTLS: mtlsOnExpect,
 				},
 				{
-					ConfigFile: "global-plaintext.yaml",
-					Namespace:  systemNM,
-					Include: func(src echo.Instance, opts echo.CallOptions) bool {
-						// Exclude calls to the headless TCP port.
-						if apps.IsHeadless(opts.Target) && opts.PortName == "tcp" {
-							return false
-						}
-
-						return true
-					},
-					ExpectSuccess: func(src echo.Instance, opts echo.CallOptions) bool {
-						// When mTLS is disabled, all traffic should work.
-						return true
-					},
+					ConfigFile:             "global-plaintext.yaml",
+					Namespace:              systemNM,
+					Include:                Always,
+					ExpectSuccess:          Always,
+					ExpectMTLS:             Never,
 					SkippedForMulticluster: true,
 				},
 				// --------start of auto mtls partial test cases ---------------
@@ -172,8 +170,9 @@ func TestReachability(t *testing.T) {
 						// We only need one pair.
 						return apps.A.Contains(src) && apps.Multiversion.Contains(opts.Target)
 					},
-					ExpectSuccess: func(src echo.Instance, opts echo.CallOptions) bool {
-						return true
+					ExpectSuccess: Always,
+					ExpectMTLS: func(src echo.Instance, opts echo.CallOptions) bool {
+						return opts.Path == "/vistio"
 					},
 				},
 				{
@@ -199,6 +198,7 @@ func TestReachability(t *testing.T) {
 						// Only the request to legacy one succeeds as we disable mtls explicitly.
 						return opts.Path == "/vlegacy"
 					},
+					ExpectMTLS: Never,
 				},
 				{
 					ConfigFile: "automtls-partial-sidecar-dr-mutual.yaml",
@@ -221,6 +221,9 @@ func TestReachability(t *testing.T) {
 					},
 					ExpectSuccess: func(src echo.Instance, opts echo.CallOptions) bool {
 						// Only the request to vistio one succeeds as we enable mtls explicitly.
+						return opts.Path == "/vistio"
+					},
+					ExpectMTLS: func(src echo.Instance, opts echo.CallOptions) bool {
 						return opts.Path == "/vistio"
 					},
 				},
