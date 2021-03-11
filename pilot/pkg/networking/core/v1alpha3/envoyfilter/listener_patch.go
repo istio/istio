@@ -15,9 +15,11 @@
 package envoyfilter
 
 import (
+	"fmt"
+
 	xdslistener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
 	http_conn "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
-	wellknown "github.com/envoyproxy/go-control-plane/pkg/wellknown"
+	"github.com/envoyproxy/go-control-plane/pkg/wellknown"
 	"github.com/golang/protobuf/proto"
 	"github.com/golang/protobuf/ptypes"
 	"github.com/golang/protobuf/ptypes/any"
@@ -223,10 +225,55 @@ func doFilterChainOperation(patchContext networking.EnvoyFilter_PatchContext,
 			// nothing more to do in other patches as we removed this filter chain
 			return
 		} else if cp.Operation == networking.EnvoyFilter_Patch_MERGE {
-			proto.Merge(fc, cp.Value)
+
+			ret, err := mergeTransportSocketListener(fc, cp)
+			if err != nil {
+				log.Debugf("merge of transport socket failed for listener: %v", err)
+				continue
+			}
+			if !ret {
+				proto.Merge(fc, cp.Value)
+			}
 		}
 	}
 	doNetworkFilterListOperation(patchContext, patches, listener, fc)
+}
+
+// Test if the patch contains a config for TransportSocket
+func mergeTransportSocketListener(fc *xdslistener.FilterChain, cp *model.EnvoyFilterConfigPatchWrapper) (bool, error) {
+
+	cpValueCast, okCpCast := (cp.Value).(*xdslistener.FilterChain)
+	if !okCpCast {
+		return false, fmt.Errorf("cast of cp.Value failed: %v", okCpCast)
+	}
+
+	// Test if the patch contains a config for TransportSocket
+	applyPatch := false
+	if cpValueCast.GetTransportSocket() != nil {
+		// Test if the listener contains a config for TransportSocket
+		applyPatch = fc.GetTransportSocket() != nil && cpValueCast.GetTransportSocket().Name == fc.GetTransportSocket().Name
+	} else {
+		return false, nil
+	}
+
+	if applyPatch {
+		// Merge the patch and the listener at a lower level
+		dstListener := fc.GetTransportSocket().GetTypedConfig()
+		srcPatch := cpValueCast.GetTransportSocket().GetTypedConfig()
+
+		if dstListener != nil && srcPatch != nil {
+
+			retVal, errMerge := util.MergeAnyWithAny(dstListener, srcPatch)
+			if errMerge != nil {
+				return false, fmt.Errorf("function mergeAnyWithAny failed for doFilterChainOperation: %v", errMerge)
+			}
+
+			// Merge the above result with the whole listener
+			proto.Merge(dstListener, retVal)
+		}
+	}
+	// Default: we won't call proto.Merge() if the patch is transportSocket and the listener isn't
+	return true, nil
 }
 
 func doNetworkFilterListOperation(patchContext networking.EnvoyFilter_PatchContext,
