@@ -38,6 +38,7 @@ var (
 	responseHeaderFieldRegex = regexp.MustCompile(string(response.ResponseHeader) + "=(.*)")
 	URLFieldRegex            = regexp.MustCompile(string(response.URLField) + "=(.*)")
 	ClusterFieldRegex        = regexp.MustCompile(string(response.ClusterField) + "=(.*)")
+	IstioVersionFieldRegex   = regexp.MustCompile(string(response.IstioVersionField) + "=(.*)")
 	IPFieldRegex             = regexp.MustCompile(string(response.IPField) + "=(.*)")
 )
 
@@ -64,6 +65,8 @@ type ParsedResponse struct {
 	Hostname string
 	// The cluster where the server is deployed.
 	Cluster string
+	// IstioVersion for the Istio sidecar.
+	IstioVersion string
 	// IP is the requester's ip address
 	IP string
 	// RawResponse gives a map of all values returned in the response (headers, etc)
@@ -82,16 +85,17 @@ func (r *ParsedResponse) Count(text string) int {
 
 func (r *ParsedResponse) String() string {
 	out := ""
-	out += fmt.Sprintf("Body:     %s\n", r.Body)
-	out += fmt.Sprintf("ID:       %s\n", r.ID)
-	out += fmt.Sprintf("URL:      %s\n", r.URL)
-	out += fmt.Sprintf("Version:  %s\n", r.Version)
-	out += fmt.Sprintf("Port:     %s\n", r.Port)
-	out += fmt.Sprintf("Code:     %s\n", r.Code)
-	out += fmt.Sprintf("Host:     %s\n", r.Host)
-	out += fmt.Sprintf("Hostname: %s\n", r.Hostname)
-	out += fmt.Sprintf("Cluster:  %s\n", r.Cluster)
-	out += fmt.Sprintf("IP:       %s\n", r.IP)
+	out += fmt.Sprintf("Body:         %s\n", r.Body)
+	out += fmt.Sprintf("ID:           %s\n", r.ID)
+	out += fmt.Sprintf("URL:          %s\n", r.URL)
+	out += fmt.Sprintf("Version:      %s\n", r.Version)
+	out += fmt.Sprintf("Port:         %s\n", r.Port)
+	out += fmt.Sprintf("Code:         %s\n", r.Code)
+	out += fmt.Sprintf("Host:         %s\n", r.Host)
+	out += fmt.Sprintf("Hostname:     %s\n", r.Hostname)
+	out += fmt.Sprintf("Cluster:      %s\n", r.Cluster)
+	out += fmt.Sprintf("IstioVersion: %s\n", r.IstioVersion)
+	out += fmt.Sprintf("IP:           %s\n", r.IP)
 
 	return out
 }
@@ -388,6 +392,11 @@ func parseResponse(output string) *ParsedResponse {
 	match = ClusterFieldRegex.FindStringSubmatch(output)
 	if match != nil {
 		out.Cluster = match[1]
+	}
+
+	match = IstioVersionFieldRegex.FindStringSubmatch(output)
+	if match != nil {
+		out.IstioVersion = match[1]
 	}
 
 	match = IPFieldRegex.FindStringSubmatch(output)

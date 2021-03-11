@@ -304,6 +304,7 @@ func (h *httpHandler) addResponsePayload(r *http.Request, body *bytes.Buffer) {
 	writeField(body, response.HostField, r.Host)
 	writeField(body, response.URLField, r.URL.String())
 	writeField(body, response.ClusterField, h.Cluster)
+	writeField(body, response.IstioVersionField, h.IstioVersion)
 
 	writeField(body, "Method", r.Method)
 	writeField(body, "Proto", r.Proto)

@@ -19,18 +19,19 @@ spec:
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: foo-v1
+  name: foo-bar-rev-a
 spec:
   replicas: 1
   selector:
     matchLabels:
       app: foo
-      version: v1
+      version: bar
   template:
     metadata:
       labels:
         app: foo
-        version: v1
+        version: bar
+        istio.io/rev: rev-a
       annotations:
         prometheus.io/scrape: "true"
         prometheus.io/port: "15014"
@@ -58,9 +59,9 @@ spec:
           - --port
           - "3333"
           - --version
-          - "v1"
+          - "bar"
           - --istio-version
-          - ""
+          - "1.8.2"
           - --crt=/cert.crt
           - --key=/cert.key
         ports:
@@ -96,26 +97,30 @@ spec:
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: foo-nosidecar
+  name: foo-bar-rev-b
 spec:
   replicas: 1
   selector:
     matchLabels:
       app: foo
-      version: nosidecar
+      version: bar
   template:
     metadata:
       labels:
         app: foo
-        version: nosidecar
+        version: bar
+        istio.io/rev: rev-b
       annotations:
         prometheus.io/scrape: "true"
         prometheus.io/port: "15014"
-        sidecar.istio.io/inject: "false"
     spec:
       imagePullSecrets:
       - name: myregistrykey
       containers:
+      - name: istio-proxy
+        image: auto
+        securityContext: # to allow core dumps
+          readOnlyRootFilesystem: false
       - name: app
         image: testing.hub/app:latest
         imagePullPolicy: Always
@@ -132,9 +137,9 @@ spec:
           - --port
           - "3333"
           - --version
-          - "nosidecar"
+          - "bar"
           - --istio-version
-          - ""
+          - "1.9.0"
           - --crt=/cert.crt
           - --key=/cert.key
         ports:
