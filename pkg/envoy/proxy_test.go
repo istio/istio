@@ -51,6 +51,7 @@ func TestEnvoyArgs(t *testing.T) {
 		"-c", "test.json",
 		"--restart-epoch", "5",
 		"--drain-time-s", "45",
+		"--drain-strategy", "immediate",
 		"--parent-shutdown-time-s", "60",
 		"--service-cluster", "my-cluster",
 		"--service-node", "my-node",
