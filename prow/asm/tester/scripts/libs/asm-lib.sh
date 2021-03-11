@@ -734,7 +734,7 @@ function gen_topology_file() {
     kubeconfig: "${kubeconfpaths[i]}"
 EOF
       # Disable using simulated Pod-based "VMs" when testing real VMs
-      if [ -n "${STATIC_VMS}" ]; then
+      if [ -n "${STATIC_VMS}" ] || [ -n "${GCE_VMS}" ]; then
         echo '    fakeVM: false' >> "${file}"
       fi
     done
@@ -1079,23 +1079,8 @@ function setup_asm_vms() {
   local REVISION
   REVISION="$(kubectl --context="${CONTEXT}" -n istio-system get service istio-eastwestgateway -ojsonpath='{.metadata.labels.istio\.io/rev}')"
 
-  # ASM_VM_BRANCH is one of the branches in https://github.com/GoogleCloudPlatform/anthos-service-mesh-packages
-  ASM_VM_BRANCH="master"
-  curl -O https://raw.githubusercontent.com/GoogleCloudPlatform/anthos-service-mesh-packages/"${ASM_VM_BRANCH}"/scripts/asm-installer/asm_vm
-  chmod +x asm_vm
-  VM_SCRIPT="$PWD/asm_vm"
-  export VM_SCRIPT
-
-  # Allow traffic from this Prow node to all VMs tagged `staticvm` in the PROJECT_ID where ASM/VMs live.
-  gcloud compute firewall-rules create \
-    --project "$PROJECT_ID" \
-    --allow=tcp:22,tcp:7070,tcp:17070 \
-    --source-ranges="$(curl ifconfig.me)/32" \
-    --target-tags=staticvm \
-    prow-to-static-vms
-
   export ISTIO_OUT="$PWD/out"
-  setup_vms "${CONTEXT}" "${CLUSTER_NAME}" "${CLUSTER_LOCATION}" "${PROJECT_NUMBER}" "${REVISION}" "${VM_DIR}" "${VM_DISTRO}" "${IMAGE_PROJECT}"
+  setup_static_vms "${CONTEXT}" "${CLUSTER_NAME}" "${CLUSTER_LOCATION}" "${PROJECT_NUMBER}" "${REVISION}" "${VM_DIR}" "${VM_DISTRO}" "${IMAGE_PROJECT}"
 }
 
 # Add function call to trap

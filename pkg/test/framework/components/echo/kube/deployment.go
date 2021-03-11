@@ -579,7 +579,7 @@ spec:
 }
 
 func generateDeploymentYAML(cfg echo.Config, settings *image.Settings, versions resource.RevVerMap) (string, error) {
-	params, err := templateParams(cfg, settings, versions)
+	params, err := TemplateParams(cfg, settings, versions)
 	if err != nil {
 		return "", err
 	}
@@ -593,7 +593,7 @@ func generateDeploymentYAML(cfg echo.Config, settings *image.Settings, versions 
 }
 
 func GenerateService(cfg echo.Config) (string, error) {
-	params, err := templateParams(cfg, nil, resource.RevVerMap{})
+	params, err := TemplateParams(cfg, nil, resource.RevVerMap{})
 	if err != nil {
 		return "", err
 	}
@@ -611,7 +611,8 @@ var VMImages = map[echo.VMDistro]string{
 	echo.Centos8:      "app_sidecar_centos_8",
 }
 
-func templateParams(cfg echo.Config, settings *image.Settings, revisions resource.RevVerMap) (map[string]interface{}, error) {
+// TODO make this exported in OSS rather than in this fork
+func TemplateParams(cfg echo.Config, settings *image.Settings, revisions resource.RevVerMap) (map[string]interface{}, error) {
 	if settings == nil {
 		var err error
 		settings, err = image.SettingsFromCommandLine()

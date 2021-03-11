@@ -25,6 +25,7 @@ const (
 	Fake       Kind = "Fake"
 	Aggregate  Kind = "Aggregate"
 	StaticVM   Kind = "StaticVM"
+	ASMVM      Kind = "ASMVM"
 	Unknown    Kind = "Unknown"
 )
 

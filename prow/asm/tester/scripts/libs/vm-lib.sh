@@ -46,6 +46,32 @@ TOPOLOGY_JQ_PROG='.[] | "    - service: \(.labels.service)
       - ip: \(.networkInterfaces[0].accessConfigs[0].natIP)
         instanceIP: \(.networkInterfaces[0].networkIP)"'
 
+# finds the public IP of the test runner which can be used to create firewall rules
+function runner_public_ip() {
+  if which dig; then
+    dig TXT +short o-o.myaddr.l.google.com @ns1.google.com | awk -F'"' '{ print $2}'
+    return 0
+  fi
+
+  if res=$(curl ifconfig.me); then
+    echo "${res}"
+    return 0
+  fi
+
+  return 1
+}
+
+# Allow traffic from this Prow node to all VMs tagged `gcevm` in the PROJECT_ID where ASM/VMs live.
+ # Parameters: $1 - Project ID where the VMs reside
+function firewall_rule() {
+  gcloud compute firewall-rules create \
+    --project "$PROJECT_ID" \
+    --allow=tcp:22,tcp:7070,tcp:17070 \
+    --source-ranges="$(runner_public_ip)/32" \
+    --target-tags=prow-test-vm \
+    prow-to-static-vms
+}
+
 # Outputs YAML to the given file, in the structure of []cluster.Config to inform the test framework of details about
 # static VMs running the test app. cluster.Config is defined in pkg/test/framework/components/cluster/factory.go.
 # Parameters: $1 - path to the file to append to
@@ -72,6 +98,41 @@ EOF
       | jq -r "${TOPOLOGY_JQ_PROG}" >> "${FILE}"
 }
 
+function setup_gce_vms() {
+  local FILE="$1"
+  local CONTEXT="$2"
+  IFS="_" read -r -a VALS <<< "${CONTEXT}"
+  local PROJECT_ID="${VALS[1]}"
+  local LOCATION="${VALS[2]}"
+  local CLUSTER_NAME="${VALS[3]}"
+  local REVISION
+  REVISION="$(kubectl --context="${CONTEXT}" -n istio-system get service istio-eastwestgateway -ojsonpath='{.metadata.labels.istio\.io/rev}')"
+
+  local PROJECT_NUMBER
+  PROJECT_NUMBER=$(gcloud projects describe "${PROJECT_ID}" --format="value(projectNumber)")
+  firewall_rule "${PROJECT_ID}"
+
+  cat << EOF >> "${FILE}"
+- kind: ASMVM
+  clusterName: asm-vms
+  primaryClusterName: "cn-${PROJECT_ID}-${LOCATION}-${CLUSTER_NAME}"
+  meta:
+    project: ${PROJECT_ID}
+    projectNumber: ${PROJECT_NUMBER}
+    gkeLocation: ${LOCATION}
+    gkeCluster: ${CLUSTER_NAME}
+    asm_vm: ${VM_SCRIPT}
+    firewallTag: prow-test-vm
+    env:
+    - key: ASM_REVISION_PREFIX
+      value: ${REVISION}
+    - key: SERVICE_PROXY_AGENT_BUCKET
+      value: ${AGENT_BUCKET}
+    - key: _CI_ASM_IMAGE_TAG
+      value: ${TAG}
+EOF
+}
+
 # Create virtual machines connected to an ASM cluster.
 # Parameters: $1 - CONTEXT: Kube context to use for creating WorkloadGroups and namespaces
 #             $2 - CLUSTER_NAME: GKE cluster to connect the VM to.
@@ -81,7 +142,7 @@ EOF
 #             $6 - DIR: A directory with a subdirectory for each VM to create.
 #                  These subdirectories should have a workloadgroup.yaml and echo.service file.
 # Depends on the env vars: VM_SCRIPT (path to asm_vm), ISTIO_OUT (path to compilation output)
-function setup_vms() {
+function setup_static_vms() {
   local CONTEXT="${1}"
   local CLUSTER_NAME="${2}"
   local LOCATION="${3}"
@@ -95,6 +156,8 @@ function setup_vms() {
     echo "No directory $DIR"
     return 1
   fi
+
+  firewall_rule "${PROJECT_ID}"
 
   for subdir in "$DIR"/*; do
     if [ ! -d "$subdir" ]; then
@@ -182,7 +245,6 @@ EOF
 
   retry 3 10s gcloud compute instance-templates create "${BASE_INSTANCE_TEMPLATE_NAME}" --image-project "${IMAGE_PROJECT}" --image-family "${VM_DISTRO}"
   # eventually this will be a static URL - for the time being this needs to be updated to use the latest agent
-  AGENT_BUCKET="gs://gce-service-proxy-canary/service-proxy-agent/releases/service-proxy-agent-staging-latest.tgz"
   [ -z "$TEMPLATE_EXISTS" ] && ASM_REVISION_PREFIX="${REVISION}" _CI_ASM_IMAGE_TAG="${TAG}" SERVICE_PROXY_AGENT_BUCKET="${AGENT_BUCKET}" $VM_SCRIPT create_gce_instance_template \
     "${TEMPLATE_NAME}" \
     -v \

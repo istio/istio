@@ -56,11 +56,21 @@ else
 fi
 
 if [[ "${CONTROL_PLANE}" == "UNMANAGED" ]]; then
-  if [ -n "${STATIC_VMS}" ]; then
+  if [ -n "${STATIC_VMS}" ] || "${GCE_VMS}"; then
     echo "Setting up GCP VMs to test against"
     VM_CTX="${CONTEXTS[0]}"
-    setup_asm_vms "${STATIC_VMS}" "${VM_CTX}" "${VM_DISTRO}" "${IMAGE_PROJECT}"
-    static_vm_topology_entry "${INTEGRATION_TEST_TOPOLOGY_FILE}" "${VM_CTX}"
+    # ASM_VM_BRANCH is one of the branches in https://github.com/GoogleCloudPlatform/anthos-service-mesh-packages
+    ASM_VM_BRANCH="master"
+    curl -O https://raw.githubusercontent.com/GoogleCloudPlatform/anthos-service-mesh-packages/"${ASM_VM_BRANCH}"/scripts/asm-installer/asm_vm
+    chmod +x asm_vm
+    VM_SCRIPT="$PWD/asm_vm"
+    export VM_SCRIPT
+
+    export AGENT_BUCKET="gs://gce-service-proxy-canary/service-proxy-agent/releases/service-proxy-agent-staging-latest.tgz"
+
+    [ -n "${STATIC_VMS}" ] && setup_asm_vms "${STATIC_VMS}" "${VM_CTX}" "${VM_DISTRO}" "${IMAGE_PROJECT}"
+    [ -n "${STATIC_VMS}" ] && static_vm_topology_entry "${INTEGRATION_TEST_TOPOLOGY_FILE}" "${VM_CTX}"
+    "${GCE_VMS}"  && setup_gce_vms "${INTEGRATION_TEST_TOPOLOGY_FILE}" "${VM_CTX}"
   fi
 
   # DISABLED_TESTS contains a list of all tests we skip
@@ -153,9 +163,7 @@ if [[ "${CONTROL_PLANE}" == "UNMANAGED" ]]; then
     INTEGRATION_TEST_FLAGS+=" --istio.test.skipVM"
   fi
 
-  if [[ -n "${STATIC_VMS}" ]]; then
-    # Static real VMs pre-create a namespace
-    INTEGRATION_TEST_FLAGS+=" --istio.test.stableNamespaces"
+  if [[ -n "${STATIC_VMS}" ]] || [[ -n "${GCE_VMS}" ]]; then
     export DISABLED_PACKAGES+="\|/pilot/endpointslice" # we won't reinstall the CP in endpointslice mode
     # waiting for an oSS change that fixes this test's incompatibility with stableNamespaces
     INTEGRATION_TEST_FLAGS+=" --istio.test.skip=\"TestValidation\""
@@ -163,6 +171,10 @@ if [[ "${CONTROL_PLANE}" == "UNMANAGED" ]]; then
     if [ "${TEST_TARGET}" == "test.integration.asm.security" ]; then
       INTEGRATION_TEST_FLAGS+=" -run=TestReachability\|TestMtlsStrictK8sCA\|TestPassThroughFilterChain"
     fi
+  fi
+  if [[ -n "${STATIC_VMS}" ]]; then
+    # Static real VMs pre-create a namespace
+    INTEGRATION_TEST_FLAGS+=" --istio.test.stableNamespaces"
   fi
 
   # Skip the tests that are known to be not working.

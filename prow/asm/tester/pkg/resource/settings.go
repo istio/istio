@@ -61,6 +61,10 @@ type VMSettings struct {
 	// provisioning the VM test environment
 	VMStaticConfigDir string
 
+	// If set, the Istio Go test framework will spin up GCE VMs based on the
+	// configuration in the integration tests.
+	UseGCEVMs bool
+
 	// VM image family. This will be used as the `--image-family` flag value
 	// when using `gcloud compute instance-templates create` to create the VMs.
 	VMImageFamily string

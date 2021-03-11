@@ -39,9 +39,11 @@ func BindFlags(settings *Settings) *pflag.FlagSet {
 	flags.StringVar(&settings.DisabledTests, "disabled-tests", "", "tests to disable, should be a regex that matches the test and test suite names")
 
 	flags.BoolVar(&settings.UseVMs, "vm", false, "whether to use VM in the control plane setup")
+	// TODO(landow): fully remove staticvm support
 	flags.StringVar(&settings.VMStaticConfigDir, "vm-static-config-dir", "", "a directory in echo-vm-provisioner/configs that contains config files for provisioning the VM test environment")
-	// TODO(chizhg): delete after we update the Prow jobs to use --vm-static-config-dir
+	// TODO(landow): fully remove staticvm support
 	flags.StringVar(&settings.VMStaticConfigDir, "static-vms", "", "a directory in echo-vm-provisioner/configs that contains config files for provisioning the VM test environment")
+	flags.BoolVar(&settings.UseGCEVMs, "gce-vms", false, "If set, the Istio Go test framework will spin up GCE VMs based on the configuration in the integration tests.")
 	flags.StringVar(&settings.VMImageFamily, "vm-image-family", "debian-10", "VM distribution that will be used as the `--image-family` flag value when using `gcloud compute instance-templates create` to create the VMs.")
 	// TODO(chizhg): delete after we update the Prow jobs to use --vm-image-family
 	flags.StringVar(&settings.VMImageFamily, "vm-distro", "debian-10", "VM distribution that will be used as the `--image-family` flag value when using `gcloud compute instance-templates create` to create the VMs.")
