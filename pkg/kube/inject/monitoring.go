@@ -15,22 +15,8 @@
 package inject
 
 import (
-	"net/http"
-
-	ocprom "contrib.go.opencensus.io/exporter/prometheus"
-
 	"istio.io/pkg/monitoring"
 )
-
-const (
-	metricsPath = "/metrics"
-)
-
-type monitor struct {
-	monitoringServer *http.Server
-	exporter         *ocprom.Exporter
-	shutdown         chan struct{}
-}
 
 var (
 	totalInjections = monitoring.NewSum(

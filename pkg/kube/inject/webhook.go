@@ -81,7 +81,6 @@ type Webhook struct {
 
 	watcher Watcher
 
-	mon      *monitor
 	env      *model.Environment
 	revision string
 }
@@ -184,10 +183,6 @@ func NewWebhook(p WebhookParameters) (*Webhook, error) {
 // Run implements the webhook server
 func (wh *Webhook) Run(stop <-chan struct{}) {
 	go wh.watcher.Run(stop)
-
-	if wh.mon != nil {
-		defer wh.mon.monitoringServer.Close()
-	}
 
 	var healthC <-chan time.Time
 	if wh.healthCheckInterval != 0 && wh.healthCheckFile != "" {
