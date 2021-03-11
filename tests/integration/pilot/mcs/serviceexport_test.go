@@ -69,14 +69,14 @@ values:
 }
 
 // ensuring that existing routing functionality is unaffected
-//func TestTraffic(t *testing.T) {
-//	framework.
-//		NewTest(t).
-//		Features("traffic.routing", "traffic.reachability", "traffic.shifting").
-//		Run(func(ctx framework.TestContext) {
-//			common.RunAllTrafficTests(ctx, apps)
-//		})
-//}
+func TestTraffic(t *testing.T) {
+	framework.
+		NewTest(t).
+		Features("traffic.routing", "traffic.reachability", "traffic.shifting").
+		Run(func(ctx framework.TestContext) {
+			common.RunAllTrafficTests(ctx, apps)
+		})
+}
 
 func TestServiceExports(t *testing.T) {
 	// 1. assert for the presence of a serviceexport for service `a` in `test-ns1`
@@ -167,7 +167,7 @@ func TestServiceExports(t *testing.T) {
 					return errors.New("found serviceExport when one should not have existed")
 				}
 				return nil
-			}, retry.Timeout(120*time.Second))
+			}, retry.Timeout(180*time.Second))
 
 			retry.UntilSuccessOrFail(t, func() error {
 				services, err := cluster.CoreV1().Services("kube-system").List(context.TODO(), v1.ListOptions{})
