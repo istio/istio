@@ -59,9 +59,9 @@ import (
 )
 
 const (
-	wildcardIP                     = "0.0.0.0"
-	fakePluginHTTPFilter           = "fake-plugin-http-filter"
-	fakePluginTCPFilter            = "fake-plugin-tcp-filter"
+	wildcardIP           = "0.0.0.0"
+	fakePluginHTTPFilter = "fake-plugin-http-filter"
+	fakePluginTCPFilter  = "fake-plugin-tcp-filter"
 )
 
 func getProxy() *model.Proxy {
