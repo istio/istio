@@ -17,7 +17,6 @@ package crdclient
 import (
 	"reflect"
 
-	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/informers"
 
@@ -66,23 +65,11 @@ func (h *cacheHandler) onEvent(old interface{}, curr interface{}, event model.Ev
 		oldConfig = *TranslateObject(oldItem, h.schema.Resource().GroupVersionKind(), h.client.domainSuffix)
 	}
 
-	if onlyStatusUpdated(oldConfig, currConfig) {
-		log.Debugf("skipping push for %v/%v, due to no change in spec or labels\n",
-			currConfig.Namespace, currConfig.Name)
-		return nil
-	}
-
 	// TODO we may consider passing a pointer to handlers instead of the value. While spec is a pointer, the meta will be copied
 	for _, f := range h.handlers {
 		f(oldConfig, currConfig, event)
 	}
 	return nil
-}
-
-// onlyStatusUpdated returns false if changes are observed in labels, annotations, or spec, and otherwise returns true.
-func onlyStatusUpdated(old config.Config, curr config.Config) bool {
-	return labels.Equals(old.Labels, curr.Labels) &&
-		labels.Equals(old.Annotations, curr.Annotations) && reflect.DeepEqual(old.Spec, curr.Spec)
 }
 
 func createCacheHandler(cl *Client, schema collection.Schema, i informers.GenericInformer) *cacheHandler {
