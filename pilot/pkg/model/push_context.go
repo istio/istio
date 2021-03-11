@@ -1694,11 +1694,17 @@ func (ps *PushContext) mergeGateways(proxy *Proxy) *MergedGateway {
 		configs = ps.gatewayIndex.all
 	}
 
+	// Get the target ports of the service
+	targetPorts := make(map[uint32]uint32)
+	for _, si := range proxy.ServiceInstances {
+		targetPorts[si.Endpoint.EndpointPort] = uint32(si.ServicePort.Port)
+	}
 	for _, cfg := range configs {
 		gw := cfg.Spec.(*networking.Gateway)
+		selected := false
 		if gw.GetSelector() == nil {
 			// no selector. Applies to all workloads asking for the gateway
-			out = append(out, cfg)
+			selected = true
 		} else {
 			gatewaySelector := labels.Instance(gw.GetSelector())
 			var workloadLabels labels.Collection
@@ -1707,11 +1713,21 @@ func (ps *PushContext) mergeGateways(proxy *Proxy) *MergedGateway {
 				workloadLabels = labels.Collection{proxy.Metadata.Labels}
 			}
 			if workloadLabels.IsSupersetOf(gatewaySelector) {
-				out = append(out, cfg)
+				selected = true
 			}
 		}
+		if selected {
+			for _, s := range gw.Servers {
+				if servicePort, ok := targetPorts[s.Port.Number]; ok && servicePort != s.Port.Number {
+					// The gateway server is defined with target port. Convert it to service port before gateway merging.
+					// Gateway listeners are based on target port, this prevents duplicated listeners be generated when build
+					// listener resources based on merged gateways.
+					s.Port.Number = servicePort
+				}
+			}
+			out = append(out, cfg)
+		}
 	}
-
 	if len(out) == 0 {
 		return nil
 	}
