@@ -15,9 +15,6 @@
 package authn
 
 import (
-	envoy_config_listener_v3 "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
-	"github.com/golang/protobuf/ptypes/wrappers"
-
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking"
 	"istio.io/istio/pilot/pkg/networking/plugin"
@@ -36,10 +33,7 @@ func NewPlugin() plugin.Plugin {
 	return Plugin{}
 }
 
-var (
-	_ plugin.Plugin    = Plugin{}
-	_ plugin.NewPlugin = Plugin{}
-)
+var _ plugin.Plugin = Plugin{}
 
 // OnInboundFilterChains setups filter chains based on the authentication policy.
 func (Plugin) OnInboundFilterChains(in *plugin.InputParams) []networking.FilterChain {
@@ -107,35 +101,6 @@ func (Plugin) OnInboundPassthrough(in *plugin.InputParams, mutable *networking.M
 	}
 
 	return buildFilter(in, mutable, true)
-}
-
-// OnInboundPassthroughFilterChains is called for plugin to update the pass through filter chain.
-func (Plugin) OnInboundPassthroughFilterChains(in *plugin.InputParams) []networking.FilterChain {
-	applier := factory.NewPolicyApplier(in.Push, in.Node.Metadata.Namespace, labels.Collection{in.Node.Metadata.Labels})
-	trustDomains := trustDomainsForValidation(in.Push.Mesh)
-	// First generate the default passthrough filter chains, pass 0 for endpointPort so that it never matches any port-level policy.
-	filterChains := applier.InboundFilterChain(0, in.Node, in.ListenerProtocol, trustDomains)
-
-	// Then generate the per-port passthrough filter chains.
-	for port := range applier.PortLevelSetting() {
-		// Skip the per-port passthrough filterchain if the port is already handled by OnInboundFilterChains().
-		if !needPerPortPassthroughFilterChain(port, in.Node) {
-			continue
-		}
-
-		authnLog.Debugf("InboundPassthroughFilterChains: build extra pass through filter chain for %v:%d", in.Node.ID, port)
-		portLevelFilterChains := applier.InboundFilterChain(port, in.Node, in.ListenerProtocol, trustDomains)
-		for _, fc := range portLevelFilterChains {
-			// Set the port to distinguish from the default passthrough filter chain.
-			if fc.FilterChainMatch == nil {
-				fc.FilterChainMatch = &envoy_config_listener_v3.FilterChainMatch{}
-			}
-			fc.FilterChainMatch.DestinationPort = &wrappers.UInt32Value{Value: port}
-			filterChains = append(filterChains, fc)
-		}
-	}
-
-	return filterChains
 }
 
 func (p Plugin) InboundPassthroughFilterChains(in *plugin.InputParams) *plugin.PassthroughChainConfiguration {

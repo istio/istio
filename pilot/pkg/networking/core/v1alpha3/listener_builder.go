@@ -588,14 +588,10 @@ func buildInboundCatchAllFilterChains(configgen *ConfigGeneratorImpl, node *mode
 				Protocol: protocol.HTTP,
 			},
 		}
-		// Call plugins to install authn/authz policies.
+		// Call plugins to get mtls policies.
 		var mtlsConfig *plugin.PassthroughChainConfiguration
 		for _, p := range configgen.Plugins {
-			np, ok := p.(plugin.NewPlugin)
-			if !ok {
-				continue
-			}
-			cfg := np.InboundPassthroughFilterChains(in)
+			cfg := p.InboundPassthroughFilterChains(in)
 			if cfg != nil {
 				mtlsConfig = cfg
 				break

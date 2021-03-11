@@ -185,8 +185,8 @@ func TestVirtualInboundListenerBuilder(t *testing.T) {
 	}
 
 	for k, v := range byListenerName {
-		if k == VirtualInboundListenerName && v != 2 {
-			t.Fatalf("expect virtual listener has 2 passthrough filter chains, found %d", v)
+		if k == VirtualInboundListenerName && v != 3 {
+			t.Fatalf("expect virtual listener has 3 passthrough filter chains, found %d", v)
 		}
 		if k == virtualInboundCatchAllHTTPFilterChainName && v != 2 {
 			t.Fatalf("expect virtual listener has 2 passthrough filter chains, found %d", v)
@@ -253,8 +253,8 @@ func TestVirtualInboundHasPassthroughClusters(t *testing.T) {
 
 		if len(fc.Filters) == 1 && fc.Filters[0].Name == wellknown.HTTPConnectionManager &&
 			fc.Name == virtualInboundCatchAllHTTPFilterChainName {
-			if fc.TransportSocket != nil && !reflect.DeepEqual(fc.FilterChainMatch.ApplicationProtocols, append(plaintextHTTPALPNs, mtlsHTTPALPNs...)) {
-				t.Fatalf("expect %v application protocols, found %v", append(plaintextHTTPALPNs, mtlsHTTPALPNs...), fc.FilterChainMatch.ApplicationProtocols)
+			if fc.TransportSocket != nil && !reflect.DeepEqual(fc.FilterChainMatch.ApplicationProtocols, mtlsHTTPALPNs) {
+				t.Fatalf("expect %v application protocols, found %v", mtlsHTTPALPNs, fc.FilterChainMatch.ApplicationProtocols)
 			}
 
 			if fc.TransportSocket == nil && !reflect.DeepEqual(fc.FilterChainMatch.ApplicationProtocols, plaintextHTTPALPNs) {

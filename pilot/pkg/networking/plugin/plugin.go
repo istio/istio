@@ -71,11 +71,6 @@ type Plugin interface {
 	// Can be used to add additional filters.
 	OnInboundPassthrough(in *InputParams, mutable *istionetworking.MutableObjects) error
 
-	// OnInboundPassthroughFilterChains is called whenever a plugin needs to setup custom pass through filter chain.
-	OnInboundPassthroughFilterChains(in *InputParams) []istionetworking.FilterChain
-}
-
-type NewPlugin interface {
 	InboundPassthroughFilterChains(in *InputParams) *PassthroughChainConfiguration
 }
 

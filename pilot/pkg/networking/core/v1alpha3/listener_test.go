@@ -2387,23 +2387,12 @@ func (p *fakePlugin) OnInboundPassthrough(in *plugin.InputParams, mutable *istio
 	return nil
 }
 
-func (p *fakePlugin) OnInboundPassthroughFilterChains(in *plugin.InputParams) []istionetworking.FilterChain {
-	return []istionetworking.FilterChain{
-		// A filter chain configured by the plugin for mutual TLS support.
-		{
-			FilterChainMatch: &listener.FilterChainMatch{
-				ApplicationProtocols: []string{fakePluginFilterChainMatchAlpn},
-			},
-			TLSContext: &tls.DownstreamTlsContext{},
-			ListenerFilters: []*listener.ListenerFilter{
-				{
-					Name: wellknown.TlsInspector,
-				},
-			},
-		},
-		// An empty filter chain for the default pass through behavior.
-		{},
-	}
+func (p *fakePlugin) InboundPassthroughFilterChains(in *plugin.InputParams) *plugin.PassthroughChainConfiguration {
+	return &plugin.PassthroughChainConfiguration{Passthrough: plugin.MTLSSettings{
+		Mode:           model.MTLSPermissive,
+		TCPTLSContext:  &tls.DownstreamTlsContext{},
+		HTTPTLSContext: &tls.DownstreamTlsContext{},
+	}}
 }
 
 func isHTTPListener(listener *listener.Listener) bool {

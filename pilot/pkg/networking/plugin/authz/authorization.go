@@ -124,7 +124,6 @@ func (p Plugin) OnInboundPassthrough(in *plugin.InputParams, mutable *networking
 	return nil
 }
 
-// OnInboundPassthroughFilterChains is called for plugin to update the pass through filter chain.
-func (p Plugin) OnInboundPassthroughFilterChains(in *plugin.InputParams) []networking.FilterChain {
+func (p Plugin) InboundPassthroughFilterChains(in *plugin.InputParams) *plugin.PassthroughChainConfiguration {
 	return nil
 }
