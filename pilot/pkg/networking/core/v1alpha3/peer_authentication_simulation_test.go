@@ -540,14 +540,14 @@ spec:
 				{
 					Name: "plaintext on plaintext port",
 					Call: mkCall(9090, simulation.Plaintext),
-					// no ports defined, so we will fail. STRICT enforced
+					// no ports defined, so we will passthrough
 					Result: simulation.Result{ClusterMatched: "InboundPassthroughClusterIpv4"},
 				},
 				{
 					Name: "tls on plaintext port",
 					Call: mkCall(9090, simulation.MTLS),
-					// no ports defined, so we will fail. STRICT allows
-					Result: simulation.Result{Error: simulation.ErrNoFilterChain},
+					// no ports defined, so we will passthrough
+					Result: simulation.Result{ClusterMatched: "InboundPassthroughClusterIpv4"},
 				},
 			},
 		},
@@ -602,8 +602,8 @@ spec:
 				{
 					Name: "tls on plaintext port",
 					Call: mkCall(9090, simulation.MTLS),
-					// port 9090 not defined in partialSidecar and will use plain text, mTLS request should fail.
-					Result: simulation.Result{Error: simulation.ErrNoFilterChain},
+					// no ports defined, so we will passthrough
+					Result: simulation.Result{ClusterMatched: "InboundPassthroughClusterIpv4"},
 				},
 			},
 		},

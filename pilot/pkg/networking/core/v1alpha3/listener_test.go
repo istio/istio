@@ -2368,16 +2368,14 @@ func (p *fakePlugin) OnInboundFilterChains(in *plugin.InputParams) []istionetwor
 }
 
 func (p *fakePlugin) OnInboundPassthrough(in *plugin.InputParams, mutable *istionetworking.MutableObjects) error {
-	switch in.ListenerProtocol {
-	case istionetworking.ListenerProtocolTCP:
-		for cnum := range mutable.FilterChains {
+	for cnum, fc := range mutable.FilterChains {
+		switch fc.ListenerProtocol {
+		case istionetworking.ListenerProtocolTCP:
 			filter := &listener.Filter{
 				Name: fakePluginTCPFilter,
 			}
 			mutable.FilterChains[cnum].TCP = append(mutable.FilterChains[cnum].TCP, filter)
-		}
-	case istionetworking.ListenerProtocolHTTP:
-		for cnum := range mutable.FilterChains {
+		case istionetworking.ListenerProtocolHTTP:
 			filter := &hcm.HttpFilter{
 				Name: fakePluginHTTPFilter,
 			}

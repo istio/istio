@@ -213,7 +213,6 @@ func TestVirtualInboundHasPassthroughClusters(t *testing.T) {
 	sawFakePluginFilter := false
 	sawIpv4PassthroughCluster := 0
 	sawIpv6PassthroughCluster := false
-	sawIpv4PsssthroughFilterChainMatchAlpnFromFakePlugin := false
 	sawIpv4PsssthroughFilterChainMatchTLSFromFakePlugin := false
 	for _, fc := range l.FilterChains {
 		if fc.TransportSocket != nil && fc.FilterChainMatch.TransportProtocol != "tls" {
@@ -228,17 +227,13 @@ func TestVirtualInboundHasPassthroughClusters(t *testing.T) {
 			if ipLen := len(fc.FilterChainMatch.PrefixRanges); ipLen != 1 {
 				t.Fatalf("expect passthrough filter chain has 1 ip address, found %d", ipLen)
 			}
-			for _, alpn := range fc.FilterChainMatch.ApplicationProtocols {
-				if alpn == fakePluginFilterChainMatchAlpn {
-					sawIpv4PsssthroughFilterChainMatchAlpnFromFakePlugin = true
-				}
-			}
+
 			if fc.TransportSocket != nil {
 				sawIpv4PsssthroughFilterChainMatchTLSFromFakePlugin = true
 			}
 			if fc.FilterChainMatch.PrefixRanges[0].AddressPrefix == util.ConvertAddressToCidr("0.0.0.0/0").AddressPrefix &&
 				fc.FilterChainMatch.PrefixRanges[0].PrefixLen.Value == 0 {
-				if sawIpv4PassthroughCluster == 2 {
+				if sawIpv4PassthroughCluster == 3 {
 					t.Fatalf("duplicated ipv4 passthrough cluster filter chain in listener %v", l)
 				}
 				sawIpv4PassthroughCluster++
@@ -267,16 +262,12 @@ func TestVirtualInboundHasPassthroughClusters(t *testing.T) {
 		}
 	}
 
-	if sawIpv4PassthroughCluster != 2 {
+	if sawIpv4PassthroughCluster != 3 {
 		t.Fatalf("fail to find the ipv4 passthrough filter chain in listener %v", l)
 	}
 
 	if !sawFakePluginFilter {
 		t.Fatalf("fail to find the fake plugin TCP filter in listener %v", l)
-	}
-
-	if !sawIpv4PsssthroughFilterChainMatchAlpnFromFakePlugin {
-		t.Fatalf("fail to find the fake plugin filter chain match with ALPN in listener %v", l)
 	}
 
 	if !sawIpv4PsssthroughFilterChainMatchTLSFromFakePlugin {

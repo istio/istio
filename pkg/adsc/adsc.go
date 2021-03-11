@@ -472,7 +472,7 @@ func (a *ADSC) handleRecv() {
 				if err != nil {
 					continue
 				}
-				err = ioutil.WriteFile(a.LocalCacheDir+"_mesh.json", strResponse, 0644)
+				err = ioutil.WriteFile(a.LocalCacheDir+"_mesh.json", strResponse, 0o644)
 				if err != nil {
 					continue
 				}
@@ -660,7 +660,7 @@ func (a *ADSC) Save(base string) error {
 	if err != nil {
 		return err
 	}
-	err = ioutil.WriteFile(base+"_lds_tcp.json", strResponse, 0644)
+	err = ioutil.WriteFile(base+"_lds_tcp.json", strResponse, 0o644)
 	if err != nil {
 		return err
 	}
@@ -668,7 +668,7 @@ func (a *ADSC) Save(base string) error {
 	if err != nil {
 		return err
 	}
-	err = ioutil.WriteFile(base+"_lds_http.json", strResponse, 0644)
+	err = ioutil.WriteFile(base+"_lds_http.json", strResponse, 0o644)
 	if err != nil {
 		return err
 	}
@@ -676,7 +676,7 @@ func (a *ADSC) Save(base string) error {
 	if err != nil {
 		return err
 	}
-	err = ioutil.WriteFile(base+"_rds.json", strResponse, 0644)
+	err = ioutil.WriteFile(base+"_rds.json", strResponse, 0o644)
 	if err != nil {
 		return err
 	}
@@ -684,7 +684,7 @@ func (a *ADSC) Save(base string) error {
 	if err != nil {
 		return err
 	}
-	err = ioutil.WriteFile(base+"_ecds.json", strResponse, 0644)
+	err = ioutil.WriteFile(base+"_ecds.json", strResponse, 0o644)
 	if err != nil {
 		return err
 	}
@@ -692,7 +692,7 @@ func (a *ADSC) Save(base string) error {
 	if err != nil {
 		return err
 	}
-	err = ioutil.WriteFile(base+"_cds.json", strResponse, 0644)
+	err = ioutil.WriteFile(base+"_cds.json", strResponse, 0o644)
 	if err != nil {
 		return err
 	}
@@ -700,7 +700,7 @@ func (a *ADSC) Save(base string) error {
 	if err != nil {
 		return err
 	}
-	err = ioutil.WriteFile(base+"_eds.json", strResponse, 0644)
+	err = ioutil.WriteFile(base+"_eds.json", strResponse, 0o644)
 	if err != nil {
 		return err
 	}
@@ -1166,7 +1166,7 @@ func (a *ADSC) handleMCP(gvk []string, resources []*any.Any) {
 				continue
 			}
 			err = ioutil.WriteFile(a.LocalCacheDir+"_res."+
-				val.GroupVersionKind.Kind+"."+val.Namespace+"."+val.Name+".json", strResponse, 0644)
+				val.GroupVersionKind.Kind+"."+val.Namespace+"."+val.Name+".json", strResponse, 0o644)
 			if err != nil {
 				adscLog.Warnf("Error writing received MCP config to local file %v", err)
 			}

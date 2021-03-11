@@ -286,7 +286,7 @@ func TestLDSEnvoyFilterWithWorkloadSelector(t *testing.T) {
 
 			// Expect 1 HTTP listeners for 8081, 1 hybrid listeners for 15006 (virtual inbound)
 			if len(adsc.GetHTTPListeners()) != 2 {
-				t.Fatalf("Expected 2 http listeners, got %d", len(adsc.GetHTTPListeners()))
+				t.Fatalf("Expected 2 http listeners, got %v", xdstest.MapKeys(adsc.GetHTTPListeners()))
 			}
 			// TODO: This is flimsy. The ADSC code treats any listener with http connection manager as a HTTP listener
 			// instead of looking at it as a listener with multiple filter chains
