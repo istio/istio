@@ -194,13 +194,9 @@ spec:
 					Result: simulation.Result{ClusterMatched: "InboundPassthroughClusterIpv4"},
 				},
 				{
-					Name: "mtls on port 8000",
-					Call: mkCall(8000, simulation.MTLS),
-					Result: simulation.Result{
-						// This is broken, we should pass it through
-						Error: simulation.ErrNoFilterChain,
-						Skip:  "https://github.com/istio/istio/issues/29538#issuecomment-743283641",
-					},
+					Name:   "mtls on port 8000",
+					Call:   mkCall(8000, simulation.MTLS),
+					Result: simulation.Result{ClusterMatched: "InboundPassthroughClusterIpv4"},
 				},
 				{
 					Name:   "plaintext port 9000",
@@ -261,13 +257,9 @@ spec:
 					Result: simulation.Result{ClusterMatched: "InboundPassthroughClusterIpv4"},
 				},
 				{
-					Name: "mtls port 9000",
-					Call: mkCall(9000, simulation.MTLS),
-					Result: simulation.Result{
-						// This is broken, we should be passing it through
-						Error: simulation.ErrNoFilterChain,
-						Skip:  "https://github.com/istio/istio/issues/29538#issuecomment-743286797",
-					},
+					Name:   "mtls port 9000",
+					Call:   mkCall(9000, simulation.MTLS),
+					Result: simulation.Result{ClusterMatched: "InboundPassthroughClusterIpv4"},
 				},
 			},
 		},
@@ -291,13 +283,9 @@ spec:
 					Result: simulation.Result{ClusterMatched: "InboundPassthroughClusterIpv4"},
 				},
 				{
-					Name: "mtls port 9000",
-					Call: mkCall(9000, simulation.MTLS),
-					Result: simulation.Result{
-						// This is broken, we should be passing it through
-						Error: simulation.ErrNoFilterChain,
-						Skip:  "https://github.com/istio/istio/issues/29538#issuecomment-743286797",
-					},
+					Name:   "mtls port 9000",
+					Call:   mkCall(9000, simulation.MTLS),
+					Result: simulation.Result{ClusterMatched: "InboundPassthroughClusterIpv4"},
 				},
 			},
 		},
@@ -313,7 +301,7 @@ spec:
 				{
 					Name:   "mtls on port 8000",
 					Call:   mkCall(8000, simulation.MTLS),
-					Result: simulation.Result{Error: simulation.ErrNoFilterChain},
+					Result: simulation.Result{ClusterMatched: "InboundPassthroughClusterIpv4"},
 				},
 				{
 					Name:   "plaintext port 9000",

@@ -515,6 +515,28 @@ func getFilterChainMatchOptions(settings plugin.MTLSSettings) []FilterChainMatch
 	}
 }
 
+type fcOpts struct {
+	matchOpts FilterChainMatchOptions
+	fc        istionetworking.FilterChain
+}
+
+func (opt fcOpts) populateFilterChain(mtls plugin.MTLSSettings, port int, matchingIP string) fcOpts {
+	opt.fc.FilterChainMatch = &listener.FilterChainMatch{}
+	opt.fc.FilterChainMatch.ApplicationProtocols = opt.matchOpts.ApplicationProtocols
+	opt.fc.FilterChainMatch.TransportProtocol = opt.matchOpts.TransportProtocol
+	opt.fc.FilterChainMatch.PrefixRanges = []*core.CidrRange{util.ConvertAddressToCidr(matchingIP)}
+	if port > 0 {
+		opt.fc.FilterChainMatch.DestinationPort = &wrappers.UInt32Value{Value: uint32(port)}
+	}
+	opt.fc.ListenerProtocol = opt.matchOpts.Protocol
+	if opt.fc.ListenerProtocol == istionetworking.ListenerProtocolHTTP {
+		opt.fc.TLSContext = mtls.HTTPTLSContext
+	} else {
+		opt.fc.TLSContext = mtls.TCPTLSContext
+	}
+	return opt
+}
+
 func buildInboundCatchAllFilterChains(configgen *ConfigGeneratorImpl, node *model.Proxy, push *model.PushContext) ([]*listener.FilterChain, map[int]enabledInspector) {
 	// ipv4 and ipv6 feature detect
 	ipVersions := make([]string, 0, 2)
@@ -583,72 +605,46 @@ func buildInboundCatchAllFilterChains(configgen *ConfigGeneratorImpl, node *mode
 			mtlsConfig = &plugin.PassthroughChainConfiguration{} // Default: no TLS
 		}
 
-		filterChainsOpts := make([]istionetworking.FilterChain, 0)
-		allMatchOpts := make([]FilterChainMatchOptions, 0)
-		filterChainMatchOption := getFilterChainMatchOptions(mtlsConfig.Passthrough)
-		for id := range filterChainMatchOption {
-			match := filterChainMatchOption[id]
-			allMatchOpts = append(allMatchOpts, match)
-			fc := istionetworking.FilterChain{}
-			fcm := &listener.FilterChainMatch{}
-			fcm.ApplicationProtocols = match.ApplicationProtocols
-			fcm.TransportProtocol = match.TransportProtocol
-			fcm.PrefixRanges = []*core.CidrRange{util.ConvertAddressToCidr(matchingIP)}
-			fc.FilterChainMatch = fcm
-			fc.ListenerProtocol = match.Protocol
-
-			if fc.ListenerProtocol == istionetworking.ListenerProtocolHTTP {
-				fc.TLSContext = mtlsConfig.Passthrough.HTTPTLSContext
-			} else {
-				fc.TLSContext = mtlsConfig.Passthrough.TCPTLSContext
+		newOpts := []*fcOpts{}
+		for _, match := range getFilterChainMatchOptions(mtlsConfig.Passthrough) {
+			opt := fcOpts{matchOpts: match}.populateFilterChain(mtlsConfig.Passthrough, 0, matchingIP)
+			newOpts = append(newOpts, &opt)
+		}
+		for port, setting := range mtlsConfig.PerPort {
+			for _, match := range getFilterChainMatchOptions(setting) {
+				opt := fcOpts{matchOpts: match}.populateFilterChain(setting, port, matchingIP)
+				newOpts = append(newOpts, &opt)
 			}
-			// TODO TLs context, anything else??
-			filterChainsOpts = append(filterChainsOpts, fc)
 		}
 
-		for port, setting := range mtlsConfig.PerPort {
-			filterChainMatchOption := getFilterChainMatchOptions(setting)
-			for id := range filterChainMatchOption {
-				match := filterChainMatchOption[id]
-				allMatchOpts = append(allMatchOpts, match)
-				fc := istionetworking.FilterChain{}
-				fcm := &listener.FilterChainMatch{}
-				fcm.ApplicationProtocols = match.ApplicationProtocols
-				fcm.TransportProtocol = match.TransportProtocol
-				fcm.PrefixRanges = []*core.CidrRange{util.ConvertAddressToCidr(matchingIP)}
-				fcm.DestinationPort = &wrappers.UInt32Value{Value: uint32(port)}
-				fc.FilterChainMatch = fcm
-				fc.ListenerProtocol = match.Protocol
+		// TODO: must not use map, its not ordered
 
-				if fc.ListenerProtocol == istionetworking.ListenerProtocolHTTP {
-					fc.TLSContext = mtlsConfig.Passthrough.HTTPTLSContext
-				} else {
-					fc.TLSContext = mtlsConfig.Passthrough.TCPTLSContext
-				}
-				// TODO TLs context, anything else??
-				filterChainsOpts = append(filterChainsOpts, fc)
-			}
+		// Run our filter chains through the plugin
+		fcs := make([]istionetworking.FilterChain, 0, len(newOpts))
+		for _, o := range newOpts {
+			fcs = append(fcs, o.fc)
 		}
 		mutable := &istionetworking.MutableObjects{
-			FilterChains: filterChainsOpts,
+			FilterChains: fcs,
 		}
 		for _, p := range configgen.Plugins {
 			if err := p.OnInboundPassthrough(in, mutable); err != nil {
 				log.Errorf("Build inbound passthrough filter chains error: %v", err)
 			}
 		}
-		filterChainsOpts = mutable.FilterChains
-		for id := range filterChainsOpts {
-			match := allMatchOpts[id]
-			opts := filterChainsOpts[id]
+		// Merge the results back into our srtuct
+		for i, fc := range mutable.FilterChains {
+			newOpts[i].fc = fc
+		}
 
+		for _, opt := range newOpts {
 			filterChain := &listener.FilterChain{
-				FilterChainMatch: opts.FilterChainMatch,
+				FilterChainMatch: opt.fc.FilterChainMatch,
 			}
-			if opts.ListenerProtocol == istionetworking.ListenerProtocolHTTP {
+			if opt.fc.ListenerProtocol == istionetworking.ListenerProtocolHTTP {
 				httpOpts := configgen.buildSidecarInboundHTTPListenerOptsForPortOrUDS(node, in, clusterName)
 				httpOpts.statPrefix = clusterName
-				connectionManager := buildHTTPConnectionManager(listenerOpts, httpOpts, opts.HTTP)
+				connectionManager := buildHTTPConnectionManager(listenerOpts, httpOpts, opt.fc.HTTP)
 
 				filter := &listener.Filter{
 					Name:       wellknown.HTTPConnectionManager,
@@ -666,24 +662,23 @@ func buildInboundCatchAllFilterChains(configgen *ConfigGeneratorImpl, node *mode
 					Name:       wellknown.TCPProxy,
 					ConfigType: &listener.Filter_TypedConfig{TypedConfig: util.MessageToAny(tcpProxy)},
 				}
-				filterChain.Filters = append(opts.TCP, tcpProxyFilter)
+				filterChain.Filters = append(opt.fc.TCP, tcpProxyFilter)
 			}
 
-			port := int(opts.FilterChainMatch.DestinationPort.GetValue())
+			port := int(opt.fc.FilterChainMatch.DestinationPort.GetValue())
 			inspector := inspectors[port]
-			if match.MTLS && opts.TLSContext != nil {
+			if opt.matchOpts.MTLS && opt.fc.TLSContext != nil {
 				inspector.TLSInspector = true
 				// Update transport socket from the TLS context configured by the plugin.
 				filterChain.TransportSocket = &core.TransportSocket{
 					Name: util.EnvoyTLSSocketName,
-					// TODO: pre-marshal?
-					ConfigType: &core.TransportSocket_TypedConfig{TypedConfig: util.MessageToAny(opts.TLSContext)},
+					// TODO: pre-marshal for performance?
+					ConfigType: &core.TransportSocket_TypedConfig{TypedConfig: util.MessageToAny(opt.fc.TLSContext)},
 				}
 			}
-			log.Errorf("howardjohn: %v %v %v %v", port, match.MTLS, opts.TLSContext != nil, inspector.TLSInspector)
 			inspectors[port] = inspector
 			filterChain.Name = VirtualInboundListenerName
-			if opts.ListenerProtocol == istionetworking.ListenerProtocolHTTP {
+			if opt.fc.ListenerProtocol == istionetworking.ListenerProtocolHTTP {
 				filterChain.Name = virtualInboundCatchAllHTTPFilterChainName
 			}
 			filterChains = append(filterChains, filterChain)
