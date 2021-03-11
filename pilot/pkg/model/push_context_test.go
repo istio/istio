@@ -46,8 +46,6 @@ import (
 )
 
 func TestMain(m *testing.M) {
-	// TODO(https://github.com/istio/istio/issues/29349) make this not global
-	GetJwtKeyResolver().Close()
 	leak.CheckMain(m)
 }
 

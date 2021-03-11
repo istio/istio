@@ -204,6 +204,9 @@ type PushContext struct {
 	// LedgerVersion is the version of the configuration ledger
 	LedgerVersion string
 
+	// JwtKeyResolver holds a reference to the JWT key resolver instance.
+	JwtKeyResolver *JwksResolver
+
 	// cache gateways addresses for each network
 	// this is mainly used for kubernetes multi-cluster scenario
 	networksMu      sync.RWMutex
