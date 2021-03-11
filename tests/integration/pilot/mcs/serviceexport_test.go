@@ -153,7 +153,7 @@ func TestServiceExports(t *testing.T) {
 			}
 
 			retry.UntilSuccessOrFail(t, func() error {
-				_, err := mcsapis.MulticlusterV1alpha1().ServiceExports("svc-namespace").Get(context.TODO(), "svc1", v1.GetOptions{})
+				export, err := mcsapis.MulticlusterV1alpha1().ServiceExports("svc-namespace").Get(context.TODO(), "svc1", v1.GetOptions{})
 
 				if err != nil && k8sErrors.IsNotFound(err) {
 					return nil // we don't want a serviceexport to exist in kube-system
@@ -163,7 +163,10 @@ func TestServiceExports(t *testing.T) {
 					return err
 				}
 
-				return errors.New("found serviceExport when one should not have existed")
+				if export.Name == "svc1" {
+					return errors.New("found serviceExport when one should not have existed")
+				}
+				return nil
 			}, retry.Timeout(120*time.Second))
 
 			retry.UntilSuccessOrFail(t, func() error {
@@ -185,7 +188,7 @@ func TestServiceExports(t *testing.T) {
 				}
 
 				return errors.New("found serviceExport when one should not have been created")
-			}, retry.Timeout(120*time.Second))
+			}, retry.Timeout(15*time.Second))
 
 			_ = cluster.CoreV1().Namespaces().Delete(context.TODO(), "svc-namespace", v1.DeleteOptions{})
 		})
