@@ -26,7 +26,6 @@ import (
 	"net/http"
 	"os"
 	"path"
-	"reflect"
 	"sync"
 	"time"
 
@@ -40,7 +39,6 @@ import (
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/keepalive"
 	"google.golang.org/grpc/reflection"
-	"k8s.io/apimachinery/pkg/labels"
 	v1 "k8s.io/client-go/kubernetes/typed/core/v1"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/cache"
@@ -871,11 +869,6 @@ func (s *Server) initRegistryEventHandlers() {
 
 	if s.configController != nil {
 		configHandler := func(old config.Config, curr config.Config, event model.Event) {
-			if onlyStatusUpdated(old, curr) {
-				log.Debugf("skipping push for %v/%v, due to no change in spec or labels\n",
-					old.Namespace, old.Name)
-				return
-			}
 			pushReq := &model.PushRequest{
 				Full: true,
 				ConfigsUpdated: map[model.ConfigKey]struct{}{{
@@ -914,12 +907,6 @@ func (s *Server) initRegistryEventHandlers() {
 			s.configController.RegisterEventHandler(schema.Resource().GroupVersionKind(), configHandler)
 		}
 	}
-}
-
-// onlyStatusUpdated returns false if changes are observed in labels, annotations, or spec, and otherwise returns true.
-func onlyStatusUpdated(old config.Config, curr config.Config) bool {
-	return labels.Equals(old.Labels, curr.Labels) &&
-		labels.Equals(old.Annotations, curr.Annotations) && reflect.DeepEqual(old.Spec, curr.Spec)
 }
 
 // initIstiodCerts creates Istiod certificates and also sets up watches to them.
