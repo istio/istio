@@ -1,3 +1,4 @@
+{{- if .Values.createNamespace }}
 apiVersion: v1
 kind: Namespace
 metadata:
@@ -6,3 +7,4 @@ metadata:
     istio-operator-managed: Reconcile
     istio-injection: disabled
 ---
+{{- end }}

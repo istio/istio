@@ -27,3 +27,5 @@ operator:
       cpu: 50m
       memory: 128Mi
 
+# Flag to create (or not) operator's namespace
+createNamespace: true
