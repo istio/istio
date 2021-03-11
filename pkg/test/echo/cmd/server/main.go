@@ -43,6 +43,7 @@ var (
 	cluster          string
 	crt              string
 	key              string
+	istioVersion     string
 
 	loggingOptions = log.DefaultOptions()
 
@@ -111,6 +112,7 @@ var (
 				TLSKey:                key,
 				Version:               version,
 				Cluster:               cluster,
+				IstioVersion:          istioVersion,
 				UDSServer:             uds,
 			})
 
@@ -151,6 +153,7 @@ func init() {
 	rootCmd.PersistentFlags().StringVar(&cluster, "cluster", "", "Cluster where this server is deployed")
 	rootCmd.PersistentFlags().StringVar(&crt, "crt", "", "gRPC TLS server-side certificate")
 	rootCmd.PersistentFlags().StringVar(&key, "key", "", "gRPC TLS server-side key")
+	rootCmd.PersistentFlags().StringVar(&istioVersion, "istio-version", "", "Istio sidecar version")
 
 	loggingOptions.AttachCobraFlags(rootCmd)
 

@@ -64,6 +64,8 @@ spec:
           - "3333"
           - --version
           - "v-istio"
+          - --istio-version
+          - ""
           - --crt=/cert.crt
           - --key=/cert.key
         ports:
@@ -139,6 +141,8 @@ spec:
           - "3333"
           - --version
           - "v-legacy"
+          - --istio-version
+          - ""
           - --crt=/cert.crt
           - --key=/cert.key
         ports:
