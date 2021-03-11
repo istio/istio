@@ -810,10 +810,9 @@ func createWebhook(t testing.TB, cfg *Config) (*Webhook, func()) {
 	}
 	_, values, _ := loadInjectionSettings(t, nil, "")
 	var (
-		configFile     = filepath.Join(dir, "config-file.yaml")
-		valuesFile     = filepath.Join(dir, "values-file.yaml")
-		port           = 0
-		monitoringPort = 0
+		configFile = filepath.Join(dir, "config-file.yaml")
+		valuesFile = filepath.Join(dir, "values-file.yaml")
+		port       = 0
 	)
 
 	if err := ioutil.WriteFile(configFile, configBytes, 0644); err != nil { // nolint: vetshadow
@@ -834,11 +833,10 @@ func createWebhook(t testing.TB, cfg *Config) (*Webhook, func()) {
 		t.Fatalf("NewFileWatcher() failed: %v", err)
 	}
 	wh, err := NewWebhook(WebhookParameters{
-		Watcher:        watcher,
-		Port:           port,
-		MonitoringPort: monitoringPort,
-		Env:            &env,
-		Mux:            http.NewServeMux(),
+		Watcher: watcher,
+		Port:    port,
+		Env:     &env,
+		Mux:     http.NewServeMux(),
 	})
 	if err != nil {
 		t.Fatalf("NewWebhook() failed: %v", err)
