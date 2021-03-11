@@ -119,13 +119,13 @@ type SubsetConfig struct {
 }
 
 // String implements the Configuration interface (which implements fmt.Stringer)
-func (c Config) String() string {
-	return fmt.Sprint("{service: ", c.Service, ", version: ", c.Version, "}")
+func (f Config) String() string {
+	return fmt.Sprint("{service: ", f.Service, ", version: ", f.Version, "}")
 }
 
 // PortByName looks up a given port by name
-func (c Config) PortByName(name string) *Port {
-	for _, p := range c.Ports {
+func (f Config) PortByName(name string) *Port {
+	for _, p := range f.Ports {
 		if p.Name == name {
 			return &p
 		}
@@ -134,34 +134,38 @@ func (c Config) PortByName(name string) *Port {
 }
 
 // FQDN returns the fully qualified domain name for the service.
-func (c Config) FQDN() string {
-	out := c.Service
-	if c.Namespace != nil {
-		out += "." + c.Namespace.Name() + ".svc"
+func (f Config) FQDN() string {
+	out := f.Service
+	if f.Namespace != nil {
+		out += "." + f.Namespace.Name() + ".svc"
 	} else {
 		out += ".default.svc"
 	}
-	if c.Domain != "" {
-		out += "." + c.Domain
+	if f.Domain != "" {
+		out += "." + f.Domain
 	}
 	return out
 }
 
 // HostHeader returns the Host header that will be used for calls to this service.
-func (c Config) HostHeader() string {
-	if c.DefaultHostHeader != "" {
-		return c.DefaultHostHeader
+func (f Config) HostHeader() string {
+	if f.DefaultHostHeader != "" {
+		return f.DefaultHostHeader
 	}
-	return c.FQDN()
+	return f.FQDN()
+}
+
+func (f Config) DeploymentKey() Deployment {
+	return Deployment{Service: f.Service, Namespace: f.Namespace.Name()}
 }
 
 // DeepCopy creates a clone of IstioEndpoint.
-func (c Config) DeepCopy() Config {
-	newc := c
+func (f Config) DeepCopy() Config {
+	newc := f
 	newc.Cluster = nil
 	newc = copyInternal(newc).(Config)
-	newc.Cluster = c.Cluster
-	newc.Namespace = c.Namespace
+	newc.Cluster = f.Cluster
+	newc.Namespace = f.Namespace
 	return newc
 }
 

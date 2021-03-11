@@ -34,7 +34,7 @@ type Deployment struct {
 func (i Instances) Deployments() map[Deployment]Instances {
 	out := map[Deployment]Instances{}
 	for _, instance := range i {
-		k := Deployment{Service: instance.Config().Service, Namespace: instance.Config().Namespace.Name()}
+		k := instance.Config().DeploymentKey()
 		out[k] = append(out[k], instance)
 	}
 	return out
