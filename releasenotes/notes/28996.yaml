@@ -6,4 +6,4 @@ issue:
 
 releaseNotes:
   - |
-    **fixed** transport socket parameters are now taken into account when configured in envoyfilter
+    **Fixed** transport socket parameters are now taken into account when configured in envoyfilter
