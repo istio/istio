@@ -24,8 +24,8 @@ import (
 	"github.com/golang/protobuf/ptypes"
 	"github.com/google/go-cmp/cmp"
 	"google.golang.org/protobuf/testing/protocmp"
-	"istio.io/istio/pilot/pkg/features"
 
+	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking"
 	authn_model "istio.io/istio/pilot/pkg/security/model"
@@ -34,10 +34,10 @@ import (
 )
 
 const (
+	// The list of ciphers in tlsInboundCiphers1 are only used to test that
+	// the Envoy config generated is as expected.
 	tlsInboundCiphers1 string = "ECDHE-ECDSA-AES256-GCM-SHA384," +
-		"ECDHE-RSA-AES256-GCM-SHA384," +
-		"ECDHE-ECDSA-AES128-GCM-SHA256," +
-		"ECDHE-RSA-AES128-GCM-SHA256"
+		"ECDHE-RSA-AES256-GCM-SHA384"
 )
 
 func TestBuildInboundFilterChain(t *testing.T) {
@@ -144,12 +144,10 @@ func TestBuildInboundFilterChain(t *testing.T) {
 							TlsParams: &auth.TlsParameters{
 								TlsMinimumProtocolVersion: auth.TlsParameters_TLSv1_2,
 								CipherSuites: []string{
-									"ECDHE-ECDSA-AES256-GCM-SHA384",
-									"ECDHE-RSA-AES256-GCM-SHA384",
 									"ECDHE-ECDSA-AES128-GCM-SHA256",
 									"ECDHE-RSA-AES128-GCM-SHA256",
-									"AES256-GCM-SHA384",
-									"AES128-GCM-SHA256",
+									"ECDHE-ECDSA-AES256-GCM-SHA384",
+									"ECDHE-RSA-AES256-GCM-SHA384",
 								},
 							},
 						},
@@ -227,8 +225,6 @@ func TestBuildInboundFilterChain(t *testing.T) {
 								CipherSuites: []string{
 									"ECDHE-ECDSA-AES256-GCM-SHA384",
 									"ECDHE-RSA-AES256-GCM-SHA384",
-									"ECDHE-ECDSA-AES128-GCM-SHA256",
-									"ECDHE-RSA-AES128-GCM-SHA256",
 								},
 							},
 						},
@@ -307,12 +303,10 @@ func TestBuildInboundFilterChain(t *testing.T) {
 							TlsParams: &auth.TlsParameters{
 								TlsMinimumProtocolVersion: auth.TlsParameters_TLSv1_2,
 								CipherSuites: []string{
-									"ECDHE-ECDSA-AES256-GCM-SHA384",
-									"ECDHE-RSA-AES256-GCM-SHA384",
 									"ECDHE-ECDSA-AES128-GCM-SHA256",
 									"ECDHE-RSA-AES128-GCM-SHA256",
-									"AES256-GCM-SHA384",
-									"AES128-GCM-SHA256",
+									"ECDHE-ECDSA-AES256-GCM-SHA384",
+									"ECDHE-RSA-AES256-GCM-SHA384",
 								},
 							},
 						},

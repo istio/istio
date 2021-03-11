@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: feature
+area: security
+issue:
+- 31380
+releaseNotes:
+- |
+  **Added** the support of configuring the cipher suites for inbound TLS connections.

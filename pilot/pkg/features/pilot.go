@@ -26,12 +26,34 @@ import (
 
 const (
 	// DefaultInboundCiphers for server side TLS configuration.
-	DefaultInboundCiphers string = "ECDHE-ECDSA-AES256-GCM-SHA384," +
-		"ECDHE-RSA-AES256-GCM-SHA384," +
-		"ECDHE-ECDSA-AES128-GCM-SHA256," +
+	// The list is based on the "RESTRICTED" profile from
+	// https://cloud.google.com/load-balancing/docs/ssl-policies-concepts
+	// and the Envoy BoringSSL FIPS cipher list on
+	// https://www.envoyproxy.io/docs/envoy/latest/api-v3/extensions/transport_sockets/tls/v3/common.proto.html.
+	// The order matters: first one on the server list that's also supported
+	// by the client is used for the connection.
+	// Note that AES128 is preferred over AES256 since both ciphers are on
+	// the "RESTRICTED" profile and AES128 is less CPU-intensive.
+	DefaultInboundCiphers string = "ECDHE-ECDSA-AES128-GCM-SHA256," +
 		"ECDHE-RSA-AES128-GCM-SHA256," +
+		"ECDHE-ECDSA-AES256-GCM-SHA384," +
+		"ECDHE-RSA-AES256-GCM-SHA384"
+
+	// AllowedInboundCiphers for server side TLS configuration.
+	// The list is based on the Envoy BoringSSL FIPS cipher list on
+	// https://www.envoyproxy.io/docs/envoy/latest/api-v3/extensions/transport_sockets/tls/v3/common.proto.html.
+	AllowedInboundCiphers string = "ECDHE-ECDSA-AES128-GCM-SHA256," +
+		"ECDHE-RSA-AES128-GCM-SHA256," +
+		"ECDHE-ECDSA-AES128-SHA," +
+		"ECDHE-RSA-AES128-SHA," +
+		"AES128-GCM-SHA256," +
+		"AES128-SHA," +
+		"ECDHE-ECDSA-AES256-GCM-SHA384," +
+		"ECDHE-RSA-AES256-GCM-SHA384," +
+		"ECDHE-ECDSA-AES256-SHA," +
+		"ECDHE-RSA-AES256-SHA," +
 		"AES256-GCM-SHA384," +
-		"AES128-GCM-SHA256"
+		"AES256-SHA"
 )
 
 var (

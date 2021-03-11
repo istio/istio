@@ -15,12 +15,13 @@
 package utils
 
 import (
+	"fmt"
 	"strings"
 
 	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
 	tls "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
-	"istio.io/istio/pilot/pkg/features"
 
+	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking"
 	"istio.io/istio/pilot/pkg/networking/util"
@@ -78,10 +79,27 @@ func BuildInboundFilterChain(mTLSMode model.MutualTLSMode, node *model.Proxy,
 		}
 	}
 
+	allowedCiphers := []string{}
+	for _, c := range strings.Split(features.AllowedInboundCiphers, ",") {
+		allowedCiphers = append(allowedCiphers, strings.TrimSpace(c))
+	}
+	defaultCiphers := []string{}
+	for _, c := range strings.Split(features.DefaultInboundCiphers, ",") {
+		defaultCiphers = append(defaultCiphers, strings.TrimSpace(c))
+	}
 	ciphers := []string{}
 	for _, c := range strings.Split(features.TLSInboundCipherSuites, ",") {
-		ciphers = append(ciphers, strings.TrimSpace(c))
+		if err := checkCipher(c, allowedCiphers); err != nil {
+			log.Warnf("checking cipher %v returns an error: %v", err)
+		} else {
+			ciphers = append(ciphers, strings.TrimSpace(c))
+		}
 	}
+	if len(ciphers) == 0 {
+		log.Warn("cipher list is empty, use the default inbound cipher list")
+		ciphers = defaultCiphers
+	}
+
 	// Set Minimum TLS version to match the default client version and allowed strong cipher suites for sidecars.
 	ctx.CommonTlsContext.TlsParams = &tls.TlsParameters{
 		TlsMinimumProtocolVersion: tls.TlsParameters_TLSv1_2,
@@ -114,4 +132,13 @@ func BuildInboundFilterChain(mTLSMode model.MutualTLSMode, node *model.Proxy,
 		}
 	}
 	return []networking.FilterChain{{}}
+}
+
+func checkCipher(cipher string, allowedCiphers []string) error {
+	for _, c := range allowedCiphers {
+		if strings.TrimSpace(c) == strings.TrimSpace(cipher) {
+			return nil
+		}
+	}
+	return fmt.Errorf("cipher %v is not an allowed cipher", cipher)
 }
