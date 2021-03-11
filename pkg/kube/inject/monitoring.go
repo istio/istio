@@ -15,13 +15,9 @@
 package inject
 
 import (
-	"fmt"
-	"net"
 	"net/http"
 
 	ocprom "contrib.go.opencensus.io/exporter/prometheus"
-	"github.com/prometheus/client_golang/prometheus"
-	"go.opencensus.io/stats/view"
 
 	"istio.io/pkg/monitoring"
 )
@@ -65,54 +61,4 @@ func init() {
 		totalFailedInjections,
 		totalSkippedInjections,
 	)
-}
-
-func startMonitor(mux *http.ServeMux, port int) (*monitor, error) {
-	m := &monitor{
-		shutdown: make(chan struct{}),
-	}
-
-	// get the network stuff setup
-	var listener net.Listener
-	var err error
-	var exporter *ocprom.Exporter
-	if listener, err = net.Listen("tcp", fmt.Sprintf(":%d", port)); err != nil {
-		return nil, fmt.Errorf("unable to listen on socket: %v", err)
-	}
-
-	// NOTE: this is a temporary solution to provide bare-bones debug functionality
-	// for pilot. a full design / implementation of self-monitoring and reporting
-	// is coming. that design will include proper coverage of statusz/healthz type
-	// functionality, in addition to how pilot reports its own metrics.
-	if exporter, err = addMonitor(mux); err != nil {
-		return nil, fmt.Errorf("could not establish self-monitoring: %v", err)
-	}
-	m.exporter = exporter
-	m.monitoringServer = &http.Server{
-		Handler: mux,
-	}
-
-	go func() {
-		m.shutdown <- struct{}{}
-		_ = m.monitoringServer.Serve(listener)
-		m.shutdown <- struct{}{}
-	}()
-
-	// This is here to work around (mostly) a race condition in the Serve
-	// function. If the Close method is called before or during the execution of
-	// Serve, the call may be ignored and Serve never returns.
-	<-m.shutdown
-
-	return m, nil
-}
-
-func addMonitor(mux *http.ServeMux) (*ocprom.Exporter, error) {
-	exporter, err := ocprom.NewExporter(ocprom.Options{Registry: prometheus.DefaultRegisterer.(*prometheus.Registry)})
-	if err != nil {
-		return nil, fmt.Errorf("could not set up prometheus exporter: %v", err)
-	}
-	view.RegisterExporter(exporter)
-	mux.Handle(metricsPath, exporter)
-
-	return exporter, nil
 }
