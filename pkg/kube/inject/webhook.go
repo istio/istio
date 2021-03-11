@@ -129,10 +129,6 @@ type WebhookParameters struct {
 	// This is mainly used for tests. Webhook runs on the port started by Istiod.
 	Port int
 
-	// MonitoringPort is the webhook port, e.g. typically 15014.
-	// Set to -1 to disable monitoring
-	MonitoringPort int
-
 	// HealthCheckInterval configures how frequently the health check
 	// file is updated. Value of zero disables the health check
 	// update.
@@ -181,14 +177,6 @@ func NewWebhook(p WebhookParameters) (*Webhook, error) {
 		wh.meshConfig = p.Env.Mesh()
 		wh.mu.Unlock()
 	})
-
-	if p.MonitoringPort >= 0 {
-		mon, err := startMonitor(p.Mux, p.MonitoringPort)
-		if err != nil {
-			return nil, fmt.Errorf("could not start monitoring server %v", err)
-		}
-		wh.mon = mon
-	}
 
 	return wh, nil
 }
