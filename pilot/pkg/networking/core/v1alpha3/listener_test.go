@@ -62,7 +62,6 @@ const (
 	wildcardIP                     = "0.0.0.0"
 	fakePluginHTTPFilter           = "fake-plugin-http-filter"
 	fakePluginTCPFilter            = "fake-plugin-tcp-filter"
-	fakePluginFilterChainMatchAlpn = "fake-plugin-alpn"
 )
 
 func getProxy() *model.Proxy {

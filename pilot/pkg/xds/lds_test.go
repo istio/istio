@@ -56,9 +56,9 @@ func TestLDSIsolated(t *testing.T) {
 			t.Fatal(err)
 		}
 
-		// 7071 (inbound), 2001 (service - also as http proxy), 18010 (fortio), 15006 (virtual inbound)
-		if len(adscon.GetHTTPListeners()) != 4 {
-			t.Error("HTTP listeners, expecting 4 got", len(adscon.GetHTTPListeners()), xdstest.MapKeys(adscon.GetHTTPListeners()))
+		// 7071 (inbound), 2001 (service - also as http proxy), 18010 (fortio)
+		if len(adscon.GetHTTPListeners()) != 3 {
+			t.Error("HTTP listeners, expecting 3 got", len(adscon.GetHTTPListeners()), xdstest.MapKeys(adscon.GetHTTPListeners()))
 		}
 
 		// s1tcp:2000 outbound, bind=true (to reach other instances of the service)
@@ -284,8 +284,8 @@ func TestLDSEnvoyFilterWithWorkloadSelector(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			adsc := s.Connect(&model.Proxy{ConfigNamespace: "consumerns", IPAddresses: []string{test.ip}}, nil, watchAll)
 
-			// Expect 1 HTTP listeners for 8081, 1 hybrid listeners for 15006 (virtual inbound)
-			if len(adsc.GetHTTPListeners()) != 2 {
+			// Expect 1 HTTP listeners for 8081
+			if len(adsc.GetHTTPListeners()) != 1 {
 				t.Fatalf("Expected 2 http listeners, got %v", xdstest.MapKeys(adsc.GetHTTPListeners()))
 			}
 			// TODO: This is flimsy. The ADSC code treats any listener with http connection manager as a HTTP listener

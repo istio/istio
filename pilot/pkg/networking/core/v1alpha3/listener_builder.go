@@ -537,7 +537,8 @@ func (opt fcOpts) populateFilterChain(mtls plugin.MTLSSettings, port int, matchi
 	return opt
 }
 
-func buildInboundCatchAllFilterChains(configgen *ConfigGeneratorImpl, node *model.Proxy, push *model.PushContext) ([]*listener.FilterChain, map[int]enabledInspector) {
+func buildInboundCatchAllFilterChains(configgen *ConfigGeneratorImpl,
+	node *model.Proxy, push *model.PushContext) ([]*listener.FilterChain, map[int]enabledInspector) {
 	// ipv4 and ipv6 feature detect
 	ipVersions := make([]string, 0, 2)
 	if node.SupportsIPv4() {
