@@ -76,7 +76,6 @@ import (
 	istioclient "istio.io/client-go/pkg/clientset/versioned"
 	istiofake "istio.io/client-go/pkg/clientset/versioned/fake"
 	istioinformer "istio.io/client-go/pkg/informers/externalversions"
-	"istio.io/pkg/env"
 	"istio.io/pkg/version"
 )
 
@@ -362,20 +361,11 @@ func newClientInternal(clientFactory util.Factory, revision string) (*client, er
 	}
 	c.gatewayapiInformer = gatewayapiinformer.NewSharedInformerFactory(c.gatewayapi, resyncInterval)
 
-	// we only use the client in the case of this flag being set, so let's not create it if that's not the case
-	enableMCSServiceExport := env.RegisterBoolVar(
-		"PILOT_ENABLE_MCS_SERVICEEXPORT",
-		false,
-		"If enabled, Pilot will generate MCS ServiceExport objects for every non cluster-local service in the cluster",
-	).Get()
-
-	if enableMCSServiceExport {
-		c.mcsapis, err = mcsapisClient.NewForConfig(c.config)
-		if err != nil {
-			return nil, err
-		}
-		c.mcsapisInformers = mcsapisInformer.NewSharedInformerFactory(c.mcsapis, resyncInterval)
+	c.mcsapis, err = mcsapisClient.NewForConfig(c.config)
+	if err != nil {
+		return nil, err
 	}
+	c.mcsapisInformers = mcsapisInformer.NewSharedInformerFactory(c.mcsapis, resyncInterval)
 
 	ext, err := kubeExtClient.NewForConfig(c.config)
 	if err != nil {
