@@ -38,25 +38,27 @@ const (
 		"ECDHE-RSA-AES128-GCM-SHA256," +
 		"ECDHE-ECDSA-AES256-GCM-SHA384," +
 		"ECDHE-RSA-AES256-GCM-SHA384"
-
-	// AllowedInboundCiphers for server side TLS configuration.
-	// The list is based on the Envoy BoringSSL FIPS cipher list on
-	// https://www.envoyproxy.io/docs/envoy/latest/api-v3/extensions/transport_sockets/tls/v3/common.proto.html.
-	AllowedInboundCiphers string = "ECDHE-ECDSA-AES128-GCM-SHA256," +
-		"ECDHE-RSA-AES128-GCM-SHA256," +
-		"ECDHE-ECDSA-AES128-SHA," +
-		"ECDHE-RSA-AES128-SHA," +
-		"AES128-GCM-SHA256," +
-		"AES128-SHA," +
-		"ECDHE-ECDSA-AES256-GCM-SHA384," +
-		"ECDHE-RSA-AES256-GCM-SHA384," +
-		"ECDHE-ECDSA-AES256-SHA," +
-		"ECDHE-RSA-AES256-SHA," +
-		"AES256-GCM-SHA384," +
-		"AES256-SHA"
 )
 
 var (
+	// AllowedInboundCiphers for server side TLS configuration.
+	// The list is based on the Envoy BoringSSL FIPS cipher list on
+	// https://www.envoyproxy.io/docs/envoy/latest/api-v3/extensions/transport_sockets/tls/v3/common.proto.html.
+	AllowedInboundCiphers = []string{
+		"ECDHE-ECDSA-AES128-GCM-SHA256",
+		"ECDHE-RSA-AES128-GCM-SHA256",
+		"ECDHE-ECDSA-AES128-SHA",
+		"ECDHE-RSA-AES128-SHA",
+		"AES128-GCM-SHA256",
+		"AES128-SHA",
+		"ECDHE-ECDSA-AES256-GCM-SHA384",
+		"ECDHE-RSA-AES256-GCM-SHA384",
+		"ECDHE-ECDSA-AES256-SHA",
+		"ECDHE-RSA-AES256-SHA",
+		"AES256-GCM-SHA384",
+		"AES256-SHA",
+	}
+
 	MaxConcurrentStreams = env.RegisterIntVar(
 		"ISTIO_GPRC_MAXSTREAMS",
 		100000,

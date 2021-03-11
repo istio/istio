@@ -79,17 +79,13 @@ func BuildInboundFilterChain(mTLSMode model.MutualTLSMode, node *model.Proxy,
 		}
 	}
 
-	allowedCiphers := []string{}
-	for _, c := range strings.Split(features.AllowedInboundCiphers, ",") {
-		allowedCiphers = append(allowedCiphers, strings.TrimSpace(c))
-	}
 	defaultCiphers := []string{}
 	for _, c := range strings.Split(features.DefaultInboundCiphers, ",") {
 		defaultCiphers = append(defaultCiphers, strings.TrimSpace(c))
 	}
 	ciphers := []string{}
 	for _, c := range strings.Split(features.TLSInboundCipherSuites, ",") {
-		if err := checkCipher(c, allowedCiphers); err != nil {
+		if err := checkCipher(c, features.AllowedInboundCiphers); err != nil {
 			log.Warnf("checking cipher %v returns an error: %v", err)
 		} else {
 			ciphers = append(ciphers, strings.TrimSpace(c))
