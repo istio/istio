@@ -22,6 +22,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/davecgh/go-spew/spew"
 	accesslog "github.com/envoyproxy/go-control-plane/envoy/config/accesslog/v3"
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
@@ -49,7 +50,6 @@ import (
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/proto"
 	"istio.io/istio/pkg/util/gogo"
-	"istio.io/istio/pkg/util/protomarshal"
 	"istio.io/pkg/log"
 	"istio.io/pkg/monitoring"
 )
@@ -130,8 +130,9 @@ var (
 	// These are sniffed by the HTTP Inspector in the outbound listener
 	// We need to forward these ALPNs to upstream so that the upstream can
 	// properly use a HTTP or TCP listener
-	plaintextHTTPALPNs = []string{"http/1.0", "http/1.1", "h2c"}
-	mtlsHTTPALPNs      = []string{"istio-http/1.0", "istio-http/1.1", "istio-h2"}
+	plaintextHTTPALPNs  = []string{"http/1.0", "http/1.1", "h2c"}
+	mtlsHTTPALPNs       = []string{"istio-http/1.0", "istio-http/1.1", "istio-h2"}
+	legacyMtlsHTTPALPNs = []string{"istio", "istio-http/1.0", "istio-http/1.1", "istio-h2"}
 
 	mtlsTCPWithMxcALPNs = []string{"istio-peer-exchange", "istio"}
 
@@ -182,6 +183,40 @@ var (
 			Protocol:          istionetworking.ListenerProtocolTCP,
 		},
 	}
+	inboundPermissiveHTTPFilterChainMatchWithMxcOptions = []FilterChainMatchOptions{
+		{
+			// HTTP over MTLS
+			ApplicationProtocols: legacyMtlsHTTPALPNs,
+			TransportProtocol:    xdsfilters.TLSTransportProtocol,
+			Protocol:             istionetworking.ListenerProtocolHTTP,
+			MTLS:                 true,
+		},
+		{
+			// Plaintext HTTP
+			Protocol:          istionetworking.ListenerProtocolHTTP,
+			TransportProtocol: xdsfilters.RawBufferTransportProtocol,
+		},
+		// We do not need to handle other simple TLS or others, as this is explicitly declared as HTTP type.
+	}
+	inboundPermissiveTCPFilterChainMatchWithMxcOptions = []FilterChainMatchOptions{
+		{
+			// MTLS
+			ApplicationProtocols: mtlsTCPWithMxcALPNs,
+			TransportProtocol:    xdsfilters.TLSTransportProtocol,
+			Protocol:             istionetworking.ListenerProtocolTCP,
+			MTLS:                 true,
+		},
+		{
+			// Plain TLS
+			TransportProtocol: xdsfilters.TLSTransportProtocol,
+			Protocol:          istionetworking.ListenerProtocolTCP,
+		},
+		{
+			// Plaintext
+			Protocol:          istionetworking.ListenerProtocolTCP,
+			TransportProtocol: xdsfilters.RawBufferTransportProtocol,
+		},
+	}
 
 	inboundStrictFilterChainMatchOptions = []FilterChainMatchOptions{
 		{
@@ -199,6 +234,20 @@ var (
 			MTLS:              true,
 		},
 	}
+	inboundStrictTCPFilterChainMatchOptions = []FilterChainMatchOptions{
+		{
+			Protocol:          istionetworking.ListenerProtocolTCP,
+			TransportProtocol: xdsfilters.TLSTransportProtocol,
+			MTLS:              true,
+		},
+	}
+	inboundStrictHTTPFilterChainMatchOptions = []FilterChainMatchOptions{
+		{
+			Protocol:          istionetworking.ListenerProtocolHTTP,
+			TransportProtocol: xdsfilters.TLSTransportProtocol,
+			MTLS:              true,
+		},
+	}
 
 	inboundPlainTextFilterChainMatchOptions = []FilterChainMatchOptions{
 		{
@@ -209,6 +258,18 @@ var (
 		{
 			// Could not detect traffic on the client side. Server side has no mTLS.
 			Protocol:          istionetworking.ListenerProtocolTCP,
+			TransportProtocol: xdsfilters.RawBufferTransportProtocol,
+		},
+	}
+	inboundPlainTextTCPFilterChainMatchOptions = []FilterChainMatchOptions{
+		{
+			Protocol:          istionetworking.ListenerProtocolTCP,
+			TransportProtocol: xdsfilters.RawBufferTransportProtocol,
+		},
+	}
+	inboundPlainTextHTTPFilterChainMatchOptions = []FilterChainMatchOptions{
+		{
+			Protocol:          istionetworking.ListenerProtocolHTTP,
 			TransportProtocol: xdsfilters.RawBufferTransportProtocol,
 		},
 	}
@@ -479,123 +540,50 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundListenerForPortOrUDS(no
 		return nil
 	}
 
-	var allChains []istionetworking.FilterChain
+	port := pluginParams.ServiceInstance.Endpoint.EndpointPort
+	spew.Dump(getMtlsSettings(configgen, pluginParams))
+	mtlsConfig := getMtlsSettings(configgen, pluginParams).PerPort[port]
+	newOpts := []*fcOpts{}
+	for _, match := range getFilterChainMatchOptions(mtlsConfig, pluginParams.ListenerProtocol) {
+		opt := fcOpts{matchOpts: match}.populateFilterChain(mtlsConfig, 0, "")
+		newOpts = append(newOpts, &opt)
+	}
+	// Run our filter chains through the plugin
+	fcs := make([]istionetworking.FilterChain, 0, len(newOpts))
+	for _, o := range newOpts {
+		fcs = append(fcs, o.fc)
+	}
+	mut := &istionetworking.MutableObjects{
+		FilterChains: fcs,
+	}
 	for _, p := range configgen.Plugins {
-		chains := p.OnInboundFilterChains(pluginParams)
-		allChains = append(allChains, chains...)
-	}
-
-	tlsInspectorEnabled := false
-	hasTLSContext := false
-allChainsLabel:
-	for _, c := range allChains {
-		for _, lf := range c.ListenerFilters {
-			if lf.Name == wellknown.TlsInspector {
-				tlsInspectorEnabled = true
-				break allChainsLabel
-			}
-		}
-
-		hasTLSContext = hasTLSContext || c.TLSContext != nil
-	}
-
-	var filterChainMatchOption []FilterChainMatchOptions
-	// Detect protocol by sniffing and double the filter chain
-	if pluginParams.ListenerProtocol == istionetworking.ListenerProtocolAuto {
-		allChains = append(allChains, allChains...)
-		if tlsInspectorEnabled {
-			allChains = append(allChains, istionetworking.FilterChain{})
-			filterChainMatchOption = inboundPermissiveFilterChainMatchWithMxcOptions
-		} else {
-			if hasTLSContext {
-				filterChainMatchOption = inboundStrictFilterChainMatchOptions
-			} else {
-				filterChainMatchOption = inboundPlainTextFilterChainMatchOptions
-			}
-		}
-		listenerOpts.needHTTPInspector = true
-	} else if pluginParams.ListenerProtocol == istionetworking.ListenerProtocolTCP {
-		// When we are in permissive mode, we need a third filter chain to handle how envoy treats filter
-		// chain matching
-		// There will be one mtls filter chain, then two identical filter chains with transport=raw and transport=tls.
-		// TODO(https://github.com/istio/istio/issues/29588) clean this up
-		if tlsInspectorEnabled {
-			allChains = append(allChains, istionetworking.FilterChain{
-				FilterChainMatch: &listener.FilterChainMatch{TransportProtocol: xdsfilters.TLSTransportProtocol},
-			})
+		if err := p.OnInboundListener(pluginParams, mut); err != nil {
+			log.Errorf("Build inbound passthrough filter chains error: %v", err)
 		}
 	}
+	// Merge the results back into our struct
+	for i, fc := range mut.FilterChains {
+		newOpts[i].fc = fc
+	}
 
-	// name all the filter chains
-
-	for id, chain := range allChains {
-		var httpOpts *httpListenerOpts
-		var tcpNetworkFilters []*listener.Filter
-		var filterChainMatch *listener.FilterChainMatch
-
-		if chain.FilterChainMatch == nil {
-			chain.FilterChainMatch = &listener.FilterChainMatch{}
+	for _, opt := range newOpts {
+		fcOpts := &filterChainOpts{
+			match: opt.fc.FilterChainMatch,
+			// listenerFilters: chain.ListenerFilters, // TODO
 		}
-		if chain.FilterChainMatch.TransportProtocol == "" {
-			if chain.TLSContext == nil {
-				chain.FilterChainMatch.TransportProtocol = xdsfilters.RawBufferTransportProtocol
-			} else {
-				chain.FilterChainMatch.TransportProtocol = xdsfilters.TLSTransportProtocol
-			}
+		if opt.matchOpts.MTLS && opt.fc.TLSContext != nil {
+			// TODO
+			// inspector.TLSInspector = true
+			// Update transport socket from the TLS context configured by the plugin.
+			fcOpts.tlsContext = opt.fc.TLSContext
 		}
-		switch pluginParams.ListenerProtocol {
+		switch opt.fc.ListenerProtocol {
 		case istionetworking.ListenerProtocolHTTP:
-			filterChainMatch = chain.FilterChainMatch
-			if len(filterChainMatch.ApplicationProtocols) > 0 {
-				// This is the filter chain used by permissive mTLS. Append mtlsHTTPALPNs as the client side will
-				// override the ALPN with mtlsHTTPALPNs.
-				// TODO: This should move to authN code instead of us appending additional ALPNs here.
-				filterChainMatch.ApplicationProtocols = append(filterChainMatch.ApplicationProtocols, mtlsHTTPALPNs...)
-			}
-
-			httpOpts = configgen.buildSidecarInboundHTTPListenerOptsForPortOrUDS(node, pluginParams, "")
-
+			fcOpts.httpOpts = configgen.buildSidecarInboundHTTPListenerOptsForPortOrUDS(node, pluginParams, "")
 		case istionetworking.ListenerProtocolTCP:
-			filterChainMatch = chain.FilterChainMatch
-			tcpNetworkFilters = buildInboundNetworkFilters(pluginParams.Push, pluginParams.ServiceInstance, node)
-
-		case istionetworking.ListenerProtocolAuto:
-			// Make sure id is not out of boundary of filterChainMatchOption
-			if filterChainMatchOption == nil || len(filterChainMatchOption) <= id {
-				continue
-			}
-
-			// TODO(yxue) avoid bypassing authN using TCP
-			// Build filter chain options for listener configured with protocol sniffing
-			fcm := &listener.FilterChainMatch{}
-			if chain.FilterChainMatch != nil {
-				fcm = protomarshal.ShallowCopy(chain.FilterChainMatch).(*listener.FilterChainMatch)
-			}
-			fcm.ApplicationProtocols = filterChainMatchOption[id].ApplicationProtocols
-			fcm.TransportProtocol = filterChainMatchOption[id].TransportProtocol
-			filterChainMatch = fcm
-			if filterChainMatchOption[id].Protocol == istionetworking.ListenerProtocolHTTP {
-				httpOpts = configgen.buildSidecarInboundHTTPListenerOptsForPortOrUDS(node, pluginParams, "")
-				if chain.TLSContext != nil && chain.TLSContext.CommonTlsContext != nil {
-					chain.TLSContext.CommonTlsContext.AlpnProtocols = dropAlpnFromList(
-						chain.TLSContext.CommonTlsContext.AlpnProtocols, tcpMxcALPN)
-				}
-			} else {
-				tcpNetworkFilters = buildInboundNetworkFilters(pluginParams.Push, pluginParams.ServiceInstance, node)
-			}
-		default:
-			log.Warnf("Unsupported inbound protocol %v for port %#v", pluginParams.ListenerProtocol,
-				pluginParams.ServiceInstance.ServicePort)
-			return nil
+			fcOpts.networkFilters = buildInboundNetworkFilters(pluginParams.Push, pluginParams.ServiceInstance, node)
 		}
-
-		listenerOpts.filterChainOpts = append(listenerOpts.filterChainOpts, &filterChainOpts{
-			httpOpts:        httpOpts,
-			networkFilters:  tcpNetworkFilters,
-			tlsContext:      chain.TLSContext,
-			match:           filterChainMatch,
-			listenerFilters: chain.ListenerFilters,
-		})
+		listenerOpts.filterChainOpts = append(listenerOpts.filterChainOpts, fcOpts)
 	}
 
 	// call plugins

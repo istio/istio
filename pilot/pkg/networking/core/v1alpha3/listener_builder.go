@@ -504,14 +504,36 @@ func (lb *ListenerBuilder) getListeners() []*listener.Listener {
 	return lb.gatewayListeners
 }
 
-func getFilterChainMatchOptions(settings plugin.MTLSSettings) []FilterChainMatchOptions {
-	switch settings.Mode {
-	case model.MTLSStrict:
-		return inboundStrictFilterChainMatchOptions
-	case model.MTLSPermissive:
-		return inboundPermissiveFilterChainMatchWithMxcOptions
+func getFilterChainMatchOptions(settings plugin.MTLSSettings, protocol istionetworking.ListenerProtocol) []FilterChainMatchOptions {
+	log.Errorf("howardjohn: called with %v %v", settings.Mode, protocol)
+	switch protocol {
+	case istionetworking.ListenerProtocolHTTP:
+		switch settings.Mode {
+		case model.MTLSStrict:
+			return inboundStrictHTTPFilterChainMatchOptions
+		case model.MTLSPermissive:
+			return inboundPermissiveHTTPFilterChainMatchWithMxcOptions
+		default:
+			return inboundPlainTextHTTPFilterChainMatchOptions
+		}
+	case istionetworking.ListenerProtocolAuto:
+		switch settings.Mode {
+		case model.MTLSStrict:
+			return inboundStrictFilterChainMatchOptions
+		case model.MTLSPermissive:
+			return inboundPermissiveFilterChainMatchWithMxcOptions
+		default:
+			return inboundPlainTextFilterChainMatchOptions
+		}
 	default:
-		return inboundPlainTextFilterChainMatchOptions
+		switch settings.Mode {
+		case model.MTLSStrict:
+			return inboundStrictTCPFilterChainMatchOptions
+		case model.MTLSPermissive:
+			return inboundPermissiveTCPFilterChainMatchWithMxcOptions
+		default:
+			return inboundPlainTextTCPFilterChainMatchOptions
+		}
 	}
 }
 
@@ -520,13 +542,15 @@ type fcOpts struct {
 	fc        istionetworking.FilterChain
 }
 
-func (opt fcOpts) populateFilterChain(mtls plugin.MTLSSettings, port int, matchingIP string) fcOpts {
+func (opt fcOpts) populateFilterChain(mtls plugin.MTLSSettings, port uint32, matchingIP string) fcOpts {
 	opt.fc.FilterChainMatch = &listener.FilterChainMatch{}
 	opt.fc.FilterChainMatch.ApplicationProtocols = opt.matchOpts.ApplicationProtocols
 	opt.fc.FilterChainMatch.TransportProtocol = opt.matchOpts.TransportProtocol
-	opt.fc.FilterChainMatch.PrefixRanges = []*core.CidrRange{util.ConvertAddressToCidr(matchingIP)}
+	if len(matchingIP) > 0 {
+		opt.fc.FilterChainMatch.PrefixRanges = []*core.CidrRange{util.ConvertAddressToCidr(matchingIP)}
+	}
 	if port > 0 {
-		opt.fc.FilterChainMatch.DestinationPort = &wrappers.UInt32Value{Value: uint32(port)}
+		opt.fc.FilterChainMatch.DestinationPort = &wrappers.UInt32Value{Value: port}
 	}
 	opt.fc.ListenerProtocol = opt.matchOpts.Protocol
 	if opt.fc.ListenerProtocol == istionetworking.ListenerProtocolHTTP {
@@ -535,6 +559,21 @@ func (opt fcOpts) populateFilterChain(mtls plugin.MTLSSettings, port int, matchi
 		opt.fc.TLSContext = mtls.TCPTLSContext
 	}
 	return opt
+}
+
+func getMtlsSettings(configgen *ConfigGeneratorImpl, in *plugin.InputParams) plugin.InboundMTLSConfiguration {
+	var mtlsConfig *plugin.InboundMTLSConfiguration
+	for _, p := range configgen.Plugins {
+		cfg := p.InboundMTLSConfiguration(in)
+		if cfg != nil {
+			mtlsConfig = cfg
+			break
+		}
+	}
+	if mtlsConfig == nil {
+		return plugin.InboundMTLSConfiguration{} // Default: no TLS
+	}
+	return *mtlsConfig
 }
 
 func buildInboundCatchAllFilterChains(configgen *ConfigGeneratorImpl,
@@ -572,11 +611,9 @@ func buildInboundCatchAllFilterChains(configgen *ConfigGeneratorImpl,
 		}
 
 		in := &plugin.InputParams{
-			// TODO!!! must change this
-			ListenerProtocol: istionetworking.ListenerProtocolHTTP,
-			Node:             node,
-			ServiceInstance:  dummyServiceInstance,
-			Push:             push,
+			Node:            node,
+			ServiceInstance: dummyServiceInstance,
+			Push:            push,
 		}
 		// TODO usage here only in HTTP is a bit leaky
 		listenerOpts := buildListenerOpts{
@@ -590,25 +627,16 @@ func buildInboundCatchAllFilterChains(configgen *ConfigGeneratorImpl,
 			},
 		}
 		// Call plugins to get mtls policies.
-		var mtlsConfig *plugin.PassthroughChainConfiguration
-		for _, p := range configgen.Plugins {
-			cfg := p.InboundPassthroughFilterChains(in)
-			if cfg != nil {
-				mtlsConfig = cfg
-				break
-			}
-		}
-		if mtlsConfig == nil {
-			mtlsConfig = &plugin.PassthroughChainConfiguration{} // Default: no TLS
-		}
-
+		mtlsConfig := getMtlsSettings(configgen, in)
 		newOpts := []*fcOpts{}
-		for _, match := range getFilterChainMatchOptions(mtlsConfig.Passthrough) {
+		log.Errorf("howardjohn: catch all1")
+		for _, match := range getFilterChainMatchOptions(mtlsConfig.Passthrough, istionetworking.ListenerProtocolAuto) {
 			opt := fcOpts{matchOpts: match}.populateFilterChain(mtlsConfig.Passthrough, 0, matchingIP)
 			newOpts = append(newOpts, &opt)
 		}
+		log.Errorf("howardjohn: catch all2")
 		for port, setting := range mtlsConfig.PerPort {
-			for _, match := range getFilterChainMatchOptions(setting) {
+			for _, match := range getFilterChainMatchOptions(setting, istionetworking.ListenerProtocolAuto) {
 				opt := fcOpts{matchOpts: match}.populateFilterChain(setting, port, matchingIP)
 				newOpts = append(newOpts, &opt)
 			}
@@ -629,7 +657,7 @@ func buildInboundCatchAllFilterChains(configgen *ConfigGeneratorImpl,
 				log.Errorf("Build inbound passthrough filter chains error: %v", err)
 			}
 		}
-		// Merge the results back into our srtuct
+		// Merge the results back into our struct
 		for i, fc := range mutable.FilterChains {
 			newOpts[i].fc = fc
 		}

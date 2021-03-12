@@ -15,8 +15,6 @@
 package plugin
 
 import (
-	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
-	hcm "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
 	tls "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
 
 	"istio.io/istio/pilot/pkg/model"
@@ -71,7 +69,7 @@ type Plugin interface {
 	// Can be used to add additional filters.
 	OnInboundPassthrough(in *InputParams, mutable *istionetworking.MutableObjects) error
 
-	InboundPassthroughFilterChains(in *InputParams) *PassthroughChainConfiguration
+	InboundMTLSConfiguration(in *InputParams) *InboundMTLSConfiguration
 }
 
 type MTLSSettings struct {
@@ -80,13 +78,7 @@ type MTLSSettings struct {
 	HTTPTLSContext *tls.DownstreamTlsContext
 }
 
-type Filters struct {
-	TCP  []*listener.Filter
-	HTTP []*hcm.HttpFilter
-}
-
-type PassthroughChainConfiguration struct {
-	// TODO return HTTP and TCP
+type InboundMTLSConfiguration struct {
 	Passthrough MTLSSettings
-	PerPort     map[int]MTLSSettings
+	PerPort     map[uint32]MTLSSettings
 }

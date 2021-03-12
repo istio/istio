@@ -103,11 +103,23 @@ func (Plugin) OnInboundPassthrough(in *plugin.InputParams, mutable *networking.M
 	return buildFilter(in, mutable, true)
 }
 
-func (p Plugin) InboundPassthroughFilterChains(in *plugin.InputParams) *plugin.PassthroughChainConfiguration {
+func (p Plugin) InboundMTLSConfiguration(in *plugin.InputParams) *plugin.InboundMTLSConfiguration {
 	applier := factory.NewPolicyApplier(in.Push, in.Node.Metadata.Namespace, labels.Collection{in.Node.Metadata.Labels})
 	trustDomains := trustDomainsForValidation(in.Push.Mesh)
-	resp := plugin.PassthroughChainConfiguration{
-		PerPort: map[int]plugin.MTLSSettings{},
+
+	// This is for a specific port. Create the configuration for just that port.
+	port := in.ServiceInstance.Endpoint.EndpointPort
+	// TODO passthrough bool
+	if port != 15006 {
+		return &plugin.InboundMTLSConfiguration{PerPort: map[uint32]plugin.MTLSSettings{
+			port: applier.InboundMTLSSettings(port, in.Node, trustDomains),
+		}}
+	}
+	// Otherwise, this is for passthrough configuration. We need to create configuration for the
+	// passthrough, but also any ports that are not explicitly declared in the Service but are in the
+	// mTLS port level settings.
+	resp := plugin.InboundMTLSConfiguration{
+		PerPort: map[uint32]plugin.MTLSSettings{},
 	}
 	resp.Passthrough = applier.InboundMTLSSettings(0, in.Node, trustDomains)
 
@@ -118,8 +130,8 @@ func (p Plugin) InboundPassthroughFilterChains(in *plugin.InputParams) *plugin.P
 			continue
 		}
 
-		authnLog.Debugf("InboundPassthroughFilterChains: build extra pass through filter chain for %v:%d", in.Node.ID, port)
-		resp.PerPort[int(port)] = applier.InboundMTLSSettings(port, in.Node, trustDomains)
+		authnLog.Debugf("InboundMTLSConfiguration: build extra pass through filter chain for %v:%d", in.Node.ID, port)
+		resp.PerPort[port] = applier.InboundMTLSSettings(port, in.Node, trustDomains)
 	}
 	return &resp
 }

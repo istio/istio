@@ -124,6 +124,6 @@ func (p Plugin) OnInboundPassthrough(in *plugin.InputParams, mutable *networking
 	return nil
 }
 
-func (p Plugin) InboundPassthroughFilterChains(in *plugin.InputParams) *plugin.PassthroughChainConfiguration {
+func (p Plugin) InboundMTLSConfiguration(in *plugin.InputParams) *plugin.InboundMTLSConfiguration {
 	return nil
 }

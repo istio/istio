@@ -2384,8 +2384,8 @@ func (p *fakePlugin) OnInboundPassthrough(in *plugin.InputParams, mutable *istio
 	return nil
 }
 
-func (p *fakePlugin) InboundPassthroughFilterChains(in *plugin.InputParams) *plugin.PassthroughChainConfiguration {
-	return &plugin.PassthroughChainConfiguration{Passthrough: plugin.MTLSSettings{
+func (p *fakePlugin) InboundMTLSConfiguration(in *plugin.InputParams) *plugin.InboundMTLSConfiguration {
+	return &plugin.InboundMTLSConfiguration{Passthrough: plugin.MTLSSettings{
 		Mode:           model.MTLSPermissive,
 		TCPTLSContext:  &tls.DownstreamTlsContext{},
 		HTTPTLSContext: &tls.DownstreamTlsContext{},
