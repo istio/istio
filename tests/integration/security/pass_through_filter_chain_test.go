@@ -27,12 +27,7 @@ import (
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/util/retry"
-<<<<<<< HEAD
-	"istio.io/istio/tests/integration/security/util"
-=======
 	"istio.io/istio/pkg/test/util/tmpl"
-	"istio.io/pkg/log"
->>>>>>> 3888065750 (tests complete)
 )
 
 // TestPassThroughFilterChain tests the authN and authZ policy on the pass through filter chain.
@@ -40,7 +35,7 @@ func TestPassThroughFilterChain(t *testing.T) {
 	framework.
 		NewTest(t).
 		Features("security.filterchain").
-		Run(func(t framework.TestContext) {
+		Run(func(ctx framework.TestContext) {
 			ns := apps.Namespace1
 
 			type expect struct {
@@ -100,17 +95,10 @@ spec:
 					},
 				},
 				{
-<<<<<<< HEAD
-					// There is only authZ policy that allows access to port 8085 and 8087.
-					// Only request to port 8085, 8087 should be allowed.
-					name: "DISABLE with authz",
-					config: `apiVersion: security.istio.io/v1beta1
-=======
 					// There is only authZ policy that allows access to port 8085, 8087, and 8089.
 					// Only request to port 8085, 8087, 8089 should be allowed.
-					"DISABLE with authz",
-					`apiVersion: security.istio.io/v1beta1
->>>>>>> 3888065750 (tests complete)
+					name: "DISABLE with authz",
+					config: `apiVersion: security.istio.io/v1beta1
 kind: PeerAuthentication
 metadata:
   name: mtls
@@ -126,13 +114,8 @@ spec:
   rules:
   - to:
     - operation:
-<<<<<<< HEAD
-        ports: ["8085", "8087"]`,
-					expected: []expect{
-=======
         ports: ["8085", "8087", "8089"]`,
-					[]expect{
->>>>>>> 3888065750 (tests complete)
+					expected: []expect{
 						{
 							port:      8085,
 							schema:    protocol.HTTP,
@@ -259,19 +242,11 @@ spec:
 						},
 					},
 				},
-
 				{
-<<<<<<< HEAD
-					// There is only authN policy that disables mTLS by default and enables mTLS strict on port 8086 and 8088.
-					// The request should be denied on port 8086 and 8088.
-					name: "DISABLE with STRICT",
-					config: `apiVersion: security.istio.io/v1beta1
-=======
 					// There is only authN policy that disables mTLS by default and enables mTLS strict on port 8086, 8088, 8084.
 					// The request should be denied on port 8086, 8088, 8084.
-					"DISABLE with STRICT",
-					`apiVersion: security.istio.io/v1beta1
->>>>>>> 3888065750 (tests complete)
+					name: "DISABLE with STRICT",
+					config: `apiVersion: security.istio.io/v1beta1
 kind: PeerAuthentication
 metadata:
   name: mtls
@@ -388,8 +363,8 @@ spec:
 					},
 				},
 				{
-					"PERMISSIVE with strict",
-					`apiVersion: security.istio.io/v1beta1
+					name: "PERMISSIVE with strict",
+					config: `apiVersion: security.istio.io/v1beta1
 kind: PeerAuthentication
 metadata:
   name: mtls
@@ -406,7 +381,7 @@ spec:
       mode: STRICT
     8084:
       mode: STRICT`,
-					[]expect{
+					expected: []expect{
 						{
 							port:      8085,
 							schema:    protocol.HTTP,
@@ -446,8 +421,8 @@ spec:
 					},
 				},
 				{
-					"STRICT with PERMISSIVE",
-					`apiVersion: security.istio.io/v1beta1
+					name: "STRICT with PERMISSIVE",
+					config: `apiVersion: security.istio.io/v1beta1
 kind: PeerAuthentication
 metadata:
   name: mtls
@@ -464,7 +439,7 @@ spec:
       mode: PERMISSIVE
     8084:
       mode: PERMISSIVE`,
-					[]expect{
+					expected: []expect{
 						{
 							port:      8085,
 							schema:    protocol.HTTP,
@@ -504,8 +479,8 @@ spec:
 					},
 				},
 				{
-					"PERMISSIVE with disable",
-					`apiVersion: security.istio.io/v1beta1
+					name: "PERMISSIVE with disable",
+					config: `apiVersion: security.istio.io/v1beta1
 kind: PeerAuthentication
 metadata:
   name: mtls
@@ -522,7 +497,7 @@ spec:
       mode: DISABLE
     8084:
       mode: DISABLE`,
-					[]expect{
+					expected: []expect{
 						{
 							port:      8085,
 							schema:    protocol.HTTP,
@@ -562,8 +537,8 @@ spec:
 					},
 				},
 				{
-					"DISABLE with PERMISSIVE",
-					`apiVersion: security.istio.io/v1beta1
+					name: "DISABLE with PERMISSIVE",
+					config: `apiVersion: security.istio.io/v1beta1
 kind: PeerAuthentication
 metadata:
   name: mtls
@@ -580,7 +555,7 @@ spec:
       mode: PERMISSIVE
     8084:
       mode: PERMISSIVE`,
-					[]expect{
+					expected: []expect{
 						{
 							port:      8085,
 							schema:    protocol.HTTP,
@@ -624,14 +599,6 @@ spec:
 			for _, cluster := range ctx.Clusters() {
 				destination := apps.A.Match(echo.Namespace(ns.Name())).GetOrFail(ctx, echo.InCluster(cluster))
 				destWorkload := getWorkload(destination, ctx).Address()
-<<<<<<< HEAD
-				for _, tc := range cases {
-					t.NewSubTest(fmt.Sprintf("In %s/%v", cluster.StableName(), tc.name)).Run(func(t framework.TestContext) {
-						t.Config().ApplyYAMLOrFail(t, ns.Name(), tc.config)
-						util.WaitForConfig(t, tc.config, ns)
-						for _, expect := range tc.expected {
-							name := fmt.Sprintf("port %d[%t]", expect.port, expect.want)
-=======
 				se := tmpl.EvaluateOrFail(ctx, `apiVersion: networking.istio.io/v1beta1
 kind: ServiceEntry
 metadata:
@@ -705,7 +672,6 @@ spec:
 									want = expect.mtls
 								}
 								name := fmt.Sprintf("port %d[%t]", expect.port, want)
->>>>>>> 3888065750 (tests complete)
 
 								// The request should be handled by the pass through filter chain.
 								host := fmt.Sprintf("%s:%d", destWorkload, expect.port)
@@ -718,33 +684,10 @@ spec:
 											Value: host,
 										},
 									},
-<<<<<<< HEAD
-								},
-							}
-							t.NewSubTest(name).Run(func(t framework.TestContext) {
-								retry.UntilSuccessOrFail(t, func() error {
-									responses, err := from.ForwardEcho(context.TODO(), request)
-									if expect.want {
-										if err != nil {
-											return fmt.Errorf("want allow but got error: %v", err)
-										}
-										if len(responses) < 1 {
-											return fmt.Errorf("received no responses from request to %s", host)
-										}
-										if expect.schema == protocol.HTTP && response.StatusCodeOK != responses[0].Code {
-											return fmt.Errorf("want status %s but got %s", response.StatusCodeOK, responses[0].Code)
-										}
-									} else {
-										// Check HTTP forbidden response
-										if len(responses) >= 1 && response.StatusCodeForbidden == responses[0].Code {
-											return nil
-										}
-=======
 								}
 								ctx.NewSubTest(name).Run(func(ctx framework.TestContext) {
 									retry.UntilSuccessOrFail(ctx, func() error {
 										responses, err := from.ForwardEcho(context.TODO(), request)
-										log.Errorf("howardjohn: got %v for %v", err, request.Url)
 										if want {
 											if err != nil {
 												return fmt.Errorf("want allow but got error: %v", err)
@@ -760,7 +703,6 @@ spec:
 											if len(responses) >= 1 && response.StatusCodeForbidden == responses[0].Code {
 												return nil
 											}
->>>>>>> 3888065750 (tests complete)
 
 											if err == nil {
 												return fmt.Errorf("want error but got none: %v", responses)
