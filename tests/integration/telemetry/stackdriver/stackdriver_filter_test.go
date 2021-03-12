@@ -323,8 +323,9 @@ func validateMetrics(t *testing.T, serverReqCount, clientReqCount, clName, trust
 			gotClient = true
 		}
 	}
-	if !(gotServer && gotClient) {
-		return fmt.Errorf("metrics: did not get expected metrics for cluster %s; server = %t, client = %t", clName, gotServer, gotClient)
+	if !gotServer || !gotClient {
+		return fmt.Errorf("metrics: did not get expected metrics for cluster %s; got %v\n want client %v\n want server %v",
+			clName, ts, wantClient.String(), wantServer.String())
 	}
 	return nil
 }
@@ -347,8 +348,7 @@ func validateLogs(t *testing.T, srvLogEntry, clName, trustDomain string, filter 
 			return nil
 		}
 	}
-
-	return errors.New("logs: did not get expected log entry")
+	return fmt.Errorf("logs: did not get expected log entry: got %v\n want %v", entries, wantLog.String())
 }
 
 func validateEdges(t *testing.T, clName, trustDomain string) error {
@@ -375,7 +375,7 @@ func validateEdges(t *testing.T, clName, trustDomain string) error {
 			return nil
 		}
 	}
-	return errors.New("edges: did not get expected traffic assertion")
+	return fmt.Errorf("edges: did not get expected traffic assertion: got %v\n want %v", edges, wantEdge)
 }
 
 func validateTraces(t *testing.T) error {
