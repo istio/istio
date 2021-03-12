@@ -382,16 +382,10 @@ func convertToEnvoyJwtConfig(jwtRules []*v1beta1.JWTRule, push *model.PushContex
 }
 
 func (a *v1beta1PolicyApplier) PortLevelSetting() map[uint32]*v1beta1.PeerAuthentication_MutualTLS {
-	if a.consolidatedPeerPolicy != nil {
-		return a.consolidatedPeerPolicy.PortLevelMtls
-	}
-	return nil
+	return a.consolidatedPeerPolicy.PortLevelMtls
 }
 
 func (a *v1beta1PolicyApplier) getMutualTLSModeForPort(endpointPort uint32) model.MutualTLSMode {
-	if a.consolidatedPeerPolicy == nil {
-		return model.MTLSPermissive
-	}
 	if a.consolidatedPeerPolicy.PortLevelMtls != nil {
 		if portMtls, ok := a.consolidatedPeerPolicy.PortLevelMtls[endpointPort]; ok {
 			return getMutualTLSMode(portMtls)
@@ -420,8 +414,7 @@ func getMutualTLSMode(mtls *v1beta1.PeerAuthentication_MutualTLS) model.MutualTL
 // configs. This list should contains at most 1 mesh-level and 1 namespace-level configs.
 // Workload-level configs should not be in root namespace (this should be guaranteed by the caller,
 // though they will be safely ignored in this function). If the input config list is empty, returns
-// nil which can be used to indicate no applicable (beta) policy exist in order to trigger fallback
-// to alpha policy. This can be simplified once we deprecate alpha policy.
+// a default policy set to a PERMISSIVE.
 // If there is at least one applicable config, returns should be not nil, and is a combined policy
 // based on following rules:
 // - It should have the setting from the most narrow scope (i.e workload-level is  preferred over
@@ -433,6 +426,13 @@ func getMutualTLSMode(mtls *v1beta1.PeerAuthentication_MutualTLS) model.MutualTL
 // one in namespace-level and so on.
 func composePeerAuthentication(rootNamespace string, configs []*config.Config) *v1beta1.PeerAuthentication {
 	var meshCfg, namespaceCfg, workloadCfg *config.Config
+
+	// Initial outputPolicy is set to a PERMISSIVE.
+	outputPolicy := v1beta1.PeerAuthentication{
+		Mtls: &v1beta1.PeerAuthentication_MutualTLS{
+			Mode: v1beta1.PeerAuthentication_MutualTLS_PERMISSIVE,
+		},
+	}
 
 	for _, cfg := range configs {
 		spec := cfg.Spec.(*v1beta1.PeerAuthentication)
@@ -456,19 +456,6 @@ func composePeerAuthentication(rootNamespace string, configs []*config.Config) *
 				workloadCfg = cfg
 			}
 		}
-	}
-
-	if meshCfg == nil && namespaceCfg == nil && workloadCfg == nil {
-		// Return nil so that caller can fallback to apply alpha policy. Once we deprecate alpha API,
-		// this special case can be removed.
-		return nil
-	}
-
-	// Initial outputPolicy is set to a PERMISSIVE.
-	outputPolicy := v1beta1.PeerAuthentication{
-		Mtls: &v1beta1.PeerAuthentication_MutualTLS{
-			Mode: v1beta1.PeerAuthentication_MutualTLS_PERMISSIVE,
-		},
 	}
 
 	// Process in mesh, namespace, workload order to resolve inheritance (UNSET)
