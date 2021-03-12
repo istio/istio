@@ -826,6 +826,8 @@ func selfCallsCases(apps *EchoDeployments) []TrafficTestCase {
 	cases := []TrafficTestCase{}
 	for _, cl := range flatten(apps.PodA, apps.VM, apps.PodTproxy) {
 		cl := cl
+		workloads, _ := apps.PodTproxy[0].Workloads()
+		podIP := workloads[0].Address()
 		cases = append(cases,
 			// Calls to the Service will go through envoy outbound and inbound, so we get envoy headers added
 			TrafficTestCase{
@@ -842,12 +844,29 @@ func selfCallsCases(apps *EchoDeployments) []TrafficTestCase {
 				name: fmt.Sprintf("to localhost %v", cl.Config().Service),
 				call: cl.CallWithRetryOrFail,
 				opts: echo.CallOptions{
-					Address:   "localhost",
-					Scheme:    scheme.HTTP,
-					Port:      &echo.Port{ServicePort: 8080},
-					Validator: echo.And(echo.ExpectOK(), echo.ExpectKey("X-Envoy-Attempt-Count", "")),
+					Target:       cl,
+					Address:      "localhost",
+					CallInstance: true,
+					Scheme:       scheme.HTTP,
+					Port:         &echo.Port{ServicePort: 8080, InstancePort: 18080},
+					Validator:    echo.And(echo.ExpectOK(), echo.ExpectKey("X-Envoy-Attempt-Count", "")),
 				},
-			})
+			},
+			// PodIP calls will go directly to podIP, bypassing Envoy. No envoy headers added.
+			TrafficTestCase{
+				name: fmt.Sprintf("to podIP %v", cl.Config().Service),
+				call: cl.CallWithRetryOrFail,
+				opts: echo.CallOptions{
+					Target:       cl,
+					Address:      podIP,
+					CallInstance: true,
+					Scheme:       scheme.HTTP,
+					Port:         &echo.Port{ServicePort: 8080, InstancePort: 18080},
+					Validator:    echo.And(echo.ExpectOK(), echo.ExpectKey("X-Envoy-Attempt-Count", "")),
+				},
+			},
+		)
+
 	}
 	return cases
 }

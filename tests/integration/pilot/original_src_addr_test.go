@@ -30,24 +30,13 @@ func TestTproxy(t *testing.T) {
 		Features("traffic.original-source-ip").
 		RequiresSingleCluster().
 		Run(func(t framework.TestContext) {
-			t.NewSubTest("preserve original source ip").Run(func(t framework.TestContext) {
-				workloads, err := apps.PodA[0].Workloads()
-				if err != nil {
-					t.Errorf("failed to get Subsets: %v", err)
-					return
-				}
-				// check the server can see the client's original ip
-				checkOriginalSrcIP(t, apps.PodA[0], apps.PodTproxy[0], workloads[0].Address())
-			})
-			t.NewSubTest("app call itself by pod ip").Run(func(t framework.TestContext) {
-				workloads, err := apps.PodTproxy[0].Workloads()
-				if err != nil {
-					t.Errorf("failed to get Subsets: %v", err)
-					return
-				}
-				podIP := workloads[0].Address()
-				appCallItselfByPodIP(t, apps.PodTproxy[0], podIP)
-			})
+			workloads, err := apps.PodA[0].Workloads()
+			if err != nil {
+				t.Errorf("failed to get Subsets: %v", err)
+				return
+			}
+			// check the server can see the client's original ip
+			checkOriginalSrcIP(t, apps.PodA[0], apps.PodTproxy[0], workloads[0].Address())
 		})
 }
 
@@ -62,16 +51,5 @@ func checkOriginalSrcIP(t framework.TestContext, src, dest echo.Instance, expect
 		Scheme:    scheme.HTTP,
 		Count:     1,
 		Validator: validator,
-	})
-}
-
-func appCallItselfByPodIP(ctx framework.TestContext, app echo.Instance, podIP string) {
-	_ = app.CallWithRetryOrFail(ctx, echo.CallOptions{
-		Target:       app,
-		Address:      podIP,
-		PortName:     "http",
-		Scheme:       scheme.HTTP,
-		Count:        1,
-		CallInstance: true,
 	})
 }
