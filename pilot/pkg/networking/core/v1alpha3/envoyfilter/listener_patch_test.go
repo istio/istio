@@ -91,6 +91,7 @@ func newTestEnvironment(serviceDiscovery model.ServiceDiscovery, meshConfig mesh
 	}
 
 	e.PushContext = model.NewPushContext()
+	e.Init()
 	_ = e.PushContext.InitContext(e, nil, nil)
 
 	return e

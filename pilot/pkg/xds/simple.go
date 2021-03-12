@@ -83,6 +83,7 @@ func NewXDS(stop chan struct{}) *SimpleServer {
 	mc := mesh.DefaultMeshConfig()
 	env.Watcher = mesh.NewFixedWatcher(&mc)
 	env.PushContext.Mesh = env.Watcher.Mesh()
+	env.Init()
 
 	ds := NewDiscoveryServer(env, nil, "istiod")
 	ds.CachesSynced()
