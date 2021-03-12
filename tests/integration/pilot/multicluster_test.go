@@ -36,15 +36,22 @@ import (
 )
 
 func TestClusterLocal(t *testing.T) {
-	framework.NewTest(t).Run(func(t framework.TestContext) {
-		if len(t.Clusters().Kube()) < 2 {
-			t.Skip("only run in multi-cluster mode")
-		}
+	framework.NewTest(t).
+		Features(
+			"installation.multicluster.cluster_local",
+			// TODO tracking topologies as feature labels doesn't make sense
+			"installation.multicluster.multimaster",
+			"installation.multicluster.remote",
+		).
+		Run(func(t framework.TestContext) {
+			if len(t.Clusters().Kube()) < 2 {
+				t.Skip("only run in multi-cluster mode")
+			}
 
-		// TODO use echotest to dynamically pick 2 simple pods from apps.All
-		sources := apps.PodA
-		destination := apps.PodB
-		patchMeshConfig(t, destination.Clusters(), fmt.Sprintf(`
+			// TODO use echotest to dynamically pick 2 simple pods from apps.All
+			sources := apps.PodA
+			destination := apps.PodB
+			patchMeshConfig(t, destination.Clusters(), fmt.Sprintf(`
 serviceSettings: 
   - settings:
 	  clusterLocal: true
@@ -52,22 +59,22 @@ serviceSettings:
 	  - "%s"
 `, apps.PodB[0].Config().FQDN()))
 
-		for _, source := range sources {
-			source := source
-			t.NewSubTest(source.Config().Cluster.StableName()).Run(func(t framework.TestContext) {
-				source.CallWithRetryOrFail(t, echo.CallOptions{
-					Target:   destination[0],
-					Count:    3 * len(destination),
-					PortName: "http",
-					Scheme:   scheme.HTTP,
-					Validator: echo.And(
-						echo.ExpectOK(),
-						echo.ExpectReachedClusters(cluster.Clusters{source.Config().Cluster}),
-					),
+			for _, source := range sources {
+				source := source
+				t.NewSubTest(source.Config().Cluster.StableName()).Run(func(t framework.TestContext) {
+					source.CallWithRetryOrFail(t, echo.CallOptions{
+						Target:   destination[0],
+						Count:    3 * len(destination),
+						PortName: "http",
+						Scheme:   scheme.HTTP,
+						Validator: echo.And(
+							echo.ExpectOK(),
+							echo.ExpectReachedClusters(cluster.Clusters{source.Config().Cluster}),
+						),
+					})
 				})
-			})
-		}
-	})
+			}
+		})
 }
 
 func patchMeshConfig(t framework.TestContext, clusters cluster.Clusters, patch string) {
