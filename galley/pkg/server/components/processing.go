@@ -63,7 +63,8 @@ func (p *Processing) Start() (err error) {
 	if p.args.MeshSource != nil {
 		mesh = p.args.MeshSource
 	} else {
-		if mesh, err = meshcfgNewFS(p.args.MeshConfigFile); err != nil {
+		mesh, err = meshcfgNewFS(p.args.MeshConfigFile)
+		if err != nil {
 			return
 		}
 	}

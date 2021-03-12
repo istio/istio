@@ -244,6 +244,7 @@ func (s *Server) initInprocessAnalysisController(args *PilotArgs) error {
 	processingArgs.WatchedNamespaces = args.RegistryOptions.KubeOptions.WatchedNamespaces
 	processingArgs.EnableConfigAnalysis = true
 	meshSource := mesh.NewInmemoryMeshCfg()
+	meshSource.Set(s.environment.Mesh())
 	s.environment.Watcher.AddMeshHandler(func() {
 		meshSource.Set(s.environment.Mesh())
 	})
