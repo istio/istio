@@ -1389,6 +1389,19 @@ func TestAuthnFilterConfig(t *testing.T) {
 			},
 		},
 		{
+			name: "beta-mtls-disable",
+			peerIn: []*config.Config{
+				{
+					Spec: &v1beta1.PeerAuthentication{
+						Mtls: &v1beta1.PeerAuthentication_MutualTLS{
+							Mode: v1beta1.PeerAuthentication_MutualTLS_DISABLE,
+						},
+					},
+				},
+			},
+			expected: nil,
+		},
+		{
 			name:      "beta-mtls-for-gateway-does-not-respect-mtls-configs",
 			isGateway: true,
 			peerIn: []*config.Config{

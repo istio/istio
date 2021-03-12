@@ -99,6 +99,12 @@ func (a *v1beta1PolicyApplier) setAuthnFilterForPeerAuthn(proxyType model.NodeTy
 	var effectiveMTLSMode model.MutualTLSMode
 	if proxyType == model.SidecarProxy {
 		effectiveMTLSMode = a.getMutualTLSModeForPort(port)
+
+		// Skip authn filter peer config when mtls is disabled.
+		if effectiveMTLSMode == model.MTLSDisable {
+			authnLog.Debugf("AuthnFilter: skip setting peer authn when mtls is disabled")
+			return nil
+		}
 	} else {
 		// this is for gateway with a server whose TLS mode is ISTIO_MUTUAL
 		// this is effectively the same as strict mode. We dont really
