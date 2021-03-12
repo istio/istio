@@ -1806,7 +1806,7 @@ func TestComposePeerAuthentication(t *testing.T) {
 			},
 		},
 		{
-			name: "return non-empty selector in root namespace with default",
+			name: "ignore non-empty selector in root namespace",
 			configs: []*config.Config{
 				{
 					Meta: config.Meta{
