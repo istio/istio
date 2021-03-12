@@ -56,6 +56,10 @@ const (
 	serverLogEntry               = "tests/integration/telemetry/stackdriver/testdata/server_access_log.json.tmpl"
 	sdBootstrapConfigMap         = "stackdriver-bootstrap-config"
 
+	GcrProjectIDENV     = "GCR_PROJECT_ID"
+	ControlPlaneENV     = "CONTROL_PLANE"
+	managedControlPlane = "MANAGED"
+
 	fakeGCEMetadataServerValues = `
   defaultConfig:
     proxyMetadata:
@@ -84,11 +88,19 @@ func unmarshalFromTemplateFile(file string, out proto.Message, clName, trustDoma
 	if err != nil {
 		return err
 	}
+	// TODO: replace with reading from meshConfig
+	projectID, controlPlane := os.Getenv(GcrProjectIDENV), os.Getenv(ControlPlaneENV)
+	if projectID == "" {
+		scopes.Framework.Warn("projectID is empty from env\n")
+	}
+	if controlPlane == managedControlPlane {
+		trustDomain = fmt.Sprintf("%s.svc.id.goog", projectID)
+	}
 	resource, err := tmpl.Evaluate(string(templateFile), map[string]interface{}{
 		"EchoNamespace": getEchoNamespaceInstance().Name(),
 		"ClusterName":   clName,
-		"TrustDomain":   trustDomain,
 		"OnGCE":         metadata.OnGCE(),
+		"TrustDomain":   trustDomain,
 	})
 	if err != nil {
 		return err
