@@ -27,7 +27,7 @@ import (
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/util/retry"
-	"istio.io/pkg/log"
+	"istio.io/istio/tests/integration/security/util"
 )
 
 // TestPassThroughFilterChain tests the authN and authZ policy on the pass through filter chain.
@@ -51,15 +51,15 @@ func TestPassThroughFilterChain(t *testing.T) {
 				// All requests should success, this is to verify the pass through filter chain and
 				// the workload ports are working correctly.
 				{
-					"DISABLE",
-					`apiVersion: security.istio.io/v1beta1
+					name: "DISABLE",
+					config: `apiVersion: security.istio.io/v1beta1
 kind: PeerAuthentication
 metadata:
   name: mtls
 spec:
   mtls:
     mode: DISABLE`,
-					[]expect{
+					expected: []expect{
 						{
 							port:   8085,
 							schema: protocol.HTTP,
@@ -85,8 +85,8 @@ spec:
 				{
 					// There is only authZ policy that allows access to port 8085 and 8087.
 					// Only request to port 8085, 8087 should be allowed.
-					"DISABLE with authz",
-					`apiVersion: security.istio.io/v1beta1
+					name: "DISABLE with authz",
+					config: `apiVersion: security.istio.io/v1beta1
 kind: PeerAuthentication
 metadata:
   name: mtls
@@ -103,7 +103,7 @@ spec:
   - to:
     - operation:
         ports: ["8085", "8087"]`,
-					[]expect{
+					expected: []expect{
 						{
 							port:   8085,
 							schema: protocol.HTTP,
@@ -129,15 +129,15 @@ spec:
 				{
 					// There is only authN policy that enables mTLS (Strict).
 					// The request should be denied because the client is always using plain text.
-					"STRICT",
-					`apiVersion: security.istio.io/v1beta1
+					name: "STRICT",
+					config: `apiVersion: security.istio.io/v1beta1
 kind: PeerAuthentication
 metadata:
   name: mtls
 spec:
   mtls:
     mode: STRICT`,
-					[]expect{
+					expected: []expect{
 						{
 							port:   8085,
 							schema: protocol.HTTP,
@@ -163,15 +163,15 @@ spec:
 				{
 					// There is only authN policy that enables mTLS (Permissive).
 					// The request should be allowed because the client is always using plain text.
-					"PERMISSIVE",
-					`apiVersion: security.istio.io/v1beta1
+					name: "PERMISSIVE",
+					config: `apiVersion: security.istio.io/v1beta1
 kind: PeerAuthentication
 metadata:
   name: mtls
 spec:
   mtls:
     mode: PERMISSIVE`,
-					[]expect{
+					expected: []expect{
 						{
 							port:   8085,
 							schema: protocol.HTTP,
@@ -198,8 +198,8 @@ spec:
 				{
 					// There is only authN policy that disables mTLS by default and enables mTLS strict on port 8086 and 8088.
 					// The request should be denied on port 8086 and 8088.
-					"DISABLE with STRICT",
-					`apiVersion: security.istio.io/v1beta1
+					name: "DISABLE with STRICT",
+					config: `apiVersion: security.istio.io/v1beta1
 kind: PeerAuthentication
 metadata:
   name: mtls
@@ -214,7 +214,7 @@ spec:
       mode: STRICT
     8088:
       mode: STRICT`,
-					[]expect{
+					expected: []expect{
 						{
 							port:   8085,
 							schema: protocol.HTTP,
@@ -240,8 +240,8 @@ spec:
 				{
 					// There is only authN policy that enables mTLS by default and disables mTLS strict on port 8086 and 8088.
 					// The request should be denied on port 8085 and 8071.
-					"STRICT with disable",
-					`apiVersion: security.istio.io/v1beta1
+					name: "STRICT with disable",
+					config: `apiVersion: security.istio.io/v1beta1
 kind: PeerAuthentication
 metadata:
   name: mtls
@@ -256,7 +256,7 @@ spec:
       mode: DISABLE
     8088:
       mode: DISABLE`,
-					[]expect{
+					expected: []expect{
 						{
 							port:   8085,
 							schema: protocol.HTTP,
@@ -289,6 +289,7 @@ spec:
 				for _, tc := range cases {
 					ctx.NewSubTest(fmt.Sprintf("In %s/%v", cluster.StableName(), tc.name)).Run(func(ctx framework.TestContext) {
 						ctx.Config().ApplyYAMLOrFail(ctx, ns.Name(), tc.config)
+						util.WaitForConfig(ctx, tc.config, ns)
 						for _, expect := range tc.expected {
 							name := fmt.Sprintf("port %d[%t]", expect.port, expect.want)
 
@@ -307,7 +308,6 @@ spec:
 							ctx.NewSubTest(name).Run(func(ctx framework.TestContext) {
 								retry.UntilSuccessOrFail(ctx, func() error {
 									responses, err := from.ForwardEcho(context.TODO(), request)
-									log.Errorf("howardjohn: got %v for %v", err, request.Url)
 									if expect.want {
 										if err != nil {
 											return fmt.Errorf("want allow but got error: %v", err)

@@ -225,7 +225,7 @@ func (apps *EchoDeployments) IsVM(i echo.Instance) bool {
 	return apps.VM.Contains(i)
 }
 
-func WaitForConfigWithSleep(ctx framework.TestContext, configs string, namespace namespace.Instance) {
+func WaitForConfig(ctx framework.TestContext, configs string, namespace namespace.Instance) {
 	ik := istioctl.NewOrFail(ctx, ctx, istioctl.Config{})
 	if err := ik.WaitForConfigs(namespace.Name(), configs); err != nil {
 		// Continue anyways, so we can assess the effectiveness of using `istioctl wait`

@@ -377,10 +377,10 @@ func TestRequestAuthentication(t *testing.T) {
 					for _, c := range testCases {
 						ctx.NewSubTest(c.Name).Run(func(ctx framework.TestContext) {
 							if c.Config != "" {
-								policy := tmpl.EvaluateAllOrFail(ctx, namespaceTmpl,
-									file.AsStringOrFail(ctx, fmt.Sprintf("testdata/requestauthn/%s.yaml.tmpl", c.Config)),
-								)
-								ctx.Config().ApplyYAMLOrFail(ctx, ns.Name(), policy...)
+								policy := tmpl.EvaluateOrFail(ctx,
+									file.AsStringOrFail(ctx, fmt.Sprintf("testdata/requestauthn/%s.yaml.tmpl", c.Config)), namespaceTmpl)
+								ctx.Config().ApplyYAMLOrFail(ctx, ns.Name(), policy)
+								util.WaitForConfig(ctx, policy, ns)
 							}
 
 							retry.UntilSuccessOrFail(ctx, c.CheckAuthn, echo.DefaultCallRetryOptions()...)
