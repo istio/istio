@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: networking
+issue:
+- 23494
+releaseNotes:
+- |
+  **Fixed** an issue where services with `PASSTHROUGH` load balancing were always sent mTLS traffic, even if the destinations did not support mTLS.

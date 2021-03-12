@@ -1799,14 +1799,17 @@ func (ps *PushContext) NetworkGatewaysByNetwork(network string) []*Gateway {
 // to compute the correct service mTLS mode without knowing service to workload binding. For now, this
 // function uses only mesh and namespace level PeerAuthentication and ignore workload & port level policies.
 // This function is used to give a hint for auto-mTLS configuration on client side.
-func (ps *PushContext) BestEffortInferServiceMTLSMode(service *Service, port *Port) MutualTLSMode {
+func (ps *PushContext) BestEffortInferServiceMTLSMode(tp *networking.TrafficPolicy, service *Service, port *Port) MutualTLSMode {
 	if service.MeshExternal {
 		// Only need the authentication MTLS mode when service is not external.
 		return MTLSUnknown
 	}
 
-	// 1. Check service instances' tls mode, mainly used for headless service.
-	if service.Resolution == Passthrough {
+	// For passthrough traffic (headless service or explicitly defined in DestinationRule), we look at the instances
+	// If ALL instances have a sidecar, we enable TLS, otherwise we disable
+	// TODO(https://github.com/istio/istio/issues/27376) enable mixed deployments
+	// A service with passthrough resolution is always passthrough, regardless of the TrafficPolicy.
+	if service.Resolution == Passthrough || tp.GetLoadBalancer().GetSimple() == networking.LoadBalancerSettings_PASSTHROUGH {
 		instances := ps.ServiceInstancesByPort(service, port.Port, nil)
 		if len(instances) == 0 {
 			return MTLSDisable
