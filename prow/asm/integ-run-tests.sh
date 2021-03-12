@@ -453,6 +453,7 @@ else
   DISABLED_PACKAGES+="\|/helm" # NOT SUPPORTED
   DISABLED_PACKAGES+="\|/operator" # NOT SUPPORTED
   DISABLED_PACKAGES+="\|/telemetry/stackdriver/vm" # NOT SUPPORTED (vm)
+  DISABLED_PACKAGES+="\|/telemetry/stats/prometheus/customizemetrics" # NOT SUPPORTED: Replies on customization on the stats envoyFilter
   DISABLED_PACKAGES+="\|/security/chiron" # NOT SUPPORTED
   DISABLED_PACKAGES+="\|/security/file_mounted_certs" # NOT SUPPORTED
   DISABLED_PACKAGES+="\|/security/ca_custom_root" # NOT SUPPORTED
