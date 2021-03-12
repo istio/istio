@@ -1,0 +1,9 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: networking
+issue:
+  - 29291
+
+releaseNotes:
+- |
+  **Fixed** an issue where duplicated listeners are generated when Gateway server ports use mix of service port and target port.
