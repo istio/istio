@@ -1719,7 +1719,9 @@ func (ps *PushContext) mergeGateways(proxy *Proxy) *MergedGateway {
 			}
 		}
 		if selected {
-			for _, s := range gw.Servers {
+			// rewritePorts records index of gateway server port that needs to be rewritten.
+			rewritePorts := make(map[int]uint32)
+			for i, s := range gw.Servers {
 				if servicePort, ok := targetPorts[s.Port.Number]; ok && servicePort != s.Port.Number {
 					// Check if the gateway server port is also defined as a service port, if so skip rewriting since it is
 					// ambiguous on whether the server port points to service port or target port.
@@ -1730,10 +1732,20 @@ func (ps *PushContext) mergeGateways(proxy *Proxy) *MergedGateway {
 					// The gateway server is defined with target port. Convert it to service port before gateway merging.
 					// Gateway listeners are based on target port, this prevents duplicated listeners be generated when build
 					// listener resources based on merged gateways.
-					s.Port.Number = servicePort
+					rewritePorts[i] = servicePort
 				}
 			}
-			out = append(out, cfg)
+			if len(rewritePorts) != 0 {
+				// Make a deep copy of the gateway configuration and rewrite server port with service port.
+				newGWConfig := cfg.DeepCopy()
+				newGW := newGWConfig.Spec.(*networking.Gateway)
+				for ind, sp := range rewritePorts {
+					newGW.Servers[ind].Port.Number = sp
+				}
+				out = append(out, newGWConfig)
+			} else {
+				out = append(out, cfg)
+			}
 		}
 	}
 	if len(out) == 0 {
