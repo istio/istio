@@ -17,7 +17,11 @@ gateways:
       targetPort: 15443
       name: tls
       protocol: TCP
-
+    customService: false
+    loadBalancerIP: ""
+    loadBalancerSourceRanges: []
+    externalTrafficPolicy: ""
+    egressPorts: []
     # Enable cross-cluster access using SNI matching.
     # Make sure you set suffix if deploying multiple egress gateways.
     zvpn:
