@@ -1,3 +1,4 @@
+
 {{- $gateway := index .Values "gateways" "istio-egressgateway" }}
 {{- if eq $gateway.injectionTemplate "" }}
 apiVersion: apps/v1

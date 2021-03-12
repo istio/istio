@@ -34,6 +34,7 @@ import (
 	"istio.io/istio/pkg/test/framework/components/environment/kube"
 	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/helm"
+	kubetest "istio.io/istio/pkg/test/kube"
 	"istio.io/istio/pkg/test/util/retry"
 	helmtest "istio.io/istio/tests/integration/helm"
 	ingressutil "istio.io/istio/tests/integration/security/sds_ingress/util"
@@ -432,7 +433,12 @@ spec:
         port:
           number: 80
 `, injectLabel, apps.PodA[0].Config().FQDN()))
-				apps.PodB[0].CallWithRetryOrFail(t, echo.CallOptions{
+				cs := ctx.Clusters().Default().(*kubecluster.Cluster)
+				retry.UntilSuccessOrFail(ctx, func() error {
+					_, err := kubetest.CheckPodsAreReady(kubetest.NewPodFetch(cs, gatewayNs.Name(), "istio=custom"))
+					return err
+				}, retry.Timeout(time.Minute*2))
+				apps.PodB[0].CallWithRetryOrFail(ctx, echo.CallOptions{
 					Port:      &echo.Port{ServicePort: 80},
 					Scheme:    scheme.HTTP,
 					Address:   fmt.Sprintf("custom-gateway.%s.svc.cluster.local", gatewayNs.Name()),
@@ -469,7 +475,11 @@ gateways:
 					d, helmtest.HelmTimeout); err != nil {
 					ctx.Fatal(err)
 				}
-				ctx.Config().ApplyYAMLOrFail(ctx, gatewayNs.Name(), fmt.Sprintf(`apiVersion: networking.istio.io/v1alpha3
+				retry.UntilSuccessOrFail(ctx, func() error {
+					_, err := kubetest.CheckPodsAreReady(kubetest.NewPodFetch(cs, gatewayNs.Name(), "istio=custom-gateway-helm"))
+					return err
+				}, retry.Timeout(time.Minute*2))
+				ctx.Config().ApplyYAMLOrFail(t, gatewayNs.Name(), fmt.Sprintf(`apiVersion: networking.istio.io/v1alpha3
 kind: Gateway
 metadata:
   name: app
