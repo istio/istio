@@ -60,8 +60,12 @@ func (p *Processing) Start() (err error) {
 	var src event.Source
 	var updater snapshotter.StatusUpdater
 
-	if mesh, err = meshcfgNewFS(p.args.MeshConfigFile); err != nil {
-		return
+	if p.args.MeshSource != nil {
+		mesh = p.args.MeshSource
+	} else {
+		if mesh, err = meshcfgNewFS(p.args.MeshConfigFile); err != nil {
+			return
+		}
 	}
 
 	m := schema.MustGet()

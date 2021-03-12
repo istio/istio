@@ -20,6 +20,7 @@ import (
 	"time"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
+	"istio.io/istio/galley/pkg/config/mesh"
 	"istio.io/istio/galley/pkg/server/components"
 	"istio.io/istio/galley/pkg/server/settings"
 	configaggregate "istio.io/istio/pilot/pkg/config/aggregate"
@@ -241,8 +242,12 @@ func (s *Server) initInprocessAnalysisController(args *PilotArgs) error {
 	processingArgs := settings.DefaultArgs()
 	processingArgs.KubeConfig = args.RegistryOptions.KubeConfig
 	processingArgs.WatchedNamespaces = args.RegistryOptions.KubeOptions.WatchedNamespaces
-	processingArgs.MeshConfigFile = args.MeshConfigFile
 	processingArgs.EnableConfigAnalysis = true
+	meshSource := mesh.NewInmemoryMeshCfg()
+	s.environment.Watcher.AddMeshHandler(func() {
+		meshSource.Set(s.environment.Mesh())
+	})
+	processingArgs.MeshSource = meshSource
 
 	processing := components.NewProcessing(processingArgs)
 
