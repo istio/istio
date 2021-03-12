@@ -136,6 +136,14 @@ func (configgen *ConfigGeneratorImpl) buildGatewayListeners(builder *ListenerBui
 			opts.filterChainOpts = filterChainOpts
 		}
 
+		// Check if any of the servers have bind, use that as the listener bind.
+		for _, server := range servers {
+			if server.Bind != "" {
+				opts.bind = server.Bind
+				break
+			}
+		}
+
 		l := buildListener(opts, core.TrafficDirection_OUTBOUND)
 
 		mutable := &istionetworking.MutableObjects{
