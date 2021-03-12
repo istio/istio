@@ -162,13 +162,10 @@ func TestReachability(t *testing.T) {
 					ConfigFile: "automtls-passthrough.yaml",
 					Namespace:  systemNM,
 					Include: func(src echo.Instance, opts echo.CallOptions) bool {
-						if apps.IsVM(opts.Target) {
-							// VM passthrough doesn't work. We will send traffic to the ClusterIP of
-							// the VM service, which will have 0 Endpoints. If we generated
-							// EndpointSlice's for VMs this might work.
-							return false
-						}
-						return true
+						// VM passthrough doesn't work. We will send traffic to the ClusterIP of
+						// the VM service, which will have 0 Endpoints. If we generated
+						// EndpointSlice's for VMs this might work.
+						return !apps.IsVM(opts.Target)
 					},
 					ExpectSuccess: Always,
 					ExpectMTLS: func(src echo.Instance, opts echo.CallOptions) bool {
@@ -179,6 +176,9 @@ func TestReachability(t *testing.T) {
 						}
 						return mtlsOnExpect(src, opts)
 					},
+					// Since we are doing passthrough, only single cluster is relevant here, as we
+					// are bypassing any Istio cluster load balancing
+					SkippedForMulticluster: true,
 				},
 				// --------start of auto mtls partial test cases ---------------
 				// The follow three consecutive test together ensures the auto mtls works as intended
