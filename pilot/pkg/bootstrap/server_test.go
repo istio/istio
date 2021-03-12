@@ -16,6 +16,7 @@ package bootstrap
 import (
 	"bytes"
 	"crypto/tls"
+	"fmt"
 	"io/ioutil"
 	"os"
 	"path/filepath"
@@ -32,7 +33,7 @@ import (
 	"istio.io/pkg/filewatcher"
 )
 
-func TestNewServerWithExternalCertificates(t *testing.T) {
+func TestNewServerCertInit(t *testing.T) {
 	configDir, err := ioutil.TempDir("", "test_istiod_config")
 	if err != nil {
 		t.Fatal(err)
@@ -64,45 +65,98 @@ func TestNewServerWithExternalCertificates(t *testing.T) {
 		t.Fatalf("WriteFile(%v) failed: %v", caCertFile, err)
 	}
 
-	tlsOptions := TLSOptions{
-		CertFile:   certFile,
-		KeyFile:    keyFile,
-		CaCertFile: caCertFile,
+	cases := []struct {
+		name         string
+		tlsOptions   *TLSOptions
+		enableCA     bool
+		certProvider string
+		expCert      []byte
+		expKey       []byte
+		expErrMsg    string
+	}{
+		{
+			name: "Fail creating DNS cert using Istiod because CA is disabled",
+			tlsOptions: &TLSOptions{
+				CertFile:   "",
+				KeyFile:    "",
+				CaCertFile: "",
+			},
+			enableCA:     false,
+			certProvider: IstiodCAProvider,
+			expCert:      []byte{},
+			expKey:       []byte{},
+			expErrMsg:    "error initializing DNS certs: cannot create self-signed DNS certificate when Istiod CA is disabled",
+		},
+		{
+			name: "Load from existing DNS cert",
+			tlsOptions: &TLSOptions{
+				CertFile:   certFile,
+				KeyFile:    keyFile,
+				CaCertFile: caCertFile,
+			},
+			enableCA:     false,
+			certProvider: KubernetesCAProvider,
+			expCert:      testcerts.ServerCert,
+			expKey:       testcerts.ServerKey,
+			expErrMsg:    "",
+		},
+		{
+			name: "Create new DNS cert using Istiod",
+			tlsOptions: &TLSOptions{
+				CertFile:   "",
+				KeyFile:    "",
+				CaCertFile: "",
+			},
+			enableCA:     true,
+			certProvider: IstiodCAProvider,
+			expCert:      []byte{},
+			expKey:       []byte{},
+			expErrMsg:    "",
+		},
 	}
 
-	args := NewPilotArgs(func(p *PilotArgs) {
-		p.Namespace = "istio-system"
-		p.ServerOptions = DiscoveryServerOptions{
-			// Dynamically assign all ports.
-			HTTPAddr:       ":0",
-			MonitoringAddr: ":0",
-			GRPCAddr:       ":0",
-			SecureGRPCAddr: ":0",
-			TLSOptions:     tlsOptions,
-		}
-		p.RegistryOptions = RegistryOptions{
-			FileDir: configDir,
-		}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			os.Setenv("PILOT_CERT_PROVIDER", c.certProvider)
+			features.EnableCAServer = c.enableCA
+			args := NewPilotArgs(func(p *PilotArgs) {
+				p.Namespace = "istio-system"
+				p.ServerOptions = DiscoveryServerOptions{
+					// Dynamically assign all ports.
+					HTTPAddr:       ":0",
+					MonitoringAddr: ":0",
+					GRPCAddr:       ":0",
+					SecureGRPCAddr: ":0",
+					TLSOptions:     *c.tlsOptions,
+				}
+				p.RegistryOptions = RegistryOptions{
+					FileDir: configDir,
+				}
 
-		// Include all of the default plugins
-		p.Plugins = DefaultPlugins
-		p.ShutdownDuration = 1 * time.Millisecond
-	})
+				// Include all of the default plugins
+				p.Plugins = DefaultPlugins
+				p.ShutdownDuration = 1 * time.Millisecond
+			})
+			g := NewWithT(t)
+			s, err := NewServer(args)
+			if len(c.expErrMsg) == 0 {
+				g.Expect(err).To(Succeed())
+			} else {
+				g.Expect(err).To(Equal(fmt.Errorf(c.expErrMsg)))
+				return
+			}
+			stop := make(chan struct{})
+			g.Expect(s.Start(stop)).To(Succeed())
+			defer func() {
+				close(stop)
+				s.WaitUntilCompletion()
+				features.EnableCAServer = true
+				os.Setenv("PILOT_CERT_PROVIDER", IstiodCAProvider)
+			}()
 
-	g := NewWithT(t)
-	s, err := NewServer(args)
-	g.Expect(err).To(Succeed())
-
-	stop := make(chan struct{})
-	features.EnableCAServer = false
-	g.Expect(s.Start(stop)).To(Succeed())
-	defer func() {
-		close(stop)
-		s.WaitUntilCompletion()
-	}()
-
-	// Validate server started with the provided cert
-	checkCert(t, s, testcerts.ServerCert, testcerts.ServerKey)
+			checkCert(t, s, testcerts.ServerCert, testcerts.ServerKey)
+		})
+	}
 }
 
 func TestReloadIstiodCert(t *testing.T) {
