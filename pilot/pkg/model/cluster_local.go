@@ -75,7 +75,7 @@ func (c *clusterLocalProvider) GetClusterLocalHosts() ClusterLocalHosts {
 
 func (c *clusterLocalProvider) onMeshUpdated(e *Environment) {
 	// Create the default list of cluster-local hosts.
-	domainSuffix := e.GetDomainSuffix()
+	domainSuffix := e.DomainSuffix
 	defaultClusterLocalHosts := make([]host.Name, 0)
 	for _, n := range defaultClusterLocalNamespaces {
 		defaultClusterLocalHosts = append(defaultClusterLocalHosts, host.Name("*."+n+".svc."+domainSuffix))
