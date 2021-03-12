@@ -91,7 +91,7 @@ func BuildInboundFilterChain(mTLSMode model.MutualTLSMode, node *model.Proxy,
 		CipherSuites:              SupportedCiphers,
 	}
 
-	authn_model.ApplyToCommonTLSContext(ctx.CommonTlsContext, node, []string{} /*subjectAltNames*/, trustDomainAliases, ctx.RequireClientCertificate.Value)
+	authn_model.ApplyToCommonTLSContext(ctx.CommonTlsContext, node, []string{} /*subjectAltNames*/, trustDomainAliases)
 
 	if mTLSMode == model.MTLSStrict {
 		log.Debug("Allow only istio mutual TLS traffic")

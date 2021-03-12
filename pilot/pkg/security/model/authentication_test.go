@@ -138,7 +138,6 @@ func TestApplyToCommonTLSContext(t *testing.T) {
 		name               string
 		node               *model.Proxy
 		trustDomainAliases []string
-		validateClient     bool
 		expected           *auth.CommonTlsContext
 	}{
 		{
@@ -146,7 +145,6 @@ func TestApplyToCommonTLSContext(t *testing.T) {
 			node: &model.Proxy{
 				Metadata: &model.NodeMetadata{},
 			},
-			validateClient: true,
 			expected: &auth.CommonTlsContext{
 				TlsCertificateSdsSecretConfigs: []*auth.SdsSecretConfig{
 					{
@@ -204,7 +202,6 @@ func TestApplyToCommonTLSContext(t *testing.T) {
 			node: &model.Proxy{
 				Metadata: &model.NodeMetadata{},
 			},
-			validateClient:     true,
 			trustDomainAliases: []string{"alias-1.domain", "some-other-alias-1.domain", "alias-2.domain"},
 			expected: &auth.CommonTlsContext{
 				TlsCertificateSdsSecretConfigs: []*auth.SdsSecretConfig{
@@ -271,7 +268,6 @@ func TestApplyToCommonTLSContext(t *testing.T) {
 					TLSServerRootCert:  "servrRootCert",
 				},
 			},
-			validateClient: true,
 			expected: &auth.CommonTlsContext{
 				TlsCertificateSdsSecretConfigs: []*auth.SdsSecretConfig{
 					{
@@ -327,7 +323,6 @@ func TestApplyToCommonTLSContext(t *testing.T) {
 			node: &model.Proxy{
 				Metadata: &model.NodeMetadata{},
 			},
-			validateClient: true,
 			expected: &auth.CommonTlsContext{
 				TlsCertificateSdsSecretConfigs: []*auth.SdsSecretConfig{
 					{
@@ -389,7 +384,6 @@ func TestApplyToCommonTLSContext(t *testing.T) {
 					TLSServerRootCert:  "/custom/path/to/root.pem",
 				},
 			},
-			validateClient: true,
 			expected: &auth.CommonTlsContext{
 				TlsCertificateSdsSecretConfigs: []*auth.SdsSecretConfig{
 					{
@@ -446,9 +440,67 @@ func TestApplyToCommonTLSContext(t *testing.T) {
 				Metadata: &model.NodeMetadata{
 					TLSServerCertChain: "/custom/path/to/cert-chain.pem",
 					TLSServerKey:       "/custom-key.pem",
+					TLSServerRootCert:  "/custom/path/to/root.pem",
 				},
 			},
-			validateClient: false,
+			expected: &auth.CommonTlsContext{
+				TlsCertificateSdsSecretConfigs: []*auth.SdsSecretConfig{
+					{
+						Name: "file-cert:/custom/path/to/cert-chain.pem~/custom-key.pem",
+						SdsConfig: &core.ConfigSource{
+							ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
+								ApiConfigSource: &core.ApiConfigSource{
+									ApiType:                   core.ApiConfigSource_GRPC,
+									SetNodeOnFirstMessageOnly: true,
+									TransportApiVersion:       core.ApiVersion_V3,
+									GrpcServices: []*core.GrpcService{
+										{
+											TargetSpecifier: &core.GrpcService_EnvoyGrpc_{
+												EnvoyGrpc: &core.GrpcService_EnvoyGrpc{ClusterName: SDSClusterName},
+											},
+										},
+									},
+								},
+							},
+							ResourceApiVersion: core.ApiVersion_V3,
+						},
+					},
+				},
+				ValidationContextType: &auth.CommonTlsContext_CombinedValidationContext{
+					CombinedValidationContext: &auth.CommonTlsContext_CombinedCertificateValidationContext{
+						DefaultValidationContext: &auth.CertificateValidationContext{},
+						ValidationContextSdsSecretConfig: &auth.SdsSecretConfig{
+							Name: "file-root:/custom/path/to/root.pem",
+							SdsConfig: &core.ConfigSource{
+								ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
+									ApiConfigSource: &core.ApiConfigSource{
+										ApiType:                   core.ApiConfigSource_GRPC,
+										SetNodeOnFirstMessageOnly: true,
+										TransportApiVersion:       core.ApiVersion_V3,
+										GrpcServices: []*core.GrpcService{
+											{
+												TargetSpecifier: &core.GrpcService_EnvoyGrpc_{
+													EnvoyGrpc: &core.GrpcService_EnvoyGrpc{ClusterName: SDSClusterName},
+												},
+											},
+										},
+									},
+								},
+								ResourceApiVersion: core.ApiVersion_V3,
+							},
+						},
+					},
+				},
+			},
+		},
+		{
+			name: "SIMPLE with custom cert paths from proxy node metadata without cacerts",
+			node: &model.Proxy{
+				Metadata: &model.NodeMetadata{
+					TLSServerCertChain: "/custom/path/to/cert-chain.pem",
+					TLSServerKey:       "/custom-key.pem",
+				},
+			},
 			expected: &auth.CommonTlsContext{
 				TlsCertificateSdsSecretConfigs: []*auth.SdsSecretConfig{
 					{
@@ -479,7 +531,7 @@ func TestApplyToCommonTLSContext(t *testing.T) {
 	for _, test := range testCases {
 		t.Run(test.name, func(t *testing.T) {
 			tlsContext := &auth.CommonTlsContext{}
-			ApplyToCommonTLSContext(tlsContext, test.node, []string{}, test.trustDomainAliases, test.validateClient)
+			ApplyToCommonTLSContext(tlsContext, test.node, []string{}, test.trustDomainAliases)
 
 			if !cmp.Equal(tlsContext, test.expected, protocmp.Transform()) {
 				t.Errorf("got(%#v), want(%#v)\n", spew.Sdump(tlsContext), spew.Sdump(test.expected))

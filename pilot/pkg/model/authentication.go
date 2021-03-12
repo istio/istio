@@ -289,6 +289,11 @@ func (s SdsCertificateConfig) IsKeyCertificate() bool {
 	return s.CertificatePath != "" && s.PrivateKeyPath != ""
 }
 
+// IsValidConfig returns true if this config has valid certs.
+func (s SdsCertificateConfig) IsValidConfig() bool {
+	return s.IsKeyCertificate() || s.IsRootCertificate()
+}
+
 // SdsCertificateConfigFromResourceName converts the provided resource name into a SdsCertificateConfig
 // If the resource name is not valid, false is returned.
 func SdsCertificateConfigFromResourceName(resource string) (SdsCertificateConfig, bool) {
