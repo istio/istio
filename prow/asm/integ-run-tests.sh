@@ -188,7 +188,7 @@ if [[ "${CLUSTER_TYPE}" == "gke" ]]; then
   # Use the gcr of the first project to store required images.
   IFS="_" read -r -a VALS <<< "${CONTEXTS[0]}"
   GCR_PROJECT_ID=${VALS[1]}
-# Otherwise use the central GCP project to hold these images.
+# Otherwise use the shared GCP project to hold these images.
 else
   GCR_PROJECT_ID="${SHARED_GCP_PROJECT}"
 fi
@@ -223,7 +223,6 @@ if [[ "${CONTROL_PLANE}" == "UNMANAGED" ]]; then
     add_trap "remove_gcp_permissions ${GCR_PROJECT_ID} ${CONTEXTSTR}" EXIT SIGKILL SIGTERM SIGQUIT
   else
     echo "Set permissions to allow the Pods on the multicloud clusters to pull images..."
-    # TODO: remove it if there is a general solution for b/174580152
     set_multicloud_permissions "${GCR_PROJECT_ID}" "${CONTEXTSTR}"
   fi
 
@@ -233,7 +232,14 @@ if [[ "${CONTROL_PLANE}" == "UNMANAGED" ]]; then
     # Proxy env needs to be unset to let gcloud command run correctly
     add_trap "unset_http_proxy" EXIT SIGKILL SIGTERM SIGQUIT
   fi
-  add_trap "cleanup_images" EXIT SIGKILL SIGTERM SIGQUIT
+  # Do not clean up the images for multicloud tests, since they are using a
+  # shared GCR to store the images, cleaning them up could lead to race
+  # conditions for jobs that are running in parallel
+  # TODO(chizhg): figure out a way to still clean them up and also avoid the race
+  # conditions, potentially using the project rental pool to ensure the isolation.
+  if [[ "${CLUSTER_TYPE}" == "gke" ]]; then
+    add_trap "cleanup_images" EXIT SIGKILL SIGTERM SIGQUIT
+  fi
 
   if [[ "${WIP}" == "HUB" ]]; then
     echo "Register clusters into the Hub..."
@@ -277,7 +283,7 @@ if [[ "${CONTROL_PLANE}" == "UNMANAGED" ]]; then
   echo "Processing kubeconfig files for running the tests..."
   process_kubeconfigs
 
-  # when CLUSTER_TYPE is gke-on-prem, GCR_PROJECT_ID is set to CENTRAL_GCP_PROJECT istio-prow-build
+  # when CLUSTER_TYPE is gke-on-prem, GCR_PROJECT_ID is set to SHARED_GCP_PROJECT istio-prow-build
   # istio-prow-build is not the environ project
   # ENVIRON_PROJECT_ID is the project ID of the environ project where the Onprem cluster is registered
   if [[ "${CLUSTER_TYPE}" == "gke-on-prem" && "${WIP}" == "HUB" ]]; then
