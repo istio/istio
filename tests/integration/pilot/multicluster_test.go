@@ -1,3 +1,4 @@
+// +build integ
 // Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -76,7 +77,11 @@ func patchMeshConfig(t framework.TestContext, clusters cluster.Clusters, patch s
 	for _, c := range clusters.Kube() {
 		c := c
 		errG.Go(func() error {
-			cm, err := c.CoreV1().ConfigMaps(i.Settings().SystemNamespace).Get(context.TODO(), "istio", v1.GetOptions{})
+			cmName := "istio"
+			if rev := t.Settings().Revision; rev != "default" {
+				cmName += "-" + rev
+			}
+			cm, err := c.CoreV1().ConfigMaps(i.Settings().SystemNamespace).Get(context.TODO(), cmName, v1.GetOptions{})
 			if err != nil {
 				return err
 			}
