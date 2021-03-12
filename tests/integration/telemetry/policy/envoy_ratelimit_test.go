@@ -20,6 +20,7 @@ import (
 	"io/ioutil"
 	"testing"
 	"time"
+	"path/filepath"
 
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/test/echo/common/response"
@@ -34,6 +35,7 @@ import (
 	"istio.io/istio/pkg/test/kube"
 	"istio.io/istio/pkg/test/util/retry"
 	"istio.io/istio/pkg/test/util/tmpl"
+	"istio.io/istio/pkg/test/env"
 )
 
 var (
@@ -127,7 +129,19 @@ func testSetup(ctx resource.Context) (err error) {
 		return
 	}
 
-	yamlContent, err := ioutil.ReadFile("testdata/ratelimitservice.yaml")
+	yamlContentCM, err := ioutil.ReadFile("testdata/rate-limit-configmap.yaml")
+	if err != nil {
+		return
+	}
+
+	err = ctx.Config().ApplyYAML(ratelimitNs.Name(),
+		string(yamlContentCM),
+	)
+	if err != nil {
+		return
+	}
+
+	yamlContent, err := ioutil.ReadFile(filepath.Join(env.IstioSrc, "samples/ratelimit/ratelimit.yaml"))
 	if err != nil {
 		return
 	}
