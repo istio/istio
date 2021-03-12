@@ -26,6 +26,7 @@ import (
 	"os"
 	"reflect"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/hashicorp/go-multierror"
@@ -128,6 +129,9 @@ type Client interface {
 	// RunAndWait starts all informers and waits for their caches to sync.
 	// Warning: this must be called AFTER .Informer() is called, which will register the informer.
 	RunAndWait(stop <-chan struct{})
+
+	// GetKubernetesVersion returns the Kubernetes server version
+	GetKubernetesVersion() (*kubeVersion.Info, error)
 }
 
 // ExtendedClient is an extended client with additional helpers/functionality for Istioctl and testing.
@@ -135,9 +139,6 @@ type ExtendedClient interface {
 	Client
 	// Revision of the Istio control plane.
 	Revision() string
-
-	// GetKubernetesVersion returns the Kubernetes server version
-	GetKubernetesVersion() (*kubeVersion.Info, error)
 
 	// EnvoyDo makes an http request to the Envoy in the specified pod.
 	EnvoyDo(ctx context.Context, podName, podNamespace, method, path string, body []byte) ([]byte, error)
@@ -261,8 +262,7 @@ type client struct {
 	clientFactory util.Factory
 	config        *rest.Config
 
-	extSet        kubeExtClient.Interface
-	versionClient discovery.ServerVersionInterface
+	extSet kubeExtClient.Interface
 
 	kube         kubernetes.Interface
 	kubeInformer informers.SharedInformerFactory
@@ -288,6 +288,10 @@ type client struct {
 	restClient      *rest.RESTClient
 	discoveryClient discovery.CachedDiscoveryInterface
 	mapper          meta.RESTMapper
+
+	versionOnce sync.Once
+	version     *kubeVersion.Info
+	versionErr  error
 }
 
 // newClientInternal creates a Kubernetes client from the given factory.
@@ -351,7 +355,6 @@ func newClientInternal(clientFactory util.Factory, revision string) (*client, er
 		return nil, err
 	}
 	c.extSet = ext
-	c.versionClient = ext
 
 	return &c, nil
 }
@@ -448,6 +451,15 @@ func (c *client) RunAndWait(stop <-chan struct{}) {
 	}
 }
 
+func (c *client) GetKubernetesVersion() (*kubeVersion.Info, error) {
+	c.versionOnce.Do(func() {
+		v, err := c.Discovery().ServerVersion()
+		c.version = v
+		c.versionErr = err
+	})
+	return c.version, c.versionErr
+}
+
 type reflectInformerSync interface {
 	WaitForCacheSync(stopCh <-chan struct{}) map[reflect.Type]bool
 }
@@ -501,10 +513,6 @@ func WaitForCacheSyncInterval(stopCh <-chan struct{}, interval time.Duration, ca
 
 func (c *client) Revision() string {
 	return c.revision
-}
-
-func (c *client) GetKubernetesVersion() (*kubeVersion.Info, error) {
-	return c.versionClient.ServerVersion()
 }
 
 func (c *client) PodExec(podName, podNamespace, container string, command string) (stdout, stderr string, err error) {
