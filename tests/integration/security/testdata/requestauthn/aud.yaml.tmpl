@@ -1,12 +1,11 @@
-apiVersion: "security.istio.io/v1beta1"
-kind: "RequestAuthentication"
+apiVersion: security.istio.io/v1beta1
+kind: RequestAuthentication
 metadata:
-  name: "request-authn-for-a-part1"
-  namespace: {{ .Namespace }}
+  name: request-authn-part1
 spec:
   selector:
     matchLabels:
-      app: a
+      app: b
   jwtRules:
   - issuer: "test-issuer-1@istio.io"
     jwksUri: "https://raw.githubusercontent.com/istio/istio/master/tests/common/jwt/jwks.json"
@@ -17,15 +16,14 @@ spec:
     audiences:
     - "bar"
 ---
-apiVersion: "security.istio.io/v1beta1"
-kind: "RequestAuthentication"
+apiVersion: security.istio.io/v1beta1
+kind: RequestAuthentication
 metadata:
-  name: "requst-authn-for-a-part2"
-  namespace: {{ .Namespace }}
+  name: requst-authn-part2
 spec:
   selector:
     matchLabels:
-      app: a
+      app: b
   jwtRules:
   - issuer: "test-issuer-2@istio.io"
     jwksUri: "https://raw.githubusercontent.com/istio/istio/master/tests/common/jwt/jwks.json"

@@ -1,13 +1,12 @@
 ---
-apiVersion: "security.istio.io/v1beta1"
-kind: "RequestAuthentication"
+apiVersion: security.istio.io/v1beta1
+kind: RequestAuthentication
 metadata:
-  name: "request-authn-for-e"
-  namespace: {{ .Namespace }}
+  name: request-authn
 spec:
   selector:
     matchLabels:
-      app: e
+      app: b
   jwtRules:
   - issuer: "test-issuer-1@istio.io"
     jwksUri: "https://raw.githubusercontent.com/istio/istio/master/tests/common/jwt/jwks.json"
