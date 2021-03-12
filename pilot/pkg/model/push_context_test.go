@@ -1597,6 +1597,24 @@ func TestMergeGatewayServerPort(t *testing.T) {
 			},
 			wantedPorts: map[uint32]struct{}{7: {}, 8: {}},
 		},
+		{
+			name: "same service port different targets",
+			gateways: []config.Config{
+				makeConfig("foo", "not-default", "foo.bar.com", "name1", "http", 8, "ingressgateway"),
+				makeConfig("foo", "not-default", "foo.bar.com", "name2", "http", 7, "ingressgateway"),
+			},
+			services: []*ServiceInstance{
+				{
+					Endpoint:    &IstioEndpoint{EndpointPort: 9},
+					ServicePort: &Port{Port: 8},
+				},
+				{
+					Endpoint:    &IstioEndpoint{EndpointPort: 7},
+					ServicePort: &Port{Port: 8},
+				},
+			},
+			wantedPorts: map[uint32]struct{}{8: {}},
+		},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
