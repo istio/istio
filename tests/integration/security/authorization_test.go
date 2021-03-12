@@ -336,10 +336,10 @@ func TestAuthorization_Deny(t *testing.T) {
 
 			rootns := newRootNS(ctx)
 			policy := applyPolicy("testdata/authz/v1beta1-deny.yaml.tmpl", ns)
-			util.WaitForConfigWithSleep(ctx, policy[0], ns)
+			util.WaitForConfig(ctx, policy[0], ns)
 			defer ctx.Config().DeleteYAMLOrFail(t, ns.Name(), policy...)
 			policyNSRoot := applyPolicy("testdata/authz/v1beta1-deny-ns-root.yaml.tmpl", rootns)
-			util.WaitForConfigWithSleep(ctx, policyNSRoot[0], rootns)
+			util.WaitForConfig(ctx, policyNSRoot[0], rootns)
 			defer ctx.Config().DeleteYAMLOrFail(t, rootns.Name(), policyNSRoot...)
 
 			callCount := 1

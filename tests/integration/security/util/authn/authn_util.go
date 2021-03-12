@@ -30,6 +30,7 @@ import (
 
 type TestCase struct {
 	Name               string
+	Config             string
 	Request            connection.Checker
 	ExpectResponseCode string
 	// Use empty value to express the header with such key must not exist.
