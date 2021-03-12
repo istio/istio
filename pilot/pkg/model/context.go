@@ -86,13 +86,6 @@ type Environment struct {
 	clusterLocalServices ClusterLocalProvider
 }
 
-func (e *Environment) GetDomainSuffix() string {
-	if len(e.DomainSuffix) > 0 {
-		return e.DomainSuffix
-	}
-	return constants.DefaultKubernetesDomain
-}
-
 func (e *Environment) Mesh() *meshconfig.MeshConfig {
 	if e != nil && e.Watcher != nil {
 		return e.Watcher.Mesh()
@@ -148,7 +141,14 @@ func (e *Environment) Version() string {
 	return ""
 }
 
+// Init initializes the Environment for use.
 func (e *Environment) Init() {
+	// Use a default DomainSuffix, if none was provided.
+	if len(e.DomainSuffix) == 0 {
+		e.DomainSuffix = constants.DefaultKubernetesDomain
+	}
+
+	// Create the cluster-local service registry.
 	e.clusterLocalServices = NewClusterLocalProvider(e)
 }
 
