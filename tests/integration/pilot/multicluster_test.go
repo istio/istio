@@ -21,18 +21,15 @@ import (
 	"sync"
 	"testing"
 
-	"istio.io/istio/pkg/test/echo/common/scheme"
-
-	"istio.io/istio/pkg/test/framework/components/echo"
-
-	"istio.io/istio/pkg/util/gogoprotomarshal"
-
 	"github.com/hashicorp/go-multierror"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
+	"istio.io/istio/pkg/test/echo/common/scheme"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/cluster"
+	"istio.io/istio/pkg/test/framework/components/echo"
+	"istio.io/istio/pkg/util/gogoprotomarshal"
 )
 
 func TestClusterLocal(t *testing.T) {
