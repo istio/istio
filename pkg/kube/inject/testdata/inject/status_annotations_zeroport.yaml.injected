@@ -162,7 +162,7 @@ spec:
         - -b
         - '*'
         - -d
-        - 15090,15021
+        - 15090,15020
         image: gcr.io/istio-testing/proxyv2:latest
         name: istio-init
         resources:

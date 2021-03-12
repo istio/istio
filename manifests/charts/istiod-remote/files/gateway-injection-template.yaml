@@ -144,7 +144,7 @@ spec:
     readinessProbe:
       httpGet:
         path: /healthz/ready
-        port: 15021
+        port: 15020
       initialDelaySeconds: {{.Values.global.proxy.readinessInitialDelaySeconds }}
       periodSeconds: {{ .Values.global.proxy.readinessPeriodSeconds }}
       timeoutSeconds: 3

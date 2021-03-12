@@ -112,7 +112,7 @@ spec:
           failureThreshold: 300
           httpGet:
             path: /healthz/ready
-            port: 15021
+            port: 15020
           initialDelaySeconds: 100
           periodSeconds: 200
           timeoutSeconds: 3
@@ -162,7 +162,7 @@ spec:
         - -b
         - '*'
         - -d
-        - 15090,15021,123
+        - 15090,123
         image: gcr.io/istio-testing/proxyv2:latest
         name: istio-init
         resources:
