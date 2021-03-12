@@ -1743,7 +1743,11 @@ func TestComposePeerAuthentication(t *testing.T) {
 		{
 			name:    "no config",
 			configs: []*config.Config{},
-			want:    nil,
+			want: &v1beta1.PeerAuthentication{
+				Mtls: &v1beta1.PeerAuthentication_MutualTLS{
+					Mode: v1beta1.PeerAuthentication_MutualTLS_PERMISSIVE,
+				},
+			},
 		},
 		{
 			name: "mesh only",
@@ -1821,7 +1825,11 @@ func TestComposePeerAuthentication(t *testing.T) {
 					},
 				},
 			},
-			want: nil,
+			want: &v1beta1.PeerAuthentication{
+				Mtls: &v1beta1.PeerAuthentication_MutualTLS{
+					Mode: v1beta1.PeerAuthentication_MutualTLS_PERMISSIVE,
+				},
+			},
 		},
 		{
 			name: "workload vs namespace config",
