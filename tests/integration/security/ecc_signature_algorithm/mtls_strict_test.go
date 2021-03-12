@@ -85,12 +85,11 @@ func TestStrictMTLS(t *testing.T) {
 				ctx.Fatalf("client could not get certificate from server: %v", err)
 			}
 			block, _ := pem.Decode([]byte(certPEM))
-			if block == nil {
+			if block == nil { // nolint: staticcheck
 				ctx.Fatalf("failed to parse certificate PEM")
 			}
 
-			// nolint: staticcheck
-			certificate, parseErr := x509.ParseCertificate(block.Bytes)
+			certificate, parseErr := x509.ParseCertificate(block.Bytes) // nolint: staticcheck
 			if err != nil {
 				ctx.Fatalf("failed to parse certificate: %v", parseErr)
 			}
