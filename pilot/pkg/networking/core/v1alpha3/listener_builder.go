@@ -15,7 +15,6 @@
 package v1alpha3
 
 import (
-	"encoding/json"
 	"sort"
 
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
@@ -201,10 +200,6 @@ func (lb *ListenerBuilder) aggregateVirtualInboundListener(passthroughInspectors
 	lb.virtualInboundListener.FilterChains =
 		append(lb.virtualInboundListener.FilterChains, filterChains...)
 
-	debug, _ := json.MarshalIndent(inspectors, "howardjohn", "  ")
-	log.Errorf("howardjohn: %s", debug)
-	debug, _ = json.MarshalIndent(passthroughInspectors, "howardjohn", "  ")
-	log.Errorf("howardjohn: %s", debug)
 	tlsInspectors := mergeInspectors(inspectors, passthroughInspectors)
 	if needsTLS(tlsInspectors) {
 		lb.virtualInboundListener.ListenerFilters =
@@ -255,7 +250,6 @@ func buildTLSInspector(inspectors map[int]enabledInspector) *listener.ListenerFi
 				ports = append(ports, p)
 			}
 		}
-		log.Errorf("howardjohn: skip tls: %v", ports)
 		// No need to filter, return the cached version enabled for all ports
 		if len(ports) == 0 {
 			return xdsfilters.TLSInspector
@@ -279,7 +273,6 @@ func buildTLSInspector(inspectors map[int]enabledInspector) *listener.ListenerFi
 			ports = append(ports, p)
 		}
 	}
-	log.Errorf("howardjohn: include tls: %v", ports)
 	// No need to filter, return the cached version enabled for all ports
 	if len(ports) == 0 {
 		return xdsfilters.TLSInspector
@@ -505,7 +498,6 @@ func (lb *ListenerBuilder) getListeners() []*listener.Listener {
 }
 
 func getFilterChainMatchOptions(settings plugin.MTLSSettings, protocol istionetworking.ListenerProtocol) []FilterChainMatchOptions {
-	log.Errorf("howardjohn: called with %v %v", settings.Mode, protocol)
 	switch protocol {
 	case istionetworking.ListenerProtocolHTTP:
 		switch settings.Mode {
@@ -629,12 +621,10 @@ func buildInboundCatchAllFilterChains(configgen *ConfigGeneratorImpl,
 		// Call plugins to get mtls policies.
 		mtlsConfig := getMtlsSettings(configgen, in)
 		newOpts := []*fcOpts{}
-		log.Errorf("howardjohn: catch all1")
 		for _, match := range getFilterChainMatchOptions(mtlsConfig.Passthrough, istionetworking.ListenerProtocolAuto) {
 			opt := fcOpts{matchOpts: match}.populateFilterChain(mtlsConfig.Passthrough, 0, matchingIP)
 			newOpts = append(newOpts, &opt)
 		}
-		log.Errorf("howardjohn: catch all2")
 		for port, setting := range mtlsConfig.PerPort {
 			for _, match := range getFilterChainMatchOptions(setting, istionetworking.ListenerProtocolAuto) {
 				opt := fcOpts{matchOpts: match}.populateFilterChain(setting, port, matchingIP)
