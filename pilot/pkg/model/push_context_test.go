@@ -1612,7 +1612,7 @@ func TestMergeGatewayServerPort(t *testing.T) {
 				t.Errorf("number of servers want %v got %v", c.wantedPorts, mg.MergedServers)
 			}
 			for p := range mg.MergedServers {
-				if _, ok := c.wantedPorts[uint32(p.Number)]; !ok {
+				if _, ok := c.wantedPorts[p.Number]; !ok {
 					t.Errorf("server port want %v got %v", c.wantedPorts, p)
 					break
 				}
