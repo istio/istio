@@ -102,7 +102,7 @@ func claimKube(ctx resource.Context, nsConfig *Config) (Instance, error) {
 			if _, err := cluster.CoreV1().Namespaces().Create(context.TODO(), &kubeApiCore.Namespace{
 				ObjectMeta: kubeApiMeta.ObjectMeta{
 					Name:   nsConfig.Prefix,
-					Labels: createNamespaceLabels(nsConfig),
+					Labels: createNamespaceLabels(ctx, nsConfig),
 				},
 			}, kubeApiMeta.CreateOptions{}); err != nil {
 				return nil, err
@@ -160,7 +160,7 @@ func newKube(ctx resource.Context, nsConfig *Config) (Instance, error) {
 		if _, err := cluster.CoreV1().Namespaces().Create(context.TODO(), &kubeApiCore.Namespace{
 			ObjectMeta: kubeApiMeta.ObjectMeta{
 				Name:   ns,
-				Labels: createNamespaceLabels(nsConfig),
+				Labels: createNamespaceLabels(ctx, nsConfig),
 			},
 		}, kubeApiMeta.CreateOptions{}); err != nil {
 			return nil, err
@@ -180,14 +180,24 @@ func newKube(ctx resource.Context, nsConfig *Config) (Instance, error) {
 }
 
 // createNamespaceLabels will take a namespace config and generate the proper k8s labels
-func createNamespaceLabels(cfg *Config) map[string]string {
+func createNamespaceLabels(ctx resource.Context, cfg *Config) map[string]string {
 	l := make(map[string]string)
 	l["istio-testing"] = "istio-test"
 	if cfg.Inject {
-		if cfg.Revision != "" {
-			l[label.IstioRev] = cfg.Revision
-		} else {
-			l["istio-injection"] = "enabled"
+		// do not add namespace labels when dealing with multiple revisions since
+		// this disables the necessary object selectors
+		if !ctx.Settings().IstioVersions.IsMultiVersion() {
+			if cfg.Revision != "" {
+				l[label.IoIstioRev.Name] = cfg.Revision
+			} else {
+				l["istio-injection"] = "enabled"
+			}
+		}
+	} else {
+		// for multiversion environments, disable the entire namespace explicitly
+		// so that object selectors are ignored
+		if ctx.Settings().IstioVersions.IsMultiVersion() {
+			l["istio-injection"] = "disabled"
 		}
 	}
 

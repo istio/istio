@@ -32,15 +32,16 @@ import (
 type commonAnalyzer struct {
 	labels                  label.Set
 	minCusters, maxClusters int
-	skip                    string
+	minIstioVersion, skip   string
 }
 
 func newCommonAnalyzer() commonAnalyzer {
 	return commonAnalyzer{
-		labels:      label.NewSet(),
-		skip:        "",
-		minCusters:  1,
-		maxClusters: -1,
+		labels:          label.NewSet(),
+		skip:            "",
+		minIstioVersion: "",
+		minCusters:      1,
+		maxClusters:     -1,
 	}
 }
 
@@ -197,6 +198,11 @@ func (t *testAnalyzer) RequiresMinClusters(minClusters int) Test {
 
 func (t *testAnalyzer) RequiresMaxClusters(maxClusters int) Test {
 	t.maxClusters = maxClusters
+	return t
+}
+
+func (t *testAnalyzer) RequireIstioVersion(version string) Test {
+	t.minIstioVersion = version
 	return t
 }
 
