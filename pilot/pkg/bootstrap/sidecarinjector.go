@@ -107,7 +107,7 @@ func (s *Server) initSidecarInjector(args *PilotArgs) (*inject.Webhook, error) {
 		})
 	}
 	s.addStartFunc(func(stop <-chan struct{}) error {
-		go wh.Run(stop)
+		wh.Run(stop)
 		return nil
 	})
 	return wh, nil
