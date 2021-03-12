@@ -850,7 +850,7 @@ func TestRunAndServe(t *testing.T) {
 	defer cleanup()
 	stop := make(chan struct{})
 	defer func() { close(stop) }()
-	go wh.Run(stop)
+	wh.Run(stop)
 
 	validReview := makeTestData(t, false, "v1beta1")
 	validReviewV1 := makeTestData(t, false, "v1")
@@ -1043,7 +1043,7 @@ func BenchmarkInjectServe(b *testing.B) {
 
 	stop := make(chan struct{})
 	defer func() { close(stop) }()
-	go wh.Run(stop)
+	wh.Run(stop)
 
 	body := makeTestData(b, false, "v1beta1")
 	req := httptest.NewRequest("POST", "http://sidecar-injector/inject", bytes.NewReader(body))
