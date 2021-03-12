@@ -32,11 +32,18 @@ var (
 )
 
 // Make creates an in-memory config store from a config schemas
+// It is with validation
 func Make(schemas collection.Schemas) model.ConfigStore {
-	return MakeSkipValidation(schemas, false)
+	return newStore(schemas, false)
 }
 
-func MakeSkipValidation(schemas collection.Schemas, skipValidation bool) model.ConfigStore {
+// MakeSkipValidation creates an in-memory config store from a config schemas
+// It is without validation
+func MakeSkipValidation(schemas collection.Schemas) model.ConfigStore {
+	return newStore(schemas, true)
+}
+
+func newStore(schemas collection.Schemas, skipValidation bool) model.ConfigStore {
 	out := store{
 		schemas:        schemas,
 		data:           make(map[config.GroupVersionKind]map[string]*sync.Map),

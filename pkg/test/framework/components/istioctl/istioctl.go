@@ -16,7 +16,6 @@ package istioctl
 
 import (
 	"fmt"
-	"testing"
 
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/framework/components/cluster"
@@ -33,7 +32,7 @@ type Instance interface {
 	Invoke(args []string) (string, string, error)
 
 	// InvokeOrFail calls Invoke and fails tests if it returns en err
-	InvokeOrFail(t *testing.T, args []string) (string, string)
+	InvokeOrFail(t test.Failer, args []string) (string, string)
 }
 
 // Config is structured config for the istioctl component

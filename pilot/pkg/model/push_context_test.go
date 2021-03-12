@@ -46,8 +46,6 @@ import (
 )
 
 func TestMain(m *testing.M) {
-	// TODO(https://github.com/istio/istio/issues/29349) make this not global
-	GetJwtKeyResolver().Close()
 	leak.CheckMain(m)
 }
 
@@ -321,6 +319,7 @@ func TestServiceIndex(t *testing.T) {
 	}
 	m := mesh.DefaultMeshConfig()
 	env.Watcher = mesh.NewFixedWatcher(&m)
+	env.Init()
 
 	// Init a new push context
 	pc := NewPushContext()
@@ -541,6 +540,7 @@ func TestInitPushContext(t *testing.T) {
 	}
 	m := mesh.DefaultMeshConfig()
 	env.Watcher = mesh.NewFixedWatcher(&m)
+	env.Init()
 
 	// Init a new push context
 	old := NewPushContext()
@@ -1524,144 +1524,6 @@ func TestServiceWithExportTo(t *testing.T) {
 		if !reflect.DeepEqual(gotHosts, tt.wantHosts) {
 			t.Errorf("proxy in %s namespace: want %+v, got %+v", tt.proxyNs, tt.wantHosts, gotHosts)
 		}
-	}
-}
-
-func TestIsClusterLocal(t *testing.T) {
-	cases := []struct {
-		name     string
-		m        meshconfig.MeshConfig
-		host     string
-		expected bool
-	}{
-		{
-			name:     "kube-system is local",
-			m:        mesh.DefaultMeshConfig(),
-			host:     "s.kube-system.svc.cluster.local",
-			expected: true,
-		},
-		{
-			name:     "api server local is local",
-			m:        mesh.DefaultMeshConfig(),
-			host:     "kubernetes.default.svc.cluster.local",
-			expected: true,
-		},
-		{
-			name:     "discovery server is local",
-			m:        mesh.DefaultMeshConfig(),
-			host:     "istiod.istio-system.svc.cluster.local",
-			expected: true,
-		},
-		{
-			name:     "not local by default",
-			m:        mesh.DefaultMeshConfig(),
-			host:     "not.cluster.local",
-			expected: false,
-		},
-		{
-			name: "override default namespace",
-			m: meshconfig.MeshConfig{
-				// Remove the cluster-local setting for kube-system.
-				ServiceSettings: []*meshconfig.MeshConfig_ServiceSettings{
-					{
-						Settings: &meshconfig.MeshConfig_ServiceSettings_Settings{
-							ClusterLocal: false,
-						},
-						Hosts: []string{"*.kube-system.svc.cluster.local"},
-					},
-				},
-			},
-			host:     "s.kube-system.svc.cluster.local",
-			expected: false,
-		},
-		{
-			name: "override default service",
-			m: meshconfig.MeshConfig{
-				// Remove the cluster-local setting for kube-system.
-				ServiceSettings: []*meshconfig.MeshConfig_ServiceSettings{
-					{
-						Settings: &meshconfig.MeshConfig_ServiceSettings_Settings{
-							ClusterLocal: false,
-						},
-						Hosts: []string{"kubernetes.default.svc.cluster.local"},
-					},
-				},
-			},
-			host:     "kubernetes.default.svc.cluster.local",
-			expected: false,
-		},
-		{
-			name: "local 1",
-			m: meshconfig.MeshConfig{
-				ServiceSettings: []*meshconfig.MeshConfig_ServiceSettings{
-					{
-						Settings: &meshconfig.MeshConfig_ServiceSettings_Settings{
-							ClusterLocal: true,
-						},
-						Hosts: []string{
-							"*.ns1.svc.cluster.local",
-							"*.ns2.svc.cluster.local",
-						},
-					},
-				},
-			},
-			host:     "s.ns1.svc.cluster.local",
-			expected: true,
-		},
-		{
-			name: "local 2",
-			m: meshconfig.MeshConfig{
-				ServiceSettings: []*meshconfig.MeshConfig_ServiceSettings{
-					{
-						Settings: &meshconfig.MeshConfig_ServiceSettings_Settings{
-							ClusterLocal: true,
-						},
-						Hosts: []string{
-							"*.ns1.svc.cluster.local",
-							"*.ns2.svc.cluster.local",
-						},
-					},
-				},
-			},
-			host:     "s.ns2.svc.cluster.local",
-			expected: true,
-		},
-		{
-			name: "not local",
-			m: meshconfig.MeshConfig{
-				ServiceSettings: []*meshconfig.MeshConfig_ServiceSettings{
-					{
-						Settings: &meshconfig.MeshConfig_ServiceSettings_Settings{
-							ClusterLocal: true,
-						},
-						Hosts: []string{
-							"*.ns1.svc.cluster.local",
-							"*.ns2.svc.cluster.local",
-						},
-					},
-				},
-			},
-			host:     "s.ns3.svc.cluster.local",
-			expected: false,
-		},
-	}
-
-	for _, c := range cases {
-		t.Run(c.name, func(t *testing.T) {
-			g := NewWithT(t)
-
-			env := &Environment{Watcher: mesh.NewFixedWatcher(&c.m)}
-			push := &PushContext{
-				Mesh: env.Mesh(),
-			}
-			push.initClusterLocalHosts(env)
-
-			svc := &Service{
-				Hostname: host.Name(c.host),
-			}
-			clusterLocal := push.IsClusterLocal(svc)
-			g.Expect(clusterLocal).To(Equal(c.expected))
-		})
 	}
 }
 

@@ -187,7 +187,7 @@ func (s *Server) initConfigSources(args *PilotArgs) (err error) {
 			if srcAddress.Path == "" {
 				return fmt.Errorf("invalid fs config URL %s, contains no file path", configSource.Address)
 			}
-			store := memory.MakeSkipValidation(collections.Pilot, false)
+			store := memory.Make(collections.Pilot)
 			configController := memory.NewController(store)
 
 			err := s.makeFileMonitor(srcAddress.Path, args.RegistryOptions.KubeOptions.DomainSuffix, configController)
@@ -205,7 +205,7 @@ func (s *Server) initConfigSources(args *PilotArgs) (err error) {
 			if err != nil {
 				return fmt.Errorf("failed to dial XDS %s %v", configSource.Address, err)
 			}
-			store := memory.Make(collections.Pilot)
+			store := memory.MakeSkipValidation(collections.Pilot)
 			configController := memory.NewController(store)
 			xdsMCP.Store = model.MakeIstioStore(configController)
 			err = xdsMCP.Run()

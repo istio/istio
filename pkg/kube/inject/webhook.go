@@ -76,12 +76,8 @@ type Webhook struct {
 	meshConfig   *meshconfig.MeshConfig
 	valuesConfig string
 
-	healthCheckInterval time.Duration
-	healthCheckFile     string
-
 	watcher Watcher
 
-	mon      *monitor
 	env      *model.Environment
 	revision string
 }
@@ -129,19 +125,6 @@ type WebhookParameters struct {
 	// This is mainly used for tests. Webhook runs on the port started by Istiod.
 	Port int
 
-	// MonitoringPort is the webhook port, e.g. typically 15014.
-	// Set to -1 to disable monitoring
-	MonitoringPort int
-
-	// HealthCheckInterval configures how frequently the health check
-	// file is updated. Value of zero disables the health check
-	// update.
-	HealthCheckInterval time.Duration
-
-	// HealthCheckFile specifies the path to the health check file
-	// that is periodically updated.
-	HealthCheckFile string
-
 	Env *model.Environment
 
 	// Use an existing mux instead of creating our own.
@@ -158,12 +141,10 @@ func NewWebhook(p WebhookParameters) (*Webhook, error) {
 	}
 
 	wh := &Webhook{
-		watcher:             p.Watcher,
-		meshConfig:          p.Env.Mesh(),
-		healthCheckInterval: p.HealthCheckInterval,
-		healthCheckFile:     p.HealthCheckFile,
-		env:                 p.Env,
-		revision:            p.Revision,
+		watcher:    p.Watcher,
+		meshConfig: p.Env.Mesh(),
+		env:        p.Env,
+		revision:   p.Revision,
 	}
 
 	p.Watcher.SetHandler(wh.updateConfig)
@@ -182,43 +163,12 @@ func NewWebhook(p WebhookParameters) (*Webhook, error) {
 		wh.mu.Unlock()
 	})
 
-	if p.MonitoringPort >= 0 {
-		mon, err := startMonitor(p.Mux, p.MonitoringPort)
-		if err != nil {
-			return nil, fmt.Errorf("could not start monitoring server %v", err)
-		}
-		wh.mon = mon
-	}
-
 	return wh, nil
 }
 
 // Run implements the webhook server
 func (wh *Webhook) Run(stop <-chan struct{}) {
 	go wh.watcher.Run(stop)
-
-	if wh.mon != nil {
-		defer wh.mon.monitoringServer.Close()
-	}
-
-	var healthC <-chan time.Time
-	if wh.healthCheckInterval != 0 && wh.healthCheckFile != "" {
-		t := time.NewTicker(wh.healthCheckInterval)
-		healthC = t.C
-		defer t.Stop()
-	}
-
-	for {
-		select {
-		case <-healthC:
-			content := []byte(`ok`)
-			if err := ioutil.WriteFile(wh.healthCheckFile, content, 0o644); err != nil {
-				log.Errorf("Health check update of %q failed: %v", wh.healthCheckFile, err)
-			}
-		case <-stop:
-			return
-		}
-	}
 }
 
 func (wh *Webhook) updateConfig(sidecarConfig *Config, valuesConfig string) {

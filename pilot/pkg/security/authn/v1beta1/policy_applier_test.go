@@ -533,7 +533,7 @@ func TestJwtFilter(t *testing.T) {
 									JwksSourceSpecifier: &envoy_jwt.JwtProvider_LocalJwks{
 										LocalJwks: &core.DataSource{
 											Specifier: &core.DataSource_InlineString{
-												InlineString: createFakeJwks("http://site.not.exist"),
+												InlineString: model.CreateFakeJwks("http://site.not.exist"),
 											},
 										},
 									},
@@ -684,6 +684,11 @@ func TestJwtFilter(t *testing.T) {
 	}
 
 	push := model.NewPushContext()
+	push.JwtKeyResolver = model.NewJwksResolver(
+		model.JwtPubKeyEvictionDuration, model.JwtPubKeyRefreshInterval,
+		model.JwtPubKeyRefreshIntervalOnFailure, model.JwtPubKeyRetryInterval)
+	defer push.JwtKeyResolver.Close()
+
 	push.ServiceIndex.HostnameAndNamespace[host.Name("jwt-token-issuer.mesh")] = map[string]*model.Service{}
 	push.ServiceIndex.HostnameAndNamespace[host.Name("jwt-token-issuer.mesh")]["mesh"] = &model.Service{
 		Hostname: host.Name("jwt-token-issuer.mesh.svc.cluster.local"),
@@ -929,7 +934,7 @@ func TestConvertToEnvoyJwtConfig(t *testing.T) {
 						JwksSourceSpecifier: &envoy_jwt.JwtProvider_LocalJwks{
 							LocalJwks: &core.DataSource{
 								Specifier: &core.DataSource_InlineString{
-									InlineString: createFakeJwks(""),
+									InlineString: model.CreateFakeJwks(""),
 								},
 							},
 						},
@@ -983,7 +988,7 @@ func TestConvertToEnvoyJwtConfig(t *testing.T) {
 						JwksSourceSpecifier: &envoy_jwt.JwtProvider_LocalJwks{
 							LocalJwks: &core.DataSource{
 								Specifier: &core.DataSource_InlineString{
-									InlineString: createFakeJwks("http://site.not.exist"),
+									InlineString: model.CreateFakeJwks("http://site.not.exist"),
 								},
 							},
 						},
@@ -995,9 +1000,15 @@ func TestConvertToEnvoyJwtConfig(t *testing.T) {
 		},
 	}
 
+	push := &model.PushContext{}
+	push.JwtKeyResolver = model.NewJwksResolver(
+		model.JwtPubKeyEvictionDuration, model.JwtPubKeyRefreshInterval,
+		model.JwtPubKeyRefreshIntervalOnFailure, model.JwtPubKeyRetryInterval)
+	defer push.JwtKeyResolver.Close()
+
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
-			if got := convertToEnvoyJwtConfig(c.in, &model.PushContext{}); !reflect.DeepEqual(c.expected, got) {
+			if got := convertToEnvoyJwtConfig(c.in, push); !reflect.DeepEqual(c.expected, got) {
 				t.Errorf("got:\n%s\nwanted:\n%s\n", spew.Sdump(got), spew.Sdump(c.expected))
 			}
 		})
@@ -1378,6 +1389,19 @@ func TestAuthnFilterConfig(t *testing.T) {
 			},
 		},
 		{
+			name: "beta-mtls-disable",
+			peerIn: []*config.Config{
+				{
+					Spec: &v1beta1.PeerAuthentication{
+						Mtls: &v1beta1.PeerAuthentication_MutualTLS{
+							Mode: v1beta1.PeerAuthentication_MutualTLS_DISABLE,
+						},
+					},
+				},
+			},
+			expected: nil,
+		},
+		{
 			name:      "beta-mtls-for-gateway-does-not-respect-mtls-configs",
 			isGateway: true,
 			peerIn: []*config.Config{
@@ -1732,7 +1756,11 @@ func TestComposePeerAuthentication(t *testing.T) {
 		{
 			name:    "no config",
 			configs: []*config.Config{},
-			want:    nil,
+			want: &v1beta1.PeerAuthentication{
+				Mtls: &v1beta1.PeerAuthentication_MutualTLS{
+					Mode: v1beta1.PeerAuthentication_MutualTLS_PERMISSIVE,
+				},
+			},
 		},
 		{
 			name: "mesh only",
@@ -1810,7 +1838,11 @@ func TestComposePeerAuthentication(t *testing.T) {
 					},
 				},
 			},
-			want: nil,
+			want: &v1beta1.PeerAuthentication{
+				Mtls: &v1beta1.PeerAuthentication_MutualTLS{
+					Mode: v1beta1.PeerAuthentication_MutualTLS_PERMISSIVE,
+				},
+			},
 		},
 		{
 			name: "workload vs namespace config",

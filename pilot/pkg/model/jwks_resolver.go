@@ -17,6 +17,7 @@ package model
 import (
 	"crypto/tls"
 	"crypto/x509"
+	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -29,6 +30,9 @@ import (
 	"sync"
 	"sync/atomic"
 	"time"
+
+	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
+	envoy_jwt "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/jwt_authn/v3"
 
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/pkg/monitoring"
@@ -84,10 +88,6 @@ var (
 		"pilot_jwks_resolver_network_fetch_fail_total",
 		"Total number of failed network fetch by pilot jwks resolver",
 	)
-
-	// jwtKeyResolverOnce lazy init jwt key resolver
-	jwtKeyResolverOnce sync.Once
-	jwtKeyResolver     *JwksResolver
 
 	// JwtPubKeyRefreshInterval is the running interval of JWT pubKey refresh job.
 	JwtPubKeyRefreshInterval = features.PilotJwtPubKeyRefreshInterval
@@ -148,8 +148,8 @@ func init() {
 	monitoring.MustRegister(networkFetchSuccessCounter, networkFetchFailCounter)
 }
 
-// newJwksResolver creates new instance of JwksResolver.
-func newJwksResolver(evictionDuration, refreshDefaultInterval, refreshIntervalOnFailure, retryInterval time.Duration) *JwksResolver {
+// NewJwksResolver creates new instance of JwksResolver.
+func NewJwksResolver(evictionDuration, refreshDefaultInterval, refreshIntervalOnFailure, retryInterval time.Duration) *JwksResolver {
 	return newJwksResolverWithCABundlePaths(
 		evictionDuration,
 		refreshDefaultInterval,
@@ -157,14 +157,6 @@ func newJwksResolver(evictionDuration, refreshDefaultInterval, refreshIntervalOn
 		retryInterval,
 		[]string{jwksExtraRootCABundlePath},
 	)
-}
-
-// GetJwtKeyResolver lazy-creates JwtKeyResolver resolves JWT public key and JwksURI.
-func GetJwtKeyResolver() *JwksResolver {
-	jwtKeyResolverOnce.Do(func() {
-		jwtKeyResolver = newJwksResolver(JwtPubKeyEvictionDuration, JwtPubKeyRefreshInterval, JwtPubKeyRefreshIntervalOnFailure, JwtPubKeyRetryInterval)
-	})
-	return jwtKeyResolver
 }
 
 func newJwksResolverWithCABundlePaths(
@@ -263,6 +255,37 @@ func (r *JwksResolver) GetPublicKey(issuer string, jwksURI string) (string, erro
 	})
 
 	return pubKey, err
+}
+
+// BuildLocalJwks builds local Jwks by fetching the Jwt Public Key from the URL passed if it is empty.
+func (r *JwksResolver) BuildLocalJwks(jwksURI, jwtIssuer, jwtPubKey string) *envoy_jwt.JwtProvider_LocalJwks {
+	if jwtPubKey == "" {
+		var err error
+
+		// jwtKeyResolver should never be nil since the function is only called in Discovery Server request processing
+		// workflow, where the JWT key resolver should have already been initialized on server creation.
+		jwtPubKey, err = r.GetPublicKey(jwtIssuer, jwksURI)
+		if err != nil {
+			log.Errorf("Failed to fetch jwt public key from issuer %q, jwks uri %q: %s", jwtIssuer, jwksURI, err)
+			// This is a temporary workaround to reject a request with JWT token by using a fake jwks when istiod failed to fetch it.
+			// TODO(xulingqing): Find a better way to reject the request without using the fake jwks.
+			jwtPubKey = CreateFakeJwks(jwksURI)
+		}
+	}
+	return &envoy_jwt.JwtProvider_LocalJwks{
+		LocalJwks: &core.DataSource{
+			Specifier: &core.DataSource_InlineString{
+				InlineString: jwtPubKey,
+			},
+		},
+	}
+}
+
+// CreateFakeJwks is a helper function to make a fake jwks when istiod failed to fetch it.
+func CreateFakeJwks(jwksURI string) string {
+	// Encode jwksURI with base64 to make dynamic n in jwks
+	encodedString := base64.RawURLEncoding.EncodeToString([]byte(jwksURI))
+	return fmt.Sprintf(`{"keys":[ {"e":"AQAB","kid":"abc","kty":"RSA","n":"Error-IstiodFailedToFetchJwksUri-%s"}]}`, encodedString)
 }
 
 // Resolve jwks_uri through openID discovery.

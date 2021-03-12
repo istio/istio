@@ -196,6 +196,8 @@ spec:
 {{- end }}
           - --version
           - "{{ $subset.Version }}"
+          - --istio-version
+          - "{{ $version }}"
 {{- if $.TLSSettings }}
           - --crt=/etc/certs/custom/cert-chain.pem
           - --key=/etc/certs/custom/key.pem
