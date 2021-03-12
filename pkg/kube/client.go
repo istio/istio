@@ -69,6 +69,9 @@ import (
 	gatewayapiclient "sigs.k8s.io/gateway-api/pkg/client/clientset/versioned"
 	gatewayapifake "sigs.k8s.io/gateway-api/pkg/client/clientset/versioned/fake"
 	gatewayapiinformer "sigs.k8s.io/gateway-api/pkg/client/informers/externalversions"
+	mcsapisClient "sigs.k8s.io/mcs-api/pkg/client/clientset/versioned"
+	mcsapisfake "sigs.k8s.io/mcs-api/pkg/client/clientset/versioned/fake"
+	mcsapisInformer "sigs.k8s.io/mcs-api/pkg/client/informers/externalversions"
 
 	"istio.io/api/label"
 	istioclient "istio.io/client-go/pkg/clientset/versioned"
@@ -111,6 +114,9 @@ type Client interface {
 	// GatewayApi returns the gateway-api kube client.
 	GatewayAPI() gatewayapiclient.Interface
 
+	// MCSApis returns the mcs-apis kube client.
+	MCSApis() mcsapisClient.Interface
+
 	// KubeInformer returns an informer for core kube client
 	KubeInformer() informers.SharedInformerFactory
 
@@ -125,6 +131,9 @@ type Client interface {
 
 	// GatewayApiInformer returns an informer for the gateway-api client
 	GatewayAPIInformer() gatewayapiinformer.SharedInformerFactory
+
+	// MCSApisInformer returns an informer for the mcs-apis client
+	MCSApisInformer() mcsapisInformer.SharedInformerFactory
 
 	// RunAndWait starts all informers and waits for their caches to sync.
 	// Warning: this must be called AFTER .Informer() is called, which will register the informer.
@@ -220,6 +229,9 @@ func NewFakeClient(objects ...runtime.Object) ExtendedClient {
 	c.gatewayapi = gatewayapifake.NewSimpleClientset()
 	c.gatewayapiInformer = gatewayapiinformer.NewSharedInformerFactory(c.gatewayapi, resyncInterval)
 
+	c.mcsapis = mcsapisfake.NewSimpleClientset()
+	c.mcsapisInformers = mcsapisInformer.NewSharedInformerFactory(c.mcsapis, resyncInterval)
+
 	c.extSet = extfake.NewSimpleClientset()
 
 	// https://github.com/kubernetes/kubernetes/issues/95372
@@ -278,6 +290,9 @@ type client struct {
 
 	gatewayapi         gatewayapiclient.Interface
 	gatewayapiInformer gatewayapiinformer.SharedInformerFactory
+
+	mcsapis          mcsapisClient.Interface
+	mcsapisInformers mcsapisInformer.SharedInformerFactory
 
 	// If enable, will wait for cache syncs with extremely short delay. This should be used only for tests
 	fastSync               bool
@@ -350,6 +365,12 @@ func newClientInternal(clientFactory util.Factory, revision string) (*client, er
 	}
 	c.gatewayapiInformer = gatewayapiinformer.NewSharedInformerFactory(c.gatewayapi, resyncInterval)
 
+	c.mcsapis, err = mcsapisClient.NewForConfig(c.config)
+	if err != nil {
+		return nil, err
+	}
+	c.mcsapisInformers = mcsapisInformer.NewSharedInformerFactory(c.mcsapis, resyncInterval)
+
 	ext, err := kubeExtClient.NewForConfig(c.config)
 	if err != nil {
 		return nil, err
@@ -399,6 +420,10 @@ func (c *client) GatewayAPI() gatewayapiclient.Interface {
 	return c.gatewayapi
 }
 
+func (c *client) MCSApis() mcsapisClient.Interface {
+	return c.mcsapis
+}
+
 func (c *client) KubeInformer() informers.SharedInformerFactory {
 	return c.kubeInformer
 }
@@ -417,6 +442,10 @@ func (c *client) IstioInformer() istioinformer.SharedInformerFactory {
 
 func (c *client) GatewayAPIInformer() gatewayapiinformer.SharedInformerFactory {
 	return c.gatewayapiInformer
+}
+
+func (c *client) MCSApisInformer() mcsapisInformer.SharedInformerFactory {
+	return c.mcsapisInformers
 }
 
 // RunAndWait starts all informers and waits for their caches to sync.
