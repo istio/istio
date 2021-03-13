@@ -82,7 +82,7 @@ func NewClusterBuilder(proxy *model.Proxy, push *model.PushContext) *ClusterBuil
 }
 
 // NewMutalbeCluster initializes MutableCluster with the cluser passed.
-func NewMutalbeCluster(cluster *cluster.Cluster) *MutableCluster {
+func NewMutableCluster(cluster *cluster.Cluster) *MutableCluster {
 	return &MutableCluster{
 		cluster: cluster,
 	}
@@ -247,7 +247,7 @@ func (cb *ClusterBuilder) buildDefaultCluster(name string, discoveryType cluster
 		Name:                 name,
 		ClusterDiscoveryType: &cluster.Cluster_Type{Type: discoveryType},
 	}
-	ec := NewMutalbeCluster(c)
+	ec := NewMutableCluster(c)
 	switch discoveryType {
 	case cluster.Cluster_STRICT_DNS:
 		c.DnsLookupFamily = cluster.Cluster_V4_ONLY
@@ -475,7 +475,7 @@ func (cb *ClusterBuilder) buildDefaultPassthroughCluster() *cluster.Cluster {
 		ProtocolSelection:    cluster.Cluster_USE_DOWNSTREAM_PROTOCOL,
 	}
 	passthroughSettings := &networking.ConnectionPoolSettings{}
-	cb.applyConnectionPool(cb.push.Mesh, NewMutalbeCluster(cluster), passthroughSettings)
+	cb.applyConnectionPool(cb.push.Mesh, NewMutableCluster(cluster), passthroughSettings)
 	return cluster
 }
 

@@ -2459,7 +2459,7 @@ func TestTelemetryMetadata(t *testing.T) {
 	for _, tt := range cases {
 		t.Run(tt.name, func(t *testing.T) {
 			opt := buildClusterOpts{
-				mutable: NewMutalbeCluster(tt.cluster),
+				mutable: NewMutableCluster(tt.cluster),
 				port:    &model.Port{Port: 80},
 				proxy: &model.Proxy{
 					ServiceInstances: tt.svcInsts,

@@ -272,7 +272,7 @@ func TestApplyDestinationRule(t *testing.T) {
 			cg.MemRegistry.WantGetProxyServiceInstances = instances
 			cb := NewClusterBuilder(cg.SetupProxy(nil), cg.PushContext())
 
-			ec := NewMutalbeCluster(tt.cluster)
+			ec := NewMutableCluster(tt.cluster)
 			subsetClusters := cb.applyDestinationRule(ec, tt.clusterMode, tt.service, tt.port, tt.networkView)
 			if len(subsetClusters) != len(tt.expectedSubsetClusters) {
 				t.Errorf("Unexpected subset clusters want %v, got %v", len(tt.expectedSubsetClusters), len(subsetClusters))
@@ -1460,7 +1460,7 @@ func TestApplyUpstreamTLSSettings(t *testing.T) {
 				proxy.Metadata = &model.NodeMetadata{}
 			}
 			opts := &buildClusterOpts{
-				mutable: NewMutalbeCluster(&cluster.Cluster{
+				mutable: NewMutableCluster(&cluster.Cluster{
 					ClusterDiscoveryType: &cluster.Cluster_Type{Type: test.discoveryType},
 				}),
 				proxy: proxy,
@@ -1524,7 +1524,7 @@ func TestBuildUpstreamClusterTLSContext(t *testing.T) {
 		{
 			name: "tls mode disabled",
 			opts: &buildClusterOpts{
-				mutable: NewMutalbeCluster(&cluster.Cluster{
+				mutable: NewMutableCluster(&cluster.Cluster{
 					Name: "test-cluster",
 				}),
 			},
@@ -2238,13 +2238,13 @@ func TestBuildUpstreamClusterTLSContext(t *testing.T) {
 }
 
 func newTestCluster() *MutableCluster {
-	return NewMutalbeCluster(&cluster.Cluster{
+	return NewMutableCluster(&cluster.Cluster{
 		Name: "test-cluster",
 	})
 }
 
 func newH2TestCluster() *MutableCluster {
-	return NewMutalbeCluster(&cluster.Cluster{
+	return NewMutableCluster(&cluster.Cluster{
 		Name:                 "test-cluster",
 		Http2ProtocolOptions: &core.Http2ProtocolOptions{},
 	})
