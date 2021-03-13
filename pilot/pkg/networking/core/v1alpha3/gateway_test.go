@@ -147,32 +147,6 @@ func TestBuildGatewayListenerTlsContext(t *testing.T) {
 							},
 						},
 					},
-					ValidationContextType: &auth.CommonTlsContext_CombinedValidationContext{
-						CombinedValidationContext: &auth.CommonTlsContext_CombinedCertificateValidationContext{
-							DefaultValidationContext: &auth.CertificateValidationContext{},
-							ValidationContextSdsSecretConfig: &auth.SdsSecretConfig{
-								Name: "ROOTCA",
-								SdsConfig: &core.ConfigSource{
-									InitialFetchTimeout: ptypes.DurationProto(time.Second * 0),
-									ResourceApiVersion:  core.ApiVersion_V3,
-									ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
-										ApiConfigSource: &core.ApiConfigSource{
-											ApiType:                   core.ApiConfigSource_GRPC,
-											SetNodeOnFirstMessageOnly: true,
-											TransportApiVersion:       core.ApiVersion_V3,
-											GrpcServices: []*core.GrpcService{
-												{
-													TargetSpecifier: &core.GrpcService_EnvoyGrpc_{
-														EnvoyGrpc: &core.GrpcService_EnvoyGrpc{ClusterName: model.SDSClusterName},
-													},
-												},
-											},
-										},
-									},
-								},
-							},
-						},
-					},
 				},
 				RequireClientCertificate: proto.BoolFalse,
 			},
@@ -229,7 +203,7 @@ func TestBuildGatewayListenerTlsContext(t *testing.T) {
 			},
 		},
 		{
-			name: "no credential name key and cert tls SIMPLE with out cacert",
+			name: "no credential name key and cert tls SIMPLE",
 			server: &networking.Server{
 				Hosts: []string{"httpbin.example.com", "bookinfo.example.com"},
 				Tls: &networking.ServerTLSSettings{
@@ -255,71 +229,6 @@ func TestBuildGatewayListenerTlsContext(t *testing.T) {
 											{
 												TargetSpecifier: &core.GrpcService_EnvoyGrpc_{
 													EnvoyGrpc: &core.GrpcService_EnvoyGrpc{ClusterName: model.SDSClusterName},
-												},
-											},
-										},
-									},
-								},
-							},
-						},
-					},
-				},
-				RequireClientCertificate: proto.BoolFalse,
-			},
-		},
-		{
-			name: "no credential name key and cert tls SIMPLE with cacert",
-			server: &networking.Server{
-				Hosts: []string{"httpbin.example.com", "bookinfo.example.com"},
-				Tls: &networking.ServerTLSSettings{
-					Mode:              networking.ServerTLSSettings_SIMPLE,
-					ServerCertificate: "server-cert.crt",
-					PrivateKey:        "private-key.key",
-					CaCertificates:    "ca-cert.crt",
-				},
-			},
-			result: &auth.DownstreamTlsContext{
-				CommonTlsContext: &auth.CommonTlsContext{
-					AlpnProtocols: util.ALPNHttp,
-					TlsCertificateSdsSecretConfigs: []*auth.SdsSecretConfig{
-						{
-							Name: "file-cert:server-cert.crt~private-key.key",
-							SdsConfig: &core.ConfigSource{
-								ResourceApiVersion: core.ApiVersion_V3,
-								ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
-									ApiConfigSource: &core.ApiConfigSource{
-										ApiType:                   core.ApiConfigSource_GRPC,
-										SetNodeOnFirstMessageOnly: true,
-										TransportApiVersion:       core.ApiVersion_V3,
-										GrpcServices: []*core.GrpcService{
-											{
-												TargetSpecifier: &core.GrpcService_EnvoyGrpc_{
-													EnvoyGrpc: &core.GrpcService_EnvoyGrpc{ClusterName: model.SDSClusterName},
-												},
-											},
-										},
-									},
-								},
-							},
-						},
-					},
-					ValidationContextType: &auth.CommonTlsContext_CombinedValidationContext{
-						CombinedValidationContext: &auth.CommonTlsContext_CombinedCertificateValidationContext{
-							DefaultValidationContext: &auth.CertificateValidationContext{},
-							ValidationContextSdsSecretConfig: &auth.SdsSecretConfig{
-								Name: "file-root:ca-cert.crt",
-								SdsConfig: &core.ConfigSource{
-									ResourceApiVersion: core.ApiVersion_V3,
-									ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
-										ApiConfigSource: &core.ApiConfigSource{
-											ApiType:                   core.ApiConfigSource_GRPC,
-											SetNodeOnFirstMessageOnly: true,
-											TransportApiVersion:       core.ApiVersion_V3,
-											GrpcServices: []*core.GrpcService{
-												{
-													TargetSpecifier: &core.GrpcService_EnvoyGrpc_{
-														EnvoyGrpc: &core.GrpcService_EnvoyGrpc{ClusterName: model.SDSClusterName},
-													},
 												},
 											},
 										},
