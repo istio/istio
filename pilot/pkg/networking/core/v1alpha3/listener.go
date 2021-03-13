@@ -135,9 +135,6 @@ var (
 
 	mtlsTCPWithMxcALPNs = []string{"istio-peer-exchange", "istio"}
 
-	// ALPN used for TCP Metadata Exchange.
-	tcpMxcALPN = "istio-peer-exchange"
-
 	// Same as inboundPermissiveFilterChainMatchOptions except for following case:
 	// FCM 3: ALPN [istio-peer-exchange, istio] Transport protocol: tls            --> TCP traffic from sidecar over TLS
 	inboundPermissiveFilterChainMatchWithMxcOptions = []FilterChainMatchOptions{
@@ -2161,15 +2158,4 @@ func removeListenerFilterTimeout(listeners []*listener.Listener) {
 // listenerKey builds the key for a given bind and port
 func listenerKey(bind string, port int) string {
 	return bind + ":" + strconv.Itoa(port)
-}
-
-func dropAlpnFromList(alpnProtocols []string, alpnToDrop string) []string {
-	var newAlpnProtocols []string
-	for _, alpn := range alpnProtocols {
-		if alpn == alpnToDrop {
-			continue
-		}
-		newAlpnProtocols = append(newAlpnProtocols, alpn)
-	}
-	return newAlpnProtocols
 }

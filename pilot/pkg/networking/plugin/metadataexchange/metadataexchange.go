@@ -35,12 +35,12 @@ func (p Plugin) OnInboundListener(in *plugin.InputParams, mutable *networking.Mu
 		// Only care about sidecar.
 		return nil
 	}
-	return buildFilter(in, mutable)
+	return buildFilter(mutable)
 }
 
 // OnOutboundListener is called whenever a new HTTP/TCP metadata exchange filter is added to the Listener filter chain.
 func (p Plugin) OnOutboundListener(in *plugin.InputParams, mutable *networking.MutableObjects) error {
-	return buildFilter(in, mutable)
+	return buildFilter(mutable)
 }
 
 // OnInboundPassthrough is called whenever a new passthrough filter chain is added to the LDS output.
@@ -54,7 +54,7 @@ func (p Plugin) InboundMTLSConfiguration(in *plugin.InputParams) *plugin.Inbound
 }
 
 // Build the HTTP or TCP metadata exchange telemetry filter based on the LisenterProtocol
-func buildFilter(in *plugin.InputParams, mutable *networking.MutableObjects) error {
+func buildFilter(mutable *networking.MutableObjects) error {
 	for i := range mutable.FilterChains {
 		if mutable.FilterChains[i].ListenerProtocol == networking.ListenerProtocolHTTP {
 			mutable.FilterChains[i].HTTP = append(mutable.FilterChains[i].HTTP, xdsfilters.HTTPMx)
