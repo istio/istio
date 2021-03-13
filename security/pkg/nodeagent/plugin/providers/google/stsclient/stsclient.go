@@ -88,7 +88,7 @@ func (p Plugin) ExchangeToken(ctx context.Context, credFetcher security.CredFetc
 	req.Header.Set("Content-Type", contentType)
 
 	resp, err := p.hTTPClient.Do(req)
-	errMsg := "failed to call token exchange service. "
+	errMsg := fmt.Sprintf("failed to call token exchange service (aud: %s). ", aud)
 	if err != nil || resp == nil {
 		statusCode := http.StatusServiceUnavailable
 		// If resp is not null, return the actually status code returned from the token service.
@@ -109,12 +109,13 @@ func (p Plugin) ExchangeToken(ctx context.Context, credFetcher security.CredFetc
 		// Normally the request should json - extremely hard to debug otherwise, not enough info in status/err
 		stsClientLog.Debugf("Unexpected unmarshal error, response was %s", string(body))
 		return "", time.Now(), resp.StatusCode, fmt.Errorf(
-			"failed to unmarshal response data. HTTP status: %s. Error: %v. Body size: %d", resp.Status, err, len(body))
+			"failed to unmarshal response data (aud: %s). HTTP status: %s. Error: %v. Body size: %d",
+			aud, resp.Status, err, len(body))
 	}
 
 	if respData.AccessToken == "" {
 		return "", time.Now(), resp.StatusCode, fmt.Errorf(
-			"exchanged empty token. HTTP status: %s. Response: %v", resp.Status, string(body))
+			"exchanged empty token (aud: %s). HTTP status: %s. Response: %v", aud, resp.Status, string(body))
 	}
 
 	return respData.AccessToken, time.Now().Add(time.Second * time.Duration(respData.ExpiresIn)), resp.StatusCode, nil
