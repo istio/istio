@@ -36,11 +36,6 @@ const (
 // be set, it's up to the callee to validate required fields are set and emit error if they are not.
 // These are for reading only and should not be modified.
 type InputParams struct {
-	// ListenerProtocol is the protocol/class of listener (TCP, HTTP etc.). Must be set.
-	// This is valid only for the inbound listener
-	// Outbound listeners could have multiple filter chains, where one filter chain could be
-	// a HTTP connection manager with TLS context, while the other could be a tcp proxy with sni
-	ListenerProtocol istionetworking.ListenerProtocol
 	// Node is the node the response is for.
 	Node *model.Proxy
 	// ServiceInstance is the service instance colocated with the listener (applies to sidecar).
@@ -60,10 +55,6 @@ type Plugin interface {
 	// OnInboundListener is called whenever a new listener is added to the LDS output for a given service
 	// Can be used to add additional filters.
 	OnInboundListener(in *InputParams, mutable *istionetworking.MutableObjects) error
-
-	// OnInboundFilterChains is called whenever a plugin needs to setup the filter chains, including relevant filter chain
-	// configuration, like FilterChainMatch and TLSContext.
-	OnInboundFilterChains(in *InputParams) []istionetworking.FilterChain
 
 	// OnInboundPassthrough is called whenever a new passthrough filter chain is added to the LDS output.
 	// Can be used to add additional filters.

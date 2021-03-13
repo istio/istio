@@ -35,14 +35,6 @@ func NewPlugin() plugin.Plugin {
 
 var _ plugin.Plugin = Plugin{}
 
-// OnInboundFilterChains setups filter chains based on the authentication policy.
-func (Plugin) OnInboundFilterChains(in *plugin.InputParams) []networking.FilterChain {
-	return factory.NewPolicyApplier(in.Push,
-		in.Node.Metadata.Namespace, labels.Collection{in.Node.Metadata.Labels}).InboundFilterChain(
-		in.ServiceInstance.Endpoint.EndpointPort, in.Node,
-		in.ListenerProtocol, trustDomainsForValidation(in.Push.Mesh))
-}
-
 // OnOutboundListener is called whenever a new outbound listener is added to the LDS output for a given service
 // Can be used to add additional filters on the outbound path
 func (Plugin) OnOutboundListener(in *plugin.InputParams, mutable *networking.MutableObjects) error {
@@ -78,7 +70,7 @@ func buildFilter(in *plugin.InputParams, mutable *networking.MutableObjects, isP
 			// Get the real port from the filter chain match if this is generated for pass through filter chain.
 			endpointPort = mutable.FilterChains[i].FilterChainMatch.GetDestinationPort().GetValue()
 		}
-		if in.ListenerProtocol == networking.ListenerProtocolHTTP || mutable.FilterChains[i].ListenerProtocol == networking.ListenerProtocolHTTP {
+		if mutable.FilterChains[i].ListenerProtocol == networking.ListenerProtocolHTTP {
 			// Adding Jwt filter and authn filter, if needed.
 			if filter := applier.JwtFilter(); filter != nil {
 				mutable.FilterChains[i].HTTP = append(mutable.FilterChains[i].HTTP, filter)
@@ -125,7 +117,7 @@ func (p Plugin) InboundMTLSConfiguration(in *plugin.InputParams) *plugin.Inbound
 
 	// Then generate the per-port passthrough filter chains.
 	for port := range applier.PortLevelSetting() {
-		// Skip the per-port passthrough filterchain if the port is already handled by OnInboundFilterChains().
+		// Skip the per-port passthrough filterchain if the port is already handled by InboundMTLSConfiguration().
 		if !needPerPortPassthroughFilterChain(port, in.Node) {
 			continue
 		}

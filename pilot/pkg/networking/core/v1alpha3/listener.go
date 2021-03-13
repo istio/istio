@@ -22,7 +22,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/davecgh/go-spew/spew"
 	accesslog "github.com/envoyproxy/go-control-plane/envoy/config/accesslog/v3"
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
@@ -389,13 +388,13 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundListeners(
 				bind:       bind,
 				port:       &port,
 				bindToPort: false,
+				protocol:   istionetworking.ModelProtocolToListenerProtocol(instance.ServicePort.Protocol, core.TrafficDirection_INBOUND),
 			}
 
 			pluginParams := &plugin.InputParams{
-				ListenerProtocol: istionetworking.ModelProtocolToListenerProtocol(instance.ServicePort.Protocol, core.TrafficDirection_INBOUND),
-				Node:             node,
-				ServiceInstance:  instance,
-				Push:             push,
+				Node:            node,
+				ServiceInstance: instance,
+				Push:            push,
 			}
 
 			if l := configgen.buildSidecarInboundListenerForPortOrUDS(node, listenerOpts, pluginParams, listenerMap); l != nil {
@@ -443,6 +442,8 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundListeners(
 			bind:       bind,
 			port:       listenPort,
 			bindToPort: bindToPort,
+			protocol: istionetworking.ModelProtocolToListenerProtocol(listenPort.Protocol,
+				core.TrafficDirection_INBOUND),
 		}
 
 		// we don't need to set other fields of the endpoint here as
@@ -453,8 +454,6 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundListeners(
 		// Validation ensures that the protocol specified in Sidecar.ingress
 		// is always a valid known protocol
 		pluginParams := &plugin.InputParams{
-			ListenerProtocol: istionetworking.ModelProtocolToListenerProtocol(listenPort.Protocol,
-				core.TrafficDirection_INBOUND),
 			Node:            node,
 			ServiceInstance: instance,
 			Push:            push,
@@ -540,11 +539,14 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundListenerForPortOrUDS(no
 		return nil
 	}
 
+	if listenerOpts.protocol == istionetworking.ListenerProtocolAuto {
+		listenerOpts.needHTTPInspector = true
+	}
+
 	port := pluginParams.ServiceInstance.Endpoint.EndpointPort
-	spew.Dump(getMtlsSettings(configgen, pluginParams))
 	mtlsConfig := getMtlsSettings(configgen, pluginParams).PerPort[port]
 	newOpts := []*fcOpts{}
-	for _, match := range getFilterChainMatchOptions(mtlsConfig, pluginParams.ListenerProtocol) {
+	for _, match := range getFilterChainMatchOptions(mtlsConfig, listenerOpts.protocol) {
 		opt := fcOpts{matchOpts: match}.populateFilterChain(mtlsConfig, 0, "")
 		newOpts = append(newOpts, &opt)
 	}
@@ -581,6 +583,9 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundListenerForPortOrUDS(no
 		case istionetworking.ListenerProtocolHTTP:
 			fcOpts.httpOpts = configgen.buildSidecarInboundHTTPListenerOptsForPortOrUDS(node, pluginParams, "")
 		case istionetworking.ListenerProtocolTCP:
+			fcOpts.networkFilters = buildInboundNetworkFilters(pluginParams.Push, pluginParams.ServiceInstance, node)
+		case istionetworking.ListenerProtocolAuto:
+			fcOpts.httpOpts = configgen.buildSidecarInboundHTTPListenerOptsForPortOrUDS(node, pluginParams, "")
 			fcOpts.networkFilters = buildInboundNetworkFilters(pluginParams.Push, pluginParams.ServiceInstance, node)
 		}
 		listenerOpts.filterChainOpts = append(listenerOpts.filterChainOpts, fcOpts)
@@ -807,11 +812,6 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(node *model.
 				bindToPort: bindToPort,
 			}
 
-			pluginParams := &plugin.InputParams{
-				Node: node,
-				Push: push,
-			}
-
 			for _, service := range services {
 				saddress := service.GetServiceAddressForProxy(node)
 				for _, servicePort := range service.Ports {
@@ -820,10 +820,6 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(node *model.
 					// port depends on servicePort.
 					listenerOpts.port = servicePort
 					listenerOpts.service = service
-
-					// The listener protocol is determined by the protocol of service port.
-					pluginParams.ListenerProtocol = istionetworking.ModelProtocolToListenerProtocol(servicePort.Protocol,
-						core.TrafficDirection_OUTBOUND)
 
 					// Support statefulsets/headless services with TCP ports, and empty service address field.
 					// Instead of generating a single 0.0.0.0:Port listener, generate a listener
@@ -1295,9 +1291,8 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListenerForPortOrUDS(l
 	}
 
 	pluginParams := &plugin.InputParams{
-		ListenerProtocol: listenerProtocol,
-		Node:             listenerOpts.proxy,
-		Push:             listenerOpts.push,
+		Node: listenerOpts.proxy,
+		Push: listenerOpts.push,
 	}
 
 	for _, p := range configgen.Plugins {
@@ -1465,6 +1460,7 @@ type buildListenerOpts struct {
 	needHTTPInspector bool
 	class             ListenerClass
 	service           *model.Service
+	protocol          istionetworking.ListenerProtocol
 }
 
 func buildHTTPConnectionManager(listenerOpts buildListenerOpts, httpOpts *httpListenerOpts,
