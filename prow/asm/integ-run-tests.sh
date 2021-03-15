@@ -56,6 +56,8 @@ REVISION_CONFIG_FILE=""
 TEST_TARGET="test.integration.multicluster.kube.presubmit"
 # Passed by job config
 DISABLED_TESTS=""
+VM_DISTRO="debian-10"
+IMAGE_PROJECT="debian-cloud"
 # holds multiple kubeconfigs for onprem MC
 declare -a ONPREM_MC_CONFIGS
 # hold the kubeconfig for baremetal SC
@@ -115,6 +117,14 @@ while (( "$#" )); do
       ;;
     --revision-config)
       REVISION_CONFIG_FILE=$2
+      shift 2
+      ;;
+    --vm-distro)
+      VM_DISTRO=$2
+      shift 2
+      ;;
+    --image-project)
+      IMAGE_PROJECT=$2
       shift 2
       ;;
     --test)
@@ -276,7 +286,7 @@ if [[ "${CONTROL_PLANE}" == "UNMANAGED" ]]; then
   if [ -n "${STATIC_VMS}" ]; then
     echo "Setting up GCP VMs to test against"
     VM_CTX="${CONTEXTS[0]}"
-    setup_asm_vms "${STATIC_VMS}" "${VM_CTX}"
+    setup_asm_vms "${STATIC_VMS}" "${VM_CTX}" "${VM_DISTRO}" "${IMAGE_PROJECT}"
     static_vm_topology_entry "${INTEGRATION_TEST_TOPOLOGY_FILE}" "${VM_CTX}"
   fi
 

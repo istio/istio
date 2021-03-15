@@ -87,6 +87,8 @@ function setup_vms() {
   local PROJECT_NUMBER="${4}"
   local REVISION="${5}"
   local DIR="${6}"
+  local VM_DISTRO="${7:-debian-10}"
+  local IMAGE_PROJECT="${8:-debian-cloud}"
 
   if [ ! -d "$DIR" ]; then
     echo "No directory $DIR"
@@ -97,7 +99,7 @@ function setup_vms() {
     if [ ! -d "$subdir" ]; then
       continue
     fi
-    setup_vm "${CONTEXT}" "${CLUSTER_NAME}" "${LOCATION}" "${PROJECT_NUMBER}" "${REVISION}" "${subdir}"
+    setup_vm "${CONTEXT}" "${CLUSTER_NAME}" "${LOCATION}" "${PROJECT_NUMBER}" "${REVISION}" "${subdir}" "${VM_DISTRO}" "${IMAGE_PROJECT}"
   done
 }
 
@@ -122,6 +124,8 @@ function setup_vm() {
   local PROJECT_NUMBER="${4}"
   local REVISION="${5}"
   local DIR="${6}"
+  local VM_DISTRO="${7:-debian-10}"
+  local IMAGE_PROJECT="${8:-debian-cloud}"
 
   # compute instances need a fully qualified zone
   ZONE="${LOCATION}"
@@ -169,11 +173,13 @@ EOF
   # some tests expect the hostname to begin with "${NAME}-"
   local INSTANCE_NAME="${NAME}-${NAMESPACE}-${CLUSTER_NAME}-test-app-instance"
   local TEMPLATE_NAME="${NAME}-${NAMESPACE}-${CLUSTER_NAME}-test-app-template"
+  local BASE_INSTANCE_TEMPLATE_NAME="${NAME}-${NAMESPACE}-${CLUSTER_NAME}-source-instance-template"
   local TEMPLATE_EXISTS
   local INSTANCE_EXISTS
   TEMPLATE_EXISTS="$(gcloud compute instance-templates describe "${TEMPLATE_NAME}" || true)"
   INSTANCE_EXISTS="$(gcloud compute instances describe --zone="${ZONE}" "${INSTANCE_NAME}" || true)"
 
+  retry 3 10s gcloud compute instance-templates create "${BASE_INSTANCE_TEMPLATE_NAME}" --image-project "${IMAGE_PROJECT}" --image-family "${VM_DISTRO}"
   # eventually this will be a static URL - for the time being this needs to be updated to use the latest agent
   AGENT_BUCKET="gs://gce-service-proxy-canary/service-proxy-agent/releases/service-proxy-agent-latest.tgz"
   [ -z "$TEMPLATE_EXISTS" ] && ASM_REVISION_PREFIX="${REVISION}" _CI_ASM_IMAGE_TAG="${TAG}" SERVICE_PROXY_AGENT_BUCKET="${AGENT_BUCKET}" $VM_SCRIPT create_gce_instance_template \
@@ -183,7 +189,8 @@ EOF
     --cluster_name "${CLUSTER_NAME}" \
     --cluster_location "${LOCATION}" \
     --workload_name "${NAME}" \
-    --workload_namespace "${NAMESPACE}"
+    --workload_namespace "${NAMESPACE}" \
+    --source_instance_template "${BASE_INSTANCE_TEMPLATE_NAME}"
   [ -z "$INSTANCE_EXISTS" ] && gcloud compute --project="${PROJECT_ID}" instances create "${INSTANCE_NAME}" --zone="${ZONE}" \
     --labels="service=${SERVICE},namespace=${NAMESPACE}" --tags="staticvm" \
     --source-instance-template "${TEMPLATE_NAME}"

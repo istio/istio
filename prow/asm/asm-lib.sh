@@ -1001,6 +1001,8 @@ function init_baremetal_http_proxy() {
 function setup_asm_vms() {
   local VM_DIR="$PWD/prow/asm/echo-vm-provisioner/configs/$1"
   local CONTEXT=$2
+  local VM_DISTRO="${3:-debian-10}"
+  local IMAGE_PROJECT="${4:-debian-cloud}"
 
   IFS="_" read -r -a VALS <<< "${CONTEXT}"
   local PROJECT_ID=${VALS[1]}
@@ -1028,7 +1030,7 @@ function setup_asm_vms() {
     prow-to-static-vms
 
   export ISTIO_OUT="$PWD/out"
-  setup_vms "${CONTEXT}" "${CLUSTER_NAME}" "${CLUSTER_LOCATION}" "${PROJECT_NUMBER}" "${REVISION}" "${VM_DIR}"
+  setup_vms "${CONTEXT}" "${CLUSTER_NAME}" "${CLUSTER_LOCATION}" "${PROJECT_NUMBER}" "${REVISION}" "${VM_DIR}" "${VM_DISTRO}" "${IMAGE_PROJECT}"
 }
 
 # Add function call to trap
