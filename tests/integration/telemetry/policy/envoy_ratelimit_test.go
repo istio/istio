@@ -18,12 +18,13 @@ package policy
 import (
 	"errors"
 	"io/ioutil"
+	"path/filepath"
 	"testing"
 	"time"
-	"path/filepath"
 
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/test/echo/common/response"
+	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/echo/echoboot"
@@ -35,7 +36,6 @@ import (
 	"istio.io/istio/pkg/test/kube"
 	"istio.io/istio/pkg/test/util/retry"
 	"istio.io/istio/pkg/test/util/tmpl"
-	"istio.io/istio/pkg/test/env"
 )
 
 var (
@@ -141,7 +141,7 @@ func testSetup(ctx resource.Context) (err error) {
 		return
 	}
 
-	yamlContent, err := ioutil.ReadFile(filepath.Join(env.IstioSrc, "samples/ratelimit/ratelimit.yaml"))
+	yamlContent, err := ioutil.ReadFile(filepath.Join(env.IstioSrc, "samples/ratelimit/rate-limit-service.yaml"))
 	if err != nil {
 		return
 	}
