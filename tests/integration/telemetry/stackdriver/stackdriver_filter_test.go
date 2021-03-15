@@ -75,7 +75,7 @@ func getEchoNamespaceInstance() namespace.Instance {
 	return echoNsInst
 }
 
-func unmarshalFromTemplateFile(file string, out proto.Message, clName string) error {
+func unmarshalFromTemplateFile(file string, out proto.Message, clName, trustDomain string) error {
 	templateFile, err := ioutil.ReadFile(file)
 	if err != nil {
 		return err
@@ -83,6 +83,7 @@ func unmarshalFromTemplateFile(file string, out proto.Message, clName string) er
 	resource, err := tmpl.Evaluate(string(templateFile), map[string]interface{}{
 		"EchoNamespace": getEchoNamespaceInstance().Name(),
 		"ClusterName":   clName,
+		"TrustDomain":   trustDomain,
 		"OnGCE":         metadata.OnGCE(),
 	})
 	if err != nil {
@@ -105,14 +106,15 @@ func TestStackdriverMonitoring(t *testing.T) {
 							return err
 						}
 						clName := cltInstance.Config().Cluster.Name()
+						trustDomain := telemetry.GetTrustDomain(cltInstance.Config().Cluster, ist.Settings().SystemNamespace)
 						scopes.Framework.Infof("Validating for cluster %s", clName)
 
 						// Validate cluster names in telemetry below once https://github.com/istio/istio/issues/28125 is fixed.
-						if err := validateMetrics(t, serverRequestCount, clientRequestCount, clName); err != nil {
+						if err := validateMetrics(t, serverRequestCount, clientRequestCount, clName, trustDomain); err != nil {
 							return err
 						}
 						t.Logf("Metrics validated")
-						if err := validateLogs(t, serverLogEntry, clName, stackdriver.ServerAccessLog); err != nil {
+						if err := validateLogs(t, serverLogEntry, clName, trustDomain, stackdriver.ServerAccessLog); err != nil {
 							return err
 						}
 						t.Logf("logs validated")
@@ -120,7 +122,7 @@ func TestStackdriverMonitoring(t *testing.T) {
 							return err
 						}
 						t.Logf("Traces validated")
-						if err := validateEdges(t, clName); err != nil {
+						if err := validateEdges(t, clName, trustDomain); err != nil {
 							return err
 						}
 						t.Logf("Edges validated")
@@ -291,14 +293,14 @@ func sendTraffic(t *testing.T, cltInstance echo.Instance) error {
 	return nil
 }
 
-func validateMetrics(t *testing.T, serverReqCount, clientReqCount, clName string) error {
+func validateMetrics(t *testing.T, serverReqCount, clientReqCount, clName, trustDomain string) error {
 	t.Helper()
 
 	var wantClient, wantServer monitoring.TimeSeries
-	if err := unmarshalFromTemplateFile(serverReqCount, &wantServer, clName); err != nil {
+	if err := unmarshalFromTemplateFile(serverReqCount, &wantServer, clName, trustDomain); err != nil {
 		return fmt.Errorf("metrics: error generating wanted server request: %v", err)
 	}
-	if err := unmarshalFromTemplateFile(clientReqCount, &wantClient, clName); err != nil {
+	if err := unmarshalFromTemplateFile(clientReqCount, &wantClient, clName, trustDomain); err != nil {
 		return fmt.Errorf("metrics: error generating wanted client request: %v", err)
 	}
 
@@ -321,16 +323,17 @@ func validateMetrics(t *testing.T, serverReqCount, clientReqCount, clName string
 			gotClient = true
 		}
 	}
-	if !(gotServer && gotClient) {
-		return fmt.Errorf("metrics: did not get expected metrics for cluster %s; server = %t, client = %t", clName, gotServer, gotClient)
+	if !gotServer || !gotClient {
+		return fmt.Errorf("metrics: did not get expected metrics for cluster %s; got %v\n want client %v\n want server %v",
+			clName, ts, wantClient.String(), wantServer.String())
 	}
 	return nil
 }
 
-func validateLogs(t *testing.T, srvLogEntry, clName string, filter stackdriver.LogType) error {
+func validateLogs(t *testing.T, srvLogEntry, clName, trustDomain string, filter stackdriver.LogType) error {
 	t.Helper()
 	var wantLog loggingpb.LogEntry
-	if err := unmarshalFromTemplateFile(srvLogEntry, &wantLog, clName); err != nil {
+	if err := unmarshalFromTemplateFile(srvLogEntry, &wantLog, clName, trustDomain); err != nil {
 		return fmt.Errorf("logs: failed to parse wanted log entry: %v", err)
 	}
 
@@ -345,15 +348,14 @@ func validateLogs(t *testing.T, srvLogEntry, clName string, filter stackdriver.L
 			return nil
 		}
 	}
-
-	return errors.New("logs: did not get expected log entry")
+	return fmt.Errorf("logs: did not get expected log entry: got %v\n want %v", entries, wantLog.String())
 }
 
-func validateEdges(t *testing.T, clName string) error {
+func validateEdges(t *testing.T, clName, trustDomain string) error {
 	t.Helper()
 
 	var wantEdge edgespb.TrafficAssertion
-	if err := unmarshalFromTemplateFile(trafficAssertionTmpl, &wantEdge, clName); err != nil {
+	if err := unmarshalFromTemplateFile(trafficAssertionTmpl, &wantEdge, clName, trustDomain); err != nil {
 		return fmt.Errorf("edges: failed to build wanted traffic assertion: %v", err)
 	}
 	edges, err := sdInst.ListTrafficAssertions()
@@ -373,7 +375,7 @@ func validateEdges(t *testing.T, clName string) error {
 			return nil
 		}
 	}
-	return errors.New("edges: did not get expected traffic assertion")
+	return fmt.Errorf("edges: did not get expected traffic assertion: got %v\n want %v", edges, wantEdge)
 }
 
 func validateTraces(t *testing.T) error {

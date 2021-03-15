@@ -35,7 +35,6 @@ import (
 )
 
 const (
-	caServerName      = "istio-citadel"
 	bearerTokenPrefix = "Bearer "
 )
 
@@ -142,12 +141,6 @@ func (c *CitadelClient) getTLSDialOption() (grpc.DialOption, error) {
 	}
 	config.RootCAs = certPool
 
-	// Initial implementation of citadel hardcoded the SAN to 'istio-citadel'. For backward compat, keep it.
-	// TODO: remove this once istiod replaces citadel.
-	// External CAs will use their normal server names.
-	if strings.Contains(c.opts.CAEndpoint, "citadel") {
-		config.ServerName = caServerName
-	}
 	// For debugging on localhost (with port forward)
 	// TODO: remove once istiod is stable and we have a way to validate JWTs locally
 	if strings.Contains(c.opts.CAEndpoint, "localhost") {

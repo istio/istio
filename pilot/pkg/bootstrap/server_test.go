@@ -326,7 +326,7 @@ func TestNewServer(t *testing.T) {
 				s.WaitUntilCompletion()
 			}()
 
-			g.Expect(s.environment.GetDomainSuffix()).To(Equal(c.expectedDomain))
+			g.Expect(s.environment.DomainSuffix).To(Equal(c.expectedDomain))
 		})
 	}
 }

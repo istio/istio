@@ -1,9 +1,8 @@
 ---
-apiVersion: "security.istio.io/v1beta1"
-kind: "RequestAuthentication"
+apiVersion: security.istio.io/v1beta1
+kind: RequestAuthentication
 metadata:
-  name: "request-authn-for-b"
-  namespace: {{ .Namespace }}
+  name: request-authn
 spec:
   selector:
     matchLabels:
@@ -13,15 +12,14 @@ spec:
     jwksUri: "https://raw.githubusercontent.com/istio/istio/master/tests/common/jwt/jwks.json"
 ---
 # The following policy enables authorization on workload b.
-apiVersion: "security.istio.io/v1beta1"
+apiVersion: security.istio.io/v1beta1
 kind: AuthorizationPolicy
 metadata:
-  name: authz-b
-  namespace: "{{ .Namespace }}"
+  name: authz
 spec:
   selector:
     matchLabels:
-      "app": "b"
+      app: b
   rules:
   - to:
     - operation:

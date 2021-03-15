@@ -58,7 +58,7 @@ type CallOptions struct {
 	// If no Host header is provided, a default will be chosen for the target service endpoint.
 	Headers http.Header
 
-	// Timeout used for each individual request. Must be > 0, otherwise 30 seconds is used.
+	// Timeout used for each individual request. Must be > 0, otherwise 5 seconds is used.
 	Timeout time.Duration
 
 	// Message to be sent if this is a GRPC request

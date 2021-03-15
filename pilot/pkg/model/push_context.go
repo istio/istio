@@ -1690,11 +1690,19 @@ func (ps *PushContext) mergeGateways(proxy *Proxy) *MergedGateway {
 		configs = ps.gatewayIndex.all
 	}
 
+	// Get the target ports of the service
+	targetPorts := make(map[uint32]uint32)
+	servicePorts := make(map[uint32]uint32)
+	for _, si := range proxy.ServiceInstances {
+		targetPorts[si.Endpoint.EndpointPort] = uint32(si.ServicePort.Port)
+		servicePorts[uint32(si.ServicePort.Port)] = si.Endpoint.EndpointPort
+	}
 	for _, cfg := range configs {
 		gw := cfg.Spec.(*networking.Gateway)
+		selected := false
 		if gw.GetSelector() == nil {
 			// no selector. Applies to all workloads asking for the gateway
-			out = append(out, cfg)
+			selected = true
 		} else {
 			gatewaySelector := labels.Instance(gw.GetSelector())
 			var workloadLabels labels.Collection
@@ -1703,11 +1711,39 @@ func (ps *PushContext) mergeGateways(proxy *Proxy) *MergedGateway {
 				workloadLabels = labels.Collection{proxy.Metadata.Labels}
 			}
 			if workloadLabels.IsSupersetOf(gatewaySelector) {
+				selected = true
+			}
+		}
+		if selected {
+			// rewritePorts records index of gateway server port that needs to be rewritten.
+			rewritePorts := make(map[int]uint32)
+			for i, s := range gw.Servers {
+				if servicePort, ok := targetPorts[s.Port.Number]; ok && servicePort != s.Port.Number {
+					// Check if the gateway server port is also defined as a service port, if so skip rewriting since it is
+					// ambiguous on whether the server port points to service port or target port.
+					if _, ok := servicePorts[s.Port.Number]; ok {
+						continue
+					}
+
+					// The gateway server is defined with target port. Convert it to service port before gateway merging.
+					// Gateway listeners are based on target port, this prevents duplicated listeners be generated when build
+					// listener resources based on merged gateways.
+					rewritePorts[i] = servicePort
+				}
+			}
+			if len(rewritePorts) != 0 {
+				// Make a deep copy of the gateway configuration and rewrite server port with service port.
+				newGWConfig := cfg.DeepCopy()
+				newGW := newGWConfig.Spec.(*networking.Gateway)
+				for ind, sp := range rewritePorts {
+					newGW.Servers[ind].Port.Number = sp
+				}
+				out = append(out, newGWConfig)
+			} else {
 				out = append(out, cfg)
 			}
 		}
 	}
-
 	if len(out) == 0 {
 		return nil
 	}
@@ -1763,14 +1799,17 @@ func (ps *PushContext) NetworkGatewaysByNetwork(network string) []*Gateway {
 // to compute the correct service mTLS mode without knowing service to workload binding. For now, this
 // function uses only mesh and namespace level PeerAuthentication and ignore workload & port level policies.
 // This function is used to give a hint for auto-mTLS configuration on client side.
-func (ps *PushContext) BestEffortInferServiceMTLSMode(service *Service, port *Port) MutualTLSMode {
+func (ps *PushContext) BestEffortInferServiceMTLSMode(tp *networking.TrafficPolicy, service *Service, port *Port) MutualTLSMode {
 	if service.MeshExternal {
 		// Only need the authentication MTLS mode when service is not external.
 		return MTLSUnknown
 	}
 
-	// 1. Check service instances' tls mode, mainly used for headless service.
-	if service.Resolution == Passthrough {
+	// For passthrough traffic (headless service or explicitly defined in DestinationRule), we look at the instances
+	// If ALL instances have a sidecar, we enable TLS, otherwise we disable
+	// TODO(https://github.com/istio/istio/issues/27376) enable mixed deployments
+	// A service with passthrough resolution is always passthrough, regardless of the TrafficPolicy.
+	if service.Resolution == Passthrough || tp.GetLoadBalancer().GetSimple() == networking.LoadBalancerSettings_PASSTHROUGH {
 		instances := ps.ServiceInstancesByPort(service, port.Port, nil)
 		if len(instances) == 0 {
 			return MTLSDisable

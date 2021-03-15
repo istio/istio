@@ -62,11 +62,11 @@ func TestStrictMTLS(t *testing.T) {
 		Run(func(ctx framework.TestContext) {
 			peerTemplate := tmpl.EvaluateOrFail(ctx, PeerAuthenticationConfig, map[string]string{"AppNamespace": apps.Namespace.Name()})
 			ctx.Config().ApplyYAMLOrFail(ctx, apps.Namespace.Name(), peerTemplate)
-			util.WaitForConfigWithSleep(ctx, peerTemplate, apps.Namespace)
+			util.WaitForConfig(ctx, peerTemplate, apps.Namespace)
 
 			drTemplate := tmpl.EvaluateOrFail(ctx, DestinationRuleConfigIstioMutual, map[string]string{"AppNamespace": apps.Namespace.Name()})
 			ctx.Config().ApplyYAMLOrFail(ctx, apps.Namespace.Name(), drTemplate)
-			util.WaitForConfigWithSleep(ctx, drTemplate, apps.Namespace)
+			util.WaitForConfig(ctx, drTemplate, apps.Namespace)
 
 			response := apps.Client.CallOrFail(t, echo.CallOptions{
 				Target:   apps.Server,
@@ -85,12 +85,11 @@ func TestStrictMTLS(t *testing.T) {
 				ctx.Fatalf("client could not get certificate from server: %v", err)
 			}
 			block, _ := pem.Decode([]byte(certPEM))
-			if block == nil {
+			if block == nil { // nolint: staticcheck
 				ctx.Fatalf("failed to parse certificate PEM")
 			}
 
-			// nolint: staticcheck
-			certificate, parseErr := x509.ParseCertificate(block.Bytes)
+			certificate, parseErr := x509.ParseCertificate(block.Bytes) // nolint: staticcheck
 			if err != nil {
 				ctx.Fatalf("failed to parse certificate: %v", parseErr)
 			}
