@@ -17,6 +17,9 @@ package authz
 import (
 	"fmt"
 
+	tcppb "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
+	httppb "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
+
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking"
 	"istio.io/istio/pilot/pkg/networking/plugin"
@@ -90,15 +93,27 @@ func (p Plugin) buildFilter(in *plugin.InputParams, mutable *networking.MutableO
 	if b == nil {
 		return
 	}
-	// TODO lazy
-	httpFilters := b.BuildHTTP()
-	tcpFilters := b.BuildTCP()
+
+	// We will lazily build filters for tcp/http as needed
+	httpBuilt := false
+	tcpBuilt := false
+	var httpFilters []*httppb.HttpFilter
+	var tcpFilters []*tcppb.Filter
+
 	for cnum := range mutable.FilterChains {
 		switch mutable.FilterChains[cnum].ListenerProtocol {
 		case networking.ListenerProtocolTCP:
+			if !tcpBuilt {
+				tcpFilters = b.BuildTCP()
+				tcpBuilt = true
+			}
 			option.Logger.AppendDebugf("added %d TCP filters to filter chain %d", len(tcpFilters), cnum)
 			mutable.FilterChains[cnum].TCP = append(mutable.FilterChains[cnum].TCP, tcpFilters...)
 		case networking.ListenerProtocolHTTP:
+			if !httpBuilt {
+				httpFilters = b.BuildHTTP()
+				httpBuilt = true
+			}
 			option.Logger.AppendDebugf("added %d HTTP filters to filter chain %d", len(httpFilters), cnum)
 			mutable.FilterChains[cnum].HTTP = append(mutable.FilterChains[cnum].HTTP, httpFilters...)
 		default:

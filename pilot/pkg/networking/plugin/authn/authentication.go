@@ -95,8 +95,6 @@ func (Plugin) OnInboundPassthrough(in *plugin.InputParams, mutable *networking.M
 	return buildFilter(in, mutable, true)
 }
 
-// TODO make function for passthrough and function for explicit. passthrough one can stop passing dummy service instance.
-// plugin can stop taking SI entirely and just take endpoint port
 func (p Plugin) InboundMTLSConfiguration(in *plugin.InputParams, passthrough bool) []plugin.MTLSSettings {
 	applier := factory.NewPolicyApplier(in.Push, in.Node.Metadata.Namespace, labels.Collection{in.Node.Metadata.Labels})
 	trustDomains := trustDomainsForValidation(in.Push.Mesh)
