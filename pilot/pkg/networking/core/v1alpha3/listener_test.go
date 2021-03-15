@@ -2130,8 +2130,8 @@ func verifyOutboundTCPListenerHostname(t *testing.T, l *listener.Listener, hostn
 
 func verifyInboundHTTPListenerServerName(t *testing.T, l *listener.Listener) {
 	t.Helper()
-	if len(l.FilterChains) != 1 {
-		t.Fatalf("expected %d filter chains, found %d", 1, len(l.FilterChains))
+	if len(l.FilterChains) != 2 {
+		t.Fatalf("expected %d filter chains, found %d", 2, len(l.FilterChains))
 	}
 	fc := l.FilterChains[0]
 	if len(fc.Filters) != 1 {
@@ -2148,8 +2148,8 @@ func verifyInboundHTTPListenerServerName(t *testing.T, l *listener.Listener) {
 
 func verifyInboundHTTPListenerStatPrefix(t *testing.T, l *listener.Listener) {
 	t.Helper()
-	if len(l.FilterChains) != 1 {
-		t.Fatalf("expected %d filter chains, found %d", 1, len(l.FilterChains))
+	if len(l.FilterChains) != 2 {
+		t.Fatalf("expected %d filter chains, found %d", 2, len(l.FilterChains))
 	}
 	fc := l.FilterChains[0]
 	if len(fc.Filters) != 1 {
@@ -2164,8 +2164,8 @@ func verifyInboundHTTPListenerStatPrefix(t *testing.T, l *listener.Listener) {
 
 func verifyInboundEnvoyListenerNumber(t *testing.T, l *listener.Listener) {
 	t.Helper()
-	if len(l.FilterChains) != 1 {
-		t.Fatalf("expected %d filter chains, found %d", 1, len(l.FilterChains))
+	if len(l.FilterChains) != 2 {
+		t.Fatalf("expected %d filter chains, found %d", 2, len(l.FilterChains))
 	}
 
 	for _, fc := range l.FilterChains {
@@ -2188,8 +2188,8 @@ func verifyInboundEnvoyListenerNumber(t *testing.T, l *listener.Listener) {
 
 func verifyInboundHTTPListenerCertDetails(t *testing.T, l *listener.Listener) {
 	t.Helper()
-	if len(l.FilterChains) != 1 {
-		t.Fatalf("expected %d filter chains, found %d", 1, len(l.FilterChains))
+	if len(l.FilterChains) != 2 {
+		t.Fatalf("expected %d filter chains, found %d", 2, len(l.FilterChains))
 	}
 	fc := l.FilterChains[0]
 	if len(fc.Filters) != 1 {
@@ -2213,8 +2213,8 @@ func verifyInboundHTTPListenerCertDetails(t *testing.T, l *listener.Listener) {
 
 func verifyInboundHTTPListenerNormalizePath(t *testing.T, l *listener.Listener) {
 	t.Helper()
-	if len(l.FilterChains) != 1 {
-		t.Fatalf("expected 1 filter chains, found %d", len(l.FilterChains))
+	if len(l.FilterChains) != 2 {
+		t.Fatalf("expected 2 filter chains, found %d", len(l.FilterChains))
 	}
 	fc := l.FilterChains[0]
 	if len(fc.Filters) != 1 {
@@ -2372,10 +2372,19 @@ func (p *fakePlugin) OnInboundPassthrough(in *plugin.InputParams, mutable *istio
 }
 
 func (p *fakePlugin) InboundMTLSConfiguration(in *plugin.InputParams, passthrough bool) []plugin.MTLSSettings {
+	var port uint32 = 0
+	if !passthrough {
+		port = in.ServiceInstance.Endpoint.EndpointPort
+	}
 	return []plugin.MTLSSettings{{
-		Mode:           model.MTLSPermissive,
-		TCPTLSContext:  &tls.DownstreamTlsContext{},
-		HTTPTLSContext: &tls.DownstreamTlsContext{},
+		Port: port,
+		Mode: model.MTLSPermissive,
+		TCPTLSContext: &tls.DownstreamTlsContext{
+			CommonTlsContext: &tls.CommonTlsContext{AlpnProtocols: []string{"foo"}},
+		},
+		HTTPTLSContext: &tls.DownstreamTlsContext{
+			CommonTlsContext: &tls.CommonTlsContext{AlpnProtocols: []string{"foo"}},
+		},
 	}}
 }
 

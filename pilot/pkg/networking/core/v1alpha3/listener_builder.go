@@ -621,82 +621,97 @@ func buildInboundCatchAllFilterChains(configgen *ConfigGeneratorImpl,
 			protocol: istionetworking.ListenerProtocolAuto,
 		}
 		// Call plugins to get mtls policies.
-		mtlsConfigs := getMtlsSettings(configgen, in, true)
-		newOpts := []*fcOpts{}
-		for _, mtlsConfig := range mtlsConfigs {
-			for _, match := range getFilterChainMatchOptions(mtlsConfig, listenerOpts.protocol) {
-				opt := fcOpts{matchOpts: match}.populateFilterChain(mtlsConfig, mtlsConfig.Port, matchingIP)
-				newOpts = append(newOpts, &opt)
-			}
-		}
-
-		// Run our filter chains through the plugin
-		fcs := make([]istionetworking.FilterChain, 0, len(newOpts))
-		for _, o := range newOpts {
-			fcs = append(fcs, o.fc)
-		}
-		mutable := &istionetworking.MutableObjects{
-			FilterChains: fcs,
-		}
-		for _, p := range configgen.Plugins {
-			if err := p.OnInboundPassthrough(in, mutable); err != nil {
-				log.Errorf("Build inbound passthrough filter chains error: %v", err)
-			}
-		}
-		// Merge the results back into our struct
-		for i, fc := range mutable.FilterChains {
-			newOpts[i].fc = fc
-		}
-
-		for _, opt := range newOpts {
+		fcOpts := configgen.buildInboundFilterchains(in, listenerOpts, matchingIP, clusterName)
+		for _, opt := range fcOpts {
 			filterChain := &listener.FilterChain{
-				FilterChainMatch: opt.fc.FilterChainMatch,
+				FilterChainMatch: opt.match,
+				Name:             opt.filterChainName,
 			}
-			if opt.fc.ListenerProtocol == istionetworking.ListenerProtocolHTTP {
-				httpOpts := configgen.buildSidecarInboundHTTPListenerOptsForPortOrUDS(node, in, clusterName)
-				httpOpts.statPrefix = clusterName
-				connectionManager := buildHTTPConnectionManager(listenerOpts, httpOpts, opt.fc.HTTP)
-
+			if opt.httpOpts != nil {
+				opt.httpOpts.statPrefix = clusterName
+				connectionManager := buildHTTPConnectionManager(listenerOpts, opt.httpOpts, opt.filterChain.HTTP)
 				filter := &listener.Filter{
 					Name:       wellknown.HTTPConnectionManager,
 					ConfigType: &listener.Filter_TypedConfig{TypedConfig: util.MessageToAny(connectionManager)},
 				}
 				filterChain.Filters = []*listener.Filter{filter}
 			} else {
-				tcpProxy := &tcp.TcpProxy{
-					StatPrefix:       clusterName,
-					ClusterSpecifier: &tcp.TcpProxy_Cluster{Cluster: clusterName},
-				}
-
-				accessLogBuilder.setTCPAccessLog(push.Mesh, tcpProxy, node)
-				tcpProxyFilter := &listener.Filter{
-					Name:       wellknown.TCPProxy,
-					ConfigType: &listener.Filter_TypedConfig{TypedConfig: util.MessageToAny(tcpProxy)},
-				}
-				filterChain.Filters = append(opt.fc.TCP, tcpProxyFilter)
+				filterChain.Filters = append(opt.filterChain.TCP, opt.networkFilters...)
 			}
-
-			port := int(opt.fc.FilterChainMatch.DestinationPort.GetValue())
+			port := int(opt.match.DestinationPort.GetValue())
 			inspector := inspectors[port]
-			if opt.matchOpts.MTLS && opt.fc.TLSContext != nil {
+			if opt.tlsContext != nil {
 				inspector.TLSInspector = true
 				// Update transport socket from the TLS context configured by the plugin.
 				filterChain.TransportSocket = &core.TransportSocket{
-					Name: util.EnvoyTLSSocketName,
-					// TODO: pre-marshal for performance?
-					ConfigType: &core.TransportSocket_TypedConfig{TypedConfig: util.MessageToAny(opt.fc.TLSContext)},
+					Name:       util.EnvoyTLSSocketName,
+					ConfigType: &core.TransportSocket_TypedConfig{TypedConfig: util.MessageToAny(opt.tlsContext)},
 				}
 			}
 			inspectors[port] = inspector
-			filterChain.Name = VirtualInboundListenerName
-			if opt.fc.ListenerProtocol == istionetworking.ListenerProtocolHTTP {
-				filterChain.Name = virtualInboundCatchAllHTTPFilterChainName
-			}
 			filterChains = append(filterChains, filterChain)
 		}
 	}
 
 	return filterChains, inspectors
+}
+
+func (configgen *ConfigGeneratorImpl) buildInboundFilterchains(in *plugin.InputParams, listenerOpts buildListenerOpts, matchingIP string, clusterName string) []*filterChainOpts {
+	mtlsConfigs := getMtlsSettings(configgen, in, true)
+	newOpts := []*fcOpts{}
+	for _, mtlsConfig := range mtlsConfigs {
+		for _, match := range getFilterChainMatchOptions(mtlsConfig, listenerOpts.protocol) {
+			opt := fcOpts{matchOpts: match}.populateFilterChain(mtlsConfig, mtlsConfig.Port, matchingIP)
+			newOpts = append(newOpts, &opt)
+		}
+	}
+
+	// Run our filter chains through the plugin
+	fcs := make([]istionetworking.FilterChain, 0, len(newOpts))
+	for _, o := range newOpts {
+		fcs = append(fcs, o.fc)
+	}
+	mutable := &istionetworking.MutableObjects{
+		FilterChains: fcs,
+	}
+	for _, p := range configgen.Plugins {
+		if err := p.OnInboundPassthrough(in, mutable); err != nil {
+			log.Errorf("Build inbound passthrough filter chains error: %v", err)
+		}
+	}
+	// Merge the results back into our struct
+	for i, fc := range mutable.FilterChains {
+		newOpts[i].fc = fc
+	}
+
+	fcOpts := listenerOpts.filterChainOpts
+	for _, opt := range newOpts {
+		fcOpt := &filterChainOpts{
+			match: opt.fc.FilterChainMatch,
+		}
+		if opt.matchOpts.MTLS && opt.fc.TLSContext != nil {
+			// Update transport socket from the TLS context configured by the plugin.
+			fcOpt.tlsContext = opt.fc.TLSContext
+		}
+		switch opt.fc.ListenerProtocol {
+		case istionetworking.ListenerProtocolHTTP:
+			fcOpt.httpOpts = configgen.buildSidecarInboundHTTPListenerOptsForPortOrUDS(in.Node, in, clusterName)
+		case istionetworking.ListenerProtocolThrift:
+			fcOpt.thriftOpts = configgen.buildSidecarThriftListenerOptsForPortOrUDS(in)
+		case istionetworking.ListenerProtocolTCP:
+			fcOpt.networkFilters = buildInboundNetworkFilters(in.Push, in.ServiceInstance, in.Node, clusterName)
+		case istionetworking.ListenerProtocolAuto:
+			fcOpt.httpOpts = configgen.buildSidecarInboundHTTPListenerOptsForPortOrUDS(in.Node, in, clusterName)
+			fcOpt.networkFilters = buildInboundNetworkFilters(in.Push, in.ServiceInstance, in.Node, clusterName)
+		}
+		fcOpt.filterChainName = VirtualInboundListenerName
+		if opt.fc.ListenerProtocol == istionetworking.ListenerProtocolHTTP {
+			fcOpt.filterChainName = virtualInboundCatchAllHTTPFilterChainName
+		}
+		fcOpt.filterChain = opt.fc
+		fcOpts = append(fcOpts, fcOpt)
+	}
+	return fcOpts
 }
 
 func buildOutboundCatchAllNetworkFiltersOnly(push *model.PushContext, node *model.Proxy) []*listener.Filter {

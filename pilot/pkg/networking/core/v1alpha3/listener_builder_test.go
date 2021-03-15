@@ -263,7 +263,7 @@ func TestVirtualInboundHasPassthroughClusters(t *testing.T) {
 	}
 
 	if sawIpv4PassthroughCluster != 3 {
-		t.Fatalf("fail to find the ipv4 passthrough filter chain in listener %v", l)
+		t.Fatalf("fail to find the ipv4 passthrough filter chain in listener, got %v: %v", sawIpv4PassthroughCluster, xdstest.Dump(t, l))
 	}
 
 	if !sawFakePluginFilter {

@@ -581,10 +581,10 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundListenerForPortOrUDS(no
 		case istionetworking.ListenerProtocolHTTP:
 			fcOpts.httpOpts = configgen.buildSidecarInboundHTTPListenerOptsForPortOrUDS(node, pluginParams, "")
 		case istionetworking.ListenerProtocolTCP:
-			fcOpts.networkFilters = buildInboundNetworkFilters(pluginParams.Push, pluginParams.ServiceInstance, node)
+			fcOpts.networkFilters = buildInboundNetworkFilters(pluginParams.Push, pluginParams.ServiceInstance, node, "")
 		case istionetworking.ListenerProtocolAuto:
 			fcOpts.httpOpts = configgen.buildSidecarInboundHTTPListenerOptsForPortOrUDS(node, pluginParams, "")
-			fcOpts.networkFilters = buildInboundNetworkFilters(pluginParams.Push, pluginParams.ServiceInstance, node)
+			fcOpts.networkFilters = buildInboundNetworkFilters(pluginParams.Push, pluginParams.ServiceInstance, node, "")
 		}
 		listenerOpts.filterChainOpts = append(listenerOpts.filterChainOpts, fcOpts)
 	}
@@ -1433,6 +1433,7 @@ type filterChainOpts struct {
 	match            *listener.FilterChainMatch
 	listenerFilters  []*listener.ListenerFilter
 	networkFilters   []*listener.Filter
+	filterChain      istionetworking.FilterChain
 }
 
 // ListenerClass defines the class of the listener
