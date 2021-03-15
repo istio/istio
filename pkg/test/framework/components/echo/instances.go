@@ -99,6 +99,12 @@ func InNetwork(n string) Matcher {
 	}
 }
 
+func IsVM() Matcher {
+	return func(i Instance) bool {
+		return i.Config().IsVM()
+	}
+}
+
 // Match filters instances that matcher the given Matcher
 func (i Instances) Match(matches Matcher) Instances {
 	out := make(Instances, 0)

@@ -159,6 +159,18 @@ func (f Config) DeploymentKey() Deployment {
 	return Deployment{Service: f.Service, Namespace: f.Namespace.Name()}
 }
 
+func (f Config) IsHeadless() bool {
+	return f.Headless
+}
+
+func (f Config) IsNaked() bool {
+	return len(f.Subsets) > 0 && f.Subsets[0].Annotations != nil && !f.Subsets[0].Annotations.GetBool(SidecarInject)
+}
+
+func (f Config) IsVM() bool {
+	return f.DeployAsVM
+}
+
 // DeepCopy creates a clone of IstioEndpoint.
 func (f Config) DeepCopy() Config {
 	newc := f

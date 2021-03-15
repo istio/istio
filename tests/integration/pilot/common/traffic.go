@@ -52,10 +52,17 @@ type TrafficTestCase struct {
 
 	// Single call. Cannot be used with children.
 	call func(t test.Failer, options echo.CallOptions, retryOptions ...retry.Option) echoclient.ParsedResponses
+	// opts specifies the echo call options. When using RunForApps, the Target will be set dynamically.
 	opts echo.CallOptions
+	// validate is used to build validators dynamically when using RunForApps based on the active/src dest pair
+	validate func(src echo.Instance, dst echo.Instances) echo.Validator
 
 	// setting cases to skipped is better than not adding them - gives visibility to what needs to be fixed
 	skip bool
+
+	// workloadAgnostic is a temporary setting to trigger using RunForApps
+	// TODO remove this and force everything to be workoad agnostic
+	workloadAgnostic bool
 }
 
 func (c TrafficTestCase) RunForApps(t framework.TestContext, apps echo.Instances, namespace string) {
@@ -80,19 +87,26 @@ func (c TrafficTestCase) RunForApps(t framework.TestContext, apps echo.Instances
 					"dst": dst,
 				},
 			)
-			t.Config().ApplyYAMLOrFail(t, "", cfg)
+			return t.Config().ApplyYAML("", cfg)
 		}).
+		From(echotest.OnRegularPodSource).
+		To(echotest.OneRegularPodDestination, echotest.ReachableDestinations).
 		Run(func(t framework.TestContext, src echo.Instance, dest echo.Instances) {
-			if optsSpecified {
-				opts := c.opts
+			buildOpts := func(options echo.CallOptions) echo.CallOptions {
+				opts := options
 				opts.Target = dest[0]
-				src.CallWithRetryOrFail(t, opts, retryOptions...)
+				if c.validate != nil {
+					opts.Validator = c.validate(src, dest)
+				}
+				opts.Count = callsPerCluster * len(dest)
+				return opts
+			}
+			if optsSpecified {
+				src.CallWithRetryOrFail(t, buildOpts(c.opts), retryOptions...)
 			}
 			for _, child := range c.children {
 				t.NewSubTest(child.name).Run(func(t framework.TestContext) {
-					opts := child.opts
-					opts.Target = dest[0]
-					src.CallWithRetryOrFail(t, opts, retryOptions...)
+					src.CallWithRetryOrFail(t, buildOpts(child.opts), retryOptions...)
 				})
 			}
 		})
@@ -148,7 +162,11 @@ func RunAllTrafficTests(t framework.TestContext, apps *EchoDeployments) {
 	for name, tts := range cases {
 		t.NewSubTest(name).Run(func(t framework.TestContext) {
 			for _, tt := range tts {
-				tt.Run(t, apps.Namespace.Name())
+				if tt.workloadAgnostic {
+					tt.RunForApps(t, apps.All, apps.Namespace.Name())
+				} else {
+					tt.Run(t, apps.Namespace.Name())
+				}
 			}
 		})
 	}
