@@ -262,11 +262,9 @@ func upgrade(rootArgs *rootArgs, args *upgradeArgs, l clog.Logger) (err error) {
 
 // releaseURLFromVersion generates default installation url from version number.
 func releaseURLFromVersion(version string) string {
-	var osArch string
+	osArch := "osx"
 	if runtime.GOOS == "linux" {
 		osArch = runtime.GOOS + "-" + runtime.GOARCH
-	} else {
-		osArch = "osx"
 	}
 	return fmt.Sprintf(releaseURLPathTemplate, version, version, osArch)
 }
