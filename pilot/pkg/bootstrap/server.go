@@ -935,7 +935,7 @@ func (s *Server) maybeInitDNSCerts(args *PilotArgs, host string) error {
 	}
 	if !s.EnableCA() && features.PilotCertProvider.Get() == IstiodCAProvider {
 		// If CA functionality is disabled, istiod cannot sign the DNS certificates.
-		return fmt.Errorf("cannot create self-signed DNS certificate when Istiod CA is disabled")
+		return nil
 	}
 	log.Infof("initializing Istiod DNS certificates host: %s, custom host: %s", host, features.IstiodServiceCustomHost.Get())
 	if err := s.initDNSCerts(host, features.IstiodServiceCustomHost.Get(), args.Namespace); err != nil {

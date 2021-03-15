@@ -16,7 +16,6 @@ package bootstrap
 import (
 	"bytes"
 	"crypto/tls"
-	"fmt"
 	"io/ioutil"
 	"os"
 	"path/filepath"
@@ -65,28 +64,30 @@ func TestNewServerCertInit(t *testing.T) {
 		t.Fatalf("WriteFile(%v) failed: %v", caCertFile, err)
 	}
 
+	certFileEmpty := filepath.Join(certsDir, "cert-file-empty.pem")
+	keyFileEmpty := filepath.Join(certsDir, "key-file-empty.pem")
+	caCertFileEmpty := filepath.Join(certsDir, "ca-cert-empty.pem")
+
+	// create empty files.
+	if err := ioutil.WriteFile(certFileEmpty, []byte{}, 0644); err != nil { // nolint: vetshadow
+		t.Fatalf("WriteFile(%v) failed: %v", certFile, err)
+	}
+	if err := ioutil.WriteFile(keyFileEmpty, []byte{}, 0644); err != nil { // nolint: vetshadow
+		t.Fatalf("WriteFile(%v) failed: %v", keyFile, err)
+	}
+	if err := ioutil.WriteFile(caCertFileEmpty, []byte{}, 0644); err != nil { // nolint: vetshadow
+		t.Fatalf("WriteFile(%v) failed: %v", caCertFile, err)
+	}
+
 	cases := []struct {
 		name         string
 		tlsOptions   *TLSOptions
 		enableCA     bool
 		certProvider string
+		expNewCert   bool
 		expCert      []byte
 		expKey       []byte
-		expErrMsg    string
 	}{
-		{
-			name: "Fail creating DNS cert using Istiod because CA is disabled",
-			tlsOptions: &TLSOptions{
-				CertFile:   "",
-				KeyFile:    "",
-				CaCertFile: "",
-			},
-			enableCA:     false,
-			certProvider: IstiodCAProvider,
-			expCert:      []byte{},
-			expKey:       []byte{},
-			expErrMsg:    "error initializing DNS certs: cannot create self-signed DNS certificate when Istiod CA is disabled",
-		},
 		{
 			name: "Load from existing DNS cert",
 			tlsOptions: &TLSOptions{
@@ -96,9 +97,9 @@ func TestNewServerCertInit(t *testing.T) {
 			},
 			enableCA:     false,
 			certProvider: KubernetesCAProvider,
+			expNewCert:   false,
 			expCert:      testcerts.ServerCert,
 			expKey:       testcerts.ServerKey,
-			expErrMsg:    "",
 		},
 		{
 			name: "Create new DNS cert using Istiod",
@@ -109,9 +110,22 @@ func TestNewServerCertInit(t *testing.T) {
 			},
 			enableCA:     true,
 			certProvider: IstiodCAProvider,
+			expNewCert:   true,
 			expCert:      []byte{},
 			expKey:       []byte{},
-			expErrMsg:    "",
+		},
+		{
+			name: "No DNS cert created because CA is disabled",
+			tlsOptions: &TLSOptions{
+				CertFile:   certFileEmpty,
+				KeyFile:    keyFileEmpty,
+				CaCertFile: caCertFileEmpty,
+			},
+			enableCA:     false,
+			certProvider: IstiodCAProvider,
+			expNewCert:   false,
+			expCert:      []byte{},
+			expKey:       []byte{},
 		},
 	}
 
@@ -139,12 +153,7 @@ func TestNewServerCertInit(t *testing.T) {
 			})
 			g := NewWithT(t)
 			s, err := NewServer(args)
-			if len(c.expErrMsg) == 0 {
-				g.Expect(err).To(Succeed())
-			} else {
-				g.Expect(err).To(Equal(fmt.Errorf(c.expErrMsg)))
-				return
-			}
+			g.Expect(err).To(Succeed())
 			stop := make(chan struct{})
 			g.Expect(s.Start(stop)).To(Succeed())
 			defer func() {
@@ -154,7 +163,21 @@ func TestNewServerCertInit(t *testing.T) {
 				os.Setenv("PILOT_CERT_PROVIDER", IstiodCAProvider)
 			}()
 
-			checkCert(t, s, testcerts.ServerCert, testcerts.ServerKey)
+			if c.expNewCert {
+				if istiodCert, err := s.getIstiodCertificate(nil); istiodCert == nil || err != nil {
+					t.Errorf("Istiod failed to generate new DNS cert")
+				}
+			} else {
+				if len(c.expCert) != 0 {
+					if !checkCert(t, s, c.expCert, c.expKey) {
+						t.Errorf("Istiod certifiate does not match the expectation")
+					}
+				} else {
+					if cert, _ := s.getIstiodCertificate(nil); cert != nil {
+						t.Errorf("Istiod should not generate new DNS cert")
+					}
+				}
+			}
 		})
 	}
 }
@@ -204,7 +227,9 @@ func TestReloadIstiodCert(t *testing.T) {
 	}
 
 	// Validate that the certs are loaded.
-	checkCert(t, s, testcerts.ServerCert, testcerts.ServerKey)
+	if !checkCert(t, s, testcerts.ServerCert, testcerts.ServerKey) {
+		t.Errorf("Istiod certifiate does not match the expectation")
+	}
 
 	// Update cert/key files.
 	if err := ioutil.WriteFile(tlsOptions.CertFile, testcerts.RotatedCert, 0644); err != nil { // nolint: vetshadow
