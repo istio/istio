@@ -826,7 +826,7 @@ func selfCallsCases(apps *EchoDeployments) []TrafficTestCase {
 	cases := []TrafficTestCase{}
 	for _, cl := range flatten(apps.PodA, apps.VM, apps.PodTproxy) {
 		cl := cl
-		workloads, _ := apps.PodTproxy[0].Workloads()
+		workloads, _ := cl.Workloads()
 		podIP := workloads[0].Address()
 		cases = append(cases,
 			// Calls to the Service will go through envoy outbound and inbound, so we get envoy headers added
