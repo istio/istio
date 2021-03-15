@@ -21,7 +21,6 @@ import (
 
 	"github.com/fatih/color"
 	"github.com/ghodss/yaml"
-
 	admit_v1 "k8s.io/api/admissionregistration/v1"
 	appsv1 "k8s.io/api/apps/v1"
 	v1batch "k8s.io/api/batch/v1"

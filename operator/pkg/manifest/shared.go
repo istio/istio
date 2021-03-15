@@ -103,7 +103,8 @@ func GenerateConfig(inFilenames []string, setFlags []string, force bool, kubeCon
 	return OverlayYAMLStrings(profile, fy, setFlags, force, kubeConfig, l)
 }
 
-func OverlayYAMLStrings(profile string, fy string, setFlags []string, force bool, kubeConfig *rest.Config, l clog.Logger) (string, *iopv1alpha1.IstioOperator, error) {
+func OverlayYAMLStrings(profile string, fy string,
+	setFlags []string, force bool, kubeConfig *rest.Config, l clog.Logger) (string, *iopv1alpha1.IstioOperator, error) {
 	iopsString, iops, err := GenIOPFromProfile(profile, fy, setFlags, force, false, kubeConfig, l)
 	if err != nil {
 		return "", nil, err
