@@ -621,7 +621,7 @@ func buildInboundCatchAllFilterChains(configgen *ConfigGeneratorImpl,
 			protocol: istionetworking.ListenerProtocolAuto,
 		}
 		// Call plugins to get mtls policies.
-		fcOpts := configgen.buildInboundFilterchains(in, listenerOpts, matchingIP, clusterName)
+		fcOpts := configgen.buildInboundFilterchains(in, listenerOpts, matchingIP, clusterName, true)
 		for _, opt := range fcOpts {
 			filterChain := &listener.FilterChain{
 				FilterChainMatch: opt.match,
@@ -656,8 +656,9 @@ func buildInboundCatchAllFilterChains(configgen *ConfigGeneratorImpl,
 	return filterChains, inspectors
 }
 
-func (configgen *ConfigGeneratorImpl) buildInboundFilterchains(in *plugin.InputParams, listenerOpts buildListenerOpts, matchingIP string, clusterName string) []*filterChainOpts {
-	mtlsConfigs := getMtlsSettings(configgen, in, true)
+func (configgen *ConfigGeneratorImpl) buildInboundFilterchains(in *plugin.InputParams, listenerOpts buildListenerOpts,
+	matchingIP string, clusterName string, passthrough bool) []*filterChainOpts {
+	mtlsConfigs := getMtlsSettings(configgen, in, passthrough)
 	newOpts := []*fcOpts{}
 	for _, mtlsConfig := range mtlsConfigs {
 		for _, match := range getFilterChainMatchOptions(mtlsConfig, listenerOpts.protocol) {
@@ -675,8 +676,14 @@ func (configgen *ConfigGeneratorImpl) buildInboundFilterchains(in *plugin.InputP
 		FilterChains: fcs,
 	}
 	for _, p := range configgen.Plugins {
-		if err := p.OnInboundPassthrough(in, mutable); err != nil {
-			log.Errorf("Build inbound passthrough filter chains error: %v", err)
+		if passthrough {
+			if err := p.OnInboundPassthrough(in, mutable); err != nil {
+				log.Errorf("Build inbound passthrough filter chains error: %v", err)
+			}
+		} else {
+			if err := p.OnInboundListener(in, mutable); err != nil {
+				log.Errorf("Build inbound filter chains error: %v", err)
+			}
 		}
 	}
 	// Merge the results back into our struct

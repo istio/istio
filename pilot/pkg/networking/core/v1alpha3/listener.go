@@ -535,59 +535,11 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundListenerForPortOrUDS(no
 		// Skip building listener for the same port
 		return nil
 	}
-
 	if listenerOpts.protocol == istionetworking.ListenerProtocolAuto {
 		listenerOpts.needHTTPInspector = true
 	}
-
-	mtlsConfigs := getMtlsSettings(configgen, pluginParams, false)
-	newOpts := []*fcOpts{}
-	for _, mtlsConfig := range mtlsConfigs {
-		for _, match := range getFilterChainMatchOptions(mtlsConfig, listenerOpts.protocol) {
-			opt := fcOpts{matchOpts: match}.populateFilterChain(mtlsConfig, 0, "")
-			newOpts = append(newOpts, &opt)
-		}
-	}
-	// Run our filter chains through the plugin
-	fcs := make([]istionetworking.FilterChain, 0, len(newOpts))
-	for _, o := range newOpts {
-		fcs = append(fcs, o.fc)
-	}
-	mut := &istionetworking.MutableObjects{
-		FilterChains: fcs,
-	}
-	for _, p := range configgen.Plugins {
-		if err := p.OnInboundListener(pluginParams, mut); err != nil {
-			log.Errorf("Build inbound passthrough filter chains error: %v", err)
-		}
-	}
-	// Merge the results back into our struct
-	for i, fc := range mut.FilterChains {
-		newOpts[i].fc = fc
-	}
-
-	for _, opt := range newOpts {
-		fcOpts := &filterChainOpts{
-			match: opt.fc.FilterChainMatch,
-			// listenerFilters: chain.ListenerFilters, // TODO
-		}
-		if opt.matchOpts.MTLS && opt.fc.TLSContext != nil {
-			// TODO
-			// inspector.TLSInspector = true
-			// Update transport socket from the TLS context configured by the plugin.
-			fcOpts.tlsContext = opt.fc.TLSContext
-		}
-		switch opt.fc.ListenerProtocol {
-		case istionetworking.ListenerProtocolHTTP:
-			fcOpts.httpOpts = configgen.buildSidecarInboundHTTPListenerOptsForPortOrUDS(node, pluginParams, "")
-		case istionetworking.ListenerProtocolTCP:
-			fcOpts.networkFilters = buildInboundNetworkFilters(pluginParams.Push, pluginParams.ServiceInstance, node, "")
-		case istionetworking.ListenerProtocolAuto:
-			fcOpts.httpOpts = configgen.buildSidecarInboundHTTPListenerOptsForPortOrUDS(node, pluginParams, "")
-			fcOpts.networkFilters = buildInboundNetworkFilters(pluginParams.Push, pluginParams.ServiceInstance, node, "")
-		}
-		listenerOpts.filterChainOpts = append(listenerOpts.filterChainOpts, fcOpts)
-	}
+	fcOpts := configgen.buildInboundFilterchains(pluginParams, listenerOpts, "", "", false)
+	listenerOpts.filterChainOpts = fcOpts
 
 	// call plugins
 	l := buildListener(listenerOpts, core.TrafficDirection_INBOUND)
