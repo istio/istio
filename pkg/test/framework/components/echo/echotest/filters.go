@@ -37,6 +37,13 @@ func (t *T) To(filters ...destinationFilter) *T {
 	return t
 }
 
+func (t *T) applyDestinationFilters(from echo.Instance, to echo.Instances) echo.Instances {
+	for _, filter := range t.destinationFilters {
+		to = filter(from, to)
+	}
+	return to
+}
+
 // OnRegularPodSource finds the first Pod deployment that has a sidecar and doesn't use a headless service and removes all
 // other "regular" pods that aren't part of the same Service. Pods that are part of the same Service but are in a
 // different cluster or revision will still be included.
