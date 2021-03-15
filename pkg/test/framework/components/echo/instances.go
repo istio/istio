@@ -64,6 +64,13 @@ func (m Matcher) And(other Matcher) Matcher {
 	}
 }
 
+// Negate inverts the current matcher.
+func (m Matcher) Negate() Matcher {
+	return func(i Instance) bool {
+		return !m(i)
+	}
+}
+
 // ServicePrefix matches instances whose service name starts with the given prefix.
 func ServicePrefix(prefix string) Matcher {
 	return func(i Instance) bool {
@@ -102,6 +109,12 @@ func InNetwork(n string) Matcher {
 func IsVM() Matcher {
 	return func(i Instance) bool {
 		return i.Config().IsVM()
+	}
+}
+
+func External() Matcher {
+	return func(i Instance) bool {
+		return i.Config().IsExternal()
 	}
 }
 

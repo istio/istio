@@ -44,18 +44,23 @@ func (t *T) applyDestinationFilters(from echo.Instance, to echo.Instances) echo.
 	return to
 }
 
-// OnRegularPodSource finds the first Pod deployment that has a sidecar and doesn't use a headless service and removes all
+// SingleSimplePodBasedService finds the first Pod deployment that has a sidecar and doesn't use a headless service and removes all
 // other "regular" pods that aren't part of the same Service. Pods that are part of the same Service but are in a
 // different cluster or revision will still be included.
-var OnRegularPodSource sourceFilter = func(instances echo.Instances) echo.Instances {
+var SingleSimplePodBasedService sourceFilter = func(instances echo.Instances) echo.Instances {
 	return oneRegularPod(instances)
 }
 
-// OneRegularPodDestination finds the first Pod deployment that has a sidecar and doesn't use a headless service and removes all
+// SingleSimplePodBasedServiceDestination finds the first Pod deployment that has a sidecar and doesn't use a headless service and removes all
 // other "regular" pods that aren't part of the same Service. Pods that are part of the same Service but are in a
 // different cluster or revision will still be included.
-var OneRegularPodDestination destinationFilter = func(from echo.Instance, to echo.Instances) echo.Instances {
+var SingleSimplePodBasedServiceDestination destinationFilter = func(from echo.Instance, to echo.Instances) echo.Instances {
 	return oneRegularPod(to)
+}
+
+// NoExternalServices filters out external services which are based on
+var NoExternalServices sourceFilter = func(instances echo.Instances) echo.Instances {
+	return instances.Match(echo.External().Negate())
 }
 
 func oneRegularPod(instances echo.Instances) echo.Instances {
@@ -77,9 +82,10 @@ func oneRegularPod(instances echo.Instances) echo.Instances {
 	return out
 }
 
+// TODO put this on echo.Config?
 func isRegularPod(instance echo.Instance) bool {
 	c := instance.Config()
-	return !c.IsVM() && !c.IsVM() && len(c.Subsets) == 1 && !c.IsNaked()
+	return !c.IsVM() && !c.IsVM() && len(c.Subsets) == 1 && !c.IsNaked() && !c.IsHeadless()
 }
 
 // ReachableDestinations filters out known-unreachable destinations given a source.
@@ -93,19 +99,21 @@ var ReachableDestinations destinationFilter = func(from echo.Instance, to echo.I
 				// we'll only be able to reach same-network without a sidecar
 				InNetwork(from.Config().Cluster.NetworkName()).
 				// we need a sidecar to reach VMs
-				And(echo.IsVM()),
+				And(echo.IsVM().Negate()),
 		)
 	}
 
-	return to.Match(func(i echo.Instance) bool {
-		if i.Config().IsHeadless() {
+	return to.Match(func(to echo.Instance) bool {
+		if to.Config().IsHeadless() {
 			// TODO this _might_ have issues with non-kube clusters (e.g. StaticVM)
 			// TODO(landow) incompatibilities with multicluster & headless
-			return i.Config().Cluster == from.Config().Cluster
+			return to.Config().Cluster == from.Config().Cluster
 		}
-		if i.Config().IsNaked() {
+		if to.Config().IsNaked() && !to.Config().IsExternal() {
 			// we rely on mTLS for multi-network
-			return i.Config().Cluster.NetworkName() == from.Config().Cluster.NetworkName()
+			// external service is LoadBalanced differently so we won't see 500s unlike regular naked svc
+			// TODO we probably don't actually reach all external, but for now maintaining what the tests did
+			return to.Config().Cluster.NetworkName() == from.Config().Cluster.NetworkName()
 		}
 		return true
 	})

@@ -15,6 +15,7 @@
 package echotest
 
 import (
+	"strconv"
 	"testing"
 
 	"istio.io/istio/pkg/test/framework/components/cluster"
@@ -53,9 +54,41 @@ var (
 	naked2 = fakeInstance{Cluster: cls2, Namespace: fakeNamespace("echo"), Service: "naked", Subsets: []echo.SubsetConfig{{
 		Annotations: echo.NewAnnotations().SetBool(echo.SidecarInject, false),
 	}}}
+	// external svc
+	external1 = fakeInstance{
+		Cluster: cls1, Namespace: fakeNamespace("echo"), Service: "external", DefaultHostHeader: "external.com", Subsets: []echo.SubsetConfig{{
+			Annotations: map[echo.Annotation]*echo.AnnotationValue{echo.SidecarInject: {Value: strconv.FormatBool(false)}},
+		}},
+	}
+	external2 = fakeInstance{
+		Cluster: cls2, Namespace: fakeNamespace("echo"), Service: "external", DefaultHostHeader: "external.com", Subsets: []echo.SubsetConfig{{
+			Annotations: map[echo.Annotation]*echo.AnnotationValue{echo.SidecarInject: {Value: strconv.FormatBool(false)}},
+		}},
+	}
 
-	all = echo.Instances{a1, a2, b1, b2, c1, c2, aNs1, aNs2, vm1, vm2, headless1, headless2, naked1, naked2}
+	all = echo.Instances{a1, a2, b1, b2, c1, c2, aNs1, aNs2, vm1, vm2, headless1, headless2, naked1, naked2, external1, external2}
 )
+
+func TestIsRegularPod(t *testing.T) {
+	tests := []struct {
+		app    echo.Instance
+		expect bool
+	}{
+		{app: a1, expect: true},
+		{app: b1, expect: true},
+		{app: vm1, expect: false},
+		{app: naked1, expect: false},
+		{app: external1, expect: false},
+		{app: headless1, expect: false},
+	}
+	for _, tt := range tests {
+		t.Run(tt.app.Config().Service, func(t *testing.T) {
+			if got := isRegularPod(tt.app); got != tt.expect {
+				t.Errorf("got %v expected %v", got, tt.expect)
+			}
+		})
+	}
+}
 
 func TestFilters(t *testing.T) {
 	tests := map[string]struct {
@@ -63,7 +96,7 @@ func TestFilters(t *testing.T) {
 		expect echo.Instances
 	}{
 		"OneRegularPod": {
-			filter: OnRegularPodSource,
+			filter: SingleSimplePodBasedService,
 			expect: echo.Instances{
 				// keep all instances of this pod-based service
 				a1, a2,
@@ -71,6 +104,7 @@ func TestFilters(t *testing.T) {
 				vm1, vm2,
 				headless1, headless2,
 				naked1, naked2,
+				external1, external2,
 			},
 		},
 		"ReachableDestinations from pod": {
@@ -79,7 +113,7 @@ func TestFilters(t *testing.T) {
 			},
 			expect: echo.Instances{
 				// all instances
-				a1, a2, aNs1, aNs2, b1, b2, c1, c2, vm1, vm2,
+				a1, a2, aNs1, aNs2, b1, b2, c1, c2, vm1, vm2, external1, external2,
 				// only same network/cluster
 				headless1, naked1,
 			},
@@ -89,8 +123,8 @@ func TestFilters(t *testing.T) {
 				return ReachableDestinations(naked1, instances)
 			},
 			expect: echo.Instances{
-				// only same network/cluster
-				a1, aNs1, b1, c1, vm1, headless1, naked1,
+				// only same network/cluster, no VMs
+				a1, aNs1, b1, c1, headless1, naked1, external1,
 			},
 		},
 	}
@@ -103,24 +137,29 @@ func TestFilters(t *testing.T) {
 }
 
 func compare(t *testing.T, got echo.Instances, want echo.Instances) {
-	expected := map[string]echo.Instance{}
+	expected := map[string]struct{}{}
 	for _, i := range want {
-		expected[instanceKey(i)] = i
+		expected[instanceKey(i)] = struct{}{}
 	}
-	unexpected := map[string]echo.Instance{}
+	unexpected := map[string]struct{}{}
 	for _, i := range all {
 		k := instanceKey(i)
 		if _, ok := expected[k]; !ok {
-			unexpected[k] = i
+			unexpected[k] = struct{}{}
 		}
 	}
 	for _, i := range got {
 		k := instanceKey(i)
-		if _, ok := expected[k]; !ok {
+		if _, ok := expected[k]; ok {
+			delete(expected, k)
+		} else {
 			t.Errorf("did not expect %s to be filtered out", k)
 		}
 		if _, ok := unexpected[k]; ok {
 			t.Errorf("expected %s to be filtered out", k)
 		}
+	}
+	if len(expected) > 0 {
+		t.Errorf("did not include %v", expected)
 	}
 }

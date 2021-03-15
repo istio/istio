@@ -181,6 +181,10 @@ func (f Config) DeepCopy() Config {
 	return newc
 }
 
+func (f Config) IsExternal() bool {
+	return f.HostHeader() != f.FQDN()
+}
+
 func copyInternal(v interface{}) interface{} {
 	copied, err := copystructure.Copy(v)
 	if err != nil {

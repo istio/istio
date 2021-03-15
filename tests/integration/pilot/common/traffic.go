@@ -88,8 +88,8 @@ func (c TrafficTestCase) RunForApps(t framework.TestContext, apps echo.Instances
 			)
 			return t.Config().ApplyYAML("", cfg)
 		}).
-		From(echotest.OnRegularPodSource).
-		To(echotest.OneRegularPodDestination, echotest.ReachableDestinations).
+		From(echotest.SingleSimplePodBasedService, echotest.NoExternalServices).
+		To(echotest.SingleSimplePodBasedServiceDestination, echotest.ReachableDestinations).
 		Run(func(t framework.TestContext, src echo.Instance, dest echo.Instances) {
 			buildOpts := func(options echo.CallOptions) echo.CallOptions {
 				opts := options
