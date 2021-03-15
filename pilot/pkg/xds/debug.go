@@ -86,6 +86,8 @@ var indexTmpl = template.Must(template.New("index").Parse(`<html>
 </html>
 `))
 
+var debugServerPort string
+
 // AdsClient defines the data that is displayed on "/adsz" endpoint.
 type AdsClient struct {
 	ConnectionID string              `json:"connectionId"`
@@ -124,7 +126,8 @@ type SyncedVersions struct {
 }
 
 // InitDebug initializes the debug handlers and adds a debug in-memory registry.
-func (s *DiscoveryServer) InitDebug(mux *http.ServeMux, sctl *aggregate.Controller, enableProfiling bool, fetchWebhook func() map[string]string) {
+func (s *DiscoveryServer) InitDebug(mux *http.ServeMux, sctl *aggregate.Controller, enableProfiling bool,
+	port string, fetchWebhook func() map[string]string) {
 	// For debugging and load testing v2 we add an memory registry.
 	s.MemRegistry = memory.NewServiceDiscovery(nil)
 	s.MemRegistry.EDSUpdater = s
@@ -137,6 +140,7 @@ func (s *DiscoveryServer) InitDebug(mux *http.ServeMux, sctl *aggregate.Controll
 		Controller:       s.MemRegistry.Controller,
 	})
 	s.AddDebugHandlers(mux, enableProfiling, fetchWebhook)
+	debugServerPort = port
 }
 
 func (s *DiscoveryServer) AddDebugHandlers(mux *http.ServeMux, enableProfiling bool, webhook func() map[string]string) {

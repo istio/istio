@@ -203,6 +203,15 @@ type ResponseHandler interface {
 
 var adscLog = log.RegisterScope("adsc", "adsc debugging", 0)
 
+func NewWithBackoffPolicy(discoveryAddr string, opts *Config, backoffPolicy backoff.BackOff) (*ADSC, error) {
+	adsc, err := New(discoveryAddr, opts)
+	if err != nil {
+		return nil, err
+	}
+	adsc.cfg.BackoffPolicy = backoffPolicy
+	return adsc, err
+}
+
 // New creates a new ADSC, maintaining a connection to an XDS server.
 // Will:
 // - get certificate using the Secret provider, if CertRequired

@@ -535,6 +535,7 @@ func (s *DiscoveryServer) initGenerators(env *model.Environment) {
 	s.Generators["api/"+TypeURLConnect] = s.StatusGen
 
 	s.Generators["event"] = s.StatusGen
+	s.Generators[TypeDebug] = NewDebugGen(s)
 }
 
 // shutdown shuts down DiscoveryServer components.

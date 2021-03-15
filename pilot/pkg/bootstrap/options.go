@@ -108,9 +108,8 @@ type TLSOptions struct {
 }
 
 var (
-	PodNamespaceVar = env.RegisterStringVar("POD_NAMESPACE", constants.IstioSystemNamespace, "")
-	podNameVar      = env.RegisterStringVar("POD_NAME", "", "")
-	jwtRuleVar      = env.RegisterStringVar("JWT_RULE", "",
+	podNameVar = env.RegisterStringVar("POD_NAME", "", "")
+	jwtRuleVar = env.RegisterStringVar("JWT_RULE", "",
 		"The JWT rule used by istiod authentication")
 )
 
@@ -142,7 +141,7 @@ func NewPilotArgs(initFuncs ...func(*PilotArgs)) *PilotArgs {
 
 // Apply default value to PilotArgs
 func (p *PilotArgs) applyDefaults() {
-	p.Namespace = PodNamespaceVar.Get()
+	p.Namespace = features.PodNamespaceVar.Get()
 	p.PodName = podNameVar.Get()
 	p.Revision = RevisionVar.Get()
 	p.JwtRule = jwtRuleVar.Get()
