@@ -188,22 +188,26 @@ func (c *Controller) extractGatewaysInner(svc *model.Service) bool {
 		}
 	}
 
-	gwsChanged := len(c.networkGateways[svc.Hostname][network]) != len(gws)
-	if !gwsChanged {
-		// number of gateways are the same, check that their contents are the same
-		found := map[model.Gateway]bool{}
-		for _, gw := range gws {
-			found[*gw] = true
-		}
-		for _, gw := range c.networkGateways[svc.Hostname][network] {
-			if _, ok := found[*gw]; !ok {
-				gwsChanged = true
-				break
-			}
-		}
-	}
+	gwsChanged := didGatewaysChange(c.networkGateways[svc.Hostname][network], gws)
 	c.networkGateways[svc.Hostname][network] = gws
 	return gwsChanged
+}
+
+func didGatewaysChange(a, b []*model.Gateway) bool {
+	return len(a) != len(b) || didGatewaysChangeInner(a, b) || didGatewaysChangeInner(b, a)
+}
+
+func didGatewaysChangeInner(a, b []*model.Gateway) bool {
+	currentMap := make(map[model.Gateway]bool, len(a))
+	for _, a := range a {
+		currentMap[*a] = true
+	}
+	for _, b := range b {
+		if _, ok := currentMap[*b]; !ok {
+			return true
+		}
+	}
+	return false
 }
 
 // getGatewayDetails finds the port and network to use for cross-network traffic on the given service.
