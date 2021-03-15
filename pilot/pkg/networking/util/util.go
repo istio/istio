@@ -499,7 +499,7 @@ func MergeAnyWithAny(dst *any.Any, src *any.Any) (*any.Any, error) {
 
 // BuildLbEndpointMetadata adds metadata values to a lb endpoint
 func BuildLbEndpointMetadata(network, tlsMode, workloadname, namespace, clusterID string, labels labels.Instance) *core.Metadata {
-	if network == "" && tlsMode == model.DisabledTLSModeLabel && !shouldAddTelemetryLabel(workloadname) {
+	if network == "" && tlsMode == model.DisabledTLSModeLabel && !shouldAddTelemetryLabel(workloadname, clusterID) {
 		return nil
 	}
 
@@ -524,7 +524,7 @@ func BuildLbEndpointMetadata(network, tlsMode, workloadname, namespace, clusterI
 	// server does not have sidecar injected, and request fails to reach server and thus metadata exchange does not happen.
 	// Due to performance concern, telemetry metadata is compressed into a semicolon separted string:
 	// workload-name;namespace;canonical-service-name;canonical-service-revision.
-	if shouldAddTelemetryLabel(workloadname) {
+	if shouldAddTelemetryLabel(workloadname, clusterID) {
 		var sb strings.Builder
 		sb.WriteString(workloadname)
 		sb.WriteString(";")
@@ -555,8 +555,8 @@ func addIstioEndpointLabel(metadata *core.Metadata, key string, val *pstruct.Val
 	metadata.FilterMetadata[IstioMetadataKey].Fields[key] = val
 }
 
-func shouldAddTelemetryLabel(workloadName string) bool {
-	return features.EndpointTelemetryLabel && (workloadName != "")
+func shouldAddTelemetryLabel(workloadName, clusterID string) bool {
+	return features.EndpointTelemetryLabel && (workloadName != "" || clusterID != "")
 }
 
 // IsAllowAnyOutbound checks if allow_any is enabled for outbound traffic
