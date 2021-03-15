@@ -363,7 +363,7 @@ func TestCustomGateway(t *testing.T) {
 		NewTest(t).
 		Features("traffic.ingress.custom").
 		Run(func(ctx framework.TestContext) {
-			gatewayNs := namespace.NewOrFail(t, ctx, namespace.Config{Prefix: "custom-gateway"})
+			gatewayNs := namespace.NewOrFail(t, ctx, namespace.Config{Prefix: "custom-gateway", Inject: true})
 			injectLabel := `sidecar.istio.io/inject: "true"`
 			if len(ctx.Settings().Revision) > 0 {
 				injectLabel = fmt.Sprintf(`istio.io/rev: "%v"`, ctx.Settings().Revision)
@@ -437,7 +437,7 @@ spec:
 				retry.UntilSuccessOrFail(ctx, func() error {
 					_, err := kubetest.CheckPodsAreReady(kubetest.NewPodFetch(cs, gatewayNs.Name(), "istio=custom"))
 					return err
-				}, retry.Timeout(time.Minute*2))
+				}, retry.Timeout(time.Minute*2), retry.Delay(time.Second))
 				apps.PodB[0].CallWithRetryOrFail(ctx, echo.CallOptions{
 					Port:      &echo.Port{ServicePort: 80},
 					Scheme:    scheme.HTTP,
