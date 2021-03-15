@@ -540,12 +540,13 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundListenerForPortOrUDS(no
 		listenerOpts.needHTTPInspector = true
 	}
 
-	port := pluginParams.ServiceInstance.Endpoint.EndpointPort
-	mtlsConfig := getMtlsSettings(configgen, pluginParams).PerPort[port]
+	mtlsConfigs := getMtlsSettings(configgen, pluginParams, false)
 	newOpts := []*fcOpts{}
-	for _, match := range getFilterChainMatchOptions(mtlsConfig, listenerOpts.protocol) {
-		opt := fcOpts{matchOpts: match}.populateFilterChain(mtlsConfig, 0, "")
-		newOpts = append(newOpts, &opt)
+	for _, mtlsConfig := range mtlsConfigs {
+		for _, match := range getFilterChainMatchOptions(mtlsConfig, listenerOpts.protocol) {
+			opt := fcOpts{matchOpts: match}.populateFilterChain(mtlsConfig, 0, "")
+			newOpts = append(newOpts, &opt)
+		}
 	}
 	// Run our filter chains through the plugin
 	fcs := make([]istionetworking.FilterChain, 0, len(newOpts))

@@ -2371,8 +2371,8 @@ func (p *fakePlugin) OnInboundPassthrough(in *plugin.InputParams, mutable *istio
 	return nil
 }
 
-func (p *fakePlugin) InboundMTLSConfiguration(in *plugin.InputParams) *plugin.InboundMTLSConfiguration {
-	return &plugin.InboundMTLSConfiguration{Passthrough: plugin.MTLSSettings{
+func (p *fakePlugin) InboundMTLSConfiguration(in *plugin.InputParams, passthrough bool) []plugin.MTLSSettings {
+	return []plugin.MTLSSettings{{
 		Mode:           model.MTLSPermissive,
 		TCPTLSContext:  &tls.DownstreamTlsContext{},
 		HTTPTLSContext: &tls.DownstreamTlsContext{},

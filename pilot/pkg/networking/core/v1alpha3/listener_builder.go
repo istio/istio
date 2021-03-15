@@ -553,19 +553,21 @@ func (opt fcOpts) populateFilterChain(mtls plugin.MTLSSettings, port uint32, mat
 	return opt
 }
 
-func getMtlsSettings(configgen *ConfigGeneratorImpl, in *plugin.InputParams) plugin.InboundMTLSConfiguration {
-	var mtlsConfig *plugin.InboundMTLSConfiguration
+func getMtlsSettings(configgen *ConfigGeneratorImpl, in *plugin.InputParams, passthrough bool) []plugin.MTLSSettings {
 	for _, p := range configgen.Plugins {
-		cfg := p.InboundMTLSConfiguration(in)
+		cfg := p.InboundMTLSConfiguration(in, passthrough)
 		if cfg != nil {
-			mtlsConfig = cfg
-			break
+			return cfg
 		}
 	}
-	if mtlsConfig == nil {
-		return plugin.InboundMTLSConfiguration{} // Default: no TLS
+	// If no plugin configures mtls, set it to disabled
+	if passthrough {
+		return []plugin.MTLSSettings{{Mode: model.MTLSDisable}}
 	}
-	return *mtlsConfig
+	return []plugin.MTLSSettings{{
+		Port: in.ServiceInstance.Endpoint.EndpointPort,
+		Mode: model.MTLSDisable,
+	}}
 }
 
 func buildInboundCatchAllFilterChains(configgen *ConfigGeneratorImpl,
@@ -607,7 +609,6 @@ func buildInboundCatchAllFilterChains(configgen *ConfigGeneratorImpl,
 			ServiceInstance: dummyServiceInstance,
 			Push:            push,
 		}
-		// TODO usage here only in HTTP is a bit leaky
 		listenerOpts := buildListenerOpts{
 			push:  push,
 			proxy: node,
@@ -617,22 +618,17 @@ func buildInboundCatchAllFilterChains(configgen *ConfigGeneratorImpl,
 				Port:     15006,
 				Protocol: protocol.HTTP,
 			},
+			protocol: istionetworking.ListenerProtocolAuto,
 		}
 		// Call plugins to get mtls policies.
-		mtlsConfig := getMtlsSettings(configgen, in)
+		mtlsConfigs := getMtlsSettings(configgen, in, true)
 		newOpts := []*fcOpts{}
-		for _, match := range getFilterChainMatchOptions(mtlsConfig.Passthrough, istionetworking.ListenerProtocolAuto) {
-			opt := fcOpts{matchOpts: match}.populateFilterChain(mtlsConfig.Passthrough, 0, matchingIP)
-			newOpts = append(newOpts, &opt)
-		}
-		for port, setting := range mtlsConfig.PerPort {
-			for _, match := range getFilterChainMatchOptions(setting, istionetworking.ListenerProtocolAuto) {
-				opt := fcOpts{matchOpts: match}.populateFilterChain(setting, port, matchingIP)
+		for _, mtlsConfig := range mtlsConfigs {
+			for _, match := range getFilterChainMatchOptions(mtlsConfig, listenerOpts.protocol) {
+				opt := fcOpts{matchOpts: match}.populateFilterChain(mtlsConfig, mtlsConfig.Port, matchingIP)
 				newOpts = append(newOpts, &opt)
 			}
 		}
-
-		// TODO: must not use map, its not ordered
 
 		// Run our filter chains through the plugin
 		fcs := make([]istionetworking.FilterChain, 0, len(newOpts))

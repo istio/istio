@@ -60,16 +60,12 @@ type Plugin interface {
 	// Can be used to add additional filters.
 	OnInboundPassthrough(in *InputParams, mutable *istionetworking.MutableObjects) error
 
-	InboundMTLSConfiguration(in *InputParams) *InboundMTLSConfiguration
+	InboundMTLSConfiguration(in *InputParams, passthrough bool) []MTLSSettings
 }
 
 type MTLSSettings struct {
+	Port           uint32
 	Mode           model.MutualTLSMode
 	TCPTLSContext  *tls.DownstreamTlsContext
 	HTTPTLSContext *tls.DownstreamTlsContext
-}
-
-type InboundMTLSConfiguration struct {
-	Passthrough MTLSSettings
-	PerPort     map[uint32]MTLSSettings
 }

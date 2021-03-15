@@ -119,6 +119,6 @@ func (p Plugin) OnInboundPassthrough(in *plugin.InputParams, mutable *networking
 	return nil
 }
 
-func (p Plugin) InboundMTLSConfiguration(in *plugin.InputParams) *plugin.InboundMTLSConfiguration {
+func (p Plugin) InboundMTLSConfiguration(in *plugin.InputParams, passthrough bool) []plugin.MTLSSettings {
 	return nil
 }

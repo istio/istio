@@ -95,25 +95,27 @@ func (Plugin) OnInboundPassthrough(in *plugin.InputParams, mutable *networking.M
 	return buildFilter(in, mutable, true)
 }
 
-func (p Plugin) InboundMTLSConfiguration(in *plugin.InputParams) *plugin.InboundMTLSConfiguration {
+// TODO make function for passthrough and function for explicit. passthrough one can stop passing dummy service instance.
+// plugin can stop taking SI entirely and just take endpoint port
+func (p Plugin) InboundMTLSConfiguration(in *plugin.InputParams, passthrough bool) []plugin.MTLSSettings {
 	applier := factory.NewPolicyApplier(in.Push, in.Node.Metadata.Namespace, labels.Collection{in.Node.Metadata.Labels})
 	trustDomains := trustDomainsForValidation(in.Push.Mesh)
 
-	// This is for a specific port. Create the configuration for just that port.
 	port := in.ServiceInstance.Endpoint.EndpointPort
-	// TODO passthrough bool
-	if port != 15006 {
-		return &plugin.InboundMTLSConfiguration{PerPort: map[uint32]plugin.MTLSSettings{
-			port: applier.InboundMTLSSettings(port, in.Node, trustDomains),
-		}}
+
+	// For non passthrough, set up the specific port
+	if !passthrough {
+		return []plugin.MTLSSettings{
+			applier.InboundMTLSSettings(port, in.Node, trustDomains),
+		}
 	}
 	// Otherwise, this is for passthrough configuration. We need to create configuration for the
 	// passthrough, but also any ports that are not explicitly declared in the Service but are in the
 	// mTLS port level settings.
-	resp := plugin.InboundMTLSConfiguration{
-		PerPort: map[uint32]plugin.MTLSSettings{},
+	resp := []plugin.MTLSSettings{
+		// Full passthrough - no port match
+		applier.InboundMTLSSettings(0, in.Node, trustDomains),
 	}
-	resp.Passthrough = applier.InboundMTLSSettings(0, in.Node, trustDomains)
 
 	// Then generate the per-port passthrough filter chains.
 	for port := range applier.PortLevelSetting() {
@@ -123,9 +125,9 @@ func (p Plugin) InboundMTLSConfiguration(in *plugin.InputParams) *plugin.Inbound
 		}
 
 		authnLog.Debugf("InboundMTLSConfiguration: build extra pass through filter chain for %v:%d", in.Node.ID, port)
-		resp.PerPort[port] = applier.InboundMTLSSettings(port, in.Node, trustDomains)
+		resp = append(resp, applier.InboundMTLSSettings(port, in.Node, trustDomains))
 	}
-	return &resp
+	return resp
 }
 
 func needPerPortPassthroughFilterChain(port uint32, node *model.Proxy) bool {
