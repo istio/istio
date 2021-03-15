@@ -479,6 +479,7 @@ else
   DISABLED_PACKAGES+="\|/security/sds_ingress_k8sca" # NOT SUPPORTED
   DISABLED_PACKAGES+="\|/security/sds_tls_origination" # NOT SUPPORTED
   DISABLED_PACKAGES+="\|/security/ca_migration" # NOT SUPPORTED in most tests. Has its own target
+  DISABLED_PACKAGES+="\|/security/user_auth" # NOT SUPPORTED
 
   if [[ "${CLUSTER_TOPOLOGY}" == "SINGLECLUSTER" || "${CLUSTER_TOPOLOGY}" == "sc" ]]; then
     echo "Running integration test with ASM managed control plane and ${CLUSTER_TOPOLOGY} topology"
