@@ -20,6 +20,8 @@ import (
 	"strings"
 
 	"github.com/fatih/color"
+	"github.com/ghodss/yaml"
+
 	admit_v1 "k8s.io/api/admissionregistration/v1"
 	appsv1 "k8s.io/api/apps/v1"
 	v1batch "k8s.io/api/batch/v1"
@@ -37,6 +39,7 @@ import (
 	operator_istio "istio.io/istio/operator/pkg/apis/istio"
 	"istio.io/istio/operator/pkg/apis/istio/v1alpha1"
 	"istio.io/istio/operator/pkg/controlplane"
+	"istio.io/istio/operator/pkg/manifest"
 	"istio.io/istio/operator/pkg/translate"
 	"istio.io/istio/operator/pkg/util"
 	"istio.io/istio/operator/pkg/util/clog"
@@ -116,6 +119,7 @@ func (v *StatusVerifier) verifyInstallIOPRevision() error {
 	if err != nil {
 		// At this point we know there is no IstioOperator defining a control plane.  This may
 		// be the case in a Istio cluster with external control plane.
+		v.logger.LogAndErrorf("error while fetching revision %s: %v", v.controlPlaneOpts.Revision, err.Error())
 		injector, err2 := v.injectorFromCluster(v.controlPlaneOpts.Revision)
 		if err2 == nil && injector != nil {
 			// The cluster *is* configured for Istio, but no IOP is present.  This could mean
@@ -130,8 +134,17 @@ func (v *StatusVerifier) verifyInstallIOPRevision() error {
 	if v.manifestsPath != "" {
 		iop.Spec.InstallPackagePath = v.manifestsPath
 	}
+	profile := v.getProfile(iop)
+	by, err := yaml.Marshal(iop)
+	if err != nil {
+		return err
+	}
+	mergedIOP, err := v.getMergedIOP(string(by), profile)
+	if err != nil {
+		return nil
+	}
 	crdCount, istioDeploymentCount, err := v.verifyPostInstallIstioOperator(
-		iop, fmt.Sprintf("in cluster operator %s", iop.GetName()))
+		mergedIOP, fmt.Sprintf("in cluster operator %s", mergedIOP.GetName()))
 	return v.reportStatus(crdCount, istioDeploymentCount, err)
 }
 
@@ -311,8 +324,15 @@ func (v *StatusVerifier) verifyPostInstall(visitor resource.Visitor, filename st
 			// usual conversion not available.  Convert unstructured to string
 			// and ask operator code to unmarshal.
 			fixTimestampRelatedUnmarshalIssues(un)
+
 			by := util.ToYAML(un)
-			iop, err := operator_istio.UnmarshalIstioOperator(by, true)
+			unmergedIOP, err := operator_istio.UnmarshalIstioOperator(by, true)
+			if err != nil {
+				v.reportFailure(kind, name, namespace, err)
+				return err
+			}
+			profile := v.getProfile(unmergedIOP)
+			iop, err := v.getMergedIOP(by, profile)
 			if err != nil {
 				v.reportFailure(kind, name, namespace, err)
 				return err
@@ -357,6 +377,33 @@ func (v *StatusVerifier) verifyPostInstall(visitor resource.Visitor, filename st
 		return nil
 	})
 	return crdCount, istioDeploymentCount, err
+}
+
+func (v *StatusVerifier) getProfile(iop *v1alpha1.IstioOperator) string {
+	profile := "default"
+	if iop != nil && iop.Spec != nil && iop.Spec.Profile != "" {
+		profile = iop.Spec.Profile
+	}
+	return profile
+}
+
+func (v *StatusVerifier) getMergedIOP(userIOPStr, profile string) (*v1alpha1.IstioOperator, error) {
+	restConfig, err := v.k8sConfig().ToRESTConfig()
+	if err != nil {
+		return nil, err
+	}
+	extraFlags := []string{}
+	if v.manifestsPath != "" {
+		extraFlags = append(extraFlags, fmt.Sprintf("installPackagePath=%s", v.manifestsPath))
+	}
+	if v.controlPlaneOpts.Revision != "" {
+		extraFlags = append(extraFlags, fmt.Sprintf("revision=%s", v.controlPlaneOpts.Revision))
+	}
+	_, mergedIOP, err := manifest.OverlayYAMLStrings(profile, userIOPStr, extraFlags, false, restConfig, v.logger)
+	if err != nil {
+		return nil, err
+	}
+	return mergedIOP, nil
 }
 
 // Find Istio injector matching revision.  ("" matches any revision.)
