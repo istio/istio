@@ -196,9 +196,8 @@ func (a *v1beta1PolicyApplier) InboundMTLSSettings(endpointPort uint32, node *mo
 	effectiveMTLSMode := a.getMutualTLSModeForPort(endpointPort)
 	authnLog.Debugf("InboundFilterChain: build inbound filter change for %v:%d in %s mode", node.ID, endpointPort, effectiveMTLSMode)
 	return plugin.MTLSSettings{
-		Port: endpointPort,
-		Mode: effectiveMTLSMode,
-		// TODO cache this per mtls mode
+		Port:           endpointPort,
+		Mode:           effectiveMTLSMode,
 		TCPTLSContext:  authn_utils.BuildInboundTLS(effectiveMTLSMode, node, networking.ListenerProtocolTCP, trustDomainAliases),
 		HTTPTLSContext: authn_utils.BuildInboundTLS(effectiveMTLSMode, node, networking.ListenerProtocolHTTP, trustDomainAliases),
 	}

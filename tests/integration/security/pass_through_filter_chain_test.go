@@ -599,6 +599,8 @@ spec:
 			for _, cluster := range ctx.Clusters() {
 				destination := apps.A.Match(echo.Namespace(ns.Name())).GetOrFail(ctx, echo.InCluster(cluster))
 				destWorkload := getWorkload(destination, ctx).Address()
+				// Its not trivial to force mTLS to passthrough ports. To workaround this, we will
+				// set up a SE and DR that forces it
 				se := tmpl.EvaluateOrFail(ctx, `apiVersion: networking.istio.io/v1beta1
 kind: ServiceEntry
 metadata:
