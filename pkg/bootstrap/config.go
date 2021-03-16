@@ -301,13 +301,7 @@ func getProxyConfigOptions(config *meshAPI.ProxyConfig, metadata *model.Bootstra
 		case *meshAPI.Tracing_Datadog_:
 			opts = append(opts, option.DataDogAddress(tracer.Datadog.Address))
 		case *meshAPI.Tracing_Stackdriver_:
-			var projectID string
-			var projFound bool
-
-			if projectID, projFound = metadata.PlatformMetadata[platform.GCPProject]; !projFound {
-				projectID, projFound = metadata.PlatformMetadata[platform.GCPProjectNumber]
-			}
-
+			projectID, projFound := metadata.PlatformMetadata[platform.GCPProject]
 			if !projFound {
 				return nil, errors.New("unable to process Stackdriver tracer: missing GCP Project")
 			}
