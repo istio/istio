@@ -65,6 +65,9 @@ type TrafficTestCase struct {
 }
 
 func (c TrafficTestCase) RunForApps(t framework.TestContext, apps echo.Instances, namespace string) {
+	if c.skip {
+		t.SkipNow()
+	}
 	if c.opts.Target != nil {
 		t.Fatal("TrafficTestCase.RunForApps: opts.Target must not be specified")
 	}
