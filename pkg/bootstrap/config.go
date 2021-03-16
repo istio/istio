@@ -209,24 +209,20 @@ func getStatsOptions(meta *model.BootstrapNodeMetadata, nodeIPs []string, config
 		return substituteValues(inclusionOption, "{pod_ip}", nodeIPs)
 	}
 
-	tagMap := make(map[string]struct{})
-	for _, tag := range DefaultStatTags {
-		tagMap[tag] = struct{}{}
-	}
+	extraStatTags := make([]string, 0, len(DefaultStatTags))
+	extraStatTags = append(extraStatTags,
+		DefaultStatTags...)
 	for _, tag := range config.ExtraStatTags {
 		if tag != "" {
-			tagMap[tag] = struct{}{}
+			extraStatTags = append(extraStatTags, tag)
 		}
 	}
 	for _, tag := range strings.Split(meta.ExtraStatTags, ",") {
 		if tag != "" {
-			tagMap[tag] = struct{}{}
+			extraStatTags = append(extraStatTags, tag)
 		}
 	}
-	extraStatTags := make([]string, 0, len(tagMap))
-	for tag := range tagMap {
-		extraStatTags = append(extraStatTags, tag)
-	}
+	extraStatTags = removeDuplicates(extraStatTags)
 
 	var proxyConfigPrefixes, proxyConfigSuffixes, proxyConfigRegexps []string
 	if config.ProxyStatsMatcher != nil {
