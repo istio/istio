@@ -93,13 +93,13 @@ func (c TrafficTestCase) RunForApps(t framework.TestContext, apps echo.Instances
 
 	echotest.New(t, apps).
 		SetupForPair(func(t framework.TestContext, src, dst echo.Instances) error {
-			cfg := tmpl.MustEvaluate(
-				yml.MustApplyNamespace(t, c.config, namespace),
-				map[string]echo.Instances{
+			cfg := yml.MustApplyNamespace(t, tmpl.MustEvaluate(
+				c.config,
+				map[string]interface{}{
 					"src": src,
 					"dst": dst,
 				},
-			)
+			), namespace)
 			return t.Config().ApplyYAML("", cfg)
 		}).
 		From(append(defaulltSourceFilters, c.sourceFilters...)...).
