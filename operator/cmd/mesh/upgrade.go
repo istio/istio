@@ -60,7 +60,7 @@ const (
 		"    kubectl apply -f < (istioctl kube-inject -f <original application deployment yaml>)"
 
 	// releaseURLPathTemplate is used to construct a download URL for a tar at a given version.
-	releaseURLPathTemplate = "https://github.com/istio/istio/releases/download/%s/istio-%s-%s.tar.gz"
+	releaseURLPathTemplate = "https://github.com/istio/istio/releases/download/%s/istio-%s-%s"
 )
 
 type upgradeArgs struct {
@@ -262,11 +262,23 @@ func upgrade(rootArgs *rootArgs, args *upgradeArgs, l clog.Logger) (err error) {
 
 // releaseURLFromVersion generates default installation url from version number.
 func releaseURLFromVersion(version string) string {
-	osArch := "osx"
-	if runtime.GOOS == "linux" {
-		osArch = runtime.GOOS + "-" + runtime.GOARCH
-	}
+	osArch := platformBasedTar()
 	return fmt.Sprintf(releaseURLPathTemplate, version, version, osArch)
+}
+
+func platformBasedTar() (tarExtension string) {
+	defaultExtension := "osx.tar.gz"
+	switch runtime.GOOS {
+	case "linux":
+		tarExtension = runtime.GOOS + "-" + runtime.GOARCH + ".tar.gz"
+	case "windows":
+		tarExtension = runtime.GOOS + ".zip"
+	case "darwin":
+		tarExtension = defaultExtension
+	default:
+		tarExtension = defaultExtension
+	}
+	return tarExtension
 }
 
 // checkUpgradeIOPS checks the upgrade eligibility by comparing the current IOPS with the target IOPS
