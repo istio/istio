@@ -15,8 +15,6 @@
 package authz
 
 import (
-	"fmt"
-
 	tcppb "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
 	httppb "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
 
@@ -116,9 +114,6 @@ func (p Plugin) buildFilter(in *plugin.InputParams, mutable *networking.MutableO
 			}
 			option.Logger.AppendDebugf("added %d HTTP filters to filter chain %d", len(httpFilters), cnum)
 			mutable.FilterChains[cnum].HTTP = append(mutable.FilterChains[cnum].HTTP, httpFilters...)
-		default:
-			// TODO don't panic
-			panic(fmt.Sprintf("unknown: %v", mutable.FilterChains[cnum].ListenerProtocol))
 		}
 	}
 }

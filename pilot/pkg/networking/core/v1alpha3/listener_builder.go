@@ -239,6 +239,9 @@ func (lb *ListenerBuilder) aggregateVirtualInboundListener(passthroughInspectors
 func buildTLSInspector(inspectors map[int]enabledInspector) *listener.ListenerFilter {
 	defaultEnabled := inspectors[0].TLSInspector
 
+	// We have a split path here based on if the passthrough inspector is enabled
+	// If it is, then we need to explicitly opt ports out of the inspector
+	// If it isn't, then we need to explicitly opt ports into the inspector
 	if defaultEnabled {
 		ports := make([]int, 0, len(inspectors))
 		// Collect all ports where TLS inspector is disabled.
@@ -497,6 +500,7 @@ func (lb *ListenerBuilder) getListeners() []*listener.Listener {
 	return lb.gatewayListeners
 }
 
+// getFilterChainMatchOptions returns the FilterChainMatchOptions that should be used based on mTLS mode and protocol
 func getFilterChainMatchOptions(settings plugin.MTLSSettings, protocol istionetworking.ListenerProtocol) []FilterChainMatchOptions {
 	switch protocol {
 	case istionetworking.ListenerProtocolHTTP:

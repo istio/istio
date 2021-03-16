@@ -120,7 +120,8 @@ type FilterChainMatchOptions struct {
 	TransportProtocol string
 	// Filter chain protocol. HTTP for HTTP proxy and TCP for TCP proxy
 	Protocol istionetworking.ListenerProtocol
-	MTLS     bool
+	// Whether this chain should terminate mTLS or not
+	MTLS bool
 }
 
 // A set of pre-allocated variables related to protocol sniffing logic for
@@ -394,7 +395,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundListeners(
 				Push:            push,
 			}
 
-			if l := configgen.buildSidecarInboundListenerForPortOrUDS(node, listenerOpts, pluginParams, listenerMap); l != nil {
+			if l := configgen.buildSidecarInboundListenerForPortOrUDS(listenerOpts, pluginParams, listenerMap); l != nil {
 				listeners = append(listeners, l)
 			}
 		}
@@ -456,7 +457,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundListeners(
 			Push:            push,
 		}
 
-		if l := configgen.buildSidecarInboundListenerForPortOrUDS(node, listenerOpts, pluginParams, listenerMap); l != nil {
+		if l := configgen.buildSidecarInboundListenerForPortOrUDS(listenerOpts, pluginParams, listenerMap); l != nil {
 			listeners = append(listeners, l)
 		}
 	}
@@ -510,7 +511,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundHTTPListenerOptsForPort
 
 // buildSidecarInboundListenerForPortOrUDS creates a single listener on the server-side (inbound)
 // for a given port or unix domain socket
-func (configgen *ConfigGeneratorImpl) buildSidecarInboundListenerForPortOrUDS(node *model.Proxy, listenerOpts buildListenerOpts,
+func (configgen *ConfigGeneratorImpl) buildSidecarInboundListenerForPortOrUDS(listenerOpts buildListenerOpts,
 	pluginParams *plugin.InputParams, listenerMap map[int]*inboundListenerEntry) *listener.Listener {
 	// Local service instances can be accessed through one of four addresses:
 	// unix domain socket, localhost, endpoint IP, and service
@@ -538,12 +539,16 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundListenerForPortOrUDS(no
 	if listenerOpts.protocol == istionetworking.ListenerProtocolAuto {
 		listenerOpts.needHTTPInspector = true
 	}
+	// Setup filter chain options and call plugins
 	fcOpts := configgen.buildInboundFilterchains(pluginParams, listenerOpts, "", "", false)
 	listenerOpts.filterChainOpts = fcOpts
 
-	// call plugins
+	// Buildup the complete listener
+	// TODO: Currently, we build filter chains, then convert them to listener.Listeners then
+	// aggregate them back to filter chains in the virtual listener. This is complex and inefficient.
+	// We should instead just directly construct the filter chains. We do still need the ability to
+	// create full listeners for bind-to-port listeners added explicitly, but they are not common.
 	l := buildListener(listenerOpts, core.TrafficDirection_INBOUND)
-
 	mutable := &istionetworking.MutableObjects{
 		Listener:     l,
 		FilterChains: getPluginFilterChain(listenerOpts),

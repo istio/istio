@@ -41,7 +41,6 @@ import (
 	"istio.io/istio/pilot/test/xdstest"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/test"
-	"istio.io/pkg/log"
 )
 
 type Protocol string
@@ -267,7 +266,6 @@ func (sim *Simulation) Run(input Call) (result Result) {
 	result.ListenerMatched = l.Name
 
 	hasTLSInspector := hasFilterOnPort(l, xdsfilters.TLSInspector.Name, input.Port)
-	log.Errorf("howardjohn: %v -> %v", input.Port, hasTLSInspector)
 	if !hasTLSInspector {
 		// Without tls inspector, Envoy would not read the ALPN in the TLS handshake
 		// HTTP inspector still may set it though

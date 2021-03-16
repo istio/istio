@@ -60,12 +60,18 @@ type Plugin interface {
 	// Can be used to add additional filters.
 	OnInboundPassthrough(in *InputParams, mutable *istionetworking.MutableObjects) error
 
+	// InboundMTLSConfiguration configures the mTLS configuration for inbound listeners.
 	InboundMTLSConfiguration(in *InputParams, passthrough bool) []MTLSSettings
 }
 
+// MTLSSettings describes the mTLS options for a filter chain
 type MTLSSettings struct {
-	Port           uint32
-	Mode           model.MutualTLSMode
-	TCPTLSContext  *tls.DownstreamTlsContext
+	// Port is the port this option applies for
+	Port uint32
+	// Mode is the mTLS  mode to use
+	Mode model.MutualTLSMode
+	// TCPTLSContext describes the tls context to use for TCP filter chains
+	TCPTLSContext *tls.DownstreamTlsContext
+	// HTTPTLSContext describes the tls context to use for HTTP filter chains
 	HTTPTLSContext *tls.DownstreamTlsContext
 }
