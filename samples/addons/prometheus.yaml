@@ -299,6 +299,7 @@ metadata:
     release: prometheus
     chart: prometheus-11.16.2
     heritage: Helm
+  namespace: istio-system    
   name: prometheus
 rules:
   - apiGroups:
@@ -341,6 +342,7 @@ metadata:
     release: prometheus
     chart: prometheus-11.16.2
     heritage: Helm
+  namespace: istio-system    
   name: prometheus
 subjects:
   - kind: ServiceAccount
