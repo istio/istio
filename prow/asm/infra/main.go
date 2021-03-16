@@ -119,8 +119,8 @@ func (o *options) setEnvVars() {
 
 func (o *options) installTools() error {
 	if o.deployerName == tailorbirdDeployerName {
-		if err := tailorbird.InstallTools(); err != nil {
-			return fmt.Errorf("")
+		if err := tailorbird.InstallTools(o.clusterType); err != nil {
+			return fmt.Errorf("error installing tools for testing with Tailorbird: %w", err)
 		}
 	}
 

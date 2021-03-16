@@ -162,16 +162,6 @@ echo "The cluster type is ${CLUSTER_TYPE}"
 [[ "${CLUSTER_TYPE}" == "gke-on-prem" ]] && filter_onprem_kubeconfigs
 # only use kubeconfig files on baremetal and construct http proxy value
 [[ "${CLUSTER_TYPE}" == "bare-metal" ]] && filter_baremetal_kubeconfigs && init_baremetal_http_proxy
-# GKE-on-AWS needs terraform for generation of kubeconfigs
-# TODO(chizhg): remove the terraform installation after b/171729099 is solved.
-if [[ "${CLUSTER_TYPE}" == "aws" ]]; then
-  terraform_version="0.13.6"
-  apt-get update && apt-get install unzip -y
-  wget --no-verbose https://releases.hashicorp.com/terraform/${terraform_version}/terraform_${terraform_version}_linux_amd64.zip \
-    && unzip terraform_${terraform_version}_linux_amd64.zip \
-    && mv terraform /usr/local/bin/terraform \
-    && rm terraform_${terraform_version}_linux_amd64.zip
-fi
 
 if [[ -z "${CLUSTER_TOPOLOGY}" ]]; then
   echo "Error: ${CLUSTER_TOPOLOGY} cannot be empty."

@@ -37,7 +37,7 @@ func tailorbirdDeployerBaseFlags() []string {
 }
 
 // InstallTools installs the required tools to enable interacting with Tailorbird.
-func InstallTools() error {
+func InstallTools(clusterType string) error {
 	clonePath := os.Getenv("GOPATH") + "/src/gke-internal/test-infra"
 	defer os.RemoveAll(clonePath)
 	if _, err := os.Stat(clonePath); !os.IsNotExist(err) {
@@ -46,6 +46,22 @@ func InstallTools() error {
 		}
 	} else {
 		return fmt.Errorf("path %q does not seem to exist, please double check", clonePath)
+	}
+
+	// GKE-on-AWS needs terraform for generation of kubeconfigs
+	// TODO(chizhg): remove the terraform installation after b/171729099 is solved.
+	if clusterType == "aws" {
+		terraformVersion := "0.13.6"
+		if err := exec.Run("bash -c 'apt-get update && apt-get install unzip -y'"); err != nil {
+			return err
+		}
+		installTerraformCmd := fmt.Sprintf(`wget --no-verbose https://releases.hashicorp.com/terraform/%s/terraform_%s_linux_amd64.zip \
+		&& unzip terraform_%s_linux_amd64.zip \
+		&& mv terraform /usr/local/bin/terraform \
+		&& rm terraform_%s_linux_amd64.zip`, terraformVersion, terraformVersion, terraformVersion, terraformVersion)
+		if err := exec.Run("bash -c '" + installTerraformCmd + "'"); err != nil {
+			return fmt.Errorf("error installing terraform for testing with aws")
+		}
 	}
 
 	return nil
