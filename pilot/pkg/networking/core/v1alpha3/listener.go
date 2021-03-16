@@ -548,11 +548,6 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundListenerForPortOrUDS(no
 		Listener:     l,
 		FilterChains: getPluginFilterChain(listenerOpts),
 	}
-	for _, p := range configgen.Plugins {
-		if err := p.OnInboundListener(pluginParams, mutable); err != nil {
-			log.Warn(err.Error())
-		}
-	}
 	// Filters are serialized one time into an opaque struct once we have the complete list.
 	if err := buildCompleteFilterChain(mutable, listenerOpts); err != nil {
 		log.Warn("buildSidecarInboundListeners ", err.Error())
@@ -2032,6 +2027,8 @@ func getPluginFilterChain(opts buildListenerOpts) []istionetworking.FilterChain 
 		} else {
 			filterChain[id].ListenerProtocol = istionetworking.ListenerProtocolHTTP
 		}
+		filterChain[id].TCP = opts.filterChainOpts[id].filterChain.TCP
+		filterChain[id].HTTP = opts.filterChainOpts[id].filterChain.HTTP
 	}
 
 	return filterChain
