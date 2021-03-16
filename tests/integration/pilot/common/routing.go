@@ -884,6 +884,10 @@ func protocolSniffingCases(apps *EchoDeployments) []TrafficTestCase {
 				Timeout:  time.Second * 5,
 			},
 			validate: func(src echo.Instance, dst echo.Instances) echo.Validator {
+				if call.scheme == scheme.TCP {
+					// no host header for TCP
+					return echo.ExpectOK()
+				}
 				return echo.And(
 					echo.ExpectOK(),
 					echo.ExpectHost(dst[0].Config().HostHeader()))
