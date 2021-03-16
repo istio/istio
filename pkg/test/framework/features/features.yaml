@@ -43,6 +43,7 @@ features:
     mirroring:
     ingress:
       loadbalancing:
+      custom:
       topology:
     ratelimit:
       envoy:

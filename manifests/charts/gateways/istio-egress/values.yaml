@@ -17,7 +17,11 @@ gateways:
       targetPort: 15443
       name: tls
       protocol: TCP
-
+    customService: false
+    loadBalancerIP: ""
+    loadBalancerSourceRanges: []
+    externalTrafficPolicy: ""
+    egressPorts: []
     # Enable cross-cluster access using SNI matching.
     # Make sure you set suffix if deploying multiple egress gateways.
     zvpn:
@@ -106,6 +110,9 @@ gateways:
 
     # whether to run the gateway in a privileged container
     runAsRoot: false
+
+    # The injection template to use for the gateway. If not set, no injection will be performed.
+    injectionTemplate: ""
 
 # Revision is set as 'version' label and part of the resource names when installing multiple control planes.
 revision: ""

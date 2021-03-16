@@ -233,7 +233,20 @@ message EgressGatewayConfig {
 
   google.protobuf.BoolValue runAsRoot = 26;
 
-  // Next available 27.
+  // The injection template to use for the gateway. If not set, no injection will be performed.
+  string injectionTemplate = 27;
+
+  string loadBalancerIP = 28;
+
+  repeated string loadBalancerSourceRanges = 29;
+
+  google.protobuf.BoolValue customService = 30;
+
+  TypeSliceOfMapStringInterface egressPorts = 31;
+
+  string externalTrafficPolicy = 32;
+
+  // Next available 31.
 }
 
 // Configuration for gateways.
@@ -518,7 +531,10 @@ message IngressGatewayConfig {
 
   google.protobuf.BoolValue runAsRoot = 45;
 
-  // Next available 46.
+  // The injection template to use for the gateway. If not set, no injection will be performed.
+  string injectionTemplate = 46;
+
+  // Next available 47.
 }
 
 // IngressGatewayZvpnConfig enables cross-cluster access using SNI matching.

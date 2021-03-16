@@ -26,6 +26,7 @@ import (
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
+	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/cluster"
@@ -55,42 +56,40 @@ const (
 	HelmTimeout         = 2 * time.Minute
 )
 
-var (
-	// ChartPath is path of local Helm charts used for testing.
-	ChartPath = filepath.Join(env.IstioSrc, "manifests/charts")
-)
+// ChartPath is path of local Helm charts used for testing.
+var ChartPath = filepath.Join(env.IstioSrc, "manifests/charts")
 
 // InstallGatewaysCharts install Istio using Helm charts with the provided
 // override values file and fails the tests on any failures.
-func InstallGatewaysCharts(t *testing.T, cs cluster.Cluster,
-	h *helm.Helm, suffix, overrideValuesFile string) {
-	CreateIstioSystemNamespace(t, cs)
+func InstallGatewaysCharts(t test.Failer, cs cluster.Cluster,
+	h *helm.Helm, suffix, namespace, overrideValuesFile string) {
+	CreateNamespace(t, cs, namespace)
 
 	// Install ingress gateway chart
 	err := h.InstallChart(IngressReleaseName, filepath.Join(GatewayChartsDir, IngressGatewayChart)+suffix,
-		IstioNamespace, overrideValuesFile, HelmTimeout)
+		namespace, overrideValuesFile, HelmTimeout)
 	if err != nil {
-		t.Errorf("failed to install istio %s chart", IngressGatewayChart)
+		t.Fatalf("failed to install istio %s chart", IngressGatewayChart)
 	}
 
 	// Install egress gateway chart
 	err = h.InstallChart(EgressReleaseName, filepath.Join(GatewayChartsDir, EgressGatewayChart)+suffix,
-		IstioNamespace, overrideValuesFile, HelmTimeout)
+		namespace, overrideValuesFile, HelmTimeout)
 	if err != nil {
-		t.Errorf("failed to install istio %s chart", EgressGatewayChart)
+		t.Fatalf("failed to install istio %s chart", EgressGatewayChart)
 	}
 }
 
-func CreateIstioSystemNamespace(t *testing.T, cs cluster.Cluster) {
+func CreateNamespace(t test.Failer, cs cluster.Cluster, namespace string) {
 	if _, err := cs.CoreV1().Namespaces().Create(context.TODO(), &v1.Namespace{
 		ObjectMeta: metav1.ObjectMeta{
-			Name: IstioNamespace,
+			Name: namespace,
 		},
 	}, metav1.CreateOptions{}); err != nil {
 		if kerrors.IsAlreadyExists(err) {
 			log.Debugf("%v namespace already exist", IstioNamespace)
 		} else {
-			t.Errorf("failed to create %v namespace: %v", IstioNamespace, err)
+			t.Fatalf("failed to create %v namespace: %v", IstioNamespace, err)
 		}
 	}
 }

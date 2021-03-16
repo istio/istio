@@ -639,6 +639,62 @@ No
 No
 </td>
 </tr>
+<tr id="EgressGatewayConfig-injectionTemplate">
+<td><code>injectionTemplate</code></td>
+<td><code>string</code></td>
+<td>
+<p>The injection template to use for the gateway. If not set, no injection will be performed.</p>
+
+</td>
+<td>
+No
+</td>
+</tr>
+<tr id="EgressGatewayConfig-loadBalancerIP">
+<td><code>loadBalancerIP</code></td>
+<td><code>string</code></td>
+<td>
+</td>
+<td>
+No
+</td>
+</tr>
+<tr id="EgressGatewayConfig-loadBalancerSourceRanges">
+<td><code>loadBalancerSourceRanges</code></td>
+<td><code>string[]</code></td>
+<td>
+</td>
+<td>
+No
+</td>
+</tr>
+<tr id="EgressGatewayConfig-customService">
+<td><code>customService</code></td>
+<td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#boolvalue">BoolValue</a></code></td>
+<td>
+</td>
+<td>
+No
+</td>
+</tr>
+<tr id="EgressGatewayConfig-egressPorts">
+<td><code>egressPorts</code></td>
+<td><code><a href="#TypeSliceOfMapStringInterface">TypeSliceOfMapStringInterface</a></code></td>
+<td>
+</td>
+<td>
+No
+</td>
+</tr>
+<tr id="EgressGatewayConfig-externalTrafficPolicy">
+<td><code>externalTrafficPolicy</code></td>
+<td><code>string</code></td>
+<td>
+</td>
+<td>
+No
+</td>
+</tr>
 <tr id="EgressGatewayConfig-cpu" class="deprecated ">
 <td><code>cpu</code></td>
 <td><code><a href="#CPUTargetUtilizationConfig">CPUTargetUtilizationConfig</a></code></td>
@@ -1586,6 +1642,17 @@ No
 <td><code>runAsRoot</code></td>
 <td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#boolvalue">BoolValue</a></code></td>
 <td>
+</td>
+<td>
+No
+</td>
+</tr>
+<tr id="IngressGatewayConfig-injectionTemplate">
+<td><code>injectionTemplate</code></td>
+<td><code>string</code></td>
+<td>
+<p>The injection template to use for the gateway. If not set, no injection will be performed.</p>
+
 </td>
 <td>
 No

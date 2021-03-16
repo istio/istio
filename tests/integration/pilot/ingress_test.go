@@ -18,16 +18,25 @@ package pilot
 import (
 	"context"
 	"fmt"
+	"io/ioutil"
+	"path/filepath"
 	"testing"
 	"time"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"istio.io/istio/pkg/config/protocol"
+	"istio.io/istio/pkg/test/echo/common/scheme"
+	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/test/framework"
+	kubecluster "istio.io/istio/pkg/test/framework/components/cluster/kube"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/environment/kube"
+	"istio.io/istio/pkg/test/framework/components/namespace"
+	"istio.io/istio/pkg/test/helm"
+	kubetest "istio.io/istio/pkg/test/kube"
 	"istio.io/istio/pkg/test/util/retry"
+	helmtest "istio.io/istio/tests/integration/helm"
 	ingressutil "istio.io/istio/tests/integration/security/sds_ingress/util"
 )
 
@@ -274,7 +283,6 @@ spec:
 					}
 					return nil
 				}, retry.Delay(time.Second*5), retry.Timeout(time.Second*90))
-
 			})
 
 			// setup another ingress pointing to a different route; the ingress will have an ingress class that should be targeted at first
@@ -346,6 +354,168 @@ spec:
 					apps.Ingress.CallEchoWithRetryOrFail(ctx, c.call, retry.Timeout(time.Minute))
 				})
 			}
+		})
+}
 
+// TestCustomGateway deploys a simple gateway deployment, that is fully injected, and verifies it can startup and send traffic
+func TestCustomGateway(t *testing.T) {
+	framework.
+		NewTest(t).
+		Features("traffic.ingress.custom").
+		Run(func(ctx framework.TestContext) {
+			gatewayNs := namespace.NewOrFail(t, ctx, namespace.Config{Prefix: "custom-gateway", Inject: true})
+			injectLabel := `sidecar.istio.io/inject: "true"`
+			if len(ctx.Settings().Revision) > 0 {
+				injectLabel = fmt.Sprintf(`istio.io/rev: "%v"`, ctx.Settings().Revision)
+			}
+			ctx.NewSubTest("minimal").Run(func(ctx framework.TestContext) {
+				ctx.Config().ApplyYAMLOrFail(t, gatewayNs.Name(), fmt.Sprintf(`apiVersion: v1
+kind: Service
+metadata:
+  name: custom-gateway
+  labels:
+    istio: custom
+spec:
+  ports:
+  - port: 80
+    name: http
+  selector:
+    istio: custom
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: custom-gateway
+spec:
+  selector:
+    matchLabels:
+      istio: custom
+  template:
+    metadata:
+      annotations:
+        inject.istio.io/templates: gateway
+      labels:
+        istio: custom
+        %v
+    spec:
+      containers:
+      - name: istio-proxy
+        image: auto
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: Gateway
+metadata:
+  name: app
+spec:
+  selector:
+    istio: custom
+  servers:
+  - port:
+      number: 80
+      name: http
+      protocol: HTTP
+    hosts:
+    - "*"
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
+metadata:
+  name: app
+spec:
+  hosts:
+  - "*"
+  gateways:
+  - app
+  http:
+  - route:
+    - destination:
+        host: %s
+        port:
+          number: 80
+`, injectLabel, apps.PodA[0].Config().FQDN()))
+				cs := ctx.Clusters().Default().(*kubecluster.Cluster)
+				retry.UntilSuccessOrFail(ctx, func() error {
+					_, err := kubetest.CheckPodsAreReady(kubetest.NewPodFetch(cs, gatewayNs.Name(), "istio=custom"))
+					return err
+				}, retry.Timeout(time.Minute*2), retry.Delay(time.Second))
+				apps.PodB[0].CallWithRetryOrFail(ctx, echo.CallOptions{
+					Port:      &echo.Port{ServicePort: 80},
+					Scheme:    scheme.HTTP,
+					Address:   fmt.Sprintf("custom-gateway.%s.svc.cluster.local", gatewayNs.Name()),
+					Validator: echo.ExpectOK(),
+				})
+			})
+			// TODO we could add istioctl as well, but the framework adds a bunch of stuff beyond just `istioctl install`
+			// that mess with certs, multicluster, etc
+			ctx.NewSubTest("helm").Run(func(ctx framework.TestContext) {
+				d := filepath.Join(t.TempDir(), "gateway-values.yaml")
+				rev := ""
+				if len(ctx.Settings().Revision) > 0 {
+					rev = ctx.Settings().Revision
+				}
+				ioutil.WriteFile(d, []byte(fmt.Sprintf(`
+revision: %v
+gateways:
+  istio-ingressgateway:
+    name: custom-gateway-helm
+    injectionTemplate: gateway
+    type: ClusterIP # LoadBalancer is slow and not necessary for this tests
+    autoscaleMax: 1
+    resources:
+      requests:
+        cpu: 10m
+        memory: 40Mi
+    labels:
+      istio: custom-gateway-helm
+`, rev)), 0o644)
+				cs := ctx.Clusters().Default().(*kubecluster.Cluster)
+				h := helm.New(cs.Filename(), filepath.Join(env.IstioSrc, "manifests/charts"))
+				// Install ingress gateway chart
+				if err := h.InstallChart("ingress", filepath.Join("gateways/istio-ingress"), gatewayNs.Name(),
+					d, helmtest.HelmTimeout); err != nil {
+					ctx.Fatal(err)
+				}
+				retry.UntilSuccessOrFail(ctx, func() error {
+					_, err := kubetest.CheckPodsAreReady(kubetest.NewPodFetch(cs, gatewayNs.Name(), "istio=custom-gateway-helm"))
+					return err
+				}, retry.Timeout(time.Minute*2))
+				ctx.Config().ApplyYAMLOrFail(t, gatewayNs.Name(), fmt.Sprintf(`apiVersion: networking.istio.io/v1alpha3
+kind: Gateway
+metadata:
+  name: app
+spec:
+  selector:
+    istio: custom-gateway-helm
+  servers:
+  - port:
+      number: 80
+      name: http
+      protocol: HTTP
+    hosts:
+    - "*"
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
+metadata:
+  name: app
+spec:
+  hosts:
+  - "*"
+  gateways:
+  - app
+  http:
+  - route:
+    - destination:
+        host: %s
+        port:
+          number: 80
+`, apps.PodA[0].Config().FQDN()))
+				apps.PodB[0].CallWithRetryOrFail(ctx, echo.CallOptions{
+					Port:      &echo.Port{ServicePort: 80},
+					Scheme:    scheme.HTTP,
+					Address:   fmt.Sprintf("custom-gateway-helm.%s.svc.cluster.local", gatewayNs.Name()),
+					Validator: echo.ExpectOK(),
+				})
+			})
 		})
 }
