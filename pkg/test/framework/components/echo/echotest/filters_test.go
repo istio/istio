@@ -183,9 +183,8 @@ func compare(t *testing.T, got echo.Instances, want echo.Instances) {
 	}
 	for _, i := range got {
 		k := instanceKey(i)
-		if _, ok := expected[k]; ok {
-			delete(expected, k)
-		}
+		// just remove the items rather than looping over expected, if anythings left we missed it
+		delete(expected, k)
 		if _, ok := unexpected[k]; ok {
 			t.Errorf("expected %s to be filtered out", k)
 		}

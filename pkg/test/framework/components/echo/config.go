@@ -119,13 +119,13 @@ type SubsetConfig struct {
 }
 
 // String implements the Configuration interface (which implements fmt.Stringer)
-func (f Config) String() string {
-	return fmt.Sprint("{service: ", f.Service, ", version: ", f.Version, "}")
+func (c Config) String() string {
+	return fmt.Sprint("{service: ", c.Service, ", version: ", c.Version, "}")
 }
 
 // PortByName looks up a given port by name
-func (f Config) PortByName(name string) *Port {
-	for _, p := range f.Ports {
+func (c Config) PortByName(name string) *Port {
+	for _, p := range c.Ports {
 		if p.Name == name {
 			return &p
 		}
@@ -134,55 +134,55 @@ func (f Config) PortByName(name string) *Port {
 }
 
 // FQDN returns the fully qualified domain name for the service.
-func (f Config) FQDN() string {
-	out := f.Service
-	if f.Namespace != nil {
-		out += "." + f.Namespace.Name() + ".svc"
+func (c Config) FQDN() string {
+	out := c.Service
+	if c.Namespace != nil {
+		out += "." + c.Namespace.Name() + ".svc"
 	} else {
 		out += ".default.svc"
 	}
-	if f.Domain != "" {
-		out += "." + f.Domain
+	if c.Domain != "" {
+		out += "." + c.Domain
 	}
 	return out
 }
 
 // HostHeader returns the Host header that will be used for calls to this service.
-func (f Config) HostHeader() string {
-	if f.DefaultHostHeader != "" {
-		return f.DefaultHostHeader
+func (c Config) HostHeader() string {
+	if c.DefaultHostHeader != "" {
+		return c.DefaultHostHeader
 	}
-	return f.FQDN()
+	return c.FQDN()
 }
 
-func (f Config) DeploymentKey() Deployment {
-	return Deployment{Service: f.Service, Namespace: f.Namespace.Name()}
+func (c Config) DeploymentKey() Deployment {
+	return Deployment{Service: c.Service, Namespace: c.Namespace.Name()}
 }
 
-func (f Config) IsHeadless() bool {
-	return f.Headless
+func (c Config) IsHeadless() bool {
+	return c.Headless
 }
 
-func (f Config) IsNaked() bool {
-	return len(f.Subsets) > 0 && f.Subsets[0].Annotations != nil && !f.Subsets[0].Annotations.GetBool(SidecarInject)
+func (c Config) IsNaked() bool {
+	return len(c.Subsets) > 0 && c.Subsets[0].Annotations != nil && !c.Subsets[0].Annotations.GetBool(SidecarInject)
 }
 
-func (f Config) IsVM() bool {
-	return f.DeployAsVM
+func (c Config) IsVM() bool {
+	return c.DeployAsVM
 }
 
 // DeepCopy creates a clone of IstioEndpoint.
-func (f Config) DeepCopy() Config {
-	newc := f
+func (c Config) DeepCopy() Config {
+	newc := c
 	newc.Cluster = nil
 	newc = copyInternal(newc).(Config)
-	newc.Cluster = f.Cluster
-	newc.Namespace = f.Namespace
+	newc.Cluster = c.Cluster
+	newc.Namespace = c.Namespace
 	return newc
 }
 
-func (f Config) IsExternal() bool {
-	return f.HostHeader() != f.FQDN()
+func (c Config) IsExternal() bool {
+	return c.HostHeader() != c.FQDN()
 }
 
 func copyInternal(v interface{}) interface{} {

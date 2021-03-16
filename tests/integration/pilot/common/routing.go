@@ -853,7 +853,7 @@ func selfCallsCases(apps *EchoDeployments) []TrafficTestCase {
 }
 
 // Todo merge with security TestReachability code
-func protocolSniffingCases(apps *EchoDeployments) []TrafficTestCase {
+func protocolSniffingCases() []TrafficTestCase {
 	cases := []TrafficTestCase{}
 
 	type protocolCase struct {

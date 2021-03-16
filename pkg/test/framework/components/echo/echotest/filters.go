@@ -21,7 +21,7 @@ type (
 	combinationFilter func(from echo.Instance, to echo.Instances) echo.Instances
 )
 
-// From applies each of the filter funcitons in order to allow removing workloads from the set of clients.
+// From applies each of the filter functions in order to allow removing workloads from the set of clients.
 func (t *T) From(filters ...simpleFilter) *T {
 	for _, filter := range filters {
 		t.sources = filter(t.sources)
@@ -29,7 +29,7 @@ func (t *T) From(filters ...simpleFilter) *T {
 	return t
 }
 
-// To applies each of the filter funcitons in order to allow removing workloads from the set of destinations.
+// To applies each of the filter functions in order to allow removing workloads from the set of destinations.
 func (t *T) To(filters ...simpleFilter) *T {
 	for _, filter := range filters {
 		t.destinations = filter(t.destinations)
@@ -55,38 +55,30 @@ func (t *T) applyCombinationFilters(from echo.Instance, to echo.Instances) echo.
 // SingleSimplePodBasedService finds the first Pod deployment that has a sidecar and doesn't use a headless service and removes all
 // other "regular" pods that aren't part of the same Service. Pods that are part of the same Service but are in a
 // different cluster or revision will still be included.
-var SingleSimplePodBasedService simpleFilter = func(instances echo.Instances) echo.Instances {
+func SingleSimplePodBasedService(instances echo.Instances) echo.Instances {
 	return oneRegularPod(instances)
 }
 
 // NoExternalServices filters out external services which are based on
-var NoExternalServices simpleFilter = func(instances echo.Instances) echo.Instances {
+func NoExternalServices(instances echo.Instances) echo.Instances {
 	return instances.Match(echo.IsExternal().Negate())
 }
 
 func oneRegularPod(instances echo.Instances) echo.Instances {
-	var out echo.Instances
-	var key *echo.Deployment
-	for _, instance := range instances {
-		if key == nil {
-			if isRegularPod(instance) {
-				k := instance.Config().DeploymentKey()
-				key = &k
-			}
-		} else {
-			if isRegularPod(instance) && instance.Config().DeploymentKey() != *key {
-				continue
-			}
-		}
-		out = append(out, instance)
+	regularPods := instances.Match(isRegularPod)
+	others := instances.Match(echo.Not(isRegularPod))
+	if len(regularPods) == 0 {
+		return others
 	}
-	return out
+	regularPods = regularPods.Match(echo.SameDeployment(regularPods[0]))
+	// TODO will the re-ordering end up breaking something or making other filters non-deterministic?
+	return append(regularPods, others...)
 }
 
 // TODO put this on echo.Config?
 func isRegularPod(instance echo.Instance) bool {
 	c := instance.Config()
-	return !c.IsVM() && !c.IsVM() && len(c.Subsets) == 1 && !c.IsNaked() && !c.IsHeadless()
+	return !c.IsVM() && len(c.Subsets) == 1 && !c.IsNaked() && !c.IsHeadless()
 }
 
 // ReachableDestinations filters out known-unreachable destinations given a source.

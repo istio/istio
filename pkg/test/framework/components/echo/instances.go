@@ -99,6 +99,13 @@ func Service(value string) Matcher {
 	}
 }
 
+// SameDeployment matches instnaces with the same Service and Namespace but not necessarily the same cluster.
+func SameDeployment(match Instance) Matcher {
+	return func(instance Instance) bool {
+		return match.Config().DeploymentKey() == instance.Config().DeploymentKey()
+	}
+}
+
 // Service matches instances within the given namespace name.
 func Namespace(namespace string) Matcher {
 	return func(i Instance) bool {
