@@ -35,6 +35,7 @@ import (
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/echo/echoboot"
+	"istio.io/istio/pkg/test/framework/components/gcemetadata"
 	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/framework/components/stackdriver"
@@ -57,11 +58,17 @@ const (
 	sdBootstrapConfigMap         = "stackdriver-bootstrap-config"
 
 	projectsPrefix = "projects/test-project"
+
+	fakeGCEMetadataServerValues = `
+  defaultConfig:
+    proxyMetadata:
+      GCE_METADATA_HOST: `
 )
 
 var (
 	ist        istio.Instance
 	echoNsInst namespace.Instance
+	gceInst    gcemetadata.Instance
 	sdInst     stackdriver.Instance
 	srv        echo.Instances
 	clt        echo.Instances
@@ -144,6 +151,7 @@ func TestStackdriverMonitoring(t *testing.T) {
 func TestMain(m *testing.M) {
 	framework.NewSuite(m).
 		Label(label.CustomSetup).
+		Setup(conditionallySetupMetadataServer).
 		Setup(istio.Setup(getIstioInstance(), setupConfig)).
 		Setup(testSetup).
 		Run()
@@ -156,22 +164,33 @@ func setupConfig(_ resource.Context, cfg *istio.Config) {
 	cfg.ControlPlaneValues = `
 meshConfig:
   enableTracing: true
-values:
-  telemetry:
-    v2:
-      stackdriver:
-        configOverride:
-          meshEdgesReportingDuration: "5s"
-          enable_mesh_edges_reporting: true
 `
 	// enable stackdriver filter
 	cfg.Values["telemetry.v2.stackdriver.enabled"] = "true"
 	cfg.Values["telemetry.v2.stackdriver.logging"] = "true"
 	cfg.Values["telemetry.v2.stackdriver.topology"] = "true"
 	cfg.Values["telemetry.v2.stackdriver.configOverride.enable_audit_log"] = "true"
+	cfg.Values["telemetry.v2.stackdriver.configOverride.meshEdgesReportingDuration"] = "5s"
+	cfg.Values["telemetry.v2.stackdriver.configOverride.enable_mesh_edges_reporting"] = "true"
 	cfg.Values["global.proxy.tracer"] = "stackdriver"
 	cfg.Values["pilot.traceSampling"] = "100"
 	cfg.Values["telemetry.v2.accessLogPolicy.enabled"] = "true"
+
+	// conditionally use a fake metadata server for testing off of GCP
+	if gceInst != nil {
+		cfg.ControlPlaneValues = strings.Join([]string{cfg.ControlPlaneValues, fakeGCEMetadataServerValues, gceInst.Address()}, "")
+		cfg.Values["gateways.istio-ingressgateway.env.GCE_METADATA_HOST"] = gceInst.Address()
+		cfg.Values["gateways.istio-egressgateway.env.GCE_METADATA_HOST"] = gceInst.Address()
+	}
+}
+
+func conditionallySetupMetadataServer(ctx resource.Context) (err error) {
+	if !metadata.OnGCE() {
+		if gceInst, err = gcemetadata.New(ctx, gcemetadata.Config{}); err != nil {
+			return
+		}
+	}
+	return nil
 }
 
 func testSetup(ctx resource.Context) (err error) {
