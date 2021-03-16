@@ -290,7 +290,7 @@ spec:
 					ctx.NewSubTest(fmt.Sprintf("In %s/%v", cluster.StableName(), tc.name)).Run(func(ctx framework.TestContext) {
 						ctx.Config().ApplyYAMLOrFail(ctx, ns.Name(), tc.config)
 						util.WaitForConfig(ctx, tc.config, ns)
-						defer ctx.Config().DeleteYAMLOrFail(t, ns.Name(), tc.config...)
+						defer ctx.Config().DeleteYAMLOrFail(t, ns.Name(), tc.config)
 						for _, expect := range tc.expected {
 							name := fmt.Sprintf("port %d[%t]", expect.port, expect.want)
 

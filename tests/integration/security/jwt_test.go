@@ -368,7 +368,7 @@ func TestRequestAuthentication(t *testing.T) {
 									file.AsStringOrFail(ctx, fmt.Sprintf("testdata/requestauthn/%s.yaml.tmpl", c.Config)), namespaceTmpl)
 								ctx.Config().ApplyYAMLOrFail(ctx, ns.Name(), policy)
 								util.WaitForConfig(ctx, policy, ns)
-								defer ctx.Config().DeleteYAMLOrFail(t, ns.Name(), policy...)
+								defer ctx.Config().DeleteYAMLOrFail(t, ns.Name(), policy)
 							}
 
 							retry.UntilSuccessOrFail(ctx, c.CheckAuthn, echo.DefaultCallRetryOptions()...)
