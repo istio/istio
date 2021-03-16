@@ -53,22 +53,6 @@ func TestRequestAuthentication(t *testing.T) {
 			namespaceTmpl := map[string]string{
 				"Namespace": ns.Name(),
 			}
-			jwtPolicies := tmpl.EvaluateAllOrFail(t, namespaceTmpl,
-				file.AsStringOrFail(t, "testdata/requestauthn/a-authn.yaml.tmpl"),
-				file.AsStringOrFail(t, "testdata/requestauthn/b-authn-authz.yaml.tmpl"),
-				file.AsStringOrFail(t, "testdata/requestauthn/c-authn.yaml.tmpl"),
-				file.AsStringOrFail(t, "testdata/requestauthn/e-authn.yaml.tmpl"),
-				file.AsStringOrFail(t, "testdata/requestauthn/f-authn.yaml.tmpl"),
-			)
-			ctx.Config().ApplyYAMLOrFail(t, ns.Name(), jwtPolicies...)
-			defer ctx.Config().DeleteYAMLOrFail(t, ns.Name(), jwtPolicies...)
-
-			aSet := apps.A.Match(echo.Namespace(ns.Name()))
-			bSet := apps.B.Match(echo.Namespace(ns.Name()))
-			cSet := apps.C.Match(echo.Namespace(ns.Name()))
-			dSet := apps.D.Match(echo.Namespace(ns.Name()))
-			eSet := apps.E.Match(echo.Namespace(ns.Name()))
-			fSet := apps.F.Match(echo.Namespace(ns.Name()))
 
 			callCount := 1
 			if ctx.Clusters().IsMulticluster() {
@@ -77,16 +61,17 @@ func TestRequestAuthentication(t *testing.T) {
 			}
 
 			for _, cluster := range ctx.Clusters() {
+				client := apps.A.Match(echo.InCluster(cluster).And(echo.Namespace(apps.Namespace1.Name())))[0]
+				dest := apps.B.Match(echo.InCluster(cluster).And(echo.Namespace(apps.Namespace1.Name())))
 				ctx.NewSubTest(fmt.Sprintf("From %s", cluster.StableName())).Run(func(ctx framework.TestContext) {
-					a := apps.A.Match(echo.InCluster(cluster).And(echo.Namespace(apps.Namespace1.Name())))
-					b := apps.B.Match(echo.InCluster(cluster).And(echo.Namespace(apps.Namespace1.Name())))
 					testCases := []authn.TestCase{
 						{
-							Name: "valid-token-noauthz",
+							Name:   "valid-token-noauthz",
+							Config: "authn-only",
 							Request: connection.Checker{
-								From: a[0],
+								From: client,
 								Options: echo.CallOptions{
-									Target:   cSet[0],
+									Target:   dest[0],
 									PortName: "http",
 									Scheme:   scheme.HTTP,
 									Headers: map[string][]string{
@@ -94,7 +79,7 @@ func TestRequestAuthentication(t *testing.T) {
 									},
 									Count: callCount,
 								},
-								DestClusters: cSet.Clusters(),
+								DestClusters: dest.Clusters(),
 							},
 							ExpectResponseCode: response.StatusCodeOK,
 							ExpectHeaders: map[string]string{
@@ -103,11 +88,12 @@ func TestRequestAuthentication(t *testing.T) {
 							},
 						},
 						{
-							Name: "valid-token-2-noauthz",
+							Name:   "valid-token-2-noauthz",
+							Config: "authn-only",
 							Request: connection.Checker{
-								From: a[0],
+								From: client,
 								Options: echo.CallOptions{
-									Target:   cSet[0],
+									Target:   dest[0],
 									PortName: "http",
 									Scheme:   scheme.HTTP,
 									Headers: map[string][]string{
@@ -115,7 +101,7 @@ func TestRequestAuthentication(t *testing.T) {
 									},
 									Count: callCount,
 								},
-								DestClusters: cSet.Clusters(),
+								DestClusters: dest.Clusters(),
 							},
 							ExpectResponseCode: response.StatusCodeOK,
 							ExpectHeaders: map[string]string{
@@ -124,11 +110,12 @@ func TestRequestAuthentication(t *testing.T) {
 							},
 						},
 						{
-							Name: "expired-token-noauthz",
+							Name:   "expired-token-noauthz",
+							Config: "authn-only",
 							Request: connection.Checker{
-								From: a[0],
+								From: client,
 								Options: echo.CallOptions{
-									Target:   cSet[0],
+									Target:   dest[0],
 									PortName: "http",
 									Scheme:   scheme.HTTP,
 									Headers: map[string][]string{
@@ -136,31 +123,33 @@ func TestRequestAuthentication(t *testing.T) {
 									},
 									Count: callCount,
 								},
-								DestClusters: cSet.Clusters(),
+								DestClusters: dest.Clusters(),
 							},
 							ExpectResponseCode: response.StatusUnauthorized,
 						},
 						{
-							Name: "no-token-noauthz",
+							Name:   "no-token-noauthz",
+							Config: "authn-only",
 							Request: connection.Checker{
-								From: a[0],
+								From: client,
 								Options: echo.CallOptions{
-									Target:   cSet[0],
+									Target:   dest[0],
 									PortName: "http",
 									Scheme:   scheme.HTTP,
 									Count:    callCount,
 								},
-								DestClusters: cSet.Clusters(),
+								DestClusters: dest.Clusters(),
 							},
 							ExpectResponseCode: response.StatusCodeOK,
 						},
 						// Following app b is configured with authorization, only request with valid JWT succeed.
 						{
-							Name: "valid-token",
+							Name:   "valid-token",
+							Config: "authn-authz",
 							Request: connection.Checker{
-								From: a[0],
+								From: client,
 								Options: echo.CallOptions{
-									Target:   bSet[0],
+									Target:   dest[0],
 									PortName: "http",
 									Scheme:   scheme.HTTP,
 									Headers: map[string][]string{
@@ -168,7 +157,7 @@ func TestRequestAuthentication(t *testing.T) {
 									},
 									Count: callCount,
 								},
-								DestClusters: bSet.Clusters(),
+								DestClusters: dest.Clusters(),
 							},
 							ExpectResponseCode: response.StatusCodeOK,
 							ExpectHeaders: map[string]string{
@@ -176,11 +165,12 @@ func TestRequestAuthentication(t *testing.T) {
 							},
 						},
 						{
-							Name: "expired-token",
+							Name:   "expired-token",
+							Config: "authn-authz",
 							Request: connection.Checker{
-								From: a[0],
+								From: client,
 								Options: echo.CallOptions{
-									Target:   bSet[0],
+									Target:   dest[0],
 									PortName: "http",
 									Scheme:   scheme.HTTP,
 									Headers: map[string][]string{
@@ -188,44 +178,46 @@ func TestRequestAuthentication(t *testing.T) {
 									},
 									Count: callCount,
 								},
-								DestClusters: bSet.Clusters(),
+								DestClusters: dest.Clusters(),
 							},
 							ExpectResponseCode: response.StatusUnauthorized,
 						},
 						{
-							Name: "no-token",
+							Name:   "no-token",
+							Config: "authn-authz",
 							Request: connection.Checker{
-								From: a[0],
+								From: client,
 								Options: echo.CallOptions{
-									Target:   bSet[0],
+									Target:   dest[0],
 									PortName: "http",
 									Scheme:   scheme.HTTP,
 									Count:    callCount,
 								},
-								DestClusters: bSet.Clusters(),
+								DestClusters: dest.Clusters(),
 							},
 							ExpectResponseCode: response.StatusCodeForbidden,
 						},
 						{
 							Name: "no-authn-authz",
 							Request: connection.Checker{
-								From: a[0],
+								From: client,
 								Options: echo.CallOptions{
-									Target:   dSet[0],
+									Target:   dest[0],
 									PortName: "http",
 									Scheme:   scheme.HTTP,
 									Count:    callCount,
 								},
-								DestClusters: dSet.Clusters(),
+								DestClusters: dest.Clusters(),
 							},
 							ExpectResponseCode: response.StatusCodeOK,
 						},
 						{
-							Name: "valid-token-forward",
+							Name:   "valid-token-forward",
+							Config: "forward",
 							Request: connection.Checker{
-								From: a[0],
+								From: client,
 								Options: echo.CallOptions{
-									Target:   eSet[0],
+									Target:   dest[0],
 									PortName: "http",
 									Scheme:   scheme.HTTP,
 									Headers: map[string][]string{
@@ -233,7 +225,7 @@ func TestRequestAuthentication(t *testing.T) {
 									},
 									Count: callCount,
 								},
-								DestClusters: eSet.Clusters(),
+								DestClusters: dest.Clusters(),
 							},
 							ExpectResponseCode: response.StatusCodeOK,
 							ExpectHeaders: map[string]string{
@@ -242,11 +234,12 @@ func TestRequestAuthentication(t *testing.T) {
 							},
 						},
 						{
-							Name: "invalid aud",
+							Name:   "valid-token-forward-remote-jwks",
+							Config: "remote",
 							Request: connection.Checker{
-								From: b[0],
+								From: client,
 								Options: echo.CallOptions{
-									Target:   aSet[0],
+									Target:   dest[0],
 									PortName: "http",
 									Scheme:   scheme.HTTP,
 									Headers: map[string][]string{
@@ -254,16 +247,39 @@ func TestRequestAuthentication(t *testing.T) {
 									},
 									Count: callCount,
 								},
-								DestClusters: aSet.Clusters(),
+								DestClusters: dest.Clusters(),
+							},
+							ExpectResponseCode: response.StatusCodeOK,
+							ExpectHeaders: map[string]string{
+								authHeaderKey:    "Bearer " + jwt.TokenIssuer1,
+								"X-Test-Payload": payload1,
+							},
+						},
+						{
+							Name:   "invalid aud",
+							Config: "aud",
+							Request: connection.Checker{
+								From: client,
+								Options: echo.CallOptions{
+									Target:   dest[0],
+									PortName: "http",
+									Scheme:   scheme.HTTP,
+									Headers: map[string][]string{
+										authHeaderKey: {"Bearer " + jwt.TokenIssuer1},
+									},
+									Count: callCount,
+								},
+								DestClusters: dest.Clusters(),
 							},
 							ExpectResponseCode: response.StatusCodeForbidden,
 						},
 						{
-							Name: "valid aud",
+							Name:   "valid aud",
+							Config: "aud",
 							Request: connection.Checker{
-								From: b[0],
+								From: client,
 								Options: echo.CallOptions{
-									Target:   aSet[0],
+									Target:   dest[0],
 									PortName: "http",
 									Scheme:   scheme.HTTP,
 									Headers: map[string][]string{
@@ -271,16 +287,17 @@ func TestRequestAuthentication(t *testing.T) {
 									},
 									Count: callCount,
 								},
-								DestClusters: aSet.Clusters(),
+								DestClusters: dest.Clusters(),
 							},
 							ExpectResponseCode: response.StatusCodeOK,
 						},
 						{
-							Name: "verify policies are combined",
+							Name:   "verify policies are combined",
+							Config: "aud",
 							Request: connection.Checker{
-								From: b[0],
+								From: client,
 								Options: echo.CallOptions{
-									Target:   aSet[0],
+									Target:   dest[0],
 									PortName: "http",
 									Scheme:   scheme.HTTP,
 									Headers: map[string][]string{
@@ -288,16 +305,17 @@ func TestRequestAuthentication(t *testing.T) {
 									},
 									Count: callCount,
 								},
-								DestClusters: aSet.Clusters(),
+								DestClusters: dest.Clusters(),
 							},
 							ExpectResponseCode: response.StatusCodeOK,
 						},
 						{
-							Name: "invalid-jwks-valid-token-noauthz",
+							Name:   "invalid-jwks-valid-token-noauthz",
+							Config: "invalid-jwks",
 							Request: connection.Checker{
-								From: a[0],
+								From: client,
 								Options: echo.CallOptions{
-									Target:   fSet[0],
+									Target:   dest[0],
 									PortName: "http",
 									Scheme:   scheme.HTTP,
 									Headers: map[string][]string{
@@ -305,16 +323,17 @@ func TestRequestAuthentication(t *testing.T) {
 									},
 									Count: callCount,
 								},
-								DestClusters: fSet.Clusters(),
+								DestClusters: dest.Clusters(),
 							},
 							ExpectResponseCode: response.StatusUnauthorized,
 						},
 						{
-							Name: "invalid-jwks-expired-token-noauthz",
+							Name:   "invalid-jwks-expired-token-noauthz",
+							Config: "invalid-jwks",
 							Request: connection.Checker{
-								From: a[0],
+								From: client,
 								Options: echo.CallOptions{
-									Target:   fSet[0],
+									Target:   dest[0],
 									PortName: "http",
 									Scheme:   scheme.HTTP,
 									Headers: map[string][]string{
@@ -322,29 +341,37 @@ func TestRequestAuthentication(t *testing.T) {
 									},
 									Count: callCount,
 								},
-								DestClusters: fSet.Clusters(),
+								DestClusters: dest.Clusters(),
 							},
 							ExpectResponseCode: response.StatusUnauthorized,
 						},
 						{
-							Name: "invalid-jwks-no-token-noauthz",
+							Name:   "invalid-jwks-no-token-noauthz",
+							Config: "invalid-jwks",
 							Request: connection.Checker{
-								From: a[0],
+								From: client,
 								Options: echo.CallOptions{
-									Target:   fSet[0],
+									Target:   dest[0],
 									PortName: "http",
 									Scheme:   scheme.HTTP,
 									Count:    callCount,
 								},
-								DestClusters: fSet.Clusters(),
+								DestClusters: dest.Clusters(),
 							},
 							ExpectResponseCode: response.StatusCodeOK,
 						},
 					}
 					for _, c := range testCases {
 						ctx.NewSubTest(c.Name).Run(func(ctx framework.TestContext) {
-							retry.UntilSuccessOrFail(ctx, c.CheckAuthn,
-								retry.Delay(250*time.Millisecond), retry.Timeout(30*time.Second))
+							if c.Config != "" {
+								policy := tmpl.EvaluateOrFail(ctx,
+									file.AsStringOrFail(ctx, fmt.Sprintf("testdata/requestauthn/%s.yaml.tmpl", c.Config)), namespaceTmpl)
+								ctx.Config().ApplyYAMLOrFail(ctx, ns.Name(), policy)
+								util.WaitForConfig(ctx, policy, ns)
+								defer ctx.Config().DeleteYAMLOrFail(t, ns.Name(), policy)
+							}
+
+							retry.UntilSuccessOrFail(ctx, c.CheckAuthn, echo.DefaultCallRetryOptions()...)
 						})
 					}
 				})
