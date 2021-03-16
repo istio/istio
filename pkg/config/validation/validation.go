@@ -386,6 +386,7 @@ func validateServer(server *networking.Server) (errs error) {
 	if portErr != nil {
 		errs = appendErrors(errs, portErr)
 	}
+	errs = appendErrors(errs, validateServerBind(server.Port, server.Bind))
 	errs = appendErrors(errs, validateTLSOptions(server.Tls))
 
 	// If port is HTTPS or TLS, make sure that server has TLS options
@@ -421,6 +422,18 @@ func validateServerPort(port *networking.Port) (errs error) {
 
 	if port.Name == "" {
 		errs = appendErrors(errs, fmt.Errorf("port name must be set: %v", port))
+	}
+	return
+}
+
+func validateServerBind(port *networking.Port, bind string) (errs error) {
+	if strings.HasPrefix(bind, UnixAddressPrefix) {
+		errs = appendErrors(errs, ValidateUnixAddress(strings.TrimPrefix(bind, UnixAddressPrefix)))
+		if port != nil && port.Number != 0 {
+			errs = appendErrors(errs, fmt.Errorf("port number must be 0 for unix domain socket: %v", port))
+		}
+	} else if len(bind) != 0 {
+		errs = appendErrors(errs, ValidateIPAddress(bind))
 	}
 	return
 }
