@@ -1145,7 +1145,19 @@ func TestEndpointMetadata(t *testing.T) {
 			network:      "",
 			workloadName: "",
 			clusterID:    "",
-			want:         nil,
+			want: &core.Metadata{
+				FilterMetadata: map[string]*structpb.Struct{
+					IstioMetadataKey: {
+						Fields: map[string]*structpb.Value{
+							"workload": {
+								Kind: &structpb.Value_StringValue{
+									StringValue: ";;;;",
+								},
+							},
+						},
+					},
+				},
+			},
 		},
 		{
 			name:         "tls mode",
@@ -1160,6 +1172,15 @@ func TestEndpointMetadata(t *testing.T) {
 							model.TLSModeLabelShortname: {
 								Kind: &structpb.Value_StringValue{
 									StringValue: string(model.IstioMutualTLSModeLabel),
+								},
+							},
+						},
+					},
+					IstioMetadataKey: {
+						Fields: map[string]*structpb.Value{
+							"workload": {
+								Kind: &structpb.Value_StringValue{
+									StringValue: ";;;;",
 								},
 							},
 						},
@@ -1189,6 +1210,11 @@ func TestEndpointMetadata(t *testing.T) {
 							"network": {
 								Kind: &structpb.Value_StringValue{
 									StringValue: "network",
+								},
+							},
+							"workload": {
+								Kind: &structpb.Value_StringValue{
+									StringValue: ";;;;",
 								},
 							},
 						},
@@ -1263,6 +1289,41 @@ func TestEndpointMetadata(t *testing.T) {
 							"workload": {
 								Kind: &structpb.Value_StringValue{
 									StringValue: "workload;default;;;cluster",
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+		{
+			name:         "miss workload name",
+			tlsMode:      string(model.IstioMutualTLSModeLabel),
+			network:      "network",
+			workloadName: "",
+			clusterID:    "cluster",
+			namespace:    "",
+			want: &core.Metadata{
+				FilterMetadata: map[string]*structpb.Struct{
+					EnvoyTransportSocketMetadataKey: {
+						Fields: map[string]*structpb.Value{
+							model.TLSModeLabelShortname: {
+								Kind: &structpb.Value_StringValue{
+									StringValue: string(model.IstioMutualTLSModeLabel),
+								},
+							},
+						},
+					},
+					IstioMetadataKey: {
+						Fields: map[string]*structpb.Value{
+							"network": {
+								Kind: &structpb.Value_StringValue{
+									StringValue: "network",
+								},
+							},
+							"workload": {
+								Kind: &structpb.Value_StringValue{
+									StringValue: ";;;;cluster",
 								},
 							},
 						},
