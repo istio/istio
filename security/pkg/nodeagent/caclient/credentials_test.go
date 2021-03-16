@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package caclient
+package caclient_test
 
 import (
 	"fmt"
@@ -27,6 +27,7 @@ import (
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/jwt"
 	"istio.io/istio/pkg/security"
+	"istio.io/istio/security/pkg/nodeagent/caclient"
 	"istio.io/istio/security/pkg/stsservice"
 	stsmock "istio.io/istio/security/pkg/stsservice/mock"
 	"istio.io/istio/security/pkg/stsservice/tokenmanager/google"
@@ -111,7 +112,7 @@ func TestGetTokenForXDS(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			secOpts.XdsAuthProvider = tt.provider
-			provider := NewXDSTokenProvider(secOpts)
+			provider := caclient.NewXDSTokenProvider(secOpts)
 			token, err := provider.GetToken()
 			if err != nil {
 				t.Errorf("failed to get token: %v", err)
