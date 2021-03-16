@@ -22,6 +22,10 @@ type (
 )
 
 // From applies each of the filter functions in order to allow removing workloads from the set of clients.
+// Example:
+//     echotest.New(t, apps).
+//       From(echotest.SingleSimplePodBasedService, echotest.NoExternalServices).
+//       Run()
 func (t *T) From(filters ...simpleFilter) *T {
 	for _, filter := range filters {
 		t.sources = filter(t.sources)
@@ -30,6 +34,10 @@ func (t *T) From(filters ...simpleFilter) *T {
 }
 
 // To applies each of the filter functions in order to allow removing workloads from the set of destinations.
+// Example:
+//     echotest.New(t, apps).
+//       To(echotest.SingleSimplePodBasedService).
+//       Run()
 func (t *T) To(filters ...simpleFilter) *T {
 	for _, filter := range filters {
 		t.destinations = filter(t.destinations)
@@ -40,6 +48,10 @@ func (t *T) To(filters ...simpleFilter) *T {
 // ConditionallyTo appends the given filters which are executed per test. Destination filters may need
 // to change behavior based on the client. For example, naked services can't be reached cross-network, so
 // the client matters.
+// Example:
+//     echotest.New(t, apps).
+//       ConditionallyTo(echotest.ReachableDestinations).
+//       Run()
 func (t *T) ConditionallyTo(filters ...combinationFilter) *T {
 	t.destinationFilters = append(t.destinationFilters, filters...)
 	return t
@@ -71,7 +83,7 @@ func oneRegularPod(instances echo.Instances) echo.Instances {
 		return others
 	}
 	regularPods = regularPods.Match(echo.SameDeployment(regularPods[0]))
-	// TODO will the re-ordering end up breaking something or making other filters non-deterministic?
+	// TODO will the re-ordering end up breaking something or making other filters hard to predict?
 	return append(regularPods, others...)
 }
 

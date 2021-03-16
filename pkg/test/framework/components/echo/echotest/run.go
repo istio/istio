@@ -39,14 +39,10 @@ func (t *T) Run(testFn perInstanceTest) {
 // fromEachDeployment enumerates subtests for deployment with the structure <src>
 // Intended to be used in combination with other helpers to enumerate subtests for destinations.
 func (t *T) fromEachDeployment(ctx framework.TestContext, testFn perDeploymentTest) {
-	for srcDeployment, srcInstances := range t.sources.Deployments() {
-		srcDeployment, srcInstances := srcDeployment, srcInstances
-		ctx.NewSubTestf("%s", srcDeployment.Service).Run(func(ctx framework.TestContext) {
-			if len(srcInstances) == 0 {
-				// this can only happen due to filters being applied, be noisy about it to highlight missing coverage
-				ctx.Skipf("cases with %s as source are removed by filters", srcDeployment.Service)
-			}
-			testFn(ctx, srcInstances)
+	for _, src := range t.sources.Deployments() {
+		src := src
+		ctx.NewSubTestf("%s", src[0].Config().Service).Run(func(ctx framework.TestContext) {
+			testFn(ctx, src)
 		})
 	}
 }
@@ -54,10 +50,10 @@ func (t *T) fromEachDeployment(ctx framework.TestContext, testFn perDeploymentTe
 // toEachDeployment enumerates subtests for every deployment as a destination, adding /to_<dst> to the parent test.
 // Intended to be used in combination with other helpers which enumerates the subtests and chooses the srcInstnace.
 func (t *T) toEachDeployment(ctx framework.TestContext, testFn perDeploymentTest) {
-	for dstDeployment, destInstances := range t.destinations.Deployments() {
-		dstDeployment, destInstances := dstDeployment, destInstances
-		ctx.NewSubTestf("to %s", dstDeployment.Service).Run(func(ctx framework.TestContext) {
-			testFn(ctx, destInstances)
+	for _, dst := range t.destinations.Deployments() {
+		dst := dst
+		ctx.NewSubTestf("to %s", dst[0].Config().Service).Run(func(ctx framework.TestContext) {
+			testFn(ctx, dst)
 		})
 	}
 }
@@ -67,7 +63,7 @@ func (t *T) fromEachCluster(ctx framework.TestContext, src, dst echo.Instances, 
 		srcInstance := srcInstance
 		filteredDst := t.applyCombinationFilters(srcInstance, dst)
 		if len(filteredDst) == 0 {
-			// this only happens due to filters and when an entire deployment is filtered we should be noisy
+			// this only happens due to conditional filters and when an entire deployment is filtered we should be noisy
 			ctx.Skipf("cases from %s in %s with %s as destination are removed by filters ",
 				srcInstance.Config().Service, srcInstance.Config().Cluster.StableName(), dst[0].Config().Service)
 			continue
