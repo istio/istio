@@ -61,7 +61,7 @@ var SingleSimplePodBasedService simpleFilter = func(instances echo.Instances) ec
 
 // NoExternalServices filters out external services which are based on
 var NoExternalServices simpleFilter = func(instances echo.Instances) echo.Instances {
-	return instances.Match(echo.External().Negate())
+	return instances.Match(echo.IsExternal().Negate())
 }
 
 func oneRegularPod(instances echo.Instances) echo.Instances {
@@ -94,28 +94,41 @@ func isRegularPod(instance echo.Instance) bool {
 // - we can't reach cross-cluster headless endpoints
 // - from an injected Pod, only non-naked cross-network endpoints are reachable
 var ReachableDestinations combinationFilter = func(from echo.Instance, to echo.Instances) echo.Instances {
-	if from.Config().IsNaked() {
-		to = to.Match(
-			echo.
-				// we'll only be able to reach same-network without a sidecar
-				InNetwork(from.Config().Cluster.NetworkName()).
-				// we need a sidecar to reach VMs
-				And(echo.IsVM().Negate()),
-		)
-	}
+	return to.Match(fromNaked(from).
+		And(fromVM(from)).
+		And(toSameNetworkNaked(from)).
+		And(toInClusterHeadless(from)))
+}
 
-	return to.Match(func(to echo.Instance) bool {
-		if to.Config().IsHeadless() {
-			// TODO this _might_ have issues with non-kube clusters (e.g. StaticVM)
-			// TODO(landow) incompatibilities with multicluster & headless
-			return to.Config().Cluster == from.Config().Cluster
-		}
-		if to.Config().IsNaked() && !to.Config().IsExternal() {
-			// we rely on mTLS for multi-network
-			// external service is LoadBalanced differently so we won't see 500s unlike regular naked svc
-			// TODO we probably don't actually reach all external, but for now maintaining what the tests did
-			return to.Config().Cluster.NetworkName() == from.Config().Cluster.NetworkName()
-		}
-		return true
-	})
+func toInClusterHeadless(from echo.Instance) echo.Matcher {
+	excluded := echo.IsHeadless().
+		And(echo.Not(echo.InCluster(from.Config().Cluster)))
+	return excluded.Negate()
+}
+
+// toSameNetworkNaked filters out naked instances that aren't on the same network.
+// While External services are considered "naked", we won't see 500s due to different loadbalancing.
+func toSameNetworkNaked(from echo.Instance) echo.Matcher {
+	srcNw := from.Config().Cluster.NetworkName()
+	excluded := echo.IsNaked().
+		// TODO we probably don't actually reach all external, but for now maintaining what the tests did
+		And(echo.Not(echo.IsExternal())).
+		And(echo.Not(echo.InNetwork(srcNw)))
+	return excluded.Negate()
+}
+
+// fromVM filters out external services
+func fromVM(from echo.Instance) echo.Matcher {
+	if !from.Config().IsVM() {
+		return echo.Any
+	}
+	return echo.IsExternal().Negate()
+}
+
+// fromNaked filters out all virtual machines and any instance that isn't on the same network
+func fromNaked(from echo.Instance) echo.Matcher {
+	if !from.Config().IsNaked() {
+		return echo.Any
+	}
+	return echo.InNetwork(from.Config().Cluster.NetworkName()).And(echo.IsVirtualMachine().Negate())
 }

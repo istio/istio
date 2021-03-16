@@ -657,9 +657,9 @@ func XFFGatewayCase(apps *EchoDeployments) []TrafficTestCase {
 				Validator: echo.ValidatorFunc(
 					func(response echoclient.ParsedResponses, _ error) error {
 						return response.Check(func(_ int, response *echoclient.ParsedResponse) error {
-							externalAddress, ok := response.RawResponse["X-Envoy-External-Address"]
+							externalAddress, ok := response.RawResponse["X-Envoy-IsExternal-Address"]
 							if !ok {
-								return fmt.Errorf("missing X-Envoy-External-Address Header")
+								return fmt.Errorf("missing X-Envoy-IsExternal-Address Header")
 							}
 							if err := ExpectString(externalAddress, "72.9.5.6", "envoy-external-address header"); err != nil {
 								return err

@@ -90,6 +90,25 @@ func TestIsRegularPod(t *testing.T) {
 	}
 }
 
+func TestIsNaked(t *testing.T) {
+	tests := []struct {
+		app    echo.Instance
+		expect bool
+	}{
+		{app: a1, expect: false},
+		{app: headless1, expect: false},
+		{app: naked1, expect: true},
+		{app: external1, expect: true},
+	}
+	for _, tt := range tests {
+		t.Run(tt.app.Config().Service, func(t *testing.T) {
+			if got := tt.app.Config().IsNaked(); got != tt.expect {
+				t.Errorf("got %v expected %v", got, tt.expect)
+			}
+		})
+	}
+}
+
 func TestFilters(t *testing.T) {
 	tests := map[string]struct {
 		filter func(echo.Instances) echo.Instances
@@ -127,6 +146,17 @@ func TestFilters(t *testing.T) {
 				a1, aNs1, b1, c1, headless1, naked1, external1,
 			},
 		},
+		"ReachableDestinations from vm": {
+			filter: func(instances echo.Instances) echo.Instances {
+				return ReachableDestinations(vm1, instances)
+			},
+			expect: echo.Instances{
+				// all pods/vms, no external
+				a1, a2, aNs1, aNs2, b1, b2, c1, c2, vm1, vm2,
+				// only same network/cluster
+				headless1, naked1,
+			},
+		},
 	}
 	for n, tc := range tests {
 		n, tc := n, tc
@@ -137,6 +167,9 @@ func TestFilters(t *testing.T) {
 }
 
 func compare(t *testing.T, got echo.Instances, want echo.Instances) {
+	if len(got) != len(want) {
+		t.Errorf("got %d instnaces but expected %d", len(got), len(want))
+	}
 	expected := map[string]struct{}{}
 	for _, i := range want {
 		expected[instanceKey(i)] = struct{}{}
@@ -152,8 +185,6 @@ func compare(t *testing.T, got echo.Instances, want echo.Instances) {
 		k := instanceKey(i)
 		if _, ok := expected[k]; ok {
 			delete(expected, k)
-		} else {
-			t.Errorf("did not expect %s to be filtered out", k)
 		}
 		if _, ok := unexpected[k]; ok {
 			t.Errorf("expected %s to be filtered out", k)

@@ -56,6 +56,11 @@ func (i Instances) Clusters() cluster.Clusters {
 // Matcher is used to filter matching instances
 type Matcher func(Instance) bool
 
+// Any doesn't filter out any echos.
+func Any(_ Instance) bool {
+	return true
+}
+
 // And combines two or more matches. Example:
 //     Service("a").And(InCluster(c)).And(Match(func(...))
 func (m Matcher) And(other Matcher) Matcher {
@@ -64,11 +69,20 @@ func (m Matcher) And(other Matcher) Matcher {
 	}
 }
 
-// Negate inverts the current matcher.
+// Negate inverts the matcher it's applied to.
+// Example:
+//     echo.IsVirtualMachine().Negate()
 func (m Matcher) Negate() Matcher {
 	return func(i Instance) bool {
 		return !m(i)
 	}
+}
+
+// Not is a wrapper around Negate for human readability.
+// Example:
+//     echo.Not(echo.IsVirtualMachine)
+func Not(m Matcher) Matcher {
+	return m.Negate()
 }
 
 // ServicePrefix matches instances whose service name starts with the given prefix.
@@ -106,15 +120,31 @@ func InNetwork(n string) Matcher {
 	}
 }
 
-func IsVM() Matcher {
+// IsVirtualMachine matches instances with DeployAsVM
+func IsVirtualMachine() Matcher {
 	return func(i Instance) bool {
 		return i.Config().IsVM()
 	}
 }
 
-func External() Matcher {
+// IsExternal matches instances that have a custom DefaultHostHeader defined
+func IsExternal() Matcher {
 	return func(i Instance) bool {
 		return i.Config().IsExternal()
+	}
+}
+
+// IsNaked matches instances that are Pods with a SidecarInject annotation equal to false.
+func IsNaked() Matcher {
+	return func(i Instance) bool {
+		return i.Config().IsNaked()
+	}
+}
+
+// IsHeadless matches instances that are backed by headless services.
+func IsHeadless() Matcher {
+	return func(i Instance) bool {
+		return i.Config().Headless
 	}
 }
 
