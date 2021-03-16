@@ -222,6 +222,7 @@ func getStatsOptions(meta *model.BootstrapNodeMetadata, nodeIPs []string, config
 			extraStatTags = append(extraStatTags, tag)
 		}
 	}
+	extraStatTags = removeDuplicates(extraStatTags)
 
 	var proxyConfigPrefixes, proxyConfigSuffixes, proxyConfigRegexps []string
 	if config.ProxyStatsMatcher != nil {
