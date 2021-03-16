@@ -15,14 +15,14 @@
 package xds
 
 import (
+	"bytes"
 	"fmt"
-	"io/ioutil"
 	"net/http"
 	"net/url"
+	"strconv"
 
 	"github.com/golang/protobuf/ptypes/any"
 
-	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 )
 
@@ -40,20 +40,52 @@ var activeNamespaceDebuggers = map[string]struct{}{
 
 // DebugGen is a Generator for istio debug info
 type DebugGen struct {
-	Server *DiscoveryServer
+	Server          *DiscoveryServer
+	SystemNamespace string
 }
 
-func NewDebugGen(s *DiscoveryServer) *DebugGen {
+type ResponseCapture struct {
+	body        *bytes.Buffer
+	header      map[string]string
+	wroteHeader bool
+}
+
+func (r ResponseCapture) Header() http.Header {
+	header := make(http.Header)
+	for k, v := range r.header {
+		header.Set(k, v)
+	}
+	return header
+}
+
+func (r ResponseCapture) Write(i []byte) (int, error) {
+	return r.body.Write(i)
+}
+
+func (r ResponseCapture) WriteHeader(statusCode int) {
+	r.header["statusCode"] = strconv.Itoa(statusCode)
+}
+
+func NewResponseCapture() *ResponseCapture {
+	return &ResponseCapture{
+		header:      make(map[string]string),
+		body:        new(bytes.Buffer),
+		wroteHeader: true,
+	}
+}
+
+func NewDebugGen(s *DiscoveryServer, systemNamespace string) *DebugGen {
 	return &DebugGen{
-		Server: s,
+		Server:          s,
+		SystemNamespace: systemNamespace,
 	}
 }
 
 // Generate XDS debug responses according to the incoming debug request
-func (dg *DebugGen) Generate(proxy *model.Proxy, push *model.PushContext, w *model.WatchedResource, updates *model.PushRequest) (model.Resources, error) {
+func (dg *DebugGen) Generate(proxy *model.Proxy, push *model.PushContext, w *model.WatchedResource,
+	updates *model.PushRequest) (model.Resources, error) {
 	res := []*any.Any{}
-	var err error
-	var out []byte
+	var buffer bytes.Buffer
 	if w.ResourceNames == nil {
 		return res, fmt.Errorf("debug type is required")
 	}
@@ -64,7 +96,7 @@ func (dg *DebugGen) Generate(proxy *model.Proxy, push *model.PushContext, w *mod
 	u, _ := url.Parse(resourceName)
 	debugType := u.Path
 	identity := proxy.VerifiedIdentity
-	if identity.Namespace != features.PodNamespaceVar.Get() {
+	if identity.Namespace != dg.SystemNamespace {
 		shouldAllow := false
 		if _, ok := activeNamespaceDebuggers[debugType]; ok {
 			shouldAllow = true
@@ -79,19 +111,37 @@ func (dg *DebugGen) Generate(proxy *model.Proxy, push *model.PushContext, w *mod
 		}
 	}
 	debugURL := debugURL + debugServerPort + "/debug/" + resourceName
-	resp, err := http.Get(debugURL)
-	if err != nil {
-		return nil, err
+	req, _ := http.NewRequest(http.MethodGet, debugURL, nil)
+	handler, _ := debugmux.Handler(req)
+	response := NewResponseCapture()
+	handler.ServeHTTP(response, req)
+	if response.wroteHeader && len(response.header) >= 1 {
+		buffer.Write([]byte("{\"header\":{"))
+		for k, v := range response.header {
+			buffer.Write([]byte("\""))
+			buffer.Write([]byte(k))
+			buffer.Write([]byte("\""))
+			buffer.Write([]byte(":"))
+			buffer.Write([]byte("\""))
+			buffer.Write([]byte(v))
+			buffer.Write([]byte("\""))
+			buffer.Write([]byte(","))
+
+		}
+		buffer.Truncate(len(buffer.Bytes()) - 1)
+		buffer.Write([]byte("}"))
+		buffer.Write([]byte(","))
+		buffer.Write([]byte("\"body\":"))
+		buffer.Write([]byte("\""))
 	}
-	out, err = ioutil.ReadAll(resp.Body)
-	if err != nil {
-		return nil, err
+	buffer.Write(response.body.Bytes())
+	if response.wroteHeader && len(response.header) >= 1 {
+		buffer.Write([]byte("\""))
+		buffer.Write([]byte("}"))
 	}
-	if out != nil {
-		res = append(res, &any.Any{
-			TypeUrl: TypeDebug,
-			Value:   out,
-		})
-	}
+	res = append(res, &any.Any{
+		TypeUrl: TypeDebug,
+		Value:   buffer.Bytes(),
+	})
 	return res, nil
 }

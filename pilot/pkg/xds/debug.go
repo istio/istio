@@ -88,6 +88,8 @@ var indexTmpl = template.Must(template.New("index").Parse(`<html>
 
 var debugServerPort string
 
+var debugmux *http.ServeMux
+
 // AdsClient defines the data that is displayed on "/adsz" endpoint.
 type AdsClient struct {
 	ConnectionID string              `json:"connectionId"`
@@ -141,6 +143,7 @@ func (s *DiscoveryServer) InitDebug(mux *http.ServeMux, sctl *aggregate.Controll
 	})
 	s.AddDebugHandlers(mux, enableProfiling, fetchWebhook)
 	debugServerPort = port
+	debugmux = mux
 }
 
 func (s *DiscoveryServer) AddDebugHandlers(mux *http.ServeMux, enableProfiling bool, webhook func() map[string]string) {
