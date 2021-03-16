@@ -25,8 +25,8 @@ function install_asm_revisions() {
   local WIP="$1"; shift
   local CONTEXTS=("${@}")
 
-  # REVISION_CONFIG_PATH is relative to ./revision-deployer/configs
-  REVISION_CONFIG_PATH="${WD}/revision-deployer/configs/${REVISION_CONFIG_PATH}"
+  # REVISION_CONFIG_PATH is relative to revision-deployer
+  REVISION_CONFIG_PATH="${CONFIG_DIR}/revision-deployer/${REVISION_CONFIG_PATH}"
 
   # parse configurations for each revision from the config file
   # some of these configs will get turned into additional scriptaro flags

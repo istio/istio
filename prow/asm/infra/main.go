@@ -38,23 +38,24 @@ const (
 )
 
 var (
-	baseDeployerFlags = []string{"--up"}
+	baseDeployerFlags = []string{"--up", "--skip-test-junit-report"}
+	baseTesterFlags   = []string{"--setup-env", "--setup-system", "--setup-tests", "--run-tests"}
 )
 
 type options struct {
-	kubetest2WorkingDir string
-	deployerName        string
-	clusterType         string
-	extraDeployerFlags  string
-	testScript          string
-	testFlags           string
-	clusterTopology     string
-	featureToTest       string
+	repoRootDir        string
+	deployerName       string
+	clusterType        string
+	extraDeployerFlags string
+	testScript         string
+	testFlags          string
+	clusterTopology    string
+	featureToTest      string
 }
 
 func main() {
 	o := options{}
-	flag.StringVar(&o.kubetest2WorkingDir, "kubetest2-working-dir", "", "the working directory for running the kubetest2 command")
+	flag.StringVar(&o.repoRootDir, "repo-root-dir", "", "the repo's root directory, will be used as the working directory for running the kubetest2 command")
 	flag.StringVar(&o.deployerName, "deployer", "", "kubetest2 deployer name, can be gke or tailorbird. Will be deprecated, use --cluster-type instead.")
 	flag.StringVar(&o.clusterType, "cluster-type", "gke", "the cluster type, can be one of gke, gke-on-prem, bare-metal, etc")
 	flag.StringVar(&o.extraDeployerFlags, "deployer-flags", "", "extra flags corresponding to the deployer being used, supported flags can be"+
@@ -69,7 +70,7 @@ func main() {
 		log.Fatal("Error initializing the setups: ", err)
 	}
 
-	var extraDeployerFlagArr, testFlagArr []string
+	var extraDeployerFlagArr, extraTestFlagArr []string
 	var err error
 	if o.extraDeployerFlags != "" {
 		extraDeployerFlagArr, err = shell.Split(o.extraDeployerFlags)
@@ -78,15 +79,16 @@ func main() {
 		}
 	}
 	if o.testFlags != "" {
-		testFlagArr, err = shell.Split(o.testFlags)
+		extraTestFlagArr, err = shell.Split(o.testFlags)
 		if err != nil {
 			log.Fatalf("Error parsing the test flags %q: %v", o.testFlags, err)
 		}
 	}
 
-	baseDeployerFlags = append(baseDeployerFlags, extraDeployerFlagArr...)
+	deployerFlags := append(baseDeployerFlags, extraDeployerFlagArr...)
+	testerFlags := append(baseTesterFlags, extraTestFlagArr...)
 
-	if err := o.runTestFlow(baseDeployerFlags, testFlagArr); err != nil {
+	if err := o.runTestFlow(deployerFlags, testerFlags); err != nil {
 		log.Fatal("Error running the test flow: ", err)
 	}
 }
@@ -168,7 +170,7 @@ func (o *options) runTestFlow(deployerFlags, testFlags []string) error {
 			newKubetest2Flags = append(newKubetest2Flags, "--test=exec", "--", o.testScript)
 			newKubetest2Flags = append(newKubetest2Flags, testFlags...)
 			if err := exec.Run(fmt.Sprintf("kubetest2 %s", strings.Join(newKubetest2Flags, " ")),
-				exec.WithWorkingDir(o.kubetest2WorkingDir),
+				exec.WithWorkingDir(o.repoRootDir),
 				exec.WithWriter(io.MultiWriter(os.Stdout, &buf), io.MultiWriter(os.Stderr, &buf))); err != nil {
 				if !isRetryableError(buf.String()) {
 					return err
@@ -180,7 +182,7 @@ func (o *options) runTestFlow(deployerFlags, testFlags []string) error {
 	} else {
 		kubetest2Flags = append(kubetest2Flags, "--test=exec", "--", o.testScript)
 		kubetest2Flags = append(kubetest2Flags, testFlags...)
-		if err := exec.Run(fmt.Sprintf("kubetest2 %s", strings.Join(kubetest2Flags, " ")), exec.WithWorkingDir(o.kubetest2WorkingDir)); err != nil {
+		if err := exec.Run(fmt.Sprintf("kubetest2 %s", strings.Join(kubetest2Flags, " ")), exec.WithWorkingDir(o.repoRootDir)); err != nil {
 			return err
 		}
 	}

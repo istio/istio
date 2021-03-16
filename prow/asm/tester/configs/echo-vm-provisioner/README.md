@@ -20,6 +20,7 @@ vms/
 ```
 
 In this example:
+
 * `vms` is the suite.
 * `a` and `b` are the VMs that make up the suite.
 
@@ -34,5 +35,3 @@ annotated with `security.cloud.google.com/IdentityProvider: google` for the ASM 
 
 A valid [systemd unit file](https://man7.org/linux/man-pages/man5/systemd.service.5.html) describing a service named
 "echo". This file can be used to configure ports or other customizations to the echo app.
-
-

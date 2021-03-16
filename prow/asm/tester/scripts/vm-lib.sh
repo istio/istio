@@ -130,12 +130,12 @@ function setup_vm() {
   # compute instances need a fully qualified zone
   ZONE="${LOCATION}"
   if [[ ! "${ZONE}" =~ [a-z]+-[a-z]+[0-9]-[a-z] ]]; then
-        if [[ "${ZONE}" =~ [a-z]+-[a-z]+[0-9] ]]; then
-          echo "appending '-a' to ${ZONE} to make a valid zone for VMs"
-          ZONE="${ZONE}-a"
-        else
-          echo "warning: location ${ZONE}} seems invalid"
-        fi
+    if [[ "${ZONE}" =~ [a-z]+-[a-z]+[0-9] ]]; then
+      echo "appending '-a' to ${ZONE} to make a valid zone for VMs"
+      ZONE="${ZONE}-a"
+    else
+      echo "warning: location ${ZONE}} seems invalid"
+    fi
   fi
 
   local ECHO_APP="$ISTIO_OUT/linux_amd64/server"

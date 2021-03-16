@@ -28,7 +28,7 @@ import (
 )
 
 const (
-	dependenciesPath = "../../../../prow/asm/user-auth/dependencies/"
+	dependenciesPath = "../../../../prow/asm/tester/configs/user-auth/dependencies/"
 	seleniumPath     = dependenciesPath + "selenium-server.jar"
 	chromeDriverPath = dependenciesPath + "chromedriver_linux64/chromedriver"
 	chromePath       = dependenciesPath + "chrome-linux/chrome"

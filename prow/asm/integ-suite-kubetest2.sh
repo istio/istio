@@ -33,4 +33,6 @@ set -u
 set -x
 
 CURTDIR="$(pwd)"
-cd ./prow/asm/infra && go run ./main.go --kubetest2-working-dir="${CURTDIR}" --test-script="${CURTDIR}/prow/asm/integ-run-tests.sh" "$@"
+cd "${CURTDIR}/prow/asm/tester" && go install . && cd -
+cd ./prow/asm/infra && go run ./main.go --repo-root-dir="${CURTDIR}" \
+    --test-script="tester" "$@"

@@ -14,8 +14,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# shellcheck source=prow/asm/echo-vm-provisioner/vm-lib.sh
-source "${WD}/echo-vm-provisioner/vm-lib.sh"
+# shellcheck source=prow/asm/tester/scripts/vm-lib.sh
+source "${WD}/vm-lib.sh"
 
 # The GCP project we use when testing with multicloud clusters, or when we need to
 # hold some GCP resources that are shared across multiple jobs that are run in parallel.
@@ -405,10 +405,6 @@ function install_asm() {
   local REVISION="$1"; shift
   local CONTEXTS=("${@}")
 
-  if [ -n "${OVERLAY}" ]; then
-    CUSTOM_OVERLAY="${CUSTOM_OVERLAY},${PKG}/${OVERLAY}"
-  fi
-
   if [ -n "$REVISION" ]; then
     CUSTOM_REVISION_FLAGS+=" --revision_name ${REVISION}"
   fi
@@ -440,6 +436,9 @@ function install_asm() {
     CLUSTER="${VALS[3]}"
     PROJECT_NUMBER=$(gcloud projects describe "${PROJECT_ID}" --format="value(projectNumber)")
     CUSTOM_OVERLAY="${PKG}/overlay/default.yaml"
+    if [ -n "${OVERLAY}" ]; then
+      CUSTOM_OVERLAY="${CUSTOM_OVERLAY},${PKG}/${OVERLAY}"
+    fi
 
     # Use the first project as the environ project
     if [[ $i == 0 ]]; then
@@ -671,9 +670,11 @@ function install_asm_managed_control_plane() {
       echo "Environ project ID: ${PROJECT_ID}, project number: ${ENVIRON_PROJECT_NUMBER}"
     fi
     TMPDIR=$(mktemp -d)
+
     # _CI_ASM_PKG_LOCATION _CI_ASM_IMAGE_LOCATION are required for unreleased Scriptaro (master and staging branch).
     # Managed control plane installation will use _CI_ASM_PKG_LOCATION, _CI_ASM_IMAGE_LOCATION for Gateway.
     # For sidecar proxy and Istiod, _CI_CLOUDRUN_IMAGE_HUB and _CI_CLOUDRUN_IMAGE_TAG are used.
+    # Currently, we only test with mesh CA.
     _CI_ASM_PKG_LOCATION="asm-staging-images" _CI_ASM_IMAGE_LOCATION="${HUB}" _CI_ASM_IMAGE_TAG="${TAG}" _CI_ASM_KPT_BRANCH="master" _CI_CLOUDRUN_IMAGE_HUB="${HUB}/cloudrun" _CI_CLOUDRUN_IMAGE_TAG="${TAG}" "./install_asm" \
       --mode install \
       --project_id "${PROJECT_ID}" \
@@ -682,6 +683,7 @@ function install_asm_managed_control_plane() {
       --managed \
       --enable_cluster_labels \
       --output_dir "${TMPDIR}" \
+      --ca "mesh_ca" \
       --verbose
     istioctl install -f "${TMPDIR}"/managed_control_plane_gateway.yaml --set revision=asm-managed --skip-confirmation --context="${CONTEXTS[$i]}"
   done
@@ -1037,10 +1039,10 @@ function init_baremetal_http_proxy() {
 }
 
 # Creates virtual machines, registers them with the cluster and install the test echo app.
-# Parameters: $1 - the name of a directory in echo-vm-provisioner/configs describing how to setup the VMs.
+# Parameters: $1 - the name of a directory in echo-vm-provisioner describing how to setup the VMs.
 #             $2 - the context of the cluster VMs will connect to
 function setup_asm_vms() {
-  local VM_DIR="$PWD/prow/asm/echo-vm-provisioner/configs/$1"
+  local VM_DIR="${CONFIG_DIR}/echo-vm-provisioner/$1"
   local CONTEXT=$2
   local VM_DISTRO="${3:-debian-10}"
   local IMAGE_PROJECT="${4:-debian-cloud}"
@@ -1129,10 +1131,7 @@ EOF
 }
 
 # Install ASM User Auth on the cluster.
-# Parameters: $1 - Path of working directory
 function install_asm_user_auth() {
-  WORK_DIR=${1}
-
   kubectl create namespace asm-user-auth
   kubectl label namespace asm-user-auth istio-injection=enabled --overwrite
 
@@ -1144,11 +1143,11 @@ function install_asm_user_auth() {
   # Create the kubernetes secret for the encryption and signing key.
   # shellcheck disable=SC2140
   kubectl create secret generic secret-key  \
-       --from-file="session_cookie.key"="${WORK_DIR}/user-auth/aes_symmetric_key.json"  \
-       --from-file="rctoken.key"="${WORK_DIR}/user-auth/rsa_signing_key.json"  \
+       --from-file="session_cookie.key"="${CONFIG_DIR}/user-auth/aes_symmetric_key.json"  \
+       --from-file="rctoken.key"="${CONFIG_DIR}/user-auth/rsa_signing_key.json"  \
        --namespace=asm-user-auth
 
-  kubectl apply -f "${WORK_DIR}/user-auth/asm_user_auth_config_v1alpha1.yaml"
+  kubectl apply -f "${CONFIG_DIR}/user-auth/asm_user_auth_config_v1alpha1.yaml"
 
   # The following account is from IAP team
   # TODO(b/182940034): use ASM owned account once created
@@ -1157,36 +1156,32 @@ function install_asm_user_auth() {
   OIDC_ISSUER_URI="https://accounts.google.com"
 
   # TODO(b/182918059): Fetch image from GCR release repo and GitHub packet.
-  kpt cfg set "${WORK_DIR}/user-auth/pkg" iap-image gcr.io/jianfeih-test/asm-user-auth:20210224-rc0
-  kpt cfg set "${WORK_DIR}/user-auth/pkg" anthos.servicemesh.user-auth.oidc.clientID "${OIDC_CLIENT_ID}"
-  kpt cfg set "${WORK_DIR}/user-auth/pkg" anthos.servicemesh.user-auth.oidc.clientSecret "${OIDC_CLIENT_SECRET}"
-  kpt cfg set "${WORK_DIR}/user-auth/pkg" anthos.servicemesh.user-auth.oidc.issuerURI "${OIDC_ISSUER_URI}"
-  kubectl apply -R -f "${WORK_DIR}/user-auth/pkg/"
+  kpt cfg set "${CONFIG_DIR}/user-auth/pkg" iap-image gcr.io/jianfeih-test/asm-user-auth:20210224-rc0
+  kpt cfg set "${CONFIG_DIR}/user-auth/pkg" anthos.servicemesh.user-auth.oidc.clientID "${OIDC_CLIENT_ID}"
+  kpt cfg set "${CONFIG_DIR}/user-auth/pkg" anthos.servicemesh.user-auth.oidc.clientSecret "${OIDC_CLIENT_SECRET}"
+  kpt cfg set "${CONFIG_DIR}/user-auth/pkg" anthos.servicemesh.user-auth.oidc.issuerURI "${OIDC_ISSUER_URI}"
+  kubectl apply -R -f "${CONFIG_DIR}/user-auth/pkg/"
 
   kubectl wait --for=condition=Ready --timeout=2m -n --namespace={userauth-test,asm-user-auth} --all pod
 }
 
 # Cleanup ASM User Auth manifest.
-# Parameters: $1 - Path of working directory
 function cleanup_asm_user_auth() {
-  WORK_DIR=${1}
-  kubectl delete -R -f "${WORK_DIR}/user-auth/pkg/"
-  kubectl delete -f "${WORK_DIR}/user-auth/asm_user_auth_config_v1alpha1.yaml"
+  kubectl delete -R -f "${CONFIG_DIR}/user-auth/pkg/"
+  kubectl delete -f "${CONFIG_DIR}/user-auth/asm_user_auth_config_v1alpha1.yaml"
   kubectl -n userauth-test delete -f https://raw.githubusercontent.com/istio/istio/master/samples/httpbin/httpbin.yaml
-  rm -rf "${WORK_DIR}/user-auth/pkg/inventory-template.yaml"
+  rm -rf "${CONFIG_DIR}/user-auth/pkg/inventory-template.yaml"
   kubectl delete ns asm-user-auth userauth-test
 }
 
 # Download dependencies: Chrome, Selenium
-# Parameters: $1 - Path of working directory
 function download_dependencies() {
-  WORK_DIR=${1}
   # need this mkdir for installing jre: https://bugs.debian.org/cgi-bin/bugreport.cgi?bug=863199
   mkdir -p /usr/share/man/man1
   # TODO(b/182939536): add apt-get to https://github.com/istio/tools/blob/master/docker/build-tools/Dockerfile
   apt-get update && apt-get install -y --no-install-recommends unzip openjdk-11-jre xvfb chromium-browser
 
-  mkdir "${WORK_DIR}/user-auth/dependencies"
+  mkdir "${CONFIG_DIR}/user-auth/dependencies"
 
   LASTCHANGE_URL="https://www.googleapis.com/download/storage/v1/b/chromium-browser-snapshots/o/Linux_x64%2FLAST_CHANGE?alt=media"
   REVISION=$(curl -s -S "${LASTCHANGE_URL}")
@@ -1194,21 +1189,20 @@ function download_dependencies() {
   DRIVER_URL="https://www.googleapis.com/download/storage/v1/b/chromium-browser-snapshots/o/Linux_x64%2F$REVISION%2Fchromedriver_linux64.zip?alt=media"
   SELENIUM_URL="https://selenium-release.storage.googleapis.com/3.141/selenium-server-standalone-3.141.59.jar"
 
-  curl -# "${CHROMIUM_URL}" > "${WORK_DIR}/user-auth/dependencies/chrome-linux.zip"
-  curl -# "${DRIVER_URL}" > "${WORK_DIR}/user-auth/dependencies/chromedriver-linux.zip"
+  curl -# "${CHROMIUM_URL}" > "${CONFIG_DIR}/user-auth/dependencies/chrome-linux.zip"
+  curl -# "${DRIVER_URL}" > "${CONFIG_DIR}/user-auth/dependencies/chromedriver-linux.zip"
 
-  unzip "${WORK_DIR}/user-auth/dependencies/chrome-linux.zip" -d "${WORK_DIR}/user-auth/dependencies"
-  unzip "${WORK_DIR}/user-auth/dependencies/chromedriver-linux.zip" -d "${WORK_DIR}/user-auth/dependencies"
-  rm -rf "${WORK_DIR}/user-auth/dependencies/chrome-linux.zip" "${WORK_DIR}/user-auth/dependencies/chromedriver-linux.zip"
+  unzip "${CONFIG_DIR}/user-auth/dependencies/chrome-linux.zip" -d "${CONFIG_DIR}/user-auth/dependencies"
+  unzip "${CONFIG_DIR}/user-auth/dependencies/chromedriver-linux.zip" -d "${CONFIG_DIR}/user-auth/dependencies"
+  rm -rf "${CONFIG_DIR}/user-auth/dependencies/chrome-linux.zip" "${CONFIG_DIR}/user-auth/dependencies/chromedriver-linux.zip"
 
-  curl -# "${SELENIUM_URL}" > "${WORK_DIR}/user-auth/dependencies/selenium-server.jar"
+  curl -# "${SELENIUM_URL}" > "${CONFIG_DIR}/user-auth/dependencies/selenium-server.jar"
 
   # need below for DevToolsActivePorts error, https://yaqs.corp.google.com/eng/q/5322136407900160
   echo "export DISPLAY=:20" >> ~/.bashrc
 }
 
 # Cleanup dependencies
-# Parameters: $1 - Path of working directory
 function cleanup_dependencies() {
-  rm -rf "${1}/user-auth/dependencies"
+  rm -rf "${CONFIG_DIR}/user-auth/dependencies"
 }

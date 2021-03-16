@@ -28,38 +28,19 @@ set -u
 # Print commands
 set -x
 
-# shellcheck source=prow/asm/asm-lib.sh
+# shellcheck source=prow/asm/tester/scripts/asm-lib.sh
 source "${WD}/asm-lib.sh"
-# shellcheck source=prow/asm/infra-lib.sh
+# shellcheck source=prow/asm/tester/scripts/infra-lib.sh
 source "${WD}/infra-lib.sh"
-# shellcheck source=prow/asm/revision-deployer/revision-lib.sh
-source "${WD}/revision-deployer/revision-lib.sh"
-
+# shellcheck source=prow/asm/tester/scripts/revision-lib.sh
+source "${WD}/revision-lib.sh"
 
 export BUILD_WITH_CONTAINER=0
 
-# CA = CITADEL, MESHCA or PRIVATECA
-CA="MESHCA"
-# WIP(Workload Identity Pool) = GKE or HUB
-WIP="GKE"
-# CONTROL_PLANE = UNMANAGED or MANAGED
-CONTROL_PLANE="UNMANAGED"
-# USE_VM = true or false
-USE_VM=false
-export USE_VM
-# STATIC_VMS = a directory in echo-vm-provisioner/configs
-STATIC_VMS=""
-export STATIC_VMS
-# REVISION_CONFIG_FILE = path to revision config file (see revision-deployer/README.md)
-REVISION_CONFIG_FILE=""
-# Makefile target
-TEST_TARGET="test.integration.multicluster.kube.presubmit"
-# Passed by job config
-DISABLED_TESTS=""
-VM_DISTRO="debian-10"
-IMAGE_PROJECT="debian-cloud"
+# shellcheck disable=SC2034
 # holds multiple kubeconfigs for onprem MC
 declare -a ONPREM_MC_CONFIGS
+# shellcheck disable=SC2034
 # hold the configs for baremetal SC
 declare -a BAREMETAL_SC_CONFIG
 declare BM_ARTIFACTS_PATH
@@ -71,92 +52,18 @@ declare ENVIRON_PROJECT_ID
 declare HTTP_PROXY
 declare HTTPS_PROXY
 
-while (( "$#" )); do
-  case $1 in
-    --ca)
-      case $2 in
-        "CITADEL" | "MESHCA" | "PRIVATECA" )
-          CA=$2
-          shift 2
-          ;;
-        *)
-          echo "Error: Unsupported CA $2" >&2
-          exit 1
-          ;;
-      esac
-      ;;
-    --control-plane)
-      case $2 in
-        "UNMANAGED" | "MANAGED" )
-          CONTROL_PLANE=$2
-          shift 2
-          ;;
-        *)
-          echo "Error: Unsupported ASM Control Plane $2" >&2
-          exit 1
-          ;;
-      esac
-      ;;
-    --wip)
-      case $2 in
-        "GKE" | "HUB" )
-          WIP=$2
-          shift 2
-          ;;
-        *)
-          echo "Error: Unsupported Workload Identity Pool $2" >&2
-          exit 1
-          ;;
-      esac
-      ;;
-    --vm)
-      USE_VM=true
-      shift 1
-      ;;
-    --static-vms)
-      STATIC_VMS=$2
-      shift 2
-      ;;
-    --revision-config)
-      REVISION_CONFIG_FILE=$2
-      shift 2
-      ;;
-    --vm-distro)
-      VM_DISTRO=$2
-      shift 2
-      ;;
-    --image-project)
-      IMAGE_PROJECT=$2
-      shift 2
-      ;;
-    --test)
-      TEST_TARGET=$2
-      shift 2
-      ;;
-    --disabled-tests)
-      DISABLED_TESTS=$2
-      shift 2
-      ;;
-    *)
-      echo "Error: Unsupported input $1" >&2
-      exit 1
-      ;;
-  esac
-done
-
 echo "Running with CA ${CA}, ${WIP} Workload Identity Pool, ${CONTROL_PLANE} and --vm=${USE_VM} control plane."
 # used in telemetry test to decide expected source/destination principal.
 export CONTROL_PLANE
 
 if [[ -z "${KUBECONFIG}" ]]; then
-  echo "Error: ${KUBECONFIG} cannot be empty."
+  echo "Error: KUBECONFIG env var cannot be empty."
   exit 1
 fi
-
 echo "Using ${KUBECONFIG} to connect to the cluster(s)"
 
 if [[ -z "${CLUSTER_TYPE}" ]]; then
-  echo "Error: ${CLUSTER_TYPE} cannot be empty."
+  echo "Error: CLUSTER_TYPE env var cannot be empty."
   exit 1
 fi
 echo "The cluster type is ${CLUSTER_TYPE}"
@@ -166,13 +73,13 @@ echo "The cluster type is ${CLUSTER_TYPE}"
 [[ "${CLUSTER_TYPE}" == "bare-metal" ]] && filter_baremetal_kubeconfigs && init_baremetal_http_proxy
 
 if [[ -z "${CLUSTER_TOPOLOGY}" ]]; then
-  echo "Error: ${CLUSTER_TOPOLOGY} cannot be empty."
+  echo "Error: CLUSTER_TOPOLOGY env var cannot be empty."
   exit 1
 fi
 echo "The cluster topology is ${CLUSTER_TOPOLOGY}"
 
 if [[ -z "${TEST_TARGET}" ]]; then
-  echo "Error: ${TEST_TARGET} cannot be empty."
+  echo "Error: TEST_TARGET env var cannot be empty."
   exit 1
 fi
 echo "The test target is ${TEST_TARGET}"
@@ -287,9 +194,9 @@ if [[ "${CONTROL_PLANE}" == "UNMANAGED" ]]; then
   echo "Installing ASM control plane..."
   if [[ "${CLUSTER_TYPE}" == "gke" ]]; then
     if [ -z "${REVISION_CONFIG_FILE}" ]; then
-      install_asm "${WD}/kpt-pkg" "${CA}" "${WIP}" "" "" "" "${CONTEXTS[@]}"
+      install_asm "${CONFIG_DIR}/kpt-pkg" "${CA}" "${WIP}" "" "" "" "${CONTEXTS[@]}"
     else
-      install_asm_revisions "${REVISION_CONFIG_FILE}" "${WD}/kpt-pkg" "${WIP}" "${CONTEXTS[@]}"
+      install_asm_revisions "${REVISION_CONFIG_FILE}" "${CONFIG_DIR}/kpt-pkg" "${WIP}" "${CONTEXTS[@]}"
     fi
   else
     if [[ "${CLUSTER_TYPE}" == "bare-metal" ]]; then
@@ -326,19 +233,17 @@ if [[ "${CONTROL_PLANE}" == "UNMANAGED" ]]; then
   if [[ "${WIP}" == "HUB" ]] && [[ "${TEST_TARGET}" =~ "security" ]]; then
     export GCR_PROJECT_ID_2="${GCR_PROJECT_ID_1}"
   fi
-  export CA
-  export WIP
 
   if [[ "${FEATURE_TO_TEST}" == "USER_AUTH" ]]; then
-    add_trap "cleanup_asm_user_auth ${WD}" EXIT SIGKILL SIGTERM SIGQUIT
-    install_asm_user_auth "${WD}"
+    add_trap "cleanup_asm_user_auth" EXIT SIGKILL SIGTERM SIGQUIT
+    install_asm_user_auth
 
     kubectl get configmap istio -n istio-system -o yaml
     kubectl get ns --show-labels
     kubectl get pods --all-namespaces
 
-    add_trap "cleanup_dependencies ${WD}" EXIT SIGKILL SIGTERM SIGQUIT
-    download_dependencies "${WD}"
+    add_trap "cleanup_dependencies" EXIT SIGKILL SIGTERM SIGQUIT
+    download_dependencies
 
     # TODO(b/182912549): port-forward in go code
     kubectl port-forward service/istio-ingressgateway 8443:443 -n istio-system &
@@ -461,7 +366,7 @@ else
 
   # DISABLED_TESTS contains a list of all tests we skip
   # pilot/ tests
-  DISABLED_TESTS="TestWait|TestVersion|TestProxyStatus" # UNSUPPORTED: istioctl doesn't work
+  DISABLED_TESTS="TestWait|TestVersion|TestProxyStatus|TestXdsProxyStatus" # UNSUPPORTED: istioctl doesn't work
   DISABLED_TESTS+="|TestAnalysisWritesStatus" # UNSUPPORTED: require custom installation
   DISABLED_TESTS+="|TestMultiVersionRevision" # UNSUPPORTED: deploys istiod in the cluster, which fails since its using the wrong root cert
   DISABLED_TESTS+="|TestVmOSPost" # BROKEN: temp, pending oss pr
@@ -530,9 +435,6 @@ else
 
     echo "Processing kubeconfig files for running the tests..."
     process_kubeconfigs
-
-    export CA
-    export WIP
 
     export INTEGRATION_TEST_FLAGS="${INTEGRATION_TEST_FLAGS:-}"
     # TODO(nmittler): Remove this once we no longer run the multicluster tests.
