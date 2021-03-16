@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package security
+package options
 
 import (
 	"fmt"
@@ -25,11 +25,49 @@ import (
 	"istio.io/istio/pkg/security"
 	"istio.io/istio/security/pkg/credentialfetcher"
 	"istio.io/istio/security/pkg/nodeagent/plugin/providers/google/stsclient"
+	"istio.io/istio/security/pkg/stsservice/tokenmanager"
 	"istio.io/pkg/log"
 )
 
-func SetupSecurityOptions(proxyConfig meshconfig.ProxyConfig, secOpt security.Options, jwtPolicy,
-	credFetcherTypeEnv, credIdentityProvider string) (security.Options, error) {
+func NewSecurityOptions(proxyConfig *meshconfig.ProxyConfig, stsPort int, tokenManagerPlugin string) (*security.Options, error) {
+	o := &security.Options{
+		CAEndpoint:                     caEndpointEnv,
+		CAProviderName:                 caProviderEnv,
+		PilotCertProvider:              pilotCertProvider,
+		OutputKeyCertToDir:             outputKeyCertToDir,
+		ProvCert:                       provCert,
+		WorkloadUDSPath:                security.DefaultLocalSDSPath,
+		ClusterID:                      clusterIDVar.Get(),
+		FileMountedCerts:               fileMountedCertsEnv,
+		WorkloadNamespace:              podNamespaceVar.Get(),
+		ServiceAccount:                 serviceAccountVar.Get(),
+		XdsAuthProvider:                xdsAuthProvider.Get(),
+		TrustDomain:                    trustDomainEnv,
+		Pkcs8Keys:                      pkcs8KeysEnv,
+		ECCSigAlg:                      eccSigAlgEnv,
+		SecretTTL:                      secretTTLEnv,
+		SecretRotationGracePeriodRatio: secretRotationGracePeriodRatioEnv,
+	}
+
+	o, err := SetupSecurityOptions(proxyConfig, o, jwtPolicy.Get(),
+		credFetcherTypeEnv, credIdentityProvider)
+	if err != nil {
+		return o, err
+	}
+
+	var tokenManager security.TokenManager
+	if stsPort > 0 || xdsAuthProvider.Get() != "" {
+		// tokenManager is gcp token manager when using the default token manager plugin.
+		tokenManager = tokenmanager.CreateTokenManager(tokenManagerPlugin,
+			tokenmanager.Config{CredFetcher: o.CredFetcher, TrustDomain: o.TrustDomain})
+	}
+	o.TokenManager = tokenManager
+
+	return o, err
+}
+
+func SetupSecurityOptions(proxyConfig *meshconfig.ProxyConfig, secOpt *security.Options, jwtPolicy,
+	credFetcherTypeEnv, credIdentityProvider string) (*security.Options, error) {
 	var jwtPath string
 	if jwtPolicy == jwt.PolicyThirdParty {
 		log.Info("JWT policy is third-party-jwt")
@@ -55,7 +93,7 @@ func SetupSecurityOptions(proxyConfig meshconfig.ProxyConfig, secOpt security.Op
 		o.CredIdentityProvider = credIdentityProvider
 		credFetcher, err := credentialfetcher.NewCredFetcher(credFetcherTypeEnv, o.TrustDomain, jwtPath, o.CredIdentityProvider)
 		if err != nil {
-			return security.Options{}, fmt.Errorf("failed to create credential fetcher: %v", err)
+			return nil, fmt.Errorf("failed to create credential fetcher: %v", err)
 		}
 		log.Infof("using credential fetcher of %s type in %s trust domain", credFetcherTypeEnv, o.TrustDomain)
 		o.CredFetcher = credFetcher
@@ -66,7 +104,7 @@ func SetupSecurityOptions(proxyConfig meshconfig.ProxyConfig, secOpt security.Op
 	}
 
 	if o.ProvCert != "" && o.FileMountedCerts {
-		return security.Options{}, fmt.Errorf("invalid options: PROV_CERT and FILE_MOUNTED_CERTS are mutually exclusive")
+		return nil, fmt.Errorf("invalid options: PROV_CERT and FILE_MOUNTED_CERTS are mutually exclusive")
 	}
 	return o, nil
 }

@@ -335,7 +335,7 @@ type AgentTest struct {
 	t                *testing.T
 	ProxyConfig      meshconfig.ProxyConfig
 	Security         security.Options
-	AgentConfig      AgentConfig
+	AgentConfig      AgentOptions
 	XdsAuthenticator *security.FakeAuthenticator
 	CaAuthenticator  *security.FakeAuthenticator
 
@@ -369,7 +369,7 @@ func Setup(t *testing.T, opts ...func(a AgentTest) AgentTest) *AgentTest {
 	resp.ProxyConfig = mesh.DefaultProxyConfig()
 	resp.ProxyConfig.DiscoveryAddress = setupDiscovery(t, resp.XdsAuthenticator, ca.KeyCertBundle.GetRootCertPem())
 	rootCert := filepath.Join(env.IstioSrc, "./tests/testdata/certs/pilot/root-cert.pem")
-	resp.AgentConfig = AgentConfig{
+	resp.AgentConfig = AgentOptions{
 		ProxyXDSViaAgent: true,
 		CARootCerts:      rootCert,
 		XDSRootCerts:     rootCert,
@@ -379,7 +379,7 @@ func Setup(t *testing.T, opts ...func(a AgentTest) AgentTest) *AgentTest {
 	for _, opt := range opts {
 		resp = opt(resp)
 	}
-	a := NewAgent(&resp.ProxyConfig, &resp.AgentConfig, resp.Security)
+	a := NewAgent(&resp.ProxyConfig, &resp.AgentConfig, &resp.Security)
 	t.Cleanup(a.Close)
 	if err := a.Start(); err != nil {
 		t.Fatal(err)

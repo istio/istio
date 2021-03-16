@@ -24,7 +24,7 @@ import (
 
 func TestPilotDefaultDomainKubernetes(t *testing.T) {
 	g := gomega.NewWithT(t)
-	role = &model.Proxy{}
+	role := &model.Proxy{}
 	role.DNSDomain = ""
 
 	domain := getDNSDomain("default", role.DNSDomain)
