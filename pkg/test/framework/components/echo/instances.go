@@ -16,6 +16,7 @@ package echo
 
 import (
 	"errors"
+	"sort"
 	"strings"
 
 	"istio.io/istio/pkg/test"
@@ -25,19 +26,37 @@ import (
 // Instances contains the instances created by the builder with methods for filtering
 type Instances []Instance
 
-type Deployment struct {
-	Service   string
-	Namespace string
+// Deployments groups the Instances by FQDN.
+// Each returned element will have at least one item.
+func (i Instances) Deployments() []Instances {
+	grouped := map[string]Instances{}
+	for _, instance := range i {
+		k := instance.Config().FQDN()
+		grouped[k] = append(grouped[k], instance)
+	}
+	var out deployments
+	for _, deployment := range grouped {
+		out = append(out, deployment)
+	}
+	sort.Stable(out)
+	return out
 }
 
-// Deployments groups the Instances by Service and Namespace names.
-func (i Instances) Deployments() map[Deployment]Instances {
-	out := map[Deployment]Instances{}
-	for _, instance := range i {
-		k := instance.Config().DeploymentKey()
-		out[k] = append(out[k], instance)
-	}
-	return out
+// deployments must be sorted to make sure tests have consistent ordering
+type deployments []Instances
+
+var _ sort.Interface = deployments{}
+
+func (d deployments) Len() int {
+	return len(d)
+}
+
+func (d deployments) Less(i, j int) bool {
+	return strings.Compare(d[i][0].Config().FQDN(), d[j][0].Config().FQDN()) < 0
+}
+
+func (d deployments) Swap(i, j int) {
+	d[i], d[j] = d[j], d[i]
 }
 
 // Clusters returns a list of cluster names that the instances are deployed in
@@ -99,10 +118,10 @@ func Service(value string) Matcher {
 	}
 }
 
-// SameDeployment matches instnaces with the same Service and Namespace but not necessarily the same cluster.
+// SameDeployment matches instnaces with the same FQDN and assumes they're part of the same Service and Namespace.
 func SameDeployment(match Instance) Matcher {
 	return func(instance Instance) bool {
-		return match.Config().DeploymentKey() == instance.Config().DeploymentKey()
+		return match.Config().FQDN() == instance.Config().FQDN()
 	}
 }
 

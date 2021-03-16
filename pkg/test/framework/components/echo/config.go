@@ -155,10 +155,6 @@ func (c Config) HostHeader() string {
 	return c.FQDN()
 }
 
-func (c Config) DeploymentKey() Deployment {
-	return Deployment{Service: c.Service, Namespace: c.Namespace.Name()}
-}
-
 func (c Config) IsHeadless() bool {
 	return c.Headless
 }
