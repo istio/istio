@@ -44,7 +44,7 @@ func (t *T) fromEachDeployment(ctx framework.TestContext, testFn perDeploymentTe
 		ctx.NewSubTestf("%s", srcDeployment.Service).Run(func(ctx framework.TestContext) {
 			if len(srcInstances) == 0 {
 				// this can only happen due to filters being applied, be noisy about it to highlight missing coverage
-				ctx.Skip("cases with %s as source are removed by filters", srcDeployment.Service)
+				ctx.Skipf("cases with %s as source are removed by filters", srcDeployment.Service)
 			}
 			testFn(ctx, srcInstances)
 		})
@@ -65,15 +65,20 @@ func (t *T) toEachDeployment(ctx framework.TestContext, testFn perDeploymentTest
 func (t *T) fromEachCluster(ctx framework.TestContext, src, dst echo.Instances, testFn perInstanceTest) {
 	for _, srcInstance := range src {
 		srcInstance := srcInstance
-		filteredDst := t.applyDestinationFilters(srcInstance, dst)
+		filteredDst := t.applyCombinationFilters(srcInstance, dst)
 		if len(filteredDst) == 0 {
 			// this only happens due to filters and when an entire deployment is filtered we should be noisy
-			ctx.Skip("cases from %s in %s with %s as destination are removed by filters ",
+			ctx.Skipf("cases from %s in %s with %s as destination are removed by filters ",
 				srcInstance.Config().Service, srcInstance.Config().Cluster.StableName(), dst[0].Config().Service)
 			continue
 		}
-		ctx.NewSubTestf("in %s", srcInstance.Config().Cluster.StableName()).Run(func(ctx framework.TestContext) {
+		if len(ctx.Clusters()) == 0 && len(src) == 0 {
 			testFn(ctx, srcInstance, filteredDst)
-		})
+		} else {
+			ctx.NewSubTestf("from %s", srcInstance.Config().Cluster.StableName()).Run(func(ctx framework.TestContext) {
+				testFn(ctx, srcInstance, filteredDst)
+			})
+		}
+
 	}
 }

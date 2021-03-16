@@ -27,7 +27,7 @@ type T struct {
 	sources      echo.Instances
 	destinations echo.Instances
 
-	destinationFilters []destinationFilter
+	destinationFilters []combinationFilter
 
 	sourceDeploymentSetup []func(ctx framework.TestContext, src echo.Instances) error
 	deploymentPairSetup   []func(ctx framework.TestContext, src, dst echo.Instances) error

@@ -17,27 +17,35 @@ package echotest
 import "istio.io/istio/pkg/test/framework/components/echo"
 
 type (
-	sourceFilter      func(echo.Instances) echo.Instances
-	destinationFilter func(from echo.Instance, to echo.Instances) echo.Instances
+	simpleFilter      func(echo.Instances) echo.Instances
+	combinationFilter func(from echo.Instance, to echo.Instances) echo.Instances
 )
 
 // From applies each of the filter funcitons in order to allow removing workloads from the set of clients.
-func (t *T) From(filters ...sourceFilter) *T {
+func (t *T) From(filters ...simpleFilter) *T {
 	for _, filter := range filters {
 		t.sources = filter(t.sources)
 	}
 	return t
 }
 
-// To appends the given filters where are executed per test. Destination filters may need
+// To applies each of the filter funcitons in order to allow removing workloads from the set of destinations.
+func (t *T) To(filters ...simpleFilter) *T {
+	for _, filter := range filters {
+		t.destinations = filter(t.destinations)
+	}
+	return t
+}
+
+// ConditionallyTo appends the given filters which are executed per test. Destination filters may need
 // to change behavior based on the client. For example, naked services can't be reached cross-network, so
 // the client matters.
-func (t *T) To(filters ...destinationFilter) *T {
+func (t *T) ConditionallyTo(filters ...combinationFilter) *T {
 	t.destinationFilters = append(t.destinationFilters, filters...)
 	return t
 }
 
-func (t *T) applyDestinationFilters(from echo.Instance, to echo.Instances) echo.Instances {
+func (t *T) applyCombinationFilters(from echo.Instance, to echo.Instances) echo.Instances {
 	for _, filter := range t.destinationFilters {
 		to = filter(from, to)
 	}
@@ -47,19 +55,12 @@ func (t *T) applyDestinationFilters(from echo.Instance, to echo.Instances) echo.
 // SingleSimplePodBasedService finds the first Pod deployment that has a sidecar and doesn't use a headless service and removes all
 // other "regular" pods that aren't part of the same Service. Pods that are part of the same Service but are in a
 // different cluster or revision will still be included.
-var SingleSimplePodBasedService sourceFilter = func(instances echo.Instances) echo.Instances {
+var SingleSimplePodBasedService simpleFilter = func(instances echo.Instances) echo.Instances {
 	return oneRegularPod(instances)
 }
 
-// SingleSimplePodBasedServiceDestination finds the first Pod deployment that has a sidecar and doesn't use a headless service and removes all
-// other "regular" pods that aren't part of the same Service. Pods that are part of the same Service but are in a
-// different cluster or revision will still be included.
-var SingleSimplePodBasedServiceDestination destinationFilter = func(from echo.Instance, to echo.Instances) echo.Instances {
-	return oneRegularPod(to)
-}
-
 // NoExternalServices filters out external services which are based on
-var NoExternalServices sourceFilter = func(instances echo.Instances) echo.Instances {
+var NoExternalServices simpleFilter = func(instances echo.Instances) echo.Instances {
 	return instances.Match(echo.External().Negate())
 }
 
@@ -92,7 +93,7 @@ func isRegularPod(instance echo.Instance) bool {
 // - from a naked pod, we can't reach cross-network endpoints or VMs
 // - we can't reach cross-cluster headless endpoints
 // - from an injected Pod, only non-naked cross-network endpoints are reachable
-var ReachableDestinations destinationFilter = func(from echo.Instance, to echo.Instances) echo.Instances {
+var ReachableDestinations combinationFilter = func(from echo.Instance, to echo.Instances) echo.Instances {
 	if from.Config().IsNaked() {
 		to = to.Match(
 			echo.
