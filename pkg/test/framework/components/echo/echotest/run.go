@@ -72,7 +72,7 @@ func (t *T) fromEachCluster(ctx framework.TestContext, src, dst echo.Instances, 
 				srcInstance.Config().Service, srcInstance.Config().Cluster.StableName(), dst[0].Config().Service)
 			continue
 		}
-		if len(ctx.Clusters()) == 0 && len(src) == 0 {
+		if len(ctx.Clusters()) == 1 && len(src) == 1 {
 			testFn(ctx, srcInstance, filteredDst)
 		} else {
 			ctx.NewSubTestf("from %s", srcInstance.Config().Cluster.StableName()).Run(func(ctx framework.TestContext) {
