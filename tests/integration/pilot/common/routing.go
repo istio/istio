@@ -298,6 +298,7 @@ spec:
 					},
 				},
 			},
+			workloadAgnostic: true,
 		},
 	)
 
