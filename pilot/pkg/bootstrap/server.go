@@ -927,14 +927,19 @@ func (s *Server) initIstiodCerts(args *PilotArgs, host string) error {
 
 // maybeInitDNSCerts initializes DNS certs if needed.
 func (s *Server) maybeInitDNSCerts(args *PilotArgs, host string) error {
-	// Generate DNS certificates only if custom certs are not provided via args.
-	if !hasCustomTLSCerts(args.ServerOptions.TLSOptions) && s.EnableCA() {
-		// Create DNS certificates. This allows injector, validation to work without Citadel, and
+	if hasCustomTLSCerts(args.ServerOptions.TLSOptions) {
+		// Use the DNS certificate provided via args.
+		// This allows injector, validation to work without Citadel, and
 		// allows secure SDS connections to Istiod.
-		log.Infof("initializing Istiod DNS certificates host: %s, custom host: %s", host, features.IstiodServiceCustomHost.Get())
-		if err := s.initDNSCerts(host, features.IstiodServiceCustomHost.Get(), args.Namespace); err != nil {
-			return err
-		}
+		return nil
+	}
+	if !s.EnableCA() && features.PilotCertProvider.Get() == IstiodCAProvider {
+		// If CA functionality is disabled, istiod cannot sign the DNS certificates.
+		return nil
+	}
+	log.Infof("initializing Istiod DNS certificates host: %s, custom host: %s", host, features.IstiodServiceCustomHost.Get())
+	if err := s.initDNSCerts(host, features.IstiodServiceCustomHost.Get(), args.Namespace); err != nil {
+		return err
 	}
 	return nil
 }
