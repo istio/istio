@@ -389,6 +389,15 @@ spec:
 		}
 	}
 
+	// reduce the total # of subtests that don't give valuable coverage
+	for _, tc := range cases {
+		noNakedHeadless := func(instances echo.Instances) echo.Instances {
+			return instances.Match(echo.Not(echo.IsNaked()).And(echo.Not(echo.IsHeadless())))
+		}
+		tc.sourceFilters = append(tc.sourceFilters, noNakedHeadless)
+		tc.targetFilters = append(tc.targetFilters, noNakedHeadless)
+	}
+
 	return cases
 }
 

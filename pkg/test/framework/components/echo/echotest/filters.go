@@ -17,8 +17,8 @@ package echotest
 import "istio.io/istio/pkg/test/framework/components/echo"
 
 type (
-	simpleFilter      func(echo.Instances) echo.Instances
-	combinationFilter func(from echo.Instance, to echo.Instances) echo.Instances
+	SimpleFilter      func(echo.Instances) echo.Instances
+	CombinationFilter func(from echo.Instance, to echo.Instances) echo.Instances
 )
 
 // From applies each of the filter functions in order to allow removing workloads from the set of clients.
@@ -26,7 +26,7 @@ type (
 //     echotest.New(t, apps).
 //       From(echotest.SingleSimplePodBasedService, echotest.NoExternalServices).
 //       Run()
-func (t *T) From(filters ...simpleFilter) *T {
+func (t *T) From(filters ...SimpleFilter) *T {
 	for _, filter := range filters {
 		t.sources = filter(t.sources)
 	}
@@ -38,7 +38,7 @@ func (t *T) From(filters ...simpleFilter) *T {
 //     echotest.New(t, apps).
 //       To(echotest.SingleSimplePodBasedService).
 //       Run()
-func (t *T) To(filters ...simpleFilter) *T {
+func (t *T) To(filters ...SimpleFilter) *T {
 	for _, filter := range filters {
 		t.destinations = filter(t.destinations)
 	}
@@ -52,7 +52,7 @@ func (t *T) To(filters ...simpleFilter) *T {
 //     echotest.New(t, apps).
 //       ConditionallyTo(echotest.ReachableDestinations).
 //       Run()
-func (t *T) ConditionallyTo(filters ...combinationFilter) *T {
+func (t *T) ConditionallyTo(filters ...CombinationFilter) *T {
 	t.destinationFilters = append(t.destinationFilters, filters...)
 	return t
 }
@@ -97,7 +97,7 @@ func isRegularPod(instance echo.Instance) bool {
 // - from a naked pod, we can't reach cross-network endpoints or VMs
 // - we can't reach cross-cluster headless endpoints
 // - from an injected Pod, only non-naked cross-network endpoints are reachable
-var ReachableDestinations combinationFilter = func(from echo.Instance, to echo.Instances) echo.Instances {
+var ReachableDestinations CombinationFilter = func(from echo.Instance, to echo.Instances) echo.Instances {
 	return to.Match(fromNaked(from).
 		And(fromVM(from)).
 		And(toSameNetworkNaked(from)).

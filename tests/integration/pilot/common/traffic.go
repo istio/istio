@@ -62,7 +62,18 @@ type TrafficTestCase struct {
 	// workloadAgnostic is a temporary setting to trigger using RunForApps
 	// TODO remove this and force everything to be workoad agnostic
 	workloadAgnostic bool
+
+	// sourceFilters allows adding additional filtering for workload agnostic cases to test using fewer clients
+	sourceFilters []echotest.SimpleFilter
+	// targetFilters allows adding additional filtering for workload agnostic cases to test using fewer targets
+	targetFilters []echotest.SimpleFilter
 }
+
+var (
+	// TODO move to echotest?
+	defaulltSourceFilters = []echotest.SimpleFilter{echotest.SingleSimplePodBasedService, echotest.NoExternalServices}
+	defaulltTargetFilters = []echotest.SimpleFilter{echotest.SingleSimplePodBasedService}
+)
 
 func (c TrafficTestCase) RunForApps(t framework.TestContext, apps echo.Instances, namespace string) {
 	if c.skip {
@@ -91,9 +102,9 @@ func (c TrafficTestCase) RunForApps(t framework.TestContext, apps echo.Instances
 			)
 			return t.Config().ApplyYAML("", cfg)
 		}).
-		From(echotest.SingleSimplePodBasedService, echotest.NoExternalServices).
+		From(append(defaulltSourceFilters, c.sourceFilters...)...).
 		ConditionallyTo(echotest.ReachableDestinations).
-		To(echotest.SingleSimplePodBasedService).
+		To(append(defaulltTargetFilters, c.targetFilters...)...).
 		Run(func(t framework.TestContext, src echo.Instance, dest echo.Instances) {
 			buildOpts := func(options echo.CallOptions) echo.CallOptions {
 				opts := options
