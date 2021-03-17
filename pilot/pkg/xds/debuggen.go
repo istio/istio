@@ -70,7 +70,7 @@ func NewResponseCapture() *ResponseCapture {
 	return &ResponseCapture{
 		header:      make(map[string]string),
 		body:        new(bytes.Buffer),
-		wroteHeader: true,
+		wroteHeader: false,
 	}
 }
 
@@ -102,12 +102,7 @@ func (dg *DebugGen) Generate(proxy *model.Proxy, push *model.PushContext, w *mod
 			shouldAllow = true
 		}
 		if !shouldAllow {
-			res = append(res, &any.Any{
-				// nolint: staticcheck
-				TypeUrl: TypeDebug,
-				Value:   []byte(fmt.Sprintf("the debug info is not available for current identity: %q", identity)),
-			})
-			return res, nil
+			return res, fmt.Errorf("the debug info is not available for current identity: %q", identity)
 		}
 	}
 	debugURL := debugURL + debugServerPort + "/debug/" + resourceName
