@@ -34,6 +34,8 @@ type ServerPort struct {
 	Number uint32
 	// The protocol exposed on the port.
 	Protocol string
+	// The bind server specified on this port.
+	Bind string
 }
 
 // MergedServers describes set of servers defined in all gateways per port.
@@ -131,7 +133,7 @@ func MergeGateways(gateways ...config.Config) *MergedGateway {
 				}
 				tlsServerInfo[s] = &TLSServerInfo{SNIHosts: GetSNIHostsForServer(s), RouteName: routeName}
 			}
-			serverPort := ServerPort{s.Port.Number, s.Port.Protocol}
+			serverPort := ServerPort{s.Port.Number, s.Port.Protocol, s.Bind}
 			serverProtocol := protocol.Parse(serverPort.Protocol)
 			if gatewayPorts[s.Port.Number] {
 				// We have two servers on the same port. Should we merge?
@@ -154,10 +156,20 @@ func MergeGateways(gateways ...config.Config) *MergedGateway {
 						continue
 					}
 					serversByRouteName[routeName] = append(serversByRouteName[routeName], s)
-					// Merge this to current known port.
-					ms := mergedServers[current]
-					ms.RouteName = routeName
-					ms.Servers = append(ms.Servers, s)
+					if current.Bind != serverPort.Bind {
+						// Merge it to servers with the same port and bind.
+						if mergedServers[serverPort] == nil {
+							mergedServers[serverPort] = &MergedServers{Servers: []*networking.Server{}}
+						}
+						ms := mergedServers[serverPort]
+						ms.RouteName = routeName
+						ms.Servers = append(ms.Servers, s)
+					} else {
+						// Merge this to current known port with same bind.
+						ms := mergedServers[current]
+						ms.RouteName = routeName
+						ms.Servers = append(ms.Servers, s)
+					}
 				} else {
 					// We have duplicate port. Its not in plaintext servers. So, this has to be a TLS server.
 					// Check if this is also a HTTP server and if so, ensure uniqueness of port name.
