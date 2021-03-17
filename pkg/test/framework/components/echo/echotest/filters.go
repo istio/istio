@@ -115,9 +115,10 @@ func isRegularPod(instance echo.Instance) bool {
 func Not(filter SimpleFilter) SimpleFilter {
 	return func(instances echo.Instances) echo.Instances {
 		filtered := filter(instances)
-		return instances.Match(func(instance echo.Instance) bool {
+		inverted := instances.Match(func(instance echo.Instance) bool {
 			return !filtered.Contains(instance)
 		})
+		return inverted
 	}
 }
 
@@ -128,7 +129,7 @@ func VirtualMachines(instances echo.Instances) echo.Instances {
 
 // ExternalServices includes services that are based on naked pods with a custom DefaultHostHeader
 func ExternalServices(instances echo.Instances) echo.Instances {
-	return instances.Match(echo.Not(echo.IsExternal()))
+	return instances.Match(echo.IsExternal())
 }
 
 // ReachableDestinations filters out known-unreachable destinations given a source.
