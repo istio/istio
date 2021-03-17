@@ -18,16 +18,14 @@ import (
 	"strconv"
 	"testing"
 
-	"istio.io/istio/pkg/test/scopes"
-	"istio.io/pkg/log"
-
 	"github.com/google/go-cmp/cmp"
 
 	"istio.io/istio/pkg/test/framework"
-	"istio.io/istio/pkg/test/framework/resource"
-
 	"istio.io/istio/pkg/test/framework/components/cluster"
 	"istio.io/istio/pkg/test/framework/components/echo"
+	"istio.io/istio/pkg/test/framework/resource"
+	"istio.io/istio/pkg/test/scopes"
+	"istio.io/pkg/log"
 )
 
 var (
