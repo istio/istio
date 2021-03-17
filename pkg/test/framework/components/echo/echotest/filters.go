@@ -65,7 +65,7 @@ func (t *T) ConditionallyTo(filters ...CombinationFilter) *T {
 //   Pod a will not be in destinations, but b will (one simpe pod not in sources)
 func (t *T) WithDefaultFilters() *T {
 	return t.
-		From(SingleSimplePodServiceAndAllSpecial(), NoExternalServices).
+		From(SingleSimplePodServiceAndAllSpecial(), Not(ExternalServices)).
 		ConditionallyTo(ReachableDestinations).
 		To(SingleSimplePodServiceAndAllSpecial(t.sources...))
 }
@@ -91,11 +91,6 @@ func SingleSimplePodServiceAndAllSpecial(exclude ...echo.Instance) SimpleFilter 
 	}
 }
 
-// NoExternalServices filters out external services which are based on
-func NoExternalServices(instances echo.Instances) echo.Instances {
-	return instances.Match(echo.IsExternal().Negate())
-}
-
 func oneRegularPod(instances echo.Instances, exclude echo.Instances) echo.Instances {
 	regularPods := instances.Match(isRegularPod)
 	others := instances.Match(echo.Not(isRegularPod))
@@ -114,6 +109,26 @@ func oneRegularPod(instances echo.Instances, exclude echo.Instances) echo.Instan
 func isRegularPod(instance echo.Instance) bool {
 	c := instance.Config()
 	return !c.IsVM() && len(c.Subsets) == 1 && !c.IsNaked() && !c.IsHeadless()
+}
+
+// Not includes all workloads that don't match the given filter
+func Not(filter SimpleFilter) SimpleFilter {
+	return func(instances echo.Instances) echo.Instances {
+		filtered := filter(instances)
+		return instances.Match(func(instance echo.Instance) bool {
+			return !filtered.Contains(instance)
+		})
+	}
+}
+
+// VirtualMachines includes VM deployments
+func VirtualMachines(instances echo.Instances) echo.Instances {
+	return instances.Match(echo.IsVirtualMachine())
+}
+
+// ExternalServices includes services that are based on naked pods with a custom DefaultHostHeader
+func ExternalServices(instances echo.Instances) echo.Instances {
+	return instances.Match(echo.Not(echo.IsExternal()))
 }
 
 // ReachableDestinations filters out known-unreachable destinations given a source.
