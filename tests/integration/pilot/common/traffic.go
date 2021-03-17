@@ -71,8 +71,8 @@ type TrafficTestCase struct {
 
 var (
 	// TODO move to echotest?
-	defaulltSourceFilters = []echotest.SimpleFilter{echotest.SingleSimplePodBasedService, echotest.NoExternalServices}
-	defaulltTargetFilters = []echotest.SimpleFilter{echotest.SingleSimplePodBasedService}
+	defaultSourceFilters = []echotest.SimpleFilter{echotest.SingleSimplePodBasedService, echotest.NoExternalServices}
+	defaultTargetFilters = []echotest.SimpleFilter{echotest.SingleSimplePodBasedService}
 )
 
 func (c TrafficTestCase) RunForApps(t framework.TestContext, apps echo.Instances, namespace string) {
@@ -100,9 +100,9 @@ func (c TrafficTestCase) RunForApps(t framework.TestContext, apps echo.Instances
 				), namespace)
 				return t.Config().ApplyYAML("", cfg)
 			}).
-			From(append(defaulltSourceFilters, c.sourceFilters...)...).
+			From(append(defaultSourceFilters, c.sourceFilters...)...).
 			ConditionallyTo(echotest.ReachableDestinations).
-			To(append(defaulltTargetFilters, c.targetFilters...)...).
+			To(append(defaultTargetFilters, c.targetFilters...)...).
 			Run(func(t framework.TestContext, src echo.Instance, dest echo.Instances) {
 				if c.skip {
 					t.SkipNow()
