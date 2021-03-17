@@ -23,12 +23,18 @@ import (
 )
 
 var (
-	instanceIPVar        = env.RegisterStringVar("INSTANCE_IP", "", "")
-	podNameVar           = env.RegisterStringVar("POD_NAME", "", "")
-	podNamespaceVar      = env.RegisterStringVar("POD_NAMESPACE", "", "")
+	InstanceIPVar        = env.RegisterStringVar("INSTANCE_IP", "", "")
+	PodNameVar           = env.RegisterStringVar("POD_NAME", "", "")
+	PodNamespaceVar      = env.RegisterStringVar("POD_NAMESPACE", "", "")
 	kubeAppProberNameVar = env.RegisterStringVar(status.KubeAppProberEnvName, "", "")
-	serviceAccountVar    = env.RegisterStringVar("SERVICE_ACCOUNT", "", "Name of service account")
-	clusterIDVar         = env.RegisterStringVar("ISTIO_META_CLUSTER_ID", "", "")
+	ProxyConfigEnv       = env.RegisterStringVar(
+		"PROXY_CONFIG",
+		"",
+		"The proxy configuration. This will be set by the injection - gateways will use file mounts.",
+	).Get()
+
+	serviceAccountVar = env.RegisterStringVar("SERVICE_ACCOUNT", "", "Name of service account")
+	clusterIDVar      = env.RegisterStringVar("ISTIO_META_CLUSTER_ID", "", "")
 	// Provider for XDS auth, e.g., gcp. By default, it is empty, meaning no auth provider.
 	xdsAuthProvider = env.RegisterStringVar("XDS_AUTH_PROVIDER", "", "Provider for XDS auth")
 
@@ -53,11 +59,6 @@ var (
 	outputKeyCertToDir = env.RegisterStringVar("OUTPUT_CERTS", "",
 		"The output directory for the key and certificate. If empty, key and certificate will not be saved. "+
 			"Must be set for VMs using provisioning certificates.").Get()
-	proxyConfigEnv = env.RegisterStringVar(
-		"PROXY_CONFIG",
-		"",
-		"The proxy configuration. This will be set by the injection - gateways will use file mounts.",
-	).Get()
 
 	caProviderEnv = env.RegisterStringVar("CA_PROVIDER", "Citadel", "name of authentication provider").Get()
 	caEndpointEnv = env.RegisterStringVar("CA_ADDR", "", "Address of the spiffe certificate provider. Defaults to discoveryAddress").Get()

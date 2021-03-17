@@ -39,7 +39,7 @@ func NewAgentOptions(proxy *model.Proxy) *istioagent.AgentOptions {
 	if proxyXDSViaAgent {
 		o.ProxyXDSViaAgent = true
 		o.DNSCapture = dnsCaptureByAgent
-		o.ProxyNamespace = podNamespaceVar.Get()
+		o.ProxyNamespace = PodNamespaceVar.Get()
 		o.ProxyDomain = proxy.DNSDomain
 	}
 

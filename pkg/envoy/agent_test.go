@@ -24,7 +24,6 @@ import (
 type TestProxy struct {
 	run          func(int, <-chan error) error
 	cleanup      func(int)
-	live         func() bool
 	blockChannel chan interface{}
 }
 

@@ -114,7 +114,7 @@ func TestNewServer(t *testing.T) {
 		},
 	}
 	for _, tc := range testCases {
-		_, err := NewServer(Config{
+		_, err := NewServer(Options{
 			KubeAppProbers: tc.probe,
 		})
 
@@ -137,7 +137,7 @@ func TestNewServer(t *testing.T) {
 func TestPprof(t *testing.T) {
 	pprofPath := "/debug/pprof/cmdline"
 	// Starts the pilot agent status server.
-	server, err := NewServer(Config{StatusPort: 0})
+	server, err := NewServer(Options{StatusPort: 0})
 	if err != nil {
 		t.Fatalf("failed to create status server %v", err)
 	}
@@ -441,7 +441,7 @@ func TestAppProbe(t *testing.T) {
 			if err != nil {
 				t.Fatalf("invalid app probers")
 			}
-			config := Config{
+			config := Options{
 				StatusPort:     0,
 				KubeAppProbers: string(appProber),
 			}
@@ -490,7 +490,7 @@ func TestHttpsAppProbe(t *testing.T) {
 	appPort := listener.Addr().(*net.TCPAddr).Port
 
 	// Starts the pilot agent status server.
-	server, err := NewServer(Config{
+	server, err := NewServer(Options{
 		StatusPort: 0,
 		KubeAppProbers: fmt.Sprintf(`{"/app-health/hello-world/readyz": {"httpGet": {"path": "/hello/sunnyvale", "port": %v, "scheme": "HTTPS"}},
 "/app-health/hello-world/livez": {"httpGet": {"port": %v, "scheme": "HTTPS"}}}`, appPort, appPort),
@@ -550,7 +550,7 @@ func TestHttpsAppProbe(t *testing.T) {
 
 func TestHandleQuit(t *testing.T) {
 	statusPort := 15020
-	s, err := NewServer(Config{StatusPort: uint16(statusPort)})
+	s, err := NewServer(Options{StatusPort: uint16(statusPort)})
 	if err != nil {
 		t.Fatal(err)
 	}

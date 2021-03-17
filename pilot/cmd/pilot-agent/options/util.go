@@ -12,22 +12,25 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package main
+package options
 
 import (
-	"testing"
-
-	"github.com/onsi/gomega"
-
-	"istio.io/istio/pilot/pkg/model"
+	"net"
 )
 
-func TestPilotDefaultDomainKubernetes(t *testing.T) {
-	g := gomega.NewWithT(t)
-	role := &model.Proxy{}
-	role.DNSDomain = ""
-
-	domain := getDNSDomain("default", role.DNSDomain)
-
-	g.Expect(domain).To(gomega.Equal("default.svc.cluster.local"))
+// IsIPv6Proxy check the addresses slice and returns true for a valid IPv6 address
+// for all other cases it returns false
+func IsIPv6Proxy(ipAddrs []string) bool {
+	for i := 0; i < len(ipAddrs); i++ {
+		addr := net.ParseIP(ipAddrs[i])
+		if addr == nil {
+			// Should not happen, invalid IP in proxy's IPAddresses slice should have been caught earlier,
+			// skip it to prevent a panic.
+			continue
+		}
+		if addr.To4() != nil {
+			return false
+		}
+	}
+	return true
 }

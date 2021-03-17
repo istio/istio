@@ -34,13 +34,13 @@ import (
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/envoy"
 	istio_agent "istio.io/istio/pkg/istio-agent"
+	"istio.io/istio/pkg/security"
 	"istio.io/istio/pkg/util/gogoprotomarshal"
 	stsserver "istio.io/istio/security/pkg/stsservice/server"
 	"istio.io/istio/security/pkg/stsservice/tokenmanager"
 	cleaniptables "istio.io/istio/tools/istio-clean-iptables/pkg/cmd"
 	iptables "istio.io/istio/tools/istio-iptables/pkg/cmd"
 	"istio.io/pkg/collateral"
-	"istio.io/pkg/env"
 	"istio.io/pkg/log"
 	"istio.io/pkg/version"
 )
@@ -67,17 +67,6 @@ var (
 	templateFile           string
 	loggingOptions         = log.DefaultOptions()
 	outlierLogPath         string
-
-	instanceIPVar        = env.RegisterStringVar("INSTANCE_IP", "", "")
-	podNameVar           = env.RegisterStringVar("POD_NAME", "", "")
-	podNamespaceVar      = env.RegisterStringVar("POD_NAMESPACE", "", "")
-	kubeAppProberNameVar = env.RegisterStringVar(status.KubeAppProberEnvName, "", "")
-
-	proxyConfigEnv = env.RegisterStringVar(
-		"PROXY_CONFIG",
-		"",
-		"The proxy configuration. This will be set by the injection - gateways will use file mounts.",
-	).Get()
 
 	rootCmd = &cobra.Command{
 		Use:          "pilot-agent",
@@ -106,7 +95,7 @@ var (
 			if err != nil {
 				return err
 			}
-			proxyConfig, err := config.ConstructProxyConfig(meshConfigFile, serviceCluster, proxyConfigEnv, concurrency, proxy)
+			proxyConfig, err := config.ConstructProxyConfig(meshConfigFile, serviceCluster, options.ProxyConfigEnv, concurrency, proxy)
 			if err != nil {
 				return fmt.Errorf("failed to get proxy config: %v", err)
 			}
@@ -121,22 +110,12 @@ var (
 				return err
 			}
 
-			// Check if proxy runs in ipv4 or ipv6 environment to set Envoy's
-			// operational parameters correctly.
-			proxyIPv6 := isIPv6Proxy(proxy.IPAddresses)
 			// If security token service (STS) port is not zero, start STS server and
 			// listen on STS port for STS requests. For STS, see
 			// https://tools.ietf.org/html/draft-ietf-oauth-token-exchange-16.
 			// STS is used for stackdriver or other Envoy services using google gRPC.
 			if stsPort > 0 {
-				localHostAddr := localHostIPv4
-				if proxyIPv6 {
-					localHostAddr = localHostIPv6
-				}
-				stsServer, err := stsserver.NewServer(stsserver.Config{
-					LocalHostAddr: localHostAddr,
-					LocalPort:     stsPort,
-				}, secOpts.TokenManager)
+				stsServer, err := initStsServer(proxy, secOpts.TokenManager)
 				if err != nil {
 					return err
 				}
@@ -167,7 +146,7 @@ var (
 
 			// If a status port was provided, start handling status probes.
 			if proxyConfig.StatusPort > 0 {
-				if err := initStatusServer(ctx, proxyIPv6, proxyConfig, proxy.Type); err != nil {
+				if err := initStatusServer(ctx, proxy, proxyConfig); err != nil {
 					return err
 				}
 			}
@@ -205,21 +184,29 @@ var (
 	}
 )
 
-func initStatusServer(ctx context.Context, proxyIPv6 bool, proxyConfig *meshconfig.ProxyConfig, proxyType model.NodeType) error {
-	prober := kubeAppProberNameVar.Get()
-	statusServer, err := status.NewServer(status.Config{
-		IPv6:           proxyIPv6,
-		PodIP:          instanceIPVar.Get(),
-		AdminPort:      uint16(proxyConfig.ProxyAdminPort),
-		StatusPort:     uint16(proxyConfig.StatusPort),
-		KubeAppProbers: prober,
-		NodeType:       proxyType,
-	})
+func initStatusServer(ctx context.Context, proxy *model.Proxy, proxyConfig *meshconfig.ProxyConfig) error {
+	o := options.NewStatusServerOptions(proxy, proxyConfig)
+	statusServer, err := status.NewServer(*o)
 	if err != nil {
 		return err
 	}
 	go statusServer.Run(ctx)
 	return nil
+}
+
+func initStsServer(proxy *model.Proxy, tokenManager security.TokenManager) (*stsserver.Server, error) {
+	localHostAddr := localHostIPv4
+	if options.IsIPv6Proxy(proxy.IPAddresses) {
+		localHostAddr = localHostIPv6
+	}
+	stsServer, err := stsserver.NewServer(stsserver.Config{
+		LocalHostAddr: localHostAddr,
+		LocalPort:     stsPort,
+	}, tokenManager)
+	if err != nil {
+		return nil, err
+	}
+	return stsServer, nil
 }
 
 func getDNSDomain(podNamespace, domain string) string {
@@ -289,23 +276,6 @@ func main() {
 	}
 }
 
-// isIPv6Proxy check the addresses slice and returns true for a valid IPv6 address
-// for all other cases it returns false
-func isIPv6Proxy(ipAddrs []string) bool {
-	for i := 0; i < len(ipAddrs); i++ {
-		addr := net.ParseIP(ipAddrs[i])
-		if addr == nil {
-			// Should not happen, invalid IP in proxy's IPAddresses slice should have been caught earlier,
-			// skip it to prevent a panic.
-			continue
-		}
-		if addr.To4() != nil {
-			return false
-		}
-	}
-	return true
-}
-
 func initProxy(args []string) (*model.Proxy, error) {
 	proxy := &model.Proxy{
 		Type: model.SidecarProxy,
@@ -318,7 +288,7 @@ func initProxy(args []string) (*model.Proxy, error) {
 		}
 	}
 
-	podIP := net.ParseIP(instanceIPVar.Get()) // protobuf encoding of IP_ADDRESS type
+	podIP := net.ParseIP(options.InstanceIPVar.Get()) // protobuf encoding of IP_ADDRESS type
 	if podIP != nil {
 		proxy.IPAddresses = []string{podIP.String()}
 	}
@@ -340,13 +310,12 @@ func initProxy(args []string) (*model.Proxy, error) {
 
 	// No IP addresses provided, append 127.0.0.1 for ipv4 and ::1 for ipv6
 	if len(proxy.IPAddresses) == 0 {
-		proxy.IPAddresses = append(proxy.IPAddresses, "127.0.0.1")
-		proxy.IPAddresses = append(proxy.IPAddresses, "::1")
+		proxy.IPAddresses = append(proxy.IPAddresses, localHostIPv4, localHostIPv6)
 	}
 
 	// Extract pod variables.
-	podName := podNameVar.Get()
-	podNamespace := podNamespaceVar.Get()
+	podName := options.PodNameVar.Get()
+	podNamespace := options.PodNamespaceVar.Get()
 	proxy.ID = podName + "." + podNamespace
 
 	// If not set, set a default based on platform - podNamespace.svc.cluster.local for

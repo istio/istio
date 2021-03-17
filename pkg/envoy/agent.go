@@ -27,8 +27,8 @@ var errAbort = errors.New("epoch aborted")
 const errOutOfMemory = "signal: killed"
 
 // NewAgent creates a new proxy agent for the proxy start-up and clean-up functions.
-func NewAgent(proxy Proxy, terminationDrainDuration time.Duration) *agent {
-	return &agent{
+func NewAgent(proxy Proxy, terminationDrainDuration time.Duration) *Agent {
+	return &Agent{
 		proxy:                    proxy,
 		statusCh:                 make(chan exitStatus),
 		abortCh:                  make(chan error, 1),
@@ -49,7 +49,7 @@ type Proxy interface {
 	Cleanup(int)
 }
 
-type agent struct {
+type Agent struct {
 	// proxy commands
 	proxy Proxy
 
@@ -68,7 +68,7 @@ type exitStatus struct {
 }
 
 // Run starts the envoy and waits until it terminates.
-func (a *agent) Run(ctx context.Context) error {
+func (a *Agent) Run(ctx context.Context) error {
 	log.Info("Starting proxy agent")
 	go a.runWait(0, a.abortCh)
 
@@ -92,7 +92,7 @@ func (a *agent) Run(ctx context.Context) error {
 	}
 }
 
-func (a *agent) terminate() {
+func (a *Agent) terminate() {
 	log.Infof("Agent draining Proxy")
 	e := a.proxy.Drain()
 	if e != nil {
@@ -106,7 +106,7 @@ func (a *agent) terminate() {
 }
 
 // runWait runs the start-up command as a go routine and waits for it to finish
-func (a *agent) runWait(epoch int, abortCh <-chan error) {
+func (a *Agent) runWait(epoch int, abortCh <-chan error) {
 	log.Infof("Epoch %d starting", epoch)
 	err := a.proxy.Run(epoch, abortCh)
 	a.proxy.Cleanup(epoch)
