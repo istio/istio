@@ -25,6 +25,10 @@ import (
 	"github.com/spf13/cobra/doc"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
+	"istio.io/pkg/collateral"
+	"istio.io/pkg/log"
+	"istio.io/pkg/version"
+
 	"istio.io/istio/pilot/cmd/pilot-agent/config"
 	"istio.io/istio/pilot/cmd/pilot-agent/options"
 	"istio.io/istio/pilot/cmd/pilot-agent/status"
@@ -40,9 +44,6 @@ import (
 	"istio.io/istio/security/pkg/stsservice/tokenmanager"
 	cleaniptables "istio.io/istio/tools/istio-clean-iptables/pkg/cmd"
 	iptables "istio.io/istio/tools/istio-iptables/pkg/cmd"
-	"istio.io/pkg/collateral"
-	"istio.io/pkg/log"
-	"istio.io/pkg/version"
 )
 
 const (
@@ -50,7 +51,7 @@ const (
 	localHostIPv6 = "[::1]"
 )
 
-// TODO: Move most of this to pkg.
+// TODO: Move most of this to pkg options.
 
 var (
 	dnsDomain          string
@@ -184,45 +185,6 @@ var (
 	}
 )
 
-func initStatusServer(ctx context.Context, proxy *model.Proxy, proxyConfig *meshconfig.ProxyConfig) error {
-	o := options.NewStatusServerOptions(proxy, proxyConfig)
-	statusServer, err := status.NewServer(*o)
-	if err != nil {
-		return err
-	}
-	go statusServer.Run(ctx)
-	return nil
-}
-
-func initStsServer(proxy *model.Proxy, tokenManager security.TokenManager) (*stsserver.Server, error) {
-	localHostAddr := localHostIPv4
-	if options.IsIPv6Proxy(proxy.IPAddresses) {
-		localHostAddr = localHostIPv6
-	}
-	stsServer, err := stsserver.NewServer(stsserver.Config{
-		LocalHostAddr: localHostAddr,
-		LocalPort:     stsPort,
-	}, tokenManager)
-	if err != nil {
-		return nil, err
-	}
-	return stsServer, nil
-}
-
-func getDNSDomain(podNamespace, domain string) string {
-	if len(domain) == 0 {
-		domain = podNamespace + ".svc." + constants.DefaultKubernetesDomain
-	}
-	return domain
-}
-
-func configureLogging(_ *cobra.Command, _ []string) error {
-	if err := log.Configure(loggingOptions); err != nil {
-		return err
-	}
-	return nil
-}
-
 func init() {
 	proxyCmd.PersistentFlags().StringVar(&dnsDomain, "domain", "",
 		"DNS domain suffix. If not provided uses ${POD_NAMESPACE}.svc.cluster.local")
@@ -265,15 +227,43 @@ func init() {
 	}))
 }
 
-// TODO: get the config and bootstrap from istiod, by passing the env
-
-// Use env variables - from injection, k8s and local namespace config map.
-// No CLI parameters.
-func main() {
-	if err := rootCmd.Execute(); err != nil {
-		log.Error(err)
-		os.Exit(-1)
+func initStatusServer(ctx context.Context, proxy *model.Proxy, proxyConfig *meshconfig.ProxyConfig) error {
+	o := options.NewStatusServerOptions(proxy, proxyConfig)
+	statusServer, err := status.NewServer(*o)
+	if err != nil {
+		return err
 	}
+	go statusServer.Run(ctx)
+	return nil
+}
+
+func initStsServer(proxy *model.Proxy, tokenManager security.TokenManager) (*stsserver.Server, error) {
+	localHostAddr := localHostIPv4
+	if options.IsIPv6Proxy(proxy.IPAddresses) {
+		localHostAddr = localHostIPv6
+	}
+	stsServer, err := stsserver.NewServer(stsserver.Config{
+		LocalHostAddr: localHostAddr,
+		LocalPort:     stsPort,
+	}, tokenManager)
+	if err != nil {
+		return nil, err
+	}
+	return stsServer, nil
+}
+
+func getDNSDomain(podNamespace, domain string) string {
+	if len(domain) == 0 {
+		domain = podNamespace + ".svc." + constants.DefaultKubernetesDomain
+	}
+	return domain
+}
+
+func configureLogging(_ *cobra.Command, _ []string) error {
+	if err := log.Configure(loggingOptions); err != nil {
+		return err
+	}
+	return nil
 }
 
 func initProxy(args []string) (*model.Proxy, error) {
@@ -324,4 +314,15 @@ func initProxy(args []string) (*model.Proxy, error) {
 	log.WithLabels("ips", proxy.IPAddresses, "type", proxy.Type, "id", proxy.ID, "domain", proxy.DNSDomain).Info("Proxy role")
 
 	return proxy, nil
+}
+
+// TODO: get the config and bootstrap from istiod, by passing the env
+
+// Use env variables - from injection, k8s and local namespace config map.
+// No CLI parameters.
+func main() {
+	if err := rootCmd.Execute(); err != nil {
+		log.Error(err)
+		os.Exit(-1)
+	}
 }
