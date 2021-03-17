@@ -24,6 +24,8 @@ import (
 	"strings"
 	"time"
 
+	"istio.io/istio/pkg/test/framework/components/echo/echotest"
+
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/test"
 	echoclient "istio.io/istio/pkg/test/echo/client"
@@ -210,6 +212,8 @@ spec:
 		},
 		TrafficTestCase{
 			name: "cors",
+			// TODO https://github.com/istio/istio/issues/31532
+			targetFilters: []echotest.SimpleFilter{echotest.Not(echotest.VirtualMachines)},
 			config: `
 apiVersion: networking.istio.io/v1alpha3
 kind: VirtualService
