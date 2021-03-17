@@ -24,7 +24,7 @@ type (
 // From applies each of the filter functions in order to allow removing workloads from the set of clients.
 // Example:
 //     echotest.New(t, apps).
-//       From(echotest.SingleSimplePodBasedService, echotest.NoExternalServices).
+//       From(echotest.SingleSimplePodServiceAndAllSpecial, echotest.NoExternalServices).
 //       Run()
 func (t *T) From(filters ...SimpleFilter) *T {
 	for _, filter := range filters {
@@ -36,7 +36,7 @@ func (t *T) From(filters ...SimpleFilter) *T {
 // To applies each of the filter functions in order to allow removing workloads from the set of destinations.
 // Example:
 //     echotest.New(t, apps).
-//       To(echotest.SingleSimplePodBasedService).
+//       To(echotest.SingleSimplePodServiceAndAllSpecial).
 //       Run()
 func (t *T) To(filters ...SimpleFilter) *T {
 	for _, filter := range filters {
@@ -57,6 +57,19 @@ func (t *T) ConditionallyTo(filters ...CombinationFilter) *T {
 	return t
 }
 
+// WithDefaultFilters applies common filters that work for most tests.
+// Example:
+//   The full set of apps is a, b, c, headless, naked, and vm (one simple pod).
+//   Only a, headless, naked and vm are used as sources.
+//   Subtests are generated only for reachable destinations.
+//   Pod a will not be in destinations, but b will (one simpe pod not in sources)
+func (t *T) WithDefaultFilters() *T {
+	return t.
+		From(SingleSimplePodServiceAndAllSpecial(), NoExternalServices).
+		ConditionallyTo(ReachableDestinations).
+		To(SingleSimplePodServiceAndAllSpecial(t.sources...))
+}
+
 func (t *T) applyCombinationFilters(from echo.Instance, to echo.Instances) echo.Instances {
 	for _, filter := range t.destinationFilters {
 		to = filter(from, to)
@@ -64,11 +77,18 @@ func (t *T) applyCombinationFilters(from echo.Instance, to echo.Instances) echo.
 	return to
 }
 
-// SingleSimplePodBasedService finds the first Pod deployment that has a sidecar and doesn't use a headless service and removes all
+// SingleSimplePodServiceAndAllSpecial finds the first Pod deployment that has a sidecar and doesn't use a headless service and removes all
 // other "regular" pods that aren't part of the same Service. Pods that are part of the same Service but are in a
 // different cluster or revision will still be included.
-func SingleSimplePodBasedService(instances echo.Instances) echo.Instances {
-	return oneRegularPod(instances)
+// Example:
+//     The full set of apps is a, b, c, headless, naked, and vm.
+//     The plain-pods are a, b and c.
+//     This filter would result in a, headless, naked and vm.
+// TODO this name is not good
+func SingleSimplePodServiceAndAllSpecial(exclude ...echo.Instance) SimpleFilter {
+	return func(instances echo.Instances) echo.Instances {
+		return oneRegularPod(instances, exclude)
+	}
 }
 
 // NoExternalServices filters out external services which are based on
@@ -76,9 +96,12 @@ func NoExternalServices(instances echo.Instances) echo.Instances {
 	return instances.Match(echo.IsExternal().Negate())
 }
 
-func oneRegularPod(instances echo.Instances) echo.Instances {
+func oneRegularPod(instances echo.Instances, exclude echo.Instances) echo.Instances {
 	regularPods := instances.Match(isRegularPod)
 	others := instances.Match(echo.Not(isRegularPod))
+	for _, exclude := range exclude {
+		regularPods = regularPods.Match(echo.Not(echo.SameDeployment(exclude)))
+	}
 	if len(regularPods) == 0 {
 		return others
 	}
