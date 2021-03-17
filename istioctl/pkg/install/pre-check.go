@@ -65,8 +65,6 @@ type preCheckExecClient interface {
 }
 
 // Tell the user if Istio can be installed, and if not give the reason.
-// Note: this doesn't check the IstioOperator options.  It only checks a few things every
-// Istio install needs.  It does not check the Revision.
 func installPreCheck(istioNamespaceFlag string, restClientGetter genericclioptions.RESTClientGetter, writer io.Writer) error {
 	fmt.Fprintf(writer, "\n")
 	fmt.Fprintf(writer, "Checking the cluster to make sure it is ready for Istio installation...\n")
@@ -342,15 +340,16 @@ func NewPrecheckCommand() *cobra.Command {
 			installs, err := cli.getIstioInstalls()
 			if err == nil && len(installs) > 0 {
 				matched := false
+				var revision string
 				for _, install := range installs {
 					if !specific || targetNamespace == install.namespace && targetRevision == install.revision {
-						revision := install.revision
+						revision = install.revision
 						if revision == "" {
 							revision = "default"
 						}
 						c.Printf("%q revision of Istio is already installed in %q namespace\n", revision, install.namespace)
 					}
-					if targetNamespace == install.namespace && targetRevision == install.revision {
+					if targetNamespace == install.namespace && targetRevision == revision {
 						matched = true
 					}
 				}
