@@ -22,7 +22,6 @@ import (
 	coreV1 "k8s.io/api/core/v1"
 	metaV1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pkg/config/mesh"
 	kubelib "istio.io/istio/pkg/kube"
 )
@@ -35,13 +34,10 @@ var (
 	testNamespace = "test"
 )
 
-type fakeMeshHolder struct {
-}
-
-func (holder *fakeMeshHolder) Mesh() *meshconfig.MeshConfig {
+func fakeMeshHolder(ingressService string) mesh.Holder {
 	config := mesh.DefaultMeshConfig()
-	config.IngressService = "istio-ingress"
-	return &config
+	config.IngressService = ingressService
+	return mesh.NewFixedWatcher(&config)
 }
 
 func setupFake(t *testing.T, client kubelib.Client) {
@@ -119,7 +115,7 @@ func makeStatusSyncer(t *testing.T) *StatusSyncer {
 
 	client := kubelib.NewFakeClient()
 	setupFake(t, client)
-	sync := NewStatusSyncer(&fakeMeshHolder{}, client)
+	sync := NewStatusSyncer(fakeMeshHolder("istio-ingress"), client)
 	stop := make(chan struct{})
 	client.RunAndWait(stop)
 	t.Cleanup(func() {
@@ -160,7 +156,7 @@ func testRunningAddressesWithService(t *testing.T) {
 
 func testRunningAddressesWithHostname(t *testing.T) {
 	syncer := makeStatusSyncer(t)
-	syncer.ingressService = "istio-ingress-hostname"
+	syncer.meshHolder = fakeMeshHolder("istio-ingress-hostname")
 
 	address, err := syncer.runningAddresses(testNamespace)
 	if err != nil {
@@ -175,7 +171,7 @@ func testRunningAddressesWithHostname(t *testing.T) {
 func TestRunningAddressesWithPod(t *testing.T) {
 	ingressNamespace = "istio-system" // it is set in real pilot on newController.
 	syncer := makeStatusSyncer(t)
-	syncer.ingressService = ""
+	syncer.meshHolder = fakeMeshHolder("")
 
 	address, err := syncer.runningAddresses(ingressNamespace)
 	if err != nil {
