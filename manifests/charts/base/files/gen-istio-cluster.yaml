@@ -5425,7 +5425,7 @@ spec:
         properties:
           spec:
             description: 'Configuration for access control on workloads. See more
-              details at: https://istio.io/docs/reference/config/security/authorization-policy.html'
+              details at: https://istio.io/latest/docs/reference/config/security/authorization-policy.html'
             oneOf:
             - not:
                 anyOf:
@@ -6012,6 +6012,11 @@ rules:
   - apiGroups: [""]
     resources: ["secrets"]
     verbs: ["get", "watch", "list"]
+
+  # Used for MCS serviceexport management
+  - apiGroups: ["multicluster.x-k8s.io"]
+    resources: ["serviceexports"]
+    verbs: ["get", "watch", "list", "create", "delete"]
 ---
 # Source: base/templates/clusterrole.yaml
 apiVersion: rbac.authorization.k8s.io/v1

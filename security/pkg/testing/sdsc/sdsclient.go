@@ -30,8 +30,8 @@ import (
 	"google.golang.org/grpc/metadata"
 
 	authn_model "istio.io/istio/pilot/pkg/security/model"
+	v3 "istio.io/istio/pilot/pkg/xds/v3"
 	"istio.io/istio/pkg/security"
-	agent_sds "istio.io/istio/security/pkg/nodeagent/sds"
 	"istio.io/pkg/log"
 )
 
@@ -136,7 +136,7 @@ func (c *Client) Send() error {
 		ResourceNames: []string{
 			security.WorkloadKeyCertResourceName,
 		},
-		TypeUrl: agent_sds.SecretTypeV3,
+		TypeUrl: v3.SecretType,
 	})
 }
 

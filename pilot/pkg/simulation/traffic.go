@@ -246,7 +246,7 @@ func hasFilterOnPort(l *listener.Listener, filter string, port int) bool {
 	if got.FilterDisabled == nil {
 		return true
 	}
-	return !xdstest.EvaluateListenerFilterPredicates(got.FilterDisabled, false, port)
+	return !xdstest.EvaluateListenerFilterPredicates(got.FilterDisabled, port)
 }
 
 func (sim *Simulation) Run(input Call) (result Result) {

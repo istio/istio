@@ -46,8 +46,6 @@ import (
 )
 
 func TestMain(m *testing.M) {
-	// TODO(https://github.com/istio/istio/issues/29349) make this not global
-	GetJwtKeyResolver().Close()
 	leak.CheckMain(m)
 }
 
@@ -321,6 +319,7 @@ func TestServiceIndex(t *testing.T) {
 	}
 	m := mesh.DefaultMeshConfig()
 	env.Watcher = mesh.NewFixedWatcher(&m)
+	env.Init()
 
 	// Init a new push context
 	pc := NewPushContext()
@@ -541,6 +540,7 @@ func TestInitPushContext(t *testing.T) {
 	}
 	m := mesh.DefaultMeshConfig()
 	env.Watcher = mesh.NewFixedWatcher(&m)
+	env.Init()
 
 	// Init a new push context
 	old := NewPushContext()
@@ -756,10 +756,10 @@ func TestBestEffortInferServiceMTLSMode(t *testing.T) {
 			port := &Port{
 				Port: tc.servicePort,
 			}
-			if got := ps.BestEffortInferServiceMTLSMode(service, port); got != tc.wanted {
+			if got := ps.BestEffortInferServiceMTLSMode(nil, service, port); got != tc.wanted {
 				t.Fatalf("want %s, but got %s", tc.wanted, got)
 			}
-			if got := ps.BestEffortInferServiceMTLSMode(externalService, port); got != MTLSUnknown {
+			if got := ps.BestEffortInferServiceMTLSMode(nil, externalService, port); got != MTLSUnknown {
 				t.Fatalf("MTLS mode for external service should always be %s, but got %s", MTLSUnknown, got)
 			}
 		})
@@ -1527,140 +1527,114 @@ func TestServiceWithExportTo(t *testing.T) {
 	}
 }
 
-func TestIsClusterLocal(t *testing.T) {
+func TestMergeGatewayServerPort(t *testing.T) {
 	cases := []struct {
-		name     string
-		m        meshconfig.MeshConfig
-		host     string
-		expected bool
+		name        string
+		gateways    []config.Config
+		services    []*ServiceInstance
+		wantedPorts map[uint32]struct{}
 	}{
 		{
-			name:     "kube-system is local",
-			m:        mesh.DefaultMeshConfig(),
-			host:     "s.kube-system.svc.cluster.local",
-			expected: true,
-		},
-		{
-			name:     "api server local is local",
-			m:        mesh.DefaultMeshConfig(),
-			host:     "kubernetes.default.svc.cluster.local",
-			expected: true,
-		},
-		{
-			name:     "discovery server is local",
-			m:        mesh.DefaultMeshConfig(),
-			host:     "istiod.istio-system.svc.cluster.local",
-			expected: true,
-		},
-		{
-			name:     "not local by default",
-			m:        mesh.DefaultMeshConfig(),
-			host:     "not.cluster.local",
-			expected: false,
-		},
-		{
-			name: "override default namespace",
-			m: meshconfig.MeshConfig{
-				// Remove the cluster-local setting for kube-system.
-				ServiceSettings: []*meshconfig.MeshConfig_ServiceSettings{
-					{
-						Settings: &meshconfig.MeshConfig_ServiceSettings_Settings{
-							ClusterLocal: false,
-						},
-						Hosts: []string{"*.kube-system.svc.cluster.local"},
-					},
+			name: "basic",
+			gateways: []config.Config{
+				makeConfig("foo", "not-default", "foo.bar.com", "name1", "http", 7, "ingressgateway"),
+			},
+			services: []*ServiceInstance{
+				{
+					Endpoint:    &IstioEndpoint{EndpointPort: 7},
+					ServicePort: &Port{Port: 8},
 				},
 			},
-			host:     "s.kube-system.svc.cluster.local",
-			expected: false,
+			wantedPorts: map[uint32]struct{}{8: {}},
 		},
 		{
-			name: "override default service",
-			m: meshconfig.MeshConfig{
-				// Remove the cluster-local setting for kube-system.
-				ServiceSettings: []*meshconfig.MeshConfig_ServiceSettings{
-					{
-						Settings: &meshconfig.MeshConfig_ServiceSettings_Settings{
-							ClusterLocal: false,
-						},
-						Hosts: []string{"kubernetes.default.svc.cluster.local"},
-					},
+			name: "merge",
+			gateways: []config.Config{
+				makeConfig("foo", "not-default", "foo.bar.com", "name1", "http", 7, "ingressgateway"),
+				makeConfig("foo", "not-default", "foo.bar.com", "name2", "http", 8, "ingressgateway"),
+			},
+			services: []*ServiceInstance{
+				{
+					Endpoint:    &IstioEndpoint{EndpointPort: 7},
+					ServicePort: &Port{Port: 8},
 				},
 			},
-			host:     "kubernetes.default.svc.cluster.local",
-			expected: false,
+			wantedPorts: map[uint32]struct{}{8: {}},
 		},
 		{
-			name: "local 1",
-			m: meshconfig.MeshConfig{
-				ServiceSettings: []*meshconfig.MeshConfig_ServiceSettings{
-					{
-						Settings: &meshconfig.MeshConfig_ServiceSettings_Settings{
-							ClusterLocal: true,
-						},
-						Hosts: []string{
-							"*.ns1.svc.cluster.local",
-							"*.ns2.svc.cluster.local",
-						},
-					},
+			name: "skip",
+			gateways: []config.Config{
+				makeConfig("foo", "not-default", "foo.bar.com", "name1", "http", 7, "ingressgateway"),
+				makeConfig("foo", "not-default", "foo.bar.com", "name2", "http", 8, "ingressgateway"),
+			},
+			services: []*ServiceInstance{
+				{
+					Endpoint:    &IstioEndpoint{EndpointPort: 7},
+					ServicePort: &Port{Port: 8},
+				},
+				{
+					Endpoint:    &IstioEndpoint{EndpointPort: 6},
+					ServicePort: &Port{Port: 7},
 				},
 			},
-			host:     "s.ns1.svc.cluster.local",
-			expected: true,
+			wantedPorts: map[uint32]struct{}{8: {}, 7: {}},
 		},
 		{
-			name: "local 2",
-			m: meshconfig.MeshConfig{
-				ServiceSettings: []*meshconfig.MeshConfig_ServiceSettings{
-					{
-						Settings: &meshconfig.MeshConfig_ServiceSettings_Settings{
-							ClusterLocal: true,
-						},
-						Hosts: []string{
-							"*.ns1.svc.cluster.local",
-							"*.ns2.svc.cluster.local",
-						},
-					},
+			name: "service target same",
+			gateways: []config.Config{
+				makeConfig("foo", "not-default", "foo.bar.com", "name1", "http", 7, "ingressgateway"),
+				makeConfig("foo", "not-default", "foo.bar.com", "name2", "http", 8, "ingressgateway"),
+			},
+			services: []*ServiceInstance{
+				{
+					Endpoint:    &IstioEndpoint{EndpointPort: 8},
+					ServicePort: &Port{Port: 8},
+				},
+				{
+					Endpoint:    &IstioEndpoint{EndpointPort: 7},
+					ServicePort: &Port{Port: 7},
 				},
 			},
-			host:     "s.ns2.svc.cluster.local",
-			expected: true,
+			wantedPorts: map[uint32]struct{}{7: {}, 8: {}},
 		},
 		{
-			name: "not local",
-			m: meshconfig.MeshConfig{
-				ServiceSettings: []*meshconfig.MeshConfig_ServiceSettings{
-					{
-						Settings: &meshconfig.MeshConfig_ServiceSettings_Settings{
-							ClusterLocal: true,
-						},
-						Hosts: []string{
-							"*.ns1.svc.cluster.local",
-							"*.ns2.svc.cluster.local",
-						},
-					},
+			name: "same service port different targets",
+			gateways: []config.Config{
+				makeConfig("foo", "not-default", "foo.bar.com", "name1", "http", 8, "ingressgateway"),
+				makeConfig("foo", "not-default", "foo.bar.com", "name2", "http", 7, "ingressgateway"),
+			},
+			services: []*ServiceInstance{
+				{
+					Endpoint:    &IstioEndpoint{EndpointPort: 9},
+					ServicePort: &Port{Port: 8},
+				},
+				{
+					Endpoint:    &IstioEndpoint{EndpointPort: 7},
+					ServicePort: &Port{Port: 8},
 				},
 			},
-			host:     "s.ns3.svc.cluster.local",
-			expected: false,
+			wantedPorts: map[uint32]struct{}{8: {}},
 		},
 	}
-
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
-			g := NewWithT(t)
-
-			env := &Environment{Watcher: mesh.NewFixedWatcher(&c.m)}
-			push := &PushContext{
-				Mesh: env.Mesh(),
+			proxy := &Proxy{
+				Metadata:         &NodeMetadata{Labels: map[string]string{"istio": "ingressgateway"}},
+				ServiceInstances: c.services,
 			}
-			push.initClusterLocalHosts(env)
-
-			svc := &Service{
-				Hostname: host.Name(c.host),
+			pc := &PushContext{
+				gatewayIndex: gatewayIndex{all: c.gateways},
 			}
-			clusterLocal := push.IsClusterLocal(svc)
-			g.Expect(clusterLocal).To(Equal(c.expected))
+			mg := pc.mergeGateways(proxy)
+			if len(mg.MergedServers) != len(c.wantedPorts) {
+				t.Errorf("number of servers want %v got %v", c.wantedPorts, mg.MergedServers)
+			}
+			for p := range mg.MergedServers {
+				if _, ok := c.wantedPorts[p.Number]; !ok {
+					t.Errorf("server port want %v got %v", c.wantedPorts, p)
+					break
+				}
+			}
 		})
 	}
 }

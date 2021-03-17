@@ -20,20 +20,17 @@ import (
 
 // EvaluateListenerFilterPredicates runs through the ListenerFilterChainMatchPredicate logic
 // This is exposed for testing only, and should not be used in XDS generation code
-func EvaluateListenerFilterPredicates(predicate *listener.ListenerFilterChainMatchPredicate, invertMatch bool, port int) bool {
+func EvaluateListenerFilterPredicates(predicate *listener.ListenerFilterChainMatchPredicate, port int) bool {
 	if predicate == nil {
 		return false
 	}
 	switch r := predicate.Rule.(type) {
 	case *listener.ListenerFilterChainMatchPredicate_NotMatch:
-		return EvaluateListenerFilterPredicates(r.NotMatch, !invertMatch, port)
+		return !EvaluateListenerFilterPredicates(r.NotMatch, port)
 	case *listener.ListenerFilterChainMatchPredicate_OrMatch:
 		matches := false
 		for _, r := range r.OrMatch.Rules {
-			matches = matches || EvaluateListenerFilterPredicates(r, invertMatch, port)
-		}
-		if invertMatch {
-			matches = !matches
+			matches = matches || EvaluateListenerFilterPredicates(r, port)
 		}
 		return matches
 	case *listener.ListenerFilterChainMatchPredicate_DestinationPortRange:

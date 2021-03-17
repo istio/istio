@@ -26,7 +26,6 @@ import (
 	"net/http"
 	"os"
 	"path"
-	"reflect"
 	"sync"
 	"time"
 
@@ -40,7 +39,6 @@ import (
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/keepalive"
 	"google.golang.org/grpc/reflection"
-	"k8s.io/apimachinery/pkg/labels"
 	v1 "k8s.io/client-go/kubernetes/typed/core/v1"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/cache"
@@ -48,7 +46,6 @@ import (
 	"istio.io/api/security/v1beta1"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
-	modelstatus "istio.io/istio/pilot/pkg/model/status"
 	"istio.io/istio/pilot/pkg/networking/plugin"
 	kubesecrets "istio.io/istio/pilot/pkg/secrets/kube"
 	"istio.io/istio/pilot/pkg/serviceregistry"
@@ -241,7 +238,7 @@ func NewServer(args *PilotArgs) (*Server, error) {
 
 	s.initMeshNetworks(args, s.fileWatcher)
 	s.initMeshHandlers()
-	s.initWorkloadTrustBundle()
+	s.environment.Init()
 
 	// Options based on the current 'defaults' in istio.
 	caOpts := &caOptions{
@@ -263,6 +260,9 @@ func NewServer(args *PilotArgs) (*Server, error) {
 	if err := s.initControllers(args); err != nil {
 		return nil, err
 	}
+
+	// Initialize workloadTrustBundle after CA has been initialized
+	s.initWorkloadTrustBundle()
 
 	// Parse and validate Istiod Address.
 	istiodHost, _, err := e.GetDiscoveryAddress()
@@ -648,7 +648,6 @@ func (s *Server) waitForShutdown(stop <-chan struct{}) {
 	go func() {
 		<-stop
 		s.fileWatcher.Close()
-		model.GetJwtKeyResolver().Close()
 
 		// Stop gRPC services.  If gRPC services fail to stop in the shutdown duration,
 		// force stop them. This does not happen normally.
@@ -872,22 +871,6 @@ func (s *Server) initRegistryEventHandlers() {
 
 	if s.configController != nil {
 		configHandler := func(old config.Config, curr config.Config, event model.Event) {
-			if old.Generation == curr.Generation && curr.Generation != 0 {
-				// Kubernetes will start generation at 1, but some internally generated configurations
-				// may not set resource version at all and we still want updates from these
-				if curr.GroupVersionKind == gvk.WorkloadEntry {
-					oldCond := modelstatus.GetConditionFromSpec(old, modelstatus.ConditionHealthy)
-					newCond := modelstatus.GetConditionFromSpec(curr, modelstatus.ConditionHealthy)
-					if oldCond == newCond {
-						return
-					}
-				} else if onlyStatusUpdated(old, curr) {
-					log.Debugf("skipping push for %v/%v, due to no change in spec or labels\n",
-						old.Namespace, old.Name)
-					return
-				}
-			}
-
 			pushReq := &model.PushRequest{
 				Full: true,
 				ConfigsUpdated: map[model.ConfigKey]struct{}{{
@@ -918,16 +901,14 @@ func (s *Server) initRegistryEventHandlers() {
 				Resource().GroupVersionKind() {
 				continue
 			}
+			if schema.Resource().GroupVersionKind() == collections.IstioNetworkingV1Alpha3Workloadgroups.
+				Resource().GroupVersionKind() {
+				continue
+			}
 
 			s.configController.RegisterEventHandler(schema.Resource().GroupVersionKind(), configHandler)
 		}
 	}
-}
-
-// onlyStatusUpdated returns false if changes are observed in labels, annotations, or spec, and otherwise returns true.
-func onlyStatusUpdated(old config.Config, curr config.Config) bool {
-	return labels.Equals(old.Labels, curr.Labels) &&
-		labels.Equals(old.Annotations, curr.Annotations) && reflect.DeepEqual(old.Spec, curr.Spec)
 }
 
 // initIstiodCerts creates Istiod certificates and also sets up watches to them.
@@ -946,14 +927,19 @@ func (s *Server) initIstiodCerts(args *PilotArgs, host string) error {
 
 // maybeInitDNSCerts initializes DNS certs if needed.
 func (s *Server) maybeInitDNSCerts(args *PilotArgs, host string) error {
-	// Generate DNS certificates only if custom certs are not provided via args.
-	if !hasCustomTLSCerts(args.ServerOptions.TLSOptions) && s.EnableCA() {
-		// Create DNS certificates. This allows injector, validation to work without Citadel, and
+	if hasCustomTLSCerts(args.ServerOptions.TLSOptions) {
+		// Use the DNS certificate provided via args.
+		// This allows injector, validation to work without Citadel, and
 		// allows secure SDS connections to Istiod.
-		log.Infof("initializing Istiod DNS certificates host: %s, custom host: %s", host, features.IstiodServiceCustomHost.Get())
-		if err := s.initDNSCerts(host, features.IstiodServiceCustomHost.Get(), args.Namespace); err != nil {
-			return err
-		}
+		return nil
+	}
+	if !s.EnableCA() && features.PilotCertProvider.Get() == IstiodCAProvider {
+		// If CA functionality is disabled, istiod cannot sign the DNS certificates.
+		return nil
+	}
+	log.Infof("initializing Istiod DNS certificates host: %s, custom host: %s", host, features.IstiodServiceCustomHost.Get())
+	if err := s.initDNSCerts(host, features.IstiodServiceCustomHost.Get(), args.Namespace); err != nil {
+		return err
 	}
 	return nil
 }

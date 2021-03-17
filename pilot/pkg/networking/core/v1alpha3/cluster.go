@@ -15,7 +15,6 @@
 package v1alpha3
 
 import (
-	"fmt"
 	"math"
 	"strconv"
 	"strings"
@@ -35,7 +34,6 @@ import (
 	"istio.io/istio/pilot/pkg/networking/core/v1alpha3/loadbalancer"
 	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pilot/pkg/serviceregistry"
-	"istio.io/istio/pilot/pkg/util/sets"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/util/gogo"
@@ -107,26 +105,7 @@ func (configgen *ConfigGeneratorImpl) BuildClusters(proxy *model.Proxy, push *mo
 		clusters = append(clusters, patcher.insertedClusters()...)
 	}
 
-	clusters = normalizeClusters(push, proxy, clusters)
-
-	return clusters
-}
-
-// resolves cluster name conflicts. there can be duplicate cluster names if there are conflicting service definitions.
-// for any clusters that share the same name the first cluster is kept and the others are discarded.
-func normalizeClusters(metrics model.Metrics, proxy *model.Proxy, clusters []*cluster.Cluster) []*cluster.Cluster {
-	have := sets.Set{}
-	out := make([]*cluster.Cluster, 0, len(clusters))
-	for _, cluster := range clusters {
-		if !have.Contains(cluster.Name) {
-			out = append(out, cluster)
-		} else {
-			metrics.AddMetric(model.DuplicatedClusters, cluster.Name, proxy.ID,
-				fmt.Sprintf("Duplicate cluster %s found while pushing CDS", cluster.Name))
-		}
-		have.Insert(cluster.Name)
-	}
-	return out
+	return cb.normalizeClusters(clusters)
 }
 
 func (configgen *ConfigGeneratorImpl) buildOutboundClusters(cb *ClusterBuilder, cp clusterPatcher) []*cluster.Cluster {
@@ -155,14 +134,14 @@ func (configgen *ConfigGeneratorImpl) buildOutboundClusters(cb *ClusterBuilder, 
 			}
 			// If stat name is configured, build the alternate stats name.
 			if len(cb.push.Mesh.OutboundClusterStatName) != 0 {
-				defaultCluster.AltStatName = util.BuildStatPrefix(cb.push.Mesh.OutboundClusterStatName, string(service.Hostname), "", port, service.Attributes)
+				defaultCluster.cluster.AltStatName = util.BuildStatPrefix(cb.push.Mesh.OutboundClusterStatName, string(service.Hostname), "", port, service.Attributes)
 			}
 
 			cb.setUpstreamProtocol(cb.proxy, defaultCluster, port, model.TrafficDirectionOutbound)
 
 			subsetClusters := cb.applyDestinationRule(defaultCluster, DefaultClusterMode, service, port, networkView)
 
-			clusters = cp.conditionallyAppend(clusters, nil, defaultCluster)
+			clusters = cp.conditionallyAppend(clusters, nil, defaultCluster.build())
 			clusters = cp.conditionallyAppend(clusters, nil, subsetClusters...)
 		}
 	}
@@ -218,7 +197,7 @@ func (configgen *ConfigGeneratorImpl) buildOutboundSniDnatClusters(proxy *model.
 				continue
 			}
 			subsetClusters := cb.applyDestinationRule(defaultCluster, SniDnatClusterMode, service, port, networkView)
-			clusters = cp.conditionallyAppend(clusters, nil, defaultCluster)
+			clusters = cp.conditionallyAppend(clusters, nil, defaultCluster.build())
 			clusters = cp.conditionallyAppend(clusters, nil, subsetClusters...)
 		}
 	}
@@ -297,7 +276,7 @@ func (configgen *ConfigGeneratorImpl) buildInboundClusters(cb *ClusterBuilder, i
 			for _, si := range instances {
 				hosts = append(hosts, si.Service.Hostname)
 			}
-			clusters = cp.conditionallyAppend(clusters, hosts, localCluster)
+			clusters = cp.conditionallyAppend(clusters, hosts, localCluster.build())
 		}
 		return clusters
 	}
@@ -348,7 +327,7 @@ func (configgen *ConfigGeneratorImpl) buildInboundClusters(cb *ClusterBuilder, i
 		instance.Endpoint.EndpointPort = uint32(port)
 
 		localCluster := cb.buildInboundClusterForPortOrUDS(int(ingressListener.Port.Number), endpointAddress, instance, nil)
-		clusters = cp.conditionallyAppend(clusters, []host.Name{instance.Service.Hostname}, localCluster)
+		clusters = cp.conditionallyAppend(clusters, []host.Name{instance.Service.Hostname}, localCluster.build())
 	}
 
 	return clusters
@@ -484,7 +463,7 @@ const (
 
 type buildClusterOpts struct {
 	mesh            *meshconfig.MeshConfig
-	cluster         *cluster.Cluster
+	mutable         *MutableCluster
 	policy          *networking.TrafficPolicy
 	port            *model.Port
 	serviceAccounts []string
@@ -677,7 +656,7 @@ func applyLocalityLBSetting(locality *core.Locality, cluster *cluster.Cluster, l
 }
 
 func addTelemetryMetadata(opts buildClusterOpts, service *model.Service, direction model.TrafficDirection, instances []*model.ServiceInstance) {
-	if opts.cluster == nil {
+	if opts.mutable.cluster == nil {
 		return
 	}
 	if direction == model.TrafficDirectionInbound && (opts.proxy == nil || opts.proxy.ServiceInstances == nil ||
@@ -690,7 +669,7 @@ func addTelemetryMetadata(opts buildClusterOpts, service *model.Service, directi
 		return
 	}
 
-	im := getOrCreateIstioMetadata(opts.cluster)
+	im := getOrCreateIstioMetadata(opts.mutable.cluster)
 
 	// Add services field into istio metadata
 	im.Fields["services"] = &structpb.Value{
@@ -730,7 +709,7 @@ func addTelemetryMetadata(opts buildClusterOpts, service *model.Service, directi
 // Insert the original port into the istio metadata. The port is used in BTS delivered from client sidecar to server sidecar.
 // Server side car uses this port after de-multiplexed from tunnel.
 func addNetworkingMetadata(opts buildClusterOpts, service *model.Service, direction model.TrafficDirection) {
-	if opts.cluster == nil || direction == model.TrafficDirectionInbound {
+	if opts.mutable == nil || direction == model.TrafficDirectionInbound {
 		return
 	}
 	if service == nil {
@@ -739,7 +718,7 @@ func addNetworkingMetadata(opts buildClusterOpts, service *model.Service, direct
 	}
 
 	if port, ok := service.Ports.GetByPort(opts.port.Port); ok {
-		im := getOrCreateIstioMetadata(opts.cluster)
+		im := getOrCreateIstioMetadata(opts.mutable.cluster)
 
 		// Add original_port field into istio metadata
 		// Endpoint could override this port but the chance should be small.

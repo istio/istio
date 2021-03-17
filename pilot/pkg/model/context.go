@@ -82,13 +82,8 @@ type Environment struct {
 
 	// TrustBundle: List of Mesh TrustAnchors
 	TrustBundle *trustbundle.TrustBundle
-}
 
-func (e *Environment) GetDomainSuffix() string {
-	if len(e.DomainSuffix) > 0 {
-		return e.DomainSuffix
-	}
-	return constants.DefaultKubernetesDomain
+	clusterLocalServices ClusterLocalProvider
 }
 
 func (e *Environment) Mesh() *meshconfig.MeshConfig {
@@ -144,6 +139,21 @@ func (e *Environment) Version() string {
 		return x.RootHash()
 	}
 	return ""
+}
+
+// Init initializes the Environment for use.
+func (e *Environment) Init() {
+	// Use a default DomainSuffix, if none was provided.
+	if len(e.DomainSuffix) == 0 {
+		e.DomainSuffix = constants.DefaultKubernetesDomain
+	}
+
+	// Create the cluster-local service registry.
+	e.clusterLocalServices = NewClusterLocalProvider(e)
+}
+
+func (e *Environment) ClusterLocal() ClusterLocalProvider {
+	return e.clusterLocalServices
 }
 
 func (e *Environment) GetLedger() ledger.Ledger {

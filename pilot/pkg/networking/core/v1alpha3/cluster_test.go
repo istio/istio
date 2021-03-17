@@ -25,6 +25,7 @@ import (
 
 	cluster "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
+	http "github.com/envoyproxy/go-control-plane/envoy/extensions/upstreams/http/v3"
 	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"
 	"github.com/golang/protobuf/ptypes"
@@ -42,6 +43,7 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/plugin"
 	"istio.io/istio/pilot/pkg/networking/util"
+	v3 "istio.io/istio/pilot/pkg/xds/v3"
 	"istio.io/istio/pilot/test/xdstest"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/constants"
@@ -200,8 +202,6 @@ func TestCommonHttpProtocolOptions(t *testing.T) {
 			settingsName = "override"
 		}
 		testName := fmt.Sprintf("%s-%s-%s", tc.clusterName, settingsName, tc.proxyType)
-		// TODO(https://github.com/istio/istio/issues/29735) remove nolint
-		// nolint: staticcheck
 		t.Run(testName, func(t *testing.T) {
 			g := NewWithT(t)
 			clusters := xdstest.ExtractClusters(buildTestClusters(clusterTest{
@@ -216,18 +216,25 @@ func TestCommonHttpProtocolOptions(t *testing.T) {
 			g.Expect(len(clusters)).To(Equal(tc.clusters))
 			c := clusters[tc.clusterName]
 
-			g.Expect(c.GetCommonHttpProtocolOptions()).To(Not(BeNil()))
-			commonHTTPProtocolOptions := c.CommonHttpProtocolOptions
+			anyOptions := c.TypedExtensionProtocolOptions[v3.HttpProtocolOptionsType]
+			httpProtocolOptions := &http.HttpProtocolOptions{}
+			if anyOptions != nil {
+				ptypes.UnmarshalAny(anyOptions, httpProtocolOptions)
+			}
 
 			if tc.useDownStreamProtocol && tc.proxyType == model.SidecarProxy {
-				g.Expect(c.ProtocolSelection).To(Equal(cluster.Cluster_USE_DOWNSTREAM_PROTOCOL))
+				if httpProtocolOptions.GetUseDownstreamProtocolConfig() == nil {
+					t.Errorf("Expected cluster to use downstream protocol but got %v", httpProtocolOptions)
+				}
 			} else {
-				g.Expect(c.ProtocolSelection).To(Equal(cluster.Cluster_USE_CONFIGURED_PROTOCOL))
+				if httpProtocolOptions.GetUseDownstreamProtocolConfig() != nil {
+					t.Errorf("Expected cluster to not to use downstream protocol but got %v", httpProtocolOptions)
+				}
 			}
 
 			// Verify that the values were set correctly.
-			g.Expect(commonHTTPProtocolOptions.IdleTimeout).To(Not(BeNil()))
-			g.Expect(commonHTTPProtocolOptions.IdleTimeout).To(Equal(ptypes.DurationProto(time.Duration(15000000000))))
+			g.Expect(httpProtocolOptions.CommonHttpProtocolOptions.IdleTimeout).To(Not(BeNil()))
+			g.Expect(httpProtocolOptions.CommonHttpProtocolOptions.IdleTimeout).To(Equal(ptypes.DurationProto(time.Duration(15000000000))))
 		})
 	}
 }
@@ -2452,15 +2459,15 @@ func TestTelemetryMetadata(t *testing.T) {
 	for _, tt := range cases {
 		t.Run(tt.name, func(t *testing.T) {
 			opt := buildClusterOpts{
-				cluster: tt.cluster,
+				mutable: NewMutableCluster(tt.cluster),
 				port:    &model.Port{Port: 80},
 				proxy: &model.Proxy{
 					ServiceInstances: tt.svcInsts,
 				},
 			}
 			addTelemetryMetadata(opt, tt.service, tt.direction, tt.svcInsts)
-			if opt.cluster != nil && !reflect.DeepEqual(opt.cluster.Metadata, tt.want) {
-				t.Errorf("cluster metadata does not match expectation want %+v, got %+v", tt.want, opt.cluster.Metadata)
+			if opt.mutable.cluster != nil && !reflect.DeepEqual(opt.mutable.cluster.Metadata, tt.want) {
+				t.Errorf("cluster metadata does not match expectation want %+v, got %+v", tt.want, opt.mutable.cluster.Metadata)
 			}
 		})
 	}

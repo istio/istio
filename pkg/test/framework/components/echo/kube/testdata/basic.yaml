@@ -59,6 +59,8 @@ spec:
           - "3333"
           - --version
           - "bar"
+          - --istio-version
+          - ""
           - --crt=/cert.crt
           - --key=/cert.key
         ports:

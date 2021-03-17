@@ -59,6 +59,8 @@ spec:
           - "3333"
           - --version
           - "v1"
+          - --istio-version
+          - ""
           - --crt=/cert.crt
           - --key=/cert.key
         ports:
@@ -131,6 +133,8 @@ spec:
           - "3333"
           - --version
           - "nosidecar"
+          - --istio-version
+          - ""
           - --crt=/cert.crt
           - --key=/cert.key
         ports:

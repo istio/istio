@@ -168,6 +168,7 @@ func (h *grpcHandler) Echo(ctx context.Context, req *proto.EchoRequest) (*proto.
 	writeField(&body, response.ServicePortField, strconv.Itoa(portNumber))
 	writeField(&body, response.ClusterField, h.Cluster)
 	writeField(&body, response.IPField, ip)
+	writeField(&body, response.IstioVersionField, h.IstioVersion)
 	writeField(&body, "Echo", req.GetMessage())
 
 	if hostname, err := os.Hostname(); err == nil {

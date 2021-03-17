@@ -1630,7 +1630,7 @@ func TestHttpProxyListener(t *testing.T) {
 	configgen := NewConfigGenerator([]plugin.Plugin{p}, &model.DisabledCache{})
 
 	env := buildListenerEnv(nil)
-	if err := env.PushContext.InitContext(&env, nil, nil); err != nil {
+	if err := env.PushContext.InitContext(env, nil, nil); err != nil {
 		t.Fatalf("error in initializing push context: %s", err)
 	}
 
@@ -2056,7 +2056,7 @@ func TestHttpProxyListener_Tracing(t *testing.T) {
 		features.EnableIstioTags = !tc.disableIstioTags
 
 		env := buildListenerEnv(nil)
-		if err := env.PushContext.InitContext(&env, nil, nil); err != nil {
+		if err := env.PushContext.InitContext(env, nil, nil); err != nil {
 			t.Fatalf("error in initializing push context: %s", err)
 		}
 
@@ -2295,10 +2295,10 @@ func getOldestService(services ...*model.Service) *model.Service {
 	return oldestService
 }
 
-func buildAllListeners(p plugin.Plugin, env model.Environment, proxyVersion *model.IstioVersion) []*listener.Listener {
+func buildAllListeners(p plugin.Plugin, env *model.Environment, proxyVersion *model.IstioVersion) []*listener.Listener {
 	configgen := NewConfigGenerator([]plugin.Plugin{p}, &model.DisabledCache{})
 
-	if err := env.PushContext.InitContext(&env, nil, nil); err != nil {
+	if err := env.PushContext.InitContext(env, nil, nil); err != nil {
 		return nil
 	}
 
@@ -2337,10 +2337,10 @@ func buildInboundListeners(t *testing.T, p plugin.Plugin, proxy *model.Proxy, si
 	t.Helper()
 	configgen := NewConfigGenerator([]plugin.Plugin{p}, &model.DisabledCache{})
 	env := buildListenerEnv(services)
-	if err := env.PushContext.InitContext(&env, nil, nil); err != nil {
+	if err := env.PushContext.InitContext(env, nil, nil); err != nil {
 		return nil
 	}
-	proxy.SetServiceInstances(&env)
+	proxy.SetServiceInstances(env)
 
 	proxy.IstioVersion = model.ParseIstioVersion(proxy.Metadata.IstioVersion)
 	if sidecarConfig == nil {
@@ -2514,11 +2514,11 @@ func buildServiceInstance(service *model.Service, instanceIP string) *model.Serv
 	}
 }
 
-func buildListenerEnv(services []*model.Service) model.Environment {
+func buildListenerEnv(services []*model.Service) *model.Environment {
 	return buildListenerEnvWithVirtualServices(services, nil)
 }
 
-func buildListenerEnvWithVirtualServices(services []*model.Service, virtualServices []*config.Config) model.Environment {
+func buildListenerEnvWithVirtualServices(services []*model.Service, virtualServices []*config.Config) *model.Environment {
 	serviceDiscovery := memregistry.NewServiceDiscovery(services)
 
 	instances := make([]*model.ServiceInstance, 0, len(services))
@@ -2570,8 +2570,8 @@ func buildListenerEnvWithVirtualServices(services []*model.Service, virtualServi
 		IstioConfigStore: configStore,
 		Watcher:          mesh.NewFixedWatcher(&m),
 	}
-
-	return env
+	env.Init()
+	return &env
 }
 
 func TestAppendListenerFallthroughRouteForCompleteListener(t *testing.T) {
@@ -2801,7 +2801,7 @@ func TestOutboundRateLimitedThriftListenerConfig(t *testing.T) {
 
 	serviceDiscovery := memregistry.NewServiceDiscovery(services)
 
-	configStore := model.MakeIstioStore(memory.MakeSkipValidation(collections.Pilot, true))
+	configStore := model.MakeIstioStore(memory.MakeSkipValidation(collections.Pilot))
 
 	m := mesh.DefaultMeshConfig()
 	m.ThriftConfig.RateLimitUrl = "ratelimit.svc.cluster.local"

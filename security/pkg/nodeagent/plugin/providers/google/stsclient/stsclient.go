@@ -125,12 +125,13 @@ func (p *SecureTokenServiceExchanger) ExchangeToken(k8sSAjwt string) (string, er
 	if err := json.Unmarshal(body, respData); err != nil {
 		// Normally the request should json - extremely hard to debug otherwise, not enough info in status/err
 		stsClientLog.Debugf("Unexpected unmarshal error, response was %s", string(body))
-		return "", fmt.Errorf("failed to unmarshal response data of size %v: %v", len(body), err)
+		return "", fmt.Errorf("(aud: %s), failed to unmarshal response data of size %v: %v",
+			aud, len(body), err)
 	}
 
 	if respData.AccessToken == "" {
 		return "", fmt.Errorf(
-			"exchanged empty token, response: %v", string(body))
+			"exchanged empty token (aud: %s), response: %v", aud, string(body))
 	}
 
 	return respData.AccessToken, nil

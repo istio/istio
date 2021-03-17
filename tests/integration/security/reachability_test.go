@@ -141,11 +141,43 @@ func TestReachability(t *testing.T) {
 					ExpectMTLS: mtlsOnExpect,
 				},
 				{
+					ConfigFile: "no-peer-authn.yaml",
+					Namespace:  systemNM,
+					Include: func(src echo.Instance, opts echo.CallOptions) bool {
+						// Exclude calls to naked since we are applying ISTIO_MUTUAL
+						return !apps.IsNaked(opts.Target)
+					},
+					ExpectSuccess: Always, // No PeerAuthN should default to a PERMISSIVE.
+					ExpectMTLS:    mtlsOnExpect,
+				},
+				{
 					ConfigFile:             "global-plaintext.yaml",
 					Namespace:              systemNM,
 					Include:                Always,
 					ExpectSuccess:          Always,
 					ExpectMTLS:             Never,
+					SkippedForMulticluster: true,
+				},
+				{
+					ConfigFile: "automtls-passthrough.yaml",
+					Namespace:  systemNM,
+					Include: func(src echo.Instance, opts echo.CallOptions) bool {
+						// VM passthrough doesn't work. We will send traffic to the ClusterIP of
+						// the VM service, which will have 0 Endpoints. If we generated
+						// EndpointSlice's for VMs this might work.
+						return !apps.IsVM(opts.Target)
+					},
+					ExpectSuccess: Always,
+					ExpectMTLS: func(src echo.Instance, opts echo.CallOptions) bool {
+						if opts.Target.Config().Service == apps.Multiversion[0].Config().Service {
+							// For mixed targets, we downgrade to plaintext.
+							// TODO(https://github.com/istio/istio/issues/27376) enable mixed deployments
+							return false
+						}
+						return mtlsOnExpect(src, opts)
+					},
+					// Since we are doing passthrough, only single cluster is relevant here, as we
+					// are bypassing any Istio cluster load balancing
 					SkippedForMulticluster: true,
 				},
 				// --------start of auto mtls partial test cases ---------------

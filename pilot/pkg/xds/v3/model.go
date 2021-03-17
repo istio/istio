@@ -34,6 +34,9 @@ const (
 	NameTableType   = apiTypePrefix + "istio.networking.nds.v1.NameTable"
 	HealthInfoType  = apiTypePrefix + "istio.v1.HealthInformation"
 	ProxyConfigType = apiTypePrefix + "istio.mesh.v1alpha1.ProxyConfig"
+
+	// nolint
+	HttpProtocolOptionsType = "envoy.extensions.upstreams.http.v3.HttpProtocolOptions"
 )
 
 // GetShortType returns an abbreviated form of a type, useful for logging or human friendly messages

@@ -103,7 +103,7 @@ func Run(testCases []TestCase, ctx framework.TestContext, apps *util.EchoDeploym
 				return ctx.Config().ApplyYAML(c.Namespace.Name(), policyYAML)
 			})
 			ctx.NewSubTest("wait for config").Run(func(ctx framework.TestContext) {
-				util.WaitForConfigWithSleep(ctx, policyYAML, c.Namespace)
+				util.WaitForConfig(ctx, policyYAML, c.Namespace)
 			})
 			for _, clients := range []echo.Instances{apps.A, apps.B.Match(echo.Namespace(apps.Namespace1.Name())), apps.Headless, apps.Naked, apps.HeadlessNaked} {
 				for _, client := range clients {

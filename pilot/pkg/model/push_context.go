@@ -18,7 +18,6 @@ import (
 	"encoding/json"
 	"net"
 	"sort"
-	"strings"
 	"sync"
 	"time"
 
@@ -36,11 +35,6 @@ import (
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/config/visibility"
 	"istio.io/pkg/monitoring"
-)
-
-var (
-	defaultClusterLocalNamespaces = []string{"kube-system"}
-	defaultClusterLocalServices   = []string{"kubernetes.default.svc"}
 )
 
 // Metrics is an interface for capturing metrics on a per-node basis.
@@ -171,7 +165,7 @@ type PushContext struct {
 	gatewayIndex gatewayIndex
 
 	// clusterLocalHosts extracted from the MeshConfig
-	clusterLocalHosts host.Names
+	clusterLocalHosts ClusterLocalHosts
 
 	// sidecars for each namespace
 	sidecarsByNamespace map[string][]*SidecarScope
@@ -203,6 +197,9 @@ type PushContext struct {
 
 	// LedgerVersion is the version of the configuration ledger
 	LedgerVersion string
+
+	// JwtKeyResolver holds a reference to the JWT key resolver instance.
+	JwtKeyResolver *JwksResolver
 
 	// cache gateways addresses for each network
 	// this is mainly used for kubernetes multi-cluster scenario
@@ -913,8 +910,7 @@ func (ps *PushContext) getExportedDestinationRuleFromNamespace(owningNamespace s
 // IsClusterLocal indicates whether the endpoints for the service should only be accessible to clients
 // within the cluster.
 func (ps *PushContext) IsClusterLocal(service *Service) bool {
-	_, ok := MostSpecificHostMatch(service.Hostname, nil, ps.clusterLocalHosts)
-	return ok
+	return ps.clusterLocalHosts.IsClusterLocal(service.Hostname)
 }
 
 // SubsetToLabels returns the labels associated with a subset of a given service.
@@ -978,7 +974,7 @@ func (ps *PushContext) InitContext(env *Environment, oldPushContext *PushContext
 	// TODO: only do this when meshnetworks or gateway service changed
 	ps.initMeshNetworks(env.Networks())
 
-	ps.initClusterLocalHosts(env)
+	ps.clusterLocalHosts = env.ClusterLocal().GetClusterLocalHosts()
 
 	ps.initDone.Store(true)
 	return nil
@@ -1694,11 +1690,19 @@ func (ps *PushContext) mergeGateways(proxy *Proxy) *MergedGateway {
 		configs = ps.gatewayIndex.all
 	}
 
+	// Get the target ports of the service
+	targetPorts := make(map[uint32]uint32)
+	servicePorts := make(map[uint32]uint32)
+	for _, si := range proxy.ServiceInstances {
+		targetPorts[si.Endpoint.EndpointPort] = uint32(si.ServicePort.Port)
+		servicePorts[uint32(si.ServicePort.Port)] = si.Endpoint.EndpointPort
+	}
 	for _, cfg := range configs {
 		gw := cfg.Spec.(*networking.Gateway)
+		selected := false
 		if gw.GetSelector() == nil {
 			// no selector. Applies to all workloads asking for the gateway
-			out = append(out, cfg)
+			selected = true
 		} else {
 			gatewaySelector := labels.Instance(gw.GetSelector())
 			var workloadLabels labels.Collection
@@ -1707,11 +1711,39 @@ func (ps *PushContext) mergeGateways(proxy *Proxy) *MergedGateway {
 				workloadLabels = labels.Collection{proxy.Metadata.Labels}
 			}
 			if workloadLabels.IsSupersetOf(gatewaySelector) {
+				selected = true
+			}
+		}
+		if selected {
+			// rewritePorts records index of gateway server port that needs to be rewritten.
+			rewritePorts := make(map[int]uint32)
+			for i, s := range gw.Servers {
+				if servicePort, ok := targetPorts[s.Port.Number]; ok && servicePort != s.Port.Number {
+					// Check if the gateway server port is also defined as a service port, if so skip rewriting since it is
+					// ambiguous on whether the server port points to service port or target port.
+					if _, ok := servicePorts[s.Port.Number]; ok {
+						continue
+					}
+
+					// The gateway server is defined with target port. Convert it to service port before gateway merging.
+					// Gateway listeners are based on target port, this prevents duplicated listeners be generated when build
+					// listener resources based on merged gateways.
+					rewritePorts[i] = servicePort
+				}
+			}
+			if len(rewritePorts) != 0 {
+				// Make a deep copy of the gateway configuration and rewrite server port with service port.
+				newGWConfig := cfg.DeepCopy()
+				newGW := newGWConfig.Spec.(*networking.Gateway)
+				for ind, sp := range rewritePorts {
+					newGW.Servers[ind].Port.Number = sp
+				}
+				out = append(out, newGWConfig)
+			} else {
 				out = append(out, cfg)
 			}
 		}
 	}
-
 	if len(out) == 0 {
 		return nil
 	}
@@ -1745,61 +1777,6 @@ func (ps *PushContext) initMeshNetworks(meshNetworks *meshconfig.MeshNetworks) {
 	}
 }
 
-func (ps *PushContext) initClusterLocalHosts(e *Environment) {
-	// Create the default list of cluster-local hosts.
-	domainSuffix := e.GetDomainSuffix()
-	defaultClusterLocalHosts := make([]host.Name, 0)
-	for _, n := range defaultClusterLocalNamespaces {
-		defaultClusterLocalHosts = append(defaultClusterLocalHosts, host.Name("*."+n+".svc."+domainSuffix))
-	}
-	for _, s := range defaultClusterLocalServices {
-		defaultClusterLocalHosts = append(defaultClusterLocalHosts, host.Name(s+"."+domainSuffix))
-	}
-
-	if discoveryHost, _, err := e.GetDiscoveryAddress(); err != nil {
-		log.Errorf("failed to make discoveryAddress cluster-local: %v", err)
-	} else {
-		if !strings.HasSuffix(string(discoveryHost), domainSuffix) {
-			discoveryHost += host.Name("." + domainSuffix)
-		}
-		defaultClusterLocalHosts = append(defaultClusterLocalHosts, discoveryHost)
-	}
-
-	// Collect the cluster-local hosts.
-	clusterLocalHosts := make([]host.Name, 0)
-	for _, serviceSettings := range ps.Mesh.ServiceSettings {
-		if serviceSettings.Settings.ClusterLocal {
-			for _, h := range serviceSettings.Hosts {
-				clusterLocalHosts = append(clusterLocalHosts, host.Name(h))
-			}
-		} else {
-			// Remove defaults if specified to be non-cluster-local.
-			for _, h := range serviceSettings.Hosts {
-				for i, defaultClusterLocalHost := range defaultClusterLocalHosts {
-					if len(defaultClusterLocalHost) > 0 {
-						if h == string(defaultClusterLocalHost) ||
-							(defaultClusterLocalHost.IsWildCarded() &&
-								strings.HasSuffix(h, string(defaultClusterLocalHost[1:]))) {
-							// This default was explicitly overridden, so remove it.
-							defaultClusterLocalHosts[i] = ""
-						}
-					}
-				}
-			}
-		}
-	}
-
-	// Add any remaining defaults to the end of the list.
-	for _, defaultClusterLocalHost := range defaultClusterLocalHosts {
-		if len(defaultClusterLocalHost) > 0 {
-			clusterLocalHosts = append(clusterLocalHosts, defaultClusterLocalHost)
-		}
-	}
-
-	sort.Sort(host.Names(clusterLocalHosts))
-	ps.clusterLocalHosts = clusterLocalHosts
-}
-
 func (ps *PushContext) NetworkGateways() map[string][]*Gateway {
 	ps.networksMu.RLock()
 	defer ps.networksMu.RUnlock()
@@ -1822,14 +1799,17 @@ func (ps *PushContext) NetworkGatewaysByNetwork(network string) []*Gateway {
 // to compute the correct service mTLS mode without knowing service to workload binding. For now, this
 // function uses only mesh and namespace level PeerAuthentication and ignore workload & port level policies.
 // This function is used to give a hint for auto-mTLS configuration on client side.
-func (ps *PushContext) BestEffortInferServiceMTLSMode(service *Service, port *Port) MutualTLSMode {
+func (ps *PushContext) BestEffortInferServiceMTLSMode(tp *networking.TrafficPolicy, service *Service, port *Port) MutualTLSMode {
 	if service.MeshExternal {
 		// Only need the authentication MTLS mode when service is not external.
 		return MTLSUnknown
 	}
 
-	// 1. Check service instances' tls mode, mainly used for headless service.
-	if service.Resolution == Passthrough {
+	// For passthrough traffic (headless service or explicitly defined in DestinationRule), we look at the instances
+	// If ALL instances have a sidecar, we enable TLS, otherwise we disable
+	// TODO(https://github.com/istio/istio/issues/27376) enable mixed deployments
+	// A service with passthrough resolution is always passthrough, regardless of the TrafficPolicy.
+	if service.Resolution == Passthrough || tp.GetLoadBalancer().GetSimple() == networking.LoadBalancerSettings_PASSTHROUGH {
 		instances := ps.ServiceInstancesByPort(service, port.Port, nil)
 		if len(instances) == 0 {
 			return MTLSDisable

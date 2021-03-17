@@ -810,10 +810,9 @@ func createWebhook(t testing.TB, cfg *Config) (*Webhook, func()) {
 	}
 	_, values, _ := loadInjectionSettings(t, nil, "")
 	var (
-		configFile     = filepath.Join(dir, "config-file.yaml")
-		valuesFile     = filepath.Join(dir, "values-file.yaml")
-		port           = 0
-		monitoringPort = 0
+		configFile = filepath.Join(dir, "config-file.yaml")
+		valuesFile = filepath.Join(dir, "values-file.yaml")
+		port       = 0
 	)
 
 	if err := ioutil.WriteFile(configFile, configBytes, 0644); err != nil { // nolint: vetshadow
@@ -834,11 +833,10 @@ func createWebhook(t testing.TB, cfg *Config) (*Webhook, func()) {
 		t.Fatalf("NewFileWatcher() failed: %v", err)
 	}
 	wh, err := NewWebhook(WebhookParameters{
-		Watcher:        watcher,
-		Port:           port,
-		MonitoringPort: monitoringPort,
-		Env:            &env,
-		Mux:            http.NewServeMux(),
+		Watcher: watcher,
+		Port:    port,
+		Env:     &env,
+		Mux:     http.NewServeMux(),
 	})
 	if err != nil {
 		t.Fatalf("NewWebhook() failed: %v", err)
@@ -852,7 +850,7 @@ func TestRunAndServe(t *testing.T) {
 	defer cleanup()
 	stop := make(chan struct{})
 	defer func() { close(stop) }()
-	go wh.Run(stop)
+	wh.Run(stop)
 
 	validReview := makeTestData(t, false, "v1beta1")
 	validReviewV1 := makeTestData(t, false, "v1")
@@ -1045,7 +1043,7 @@ func BenchmarkInjectServe(b *testing.B) {
 
 	stop := make(chan struct{})
 	defer func() { close(stop) }()
-	go wh.Run(stop)
+	wh.Run(stop)
 
 	body := makeTestData(b, false, "v1beta1")
 	req := httptest.NewRequest("POST", "http://sidecar-injector/inject", bytes.NewReader(body))

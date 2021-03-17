@@ -72,20 +72,20 @@ func TestRevisionCommand(t *testing.T) {
 		NewTest(t).
 		RequiresSingleCluster().
 		Features("installation.istioctl.revision_centric_view").
-		Run(func(ctx framework.TestContext) {
-			skipIfUnsupportedKubernetesVersion(ctx)
-			istioCtl := istioctl.NewOrFail(ctx, ctx, istioctl.Config{})
+		Run(func(t framework.TestContext) {
+			skipIfUnsupportedKubernetesVersion(t)
+			istioCtl := istioctl.NewOrFail(t, t, istioctl.Config{})
 
 			revisions := []string{"stable", "canary"}
 			revResourceMap := map[string]*revisionResource{}
-			builder := echoboot.NewBuilder(ctx)
+			builder := echoboot.NewBuilder(t)
 			for _, rev := range revisions {
 				effectiveRev := rev
 				if rev == "default" {
 					effectiveRev = ""
 				}
 				revResourceMap[rev] = &revisionResource{
-					ns: namespace.NewOrFail(t, ctx, namespace.Config{
+					ns: namespace.NewOrFail(t, t, namespace.Config{
 						Prefix:   fmt.Sprintf("istioctl-rev-%s", rev),
 						Inject:   true,
 						Revision: effectiveRev,
@@ -94,7 +94,7 @@ func TestRevisionCommand(t *testing.T) {
 				builder.With(&revResourceMap[rev].echo,
 					echo.Config{Namespace: revResourceMap[rev].ns})
 			}
-			builder.BuildOrFail(ctx)
+			builder.BuildOrFail(t)
 
 			// Wait some time for things to settle down. This is very
 			// important for gateway pod related tests.
@@ -126,22 +126,22 @@ func TestRevisionCommand(t *testing.T) {
 				},
 			}
 			for _, testCase := range testCases {
-				ctx.NewSubTest(testCase.name).Run(func(sctx framework.TestContext) {
-					testCase.testFunc(sctx, istioCtl, revResourceMap)
+				t.NewSubTest(testCase.name).Run(func(st framework.TestContext) {
+					testCase.testFunc(st, istioCtl, revResourceMap)
 				})
 			}
 		})
 }
 
-func testRevisionListingVerbose(ctx framework.TestContext, istioCtl istioctl.Instance, _ map[string]*revisionResource) {
+func testRevisionListingVerbose(t framework.TestContext, istioCtl istioctl.Instance, _ map[string]*revisionResource) {
 	listVerboseCmd := []string{"x", "revision", "list", "-d", manifestPath, "-v", "-o", "json"}
 	stdout, _, err := istioCtl.Invoke(listVerboseCmd)
 	if err != nil {
-		ctx.Fatalf("unexpected error while invoking istioctl command %v: %v", listVerboseCmd, err)
+		t.Fatalf("unexpected error while invoking istioctl command %v: %v", listVerboseCmd, err)
 	}
 	var revDescriptions map[string]*cmd.RevisionDescription
 	if err = json.Unmarshal([]byte(stdout), &revDescriptions); err != nil {
-		ctx.Fatalf("error while unmarshaling JSON output: %v", err)
+		t.Fatalf("error while unmarshaling JSON output: %v", err)
 	}
 
 	expectedRevisionSet := map[string]bool{"stable": true, "canary": true}
@@ -150,27 +150,27 @@ func testRevisionListingVerbose(ctx framework.TestContext, istioCtl istioctl.Ins
 		actualRevisionSet[rev] = true
 	}
 	if !subsetOf(expectedRevisionSet, actualRevisionSet) {
-		ctx.Fatalf("Some expected revisions are missing from actual. "+
+		t.Fatalf("Some expected revisions are missing from actual. "+
 			"Expected should be subset of actual. Expected: %v, Actual: %v",
 			expectedRevisionSet, actualRevisionSet)
 	}
 
 	for rev, descr := range revDescriptions {
 		if !expectedRevisionSet[rev] {
-			ctx.Logf("revision %s is unexpected. Might be a leftover from some other test. skipping...", rev)
+			t.Logf("revision %s is unexpected. Might be a leftover from some other test. skipping...", rev)
 			continue
 		}
-		verifyRevisionOutput(ctx, descr, rev)
+		verifyRevisionOutput(t, descr, rev)
 	}
 }
 
-func testRevisionDescription(ctx framework.TestContext, istioCtl istioctl.Instance, revResources map[string]*revisionResource) {
+func testRevisionDescription(t framework.TestContext, istioCtl istioctl.Instance, revResources map[string]*revisionResource) {
 	for _, rev := range []string{"stable", "canary"} {
 		descr, err := getDescriptionForRevision(istioCtl, rev)
 		if err != nil || descr == nil {
-			ctx.Fatalf("failed to retrieve description for %s: %v", descr, err)
+			t.Fatalf("failed to retrieve description for %s: %v", descr, err)
 		}
-		verifyRevisionOutput(ctx, descr, rev)
+		verifyRevisionOutput(t, descr, rev)
 		if resources := revResources[rev]; resources != nil {
 			nsName := resources.ns.Name()
 			podsInNamespace := []*cmd.PodFilteredInfo{}
@@ -181,61 +181,60 @@ func testRevisionDescription(ctx framework.TestContext, istioCtl istioctl.Instan
 				MatchLabels: map[string]string{label.IoIstioRev.Name: rev},
 			})
 			if err != nil {
-				ctx.Fatalf("error while creating label selector for pods in namespace: %s, revision: %s",
+				t.Fatalf("error while creating label selector for pods in namespace: %s, revision: %s",
 					nsName, rev)
 			}
-			podsForRev, err := ctx.Clusters().Default().
+			podsForRev, err := t.Clusters().Default().
 				CoreV1().Pods(nsName).
 				List(context.Background(), meta_v1.ListOptions{LabelSelector: labelSelector.String()})
-			if podsForRev == nil || err != nil {
-				ctx.Fatalf("error while getting pods for revision: %s from namespace: %s: %v", rev, nsName, err)
+			if podsForRev == nil || err != nil { // nolint: staticcheck
+				t.Fatalf("error while getting pods for revision: %s from namespace: %s: %v", rev, nsName, err)
 			}
 			expectedPodsForRev := map[string]bool{}
 			actualPodsForRev := map[string]bool{}
-			//nolint:staticcheck
-			for _, pod := range podsForRev.Items {
+			for _, pod := range podsForRev.Items { // nolint: staticcheck
 				expectedPodsForRev[fmt.Sprintf("%s/%s", pod.Namespace, pod.Name)] = true
 			}
 			for _, pod := range podsInNamespace {
 				actualPodsForRev[fmt.Sprintf("%s/%s", pod.Namespace, pod.Name)] = true
 			}
 			if !setsMatch(expectedPodsForRev, actualPodsForRev) {
-				ctx.Fatalf("list of pods pointing to %s don't match in namespace %s. Expected: %v, Actual: %v",
+				t.Fatalf("list of pods pointing to %s don't match in namespace %s. Expected: %v, Actual: %v",
 					rev, nsName, expectedPodsForRev, actualPodsForRev)
 			}
 		}
 	}
 }
 
-func testNonExistentRevisionDescription(ctx framework.TestContext, istioCtl istioctl.Instance, _ map[string]*revisionResource) {
+func testNonExistentRevisionDescription(t framework.TestContext, istioCtl istioctl.Instance, _ map[string]*revisionResource) {
 	describeArgs := []string{"x", "revision", "describe", "ghost", "-o", "json", "-v"}
 	_, _, err := istioCtl.Invoke(describeArgs)
 	if err == nil {
-		ctx.Fatalf("expected error for non-existent revision 'ghost', but didn't get it")
+		t.Fatalf("expected error for non-existent revision 'ghost', but didn't get it")
 	}
 }
 
-func testInvalidRevisionFormat(ctx framework.TestContext, istioCtl istioctl.Instance, _ map[string]*revisionResource) {
+func testInvalidRevisionFormat(t framework.TestContext, istioCtl istioctl.Instance, _ map[string]*revisionResource) {
 	describeArgs := []string{"x", "revision", "describe", "$%#@abc", "-o", "json", "-v"}
 	_, _, err := istioCtl.Invoke(describeArgs)
 	if err == nil || !strings.Contains(err.Error(), "invalid revision format") {
-		ctx.Fatalf("expected error message saying revision format is invalid, but got %v", err)
+		t.Fatalf("expected error message saying revision format is invalid, but got %v", err)
 	}
 }
 
-func testInvalidOutputFormat(ctx framework.TestContext, istioCtl istioctl.Instance, _ map[string]*revisionResource) {
+func testInvalidOutputFormat(t framework.TestContext, istioCtl istioctl.Instance, _ map[string]*revisionResource) {
 	type invalidFormatTest struct {
 		name    string
 		command []string
 	}
-	for _, t := range []invalidFormatTest{
+	for _, tt := range []invalidFormatTest{
 		{name: "list", command: []string{"x", "revision", "list", "-o", "mystery"}},
 		{name: "describe", command: []string{"x", "revision", "describe", "canary", "-o", "mystery"}},
 	} {
-		ctx.NewSubTest(t.name).Run(func(sctx framework.TestContext) {
-			_, _, fErr := istioCtl.Invoke(t.command)
+		t.NewSubTest(tt.name).Run(func(st framework.TestContext) {
+			_, _, fErr := istioCtl.Invoke(tt.command)
 			if fErr == nil {
-				ctx.Fatalf("expected error due to invalid format, but got nil")
+				t.Fatalf("expected error due to invalid format, but got nil")
 			}
 		})
 	}
@@ -255,7 +254,7 @@ func getDescriptionForRevision(istioCtl istioctl.Instance, revision string) (*cm
 	return &revDescription, nil
 }
 
-func verifyRevisionOutput(ctx framework.TestContext, descr *cmd.RevisionDescription, rev string) {
+func verifyRevisionOutput(t framework.TestContext, descr *cmd.RevisionDescription, rev string) {
 	expectedTagSet := map[string]bool{}
 	actualTagSet := map[string]bool{}
 	for _, mwh := range descr.Webhooks {
@@ -264,11 +263,11 @@ func verifyRevisionOutput(ctx framework.TestContext, descr *cmd.RevisionDescript
 		}
 	}
 	if !setsMatch(expectedTagSet, actualTagSet) {
-		ctx.Fatalf("tag sets don't match for %s. Expected: %v, Actual:%v", rev, expectedTagSet, actualTagSet)
+		t.Fatalf("tag sets don't match for %s. Expected: %v, Actual:%v", rev, expectedTagSet, actualTagSet)
 	}
 	expectedComponents, ok := expectedComponentsPerRevision[rev]
 	if !ok {
-		ctx.Fatalf("unexpected error. Could not find expected components for %s", rev)
+		t.Fatalf("unexpected error. Could not find expected components for %s", rev)
 	}
 	actualComponents := map[string]bool{}
 	for _, iop := range descr.IstioOperatorCRs {
@@ -277,18 +276,18 @@ func verifyRevisionOutput(ctx framework.TestContext, descr *cmd.RevisionDescript
 		}
 	}
 	if !setsMatch(expectedComponents, actualComponents) {
-		ctx.Fatalf("required component sets don't match for revision %s. Expected: %v, Actual: %v",
+		t.Fatalf("required component sets don't match for revision %s. Expected: %v, Actual: %v",
 			rev, expectedComponents, actualComponents)
 	}
-	verifyComponentPodsForRevision(ctx, "istiod", rev, descr)
-	verifyComponentPodsForRevision(ctx, "ingress-gateway", rev, descr)
-	verifyComponentPodsForRevision(ctx, "egress-gateway", rev, descr)
+	verifyComponentPodsForRevision(t, "istiod", rev, descr)
+	verifyComponentPodsForRevision(t, "ingress-gateway", rev, descr)
+	verifyComponentPodsForRevision(t, "egress-gateway", rev, descr)
 }
 
-func verifyComponentPodsForRevision(ctx framework.TestContext, component, rev string, descr *cmd.RevisionDescription) {
+func verifyComponentPodsForRevision(t framework.TestContext, component, rev string, descr *cmd.RevisionDescription) {
 	opComponent := componentMap[component]
 	if opComponent == "" {
-		ctx.Fatalf("unknown component: %s", component)
+		t.Fatalf("unknown component: %s", component)
 	}
 	labelSelector, err := meta_v1.LabelSelectorAsSelector(&meta_v1.LabelSelector{
 		MatchLabels: map[string]string{
@@ -297,13 +296,13 @@ func verifyComponentPodsForRevision(ctx framework.TestContext, component, rev st
 		},
 	})
 	if err != nil {
-		ctx.Fatalf("unexpected error: failed to create label selector: %v", err)
+		t.Fatalf("unexpected error: failed to create label selector: %v", err)
 	}
-	componentPods, err := ctx.Clusters().Default().
+	componentPods, err := t.Clusters().Default().
 		CoreV1().Pods("").
 		List(context.Background(), meta_v1.ListOptions{LabelSelector: labelSelector.String()})
 	if err != nil {
-		ctx.Fatalf("unexpected error while fetching %s pods for revision %s: %v", component, rev, err)
+		t.Fatalf("unexpected error while fetching %s pods for revision %s: %v", component, rev, err)
 	}
 	expectedComponentPodSet := map[string]bool{}
 	for _, pod := range componentPods.Items {
@@ -327,7 +326,7 @@ func verifyComponentPodsForRevision(ctx framework.TestContext, component, rev st
 	}
 
 	if !setsMatch(expectedComponentPodSet, actualComponentPodSet) {
-		ctx.Fatalf("%s pods are not listed properly. Expected: %v, Actual: %v",
+		t.Fatalf("%s pods are not listed properly. Expected: %v, Actual: %v",
 			component, expectedComponentPodSet, actualComponentPodSet)
 	}
 }
@@ -361,8 +360,8 @@ func subsetOf(a map[string]bool, b map[string]bool) bool {
 //
 // K8s 1.15 - https://v1-16.docs.kubernetes.io/docs/reference/generated/kubernetes-api/v1.15/#mutatingwebhookconfiguration-v1beta1-admissionregistration-k8s-io
 // K8s 1.16 - https://v1-16.docs.kubernetes.io/docs/reference/generated/kubernetes-api/v1.16/#mutatingwebhookconfiguration-v1-admissionregistration-k8s-io
-func skipIfUnsupportedKubernetesVersion(ctx framework.TestContext) {
-	if !ctx.Clusters().Default().MinKubeVersion(1, 16) {
-		ctx.Skipf("k8s version not supported for %s (<%s)", ctx.Name(), "1.16")
+func skipIfUnsupportedKubernetesVersion(t framework.TestContext) {
+	if !t.Clusters().Default().MinKubeVersion(1, 16) {
+		t.Skipf("k8s version not supported for %s (<%s)", t.Name(), "1.16")
 	}
 }
