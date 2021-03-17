@@ -69,7 +69,6 @@ By default it will use the default serviceAccount from (istio-system) namespace 
   # (Select a specific control plane in an in-cluster canary Istio configuration.)
   istioctl x debug syncz --xds-label istio.io/rev=default
 `,
-		Aliases: []string{"debug"},
 		RunE: func(c *cobra.Command, args []string) error {
 			kubeClient, err := kubeClientWithRevision(kubeconfig, configContext, opts.Revision)
 			if err != nil {
