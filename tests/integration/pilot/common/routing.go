@@ -24,14 +24,13 @@ import (
 	"strings"
 	"time"
 
-	"istio.io/istio/pkg/test/framework/components/echo/echotest"
-
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/test"
 	echoclient "istio.io/istio/pkg/test/echo/client"
 	"istio.io/istio/pkg/test/echo/common/scheme"
 	epb "istio.io/istio/pkg/test/echo/proto"
 	"istio.io/istio/pkg/test/framework/components/echo"
+	"istio.io/istio/pkg/test/framework/components/echo/echotest"
 	"istio.io/istio/pkg/test/util/retry"
 	"istio.io/istio/pkg/test/util/tmpl"
 )
