@@ -25,6 +25,7 @@ import (
 	. "github.com/onsi/gomega"
 
 	"istio.io/istio/pilot/pkg/features"
+	"istio.io/istio/pilot/pkg/server"
 	"istio.io/istio/pilot/pkg/serviceregistry"
 	kubecontroller "istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
 	"istio.io/istio/pkg/config/constants"
@@ -187,6 +188,7 @@ func TestReloadIstiodCert(t *testing.T) {
 	stop := make(chan struct{})
 	s := &Server{
 		fileWatcher: filewatcher.NewWatcher(),
+		server:      server.New(),
 	}
 
 	defer func() {
@@ -215,15 +217,12 @@ func TestReloadIstiodCert(t *testing.T) {
 	}
 
 	// setup cert watches.
-	err = s.initCertificateWatches(tlsOptions)
-	for _, fn := range s.startFuncs {
-		if err := fn(stop); err != nil {
-			t.Fatalf("Could not invoke startFuncs: %v", err)
-		}
+	if err = s.initCertificateWatches(tlsOptions); err != nil {
+		t.Fatalf("initCertificateWatches failed: %v", err)
 	}
 
-	if err != nil {
-		t.Fatalf("initCertificateWatches failed: %v", err)
+	if err = s.server.Start(stop); err != nil {
+		t.Fatalf("Could not invoke startFuncs: %v", err)
 	}
 
 	// Validate that the certs are loaded.
