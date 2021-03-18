@@ -133,12 +133,13 @@ func (v *StatusVerifier) verifyInstallIOPRevision() error {
 	if v.manifestsPath != "" {
 		iop.Spec.InstallPackagePath = v.manifestsPath
 	}
-	profile := v.getProfile(iop)
+	profile := manifest.GetProfile(iop)
 	by, err := yaml.Marshal(iop)
 	if err != nil {
 		return err
 	}
-	mergedIOP, err := v.getMergedIOP(string(by), profile)
+	mergedIOP, err := manifest.GetMergedIOP(string(by), profile, v.manifestsPath, v.controlPlaneOpts.Revision,
+		v.kubeconfig, v.context, v.logger)
 	if err != nil {
 		return nil
 	}
@@ -330,8 +331,9 @@ func (v *StatusVerifier) verifyPostInstall(visitor resource.Visitor, filename st
 				v.reportFailure(kind, name, namespace, err)
 				return err
 			}
-			profile := v.getProfile(unmergedIOP)
-			iop, err := v.getMergedIOP(by, profile)
+			profile := manifest.GetProfile(unmergedIOP)
+			iop, err := manifest.GetMergedIOP(by, profile, v.manifestsPath, v.controlPlaneOpts.Revision,
+				v.kubeconfig, v.context, v.logger)
 			if err != nil {
 				v.reportFailure(kind, name, namespace, err)
 				return err
@@ -376,33 +378,6 @@ func (v *StatusVerifier) verifyPostInstall(visitor resource.Visitor, filename st
 		return nil
 	})
 	return crdCount, istioDeploymentCount, err
-}
-
-func (v *StatusVerifier) getProfile(iop *v1alpha1.IstioOperator) string {
-	profile := "default"
-	if iop != nil && iop.Spec != nil && iop.Spec.Profile != "" {
-		profile = iop.Spec.Profile
-	}
-	return profile
-}
-
-func (v *StatusVerifier) getMergedIOP(userIOPStr, profile string) (*v1alpha1.IstioOperator, error) {
-	restConfig, err := v.k8sConfig().ToRESTConfig()
-	if err != nil {
-		return nil, err
-	}
-	extraFlags := []string{}
-	if v.manifestsPath != "" {
-		extraFlags = append(extraFlags, fmt.Sprintf("installPackagePath=%s", v.manifestsPath))
-	}
-	if v.controlPlaneOpts.Revision != "" {
-		extraFlags = append(extraFlags, fmt.Sprintf("revision=%s", v.controlPlaneOpts.Revision))
-	}
-	_, mergedIOP, err := manifest.OverlayYAMLStrings(profile, userIOPStr, extraFlags, false, restConfig, v.logger)
-	if err != nil {
-		return nil, err
-	}
-	return mergedIOP, nil
 }
 
 // Find Istio injector matching revision.  ("" matches any revision.)
@@ -454,7 +429,9 @@ func (v *StatusVerifier) operatorFromCluster(revision string) (*v1alpha1.IstioOp
 		return nil, err
 	}
 	for _, iop := range iops {
-		if iop.Spec.Revision == revision {
+		if iop.Spec.Revision == revision ||
+			(iop.Spec.Revision == "default" && revision == "") ||
+			(iop.Spec.Revision == "" && revision == "default") {
 			return iop, nil
 		}
 	}

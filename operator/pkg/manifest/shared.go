@@ -38,6 +38,7 @@ import (
 	"istio.io/istio/operator/pkg/util"
 	"istio.io/istio/operator/pkg/util/clog"
 	"istio.io/istio/operator/pkg/validate"
+	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/url"
 	"istio.io/pkg/log"
 	pkgversion "istio.io/pkg/version"
@@ -288,6 +289,34 @@ func readLayeredYAMLs(filenames []string, stdinReader io.Reader) (string, error)
 		}
 	}
 	return ly, nil
+}
+
+func GetProfile(iop *iopv1alpha1.IstioOperator) string {
+	profile := "default"
+	if iop != nil && iop.Spec != nil && iop.Spec.Profile != "" {
+		profile = iop.Spec.Profile
+	}
+	return profile
+}
+
+func GetMergedIOP(userIOPStr, profile, manifestsPath, revision, kubeConfigPath, context string,
+	logger clog.Logger) (*iopv1alpha1.IstioOperator, error) {
+	restConfig, err := kube.BuildClientConfig(kubeConfigPath, context)
+	if err != nil {
+		return nil, err
+	}
+	extraFlags := make([]string, 0)
+	if manifestsPath != "" {
+		extraFlags = append(extraFlags, fmt.Sprintf("installPackagePath=%s", manifestsPath))
+	}
+	if revision != "" {
+		extraFlags = append(extraFlags, fmt.Sprintf("revision=%s", revision))
+	}
+	_, mergedIOP, err := OverlayYAMLStrings(profile, userIOPStr, extraFlags, false, restConfig, logger)
+	if err != nil {
+		return nil, err
+	}
+	return mergedIOP, nil
 }
 
 // validateSetFlags validates that setFlags all have path=value format.

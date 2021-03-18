@@ -76,9 +76,7 @@ istioctl experimental precheck.
 		},
 		RunE: func(c *cobra.Command, args []string) error {
 			installationVerifier := verifier.NewStatusVerifier(istioNamespace, manifestsPath,
-				*kubeConfigFlags.KubeConfig, *kubeConfigFlags.Context,
-				[]string{}, /* filenames already considered while merging */
-				opts, nil, nil)
+				*kubeConfigFlags.KubeConfig, *kubeConfigFlags.Context, filenames, opts, nil, nil)
 			if formatting.IstioctlColorDefault(c.OutOrStdout()) {
 				installationVerifier.Colorize()
 			}
