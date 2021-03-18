@@ -394,18 +394,10 @@ func (c *Controller) Cleanup() error {
 }
 
 func (c *Controller) onServiceEvent(curr interface{}, event model.Event) error {
-	svc, ok := curr.(*v1.Service)
-	if !ok {
-		tombstone, ok := curr.(cache.DeletedFinalStateUnknown)
-		if !ok {
-			log.Errorf("Couldn't get object from tombstone %#v", curr)
-			return nil
-		}
-		svc, ok = tombstone.Obj.(*v1.Service)
-		if !ok {
-			log.Errorf("Tombstone contained object that is not a service %#v", curr)
-			return nil
-		}
+	svc, err := convertToService(curr)
+	if err != nil {
+		log.Errorf(err)
+		return nil
 	}
 
 	log.Debugf("Handle event %s for service %s in namespace %s", event, svc.Name, svc.Namespace)
