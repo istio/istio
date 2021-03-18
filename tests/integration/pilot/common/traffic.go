@@ -84,12 +84,15 @@ func (c TrafficTestCase) RunForApps(t framework.TestContext, apps echo.Instances
 
 	job := func(t framework.TestContext) {
 		echotest.New(t, apps).
-			SetupForPair(func(t framework.TestContext, src, dst echo.Instances) error {
+			SetupForPair(func(t framework.TestContext, src echo.Instances, dsts []echo.Instances) error {
 				cfg := yml.MustApplyNamespace(t, tmpl.MustEvaluate(
 					c.config,
 					map[string]interface{}{
 						"src": src,
-						"dst": dst,
+						// tests that use simple Run only need the first
+						"dst": dsts[0],
+						// tests that use RunForN need all destination deployments
+						"dsts": dsts,
 					},
 				), namespace)
 				return t.Config().ApplyYAML("", cfg)
