@@ -79,7 +79,7 @@ type IstioCAOptions struct {
 	MaxCertTTL     time.Duration
 	CARSAKeySize   int
 
-	KeyCertBundle util.KeyCertBundle
+	KeyCertBundle *util.KeyCertBundle
 
 	LivenessProbeOptions *probe.Options
 	ProbeCheckInterval   time.Duration
@@ -248,7 +248,7 @@ type IstioCA struct {
 	maxCertTTL     time.Duration
 	caRSAKeySize   int
 
-	keyCertBundle util.KeyCertBundle
+	keyCertBundle *util.KeyCertBundle
 
 	livenessProbe *probe.Probe
 
@@ -304,7 +304,7 @@ func (ca *IstioCA) SignWithCertChain(csrPEM []byte, subjectIDs []string, request
 }
 
 // GetCAKeyCertBundle returns the KeyCertBundle for the CA.
-func (ca *IstioCA) GetCAKeyCertBundle() util.KeyCertBundle {
+func (ca *IstioCA) GetCAKeyCertBundle() *util.KeyCertBundle {
 	return ca.keyCertBundle
 }
 
