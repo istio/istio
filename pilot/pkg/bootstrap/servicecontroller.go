@@ -92,6 +92,7 @@ func (s *Server) initKubeRegistry(args *PilotArgs) (err error) {
 		args.Revision,
 		s.fetchCARoot,
 		s.environment,
+		s.environment.ClusterLocal(),
 		s.server)
 
 	// initialize the "main" cluster registry before starting controllers for remote clusters
