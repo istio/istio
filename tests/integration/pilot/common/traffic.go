@@ -62,12 +62,14 @@ type TrafficTestCase struct {
 	// workloadAgnostic is a temporary setting to trigger using RunForApps
 	// TODO remove this and force everything to be workoad agnostic
 	workloadAgnostic bool
+
+	// sourceFilters allows adding additional filtering for workload agnostic cases to test using fewer clients
+	sourceFilters []echotest.SimpleFilter
+	// targetFilters allows adding additional filtering for workload agnostic cases to test using fewer targets
+	targetFilters []echotest.SimpleFilter
 }
 
 func (c TrafficTestCase) RunForApps(t framework.TestContext, apps echo.Instances, namespace string) {
-	if c.skip {
-		t.SkipNow()
-	}
 	if c.opts.Target != nil {
 		t.Fatal("TrafficTestCase.RunForApps: opts.Target must not be specified")
 	}
@@ -80,39 +82,50 @@ func (c TrafficTestCase) RunForApps(t framework.TestContext, apps echo.Instances
 		t.Fatal("TrafficTestCase: must not specify both opts and children")
 	}
 
-	echotest.New(t, apps).
-		SetupForPair(func(t framework.TestContext, src, dst echo.Instances) error {
-			cfg := tmpl.MustEvaluate(
-				yml.MustApplyNamespace(t, c.config, namespace),
-				map[string]echo.Instances{
-					"src": src,
-					"dst": dst,
-				},
-			)
-			return t.Config().ApplyYAML("", cfg)
-		}).
-		From(echotest.SingleSimplePodBasedService, echotest.NoExternalServices).
-		ConditionallyTo(echotest.ReachableDestinations).
-		To(echotest.SingleSimplePodBasedService).
-		Run(func(t framework.TestContext, src echo.Instance, dest echo.Instances) {
-			buildOpts := func(options echo.CallOptions) echo.CallOptions {
-				opts := options
-				opts.Target = dest[0]
-				if c.validate != nil {
-					opts.Validator = c.validate(src, dest)
+	job := func(t framework.TestContext) {
+		echotest.New(t, apps).
+			SetupForPair(func(t framework.TestContext, src, dst echo.Instances) error {
+				cfg := yml.MustApplyNamespace(t, tmpl.MustEvaluate(
+					c.config,
+					map[string]interface{}{
+						"src": src,
+						"dst": dst,
+					},
+				), namespace)
+				return t.Config().ApplyYAML("", cfg)
+			}).
+			WithDefaultFilters().
+			From(c.sourceFilters...).
+			To(c.targetFilters...).
+			Run(func(t framework.TestContext, src echo.Instance, dest echo.Instances) {
+				if c.skip {
+					t.SkipNow()
 				}
-				opts.Count = callsPerCluster * len(dest)
-				return opts
-			}
-			if optsSpecified {
-				src.CallWithRetryOrFail(t, buildOpts(c.opts), retryOptions...)
-			}
-			for _, child := range c.children {
-				t.NewSubTest(child.name).Run(func(t framework.TestContext) {
-					src.CallWithRetryOrFail(t, buildOpts(child.opts), retryOptions...)
-				})
-			}
-		})
+				buildOpts := func(options echo.CallOptions) echo.CallOptions {
+					opts := options
+					opts.Target = dest[0]
+					if c.validate != nil {
+						opts.Validator = c.validate(src, dest)
+					}
+					opts.Count = callsPerCluster * len(dest)
+					return opts
+				}
+				if optsSpecified {
+					src.CallWithRetryOrFail(t, buildOpts(c.opts), retryOptions...)
+				}
+				for _, child := range c.children {
+					t.NewSubTest(child.name).Run(func(t framework.TestContext) {
+						src.CallWithRetryOrFail(t, buildOpts(child.opts), retryOptions...)
+					})
+				}
+			})
+	}
+
+	if c.name != "" {
+		t.NewSubTest(c.name).Run(job)
+	} else {
+		job(t)
+	}
 }
 
 func (c TrafficTestCase) Run(ctx framework.TestContext, namespace string) {

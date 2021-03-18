@@ -30,6 +30,7 @@ import (
 	"istio.io/istio/pkg/test/echo/common/scheme"
 	epb "istio.io/istio/pkg/test/echo/proto"
 	"istio.io/istio/pkg/test/framework/components/echo"
+	"istio.io/istio/pkg/test/framework/components/echo/echotest"
 	"istio.io/istio/pkg/test/util/retry"
 	"istio.io/istio/pkg/test/util/tmpl"
 )
@@ -79,52 +80,48 @@ spec:
 
 func virtualServiceCases(apps *EchoDeployments) []TrafficTestCase {
 	var cases []TrafficTestCase
-	callCount := callsPerCluster * len(apps.PodB)
 	// Send the same call from all different clusters
-	for _, podA := range apps.PodA {
-		podA := podA
-		cases = append(cases,
-			TrafficTestCase{
-				name: "added header",
-				config: `
+
+	cases = append(cases,
+		TrafficTestCase{
+			name: "added header",
+			config: `
 apiVersion: networking.istio.io/v1alpha3
 kind: VirtualService
 metadata:
   name: default
 spec:
   hosts:
-  - b
+  - {{ (index .dst 0).Config.Service }}
   http:
   - route:
     - destination:
-        host: b
+        host: {{ (index .dst 0).Config.Service }}
     headers:
       request:
         add:
           istio-custom-header: user-defined-value`,
-				call: podA.CallWithRetryOrFail,
-				opts: echo.CallOptions{
-					Target:   apps.PodB[0],
-					PortName: "http",
-					Count:    callCount,
-					Validator: echo.ValidatorFunc(
-						func(response echoclient.ParsedResponses, _ error) error {
-							return response.Check(func(_ int, response *echoclient.ParsedResponse) error {
-								return ExpectString(response.RawResponse["Istio-Custom-Header"], "user-defined-value", "request header")
-							})
-						}),
-				},
+			opts: echo.CallOptions{
+				PortName: "http",
+				Validator: echo.ValidatorFunc(
+					func(response echoclient.ParsedResponses, _ error) error {
+						return response.Check(func(_ int, response *echoclient.ParsedResponse) error {
+							return ExpectString(response.RawResponse["Istio-Custom-Header"], "user-defined-value", "request header")
+						})
+					}),
 			},
-			TrafficTestCase{
-				name: "redirect",
-				config: `
+			workloadAgnostic: true,
+		},
+		TrafficTestCase{
+			name: "redirect",
+			config: `
 apiVersion: networking.istio.io/v1alpha3
 kind: VirtualService
 metadata:
   name: default
 spec:
   hosts:
-    - b
+    - {{ (index .dst 0).Config.Service }}
   http:
   - match:
     - uri:
@@ -136,32 +133,30 @@ spec:
         exact: /new/path
     route:
     - destination:
-        host: b`,
-				call: podA.CallWithRetryOrFail,
-				opts: echo.CallOptions{
-					Target:          apps.PodB[0],
-					PortName:        "http",
-					Path:            "/foo?key=value",
-					Count:           callCount,
-					FollowRedirects: true,
-					Validator: echo.ValidatorFunc(
-						func(response echoclient.ParsedResponses, _ error) error {
-							return response.Check(func(_ int, response *echoclient.ParsedResponse) error {
-								return ExpectString(response.URL, "/new/path?key=value", "URL")
-							})
-						}),
-				},
+        host: {{ (index .dst 0).Config.Service }}`,
+			opts: echo.CallOptions{
+				PortName:        "http",
+				Path:            "/foo?key=value",
+				FollowRedirects: true,
+				Validator: echo.ValidatorFunc(
+					func(response echoclient.ParsedResponses, _ error) error {
+						return response.Check(func(_ int, response *echoclient.ParsedResponse) error {
+							return ExpectString(response.URL, "/new/path?key=value", "URL")
+						})
+					}),
 			},
-			TrafficTestCase{
-				name: "rewrite uri",
-				config: `
+			workloadAgnostic: true,
+		},
+		TrafficTestCase{
+			name: "rewrite uri",
+			config: `
 apiVersion: networking.istio.io/v1alpha3
 kind: VirtualService
 metadata:
   name: default
 spec:
   hosts:
-    - b
+    - {{ (index .dst 0).Config.Service }}
   http:
   - match:
     - uri:
@@ -170,31 +165,29 @@ spec:
       uri: /new/path
     route:
     - destination:
-        host: b`,
-				call: podA.CallWithRetryOrFail,
-				opts: echo.CallOptions{
-					Target:   apps.PodB[0],
-					PortName: "http",
-					Path:     "/foo?key=value#hash",
-					Count:    callCount,
-					Validator: echo.ValidatorFunc(
-						func(response echoclient.ParsedResponses, _ error) error {
-							return response.Check(func(_ int, response *echoclient.ParsedResponse) error {
-								return ExpectString(response.URL, "/new/path?key=value", "URL")
-							})
-						}),
-				},
+        host: {{ (index .dst 0).Config.Service }}`,
+			opts: echo.CallOptions{
+				PortName: "http",
+				Path:     "/foo?key=value#hash",
+				Validator: echo.ValidatorFunc(
+					func(response echoclient.ParsedResponses, _ error) error {
+						return response.Check(func(_ int, response *echoclient.ParsedResponse) error {
+							return ExpectString(response.URL, "/new/path?key=value", "URL")
+						})
+					}),
 			},
-			TrafficTestCase{
-				name: "rewrite authority",
-				config: `
+			workloadAgnostic: true,
+		},
+		TrafficTestCase{
+			name: "rewrite authority",
+			config: `
 apiVersion: networking.istio.io/v1alpha3
 kind: VirtualService
 metadata:
   name: default
 spec:
   hosts:
-    - b
+    - {{ (index .dst 0).Config.Service }}
   http:
   - match:
     - uri:
@@ -203,31 +196,31 @@ spec:
       authority: new-authority
     route:
     - destination:
-        host: b`,
-				call: podA.CallWithRetryOrFail,
-				opts: echo.CallOptions{
-					Target:   apps.PodB[0],
-					PortName: "http",
-					Path:     "/foo",
-					Count:    callCount,
-					Validator: echo.ValidatorFunc(
-						func(response echoclient.ParsedResponses, _ error) error {
-							return response.Check(func(_ int, response *echoclient.ParsedResponse) error {
-								return ExpectString(response.Host, "new-authority", "authority")
-							})
-						}),
-				},
+        host: {{ (index .dst 0).Config.Service }}`,
+			opts: echo.CallOptions{
+				PortName: "http",
+				Path:     "/foo",
+				Validator: echo.ValidatorFunc(
+					func(response echoclient.ParsedResponses, _ error) error {
+						return response.Check(func(_ int, response *echoclient.ParsedResponse) error {
+							return ExpectString(response.Host, "new-authority", "authority")
+						})
+					}),
 			},
-			TrafficTestCase{
-				name: "cors",
-				config: `
+			workloadAgnostic: true,
+		},
+		TrafficTestCase{
+			name: "cors",
+			// TODO https://github.com/istio/istio/issues/31532
+			targetFilters: []echotest.SimpleFilter{echotest.Not(echotest.VirtualMachines)},
+			config: `
 apiVersion: networking.istio.io/v1alpha3
 kind: VirtualService
 metadata:
   name: default
 spec:
   hosts:
-    - b
+    - {{ (index .dst 0).Config.Service }}
   http:
   - corsPolicy:
       allowOrigins:
@@ -242,84 +235,79 @@ spec:
       maxAge: "24h"
     route:
     - destination:
-        host: b
+        host: {{ (index .dst 0).Config.Service }}
 `,
-				children: []TrafficCall{
-					{
-						name: "preflight",
-						call: podA.CallWithRetryOrFail,
-						opts: func() echo.CallOptions {
-							header := http.Header{}
-							header.Add("Origin", "cors.com")
-							header.Add("Access-Control-Request-Method", "DELETE")
-							return echo.CallOptions{
-								Target:   apps.PodB[0],
-								PortName: "http",
-								Method:   "OPTIONS",
-								Headers:  header,
-								Count:    callCount,
-								Validator: echo.ValidatorFunc(
-									func(response echoclient.ParsedResponses, _ error) error {
-										return response.Check(func(_ int, response *echoclient.ParsedResponse) error {
-											if err := ExpectString(response.RawResponse["Access-Control-Allow-Origin"],
-												"cors.com", "preflight CORS origin"); err != nil {
-												return err
-											}
-											if err := ExpectString(response.RawResponse["Access-Control-Allow-Methods"],
-												"POST,GET", "preflight CORS method"); err != nil {
-												return err
-											}
-											if err := ExpectString(response.RawResponse["Access-Control-Allow-Headers"],
-												"X-Foo-Bar,X-Foo-Baz", "preflight CORS headers"); err != nil {
-												return err
-											}
-											if err := ExpectString(response.RawResponse["Access-Control-Max-Age"],
-												"86400", "preflight CORS max age"); err != nil {
-												return err
-											}
-											return nil
-										})
-									}),
-							}
-						}(),
-					},
-					{
-						name: "get",
-						call: podA.CallWithRetryOrFail,
-						opts: func() echo.CallOptions {
-							header := http.Header{}
-							header.Add("Origin", "cors.com")
-							return echo.CallOptions{
-								Target:   apps.PodB[0],
-								PortName: "http",
-								Headers:  header,
-								Count:    callCount,
-								Validator: echo.ValidatorFunc(
-									func(response echoclient.ParsedResponses, _ error) error {
-										return ExpectString(response[0].RawResponse["Access-Control-Allow-Origin"],
-											"cors.com", "GET CORS origin")
-									}),
-							}
-						}(),
-					},
-					{
-						// GET without matching origin
-						name: "get no origin match",
-						call: podA.CallWithRetryOrFail,
-						opts: echo.CallOptions{
-							Target:   apps.PodB[0],
+			children: []TrafficCall{
+				{
+					name: "preflight",
+					opts: func() echo.CallOptions {
+						header := http.Header{}
+						header.Add("Origin", "cors.com")
+						header.Add("Access-Control-Request-Method", "DELETE")
+						return echo.CallOptions{
 							PortName: "http",
-							Count:    callCount,
+							Method:   "OPTIONS",
+							Headers:  header,
 							Validator: echo.ValidatorFunc(
 								func(response echoclient.ParsedResponses, _ error) error {
-									return ExpectString(response[0].RawResponse["Access-Control-Allow-Origin"], "", "mismatched CORS origin")
+									return response.Check(func(_ int, response *echoclient.ParsedResponse) error {
+										if err := ExpectString(response.RawResponse["Access-Control-Allow-Origin"],
+											"cors.com", "preflight CORS origin"); err != nil {
+											return err
+										}
+										if err := ExpectString(response.RawResponse["Access-Control-Allow-Methods"],
+											"POST,GET", "preflight CORS method"); err != nil {
+											return err
+										}
+										if err := ExpectString(response.RawResponse["Access-Control-Allow-Headers"],
+											"X-Foo-Bar,X-Foo-Baz", "preflight CORS headers"); err != nil {
+											return err
+										}
+										if err := ExpectString(response.RawResponse["Access-Control-Max-Age"],
+											"86400", "preflight CORS max age"); err != nil {
+											return err
+										}
+										return nil
+									})
 								}),
-						},
+						}
+					}(),
+				},
+				{
+					name: "get",
+					opts: func() echo.CallOptions {
+						header := http.Header{}
+						header.Add("Origin", "cors.com")
+						return echo.CallOptions{
+							PortName: "http",
+							Headers:  header,
+							Validator: echo.ValidatorFunc(
+								func(response echoclient.ParsedResponses, _ error) error {
+									return ExpectString(response[0].RawResponse["Access-Control-Allow-Origin"],
+										"cors.com", "GET CORS origin")
+								}),
+						}
+					}(),
+				},
+				{
+					// GET without matching origin
+					name: "get no origin match",
+					opts: echo.CallOptions{
+						PortName: "http",
+						Validator: echo.ValidatorFunc(
+							func(response echoclient.ParsedResponses, _ error) error {
+								return ExpectString(response[0].RawResponse["Access-Control-Allow-Origin"], "", "mismatched CORS origin")
+							}),
 					},
 				},
 			},
-		)
+			workloadAgnostic: true,
+		},
+	)
 
+	// TODO make shifting test workload agnostic
+	for _, podA := range apps.PodA {
+		podA := podA
 		splits := []map[string]int{
 			{
 				PodBSvc:  50,
@@ -403,6 +391,16 @@ spec:
 				},
 			})
 		}
+	}
+
+	// reduce the total # of subtests that don't give valuable coverage or just don't work
+	for i, tc := range cases {
+		noNakedHeadless := func(instances echo.Instances) echo.Instances {
+			return instances.Match(echo.Not(echo.IsNaked()).And(echo.Not(echo.IsHeadless())))
+		}
+		tc.sourceFilters = append(tc.sourceFilters, noNakedHeadless)
+		tc.targetFilters = append(tc.targetFilters, noNakedHeadless)
+		cases[i] = tc
 	}
 
 	return cases
