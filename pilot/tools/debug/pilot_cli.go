@@ -233,7 +233,7 @@ func portForwardPilot(kubeConfig, pilotURL string) (*os.Process, string, error) 
 		return nil, "", err
 	}
 	for _, pod := range pods.Items {
-		if app, ok := pod.ObjectMeta.Labels["istio"]; ok && app == "istiod" {
+		if app, ok := pod.ObjectMeta.Labels["app"]; ok && app == "istiod" {
 			podName = pod.Name
 		}
 	}
