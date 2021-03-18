@@ -260,7 +260,9 @@ func NewServer(args *PilotArgs) (*Server, error) {
 	}
 
 	// Initialize workloadTrustBundle after CA has been initialized
-	s.initWorkloadTrustBundle(args)
+	if err := s.initWorkloadTrustBundle(args); err != nil {
+		return nil, err
+	}
 
 	// Parse and validate Istiod Address.
 	istiodHost, _, err := e.GetDiscoveryAddress()
@@ -1172,7 +1174,7 @@ func (s *Server) initMeshHandlers() {
 	})
 }
 
-func (s *Server) addIstioCAToTrustBundle(args *PilotArgs) {
+func (s *Server) addIstioCAToTrustBundle(args *PilotArgs) error {
 	// TODO: unify with CreateIstioCA instead of mirroring it
 
 	var err error
@@ -1185,19 +1187,20 @@ func (s *Server) addIstioCAToTrustBundle(args *PilotArgs) {
 		})
 		if err != nil {
 			log.Errorf("unable to add CA root as trustAnchor")
+			return err
 		}
-		return
+		return nil
 	}
 
 	// If CA is not running, derive root certificates from the configured CA secrets
 	signingKeyFile := path.Join(LocalCertDir.Get(), "ca-key.pem")
 	if _, err := os.Stat(signingKeyFile); err != nil && s.kubeClient != nil {
 		// Fetch self signed certificates
-		caSecret, scrtErr := s.kubeClient.CoreV1().Secrets(args.Namespace).
+		caSecret, err := s.kubeClient.CoreV1().Secrets(args.Namespace).
 			Get(context.TODO(), ca.CASecret, metav1.GetOptions{})
-		if scrtErr != nil {
-			log.Errorf("unable to retrieve self signed CA secret: %v", scrtErr)
-			return
+		if err != nil {
+			log.Errorf("unable to retrieve self signed CA secret: %v", err)
+			return err
 		}
 		rootCertBytes, ok := caSecret.Data[ca.RootCertID]
 		if !ok {
@@ -1209,6 +1212,7 @@ func (s *Server) addIstioCAToTrustBundle(args *PilotArgs) {
 		})
 		if err != nil {
 			log.Errorf("unable to update trustbundle with self signed CA root: %v", err)
+			return err
 		}
 	} else {
 		// If NOT self signed certificates
@@ -1217,19 +1221,26 @@ func (s *Server) addIstioCAToTrustBundle(args *PilotArgs) {
 			rootCertFile = path.Join(LocalCertDir.Get(), "ca-cert.pem")
 		}
 		certBytes, err := ioutil.ReadFile(rootCertFile)
-		if err == nil {
-			err = s.workloadTrustBundle.UpdateTrustAnchor(&tb.TrustAnchorUpdate{
-				TrustAnchorConfig: tb.TrustAnchorConfig{Certs: []string{string(certBytes)}},
-				Source:            tb.SourceIstioCA,
-			})
-			if err != nil {
-				log.Errorf("unable to update trustbundle with plugin CA root: %v", err)
+		if err != nil {
+			if s.kubeClient != nil {
+				return err
 			}
+			// TODO: accommodation for unit tests. needs to be removed
+			return nil
+		}
+		err = s.workloadTrustBundle.UpdateTrustAnchor(&tb.TrustAnchorUpdate{
+			TrustAnchorConfig: tb.TrustAnchorConfig{Certs: []string{string(certBytes)}},
+			Source:            tb.SourceIstioCA,
+		})
+		if err != nil {
+			log.Errorf("unable to update trustbundle with plugin CA root: %v", err)
+			return err
 		}
 	}
+	return nil
 }
 
-func (s *Server) initWorkloadTrustBundle(args *PilotArgs) {
+func (s *Server) initWorkloadTrustBundle(args *PilotArgs) error {
 	var err error
 
 	s.workloadTrustBundle.UpdateCb(func() {
@@ -1246,14 +1257,20 @@ func (s *Server) initWorkloadTrustBundle(args *PilotArgs) {
 	})
 
 	// MeshConfig: Add initial roots
-	s.workloadTrustBundle.AddMeshConfigUpdate(s.environment.Mesh())
+	err = s.workloadTrustBundle.AddMeshConfigUpdate(s.environment.Mesh())
+	if err != nil {
+		return err
+	}
 
 	// MeshConfig:Add callback for mesh config update
 	s.environment.AddMeshHandler(func() {
-		s.workloadTrustBundle.AddMeshConfigUpdate(s.environment.Mesh())
+		_ = s.workloadTrustBundle.AddMeshConfigUpdate(s.environment.Mesh())
 	})
 
-	s.addIstioCAToTrustBundle(args)
+	err = s.addIstioCAToTrustBundle(args)
+	if err != nil {
+		return err
+	}
 
 	// IstioRA: Explicitly add roots corresponding to RA
 	if s.RA != nil {
@@ -1265,7 +1282,9 @@ func (s *Server) initWorkloadTrustBundle(args *PilotArgs) {
 		})
 		if err != nil {
 			log.Errorf("fatal: unable to add RA root as trustAnchor")
+			return err
 		}
 	}
 	log.Infof("done initializing workload trustBundle")
+	return nil
 }
