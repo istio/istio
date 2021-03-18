@@ -19,7 +19,6 @@ package main
 import (
 	"context"
 	"fmt"
-	"io/ioutil"
 	"net/url"
 	"os"
 	"strings"
@@ -77,7 +76,6 @@ where the network configuration doesn't support gRPC to the source pod.'
 			f, err := forwarder.New(forwarder.Config{
 				Request: request,
 				UDS:     uds,
-				TLSCert: caFile,
 			})
 			if err != nil {
 				log.Fatalf("Failed to create forwarder: %v", err)
@@ -185,16 +183,11 @@ func getRequest(url string) (*proto.ForwardEchoRequest, error) {
 	}
 
 	if clientCert != "" && clientKey != "" {
-		certData, err := ioutil.ReadFile(clientCert)
-		if err != nil {
-			return nil, fmt.Errorf("failed to load client certificate: %v", err)
-		}
-		request.Cert = string(certData)
-		keyData, err := ioutil.ReadFile(clientKey)
-		if err != nil {
-			return nil, fmt.Errorf("failed to load client certificate key: %v", err)
-		}
-		request.Key = string(keyData)
+		request.CertFile = clientCert
+		request.KeyFile = clientKey
+	}
+	if caFile != "" {
+		request.CaCert = caFile
 	}
 	return request, nil
 }

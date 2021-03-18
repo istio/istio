@@ -36,7 +36,6 @@ const maxConcurrency = 20
 type Config struct {
 	Request *proto.ForwardEchoRequest
 	UDS     string
-	TLSCert string
 	Dialer  common.Dialer
 }
 

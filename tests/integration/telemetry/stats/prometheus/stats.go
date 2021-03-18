@@ -24,6 +24,8 @@ import (
 	"golang.org/x/sync/errgroup"
 
 	"istio.io/istio/pkg/config/protocol"
+	"istio.io/istio/pkg/test/echo/common"
+	"istio.io/istio/pkg/test/echo/common/scheme"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/echo/echoboot"
@@ -41,6 +43,7 @@ import (
 var (
 	client, server    echo.Instances
 	nonInjectedServer echo.Instances
+	mockProm          echo.Instances
 	ist               istio.Instance
 	appNsInst         namespace.Instance
 	promInst          prometheus.Instance
@@ -128,6 +131,24 @@ func TestStatsFilter(t *testing.T, feature features.Feature) {
 			if err := g.Wait(); err != nil {
 				t.Fatalf("test failed: %v", err)
 			}
+
+			// In addition, verifies that mocked prometheus could call metrics endpoint with proxy provisioned certs
+			for _, prom := range mockProm {
+				st := server.GetOrFail(ctx, echo.InCluster(prom.Config().Cluster))
+				_, err := prom.Call(echo.CallOptions{
+					Address:            st.WorkloadsOrFail(t)[0].Address(),
+					Scheme:             scheme.HTTPS,
+					Port:               &echo.Port{ServicePort: 15014},
+					Path:               "/metrics",
+					CertFile:           "/etc/certs/custom/cert-chain.pem",
+					KeyFile:            "/etc/certs/custom/key.pem",
+					CaCertFile:         "/etc/certs/custom/root-cert.pem",
+					InsecureSkipVerify: true,
+				})
+				if err != nil {
+					t.Fatalf("test failed: %v", err)
+				}
+			}
 		})
 }
 
@@ -179,6 +200,10 @@ func TestSetup(ctx resource.Context) (err error) {
 	if err != nil {
 		return
 	}
+
+	outputCertAnnot := `
+proxyMetadata:
+  OUTPUT_CERTS: /etc/certs/custom`
 
 	echos, err := echoboot.NewBuilder(ctx).
 		WithClusters(ctx.Clusters()...).
@@ -233,6 +258,34 @@ func TestSetup(ctx resource.Context) (err error) {
 					ServicePort:  9000,
 				},
 			},
+		}).
+		With(nil, echo.Config{
+			// mock prom instance is used to mock a prometheus server, which will visit other echo instance /metrics
+			// endpoint with proxy provisioned certs.
+			Service:   "mock-prom",
+			Namespace: appNsInst,
+			Subsets: []echo.SubsetConfig{
+				{
+					Annotations: map[echo.Annotation]*echo.AnnotationValue{
+						echo.SidecarIncludeInboundPorts: {
+							Value: "",
+						},
+						echo.SidecarIncludeOutboundIPRanges: {
+							Value: "",
+						},
+						echo.SidecarProxyConfig: {
+							Value: outputCertAnnot,
+						},
+						echo.SidecarVolumeMount: {
+							Value: `[{"name": "custom-certs", "mountPath": "/etc/certs/custom"}]`,
+						},
+					},
+				},
+			},
+			TLSSettings: &common.TLSSettings{
+				ProxyProvision: true,
+			},
+			Ports: []echo.Port{},
 		}).Build()
 	if err != nil {
 		return err
@@ -243,6 +296,7 @@ func TestSetup(ctx resource.Context) (err error) {
 	client = echos.Match(echo.Service("client"))
 	server = echos.Match(echo.Service("server"))
 	nonInjectedServer = echos.Match(echo.Service("server-no-sidecar"))
+	mockProm = echos.Match(echo.Service("mock-prom"))
 	promInst, err = prometheus.New(ctx, prometheus.Config{})
 	if err != nil {
 		return
