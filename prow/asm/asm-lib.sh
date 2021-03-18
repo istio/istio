@@ -417,6 +417,23 @@ function install_asm() {
   # variables that should not persist across install_asm calls should be added here
   local CUSTOM_CA_FLAGS
 
+  # Setup NAT to grant private nodes outbound internet access
+  if [[ "${FEATURE_TO_TEST}" == "VPC_SC" ]]; then
+    local NETWORK_NAME="default"
+    if [[ "${CLUSTER_TOPOLOGY}" == "mp" ]]; then
+      NETWORK_NAME="test-network"
+    fi
+    gcloud compute routers create test-router \
+      --network "${NETWORK_NAME}" \
+      --region us-central1 || echo "test-router already exists"
+    gcloud compute routers nats create test-nat \
+      --router=test-router \
+      --auto-allocate-nat-external-ips \
+      --nat-all-subnet-ip-ranges \
+      --router-region=us-central1 \
+      --enable-logging || echo "test-nat already exists"
+  fi
+
   for i in "${!CONTEXTS[@]}"; do
     IFS="_" read -r -a VALS <<< "${CONTEXTS[$i]}"
     PROJECT_ID="${VALS[1]}"
@@ -480,16 +497,6 @@ function install_asm() {
       gcloud compute firewall-rules update "${FIREWALL_RULE_NAME}" --allow tcp --source-ranges 0.0.0.0/0
       # Check the updated firewall rule
       gcloud compute firewall-rules list --filter="name~gke-""${CLUSTER}""-[0-9a-z]*-master"
-      # Setup NAT to grant private nodes outbound internet access
-      gcloud compute routers create test-router \
-        --network default \
-        --region us-central1 || echo "test-router already exists"
-      gcloud compute routers nats create test-nat \
-        --router=test-router \
-        --auto-allocate-nat-external-ips \
-        --nat-all-subnet-ip-ranges \
-        --router-region=us-central1 \
-        --enable-logging || echo "test-nat already exists"
     elif [[ "${FEATURE_TO_TEST}" == "USER_AUTH" ]]; then
       # Add user auth overlay
       CUSTOM_OVERLAY="${CUSTOM_OVERLAY},${PKG}/overlay/user-auth.yaml"
@@ -529,7 +536,7 @@ function install_asm() {
           --ca ${INSTALL_ASM_CA} \
           "${CUSTOM_CA_FLAGS}" \
           --mode install \
-          --enable_gcp_apis \
+          --enable_all \
           --option multiproject \
           --option audit-authorizationpolicy \
           --custom_overlay "${CUSTOM_OVERLAY}" \

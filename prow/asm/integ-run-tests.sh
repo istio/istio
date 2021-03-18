@@ -222,6 +222,26 @@ else
   export GCR_PROJECT_ID_2="${GCR_PROJECT_ID_1}"
 fi
 
+if [[ "${FEATURE_TO_TEST}" == "VPC_SC" ]]; then
+  NETWORK_NAME="default"
+  if [[ "${CLUSTER_TOPOLOGY}" == "mp" ]]; then
+    NETWORK_NAME="test-network"
+  fi
+  # Create the route as per the user guide in https://docs.google.com/document/d/11yYDxxI-fbbqlpvUYRtJiBmGdY_nIKPJLbssM3YQtKI/edit#heading=h.e2laig460f1d.
+  gcloud compute routes create restricted-vip --network="${NETWORK_NAME}" --destination-range=199.36.153.4/30 --next-hop-gateway=default-internet-gateway --project="${HOST_PROJECT}"
+  if [[ "${CLUSTER_TOPOLOGY}" == "mp" ]]; then
+    # Enable private ip access for VPC_SC
+    gcloud compute networks subnets update "test-network-${GCR_PROJECT_ID_1}" \
+      --project="${HOST_PROJECT}" \
+      --region=us-central1 \
+      --enable-private-ip-google-access
+    gcloud compute networks subnets update "test-network-${GCR_PROJECT_ID_2}" \
+      --project="${HOST_PROJECT}" \
+      --region=us-central1 \
+      --enable-private-ip-google-access
+  fi
+fi
+
 # TODO(ruigu): extract the common part of MANAGED and UNMANAGED when MANAGED test is added.
 if [[ "${CONTROL_PLANE}" == "UNMANAGED" ]]; then
   echo "Setting up ASM ${CONTROL_PLANE} control plane for test"
