@@ -30,8 +30,9 @@ type (
 	oneToNTest   func(t framework.TestContext, src echo.Instance, dsts []echo.Instances)
 )
 
-// Run will generate nested subtests for every instance in every deployment. The subtests will be nested including
-// the source service, source cluster and destination deployment. Example: `a/to_b/from_cluster-0`
+// Run will generate nested subtests from each instance in each deployment to each deployment
+// For exampled, `a/to_b/from_cluster-0`. `a` is the source deployment, `b` is the destination deployment and `cluster-0`
+// marks which instance of the source deployment
 func (t *T) Run(testFn oneToOneTest) {
 	t.fromEachDeployment(t.rootCtx, func(ctx framework.TestContext, srcInstances echo.Instances) {
 		t.setup(ctx, srcInstances)
@@ -50,23 +51,23 @@ func (t *T) Run(testFn oneToOneTest) {
 	})
 }
 
+// RunToN will generate nested subtests for every instance in every deployment subsets of the full set of deployments,
+// such that every deployment is a destination at least once. To create as few subtests as possible, the same deployment
+// may appear as a target in multiple subtests.
+//
+// Example: Given a as the only source, with a, b, c, d as destinationsand n = 3, we get the following subtests:
+//     a/to_a_b_c/from_cluster_1:
+//     a/to_a_b_c/from_cluster_2:
+//     a/to_b_c_d/from_cluster_1:
+//     a/to_b_c_d/from_cluster_2:
+//
 func (t *T) RunToN(n int, testFn oneToNTest) {
 	t.fromEachDeployment(t.rootCtx, func(ctx framework.TestContext, srcInstances echo.Instances) {
 		t.setup(ctx, srcInstances)
-		t.toNDeployments(ctx, n, func(ctx framework.TestContext, dstDeployments []echo.Instances) {
-			t.setupPair(ctx, srcInstances, dstDeployments)
+		t.toNDeployments(ctx, n, srcInstances, func(ctx framework.TestContext, destDeployments []echo.Instances) {
+			t.setupPair(ctx, srcInstances, destDeployments)
 			t.fromEachCluster(ctx, srcInstances, func(ctx framework.TestContext, src echo.Instance) {
-				filteredDst := make([]echo.Instances, 3)
-				for i, dstDeployment := range dstDeployments {
-					filteredDst[i] = t.applyCombinationFilters(src, dstDeployment)
-					// TODO rather than skipping for 1/n being ineligible, can we filter earlier and avoid calling setupPair for each cluster?
-					if len(filteredDst[i]) == 0 {
-						// this only happens due to conditional filters and when an entire deployment is filtered we should be noisy
-						ctx.Skipf("cases from %s in %s with %s as destination are removed by filters ",
-							src.Config().Service, src.Config().Cluster.StableName(), dstDeployment[0].Config().Service)
-					}
-				}
-				testFn(ctx, src, dstDeployments)
+				testFn(ctx, src, destDeployments)
 			})
 		})
 	})
@@ -107,26 +108,48 @@ func (t *T) fromEachCluster(ctx framework.TestContext, src echo.Instances, testF
 	}
 }
 
-func (t *T) toNDeployments(ctx framework.TestContext, n int, testFn perNDeploymentTest) {
-	dests := t.destinations.Deployments()
+func (t *T) toNDeployments(ctx framework.TestContext, n int, srcs echo.Instances, testFn perNDeploymentTest) {
+	// every eligible target deployment
+	var filteredTargets []echo.Instances
+	var commonTargets string
+	for _, src := range srcs {
+		filteredTargets = t.applyCombinationFilters(src, t.destinations).Deployments()
+		targetNames := strings.Join(targetNames(filteredTargets), ";")
+		if commonTargets == "" {
+			commonTargets = targetNames
+		} else if commonTargets != targetNames {
+			ctx.Fatalf("%s in each cluster each cluster would not target the same set of deploments", src.Config().Service)
+		}
+	}
+
+	for _, set := range nDestinations(ctx, n, filteredTargets) {
+		set := set
+		ctx.NewSubTestf("to %s", strings.Join(targetNames(set), " ")).Run(func(ctx framework.TestContext) {
+			testFn(ctx, set)
+		})
+	}
+}
+
+func nDestinations(ctx framework.TestContext, n int, dests []echo.Instances) (out [][]echo.Instances) {
 	nDests := len(dests)
 	if nDests < n {
 		ctx.Fatalf("want to run with %d destinations but there are only %d total", n, nDests)
 	}
-
 	for i := 0; i < nDests; i += n {
 		start := i
 		if start+n-1 >= nDests {
 			// re-use a few destinations to fit the entire slice in
 			start = nDests - n
 		}
-		testDests := dests[start : start+n]
-		var names []string
-		for _, dest := range testDests {
-			names = append(names, dest[0].Config().Service)
-		}
-		ctx.NewSubTestf("to %s", strings.Join(names, " ")).Run(func(ctx framework.TestContext) {
-			testFn(ctx, testDests)
-		})
+		out = append(out, dests[start:start+n])
 	}
+	return
+}
+
+func targetNames(deployments []echo.Instances) []string {
+	var names []string
+	for _, dest := range deployments {
+		names = append(names, dest[0].Config().Service)
+	}
+	return names
 }

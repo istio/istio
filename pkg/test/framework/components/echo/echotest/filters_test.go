@@ -255,8 +255,12 @@ func TestRun(t *testing.T) {
 			},
 			"RunToN": {
 				run: func(t framework.TestContext, testTopology map[string]map[string]int) {
+					noNaked := Not(MatcherAsFilter(echo.IsNaked()))
+					noHeadless := Not(MatcherAsFilter(echo.IsHeadless()))
 					New(t, all).
 						WithDefaultFilters().
+						From(noNaked, noHeadless).
+						To(noHeadless).
 						RunToN(3, func(ctx framework.TestContext, src echo.Instance, dsts []echo.Instances) {
 							srcKey := src.Config().FQDN()
 							if testTopology[srcKey] == nil {
@@ -272,18 +276,12 @@ func TestRun(t *testing.T) {
 				},
 				expect: map[string]map[string]int{
 					"a.echo.svc.cluster.local": {
-						"b.echo.svc.cluster.local_external.echo.svc.cluster.local_headless.echo.svc.cluster.local": 2,
-						"headless.echo.svc.cluster.local_naked.echo.svc.cluster.local_vm.echo.svc.cluster.local":   2,
-					},
-					"headless.echo.svc.cluster.local": {
-						"b.echo.svc.cluster.local_external.echo.svc.cluster.local_headless.echo.svc.cluster.local": 2,
-						"headless.echo.svc.cluster.local_naked.echo.svc.cluster.local_vm.echo.svc.cluster.local":   2,
-					},
-					"naked.echo.svc.cluster.local": {
-						"b.echo.svc.cluster.local_external.echo.svc.cluster.local_headless.echo.svc.cluster.local": 2,
+						"b.echo.svc.cluster.local_external.echo.svc.cluster.local_naked.echo.svc.cluster.local":  2,
+						"external.echo.svc.cluster.local_naked.echo.svc.cluster.local_vm.echo.svc.cluster.local": 2,
 					},
 					"vm.echo.svc.cluster.local": {
-						"headless.echo.svc.cluster.local_naked.echo.svc.cluster.local_vm.echo.svc.cluster.local": 2,
+						// VM cannot hit external services
+						"b.echo.svc.cluster.local_naked.echo.svc.cluster.local_vm.echo.svc.cluster.local": 2,
 					},
 				},
 			},

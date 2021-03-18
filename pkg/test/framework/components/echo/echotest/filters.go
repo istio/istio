@@ -122,6 +122,13 @@ func Not(filter SimpleFilter) SimpleFilter {
 	}
 }
 
+// MatcherAsFilter returns a filter that simply applies the given matcher.
+func MatcherAsFilter(matcher echo.Matcher) SimpleFilter {
+	return func(instances echo.Instances) echo.Instances {
+		return instances.Match(matcher)
+	}
+}
+
 // VirtualMachines includes VM deployments
 func VirtualMachines(instances echo.Instances) echo.Instances {
 	return instances.Match(echo.IsVirtualMachine())
