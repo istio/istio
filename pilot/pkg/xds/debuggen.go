@@ -16,6 +16,7 @@ package xds
 
 import (
 	"bytes"
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"net/url"
@@ -29,7 +30,6 @@ import (
 const (
 	// TypeDebug requests debug info from istio, a secured implementation for istio debug interface
 	TypeDebug = "istio.io/debug"
-	debugURL  = "http://localhost"
 )
 
 var activeNamespaceDebuggers = map[string]struct{}{
@@ -42,6 +42,7 @@ var activeNamespaceDebuggers = map[string]struct{}{
 type DebugGen struct {
 	Server          *DiscoveryServer
 	SystemNamespace string
+	DebugMux        *http.ServeMux
 }
 
 type ResponseCapture struct {
@@ -105,35 +106,16 @@ func (dg *DebugGen) Generate(proxy *model.Proxy, push *model.PushContext, w *mod
 			return res, fmt.Errorf("the debug info is not available for current identity: %q", identity)
 		}
 	}
-	debugURL := debugURL + debugServerPort + "/debug/" + resourceName
+	debugURL := "/debug/" + resourceName
 	req, _ := http.NewRequest(http.MethodGet, debugURL, nil)
-	handler, _ := debugmux.Handler(req)
+	handler, _ := dg.DebugMux.Handler(req)
 	response := NewResponseCapture()
 	handler.ServeHTTP(response, req)
 	if response.wroteHeader && len(response.header) >= 1 {
-		buffer.Write([]byte("{\"header\":{"))
-		for k, v := range response.header {
-			buffer.Write([]byte("\""))
-			buffer.Write([]byte(k))
-			buffer.Write([]byte("\""))
-			buffer.Write([]byte(":"))
-			buffer.Write([]byte("\""))
-			buffer.Write([]byte(v))
-			buffer.Write([]byte("\""))
-			buffer.Write([]byte(","))
-
-		}
-		buffer.Truncate(len(buffer.Bytes()) - 1)
-		buffer.Write([]byte("}"))
-		buffer.Write([]byte(","))
-		buffer.Write([]byte("\"body\":"))
-		buffer.Write([]byte("\""))
+		header, _ := json.Marshal(response.header)
+		buffer.Write(header)
 	}
 	buffer.Write(response.body.Bytes())
-	if response.wroteHeader && len(response.header) >= 1 {
-		buffer.Write([]byte("\""))
-		buffer.Write([]byte("}"))
-	}
 	res = append(res, &any.Any{
 		TypeUrl: TypeDebug,
 		Value:   buffer.Bytes(),

@@ -86,10 +86,6 @@ var indexTmpl = template.Must(template.New("index").Parse(`<html>
 </html>
 `))
 
-var debugServerPort string
-
-var debugmux *http.ServeMux
-
 // AdsClient defines the data that is displayed on "/adsz" endpoint.
 type AdsClient struct {
 	ConnectionID string              `json:"connectionId"`
@@ -129,7 +125,7 @@ type SyncedVersions struct {
 
 // InitDebug initializes the debug handlers and adds a debug in-memory registry.
 func (s *DiscoveryServer) InitDebug(mux *http.ServeMux, sctl *aggregate.Controller, enableProfiling bool,
-	port string, fetchWebhook func() map[string]string) {
+	fetchWebhook func() map[string]string) {
 	// For debugging and load testing v2 we add an memory registry.
 	s.MemRegistry = memory.NewServiceDiscovery(nil)
 	s.MemRegistry.EDSUpdater = s
@@ -142,8 +138,10 @@ func (s *DiscoveryServer) InitDebug(mux *http.ServeMux, sctl *aggregate.Controll
 		Controller:       s.MemRegistry.Controller,
 	})
 	s.AddDebugHandlers(mux, enableProfiling, fetchWebhook)
-	debugServerPort = port
-	debugmux = mux
+	debugGen, ok := (s.Generators[TypeDebug]).(*DebugGen)
+	if ok {
+		debugGen.DebugMux = mux
+	}
 }
 
 func (s *DiscoveryServer) AddDebugHandlers(mux *http.ServeMux, enableProfiling bool, webhook func() map[string]string) {
@@ -194,30 +192,10 @@ func (s *DiscoveryServer) AddDebugHandlers(mux *http.ServeMux, enableProfiling b
 	s.addDebugHandler(mux, "/debug/mesh", "Active mesh config", s.MeshHandler)
 }
 
-func DebugFilter(handlerF func(http.ResponseWriter, *http.Request)) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		address := r.RemoteAddr
-		forwarded := r.Header.Get("X-FORWARDED-FOR")
-		if forwarded != "" {
-			address = forwarded
-		}
-		fromLocal := strings.HasPrefix(address, "localhost") || strings.HasPrefix(address, "127.0.0.1")
-		if strings.HasPrefix(r.URL.Path, "/debug/") && !fromLocal {
-			deny(w, r)
-			return
-		}
-		handlerF(w, r)
-	})
-}
-
-var deny = func(w http.ResponseWriter, req *http.Request) {
-	_, _ = w.Write([]byte("the debug info is only available on localhost"))
-}
-
 func (s *DiscoveryServer) addDebugHandler(mux *http.ServeMux, path string, help string,
 	handler func(http.ResponseWriter, *http.Request)) {
 	s.debugHandlers[path] = help
-	mux.HandleFunc(path, DebugFilter(handler).ServeHTTP)
+	mux.HandleFunc(path, handler)
 }
 
 // Syncz dumps the synchronization status of all Envoys connected to this Pilot instance

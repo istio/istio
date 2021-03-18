@@ -85,7 +85,7 @@ func DialOptions(opts *clioptions.CentralControlPlaneOptions,
 		grpc.WithTransportCredentials(credentials.NewTLS(
 			&tls.Config{
 				// Always skip verifying, because without it we always get "certificate signed by unknown authority".
-				// We don't se the XDSSAN for the same reason.
+				// We don't set the XDSSAN for the same reason.
 				InsecureSkipVerify: true,
 			})),
 		grpc.WithPerRPCCredentials(supplier),
