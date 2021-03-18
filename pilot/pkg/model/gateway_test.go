@@ -62,7 +62,7 @@ func TestMergeGateways(t *testing.T) {
 			[]config.Config{gwHTTPbar, gwHTTPlocalbar},
 			2,
 			2,
-			map[string]int{"http.7": 2},
+			map[string]int{"http.7": 1, "http.7.127.0.0.1": 1},
 			2,
 		},
 		{

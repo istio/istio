@@ -1026,15 +1026,6 @@ func TestValidateServer(t *testing.T) {
 			"",
 		},
 		{
-			"bind unix path",
-			&networking.Server{
-				Hosts: []string{"foo.bar.com"},
-				Port:  &networking.Port{Number: 0, Name: "http", Protocol: "http"},
-				Bind:  "unix://@foobar",
-			},
-			"",
-		},
-		{
 			"bind bad ip",
 			&networking.Server{
 				Hosts: []string{"foo.bar.com"},

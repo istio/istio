@@ -155,7 +155,6 @@ func MergeGateways(gateways ...config.Config) *MergedGateway {
 						RecordRejectedConfig(gatewayName)
 						continue
 					}
-					serversByRouteName[routeName] = append(serversByRouteName[routeName], s)
 					if current.Bind != serverPort.Bind {
 						// Merge it to servers with the same port and bind.
 						if mergedServers[serverPort] == nil {
@@ -167,9 +166,9 @@ func MergeGateways(gateways ...config.Config) *MergedGateway {
 					} else {
 						// Merge this to current known port with same bind.
 						ms := mergedServers[current]
-						ms.RouteName = routeName
 						ms.Servers = append(ms.Servers, s)
 					}
+					serversByRouteName[routeName] = append(serversByRouteName[routeName], s)
 				} else {
 					// We have duplicate port. Its not in plaintext servers. So, this has to be a TLS server.
 					// Check if this is also a HTTP server and if so, ensure uniqueness of port name.
@@ -305,13 +304,17 @@ func CheckDuplicates(hosts []string, knownHosts sets.Set) []string {
 // hosts on the two servers start differing -- necessitating the need for two different RDS routes.
 func gatewayRDSRouteName(server *networking.Server, cfg config.Config) string {
 	p := protocol.Parse(server.Port.Protocol)
+	bind := ""
+	if server.Bind != "" {
+		bind = "." + server.Bind
+	}
 	if p.IsHTTP() {
-		return fmt.Sprintf("http.%d", server.Port.Number)
+		return "http" + "." + strconv.Itoa(int(server.Port.Number)) + bind // Format: http.%d.%s
 	}
 
 	if p == protocol.HTTPS && server.Tls != nil && !gateway.IsPassThroughServer(server) {
-		return fmt.Sprintf("https.%d.%s.%s.%s",
-			server.Port.Number, server.Port.Name, cfg.Name, cfg.Namespace)
+		return "https" + "." + strconv.Itoa(int(server.Port.Number)) + "." +
+			server.Port.Name + "." + cfg.Name + "." + cfg.Namespace + bind // Format: https.%d.%s.%s.%s.%s
 	}
 
 	return ""
@@ -323,11 +326,11 @@ func ParseGatewayRDSRouteName(name string) (portNumber int, portName, gatewayNam
 	parts := strings.Split(name, ".")
 	if strings.HasPrefix(name, "http.") {
 		// this is a http gateway. Parse port number and return empty string for rest
-		if len(parts) == 2 {
+		if len(parts) >= 2 {
 			portNumber, _ = strconv.Atoi(parts[1])
 		}
 	} else if strings.HasPrefix(name, "https.") {
-		if len(parts) == 5 {
+		if len(parts) >= 5 {
 			portNumber, _ = strconv.Atoi(parts[1])
 			portName = parts[2]
 			// gateway name should be ns/name
