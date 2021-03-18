@@ -48,6 +48,7 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/plugin"
 	kubesecrets "istio.io/istio/pilot/pkg/secrets/kube"
+	"istio.io/istio/pilot/pkg/server"
 	"istio.io/istio/pilot/pkg/serviceregistry"
 	"istio.io/istio/pilot/pkg/serviceregistry/aggregate"
 	kubecontroller "istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
@@ -102,9 +103,6 @@ func init() {
 	prom.MustRegister(pilotVersion)
 	pilotVersion.With(prom.Labels{"version": version.Info.String()}).Set(1)
 }
-
-// startFunc defines a function that will be used to start one or more components of the Pilot discovery service.
-type startFunc func(stop <-chan struct{}) error
 
 // readinessProbe defines a function that will be used indicate whether a server is ready.
 type readinessProbe func() (bool, error)
@@ -164,14 +162,12 @@ type Server struct {
 	caBundlePath string
 	certMu       sync.RWMutex
 	istiodCert   *tls.Certificate
+	server       server.Instance
 
-	// startFuncs keeps track of functions that need to be executed when Istiod starts.
-	startFuncs []startFunc
 	// requiredTerminations keeps track of components that should block server exit
 	// if they are not stopped. This allows important cleanup tasks to be completed.
 	// Note: this is still best effort; a process can die at any time.
-	requiredTerminations sync.WaitGroup
-	readinessProbes      map[string]readinessProbe
+	readinessProbes map[string]readinessProbe
 
 	// duration used for graceful shutdown.
 	shutdownDuration time.Duration
@@ -202,6 +198,7 @@ func NewServer(args *PilotArgs) (*Server, error) {
 		monitoringMux:       http.NewServeMux(),
 		readinessProbes:     make(map[string]readinessProbe),
 		workloadTrustBundle: tb.NewTrustBundle(nil),
+		server:              server.New(),
 	}
 	// Initialize workload Trust Bundle before XDS Server
 	e.TrustBundle = s.workloadTrustBundle
@@ -401,10 +398,8 @@ func (s *Server) Start(stop <-chan struct{}) error {
 	}
 
 	// Now start all of the components.
-	for _, fn := range s.startFuncs {
-		if err := fn(stop); err != nil {
-			return err
-		}
+	if err := s.server.Start(stop); err != nil {
+		return err
 	}
 	if !s.waitForCacheSync(stop) {
 		return fmt.Errorf("failed to sync cache")
@@ -471,7 +466,7 @@ func (s *Server) Start(stop <-chan struct{}) error {
 // WaitUntilCompletion waits for everything marked as a "required termination" to complete.
 // This should be called before exiting.
 func (s *Server) WaitUntilCompletion() {
-	s.requiredTerminations.Wait()
+	s.server.Wait()
 }
 
 // initSDSServer starts the SDS server
@@ -787,8 +782,8 @@ func (s *Server) grpcServerOptions(options *istiokeepalive.Options) []grpc.Serve
 
 // addStartFunc appends a function to be run. These are run synchronously in order,
 // so the function should start a go routine if it needs to do anything blocking
-func (s *Server) addStartFunc(fn startFunc) {
-	s.startFuncs = append(s.startFuncs, fn)
+func (s *Server) addStartFunc(fn server.Component) {
+	s.server.RunComponent(fn)
 }
 
 // adds a readiness probe for Istiod Server.
@@ -796,24 +791,12 @@ func (s *Server) addReadinessProbe(name string, fn readinessProbe) {
 	s.readinessProbes[name] = fn
 }
 
-// addRequireStartFunc adds a function that should terminate before the serve shuts down
+// addTerminatingStartFunc adds a function that should terminate before the serve shuts down
 // This is useful to do cleanup activities
 // This is does not guarantee they will terminate gracefully - best effort only
 // Function should be synchronous; once it returns it is considered "done"
-func (s *Server) addTerminatingStartFunc(fn startFunc) {
-	s.addStartFunc(func(stop <-chan struct{}) error {
-		// We mark this as a required termination as an optimization. Without this, when we exit the lock is
-		// still held for some time (30-60s or so). If we allow time for a graceful exit, then we can immediately drop the lock.
-		s.requiredTerminations.Add(1)
-		go func() {
-			err := fn(stop)
-			if err != nil {
-				log.Errorf("failure in startup function: %v", err)
-			}
-			s.requiredTerminations.Done()
-		}()
-		return nil
-	})
+func (s *Server) addTerminatingStartFunc(fn server.Component) {
+	s.server.RunComponentAsyncAndWait(fn)
 }
 
 func (s *Server) waitForCacheSync(stop <-chan struct{}) bool {
