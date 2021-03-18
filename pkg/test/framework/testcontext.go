@@ -44,6 +44,7 @@ type TestContext interface {
 	//
 	// If this TestContext was not created by a Test or if that Test is not running, this method will panic.
 	NewSubTest(name string) Test
+	NewSubTestf(format string, a ...interface{}) Test
 
 	// WorkDir allocated for this test.
 	WorkDir() string
@@ -85,8 +86,10 @@ type TestContext interface {
 	Skipped() bool
 }
 
-var _ TestContext = &testContext{}
-var _ test.Failer = &testContext{}
+var (
+	_ TestContext = &testContext{}
+	_ test.Failer = &testContext{}
+)
 
 // testContext for the currently executing test.
 type testContext struct {
@@ -278,6 +281,10 @@ func (c *testContext) NewSubTest(name string) Test {
 		s:             c.test.s,
 		featureLabels: c.test.featureLabels,
 	}
+}
+
+func (c *testContext) NewSubTestf(format string, a ...interface{}) Test {
+	return c.NewSubTest(fmt.Sprintf(format, a...))
 }
 
 func (c *testContext) WhenDone(fn func() error) {

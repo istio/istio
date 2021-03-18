@@ -315,7 +315,8 @@ spec:
 									return ExpectString(response[0].RawResponse["Access-Control-Allow-Origin"], "", "mismatched CORS origin")
 								}),
 						},
-					}},
+					},
+				},
 			},
 		)
 
@@ -821,76 +822,47 @@ func flatten(clients ...[]echo.Instance) []echo.Instance {
 }
 
 // Todo merge with security TestReachability code
-func protocolSniffingCases(apps *EchoDeployments) []TrafficTestCase {
+func protocolSniffingCases() []TrafficTestCase {
 	cases := []TrafficTestCase{}
-	// TODO add VMs to clients when DNS works for VMs. Blocked by https://github.com/istio/istio/issues/27154
-	for _, clients := range []echo.Instances{apps.PodA, apps.Naked, apps.Headless} {
-		for _, client := range clients {
-			destinationSets := []echo.Instances{
-				apps.PodA,
-				apps.VM,
-				apps.External,
-				// only hit same network naked services
-				apps.Naked.Match(echo.InNetwork(client.Config().Cluster.NetworkName())),
-				// only hit same cluster headless services
-				apps.Headless.Match(echo.InCluster(client.Config().Cluster)),
-			}
 
-			for _, destinations := range destinationSets {
-				if len(destinations) == 0 {
-					continue
-				}
-				client := client
-				destinations := destinations
-				// grabbing the 0th assumes all echos in destinations have the same service name
-				destination := destinations[0]
-				if (apps.Headless.Contains(client) || apps.Headless.Contains(destination)) && len(apps.Headless) > 1 {
-					// TODO(landow) fix DNS issues with multicluster/VMs/headless
-					continue
-				}
-				if apps.Naked.Contains(client) && apps.VM.Contains(destination) {
-					// Need a sidecar to connect to VMs
-					continue
-				}
+	type protocolCase struct {
+		// The port we call
+		port string
+		// The actual type of traffic we send to the port
+		scheme scheme.Instance
+	}
+	protocols := []protocolCase{
+		{"http", scheme.HTTP},
+		{"auto-http", scheme.HTTP},
+		{"tcp", scheme.TCP},
+		{"auto-tcp", scheme.TCP},
+		{"grpc", scheme.GRPC},
+		{"auto-grpc", scheme.GRPC},
+	}
 
-				type protocolCase struct {
-					// The port we call
-					port string
-					// The actual type of traffic we send to the port
-					scheme scheme.Instance
+	// so we can validate all clusters are hit
+	for _, call := range protocols {
+		call := call
+		cases = append(cases, TrafficTestCase{
+			// TODO(https://github.com/istio/istio/issues/26798) enable sniffing tcp
+			skip: call.scheme == scheme.TCP,
+			name: call.port,
+			opts: echo.CallOptions{
+				PortName: call.port,
+				Scheme:   call.scheme,
+				Timeout:  time.Second * 5,
+			},
+			validate: func(src echo.Instance, dst echo.Instances) echo.Validator {
+				if call.scheme == scheme.TCP {
+					// no host header for TCP
+					return echo.ExpectOK()
 				}
-				protocols := []protocolCase{
-					{"http", scheme.HTTP},
-					{"auto-http", scheme.HTTP},
-					{"tcp", scheme.TCP},
-					{"auto-tcp", scheme.TCP},
-					{"grpc", scheme.GRPC},
-					{"auto-grpc", scheme.GRPC},
-				}
-
-				// so we can validate all clusters are hit
-				callCount := callsPerCluster * len(destinations)
-				for _, call := range protocols {
-					call := call
-					cases = append(cases, TrafficTestCase{
-						// TODO(https://github.com/istio/istio/issues/26798) enable sniffing tcp
-						skip: call.scheme == scheme.TCP,
-						name: fmt.Sprintf("%v %v->%v from %s", call.port, client.Config().Service, destination.Config().Service, client.Config().Cluster.StableName()),
-						call: client.CallWithRetryOrFail,
-						opts: echo.CallOptions{
-							Target:   destination,
-							PortName: call.port,
-							Scheme:   call.scheme,
-							Count:    callCount,
-							Timeout:  time.Second * 5,
-							Validator: echo.And(
-								echo.ExpectOK(),
-								echo.ExpectHost(destination.Config().HostHeader())),
-						},
-					})
-				}
-			}
-		}
+				return echo.And(
+					echo.ExpectOK(),
+					echo.ExpectHost(dst[0].Config().HostHeader()))
+			},
+			workloadAgnostic: true,
+		})
 	}
 	return cases
 }
