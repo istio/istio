@@ -141,7 +141,7 @@ spec:
       - name: istio-proxy
         image: auto
         securityContext: # to allow core dumps
-		  readOnlyRootFilesystem: false
+          readOnlyRootFilesystem: false
           runAsUser: 1338
           runAsGroup: 1338
 {{- end }}
