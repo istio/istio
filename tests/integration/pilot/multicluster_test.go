@@ -21,8 +21,6 @@ import (
 	"sync"
 	"testing"
 
-	"istio.io/istio/pkg/test/scopes"
-
 	"github.com/hashicorp/go-multierror"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
@@ -31,6 +29,7 @@ import (
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/cluster"
 	"istio.io/istio/pkg/test/framework/components/echo"
+	"istio.io/istio/pkg/test/scopes"
 	"istio.io/istio/pkg/util/gogoprotomarshal"
 )
 
@@ -77,13 +76,14 @@ func patchMeshConfig(t framework.TestContext, clusters cluster.Clusters, patch s
 	errG := multierror.Group{}
 	origCfg := map[string]map[string]string{}
 	mu := sync.RWMutex{}
+
+	cmName := "istio"
+	if rev := t.Settings().Revision; rev != "default" && rev != "" {
+		cmName += "-" + rev
+	}
 	for _, c := range clusters.Kube() {
 		c := c
 		errG.Go(func() error {
-			cmName := "istio"
-			if rev := t.Settings().Revision; rev != "default" {
-				cmName += "-" + rev
-			}
 			cm, err := c.CoreV1().ConfigMaps(i.Settings().SystemNamespace).Get(context.TODO(), cmName, v1.GetOptions{})
 			if err != nil {
 				return err
@@ -124,7 +124,7 @@ func patchMeshConfig(t framework.TestContext, clusters cluster.Clusters, patch s
 			cn, data := cn, data
 			c := clusters.GetByName(cn)
 			errG.Go(func() error {
-				cm, err := c.CoreV1().ConfigMaps(i.Settings().SystemNamespace).Get(context.TODO(), "istio", v1.GetOptions{})
+				cm, err := c.CoreV1().ConfigMaps(i.Settings().SystemNamespace).Get(context.TODO(), cmName, v1.GetOptions{})
 				if err != nil {
 					return err
 				}
