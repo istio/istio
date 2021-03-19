@@ -92,8 +92,8 @@ type Prober struct {
 	TimeoutSeconds int32                    `json:"timeoutSeconds,omitempty"`
 }
 
-// Config for the status server.
-type Config struct {
+// Options for the status server.
+type Options struct {
 	// Ip of the pod. Note: this is only applicable for Kubernetes pods and should only be used for
 	// the prober.
 	PodIP string
@@ -134,7 +134,7 @@ func init() {
 }
 
 // NewServer creates a new status server.
-func NewServer(config Config) (*Server, error) {
+func NewServer(config Options) (*Server, error) {
 	localhost := localHostIPv4
 	if config.IPv6 {
 		localhost = localHostIPv6

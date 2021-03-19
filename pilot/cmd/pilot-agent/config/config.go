@@ -36,7 +36,7 @@ import (
 )
 
 // return proxyConfig and trustDomain
-func ConstructProxyConfig(meshConfigFile, serviceCluster, proxyConfigEnv string, concurrency int, role *model.Proxy) (meshconfig.ProxyConfig, error) {
+func ConstructProxyConfig(meshConfigFile, serviceCluster, proxyConfigEnv string, concurrency int, role *model.Proxy) (*meshconfig.ProxyConfig, error) {
 	annotations, err := readPodAnnotations()
 	if err != nil {
 		if os.IsNotExist(err) {
@@ -49,13 +49,13 @@ func ConstructProxyConfig(meshConfigFile, serviceCluster, proxyConfigEnv string,
 	if fileExists(meshConfigFile) {
 		contents, err := ioutil.ReadFile(meshConfigFile)
 		if err != nil {
-			return meshconfig.ProxyConfig{}, fmt.Errorf("failed to read mesh config file %v: %v", meshConfigFile, err)
+			return nil, fmt.Errorf("failed to read mesh config file %v: %v", meshConfigFile, err)
 		}
 		fileMeshContents = string(contents)
 	}
 	meshConfig, err := getMeshConfig(fileMeshContents, annotations[annotation.ProxyConfig.Name], proxyConfigEnv)
 	if err != nil {
-		return meshconfig.ProxyConfig{}, err
+		return nil, err
 	}
 	proxyConfig := mesh.DefaultProxyConfig()
 	if meshConfig.DefaultConfig != nil {
@@ -85,9 +85,9 @@ func ConstructProxyConfig(meshConfigFile, serviceCluster, proxyConfigEnv string,
 		}
 	}
 	if err := validation.ValidateProxyConfig(&proxyConfig); err != nil {
-		return meshconfig.ProxyConfig{}, err
+		return nil, err
 	}
-	return applyAnnotations(proxyConfig, annotations), nil
+	return applyAnnotations(&proxyConfig, annotations), nil
 }
 
 // determineConcurrencyOption determines the correct setting for --concurrency based on CPU requests/limits
@@ -182,7 +182,7 @@ func readPodCPULimits() (int, error) {
 }
 
 // Apply any overrides to proxy config from annotations
-func applyAnnotations(config meshconfig.ProxyConfig, annos map[string]string) meshconfig.ProxyConfig {
+func applyAnnotations(config *meshconfig.ProxyConfig, annos map[string]string) *meshconfig.ProxyConfig {
 	if v, f := annos[annotation.SidecarDiscoveryAddress.Name]; f {
 		config.DiscoveryAddress = v
 	}

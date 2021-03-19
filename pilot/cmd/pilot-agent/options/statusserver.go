@@ -12,22 +12,21 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package main
+package options
 
 import (
-	"testing"
-
-	"github.com/onsi/gomega"
-
+	meshconfig "istio.io/api/mesh/v1alpha1"
+	"istio.io/istio/pilot/cmd/pilot-agent/status"
 	"istio.io/istio/pilot/pkg/model"
 )
 
-func TestPilotDefaultDomainKubernetes(t *testing.T) {
-	g := gomega.NewWithT(t)
-	role := &model.Proxy{}
-	role.DNSDomain = ""
-
-	domain := getDNSDomain("default", role.DNSDomain)
-
-	g.Expect(domain).To(gomega.Equal("default.svc.cluster.local"))
+func NewStatusServerOptions(proxy *model.Proxy, proxyConfig *meshconfig.ProxyConfig) *status.Options {
+	return &status.Options{
+		IPv6:           IsIPv6Proxy(proxy.IPAddresses),
+		PodIP:          InstanceIPVar.Get(),
+		AdminPort:      uint16(proxyConfig.ProxyAdminPort),
+		StatusPort:     uint16(proxyConfig.StatusPort),
+		KubeAppProbers: kubeAppProberNameVar.Get(),
+		NodeType:       proxy.Type,
+	}
 }
