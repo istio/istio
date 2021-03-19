@@ -448,7 +448,7 @@ func doHTTPFilterListOperation(patchContext networking.EnvoyFilter_PatchContext,
 				copy(hcm.HttpFilters[insertPosition+1:], hcm.HttpFilters[insertPosition:])
 				hcm.HttpFilters[insertPosition] = clonedVal
 			}
-		} else if cp.Operation == networking.EnvoyFilter_Patch_INSERT_BEFORE {
+		} else if cp.Operation == networking.EnvoyFilter_Patch_INSERT_BEFORE || cp.Operation == networking.EnvoyFilter_Patch_INSERT_FIRST {
 			// insert before without a filter match is same as insert in the beginning
 			if !hasHTTPFilterMatch(cp) {
 				hcm.HttpFilters = append([]*http_conn.HttpFilter{proto.Clone(cp.Value).(*http_conn.HttpFilter)}, hcm.HttpFilters...)
@@ -466,6 +466,11 @@ func doHTTPFilterListOperation(patchContext networking.EnvoyFilter_PatchContext,
 
 			if insertPosition == -1 {
 				continue
+			}
+
+			// In case of INSERT_FIRST, if a match is found, still insert it at the top of the filterchain.
+			if cp.Operation == networking.EnvoyFilter_Patch_INSERT_FIRST {
+				insertPosition = 0
 			}
 
 			clonedVal := proto.Clone(cp.Value).(*http_conn.HttpFilter)
