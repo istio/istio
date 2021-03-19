@@ -403,6 +403,7 @@ func translateRoute(push *model.PushContext, node *model.Proxy, in *networking.H
 		// instead of disabling the timeout which is Istio's default behavior.
 		if action.Timeout.AsDuration().Nanoseconds() > 0 {
 			action.MaxStreamDuration = &route.RouteAction_MaxStreamDuration{
+				MaxStreamDuration:    action.Timeout,
 				GrpcTimeoutHeaderMax: action.Timeout,
 			}
 		}
