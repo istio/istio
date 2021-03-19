@@ -1,6 +1,6 @@
 # Custom istiod docker image, optimized for running on GCP VMs and CloudRun
 # Uses gcloud command and IAM permission to access a cluster, no deps on mounted volumes.
-FROM google/cloud-sdk:317.0.0-slim
+FROM google/cloud-sdk:332.0.0-slim
 
 RUN mkdir -p /var/run/secrets && \
     mkdir -p /var/run/istio/inject && \

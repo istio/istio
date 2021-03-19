@@ -18,6 +18,7 @@ set -x # Print out all commands.
 
 if [[ -z ${IN_CLUSTER} ]] ; then
   if [[ -n ${PROJECT} ]]; then
+    MCP_HUB_LABEL=$(gcloud container hub memberships --project "${PROJECT}"  describe "${CLUSTER}" --format="value(labels[mcp])")
 
     # Retry for 5 seconds in case there's flakiness in the gcloud command,
     # though we expect the command to succeed on the first try (see
@@ -25,8 +26,13 @@ if [[ -z ${IN_CLUSTER} ]] ; then
     RET=1
     START=$(date +%s)
     while true; do
-      gcloud container clusters get-credentials "${CLUSTER}" --zone "${ZONE}" --project "${PROJECT}" --billing-project "${PROJECT}"
-      RET="$?"
+      if [[ -z ${MCP_HUB_LABEL} ]]; then
+        gcloud container clusters get-credentials "${CLUSTER}" --zone "${ZONE}" --project "${PROJECT}" --billing-project "${PROJECT}"
+        RET="$?"
+      else
+        gcloud beta container hub memberships get-credentials "${CLUSTER}" --project "${PROJECT}" --billing-project "${PROJECT}"
+        RET="$?"
+      fi
       if [[ "${RET}" -eq 0 ]] ; then
         # get-credentials command was successful, exit the loop.
         break
@@ -82,8 +88,13 @@ export POD_NAME
 
 # The auth provider for XDS (e.g., gcp). The default is empty.
 export XDS_AUTH_PROVIDER="${XDS_AUTH_PROVIDER:-}"
-# The JWT rule for istiod JWT authenticator. The default is empty.
-export JWT_RULE="${JWT_RULE:-}"
+
+# The JWT rule for istiod JWT authenticator. The default is as expected for MCP
+MCP_ENV=${MCP_ENV:-prod}
+JWT_DEFAULT='{"audiences":["'${MCP_ENV}:${PROJECT}'.svc.id.goog"],"issuer":"cloud-services-platform-thetis@system.gserviceaccount.com","jwks_uri":"https://www.googleapis.com/service_accounts/v1/metadata/jwk/cloud-services-platform-thetis@system.gserviceaccount.com"}'
+export JWT_RULE="${JWT_RULE:-${JWT_DEFAULT}}"
+CA=${CA:-1}
+ASM=${ASM:-1}
 
 export XDS_AUTH_PLAINTEXT=true
 export XDS_TOKEN_TYPE=${XDS_TOKEN_TYPE:-Bearer}
@@ -91,6 +102,21 @@ export XDS_TOKEN_TYPE=${XDS_TOKEN_TYPE:-Bearer}
 # Test: see the IP, if unique we can add it to pod name
 #ip addr
 #hostname
+
+# The provisioning or user needs to set it explicitly on the cluster 'cni' label, to avoid depending
+# on auto-detection.
+
+CNI=$(gcloud container clusters describe "${CLUSTER}" --zone "${ZONE}" --project "${PROJECT}" --format="value(resourceLabels[cni])")
+if [[ -z "${CNI}" ]]; then
+  kubectl -n kube-system get po -l k8s-app=istio-cni-node | grep istio-cni-node
+  # shellcheck disable=SC2181
+  if [[ "$?" == "0" ]]; then
+     CNI=true
+  else
+     CNI=false
+  fi
+  export CNI
+fi
 
 # XDS_ADDR is the address (without the scheme, but including an explicit port)
 # used for discovery. It's either the address of the Cloud Run service directly
@@ -156,6 +182,7 @@ fi
 # Due to the high risk of breakages if the in-cluster config map is modified we use the tested version.
 # Istio doesn't officially support users editing the injection config map.
 envsubst < /var/lib/istio/inject/values_template.yaml > /var/lib/istio/inject/values
+cat  /var/lib/istio/inject/values
 
 # Create file config sources for telemetry
 mkdir -p /var/lib/istio/config/data

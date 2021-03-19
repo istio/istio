@@ -3,6 +3,9 @@
 # The remaining values that are actually used must move to mesh config
 agentLogLevel: default:info
 
+istio_cni:
+  enabled: ${CNI}
+
 global:
   # Used to locate istio-pilot.
   # Default is to install pilot in a dedicated namespace, istio-pilot11. You can use multiple namespaces, but
