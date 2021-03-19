@@ -515,16 +515,19 @@ func isExpectedGRPCError(err error) bool {
 		return true
 	}
 
-	s := status.Convert(err)
-	if s.Code() == codes.Canceled || s.Code() == codes.DeadlineExceeded {
+	if s, ok := status.FromError(err); ok {
+		if s.Code() == codes.Canceled || s.Code() == codes.DeadlineExceeded {
+			return true
+		}
+		if s.Code() == codes.Unavailable && (s.Message() == "client disconnected" || s.Message() == "transport is closing") {
+			return true
+		}
+	}
+	// If this is not a gRPCStatus we should just error message.
+	if strings.Contains(err.Error(), "stream terminated by RST_STREAM with error code: NO_ERROR") {
 		return true
 	}
-	if s.Code() == codes.Unavailable && (s.Message() == "client disconnected" || s.Message() == "transport is closing") {
-		return true
-	}
-	if s.Code() == codes.Internal && (s.Message() == "stream terminated by RST_STREAM with error code: NO_ERROR") {
-		return true
-	}
+
 	return false
 }
 
