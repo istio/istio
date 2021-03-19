@@ -115,7 +115,7 @@ func patchMeshConfig(t framework.TestContext, clusters cluster.Clusters, patch s
 			return nil
 		})
 	}
-
+	err := errG.Wait()
 	t.Cleanup(func() {
 		errG := multierror.Group{}
 		mu.RLock()
@@ -134,4 +134,7 @@ func patchMeshConfig(t framework.TestContext, clusters cluster.Clusters, patch s
 			})
 		}
 	})
+	if err != nil {
+		t.Fatal(err)
+	}
 }
