@@ -202,7 +202,7 @@ func NewServer(args *PilotArgs) (*Server, error) {
 	}
 	// Initialize workload Trust Bundle before XDS Server
 	e.TrustBundle = s.workloadTrustBundle
-	s.XDSServer = xds.NewDiscoveryServer(e, args.Plugins, args.PodName)
+	s.XDSServer = xds.NewDiscoveryServer(e, args.Plugins, args.PodName, args.Namespace)
 
 	if args.ShutdownDuration == 0 {
 		s.shutdownDuration = 10 * time.Second // If not specified set to 10 seconds.
