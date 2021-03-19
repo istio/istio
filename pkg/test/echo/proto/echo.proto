@@ -55,7 +55,13 @@ message ForwardEchoRequest {
   string key = 11;
   // If non-empty, verify the server CA
   string caCert = 12;
-
+  // If non-empty, make the request with the corresponding cert and key file.
+  string certFile = 16;
+  string keyFile = 17;
+  // If non-empty, verify the server CA with the ca cert file.
+  string caCertFile = 18;
+  // Skip verifying peer's certificate.
+  bool insecureSkipVerify = 19;
   // List of ALPNs to present. If not set, this will be automatically be set based on the protocol
   Alpn alpn = 13;
 }

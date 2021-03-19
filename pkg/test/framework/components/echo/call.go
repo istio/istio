@@ -71,6 +71,12 @@ type CallOptions struct {
 	// (without proxy) from naked client to test certificates issued by custom CA instead of the Istio self-signed CA.
 	Cert, Key, CaCert string
 
+	// Use the custom certificates file to make the call.
+	CertFile, KeyFile, CaCertFile string
+
+	// Skip verify peer's certificate.
+	InsecureSkipVerify bool
+
 	// FollowRedirects will instruct the call to follow 301 redirects. Otherwise, the original 301 response
 	// is returned directly.
 	FollowRedirects bool
