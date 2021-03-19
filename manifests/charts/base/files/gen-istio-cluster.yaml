@@ -5852,7 +5852,6 @@ spec:
     shortNames:
     - iop
     - io
-  preserveUnknownFields: true
   scope: Namespaced
   versions:
   - additionalPrinterColumns:
