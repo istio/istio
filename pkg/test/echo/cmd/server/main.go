@@ -54,7 +54,7 @@ var (
 		Long:              `Echo application for testing Istio E2E`,
 		PersistentPreRunE: configureLogging,
 		Run: func(cmd *cobra.Command, args []string) {
-			ports := make(common.PortList, 0, len(httpPorts)+len(grpcPorts)+len(tcpPorts))
+			ports := make(common.PortList, len(httpPorts)+len(grpcPorts)+len(tcpPorts))
 			tlsByPort := map[int]bool{}
 			for _, p := range tlsPorts {
 				tlsByPort[p] = true
@@ -63,41 +63,36 @@ var (
 			for _, p := range serverFirstPorts {
 				serverFirstByPort[p] = true
 			}
+			portIndex := 0
 			for i, p := range httpPorts {
-				if metricsPort == p {
-					continue
-				}
-				ports = append(ports, &common.Port{
+				ports[portIndex] = &common.Port{
 					Name:        "http-" + strconv.Itoa(i),
 					Protocol:    protocol.HTTP,
 					Port:        p,
 					TLS:         tlsByPort[p],
 					ServerFirst: serverFirstByPort[p],
-				})
+				}
+				portIndex++
 			}
 			for i, p := range grpcPorts {
-				if metricsPort == p {
-					continue
-				}
-				ports = append(ports, &common.Port{
+				ports[portIndex] = &common.Port{
 					Name:        "grpc-" + strconv.Itoa(i),
 					Protocol:    protocol.GRPC,
 					Port:        p,
 					TLS:         tlsByPort[p],
 					ServerFirst: serverFirstByPort[p],
-				})
+				}
+				portIndex++
 			}
 			for i, p := range tcpPorts {
-				if metricsPort == p {
-					continue
-				}
-				ports = append(ports, &common.Port{
+				ports[portIndex] = &common.Port{
 					Name:        "tcp-" + strconv.Itoa(i),
 					Protocol:    protocol.TCP,
 					Port:        p,
 					TLS:         tlsByPort[p],
 					ServerFirst: serverFirstByPort[p],
-				})
+				}
+				portIndex++
 			}
 			instanceIPByPort := map[int]struct{}{}
 			for _, p := range instanceIPPorts {
