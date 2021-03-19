@@ -183,21 +183,39 @@ func initXdsProxy(ia *Agent) (*XdsProxy, error) {
 		}
 	}()
 
-	go proxy.healthChecker.PerformApplicationHealthCheck(func(healthEvent *health.ProbeEvent) {
-		var req *discovery.DeltaDiscoveryRequest
-		if healthEvent.Healthy {
-			req = &discovery.DeltaDiscoveryRequest{TypeUrl: v3.HealthInfoType}
-		} else {
-			req = &discovery.DeltaDiscoveryRequest{
-				TypeUrl: v3.HealthInfoType,
-				ErrorDetail: &google_rpc.Status{
-					Code:    int32(codes.Internal),
-					Message: healthEvent.UnhealthyMessage,
-				},
+	if features.DeltaXds.Get() {
+		go proxy.healthChecker.PerformApplicationHealthCheck(func(healthEvent *health.ProbeEvent) {
+			var req *discovery.DeltaDiscoveryRequest
+			if healthEvent.Healthy {
+				req = &discovery.DeltaDiscoveryRequest{TypeUrl: v3.HealthInfoType}
+			} else {
+				req = &discovery.DeltaDiscoveryRequest{
+					TypeUrl: v3.HealthInfoType,
+					ErrorDetail: &google_rpc.Status{
+						Code:    int32(codes.Internal),
+						Message: healthEvent.UnhealthyMessage,
+					},
+				}
 			}
-		}
-		proxy.PersistDeltaRequest(req)
-	}, proxy.stopChan)
+			proxy.PersistDeltaRequest(req)
+		}, proxy.stopChan)
+	} else {
+		go proxy.healthChecker.PerformApplicationHealthCheck(func(healthEvent *health.ProbeEvent) {
+			var req *discovery.DiscoveryRequest
+			if healthEvent.Healthy {
+				req = &discovery.DiscoveryRequest{TypeUrl: v3.HealthInfoType}
+			} else {
+				req = &discovery.DiscoveryRequest{
+					TypeUrl: v3.HealthInfoType,
+					ErrorDetail: &google_rpc.Status{
+						Code:    int32(codes.Internal),
+						Message: healthEvent.UnhealthyMessage,
+					},
+				}
+			}
+			proxy.PersistRequest(req)
+		}, proxy.stopChan)
+	}
 	return proxy, nil
 }
 
