@@ -145,20 +145,22 @@ func ExternalServices(instances echo.Instances) echo.Instances {
 // - from an injected Pod, only non-naked cross-network endpoints are reachable
 var ReachableDestinations CombinationFilter = func(from echo.Instance, to echo.Instances) echo.Instances {
 	return to.Match(fromNaked(from).
-		And(fromVM(from)).
-		And(toSameNetworkNaked(from)).
-		And(toInClusterHeadless(from)))
+		And(reachableFromVM(from)).
+		And(reachableNakedDestinations(from)).
+		And(reachableHeadlessDestinations(from)))
 }
 
-func toInClusterHeadless(from echo.Instance) echo.Matcher {
+// reachableHeadlessDestinations filters out headless services that aren't in the same cluster
+// TODO https://github.com/istio/istio/issues/27342
+func reachableHeadlessDestinations(from echo.Instance) echo.Matcher {
 	excluded := echo.IsHeadless().
 		And(echo.Not(echo.InCluster(from.Config().Cluster)))
 	return excluded.Negate()
 }
 
-// toSameNetworkNaked filters out naked instances that aren't on the same network.
+// reachableNakedDestinations filters out naked instances that aren't on the same network.
 // While External services are considered "naked", we won't see 500s due to different loadbalancing.
-func toSameNetworkNaked(from echo.Instance) echo.Matcher {
+func reachableNakedDestinations(from echo.Instance) echo.Matcher {
 	srcNw := from.Config().Cluster.NetworkName()
 	excluded := echo.IsNaked().
 		// TODO we probably don't actually reach all external, but for now maintaining what the tests did
@@ -167,8 +169,9 @@ func toSameNetworkNaked(from echo.Instance) echo.Matcher {
 	return excluded.Negate()
 }
 
-// fromVM filters out external services
-func fromVM(from echo.Instance) echo.Matcher {
+// reachableFromVM filters out external services due to issues with ServiceEntry resolution
+// TODO https://github.com/istio/istio/issues/27154
+func reachableFromVM(from echo.Instance) echo.Matcher {
 	if !from.Config().IsVM() {
 		return echo.Any
 	}

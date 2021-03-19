@@ -280,7 +280,7 @@ func TestRun(t *testing.T) {
 						"external.echo.svc.cluster.local_naked.echo.svc.cluster.local_vm.echo.svc.cluster.local": 2,
 					},
 					"vm.echo.svc.cluster.local": {
-						// VM cannot hit external services
+						// VM cannot hit external services (https://github.com/istio/istio/issues/27154)
 						"b.echo.svc.cluster.local_naked.echo.svc.cluster.local_vm.echo.svc.cluster.local": 2,
 					},
 				},
