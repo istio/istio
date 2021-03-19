@@ -15,6 +15,7 @@
 package util
 
 import (
+	"istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/resource"
 )
@@ -32,6 +33,8 @@ var (
 		constants.KubePublicNamespace,
 		constants.KubeNodeLeaseNamespace,
 		constants.LocalPathStorageNamespace,
+
+		controller.IstioNamespace,
 	}
 )
 
