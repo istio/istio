@@ -1537,7 +1537,7 @@ func TestMergeGatewayServerPort(t *testing.T) {
 		{
 			name: "basic",
 			gateways: []config.Config{
-				makeConfig("foo", "not-default", "foo.bar.com", "name1", "http", 7, "ingressgateway"),
+				makeConfig("foo", "not-default", "foo.bar.com", "name1", "http", 7, "ingressgateway", ""),
 			},
 			services: []*ServiceInstance{
 				{
@@ -1550,8 +1550,8 @@ func TestMergeGatewayServerPort(t *testing.T) {
 		{
 			name: "merge",
 			gateways: []config.Config{
-				makeConfig("foo", "not-default", "foo.bar.com", "name1", "http", 7, "ingressgateway"),
-				makeConfig("foo", "not-default", "foo.bar.com", "name2", "http", 8, "ingressgateway"),
+				makeConfig("foo", "not-default", "foo.bar.com", "name1", "http", 7, "ingressgateway", ""),
+				makeConfig("foo", "not-default", "foo.bar.com", "name2", "http", 8, "ingressgateway", ""),
 			},
 			services: []*ServiceInstance{
 				{
@@ -1564,8 +1564,8 @@ func TestMergeGatewayServerPort(t *testing.T) {
 		{
 			name: "skip",
 			gateways: []config.Config{
-				makeConfig("foo", "not-default", "foo.bar.com", "name1", "http", 7, "ingressgateway"),
-				makeConfig("foo", "not-default", "foo.bar.com", "name2", "http", 8, "ingressgateway"),
+				makeConfig("foo", "not-default", "foo.bar.com", "name1", "http", 7, "ingressgateway", ""),
+				makeConfig("foo", "not-default", "foo.bar.com", "name2", "http", 8, "ingressgateway", ""),
 			},
 			services: []*ServiceInstance{
 				{
@@ -1582,8 +1582,8 @@ func TestMergeGatewayServerPort(t *testing.T) {
 		{
 			name: "service target same",
 			gateways: []config.Config{
-				makeConfig("foo", "not-default", "foo.bar.com", "name1", "http", 7, "ingressgateway"),
-				makeConfig("foo", "not-default", "foo.bar.com", "name2", "http", 8, "ingressgateway"),
+				makeConfig("foo", "not-default", "foo.bar.com", "name1", "http", 7, "ingressgateway", ""),
+				makeConfig("foo", "not-default", "foo.bar.com", "name2", "http", 8, "ingressgateway", ""),
 			},
 			services: []*ServiceInstance{
 				{
@@ -1600,8 +1600,8 @@ func TestMergeGatewayServerPort(t *testing.T) {
 		{
 			name: "same service port different targets",
 			gateways: []config.Config{
-				makeConfig("foo", "not-default", "foo.bar.com", "name1", "http", 8, "ingressgateway"),
-				makeConfig("foo", "not-default", "foo.bar.com", "name2", "http", 7, "ingressgateway"),
+				makeConfig("foo", "not-default", "foo.bar.com", "name1", "http", 8, "ingressgateway", ""),
+				makeConfig("foo", "not-default", "foo.bar.com", "name2", "http", 7, "ingressgateway", ""),
 			},
 			services: []*ServiceInstance{
 				{

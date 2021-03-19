@@ -998,6 +998,42 @@ func TestValidateServer(t *testing.T) {
 			},
 			"",
 		},
+		{
+			"bind ip",
+			&networking.Server{
+				Hosts: []string{"foo.bar.com"},
+				Port:  &networking.Port{Number: 7, Name: "http", Protocol: "http"},
+				Bind:  "127.0.0.1",
+			},
+			"",
+		},
+		{
+			"bind unix path with invalid port",
+			&networking.Server{
+				Hosts: []string{"foo.bar.com"},
+				Port:  &networking.Port{Number: 7, Name: "http", Protocol: "http"},
+				Bind:  "unix://@foobar",
+			},
+			"port number must be 0 for unix domain socket",
+		},
+		{
+			"bind unix path",
+			&networking.Server{
+				Hosts: []string{"foo.bar.com"},
+				Port:  &networking.Port{Number: 0, Name: "http", Protocol: "http"},
+				Bind:  "unix://@foobar",
+			},
+			"",
+		},
+		{
+			"bind bad ip",
+			&networking.Server{
+				Hosts: []string{"foo.bar.com"},
+				Port:  &networking.Port{Number: 0, Name: "http", Protocol: "http"},
+				Bind:  "foo.bar",
+			},
+			"foo.bar is not a valid IP",
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

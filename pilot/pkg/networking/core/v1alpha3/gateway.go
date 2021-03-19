@@ -83,13 +83,17 @@ func (configgen *ConfigGeneratorImpl) buildGatewayListeners(builder *ListenerBui
 				port.Number, builder.node.ID)
 			continue
 		}
+		bind := actualWildcard
+		if len(port.Bind) > 0 {
+			bind = port.Bind
+		}
 
 		// on a given port, we can either have plain text HTTP servers or
 		// HTTPS/TLS servers with SNI. We cannot have a mix of http and https server on same port.
 		opts := buildListenerOpts{
 			push:       builder.push,
 			proxy:      builder.node,
-			bind:       actualWildcard,
+			bind:       bind,
 			port:       &model.Port{Port: int(port.Number)},
 			bindToPort: true,
 			class:      ListenerClassGateway,
