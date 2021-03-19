@@ -41,6 +41,9 @@ spec:
       - name: app
         image: testing.hub/app:latest
         imagePullPolicy: Always
+        securityContext:
+          runAsUser: 1338
+          runAsGroup: 1338
         args:
           - --metrics=15014
           - --cluster
@@ -113,6 +116,9 @@ spec:
       - name: app
         image: testing.hub/app:latest
         imagePullPolicy: Always
+        securityContext:
+          runAsUser: 1338
+          runAsGroup: 1338
         args:
           - --metrics=15014
           - --cluster

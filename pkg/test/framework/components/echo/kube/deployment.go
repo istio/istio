@@ -148,6 +148,9 @@ spec:
       - name: app
         image: {{ $.Hub }}/app:{{ $.Tag }}
         imagePullPolicy: {{ $.PullPolicy }}
+        securityContext:
+          runAsUser: 1338
+          runAsGroup: 1338
         args:
           - --metrics=15014
           - --cluster
