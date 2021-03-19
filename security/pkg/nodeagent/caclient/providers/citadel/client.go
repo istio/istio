@@ -46,12 +46,12 @@ type CitadelClient struct {
 	client        pb.IstioCertificateServiceClient
 	conn          *grpc.ClientConn
 	provider      *caclient.TokenProvider
-	opts          security.Options
+	opts          *security.Options
 	usingMtls     *atomic.Bool
 }
 
 // NewCitadelClient create a CA client for Citadel.
-func NewCitadelClient(opts security.Options, tls bool, rootCert []byte) (*CitadelClient, error) {
+func NewCitadelClient(opts *security.Options, tls bool, rootCert []byte) (*CitadelClient, error) {
 	c := &CitadelClient{
 		enableTLS:     tls,
 		caTLSRootCert: rootCert,

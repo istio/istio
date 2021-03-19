@@ -29,7 +29,7 @@ func TestEnvoyArgs(t *testing.T) {
 	proxyConfig.Concurrency = &types.Int32Value{Value: 8}
 
 	cfg := ProxyConfig{
-		Config:            proxyConfig,
+		Config:            &proxyConfig,
 		Node:              "my-node",
 		LogLevel:          "trace",
 		ComponentLogLevel: "misc:error",

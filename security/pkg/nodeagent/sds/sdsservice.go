@@ -83,7 +83,7 @@ func NewXdsServer(stop chan struct{}, gen model.XdsResourceGenerator) *xds.Disco
 }
 
 // newSDSService creates Secret Discovery Service which implements envoy SDS API.
-func newSDSService(st security.SecretManager, options security.Options) *sdsservice {
+func newSDSService(st security.SecretManager, options *security.Options) *sdsservice {
 	if st == nil {
 		return nil
 	}
