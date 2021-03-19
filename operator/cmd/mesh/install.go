@@ -146,7 +146,7 @@ func runApplyCmd(cmd *cobra.Command, rootArgs *rootArgs, iArgs *installArgs, log
 	if err != nil {
 		return err
 	}
-	setFlags := ApplyFlagAliases(iArgs.set, iArgs.manifestsPath, iArgs.revision)
+	setFlags := applyFlagAliases(iArgs.set, iArgs.manifestsPath, iArgs.revision)
 
 	_, iop, err := manifest.GenerateConfig(iArgs.inFilenames, setFlags, iArgs.force, restConfig, l)
 	if err != nil {

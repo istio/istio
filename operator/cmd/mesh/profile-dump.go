@@ -126,7 +126,7 @@ func profileDump(args []string, rootArgs *rootArgs, pdArgs *profileDumpArgs, l c
 		return fmt.Errorf("unknown output format: %v", pdArgs.outputFormat)
 	}
 
-	setFlags := ApplyFlagAliases(make([]string, 0), pdArgs.manifestsPath, "")
+	setFlags := applyFlagAliases(make([]string, 0), pdArgs.manifestsPath, "")
 	if len(args) == 1 {
 		setFlags = append(setFlags, "profile="+args[0])
 	}

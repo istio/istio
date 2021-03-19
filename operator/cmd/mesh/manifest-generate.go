@@ -97,7 +97,7 @@ func manifestGenerate(args *rootArgs, mgArgs *manifestGenerateArgs, logopts *log
 		return fmt.Errorf("could not configure logs: %s", err)
 	}
 
-	manifests, _, err := manifest.GenManifests(mgArgs.inFilename, ApplyFlagAliases(mgArgs.set, mgArgs.manifestsPath, mgArgs.revision), mgArgs.force, nil, l)
+	manifests, _, err := manifest.GenManifests(mgArgs.inFilename, applyFlagAliases(mgArgs.set, mgArgs.manifestsPath, mgArgs.revision), mgArgs.force, nil, l)
 	if err != nil {
 		return err
 	}
