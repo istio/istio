@@ -330,7 +330,7 @@ spec:
 	}
 
 	splits := [][3]int{
-		{50, 25, 5},
+		{50, 25, 25},
 		{80, 10, 10},
 	}
 	for _, split := range splits {
