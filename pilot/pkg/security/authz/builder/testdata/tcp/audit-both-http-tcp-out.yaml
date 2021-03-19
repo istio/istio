@@ -161,3 +161,4 @@ typedConfig:
                       principalName:
                         exact: spiffe://not-principal
   statPrefix: tcp.
+  shadowRulesStatPrefix: istio_dry_run_

@@ -363,3 +363,4 @@ typedConfig:
                           googleRe2: {}
                           regex: .+
   statPrefix: tcp.
+  shadowRulesStatPrefix: istio_dry_run_

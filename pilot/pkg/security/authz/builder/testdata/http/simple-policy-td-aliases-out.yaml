@@ -102,3 +102,4 @@ typedConfig:
                     value:
                       stringMatch:
                         exact: cluster.local/ns/rule[1]/sa/from[0]-principal[0]
+  shadowRulesStatPrefix: istio_dry_run_

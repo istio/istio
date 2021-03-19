@@ -133,4 +133,7 @@ const (
 
 	// TrustworthyJWTPath is the defaut 3P token to authenticate with third party services
 	TrustworthyJWTPath = "./var/run/secrets/tokens/istio-token"
+
+	// DryRunAnnotation enables dry-run mode of a resource, currently only AuthorizationPolicy is supported.
+	DryRunAnnotation = "istio.io/dry-run"
 )

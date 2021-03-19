@@ -17,4 +17,4 @@ spec:
         namespaces: ["ns-1"]
     to:
     - operation:
-        ports: ["80"]
+        hosts: ["example.com"]

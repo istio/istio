@@ -21,3 +21,4 @@ typedConfig:
                     value:
                       stringMatch:
                         exact: deny
+  shadowRulesStatPrefix: istio_dry_run_

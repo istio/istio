@@ -171,3 +171,4 @@ typedConfig:
                 - header:
                     exactMatch: abc2
                     name: X-abc
+  shadowRulesStatPrefix: istio_dry_run_
