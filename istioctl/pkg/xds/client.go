@@ -34,26 +34,25 @@ import (
 const (
 	// defaultExpirationSeconds is how long-lived a token to request (an hour)
 	defaultExpirationSeconds = 60 * 60
-
-	// Service account to create tokens in
-	tokenServiceAccount = "default"
-	tokenNamespace      = "default"
 )
 
 // Audience to create tokens for
 var tokenAudiences = []string{"istio-ca"}
 
 // GetXdsResponse opens a gRPC connection to opts.xds and waits for a single response
-func GetXdsResponse(dr *xdsapi.DiscoveryRequest, opts *clioptions.CentralControlPlaneOptions, grpcOpts []grpc.DialOption) (*xdsapi.DiscoveryResponse, error) {
-	adscConn, err := adsc.New(opts.Xds, &adsc.Config{
+func GetXdsResponse(dr *xdsapi.DiscoveryRequest, ns string, serviceAccount string, opts *clioptions.CentralControlPlaneOptions,
+	grpcOpts []grpc.DialOption) (*xdsapi.DiscoveryResponse, error) {
+	adscConn, err := adsc.NewWithBackoffPolicy(opts.Xds, &adsc.Config{
 		Meta: model.NodeMetadata{
-			Generator: "event",
+			Generator:      "event",
+			ServiceAccount: serviceAccount,
+			Namespace:      ns,
 		}.ToStruct(),
 		CertDir:            opts.CertDir,
 		InsecureSkipVerify: opts.InsecureSkipVerify,
 		XDSSAN:             opts.XDSSAN,
 		GrpcOpts:           grpcOpts,
-	})
+	}, nil)
 	if err != nil {
 		return nil, fmt.Errorf("could not dial: %w", err)
 	}
@@ -66,20 +65,19 @@ func GetXdsResponse(dr *xdsapi.DiscoveryRequest, opts *clioptions.CentralControl
 	if err != nil {
 		return nil, err
 	}
-
 	response, err := adscConn.WaitVersion(opts.Timeout, dr.TypeUrl, "")
 	return response, err
 }
 
 // DialOptions constructs gRPC dial options from command line configuration
-func DialOptions(opts *clioptions.CentralControlPlaneOptions, kubeClient kube.ExtendedClient) ([]grpc.DialOption, error) {
+func DialOptions(opts *clioptions.CentralControlPlaneOptions,
+	ns string, serviceAccount string, istioNamespace string, kubeClient kube.ExtendedClient) ([]grpc.DialOption, error) {
 	// If we are using the insecure 15010 don't bother getting a token
 	if opts.Plaintext || opts.CertDir != "" {
 		return make([]grpc.DialOption, 0), nil
 	}
-
 	// Use bearer token
-	supplier, err := kubeClient.CreatePerRPCCredentials(context.TODO(), tokenNamespace, tokenServiceAccount, tokenAudiences, defaultExpirationSeconds)
+	supplier, err := kubeClient.CreatePerRPCCredentials(context.TODO(), ns, serviceAccount, tokenAudiences, defaultExpirationSeconds)
 	if err != nil {
 		return nil, err
 	}

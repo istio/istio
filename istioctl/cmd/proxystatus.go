@@ -206,7 +206,7 @@ Retrieves last sent and last acknowledged xDS sync from Istiod to each Envoy in 
 					},
 					TypeUrl: pilotxds.TypeDebugConfigDump,
 				}
-				xdsResponses, err := multixds.FirstRequestAndProcessXds(&xdsRequest, &centralOpts, istioNamespace, kubeClient)
+				xdsResponses, err := multixds.FirstRequestAndProcessXds(&xdsRequest, &centralOpts, istioNamespace, "", "", kubeClient)
 				if err != nil {
 					return err
 				}
@@ -223,7 +223,7 @@ Retrieves last sent and last acknowledged xDS sync from Istiod to each Envoy in 
 				},
 				TypeUrl: pilotxds.TypeDebugSyncronization,
 			}
-			xdsResponses, err := multixds.AllRequestAndProcessXds(&xdsRequest, &centralOpts, istioNamespace, kubeClient)
+			xdsResponses, err := multixds.AllRequestAndProcessXds(&xdsRequest, &centralOpts, istioNamespace, "", "", kubeClient)
 			if err != nil {
 				return err
 			}

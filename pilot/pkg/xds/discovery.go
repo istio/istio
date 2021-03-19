@@ -166,7 +166,7 @@ type EndpointShards struct {
 }
 
 // NewDiscoveryServer creates DiscoveryServer that sources data from Pilot's internal mesh data structures
-func NewDiscoveryServer(env *model.Environment, plugins []string, instanceID string) *DiscoveryServer {
+func NewDiscoveryServer(env *model.Environment, plugins []string, instanceID string, systemNameSpace string) *DiscoveryServer {
 	out := &DiscoveryServer{
 		Env:                     env,
 		Generators:              map[string]model.XdsResourceGenerator{},
@@ -190,7 +190,7 @@ func NewDiscoveryServer(env *model.Environment, plugins []string, instanceID str
 
 	out.initJwksResolver()
 
-	out.initGenerators(env)
+	out.initGenerators(env, systemNameSpace)
 
 	if features.EnableXDSCaching {
 		out.Cache = model.NewXdsCache()
@@ -512,7 +512,7 @@ func (s *DiscoveryServer) sendPushes(stopCh <-chan struct{}) {
 }
 
 // initGenerators initializes generators to be used by XdsServer.
-func (s *DiscoveryServer) initGenerators(env *model.Environment) {
+func (s *DiscoveryServer) initGenerators(env *model.Environment, systemNameSpace string) {
 	edsGen := &EdsGenerator{Server: s}
 	s.StatusGen = NewStatusGen(s)
 	s.Generators[v3.ClusterType] = &CdsGenerator{Server: s}
@@ -535,6 +535,7 @@ func (s *DiscoveryServer) initGenerators(env *model.Environment) {
 	s.Generators["api/"+TypeURLConnect] = s.StatusGen
 
 	s.Generators["event"] = s.StatusGen
+	s.Generators[TypeDebug] = NewDebugGen(s, systemNameSpace)
 }
 
 // shutdown shuts down DiscoveryServer components.
