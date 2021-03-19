@@ -711,5 +711,5 @@ func (sc *SecretManagerClient) UpdateConfigTrustBundle(trustBundle []byte) error
 }
 
 func (sc *SecretManagerClient) mergeConfigTrustBundle(rootCert []byte) []byte {
-	return append(sc.getConfigTrustBundle(), rootCert...)
+	return pkiutil.AppendCertByte(sc.getConfigTrustBundle(), rootCert)
 }

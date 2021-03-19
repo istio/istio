@@ -39,8 +39,8 @@ const (
 	// istioCASecretType is the Istio secret annotation type.
 	istioCASecretType = "istio.io/ca-root"
 
-	// caCertID is the CA certificate chain file.
-	caCertID = "ca-cert.pem"
+	// CaCertID is the CA certificate chain file.
+	CaCertID = "ca-cert.pem"
 	// caPrivateKeyID is the private key file of CA.
 	caPrivateKeyID = "ca-key.pem"
 	// CASecret stores the key/cert of self-signed CA for persistency purpose.
@@ -166,11 +166,11 @@ func NewSelfSignedIstioCAOptions(ctx context.Context,
 		pkiCaLog.Infof("Using self-generated public key: %v", string(rootCerts))
 	} else {
 		pkiCaLog.Infof("Load signing key and cert from existing secret %s:%s", caSecret.Namespace, caSecret.Name)
-		rootCerts, err := util.AppendRootCerts(caSecret.Data[caCertID], rootCertFile)
+		rootCerts, err := util.AppendRootCerts(caSecret.Data[CaCertID], rootCertFile)
 		if err != nil {
 			return nil, fmt.Errorf("failed to append root certificates (%v)", err)
 		}
-		if caOpts.KeyCertBundle, err = util.NewVerifiedKeyCertBundleFromPem(caSecret.Data[caCertID],
+		if caOpts.KeyCertBundle, err = util.NewVerifiedKeyCertBundleFromPem(caSecret.Data[CaCertID],
 			caSecret.Data[caPrivateKeyID], nil, rootCerts); err != nil {
 			return nil, fmt.Errorf("failed to create CA KeyCertBundle (%v)", err)
 		}
