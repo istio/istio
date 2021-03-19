@@ -19,6 +19,10 @@
 
 set -ex
 
+# shellcheck source=prow/lib.sh
+source "${ROOT}/prow/lib.sh"
+buildx-create
+
 HUBS="${HUBS:?specify a space seperated list of hubs}"
 TAG="${TAG:?specify a tag}"
 DOCKER_TARGETS="${DOCKER_TARGETS:-docker.base docker.distroless docker.app_sidecar_base_debian_9 docker.app_sidecar_base_debian_10 docker.app_sidecar_base_ubuntu_xenial docker.app_sidecar_base_ubuntu_bionic docker.app_sidecar_base_ubuntu_focal docker.app_sidecar_base_centos_7 docker.app_sidecar_base_centos_8}"
