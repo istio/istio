@@ -21,6 +21,8 @@ import (
 	"sync"
 	"testing"
 
+	"istio.io/istio/pkg/test/scopes"
+
 	"github.com/hashicorp/go-multierror"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
@@ -40,11 +42,8 @@ func TestClusterLocal(t *testing.T) {
 			"installation.multicluster.multimaster",
 			"installation.multicluster.remote",
 		).
+		RequiresMinClusters(2).
 		Run(func(t framework.TestContext) {
-			if len(t.Clusters().Kube()) < 2 {
-				t.Skip("only run in multi-cluster mode")
-			}
-
 			// TODO use echotest to dynamically pick 2 simple pods from apps.All
 			sources := apps.PodA
 			destination := apps.PodB
@@ -109,7 +108,11 @@ func patchMeshConfig(t framework.TestContext, clusters cluster.Clusters, patch s
 				return err
 			}
 			_, err = c.CoreV1().ConfigMaps(i.Settings().SystemNamespace).Update(context.TODO(), cm, v1.UpdateOptions{})
-			return err
+			if err != nil {
+				return err
+			}
+			scopes.Framework.Infof("patched %s meshconfig:\n%s", c.Name(), cm.Data["mesh"])
+			return nil
 		})
 	}
 
