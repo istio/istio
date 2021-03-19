@@ -82,7 +82,7 @@ data:
       image_name: quay.io/kiali/kiali
       image_pull_policy: Always
       image_pull_secrets: []
-      image_version: v1.29
+      image_version: v1.31
       ingress_enabled: false
       logger:
         log_format: text
@@ -489,7 +489,7 @@ spec:
     spec:
       serviceAccountName: kiali
       containers:
-      - image: "quay.io/kiali/kiali:v1.29"
+      - image: "quay.io/kiali/kiali:v1.31"
         imagePullPolicy: Always
         name: kiali
         command:
