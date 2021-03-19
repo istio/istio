@@ -118,6 +118,15 @@ func TestIsNaked(t *testing.T) {
 	}
 }
 
+func TestDeployments(t *testing.T) {
+	if diff := cmp.Diff(
+		all.Deployments().Services(),
+		[]string{"a", "a", "b", "c", "external", "headless", "naked", "vm"},
+	); diff != "" {
+		t.Fatal(diff)
+	}
+}
+
 func TestFilters(t *testing.T) {
 	tests := map[string]struct {
 		filter func(echo.Instances) echo.Instances

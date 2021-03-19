@@ -392,6 +392,7 @@ spec:
 				PortName: "http",
 				Count:    100,
 			},
+			workloadAgnostic: true,
 		})
 	}
 

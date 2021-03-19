@@ -95,7 +95,7 @@ func (c TrafficTestCase) RunForApps(t framework.TestContext, apps echo.Instances
 						"srcSvc": src[0].Config().Service,
 						// tests that use simple Run only need the first
 						"dst":    dsts[0],
-						"dstSvc": src[0].Config().Service,
+						"dstSvc": dsts[0][0].Config().Service,
 						// tests that use RunForN need all destination deployments
 						"dsts":    dsts,
 						"dstSvcs": dsts.Services(),
