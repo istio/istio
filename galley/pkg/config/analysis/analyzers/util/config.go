@@ -33,14 +33,12 @@ var (
 		constants.KubePublicNamespace,
 		constants.KubeNodeLeaseNamespace,
 		constants.LocalPathStorageNamespace,
-
-		controller.IstioNamespace,
 	}
 )
 
 // IsSystemNamespace returns true for system namespaces
 func IsSystemNamespace(ns resource.Namespace) bool {
-	return IsIncluded(SystemNamespaces, ns.String())
+	return IsIncluded(SystemNamespaces, ns.String()) || ns.String() == controller.IstioNamespace
 }
 
 // IsIstioControlPlane returns true for resources that are part of the Istio control plane
