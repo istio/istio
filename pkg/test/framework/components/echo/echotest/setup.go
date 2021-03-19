@@ -21,7 +21,7 @@ import (
 
 type (
 	srcSetupFn  func(ctx framework.TestContext, src echo.Instances) error
-	pairSetupFn func(ctx framework.TestContext, src echo.Instances, dsts []echo.Instances) error
+	pairSetupFn func(ctx framework.TestContext, src echo.Instances, dsts echo.Deployments) error
 )
 
 // Setup runs the given function in the source deployment context.
@@ -49,8 +49,8 @@ func (t *T) setup(ctx framework.TestContext, srcInstances echo.Instances) {
 }
 
 // SetupForPair runs the given function in the source + destination deployment context. The setup function
-// takes a []echo.Instances, where each element contains all the instances gropued by destination deployment.
-// When using Run there will always be 1 destination deployment. When using RunForN, the length will always be N.
+// takes an echo.Deployments. When using Run there will always be 1 destination deployment. When using RunForN,
+// the length will always be N.
 //
 // Example of how long this setup lasts before the given context is cleaned up:
 //     a/to_b/from_cluster-1
@@ -63,7 +63,7 @@ func (t *T) SetupForPair(setupFn pairSetupFn) *T {
 	return t
 }
 
-func (t *T) setupPair(ctx framework.TestContext, src echo.Instances, dsts []echo.Instances) {
+func (t *T) setupPair(ctx framework.TestContext, src echo.Instances, dsts echo.Deployments) {
 	for _, setupFn := range t.deploymentPairSetup {
 		if err := setupFn(ctx, src, dsts); err != nil {
 			ctx.Fatal(err)

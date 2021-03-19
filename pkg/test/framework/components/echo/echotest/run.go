@@ -23,11 +23,11 @@ import (
 
 type (
 	perDeploymentTest  func(t framework.TestContext, instances echo.Instances)
-	perNDeploymentTest func(t framework.TestContext, deployments []echo.Instances)
+	perNDeploymentTest func(t framework.TestContext, deployments echo.Deployments)
 	perInstanceTest    func(t framework.TestContext, inst echo.Instance)
 
 	oneToOneTest func(t framework.TestContext, src echo.Instance, dst echo.Instances)
-	oneToNTest   func(t framework.TestContext, src echo.Instance, dsts []echo.Instances)
+	oneToNTest   func(t framework.TestContext, src echo.Instance, dsts echo.Deployments)
 )
 
 // Run will generate nested subtests from each instance in each deployment to each deployment
@@ -37,7 +37,7 @@ func (t *T) Run(testFn oneToOneTest) {
 	t.fromEachDeployment(t.rootCtx, func(ctx framework.TestContext, srcInstances echo.Instances) {
 		t.setup(ctx, srcInstances)
 		t.toEachDeployment(ctx, func(ctx framework.TestContext, dstInstances echo.Instances) {
-			t.setupPair(ctx, srcInstances, []echo.Instances{dstInstances})
+			t.setupPair(ctx, srcInstances, echo.Deployments{dstInstances})
 			t.fromEachCluster(ctx, srcInstances, func(ctx framework.TestContext, src echo.Instance) {
 				filteredDst := t.applyCombinationFilters(src, dstInstances)
 				if len(filteredDst) == 0 {
@@ -64,7 +64,7 @@ func (t *T) Run(testFn oneToOneTest) {
 func (t *T) RunToN(n int, testFn oneToNTest) {
 	t.fromEachDeployment(t.rootCtx, func(ctx framework.TestContext, srcInstances echo.Instances) {
 		t.setup(ctx, srcInstances)
-		t.toNDeployments(ctx, n, srcInstances, func(ctx framework.TestContext, destDeployments []echo.Instances) {
+		t.toNDeployments(ctx, n, srcInstances, func(ctx framework.TestContext, destDeployments echo.Deployments) {
 			t.setupPair(ctx, srcInstances, destDeployments)
 			t.fromEachCluster(ctx, srcInstances, func(ctx framework.TestContext, src echo.Instance) {
 				testFn(ctx, src, destDeployments)
@@ -130,8 +130,10 @@ func (t *T) toNDeployments(ctx framework.TestContext, n int, srcs echo.Instances
 	}
 }
 
-func nDestinations(ctx framework.TestContext, n int, dests []echo.Instances) (out [][]echo.Instances) {
-	nDests := len(dests)
+// nDestinations splits the given deployments into subsets of size n. A deployment may be present in multiple subsets to
+// ensure every deployment is included.
+func nDestinations(ctx framework.TestContext, n int, deployments echo.Deployments) (out []echo.Deployments) {
+	nDests := len(deployments)
 	if nDests < n {
 		ctx.Fatalf("want to run with %d destinations but there are only %d total", n, nDests)
 	}
@@ -141,7 +143,7 @@ func nDestinations(ctx framework.TestContext, n int, dests []echo.Instances) (ou
 			// re-use a few destinations to fit the entire slice in
 			start = nDests - n
 		}
-		out = append(out, dests[start:start+n])
+		out = append(out, deployments[start:start+n])
 	}
 	return
 }

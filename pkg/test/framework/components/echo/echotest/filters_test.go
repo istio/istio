@@ -261,7 +261,7 @@ func TestRun(t *testing.T) {
 						WithDefaultFilters().
 						From(noNaked, noHeadless).
 						To(noHeadless).
-						RunToN(3, func(ctx framework.TestContext, src echo.Instance, dsts []echo.Instances) {
+						RunToN(3, func(ctx framework.TestContext, src echo.Instance, dsts echo.Deployments) {
 							srcKey := src.Config().FQDN()
 							if testTopology[srcKey] == nil {
 								testTopology[srcKey] = map[string]int{}

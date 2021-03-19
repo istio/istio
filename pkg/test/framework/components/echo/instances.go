@@ -26,39 +26,6 @@ import (
 // Instances contains the instances created by the builder with methods for filtering
 type Instances []Instance
 
-// Deployments groups the Instances by FQDN.
-// Each returned element will have at least one item.
-func (i Instances) Deployments() []Instances {
-	grouped := map[string]Instances{}
-	for _, instance := range i {
-		k := instance.Config().FQDN()
-		grouped[k] = append(grouped[k], instance)
-	}
-	var out deployments
-	for _, deployment := range grouped {
-		out = append(out, deployment)
-	}
-	sort.Stable(out)
-	return out
-}
-
-// deployments must be sorted to make sure tests have consistent ordering
-type deployments []Instances
-
-var _ sort.Interface = deployments{}
-
-func (d deployments) Len() int {
-	return len(d)
-}
-
-func (d deployments) Less(i, j int) bool {
-	return strings.Compare(d[i][0].Config().FQDN(), d[j][0].Config().FQDN()) < 0
-}
-
-func (d deployments) Swap(i, j int) {
-	d[i], d[j] = d[j], d[i]
-}
-
 // Clusters returns a list of cluster names that the instances are deployed in
 func (i Instances) Clusters() cluster.Clusters {
 	clusters := map[string]cluster.Cluster{}
@@ -70,6 +37,11 @@ func (i Instances) Clusters() cluster.Clusters {
 		out = append(out, c)
 	}
 	return out
+}
+
+// IsDeployment returns true if there is only one deployment contained in the Instances
+func (i Instances) IsDeployment() bool {
+	return len(i.Deployments()) == 1
 }
 
 // Matcher is used to filter matching instances
@@ -212,4 +184,71 @@ func (i Instances) Contains(instances ...Instance) bool {
 		return false
 	})
 	return len(matches) > 0
+}
+
+// Deployments is a set of Instances, which is a set of Instance. An Instances is considered a deployment
+// if every Instance has the same FQDN.
+type Deployments []Instances
+
+// Deployments groups the Instances by FQDN. Each returned element will have at least one item.
+func (i Instances) Deployments() Deployments {
+	grouped := map[string]Instances{}
+	for _, instance := range i {
+		k := instance.Config().FQDN()
+		grouped[k] = append(grouped[k], instance)
+	}
+	var out Deployments
+	for _, deployment := range grouped {
+		out = append(out, deployment)
+	}
+	sort.Stable(out)
+	return out
+}
+
+// GetByService finds the first deployment with the given Service name. It is possible to have multiple deployments
+// with the same service name but different namespaces (and therefore different FQDNs). Use caution when relying on
+// Service.
+func (d Deployments) GetByService(service string) Instances {
+	for _, instances := range d {
+		if instances[0].Config().Service == service {
+			return instances
+		}
+	}
+	return nil
+}
+
+// Services gives the service names of each deployment in order.
+func (d Deployments) Services() []string {
+	var out []string
+	for _, instances := range d {
+		out = append(out, instances[0].Config().Service)
+	}
+	return out
+}
+
+// FQDNs gives the fully-qualified-domain-names each deployment in order.
+func (d Deployments) FQDNs() []string {
+	var out []string
+	for _, instances := range d {
+		out = append(out, instances[0].Config().FQDN())
+	}
+	return out
+}
+
+// Deployments must be sorted to make sure tests have consistent ordering
+var _ sort.Interface = Deployments{}
+
+// Len returns the number of deployments
+func (d Deployments) Len() int {
+	return len(d)
+}
+
+// Less returns true if the element at i should appear before the element at j in a sorted Deployments
+func (d Deployments) Less(i, j int) bool {
+	return strings.Compare(d[i][0].Config().FQDN(), d[j][0].Config().FQDN()) < 0
+}
+
+// Swap switches the positions of elements at i and j (used for sorting).
+func (d Deployments) Swap(i, j int) {
+	d[i], d[j] = d[j], d[i]
 }
