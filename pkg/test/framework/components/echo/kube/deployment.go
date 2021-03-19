@@ -142,8 +142,6 @@ spec:
         image: auto
         securityContext: # to allow core dumps
           readOnlyRootFilesystem: false
-          runAsUser: 1338
-          runAsGroup: 1338
 {{- end }}
 {{- if $.IncludeExtAuthz }}
       - name: ext-authz
@@ -156,6 +154,9 @@ spec:
       - name: app
         image: {{ $.Hub }}/app:{{ $.Tag }}
         imagePullPolicy: {{ $.PullPolicy }}
+        securityContext:
+          runAsUser: 1338
+          runAsGroup: 1338
         args:
           - --metrics=15014
           - --cluster
