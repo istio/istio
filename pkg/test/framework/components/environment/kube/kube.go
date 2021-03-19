@@ -33,7 +33,16 @@ type Environment struct {
 var _ resource.Environment = &Environment{}
 
 // New returns a new Kubernetes environment
-func New(ctx resource.Context, s *Settings) (resource.Environment, error) {
+func New(ctx resource.Context, s *Settings) (env resource.Environment, err error) {
+	defer func() {
+		if err != nil && !ctx.Settings().CIMode {
+			scopes.Framework.Infof(`
+There was an error while setting up the Kubernetes test environment.
+Check the test framework wiki for details on running the tests locally:
+    https://github.com/istio/istio/wiki/Istio-Test-Framework
+`)
+		}
+	}()
 	scopes.Framework.Infof("Test Framework Kubernetes environment Settings:\n%s", s)
 	e := &Environment{
 		ctx: ctx,

@@ -18,20 +18,17 @@ package revisions
 import (
 	"context"
 	"fmt"
-	"io/ioutil"
-	"os"
 	"path/filepath"
 	"strings"
 	"testing"
 	"time"
 
 	kubeApiMeta "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 
 	"istio.io/istio/operator/pkg/helmreconciler"
-	"istio.io/istio/operator/pkg/manifest"
 	"istio.io/istio/operator/pkg/name"
-	"istio.io/istio/operator/pkg/object"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/test/framework"
@@ -42,7 +39,9 @@ import (
 )
 
 const (
-	stableRevision = "stable"
+	stableRevision       = "stable"
+	checkResourceTimeout = time.Second * 120
+	checkResourceDelay   = time.Millisecond * 100
 )
 
 var ManifestPath = filepath.Join(env.IstioSrc, "manifests")
@@ -64,7 +63,7 @@ func TestUninstallByRevision(t *testing.T) {
 				}
 				cs := t.Clusters().Default()
 				ls := fmt.Sprintf("istio.io/rev=%s", stableRevision)
-				checkCPResourcesUninstalled(t, cs, append(helmreconciler.NamespacedResources, helmreconciler.ClusterCPResources...), ls)
+				checkCPResourcesUninstalled(t, cs, append(helmreconciler.NamespacedResources, helmreconciler.ClusterCPResources...), ls, false)
 			})
 		})
 }
@@ -86,60 +85,8 @@ func TestUninstallWithSetFlag(t *testing.T) {
 				}
 				cs := t.Clusters().Default()
 				ls := fmt.Sprintf("istio.io/rev=%s", stableRevision)
-				checkCPResourcesUninstalled(t, cs, append(helmreconciler.NamespacedResources, helmreconciler.ClusterCPResources...), ls)
+				checkCPResourcesUninstalled(t, cs, append(helmreconciler.NamespacedResources, helmreconciler.ClusterCPResources...), ls, false)
 			})
-		})
-}
-
-func TestUninstallByManifest(t *testing.T) {
-	framework.
-		NewTest(t).
-		Features("installation.istioctl.uninstall_manifest").
-		Run(func(t framework.TestContext) {
-			workDir, err := t.CreateTmpDirectory("uninstall-test")
-			if err != nil {
-				t.Fatal("failed to create test directory")
-			}
-			istioCtl := istioctl.NewOrFail(t, t, istioctl.Config{})
-			iopFile := filepath.Join(workDir, "iop.yaml")
-			iopYAML := `
-apiVersion: install.istio.io/v1alpha1
-kind: IstioOperator
-spec:
-  revision: %s
-  installPackagePath: %s
-`
-			iopYAML = fmt.Sprintf(iopYAML, stableRevision, ManifestPath)
-			if err := ioutil.WriteFile(iopFile, []byte(iopYAML), os.ModePerm); err != nil {
-				t.Fatalf("failed to write iop cr file: %v", err)
-			}
-			uninstallCmd := []string{
-				"x", "uninstall",
-				"--filename=" + iopFile, "--skip-confirmation",
-			}
-			istioCtl.InvokeOrFail(t, uninstallCmd)
-			cs := t.Clusters().Default()
-			retry.UntilSuccessOrFail(t, func() error {
-				manifestMap, _, err := manifest.GenManifests([]string{iopFile}, []string{}, true, nil, nil)
-				if err != nil {
-					t.Fatalf("failed to generate manifest: %v", err)
-				}
-				manifests := manifestMap[name.PilotComponentName]
-				objects, err := object.ParseK8sObjectsFromYAMLManifest(strings.Join(manifests, "---"))
-				if err != nil {
-					t.Fatalf("failed parse k8s objects from yaml: %v", err)
-				}
-				objMap := objects.ToMap()
-				for _, obj := range objMap {
-					resources := strings.ToLower(obj.Kind) + "s"
-					gvr := schema.GroupVersionResource{Group: obj.Group, Version: obj.Version(), Resource: resources}
-					ls := fmt.Sprintf("istio.io/rev=%s", stableRevision)
-					if err := checkResourcesNotInCluster(cs, gvr, ls); err != nil {
-						return err
-					}
-				}
-				return nil
-			}, retry.Delay(time.Millisecond*100), retry.Timeout(time.Second*120))
 		})
 }
 
@@ -156,43 +103,69 @@ func TestUninstallPurge(t *testing.T) {
 			istioCtl.InvokeOrFail(t, uninstallCmd)
 			cs := t.Clusters().Default()
 			checkCPResourcesUninstalled(t, cs, append(helmreconciler.NamespacedResources, helmreconciler.AllClusterResources...),
-				helmreconciler.IstioComponentLabelStr)
+				helmreconciler.IstioComponentLabelStr, true)
 		})
 }
 
 // checkCPResourcesUninstalled is a helper function to check list of gvk resources matched with label are uninstalled
-func checkCPResourcesUninstalled(t test.Failer, cs cluster.Cluster, gvkResources []schema.GroupVersionKind, label string) {
+// If purge is set to true, we expect all resources are removed.
+// Otherwise we expect only selected resources from control plane are removed, resources from base and the legacy addon installation would not be touched.
+func checkCPResourcesUninstalled(t test.Failer, cs cluster.Cluster, gvkResources []schema.GroupVersionKind, label string, purge bool) {
 	retry.UntilSuccessOrFail(t, func() error {
+		var reStrlist []string
+		var reItemList []unstructured.Unstructured
 		for _, gvk := range gvkResources {
 			resources := strings.ToLower(gvk.Kind) + "s"
 			gvr := schema.GroupVersionResource{Group: gvk.Group, Version: gvk.Version, Resource: resources}
-
-			if err := checkResourcesNotInCluster(cs, gvr, label); err != nil {
-				return err
-			}
+			reList, reStr := getRemainingResourcesCluster(cs, gvr, label)
+			reItemList = append(reItemList, reList...)
+			reStrlist = append(reStrlist, reStr...)
 		}
-		return nil
-	}, retry.Delay(time.Millisecond*100), retry.Timeout(time.Second*120))
+		return inspectRemainingResources(reItemList, reStrlist, purge)
+	}, retry.Delay(checkResourceDelay), retry.Timeout(checkResourceTimeout))
 }
 
-func checkResourcesNotInCluster(cs cluster.Cluster, gvr schema.GroupVersionResource, ls string) error {
+// getRemainingResourcesCluster get specific resources from the cluster
+func getRemainingResourcesCluster(cs cluster.Cluster, gvr schema.GroupVersionResource, ls string) ([]unstructured.Unstructured, []string) {
 	usList, _ := cs.Dynamic().Resource(gvr).List(context.TODO(), kubeApiMeta.ListOptions{LabelSelector: ls})
+	var remainingResources []unstructured.Unstructured
+	var staleList []string
 	if usList != nil && len(usList.Items) != 0 {
-		var stalelist []string
 		for _, item := range usList.Items {
 			// ignore IstioOperator CRD because the operator CR is not in the pruning list
 			if item.GetName() == "istiooperators.install.istio.io" {
 				continue
 			}
-			stalelist = append(stalelist, item.GroupVersionKind().String()+"/"+item.GetName())
+			remainingResources = append(remainingResources, item)
+			staleList = append(staleList, item.GroupVersionKind().String()+"/"+item.GetName())
 		}
-		if len(stalelist) == 0 {
-			return nil
+	}
+	return remainingResources, staleList
+}
+
+func inspectRemainingResources(reItemList []unstructured.Unstructured, reStrList []string, purge bool) error {
+	// for purge case we expect all resources removed
+	if purge {
+		if len(reStrList) != 0 {
+			msg := fmt.Sprintf("resources expected to be pruned but still exist in the cluster: %s",
+				strings.Join(reStrList, " "))
+			scopes.Framework.Warnf(msg)
+			return fmt.Errorf(msg)
 		}
-		msg := fmt.Sprintf("resources expected to be pruned but still exist in the cluster: %s",
-			strings.Join(stalelist, " "))
-		scopes.Framework.Warnf(msg)
-		return fmt.Errorf(msg)
+		return nil
+	}
+	// for other cases, we expect base component resources to be kept.
+	if len(reStrList) != 0 {
+		for _, remaining := range reItemList {
+			labels := remaining.GetLabels()
+			cn, ok := labels["operator.istio.io/component"]
+			// we don't need to check the legacy addons here because we would not install that in test anymore.
+			if ok && cn != string(name.IstioBaseComponentName) {
+				return fmt.Errorf("expect only base component resources still exist")
+			}
+		}
+	} else {
+		return fmt.Errorf("expect base component resources to exist but they were removed")
 	}
 	return nil
 }

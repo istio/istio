@@ -48,6 +48,8 @@ features:
     ratelimit:
       envoy:
     original-source-ip:
+    mcs:
+      serviceexport:
   usability:
     observability:
       describe:

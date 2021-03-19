@@ -201,6 +201,9 @@ func (c *testContext) Environment() resource.Environment {
 }
 
 func (c *testContext) Clusters() cluster.Clusters {
+	if c == nil || c.Environment() == nil {
+		return nil
+	}
 	return c.Environment().Clusters()
 }
 

@@ -161,7 +161,7 @@ func (e *Env) StartProxy(t *testing.T) {
 
 // StartSDSServer starts SDS server
 func (e *Env) StartSDSServer(t *testing.T) {
-	serverOptions := security.Options{
+	serverOptions := &security.Options{
 		WorkloadUDSPath: e.ProxySetup.SDSPath(),
 		JWTPath:         proxyTokenPath,
 		CAEndpoint:      fmt.Sprintf("127.0.0.1:%d", e.ProxySetup.Ports().ExtraPort),
@@ -172,7 +172,7 @@ func (e *Env) StartSDSServer(t *testing.T) {
 		t.Fatalf("failed to create CA client: %+v", err)
 	}
 	opt := e.cacheOptions(t)
-	workloadSecretCache, err := cache.NewSecretManagerClient(caClient, opt)
+	workloadSecretCache, err := cache.NewSecretManagerClient(caClient, &opt)
 	if err != nil {
 		t.Fatal(err)
 	}

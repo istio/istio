@@ -18,49 +18,53 @@ import (
 	"strconv"
 	"testing"
 
+	"github.com/google/go-cmp/cmp"
+
+	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/cluster"
 	"istio.io/istio/pkg/test/framework/components/echo"
+	"istio.io/istio/pkg/test/framework/resource"
 )
 
 var (
 	// TODO set this up with echobuilder/cluster builder in Fake mode
 
 	// 2 clusters on 2 networks
-	cls1 = &cluster.FakeCluster{Topology: cluster.Topology{ClusterName: "cls1", Network: "n1"}}
-	cls2 = &cluster.FakeCluster{Topology: cluster.Topology{ClusterName: "cls2", Network: "n2"}}
+	cls1 = &cluster.FakeCluster{Topology: cluster.Topology{ClusterName: "cls1", Network: "n1", Index: 0, ClusterKind: cluster.Fake}}
+	cls2 = &cluster.FakeCluster{Topology: cluster.Topology{ClusterName: "cls2", Network: "n2", Index: 1, ClusterKind: cluster.Fake}}
 
 	// simple pod
-	a1 = fakeInstance{Cluster: cls1, Namespace: fakeNamespace("echo"), Service: "a"}
-	a2 = fakeInstance{Cluster: cls2, Namespace: fakeNamespace("echo"), Service: "a"}
+	a1 = &fakeInstance{Cluster: cls1, Namespace: fakeNamespace("echo"), Service: "a"}
+	a2 = &fakeInstance{Cluster: cls2, Namespace: fakeNamespace("echo"), Service: "a"}
 	// simple pod with different svc
-	b1 = fakeInstance{Cluster: cls1, Namespace: fakeNamespace("echo"), Service: "b"}
-	b2 = fakeInstance{Cluster: cls2, Namespace: fakeNamespace("echo"), Service: "b"}
+	b1 = &fakeInstance{Cluster: cls1, Namespace: fakeNamespace("echo"), Service: "b"}
+	b2 = &fakeInstance{Cluster: cls2, Namespace: fakeNamespace("echo"), Service: "b"}
 	// another simple pod with different svc
-	c1 = fakeInstance{Cluster: cls1, Namespace: fakeNamespace("echo"), Service: "c"}
-	c2 = fakeInstance{Cluster: cls2, Namespace: fakeNamespace("echo"), Service: "c"}
+	c1 = &fakeInstance{Cluster: cls1, Namespace: fakeNamespace("echo"), Service: "c"}
+	c2 = &fakeInstance{Cluster: cls2, Namespace: fakeNamespace("echo"), Service: "c"}
 	// simple pod with a different namespace
-	aNs1 = fakeInstance{Cluster: cls1, Namespace: fakeNamespace("echo2"), Service: "a"}
-	aNs2 = fakeInstance{Cluster: cls2, Namespace: fakeNamespace("echo2"), Service: "a"}
+	aNs1 = &fakeInstance{Cluster: cls1, Namespace: fakeNamespace("echo2"), Service: "a"}
+	aNs2 = &fakeInstance{Cluster: cls2, Namespace: fakeNamespace("echo2"), Service: "a"}
 	// virtual machine
-	vm1 = fakeInstance{Cluster: cls1, Namespace: fakeNamespace("echo"), Service: "vm", DeployAsVM: true}
-	vm2 = fakeInstance{Cluster: cls2, Namespace: fakeNamespace("echo"), Service: "vm", DeployAsVM: true}
+	vm1 = &fakeInstance{Cluster: cls1, Namespace: fakeNamespace("echo"), Service: "vm", DeployAsVM: true}
+	vm2 = &fakeInstance{Cluster: cls2, Namespace: fakeNamespace("echo"), Service: "vm", DeployAsVM: true}
 	// headless
-	headless1 = fakeInstance{Cluster: cls1, Namespace: fakeNamespace("echo"), Service: "headless", Headless: true}
-	headless2 = fakeInstance{Cluster: cls2, Namespace: fakeNamespace("echo"), Service: "headless", Headless: true}
+	headless1 = &fakeInstance{Cluster: cls1, Namespace: fakeNamespace("echo"), Service: "headless", Headless: true}
+	headless2 = &fakeInstance{Cluster: cls2, Namespace: fakeNamespace("echo"), Service: "headless", Headless: true}
 	// naked pod (uninjected)
-	naked1 = fakeInstance{Cluster: cls1, Namespace: fakeNamespace("echo"), Service: "naked", Subsets: []echo.SubsetConfig{{
+	naked1 = &fakeInstance{Cluster: cls1, Namespace: fakeNamespace("echo"), Service: "naked", Subsets: []echo.SubsetConfig{{
 		Annotations: echo.NewAnnotations().SetBool(echo.SidecarInject, false),
 	}}}
-	naked2 = fakeInstance{Cluster: cls2, Namespace: fakeNamespace("echo"), Service: "naked", Subsets: []echo.SubsetConfig{{
+	naked2 = &fakeInstance{Cluster: cls2, Namespace: fakeNamespace("echo"), Service: "naked", Subsets: []echo.SubsetConfig{{
 		Annotations: echo.NewAnnotations().SetBool(echo.SidecarInject, false),
 	}}}
 	// external svc
-	external1 = fakeInstance{
+	external1 = &fakeInstance{
 		Cluster: cls1, Namespace: fakeNamespace("echo"), Service: "external", DefaultHostHeader: "external.com", Subsets: []echo.SubsetConfig{{
 			Annotations: map[echo.Annotation]*echo.AnnotationValue{echo.SidecarInject: {Value: strconv.FormatBool(false)}},
 		}},
 	}
-	external2 = fakeInstance{
+	external2 = &fakeInstance{
 		Cluster: cls2, Namespace: fakeNamespace("echo"), Service: "external", DefaultHostHeader: "external.com", Subsets: []echo.SubsetConfig{{
 			Annotations: map[echo.Annotation]*echo.AnnotationValue{echo.SidecarInject: {Value: strconv.FormatBool(false)}},
 		}},
@@ -68,6 +72,10 @@ var (
 
 	all = echo.Instances{a1, a2, b1, b2, c1, c2, aNs1, aNs2, vm1, vm2, headless1, headless2, naked1, naked2, external1, external2}
 )
+
+func TestMain(m *testing.M) {
+	framework.NewSuite(m).EnvironmentFactory(resource.NilEnvironmentFactory).Run()
+}
 
 func TestIsRegularPod(t *testing.T) {
 	tests := []struct {
@@ -114,8 +122,8 @@ func TestFilters(t *testing.T) {
 		filter func(echo.Instances) echo.Instances
 		expect echo.Instances
 	}{
-		"OneRegularPod": {
-			filter: SingleSimplePodBasedService,
+		"SingleSimplePodServiceAndAllSpecial": {
+			filter: SingleSimplePodServiceAndAllSpecial(),
 			expect: echo.Instances{
 				// keep all instances of this pod-based service
 				a1, a2,
@@ -163,6 +171,54 @@ func TestFilters(t *testing.T) {
 		t.Run(n, func(t *testing.T) {
 			compare(t, tc.filter(all), tc.expect)
 		})
+	}
+}
+
+func TestDefaultFilters(t *testing.T) {
+	// source svc/cluster -> dest services -> number of subtests (should == num clusters)
+	testTopology := map[string]map[string]int{}
+	framework.NewTest(t).Run(func(t framework.TestContext) {
+		New(t, all).
+			WithDefaultFilters().
+			Run(func(ctx framework.TestContext, src echo.Instance, dst echo.Instances) {
+				// TODO if the destinations would change based on which cluster then add cluster to srCkey
+				srcKey := src.Config().FQDN()
+				dstKey := dst[0].Config().FQDN()
+				if testTopology[srcKey] == nil {
+					testTopology[srcKey] = map[string]int{}
+				}
+				testTopology[srcKey][dstKey]++
+			})
+	})
+	if diff := cmp.Diff(testTopology, map[string]map[string]int{
+		"a.echo.svc.cluster.local": {
+			"b.echo.svc.cluster.local":        2,
+			"external.echo.svc.cluster.local": 2,
+			"headless.echo.svc.cluster.local": 2,
+			"naked.echo.svc.cluster.local":    2,
+			"vm.echo.svc.cluster.local":       2,
+		},
+		"headless.echo.svc.cluster.local": {
+			"b.echo.svc.cluster.local":        2,
+			"external.echo.svc.cluster.local": 2,
+			"headless.echo.svc.cluster.local": 2,
+			"naked.echo.svc.cluster.local":    2,
+			"vm.echo.svc.cluster.local":       2,
+		},
+		"naked.echo.svc.cluster.local": {
+			"b.echo.svc.cluster.local":        2,
+			"external.echo.svc.cluster.local": 2,
+			"headless.echo.svc.cluster.local": 2,
+			"naked.echo.svc.cluster.local":    2,
+		},
+		"vm.echo.svc.cluster.local": {
+			"b.echo.svc.cluster.local":        2,
+			"headless.echo.svc.cluster.local": 2,
+			"naked.echo.svc.cluster.local":    2,
+			"vm.echo.svc.cluster.local":       2,
+		},
+	}); diff != "" {
+		t.Errorf(diff)
 	}
 }
 

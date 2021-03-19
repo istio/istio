@@ -212,6 +212,12 @@ var (
 			"Currently this is mutual exclusive - either Endpoints or EndpointSlices will be used",
 	).Get()
 
+	EnableMCSServiceExport = env.RegisterBoolVar(
+		"PILOT_ENABLE_MCS_SERVICEEXPORT",
+		false,
+		"If enabled, Pilot will generate MCS ServiceExport objects for every non cluster-local service in the cluster",
+	).Get()
+
 	EnableSDSServer = env.RegisterBoolVar(
 		"ISTIOD_ENABLE_SDS_SERVER",
 		true,

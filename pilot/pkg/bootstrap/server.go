@@ -39,6 +39,7 @@ import (
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/keepalive"
 	"google.golang.org/grpc/reflection"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	v1 "k8s.io/client-go/kubernetes/typed/core/v1"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/cache"
@@ -48,6 +49,7 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/plugin"
 	kubesecrets "istio.io/istio/pilot/pkg/secrets/kube"
+	"istio.io/istio/pilot/pkg/server"
 	"istio.io/istio/pilot/pkg/serviceregistry"
 	"istio.io/istio/pilot/pkg/serviceregistry/aggregate"
 	kubecontroller "istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
@@ -102,9 +104,6 @@ func init() {
 	prom.MustRegister(pilotVersion)
 	pilotVersion.With(prom.Labels{"version": version.Info.String()}).Set(1)
 }
-
-// startFunc defines a function that will be used to start one or more components of the Pilot discovery service.
-type startFunc func(stop <-chan struct{}) error
 
 // readinessProbe defines a function that will be used indicate whether a server is ready.
 type readinessProbe func() (bool, error)
@@ -164,14 +163,12 @@ type Server struct {
 	caBundlePath string
 	certMu       sync.RWMutex
 	istiodCert   *tls.Certificate
+	server       server.Instance
 
-	// startFuncs keeps track of functions that need to be executed when Istiod starts.
-	startFuncs []startFunc
 	// requiredTerminations keeps track of components that should block server exit
 	// if they are not stopped. This allows important cleanup tasks to be completed.
 	// Note: this is still best effort; a process can die at any time.
-	requiredTerminations sync.WaitGroup
-	readinessProbes      map[string]readinessProbe
+	readinessProbes map[string]readinessProbe
 
 	// duration used for graceful shutdown.
 	shutdownDuration time.Duration
@@ -202,10 +199,11 @@ func NewServer(args *PilotArgs) (*Server, error) {
 		monitoringMux:       http.NewServeMux(),
 		readinessProbes:     make(map[string]readinessProbe),
 		workloadTrustBundle: tb.NewTrustBundle(nil),
+		server:              server.New(),
 	}
 	// Initialize workload Trust Bundle before XDS Server
 	e.TrustBundle = s.workloadTrustBundle
-	s.XDSServer = xds.NewDiscoveryServer(e, args.Plugins, args.PodName)
+	s.XDSServer = xds.NewDiscoveryServer(e, args.Plugins, args.PodName, args.Namespace)
 
 	if args.ShutdownDuration == 0 {
 		s.shutdownDuration = 10 * time.Second // If not specified set to 10 seconds.
@@ -262,7 +260,9 @@ func NewServer(args *PilotArgs) (*Server, error) {
 	}
 
 	// Initialize workloadTrustBundle after CA has been initialized
-	s.initWorkloadTrustBundle()
+	if err := s.initWorkloadTrustBundle(args); err != nil {
+		return nil, err
+	}
 
 	// Parse and validate Istiod Address.
 	istiodHost, _, err := e.GetDiscoveryAddress()
@@ -401,10 +401,8 @@ func (s *Server) Start(stop <-chan struct{}) error {
 	}
 
 	// Now start all of the components.
-	for _, fn := range s.startFuncs {
-		if err := fn(stop); err != nil {
-			return err
-		}
+	if err := s.server.Start(stop); err != nil {
+		return err
 	}
 	if !s.waitForCacheSync(stop) {
 		return fmt.Errorf("failed to sync cache")
@@ -471,7 +469,7 @@ func (s *Server) Start(stop <-chan struct{}) error {
 // WaitUntilCompletion waits for everything marked as a "required termination" to complete.
 // This should be called before exiting.
 func (s *Server) WaitUntilCompletion() {
-	s.requiredTerminations.Wait()
+	s.server.Wait()
 }
 
 // initSDSServer starts the SDS server
@@ -787,8 +785,8 @@ func (s *Server) grpcServerOptions(options *istiokeepalive.Options) []grpc.Serve
 
 // addStartFunc appends a function to be run. These are run synchronously in order,
 // so the function should start a go routine if it needs to do anything blocking
-func (s *Server) addStartFunc(fn startFunc) {
-	s.startFuncs = append(s.startFuncs, fn)
+func (s *Server) addStartFunc(fn server.Component) {
+	s.server.RunComponent(fn)
 }
 
 // adds a readiness probe for Istiod Server.
@@ -796,24 +794,12 @@ func (s *Server) addReadinessProbe(name string, fn readinessProbe) {
 	s.readinessProbes[name] = fn
 }
 
-// addRequireStartFunc adds a function that should terminate before the serve shuts down
+// addTerminatingStartFunc adds a function that should terminate before the serve shuts down
 // This is useful to do cleanup activities
 // This is does not guarantee they will terminate gracefully - best effort only
 // Function should be synchronous; once it returns it is considered "done"
-func (s *Server) addTerminatingStartFunc(fn startFunc) {
-	s.addStartFunc(func(stop <-chan struct{}) error {
-		// We mark this as a required termination as an optimization. Without this, when we exit the lock is
-		// still held for some time (30-60s or so). If we allow time for a graceful exit, then we can immediately drop the lock.
-		s.requiredTerminations.Add(1)
-		go func() {
-			err := fn(stop)
-			if err != nil {
-				log.Errorf("failure in startup function: %v", err)
-			}
-			s.requiredTerminations.Done()
-		}()
-		return nil
-	})
+func (s *Server) addTerminatingStartFunc(fn server.Component) {
+	s.server.RunComponentAsyncAndWait(fn)
 }
 
 func (s *Server) waitForCacheSync(stop <-chan struct{}) bool {
@@ -1188,7 +1174,73 @@ func (s *Server) initMeshHandlers() {
 	})
 }
 
-func (s *Server) initWorkloadTrustBundle() {
+func (s *Server) addIstioCAToTrustBundle(args *PilotArgs) error {
+	// TODO: unify with CreateIstioCA instead of mirroring it
+
+	var err error
+	if s.CA != nil {
+		// If IstioCA is setup, derive trustAnchor directly from CA
+		rootCerts := []string{string(s.CA.GetCAKeyCertBundle().GetRootCertPem())}
+		err = s.workloadTrustBundle.UpdateTrustAnchor(&tb.TrustAnchorUpdate{
+			TrustAnchorConfig: tb.TrustAnchorConfig{Certs: rootCerts},
+			Source:            tb.SourceIstioCA,
+		})
+		if err != nil {
+			log.Errorf("unable to add CA root as trustAnchor")
+			return err
+		}
+		return nil
+	}
+
+	// If CA is not running, derive root certificates from the configured CA secrets
+	signingKeyFile := path.Join(LocalCertDir.Get(), "ca-key.pem")
+	if _, err := os.Stat(signingKeyFile); err != nil && s.kubeClient != nil {
+		// Fetch self signed certificates
+		caSecret, err := s.kubeClient.CoreV1().Secrets(args.Namespace).
+			Get(context.TODO(), ca.CASecret, metav1.GetOptions{})
+		if err != nil {
+			log.Errorf("unable to retrieve self signed CA secret: %v", err)
+			return err
+		}
+		rootCertBytes, ok := caSecret.Data[ca.RootCertID]
+		if !ok {
+			rootCertBytes = caSecret.Data[ca.CaCertID]
+		}
+		err = s.workloadTrustBundle.UpdateTrustAnchor(&tb.TrustAnchorUpdate{
+			TrustAnchorConfig: tb.TrustAnchorConfig{Certs: []string{string(rootCertBytes)}},
+			Source:            tb.SourceIstioCA,
+		})
+		if err != nil {
+			log.Errorf("unable to update trustbundle with self signed CA root: %v", err)
+			return err
+		}
+	} else {
+		// If NOT self signed certificates
+		rootCertFile := path.Join(LocalCertDir.Get(), "root-cert.pem")
+		if _, err := os.Stat(rootCertFile); err != nil {
+			rootCertFile = path.Join(LocalCertDir.Get(), "ca-cert.pem")
+		}
+		certBytes, err := ioutil.ReadFile(rootCertFile)
+		if err != nil {
+			if s.kubeClient != nil {
+				return err
+			}
+			// TODO: accommodation for unit tests. needs to be removed
+			return nil
+		}
+		err = s.workloadTrustBundle.UpdateTrustAnchor(&tb.TrustAnchorUpdate{
+			TrustAnchorConfig: tb.TrustAnchorConfig{Certs: []string{string(certBytes)}},
+			Source:            tb.SourceIstioCA,
+		})
+		if err != nil {
+			log.Errorf("unable to update trustbundle with plugin CA root: %v", err)
+			return err
+		}
+	}
+	return nil
+}
+
+func (s *Server) initWorkloadTrustBundle(args *PilotArgs) error {
 	var err error
 
 	s.workloadTrustBundle.UpdateCb(func() {
@@ -1205,23 +1257,19 @@ func (s *Server) initWorkloadTrustBundle() {
 	})
 
 	// MeshConfig: Add initial roots
-	s.workloadTrustBundle.AddMeshConfigUpdate(s.environment.Mesh())
+	err = s.workloadTrustBundle.AddMeshConfigUpdate(s.environment.Mesh())
+	if err != nil {
+		return err
+	}
 
 	// MeshConfig:Add callback for mesh config update
 	s.environment.AddMeshHandler(func() {
-		s.workloadTrustBundle.AddMeshConfigUpdate(s.environment.Mesh())
+		_ = s.workloadTrustBundle.AddMeshConfigUpdate(s.environment.Mesh())
 	})
 
-	// IstioCA: Explicitly add roots corresponding to CA
-	if s.CA != nil {
-		rootCerts := []string{string(s.CA.GetCAKeyCertBundle().GetRootCertPem())}
-		err = s.workloadTrustBundle.UpdateTrustAnchor(&tb.TrustAnchorUpdate{
-			TrustAnchorConfig: tb.TrustAnchorConfig{Certs: rootCerts},
-			Source:            tb.SourceIstioCA,
-		})
-		if err != nil {
-			log.Errorf("fatal: unable to add CA root as trustAnchor")
-		}
+	err = s.addIstioCAToTrustBundle(args)
+	if err != nil {
+		return err
 	}
 
 	// IstioRA: Explicitly add roots corresponding to RA
@@ -1234,7 +1282,9 @@ func (s *Server) initWorkloadTrustBundle() {
 		})
 		if err != nil {
 			log.Errorf("fatal: unable to add RA root as trustAnchor")
+			return err
 		}
 	}
 	log.Infof("done initializing workload trustBundle")
+	return nil
 }

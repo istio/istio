@@ -1514,6 +1514,27 @@ func TestBuildGatewayListeners(t *testing.T) {
 			},
 			[]string{"0.0.0.0_80", "0.0.0.0_8080"},
 		},
+		{
+			"gateway with bind",
+			&pilot_model.Proxy{},
+			&networking.Gateway{
+				Servers: []*networking.Server{
+					{
+						Port: &networking.Port{Name: "http", Number: 80, Protocol: "HTTP"},
+					},
+					{
+						Port:  &networking.Port{Name: "http", Number: 8080, Protocol: "HTTP"},
+						Hosts: []string{"externalgatewayclient.com"},
+					},
+					{
+						Port:  &networking.Port{Name: "http", Number: 8080, Protocol: "HTTP"},
+						Bind:  "127.0.0.1",
+						Hosts: []string{"internalmesh.svc.cluster.local"},
+					},
+				},
+			},
+			[]string{"0.0.0.0_80", "0.0.0.0_8080", "127.0.0.1_8080"},
+		},
 	}
 
 	for _, tt := range cases {

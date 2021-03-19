@@ -29,7 +29,7 @@ import (
 // KubernetesRA integrated with an external CA using Kubernetes CSR API
 type KubernetesRA struct {
 	csrInterface  certclient.CertificatesV1beta1Interface
-	keyCertBundle util.KeyCertBundle
+	keyCertBundle *util.KeyCertBundle
 	raOpts        *IstioRAOptions
 }
 
@@ -90,6 +90,6 @@ func (r *KubernetesRA) SignWithCertChain(csrPEM []byte, subjectIDs []string, ttl
 }
 
 // GetCAKeyCertBundle returns the KeyCertBundle for the CA.
-func (r *KubernetesRA) GetCAKeyCertBundle() util.KeyCertBundle {
+func (r *KubernetesRA) GetCAKeyCertBundle() *util.KeyCertBundle {
 	return r.keyCertBundle
 }
