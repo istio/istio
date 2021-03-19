@@ -190,6 +190,11 @@ func (r *Reporter) removeCompletedResource(completedResources []Resource) {
 	var toDelete []Resource
 	for _, item := range completedResources {
 		// TODO: handle cache miss
+		// if cache miss, need to skip current loop, otherwise is will cause errors like
+		// invalid memory address or nil pointer dereference
+		if _, ok := r.inProgressResources[item.ToModelKey()]; !ok {
+			continue
+		}
 		total := r.inProgressResources[item.ToModelKey()].completedIterations + 1
 		if int64(total) > (time.Minute.Milliseconds() / r.UpdateInterval.Milliseconds()) {
 			// remove from inProgressResources
