@@ -1,0 +1,9 @@
+apiVersion: release-notes/v2
+kind: feature
+area: istioctl
+issue:
+  - 31474
+releaseNotes:
+  - |
+    **Enhanced** `istioctl proxy-status` command to include NDS and ECDS sync statuses
+    and last sync time for each configuration type
