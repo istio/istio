@@ -16,12 +16,14 @@ package xds
 
 import (
 	"fmt"
+	"time"
 
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	status "github.com/envoyproxy/go-control-plane/envoy/service/status/v3"
 	"github.com/golang/protobuf/proto"
 	"github.com/golang/protobuf/ptypes/any"
+	structpb "github.com/golang/protobuf/ptypes/struct"
 
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/util"
@@ -55,6 +57,52 @@ type StatusGen struct {
 
 	// TODO: track last N Nacks and connection events, with 'version' based on timestamp.
 	// On new connect, use version to send recent events since last update.
+}
+
+type AdditionalStatusInfo struct {
+	SyncInfos map[string]SyncInfo
+}
+
+type SyncInfo struct {
+	LastSyncTime *time.Time
+	Status       string
+}
+
+func (i *SyncInfo) ToProtoStruct() *structpb.Struct {
+	fields := make(map[string]*structpb.Value)
+	fields["STATUS"] = &structpb.Value{
+		Kind: &structpb.Value_StringValue{StringValue: i.Status},
+	}
+	if i.LastSyncTime != nil {
+		fields["LAST_SYNC_TIME"] = &structpb.Value{
+			Kind: &structpb.Value_StringValue{
+				StringValue: i.LastSyncTime.UTC().String(),
+			},
+		}
+	}
+	return &structpb.Struct{Fields: fields}
+}
+
+func (i *AdditionalStatusInfo) ToProtoStruct() *structpb.Struct {
+	statusFields := make(map[string]*structpb.Value)
+	for typeURL, syncInfo := range i.SyncInfos {
+		statusFields[typeURL] = &structpb.Value{
+			Kind: &structpb.Value_StructValue{
+				StructValue: syncInfo.ToProtoStruct(),
+			},
+		}
+	}
+	return &structpb.Struct{
+		Fields: map[string]*structpb.Value{
+			"ADDITIONAL_STATUS_INFO": {
+				Kind: &structpb.Value_StructValue{
+					StructValue: &structpb.Struct{
+						Fields: statusFields,
+					},
+				},
+			},
+		},
+	}
 }
 
 func NewStatusGen(s *DiscoveryServer) *StatusGen {
@@ -111,11 +159,17 @@ func (sg *StatusGen) debugSyncz() []*any.Any {
 		v3.ClusterType,
 	}
 
+	additionalTypes := []string{
+		v3.NameTableType,
+		v3.ExtensionConfigurationType,
+	}
+
 	for _, con := range sg.Server.Clients() {
 		con.proxy.RLock()
 		// Skip "nodes" without metdata (they are probably istioctl queries!)
 		if isProxy(con) {
 			xdsConfigs := []*status.PerXdsConfig{}
+			additionalStatusInfo := AdditionalStatusInfo{SyncInfos: map[string]SyncInfo{}}
 			for _, stype := range stypes {
 				pxc := &status.PerXdsConfig{}
 				if watchedResource, ok := con.proxy.WatchedResources[stype]; ok {
@@ -133,11 +187,35 @@ func (sg *StatusGen) debugSyncz() []*any.Any {
 				case v3.ClusterType:
 					pxc.PerXdsConfig = &status.PerXdsConfig_ClusterConfig{}
 				}
+				additionalStatusInfo.SyncInfos[stype] = SyncInfo{
+					Status:       pxc.Status.String(),
+					LastSyncTime: getLastSentTime(con, stype),
+				}
 				xdsConfigs = append(xdsConfigs, pxc)
 			}
+			for _, atype := range additionalTypes {
+				configStatus := status.ConfigStatus_NOT_SENT
+				if watchedResource, ok := con.proxy.WatchedResources[atype]; ok {
+					configStatus = debugSyncStatus(watchedResource)
+				}
+				additionalStatusInfo.SyncInfos[atype] = SyncInfo{
+					Status:       configStatus.String(),
+					LastSyncTime: getLastSentTime(con, atype),
+				}
+			}
+
 			clientConfig := &status.ClientConfig{
 				Node: &core.Node{
 					Id: con.proxy.ID,
+					Metadata: &structpb.Struct{
+						Fields: map[string]*structpb.Value{
+							"ADDITIONAL_DATA": {
+								Kind: &structpb.Value_StructValue{
+									StructValue: additionalStatusInfo.ToProtoStruct(),
+								},
+							},
+						},
+					},
 				},
 				XdsConfig: xdsConfigs,
 			}
@@ -147,6 +225,14 @@ func (sg *StatusGen) debugSyncz() []*any.Any {
 	}
 
 	return res
+}
+
+func getLastSentTime(con *Connection, stype string) *time.Time {
+	if wr := con.proxy.WatchedResources[stype]; wr != nil {
+		lastSent := wr.LastSent
+		return &lastSent
+	}
+	return nil
 }
 
 func debugSyncStatus(wr *model.WatchedResource) status.ConfigStatus {
