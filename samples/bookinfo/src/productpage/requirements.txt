@@ -10,7 +10,7 @@ greenlet==0.4.12
 idna==2.6
 itsdangerous==0.24
 jaeger-client==3.11.0
-Jinja2==2.10.1
+Jinja2==2.11.3
 json2html==1.2.1
 MarkupSafe==1.0
 opentracing==1.2.2
