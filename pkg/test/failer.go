@@ -17,12 +17,19 @@ package test
 import (
 	"errors"
 	"fmt"
+	"os"
 	"runtime"
 	"sync"
 	"testing"
+
+	"istio.io/pkg/log"
 )
 
-var _ Failer = &testing.T{}
+var (
+	_ Failer = &testing.T{}
+	_ Failer = &testing.B{}
+	_ Failer = &errorWrapper{}
+)
 
 // Failer is an interface to be provided to test functions of the form XXXOrFail. This is a
 // substitute for testing.TB, which cannot be implemented outside of the testing
@@ -32,6 +39,9 @@ type Failer interface {
 	FailNow()
 	Fatal(args ...interface{})
 	Fatalf(format string, args ...interface{})
+	Log(args ...interface{})
+	Logf(format string, args ...interface{})
+	TempDir() string
 	Helper()
 	Cleanup(func())
 }
@@ -109,4 +119,22 @@ func (e *errorWrapper) Cleanup(f func()) {
 	}
 }
 
-var _ Failer = &errorWrapper{}
+func (e *errorWrapper) Log(args ...interface{}) {
+	log.Info(args...)
+}
+
+func (e *errorWrapper) Logf(format string, args ...interface{}) {
+	ag := []interface{}{format}
+	ag = append(ag, args...)
+	log.Infof(ag...)
+}
+
+func (e *errorWrapper) TempDir() string {
+	tempDir, err := os.MkdirTemp("", "test")
+	if err == nil {
+		e.Cleanup(func() {
+			os.RemoveAll(tempDir)
+		})
+	}
+	return tempDir
+}

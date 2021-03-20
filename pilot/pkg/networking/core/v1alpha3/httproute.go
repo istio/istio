@@ -223,7 +223,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundVirtualHosts(node *mod
 		} else if svcPort, exists := svc.Ports.GetByPort(listenerPort); exists {
 			nameToServiceMap[svc.Hostname] = &model.Service{
 				Hostname:     svc.Hostname,
-				Address:      svc.GetServiceAddressForProxy(node, push),
+				Address:      svc.GetServiceAddressForProxy(node),
 				MeshExternal: svc.MeshExternal,
 				Resolution:   svc.Resolution,
 				Ports:        []*model.Port{svcPort},
@@ -287,7 +287,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundVirtualHosts(node *mod
 			name := domainName(string(svc.Hostname), virtualHostWrapper.Port)
 			duplicate := duplicateVirtualHost(name, vhosts)
 			if !duplicate {
-				domains, altHosts := generateVirtualHostDomains(svc, virtualHostWrapper.Port, node, push)
+				domains, altHosts := generateVirtualHostDomains(svc, virtualHostWrapper.Port, node)
 				dl := len(domains)
 				domains = dedupeDomains(domains, vhdomains, altHosts, knownFQDN)
 				if dl != len(domains) {
@@ -374,7 +374,7 @@ func getVirtualHostsForSniffedServicePort(vhosts []*route.VirtualHost, routeName
 
 // generateVirtualHostDomains generates the set of domain matches for a service being accessed from
 // a proxy node
-func generateVirtualHostDomains(service *model.Service, port int, node *model.Proxy, push *model.PushContext) ([]string, []string) {
+func generateVirtualHostDomains(service *model.Service, port int, node *model.Proxy) ([]string, []string) {
 	altHosts := generateAltVirtualHosts(string(service.Hostname), port, node.DNSDomain)
 	domains := []string{string(service.Hostname), domainName(string(service.Hostname), port)}
 	domains = append(domains, altHosts...)
@@ -386,7 +386,7 @@ func generateVirtualHostDomains(service *model.Service, port int, node *model.Pr
 		}
 	}
 
-	svcAddr := service.GetServiceAddressForProxy(node, push)
+	svcAddr := service.GetServiceAddressForProxy(node)
 	if len(svcAddr) > 0 && svcAddr != constants.UnspecifiedIP {
 		// add a vhost match for the IP (if its non CIDR)
 		cidr := util.ConvertAddressToCidr(svcAddr)
@@ -548,17 +548,8 @@ func buildCatchAllVirtualHost(node *model.Proxy) *route.VirtualHost {
 		routeAction := &route.RouteAction{
 			ClusterSpecifier: &route.RouteAction_Cluster{Cluster: egressCluster},
 			// Disable timeout instead of assuming some defaults.
-			Timeout: notimeout,
-		}
-		if util.IsIstioVersionGE18(node) {
-			routeAction.MaxStreamDuration = &route.RouteAction_MaxStreamDuration{
-				MaxStreamDuration: notimeout,
-			}
-		} else {
-			// If not configured at all, the grpc-timeout header is not used and
-			// gRPC requests time out like any other requests using timeout or its default.
-			// nolint: staticcheck
-			routeAction.MaxGrpcTimeout = notimeout
+			Timeout:           notimeout,
+			MaxStreamDuration: &route.RouteAction_MaxStreamDuration{MaxStreamDuration: notimeout},
 		}
 
 		return &route.VirtualHost{

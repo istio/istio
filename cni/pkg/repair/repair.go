@@ -25,6 +25,7 @@ import (
 	client "k8s.io/client-go/kubernetes"
 
 	"istio.io/pkg/log"
+	"istio.io/pkg/monitoring"
 )
 
 type Options struct {
@@ -44,11 +45,24 @@ type Filters struct {
 	LabelSelectors                  string `json:"label_selectors"`
 }
 
+type Metrics struct {
+	// PodsRepaired prometheus.Counter
+	PodsRepaired monitoring.Metric
+}
+
 // The pod reconciler struct. Contains state used to reconcile broken pods.
 type BrokenPodReconciler struct {
 	client  client.Interface
 	Filters *Filters
 	Options *Options
+	Metrics *Metrics
+}
+
+var PodsRepaired = monitoring.NewSum("istio_cni_repair_pods_repaired_total",
+	"Total number of pods repaired by repair controller")
+
+func init() {
+	monitoring.MustRegister(PodsRepaired)
 }
 
 // Constructs a new BrokenPodReconciler struct.
@@ -57,6 +71,7 @@ func NewBrokenPodReconciler(client client.Interface, filters *Filters, options *
 		client:  client,
 		Filters: filters,
 		Options: options,
+		Metrics: &Metrics{PodsRepaired: PodsRepaired},
 	}
 }
 
@@ -68,7 +83,6 @@ func (bpr BrokenPodReconciler) ReconcilePod(pod v1.Pod) (err error) {
 	} else if bpr.Options.LabelPods {
 		err = multierr.Append(err, bpr.labelBrokenPod(pod))
 	}
-
 	return err
 }
 
@@ -111,6 +125,7 @@ func (bpr BrokenPodReconciler) labelBrokenPod(pod v1.Pod) (err error) {
 		log.Errorf("Failed to update pod: %s", err)
 		return err
 	}
+	bpr.Metrics.PodsRepaired.Increment()
 	return err
 }
 
@@ -145,7 +160,11 @@ func (bpr BrokenPodReconciler) deleteBrokenPod(pod v1.Pod) error {
 		return nil
 	}
 	log.Infof("Pod detected as broken, deleting: %s/%s", pod.Namespace, pod.Name)
-	return bpr.client.CoreV1().Pods(pod.Namespace).Delete(context.TODO(), pod.Name, metav1.DeleteOptions{})
+	err := bpr.client.CoreV1().Pods(pod.Namespace).Delete(context.TODO(), pod.Name, metav1.DeleteOptions{})
+	if err == nil {
+		bpr.Metrics.PodsRepaired.Increment()
+	}
+	return err
 }
 
 // Lists all pods identified as broken by our Filter criteria

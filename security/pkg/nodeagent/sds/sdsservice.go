@@ -36,13 +36,7 @@ import (
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/security"
-	"istio.io/istio/security/pkg/nodeagent/cache"
 	"istio.io/pkg/log"
-)
-
-const (
-	// SecretType is used for secret discovery service to construct response.
-	SecretTypeV3 = "type.googleapis.com/envoy.extensions.transport_sockets.tls.v3.Secret"
 )
 
 var sdsServiceLog = log.RegisterScope("sds", "SDS service debugging", 0)
@@ -89,7 +83,7 @@ func NewXdsServer(stop chan struct{}, gen model.XdsResourceGenerator) *xds.Disco
 }
 
 // newSDSService creates Secret Discovery Service which implements envoy SDS API.
-func newSDSService(st security.SecretManager, options security.Options) *sdsservice {
+func newSDSService(st security.SecretManager, options *security.Options) *sdsservice {
 	if st == nil {
 		return nil
 	}
@@ -110,8 +104,9 @@ func newSDSService(st security.SecretManager, options security.Options) *sdsserv
 	// server in these cases.
 	go func() {
 		b := backoff.NewExponentialBackOff()
+		b.MaxElapsedTime = 0
 		for {
-			_, err := st.GenerateSecret(cache.WorkloadKeyCertResourceName)
+			_, err := st.GenerateSecret(security.WorkloadKeyCertResourceName)
 			if err == nil {
 				break
 			}
@@ -123,7 +118,7 @@ func newSDSService(st security.SecretManager, options security.Options) *sdsserv
 			}
 		}
 		for {
-			_, err := st.GenerateSecret(cache.RootCertReqResourceName)
+			_, err := st.GenerateSecret(security.RootCertReqResourceName)
 			if err == nil {
 				break
 			}
@@ -210,7 +205,9 @@ func toEnvoySecret(s *security.SecretItem) *tls.Secret {
 	secret := &tls.Secret{
 		Name: s.ResourceName,
 	}
-	if s.RootCert != nil {
+
+	cfg, ok := model.SdsCertificateConfigFromResourceName(s.ResourceName)
+	if s.ResourceName == security.RootCertReqResourceName || (ok && cfg.IsRootCertificate()) {
 		secret.Type = &tls.Secret_ValidationContext{
 			ValidationContext: &tls.CertificateValidationContext{
 				TrustedCa: &core.DataSource{

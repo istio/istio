@@ -16,6 +16,7 @@ package bootstrap
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"net"
@@ -24,7 +25,6 @@ import (
 	"strconv"
 	"strings"
 
-	md "cloud.google.com/go/compute/metadata"
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	"github.com/gogo/protobuf/types"
 
@@ -222,6 +222,7 @@ func getStatsOptions(meta *model.BootstrapNodeMetadata, nodeIPs []string, config
 			extraStatTags = append(extraStatTags, tag)
 		}
 	}
+	extraStatTags = removeDuplicates(extraStatTags)
 
 	var proxyConfigPrefixes, proxyConfigSuffixes, proxyConfigRegexps []string
 	if config.ProxyStatsMatcher != nil {
@@ -301,10 +302,9 @@ func getProxyConfigOptions(config *meshAPI.ProxyConfig, metadata *model.Bootstra
 		case *meshAPI.Tracing_Datadog_:
 			opts = append(opts, option.DataDogAddress(tracer.Datadog.Address))
 		case *meshAPI.Tracing_Stackdriver_:
-			var projectID string
-			var err error
-			if projectID, err = md.ProjectID(); err != nil {
-				return nil, fmt.Errorf("unable to process Stackdriver tracer: %v", err)
+			projectID, projFound := metadata.PlatformMetadata[platform.GCPProject]
+			if !projFound {
+				return nil, errors.New("unable to process Stackdriver tracer: missing GCP Project")
 			}
 
 			opts = append(opts, option.StackDriverEnabled(true),

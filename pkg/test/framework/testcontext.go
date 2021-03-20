@@ -44,6 +44,7 @@ type TestContext interface {
 	//
 	// If this TestContext was not created by a Test or if that Test is not running, this method will panic.
 	NewSubTest(name string) Test
+	NewSubTestf(format string, a ...interface{}) Test
 
 	// WorkDir allocated for this test.
 	WorkDir() string
@@ -200,6 +201,9 @@ func (c *testContext) Environment() resource.Environment {
 }
 
 func (c *testContext) Clusters() cluster.Clusters {
+	if c == nil || c.Environment() == nil {
+		return nil
+	}
 	return c.Environment().Clusters()
 }
 
@@ -268,6 +272,10 @@ func (c *testContext) NewSubTest(name string) Test {
 	}
 }
 
+func (c *testContext) NewSubTestf(format string, a ...interface{}) Test {
+	return c.NewSubTest(fmt.Sprintf(format, a...))
+}
+
 func (c *testContext) ConditionalCleanup(fn func()) {
 	c.scope.addCloser(&closer{fn: func() error {
 		fn()
@@ -283,7 +291,7 @@ func (c *testContext) Cleanup(fn func()) {
 }
 
 func (c *testContext) Done() {
-	if c.Failed() {
+	if c.Failed() && c.Settings().CIMode {
 		scopes.Framework.Debugf("Begin dumping testContext: %q", c.id)
 		rt.Dump(c)
 		scopes.Framework.Debugf("Completed dumping testContext: %q", c.id)

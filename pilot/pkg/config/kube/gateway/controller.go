@@ -98,7 +98,7 @@ func (c controller) List(typ config.GroupVersionKind, namespace string) ([]confi
 	}
 
 	if !anyApisUsed(input) {
-		// Early exit for common case of no service-apis used.
+		// Early exit for common case of no gateway-api used.
 		return nil, nil
 	}
 
@@ -154,9 +154,7 @@ func (c controller) Delete(typ config.GroupVersionKind, name, namespace string, 
 }
 
 func (c controller) RegisterEventHandler(typ config.GroupVersionKind, handler func(config.Config, config.Config, model.Event)) {
-	c.cache.RegisterEventHandler(typ, func(prev, cur config.Config, event model.Event) {
-		handler(prev, cur, event)
-	})
+	// do nothing as c.cache has been registered
 }
 
 func (c controller) Run(stop <-chan struct{}) {

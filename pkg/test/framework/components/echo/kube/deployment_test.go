@@ -23,6 +23,7 @@ import (
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/echo/common"
 	"istio.io/istio/pkg/test/framework/image"
+	"istio.io/istio/pkg/test/framework/resource"
 )
 
 var settings = &image.Settings{
@@ -37,6 +38,7 @@ func TestDeploymentYAML(t *testing.T) {
 		name         string
 		wantFilePath string
 		config       echo.Config
+		revVerMap    resource.RevVerMap
 	}{
 		{
 			name:         "basic",
@@ -132,6 +134,26 @@ func TestDeploymentYAML(t *testing.T) {
 				},
 			},
 		},
+		{
+			name:         "multiple-istio-versions",
+			wantFilePath: "testdata/multiple-istio-versions.yaml",
+			config: echo.Config{
+				Service: "foo",
+				Version: "bar",
+				Ports: []echo.Port{
+					{
+						Name:         "http",
+						Protocol:     protocol.HTTP,
+						InstancePort: 8090,
+						ServicePort:  8090,
+					},
+				},
+			},
+			revVerMap: resource.RevVerMap{
+				"rev-a": resource.IstioVersion("1.8.2"),
+				"rev-b": resource.IstioVersion("1.9.0"),
+			},
+		},
 	}
 	for _, tc := range testCase {
 		t.Run(tc.name, func(t *testing.T) {
@@ -150,7 +172,7 @@ func TestDeploymentYAML(t *testing.T) {
 			if err != nil {
 				t.Errorf("failed to generate service %v", err)
 			}
-			deploymentYAML, err := generateDeploymentWithSettings(tc.config, settings)
+			deploymentYAML, err := generateDeploymentYAML(tc.config, settings, tc.revVerMap)
 			if err != nil {
 				t.Errorf("failed to generate deployment %v", err)
 			}

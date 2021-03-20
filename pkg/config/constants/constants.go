@@ -97,7 +97,7 @@ const (
 	// This is typically set by the downward API
 	PodInfoCPURequestsPath = "./etc/istio/pod/cpu-request"
 
-	// PodInfoCPULimitsPath is the filepath that pod CPU requests will be stored
+	// PodInfoCPULimitsPath is the filepath that pod CPU limits will be stored
 	// This is typically set by the downward API
 	PodInfoCPULimitsPath = "./etc/istio/pod/cpu-limit"
 
@@ -128,6 +128,8 @@ const (
 	LocalPathStorageNamespace string = "local-path-storage"
 
 	TestVMLabel = "istio.io/test-vm"
+
+	TestVMVersionLabel = "istio.io/test-vm-version"
 
 	// TrustworthyJWTPath is the defaut 3P token to authenticate with third party services
 	TrustworthyJWTPath = "./var/run/secrets/tokens/istio-token"

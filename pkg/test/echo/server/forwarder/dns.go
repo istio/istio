@@ -25,8 +25,7 @@ import (
 
 var _ protocol = &dnsProtocol{}
 
-type dnsProtocol struct {
-}
+type dnsProtocol struct{}
 
 type dnsRequest struct {
 	hostname  string

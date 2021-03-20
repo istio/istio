@@ -242,9 +242,20 @@ func (b *EndpointBuilder) buildLocalityLbEndpointsFromShards(
 	isClusterLocal := b.push.IsClusterLocal(b.service)
 
 	shards.mutex.Lock()
+	// Extract shard keys so we can iterate in order. This ensures a stable EDS output. Since
+	// len(shards) ~= number of remote clusters which isn't too large, doing this sort shouldn't be
+	// too problematic. If it becomes an issue we can cache it in the EndpointShards struct.
+	keys := make([]string, 0, len(shards.Shards))
+	for k := range shards.Shards {
+		keys = append(keys, k)
+	}
+	if len(keys) >= 2 {
+		sort.Strings(keys)
+	}
 	// The shards are updated independently, now need to filter and merge
 	// for this cluster
-	for clusterID, endpoints := range shards.Shards {
+	for _, clusterID := range keys {
+		endpoints := shards.Shards[clusterID]
 		// If the downstream service is configured as cluster-local, only include endpoints that
 		// reside in the same cluster.
 		if isClusterLocal && (clusterID != b.clusterID) {
@@ -280,7 +291,15 @@ func (b *EndpointBuilder) buildLocalityLbEndpointsFromShards(
 	shards.mutex.Unlock()
 
 	locEps := make([]*LocLbEndpointsAndOptions, 0, len(localityEpMap))
-	for _, locLbEps := range localityEpMap {
+	locs := make([]string, 0, len(localityEpMap))
+	for k := range localityEpMap {
+		locs = append(locs, k)
+	}
+	if len(locs) >= 2 {
+		sort.Strings(locs)
+	}
+	for _, k := range locs {
+		locLbEps := localityEpMap[k]
 		var weight uint32
 		for _, ep := range locLbEps.llbEndpoints.LbEndpoints {
 			weight += ep.LoadBalancingWeight.GetValue()
@@ -347,7 +366,7 @@ func buildEnvoyLbEndpoint(e *model.IstioEndpoint) *endpoint.LbEndpoint {
 	// Istio telemetry depends on the metadata value being set for endpoints in the mesh.
 	// Istio endpoint level tls transport socket configuration depends on this logic
 	// Do not removepilot/pkg/xds/fake.go
-	ep.Metadata = util.BuildLbEndpointMetadata(e.Network, e.TLSMode, e.WorkloadName, e.Namespace, e.Labels)
+	ep.Metadata = util.BuildLbEndpointMetadata(e.Network, e.TLSMode, e.WorkloadName, e.Namespace, e.Locality.ClusterID, e.Labels)
 
 	return ep
 }

@@ -22,7 +22,6 @@ import (
 	"github.com/golang/protobuf/ptypes"
 
 	networking "istio.io/api/networking/v1alpha3"
-	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pkg/spiffe"
@@ -72,8 +71,7 @@ var SDSAdsConfig = &core.ConfigSource{
 	ConfigSourceSpecifier: &core.ConfigSource_Ads{
 		Ads: &core.AggregatedConfigSource{},
 	},
-	ResourceApiVersion:  core.ApiVersion_V3,
-	InitialFetchTimeout: features.InitialFetchTimeout,
+	ResourceApiVersion: core.ApiVersion_V3,
 }
 
 // ConstructSdsSecretConfigForCredential constructs SDS secret configuration used
@@ -214,8 +212,7 @@ func ConstructSdsSecretConfig(name string, node *model.Proxy) *tls.SdsSecretConf
 					},
 				},
 			},
-			ResourceApiVersion:  core.ApiVersion_V3,
-			InitialFetchTimeout: features.InitialFetchTimeout,
+			ResourceApiVersion: core.ApiVersion_V3,
 		},
 	}
 
@@ -254,7 +251,7 @@ func appendURIPrefixToTrustDomain(trustDomainAliases []string) []string {
 
 // ApplyToCommonTLSContext completes the commonTlsContext
 func ApplyToCommonTLSContext(tlsContext *tls.CommonTlsContext, proxy *model.Proxy,
-	subjectAltNames []string, trustDomainAliases []string) {
+	subjectAltNames []string, trustDomainAliases []string, validateClient bool) {
 	// These are certs being mounted from within the pod. Rather than reading directly in Envoy,
 	// which does not support rotation, we will serve them over SDS by reading the files.
 	// We should check if these certs have values, if yes we should use them or otherwise fall back to defaults.
@@ -272,11 +269,13 @@ func ApplyToCommonTLSContext(tlsContext *tls.CommonTlsContext, proxy *model.Prox
 	}
 
 	// configure server listeners with SDS.
-	tlsContext.ValidationContextType = &tls.CommonTlsContext_CombinedValidationContext{
-		CombinedValidationContext: &tls.CommonTlsContext_CombinedCertificateValidationContext{
-			DefaultValidationContext:         &tls.CertificateValidationContext{MatchSubjectAltNames: matchSAN},
-			ValidationContextSdsSecretConfig: ConstructSdsSecretConfig(model.GetOrDefault(res.GetRootResourceName(), SDSRootResourceName), proxy),
-		},
+	if validateClient {
+		tlsContext.ValidationContextType = &tls.CommonTlsContext_CombinedValidationContext{
+			CombinedValidationContext: &tls.CommonTlsContext_CombinedCertificateValidationContext{
+				DefaultValidationContext:         &tls.CertificateValidationContext{MatchSubjectAltNames: matchSAN},
+				ValidationContextSdsSecretConfig: ConstructSdsSecretConfig(model.GetOrDefault(res.GetRootResourceName(), SDSRootResourceName), proxy),
+			},
+		}
 	}
 	tlsContext.TlsCertificateSdsSecretConfigs = []*tls.SdsSecretConfig{
 		ConstructSdsSecretConfig(model.GetOrDefault(res.GetResourceName(), SDSDefaultResourceName), proxy),

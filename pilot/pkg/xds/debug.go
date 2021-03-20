@@ -96,6 +96,7 @@ type AdsClient struct {
 
 // AdsClients is collection of AdsClient connected to this Istiod.
 type AdsClients struct {
+	Total     int         `json:"totalClients"`
 	Connected []AdsClient `json:"clients"`
 }
 
@@ -123,7 +124,8 @@ type SyncedVersions struct {
 }
 
 // InitDebug initializes the debug handlers and adds a debug in-memory registry.
-func (s *DiscoveryServer) InitDebug(mux *http.ServeMux, sctl *aggregate.Controller, enableProfiling bool, fetchWebhook func() map[string]string) {
+func (s *DiscoveryServer) InitDebug(mux *http.ServeMux, sctl *aggregate.Controller, enableProfiling bool,
+	fetchWebhook func() map[string]string) {
 	// For debugging and load testing v2 we add an memory registry.
 	s.MemRegistry = memory.NewServiceDiscovery(nil)
 	s.MemRegistry.EDSUpdater = s
@@ -136,6 +138,10 @@ func (s *DiscoveryServer) InitDebug(mux *http.ServeMux, sctl *aggregate.Controll
 		Controller:       s.MemRegistry.Controller,
 	})
 	s.AddDebugHandlers(mux, enableProfiling, fetchWebhook)
+	debugGen, ok := (s.Generators[TypeDebug]).(*DebugGen)
+	if ok {
+		debugGen.DebugMux = mux
+	}
 }
 
 func (s *DiscoveryServer) AddDebugHandlers(mux *http.ServeMux, enableProfiling bool, webhook func() map[string]string) {
@@ -155,7 +161,7 @@ func (s *DiscoveryServer) AddDebugHandlers(mux *http.ServeMux, enableProfiling b
 
 	mux.HandleFunc("/debug", s.Debug)
 
-	if features.EnableAdminEndpoints {
+	if features.EnableUnsafeAdminEndpoints {
 		s.addDebugHandler(mux, "/debug/force_disconnect", "Disconnects a proxy from this Pilot", s.ForceDisconnect)
 	}
 
@@ -180,6 +186,7 @@ func (s *DiscoveryServer) AddDebugHandlers(mux *http.ServeMux, enableProfiling b
 	s.addDebugHandler(mux, "/debug/config_dump", "ConfigDump in the form of the Envoy admin config dump API for passed in proxyID", s.ConfigDump)
 	s.addDebugHandler(mux, "/debug/push_status", "Last PushContext Details", s.PushStatusHandler)
 	s.addDebugHandler(mux, "/debug/pushcontext", "Debug support for current push context", s.PushContextHandler)
+	s.addDebugHandler(mux, "/debug/connections", "Info about the connected XDS clients", s.ConnectionsHandler)
 
 	s.addDebugHandler(mux, "/debug/inject", "Active inject template", s.InjectTemplateHandler(webhook))
 	s.addDebugHandler(mux, "/debug/mesh", "Active mesh config", s.MeshHandler)
@@ -462,6 +469,29 @@ func (s *DiscoveryServer) Authorizationz(w http.ResponseWriter, req *http.Reques
 	}
 }
 
+// ConnectionsHandler implements interface for displaying current connections.
+// It is mapped to /debug/connections.
+func (s *DiscoveryServer) ConnectionsHandler(w http.ResponseWriter, req *http.Request) {
+	_ = req.ParseForm()
+	w.Header().Add("Content-Type", "application/json")
+
+	adsClients := &AdsClients{}
+	connections := s.Clients()
+	adsClients.Total = len(connections)
+
+	for _, c := range connections {
+		adsClient := AdsClient{
+			ConnectionID: c.ConID,
+			ConnectedAt:  c.Connect,
+			PeerAddress:  c.PeerAddr,
+		}
+		adsClients.Connected = append(adsClients.Connected, adsClient)
+	}
+	if b, err := json.MarshalIndent(adsClients, "  ", "  "); err == nil {
+		_, _ = w.Write(b)
+	}
+}
+
 // adsz implements a status and debug interface for ADS.
 // It is mapped to /debug/adsz
 func (s *DiscoveryServer) adsz(w http.ResponseWriter, req *http.Request) {
@@ -474,6 +504,8 @@ func (s *DiscoveryServer) adsz(w http.ResponseWriter, req *http.Request) {
 	}
 
 	adsClients := &AdsClients{}
+	connections := s.Clients()
+	adsClients.Total = len(connections)
 	for _, c := range s.Clients() {
 		adsClient := AdsClient{
 			ConnectionID: c.ConID,
@@ -719,7 +751,6 @@ func (s *DiscoveryServer) Debug(w http.ResponseWriter, req *http.Request) {
 		adsLog.Errorf("Error in rendering index template %v", err)
 		w.WriteHeader(500)
 	}
-	w.WriteHeader(200)
 }
 
 // Ndsz implements a status and debug interface for NDS.

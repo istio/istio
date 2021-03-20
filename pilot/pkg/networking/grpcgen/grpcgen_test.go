@@ -92,6 +92,7 @@ func TestGRPC(t *testing.T) {
 	})
 
 	env := ds.DiscoveryServer.Env
+	env.Init()
 	if err := env.PushContext.InitContext(env, env.PushContext, nil); err != nil {
 		t.Fatal(err)
 	}

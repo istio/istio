@@ -79,7 +79,7 @@ func TestVirtualListenerBuilder(t *testing.T) {
 	services := []*model.Service{service}
 
 	env := buildListenerEnv(services)
-	if err := env.PushContext.InitContext(&env, nil, nil); err != nil {
+	if err := env.PushContext.InitContext(env, nil, nil); err != nil {
 		t.Fatalf("init push context error: %s", err.Error())
 	}
 	instances := make([]*model.ServiceInstance, len(services))
@@ -124,7 +124,7 @@ func prepareListeners(t *testing.T, services []*model.Service, mode model.Traffi
 	ldsEnv := getDefaultLdsEnv()
 
 	env := buildListenerEnv(services)
-	if err := env.PushContext.InitContext(&env, nil, nil); err != nil {
+	if err := env.PushContext.InitContext(env, nil, nil); err != nil {
 		t.Fatalf("init push context error: %s", err.Error())
 	}
 	instances := make([]*model.ServiceInstance, len(services))
@@ -708,7 +708,7 @@ func TestInboundListenerFilters(t *testing.T) {
 func evaluateListenerFilterPredicates(t testing.TB, predicate *listener.ListenerFilterChainMatchPredicate, expected map[int]bool) {
 	t.Helper()
 	for port, expect := range expected {
-		got := xdstest.EvaluateListenerFilterPredicates(predicate, false, port)
+		got := xdstest.EvaluateListenerFilterPredicates(predicate, port)
 		if got != expect {
 			t.Errorf("expected port %v to have match=%v, got match=%v", port, expect, got)
 		}

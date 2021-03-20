@@ -47,7 +47,6 @@ import (
 	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/test/util/retry"
 	"istio.io/istio/security/pkg/credentialfetcher/plugin"
-	"istio.io/istio/security/pkg/nodeagent/cache"
 	camock "istio.io/istio/security/pkg/nodeagent/caclient/providers/mock"
 	"istio.io/istio/security/pkg/nodeagent/test/mock"
 	pkiutil "istio.io/istio/security/pkg/pki/util"
@@ -87,14 +86,14 @@ func TestAgent(t *testing.T) {
 	t.Run("Kubernetes defaults", func(t *testing.T) {
 		// XDS and CA are both using JWT authentication and TLS. Root certificates distributed in
 		// configmap to each namespace.
-		Setup(t).Check(cache.WorkloadKeyCertResourceName, cache.RootCertReqResourceName)
+		Setup(t).Check(security.WorkloadKeyCertResourceName, security.RootCertReqResourceName)
 	})
 	t.Run("RSA", func(t *testing.T) {
 		// All of the other tests use ECC for speed. Here we make sure RSA still works
 		Setup(t, func(a AgentTest) AgentTest {
 			a.Security.ECCSigAlg = ""
 			return a
-		}).Check(cache.WorkloadKeyCertResourceName, cache.RootCertReqResourceName)
+		}).Check(security.WorkloadKeyCertResourceName, security.RootCertReqResourceName)
 	})
 	t.Run("Kubernetes defaults output key and cert", func(t *testing.T) {
 		// same as "Kubernetes defaults", but also output the key and cert. This can be used for tools
@@ -104,13 +103,13 @@ func TestAgent(t *testing.T) {
 			a.Security.OutputKeyCertToDir = dir
 			a.Security.SecretRotationGracePeriodRatio = 1
 			return a
-		}).Check(cache.WorkloadKeyCertResourceName, cache.RootCertReqResourceName)
+		}).Check(security.WorkloadKeyCertResourceName, security.RootCertReqResourceName)
 
 		// Ensure we output the certs
 		checkCertsWritten(t, dir)
 
 		// We rotate immediately, so we expect these files to be constantly updated
-		go sds[cache.WorkloadKeyCertResourceName].DrainResponses()
+		go sds[security.WorkloadKeyCertResourceName].DrainResponses()
 		expectFileChanged(t, filepath.Join(dir, "cert-chain.pem"), filepath.Join(dir, "key.pem"))
 	})
 	t.Run("Kubernetes defaults - output key and cert without SDS", func(t *testing.T) {
@@ -166,7 +165,7 @@ func TestAgent(t *testing.T) {
 			// Ensure we don't try to connect to CA
 			a.CaAuthenticator.Set("", "")
 			return a
-		}).Check(cache.WorkloadKeyCertResourceName, cache.RootCertReqResourceName)
+		}).Check(security.WorkloadKeyCertResourceName, security.RootCertReqResourceName)
 	})
 	t.Run("VMs", func(t *testing.T) {
 		// Bootstrap sets up a short lived JWT token and root certificate. The initial run will fetch
@@ -180,12 +179,12 @@ func TestAgent(t *testing.T) {
 				a.Security.ProvCert = dir
 				return a
 			})
-			a.Check(cache.WorkloadKeyCertResourceName, cache.RootCertReqResourceName)
+			a.Check(security.WorkloadKeyCertResourceName, security.RootCertReqResourceName)
 
 			// Switch out our auth to only allow mTLS. In practice, the real server would allow JWT, but we
 			// don't have a good way to expire JWTs here. Instead, we just deny all JWTs to ensure mTLS is used
 			a.CaAuthenticator.Set("", filepath.Join(dir, "cert-chain.pem"))
-			a.Check(cache.WorkloadKeyCertResourceName, cache.RootCertReqResourceName)
+			a.Check(security.WorkloadKeyCertResourceName, security.RootCertReqResourceName)
 		})
 		t.Run("reboot", func(t *testing.T) {
 			// Switch the JWT to a bogus path, to simulate the VM being rebooted
@@ -198,8 +197,8 @@ func TestAgent(t *testing.T) {
 				return a
 			})
 			// Ensure we can still make requests
-			a.Check(cache.WorkloadKeyCertResourceName, cache.RootCertReqResourceName)
-			a.Check(cache.WorkloadKeyCertResourceName, cache.RootCertReqResourceName)
+			a.Check(security.WorkloadKeyCertResourceName, security.RootCertReqResourceName)
+			a.Check(security.WorkloadKeyCertResourceName, security.RootCertReqResourceName)
 		})
 	})
 	t.Run("VMs to etc/certs", func(t *testing.T) {
@@ -219,13 +218,13 @@ func TestAgent(t *testing.T) {
 			a.Security.SecretRotationGracePeriodRatio = 1
 			return a
 		})
-		sds := a.Check(cache.WorkloadKeyCertResourceName, cache.RootCertReqResourceName)
+		sds := a.Check(security.WorkloadKeyCertResourceName, security.RootCertReqResourceName)
 
 		// Ensure we output the certs
 		checkCertsWritten(t, dir)
 
 		// The provisioning certificates should not be touched
-		go sds[cache.WorkloadKeyCertResourceName].DrainResponses()
+		go sds[security.WorkloadKeyCertResourceName].DrainResponses()
 		expectFileChanged(t, filepath.Join(dir, "cert-chain.pem"), filepath.Join(dir, "key.pem"))
 	})
 	t.Run("VMs provisioned certificates - short lived", func(t *testing.T) {
@@ -243,10 +242,10 @@ func TestAgent(t *testing.T) {
 			a.Security.ProvCert = dir
 			a.Security.SecretRotationGracePeriodRatio = 1
 			return a
-		}).Check(cache.WorkloadKeyCertResourceName, cache.RootCertReqResourceName)
+		}).Check(security.WorkloadKeyCertResourceName, security.RootCertReqResourceName)
 
 		// The provisioning certificates should not be touched
-		go sds[cache.WorkloadKeyCertResourceName].DrainResponses()
+		go sds[security.WorkloadKeyCertResourceName].DrainResponses()
 		expectFileChanged(t, filepath.Join(dir, "cert-chain.pem"), filepath.Join(dir, "key.pem"))
 	})
 	t.Run("VMs provisioned certificates - long lived", func(t *testing.T) {
@@ -263,10 +262,10 @@ func TestAgent(t *testing.T) {
 			a.Security.ProvCert = dir
 			a.Security.SecretRotationGracePeriodRatio = 1
 			return a
-		}).Check(cache.WorkloadKeyCertResourceName, cache.RootCertReqResourceName)
+		}).Check(security.WorkloadKeyCertResourceName, security.RootCertReqResourceName)
 
 		// The provisioning certificates should not be touched
-		go sds[cache.WorkloadKeyCertResourceName].DrainResponses()
+		go sds[security.WorkloadKeyCertResourceName].DrainResponses()
 		expectFileUnchanged(t, filepath.Join(dir, "cert-chain.pem"), filepath.Join(dir, "key.pem"))
 	})
 	t.Run("Token exchange", func(t *testing.T) {
@@ -276,7 +275,7 @@ func TestAgent(t *testing.T) {
 			a.CaAuthenticator.Set("some-token", "")
 			a.Security.TokenExchanger = camock.NewMockTokenExchangeServer(map[string]string{"fake": "some-token"})
 			return a
-		}).Check(cache.WorkloadKeyCertResourceName, cache.RootCertReqResourceName)
+		}).Check(security.WorkloadKeyCertResourceName, security.RootCertReqResourceName)
 	})
 	t.Run("Token exchange with credential fetcher", func(t *testing.T) {
 		// This is used with platform credentials, where the platform provides some underlying
@@ -294,7 +293,7 @@ func TestAgent(t *testing.T) {
 			return a
 		})
 
-		a.Check(cache.WorkloadKeyCertResourceName, cache.RootCertReqResourceName)
+		a.Check(security.WorkloadKeyCertResourceName, security.RootCertReqResourceName)
 	})
 	t.Run("Token exchange with credential fetcher downtime", func(t *testing.T) {
 		// This ensures our pre-warming is resilient to temporary downtime of the CA
@@ -328,7 +327,7 @@ func TestAgent(t *testing.T) {
 			a.CaAuthenticator.Set("some-token", "")
 		}()
 
-		a.Check(cache.WorkloadKeyCertResourceName, cache.RootCertReqResourceName)
+		a.Check(security.WorkloadKeyCertResourceName, security.RootCertReqResourceName)
 	})
 }
 
@@ -336,7 +335,7 @@ type AgentTest struct {
 	t                *testing.T
 	ProxyConfig      meshconfig.ProxyConfig
 	Security         security.Options
-	AgentConfig      AgentConfig
+	AgentConfig      AgentOptions
 	XdsAuthenticator *security.FakeAuthenticator
 	CaAuthenticator  *security.FakeAuthenticator
 
@@ -370,7 +369,7 @@ func Setup(t *testing.T, opts ...func(a AgentTest) AgentTest) *AgentTest {
 	resp.ProxyConfig = mesh.DefaultProxyConfig()
 	resp.ProxyConfig.DiscoveryAddress = setupDiscovery(t, resp.XdsAuthenticator, ca.KeyCertBundle.GetRootCertPem())
 	rootCert := filepath.Join(env.IstioSrc, "./tests/testdata/certs/pilot/root-cert.pem")
-	resp.AgentConfig = AgentConfig{
+	resp.AgentConfig = AgentOptions{
 		ProxyXDSViaAgent: true,
 		CARootCerts:      rootCert,
 		XDSRootCerts:     rootCert,
@@ -380,7 +379,7 @@ func Setup(t *testing.T, opts ...func(a AgentTest) AgentTest) *AgentTest {
 	for _, opt := range opts {
 		resp = opt(resp)
 	}
-	a := NewAgent(&resp.ProxyConfig, &resp.AgentConfig, resp.Security)
+	a := NewAgent(&resp.ProxyConfig, &resp.AgentConfig, &resp.Security)
 	t.Cleanup(a.Close)
 	if err := a.Start(); err != nil {
 		t.Fatal(err)

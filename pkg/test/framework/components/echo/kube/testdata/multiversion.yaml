@@ -41,9 +41,16 @@ spec:
       imagePullSecrets:
       - name: myregistrykey
       containers:
+      - name: istio-proxy
+        image: auto
+        securityContext: # to allow core dumps
+          readOnlyRootFilesystem: false
       - name: app
         image: testing.hub/app:latest
         imagePullPolicy: Always
+        securityContext:
+          runAsUser: 1338
+          runAsGroup: 1338
         args:
           - --metrics=15014
           - --cluster
@@ -60,6 +67,8 @@ spec:
           - "3333"
           - --version
           - "v-istio"
+          - --istio-version
+          - ""
           - --crt=/cert.crt
           - --key=/cert.key
         ports:
@@ -119,6 +128,9 @@ spec:
       - name: app
         image: testing.hub/app:latest
         imagePullPolicy: Always
+        securityContext:
+          runAsUser: 1338
+          runAsGroup: 1338
         args:
           - --metrics=15014
           - --cluster
@@ -135,6 +147,8 @@ spec:
           - "3333"
           - --version
           - "v-legacy"
+          - --istio-version
+          - ""
           - --crt=/cert.crt
           - --key=/cert.key
         ports:

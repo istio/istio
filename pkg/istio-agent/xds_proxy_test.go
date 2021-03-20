@@ -50,7 +50,6 @@ import (
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/test/util/retry"
-	"istio.io/pkg/log"
 )
 
 // Validates basic xds proxy flow by proxying one CDS requests end to end.
@@ -200,7 +199,7 @@ func TestXdsProxyHealthCheck(t *testing.T) {
 }
 
 func setupXdsProxy(t *testing.T) *XdsProxy {
-	secOpts := security.Options{
+	secOpts := &security.Options{
 		FileMountedCerts: true,
 	}
 	proxyConfig := mesh.DefaultProxyConfig()
@@ -214,7 +213,7 @@ func setupXdsProxy(t *testing.T) *XdsProxy {
 		MetadataClientRootCert:  path.Join(env.IstioSrc, "tests/testdata/certs/pilot/root-cert.pem"),
 	}
 	dir := t.TempDir()
-	ia := NewAgent(&proxyConfig, &AgentConfig{
+	ia := NewAgent(&proxyConfig, &AgentOptions{
 		XdsUdsPath: filepath.Join(dir, "XDS"),
 	}, secOpts)
 	t.Cleanup(func() {
@@ -369,7 +368,6 @@ func (f *fakeNackCache) Get(string, string, time.Duration) (string, error) {
 func (f *fakeNackCache) Cleanup() {}
 
 func TestECDSWasmConversion(t *testing.T) {
-	proxyLog.SetOutputLevel(log.DebugLevel)
 	node := model.NodeMetadata{
 		Namespace:   "default",
 		InstanceIPs: []string{"1.1.1.1"},
@@ -552,4 +550,11 @@ func setupDownstreamConnectionUDS(t test.Failer, path string) *grpc.ClientConn {
 
 func setupDownstreamConnection(t *testing.T, proxy *XdsProxy) *grpc.ClientConn {
 	return setupDownstreamConnectionUDS(t, proxy.xdsUdsPath)
+}
+
+func TestIsExpectedGRPCError(t *testing.T) {
+	err := errors.New("code = Internal desc = stream terminated by RST_STREAM with error code: NO_ERROR")
+	if got := isExpectedGRPCError(err); !got {
+		t.Fatalf("expected true, got %v", got)
+	}
 }

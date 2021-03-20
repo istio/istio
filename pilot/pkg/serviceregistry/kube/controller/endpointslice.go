@@ -73,7 +73,7 @@ func (esc *endpointSliceController) onEvent(curr interface{}, event model.Event)
 		}
 	}
 
-	return processEndpointEvent(esc.c, esc, ep.Labels[discovery.LabelServiceName], ep.Namespace, event, curr)
+	return processEndpointEvent(esc.c, esc, ep.Labels[discovery.LabelServiceName], ep.Namespace, event, ep)
 }
 
 // GetProxyServiceInstances returns service instances co-located with a given proxy

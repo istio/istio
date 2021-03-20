@@ -54,16 +54,7 @@ for details.
 
 The quick start describes how to install and use the operator `mesh` CLI command and/or controller.
 
-### Building
-
-If you're trying to do a local build that bypasses the build container, you'll need to
-to execute the following step one time.
-
-```bash
-GO111MODULE=on go get github.com/jteeuwen/go-bindata/go-bindata@6025e8de665b
-```
-
-#### CLI
+### CLI
 
 To build the operator CLI, simply:
 
@@ -73,7 +64,7 @@ make build
 
 Ensure the created binary is in your PATH to run the examples below.
 
-#### Controller (in cluster)
+### Controller (in cluster)
 
 Building a custom controller requires a Dockerhub (or similar) account. To build using the container based build:
 
@@ -95,7 +86,7 @@ kubectl apply -f operator/samples/default-install.yaml
 This installs the controller into the cluster in the istio-operator namespace. The controller in turns installs
 the Istio control plane into the istio-system namespace by default.
 
-#### Controller (running locally)
+### Controller (running locally)
 
 1. Set env $WATCH_NAMESPACE (default value is "istio-system") and $LEADER_ELECTION_NAMESPACE (default value is "istio-operator")
 
@@ -268,26 +259,6 @@ spec:
 
 You can mix and match these approaches. For example, you can use a compiled-in configuration profile with charts in your
 local file system.
-
-#### Migration from values.yaml
-
-The following command takes helm values.yaml files and output the new IstioOperatorSpec:
-
-```bash
-istioctl manifest migrate /usr/home/bob/go/src/istio.io/installer/istio-control/istio-discovery/values.yaml
-```
-
-If a directory is specified, all files called "values.yaml" under the directory will be converted into a single combined IstioOperatorSpec:
-
-```bash
-istioctl manifest migrate /usr/home/bob/go/src/istio.io/installer/istio-control
-```
-
-If no file is specified, the IstioOperator CR in the kube config cluster is used as an input:
-
-```bash
-istioctl manifest migrate
-```
 
 #### Check diffs of manifests
 

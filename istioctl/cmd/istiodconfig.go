@@ -371,16 +371,16 @@ func istiodLogCmd() *cobra.Command {
 		Short: "Manage istiod logging.",
 		Long:  "Retrieve or update logging levels of istiod components.",
 		Example: `  # Retrieve information about istiod logging levels.
-  istioctl experimental istiod log
+  istioctl admin log
 
   # Retrieve information about istiod logging levels on a specific control plane pod.
-  istioctl experimental istiod l istiod-5c868d8bdd-pmvgg
+  istioctl admin l istiod-5c868d8bdd-pmvgg
 
   # Update levels of the specified loggers.
-  istioctl x istiod log --level ads:debug,authorization:debug
+  istioctl admin log --level ads:debug,authorization:debug
 
   # Reset levels of all the loggers to default value (info).
-  istioctl x istiod log -r
+  istioctl admin log -r
 `,
 		Aliases: []string{"l"},
 		Args: func(logCmd *cobra.Command, args []string) error {
@@ -465,28 +465,4 @@ func istiodLogCmd() *cobra.Command {
 	logCmd.PersistentFlags().StringVarP(&outputFormat, "output", "o",
 		outputFormat, "Output format: one of json|short")
 	return logCmd
-}
-
-func istiodConfig() *cobra.Command {
-	istiodConfigCmd := &cobra.Command{
-		Use:   "istiod",
-		Short: "Manage control plane (istiod) configuration",
-		Long:  "A group of commands used to manage istiod configuration",
-		Example: `  # Retrieve information about istiod configuration.
-  istioctl experimental istiod log`,
-		RunE: func(cmd *cobra.Command, args []string) error {
-			cmd.HelpFunc()(cmd, args)
-			if len(args) != 0 {
-				return fmt.Errorf("unknown subcommand %q", args[0])
-			}
-
-			return nil
-		},
-	}
-
-	istiodLog := istiodLogCmd()
-	istiodConfigCmd.AddCommand(istiodLog)
-	istiodConfigCmd.PersistentFlags().StringVarP(&istiodLabelSelector, "selector", "l", "app=istiod", "label selector")
-
-	return istiodConfigCmd
 }

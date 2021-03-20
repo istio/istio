@@ -115,8 +115,7 @@ func waitForEvent(t *testing.T, ch chan Event) Event {
 	}
 }
 
-type channelTerminal struct {
-}
+type channelTerminal struct{}
 
 func initServiceDiscovery() (model.IstioConfigStore, *ServiceEntryStore, chan Event, func()) {
 	return initServiceDiscoveryWithOpts()
@@ -153,6 +152,10 @@ func TestServiceDiscoveryServices(t *testing.T) {
 
 	createConfigs([]*config.Config{httpDNS, tcpStatic}, store, t)
 
+	sd.storeMutex.Lock()
+	sd.refreshIndexes.Store(true)
+	sd.storeMutex.Unlock()
+
 	services, err := sd.Services()
 	if err != nil {
 		t.Errorf("Services() encountered unexpected error: %v", err)
@@ -172,6 +175,10 @@ func TestServiceDiscoveryGetService(t *testing.T) {
 	defer stopFn()
 
 	createConfigs([]*config.Config{httpDNS, tcpStatic}, store, t)
+
+	sd.storeMutex.Lock()
+	sd.refreshIndexes.Store(true)
+	sd.storeMutex.Unlock()
 
 	service, err := sd.GetService(host.Name(hostDNE))
 	if err != nil {

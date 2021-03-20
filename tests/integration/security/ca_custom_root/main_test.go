@@ -34,6 +34,7 @@ import (
 	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/framework/label"
 	"istio.io/istio/pkg/test/framework/resource"
+	"istio.io/istio/pkg/test/util/tmpl"
 	"istio.io/istio/tests/integration/security/util"
 	"istio.io/istio/tests/integration/security/util/cert"
 )
@@ -49,7 +50,8 @@ type EchoDeployments struct {
 	A, B echo.Instances
 	// workloads for TestTrustDomainAliasSecureNaming
 	// workload Client is also used by TestTrustDomainValidation
-	Client, ServerNakedFoo, ServerNakedBar echo.Instances
+	// ServerNakedFooAlt using also used in the multi_root_test.go test case
+	Client, ServerNakedFoo, ServerNakedBar, ServerNakedFooAlt echo.Instances
 	// workloads for TestTrustDomainValidation
 	Naked, Server echo.Instances
 }
@@ -83,11 +85,24 @@ func SetupApps(ctx resource.Context, apps *EchoDeployments) error {
 	if err != nil {
 		return err
 	}
-	clientCert, err := loadCert(path.Join(tmpdir, "workload-foo-cert.pem"))
+	clientCert, err := loadCert(path.Join(tmpdir, "workload-server-naked-foo-cert.pem"))
 	if err != nil {
 		return err
 	}
-	Key, err := loadCert(path.Join(tmpdir, "workload-foo-key.pem"))
+	Key, err := loadCert(path.Join(tmpdir, "workload-server-naked-foo-key.pem"))
+	if err != nil {
+		return err
+	}
+
+	rootCertAlt, err := loadCert(path.Join(tmpdir, "root-cert-alt.pem"))
+	if err != nil {
+		return err
+	}
+	clientCertAlt, err := loadCert(path.Join(tmpdir, "workload-server-naked-foo-alt-cert.pem"))
+	if err != nil {
+		return err
+	}
+	keyAlt, err := loadCert(path.Join(tmpdir, "workload-server-naked-foo-alt-key.pem"))
 	if err != nil {
 		return err
 	}
@@ -154,6 +169,31 @@ func SetupApps(ctx resource.Context, apps *EchoDeployments) error {
 			},
 		}).
 		WithConfig(echo.Config{
+			// Adding echo server for multi-root tests
+			Namespace: apps.Namespace,
+			Service:   "server-naked-foo-alt",
+			Subsets: []echo.SubsetConfig{
+				{
+					Annotations: echo.NewAnnotations().SetBool(echo.SidecarInject, false),
+				},
+			},
+			ServiceAccount: true,
+			Ports: []echo.Port{
+				{
+					Name:         HTTPS,
+					Protocol:     protocol.HTTPS,
+					ServicePort:  443,
+					InstancePort: 8443,
+					TLS:          true,
+				},
+			},
+			TLSSettings: &common.TLSSettings{
+				RootCert:   rootCertAlt,
+				ClientCert: clientCertAlt,
+				Key:        keyAlt,
+			},
+		}).
+		WithConfig(echo.Config{
 			Namespace: apps.Namespace,
 			Service:   "naked",
 			Subsets: []echo.SubsetConfig{
@@ -209,6 +249,7 @@ func SetupApps(ctx resource.Context, apps *EchoDeployments) error {
 	apps.Client = echos.Match(echo.Service("client"))
 	apps.ServerNakedFoo = echos.Match(echo.Service("server-naked-foo"))
 	apps.ServerNakedBar = echos.Match(echo.Service("server-naked-bar"))
+	apps.ServerNakedFooAlt = echos.Match(echo.Service("server-naked-foo-alt"))
 	apps.Naked = echos.Match(echo.Service("naked"))
 	apps.Server = echos.Match(echo.Service("server"))
 	return nil
@@ -226,6 +267,7 @@ func generateCerts(tmpdir, ns string) error {
 	workDir := path.Join(env.IstioSrc, "samples/certs")
 	script := path.Join(workDir, "generate-workload.sh")
 
+	// Create certificates signed by the same plugin CA that signs Istiod certificates
 	crts := []struct {
 		td string
 		sa string
@@ -239,7 +281,6 @@ func generateCerts(tmpdir, ns string) error {
 			sa: "server-naked-bar",
 		},
 	}
-
 	for _, crt := range crts {
 		command := exec.Cmd{
 			Path:   script,
@@ -252,6 +293,16 @@ func generateCerts(tmpdir, ns string) error {
 		}
 	}
 
+	// Create certificates signed by a Different ca with a different root
+	command := exec.Cmd{
+		Path:   script,
+		Args:   []string{script, "foo", ns, "server-naked-foo-alt", tmpdir, "use-alternative-root"},
+		Stdout: os.Stdout,
+		Stderr: os.Stdout,
+	}
+	if err := command.Run(); err != nil {
+		return fmt.Errorf("failed to create testing certificates: %s", err)
+	}
 	return nil
 }
 
@@ -271,9 +322,21 @@ func setupConfig(_ resource.Context, cfg *istio.Config) {
 	if cfg == nil {
 		return
 	}
-	cfg.ControlPlaneValues = `
+
+	// Add alternate root certificate to list of trusted anchors
+	script := path.Join(env.IstioSrc, "samples/certs", "root-cert-alt.pem")
+	rootPEM, err := loadCert(script)
+	if err != nil {
+		return
+	}
+
+	cfgYaml := tmpl.MustEvaluate(`
 values:
   meshConfig:
     trustDomainAliases: [some-other, trust-domain-foo]
-`
+    caCertificates:
+    - pem: |
+{{.pem | indent 8}}
+`, map[string]string{"pem": rootPEM})
+	cfg.ControlPlaneValues = cfgYaml
 }

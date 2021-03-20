@@ -155,6 +155,18 @@ func (c Config) HostHeader() string {
 	return c.FQDN()
 }
 
+func (c Config) IsHeadless() bool {
+	return c.Headless
+}
+
+func (c Config) IsNaked() bool {
+	return len(c.Subsets) > 0 && c.Subsets[0].Annotations != nil && !c.Subsets[0].Annotations.GetBool(SidecarInject)
+}
+
+func (c Config) IsVM() bool {
+	return c.DeployAsVM
+}
+
 // DeepCopy creates a clone of IstioEndpoint.
 func (c Config) DeepCopy() Config {
 	newc := c
@@ -163,6 +175,10 @@ func (c Config) DeepCopy() Config {
 	newc.Cluster = c.Cluster
 	newc.Namespace = c.Namespace
 	return newc
+}
+
+func (c Config) IsExternal() bool {
+	return c.HostHeader() != c.FQDN()
 }
 
 func copyInternal(v interface{}) interface{} {

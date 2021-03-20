@@ -18,7 +18,6 @@ import (
 	"encoding/json"
 	"net"
 	"sort"
-	"strings"
 	"sync"
 	"time"
 
@@ -37,8 +36,6 @@ import (
 	"istio.io/istio/pkg/config/visibility"
 	"istio.io/pkg/monitoring"
 )
-
-var defaultClusterLocalNamespaces = []string{"kube-system"}
 
 // Metrics is an interface for capturing metrics on a per-node basis.
 type Metrics interface {
@@ -61,10 +58,6 @@ type serviceIndex struct {
 	// HostnameAndNamespace has all services, indexed by hostname then namespace.
 	HostnameAndNamespace map[host.Name]map[string]*Service `json:"-"`
 
-	// ClusterVIPs contains a map of service and its cluster addresses. It is stored here
-	// to avoid locking each service for every proxy during push.
-	ClusterVIPs map[*Service]map[string]string
-
 	// instancesByPort contains a map of service and instances by port. It is stored here
 	// to avoid recomputations during push. This caches instanceByPort calls with empty labels.
 	// Call InstancesByPort directly when instances need to be filtered by actual labels.
@@ -77,7 +70,6 @@ func newServiceIndex() serviceIndex {
 		privateByNamespace:   map[string][]*Service{},
 		exportedToNamespace:  map[string][]*Service{},
 		HostnameAndNamespace: map[host.Name]map[string]*Service{},
-		ClusterVIPs:          map[*Service]map[string]string{},
 		instancesByPort:      map[*Service]map[int][]*ServiceInstance{},
 	}
 }
@@ -173,7 +165,7 @@ type PushContext struct {
 	gatewayIndex gatewayIndex
 
 	// clusterLocalHosts extracted from the MeshConfig
-	clusterLocalHosts host.Names
+	clusterLocalHosts ClusterLocalHosts
 
 	// sidecars for each namespace
 	sidecarsByNamespace map[string][]*SidecarScope
@@ -205,6 +197,9 @@ type PushContext struct {
 
 	// LedgerVersion is the version of the configuration ledger
 	LedgerVersion string
+
+	// JwtKeyResolver holds a reference to the JWT key resolver instance.
+	JwtKeyResolver *JwksResolver
 
 	// cache gateways addresses for each network
 	// this is mainly used for kubernetes multi-cluster scenario
@@ -330,26 +325,28 @@ const (
 	SecretTrigger TriggerReason = "secret"
 	// Describes a push triggered for Networks change
 	NetworksTrigger TriggerReason = "networks"
+	// Desribes a push triggered based on proxy request
+	ProxyRequest TriggerReason = "proxyrequest"
 )
 
 // Merge two update requests together
-func (first *PushRequest) Merge(other *PushRequest) *PushRequest {
-	if first == nil {
+func (pr *PushRequest) Merge(other *PushRequest) *PushRequest {
+	if pr == nil {
 		return other
 	}
 	if other == nil {
-		return first
+		return pr
 	}
 
-	reason := make([]TriggerReason, 0, len(first.Reason)+len(other.Reason))
-	reason = append(reason, first.Reason...)
+	reason := make([]TriggerReason, 0, len(pr.Reason)+len(other.Reason))
+	reason = append(reason, pr.Reason...)
 	reason = append(reason, other.Reason...)
 	merged := &PushRequest{
 		// Keep the first (older) start time
-		Start: first.Start,
+		Start: pr.Start,
 
 		// If either is full we need a full push
-		Full: first.Full || other.Full,
+		Full: pr.Full || other.Full,
 
 		// The other push context is presumed to be later and more up to date
 		Push: other.Push,
@@ -359,9 +356,9 @@ func (first *PushRequest) Merge(other *PushRequest) *PushRequest {
 	}
 
 	// Do not merge when any one is empty
-	if len(first.ConfigsUpdated) > 0 && len(other.ConfigsUpdated) > 0 {
-		merged.ConfigsUpdated = make(map[ConfigKey]struct{}, len(first.ConfigsUpdated)+len(other.ConfigsUpdated))
-		for conf := range first.ConfigsUpdated {
+	if len(pr.ConfigsUpdated) > 0 && len(other.ConfigsUpdated) > 0 {
+		merged.ConfigsUpdated = make(map[ConfigKey]struct{}, len(pr.ConfigsUpdated)+len(other.ConfigsUpdated))
+		for conf := range pr.ConfigsUpdated {
 			merged.ConfigsUpdated[conf] = struct{}{}
 		}
 		for conf := range other.ConfigsUpdated {
@@ -370,6 +367,13 @@ func (first *PushRequest) Merge(other *PushRequest) *PushRequest {
 	}
 
 	return merged
+}
+
+func (pr *PushRequest) PushReason() string {
+	if len(pr.Reason) == 1 && pr.Reason[0] == ProxyRequest {
+		return " request"
+	}
+	return ""
 }
 
 // ProxyPushStatus represents an event captured during config push to proxies.
@@ -532,6 +536,21 @@ func NewPushContext() *PushContext {
 		gatewayIndex:            newGatewayIndex(),
 		ProxyStatus:             map[string]map[string]ProxyPushStatus{},
 		ServiceAccounts:         map[host.Name]map[int][]string{},
+	}
+}
+
+// AddPublicServices adds the services to context public services - mainly used in tests.
+func (ps *PushContext) AddPublicServices(services []*Service) {
+	ps.ServiceIndex.public = append(ps.ServiceIndex.public, services...)
+}
+
+// AddServiceInstances adds instances to the context service instances - mainly used in tests.
+func (ps *PushContext) AddServiceInstances(service *Service, instances map[int][]*ServiceInstance) {
+	for port, inst := range instances {
+		if _, exists := ps.ServiceIndex.instancesByPort[service]; !exists {
+			ps.ServiceIndex.instancesByPort[service] = make(map[int][]*ServiceInstance)
+		}
+		ps.ServiceIndex.instancesByPort[service][port] = append(ps.ServiceIndex.instancesByPort[service][port], inst...)
 	}
 }
 
@@ -891,8 +910,7 @@ func (ps *PushContext) getExportedDestinationRuleFromNamespace(owningNamespace s
 // IsClusterLocal indicates whether the endpoints for the service should only be accessible to clients
 // within the cluster.
 func (ps *PushContext) IsClusterLocal(service *Service) bool {
-	_, ok := MostSpecificHostMatch(service.Hostname, nil, ps.clusterLocalHosts)
-	return ok
+	return ps.clusterLocalHosts.IsClusterLocal(service.Hostname)
 }
 
 // SubsetToLabels returns the labels associated with a subset of a given service.
@@ -956,7 +974,7 @@ func (ps *PushContext) InitContext(env *Environment, oldPushContext *PushContext
 	// TODO: only do this when meshnetworks or gateway service changed
 	ps.initMeshNetworks(env.Networks())
 
-	ps.initClusterLocalHosts(env)
+	ps.clusterLocalHosts = env.ClusterLocal().GetClusterLocalHosts()
 
 	ps.initDone.Store(true)
 	return nil
@@ -1114,13 +1132,6 @@ func (ps *PushContext) initServiceRegistry(env *Environment) error {
 	// Sort the services in order of creation.
 	allServices := sortServicesByCreationTime(services)
 	for _, s := range allServices {
-		s.Mutex.RLock()
-		ps.ServiceIndex.ClusterVIPs[s] = make(map[string]string)
-		for k, v := range s.ClusterVIPs {
-			ps.ServiceIndex.ClusterVIPs[s][k] = v
-		}
-		s.Mutex.RUnlock()
-
 		// Precache instances
 		for _, port := range s.Ports {
 			if _, ok := ps.ServiceIndex.instancesByPort[s]; !ok {
@@ -1679,11 +1690,19 @@ func (ps *PushContext) mergeGateways(proxy *Proxy) *MergedGateway {
 		configs = ps.gatewayIndex.all
 	}
 
+	// Get the target ports of the service
+	targetPorts := make(map[uint32]uint32)
+	servicePorts := make(map[uint32]uint32)
+	for _, si := range proxy.ServiceInstances {
+		targetPorts[si.Endpoint.EndpointPort] = uint32(si.ServicePort.Port)
+		servicePorts[uint32(si.ServicePort.Port)] = si.Endpoint.EndpointPort
+	}
 	for _, cfg := range configs {
 		gw := cfg.Spec.(*networking.Gateway)
+		selected := false
 		if gw.GetSelector() == nil {
 			// no selector. Applies to all workloads asking for the gateway
-			out = append(out, cfg)
+			selected = true
 		} else {
 			gatewaySelector := labels.Instance(gw.GetSelector())
 			var workloadLabels labels.Collection
@@ -1692,11 +1711,39 @@ func (ps *PushContext) mergeGateways(proxy *Proxy) *MergedGateway {
 				workloadLabels = labels.Collection{proxy.Metadata.Labels}
 			}
 			if workloadLabels.IsSupersetOf(gatewaySelector) {
+				selected = true
+			}
+		}
+		if selected {
+			// rewritePorts records index of gateway server port that needs to be rewritten.
+			rewritePorts := make(map[int]uint32)
+			for i, s := range gw.Servers {
+				if servicePort, ok := targetPorts[s.Port.Number]; ok && servicePort != s.Port.Number {
+					// Check if the gateway server port is also defined as a service port, if so skip rewriting since it is
+					// ambiguous on whether the server port points to service port or target port.
+					if _, ok := servicePorts[s.Port.Number]; ok {
+						continue
+					}
+
+					// The gateway server is defined with target port. Convert it to service port before gateway merging.
+					// Gateway listeners are based on target port, this prevents duplicated listeners be generated when build
+					// listener resources based on merged gateways.
+					rewritePorts[i] = servicePort
+				}
+			}
+			if len(rewritePorts) != 0 {
+				// Make a deep copy of the gateway configuration and rewrite server port with service port.
+				newGWConfig := cfg.DeepCopy()
+				newGW := newGWConfig.Spec.(*networking.Gateway)
+				for ind, sp := range rewritePorts {
+					newGW.Servers[ind].Port.Number = sp
+				}
+				out = append(out, newGWConfig)
+			} else {
 				out = append(out, cfg)
 			}
 		}
 	}
-
 	if len(out) == 0 {
 		return nil
 	}
@@ -1730,54 +1777,6 @@ func (ps *PushContext) initMeshNetworks(meshNetworks *meshconfig.MeshNetworks) {
 	}
 }
 
-func (ps *PushContext) initClusterLocalHosts(e *Environment) {
-	// Create the default list of cluster-local hosts.
-	domainSuffix := e.GetDomainSuffix()
-	defaultClusterLocalHosts := make([]host.Name, 0)
-	for _, n := range defaultClusterLocalNamespaces {
-		defaultClusterLocalHosts = append(defaultClusterLocalHosts, host.Name("*."+n+".svc."+domainSuffix))
-	}
-
-	if discoveryHost, _, err := e.GetDiscoveryAddress(); err != nil {
-		log.Errorf("failed to make discoveryAddress cluster-local: %v", err)
-	} else {
-		if !strings.HasSuffix(string(discoveryHost), domainSuffix) {
-			discoveryHost += host.Name("." + domainSuffix)
-		}
-		defaultClusterLocalHosts = append(defaultClusterLocalHosts, discoveryHost)
-	}
-
-	// Collect the cluster-local hosts.
-	clusterLocalHosts := make([]host.Name, 0)
-	for _, serviceSettings := range ps.Mesh.ServiceSettings {
-		if serviceSettings.Settings.ClusterLocal {
-			for _, h := range serviceSettings.Hosts {
-				clusterLocalHosts = append(clusterLocalHosts, host.Name(h))
-			}
-		} else {
-			// Remove defaults if specified to be non-cluster-local.
-			for _, h := range serviceSettings.Hosts {
-				for i, defaultClusterLocalHost := range defaultClusterLocalHosts {
-					if len(defaultClusterLocalHost) > 0 && strings.HasSuffix(h, string(defaultClusterLocalHost[1:])) {
-						// This default was explicitly overridden, so remove it.
-						defaultClusterLocalHosts[i] = ""
-					}
-				}
-			}
-		}
-	}
-
-	// Add any remaining defaults to the end of the list.
-	for _, defaultClusterLocalHost := range defaultClusterLocalHosts {
-		if len(defaultClusterLocalHost) > 0 {
-			clusterLocalHosts = append(clusterLocalHosts, defaultClusterLocalHost)
-		}
-	}
-
-	sort.Sort(host.Names(clusterLocalHosts))
-	ps.clusterLocalHosts = clusterLocalHosts
-}
-
 func (ps *PushContext) NetworkGateways() map[string][]*Gateway {
 	ps.networksMu.RLock()
 	defer ps.networksMu.RUnlock()
@@ -1800,14 +1799,17 @@ func (ps *PushContext) NetworkGatewaysByNetwork(network string) []*Gateway {
 // to compute the correct service mTLS mode without knowing service to workload binding. For now, this
 // function uses only mesh and namespace level PeerAuthentication and ignore workload & port level policies.
 // This function is used to give a hint for auto-mTLS configuration on client side.
-func (ps *PushContext) BestEffortInferServiceMTLSMode(service *Service, port *Port) MutualTLSMode {
+func (ps *PushContext) BestEffortInferServiceMTLSMode(tp *networking.TrafficPolicy, service *Service, port *Port) MutualTLSMode {
 	if service.MeshExternal {
 		// Only need the authentication MTLS mode when service is not external.
 		return MTLSUnknown
 	}
 
-	// 1. Check service instances' tls mode, mainly used for headless service.
-	if service.Resolution == Passthrough {
+	// For passthrough traffic (headless service or explicitly defined in DestinationRule), we look at the instances
+	// If ALL instances have a sidecar, we enable TLS, otherwise we disable
+	// TODO(https://github.com/istio/istio/issues/27376) enable mixed deployments
+	// A service with passthrough resolution is always passthrough, regardless of the TrafficPolicy.
+	if service.Resolution == Passthrough || tp.GetLoadBalancer().GetSimple() == networking.LoadBalancerSettings_PASSTHROUGH {
 		instances := ps.ServiceInstancesByPort(service, port.Port, nil)
 		if len(instances) == 0 {
 			return MTLSDisable

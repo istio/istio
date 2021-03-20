@@ -19,6 +19,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"runtime"
 	"strings"
 	"time"
 
@@ -26,7 +27,7 @@ import (
 	goversion "github.com/hashicorp/go-version"
 	"github.com/spf13/cobra"
 	v1 "k8s.io/api/core/v1"
-	client_v1beta1 "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset/typed/apiextensions/v1beta1"
+	client_v1 "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset/typed/apiextensions/v1"
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/rest"
 
@@ -58,9 +59,8 @@ const (
 		"If you’re using manual injection, you can upgrade the sidecar by executing:\n" +
 		"    kubectl apply -f < (istioctl kube-inject -f <original application deployment yaml>)"
 
-	// releaseURLPathTemplate is used to construct a download URL for a tar at a given version. The osx tar is
-	// used because it's stable between 1.5->1.6 and only the profiles are used, not binaries.
-	releaseURLPathTemplate = "https://github.com/istio/istio/releases/download/%s/istio-%s-osx.tar.gz"
+	// releaseURLPathTemplate is used to construct a download URL for a tar at a given version.
+	releaseURLPathTemplate = "https://github.com/istio/istio/releases/download/%s/istio-%s-%s"
 )
 
 type upgradeArgs struct {
@@ -262,7 +262,23 @@ func upgrade(rootArgs *rootArgs, args *upgradeArgs, l clog.Logger) (err error) {
 
 // releaseURLFromVersion generates default installation url from version number.
 func releaseURLFromVersion(version string) string {
-	return fmt.Sprintf(releaseURLPathTemplate, version, version)
+	osArch := platformBasedTar()
+	return fmt.Sprintf(releaseURLPathTemplate, version, version, osArch)
+}
+
+func platformBasedTar() (tarExtension string) {
+	defaultExtension := "osx.tar.gz"
+	switch runtime.GOOS {
+	case "linux":
+		tarExtension = runtime.GOOS + "-" + runtime.GOARCH + ".tar.gz"
+	case "windows":
+		tarExtension = runtime.GOOS + ".zip"
+	case "darwin":
+		tarExtension = defaultExtension
+	default:
+		tarExtension = defaultExtension
+	}
+	return tarExtension
 }
 
 // checkUpgradeIOPS checks the upgrade eligibility by comparing the current IOPS with the target IOPS
@@ -547,7 +563,7 @@ func (client *Client) ConfigMapForSelector(namespace, labelSelector string) (*v1
 }
 
 func (client *Client) CheckUnsupportedAlphaSecurityCRD() error {
-	c, err := client_v1beta1.NewForConfig(client.Config)
+	c, err := client_v1.NewForConfig(client.Config)
 	if err != nil {
 		return err
 	}

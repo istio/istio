@@ -53,7 +53,7 @@ func TestProxyNeedsPush(t *testing.T) {
 	gateway := &model.Proxy{Type: model.Router}
 
 	sidecarScopeKindNames := map[config.GroupVersionKind]string{
-		gvk.ServiceEntry: svcName, gvk.VirtualService: vsName, gvk.DestinationRule: drName,
+		gvk.ServiceEntry: svcName, gvk.VirtualService: vsName, gvk.DestinationRule: drName, gvk.Sidecar: scName,
 	}
 	for kind, name := range sidecarScopeKindNames {
 		sidecar.SidecarScope.AddConfigDependencies(model.ConfigKey{Kind: kind, Name: name, Namespace: nsName})
@@ -125,7 +125,7 @@ func TestProxyNeedsPush(t *testing.T) {
 	}
 
 	sidecarNamespaceScopeTypes := []config.GroupVersionKind{
-		gvk.Sidecar, gvk.EnvoyFilter, gvk.AuthorizationPolicy, gvk.RequestAuthentication,
+		gvk.EnvoyFilter, gvk.AuthorizationPolicy, gvk.RequestAuthentication,
 	}
 	for _, kind := range sidecarNamespaceScopeTypes {
 		cases = append(cases,
@@ -146,19 +146,29 @@ func TestProxyNeedsPush(t *testing.T) {
 
 	// tests for kind-affect-proxy.
 	for kind, types := range configKindAffectedProxyTypes {
-		for _, nodeType := range types {
-			proxy := gateway
-			if nodeType == model.SidecarProxy {
-				proxy = sidecar
+		for _, nodeType := range model.NodeTypes {
+			affected := false
+			for _, affectedType := range types {
+				if nodeType == affectedType {
+					affected = true
+					break
+				}
 			}
-			cases = append(cases, Case{
-				name:  fmt.Sprintf("kind %s affect %s", kind, nodeType),
-				proxy: proxy,
-				configs: map[model.ConfigKey]struct{}{
-					{Kind: kind, Name: generalName + invalidNameSuffix, Namespace: nsName}: {},
-				},
-				want: true,
-			})
+
+			if !affected {
+				proxy := gateway
+				if nodeType == model.SidecarProxy {
+					proxy = sidecar
+				}
+				cases = append(cases, Case{
+					name:  fmt.Sprintf("kind %s not affect %s", kind, nodeType),
+					proxy: proxy,
+					configs: map[model.ConfigKey]struct{}{
+						{Kind: kind, Name: generalName + invalidNameSuffix, Namespace: nsName}: {},
+					},
+					want: false,
+				})
+			}
 		}
 	}
 

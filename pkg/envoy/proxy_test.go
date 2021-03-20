@@ -29,7 +29,7 @@ func TestEnvoyArgs(t *testing.T) {
 	proxyConfig.Concurrency = &types.Int32Value{Value: 8}
 
 	cfg := ProxyConfig{
-		Config:            proxyConfig,
+		Config:            &proxyConfig,
 		Node:              "my-node",
 		LogLevel:          "trace",
 		ComponentLogLevel: "misc:error",
@@ -51,11 +51,13 @@ func TestEnvoyArgs(t *testing.T) {
 		"-c", "test.json",
 		"--restart-epoch", "5",
 		"--drain-time-s", "45",
+		"--drain-strategy", "immediate",
 		"--parent-shutdown-time-s", "60",
 		"--service-cluster", "my-cluster",
 		"--service-node", "my-node",
 		"--local-address-ip-version", "v4",
 		"--bootstrap-version", "3",
+		"--disable-hot-restart",
 		"--log-format", "%Y-%m-%dT%T.%fZ\t%l\tenvoy %n\t%v",
 		"-l", "trace",
 		"--component-log-level", "misc:error",

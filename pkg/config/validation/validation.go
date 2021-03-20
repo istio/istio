@@ -386,6 +386,7 @@ func validateServer(server *networking.Server) (errs error) {
 	if portErr != nil {
 		errs = appendErrors(errs, portErr)
 	}
+	errs = appendErrors(errs, validateServerBind(server.Port, server.Bind))
 	errs = appendErrors(errs, validateTLSOptions(server.Tls))
 
 	// If port is HTTPS or TLS, make sure that server has TLS options
@@ -421,6 +422,18 @@ func validateServerPort(port *networking.Port) (errs error) {
 
 	if port.Name == "" {
 		errs = appendErrors(errs, fmt.Errorf("port name must be set: %v", port))
+	}
+	return
+}
+
+func validateServerBind(port *networking.Port, bind string) (errs error) {
+	if strings.HasPrefix(bind, UnixAddressPrefix) {
+		errs = appendErrors(errs, ValidateUnixAddress(strings.TrimPrefix(bind, UnixAddressPrefix)))
+		if port != nil && port.Number != 0 {
+			errs = appendErrors(errs, fmt.Errorf("port number must be 0 for unix domain socket: %v", port))
+		}
+	} else if len(bind) != 0 {
+		errs = appendErrors(errs, ValidateIPAddress(bind))
 	}
 	return
 }
@@ -860,9 +873,7 @@ var ValidateSidecar = registerValidateFunc("ValidateSidecar",
 			}
 			portMap[i.Port.Number] = struct{}{}
 
-			if len(i.DefaultEndpoint) == 0 {
-				errs = appendErrors(errs, fmt.Errorf("sidecar: default endpoint must be set for all ingress listeners"))
-			} else {
+			if len(i.DefaultEndpoint) != 0 {
 				if strings.HasPrefix(i.DefaultEndpoint, UnixAddressPrefix) {
 					errs = appendErrors(errs, ValidateUnixAddress(strings.TrimPrefix(i.DefaultEndpoint, UnixAddressPrefix)))
 				} else {
@@ -1383,7 +1394,7 @@ func ValidateMeshConfig(mesh *meshconfig.MeshConfig) (errs error) {
 	}
 
 	if err := validateExtensionProvider(mesh); err != nil {
-		errs = multierror.Append(errs, err)
+		scope.Warnf("found invalid extension provider (can be ignored if the given extension provider is not used): %v", err)
 	}
 
 	return
@@ -2326,7 +2337,7 @@ func validateReadinessProbe(probe *networking.ReadinessProbe) (errs error) {
 		}
 		errs = appendErrors(errs, ValidatePort(int(h.Port)))
 		if h.Scheme != "" && h.Scheme != string(apimirror.URISchemeHTTPS) && h.Scheme != string(apimirror.URISchemeHTTP) {
-			errs = appendErrors(errs, fmt.Errorf(`httpGet.schema must be one of "http", "https"`))
+			errs = appendErrors(errs, fmt.Errorf(`httpGet.scheme must be one of "http", "https"`))
 		}
 		for _, header := range h.HttpHeaders {
 			if header == nil {
@@ -2359,7 +2370,7 @@ func validateReadinessProbe(probe *networking.ReadinessProbe) (errs error) {
 
 // ValidateServiceEntry validates a service entry.
 var ValidateServiceEntry = registerValidateFunc("ValidateServiceEntry",
-	func(cfg config.Config) (warnings Warning, errs error) {
+	func(cfg config.Config) (Warning, error) {
 		serviceEntry, ok := cfg.Spec.(*networking.ServiceEntry)
 		if !ok {
 			return nil, fmt.Errorf("cannot cast to service entry")
@@ -2369,31 +2380,33 @@ var ValidateServiceEntry = registerValidateFunc("ValidateServiceEntry",
 			return nil, err
 		}
 
+		errs := Validation{}
+
 		if serviceEntry.WorkloadSelector != nil && serviceEntry.Endpoints != nil {
-			errs = appendErrors(errs, fmt.Errorf("only one of WorkloadSelector or Endpoints is allowed in Service Entry"))
+			errs = appendValidation(errs, fmt.Errorf("only one of WorkloadSelector or Endpoints is allowed in Service Entry"))
 		}
 
 		if len(serviceEntry.Hosts) == 0 {
-			errs = appendErrors(errs, fmt.Errorf("service entry must have at least one host"))
+			errs = appendValidation(errs, fmt.Errorf("service entry must have at least one host"))
 		}
 		for _, hostname := range serviceEntry.Hosts {
 			// Full wildcard is not allowed in the service entry.
 			if hostname == "*" {
-				errs = appendErrors(errs, fmt.Errorf("invalid host %s", hostname))
+				errs = appendValidation(errs, fmt.Errorf("invalid host %s", hostname))
 			} else {
-				errs = appendErrors(errs, ValidateWildcardDomain(hostname))
+				errs = appendValidation(errs, ValidateWildcardDomain(hostname))
 			}
 		}
 
 		cidrFound := false
 		for _, address := range serviceEntry.Addresses {
 			cidrFound = cidrFound || strings.Contains(address, "/")
-			errs = appendErrors(errs, ValidateIPSubnet(address))
+			errs = appendValidation(errs, ValidateIPSubnet(address))
 		}
 
 		if cidrFound {
 			if serviceEntry.Resolution != networking.ServiceEntry_NONE && serviceEntry.Resolution != networking.ServiceEntry_STATIC {
-				errs = appendErrors(errs, fmt.Errorf("CIDR addresses are allowed only for NONE/STATIC resolution types"))
+				errs = appendValidation(errs, fmt.Errorf("CIDR addresses are allowed only for NONE/STATIC resolution types"))
 			}
 		}
 
@@ -2401,15 +2414,15 @@ var ValidateServiceEntry = registerValidateFunc("ValidateServiceEntry",
 		servicePorts := make(map[string]bool, len(serviceEntry.Ports))
 		for _, port := range serviceEntry.Ports {
 			if port == nil {
-				errs = appendErrors(errs, fmt.Errorf("service entry port may not be null"))
+				errs = appendValidation(errs, fmt.Errorf("service entry port may not be null"))
 				continue
 			}
 			if servicePorts[port.Name] {
-				errs = appendErrors(errs, fmt.Errorf("service entry port name %q already defined", port.Name))
+				errs = appendValidation(errs, fmt.Errorf("service entry port name %q already defined", port.Name))
 			}
 			servicePorts[port.Name] = true
 			if servicePortNumbers[port.Number] {
-				errs = appendErrors(errs, fmt.Errorf("service entry port %d already defined", port.Number))
+				errs = appendValidation(errs, fmt.Errorf("service entry port %d already defined", port.Number))
 			}
 			servicePortNumbers[port.Number] = true
 		}
@@ -2417,7 +2430,7 @@ var ValidateServiceEntry = registerValidateFunc("ValidateServiceEntry",
 		switch serviceEntry.Resolution {
 		case networking.ServiceEntry_NONE:
 			if len(serviceEntry.Endpoints) != 0 {
-				errs = appendErrors(errs, fmt.Errorf("no endpoints should be provided for resolution type none"))
+				errs = appendValidation(errs, fmt.Errorf("no endpoints should be provided for resolution type none"))
 			}
 		case networking.ServiceEntry_STATIC:
 			unixEndpoint := false
@@ -2425,30 +2438,30 @@ var ValidateServiceEntry = registerValidateFunc("ValidateServiceEntry",
 				addr := endpoint.GetAddress()
 				if strings.HasPrefix(addr, UnixAddressPrefix) {
 					unixEndpoint = true
-					errs = appendErrors(errs, ValidateUnixAddress(strings.TrimPrefix(addr, UnixAddressPrefix)))
+					errs = appendValidation(errs, ValidateUnixAddress(strings.TrimPrefix(addr, UnixAddressPrefix)))
 					if len(endpoint.Ports) != 0 {
-						errs = appendErrors(errs, fmt.Errorf("unix endpoint %s must not include ports", addr))
+						errs = appendValidation(errs, fmt.Errorf("unix endpoint %s must not include ports", addr))
 					}
 				} else {
-					errs = appendErrors(errs, ValidateIPAddress(addr))
+					errs = appendValidation(errs, ValidateIPAddress(addr))
 
 					for name, port := range endpoint.Ports {
 						if !servicePorts[name] {
-							errs = appendErrors(errs, fmt.Errorf("endpoint port %v is not defined by the service entry", port))
+							errs = appendValidation(errs, fmt.Errorf("endpoint port %v is not defined by the service entry", port))
 						}
 					}
 				}
-				errs = appendErrors(errs, labels.Instance(endpoint.Labels).Validate())
+				errs = appendValidation(errs, labels.Instance(endpoint.Labels).Validate())
 
 			}
 			if unixEndpoint && len(serviceEntry.Ports) != 1 {
-				errs = appendErrors(errs, errors.New("exactly 1 service port required for unix endpoints"))
+				errs = appendValidation(errs, errors.New("exactly 1 service port required for unix endpoints"))
 			}
 		case networking.ServiceEntry_DNS:
 			if len(serviceEntry.Endpoints) == 0 {
 				for _, hostname := range serviceEntry.Hosts {
 					if err := ValidateFQDN(hostname); err != nil {
-						errs = appendErrors(errs,
+						errs = appendValidation(errs,
 							fmt.Errorf("hosts must be FQDN if no endpoints are provided for resolution mode DNS"))
 					}
 				}
@@ -2458,23 +2471,38 @@ var ValidateServiceEntry = registerValidateFunc("ValidateServiceEntry",
 				ipAddr := net.ParseIP(endpoint.Address) // Typically it is an IP address
 				if ipAddr == nil {
 					if err := ValidateFQDN(endpoint.Address); err != nil { // Otherwise could be an FQDN
-						errs = appendErrors(errs,
+						errs = appendValidation(errs,
 							fmt.Errorf("endpoint address %q is not a valid FQDN or an IP address", endpoint.Address))
 					}
 				}
-				errs = appendErrors(errs,
+				errs = appendValidation(errs,
 					labels.Instance(endpoint.Labels).Validate())
 				for name, port := range endpoint.Ports {
 					if !servicePorts[name] {
-						errs = appendErrors(errs, fmt.Errorf("endpoint port %v is not defined by the service entry", port))
+						errs = appendValidation(errs, fmt.Errorf("endpoint port %v is not defined by the service entry", port))
 					}
-					errs = appendErrors(errs,
+					errs = appendValidation(errs,
 						ValidatePortName(name),
 						ValidatePort(int(port)))
 				}
 			}
+			if len(serviceEntry.Addresses) > 0 {
+				var hasTCPPort bool
+				for _, port := range serviceEntry.Ports {
+					p := protocol.Parse(port.Protocol)
+					if p.IsTCP() {
+						hasTCPPort = true
+						break
+					}
+				}
+				if hasTCPPort && len(serviceEntry.Hosts) > 1 {
+					// TODO: prevent this invalid setting, maybe in 1.11+
+					errs = appendValidation(errs, WrapWarning(fmt.Errorf("service entry can not have more than one host specified "+
+						"simultaneously with address and tcp port")))
+				}
+			}
 		default:
-			errs = appendErrors(errs, fmt.Errorf("unsupported resolution type %s",
+			errs = appendValidation(errs, fmt.Errorf("unsupported resolution type %s",
 				networking.ServiceEntry_Resolution_name[int32(serviceEntry.Resolution)]))
 		}
 
@@ -2496,23 +2524,23 @@ var ValidateServiceEntry = registerValidateFunc("ValidateServiceEntry",
 			}
 
 			if !canDifferentiate {
-				errs = appendErrors(errs, fmt.Errorf("multiple hosts provided with non-HTTP, non-TLS ports"))
+				errs = appendValidation(errs, fmt.Errorf("multiple hosts provided with non-HTTP, non-TLS ports"))
 			}
 		}
 
 		for _, port := range serviceEntry.Ports {
 			if port == nil {
-				errs = appendErrors(errs, errors.New("port may not be null"))
+				errs = appendValidation(errs, errors.New("port may not be null"))
 				continue
 			}
-			errs = appendErrors(errs,
+			errs = appendValidation(errs,
 				ValidatePortName(port.Name),
 				ValidateProtocol(port.Protocol),
 				ValidatePort(int(port.Number)))
 		}
 
-		errs = appendErrors(errs, validateExportTo(cfg.Namespace, serviceEntry.ExportTo, true))
-		return
+		errs = appendValidation(errs, validateExportTo(cfg.Namespace, serviceEntry.ExportTo, true))
+		return errs.Unwrap()
 	})
 
 // ValidatePortName validates a port name to DNS-1123
@@ -2589,7 +2617,7 @@ func validateLocalityLbSetting(lb *networking.LocalityLoadBalancerSetting) error
 		return fmt.Errorf("can not simultaneously specify 'distribute' and 'failover'")
 	}
 
-	srcLocalities := make([]string, 0)
+	srcLocalities := make([]string, 0, len(lb.GetDistribute()))
 	for _, locality := range lb.GetDistribute() {
 		srcLocalities = append(srcLocalities, locality.From)
 		var totalWeight uint32

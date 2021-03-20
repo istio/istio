@@ -28,26 +28,22 @@ import (
 	"time"
 
 	"github.com/hashicorp/go-multierror"
-	kubeApiAdmission "k8s.io/api/admissionregistration/v1beta1"
-	kubeApiCore "k8s.io/api/core/v1"
+	kubeApiAdmission "k8s.io/api/admissionregistration/v1"
 	kubeErrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
-	kubeApiMeta "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/runtime/serializer/json"
 	"k8s.io/apimachinery/pkg/runtime/serializer/versioning"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
-	"k8s.io/client-go/dynamic"
-	"k8s.io/client-go/informers/admissionregistration/v1beta1"
-	v1 "k8s.io/client-go/informers/core/v1"
-	"k8s.io/client-go/kubernetes"
+	admissionregistrationinformer "k8s.io/client-go/informers/admissionregistration/v1"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/workqueue"
 
+	networking "istio.io/api/networking/v1alpha3"
+	"istio.io/client-go/pkg/apis/networking/v1alpha3"
 	"istio.io/istio/pkg/config/labels"
-	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/kube"
 	"istio.io/pkg/filewatcher"
 	"istio.io/pkg/log"
@@ -59,9 +55,6 @@ type Options struct {
 	// Istio system namespace where istiod resides.
 	WatchedNamespace string
 
-	// Periodically resync with the kube-apiserver. Set to zero to disable.
-	ResyncPeriod time.Duration
-
 	// File path to the x509 certificate bundle used by the webhook server
 	// and patched into the webhook config.
 	CAPath string
@@ -72,9 +65,6 @@ type Options struct {
 
 	// Name of the service running the webhook server.
 	ServiceName string
-
-	// RemoteWebhookConfig defines whether the webhook config is coming from remote cluster
-	RemoteWebhookConfig bool
 }
 
 // Validate the options that exposed to end users
@@ -99,7 +89,6 @@ func (o Options) Validate() error {
 func (o Options) String() string {
 	buf := &bytes.Buffer{}
 	_, _ = fmt.Fprintf(buf, "WatchedNamespace: %v\n", o.WatchedNamespace)
-	_, _ = fmt.Fprintf(buf, "ResyncPeriod: %v\n", o.ResyncPeriod)
 	_, _ = fmt.Fprintf(buf, "CAPath: %v\n", o.CAPath)
 	_, _ = fmt.Fprintf(buf, "WebhookConfigName: %v\n", o.WebhookConfigName)
 	_, _ = fmt.Fprintf(buf, "ServiceName: %v\n", o.ServiceName)
@@ -109,17 +98,13 @@ func (o Options) String() string {
 type readFileFunc func(filename string) ([]byte, error)
 
 type Controller struct {
-	o                        Options
-	client                   kubernetes.Interface
-	dynamicResourceInterface dynamic.ResourceInterface
-	endpointsInformer        v1.EndpointsInformer
-	webhookInformer          v1beta1.ValidatingWebhookConfigurationInformer
+	o               Options
+	client          kube.Client
+	webhookInformer admissionregistrationinformer.ValidatingWebhookConfigurationInformer
 
 	queue                         workqueue.RateLimitingInterface
 	dryRunOfInvalidConfigRejected bool
 	fw                            filewatcher.FileWatcher
-
-	stopCh <-chan struct{}
 
 	// unittest hooks
 	readFile      readFileFunc
@@ -136,7 +121,7 @@ func (rr reconcileRequest) String() string {
 	return rr.description
 }
 
-func filterWatchedObject(obj kubeApiMeta.Object, name string) (skip bool, key string) {
+func filterWatchedObject(obj metav1.Object, name string) (skip bool, key string) {
 	if name != "" && obj.GetName() != name {
 		return true, ""
 	}
@@ -183,7 +168,7 @@ func makeHandler(queue workqueue.Interface, gvk schema.GroupVersionKind, name st
 			queue.Add(req)
 		},
 		DeleteFunc: func(curr interface{}) {
-			if _, ok := curr.(kubeApiMeta.Object); !ok {
+			if _, ok := curr.(metav1.Object); !ok {
 				// If the object doesn't have Metadata, assume it is a tombstone object
 				// of type DeletedFinalStateUnknown
 				tombstone, ok := curr.(cache.DeletedFinalStateUnknown)
@@ -209,14 +194,7 @@ func makeHandler(queue workqueue.Interface, gvk schema.GroupVersionKind, name st
 
 // precompute GVK for known types.
 var (
-	configGVK   = kubeApiAdmission.SchemeGroupVersion.WithKind(reflect.TypeOf(kubeApiAdmission.ValidatingWebhookConfiguration{}).Name())
-	endpointGVK = kubeApiCore.SchemeGroupVersion.WithKind(reflect.TypeOf(kubeApiCore.Endpoints{}).Name())
-
-	istioGatewayGVK = schema.GroupVersionResource{
-		Group:    collections.IstioNetworkingV1Alpha3Gateways.Resource().Group(),
-		Version:  collections.IstioNetworkingV1Alpha3Gateways.Resource().Version(),
-		Resource: collections.IstioNetworkingV1Alpha3Gateways.Resource().Plural(),
-	}
+	configGVK = kubeApiAdmission.SchemeGroupVersion.WithKind(reflect.TypeOf(kubeApiAdmission.ValidatingWebhookConfiguration{}).Name())
 )
 
 func New(o Options, client kube.Client) (*Controller, error) {
@@ -235,41 +213,26 @@ func newController(
 		return nil, err
 	}
 
-	dynamicResourceInterface := client.Dynamic().Resource(istioGatewayGVK).Namespace(o.WatchedNamespace)
-
 	c := &Controller{
-		o:                        o,
-		client:                   client,
-		dynamicResourceInterface: dynamicResourceInterface,
-		queue:                    workqueue.NewRateLimitingQueue(workqueue.DefaultItemBasedRateLimiter()),
-		fw:                       caFileWatcher,
-		readFile:                 readFile,
-		reconcileDone:            reconcileDone,
+		o:             o,
+		client:        client,
+		queue:         workqueue.NewRateLimitingQueue(workqueue.DefaultItemBasedRateLimiter()),
+		fw:            caFileWatcher,
+		readFile:      readFile,
+		reconcileDone: reconcileDone,
 	}
 
-	c.webhookInformer = client.KubeInformer().Admissionregistration().V1beta1().ValidatingWebhookConfigurations()
+	c.webhookInformer = client.KubeInformer().Admissionregistration().V1().ValidatingWebhookConfigurations()
 	c.webhookInformer.Informer().AddEventHandler(makeHandler(c.queue, configGVK, o.WebhookConfigName))
-
-	if !o.RemoteWebhookConfig {
-		c.endpointsInformer = client.KubeInformer().Core().V1().Endpoints()
-		c.endpointsInformer.Informer().AddEventHandler(makeHandler(c.queue, endpointGVK, o.ServiceName))
-	}
 
 	return c, nil
 }
 
 func (c *Controller) Start(stop <-chan struct{}) {
-	c.stopCh = stop
 	go c.startFileWatcher(stop)
 	if !cache.WaitForCacheSync(stop, c.webhookInformer.Informer().HasSynced) {
 		log.Errorf("failed to wait for cache sync")
 		return
-	}
-	if c.endpointsInformer != nil {
-		if !cache.WaitForCacheSync(stop, c.endpointsInformer.Informer().HasSynced) {
-			log.Errorf("failed to wait for cache sync")
-			return
-		}
 	}
 
 	req := &reconcileRequest{"initial request to kickstart reconciliation"}
@@ -384,17 +347,20 @@ const (
 
 // Confirm invalid configuration is successfully rejected before switching to FAIL-CLOSE.
 func (c *Controller) isDryRunOfInvalidConfigRejected() (rejected bool, reason string) {
-	invalid := &unstructured.Unstructured{}
-	invalid.SetGroupVersionKind(istioGatewayGVK.GroupVersion().WithKind("Gateway"))
-	invalid.SetName("invalid-gateway")
-	invalid.SetNamespace(c.o.WatchedNamespace)
-	invalid.Object["spec"] = map[string]interface{}{} // gateway must have at least one server
+	invalidGateway := &v1alpha3.Gateway{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "invalid-gateway",
+			Namespace: c.o.WatchedNamespace,
+		},
+		Spec: networking.Gateway{},
+	}
 
-	createOptions := kubeApiMeta.CreateOptions{DryRun: []string{kubeApiMeta.DryRunAll}}
-	_, err := c.dynamicResourceInterface.Create(context.TODO(), invalid, createOptions)
+	createOptions := metav1.CreateOptions{DryRun: []string{metav1.DryRunAll}}
+	istioClient := c.client.Istio().NetworkingV1alpha3()
+	_, err := istioClient.Gateways(c.o.WatchedNamespace).Create(context.TODO(), invalidGateway, createOptions)
 	if kubeErrors.IsAlreadyExists(err) {
-		updateOptions := kubeApiMeta.UpdateOptions{DryRun: []string{kubeApiMeta.DryRunAll}}
-		_, err = c.dynamicResourceInterface.Update(context.TODO(), invalid, updateOptions)
+		updateOptions := metav1.UpdateOptions{DryRun: []string{metav1.DryRunAll}}
+		_, err = istioClient.Gateways(c.o.WatchedNamespace).Update(context.TODO(), invalidGateway, updateOptions)
 	}
 	if err == nil {
 		return false, "dummy invalid config not rejected"
@@ -434,8 +400,8 @@ func (c *Controller) updateValidatingWebhookConfiguration(caBundle []byte, failu
 	}
 
 	if !reflect.DeepEqual(updated, current) {
-		latest, err := c.client.AdmissionregistrationV1beta1().
-			ValidatingWebhookConfigurations().Update(context.TODO(), updated, kubeApiMeta.UpdateOptions{})
+		latest, err := c.client.AdmissionregistrationV1().
+			ValidatingWebhookConfigurations().Update(context.TODO(), updated, metav1.UpdateOptions{})
 		if err != nil {
 			scope.Errorf("Failed to update validatingwebhookconfiguration %v (failurePolicy=%v, resourceVersion=%v): %v",
 				c.o.WebhookConfigName, failurePolicy, updated.ResourceVersion, err)

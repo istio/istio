@@ -42,5 +42,6 @@ const (
 	MethodField         Field = "Method"
 	ResponseHeader      Field = "ResponseHeader"
 	ClusterField        Field = "Cluster"
+	IstioVersionField   Field = "IstioVersion"
 	IPField             Field = "IP" // The Requester’s IP Address.
 )

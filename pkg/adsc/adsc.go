@@ -52,7 +52,6 @@ import (
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/security"
-	"istio.io/istio/security/pkg/nodeagent/cache"
 	"istio.io/pkg/log"
 )
 
@@ -163,6 +162,7 @@ type ADSC struct {
 
 	// Updates includes the type of the last update received from the server.
 	Updates     chan string
+	errChan     chan error
 	XDSUpdates  chan *discovery.DiscoveryResponse
 	VersionInfo map[string]string
 
@@ -204,6 +204,15 @@ type ResponseHandler interface {
 
 var adscLog = log.RegisterScope("adsc", "adsc debugging", 0)
 
+func NewWithBackoffPolicy(discoveryAddr string, opts *Config, backoffPolicy backoff.BackOff) (*ADSC, error) {
+	adsc, err := New(discoveryAddr, opts)
+	if err != nil {
+		return nil, err
+	}
+	adsc.cfg.BackoffPolicy = backoffPolicy
+	return adsc, err
+}
+
 // New creates a new ADSC, maintaining a connection to an XDS server.
 // Will:
 // - get certificate using the Secret provider, if CertRequired
@@ -229,6 +238,7 @@ func New(discoveryAddr string, opts *Config) (*ADSC, error) {
 		cfg:         opts,
 		syncCh:      make(chan string, len(collections.Pilot.All())),
 		sync:        map[string]time.Time{},
+		errChan:     make(chan error, 10),
 	}
 
 	if opts.Namespace == "" {
@@ -318,7 +328,7 @@ func (a *ADSC) tlsConfig() (*tls.Config, error) {
 		serverCABytes, err = ioutil.ReadFile(a.cfg.XDSRootCAFile)
 	} else if a.cfg.SecretManager != nil {
 		// This is a bit crazy - we could just use the file
-		rootCA, err := a.cfg.SecretManager.GenerateSecret(cache.RootCertReqResourceName)
+		rootCA, err := a.cfg.SecretManager.GenerateSecret(security.RootCertReqResourceName)
 		if err != nil {
 			return nil, err
 		}
@@ -379,7 +389,9 @@ func (a *ADSC) Run() error {
 	}
 	// by default, we assume 1 goroutine decrements the waitgroup (go a.handleRecv()).
 	// for synchronizing when the goroutine finishes reading from the gRPC stream.
+
 	a.RecvWg.Add(1)
+
 	go a.handleRecv()
 	return nil
 }
@@ -422,6 +434,7 @@ func (a *ADSC) handleRecv() {
 		if err != nil {
 			a.RecvWg.Done()
 			adscLog.Infof("Connection closed for node %v with err: %v", a.nodeID, err)
+			a.errChan <- err
 			// if 'reconnect' enabled - schedule a new Run
 			if a.cfg.BackoffPolicy != nil {
 				time.AfterFunc(a.cfg.BackoffPolicy.NextBackOff(), a.reconnect)
@@ -430,6 +443,7 @@ func (a *ADSC) handleRecv() {
 				a.WaitClear()
 				a.Updates <- ""
 				a.XDSUpdates <- nil
+				close(a.errChan)
 			}
 			return
 		}
@@ -929,6 +943,11 @@ func (a *ADSC) WaitVersion(to time.Duration, typeURL, lastVersion string) (*disc
 
 		case <-t.C:
 			return nil, fmt.Errorf("timeout, still waiting for updates: %v", typeURL)
+		case err, ok := <-a.errChan:
+			if ok {
+				return nil, err
+			}
+			return nil, fmt.Errorf("connection closed")
 		}
 	}
 }

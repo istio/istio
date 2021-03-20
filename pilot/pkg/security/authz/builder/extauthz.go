@@ -65,16 +65,13 @@ var (
 type builtExtAuthz struct {
 	http *extauthzhttp.ExtAuthz
 	tcp  *extauthztcp.ExtAuthz
+	err  error
 }
 
-func processExtensionProvider(in *plugin.InputParams) (map[string]*builtExtAuthz, error) {
-	var errs error
-	configs := in.Push.Mesh.ExtensionProviders
-	if len(configs) == 0 {
-		errs = multierror.Append(errs, fmt.Errorf("at least 1 extension provider must be defined"))
-	}
+func processExtensionProvider(in *plugin.InputParams) map[string]*builtExtAuthz {
 	resolved := map[string]*builtExtAuthz{}
-	for i, config := range configs {
+	for i, config := range in.Push.Mesh.ExtensionProviders {
+		var errs error
 		if config.Name == "" {
 			errs = multierror.Append(errs, fmt.Errorf("extension provider name must not be empty, found empty at index: %d", i))
 		} else if _, found := resolved[config.Name]; found {
@@ -94,16 +91,17 @@ func processExtensionProvider(in *plugin.InputParams) (map[string]*builtExtAuthz
 		if err != nil {
 			errs = multierror.Append(errs, multierror.Prefix(err, fmt.Sprintf("failed to parse extension provider %q:", config.Name)))
 		}
+		if parsed == nil {
+			parsed = &builtExtAuthz{}
+		}
+		parsed.err = errs
 		resolved[config.Name] = parsed
-	}
-	if errs != nil {
-		return nil, errs
 	}
 
 	if authzLog.DebugEnabled() {
 		authzLog.Debugf("Resolved extension providers: %v", spew.Sdump(resolved))
 	}
-	return resolved, nil
+	return resolved
 }
 
 func notAllTheSame(names []string) bool {
@@ -126,7 +124,6 @@ func getExtAuthz(resolved map[string]*builtExtAuthz, providers []string) (*built
 		return nil, fmt.Errorf("only 1 provider can be used per workload, found multiple providers: %v", providers)
 	}
 
-	var errs error
 	provider := providers[0]
 	ret, found := resolved[provider]
 	if !found {
@@ -134,10 +131,9 @@ func getExtAuthz(resolved map[string]*builtExtAuthz, providers []string) (*built
 		for p := range resolved {
 			li = append(li, p)
 		}
-		errs = multierror.Append(fmt.Errorf("available providers are %v but found %q", li, provider))
-	}
-	if errs != nil {
-		return nil, errs
+		return nil, fmt.Errorf("available providers are %v but found %q", li, provider)
+	} else if ret.err != nil {
+		return nil, fmt.Errorf("found errors in provider %s: %v", provider, ret.err)
 	}
 
 	return ret, nil

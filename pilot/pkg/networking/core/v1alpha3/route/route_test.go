@@ -80,8 +80,7 @@ func TestBuildHTTPRoutes(t *testing.T) {
 		g.Expect(len(routes)).To(gomega.Equal(1))
 		// Validate that when timeout is not specified, we disable it based on default value of flag.
 		g.Expect(routes[0].GetRoute().Timeout.Seconds).To(gomega.Equal(int64(0)))
-		g.Expect(routes[0].GetRoute().MaxStreamDuration.MaxStreamDuration.Seconds).To(gomega.Equal(int64(0)))
-		g.Expect(routes[0].GetRoute().MaxStreamDuration.GrpcTimeoutHeaderMax).To(gomega.BeNil())
+		g.Expect(routes[0].GetRoute().MaxStreamDuration).To(gomega.BeNil())
 	})
 
 	t.Run("for virtual service with changed default timeout", func(t *testing.T) {
@@ -125,8 +124,7 @@ func TestBuildHTTPRoutes(t *testing.T) {
 		g.Expect(err).NotTo(gomega.HaveOccurred())
 		g.Expect(len(routes)).To(gomega.Equal(1))
 		g.Expect(routes[0].GetRoute().Timeout.Seconds).To(gomega.Equal(int64(0)))
-		g.Expect(routes[0].GetRoute().MaxStreamDuration.MaxStreamDuration.Seconds).To(gomega.Equal(int64(0)))
-		g.Expect(routes[0].GetRoute().MaxStreamDuration.GrpcTimeoutHeaderMax).To(gomega.BeNil())
+		g.Expect(routes[0].GetRoute().MaxStreamDuration).To(gomega.BeNil())
 	})
 
 	t.Run("for virtual service with catch all route", func(t *testing.T) {

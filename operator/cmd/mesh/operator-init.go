@@ -15,6 +15,9 @@
 package mesh
 
 import (
+	"fmt"
+	"strings"
+
 	"github.com/fatih/color"
 	"github.com/spf13/cobra"
 
@@ -23,6 +26,7 @@ import (
 	"istio.io/istio/operator/pkg/name"
 	"istio.io/istio/operator/pkg/translate"
 	"istio.io/istio/operator/pkg/util/clog"
+	"istio.io/istio/pkg/config/labels"
 	buildversion "istio.io/pkg/version"
 )
 
@@ -61,6 +65,12 @@ func operatorInitCmd(rootArgs *rootArgs, oiArgs *operatorInitArgs) *cobra.Comman
 		Short: "Installs the Istio operator controller in the cluster.",
 		Long:  "The init subcommand installs the Istio operator controller in the cluster.",
 		Args:  cobra.ExactArgs(0),
+		PreRunE: func(cmd *cobra.Command, args []string) error {
+			if !labels.IsDNS1123Label(oiArgs.common.revision) && cmd.PersistentFlags().Changed("revision") {
+				return fmt.Errorf("invalid revision specified: %v", oiArgs.common.revision)
+			}
+			return nil
+		},
 		Run: func(cmd *cobra.Command, args []string) {
 			l := clog.NewConsoleLogger(cmd.OutOrStdout(), cmd.ErrOrStderr(), installerScope)
 			operatorInit(rootArgs, oiArgs, l)
@@ -117,14 +127,23 @@ func operatorInit(args *rootArgs, oiArgs *operatorInitArgs, l clog.Logger) {
 		}
 	}
 
+	// create watched namespaces
+	namespaces := strings.Split(oiArgs.common.watchedNamespaces, ",")
+	// if the namespace in the CR is provided, consider creating it too.
+	if istioNamespace != "" {
+		namespaces = append(namespaces, istioNamespace)
+	}
+	for _, ns := range namespaces {
+		if err := createNamespace(clientset, ns, ""); err != nil {
+			l.LogAndFatal(err)
+		}
+	}
+
 	if err := applyManifest(restConfig, client, mstr, name.IstioOperatorComponentName, opts, iop, l); err != nil {
 		l.LogAndFatal(err)
 	}
 
 	if customResource != "" {
-		if err := createNamespace(clientset, istioNamespace, ""); err != nil {
-			l.LogAndFatal(err)
-		}
 		if err := applyManifest(restConfig, client, customResource, name.IstioOperatorComponentName, opts, iop, l); err != nil {
 			l.LogAndFatal(err)
 		}

@@ -30,6 +30,7 @@ import (
 	metaV1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/tools/cache"
 
 	"istio.io/api/annotation"
 	"istio.io/api/label"
@@ -37,9 +38,11 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube"
+	"istio.io/istio/pilot/pkg/serviceregistry/kube/controller/filter"
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/config/protocol"
+	kubelib "istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/spiffe"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/util/retry"
@@ -406,6 +409,7 @@ func TestGetProxyServiceInstances(t *testing.T) {
 					Hostname:        "svc1.nsa.svc.company.com",
 					Address:         "10.0.0.1",
 					Ports:           []*model.Port{{Name: "tcp-port", Port: 8080, Protocol: protocol.TCP}},
+					ClusterVIPs:     map[string]string{clusterID: "10.0.0.1"},
 					ServiceAccounts: []string{"acctvm2@gserviceaccount2.com", "spiffe://cluster.local/ns/nsa/sa/acct4"},
 					Attributes: model.ServiceAttributes{
 						ServiceRegistry: string(serviceregistry.Kubernetes),
@@ -435,6 +439,7 @@ func TestGetProxyServiceInstances(t *testing.T) {
 					TLSMode: "mutual",
 				},
 			}
+
 			if len(metaServices) != 1 {
 				t.Fatalf("expected 1 instance, got %v", len(metaServices))
 			}
@@ -473,6 +478,7 @@ func TestGetProxyServiceInstances(t *testing.T) {
 					Hostname:        "svc1.nsa.svc.company.com",
 					Address:         "10.0.0.1",
 					Ports:           []*model.Port{{Name: "tcp-port", Port: 8080, Protocol: protocol.TCP}},
+					ClusterVIPs:     map[string]string{clusterID: "10.0.0.1"},
 					ServiceAccounts: []string{"acctvm2@gserviceaccount2.com", "spiffe://cluster.local/ns/nsa/sa/acct4"},
 					Attributes: model.ServiceAttributes{
 						ServiceRegistry: string(serviceregistry.Kubernetes),
@@ -537,6 +543,7 @@ func TestGetProxyServiceInstances(t *testing.T) {
 					Hostname:        "svc1.nsa.svc.company.com",
 					Address:         "10.0.0.1",
 					Ports:           []*model.Port{{Name: "tcp-port", Port: 8080, Protocol: protocol.TCP}},
+					ClusterVIPs:     map[string]string{clusterID: "10.0.0.1"},
 					ServiceAccounts: []string{"acctvm2@gserviceaccount2.com", "spiffe://cluster.local/ns/nsa/sa/acct4"},
 					Attributes: model.ServiceAttributes{
 						ServiceRegistry: string(serviceregistry.Kubernetes),
@@ -1110,11 +1117,18 @@ func TestController_ServiceWithChangingDiscoveryNamespaces(t *testing.T) {
 	for mode, name := range EndpointModeNames {
 		mode := mode
 		t.Run(name, func(t *testing.T) {
+			client := kubelib.NewFakeClient()
 			meshWatcher := mesh.NewTestWatcher(&meshconfig.MeshConfig{})
+			discoveryNamespacesFilter := filter.NewDiscoveryNamespacesFilter(
+				client.KubeInformer().Core().V1().Namespaces().Lister(),
+				meshWatcher.Mesh().DiscoverySelectors,
+			)
 
 			controller, fx := NewFakeControllerWithOptions(FakeControllerOptions{
-				Mode:        mode,
-				MeshWatcher: meshWatcher,
+				Client:                    client,
+				Mode:                      mode,
+				MeshWatcher:               meshWatcher,
+				DiscoveryNamespacesFilter: discoveryNamespacesFilter,
 			})
 			defer controller.Stop()
 
@@ -1133,6 +1147,12 @@ func TestController_ServiceWithChangingDiscoveryNamespaces(t *testing.T) {
 					t.Fatalf("error listing namespaces: %v", err)
 				}
 				return len(list.Items) == 3
+			})
+
+			// assert that namespace membership has been updated
+			eventually(t, func() bool {
+				members := discoveryNamespacesFilter.GetMembers()
+				return members.Has(nsA) && members.Has(nsB) && members.Has(nsC)
 			})
 
 			// service event handlers should trigger for all svcs
@@ -2048,5 +2068,38 @@ func TestWorkloadInstanceHandlerMultipleEndpoints(t *testing.T) {
 			t.Fatalf("eds update after adding pod did not match expected list. got %v, want %v",
 				gotEndpointIPs, expectedEndpointIPs)
 		}
+	}
+}
+
+func TestKubeEndpointsControllerOnEvent(t *testing.T) {
+	testCases := []struct {
+		mode      EndpointMode
+		tombstone cache.DeletedFinalStateUnknown
+	}{
+		{
+			mode: EndpointsOnly,
+			tombstone: cache.DeletedFinalStateUnknown{
+				Key: "namespace/name",
+				Obj: &coreV1.Endpoints{},
+			},
+		},
+		{
+			mode: EndpointSliceOnly,
+			tombstone: cache.DeletedFinalStateUnknown{
+				Key: "namespace/name",
+				Obj: &discovery.EndpointSlice{},
+			},
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(EndpointModeNames[tc.mode], func(t *testing.T) {
+			controller, _ := NewFakeControllerWithOptions(FakeControllerOptions{Mode: tc.mode})
+			defer controller.Stop()
+
+			if err := controller.endpoints.onEvent(tc.tombstone, model.EventDelete); err != nil {
+				t.Errorf("unexpected error: %v", err)
+			}
+		})
 	}
 }

@@ -95,3 +95,22 @@ func (c *ConfigWriter) PrintSecretSummary() error {
 	secretWriter := sdscompare.NewSDSWriter(c.Stdout, sdscompare.TABULAR)
 	return secretWriter.PrintSecretItems(secretItems)
 }
+
+func (c *ConfigWriter) PrintFullSummary(cf ClusterFilter, lf ListenerFilter, rf RouteFilter) error {
+	if err := c.PrintClusterSummary(cf); err != nil {
+		return err
+	}
+	_, _ = c.Stdout.Write([]byte("\n"))
+	if err := c.PrintListenerSummary(lf); err != nil {
+		return err
+	}
+	_, _ = c.Stdout.Write([]byte("\n"))
+	if err := c.PrintRouteSummary(rf); err != nil {
+		return err
+	}
+	_, _ = c.Stdout.Write([]byte("\n"))
+	if err := c.PrintSecretSummary(); err != nil {
+		return err
+	}
+	return nil
+}

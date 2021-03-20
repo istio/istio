@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: feature
+area: networking
+issue:
+  - 31075
+releaseNotes:
+  - |
+    **Added** /debug/connections debug interface to list the current connected clients.

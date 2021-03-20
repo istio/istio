@@ -68,17 +68,17 @@ func NewTaintSetterController(ts *Setter) (*Controller, error) {
 	}
 	nodeListWatch := cache.NewFilteredListWatchFromClient(c.clientset.CoreV1().RESTClient(), "nodes", metav1.NamespaceAll, func(options *metav1.ListOptions) {
 	})
-	c.nodeStore, c.nodeController = buildNodeControler(c, nodeListWatch)
+	c.nodeStore, c.nodeController = buildNodeController(c, nodeListWatch)
 	return c, nil
 }
 
-//build a listwatch based on the config
-//monitoring on pod with namespace and labelselectors defined in configmap
-//and add store to cache given namespace and labelsalector,
-//return a controller built by listwatch function
-//add : add it to workqueue
-//update: add it to workquueue
-//remove: retaint the node
+// build a listwatch based on the config
+// monitoring on pod with namespace and label-selectors defined in configmap
+// and add store to cache given namespace and label-selector,
+// return a controller built by listwatch function
+// add : add it to workqueue
+// update: add it to workqueue
+// remove: retaint the node
 func buildPodController(c *Controller, config ConfigSettings, source cache.ListerWatcher) cache.Controller {
 	tempstore, tempcontroller := cache.NewInformer(source, &v1.Pod{}, 0, cache.ResourceEventHandlerFuncs{
 		AddFunc: func(newObj interface{}) {
@@ -103,7 +103,7 @@ func buildPodController(c *Controller, config ConfigSettings, source cache.Liste
 	return tempcontroller
 }
 
-func buildNodeControler(c *Controller, nodeListWatch cache.ListerWatcher) (cache.Store, cache.Controller) {
+func buildNodeController(c *Controller, nodeListWatch cache.ListerWatcher) (cache.Store, cache.Controller) {
 	store, controller := cache.NewInformer(nodeListWatch, &v1.Node{}, 0, cache.ResourceEventHandlerFuncs{
 		AddFunc: func(newObj interface{}) {
 			_, ok := newObj.(*v1.Node)
@@ -185,17 +185,20 @@ func (tc *Controller) Run(stopCh <-chan struct{}) {
 
 func (tc *Controller) processNextPod() bool {
 	errorHandler := func(obj interface{}, pod *v1.Pod, err error) {
+		podName := fmt.Sprintf("%s/%s", pod.Namespace, pod.Name)
 		if err == nil {
-			log.Debugf("Removing %s/%s from work queue", pod.Namespace, pod.Name)
+			log.Debugf("Removing %s from work queue", podName)
 			tc.podWorkQueue.Forget(obj)
-		} else if tc.podWorkQueue.NumRequeues(obj) < 50 {
-			log.Errorf("Error: %s", err.Error())
-			log.Infof("Re-adding %s/%s to work queue", pod.Namespace, pod.Name)
-			tc.podWorkQueue.AddRateLimited(obj)
 		} else {
-			log.Infof("Requeue limit reached, removing %s/%s", pod.Namespace, pod.Name)
-			tc.podWorkQueue.Forget(obj)
-			runtime.HandleError(err)
+			log.Errorf("Error while processing pod %s: %s", podName, err.Error())
+			if tc.podWorkQueue.NumRequeues(obj) < 50 {
+				log.Infof("Re-adding %s to work queue", podName)
+				tc.podWorkQueue.AddRateLimited(obj)
+			} else {
+				log.Infof("Requeue limit reached, removing %s", podName)
+				tc.podWorkQueue.Forget(obj)
+				runtime.HandleError(err)
+			}
 		}
 	}
 	obj, quit := tc.podWorkQueue.Get()
@@ -219,7 +222,7 @@ func (tc *Controller) processNextPod() bool {
 		err := tc.processReadyPod(pod)
 		errorHandler(obj, pod, err)
 	} else {
-		err := tc.processUnReadyPod(pod)
+		err := tc.processUnreadyPod(pod)
 		errorHandler(obj, pod, err)
 	}
 	// Return true to let the loop process the next item
@@ -288,7 +291,7 @@ func (tc Controller) processReadyPod(pod *v1.Pod) error {
 }
 
 // if pod is unready, it should be tainted
-func (tc Controller) processUnReadyPod(pod *v1.Pod) error {
+func (tc Controller) processUnreadyPod(pod *v1.Pod) error {
 	node, err := tc.getNodeByPod(pod)
 	if err != nil {
 		return fmt.Errorf("cannot get node by  %s in namespace %s : %s", pod.Name, pod.Namespace, err)

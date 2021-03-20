@@ -52,6 +52,9 @@ type TestCase struct {
 	// Indicates whether the test should expect a successful response.
 	ExpectSuccess func(src echo.Instance, opts echo.CallOptions) bool
 
+	// Indicates whether the test should expect a MTLS response.
+	ExpectMTLS func(src echo.Instance, opts echo.CallOptions) bool
+
 	// Indicates whether a test should be run in the multicluster environment.
 	// This is a temporary flag during the converting tests into multicluster supported.
 	// TODO: Remove this flag when all tests support multicluster
@@ -100,7 +103,7 @@ func Run(testCases []TestCase, ctx framework.TestContext, apps *util.EchoDeploym
 				return ctx.Config().ApplyYAML(c.Namespace.Name(), policyYAML)
 			})
 			ctx.NewSubTest("wait for config").Run(func(ctx framework.TestContext) {
-				util.WaitForConfigWithSleep(ctx, policyYAML, c.Namespace)
+				util.WaitForConfig(ctx, policyYAML, c.Namespace)
 			})
 			for _, clients := range []echo.Instances{apps.A, apps.B.Match(echo.Namespace(apps.Namespace1.Name())), apps.Headless, apps.Naked, apps.HeadlessNaked} {
 				for _, client := range clients {
@@ -179,7 +182,7 @@ func Run(testCases []TestCase, ctx framework.TestContext, apps *util.EchoDeploym
 
 								if c.Include(src, opts) {
 									expectSuccess := c.ExpectSuccess(src, opts)
-
+									expectMTLS := c.ExpectMTLS(src, opts)
 									tpe := "positive"
 									if !expectSuccess {
 										tpe = "negative"
@@ -202,6 +205,7 @@ func Run(testCases []TestCase, ctx framework.TestContext, apps *util.EchoDeploym
 												DestClusters:  destClusters,
 												Options:       opts,
 												ExpectSuccess: expectSuccess,
+												ExpectMTLS:    expectMTLS,
 											}
 											checker.CheckOrFail(ctx)
 										})

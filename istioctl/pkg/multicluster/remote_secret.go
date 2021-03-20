@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+	"strings"
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
@@ -42,6 +43,7 @@ import (
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/secretcontroller"
+	"istio.io/pkg/log"
 )
 
 var (
@@ -238,18 +240,28 @@ func getServiceAccountSecret(client kube.ExtendedClient, opt RemoteSecretOptions
 		return nil, fmt.Errorf("no secret found in the service account: %s", serviceAccount)
 	}
 
-	if len(serviceAccount.Secrets) != 1 && opt.SecretName == "" {
-		return nil, fmt.Errorf("wrong number of secrets (%v) in serviceaccount %s/%s, please use --secret-name to specify one",
-			len(serviceAccount.Secrets), opt.Namespace, opt.ServiceAccountName)
-	}
-
-	secretName := serviceAccount.Secrets[0].Name
-	secretNamespace := serviceAccount.Secrets[0].Namespace
-	for _, secret := range serviceAccount.Secrets {
-		if secret.Name == opt.SecretName {
-			secretName = secret.Name
-			secretNamespace = secret.Namespace
-			break
+	secretName := ""
+	secretNamespace := ""
+	if opt.SecretName != "" {
+		found := false
+		for _, secret := range serviceAccount.Secrets {
+			if secret.Name == opt.SecretName {
+				found = true
+				secretName = secret.Name
+				secretNamespace = secret.Namespace
+				break
+			}
+		}
+		if !found {
+			return nil, fmt.Errorf("provided secret does not exist: %s", opt.SecretName)
+		}
+	} else {
+		if len(serviceAccount.Secrets) == 1 {
+			secretName = serviceAccount.Secrets[0].Name
+			secretNamespace = serviceAccount.Secrets[0].Namespace
+		} else {
+			return nil, fmt.Errorf("wrong number of secrets (%v) in serviceaccount %s/%s, please use --secret-name to specify one",
+				len(serviceAccount.Secrets), opt.Namespace, opt.ServiceAccountName)
 		}
 	}
 
@@ -289,10 +301,7 @@ func getOrCreateServiceAccount(client kube.ExtendedClient, opt RemoteSecretOptio
 
 func createServiceAccount(client kube.ExtendedClient, opt RemoteSecretOptions) error {
 	// Create a renderer for the base installation.
-	r, err := helm.NewHelmRenderer(opt.ManifestsPath, "base", "Base", opt.Namespace)
-	if err != nil {
-		return fmt.Errorf("failed creating Helm renderer: %v", err)
-	}
+	r := helm.NewHelmRenderer(opt.ManifestsPath, "base", "Base", opt.Namespace)
 
 	if err := r.Run(); err != nil {
 		return fmt.Errorf("failed running Helm renderer: %v", err)
@@ -373,6 +382,10 @@ func getServerFromKubeconfig(context string, config *api.Config) (string, error)
 	cluster, ok := config.Clusters[configContext.Cluster]
 	if !ok {
 		return "", fmt.Errorf("could not find server for context %q", context)
+	}
+	if strings.Contains(cluster.Server, "127.0.0.1") || strings.Contains(cluster.Server, "localhost") {
+		log.Warnf("Server in Kubeconfig is %s. This is likely not reachable from inside the cluster.\n"+
+			"If you're using Kubernetes in Docker, pass --server with the container IP for the API Server.", cluster.Server)
 	}
 	return cluster.Server, nil
 }

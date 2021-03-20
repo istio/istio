@@ -150,12 +150,16 @@ func (s *XdsStatusWriter) PrintAll(statuses map[string]*xdsapi.DiscoveryResponse
 			return err
 		}
 	}
-	return w.Flush()
+	if w != nil {
+		return w.Flush()
+	}
+	return nil
 }
 
 func (s *XdsStatusWriter) setupStatusPrint(drs map[string]*xdsapi.DiscoveryResponse) (*tabwriter.Writer, []*xdsWriterStatus, error) {
 	// Gather the statuses before printing so they may be sorted
 	var fullStatus []*xdsWriterStatus
+	var w *tabwriter.Writer
 	for _, dr := range drs {
 		for _, resource := range dr.Resources {
 			switch resource.TypeUrl {
@@ -176,21 +180,25 @@ func (s *XdsStatusWriter) setupStatusPrint(drs map[string]*xdsapi.DiscoveryRespo
 					routeStatus:    rds,
 					endpointStatus: eds,
 				})
+				if len(fullStatus) == 0 {
+					return nil, nil, fmt.Errorf("no proxies found (checked %d istiods)", len(drs))
+				}
+
+				w = new(tabwriter.Writer).Init(s.Writer, 0, 8, 5, ' ', 0)
+				_, _ = fmt.Fprintln(w, "NAME\tCDS\tLDS\tEDS\tRDS\tISTIOD\tVERSION")
+
+				sort.Slice(fullStatus, func(i, j int) bool {
+					return fullStatus[i].proxyID < fullStatus[j].proxyID
+				})
 			default:
-				return nil, nil, fmt.Errorf("/debug/syncz unexpected resource type %q", resource.TypeUrl)
+				for _, resource := range dr.Resources {
+					s.Writer.Write(resource.Value) // nolint: errcheck
+				}
+				fullStatus = nil
 			}
 		}
 	}
-	if len(fullStatus) == 0 {
-		return nil, nil, fmt.Errorf("no proxies found (checked %d istiods)", len(drs))
-	}
 
-	w := new(tabwriter.Writer).Init(s.Writer, 0, 8, 5, ' ', 0)
-	_, _ = fmt.Fprintln(w, "NAME\tCDS\tLDS\tEDS\tRDS\tISTIOD\tVERSION")
-
-	sort.Slice(fullStatus, func(i, j int) bool {
-		return fullStatus[i].proxyID < fullStatus[j].proxyID
-	})
 	return w, fullStatus, nil
 }
 

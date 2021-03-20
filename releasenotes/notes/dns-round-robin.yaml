@@ -1,0 +1,7 @@
+apiVersion: release-notes/v2
+kind: feature
+area: networking
+issue: [31064]
+releaseNotes:
+- |
+  **Fixed** an issue with DNS proxying causing StatefulSets addresses to not be load balanced.

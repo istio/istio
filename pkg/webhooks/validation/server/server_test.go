@@ -157,7 +157,7 @@ func TestAdmitPilot(t *testing.T) {
 	}{
 		{
 			name:  "valid create",
-			admit: wh.admitPilot,
+			admit: wh.validate,
 			in: &kube.AdmissionRequest{
 				Kind:      kubeApisMeta.GroupVersionKind{Kind: collections.Mock.Resource().Kind()},
 				Object:    runtime.RawExtension{Raw: valid},
@@ -167,7 +167,7 @@ func TestAdmitPilot(t *testing.T) {
 		},
 		{
 			name:  "valid update",
-			admit: wh.admitPilot,
+			admit: wh.validate,
 			in: &kube.AdmissionRequest{
 				Kind:      kubeApisMeta.GroupVersionKind{Kind: collections.Mock.Resource().Kind()},
 				Object:    runtime.RawExtension{Raw: valid},
@@ -177,7 +177,7 @@ func TestAdmitPilot(t *testing.T) {
 		},
 		{
 			name:  "unsupported operation",
-			admit: wh.admitPilot,
+			admit: wh.validate,
 			in: &kube.AdmissionRequest{
 				Kind:      kubeApisMeta.GroupVersionKind{Kind: collections.Mock.Resource().Kind()},
 				Object:    runtime.RawExtension{Raw: valid},
@@ -187,7 +187,7 @@ func TestAdmitPilot(t *testing.T) {
 		},
 		{
 			name:  "invalid spec",
-			admit: wh.admitPilot,
+			admit: wh.validate,
 			in: &kube.AdmissionRequest{
 				Kind:      kubeApisMeta.GroupVersionKind{Kind: collections.Mock.Resource().Kind()},
 				Object:    runtime.RawExtension{Raw: invalidConfig},
@@ -197,7 +197,7 @@ func TestAdmitPilot(t *testing.T) {
 		},
 		{
 			name:  "corrupt object",
-			admit: wh.admitPilot,
+			admit: wh.validate,
 			in: &kube.AdmissionRequest{
 				Kind:      kubeApisMeta.GroupVersionKind{Kind: collections.Mock.Resource().Kind()},
 				Object:    runtime.RawExtension{Raw: append([]byte("---"), valid...)},
@@ -207,7 +207,7 @@ func TestAdmitPilot(t *testing.T) {
 		},
 		{
 			name:  "invalid extra key create",
-			admit: wh.admitPilot,
+			admit: wh.validate,
 			in: &kube.AdmissionRequest{
 				Kind:      kubeApisMeta.GroupVersionKind{Kind: collections.Mock.Resource().Kind()},
 				Object:    runtime.RawExtension{Raw: extraKeyConfig},
@@ -219,7 +219,7 @@ func TestAdmitPilot(t *testing.T) {
 
 	for i, c := range cases {
 		t.Run(fmt.Sprintf("[%d] %s", i, c.name), func(t *testing.T) {
-			got := wh.admitPilot(c.in)
+			got := wh.validate(c.in)
 			if got.Allowed != c.allowed {
 				t.Fatalf("got %v want %v", got.Allowed, c.allowed)
 			}

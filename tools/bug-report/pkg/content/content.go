@@ -148,6 +148,12 @@ func GetClusterContext() (string, error) {
 	return kubectlcmd.RunCmd("config current-context", "", false)
 }
 
+// GetNodeInfo returns node information.
+func GetNodeInfo(p *Params) (map[string]string, error) {
+	out, err := kubectlcmd.RunCmd("describe nodes", "", p.DryRun)
+	return retMap("nodes", out, err)
+}
+
 // GetDescribePods returns describe pods for istioNamespace.
 func GetDescribePods(p *Params) (map[string]string, error) {
 	if p.IstioNamespace == "" {

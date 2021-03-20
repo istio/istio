@@ -39,16 +39,29 @@ type EndpointBuilder struct {
 	tlsMode        string
 	workloadName   string
 	namespace      string
+
+	// Values used to build dns name tables per pod.
+	// The the hostname of the Pod, by default equals to pod name.
+	hostname string
+	// If specified, the fully qualified Pod hostname will be "<hostname>.<subdomain>.<pod namespace>.svc.<cluster domain>".
+	subDomain string
 }
 
 func NewEndpointBuilder(c controllerInterface, pod *v1.Pod) *EndpointBuilder {
-	locality, sa, wn, namespace := "", "", "", ""
+	locality, sa, wn, namespace, hostname, subdomain := "", "", "", "", "", ""
 	var podLabels labels.Instance
 	if pod != nil {
 		locality = c.getPodLocality(pod)
 		sa = kube.SecureNamingSAN(pod)
 		podLabels = pod.Labels
 		namespace = pod.Namespace
+		subdomain = pod.Spec.Subdomain
+		if subdomain != "" {
+			hostname = pod.Spec.Hostname
+			if hostname == "" {
+				hostname = pod.Name
+			}
+		}
 	}
 	dm, _ := kubeUtil.GetDeployMetaFromPod(pod)
 	if dm != nil {
@@ -66,6 +79,8 @@ func NewEndpointBuilder(c controllerInterface, pod *v1.Pod) *EndpointBuilder {
 		tlsMode:      kube.PodTLSMode(pod),
 		workloadName: wn,
 		namespace:    namespace,
+		hostname:     hostname,
+		subDomain:    subdomain,
 	}
 }
 
@@ -128,6 +143,8 @@ func (b *EndpointBuilder) buildIstioEndpoint(
 		Network:         b.endpointNetwork(endpointAddress),
 		WorkloadName:    b.workloadName,
 		Namespace:       b.namespace,
+		HostName:        b.hostname,
+		SubDomain:       b.subDomain,
 	}
 }
 

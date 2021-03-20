@@ -106,9 +106,11 @@ func NewFakeDiscoveryServer(t test.Failer, opts FakeOptions) *FakeDiscoveryServe
 	}
 
 	// Init with a dummy environment, since we have a circular dependency with the env creation.
-	s := NewDiscoveryServer(&model.Environment{PushContext: model.NewPushContext()}, []string{plugin.AuthzCustom, plugin.Authn, plugin.Authz}, "pilot-123")
+	s := NewDiscoveryServer(&model.Environment{PushContext: model.NewPushContext()}, []string{plugin.AuthzCustom, plugin.Authn, plugin.Authz},
+		"pilot-123", "istio-system")
 	t.Cleanup(func() {
-		s.Shutdown()
+		s.JwtKeyResolver.Close()
+		s.pushQueue.ShutDown()
 	})
 
 	serviceHandler := func(svc *model.Service, _ model.Event) {

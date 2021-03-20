@@ -64,18 +64,22 @@ func callInternal(srcName string, opts *echo.CallOptions, send sendFunc,
 	}
 
 	req := &proto.ForwardEchoRequest{
-		Url:             targetURL,
-		Count:           int32(opts.Count),
-		Headers:         protoHeaders,
-		TimeoutMicros:   common.DurationToMicros(opts.Timeout),
-		Message:         opts.Message,
-		Http2:           opts.HTTP2,
-		Method:          opts.Method,
-		ServerFirst:     opts.Port.ServerFirst,
-		Cert:            opts.Cert,
-		Key:             opts.Key,
-		CaCert:          opts.CaCert,
-		FollowRedirects: opts.FollowRedirects,
+		Url:                targetURL,
+		Count:              int32(opts.Count),
+		Headers:            protoHeaders,
+		TimeoutMicros:      common.DurationToMicros(opts.Timeout),
+		Message:            opts.Message,
+		Http2:              opts.HTTP2,
+		Method:             opts.Method,
+		ServerFirst:        opts.Port.ServerFirst,
+		Cert:               opts.Cert,
+		Key:                opts.Key,
+		CaCert:             opts.CaCert,
+		CertFile:           opts.CertFile,
+		KeyFile:            opts.KeyFile,
+		CaCertFile:         opts.CaCertFile,
+		InsecureSkipVerify: opts.InsecureSkipVerify,
+		FollowRedirects:    opts.FollowRedirects,
 	}
 
 	var responses client.ParsedResponses
@@ -130,15 +134,23 @@ func CallEcho(opts *echo.CallOptions, retry bool, retryOptions ...retry.Option) 
 		if err != nil {
 			return nil, err
 		}
-		resp := client.ParseForwardedResponse(ret)
+		resp := client.ParseForwardedResponse(req, ret)
 		return resp, nil
 	}
 	return callInternal("TestRunner", opts, send, retry, retryOptions...)
 }
 
-func ForwardEcho(srcName string, c *client.Instance, opts *echo.CallOptions,
+// EchoClientProvider provides dynamic creation of Echo clients. This allows retries to potentially make
+// use of different (ready) workloads for forward requests.
+type EchoClientProvider func() (*client.Instance, error)
+
+func ForwardEcho(srcName string, clientProvider EchoClientProvider, opts *echo.CallOptions,
 	retry bool, retryOptions ...retry.Option) (client.ParsedResponses, error) {
 	res, err := callInternal(srcName, opts, func(req *proto.ForwardEchoRequest) (client.ParsedResponses, error) {
+		c, err := clientProvider()
+		if err != nil {
+			return nil, err
+		}
 		return c.ForwardEcho(context.Background(), req)
 	}, retry, retryOptions...)
 	if err != nil {

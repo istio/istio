@@ -20,7 +20,7 @@ import (
 	"strings"
 	"sync"
 
-	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
+	apiextensions "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 
 	"istio.io/istio/galley/pkg/config/analysis/diag"
 	"istio.io/istio/galley/pkg/config/processing/snapshotter"
@@ -37,7 +37,7 @@ var crdKubeResource = collection.Builder{
 	Name: "k8s/crd",
 	Resource: resource.Builder{
 		Group:   "apiextensions.k8s.io",
-		Version: "v1beta1",
+		Version: "v1",
 		Plural:  "customresourcedefinitions",
 		Kind:    "CustomResourceDefinition",
 	}.BuildNoValidate(),
@@ -151,7 +151,7 @@ func (s *Source) onCrdEvent(e event.Event) {
 
 	switch e.Kind {
 	case event.Added:
-		crd := e.Resource.Message.(*v1beta1.CustomResourceDefinitionSpec)
+		crd := e.Resource.Message.(*apiextensions.CustomResourceDefinitionSpec)
 		g := crd.Group
 		k := crd.Names.Kind
 		key := asKey(g, k)

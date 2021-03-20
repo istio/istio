@@ -185,6 +185,9 @@ ifeq ($(HUB),)
   $(error "HUB cannot be empty")
 endif
 
+# For dockerx builds, allow HUBS which is a space seperated list of hubs. Default to HUB.
+HUBS ?= $(HUB)
+
 # If tag not explicitly set in users' .istiorc.mk or command line, default to the git sha.
 TAG ?= $(shell git rev-parse --verify HEAD)
 ifeq ($(TAG),)
@@ -250,7 +253,7 @@ ${GEN_CERT}:
 #-----------------------------------------------------------------------------
 # Target: precommit
 #-----------------------------------------------------------------------------
-.PHONY: precommit format format.gofmt format.goimports lint buildcache
+.PHONY: precommit format lint buildcache
 
 # Target run by the pre-commit script, to automate formatting and lint
 # If pre-commit script is not used, please run this manually.
@@ -342,9 +345,6 @@ go-gen:
 	@mkdir -p /tmp/bin
 	@PATH="${PATH}":/tmp/bin go generate ./...
 
-gen-charts:
-	@operator/scripts/create_assets_gen.sh
-
 refresh-goldens:
 	@REFRESH_GOLDEN=true go test ${GOBUILDFLAGS} ./operator/...
 	@REFRESH_GOLDEN=true go test ${GOBUILDFLAGS} ./pkg/kube/inject/...
@@ -352,16 +352,18 @@ refresh-goldens:
 
 update-golden: refresh-goldens
 
+# Keep dummy target since some build pipelines depend on this
+gen-charts:
+	@echo "This target is no longer required and will be removed in the future"
+
 gen: mod-download-go go-gen mirror-licenses format update-crds operator-proto sync-configs-from-istiod gen-kustomize update-golden ## Update all generated code.
 
-check-no-modify:
-	@bin/check_no_modify.sh
-
-gen-check: check-no-modify gen check-clean-repo
+gen-check: gen check-clean-repo
 
 # Copy the injection template file and configmap from istiod chart to istiod-remote chart
 sync-configs-from-istiod:
 	cp manifests/charts/istio-control/istio-discovery/files/injection-template.yaml manifests/charts/istiod-remote/files/
+	cp manifests/charts/istio-control/istio-discovery/files/gateway-injection-template.yaml manifests/charts/istiod-remote/files/
 
 	# Copy over values, but apply some local customizations
 	cp manifests/charts/istio-control/istio-discovery/values.yaml manifests/charts/istiod-remote/
@@ -369,11 +371,17 @@ sync-configs-from-istiod:
 	yq w manifests/charts/istiod-remote/values.yaml global.externalIstiod true -i
 
 	cp manifests/charts/istio-control/istio-discovery/templates/istiod-injector-configmap.yaml manifests/charts/istiod-remote/templates/
-	cp manifests/charts/istio-control/istio-discovery/templates/telemetryv2_1.8.yaml manifests/charts/istiod-remote/templates/
 	cp manifests/charts/istio-control/istio-discovery/templates/telemetryv2_1.9.yaml manifests/charts/istiod-remote/templates/
 	cp manifests/charts/istio-control/istio-discovery/templates/telemetryv2_1.10.yaml manifests/charts/istiod-remote/templates/
 	cp manifests/charts/istio-control/istio-discovery/templates/configmap.yaml manifests/charts/istiod-remote/templates
 	cp manifests/charts/istio-control/istio-discovery/templates/mutatingwebhook.yaml manifests/charts/istiod-remote/templates
+
+	rm -r manifests/charts/gateways/istio-egress/templates
+	mkdir manifests/charts/gateways/istio-egress/templates
+	cp -r manifests/charts/gateways/istio-ingress/templates/* manifests/charts/gateways/istio-egress/templates
+	find ./manifests/charts/gateways/istio-egress/templates -type f -exec sed -i -e 's/ingress/egress/g' {} \;
+	find ./manifests/charts/gateways/istio-egress/templates -type f -exec sed -i -e 's/Ingress/Egress/g' {} \;
+
 
 # Generate kustomize templates.
 gen-kustomize:
@@ -397,7 +405,9 @@ ${ISTIO_OUT}/release/istioctl-linux-armv7: depend
 ${ISTIO_OUT}/release/istioctl-linux-arm64: depend
 	GOOS=linux GOARCH=arm64 LDFLAGS=$(RELEASE_LDFLAGS) common/scripts/gobuild.sh $@ ./istioctl/cmd/istioctl
 ${ISTIO_OUT}/release/istioctl-osx: depend
-	GOOS=darwin LDFLAGS=$(RELEASE_LDFLAGS) common/scripts/gobuild.sh $@ ./istioctl/cmd/istioctl
+	GOOS=darwin GOARCH=amd64 LDFLAGS=$(RELEASE_LDFLAGS) common/scripts/gobuild.sh $@ ./istioctl/cmd/istioctl
+${ISTIO_OUT}/release/istioctl-osx-arm64: depend
+	GOOS=darwin GOARCH=arm64 LDFLAGS=$(RELEASE_LDFLAGS) common/scripts/gobuild.sh $@ ./istioctl/cmd/istioctl
 ${ISTIO_OUT}/release/istioctl-win.exe: depend
 	GOOS=windows LDFLAGS=$(RELEASE_LDFLAGS) common/scripts/gobuild.sh $@ ./istioctl/cmd/istioctl
 
@@ -418,6 +428,7 @@ binaries-test:
 .PHONY: istioctl-all
 istioctl-all: ${ISTIO_OUT}/release/istioctl-linux-amd64 ${ISTIO_OUT}/release/istioctl-linux-armv7 ${ISTIO_OUT}/release/istioctl-linux-arm64 \
 	${ISTIO_OUT}/release/istioctl-osx \
+	${ISTIO_OUT}/release/istioctl-osx-arm64 \
 	${ISTIO_OUT}/release/istioctl-win.exe
 
 .PHONY: istioctl.completion

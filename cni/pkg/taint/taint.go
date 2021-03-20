@@ -122,7 +122,7 @@ func (ts *Setter) HasReadinessTaint(node *v1.Node) bool {
 	return false
 }
 
-//assumption: order of taint is not important
+// assumption: order of taint is not important
 func (ts *Setter) RemoveReadinessTaint(node *v1.Node) error {
 	ts.mutex.RLock()
 	defer ts.mutex.RUnlock()

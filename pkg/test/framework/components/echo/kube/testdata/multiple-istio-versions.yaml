@@ -1,0 +1,180 @@
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: foo
+  labels:
+    app: foo
+spec:
+  ports:
+  - name: grpc
+    port: 7070
+    targetPort: 7070
+  - name: http
+    port: 8090
+    targetPort: 8090
+  selector:
+    app: foo
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: foo-bar-rev-a
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: foo
+      version: bar
+  template:
+    metadata:
+      labels:
+        app: foo
+        version: bar
+        istio.io/rev: rev-a
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "15014"
+    spec:
+      imagePullSecrets:
+      - name: myregistrykey
+      containers:
+      - name: istio-proxy
+        image: auto
+        securityContext: # to allow core dumps
+          readOnlyRootFilesystem: false
+      - name: app
+        image: testing.hub/app:latest
+        imagePullPolicy: Always
+        securityContext:
+          runAsUser: 1338
+          runAsGroup: 1338
+        args:
+          - --metrics=15014
+          - --cluster
+          - "cluster-0"
+          - --grpc
+          - "7070"
+          - --port
+          - "8090"
+          - --port
+          - "8080"
+          - --port
+          - "3333"
+          - --version
+          - "bar"
+          - --istio-version
+          - "1.8.2"
+          - --crt=/cert.crt
+          - --key=/cert.key
+        ports:
+        - containerPort: 7070
+        - containerPort: 8090
+        - containerPort: 8080
+        - containerPort: 3333
+          name: tcp-health-port
+        env:
+        - name: INSTANCE_IP
+          valueFrom:
+            fieldRef:
+              fieldPath: status.podIP
+        readinessProbe:
+          httpGet:
+            path: /
+            port: 8080
+          initialDelaySeconds: 1
+          periodSeconds: 2
+          failureThreshold: 10
+        livenessProbe:
+          tcpSocket:
+            port: tcp-health-port
+          initialDelaySeconds: 10
+          periodSeconds: 10
+          failureThreshold: 10
+        startupProbe:
+          tcpSocket:
+            port: tcp-health-port
+          periodSeconds: 10
+          failureThreshold: 10
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: foo-bar-rev-b
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: foo
+      version: bar
+  template:
+    metadata:
+      labels:
+        app: foo
+        version: bar
+        istio.io/rev: rev-b
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "15014"
+    spec:
+      imagePullSecrets:
+      - name: myregistrykey
+      containers:
+      - name: istio-proxy
+        image: auto
+        securityContext: # to allow core dumps
+          readOnlyRootFilesystem: false
+      - name: app
+        image: testing.hub/app:latest
+        imagePullPolicy: Always
+        securityContext:
+          runAsUser: 1338
+          runAsGroup: 1338
+        args:
+          - --metrics=15014
+          - --cluster
+          - "cluster-0"
+          - --grpc
+          - "7070"
+          - --port
+          - "8090"
+          - --port
+          - "8080"
+          - --port
+          - "3333"
+          - --version
+          - "bar"
+          - --istio-version
+          - "1.9.0"
+          - --crt=/cert.crt
+          - --key=/cert.key
+        ports:
+        - containerPort: 7070
+        - containerPort: 8090
+        - containerPort: 8080
+        - containerPort: 3333
+          name: tcp-health-port
+        env:
+        - name: INSTANCE_IP
+          valueFrom:
+            fieldRef:
+              fieldPath: status.podIP
+        readinessProbe:
+          httpGet:
+            path: /
+            port: 8080
+          initialDelaySeconds: 1
+          periodSeconds: 2
+          failureThreshold: 10
+        livenessProbe:
+          tcpSocket:
+            port: tcp-health-port
+          initialDelaySeconds: 10
+          periodSeconds: 10
+          failureThreshold: 10
+        startupProbe:
+          tcpSocket:
+            port: tcp-health-port
+          periodSeconds: 10
+          failureThreshold: 10
+---

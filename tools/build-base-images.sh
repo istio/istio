@@ -19,8 +19,27 @@
 
 set -ex
 
-HUB="${HUB:?specify a hub}"
+# shellcheck source=prow/lib.sh
+source "${ROOT}/prow/lib.sh"
+buildx-create
+
+HUBS="${HUBS:?specify a space seperated list of hubs}"
 TAG="${TAG:?specify a tag}"
+DOCKER_TARGETS="${DOCKER_TARGETS:-docker.base docker.distroless docker.app_sidecar_base_debian_9 docker.app_sidecar_base_debian_10 docker.app_sidecar_base_ubuntu_xenial docker.app_sidecar_base_ubuntu_bionic docker.app_sidecar_base_ubuntu_focal docker.app_sidecar_base_centos_7 docker.app_sidecar_base_centos_8}"
+
+# Verify that the specified TAG does not exist for the HUBS/TARGETS
+# Will also fail if user doesn't have authorization to repository, but they shouldn't
+# be able to push if no authorization.
+# What other errors might happen that would be ignored ?
+set +e
+for hub in ${HUBS}
+do
+  for image in ${DOCKER_TARGETS#docker.}  # assume the image name is the target without the leading docker.
+  do
+    docker manifest inspect "$hub"/"$image":"$TAG" && exit 1 # will exit if it finds the manifest
+  done
+done
+set -e
 
 # For multi architecture building:
 # See https://medium.com/@artur.klauser/building-multi-architecture-docker-images-with-buildx-27d80f7e2408 for more info
@@ -29,4 +48,4 @@ TAG="${TAG:?specify a tag}"
 # * export DOCKER_ARCHITECTURES="linux/amd64,linux/arm64"
 # Note: if you already have a container builder before running the qemu setup you will need to restart them
 
-BUILDX_BAKE_EXTRA_OPTIONS="--no-cache --pull" DOCKER_TARGETS="docker.base docker.distroless docker.app_sidecar_base_debian_9 docker.app_sidecar_base_debian_10 docker.app_sidecar_base_ubuntu_xenial docker.app_sidecar_base_ubuntu_bionic docker.app_sidecar_base_ubuntu_focal docker.app_sidecar_base_centos_7 docker.app_sidecar_base_centos_8" make dockerx.pushx
+BUILDX_BAKE_EXTRA_OPTIONS="--no-cache --pull" DOCKER_TARGETS="${DOCKER_TARGETS}" make dockerx.pushx

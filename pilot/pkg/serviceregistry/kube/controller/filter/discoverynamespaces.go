@@ -38,6 +38,8 @@ type DiscoveryNamespacesFilter interface {
 	NamespaceUpdated(oldNs, newNs metav1.ObjectMeta) (membershipChanged bool, namespaceAdded bool)
 	// return true if the deleted namespace was selected for discovery
 	NamespaceDeleted(ns metav1.ObjectMeta) (membershipChanged bool)
+	// return the namespaces selected for discovery
+	GetMembers() sets.String
 }
 
 type discoveryNamespacesFilter struct {
@@ -77,6 +79,9 @@ func (d *discoveryNamespacesFilter) Filter(obj interface{}) bool {
 func (d *discoveryNamespacesFilter) SelectorsChanged(
 	discoverySelectors []*metav1.LabelSelector,
 ) (selectedNamespaces []string, deselectedNamespaces []string) {
+	d.lock.Lock()
+	defer d.lock.Unlock()
+
 	oldDiscoveryNamespaces := d.discoveryNamespaces
 
 	var selectors []labels.Selector
@@ -113,8 +118,6 @@ func (d *discoveryNamespacesFilter) SelectorsChanged(
 		}
 	}
 
-	d.lock.Lock()
-	defer d.lock.Unlock()
 	selectedNamespaces = newDiscoveryNamespaces.Difference(oldDiscoveryNamespaces).List()
 	deselectedNamespaces = oldDiscoveryNamespaces.Difference(newDiscoveryNamespaces).List()
 
@@ -154,6 +157,15 @@ func (d *discoveryNamespacesFilter) NamespaceDeleted(ns metav1.ObjectMeta) (memb
 		return true
 	}
 	return false
+}
+
+// return member namespaces
+func (d *discoveryNamespacesFilter) GetMembers() sets.String {
+	d.lock.RLock()
+	defer d.lock.RUnlock()
+	members := sets.NewString()
+	members.Insert(d.discoveryNamespaces.List()...)
+	return members
 }
 
 func (d *discoveryNamespacesFilter) addNamespace(ns string) {

@@ -20,6 +20,7 @@ name=${1:-foo}
 ns=${2:-$name}
 sa=${3:-$name}
 tmp=${4:-""}
+rootselect=${5:-""}
 san="spiffe://trust-domain-$name/ns/$ns/sa/$sa"
 
 DIR=$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )
@@ -32,6 +33,12 @@ if [ -n "$tmp" ]; then
     cp "$DIR"/ca-cert.pem "$FINAL_DIR"
     cp "$DIR"/ca-key.pem "$FINAL_DIR"
     cp "$DIR"/cert-chain.pem "$FINAL_DIR"
+
+    cp "$DIR"/root-cert-alt.pem "$FINAL_DIR"
+    cp "$DIR"/ca-cert-alt.pem "$FINAL_DIR"
+    cp "$DIR"/ca-key-alt.pem "$FINAL_DIR"
+    cp "$DIR"/cert-chain-alt.pem "$FINAL_DIR"
+
   else
     echo "tmp argument is not a directory: $tmp"
     exit 1
@@ -45,6 +52,9 @@ function cleanup() {
   if [ -f "$FINAL_DIR"/ca-cert.srl ]; then
     rm "$FINAL_DIR"/ca-cert.srl
   fi
+  if [ -f "$FINAL_DIR"/ca-cert-alt.srl ]; then
+    rm "$FINAL_DIR"/ca-cert-alt.srl
+  fi
   if [ -f "$FINAL_DIR"/workload.cfg ]; then
     rm "$FINAL_DIR"/workload.cfg
   fi
@@ -55,7 +65,7 @@ function cleanup() {
 
 trap cleanup EXIT
 
-openssl genrsa -out "$FINAL_DIR/workload-$name-key.pem" 2048
+openssl genrsa -out "$FINAL_DIR/workload-$sa-key.pem" 2048
 
 cat > "$FINAL_DIR"/workload.cfg <<EOF
 [req]
@@ -74,13 +84,25 @@ subjectAltName = critical, @alt_names
 URI = $san
 EOF
 
-openssl req -new -key "$FINAL_DIR/workload-$name-key.pem" -subj "/" -out "$FINAL_DIR"/workload.csr -config "$FINAL_DIR"/workload.cfg
+certchain="$FINAL_DIR"/cert-chain.pem
+cacert="$FINAL_DIR"/ca-cert.pem
+cakey="$FINAL_DIR"/ca-key.pem
+rootcert="$FINAL_DIR"/root-cert.pem
 
-openssl x509 -req -in "$FINAL_DIR"/workload.csr -CA "$FINAL_DIR"/ca-cert.pem -CAkey "$FINAL_DIR"/ca-key.pem -CAcreateserial \
--out "$FINAL_DIR/workload-$name-cert.pem" -days 3650 -extensions v3_req -extfile "$FINAL_DIR"/workload.cfg
+if [[ "$rootselect" = "use-alternative-root" ]] ; then
+  certchain="$FINAL_DIR"/cert-chain-alt.pem
+  cacert="$FINAL_DIR"/ca-cert-alt.pem
+  cakey="$FINAL_DIR"/ca-key-alt.pem
+  rootcert="$FINAL_DIR"/root-cert-alt.pem
+fi
 
-cat "$FINAL_DIR"/cert-chain.pem >> "$FINAL_DIR/workload-$name-cert.pem"
+openssl req -new -key "$FINAL_DIR/workload-$sa-key.pem" -subj "/" -out "$FINAL_DIR"/workload.csr -config "$FINAL_DIR"/workload.cfg
 
-echo "Generated workload-$name-[cert|key].pem with URI SAN $san"
-openssl verify -CAfile <(cat "$FINAL_DIR"/cert-chain.pem "$FINAL_DIR"/root-cert.pem) "$FINAL_DIR/workload-$name-cert.pem"
+openssl x509 -req -in "$FINAL_DIR"/workload.csr -CA "$cacert" -CAkey "$cakey" -CAcreateserial \
+-out "$FINAL_DIR/workload-$sa-cert.pem" -days 3650 -extensions v3_req -extfile "$FINAL_DIR"/workload.cfg
+
+cat "$certchain" >> "$FINAL_DIR/workload-$sa-cert.pem"
+
+echo "Generated workload-$sa-[cert|key].pem with URI SAN $san"
+openssl verify -CAfile <(cat "$certchain" "$rootcert") "$FINAL_DIR/workload-$sa-cert.pem"
 

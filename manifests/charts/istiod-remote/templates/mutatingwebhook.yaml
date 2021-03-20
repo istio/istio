@@ -24,7 +24,7 @@ a unique prefix to each. */}}
 {{- end }}
 {{- /* Installed for each revision - not installed for cluster resources ( cluster roles, bindings, crds) */}}
 {{- if not .Values.global.operatorManageWebhooks }}
-apiVersion: admissionregistration.k8s.io/v1beta1
+apiVersion: admissionregistration.k8s.io/v1
 kind: MutatingWebhookConfiguration
 metadata:
 {{- if eq .Release.Namespace "istio-system"}}
@@ -92,18 +92,21 @@ webhooks:
   {{- end }}
 {{- else }}
 
-{{- /* Set up the selectors. First section is for revision, rest is for "default" revision */}}
-{{- if .Values.revision }}
+  {{- /* Set up the selectors. First section is for revision, rest is for "default" revision */}}
 
 {{- /* Case 1: namespace selector matches, and object doesn't disable */}}
 {{- /* Note: if both revision and legacy selector, we give precedence to the legacy one */}}
-{{- include "core" (mergeOverwrite (deepCopy .) (dict "Prefix" "namespace.") ) }}
+{{- include "core" (mergeOverwrite (deepCopy .) (dict "Prefix" "rev.namespace.") ) }}
   namespaceSelector:
     matchExpressions:
     - key: istio.io/rev
       operator: In
       values:
+      {{- if (eq .Values.revision "") }}
+      - "default"
+      {{- else }}
       - "{{ .Values.revision }}"
+      {{- end }}
     - key: istio-injection
       operator: DoesNotExist
   objectSelector:
@@ -114,7 +117,7 @@ webhooks:
       - "false"
 
 {{- /* Case 2: No namespace selector, but object selects our revision (and doesn't disable) */}}
-{{- include "core" (mergeOverwrite (deepCopy .) (dict "Prefix" "object.") ) }}
+{{- include "core" (mergeOverwrite (deepCopy .) (dict "Prefix" "rev.object.") ) }}
   namespaceSelector:
     matchExpressions:
     - key: istio.io/rev
@@ -130,10 +133,15 @@ webhooks:
     - key: istio.io/rev
       operator: In
       values:
+      {{- if (eq .Values.revision "") }}
+      - "default"
+      {{- else }}
       - "{{ .Values.revision }}"
+      {{- end }}
 
-{{- else }}
-{{- /* "default" revision */}}
+
+{{- /* Webhooks for default revision */}}
+{{- if (eq .Values.revision "") }}
 
 {{- /* Case 1: Namespace selector enabled, and object selector is not injected */}}
 {{- include "core" (mergeOverwrite (deepCopy .) (dict "Prefix" "namespace.") ) }}

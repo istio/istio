@@ -20,12 +20,14 @@ import (
 	"time"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
+	"istio.io/istio/galley/pkg/config/mesh"
 	"istio.io/istio/galley/pkg/server/components"
 	"istio.io/istio/galley/pkg/server/settings"
 	configaggregate "istio.io/istio/pilot/pkg/config/aggregate"
 	"istio.io/istio/pilot/pkg/config/kube/crdclient"
 	"istio.io/istio/pilot/pkg/config/kube/gateway"
 	"istio.io/istio/pilot/pkg/config/kube/ingress"
+	ingressv1 "istio.io/istio/pilot/pkg/config/kube/ingressv1"
 	"istio.io/istio/pilot/pkg/config/memory"
 	configmonitor "istio.io/istio/pilot/pkg/config/monitor"
 	"istio.io/istio/pilot/pkg/controller/workloadentry"
@@ -83,22 +85,45 @@ func (s *Server) initConfigController(args *PilotArgs) error {
 	// If running in ingress mode (requires k8s), wrap the config controller.
 	if hasKubeRegistry(args.RegistryOptions.Registries) && meshConfig.IngressControllerMode != meshconfig.MeshConfig_OFF {
 		// Wrap the config controller with a cache.
-		s.ConfigStores = append(s.ConfigStores,
-			ingress.NewController(s.kubeClient, s.environment.Watcher, args.RegistryOptions.KubeOptions))
+		// Supporting only Ingress/v1 means we lose support of Kubernetes 1.18
+		// Supporting only Ingress/v1beta1 means we lose support of Kubernetes 1.22
+		// Since supporting both in a monolith controller is painful due to lack of usable conversion logic between
+		// the two versions.
+		// As a compromise, we instead just fork the controller. Once 1.18 support is no longer needed, we can drop the old controller
+		ingressV1 := ingress.V1Available(s.kubeClient)
+		if ingressV1 {
+			s.ConfigStores = append(s.ConfigStores,
+				ingressv1.NewController(s.kubeClient, s.environment.Watcher, args.RegistryOptions.KubeOptions))
+		} else {
+			s.ConfigStores = append(s.ConfigStores,
+				ingress.NewController(s.kubeClient, s.environment.Watcher, args.RegistryOptions.KubeOptions))
+		}
 
 		s.addTerminatingStartFunc(func(stop <-chan struct{}) error {
 			leaderelection.
 				NewLeaderElection(args.Namespace, args.PodName, leaderelection.IngressController, s.kubeClient.Kube()).
 				AddRunFunction(func(leaderStop <-chan struct{}) {
-					ingressSyncer := ingress.NewStatusSyncer(s.environment.Watcher, s.kubeClient)
-					// Start informers again. This fixes the case where informers for namespace do not start,
-					// as we create them only after acquiring the leader lock
-					// Note: stop here should be the overall pilot stop, NOT the leader election stop. We are
-					// basically lazy loading the informer, if we stop it when we lose the lock we will never
-					// recreate it again.
-					s.kubeClient.RunAndWait(stop)
-					log.Infof("Starting ingress controller")
-					ingressSyncer.Run(leaderStop)
+					if ingressV1 {
+						ingressSyncer := ingressv1.NewStatusSyncer(s.environment.Watcher, s.kubeClient)
+						// Start informers again. This fixes the case where informers for namespace do not start,
+						// as we create them only after acquiring the leader lock
+						// Note: stop here should be the overall pilot stop, NOT the leader election stop. We are
+						// basically lazy loading the informer, if we stop it when we lose the lock we will never
+						// recreate it again.
+						s.kubeClient.RunAndWait(stop)
+						log.Infof("Starting ingress controller")
+						ingressSyncer.Run(leaderStop)
+					} else {
+						ingressSyncer := ingress.NewStatusSyncer(s.environment.Watcher, s.kubeClient)
+						// Start informers again. This fixes the case where informers for namespace do not start,
+						// as we create them only after acquiring the leader lock
+						// Note: stop here should be the overall pilot stop, NOT the leader election stop. We are
+						// basically lazy loading the informer, if we stop it when we lose the lock we will never
+						// recreate it again.
+						s.kubeClient.RunAndWait(stop)
+						log.Infof("Starting ingress controller")
+						ingressSyncer.Run(leaderStop)
+					}
 				}).
 				Run(stop)
 			return nil
@@ -163,7 +188,7 @@ func (s *Server) initConfigSources(args *PilotArgs) (err error) {
 			if srcAddress.Path == "" {
 				return fmt.Errorf("invalid fs config URL %s, contains no file path", configSource.Address)
 			}
-			store := memory.MakeSkipValidation(collections.Pilot, false)
+			store := memory.Make(collections.Pilot)
 			configController := memory.NewController(store)
 
 			err := s.makeFileMonitor(srcAddress.Path, args.RegistryOptions.KubeOptions.DomainSuffix, configController)
@@ -181,7 +206,7 @@ func (s *Server) initConfigSources(args *PilotArgs) (err error) {
 			if err != nil {
 				return fmt.Errorf("failed to dial XDS %s %v", configSource.Address, err)
 			}
-			store := memory.Make(collections.Pilot)
+			store := memory.MakeSkipValidation(collections.Pilot)
 			configController := memory.NewController(store)
 			xdsMCP.Store = model.MakeIstioStore(configController)
 			err = xdsMCP.Run()
@@ -217,8 +242,13 @@ func (s *Server) initInprocessAnalysisController(args *PilotArgs) error {
 	processingArgs := settings.DefaultArgs()
 	processingArgs.KubeConfig = args.RegistryOptions.KubeConfig
 	processingArgs.WatchedNamespaces = args.RegistryOptions.KubeOptions.WatchedNamespaces
-	processingArgs.MeshConfigFile = args.MeshConfigFile
 	processingArgs.EnableConfigAnalysis = true
+	meshSource := mesh.NewInmemoryMeshCfg()
+	meshSource.Set(s.environment.Mesh())
+	s.environment.Watcher.AddMeshHandler(func() {
+		meshSource.Set(s.environment.Mesh())
+	})
+	processingArgs.MeshSource = meshSource
 
 	processing := components.NewProcessing(processingArgs)
 

@@ -34,6 +34,7 @@ import (
 	structpb "github.com/golang/protobuf/ptypes/struct"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
+	"istio.io/istio/pilot/pkg/trustbundle"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/labels"
@@ -78,13 +79,11 @@ type Environment struct {
 	DomainSuffix string
 
 	ledger ledger.Ledger
-}
 
-func (e *Environment) GetDomainSuffix() string {
-	if len(e.DomainSuffix) > 0 {
-		return e.DomainSuffix
-	}
-	return constants.DefaultKubernetesDomain
+	// TrustBundle: List of Mesh TrustAnchors
+	TrustBundle *trustbundle.TrustBundle
+
+	clusterLocalServices ClusterLocalProvider
 }
 
 func (e *Environment) Mesh() *meshconfig.MeshConfig {
@@ -140,6 +139,21 @@ func (e *Environment) Version() string {
 		return x.RootHash()
 	}
 	return ""
+}
+
+// Init initializes the Environment for use.
+func (e *Environment) Init() {
+	// Use a default DomainSuffix, if none was provided.
+	if len(e.DomainSuffix) == 0 {
+		e.DomainSuffix = constants.DefaultKubernetesDomain
+	}
+
+	// Create the cluster-local service registry.
+	e.clusterLocalServices = NewClusterLocalProvider(e)
+}
+
+func (e *Environment) ClusterLocal() ClusterLocalProvider {
+	return e.clusterLocalServices
 }
 
 func (e *Environment) GetLedger() ledger.Ledger {
@@ -626,6 +640,8 @@ const (
 	// Router type is used for standalone proxies acting as L7/L4 routers
 	Router NodeType = "router"
 )
+
+var NodeTypes = [...]NodeType{SidecarProxy, Router}
 
 // IsApplicationNodeType verifies that the NodeType is one of the declared constants in the model
 func IsApplicationNodeType(nType NodeType) bool {

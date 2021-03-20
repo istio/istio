@@ -61,6 +61,14 @@ if [ -z "${POD_NAME:-}" ]; then
   POD_NAME=$(hostname -s)
 fi
 
+if [[ ${1-} == "clean" ]] ; then
+  if [ "${ISTIO_CUSTOM_IP_TABLES}" != "true" ] ; then
+    # clean the previous Istio iptables chains.
+    "${ISTIO_BIN_BASE}/pilot-agent" istio-clean-iptables
+  fi
+  exit 0
+fi
+
 # Init option will only initialize iptables. set ISTIO_CUSTOM_IP_TABLES to true if you would like to ignore this step
 if [ "${ISTIO_CUSTOM_IP_TABLES}" != "true" ] ; then
     if [[ ${1-} == "init" || ${1-} == "-p" ]] ; then

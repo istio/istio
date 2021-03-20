@@ -97,8 +97,8 @@ function load_cluster_topology() {
 # cleanup_kind_cluster takes a single parameter NAME
 # and deletes the KinD cluster with that name
 function cleanup_kind_cluster() {
-  NAME="${1}"
   echo "Test exited with exit code $?."
+  NAME="${1}"
   kind export logs --name "${NAME}" "${ARTIFACTS}/kind" -v9 || true
   if [[ -z "${SKIP_CLEANUP:-}" ]]; then
     echo "Cleaning up kind cluster"
@@ -180,6 +180,7 @@ EOF
 # It expects CLUSTER_NAMES to be present which means that
 # load_cluster_topology must be called before invoking it
 function cleanup_kind_clusters() {
+  echo "Test exited with exit code $?."
   for c in "${CLUSTER_NAMES[@]}"; do
     cleanup_kind_cluster "${c}"
   done
@@ -229,6 +230,9 @@ EOF
     CONTAINER_IP=$(docker inspect "${CLUSTER_NAME}-control-plane" --format "{{ .NetworkSettings.Networks.kind.IPAddress }}")
     kind get kubeconfig --name "${CLUSTER_NAME}" --internal | \
       sed "s/${CLUSTER_NAME}-control-plane/${CONTAINER_IP}/g" > "${CLUSTER_KUBECONFIG}"
+
+    # Enable core dumps
+    docker exec "${CLUSTER_NAME}"-control-plane bash -c "sysctl -w kernel.core_pattern=/var/lib/istio/data/core.proxy && ulimit -c unlimited"
   }
 
   # Now deploy the specified number of KinD clusters and

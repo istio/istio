@@ -18,7 +18,6 @@ import (
 	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
 	tls "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
 
-	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking"
 	"istio.io/istio/pilot/pkg/networking/util"
@@ -86,15 +85,13 @@ func BuildInboundFilterChain(mTLSMode model.MutualTLSMode, node *model.Proxy,
 		}
 	}
 
-	if features.EnableTLSv2OnInboundPath {
-		// Set Minimum TLS version to match the default client version and allowed strong cipher suites for sidecars.
-		ctx.CommonTlsContext.TlsParams = &tls.TlsParameters{
-			TlsMinimumProtocolVersion: tls.TlsParameters_TLSv1_2,
-			CipherSuites:              SupportedCiphers,
-		}
+	// Set Minimum TLS version to match the default client version and allowed strong cipher suites for sidecars.
+	ctx.CommonTlsContext.TlsParams = &tls.TlsParameters{
+		TlsMinimumProtocolVersion: tls.TlsParameters_TLSv1_2,
+		CipherSuites:              SupportedCiphers,
 	}
 
-	authn_model.ApplyToCommonTLSContext(ctx.CommonTlsContext, node, []string{} /*subjectAltNames*/, trustDomainAliases)
+	authn_model.ApplyToCommonTLSContext(ctx.CommonTlsContext, node, []string{} /*subjectAltNames*/, trustDomainAliases, ctx.RequireClientCertificate.Value)
 
 	if mTLSMode == model.MTLSStrict {
 		log.Debug("Allow only istio mutual TLS traffic")

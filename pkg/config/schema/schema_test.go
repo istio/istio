@@ -383,8 +383,7 @@ func TestBuild_UnknownTransform(t *testing.T) {
 	g.Expect(err).NotTo(BeNil())
 }
 
-type unknownXformSettings struct {
-}
+type unknownXformSettings struct{}
 
 var _ ast.TransformSettings = &unknownXformSettings{}
 

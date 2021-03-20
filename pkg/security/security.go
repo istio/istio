@@ -45,6 +45,14 @@ const (
 	// SystemRootCerts is special case input for root cert configuration to use system root certificates.
 	SystemRootCerts = "SYSTEM"
 
+	// RootCertReqResourceName is resource name of discovery request for root certificate.
+	RootCertReqResourceName = "ROOTCA"
+
+	// WorkloadKeyCertResourceName is the resource name of the discovery request for workload
+	// identity.
+	// TODO: change all the pilot one reference definition here instead.
+	WorkloadKeyCertResourceName = "default"
+
 	// Credential fetcher type
 	GCE  = "GoogleComputeEngine"
 	Mock = "Mock" // testing only
@@ -250,6 +258,9 @@ type CredFetcher interface {
 
 	// The name of the IdentityProvider that can authenticate the workload credential.
 	GetIdentityProvider() string
+
+	// Stop releases resources and cleans up.
+	Stop()
 }
 
 // AuthSource represents where authentication result is derived from.

@@ -57,6 +57,17 @@ func TestMtlsStrictK8sCA(t *testing.T) {
 						// If source is naked, and destination is not, expect failure.
 						return !(apps.IsNaked(src) && !apps.IsNaked(opts.Target))
 					},
+					ExpectMTLS: func(src echo.Instance, opts echo.CallOptions) bool {
+						if apps.IsNaked(src) || apps.IsNaked(opts.Target) {
+							// If one of the two endpoints is naked, we don't send mTLS
+							return false
+						}
+						if apps.IsHeadless(opts.Target) && opts.Target == src {
+							// pod calling its own pod IP will not be intercepted
+							return false
+						}
+						return true
+					},
 				},
 				{
 					ConfigFile: "global-plaintext.yaml",
@@ -72,6 +83,9 @@ func TestMtlsStrictK8sCA(t *testing.T) {
 					ExpectSuccess: func(src echo.Instance, opts echo.CallOptions) bool {
 						// When mTLS is disabled, all traffic should work.
 						return true
+					},
+					ExpectMTLS: func(src echo.Instance, opts echo.CallOptions) bool {
+						return false
 					},
 				},
 			}

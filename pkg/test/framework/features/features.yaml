@@ -43,10 +43,13 @@ features:
     mirroring:
     ingress:
       loadbalancing:
+      custom:
       topology:
     ratelimit:
       envoy:
     original-source-ip:
+    mcs:
+      serviceexport:
   usability:
     observability:
       describe:
@@ -71,6 +74,7 @@ features:
       trust-domain-alias-secure-naming:
       file-mounted-certs:
       ecc-signature-algorithm:
+      multiple-root:
     user:
     ingress:
       mtls:

@@ -16,6 +16,7 @@ package echo
 
 import (
 	"errors"
+	"sort"
 	"strings"
 
 	"istio.io/istio/pkg/test"
@@ -24,6 +25,39 @@ import (
 
 // Instances contains the instances created by the builder with methods for filtering
 type Instances []Instance
+
+// Deployments groups the Instances by FQDN.
+// Each returned element will have at least one item.
+func (i Instances) Deployments() []Instances {
+	grouped := map[string]Instances{}
+	for _, instance := range i {
+		k := instance.Config().FQDN()
+		grouped[k] = append(grouped[k], instance)
+	}
+	var out deployments
+	for _, deployment := range grouped {
+		out = append(out, deployment)
+	}
+	sort.Stable(out)
+	return out
+}
+
+// deployments must be sorted to make sure tests have consistent ordering
+type deployments []Instances
+
+var _ sort.Interface = deployments{}
+
+func (d deployments) Len() int {
+	return len(d)
+}
+
+func (d deployments) Less(i, j int) bool {
+	return strings.Compare(d[i][0].Config().FQDN(), d[j][0].Config().FQDN()) < 0
+}
+
+func (d deployments) Swap(i, j int) {
+	d[i], d[j] = d[j], d[i]
+}
 
 // Clusters returns a list of cluster names that the instances are deployed in
 func (i Instances) Clusters() cluster.Clusters {
@@ -41,12 +75,33 @@ func (i Instances) Clusters() cluster.Clusters {
 // Matcher is used to filter matching instances
 type Matcher func(Instance) bool
 
+// Any doesn't filter out any echos.
+func Any(_ Instance) bool {
+	return true
+}
+
 // And combines two or more matches. Example:
 //     Service("a").And(InCluster(c)).And(Match(func(...))
 func (m Matcher) And(other Matcher) Matcher {
 	return func(i Instance) bool {
 		return m(i) && other(i)
 	}
+}
+
+// Negate inverts the matcher it's applied to.
+// Example:
+//     echo.IsVirtualMachine().Negate()
+func (m Matcher) Negate() Matcher {
+	return func(i Instance) bool {
+		return !m(i)
+	}
+}
+
+// Not is a wrapper around Negate for human readability.
+// Example:
+//     echo.Not(echo.IsVirtualMachine)
+func Not(m Matcher) Matcher {
+	return m.Negate()
 }
 
 // ServicePrefix matches instances whose service name starts with the given prefix.
@@ -60,6 +115,13 @@ func ServicePrefix(prefix string) Matcher {
 func Service(value string) Matcher {
 	return func(i Instance) bool {
 		return value == i.Config().Service
+	}
+}
+
+// SameDeployment matches instnaces with the same FQDN and assumes they're part of the same Service and Namespace.
+func SameDeployment(match Instance) Matcher {
+	return func(instance Instance) bool {
+		return match.Config().FQDN() == instance.Config().FQDN()
 	}
 }
 
@@ -81,6 +143,34 @@ func InCluster(c cluster.Cluster) Matcher {
 func InNetwork(n string) Matcher {
 	return func(i Instance) bool {
 		return i.Config().Cluster.NetworkName() == n
+	}
+}
+
+// IsVirtualMachine matches instances with DeployAsVM
+func IsVirtualMachine() Matcher {
+	return func(i Instance) bool {
+		return i.Config().IsVM()
+	}
+}
+
+// IsExternal matches instances that have a custom DefaultHostHeader defined
+func IsExternal() Matcher {
+	return func(i Instance) bool {
+		return i.Config().IsExternal()
+	}
+}
+
+// IsNaked matches instances that are Pods with a SidecarInject annotation equal to false.
+func IsNaked() Matcher {
+	return func(i Instance) bool {
+		return i.Config().IsNaked()
+	}
+}
+
+// IsHeadless matches instances that are backed by headless services.
+func IsHeadless() Matcher {
+	return func(i Instance) bool {
+		return i.Config().Headless
 	}
 }
 

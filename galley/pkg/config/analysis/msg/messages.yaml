@@ -397,8 +397,17 @@ messages:
       - name: gateways
         type: "[]string"
 
-  - name: "IngressRouteRulesNotAffected"
+  - name: "InvalidWebhook"
     code: IST0139
+    level: Error
+    description: "Webhook is invalid or references a control plane service that does not exist."
+    template: "%v"
+    args:
+      - name: error
+        type: string
+
+  - name: "IngressRouteRulesNotAffected"
+    code: IST0140
     level: Warning
     description: "Route rules have no effect on ingress gateway requests"
     template: "Subset in virtual service %s has no effect on ingress gateway %s requests"

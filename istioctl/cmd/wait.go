@@ -95,13 +95,13 @@ func waitCmd() *cobra.Command {
 			for {
 				// run the check here as soon as we start
 				// because tickers won't run immediately
-				present, notpresent, err := poll(generations, targetResource, opts)
+				present, notpresent, sdcnum, err := poll(cmd, generations, targetResource, opts)
 				printVerbosef(cmd, "Received poll result: %d/%d", present, present+notpresent)
 				if err != nil {
 					return err
 				} else if float32(present)/float32(present+notpresent) >= threshold {
-					_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Resource %s present on %d out of %d sidecars\n",
-						targetResource, present, present+notpresent)
+					_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Resource %s present on %d out of %d configurations for totally %d sidecars\n",
+						targetResource, present, present+notpresent, sdcnum)
 					return nil
 				}
 				select {
@@ -174,24 +174,30 @@ func countVersions(versionCount map[string]int, configVersion string) {
 	}
 }
 
-func poll(acceptedVersions []string, targetResource string, opts clioptions.ControlPlaneOptions) (present, notpresent int, err error) {
+func poll(cmd *cobra.Command,
+	acceptedVersions []string,
+	targetResource string,
+	opts clioptions.ControlPlaneOptions) (present, notpresent, sdcnum int, err error) {
 	kubeClient, err := kubeClientWithRevision(kubeconfig, configContext, opts.Revision)
 	if err != nil {
-		return 0, 0, err
+		return 0, 0, 0, err
 	}
 	path := fmt.Sprintf("/debug/config_distribution?resource=%s", targetResource)
 	pilotResponses, err := kubeClient.AllDiscoveryDo(context.TODO(), istioNamespace, path)
 	if err != nil {
-		return 0, 0, fmt.Errorf("unable to query pilot for distribution "+
+		return 0, 0, 0, fmt.Errorf("unable to query pilot for distribution "+
 			"(are you using pilot version >= 1.4 with config distribution tracking on): %s", err)
 	}
+	sdcnum = 0
 	versionCount := make(map[string]int)
 	for _, response := range pilotResponses {
 		var configVersions []xds.SyncedVersions
 		err = json.Unmarshal(response, &configVersions)
 		if err != nil {
-			return 0, 0, err
+			return 0, 0, 0, err
 		}
+		printVerbosef(cmd, "sync status: %v", configVersions)
+		sdcnum += len(configVersions)
 		for _, configVersion := range configVersions {
 			countVersions(versionCount, configVersion.ClusterVersion)
 			countVersions(versionCount, configVersion.RouteVersion)
@@ -206,7 +212,7 @@ func poll(acceptedVersions []string, targetResource string, opts clioptions.Cont
 			notpresent += count
 		}
 	}
-	return present, notpresent, nil
+	return present, notpresent, sdcnum, nil
 }
 
 func init() {

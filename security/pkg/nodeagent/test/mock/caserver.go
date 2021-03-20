@@ -46,7 +46,7 @@ type CAServer struct {
 
 	certPem       []byte
 	keyPem        []byte
-	KeyCertBundle util.KeyCertBundle
+	KeyCertBundle *util.KeyCertBundle
 	certLifetime  time.Duration
 
 	rejectCSR       bool

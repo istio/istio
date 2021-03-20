@@ -26,8 +26,7 @@ import (
 
 var nsSetupProg = "istio-iptables"
 
-type iptables struct {
-}
+type iptables struct{}
 
 func newIPTables() InterceptRuleMgr {
 	return &iptables{}

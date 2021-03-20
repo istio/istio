@@ -263,6 +263,7 @@ func ReconcileStatuses(current *config.Config, desired Progress, generation int6
 		currentStatus.ObservedGeneration = generation
 		return true, currentStatus
 	}
+	currentStatus = currentStatus.DeepCopy()
 	var currentCondition *v1alpha1.IstioCondition
 	conditionIndex := -1
 	for i, c := range currentStatus.Conditions {

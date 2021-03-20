@@ -159,7 +159,7 @@ func (h *LocalDNSServer) UpdateLookupTable(nt *nds.NameTable) {
 // ServerDNS is the implementation of DNS interface
 func (h *LocalDNSServer) ServeDNS(proxy *dnsProxy, w dns.ResponseWriter, req *dns.Msg) {
 	var response *dns.Msg
-	log := log.WithLabels("protocol", proxy.protocol)
+	log := log.WithLabels("protocol", proxy.protocol, "edns", req.IsEdns0() != nil)
 	if log.DebugEnabled() {
 		id := uuid.New()
 		log = log.WithLabels("id", id)
@@ -195,19 +195,96 @@ func (h *LocalDNSServer) ServeDNS(proxy *dnsProxy, w dns.ResponseWriter, req *dn
 	if hostFound {
 		response = new(dns.Msg)
 		response.SetReply(req)
+		// We are the authority here, since we control DNS for known hostnames
+		response.Authoritative = true
+		// Even if answers is empty, we still return NOERROR. This matches expected behavior of DNS
+		// servers. NXDOMAIN means we do not know *anything* about the domain; if we set it here then
+		// a client (ie curl, see https://github.com/istio/istio/issues/31250) sending parallel
+		// requests for A and AAAA may get NXDOMAIN for AAAA and treat the entire thing as a NXDOMAIN
 		response.Answer = answers
-		if len(answers) == 0 {
-			// we found the host in our pre-compiled list of known hosts but
-			// there was no valid record for this query type.
-			// so return NXDOMAIN
-			response.Rcode = dns.RcodeNameError
-		}
-	} else {
-		// We did not find the host in our internal cache. Query upstream and return the response as is.
-		response = h.queryUpstream(proxy.upstreamClient, req)
+		// Randomize the responses; this ensures for things like headless services we can do DNS-LB
+		// This matches standard kube-dns behavior. We only do this for cached responses as the
+		// upstream DNS server would already round robin if desired.
+		roundRobinResponse(response)
+		// Truncate response if its too big for the request. In practice, this will only happen with
+		// ~28 headless service replicas. When there are more than that clients need to use eDNS or
+		// TCP (almost every client does this transparently).
+		// In other cases, this is a NOP.
+		response.Truncate(size(proxy.protocol, req))
+		log.Debugf("response for hostname %q (found=true): %v", hostname, response)
+		_ = w.WriteMsg(response)
+		return
 	}
+	// We did not find the host in our internal cache. Query upstream and return the response as is.
+	response = h.queryUpstream(proxy.upstreamClient, req, log)
+	// Compress the response - we don't know if the incoming response was compressed or not. If it was,
+	// but we don't compress on the outbound, we will run into issues. For example, if the compressed
+	// size is 450 bytes but uncompressed 1000 bytes now we are outside of the non-eDNS UDP size limits
+	response.Truncate(size(proxy.protocol, req))
+	log.Debugf("response for hostname %q (found=false): %v", hostname, response)
 	_ = w.WriteMsg(response)
-	log.Debugf("response for hostname %q (found=%v): %v", hostname, hostFound, response)
+}
+
+// Inspired by https://github.com/coredns/coredns/blob/master/plugin/loadbalance/loadbalance.go
+func roundRobinResponse(res *dns.Msg) {
+	if res.Rcode != dns.RcodeSuccess {
+		return
+	}
+
+	if res.Question[0].Qtype == dns.TypeAXFR || res.Question[0].Qtype == dns.TypeIXFR {
+		return
+	}
+
+	res.Answer = roundRobin(res.Answer)
+	res.Ns = roundRobin(res.Ns)
+	res.Extra = roundRobin(res.Extra)
+}
+
+func roundRobin(in []dns.RR) []dns.RR {
+	cname := []dns.RR{}
+	address := []dns.RR{}
+	mx := []dns.RR{}
+	rest := []dns.RR{}
+	for _, r := range in {
+		switch r.Header().Rrtype {
+		case dns.TypeCNAME:
+			cname = append(cname, r)
+		case dns.TypeA, dns.TypeAAAA:
+			address = append(address, r)
+		case dns.TypeMX:
+			mx = append(mx, r)
+		default:
+			rest = append(rest, r)
+		}
+	}
+
+	roundRobinShuffle(address)
+	roundRobinShuffle(mx)
+
+	out := append(cname, rest...)
+	out = append(out, address...)
+	out = append(out, mx...)
+	return out
+}
+
+func roundRobinShuffle(records []dns.RR) {
+	switch l := len(records); l {
+	case 0, 1:
+		break
+	case 2:
+		if dns.Id()%2 == 0 {
+			records[0], records[1] = records[1], records[0]
+		}
+	default:
+		for j := 0; j < l*(int(dns.Id())%4+1); j++ {
+			q := int(dns.Id()) % l
+			p := int(dns.Id()) % l
+			if q == p {
+				p = (p + 1) % l
+			}
+			records[q], records[p] = records[p], records[q]
+		}
+	}
 }
 
 func (h *LocalDNSServer) Close() {
@@ -216,13 +293,15 @@ func (h *LocalDNSServer) Close() {
 }
 
 // TODO: Figure out how to send parallel queries to all nameservers
-func (h *LocalDNSServer) queryUpstream(upstreamClient *dns.Client, req *dns.Msg) *dns.Msg {
+func (h *LocalDNSServer) queryUpstream(upstreamClient *dns.Client, req *dns.Msg, scope *istiolog.Scope) *dns.Msg {
 	var response *dns.Msg
 	for _, upstream := range h.resolvConfServers {
 		cResponse, _, err := upstreamClient.Exchange(req, upstream)
 		if err == nil {
 			response = cResponse
 			break
+		} else {
+			scope.Infof("upstream failure: %v", err)
 		}
 	}
 	if response == nil {
@@ -395,4 +474,28 @@ func cname(host string, targetHost string) []dns.RR {
 	}
 	answer.Target = targetHost
 	return []dns.RR{answer}
+}
+
+// Size returns if buffer size *advertised* in the requests OPT record.
+// Or when the request was over TCP, we return the maximum allowed size of 64K.
+func size(proto string, r *dns.Msg) int {
+	size := uint16(0)
+	if o := r.IsEdns0(); o != nil {
+		size = o.UDPSize()
+	}
+
+	// normalize size
+	size = ednsSize(proto, size)
+	return int(size)
+}
+
+// ednsSize returns a normalized size based on proto.
+func ednsSize(proto string, size uint16) uint16 {
+	if proto == "tcp" {
+		return dns.MaxMsgSize
+	}
+	if size < dns.MinMsgSize {
+		return dns.MinMsgSize
+	}
+	return size
 }

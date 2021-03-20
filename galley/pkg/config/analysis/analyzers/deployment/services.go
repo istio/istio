@@ -127,8 +127,8 @@ func (s *ServiceAssociationAnalyzer) analyzeDeploymentTargetPorts(r *resource.In
 	for targetPort, portServices := range tpm {
 		if len(portServices) > 1 {
 			// Collect names from both protocols
-			svcNames := make(ServiceNames, 0)
-			ports := make([]int32, 0)
+			svcNames := make(ServiceNames, 0, len(portServices))
+			ports := make([]int32, 0, len(portServices))
 			for p, s := range portServices {
 				svcNames = append(svcNames, s)
 				ports = append(ports, p)

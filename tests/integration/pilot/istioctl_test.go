@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
+	"path/filepath"
 	"regexp"
 	"strings"
 	"testing"
@@ -30,6 +31,7 @@ import (
 	"github.com/golang/protobuf/jsonpb"
 	"github.com/onsi/gomega"
 
+	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/echo/echoboot"
@@ -64,12 +66,12 @@ Next Step: Add related labels to the deployment to align with Istio's requiremen
 func TestWait(t *testing.T) {
 	framework.NewTest(t).Features("usability.observability.wait").
 		RequiresSingleCluster().
-		Run(func(ctx framework.TestContext) {
-			ns := namespace.NewOrFail(t, ctx, namespace.Config{
+		Run(func(t framework.TestContext) {
+			ns := namespace.NewOrFail(t, t, namespace.Config{
 				Prefix: "default",
 				Inject: true,
 			})
-			ctx.Config().ApplyYAMLOrFail(t, ns.Name(), `
+			t.Config().ApplyYAMLOrFail(t, ns.Name(), `
 apiVersion: networking.istio.io/v1alpha3
 kind: VirtualService
 metadata:
@@ -83,7 +85,7 @@ spec:
     - destination: 
         host: reviews
 `)
-			istioCtl := istioctl.NewOrFail(ctx, ctx, istioctl.Config{Cluster: ctx.Environment().Clusters()[0]})
+			istioCtl := istioctl.NewOrFail(t, t, istioctl.Config{Cluster: t.Environment().Clusters()[0]})
 			istioCtl.InvokeOrFail(t, []string{"x", "wait", "-v", "VirtualService", "reviews." + ns.Name()})
 		})
 }
@@ -94,10 +96,10 @@ func TestVersion(t *testing.T) {
 	framework.
 		NewTest(t).Features("usability.observability.version").
 		RequiresSingleCluster().
-		Run(func(ctx framework.TestContext) {
+		Run(func(t framework.TestContext) {
 			cfg := i.Settings()
 
-			istioCtl := istioctl.NewOrFail(ctx, ctx, istioctl.Config{Cluster: ctx.Environment().Clusters()[0]})
+			istioCtl := istioctl.NewOrFail(t, t, istioctl.Config{Cluster: t.Environment().Clusters()[0]})
 			args := []string{"version", "--remote=true", fmt.Sprintf("--istioNamespace=%s", cfg.SystemNamespace)}
 
 			output, _ := istioCtl.InvokeOrFail(t, args)
@@ -108,23 +110,23 @@ func TestVersion(t *testing.T) {
 				return
 			}
 
-			ctx.Fatalf("Did not find control plane version: %v", output)
+			t.Fatalf("Did not find control plane version: %v", output)
 		})
 }
 
 func TestDescribe(t *testing.T) {
 	framework.NewTest(t).Features("usability.observability.describe").
 		RequiresSingleCluster().
-		Run(func(ctx framework.TestContext) {
+		Run(func(t framework.TestContext) {
 			deployment := file.AsStringOrFail(t, "testdata/a.yaml")
-			ctx.Config().ApplyYAMLOrFail(ctx, apps.Namespace.Name(), deployment)
+			t.Config().ApplyYAMLOrFail(t, apps.Namespace.Name(), deployment)
 
-			istioCtl := istioctl.NewOrFail(ctx, ctx, istioctl.Config{})
+			istioCtl := istioctl.NewOrFail(t, t, istioctl.Config{})
 
 			// When this test passed the namespace through --namespace it was flakey
 			// because istioctl uses a global variable for namespace, and this test may
 			// run in parallel.
-			retry.UntilSuccessOrFail(ctx, func() error {
+			retry.UntilSuccessOrFail(t, func() error {
 				args := []string{
 					"--namespace=dummy",
 					"x", "describe", "svc", fmt.Sprintf("%s.%s", common.PodASvc, apps.Namespace.Name()),
@@ -139,7 +141,7 @@ func TestDescribe(t *testing.T) {
 				return nil
 			}, retry.Timeout(time.Second*5))
 
-			retry.UntilSuccessOrFail(ctx, func() error {
+			retry.UntilSuccessOrFail(t, func() error {
 				podID, err := getPodID(apps.PodA[0])
 				if err != nil {
 					return fmt.Errorf("could not get Pod ID: %v", err)
@@ -178,18 +180,18 @@ func getPodID(i echo.Instance) (string, error) {
 func TestAddToAndRemoveFromMesh(t *testing.T) {
 	framework.NewTest(t).Features("usability.helpers.add-to-mesh", "usability.helpers.remove-from-mesh").
 		RequiresSingleCluster().
-		RunParallel(func(ctx framework.TestContext) {
-			ns := namespace.NewOrFail(t, ctx, namespace.Config{
+		RunParallel(func(t framework.TestContext) {
+			ns := namespace.NewOrFail(t, t, namespace.Config{
 				Prefix: "istioctl-add-to-mesh",
 				Inject: true,
 			})
 
 			var a echo.Instance
-			echoboot.NewBuilder(ctx).
+			echoboot.NewBuilder(t).
 				With(&a, echoConfig(ns, "a")).
-				BuildOrFail(ctx)
+				BuildOrFail(t)
 
-			istioCtl := istioctl.NewOrFail(ctx, ctx, istioctl.Config{Cluster: ctx.Environment().Clusters()[0]})
+			istioCtl := istioctl.NewOrFail(t, t, istioctl.Config{Cluster: t.Environment().Clusters()[0]})
 
 			var output string
 			var args []string
@@ -205,7 +207,7 @@ func TestAddToAndRemoveFromMesh(t *testing.T) {
 
 			retry.UntilSuccessOrFail(t, func() error {
 				// Wait until the new pod is ready
-				fetch := kubetest.NewPodMustFetch(ctx.Clusters().Default(), ns.Name(), "app=a")
+				fetch := kubetest.NewPodMustFetch(t.Clusters().Default(), ns.Name(), "app=a")
 				pods, err := kubetest.WaitUntilPodsAreReady(fetch)
 				if err != nil {
 					return err
@@ -232,12 +234,12 @@ func TestAddToAndRemoveFromMesh(t *testing.T) {
 func TestProxyConfig(t *testing.T) {
 	framework.NewTest(t).Features("usability.observability.proxy-config").
 		RequiresSingleCluster().
-		Run(func(ctx framework.TestContext) {
-			istioCtl := istioctl.NewOrFail(ctx, ctx, istioctl.Config{})
+		Run(func(t framework.TestContext) {
+			istioCtl := istioctl.NewOrFail(t, t, istioctl.Config{})
 
 			podID, err := getPodID(apps.PodA[0])
 			if err != nil {
-				ctx.Fatalf("Could not get Pod ID: %v", err)
+				t.Fatalf("Could not get Pod ID: %v", err)
 			}
 
 			var output string
@@ -307,7 +309,7 @@ func TestProxyConfig(t *testing.T) {
 		})
 }
 
-func jsonUnmarshallOrFail(t *testing.T, context, s string) interface{} {
+func jsonUnmarshallOrFail(t test.Failer, context, s string) interface{} {
 	t.Helper()
 	var val interface{}
 
@@ -321,12 +323,12 @@ func jsonUnmarshallOrFail(t *testing.T, context, s string) interface{} {
 func TestProxyStatus(t *testing.T) {
 	framework.NewTest(t).Features("usability.observability.proxy-status").
 		RequiresSingleCluster().
-		Run(func(ctx framework.TestContext) {
-			istioCtl := istioctl.NewOrFail(ctx, ctx, istioctl.Config{})
+		Run(func(t framework.TestContext) {
+			istioCtl := istioctl.NewOrFail(t, t, istioctl.Config{})
 
 			podID, err := getPodID(apps.PodA[0])
 			if err != nil {
-				ctx.Fatalf("Could not get Pod ID: %v", err)
+				t.Fatalf("Could not get Pod ID: %v", err)
 			}
 
 			var output string
@@ -358,8 +360,9 @@ func TestProxyStatus(t *testing.T) {
 
 			// test the --file param
 			retry.UntilSuccessOrFail(t, func() error {
-				filename := "ps-configdump.json"
-				cs := ctx.Clusters().Default()
+				d := t.TempDir()
+				filename := filepath.Join(d, "ps-configdump.json")
+				cs := t.Clusters().Default()
 				dump, err := cs.EnvoyDo(context.TODO(), podID, apps.Namespace.Name(), "GET", "config_dump", nil)
 				g.Expect(err).ShouldNot(gomega.HaveOccurred())
 				err = ioutil.WriteFile(filename, dump, os.ModePerm)
@@ -376,19 +379,19 @@ func TestProxyStatus(t *testing.T) {
 func TestAuthZCheck(t *testing.T) {
 	framework.NewTest(t).Features("usability.observability.authz-check").
 		RequiresSingleCluster().
-		Run(func(ctx framework.TestContext) {
+		Run(func(t framework.TestContext) {
 			appPolicy := file.AsStringOrFail(t, "testdata/authz-a.yaml")
 			gwPolicy := file.AsStringOrFail(t, "testdata/authz-b.yaml")
-			ctx.Config().ApplyYAMLOrFail(ctx, apps.Namespace.Name(), appPolicy)
-			ctx.Config().ApplyYAMLOrFail(ctx, i.Settings().SystemNamespace, gwPolicy)
+			t.Config().ApplyYAMLOrFail(t, apps.Namespace.Name(), appPolicy)
+			t.Config().ApplyYAMLOrFail(t, i.Settings().SystemNamespace, gwPolicy)
 
-			gwPod, err := i.IngressFor(ctx.Clusters().Default()).PodID(0)
+			gwPod, err := i.IngressFor(t.Clusters().Default()).PodID(0)
 			if err != nil {
-				ctx.Fatalf("Could not get Pod ID: %v", err)
+				t.Fatalf("Could not get Pod ID: %v", err)
 			}
 			appPod, err := getPodID(apps.PodA[0])
 			if err != nil {
-				ctx.Fatalf("Could not get Pod ID: %v", err)
+				t.Fatalf("Could not get Pod ID: %v", err)
 			}
 
 			cases := []struct {
@@ -415,12 +418,12 @@ func TestAuthZCheck(t *testing.T) {
 				},
 			}
 
-			istioCtl := istioctl.NewOrFail(ctx, ctx, istioctl.Config{Cluster: ctx.Environment().Clusters()[0]})
+			istioCtl := istioctl.NewOrFail(t, t, istioctl.Config{Cluster: t.Environment().Clusters()[0]})
 			for _, c := range cases {
 				args := []string{"experimental", "authz", "check", c.pod}
-				ctx.NewSubTest(c.name).Run(func(ctx framework.TestContext) {
+				t.NewSubTest(c.name).Run(func(t framework.TestContext) {
 					// Verify the output matches the expected text, which is the policies loaded above.
-					retry.UntilSuccessOrFail(ctx, func() error {
+					retry.UntilSuccessOrFail(t, func() error {
 						output, _ := istioCtl.InvokeOrFail(t, args)
 						for _, want := range c.wants {
 							if !want.MatchString(output) {

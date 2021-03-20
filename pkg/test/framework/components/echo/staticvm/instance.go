@@ -129,12 +129,12 @@ func (i *instance) WorkloadsOrFail(t test.Failer) []echo.Workload {
 	return w
 }
 
-func (i *instance) defaultWorkload() *workload {
-	return i.workloads[0].(*workload)
+func (i *instance) defaultClient() (*client.Instance, error) {
+	return i.workloads[0].(*workload).Instance, nil
 }
 
 func (i *instance) Call(opts echo.CallOptions) (client.ParsedResponses, error) {
-	return common.ForwardEcho(i.Config().Service, i.defaultWorkload().Instance, &opts, false)
+	return common.ForwardEcho(i.Config().Service, i.defaultClient, &opts, false)
 }
 
 func (i *instance) CallOrFail(t test.Failer, opts echo.CallOptions) client.ParsedResponses {
@@ -147,7 +147,7 @@ func (i *instance) CallOrFail(t test.Failer, opts echo.CallOptions) client.Parse
 }
 
 func (i *instance) CallWithRetry(opts echo.CallOptions, retryOptions ...retry.Option) (client.ParsedResponses, error) {
-	return common.ForwardEcho(i.Config().Service, i.defaultWorkload().Instance, &opts, true, retryOptions...)
+	return common.ForwardEcho(i.Config().Service, i.defaultClient, &opts, true, retryOptions...)
 }
 
 func (i *instance) CallWithRetryOrFail(t test.Failer, opts echo.CallOptions, retryOptions ...retry.Option) client.ParsedResponses {

@@ -149,9 +149,13 @@ var (
 	// Description: Duplicate certificate in multiple gateways may cause 404s if clients re-use HTTP2 connections.
 	GatewayDuplicateCertificate = diag.NewMessageType(diag.Warning, "IST0138", "Duplicate certificate in multiple gateways %v may cause 404s if clients re-use HTTP2 connections.")
 
+	// InvalidWebhook defines a diag.MessageType for message "InvalidWebhook".
+	// Description: Webhook is invalid or references a control plane service that does not exist.
+	InvalidWebhook = diag.NewMessageType(diag.Error, "IST0139", "%v")
+
 	// IngressRouteRulesNotAffected defines a diag.MessageType for message "IngressRouteRulesNotAffected".
 	// Description: Route rules have no effect on ingress gateway requests
-	IngressRouteRulesNotAffected = diag.NewMessageType(diag.Warning, "IST0139", "Subset in virtual service %s has no effect on ingress gateway %s requests")
+	IngressRouteRulesNotAffected = diag.NewMessageType(diag.Warning, "IST0140", "Subset in virtual service %s has no effect on ingress gateway %s requests")
 )
 
 // All returns a list of all known message types.
@@ -192,6 +196,7 @@ func All() []*diag.MessageType {
 		AlphaAnnotation,
 		DeploymentConflictingPorts,
 		GatewayDuplicateCertificate,
+		InvalidWebhook,
 		IngressRouteRulesNotAffected,
 	}
 }
@@ -546,6 +551,15 @@ func NewGatewayDuplicateCertificate(r *resource.Instance, gateways []string) dia
 		GatewayDuplicateCertificate,
 		r,
 		gateways,
+	)
+}
+
+// NewInvalidWebhook returns a new diag.Message based on InvalidWebhook.
+func NewInvalidWebhook(r *resource.Instance, error string) diag.Message {
+	return diag.NewMessage(
+		InvalidWebhook,
+		r,
+		error,
 	)
 }
 

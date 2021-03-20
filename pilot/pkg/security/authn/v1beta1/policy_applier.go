@@ -15,7 +15,6 @@
 package v1beta1
 
 import (
-	"encoding/base64"
 	"fmt"
 	"net/url"
 	"sort"
@@ -100,6 +99,12 @@ func (a *v1beta1PolicyApplier) setAuthnFilterForPeerAuthn(proxyType model.NodeTy
 	var effectiveMTLSMode model.MutualTLSMode
 	if proxyType == model.SidecarProxy {
 		effectiveMTLSMode = a.getMutualTLSModeForPort(port)
+
+		// Skip authn filter peer config when mtls is disabled.
+		if effectiveMTLSMode == model.MTLSDisable {
+			authnLog.Debugf("AuthnFilter: skip setting peer authn when mtls is disabled")
+			return nil
+		}
 	} else {
 		// this is for gateway with a server whose TLS mode is ISTIO_MUTUAL
 		// this is effectively the same as strict mode. We dont really
@@ -223,12 +228,6 @@ func NewPolicyApplier(rootNamespace string,
 	}
 }
 
-func createFakeJwks(jwksURI string) string {
-	// Encode jwksURI with base64 to make dynamic n in jwks
-	encodedString := base64.RawURLEncoding.EncodeToString([]byte(jwksURI))
-	return fmt.Sprintf(`{"keys":[ {"e":"AQAB","kid":"abc","kty":"RSA","n":"Error-IstiodFailedToFetchJwksUri-%s"}]}`, encodedString)
-}
-
 // convertToEnvoyJwtConfig converts a list of JWT rules into Envoy JWT filter config to enforce it.
 // Each rule is expected corresponding to one JWT issuer (provider).
 // The behavior of the filter should reject all requests with invalid token. On the other hand,
@@ -299,11 +298,11 @@ func convertToEnvoyJwtConfig(jwtRules []*v1beta1.JWTRule, push *model.PushContex
 					},
 				}
 			} else {
-				provider.JwksSourceSpecifier = buildLocalJwks(jwtRule.JwksUri, "")
+				provider.JwksSourceSpecifier = push.JwtKeyResolver.BuildLocalJwks(jwtRule.JwksUri, jwtRule.Issuer, "")
 			}
 		} else {
 			// Use inline jwks as existing flow, either jwtRule.jwks is non empty or let istiod to fetch the jwtRule.jwksUri
-			provider.JwksSourceSpecifier = buildLocalJwks(jwtRule.JwksUri, jwtRule.Jwks)
+			provider.JwksSourceSpecifier = push.JwtKeyResolver.BuildLocalJwks(jwtRule.JwksUri, jwtRule.Issuer, jwtRule.Jwks)
 		}
 
 		name := fmt.Sprintf("origins-%d", i)
@@ -388,38 +387,11 @@ func convertToEnvoyJwtConfig(jwtRules []*v1beta1.JWTRule, push *model.PushContex
 	}
 }
 
-// buildLocalJwks builds local Jwks by fetching the Jwt Public Key from the URL passed if it is empty.
-func buildLocalJwks(jwksURI, jwtPubKey string) *envoy_jwt.JwtProvider_LocalJwks {
-	if jwtPubKey == "" {
-		var err error
-		jwtPubKey, err = model.GetJwtKeyResolver().GetPublicKey(jwksURI)
-		if err != nil {
-			log.Errorf("Failed to fetch jwt public key from %q: %s", jwksURI, err)
-			// This is a temporary workaround to reject a request with JWT token by using a fake jwks when istiod failed to fetch it.
-			// TODO(xulingqing): Find a better way to reject the request without using the fake jwks.
-			jwtPubKey = createFakeJwks(jwksURI)
-		}
-	}
-	return &envoy_jwt.JwtProvider_LocalJwks{
-		LocalJwks: &core.DataSource{
-			Specifier: &core.DataSource_InlineString{
-				InlineString: jwtPubKey,
-			},
-		},
-	}
-}
-
 func (a *v1beta1PolicyApplier) PortLevelSetting() map[uint32]*v1beta1.PeerAuthentication_MutualTLS {
-	if a.consolidatedPeerPolicy != nil {
-		return a.consolidatedPeerPolicy.PortLevelMtls
-	}
-	return nil
+	return a.consolidatedPeerPolicy.PortLevelMtls
 }
 
 func (a *v1beta1PolicyApplier) getMutualTLSModeForPort(endpointPort uint32) model.MutualTLSMode {
-	if a.consolidatedPeerPolicy == nil {
-		return model.MTLSPermissive
-	}
 	if a.consolidatedPeerPolicy.PortLevelMtls != nil {
 		if portMtls, ok := a.consolidatedPeerPolicy.PortLevelMtls[endpointPort]; ok {
 			return getMutualTLSMode(portMtls)
@@ -448,8 +420,7 @@ func getMutualTLSMode(mtls *v1beta1.PeerAuthentication_MutualTLS) model.MutualTL
 // configs. This list should contains at most 1 mesh-level and 1 namespace-level configs.
 // Workload-level configs should not be in root namespace (this should be guaranteed by the caller,
 // though they will be safely ignored in this function). If the input config list is empty, returns
-// nil which can be used to indicate no applicable (beta) policy exist in order to trigger fallback
-// to alpha policy. This can be simplified once we deprecate alpha policy.
+// a default policy set to a PERMISSIVE.
 // If there is at least one applicable config, returns should be not nil, and is a combined policy
 // based on following rules:
 // - It should have the setting from the most narrow scope (i.e workload-level is  preferred over
@@ -461,6 +432,13 @@ func getMutualTLSMode(mtls *v1beta1.PeerAuthentication_MutualTLS) model.MutualTL
 // one in namespace-level and so on.
 func composePeerAuthentication(rootNamespace string, configs []*config.Config) *v1beta1.PeerAuthentication {
 	var meshCfg, namespaceCfg, workloadCfg *config.Config
+
+	// Initial outputPolicy is set to a PERMISSIVE.
+	outputPolicy := v1beta1.PeerAuthentication{
+		Mtls: &v1beta1.PeerAuthentication_MutualTLS{
+			Mode: v1beta1.PeerAuthentication_MutualTLS_PERMISSIVE,
+		},
+	}
 
 	for _, cfg := range configs {
 		spec := cfg.Spec.(*v1beta1.PeerAuthentication)
@@ -484,19 +462,6 @@ func composePeerAuthentication(rootNamespace string, configs []*config.Config) *
 				workloadCfg = cfg
 			}
 		}
-	}
-
-	if meshCfg == nil && namespaceCfg == nil && workloadCfg == nil {
-		// Return nil so that caller can fallback to apply alpha policy. Once we deprecate alpha API,
-		// this special case can be removed.
-		return nil
-	}
-
-	// Initial outputPolicy is set to a PERMISSIVE.
-	outputPolicy := v1beta1.PeerAuthentication{
-		Mtls: &v1beta1.PeerAuthentication_MutualTLS{
-			Mode: v1beta1.PeerAuthentication_MutualTLS_PERMISSIVE,
-		},
 	}
 
 	// Process in mesh, namespace, workload order to resolve inheritance (UNSET)

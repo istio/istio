@@ -54,7 +54,7 @@ func newMockTaintSetterController(ts *Setter,
 		tempcontroller := buildPodController(c, config, podSource)
 		c.podController = append(c.podController, tempcontroller)
 	}
-	c.nodeStore, c.nodeController = buildNodeControler(c, nodeSource)
+	c.nodeStore, c.nodeController = buildNodeController(c, nodeSource)
 	return c, sourcer
 }
 

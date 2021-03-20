@@ -24,7 +24,6 @@ import (
 	"strings"
 	"time"
 
-	envoyAdmin "github.com/envoyproxy/go-control-plane/envoy/admin/v3"
 	"github.com/gogo/protobuf/types"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
@@ -44,7 +43,7 @@ type envoy struct {
 }
 
 type ProxyConfig struct {
-	Config              meshconfig.ProxyConfig
+	Config              *meshconfig.ProxyConfig
 	Node                string
 	LogLevel            string
 	ComponentLogLevel   string
@@ -76,23 +75,6 @@ func NewProxy(cfg ProxyConfig) Proxy {
 	}
 }
 
-func (e *envoy) IsLive() bool {
-	adminPort := uint32(e.Config.ProxyAdminPort)
-	info, err := GetServerInfo(adminPort)
-	if err != nil {
-		log.Infof("failed retrieving server from Envoy on port %d: %v", adminPort, err)
-		return false
-	}
-
-	if info.State == envoyAdmin.ServerInfo_LIVE {
-		// It's live.
-		return true
-	}
-
-	log.Infof("envoy server not yet live, state: %s", info.State.String())
-	return false
-}
-
 func (e *envoy) Drain() error {
 	adminPort := uint32(e.Config.ProxyAdminPort)
 
@@ -112,16 +94,18 @@ func (e *envoy) args(fname string, epoch int, bootstrapConfig string) []string {
 		"-c", fname,
 		"--restart-epoch", fmt.Sprint(epoch),
 		"--drain-time-s", fmt.Sprint(int(convertDuration(e.Config.DrainDuration) / time.Second)),
+		"--drain-strategy", "immediate", // Clients are notified as soon as the drain process starts.
 		"--parent-shutdown-time-s", fmt.Sprint(int(convertDuration(e.Config.ParentShutdownDuration) / time.Second)),
 		"--service-cluster", e.Config.ServiceCluster,
 		"--service-node", e.Node,
 		"--local-address-ip-version", proxyLocalAddressType,
 		"--bootstrap-version", "3",
+		"--disable-hot-restart", // We don't use it, so disable it to simplify Envoy's logic
 	}
 	if e.ProxyConfig.LogAsJSON {
 		startupArgs = append(startupArgs,
 			"--log-format",
-			`{"level":"%l","time":"%Y-%m-%dT%T.%fZ","scope":"envoy %n","msg":"%_"}`,
+			`{"level":"%l","time":"%Y-%m-%dT%T.%fZ","scope":"envoy %n","msg":"%j"}`,
 		)
 	} else {
 		// format is like `2020-04-07T16:52:30.471425Z     info    envoy config   ...message..
@@ -149,7 +133,7 @@ func (e *envoy) args(fname string, epoch int, bootstrapConfig string) []string {
 
 var istioBootstrapOverrideVar = env.RegisterStringVar("ISTIO_BOOTSTRAP_OVERRIDE", "", "")
 
-func (e *envoy) Run(config interface{}, epoch int, abort <-chan error) error {
+func (e *envoy) Run(epoch int, abort <-chan error) error {
 	var fname string
 	// Note: the cert checking still works, the generated file is updated if certs are changed.
 	// We just don't save the generated file, but use a custom one instead. Pilot will keep
@@ -161,7 +145,7 @@ func (e *envoy) Run(config interface{}, epoch int, abort <-chan error) error {
 		discHost := strings.Split(e.Config.DiscoveryAddress, ":")[0]
 		out, err := bootstrap.New(bootstrap.Config{
 			Node:                e.Node,
-			Proxy:               &e.Config,
+			Proxy:               e.Config,
 			PilotSubjectAltName: e.PilotSubjectAltName,
 			LocalEnv:            os.Environ(),
 			NodeIPs:             e.NodeIPs,
