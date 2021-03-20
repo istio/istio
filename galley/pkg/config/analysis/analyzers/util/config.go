@@ -15,7 +15,6 @@
 package util
 
 import (
-	"istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/resource"
 )
@@ -38,7 +37,7 @@ var (
 
 // IsSystemNamespace returns true for system namespaces
 func IsSystemNamespace(ns resource.Namespace) bool {
-	return IsIncluded(SystemNamespaces, ns.String()) || ns.String() == controller.IstioNamespace
+	return IsIncluded(SystemNamespaces, ns.String())
 }
 
 // IsIstioControlPlane returns true for resources that are part of the Istio control plane
