@@ -97,9 +97,11 @@ func patchMeshConfig(t framework.TestContext, clusters cluster.Clusters, patch s
 				return fmt.Errorf("mesh config was missing in istio config map for %s", c.Name())
 			}
 			mc := &meshconfig.MeshConfig{}
+			scopes.Framework.Infof("%s mesh:\n%s", c.Name(), mcYaml)
 			if err := gogoprotomarshal.ApplyYAML(mcYaml, mc); err != nil {
 				return err
 			}
+			scopes.Framework.Infof("patch:\n%s", patch)
 			if err := gogoprotomarshal.ApplyYAML(patch, mc); err != nil {
 				return err
 			}
