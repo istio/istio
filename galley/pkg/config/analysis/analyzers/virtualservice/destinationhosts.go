@@ -53,11 +53,68 @@ func (a *DestinationHostAnalyzer) Metadata() analysis.Metadata {
 func (a *DestinationHostAnalyzer) Analyze(ctx analysis.Context) {
 	// Precompute the set of service entry hosts that exist (there can be more than one defined per ServiceEntry CRD)
 	serviceEntryHosts := util.InitServiceEntryHostMap(ctx)
+	virtualServiceDestinations := initVirtualServiceDestinations(ctx)
 
 	ctx.ForEach(collections.IstioNetworkingV1Alpha3Virtualservices.Name(), func(r *resource.Instance) bool {
 		a.analyzeVirtualService(r, ctx, serviceEntryHosts)
+		a.analyzeSubset(r, ctx, virtualServiceDestinations)
 		return true
 	})
+}
+
+func (a *DestinationHostAnalyzer) analyzeSubset(r *resource.Instance, ctx analysis.Context, vsDestinations map[resource.FullName][]*v1alpha3.Destination) {
+	vs := r.Message.(*v1alpha3.VirtualService)
+
+	// if there's no gateway specified, we're done
+	if len(vs.Gateways) == 0 {
+		return
+	}
+
+	for ruleIndex, http := range vs.Http {
+		for routeIndex, route := range http.Route {
+			if route.Destination.Subset == "" {
+				for virtualservice, destinations := range vsDestinations {
+					for _, destination := range destinations {
+						if destination.Host == route.Destination.Host {
+							m := msg.NewIngressRouteRulesNotAffected(r, virtualservice.String(), r.Metadata.FullName.String())
+
+							key := fmt.Sprintf(util.DestinationHost, http.Name, ruleIndex, routeIndex)
+							if line, ok := util.ErrorLine(r, key); ok {
+								m.Line = line
+							}
+
+							ctx.Report(collections.IstioNetworkingV1Alpha3Virtualservices.Name(), m)
+						}
+					}
+				}
+			}
+		}
+	}
+}
+
+// get all virtualservice that have destination with subset
+func initVirtualServiceDestinations(ctx analysis.Context) map[resource.FullName][]*v1alpha3.Destination {
+	virtualservices := make(map[resource.FullName][]*v1alpha3.Destination)
+
+	ctx.ForEach(collections.IstioNetworkingV1Alpha3Virtualservices.Name(), func(r *resource.Instance) bool {
+		virtualservice := r.Message.(*v1alpha3.VirtualService)
+		for _, routes := range virtualservice.Http {
+			for _, destinations := range routes.Route {
+				// if there's no subset specified, we're done
+				if destinations.Destination.Subset != "" {
+					for _, host := range virtualservice.Hosts {
+						if destinations.Destination.Host == host {
+							virtualservices[r.Metadata.FullName] = append(virtualservices[r.Metadata.FullName], destinations.Destination)
+						}
+					}
+				}
+			}
+		}
+
+		return true
+	})
+
+	return virtualservices
 }
 
 func (a *DestinationHostAnalyzer) analyzeVirtualService(r *resource.Instance, ctx analysis.Context,
