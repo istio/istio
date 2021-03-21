@@ -33,6 +33,7 @@ pilot:
   enableProtocolSniffingForInbound: true
 
   nodeSelector: {}
+  tolerations: []
   podAnnotations: {}
 
   # You can use jwksResolverExtraRootCA to provide a root certificate

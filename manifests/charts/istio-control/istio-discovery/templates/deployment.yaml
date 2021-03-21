@@ -214,4 +214,12 @@ spec:
         configMap:
           name: pilot-jwks-extra-cacerts{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}
   {{- end }}
+  {{- if .Values.pilot.nodeSelector }}
+      nodeSelector:
+{{ toYaml .Values.pilot.nodeSelector | indent 8 }}
+  {{- end }}
+  {{- if .Values.pilot.tolerations }}
+      tolerations:
+{{ toYaml .Values.pilot.tolerations | indent 8 }}
+  {{- end }}
 ---
