@@ -1,2 +1,2 @@
-NAME       CDS       LDS        EDS       RDS        ISTIOD      VERSION
-proxy2     STALE     SYNCED     STALE     SYNCED     istiod2     1.1*
+NAME       CDS       LDS        EDS       RDS        NDS          ECDS         ISTIOD      VERSION
+proxy2     STALE     SYNCED     STALE     SYNCED     NOT SENT     NOT SENT     istiod2     1.1*
