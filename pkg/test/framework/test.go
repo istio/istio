@@ -227,13 +227,16 @@ func (t *testImpl) doRun(ctx *testContext, fn func(ctx TestContext), parallel bo
 
 	t.ctx = ctx
 
-	if t.requiredMinClusters > 0 && len(t.s.Environment().Clusters()) < t.requiredMinClusters {
+	// we check kube for min clusters, these assume we're talking about real multicluster.
+	// it's possible to have 1 kube cluster then 1 non-kube cluster (vm for example)
+	if t.requiredMinClusters > 0 && len(t.s.Environment().Clusters().Kube()) < t.requiredMinClusters {
 		ctx.Done()
 		t.goTest.Skipf("Skipping %q: number of clusters %d is below required min %d",
 			t.goTest.Name(), len(t.s.Environment().Clusters()), t.requiredMinClusters)
 		return
 	}
 
+	// max clusters doesn't check kube only, the test may be written in a way that doesn't loop over all of Clusters()
 	if t.requiredMaxClusters > 0 && len(t.s.Environment().Clusters()) > t.requiredMaxClusters {
 		ctx.Done()
 		t.goTest.Skipf("Skipping %q: number of clusters %d is above required max %d",
