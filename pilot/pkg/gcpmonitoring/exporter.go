@@ -91,9 +91,7 @@ func NewASMExporter(pe *ocprom.Exporter) (*ASMExporter, error) {
 	labels := &stackdriver.Labels{}
 	gcpMetadata := platform.NewGCP().Metadata()
 	if meshUID == "" {
-		if pid, ok := gcpMetadata[platform.GCPProjectNumber]; ok && pid != "" {
-			meshUID = "proj-" + pid
-		}
+		meshUID = meshUIDFromPlatformMeta(gcpMetadata)
 	}
 	labels.Set("mesh_uid", meshUID, "ID for Mesh")
 	labels.Set("revision", version.Info.Version, "Control plane revision")

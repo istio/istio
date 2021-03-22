@@ -112,6 +112,11 @@ func (s *Server) initMonitor(addr string) error { // nolint: unparam
 		if s.environment.Mesh().DefaultConfig != nil {
 			gcpmonitoring.SetMeshUID(s.environment.Mesh().DefaultConfig.MeshId)
 		}
+		loggingOpts := gcpmonitoring.ASMLogOptions()
+		if err := log.Configure(loggingOpts); err != nil {
+			log.Warnf("Logging not configured: %v", err)
+			return err
+		}
 		monitor, err := startMonitor(addr, s.monitoringMux)
 		if err != nil {
 			return err

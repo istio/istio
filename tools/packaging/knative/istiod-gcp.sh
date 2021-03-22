@@ -239,6 +239,11 @@ export ENABLE_STACKDRIVER_MONITORING="${ENABLE_STACKDRIVER_MONITORING:-1}"
 
 export ASM_NODE_ON_FIRST_WORKAROUND=1
 export ENABLE_AUTH_DEBUG=1
+
+# When install_asm is updated to provide logging.writer perms to the tenant SA,
+# uncomment this line to get logs in customer project
+# export TEE_LOGS_TO_STACKDRIVER=true
+
 env
 
 # shellcheck disable=SC2068
