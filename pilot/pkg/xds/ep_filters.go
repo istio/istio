@@ -143,9 +143,12 @@ func (b *EndpointBuilder) mTLSDisabled(lbEp *endpoint.LbEndpoint) bool {
 	if tlsMode := envoytransportSocketMetadata(lbEp, model.TLSModeLabelShortname); tlsMode == model.DisabledTLSModeLabel {
 		return true
 	}
+
+	var tp *v1alpha3.TrafficPolicy
 	if b.destinationRule != nil {
 		if dr, ok := b.destinationRule.Spec.(*v1alpha3.DestinationRule); ok && dr != nil {
-			if dr.GetTrafficPolicy().GetTls().GetMode() == v1alpha3.ClientTLSSettings_DISABLE {
+			tp = dr.GetTrafficPolicy()
+			if tp.GetTls().GetMode() == v1alpha3.ClientTLSSettings_DISABLE {
 				return true
 			}
 		}
@@ -153,7 +156,7 @@ func (b *EndpointBuilder) mTLSDisabled(lbEp *endpoint.LbEndpoint) bool {
 	if b.service != nil {
 		if p, ok := b.service.Ports.GetByPort(b.port); ok {
 			// TODO handle workload/port level authn policies
-			if b.push.BestEffortInferServiceMTLSMode(b.service, p) == model.MTLSDisable {
+			if b.push.BestEffortInferServiceMTLSMode(tp, b.service, p) == model.MTLSDisable {
 				return true
 			}
 		}
