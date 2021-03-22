@@ -46,29 +46,48 @@ func TestClusterLocal(t *testing.T) {
 			// TODO use echotest to dynamically pick 2 simple pods from apps.All
 			sources := apps.PodA
 			destination := apps.PodB
-			patchMeshConfig(t, destination.Clusters(), fmt.Sprintf(`
+			t.NewSubTest("cluster local").Run(func(ctx framework.TestContext) {
+				patchMeshConfig(t, destination.Clusters(), fmt.Sprintf(`
 serviceSettings: 
 - settings:
     clusterLocal: true
   hosts:
   - "%s"
 `, apps.PodB[0].Config().FQDN()))
-
-			for _, source := range sources {
-				source := source
-				t.NewSubTest(source.Config().Cluster.StableName()).Run(func(t framework.TestContext) {
-					source.CallWithRetryOrFail(t, echo.CallOptions{
-						Target:   destination[0],
-						Count:    3 * len(destination),
-						PortName: "http",
-						Scheme:   scheme.HTTP,
-						Validator: echo.And(
-							echo.ExpectOK(),
-							echo.ExpectReachedClusters(cluster.Clusters{source.Config().Cluster}),
-						),
+				for _, source := range sources {
+					source := source
+					t.NewSubTest(source.Config().Cluster.StableName()).Run(func(t framework.TestContext) {
+						source.CallWithRetryOrFail(t, echo.CallOptions{
+							Target:   destination[0],
+							Count:    3 * len(destination),
+							PortName: "http",
+							Scheme:   scheme.HTTP,
+							Validator: echo.And(
+								echo.ExpectOK(),
+								echo.ExpectReachedClusters(cluster.Clusters{source.Config().Cluster}),
+							),
+						})
 					})
-				})
-			}
+				}
+			})
+			t.NewSubTest("cross cluster").Run(func(ctx framework.TestContext) {
+				// this runs in a separate test context - confirms the cluster local config was cleaned up
+				for _, source := range sources {
+					source := source
+					t.NewSubTest(source.Config().Cluster.StableName()).Run(func(t framework.TestContext) {
+						source.CallWithRetryOrFail(t, echo.CallOptions{
+							Target:   destination[0],
+							Count:    3 * len(destination),
+							PortName: "http",
+							Scheme:   scheme.HTTP,
+							Validator: echo.And(
+								echo.ExpectOK(),
+								echo.ExpectReachedClusters(destination.Clusters()),
+							),
+						})
+					})
+				}
+			})
 		})
 }
 
@@ -115,7 +134,6 @@ func patchMeshConfig(t framework.TestContext, clusters cluster.Clusters, patch s
 			return nil
 		})
 	}
-	err := errG.Wait()
 	t.Cleanup(func() {
 		errG := multierror.Group{}
 		mu.RLock()
@@ -133,8 +151,11 @@ func patchMeshConfig(t framework.TestContext, clusters cluster.Clusters, patch s
 				return err
 			})
 		}
+		if err := errG.Wait().ErrorOrNil(); err != nil {
+			scopes.Framework.Errorf("failed cleaning up cluster-local config: %v", err)
+		}
 	})
-	if err != nil {
+	if err := errG.Wait().ErrorOrNil(); err != nil {
 		t.Fatal(err)
 	}
 }
