@@ -27,6 +27,7 @@ import (
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/util/retry"
+	"istio.io/istio/pkg/test/util/tmpl"
 	"istio.io/istio/tests/integration/security/util"
 )
 
@@ -206,7 +207,7 @@ metadata:
 spec:
   selector:
     matchLabels:
-      app: a
+      app: {{ (index .dst 0).Config.Service }}
   mtls:
     mode: DISABLE
   portLevelMtls:
@@ -248,7 +249,7 @@ metadata:
 spec:
   selector:
     matchLabels:
-      app: a
+      app: {{ (index .dst 0).Config.Service }}
   mtls:
     mode: STRICT
   portLevelMtls:
@@ -283,12 +284,16 @@ spec:
 
 			for _, cluster := range ctx.Clusters() {
 				client := apps.Naked.Match(echo.InCluster(cluster)).GetOrFail(ctx, echo.Namespace(ns.Name()))
-				destination := apps.A.Match(echo.Namespace(ns.Name())).GetOrFail(ctx, echo.InCluster(cluster))
+				destination := apps.A.Match(echo.Namespace(ns.Name()))
 				from := getWorkload(client, ctx)
-				destWorkload := getWorkload(destination, ctx).Address()
+				destWorkload := getWorkload(destination.GetOrFail(ctx, echo.InCluster(cluster)), ctx).Address()
 				for _, tc := range cases {
 					ctx.NewSubTest(fmt.Sprintf("In %s/%v", cluster.StableName(), tc.name)).Run(func(ctx framework.TestContext) {
-						ctx.Config().ApplyYAMLOrFail(ctx, ns.Name(), tc.config)
+						args := map[string]interface{}{
+							"dst": destination,
+						}
+						policies := tmpl.EvaluateAllOrFail(ctx, args, tc.config)
+						ctx.Config().ApplyYAMLOrFail(ctx, ns.Name(), policies...)
 						util.WaitForConfig(ctx, tc.config, ns)
 						for _, expect := range tc.expected {
 							name := fmt.Sprintf("port %d[%t]", expect.port, expect.want)
