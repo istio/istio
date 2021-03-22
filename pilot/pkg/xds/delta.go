@@ -525,19 +525,19 @@ func convertResponseToDelta(ver string, resources model.Resources) []*discovery.
 		switch r.TypeUrl {
 		case v3.ClusterType:
 			aa := &cluster.Cluster{}
-			ptypes.UnmarshalAny(r, aa)
+			_ = ptypes.UnmarshalAny(r, aa)
 			name = aa.Name
 		case v3.ListenerType:
 			aa := &listener.Listener{}
-			ptypes.UnmarshalAny(r, aa)
+			_ = ptypes.UnmarshalAny(r, aa)
 			name = aa.Name
 		case v3.EndpointType:
 			aa := &endpoint.ClusterLoadAssignment{}
-			ptypes.UnmarshalAny(r, aa)
+			_ = ptypes.UnmarshalAny(r, aa)
 			name = aa.ClusterName
 		case v3.RouteType:
 			aa := &route.RouteConfiguration{}
-			ptypes.UnmarshalAny(r, aa)
+			_ = ptypes.UnmarshalAny(r, aa)
 			name = aa.Name
 		}
 		c := &discovery.Resource{

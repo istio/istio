@@ -31,8 +31,6 @@ import (
 // downstream -> envoy (anything "behind" xds proxy)
 // upstream -> istiod (in front of xds proxy)?
 func (p *XdsProxy) DeltaAggregatedResources(downstream discovery.AggregatedDiscoveryService_DeltaAggregatedResourcesServer) error {
-	// return errors.New("delta XDS is not implemented")
-
 	proxyLog.Debugf("accepted delta xds connection from envoy, forwarding to upstream")
 	con := &ProxyConnection{
 		upstreamError:      make(chan error, 2), // can be produced by recv and send
@@ -161,7 +159,9 @@ func (p *XdsProxy) HandleDeltaUpstream(ctx context.Context, con *ProxyConnection
 }
 
 func (p *XdsProxy) handleUpstreamDeltaRequest(ctx context.Context, con *ProxyConnection) {
-	defer con.upstreamDeltas.CloseSend()
+	defer func() {
+		_ = con.upstreamDeltas.CloseSend()
+	}()
 	for {
 		select {
 		case req := <-con.deltaRequestsChan:
