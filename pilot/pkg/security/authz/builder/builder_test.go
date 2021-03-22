@@ -110,12 +110,6 @@ var (
 	}
 )
 
-// Test dry run
-// 1. both normal and dry-run on HTTP
-// 2. only dry-run on HTTP
-// 3. only dry-run on TCP: a) mix TCP and HTTP fields b) only HTTP fields c) only TCP fields
-// 4. both normal and dry-run on TCP: a) mix TCP and HTTP fields b) only HTTP fields c) only TCP fields
-
 func TestGenerator_GenerateHTTP(t *testing.T) {
 	testCases := []struct {
 		name       string
