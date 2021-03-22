@@ -117,7 +117,7 @@ func init() {
 		"Specify the Unix Domain Socket to connect to")
 	rootCmd.PersistentFlags().StringSliceVarP(&headers, "header", "H", headers,
 		"A list of http headers (use Host for authority) - 'name: value', following curl syntax")
-	rootCmd.PersistentFlags().StringVar(&caFile, "ca", "/cert.crt", "CA root cert file")
+	rootCmd.PersistentFlags().StringVar(&caFile, "ca", "", "CA root cert file")
 	rootCmd.PersistentFlags().StringVar(&msg, "msg", "HelloWorld",
 		"message to send (for websockets)")
 	rootCmd.PersistentFlags().StringVar(&method, "method", "", "method to use (for HTTP)")
@@ -187,7 +187,7 @@ func getRequest(url string) (*proto.ForwardEchoRequest, error) {
 		request.KeyFile = clientKey
 	}
 	if caFile != "" {
-		request.CaCert = caFile
+		request.CaCertFile = caFile
 	}
 	return request, nil
 }
