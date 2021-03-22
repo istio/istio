@@ -16,6 +16,8 @@ package xds
 
 import (
 	"context"
+	"istio.io/istio/pilot/pkg/features"
+	"os"
 	"sync"
 	"time"
 
@@ -31,13 +33,15 @@ import (
 )
 
 func NewDeltaAdsTest(t test.Failer, conn *grpc.ClientConn) *DeltaAdsTest {
+	os.Setenv(features.DeltaXds.Name, "true")
 	return NewDeltaXdsTest(t, conn, func(conn *grpc.ClientConn) (DeltaDiscoveryClient, error) {
 		xds := discovery.NewAggregatedDiscoveryServiceClient(conn)
 		return xds.DeltaAggregatedResources(context.Background())
 	})
 }
 
-func NewDeltaXdsTest(t test.Failer, conn *grpc.ClientConn, getClient func(conn *grpc.ClientConn) (DeltaDiscoveryClient, error)) *DeltaAdsTest {
+func NewDeltaXdsTest(t test.Failer, conn *grpc.ClientConn,
+	getClient func(conn *grpc.ClientConn) (DeltaDiscoveryClient, error)) *DeltaAdsTest {
 	ctx, cancel := context.WithCancel(context.Background())
 
 	cl, err := getClient(conn)
