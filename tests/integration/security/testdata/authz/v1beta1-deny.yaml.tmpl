@@ -51,3 +51,25 @@ spec:
     - operation:
         paths: ["/allow*"]
 ---
+
+apiVersion: "networking.istio.io/v1alpha3"
+kind: "DestinationRule"
+metadata:
+  name: use-istio-mutual
+  namespace: "{{ .Namespace }}"
+spec:
+  host: "*.local"
+  trafficPolicy:
+    tls:
+      mode: ISTIO_MUTUAL
+---
+
+apiVersion: "security.istio.io/v1beta1"
+kind: "PeerAuthentication"
+metadata:
+  name: peer-istio-mutual
+  namespace: "{{ .Namespace }}"
+spec:
+  mtls:
+    mode: STRICT
+---
