@@ -5,4 +5,4 @@ issue:
   - 31573
 releaseNotes:
   - |
-    **Fixed** a bug causing HTTP_FILTER don't support INSERT_FIRST for EnvoyFilter
+    **Fixed** a bug where the EnvoyFilter HTTP_FILTER didn't support INSERT_FIRST
