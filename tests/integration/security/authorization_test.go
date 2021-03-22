@@ -309,6 +309,12 @@ func TestAuthorization_Deny(t *testing.T) {
 	framework.NewTest(t).
 		Features("security.authorization.deny-action").
 		Run(func(ctx framework.TestContext) {
+			// TODO: Convert into multicluster support. Currently reachability does
+			// not cover all clusters.
+			if ctx.Clusters().IsMulticluster() {
+				ctx.Skip()
+			}
+
 			ns := apps.Namespace1
 			args := map[string]string{
 				"Namespace":     ns.Name(),
