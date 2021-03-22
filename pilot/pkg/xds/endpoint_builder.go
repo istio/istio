@@ -108,6 +108,9 @@ func (b EndpointBuilder) Key() string {
 	if b.service != nil {
 		params = append(params, string(b.service.Hostname)+"/"+b.service.Attributes.Namespace)
 	}
+	for _, pa := range b.peerAuthentications {
+		params = append(params, pa.Name+"/"+pa.Namespace)
+	}
 	if b.networkView != nil {
 		nv := make([]string, 0, len(b.networkView))
 		for nw := range b.networkView {
