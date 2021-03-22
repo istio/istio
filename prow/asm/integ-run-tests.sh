@@ -470,6 +470,7 @@ else
   DISABLED_PACKAGES+="\|/pilot/revisioncmd" # NOT SUPPORTED. Customize control plane values.
   DISABLED_PACKAGES+="\|pilot/analysis" # NOT SUPPORTED
   DISABLED_PACKAGES+="\|/pilot/endpointslice" # NOT SUPPORTED
+  DISABLED_PACKAGES+="\|/pilot/mcs" # Unknown (b/183429870)
   DISABLED_PACKAGES+="\|/helm" # NOT SUPPORTED
   DISABLED_PACKAGES+="\|/operator" # NOT SUPPORTED
   DISABLED_PACKAGES+="\|/telemetry/stackdriver/vm" # NOT SUPPORTED (vm)
