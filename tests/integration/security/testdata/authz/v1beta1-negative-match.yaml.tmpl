@@ -17,6 +17,25 @@ spec:
         notPaths: ["/prefix/allowlist"]
 ---
 
+# The following policy denies access to path with prefix "/prefix" except "/prefix/allowlist" to workload vm
+
+apiVersion: "security.istio.io/v1beta1"
+kind: AuthorizationPolicy
+metadata:
+  name: policy-vm-deny
+  namespace: "{{ .Namespace }}"
+spec:
+  selector:
+    matchLabels:
+      "app": "vm"
+  action: DENY
+  rules:
+  - to:
+    - operation:
+        paths: ["/prefix*"]
+        notPaths: ["/prefix/allowlist"]
+---
+
 # The following policy denies access from other namespaces
 
 apiVersion: "security.istio.io/v1beta1"
@@ -90,6 +109,21 @@ metadata:
   namespace: "{{ .Namespace2 }}"
 spec:
   host: "b.{{ .Namespace }}.svc.cluster.local"
+  exportTo: ["."]
+  trafficPolicy:
+    tls:
+      mode: ISTIO_MUTUAL
+---
+
+# The following destination rule enables mTLS from namespace 2 to workload vm
+
+apiVersion: "networking.istio.io/v1alpha3"
+kind: "DestinationRule"
+metadata:
+  name: "dr-vm"
+  namespace: "{{ .Namespace2 }}"
+spec:
+  host: "vm.{{ .Namespace }}.svc.cluster.local"
   exportTo: ["."]
   trafficPolicy:
     tls:

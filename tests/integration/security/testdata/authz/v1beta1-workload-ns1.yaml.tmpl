@@ -15,6 +15,23 @@ spec:
         paths: ["/policy-ns1-b"]
 ---
 
+# The following policy selects workload vm in namespace 1
+
+apiVersion: "security.istio.io/v1beta1"
+kind: AuthorizationPolicy
+metadata:
+  name: policy-ns1-vm
+  namespace: "{{ .Namespace1 }}"
+spec:
+  selector:
+    matchLabels:
+      "app": "vm"
+  rules:
+  - to:
+    - operation:
+        paths: ["/policy-ns1-vm"]
+---
+
 # The following policy selects workload c in namespace 1
 
 apiVersion: "security.istio.io/v1beta1"

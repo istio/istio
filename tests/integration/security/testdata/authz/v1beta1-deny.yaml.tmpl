@@ -51,3 +51,39 @@ spec:
     - operation:
         paths: ["/allow*"]
 ---
+
+# The following policy denies access to path /allow/admin to workload vm
+
+apiVersion: "security.istio.io/v1beta1"
+kind: AuthorizationPolicy
+metadata:
+  name: policy-vm-deny
+  namespace: "{{ .Namespace }}"
+spec:
+  selector:
+    matchLabels:
+      "app": "vm"
+  action: DENY
+  rules:
+  - to:
+    - operation:
+        paths: ["/allow/admin"]
+---
+
+# The following policy allows access to path with prefix "/allow" to workload vm
+
+apiVersion: "security.istio.io/v1beta1"
+kind: AuthorizationPolicy
+metadata:
+  name: policy-vm-allow
+  namespace: "{{ .Namespace }}"
+spec:
+  selector:
+    matchLabels:
+      "app": "vm"
+  action: ALLOW
+  rules:
+  - to:
+    - operation:
+        paths: ["/allow*"]
+---

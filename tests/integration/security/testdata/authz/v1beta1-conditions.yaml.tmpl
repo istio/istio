@@ -82,6 +82,12 @@ spec:
       values: ["{{ .IpA }}"]
   - to:
     - operation:
+        paths: ["/source-ip-vm"]
+    when:
+    - key: source.ip
+      values: ["{{ .ipVM }}"]
+  - to:
+    - operation:
         paths: ["/source-ip-b"]
     when:
     - key: source.ip
@@ -164,6 +170,12 @@ spec:
     when:
     - key: source.principal
       values: ["cluster.local/ns/{{ .NamespaceA }}/sa/a"]
+  - to:
+    - operation:
+        paths: ["/source-principal-vm"]
+    when:
+    - key: source.principal
+      values: ["cluster.local/ns/{{ .NamespaceA }}/sa/vm"]
   - to:
     - operation:
         paths: ["/source-principal-b"]

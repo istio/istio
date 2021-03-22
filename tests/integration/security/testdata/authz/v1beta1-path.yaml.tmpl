@@ -17,3 +17,23 @@ spec:
         paths: ["/public*"]
         methods: ["GET"]
 ---
+
+# For workload vm:
+# * Allow GET requests at path with prefix "/public".
+# * Deny any other requests by default.
+
+apiVersion: "security.istio.io/v1beta1"
+kind: AuthorizationPolicy
+metadata:
+  name: policy-vm
+  namespace: "{{ .Namespace }}"
+spec:
+  selector:
+    matchLabels:
+      "app": "vm"
+  rules:
+  - to:
+    - operation:
+        paths: ["/public*"]
+        methods: ["GET"]
+---

@@ -87,34 +87,39 @@ func TestAuthorization_mTLS(t *testing.T) {
 				ctx.NewSubTest(fmt.Sprintf("From %s", cluster.StableName())).Run(func(ctx framework.TestContext) {
 					a := apps.A.Match(echo.InCluster(cluster).And(echo.Namespace(apps.Namespace1.Name())))
 					c := apps.C.Match(echo.InCluster(cluster).And(echo.Namespace(apps.Namespace2.Name())))
-					newTestCase := func(from echo.Instance, path string, expectAllowed bool) rbacUtil.TestCase {
+					b := apps.B.Match(echo.Namespace(apps.Namespace1.Name()))
+					vm := apps.VM.Match(echo.Namespace(apps.Namespace1.Name()))
+					newTestCase := func(from, to echo.Instances, path string, expectAllowed bool) rbacUtil.TestCase {
 						callCount := 1
-						destInstances := apps.B.Match(echo.Namespace(apps.Namespace1.Name()))
-						if destInstances.Clusters().IsMulticluster() {
+						if to.Clusters().IsMulticluster() {
 							// so we can validate all clusters are hit
-							callCount = util.CallsPerCluster * len(destInstances.Clusters())
+							callCount = util.CallsPerCluster * len(to.Clusters())
 						}
 						return rbacUtil.TestCase{
 							Request: connection.Checker{
-								From: from, // From service
+								From: from[0], // From service
 								Options: echo.CallOptions{
-									Target:   destInstances[0],
+									Target:   to[0],
 									PortName: "http",
 									Scheme:   scheme.HTTP,
 									Path:     path, // Requested path
 									Count:    callCount,
 								},
-								DestClusters: destInstances.Clusters(),
+								DestClusters: to.Clusters(),
 							},
 							ExpectAllowed: expectAllowed,
 						}
 					}
 					// a and c send requests to b
 					cases := []rbacUtil.TestCase{
-						newTestCase(a[0], "/principal-a", true),
-						newTestCase(a[0], "/namespace-2", false),
-						newTestCase(c[0], "/principal-a", false),
-						newTestCase(c[0], "/namespace-2", true),
+						newTestCase(a, b, "/principal-a", true),
+						newTestCase(a, b, "/namespace-2", false),
+						newTestCase(c, b, "/principal-a", false),
+						newTestCase(c, b, "/namespace-2", true),
+						newTestCase(a, vm, "/principal-a", true),
+						newTestCase(a, vm, "/namespace-2", false),
+						newTestCase(c, vm, "/principal-a", false),
+						newTestCase(c, vm, "/namespace-2", true),
 					}
 					rbacUtil.RunRBACTest(ctx, cases)
 				})
@@ -141,6 +146,7 @@ func TestAuthorization_JWT(t *testing.T) {
 					b := apps.B.Match(echo.Namespace(ns.Name()))
 					c := apps.C.Match(echo.Namespace(ns.Name()))
 					d := apps.D.Match(echo.Namespace(ns.Name()))
+					vm := apps.VM.Match(echo.Namespace(ns.Name()))
 					if ctx.Clusters().IsMulticluster() {
 						// so we can validate all clusters are hit
 						callCount = util.CallsPerCluster * len(ctx.Clusters())
@@ -166,15 +172,26 @@ func TestAuthorization_JWT(t *testing.T) {
 					cases := []rbacUtil.TestCase{
 						newTestCase(b, "[NoJWT]", "", "/token1", false),
 						newTestCase(b, "[NoJWT]", "", "/token2", false),
+						newTestCase(vm, "[NoJWT]", "", "/token1", false),
+						newTestCase(vm, "[NoJWT]", "", "/token2", false),
 						newTestCase(b, "[Token1]", jwt.TokenIssuer1, "/token1", true),
 						newTestCase(b, "[Token1]", jwt.TokenIssuer1, "/token2", false),
 						newTestCase(b, "[Token2]", jwt.TokenIssuer2, "/token1", false),
 						newTestCase(b, "[Token2]", jwt.TokenIssuer2, "/token2", true),
 						newTestCase(b, "[Token1]", jwt.TokenIssuer1, "/tokenAny", true),
 						newTestCase(b, "[Token2]", jwt.TokenIssuer2, "/tokenAny", true),
+						newTestCase(vm, "[Token1]", jwt.TokenIssuer1, "/token1", true),
+						newTestCase(vm, "[Token1]", jwt.TokenIssuer1, "/token2", false),
+						newTestCase(vm, "[Token2]", jwt.TokenIssuer2, "/token1", false),
+						newTestCase(vm, "[Token2]", jwt.TokenIssuer2, "/token2", true),
+						newTestCase(vm, "[Token1]", jwt.TokenIssuer1, "/tokenAny", true),
+						newTestCase(vm, "[Token2]", jwt.TokenIssuer2, "/tokenAny", true),
 						newTestCase(b, "[PermissionToken1]", jwt.TokenIssuer1, "/permission", false),
 						newTestCase(b, "[PermissionToken2]", jwt.TokenIssuer2, "/permission", false),
 						newTestCase(b, "[PermissionTokenWithSpaceDelimitedScope]", jwt.TokenIssuer2WithSpaceDelimitedScope, "/permission", true),
+						newTestCase(vm, "[PermissionToken1]", jwt.TokenIssuer1, "/permission", false),
+						newTestCase(vm, "[PermissionToken2]", jwt.TokenIssuer2, "/permission", false),
+						newTestCase(vm, "[PermissionTokenWithSpaceDelimitedScope]", jwt.TokenIssuer2WithSpaceDelimitedScope, "/permission", true),
 						newTestCase(b, "[NestedToken1]", jwt.TokenIssuer1WithNestedClaims1, "/nested-key1", true),
 						newTestCase(b, "[NestedToken2]", jwt.TokenIssuer1WithNestedClaims2, "/nested-key1", false),
 						newTestCase(b, "[NestedToken1]", jwt.TokenIssuer1WithNestedClaims1, "/nested-key2", false),
@@ -183,39 +200,47 @@ func TestAuthorization_JWT(t *testing.T) {
 						newTestCase(b, "[NestedToken2]", jwt.TokenIssuer1WithNestedClaims2, "/nested-2-key1", false),
 						newTestCase(b, "[NestedToken1]", jwt.TokenIssuer1WithNestedClaims1, "/nested-non-exist", false),
 						newTestCase(b, "[NestedToken2]", jwt.TokenIssuer1WithNestedClaims2, "/nested-non-exist", false),
+						newTestCase(vm, "[NestedToken1]", jwt.TokenIssuer1WithNestedClaims1, "/nested-key1", true),
+						newTestCase(vm, "[NestedToken2]", jwt.TokenIssuer1WithNestedClaims2, "/nested-key1", false),
+						newTestCase(vm, "[NestedToken1]", jwt.TokenIssuer1WithNestedClaims1, "/nested-key2", false),
+						newTestCase(vm, "[NestedToken2]", jwt.TokenIssuer1WithNestedClaims2, "/nested-key2", true),
+						newTestCase(vm, "[NestedToken1]", jwt.TokenIssuer1WithNestedClaims1, "/nested-2-key1", true),
+						newTestCase(vm, "[NestedToken2]", jwt.TokenIssuer1WithNestedClaims2, "/nested-2-key1", false),
+						newTestCase(vm, "[NestedToken1]", jwt.TokenIssuer1WithNestedClaims1, "/nested-non-exist", false),
+						newTestCase(vm, "[NestedToken2]", jwt.TokenIssuer1WithNestedClaims2, "/nested-non-exist", false),
 						newTestCase(b, "[NoJWT]", "", "/tokenAny", false),
 						newTestCase(c, "[NoJWT]", "", "/somePath", true),
-						newTestCase(b, "[NoJWT]", "", "/token1", false),
-						newTestCase(b, "[NoJWT]", "", "/token2", false),
-						newTestCase(b, "[Token1]", jwt.TokenIssuer1, "/token1", true),
-						newTestCase(b, "[Token1]", jwt.TokenIssuer1, "/token2", false),
-						newTestCase(b, "[Token2]", jwt.TokenIssuer2, "/token1", false),
-						newTestCase(b, "[Token2]", jwt.TokenIssuer2, "/token2", true),
-						newTestCase(b, "[Token1]", jwt.TokenIssuer1, "/tokenAny", true),
-						newTestCase(b, "[Token2]", jwt.TokenIssuer2, "/tokenAny", true),
-						newTestCase(b, "[PermissionToken1]", jwt.TokenIssuer1, "/permission", false),
-						newTestCase(b, "[PermissionToken2]", jwt.TokenIssuer2, "/permission", false),
-						newTestCase(b, "[PermissionTokenWithSpaceDelimitedScope]", jwt.TokenIssuer2WithSpaceDelimitedScope, "/permission", true),
-						newTestCase(b, "[NoJWT]", "", "/tokenAny", false),
-						newTestCase(c, "[NoJWT]", "", "/somePath", true),
+						newTestCase(vm, "[NoJWT]", "", "/tokenAny", false),
 
 						// Test condition "request.auth.principal" on path "/valid-jwt".
 						newTestCase(d, "[NoJWT]", "", "/valid-jwt", false),
+						newTestCase(vm, "[NoJWT]", "", "/valid-jwt", false),
 						newTestCase(d, "[Token1]", jwt.TokenIssuer1, "/valid-jwt", true),
+						newTestCase(vm, "[Token1]", jwt.TokenIssuer1, "/valid-jwt", true),
 						newTestCase(d, "[Token1WithAzp]", jwt.TokenIssuer1WithAzp, "/valid-jwt", true),
+						newTestCase(vm, "[Token1WithAzp]", jwt.TokenIssuer1WithAzp, "/valid-jwt", true),
 						newTestCase(d, "[Token1WithAud]", jwt.TokenIssuer1WithAud, "/valid-jwt", true),
+						newTestCase(vm, "[Token1WithAud]", jwt.TokenIssuer1WithAud, "/valid-jwt", true),
 
 						// Test condition "request.auth.presenter" on suffix "/presenter".
 						newTestCase(d, "[Token1]", jwt.TokenIssuer1, "/request/presenter", false),
+						newTestCase(vm, "[Token1]", jwt.TokenIssuer1, "/request/presenter", false),
 						newTestCase(d, "[Token1WithAud]", jwt.TokenIssuer1, "/request/presenter", false),
+						newTestCase(vm, "[Token1WithAud]", jwt.TokenIssuer1, "/request/presenter", false),
 						newTestCase(d, "[Token1WithAzp]", jwt.TokenIssuer1WithAzp, "/request/presenter-x", false),
+						newTestCase(vm, "[Token1WithAzp]", jwt.TokenIssuer1WithAzp, "/request/presenter-x", false),
 						newTestCase(d, "[Token1WithAzp]", jwt.TokenIssuer1WithAzp, "/request/presenter", true),
+						newTestCase(vm, "[Token1WithAzp]", jwt.TokenIssuer1WithAzp, "/request/presenter", true),
 
 						// Test condition "request.auth.audiences" on suffix "/audiences".
 						newTestCase(d, "[Token1]", jwt.TokenIssuer1, "/request/audiences", false),
+						newTestCase(vm, "[Token1]", jwt.TokenIssuer1, "/request/audiences", false),
 						newTestCase(d, "[Token1WithAzp]", jwt.TokenIssuer1WithAzp, "/request/audiences", false),
+						newTestCase(vm, "[Token1WithAzp]", jwt.TokenIssuer1WithAzp, "/request/audiences", false),
 						newTestCase(d, "[Token1WithAud]", jwt.TokenIssuer1WithAud, "/request/audiences-x", false),
+						newTestCase(vm, "[Token1WithAud]", jwt.TokenIssuer1WithAud, "/request/audiences-x", false),
 						newTestCase(d, "[Token1WithAud]", jwt.TokenIssuer1WithAud, "/request/audiences", true),
+						newTestCase(vm, "[Token1WithAud]", jwt.TokenIssuer1WithAud, "/request/audiences", true),
 					}
 					rbacUtil.RunRBACTest(ctx, cases)
 				})
@@ -249,6 +274,7 @@ func TestAuthorization_WorkloadSelector(t *testing.T) {
 				ctx.NewSubTest(fmt.Sprintf("From %s", srcCluster.StableName())).Run(func(ctx framework.TestContext) {
 					a := apps.A.Match(echo.InCluster(srcCluster).And(echo.Namespace(apps.Namespace1.Name())))
 					bInNS1 := apps.B.Match(echo.Namespace(apps.Namespace1.Name()))
+					vmInNS1 := apps.VM.Match(echo.Namespace(apps.Namespace1.Name()))
 					cInNS1 := apps.C.Match(echo.Namespace(apps.Namespace1.Name()))
 					cInNS2 := apps.C.Match(echo.Namespace(apps.Namespace2.Name()))
 					callCount := 1
@@ -275,6 +301,7 @@ func TestAuthorization_WorkloadSelector(t *testing.T) {
 					}
 					cases := []rbacUtil.TestCase{
 						newTestCase("[bInNS1]", bInNS1, "/policy-ns1-b", true),
+						newTestCase("[bInNS1]", bInNS1, "/policy-ns1-vm", false),
 						newTestCase("[bInNS1]", bInNS1, "/policy-ns1-c", false),
 						newTestCase("[bInNS1]", bInNS1, "/policy-ns1-x", false),
 						newTestCase("[bInNS1]", bInNS1, "/policy-ns1-all", true),
@@ -282,7 +309,16 @@ func TestAuthorization_WorkloadSelector(t *testing.T) {
 						newTestCase("[bInNS1]", bInNS1, "/policy-ns2-all", false),
 						newTestCase("[bInNS1]", bInNS1, "/policy-ns-root-c", false),
 
+						newTestCase("[vmInNS1]", vmInNS1, "/policy-ns1-vm", true),
+						newTestCase("[vmInNS1]", vmInNS1, "/policy-ns1-c", false),
+						newTestCase("[vmInNS1]", vmInNS1, "/policy-ns1-x", false),
+						newTestCase("[vmInNS1]", vmInNS1, "/policy-ns1-all", true),
+						newTestCase("[vmInNS1]", vmInNS1, "/policy-ns2-c", false),
+						newTestCase("[vmInNS1]", vmInNS1, "/policy-ns2-all", false),
+						newTestCase("[vmInNS1]", vmInNS1, "/policy-ns-root-c", false),
+
 						newTestCase("[cInNS1]", cInNS1, "/policy-ns1-b", false),
+						newTestCase("[cInNS1]", cInNS1, "/policy-ns1-vm", false),
 						newTestCase("[cInNS1]", cInNS1, "/policy-ns1-c", true),
 						newTestCase("[cInNS1]", cInNS1, "/policy-ns1-x", false),
 						newTestCase("[cInNS1]", cInNS1, "/policy-ns1-all", true),
@@ -291,6 +327,7 @@ func TestAuthorization_WorkloadSelector(t *testing.T) {
 						newTestCase("[cInNS1]", cInNS1, "/policy-ns-root-c", true),
 
 						newTestCase("[cInNS2]", cInNS2, "/policy-ns1-b", false),
+						newTestCase("[cInNS2]", cInNS2, "/policy-ns1-vm", false),
 						newTestCase("[cInNS2]", cInNS2, "/policy-ns1-c", false),
 						newTestCase("[cInNS2]", cInNS2, "/policy-ns1-x", false),
 						newTestCase("[cInNS2]", cInNS2, "/policy-ns1-all", false),
@@ -342,6 +379,7 @@ func TestAuthorization_Deny(t *testing.T) {
 					a := apps.A.Match(echo.InCluster(srcCluster).And(echo.Namespace(apps.Namespace1.Name())))
 					b := apps.B.Match(echo.Namespace(apps.Namespace1.Name()))
 					c := apps.C.Match(echo.Namespace(apps.Namespace1.Name()))
+					vm := apps.VM.Match(echo.Namespace(apps.Namespace1.Name()))
 
 					newTestCase := func(target echo.Instances, path string, expectAllowed bool) rbacUtil.TestCase {
 						return rbacUtil.TestCase{
@@ -376,6 +414,14 @@ func TestAuthorization_Deny(t *testing.T) {
 						newTestCase(c, "/other?param=value", false),
 						newTestCase(c, "/allow", true),
 						newTestCase(c, "/allow?param=value", true),
+						newTestCase(vm, "/allow/admin", false),
+						newTestCase(vm, "/allow/admin?param=value", false),
+						newTestCase(vm, "/global-deny", false),
+						newTestCase(vm, "/global-deny?param=value", false),
+						newTestCase(vm, "/other", false),
+						newTestCase(vm, "/other?param=value", false),
+						newTestCase(vm, "/allow", true),
+						newTestCase(vm, "/allow?param=value", true),
 					}
 
 					rbacUtil.RunRBACTest(ctx, cases)
@@ -420,6 +466,7 @@ func TestAuthorization_NegativeMatch(t *testing.T) {
 					destB := apps.B.Match(echo.Namespace(apps.Namespace1.Name()))
 					destC := apps.C.Match(echo.Namespace(apps.Namespace1.Name()))
 					destD := apps.D.Match(echo.Namespace(apps.Namespace1.Name()))
+					destVM := apps.VM.Match(echo.Namespace(apps.Namespace1.Name()))
 					newTestCase := func(from echo.Instance, target echo.Instances, path string, expectAllowed bool) rbacUtil.TestCase {
 						return rbacUtil.TestCase{
 							Request: connection.Checker{
@@ -454,6 +501,20 @@ func TestAuthorization_NegativeMatch(t *testing.T) {
 						newTestCase(srcBInNS2[0], destB, "/prefix/other", false),
 						newTestCase(srcBInNS2[0], destB, "/prefix/allowlist", true),
 						newTestCase(srcBInNS2[0], destB, "/allow", true),
+
+						// Test the policy with overlapped `paths` and `not_paths` on vm.
+						// a and bInNs2 should have the same results:
+						// - path with prefix `/prefix` should be denied explicitly.
+						// - path `/prefix/allowlist` should be excluded from the deny.
+						// - path `/allow` should be allowed implicitly.
+						newTestCase(srcA[0], destVM, "/prefix", false),
+						newTestCase(srcA[0], destVM, "/prefix/other", false),
+						newTestCase(srcA[0], destVM, "/prefix/allowlist", true),
+						newTestCase(srcA[0], destVM, "/allow", true),
+						newTestCase(srcBInNS2[0], destVM, "/prefix", false),
+						newTestCase(srcBInNS2[0], destVM, "/prefix/other", false),
+						newTestCase(srcBInNS2[0], destVM, "/prefix/allowlist", true),
+						newTestCase(srcBInNS2[0], destVM, "/allow", true),
 
 						// Test the policy that denies other namespace on c.
 						// a should be allowed because it's from the same namespace.
@@ -964,6 +1025,7 @@ func TestAuthorization_Conditions(t *testing.T) {
 				ctx.NewSubTest(fmt.Sprintf("IpA IpB IpC in %s", ctx.Clusters()[i].StableName())).Run(func(ctx framework.TestContext) {
 					podAWithIPA := apps.A.Match(echo.InCluster(ctx.Clusters()[i])).Match(echo.Namespace(nsA.Name()))[0]
 					podBWithIPB := apps.B.Match(echo.InCluster(ctx.Clusters()[i])).Match(echo.Namespace(nsB.Name()))[0]
+					vm := apps.VM.Match(echo.InCluster(ctx.Clusters()[i])).Match(echo.Namespace(nsA.Name()))[0]
 
 					args := map[string]string{
 						"NamespaceA": nsA.Name(),
@@ -972,6 +1034,7 @@ func TestAuthorization_Conditions(t *testing.T) {
 						"IpA":        getWorkload(podAWithIPA, t).Address(),
 						"IpB":        getWorkload(podBWithIPB, t).Address(),
 						"IpC":        IPC,
+						"ipVM":       getWorkload(vm, t).Address(),
 						"PortC":      fmt.Sprintf("%d", portC),
 					}
 
@@ -981,6 +1044,7 @@ func TestAuthorization_Conditions(t *testing.T) {
 					for _, srcCluster := range ctx.Clusters() {
 						ctx.NewSubTest(fmt.Sprintf("From %s", srcCluster.StableName())).Run(func(ctx framework.TestContext) {
 							a := apps.A.Match(echo.InCluster(srcCluster).And(echo.Namespace(nsA.Name())))
+							vm := apps.VM.Match(echo.InCluster(srcCluster).And(echo.Namespace(nsA.Name())))
 							b := apps.B.Match(echo.InCluster(srcCluster).And(echo.Namespace(nsB.Name())))
 							callCount := 1
 							if ctx.Clusters().IsMulticluster() {
@@ -1006,57 +1070,82 @@ func TestAuthorization_Conditions(t *testing.T) {
 							}
 							cases := []rbacUtil.TestCase{
 								newTestCase(a[0], "/request-headers", map[string]string{"x-foo": "foo"}, true),
+								newTestCase(vm[0], "/request-headers", map[string]string{"x-foo": "foo"}, true),
 								newTestCase(b[0], "/request-headers", map[string]string{"x-foo": "foo"}, true),
 								newTestCase(a[0], "/request-headers", map[string]string{"x-foo": "bar"}, false),
+								newTestCase(vm[0], "/request-headers", map[string]string{"x-foo": "bar"}, false),
 								newTestCase(b[0], "/request-headers", map[string]string{"x-foo": "bar"}, false),
 								newTestCase(a[0], "/request-headers", nil, false),
+								newTestCase(vm[0], "/request-headers", nil, false),
 								newTestCase(b[0], "/request-headers", nil, false),
 								newTestCase(a[0], "/request-headers-notValues-bar", map[string]string{"x-foo": "foo"}, true),
+								newTestCase(vm[0], "/request-headers-notValues-bar", map[string]string{"x-foo": "foo"}, true),
 								newTestCase(a[0], "/request-headers-notValues-bar", map[string]string{"x-foo": "bar"}, false),
 
 								newTestCase(a[0], "/source-ip-a", nil, true),
+								newTestCase(vm[0], "/source-ip-vm", nil, true),
 								newTestCase(b[0], "/source-ip-a", nil, false),
 								newTestCase(a[0], "/source-ip-b", nil, false),
+								newTestCase(vm[0], "/source-ip-b", nil, false),
 								newTestCase(b[0], "/source-ip-b", nil, true),
 								newTestCase(a[0], "/source-ip-notValues-b", nil, true),
+								newTestCase(vm[0], "/source-ip-notValues-b", nil, true),
 								newTestCase(b[0], "/source-ip-notValues-b", nil, false),
 
 								newTestCase(a[0], "/source-namespace-a", nil, true),
+								newTestCase(vm[0], "/source-namespace-a", nil, true),
 								newTestCase(b[0], "/source-namespace-a", nil, false),
 								newTestCase(a[0], "/source-namespace-b", nil, false),
+								newTestCase(vm[0], "/source-namespace-b", nil, false),
 								newTestCase(b[0], "/source-namespace-b", nil, true),
 								newTestCase(a[0], "/source-namespace-notValues-b", nil, true),
+								newTestCase(vm[0], "/source-namespace-notValues-b", nil, true),
 								newTestCase(b[0], "/source-namespace-notValues-b", nil, false),
 
 								newTestCase(a[0], "/source-principal-a", nil, true),
+								newTestCase(vm[0], "/source-principal-vm", nil, true),
 								newTestCase(b[0], "/source-principal-a", nil, false),
 								newTestCase(a[0], "/source-principal-b", nil, false),
+								newTestCase(vm[0], "/source-principal-b", nil, false),
 								newTestCase(b[0], "/source-principal-b", nil, true),
 								newTestCase(a[0], "/source-principal-notValues-b", nil, true),
+								newTestCase(vm[0], "/source-principal-notValues-b", nil, true),
 								newTestCase(b[0], "/source-principal-notValues-b", nil, false),
 
 								newTestCase(a[0], "/destination-ip-good", nil, true),
+								newTestCase(vm[0], "/destination-ip-good", nil, true),
 								newTestCase(b[0], "/destination-ip-good", nil, true),
 								newTestCase(a[0], "/destination-ip-bad", nil, false),
+								newTestCase(vm[0], "/destination-ip-bad", nil, false),
 								newTestCase(b[0], "/destination-ip-bad", nil, false),
 								newTestCase(a[0], "/destination-ip-notValues-a-or-b", nil, true),
+								newTestCase(vm[0], "/destination-ip-notValues-a-or-b", nil, true),
 								newTestCase(a[0], "/destination-ip-notValues-a-or-b-or-c", nil, false),
+								newTestCase(vm[0], "/destination-ip-notValues-a-or-b-or-c", nil, false),
 
 								newTestCase(a[0], "/destination-port-good", nil, true),
+								newTestCase(vm[0], "/destination-port-good", nil, true),
 								newTestCase(b[0], "/destination-port-good", nil, true),
 								newTestCase(a[0], "/destination-port-bad", nil, false),
+								newTestCase(vm[0], "/destination-port-bad", nil, false),
 								newTestCase(b[0], "/destination-port-bad", nil, false),
 								newTestCase(a[0], "/destination-port-notValues-c", nil, false),
+								newTestCase(vm[0], "/destination-port-notValues-c", nil, false),
 								newTestCase(b[0], "/destination-port-notValues-c", nil, false),
 
 								newTestCase(a[0], "/connection-sni-good", nil, true),
+								newTestCase(vm[0], "/connection-sni-good", nil, true),
 								newTestCase(b[0], "/connection-sni-good", nil, true),
 								newTestCase(a[0], "/connection-sni-bad", nil, false),
+								newTestCase(vm[0], "/connection-sni-bad", nil, false),
 								newTestCase(b[0], "/connection-sni-bad", nil, false),
 								newTestCase(a[0], "/connection-sni-notValues-a-or-b", nil, true),
+								newTestCase(vm[0], "/connection-sni-notValues-a-or-b", nil, true),
 								newTestCase(a[0], "/connection-sni-notValues-a-or-b-or-c", nil, false),
+								newTestCase(vm[0], "/connection-sni-notValues-a-or-b-or-c", nil, false),
 
 								newTestCase(a[0], "/other", nil, false),
+								newTestCase(vm[0], "/other", nil, false),
 								newTestCase(b[0], "/other", nil, false),
 							}
 							rbacUtil.RunRBACTest(ctx, cases)
@@ -1151,18 +1240,19 @@ func TestAuthorization_Path(t *testing.T) {
 				ctx.NewSubTest(fmt.Sprintf("In %s", srcCluster.StableName())).Run(func(ctx framework.TestContext) {
 					b := apps.B.GetOrFail(ctx, echo.InCluster(srcCluster).And(echo.Namespace(ns.Name())))
 					a := apps.A.Match(echo.Namespace(ns.Name()))
+					vm := apps.VM.Match(echo.Namespace(ns.Name()))
 					callCount := 1
 					if ctx.Clusters().IsMulticluster() {
 						// so we can validate all clusters are hit
 						callCount = util.CallsPerCluster * len(ctx.Clusters())
 					}
 
-					newTestCase := func(path string, expectAllowed bool) rbacUtil.TestCase {
+					newTestCase := func(to echo.Instances, path string, expectAllowed bool) rbacUtil.TestCase {
 						return rbacUtil.TestCase{
 							Request: connection.Checker{
 								From: b,
 								Options: echo.CallOptions{
-									Target:   a[0],
+									Target:   to[0],
 									PortName: "http",
 									Scheme:   scheme.HTTP,
 									Path:     path,
@@ -1174,17 +1264,28 @@ func TestAuthorization_Path(t *testing.T) {
 						}
 					}
 					cases := []rbacUtil.TestCase{
-						newTestCase("/public", true),
-						newTestCase("/private", false),
-						newTestCase("/public/../private", false),
-						newTestCase("/public/./../private", false),
-						newTestCase("/public/.././private", false),
-						newTestCase("/public/%2E%2E/private", false),
-						newTestCase("/public/%2e%2e/private", false),
-						newTestCase("/public/%2E/%2E%2E/private", false),
-						newTestCase("/public/%2e/%2e%2e/private", false),
-						newTestCase("/public/%2E%2E/%2E/private", false),
-						newTestCase("/public/%2e%2e/%2e/private", false),
+						newTestCase(a, "/public", true),
+						newTestCase(a, "/private", false),
+						newTestCase(a, "/public/../private", false),
+						newTestCase(a, "/public/./../private", false),
+						newTestCase(a, "/public/.././private", false),
+						newTestCase(a, "/public/%2E%2E/private", false),
+						newTestCase(a, "/public/%2e%2e/private", false),
+						newTestCase(a, "/public/%2E/%2E%2E/private", false),
+						newTestCase(a, "/public/%2e/%2e%2e/private", false),
+						newTestCase(a, "/public/%2E%2E/%2E/private", false),
+						newTestCase(a, "/public/%2e%2e/%2e/private", false),
+						newTestCase(vm, "/public", true),
+						newTestCase(vm, "/private", false),
+						newTestCase(vm, "/public/../private", false),
+						newTestCase(vm, "/public/./../private", false),
+						newTestCase(vm, "/public/.././private", false),
+						newTestCase(vm, "/public/%2E%2E/private", false),
+						newTestCase(vm, "/public/%2e%2e/private", false),
+						newTestCase(vm, "/public/%2E/%2E%2E/private", false),
+						newTestCase(vm, "/public/%2e/%2e%2e/private", false),
+						newTestCase(vm, "/public/%2E%2E/%2E/private", false),
+						newTestCase(vm, "/public/%2e%2e/%2e/private", false),
 					}
 					rbacUtil.RunRBACTest(ctx, cases)
 				})
