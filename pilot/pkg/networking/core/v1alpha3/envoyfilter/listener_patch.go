@@ -372,7 +372,6 @@ func patchNetworkFilter(proxy *model.Proxy, patchContext networking.EnvoyFilter_
 		if cp.Operation == networking.EnvoyFilter_Patch_REMOVE {
 			filter.Name = ""
 			*networkFilterRemoved = true
-			applied = true
 			// nothing more to do in other patches as we removed this filter
 			return
 		} else if cp.Operation == networking.EnvoyFilter_Patch_MERGE {
@@ -556,7 +555,6 @@ func patchHTTPFilter(proxy *model.Proxy, patchContext networking.EnvoyFilter_Pat
 			continue
 		}
 		if cp.Operation == networking.EnvoyFilter_Patch_REMOVE {
-			applied = true
 			httpFilter.Name = ""
 			*httpFilterRemoved = true
 			// nothing more to do in other patches as we removed this filter
