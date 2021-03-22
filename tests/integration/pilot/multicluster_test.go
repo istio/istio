@@ -93,7 +93,7 @@ serviceSettings:
 
 func patchMeshConfig(t framework.TestContext, clusters cluster.Clusters, patch string) {
 	errG := multierror.Group{}
-	origCfg := map[string]map[string]string{}
+	origCfg := map[string]string{}
 	mu := sync.RWMutex{}
 
 	cmName := "istio"
@@ -107,14 +107,13 @@ func patchMeshConfig(t framework.TestContext, clusters cluster.Clusters, patch s
 			if err != nil {
 				return err
 			}
-			mu.Lock()
-			origCfg[c.Name()] = cm.Data
-			mu.Unlock()
-
 			mcYaml, ok := cm.Data["mesh"]
 			if !ok {
 				return fmt.Errorf("mesh config was missing in istio config map for %s", c.Name())
 			}
+			mu.Lock()
+			origCfg[c.Name()] = cm.Data["mesh"]
+			mu.Unlock()
 			mc := &meshconfig.MeshConfig{}
 			if err := gogoprotomarshal.ApplyYAML(mcYaml, mc); err != nil {
 				return err
@@ -138,15 +137,15 @@ func patchMeshConfig(t framework.TestContext, clusters cluster.Clusters, patch s
 		errG := multierror.Group{}
 		mu.RLock()
 		defer mu.RUnlock()
-		for cn, data := range origCfg {
-			cn, data := cn, data
+		for cn, mcYaml := range origCfg {
+			cn, mcYaml := cn, mcYaml
 			c := clusters.GetByName(cn)
 			errG.Go(func() error {
 				cm, err := c.CoreV1().ConfigMaps(i.Settings().SystemNamespace).Get(context.TODO(), cmName, v1.GetOptions{})
 				if err != nil {
 					return err
 				}
-				cm.Data = data
+				cm.Data["mesh"] = mcYaml
 				_, err = c.CoreV1().ConfigMaps(i.Settings().SystemNamespace).Update(context.TODO(), cm, v1.UpdateOptions{})
 				return err
 			})
