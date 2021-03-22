@@ -20,18 +20,23 @@ import (
 
 	envoy_corev3 "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
+
 	"github.com/spf13/cobra"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"istio.io/istio/istioctl/pkg/clioptions"
 	"istio.io/istio/istioctl/pkg/multixds"
 	"istio.io/istio/istioctl/pkg/util/handlers"
 	"istio.io/istio/istioctl/pkg/writer/pilot"
+
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/kubectl/pkg/polymorphichelpers"
 )
 
 const (
 	// TypeDebug requests debug info from istio, a secured implementation for istio debug interface
-	TypeDebug = "istio.io/debug"
+	TypeDebug         = "istio.io/debug"
+	istiodServiceName = "istiod"
+	xdsPortName       = "https-dns"
 )
 
 func debugCommand() *cobra.Command {
@@ -109,6 +114,46 @@ By default it will use the default serviceAccount from (istio-system) namespace 
 					},
 					TypeUrl: TypeDebug,
 				}
+			}
+			if centralOpts.Xds == "" {
+				svc, err := kubeClient.CoreV1().Services(istioNamespace).Get(context.Background(), istiodServiceName, metav1.GetOptions{})
+				if err != nil {
+					return fmt.Errorf("please specify %q as %v", "--xds-address", err)
+				}
+				namespace, selector, err := polymorphichelpers.SelectorsForObject(svc)
+				if err != nil {
+					return fmt.Errorf("please specify %q as we cannot attach to %T: %v", "--xds-address", svc, err)
+				}
+
+				options := metav1.ListOptions{LabelSelector: selector.String()}
+
+				podList, err := kubeClient.CoreV1().Pods(namespace).List(context.TODO(), options)
+				if err != nil {
+					return fmt.Errorf("please specify %q as %v", "--xds-address", err)
+				}
+				//  select a pod randomly to simulate current debug behavior
+				pod := podList.Items[0]
+				if err != nil {
+					return fmt.Errorf("please specify %q as %v", "--xds-address", err)
+				}
+				podPort := 15012
+				for _, v := range svc.Spec.Ports {
+					if v.Name == xdsPortName {
+						podPort = v.TargetPort.IntValue()
+					}
+				}
+				f, err := kubeClient.NewPortForwarder(pod.Name, pod.Namespace, "", 0, podPort)
+				if err != nil {
+					return fmt.Errorf("please specify %q as %v", "--xds-address", err)
+				}
+				if err := f.Start(); err != nil {
+					return fmt.Errorf("please specify %q as %v", "--xds-address", err)
+				}
+				centralOpts.Xds = f.Address()
+				defer func() {
+					f.Close()
+					f.WaitForStop()
+				}()
 			}
 			xdsResponses, err := multixds.AllRequestAndProcessXds(&xdsRequest, &centralOpts, istioNamespace,
 				namespace, serviceAccount, kubeClient)
