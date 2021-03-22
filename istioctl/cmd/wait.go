@@ -209,7 +209,13 @@ func poll(cmd *cobra.Command,
 		if contains(acceptedVersions, version) {
 			present += count
 		} else {
-			notpresent += count
+			if version == "-1" {
+				// if the version is "-1", it means that there is no value from last nonce.
+				// in this case, we need to set notpresent as 0
+				notpresent = 0
+			} else {
+				notpresent += count
+			}
 		}
 	}
 	return present, notpresent, sdcnum, nil

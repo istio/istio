@@ -330,15 +330,26 @@ func (s *DiscoveryServer) distributedVersions(w http.ResponseWriter, req *http.R
 			con.proxy.RLock()
 
 			if con.proxy != nil && (proxyNamespace == "" || proxyNamespace == con.proxy.ConfigNamespace) {
+				// if there is no value from last nonce,
+				// "-1" should be set for identification of no last nonce
+				sclusterType := s.StatusReporter.QueryLastNonce(con.ConID, v3.ClusterType)
+				if len(sclusterType) == 0 {
+					sclusterType = "-1"
+				}
+				slistenerType := s.StatusReporter.QueryLastNonce(con.ConID, v3.ListenerType)
+				if len(slistenerType) == 0 {
+					slistenerType = "-1"
+				}
+				srouteType := s.StatusReporter.QueryLastNonce(con.ConID, v3.RouteType)
+				if len(srouteType) == 0 {
+					srouteType = "-1"
+				}
 				// read nonces from our statusreporter to allow for skipped nonces, etc.
 				results = append(results, SyncedVersions{
-					ProxyID: con.proxy.ID,
-					ClusterVersion: s.getResourceVersion(s.StatusReporter.QueryLastNonce(con.ConID, v3.ClusterType),
-						resourceID, knownVersions),
-					ListenerVersion: s.getResourceVersion(s.StatusReporter.QueryLastNonce(con.ConID, v3.ListenerType),
-						resourceID, knownVersions),
-					RouteVersion: s.getResourceVersion(s.StatusReporter.QueryLastNonce(con.ConID, v3.RouteType),
-						resourceID, knownVersions),
+					ProxyID:         con.proxy.ID,
+					ClusterVersion:  s.getResourceVersion(sclusterType, resourceID, knownVersions),
+					ListenerVersion: s.getResourceVersion(slistenerType, resourceID, knownVersions),
+					RouteVersion:    s.getResourceVersion(srouteType, resourceID, knownVersions),
 				})
 			}
 			con.proxy.RUnlock()
@@ -364,6 +375,10 @@ func (s *DiscoveryServer) distributedVersions(w http.ResponseWriter, req *http.R
 const VersionLen = 12
 
 func (s *DiscoveryServer) getResourceVersion(nonce, key string, cache map[string]string) string {
+	// It's very different from (nonce == -1) and len(nonce) < VersionLen.
+	if nonce == "-1" {
+		return "-1"
+	}
 	if len(nonce) < VersionLen {
 		return ""
 	}
