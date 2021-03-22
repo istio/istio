@@ -2,5 +2,5 @@ name: envoy.filters.network.rbac
 typedConfig:
   '@type': type.googleapis.com/envoy.extensions.filters.network.rbac.v3.RBAC
   rules: {}
-  statPrefix: tcp.
   shadowRulesStatPrefix: istio_dry_run_
+  statPrefix: tcp.
