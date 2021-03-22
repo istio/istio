@@ -235,6 +235,28 @@ func (d Deployments) FQDNs() []string {
 	return out
 }
 
+func (d Deployments) Flatten() Instances {
+	var out Instances
+	for _, instances := range d {
+		out = append(out, instances...)
+	}
+	return out
+}
+
+func (d Deployments) MatchFQDNs(fqdns ...string) Deployments {
+	match := map[string]bool{}
+	for _, fqdn := range fqdns {
+		match[fqdn] = true
+	}
+	var out Deployments
+	for _, instances := range d {
+		if match[instances[0].Config().FQDN()] {
+			out = append(out, instances)
+		}
+	}
+	return out
+}
+
 // Deployments must be sorted to make sure tests have consistent ordering
 var _ sort.Interface = Deployments{}
 

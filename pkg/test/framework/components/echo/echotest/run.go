@@ -17,6 +17,7 @@ package echotest
 import (
 	"strings"
 
+	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
 )
@@ -67,6 +68,9 @@ func (t *T) RunToN(n int, testFn oneToNTest) {
 		t.toNDeployments(ctx, n, srcInstances, func(ctx framework.TestContext, destDeployments echo.Deployments) {
 			t.setupPair(ctx, srcInstances, destDeployments)
 			t.fromEachCluster(ctx, srcInstances, func(ctx framework.TestContext, src echo.Instance) {
+				// reapply destination filters to only get the reachable instances for this cluster
+				// this can be done safely since toNDeployments asserts the Deployments won't change
+				destDeployments := t.applyCombinationFilters(src, destDeployments.Flatten()).Deployments()
 				testFn(ctx, src, destDeployments)
 			})
 		})
@@ -109,22 +113,25 @@ func (t *T) fromEachCluster(ctx framework.TestContext, src echo.Instances, testF
 }
 
 func (t *T) toNDeployments(ctx framework.TestContext, n int, srcs echo.Instances, testFn perNDeploymentTest) {
-	// every eligible target deployment
-	var filteredTargets []echo.Instances
-	var commonTargets string
+	// every eligible target instance from any cluster (map to dedupe)
+	var commonTargets []string
 	for _, src := range srcs {
-		filteredTargets = t.applyCombinationFilters(src, t.destinations).Deployments()
-		targetNames := strings.Join(targetNames(filteredTargets), ";")
-		if commonTargets == "" {
+		// eligible target instnaces from the src cluster
+		filteredForSource := t.applyCombinationFilters(src, t.destinations)
+		// make sure this src targets the same deployments (not necessarily the same instances) as other srcs
+		targetNames := filteredForSource.Deployments().FQDNs()
+		if len(commonTargets) == 0 {
 			commonTargets = targetNames
-		} else if commonTargets != targetNames {
+		} else if !util.StringSliceEqual(targetNames, commonTargets) {
 			ctx.Fatalf("%s in each cluster each cluster would not target the same set of deploments", src.Config().Service)
 		}
 	}
-
+	// we take all instances that match the deployments
+	// combination filters should be run again for individual sources
+	filteredTargets := t.destinations.Deployments().MatchFQDNs(commonTargets...)
 	for _, set := range nDestinations(ctx, n, filteredTargets) {
 		set := set
-		ctx.NewSubTestf("to %s", strings.Join(targetNames(set), " ")).Run(func(ctx framework.TestContext) {
+		ctx.NewSubTestf("to %s", strings.Join(set.Services(), " ")).Run(func(ctx framework.TestContext) {
 			testFn(ctx, set)
 		})
 	}
@@ -146,12 +153,4 @@ func nDestinations(ctx framework.TestContext, n int, deployments echo.Deployment
 		out = append(out, deployments[start:start+n])
 	}
 	return
-}
-
-func targetNames(deployments []echo.Instances) []string {
-	var names []string
-	for _, dest := range deployments {
-		names = append(names, dest[0].Config().Service)
-	}
-	return names
 }
