@@ -309,11 +309,6 @@ func TestAuthorization_Deny(t *testing.T) {
 	framework.NewTest(t).
 		Features("security.authorization.deny-action").
 		Run(func(ctx framework.TestContext) {
-			// TODO: Convert into multicluster support. Currently 503 is received cross-network
-			if ctx.Clusters().IsMulticluster() {
-				ctx.Skip()
-			}
-
 			ns := apps.Namespace1
 			args := map[string]string{
 				"Namespace":     ns.Name(),
@@ -479,10 +474,6 @@ func TestAuthorization_IngressGateway(t *testing.T) {
 	framework.NewTest(t).
 		Features("security.authorization.ingress-gateway").
 		Run(func(ctx framework.TestContext) {
-			// TODO: finish convert all authorization tests into multicluster supported
-			if ctx.Clusters().IsMulticluster() {
-				ctx.Skip()
-			}
 			ns := namespace.NewOrFail(t, ctx, namespace.Config{
 				Prefix: "v1beta1-ingress-gateway",
 				Inject: true,
@@ -621,10 +612,6 @@ func TestAuthorization_EgressGateway(t *testing.T) {
 	framework.NewTest(t).
 		Features("security.authorization.egress-gateway").
 		Run(func(ctx framework.TestContext) {
-			// TODO: Convert into multicluster support. Currently 503 is received
-			if ctx.Clusters().IsMulticluster() {
-				ctx.Skip()
-			}
 			ns := namespace.NewOrFail(t, ctx, namespace.Config{
 				Prefix: "v1beta1-egress-gateway",
 				Inject: true,
@@ -798,10 +785,6 @@ func TestAuthorization_TCP(t *testing.T) {
 	framework.NewTest(t).
 		Features("security.authorization.tcp").
 		Run(func(ctx framework.TestContext) {
-			// TODO: finish convert all authorization tests into multicluster supported
-			if ctx.Clusters().IsMulticluster() {
-				ctx.Skip()
-			}
 			ns := namespace.NewOrFail(t, ctx, namespace.Config{
 				Prefix: "v1beta1-tcp-1",
 				Inject: true,
@@ -1072,10 +1055,6 @@ func TestAuthorization_GRPC(t *testing.T) {
 	framework.NewTest(t).
 		Features("security.authorization.grpc-protocol").
 		Run(func(ctx framework.TestContext) {
-			// TODO: finish convert all authorization tests into multicluster supported
-			if ctx.Clusters().IsMulticluster() {
-				ctx.Skip()
-			}
 			ns := namespace.NewOrFail(t, ctx, namespace.Config{
 				Prefix: "v1beta1-grpc",
 				Inject: true,
