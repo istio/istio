@@ -82,20 +82,22 @@ func (configgen *ConfigGeneratorImpl) BuildClusters(proxy *model.Proxy, push *mo
 	switch proxy.Type {
 	case model.SidecarProxy:
 		// Setup outbound clusters
-		outboundPatcher := clusterPatcher{envoyFilterPatches, networking.EnvoyFilter_SIDECAR_OUTBOUND}
+		outboundPatcher := clusterPatcher{efw: envoyFilterPatches, pctx: networking.EnvoyFilter_SIDECAR_OUTBOUND, proxy: proxy}
 		clusters = append(clusters, configgen.buildOutboundClusters(cb, outboundPatcher)...)
 		// Add a blackhole and passthrough cluster for catching traffic to unresolved routes
 		clusters = outboundPatcher.conditionallyAppend(clusters, nil, cb.buildBlackHoleCluster(), cb.buildDefaultPassthroughCluster())
 		clusters = append(clusters, outboundPatcher.insertedClusters()...)
+		outboundPatcher.incrementFilterMetrics()
 
 		// Setup inbound clusters
-		inboundPatcher := clusterPatcher{envoyFilterPatches, networking.EnvoyFilter_SIDECAR_INBOUND}
+		inboundPatcher := clusterPatcher{efw: envoyFilterPatches, pctx: networking.EnvoyFilter_SIDECAR_INBOUND, proxy: proxy}
 		clusters = append(clusters, configgen.buildInboundClusters(cb, instances, inboundPatcher)...)
 		// Pass through clusters for inbound traffic. These cluster bind loopback-ish src address to access node local service.
 		clusters = inboundPatcher.conditionallyAppend(clusters, nil, cb.buildInboundPassthroughClusters()...)
 		clusters = append(clusters, inboundPatcher.insertedClusters()...)
+		inboundPatcher.incrementFilterMetrics()
 	default: // Gateways
-		patcher := clusterPatcher{envoyFilterPatches, networking.EnvoyFilter_GATEWAY}
+		patcher := clusterPatcher{efw: envoyFilterPatches, pctx: networking.EnvoyFilter_GATEWAY, proxy: proxy}
 		clusters = append(clusters, configgen.buildOutboundClusters(cb, patcher)...)
 		// Gateways do not require the default passthrough cluster as they do not have original dst listeners.
 		clusters = patcher.conditionallyAppend(clusters, nil, cb.buildBlackHoleCluster())
@@ -103,6 +105,7 @@ func (configgen *ConfigGeneratorImpl) BuildClusters(proxy *model.Proxy, push *mo
 			clusters = append(clusters, configgen.buildOutboundSniDnatClusters(proxy, push, patcher)...)
 		}
 		clusters = append(clusters, patcher.insertedClusters()...)
+		patcher.incrementFilterMetrics()
 	}
 
 	return cb.normalizeClusters(clusters)
@@ -152,21 +155,38 @@ func (configgen *ConfigGeneratorImpl) buildOutboundClusters(cb *ClusterBuilder, 
 var NilClusterPatcher = clusterPatcher{}
 
 type clusterPatcher struct {
-	efw  *model.EnvoyFilterWrapper
-	pctx networking.EnvoyFilter_PatchContext
+	efw            *model.EnvoyFilterWrapper
+	pctx           networking.EnvoyFilter_PatchContext
+	proxy          *model.Proxy
+	patchesApplied int
 }
 
 func (p clusterPatcher) conditionallyAppend(l []*cluster.Cluster, hosts []host.Name, clusters ...*cluster.Cluster) []*cluster.Cluster {
+	applied := false
+	var pc *cluster.Cluster
 	for _, c := range clusters {
 		if envoyfilter.ShouldKeepCluster(p.pctx, p.efw, c, hosts) {
-			l = append(l, envoyfilter.ApplyClusterMerge(p.pctx, p.efw, c, hosts))
+			pc, applied = envoyfilter.ApplyClusterMerge(p.pctx, p.proxy, p.efw, c, hosts)
+			l = append(l, pc)
 		}
+	}
+	if applied {
+		p.patchesApplied++
 	}
 	return l
 }
 
 func (p clusterPatcher) insertedClusters() []*cluster.Cluster {
 	return envoyfilter.InsertedClusters(p.pctx, p.efw)
+}
+
+func (p clusterPatcher) incrementFilterMetrics() {
+	if p.efw != nil && len(p.efw.Patches[networking.EnvoyFilter_CLUSTER]) != p.patchesApplied {
+		skipped := len(p.efw.Patches[networking.EnvoyFilter_CLUSTER]) - p.patchesApplied
+		for skipped > 0 {
+			envoyfilter.IncrementSkippedMetric("cluster", p.proxy.ID)
+		}
+	}
 }
 
 // SniDnat clusters do not have any TLS setting, as they simply forward traffic to upstream

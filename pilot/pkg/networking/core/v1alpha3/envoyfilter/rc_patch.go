@@ -33,6 +33,7 @@ func ApplyRouteConfigurationPatches(
 	push *model.PushContext,
 	routeConfiguration *route.RouteConfiguration) (out *route.RouteConfiguration) {
 	defer runtime.HandleCrash(runtime.LogPanic, func(interface{}) {
+		IncrementErrorMetric("route", proxy.ID)
 		log.Errorf("route patch caused panic, so the patches did not take effect")
 	})
 	// In case the patches cause panic, use the route generated before to reduce the influence.
@@ -42,33 +43,40 @@ func ApplyRouteConfigurationPatches(
 	if efw == nil {
 		return out
 	}
+	applied := false
 
 	// only merge is applicable for route configuration.
 	for _, cp := range efw.Patches[networking.EnvoyFilter_ROUTE_CONFIGURATION] {
 		if cp.Operation != networking.EnvoyFilter_Patch_MERGE {
 			continue
 		}
-
 		if commonConditionMatch(patchContext, cp) &&
 			routeConfigurationMatch(patchContext, routeConfiguration, cp) {
 			proto.Merge(routeConfiguration, cp.Value)
+		} else {
+			applied = false
 		}
 	}
 
-	doVirtualHostListOperation(patchContext, efw.Patches, routeConfiguration)
+	if !applied {
+		IncrementSkippedMetric("routes", proxy.ID)
+	}
+	patchVirtualHosts(patchContext, proxy, efw.Patches, routeConfiguration)
 
 	return routeConfiguration
 }
 
-func doVirtualHostListOperation(patchContext networking.EnvoyFilter_PatchContext,
+func patchVirtualHosts(patchContext networking.EnvoyFilter_PatchContext,
+	proxy *model.Proxy,
 	patches map[networking.EnvoyFilter_ApplyTo][]*model.EnvoyFilterConfigPatchWrapper,
 	routeConfiguration *route.RouteConfiguration) {
 	virtualHostsRemoved := false
 	// first do removes/merges
 	for _, vhost := range routeConfiguration.VirtualHosts {
-		doVirtualHostOperation(patchContext, patches, routeConfiguration, vhost, &virtualHostsRemoved)
+		patchVirtualHost(patchContext, proxy, patches, routeConfiguration, vhost, &virtualHostsRemoved)
 	}
 
+	applied := false
 	// now for the adds
 	for _, cp := range patches[networking.EnvoyFilter_VIRTUAL_HOST] {
 		if cp.Operation != networking.EnvoyFilter_Patch_ADD {
@@ -76,10 +84,13 @@ func doVirtualHostListOperation(patchContext networking.EnvoyFilter_PatchContext
 		}
 		if commonConditionMatch(patchContext, cp) &&
 			routeConfigurationMatch(patchContext, routeConfiguration, cp) {
+			applied = true
 			routeConfiguration.VirtualHosts = append(routeConfiguration.VirtualHosts, proto.Clone(cp.Value).(*route.VirtualHost))
 		}
 	}
-
+	if !applied {
+		IncrementSkippedMetric("vhosts", proxy.ID)
+	}
 	if virtualHostsRemoved {
 		trimmedVirtualHosts := make([]*route.VirtualHost, 0, len(routeConfiguration.VirtualHosts))
 		for _, virtualHost := range routeConfiguration.VirtualHosts {
@@ -92,13 +103,16 @@ func doVirtualHostListOperation(patchContext networking.EnvoyFilter_PatchContext
 	}
 }
 
-func doVirtualHostOperation(patchContext networking.EnvoyFilter_PatchContext,
+func patchVirtualHost(patchContext networking.EnvoyFilter_PatchContext,
+	proxy *model.Proxy,
 	patches map[networking.EnvoyFilter_ApplyTo][]*model.EnvoyFilterConfigPatchWrapper,
 	routeConfiguration *route.RouteConfiguration, virtualHost *route.VirtualHost, virtualHostRemoved *bool) {
+	applied := false
 	for _, cp := range patches[networking.EnvoyFilter_VIRTUAL_HOST] {
 		if commonConditionMatch(patchContext, cp) &&
 			routeConfigurationMatch(patchContext, routeConfiguration, cp) &&
 			virtualHostMatch(virtualHost, cp) {
+			applied = true
 			if cp.Operation == networking.EnvoyFilter_Patch_REMOVE {
 				virtualHost.Name = ""
 				*virtualHostRemoved = true
@@ -109,7 +123,10 @@ func doVirtualHostOperation(patchContext networking.EnvoyFilter_PatchContext,
 			}
 		}
 	}
-	doHTTPRouteListOperation(patchContext, patches, routeConfiguration, virtualHost)
+	if !applied {
+		IncrementSkippedMetric("vhosts", proxy.ID)
+	}
+	patchHTTPRoutes(patchContext, proxy, patches, routeConfiguration, virtualHost)
 }
 
 func hasRouteMatch(cp *model.EnvoyFilterConfigPatchWrapper) bool {
@@ -126,15 +143,17 @@ func hasRouteMatch(cp *model.EnvoyFilterConfigPatchWrapper) bool {
 	return vhMatch.Route != nil
 }
 
-func doHTTPRouteListOperation(patchContext networking.EnvoyFilter_PatchContext,
+func patchHTTPRoutes(patchContext networking.EnvoyFilter_PatchContext,
+	proxy *model.Proxy,
 	patches map[networking.EnvoyFilter_ApplyTo][]*model.EnvoyFilterConfigPatchWrapper,
 	routeConfiguration *route.RouteConfiguration, virtualHost *route.VirtualHost) {
 	routesRemoved := false
 	// Apply the route level removes/merges if any.
 	for index := range virtualHost.Routes {
-		doHTTPRouteOperation(patchContext, patches, routeConfiguration, virtualHost, index, &routesRemoved)
+		patchHTTPRoute(patchContext, proxy, patches, routeConfiguration, virtualHost, index, &routesRemoved)
 	}
 
+	applied := false
 	// now for the adds
 	for _, cp := range patches[networking.EnvoyFilter_HTTP_ROUTE] {
 		if !commonConditionMatch(patchContext, cp) ||
@@ -142,9 +161,9 @@ func doHTTPRouteListOperation(patchContext networking.EnvoyFilter_PatchContext,
 			!virtualHostMatch(virtualHost, cp) {
 			continue
 		}
-
 		if cp.Operation == networking.EnvoyFilter_Patch_ADD {
 			virtualHost.Routes = append(virtualHost.Routes, proto.Clone(cp.Value).(*route.Route))
+			applied = true
 		} else if cp.Operation == networking.EnvoyFilter_Patch_INSERT_AFTER {
 			// Insert after without a route match is same as ADD in the end
 			if !hasRouteMatch(cp) {
@@ -163,7 +182,7 @@ func doHTTPRouteListOperation(patchContext networking.EnvoyFilter_PatchContext,
 			if insertPosition == -1 {
 				continue
 			}
-
+			applied = true
 			clonedVal := proto.Clone(cp.Value).(*route.Route)
 			virtualHost.Routes = append(virtualHost.Routes, clonedVal)
 			if insertPosition < len(virtualHost.Routes)-1 {
@@ -190,6 +209,8 @@ func doHTTPRouteListOperation(patchContext networking.EnvoyFilter_PatchContext,
 				continue
 			}
 
+			applied = true
+
 			// In case of INSERT_FIRST, if a match is found, still insert it at the top of the routes.
 			if cp.Operation == networking.EnvoyFilter_Patch_INSERT_FIRST {
 				insertPosition = 0
@@ -201,7 +222,9 @@ func doHTTPRouteListOperation(patchContext networking.EnvoyFilter_PatchContext,
 			virtualHost.Routes[insertPosition] = clonedVal
 		}
 	}
-
+	if !applied {
+		IncrementSkippedMetric("routes", proxy.ID)
+	}
 	if routesRemoved {
 		trimmedRoutes := make([]*route.Route, 0, len(virtualHost.Routes))
 		for i := range virtualHost.Routes {
@@ -214,9 +237,11 @@ func doHTTPRouteListOperation(patchContext networking.EnvoyFilter_PatchContext,
 	}
 }
 
-func doHTTPRouteOperation(patchContext networking.EnvoyFilter_PatchContext,
+func patchHTTPRoute(patchContext networking.EnvoyFilter_PatchContext,
+	proxy *model.Proxy,
 	patches map[networking.EnvoyFilter_ApplyTo][]*model.EnvoyFilterConfigPatchWrapper,
 	routeConfiguration *route.RouteConfiguration, virtualHost *route.VirtualHost, routeIndex int, routesRemoved *bool) {
+	applied := false
 	for _, cp := range patches[networking.EnvoyFilter_HTTP_ROUTE] {
 		if commonConditionMatch(patchContext, cp) &&
 			routeConfigurationMatch(patchContext, routeConfiguration, cp) &&
@@ -232,7 +257,11 @@ func doHTTPRouteOperation(patchContext networking.EnvoyFilter_PatchContext,
 			} else if cp.Operation == networking.EnvoyFilter_Patch_MERGE {
 				proto.Merge(virtualHost.Routes[routeIndex], cp.Value)
 			}
+			applied = true
 		}
+	}
+	if !applied {
+		IncrementSkippedMetric("routes", proxy.ID)
 	}
 }
 

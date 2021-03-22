@@ -30,9 +30,10 @@ import (
 )
 
 // ApplyClusterMerge processes the MERGE operation and merges the supplied configuration to the matched clusters.
-func ApplyClusterMerge(pctx networking.EnvoyFilter_PatchContext, efw *model.EnvoyFilterWrapper, c *cluster.Cluster, hosts []host.Name) (out *cluster.Cluster) {
+func ApplyClusterMerge(pctx networking.EnvoyFilter_PatchContext, proxy *model.Proxy, efw *model.EnvoyFilterWrapper, c *cluster.Cluster, hosts []host.Name) (out *cluster.Cluster, applied bool) {
 	defer runtime.HandleCrash(runtime.LogPanic, func(interface{}) {
 		log.Errorf("clusters patch caused panic, so the patches did not take effect")
+		IncrementErrorMetric("cluster", proxy.ID)
 	})
 	// In case the patches cause panic, use the clusters generated before to reduce the influence.
 	out = c
@@ -50,12 +51,13 @@ func ApplyClusterMerge(pctx networking.EnvoyFilter_PatchContext, efw *model.Envo
 				log.Debugf("Merge of transport socket failed for cluster: %v", err)
 				continue
 			}
+			applied = true
 			if !ret {
 				proto.Merge(c, cp.Value)
 			}
 		}
 	}
-	return c
+	return c, applied
 }
 
 // Test if the patch contains a config for TransportSocket
