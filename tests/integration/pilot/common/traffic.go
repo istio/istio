@@ -107,7 +107,7 @@ func (c TrafficTestCase) RunForApps(t framework.TestContext, apps echo.Instances
 			From(c.sourceFilters...).
 			To(c.targetFilters...)
 		if c.toN > 0 {
-			echoT.RunToN(c.toN, func(ctx framework.TestContext, src echo.Instance, dsts echo.Deployments) {
+			echoT.RunToN(c.toN, func(t framework.TestContext, src echo.Instance, dsts echo.Deployments) {
 				// TODO DRY up Run vs RunToN
 				if c.skip {
 					t.SkipNow()
