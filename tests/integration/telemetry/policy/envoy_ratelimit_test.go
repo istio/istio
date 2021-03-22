@@ -79,6 +79,17 @@ func TestLocalRouteSpecificRateLimiting(t *testing.T) {
 		})
 }
 
+func TestLocalRateLimitingServiceAccount(t *testing.T) {
+	framework.
+		NewTest(t).
+		Features("traffic.ratelimit.envoy").
+		Run(func(ctx framework.TestContext) {
+			setupEnvoyFilter(ctx, "testdata/enable_envoy_local_ratelimit_sa.yaml")
+
+			sendTrafficAndCheckIfRatelimited(t)
+		})
+}
+
 func TestMain(m *testing.M) {
 	framework.
 		NewSuite(m).
@@ -100,8 +111,9 @@ func testSetup(ctx resource.Context) (err error) {
 
 	_, err = echoboot.NewBuilder(ctx).
 		With(&clt, echo.Config{
-			Service:   "clt",
-			Namespace: echoNsInst,
+			Service:        "clt",
+			Namespace:      echoNsInst,
+			ServiceAccount: true,
 		}).
 		With(&srv, echo.Config{
 			Service:   "srv",
@@ -114,6 +126,7 @@ func testSetup(ctx resource.Context) (err error) {
 					InstancePort: 8888,
 				},
 			},
+			ServiceAccount: true,
 		}).
 		Build()
 	if err != nil {
