@@ -141,17 +141,14 @@ func TestReachability(t *testing.T) {
 					ExpectMTLS: mtlsOnExpect,
 				},
 				{
-					ConfigFile:    "no-peer-authn.yaml",
-					Namespace:     systemNM,
+					ConfigFile: "no-peer-authn.yaml",
+					Namespace:  systemNM,
+					Include: func(src echo.Instance, opts echo.CallOptions) bool {
+						// Exclude calls to naked since we are applying ISTIO_MUTUAL
+						return !apps.IsNaked(opts.Target)
+					},
 					ExpectSuccess: Always, // No PeerAuthN should default to a PERMISSIVE.
 					ExpectMTLS:    mtlsOnExpect,
-					Include: func(src echo.Instance, opts echo.CallOptions) bool {
-						// TODO this should be fine...
-						if apps.IsNaked(opts.Target) {
-							return false
-						}
-						return true
-					},
 				},
 				{
 					ConfigFile: "global-plaintext.yaml",
