@@ -46,7 +46,7 @@ func TestClusterLocal(t *testing.T) {
 			// TODO use echotest to dynamically pick 2 simple pods from apps.All
 			sources := apps.PodA
 			destination := apps.PodB
-			t.NewSubTest("cluster local").Run(func(ctx framework.TestContext) {
+			t.NewSubTest("cluster local").Run(func(t framework.TestContext) {
 				patchMeshConfig(t, destination.Clusters(), fmt.Sprintf(`
 serviceSettings: 
 - settings:
@@ -70,7 +70,7 @@ serviceSettings:
 					})
 				}
 			})
-			t.NewSubTest("cross cluster").Run(func(ctx framework.TestContext) {
+			t.NewSubTest("cross cluster").Run(func(t framework.TestContext) {
 				// this runs in a separate test context - confirms the cluster local config was cleaned up
 				for _, source := range sources {
 					source := source
