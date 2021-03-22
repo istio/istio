@@ -34,7 +34,7 @@ var casRaLog = log.RegisterScope("casRa", "PrivateCA RA log", 0)
 
 // GoogleCasRA is a Registration Authority that integrates with Google Certificate Authority Service
 type GoogleCasRA struct {
-	keyCertBundle util.KeyCertBundle
+	keyCertBundle *util.KeyCertBundle
 	raOpts        *IstioRAOptions
 	pcaClient     *privateca.CertificateAuthorityClient
 }
@@ -156,6 +156,6 @@ func (r *GoogleCasRA) SignWithCertChain(csrPEM []byte, subjectIDs []string, ttl 
 }
 
 // GetCAKeyCertBundle returns the KeyCertBundle for the CA.
-func (r *GoogleCasRA) GetCAKeyCertBundle() util.KeyCertBundle {
+func (r *GoogleCasRA) GetCAKeyCertBundle() *util.KeyCertBundle {
 	return r.keyCertBundle
 }
