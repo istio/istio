@@ -34,14 +34,12 @@ func newNonce() string {
 	return uuid.New().String()
 }
 
-var (
-	commonCols = []string{
-		v3.GetShortType(v3.ClusterType),
-		v3.GetShortType(v3.ListenerType),
-		v3.GetShortType(v3.EndpointType),
-		v3.GetShortType(v3.RouteType),
-	}
-)
+var commonCols = []string{
+	v3.GetShortType(v3.ClusterType),
+	v3.GetShortType(v3.ListenerType),
+	v3.GetShortType(v3.EndpointType),
+	v3.GetShortType(v3.RouteType),
+}
 
 func TestStatusWriter_PrintAll(t *testing.T) {
 	tests := []struct {
