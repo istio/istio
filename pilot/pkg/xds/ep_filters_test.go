@@ -20,18 +20,19 @@ import (
 
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	endpoint "github.com/envoyproxy/go-control-plane/envoy/config/endpoint/v3"
-	"github.com/gogo/protobuf/types"
 	structpb "github.com/golang/protobuf/ptypes/struct"
-	"github.com/golang/protobuf/ptypes/wrappers"
-
 	meshconfig "istio.io/api/mesh/v1alpha1"
+	security "istio.io/api/security/v1beta1"
+	"istio.io/api/type/v1beta1"
 	"istio.io/istio/pilot/pkg/config/memory"
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pilot/pkg/networking"
 	"istio.io/istio/pilot/pkg/networking/util"
 	memregistry "istio.io/istio/pilot/pkg/serviceregistry/memory"
+	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/mesh"
+	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/config/schema/collections"
+	"istio.io/istio/pkg/config/schema/gvk"
 )
 
 type LbEpInfo struct {
@@ -49,7 +50,6 @@ type LocLbEpInfo struct {
 func TestEndpointsByNetworkFilter(t *testing.T) {
 	env := environment()
 	env.Init()
-	testEndpoints := testEndpoints()
 	// The tests below are calling the endpoints filter from each one of the
 	// networks and examines the returned filtered endpoints
 	tests := []networkFilterCase{
@@ -124,98 +124,136 @@ func TestEndpointsByNetworkFilter(t *testing.T) {
 			},
 		},
 	}
-	runNetworkFilterTest(t, env, testEndpoints, tests)
+	runNetworkFilterTest(t, env, tests)
 }
 
 func TestEndpointsByNetworkFilter_MTLSDisabled(t *testing.T) {
-	perNetworkCases := func() []networkFilterCase {
-		return []networkFilterCase{
-			{
-				name: "from_network1",
-				conn: xdsConnection("network1"),
-				want: []LocLbEpInfo{
-					{
-						lbEps: []LbEpInfo{
-							// 2 local endpoints
-							{address: "10.0.0.1", weight: 2},
-							{address: "10.0.0.2", weight: 2},
-							// network4 has no gateway, which means it can be accessed from network1
-							{address: "40.0.0.1", weight: 2},
-						},
-						weight: 6,
+	tests := []networkFilterCase{
+		{
+			name:            "from_network1",
+			conn:            xdsConnection("network1"),
+			expectedTLSMode: model.DisabledTLSModeLabel,
+			want: []LocLbEpInfo{
+				{
+					lbEps: []LbEpInfo{
+						// 2 local endpoints
+						{address: "10.0.0.1", weight: 2},
+						{address: "10.0.0.2", weight: 2},
+						// network4 has no gateway, which means it can be accessed from network1
+						{address: "40.0.0.1", weight: 2},
 					},
+					weight: 6,
 				},
 			},
-			{
-				name: "from_network2",
-				conn: xdsConnection("network2"),
-				want: []LocLbEpInfo{
-					{
-						lbEps: []LbEpInfo{
-							// 1 local endpoint
-							{address: "20.0.0.1", weight: 2},
-							// network4 has no gateway, which means it can be accessed from network2
-							{address: "40.0.0.1", weight: 2},
-						},
-						weight: 4,
+		},
+		{
+			name:            "from_network2",
+			conn:            xdsConnection("network2"),
+			expectedTLSMode: model.DisabledTLSModeLabel,
+			want: []LocLbEpInfo{
+				{
+					lbEps: []LbEpInfo{
+						// 1 local endpoint
+						{address: "20.0.0.1", weight: 2},
+						// network4 has no gateway, which means it can be accessed from network2
+						{address: "40.0.0.1", weight: 2},
 					},
+					weight: 4,
 				},
 			},
-			{
-				name: "from_network3",
-				conn: xdsConnection("network3"),
-				want: []LocLbEpInfo{
-					{
-						lbEps: []LbEpInfo{
-							// network4 has no gateway, which means it can be accessed from network3
-							{address: "40.0.0.1", weight: 2},
-						},
-						weight: 2,
+		},
+		{
+			name:            "from_network3",
+			conn:            xdsConnection("network3"),
+			expectedTLSMode: model.DisabledTLSModeLabel,
+			want: []LocLbEpInfo{
+				{
+					lbEps: []LbEpInfo{
+						// network4 has no gateway, which means it can be accessed from network3
+						{address: "40.0.0.1", weight: 2},
 					},
+					weight: 2,
 				},
 			},
-			{
-				name: "from_network4",
-				conn: xdsConnection("network4"),
-				want: []LocLbEpInfo{
-					{
-						lbEps: []LbEpInfo{
-							// 1 local endpoint
-							{address: "40.0.0.1", weight: 2},
-						},
-						weight: 2,
+		},
+		{
+			name:            "from_network4",
+			conn:            xdsConnection("network4"),
+			expectedTLSMode: model.DisabledTLSModeLabel,
+			want: []LocLbEpInfo{
+				{
+					lbEps: []LbEpInfo{
+						// 1 local endpoint
+						{address: "40.0.0.1", weight: 2},
 					},
+					weight: 2,
 				},
 			},
-		}
+		},
 	}
 
-	t.Run("global meshconfig", func(t *testing.T) {
-		// Disabling mTLS should prevent cross-network traffic
-		env := environment()
-		testEndpoints := testEndpoints()
-		env.Watcher = mesh.NewFixedWatcher(&meshconfig.MeshConfig{EnableAutoMtls: &types.BoolValue{Value: false}})
-		env.Init()
-		runNetworkFilterTest(t, env, testEndpoints, perNetworkCases())
-	})
+	cases := map[string]config.Config{
+		"global": {
+			Meta: config.Meta{
+				GroupVersionKind: gvk.PeerAuthentication,
+				Name:             "mtls-off",
+				Namespace:        "istio-system",
+			},
+			Spec: &security.PeerAuthentication{
+				Mtls: &security.PeerAuthentication_MutualTLS{Mode: security.PeerAuthentication_MutualTLS_DISABLE},
+			},
+		},
+		"namespace": {
+			Meta: config.Meta{
+				GroupVersionKind: gvk.PeerAuthentication,
+				Name:             "mtls-off",
+				Namespace:        "ns",
+			},
+			Spec: &security.PeerAuthentication{
+				Mtls: &security.PeerAuthentication_MutualTLS{Mode: security.PeerAuthentication_MutualTLS_DISABLE},
+			},
+		},
+		"workload": {
+			Meta: config.Meta{
+				GroupVersionKind: gvk.PeerAuthentication,
+				Name:             "mtls-off",
+				Namespace:        "ns",
+			},
+			Spec: &security.PeerAuthentication{
+				Selector: &v1beta1.WorkloadSelector{
+					MatchLabels: map[string]string{"app": "example"},
+				},
+				Mtls: &security.PeerAuthentication_MutualTLS{Mode: security.PeerAuthentication_MutualTLS_DISABLE},
+			},
+		},
+		"port": {
+			Meta: config.Meta{
+				GroupVersionKind: gvk.PeerAuthentication,
+				Name:             "mtls-off",
+				Namespace:        "ns",
+			},
+			Spec: &security.PeerAuthentication{
+				Selector: &v1beta1.WorkloadSelector{
+					MatchLabels: map[string]string{"app": "example"},
+				},
+				PortLevelMtls: map[uint32]*security.PeerAuthentication_MutualTLS{
+					80: {Mode: security.PeerAuthentication_MutualTLS_DISABLE},
+				},
+			},
+		},
+	}
 
-	t.Run("endpoint metadata", func(t *testing.T) {
-		// Disabling mTLS should prevent cross-network traffic
-		env := environment()
-		testEndpoints := testEndpoints()
-		for _, ep := range testEndpoints {
-			for _, lbEndpoint := range ep.llbEndpoints.LbEndpoints {
-				setTLSMode(lbEndpoint, model.DisabledTLSModeLabel)
+	for name, pa := range cases {
+		t.Run(name, func(t *testing.T) {
+			env := environment()
+			_, err := env.IstioConfigStore.Create(pa)
+			if err != nil {
+				t.Fatal(err)
 			}
-		}
-		tests := perNetworkCases()
-		for i, test := range tests {
-			test.expectedTLSMode = model.DisabledTLSModeLabel
-			tests[i] = test
-		}
-		env.Init()
-		runNetworkFilterTest(t, env, testEndpoints, tests)
-	})
+			env.Init()
+			runNetworkFilterTest(t, env, tests)
+		})
+	}
 }
 
 func TestEndpointsByNetworkFilter_SkipLBWithHostname(t *testing.T) {
@@ -238,13 +276,6 @@ func TestEndpointsByNetworkFilter_SkipLBWithHostname(t *testing.T) {
 
 	env.ServiceDiscovery = serviceDiscovery
 	env.Init()
-
-	// Test endpoints creates:
-	//  - 2 endpoints in network1
-	//  - 1 endpoints in network2
-	//  - 0 endpoints in network3
-	//  - 1 endpoints in network4
-	testEndpoints := testEndpoints()
 
 	// The tests below are calling the endpoints filter from each one of the
 	// networks and examines the returned filtered endpoints
@@ -313,7 +344,7 @@ func TestEndpointsByNetworkFilter_SkipLBWithHostname(t *testing.T) {
 			},
 		},
 	}
-	runNetworkFilterTest(t, env, testEndpoints, tests)
+	runNetworkFilterTest(t, env, tests)
 }
 
 type networkFilterCase struct {
@@ -325,12 +356,13 @@ type networkFilterCase struct {
 
 // runNetworkFilterTest calls the endpoints filter from each one of the
 // networks and examines the returned filtered endpoints
-func runNetworkFilterTest(t *testing.T, env *model.Environment, testEndpoints []*LocLbEndpointsAndOptions, tests []networkFilterCase) {
+func runNetworkFilterTest(t *testing.T, env *model.Environment, tests []networkFilterCase) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			push := model.NewPushContext()
 			_ = push.InitContext(env, nil, nil)
 			b := NewEndpointBuilder("outbound|81||example.ns.svc.cluster.local", tt.conn.proxy, push)
+			testEndpoints := b.buildLocalityLbEndpointsFromShards(testShards(), &model.Port{Name: "http", Port: 80, Protocol: protocol.HTTP})
 			filtered := b.EndpointsByNetworkFilter(testEndpoints)
 			for _, e := range testEndpoints {
 				e.AssertInvarianceInTest()
@@ -406,7 +438,7 @@ func environment() *model.Environment {
 			},
 		}),
 		IstioConfigStore: model.MakeIstioStore(memory.Make(collections.Pilot)),
-		Watcher:          mesh.NewFixedWatcher(&meshconfig.MeshConfig{}),
+		Watcher:          mesh.NewFixedWatcher(&meshconfig.MeshConfig{RootNamespace: "istio-system"}),
 		NetworksWatcher: mesh.NewFixedNetworksWatcher(&meshconfig.MeshNetworks{
 			Networks: map[string]*meshconfig.Network{
 				"network1": {
@@ -453,41 +485,33 @@ func environment() *model.Environment {
 	}
 }
 
-// testEndpoints creates endpoints to be handed to the filter:
+// testShards creates endpoints to be handed to the filter:
 //  - 2 endpoints in network1
 //  - 1 endpoints in network2
 //  - 0 endpoints in network3
 //  - 1 endpoints in network4
-func testEndpoints() []*LocLbEndpointsAndOptions {
-	lbEndpoints := createLbEndpoints(
-		[]*LbEpInfo{
-			{network: "network1", address: "10.0.0.1"},
-			{network: "network1", address: "10.0.0.2"},
-			{network: "network2", address: "20.0.0.1"},
-			{network: "network4", address: "40.0.0.1"},
+//
+// All endpoints are part of service example.ns.svc.cluster.local on port 80 (http) on cluster-0
+func testShards() *EndpointShards {
+	shards := &EndpointShards{Shards: map[string][]*model.IstioEndpoint{
+		"cluster-0": {
+			{Network: "network1", Address: "10.0.0.1"},
+			{Network: "network1", Address: "10.0.0.2"},
+			{Network: "network2", Address: "20.0.0.1"},
+			{Network: "network4", Address: "40.0.0.1"},
 		},
-	)
-	return []*LocLbEndpointsAndOptions{
-		{
-			llbEndpoints: endpoint.LocalityLbEndpoints{
-				LbEndpoints: lbEndpoints,
-				LoadBalancingWeight: &wrappers.UInt32Value{
-					Value: uint32(len(lbEndpoints)),
-				},
-			},
-			tunnelMetadata: []EndpointTunnelApplier{
-				MakeTunnelApplier(nil, networking.MakeTunnelAbility()),
-				MakeTunnelApplier(nil, networking.MakeTunnelAbility()),
-				MakeTunnelApplier(nil, networking.MakeTunnelAbility()),
-				MakeTunnelApplier(nil, networking.MakeTunnelAbility()),
-			},
-		},
+	}}
+	// apply common properties
+	for i, ep := range shards.Shards["cluster-0"] {
+		ep.ServicePortName = "http"
+		ep.Namespace = "ns"
+		ep.HostName = "example.ns.svc.cluster.local"
+		ep.EndpointPort = 80
+		ep.TLSMode = "istio"
+		ep.Labels = map[string]string{"app": "example"}
+		shards.Shards["cluster-0"][i] = ep
 	}
-}
-
-func setTLSMode(lbEp *endpoint.LbEndpoint, mode string) {
-	modeValue := &structpb.Value{Kind: &structpb.Value_StringValue{StringValue: mode}}
-	lbEp.Metadata.FilterMetadata[util.EnvoyTransportSocketMetadataKey].Fields[model.TLSModeLabelShortname] = modeValue
+	return shards
 }
 
 func createLbEndpoints(lbEpsInfo []*LbEpInfo) []*endpoint.LbEndpoint {
