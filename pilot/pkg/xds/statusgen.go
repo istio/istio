@@ -162,6 +162,7 @@ func (sg *StatusGen) debugSyncz() []*any.Any {
 	additionalTypes := []string{
 		v3.NameTableType,
 		v3.ExtensionConfigurationType,
+		v3.ProxyConfigType,
 	}
 
 	for _, con := range sg.Server.Clients() {

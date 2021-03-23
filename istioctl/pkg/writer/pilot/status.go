@@ -27,12 +27,14 @@ import (
 
 	"istio.io/istio/istioctl/pkg/multixds"
 	"istio.io/istio/pilot/pkg/xds"
+	v3 "istio.io/istio/pilot/pkg/xds/v3"
 	"istio.io/pkg/log"
 )
 
 // StatusWriter enables printing of sync status using multiple []byte Istiod responses
 type StatusWriter struct {
-	Writer io.Writer
+	Writer  io.Writer
+	XDSCols []string
 }
 
 type writerStatus struct {
@@ -62,7 +64,7 @@ func (s *StatusWriter) PrintAll(statuses map[string][]byte) error {
 		return err
 	}
 	for _, status := range fullStatus {
-		if err := statusPrintln(w, status); err != nil {
+		if err := s.statusPrintln(w, status); err != nil {
 			return err
 		}
 	}
@@ -77,7 +79,7 @@ func (s *StatusWriter) PrintSingle(statuses map[string][]byte, proxyName string)
 	}
 	for _, status := range fullStatus {
 		if strings.Contains(status.ProxyID, proxyName) {
-			if err := statusPrintln(w, status); err != nil {
+			if err := s.statusPrintln(w, status); err != nil {
 				return err
 			}
 		}
@@ -87,7 +89,7 @@ func (s *StatusWriter) PrintSingle(statuses map[string][]byte, proxyName string)
 
 func (s *StatusWriter) setupStatusPrint(statuses map[string][]byte) (*tabwriter.Writer, []*writerStatus, error) {
 	w := new(tabwriter.Writer).Init(s.Writer, 0, 8, 5, ' ', 0)
-	_, _ = fmt.Fprintln(w, "NAME\tCDS\tLDS\tEDS\tRDS\tNDS\tECDS\tISTIOD\tVERSION")
+	_, _ = fmt.Fprintf(w, "NAME\t%s\tISTIOD\tVERSION\n", strings.Join(s.XDSCols, "\t"))
 	fullStatus := make([]*writerStatus, 0, len(statuses))
 	for pilot, status := range statuses {
 		var ss []*writerStatus
@@ -106,25 +108,23 @@ func (s *StatusWriter) setupStatusPrint(statuses map[string][]byte) (*tabwriter.
 	return w, fullStatus, nil
 }
 
-func statusPrintln(w io.Writer, status *writerStatus) error {
-	clusterSynced := xdsStatus(status.ClusterSent, status.ClusterAcked)
-	listenerSynced := xdsStatus(status.ListenerSent, status.ListenerAcked)
-	routeSynced := xdsStatus(status.RouteSent, status.RouteAcked)
-	endpointSynced := xdsStatus(status.EndpointSent, status.EndpointAcked)
-	nametableSynced := xdsStatus(status.NametableSent, status.NametableAcked)
-	extensionConfigSynced := xdsStatus(status.ExtensionConfigSent, status.ExtensionConfigAcked)
+func (s *StatusWriter) statusPrintln(w io.Writer, sw *writerStatus) error {
+	statuses := make([]string, 0)
+	for _, ty := range s.XDSCols {
+		statuses = append(statuses, xdsStatus(sw.Statuses[v3.GetShortType(ty)].NonceSent,
+			sw.Statuses[v3.GetShortType(ty)].NonceAcked))
+	}
 
-	version := status.IstioVersion
+	version := sw.IstioVersion
 	if version == "" {
 		// If we can't find an Istio version (talking to a 1.1 pilot), fallback to the proxy version
 		// This is misleading, as the proxy version isn't always the same as the Istio version,
 		// but it is better than not providing any information.
-		version = status.ProxyVersion + "*"
+		version = sw.ProxyVersion + "*"
 	}
-	_, _ = fmt.Fprintf(w, "%v\t%v\t%v\t%v\t%v\t%v\t%v\t%v\t%v\n",
-		status.ProxyID, clusterSynced, listenerSynced, endpointSynced, routeSynced,
-		nametableSynced, extensionConfigSynced,
-		status.pilot, version)
+	_, _ = fmt.Fprintf(w, "%v\t%v\t%v\t%v\n",
+		sw.ProxyID, strings.Join(statuses, "\t"),
+		sw.pilot, version)
 	return nil
 }
 

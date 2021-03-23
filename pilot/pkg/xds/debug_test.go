@@ -101,29 +101,33 @@ func verifySyncStatus(t *testing.T, s *xds.DiscoveryServer, nodeID string, wantS
 				if ss.ProxyVersion == "" {
 					errorHandler("ProxyVersion should always be set for %v", nodeID)
 				}
-				if (ss.ClusterSent != "") != wantSent {
-					errorHandler("wanted ClusterSent set %v got %v for %v", wantSent, ss.ClusterSent, nodeID)
+				cdsStatus := ss.Statuses[v3.GetShortType(v3.ClusterType)]
+				if (cdsStatus.NonceSent != "") != wantSent {
+					errorHandler("wanted ClusterSent set %v got %v for %v", wantSent, cdsStatus.NonceSent, nodeID)
 				}
-				if (ss.ClusterAcked != "") != wantAcked {
-					errorHandler("wanted ClusterAcked set %v got %v for %v", wantAcked, ss.ClusterAcked, nodeID)
+				if (cdsStatus.NonceAcked != "") != wantAcked {
+					errorHandler("wanted ClusterAcked set %v got %v for %v", wantAcked, cdsStatus.NonceAcked, nodeID)
 				}
-				if (ss.ListenerSent != "") != wantSent {
-					errorHandler("wanted ListenerSent set %v got %v for %v", wantSent, ss.ListenerSent, nodeID)
+				ldsStatus := ss.Statuses[v3.GetShortType(v3.ListenerType)]
+				if (ldsStatus.NonceSent != "") != wantSent {
+					errorHandler("wanted ListenerSent set %v got %v for %v", wantSent, ldsStatus.NonceSent, nodeID)
 				}
-				if (ss.ListenerAcked != "") != wantAcked {
-					errorHandler("wanted ListenerAcked set %v got %v for %v", wantAcked, ss.ListenerAcked, nodeID)
+				if (ldsStatus.NonceAcked != "") != wantAcked {
+					errorHandler("wanted ListenerAcked set %v got %v for %v", wantAcked, ldsStatus.NonceAcked, nodeID)
 				}
-				if (ss.RouteSent != "") != wantSent {
-					errorHandler("wanted RouteSent set %v got %v for %v", wantSent, ss.RouteSent, nodeID)
+				rdsStatus := ss.Statuses[v3.GetShortType(v3.RouteType)]
+				if (rdsStatus.NonceSent != "") != wantSent {
+					errorHandler("wanted RouteSent set %v got %v for %v", wantSent, rdsStatus.NonceSent, nodeID)
 				}
-				if (ss.RouteAcked != "") != wantAcked {
-					errorHandler("wanted RouteAcked set %v got %v for %v", wantAcked, ss.RouteAcked, nodeID)
+				if (rdsStatus.NonceAcked != "") != wantAcked {
+					errorHandler("wanted RouteAcked set %v got %v for %v", wantAcked, rdsStatus.NonceAcked, nodeID)
 				}
-				if (ss.EndpointSent != "") != wantSent {
-					errorHandler("wanted EndpointSent set %v got %v for %v", wantSent, ss.EndpointSent, nodeID)
+				edsStatus := ss.Statuses[v3.GetShortType(v3.EndpointType)]
+				if (edsStatus.NonceSent != "") != wantSent {
+					errorHandler("wanted EndpointSent set %v got %v for %v", wantSent, edsStatus.NonceSent, nodeID)
 				}
-				if (ss.EndpointAcked != "") != wantAcked {
-					errorHandler("wanted EndpointAcked set %v got %v for %v", wantAcked, ss.EndpointAcked, nodeID)
+				if (edsStatus.NonceAcked != "") != wantAcked {
+					errorHandler("wanted EndpointAcked set %v got %v for %v", wantAcked, edsStatus.NonceAcked, nodeID)
 				}
 				return
 			}

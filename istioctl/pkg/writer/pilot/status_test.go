@@ -24,6 +24,7 @@ import (
 	"github.com/stretchr/testify/assert"
 
 	"istio.io/istio/pilot/pkg/xds"
+	v3 "istio.io/istio/pilot/pkg/xds/v3"
 	"istio.io/istio/tests/util"
 )
 
@@ -164,14 +165,22 @@ func TestStatusWriter_PrintSingle(t *testing.T) {
 func statusInput1() []xds.SyncStatus {
 	return []xds.SyncStatus{
 		{
-			ProxyID:       "proxy1",
-			IstioVersion:  "1.1",
-			ClusterSent:   preDefinedNonce,
-			ClusterAcked:  newNonce(),
-			ListenerSent:  preDefinedNonce,
-			ListenerAcked: preDefinedNonce,
-			EndpointSent:  preDefinedNonce,
-			EndpointAcked: preDefinedNonce,
+			ProxyID:      "proxy1",
+			IstioVersion: "1.1",
+			Statuses: map[string]xds.PerXDSSyncStatus{
+				v3.GetShortType(v3.ClusterType): {
+					NonceSent:  preDefinedNonce,
+					NonceAcked: newNonce(),
+				},
+				v3.GetShortType(v3.ListenerType): {
+					NonceSent:  preDefinedNonce,
+					NonceAcked: preDefinedNonce,
+				},
+				v3.GetShortType(v3.EndpointType): {
+					NonceSent:  preDefinedNonce,
+					NonceAcked: preDefinedNonce,
+				},
+			},
 		},
 	}
 }
@@ -179,16 +188,26 @@ func statusInput1() []xds.SyncStatus {
 func statusInput2() []xds.SyncStatus {
 	return []xds.SyncStatus{
 		{
-			ProxyID:       "proxy2",
-			IstioVersion:  "1.1",
-			ClusterSent:   preDefinedNonce,
-			ClusterAcked:  newNonce(),
-			ListenerSent:  preDefinedNonce,
-			ListenerAcked: preDefinedNonce,
-			EndpointSent:  preDefinedNonce,
-			EndpointAcked: newNonce(),
-			RouteSent:     preDefinedNonce,
-			RouteAcked:    preDefinedNonce,
+			ProxyID:      "proxy2",
+			IstioVersion: "1.1",
+			Statuses: map[string]xds.PerXDSSyncStatus{
+				v3.GetShortType(v3.ClusterType): {
+					NonceSent:  preDefinedNonce,
+					NonceAcked: newNonce(),
+				},
+				v3.GetShortType(v3.ListenerType): {
+					NonceSent:  preDefinedNonce,
+					NonceAcked: preDefinedNonce,
+				},
+				v3.GetShortType(v3.EndpointType): {
+					NonceSent:  preDefinedNonce,
+					NonceAcked: newNonce(),
+				},
+				v3.GetShortType(v3.RouteType): {
+					NonceSent:  preDefinedNonce,
+					NonceAcked: preDefinedNonce,
+				},
+			},
 		},
 	}
 }
@@ -196,15 +215,25 @@ func statusInput2() []xds.SyncStatus {
 func statusInput3() []xds.SyncStatus {
 	return []xds.SyncStatus{
 		{
-			ProxyID:       "proxy3",
-			IstioVersion:  "1.1",
-			ClusterSent:   preDefinedNonce,
-			ClusterAcked:  "",
-			ListenerAcked: preDefinedNonce,
-			EndpointSent:  preDefinedNonce,
-			EndpointAcked: "",
-			RouteSent:     preDefinedNonce,
-			RouteAcked:    preDefinedNonce,
+			ProxyID:      "proxy3",
+			IstioVersion: "1.1",
+			Statuses: map[string]xds.PerXDSSyncStatus{
+				v3.GetShortType(v3.ClusterType): {
+					NonceSent:  preDefinedNonce,
+					NonceAcked: "",
+				},
+				v3.GetShortType(v3.ListenerType): {
+					NonceAcked: preDefinedNonce,
+				},
+				v3.GetShortType(v3.EndpointType): {
+					NonceSent:  preDefinedNonce,
+					NonceAcked: "",
+				},
+				v3.GetShortType(v3.RouteType): {
+					NonceSent:  preDefinedNonce,
+					NonceAcked: preDefinedNonce,
+				},
+			},
 		},
 	}
 }
@@ -212,16 +241,26 @@ func statusInput3() []xds.SyncStatus {
 func statusInputProxyVersion() []xds.SyncStatus {
 	return []xds.SyncStatus{
 		{
-			ProxyID:       "proxy2",
-			ProxyVersion:  "1.1",
-			ClusterSent:   preDefinedNonce,
-			ClusterAcked:  newNonce(),
-			ListenerSent:  preDefinedNonce,
-			ListenerAcked: preDefinedNonce,
-			EndpointSent:  preDefinedNonce,
-			EndpointAcked: newNonce(),
-			RouteSent:     preDefinedNonce,
-			RouteAcked:    preDefinedNonce,
+			ProxyID:      "proxy2",
+			ProxyVersion: "1.1",
+			Statuses: map[string]xds.PerXDSSyncStatus{
+				v3.GetShortType(v3.ClusterType): {
+					NonceSent:  preDefinedNonce,
+					NonceAcked: newNonce(),
+				},
+				v3.GetShortType(v3.ListenerType): {
+					NonceSent:  preDefinedNonce,
+					NonceAcked: preDefinedNonce,
+				},
+				v3.GetShortType(v3.EndpointType): {
+					NonceSent:  preDefinedNonce,
+					NonceAcked: newNonce(),
+				},
+				v3.GetShortType(v3.RouteType): {
+					NonceSent:  preDefinedNonce,
+					NonceAcked: preDefinedNonce,
+				},
+			},
 		},
 	}
 }

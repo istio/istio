@@ -19,6 +19,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
+	"strings"
 
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	"github.com/spf13/cobra"
@@ -29,12 +30,34 @@ import (
 	"istio.io/istio/istioctl/pkg/writer/compare"
 	"istio.io/istio/istioctl/pkg/writer/pilot"
 	pilotxds "istio.io/istio/pilot/pkg/xds"
+	v3 "istio.io/istio/pilot/pkg/xds/v3"
 	"istio.io/istio/pkg/kube"
 	"istio.io/pkg/log"
 )
 
+var (
+	allXDSCols = []string{
+		v3.GetShortType(v3.ClusterType),
+		v3.GetShortType(v3.ListenerType),
+		v3.GetShortType(v3.EndpointType),
+		v3.GetShortType(v3.RouteType),
+		v3.GetShortType(v3.NameTableType),
+		v3.GetShortType(v3.ExtensionConfigurationType),
+		v3.GetShortType(v3.ProxyConfigType),
+	}
+
+	commonXDSCols = []string{
+		v3.GetShortType(v3.ClusterType),
+		v3.GetShortType(v3.ListenerType),
+		v3.GetShortType(v3.EndpointType),
+		v3.GetShortType(v3.RouteType),
+	}
+)
+
 func statusCommand() *cobra.Command {
 	var opts clioptions.ControlPlaneOptions
+	var showAllXDSStatuses bool
+	var xdsStatusCols []string
 
 	statusCmd := &cobra.Command{
 		Use:   "proxy-status [<type>/]<name>[.<namespace>]",
@@ -43,8 +66,16 @@ func statusCommand() *cobra.Command {
 Retrieves last sent and last acknowledged xDS sync from Istiod to each Envoy in the mesh
 
 `,
-		Example: `  # Retrieve sync status for all Envoys in a mesh
+		Example: `  # Retrieve sync status of common XDS types for all Envoys in a mesh
   istioctl proxy-status
+
+  # Display sync statuses of all XDS types (WARNING: Depending on horizontal screen size
+  # it may be split into multiple lines. In that case, filter columns with --xds-cols
+  # option instead (see below)
+  istioctl proxy-status -A
+
+  # Display sync statuses of only LDS and EDS for all Envoys in a mesh
+  istioctl proxy-status --xds-cols=lds,cds
 
   # Retrieve sync diff for a single Envoy and Istiod
   istioctl proxy-status istio-egressgateway-59585c5b9c-ndc59.istio-system
@@ -62,6 +93,28 @@ Retrieves last sent and last acknowledged xDS sync from Istiod to each Envoy in 
 			if (len(args) == 0) && (configDumpFile != "") {
 				cmd.Println(cmd.UsageString())
 				return fmt.Errorf("--file can only be used when pod-name is specified")
+			}
+			if showAllXDSStatuses {
+				if len(xdsStatusCols) > 0 {
+					return fmt.Errorf("either --all-xds-statuses or --xds-status-cols should be used, not both")
+				}
+				xdsStatusCols = getXDSColsList(allXDSCols)
+			} else if len(xdsStatusCols) == 0 {
+				xdsStatusCols = getXDSColsList(commonXDSCols)
+			}
+			xdsCols := getXDSColsList(allXDSCols)
+			for _, xcgiven := range xdsStatusCols {
+				found := false
+				for _, xcvalid := range xdsCols {
+					if xcgiven == xcvalid {
+						found = true
+						break
+					}
+				}
+				if !found {
+					return fmt.Errorf("invalid XDS column: %s (must be one of %s)", xcgiven,
+						strings.Join(xdsCols, ","))
+				}
 			}
 			return nil
 		},
@@ -103,16 +156,37 @@ Retrieves last sent and last acknowledged xDS sync from Istiod to each Envoy in 
 			if err != nil {
 				return err
 			}
-			sw := pilot.StatusWriter{Writer: c.OutOrStdout()}
+			sw := pilot.StatusWriter{Writer: c.OutOrStdout(), XDSCols: commonXDSCols}
+			sw.XDSCols = getColumnHeaders(xdsStatusCols)
 			return sw.PrintAll(statuses)
 		},
 	}
 
 	opts.AttachControlPlaneFlags(statusCmd)
+	statusCmd.PersistentFlags().BoolVarP(&showAllXDSStatuses, "all-xds-statuses", "A", false,
+		"When true, it displays all xDS distribution statues (including NDS, ECDS, PCDS etc)")
+	statusCmd.PersistentFlags().StringSliceVarP(&xdsStatusCols, "xds-cols", "", nil,
+		fmt.Sprintf("The list of XDS status columns to display. Valid ones are: %s", strings.Join(getXDSColsList(allXDSCols), ",")))
 	statusCmd.PersistentFlags().StringVarP(&configDumpFile, "file", "f", "",
 		"Envoy config dump JSON file")
 
 	return statusCmd
+}
+
+func getXDSColsList(types []string) []string {
+	cols := []string{}
+	for _, ty := range types {
+		cols = append(cols, strings.ToLower(v3.GetShortType(ty)))
+	}
+	return cols
+}
+
+func getColumnHeaders(cols []string) []string {
+	longTy := []string{}
+	for _, c := range cols {
+		longTy = append(longTy, strings.ToUpper(c))
+	}
+	return longTy
 }
 
 func readConfigFile(filename string) ([]byte, error) {
