@@ -111,6 +111,8 @@ func newProtocol(cfg Config) (protocol, error) {
 	}
 	tlsConfig := &tls.Config{
 		GetClientCertificate: getClientCertificate,
+		NextProtos:           cfg.Request.GetAlpn().GetValue(),
+		ServerName:           cfg.Request.ServerName,
 	}
 	if cfg.Request.CaCert != "" {
 		certPool := x509.NewCertPool()

@@ -43,7 +43,8 @@ var (
 	msg             string
 	method          string
 	http2           bool
-	alpn        []string
+	alpn            []string
+	serverName      string
 	serverFirst     bool
 	followRedirects bool
 	clientCert      string
@@ -131,6 +132,7 @@ func init() {
 	rootCmd.PersistentFlags().StringVar(&clientCert, "client-cert", "", "client certificate file to use for request")
 	rootCmd.PersistentFlags().StringVar(&clientKey, "client-key", "", "client certificate key file to use for request")
 	rootCmd.PersistentFlags().StringSliceVarP(&alpn, "alpn", "", nil, "alpn to set")
+	rootCmd.PersistentFlags().StringVarP(&serverName, "server-name", "", serverName, "server name to set")
 
 	loggingOptions.AttachCobraFlags(rootCmd)
 
@@ -160,6 +162,7 @@ func getRequest(url string) (*proto.ForwardEchoRequest, error) {
 		ServerFirst:     serverFirst,
 		FollowRedirects: followRedirects,
 		Method:          method,
+		ServerName:      serverName,
 	}
 
 	if alpn != nil {
