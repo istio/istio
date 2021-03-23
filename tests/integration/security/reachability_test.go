@@ -175,6 +175,9 @@ func TestReachability(t *testing.T) {
 							// mTLS would be required for cross-network calls
 							return false
 						}
+						if apps.IsNaked(src) && apps.B.Contains(opts.Target) {
+							return false
+						}
 						return opts.PortName == "http"
 					},
 					ExpectDestinations: func(src echo.Instance, dest echo.Instances) echo.Instances {
