@@ -190,7 +190,7 @@ metadata:
 spec:
   selector:
     matchLabels:
-      app: {{ (index .dst 0).Config.Service }}
+      app: {{ .dst }}
   mtls:
     mode: DISABLE
   portLevelMtls:
@@ -228,7 +228,7 @@ metadata:
 spec:
   selector:
     matchLabels:
-      app: {{ (index .dst 0).Config.Service }}
+      app: {{ .dst }}
   mtls:
     mode: STRICT
   portLevelMtls:
@@ -274,8 +274,8 @@ spec:
 					SetupForPair(func(ctx framework.TestContext, src, dst echo.Instances) error {
 						cfg := yml.MustApplyNamespace(t, tmpl.MustEvaluate(
 							tc.config,
-							map[string]interface{}{
-								"dst": dst,
+							map[string]string{
+								"dst": dst[0].Config().Service,
 							},
 						), ns.Name())
 						return ctx.Config().ApplyYAML("", cfg)
