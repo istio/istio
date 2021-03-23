@@ -125,6 +125,7 @@ func newProtocol(cfg Config) (protocol, error) {
 	tlsConfig := &tls.Config{
 		GetClientCertificate: getClientCertificate,
 		NextProtos:           cfg.Request.GetAlpn().GetValue(),
+		ServerName:           cfg.Request.ServerName,
 	}
 	if cfg.Request.CaCertFile != "" {
 		certData, err := ioutil.ReadFile(cfg.Request.CaCertFile)
@@ -246,7 +247,6 @@ func newProtocol(cfg Config) (protocol, error) {
 					return cfg.Dialer.TCP(dialer, ctx, address)
 				}
 				return tls.Dial("tcp", address, tlsConfig)
-
 			},
 		}, nil
 	}
