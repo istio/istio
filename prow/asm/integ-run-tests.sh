@@ -474,6 +474,7 @@ else
   DISABLED_PACKAGES+="\|/operator" # NOT SUPPORTED
   DISABLED_PACKAGES+="\|/telemetry/stackdriver/vm" # NOT SUPPORTED (vm)
   DISABLED_PACKAGES+="\|/telemetry/stats/prometheus/customizemetrics" # NOT SUPPORTED: Replies on customization on the stats envoyFilter
+  DISABLED_PACKAGES+="\|/telemetry/stats/prometheus/wasm" # UNSUPPORTED Relies on enabling WASM during installation.
   DISABLED_PACKAGES+="\|/security/chiron" # NOT SUPPORTED
   DISABLED_PACKAGES+="\|/security/file_mounted_certs" # NOT SUPPORTED
   DISABLED_PACKAGES+="\|/security/ca_custom_root" # NOT SUPPORTED
@@ -484,6 +485,11 @@ else
   DISABLED_PACKAGES+="\|/security/sds_tls_origination" # NOT SUPPORTED
   DISABLED_PACKAGES+="\|/security/ca_migration" # NOT SUPPORTED in most tests. Has its own target
   DISABLED_PACKAGES+="\|/security/user_auth" # NOT SUPPORTED
+
+  # MCP doesn't support custom Istio installation
+  # TODO(ruigu): Environment flags will be set in the Prow job definition.
+  TEST_SELECT="-customsetup"
+  export TEST_SELECT
 
   if [[ "${CLUSTER_TOPOLOGY}" == "SINGLECLUSTER" || "${CLUSTER_TOPOLOGY}" == "sc" ]]; then
     echo "Running integration test with ASM managed control plane and ${CLUSTER_TOPOLOGY} topology"
@@ -508,14 +514,9 @@ else
     export WIP
 
     export INTEGRATION_TEST_FLAGS="${INTEGRATION_TEST_FLAGS:-}"
-    # For security tests, do not run tests that require custom setups.
-    export TEST_SELECT="${TEST_SELECT:-}"
     # TODO(nmittler): Remove this once we no longer run the multicluster tests.
     if [[ $TEST_TARGET == "test.integration.multicluster.kube.presubmit" ]]; then
-      TEST_SELECT="+multicluster"
-    fi
-    if [[ $TEST_TARGET == "test.integration.asm.security" ]]; then
-      TEST_SELECT="-customsetup"
+      TEST_SELECT+=",+multicluster"
     fi
 
     # ASM MCP requires revision to be asm-managed.
