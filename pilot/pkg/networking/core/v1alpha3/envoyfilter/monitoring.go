@@ -14,44 +14,36 @@
 package envoyfilter
 
 import (
-	"istio.io/istio/pilot/pkg/features"
 	"istio.io/pkg/monitoring"
 )
 
 var (
-	nodeTag = monitoring.MustCreateLabel("node")
 	typeTag = monitoring.MustCreateLabel("type")
 
 	totalEnvoyFiltersSkipped = monitoring.NewSum(
 		"pilot_total_envoy_filters_skipped",
 		"Total number of Envoy filters skipped for each proxy.",
-		monitoring.WithLabels(typeTag, nodeTag),
+		monitoring.WithLabels(typeTag),
 	)
 
 	totalEnvoyFilterErrors = monitoring.NewSum(
 		"pilot_total_envoy_filter_errors",
 		"Total number of Envoy filters errored out.",
-		monitoring.WithLabels(typeTag, nodeTag),
+		monitoring.WithLabels(typeTag),
 	)
 )
 
 func init() {
-	if features.EnableEnvoyFilterMetrics {
-		monitoring.MustRegister(totalEnvoyFiltersSkipped)
-		monitoring.MustRegister(totalEnvoyFilterErrors)
-	}
+	monitoring.MustRegister(totalEnvoyFiltersSkipped)
+	monitoring.MustRegister(totalEnvoyFilterErrors)
 }
 
 // IncrementSkippedMetric increments skipped filter metric.
-func IncrementSkippedMetric(t string, proxy string) {
-	if features.EnableEnvoyFilterMetrics {
-		totalEnvoyFiltersSkipped.With(typeTag.Value(t), nodeTag.Value(proxy)).Increment()
-	}
+func IncrementSkippedMetric(t string) {
+	totalEnvoyFiltersSkipped.With(typeTag.Value(t)).Increment()
 }
 
 // IncrementErrorMetric increments error filter metric.
-func IncrementErrorMetric(t string, proxy string) {
-	if features.EnableEnvoyFilterMetrics {
-		totalEnvoyFilterErrors.With(typeTag.Value(t), nodeTag.Value(proxy)).Increment()
-	}
+func IncrementErrorMetric(t string) {
+	totalEnvoyFilterErrors.With(typeTag.Value(t)).Increment()
 }

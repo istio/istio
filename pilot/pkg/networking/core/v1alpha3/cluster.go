@@ -184,7 +184,7 @@ func (p clusterPatcher) incrementFilterMetrics() {
 	if p.efw != nil && len(p.efw.Patches[networking.EnvoyFilter_CLUSTER]) != p.patchesApplied {
 		skipped := len(p.efw.Patches[networking.EnvoyFilter_CLUSTER]) - p.patchesApplied
 		for skipped >= 0 {
-			envoyfilter.IncrementSkippedMetric("cluster", p.proxy.ID)
+			envoyfilter.IncrementSkippedMetric("cluster")
 			skipped--
 		}
 	}

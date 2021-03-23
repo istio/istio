@@ -334,9 +334,6 @@ var (
 	EnableXDSCacheMetrics = env.RegisterBoolVar("PILOT_XDS_CACHE_STATS", false,
 		"If true, Pilot will collect metrics for XDS cache efficiency.").Get()
 
-	EnableEnvoyFilterMetrics = env.RegisterBoolVar("PILOT_ENVOY_FILTER_STATS", false,
-		"If true, Pilot will collect metrics for envoy filters which would be useful for debugging.").Get()
-
 	XDSCacheMaxSize = env.RegisterIntVar("PILOT_XDS_CACHE_SIZE", 20000,
 		"The maximum number of cache entries for the XDS cache.").Get()
 

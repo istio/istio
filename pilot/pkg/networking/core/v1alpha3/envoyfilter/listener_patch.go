@@ -49,7 +49,7 @@ func ApplyListenerPatches(
 	listeners []*xdslistener.Listener,
 	skipAdds bool) (out []*xdslistener.Listener) {
 	defer runtime.HandleCrash(runtime.LogPanic, func(interface{}) {
-		IncrementErrorMetric("listener", proxy.ID)
+		IncrementErrorMetric("listener")
 		log.Errorf("listeners patch caused panic, so the patches did not take effect")
 	})
 	// In case the patches cause panic, use the listeners generated before to reduce the influence.
@@ -98,7 +98,7 @@ func patchListeners(
 		}
 	}
 	if !applied {
-		IncrementSkippedMetric("listener", proxy.ID)
+		IncrementSkippedMetric("listener")
 	}
 
 	if listenersRemoved {
@@ -133,7 +133,7 @@ func patchListener(proxy *model.Proxy, patchContext networking.EnvoyFilter_Patch
 		}
 	}
 	if !applied {
-		IncrementSkippedMetric("listener", proxy.ID)
+		IncrementSkippedMetric("listener")
 	}
 	patchFilterChains(proxy, patchContext, patches, listener)
 }
@@ -167,7 +167,7 @@ func patchFilterChains(proxy *model.Proxy, patchContext networking.EnvoyFilter_P
 		}
 	}
 	if !applied {
-		IncrementSkippedMetric("filterchain", proxy.ID)
+		IncrementSkippedMetric("filterchain")
 	}
 	if filterChainsRemoved {
 		tempArray := make([]*xdslistener.FilterChain, 0, len(listener.FilterChains))
@@ -209,7 +209,7 @@ func patchFilterChain(proxy *model.Proxy, patchContext networking.EnvoyFilter_Pa
 		}
 	}
 	if !applied {
-		IncrementSkippedMetric("filterchain", proxy.ID)
+		IncrementSkippedMetric("filterchain")
 	}
 	patchNetworkFilters(proxy, patchContext, patches, listener, fc)
 }
@@ -344,7 +344,7 @@ func patchNetworkFilters(proxy *model.Proxy, patchContext networking.EnvoyFilter
 		}
 	}
 	if !applied {
-		IncrementSkippedMetric("networkfilters", proxy.ID)
+		IncrementSkippedMetric("networkfilters")
 	}
 	if networkFiltersRemoved {
 		tempArray := make([]*xdslistener.Filter, 0, len(fc.Filters))
@@ -415,7 +415,7 @@ func patchNetworkFilter(proxy *model.Proxy, patchContext networking.EnvoyFilter_
 		}
 	}
 	if !applied {
-		IncrementSkippedMetric("networkfilters", proxy.ID)
+		IncrementSkippedMetric("networkfilters")
 	}
 	if filter.Name == wellknown.HTTPConnectionManager {
 		patchHTTPFilters(proxy, patchContext, patches, listener, fc, filter)
@@ -533,7 +533,7 @@ func patchHTTPFilters(proxy *model.Proxy, patchContext networking.EnvoyFilter_Pa
 		hcm.HttpFilters = tempArray
 	}
 	if !applied {
-		IncrementSkippedMetric("httpfilters", proxy.ID)
+		IncrementSkippedMetric("httpfilters")
 	}
 	if filter.GetTypedConfig() != nil {
 		// convert to any type
@@ -600,7 +600,7 @@ func patchHTTPFilter(proxy *model.Proxy, patchContext networking.EnvoyFilter_Pat
 		}
 	}
 	if !applied {
-		IncrementSkippedMetric("httpfilters", proxy.ID)
+		IncrementSkippedMetric("httpfilters")
 	}
 }
 
