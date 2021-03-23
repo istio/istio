@@ -126,7 +126,7 @@ func patchVirtualHost(patchContext networking.EnvoyFilter_PatchContext,
 	if !applied {
 		IncrementSkippedMetric("vhosts")
 	}
-	patchHTTPRoutes(patchContext, proxy, patches, routeConfiguration, virtualHost)
+	patchHTTPRoutes(patchContext, patches, routeConfiguration, virtualHost)
 }
 
 func hasRouteMatch(cp *model.EnvoyFilterConfigPatchWrapper) bool {
@@ -144,13 +144,12 @@ func hasRouteMatch(cp *model.EnvoyFilterConfigPatchWrapper) bool {
 }
 
 func patchHTTPRoutes(patchContext networking.EnvoyFilter_PatchContext,
-	proxy *model.Proxy,
 	patches map[networking.EnvoyFilter_ApplyTo][]*model.EnvoyFilterConfigPatchWrapper,
 	routeConfiguration *route.RouteConfiguration, virtualHost *route.VirtualHost) {
 	routesRemoved := false
 	// Apply the route level removes/merges if any.
 	for index := range virtualHost.Routes {
-		patchHTTPRoute(patchContext, proxy, patches, routeConfiguration, virtualHost, index, &routesRemoved)
+		patchHTTPRoute(patchContext, patches, routeConfiguration, virtualHost, index, &routesRemoved)
 	}
 
 	applied := false
@@ -237,9 +236,7 @@ func patchHTTPRoutes(patchContext networking.EnvoyFilter_PatchContext,
 	}
 }
 
-func patchHTTPRoute(patchContext networking.EnvoyFilter_PatchContext,
-	proxy *model.Proxy,
-	patches map[networking.EnvoyFilter_ApplyTo][]*model.EnvoyFilterConfigPatchWrapper,
+func patchHTTPRoute(patchContext networking.EnvoyFilter_PatchContext, patches map[networking.EnvoyFilter_ApplyTo][]*model.EnvoyFilterConfigPatchWrapper,
 	routeConfiguration *route.RouteConfiguration, virtualHost *route.VirtualHost, routeIndex int, routesRemoved *bool) {
 	applied := false
 	for _, cp := range patches[networking.EnvoyFilter_HTTP_ROUTE] {
