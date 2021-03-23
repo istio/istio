@@ -27,7 +27,7 @@ const (
 	StatusFalse = "False"
 )
 
-// WrappedStatus providers a wrapper around a status message that keeps track of whether or not any
+// WrappedStatus provides a wrapper around a status message that keeps track of whether or not any
 // changes have been made. This allows users to declarative write status, without worrying about
 // tracking changes. When read to commit (typically to Kubernetes), any messages with Dirty=false can
 // be discarded.
@@ -71,8 +71,8 @@ func GetCondition(conditions []metav1.Condition, condition string) metav1.Condit
 	return EmptyCondition
 }
 
-// ConditionalUpdateCondition updates a condition if it has been changed.
-func ConditionalUpdateCondition(conditions []metav1.Condition, condition metav1.Condition) []metav1.Condition {
+// ConditionallyUpdateCondition updates a condition if it has been changed.
+func ConditionallyUpdateCondition(conditions []metav1.Condition, condition metav1.Condition) []metav1.Condition {
 	ret := append([]metav1.Condition(nil), conditions...)
 	idx := -1
 	for i, cond := range ret {

@@ -704,7 +704,7 @@ func getGatewayClasses(r *KubernetesResources) map[string]struct{} {
 
 			obj.Status.(*kstatus.WrappedStatus).Mutate(func(s config.Status) config.Status {
 				gcs := s.(*k8s.GatewayClassStatus)
-				gcs.Conditions = kstatus.ConditionalUpdateCondition(gcs.Conditions, metav1.Condition{
+				gcs.Conditions = kstatus.ConditionallyUpdateCondition(gcs.Conditions, metav1.Condition{
 					Type:               string(k8s.GatewayClassConditionStatusAdmitted),
 					Status:             kstatus.StatusTrue,
 					ObservedGeneration: obj.Generation,
@@ -745,7 +745,7 @@ func convertGateway(r *KubernetesResources) ([]config.Config, map[RouteKey][]str
 			obj.Status.(*kstatus.WrappedStatus).Mutate(func(s config.Status) config.Status {
 				gs := s.(*k8s.GatewayStatus)
 				cond := gs.Listeners[i].Conditions
-				cond = kstatus.ConditionalUpdateCondition(cond, metav1.Condition{
+				cond = kstatus.ConditionallyUpdateCondition(cond, metav1.Condition{
 					Type:               string(k8s.ListenerConditionReady),
 					Status:             kstatus.StatusTrue,
 					ObservedGeneration: obj.Generation,
@@ -810,7 +810,7 @@ func convertGateway(r *KubernetesResources) ([]config.Config, map[RouteKey][]str
 		obj.Status.(*kstatus.WrappedStatus).Mutate(func(s config.Status) config.Status {
 			gs := s.(*k8s.GatewayStatus)
 			// TODO: report invalid configurations
-			gs.Conditions = kstatus.ConditionalUpdateCondition(gs.Conditions, metav1.Condition{
+			gs.Conditions = kstatus.ConditionallyUpdateCondition(gs.Conditions, metav1.Condition{
 				Type:               string(k8s.GatewayConditionReady),
 				Status:             kstatus.StatusTrue,
 				ObservedGeneration: obj.Generation,
@@ -820,7 +820,7 @@ func convertGateway(r *KubernetesResources) ([]config.Config, map[RouteKey][]str
 			})
 			// TODO: when we implement "address" support in status, we should report unscheduled
 			// if there is no associated Service.
-			gs.Conditions = kstatus.ConditionalUpdateCondition(gs.Conditions, metav1.Condition{
+			gs.Conditions = kstatus.ConditionallyUpdateCondition(gs.Conditions, metav1.Condition{
 				Type:               string(k8s.GatewayConditionScheduled),
 				Status:             kstatus.StatusTrue,
 				ObservedGeneration: obj.Generation,

@@ -130,12 +130,7 @@ func (c controller) List(typ config.GroupVersionKind, namespace string) ([]confi
 
 	// Handle all status updates
 	// TODO we should probably place these on a queue using pilot/pkg/status
-	c.handleStatusUpdates(input.GatewayClass)
-	c.handleStatusUpdates(input.Gateway)
-	c.handleStatusUpdates(input.HTTPRoute)
-	c.handleStatusUpdates(input.TCPRoute)
-	c.handleStatusUpdates(input.TLSRoute)
-	c.handleStatusUpdates(input.BackendPolicy)
+	input.UpdateStatuses(c)
 
 	switch typ {
 	case gvk.Gateway:
@@ -148,6 +143,15 @@ func (c controller) List(typ config.GroupVersionKind, namespace string) ([]confi
 	return nil, errUnsupportedOp
 }
 
+func (r *KubernetesResources) UpdateStatuses(c controller) {
+	c.handleStatusUpdates(r.GatewayClass)
+	c.handleStatusUpdates(r.Gateway)
+	c.handleStatusUpdates(r.HTTPRoute)
+	c.handleStatusUpdates(r.TCPRoute)
+	c.handleStatusUpdates(r.TLSRoute)
+	c.handleStatusUpdates(r.BackendPolicy)
+}
+
 func (c controller) handleStatusUpdates(configs []config.Config) {
 	for _, cfg := range configs {
 		ws := cfg.Status.(*kstatus.WrappedStatus)
@@ -157,7 +161,7 @@ func (c controller) handleStatusUpdates(configs []config.Config) {
 				Meta:   cfg.Meta,
 				Status: ws.Unwrap(),
 			})
-			// TODO make this more resiliant. When we add a queue we can make transient failures retry
+			// TODO make this more resilient. When we add a queue we can make transient failures retry
 			// and drop permanent failures
 			if err != nil {
 				log.Errorf("failed to update status for %v/%v: %v", cfg.GroupVersionKind, cfg.Name, err)
