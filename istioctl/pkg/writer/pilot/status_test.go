@@ -34,12 +34,22 @@ func newNonce() string {
 	return uuid.New().String()
 }
 
+var (
+	commonCols = []string{
+		v3.GetShortType(v3.ClusterType),
+		v3.GetShortType(v3.ListenerType),
+		v3.GetShortType(v3.EndpointType),
+		v3.GetShortType(v3.RouteType),
+	}
+)
+
 func TestStatusWriter_PrintAll(t *testing.T) {
 	tests := []struct {
 		name    string
 		input   map[string][]xds.SyncStatus
 		want    string
 		wantErr bool
+		cols    []string
 	}{
 		{
 			name: "prints multiple istiod inputs to buffer in alphabetical order by pod name",
@@ -58,6 +68,17 @@ func TestStatusWriter_PrintAll(t *testing.T) {
 			want: "testdata/multiStatusSinglePilot.txt",
 		},
 		{
+			name: "prints required columns to buffer in alphabetical order by pod name",
+			input: map[string][]xds.SyncStatus{
+				"istiod1": append(statusInput1(), statusInput2()...),
+			},
+			want: "testdata/selectedColsSinglePilot.txt",
+			cols: []string{
+				v3.GetShortType(v3.ClusterType),
+				v3.GetShortType(v3.ListenerType),
+			},
+		},
+		{
 			name: "error if given non-syncstatus info",
 			input: map[string][]xds.SyncStatus{
 				"istiod1": {},
@@ -68,7 +89,11 @@ func TestStatusWriter_PrintAll(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			got := &bytes.Buffer{}
-			sw := StatusWriter{Writer: got}
+			cols := tt.cols
+			if cols == nil {
+				cols = commonCols
+			}
+			sw := StatusWriter{Writer: got, XDSCols: cols}
 			input := map[string][]byte{}
 			for key, ss := range tt.input {
 				b, _ := json.Marshal(ss)

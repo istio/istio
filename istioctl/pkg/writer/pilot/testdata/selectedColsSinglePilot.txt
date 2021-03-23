@@ -1,0 +1,3 @@
+NAME       CDS       LDS        ISTIOD      VERSION
+proxy1     STALE     SYNCED     istiod1     1.1
+proxy2     STALE     SYNCED     istiod1     1.1
