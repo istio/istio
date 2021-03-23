@@ -376,6 +376,63 @@ func TestProxyStatus(t *testing.T) {
 		})
 }
 
+// This is the same as TestProxyStatus, except we do the experimental version
+func TestXdsProxyStatus(t *testing.T) {
+	framework.NewTest(t).Features("usability.observability.proxy-status").
+		RequiresSingleCluster().
+		Run(func(t framework.TestContext) {
+			istioCtl := istioctl.NewOrFail(t, t, istioctl.Config{})
+
+			podID, err := getPodID(apps.PodA[0])
+			if err != nil {
+				t.Fatalf("Could not get Pod ID: %v", err)
+			}
+
+			var output string
+			var args []string
+			g := gomega.NewWithT(t)
+
+			args = []string{"x", "proxy-status"}
+			output, _ = istioCtl.InvokeOrFail(t, args)
+			// Just verify pod A is known to Pilot; implicitly this verifies that
+			// the printing code printed it.
+			g.Expect(output).To(gomega.ContainSubstring(fmt.Sprintf("%s.%s", podID, apps.Namespace.Name())))
+
+			expectSubstrings := func(have string, wants ...string) error {
+				for _, want := range wants {
+					if !strings.Contains(have, want) {
+						return fmt.Errorf("substring %q not found; have %q", want, have)
+					}
+				}
+				return nil
+			}
+
+			retry.UntilSuccessOrFail(t, func() error {
+				args = []string{
+					"proxy-status", fmt.Sprintf("%s.%s", podID, apps.Namespace.Name()),
+				}
+				output, _ = istioCtl.InvokeOrFail(t, args)
+				return expectSubstrings(output, "Clusters Match", "Listeners Match", "Routes Match")
+			})
+
+			// test the --file param
+			retry.UntilSuccessOrFail(t, func() error {
+				d := t.TempDir()
+				filename := filepath.Join(d, "ps-configdump.json")
+				cs := t.Clusters().Default()
+				dump, err := cs.EnvoyDo(context.TODO(), podID, apps.Namespace.Name(), "GET", "config_dump", nil)
+				g.Expect(err).ShouldNot(gomega.HaveOccurred())
+				err = ioutil.WriteFile(filename, dump, os.ModePerm)
+				g.Expect(err).ShouldNot(gomega.HaveOccurred())
+				args = []string{
+					"proxy-status", fmt.Sprintf("%s.%s", podID, apps.Namespace.Name()), "--file", filename,
+				}
+				output, _ = istioCtl.InvokeOrFail(t, args)
+				return expectSubstrings(output, "Clusters Match", "Listeners Match", "Routes Match")
+			})
+		})
+}
+
 func TestAuthZCheck(t *testing.T) {
 	framework.NewTest(t).Features("usability.observability.authz-check").
 		RequiresSingleCluster().
