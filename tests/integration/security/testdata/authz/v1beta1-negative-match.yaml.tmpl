@@ -1,6 +1,6 @@
 # The following policy denies access to path with prefix "/prefix" except "/prefix/allowlist" to workload b
 
-apiVersion: "security.istio.io/v1beta1"
+apiVersion: security.istio.io/v1beta1
 kind: AuthorizationPolicy
 metadata:
   name: policy-b-deny
@@ -19,7 +19,7 @@ spec:
 
 # The following policy denies access from other namespaces
 
-apiVersion: "security.istio.io/v1beta1"
+apiVersion: security.istio.io/v1beta1
 kind: AuthorizationPolicy
 metadata:
   name: policy-c-same-namespace
@@ -38,7 +38,7 @@ spec:
 # The following policy denies access to workload d if it's not mTLS, in other words,
 # it allows only mTLS traffic to access workload d
 
-apiVersion: "security.istio.io/v1beta1"
+apiVersion: security.istio.io/v1beta1
 kind: AuthorizationPolicy
 metadata:
   name: policy-d-mtls-traffic
@@ -68,8 +68,8 @@ spec:
 
 # The following destination rule enables mTLS in the namespace
 
-apiVersion: "networking.istio.io/v1alpha3"
-kind: "DestinationRule"
+apiVersion: networking.istio.io/v1alpha3
+kind: DestinationRule
 metadata:
   name: "mtls"
   namespace: "{{ .Namespace }}"
@@ -83,8 +83,8 @@ spec:
 
 # The following destination rule enables mTLS from namespace 2 to workload b
 
-apiVersion: "networking.istio.io/v1alpha3"
-kind: "DestinationRule"
+apiVersion: networking.istio.io/v1alpha3
+kind: DestinationRule
 metadata:
   name: "dr-b"
   namespace: "{{ .Namespace2 }}"
@@ -98,8 +98,8 @@ spec:
 
 # The following destination rule enables mTLS from namespace 2 to workload c
 
-apiVersion: "networking.istio.io/v1alpha3"
-kind: "DestinationRule"
+apiVersion: networking.istio.io/v1alpha3
+kind: DestinationRule
 metadata:
   name: "dr-c"
   namespace: "{{ .Namespace2 }}"
@@ -113,8 +113,8 @@ spec:
 
 # The following destination rule disables mTLS from namespace 2 to workload d
 
-apiVersion: "networking.istio.io/v1alpha3"
-kind: "DestinationRule"
+apiVersion: networking.istio.io/v1alpha3
+kind: DestinationRule
 metadata:
   name: "dr-d"
   namespace: "{{ .Namespace2 }}"

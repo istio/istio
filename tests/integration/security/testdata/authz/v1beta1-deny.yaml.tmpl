@@ -1,6 +1,6 @@
 # The following policy denies access to path /deny to workload b
 
-apiVersion: "security.istio.io/v1beta1"
+apiVersion: security.istio.io/v1beta1
 kind: AuthorizationPolicy
 metadata:
   name: policy-b-deny
@@ -18,7 +18,7 @@ spec:
 
 # The following policy denies access to path /allow/admin to workload c
 
-apiVersion: "security.istio.io/v1beta1"
+apiVersion: security.istio.io/v1beta1
 kind: AuthorizationPolicy
 metadata:
   name: policy-c-deny
@@ -36,7 +36,7 @@ spec:
 
 # The following policy allows access to path with prefix "/allow" to workload c
 
-apiVersion: "security.istio.io/v1beta1"
+apiVersion: security.istio.io/v1beta1
 kind: AuthorizationPolicy
 metadata:
   name: policy-c-allow

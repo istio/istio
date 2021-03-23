@@ -28,16 +28,16 @@ import (
 const (
 	HTTPS  = "https"
 	POLICY = `
-apiVersion: "security.istio.io/v1beta1"
-kind: "PeerAuthentication"
+apiVersion: security.istio.io/v1beta1
+kind: PeerAuthentication
 metadata:
   name: "mtls"
 spec:
   mtls:
     mode: STRICT
 ---
-apiVersion: "networking.istio.io/v1alpha3"
-kind: "DestinationRule"
+apiVersion: networking.istio.io/v1alpha3
+kind: DestinationRule
 metadata:
   name: "server-naked"
 spec:

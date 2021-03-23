@@ -937,8 +937,8 @@ func datasetSecurityV1beta1AuthorizationpolicyValidYaml() (*asset, error) {
 	return a, nil
 }
 
-var _datasetSecurityV1beta1PeerauthenticationInvalidYaml = []byte(`apiVersion: "security.istio.io/v1beta1"
-kind: "PeerAuthentication"
+var _datasetSecurityV1beta1PeerauthenticationInvalidYaml = []byte(`apiVersion: security.istio.io/v1beta1
+kind: PeerAuthentication
 metadata:
   name: invalid-peer-authentication
 spec:
@@ -960,8 +960,8 @@ func datasetSecurityV1beta1PeerauthenticationInvalidYaml() (*asset, error) {
 	return a, nil
 }
 
-var _datasetSecurityV1beta1PeerauthenticationValidYaml = []byte(`apiVersion: "security.istio.io/v1beta1"
-kind: "PeerAuthentication"
+var _datasetSecurityV1beta1PeerauthenticationValidYaml = []byte(`apiVersion: security.istio.io/v1beta1
+kind: PeerAuthentication
 metadata:
   name: valid-peer-authentication
 spec:
@@ -991,8 +991,8 @@ func datasetSecurityV1beta1PeerauthenticationValidYaml() (*asset, error) {
 	return a, nil
 }
 
-var _datasetSecurityV1beta1RequestauthenticationInvalidYaml = []byte(`apiVersion: "security.istio.io/v1beta1"
-kind: "RequestAuthentication"
+var _datasetSecurityV1beta1RequestauthenticationInvalidYaml = []byte(`apiVersion: security.istio.io/v1beta1
+kind: RequestAuthentication
 metadata:
   name: invalid-request-authentication
 spec:
@@ -1019,8 +1019,8 @@ func datasetSecurityV1beta1RequestauthenticationInvalidYaml() (*asset, error) {
 	return a, nil
 }
 
-var _datasetSecurityV1beta1RequestauthenticationValidYaml = []byte(`apiVersion: "security.istio.io/v1beta1"
-kind: "RequestAuthentication"
+var _datasetSecurityV1beta1RequestauthenticationValidYaml = []byte(`apiVersion: security.istio.io/v1beta1
+kind: RequestAuthentication
 metadata:
   name: valid-request-authentication
 spec:

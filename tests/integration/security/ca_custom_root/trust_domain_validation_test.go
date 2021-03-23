@@ -44,8 +44,8 @@ const (
 	// ports with plaintext: 8090 (http) and 8092 (tcp)
 	// ports with mTLS: 8091 (http), 8093 (tcp) and 9000 (tcp passthrough).
 	policy = `
-apiVersion: "security.istio.io/v1beta1"
-kind: "PeerAuthentication"
+apiVersion: security.istio.io/v1beta1
+kind: PeerAuthentication
 metadata:
   name: "mtls"
 spec:
