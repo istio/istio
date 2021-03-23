@@ -179,10 +179,10 @@ func validateAnnotationDryRun(f ValidateFunc) ValidateFunc {
 func checkDryRunAnnotation(cfg config.Config, allowed bool) error {
 	if val, found := cfg.Annotations[constants.DryRunAnnotation]; found {
 		if !allowed {
-			return fmt.Errorf("%s.%s has unsupported annotation %s, please remove the annotation", cfg.Namespace, cfg.Name, constants.DryRunAnnotation)
+			return fmt.Errorf("%s/%s has unsupported annotation %s, please remove the annotation", cfg.Namespace, cfg.Name, constants.DryRunAnnotation)
 		}
 		if _, err := strconv.ParseBool(val); err != nil {
-			return fmt.Errorf("%s.%s has annotation %s with invalid value (%s): %v", cfg.Namespace, cfg.Name, constants.DryRunAnnotation, val, err)
+			return fmt.Errorf("%s/%s has annotation %s with invalid value (%s): %v", cfg.Namespace, cfg.Name, constants.DryRunAnnotation, val, err)
 		}
 	}
 	return nil

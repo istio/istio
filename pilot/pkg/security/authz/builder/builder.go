@@ -170,7 +170,7 @@ func (b Builder) build(policies []model.AuthorizationPolicy, action rbacpb.RBAC_
 		return nil
 	}
 
-	rules := &rbacpb.RBAC{
+	enforceRules := &rbacpb.RBAC{
 		Action:   action,
 		Policies: map[string]*rbacpb.Policy{},
 	}
@@ -184,15 +184,15 @@ func (b Builder) build(policies []model.AuthorizationPolicy, action rbacpb.RBAC_
 	if forTCP {
 		filterType = "TCP"
 	}
-	hasNormalPolicy, hasDryRunPolicy := false, false
+	hasEnforcePolicy, hasDryRunPolicy := false, false
 	for _, policy := range policies {
-		var toRule *rbacpb.RBAC
+		var currentRule *rbacpb.RBAC
 		if b.isDryRun(policy) {
-			toRule = shadowRules
+			currentRule = shadowRules
 			hasDryRunPolicy = true
 		} else {
-			toRule = rules
-			hasNormalPolicy = true
+			currentRule = enforceRules
+			hasEnforcePolicy = true
 		}
 		if b.option.IsCustomBuilder {
 			providers = append(providers, policy.Spec.GetProvider().GetName())
@@ -219,7 +219,7 @@ func (b Builder) build(policies []model.AuthorizationPolicy, action rbacpb.RBAC_
 				continue
 			}
 			if generated != nil {
-				toRule.Policies[name] = generated
+				currentRule.Policies[name] = generated
 				b.option.Logger.AppendDebugf("generated config from rule %s on %s filter chain successfully", name, filterType)
 			}
 		}
@@ -227,20 +227,20 @@ func (b Builder) build(policies []model.AuthorizationPolicy, action rbacpb.RBAC_
 			// Generate an explicit policy that never matches.
 			name := policyName(policy.Namespace, policy.Name, 0, b.option)
 			b.option.Logger.AppendDebugf("generated config from policy %s on %s filter chain successfully", name, filterType)
-			toRule.Policies[name] = rbacPolicyMatchNever
+			currentRule.Policies[name] = rbacPolicyMatchNever
 		}
 	}
 
-	if !hasNormalPolicy {
-		rules = nil
+	if !hasEnforcePolicy {
+		enforceRules = nil
 	}
 	if !hasDryRunPolicy {
 		shadowRules = nil
 	}
 	if forTCP {
-		return &builtConfigs{tcp: b.buildTCP(rules, shadowRules, providers)}
+		return &builtConfigs{tcp: b.buildTCP(enforceRules, shadowRules, providers)}
 	}
-	return &builtConfigs{http: b.buildHTTP(rules, shadowRules, providers)}
+	return &builtConfigs{http: b.buildHTTP(enforceRules, shadowRules, providers)}
 }
 
 func (b Builder) buildHTTP(rules *rbacpb.RBAC, shadowRules *rbacpb.RBAC, providers []string) []*httppb.HttpFilter {
