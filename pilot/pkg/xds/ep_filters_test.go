@@ -225,14 +225,15 @@ func TestEndpointsByNetworkFilter_SkipLBWithHostname(t *testing.T) {
 	//  - 0 gateways for network4
 	env := environment()
 	delete(env.Networks().Networks, "network2")
-	serviceDiscovery := memregistry.NewServiceDiscovery([]*model.Service{{
+	origServices, _ := env.Services()
+	serviceDiscovery := memregistry.NewServiceDiscovery(append([]*model.Service{{
 		Hostname: "istio-ingressgateway.istio-system.svc.cluster.local",
 		Attributes: model.ServiceAttributes{
 			ClusterExternalAddresses: map[string][]string{
 				"cluster2": {""},
 			},
 		},
-	}})
+	}}, origServices...))
 	serviceDiscovery.SetGatewaysForNetwork("network2", &model.Gateway{Addr: "aeiou.scooby.do", Port: 80})
 
 	env.ServiceDiscovery = serviceDiscovery
@@ -329,7 +330,7 @@ func runNetworkFilterTest(t *testing.T, env *model.Environment, testEndpoints []
 		t.Run(tt.name, func(t *testing.T) {
 			push := model.NewPushContext()
 			_ = push.InitContext(env, nil, nil)
-			b := NewEndpointBuilder("", tt.conn.proxy, push)
+			b := NewEndpointBuilder("outbound|81||example.ns.svc.cluster.local", tt.conn.proxy, push)
 			filtered := b.EndpointsByNetworkFilter(testEndpoints)
 			for _, e := range testEndpoints {
 				e.AssertInvarianceInTest()
@@ -398,7 +399,12 @@ func xdsConnection(network string) *Connection {
 //  - 0 gateways for network4
 func environment() *model.Environment {
 	return &model.Environment{
-		ServiceDiscovery: memregistry.NewServiceDiscovery(nil),
+		ServiceDiscovery: memregistry.NewServiceDiscovery([]*model.Service{
+			{
+				Hostname:   "example.ns.svc.cluster.local",
+				Attributes: model.ServiceAttributes{Name: "example", Namespace: "ns"},
+			},
+		}),
 		IstioConfigStore: model.MakeIstioStore(memory.Make(collections.Pilot)),
 		Watcher:          mesh.NewFixedWatcher(&meshconfig.MeshConfig{}),
 		NetworksWatcher: mesh.NewFixedNetworksWatcher(&meshconfig.MeshNetworks{
