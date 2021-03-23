@@ -30,7 +30,7 @@ import (
 )
 
 // ApplyClusterMerge processes the MERGE operation and merges the supplied configuration to the matched clusters.
-func ApplyClusterMerge(pctx networking.EnvoyFilter_PatchContext, proxy *model.Proxy, efw *model.EnvoyFilterWrapper,
+func ApplyClusterMerge(pctx networking.EnvoyFilter_PatchContext, efw *model.EnvoyFilterWrapper,
 	c *cluster.Cluster, hosts []host.Name) (out *cluster.Cluster, applied bool) {
 	defer runtime.HandleCrash(runtime.LogPanic, func(interface{}) {
 		log.Errorf("clusters patch caused panic, so the patches did not take effect")

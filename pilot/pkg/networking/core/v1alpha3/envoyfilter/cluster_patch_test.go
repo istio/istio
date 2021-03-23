@@ -480,7 +480,7 @@ func TestClusterPatching(t *testing.T) {
 			output := []*cluster.Cluster{}
 			for _, c := range tc.input {
 				if ShouldKeepCluster(tc.patchContext, efw, c, []host.Name{host.Name(tc.host)}) {
-					pc, _ := ApplyClusterMerge(tc.patchContext, tc.proxy, efw, c, []host.Name{host.Name(tc.host)})
+					pc, _ := ApplyClusterMerge(tc.patchContext, efw, c, []host.Name{host.Name(tc.host)})
 					output = append(output, pc)
 				}
 			}
