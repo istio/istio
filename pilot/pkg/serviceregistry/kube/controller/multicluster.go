@@ -39,7 +39,6 @@ import (
 	kubelib "istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/secretcontroller"
 	"istio.io/istio/pkg/webhooks"
-	"istio.io/pkg/log"
 )
 
 const (
