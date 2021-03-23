@@ -413,6 +413,18 @@ func (s *NodeMetaProxyConfig) UnmarshalJSON(data []byte) error {
 	return gogojsonpb.Unmarshal(bytes.NewReader(data), pc)
 }
 
+// Node is a typed version of Envoy node with metadata.
+type Node struct {
+	// ID of the Envoy node
+	ID string
+	// Metadata is the typed node metadata
+	Metadata *BootstrapNodeMetadata
+	// RawMetadata is the untyped node metadata
+	RawMetadata map[string]interface{}
+	// Locality from Envoy bootstrap
+	Locality *core.Locality
+}
+
 // BootstrapNodeMetadata is a superset of NodeMetadata, intended to model the entirety of the node metadata
 // we configure in the Envoy bootstrap. This is split out from NodeMetadata to explicitly segment the parameters
 // that are consumed by Pilot from the parameters used only as part of the bootstrap. Fields used by bootstrap only
