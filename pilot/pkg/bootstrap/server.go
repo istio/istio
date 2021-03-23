@@ -1267,7 +1267,10 @@ func (s *Server) initWorkloadTrustBundle(args *PilotArgs) error {
 		_ = s.workloadTrustBundle.AddMeshConfigUpdate(s.environment.Mesh())
 	})
 
-	err = s.addIstioCAToTrustBundle(args)
+	// Add IstioCA to trust bundle only when using Istio CA.
+	if s.CA != nil {
+		err = s.addIstioCAToTrustBundle(args)
+	}
 	if err != nil {
 		return err
 	}
