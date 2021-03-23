@@ -37,7 +37,7 @@ const (
 	DNSLookupFamilyIPv6 DNSLookupFamilyValue = "AUTO"
 )
 
-func ProxyConfig(value *meshAPI.ProxyConfig) Instance {
+func ProxyConfig(value *model.NodeMetaProxyConfig) Instance {
 	return newOption("config", value)
 }
 
