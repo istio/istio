@@ -6,6 +6,9 @@ metadata:
   annotations:
     test-suite: "beta-mtls-off"
 spec:
+  selector:
+    matchLabels:
+      app: b
   portLevelMtls:
     # 8090 is the targetPort for service http(80)
     8090:

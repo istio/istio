@@ -17,11 +17,10 @@ package xds
 import (
 	"net"
 
-	"google.golang.org/protobuf/types/known/structpb"
-
 	endpoint "github.com/envoyproxy/go-control-plane/envoy/config/endpoint/v3"
 	"github.com/golang/protobuf/proto"
 	"github.com/golang/protobuf/ptypes/wrappers"
+	"google.golang.org/protobuf/types/known/structpb"
 
 	"istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/model"
