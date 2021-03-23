@@ -168,6 +168,24 @@ func TestReachability(t *testing.T) {
 					ExpectMTLS:    Never,
 				},
 				{
+					ConfigFile: "port-level-plaintext.yaml",
+					Namespace:  systemNM,
+					Include: func(src echo.Instance, opts echo.CallOptions) bool {
+						if apps.IsNaked(opts.Target) && len(apps.Naked.Clusters().ByNetwork()) > 1 {
+							// mTLS would be required for cross-network calls
+							return false
+						}
+						return true
+					},
+					ExpectDestinations: func(src echo.Instance, dest echo.Instances) echo.Instances {
+						// Without TLS we can't perform SNI routing required for multi-network.
+						return dest.Match(echo.InNetwork(src.Config().Cluster.NetworkName()))
+					},
+					// All requests should stilll succeed, only the cross-network EPs are filtered out.
+					ExpectSuccess: Always,
+					ExpectMTLS:    Never,
+				},
+				{
 					ConfigFile: "automtls-passthrough.yaml",
 					Namespace:  systemNM,
 					Include: func(src echo.Instance, opts echo.CallOptions) bool {

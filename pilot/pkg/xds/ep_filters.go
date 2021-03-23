@@ -17,6 +17,10 @@ package xds
 import (
 	"net"
 
+	"istio.io/istio/pilot/pkg/security/authn"
+
+	"istio.io/istio/pilot/pkg/security/authn/factory"
+
 	endpoint "github.com/envoyproxy/go-control-plane/envoy/config/endpoint/v3"
 	"github.com/golang/protobuf/proto"
 	"github.com/golang/protobuf/ptypes/wrappers"
@@ -46,6 +50,9 @@ func (b *EndpointBuilder) EndpointsByNetworkFilter(endpoints []*LocLbEndpointsAn
 	// A new array of endpoints to be returned that will have both local and
 	// remote gateways (if any)
 	filtered := make([]*LocLbEndpointsAndOptions, 0)
+
+	// TODO compute mTLS mode while generating lbEps to get workload-level policy
+	pa := factory.NewPolicyApplier(b.push, b.service.Attributes.Namespace, nil)
 
 	// Go through all cluster endpoints and add those with the same network as the sidecar
 	// to the result. Also count the number of endpoints per each remote network while
@@ -79,7 +86,7 @@ func (b *EndpointBuilder) EndpointsByNetworkFilter(endpoints []*LocLbEndpointsAn
 				}
 				// cross-network traffic relies on mTLS to be enabled for SNI routing
 				// TODO BTS may allow us to work around this
-				if b.mTLSDisabled(lbEp) {
+				if b.mTLSDisabled(pa, lbEp) {
 					continue
 				}
 
@@ -135,11 +142,7 @@ func (b *EndpointBuilder) EndpointsByNetworkFilter(endpoints []*LocLbEndpointsAn
 	return filtered
 }
 
-func (b *EndpointBuilder) mTLSDisabled(lbEp *endpoint.LbEndpoint) bool {
-	// TODO share code with cluster builder. if the cluster does not have the transportSocket(Match), mTLS is disabled
-	if b.push.Mesh != nil && b.push.Mesh.EnableAutoMtls != nil && !b.push.Mesh.EnableAutoMtls.Value {
-		return true
-	}
+func (b *EndpointBuilder) mTLSDisabled(pa authn.PolicyApplier, lbEp *endpoint.LbEndpoint) bool {
 	if tlsMode := envoytransportSocketMetadata(lbEp, model.TLSModeLabelShortname); tlsMode == model.DisabledTLSModeLabel {
 		return true
 	}
@@ -152,6 +155,9 @@ func (b *EndpointBuilder) mTLSDisabled(lbEp *endpoint.LbEndpoint) bool {
 				return true
 			}
 		}
+	}
+	if mode := pa.GetMutualTLSModeForPort(uint32(b.port)); mode == model.MTLSDisable {
+		return true
 	}
 	if b.service != nil {
 		if p, ok := b.service.Ports.GetByPort(b.port); ok {
