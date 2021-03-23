@@ -25,7 +25,6 @@ import (
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/schema/gvk"
-	"istio.io/pkg/log"
 )
 
 // Pilot can get EDS information from Kubernetes from two mutually exclusive sources, Endpoints and

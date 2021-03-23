@@ -23,7 +23,6 @@ import (
 	"istio.io/api/label"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/config/host"
-	"istio.io/pkg/log"
 )
 
 // namedRangerEntry for holding network's CIDR and name
