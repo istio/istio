@@ -126,11 +126,11 @@ func TestGCPMonitoringPilotXDSMetrics(t *testing.T) {
 					}
 					switch v := tt.wantVal.Data.(type) {
 					case *view.SumData:
-						if int64(v.Value) == int64(got.Data.(*view.SumData).Value) {
+						if int64(v.Value) <= int64(got.Data.(*view.SumData).Value) {
 							return nil
 						}
 					case *view.LastValueData:
-						if int64(v.Value) == int64(got.Data.(*view.LastValueData).Value) {
+						if int64(v.Value) <= int64(got.Data.(*view.LastValueData).Value) {
 							return nil
 						}
 					case *view.DistributionData:
