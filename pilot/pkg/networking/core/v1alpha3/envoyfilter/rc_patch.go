@@ -61,19 +61,18 @@ func ApplyRouteConfigurationPatches(
 	if !applied {
 		IncrementSkippedMetric("routes")
 	}
-	patchVirtualHosts(patchContext, proxy, efw.Patches, routeConfiguration)
+	patchVirtualHosts(patchContext, efw.Patches, routeConfiguration)
 
 	return routeConfiguration
 }
 
 func patchVirtualHosts(patchContext networking.EnvoyFilter_PatchContext,
-	proxy *model.Proxy,
 	patches map[networking.EnvoyFilter_ApplyTo][]*model.EnvoyFilterConfigPatchWrapper,
 	routeConfiguration *route.RouteConfiguration) {
 	virtualHostsRemoved := false
 	// first do removes/merges
 	for _, vhost := range routeConfiguration.VirtualHosts {
-		patchVirtualHost(patchContext, proxy, patches, routeConfiguration, vhost, &virtualHostsRemoved)
+		patchVirtualHost(patchContext, patches, routeConfiguration, vhost, &virtualHostsRemoved)
 	}
 
 	applied := false
@@ -104,7 +103,6 @@ func patchVirtualHosts(patchContext networking.EnvoyFilter_PatchContext,
 }
 
 func patchVirtualHost(patchContext networking.EnvoyFilter_PatchContext,
-	proxy *model.Proxy,
 	patches map[networking.EnvoyFilter_ApplyTo][]*model.EnvoyFilterConfigPatchWrapper,
 	routeConfiguration *route.RouteConfiguration, virtualHost *route.VirtualHost, virtualHostRemoved *bool) {
 	applied := false

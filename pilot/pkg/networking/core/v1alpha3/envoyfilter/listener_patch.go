@@ -59,11 +59,10 @@ func ApplyListenerPatches(
 		return
 	}
 
-	return patchListeners(proxy, patchContext, efw, listeners, skipAdds)
+	return patchListeners(patchContext, efw, listeners, skipAdds)
 }
 
 func patchListeners(
-	proxy *model.Proxy,
 	patchContext networking.EnvoyFilter_PatchContext,
 	envoyFilterWrapper *model.EnvoyFilterWrapper,
 	listeners []*xdslistener.Listener,
@@ -79,7 +78,7 @@ func patchListeners(
 			// removed by another op
 			continue
 		}
-		patchListener(proxy, patchContext, envoyFilterWrapper.Patches, listener, &listenersRemoved)
+		patchListener(patchContext, envoyFilterWrapper.Patches, listener, &listenersRemoved)
 	}
 	// adds at listener level if enabled
 	applied := false
@@ -113,7 +112,7 @@ func patchListeners(
 	return listeners
 }
 
-func patchListener(proxy *model.Proxy, patchContext networking.EnvoyFilter_PatchContext,
+func patchListener(patchContext networking.EnvoyFilter_PatchContext,
 	patches map[networking.EnvoyFilter_ApplyTo][]*model.EnvoyFilterConfigPatchWrapper,
 	listener *xdslistener.Listener, listenersRemoved *bool) {
 	applied := false
@@ -135,10 +134,10 @@ func patchListener(proxy *model.Proxy, patchContext networking.EnvoyFilter_Patch
 	if !applied {
 		IncrementSkippedMetric("listener")
 	}
-	patchFilterChains(proxy, patchContext, patches, listener)
+	patchFilterChains(patchContext, patches, listener)
 }
 
-func patchFilterChains(proxy *model.Proxy, patchContext networking.EnvoyFilter_PatchContext,
+func patchFilterChains(patchContext networking.EnvoyFilter_PatchContext,
 	patches map[networking.EnvoyFilter_ApplyTo][]*model.EnvoyFilterConfigPatchWrapper,
 	listener *xdslistener.Listener) {
 	filterChainsRemoved := false
@@ -146,11 +145,11 @@ func patchFilterChains(proxy *model.Proxy, patchContext networking.EnvoyFilter_P
 		if fc.Filters == nil {
 			continue
 		}
-		patchFilterChain(proxy, patchContext, patches, listener, listener.FilterChains[i], &filterChainsRemoved)
+		patchFilterChain(patchContext, patches, listener, listener.FilterChains[i], &filterChainsRemoved)
 	}
 	if fc := listener.GetDefaultFilterChain(); fc.GetFilters() != nil {
 		removed := false
-		patchFilterChain(proxy, patchContext, patches, listener, fc, &removed)
+		patchFilterChain(patchContext, patches, listener, fc, &removed)
 		if removed {
 			listener.DefaultFilterChain = nil
 		}
@@ -180,7 +179,7 @@ func patchFilterChains(proxy *model.Proxy, patchContext networking.EnvoyFilter_P
 	}
 }
 
-func patchFilterChain(proxy *model.Proxy, patchContext networking.EnvoyFilter_PatchContext,
+func patchFilterChain(patchContext networking.EnvoyFilter_PatchContext,
 	patches map[networking.EnvoyFilter_ApplyTo][]*model.EnvoyFilterConfigPatchWrapper,
 	listener *xdslistener.Listener,
 	fc *xdslistener.FilterChain, filterChainRemoved *bool) {
@@ -211,7 +210,7 @@ func patchFilterChain(proxy *model.Proxy, patchContext networking.EnvoyFilter_Pa
 	if !applied {
 		IncrementSkippedMetric("filterchain")
 	}
-	patchNetworkFilters(proxy, patchContext, patches, listener, fc)
+	patchNetworkFilters(patchContext, patches, listener, fc)
 }
 
 // Test if the patch contains a config for TransportSocket
@@ -250,7 +249,7 @@ func mergeTransportSocketListener(fc *xdslistener.FilterChain, cp *model.EnvoyFi
 	return true, nil
 }
 
-func patchNetworkFilters(proxy *model.Proxy, patchContext networking.EnvoyFilter_PatchContext,
+func patchNetworkFilters(patchContext networking.EnvoyFilter_PatchContext,
 	patches map[networking.EnvoyFilter_ApplyTo][]*model.EnvoyFilterConfigPatchWrapper,
 	listener *xdslistener.Listener, fc *xdslistener.FilterChain) {
 	networkFiltersRemoved := false
@@ -258,7 +257,7 @@ func patchNetworkFilters(proxy *model.Proxy, patchContext networking.EnvoyFilter
 		if filter.Name == "" {
 			continue
 		}
-		patchNetworkFilter(proxy, patchContext, patches, listener, fc, fc.Filters[i], &networkFiltersRemoved)
+		patchNetworkFilter(patchContext, patches, listener, fc, fc.Filters[i], &networkFiltersRemoved)
 	}
 	applied := false
 	for _, cp := range patches[networking.EnvoyFilter_NETWORK_FILTER] {
@@ -357,7 +356,7 @@ func patchNetworkFilters(proxy *model.Proxy, patchContext networking.EnvoyFilter
 	}
 }
 
-func patchNetworkFilter(proxy *model.Proxy, patchContext networking.EnvoyFilter_PatchContext,
+func patchNetworkFilter(patchContext networking.EnvoyFilter_PatchContext,
 	patches map[networking.EnvoyFilter_ApplyTo][]*model.EnvoyFilterConfigPatchWrapper,
 	listener *xdslistener.Listener, fc *xdslistener.FilterChain,
 	filter *xdslistener.Filter, networkFilterRemoved *bool) {
@@ -418,11 +417,11 @@ func patchNetworkFilter(proxy *model.Proxy, patchContext networking.EnvoyFilter_
 		IncrementSkippedMetric("networkfilters")
 	}
 	if filter.Name == wellknown.HTTPConnectionManager {
-		patchHTTPFilters(proxy, patchContext, patches, listener, fc, filter)
+		patchHTTPFilters(patchContext, patches, listener, fc, filter)
 	}
 }
 
-func patchHTTPFilters(proxy *model.Proxy, patchContext networking.EnvoyFilter_PatchContext,
+func patchHTTPFilters(patchContext networking.EnvoyFilter_PatchContext,
 	patches map[networking.EnvoyFilter_ApplyTo][]*model.EnvoyFilterConfigPatchWrapper,
 	listener *xdslistener.Listener, fc *xdslistener.FilterChain, filter *xdslistener.Filter) {
 	hcm := &http_conn.HttpConnectionManager{}
@@ -438,7 +437,7 @@ func patchHTTPFilters(proxy *model.Proxy, patchContext networking.EnvoyFilter_Pa
 		if httpFilter.Name == "" {
 			continue
 		}
-		patchHTTPFilter(proxy, patchContext, patches, listener, fc, filter, httpFilter, &httpFiltersRemoved)
+		patchHTTPFilter(patchContext, patches, listener, fc, filter, httpFilter, &httpFiltersRemoved)
 	}
 	applied := false
 	for _, cp := range patches[networking.EnvoyFilter_HTTP_FILTER] {
@@ -541,7 +540,7 @@ func patchHTTPFilters(proxy *model.Proxy, patchContext networking.EnvoyFilter_Pa
 	}
 }
 
-func patchHTTPFilter(proxy *model.Proxy, patchContext networking.EnvoyFilter_PatchContext,
+func patchHTTPFilter(patchContext networking.EnvoyFilter_PatchContext,
 	patches map[networking.EnvoyFilter_ApplyTo][]*model.EnvoyFilterConfigPatchWrapper,
 	listener *xdslistener.Listener, fc *xdslistener.FilterChain, filter *xdslistener.Filter,
 	httpFilter *http_conn.HttpFilter, httpFilterRemoved *bool) {
