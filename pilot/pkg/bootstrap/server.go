@@ -1241,6 +1241,10 @@ func (s *Server) addIstioCAToTrustBundle(args *PilotArgs) error {
 }
 
 func (s *Server) initWorkloadTrustBundle(args *PilotArgs) error {
+	if s.CA == nil {
+		log.Infof("Istio CA is not used, skipping initializing workload trust bundle")
+		return nil
+	}
 	var err error
 
 	s.workloadTrustBundle.UpdateCb(func() {
@@ -1267,10 +1271,7 @@ func (s *Server) initWorkloadTrustBundle(args *PilotArgs) error {
 		_ = s.workloadTrustBundle.AddMeshConfigUpdate(s.environment.Mesh())
 	})
 
-	// Add IstioCA to trust bundle only when using Istio CA.
-	if s.CA != nil {
-		err = s.addIstioCAToTrustBundle(args)
-	}
+	err = s.addIstioCAToTrustBundle(args)
 	if err != nil {
 		return err
 	}
