@@ -789,6 +789,8 @@ spec:
 EOF
       install_expansion_gw "${MESH_ID}" "cluster${i}" "network${i}" "${ASM_REVISION_LABEL}" "${HUB}" "${TAG}" "${ONPREM_MC_CONFIGS[$i]}"
     fi
+    # set default network for the cluster, allow detecting network of non-injected pods
+    kubectl --kubeconfig="${ONPREM_MC_CONFIGS[$i]}" label namespace istio-system topology.istio.io/network="network${i}"
     expose_services "${ONPREM_MC_CONFIGS[$i]}"
     configure_validating_webhook "${ASM_REVISION_LABEL}" "${ONPREM_MC_CONFIGS[$i]}"
     onprem::configure_external_ip "${INFRA}" "${ONPREM_MC_CONFIGS[$i]}"
