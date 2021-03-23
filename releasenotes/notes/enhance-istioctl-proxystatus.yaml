@@ -5,5 +5,5 @@ issue:
   - 31474
 releaseNotes:
   - |
-    **Enhanced** `istioctl proxy-status` command to include NDS and ECDS sync statuses
-    and last sync time for each configuration type
+    **Improved** `istioctl proxy-status` command to include additional XDS sync statuses
+    like NDS, ECDS, PCDS and added options to filter XDS status columns.
