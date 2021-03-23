@@ -31,8 +31,8 @@ import (
 	tracing "github.com/envoyproxy/go-control-plane/envoy/type/tracing/v3"
 	xdstype "github.com/envoyproxy/go-control-plane/envoy/type/v3"
 	"github.com/envoyproxy/go-control-plane/pkg/wellknown"
-	"github.com/golang/protobuf/ptypes"
 	"github.com/golang/protobuf/ptypes/wrappers"
+	"google.golang.org/protobuf/types/known/durationpb"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
@@ -1449,11 +1449,11 @@ func buildHTTPConnectionManager(listenerOpts buildListenerOpts, httpOpts *httpLi
 	idleTimeout, err := time.ParseDuration(listenerOpts.proxy.Metadata.IdleTimeout)
 	if err == nil {
 		connectionManager.CommonHttpProtocolOptions = &core.HttpProtocolOptions{
-			IdleTimeout: ptypes.DurationProto(idleTimeout),
+			IdleTimeout: durationpb.New(idleTimeout),
 		}
 	}
 
-	notimeout := ptypes.DurationProto(0 * time.Second)
+	notimeout := durationpb.New(0 * time.Second)
 	connectionManager.StreamIdleTimeout = notimeout
 
 	if httpOpts.rds != "" {

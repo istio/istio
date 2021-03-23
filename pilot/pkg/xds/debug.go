@@ -28,8 +28,8 @@ import (
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	tls "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
 	"github.com/golang/protobuf/jsonpb"
-	"github.com/golang/protobuf/ptypes"
 	"github.com/golang/protobuf/ptypes/any"
+	"google.golang.org/protobuf/types/known/anypb"
 
 	"istio.io/istio/pilot/pkg/config/kube/crd"
 	"istio.io/istio/pilot/pkg/features"
@@ -567,7 +567,7 @@ func (s *DiscoveryServer) configDump(conn *Connection) (*adminapi.ConfigDump, er
 	clusters := s.ConfigGenerator.BuildClusters(conn.proxy, s.globalPushContext())
 
 	for _, cs := range clusters {
-		cluster, err := ptypes.MarshalAny(cs)
+		cluster, err := anypb.New(cs)
 		if err != nil {
 			return nil, err
 		}
@@ -584,7 +584,7 @@ func (s *DiscoveryServer) configDump(conn *Connection) (*adminapi.ConfigDump, er
 	dynamicActiveListeners := make([]*adminapi.ListenersConfigDump_DynamicListener, 0)
 	listeners := s.ConfigGenerator.BuildListeners(conn.proxy, s.globalPushContext())
 	for _, cs := range listeners {
-		listener, err := ptypes.MarshalAny(cs)
+		listener, err := anypb.New(cs)
 		if err != nil {
 			return nil, err
 		}
@@ -606,7 +606,7 @@ func (s *DiscoveryServer) configDump(conn *Connection) (*adminapi.ConfigDump, er
 	if len(routes) > 0 {
 		dynamicRouteConfig := make([]*adminapi.RoutesConfigDump_DynamicRouteConfig, 0)
 		for _, rs := range routes {
-			route, err := ptypes.MarshalAny(rs)
+			route, err := anypb.New(rs)
 			if err != nil {
 				return nil, err
 			}

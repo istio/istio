@@ -20,7 +20,7 @@ import (
 
 	adminapi "github.com/envoyproxy/go-control-plane/envoy/admin/v3"
 	route "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
-	"github.com/golang/protobuf/ptypes"
+	"google.golang.org/protobuf/types/known/anypb"
 
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
 )
@@ -37,9 +37,8 @@ func (w *Wrapper) GetLastUpdatedDynamicRouteTime() (*time.Time, error) {
 	lastUpdated := time.Unix(0, 0) // get the oldest possible timestamp
 	for i := range drc {
 		if drc[i].LastUpdated != nil {
-			if drLastUpdated, err := ptypes.Timestamp(drc[i].LastUpdated); err != nil {
-				return nil, err
-			} else if drLastUpdated.After(lastUpdated) {
+			drLastUpdated := drc[i].LastUpdated.AsTime()
+			if drLastUpdated.After(lastUpdated) {
 				lastUpdated = drLastUpdated
 			}
 		}
@@ -86,7 +85,7 @@ func (w *Wrapper) GetDynamicRouteDump(stripVersions bool) (*adminapi.RoutesConfi
 		sort.Slice(route.VirtualHosts, func(i, j int) bool {
 			return route.VirtualHosts[i].Name < route.VirtualHosts[j].Name
 		})
-		drc[i].RouteConfig, err = ptypes.MarshalAny(route)
+		drc[i].RouteConfig, err = anypb.New(route)
 		if err != nil {
 			return nil, err
 		}
