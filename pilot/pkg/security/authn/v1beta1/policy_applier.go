@@ -196,18 +196,11 @@ func (a *v1beta1PolicyApplier) InboundMTLSSettings(endpointPort uint32, node *mo
 	effectiveMTLSMode := a.getMutualTLSModeForPort(endpointPort)
 	authnLog.Debugf("InboundFilterChain: build inbound filter change for %v:%d in %s mode", node.ID, endpointPort, effectiveMTLSMode)
 	return plugin.MTLSSettings{
-		Port:           endpointPort,
-		Mode:           effectiveMTLSMode,
-		TCPTLSContext:  authn_utils.BuildInboundTLS(effectiveMTLSMode, node, networking.ListenerProtocolTCP, trustDomainAliases),
-		HTTPTLSContext: authn_utils.BuildInboundTLS(effectiveMTLSMode, node, networking.ListenerProtocolHTTP, trustDomainAliases),
+		Port: endpointPort,
+		Mode: effectiveMTLSMode,
+		TCP:  authn_utils.BuildInboundTLS(effectiveMTLSMode, node, networking.ListenerProtocolTCP, trustDomainAliases),
+		HTTP: authn_utils.BuildInboundTLS(effectiveMTLSMode, node, networking.ListenerProtocolHTTP, trustDomainAliases),
 	}
-}
-
-func (a *v1beta1PolicyApplier) InboundFilterChain(endpointPort uint32, node *model.Proxy,
-	listenerProtocol networking.ListenerProtocol, trustDomainAliases []string) []networking.FilterChain {
-	effectiveMTLSMode := a.getMutualTLSModeForPort(endpointPort)
-	authnLog.Debugf("InboundFilterChain: build inbound filter change for %v:%d in %s mode", node.ID, endpointPort, effectiveMTLSMode)
-	return authn_utils.BuildInboundFilterChain(effectiveMTLSMode, node, listenerProtocol, trustDomainAliases)
 }
 
 // NewPolicyApplier returns new applier for v1beta1 authentication policies.

@@ -1534,16 +1534,16 @@ func TestInboundMTLSSettings(t *testing.T) {
 	tlsContextHTTP.CommonTlsContext.AlpnProtocols = []string{"h2", "http/1.1"}
 
 	expectedStrict := plugin.MTLSSettings{
-		Port:           8080,
-		Mode:           model.MTLSStrict,
-		TCPTLSContext:  tlsContext,
-		HTTPTLSContext: tlsContextHTTP,
+		Port: 8080,
+		Mode: model.MTLSStrict,
+		TCP:  tlsContext,
+		HTTP: tlsContextHTTP,
 	}
 	expectedPermissive := plugin.MTLSSettings{
-		Port:           8080,
-		Mode:           model.MTLSPermissive,
-		TCPTLSContext:  tlsContext,
-		HTTPTLSContext: tlsContextHTTP,
+		Port: 8080,
+		Mode: model.MTLSPermissive,
+		TCP:  tlsContext,
+		HTTP: tlsContextHTTP,
 	}
 
 	cases := []struct {

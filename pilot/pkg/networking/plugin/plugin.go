@@ -70,8 +70,8 @@ type MTLSSettings struct {
 	Port uint32
 	// Mode is the mTLS  mode to use
 	Mode model.MutualTLSMode
-	// TCPTLSContext describes the tls context to use for TCP filter chains
-	TCPTLSContext *tls.DownstreamTlsContext
-	// HTTPTLSContext describes the tls context to use for HTTP filter chains
-	HTTPTLSContext *tls.DownstreamTlsContext
+	// TCP describes the tls context to use for TCP filter chains
+	TCP *tls.DownstreamTlsContext
+	// HTTP describes the tls context to use for HTTP filter chains
+	HTTP *tls.DownstreamTlsContext
 }

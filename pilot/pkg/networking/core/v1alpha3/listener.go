@@ -467,15 +467,6 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundListeners(
 
 func (configgen *ConfigGeneratorImpl) buildSidecarInboundHTTPListenerOptsForPortOrUDS(node *model.Proxy,
 	pluginParams *plugin.InputParams, clusterName string) *httpListenerOpts {
-	if clusterName == "" {
-		// In case of unix domain sockets, the service port will be 0. So use the port name to distinguish the
-		// inbound listeners that a user specifies in Sidecar. Otherwise, all inbound clusters will be the same.
-		// We use the port name as the subset in the inbound cluster for differentiation. Its fine to use port
-		// names here because the inbound clusters are not referred to anywhere in the API, unlike the outbound
-		// clusters and these are static endpoint clusters used only for sidecar (proxy -> app)
-		clusterName = model.BuildInboundSubsetKey(int(pluginParams.ServiceInstance.Endpoint.EndpointPort))
-	}
-
 	httpOpts := &httpListenerOpts{
 		routeConfig: configgen.buildSidecarInboundHTTPRouteConfig(pluginParams.Node,
 			pluginParams.Push, pluginParams.ServiceInstance, clusterName),
@@ -540,7 +531,8 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundListenerForPortOrUDS(li
 		listenerOpts.needHTTPInspector = true
 	}
 	// Setup filter chain options and call plugins
-	fcOpts := configgen.buildInboundFilterchains(pluginParams, listenerOpts, "", "", false)
+	clusterName := model.BuildInboundSubsetKey(int(pluginParams.ServiceInstance.Endpoint.EndpointPort))
+	fcOpts := configgen.buildInboundFilterchains(pluginParams, listenerOpts, "", clusterName, false)
 	listenerOpts.filterChainOpts = fcOpts
 
 	// Buildup the complete listener

@@ -2379,10 +2379,10 @@ func (p *fakePlugin) InboundMTLSConfiguration(in *plugin.InputParams, passthroug
 	return []plugin.MTLSSettings{{
 		Port: port,
 		Mode: model.MTLSPermissive,
-		TCPTLSContext: &tls.DownstreamTlsContext{
+		TCP: &tls.DownstreamTlsContext{
 			CommonTlsContext: &tls.CommonTlsContext{AlpnProtocols: []string{"foo"}},
 		},
-		HTTPTLSContext: &tls.DownstreamTlsContext{
+		HTTP: &tls.DownstreamTlsContext{
 			CommonTlsContext: &tls.CommonTlsContext{AlpnProtocols: []string{"foo"}},
 		},
 	}}

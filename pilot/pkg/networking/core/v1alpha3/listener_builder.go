@@ -550,9 +550,9 @@ func (opt fcOpts) populateFilterChain(mtls plugin.MTLSSettings, port uint32, mat
 	}
 	opt.fc.ListenerProtocol = opt.matchOpts.Protocol
 	if opt.fc.ListenerProtocol == istionetworking.ListenerProtocolHTTP {
-		opt.fc.TLSContext = mtls.HTTPTLSContext
+		opt.fc.TLSContext = mtls.HTTP
 	} else {
-		opt.fc.TLSContext = mtls.TCPTLSContext
+		opt.fc.TLSContext = mtls.TCP
 	}
 	return opt
 }
@@ -584,7 +584,10 @@ func buildInboundCatchAllFilterChains(configgen *ConfigGeneratorImpl,
 	if node.SupportsIPv6() {
 		ipVersions = append(ipVersions, util.InboundPassthroughClusterIpv6)
 	}
-	filterChains := make([]*listener.FilterChain, 0, 5*len(ipVersions))
+
+	// Setup enough slots for common max size (permissive mode is 5 filter chains). This is not
+	// exact, just best effort optimization
+	filterChains := make([]*listener.FilterChain, 0, 1+5*len(ipVersions))
 	filterChains = append(filterChains, &listener.FilterChain{
 		Name: VirtualInboundBlackholeFilterChainName,
 		FilterChainMatch: &listener.FilterChainMatch{
