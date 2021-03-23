@@ -1021,7 +1021,7 @@ func humanReadableAuthnFilterDump(filter *http_conn.HttpFilter) string {
 		return "<nil>"
 	}
 	config := &authn_filter.FilterConfig{}
-	ptypes.UnmarshalAny(filter.GetTypedConfig(), config)
+	filter.GetTypedConfig().UnmarshalTo(config)
 	return spew.Sdump(*config)
 }
 

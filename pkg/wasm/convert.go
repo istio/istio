@@ -72,7 +72,7 @@ func convert(resource *any.Any, cache Cache) (newExtensionConfig *any.Any, sendN
 			With(resultTag.Value(status)).
 			Increment()
 	}()
-	if err := ptypes.UnmarshalAny(resource, ec); err != nil {
+	if err := resource.UnmarshalTo(ec); err != nil {
 		wasmLog.Debugf("failed to unmarshal extension config resource: %v", err)
 		return
 	}
@@ -85,7 +85,7 @@ func convert(resource *any.Any, cache Cache) (newExtensionConfig *any.Any, sendN
 	}
 	wasmStruct := &udpa.TypedStruct{}
 	wasmTypedConfig := ec.GetTypedConfig()
-	if err := ptypes.UnmarshalAny(wasmTypedConfig, wasmStruct); err != nil {
+	if err := wasmTypedConfig.UnmarshalTo(wasmStruct); err != nil {
 		wasmLog.Debugf("failed to unmarshal typed config for wasm filter: %v", err)
 		return
 	}

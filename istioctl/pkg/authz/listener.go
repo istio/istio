@@ -28,7 +28,6 @@ import (
 	rbac_tcp_filter "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/rbac/v3"
 	"github.com/envoyproxy/go-control-plane/pkg/wellknown"
 	"github.com/golang/protobuf/proto"
-	"github.com/golang/protobuf/ptypes"
 
 	"istio.io/pkg/log"
 )
@@ -52,7 +51,7 @@ type parsedListener struct {
 func getFilterConfig(filter *listener.Filter, out proto.Message) error {
 	switch c := filter.ConfigType.(type) {
 	case *listener.Filter_TypedConfig:
-		if err := ptypes.UnmarshalAny(c.TypedConfig, out); err != nil {
+		if err := c.TypedConfig.UnmarshalTo(out); err != nil {
 			return err
 		}
 	}
@@ -71,7 +70,7 @@ func getHTTPConnectionManager(filter *listener.Filter) *hcm_filter.HttpConnectio
 func getHTTPFilterConfig(filter *hcm_filter.HttpFilter, out proto.Message) error {
 	switch c := filter.ConfigType.(type) {
 	case *hcm_filter.HttpFilter_TypedConfig:
-		if err := ptypes.UnmarshalAny(c.TypedConfig, out); err != nil {
+		if err := c.TypedConfig.UnmarshalTo(out); err != nil {
 			return err
 		}
 	}

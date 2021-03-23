@@ -63,12 +63,12 @@ func (w *Wrapper) GetDynamicRouteDump(stripVersions bool) (*adminapi.RoutesConfi
 	}
 	sort.Slice(drc, func(i, j int) bool {
 		r := &route.RouteConfiguration{}
-		err = ptypes.UnmarshalAny(drc[i].RouteConfig, r)
+		err = drc[i].RouteConfig.UnmarshalTo(r)
 		if err != nil {
 			return false
 		}
 		name := r.Name
-		err = ptypes.UnmarshalAny(drc[j].RouteConfig, r)
+		err = drc[j].RouteConfig.UnmarshalTo(r)
 		if err != nil {
 			return false
 		}
@@ -79,7 +79,7 @@ func (w *Wrapper) GetDynamicRouteDump(stripVersions bool) (*adminapi.RoutesConfi
 	// within a route might have a different order.  Sort those too.
 	for i := range drc {
 		route := &route.RouteConfiguration{}
-		err = ptypes.UnmarshalAny(drc[i].RouteConfig, route)
+		err = drc[i].RouteConfig.UnmarshalTo(route)
 		if err != nil {
 			return nil, err
 		}
@@ -108,7 +108,7 @@ func (w *Wrapper) GetRouteConfigDump() (*adminapi.RoutesConfigDump, error) {
 		return nil, err
 	}
 	routeDump := &adminapi.RoutesConfigDump{}
-	err = ptypes.UnmarshalAny(routeDumpAny, routeDump)
+	err = routeDumpAny.UnmarshalTo(routeDump)
 	if err != nil {
 		return nil, err
 	}

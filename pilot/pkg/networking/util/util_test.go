@@ -674,7 +674,7 @@ func TestMergeAnyWithStruct(t *testing.T) {
 	}
 
 	outHCM := http_conn.HttpConnectionManager{}
-	if err = ptypes.UnmarshalAny(outAny, &outHCM); err != nil {
+	if err = outAny.UnmarshalTo(&outHCM); err != nil {
 		t.Errorf("Failed to unmarshall outAny to outHCM: %v", err)
 	}
 

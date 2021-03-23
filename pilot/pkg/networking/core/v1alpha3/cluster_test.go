@@ -219,7 +219,7 @@ func TestCommonHttpProtocolOptions(t *testing.T) {
 			anyOptions := c.TypedExtensionProtocolOptions[v3.HttpProtocolOptionsType]
 			httpProtocolOptions := &http.HttpProtocolOptions{}
 			if anyOptions != nil {
-				ptypes.UnmarshalAny(anyOptions, httpProtocolOptions)
+				anyOptions.UnmarshalTo(httpProtocolOptions)
 			}
 
 			if tc.useDownStreamProtocol && tc.proxyType == model.SidecarProxy {

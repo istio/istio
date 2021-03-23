@@ -31,7 +31,6 @@ import (
 
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	gogotypes "github.com/gogo/protobuf/types"
-	"github.com/golang/protobuf/ptypes"
 	"go.uber.org/atomic"
 	google_rpc "google.golang.org/genproto/googleapis/rpc/status"
 	"google.golang.org/grpc"
@@ -139,7 +138,7 @@ func initXdsProxy(ia *Agent) (*XdsProxy, error) {
 				return nil
 			}
 			var nt nds.NameTable
-			if err := ptypes.UnmarshalAny(resp.Resources[0], &nt); err != nil {
+			if err := resp.Resources[0].UnmarshalTo(&nt); err != nil {
 				log.Errorf("failed to unmarshall name table: %v", err)
 				return err
 			}
