@@ -17,6 +17,8 @@ package xds
 import (
 	"net"
 
+	"google.golang.org/protobuf/types/known/structpb"
+
 	endpoint "github.com/envoyproxy/go-control-plane/envoy/config/endpoint/v3"
 	"github.com/golang/protobuf/proto"
 	"github.com/golang/protobuf/ptypes/wrappers"
@@ -25,8 +27,6 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking"
 	"istio.io/istio/pilot/pkg/networking/util"
-	"istio.io/istio/pilot/pkg/security/authn"
-	"istio.io/istio/pilot/pkg/security/authn/factory"
 	"istio.io/istio/pkg/config/labels"
 )
 
@@ -48,9 +48,6 @@ func (b *EndpointBuilder) EndpointsByNetworkFilter(endpoints []*LocLbEndpointsAn
 	// A new array of endpoints to be returned that will have both local and
 	// remote gateways (if any)
 	filtered := make([]*LocLbEndpointsAndOptions, 0)
-
-	// TODO compute mTLS mode while generating lbEps to get workload-level policy
-	pa := factory.NewPolicyApplier(b.push, b.service.Attributes.Namespace, nil)
 
 	// Go through all cluster endpoints and add those with the same network as the sidecar
 	// to the result. Also count the number of endpoints per each remote network while
@@ -84,7 +81,7 @@ func (b *EndpointBuilder) EndpointsByNetworkFilter(endpoints []*LocLbEndpointsAn
 				}
 				// cross-network traffic relies on mTLS to be enabled for SNI routing
 				// TODO BTS may allow us to work around this
-				if b.mTLSDisabled(pa, lbEp) {
+				if b.mTLSDisabled(lbEp) {
 					continue
 				}
 
@@ -140,7 +137,7 @@ func (b *EndpointBuilder) EndpointsByNetworkFilter(endpoints []*LocLbEndpointsAn
 	return filtered
 }
 
-func (b *EndpointBuilder) mTLSDisabled(pa authn.PolicyApplier, lbEp *endpoint.LbEndpoint) bool {
+func (b *EndpointBuilder) mTLSDisabled(lbEp *endpoint.LbEndpoint) bool {
 	if tlsMode := envoytransportSocketMetadata(lbEp, model.TLSModeLabelShortname); tlsMode == model.DisabledTLSModeLabel {
 		return true
 	}
@@ -150,17 +147,6 @@ func (b *EndpointBuilder) mTLSDisabled(pa authn.PolicyApplier, lbEp *endpoint.Lb
 		if dr, ok := b.destinationRule.Spec.(*v1alpha3.DestinationRule); ok && dr != nil {
 			tp = dr.GetTrafficPolicy()
 			if tp.GetTls().GetMode() == v1alpha3.ClientTLSSettings_DISABLE {
-				return true
-			}
-		}
-	}
-	if mode := pa.GetMutualTLSModeForPort(uint32(b.port)); mode == model.MTLSDisable {
-		return true
-	}
-	if b.service != nil {
-		if p, ok := b.service.Ports.GetByPort(b.port); ok {
-			// TODO handle workload/port level authn policies
-			if b.push.BestEffortInferServiceMTLSMode(tp, b.service, p) == model.MTLSDisable {
 				return true
 			}
 		}
@@ -193,6 +179,17 @@ func envoytransportSocketMetadata(ep *endpoint.LbEndpoint, key string) string {
 		ep.Metadata.FilterMetadata[util.EnvoyTransportSocketMetadataKey].Fields != nil &&
 		ep.Metadata.FilterMetadata[util.EnvoyTransportSocketMetadataKey].Fields[key] != nil {
 		return ep.Metadata.FilterMetadata[util.EnvoyTransportSocketMetadataKey].Fields[key].GetStringValue()
+	}
+	return ""
+}
+
+func setEnvoytransportSocketMetadata(ep *endpoint.LbEndpoint, key, value string) string {
+	// TODO set middle fields if they're nil
+	if ep.Metadata != nil &&
+		ep.Metadata.FilterMetadata[util.EnvoyTransportSocketMetadataKey] != nil &&
+		ep.Metadata.FilterMetadata[util.EnvoyTransportSocketMetadataKey].Fields != nil &&
+		ep.Metadata.FilterMetadata[util.EnvoyTransportSocketMetadataKey].Fields[key] != nil {
+		ep.Metadata.FilterMetadata[util.EnvoyTransportSocketMetadataKey].Fields[key] = structpb.NewStringValue(value)
 	}
 	return ""
 }

@@ -18,6 +18,10 @@ import (
 	"sort"
 	"strings"
 
+	"istio.io/istio/pkg/config/labels"
+
+	"istio.io/istio/pilot/pkg/security/authn/factory"
+
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	endpoint "github.com/envoyproxy/go-control-plane/envoy/config/endpoint/v3"
 	"github.com/golang/protobuf/proto"
@@ -241,7 +245,7 @@ func (b *EndpointBuilder) buildLocalityLbEndpointsFromShards(
 	svcPort *model.Port,
 ) []*LocLbEndpointsAndOptions {
 	localityEpMap := make(map[string]*LocLbEndpointsAndOptions)
-
+	mtlsModes := make(map[string]model.MutualTLSMode)
 	// get the subset labels
 	epLabels := getSubSetLabels(b.DestinationRule(), b.subsetName)
 
@@ -294,6 +298,22 @@ func (b *EndpointBuilder) buildLocalityLbEndpointsFromShards(
 				ep.EnvoyEndpoint = buildEnvoyLbEndpoint(ep)
 			}
 			locLbEps.append(ep.EnvoyEndpoint, ep.TunnelAbility)
+
+			// compute the actual mTLS mode once policy applied, used during multinetwork filtering
+			if b.MultiNetworkConfigured() {
+				k := ep.Labels.String()
+				// if the ep already had Disabled, leave it, otherwise resolve the policy
+				if tlsMode := envoytransportSocketMetadata(ep.EnvoyEndpoint, model.TLSModeLabelShortname); tlsMode != model.DisabledTLSModeLabel {
+					if _, ok := mtlsModes[k]; !ok {
+						mtlsModes[k] = factory.NewPolicyApplier(b.push, b.service.Attributes.Namespace, labels.Collection{ep.Labels}).GetMutualTLSModeForPort(ep.EndpointPort)
+					}
+					if mtlsModes[k] == model.MTLSDisable {
+						// TODO is modifying the EnvoyEndpoint in shards
+						setEnvoytransportSocketMetadata(ep.EnvoyEndpoint, model.TLSModeLabelShortname, model.DisabledTLSModeLabel)
+					}
+				}
+			}
+
 		}
 	}
 	shards.mutex.Unlock()
