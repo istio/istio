@@ -17,6 +17,9 @@ package xds
 import (
 	"net"
 
+	pstruct "github.com/golang/protobuf/ptypes/struct"
+
+	envoy "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	endpoint "github.com/envoyproxy/go-control-plane/envoy/config/endpoint/v3"
 	"github.com/golang/protobuf/proto"
 	"github.com/golang/protobuf/ptypes/wrappers"
@@ -182,13 +185,19 @@ func envoytransportSocketMetadata(ep *endpoint.LbEndpoint, key string) string {
 	return ""
 }
 
-func setEnvoytransportSocketMetadata(ep *endpoint.LbEndpoint, key, value string) string {
+func setEnvoytransportSocketMetadata(ep *endpoint.LbEndpoint, key, value string) {
 	// TODO set middle fields if they're nil
-	if ep.Metadata != nil &&
-		ep.Metadata.FilterMetadata[util.EnvoyTransportSocketMetadataKey] != nil &&
-		ep.Metadata.FilterMetadata[util.EnvoyTransportSocketMetadataKey].Fields != nil &&
-		ep.Metadata.FilterMetadata[util.EnvoyTransportSocketMetadataKey].Fields[key] != nil {
-		ep.Metadata.FilterMetadata[util.EnvoyTransportSocketMetadataKey].Fields[key] = structpb.NewStringValue(value)
+	if ep.Metadata == nil {
+		ep.Metadata = &envoy.Metadata{}
 	}
-	return ""
+	if ep.Metadata.FilterMetadata == nil {
+		ep.Metadata.FilterMetadata = map[string]*pstruct.Struct{}
+	}
+	if ep.Metadata.FilterMetadata[util.EnvoyTransportSocketMetadataKey] == nil {
+		ep.Metadata.FilterMetadata[util.EnvoyTransportSocketMetadataKey] = &pstruct.Struct{}
+	}
+	if ep.Metadata.FilterMetadata[util.EnvoyTransportSocketMetadataKey].Fields == nil {
+		ep.Metadata.FilterMetadata[util.EnvoyTransportSocketMetadataKey].Fields = map[string]*structpb.Value{}
+	}
+	ep.Metadata.FilterMetadata[util.EnvoyTransportSocketMetadataKey].Fields[key] = structpb.NewStringValue(value)
 }

@@ -298,17 +298,14 @@ func (b *EndpointBuilder) buildLocalityLbEndpointsFromShards(
 			locLbEps.append(ep.EnvoyEndpoint, ep.TunnelAbility)
 
 			// compute the actual mTLS mode once policy applied, used during multinetwork filtering
-			if b.MultiNetworkConfigured() {
-				k := ep.Labels.String()
-				// if the ep already had Disabled, leave it, otherwise resolve the policy
-				if tlsMode := envoytransportSocketMetadata(ep.EnvoyEndpoint, model.TLSModeLabelShortname); tlsMode != model.DisabledTLSModeLabel {
-					if _, ok := mtlsModes[k]; !ok {
-						mtlsModes[k] = factory.NewPolicyApplier(b.push, b.service.Attributes.Namespace, labels.Collection{ep.Labels}).GetMutualTLSModeForPort(ep.EndpointPort)
-					}
-					if mtlsModes[k] == model.MTLSDisable {
-						// TODO is modifying the EnvoyEndpoint in shards
-						setEnvoytransportSocketMetadata(ep.EnvoyEndpoint, model.TLSModeLabelShortname, model.DisabledTLSModeLabel)
-					}
+			k := ep.Labels.String()
+			// if the ep already had Disabled, leave it, otherwise resolve the policy
+			if tlsMode := envoytransportSocketMetadata(ep.EnvoyEndpoint, model.TLSModeLabelShortname); tlsMode != model.DisabledTLSModeLabel {
+				if _, ok := mtlsModes[k]; !ok {
+					mtlsModes[k] = factory.NewPolicyApplier(b.push, b.service.Attributes.Namespace, labels.Collection{ep.Labels}).GetMutualTLSModeForPort(ep.EndpointPort)
+				}
+				if mtlsModes[k] == model.MTLSDisable {
+					setEnvoytransportSocketMetadata(ep.EnvoyEndpoint, model.TLSModeLabelShortname, model.DisabledTLSModeLabel)
 				}
 			}
 
