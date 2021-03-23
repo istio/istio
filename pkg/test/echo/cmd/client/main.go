@@ -44,6 +44,7 @@ var (
 	http2           bool
 	http3           bool
 	alpn            []string
+	serverName      string
 	serverFirst     bool
 	followRedirects bool
 	clientCert      string
@@ -117,7 +118,7 @@ func init() {
 		"Specify the Unix Domain Socket to connect to")
 	rootCmd.PersistentFlags().StringSliceVarP(&headers, "header", "H", headers,
 		"A list of http headers (use Host for authority) - 'name: value', following curl syntax")
-	rootCmd.PersistentFlags().StringVar(&caFile, "ca", "/cert.crt", "CA root cert file")
+	rootCmd.PersistentFlags().StringVar(&caFile, "ca", "", "CA root cert file")
 	rootCmd.PersistentFlags().StringVar(&msg, "msg", "HelloWorld",
 		"message to send (for websockets)")
 	rootCmd.PersistentFlags().StringVar(&method, "method", "", "method to use (for HTTP)")
@@ -132,6 +133,7 @@ func init() {
 	rootCmd.PersistentFlags().StringVar(&clientCert, "client-cert", "", "client certificate file to use for request")
 	rootCmd.PersistentFlags().StringVar(&clientKey, "client-key", "", "client certificate key file to use for request")
 	rootCmd.PersistentFlags().StringSliceVarP(&alpn, "alpn", "", nil, "alpn to set")
+	rootCmd.PersistentFlags().StringVarP(&serverName, "server-name", "", serverName, "server name to set")
 
 	loggingOptions.AttachCobraFlags(rootCmd)
 
@@ -162,6 +164,7 @@ func getRequest(url string) (*proto.ForwardEchoRequest, error) {
 		ServerFirst:     serverFirst,
 		FollowRedirects: followRedirects,
 		Method:          method,
+		ServerName:      serverName,
 	}
 
 	if alpn != nil {
@@ -187,7 +190,7 @@ func getRequest(url string) (*proto.ForwardEchoRequest, error) {
 		request.KeyFile = clientKey
 	}
 	if caFile != "" {
-		request.CaCert = caFile
+		request.CaCertFile = caFile
 	}
 	return request, nil
 }
