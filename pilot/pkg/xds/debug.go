@@ -206,16 +206,6 @@ func (s *DiscoveryServer) addDebugHandler(mux *http.ServeMux, path string, help 
 // Syncz dumps the synchronization status of all Envoys connected to this Pilot instance
 func (s *DiscoveryServer) Syncz(w http.ResponseWriter, _ *http.Request) {
 	syncz := make([]SyncStatus, 0)
-	// TODO(su225): Should I just remove this and return info for all typeURLs?
-	supportedTypes := []string{
-		v3.ClusterType,
-		v3.ListenerType,
-		v3.RouteType,
-		v3.EndpointType,
-		v3.NameTableType,
-		v3.ExtensionConfigurationType,
-		v3.ProxyConfigType,
-	}
 	for _, con := range s.Clients() {
 		node := con.proxy
 		if node != nil {
@@ -224,7 +214,8 @@ func (s *DiscoveryServer) Syncz(w http.ResponseWriter, _ *http.Request) {
 				IstioVersion: node.Metadata.IstioVersion,
 				Statuses:     make(map[string]PerXDSSyncStatus),
 			}
-			for _, ty := range supportedTypes {
+			for _, wr := range node.WatchedResources {
+				ty := wr.TypeUrl
 				shortType := v3.GetShortType(ty)
 				status := PerXDSSyncStatus{
 					NonceSent:    con.NonceSent(ty),
