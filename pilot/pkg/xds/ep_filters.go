@@ -17,10 +17,6 @@ package xds
 import (
 	"net"
 
-	"istio.io/istio/pilot/pkg/security/authn"
-
-	"istio.io/istio/pilot/pkg/security/authn/factory"
-
 	endpoint "github.com/envoyproxy/go-control-plane/envoy/config/endpoint/v3"
 	"github.com/golang/protobuf/proto"
 	"github.com/golang/protobuf/ptypes/wrappers"
@@ -29,6 +25,8 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking"
 	"istio.io/istio/pilot/pkg/networking/util"
+	"istio.io/istio/pilot/pkg/security/authn"
+	"istio.io/istio/pilot/pkg/security/authn/factory"
 	"istio.io/istio/pkg/config/labels"
 )
 
