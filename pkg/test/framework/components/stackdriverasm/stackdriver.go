@@ -32,6 +32,7 @@ import (
 	"google.golang.org/api/googleapi"
 	logging "google.golang.org/api/logging/v2"
 	monitoring "google.golang.org/api/monitoring/v3"
+	"google.golang.org/api/option"
 
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/util/retry"
@@ -123,16 +124,16 @@ func (param ResourceFilterParam) String() string {
 }
 
 // NewOrFail creates a new stackdriver instance.
-func NewOrFail(ctx context.Context, t framework.TestContext) *Instance {
-	monitoringService, err := monitoring.NewService(ctx)
+func NewOrFail(ctx context.Context, t framework.TestContext, opts ...option.ClientOption) *Instance {
+	monitoringService, err := monitoring.NewService(ctx, opts...)
 	if err != nil {
 		t.Fatalf("failed to get monitoring service: %v", err)
 	}
-	loggingService, err := logging.NewService(ctx)
+	loggingService, err := logging.NewService(ctx, opts...)
 	if err != nil {
 		t.Fatalf("failed to get logging service: %v", err)
 	}
-	traceService, err := cloudtrace.NewService(ctx)
+	traceService, err := cloudtrace.NewService(ctx, opts...)
 	if err != nil {
 		t.Fatalf("failed to get tracing service: %v", err)
 	}
@@ -232,6 +233,8 @@ func (d *Instance) CheckForLogEntry(ctx context.Context, t framework.TestContext
 			if diff := cmp.Diff(want, got); diff != "" {
 				msg := fmt.Sprintf("Retry due to unexpected logging labels, (-want +got):\n%s", diff)
 				t.Log(msg)
+				t.Log("want Log Entry: \n", want)
+				t.Log("got Log Entry: \n", got)
 			}
 
 			found = true
