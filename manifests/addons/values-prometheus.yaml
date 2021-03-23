@@ -22,3 +22,7 @@ server:
 
   # Match legacy addon deployment
   fullnameOverride: prometheus
+
+  # use dockerhub
+  image:
+    repository: prom/prometheus
