@@ -23,7 +23,6 @@ import (
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/echo/client"
 	"istio.io/istio/pkg/test/echo/common/response"
-	"istio.io/istio/pkg/test/echo/common/scheme"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/echo/echotest"
@@ -40,9 +39,8 @@ func TestPassThroughFilterChain(t *testing.T) {
 		Run(func(ctx framework.TestContext) {
 			ns := apps.Namespace1
 			type expect struct {
-				port   *echo.Port
-				schema scheme.Instance
-				want   bool
+				port *echo.Port
+				want bool
 			}
 			cases := []struct {
 				name     string
@@ -63,24 +61,20 @@ spec:
     mode: DISABLE`,
 					expected: []expect{
 						{
-							port:   &echo.Port{ServicePort: 8085, Protocol: protocol.HTTP},
-							schema: scheme.HTTP,
-							want:   true,
+							port: &echo.Port{ServicePort: 8085, Protocol: protocol.HTTP},
+							want: true,
 						},
 						{
-							port:   &echo.Port{ServicePort: 8086, Protocol: protocol.HTTP},
-							schema: scheme.HTTP,
-							want:   true,
+							port: &echo.Port{ServicePort: 8086, Protocol: protocol.HTTP},
+							want: true,
 						},
 						{
-							port:   &echo.Port{ServicePort: 8087, Protocol: protocol.TCP},
-							schema: scheme.TCP,
-							want:   true,
+							port: &echo.Port{ServicePort: 8087, Protocol: protocol.TCP},
+							want: true,
 						},
 						{
-							port:   &echo.Port{ServicePort: 8088, Protocol: protocol.TCP},
-							schema: scheme.TCP,
-							want:   true,
+							port: &echo.Port{ServicePort: 8088, Protocol: protocol.TCP},
+							want: true,
 						},
 					},
 				},
@@ -107,24 +101,20 @@ spec:
         ports: ["8085", "8087"]`,
 					expected: []expect{
 						{
-							port:   &echo.Port{ServicePort: 8085, Protocol: protocol.HTTP},
-							schema: scheme.HTTP,
-							want:   true,
+							port: &echo.Port{ServicePort: 8085, Protocol: protocol.HTTP},
+							want: true,
 						},
 						{
-							port:   &echo.Port{ServicePort: 8086, Protocol: protocol.HTTP},
-							schema: scheme.HTTP,
-							want:   false,
+							port: &echo.Port{ServicePort: 8086, Protocol: protocol.HTTP},
+							want: false,
 						},
 						{
-							port:   &echo.Port{ServicePort: 8087, Protocol: protocol.TCP},
-							schema: scheme.TCP,
-							want:   true,
+							port: &echo.Port{ServicePort: 8087, Protocol: protocol.TCP},
+							want: true,
 						},
 						{
-							port:   &echo.Port{ServicePort: 8088, Protocol: protocol.TCP},
-							schema: scheme.TCP,
-							want:   false,
+							port: &echo.Port{ServicePort: 8088, Protocol: protocol.TCP},
+							want: false,
 						},
 					},
 				},
@@ -141,24 +131,20 @@ spec:
     mode: STRICT`,
 					expected: []expect{
 						{
-							port:   &echo.Port{ServicePort: 8085, Protocol: protocol.HTTP},
-							schema: scheme.HTTP,
-							want:   false,
+							port: &echo.Port{ServicePort: 8085, Protocol: protocol.HTTP},
+							want: false,
 						},
 						{
-							port:   &echo.Port{ServicePort: 8086, Protocol: protocol.HTTP},
-							schema: scheme.HTTP,
-							want:   false,
+							port: &echo.Port{ServicePort: 8086, Protocol: protocol.HTTP},
+							want: false,
 						},
 						{
-							port:   &echo.Port{ServicePort: 8087, Protocol: protocol.TCP},
-							schema: scheme.TCP,
-							want:   false,
+							port: &echo.Port{ServicePort: 8087, Protocol: protocol.TCP},
+							want: false,
 						},
 						{
-							port:   &echo.Port{ServicePort: 8088, Protocol: protocol.TCP},
-							schema: scheme.TCP,
-							want:   false,
+							port: &echo.Port{ServicePort: 8088, Protocol: protocol.TCP},
+							want: false,
 						},
 					},
 				},
@@ -175,24 +161,20 @@ spec:
     mode: PERMISSIVE`,
 					expected: []expect{
 						{
-							port:   &echo.Port{ServicePort: 8085, Protocol: protocol.HTTP},
-							schema: scheme.HTTP,
-							want:   true,
+							port: &echo.Port{ServicePort: 8085, Protocol: protocol.HTTP},
+							want: true,
 						},
 						{
-							port:   &echo.Port{ServicePort: 8086, Protocol: protocol.HTTP},
-							schema: scheme.HTTP,
-							want:   true,
+							port: &echo.Port{ServicePort: 8086, Protocol: protocol.HTTP},
+							want: true,
 						},
 						{
-							port:   &echo.Port{ServicePort: 8087, Protocol: protocol.TCP},
-							schema: scheme.TCP,
-							want:   true,
+							port: &echo.Port{ServicePort: 8087, Protocol: protocol.TCP},
+							want: true,
 						},
 						{
-							port:   &echo.Port{ServicePort: 8088, Protocol: protocol.TCP},
-							schema: scheme.TCP,
-							want:   true,
+							port: &echo.Port{ServicePort: 8088, Protocol: protocol.TCP},
+							want: true,
 						},
 					},
 				},
@@ -218,24 +200,20 @@ spec:
       mode: STRICT`,
 					expected: []expect{
 						{
-							port:   &echo.Port{ServicePort: 8085, Protocol: protocol.HTTP},
-							schema: scheme.HTTP,
-							want:   true,
+							port: &echo.Port{ServicePort: 8085, Protocol: protocol.HTTP},
+							want: true,
 						},
 						{
-							port:   &echo.Port{ServicePort: 8086, Protocol: protocol.HTTP},
-							schema: scheme.HTTP,
-							want:   false,
+							port: &echo.Port{ServicePort: 8086, Protocol: protocol.HTTP},
+							want: false,
 						},
 						{
-							port:   &echo.Port{ServicePort: 8087, Protocol: protocol.TCP},
-							schema: scheme.TCP,
-							want:   true,
+							port: &echo.Port{ServicePort: 8087, Protocol: protocol.TCP},
+							want: true,
 						},
 						{
-							port:   &echo.Port{ServicePort: 8088, Protocol: protocol.TCP},
-							schema: scheme.TCP,
-							want:   false,
+							port: &echo.Port{ServicePort: 8088, Protocol: protocol.TCP},
+							want: false,
 						},
 					},
 				},
@@ -260,24 +238,20 @@ spec:
       mode: DISABLE`,
 					expected: []expect{
 						{
-							port:   &echo.Port{ServicePort: 8085, Protocol: protocol.HTTP},
-							schema: scheme.HTTP,
-							want:   false,
+							port: &echo.Port{ServicePort: 8085, Protocol: protocol.HTTP},
+							want: false,
 						},
 						{
-							port:   &echo.Port{ServicePort: 8086, Protocol: protocol.HTTP},
-							schema: scheme.HTTP,
-							want:   true,
+							port: &echo.Port{ServicePort: 8086, Protocol: protocol.HTTP},
+							want: true,
 						},
 						{
-							port:   &echo.Port{ServicePort: 8087, Protocol: protocol.TCP},
-							schema: scheme.TCP,
-							want:   false,
+							port: &echo.Port{ServicePort: 8087, Protocol: protocol.TCP},
+							want: false,
 						},
 						{
-							port:   &echo.Port{ServicePort: 8088, Protocol: protocol.TCP},
-							schema: scheme.TCP,
-							want:   true,
+							port: &echo.Port{ServicePort: 8088, Protocol: protocol.TCP},
+							want: true,
 						},
 					},
 				},
@@ -292,7 +266,7 @@ spec:
 			findPodAndVM := func(instances echo.Instances) echo.Instances {
 				a := apps.A.Match(echo.Namespace(ns.Name()))
 				vm := apps.VM.Match(echo.Namespace(ns.Name()))
-				return append(a, vm[0])
+				return append(a, vm...)
 			}
 			dstFilter := []echotest.SimpleFilter{findPodAndVM}
 			for _, tc := range cases {
@@ -320,8 +294,9 @@ spec:
 									"Host": {host},
 								},
 								Message: "HelloWorld",
-								Target:  dest[0],
-								Scheme:  expect.schema,
+								// Do not set Target to dest, otherwise fillInCallOptions() will
+								// complain with port does not match.
+								Address: dest[0].Address(),
 								Validator: echo.And(echo.ValidatorFunc(
 									func(responses client.ParsedResponses, err error) error {
 										if expect.want {
@@ -331,7 +306,7 @@ spec:
 											if responses.Len() < 1 {
 												return fmt.Errorf("received no responses from request to %s", host)
 											}
-											if okErr := responses.CheckOK(); okErr != nil && expect.schema == scheme.HTTP {
+											if okErr := responses.CheckOK(); okErr != nil && expect.port.Protocol == protocol.HTTP {
 												return fmt.Errorf("want status %s but got %s", response.StatusCodeOK, okErr.Error())
 											}
 										} else {
