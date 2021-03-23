@@ -471,11 +471,9 @@ func GetNodeMetaData(id string, envs []string, plat platform.Environment, nodeIP
 	}
 
 	var l *core.Locality
-	if meta.Labels[model.LocalityLabel] == "" {
+	if meta.Labels[model.LocalityLabel] == "" && plat != nil {
 		// The locality string was not set, try to get locality from platform
-		if plat != nil {
-			l = plat.Locality()
-		}
+		l = plat.Locality()
 	} else {
 		localityString := model.GetLocalityLabelOrDefault(meta.Labels[model.LocalityLabel], "")
 		l = util.ConvertLocality(localityString)
