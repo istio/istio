@@ -449,7 +449,8 @@ func MergeAnyWithStruct(a *any.Any, pbStruct *pstruct.Struct) (*any.Any, error) 
 	var x ptypes.DynamicAny
 
 	// First get an object of type used by this message
-	if err = a.UnmarshalTo(&x); err != nil {
+	// nolint: staticcheck
+	if err = ptypes.UnmarshalAny(a, &x); err != nil {
 		return nil, err
 	}
 
@@ -481,12 +482,14 @@ func MergeAnyWithAny(dst *any.Any, src *any.Any) (*any.Any, error) {
 	var dstX, srcX ptypes.DynamicAny
 
 	// get an object of type used by this message
-	if err = dst.UnmarshalTo(&dstX); err != nil {
+	// nolint: staticcheck
+	if err = ptypes.UnmarshalAny(dst, &dstX); err != nil {
 		return nil, err
 	}
 
 	// get an object of type used by this message
-	if err = src.UnmarshalTo(&srcX); err != nil {
+	// nolint: staticcheck
+	if err = ptypes.UnmarshalAny(src, &srcX); err != nil {
 		return nil, err
 	}
 
