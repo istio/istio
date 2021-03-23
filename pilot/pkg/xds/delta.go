@@ -34,7 +34,6 @@ import (
 	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pilot/pkg/util/sets"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
-	"istio.io/pkg/log"
 )
 
 func (s *DiscoveryServer) StreamDeltas(stream DeltaDiscoveryStream) error {
@@ -575,11 +574,6 @@ func ConvertDeltaToResponse(response []*discovery.Resource) model.Resources {
 		convert = append(convert, r.Resource)
 	}
 	return convert
-}
-
-// Temporary, for debugging aid
-func init() {
-	adsLog.SetOutputLevel(log.DebugLevel)
 }
 
 func extractNames(res []*discovery.Resource) []string {
