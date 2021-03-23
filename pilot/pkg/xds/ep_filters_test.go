@@ -18,15 +18,11 @@ import (
 	"sort"
 	"testing"
 
-	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
-	endpoint "github.com/envoyproxy/go-control-plane/envoy/config/endpoint/v3"
-	structpb "github.com/golang/protobuf/ptypes/struct"
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	security "istio.io/api/security/v1beta1"
 	"istio.io/api/type/v1beta1"
 	"istio.io/istio/pilot/pkg/config/memory"
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pilot/pkg/networking/util"
 	memregistry "istio.io/istio/pilot/pkg/serviceregistry/memory"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/mesh"
@@ -512,49 +508,4 @@ func testShards() *EndpointShards {
 		shards.Shards["cluster-0"][i] = ep
 	}
 	return shards
-}
-
-func createLbEndpoints(lbEpsInfo []*LbEpInfo) []*endpoint.LbEndpoint {
-	lbEndpoints := make([]*endpoint.LbEndpoint, len(lbEpsInfo))
-	for j, lbEpInfo := range lbEpsInfo {
-		lbEp := endpoint.LbEndpoint{
-			HostIdentifier: &endpoint.LbEndpoint_Endpoint{
-				Endpoint: &endpoint.Endpoint{
-					Address: &core.Address{
-						Address: &core.Address_SocketAddress{
-							SocketAddress: &core.SocketAddress{
-								Address: lbEpInfo.address,
-							},
-						},
-					},
-				},
-			},
-			Metadata: &core.Metadata{
-				FilterMetadata: map[string]*structpb.Struct{
-					"istio": {
-						Fields: map[string]*structpb.Value{
-							"network": {
-								Kind: &structpb.Value_StringValue{
-									StringValue: lbEpInfo.network,
-								},
-							},
-							"uid": {
-								Kind: &structpb.Value_StringValue{
-									StringValue: "kubernetes://dummy",
-								},
-							},
-						},
-					},
-					util.EnvoyTransportSocketMetadataKey: {
-						Fields: map[string]*structpb.Value{
-							model.TLSModeLabelShortname: {Kind: &structpb.Value_StringValue{StringValue: "istio"}},
-						},
-					},
-				},
-			},
-		}
-		lbEndpoints[j] = &lbEp
-	}
-
-	return lbEndpoints
 }
