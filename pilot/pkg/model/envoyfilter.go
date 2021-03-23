@@ -69,6 +69,11 @@ func convertToEnvoyFilterWrapper(local *config.Config) *EnvoyFilterWrapper {
 	}
 	out.Patches = make(map[networking.EnvoyFilter_ApplyTo][]*EnvoyFilterConfigPatchWrapper)
 	for _, cp := range localEnvoyFilter.ConfigPatches {
+		if cp.Patch == nil {
+			// Should be caught by validation, but sometimes its disabled and we don't want to crash
+			// as a result.
+			continue
+		}
 		cpw := &EnvoyFilterConfigPatchWrapper{
 			ApplyTo:   cp.ApplyTo,
 			Match:     cp.Match,
