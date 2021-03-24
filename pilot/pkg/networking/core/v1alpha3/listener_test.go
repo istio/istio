@@ -25,12 +25,11 @@ import (
 	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
 	hcm "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
 	tcp "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/tcp_proxy/v3"
-	thrift "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/thrift_proxy/v3"
 	tls "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
 	tracing "github.com/envoyproxy/go-control-plane/envoy/type/tracing/v3"
 	xdstype "github.com/envoyproxy/go-control-plane/envoy/type/v3"
 	"github.com/envoyproxy/go-control-plane/pkg/conversion"
-	wellknown "github.com/envoyproxy/go-control-plane/pkg/wellknown"
+	"github.com/envoyproxy/go-control-plane/pkg/wellknown"
 	"github.com/gogo/protobuf/types"
 	"github.com/golang/protobuf/proto"
 	"github.com/golang/protobuf/ptypes"
@@ -106,19 +105,6 @@ var (
 		Namespace: "not-default",
 		Labels: map[string]string{
 			"istio": "ingressgateway",
-		},
-	}
-	proxyInstances = []*model.ServiceInstance{
-		{
-			Service: &model.Service{
-				Hostname:     "v0.default.example.org",
-				Address:      "9.9.9.9",
-				CreationTime: tnow,
-				Attributes: model.ServiceAttributes{
-					Namespace: "not-default",
-				},
-			},
-			Endpoint: &model.IstioEndpoint{},
 		},
 	}
 	virtualServiceSpec = &networking.VirtualService{
@@ -2761,97 +2747,6 @@ func TestMergeTCPFilterChains(t *testing.T) {
 
 	if !reflect.DeepEqual(out[3].Filters, incomingFilterChains[0].Filters) {
 		t.Errorf("got %v\nwant %v\ndiff %v", out[2].Filters, incomingFilterChains[0].Filters, cmp.Diff(out[2].Filters, incomingFilterChains[0].Filters))
-	}
-}
-
-func TestOutboundRateLimitedThriftListenerConfig(t *testing.T) {
-	t.Skip("https://github.com/istio/istio/issues/25725")
-	svcName := "thrift-service-unlimited"
-	svcIP := "127.0.22.2"
-	limitedSvcName := "thrift-service"
-	limitedSvcIP := "127.0.22.3"
-
-	defaultValue := features.EnableThriftFilter
-	features.EnableThriftFilter = true
-	defer func() { features.EnableThriftFilter = defaultValue }()
-
-	services := []*model.Service{
-		buildService(svcName+".default.svc.cluster.local", svcIP, protocol.Thrift, tnow),
-		buildService(limitedSvcName+".default.svc.cluster.local", limitedSvcIP, protocol.Thrift, tnow),
-	}
-
-	p := &fakePlugin{}
-	sidecarConfig := &config.Config{
-		Meta: config.Meta{
-			Name:      "foo",
-			Namespace: "not-default",
-		},
-		Spec: &networking.Sidecar{
-			Egress: []*networking.IstioEgressListener{
-				{
-					// None
-					CaptureMode: networking.CaptureMode_NONE,
-					Hosts:       []string{"*/*"},
-				},
-			},
-		},
-	}
-
-	configgen := NewConfigGenerator([]plugin.Plugin{p}, &model.DisabledCache{})
-
-	serviceDiscovery := memregistry.NewServiceDiscovery(services)
-
-	configStore := model.MakeIstioStore(memory.MakeSkipValidation(collections.Pilot))
-
-	m := mesh.DefaultMeshConfig()
-	m.ThriftConfig.RateLimitUrl = "ratelimit.svc.cluster.local"
-	env := model.Environment{
-		PushContext:      model.NewPushContext(),
-		ServiceDiscovery: serviceDiscovery,
-		IstioConfigStore: configStore,
-		Watcher:          mesh.NewFixedWatcher(&m),
-	}
-
-	if err := env.PushContext.InitContext(&env, nil, nil); err != nil {
-		t.Error(err.Error())
-	}
-
-	proxy := getProxy()
-	proxy.SidecarScope = model.ConvertToSidecarScope(env.PushContext, sidecarConfig, sidecarConfig.Namespace)
-	proxy.ServiceInstances = proxyInstances
-
-	listeners := configgen.buildSidecarOutboundListeners(proxy, env.PushContext)
-
-	var thriftProxy thrift.ThriftProxy
-	thriftListener := findListenerByAddress(listeners, svcIP)
-	chains := thriftListener.GetFilterChains()
-	filters := chains[len(chains)-1].Filters
-	err := ptypes.UnmarshalAny(filters[len(filters)-1].GetTypedConfig(), &thriftProxy)
-	if err != nil {
-		t.Error(err.Error())
-	}
-	if len(thriftProxy.ThriftFilters) > 0 {
-		t.Fatal("No thrift filters should have been applied")
-	}
-	thriftListener = findListenerByAddress(listeners, limitedSvcIP)
-	chains = thriftListener.GetFilterChains()
-	filters = chains[len(chains)-1].Filters
-	err = ptypes.UnmarshalAny(filters[len(filters)-1].GetTypedConfig(), &thriftProxy)
-	if err != nil {
-		t.Error(err.Error())
-	}
-	if len(thriftProxy.ThriftFilters) == 0 {
-		t.Fatal("Thrift rate limit filter should have been applied")
-	}
-	var rateLimitApplied bool
-	for _, filter := range thriftProxy.ThriftFilters {
-		if filter.Name == "envoy.filters.thrift.rate_limit" {
-			rateLimitApplied = true
-			break
-		}
-	}
-	if !rateLimitApplied {
-		t.Error("No rate limit applied when one should have been")
 	}
 }
 
