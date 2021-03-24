@@ -297,7 +297,7 @@ global:
   # Refer to https://kubernetes.io/docs/concepts/configuration/pod-priority-preemption/#priorityclass
   # for more detail.
   priorityClassName: ""
-
+ 
   proxy:
     image: proxyv2
 
@@ -469,6 +469,9 @@ global:
   # As some platforms may not have kubernetes signing APIs,
   # Istiod is the default
   pilotCertProvider: istiod
+
+  # Disables Istiod CA server functionality
+  disableCAServer: false
 
   sds:
     # The JWT token for SDS and the aud field of such JWT. See RFC 7519, section 4.1.3.

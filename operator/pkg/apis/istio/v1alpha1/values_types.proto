@@ -406,6 +406,7 @@ message GlobalConfig {
   // Controls whether one external istiod is enabled.
   google.protobuf.BoolValue externalIstiod = 62;
 
+  google.protobuf.BoolValue disableCAServer = 63;
   // The next available key is 64
 }
 

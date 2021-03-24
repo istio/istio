@@ -111,6 +111,10 @@ spec:
             value: {{ .Values.global.jwtPolicy }}
           - name: PILOT_CERT_PROVIDER
             value: {{ .Values.global.pilotCertProvider }}
+          {{- if .Values.global.disableCAServer }}
+          - name: ENABLE_CA_SERVER
+            value: false
+          {{- end }}
           - name: POD_NAME
             valueFrom:
               fieldRef:

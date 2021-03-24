@@ -51,6 +51,7 @@ data:
             "cpu": "10m"
           }
         },
+        "disableCAServer": false,
         "externalIstiod": true,
         "hub": "gcr.io/istio-testing",
         "imagePullPolicy": "",

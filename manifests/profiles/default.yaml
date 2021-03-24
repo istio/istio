@@ -49,6 +49,7 @@ spec:
         level: "default:info"
       logAsJson: false
       pilotCertProvider: istiod
+      disableCAServer: false
       jwtPolicy: third-party-jwt
       proxy:
         image: proxyv2
