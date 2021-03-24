@@ -68,8 +68,8 @@ func (s *realStackdriver) ListTimeSeries() ([]*monitoringpb.TimeSeries, error) {
 	startTime := endTime.Add(-5 * time.Minute)
 	// TODO!!: get project id somewhere
 	lr := s.monitoringService.Projects.TimeSeries.List(fmt.Sprintf("projects/istio-prow-build")).
-		IntervalStartTime(startTime.String()).
-		IntervalEndTime(endTime.String()).
+		IntervalStartTime(startTime.Format(time.RFC3339)).
+		IntervalEndTime(endTime.Format(time.RFC3339)).
 		AggregationCrossSeriesReducer("REDUCE_NONE").
 		AggregationAlignmentPeriod("60s").
 		AggregationPerSeriesAligner("ALIGN_RATE").
