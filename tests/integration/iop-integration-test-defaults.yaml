@@ -54,6 +54,7 @@ spec:
 
     pilot:
       env:
+        PILOT_ENABLE_XDS_CACHE: false
         UNSAFE_ENABLE_ADMIN_ENDPOINTS: true
         PILOT_ENABLE_CROSS_CLUSTER_WORKLOAD_ENTRY: true
 
