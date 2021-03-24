@@ -18,7 +18,6 @@ import (
 	cloudtracepb "google.golang.org/genproto/googleapis/devtools/cloudtrace/v1"
 	loggingpb "google.golang.org/genproto/googleapis/logging/v2"
 	monitoringpb "google.golang.org/genproto/googleapis/monitoring/v3"
-
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/framework/components/cluster"
 	edgespb "istio.io/istio/pkg/test/framework/components/stackdriver/edges"
@@ -41,9 +40,14 @@ type Config struct {
 	Cluster cluster.Cluster
 }
 
-// New returns a new instance of stackdriver.
+// New returns a new instance of fake stackdriver.
 func New(ctx resource.Context, c Config) (i Instance, err error) {
 	return newKube(ctx, c)
+}
+
+// NewRealStackdriver returns a new instance of real stackdriver backend.
+func NewRealStackdriver(ctx resource.Context, c Config) (i Instance, err error) {
+	return newRealStackdriver(ctx, c)
 }
 
 // NewOrFail returns a new Stackdriver instance or fails test.
