@@ -296,7 +296,7 @@ spec:
 								Message: "HelloWorld",
 								// Do not set Target to dest, otherwise fillInCallOptions() will
 								// complain with port does not match.
-								Address: dest[0].Address(),
+								Address: getWorkload(dest[0], ctx).Address(),
 								Validator: echo.And(echo.ValidatorFunc(
 									func(responses client.ParsedResponses, err error) error {
 										if expect.want {
