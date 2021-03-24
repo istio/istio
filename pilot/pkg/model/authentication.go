@@ -211,19 +211,6 @@ func (policy *AuthenticationPolicies) GetPeerAuthenticationsForWorkload(namespac
 	return getConfigsForWorkload(policy.peerAuthentications, policy.rootNamespace, namespace, workloadLabels)
 }
 
-// GetPeerAuthenticationsForNamespace returns a list of peer authentication policies matching the namespace or in the root namespace.
-func (policy *AuthenticationPolicies) GetPeerAuthenticationsForNamespace(namespace string) []*config.Config {
-	var configs []*config.Config
-	nsToSearch := []string{policy.rootNamespace, namespace}
-	for _, ns := range nsToSearch {
-		for _, nsConfig := range policy.peerAuthentications[ns] {
-			cfg := nsConfig
-			configs = append(configs, &cfg)
-		}
-	}
-	return configs
-}
-
 // GetRootNamespace return root namespace that is tracked by the policy object.
 func (policy *AuthenticationPolicies) GetRootNamespace() string {
 	return policy.rootNamespace
