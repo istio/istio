@@ -710,8 +710,6 @@ func (configgen *ConfigGeneratorImpl) buildInboundFilterchains(in *plugin.InputP
 		switch opt.fc.ListenerProtocol {
 		case istionetworking.ListenerProtocolHTTP:
 			fcOpt.httpOpts = configgen.buildSidecarInboundHTTPListenerOptsForPortOrUDS(in.Node, in, clusterName)
-		case istionetworking.ListenerProtocolThrift:
-			fcOpt.thriftOpts = configgen.buildSidecarThriftListenerOptsForPortOrUDS(in)
 		case istionetworking.ListenerProtocolTCP:
 			fcOpt.networkFilters = buildInboundNetworkFilters(in.Push, in.ServiceInstance, in.Node, clusterName)
 		case istionetworking.ListenerProtocolAuto:

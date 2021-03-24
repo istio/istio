@@ -39,7 +39,7 @@ var SupportedCiphers = []string{
 	"AES128-GCM-SHA256",
 }
 
-// BuildInboundFilterChain returns the filter chain(s) corresponding to the mTLS mode.
+// BuildInboundTLS returns the TLS context corresponding to the mTLS mode.
 func BuildInboundTLS(mTLSMode model.MutualTLSMode, node *model.Proxy,
 	protocol networking.ListenerProtocol, trustDomainAliases []string) *tls.DownstreamTlsContext {
 	if mTLSMode == model.MTLSDisable || mTLSMode == model.MTLSUnknown {
