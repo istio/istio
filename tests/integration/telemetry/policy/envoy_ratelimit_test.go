@@ -47,6 +47,7 @@ var (
 	clt         echo.Instance
 )
 
+/*
 func TestRateLimiting(t *testing.T) {
 	framework.
 		NewTest(t).
@@ -79,6 +80,7 @@ func TestLocalRouteSpecificRateLimiting(t *testing.T) {
 			sendTrafficAndCheckIfRatelimited(t)
 		})
 }
+*/
 
 func TestLocalRateLimitingServiceAccount(t *testing.T) {
 	framework.
