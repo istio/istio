@@ -262,13 +262,6 @@ spec:
 				return apps.Naked.Match(echo.Service(util.NakedSvc))
 			}
 			srcFilter := []echotest.SimpleFilter{findNaked}
-			// dstFilter finds the app a and vm as destination.
-			findPodAndVM := func(instances echo.Instances) echo.Instances {
-				a := apps.A.Match(echo.Namespace(ns.Name()))
-				vm := apps.VM.Match(echo.Namespace(ns.Name()))
-				return append(a, vm...)
-			}
-			dstFilter := []echotest.SimpleFilter{findPodAndVM}
 			for _, tc := range cases {
 				echotest.New(ctx, apps.All).
 					SetupForPair(func(ctx framework.TestContext, src, dst echo.Instances) error {
@@ -282,7 +275,13 @@ spec:
 					}).
 					From(srcFilter...).
 					ConditionallyTo(echotest.ReachableDestinations).
-					To(dstFilter...).
+					To(
+						echotest.SingleSimplePodServiceAndAllSpecial(),
+						echotest.Not(func(instances echo.Instances) echo.Instances { return instances.Match(echo.IsHeadless()) }),
+						echotest.Not(func(instances echo.Instances) echo.Instances { return instances.Match(echo.IsNaked()) }),
+						echotest.Not(func(instances echo.Instances) echo.Instances { return instances.Match(echo.IsExternal()) }),
+						echotest.Not(func(instances echo.Instances) echo.Instances { return instances.Match(util.IsMultiversion()) }),
+					).
 					Run(func(ctx framework.TestContext, src echo.Instance, dest echo.Instances) {
 						clusterName := src.Config().Cluster.StableName()
 						for _, expect := range tc.expected {
