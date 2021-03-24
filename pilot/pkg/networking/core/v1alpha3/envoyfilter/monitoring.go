@@ -17,33 +17,29 @@ import (
 	"istio.io/pkg/monitoring"
 )
 
+type ErrorType string
+
+const (
+	Error   ErrorType = "error"
+	Skipped           = "skipped"
+)
+
 var (
-	typeTag = monitoring.MustCreateLabel("type")
+	filterType = monitoring.MustCreateLabel("type")
+	errorType  = monitoring.MustCreateLabel("error")
 
-	totalEnvoyFiltersSkipped = monitoring.NewSum(
-		"pilot_total_envoy_filters_skipped",
-		"Total number of Envoy filters skipped for each proxy.",
-		monitoring.WithLabels(typeTag),
-	)
-
-	totalEnvoyFilterErrors = monitoring.NewSum(
-		"pilot_total_envoy_filter_errors",
-		"Total number of Envoy filters errored out.",
-		monitoring.WithLabels(typeTag),
+	totalEnvoyFilterFailures = monitoring.NewSum(
+		"pilot_total_envoy_filter",
+		"Total number of Envoy filters that were not applied to the configuration.",
+		monitoring.WithLabels(filterType, errorType),
 	)
 )
 
 func init() {
-	monitoring.MustRegister(totalEnvoyFiltersSkipped)
-	monitoring.MustRegister(totalEnvoyFilterErrors)
+	monitoring.MustRegister(totalEnvoyFilterFailures)
 }
 
-// IncrementSkippedMetric increments skipped filter metric.
-func IncrementSkippedMetric(t string) {
-	totalEnvoyFiltersSkipped.With(typeTag.Value(t)).Increment()
-}
-
-// IncrementErrorMetric increments error filter metric.
-func IncrementErrorMetric(t string) {
-	totalEnvoyFilterErrors.With(typeTag.Value(t)).Increment()
+// IncrementEnvoyFilterMetric increments skipped and errored filter metric.
+func IncrementEnvoyFilterMetric(ft string, et ErrorType) {
+	totalEnvoyFilterFailures.With(filterType.Value(ft)).With(errorType.Value(string(et))).Increment()
 }

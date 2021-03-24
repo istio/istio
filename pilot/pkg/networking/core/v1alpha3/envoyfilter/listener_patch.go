@@ -49,7 +49,7 @@ func ApplyListenerPatches(
 	listeners []*xdslistener.Listener,
 	skipAdds bool) (out []*xdslistener.Listener) {
 	defer runtime.HandleCrash(runtime.LogPanic, func(interface{}) {
-		IncrementErrorMetric("listener")
+		IncrementEnvoyFilterMetric("listener", Error)
 		log.Errorf("listeners patch caused panic, so the patches did not take effect")
 	})
 	// In case the patches cause panic, use the listeners generated before to reduce the influence.
@@ -97,7 +97,7 @@ func patchListeners(
 		}
 	}
 	if !applied {
-		IncrementSkippedMetric("listener")
+		IncrementEnvoyFilterMetric("listener", Skipped)
 	}
 
 	if listenersRemoved {
@@ -132,7 +132,7 @@ func patchListener(patchContext networking.EnvoyFilter_PatchContext,
 		}
 	}
 	if !applied {
-		IncrementSkippedMetric("listener")
+		IncrementEnvoyFilterMetric("listener", Skipped)
 	}
 	patchFilterChains(patchContext, patches, listener)
 }
@@ -166,7 +166,7 @@ func patchFilterChains(patchContext networking.EnvoyFilter_PatchContext,
 		}
 	}
 	if !applied {
-		IncrementSkippedMetric("filterchain")
+		IncrementEnvoyFilterMetric("filterchain", Skipped)
 	}
 	if filterChainsRemoved {
 		tempArray := make([]*xdslistener.FilterChain, 0, len(listener.FilterChains))
@@ -208,7 +208,7 @@ func patchFilterChain(patchContext networking.EnvoyFilter_PatchContext,
 		}
 	}
 	if !applied {
-		IncrementSkippedMetric("filterchain")
+		IncrementEnvoyFilterMetric("filterchain", Skipped)
 	}
 	patchNetworkFilters(patchContext, patches, listener, fc)
 }
@@ -343,7 +343,7 @@ func patchNetworkFilters(patchContext networking.EnvoyFilter_PatchContext,
 		}
 	}
 	if !applied {
-		IncrementSkippedMetric("networkfilters")
+		IncrementEnvoyFilterMetric("networkfilters", Skipped)
 	}
 	if networkFiltersRemoved {
 		tempArray := make([]*xdslistener.Filter, 0, len(fc.Filters))
@@ -414,7 +414,7 @@ func patchNetworkFilter(patchContext networking.EnvoyFilter_PatchContext,
 		}
 	}
 	if !applied {
-		IncrementSkippedMetric("networkfilters")
+		IncrementEnvoyFilterMetric("networkfilters", Skipped)
 	}
 	if filter.Name == wellknown.HTTPConnectionManager {
 		patchHTTPFilters(patchContext, patches, listener, fc, filter)
@@ -532,7 +532,7 @@ func patchHTTPFilters(patchContext networking.EnvoyFilter_PatchContext,
 		hcm.HttpFilters = tempArray
 	}
 	if !applied {
-		IncrementSkippedMetric("httpfilters")
+		IncrementEnvoyFilterMetric("httpfilters", Skipped)
 	}
 	if filter.GetTypedConfig() != nil {
 		// convert to any type
@@ -599,7 +599,7 @@ func patchHTTPFilter(patchContext networking.EnvoyFilter_PatchContext,
 		}
 	}
 	if !applied {
-		IncrementSkippedMetric("httpfilters")
+		IncrementEnvoyFilterMetric("httpfilters", Skipped)
 	}
 }
 

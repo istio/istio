@@ -33,7 +33,7 @@ func ApplyRouteConfigurationPatches(
 	push *model.PushContext,
 	routeConfiguration *route.RouteConfiguration) (out *route.RouteConfiguration) {
 	defer runtime.HandleCrash(runtime.LogPanic, func(interface{}) {
-		IncrementErrorMetric("route")
+		IncrementEnvoyFilterMetric("route", Error)
 		log.Errorf("route patch caused panic, so the patches did not take effect")
 	})
 	// In case the patches cause panic, use the route generated before to reduce the influence.
@@ -59,7 +59,7 @@ func ApplyRouteConfigurationPatches(
 	}
 
 	if !applied {
-		IncrementSkippedMetric("routes")
+		IncrementEnvoyFilterMetric("routes", Skipped)
 	}
 	patchVirtualHosts(patchContext, efw.Patches, routeConfiguration)
 
@@ -88,7 +88,7 @@ func patchVirtualHosts(patchContext networking.EnvoyFilter_PatchContext,
 		}
 	}
 	if !applied {
-		IncrementSkippedMetric("vhosts")
+		IncrementEnvoyFilterMetric("vhosts", Skipped)
 	}
 	if virtualHostsRemoved {
 		trimmedVirtualHosts := make([]*route.VirtualHost, 0, len(routeConfiguration.VirtualHosts))
@@ -122,7 +122,7 @@ func patchVirtualHost(patchContext networking.EnvoyFilter_PatchContext,
 		}
 	}
 	if !applied {
-		IncrementSkippedMetric("vhosts")
+		IncrementEnvoyFilterMetric("vhosts", Skipped)
 	}
 	patchHTTPRoutes(patchContext, patches, routeConfiguration, virtualHost)
 }
@@ -220,7 +220,7 @@ func patchHTTPRoutes(patchContext networking.EnvoyFilter_PatchContext,
 		}
 	}
 	if !applied {
-		IncrementSkippedMetric("routes")
+		IncrementEnvoyFilterMetric("routes", Skipped)
 	}
 	if routesRemoved {
 		trimmedRoutes := make([]*route.Route, 0, len(virtualHost.Routes))
@@ -256,7 +256,7 @@ func patchHTTPRoute(patchContext networking.EnvoyFilter_PatchContext, patches ma
 		}
 	}
 	if !applied {
-		IncrementSkippedMetric("routes")
+		IncrementEnvoyFilterMetric("routes", Skipped)
 	}
 }
 
