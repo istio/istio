@@ -58,6 +58,7 @@ spec:
         value:
           route:
             rate_limits:
+            - actions:
               - extension:
                   name: custom
                   typed_config:
