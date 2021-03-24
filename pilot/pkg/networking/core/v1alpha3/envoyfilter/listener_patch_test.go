@@ -1324,7 +1324,6 @@ func TestApplyListenerPatches(t *testing.T) {
 									MergeSlashes:                 true,
 									AlwaysSetRequestIdInResponse: true,
 									HttpFilters: []*http_conn.HttpFilter{
-										{Name: "http-filter0"},
 										{
 											Name:       wellknown.Fault,
 											ConfigType: &http_conn.HttpFilter_TypedConfig{TypedConfig: faultFilterOutAny},

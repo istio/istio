@@ -572,6 +572,12 @@ func (cb *ClusterBuilder) setH2Options(mc *MutableCluster) {
 
 func (cb *ClusterBuilder) applyTrafficPolicy(opts buildClusterOpts) {
 	connectionPool, outlierDetection, loadBalancer, tls := selectTrafficPolicyComponents(opts.policy)
+	if opts.direction == model.TrafficDirectionOutbound && connectionPool != nil && connectionPool.Http != nil && connectionPool.Http.UseClientProtocol {
+		// Use downstream protocol. If the incoming traffic use HTTP 1.1, the
+		// upstream cluster will use HTTP 1.1, if incoming traffic use HTTP2,
+		// the upstream cluster will use HTTP2.
+		cb.setUseDownstreamProtocol(opts.mutable)
+	}
 	// Connection pool settings are applicable for both inbound and outbound clusters.
 	cb.applyConnectionPool(opts.mesh, opts.mutable, connectionPool)
 	if opts.direction != model.TrafficDirectionInbound {
@@ -648,13 +654,6 @@ func (cb *ClusterBuilder) applyConnectionPool(mesh *meshconfig.MeshConfig, mc *M
 		commonOptions.CommonHttpProtocolOptions = &core.HttpProtocolOptions{
 			IdleTimeout: idleTimeoutDuration,
 		}
-	}
-
-	if settings != nil && settings.Http != nil && settings.Http.UseClientProtocol {
-		// Use downstream protocol. If the incoming traffic use HTTP 1.1, the
-		// upstream cluster will use HTTP 1.1, if incoming traffic use HTTP2,
-		// the upstream cluster will use HTTP2.
-		cb.setUseDownstreamProtocol(mc)
 	}
 }
 

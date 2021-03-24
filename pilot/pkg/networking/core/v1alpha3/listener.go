@@ -25,8 +25,11 @@ import (
 	accesslog "github.com/envoyproxy/go-control-plane/envoy/config/accesslog/v3"
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
+	ratelimit "github.com/envoyproxy/go-control-plane/envoy/config/ratelimit/v3"
 	route "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
 	hcm "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
+	thrift_ratelimit "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/thrift_proxy/filters/ratelimit/v3"
+	thrift "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/thrift_proxy/v3"
 	auth "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
 	tracing "github.com/envoyproxy/go-control-plane/envoy/type/tracing/v3"
 	xdstype "github.com/envoyproxy/go-control-plane/envoy/type/v3"
@@ -112,6 +115,8 @@ const (
 	// ProxyInboundListenPort is the port on which all inbound traffic to the pod/vm will be captured to
 	// TODO: allow configuration through mesh config
 	ProxyInboundListenPort = 15006
+
+	ThriftRLSDefaultTimeoutMS = 50
 )
 
 type FilterChainMatchOptions struct {
@@ -446,6 +451,23 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundHTTPListenerOptsForPort
 	return httpOpts
 }
 
+func (configgen *ConfigGeneratorImpl) buildSidecarThriftListenerOptsForPortOrUDS(pluginParams *plugin.InputParams) *thriftListenerOpts {
+	// In case of unix domain sockets, the service port will be 0. So use the port name to distinguish the
+	// inbound listeners that a user specifies in Sidecar. Otherwise, all inbound clusters will be the same.
+	// We use the port name as the subset in the inbound cluster for differentiation. Its fine to use port
+	// names here because the inbound clusters are not referred to anywhere in the API, unlike the outbound
+	// clusters and these are static endpoint clusters used only for sidecar (proxy -> app)
+	clusterName := model.BuildInboundSubsetKey(int(pluginParams.ServiceInstance.Endpoint.EndpointPort))
+
+	thriftOpts := &thriftListenerOpts{
+		transport:   thrift.TransportType_AUTO_TRANSPORT,
+		protocol:    thrift.ProtocolType_AUTO_PROTOCOL,
+		routeConfig: configgen.buildSidecarThriftRouteConfig(clusterName, pluginParams.Push.Mesh.ThriftConfig.RateLimitUrl),
+	}
+
+	return thriftOpts
+}
+
 // buildSidecarInboundListenerForPortOrUDS creates a single listener on the server-side (inbound)
 // for a given port or unix domain socket
 func (configgen *ConfigGeneratorImpl) buildSidecarInboundListenerForPortOrUDS(node *model.Proxy, listenerOpts buildListenerOpts,
@@ -525,6 +547,7 @@ allChainsLabel:
 
 	for id, chain := range allChains {
 		var httpOpts *httpListenerOpts
+		var thriftOpts *thriftListenerOpts
 		var tcpNetworkFilters []*listener.Filter
 		var filterChainMatch *listener.FilterChainMatch
 
@@ -549,6 +572,10 @@ allChainsLabel:
 			}
 
 			httpOpts = configgen.buildSidecarInboundHTTPListenerOptsForPortOrUDS(node, pluginParams, "")
+
+		case istionetworking.ListenerProtocolThrift:
+			filterChainMatch = chain.FilterChainMatch
+			thriftOpts = configgen.buildSidecarThriftListenerOptsForPortOrUDS(pluginParams)
 
 		case istionetworking.ListenerProtocolTCP:
 			filterChainMatch = chain.FilterChainMatch
@@ -586,6 +613,7 @@ allChainsLabel:
 
 		listenerOpts.filterChainOpts = append(listenerOpts.filterChainOpts, &filterChainOpts{
 			httpOpts:        httpOpts,
+			thriftOpts:      thriftOpts,
 			networkFilters:  tcpNetworkFilters,
 			tlsContext:      chain.TLSContext,
 			match:           filterChainMatch,
@@ -636,6 +664,8 @@ func protocolName(p protocol.Instance) string {
 		return "HTTP"
 	case istionetworking.ListenerProtocolTCP:
 		return "TCP"
+	case istionetworking.ListenerProtocolThrift:
+		return "THRIFT"
 	default:
 		return "UNKNOWN"
 	}
@@ -772,7 +802,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(node *model.
 			for _, service := range services {
 				listenerOpts.service = service
 				// Set service specific attributes here.
-				configgen.buildSidecarOutboundListenerForPortOrUDS(listenerOpts, listenerMap, virtualServices, actualWildcard)
+				configgen.buildSidecarOutboundListenerForPortOrUDS(node, listenerOpts, listenerMap, virtualServices, actualWildcard)
 			}
 		} else {
 			// This is a catch all egress listener with no port. This
@@ -848,7 +878,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(node *model.
 							// selected or scaled down, so we skip these as well. This leaves us with
 							// only a plain ServiceEntry with resolution NONE. In this case, we will
 							// fallback to a wildcard listener.
-							configgen.buildSidecarOutboundListenerForPortOrUDS(listenerOpts, listenerMap, virtualServices, actualWildcard)
+							configgen.buildSidecarOutboundListenerForPortOrUDS(node, listenerOpts, listenerMap, virtualServices, actualWildcard)
 							continue
 						}
 						for _, instance := range instances {
@@ -865,11 +895,15 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(node *model.
 								continue
 							}
 							listenerOpts.bind = instance.Endpoint.Address
-							configgen.buildSidecarOutboundListenerForPortOrUDS(listenerOpts, listenerMap, virtualServices, actualWildcard)
+							configgen.buildSidecarOutboundListenerForPortOrUDS(node, listenerOpts, listenerMap, virtualServices, actualWildcard)
 						}
 					} else {
 						// Standard logic for headless and non headless services
-						configgen.buildSidecarOutboundListenerForPortOrUDS(listenerOpts, listenerMap, virtualServices, actualWildcard)
+						if features.EnableThriftFilter &&
+							servicePort.Protocol.IsThrift() {
+							listenerOpts.bind = saddress
+						}
+						configgen.buildSidecarOutboundListenerForPortOrUDS(node, listenerOpts, listenerMap, virtualServices, actualWildcard)
 					}
 				}
 			}
@@ -1039,6 +1073,55 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundHTTPListenerOptsForPor
 	}}
 }
 
+func (configgen *ConfigGeneratorImpl) buildSidecarOutboundThriftListenerOptsForPortOrUDS(listenerMapKey *string,
+	currentListenerEntry **outboundListenerEntry, listenerOpts *buildListenerOpts,
+	listenerMap map[string]*outboundListenerEntry, actualWildcard string) (bool, []*filterChainOpts) {
+	// first identify the bind if its not set. Then construct the key
+	// used to lookup the listener in the conflict map.
+	if len(listenerOpts.bind) == 0 { // no user specified bind. Use 0.0.0.0:Port
+		listenerOpts.bind = actualWildcard
+	}
+	*listenerMapKey = listenerKey(listenerOpts.bind, listenerOpts.port.Port)
+
+	var exists bool
+
+	// Have we already generated a listener for this Port based on user
+	// specified listener ports? if so, we should not add any more Thrift
+	// services to the port. The user could have specified a sidecar
+	// resource with one or more explicit ports and then added a catch
+	// all listener, implying add all other ports as usual. When we are
+	// iterating through the services for a catchAll egress listener,
+	// the caller would have set the locked bit for each listener Entry
+	// in the map.
+	//
+	// Check if this Thrift listener conflicts with an existing TCP or
+	// HTTP listener. We could have listener conflicts occur on unix
+	// domain sockets, or on IP binds.
+	if *currentListenerEntry, exists = listenerMap[*listenerMapKey]; exists {
+		// NOTE: This is not a conflict. This is simply filtering the
+		// services for a given listener explicitly.
+		// When the user declares their own ports in Sidecar.egress
+		// with some specific services on those ports, we should not
+		// generate any more listeners on that port as the user does
+		// not want those listeners. Protocol sniffing is not needed.
+		if (*currentListenerEntry).locked {
+			return false, nil
+		}
+	}
+
+	// No conflicts. Add a thrift filter chain option to the listenerOpts
+	clusterName := model.BuildSubsetKey(model.TrafficDirectionOutbound, "", listenerOpts.service.Hostname, listenerOpts.port.Port)
+	thriftOpts := &thriftListenerOpts{
+		protocol:    thrift.ProtocolType_AUTO_PROTOCOL,
+		transport:   thrift.TransportType_AUTO_TRANSPORT,
+		routeConfig: configgen.buildSidecarThriftRouteConfig(clusterName, listenerOpts.push.Mesh.ThriftConfig.RateLimitUrl),
+	}
+
+	return true, []*filterChainOpts{{
+		thriftOpts: thriftOpts,
+	}}
+}
+
 func (configgen *ConfigGeneratorImpl) buildSidecarOutboundTCPListenerOptsForPortOrUDS(destinationCIDR *string, listenerMapKey *string,
 	currentListenerEntry **outboundListenerEntry, listenerOpts *buildListenerOpts, listenerMap map[string]*outboundListenerEntry,
 	virtualServices []config.Config, actualWildcard string) (bool, []*filterChainOpts) {
@@ -1149,7 +1232,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundTCPListenerOptsForPort
 // if one doesn't already exist. HTTP listeners on same port are ignored
 // (as vhosts are shipped through RDS).  TCP listeners on same port are
 // allowed only if they have different CIDR matches.
-func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListenerForPortOrUDS(listenerOpts buildListenerOpts,
+func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListenerForPortOrUDS(node *model.Proxy, listenerOpts buildListenerOpts,
 	listenerMap map[string]*outboundListenerEntry, virtualServices []config.Config, actualWildcard string) {
 	var destinationCIDR string
 	var listenerMapKey string
@@ -1222,6 +1305,25 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListenerForPortOrUDS(l
 					listenerPortProtocol = protocol.Unsupported
 				}
 			}
+			listenerOpts.filterChainOpts = opts
+
+		case istionetworking.ListenerProtocolThrift:
+			// Hard code the service IP for outbound thrift service listeners. HTTP services
+			// use RDS but the Thrift stack has no such dynamic configuration option.
+			if ret, opts = configgen.buildSidecarOutboundThriftListenerOptsForPortOrUDS(&listenerMapKey,
+				&currentListenerEntry, &listenerOpts, listenerMap, actualWildcard); !ret {
+				return
+			}
+
+			// Protocol sniffing for thrift is not supported.
+			if outboundSniffingEnabled && currentListenerEntry != nil {
+				// We should not ever end up here, but log a line just in case.
+				log.Errorf(
+					"Protocol sniffing is not enabled for thrift, but there was a port collision. Debug info: Node: %v, ListenerEntry: %v",
+					node,
+					currentListenerEntry)
+			}
+
 			listenerOpts.filterChainOpts = opts
 
 		case istionetworking.ListenerProtocolTCP:
@@ -1436,6 +1538,14 @@ type httpListenerOpts struct {
 	useRemoteAddress bool
 }
 
+// thriftListenerOpts are options for a Thrift listener
+type thriftListenerOpts struct {
+	// Stats are not provided for the Thrift filter chain
+	transport   thrift.TransportType
+	protocol    thrift.ProtocolType
+	routeConfig *thrift.RouteConfiguration
+}
+
 // filterChainOpts describes a filter chain: a set of filters with the same TLS context
 type filterChainOpts struct {
 	filterChainName  string
@@ -1444,6 +1554,7 @@ type filterChainOpts struct {
 	metadata         *core.Metadata
 	tlsContext       *auth.DownstreamTlsContext
 	httpOpts         *httpListenerOpts
+	thriftOpts       *thriftListenerOpts
 	match            *listener.FilterChainMatch
 	listenerFilters  []*listener.ListenerFilter
 	networkFilters   []*listener.Filter
@@ -1696,6 +1807,47 @@ func buildCustomTags(customTags map[string]*meshconfig.Tracing_CustomTag) []*tra
 	return tags
 }
 
+func buildThriftRatelimit(domain string, thriftconfig *meshconfig.MeshConfig_ThriftConfig) *thrift_ratelimit.RateLimit {
+	thriftRateLimit := &thrift_ratelimit.RateLimit{
+		Domain:          domain,
+		Timeout:         ptypes.DurationProto(ThriftRLSDefaultTimeoutMS * time.Millisecond),
+		FailureModeDeny: false,
+		RateLimitService: &ratelimit.RateLimitServiceConfig{
+			GrpcService: &core.GrpcService{},
+		},
+	}
+
+	rlsClusterName, err := thriftRLSClusterNameFromAuthority(thriftconfig.RateLimitUrl)
+	if err != nil {
+		log.Errorf("unable to generate thrift rls cluster name: %s\n", rlsClusterName)
+		return nil
+	}
+
+	thriftRateLimit.RateLimitService.GrpcService.TargetSpecifier = &core.GrpcService_EnvoyGrpc_{
+		EnvoyGrpc: &core.GrpcService_EnvoyGrpc{
+			ClusterName: rlsClusterName,
+		},
+	}
+
+	if meshConfigTimeout := thriftconfig.GetRateLimitTimeout(); meshConfigTimeout != nil {
+		thriftRateLimit.Timeout = gogo.DurationToProtoDuration(meshConfigTimeout)
+	}
+
+	if err := thriftRateLimit.Validate(); err != nil {
+		log.Warn(err.Error())
+	}
+
+	return thriftRateLimit
+}
+
+func buildThriftProxy(thriftOpts *thriftListenerOpts) *thrift.ThriftProxy {
+	return &thrift.ThriftProxy{
+		Transport:   thriftOpts.transport,
+		Protocol:    thriftOpts.protocol,
+		RouteConfig: thriftOpts.routeConfig,
+	}
+}
+
 // buildListener builds and initializes a Listener proto based on the provided opts. It does not set any filters.
 func buildListener(opts buildListenerOpts, trafficDirection core.TrafficDirection) *listener.Listener {
 	filterChains := make([]*listener.FilterChain, 0, len(opts.filterChainOpts))
@@ -1868,12 +2020,47 @@ func buildCompleteFilterChain(mutable *istionetworking.MutableObjects, opts buil
 	}
 
 	httpConnectionManagers := make([]*hcm.HttpConnectionManager, len(mutable.FilterChains))
+	thriftProxies := make([]*thrift.ThriftProxy, len(mutable.FilterChains))
 	for i := range mutable.FilterChains {
 		chain := mutable.FilterChains[i]
 		opt := opts.filterChainOpts[i]
 		mutable.Listener.FilterChains[i].Metadata = opt.metadata
 		mutable.Listener.FilterChains[i].Name = opt.filterChainName
-		if opt.httpOpts == nil {
+
+		if opt.thriftOpts != nil && features.EnableThriftFilter {
+			// Add the TCP filters first.. and then the Thrift filter
+			mutable.Listener.FilterChains[i].Filters = append(mutable.Listener.FilterChains[i].Filters, chain.TCP...)
+
+			thriftProxies[i] = buildThriftProxy(opt.thriftOpts)
+
+			// If the RLS service was provided, add the RLS to the Thrift filter
+			// chain. Rate limiting is only applied client-side.
+			if rlsURI := opts.push.Mesh.ThriftConfig.RateLimitUrl; rlsURI != "" &&
+				mutable.Listener.TrafficDirection == core.TrafficDirection_OUTBOUND &&
+				opts.service != nil &&
+				opts.service.Hostname != "" && false { // TODO: restore ability to add thrift quota
+				rateLimitConfig := buildThriftRatelimit(fmt.Sprint(opts.service.Hostname), opts.push.Mesh.ThriftConfig)
+				rateLimitFilter := &thrift.ThriftFilter{
+					Name: "envoy.filters.thrift.rate_limit",
+				}
+				routerFilter := &thrift.ThriftFilter{
+					Name:       "envoy.filters.thrift.router",
+					ConfigType: &thrift.ThriftFilter_TypedConfig{TypedConfig: util.MessageToAny(rateLimitConfig)},
+				}
+
+				thriftProxies[i].ThriftFilters = append(thriftProxies[i].ThriftFilters, rateLimitFilter, routerFilter)
+
+			}
+
+			filter := &listener.Filter{
+				Name:       wellknown.ThriftProxy,
+				ConfigType: &listener.Filter_TypedConfig{TypedConfig: util.MessageToAny(thriftProxies[i])},
+			}
+
+			mutable.Listener.FilterChains[i].Filters = append(mutable.Listener.FilterChains[i].Filters, filter)
+			log.Debugf("attached Thrift filter with %d thrift_filter options to listener %q filter chain %d",
+				len(thriftProxies[i].ThriftFilters), mutable.Listener.Name, i)
+		} else if opt.httpOpts == nil {
 			// we are building a network filter chain (no http connection manager) for this filter chain
 			// In HTTP, we need to have RBAC, etc. upfront so that they can enforce policies immediately
 			// For network filters such as mysql, mongo, etc., we need the filter codec upfront. Data from this
