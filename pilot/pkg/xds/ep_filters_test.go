@@ -19,15 +19,16 @@ import (
 	"testing"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
-	security "istio.io/api/security/v1beta1"
-	"istio.io/api/type/v1beta1"
 	"istio.io/istio/pilot/pkg/config/memory"
-	"istio.io/istio/pilot/pkg/model"
-	memregistry "istio.io/istio/pilot/pkg/serviceregistry/memory"
-	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/config/schema/collections"
+
+	security "istio.io/api/security/v1beta1"
+	"istio.io/api/type/v1beta1"
+	"istio.io/istio/pilot/pkg/model"
+	memregistry "istio.io/istio/pilot/pkg/serviceregistry/memory"
+	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/schema/gvk"
 )
 
@@ -43,88 +44,90 @@ type LocLbEpInfo struct {
 	weight uint32
 }
 
+var networkFiltered = []networkFilterCase{
+	{
+		name: "from_network1",
+		conn: xdsConnection("network1"),
+		want: []LocLbEpInfo{
+			{
+				lbEps: []LbEpInfo{
+					// 2 local endpoints
+					{address: "10.0.0.1", weight: 2},
+					{address: "10.0.0.2", weight: 2},
+					// 1 endpoint to gateway of network2 with weight 1 because it has 1 endpoint
+					{address: "2.2.2.2", weight: 1},
+					{address: "2.2.2.20", weight: 1},
+					// network4 has no gateway, which means it can be accessed from network1
+					{address: "40.0.0.1", weight: 2},
+				},
+				weight: 8,
+			},
+		},
+	},
+	{
+		name: "from_network2",
+		conn: xdsConnection("network2"),
+		want: []LocLbEpInfo{
+			{
+				lbEps: []LbEpInfo{
+					// 1 local endpoint
+					{address: "20.0.0.1", weight: 2},
+					// 1 endpoint to gateway of network1 with weight 4 because it has 2 endpoints
+					{address: "1.1.1.1", weight: 4},
+					{address: "40.0.0.1", weight: 2},
+				},
+				weight: 8,
+			},
+		},
+	},
+	{
+		name: "from_network3",
+		conn: xdsConnection("network3"),
+		want: []LocLbEpInfo{
+			{
+				lbEps: []LbEpInfo{
+					// 1 endpoint to gateway of network1 with weight 4 because it has 2 endpoints
+					{address: "1.1.1.1", weight: 4},
+					// 1 endpoint to gateway of network2 with weight 2 because it has 1 endpoint
+					{address: "2.2.2.2", weight: 1},
+					{address: "2.2.2.20", weight: 1},
+					{address: "40.0.0.1", weight: 2},
+				},
+				weight: 8,
+			},
+		},
+	},
+	{
+		name: "from_network4",
+		conn: xdsConnection("network4"),
+		want: []LocLbEpInfo{
+			{
+				lbEps: []LbEpInfo{
+					// 1 local endpoint
+					{address: "40.0.0.1", weight: 2},
+					// 1 endpoint to gateway of network1 with weight 2 because it has 2 endpoints
+					{address: "1.1.1.1", weight: 4},
+					// 1 endpoint to gateway of network2 with weight 1 because it has 1 endpoint
+					{address: "2.2.2.2", weight: 1},
+					{address: "2.2.2.20", weight: 1},
+				},
+				weight: 8,
+			},
+		},
+	},
+}
+
 func TestEndpointsByNetworkFilter(t *testing.T) {
 	env := environment()
 	env.Init()
 	// The tests below are calling the endpoints filter from each one of the
 	// networks and examines the returned filtered endpoints
-	tests := []networkFilterCase{
-		{
-			name: "from_network1",
-			conn: xdsConnection("network1"),
-			want: []LocLbEpInfo{
-				{
-					lbEps: []LbEpInfo{
-						// 2 local endpoints
-						{address: "10.0.0.1", weight: 2},
-						{address: "10.0.0.2", weight: 2},
-						// 1 endpoint to gateway of network2 with weight 1 because it has 1 endpoint
-						{address: "2.2.2.2", weight: 1},
-						{address: "2.2.2.20", weight: 1},
-						// network4 has no gateway, which means it can be accessed from network1
-						{address: "40.0.0.1", weight: 2},
-					},
-					weight: 8,
-				},
-			},
-		},
-		{
-			name: "from_network2",
-			conn: xdsConnection("network2"),
-			want: []LocLbEpInfo{
-				{
-					lbEps: []LbEpInfo{
-						// 1 local endpoint
-						{address: "20.0.0.1", weight: 2},
-						// 1 endpoint to gateway of network1 with weight 4 because it has 2 endpoints
-						{address: "1.1.1.1", weight: 4},
-						{address: "40.0.0.1", weight: 2},
-					},
-					weight: 8,
-				},
-			},
-		},
-		{
-			name: "from_network3",
-			conn: xdsConnection("network3"),
-			want: []LocLbEpInfo{
-				{
-					lbEps: []LbEpInfo{
-						// 1 endpoint to gateway of network1 with weight 4 because it has 2 endpoints
-						{address: "1.1.1.1", weight: 4},
-						// 1 endpoint to gateway of network2 with weight 2 because it has 1 endpoint
-						{address: "2.2.2.2", weight: 1},
-						{address: "2.2.2.20", weight: 1},
-						{address: "40.0.0.1", weight: 2},
-					},
-					weight: 8,
-				},
-			},
-		},
-		{
-			name: "from_network4",
-			conn: xdsConnection("network4"),
-			want: []LocLbEpInfo{
-				{
-					lbEps: []LbEpInfo{
-						// 1 local endpoint
-						{address: "40.0.0.1", weight: 2},
-						// 1 endpoint to gateway of network1 with weight 2 because it has 2 endpoints
-						{address: "1.1.1.1", weight: 4},
-						// 1 endpoint to gateway of network2 with weight 1 because it has 1 endpoint
-						{address: "2.2.2.2", weight: 1},
-						{address: "2.2.2.20", weight: 1},
-					},
-					weight: 8,
-				},
-			},
-		},
-	}
-	runNetworkFilterTest(t, env, tests)
+
+	runNetworkFilterTest(t, env, networkFiltered)
 }
 
-func TestEndpointsByNetworkFilter_MTLSDisabled(t *testing.T) {
-	tests := []networkFilterCase{
+func TestEndpointsByNetworkFilter_WithPeerAuthn(t *testing.T) {
+	noMtls := []networkFilterCase{
 		{
 			name:            "from_network1",
 			conn:            xdsConnection("network1"),
@@ -188,66 +191,111 @@ func TestEndpointsByNetworkFilter_MTLSDisabled(t *testing.T) {
 		},
 	}
 
-	cases := map[string]config.Config{
+	cases := map[string]struct {
+		Config config.Config
+		Tests  []networkFilterCase
+	}{
+		"partial-strict": {
+			Config: config.Config{
+				Meta: config.Meta{
+					GroupVersionKind: gvk.PeerAuthentication,
+					Name:             "mtls-partial",
+					Namespace:        "istio-system",
+				},
+				Spec: &security.PeerAuthentication{
+					Selector: &v1beta1.WorkloadSelector{
+						// shouldn't affect our test workload
+						MatchLabels: map[string]string{"app": "b"},
+					},
+					Mtls: &security.PeerAuthentication_MutualTLS{Mode: security.PeerAuthentication_MutualTLS_DISABLE},
+				},
+			},
+			Tests: networkFiltered,
+		},
+		"strict": {
+			Config: config.Config{
+				Meta: config.Meta{
+					GroupVersionKind: gvk.PeerAuthentication,
+					Name:             "mtls-on",
+					Namespace:        "istio-system",
+				},
+				Spec: &security.PeerAuthentication{
+					Mtls: &security.PeerAuthentication_MutualTLS{Mode: security.PeerAuthentication_MutualTLS_STRICT},
+				},
+			},
+			Tests: networkFiltered,
+		},
 		"global": {
-			Meta: config.Meta{
-				GroupVersionKind: gvk.PeerAuthentication,
-				Name:             "mtls-off",
-				Namespace:        "istio-system",
+			Config: config.Config{
+				Meta: config.Meta{
+					GroupVersionKind: gvk.PeerAuthentication,
+					Name:             "mtls-off",
+					Namespace:        "istio-system",
+				},
+				Spec: &security.PeerAuthentication{
+					Mtls: &security.PeerAuthentication_MutualTLS{Mode: security.PeerAuthentication_MutualTLS_DISABLE},
+				},
 			},
-			Spec: &security.PeerAuthentication{
-				Mtls: &security.PeerAuthentication_MutualTLS{Mode: security.PeerAuthentication_MutualTLS_DISABLE},
-			},
+			Tests: noMtls,
 		},
 		"namespace": {
-			Meta: config.Meta{
-				GroupVersionKind: gvk.PeerAuthentication,
-				Name:             "mtls-off",
-				Namespace:        "ns",
+			Config: config.Config{
+				Meta: config.Meta{
+					GroupVersionKind: gvk.PeerAuthentication,
+					Name:             "mtls-off",
+					Namespace:        "ns",
+				},
+				Spec: &security.PeerAuthentication{
+					Mtls: &security.PeerAuthentication_MutualTLS{Mode: security.PeerAuthentication_MutualTLS_DISABLE},
+				},
 			},
-			Spec: &security.PeerAuthentication{
-				Mtls: &security.PeerAuthentication_MutualTLS{Mode: security.PeerAuthentication_MutualTLS_DISABLE},
-			},
+			Tests: noMtls,
 		},
 		"workload": {
-			Meta: config.Meta{
-				GroupVersionKind: gvk.PeerAuthentication,
-				Name:             "mtls-off",
-				Namespace:        "ns",
-			},
-			Spec: &security.PeerAuthentication{
-				Selector: &v1beta1.WorkloadSelector{
-					MatchLabels: map[string]string{"app": "example"},
+			Config: config.Config{
+				Meta: config.Meta{
+					GroupVersionKind: gvk.PeerAuthentication,
+					Name:             "mtls-off",
+					Namespace:        "ns",
 				},
-				Mtls: &security.PeerAuthentication_MutualTLS{Mode: security.PeerAuthentication_MutualTLS_DISABLE},
+				Spec: &security.PeerAuthentication{
+					Selector: &v1beta1.WorkloadSelector{
+						MatchLabels: map[string]string{"app": "example"},
+					},
+					Mtls: &security.PeerAuthentication_MutualTLS{Mode: security.PeerAuthentication_MutualTLS_DISABLE},
+				},
 			},
+			Tests: noMtls,
 		},
 		"port": {
-			Meta: config.Meta{
-				GroupVersionKind: gvk.PeerAuthentication,
-				Name:             "mtls-off",
-				Namespace:        "ns",
-			},
-			Spec: &security.PeerAuthentication{
-				Selector: &v1beta1.WorkloadSelector{
-					MatchLabels: map[string]string{"app": "example"},
+			Config: config.Config{
+				Meta: config.Meta{
+					GroupVersionKind: gvk.PeerAuthentication,
+					Name:             "mtls-off",
+					Namespace:        "ns",
 				},
-				PortLevelMtls: map[uint32]*security.PeerAuthentication_MutualTLS{
-					80: {Mode: security.PeerAuthentication_MutualTLS_DISABLE},
+				Spec: &security.PeerAuthentication{
+					Selector: &v1beta1.WorkloadSelector{
+						MatchLabels: map[string]string{"app": "example"},
+					},
+					PortLevelMtls: map[uint32]*security.PeerAuthentication_MutualTLS{
+						80: {Mode: security.PeerAuthentication_MutualTLS_DISABLE},
+					},
 				},
 			},
+			Tests: noMtls,
 		},
 	}
 
 	for name, pa := range cases {
 		t.Run(name, func(t *testing.T) {
 			env := environment()
-			_, err := env.IstioConfigStore.Create(pa)
+			_, err := env.IstioConfigStore.Create(pa.Config)
 			if err != nil {
 				t.Fatal(err)
 			}
 			env.Init()
-			runNetworkFilterTest(t, env, tests)
+			runNetworkFilterTest(t, env, pa.Tests)
 		})
 	}
 }
