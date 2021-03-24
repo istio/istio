@@ -49,7 +49,7 @@ func ApplyListenerPatches(
 	listeners []*xdslistener.Listener,
 	skipAdds bool) (out []*xdslistener.Listener) {
 	defer runtime.HandleCrash(runtime.LogPanic, func(interface{}) {
-		IncrementEnvoyFilterMetric("listener", Error)
+		IncrementEnvoyFilterMetric(Listener, Error)
 		log.Errorf("listeners patch caused panic, so the patches did not take effect")
 	})
 	// In case the patches cause panic, use the listeners generated before to reduce the influence.
@@ -97,7 +97,9 @@ func patchListeners(
 		}
 	}
 	if !applied {
-		IncrementEnvoyFilterMetric("listener", Skipped)
+		IncrementEnvoyFilterMetric(Listener, Skipped)
+	} else {
+		IncrementEnvoyFilterMetric(Listener, Applied)
 	}
 
 	if listenersRemoved {
@@ -132,7 +134,9 @@ func patchListener(patchContext networking.EnvoyFilter_PatchContext,
 		}
 	}
 	if !applied {
-		IncrementEnvoyFilterMetric("listener", Skipped)
+		IncrementEnvoyFilterMetric(Listener, Skipped)
+	} else {
+		IncrementEnvoyFilterMetric(Listener, Applied)
 	}
 	patchFilterChains(patchContext, patches, listener)
 }
@@ -166,7 +170,9 @@ func patchFilterChains(patchContext networking.EnvoyFilter_PatchContext,
 		}
 	}
 	if !applied {
-		IncrementEnvoyFilterMetric("filterchain", Skipped)
+		IncrementEnvoyFilterMetric(FilterChain, Skipped)
+	} else {
+		IncrementEnvoyFilterMetric(FilterChain, Applied)
 	}
 	if filterChainsRemoved {
 		tempArray := make([]*xdslistener.FilterChain, 0, len(listener.FilterChains))
@@ -208,7 +214,9 @@ func patchFilterChain(patchContext networking.EnvoyFilter_PatchContext,
 		}
 	}
 	if !applied {
-		IncrementEnvoyFilterMetric("filterchain", Skipped)
+		IncrementEnvoyFilterMetric(FilterChain, Skipped)
+	} else {
+		IncrementEnvoyFilterMetric(FilterChain, Applied)
 	}
 	patchNetworkFilters(patchContext, patches, listener, fc)
 }
@@ -343,7 +351,9 @@ func patchNetworkFilters(patchContext networking.EnvoyFilter_PatchContext,
 		}
 	}
 	if !applied {
-		IncrementEnvoyFilterMetric("networkfilters", Skipped)
+		IncrementEnvoyFilterMetric(NetworkFilter, Skipped)
+	} else {
+		IncrementEnvoyFilterMetric(NetworkFilter, Applied)
 	}
 	if networkFiltersRemoved {
 		tempArray := make([]*xdslistener.Filter, 0, len(fc.Filters))
@@ -414,7 +424,9 @@ func patchNetworkFilter(patchContext networking.EnvoyFilter_PatchContext,
 		}
 	}
 	if !applied {
-		IncrementEnvoyFilterMetric("networkfilters", Skipped)
+		IncrementEnvoyFilterMetric(NetworkFilter, Skipped)
+	} else {
+		IncrementEnvoyFilterMetric(NetworkFilter, Applied)
 	}
 	if filter.Name == wellknown.HTTPConnectionManager {
 		patchHTTPFilters(patchContext, patches, listener, fc, filter)
@@ -532,7 +544,9 @@ func patchHTTPFilters(patchContext networking.EnvoyFilter_PatchContext,
 		hcm.HttpFilters = tempArray
 	}
 	if !applied {
-		IncrementEnvoyFilterMetric("httpfilters", Skipped)
+		IncrementEnvoyFilterMetric(HttpFilter, Skipped)
+	} else {
+		IncrementEnvoyFilterMetric(HttpFilter, Applied)
 	}
 	if filter.GetTypedConfig() != nil {
 		// convert to any type
@@ -599,7 +613,9 @@ func patchHTTPFilter(patchContext networking.EnvoyFilter_PatchContext,
 		}
 	}
 	if !applied {
-		IncrementEnvoyFilterMetric("httpfilters", Skipped)
+		IncrementEnvoyFilterMetric(HttpFilter, Skipped)
+	} else {
+		IncrementEnvoyFilterMetric(HttpFilter, Applied)
 	}
 }
 

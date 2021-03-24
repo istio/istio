@@ -17,29 +17,42 @@ import (
 	"istio.io/pkg/monitoring"
 )
 
-type ErrorType string
+type ResultType string
 
 const (
-	Error   ErrorType = "error"
-	Skipped           = "skipped"
+	Error   ResultType = "error"
+	Skipped ResultType = "skipped"
+	Applied ResultType = "applied"
+)
+
+type PatchType string
+
+const (
+	Cluster       PatchType = "cluster"
+	Listener      PatchType = "listener"
+	FilterChain   PatchType = "filterchain"
+	NetworkFilter PatchType = "networkfilter"
+	HttpFilter    PatchType = "httpfilter"
+	Route         PatchType = "route"
+	VirtualHost   PatchType = "vhost"
 )
 
 var (
-	filterType = monitoring.MustCreateLabel("type")
-	errorType  = monitoring.MustCreateLabel("error")
+	patchType = monitoring.MustCreateLabel("patch")
+	errorType = monitoring.MustCreateLabel("type")
 
-	totalEnvoyFilterFailures = monitoring.NewSum(
+	totalEnvoyFilters = monitoring.NewSum(
 		"pilot_total_envoy_filter",
-		"Total number of Envoy filters that were not applied to the configuration.",
-		monitoring.WithLabels(filterType, errorType),
+		"Total number of Envoy filters that were applied, skipped and errored.",
+		monitoring.WithLabels(patchType, errorType),
 	)
 )
 
 func init() {
-	monitoring.MustRegister(totalEnvoyFilterFailures)
+	monitoring.MustRegister(totalEnvoyFilters)
 }
 
-// IncrementEnvoyFilterMetric increments skipped and errored filter metric.
-func IncrementEnvoyFilterMetric(ft string, et ErrorType) {
-	totalEnvoyFilterFailures.With(filterType.Value(ft)).With(errorType.Value(string(et))).Increment()
+// IncrementEnvoyFilterMetric increments filter metric.
+func IncrementEnvoyFilterMetric(pt PatchType, et ResultType) {
+	totalEnvoyFilters.With(patchType.Value(string(pt))).With(errorType.Value(string(et))).Increment()
 }
