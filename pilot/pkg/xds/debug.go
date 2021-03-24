@@ -114,6 +114,26 @@ type SyncStatus struct {
 	IstioVersion string `json:"istio_version,omitempty"`
 
 	Statuses map[string]PerXDSSyncStatus `json:"statuses,omitempty"`
+
+	// Deprecation notice: Fields below are part of old format and are
+	// retained here for backward compatibility with older istioctl clients
+
+	// DEPRECATED: Use CDS and NonceSent from Statuses map
+	ClusterSent string `json:"cluster_sent,omitempty"`
+	// DEPRECATED: Use CDS and NonceSent from Statuses map
+	ClusterAcked string `json:"cluster_acked,omitempty"`
+	// DEPRECATED: Use LDS and NonceSent from Statuses map
+	ListenerSent string `json:"listener_sent,omitempty"`
+	// DEPRECATED: Use LDS and NonceAcked from Statuses map
+	ListenerAcked string `json:"listener_acked,omitempty"`
+	// DEPRECATED: Use RDS and NonceSent from Statuses map
+	RouteSent string `json:"route_sent,omitempty"`
+	// DEPRECATED: Use RDS and NonceAcked from Statuses map
+	RouteAcked string `json:"route_acked,omitempty"`
+	// DEPRECATED: Use EDS and NonceSent from Statuses map
+	EndpointSent string `json:"endpoint_sent,omitempty"`
+	// DEPRECATED: Use EDS and NonceAcked from Statuses map
+	EndpointAcked string `json:"endpoint_acked,omitempty"`
 }
 
 // SyncedVersions shows what resourceVersion of a given resource has been acked by Envoy.
@@ -224,6 +244,22 @@ func (s *DiscoveryServer) Syncz(w http.ResponseWriter, _ *http.Request) {
 				}
 				curSyncStatus.Statuses[shortType] = status
 			}
+
+			// These fields are filled for backward compatibility with older clients
+			// For newer XDS types, don't add fields like these. Instead use Statuses
+			// map (current implementation takes into account new types as well)
+			curSyncStatus.ClusterSent = curSyncStatus.Statuses[v3.GetShortType(v3.ClusterType)].NonceSent
+			curSyncStatus.ClusterAcked = curSyncStatus.Statuses[v3.GetShortType(v3.ClusterType)].NonceAcked
+
+			curSyncStatus.ListenerSent = curSyncStatus.Statuses[v3.GetShortType(v3.ListenerType)].NonceSent
+			curSyncStatus.ListenerAcked = curSyncStatus.Statuses[v3.GetShortType(v3.ListenerType)].NonceAcked
+
+			curSyncStatus.EndpointSent = curSyncStatus.Statuses[v3.GetShortType(v3.EndpointType)].NonceSent
+			curSyncStatus.EndpointAcked = curSyncStatus.Statuses[v3.GetShortType(v3.EndpointType)].NonceAcked
+
+			curSyncStatus.RouteSent = curSyncStatus.Statuses[v3.GetShortType(v3.RouteType)].NonceSent
+			curSyncStatus.RouteAcked = curSyncStatus.Statuses[v3.GetShortType(v3.RouteType)].NonceAcked
+
 			syncz = append(syncz, curSyncStatus)
 		}
 	}

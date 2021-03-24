@@ -129,6 +129,28 @@ func verifySyncStatus(t *testing.T, s *xds.DiscoveryServer, nodeID string, wantS
 				if (edsStatus.NonceAcked != "") != wantAcked {
 					errorHandler("wanted EndpointAcked set %v got %v for %v", wantAcked, edsStatus.NonceAcked, nodeID)
 				}
+
+				// These checks are there to make sure that new and old formats are in sync
+				if cdsStatus.NonceSent != ss.ClusterSent || cdsStatus.NonceAcked != ss.ClusterAcked {
+					errorHandler("CDS nonces in new format are not in sync with those in old format. "+
+						"old = (sent: %v, acked: %v), new = (sent: %v, acked: %v)",
+						ss.ClusterSent, ss.ClusterAcked, cdsStatus.NonceSent, cdsStatus.NonceAcked)
+				}
+				if ldsStatus.NonceSent != ss.ListenerSent || ldsStatus.NonceAcked != ss.ListenerAcked {
+					errorHandler("LDS nonces in new format are not in sync with those in old format. "+
+						"old = (sent: %v, acked: %v), new = (sent: %v, acked: %v)",
+						ss.ListenerSent, ss.ListenerAcked, ldsStatus.NonceSent, ldsStatus.NonceAcked)
+				}
+				if edsStatus.NonceSent != ss.EndpointSent || edsStatus.NonceAcked != ss.EndpointAcked {
+					errorHandler("EDS nonces in new format are not in sync with those in old format. "+
+						"old = (sent: %v, acked: %v), new = (sent: %v, acked: %v)",
+						ss.EndpointSent, ss.EndpointAcked, edsStatus.NonceSent, edsStatus.NonceAcked)
+				}
+				if rdsStatus.NonceSent != ss.RouteSent || rdsStatus.NonceAcked != ss.RouteAcked {
+					errorHandler("RDS nonces in new format are not in sync with those in old format. "+
+						"old = (sent: %v, acked: %v), new = (sent: %v, acked: %v)",
+						ss.RouteSent, ss.RouteAcked, rdsStatus.NonceSent, rdsStatus.NonceAcked)
+				}
 				return
 			}
 		}
