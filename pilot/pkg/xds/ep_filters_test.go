@@ -280,7 +280,7 @@ func TestEndpointsByNetworkFilter_WithConfig(t *testing.T) {
 							MatchLabels: map[string]string{"app": "example"},
 						},
 						PortLevelMtls: map[uint32]*security.PeerAuthentication_MutualTLS{
-							80: {Mode: security.PeerAuthentication_MutualTLS_DISABLE},
+							8080: {Mode: security.PeerAuthentication_MutualTLS_DISABLE},
 						},
 					},
 				},
@@ -633,7 +633,7 @@ func testShards() *EndpointShards {
 		ep.ServicePortName = "http"
 		ep.Namespace = "ns"
 		ep.HostName = "example.ns.svc.cluster.local"
-		ep.EndpointPort = 80
+		ep.EndpointPort = 8080
 		ep.TLSMode = "istio"
 		ep.Labels = map[string]string{"app": "example"}
 		shards.Shards["cluster-0"][i] = ep
