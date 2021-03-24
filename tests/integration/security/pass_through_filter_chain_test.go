@@ -281,6 +281,7 @@ spec:
 						return ctx.Config().ApplyYAML("", cfg)
 					}).
 					From(srcFilter...).
+					ConditionallyTo(echotest.ReachableDestinations).
 					To(dstFilter...).
 					Run(func(ctx framework.TestContext, src echo.Instance, dest echo.Instances) {
 						clusterName := src.Config().Cluster.StableName()
