@@ -258,6 +258,7 @@ spec:
 			}
 
 			// srcFilter finds the naked app as client.
+			// TODO(slandow) replace this with built-in framework filters (blocked by https://github.com/istio/istio/pull/31565)
 			findNaked := func(instances echo.Instances) echo.Instances {
 				return apps.Naked.Match(echo.Service(util.NakedSvc))
 			}
