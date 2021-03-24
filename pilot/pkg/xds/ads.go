@@ -58,8 +58,14 @@ var knativeEnv = env.RegisterStringVar("K_REVISION", "",
 // DiscoveryStream is a server interface for XDS.
 type DiscoveryStream = discovery.AggregatedDiscoveryService_StreamAggregatedResourcesServer
 
+// DeltaDiscoveryStream is a server interface for Delta XDS.
+type DeltaDiscoveryStream = discovery.AggregatedDiscoveryService_DeltaAggregatedResourcesServer
+
 // DiscoveryClient is a client interface for XDS.
 type DiscoveryClient = discovery.AggregatedDiscoveryService_StreamAggregatedResourcesClient
+
+// DeltaDiscoveryClient is a client interface for Delta XDS.
+type DeltaDiscoveryClient = discovery.AggregatedDiscoveryService_DeltaAggregatedResourcesClient
 
 // Connection holds information about connected client.
 type Connection struct {
@@ -84,6 +90,8 @@ type Connection struct {
 
 	// Both ADS and SDS streams implement this interface
 	stream DiscoveryStream
+	// deltaStream is used for Delta XDS. Only one of deltaStream or stream will be set
+	deltaStream DeltaDiscoveryStream
 
 	// Original node metadata, to avoid unmarshal/marshal.
 	// This is included in internal events.
@@ -652,8 +660,10 @@ func (s *DiscoveryServer) preProcessRequest(proxy *model.Proxy, req *discovery.D
 //
 // The delta protocol changes the request, adding unsubscribe/subscribe instead of sending full
 // list of resources. On the response it adds 'removed resources' and sends changes for everything.
-// TODO: we could implement this method if needed, the change is not very big.
 func (s *DiscoveryServer) DeltaAggregatedResources(stream discovery.AggregatedDiscoveryService_DeltaAggregatedResourcesServer) error {
+	if features.DeltaXds.Get() {
+		return s.StreamDeltas(stream)
+	}
 	return status.Errorf(codes.Unimplemented, "not implemented")
 }
 

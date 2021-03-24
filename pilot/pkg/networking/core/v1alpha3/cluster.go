@@ -157,6 +157,9 @@ type clusterPatcher struct {
 }
 
 func (p clusterPatcher) conditionallyAppend(l []*cluster.Cluster, hosts []host.Name, clusters ...*cluster.Cluster) []*cluster.Cluster {
+	if !p.hasPatches() {
+		return append(l, clusters...)
+	}
 	for _, c := range clusters {
 		if envoyfilter.ShouldKeepCluster(p.pctx, p.efw, c, hosts) {
 			l = append(l, envoyfilter.ApplyClusterMerge(p.pctx, p.efw, c, hosts))
@@ -167,6 +170,10 @@ func (p clusterPatcher) conditionallyAppend(l []*cluster.Cluster, hosts []host.N
 
 func (p clusterPatcher) insertedClusters() []*cluster.Cluster {
 	return envoyfilter.InsertedClusters(p.pctx, p.efw)
+}
+
+func (p clusterPatcher) hasPatches() bool {
+	return p.efw != nil && len(p.efw.Patches[networking.EnvoyFilter_CLUSTER]) > 0
 }
 
 // SniDnat clusters do not have any TLS setting, as they simply forward traffic to upstream

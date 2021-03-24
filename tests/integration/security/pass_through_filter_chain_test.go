@@ -35,7 +35,7 @@ func TestPassThroughFilterChain(t *testing.T) {
 	framework.
 		NewTest(t).
 		Features("security.filterchain").
-		Run(func(ctx framework.TestContext) {
+		Run(func(t framework.TestContext) {
 			ns := apps.Namespace1
 			type expect struct {
 				port   int
@@ -281,15 +281,15 @@ spec:
 				},
 			}
 
-			for _, cluster := range ctx.Clusters() {
-				client := apps.Naked.Match(echo.InCluster(cluster)).GetOrFail(ctx, echo.Namespace(ns.Name()))
-				destination := apps.A.Match(echo.Namespace(ns.Name())).GetOrFail(ctx, echo.InCluster(cluster))
-				from := getWorkload(client, ctx)
-				destWorkload := getWorkload(destination, ctx).Address()
+			for _, cluster := range t.Clusters() {
+				client := apps.Naked.Match(echo.InCluster(cluster)).GetOrFail(t, echo.Namespace(ns.Name()))
+				destination := apps.A.Match(echo.Namespace(ns.Name())).GetOrFail(t, echo.InCluster(cluster))
+				from := getWorkload(client, t)
+				destWorkload := getWorkload(destination, t).Address()
 				for _, tc := range cases {
-					ctx.NewSubTest(fmt.Sprintf("In %s/%v", cluster.StableName(), tc.name)).Run(func(ctx framework.TestContext) {
-						ctx.Config().ApplyYAMLOrFail(ctx, ns.Name(), tc.config)
-						util.WaitForConfig(ctx, tc.config, ns)
+					t.NewSubTest(fmt.Sprintf("In %s/%v", cluster.StableName(), tc.name)).Run(func(t framework.TestContext) {
+						t.Config().ApplyYAMLOrFail(t, ns.Name(), tc.config)
+						util.WaitForConfig(t, tc.config, ns)
 						for _, expect := range tc.expected {
 							name := fmt.Sprintf("port %d[%t]", expect.port, expect.want)
 
@@ -305,8 +305,8 @@ spec:
 									},
 								},
 							}
-							ctx.NewSubTest(name).Run(func(ctx framework.TestContext) {
-								retry.UntilSuccessOrFail(ctx, func() error {
+							t.NewSubTest(name).Run(func(t framework.TestContext) {
+								retry.UntilSuccessOrFail(t, func() error {
 									responses, err := from.ForwardEcho(context.TODO(), request)
 									if expect.want {
 										if err != nil {

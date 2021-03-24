@@ -74,7 +74,7 @@ func newRootNS(ctx framework.TestContext) rootNS {
 func TestAuthorization_mTLS(t *testing.T) {
 	framework.NewTest(t).
 		Features("security.authorization.mtls-local").
-		Run(func(ctx framework.TestContext) {
+		Run(func(t framework.TestContext) {
 			args := map[string]string{
 				"Namespace":  apps.Namespace1.Name(),
 				"Namespace2": apps.Namespace2.Name(),
@@ -82,9 +82,9 @@ func TestAuthorization_mTLS(t *testing.T) {
 			policies := tmpl.EvaluateAllOrFail(t, args,
 				file.AsStringOrFail(t, "testdata/authz/v1beta1-mtls.yaml.tmpl"))
 
-			ctx.Config().ApplyYAMLOrFail(t, apps.Namespace1.Name(), policies...)
-			for _, cluster := range ctx.Clusters() {
-				ctx.NewSubTest(fmt.Sprintf("From %s", cluster.StableName())).Run(func(ctx framework.TestContext) {
+			t.Config().ApplyYAMLOrFail(t, apps.Namespace1.Name(), policies...)
+			for _, cluster := range t.Clusters() {
+				t.NewSubTest(fmt.Sprintf("From %s", cluster.StableName())).Run(func(t framework.TestContext) {
 					a := apps.A.Match(echo.InCluster(cluster).And(echo.Namespace(apps.Namespace1.Name())))
 					c := apps.C.Match(echo.InCluster(cluster).And(echo.Namespace(apps.Namespace2.Name())))
 					b := apps.B.Match(echo.Namespace(apps.Namespace1.Name()))
@@ -121,7 +121,7 @@ func TestAuthorization_mTLS(t *testing.T) {
 						newTestCase(c, vm, "/principal-a", false),
 						newTestCase(c, vm, "/namespace-2", true),
 					}
-					rbacUtil.RunRBACTest(ctx, cases)
+					rbacUtil.RunRBACTest(t, cases)
 				})
 			}
 		})
@@ -131,25 +131,25 @@ func TestAuthorization_mTLS(t *testing.T) {
 func TestAuthorization_JWT(t *testing.T) {
 	framework.NewTest(t).
 		Features("security.authorization.jwt-token").
-		Run(func(ctx framework.TestContext) {
+		Run(func(t framework.TestContext) {
 			ns := apps.Namespace1
 			args := map[string]string{
 				"Namespace": apps.Namespace1.Name(),
 			}
 			policies := tmpl.EvaluateAllOrFail(t, args,
 				file.AsStringOrFail(t, "testdata/authz/v1beta1-jwt.yaml.tmpl"))
-			ctx.Config().ApplyYAMLOrFail(t, ns.Name(), policies...)
-			for _, srcCluster := range ctx.Clusters() {
-				ctx.NewSubTest(fmt.Sprintf("From %s", srcCluster.StableName())).Run(func(ctx framework.TestContext) {
+			t.Config().ApplyYAMLOrFail(t, ns.Name(), policies...)
+			for _, srcCluster := range t.Clusters() {
+				t.NewSubTest(fmt.Sprintf("From %s", srcCluster.StableName())).Run(func(t framework.TestContext) {
 					a := apps.A.Match(echo.InCluster(srcCluster).And(echo.Namespace(ns.Name())))
 					callCount := 1
 					b := apps.B.Match(echo.Namespace(ns.Name()))
 					c := apps.C.Match(echo.Namespace(ns.Name()))
 					d := apps.D.Match(echo.Namespace(ns.Name()))
 					vm := apps.VM.Match(echo.Namespace(ns.Name()))
-					if ctx.Clusters().IsMulticluster() {
+					if t.Clusters().IsMulticluster() {
 						// so we can validate all clusters are hit
-						callCount = util.CallsPerCluster * len(ctx.Clusters())
+						callCount = util.CallsPerCluster * len(t.Clusters())
 					}
 					newTestCase := func(target echo.Instances, namePrefix string, jwt string, path string, expectAllowed bool) rbacUtil.TestCase {
 						return rbacUtil.TestCase{
@@ -242,7 +242,7 @@ func TestAuthorization_JWT(t *testing.T) {
 						newTestCase(d, "[Token1WithAud]", jwt.TokenIssuer1WithAud, "/request/audiences", true),
 						newTestCase(vm, "[Token1WithAud]", jwt.TokenIssuer1WithAud, "/request/audiences", true),
 					}
-					rbacUtil.RunRBACTest(ctx, cases)
+					rbacUtil.RunRBACTest(t, cases)
 				})
 			}
 		})
@@ -252,35 +252,35 @@ func TestAuthorization_JWT(t *testing.T) {
 func TestAuthorization_WorkloadSelector(t *testing.T) {
 	framework.NewTest(t).
 		Features("security.authorization.workload-selector").
-		Run(func(ctx framework.TestContext) {
+		Run(func(t framework.TestContext) {
 			ns1 := apps.Namespace1
 			ns2 := apps.Namespace2
 			args := map[string]string{
 				"Namespace1":    ns1.Name(),
 				"Namespace2":    ns2.Name(),
-				"RootNamespace": istio.GetOrFail(ctx, ctx).Settings().SystemNamespace,
+				"RootNamespace": istio.GetOrFail(t, t).Settings().SystemNamespace,
 			}
 
 			applyPolicy := func(filename string, ns namespace.Instance) {
 				policy := tmpl.EvaluateAllOrFail(t, args, file.AsStringOrFail(t, filename))
-				ctx.Config().ApplyYAMLOrFail(t, ns.Name(), policy...)
+				t.Config().ApplyYAMLOrFail(t, ns.Name(), policy...)
 			}
 
-			rootns := newRootNS(ctx)
+			rootns := newRootNS(t)
 			applyPolicy("testdata/authz/v1beta1-workload-ns1.yaml.tmpl", ns1)
 			applyPolicy("testdata/authz/v1beta1-workload-ns2.yaml.tmpl", ns2)
 			applyPolicy("testdata/authz/v1beta1-workload-ns-root.yaml.tmpl", rootns)
-			for _, srcCluster := range ctx.Clusters() {
-				ctx.NewSubTest(fmt.Sprintf("From %s", srcCluster.StableName())).Run(func(ctx framework.TestContext) {
+			for _, srcCluster := range t.Clusters() {
+				t.NewSubTest(fmt.Sprintf("From %s", srcCluster.StableName())).Run(func(t framework.TestContext) {
 					a := apps.A.Match(echo.InCluster(srcCluster).And(echo.Namespace(apps.Namespace1.Name())))
 					bInNS1 := apps.B.Match(echo.Namespace(apps.Namespace1.Name()))
 					vmInNS1 := apps.VM.Match(echo.Namespace(apps.Namespace1.Name()))
 					cInNS1 := apps.C.Match(echo.Namespace(apps.Namespace1.Name()))
 					cInNS2 := apps.C.Match(echo.Namespace(apps.Namespace2.Name()))
 					callCount := 1
-					if ctx.Clusters().IsMulticluster() {
+					if t.Clusters().IsMulticluster() {
 						// so we can validate all clusters are hit
-						callCount = util.CallsPerCluster * len(ctx.Clusters())
+						callCount = util.CallsPerCluster * len(t.Clusters())
 					}
 					newTestCase := func(namePrefix string, target echo.Instances, path string, expectAllowed bool) rbacUtil.TestCase {
 						return rbacUtil.TestCase{
@@ -335,7 +335,7 @@ func TestAuthorization_WorkloadSelector(t *testing.T) {
 						newTestCase("[cInNS2]", cInNS2, "/policy-ns2-all", true),
 						newTestCase("[cInNS2]", cInNS2, "/policy-ns-root-c", true),
 					}
-					rbacUtil.RunRBACTest(ctx, cases)
+					rbacUtil.RunRBACTest(t, cases)
 				})
 			}
 		})
@@ -345,37 +345,38 @@ func TestAuthorization_WorkloadSelector(t *testing.T) {
 func TestAuthorization_Deny(t *testing.T) {
 	framework.NewTest(t).
 		Features("security.authorization.deny-action").
-		Run(func(ctx framework.TestContext) {
-			// TODO: Convert into multicluster support. Currently 503 is received cross-network
-			if ctx.Clusters().IsMulticluster() {
-				ctx.Skip()
+		Run(func(t framework.TestContext) {
+			// TODO: Convert into multicluster support. Currently reachability does
+			// not cover all clusters.
+			if t.Clusters().IsMulticluster() {
+				t.Skip()
 			}
 
 			ns := apps.Namespace1
 			args := map[string]string{
 				"Namespace":     ns.Name(),
-				"RootNamespace": istio.GetOrFail(ctx, ctx).Settings().SystemNamespace,
+				"RootNamespace": istio.GetOrFail(t, t).Settings().SystemNamespace,
 			}
 
 			applyPolicy := func(filename string, ns namespace.Instance) []string {
 				policy := tmpl.EvaluateAllOrFail(t, args, file.AsStringOrFail(t, filename))
-				ctx.Config().ApplyYAMLOrFail(t, ns.Name(), policy...)
+				t.Config().ApplyYAMLOrFail(t, ns.Name(), policy...)
 				return policy
 			}
 
-			rootns := newRootNS(ctx)
+			rootns := newRootNS(t)
 			policy := applyPolicy("testdata/authz/v1beta1-deny.yaml.tmpl", ns)
-			util.WaitForConfig(ctx, policy[0], ns)
+			util.WaitForConfig(t, policy[0], ns)
 			policyNSRoot := applyPolicy("testdata/authz/v1beta1-deny-ns-root.yaml.tmpl", rootns)
-			util.WaitForConfig(ctx, policyNSRoot[0], rootns)
+			util.WaitForConfig(t, policyNSRoot[0], rootns)
 
 			callCount := 1
-			if ctx.Clusters().IsMulticluster() {
+			if t.Clusters().IsMulticluster() {
 				// so we can validate all clusters are hit
-				callCount = util.CallsPerCluster * len(ctx.Clusters())
+				callCount = util.CallsPerCluster * len(t.Clusters())
 			}
-			for _, srcCluster := range ctx.Clusters() {
-				ctx.NewSubTest(fmt.Sprintf("From %s", srcCluster.StableName())).Run(func(ctx framework.TestContext) {
+			for _, srcCluster := range t.Clusters() {
+				t.NewSubTest(fmt.Sprintf("From %s", srcCluster.StableName())).Run(func(t framework.TestContext) {
 					a := apps.A.Match(echo.InCluster(srcCluster).And(echo.Namespace(apps.Namespace1.Name())))
 					b := apps.B.Match(echo.Namespace(apps.Namespace1.Name()))
 					c := apps.C.Match(echo.Namespace(apps.Namespace1.Name()))
@@ -424,7 +425,7 @@ func TestAuthorization_Deny(t *testing.T) {
 						newTestCase(vm, "/allow?param=value", true),
 					}
 
-					rbacUtil.RunRBACTest(ctx, cases)
+					rbacUtil.RunRBACTest(t, cases)
 				})
 			}
 		})
@@ -434,7 +435,7 @@ func TestAuthorization_Deny(t *testing.T) {
 func TestAuthorization_NegativeMatch(t *testing.T) {
 	framework.NewTest(t).
 		Features("security.authorization.negative-match").
-		Run(func(ctx framework.TestContext) {
+		Run(func(t framework.TestContext) {
 			ns := apps.Namespace1
 			ns2 := apps.Namespace2
 
@@ -449,18 +450,18 @@ func TestAuthorization_NegativeMatch(t *testing.T) {
 				if ns != nil {
 					name = ns.Name()
 				}
-				ctx.Config().ApplyYAMLOrFail(t, name, policy...)
+				t.Config().ApplyYAMLOrFail(t, name, policy...)
 			}
 
 			applyPolicy("testdata/authz/v1beta1-negative-match.yaml.tmpl", nil)
 
 			callCount := 1
-			if ctx.Clusters().IsMulticluster() {
+			if t.Clusters().IsMulticluster() {
 				// so we can validate all clusters are hit
-				callCount = util.CallsPerCluster * len(ctx.Clusters())
+				callCount = util.CallsPerCluster * len(t.Clusters())
 			}
-			for _, srcCluster := range ctx.Clusters() {
-				ctx.NewSubTest(fmt.Sprintf("From %s", srcCluster.StableName())).Run(func(ctx framework.TestContext) {
+			for _, srcCluster := range t.Clusters() {
+				t.NewSubTest(fmt.Sprintf("From %s", srcCluster.StableName())).Run(func(t framework.TestContext) {
 					srcA := apps.A.Match(echo.InCluster(srcCluster).And(echo.Namespace(apps.Namespace1.Name())))
 					srcBInNS2 := apps.B.Match(echo.InCluster(srcCluster).And(echo.Namespace(apps.Namespace2.Name())))
 					destB := apps.B.Match(echo.Namespace(apps.Namespace1.Name()))
@@ -529,7 +530,7 @@ func TestAuthorization_NegativeMatch(t *testing.T) {
 						newTestCase(srcBInNS2[0], destD, "/", false),
 					}
 
-					rbacUtil.RunRBACTest(ctx, cases)
+					rbacUtil.RunRBACTest(t, cases)
 				})
 			}
 		})
@@ -539,32 +540,28 @@ func TestAuthorization_NegativeMatch(t *testing.T) {
 func TestAuthorization_IngressGateway(t *testing.T) {
 	framework.NewTest(t).
 		Features("security.authorization.ingress-gateway").
-		Run(func(ctx framework.TestContext) {
-			// TODO: finish convert all authorization tests into multicluster supported
-			if ctx.Clusters().IsMulticluster() {
-				ctx.Skip()
-			}
-			ns := namespace.NewOrFail(t, ctx, namespace.Config{
+		Run(func(t framework.TestContext) {
+			ns := namespace.NewOrFail(t, t, namespace.Config{
 				Prefix: "v1beta1-ingress-gateway",
 				Inject: true,
 			})
 			args := map[string]string{
 				"Namespace":     ns.Name(),
-				"RootNamespace": istio.GetOrFail(ctx, ctx).Settings().SystemNamespace,
+				"RootNamespace": istio.GetOrFail(t, t).Settings().SystemNamespace,
 			}
 
 			applyPolicy := func(filename string) {
 				policy := tmpl.EvaluateAllOrFail(t, args, file.AsStringOrFail(t, filename))
-				ctx.Config().ApplyYAMLOrFail(t, "", policy...)
+				t.Config().ApplyYAMLOrFail(t, "", policy...)
 			}
 			applyPolicy("testdata/authz/v1beta1-ingress-gateway.yaml.tmpl")
 
 			var b echo.Instance
-			echoboot.NewBuilder(ctx).
+			echoboot.NewBuilder(t).
 				With(&b, util.EchoConfig("b", ns, false, nil)).
 				BuildOrFail(t)
 
-			ingr := ist.IngressFor(ctx.Clusters().Default())
+			ingr := ist.IngressFor(t.Clusters().Default())
 
 			cases := []struct {
 				Name     string
@@ -667,11 +664,11 @@ func TestAuthorization_IngressGateway(t *testing.T) {
 			}
 
 			for _, tc := range cases {
-				ctx.NewSubTest(tc.Name).Run(func(ctx framework.TestContext) {
+				t.NewSubTest(tc.Name).Run(func(t framework.TestContext) {
 					headers := map[string][]string{
 						"X-Forwarded-For": {tc.IP},
 					}
-					authn.CheckIngressOrFail(ctx, ingr, tc.Host, tc.Path, headers, "", tc.WantCode)
+					authn.CheckIngressOrFail(t, ingr, tc.Host, tc.Path, headers, "", tc.WantCode)
 				})
 			}
 		})
@@ -681,18 +678,14 @@ func TestAuthorization_IngressGateway(t *testing.T) {
 func TestAuthorization_EgressGateway(t *testing.T) {
 	framework.NewTest(t).
 		Features("security.authorization.egress-gateway").
-		Run(func(ctx framework.TestContext) {
-			// TODO: Convert into multicluster support. Currently 503 is received
-			if ctx.Clusters().IsMulticluster() {
-				ctx.Skip()
-			}
-			ns := namespace.NewOrFail(t, ctx, namespace.Config{
+		Run(func(t framework.TestContext) {
+			ns := namespace.NewOrFail(t, t, namespace.Config{
 				Prefix: "v1beta1-egress-gateway",
 				Inject: true,
 			})
 
 			var a, b, c echo.Instance
-			echoboot.NewBuilder(ctx).
+			echoboot.NewBuilder(t).
 				With(&a, util.EchoConfig("a", ns, false, nil)).
 				With(&b, echo.Config{
 					Service:   "b",
@@ -711,11 +704,11 @@ func TestAuthorization_EgressGateway(t *testing.T) {
 
 			args := map[string]string{
 				"Namespace":     ns.Name(),
-				"RootNamespace": istio.GetOrFail(ctx, ctx).Settings().SystemNamespace,
+				"RootNamespace": istio.GetOrFail(t, t).Settings().SystemNamespace,
 			}
 			policies := tmpl.EvaluateAllOrFail(t, args,
 				file.AsStringOrFail(t, "testdata/authz/v1beta1-egress-gateway.yaml.tmpl"))
-			ctx.Config().ApplyYAMLOrFail(t, "", policies...)
+			t.Config().ApplyYAMLOrFail(t, "", policies...)
 
 			cases := []struct {
 				name  string
@@ -832,7 +825,7 @@ func TestAuthorization_EgressGateway(t *testing.T) {
 						Value: "Bearer " + tc.token,
 					})
 				}
-				t.Run(tc.name, func(t *testing.T) {
+				t.NewSubTest(tc.name).Run(func(t framework.TestContext) {
 					retry.UntilSuccessOrFail(t, func() error {
 						responses, err := tc.from.ForwardEcho(context.TODO(), request)
 						if err != nil {
@@ -858,16 +851,12 @@ func TestAuthorization_EgressGateway(t *testing.T) {
 func TestAuthorization_TCP(t *testing.T) {
 	framework.NewTest(t).
 		Features("security.authorization.tcp").
-		Run(func(ctx framework.TestContext) {
-			// TODO: finish convert all authorization tests into multicluster supported
-			if ctx.Clusters().IsMulticluster() {
-				ctx.Skip()
-			}
-			ns := namespace.NewOrFail(t, ctx, namespace.Config{
+		Run(func(t framework.TestContext) {
+			ns := namespace.NewOrFail(t, t, namespace.Config{
 				Prefix: "v1beta1-tcp-1",
 				Inject: true,
 			})
-			ns2 := namespace.NewOrFail(t, ctx, namespace.Config{
+			ns2 := namespace.NewOrFail(t, t, namespace.Config{
 				Prefix: "v1beta1-tcp-2",
 				Inject: true,
 			})
@@ -875,7 +864,7 @@ func TestAuthorization_TCP(t *testing.T) {
 				"Namespace":  ns.Name(),
 				"Namespace2": ns2.Name(),
 			}, file.AsStringOrFail(t, "testdata/authz/v1beta1-tcp.yaml.tmpl"))
-			ctx.Config().ApplyYAMLOrFail(t, "", policy...)
+			t.Config().ApplyYAMLOrFail(t, "", policy...)
 
 			var a, b, c, d, e, x echo.Instance
 			ports := []echo.Port{
@@ -900,7 +889,7 @@ func TestAuthorization_TCP(t *testing.T) {
 					InstancePort: 8093,
 				},
 			}
-			echoboot.NewBuilder(ctx).
+			echoboot.NewBuilder(t).
 				With(&x, util.EchoConfig("x", ns2, false, nil)).
 				With(&a, echo.Config{
 					Subsets:        []echo.SubsetConfig{{}},
@@ -999,7 +988,7 @@ func TestAuthorization_TCP(t *testing.T) {
 				newTestCase(a, e, "tcp-8092", false, scheme.TCP),
 			}
 
-			rbacUtil.RunRBACTest(ctx, cases)
+			rbacUtil.RunRBACTest(t, cases)
 		})
 }
 
@@ -1007,7 +996,7 @@ func TestAuthorization_TCP(t *testing.T) {
 func TestAuthorization_Conditions(t *testing.T) {
 	framework.NewTest(t).
 		Features("security.authorization.conditions").
-		Run(func(ctx framework.TestContext) {
+		Run(func(t framework.TestContext) {
 			nsA := apps.Namespace1
 			nsB := apps.Namespace2
 			nsC := apps.Namespace3
@@ -1015,17 +1004,17 @@ func TestAuthorization_Conditions(t *testing.T) {
 			cSet := apps.C.Match(echo.Namespace(nsC.Name()))
 
 			var IPC string
-			for i := 0; i < len(ctx.Clusters()); i++ {
+			for i := 0; i < len(t.Clusters()); i++ {
 				IPC += "\"" + getWorkload(cSet[i], t).Address() + "\","
 			}
 			lengthC := len(IPC)
 			IPC = IPC[:lengthC-1]
 			portC := 8090
-			for i := 0; i < len(ctx.Clusters()); i++ {
-				ctx.NewSubTest(fmt.Sprintf("IpA IpB IpC in %s", ctx.Clusters()[i].StableName())).Run(func(ctx framework.TestContext) {
-					podAWithIPA := apps.A.Match(echo.InCluster(ctx.Clusters()[i])).Match(echo.Namespace(nsA.Name()))[0]
-					podBWithIPB := apps.B.Match(echo.InCluster(ctx.Clusters()[i])).Match(echo.Namespace(nsB.Name()))[0]
-					vm := apps.VM.Match(echo.InCluster(ctx.Clusters()[i])).Match(echo.Namespace(nsA.Name()))[0]
+			for i := 0; i < len(t.Clusters()); i++ {
+				t.NewSubTest(fmt.Sprintf("IpA IpB IpC in %s", t.Clusters()[i].StableName())).Run(func(t framework.TestContext) {
+					podAWithIPA := apps.A.Match(echo.InCluster(t.Clusters()[i])).Match(echo.Namespace(nsA.Name()))[0]
+					podBWithIPB := apps.B.Match(echo.InCluster(t.Clusters()[i])).Match(echo.Namespace(nsB.Name()))[0]
+					vm := apps.VM.Match(echo.InCluster(t.Clusters()[i])).Match(echo.Namespace(nsA.Name()))[0]
 
 					args := map[string]string{
 						"NamespaceA": nsA.Name(),
@@ -1039,22 +1028,27 @@ func TestAuthorization_Conditions(t *testing.T) {
 					}
 
 					policies := tmpl.EvaluateAllOrFail(t, args, file.AsStringOrFail(t, "testdata/authz/v1beta1-conditions.yaml.tmpl"))
-					ctx.Config().ApplyYAMLOrFail(t, "", policies...)
+					t.Config().ApplyYAMLOrFail(t, "", policies...)
 
-					for _, srcCluster := range ctx.Clusters() {
-						ctx.NewSubTest(fmt.Sprintf("From %s", srcCluster.StableName())).Run(func(ctx framework.TestContext) {
+					for _, srcCluster := range t.Clusters() {
+						t.NewSubTest(fmt.Sprintf("From %s", srcCluster.StableName())).Run(func(t framework.TestContext) {
 							a := apps.A.Match(echo.InCluster(srcCluster).And(echo.Namespace(nsA.Name())))
 							vm := apps.VM.Match(echo.InCluster(srcCluster).And(echo.Namespace(nsA.Name())))
 							b := apps.B.Match(echo.InCluster(srcCluster).And(echo.Namespace(nsB.Name())))
 							callCount := 1
-							if ctx.Clusters().IsMulticluster() {
+							if t.Clusters().IsMulticluster() {
 								// so we can validate all clusters are hit
-								callCount = util.CallsPerCluster * len(ctx.Clusters())
+								callCount = util.CallsPerCluster * len(t.Clusters())
 							}
-							newTestCase := func(from echo.Instance, path string, headers map[string]string, expectAllowed bool) rbacUtil.TestCase {
+							newTestCase := func(from echo.Instances, path string, headers map[string]string, expectAllowed bool) rbacUtil.TestCase {
+								if len(from) == 0 && t.Clusters().IsMulticluster() {
+									return rbacUtil.TestCase{
+										SkippedForMulticluster: true,
+									}
+								}
 								return rbacUtil.TestCase{
 									Request: connection.Checker{
-										From: from,
+										From: from[0],
 										Options: echo.CallOptions{
 											Target:   cSet[0],
 											PortName: "http",
@@ -1069,86 +1063,86 @@ func TestAuthorization_Conditions(t *testing.T) {
 								}
 							}
 							cases := []rbacUtil.TestCase{
-								newTestCase(a[0], "/request-headers", map[string]string{"x-foo": "foo"}, true),
-								newTestCase(vm[0], "/request-headers", map[string]string{"x-foo": "foo"}, true),
-								newTestCase(b[0], "/request-headers", map[string]string{"x-foo": "foo"}, true),
-								newTestCase(a[0], "/request-headers", map[string]string{"x-foo": "bar"}, false),
-								newTestCase(vm[0], "/request-headers", map[string]string{"x-foo": "bar"}, false),
-								newTestCase(b[0], "/request-headers", map[string]string{"x-foo": "bar"}, false),
-								newTestCase(a[0], "/request-headers", nil, false),
-								newTestCase(vm[0], "/request-headers", nil, false),
-								newTestCase(b[0], "/request-headers", nil, false),
-								newTestCase(a[0], "/request-headers-notValues-bar", map[string]string{"x-foo": "foo"}, true),
-								newTestCase(vm[0], "/request-headers-notValues-bar", map[string]string{"x-foo": "foo"}, true),
-								newTestCase(a[0], "/request-headers-notValues-bar", map[string]string{"x-foo": "bar"}, false),
+								newTestCase(a, "/request-headers", map[string]string{"x-foo": "foo"}, true),
+								newTestCase(vm, "/request-headers", map[string]string{"x-foo": "foo"}, true),
+								newTestCase(b, "/request-headers", map[string]string{"x-foo": "foo"}, true),
+								newTestCase(a, "/request-headers", map[string]string{"x-foo": "bar"}, false),
+								newTestCase(vm, "/request-headers", map[string]string{"x-foo": "bar"}, false),
+								newTestCase(b, "/request-headers", map[string]string{"x-foo": "bar"}, false),
+								newTestCase(a, "/request-headers", nil, false),
+								newTestCase(vm, "/request-headers", nil, false),
+								newTestCase(b, "/request-headers", nil, false),
+								newTestCase(a, "/request-headers-notValues-bar", map[string]string{"x-foo": "foo"}, true),
+								newTestCase(vm, "/request-headers-notValues-bar", map[string]string{"x-foo": "foo"}, true),
+								newTestCase(a, "/request-headers-notValues-bar", map[string]string{"x-foo": "bar"}, false),
 
-								newTestCase(a[0], "/source-ip-a", nil, true),
-								newTestCase(vm[0], "/source-ip-vm", nil, true),
-								newTestCase(b[0], "/source-ip-a", nil, false),
-								newTestCase(a[0], "/source-ip-b", nil, false),
-								newTestCase(vm[0], "/source-ip-b", nil, false),
-								newTestCase(b[0], "/source-ip-b", nil, true),
-								newTestCase(a[0], "/source-ip-notValues-b", nil, true),
-								newTestCase(vm[0], "/source-ip-notValues-b", nil, true),
-								newTestCase(b[0], "/source-ip-notValues-b", nil, false),
+								newTestCase(a, "/source-ip-a", nil, true),
+								newTestCase(vm, "/source-ip-vm", nil, true),
+								newTestCase(b, "/source-ip-a", nil, false),
+								newTestCase(a, "/source-ip-b", nil, false),
+								newTestCase(vm, "/source-ip-b", nil, false),
+								newTestCase(b, "/source-ip-b", nil, true),
+								newTestCase(a, "/source-ip-notValues-b", nil, true),
+								newTestCase(vm, "/source-ip-notValues-b", nil, true),
+								newTestCase(b, "/source-ip-notValues-b", nil, false),
 
-								newTestCase(a[0], "/source-namespace-a", nil, true),
-								newTestCase(vm[0], "/source-namespace-a", nil, true),
-								newTestCase(b[0], "/source-namespace-a", nil, false),
-								newTestCase(a[0], "/source-namespace-b", nil, false),
-								newTestCase(vm[0], "/source-namespace-b", nil, false),
-								newTestCase(b[0], "/source-namespace-b", nil, true),
-								newTestCase(a[0], "/source-namespace-notValues-b", nil, true),
-								newTestCase(vm[0], "/source-namespace-notValues-b", nil, true),
-								newTestCase(b[0], "/source-namespace-notValues-b", nil, false),
+								newTestCase(a, "/source-namespace-a", nil, true),
+								newTestCase(vm, "/source-namespace-a", nil, true),
+								newTestCase(b, "/source-namespace-a", nil, false),
+								newTestCase(a, "/source-namespace-b", nil, false),
+								newTestCase(vm, "/source-namespace-b", nil, false),
+								newTestCase(b, "/source-namespace-b", nil, true),
+								newTestCase(a, "/source-namespace-notValues-b", nil, true),
+								newTestCase(vm, "/source-namespace-notValues-b", nil, true),
+								newTestCase(b, "/source-namespace-notValues-b", nil, false),
 
-								newTestCase(a[0], "/source-principal-a", nil, true),
-								newTestCase(vm[0], "/source-principal-vm", nil, true),
-								newTestCase(b[0], "/source-principal-a", nil, false),
-								newTestCase(a[0], "/source-principal-b", nil, false),
-								newTestCase(vm[0], "/source-principal-b", nil, false),
-								newTestCase(b[0], "/source-principal-b", nil, true),
-								newTestCase(a[0], "/source-principal-notValues-b", nil, true),
-								newTestCase(vm[0], "/source-principal-notValues-b", nil, true),
-								newTestCase(b[0], "/source-principal-notValues-b", nil, false),
+								newTestCase(a, "/source-principal-a", nil, true),
+								newTestCase(vm, "/source-principal-vm", nil, true),
+								newTestCase(b, "/source-principal-a", nil, false),
+								newTestCase(a, "/source-principal-b", nil, false),
+								newTestCase(vm, "/source-principal-b", nil, false),
+								newTestCase(b, "/source-principal-b", nil, true),
+								newTestCase(a, "/source-principal-notValues-b", nil, true),
+								newTestCase(vm, "/source-principal-notValues-b", nil, true),
+								newTestCase(b, "/source-principal-notValues-b", nil, false),
 
-								newTestCase(a[0], "/destination-ip-good", nil, true),
-								newTestCase(vm[0], "/destination-ip-good", nil, true),
-								newTestCase(b[0], "/destination-ip-good", nil, true),
-								newTestCase(a[0], "/destination-ip-bad", nil, false),
-								newTestCase(vm[0], "/destination-ip-bad", nil, false),
-								newTestCase(b[0], "/destination-ip-bad", nil, false),
-								newTestCase(a[0], "/destination-ip-notValues-a-or-b", nil, true),
-								newTestCase(vm[0], "/destination-ip-notValues-a-or-b", nil, true),
-								newTestCase(a[0], "/destination-ip-notValues-a-or-b-or-c", nil, false),
-								newTestCase(vm[0], "/destination-ip-notValues-a-or-b-or-c", nil, false),
+								newTestCase(a, "/destination-ip-good", nil, true),
+								newTestCase(vm, "/destination-ip-good", nil, true),
+								newTestCase(b, "/destination-ip-good", nil, true),
+								newTestCase(a, "/destination-ip-bad", nil, false),
+								newTestCase(vm, "/destination-ip-bad", nil, false),
+								newTestCase(b, "/destination-ip-bad", nil, false),
+								newTestCase(a, "/destination-ip-notValues-a-or-b", nil, true),
+								newTestCase(vm, "/destination-ip-notValues-a-or-b", nil, true),
+								newTestCase(a, "/destination-ip-notValues-a-or-b-or-c", nil, false),
+								newTestCase(vm, "/destination-ip-notValues-a-or-b-or-c", nil, false),
 
-								newTestCase(a[0], "/destination-port-good", nil, true),
-								newTestCase(vm[0], "/destination-port-good", nil, true),
-								newTestCase(b[0], "/destination-port-good", nil, true),
-								newTestCase(a[0], "/destination-port-bad", nil, false),
-								newTestCase(vm[0], "/destination-port-bad", nil, false),
-								newTestCase(b[0], "/destination-port-bad", nil, false),
-								newTestCase(a[0], "/destination-port-notValues-c", nil, false),
-								newTestCase(vm[0], "/destination-port-notValues-c", nil, false),
-								newTestCase(b[0], "/destination-port-notValues-c", nil, false),
+								newTestCase(a, "/destination-port-good", nil, true),
+								newTestCase(vm, "/destination-port-good", nil, true),
+								newTestCase(b, "/destination-port-good", nil, true),
+								newTestCase(a, "/destination-port-bad", nil, false),
+								newTestCase(vm, "/destination-port-bad", nil, false),
+								newTestCase(b, "/destination-port-bad", nil, false),
+								newTestCase(a, "/destination-port-notValues-c", nil, false),
+								newTestCase(vm, "/destination-port-notValues-c", nil, false),
+								newTestCase(b, "/destination-port-notValues-c", nil, false),
 
-								newTestCase(a[0], "/connection-sni-good", nil, true),
-								newTestCase(vm[0], "/connection-sni-good", nil, true),
-								newTestCase(b[0], "/connection-sni-good", nil, true),
-								newTestCase(a[0], "/connection-sni-bad", nil, false),
-								newTestCase(vm[0], "/connection-sni-bad", nil, false),
-								newTestCase(b[0], "/connection-sni-bad", nil, false),
-								newTestCase(a[0], "/connection-sni-notValues-a-or-b", nil, true),
-								newTestCase(vm[0], "/connection-sni-notValues-a-or-b", nil, true),
-								newTestCase(a[0], "/connection-sni-notValues-a-or-b-or-c", nil, false),
-								newTestCase(vm[0], "/connection-sni-notValues-a-or-b-or-c", nil, false),
+								newTestCase(a, "/connection-sni-good", nil, true),
+								newTestCase(vm, "/connection-sni-good", nil, true),
+								newTestCase(b, "/connection-sni-good", nil, true),
+								newTestCase(a, "/connection-sni-bad", nil, false),
+								newTestCase(vm, "/connection-sni-bad", nil, false),
+								newTestCase(b, "/connection-sni-bad", nil, false),
+								newTestCase(a, "/connection-sni-notValues-a-or-b", nil, true),
+								newTestCase(vm, "/connection-sni-notValues-a-or-b", nil, true),
+								newTestCase(a, "/connection-sni-notValues-a-or-b-or-c", nil, false),
+								newTestCase(vm, "/connection-sni-notValues-a-or-b-or-c", nil, false),
 
-								newTestCase(a[0], "/other", nil, false),
-								newTestCase(vm[0], "/other", nil, false),
-								newTestCase(b[0], "/other", nil, false),
+								newTestCase(a, "/other", nil, false),
+								newTestCase(vm, "/other", nil, false),
+								newTestCase(b, "/other", nil, false),
 							}
-							rbacUtil.RunRBACTest(ctx, cases)
+							rbacUtil.RunRBACTest(t, cases)
 						})
 					}
 				})
@@ -1160,17 +1154,13 @@ func TestAuthorization_Conditions(t *testing.T) {
 func TestAuthorization_GRPC(t *testing.T) {
 	framework.NewTest(t).
 		Features("security.authorization.grpc-protocol").
-		Run(func(ctx framework.TestContext) {
-			// TODO: finish convert all authorization tests into multicluster supported
-			if ctx.Clusters().IsMulticluster() {
-				ctx.Skip()
-			}
-			ns := namespace.NewOrFail(t, ctx, namespace.Config{
+		Run(func(t framework.TestContext) {
+			ns := namespace.NewOrFail(t, t, namespace.Config{
 				Prefix: "v1beta1-grpc",
 				Inject: true,
 			})
 			var a, b, c, d echo.Instance
-			echoboot.NewBuilder(ctx).
+			echoboot.NewBuilder(t).
 				With(&a, util.EchoConfig("a", ns, false, nil)).
 				With(&b, util.EchoConfig("b", ns, false, nil)).
 				With(&c, util.EchoConfig("c", ns, false, nil)).
@@ -1217,9 +1207,9 @@ func TestAuthorization_GRPC(t *testing.T) {
 			}
 			policies := tmpl.EvaluateAllOrFail(t, namespaceTmpl,
 				file.AsStringOrFail(t, "testdata/authz/v1beta1-grpc.yaml.tmpl"))
-			ctx.Config().ApplyYAMLOrFail(t, ns.Name(), policies...)
+			t.Config().ApplyYAMLOrFail(t, ns.Name(), policies...)
 
-			rbacUtil.RunRBACTest(ctx, cases)
+			rbacUtil.RunRBACTest(t, cases)
 		})
 }
 
@@ -1228,23 +1218,23 @@ func TestAuthorization_GRPC(t *testing.T) {
 func TestAuthorization_Path(t *testing.T) {
 	framework.NewTest(t).
 		Features("security.authorization.path-normalization").
-		Run(func(ctx framework.TestContext) {
+		Run(func(t framework.TestContext) {
 			ns := apps.Namespace1
 			args := map[string]string{
 				"Namespace": ns.Name(),
 			}
 			policies := tmpl.EvaluateAllOrFail(t, args,
 				file.AsStringOrFail(t, "testdata/authz/v1beta1-path.yaml.tmpl"))
-			ctx.Config().ApplyYAMLOrFail(t, ns.Name(), policies...)
-			for _, srcCluster := range ctx.Clusters() {
-				ctx.NewSubTest(fmt.Sprintf("In %s", srcCluster.StableName())).Run(func(ctx framework.TestContext) {
-					b := apps.B.GetOrFail(ctx, echo.InCluster(srcCluster).And(echo.Namespace(ns.Name())))
+			t.Config().ApplyYAMLOrFail(t, ns.Name(), policies...)
+			for _, srcCluster := range t.Clusters() {
+				t.NewSubTest(fmt.Sprintf("In %s", srcCluster.StableName())).Run(func(t framework.TestContext) {
+					b := apps.B.GetOrFail(t, echo.InCluster(srcCluster).And(echo.Namespace(ns.Name())))
 					a := apps.A.Match(echo.Namespace(ns.Name()))
 					vm := apps.VM.Match(echo.Namespace(ns.Name()))
 					callCount := 1
-					if ctx.Clusters().IsMulticluster() {
+					if t.Clusters().IsMulticluster() {
 						// so we can validate all clusters are hit
-						callCount = util.CallsPerCluster * len(ctx.Clusters())
+						callCount = util.CallsPerCluster * len(t.Clusters())
 					}
 
 					newTestCase := func(to echo.Instances, path string, expectAllowed bool) rbacUtil.TestCase {
@@ -1287,7 +1277,7 @@ func TestAuthorization_Path(t *testing.T) {
 						newTestCase(vm, "/public/%2E%2E/%2E/private", false),
 						newTestCase(vm, "/public/%2e%2e/%2e/private", false),
 					}
-					rbacUtil.RunRBACTest(ctx, cases)
+					rbacUtil.RunRBACTest(t, cases)
 				})
 			}
 		})
@@ -1296,18 +1286,18 @@ func TestAuthorization_Path(t *testing.T) {
 // TestAuthorization_Audit tests that the AUDIT action does not impact allowing or denying a request
 func TestAuthorization_Audit(t *testing.T) {
 	framework.NewTest(t).
-		Run(func(ctx framework.TestContext) {
+		Run(func(t framework.TestContext) {
 			// TODO: finish convert all authorization tests into multicluster supported
-			if ctx.Clusters().IsMulticluster() {
-				ctx.Skip()
+			if t.Clusters().IsMulticluster() {
+				t.Skip()
 			}
-			ns := namespace.NewOrFail(t, ctx, namespace.Config{
+			ns := namespace.NewOrFail(t, t, namespace.Config{
 				Prefix: "v1beta1-audit",
 				Inject: true,
 			})
 
 			var a, b, c, d echo.Instance
-			echoboot.NewBuilder(ctx).
+			echoboot.NewBuilder(t).
 				With(&a, util.EchoConfig("a", ns, false, nil)).
 				With(&b, util.EchoConfig("b", ns, false, nil)).
 				With(&c, util.EchoConfig("c", ns, false, nil)).
@@ -1339,17 +1329,17 @@ func TestAuthorization_Audit(t *testing.T) {
 
 			args := map[string]string{
 				"Namespace":     ns.Name(),
-				"RootNamespace": istio.GetOrFail(ctx, ctx).Settings().SystemNamespace,
+				"RootNamespace": istio.GetOrFail(t, t).Settings().SystemNamespace,
 			}
 
 			applyPolicy := func(filename string, ns namespace.Instance) {
 				policy := tmpl.EvaluateAllOrFail(t, args, file.AsStringOrFail(t, filename))
-				ctx.Config().ApplyYAMLOrFail(t, ns.Name(), policy...)
+				t.Config().ApplyYAMLOrFail(t, ns.Name(), policy...)
 			}
 
 			applyPolicy("testdata/authz/v1beta1-audit.yaml.tmpl", ns)
 
-			rbacUtil.RunRBACTest(ctx, cases)
+			rbacUtil.RunRBACTest(t, cases)
 		})
 }
 
@@ -1357,28 +1347,28 @@ func TestAuthorization_Audit(t *testing.T) {
 func TestAuthorization_Custom(t *testing.T) {
 	framework.NewTest(t).
 		Features("security.authorization.custom").
-		Run(func(ctx framework.TestContext) {
-			ns := namespace.NewOrFail(t, ctx, namespace.Config{
+		Run(func(t framework.TestContext) {
+			ns := namespace.NewOrFail(t, t, namespace.Config{
 				Prefix: "v1beta1-custom",
 				Inject: true,
 			})
 			args := map[string]string{
 				"Namespace":     ns.Name(),
-				"RootNamespace": istio.GetOrFail(ctx, ctx).Settings().SystemNamespace,
+				"RootNamespace": istio.GetOrFail(t, t).Settings().SystemNamespace,
 			}
 
 			applyYAML := func(filename string, namespace string) {
 				policy := tmpl.EvaluateAllOrFail(t, args, file.AsStringOrFail(t, filename))
-				ctx.Config().ApplyYAMLOrFail(t, namespace, policy...)
+				t.Config().ApplyYAMLOrFail(t, namespace, policy...)
 			}
 
 			// Deploy and wait for the ext-authz server to be ready.
 			if extAuthzServiceNamespace == nil {
-				ctx.Fatalf("Failed to create namespace for ext-authz server: %v", extAuthzServiceNamespaceErr)
+				t.Fatalf("Failed to create namespace for ext-authz server: %v", extAuthzServiceNamespaceErr)
 			}
 			applyYAML("../../../samples/extauthz/ext-authz.yaml", extAuthzServiceNamespace.Name())
-			if _, _, err := kube.WaitUntilServiceEndpointsAreReady(ctx.Clusters().Default(), extAuthzServiceNamespace.Name(), "ext-authz"); err != nil {
-				ctx.Fatalf("Wait for ext-authz server failed: %v", err)
+			if _, _, err := kube.WaitUntilServiceEndpointsAreReady(t.Clusters().Default(), extAuthzServiceNamespace.Name(), "ext-authz"); err != nil {
+				t.Fatalf("Wait for ext-authz server failed: %v", err)
 			}
 			applyYAML("testdata/authz/v1beta1-custom.yaml.tmpl", "")
 
@@ -1407,7 +1397,7 @@ func TestAuthorization_Custom(t *testing.T) {
 				cfg.Ports = ports
 				return cfg
 			}
-			echoboot.NewBuilder(ctx).
+			echoboot.NewBuilder(t).
 				With(&a, echoConfig("a", false)).
 				With(&b, echoConfig("b", false)).
 				With(&c, echoConfig("c", false)).
@@ -1467,9 +1457,9 @@ func TestAuthorization_Custom(t *testing.T) {
 				newTestCase(x, f, "", "tcp-8093", "", true, scheme.TCP),
 			}
 
-			rbacUtil.RunRBACTest(ctx, cases)
+			rbacUtil.RunRBACTest(t, cases)
 
-			ingr := ist.IngressFor(ctx.Clusters().Default())
+			ingr := ist.IngressFor(t.Clusters().Default())
 			ingressCases := []rbacUtil.TestCase{
 				// workload g is using an ext-authz service in its own pod of HTTP API.
 				newTestCase(x, g, "/custom", "http", "allow", true, scheme.HTTP),
@@ -1485,12 +1475,12 @@ func TestAuthorization_Custom(t *testing.T) {
 					tc.Request.Options.Path,
 					tc.ExpectAllowed)
 
-				ctx.NewSubTest(name).Run(func(ctx framework.TestContext) {
+				t.NewSubTest(name).Run(func(t framework.TestContext) {
 					wantCode := map[bool]int{true: 200, false: 403}[tc.ExpectAllowed]
 					headers := map[string][]string{
 						"X-Ext-Authz": {tc.Headers["x-ext-authz"]},
 					}
-					authn.CheckIngressOrFail(ctx, ingr, "www.company.com", tc.Request.Options.Path, headers, "", wantCode)
+					authn.CheckIngressOrFail(t, ingr, "www.company.com", tc.Request.Options.Path, headers, "", wantCode)
 				})
 			}
 		})

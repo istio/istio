@@ -110,8 +110,9 @@ func (w *InternalWatcher) HandleMeshConfig(meshConfig *meshconfig.MeshConfig) {
 	}
 	w.mutex.Unlock()
 
-	for _, h := range handlers {
-		h()
+	// TODO hack: the first handler added is the ConfigPush, other handlers affect what will be pushed, so reversing iteration
+	for i := len(handlers) - 1; i >= 0; i-- {
+		handlers[i]()
 	}
 }
 

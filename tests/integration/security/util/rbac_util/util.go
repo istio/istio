@@ -111,6 +111,9 @@ func (tc TestCase) CheckRBACRequest() error {
 
 func RunRBACTest(ctx framework.TestContext, cases []TestCase) {
 	for _, tc := range cases {
+		if tc.SkippedForMulticluster && ctx.Clusters().IsMulticluster() {
+			continue
+		}
 		want := "deny"
 		if tc.ExpectAllowed {
 			want = "allow"
@@ -122,13 +125,13 @@ func RunRBACTest(ctx framework.TestContext, cases []TestCase) {
 			tc.Request.Options.PortName,
 			tc.Request.Options.Path,
 			want)
-		ctx.NewSubTest(testName).Run(func(ctx framework.TestContext) {
+		ctx.NewSubTest(testName).Run(func(t framework.TestContext) {
 			// Current source ip based authz test cases are not required in multicluster setup
 			// because cross-network traffic will lose the origin source ip info
-			if strings.Contains(testName, "source-ip") && ctx.Clusters().IsMulticluster() {
-				ctx.Skip()
+			if strings.Contains(testName, "source-ip") && t.Clusters().IsMulticluster() {
+				t.Skip()
 			}
-			retry.UntilSuccessOrFail(ctx, tc.CheckRBACRequest,
+			retry.UntilSuccessOrFail(t, tc.CheckRBACRequest,
 				retry.Delay(250*time.Millisecond), retry.Timeout(30*time.Second))
 		})
 	}

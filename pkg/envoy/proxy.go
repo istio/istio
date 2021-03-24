@@ -28,6 +28,7 @@ import (
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pkg/bootstrap"
+	"istio.io/istio/pkg/bootstrap/platform"
 	"istio.io/pkg/env"
 	"istio.io/pkg/log"
 )
@@ -143,13 +144,15 @@ func (e *envoy) Run(epoch int, abort <-chan error) error {
 		fname = e.Config.CustomConfigFile
 	} else {
 		discHost := strings.Split(e.Config.DiscoveryAddress, ":")[0]
+		plat := platform.Discover()
+		node, err := bootstrap.GetNodeMetaData(e.Node, os.Environ(), plat, e.NodeIPs, e.STSPort, e.Config)
+		if err != nil {
+			log.Error("Failed to extract node metadata: ", err)
+			os.Exit(1)
+		}
 		out, err := bootstrap.New(bootstrap.Config{
-			Node:                e.Node,
-			Proxy:               e.Config,
+			Node:                node,
 			PilotSubjectAltName: e.PilotSubjectAltName,
-			LocalEnv:            os.Environ(),
-			NodeIPs:             e.NodeIPs,
-			STSPort:             e.STSPort,
 			ProxyViaAgent:       e.ProxyViaAgent,
 			OutlierLogPath:      e.OutlierLogPath,
 			PilotCertProvider:   e.PilotCertProvider,

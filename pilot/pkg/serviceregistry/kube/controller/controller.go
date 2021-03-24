@@ -46,7 +46,7 @@ import (
 	"istio.io/istio/pkg/config/protocol"
 	kubelib "istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/queue"
-	"istio.io/pkg/log"
+	istiolog "istio.io/pkg/log"
 	"istio.io/pkg/monitoring"
 )
 
@@ -69,6 +69,8 @@ const (
 	// by meshNetworks or "networking.istio.io/gatewayPort"
 	DefaultNetworkGatewayPort = 15443
 )
+
+var log = istiolog.RegisterScope("kube", "kubernetes service registry controller", 0)
 
 var (
 	typeTag  = monitoring.MustCreateLabel("type")

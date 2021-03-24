@@ -5423,7 +5423,7 @@ spec:
         properties:
           spec:
             description: 'Configuration for access control on workloads. See more
-              details at: https://istio.io/latest/docs/reference/config/security/authorization-policy.html'
+              details at: https://istio.io/docs/reference/config/security/authorization-policy.html'
             oneOf:
             - not:
                 anyOf:

@@ -36,8 +36,8 @@ import (
 func TestReachability(t *testing.T) {
 	framework.NewTest(t).
 		Features("security.reachability").
-		Run(func(ctx framework.TestContext) {
-			systemNM := istio.ClaimSystemNamespaceOrFail(ctx, ctx)
+		Run(func(t framework.TestContext) {
+			systemNM := istio.ClaimSystemNamespaceOrFail(t, t)
 			// mtlsOnExpect defines our expectations for when mTLS is expected when its enabled
 			mtlsOnExpect := func(src echo.Instance, opts echo.CallOptions) bool {
 				if apps.IsNaked(src) || apps.IsNaked(opts.Target) {
@@ -261,6 +261,6 @@ func TestReachability(t *testing.T) {
 				},
 				// ----- end of automtls partial test suites -----
 			}
-			reachability.Run(testCases, ctx, apps)
+			reachability.Run(testCases, t, apps)
 		})
 }
