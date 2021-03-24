@@ -54,6 +54,8 @@ spec:
 
     pilot:
       env:
+        # TODO don't merge
+        UNSAFE_PILOT_ENABLE_RUNTIME_ASSERTIONS: true
         UNSAFE_ENABLE_ADMIN_ENDPOINTS: true
         PILOT_ENABLE_CROSS_CLUSTER_WORKLOAD_ENTRY: true
 
