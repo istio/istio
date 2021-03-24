@@ -38,9 +38,7 @@ setup_and_export_git_sha
 source "${ROOT}/common/scripts/kind_provisioner.sh"
 
 TOPOLOGY=SINGLE_CLUSTER
-# We are currently running from head of release-1.20, until a release containing the fix in b86925b0fbd
-# is built.
-NODE_IMAGE="gcr.io/istio-testing/kind-node:b86925b0fbd"
+NODE_IMAGE="gcr.io/istio-testing/kind-node:v1.20.2"
 KIND_CONFIG=""
 CLUSTER_TOPOLOGY_CONFIG_FILE="${ROOT}/prow/config/topology/multicluster.json"
 
