@@ -21,6 +21,8 @@ import (
 	"reflect"
 	"sync"
 	"testing"
+
+	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 )
 
 func TestGCPMetadata(t *testing.T) {
@@ -312,6 +314,37 @@ func TestMetadataCache(t *testing.T) {
 			got := gcpEnv.Metadata()
 			if !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("gcpEnv.Metadata() => '%v'; want '%v'", got, tt.want)
+			}
+			envOnce, envPid, envNpid, envCluster, envLocation = sync.Once{}, "", "", "", ""
+		})
+	}
+}
+
+func TestLocalityFromEnv(t *testing.T) {
+
+	tests := []struct {
+		name string
+		env  map[string]string
+		want *core.Locality
+	}{
+		{"zone", map[string]string{"GCP_METADATA": "proj|1234|cluster|us-central1-a"}, &core.Locality{Zone: "us-central1-a", Region: "us-central1"}},
+		{"region", map[string]string{"GCP_METADATA": "proj|1234|cluster|us-central1"}, &core.Locality{Region: "us-central1"}},
+		{"gibberish", map[string]string{"GCP_METADATA": "proj|1234|cluster|asdfasdfs"}, &core.Locality{Region: "asdfasdfs"}},
+		{"emtpy", map[string]string{"GCP_METADATA": "proj|1234|cluster|"}, &core.Locality{}},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			for e, v := range tt.env {
+				os.Setenv(e, v)
+			}
+			e := NewGCP()
+			got := e.Locality()
+			if !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("gcpEnv.Locality() => '%v'; want '%v'", got, tt.want)
+			}
+			for e := range tt.env {
+				os.Unsetenv(e)
 			}
 			envOnce, envPid, envNpid, envCluster, envLocation = sync.Once{}, "", "", "", ""
 		})

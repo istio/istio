@@ -98,6 +98,11 @@ var (
 		return fmt.Sprintf("https://container.googleapis.com/v1/projects/%s/locations/%s/clusters/%s",
 			projectID, clusterLocation, clusterName), nil
 	}
+
+	// GCP zones are: <region>-<zone-suffix>.
+	// GCP regions all contain a hyphen. example: "us-central1", "asia-east1"
+	// Docs: https://cloud.google.com/compute/docs/regions-zones
+	zonePattern = regexp.MustCompile("^[^-]+-[^-]+-[^-]+$")
 )
 
 type (
@@ -108,6 +113,7 @@ type (
 type gcpEnv struct {
 	sync.Mutex
 	metadata map[string]string
+	locality *core.Locality
 }
 
 // IsGCP returns whether or not the platform for bootstrapping is Google Cloud Platform.
@@ -207,19 +213,53 @@ func parseGCPMetadata() (pid, npid, cluster, location string) {
 	return envPid, envNpid, envCluster, envLocation
 }
 
+func isZone(z string) bool {
+	return zonePattern.MatchString(z)
+}
+
 // Converts a GCP zone into a region.
 func zoneToRegion(z string) (string, error) {
-	// Zones are in the form <region>-<zone_suffix>, so capture everything but the suffix.
-	re := regexp.MustCompile("(.*)-.*")
-	m := re.FindStringSubmatch(z)
-	if len(m) != 2 {
-		return "", fmt.Errorf("unable to extract region from GCP zone: %s", z)
+	if !isZone(z) {
+		return "", fmt.Errorf("invalid zone: %q", z)
 	}
-	return m[1], nil
+	zoneSuffixIdx := strings.LastIndex(z, "-")
+	return z[:zoneSuffixIdx], nil
 }
+
+var (
+	gcpLocalityOnce sync.Once
+	gcpLocality     *core.Locality
+)
 
 // Locality returns the GCP-specific region and zone.
 func (e *gcpEnv) Locality() *core.Locality {
+	gcpLocalityOnce.Do(func() {
+		gcpLocality = locality()
+	})
+	return gcpLocality
+}
+
+func locality() *core.Locality {
+	// try local env vars first, in order to minimize possible delays
+	_, _, _, envLoc := parseGCPMetadata()
+	if envLoc != "" {
+		if !isZone(envLoc) {
+			return &core.Locality{
+				Region: envLoc,
+			}
+		}
+		r, err := zoneToRegion(envLoc)
+		if err != nil {
+			log.Warnf("Error fetching GCP region: %v", err)
+			return &core.Locality{}
+		}
+		return &core.Locality{
+			Region: r,
+			Zone:   envLoc,
+		}
+	}
+
+	// if fast-path fails, use slow-path
 	var l core.Locality
 	if metadata.OnGCE() {
 		z, zerr := metadata.Zone()
