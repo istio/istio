@@ -47,7 +47,6 @@ var (
 	clt         echo.Instance
 )
 
-/*
 func TestRateLimiting(t *testing.T) {
 	framework.
 		NewTest(t).
@@ -80,15 +79,14 @@ func TestLocalRouteSpecificRateLimiting(t *testing.T) {
 			sendTrafficAndCheckIfRatelimited(t)
 		})
 }
-*/
 
 func TestLocalRateLimitingServiceAccount(t *testing.T) {
 	framework.
 		NewTest(t).
 		Features("traffic.ratelimit.envoy").
 		Run(func(ctx framework.TestContext) {
-			_ = setupEnvoyFilter(ctx, "testdata/enable_envoy_local_ratelimit_sa.yaml")
-			//			defer cleanup()
+			cleanup := setupEnvoyFilter(ctx, "testdata/enable_envoy_local_ratelimit_sa.yaml")
+			defer cleanup()
 			sendTrafficAndCheckIfRatelimited(t)
 		})
 }
