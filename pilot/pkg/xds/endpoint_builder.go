@@ -357,18 +357,24 @@ func mtlsDisbaledByDestinationRule(destinationRule *config.Config, port int) boo
 	if destinationRule == nil {
 		return false
 	}
+	dr, ok := destinationRule.Spec.(*networkingapi.DestinationRule)
+	if !ok || dr == nil {
+		return false
+	}
+	tp := dr.GetTrafficPolicy()
+	if tp == nil {
+		return false
+	}
+
 	var drMode *networkingapi.ClientTLSSettings_TLSmode
-	if dr, ok := destinationRule.Spec.(*networkingapi.DestinationRule); ok && dr != nil {
-		tp := dr.GetTrafficPolicy()
-		if tp.Tls != nil {
-			drMode = &tp.Tls.Mode
-		}
-		// if there is a port-level setting matching this cluster
-		for _, portSettings := range tp.GetPortLevelSettings() {
-			if int(portSettings.Port.Number) == port && portSettings.Tls != nil {
-				drMode = &portSettings.Tls.Mode
-				break
-			}
+	if tp.Tls != nil {
+		drMode = &tp.Tls.Mode
+	}
+	// if there is a port-level setting matching this cluster
+	for _, portSettings := range tp.GetPortLevelSettings() {
+		if int(portSettings.Port.Number) == port && portSettings.Tls != nil {
+			drMode = &portSettings.Tls.Mode
+			break
 		}
 	}
 	// TODO handle subsets
