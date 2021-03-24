@@ -47,7 +47,7 @@ type TestCase struct {
 	Include func(src echo.Instance, opts echo.CallOptions) bool
 
 	// Handler called when the given test is being run.
-	OnRun func(ctx framework.TestContext, src echo.Instance, opts echo.CallOptions)
+	OnRun func(t framework.TestContext, src echo.Instance, opts echo.CallOptions)
 
 	// Indicates whether the test should expect a successful response.
 	ExpectSuccess func(src echo.Instance, opts echo.CallOptions) bool
@@ -65,7 +65,7 @@ type TestCase struct {
 }
 
 // Run runs the given reachability test cases with the context.
-func Run(testCases []TestCase, ctx framework.TestContext, apps *util.EchoDeployments) {
+func Run(testCases []TestCase, t framework.TestContext, apps *util.EchoDeployments) {
 	callOptions := []echo.CallOptions{
 		{
 			PortName: "http",
@@ -92,11 +92,11 @@ func Run(testCases []TestCase, ctx framework.TestContext, apps *util.EchoDeploym
 	for _, c := range testCases {
 		// Create a copy to avoid races, as tests are run in parallel
 		c := c
-		if c.SkippedForMulticluster && ctx.Clusters().IsMulticluster() {
+		if c.SkippedForMulticluster && t.Clusters().IsMulticluster() {
 			continue
 		}
 		testName := strings.TrimSuffix(c.ConfigFile, filepath.Ext(c.ConfigFile))
-		ctx.NewSubTest(testName).Run(func(t framework.TestContext) {
+		t.NewSubTest(testName).Run(func(t framework.TestContext) {
 			// Apply the policy.
 			policyYAML := file.AsStringOrFail(t, filepath.Join("./testdata", c.ConfigFile))
 			retry.UntilSuccessOrFail(t, func() error {
@@ -111,7 +111,7 @@ func Run(testCases []TestCase, ctx framework.TestContext, apps *util.EchoDeploym
 				for _, client := range clients {
 					client := client
 					t.NewSubTest(fmt.Sprintf("%s in %s",
-						client.Config().Service, client.Config().Cluster.StableName())).Run(func(ctx framework.TestContext) {
+						client.Config().Service, client.Config().Cluster.StableName())).Run(func(t framework.TestContext) {
 						destinationSets := []echo.Instances{
 							apps.A,
 							apps.B,
@@ -191,9 +191,9 @@ func Run(testCases []TestCase, ctx framework.TestContext, apps *util.EchoDeploym
 										tpe)
 
 									t.NewSubTest(subTestName).
-										RunParallel(func(ctx framework.TestContext) {
+										RunParallel(func(t framework.TestContext) {
 											if onPreRun != nil {
-												onPreRun(ctx, src, opts)
+												onPreRun(t, src, opts)
 											}
 
 											checker := connection.Checker{
@@ -203,7 +203,7 @@ func Run(testCases []TestCase, ctx framework.TestContext, apps *util.EchoDeploym
 												ExpectSuccess: expectSuccess,
 												ExpectMTLS:    expectMTLS,
 											}
-											checker.CheckOrFail(ctx)
+											checker.CheckOrFail(t)
 										})
 								}
 							}
