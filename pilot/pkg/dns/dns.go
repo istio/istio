@@ -178,11 +178,10 @@ func (h *LocalDNSServer) ServeDNS(proxy *dnsProxy, w dns.ResponseWriter, req *dn
 
 	lp := h.lookupTable.Load()
 	if lp == nil {
-		response = new(dns.Msg)
-		response.SetReply(req)
-		response.Rcode = dns.RcodeServerFailure
-		log.Debugf("dns request before lookup table is loaded")
-		_ = w.WriteMsg(response)
+		log.Debugf("dns request before lookup table is loaded, forwarding the request to upstream")
+		// Lookup table not yet loaded - this can happen when proxy is just starting and making a DNS request
+		// before entire config is loaded. We should let upstream respond for it.
+		h.writeUpstreamResponse(proxy, w, req)
 		return
 	}
 	lookupTable := lp.(*LookupTable)
@@ -215,8 +214,14 @@ func (h *LocalDNSServer) ServeDNS(proxy *dnsProxy, w dns.ResponseWriter, req *dn
 		_ = w.WriteMsg(response)
 		return
 	}
+
 	// We did not find the host in our internal cache. Query upstream and return the response as is.
-	response = h.queryUpstream(proxy.upstreamClient, req, log)
+	h.writeUpstreamResponse(proxy, w, req)
+}
+
+func (h *LocalDNSServer) writeUpstreamResponse(proxy *dnsProxy, w dns.ResponseWriter, req *dns.Msg) {
+	response := h.queryUpstream(proxy.upstreamClient, req, log)
+	hostname := strings.ToLower(req.Question[0].Name)
 	// Compress the response - we don't know if the incoming response was compressed or not. If it was,
 	// but we don't compress on the outbound, we will run into issues. For example, if the compressed
 	// size is 450 bytes but uncompressed 1000 bytes now we are outside of the non-eDNS UDP size limits
