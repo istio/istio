@@ -43,21 +43,22 @@ spec:
                 - entries:
                   - key: client_id
                     value: "spiffe://cluster.local/ns/{{ .EchoNamespace }}/sa/clt"
-                    token_bucket:
-                      max_tokens: 1
-                      tokens_per_fill: 1
-                      fill_interval: 600s
+                  token_bucket:
+                    max_tokens: 1
+                    tokens_per_fill: 1
+                    fill_interval: 600s
     - applyTo: HTTP_ROUTE
       match:
         context: SIDECAR_INBOUND
         routeConfiguration:
           vhost:
-            name: "inbound|http|8888"
+            name: "inbound|http|80"
       patch:
         operation: MERGE
         value:
           route:
             rate_limits:
+            - actions:
               - extension:
                   name: custom
                   typed_config:
