@@ -22,7 +22,6 @@ import (
 	"html/template"
 	"io/ioutil"
 	"path"
-	"testing"
 	"time"
 
 	envoyAdmin "github.com/envoyproxy/go-control-plane/envoy/admin/v3"
@@ -43,7 +42,7 @@ import (
 	"istio.io/istio/pkg/test/util/structpath"
 )
 
-func MustReadCert(t *testing.T, f string) string {
+func MustReadCert(t test.Failer, f string) string {
 	b, err := ioutil.ReadFile(path.Join(env.IstioSrc, "tests/testdata/certs/dns", f))
 	if err != nil {
 		t.Fatalf("failed to read %v: %v", f, err)
@@ -153,7 +152,7 @@ func createSecret(credentialType string, cn, ns string, ic TLSCredential, isNotG
 // SetupEcho creates two namespaces client and server. It also brings up two echo instances server and
 // client in respective namespaces. HTTP and HTTPS port on the server echo are set up. Egress Gateway is set up in the
 // service namespace to handle egress for "external" calls.
-func SetupEcho(t *testing.T, ctx resource.Context) (echo.Instance, echo.Instance, namespace.Instance, namespace.Instance) {
+func SetupEcho(t test.Failer, ctx resource.Context) (echo.Instance, echo.Instance, namespace.Instance, namespace.Instance) {
 	clientNamespace := namespace.NewOrFail(t, ctx, namespace.Config{
 		Prefix: "client",
 		Inject: true,
@@ -299,7 +298,7 @@ spec:
 // We want to test out TLS origination at Gateway, to do so traffic from client in client namespace is first
 // routed to egress-gateway service in istio-system namespace and then from egress-gateway to server in server namespace.
 // TLS origination at Gateway happens using DestinationRule with CredentialName reading k8s secret at the gateway proxy.
-func createGateway(t *testing.T, ctx resource.Context, clientNamespace namespace.Instance, serverNamespace namespace.Instance) {
+func createGateway(t test.Failer, ctx resource.Context, clientNamespace namespace.Instance, serverNamespace namespace.Instance) {
 	tmplGateway, err := template.New("Gateway").Parse(Gateway)
 	if err != nil {
 		t.Fatalf("failed to create template: %v", err)
