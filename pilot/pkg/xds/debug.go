@@ -118,21 +118,21 @@ type SyncStatus struct {
 	// Deprecation notice: Fields below are part of old format and are
 	// retained here for backward compatibility with older istioctl clients
 
-	// DEPRECATED: Use CDS and NonceSent from Statuses map
+	// Deprecated: Use CDS and NonceSent from Statuses map
 	ClusterSent string `json:"cluster_sent,omitempty"`
-	// DEPRECATED: Use CDS and NonceSent from Statuses map
+	// Deprecated: Use CDS and NonceSent from Statuses map
 	ClusterAcked string `json:"cluster_acked,omitempty"`
-	// DEPRECATED: Use LDS and NonceSent from Statuses map
+	// Deprecated: Use LDS and NonceSent from Statuses map
 	ListenerSent string `json:"listener_sent,omitempty"`
-	// DEPRECATED: Use LDS and NonceAcked from Statuses map
+	// Deprecated: Use LDS and NonceAcked from Statuses map
 	ListenerAcked string `json:"listener_acked,omitempty"`
-	// DEPRECATED: Use RDS and NonceSent from Statuses map
+	// Deprecated: Use RDS and NonceSent from Statuses map
 	RouteSent string `json:"route_sent,omitempty"`
-	// DEPRECATED: Use RDS and NonceAcked from Statuses map
+	// Deprecated: Use RDS and NonceAcked from Statuses map
 	RouteAcked string `json:"route_acked,omitempty"`
-	// DEPRECATED: Use EDS and NonceSent from Statuses map
+	// Deprecated: Use EDS and NonceSent from Statuses map
 	EndpointSent string `json:"endpoint_sent,omitempty"`
-	// DEPRECATED: Use EDS and NonceAcked from Statuses map
+	// Deprecated: Use EDS and NonceAcked from Statuses map
 	EndpointAcked string `json:"endpoint_acked,omitempty"`
 }
 
