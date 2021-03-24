@@ -87,8 +87,8 @@ func TestLocalRateLimitingServiceAccount(t *testing.T) {
 		NewTest(t).
 		Features("traffic.ratelimit.envoy").
 		Run(func(ctx framework.TestContext) {
-			cleanup := setupEnvoyFilter(ctx, "testdata/enable_envoy_local_ratelimit_sa.yaml")
-			defer cleanup()
+			_ = setupEnvoyFilter(ctx, "testdata/enable_envoy_local_ratelimit_sa.yaml")
+			//			defer cleanup()
 			sendTrafficAndCheckIfRatelimited(t)
 		})
 }
