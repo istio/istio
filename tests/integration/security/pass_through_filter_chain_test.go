@@ -35,7 +35,7 @@ func TestPassThroughFilterChain(t *testing.T) {
 	framework.
 		NewTest(t).
 		Features("security.filterchain").
-		Run(func(ctx framework.TestContext) {
+		Run(func(t framework.TestContext) {
 			ns := apps.Namespace1
 
 			type expect struct {
@@ -596,12 +596,12 @@ spec:
 				},
 			}
 
-			for _, cluster := range ctx.Clusters() {
-				destination := apps.A.Match(echo.Namespace(ns.Name())).GetOrFail(ctx, echo.InCluster(cluster))
-				destWorkload := getWorkload(destination, ctx).Address()
+			for _, cluster := range t.Clusters() {
+				destination := apps.A.Match(echo.Namespace(ns.Name())).GetOrFail(t, echo.InCluster(cluster))
+				destWorkload := getWorkload(destination, t).Address()
 				// Its not trivial to force mTLS to passthrough ports. To workaround this, we will
 				// set up a SE and DR that forces it
-				se := tmpl.EvaluateOrFail(ctx, `apiVersion: networking.istio.io/v1beta1
+				se := tmpl.EvaluateOrFail(t, `apiVersion: networking.istio.io/v1beta1
 kind: ServiceEntry
 metadata:
   name: dest-via-mtls
@@ -632,7 +632,7 @@ spec:
   location: MESH_INTERNAL
   resolution: NONE`,
 					map[string]interface{}{"IP": destWorkload})
-				ctx.Config().ApplyYAMLOrFail(t, ns.Name(), `
+				t.Config().ApplyYAMLOrFail(t, ns.Name(), `
 apiVersion: networking.istio.io/v1alpha3
 kind: DestinationRule
 metadata:
@@ -656,17 +656,17 @@ spec:
       mode: ISTIO_MUTUAL
 ---
 ` + se)
-				clientNaked := apps.Naked.Match(echo.InCluster(cluster)).GetOrFail(ctx, echo.Namespace(ns.Name()))
-				clientTLS := apps.B.Match(echo.InCluster(cluster)).GetOrFail(ctx, echo.Namespace(ns.Name()))
+				clientNaked := apps.Naked.Match(echo.InCluster(cluster)).GetOrFail(t, echo.Namespace(ns.Name()))
+				clientTLS := apps.B.Match(echo.InCluster(cluster)).GetOrFail(t, echo.Namespace(ns.Name()))
 				for i, client := range []echo.Instance{clientTLS, clientNaked} {
 					mtls := i == 0
 					nameSuffix := "plaintext"
 					if mtls {
 						nameSuffix = "mtls"
 					}
-					from := getWorkload(client, ctx)
+					from := getWorkload(client, t)
 					for _, tc := range cases {
-						ctx.NewSubTest(fmt.Sprintf("In %s/%v/%v", cluster.StableName(), tc.name, nameSuffix)).Run(func(ctx framework.TestContext) {
+						t.NewSubTest(fmt.Sprintf("In %s/%v/%v", cluster.StableName(), tc.name, nameSuffix)).Run(func(ctx framework.TestContext) {
 							ctx.Config().ApplyYAMLOrFail(ctx, ns.Name(), tc.config)
 							for _, expect := range tc.expected {
 								want := expect.plaintextSucceeds
