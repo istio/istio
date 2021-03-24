@@ -339,6 +339,9 @@ func validateMetrics(t *testing.T, serverReqCount, clientReqCount, clName, trust
 	t.Logf("number of timeseries: %v", len(ts))
 	var gotServer, gotClient bool
 	for _, tt := range ts {
+		if tt == nil {
+			continue
+		}
 		fmt.Printf("bianpengyuan: %v\n", tt.String())
 		if tt.Metric.Type != wantClient.Metric.Type && tt.Metric.Type != wantServer.Metric.Type {
 			continue
