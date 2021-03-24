@@ -165,7 +165,7 @@ func NewTranslator() *Translator {
 			"Components.{{.ComponentName}}.K8S.Service":             {OutPath: "[Service:{{.ResourceName}}].spec"},
 			"Components.{{.ComponentName}}.K8S.SecurityContext":     {OutPath: "[{{.ResourceType}}:{{.ResourceName}}].spec.template.spec.securityContext"},
 			"Components.{{.ComponentName}}.K8S.Volumes":             {OutPath: "[{{.ResourceType}}:{{.ResourceName}}].spec.template.spec.volumes"},
-			"Components.{{.ComponentName}}.K8S.Volumes":             {OutPath: "[{{.ResourceType}}:{{.ResourceName}}].spec.template.spec.containers.[name:{{.ContainerName}}].volumeMounts"},
+			"Components.{{.ComponentName}}.K8S.VolumeMounts":        {OutPath: "[{{.ResourceType}}:{{.ResourceName}}].spec.template.spec.containers.[name:{{.ContainerName}}].volumeMounts"},
 		},
 	}
 	return t
