@@ -32,9 +32,10 @@ const (
 	Listener      PatchType = "listener"
 	FilterChain   PatchType = "filterchain"
 	NetworkFilter PatchType = "networkfilter"
-	HttpFilter    PatchType = "httpfilter"
-	Route         PatchType = "route"
-	VirtualHost   PatchType = "vhost"
+	// nolint
+	HttpFilter  PatchType = "httpfilter"
+	Route       PatchType = "route"
+	VirtualHost PatchType = "vhost"
 )
 
 var (
