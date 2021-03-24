@@ -1298,7 +1298,7 @@ func TestEndpointMetadata(t *testing.T) {
 		},
 		{
 			name:         "miss workload name",
-			tlsMode:      string(model.IstioMutualTLSModeLabel),
+			tlsMode:      model.IstioMutualTLSModeLabel,
 			network:      "network",
 			workloadName: "",
 			clusterID:    "cluster",

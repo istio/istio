@@ -19,21 +19,19 @@ import (
 	"testing"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
-	"istio.io/istio/pilot/pkg/config/memory"
-	"istio.io/istio/pkg/config/mesh"
-	"istio.io/istio/pkg/config/protocol"
-	"istio.io/istio/pkg/config/schema/collections"
-
 	security "istio.io/api/security/v1beta1"
 	"istio.io/api/type/v1beta1"
+	"istio.io/istio/pilot/pkg/config/memory"
 	"istio.io/istio/pilot/pkg/model"
 	memregistry "istio.io/istio/pilot/pkg/serviceregistry/memory"
 	"istio.io/istio/pkg/config"
+	"istio.io/istio/pkg/config/mesh"
+	"istio.io/istio/pkg/config/protocol"
+	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/config/schema/gvk"
 )
 
 type LbEpInfo struct {
-	network string
 	address string
 	// nolint: structcheck
 	weight uint32
