@@ -36,7 +36,7 @@ func TestPassThroughFilterChain(t *testing.T) {
 	framework.
 		NewTest(t).
 		Features("security.filterchain").
-		Run(func(ctx framework.TestContext) {
+		Run(func(t framework.TestContext) {
 			ns := apps.Namespace1
 			type expect struct {
 				port *echo.Port
@@ -264,15 +264,15 @@ spec:
 			}
 			srcFilter := []echotest.SimpleFilter{findNaked}
 			for _, tc := range cases {
-				echotest.New(ctx, apps.All).
-					SetupForPair(func(ctx framework.TestContext, src, dst echo.Instances) error {
+				echotest.New(t, apps.All).
+					SetupForPair(func(t framework.TestContext, src, dst echo.Instances) error {
 						cfg := yml.MustApplyNamespace(t, tmpl.MustEvaluate(
 							tc.config,
 							map[string]string{
 								"dst": dst[0].Config().Service,
 							},
 						), ns.Name())
-						return ctx.Config().ApplyYAML("", cfg)
+						return t.Config().ApplyYAML("", cfg)
 					}).
 					From(srcFilter...).
 					ConditionallyTo(echotest.ReachableDestinations).
@@ -283,7 +283,7 @@ spec:
 						echotest.Not(func(instances echo.Instances) echo.Instances { return instances.Match(echo.IsExternal()) }),
 						echotest.Not(func(instances echo.Instances) echo.Instances { return instances.Match(util.IsMultiversion()) }),
 					).
-					Run(func(ctx framework.TestContext, src echo.Instance, dest echo.Instances) {
+					Run(func(t framework.TestContext, src echo.Instance, dest echo.Instances) {
 						clusterName := src.Config().Cluster.StableName()
 						for _, expect := range tc.expected {
 							name := fmt.Sprintf("In %s/%v/port %d[%t]", clusterName, tc.name, expect.port.ServicePort, expect.want)
@@ -297,7 +297,7 @@ spec:
 								Message: "HelloWorld",
 								// Do not set Target to dest, otherwise fillInCallOptions() will
 								// complain with port does not match.
-								Address: getWorkload(dest[0], ctx).Address(),
+								Address: getWorkload(dest[0], t).Address(),
 								Validator: echo.And(echo.ValidatorFunc(
 									func(responses client.ParsedResponses, err error) error {
 										if expect.want {
@@ -323,8 +323,8 @@ spec:
 										return nil
 									})),
 							}
-							ctx.NewSubTest(name).Run(func(ctx framework.TestContext) {
-								src.CallWithRetryOrFail(ctx, callOpt, echo.DefaultCallRetryOptions()...)
+							t.NewSubTest(name).Run(func(t framework.TestContext) {
+								src.CallWithRetryOrFail(t, callOpt, echo.DefaultCallRetryOptions()...)
 							})
 						}
 					})

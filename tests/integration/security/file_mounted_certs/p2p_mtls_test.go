@@ -48,11 +48,11 @@ const (
 func TestClientToServiceTls(t *testing.T) {
 	framework.NewTest(t).
 		Features("security.peer.file-mounted-certs").
-		Run(func(ctx framework.TestContext) {
-			echoClient, echoServer, serviceNamespace := setupEcho(t, ctx)
+		Run(func(t framework.TestContext) {
+			echoClient, echoServer, serviceNamespace := setupEcho(t, t)
 
-			createObject(ctx, serviceNamespace.Name(), DestinationRuleConfigMutual)
-			createObject(ctx, "istio-system", PeerAuthenticationConfig)
+			createObject(t, serviceNamespace.Name(), DestinationRuleConfigMutual)
+			createObject(t, "istio-system", PeerAuthenticationConfig)
 
 			retry.UntilSuccessOrFail(t, func() error {
 				resp, err := echoClient.Call(echo.CallOptions{
@@ -124,7 +124,7 @@ func createObject(ctx framework.TestContext, serviceNamespace string, yamlManife
 
 // setupEcho creates an `istio-fd-sds` namespace and brings up two echo instances server and
 // client in that namespace.
-func setupEcho(t *testing.T, ctx resource.Context) (echo.Instance, echo.Instance, namespace.Instance) {
+func setupEcho(t framework.TestContext, ctx resource.Context) (echo.Instance, echo.Instance, namespace.Instance) {
 	appsNamespace := namespace.NewOrFail(t, ctx, namespace.Config{
 		Prefix: "istio-fd-sds",
 		Inject: true,

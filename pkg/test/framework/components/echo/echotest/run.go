@@ -20,8 +20,8 @@ import (
 )
 
 type (
-	perDeploymentTest func(ctx framework.TestContext, instances echo.Instances)
-	perInstanceTest   func(ctx framework.TestContext, src echo.Instance, dst echo.Instances)
+	perDeploymentTest func(t framework.TestContext, instances echo.Instances)
+	perInstanceTest   func(t framework.TestContext, src echo.Instance, dst echo.Instances)
 )
 
 // Run will generate nested subtests for every instance in every deployment. The subtests will be nested including

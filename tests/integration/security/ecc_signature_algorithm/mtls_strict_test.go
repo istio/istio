@@ -59,14 +59,14 @@ func TestStrictMTLS(t *testing.T) {
 	framework.
 		NewTest(t).
 		Features("security.peer.ecc-signature-algorithm").
-		Run(func(ctx framework.TestContext) {
-			peerTemplate := tmpl.EvaluateOrFail(ctx, PeerAuthenticationConfig, map[string]string{"AppNamespace": apps.Namespace.Name()})
-			ctx.Config().ApplyYAMLOrFail(ctx, apps.Namespace.Name(), peerTemplate)
-			util.WaitForConfig(ctx, peerTemplate, apps.Namespace)
+		Run(func(t framework.TestContext) {
+			peerTemplate := tmpl.EvaluateOrFail(t, PeerAuthenticationConfig, map[string]string{"AppNamespace": apps.Namespace.Name()})
+			t.Config().ApplyYAMLOrFail(t, apps.Namespace.Name(), peerTemplate)
+			util.WaitForConfig(t, peerTemplate, apps.Namespace)
 
-			drTemplate := tmpl.EvaluateOrFail(ctx, DestinationRuleConfigIstioMutual, map[string]string{"AppNamespace": apps.Namespace.Name()})
-			ctx.Config().ApplyYAMLOrFail(ctx, apps.Namespace.Name(), drTemplate)
-			util.WaitForConfig(ctx, drTemplate, apps.Namespace)
+			drTemplate := tmpl.EvaluateOrFail(t, DestinationRuleConfigIstioMutual, map[string]string{"AppNamespace": apps.Namespace.Name()})
+			t.Config().ApplyYAMLOrFail(t, apps.Namespace.Name(), drTemplate)
+			util.WaitForConfig(t, drTemplate, apps.Namespace)
 
 			response := apps.Client.CallOrFail(t, echo.CallOptions{
 				Target:   apps.Server,
@@ -76,26 +76,26 @@ func TestStrictMTLS(t *testing.T) {
 			})
 
 			if err := response.CheckOK(); err != nil {
-				ctx.Fatalf("client could not reach server: %v", err)
+				t.Fatalf("client could not reach server: %v", err)
 			}
 
 			target := fmt.Sprintf("server.%s:8091", apps.Namespace.Name())
 			certPEM, err := cert.DumpCertFromSidecar(apps.Namespace, "app=client", "istio-proxy", target)
 			if err != nil {
-				ctx.Fatalf("client could not get certificate from server: %v", err)
+				t.Fatalf("client could not get certificate from server: %v", err)
 			}
 			block, _ := pem.Decode([]byte(certPEM))
 			if block == nil { // nolint: staticcheck
-				ctx.Fatalf("failed to parse certificate PEM")
+				t.Fatalf("failed to parse certificate PEM")
 			}
 
 			certificate, parseErr := x509.ParseCertificate(block.Bytes) // nolint: staticcheck
 			if err != nil {
-				ctx.Fatalf("failed to parse certificate: %v", parseErr)
+				t.Fatalf("failed to parse certificate: %v", parseErr)
 			}
 
 			if certificate.PublicKeyAlgorithm != x509.ECDSA {
-				ctx.Fatalf("public key used in server cert is not ECDSA: %v", certificate.PublicKeyAlgorithm)
+				t.Fatalf("public key used in server cert is not ECDSA: %v", certificate.PublicKeyAlgorithm)
 			}
 		})
 }

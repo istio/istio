@@ -462,7 +462,12 @@ func doSendPushes(stopCh <-chan struct{}, semaphore chan struct{}, queue *PushQu
 			}
 
 			proxiesQueueTime.Record(time.Since(push.Start).Seconds())
-
+			var closed <-chan struct{}
+			if client.stream != nil {
+				closed = client.stream.Context().Done()
+			} else {
+				closed = client.deltaStream.Context().Done()
+			}
 			go func() {
 				pushEv := &Event{
 					pushRequest: push,
@@ -472,7 +477,7 @@ func doSendPushes(stopCh <-chan struct{}, semaphore chan struct{}, queue *PushQu
 				select {
 				case client.pushChannel <- pushEv:
 					return
-				case <-client.stream.Context().Done(): // grpc stream was closed
+				case <-closed: // grpc stream was closed
 					doneFunc()
 					adsLog.Infof("Client closed connection %v", client.ConID)
 				}

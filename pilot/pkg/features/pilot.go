@@ -121,14 +121,6 @@ var (
 		"UseRemoteAddress sets useRemoteAddress to true for side car outbound listeners.",
 	).Get()
 
-	// EnableThriftFilter enables injection of `envoy.filters.network.thrift_proxy` in the filter chain.
-	// Pilot injects this outbound filter if the service port name is `thrift`.
-	EnableThriftFilter = env.RegisterBoolVar(
-		"PILOT_ENABLE_THRIFT_FILTER",
-		false,
-		"EnableThriftFilter enables injection of `envoy.filters.network.thrift_proxy` in the filter chain.",
-	).Get()
-
 	// SkipValidateTrustDomain tells the server proxy to not to check the peer's trust domain when
 	// mTLS is enabled in authentication policy.
 	SkipValidateTrustDomain = env.RegisterBoolVar(
@@ -428,6 +420,10 @@ var (
 		"If enabled, addition runtime asserts will be performed. "+
 			"These checks are both expensive and panic on failure. As a result, this should be used only for testing.",
 	).Get()
+
+	DeltaXds = env.RegisterBoolVar("ISTIO_DELTA_XDS", false,
+		"If enabled, pilot will only send the delta configs as opposed to the state of the world on a "+
+			"Resource Request")
 )
 
 // UnsafeFeaturesEnabled returns true if any unsafe features are enabled.

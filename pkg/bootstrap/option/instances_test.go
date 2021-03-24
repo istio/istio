@@ -39,8 +39,8 @@ func TestOptions(t *testing.T) {
 		{
 			testName: "proxy config",
 			key:      "config",
-			option:   option.ProxyConfig(&meshAPI.ProxyConfig{DiscoveryAddress: "fake"}),
-			expected: &meshAPI.ProxyConfig{DiscoveryAddress: "fake"},
+			option:   option.ProxyConfig(&model.NodeMetaProxyConfig{DiscoveryAddress: "fake"}),
+			expected: &model.NodeMetaProxyConfig{DiscoveryAddress: "fake"},
 		},
 		{
 			testName: "pilotSAN",

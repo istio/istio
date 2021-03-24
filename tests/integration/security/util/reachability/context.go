@@ -94,21 +94,21 @@ func Run(testCases []TestCase, ctx framework.TestContext, apps *util.EchoDeploym
 		}
 		testName := strings.TrimSuffix(c.ConfigFile, filepath.Ext(c.ConfigFile))
 		test := ctx.NewSubTest(testName)
-		test.Run(func(ctx framework.TestContext) {
+		test.Run(func(t framework.TestContext) {
 			// Apply the policy.
-			policyYAML := file.AsStringOrFail(ctx, filepath.Join("./testdata", c.ConfigFile))
-			retry.UntilSuccessOrFail(ctx, func() error {
-				ctx.Logf("[%s] [%v] Apply config %s", testName, time.Now(), c.ConfigFile)
+			policyYAML := file.AsStringOrFail(t, filepath.Join("./testdata", c.ConfigFile))
+			retry.UntilSuccessOrFail(t, func() error {
+				t.Logf("[%s] [%v] Apply config %s", testName, time.Now(), c.ConfigFile)
 				// TODO(https://github.com/istio/istio/issues/20460) We shouldn't need a retry loop
-				return ctx.Config().ApplyYAML(c.Namespace.Name(), policyYAML)
+				return t.Config().ApplyYAML(c.Namespace.Name(), policyYAML)
 			})
-			ctx.NewSubTest("wait for config").Run(func(ctx framework.TestContext) {
-				util.WaitForConfig(ctx, policyYAML, c.Namespace)
+			t.NewSubTest("wait for config").Run(func(t framework.TestContext) {
+				util.WaitForConfig(t, policyYAML, c.Namespace)
 			})
 			for _, clients := range []echo.Instances{apps.A, apps.B.Match(echo.Namespace(apps.Namespace1.Name())), apps.Headless, apps.Naked, apps.HeadlessNaked} {
 				for _, client := range clients {
-					ctx.NewSubTest(fmt.Sprintf("%s in %s",
-						client.Config().Service, client.Config().Cluster.StableName())).Run(func(ctx framework.TestContext) {
+					t.NewSubTest(fmt.Sprintf("%s in %s",
+						client.Config().Service, client.Config().Cluster.StableName())).Run(func(t framework.TestContext) {
 						aSet := apps.A
 						bSet := apps.B
 						vmSet := apps.VM
@@ -146,12 +146,12 @@ func Run(testCases []TestCase, ctx framework.TestContext, apps *util.EchoDeploym
 							// grabbing the 0th assumes all echos in destinations have the same service name
 							destination := destinations[0]
 							// TODO: fix Multiversion related test in multicluster
-							if ctx.Clusters().IsMulticluster() && apps.Multiversion.Contains(destination) {
+							if t.Clusters().IsMulticluster() && apps.Multiversion.Contains(destination) {
 								continue
 							}
 							if (apps.IsHeadless(client) || apps.IsHeadless(destination) || apps.IsNaked(client)) && len(destClusters) > 1 {
 								// TODO(landow) fix DNS issues with multicluster/VMs/headless
-								ctx.SkipNow()
+								t.SkipNow()
 								continue
 							}
 							if isNakedToVM(apps, client, destination) {
@@ -194,7 +194,7 @@ func Run(testCases []TestCase, ctx framework.TestContext, apps *util.EchoDeploym
 										opts.Path,
 										tpe)
 
-									ctx.NewSubTest(subTestName).
+									t.NewSubTest(subTestName).
 										RunParallel(func(ctx framework.TestContext) {
 											if onPreRun != nil {
 												onPreRun(ctx, src, opts)
