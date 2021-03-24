@@ -22,6 +22,7 @@ import (
 	common "istio.io/istio/tests/integration/telemetry/stats/prometheus"
 )
 
-func TestWASMTcpMetric(t *testing.T) { // nolint:interfacer
+func TestWASMTcpMetric(t *testing.T) { // nolint:
+	t.Skip("bianpengyuan")
 	common.TestStatsTCPFilter(t, features.Feature("observability.telemetry.stats.prometheus.tcp"))
 }

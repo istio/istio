@@ -35,6 +35,7 @@ import (
 // verifies that echo ping could still work. The test also verifies that metrics are properly
 // recorded for module downloading failure and nack on ECDS update.
 func TestBadWasmRemoteLoad(t *testing.T) {
+	t.Skip("bianpengyuan")
 	framework.NewTest(t).
 		Features("extensibility.wasm.remote-load").
 		Run(func(ctx framework.TestContext) {

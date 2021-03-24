@@ -23,5 +23,6 @@ import (
 )
 
 func TestTcpMetric(t *testing.T) { // nolint:interfacer
+	t.Skip("bianpengyuan")
 	common.TestStatsTCPFilter(t, features.Feature("observability.telemetry.stats.prometheus.tcp"))
 }

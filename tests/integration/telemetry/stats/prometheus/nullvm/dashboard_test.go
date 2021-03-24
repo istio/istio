@@ -127,6 +127,7 @@ var dashboards = []struct {
 }
 
 func TestDashboard(t *testing.T) {
+	t.Skip("bianpengyuan")
 	c, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	framework.NewTest(t).

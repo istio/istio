@@ -32,6 +32,7 @@ import (
 // metrics command. It validates that values are being returned when there is
 // traffic and that the expected default output format is matched.
 func TestIstioctlMetrics(t *testing.T) {
+	t.Skip("bianpengyuan")
 	framework.NewTest(t).
 		Features("observability.telemetry.istioctl").
 		Run(func(ctx framework.TestContext) {

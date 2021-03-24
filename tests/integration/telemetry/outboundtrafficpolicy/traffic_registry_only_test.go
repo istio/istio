@@ -20,6 +20,7 @@ import (
 )
 
 func TestOutboundTrafficPolicy_RegistryOnly(t *testing.T) {
+	t.Skip("bianpengyuan")
 	cases := []*TestCase{
 		{
 			Name:     "HTTP Traffic",

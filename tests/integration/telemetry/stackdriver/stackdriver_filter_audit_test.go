@@ -44,6 +44,7 @@ const (
 
 // TestStackdriverAuditLogging testing Authz Policy can config stackdriver with audit policy
 func TestStackdriverHTTPAuditLogging(t *testing.T) {
+	t.Skip("bianpengyuan")
 	framework.NewTest(t).
 		Features("observability.telemetry.stackdriver").
 		Run(func(ctx framework.TestContext) {

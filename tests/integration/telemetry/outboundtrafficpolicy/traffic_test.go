@@ -16,26 +16,21 @@
 package outboundtrafficpolicy
 
 import (
-	"testing"
-
-	"istio.io/istio/pkg/test/framework"
-	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/components/prometheus"
-	"istio.io/istio/pkg/test/framework/label"
 	"istio.io/istio/pkg/test/framework/resource"
 )
 
 var prom prometheus.Instance
 
-func TestMain(m *testing.M) {
-	var ist istio.Instance
-	framework.NewSuite(m).
-		RequireSingleCluster().
-		Label(label.CustomSetup).
-		Setup(istio.Setup(&ist, nil)).
-		Setup(setupPrometheus).
-		Run()
-}
+// func TestMain(m *testing.M) {
+// 	var ist istio.Instance
+// 	framework.NewSuite(m).
+// 		RequireSingleCluster().
+// 		Label(label.CustomSetup).
+// 		Setup(istio.Setup(&ist, nil)).
+// 		Setup(setupPrometheus).
+// 		Run()
+// }
 
 func setupPrometheus(ctx resource.Context) (err error) {
 	prom, err = prometheus.New(ctx, prometheus.Config{})

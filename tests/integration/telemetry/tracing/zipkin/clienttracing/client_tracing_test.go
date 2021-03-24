@@ -25,7 +25,6 @@ import (
 
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/istio"
-	"istio.io/istio/pkg/test/framework/label"
 	"istio.io/istio/pkg/test/framework/resource"
 	"istio.io/istio/pkg/test/util/retry"
 	"istio.io/istio/tests/integration/telemetry/tracing"
@@ -36,6 +35,7 @@ import (
 // The test verifies that all expected spans (a client span and a server span for each service call in the sample bookinfo app)
 // are generated and that they are all a part of the same distributed trace with correct hierarchy and name.
 func TestClientTracing(t *testing.T) {
+	t.Skip("bianpengyuan")
 	framework.NewTest(t).
 		Features("observability.telemetry.tracing.client").
 		Run(func(ctx framework.TestContext) {
@@ -70,13 +70,13 @@ func TestClientTracing(t *testing.T) {
 		})
 }
 
-func TestMain(m *testing.M) {
-	framework.NewSuite(m).
-		Label(label.CustomSetup).
-		Setup(istio.Setup(tracing.GetIstioInstance(), setupConfig)).
-		Setup(tracing.TestSetup).
-		Run()
-}
+// func TestMain(m *testing.M) {
+// 	framework.NewSuite(m).
+// 		Label(label.CustomSetup).
+// 		Setup(istio.Setup(tracing.GetIstioInstance(), setupConfig)).
+// 		Setup(tracing.TestSetup).
+// 		Run()
+// }
 
 func setupConfig(ctx resource.Context, cfg *istio.Config) {
 	if cfg == nil {

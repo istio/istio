@@ -29,7 +29,7 @@ data:
             "stackdriver_exporter_enabled": true,
             "stackdriver_grpc_service": {
               "google_grpc": {
-                "target_uri": "{{ .StackdriverAddress }}",
+                "target_uri": "cloudtrace.googleapis.com",
                 "stat_prefix": "oc_stackdriver_tracer",
               }
             },

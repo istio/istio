@@ -38,6 +38,7 @@ import (
 )
 
 func TestVMTelemetry(t *testing.T) {
+	t.Skip("bianpengyuan")
 	framework.
 		NewTest(t).
 		Features("observability.telemetry.stackdriver").

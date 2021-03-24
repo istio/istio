@@ -37,6 +37,7 @@ const (
 
 // TestTCPStackdriverMonitoring verifies that stackdriver TCP filter works.
 func TestTCPStackdriverMonitoring(t *testing.T) {
+	t.Skip("bianpengyuan")
 	framework.NewTest(t).
 		Features("observability.telemetry.stackdriver").
 		Run(func(ctx framework.TestContext) {

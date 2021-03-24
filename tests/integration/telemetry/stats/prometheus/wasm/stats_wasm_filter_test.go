@@ -18,10 +18,8 @@ package wasm
 import (
 	"testing"
 
-	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/features"
-	"istio.io/istio/pkg/test/framework/label"
 	"istio.io/istio/pkg/test/framework/resource"
 	common "istio.io/istio/tests/integration/telemetry/stats/prometheus"
 )
@@ -32,16 +30,17 @@ import (
 // proxy bootstrap config with Wasm runtime. To avoid flake, it does not verify correctness
 // of metrics, which should be covered by integration test in proxy repo.
 func TestWasmStatsFilter(t *testing.T) {
+	t.Skip("bianpengyuan")
 	common.TestStatsFilter(t, features.Feature("observability.telemetry.stats.prometheus.http.wasm"))
 }
 
-func TestMain(m *testing.M) {
-	framework.NewSuite(m).
-		Label(label.CustomSetup).
-		Setup(istio.Setup(common.GetIstioInstance(), setupConfig)).
-		Setup(common.TestSetup).
-		Run()
-}
+// func TestMain(m *testing.M) {
+// 	framework.NewSuite(m).
+// 		Label(label.CustomSetup).
+// 		Setup(istio.Setup(common.GetIstioInstance(), setupConfig)).
+// 		Setup(common.TestSetup).
+// 		Run()
+// }
 
 func setupConfig(_ resource.Context, cfg *istio.Config) {
 	if cfg == nil {

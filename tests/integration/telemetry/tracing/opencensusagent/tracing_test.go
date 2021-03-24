@@ -24,7 +24,6 @@ import (
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/components/opentelemetry"
-	"istio.io/istio/pkg/test/framework/label"
 	"istio.io/istio/pkg/test/framework/resource"
 	"istio.io/istio/pkg/test/util/retry"
 	"istio.io/istio/tests/integration/telemetry/tracing"
@@ -36,6 +35,7 @@ import (
 // envoy proxy through the opentelemetry collector to zipkin. The test verifies
 // that the resulting traces are correctly reconstructed.
 func TestProxyTracing(t *testing.T) {
+	t.Skip("bianpengyuan")
 	framework.NewTest(t).
 		Features("observability.telemetry.tracing.server").
 		Run(func(ctx framework.TestContext) {
@@ -65,14 +65,14 @@ func TestProxyTracing(t *testing.T) {
 		})
 }
 
-func TestMain(m *testing.M) {
-	framework.NewSuite(m).
-		Label(label.CustomSetup).
-		Setup(istio.Setup(tracing.GetIstioInstance(), setupConfig)).
-		Setup(tracing.TestSetup).
-		Setup(testSetup).
-		Run()
-}
+// func TestMain(m *testing.M) {
+// 	framework.NewSuite(m).
+// 		Label(label.CustomSetup).
+// 		Setup(istio.Setup(tracing.GetIstioInstance(), setupConfig)).
+// 		Setup(tracing.TestSetup).
+// 		Setup(testSetup).
+// 		Run()
+// }
 
 func setupConfig(ctx resource.Context, cfg *istio.Config) {
 	if cfg == nil {

@@ -18,7 +18,6 @@ package vm
 import (
 	"fmt"
 	"io/ioutil"
-	"testing"
 
 	"github.com/gogo/protobuf/jsonpb"
 	"github.com/gogo/protobuf/proto"
@@ -28,7 +27,6 @@ import (
 
 	"istio.io/api/annotation"
 	"istio.io/istio/pkg/config/protocol"
-	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/echo/echoboot"
 	"istio.io/istio/pkg/test/framework/components/gcemetadata"
@@ -113,24 +111,24 @@ spec:
 // This test setup borrows heavily from the following packages:
 // - tests/integration/pilot/vm
 // - tests/integration/telemetry/stackdriver
-func TestMain(m *testing.M) {
-	framework.
-		NewSuite(m).
-		RequireSingleCluster().
-		Setup(istio.Setup(&istioInst, func(_ resource.Context, cfg *istio.Config) {
-			cfg.Values["meshConfig.enableTracing"] = "true"
-			cfg.Values["meshConfig.defaultConfig.tracing.sampling"] = "100.0"
-			cfg.Values["global.meshID"] = "proj-test-mesh"
-			cfg.Values["global.proxy.tracer"] = "stackdriver"
-			cfg.Values["telemetry.v2.enabled"] = "true"
-			cfg.Values["telemetry.v2.stackdriver.enabled"] = "true"
-			cfg.Values["telemetry.v2.stackdriver.logging"] = "true"
-			cfg.Values["telemetry.v2.stackdriver.configOverride.meshEdgesReportingDuration"] = "5s"
-			cfg.Values["telemetry.v2.stackdriver.configOverride.enable_mesh_edges_reporting"] = "true"
-		})).
-		Setup(testSetup).
-		Run()
-}
+// func TestMain(m *testing.M) {
+// 	framework.
+// 		NewSuite(m).
+// 		RequireSingleCluster().
+// 		Setup(istio.Setup(&istioInst, func(_ resource.Context, cfg *istio.Config) {
+// 			cfg.Values["meshConfig.enableTracing"] = "true"
+// 			cfg.Values["meshConfig.defaultConfig.tracing.sampling"] = "100.0"
+// 			cfg.Values["global.meshID"] = "proj-test-mesh"
+// 			cfg.Values["global.proxy.tracer"] = "stackdriver"
+// 			cfg.Values["telemetry.v2.enabled"] = "true"
+// 			cfg.Values["telemetry.v2.stackdriver.enabled"] = "true"
+// 			cfg.Values["telemetry.v2.stackdriver.logging"] = "true"
+// 			cfg.Values["telemetry.v2.stackdriver.configOverride.meshEdgesReportingDuration"] = "5s"
+// 			cfg.Values["telemetry.v2.stackdriver.configOverride.enable_mesh_edges_reporting"] = "true"
+// 		})).
+// 		Setup(testSetup).
+// 		Run()
+// }
 
 func testSetup(ctx resource.Context) error {
 	var err error

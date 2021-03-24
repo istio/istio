@@ -32,7 +32,6 @@ import (
 	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/framework/components/prometheus"
-	"istio.io/istio/pkg/test/framework/label"
 	"istio.io/istio/pkg/test/framework/resource"
 	"istio.io/istio/pkg/test/util/retry"
 	"istio.io/istio/pkg/test/util/tmpl"
@@ -54,6 +53,7 @@ const (
 )
 
 func TestCustomizeMetrics(t *testing.T) {
+	t.Skip("bianpengyuan")
 	framework.NewTest(t).
 		Features("observability.telemetry.stats.prometheus.customize-metric").
 		Features("observability.telemetry.request-classification").
@@ -94,14 +94,14 @@ func TestCustomizeMetrics(t *testing.T) {
 		})
 }
 
-func TestMain(m *testing.M) {
-	framework.NewSuite(m).
-		Label(label.CustomSetup).
-		Setup(istio.Setup(common.GetIstioInstance(), setupConfig)).
-		Setup(testSetup).
-		Setup(setupEnvoyFilter).
-		Run()
-}
+// func TestMain(m *testing.M) {
+// 	framework.NewSuite(m).
+// 		Label(label.CustomSetup).
+// 		Setup(istio.Setup(common.GetIstioInstance(), setupConfig)).
+// 		Setup(testSetup).
+// 		Setup(setupEnvoyFilter).
+// 		Run()
+// }
 
 func testSetup(ctx resource.Context) (err error) {
 	appNsInst, err = namespace.New(ctx, namespace.Config{
