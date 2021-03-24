@@ -124,7 +124,7 @@ func newKube(ctx resource.Context, cfg Config) (Instance, error) {
 	return c, nil
 }
 
-func (c *kubeComponent) ListTimeSeries() ([]*monitoringpb.TimeSeries, error) {
+func (c *kubeComponent) ListTimeSeries(metricName string) ([]*monitoringpb.TimeSeries, error) {
 	client := http.Client{
 		Timeout: 5 * time.Second,
 	}

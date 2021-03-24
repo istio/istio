@@ -63,7 +63,7 @@ func newRealStackdriver(ctx resource.Context, cfg Config) (Instance, error) {
 	}, nil
 }
 
-func (s *realStackdriver) ListTimeSeries() ([]*monitoringpb.TimeSeries, error) {
+func (s *realStackdriver) ListTimeSeries(metricName string) ([]*monitoringpb.TimeSeries, error) {
 	endTime := time.Now()
 	startTime := endTime.Add(-5 * time.Minute)
 	// TODO!!: get project id somewhere
@@ -73,6 +73,7 @@ func (s *realStackdriver) ListTimeSeries() ([]*monitoringpb.TimeSeries, error) {
 		AggregationCrossSeriesReducer("REDUCE_NONE").
 		AggregationAlignmentPeriod("60s").
 		AggregationPerSeriesAligner("ALIGN_RATE").
+		Filter(fmt.Sprintf("metric.type = %q", metricName)).
 		Context(context.Background())
 	resp, err := lr.Do()
 	if err != nil {

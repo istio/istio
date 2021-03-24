@@ -324,10 +324,17 @@ func validateMetrics(t *testing.T, serverReqCount, clientReqCount, clName, trust
 	}
 
 	// Traverse all time series received and compare with expected client and server time series.
-	ts, err := sdInst.ListTimeSeries()
+	serverTS, err := sdInst.ListTimeSeries("istio.io/service/server/request_count")
 	if err != nil {
 		return fmt.Errorf("metrics: error getting time-series from Stackdriver: %v", err)
 	}
+	clientTS, err := sdInst.ListTimeSeries("istio.io/service/server/request_count")
+	if err != nil {
+		return fmt.Errorf("metrics: error getting time-series from Stackdriver: %v", err)
+	}
+	ts := make([]*monitoring.TimeSeries, 0, len(clientTS)+len(serverTS))
+	ts = append(ts, serverTS...)
+	ts = append(ts, clientTS...)
 
 	t.Logf("number of timeseries: %v", len(ts))
 	var gotServer, gotClient bool
