@@ -18,9 +18,8 @@ import (
 	"sort"
 	"testing"
 
-	networking "istio.io/api/networking/v1alpha3"
-
 	meshconfig "istio.io/api/mesh/v1alpha1"
+	networking "istio.io/api/networking/v1alpha3"
 	security "istio.io/api/security/v1beta1"
 	"istio.io/api/type/v1beta1"
 	"istio.io/istio/pilot/pkg/config/memory"
@@ -129,9 +128,8 @@ func TestEndpointsByNetworkFilter(t *testing.T) {
 func TestEndpointsByNetworkFilter_WithConfig(t *testing.T) {
 	noCrossNetwork := []networkFilterCase{
 		{
-			name:            "from_network1",
-			conn:            xdsConnection("network1"),
-			expectedTLSMode: model.DisabledTLSModeLabel,
+			name: "from_network1",
+			conn: xdsConnection("network1"),
 			want: []LocLbEpInfo{
 				{
 					lbEps: []LbEpInfo{
@@ -146,9 +144,8 @@ func TestEndpointsByNetworkFilter_WithConfig(t *testing.T) {
 			},
 		},
 		{
-			name:            "from_network2",
-			conn:            xdsConnection("network2"),
-			expectedTLSMode: model.DisabledTLSModeLabel,
+			name: "from_network2",
+			conn: xdsConnection("network2"),
 			want: []LocLbEpInfo{
 				{
 					lbEps: []LbEpInfo{
@@ -162,9 +159,8 @@ func TestEndpointsByNetworkFilter_WithConfig(t *testing.T) {
 			},
 		},
 		{
-			name:            "from_network3",
-			conn:            xdsConnection("network3"),
-			expectedTLSMode: model.DisabledTLSModeLabel,
+			name: "from_network3",
+			conn: xdsConnection("network3"),
 			want: []LocLbEpInfo{
 				{
 					lbEps: []LbEpInfo{
@@ -176,9 +172,8 @@ func TestEndpointsByNetworkFilter_WithConfig(t *testing.T) {
 			},
 		},
 		{
-			name:            "from_network4",
-			conn:            xdsConnection("network4"),
-			expectedTLSMode: model.DisabledTLSModeLabel,
+			name: "from_network4",
+			conn: xdsConnection("network4"),
 			want: []LocLbEpInfo{
 				{
 					lbEps: []LbEpInfo{
@@ -304,7 +299,7 @@ func TestEndpointsByNetworkFilter_WithConfig(t *testing.T) {
 				},
 				Tests: networkFiltered,
 			},
-			"mtls-on-destinaton-level": {
+			"mtls-on-destination-level": {
 				Config: config.Config{
 					Meta: config.Meta{
 						GroupVersionKind: gvk.DestinationRule,
@@ -339,7 +334,7 @@ func TestEndpointsByNetworkFilter_WithConfig(t *testing.T) {
 				},
 				Tests: networkFiltered,
 			},
-			"mtls-off-destinaton-level": {
+			"mtls-off-destination-level": {
 				Config: config.Config{
 					Meta: config.Meta{
 						GroupVersionKind: gvk.DestinationRule,
@@ -486,10 +481,9 @@ func TestEndpointsByNetworkFilter_SkipLBWithHostname(t *testing.T) {
 }
 
 type networkFilterCase struct {
-	name            string
-	conn            *Connection
-	want            []LocLbEpInfo
-	expectedTLSMode string
+	name string
+	conn *Connection
+	want []LocLbEpInfo
 }
 
 // runNetworkFilterTest calls the endpoints filter from each one of the

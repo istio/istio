@@ -1141,7 +1141,7 @@ func TestEndpointMetadata(t *testing.T) {
 	}{
 		{
 			name:         "all empty",
-			tlsMode:      "",
+			tlsMode:      string(model.DisabledTLSModeLabel),
 			network:      "",
 			workloadName: "",
 			clusterID:    "",

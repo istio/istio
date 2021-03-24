@@ -347,7 +347,7 @@ func (b *EndpointBuilder) buildLocalityLbEndpointsFromShards(
 // mTLSDisabled returns true if the given lbEp has mTLS disabled due to any of:
 // - disabled tlsMode
 // - DestinationRule disabling mTLS on the entire host or the port TODO handle subsets
-// - PeerAuthentication disbaling mTLS at any applicable level (mesh, ns, workload, port)
+// - PeerAuthentication disabling mTLS at any applicable level (mesh, ns, workload, port)
 func (b *EndpointBuilder) mTLSDisabled(lbEp *endpoint.LbEndpoint) bool {
 	return b.mtlsDisabled || b.mtlsDisabledHosts[lbEpKey(lbEp)]
 }
