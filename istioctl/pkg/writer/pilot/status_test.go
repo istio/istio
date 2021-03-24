@@ -123,6 +123,7 @@ func TestStatusWriter_PrintSingle(t *testing.T) {
 		filterPod string
 		want      string
 		wantErr   bool
+		cols      []string
 	}{
 		{
 			name: "prints multiple istiod inputs to buffer filtering for pod",
@@ -160,7 +161,11 @@ func TestStatusWriter_PrintSingle(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			got := &bytes.Buffer{}
-			sw := StatusWriter{Writer: got}
+			cols := tt.cols
+			if cols == nil {
+				cols = commonCols
+			}
+			sw := StatusWriter{Writer: got, XDSCols: cols}
 			input := map[string][]byte{}
 			for key, ss := range tt.input {
 				b, _ := json.Marshal(ss)
