@@ -16,6 +16,7 @@ package xds
 
 import (
 	"sort"
+	"strconv"
 	"strings"
 
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
@@ -70,11 +71,20 @@ type EndpointBuilder struct {
 	hostname   host.Name
 	port       int
 	push       *model.PushContext
+
+	// the following are computed during gneration and used for endpoint filtering
+	// cache of labels/port that have mTLS disabled by peerAuthn
+	peerAuthDisabledMTLS map[string]bool
+	// cache of host identifiers that have mTLS disabled
+	mtlsDisabledHosts map[string]bool
+	// true if the whole cluster has mTLS disabled (by destination rule)
+	mtlsDisabled bool
 }
 
 func NewEndpointBuilder(clusterName string, proxy *model.Proxy, push *model.PushContext) EndpointBuilder {
 	_, subsetName, hostname, port := model.ParseSubsetKey(clusterName)
 	svc := push.ServiceForHostname(proxy, hostname)
+	dr := push.DestinationRule(proxy, svc)
 	return EndpointBuilder{
 		clusterName:     clusterName,
 		network:         proxy.Metadata.Network,
@@ -82,13 +92,17 @@ func NewEndpointBuilder(clusterName string, proxy *model.Proxy, push *model.Push
 		clusterID:       proxy.Metadata.ClusterID,
 		locality:        proxy.Locality,
 		service:         svc,
-		destinationRule: push.DestinationRule(proxy, svc),
+		destinationRule: dr,
 		tunnelType:      GetTunnelBuilderType(clusterName, proxy, push),
 
 		push:       push,
 		subsetName: subsetName,
 		hostname:   hostname,
 		port:       port,
+
+		peerAuthDisabledMTLS: map[string]bool{},
+		mtlsDisabledHosts:    map[string]bool{},
+		mtlsDisabled:         mtlsDisbaledByDestinationRule(dr, port),
 	}
 }
 
@@ -241,7 +255,6 @@ func (b *EndpointBuilder) buildLocalityLbEndpointsFromShards(
 	svcPort *model.Port,
 ) []*LocLbEndpointsAndOptions {
 	localityEpMap := make(map[string]*LocLbEndpointsAndOptions)
-	mtlsModes := make(map[string]model.MutualTLSMode)
 	// get the subset labels
 	epLabels := getSubSetLabels(b.DestinationRule(), b.subsetName)
 
@@ -295,18 +308,11 @@ func (b *EndpointBuilder) buildLocalityLbEndpointsFromShards(
 			}
 			locLbEps.append(ep.EnvoyEndpoint, ep.TunnelAbility)
 
-			// compute the actual mTLS mode once policy applied, used during multinetwork filtering
-			k := ep.Labels.String()
-			// if the ep already had Disabled, leave it, otherwise resolve the policy
-			if tlsMode := envoytransportSocketMetadata(ep.EnvoyEndpoint, model.TLSModeLabelShortname); tlsMode != model.DisabledTLSModeLabel {
-				if _, ok := mtlsModes[k]; !ok {
-					mtlsModes[k] = factory.NewPolicyApplier(b.push, b.service.Attributes.Namespace, labels.Collection{ep.Labels}).GetMutualTLSModeForPort(ep.EndpointPort)
-				}
-				if mtlsModes[k] == model.MTLSDisable {
-					setEnvoytransportSocketMetadata(ep.EnvoyEndpoint, model.TLSModeLabelShortname, model.DisabledTLSModeLabel)
-				}
+			if b.mtlsDisabledByPeerAuthentication(ep) {
+				// detect if mTLS is possible for this endpoint, used later during ep filtering
+				// this must be done while converting IstioEndpoints because we still have workload labels
+				b.mtlsDisabledHosts[lbEpKey(ep.EnvoyEndpoint)] = true
 			}
-
 		}
 	}
 	shards.mutex.Unlock()
@@ -336,6 +342,56 @@ func (b *EndpointBuilder) buildLocalityLbEndpointsFromShards(
 	}
 
 	return locEps
+}
+
+// mTLSDisabled returns true if the given lbEp has mTLS disabled due to any of:
+// - disabled tlsMode
+// - DestinationRule disabling mTLS on the entire host or the port TODO handle subsets
+// - PeerAuthentication disbaling mTLS at any applicable level (mesh, ns, workload, port)
+func (b *EndpointBuilder) mTLSDisabled(lbEp *endpoint.LbEndpoint) bool {
+	return b.mtlsDisabled || b.mtlsDisabledHosts[lbEpKey(lbEp)]
+}
+
+// mtlsDisbaledByDestinationRule returns true if the destination rule disables mTLS at the root level, or for the given port
+func mtlsDisbaledByDestinationRule(destinationRule *config.Config, port int) bool {
+	if destinationRule == nil {
+		return false
+	}
+	var drMode *networkingapi.ClientTLSSettings_TLSmode
+	if dr, ok := destinationRule.Spec.(*networkingapi.DestinationRule); ok && dr != nil {
+		tp := dr.GetTrafficPolicy()
+		if tp.Tls != nil {
+			drMode = &tp.Tls.Mode
+		}
+		// if there is a port-level setting matching this cluster
+		for _, portSettings := range tp.GetPortLevelSettings() {
+			if int(portSettings.Port.Number) == port && portSettings.Tls != nil {
+				drMode = &portSettings.Tls.Mode
+				break
+			}
+		}
+	}
+	// TODO handle subsets
+	return drMode != nil && *drMode == networkingapi.ClientTLSSettings_DISABLE
+}
+
+func (b *EndpointBuilder) mtlsDisabledByPeerAuthentication(ep *model.IstioEndpoint) bool {
+	if tlsMode := envoytransportSocketMetadata(ep.EnvoyEndpoint, model.TLSModeLabelShortname); tlsMode == model.DisabledTLSModeLabel {
+		return true
+	}
+	// apply any matching peer authentications
+	peerAuthnKey := ep.Labels.String() + ":" + strconv.Itoa(int(ep.EndpointPort))
+	if _, ok := b.peerAuthDisabledMTLS[peerAuthnKey]; !ok {
+		// avoid recomputing peerAuthn since most EPs will have the same labels/port
+		b.peerAuthDisabledMTLS[peerAuthnKey] = factory.
+			NewPolicyApplier(b.push, b.service.Attributes.Namespace, labels.Collection{ep.Labels}).
+			GetMutualTLSModeForPort(ep.EndpointPort) == model.MTLSDisable
+	}
+	if b.peerAuthDisabledMTLS[peerAuthnKey] {
+		return true
+	}
+
+	return false
 }
 
 // TODO(lambdai): Handle ApplyTunnel error return value by filter out the failed endpoint.
@@ -390,4 +446,14 @@ func buildEnvoyLbEndpoint(e *model.IstioEndpoint) *endpoint.LbEndpoint {
 	ep.Metadata = util.BuildLbEndpointMetadata(e.Network, e.TLSMode, e.WorkloadName, e.Namespace, e.Locality.ClusterID, e.Labels)
 
 	return ep
+}
+
+func lbEpKey(b *endpoint.LbEndpoint) string {
+	if addr := b.GetEndpoint().GetAddress().GetSocketAddress(); addr != nil {
+		return addr.Address + ":" + strconv.Itoa(int(addr.GetPortValue()))
+	}
+	if addr := b.GetEndpoint().GetAddress().GetPipe(); addr != nil {
+		return addr.GetPath() + ":" + strconv.Itoa(int(addr.GetMode()))
+	}
+	return ""
 }

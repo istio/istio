@@ -18,6 +18,8 @@ import (
 	"sort"
 	"testing"
 
+	networking "istio.io/api/networking/v1alpha3"
+
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	security "istio.io/api/security/v1beta1"
 	"istio.io/api/type/v1beta1"
@@ -124,8 +126,8 @@ func TestEndpointsByNetworkFilter(t *testing.T) {
 	runNetworkFilterTest(t, env, networkFiltered)
 }
 
-func TestEndpointsByNetworkFilter_WithPeerAuthn(t *testing.T) {
-	noMtls := []networkFilterCase{
+func TestEndpointsByNetworkFilter_WithConfig(t *testing.T) {
+	noCrossNetwork := []networkFilterCase{
 		{
 			name:            "from_network1",
 			conn:            xdsConnection("network1"),
@@ -189,111 +191,205 @@ func TestEndpointsByNetworkFilter_WithPeerAuthn(t *testing.T) {
 		},
 	}
 
-	cases := map[string]struct {
+	cases := map[string]map[string]struct {
 		Config config.Config
 		Tests  []networkFilterCase
 	}{
-		"partial-strict": {
-			Config: config.Config{
-				Meta: config.Meta{
-					GroupVersionKind: gvk.PeerAuthentication,
-					Name:             "mtls-partial",
-					Namespace:        "istio-system",
-				},
-				Spec: &security.PeerAuthentication{
-					Selector: &v1beta1.WorkloadSelector{
-						// shouldn't affect our test workload
-						MatchLabels: map[string]string{"app": "b"},
+		gvk.PeerAuthentication.String(): {
+			"mtls-off-ineffective": {
+				Config: config.Config{
+					Meta: config.Meta{
+						GroupVersionKind: gvk.PeerAuthentication,
+						Name:             "mtls-partial",
+						Namespace:        "istio-system",
 					},
-					Mtls: &security.PeerAuthentication_MutualTLS{Mode: security.PeerAuthentication_MutualTLS_DISABLE},
-				},
-			},
-			Tests: networkFiltered,
-		},
-		"strict": {
-			Config: config.Config{
-				Meta: config.Meta{
-					GroupVersionKind: gvk.PeerAuthentication,
-					Name:             "mtls-on",
-					Namespace:        "istio-system",
-				},
-				Spec: &security.PeerAuthentication{
-					Mtls: &security.PeerAuthentication_MutualTLS{Mode: security.PeerAuthentication_MutualTLS_STRICT},
-				},
-			},
-			Tests: networkFiltered,
-		},
-		"global": {
-			Config: config.Config{
-				Meta: config.Meta{
-					GroupVersionKind: gvk.PeerAuthentication,
-					Name:             "mtls-off",
-					Namespace:        "istio-system",
-				},
-				Spec: &security.PeerAuthentication{
-					Mtls: &security.PeerAuthentication_MutualTLS{Mode: security.PeerAuthentication_MutualTLS_DISABLE},
-				},
-			},
-			Tests: noMtls,
-		},
-		"namespace": {
-			Config: config.Config{
-				Meta: config.Meta{
-					GroupVersionKind: gvk.PeerAuthentication,
-					Name:             "mtls-off",
-					Namespace:        "ns",
-				},
-				Spec: &security.PeerAuthentication{
-					Mtls: &security.PeerAuthentication_MutualTLS{Mode: security.PeerAuthentication_MutualTLS_DISABLE},
-				},
-			},
-			Tests: noMtls,
-		},
-		"workload": {
-			Config: config.Config{
-				Meta: config.Meta{
-					GroupVersionKind: gvk.PeerAuthentication,
-					Name:             "mtls-off",
-					Namespace:        "ns",
-				},
-				Spec: &security.PeerAuthentication{
-					Selector: &v1beta1.WorkloadSelector{
-						MatchLabels: map[string]string{"app": "example"},
-					},
-					Mtls: &security.PeerAuthentication_MutualTLS{Mode: security.PeerAuthentication_MutualTLS_DISABLE},
-				},
-			},
-			Tests: noMtls,
-		},
-		"port": {
-			Config: config.Config{
-				Meta: config.Meta{
-					GroupVersionKind: gvk.PeerAuthentication,
-					Name:             "mtls-off",
-					Namespace:        "ns",
-				},
-				Spec: &security.PeerAuthentication{
-					Selector: &v1beta1.WorkloadSelector{
-						MatchLabels: map[string]string{"app": "example"},
-					},
-					PortLevelMtls: map[uint32]*security.PeerAuthentication_MutualTLS{
-						80: {Mode: security.PeerAuthentication_MutualTLS_DISABLE},
+					Spec: &security.PeerAuthentication{
+						Selector: &v1beta1.WorkloadSelector{
+							// shouldn't affect our test workload
+							MatchLabels: map[string]string{"app": "b"},
+						},
+						Mtls: &security.PeerAuthentication_MutualTLS{Mode: security.PeerAuthentication_MutualTLS_DISABLE},
 					},
 				},
+				Tests: networkFiltered,
 			},
-			Tests: noMtls,
+			"mtls-on-strict": {
+				Config: config.Config{
+					Meta: config.Meta{
+						GroupVersionKind: gvk.PeerAuthentication,
+						Name:             "mtls-on",
+						Namespace:        "istio-system",
+					},
+					Spec: &security.PeerAuthentication{
+						Mtls: &security.PeerAuthentication_MutualTLS{Mode: security.PeerAuthentication_MutualTLS_STRICT},
+					},
+				},
+				Tests: networkFiltered,
+			},
+			"mtls-off-global": {
+				Config: config.Config{
+					Meta: config.Meta{
+						GroupVersionKind: gvk.PeerAuthentication,
+						Name:             "mtls-off",
+						Namespace:        "istio-system",
+					},
+					Spec: &security.PeerAuthentication{
+						Mtls: &security.PeerAuthentication_MutualTLS{Mode: security.PeerAuthentication_MutualTLS_DISABLE},
+					},
+				},
+				Tests: noCrossNetwork,
+			},
+			"mtls-off-namespace": {
+				Config: config.Config{
+					Meta: config.Meta{
+						GroupVersionKind: gvk.PeerAuthentication,
+						Name:             "mtls-off",
+						Namespace:        "ns",
+					},
+					Spec: &security.PeerAuthentication{
+						Mtls: &security.PeerAuthentication_MutualTLS{Mode: security.PeerAuthentication_MutualTLS_DISABLE},
+					},
+				},
+				Tests: noCrossNetwork,
+			},
+			"mtls-off-workload": {
+				Config: config.Config{
+					Meta: config.Meta{
+						GroupVersionKind: gvk.PeerAuthentication,
+						Name:             "mtls-off",
+						Namespace:        "ns",
+					},
+					Spec: &security.PeerAuthentication{
+						Selector: &v1beta1.WorkloadSelector{
+							MatchLabels: map[string]string{"app": "example"},
+						},
+						Mtls: &security.PeerAuthentication_MutualTLS{Mode: security.PeerAuthentication_MutualTLS_DISABLE},
+					},
+				},
+				Tests: noCrossNetwork,
+			},
+			"mtls-off-port": {
+				Config: config.Config{
+					Meta: config.Meta{
+						GroupVersionKind: gvk.PeerAuthentication,
+						Name:             "mtls-off",
+						Namespace:        "ns",
+					},
+					Spec: &security.PeerAuthentication{
+						Selector: &v1beta1.WorkloadSelector{
+							MatchLabels: map[string]string{"app": "example"},
+						},
+						PortLevelMtls: map[uint32]*security.PeerAuthentication_MutualTLS{
+							80: {Mode: security.PeerAuthentication_MutualTLS_DISABLE},
+						},
+					},
+				},
+				Tests: noCrossNetwork,
+			},
+		},
+		gvk.DestinationRule.String(): {
+			"mtls-off-innefective": {
+				Config: config.Config{
+					Meta: config.Meta{
+						GroupVersionKind: gvk.DestinationRule,
+						Name:             "mtls-off",
+						Namespace:        "ns",
+					},
+					Spec: &networking.DestinationRule{
+						Host: "other.ns.svc.cluster.local",
+						TrafficPolicy: &networking.TrafficPolicy{
+							Tls: &networking.ClientTLSSettings{Mode: networking.ClientTLSSettings_DISABLE},
+						},
+					},
+				},
+				Tests: networkFiltered,
+			},
+			"mtls-on-destinaton-level": {
+				Config: config.Config{
+					Meta: config.Meta{
+						GroupVersionKind: gvk.DestinationRule,
+						Name:             "mtls-on",
+						Namespace:        "ns",
+					},
+					Spec: &networking.DestinationRule{
+						Host: "example.ns.svc.cluster.local",
+						TrafficPolicy: &networking.TrafficPolicy{
+							Tls: &networking.ClientTLSSettings{Mode: networking.ClientTLSSettings_ISTIO_MUTUAL},
+						},
+					},
+				},
+				Tests: networkFiltered,
+			},
+			"mtls-on-port-level": {
+				Config: config.Config{
+					Meta: config.Meta{
+						GroupVersionKind: gvk.DestinationRule,
+						Name:             "mtls-on",
+						Namespace:        "ns",
+					},
+					Spec: &networking.DestinationRule{
+						Host: "example.ns.svc.cluster.local",
+						TrafficPolicy: &networking.TrafficPolicy{
+							PortLevelSettings: []*networking.TrafficPolicy_PortTrafficPolicy{{
+								Port: &networking.PortSelector{Number: 80},
+								Tls:  &networking.ClientTLSSettings{Mode: networking.ClientTLSSettings_ISTIO_MUTUAL},
+							}},
+						},
+					},
+				},
+				Tests: networkFiltered,
+			},
+			"mtls-off-destinaton-level": {
+				Config: config.Config{
+					Meta: config.Meta{
+						GroupVersionKind: gvk.DestinationRule,
+						Name:             "mtls-off",
+						Namespace:        "ns",
+					},
+					Spec: &networking.DestinationRule{
+						Host: "example.ns.svc.cluster.local",
+						TrafficPolicy: &networking.TrafficPolicy{
+							Tls: &networking.ClientTLSSettings{Mode: networking.ClientTLSSettings_DISABLE},
+						},
+					},
+				},
+				Tests: noCrossNetwork,
+			},
+			"mtls-off-port-level": {
+				Config: config.Config{
+					Meta: config.Meta{
+						GroupVersionKind: gvk.DestinationRule,
+						Name:             "mtls-off",
+						Namespace:        "ns",
+					},
+					Spec: &networking.DestinationRule{
+						Host: "example.ns.svc.cluster.local",
+						TrafficPolicy: &networking.TrafficPolicy{
+							PortLevelSettings: []*networking.TrafficPolicy_PortTrafficPolicy{{
+								Port: &networking.PortSelector{Number: 80},
+								Tls:  &networking.ClientTLSSettings{Mode: networking.ClientTLSSettings_DISABLE},
+							}},
+						},
+					},
+				},
+				Tests: noCrossNetwork,
+			},
 		},
 	}
 
-	for name, pa := range cases {
-		t.Run(name, func(t *testing.T) {
-			env := environment()
-			_, err := env.IstioConfigStore.Create(pa.Config)
-			if err != nil {
-				t.Fatal(err)
+	for configType, cases := range cases {
+		t.Run(configType, func(t *testing.T) {
+			for name, pa := range cases {
+				t.Run(name, func(t *testing.T) {
+					env := environment()
+					_, err := env.IstioConfigStore.Create(pa.Config)
+					if err != nil {
+						t.Fatal(err)
+					}
+					env.Init()
+					runNetworkFilterTest(t, env, pa.Tests)
+				})
 			}
-			env.Init()
-			runNetworkFilterTest(t, env, pa.Tests)
 		})
 	}
 }
@@ -403,7 +499,7 @@ func runNetworkFilterTest(t *testing.T, env *model.Environment, tests []networkF
 		t.Run(tt.name, func(t *testing.T) {
 			push := model.NewPushContext()
 			_ = push.InitContext(env, nil, nil)
-			b := NewEndpointBuilder("outbound|81||example.ns.svc.cluster.local", tt.conn.proxy, push)
+			b := NewEndpointBuilder("outbound|80||example.ns.svc.cluster.local", tt.conn.proxy, push)
 			testEndpoints := b.buildLocalityLbEndpointsFromShards(testShards(), &model.Port{Name: "http", Port: 80, Protocol: protocol.HTTP})
 			filtered := b.EndpointsByNetworkFilter(testEndpoints)
 			for _, e := range testEndpoints {
@@ -430,17 +526,6 @@ func runNetworkFilterTest(t *testing.T, env *model.Environment, tests []networkF
 				}
 
 				for _, lbEp := range ep.llbEndpoints.LbEndpoints {
-					if lbEp.Metadata == nil {
-						t.Errorf("Expected endpoint metadata")
-					} else {
-						expectedTLSMode := "istio"
-						if tt.expectedTLSMode != "" {
-							expectedTLSMode = tt.expectedTLSMode
-						}
-						if got := envoytransportSocketMetadata(lbEp, model.TLSModeLabelShortname); got != expectedTLSMode {
-							t.Errorf("Did not find the expected tlsMode metadata. got %v, want %v", got, expectedTLSMode)
-						}
-					}
 					addr := lbEp.GetEndpoint().Address.GetSocketAddress().Address
 					found := false
 					for _, wantLbEp := range tt.want[i].lbEps {

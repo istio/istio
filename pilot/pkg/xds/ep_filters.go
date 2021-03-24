@@ -24,7 +24,6 @@ import (
 	"github.com/golang/protobuf/ptypes/wrappers"
 	"google.golang.org/protobuf/types/known/structpb"
 
-	"istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking"
 	"istio.io/istio/pilot/pkg/networking/util"
@@ -136,25 +135,6 @@ func (b *EndpointBuilder) EndpointsByNetworkFilter(endpoints []*LocLbEndpointsAn
 	}
 
 	return filtered
-}
-
-func (b *EndpointBuilder) mTLSDisabled(lbEp *endpoint.LbEndpoint) bool {
-	if tlsMode := envoytransportSocketMetadata(lbEp, model.TLSModeLabelShortname); tlsMode == model.DisabledTLSModeLabel {
-		return true
-	}
-
-	var tp *v1alpha3.TrafficPolicy
-	if b.destinationRule != nil {
-		if dr, ok := b.destinationRule.Spec.(*v1alpha3.DestinationRule); ok && dr != nil {
-			tp = dr.GetTrafficPolicy()
-			if tp.GetTls().GetMode() == v1alpha3.ClientTLSSettings_DISABLE {
-				return true
-			}
-		}
-	}
-
-	// assume mTLS is enabled
-	return false
 }
 
 // TODO: remove this, filtering should be done before generating the config, and
