@@ -142,23 +142,7 @@ func (c *kubeComponent) ListTimeSeries(metricName string) ([]*monitoringpb.TimeS
 	if err != nil {
 		return []*monitoringpb.TimeSeries{}, err
 	}
-	var ret []*monitoringpb.TimeSeries
-	for _, t := range r.TimeSeries {
-		t.Points = nil
-		if metadata.OnGCE() {
-			// If the test runs on GCE, only remove MR fields that do not need verification
-			delete(t.Resource.Labels, "cluster_name")
-			delete(t.Resource.Labels, "location")
-			delete(t.Resource.Labels, "project_id")
-			delete(t.Resource.Labels, "pod_name")
-		} else {
-			// Otherwise remove the whole MR since it is not correctly filled on other platform yet.
-			t.Resource = nil
-		}
-		ret = append(ret, t)
-		t.Metadata = nil
-	}
-	return ret, nil
+	return trimMetricLabels(&r), nil
 }
 
 func (c *kubeComponent) ListLogEntries(filter LogType) ([]*loggingpb.LogEntry, error) {
@@ -169,15 +153,6 @@ func (c *kubeComponent) ListLogEntries(filter LogType) ([]*loggingpb.LogEntry, e
 	resp, err := client.Get("http://" + c.forwarder.Address() + "/logentries")
 	if err != nil {
 		return []*loggingpb.LogEntry{}, err
-	}
-	var logNameFilter string
-	switch filter {
-	case ServerAuditLog:
-		logNameFilter = "/server-istio-audit-log"
-	case ServerAccessLog:
-		logNameFilter = "/server-accesslog-stackdriver"
-	default:
-		return []*loggingpb.LogEntry{}, fmt.Errorf("no such filter name: %s", logNameFilter)
 	}
 
 	defer resp.Body.Close()
@@ -190,39 +165,7 @@ func (c *kubeComponent) ListLogEntries(filter LogType) ([]*loggingpb.LogEntry, e
 	if err != nil {
 		return []*loggingpb.LogEntry{}, err
 	}
-	var ret []*loggingpb.LogEntry
-	for _, l := range r.Entries {
-		if !strings.HasSuffix(l.LogName, logNameFilter) {
-			continue
-		}
-		// Remove fields that do not need verification
-		l.Timestamp = nil
-		l.Trace = ""
-		l.SpanId = ""
-		l.LogName = ""
-		l.Severity = ltype.LogSeverity_DEFAULT
-		if l.HttpRequest != nil {
-			l.HttpRequest.ResponseSize = 0
-			l.HttpRequest.RequestSize = 0
-			l.HttpRequest.ServerIp = ""
-			l.HttpRequest.RemoteIp = ""
-			l.HttpRequest.UserAgent = ""
-			l.HttpRequest.Latency = nil
-		}
-		delete(l.Labels, "request_id")
-		delete(l.Labels, "source_name")
-		delete(l.Labels, "destination_ip")
-		delete(l.Labels, "destination_name")
-		delete(l.Labels, "connection_id")
-		delete(l.Labels, "upstream_host")
-		delete(l.Labels, "connection_state")
-		delete(l.Labels, "source_ip")
-		delete(l.Labels, "source_port")
-		delete(l.Labels, "total_sent_bytes")
-		delete(l.Labels, "total_received_bytes")
-		ret = append(ret, l)
-	}
-	return ret, nil
+	return trimLogLabels(&r, filter), nil
 }
 
 func (c *kubeComponent) ListTrafficAssertions() ([]*edgespb.TrafficAssertion, error) {
@@ -284,4 +227,68 @@ func (c *kubeComponent) GetStackdriverNamespace() string {
 
 func (c *kubeComponent) Address() string {
 	return c.address
+}
+
+func trimMetricLabels(r *monitoringpb.ListTimeSeriesResponse) []*monitoringpb.TimeSeries {
+	var ret []*monitoringpb.TimeSeries
+	for _, t := range r.TimeSeries {
+		t.Points = nil
+		if metadata.OnGCE() {
+			// If the test runs on GCE, only remove MR fields that do not need verification
+			delete(t.Resource.Labels, "cluster_name")
+			delete(t.Resource.Labels, "location")
+			delete(t.Resource.Labels, "project_id")
+			delete(t.Resource.Labels, "pod_name")
+		} else {
+			// Otherwise remove the whole MR since it is not correctly filled on other platform yet.
+			t.Resource = nil
+		}
+		ret = append(ret, t)
+		t.Metadata = nil
+	}
+	return ret
+}
+
+func trimLogLabels(r *loggingpb.ListLogEntriesResponse, filter LogType) []*loggingpb.LogEntry {
+	var logNameFilter string
+	switch filter {
+	case ServerAuditLog:
+		logNameFilter = "/server-istio-audit-log"
+	case ServerAccessLog:
+		logNameFilter = "/server-accesslog-stackdriver"
+	}
+
+	var ret []*loggingpb.LogEntry
+	for _, l := range r.Entries {
+		if !strings.HasSuffix(l.LogName, logNameFilter) {
+			continue
+		}
+		// Remove fields that do not need verification
+		l.Timestamp = nil
+		l.Trace = ""
+		l.SpanId = ""
+		l.LogName = ""
+		l.Severity = ltype.LogSeverity_DEFAULT
+		if l.HttpRequest != nil {
+			l.HttpRequest.ResponseSize = 0
+			l.HttpRequest.RequestSize = 0
+			l.HttpRequest.ServerIp = ""
+			l.HttpRequest.RemoteIp = ""
+			l.HttpRequest.UserAgent = ""
+			l.HttpRequest.Latency = nil
+		}
+		delete(l.Labels, "request_id")
+		delete(l.Labels, "source_name")
+		delete(l.Labels, "destination_ip")
+		delete(l.Labels, "destination_name")
+		delete(l.Labels, "connection_id")
+		delete(l.Labels, "upstream_host")
+		delete(l.Labels, "connection_state")
+		delete(l.Labels, "source_ip")
+		delete(l.Labels, "source_port")
+		delete(l.Labels, "total_sent_bytes")
+		delete(l.Labels, "total_received_bytes")
+		ret = append(ret, l)
+	}
+	return ret
 }
