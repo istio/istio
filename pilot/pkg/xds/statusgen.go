@@ -64,7 +64,7 @@ type AdditionalStatusInfo struct {
 }
 
 type SyncInfo struct {
-	LastSyncTime *time.Time
+	LastSentTime *time.Time
 	Status       string
 }
 
@@ -73,10 +73,10 @@ func (i *SyncInfo) ToProtoStruct() *structpb.Struct {
 	fields["STATUS"] = &structpb.Value{
 		Kind: &structpb.Value_StringValue{StringValue: i.Status},
 	}
-	if i.LastSyncTime != nil {
-		fields["LAST_SYNC_TIME"] = &structpb.Value{
+	if i.LastSentTime != nil {
+		fields["LAST_SENT_TIME"] = &structpb.Value{
 			Kind: &structpb.Value_StringValue{
-				StringValue: i.LastSyncTime.UTC().String(),
+				StringValue: i.LastSentTime.UTC().String(),
 			},
 		}
 	}
@@ -159,12 +159,6 @@ func (sg *StatusGen) debugSyncz() []*any.Any {
 		v3.ClusterType,
 	}
 
-	additionalTypes := []string{
-		v3.NameTableType,
-		v3.ExtensionConfigurationType,
-		v3.ProxyConfigType,
-	}
-
 	for _, con := range sg.Server.Clients() {
 		con.proxy.RLock()
 		// Skip "nodes" without metdata (they are probably istioctl queries!)
@@ -190,18 +184,15 @@ func (sg *StatusGen) debugSyncz() []*any.Any {
 				}
 				additionalStatusInfo.SyncInfos[stype] = SyncInfo{
 					Status:       pxc.Status.String(),
-					LastSyncTime: getLastSentTime(con, stype),
+					LastSentTime: getLastSentTime(con, stype),
 				}
 				xdsConfigs = append(xdsConfigs, pxc)
 			}
-			for _, atype := range additionalTypes {
-				configStatus := status.ConfigStatus_NOT_SENT
-				if watchedResource, ok := con.proxy.WatchedResources[atype]; ok {
-					configStatus = debugSyncStatus(watchedResource)
-				}
+			for atype, wr := range con.proxy.WatchedResources {
+				configStatus := debugSyncStatus(wr)
 				additionalStatusInfo.SyncInfos[atype] = SyncInfo{
 					Status:       configStatus.String(),
-					LastSyncTime: getLastSentTime(con, atype),
+					LastSentTime: getLastSentTime(con, atype),
 				}
 			}
 

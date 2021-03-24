@@ -104,7 +104,7 @@ type PerXDSSyncStatus struct {
 	Type         string     `json:"type,omitempty"`
 	NonceSent    string     `json:"nonce_sent,omitempty"`
 	NonceAcked   string     `json:"nonce_acked,omitempty"`
-	LastSyncTime *time.Time `json:"last_sync_time,omitempty"`
+	LastSentTime *time.Time `json:"last_sent_time,omitempty"`
 }
 
 // SyncStatus is the synchronization status between Pilot and a given Envoy
@@ -240,7 +240,7 @@ func (s *DiscoveryServer) Syncz(w http.ResponseWriter, _ *http.Request) {
 				status := PerXDSSyncStatus{
 					NonceSent:    con.NonceSent(ty),
 					NonceAcked:   con.NonceAcked(ty),
-					LastSyncTime: getLastSentTime(con, ty),
+					LastSentTime: getLastSentTime(con, ty),
 				}
 				curSyncStatus.Statuses[shortType] = status
 			}
