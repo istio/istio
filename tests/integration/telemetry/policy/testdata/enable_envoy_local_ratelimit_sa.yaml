@@ -52,7 +52,7 @@ spec:
         context: SIDECAR_INBOUND
         routeConfiguration:
           vhost:
-            name: "inbound|http|8888"
+            name: "inbound|http|80"
       patch:
         operation: MERGE
         value:
