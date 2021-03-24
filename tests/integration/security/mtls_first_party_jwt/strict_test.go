@@ -34,8 +34,8 @@ import (
 func TestMtlsStrictK8sCA(t *testing.T) {
 	framework.NewTest(t).
 		Features("security.control-plane.k8s-certs.jwt").
-		Run(func(ctx framework.TestContext) {
-			systemNM := istio.ClaimSystemNamespaceOrFail(ctx, ctx)
+		Run(func(t framework.TestContext) {
+			systemNM := istio.ClaimSystemNamespaceOrFail(t, t)
 			testCases := []reachability.TestCase{
 				{
 					ConfigFile: "global-mtls-on-no-dr.yaml",
@@ -89,6 +89,6 @@ func TestMtlsStrictK8sCA(t *testing.T) {
 					},
 				},
 			}
-			reachability.Run(testCases, ctx, apps)
+			reachability.Run(testCases, t, apps)
 		})
 }
