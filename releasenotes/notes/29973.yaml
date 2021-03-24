@@ -1,0 +1,9 @@
+apiVersion: release-notes/v2
+kind: feature
+area: installation
+issue:
+  - 29973
+
+releaseNotes:
+  - |
+    **Added** volume and volumeMount to the k8s settings of IstioOperator API.

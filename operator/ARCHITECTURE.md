@@ -152,6 +152,8 @@ nodeSelector| [node selector](https://kubernetes.io/docs/concepts/configuration/
 affinity | [affinity and anti-affinity](https://kubernetes.io/docs/concepts/configuration/assign-pod-node/#affinity-and-anti-affinity)
 serviceAnnotations | [service annotations](https://kubernetes.io/docs/concepts/overview/working-with-objects/annotations/)
 securityContext | [security context](https://kubernetes.io/docs/tasks/configure-pod-container/security-context/#set-the-security-context-for-a-pod)
+volumes | [volumes](https://kubernetes.io/docs/tasks/configure-pod-container/configure-volume-storage/)
+volumeMounts | [volume mounts](https://kubernetes.io/docs/tasks/configure-pod-container/configure-volume-storage/)
 
 These K8s setting are available for each component under the `k8s` field, for example:
 
