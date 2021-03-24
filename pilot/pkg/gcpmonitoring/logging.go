@@ -64,7 +64,7 @@ func loggingMonitoredResource(proj, loc, meshUID string) *monitoredres.Monitored
 			"project_id": proj,
 			"mesh_uid":   meshUID,
 			"location":   loc,
-			"revision":   managedRevisionVar.Get(),
+			"revision":   revisionLabel(),
 			"build_id":   version.Info.Version,
 			"owner":      owner,
 		},

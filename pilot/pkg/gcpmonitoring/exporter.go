@@ -94,7 +94,8 @@ func NewASMExporter(pe *ocprom.Exporter) (*ASMExporter, error) {
 		meshUID = meshUIDFromPlatformMeta(gcpMetadata)
 	}
 	labels.Set("mesh_uid", meshUID, "ID for Mesh")
-	labels.Set("revision", version.Info.Version, "Control plane revision")
+	labels.Set("revision", revisionLabel(), "Control plane revision")
+	labels.Set("control_plane_version", version.Info.Version, "Control plane version")
 	clientOptions := []option.ClientOption{}
 
 	if !isCloudRun() {
@@ -212,4 +213,11 @@ func isCloudRun() bool {
 		return true
 	}
 	return false
+}
+
+func revisionLabel() string {
+	if isCloudRun() {
+		return managedRevisionVar.Get()
+	}
+	return version.Info.Version
 }
