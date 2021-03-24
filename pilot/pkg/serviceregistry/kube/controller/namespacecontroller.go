@@ -27,7 +27,6 @@ import (
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/queue"
 	"istio.io/istio/security/pkg/k8s"
-	"istio.io/pkg/log"
 )
 
 const (

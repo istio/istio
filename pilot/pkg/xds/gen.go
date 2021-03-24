@@ -111,10 +111,11 @@ func (s *DiscoveryServer) pushXds(con *Connection, push *model.PushContext,
 	defer func() { recordPushTime(w.TypeUrl, time.Since(t0)) }()
 
 	resp := &discovery.DiscoveryResponse{
-		TypeUrl:     w.TypeUrl,
-		VersionInfo: currentVersion,
-		Nonce:       nonce(push.LedgerVersion),
-		Resources:   res,
+		ControlPlane: ControlPlane(),
+		TypeUrl:      w.TypeUrl,
+		VersionInfo:  currentVersion,
+		Nonce:        nonce(push.LedgerVersion),
+		Resources:    res,
 	}
 
 	if err := con.send(resp); err != nil {
