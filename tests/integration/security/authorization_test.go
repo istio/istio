@@ -130,21 +130,23 @@ func TestAuthorization_JWT(t *testing.T) {
 	framework.NewTest(t).
 		Features("security.authorization.jwt-token").
 		Run(func(t framework.TestContext) {
-			ns := apps.Namespace1
-			args := map[string]string{
-				"Namespace": apps.Namespace1.Name(),
-			}
-			policies := tmpl.EvaluateAllOrFail(t, args,
-				file.AsStringOrFail(t, "testdata/authz/v1beta1-jwt.yaml.tmpl"))
-			t.Config().ApplyYAMLOrFail(t, ns.Name(), policies...)
 			for _, srcCluster := range t.Clusters() {
+				b := apps.B.Match(echo.Namespace(ns.Name()))
+				c := apps.C.Match(echo.Namespace(ns.Name()))
+				vm := apps.VM.Match(echo.Namespace(ns.Name()))
+				for _, dst := range []echo.Instances{b, vm} {
+					args := map[string]string{
+						"Namespace":  apps.Namespace1.Name(),
+						"Namespace2": apps.Namespace2.Name(),
+						"dst":        dst[0].Config().Service,
+					}
+					policies := tmpl.EvaluateAllOrFail(t, args,
+						file.AsStringOrFail(t, "testdata/authz/v1beta1-jwt.yaml.tmpl"))
+					ctx.Config().ApplyYAMLOrFail(t, ns.Name(), policies...)
+				}
 				t.NewSubTest(fmt.Sprintf("From %s", srcCluster.StableName())).Run(func(t framework.TestContext) {
 					a := apps.A.Match(echo.InCluster(srcCluster).And(echo.Namespace(ns.Name())))
 					callCount := 1
-					b := apps.B.Match(echo.Namespace(ns.Name()))
-					c := apps.C.Match(echo.Namespace(ns.Name()))
-					d := apps.D.Match(echo.Namespace(ns.Name()))
-					vm := apps.VM.Match(echo.Namespace(ns.Name()))
 					if t.Clusters().IsMulticluster() {
 						// so we can validate all clusters are hit
 						callCount = util.CallsPerCluster * len(t.Clusters())
