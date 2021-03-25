@@ -44,8 +44,6 @@ type LocalDNSServer struct {
 	// Optimizations to save space and time
 	proxyDomain      string
 	proxyDomainParts []string
-	// Stores if lookupTable is updated atleast once.
-	initialized bool
 }
 
 // Borrowed from https://github.com/coredns/coredns/blob/master/plugin/hosts/hostsfile.go
@@ -77,7 +75,6 @@ const (
 func NewLocalDNSServer(proxyNamespace, proxyDomain string) (*LocalDNSServer, error) {
 	h := &LocalDNSServer{
 		proxyNamespace: proxyNamespace,
-		initialized:    false,
 	}
 
 	// proxyDomain could contain the namespace making it redundant.
@@ -223,12 +220,16 @@ func (h *LocalDNSServer) ServeDNS(proxy *dnsProxy, w dns.ResponseWriter, req *dn
 	// We did not find the host in our internal cache. Query upstream and return the response as is.
 	log.Debugf("response for hostname %q (found=false): %v", hostname, response)
 	response = h.queryUpstream(proxy.upstreamClient, req, log)
+	// Compress the response - we don't know if the incoming response was compressed or not. If it was,
+	// but we don't compress on the outbound, we will run into issues. For example, if the compressed
+	// size is 450 bytes but uncompressed 1000 bytes now we are outside of the non-eDNS UDP size limits
+	response.Truncate(size(proxy.protocol, req))
 	_ = w.WriteMsg(response)
 }
 
 // IsReady returns true if DNS lookup table is updated atleast once.
 func (h *LocalDNSServer) IsReady() bool {
-	return h.initialized
+	return h.lookupTable.Load() != nil
 }
 
 // Inspired by https://github.com/coredns/coredns/blob/master/plugin/loadbalance/loadbalance.go
