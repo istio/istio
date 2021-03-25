@@ -39,7 +39,7 @@ import (
 )
 
 var (
-	adsLog = istiolog.RegisterScope("ads", "ads debugging", 0)
+	log = istiolog.RegisterScope("ads", "ads debugging", 0)
 
 	// sendTimeout is the max time to wait for a ADS send to complete. This helps detect
 	// clients in a bad state (not reading). In future it may include checking for ACK
@@ -163,11 +163,11 @@ func (s *DiscoveryServer) receive(con *Connection, reqChannel chan *discovery.Di
 		req, err := con.stream.Recv()
 		if err != nil {
 			if isExpectedGRPCError(err) {
-				adsLog.Infof("ADS: %q %s terminated %v", con.PeerAddr, con.ConID, err)
+				log.Infof("ADS: %q %s terminated %v", con.PeerAddr, con.ConID, err)
 				return
 			}
 			*errP = err
-			adsLog.Errorf("ADS: %q %s terminated with error: %v", con.PeerAddr, con.ConID, err)
+			log.Errorf("ADS: %q %s terminated with error: %v", con.PeerAddr, con.ConID, err)
 			totalXDSInternalErrors.Increment()
 			return
 		}
@@ -183,7 +183,7 @@ func (s *DiscoveryServer) receive(con *Connection, reqChannel chan *discovery.Di
 				*errP = err
 				return
 			}
-			adsLog.Infof("ADS: new connection for node:%s", con.ConID)
+			log.Infof("ADS: new connection for node:%s", con.ConID)
 			defer func() {
 				s.removeCon(con.ConID)
 				if s.StatusGen != nil {
@@ -196,7 +196,7 @@ func (s *DiscoveryServer) receive(con *Connection, reqChannel chan *discovery.Di
 		select {
 		case reqChannel <- req:
 		case <-con.stream.Context().Done():
-			adsLog.Infof("ADS: %q %s terminated with stream closed", con.PeerAddr, con.ConID)
+			log.Infof("ADS: %q %s terminated with stream closed", con.PeerAddr, con.ConID)
 			return
 		}
 	}
@@ -233,7 +233,7 @@ func (s *DiscoveryServer) processRequest(req *discovery.DiscoveryRequest, con *C
 		return nil
 	} else {
 		// we have a blocked push which we will use
-		adsLog.Debugf("%s: DEQUEUE for node:%s", v3.GetShortType(req.TypeUrl), con.proxy.ID)
+		log.Debugf("%s: DEQUEUE for node:%s", v3.GetShortType(req.TypeUrl), con.proxy.ID)
 	}
 
 	push := s.globalPushContext()
@@ -279,16 +279,16 @@ func (s *DiscoveryServer) Stream(stream DiscoveryStream) error {
 		return status.Error(codes.Unauthenticated, err.Error())
 	}
 	if ids != nil {
-		adsLog.Debugf("Authenticated XDS: %v with identity %v", peerAddr, ids)
+		log.Debugf("Authenticated XDS: %v with identity %v", peerAddr, ids)
 	} else {
-		adsLog.Debug("Unauthenticated XDS: ", peerAddr)
+		log.Debug("Unauthenticated XDS: ", peerAddr)
 	}
 
 	// InitContext returns immediately if the context was already initialized.
 	if err = s.globalPushContext().InitContext(s.Env, nil, nil); err != nil {
 		// Error accessing the data - log and close, maybe a different pilot replica
 		// has more luck
-		adsLog.Warnf("Error reading config %v", err)
+		log.Warnf("Error reading config %v", err)
 		return status.Error(codes.Unavailable, "error reading config")
 	}
 	con := newConnection(peerAddr, stream)
@@ -357,7 +357,7 @@ func (s *DiscoveryServer) shouldRespond(con *Connection, request *discovery.Disc
 	// will be different from the version sent. But it is fragile to rely on that.
 	if request.ErrorDetail != nil {
 		errCode := codes.Code(request.ErrorDetail.Code)
-		adsLog.Warnf("ADS:%s: ACK ERROR %s %s:%s", stype, con.ConID, errCode.String(), request.ErrorDetail.GetMessage())
+		log.Warnf("ADS:%s: ACK ERROR %s %s:%s", stype, con.ConID, errCode.String(), request.ErrorDetail.GetMessage())
 		incrementXDSRejects(request.TypeUrl, con.proxy.ID, errCode.String())
 		if s.StatusGen != nil {
 			s.StatusGen.OnNack(con.proxy, request)
@@ -369,7 +369,7 @@ func (s *DiscoveryServer) shouldRespond(con *Connection, request *discovery.Disc
 	}
 
 	if shouldUnsubscribe(request) {
-		adsLog.Debugf("ADS:%s: UNSUBSCRIBE %s %s %s", stype, con.ConID, request.VersionInfo, request.ResponseNonce)
+		log.Debugf("ADS:%s: UNSUBSCRIBE %s %s %s", stype, con.ConID, request.VersionInfo, request.ResponseNonce)
 		con.proxy.Lock()
 		delete(con.proxy.WatchedResources, request.TypeUrl)
 		con.proxy.Unlock()
@@ -378,7 +378,7 @@ func (s *DiscoveryServer) shouldRespond(con *Connection, request *discovery.Disc
 
 	// This is first request - initialize typeUrl watches.
 	if request.ResponseNonce == "" {
-		adsLog.Debugf("ADS:%s: INIT %s %s %s", stype, con.ConID, request.VersionInfo, request.ResponseNonce)
+		log.Debugf("ADS:%s: INIT %s %s %s", stype, con.ConID, request.VersionInfo, request.ResponseNonce)
 		con.proxy.Lock()
 		con.proxy.WatchedResources[request.TypeUrl] = &model.WatchedResource{TypeUrl: request.TypeUrl, ResourceNames: request.ResourceNames, LastRequest: request}
 		con.proxy.Unlock()
@@ -394,7 +394,7 @@ func (s *DiscoveryServer) shouldRespond(con *Connection, request *discovery.Disc
 	// because Istiod is restarted or Envoy disconnects and reconnects.
 	// We should always respond with the current resource names.
 	if previousInfo == nil {
-		adsLog.Debugf("ADS:%s: RECONNECT %s %s %s", stype, con.ConID, request.VersionInfo, request.ResponseNonce)
+		log.Debugf("ADS:%s: RECONNECT %s %s %s", stype, con.ConID, request.VersionInfo, request.ResponseNonce)
 		con.proxy.Lock()
 		con.proxy.WatchedResources[request.TypeUrl] = &model.WatchedResource{TypeUrl: request.TypeUrl, ResourceNames: request.ResourceNames, LastRequest: request}
 		con.proxy.Unlock()
@@ -404,7 +404,7 @@ func (s *DiscoveryServer) shouldRespond(con *Connection, request *discovery.Disc
 	// If there is mismatch in the npilot/pkg/bootstrap/server.goonce, that is a case of expired/stale nonce.
 	// A nonce becomes stale following a newer nonce being sent to Envoy.
 	if request.ResponseNonce != previousInfo.NonceSent {
-		adsLog.Debugf("ADS:%s: REQ %s Expired nonce received %s, sent %s", stype,
+		log.Debugf("ADS:%s: REQ %s Expired nonce received %s, sent %s", stype,
 			con.ConID, request.ResponseNonce, previousInfo.NonceSent)
 		xdsExpiredNonce.With(typeTag.Value(v3.GetMetricType(request.TypeUrl))).Increment()
 		con.proxy.Lock()
@@ -428,10 +428,10 @@ func (s *DiscoveryServer) shouldRespond(con *Connection, request *discovery.Disc
 	// Envoy can send two DiscoveryRequests with same version and nonce
 	// when it detects a new resource. We should respond if they change.
 	if listEqualUnordered(previousResources, request.ResourceNames) {
-		adsLog.Debugf("ADS:%s: ACK %s %s %s", stype, con.ConID, request.VersionInfo, request.ResponseNonce)
+		log.Debugf("ADS:%s: ACK %s %s %s", stype, con.ConID, request.VersionInfo, request.ResponseNonce)
 		return false
 	}
-	adsLog.Debugf("ADS:%s: RESOURCE CHANGE previous resources: %v, new resources: %v %s %s %s", stype,
+	log.Debugf("ADS:%s: RESOURCE CHANGE previous resources: %v, new resources: %v %s %s %s", stype,
 		previousResources, request.ResourceNames, con.ConID, request.VersionInfo, request.ResponseNonce)
 
 	return true
@@ -502,7 +502,7 @@ func (s *DiscoveryServer) initConnection(node *core.Node, con *Connection) error
 		// TODO: allow locking down, rejecting unauthenticated requests.
 		id, err := checkConnectionIdentity(con)
 		if err != nil {
-			adsLog.Warnf("Unauthorized XDS: %v with identity %v: %v", con.PeerAddr, con.Identities, err)
+			log.Warnf("Unauthorized XDS: %v with identity %v: %v", con.PeerAddr, con.Identities, err)
 			return status.Newf(codes.PermissionDenied, "authorization failed: %v", err).Err()
 		}
 		con.proxy.VerifiedIdentity = id
@@ -678,7 +678,7 @@ func (s *DiscoveryServer) pushConnection(con *Connection, pushEv *Event) error {
 	}
 
 	if !s.ProxyNeedsPush(con.proxy, pushRequest) {
-		adsLog.Debugf("Skipping push to %v, no updates required", con.ConID)
+		log.Debugf("Skipping push to %v, no updates required", con.ConID)
 		if pushRequest.Full {
 			// Only report for full versions, incremental pushes do not have a new version
 			reportAllEvents(s.StatusReporter, con.ConID, pushRequest.Push.LedgerVersion, nil)
@@ -705,7 +705,7 @@ func (s *DiscoveryServer) pushConnection(con *Connection, pushEv *Event) error {
 			// avoid any scenario where this may deadlock.
 			// This can possibly be removed in the future if we find this never causes issues
 			totalDelayedPushes.With(typeTag.Value(v3.GetMetricType(w.TypeUrl))).Increment()
-			adsLog.Warnf("%s: QUEUE TIMEOUT for node:%s", v3.GetShortType(w.TypeUrl), con.proxy.ID)
+			log.Warnf("%s: QUEUE TIMEOUT for node:%s", v3.GetShortType(w.TypeUrl), con.proxy.ID)
 		}
 		if synced || timeout {
 			// Send the push now
@@ -718,7 +718,7 @@ func (s *DiscoveryServer) pushConnection(con *Connection, pushEv *Event) error {
 			// https://github.com/istio/istio/issues/25685 for details on the performance
 			// impact of sending pushes before Envoy ACKs.
 			totalDelayedPushes.With(typeTag.Value(v3.GetMetricType(w.TypeUrl))).Increment()
-			adsLog.Debugf("%s: QUEUE for node:%s", v3.GetShortType(w.TypeUrl), con.proxy.ID)
+			log.Debugf("%s: QUEUE for node:%s", v3.GetShortType(w.TypeUrl), con.proxy.ID)
 			con.proxy.Lock()
 			con.blockedPushes[w.TypeUrl] = con.blockedPushes[w.TypeUrl].Merge(pushEv.pushRequest)
 			con.proxy.Unlock()
@@ -797,10 +797,10 @@ func (s *DiscoveryServer) ProxyUpdate(clusterID, ip string) {
 	if connection == nil {
 		return
 	}
-	if adsLog.DebugEnabled() {
+	if log.DebugEnabled() {
 		currentlyPending := s.pushQueue.Pending()
 		if currentlyPending != 0 {
-			adsLog.Debugf("Starting new push while %v were still pending", currentlyPending)
+			log.Debugf("Starting new push while %v were still pending", currentlyPending)
 		}
 	}
 
@@ -833,11 +833,11 @@ func (s *DiscoveryServer) AdsPushAll(version string, req *model.PushRequest) {
 		s.Cache.Clear(req.ConfigsUpdated)
 	}
 	if !req.Full {
-		adsLog.Infof("XDS: Incremental Pushing:%s ConnectedEndpoints:%d Version:%s",
+		log.Infof("XDS: Incremental Pushing:%s ConnectedEndpoints:%d Version:%s",
 			version, s.adsClientCount(), req.Push.PushVersion)
 	} else {
 		totalService := len(req.Push.Services(nil))
-		adsLog.Infof("XDS: Pushing:%s Services:%d ConnectedEndpoints:%d  Version:%s",
+		log.Infof("XDS: Pushing:%s Services:%d ConnectedEndpoints:%d  Version:%s",
 			version, totalService, s.adsClientCount(), req.Push.PushVersion)
 		monServices.Record(float64(totalService))
 
@@ -854,10 +854,10 @@ func (s *DiscoveryServer) AdsPushAll(version string, req *model.PushRequest) {
 func (s *DiscoveryServer) startPush(req *model.PushRequest) {
 	// Push config changes, iterating over connected envoys. This cover ADS and EDS(0.7), both share
 	// the same connection table
-	if adsLog.DebugEnabled() {
+	if log.DebugEnabled() {
 		currentlyPending := s.pushQueue.Pending()
 		if currentlyPending != 0 {
-			adsLog.Infof("Starting new push while %v were still pending", currentlyPending)
+			log.Infof("Starting new push while %v were still pending", currentlyPending)
 		}
 	}
 	req.Start = time.Now()
@@ -877,7 +877,7 @@ func (s *DiscoveryServer) removeCon(conID string) {
 	defer s.adsClientsMutex.Unlock()
 
 	if con, exist := s.adsClients[conID]; !exist {
-		adsLog.Errorf("ADS: Removing connection for non-existing node:%v.", conID)
+		log.Errorf("ADS: Removing connection for non-existing node:%v.", conID)
 		totalXDSInternalErrors.Increment()
 	} else {
 		delete(s.adsClients, conID)
@@ -904,7 +904,7 @@ func (conn *Connection) send(res *discovery.DiscoveryResponse) error {
 
 	select {
 	case <-t.C:
-		adsLog.Infof("Timeout writing %s", conn.ConID)
+		log.Infof("Timeout writing %s", conn.ConID)
 		xdsResponseWriteTimeouts.Increment()
 		return status.Errorf(codes.DeadlineExceeded, "timeout sending")
 	case err := <-errChan:
