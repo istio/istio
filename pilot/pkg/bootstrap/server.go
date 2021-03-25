@@ -585,7 +585,7 @@ func (s *Server) initIstiodAdminServer(args *PilotArgs, wh *inject.Webhook) erro
 	}
 
 	// Debug Server.
-	s.XDSServer.InitDebug(s.httpMux, s.ServiceController(), args.ServerOptions.EnableProfiling, whc)
+	s.XDSServer.InitDebug(s.monitoringMux, s.ServiceController(), args.ServerOptions.EnableProfiling, whc)
 
 	// Debug handlers are currently added on monitoring mux and readiness mux.
 	// If monitoring addr is empty, the mux is shared and we only add it once on the shared mux .
