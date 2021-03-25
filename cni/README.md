@@ -78,17 +78,15 @@ $ gcloud logging read "resource.type=k8s_node AND jsonPayload.SYSLOG_IDENTIFIER=
 - `istio-cni`
   - CNI plugin executable copied to `/opt/cni/bin`
   - currently implemented for k8s only
-  - on pod add, determines whether pod should have netns setup to redirect to Istio proxy. See [cmdAdd](#cmdadd) for detailed logic.
+  - on pod add, determines whether pod should have netns setup to redirect to Istio proxy. See [cmdAdd](#cmdadd-workflow) for detailed logic.
     - If so, calls `istio-iptables` with params to setup pod netns
 
 - `istio-iptables`
   - sets up iptables to redirect a list of ports to the port envoy will listen
 
-### Plugin Logic
+### CmdAdd Workflow
 
-#### cmdAdd
-
-Workflow:
+`CmdAdd` is triggered when there is a new pod created.
 
 1. Check k8s pod namespace against exclusion list (plugin config)
     1. Config must exclude namespace that Istio control-plane is installed in
@@ -99,7 +97,6 @@ Workflow:
         1. Pods have annotation `sidecar.istio.io/inject` set to `false` or has no key `sidecar.istio.io/status` in annotations
         1. Pod has `istio-init` initContainer
 1. Return prevResult
-
 
 ## Reference
 
