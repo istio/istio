@@ -170,10 +170,12 @@ func (p clusterPatcher) conditionallyAppend(l []*cluster.Cluster, hosts []host.N
 		if envoyfilter.ShouldKeepCluster(p.pctx, p.efw, c, hosts) {
 			pc, applied = envoyfilter.ApplyClusterMerge(p.pctx, p.efw, c, hosts)
 			l = append(l, pc)
+		} else {
+			applied = true // Remove patch is applied.
 		}
-	}
-	if applied {
-		p.patchesApplied++
+		if applied {
+			p.patchesApplied++
+		}
 	}
 	return l
 }
