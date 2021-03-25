@@ -153,7 +153,6 @@ func (h *LocalDNSServer) UpdateLookupTable(nt *nds.NameTable) {
 		lookupTable.buildDNSAnswers(altHosts, ipv4, ipv6, h.searchNamespaces)
 	}
 	h.lookupTable.Store(lookupTable)
-	h.initialized = true
 	log.Debugf("updated lookup table with %d hosts", len(lookupTable.allHosts))
 }
 
