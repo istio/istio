@@ -85,10 +85,7 @@ func (s *realStackdriver) ListTimeSeries(metricName string) ([]*monitoringpb.Tim
 	b, _ := resp.MarshalJSON()
 	r := bytes.NewReader(b)
 	resppb := monitoringpb.ListTimeSeriesResponse{}
-	err = jsonpb.Unmarshal(r, &resppb)
-	if err != nil {
-		return nil, err
-	}
+	_ = jsonpb.Unmarshal(r, &resppb)
 	return trimMetricLabels(&resppb), nil
 }
 
@@ -108,7 +105,7 @@ func (s *realStackdriver) ListLogEntries(filter LogType) ([]*loggingpb.LogEntry,
 	b, _ := resp.MarshalJSON()
 	r := bytes.NewReader(b)
 	resppb := loggingpb.ListLogEntriesResponse{}
-	err = jsonpb.Unmarshal(r, &resppb)
+	_ = jsonpb.Unmarshal(r, &resppb)
 	return trimLogLabels(&resppb, filter), nil
 }
 
