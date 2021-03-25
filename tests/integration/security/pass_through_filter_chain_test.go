@@ -624,7 +624,7 @@ spec:
 								want = expect.plaintextSucceeds
 							}
 							name := fmt.Sprintf("In %s/%v/%v/port %d[%t]", clusterName, tc.name, nameSuffix, expect.port.ServicePort, want)
-							host := fmt.Sprintf("%s:%d", dest[0].Address(), expect.port.ServicePort)
+							host := fmt.Sprintf("%s:%d", getWorkload(dest[0], t).Address(), expect.port.ServicePort)
 							callOpt := echo.CallOptions{
 								Count: util.CallsPerCluster * len(dest),
 								Port:  expect.port,
