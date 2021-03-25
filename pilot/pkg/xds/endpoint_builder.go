@@ -387,6 +387,7 @@ func buildEnvoyLbEndpoint(e *model.IstioEndpoint) *endpoint.LbEndpoint {
 	return ep
 }
 
+// TODO this logic is probably done elsewhere in XDS, possible code-reuse
 type mtlsChecker struct {
 	push *model.PushContext
 
@@ -397,7 +398,7 @@ type mtlsChecker struct {
 	peerAuthDisabledMTLS map[string]bool
 
 	svcPort         int
-	destinationRule *config.Config
+	destinationRule *networkingapi.DestinationRule
 	// true if the default traffic policy disables mTLS
 	subsetPolicyDisabledMTLS map[string]bool
 	// cache of labels that have mTLS disabled by a subset traffic policy
@@ -405,10 +406,14 @@ type mtlsChecker struct {
 }
 
 func newMtlsChecker(push *model.PushContext, svcPort int, dr *config.Config) *mtlsChecker {
+	var drSpec *networkingapi.DestinationRule
+	if dr != nil {
+		drSpec = dr.Spec.(*networkingapi.DestinationRule)
+	}
 	return &mtlsChecker{
 		push:                     push,
 		svcPort:                  svcPort,
-		destinationRule:          dr,
+		destinationRule:          drSpec,
 		mtlsDisabledHosts:        map[string]bool{},
 		peerAuthDisabledMTLS:     map[string]bool{},
 		subsetPolicyDisabledMTLS: map[string]bool{},
@@ -421,46 +426,61 @@ func newMtlsChecker(push *model.PushContext, svcPort int, dr *config.Config) *mt
 // - DestinationRule disabling mTLS on the entire host or the port TODO handle subsets
 // - PeerAuthentication disabling mTLS at any applicable level (mesh, ns, workload, port)
 func (c *mtlsChecker) isMtlsDisabled(lbEp *endpoint.LbEndpoint) bool {
-	// we may have an entry that says mTLS is ON for this host, for example if a DR subset enables mTLS but the
-	// default policy disables it
 	if disabled, ok := c.mtlsDisabledHosts[lbEpKey(lbEp)]; ok {
 		return disabled
 	}
-
-	// if another DR subset didn't explicly set mtlsOn, use the default DR value
-	return c.disaledByDestinationRule
+	return false
 }
 
 // checkEndpoint checks destination rule, peer authentication and metadata to determine if mTLS was turned off.
 // This must be done during conversion from IstioEndpoint since we still have workload metadata.
 func (c *mtlsChecker) checkEndpoint(ep *model.IstioEndpoint) {
-	if tlsMode := envoytransportSocketMetadata(ep.EnvoyEndpoint, model.TLSModeLabelShortname); tlsMode == model.DisabledTLSModeLabel {
-		// if the endpoint has no sidecar it can't participate in istio mTLS for multi-network.
+	tlsMode := envoytransportSocketMetadata(ep.EnvoyEndpoint, model.TLSModeLabelShortname)
+	if tlsMode == model.DisabledTLSModeLabel ||
+		c.mtlsDisabledByPeerAuthentication(ep) ||
+		c.mtlsDisabledSubsetTrafficPolicy(ep) {
 		c.mtlsDisabledHosts[lbEpKey(ep.EnvoyEndpoint)] = true
 		return
 	}
-	if c.mtlsDisabledByPeerAuthentication(ep) {
-		c.mtlsDisabledHosts[lbEpKey(ep.EnvoyEndpoint)] = true
-		return
-	}
-
-	// TODO check subset level DR
 }
 
 func (c *mtlsChecker) mtlsDisabledByPeerAuthentication(ep *model.IstioEndpoint) bool {
 	// apply any matching peer authentications
 	peerAuthnKey := ep.Labels.String() + ":" + strconv.Itoa(int(ep.EndpointPort))
-	if _, ok := c.peerAuthDisabledMTLS[peerAuthnKey]; !ok {
-		// avoid recomputing peerAuthn since most EPs will have the same labels/port
-		c.peerAuthDisabledMTLS[peerAuthnKey] = factory.
-			NewPolicyApplier(c.push, ep.Namespace, labels.Collection{ep.Labels}).
-			GetMutualTLSModeForPort(ep.EndpointPort) == model.MTLSDisable
+	if value, ok := c.peerAuthDisabledMTLS[peerAuthnKey]; ok {
+		// avoid recomputing since most EPs will have the same labels/port
+		return value
 	}
-	if c.peerAuthDisabledMTLS[peerAuthnKey] {
-		return true
+	c.peerAuthDisabledMTLS[peerAuthnKey] = factory.
+		NewPolicyApplier(c.push, ep.Namespace, labels.Collection{ep.Labels}).
+		GetMutualTLSModeForPort(ep.EndpointPort) == model.MTLSDisable
+	return c.peerAuthDisabledMTLS[peerAuthnKey]
+}
+
+func (c *mtlsChecker) mtlsDisabledSubsetTrafficPolicy(ep *model.IstioEndpoint) bool {
+	if c.destinationRule == nil || len(c.destinationRule.Subsets) == 0 {
+		return c.disaledByDestinationRule
 	}
 
-	return false
+	drSubsetKey := ep.Labels.String()
+	if value, ok := c.subsetPolicyDisabledMTLS[drSubsetKey]; ok {
+		// avoid recomputing since most EPs will have the same labels/port
+		return value
+	}
+
+	subsetValue := c.disaledByDestinationRule
+	for _, subset := range c.destinationRule.Subsets {
+		if labels.Instance(subset.Labels).SubsetOf(ep.Labels) {
+			mode := trafficPolicyTLSModeForPort(subset.TrafficPolicy, c.svcPort)
+			if mode == nil {
+				// the subset selecting this endpoint has no opinion on TLS settings, use the default policy value
+				break
+			}
+			subsetValue = *mode == networkingapi.ClientTLSSettings_DISABLE
+		}
+	}
+	c.peerAuthDisabledMTLS[drSubsetKey] = subsetValue
+	return subsetValue
 }
 
 // mtlsDisabledDefaultTrafficPolicy returns true if the default traffic policy on a given dr disables mTLS
@@ -472,12 +492,13 @@ func mtlsDisabledDefaultTrafficPolicy(destinationRule *config.Config, port int) 
 	if !ok || dr == nil {
 		return false
 	}
-	return mtlsDisabledForTrafficPolicy(dr.GetTrafficPolicy(), port)
+	mode := trafficPolicyTLSModeForPort(dr.GetTrafficPolicy(), port)
+	return mode != nil && *mode == networkingapi.ClientTLSSettings_DISABLE
 }
 
-func mtlsDisabledForTrafficPolicy(tp *networkingapi.TrafficPolicy, port int) bool {
+func trafficPolicyTLSModeForPort(tp *networkingapi.TrafficPolicy, port int) *networkingapi.ClientTLSSettings_TLSmode {
 	if tp == nil {
-		return false
+		return nil
 	}
 	var mode *networkingapi.ClientTLSSettings_TLSmode
 	if tp.Tls != nil {
@@ -490,7 +511,7 @@ func mtlsDisabledForTrafficPolicy(tp *networkingapi.TrafficPolicy, port int) boo
 			break
 		}
 	}
-	return mode != nil && *mode == networkingapi.ClientTLSSettings_DISABLE
+	return mode
 }
 
 func lbEpKey(b *endpoint.LbEndpoint) string {

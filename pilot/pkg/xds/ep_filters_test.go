@@ -369,6 +369,54 @@ func TestEndpointsByNetworkFilter_WithConfig(t *testing.T) {
 				},
 				Tests: noCrossNetwork,
 			},
+			"mtls-off-subset-level": {
+				Config: config.Config{
+					Meta: config.Meta{
+						GroupVersionKind: gvk.DestinationRule,
+						Name:             "mtls-off",
+						Namespace:        "ns",
+					},
+					Spec: &networking.DestinationRule{
+						Host: "example.ns.svc.cluster.local",
+						TrafficPolicy: &networking.TrafficPolicy{
+							// should be overridden by subset
+							Tls: &networking.ClientTLSSettings{Mode: networking.ClientTLSSettings_ISTIO_MUTUAL},
+						},
+						Subsets: []*networking.Subset{{
+							Name:   "disable-tls",
+							Labels: map[string]string{"app": "example"},
+							TrafficPolicy: &networking.TrafficPolicy{
+								Tls: &networking.ClientTLSSettings{Mode: networking.ClientTLSSettings_DISABLE},
+							},
+						}},
+					},
+				},
+				Tests: noCrossNetwork,
+			},
+			"mtls-on-subset-level": {
+				Config: config.Config{
+					Meta: config.Meta{
+						GroupVersionKind: gvk.DestinationRule,
+						Name:             "mtls-on",
+						Namespace:        "ns",
+					},
+					Spec: &networking.DestinationRule{
+						Host: "example.ns.svc.cluster.local",
+						TrafficPolicy: &networking.TrafficPolicy{
+							// should be overridden by subset
+							Tls: &networking.ClientTLSSettings{Mode: networking.ClientTLSSettings_DISABLE},
+						},
+						Subsets: []*networking.Subset{{
+							Name:   "disable-tls",
+							Labels: map[string]string{"app": "example"},
+							TrafficPolicy: &networking.TrafficPolicy{
+								Tls: &networking.ClientTLSSettings{Mode: networking.ClientTLSSettings_ISTIO_MUTUAL},
+							},
+						}},
+					},
+				},
+				Tests: networkFiltered,
+			},
 		},
 	}
 
