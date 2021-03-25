@@ -79,7 +79,7 @@ func NewEndpointBuilder(clusterName string, proxy *model.Proxy, push *model.Push
 	_, subsetName, hostname, port := model.ParseSubsetKey(clusterName)
 	svc := push.ServiceForHostname(proxy, hostname)
 	dr := push.DestinationRule(proxy, svc)
-	return EndpointBuilder{
+	b := EndpointBuilder{
 		clusterName:     clusterName,
 		network:         proxy.Metadata.Network,
 		networkView:     model.GetNetworkView(proxy),
@@ -89,12 +89,15 @@ func NewEndpointBuilder(clusterName string, proxy *model.Proxy, push *model.Push
 		destinationRule: dr,
 		tunnelType:      GetTunnelBuilderType(clusterName, proxy, push),
 
-		push:        push,
-		subsetName:  subsetName,
-		hostname:    hostname,
-		port:        port,
-		mtlsChecker: newMtlsChecker(push, port, dr),
+		push:       push,
+		subsetName: subsetName,
+		hostname:   hostname,
+		port:       port,
 	}
+	if b.MultiNetworkConfigured() {
+		b.mtlsChecker = newMtlsChecker(push, port, dr)
+	}
+	return b
 }
 
 func (b EndpointBuilder) DestinationRule() *networkingapi.DestinationRule {
@@ -301,7 +304,9 @@ func (b *EndpointBuilder) buildLocalityLbEndpointsFromShards(
 
 			// detect if mTLS is possible for this endpoint, used later during ep filtering
 			// this must be done while converting IstioEndpoints because we still have workload labels
-			b.mtlsChecker.computeForEndpoint(ep)
+			if b.mtlsChecker != nil {
+				b.mtlsChecker.computeForEndpoint(ep)
+			}
 		}
 	}
 	shards.mutex.Unlock()
@@ -387,7 +392,7 @@ func buildEnvoyLbEndpoint(e *model.IstioEndpoint) *endpoint.LbEndpoint {
 	return ep
 }
 
-// TODO this logic is probably done elsewhere in XDS, possible code-reuse + perf improvemnts
+// TODO this logic is probably done elsewhere in XDS, possible code-reuse + perf improvements
 type mtlsChecker struct {
 	push            *model.PushContext
 	svcPort         int
