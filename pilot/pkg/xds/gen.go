@@ -56,7 +56,7 @@ func init() {
 		Info:      istioversion.Info,
 	})
 	if err != nil {
-		adsLog.Warnf("XDS: Could not serialize control plane id: %v", err)
+		log.Warnf("XDS: Could not serialize control plane id: %v", err)
 	}
 	controlPlane = &corev3.ControlPlane{Identifier: string(byVersion)}
 }
@@ -125,12 +125,12 @@ func (s *DiscoveryServer) pushXds(con *Connection, push *model.PushContext,
 
 	// Some types handle logs inside Generate, skip them here
 	if _, f := SkipLogTypes[w.TypeUrl]; !f {
-		if adsLog.DebugEnabled() {
+		if log.DebugEnabled() {
 			// Add additional information to logs when debug mode enabled
-			adsLog.Infof("%s: PUSH%s for node:%s resources:%d size:%s nonce:%v version:%v",
+			log.Infof("%s: PUSH%s for node:%s resources:%d size:%s nonce:%v version:%v",
 				v3.GetShortType(w.TypeUrl), req.PushReason(), con.proxy.ID, len(res), util.ByteCount(ResourceSize(res)), resp.Nonce, resp.VersionInfo)
 		} else {
-			adsLog.Infof("%s: PUSH%s for node:%s resources:%d size:%s",
+			log.Infof("%s: PUSH%s for node:%s resources:%d size:%s",
 				v3.GetShortType(w.TypeUrl), req.PushReason(), con.proxy.ID, len(res), util.ByteCount(ResourceSize(res)))
 		}
 	}
