@@ -40,4 +40,13 @@ spec:
             memory: 999Mi
         nodeSelector:
           master: "true"
+        volumeMounts:
+        - mountPath: /etc/istio/config
+          name: config-volume
+        volumes:
+        - name: config-volume
+          volumeSource:
+            configMap:
+              localObjectReference:
+                name: istio
 

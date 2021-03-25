@@ -19,3 +19,12 @@ spec:
           effect: NoSchedule
         - key: CriticalAddonsOnly
           operator: Exists
+        volumes:
+        - name: config-volume
+          volumeSource:
+            configMap:
+              localObjectReference:
+                name: istio
+        volumeMounts:
+        - name: config-volume
+          mountPath: /etc/istio/config
