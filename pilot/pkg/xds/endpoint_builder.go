@@ -109,7 +109,10 @@ func (b EndpointBuilder) DestinationRule() *networkingapi.DestinationRule {
 
 // Key provides the eds cache key and should include any information that could change the way endpoints are generated.
 func (b EndpointBuilder) Key() string {
-	params := []string{b.clusterName, b.network, b.clusterID, util.LocalityToString(b.locality), b.tunnelType.ToString(), b.push.AuthnPolicies.AggregateVersion}
+	params := []string{b.clusterName, b.network, b.clusterID, util.LocalityToString(b.locality), b.tunnelType.ToString()}
+	if b.push != nil && b.push.AuthnPolicies != nil {
+		params = append(params, b.push.AuthnPolicies.AggregateVersion)
+	}
 	if b.destinationRule != nil {
 		params = append(params, b.destinationRule.Name+"/"+b.destinationRule.Namespace)
 	}
@@ -421,7 +424,7 @@ func newMtlsChecker(push *model.PushContext, svcPort int, dr *config.Config) *mt
 		mtlsDisabledHosts:        map[string]struct{}{},
 		peerAuthDisabledMTLS:     map[string]bool{},
 		subsetPolicyDisabledMTLS: map[string]bool{},
-		disaledByDestinationRule: mtlsDisabledDefaultTrafficPolicy(dr, svcPort),
+		disaledByDestinationRule: mtlsDisabledByDefaultTrafficPolicy(dr, svcPort),
 	}
 }
 
@@ -443,7 +446,7 @@ func (c *mtlsChecker) computeForEndpoint(ep *model.IstioEndpoint) {
 	tlsMode := envoytransportSocketMetadata(ep.EnvoyEndpoint, model.TLSModeLabelShortname)
 	if tlsMode == model.DisabledTLSModeLabel ||
 		c.mtlsDisabledByPeerAuthentication(ep) ||
-		c.mtlsDisabledSubsetTrafficPolicy(ep) {
+		c.mtlsDisabledBySubsetTrafficPolicy(ep) {
 		c.mtlsDisabledHosts[lbEpKey(ep.EnvoyEndpoint)] = struct{}{}
 		return
 	}
@@ -462,7 +465,7 @@ func (c *mtlsChecker) mtlsDisabledByPeerAuthentication(ep *model.IstioEndpoint) 
 	return c.peerAuthDisabledMTLS[peerAuthnKey]
 }
 
-func (c *mtlsChecker) mtlsDisabledSubsetTrafficPolicy(ep *model.IstioEndpoint) bool {
+func (c *mtlsChecker) mtlsDisabledBySubsetTrafficPolicy(ep *model.IstioEndpoint) bool {
 	if c.destinationRule == nil || len(c.destinationRule.Subsets) == 0 {
 		return c.disaledByDestinationRule
 	}
@@ -487,8 +490,8 @@ func (c *mtlsChecker) mtlsDisabledSubsetTrafficPolicy(ep *model.IstioEndpoint) b
 	return subsetValue
 }
 
-// mtlsDisabledDefaultTrafficPolicy returns true if the default traffic policy on a given dr disables mTLS
-func mtlsDisabledDefaultTrafficPolicy(destinationRule *config.Config, port int) bool {
+// mtlsDisabledByDefaultTrafficPolicy returns true if the default traffic policy on a given dr disables mTLS
+func mtlsDisabledByDefaultTrafficPolicy(destinationRule *config.Config, port int) bool {
 	if destinationRule == nil {
 		return false
 	}
