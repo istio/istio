@@ -84,45 +84,56 @@ func TestAuthorization_mTLS(t *testing.T) {
 
 			t.Config().ApplyYAMLOrFail(t, apps.Namespace1.Name(), policies...)
 			for _, cluster := range t.Clusters() {
-				t.NewSubTest(fmt.Sprintf("From %s", cluster.StableName())).Run(func(t framework.TestContext) {
-					a := apps.A.Match(echo.InCluster(cluster).And(echo.Namespace(apps.Namespace1.Name())))
-					c := apps.C.Match(echo.InCluster(cluster).And(echo.Namespace(apps.Namespace2.Name())))
-					b := apps.B.Match(echo.Namespace(apps.Namespace1.Name()))
-					vm := apps.VM.Match(echo.Namespace(apps.Namespace1.Name()))
-					newTestCase := func(from, to echo.Instances, path string, expectAllowed bool) rbacUtil.TestCase {
-						callCount := 1
-						if to.Clusters().IsMulticluster() {
-							// so we can validate all clusters are hit
-							callCount = util.CallsPerCluster * len(to.Clusters())
-						}
-						return rbacUtil.TestCase{
-							Request: connection.Checker{
-								From: from[0], // From service
-								Options: echo.CallOptions{
-									Target:   to[0],
-									PortName: "http",
-									Scheme:   scheme.HTTP,
-									Path:     path, // Requested path
-									Count:    callCount,
+				b := apps.B.Match(echo.Namespace(apps.Namespace1.Name()))
+				vm := apps.VM.Match(echo.Namespace(apps.Namespace1.Name()))
+				for _, dst := range []echo.Instances{b, vm} {
+					args := map[string]string{
+						"Namespace":  apps.Namespace1.Name(),
+						"Namespace2": apps.Namespace2.Name(),
+						"dst": dst
+					}
+					policies := tmpl.EvaluateAllOrFail(t, args,
+						file.AsStringOrFail(t, "testdata/authz/v1beta1-mtls.yaml.tmpl"))
+
+					t.Config().ApplyYAMLOrFail(t, apps.Namespace1.Name(), policies...)
+					t.NewSubTest(fmt.Sprintf("From %s", cluster.StableName())).Run(func(t framework.TestContext) {
+						a := apps.A.Match(echo.InCluster(cluster).And(echo.Namespace(apps.Namespace1.Name())))
+						c := apps.C.Match(echo.InCluster(cluster).And(echo.Namespace(apps.Namespace2.Name())))
+						newTestCase := func(from, to echo.Instances, path string, expectAllowed bool) rbacUtil.TestCase {
+							callCount := 1
+							if to.Clusters().IsMulticluster() {
+								// so we can validate all clusters are hit
+								callCount = util.CallsPerCluster * len(to.Clusters())
+							}
+							return rbacUtil.TestCase{
+								Request: connection.Checker{
+									From: from[0], // From service
+									Options: echo.CallOptions{
+										Target:   to[0],
+										PortName: "http",
+										Scheme:   scheme.HTTP,
+										Path:     path, // Requested path
+										Count:    callCount,
+									},
+									DestClusters: to.Clusters(),
 								},
-								DestClusters: to.Clusters(),
-							},
-							ExpectAllowed: expectAllowed,
+								ExpectAllowed: expectAllowed,
+							}
 						}
-					}
-					// a and c send requests to b
-					cases := []rbacUtil.TestCase{
-						newTestCase(a, b, "/principal-a", true),
-						newTestCase(a, b, "/namespace-2", false),
-						newTestCase(c, b, "/principal-a", false),
-						newTestCase(c, b, "/namespace-2", true),
-						newTestCase(a, vm, "/principal-a", true),
-						newTestCase(a, vm, "/namespace-2", false),
-						newTestCase(c, vm, "/principal-a", false),
-						newTestCase(c, vm, "/namespace-2", true),
-					}
-					rbacUtil.RunRBACTest(t, cases)
-				})
+						// a and c send requests to b
+						cases := []rbacUtil.TestCase{
+							newTestCase(a, b, "/principal-a", true),
+							newTestCase(a, b, "/namespace-2", false),
+							newTestCase(c, b, "/principal-a", false),
+							newTestCase(c, b, "/namespace-2", true),
+							newTestCase(a, vm, "/principal-a", true),
+							newTestCase(a, vm, "/namespace-2", false),
+							newTestCase(c, vm, "/principal-a", false),
+							newTestCase(c, vm, "/namespace-2", true),
+						}
+						rbacUtil.RunRBACTest(t, cases)
+					})
+				}
 			}
 		})
 }
