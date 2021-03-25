@@ -220,7 +220,7 @@ spec:
 		TrafficTestCase{
 			name: "cors",
 			// TODO https://github.com/istio/istio/issues/31532
-			targetFilters: []echotest.SimpleFilter{echotest.Not(echotest.VirtualMachines)},
+			targetFilters: []echotest.Filter{echotest.Not(echotest.VirtualMachines)},
 			config: `
 apiVersion: networking.istio.io/v1alpha3
 kind: VirtualService
@@ -320,9 +320,9 @@ spec:
 	)
 
 	// reduce the total # of subtests that don't give valuable coverage or just don't work
-	noNaked := echotest.MatcherAsFilter(echo.Not(echo.IsNaked()))
-	noHeadless := echotest.MatcherAsFilter(echo.Not(echo.IsHeadless()))
-	noExternal := echotest.MatcherAsFilter(echo.Not(echo.IsExternal()))
+	noNaked := echotest.FilterMatch(echo.Not(echo.IsNaked()))
+	noHeadless := echotest.FilterMatch(echo.Not(echo.IsHeadless()))
+	noExternal := echotest.FilterMatch(echo.Not(echo.IsExternal()))
 	for i, tc := range cases {
 
 		tc.sourceFilters = append(tc.sourceFilters, noNaked, noHeadless)
@@ -339,8 +339,8 @@ spec:
 		cases = append(cases, TrafficTestCase{
 			name:          fmt.Sprintf("shifting-%d", split[0]),
 			toN:           3,
-			sourceFilters: []echotest.SimpleFilter{noHeadless, noNaked},
-			targetFilters: []echotest.SimpleFilter{noHeadless, noExternal},
+			sourceFilters: []echotest.Filter{noHeadless, noNaked},
+			targetFilters: []echotest.Filter{noHeadless, noExternal},
 			config: fmt.Sprintf(`
 apiVersion: networking.istio.io/v1alpha3
 kind: VirtualService

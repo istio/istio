@@ -31,9 +31,18 @@ type (
 	oneToNTest   func(t framework.TestContext, src echo.Instance, dsts echo.Deployments)
 )
 
-// Run will generate nested subtests from each instance in each deployment to each deployment
-// For exampled, `a/to_b/from_cluster-0`. `a` is the source deployment, `b` is the destination deployment and `cluster-0`
-// marks which instance of the source deployment
+// Run will generate and run one subtest to send traffic between each combination
+// of source instance to target deployment.
+//
+// For example, in a test named `a/to_b/from_cluster-0`,
+// `a` is the source deployment, `b` is the destination deployment and
+// `cluster-0` marks which instance of the source deployment.
+//
+// We use a combination of deployment name and cluster name to identify
+// a particular source instance, as there should typically be one instance
+// per cluster for any deployment. However we do not identify a destination
+// cluster, as we expect most tests will cause load-balancing across all possible
+// clusters.
 func (t *T) Run(testFn oneToOneTest) {
 	t.fromEachDeployment(t.rootCtx, func(ctx framework.TestContext, srcInstances echo.Instances) {
 		t.setup(ctx, srcInstances)

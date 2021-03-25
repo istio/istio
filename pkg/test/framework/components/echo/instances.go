@@ -60,20 +60,12 @@ func (m Matcher) And(other Matcher) Matcher {
 	}
 }
 
-// Negate inverts the matcher it's applied to.
-// Example:
-//     echo.IsVirtualMachine().Negate()
-func (m Matcher) Negate() Matcher {
+// Not negates the given matcher. Example:
+//     Not(IsNaked())
+func Not(m Matcher) Matcher {
 	return func(i Instance) bool {
 		return !m(i)
 	}
-}
-
-// Not is a wrapper around Negate for human readability.
-// Example:
-//     echo.Not(echo.IsVirtualMachine)
-func Not(m Matcher) Matcher {
-	return m.Negate()
 }
 
 // ServicePrefix matches instances whose service name starts with the given prefix.
@@ -97,7 +89,7 @@ func SameDeployment(match Instance) Matcher {
 	}
 }
 
-// Service matches instances within the given namespace name.
+// Namespace matches instances within the given namespace name.
 func Namespace(namespace string) Matcher {
 	return func(i Instance) bool {
 		return i.Config().Namespace.Name() == namespace
@@ -186,8 +178,7 @@ func (i Instances) Contains(instances ...Instance) bool {
 	return len(matches) > 0
 }
 
-// Deployments is a set of Instances, which is a set of Instance. An Instances is considered a deployment
-// if every Instance has the same FQDN.
+// Deployments is a set of Instances that share the same FQDN.
 type Deployments []Instances
 
 // Deployments groups the Instances by FQDN. Each returned element will have at least one item.

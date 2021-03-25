@@ -264,8 +264,8 @@ func TestRun(t *testing.T) {
 			},
 			"RunToN": {
 				run: func(t framework.TestContext, testTopology map[string]map[string]int) {
-					noNaked := Not(MatcherAsFilter(echo.IsNaked()))
-					noHeadless := Not(MatcherAsFilter(echo.IsHeadless()))
+					noNaked := Not(FilterMatch(echo.IsNaked()))
+					noHeadless := Not(FilterMatch(echo.IsHeadless()))
 					New(t, all).
 						WithDefaultFilters().
 						From(noNaked, noHeadless).

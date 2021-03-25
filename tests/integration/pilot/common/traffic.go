@@ -67,9 +67,9 @@ type TrafficTestCase struct {
 	// in each subset in each cluster. See echotes.T's RunToN for more details.
 	toN int
 	// sourceFilters allows adding additional filtering for workload agnostic cases to test using fewer clients
-	sourceFilters []echotest.SimpleFilter
+	sourceFilters []echotest.Filter
 	// targetFilters allows adding additional filtering for workload agnostic cases to test using fewer targets
-	targetFilters []echotest.SimpleFilter
+	targetFilters []echotest.Filter
 }
 
 func (c TrafficTestCase) RunForApps(t framework.TestContext, apps echo.Instances, namespace string) {
