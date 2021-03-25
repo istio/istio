@@ -84,7 +84,10 @@ func TestGetNodeMetaData(t *testing.T) {
 	os.Setenv(IstioMetaPrefix+"OWNER", inputOwner)
 	os.Setenv(IstioMetaPrefix+"WORKLOAD_NAME", inputWorkloadName)
 
-	node, err := GetNodeMetaData("test", os.Environ(), nil, nil, 0, nil)
+	node, err := GetNodeMetaData(MetadataOptions{
+		ID:   "test",
+		Envs: os.Environ(),
+	})
 
 	g := NewWithT(t)
 	g.Expect(err).Should(BeNil())

@@ -17,10 +17,11 @@ package options
 import (
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/cmd/pilot-agent/status"
+	"istio.io/istio/pilot/cmd/pilot-agent/status/ready"
 	"istio.io/istio/pilot/pkg/model"
 )
 
-func NewStatusServerOptions(proxy *model.Proxy, proxyConfig *meshconfig.ProxyConfig) *status.Options {
+func NewStatusServerOptions(proxy *model.Proxy, proxyConfig *meshconfig.ProxyConfig, probes ...ready.Prober) *status.Options {
 	return &status.Options{
 		IPv6:           IsIPv6Proxy(proxy.IPAddresses),
 		PodIP:          InstanceIPVar.Get(),
@@ -28,5 +29,6 @@ func NewStatusServerOptions(proxy *model.Proxy, proxyConfig *meshconfig.ProxyCon
 		StatusPort:     uint16(proxyConfig.StatusPort),
 		KubeAppProbers: kubeAppProberNameVar.Get(),
 		NodeType:       proxy.Type,
+		Probes:         probes,
 	}
 }

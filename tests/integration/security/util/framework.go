@@ -94,7 +94,7 @@ func EchoConfig(name string, ns namespace.Instance, headless bool, annos echo.An
 			},
 		},
 		// Workload Ports needed by TestPassThroughFilterChain
-		// The port 8085,8086,8087,8088,8089 will be defined only in the workload and not in the k8s service.
+		// The port 8084-8089 will be defined only in the workload and not in the k8s service.
 		WorkloadOnlyPorts: []echo.WorkloadPort{
 			{
 				Port:     8085,
@@ -115,6 +115,12 @@ func EchoConfig(name string, ns namespace.Instance, headless bool, annos echo.An
 			{
 				Port:     8089,
 				Protocol: protocol.HTTPS,
+				TLS:      true,
+			},
+			{
+				Port:     8084,
+				Protocol: protocol.HTTPS,
+				TLS:      true,
 			},
 		},
 	}

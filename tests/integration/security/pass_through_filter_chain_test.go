@@ -38,9 +38,11 @@ func TestPassThroughFilterChain(t *testing.T) {
 		Features("security.filterchain").
 		Run(func(t framework.TestContext) {
 			ns := apps.Namespace1
+
 			type expect struct {
-				port *echo.Port
-				want bool
+				port              *echo.Port
+				plaintextSucceeds bool
+				mtlsSucceeds      bool
 			}
 			cases := []struct {
 				name     string
@@ -61,26 +63,35 @@ spec:
     mode: DISABLE`,
 					expected: []expect{
 						{
-							port: &echo.Port{ServicePort: 8085, Protocol: protocol.HTTP},
-							want: true,
+							port:              &echo.Port{ServicePort: 8085, Protocol: protocol.HTTP},
+							plaintextSucceeds: true,
+							mtlsSucceeds:      false,
 						},
 						{
-							port: &echo.Port{ServicePort: 8086, Protocol: protocol.HTTP},
-							want: true,
+							port:              &echo.Port{ServicePort: 8086, Protocol: protocol.HTTP},
+							plaintextSucceeds: true,
+							mtlsSucceeds:      false,
 						},
 						{
-							port: &echo.Port{ServicePort: 8087, Protocol: protocol.TCP},
-							want: true,
+							port:              &echo.Port{ServicePort: 8087, Protocol: protocol.TCP},
+							plaintextSucceeds: true,
+							mtlsSucceeds:      false,
 						},
 						{
-							port: &echo.Port{ServicePort: 8088, Protocol: protocol.TCP},
-							want: true,
+							port:              &echo.Port{ServicePort: 8088, Protocol: protocol.TCP},
+							plaintextSucceeds: true,
+							mtlsSucceeds:      false,
+						},
+						{
+							port:              &echo.Port{ServicePort: 8089, Protocol: protocol.HTTPS},
+							plaintextSucceeds: true,
+							mtlsSucceeds:      false,
 						},
 					},
 				},
 				{
-					// There is only authZ policy that allows access to port 8085 and 8087.
-					// Only request to port 8085, 8087 should be allowed.
+					// There is only authZ policy that allows access to port 8085, 8087, and 8089.
+					// Only request to port 8085, 8087, 8089 should be allowed.
 					name: "DISABLE with authz",
 					config: `apiVersion: security.istio.io/v1beta1
 kind: PeerAuthentication
@@ -98,23 +109,37 @@ spec:
   rules:
   - to:
     - operation:
-        ports: ["8085", "8087"]`,
+        ports: ["8085", "8087", "8089"]`,
 					expected: []expect{
 						{
-							port: &echo.Port{ServicePort: 8085, Protocol: protocol.HTTP},
-							want: true,
+							port:              &echo.Port{ServicePort: 8085, Protocol: protocol.HTTP},
+							plaintextSucceeds: true,
+							mtlsSucceeds:      false,
 						},
 						{
-							port: &echo.Port{ServicePort: 8086, Protocol: protocol.HTTP},
-							want: false,
+							port:              &echo.Port{ServicePort: 8086, Protocol: protocol.HTTP},
+							plaintextSucceeds: false,
+							mtlsSucceeds:      false,
 						},
 						{
-							port: &echo.Port{ServicePort: 8087, Protocol: protocol.TCP},
-							want: true,
+							port:              &echo.Port{ServicePort: 8087, Protocol: protocol.TCP},
+							plaintextSucceeds: true,
+							mtlsSucceeds:      false,
 						},
 						{
-							port: &echo.Port{ServicePort: 8088, Protocol: protocol.TCP},
-							want: false,
+							port:              &echo.Port{ServicePort: 8088, Protocol: protocol.TCP},
+							plaintextSucceeds: false,
+							mtlsSucceeds:      false,
+						},
+						{
+							port:              &echo.Port{ServicePort: 8089, Protocol: protocol.HTTPS},
+							plaintextSucceeds: true,
+							mtlsSucceeds:      false,
+						},
+						{
+							port:              &echo.Port{ServicePort: 8084, Protocol: protocol.HTTPS},
+							plaintextSucceeds: false,
+							mtlsSucceeds:      false,
 						},
 					},
 				},
@@ -131,20 +156,29 @@ spec:
     mode: STRICT`,
 					expected: []expect{
 						{
-							port: &echo.Port{ServicePort: 8085, Protocol: protocol.HTTP},
-							want: false,
+							port:              &echo.Port{ServicePort: 8085, Protocol: protocol.HTTP},
+							plaintextSucceeds: false,
+							mtlsSucceeds:      true,
 						},
 						{
-							port: &echo.Port{ServicePort: 8086, Protocol: protocol.HTTP},
-							want: false,
+							port:              &echo.Port{ServicePort: 8086, Protocol: protocol.HTTP},
+							plaintextSucceeds: false,
+							mtlsSucceeds:      true,
 						},
 						{
-							port: &echo.Port{ServicePort: 8087, Protocol: protocol.TCP},
-							want: false,
+							port:              &echo.Port{ServicePort: 8087, Protocol: protocol.TCP},
+							plaintextSucceeds: false,
+							mtlsSucceeds:      true,
 						},
 						{
-							port: &echo.Port{ServicePort: 8088, Protocol: protocol.TCP},
-							want: false,
+							port:              &echo.Port{ServicePort: 8088, Protocol: protocol.TCP},
+							plaintextSucceeds: false,
+							mtlsSucceeds:      true,
+						},
+						{
+							port:              &echo.Port{ServicePort: 8089, Protocol: protocol.HTTPS},
+							plaintextSucceeds: false,
+							mtlsSucceeds:      true,
 						},
 					},
 				},
@@ -161,27 +195,35 @@ spec:
     mode: PERMISSIVE`,
 					expected: []expect{
 						{
-							port: &echo.Port{ServicePort: 8085, Protocol: protocol.HTTP},
-							want: true,
+							port:              &echo.Port{ServicePort: 8085, Protocol: protocol.HTTP},
+							plaintextSucceeds: true,
+							mtlsSucceeds:      true,
 						},
 						{
-							port: &echo.Port{ServicePort: 8086, Protocol: protocol.HTTP},
-							want: true,
+							port:              &echo.Port{ServicePort: 8086, Protocol: protocol.HTTP},
+							plaintextSucceeds: true,
+							mtlsSucceeds:      true,
 						},
 						{
-							port: &echo.Port{ServicePort: 8087, Protocol: protocol.TCP},
-							want: true,
+							port:              &echo.Port{ServicePort: 8087, Protocol: protocol.TCP},
+							plaintextSucceeds: true,
+							mtlsSucceeds:      true,
 						},
 						{
-							port: &echo.Port{ServicePort: 8088, Protocol: protocol.TCP},
-							want: true,
+							port:              &echo.Port{ServicePort: 8088, Protocol: protocol.TCP},
+							plaintextSucceeds: true,
+							mtlsSucceeds:      true,
+						},
+						{
+							port:              &echo.Port{ServicePort: 8089, Protocol: protocol.HTTPS},
+							plaintextSucceeds: true,
+							mtlsSucceeds:      true,
 						},
 					},
 				},
-
 				{
-					// There is only authN policy that disables mTLS by default and enables mTLS strict on port 8086 and 8088.
-					// The request should be denied on port 8086 and 8088.
+					// There is only authN policy that disables mTLS by default and enables mTLS strict on port 8086, 8088, 8084.
+					// The request should be denied on port 8086, 8088, 8084.
 					name: "DISABLE with STRICT",
 					config: `apiVersion: security.istio.io/v1beta1
 kind: PeerAuthentication
@@ -197,23 +239,39 @@ spec:
     8086:
       mode: STRICT
     8088:
+      mode: STRICT
+    8084:
       mode: STRICT`,
 					expected: []expect{
 						{
-							port: &echo.Port{ServicePort: 8085, Protocol: protocol.HTTP},
-							want: true,
+							port:              &echo.Port{ServicePort: 8085, Protocol: protocol.HTTP},
+							plaintextSucceeds: true,
+							mtlsSucceeds:      false,
 						},
 						{
-							port: &echo.Port{ServicePort: 8086, Protocol: protocol.HTTP},
-							want: false,
+							port:              &echo.Port{ServicePort: 8086, Protocol: protocol.HTTP},
+							plaintextSucceeds: false,
+							mtlsSucceeds:      true,
 						},
 						{
-							port: &echo.Port{ServicePort: 8087, Protocol: protocol.TCP},
-							want: true,
+							port:              &echo.Port{ServicePort: 8087, Protocol: protocol.TCP},
+							plaintextSucceeds: true,
+							mtlsSucceeds:      false,
 						},
 						{
-							port: &echo.Port{ServicePort: 8088, Protocol: protocol.TCP},
-							want: false,
+							port:              &echo.Port{ServicePort: 8088, Protocol: protocol.TCP},
+							plaintextSucceeds: false,
+							mtlsSucceeds:      true,
+						},
+						{
+							port:              &echo.Port{ServicePort: 8089, Protocol: protocol.HTTPS},
+							plaintextSucceeds: true,
+							mtlsSucceeds:      false,
+						},
+						{
+							port:              &echo.Port{ServicePort: 8084, Protocol: protocol.HTTPS},
+							plaintextSucceeds: false,
+							mtlsSucceeds:      true,
 						},
 					},
 				},
@@ -235,23 +293,247 @@ spec:
     8086:
       mode: DISABLE
     8088:
+      mode: DISABLE
+    8084:
       mode: DISABLE`,
 					expected: []expect{
 						{
-							port: &echo.Port{ServicePort: 8085, Protocol: protocol.HTTP},
-							want: false,
+							port:              &echo.Port{ServicePort: 8085, Protocol: protocol.HTTP},
+							plaintextSucceeds: false,
+							mtlsSucceeds:      true,
 						},
 						{
-							port: &echo.Port{ServicePort: 8086, Protocol: protocol.HTTP},
-							want: true,
+							port:              &echo.Port{ServicePort: 8086, Protocol: protocol.HTTP},
+							plaintextSucceeds: true,
+							mtlsSucceeds:      false,
 						},
 						{
-							port: &echo.Port{ServicePort: 8087, Protocol: protocol.TCP},
-							want: false,
+							port:              &echo.Port{ServicePort: 8087, Protocol: protocol.TCP},
+							plaintextSucceeds: false,
+							mtlsSucceeds:      true,
 						},
 						{
-							port: &echo.Port{ServicePort: 8088, Protocol: protocol.TCP},
-							want: true,
+							port:              &echo.Port{ServicePort: 8088, Protocol: protocol.TCP},
+							plaintextSucceeds: true,
+							mtlsSucceeds:      false,
+						},
+						{
+							port:              &echo.Port{ServicePort: 8089, Protocol: protocol.HTTPS},
+							plaintextSucceeds: false,
+							mtlsSucceeds:      true,
+						},
+						{
+							port:              &echo.Port{ServicePort: 8084, Protocol: protocol.HTTPS},
+							plaintextSucceeds: true,
+							mtlsSucceeds:      false,
+						},
+					},
+				},
+				{
+					name: "PERMISSIVE with strict",
+					config: `apiVersion: security.istio.io/v1beta1
+kind: PeerAuthentication
+metadata:
+  name: mtls
+spec:
+  selector:
+    matchLabels:
+      app: a
+  mtls:
+    mode: PERMISSIVE
+  portLevelMtls:
+    8086:
+      mode: STRICT
+    8088:
+      mode: STRICT
+    8084:
+      mode: STRICT`,
+					expected: []expect{
+						{
+							port:              &echo.Port{ServicePort: 8085, Protocol: protocol.HTTP},
+							plaintextSucceeds: true,
+							mtlsSucceeds:      true,
+						},
+						{
+							port:              &echo.Port{ServicePort: 8086, Protocol: protocol.HTTP},
+							plaintextSucceeds: false,
+							mtlsSucceeds:      true,
+						},
+						{
+							port:              &echo.Port{ServicePort: 8087, Protocol: protocol.TCP},
+							plaintextSucceeds: true,
+							mtlsSucceeds:      true,
+						},
+						{
+							port:              &echo.Port{ServicePort: 8088, Protocol: protocol.TCP},
+							plaintextSucceeds: false,
+							mtlsSucceeds:      true,
+						},
+						{
+							port:              &echo.Port{ServicePort: 8089, Protocol: protocol.HTTPS},
+							plaintextSucceeds: true,
+							mtlsSucceeds:      true,
+						},
+						{
+							port:              &echo.Port{ServicePort: 8084, Protocol: protocol.HTTPS},
+							plaintextSucceeds: false,
+							mtlsSucceeds:      true,
+						},
+					},
+				},
+				{
+					name: "STRICT with PERMISSIVE",
+					config: `apiVersion: security.istio.io/v1beta1
+kind: PeerAuthentication
+metadata:
+  name: mtls
+spec:
+  selector:
+    matchLabels:
+      app: a
+  mtls:
+    mode: STRICT
+  portLevelMtls:
+    8086:
+      mode: PERMISSIVE
+    8088:
+      mode: PERMISSIVE
+    8084:
+      mode: PERMISSIVE`,
+					expected: []expect{
+						{
+							port:              &echo.Port{ServicePort: 8085, Protocol: protocol.HTTP},
+							plaintextSucceeds: false,
+							mtlsSucceeds:      true,
+						},
+						{
+							port:              &echo.Port{ServicePort: 8086, Protocol: protocol.HTTP},
+							plaintextSucceeds: true,
+							mtlsSucceeds:      true,
+						},
+						{
+							port:              &echo.Port{ServicePort: 8087, Protocol: protocol.TCP},
+							plaintextSucceeds: false,
+							mtlsSucceeds:      true,
+						},
+						{
+							port:              &echo.Port{ServicePort: 8088, Protocol: protocol.TCP},
+							plaintextSucceeds: true,
+							mtlsSucceeds:      true,
+						},
+						{
+							port:              &echo.Port{ServicePort: 8089, Protocol: protocol.HTTPS},
+							plaintextSucceeds: false,
+							mtlsSucceeds:      true,
+						},
+						{
+							port:              &echo.Port{ServicePort: 8084, Protocol: protocol.HTTPS},
+							plaintextSucceeds: true,
+							mtlsSucceeds:      true,
+						},
+					},
+				},
+				{
+					name: "PERMISSIVE with disable",
+					config: `apiVersion: security.istio.io/v1beta1
+kind: PeerAuthentication
+metadata:
+  name: mtls
+spec:
+  selector:
+    matchLabels:
+      app: a
+  mtls:
+    mode: PERMISSIVE
+  portLevelMtls:
+    8086:
+      mode: DISABLE
+    8088:
+      mode: DISABLE
+    8084:
+      mode: DISABLE`,
+					expected: []expect{
+						{
+							port:              &echo.Port{ServicePort: 8085, Protocol: protocol.HTTP},
+							plaintextSucceeds: true,
+							mtlsSucceeds:      true,
+						},
+						{
+							port:              &echo.Port{ServicePort: 8086, Protocol: protocol.HTTP},
+							plaintextSucceeds: true,
+							mtlsSucceeds:      false,
+						},
+						{
+							port:              &echo.Port{ServicePort: 8087, Protocol: protocol.TCP},
+							plaintextSucceeds: true,
+							mtlsSucceeds:      true,
+						},
+						{
+							port:              &echo.Port{ServicePort: 8088, Protocol: protocol.TCP},
+							plaintextSucceeds: true,
+							mtlsSucceeds:      false,
+						},
+						{
+							port:              &echo.Port{ServicePort: 8089, Protocol: protocol.HTTPS},
+							plaintextSucceeds: true,
+							mtlsSucceeds:      true,
+						},
+						{
+							port:              &echo.Port{ServicePort: 8084, Protocol: protocol.HTTPS},
+							plaintextSucceeds: true,
+							mtlsSucceeds:      false,
+						},
+					},
+				},
+				{
+					name: "DISABLE with PERMISSIVE",
+					config: `apiVersion: security.istio.io/v1beta1
+kind: PeerAuthentication
+metadata:
+  name: mtls
+spec:
+  selector:
+    matchLabels:
+      app: a
+  mtls:
+    mode: DISABLE
+  portLevelMtls:
+    8086:
+      mode: PERMISSIVE
+    8088:
+      mode: PERMISSIVE
+    8084:
+      mode: PERMISSIVE`,
+					expected: []expect{
+						{
+							port:              &echo.Port{ServicePort: 8085, Protocol: protocol.HTTP},
+							plaintextSucceeds: true,
+							mtlsSucceeds:      false,
+						},
+						{
+							port:              &echo.Port{ServicePort: 8086, Protocol: protocol.HTTP},
+							plaintextSucceeds: true,
+							mtlsSucceeds:      true,
+						},
+						{
+							port:              &echo.Port{ServicePort: 8087, Protocol: protocol.TCP},
+							plaintextSucceeds: true,
+							mtlsSucceeds:      false,
+						},
+						{
+							port:              &echo.Port{ServicePort: 8088, Protocol: protocol.TCP},
+							plaintextSucceeds: true,
+							mtlsSucceeds:      true,
+						},
+						{
+							port:              &echo.Port{ServicePort: 8089, Protocol: protocol.HTTPS},
+							plaintextSucceeds: true,
+							mtlsSucceeds:      false,
+						},
+						{
+							port:              &echo.Port{ServicePort: 8084, Protocol: protocol.HTTPS},
+							plaintextSucceeds: true,
+							mtlsSucceeds:      true,
 						},
 					},
 				},
@@ -260,7 +542,9 @@ spec:
 			// srcFilter finds the naked app as client.
 			// TODO(slandow) replace this with built-in framework filters (blocked by https://github.com/istio/istio/pull/31565)
 			findNaked := func(instances echo.Instances) echo.Instances {
-				return apps.Naked.Match(echo.Service(util.NakedSvc))
+				naked := apps.Naked.Match(echo.Namespace(ns.Name()))
+				b := apps.B.Match(echo.Namespace(ns.Name()))
+				return append(naked, b...)
 			}
 			srcFilter := []echotest.SimpleFilter{findNaked}
 			for _, tc := range cases {
@@ -272,7 +556,52 @@ spec:
 								"dst": dst[0].Config().Service,
 							},
 						), ns.Name())
-						return t.Config().ApplyYAML("", cfg)
+						if err := t.Config().ApplyYAML("", cfg); err != nil {
+							return err
+						}
+						se := tmpl.EvaluateOrFail(t, `apiVersion: networking.istio.io/v1beta1
+kind: ServiceEntry
+metadata:
+  name: dest-via-mtls
+spec:
+  hosts:
+  - fake.destination
+  addresses:
+  - {{.IP}}
+  ports:
+  - number: 8084
+    name: port-8084
+    protocol: TCP
+  - number: 8085
+    name: port-8085
+    protocol: TCP
+  - number: 8086
+    name: port-8086
+    protocol: TCP
+  - number: 8087
+    name: port-8087
+    protocol: TCP
+  - number: 8088
+    name: port-8088
+    protocol: TCP
+  - number: 8089
+    name: port-8089
+    protocol: TCP
+  location: MESH_INTERNAL
+  resolution: NONE`,
+							map[string]interface{}{"IP": getWorkload(dst[0], t).Address()})
+						return t.Config().ApplyYAML(ns.Name(), `
+apiVersion: networking.istio.io/v1alpha3
+kind: DestinationRule
+metadata:
+  name: default
+spec:
+  host: "fake.destination"
+  trafficPolicy:
+    tls:
+      mode: ISTIO_MUTUAL
+---
+`+se)
 					}).
 					From(srcFilter...).
 					ConditionallyTo(echotest.ReachableDestinations).
@@ -285,8 +614,16 @@ spec:
 					).
 					Run(func(t framework.TestContext, src echo.Instance, dest echo.Instances) {
 						clusterName := src.Config().Cluster.StableName()
+						nameSuffix := "mtls"
+						if src.Config().IsNaked() {
+							nameSuffix = "plaintext"
+						}
 						for _, expect := range tc.expected {
-							name := fmt.Sprintf("In %s/%v/port %d[%t]", clusterName, tc.name, expect.port.ServicePort, expect.want)
+							want := expect.mtlsSucceeds
+							if src.Config().IsNaked() {
+								want = expect.plaintextSucceeds
+							}
+							name := fmt.Sprintf("In %s/%v/%v/port %d[%t]", clusterName, tc.name, nameSuffix, expect.port.ServicePort, want)
 							host := fmt.Sprintf("%s:%d", dest[0].Address(), expect.port.ServicePort)
 							callOpt := echo.CallOptions{
 								Count: util.CallsPerCluster * len(dest),
@@ -300,7 +637,7 @@ spec:
 								Address: getWorkload(dest[0], t).Address(),
 								Validator: echo.And(echo.ValidatorFunc(
 									func(responses client.ParsedResponses, err error) error {
-										if expect.want {
+										if want {
 											if err != nil {
 												return fmt.Errorf("want allow but got error: %v", err)
 											}
