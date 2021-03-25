@@ -54,6 +54,24 @@ func init() {
 }
 
 // IncrementEnvoyFilterMetric increments filter metric.
-func IncrementEnvoyFilterMetric(pt PatchType, et ResultType) {
-	totalEnvoyFilters.With(patchType.Value(string(pt))).With(errorType.Value(string(et))).Increment()
+func IncrementEnvoyFilterMetric(pt PatchType, applied bool) {
+	resultType := Applied
+	if !applied {
+		resultType = Skipped
+	}
+	totalEnvoyFilters.With(patchType.Value(string(pt))).With(errorType.Value(string(resultType))).Record(1)
+}
+
+// IncrementEnvoyFilterErrorMetric increments filter metric for errors.
+func IncrementEnvoyFilterErrorMetric(pt PatchType) {
+	totalEnvoyFilters.With(patchType.Value(string(pt))).With(errorType.Value(string(Error))).Record(1)
+}
+
+// RecordEnvoyFilterMetric increments the filter metric with the given value.
+func RecordEnvoyFilterMetric(pt PatchType, success bool, value float64) {
+	resultType := Applied
+	if !success {
+		resultType = Skipped
+	}
+	totalEnvoyFilters.With(patchType.Value(string(pt))).With(errorType.Value(string(resultType))).Record(value)
 }

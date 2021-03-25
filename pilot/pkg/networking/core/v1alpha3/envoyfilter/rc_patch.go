@@ -33,7 +33,7 @@ func ApplyRouteConfigurationPatches(
 	push *model.PushContext,
 	routeConfiguration *route.RouteConfiguration) (out *route.RouteConfiguration) {
 	defer runtime.HandleCrash(runtime.LogPanic, func(interface{}) {
-		IncrementEnvoyFilterMetric(Route, Error)
+		IncrementEnvoyFilterErrorMetric(Route)
 		log.Errorf("route patch caused panic, so the patches did not take effect")
 	})
 	// In case the patches cause panic, use the route generated before to reduce the influence.
@@ -57,12 +57,7 @@ func ApplyRouteConfigurationPatches(
 			applied = false
 		}
 	}
-
-	if !applied {
-		IncrementEnvoyFilterMetric(Route, Skipped)
-	} else {
-		IncrementEnvoyFilterMetric(Route, Applied)
-	}
+	IncrementEnvoyFilterMetric(Route, applied)
 	patchVirtualHosts(patchContext, efw.Patches, routeConfiguration)
 
 	return routeConfiguration
@@ -89,11 +84,7 @@ func patchVirtualHosts(patchContext networking.EnvoyFilter_PatchContext,
 			routeConfiguration.VirtualHosts = append(routeConfiguration.VirtualHosts, proto.Clone(cp.Value).(*route.VirtualHost))
 		}
 	}
-	if !applied {
-		IncrementEnvoyFilterMetric(VirtualHost, Skipped)
-	} else {
-		IncrementEnvoyFilterMetric(VirtualHost, Applied)
-	}
+	IncrementEnvoyFilterMetric(VirtualHost, applied)
 	if virtualHostsRemoved {
 		trimmedVirtualHosts := make([]*route.VirtualHost, 0, len(routeConfiguration.VirtualHosts))
 		for _, virtualHost := range routeConfiguration.VirtualHosts {
@@ -125,11 +116,7 @@ func patchVirtualHost(patchContext networking.EnvoyFilter_PatchContext,
 			}
 		}
 	}
-	if !applied {
-		IncrementEnvoyFilterMetric(VirtualHost, Skipped)
-	} else {
-		IncrementEnvoyFilterMetric(VirtualHost, Applied)
-	}
+	IncrementEnvoyFilterMetric(VirtualHost, applied)
 	patchHTTPRoutes(patchContext, patches, routeConfiguration, virtualHost)
 }
 
@@ -225,11 +212,7 @@ func patchHTTPRoutes(patchContext networking.EnvoyFilter_PatchContext,
 			virtualHost.Routes[insertPosition] = clonedVal
 		}
 	}
-	if !applied {
-		IncrementEnvoyFilterMetric(Route, Skipped)
-	} else {
-		IncrementEnvoyFilterMetric(Route, Applied)
-	}
+	IncrementEnvoyFilterMetric(Route, applied)
 	if routesRemoved {
 		trimmedRoutes := make([]*route.Route, 0, len(virtualHost.Routes))
 		for i := range virtualHost.Routes {
@@ -263,11 +246,7 @@ func patchHTTPRoute(patchContext networking.EnvoyFilter_PatchContext, patches ma
 			applied = true
 		}
 	}
-	if !applied {
-		IncrementEnvoyFilterMetric(Route, Skipped)
-	} else {
-		IncrementEnvoyFilterMetric(Route, Applied)
-	}
+	IncrementEnvoyFilterMetric(Route, applied)
 }
 
 func routeConfigurationMatch(patchContext networking.EnvoyFilter_PatchContext, rc *route.RouteConfiguration,
