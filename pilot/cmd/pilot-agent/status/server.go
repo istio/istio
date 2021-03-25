@@ -103,11 +103,12 @@ type Options struct {
 	StatusPort     uint16
 	AdminPort      uint16
 	IPv6           bool
+	Probes         []ready.Prober
 }
 
 // Server provides an endpoint for handling status probes.
 type Server struct {
-	ready                 *ready.Probe
+	ready                 []ready.Prober
 	prometheus            *PrometheusScrapeConfiguration
 	mutex                 sync.RWMutex
 	appProbersDestination string
@@ -139,12 +140,15 @@ func NewServer(config Options) (*Server, error) {
 	if config.IPv6 {
 		localhost = localHostIPv6
 	}
+	probes := make([]ready.Prober, 0)
+	probes = append(probes, &ready.Probe{
+		LocalHostAddr: localhost,
+		AdminPort:     config.AdminPort,
+	})
+	probes = append(probes, config.Probes...)
 	s := &Server{
-		statusPort: config.StatusPort,
-		ready: &ready.Probe{
-			LocalHostAddr: localhost,
-			AdminPort:     config.AdminPort,
-		},
+		statusPort:            config.StatusPort,
+		ready:                 probes,
 		appProbersDestination: config.PodIP,
 		envoyStatsPort:        15090,
 	}
@@ -326,8 +330,7 @@ func (s *Server) handlePprofTrace(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) handleReadyProbe(w http.ResponseWriter, _ *http.Request) {
-	err := s.ready.Check()
-
+	err := s.isReady()
 	s.mutex.Lock()
 	if err != nil {
 		w.WriteHeader(http.StatusServiceUnavailable)
@@ -343,6 +346,15 @@ func (s *Server) handleReadyProbe(w http.ResponseWriter, _ *http.Request) {
 		s.lastProbeSuccessful = true
 	}
 	s.mutex.Unlock()
+}
+
+func (s *Server) isReady() error {
+	for _, p := range s.ready {
+		if err := p.Check(); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func isRequestFromLocalhost(r *http.Request) bool {
