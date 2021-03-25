@@ -63,26 +63,26 @@ $ gcloud logging read "resource.type=k8s_node AND jsonPayload.SYSLOG_IDENTIFIER=
 ### Overview
 
 - [istio-cni Helm chart](../manifests/charts/istio-cni/templates)
-  - `install-cni` daemonset
-  - `istio-cni-config` configmap with CNI plugin config to add to CNI plugin chained config
-  - creates service-account `istio-cni` with `ClusterRoleBinding` to allow gets on pods' info
+    - `install-cni` daemonset
+    - `istio-cni-config` configmap with CNI plugin config to add to CNI plugin chained config
+    - creates service-account `istio-cni` with `ClusterRoleBinding` to allow gets on pods' info
 
 - `install-cni` container
-  - copies `istio-cni`, `istio-iptables` and `istio-cni-taint` to `/opt/cni/bin`
-  - creates kubeconfig for the service account the pod runs under
-  - injects the CNI plugin config to the CNI config file
-    - CNI installer will try to look for the config file under the moutned CNI net dir based on file name extensions (`.conf`, `.conflist`)
-    - the file name can be explicitly set by `CNI_CONF_NAME` env var
-    - the program inserts `CNI_NETWORK_CONFIG` into the `plugins` list in `/etc/cni/net.d/${CNI_CONF_NAME}`
+    - copies `istio-cni`, `istio-iptables` and `istio-cni-taint` to `/opt/cni/bin`
+    - creates kubeconfig for the service account the pod runs under
+    - injects the CNI plugin config to the CNI config file
+        - CNI installer will try to look for the config file under the moutned CNI net dir based on file name extensions (`.conf`, `.conflist`)
+        - the file name can be explicitly set by `CNI_CONF_NAME` env var
+        - the program inserts `CNI_NETWORK_CONFIG` into the `plugins` list in `/etc/cni/net.d/${CNI_CONF_NAME}`
 
 - `istio-cni`
-  - CNI plugin executable copied to `/opt/cni/bin`
-  - currently implemented for k8s only
-  - on pod add, determines whether pod should have netns setup to redirect to Istio proxy. See [cmdAdd](#cmdadd-workflow) for detailed logic.
-    - If so, calls `istio-iptables` with params to setup pod netns
+    - CNI plugin executable copied to `/opt/cni/bin`
+    - currently implemented for k8s only
+    - on pod add, determines whether pod should have netns setup to redirect to Istio proxy. See [cmdAdd](#cmdadd-workflow) for detailed logic.
+        - If so, calls `istio-iptables` with params to setup pod netns
 
 - `istio-iptables`
-  - sets up iptables to redirect a list of ports to the port envoy will listen
+    - sets up iptables to redirect a list of ports to the port envoy will listen
 
 ### CmdAdd Workflow
 
@@ -110,10 +110,10 @@ Specifically:
 
 - The CNI installation script is containerized and deployed as a daemonset in k8s.  The relevant
   calico k8s manifests were used as the model for the istio-cni plugin's manifest:
-  - [daemonset and configmap](https://docs.projectcalico.org/v3.2/getting-started/kubernetes/installation/hosted/calico.yaml)
-    - search for the `calico-node` Daemonset and its `install-cni` container deployment
-  - [RBAC](https://docs.projectcalico.org/v3.2/getting-started/kubernetes/installation/rbac.yaml)
-    - this creates the service account the CNI plugin is configured to use to access the kube-api-server
+    - [daemonset and configmap](https://docs.projectcalico.org/v3.2/getting-started/kubernetes/installation/hosted/calico.yaml)
+        - search for the `calico-node` Daemonset and its `install-cni` container deployment
+    - [RBAC](https://docs.projectcalico.org/v3.2/getting-started/kubernetes/installation/rbac.yaml)
+        - this creates the service account the CNI plugin is configured to use to access the kube-api-server
 
 The installation program `install-cni` injects the `istio-cni` plugin config at the end of the CNI plugin chain
 config.  It creates or modifies the file from the configmap created by the Kubernetes manifest.
