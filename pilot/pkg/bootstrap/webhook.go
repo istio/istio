@@ -41,11 +41,14 @@ func (s *Server) initSecureWebhookServer(args *PilotArgs) {
 	log.Info("initializing secure webhook server for istiod webhooks")
 	// create the https server for hosting the k8s injectionWebhook handlers.
 	s.httpsMux = http.NewServeMux()
+	cipherSuites, _ := TLSCipherSuites(args.ServerOptions.TLSOptions.TLSCipherSuites)
 	s.httpsServer = &http.Server{
 		Addr:    args.ServerOptions.HTTPSAddr,
 		Handler: s.httpsMux,
 		TLSConfig: &tls.Config{
 			GetCertificate: s.getIstiodCertificate,
+			MinVersion:     tls.VersionTLS12,
+			CipherSuites:   cipherSuites,
 		},
 	}
 

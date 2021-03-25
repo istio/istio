@@ -17,6 +17,7 @@ package main
 import (
 	"fmt"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/spf13/cobra"
@@ -62,6 +63,9 @@ var (
 		},
 		RunE: func(c *cobra.Command, args []string) error {
 			cmd.PrintFlags(c.Flags())
+			if err := ValidateFlags(serverArgs); err != nil {
+				return err
+			}
 
 			// Create the stop channel for all of the servers.
 			stop := make(chan struct{})
@@ -154,6 +158,11 @@ func init() {
 		"File containing the x509 Server Certificate")
 	discoveryCmd.PersistentFlags().StringVar(&serverArgs.ServerOptions.TLSOptions.KeyFile, "tlsKeyFile", "",
 		"File containing the x509 private key matching --tlsCertFile")
+	discoveryCmd.PersistentFlags().StringSliceVar(&serverArgs.ServerOptions.TLSOptions.TLSCipherSuites, "tls-cipher-suites", nil,
+		"Comma-separated list of cipher suites for the server. "+
+			"If omitted, the default Go cipher suites will be used. \n"+
+			"Preferred values: "+strings.Join(secureTLSCipherNames(), ", ")+". \n"+
+			"Insecure values: "+strings.Join(insecureTLSCipherNames(), ", ")+".")
 
 	discoveryCmd.PersistentFlags().Float32Var(&serverArgs.RegistryOptions.KubeOptions.KubernetesAPIQPS, "kubernetesApiQPS", 80.0,
 		"Maximum QPS when communicating with the kubernetes API")

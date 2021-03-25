@@ -709,7 +709,7 @@ func (s *Server) initSecureDiscoveryService(args *PilotArgs) error {
 		return nil
 	}
 	log.Info("initializing secure discovery service")
-
+	cipherSuites, _ := TLSCipherSuites(args.ServerOptions.TLSOptions.TLSCipherSuites)
 	cfg := &tls.Config{
 		GetCertificate: s.getIstiodCertificate,
 		ClientAuth:     tls.VerifyClientCertIfGiven,
@@ -721,6 +721,8 @@ func (s *Server) initSecureDiscoveryService(args *PilotArgs) error {
 			}
 			return err
 		},
+		MinVersion:   tls.VersionTLS12,
+		CipherSuites: cipherSuites,
 	}
 
 	tlsCreds := credentials.NewTLS(cfg)
