@@ -432,8 +432,8 @@ func RunTestMultiMtlsGateways(ctx framework.TestContext, inst istio.Instance, ns
 	callType := Mtls
 
 	for _, h := range tests {
-		ctx.NewSubTest(h.Host).Run(func(ctx framework.TestContext) {
-			SendRequestOrFail(ctx, ing, h.Host, h.CredentialName, callType, tlsContext,
+		ctx.NewSubTest(h.Host).Run(func(t framework.TestContext) {
+			SendRequestOrFail(t, ing, h.Host, h.CredentialName, callType, tlsContext,
 				ExpectedResponse{ResponseCode: 200, ErrorMessage: ""})
 		})
 	}
@@ -464,8 +464,8 @@ func RunTestMultiTLSGateways(ctx framework.TestContext, inst istio.Instance, ns 
 	callType := TLS
 
 	for _, h := range tests {
-		ctx.NewSubTest(h.Host).Run(func(ctx framework.TestContext) {
-			SendRequestOrFail(ctx, ing, h.Host, h.CredentialName, callType, tlsContext,
+		ctx.NewSubTest(h.Host).Run(func(t framework.TestContext) {
+			SendRequestOrFail(t, ing, h.Host, h.CredentialName, callType, tlsContext,
 				ExpectedResponse{ResponseCode: 200, ErrorMessage: ""})
 		})
 	}

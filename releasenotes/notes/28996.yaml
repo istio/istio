@@ -1,0 +1,9 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+issue:
+  - 28996
+
+releaseNotes:
+  - |
+    **Fixed** configuration of TLS parameters (TLS version, TLS cipher suites, curves, etc.) with `EnvoyFilter`.

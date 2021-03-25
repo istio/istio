@@ -69,6 +69,14 @@ func convertToEnvoyFilterWrapper(local *config.Config) *EnvoyFilterWrapper {
 	}
 	out.Patches = make(map[networking.EnvoyFilter_ApplyTo][]*EnvoyFilterConfigPatchWrapper)
 	for _, cp := range localEnvoyFilter.ConfigPatches {
+		if cp.Patch == nil {
+			// Should be caught by validation, but sometimes its disabled and we don't want to crash
+			// as a result.
+			if log.DebugEnabled() {
+				log.Debugf("envoyfilter %v/%v discarded due to missing patch", local.Namespace, local.Name)
+			}
+			continue
+		}
 		cpw := &EnvoyFilterConfigPatchWrapper{
 			ApplyTo:   cp.ApplyTo,
 			Match:     cp.Match,

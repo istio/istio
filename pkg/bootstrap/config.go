@@ -59,26 +59,21 @@ const (
 // Config for creating a bootstrap file.
 type Config struct {
 	*model.Node
-	PilotSubjectAltName []string
-	ProxyViaAgent       bool
-	OutlierLogPath      string
-	PilotCertProvider   string
-	ProvCert            string
-	DiscoveryHost       string
 }
 
 // newTemplateParams creates a new template configuration for the given configuration.
 func (cfg Config) toTemplateParams() (map[string]interface{}, error) {
 	opts := make([]option.Instance, 0)
 
+	discHost := strings.Split(cfg.Metadata.ProxyConfig.DiscoveryAddress, ":")[0]
 	opts = append(opts,
 		option.NodeID(cfg.ID),
-		option.PilotSubjectAltName(cfg.PilotSubjectAltName),
-		option.ProxyViaAgent(cfg.ProxyViaAgent),
-		option.PilotCertProvider(cfg.PilotCertProvider),
-		option.OutlierLogPath(cfg.OutlierLogPath),
-		option.ProvCert(cfg.ProvCert),
-		option.DiscoveryHost(cfg.DiscoveryHost))
+		option.PilotSubjectAltName(cfg.Metadata.PilotSubjectAltName),
+		option.ProxyViaAgent(cfg.Metadata.ProxyViaAgent),
+		option.PilotCertProvider(cfg.Metadata.PilotCertProvider),
+		option.OutlierLogPath(cfg.Metadata.OutlierLogPath),
+		option.ProvCert(cfg.Metadata.ProvCert),
+		option.DiscoveryHost(discHost))
 
 	if cfg.Metadata.StsPort != "" {
 		stsPort, err := strconv.Atoi(cfg.Metadata.StsPort)
@@ -409,20 +404,34 @@ func extractAttributesMetadata(envVars []string, plat platform.Environment, meta
 	}
 }
 
+// MetadataOptions for constructing node metadata.
+type MetadataOptions struct {
+	Envs                []string
+	Platform            platform.Environment
+	InstanceIPs         []string
+	StsPort             int
+	ID                  string
+	ProxyConfig         *meshAPI.ProxyConfig
+	ProxyViaAgent       bool
+	PilotSubjectAltName []string
+	OutlierLogPath      string
+	PilotCertProvider   string
+	ProvCert            string
+}
+
 // GetNodeMetaData function uses an environment variable contract
 // ISTIO_METAJSON_* env variables contain json_string in the value.
 // 					The name of variable is ignored.
 // ISTIO_META_* env variables are passed thru
-func GetNodeMetaData(id string, envs []string, plat platform.Environment, nodeIPs []string, stsPort int,
-	pc *meshAPI.ProxyConfig) (*model.Node, error) {
+func GetNodeMetaData(options MetadataOptions) (*model.Node, error) {
 	meta := &model.BootstrapNodeMetadata{}
 	untypedMeta := map[string]interface{}{}
 
-	extractMetadata(envs, IstioMetaPrefix, func(m map[string]interface{}, key string, val string) {
+	extractMetadata(options.Envs, IstioMetaPrefix, func(m map[string]interface{}, key string, val string) {
 		m[key] = val
 	}, untypedMeta)
 
-	extractMetadata(envs, IstioMetaJSONPrefix, func(m map[string]interface{}, key string, val string) {
+	extractMetadata(options.Envs, IstioMetaJSONPrefix, func(m map[string]interface{}, key string, val string) {
 		err := json.Unmarshal([]byte(val), &m)
 		if err != nil {
 			log.Warnf("Env variable %s [%s] failed json unmarshal: %v", key, val, err)
@@ -437,20 +446,20 @@ func GetNodeMetaData(id string, envs []string, plat platform.Environment, nodeIP
 	if err := json.Unmarshal(j, meta); err != nil {
 		return nil, err
 	}
-	extractAttributesMetadata(envs, plat, meta)
+	extractAttributesMetadata(options.Envs, options.Platform, meta)
 
 	// Support multiple network interfaces, removing duplicates.
-	meta.InstanceIPs = removeDuplicates(nodeIPs)
+	meta.InstanceIPs = removeDuplicates(options.InstanceIPs)
 
 	// Add STS port into node metadata if it is not 0. This is read by envoy telemetry filters
-	if stsPort != 0 {
-		meta.StsPort = strconv.Itoa(stsPort)
+	if options.StsPort != 0 {
+		meta.StsPort = strconv.Itoa(options.StsPort)
 	}
 
-	meta.ProxyConfig = (*model.NodeMetaProxyConfig)(pc)
+	meta.ProxyConfig = (*model.NodeMetaProxyConfig)(options.ProxyConfig)
 
 	// Add all instance labels with lower precedence than pod labels
-	extractInstanceLabels(plat, meta)
+	extractInstanceLabels(options.Platform, meta)
 
 	// Add all pod labels found from filesystem
 	// These are typically volume mounted by the downward API
@@ -471,16 +480,22 @@ func GetNodeMetaData(id string, envs []string, plat platform.Environment, nodeIP
 	}
 
 	var l *core.Locality
-	if meta.Labels[model.LocalityLabel] == "" && plat != nil {
+	if meta.Labels[model.LocalityLabel] == "" && options.Platform != nil {
 		// The locality string was not set, try to get locality from platform
-		l = plat.Locality()
+		l = options.Platform.Locality()
 	} else {
 		localityString := model.GetLocalityLabelOrDefault(meta.Labels[model.LocalityLabel], "")
 		l = util.ConvertLocality(localityString)
 	}
 
+	meta.ProxyViaAgent = options.ProxyViaAgent
+	meta.PilotSubjectAltName = options.PilotSubjectAltName
+	meta.OutlierLogPath = options.OutlierLogPath
+	meta.PilotCertProvider = options.PilotCertProvider
+	meta.ProvCert = options.ProvCert
+
 	return &model.Node{
-		ID:          id,
+		ID:          options.ID,
 		Metadata:    meta,
 		RawMetadata: untypedMeta,
 		Locality:    l,
