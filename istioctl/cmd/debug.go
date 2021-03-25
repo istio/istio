@@ -49,7 +49,7 @@ Retrieves the debug information from Istiod or Pods in the mesh using the servic
 By default it will use the default serviceAccount from (istio-system) namespace if the pod is not specified.
 `,
 		Example: `  # Retrieve sync status for all Envoys in a mesh
-  istioctl x debug syncz 
+  istioctl x debug syncz
 
   # Retrieve sync diff for a single Envoy and Istiod
   istioctl x debug syncz istio-egressgateway-59585c5b9c-ndc59.istio-system
