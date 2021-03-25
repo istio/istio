@@ -30,6 +30,8 @@ import (
 	"istio.io/istio/pilot/cmd/pilot-agent/status"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/util/network"
+	"istio.io/istio/pkg/bootstrap"
+	"istio.io/istio/pkg/bootstrap/platform"
 	"istio.io/istio/pkg/cmd"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/envoy"
@@ -158,20 +160,30 @@ var (
 				// unlikely to run on a non-debian based machine, and if it is it can be explicitly configured
 				provCert = "/etc/ssl/certs/ca-certificates.crt"
 			}
-			envoyProxy := envoy.NewProxy(envoy.ProxyConfig{
-				Config:              proxyConfig,
-				Node:                proxy.ServiceNode(),
-				LogLevel:            proxyLogLevel,
-				ComponentLogLevel:   proxyComponentLogLevel,
-				LogAsJSON:           loggingOptions.JSONEncoding,
+			node, err := bootstrap.GetNodeMetaData(bootstrap.MetadataOptions{
+				ID:                  proxy.ServiceNode(),
+				Envs:                os.Environ(),
+				Platform:            platform.Discover(),
+				InstanceIPs:         proxy.IPAddresses,
+				StsPort:             stsPort,
+				ProxyConfig:         proxyConfig,
+				ProxyViaAgent:       agentOptions.ProxyXDSViaAgent,
 				PilotSubjectAltName: pilotSAN,
-				NodeIPs:             proxy.IPAddresses,
-				STSPort:             stsPort,
 				OutlierLogPath:      outlierLogPath,
 				PilotCertProvider:   secOpts.PilotCertProvider,
 				ProvCert:            provCert,
-				Sidecar:             proxy.Type == model.SidecarProxy,
-				ProxyViaAgent:       agentOptions.ProxyXDSViaAgent,
+			})
+			if err != nil {
+				log.Error("Failed to extract node metadata: ", err)
+				os.Exit(1)
+			}
+			envoyProxy := envoy.NewProxy(envoy.ProxyConfig{
+				Node:              node,
+				LogLevel:          proxyLogLevel,
+				ComponentLogLevel: proxyComponentLogLevel,
+				LogAsJSON:         loggingOptions.JSONEncoding,
+				NodeIPs:           proxy.IPAddresses,
+				Sidecar:           proxy.Type == model.SidecarProxy,
 			})
 
 			drainDuration, _ := types.DurationFromProto(proxyConfig.TerminationDrainDuration)
