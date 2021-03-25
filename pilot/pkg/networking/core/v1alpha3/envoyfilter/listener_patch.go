@@ -277,6 +277,9 @@ func patchNetworkFilters(patchContext networking.EnvoyFilter_PatchContext,
 		if cp.Operation == networking.EnvoyFilter_Patch_ADD {
 			fc.Filters = append(fc.Filters, proto.Clone(cp.Value).(*xdslistener.Filter))
 			applied = true
+		} else if cp.Operation == networking.EnvoyFilter_Patch_INSERT_FIRST {
+			fc.Filters = append([]*xdslistener.Filter{proto.Clone(cp.Value).(*xdslistener.Filter)}, fc.Filters...)
+			applied = true
 		} else if cp.Operation == networking.EnvoyFilter_Patch_INSERT_AFTER {
 			// Insert after without a filter match is same as ADD in the end
 			if !hasNetworkFilterMatch(cp) {
@@ -302,8 +305,8 @@ func patchNetworkFilters(patchContext networking.EnvoyFilter_PatchContext,
 				copy(fc.Filters[insertPosition+1:], fc.Filters[insertPosition:])
 				fc.Filters[insertPosition] = clonedVal
 			}
-		} else if cp.Operation == networking.EnvoyFilter_Patch_INSERT_BEFORE || cp.Operation == networking.EnvoyFilter_Patch_INSERT_FIRST {
-			// insert before/first without a filter match is same as insert in the beginning
+		} else if cp.Operation == networking.EnvoyFilter_Patch_INSERT_BEFORE {
+			// insert before without a filter match is same as insert in the beginning
 			if !hasNetworkFilterMatch(cp) {
 				fc.Filters = append([]*xdslistener.Filter{proto.Clone(cp.Value).(*xdslistener.Filter)}, fc.Filters...)
 				continue
@@ -320,11 +323,6 @@ func patchNetworkFilters(patchContext networking.EnvoyFilter_PatchContext,
 			// If matching filter is not found, then don't insert and continue.
 			if insertPosition == -1 {
 				continue
-			}
-
-			// In case of INSERT_FIRST, if a match is found, still insert it at the top of the filterchain.
-			if cp.Operation == networking.EnvoyFilter_Patch_INSERT_FIRST {
-				insertPosition = 0
 			}
 			applied = true
 			clonedVal := proto.Clone(cp.Value).(*xdslistener.Filter)
@@ -462,6 +460,8 @@ func patchHTTPFilters(patchContext networking.EnvoyFilter_PatchContext,
 		if cp.Operation == networking.EnvoyFilter_Patch_ADD {
 			applied = true
 			hcm.HttpFilters = append(hcm.HttpFilters, proto.Clone(cp.Value).(*http_conn.HttpFilter))
+		} else if cp.Operation == networking.EnvoyFilter_Patch_INSERT_FIRST {
+			hcm.HttpFilters = append([]*http_conn.HttpFilter{proto.Clone(cp.Value).(*http_conn.HttpFilter)}, hcm.HttpFilters...)
 		} else if cp.Operation == networking.EnvoyFilter_Patch_INSERT_AFTER {
 			// Insert after without a filter match is same as ADD in the end
 			if !hasHTTPFilterMatch(cp) {

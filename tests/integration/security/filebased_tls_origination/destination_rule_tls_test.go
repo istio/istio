@@ -32,7 +32,7 @@ import (
 	"istio.io/istio/pkg/test/util/retry"
 )
 
-func mustReadFile(t *testing.T, f string) string {
+func mustReadFile(t framework.TestContext, f string) string {
 	b, err := ioutil.ReadFile(path.Join(env.IstioSrc, "tests/testdata/certs/dns", f))
 	if err != nil {
 		t.Fatalf("failed to read %v: %v", f, err)
@@ -46,14 +46,14 @@ func TestDestinationRuleTls(t *testing.T) {
 	framework.
 		NewTest(t).
 		Features("security.egress.tls.filebased").
-		Run(func(ctx framework.TestContext) {
-			ns := namespace.NewOrFail(t, ctx, namespace.Config{
+		Run(func(t framework.TestContext) {
+			ns := namespace.NewOrFail(t, t, namespace.Config{
 				Prefix: "tls",
 				Inject: true,
 			})
 
 			// Setup our destination rule, enforcing TLS to "server". These certs will be created/mounted below.
-			ctx.Config().ApplyYAMLOrFail(t, ns.Name(), `
+			t.Config().ApplyYAMLOrFail(t, ns.Name(), `
 apiVersion: networking.istio.io/v1alpha3
 kind: DestinationRule
 metadata:
@@ -70,7 +70,7 @@ spec:
 `)
 
 			var client, server echo.Instance
-			echoboot.NewBuilder(ctx).
+			echoboot.NewBuilder(t).
 				With(&client, echo.Config{
 					Service:   "client",
 					Namespace: ns,
@@ -84,7 +84,7 @@ spec:
 							Set(echo.SidecarVolume, `{"custom-certs":{"configMap":{"name":"server-certs"}}}`).
 							Set(echo.SidecarVolumeMount, `{"custom-certs":{"mountPath":"/etc/certs/custom"}}`),
 					}},
-					Cluster: ctx.Clusters().Default(),
+					Cluster: t.Clusters().Default(),
 				}).
 				With(&server, echo.Config{
 					Service:   "server",
@@ -122,13 +122,13 @@ spec:
 						Version:     "v1",
 						Annotations: echo.NewAnnotations().SetBool(echo.SidecarInject, false),
 					}},
-					Cluster: ctx.Clusters().Default(),
+					Cluster: t.Clusters().Default(),
 				}).
 				BuildOrFail(t)
 
 			for _, tt := range []string{"grpc", "http", "tcp"} {
-				t.Run(tt, func(t *testing.T) {
-					retry.UntilSuccessOrFail(ctx, func() error {
+				t.NewSubTest(tt).Run(func(t framework.TestContext) {
+					retry.UntilSuccessOrFail(t, func() error {
 						opts := echo.CallOptions{
 							Target:   server,
 							PortName: tt,

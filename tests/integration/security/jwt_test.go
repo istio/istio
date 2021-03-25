@@ -47,19 +47,19 @@ func TestRequestAuthentication(t *testing.T) {
 	payload2 := strings.Split(jwt.TokenIssuer2, ".")[1]
 	framework.NewTest(t).
 		Features("security.authentication.jwt").
-		Run(func(ctx framework.TestContext) {
+		Run(func(t framework.TestContext) {
 			ns := apps.Namespace1
 			args := map[string]string{"Namespace": ns.Name()}
 			applyYAML := func(filename string, ns namespace.Instance) []string {
 				policy := tmpl.EvaluateAllOrFail(t, args, file.AsStringOrFail(t, filename))
-				ctx.Config().ApplyYAMLOrFail(t, ns.Name(), policy...)
+				t.Config().ApplyYAMLOrFail(t, ns.Name(), policy...)
 				return policy
 			}
 
 			jwtServer := applyYAML("../../../samples/jwt-server/jwt-server.yaml", ns)
-			defer ctx.Config().DeleteYAMLOrFail(t, ns.Name(), jwtServer...)
-			if _, _, err := kube.WaitUntilServiceEndpointsAreReady(ctx.Clusters().Default(), ns.Name(), "jwt-server"); err != nil {
-				ctx.Fatalf("Wait for jwt-server server failed: %v", err)
+			defer t.Config().DeleteYAMLOrFail(t, ns.Name(), jwtServer...)
+			if _, _, err := kube.WaitUntilServiceEndpointsAreReady(t.Clusters().Default(), ns.Name(), "jwt-server"); err != nil {
+				t.Fatalf("Wait for jwt-server server failed: %v", err)
 			}
 
 			// Apply the policy.
@@ -68,15 +68,15 @@ func TestRequestAuthentication(t *testing.T) {
 			}
 
 			callCount := 1
-			if ctx.Clusters().IsMulticluster() {
+			if t.Clusters().IsMulticluster() {
 				// so we can validate all clusters are hit
-				callCount = util.CallsPerCluster * len(ctx.Clusters())
+				callCount = util.CallsPerCluster * len(t.Clusters())
 			}
 
-			for _, cluster := range ctx.Clusters() {
+			for _, cluster := range t.Clusters() {
 				client := apps.A.Match(echo.InCluster(cluster).And(echo.Namespace(apps.Namespace1.Name())))[0]
 				dest := apps.B.Match(echo.InCluster(cluster).And(echo.Namespace(apps.Namespace1.Name())))
-				ctx.NewSubTest(fmt.Sprintf("From %s", cluster.StableName())).Run(func(ctx framework.TestContext) {
+				t.NewSubTest(fmt.Sprintf("From %s", cluster.StableName())).Run(func(t framework.TestContext) {
 					testCases := []authn.TestCase{
 						{
 							Name:   "valid-token-noauthz",
@@ -375,15 +375,15 @@ func TestRequestAuthentication(t *testing.T) {
 						},
 					}
 					for _, c := range testCases {
-						ctx.NewSubTest(c.Name).Run(func(ctx framework.TestContext) {
+						t.NewSubTest(c.Name).Run(func(t framework.TestContext) {
 							if c.Config != "" {
-								policy := tmpl.EvaluateOrFail(ctx,
-									file.AsStringOrFail(ctx, fmt.Sprintf("testdata/requestauthn/%s.yaml.tmpl", c.Config)), namespaceTmpl)
-								ctx.Config().ApplyYAMLOrFail(ctx, ns.Name(), policy)
-								util.WaitForConfig(ctx, policy, ns)
+								policy := tmpl.EvaluateOrFail(t,
+									file.AsStringOrFail(t, fmt.Sprintf("testdata/requestauthn/%s.yaml.tmpl", c.Config)), namespaceTmpl)
+								t.Config().ApplyYAMLOrFail(t, ns.Name(), policy)
+								util.WaitForConfig(t, policy, ns)
 							}
 
-							retry.UntilSuccessOrFail(ctx, c.CheckAuthn, echo.DefaultCallRetryOptions()...)
+							retry.UntilSuccessOrFail(t, c.CheckAuthn, echo.DefaultCallRetryOptions()...)
 						})
 					}
 				})
@@ -396,18 +396,18 @@ func TestRequestAuthentication(t *testing.T) {
 func TestIngressRequestAuthentication(t *testing.T) {
 	framework.NewTest(t).
 		Features("security.authentication.ingressjwt").
-		Run(func(ctx framework.TestContext) {
+		Run(func(t framework.TestContext) {
 			ns := apps.Namespace1
 
 			// Apply the policy.
 			namespaceTmpl := map[string]string{
 				"Namespace":     ns.Name(),
-				"RootNamespace": istio.GetOrFail(ctx, ctx).Settings().SystemNamespace,
+				"RootNamespace": istio.GetOrFail(t, t).Settings().SystemNamespace,
 			}
 
 			applyPolicy := func(filename string, ns namespace.Instance) {
 				policy := tmpl.EvaluateAllOrFail(t, namespaceTmpl, file.AsStringOrFail(t, filename))
-				ctx.Config().ApplyYAMLOrFail(t, ns.Name(), policy...)
+				t.Config().ApplyYAMLOrFail(t, ns.Name(), policy...)
 			}
 
 			applyPolicy("testdata/requestauthn/global-jwt.yaml.tmpl", rootNS{})
@@ -416,13 +416,13 @@ func TestIngressRequestAuthentication(t *testing.T) {
 			bSet := apps.B.Match(echo.Namespace(ns.Name()))
 
 			callCount := 1
-			if ctx.Clusters().IsMulticluster() {
+			if t.Clusters().IsMulticluster() {
 				// so we can validate all clusters are hit
-				callCount = util.CallsPerCluster * len(ctx.Clusters())
+				callCount = util.CallsPerCluster * len(t.Clusters())
 			}
 
-			for _, cluster := range ctx.Clusters() {
-				ctx.NewSubTest(fmt.Sprintf("In %s", cluster.StableName())).Run(func(ctx framework.TestContext) {
+			for _, cluster := range t.Clusters() {
+				t.NewSubTest(fmt.Sprintf("In %s", cluster.StableName())).Run(func(t framework.TestContext) {
 					a := apps.A.Match(echo.InCluster(cluster).And(echo.Namespace(apps.Namespace1.Name())))
 					// These test cases verify in-mesh traffic doesn't need tokens.
 					testCases := []authn.TestCase{
@@ -459,8 +459,8 @@ func TestIngressRequestAuthentication(t *testing.T) {
 						},
 					}
 					for _, c := range testCases {
-						ctx.NewSubTest(c.Name).Run(func(ctx framework.TestContext) {
-							retry.UntilSuccessOrFail(ctx, c.CheckAuthn,
+						t.NewSubTest(c.Name).Run(func(t framework.TestContext) {
+							retry.UntilSuccessOrFail(t, c.CheckAuthn,
 								retry.Delay(250*time.Millisecond), retry.Timeout(30*time.Second))
 						})
 					}
@@ -536,8 +536,8 @@ func TestIngressRequestAuthentication(t *testing.T) {
 					}
 
 					for _, c := range ingTestCases {
-						ctx.NewSubTest(c.Name).Run(func(ctx framework.TestContext) {
-							authn.CheckIngressOrFail(ctx, ingr, c.Host, c.Path, nil, c.Token, c.ExpectResponseCode)
+						t.NewSubTest(c.Name).Run(func(t framework.TestContext) {
+							authn.CheckIngressOrFail(t, ingr, c.Host, c.Path, nil, c.Token, c.ExpectResponseCode)
 						})
 					}
 				})

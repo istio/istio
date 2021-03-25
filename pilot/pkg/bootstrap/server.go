@@ -453,7 +453,7 @@ func (s *Server) Start(stop <-chan struct{}) error {
 
 	if s.httpsServer != nil {
 		go func() {
-			log.Infof("starting webhook service at %s", s.HTTPListener.Addr())
+			log.Infof("starting webhook service at %s", s.httpsServer.Addr)
 			if err := s.httpsServer.ListenAndServeTLS("", ""); isUnexpectedListenerError(err) {
 				log.Errorf("error serving https server: %v", err)
 			}

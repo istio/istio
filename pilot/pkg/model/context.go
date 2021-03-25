@@ -454,6 +454,21 @@ type BootstrapNodeMetadata struct {
 	// StsPort specifies the port of security token exchange server (STS).
 	// Used by envoy filters
 	StsPort string `json:"STS_PORT,omitempty"`
+
+	// ProxyViaAgent specifies whether xDS streams are proxied through the agent.
+	ProxyViaAgent bool `json:"PROXY_VIA_AGENT,omitempty"`
+
+	// PilotSAN is the list of subject alternate names for the xDS server.
+	PilotSubjectAltName []string `json:"PILOT_SAN,omitempty"`
+
+	// OutlierLogPath is the cluster manager outlier event log path.
+	OutlierLogPath string `json:"OUTLIER_LOG_PATH,omitempty"`
+
+	// PilotCertProvider is the provider of the xDS server DNS certificate.
+	PilotCertProvider string `json:"PILOT_CERT_PROVIDER,omitempty"`
+
+	// ProvCertDir is the directory containing pre-provisioned certs.
+	ProvCert string `json:"PROV_CERT,omitempty"`
 }
 
 // NodeMetadata defines the metadata associated with a proxy
