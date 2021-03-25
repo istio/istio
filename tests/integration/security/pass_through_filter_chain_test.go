@@ -338,7 +338,7 @@ metadata:
 spec:
   selector:
     matchLabels:
-      app: a
+      app: {{ .dst }}
   mtls:
     mode: PERMISSIVE
   portLevelMtls:
@@ -390,7 +390,7 @@ metadata:
 spec:
   selector:
     matchLabels:
-      app: a
+      app: {{ .dst }}
   mtls:
     mode: STRICT
   portLevelMtls:
@@ -442,7 +442,7 @@ metadata:
 spec:
   selector:
     matchLabels:
-      app: a
+      app: {{ .dst }}
   mtls:
     mode: PERMISSIVE
   portLevelMtls:
@@ -494,7 +494,7 @@ metadata:
 spec:
   selector:
     matchLabels:
-      app: a
+      app: {{ .dst }}
   mtls:
     mode: DISABLE
   portLevelMtls:
@@ -541,12 +541,11 @@ spec:
 
 			// srcFilter finds the naked app as client.
 			// TODO(slandow) replace this with built-in framework filters (blocked by https://github.com/istio/istio/pull/31565)
-			findNaked := func(instances echo.Instances) echo.Instances {
+			srcFilter := []echotest.SimpleFilter{func(instances echo.Instances) echo.Instances {
 				naked := apps.Naked.Match(echo.Namespace(ns.Name()))
 				b := apps.B.Match(echo.Namespace(ns.Name()))
 				return append(naked, b...)
-			}
-			srcFilter := []echotest.SimpleFilter{findNaked}
+			}}
 			for _, tc := range cases {
 				echotest.New(t, apps.All).
 					SetupForPair(func(t framework.TestContext, src, dst echo.Instances) error {
@@ -556,10 +555,8 @@ spec:
 								"dst": dst[0].Config().Service,
 							},
 						), ns.Name())
-						if err := t.Config().ApplyYAML("", cfg); err != nil {
-							return err
-						}
-						se := tmpl.EvaluateOrFail(t, `apiVersion: networking.istio.io/v1beta1
+						fakesvc := yml.MustApplyNamespace(t, tmpl.MustEvaluate(
+							`apiVersion: networking.istio.io/v1beta1
 kind: ServiceEntry
 metadata:
   name: dest-via-mtls
@@ -588,9 +585,8 @@ spec:
     name: port-8089
     protocol: TCP
   location: MESH_INTERNAL
-  resolution: NONE`,
-							map[string]interface{}{"IP": getWorkload(dst[0], t).Address()})
-						return t.Config().ApplyYAML(ns.Name(), `
+  resolution: NONE
+---
 apiVersion: networking.istio.io/v1alpha3
 kind: DestinationRule
 metadata:
@@ -600,8 +596,12 @@ spec:
   trafficPolicy:
     tls:
       mode: ISTIO_MUTUAL
----
-`+se)
+---`,
+							map[string]string{
+								"IP": getWorkload(dst[0], t).Address(),
+							},
+						), ns.Name())
+						return t.Config().ApplyYAML("", cfg, fakesvc)
 					}).
 					From(srcFilter...).
 					ConditionallyTo(echotest.ReachableDestinations).
