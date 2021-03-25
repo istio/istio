@@ -25,11 +25,10 @@ import (
 // Setup following items assuming httpbin is deployed to default namespace:
 // 1. Create k8s secret using existing cert
 func SetupConfig(ctx framework.TestContext) {
-	credName := "httpbin-tls-cert"
+	credName := "userauth-tls-cert"
 
 	// setup secrets
 	ingressutil.CreateIngressKubeSecret(ctx, []string{credName}, ingressutil.TLS, ingressutil.IngressCredentialA, false)
-	ctx.Logf("httpbin-tls-cert created!")
 	ctx.ConditionalCleanup(func() {
 		ingressutil.DeleteKubeSecret(ctx, []string{credName})
 	})

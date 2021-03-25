@@ -22,30 +22,9 @@ import (
 	"time"
 
 	"istio.io/istio/pkg/test/framework"
-	"istio.io/istio/pkg/test/framework/components/istio"
-	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/tests/integration/security/user_auth/selenium"
 	"istio.io/istio/tests/integration/security/user_auth/util"
 )
-
-const extAuthz = `
-apiVersion: security.istio.io/v1beta1
-kind: AuthorizationPolicy
-metadata:
-  name: ext-authz
-  namespace: istio-system
-spec:
-  selector:
-    matchLabels:
-      istio: ingressgateway
-  action: CUSTOM
-  provider:
-    name: asm-userauth-grpc
-  rules:
-  - to:
-    - operation:
-        notPaths: ["/ip"]
-`
 
 func TestBasicAuthFlow(t *testing.T) {
 	framework.
@@ -55,11 +34,6 @@ func TestBasicAuthFlow(t *testing.T) {
 			// check the port-forward availability
 			validatePortForward(ctx, "8443")
 			util.SetupConfig(ctx)
-
-			// apply extAuthz
-			istioCfg := istio.DefaultConfigOrFail(ctx, ctx)
-			systemNS := namespace.ClaimOrFail(ctx, ctx, istioCfg.SystemNamespace)
-			ctx.Config().ApplyYAMLOrFail(ctx, systemNS.Name(), extAuthz)
 
 			// setup chrome and chromedriver
 			service, wd := selenium.StartChromeOrFail(ctx)

@@ -1137,6 +1137,8 @@ function install_asm_user_auth() {
   # TODO(b/182914654): deploy app in go code
   kubectl -n userauth-test apply -f https://raw.githubusercontent.com/istio/istio/master/samples/httpbin/httpbin.yaml
 
+  kubectl wait --for=condition=Ready --timeout=2m --namespace=userauth-test --all pod
+
   # Create the kubernetes secret for the encryption and signing key.
   # shellcheck disable=SC2140
   kubectl create secret generic secret-key  \
@@ -1144,7 +1146,9 @@ function install_asm_user_auth() {
        --from-file="rctoken.key"="${CONFIG_DIR}/user-auth/rsa_signing_key.json"  \
        --namespace=asm-user-auth
 
-  kubectl apply -f "${CONFIG_DIR}/user-auth/asm_user_auth_config_v1alpha1.yaml"
+  kpt pkg get https://github.com/GoogleCloudPlatform/asm-user-auth.git/pkg@main "${CONFIG_DIR}/user-auth/pkg"
+
+  kubectl apply -f "${CONFIG_DIR}/user-auth/pkg/asm_user_auth_config_v1alpha1.yaml"
 
   # The following account is from IAP team
   # TODO(b/182940034): use ASM owned account once created
@@ -1153,21 +1157,24 @@ function install_asm_user_auth() {
   OIDC_ISSUER_URI="https://accounts.google.com"
 
   # TODO(b/182918059): Fetch image from GCR release repo and GitHub packet.
-  kpt cfg set "${CONFIG_DIR}/user-auth/pkg" iap-image gcr.io/jianfeih-test/asm-user-auth:20210224-rc0
+  USER_AUTH_IMAGE="gcr.io/gke-release-staging/asm/asm_user_auth:staging"
+  kpt cfg set "${CONFIG_DIR}/user-auth/pkg" anthos.servicemesh.user-auth.image "${USER_AUTH_IMAGE}"
   kpt cfg set "${CONFIG_DIR}/user-auth/pkg" anthos.servicemesh.user-auth.oidc.clientID "${OIDC_CLIENT_ID}"
   kpt cfg set "${CONFIG_DIR}/user-auth/pkg" anthos.servicemesh.user-auth.oidc.clientSecret "${OIDC_CLIENT_SECRET}"
   kpt cfg set "${CONFIG_DIR}/user-auth/pkg" anthos.servicemesh.user-auth.oidc.issuerURI "${OIDC_ISSUER_URI}"
   kubectl apply -R -f "${CONFIG_DIR}/user-auth/pkg/"
 
-  kubectl wait --for=condition=Ready --timeout=2m -n --namespace={userauth-test,asm-user-auth} --all pod
+  kubectl wait --for=condition=Ready --timeout=2m --namespace=asm-user-auth --all pod
+  kubectl apply -f "${CONFIG_DIR}/user-auth/httpbin-route.yaml"
 }
 
 # Cleanup ASM User Auth manifest.
 function cleanup_asm_user_auth() {
-  kubectl delete -R -f "${CONFIG_DIR}/user-auth/pkg/"
-  kubectl delete -f "${CONFIG_DIR}/user-auth/asm_user_auth_config_v1alpha1.yaml"
+  kubectl delete -f "${CONFIG_DIR}/user-auth/pkg/asm_user_auth_config_v1alpha1.yaml"
+  kubectl delete -f "${CONFIG_DIR}/user-auth/pkg/cluster_role_binding.yaml"
+  kubectl delete -f "${CONFIG_DIR}/user-auth/pkg/ext_authz.yaml"
   kubectl -n userauth-test delete -f https://raw.githubusercontent.com/istio/istio/master/samples/httpbin/httpbin.yaml
-  rm -rf "${CONFIG_DIR}/user-auth/pkg/inventory-template.yaml"
+  rm -rf "${CONFIG_DIR}/user-auth/pkg"
   kubectl delete ns asm-user-auth userauth-test
 }
 
