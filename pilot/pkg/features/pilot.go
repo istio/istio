@@ -424,6 +424,10 @@ var (
 	DeltaXds = env.RegisterBoolVar("ISTIO_DELTA_XDS", false,
 		"If enabled, pilot will only send the delta configs as opposed to the state of the world on a "+
 			"Resource Request")
+
+	SharedMeshConfig = env.RegisterStringVar("SHARED_MESH_CONFIG", "",
+		"Additional config map to load for shared MeshConfig settings").Get()
+
 )
 
 // UnsafeFeaturesEnabled returns true if any unsafe features are enabled.
