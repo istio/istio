@@ -472,11 +472,10 @@ func (c *mtlsChecker) mtlsDisabledSubsetTrafficPolicy(ep *model.IstioEndpoint) b
 	for _, subset := range c.destinationRule.Subsets {
 		if labels.Instance(subset.Labels).SubsetOf(ep.Labels) {
 			mode := trafficPolicyTLSModeForPort(subset.TrafficPolicy, c.svcPort)
-			if mode == nil {
-				// the subset selecting this endpoint has no opinion on TLS settings, use the default policy value
-				break
+			if mode != nil {
+				subsetValue = *mode == networkingapi.ClientTLSSettings_DISABLE
 			}
-			subsetValue = *mode == networkingapi.ClientTLSSettings_DISABLE
+			break
 		}
 	}
 	c.peerAuthDisabledMTLS[drSubsetKey] = subsetValue
