@@ -15,16 +15,26 @@
 package install
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"fmt"
 	"io"
 	"io/ioutil"
+	"net"
+	"strconv"
 	"strings"
 
+	adminapi "github.com/envoyproxy/go-control-plane/envoy/admin/v3"
+	cluster "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
 	"github.com/ghodss/yaml"
+	"github.com/golang/protobuf/jsonpb"
+	"github.com/golang/protobuf/ptypes"
 	multierror "github.com/hashicorp/go-multierror"
 	"github.com/spf13/cobra"
+	"golang.org/x/sync/errgroup"
+	"golang.org/x/sync/semaphore"
+	"istio.io/istio/pilot/pkg/util/sets"
 	authorizationapi "k8s.io/api/authorization/v1beta1"
 	v1 "k8s.io/api/core/v1"
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -40,7 +50,9 @@ import (
 	operator_istio "istio.io/istio/operator/pkg/apis/istio"
 	operator_v1alpha1 "istio.io/istio/operator/pkg/apis/istio/v1alpha1"
 	"istio.io/istio/operator/pkg/util"
+	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
+	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/url"
 )
 
@@ -240,7 +252,7 @@ func checkCanCreateResources(c preCheckExecClient, namespace, group, version, na
 	return nil
 }
 
-func createKubeClient(restClientGetter genericclioptions.RESTClientGetter) (preCheckExecClient, error) {
+func createKubeClient(restClientGetter genericclioptions.RESTClientGetter) (*preCheckClient, error) {
 	restConfig, err := restClientGetter.ToRESTConfig()
 	if err != nil {
 		return nil, err
@@ -336,6 +348,12 @@ func NewPrecheckCommand() *cobra.Command {
 			if err != nil {
 				return err
 			}
+			// TODO do not duplicate
+			fullClient, err := kube.NewExtendedClient(kubeConfigFlags.ToRawKubeConfigLoader(), targetRevision)
+			if err != nil {
+				return err
+			}
+			checkBinds(fullClient, c)
 
 			installs, err := cli.getIstioInstalls()
 			if err == nil && len(installs) > 0 {
@@ -387,6 +405,154 @@ func NewPrecheckCommand() *cobra.Command {
 	fileNameFlags.AddFlags(flags)
 	opts.AttachControlPlaneFlags(precheckCmd)
 	return precheckCmd
+}
+
+func checkBinds(cli kube.ExtendedClient, c *cobra.Command) {
+	pods, err := cli.CoreV1().Pods(meta_v1.NamespaceAll).List(context.Background(), meta_v1.ListOptions{
+		// Find all injected pods
+		LabelSelector: "security.istio.io/tlsMode=istio",
+	})
+	if err != nil {
+		c.PrintErrln("failed to list pods:", err)
+		return
+	}
+	failedPods := sets.NewSet()
+	g := errgroup.Group{}
+
+	sem := semaphore.NewWeighted(25)
+	for _, pod := range pods.Items {
+		pod := pod
+		g.Go(func() error {
+			sem.Acquire(context.Background(), 1)
+			defer sem.Release(1)
+			id := fmt.Sprintf("%s.%s", pod.Name, pod.Namespace)
+			resp, err := cli.EnvoyDo(context.Background(), pod.Name, pod.Namespace,
+				"GET", "config_dump?resource=dynamic_active_clusters&mask=cluster.name", nil)
+			if err != nil {
+				c.PrintErrln("failed to get config dump:", err)
+				return err
+			}
+			ports, err := extractInboundPorts(resp)
+			if err != nil {
+				c.PrintErrln("failed to get ports:", err)
+				return err
+			}
+			out, _, err := cli.PodExec(pod.Name, pod.Namespace, "istio-proxy", "ss -ltnH")
+			if err != nil {
+				c.PrintErrln("failed to get listener state:", err)
+				return err
+			}
+			for _, ss := range strings.Split(out, "\n") {
+				if len(ss) == 0 {
+					continue
+				}
+				bind, port, err := net.SplitHostPort(getColumn(ss, 3))
+				if err != nil {
+					c.PrintErrln("failed to get parse state:", err)
+					continue
+				}
+				ip := net.ParseIP(bind)
+				ip.IsGlobalUnicast()
+				portn, _ := strconv.Atoi(port)
+				if _, f := ports[portn]; f {
+					c := ports[portn]
+					if bind == "" {
+						continue
+					} else if bind == "*" || ip.IsUnspecified() {
+						c.Wildcard = true
+					} else if ip.IsLoopback() {
+						c.Lo = true
+					} else {
+						c.Explicit = true
+					}
+					ports[portn] = c
+				}
+			}
+			for port, status := range ports {
+				c.Printf("%v port %v: %v\n", id, port, status)
+				if status.Lo == true {
+					failedPods.Insert(fmt.Sprintf("%v on port %v", id, port))
+				}
+			}
+			return nil
+		})
+	}
+	g.Wait()
+	for pod := range failedPods {
+		c.PrintErrf("%v listens on localhost and will no longer be exposed\n", pod)
+	}
+}
+
+func getColumn(line string, col int) string {
+	res := []byte{}
+	prevSpace := false
+	for _, c := range line {
+		if col < 0 {
+			return string(res)
+		}
+		if c == ' ' {
+			if !prevSpace {
+				col--
+			}
+			prevSpace = true
+			continue
+		}
+		prevSpace = false
+		if col == 0 {
+			res = append(res, byte(c))
+		}
+	}
+	return string(res)
+}
+
+type bindStatus struct {
+	Lo       bool
+	Wildcard bool
+	Explicit bool
+}
+
+func (b bindStatus) Any() bool {
+	return b.Lo || b.Wildcard || b.Explicit
+}
+
+func (b bindStatus) String() string {
+	res := []string{}
+	if b.Lo {
+		res = append(res, "Localhost")
+	}
+	if b.Wildcard {
+		res = append(res, "Wildcard")
+	}
+	if b.Explicit {
+		res = append(res, "Explicit")
+	}
+	if len(res) == 0 {
+		return "Unknown"
+	}
+	return strings.Join(res, ", ")
+}
+
+func extractInboundPorts(configdump []byte) (map[int]bindStatus, error) {
+	ports := map[int]bindStatus{}
+	cd := &adminapi.ConfigDump{}
+	if err := jsonpb.Unmarshal(bytes.NewReader(configdump), cd); err != nil {
+		return nil, err
+	}
+	for _, cdump := range cd.Configs {
+		clw := &adminapi.ClustersConfigDump_DynamicCluster{}
+		if err := ptypes.UnmarshalAny(cdump, clw); err != nil {
+			return nil, err
+		}
+		cl := &cluster.Cluster{}
+		if err := ptypes.UnmarshalAny(clw.Cluster, cl); err != nil {
+			return nil, err
+		}
+		dir, _, _, port := model.ParseSubsetKey(cl.Name)
+		if dir == model.TrafficDirectionInbound {
+			ports[port] = bindStatus{}
+		}
+	}
+	return ports, nil
 }
 
 func findIstios(client dynamic.Interface) ([]istioInstall, error) {
