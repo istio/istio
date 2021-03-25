@@ -542,9 +542,11 @@ spec:
 			// srcFilter finds the naked app as client.
 			// TODO(slandow) replace this with built-in framework filters (blocked by https://github.com/istio/istio/pull/31565)
 			srcFilter := []echotest.SimpleFilter{func(instances echo.Instances) echo.Instances {
-				naked := apps.Naked.Match(echo.Namespace(ns.Name()))
+				src := apps.Naked.Match(echo.Namespace(ns.Name()))
 				b := apps.B.Match(echo.Namespace(ns.Name()))
-				return append(naked, b...)
+				vm := apps.VM.Match(echo.Namespace(ns.Name()))
+				src = append(src, b...)
+				return append(src, vm...)
 			}}
 			for _, tc := range cases {
 				echotest.New(t, apps.All).
@@ -611,6 +613,8 @@ spec:
 						echotest.Not(func(instances echo.Instances) echo.Instances { return instances.Match(echo.IsNaked()) }),
 						echotest.Not(func(instances echo.Instances) echo.Instances { return instances.Match(echo.IsExternal()) }),
 						echotest.Not(func(instances echo.Instances) echo.Instances { return instances.Match(util.IsMultiversion()) }),
+						// TODO(JimmyCYJ): WorkloadOnlyPorts are missing in the VM deployment configuration yaml.
+						echotest.Not(func(instances echo.Instances) echo.Instances { return instances.Match(echo.IsVirtualMachine()) }),
 					).
 					Run(func(t framework.TestContext, src echo.Instance, dest echo.Instances) {
 						clusterName := src.Config().Cluster.StableName()
