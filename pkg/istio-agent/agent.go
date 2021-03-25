@@ -189,7 +189,7 @@ func (a *Agent) Check() (err error) {
 	// we dont need dns server on gateways
 	if a.cfg.DNSCapture && a.cfg.ProxyXDSViaAgent && a.cfg.ProxyType == model.SidecarProxy {
 		if !a.localDNSServer.IsReady() {
-			return errors.New("Istio DNS capture is turned ON and DNS lookup table is not ready yet")
+			return errors.New("istio DNS capture is turned ON and DNS lookup table is not ready yet")
 		}
 	}
 	return nil

@@ -641,12 +641,12 @@ func TestAdditionalProbes(t *testing.T) {
 		{
 			name:   "not ready probe",
 			probes: []ready.Prober{urp},
-			err:    errors.New("Not ready"),
+			err:    errors.New("not ready"),
 		},
 		{
 			name:   "both probes",
 			probes: []ready.Prober{rp, urp},
-			err:    errors.New("Not ready"),
+			err:    errors.New("not ready"),
 		},
 	}
 	testServer := createAndStartServer(liveServerStats)
@@ -682,7 +682,7 @@ func (s readyProbe) Check() error {
 type unreadyProbe struct{}
 
 func (u unreadyProbe) Check() error {
-	return errors.New("Not ready")
+	return errors.New("not ready")
 }
 
 func createDefaultFuncMap(statsToReturn string) map[string]func(rw http.ResponseWriter, _ *http.Request) {
