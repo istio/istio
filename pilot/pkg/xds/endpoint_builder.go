@@ -301,7 +301,7 @@ func (b *EndpointBuilder) buildLocalityLbEndpointsFromShards(
 
 			// detect if mTLS is possible for this endpoint, used later during ep filtering
 			// this must be done while converting IstioEndpoints because we still have workload labels
-			b.mtlsChecker.checkEndpoint(ep)
+			b.mtlsChecker.computeForEndpoint(ep)
 		}
 	}
 	shards.mutex.Unlock()
@@ -387,21 +387,20 @@ func buildEnvoyLbEndpoint(e *model.IstioEndpoint) *endpoint.LbEndpoint {
 	return ep
 }
 
-// TODO this logic is probably done elsewhere in XDS, possible code-reuse
+// TODO this logic is probably done elsewhere in XDS, possible code-reuse + perf improvemnts
 type mtlsChecker struct {
-	push *model.PushContext
+	push            *model.PushContext
+	svcPort         int
+	destinationRule *networkingapi.DestinationRule
 
 	// cache of host identifiers that have mTLS disabled
-	mtlsDisabledHosts map[string]bool
+	mtlsDisabledHosts map[string]struct{}
 
 	// cache of labels/port that have mTLS disabled by peerAuthn
 	peerAuthDisabledMTLS map[string]bool
-
-	svcPort         int
-	destinationRule *networkingapi.DestinationRule
-	// true if the default traffic policy disables mTLS
-	subsetPolicyDisabledMTLS map[string]bool
 	// cache of labels that have mTLS disabled by a subset traffic policy
+	subsetPolicyDisabledMTLS map[string]bool
+	// true if the default traffic policy disables mTLS
 	disaledByDestinationRule bool
 }
 
@@ -414,7 +413,7 @@ func newMtlsChecker(push *model.PushContext, svcPort int, dr *config.Config) *mt
 		push:                     push,
 		svcPort:                  svcPort,
 		destinationRule:          drSpec,
-		mtlsDisabledHosts:        map[string]bool{},
+		mtlsDisabledHosts:        map[string]struct{}{},
 		peerAuthDisabledMTLS:     map[string]bool{},
 		subsetPolicyDisabledMTLS: map[string]bool{},
 		disaledByDestinationRule: mtlsDisabledDefaultTrafficPolicy(dr, svcPort),
@@ -426,20 +425,21 @@ func newMtlsChecker(push *model.PushContext, svcPort int, dr *config.Config) *mt
 // - DestinationRule disabling mTLS on the entire host or the port TODO handle subsets
 // - PeerAuthentication disabling mTLS at any applicable level (mesh, ns, workload, port)
 func (c *mtlsChecker) isMtlsDisabled(lbEp *endpoint.LbEndpoint) bool {
-	if disabled, ok := c.mtlsDisabledHosts[lbEpKey(lbEp)]; ok {
-		return disabled
+	if c == nil {
+		return false
 	}
-	return false
+	_, ok := c.mtlsDisabledHosts[lbEpKey(lbEp)]
+	return ok
 }
 
-// checkEndpoint checks destination rule, peer authentication and metadata to determine if mTLS was turned off.
+// computeForEndpoint checks destination rule, peer authentication and metadata to determine if mTLS was turned off.
 // This must be done during conversion from IstioEndpoint since we still have workload metadata.
-func (c *mtlsChecker) checkEndpoint(ep *model.IstioEndpoint) {
+func (c *mtlsChecker) computeForEndpoint(ep *model.IstioEndpoint) {
 	tlsMode := envoytransportSocketMetadata(ep.EnvoyEndpoint, model.TLSModeLabelShortname)
 	if tlsMode == model.DisabledTLSModeLabel ||
 		c.mtlsDisabledByPeerAuthentication(ep) ||
 		c.mtlsDisabledSubsetTrafficPolicy(ep) {
-		c.mtlsDisabledHosts[lbEpKey(ep.EnvoyEndpoint)] = true
+		c.mtlsDisabledHosts[lbEpKey(ep.EnvoyEndpoint)] = struct{}{}
 		return
 	}
 }
