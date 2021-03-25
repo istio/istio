@@ -182,5 +182,5 @@ func fromNaked(from echo.Instance) echo.Matcher {
 	if !from.Config().IsNaked() {
 		return echo.Any
 	}
-	return echo.Not(echo.InNetwork(from.Config().Cluster.NetworkName()).And(echo.IsVirtualMachine()))
+	return echo.InNetwork(from.Config().Cluster.NetworkName()).And(echo.Not(echo.IsVirtualMachine()))
 }
