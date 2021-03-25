@@ -75,14 +75,6 @@ func TestAuthorization_mTLS(t *testing.T) {
 	framework.NewTest(t).
 		Features("security.authorization.mtls-local").
 		Run(func(t framework.TestContext) {
-			args := map[string]string{
-				"Namespace":  apps.Namespace1.Name(),
-				"Namespace2": apps.Namespace2.Name(),
-			}
-			policies := tmpl.EvaluateAllOrFail(t, args,
-				file.AsStringOrFail(t, "testdata/authz/v1beta1-mtls.yaml.tmpl"))
-
-			t.Config().ApplyYAMLOrFail(t, apps.Namespace1.Name(), policies...)
 			for _, cluster := range t.Clusters() {
 				b := apps.B.Match(echo.Namespace(apps.Namespace1.Name()))
 				vm := apps.VM.Match(echo.Namespace(apps.Namespace1.Name()))
@@ -90,11 +82,10 @@ func TestAuthorization_mTLS(t *testing.T) {
 					args := map[string]string{
 						"Namespace":  apps.Namespace1.Name(),
 						"Namespace2": apps.Namespace2.Name(),
-						"dst": dst
+						"dst":        dst[0].Config().Service,
 					}
 					policies := tmpl.EvaluateAllOrFail(t, args,
 						file.AsStringOrFail(t, "testdata/authz/v1beta1-mtls.yaml.tmpl"))
-
 					t.Config().ApplyYAMLOrFail(t, apps.Namespace1.Name(), policies...)
 					t.NewSubTest(fmt.Sprintf("From %s", cluster.StableName())).Run(func(t framework.TestContext) {
 						a := apps.A.Match(echo.InCluster(cluster).And(echo.Namespace(apps.Namespace1.Name())))
@@ -122,14 +113,10 @@ func TestAuthorization_mTLS(t *testing.T) {
 						}
 						// a and c send requests to b
 						cases := []rbacUtil.TestCase{
-							newTestCase(a, b, "/principal-a", true),
-							newTestCase(a, b, "/namespace-2", false),
-							newTestCase(c, b, "/principal-a", false),
-							newTestCase(c, b, "/namespace-2", true),
-							newTestCase(a, vm, "/principal-a", true),
-							newTestCase(a, vm, "/namespace-2", false),
-							newTestCase(c, vm, "/principal-a", false),
-							newTestCase(c, vm, "/namespace-2", true),
+							newTestCase(a, dst, "/principal-a", true),
+							newTestCase(a, dst, "/namespace-2", false),
+							newTestCase(c, dst, "/principal-a", false),
+							newTestCase(c, dst, "/namespace-2", true),
 						}
 						rbacUtil.RunRBACTest(t, cases)
 					})
