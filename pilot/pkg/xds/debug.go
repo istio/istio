@@ -18,6 +18,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"html/template"
+	"net"
 	"net/http"
 	"net/http/pprof"
 	"sort"
@@ -193,10 +194,35 @@ func (s *DiscoveryServer) AddDebugHandlers(mux *http.ServeMux, enableProfiling b
 	s.addDebugHandler(mux, "/debug/networkz", "List cross-network gateways", s.networkz)
 }
 
+func DebugFilter(handlerF func(http.ResponseWriter, *http.Request)) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		addr, _, err := net.SplitHostPort(r.RemoteAddr)
+		if err != nil {
+			_, _ = w.Write([]byte("invalid request"))
+		}
+		fromLocal := false
+		if addr == "localhost" {
+			fromLocal = true
+		} else {
+			userIP := net.ParseIP(addr)
+			fromLocal = userIP.IsLoopback()
+		}
+		if strings.HasPrefix(r.URL.Path, "/debug/") && !fromLocal {
+			deny(w, r)
+			return
+		}
+		handlerF(w, r)
+	})
+}
+
+var deny = func(w http.ResponseWriter, req *http.Request) {
+	_, _ = w.Write([]byte("the debug info is only available on localhost"))
+}
+
 func (s *DiscoveryServer) addDebugHandler(mux *http.ServeMux, path string, help string,
 	handler func(http.ResponseWriter, *http.Request)) {
 	s.debugHandlers[path] = help
-	mux.HandleFunc(path, handler)
+	mux.HandleFunc(path, DebugFilter(handler).ServeHTTP)
 }
 
 // Syncz dumps the synchronization status of all Envoys connected to this Pilot instance

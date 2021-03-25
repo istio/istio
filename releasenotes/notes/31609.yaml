@@ -1,0 +1,9 @@
+apiVersion: release-notes/v2
+kind: feature
+area: networking
+issue:
+  - 31609
+
+releaseNotes:
+- |
+  **Updated** debug interface for istio is available on localhost only by default.
