@@ -16,6 +16,7 @@ package xds
 
 import (
 	mesh "istio.io/api/mesh/v1alpha1"
+	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	tb "istio.io/istio/pilot/pkg/trustbundle"
 	"istio.io/istio/pkg/util/gogo"
@@ -30,6 +31,10 @@ type PcdsGenerator struct {
 var _ model.XdsResourceGenerator = &PcdsGenerator{}
 
 func pcdsNeedsPush(req *model.PushRequest) bool {
+	if !features.MultiRootMesh.Get() {
+		return false
+	}
+
 	if req == nil {
 		return true
 	}
