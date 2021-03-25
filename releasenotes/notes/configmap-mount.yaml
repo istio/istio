@@ -5,5 +5,5 @@ issue:
 - 31410
 releaseNotes:
 - |
-  **Improve** configmaps to be read directly rather than from volume mounts. This improves the speed
+  **Improved** configmaps to be read directly rather than from volume mounts. This improves the speed
   of updates, and ensures that for external Istiod installations the configmaps are read from the config cluster.
