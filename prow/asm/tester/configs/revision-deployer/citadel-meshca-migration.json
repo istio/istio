@@ -8,7 +8,7 @@
     {
       "name": "asm-revision-meshca",
       "ca": "MESHCA",
-      "overlay": "overlay/trustdomain-migrate.yaml"
+      "overlay": "overlay/migrated-meshca.yaml"
     }
   ]
 }

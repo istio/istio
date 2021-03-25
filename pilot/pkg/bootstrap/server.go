@@ -25,6 +25,7 @@ import (
 	"net"
 	"net/http"
 	"os"
+	"path"
 	"strings"
 	"sync"
 	"time"
@@ -36,6 +37,7 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/reflection"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	v1 "k8s.io/client-go/kubernetes/typed/core/v1"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/cache"
@@ -1113,10 +1115,49 @@ func (s *Server) addIstioCAToTrustBundle(args *PilotArgs) error {
 			Source:            tb.SourceIstioCA,
 		})
 		if err != nil {
-			log.Errorf("unable to add CA root from namespace %s as trustAnchor", args.Namespace)
+			log.Errorf("unable to add CA root from namespace %s as trustAnchor: %v", args.Namespace, err)
 			return err
 		}
 		return nil
+	}
+
+	// If CA is not running, derive root certificates from the configured CA secrets
+	signingKeyFile := path.Join(LocalCertDir.Get(), "ca-key.pem")
+	if _, err := os.Stat(signingKeyFile); err != nil && s.kubeClient != nil {
+		// Fetch self signed certificates
+		caSecret, err := s.kubeClient.CoreV1().Secrets(args.Namespace).
+			Get(context.TODO(), ca.CASecret, metav1.GetOptions{})
+		if err != nil {
+			log.Infof("unable to retrieve self signed CA secret: %v", err)
+			return nil
+		}
+		rootCertBytes := caSecret.Data[ca.CaCertID]
+		err = s.workloadTrustBundle.UpdateTrustAnchor(&tb.TrustAnchorUpdate{
+			TrustAnchorConfig: tb.TrustAnchorConfig{Certs: []string{string(rootCertBytes)}},
+			Source:            tb.SourceIstioCA,
+		})
+		if err != nil {
+			log.Errorf("unable to update trustbundle with self signed CA root: %v", err)
+			return err
+		}
+	} else {
+		// If NOT self signed certificates
+		rootCertFile := path.Join(LocalCertDir.Get(), "root-cert.pem")
+		if _, err := os.Stat(rootCertFile); err != nil {
+			rootCertFile = path.Join(LocalCertDir.Get(), "ca-cert.pem")
+		}
+		certBytes, err := ioutil.ReadFile(rootCertFile)
+		if err != nil {
+			return nil
+		}
+		err = s.workloadTrustBundle.UpdateTrustAnchor(&tb.TrustAnchorUpdate{
+			TrustAnchorConfig: tb.TrustAnchorConfig{Certs: []string{string(certBytes)}},
+			Source:            tb.SourceIstioCA,
+		})
+		if err != nil {
+			log.Errorf("unable to update trustbundle with plugin CA root: %v", err)
+			return err
+		}
 	}
 	return nil
 }

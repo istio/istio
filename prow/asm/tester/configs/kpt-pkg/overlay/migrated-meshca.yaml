@@ -1,0 +1,14 @@
+apiVersion: install.istio.io/v1alpha1
+kind: IstioOperator
+spec:
+  values:
+    pilot:
+      env:
+        ENABLE_CA_SERVER: false
+        ISTIO_MULTIROOT_MESH: true
+  meshConfig:
+    defaultConfig:
+      proxyMetadata:
+        PROXY_CONFIG_XDS_AGENT: "true"
+    trustDomainAliases:
+      - cluster.local
