@@ -232,6 +232,9 @@ func (c *kubeComponent) Address() string {
 func trimMetricLabels(r *monitoringpb.ListTimeSeriesResponse) []*monitoringpb.TimeSeries {
 	var ret []*monitoringpb.TimeSeries
 	for _, t := range r.TimeSeries {
+		if t == nil {
+			continue
+		}
 		t.Points = nil
 		if metadata.OnGCE() {
 			// If the test runs on GCE, only remove MR fields that do not need verification
@@ -260,6 +263,9 @@ func trimLogLabels(r *loggingpb.ListLogEntriesResponse, filter LogType) []*loggi
 
 	var ret []*loggingpb.LogEntry
 	for _, l := range r.Entries {
+		if l == nil {
+			continue
+		}
 		if !strings.HasSuffix(l.LogName, logNameFilter) {
 			continue
 		}
