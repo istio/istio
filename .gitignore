@@ -54,3 +54,5 @@ etc/
 var/
 # Go compiled tests
 *.test
+# OSX trash
+.DS_Store
