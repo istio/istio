@@ -16,7 +16,7 @@
 # Redis service and deployment
 # Ratelimit service and deployment
 
-# Warning: configmap is required as follows:
+# Note: a configmap is needed to make the rate limit deployment work properly, for example:
 #
 #  apiVersion: v1
 #  kind: ConfigMap
