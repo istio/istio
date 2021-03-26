@@ -93,7 +93,8 @@ func (s *realStackdriver) ListLogEntries(filter LogType) ([]*loggingpb.LogEntry,
 	resp, err := s.loggingService.Entries.List(&logging.ListLogEntriesRequest{
 		ResourceNames: []string{"projects/istio-prow-build"},
 		PageSize:      10,
-		Filter:        fmt.Sprintf("timestamp > %q AND logName=\"projects/istio-prow-build/logs/server-accesslog-stackdriver\"", time.Now().Add(-5*time.Minute)),
+		Filter: fmt.Sprintf("timestamp > %q AND logName=\"projects/istio-prow-build/logs/server-accesslog-stackdriver\"",
+			time.Now().Add(-5*time.Minute).Format(time.RFC3339)),
 	}).Context(context.Background()).Do()
 	if err != nil {
 		return nil, fmt.Errorf("unexpected error from the logging backend: %v", err)
