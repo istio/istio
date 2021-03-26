@@ -127,6 +127,9 @@ type AgentOptions struct {
 
 	// Path to local UDS to communicate with Envoy
 	XdsUdsPath string
+
+	// Path to the local UDS tap, for debug tools to communicate with Istiod
+	XdsUdsTapPath string
 }
 
 // NewAgent hosts the functionality for local SDS and XDS. This consists of the local SDS server and

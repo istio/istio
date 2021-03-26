@@ -85,6 +85,7 @@ type XdsProxy struct {
 	healthChecker        *health.WorkloadHealthChecker
 	xdsHeaders           map[string]string
 	xdsUdsPath           string
+	xdsUdsTapPath        string
 
 	// connected stores the active gRPC stream. The proxy will only have 1 connection at a time
 	connected           *ProxyConnection
@@ -130,6 +131,7 @@ func initXdsProxy(ia *Agent) (*XdsProxy, error) {
 		healthChecker: health.NewWorkloadHealthChecker(ia.proxyConfig.ReadinessProbe, envoyProbe),
 		xdsHeaders:    ia.cfg.XDSHeaders,
 		xdsUdsPath:    ia.cfg.XdsUdsPath,
+		xdsUdsTapPath: ia.cfg.XdsUdsTapPath,
 		wasmCache:     wasm.NewLocalFileCache(constants.IstioDataDir, wasm.DefaultWasmModulePurgeInteval, wasm.DefaultWasmModuleExpiry),
 	}
 
@@ -170,6 +172,10 @@ func initXdsProxy(ia *Agent) (*XdsProxy, error) {
 	proxyLog.Infof("Initializing with upstream address %q and cluster %q", proxy.istiodAddress, proxy.clusterID)
 
 	if err = proxy.initDownstreamServer(); err != nil {
+		return nil, err
+	}
+
+	if err = proxy.initTapServer(); err != nil {
 		return nil, err
 	}
 
@@ -492,7 +498,7 @@ func (p *XdsProxy) rewriteAndForward(con *ProxyConnection, resp *discovery.Disco
 }
 
 func forwardToEnvoy(con *ProxyConnection, resp *discovery.DiscoveryResponse) {
-	if !v3.IsEnvoyType(resp.TypeUrl) {
+	if !v3.IsEnvoyType(resp.TypeUrl) && !strings.HasPrefix(resp.TypeUrl, "istio.io/debug/") {
 		proxyLog.Errorf("Skipping forwarding type url %s to Envoy as is not a valid Envoy type", resp.TypeUrl)
 		return
 	}
@@ -551,6 +557,23 @@ func isExpectedGRPCError(err error) bool {
 
 func (p *XdsProxy) initDownstreamServer() error {
 	l, err := uds.NewListener(p.xdsUdsPath)
+	if err != nil {
+		return err
+	}
+	grpcs := grpc.NewServer()
+	discovery.RegisterAggregatedDiscoveryServiceServer(grpcs, p)
+	reflection.Register(grpcs)
+	p.downstreamGrpcServer = grpcs
+	p.downstreamListener = l
+	return nil
+}
+
+func (p *XdsProxy) initTapServer() error {
+	if p.xdsUdsTapPath == "" {
+		return nil
+	}
+
+	l, err := uds.NewListener(p.xdsUdsTapPath)
 	if err != nil {
 		return err
 	}

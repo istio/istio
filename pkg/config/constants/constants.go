@@ -108,6 +108,9 @@ const (
 	// DefaultXdsUdsPath is the path used for XDS communication between istio-agent and proxy
 	DefaultXdsUdsPath = "./etc/istio/proxy/XDS"
 
+	// DefaultXdsUdsTapPath is the path used for XDS communication between debug tools piggybacking on the istio-agent
+	DefaultXdsUdsTapPath = "./etc/istio/proxy/xDS-tap"
+
 	// DefaultServiceAccountName is the default service account to use for remote cluster access.
 	DefaultServiceAccountName = "istio-reader-service-account"
 

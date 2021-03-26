@@ -374,6 +374,7 @@ func Setup(t *testing.T, opts ...func(a AgentTest) AgentTest) *AgentTest {
 		CARootCerts:      rootCert,
 		XDSRootCerts:     rootCert,
 		XdsUdsPath:       filepath.Join(d, "XDS"),
+		XdsUdsTapPath:    filepath.Join(d, "xDS-tap"),
 	}
 	// Run through opts again to apply settings
 	for _, opt := range opts {
