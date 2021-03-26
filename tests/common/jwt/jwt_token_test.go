@@ -58,7 +58,7 @@ func TestSampleJwtToken(t *testing.T) {
 				"groups": []interface{}{"group-1"},
 				"iss":    "test-issuer-1@istio.io",
 				"sub":    "sub-1",
-				"exp":    4715782722.0,
+				"exp":    4715782722,
 			},
 		},
 		{
@@ -73,7 +73,7 @@ func TestSampleJwtToken(t *testing.T) {
 				},
 				"iss": "test-issuer-1@istio.io",
 				"sub": "sub-1",
-				"exp": 4757607896.0,
+				"exp": 4757607896,
 			},
 		},
 		{
@@ -88,7 +88,7 @@ func TestSampleJwtToken(t *testing.T) {
 				},
 				"iss": "test-issuer-1@istio.io",
 				"sub": "sub-1",
-				"exp": 4757608018.0,
+				"exp": 4757608018,
 			},
 		},
 		{
@@ -98,7 +98,7 @@ func TestSampleJwtToken(t *testing.T) {
 				"groups": []interface{}{"group-2"},
 				"iss":    "test-issuer-2@istio.io",
 				"sub":    "sub-2",
-				"exp":    4715782783.0,
+				"exp":    4715782783,
 			},
 		},
 		{
@@ -108,7 +108,7 @@ func TestSampleJwtToken(t *testing.T) {
 				"groups": []interface{}{"group-1"},
 				"iss":    "test-issuer-1@istio.io",
 				"sub":    "sub-1",
-				"exp":    1562182856.0,
+				"exp":    1562182856,
 			},
 		},
 		{
