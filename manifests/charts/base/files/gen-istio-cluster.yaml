@@ -6150,6 +6150,9 @@ rules:
   - apiGroups: ["networking.x-k8s.io"]
     resources: ["*"]
     verbs: ["get", "watch", "list"]
+  - apiGroups: ["networking.x-k8s.io"]
+    resources: ["*"] # TODO: should be on just */status but wildcard is not supported
+    verbs: ["update"]
 
   # Needed for multicluster secret reading, possibly ingress certs in the future
   - apiGroups: [""]
