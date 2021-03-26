@@ -22,6 +22,7 @@ import (
 	"unsafe"
 
 	"github.com/davecgh/go-spew/spew"
+
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/pkg/filewatcher"
 	"istio.io/pkg/log"
@@ -43,14 +44,13 @@ type Watcher interface {
 var _ Watcher = &InternalWatcher{}
 
 type InternalWatcher struct {
-	mutex      sync.Mutex
-	handlers   []func()
+	mutex    sync.Mutex
+	handlers []func()
 	// Current merged mesh config
 	MeshConfig *meshconfig.MeshConfig
 
 	userMeshConfig string
-	revMeshConfig string
-
+	revMeshConfig  string
 }
 
 // NewFixedWatcher creates a new Watcher that always returns the given mesh config. It will never
