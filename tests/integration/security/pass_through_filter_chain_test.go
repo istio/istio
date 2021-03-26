@@ -615,6 +615,7 @@ spec:
 						echotest.Not(func(instances echo.Instances) echo.Instances { return instances.Match(util.IsMultiversion()) }),
 						// TODO(JimmyCYJ): WorkloadOnlyPorts are missing in the VM deployment configuration yaml.
 						echotest.Not(func(instances echo.Instances) echo.Instances { return instances.Match(echo.IsVirtualMachine()) }),
+						func(instances echo.Instances) echo.Instances { return instances.Match(echo.Namespace(ns.Name())) },
 					).
 					Run(func(t framework.TestContext, src echo.Instance, dest echo.Instances) {
 						clusterName := src.Config().Cluster.StableName()
