@@ -543,10 +543,9 @@ spec:
 			// TODO(slandow) replace this with built-in framework filters (blocked by https://github.com/istio/istio/pull/31565)
 			srcFilter := []echotest.SimpleFilter{func(instances echo.Instances) echo.Instances {
 				src := apps.Naked.Match(echo.Namespace(ns.Name()))
-				b := apps.B.Match(echo.Namespace(ns.Name()))
-				vm := apps.VM.Match(echo.Namespace(ns.Name()))
-				src = append(src, b...)
-				return append(src, vm...)
+				src = append(src, apps.B.Match(echo.Namespace(ns.Name()))...)
+				src = append(src, apps.VM.Match(echo.Namespace(ns.Name()))...)
+				return src
 			}}
 			for _, tc := range cases {
 				echotest.New(t, apps.All).
