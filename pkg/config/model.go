@@ -235,6 +235,9 @@ func ApplyJSON(s Spec, js string) error {
 }
 
 func DeepCopy(s interface{}) interface{} {
+	if s == nil {
+		return nil
+	}
 	// If deep copy is defined, use that
 	if dc, ok := s.(deepCopier); ok {
 		return dc.DeepCopyInterface()
