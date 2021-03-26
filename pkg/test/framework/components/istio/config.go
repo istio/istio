@@ -81,6 +81,7 @@ var (
 		DeployEastWestGW:        true,
 		DumpKubernetesManifests: false,
 		IstiodlessRemotes:       false,
+		EnableCNI:               false,
 	}
 )
 
@@ -162,6 +163,9 @@ type Config struct {
 	// IstiodlessRemotes makes remote clusters run without istiod, using webhooks/ca from the primary cluster.
 	// TODO we could set this per-cluster if istiod was smarter about patching remotes.
 	IstiodlessRemotes bool
+
+	// EnableCNI indicates the test should have CNI enabled.
+	EnableCNI bool
 }
 
 func (c *Config) OverridesYAML() string {
@@ -337,6 +341,8 @@ func (c *Config) String() string {
 	result += fmt.Sprintf("DeployHelm:                     %v\n", c.DeployHelm)
 	result += fmt.Sprintf("DumpKubernetesManifests:        %v\n", c.DumpKubernetesManifests)
 	result += fmt.Sprintf("IstiodlessRemotes:              %v\n", c.IstiodlessRemotes)
+	result += fmt.Sprintf("EnableCNI:                      %v\n", c.EnableCNI)
+
 	return result
 }
 
