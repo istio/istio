@@ -75,7 +75,7 @@ type DiscoveryServerOptions struct {
 	// The listening address for HTTPS (webhooks). If the port in the address is empty or "0" (as in "127.0.0.1:" or "[::1]:0")
 	// a port number is automatically chosen.
 	// If the address is empty, the secure port is disabled, and the
-	// webhooks are registred on the HTTP port - a gateway in front will
+	// webhooks are registered on the HTTP port - a gateway in front will
 	// terminate TLS instead.
 	HTTPSAddr string
 
@@ -108,6 +108,7 @@ type TLSOptions struct {
 	CertFile        string
 	KeyFile         string
 	TLSCipherSuites []string
+	CipherSuits     []uint16 // This is the parsed cipher suites
 }
 
 var (
@@ -154,6 +155,15 @@ func (p *PilotArgs) applyDefaults() {
 	p.RegistryOptions.DistributionCacheRetention = features.DistributionHistoryRetention
 }
 
+func (p *PilotArgs) Complete() error {
+	cipherSuits, err := TLSCipherSuites(p.ServerOptions.TLSOptions.TLSCipherSuites)
+	if err != nil {
+		return err
+	}
+	p.ServerOptions.TLSOptions.CipherSuits = cipherSuits
+	return nil
+}
+
 func allCiphers() map[string]uint16 {
 	acceptedCiphers := make(map[string]uint16, len(tls.CipherSuites())+len(tls.InsecureCipherSuites()))
 	for _, cipher := range tls.InsecureCipherSuites() {
@@ -161,7 +171,6 @@ func allCiphers() map[string]uint16 {
 	}
 	for _, cipher := range tls.CipherSuites() {
 		acceptedCiphers[cipher.Name] = cipher.ID
-
 	}
 	return acceptedCiphers
 }

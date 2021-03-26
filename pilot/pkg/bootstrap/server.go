@@ -179,6 +179,7 @@ type Server struct {
 
 // NewServer creates a new Server instance based on the provided arguments.
 func NewServer(args *PilotArgs) (*Server, error) {
+
 	e := &model.Environment{
 		PushContext:  model.NewPushContext(),
 		DomainSuffix: args.RegistryOptions.KubeOptions.DomainSuffix,
@@ -709,7 +710,6 @@ func (s *Server) initSecureDiscoveryService(args *PilotArgs) error {
 		return nil
 	}
 	log.Info("initializing secure discovery service")
-	cipherSuites, _ := TLSCipherSuites(args.ServerOptions.TLSOptions.TLSCipherSuites)
 	cfg := &tls.Config{
 		GetCertificate: s.getIstiodCertificate,
 		ClientAuth:     tls.VerifyClientCertIfGiven,
@@ -722,7 +722,7 @@ func (s *Server) initSecureDiscoveryService(args *PilotArgs) error {
 			return err
 		},
 		MinVersion:   tls.VersionTLS12,
-		CipherSuites: cipherSuites,
+		CipherSuites: args.ServerOptions.TLSOptions.CipherSuits,
 	}
 
 	tlsCreds := credentials.NewTLS(cfg)

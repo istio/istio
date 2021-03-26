@@ -20,9 +20,10 @@ import (
 	"k8s.io/apimachinery/pkg/util/sets"
 
 	"istio.io/istio/pilot/pkg/bootstrap"
+	"istio.io/istio/pkg/config/validation"
 )
 
-// insecureTLSCipherNames returns a list of cipher suite names implemented by crypto/tls
+// insecureTLSCipherNames returns a list of insecure cipher suite names implemented by crypto/tls
 // which have security issues.
 func insecureTLSCipherNames() []string {
 	cipherKeys := sets.NewString()
@@ -32,7 +33,7 @@ func insecureTLSCipherNames() []string {
 	return cipherKeys.List()
 }
 
-// secureTLSCipherNames returns a list of cipher suite names implemented by crypto/tls.
+// secureTLSCipherNames returns a list of secure cipher suite names implemented by crypto/tls.
 func secureTLSCipherNames() []string {
 	cipherKeys := sets.NewString()
 	for _, cipher := range tls.CipherSuites() {
@@ -45,8 +46,15 @@ func ValidateFlags(serverArgs *bootstrap.PilotArgs) error {
 	if serverArgs == nil {
 		return nil
 	}
-	_, err := bootstrap.TLSCipherSuites(serverArgs.ServerOptions.TLSOptions.TLSCipherSuites)
-	// TODO: add validation for other flags
 
+	// If keepaliveMaxServerConnectionAge is negative, istiod crash
+	// https://github.com/istio/istio/issues/27257
+	if err := validation.ValidateMaxServerConnectionAge(serverArgs.KeepaliveOptions.MaxServerConnectionAge); err != nil {
+		return err
+	}
+
+	_, err := bootstrap.TLSCipherSuites(serverArgs.ServerOptions.TLSOptions.TLSCipherSuites)
+
+	// TODO: add validation for other flags
 	return err
 }

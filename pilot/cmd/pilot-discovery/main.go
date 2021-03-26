@@ -29,7 +29,6 @@ import (
 	"istio.io/istio/pilot/pkg/serviceregistry"
 	"istio.io/istio/pkg/cmd"
 	"istio.io/istio/pkg/config/constants"
-	"istio.io/istio/pkg/config/validation"
 	"istio.io/pkg/collateral"
 	"istio.io/pkg/ctrlz"
 	"istio.io/pkg/log"
@@ -54,21 +53,20 @@ var (
 		Args:              cobra.ExactArgs(0),
 		PersistentPreRunE: configureLogging,
 		PreRunE: func(c *cobra.Command, args []string) error {
-			// If keepaliveMaxServerConnectionAge is negative, istiod crash
-			// https://github.com/istio/istio/issues/27257
-			if err := validation.ValidateMaxServerConnectionAge(serverArgs.KeepaliveOptions.MaxServerConnectionAge); err != nil {
+			if err := ValidateFlags(serverArgs); err != nil {
 				return err
 			}
 			return nil
 		},
 		RunE: func(c *cobra.Command, args []string) error {
 			cmd.PrintFlags(c.Flags())
-			if err := ValidateFlags(serverArgs); err != nil {
-				return err
-			}
 
 			// Create the stop channel for all of the servers.
 			stop := make(chan struct{})
+
+			if err := serverArgs.Complete(); err != nil {
+				return err
+			}
 
 			// Create the server for the discovery service.
 			discoveryServer, err := bootstrap.NewServer(serverArgs)
@@ -159,7 +157,7 @@ func init() {
 	discoveryCmd.PersistentFlags().StringVar(&serverArgs.ServerOptions.TLSOptions.KeyFile, "tlsKeyFile", "",
 		"File containing the x509 private key matching --tlsCertFile")
 	discoveryCmd.PersistentFlags().StringSliceVar(&serverArgs.ServerOptions.TLSOptions.TLSCipherSuites, "tls-cipher-suites", nil,
-		"Comma-separated list of cipher suites for the server. "+
+		"Comma-separated list of cipher suites for istiod TLS server. "+
 			"If omitted, the default Go cipher suites will be used. \n"+
 			"Preferred values: "+strings.Join(secureTLSCipherNames(), ", ")+". \n"+
 			"Insecure values: "+strings.Join(insecureTLSCipherNames(), ", ")+".")
