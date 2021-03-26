@@ -1312,7 +1312,7 @@ type vmCase struct {
 	host string
 }
 
-func DNSTestCases(apps *EchoDeployments) []TrafficTestCase {
+func DNSTestCases(apps *EchoDeployments, cniEnabled bool) []TrafficTestCase {
 	makeSE := func(ips ...string) string {
 		return tmpl.MustEvaluate(`
 apiVersion: networking.istio.io/v1alpha3
@@ -1344,6 +1344,7 @@ spec:
 		ips      string
 		protocol string
 		server   string
+		skipCNI  bool
 		expected []string
 	}{
 		{
@@ -1379,6 +1380,7 @@ spec:
 			ips:      ipv4,
 			expected: []string{},
 			protocol: "tcp",
+			skipCNI:  true,
 			server:   dummyLocalhostServer,
 		},
 		{
@@ -1386,11 +1388,15 @@ spec:
 			ips:      ipv4,
 			expected: []string{},
 			protocol: "udp",
+			skipCNI:  true,
 			server:   dummyLocalhostServer,
 		},
 	}
 	for _, client := range flatten(apps.VM, apps.PodA, apps.PodTproxy) {
 		for _, tt := range cases {
+			if tt.skipCNI && cniEnabled {
+				continue
+			}
 			tt, client := tt, client
 			address := "fake.service.local?"
 			if tt.protocol != "" {

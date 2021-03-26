@@ -58,7 +58,7 @@ else
 	_INTEGRATION_TEST_FLAGS += --istio.test.kube.config=$(_INTEGRATION_TEST_KUBECONFIG)
 endif
 
-_INTEGRATION_TEST_FLAGS += --istio.test.istio.operatorOptions=components.cni.enabled=true,components.cni.namespace=kube-system
+_INTEGRATION_TEST_FLAGS += --istio.test.istio.enableCNI=true
 
 test.integration.analyze: test.integration...analyze
 

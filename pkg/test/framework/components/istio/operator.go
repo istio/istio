@@ -648,6 +648,13 @@ func (i *operatorComponent) generateCommonInstallSettings(cfg Config, cluster cl
 	}
 
 	// Include all user-specified values and configuration options.
+	if cfg.EnableCNI {
+		installSettings = append(installSettings,
+			"--set", "components.cni.namespace=kube-system",
+			"--set", "components.cni.enabled=true")
+	}
+
+	// Include all user-specified values.
 	for k, v := range cfg.Values {
 		installSettings = append(installSettings, "--set", fmt.Sprintf("values.%s=%s", k, v))
 	}
