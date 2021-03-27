@@ -216,7 +216,7 @@ func (s *DiscoveryServer) addDebugHandler(mux *http.ServeMux, path string, help 
 				authFailMsgs = append(authFailMsgs, fmt.Sprintf("Authenticator %s: %v", authn.AuthenticatorType(), err))
 			}
 			if ids == nil {
-				adsLog.Errorf("Failed to authenticate %s %v", req.URL, authFailMsgs)
+				istiolog.Errorf("Failed to authenticate %s %v", req.URL, authFailMsgs)
 				// Not including detailed info in the response, XDS doesn't either (returns a generic "authentication failure).
 				w.WriteHeader(401)
 				return
