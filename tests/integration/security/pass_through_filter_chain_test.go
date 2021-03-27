@@ -602,7 +602,7 @@ spec:
 								"IP": getWorkload(dst[0], t).Address(),
 							},
 						), ns.Name())
-						return t.Config().ApplyYAML("", cfg, fakesvc)
+						return t.Config().ApplyYAML(ns.Name(), cfg, fakesvc)
 					}).
 					From(srcFilter...).
 					ConditionallyTo(echotest.ReachableDestinations).
@@ -618,6 +618,10 @@ spec:
 					).
 					Run(func(t framework.TestContext, src echo.Instance, dest echo.Instances) {
 						clusterName := src.Config().Cluster.StableName()
+						if dest[0].Config().Cluster.StableName() != clusterName {
+							// The workaround for mTLS does not work on cross cluster traffic.
+							t.Skip()
+						}
 						nameSuffix := "mtls"
 						if src.Config().IsNaked() {
 							nameSuffix = "plaintext"
