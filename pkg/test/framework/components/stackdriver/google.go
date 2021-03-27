@@ -73,7 +73,7 @@ func (s *realStackdriver) ListTimeSeries(metricName string) ([]*monitoringpb.Tim
 		AggregationCrossSeriesReducer("REDUCE_NONE").
 		AggregationAlignmentPeriod("60s").
 		AggregationPerSeriesAligner("ALIGN_RATE").
-		Filter(fmt.Sprintf("metric.type = %q", metricName)).
+		Filter(fmt.Sprintf("metric.type = %q AND (resource.type = k8s_container OR resource.type = k8s_pod)", metricName)).
 		Context(context.Background())
 	resp, err := lr.Do()
 	if err != nil {
