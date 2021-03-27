@@ -83,7 +83,7 @@ func tagCommand() *cobra.Command {
 referring to control plane revisions for sidecar injection.
 
 With revision tags, rather than relabeling a namespace from "istio.io/rev=revision-a" to "istio.io/rev=revision-b" to
-change which control plane revision handles injection, it's possible to create a revision tag "prod" and label our 
+change which control plane revision handles injection, it's possible to create a revision tag "prod" and label our
 namespace "istio.io/rev=prod". The "prod" revision tag could point to "1-7-6" initially and then be changed to point to "1-8-1"
 at some later point.
 

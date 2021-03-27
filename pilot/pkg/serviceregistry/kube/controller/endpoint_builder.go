@@ -25,7 +25,6 @@ import (
 	"istio.io/istio/pilot/pkg/serviceregistry/kube"
 	"istio.io/istio/pkg/config/labels"
 	kubeUtil "istio.io/istio/pkg/kube"
-	"istio.io/pkg/log"
 )
 
 // A stateful IstioEndpoint builder with metadata used to build IstioEndpoint

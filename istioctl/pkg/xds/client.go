@@ -79,7 +79,7 @@ func DialOptions(opts *clioptions.CentralControlPlaneOptions,
 	// Use bearer token
 	supplier, err := kubeClient.CreatePerRPCCredentials(context.TODO(), ns, serviceAccount, tokenAudiences, defaultExpirationSeconds)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to create RPC credentials for \"%s.%s\": %w", serviceAccount, ns, err)
 	}
 	return []grpc.DialOption{
 		grpc.WithTransportCredentials(credentials.NewTLS(

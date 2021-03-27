@@ -103,12 +103,14 @@ spec:
           istio-custom-header: user-defined-value`,
 			opts: echo.CallOptions{
 				PortName: "http",
-				Validator: echo.ValidatorFunc(
-					func(response echoclient.ParsedResponses, _ error) error {
-						return response.Check(func(_ int, response *echoclient.ParsedResponse) error {
-							return ExpectString(response.RawResponse["Istio-Custom-Header"], "user-defined-value", "request header")
-						})
-					}),
+				Validator: echo.And(
+					echo.ExpectOK(),
+					echo.ValidatorFunc(
+						func(response echoclient.ParsedResponses, _ error) error {
+							return response.Check(func(_ int, response *echoclient.ParsedResponse) error {
+								return ExpectString(response.RawResponse["Istio-Custom-Header"], "user-defined-value", "request header")
+							})
+						})),
 			},
 			workloadAgnostic: true,
 		},
@@ -138,12 +140,14 @@ spec:
 				PortName:        "http",
 				Path:            "/foo?key=value",
 				FollowRedirects: true,
-				Validator: echo.ValidatorFunc(
-					func(response echoclient.ParsedResponses, _ error) error {
-						return response.Check(func(_ int, response *echoclient.ParsedResponse) error {
-							return ExpectString(response.URL, "/new/path?key=value", "URL")
-						})
-					}),
+				Validator: echo.And(
+					echo.ExpectOK(),
+					echo.ValidatorFunc(
+						func(response echoclient.ParsedResponses, _ error) error {
+							return response.Check(func(_ int, response *echoclient.ParsedResponse) error {
+								return ExpectString(response.URL, "/new/path?key=value", "URL")
+							})
+						})),
 			},
 			workloadAgnostic: true,
 		},
@@ -169,12 +173,14 @@ spec:
 			opts: echo.CallOptions{
 				PortName: "http",
 				Path:     "/foo?key=value#hash",
-				Validator: echo.ValidatorFunc(
-					func(response echoclient.ParsedResponses, _ error) error {
-						return response.Check(func(_ int, response *echoclient.ParsedResponse) error {
-							return ExpectString(response.URL, "/new/path?key=value", "URL")
-						})
-					}),
+				Validator: echo.And(
+					echo.ExpectOK(),
+					echo.ValidatorFunc(
+						func(response echoclient.ParsedResponses, _ error) error {
+							return response.Check(func(_ int, response *echoclient.ParsedResponse) error {
+								return ExpectString(response.URL, "/new/path?key=value", "URL")
+							})
+						})),
 			},
 			workloadAgnostic: true,
 		},
@@ -200,12 +206,14 @@ spec:
 			opts: echo.CallOptions{
 				PortName: "http",
 				Path:     "/foo",
-				Validator: echo.ValidatorFunc(
-					func(response echoclient.ParsedResponses, _ error) error {
-						return response.Check(func(_ int, response *echoclient.ParsedResponse) error {
-							return ExpectString(response.Host, "new-authority", "authority")
-						})
-					}),
+				Validator: echo.And(
+					echo.ExpectOK(),
+					echo.ValidatorFunc(
+						func(response echoclient.ParsedResponses, _ error) error {
+							return response.Check(func(_ int, response *echoclient.ParsedResponse) error {
+								return ExpectString(response.Host, "new-authority", "authority")
+							})
+						})),
 			},
 			workloadAgnostic: true,
 		},
@@ -248,28 +256,30 @@ spec:
 							PortName: "http",
 							Method:   "OPTIONS",
 							Headers:  header,
-							Validator: echo.ValidatorFunc(
-								func(response echoclient.ParsedResponses, _ error) error {
-									return response.Check(func(_ int, response *echoclient.ParsedResponse) error {
-										if err := ExpectString(response.RawResponse["Access-Control-Allow-Origin"],
-											"cors.com", "preflight CORS origin"); err != nil {
-											return err
-										}
-										if err := ExpectString(response.RawResponse["Access-Control-Allow-Methods"],
-											"POST,GET", "preflight CORS method"); err != nil {
-											return err
-										}
-										if err := ExpectString(response.RawResponse["Access-Control-Allow-Headers"],
-											"X-Foo-Bar,X-Foo-Baz", "preflight CORS headers"); err != nil {
-											return err
-										}
-										if err := ExpectString(response.RawResponse["Access-Control-Max-Age"],
-											"86400", "preflight CORS max age"); err != nil {
-											return err
-										}
-										return nil
-									})
-								}),
+							Validator: echo.And(
+								echo.ExpectOK(),
+								echo.ValidatorFunc(
+									func(response echoclient.ParsedResponses, _ error) error {
+										return response.Check(func(_ int, response *echoclient.ParsedResponse) error {
+											if err := ExpectString(response.RawResponse["Access-Control-Allow-Origin"],
+												"cors.com", "preflight CORS origin"); err != nil {
+												return err
+											}
+											if err := ExpectString(response.RawResponse["Access-Control-Allow-Methods"],
+												"POST,GET", "preflight CORS method"); err != nil {
+												return err
+											}
+											if err := ExpectString(response.RawResponse["Access-Control-Allow-Headers"],
+												"X-Foo-Bar,X-Foo-Baz", "preflight CORS headers"); err != nil {
+												return err
+											}
+											if err := ExpectString(response.RawResponse["Access-Control-Max-Age"],
+												"86400", "preflight CORS max age"); err != nil {
+												return err
+											}
+											return nil
+										})
+									})),
 						}
 					}(),
 				},
@@ -281,11 +291,13 @@ spec:
 						return echo.CallOptions{
 							PortName: "http",
 							Headers:  header,
-							Validator: echo.ValidatorFunc(
-								func(response echoclient.ParsedResponses, _ error) error {
-									return ExpectString(response[0].RawResponse["Access-Control-Allow-Origin"],
-										"cors.com", "GET CORS origin")
-								}),
+							Validator: echo.And(
+								echo.ExpectOK(),
+								echo.ValidatorFunc(
+									func(response echoclient.ParsedResponses, _ error) error {
+										return ExpectString(response[0].RawResponse["Access-Control-Allow-Origin"],
+											"cors.com", "GET CORS origin")
+									})),
 						}
 					}(),
 				},
@@ -294,10 +306,12 @@ spec:
 					name: "get no origin match",
 					opts: echo.CallOptions{
 						PortName: "http",
-						Validator: echo.ValidatorFunc(
-							func(response echoclient.ParsedResponses, _ error) error {
-								return ExpectString(response[0].RawResponse["Access-Control-Allow-Origin"], "", "mismatched CORS origin")
-							}),
+						Validator: echo.And(
+							echo.ExpectOK(),
+							echo.ValidatorFunc(
+								func(response echoclient.ParsedResponses, _ error) error {
+									return ExpectString(response[0].RawResponse["Access-Control-Allow-Origin"], "", "mismatched CORS origin")
+								})),
 					},
 				},
 			},

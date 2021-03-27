@@ -196,7 +196,7 @@ func isUnexpectedError(err error) bool {
 
 func recordSendError(xdsType string, conID string, err error) {
 	if isUnexpectedError(err) {
-		adsLog.Warnf("%s: Send failure %s: %v", xdsType, conID, err)
+		log.Warnf("%s: Send failure %s: %v", xdsType, conID, err)
 		// TODO use a single metric with a type tag
 		switch xdsType {
 		case v3.ListenerType:

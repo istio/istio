@@ -25,7 +25,6 @@ import (
 	"net"
 	"net/http"
 	"os"
-	"path"
 	"sync"
 	"time"
 
@@ -39,7 +38,6 @@ import (
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/keepalive"
 	"google.golang.org/grpc/reflection"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	v1 "k8s.io/client-go/kubernetes/typed/core/v1"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/cache"
@@ -454,7 +452,7 @@ func (s *Server) Start(stop <-chan struct{}) error {
 
 	if s.httpsServer != nil {
 		go func() {
-			log.Infof("starting webhook service at %s", s.HTTPListener.Addr())
+			log.Infof("starting webhook service at %s", s.httpsServer.Addr)
 			if err := s.httpsServer.ListenAndServeTLS("", ""); isUnexpectedListenerError(err) {
 				log.Errorf("error serving https server: %v", err)
 			}
@@ -710,7 +708,6 @@ func (s *Server) initSecureDiscoveryService(args *PilotArgs) error {
 		return nil
 	}
 	log.Info("initializing secure discovery service")
-
 	cfg := &tls.Config{
 		GetCertificate: s.getIstiodCertificate,
 		ClientAuth:     tls.VerifyClientCertIfGiven,
@@ -722,6 +719,8 @@ func (s *Server) initSecureDiscoveryService(args *PilotArgs) error {
 			}
 			return err
 		},
+		MinVersion:   tls.VersionTLS12,
+		CipherSuites: args.ServerOptions.TLSOptions.CipherSuits,
 	}
 
 	tlsCreds := credentials.NewTLS(cfg)
@@ -930,7 +929,7 @@ func (s *Server) maybeInitDNSCerts(args *PilotArgs, host string) error {
 	return nil
 }
 
-// initCertificateWatches sets up  watches for the certs.
+// initCertificateWatches sets up watches for the dns certs.
 func (s *Server) initCertificateWatches(tlsOptions TLSOptions) error {
 	// load the cert/key and setup a persistent watch for updates.
 	cert, err := s.getCertKeyPair(tlsOptions)
@@ -1014,9 +1013,8 @@ func (s *Server) getCertKeyPair(tlsOptions TLSOptions) (tls.Certificate, error) 
 
 // getCertKeyPaths returns the paths for key and cert.
 func (s *Server) getCertKeyPaths(tlsOptions TLSOptions) (string, string) {
-	certDir := dnsCertDir
-	key := model.GetOrDefault(tlsOptions.KeyFile, path.Join(certDir, constants.KeyFilename))
-	cert := model.GetOrDefault(tlsOptions.CertFile, path.Join(certDir, constants.CertChainFilename))
+	key := model.GetOrDefault(tlsOptions.KeyFile, dnsKeyFile)
+	cert := model.GetOrDefault(tlsOptions.CertFile, dnsCertFile)
 	return key, cert
 }
 
@@ -1175,8 +1173,6 @@ func (s *Server) initMeshHandlers() {
 }
 
 func (s *Server) addIstioCAToTrustBundle(args *PilotArgs) error {
-	// TODO: unify with CreateIstioCA instead of mirroring it
-
 	var err error
 	if s.CA != nil {
 		// If IstioCA is setup, derive trustAnchor directly from CA
@@ -1186,56 +1182,10 @@ func (s *Server) addIstioCAToTrustBundle(args *PilotArgs) error {
 			Source:            tb.SourceIstioCA,
 		})
 		if err != nil {
-			log.Errorf("unable to add CA root as trustAnchor")
+			log.Errorf("unable to add CA root from namespace %s as trustAnchor", args.Namespace)
 			return err
 		}
 		return nil
-	}
-
-	// If CA is not running, derive root certificates from the configured CA secrets
-	signingKeyFile := path.Join(LocalCertDir.Get(), "ca-key.pem")
-	if _, err := os.Stat(signingKeyFile); err != nil && s.kubeClient != nil {
-		// Fetch self signed certificates
-		caSecret, err := s.kubeClient.CoreV1().Secrets(args.Namespace).
-			Get(context.TODO(), ca.CASecret, metav1.GetOptions{})
-		if err != nil {
-			log.Errorf("unable to retrieve self signed CA secret: %v", err)
-			return err
-		}
-		rootCertBytes, ok := caSecret.Data[ca.RootCertID]
-		if !ok {
-			rootCertBytes = caSecret.Data[ca.CaCertID]
-		}
-		err = s.workloadTrustBundle.UpdateTrustAnchor(&tb.TrustAnchorUpdate{
-			TrustAnchorConfig: tb.TrustAnchorConfig{Certs: []string{string(rootCertBytes)}},
-			Source:            tb.SourceIstioCA,
-		})
-		if err != nil {
-			log.Errorf("unable to update trustbundle with self signed CA root: %v", err)
-			return err
-		}
-	} else {
-		// If NOT self signed certificates
-		rootCertFile := path.Join(LocalCertDir.Get(), "root-cert.pem")
-		if _, err := os.Stat(rootCertFile); err != nil {
-			rootCertFile = path.Join(LocalCertDir.Get(), "ca-cert.pem")
-		}
-		certBytes, err := ioutil.ReadFile(rootCertFile)
-		if err != nil {
-			if s.kubeClient != nil {
-				return err
-			}
-			// TODO: accommodation for unit tests. needs to be removed
-			return nil
-		}
-		err = s.workloadTrustBundle.UpdateTrustAnchor(&tb.TrustAnchorUpdate{
-			TrustAnchorConfig: tb.TrustAnchorConfig{Certs: []string{string(certBytes)}},
-			Source:            tb.SourceIstioCA,
-		})
-		if err != nil {
-			log.Errorf("unable to update trustbundle with plugin CA root: %v", err)
-			return err
-		}
 	}
 	return nil
 }
