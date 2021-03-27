@@ -133,6 +133,7 @@ func featureVPCSCClusterFlags(existingFlags []string) ([]string, error) {
 	if project == "" {
 		return nil, errors.New("project is not provided, cannot configure cluster flags for VPC-SC testing")
 	}
+
 	//  TODO: yonggangl@ tairan@ restrict the access to limited after the job is tested successfully
 	flags := []string{"--private-cluster-access-level=unrestricted", "--private-cluster-master-ip-range=173.16.0.32/28,172.16.0.32/28"}
 	return flags, nil

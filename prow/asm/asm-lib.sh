@@ -405,7 +405,6 @@ function install_asm() {
   local REVISION="$1"; shift
   local CONTEXTS=("${@}")
 
-  local CUSTOM_OVERLAY="${PKG}/overlay/default.yaml"
   if [ -n "${OVERLAY}" ]; then
     CUSTOM_OVERLAY="${CUSTOM_OVERLAY},${PKG}/${OVERLAY}"
   fi
@@ -440,6 +439,7 @@ function install_asm() {
     LOCATION="${VALS[2]}"
     CLUSTER="${VALS[3]}"
     PROJECT_NUMBER=$(gcloud projects describe "${PROJECT_ID}" --format="value(projectNumber)")
+    CUSTOM_OVERLAY="${PKG}/overlay/default.yaml"
 
     # Use the first project as the environ project
     if [[ $i == 0 ]]; then
@@ -463,6 +463,23 @@ function install_asm() {
           fi
         done
       fi
+
+      # b/177358640: for Prow jobs running with GKE staging/staging2 clusters, overwrite
+      # GKE_CLUSTER_URL with a custom overlay to fix the issue in installing ASM
+      # with MeshCA.
+      if [[ "${CLOUDSDK_API_ENDPOINT_OVERRIDES_CONTAINER}" == "https://staging-container.sandbox.googleapis.com/" ]]; then
+        kpt cfg set "${PKG}" gcloud.core.project "${PROJECT_ID}"
+        kpt cfg set "${PKG}" gcloud.compute.location "${LOCATION}"
+        kpt cfg set "${PKG}" gcloud.container.cluster "${CLUSTER}"
+        CUSTOM_OVERLAY="${CUSTOM_OVERLAY},${PKG}/overlay/meshca-staging-gke.yaml"
+      fi
+      if [[ "${CLOUDSDK_API_ENDPOINT_OVERRIDES_CONTAINER}" == "https://staging2-container.sandbox.googleapis.com/" ]]; then
+        kpt cfg set "${PKG}" gcloud.core.project "${PROJECT_ID}"
+        kpt cfg set "${PKG}" gcloud.compute.location "${LOCATION}"
+        kpt cfg set "${PKG}" gcloud.container.cluster "${CLUSTER}"
+        CUSTOM_OVERLAY="${CUSTOM_OVERLAY},${PKG}/overlay/meshca-staging2-gke.yaml"
+      fi
+
       # Temporary. Private CA will get its own installation profile in the asm install scripts
       if [[ "${CA}" == "PRIVATECA" ]]; then
         local WORKLOAD_IDENTITY="$PROJECT_ID.svc.id.goog[istio-system/istiod-service-account]"

@@ -39,7 +39,6 @@ func tailorbirdDeployerBaseFlags() []string {
 // InstallTools installs the required tools to enable interacting with Tailorbird.
 func InstallTools(clusterType string) error {
 	clonePath := os.Getenv("GOPATH") + "/src/gke-internal/test-infra"
-	defer os.RemoveAll(clonePath)
 	if _, err := os.Stat(clonePath); !os.IsNotExist(err) {
 		if err := exec.Run(fmt.Sprintf("bash -c 'cd %s && go install ./anthos/tailorbird/cmd/kubetest2-tailorbird'", clonePath)); err != nil {
 			return fmt.Errorf("error installing kubetest2 tailorbird deployer: %w", err)

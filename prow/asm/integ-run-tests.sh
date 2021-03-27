@@ -228,7 +228,7 @@ if [[ "${FEATURE_TO_TEST}" == "VPC_SC" ]]; then
     NETWORK_NAME="test-network"
   fi
   # Create the route as per the user guide in https://docs.google.com/document/d/11yYDxxI-fbbqlpvUYRtJiBmGdY_nIKPJLbssM3YQtKI/edit#heading=h.e2laig460f1d.
-  gcloud compute routes create restricted-vip --network="${NETWORK_NAME}" --destination-range=199.36.153.4/30 --next-hop-gateway=default-internet-gateway --project="${HOST_PROJECT}"
+  gcloud compute routes create restricted-vip --network="${NETWORK_NAME}" --destination-range=199.36.153.4/30 --next-hop-gateway=default-internet-gateway
   if [[ "${CLUSTER_TOPOLOGY}" == "mp" ]]; then
     # Enable private ip access for VPC_SC
     gcloud compute networks subnets update "test-network-${GCR_PROJECT_ID_1}" \
