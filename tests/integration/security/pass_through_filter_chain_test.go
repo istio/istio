@@ -556,6 +556,8 @@ spec:
 								"dst": dst[0].Config().Service,
 							},
 						), ns.Name())
+						// Its not trivial to force mTLS to passthrough ports. To workaround this, we will
+						// set up a SE and DR that forces it.
 						fakesvc := yml.MustApplyNamespace(t, tmpl.MustEvaluate(
 							`apiVersion: networking.istio.io/v1beta1
 kind: ServiceEntry
