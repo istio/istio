@@ -110,7 +110,7 @@ func traceEqual(got, want *cloudtrace.Trace) bool {
 }
 
 func gotRequestCountMetrics(wantClient, wantServer *monitoring.TimeSeries) bool {
-	ts, err := sdInst.ListTimeSeries()
+	ts, err := sdInst.ListTimeSeries("istio.io/service/server/request_count", "gce_instance")
 	if err != nil {
 		log.Errorf("could not get list of time-series from stackdriver: %v", err)
 		return false
