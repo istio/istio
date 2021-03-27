@@ -375,6 +375,20 @@ spec:
              --bind-localhost={{ $p.Port }} \
 {{- end }}
 {{- end }}
+{{- range $i, $p := $.WorkloadOnlyPorts }}
+{{- if eq .Protocol "TCP" }}
+             --tcp \
+{{- else }}
+             --port \
+{{- end }}
+             "{{ $p.Port }}" \
+{{- if $p.TLS }}
+             --tls={{ $p.Port }} \
+{{- end }}
+{{- if $p.ServerFirst }}
+             --server-first={{ $p.Port }} \
+{{- end }}
+{{- end }}
              --crt=/var/lib/istio/cert.crt \
              --key=/var/lib/istio/cert.key
         env:
