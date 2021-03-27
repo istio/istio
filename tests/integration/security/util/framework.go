@@ -231,6 +231,24 @@ func (apps *EchoDeployments) IsVM(i echo.Instance) bool {
 	return apps.VM.Contains(i)
 }
 
+// IsMultiversion matches instances that have Multi-version specific setup.
+func IsMultiversion() echo.Matcher {
+	return func(i echo.Instance) bool {
+		if len(i.Config().Subsets) != 2 {
+			return false
+		}
+		var matchIstio, matchLegacy bool
+		for _, s := range i.Config().Subsets {
+			if s.Version == "vistio" {
+				matchIstio = true
+			} else if s.Version == "vlegacy" && !s.Annotations.GetBool(echo.SidecarInject) {
+				matchLegacy = true
+			}
+		}
+		return matchIstio && matchLegacy
+	}
+}
+
 func WaitForConfig(ctx framework.TestContext, configs string, namespace namespace.Instance) {
 	ik := istioctl.NewOrFail(ctx, ctx, istioctl.Config{})
 	if err := ik.WaitForConfigs(namespace.Name(), configs); err != nil {
