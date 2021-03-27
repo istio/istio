@@ -26,6 +26,7 @@ import (
 
 	"istio.io/istio/pilot/pkg/config/kube/crdclient"
 	"istio.io/istio/pilot/pkg/features"
+	"istio.io/istio/pilot/pkg/keycertbundle"
 	"istio.io/istio/pilot/pkg/leaderelection"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/server"
@@ -82,9 +83,9 @@ type Multicluster struct {
 	clusterLocal          model.ClusterLocalProvider
 
 	// fetchCaRoot maps the certificate name to the certificate
-	fetchCaRoot  func() map[string]string
-	caBundlePath string
-	revision     string
+	fetchCaRoot     func() map[string]string
+	caBundleWatcher *keycertbundle.Watcher
+	revision        string
 
 	// secretNamespace where we get cluster-access secrets
 	secretNamespace  string
@@ -101,7 +102,7 @@ func NewMulticluster(
 	opts Options,
 	serviceController *aggregate.Controller,
 	serviceEntryStore *serviceentry.ServiceEntryStore,
-	caBundlePath string,
+	caBundleWatcher *keycertbundle.Watcher,
 	revision string,
 	fetchCaRoot func() map[string]string,
 	networksWatcher mesh.NetworksWatcher,
@@ -119,7 +120,7 @@ func NewMulticluster(
 		opts:                  opts,
 		serviceController:     serviceController,
 		serviceEntryStore:     serviceEntryStore,
-		caBundlePath:          caBundlePath,
+		caBundleWatcher:       caBundleWatcher,
 		revision:              revision,
 		fetchCaRoot:           fetchCaRoot,
 		XDSUpdater:            opts.XDSUpdater,
@@ -256,10 +257,10 @@ func (m *Multicluster) AddMemberCluster(client kubelib.Client, clusterID string)
 		// Patch injection webhook cert
 		// This requires RBAC permissions - a low-priv Istiod should not attempt to patch but rely on
 		// operator or CI/CD
-		if features.InjectionWebhookConfigName.Get() != "" && m.caBundlePath != "" {
+		if features.InjectionWebhookConfigName.Get() != "" && m.caBundleWatcher != nil {
 			// TODO prevent istiods in primary clusters from trying to patch eachother. should we also leader-elect?
 			log.Infof("initializing webhook cert patch for cluster %s", clusterID)
-			patcher, err := webhooks.NewWebhookCertPatcher(client.Kube(), m.revision, webhookName, m.caBundlePath)
+			patcher, err := webhooks.NewWebhookCertPatcher(client.Kube(), m.revision, webhookName, m.caBundleWatcher.GetCABundle())
 			if err != nil {
 				log.Errorf("could not initialize webhook cert patcher: %v", err)
 			} else {
@@ -267,10 +268,10 @@ func (m *Multicluster) AddMemberCluster(client kubelib.Client, clusterID string)
 			}
 		}
 		// Patch validation webhook cert
-		if m.caBundlePath != "" {
+		if m.caBundleWatcher != nil {
 			webhookConfigName := strings.ReplaceAll(validationWebhookConfigNameTemplate, validationWebhookConfigNameTemplateVar, m.secretNamespace)
 			validationWebhookController := webhooks.CreateValidationWebhookController(client, webhookConfigName,
-				m.secretNamespace, m.caBundlePath)
+				m.secretNamespace, m.caBundleWatcher)
 			if validationWebhookController != nil {
 				go validationWebhookController.Start(clusterStopCh)
 			}

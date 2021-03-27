@@ -30,6 +30,7 @@ import (
 	. "github.com/onsi/gomega"
 
 	"istio.io/istio/pilot/pkg/features"
+	"istio.io/istio/pilot/pkg/keycertbundle"
 	"istio.io/istio/pilot/pkg/server"
 	"istio.io/istio/pilot/pkg/serviceregistry"
 	kubecontroller "istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
@@ -71,21 +72,6 @@ func TestNewServerCertInit(t *testing.T) {
 		t.Fatalf("WriteFile(%v) failed: %v", caCertFile, err)
 	}
 
-	certFileEmpty := filepath.Join(certsDir, "cert-file-empty.pem")
-	keyFileEmpty := filepath.Join(certsDir, "key-file-empty.pem")
-	caCertFileEmpty := filepath.Join(certsDir, "ca-cert-empty.pem")
-
-	// create empty files.
-	if err := ioutil.WriteFile(certFileEmpty, []byte{}, 0o644); err != nil { // nolint: vetshadow
-		t.Fatalf("WriteFile(%v) failed: %v", certFile, err)
-	}
-	if err := ioutil.WriteFile(keyFileEmpty, []byte{}, 0o644); err != nil { // nolint: vetshadow
-		t.Fatalf("WriteFile(%v) failed: %v", keyFile, err)
-	}
-	if err := ioutil.WriteFile(caCertFileEmpty, []byte{}, 0o644); err != nil { // nolint: vetshadow
-		t.Fatalf("WriteFile(%v) failed: %v", caCertFile, err)
-	}
-
 	cases := []struct {
 		name         string
 		tlsOptions   *TLSOptions
@@ -122,12 +108,8 @@ func TestNewServerCertInit(t *testing.T) {
 			expKey:       []byte{},
 		},
 		{
-			name: "No DNS cert created because CA is disabled",
-			tlsOptions: &TLSOptions{
-				CertFile:   certFileEmpty,
-				KeyFile:    keyFileEmpty,
-				CaCertFile: caCertFileEmpty,
-			},
+			name:         "No DNS cert created because CA is disabled",
+			tlsOptions:   &TLSOptions{},
 			enableCA:     false,
 			certProvider: IstiodCAProvider,
 			expNewCert:   false,
@@ -193,8 +175,9 @@ func TestReloadIstiodCert(t *testing.T) {
 	dir, err := ioutil.TempDir("", "istiod_certs")
 	stop := make(chan struct{})
 	s := &Server{
-		fileWatcher: filewatcher.NewWatcher(),
-		server:      server.New(),
+		fileWatcher:          filewatcher.NewWatcher(),
+		server:               server.New(),
+		keyCertBundleWatcher: keycertbundle.NewWatcher(),
 	}
 
 	defer func() {
@@ -208,6 +191,7 @@ func TestReloadIstiodCert(t *testing.T) {
 
 	certFile := filepath.Join(dir, "cert-file.yaml")
 	keyFile := filepath.Join(dir, "key-file.yaml")
+	caFile := filepath.Join(dir, "ca-file.yaml")
 
 	// load key and cert files.
 	if err := ioutil.WriteFile(certFile, testcerts.ServerCert, 0o644); err != nil { // nolint: vetshadow
@@ -217,9 +201,14 @@ func TestReloadIstiodCert(t *testing.T) {
 		t.Fatalf("WriteFile(%v) failed: %v", keyFile, err)
 	}
 
+	if err := ioutil.WriteFile(caFile, testcerts.CACert, 0644); err != nil { // nolint: vetshadow
+		t.Fatalf("WriteFile(%v) failed: %v", caFile, err)
+	}
+
 	tlsOptions := TLSOptions{
-		CertFile: certFile,
-		KeyFile:  keyFile,
+		CertFile:   certFile,
+		KeyFile:    keyFile,
+		CaCertFile: caFile,
 	}
 
 	// setup cert watches.
