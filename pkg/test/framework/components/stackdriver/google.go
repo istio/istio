@@ -106,7 +106,11 @@ func (s *realStackdriver) ListLogEntries(filter LogType) ([]*loggingpb.LogEntry,
 	b, _ := resp.MarshalJSON()
 	r := bytes.NewReader(b)
 	resppb := loggingpb.ListLogEntriesResponse{}
-	_ = jsonpb.Unmarshal(r, &resppb)
+	err = jsonpb.Unmarshal(r, &resppb)
+	fmt.Printf("bianpengyuan logging response proto %v\n", resppb.String())
+	if err != nil {
+		fmt.Printf("bianpengyuan: unmarshal log error failure: %v\n", err)
+	}
 	return trimLogLabels(&resppb, filter), nil
 }
 
