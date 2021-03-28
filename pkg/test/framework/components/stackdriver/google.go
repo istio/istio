@@ -108,12 +108,13 @@ func (s *realStackdriver) ListLogEntries(filter LogType) ([]*loggingpb.LogEntry,
 	}
 	fmt.Printf("bianpengyuan logging response proto %+v\n", resp)
 	for i, le := range resp.Entries {
-		resppb.Entries[i].HttpRequest.RequestMethod = le.HttpRequest.RequestMethod
-		resppb.Entries[i].HttpRequest.RequestUrl = le.HttpRequest.RequestUrl
-		resppb.Entries[i].HttpRequest.Status = int32(le.HttpRequest.Status)
-		resppb.Entries[i].HttpRequest.Protocol = le.HttpRequest.Protocol
-		resppb.Entries[i].Labels = le.Labels
-		resppb.Entries[i].TraceSampled = le.TraceSampled
+		fmt.Printf("bianpengyuan logging response proto %+v %+v\n", le, le.HttpRequest)
+		// resppb.Entries[i].HttpRequest.RequestMethod = le.HttpRequest.RequestMethod
+		// resppb.Entries[i].HttpRequest.RequestUrl = le.HttpRequest.RequestUrl
+		// resppb.Entries[i].HttpRequest.Status = int32(le.HttpRequest.Status)
+		// resppb.Entries[i].HttpRequest.Protocol = le.HttpRequest.Protocol
+		// resppb.Entries[i].Labels = le.Labels
+		// resppb.Entries[i].TraceSampled = le.TraceSampled
 	}
 	return trimLogLabels(&resppb, filter), nil
 }
