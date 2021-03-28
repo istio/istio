@@ -314,7 +314,7 @@ func TestAuthorization_Deny(t *testing.T) {
 				b := apps.B.Match(echo.Namespace(apps.Namespace1.Name()))
 				c := apps.C.Match(echo.Namespace(apps.Namespace1.Name()))
 				vm := apps.VM.Match(echo.Namespace(apps.Namespace1.Name()))
-				for _, dst := range [][]echo.Instances{{b, c}, {vm, b}} {
+				for _, dst := range [][]echo.Instances{{b, c}, {b, vm}, {vm, c}} {
 					args := map[string]string{
 						"Namespace":     ns.Name(),
 						"RootNamespace": rootns.rootNamespace,
