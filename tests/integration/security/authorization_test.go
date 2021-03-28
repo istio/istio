@@ -130,6 +130,7 @@ func TestAuthorization_JWT(t *testing.T) {
 	framework.NewTest(t).
 		Features("security.authorization.jwt-token").
 		Run(func(t framework.TestContext) {
+			ns := apps.Namespace1
 			for _, srcCluster := range t.Clusters() {
 				b := apps.B.Match(echo.Namespace(ns.Name()))
 				c := apps.C.Match(echo.Namespace(ns.Name()))
@@ -142,108 +143,76 @@ func TestAuthorization_JWT(t *testing.T) {
 					}
 					policies := tmpl.EvaluateAllOrFail(t, args,
 						file.AsStringOrFail(t, "testdata/authz/v1beta1-jwt.yaml.tmpl"))
-					ctx.Config().ApplyYAMLOrFail(t, ns.Name(), policies...)
-				}
-				t.NewSubTest(fmt.Sprintf("From %s", srcCluster.StableName())).Run(func(t framework.TestContext) {
-					a := apps.A.Match(echo.InCluster(srcCluster).And(echo.Namespace(ns.Name())))
-					callCount := 1
-					if t.Clusters().IsMulticluster() {
-						// so we can validate all clusters are hit
-						callCount = util.CallsPerCluster * len(t.Clusters())
-					}
-					newTestCase := func(target echo.Instances, namePrefix string, jwt string, path string, expectAllowed bool) rbacUtil.TestCase {
-						return rbacUtil.TestCase{
-							NamePrefix: namePrefix,
-							Request: connection.Checker{
-								From: a[0],
-								Options: echo.CallOptions{
-									Target:   target[0],
-									PortName: "http",
-									Scheme:   scheme.HTTP,
-									Path:     path,
-									Count:    callCount,
-								},
-								DestClusters: target.Clusters(),
-							},
-							Jwt:           jwt,
-							ExpectAllowed: expectAllowed,
+					t.Config().ApplyYAMLOrFail(t, ns.Name(), policies...)
+					t.NewSubTest(fmt.Sprintf("From %s", srcCluster.StableName())).Run(func(t framework.TestContext) {
+						a := apps.A.Match(echo.InCluster(srcCluster).And(echo.Namespace(ns.Name())))
+						callCount := 1
+						if t.Clusters().IsMulticluster() {
+							// so we can validate all clusters are hit
+							callCount = util.CallsPerCluster * len(t.Clusters())
 						}
-					}
-					cases := []rbacUtil.TestCase{
-						newTestCase(b, "[NoJWT]", "", "/token1", false),
-						newTestCase(b, "[NoJWT]", "", "/token2", false),
-						newTestCase(vm, "[NoJWT]", "", "/token1", false),
-						newTestCase(vm, "[NoJWT]", "", "/token2", false),
-						newTestCase(b, "[Token1]", jwt.TokenIssuer1, "/token1", true),
-						newTestCase(b, "[Token1]", jwt.TokenIssuer1, "/token2", false),
-						newTestCase(b, "[Token2]", jwt.TokenIssuer2, "/token1", false),
-						newTestCase(b, "[Token2]", jwt.TokenIssuer2, "/token2", true),
-						newTestCase(b, "[Token1]", jwt.TokenIssuer1, "/tokenAny", true),
-						newTestCase(b, "[Token2]", jwt.TokenIssuer2, "/tokenAny", true),
-						newTestCase(vm, "[Token1]", jwt.TokenIssuer1, "/token1", true),
-						newTestCase(vm, "[Token1]", jwt.TokenIssuer1, "/token2", false),
-						newTestCase(vm, "[Token2]", jwt.TokenIssuer2, "/token1", false),
-						newTestCase(vm, "[Token2]", jwt.TokenIssuer2, "/token2", true),
-						newTestCase(vm, "[Token1]", jwt.TokenIssuer1, "/tokenAny", true),
-						newTestCase(vm, "[Token2]", jwt.TokenIssuer2, "/tokenAny", true),
-						newTestCase(b, "[PermissionToken1]", jwt.TokenIssuer1, "/permission", false),
-						newTestCase(b, "[PermissionToken2]", jwt.TokenIssuer2, "/permission", false),
-						newTestCase(b, "[PermissionTokenWithSpaceDelimitedScope]", jwt.TokenIssuer2WithSpaceDelimitedScope, "/permission", true),
-						newTestCase(vm, "[PermissionToken1]", jwt.TokenIssuer1, "/permission", false),
-						newTestCase(vm, "[PermissionToken2]", jwt.TokenIssuer2, "/permission", false),
-						newTestCase(vm, "[PermissionTokenWithSpaceDelimitedScope]", jwt.TokenIssuer2WithSpaceDelimitedScope, "/permission", true),
-						newTestCase(b, "[NestedToken1]", jwt.TokenIssuer1WithNestedClaims1, "/nested-key1", true),
-						newTestCase(b, "[NestedToken2]", jwt.TokenIssuer1WithNestedClaims2, "/nested-key1", false),
-						newTestCase(b, "[NestedToken1]", jwt.TokenIssuer1WithNestedClaims1, "/nested-key2", false),
-						newTestCase(b, "[NestedToken2]", jwt.TokenIssuer1WithNestedClaims2, "/nested-key2", true),
-						newTestCase(b, "[NestedToken1]", jwt.TokenIssuer1WithNestedClaims1, "/nested-2-key1", true),
-						newTestCase(b, "[NestedToken2]", jwt.TokenIssuer1WithNestedClaims2, "/nested-2-key1", false),
-						newTestCase(b, "[NestedToken1]", jwt.TokenIssuer1WithNestedClaims1, "/nested-non-exist", false),
-						newTestCase(b, "[NestedToken2]", jwt.TokenIssuer1WithNestedClaims2, "/nested-non-exist", false),
-						newTestCase(vm, "[NestedToken1]", jwt.TokenIssuer1WithNestedClaims1, "/nested-key1", true),
-						newTestCase(vm, "[NestedToken2]", jwt.TokenIssuer1WithNestedClaims2, "/nested-key1", false),
-						newTestCase(vm, "[NestedToken1]", jwt.TokenIssuer1WithNestedClaims1, "/nested-key2", false),
-						newTestCase(vm, "[NestedToken2]", jwt.TokenIssuer1WithNestedClaims2, "/nested-key2", true),
-						newTestCase(vm, "[NestedToken1]", jwt.TokenIssuer1WithNestedClaims1, "/nested-2-key1", true),
-						newTestCase(vm, "[NestedToken2]", jwt.TokenIssuer1WithNestedClaims2, "/nested-2-key1", false),
-						newTestCase(vm, "[NestedToken1]", jwt.TokenIssuer1WithNestedClaims1, "/nested-non-exist", false),
-						newTestCase(vm, "[NestedToken2]", jwt.TokenIssuer1WithNestedClaims2, "/nested-non-exist", false),
-						newTestCase(b, "[NoJWT]", "", "/tokenAny", false),
-						newTestCase(c, "[NoJWT]", "", "/somePath", true),
-						newTestCase(vm, "[NoJWT]", "", "/tokenAny", false),
+						newTestCase := func(target echo.Instances, namePrefix string, jwt string, path string, expectAllowed bool) rbacUtil.TestCase {
+							return rbacUtil.TestCase{
+								NamePrefix: namePrefix,
+								Request: connection.Checker{
+									From: a[0],
+									Options: echo.CallOptions{
+										Target:   target[0],
+										PortName: "http",
+										Scheme:   scheme.HTTP,
+										Path:     path,
+										Count:    callCount,
+									},
+									DestClusters: target.Clusters(),
+								},
+								Jwt:           jwt,
+								ExpectAllowed: expectAllowed,
+							}
+						}
+						cases := []rbacUtil.TestCase{
+							newTestCase(dst, "[NoJWT]", "", "/token1", false),
+							newTestCase(dst, "[NoJWT]", "", "/token2", false),
+							newTestCase(dst, "[Token1]", jwt.TokenIssuer1, "/token1", true),
+							newTestCase(dst, "[Token1]", jwt.TokenIssuer1, "/token2", false),
+							newTestCase(dst, "[Token2]", jwt.TokenIssuer2, "/token1", false),
+							newTestCase(dst, "[Token2]", jwt.TokenIssuer2, "/token2", true),
+							newTestCase(dst, "[Token1]", jwt.TokenIssuer1, "/tokenAny", true),
+							newTestCase(dst, "[Token2]", jwt.TokenIssuer2, "/tokenAny", true),
+							newTestCase(dst, "[PermissionToken1]", jwt.TokenIssuer1, "/permission", false),
+							newTestCase(dst, "[PermissionToken2]", jwt.TokenIssuer2, "/permission", false),
+							newTestCase(dst, "[PermissionTokenWithSpaceDelimitedScope]", jwt.TokenIssuer2WithSpaceDelimitedScope, "/permission", true),
+							newTestCase(dst, "[NestedToken1]", jwt.TokenIssuer1WithNestedClaims1, "/nested-key1", true),
+							newTestCase(dst, "[NestedToken2]", jwt.TokenIssuer1WithNestedClaims2, "/nested-key1", false),
+							newTestCase(dst, "[NestedToken1]", jwt.TokenIssuer1WithNestedClaims1, "/nested-key2", false),
+							newTestCase(dst, "[NestedToken2]", jwt.TokenIssuer1WithNestedClaims2, "/nested-key2", true),
+							newTestCase(dst, "[NestedToken1]", jwt.TokenIssuer1WithNestedClaims1, "/nested-2-key1", true),
+							newTestCase(dst, "[NestedToken2]", jwt.TokenIssuer1WithNestedClaims2, "/nested-2-key1", false),
+							newTestCase(dst, "[NestedToken1]", jwt.TokenIssuer1WithNestedClaims1, "/nested-non-exist", false),
+							newTestCase(dst, "[NestedToken2]", jwt.TokenIssuer1WithNestedClaims2, "/nested-non-exist", false),
+							newTestCase(dst, "[NoJWT]", "", "/tokenAny", false),
+							newTestCase(c, "[NoJWT]", "", "/somePath", true),
 
-						// Test condition "request.auth.principal" on path "/valid-jwt".
-						newTestCase(d, "[NoJWT]", "", "/valid-jwt", false),
-						newTestCase(vm, "[NoJWT]", "", "/valid-jwt", false),
-						newTestCase(d, "[Token1]", jwt.TokenIssuer1, "/valid-jwt", true),
-						newTestCase(vm, "[Token1]", jwt.TokenIssuer1, "/valid-jwt", true),
-						newTestCase(d, "[Token1WithAzp]", jwt.TokenIssuer1WithAzp, "/valid-jwt", true),
-						newTestCase(vm, "[Token1WithAzp]", jwt.TokenIssuer1WithAzp, "/valid-jwt", true),
-						newTestCase(d, "[Token1WithAud]", jwt.TokenIssuer1WithAud, "/valid-jwt", true),
-						newTestCase(vm, "[Token1WithAud]", jwt.TokenIssuer1WithAud, "/valid-jwt", true),
+							// Test condition "request.auth.principal" on path "/valid-jwt".
+							newTestCase(dst, "[NoJWT]", "", "/valid-jwt", false),
+							newTestCase(dst, "[Token1]", jwt.TokenIssuer1, "/valid-jwt", true),
+							newTestCase(dst, "[Token1WithAzp]", jwt.TokenIssuer1WithAzp, "/valid-jwt", true),
+							newTestCase(dst, "[Token1WithAud]", jwt.TokenIssuer1WithAud, "/valid-jwt", true),
 
-						// Test condition "request.auth.presenter" on suffix "/presenter".
-						newTestCase(d, "[Token1]", jwt.TokenIssuer1, "/request/presenter", false),
-						newTestCase(vm, "[Token1]", jwt.TokenIssuer1, "/request/presenter", false),
-						newTestCase(d, "[Token1WithAud]", jwt.TokenIssuer1, "/request/presenter", false),
-						newTestCase(vm, "[Token1WithAud]", jwt.TokenIssuer1, "/request/presenter", false),
-						newTestCase(d, "[Token1WithAzp]", jwt.TokenIssuer1WithAzp, "/request/presenter-x", false),
-						newTestCase(vm, "[Token1WithAzp]", jwt.TokenIssuer1WithAzp, "/request/presenter-x", false),
-						newTestCase(d, "[Token1WithAzp]", jwt.TokenIssuer1WithAzp, "/request/presenter", true),
-						newTestCase(vm, "[Token1WithAzp]", jwt.TokenIssuer1WithAzp, "/request/presenter", true),
+							// Test condition "request.auth.presenter" on suffix "/presenter".
+							newTestCase(dst, "[Token1]", jwt.TokenIssuer1, "/request/presenter", false),
+							newTestCase(dst, "[Token1WithAud]", jwt.TokenIssuer1, "/request/presenter", false),
+							newTestCase(dst, "[Token1WithAzp]", jwt.TokenIssuer1WithAzp, "/request/presenter-x", false),
+							newTestCase(dst, "[Token1WithAzp]", jwt.TokenIssuer1WithAzp, "/request/presenter", true),
 
-						// Test condition "request.auth.audiences" on suffix "/audiences".
-						newTestCase(d, "[Token1]", jwt.TokenIssuer1, "/request/audiences", false),
-						newTestCase(vm, "[Token1]", jwt.TokenIssuer1, "/request/audiences", false),
-						newTestCase(d, "[Token1WithAzp]", jwt.TokenIssuer1WithAzp, "/request/audiences", false),
-						newTestCase(vm, "[Token1WithAzp]", jwt.TokenIssuer1WithAzp, "/request/audiences", false),
-						newTestCase(d, "[Token1WithAud]", jwt.TokenIssuer1WithAud, "/request/audiences-x", false),
-						newTestCase(vm, "[Token1WithAud]", jwt.TokenIssuer1WithAud, "/request/audiences-x", false),
-						newTestCase(d, "[Token1WithAud]", jwt.TokenIssuer1WithAud, "/request/audiences", true),
-						newTestCase(vm, "[Token1WithAud]", jwt.TokenIssuer1WithAud, "/request/audiences", true),
-					}
-					rbacUtil.RunRBACTest(t, cases)
-				})
+							// Test condition "request.auth.audiences" on suffix "/audiences".
+							newTestCase(dst, "[Token1]", jwt.TokenIssuer1, "/request/audiences", false),
+							newTestCase(dst, "[Token1WithAzp]", jwt.TokenIssuer1WithAzp, "/request/audiences", false),
+							newTestCase(dst, "[Token1WithAud]", jwt.TokenIssuer1WithAud, "/request/audiences-x", false),
+							newTestCase(dst, "[Token1WithAud]", jwt.TokenIssuer1WithAud, "/request/audiences", true),
+						}
+						rbacUtil.RunRBACTest(t, cases)
+					})
+				}
 			}
 		})
 }
