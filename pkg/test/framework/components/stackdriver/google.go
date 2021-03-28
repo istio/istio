@@ -107,7 +107,7 @@ func (s *realStackdriver) ListLogEntries(filter LogType) ([]*loggingpb.LogEntry,
 		Entries: make([]*loggingpb.LogEntry, len(resp.Entries)),
 	}
 	fmt.Printf("bianpengyuan logging response proto %+v\n", resp)
-	for i, le := range resp.Entries {
+	for _, le := range resp.Entries {
 		fmt.Printf("bianpengyuan logging response proto %+v %+v\n", le, le.HttpRequest)
 		// resppb.Entries[i].HttpRequest.RequestMethod = le.HttpRequest.RequestMethod
 		// resppb.Entries[i].HttpRequest.RequestUrl = le.HttpRequest.RequestUrl
