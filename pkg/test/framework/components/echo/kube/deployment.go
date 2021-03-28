@@ -245,14 +245,19 @@ spec:
         - mountPath: /etc/certs/custom
           name: custom-certs
       volumes:
+{{- if $.TLSSettings.ProxyProvision }}
+      - emptyDir:
+          medium: Memory
+{{- else }}
       - configMap:
           name: {{ $.Service }}-certs
+{{- end }}
         name: custom-certs
 {{- end }}
 ---
 {{- end }}
 {{- end }}
-{{- if .TLSSettings }}
+{{- if .TLSSettings}}{{if not .TLSSettings.ProxyProvision }}
 apiVersion: v1
 kind: ConfigMap
 metadata:
@@ -265,7 +270,7 @@ data:
   key.pem: |
 {{.TLSSettings.Key | indent 4}}
 ---
-{{- end}}
+{{- end}}{{- end}}
 `
 
 	// vmDeploymentYaml aims to simulate a VM, but instead of managing the complex test setup of spinning up a VM,
@@ -461,9 +466,9 @@ func newDeployment(ctx resource.Context, cfg echo.Config) (*deployment, error) {
 
 	deploymentYAML, err := generateDeploymentYAML(cfg, nil, ctx.Settings().IstioVersions)
 	if err != nil {
-		return nil, fmt.Errorf("failed generating echo deployment YAML for %s/%s",
+		return nil, fmt.Errorf("failed generating echo deployment YAML for %s/%s: %v",
 			cfg.Namespace.Name(),
-			cfg.Service)
+			cfg.Service, err)
 	}
 
 	// Apply the deployment to the configured cluster.
