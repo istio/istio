@@ -52,7 +52,8 @@ func TestRateLimiting(t *testing.T) {
 		NewTest(t).
 		Features("traffic.ratelimit.envoy").
 		Run(func(ctx framework.TestContext) {
-			setupEnvoyFilter(ctx, "testdata/enable_envoy_ratelimit.yaml")
+			cleanup := setupEnvoyFilter(ctx, "testdata/enable_envoy_ratelimit.yaml")
+			defer cleanup()
 			sendTrafficAndCheckIfRatelimited(t)
 		})
 }
@@ -63,8 +64,8 @@ func TestLocalRateLimiting(t *testing.T) {
 		NewTest(t).
 		Features("traffic.ratelimit.envoy").
 		Run(func(ctx framework.TestContext) {
-			setupEnvoyFilter(ctx, "testdata/enable_envoy_local_ratelimit.yaml")
-
+			cleanup := setupEnvoyFilter(ctx, "testdata/enable_envoy_local_ratelimit.yaml")
+			defer cleanup()
 			sendTrafficAndCheckIfRatelimited(t)
 		})
 }
@@ -75,8 +76,19 @@ func TestLocalRouteSpecificRateLimiting(t *testing.T) {
 		NewTest(t).
 		Features("traffic.ratelimit.envoy").
 		Run(func(ctx framework.TestContext) {
-			setupEnvoyFilter(ctx, "testdata/enable_envoy_local_ratelimit_per_route.yaml")
+			cleanup := setupEnvoyFilter(ctx, "testdata/enable_envoy_local_ratelimit_per_route.yaml")
+			defer cleanup()
+			sendTrafficAndCheckIfRatelimited(t)
+		})
+}
 
+func TestLocalRateLimitingServiceAccount(t *testing.T) {
+	framework.
+		NewTest(t).
+		Features("traffic.ratelimit.envoy").
+		Run(func(ctx framework.TestContext) {
+			cleanup := setupEnvoyFilter(ctx, "testdata/enable_envoy_local_ratelimit_sa.yaml")
+			defer cleanup()
 			sendTrafficAndCheckIfRatelimited(t)
 		})
 }
@@ -102,8 +114,9 @@ func testSetup(ctx resource.Context) (err error) {
 
 	_, err = echoboot.NewBuilder(ctx).
 		With(&clt, echo.Config{
-			Service:   "clt",
-			Namespace: echoNsInst,
+			Service:        "clt",
+			Namespace:      echoNsInst,
+			ServiceAccount: true,
 		}).
 		With(&srv, echo.Config{
 			Service:   "srv",
@@ -116,6 +129,7 @@ func testSetup(ctx resource.Context) (err error) {
 					InstancePort: 8888,
 				},
 			},
+			ServiceAccount: true,
 		}).
 		Build()
 	if err != nil {
@@ -168,7 +182,7 @@ func testSetup(ctx resource.Context) (err error) {
 	return nil
 }
 
-func setupEnvoyFilter(ctx framework.TestContext, file string) {
+func setupEnvoyFilter(ctx framework.TestContext, file string) func() {
 	content, err := ioutil.ReadFile(file)
 	if err != nil {
 		ctx.Fatal(err)
@@ -185,6 +199,12 @@ func setupEnvoyFilter(ctx framework.TestContext, file string) {
 	err = ctx.Config().ApplyYAML(ist.Settings().SystemNamespace, con)
 	if err != nil {
 		ctx.Fatal(err)
+	}
+	return func() {
+		err = ctx.Config().DeleteYAML(ist.Settings().SystemNamespace, con)
+		if err != nil {
+			ctx.Fatal(err)
+		}
 	}
 }
 

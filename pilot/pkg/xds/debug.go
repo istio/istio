@@ -41,7 +41,7 @@ import (
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/schema/collection"
-	"istio.io/pkg/log"
+	istiolog "istio.io/pkg/log"
 )
 
 var indexTmpl = template.Must(template.New("index").Parse(`<html>
@@ -190,6 +190,7 @@ func (s *DiscoveryServer) AddDebugHandlers(mux *http.ServeMux, enableProfiling b
 
 	s.addDebugHandler(mux, "/debug/inject", "Active inject template", s.InjectTemplateHandler(webhook))
 	s.addDebugHandler(mux, "/debug/mesh", "Active mesh config", s.MeshHandler)
+	s.addDebugHandler(mux, "/debug/networkz", "List cross-network gateways", s.networkz)
 }
 
 func (s *DiscoveryServer) addDebugHandler(mux *http.ServeMux, path string, help string,
@@ -372,7 +373,7 @@ func (s *DiscoveryServer) getResourceVersion(nonce, key string, cache map[string
 	if !ok {
 		lookupResult, err := s.Env.GetLedger().GetPreviousValue(configVersion, key)
 		if err != nil {
-			adsLog.Errorf("Unable to retrieve resource %s at version %s: %v", key, configVersion, err)
+			istiolog.Errorf("Unable to retrieve resource %s at version %s: %v", key, configVersion, err)
 			lookupResult = ""
 		}
 		// update the cache even on an error, because errors will not resolve themselves, and we don't want to
@@ -624,7 +625,7 @@ func (s *DiscoveryServer) configDump(conn *Connection) (*adminapi.ConfigDump, er
 			for _, secretAny := range secrets {
 				secret := &tls.Secret{}
 				if err := ptypes.UnmarshalAny(secretAny, secret); err != nil {
-					log.Warnf("failed to unmarshal secret: %v", err)
+					istiolog.Warnf("failed to unmarshal secret: %v", err)
 				}
 				if secret.GetTlsCertificate() != nil {
 					secret.GetTlsCertificate().PrivateKey = &core.DataSource{
@@ -748,7 +749,7 @@ func (s *DiscoveryServer) Debug(w http.ResponseWriter, req *http.Request) {
 	})
 
 	if err := indexTmpl.Execute(w, deps); err != nil {
-		adsLog.Errorf("Error in rendering index template %v", err)
+		istiolog.Errorf("Error in rendering index template %v", err)
 		w.WriteHeader(500)
 	}
 }
@@ -878,4 +879,16 @@ func (s *DiscoveryServer) instancesz(w http.ResponseWriter, req *http.Request) {
 	by, _ := json.MarshalIndent(instances, "", "  ")
 
 	_, _ = w.Write(by)
+}
+
+func (s *DiscoveryServer) networkz(w http.ResponseWriter, req *http.Request) {
+	gws := s.Env.NetworkGateways()
+	by, err := json.MarshalIndent(gws, "", "  ")
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+	}
+	_, err = w.Write(by)
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+	}
 }

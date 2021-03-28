@@ -17,6 +17,8 @@ import (
 	"bytes"
 	"crypto/tls"
 	"io/ioutil"
+	"net/http"
+	"net/url"
 	"os"
 	"path/filepath"
 	"testing"
@@ -326,6 +328,124 @@ func TestNewServer(t *testing.T) {
 			}()
 
 			g.Expect(s.environment.DomainSuffix).To(Equal(c.expectedDomain))
+		})
+	}
+}
+
+func TestIstiodCipherSuites(t *testing.T) {
+	cases := []struct {
+		name               string
+		domain             string
+		httpsAddr          string
+		serverCipherSuites []uint16
+		clientCipherSuites []uint16
+		expectSuccess      bool
+	}{
+		{
+			name:          "default cipher suites",
+			domain:        "",
+			httpsAddr:     ":41111",
+			expectSuccess: true,
+		},
+		{
+			name:               "client and istiod cipher suites match",
+			domain:             "",
+			httpsAddr:          ":42222",
+			serverCipherSuites: []uint16{tls.TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256, tls.TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256},
+			clientCipherSuites: []uint16{tls.TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256, tls.TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256},
+			expectSuccess:      true,
+		},
+		{
+			name:               "client and istiod cipher suites mismatch",
+			domain:             "",
+			httpsAddr:          ":43333",
+			serverCipherSuites: []uint16{tls.TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256, tls.TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256},
+			clientCipherSuites: []uint16{tls.TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384, tls.TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384},
+			expectSuccess:      false,
+		},
+	}
+
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			configDir, err := ioutil.TempDir("", "TestIstiodCipherSuites")
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			defer func() {
+				_ = os.RemoveAll(configDir)
+			}()
+
+			args := NewPilotArgs(func(p *PilotArgs) {
+				p.Namespace = "istio-system"
+				p.ServerOptions = DiscoveryServerOptions{
+					// Dynamically assign all ports.
+					HTTPAddr:       ":0",
+					MonitoringAddr: ":0",
+					GRPCAddr:       ":0",
+					HTTPSAddr:      c.httpsAddr,
+					TLSOptions: TLSOptions{
+						CipherSuits: c.serverCipherSuites,
+					},
+				}
+				p.RegistryOptions = RegistryOptions{
+					KubeOptions: kubecontroller.Options{
+						DomainSuffix: c.domain,
+					},
+					FileDir: configDir,
+				}
+
+				// Include all of the default plugins
+				p.Plugins = DefaultPlugins
+				p.ShutdownDuration = 1 * time.Millisecond
+			})
+
+			g := NewWithT(t)
+			s, err := NewServer(args)
+			g.Expect(err).To(Succeed())
+
+			stop := make(chan struct{})
+			g.Expect(s.Start(stop)).To(Succeed())
+			defer func() {
+				close(stop)
+				s.WaitUntilCompletion()
+			}()
+
+			// wait for the https server start
+			time.Sleep(time.Second)
+
+			httpsReadyClient := &http.Client{
+				Timeout: time.Second,
+				Transport: &http.Transport{
+					TLSClientConfig: &tls.Config{
+						InsecureSkipVerify: true,
+						CipherSuites:       c.clientCipherSuites,
+						MinVersion:         tls.VersionTLS12,
+						MaxVersion:         tls.VersionTLS12,
+					},
+				},
+			}
+
+			req := &http.Request{
+				Method: http.MethodGet,
+				URL: &url.URL{
+					Scheme: "https",
+					Host:   s.httpsServer.Addr,
+					Path:   HTTPSHandlerReadyPath,
+				},
+			}
+			response, err := httpsReadyClient.Do(req)
+			if c.expectSuccess && err != nil {
+				t.Errorf("expect success but got err %v", err)
+				return
+			}
+			if !c.expectSuccess && err == nil {
+				t.Errorf("expect failure but succeeded")
+				return
+			}
+			if response != nil {
+				response.Body.Close()
+			}
 		})
 	}
 }

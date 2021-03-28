@@ -60,8 +60,8 @@ func TestMtlsGatewaysK8sca(t *testing.T) {
 	framework.
 		NewTest(t).
 		Features("security.ingress.mtls.gateway").
-		Run(func(ctx framework.TestContext) {
-			util.RunTestMultiMtlsGateways(ctx, inst, ns)
+		Run(func(t framework.TestContext) {
+			util.RunTestMultiMtlsGateways(t, inst, ns)
 		})
 }
 
@@ -69,7 +69,7 @@ func TestTlsGatewaysK8sca(t *testing.T) {
 	framework.
 		NewTest(t).
 		Features("security.ingress.tls.gateway.K8sca").
-		Run(func(ctx framework.TestContext) {
-			util.RunTestMultiTLSGateways(ctx, inst, ns)
+		Run(func(t framework.TestContext) {
+			util.RunTestMultiTLSGateways(t, inst, ns)
 		})
 }

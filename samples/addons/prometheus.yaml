@@ -7,7 +7,7 @@ metadata:
     component: "server"
     app: prometheus
     release: prometheus
-    chart: prometheus-11.16.2
+    chart: prometheus-13.6.0
     heritage: Helm
   name: prometheus
   namespace: istio-system
@@ -22,7 +22,7 @@ metadata:
     component: "server"
     app: prometheus
     release: prometheus
-    chart: prometheus-11.16.2
+    chart: prometheus-13.6.0
     heritage: Helm
   name: prometheus
   namespace: istio-system
@@ -223,6 +223,11 @@ data:
         source_labels:
         - __meta_kubernetes_pod_annotation_prometheus_io_scrape
       - action: replace
+        regex: (https?)
+        source_labels:
+        - __meta_kubernetes_pod_annotation_prometheus_io_scheme
+        target_label: __scheme__
+      - action: replace
         regex: (.+)
         source_labels:
         - __meta_kubernetes_pod_annotation_prometheus_io_path
@@ -256,6 +261,11 @@ data:
         regex: true
         source_labels:
         - __meta_kubernetes_pod_annotation_prometheus_io_scrape_slow
+      - action: replace
+        regex: (https?)
+        source_labels:
+        - __meta_kubernetes_pod_annotation_prometheus_io_scheme
+        target_label: __scheme__
       - action: replace
         regex: (.+)
         source_labels:
@@ -297,7 +307,7 @@ metadata:
     component: "server"
     app: prometheus
     release: prometheus
-    chart: prometheus-11.16.2
+    chart: prometheus-13.6.0
     heritage: Helm
   name: prometheus
 rules:
@@ -339,7 +349,7 @@ metadata:
     component: "server"
     app: prometheus
     release: prometheus
-    chart: prometheus-11.16.2
+    chart: prometheus-13.6.0
     heritage: Helm
   name: prometheus
 subjects:
@@ -359,7 +369,7 @@ metadata:
     component: "server"
     app: prometheus
     release: prometheus
-    chart: prometheus-11.16.2
+    chart: prometheus-13.6.0
     heritage: Helm
   name: prometheus
   namespace: istio-system
@@ -384,7 +394,7 @@ metadata:
     component: "server"
     app: prometheus
     release: prometheus
-    chart: prometheus-11.16.2
+    chart: prometheus-13.6.0
     heritage: Helm
   name: prometheus
   namespace: istio-system
@@ -404,13 +414,13 @@ spec:
         component: "server"
         app: prometheus
         release: prometheus
-        chart: prometheus-11.16.2
+        chart: prometheus-13.6.0
         heritage: Helm
     spec:
       serviceAccountName: prometheus
       containers:
         - name: prometheus-server-configmap-reload
-          image: "jimmidyson/configmap-reload:v0.4.0"
+          image: "jimmidyson/configmap-reload:v0.5.0"
           imagePullPolicy: "IfNotPresent"
           args:
             - --volume-dir=/etc/config
@@ -423,7 +433,7 @@ spec:
               readOnly: true
 
         - name: prometheus-server
-          image: "prom/prometheus:v2.21.0"
+          image: "prom/prometheus:v2.24.0"
           imagePullPolicy: "IfNotPresent"
           args:
             - --storage.tsdb.retention.time=15d
@@ -440,7 +450,7 @@ spec:
               port: 9090
             initialDelaySeconds: 0
             periodSeconds: 5
-            timeoutSeconds: 30
+            timeoutSeconds: 4
             failureThreshold: 3
             successThreshold: 1
           livenessProbe:
@@ -449,7 +459,7 @@ spec:
               port: 9090
             initialDelaySeconds: 30
             periodSeconds: 15
-            timeoutSeconds: 30
+            timeoutSeconds: 10
             failureThreshold: 3
             successThreshold: 1
           resources:
@@ -460,6 +470,8 @@ spec:
             - name: storage-volume
               mountPath: /data
               subPath: ""
+      hostNetwork: false
+      dnsPolicy: ClusterFirst
       securityContext:
         fsGroup: 65534
         runAsGroup: 65534

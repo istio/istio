@@ -326,21 +326,28 @@ func TestGolden(t *testing.T) {
 				localEnv = append(localEnv, k+"="+v)
 			}
 
-			fn, err := New(Config{
-				Node:  "sidecar~1.2.3.4~foo~bar",
-				Proxy: proxyConfig,
-				PlatEnv: &fakePlatform{
-					meta: c.platformMeta,
-				},
+			plat := &fakePlatform{
+				meta: c.platformMeta,
+			}
+			node, err := GetNodeMetaData(MetadataOptions{
+				ID:          "sidecar~1.2.3.4~foo~bar",
+				Envs:        localEnv,
+				Platform:    plat,
+				InstanceIPs: []string{"10.3.3.3", "10.4.4.4", "10.5.5.5", "10.6.6.6", "10.4.4.4"},
+				StsPort:     c.stsPort,
+				ProxyConfig: proxyConfig,
 				PilotSubjectAltName: []string{
 					"spiffe://cluster.local/ns/istio-system/sa/istio-pilot-service-account",
 				},
-				LocalEnv:          localEnv,
-				NodeIPs:           []string{"10.3.3.3", "10.4.4.4", "10.5.5.5", "10.6.6.6", "10.4.4.4"},
 				OutlierLogPath:    "/dev/stdout",
 				PilotCertProvider: "istiod",
-				STSPort:           c.stsPort,
 				ProxyViaAgent:     c.proxyViaAgent,
+			})
+			if err != nil {
+				t.Fatal(err)
+			}
+			fn, err := New(Config{
+				Node: node,
 			}).CreateFileForEpoch(0)
 			if err != nil {
 				t.Fatal(err)
@@ -634,7 +641,12 @@ func TestNodeMetadataEncodeEnvWithIstioMetaPrefix(t *testing.T) {
 		notIstioMetaKey + "=bar",
 		anIstioMetaKey + "=baz",
 	}
-	nm, _, err := getNodeMetaData(envs, nil, nil, 0, &meshconfig.ProxyConfig{})
+	node, err := GetNodeMetaData(MetadataOptions{
+		ID:          "test",
+		Envs:        envs,
+		ProxyConfig: &meshconfig.ProxyConfig{},
+	})
+	nm := node.Metadata
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -657,7 +669,12 @@ func TestNodeMetadata(t *testing.T) {
 		"ISTIO_META_ISTIO_VERSION=1.0.0",
 		`ISTIO_METAJSON_LABELS={"foo":"bar"}`,
 	}
-	nm, _, err := getNodeMetaData(envs, nil, nil, 0, &meshconfig.ProxyConfig{})
+	node, err := GetNodeMetaData(MetadataOptions{
+		ID:          "test",
+		Envs:        envs,
+		ProxyConfig: &meshconfig.ProxyConfig{},
+	})
+	nm := node.Metadata
 	if err != nil {
 		t.Fatal(err)
 	}

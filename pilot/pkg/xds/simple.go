@@ -31,7 +31,6 @@ import (
 	"istio.io/istio/pkg/adsc"
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/config/schema/collections"
-	"istio.io/pkg/log"
 )
 
 // Server represents the XDS serving feature of Istiod (pilot).

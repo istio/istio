@@ -227,8 +227,8 @@
             }]
           }]
         }
-      } {{ if .call_credentials }}{{ else }}
-       , {
+      },
+      {
         "name": "xds-grpc",
         {{- if .proxy_via_agent }}
         "type" : "STATIC",
@@ -321,7 +321,6 @@
         "max_requests_per_connection": 1,
         "http2_protocol_options": { }
       }
-      {{ end }}
       {{ if .zipkin }}
       ,
       {

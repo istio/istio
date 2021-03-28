@@ -49,6 +49,7 @@ import (
 	"istio.io/istio/pkg/url"
 	"istio.io/istio/pkg/util/gogoprotomarshal"
 	"istio.io/istio/pkg/util/shellescape"
+	"istio.io/pkg/log"
 )
 
 var (
@@ -70,7 +71,7 @@ var (
 )
 
 const (
-	filePerms = os.FileMode(0744)
+	filePerms = os.FileMode(0o744)
 )
 
 func workloadCommands() *cobra.Command {
@@ -519,6 +520,8 @@ func createHosts(kubeClient kube.ExtendedClient, ingressIP, dir string) error {
 	}
 	if ingressIP != "" {
 		hosts = fmt.Sprintf("%s %s.%s.svc\n", ingressIP, istiod, istioNamespace)
+	} else {
+		log.Warnf("Could not auto-detect IP for %s.%s. Use --ingressIP to manually specify the Gateway address to reach istiod from the VM.")
 	}
 	return ioutil.WriteFile(filepath.Join(dir, "hosts"), []byte(hosts), filePerms)
 }

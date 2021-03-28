@@ -115,13 +115,13 @@ func TestTrustDomainValidation(t *testing.T) {
 			}
 
 			for _, cluster := range ctx.Clusters() {
-				ctx.NewSubTest(fmt.Sprintf("From %s", cluster.StableName())).Run(func(ctx framework.TestContext) {
+				ctx.NewSubTest(fmt.Sprintf("From %s", cluster.StableName())).Run(func(t framework.TestContext) {
 					// naked: only test app without sidecar, send requests from trust domain aliases
 					// client: app with sidecar, send request from cluster.local
 					// server: app with sidecar, verify requests from cluster.local or trust domain aliases
-					client := apps.Client.GetOrFail(ctx, echo.InCluster(cluster))
-					naked := apps.Naked.GetOrFail(ctx, echo.InCluster(cluster))
-					server := apps.Server.GetOrFail(ctx, echo.InCluster(cluster))
+					client := apps.Client.GetOrFail(t, echo.InCluster(cluster))
+					naked := apps.Naked.GetOrFail(t, echo.InCluster(cluster))
+					server := apps.Server.GetOrFail(t, echo.InCluster(cluster))
 					verify := func(ctx framework.TestContext, from echo.Instance, td, port string, s scheme.Instance, allow bool) {
 						ctx.Helper()
 						want := "allow"
@@ -129,8 +129,8 @@ func TestTrustDomainValidation(t *testing.T) {
 							want = "deny"
 						}
 						name := fmt.Sprintf("%s[%s]->server:%s[%s]", from.Config().Service, td, port, want)
-						ctx.NewSubTest(name).Run(func(ctx framework.TestContext) {
-							ctx.Helper()
+						ctx.NewSubTest(name).Run(func(t framework.TestContext) {
+							t.Helper()
 							opt := echo.CallOptions{
 								Target:   server,
 								PortName: port,
@@ -139,13 +139,13 @@ func TestTrustDomainValidation(t *testing.T) {
 								Cert:     trustDomains[td].cert,
 								Key:      trustDomains[td].key,
 							}
-							retry.UntilSuccessOrFail(ctx, func() error {
+							retry.UntilSuccessOrFail(t, func() error {
 								var resp client2.ParsedResponses
 								var err error
 								if port == passThrough {
 									// Manually make the request for pass through port.
-									resp, err = workload(ctx, from).ForwardEcho(context.TODO(), &epb.ForwardEchoRequest{
-										Url:   fmt.Sprintf("tcp://%s:9000", workload(ctx, server).Address()),
+									resp, err = workload(t, from).ForwardEcho(context.TODO(), &epb.ForwardEchoRequest{
+										Url:   fmt.Sprintf("tcp://%s:9000", workload(t, server).Address()),
 										Count: 1,
 										Cert:  trustDomains[td].cert,
 										Key:   trustDomains[td].key,
@@ -174,24 +174,24 @@ func TestTrustDomainValidation(t *testing.T) {
 					}
 
 					// Request using plaintext should always allowed.
-					verify(ctx, client, "plaintext", httpPlaintext, scheme.HTTP, true)
-					verify(ctx, client, "plaintext", tcpPlaintext, scheme.TCP, true)
-					verify(ctx, naked, "plaintext", httpPlaintext, scheme.HTTP, true)
-					verify(ctx, naked, "plaintext", tcpPlaintext, scheme.TCP, true)
+					verify(t, client, "plaintext", httpPlaintext, scheme.HTTP, true)
+					verify(t, client, "plaintext", tcpPlaintext, scheme.TCP, true)
+					verify(t, naked, "plaintext", httpPlaintext, scheme.HTTP, true)
+					verify(t, naked, "plaintext", tcpPlaintext, scheme.TCP, true)
 
 					// Request from local trust domain should always allowed.
-					verify(ctx, client, "cluster.local", httpMTLS, scheme.HTTP, true)
-					verify(ctx, client, "cluster.local", tcpMTLS, scheme.TCP, true)
+					verify(t, client, "cluster.local", httpMTLS, scheme.HTTP, true)
+					verify(t, client, "cluster.local", tcpMTLS, scheme.TCP, true)
 
 					// Trust domain foo is added as trust domain alias.
 					// Request from trust domain bar should be denied.
 					// Request from trust domain foo should be allowed.
-					verify(ctx, naked, "bar", httpMTLS, scheme.HTTPS, false)
-					verify(ctx, naked, "bar", tcpMTLS, scheme.TCP, false)
-					verify(ctx, naked, "bar", passThrough, scheme.TCP, false)
-					verify(ctx, naked, "foo", httpMTLS, scheme.HTTPS, true)
-					verify(ctx, naked, "foo", tcpMTLS, scheme.TCP, true)
-					verify(ctx, naked, "foo", passThrough, scheme.TCP, true)
+					verify(t, naked, "bar", httpMTLS, scheme.HTTPS, false)
+					verify(t, naked, "bar", tcpMTLS, scheme.TCP, false)
+					verify(t, naked, "bar", passThrough, scheme.TCP, false)
+					verify(t, naked, "foo", httpMTLS, scheme.HTTPS, true)
+					verify(t, naked, "foo", tcpMTLS, scheme.TCP, true)
+					verify(t, naked, "foo", passThrough, scheme.TCP, true)
 				})
 			}
 		})

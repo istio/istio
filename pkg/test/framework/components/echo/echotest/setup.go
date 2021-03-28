@@ -28,7 +28,7 @@ import (
 //     cleanup...
 //     b/to_a/from_cluster-1
 //     ...
-func (t *T) Setup(setupFn func(ctx framework.TestContext, src echo.Instances) error) *T {
+func (t *T) Setup(setupFn func(t framework.TestContext, src echo.Instances) error) *T {
 	t.sourceDeploymentSetup = append(t.sourceDeploymentSetup, setupFn)
 	return t
 }
@@ -48,7 +48,7 @@ func (t *T) setup(ctx framework.TestContext, srcInstances echo.Instances) {
 //     cleanup...
 //     a/to_b/from_cluster-2
 //     ...
-func (t *T) SetupForPair(setupFn func(ctx framework.TestContext, src echo.Instances, dst echo.Instances) error) *T {
+func (t *T) SetupForPair(setupFn func(t framework.TestContext, src echo.Instances, dst echo.Instances) error) *T {
 	t.deploymentPairSetup = append(t.deploymentPairSetup, setupFn)
 	return t
 }

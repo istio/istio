@@ -29,7 +29,6 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube"
 	"istio.io/istio/pkg/config/labels"
-	"istio.io/pkg/log"
 )
 
 func hasProxyIP(addresses []v1.EndpointAddress, proxyIP string) bool {
