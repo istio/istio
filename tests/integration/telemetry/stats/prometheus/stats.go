@@ -50,6 +50,16 @@ var (
 	ingr              []ingress.Instance
 )
 
+var PeerAuthenticationConfig = `
+apiVersion: security.istio.io/v1beta1
+kind: PeerAuthentication
+metadata:
+  name: default
+spec:
+  mtls:
+    mode: STRICT
+`
+
 // GetIstioInstance gets Istio instance.
 func GetIstioInstance() *istio.Instance {
 	return &ist
@@ -84,6 +94,8 @@ func TestStatsFilter(t *testing.T, feature features.Feature) {
 	framework.NewTest(t).
 		Features(feature).
 		Run(func(ctx framework.TestContext) {
+			// Enable strict mTLS. This is needed for mock secured prometheus scraping test.
+			ctx.Config().ApplyYAMLOrFail(ctx, ist.Settings().SystemNamespace, PeerAuthenticationConfig)
 			g, _ := errgroup.WithContext(context.Background())
 			for _, cltInstance := range client {
 				cltInstance := cltInstance
