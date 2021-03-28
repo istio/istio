@@ -26,6 +26,7 @@ import (
 	logging "google.golang.org/api/logging/v2"
 	monitoring "google.golang.org/api/monitoring/v3"
 	cloudtracepb "google.golang.org/genproto/googleapis/devtools/cloudtrace/v1"
+	ltype "google.golang.org/genproto/googleapis/logging/type"
 	loggingpb "google.golang.org/genproto/googleapis/logging/v2"
 	monitoringpb "google.golang.org/genproto/googleapis/monitoring/v3"
 
@@ -107,14 +108,16 @@ func (s *realStackdriver) ListLogEntries(filter LogType) ([]*loggingpb.LogEntry,
 		Entries: make([]*loggingpb.LogEntry, len(resp.Entries)),
 	}
 	fmt.Printf("bianpengyuan logging response proto %+v\n", resp)
-	for _, le := range resp.Entries {
-		fmt.Printf("bianpengyuan logging response proto %+v %+v\n", le, le.HttpRequest)
-		// resppb.Entries[i].HttpRequest.RequestMethod = le.HttpRequest.RequestMethod
-		// resppb.Entries[i].HttpRequest.RequestUrl = le.HttpRequest.RequestUrl
-		// resppb.Entries[i].HttpRequest.Status = int32(le.HttpRequest.Status)
-		// resppb.Entries[i].HttpRequest.Protocol = le.HttpRequest.Protocol
-		// resppb.Entries[i].Labels = le.Labels
-		// resppb.Entries[i].TraceSampled = le.TraceSampled
+	for i, le := range resp.Entries {
+		resppb.Entries[i] = &loggingpb.LogEntry{}
+		resppb.Entries[i].HttpRequest = &ltype.HttpRequest{}
+		resppb.Entries[i].HttpRequest.RequestMethod = le.HttpRequest.RequestMethod
+		resppb.Entries[i].HttpRequest.RequestUrl = le.HttpRequest.RequestUrl
+		resppb.Entries[i].HttpRequest.Status = int32(le.HttpRequest.Status)
+		resppb.Entries[i].HttpRequest.Protocol = le.HttpRequest.Protocol
+		resppb.Entries[i].Labels = make(map[string]string)
+		resppb.Entries[i].Labels = le.Labels
+		resppb.Entries[i].TraceSampled = le.TraceSampled
 	}
 	return trimLogLabels(&resppb, filter), nil
 }
