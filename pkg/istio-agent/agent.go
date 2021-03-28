@@ -173,6 +173,10 @@ func (a *Agent) Start() error {
 		if err != nil {
 			return fmt.Errorf("failed to start xds proxy: %v", err)
 		}
+		err = a.xdsProxy.initDebugInterface()
+		if err != nil {
+			return fmt.Errorf("failed to start istio tap server: %v", err)
+		}
 	}
 	return nil
 }

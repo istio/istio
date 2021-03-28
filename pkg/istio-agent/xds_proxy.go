@@ -18,20 +18,24 @@ import (
 	"context"
 	"crypto/tls"
 	"crypto/x509"
+	"encoding/json"
 	"fmt"
 	"io"
 	"io/ioutil"
 	"math"
 	"net"
+	"net/http"
 	"os"
 	"path"
 	"strings"
 	"sync"
 	"time"
 
+	envoy_v3 "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	gogotypes "github.com/gogo/protobuf/types"
 	"github.com/golang/protobuf/ptypes"
+	structpb "github.com/golang/protobuf/ptypes/struct"
 	"go.uber.org/atomic"
 	google_rpc "google.golang.org/genproto/googleapis/rpc/status"
 	"google.golang.org/grpc"
@@ -85,6 +89,10 @@ type XdsProxy struct {
 	healthChecker        *health.WorkloadHealthChecker
 	xdsHeaders           map[string]string
 	xdsUdsPath           string
+
+	httpTapServer *http.Server
+	tapRequests   map[string][]chan interface{}
+	tapMutex      sync.RWMutex
 
 	// connected stores the active gRPC stream. The proxy will only have 1 connection at a time
 	connected           *ProxyConnection
@@ -369,6 +377,7 @@ func (p *XdsProxy) HandleUpstream(ctx context.Context, con *ProxyConnection, xds
 				con.upstreamError <- err
 				return
 			}
+			fmt.Printf("@@@ ecs responsesChan got %q from Istiod\n", resp.TypeUrl)
 			con.responsesChan <- resp
 		}
 	}()
@@ -465,7 +474,11 @@ func (p *XdsProxy) handleUpstreamResponse(con *ProxyConnection) {
 					forwardToEnvoy(con, resp)
 				}
 			default:
-				forwardToEnvoy(con, resp)
+				if strings.HasPrefix(resp.TypeUrl, "istio.io/debug/") {
+					p.directResponseToTapper(resp)
+				} else {
+					forwardToEnvoy(con, resp)
+				}
 			}
 		case <-con.stopChan:
 			return
@@ -708,4 +721,121 @@ func sendWithTimeout(ctx context.Context, sendFunc func(errorChan chan error)) e
 	case err := <-errChan:
 		return err
 	}
+}
+
+// tapRequest() sends "req" to Istiod, returning a channel through which the requestor gets their reply.
+//
+// Istiod won't reply with a unique ID to let us know when the
+// response has arrived, but will at least return the requested TypeUrl.  We will keep a map of lists of every
+// request for a TypeUrl, and when a response comes in we will alert the requesters first-come, first served.
+func (p *XdsProxy) tapRequest(req *discovery.DiscoveryRequest) (chan interface{}, error) {
+	if p.connected == nil {
+		return nil, fmt.Errorf("proxy not connected to Istiod")
+	}
+
+	fmt.Printf("@@@ ecs Tap sending %q to Istiod\n", req.TypeUrl)
+	responseChannel := make(chan interface{})
+
+	p.tapMutex.Lock()
+	requestsQueue, ok := p.tapRequests[req.TypeUrl]
+	if !ok {
+		requestsQueue = make([]chan interface{}, 0, 1)
+	}
+	requestsQueue = append(requestsQueue, responseChannel)
+	p.tapRequests[req.TypeUrl] = requestsQueue
+
+	p.tapMutex.Unlock()
+
+	p.connected.requestsChan <- req
+
+	// @@@ TODO Also set up a timeout, in case no response for a particular TypeUrl arrives in time,
+	// so the list of the waiting doesn't grow arbitrarily large.
+
+	return responseChannel, nil
+}
+
+// directResponseToTapper() forwards an Istiod debugging discovery response to a waiting channel
+func (p *XdsProxy) directResponseToTapper(resp *discovery.DiscoveryResponse) {
+	p.tapMutex.Lock()
+	requestsQueue, ok := p.tapRequests[resp.TypeUrl]
+	if ok {
+		requestChan := requestsQueue[0]
+		requestsQueue = requestsQueue[1:]
+		p.tapRequests[resp.TypeUrl] = requestsQueue
+		requestChan <- resp
+	} else {
+		log.Errorf("Istiod debug response %q arrived unexpectedly", resp.TypeUrl)
+	}
+	p.tapMutex.Unlock()
+}
+
+func (p *XdsProxy) makeTapHandler() func(w http.ResponseWriter, req *http.Request) {
+	return func(w http.ResponseWriter, req *http.Request) {
+
+		responseChan, err := p.tapRequest(&discovery.DiscoveryRequest{
+			Node: &envoy_v3.Node{
+				Id: "sidecar~1.1.1.1~debug~cluster.local", // TODO pick up if we have it
+				Metadata: &structpb.Struct{
+					Fields: map[string]*structpb.Value{
+						"SERVICE_ACCOUNT": {Kind: &structpb.Value_StringValue{StringValue: "default"}}, // @@@ TODO remove
+						"NAMESPACE":       {Kind: &structpb.Value_StringValue{StringValue: "default"}}, // TODO pick up if we have it
+						"GENERATOR":       {Kind: &structpb.Value_StringValue{StringValue: "event"}},
+						"ISTIO_VERSION":   {Kind: &structpb.Value_StringValue{StringValue: "1.9.1"}}, // TODO pick up if we have it
+					},
+				},
+			},
+			TypeUrl: fmt.Sprintf("istio.io%s", req.URL.Path),
+		})
+
+		if err != nil {
+			w.WriteHeader(503)
+			fmt.Fprintf(w, "%v\n", err)
+			return
+		}
+
+		// Wait for Istiod to respond
+		response := <-responseChan
+
+		// Send Istiod's response as HTTP body
+		j, err := json.Marshal(response)
+		if err != nil {
+			w.WriteHeader(500)
+			fmt.Fprintf(w, "%v\n", err)
+		}
+
+		w.Header().Add("Content-Type", "application/json")
+		_, err = w.Write(j)
+		if err != nil {
+			log.Infof("fail to write debug response: %v", err)
+		}
+	}
+}
+
+// initDebugInterface() listens on :8080 for requests with path /debug/... forwards the paths as Istiod XDS requests
+func (p *XdsProxy) initDebugInterface() error {
+	p.tapRequests = make(map[string][]chan interface{})
+
+	httpMux := http.NewServeMux()
+	httpMux.HandleFunc("/debug/", p.makeTapHandler())
+
+	HTTPAddr := ":8080"
+	p.httpTapServer = &http.Server{
+		Addr:    HTTPAddr,
+		Handler: httpMux,
+	}
+
+	// create http listener
+	listener, err := net.Listen("tcp", HTTPAddr)
+	if err != nil {
+		return err
+	}
+
+	go func() {
+		log.Infof("starting Http service at %s", listener.Addr())
+		if err := p.httpTapServer.Serve(listener); err != nil {
+			log.Errorf("error serving tap http server: %v", err)
+		}
+	}()
+
+	return nil
 }

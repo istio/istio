@@ -16,6 +16,7 @@ package istioagent
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
@@ -120,6 +121,7 @@ func (p *XdsProxy) HandleDeltaUpstream(ctx context.Context, con *ProxyConnection
 				con.upstreamError <- err
 				return
 			}
+			fmt.Printf("@@@ ecs deltaResponsesChan got %q from Istiod\n", resp.TypeUrl)
 			con.deltaResponsesChan <- resp
 		}
 	}()
