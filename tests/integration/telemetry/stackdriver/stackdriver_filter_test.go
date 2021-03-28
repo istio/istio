@@ -50,7 +50,7 @@ import (
 )
 
 const (
-	stackdriverBootstrapOverride = "testdata/custom_bootstrap.yaml.tmpl"
+	stackdriverBootstrapOverride = "testdata/real_sd_custom_bootstrap.yaml.tmpl"
 	serverRequestCount           = "testdata/server_request_count.json.tmpl"
 	clientRequestCount           = "testdata/client_request_count.json.tmpl"
 	serverLogEntry               = "testdata/server_access_log.json.tmpl"

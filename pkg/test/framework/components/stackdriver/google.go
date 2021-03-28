@@ -128,6 +128,13 @@ func (c *realStackdriver) ListTrafficAssertions() ([]*edgespb.TrafficAssertion, 
 }
 
 func (c *realStackdriver) ListTraces() ([]*cloudtracepb.Trace, error) {
+	// startTime := time.Now().Add(-5 * time.Minute)
+	// listTracesResponse, err := c.traceService.Projects.Traces.List("istio-prow-build").
+	// 	StartTime(startTime.Format(time.RFC3339)).
+	// 	Filter(filter).
+	// 	View("COMPLETE").
+	// 	Context(context.Background()).
+	// 	Do()
 	return nil, nil
 }
 
