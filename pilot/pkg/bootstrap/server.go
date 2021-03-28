@@ -25,7 +25,6 @@ import (
 	"net"
 	"net/http"
 	"os"
-	"path"
 	"sync"
 	"time"
 
@@ -453,7 +452,7 @@ func (s *Server) Start(stop <-chan struct{}) error {
 
 	if s.httpsServer != nil {
 		go func() {
-			log.Infof("starting webhook service at %s", s.HTTPListener.Addr())
+			log.Infof("starting webhook service at %s", s.httpsServer.Addr)
 			if err := s.httpsServer.ListenAndServeTLS("", ""); isUnexpectedListenerError(err) {
 				log.Errorf("error serving https server: %v", err)
 			}
@@ -709,7 +708,6 @@ func (s *Server) initSecureDiscoveryService(args *PilotArgs) error {
 		return nil
 	}
 	log.Info("initializing secure discovery service")
-
 	cfg := &tls.Config{
 		GetCertificate: s.getIstiodCertificate,
 		ClientAuth:     tls.VerifyClientCertIfGiven,
@@ -721,6 +719,8 @@ func (s *Server) initSecureDiscoveryService(args *PilotArgs) error {
 			}
 			return err
 		},
+		MinVersion:   tls.VersionTLS12,
+		CipherSuites: args.ServerOptions.TLSOptions.CipherSuits,
 	}
 
 	tlsCreds := credentials.NewTLS(cfg)
@@ -929,7 +929,7 @@ func (s *Server) maybeInitDNSCerts(args *PilotArgs, host string) error {
 	return nil
 }
 
-// initCertificateWatches sets up  watches for the certs.
+// initCertificateWatches sets up watches for the dns certs.
 func (s *Server) initCertificateWatches(tlsOptions TLSOptions) error {
 	// load the cert/key and setup a persistent watch for updates.
 	cert, err := s.getCertKeyPair(tlsOptions)
@@ -1013,9 +1013,8 @@ func (s *Server) getCertKeyPair(tlsOptions TLSOptions) (tls.Certificate, error) 
 
 // getCertKeyPaths returns the paths for key and cert.
 func (s *Server) getCertKeyPaths(tlsOptions TLSOptions) (string, string) {
-	certDir := dnsCertDir
-	key := model.GetOrDefault(tlsOptions.KeyFile, path.Join(certDir, constants.KeyFilename))
-	cert := model.GetOrDefault(tlsOptions.CertFile, path.Join(certDir, constants.CertChainFilename))
+	key := model.GetOrDefault(tlsOptions.KeyFile, dnsKeyFile)
+	cert := model.GetOrDefault(tlsOptions.CertFile, dnsCertFile)
 	return key, cert
 }
 

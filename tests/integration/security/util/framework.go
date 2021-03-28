@@ -94,7 +94,7 @@ func EchoConfig(name string, ns namespace.Instance, headless bool, annos echo.An
 			},
 		},
 		// Workload Ports needed by TestPassThroughFilterChain
-		// The port 8085,8086,8087,8088,8089 will be defined only in the workload and not in the k8s service.
+		// The port 8084-8089 will be defined only in the workload and not in the k8s service.
 		WorkloadOnlyPorts: []echo.WorkloadPort{
 			{
 				Port:     8085,
@@ -115,6 +115,12 @@ func EchoConfig(name string, ns namespace.Instance, headless bool, annos echo.An
 			{
 				Port:     8089,
 				Protocol: protocol.HTTPS,
+				TLS:      true,
+			},
+			{
+				Port:     8084,
+				Protocol: protocol.HTTPS,
+				TLS:      true,
 			},
 		},
 	}
@@ -223,6 +229,24 @@ func (apps *EchoDeployments) IsHeadless(i echo.Instance) bool {
 
 func (apps *EchoDeployments) IsVM(i echo.Instance) bool {
 	return apps.VM.Contains(i)
+}
+
+// IsMultiversion matches instances that have Multi-version specific setup.
+func IsMultiversion() echo.Matcher {
+	return func(i echo.Instance) bool {
+		if len(i.Config().Subsets) != 2 {
+			return false
+		}
+		var matchIstio, matchLegacy bool
+		for _, s := range i.Config().Subsets {
+			if s.Version == "vistio" {
+				matchIstio = true
+			} else if s.Version == "vlegacy" && !s.Annotations.GetBool(echo.SidecarInject) {
+				matchLegacy = true
+			}
+		}
+		return matchIstio && matchLegacy
+	}
 }
 
 func WaitForConfig(ctx framework.TestContext, configs string, namespace namespace.Instance) {

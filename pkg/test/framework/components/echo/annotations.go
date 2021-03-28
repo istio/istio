@@ -35,13 +35,16 @@ type Annotation struct {
 }
 
 var (
-	SidecarInject                = workloadAnnotation(annotation.SidecarInject.Name, "true")
-	SidecarRewriteAppHTTPProbers = workloadAnnotation(annotation.SidecarRewriteAppHTTPProbers.Name, "")
-	SidecarBootstrapOverride     = workloadAnnotation(annotation.SidecarBootstrapOverride.Name, "")
-	SidecarVolumeMount           = workloadAnnotation(annotation.SidecarUserVolumeMount.Name, "")
-	SidecarVolume                = workloadAnnotation(annotation.SidecarUserVolume.Name, "")
-	SidecarConfig                = workloadAnnotation(annotation.ProxyConfig.Name, "")
-	SidecarInterceptionMode      = workloadAnnotation(annotation.SidecarInterceptionMode.Name, "REDIRECT")
+	SidecarInject                  = workloadAnnotation(annotation.SidecarInject.Name, "true")
+	SidecarRewriteAppHTTPProbers   = workloadAnnotation(annotation.SidecarRewriteAppHTTPProbers.Name, "")
+	SidecarBootstrapOverride       = workloadAnnotation(annotation.SidecarBootstrapOverride.Name, "")
+	SidecarVolumeMount             = workloadAnnotation(annotation.SidecarUserVolumeMount.Name, "")
+	SidecarVolume                  = workloadAnnotation(annotation.SidecarUserVolume.Name, "")
+	SidecarConfig                  = workloadAnnotation(annotation.ProxyConfig.Name, "")
+	SidecarInterceptionMode        = workloadAnnotation(annotation.SidecarInterceptionMode.Name, "REDIRECT")
+	SidecarIncludeInboundPorts     = workloadAnnotation(annotation.SidecarTrafficIncludeInboundPorts.Name, "")
+	SidecarIncludeOutboundIPRanges = workloadAnnotation(annotation.SidecarTrafficIncludeOutboundIPRanges.Name, "")
+	SidecarProxyConfig             = workloadAnnotation(annotation.ProxyConfig.Name, "")
 )
 
 type AnnotationValue struct {

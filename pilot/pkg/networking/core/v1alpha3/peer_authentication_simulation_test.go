@@ -194,13 +194,9 @@ spec:
 					Result: simulation.Result{ClusterMatched: "InboundPassthroughClusterIpv4"},
 				},
 				{
-					Name: "mtls on port 8000",
-					Call: mkCall(8000, simulation.MTLS),
-					Result: simulation.Result{
-						// This is broken, we should pass it through
-						Error: simulation.ErrNoFilterChain,
-						Skip:  "https://github.com/istio/istio/issues/29538#issuecomment-743283641",
-					},
+					Name:   "mtls on port 8000",
+					Call:   mkCall(8000, simulation.MTLS),
+					Result: simulation.Result{ClusterMatched: "InboundPassthroughClusterIpv4"},
 				},
 				{
 					Name:   "plaintext port 9000",
@@ -261,13 +257,9 @@ spec:
 					Result: simulation.Result{ClusterMatched: "InboundPassthroughClusterIpv4"},
 				},
 				{
-					Name: "mtls port 9000",
-					Call: mkCall(9000, simulation.MTLS),
-					Result: simulation.Result{
-						// This is broken, we should be passing it through
-						Error: simulation.ErrNoFilterChain,
-						Skip:  "https://github.com/istio/istio/issues/29538#issuecomment-743286797",
-					},
+					Name:   "mtls port 9000",
+					Call:   mkCall(9000, simulation.MTLS),
+					Result: simulation.Result{ClusterMatched: "InboundPassthroughClusterIpv4"},
 				},
 			},
 		},
@@ -291,13 +283,9 @@ spec:
 					Result: simulation.Result{ClusterMatched: "InboundPassthroughClusterIpv4"},
 				},
 				{
-					Name: "mtls port 9000",
-					Call: mkCall(9000, simulation.MTLS),
-					Result: simulation.Result{
-						// This is broken, we should be passing it through
-						Error: simulation.ErrNoFilterChain,
-						Skip:  "https://github.com/istio/istio/issues/29538#issuecomment-743286797",
-					},
+					Name:   "mtls port 9000",
+					Call:   mkCall(9000, simulation.MTLS),
+					Result: simulation.Result{ClusterMatched: "InboundPassthroughClusterIpv4"},
 				},
 			},
 		},
@@ -313,7 +301,7 @@ spec:
 				{
 					Name:   "mtls on port 8000",
 					Call:   mkCall(8000, simulation.MTLS),
-					Result: simulation.Result{Error: simulation.ErrNoFilterChain},
+					Result: simulation.Result{ClusterMatched: "InboundPassthroughClusterIpv4"},
 				},
 				{
 					Name:   "plaintext port 9000",
@@ -552,14 +540,14 @@ spec:
 				{
 					Name: "plaintext on plaintext port",
 					Call: mkCall(9090, simulation.Plaintext),
-					// no ports defined, so we will fail. STRICT enforced
+					// no ports defined, so we will passthrough
 					Result: simulation.Result{ClusterMatched: "InboundPassthroughClusterIpv4"},
 				},
 				{
 					Name: "tls on plaintext port",
 					Call: mkCall(9090, simulation.MTLS),
-					// no ports defined, so we will fail. STRICT allows
-					Result: simulation.Result{Error: simulation.ErrNoFilterChain},
+					// no ports defined, so we will passthrough
+					Result: simulation.Result{ClusterMatched: "InboundPassthroughClusterIpv4"},
 				},
 			},
 		},
@@ -614,8 +602,8 @@ spec:
 				{
 					Name: "tls on plaintext port",
 					Call: mkCall(9090, simulation.MTLS),
-					// port 9090 not defined in partialSidecar and will use plain text, mTLS request should fail.
-					Result: simulation.Result{Error: simulation.ErrNoFilterChain},
+					// no ports defined, so we will passthrough
+					Result: simulation.Result{ClusterMatched: "InboundPassthroughClusterIpv4"},
 				},
 			},
 		},

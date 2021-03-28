@@ -45,7 +45,7 @@ import (
 	"istio.io/istio/pkg/spiffe"
 	"istio.io/istio/pkg/test/util/yml"
 	"istio.io/pkg/env"
-	"istio.io/pkg/log"
+	istiolog "istio.io/pkg/log"
 )
 
 // ConfigInput defines inputs passed to the test config templates
@@ -104,11 +104,11 @@ var testCases = []ConfigInput{
 }
 
 func disableLogging() {
-	for _, s := range log.Scopes() {
+	for _, s := range istiolog.Scopes() {
 		if s.Name() == benchmarkScope.Name() {
 			continue
 		}
-		s.SetOutputLevel(log.NoneLevel)
+		s.SetOutputLevel(istiolog.NoneLevel)
 	}
 }
 
@@ -405,7 +405,7 @@ func initPushContext(env *model.Environment, proxy *model.Proxy) {
 
 var debugGeneration = env.RegisterBoolVar("DEBUG_CONFIG_DUMP", false, "if enabled, print a full config dump of the generated config")
 
-var benchmarkScope = log.RegisterScope("benchmark", "", 0)
+var benchmarkScope = istiolog.RegisterScope("benchmark", "", 0)
 
 // Add additional debug info for a test
 func logDebug(b *testing.B, m model.Resources) {

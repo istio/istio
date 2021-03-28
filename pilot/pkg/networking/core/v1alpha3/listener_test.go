@@ -59,10 +59,9 @@ import (
 )
 
 const (
-	wildcardIP                     = "0.0.0.0"
-	fakePluginHTTPFilter           = "fake-plugin-http-filter"
-	fakePluginTCPFilter            = "fake-plugin-tcp-filter"
-	fakePluginFilterChainMatchAlpn = "fake-plugin-alpn"
+	wildcardIP           = "0.0.0.0"
+	fakePluginHTTPFilter = "fake-plugin-http-filter"
+	fakePluginTCPFilter  = "fake-plugin-tcp-filter"
 )
 
 func getProxy() *model.Proxy {
@@ -2354,30 +2353,15 @@ func (p *fakePlugin) OnInboundListener(in *plugin.InputParams, mutable *istionet
 	return nil
 }
 
-func (p *fakePlugin) OnInboundFilterChains(in *plugin.InputParams) []istionetworking.FilterChain {
-	return []istionetworking.FilterChain{
-		{
-			ListenerFilters: []*listener.ListenerFilter{
-				{
-					Name: wellknown.TlsInspector,
-				},
-			},
-		},
-		{},
-	}
-}
-
 func (p *fakePlugin) OnInboundPassthrough(in *plugin.InputParams, mutable *istionetworking.MutableObjects) error {
-	switch in.ListenerProtocol {
-	case istionetworking.ListenerProtocolTCP:
-		for cnum := range mutable.FilterChains {
+	for cnum, fc := range mutable.FilterChains {
+		switch fc.ListenerProtocol {
+		case istionetworking.ListenerProtocolTCP:
 			filter := &listener.Filter{
 				Name: fakePluginTCPFilter,
 			}
 			mutable.FilterChains[cnum].TCP = append(mutable.FilterChains[cnum].TCP, filter)
-		}
-	case istionetworking.ListenerProtocolHTTP:
-		for cnum := range mutable.FilterChains {
+		case istionetworking.ListenerProtocolHTTP:
 			filter := &hcm.HttpFilter{
 				Name: fakePluginHTTPFilter,
 			}
@@ -2387,23 +2371,21 @@ func (p *fakePlugin) OnInboundPassthrough(in *plugin.InputParams, mutable *istio
 	return nil
 }
 
-func (p *fakePlugin) OnInboundPassthroughFilterChains(in *plugin.InputParams) []istionetworking.FilterChain {
-	return []istionetworking.FilterChain{
-		// A filter chain configured by the plugin for mutual TLS support.
-		{
-			FilterChainMatch: &listener.FilterChainMatch{
-				ApplicationProtocols: []string{fakePluginFilterChainMatchAlpn},
-			},
-			TLSContext: &tls.DownstreamTlsContext{},
-			ListenerFilters: []*listener.ListenerFilter{
-				{
-					Name: wellknown.TlsInspector,
-				},
-			},
-		},
-		// An empty filter chain for the default pass through behavior.
-		{},
+func (p *fakePlugin) InboundMTLSConfiguration(in *plugin.InputParams, passthrough bool) []plugin.MTLSSettings {
+	var port uint32 = 0
+	if !passthrough {
+		port = in.ServiceInstance.Endpoint.EndpointPort
 	}
+	return []plugin.MTLSSettings{{
+		Port: port,
+		Mode: model.MTLSPermissive,
+		TCP: &tls.DownstreamTlsContext{
+			CommonTlsContext: &tls.CommonTlsContext{AlpnProtocols: []string{"foo"}},
+		},
+		HTTP: &tls.DownstreamTlsContext{
+			CommonTlsContext: &tls.CommonTlsContext{AlpnProtocols: []string{"foo"}},
+		},
+	}}
 }
 
 func isHTTPListener(listener *listener.Listener) bool {

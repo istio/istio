@@ -246,7 +246,7 @@ func externalSvcMeshifyCmd() *cobra.Command {
 		Use:     "external-service <svcname> <ip> [name1:]port1 [[name2:]port2] ...",
 		Aliases: []string{"es"},
 		Short:   "Add external service (e.g. services running on a VM) to Istio service mesh",
-		Long: `istioctl experimental add-to-mesh external-service create a ServiceEntry and 
+		Long: `istioctl experimental add-to-mesh external-service create a ServiceEntry and
 a Service without selector for the specified external service in Istio service mesh.
 The typical usage scenario is Mesh Expansion on VMs.
 

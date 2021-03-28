@@ -17,6 +17,7 @@ package status
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net"
 	"net/http"
@@ -32,6 +33,7 @@ import (
 	"github.com/prometheus/common/expfmt"
 	"k8s.io/apimachinery/pkg/util/intstr"
 
+	"istio.io/istio/pilot/cmd/pilot-agent/status/ready"
 	"istio.io/istio/pkg/kube/apimirror"
 	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/test/util/retry"
@@ -45,6 +47,8 @@ const (
 	testHeaderValue = "some-value"
 	testHostValue   = "host"
 )
+
+var liveServerStats = "cluster_manager.cds.update_success: 1\nlistener_manager.lds.update_success: 1\nserver.state: 0\nlistener_manager.workers_started: 1"
 
 func (h *handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if r.URL.Path == "/header" {
@@ -619,4 +623,96 @@ func TestHandleQuit(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestAdditionalProbes(t *testing.T) {
+	rp := readyProbe{}
+	urp := unreadyProbe{}
+	testCases := []struct {
+		name   string
+		probes []ready.Prober
+		err    error
+	}{
+		{
+			name:   "success probe",
+			probes: []ready.Prober{rp},
+			err:    nil,
+		},
+		{
+			name:   "not ready probe",
+			probes: []ready.Prober{urp},
+			err:    errors.New("not ready"),
+		},
+		{
+			name:   "both probes",
+			probes: []ready.Prober{rp, urp},
+			err:    errors.New("not ready"),
+		},
+	}
+	testServer := createAndStartServer(liveServerStats)
+	defer testServer.Close()
+	for _, tc := range testCases {
+		server, err := NewServer(Options{
+			Probes:    tc.probes,
+			AdminPort: 1234,
+		})
+		if err != nil {
+			t.Errorf("failed to construct server")
+		}
+		err = server.isReady()
+		if tc.err == nil {
+			if err != nil {
+				t.Errorf("Unexpected result, expected: %v got: %v", tc.err, err)
+			}
+		} else {
+			if err.Error() != tc.err.Error() {
+				t.Errorf("Unexpected result, expected: %v got: %v", tc.err, err)
+			}
+		}
+
+	}
+}
+
+type readyProbe struct{}
+
+func (s readyProbe) Check() error {
+	return nil
+}
+
+type unreadyProbe struct{}
+
+func (u unreadyProbe) Check() error {
+	return errors.New("not ready")
+}
+
+func createDefaultFuncMap(statsToReturn string) map[string]func(rw http.ResponseWriter, _ *http.Request) {
+	return map[string]func(rw http.ResponseWriter, _ *http.Request){
+
+		"/stats": func(rw http.ResponseWriter, _ *http.Request) {
+			// Send response to be tested
+			rw.Write([]byte(statsToReturn))
+		},
+	}
+}
+
+func createAndStartServer(statsToReturn string) *httptest.Server {
+	return createHTTPServer(createDefaultFuncMap(statsToReturn))
+}
+
+func createHTTPServer(handlers map[string]func(rw http.ResponseWriter, _ *http.Request)) *httptest.Server {
+	mux := http.NewServeMux()
+	for k, v := range handlers {
+		mux.HandleFunc(k, http.HandlerFunc(v))
+	}
+
+	// Start a local HTTP server
+	server := httptest.NewUnstartedServer(mux)
+
+	l, err := net.Listen("tcp", "127.0.0.1:1234")
+	if err != nil {
+		panic("Could not create listener for test: " + err.Error())
+	}
+	server.Listener = l
+	server.Start()
+	return server
 }

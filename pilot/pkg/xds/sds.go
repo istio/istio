@@ -97,16 +97,16 @@ func (s *SecretGen) proxyAuthorizedForSecret(proxy *model.Proxy, sr SecretResour
 
 func (s *SecretGen) Generate(proxy *model.Proxy, push *model.PushContext, w *model.WatchedResource, req *model.PushRequest) (model.Resources, error) {
 	if proxy.VerifiedIdentity == nil {
-		adsLog.Warnf("proxy %v is not authorized to receive secrets. Ensure you are connecting over TLS port and are authenticated.", proxy.ID)
+		log.Warnf("proxy %v is not authorized to receive secrets. Ensure you are connecting over TLS port and are authenticated.", proxy.ID)
 		return nil, nil
 	}
 	secrets, err := s.secrets.ForCluster(proxy.Metadata.ClusterID)
 	if err != nil {
-		adsLog.Warnf("proxy %v is from an unknown cluster, cannot retrieve certificates: %v", proxy.ID, err)
+		log.Warnf("proxy %v is from an unknown cluster, cannot retrieve certificates: %v", proxy.ID, err)
 		return nil, nil
 	}
 	if err := secrets.Authorize(proxy.VerifiedIdentity.ServiceAccount, proxy.VerifiedIdentity.Namespace); err != nil {
-		adsLog.Warnf("proxy %v is not authorized to receive secrets: %v", proxy.ID, err)
+		log.Warnf("proxy %v is not authorized to receive secrets: %v", proxy.ID, err)
 		return nil, nil
 	}
 	if req == nil || !needsUpdate(proxy, req.ConfigsUpdated) {
@@ -121,7 +121,7 @@ func (s *SecretGen) Generate(proxy *model.Proxy, push *model.PushContext, w *mod
 	for _, resource := range w.ResourceNames {
 		sr, err := parseResourceName(resource, proxy.ConfigNamespace)
 		if err != nil {
-			adsLog.Warnf("error parsing resource name: %v", err)
+			log.Warnf("error parsing resource name: %v", err)
 			continue
 		}
 
@@ -133,7 +133,7 @@ func (s *SecretGen) Generate(proxy *model.Proxy, push *model.PushContext, w *mod
 		}
 
 		if err := s.proxyAuthorizedForSecret(proxy, sr); err != nil {
-			adsLog.Warnf("requested secret %v not accessible for proxy %v: %v", sr.ResourceName, proxy.ID, err)
+			log.Warnf("requested secret %v not accessible for proxy %v: %v", sr.ResourceName, proxy.ID, err)
 			continue
 		}
 		cachedItem, token, f := s.cache.Get(sr)
@@ -154,7 +154,7 @@ func (s *SecretGen) Generate(proxy *model.Proxy, push *model.PushContext, w *mod
 				results = append(results, res)
 				s.cache.Add(sr, token, res)
 			} else {
-				adsLog.Warnf("failed to fetch ca certificate for %v", sr.ResourceName)
+				log.Warnf("failed to fetch ca certificate for %v", sr.ResourceName)
 			}
 		} else {
 			key, cert := secrets.GetKeyAndCert(sr.Name, sr.Namespace)
@@ -163,11 +163,11 @@ func (s *SecretGen) Generate(proxy *model.Proxy, push *model.PushContext, w *mod
 				results = append(results, res)
 				s.cache.Add(sr, token, res)
 			} else {
-				adsLog.Warnf("failed to fetch key and certificate for %v", sr.ResourceName)
+				log.Warnf("failed to fetch key and certificate for %v", sr.ResourceName)
 			}
 		}
 	}
-	adsLog.Infof("SDS: PUSH for node:%s resources:%d size:%s cached:%v/%v",
+	log.Infof("SDS: PUSH for node:%s resources:%d size:%s cached:%v/%v",
 		proxy.ID, len(results), util.ByteCount(ResourceSize(results)), cached, cached+regenerated)
 	return results, nil
 }
