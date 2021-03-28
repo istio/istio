@@ -103,13 +103,17 @@ func (s *realStackdriver) ListLogEntries(filter LogType) ([]*loggingpb.LogEntry,
 		return nil, fmt.Errorf("unexpected status code from logging service, got: %d", resp.HTTPStatusCode)
 	}
 
-	b, _ := resp.MarshalJSON()
+	resppb := loggingpb.ListLogEntriesResponse{
+		Entries: make([]*loggingpb.LogEntry, len(resp.Entries)),
+	}
 	fmt.Printf("bianpengyuan logging response proto %+v\n", resp)
-	r := bytes.NewReader(b)
-	resppb := loggingpb.ListLogEntriesResponse{}
-	err = jsonpb.Unmarshal(r, &resppb)
-	if err != nil {
-		fmt.Printf("bianpengyuan: unmarshal log error failure: %v\n", err)
+	for i, le := range resp.Entries {
+		resppb.Entries[i].HttpRequest.RequestMethod = le.HttpRequest.RequestMethod
+		resppb.Entries[i].HttpRequest.RequestUrl = le.HttpRequest.RequestUrl
+		resppb.Entries[i].HttpRequest.Status = int32(le.HttpRequest.Status)
+		resppb.Entries[i].HttpRequest.Protocol = le.HttpRequest.Protocol
+		resppb.Entries[i].Labels = le.Labels
+		resppb.Entries[i].TraceSampled = le.TraceSampled
 	}
 	return trimLogLabels(&resppb, filter), nil
 }
