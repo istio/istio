@@ -222,90 +222,78 @@ func TestAuthorization_WorkloadSelector(t *testing.T) {
 	framework.NewTest(t).
 		Features("security.authorization.workload-selector").
 		Run(func(t framework.TestContext) {
-			ns1 := apps.Namespace1
-			ns2 := apps.Namespace2
-			args := map[string]string{
-				"Namespace1":    ns1.Name(),
-				"Namespace2":    ns2.Name(),
-				"RootNamespace": istio.GetOrFail(t, t).Settings().SystemNamespace,
-			}
-
-			applyPolicy := func(filename string, ns namespace.Instance) {
-				policy := tmpl.EvaluateAllOrFail(t, args, file.AsStringOrFail(t, filename))
-				t.Config().ApplyYAMLOrFail(t, ns.Name(), policy...)
-			}
-
-			rootns := newRootNS(t)
-			applyPolicy("testdata/authz/v1beta1-workload-ns1.yaml.tmpl", ns1)
-			applyPolicy("testdata/authz/v1beta1-workload-ns2.yaml.tmpl", ns2)
-			applyPolicy("testdata/authz/v1beta1-workload-ns-root.yaml.tmpl", rootns)
 			for _, srcCluster := range t.Clusters() {
-				t.NewSubTest(fmt.Sprintf("From %s", srcCluster.StableName())).Run(func(t framework.TestContext) {
-					a := apps.A.Match(echo.InCluster(srcCluster).And(echo.Namespace(apps.Namespace1.Name())))
-					bInNS1 := apps.B.Match(echo.Namespace(apps.Namespace1.Name()))
-					vmInNS1 := apps.VM.Match(echo.Namespace(apps.Namespace1.Name()))
-					cInNS1 := apps.C.Match(echo.Namespace(apps.Namespace1.Name()))
-					cInNS2 := apps.C.Match(echo.Namespace(apps.Namespace2.Name()))
-					callCount := 1
-					if t.Clusters().IsMulticluster() {
-						// so we can validate all clusters are hit
-						callCount = util.CallsPerCluster * len(t.Clusters())
+				a := apps.A.Match(echo.InCluster(srcCluster).And(echo.Namespace(apps.Namespace1.Name())))
+				bInNS1 := apps.B.Match(echo.Namespace(apps.Namespace1.Name()))
+				vmInNS1 := apps.VM.Match(echo.Namespace(apps.Namespace1.Name()))
+				cInNS1 := apps.C.Match(echo.Namespace(apps.Namespace1.Name()))
+				cInNS2 := apps.C.Match(echo.Namespace(apps.Namespace2.Name()))
+				for _, dst := range []echo.Instances{bInNS1, vmInNS1, cInNS1, cInNS2} {
+					ns1 := apps.Namespace1
+					ns2 := apps.Namespace2
+					rootns := newRootNS(t)
+					args := map[string]string{
+						"Namespace1":    ns1.Name(),
+						"Namespace2":    ns2.Name(),
+						"RootNamespace": rootns.rootNamespace,
+						"dst":           dst[0].Config().Service,
 					}
-					newTestCase := func(namePrefix string, target echo.Instances, path string, expectAllowed bool) rbacUtil.TestCase {
-						return rbacUtil.TestCase{
-							NamePrefix: namePrefix,
-							Request: connection.Checker{
-								From: a[0],
-								Options: echo.CallOptions{
-									Target:   target[0],
-									PortName: "http",
-									Scheme:   scheme.HTTP,
-									Path:     path,
-									Count:    callCount,
-								},
-								DestClusters: target.Clusters(),
-							},
-							ExpectAllowed: expectAllowed,
+					applyPolicy := func(filename string, ns namespace.Instance) {
+						policy := tmpl.EvaluateAllOrFail(t, args, file.AsStringOrFail(t, filename))
+						t.Config().ApplyYAMLOrFail(t, ns.Name(), policy...)
+					}
+
+					applyPolicy("testdata/authz/v1beta1-workload-ns1.yaml.tmpl", ns1)
+					applyPolicy("testdata/authz/v1beta1-workload-ns2.yaml.tmpl", ns2)
+					applyPolicy("testdata/authz/v1beta1-workload-ns-root.yaml.tmpl", rootns)
+					t.NewSubTest(fmt.Sprintf("From %s", srcCluster.StableName())).Run(func(t framework.TestContext) {
+						callCount := 1
+						if t.Clusters().IsMulticluster() {
+							// so we can validate all clusters are hit
+							callCount = util.CallsPerCluster * len(t.Clusters())
 						}
-					}
-					cases := []rbacUtil.TestCase{
-						newTestCase("[bInNS1]", bInNS1, "/policy-ns1-b", true),
-						newTestCase("[bInNS1]", bInNS1, "/policy-ns1-vm", false),
-						newTestCase("[bInNS1]", bInNS1, "/policy-ns1-c", false),
-						newTestCase("[bInNS1]", bInNS1, "/policy-ns1-x", false),
-						newTestCase("[bInNS1]", bInNS1, "/policy-ns1-all", true),
-						newTestCase("[bInNS1]", bInNS1, "/policy-ns2-c", false),
-						newTestCase("[bInNS1]", bInNS1, "/policy-ns2-all", false),
-						newTestCase("[bInNS1]", bInNS1, "/policy-ns-root-c", false),
+						newTestCase := func(namePrefix string, target echo.Instances, path string, expectAllowed bool) rbacUtil.TestCase {
+							return rbacUtil.TestCase{
+								NamePrefix: namePrefix,
+								Request: connection.Checker{
+									From: a[0],
+									Options: echo.CallOptions{
+										Target:   target[0],
+										PortName: "http",
+										Scheme:   scheme.HTTP,
+										Path:     path,
+										Count:    callCount,
+									},
+									DestClusters: target.Clusters(),
+								},
+								ExpectAllowed: expectAllowed,
+							}
+						}
 
-						newTestCase("[vmInNS1]", vmInNS1, "/policy-ns1-vm", true),
-						newTestCase("[vmInNS1]", vmInNS1, "/policy-ns1-c", false),
-						newTestCase("[vmInNS1]", vmInNS1, "/policy-ns1-x", false),
-						newTestCase("[vmInNS1]", vmInNS1, "/policy-ns1-all", true),
-						newTestCase("[vmInNS1]", vmInNS1, "/policy-ns2-c", false),
-						newTestCase("[vmInNS1]", vmInNS1, "/policy-ns2-all", false),
-						newTestCase("[vmInNS1]", vmInNS1, "/policy-ns-root-c", false),
+						newTestCases := func(target echo.Instances) []rbacUtil.TestCase {
+							cases := []rbacUtil.TestCase{}
+							targetNS := target[0].Config().Namespace.Name()
+							targetName := target[0].Config().Service
+							for _, ns := range []string{ns1.Name(), ns2.Name(), rootns.rootNamespace} {
+								for _, dstName := range []string{util.BSvc, util.CSvc, util.VMSvc, "x", "all"} {
+									prefix := fmt.Sprintf("[%sIn%s]", targetName, targetNS)
+									path := fmt.Sprintf("/policy-%s-%s", ns, dstName)
+									if ns == targetNS && (dstName == targetName || dstName == "all") {
+										cases = append(cases, newTestCase(prefix, target, path, true))
+									} else if ns == rootns.rootNamespace && dstName == targetName {
+										cases = append(cases, newTestCase(prefix, target, path, true))
+									} else {
+										cases = append(cases, newTestCase(prefix, target, path, false))
+									}
+								}
+							}
+							return cases
+						}
 
-						newTestCase("[cInNS1]", cInNS1, "/policy-ns1-b", false),
-						newTestCase("[cInNS1]", cInNS1, "/policy-ns1-vm", false),
-						newTestCase("[cInNS1]", cInNS1, "/policy-ns1-c", true),
-						newTestCase("[cInNS1]", cInNS1, "/policy-ns1-x", false),
-						newTestCase("[cInNS1]", cInNS1, "/policy-ns1-all", true),
-						newTestCase("[cInNS1]", cInNS1, "/policy-ns2-c", false),
-						newTestCase("[cInNS1]", cInNS1, "/policy-ns2-all", false),
-						newTestCase("[cInNS1]", cInNS1, "/policy-ns-root-c", true),
-
-						newTestCase("[cInNS2]", cInNS2, "/policy-ns1-b", false),
-						newTestCase("[cInNS2]", cInNS2, "/policy-ns1-vm", false),
-						newTestCase("[cInNS2]", cInNS2, "/policy-ns1-c", false),
-						newTestCase("[cInNS2]", cInNS2, "/policy-ns1-x", false),
-						newTestCase("[cInNS2]", cInNS2, "/policy-ns1-all", false),
-						newTestCase("[cInNS2]", cInNS2, "/policy-ns2-c", true),
-						newTestCase("[cInNS2]", cInNS2, "/policy-ns2-all", true),
-						newTestCase("[cInNS2]", cInNS2, "/policy-ns-root-c", true),
-					}
-					rbacUtil.RunRBACTest(t, cases)
-				})
+						cases := newTestCases(dst)
+						rbacUtil.RunRBACTest(t, cases)
+					})
+				}
 			}
 		})
 }

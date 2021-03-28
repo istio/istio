@@ -3,14 +3,14 @@
 apiVersion: "security.istio.io/v1beta1"
 kind: AuthorizationPolicy
 metadata:
-  name: policy-ns-root-c
+  name: policy-ns-root-{{ .dst }}
   namespace: "{{ .RootNamespace }}"
 spec:
   selector:
     matchLabels:
-      "app": "c"
+      "app": "{{ .dst }}"
   rules:
   - to:
     - operation:
-        paths: ["/policy-ns-root-c"]
+        paths: ["/policy-{{ .RootNamespace }}-{{ .dst }}"]
 ---

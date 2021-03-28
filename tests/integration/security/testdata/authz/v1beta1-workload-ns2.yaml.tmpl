@@ -1,18 +1,18 @@
-# The following policy selects workload c in namespace 2
+# The following policy selects workload in namespace 2
 
 apiVersion: "security.istio.io/v1beta1"
 kind: AuthorizationPolicy
 metadata:
-  name: policy-ns2-c
+  name: policy-ns2-{{ .dst }}
   namespace: "{{ .Namespace2 }}"
 spec:
   selector:
     matchLabels:
-      "app": "c"
+      "app": "{{ .dst }}"
   rules:
   - to:
     - operation:
-        paths: ["/policy-ns2-c"]
+        paths: ["/policy-{{ .Namespace2 }}-{{ .dst }}"]
 ---
 
 # The following policy selects all workloads in namespace 2
@@ -26,5 +26,5 @@ spec:
   rules:
   - to:
     - operation:
-        paths: ["/policy-ns2-all"]
+        paths: ["/policy-{{ .Namespace2 }}-all"]
 ---
