@@ -290,6 +290,9 @@ spec:
 					).
 					Run(func(t framework.TestContext, src echo.Instance, dest echo.Instances) {
 						clusterName := src.Config().Cluster.StableName()
+						if dest[0].Config().Cluster.StableName() != clusterName {
+							t.Skip()
+						}
 						for _, expect := range tc.expected {
 							name := fmt.Sprintf("In %s/%v/port %d[%t]", clusterName, tc.name, expect.port.ServicePort, expect.want)
 							host := fmt.Sprintf("%s:%d", getWorkload(dest[0], t).Address(), expect.port.ServicePort)
