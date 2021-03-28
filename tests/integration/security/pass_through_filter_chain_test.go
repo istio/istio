@@ -271,7 +271,12 @@ spec:
 								"dst": dst[0].Config().Service,
 							},
 						), ns.Name())
-						return t.Config().ApplyYAML(ns.Name(), cfg)
+						if err := t.Config().ApplyYAML(ns.Name(), cfg); err != nil {
+							return err
+						}
+						util.WaitForConfig(t, cfg, ns)
+						defer t.Config().DeleteYAMLOrFail(t, ns.Name(), cfg)
+						return nil
 					}).
 					From(srcFilter...).
 					ConditionallyTo(echotest.ReachableDestinations).
