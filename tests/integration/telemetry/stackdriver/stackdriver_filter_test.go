@@ -129,10 +129,10 @@ func TestStackdriverMonitoring(t *testing.T) {
 							return err
 						}
 						t.Logf("Traces validated")
-						if err := validateEdges(t, clName, trustDomain); err != nil {
-							return err
-						}
-						t.Logf("Edges validated")
+						// if err := validateEdges(t, clName, trustDomain); err != nil {
+						// 	return err
+						// }
+						// t.Logf("Edges validated")
 
 						return nil
 					}, retry.Delay(telemetrypkg.RetryDelay), retry.Timeout(telemetrypkg.RetryTimeout))
