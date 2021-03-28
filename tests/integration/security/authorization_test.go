@@ -388,102 +388,89 @@ func TestAuthorization_NegativeMatch(t *testing.T) {
 	framework.NewTest(t).
 		Features("security.authorization.negative-match").
 		Run(func(t framework.TestContext) {
-			ns := apps.Namespace1
-			ns2 := apps.Namespace2
-
-			args := map[string]string{
-				"Namespace":  ns.Name(),
-				"Namespace2": ns2.Name(),
-			}
-
-			applyPolicy := func(filename string, ns namespace.Instance) {
-				policy := tmpl.EvaluateAllOrFail(t, args, file.AsStringOrFail(t, filename))
-				name := ""
-				if ns != nil {
-					name = ns.Name()
-				}
-				t.Config().ApplyYAMLOrFail(t, name, policy...)
-			}
-
-			applyPolicy("testdata/authz/v1beta1-negative-match.yaml.tmpl", nil)
-
-			callCount := 1
-			if t.Clusters().IsMulticluster() {
-				// so we can validate all clusters are hit
-				callCount = util.CallsPerCluster * len(t.Clusters())
-			}
 			for _, srcCluster := range t.Clusters() {
-				t.NewSubTest(fmt.Sprintf("From %s", srcCluster.StableName())).Run(func(t framework.TestContext) {
-					srcA := apps.A.Match(echo.InCluster(srcCluster).And(echo.Namespace(apps.Namespace1.Name())))
-					srcBInNS2 := apps.B.Match(echo.InCluster(srcCluster).And(echo.Namespace(apps.Namespace2.Name())))
-					destB := apps.B.Match(echo.Namespace(apps.Namespace1.Name()))
-					destC := apps.C.Match(echo.Namespace(apps.Namespace1.Name()))
-					destD := apps.D.Match(echo.Namespace(apps.Namespace1.Name()))
-					destVM := apps.VM.Match(echo.Namespace(apps.Namespace1.Name()))
-					newTestCase := func(from echo.Instance, target echo.Instances, path string, expectAllowed bool) rbacUtil.TestCase {
-						return rbacUtil.TestCase{
-							Request: connection.Checker{
-								From: from,
-								Options: echo.CallOptions{
-									Target:   target[0],
-									PortName: "http",
-									Scheme:   scheme.HTTP,
-									Path:     path,
-									Count:    callCount,
+				ns := apps.Namespace1
+				ns2 := apps.Namespace2
+				b := apps.B.Match(echo.Namespace(apps.Namespace1.Name()))
+				c := apps.C.Match(echo.Namespace(apps.Namespace1.Name()))
+				d := apps.D.Match(echo.Namespace(apps.Namespace1.Name()))
+				vm := apps.VM.Match(echo.Namespace(apps.Namespace1.Name()))
+				for _, dst := range [][]echo.Instances{{b, c, d}, {vm, c, d}} {
+					args := map[string]string{
+						"Namespace":  ns.Name(),
+						"Namespace2": ns2.Name(),
+						"dst0":       dst[0][0].Config().Service,
+						"dst1":       dst[1][0].Config().Service,
+						"dst2":       dst[2][0].Config().Service,
+					}
+
+					applyPolicy := func(filename string) {
+						policy := tmpl.EvaluateAllOrFail(t, args, file.AsStringOrFail(t, filename))
+						t.Config().ApplyYAMLOrFail(t, "", policy...)
+					}
+
+					applyPolicy("testdata/authz/v1beta1-negative-match.yaml.tmpl")
+
+					callCount := 1
+					if t.Clusters().IsMulticluster() {
+						// so we can validate all clusters are hit
+						callCount = util.CallsPerCluster * len(t.Clusters())
+					}
+
+					t.NewSubTest(fmt.Sprintf("From %s", srcCluster.StableName())).Run(func(t framework.TestContext) {
+						srcA := apps.A.Match(echo.InCluster(srcCluster).And(echo.Namespace(apps.Namespace1.Name())))
+						srcBInNS2 := apps.B.Match(echo.InCluster(srcCluster).And(echo.Namespace(apps.Namespace2.Name())))
+						newTestCase := func(from echo.Instance, target echo.Instances, path string, expectAllowed bool) rbacUtil.TestCase {
+							return rbacUtil.TestCase{
+								Request: connection.Checker{
+									From: from,
+									Options: echo.CallOptions{
+										Target:   target[0],
+										PortName: "http",
+										Scheme:   scheme.HTTP,
+										Path:     path,
+										Count:    callCount,
+									},
+									DestClusters: target.Clusters(),
 								},
-								DestClusters: target.Clusters(),
-							},
-							ExpectAllowed: expectAllowed,
+								ExpectAllowed: expectAllowed,
+							}
 						}
-					}
 
-					// a, b, c and d are in the same namespace and another b(bInNs2) is in a different namespace.
-					// a connects to b, c and d in ns1 with mTLS.
-					// bInNs2 connects to b and c with mTLS, to d with plain-text.
-					cases := []rbacUtil.TestCase{
-						// Test the policy with overlapped `paths` and `not_paths` on b.
-						// a and bInNs2 should have the same results:
-						// - path with prefix `/prefix` should be denied explicitly.
-						// - path `/prefix/allowlist` should be excluded from the deny.
-						// - path `/allow` should be allowed implicitly.
-						newTestCase(srcA[0], destB, "/prefix", false),
-						newTestCase(srcA[0], destB, "/prefix/other", false),
-						newTestCase(srcA[0], destB, "/prefix/allowlist", true),
-						newTestCase(srcA[0], destB, "/allow", true),
-						newTestCase(srcBInNS2[0], destB, "/prefix", false),
-						newTestCase(srcBInNS2[0], destB, "/prefix/other", false),
-						newTestCase(srcBInNS2[0], destB, "/prefix/allowlist", true),
-						newTestCase(srcBInNS2[0], destB, "/allow", true),
+						// a, dst0, dst1 and dst2 are in the same namespace and another b(bInNs2) is in a different namespace.
+						// a connects to dst0, dst1 and dst2 in ns1 with mTLS.
+						// bInNs2 connects to dst0 and dst1 with mTLS, to dst2 with plain-text.
+						cases := []rbacUtil.TestCase{
+							// Test the policy with overlapped `paths` and `not_paths` on dst0.
+							// a and bInNs2 should have the same results:
+							// - path with prefix `/prefix` should be denied explicitly.
+							// - path `/prefix/allowlist` should be excluded from the deny.
+							// - path `/allow` should be allowed implicitly.
+							newTestCase(srcA[0], dst[0], "/prefix", false),
+							newTestCase(srcA[0], dst[0], "/prefix/other", false),
+							newTestCase(srcA[0], dst[0], "/prefix/allowlist", true),
+							newTestCase(srcA[0], dst[0], "/allow", true),
+							newTestCase(srcBInNS2[0], dst[0], "/prefix", false),
+							newTestCase(srcBInNS2[0], dst[0], "/prefix/other", false),
+							newTestCase(srcBInNS2[0], dst[0], "/prefix/allowlist", true),
+							newTestCase(srcBInNS2[0], dst[0], "/allow", true),
 
-						// Test the policy with overlapped `paths` and `not_paths` on vm.
-						// a and bInNs2 should have the same results:
-						// - path with prefix `/prefix` should be denied explicitly.
-						// - path `/prefix/allowlist` should be excluded from the deny.
-						// - path `/allow` should be allowed implicitly.
-						newTestCase(srcA[0], destVM, "/prefix", false),
-						newTestCase(srcA[0], destVM, "/prefix/other", false),
-						newTestCase(srcA[0], destVM, "/prefix/allowlist", true),
-						newTestCase(srcA[0], destVM, "/allow", true),
-						newTestCase(srcBInNS2[0], destVM, "/prefix", false),
-						newTestCase(srcBInNS2[0], destVM, "/prefix/other", false),
-						newTestCase(srcBInNS2[0], destVM, "/prefix/allowlist", true),
-						newTestCase(srcBInNS2[0], destVM, "/allow", true),
+							// Test the policy that denies other namespace on dst1.
+							// a should be allowed because it's from the same namespace.
+							// bInNs2 should be denied because it's from a different namespace.
+							newTestCase(srcA[0], dst[1], "/", true),
+							newTestCase(srcBInNS2[0], dst[1], "/", false),
 
-						// Test the policy that denies other namespace on c.
-						// a should be allowed because it's from the same namespace.
-						// bInNs2 should be denied because it's from a different namespace.
-						newTestCase(srcA[0], destC, "/", true),
-						newTestCase(srcBInNS2[0], destC, "/", false),
+							// Test the policy that denies plain-text traffic on dst2.
+							// a should be allowed because it's using mTLS.
+							// bInNs2 should be denied because it's using plain-text.
+							newTestCase(srcA[0], dst[2], "/", true),
+							newTestCase(srcBInNS2[0], dst[2], "/", false),
+						}
 
-						// Test the policy that denies plain-text traffic on d.
-						// a should be allowed because it's using mTLS.
-						// bInNs2 should be denied because it's using plain-text.
-						newTestCase(srcA[0], destD, "/", true),
-						newTestCase(srcBInNS2[0], destD, "/", false),
-					}
-
-					rbacUtil.RunRBACTest(t, cases)
-				})
+						rbacUtil.RunRBACTest(t, cases)
+					})
+				}
 			}
 		})
 }

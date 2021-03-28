@@ -1,33 +1,14 @@
-# The following policy denies access to path with prefix "/prefix" except "/prefix/allowlist" to workload b
+# The following policy denies access to path with prefix "/prefix" except "/prefix/allowlist" to workload
 
 apiVersion: "security.istio.io/v1beta1"
 kind: AuthorizationPolicy
 metadata:
-  name: policy-b-deny
+  name: policy-{{ .dst0 }}-deny
   namespace: "{{ .Namespace }}"
 spec:
   selector:
     matchLabels:
-      "app": "b"
-  action: DENY
-  rules:
-  - to:
-    - operation:
-        paths: ["/prefix*"]
-        notPaths: ["/prefix/allowlist"]
----
-
-# The following policy denies access to path with prefix "/prefix" except "/prefix/allowlist" to workload vm
-
-apiVersion: "security.istio.io/v1beta1"
-kind: AuthorizationPolicy
-metadata:
-  name: policy-vm-deny
-  namespace: "{{ .Namespace }}"
-spec:
-  selector:
-    matchLabels:
-      "app": "vm"
+      "app": "{{ .dst0 }}"
   action: DENY
   rules:
   - to:
@@ -41,12 +22,12 @@ spec:
 apiVersion: "security.istio.io/v1beta1"
 kind: AuthorizationPolicy
 metadata:
-  name: policy-c-same-namespace
+  name: policy-{{ .dst1 }}-same-namespace
   namespace: "{{ .Namespace }}"
 spec:
   selector:
     matchLabels:
-      "app": "c"
+      "app": "{{ .dst1 }}"
   action: DENY
   rules:
   - from:
@@ -54,18 +35,18 @@ spec:
         notNamespaces: ["{{ .Namespace }}"]
 ---
 
-# The following policy denies access to workload d if it's not mTLS, in other words,
-# it allows only mTLS traffic to access workload d
+# The following policy denies access to a workload if it's not mTLS, in other words,
+# it allows only mTLS traffic to access the workload
 
 apiVersion: "security.istio.io/v1beta1"
 kind: AuthorizationPolicy
 metadata:
-  name: policy-d-mtls-traffic
+  name: policy-{{ .dst2 }}-mtls-traffic
   namespace: "{{ .Namespace }}"
 spec:
   selector:
     matchLabels:
-      "app": "d"
+      "app": "{{ .dst2 }}"
   action: DENY
   rules:
   - from:
@@ -100,45 +81,30 @@ spec:
       mode: ISTIO_MUTUAL
 ---
 
-# The following destination rule enables mTLS from namespace 2 to workload b
+# The following destination rule enables mTLS from namespace 2 to workload
 
 apiVersion: "networking.istio.io/v1alpha3"
 kind: "DestinationRule"
 metadata:
-  name: "dr-b"
+  name: "dr-{{ .dst0 }}"
   namespace: "{{ .Namespace2 }}"
 spec:
-  host: "b.{{ .Namespace }}.svc.cluster.local"
+  host: "{{ .dst0 }}.{{ .Namespace }}.svc.cluster.local"
   exportTo: ["."]
   trafficPolicy:
     tls:
       mode: ISTIO_MUTUAL
 ---
 
-# The following destination rule enables mTLS from namespace 2 to workload vm
+# The following destination rule enables mTLS from namespace 2 to workload
 
 apiVersion: "networking.istio.io/v1alpha3"
 kind: "DestinationRule"
 metadata:
-  name: "dr-vm"
+  name: "dr-{{ .dst1 }}"
   namespace: "{{ .Namespace2 }}"
 spec:
-  host: "vm.{{ .Namespace }}.svc.cluster.local"
-  exportTo: ["."]
-  trafficPolicy:
-    tls:
-      mode: ISTIO_MUTUAL
----
-
-# The following destination rule enables mTLS from namespace 2 to workload c
-
-apiVersion: "networking.istio.io/v1alpha3"
-kind: "DestinationRule"
-metadata:
-  name: "dr-c"
-  namespace: "{{ .Namespace2 }}"
-spec:
-  host: "c.{{ .Namespace }}.svc.cluster.local"
+  host: "{{ .dst1 }}.{{ .Namespace }}.svc.cluster.local"
   exportTo: ["."]
   trafficPolicy:
     tls:
@@ -150,10 +116,10 @@ spec:
 apiVersion: "networking.istio.io/v1alpha3"
 kind: "DestinationRule"
 metadata:
-  name: "dr-d"
+  name: "dr-{{ .dst2 }}"
   namespace: "{{ .Namespace2 }}"
 spec:
-  host: "d.{{ .Namespace }}.svc.cluster.local"
+  host: "{{ .dst2 }}.{{ .Namespace }}.svc.cluster.local"
   exportTo: ["."]
   trafficPolicy:
     tls:
