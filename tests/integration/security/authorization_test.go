@@ -480,135 +480,133 @@ func TestAuthorization_IngressGateway(t *testing.T) {
 	framework.NewTest(t).
 		Features("security.authorization.ingress-gateway").
 		Run(func(t framework.TestContext) {
-			ns := namespace.NewOrFail(t, t, namespace.Config{
-				Prefix: "v1beta1-ingress-gateway",
-				Inject: true,
-			})
-			args := map[string]string{
-				"Namespace":     ns.Name(),
-				"RootNamespace": istio.GetOrFail(t, t).Settings().SystemNamespace,
-			}
+			ns := apps.Namespace1
+			rootns := newRootNS(t)
+			b := apps.B.Match(echo.Namespace(apps.Namespace1.Name()))
+			vm := apps.VM.Match(echo.Namespace(apps.Namespace1.Name()))
+			for _, dst := range []echo.Instances{b, vm} {
+				args := map[string]string{
+					"Namespace":     ns.Name(),
+					"RootNamespace": rootns.rootNamespace,
+					"dst":           dst[0].Config().Service,
+				}
 
-			applyPolicy := func(filename string) {
-				policy := tmpl.EvaluateAllOrFail(t, args, file.AsStringOrFail(t, filename))
-				t.Config().ApplyYAMLOrFail(t, "", policy...)
-			}
-			applyPolicy("testdata/authz/v1beta1-ingress-gateway.yaml.tmpl")
+				applyPolicy := func(filename string) {
+					policy := tmpl.EvaluateAllOrFail(t, args, file.AsStringOrFail(t, filename))
+					t.Config().ApplyYAMLOrFail(t, "", policy...)
+				}
+				applyPolicy("testdata/authz/v1beta1-ingress-gateway.yaml.tmpl")
 
-			var b echo.Instance
-			echoboot.NewBuilder(t).
-				With(&b, util.EchoConfig("b", ns, false, nil)).
-				BuildOrFail(t)
+				ingr := ist.IngressFor(t.Clusters().Default())
 
-			ingr := ist.IngressFor(t.Clusters().Default())
+				cases := []struct {
+					Name     string
+					Host     string
+					Path     string
+					IP       string
+					WantCode int
+				}{
+					{
+						Name:     "allow www.company.com",
+						Host:     "www.company.com",
+						Path:     "/",
+						IP:       "172.16.0.1",
+						WantCode: 200,
+					},
+					{
+						Name:     "deny www.company.com/private",
+						Host:     "www.company.com",
+						Path:     "/private",
+						IP:       "172.16.0.1",
+						WantCode: 403,
+					},
+					{
+						Name:     "allow www.company.com/public",
+						Host:     "www.company.com",
+						Path:     "/public",
+						IP:       "172.16.0.1",
+						WantCode: 200,
+					},
+					{
+						Name:     "deny internal.company.com",
+						Host:     "internal.company.com",
+						Path:     "/",
+						IP:       "172.16.0.1",
+						WantCode: 403,
+					},
+					{
+						Name:     "deny internal.company.com/private",
+						Host:     "internal.company.com",
+						Path:     "/private",
+						IP:       "172.16.0.1",
+						WantCode: 403,
+					},
+					{
+						Name:     "deny 172.17.72.46",
+						Host:     "remoteipblocks.company.com",
+						Path:     "/",
+						IP:       "172.17.72.46",
+						WantCode: 403,
+					},
+					{
+						Name:     "deny 192.168.5.233",
+						Host:     "remoteipblocks.company.com",
+						Path:     "/",
+						IP:       "192.168.5.233",
+						WantCode: 403,
+					},
+					{
+						Name:     "allow 10.4.5.6",
+						Host:     "remoteipblocks.company.com",
+						Path:     "/",
+						IP:       "10.4.5.6",
+						WantCode: 200,
+					},
+					{
+						Name:     "deny 10.2.3.4",
+						Host:     "notremoteipblocks.company.com",
+						Path:     "/",
+						IP:       "10.2.3.4",
+						WantCode: 403,
+					},
+					{
+						Name:     "allow 172.23.242.188",
+						Host:     "notremoteipblocks.company.com",
+						Path:     "/",
+						IP:       "172.23.242.188",
+						WantCode: 200,
+					},
+					{
+						Name:     "deny 10.242.5.7",
+						Host:     "remoteipattr.company.com",
+						Path:     "/",
+						IP:       "10.242.5.7",
+						WantCode: 403,
+					},
+					{
+						Name:     "deny 10.124.99.10",
+						Host:     "remoteipattr.company.com",
+						Path:     "/",
+						IP:       "10.124.99.10",
+						WantCode: 403,
+					},
+					{
+						Name:     "allow 10.4.5.6",
+						Host:     "remoteipattr.company.com",
+						Path:     "/",
+						IP:       "10.4.5.6",
+						WantCode: 200,
+					},
+				}
 
-			cases := []struct {
-				Name     string
-				Host     string
-				Path     string
-				IP       string
-				WantCode int
-			}{
-				{
-					Name:     "allow www.company.com",
-					Host:     "www.company.com",
-					Path:     "/",
-					IP:       "172.16.0.1",
-					WantCode: 200,
-				},
-				{
-					Name:     "deny www.company.com/private",
-					Host:     "www.company.com",
-					Path:     "/private",
-					IP:       "172.16.0.1",
-					WantCode: 403,
-				},
-				{
-					Name:     "allow www.company.com/public",
-					Host:     "www.company.com",
-					Path:     "/public",
-					IP:       "172.16.0.1",
-					WantCode: 200,
-				},
-				{
-					Name:     "deny internal.company.com",
-					Host:     "internal.company.com",
-					Path:     "/",
-					IP:       "172.16.0.1",
-					WantCode: 403,
-				},
-				{
-					Name:     "deny internal.company.com/private",
-					Host:     "internal.company.com",
-					Path:     "/private",
-					IP:       "172.16.0.1",
-					WantCode: 403,
-				},
-				{
-					Name:     "deny 172.17.72.46",
-					Host:     "remoteipblocks.company.com",
-					Path:     "/",
-					IP:       "172.17.72.46",
-					WantCode: 403,
-				},
-				{
-					Name:     "deny 192.168.5.233",
-					Host:     "remoteipblocks.company.com",
-					Path:     "/",
-					IP:       "192.168.5.233",
-					WantCode: 403,
-				},
-				{
-					Name:     "allow 10.4.5.6",
-					Host:     "remoteipblocks.company.com",
-					Path:     "/",
-					IP:       "10.4.5.6",
-					WantCode: 200,
-				},
-				{
-					Name:     "deny 10.2.3.4",
-					Host:     "notremoteipblocks.company.com",
-					Path:     "/",
-					IP:       "10.2.3.4",
-					WantCode: 403,
-				},
-				{
-					Name:     "allow 172.23.242.188",
-					Host:     "notremoteipblocks.company.com",
-					Path:     "/",
-					IP:       "172.23.242.188",
-					WantCode: 200,
-				},
-				{
-					Name:     "deny 10.242.5.7",
-					Host:     "remoteipattr.company.com",
-					Path:     "/",
-					IP:       "10.242.5.7",
-					WantCode: 403,
-				},
-				{
-					Name:     "deny 10.124.99.10",
-					Host:     "remoteipattr.company.com",
-					Path:     "/",
-					IP:       "10.124.99.10",
-					WantCode: 403,
-				},
-				{
-					Name:     "allow 10.4.5.6",
-					Host:     "remoteipattr.company.com",
-					Path:     "/",
-					IP:       "10.4.5.6",
-					WantCode: 200,
-				},
-			}
-
-			for _, tc := range cases {
-				t.NewSubTest(tc.Name).Run(func(t framework.TestContext) {
-					headers := map[string][]string{
-						"X-Forwarded-For": {tc.IP},
-					}
-					authn.CheckIngressOrFail(t, ingr, tc.Host, tc.Path, headers, "", tc.WantCode)
-				})
+				for _, tc := range cases {
+					t.NewSubTest(tc.Name).Run(func(t framework.TestContext) {
+						headers := map[string][]string{
+							"X-Forwarded-For": {tc.IP},
+						}
+						authn.CheckIngressOrFail(t, ingr, tc.Host, tc.Path, headers, "", tc.WantCode)
+					})
+				}
 			}
 		})
 }
