@@ -88,6 +88,7 @@ func Test_KubeSecretController(t *testing.T) {
 		close(stop)
 	})
 	s := server.New()
+	sc := secretcontroller.NewController(clientset, testSecretNameSpace, time.Microsecond)
 	mc := NewMulticluster(
 		"pilot-abc-123",
 		clientset,
@@ -99,13 +100,11 @@ func Test_KubeSecretController(t *testing.T) {
 			SyncInterval:      time.Microsecond,
 			MeshWatcher:       mesh.NewFixedWatcher(&meshconfig.MeshConfig{}),
 		}, mockserviceController, nil, "", "default", nil, nil, nil, s)
-	mc.InitSecretController(stop)
-	cache.WaitForCacheSync(stop, mc.HasSynced)
+	sc.AddHandler(mc)
+	go sc.Run(stop)
+	cache.WaitForCacheSync(stop, sc.HasSynced)
 	clientset.RunAndWait(stop)
 	_ = s.Start(stop)
-	go func() {
-		_ = mc.Run(stop)
-	}()
 
 	// Create the multicluster secret. Sleep to allow created remote
 	// controller to start and callback add function to be called.

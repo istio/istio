@@ -157,7 +157,7 @@ func NewFakeDiscoveryServer(t test.Failer, opts FakeOptions) *FakeDiscoveryServe
 		registries = append(registries, k8s)
 	}
 
-	sc := kubesecrets.NewMulticluster(defaultKubeClient, "", "", stop)
+	sc := kubesecrets.NewMulticluster(defaultKubeClient, "")
 	s.Generators[v3.SecretType] = NewSecretGen(sc, &model.DisabledCache{})
 	defaultKubeClient.RunAndWait(stop)
 

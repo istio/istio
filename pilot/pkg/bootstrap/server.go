@@ -28,6 +28,8 @@ import (
 	"sync"
 	"time"
 
+	"istio.io/istio/pkg/kube/secretcontroller"
+
 	middleware "github.com/grpc-ecosystem/go-grpc-middleware"
 	prometheus "github.com/grpc-ecosystem/go-grpc-prometheus"
 	prom "github.com/prometheus/client_golang/prometheus"
@@ -116,7 +118,8 @@ type Server struct {
 	kubeRestConfig *rest.Config
 	kubeClient     kubelib.Client
 
-	multicluster *kubecontroller.Multicluster
+	multicluster        *kubecontroller.Multicluster
+	multiclusterSecrets *secretcontroller.Controller
 
 	configController  model.ConfigStoreCache
 	ConfigStores      []model.ConfigStoreCache
@@ -477,8 +480,7 @@ func (s *Server) initSDSServer(args *PilotArgs) {
 			// Make sure we have security
 			log.Warnf("skipping Kubernetes credential reader; PILOT_ENABLE_XDS_IDENTITY_CHECK must be set to true for this feature.")
 		} else {
-			// TODO move this to a startup function and pass stop
-			sc := kubesecrets.NewMulticluster(s.kubeClient, s.clusterID, args.RegistryOptions.ClusterRegistriesNamespace, make(chan struct{}))
+			sc := kubesecrets.NewMulticluster(s.kubeClient, s.clusterID)
 			sc.AddEventHandler(func(name, namespace string) {
 				s.XDSServer.ConfigUpdate(&model.PushRequest{
 					Full: false,
@@ -493,6 +495,7 @@ func (s *Server) initSDSServer(args *PilotArgs) {
 				})
 			})
 			s.XDSServer.Generators[v3.SecretType] = xds.NewSecretGen(sc, s.XDSServer.Cache)
+			s.multiclusterSecrets.AddHandler(sc)
 		}
 	}
 }
@@ -824,7 +827,7 @@ func (s *Server) waitForCacheSync(stop <-chan struct{}) bool {
 
 // cachesSynced checks whether caches have been synced.
 func (s *Server) cachesSynced() bool {
-	if s.multicluster != nil && !s.multicluster.HasSynced() {
+	if s.multiclusterSecrets != nil && !s.multiclusterSecrets.HasSynced() {
 		return false
 	}
 	if !s.ServiceController().HasSynced() {

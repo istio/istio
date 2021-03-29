@@ -16,6 +16,9 @@ package bootstrap
 
 import (
 	"fmt"
+	"time"
+
+	"istio.io/istio/pkg/kube/secretcontroller"
 
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry"
@@ -76,7 +79,11 @@ func (s *Server) initKubeRegistry(args *PilotArgs) (err error) {
 	args.RegistryOptions.KubeOptions.NetworksWatcher = s.environment.NetworksWatcher
 	args.RegistryOptions.KubeOptions.MeshWatcher = s.environment.Watcher
 	args.RegistryOptions.KubeOptions.SystemNamespace = args.Namespace
-
+	if args.RegistryOptions.KubeOptions.ResyncPeriod == 0 {
+		// make sure a resync time of 0 wasn't passed in.
+		args.RegistryOptions.KubeOptions.ResyncPeriod = 30 * time.Second
+		log.Info("Resync time was configured to 0, resetting to 30")
+	}
 	caBundlePath := s.caBundlePath
 	if hasCustomTLSCerts(args.ServerOptions.TLSOptions) {
 		caBundlePath = args.ServerOptions.TLSOptions.CaCertFile
@@ -96,21 +103,33 @@ func (s *Server) initKubeRegistry(args *PilotArgs) (err error) {
 		s.server)
 
 	// initialize the "main" cluster registry before starting controllers for remote clusters
-	if err := mc.AddMemberCluster(s.kubeClient, args.RegistryOptions.KubeOptions.ClusterID); err != nil {
-		log.Errorf("failed initializing registry for %s: %v", args.RegistryOptions.KubeOptions.ClusterID, err)
-		return err
-	}
+	s.addStartFunc(func(stop <-chan struct{}) error {
+		if err := mc.OnNewCluster(s.kubeClient, stop, args.RegistryOptions.KubeOptions.ClusterID); err != nil {
+			log.Errorf("failed initializing registry for %s: %v", args.RegistryOptions.KubeOptions.ClusterID, err)
+			return err
+		}
+		return nil
+	})
+
+	// setup a controller to watch for remote secrets
+	s.multiclusterSecrets = secretcontroller.NewController(
+		s.kubeClient,
+		args.RegistryOptions.ClusterRegistriesNamespace,
+		args.RegistryOptions.KubeOptions.ResyncPeriod,
+	)
+
+	// handle kube registry creation/removal for remote secrets
+	s.multiclusterSecrets.AddHandler(mc)
 
 	// Start the multicluster controller and wait for it to shutdown before exiting the server.
 	s.addTerminatingStartFunc(mc.Run)
 
 	// start remote cluster controllers
 	s.addStartFunc(func(stop <-chan struct{}) error {
-		mc.InitSecretController(stop)
+		s.multiclusterSecrets.Run(stop)
 		return nil
 	})
 
-	s.multicluster = mc
 	return
 }
 

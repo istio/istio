@@ -52,21 +52,23 @@ var (
 	deleted string
 )
 
-func addCallback(_ kube.Client, id string) error {
+type handler struct{}
+
+func (h *handler) OnNewCluster(_ kube.Client, _ <-chan struct{}, id string) error {
 	mu.Lock()
 	defer mu.Unlock()
 	added = id
 	return nil
 }
 
-func updateCallback(_ kube.Client, id string) error {
+func (h *handler) OnClusterUpdated(_ kube.Client, _ <-chan struct{}, id string) error {
 	mu.Lock()
 	defer mu.Unlock()
 	updated = id
 	return nil
 }
 
-func deleteCallback(id string) error {
+func (h *handler) OnClusterRemoved(id string) error {
 	mu.Lock()
 	defer mu.Unlock()
 	deleted = id
@@ -117,7 +119,9 @@ func Test_SecretController(t *testing.T) {
 	t.Cleanup(func() {
 		close(stopCh)
 	})
-	c := StartSecretController(clientset, addCallback, updateCallback, deleteCallback, secretNamespace, time.Microsecond, stopCh)
+	c := NewController(clientset, secretNamespace, time.Microsecond)
+	c.AddHandler(&handler{})
+	go c.Run(stopCh)
 	kube.WaitForCacheSyncInterval(stopCh, time.Microsecond, c.informer.HasSynced)
 	clientset.RunAndWait(stopCh)
 

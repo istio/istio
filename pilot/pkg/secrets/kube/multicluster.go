@@ -17,7 +17,6 @@ package kube
 import (
 	"fmt"
 	"sync"
-	"time"
 
 	"istio.io/istio/pilot/pkg/secrets"
 	"istio.io/istio/pkg/kube"
@@ -27,52 +26,47 @@ import (
 
 // Multicluster structure holds the remote kube Controllers and multicluster specific attributes.
 type Multicluster struct {
-	remoteKubeControllers map[string]*SecretsController
 	m                     sync.Mutex // protects remoteKubeControllers
-	secretController      *secretcontroller.Controller
+	remoteKubeControllers map[string]*SecretsController
 	localCluster          string
-	stop                  chan struct{}
 }
 
-var _ secrets.MulticlusterController = &Multicluster{}
+var (
+	_ secrets.MulticlusterController       = &Multicluster{}
+	_ secretcontroller.MulticlusterHandler = &Multicluster{}
+)
 
-func NewMulticluster(client kube.Client, localCluster, secretNamespace string, stop chan struct{}) *Multicluster {
+func NewMulticluster(client kube.Client, localCluster string) *Multicluster {
 	m := &Multicluster{
 		remoteKubeControllers: map[string]*SecretsController{},
 		localCluster:          localCluster,
-		stop:                  stop,
 	}
+
 	// Add the local cluster
-	m.addMemberCluster(client, localCluster)
-	sc := secretcontroller.StartSecretController(client,
-		func(c kube.Client, k string) error { m.addMemberCluster(c, k); return nil },
-		func(c kube.Client, k string) error { m.updateMemberCluster(c, k); return nil },
-		func(k string) error { m.deleteMemberCluster(k); return nil },
-		secretNamespace,
-		time.Millisecond*100,
-		stop)
-	m.secretController = sc
+	_ = m.OnNewCluster(client, nil, localCluster)
 	return m
 }
 
-func (m *Multicluster) addMemberCluster(clients kube.Client, key string) {
+func (m *Multicluster) OnNewCluster(clients kube.Client, _ <-chan struct{}, key string) error {
 	log.Infof("initializing Kubernetes credential reader for cluster %v", key)
 	sc := NewSecretsController(clients, key)
 	m.m.Lock()
 	m.remoteKubeControllers[key] = sc
 	m.m.Unlock()
-	clients.RunAndWait(m.stop)
+	return nil
 }
 
-func (m *Multicluster) updateMemberCluster(clients kube.Client, key string) {
-	m.deleteMemberCluster(key)
-	m.addMemberCluster(clients, key)
+func (m *Multicluster) OnClusterUpdated(clients kube.Client, stop <-chan struct{}, key string) error {
+	_ = m.OnClusterRemoved(key)
+	_ = m.OnNewCluster(clients, stop, key)
+	return nil
 }
 
-func (m *Multicluster) deleteMemberCluster(key string) {
+func (m *Multicluster) OnClusterRemoved(key string) error {
 	m.m.Lock()
 	delete(m.remoteKubeControllers, key)
 	m.m.Unlock()
+	return nil
 }
 
 func (m *Multicluster) ForCluster(clusterID string) (secrets.Controller, error) {
