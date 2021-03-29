@@ -16,7 +16,6 @@ package bootstrap
 
 import (
 	"crypto/tls"
-	"fmt"
 	"net/http"
 	"net/url"
 	"time"
@@ -32,9 +31,8 @@ const (
 // If https address is off the injection handlers will be registered on the main http endpoint, with
 // TLS handled by a proxy/gateway in front of Istiod.
 func (s *Server) initSecureWebhookServer(args *PilotArgs) {
-	fmt.Println(args.ServerOptions.HTTPSAddr)
 	// create the https server for hosting the k8s injectionWebhook handlers.
-	if args.ServerOptions.HTTPSAddr == "" {
+	if s.kubeClient == nil || args.ServerOptions.HTTPSAddr == "" {
 		s.httpsMux = s.httpMux
 		log.Info("HTTPS port is disabled, multiplexing webhooks on the httpAddr ", args.ServerOptions.HTTPAddr)
 		return
