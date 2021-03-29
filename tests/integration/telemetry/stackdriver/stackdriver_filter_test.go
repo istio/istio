@@ -57,7 +57,7 @@ const (
 	trafficAssertionTmpl         = "testdata/traffic_assertion.json.tmpl"
 	sdBootstrapConfigMap         = "stackdriver-bootstrap-config"
 
-	projectsPrefix = "projects/test-project"
+	testProject = "istio-prow-build"
 
 	fakeGCEMetadataServerValues = `
   defaultConfig:
@@ -413,18 +413,14 @@ func validateTraces(t *testing.T) error {
 
 	// we are looking for a trace that looks something like:
 	//
-	// project_id:"projects/test-project"
+	// project_id:"test-project"
 	// trace_id:"99bc9a02417c12c4877e19a4172ae11a"
 	// spans:{
 	//   span_id:440543054939690778
-	//   name:"projects/test-project/traces/99bc9a02417c12c4877e19a4172ae11a/spans/061d1f9309f2171a"
+	//   name:"srv.istio-echo-1-92573.svc.cluster.local:80/*"
 	//   start_time:{seconds:1594418699  nanos:648039133}
 	//   end_time:{seconds:1594418699  nanos:669864006}
 	//   parent_span_id:18050098903530484457
-	//   labels:{
-	//     key:"span"
-	//     value:"srv.istio-echo-1-92573.svc.cluster.local:80/*"
-	//   }
 	// }
 	//
 	// we only need to validate the span value in the labels and project_id for
@@ -433,21 +429,18 @@ func validateTraces(t *testing.T) error {
 	// future improvements include adding canonical service info, etc. in the
 	// span.
 
-	wantSpanLabel := fmt.Sprintf("srv.%s.svc.cluster.local:80/*", getEchoNamespaceInstance().Name())
+	wantSpanName := fmt.Sprintf("srv.%s.svc.cluster.local:80/*", getEchoNamespaceInstance().Name())
 	traces, err := sdInst.ListTraces()
 	if err != nil {
 		return fmt.Errorf("traces: could not retrieve traces from Stackdriver: %v", err)
 	}
 	for _, trace := range traces {
 		t.Logf("trace: %v\n", trace)
-		if trace.ProjectId != projectsPrefix {
+		if trace.ProjectId != testProject {
 			continue
 		}
 		for _, span := range trace.Spans {
-			if !strings.HasPrefix(span.Name, projectsPrefix) {
-				continue
-			}
-			if got, ok := span.Labels["span"]; ok && got == wantSpanLabel {
+			if span.Name == wantSpanName {
 				return nil
 			}
 		}
