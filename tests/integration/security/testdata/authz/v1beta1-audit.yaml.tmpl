@@ -1,4 +1,4 @@
-apiVersion: "security.istio.io/v1beta1"
+apiVersion: security.istio.io/v1beta1
 kind: AuthorizationPolicy
 metadata:
   name: policy-b-audit
@@ -14,7 +14,7 @@ spec:
         paths: ["/audit"]
 ---
 
-apiVersion: "security.istio.io/v1beta1"
+apiVersion: security.istio.io/v1beta1
 kind: AuthorizationPolicy
 metadata:
   name: policy-b-allow
@@ -30,7 +30,7 @@ spec:
         paths: ["/allow"]
 ---
 
-apiVersion: "security.istio.io/v1beta1"
+apiVersion: security.istio.io/v1beta1
 kind: AuthorizationPolicy
 metadata:
   name: policy-c-audit
@@ -46,7 +46,7 @@ spec:
         paths: ["/audit"]
 ---
 
-apiVersion: "security.istio.io/v1beta1"
+apiVersion: security.istio.io/v1beta1
 kind: AuthorizationPolicy
 metadata:
   name: policy-c-deny
@@ -62,7 +62,7 @@ spec:
         paths: ["/deny"]
 ---
 
-apiVersion: "security.istio.io/v1beta1"
+apiVersion: security.istio.io/v1beta1
 kind: AuthorizationPolicy
 metadata:
   name: policy-d-audit
