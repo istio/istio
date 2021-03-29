@@ -124,10 +124,7 @@ func (s *Server) initKubeRegistry(args *PilotArgs) (err error) {
 	s.addTerminatingStartFunc(mc.Run)
 
 	// start remote cluster controllers
-	s.addStartFunc(func(stop <-chan struct{}) error {
-		s.multiclusterSecrets.Run(stop)
-		return nil
-	})
+	s.addTerminatingStartFunc(s.multiclusterSecrets.Run)
 
 	return
 }

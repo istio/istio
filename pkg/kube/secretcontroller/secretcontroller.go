@@ -159,9 +159,10 @@ func (c *Controller) AddHandler(mc MulticlusterHandler) {
 }
 
 // Run starts the controller until it receives a message over stopCh
-func (c *Controller) Run(stopCh <-chan struct{}) {
+func (c *Controller) Run(stopCh <-chan struct{}) error {
 	defer utilruntime.HandleCrash()
 	defer c.queue.ShutDown()
+	defer c.close()
 
 	log.Info("Starting Secrets controller")
 
@@ -169,14 +170,14 @@ func (c *Controller) Run(stopCh <-chan struct{}) {
 
 	// Wait for the caches to be synced before starting workers
 	if !kube.WaitForCacheSyncInterval(stopCh, c.syncInterval, c.informer.HasSynced) {
-		return
+		return nil
 	}
 	// all secret events before this signal must be processed before we're marked "ready"
 	c.queue.Add(initialSyncSignal)
 
 	go wait.Until(c.runWorker, 5*time.Second, stopCh)
 	<-stopCh
-	c.close()
+	return nil
 }
 
 func (c *Controller) close() {
