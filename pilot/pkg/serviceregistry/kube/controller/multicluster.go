@@ -87,8 +87,7 @@ type Multicluster struct {
 	revision     string
 
 	// rootNamespace where we get cluster-access secrets
-	rootNamespace    string
-	secretController *secretcontroller.Controller
+	rootNamespace string
 }
 
 // NewMulticluster initializes data structure to store multicluster information

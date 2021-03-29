@@ -300,7 +300,7 @@ func NewServer(args *PilotArgs) (*Server, error) {
 
 	s.initDiscoveryService(args)
 
-	s.initSDSServer(args)
+	s.initSDSServer()
 
 	// Notice that the order of authenticators matters, since at runtime
 	// authenticators are activated sequentially and the first successful attempt
@@ -474,7 +474,7 @@ func (s *Server) WaitUntilCompletion() {
 }
 
 // initSDSServer starts the SDS server
-func (s *Server) initSDSServer(args *PilotArgs) {
+func (s *Server) initSDSServer() {
 	if s.kubeClient != nil {
 		if !features.EnableXDSIdentityCheck {
 			// Make sure we have security
