@@ -78,19 +78,7 @@ func (configgen *ConfigGeneratorImpl) BuildNameTable(node *model.Proxy, push *mo
 			if svc.Attributes.ServiceRegistry == string(serviceregistry.Kubernetes) &&
 				svc.Resolution == model.Passthrough && len(svc.Ports) > 0 {
 				for _, instance := range push.ServiceInstancesByPort(svc, svc.Ports[0].Port, nil) {
-					if instance.Endpoint.Locality.ClusterID != node.Metadata.ClusterID {
-						// We take only cluster-local endpoints. While this seems contradictory to
-						// our logic other parts of the code, where cross-cluster is the default.
-						// However, this only impacts the DNS response. If we were to send all
-						// endpoints, cross network routing would break, as we do passthrough LB and
-						// don't go through the network gateway. While we could, hypothetically, send
-						// "network-local" endpoints, this would still make enabling DNS give vastly
-						// different load balancing than without, so its probably best to filter.
-						// This ends up matching the behavior of Kubernetes DNS.
-						continue
-					}
-					// TODO: should we skip the node's own IP like we do in listener?
-					addressList = append(addressList, instance.Endpoint.Address)
+					// Add individual addresses even for cross cluster.
 					if instance.Endpoint.SubDomain != "" {
 						// Follow k8s pods dns naming convention of "<hostname>.<subdomain>.<pod namespace>.svc.<cluster domain>"
 						// i.e. "mysql-0.mysql.default.svc.cluster.local".
@@ -110,6 +98,19 @@ func (configgen *ConfigGeneratorImpl) BuildNameTable(node *model.Proxy, push *mo
 						out.Table[host] = nameInfo
 					}
 
+					if instance.Endpoint.Locality.ClusterID != node.Metadata.ClusterID {
+						// We take only cluster-local endpoints. While this seems contradictory to
+						// our logic other parts of the code, where cross-cluster is the default.
+						// However, this only impacts the DNS response. If we were to send all
+						// endpoints, cross network routing would break, as we do passthrough LB and
+						// don't go through the network gateway. While we could, hypothetically, send
+						// "network-local" endpoints, this would still make enabling DNS give vastly
+						// different load balancing than without, so its probably best to filter.
+						// This ends up matching the behavior of Kubernetes DNS.
+						continue
+					}
+					// TODO: should we skip the node's own IP like we do in listener?
+					addressList = append(addressList, instance.Endpoint.Address)
 				}
 			}
 
