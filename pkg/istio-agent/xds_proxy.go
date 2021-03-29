@@ -92,7 +92,7 @@ type XdsProxy struct {
 	xdsUdsPath           string
 
 	httpTapServer *http.Server
-	tapRequests   map[string][]chan interface{}
+	tapRequests   map[string][]chan *discovery.DiscoveryResponse
 	tapMutex      sync.RWMutex
 
 	// connected stores the active gRPC stream. The proxy will only have 1 connection at a time
@@ -728,19 +728,19 @@ func sendWithTimeout(ctx context.Context, sendFunc func(errorChan chan error)) e
 // Istiod won't reply with a unique ID to let us know when the
 // response has arrived, but will at least return the requested TypeUrl.  We will keep a map of lists of every
 // request for a TypeUrl, and when a response comes in we will alert the requesters first-come, first served.
-func (p *XdsProxy) tapRequest(req *discovery.DiscoveryRequest) (chan interface{}, error) {
+func (p *XdsProxy) tapRequest(req *discovery.DiscoveryRequest) (chan *discovery.DiscoveryResponse, error) {
 	if p.connected == nil {
 		return nil, fmt.Errorf("proxy not connected to Istiod")
 	}
 
 	req.ResponseNonce = time.Now().String()
 
-	responseChannel := make(chan interface{})
+	responseChannel := make(chan *discovery.DiscoveryResponse)
 
 	p.tapMutex.Lock()
 	requestsQueue, ok := p.tapRequests[req.TypeUrl]
 	if !ok {
-		requestsQueue = make([]chan interface{}, 0, 1)
+		requestsQueue = make([]chan *discovery.DiscoveryResponse, 0, 1)
 	}
 	requestsQueue = append(requestsQueue, responseChannel)
 	p.tapRequests[req.TypeUrl] = requestsQueue
@@ -749,10 +749,35 @@ func (p *XdsProxy) tapRequest(req *discovery.DiscoveryRequest) (chan interface{}
 
 	p.connected.requestsChan <- req
 
-	// @@@ TODO Also set up a timeout, in case no response for a particular TypeUrl arrives in time,
-	// so the list of the waiting doesn't grow arbitrarily large.
-
 	return responseChannel, nil
+}
+
+// abortTap() removes a tap created by tapRequest()
+func (p *XdsProxy) abortTap(typeURL string, tap chan *discovery.DiscoveryResponse) error {
+	p.tapMutex.Lock()
+	requestsQueue, ok := p.tapRequests[typeURL]
+	if !ok {
+		p.tapMutex.Unlock()
+		return fmt.Errorf("no tap requests waiting on %q", typeURL)
+	}
+	found := false
+	for i, request := range requestsQueue {
+		if request == tap {
+			found = true
+			// Swap found element with last element
+			requestsQueue[len(requestsQueue)-1], requestsQueue[i] = requestsQueue[i], requestsQueue[len(requestsQueue)-1]
+			// Remove last element
+			p.tapRequests[typeURL] = requestsQueue[:len(requestsQueue)-1]
+			break
+		}
+	}
+
+	p.tapMutex.Unlock()
+
+	if !found {
+		return fmt.Errorf("tap request not found")
+	}
+	return nil
 }
 
 // directResponseToTapper() forwards an Istiod debugging discovery response to a waiting channel
@@ -772,11 +797,11 @@ func (p *XdsProxy) directResponseToTapper(resp *discovery.DiscoveryResponse) {
 
 func (p *XdsProxy) makeTapHandler() func(w http.ResponseWriter, req *http.Request) {
 	return func(w http.ResponseWriter, req *http.Request) {
-
 		serviceAccount := env.RegisterStringVar("SERVICE_ACCOUNT", "default", "").Get()
 		podNamespace := env.RegisterStringVar("POD_NAMESPACE", "default", "").Get()
 		istioVersion := env.RegisterStringVar("ISTIO_META_ISTIO_VERSION", "1.9.1", "").Get()
 
+		typeURL := fmt.Sprintf("istio.io%s", req.URL.Path)
 		responseChan, err := p.tapRequest(&discovery.DiscoveryRequest{
 			Node: &envoy_v3.Node{
 				Id: "sidecar~1.1.1.1~debug~cluster.local", // TODO pick up if we have it
@@ -789,17 +814,32 @@ func (p *XdsProxy) makeTapHandler() func(w http.ResponseWriter, req *http.Reques
 					},
 				},
 			},
-			TypeUrl: fmt.Sprintf("istio.io%s", req.URL.Path),
+			TypeUrl: typeURL,
 		})
-
 		if err != nil {
 			w.WriteHeader(503)
 			fmt.Fprintf(w, "%v\n", err)
 			return
 		}
 
+		// Timeout if no response from Istiod after 5 seconds
+		go func() {
+			time.Sleep(5 * time.Second)
+			responseChan <- nil
+		}()
+
 		// Wait for Istiod to respond
 		response := <-responseChan
+
+		if response == nil {
+			log.Infof("timed out waiting for Istiod to respond to %q", typeURL)
+			err = p.abortTap(typeURL, responseChan)
+			if err != nil {
+				log.Warnf("failed to cleanup tap for %q: %v", typeURL, err)
+			}
+			w.WriteHeader(504)
+			return
+		}
 
 		// Send Istiod's response as HTTP body
 		j, err := json.Marshal(response)
@@ -818,7 +858,7 @@ func (p *XdsProxy) makeTapHandler() func(w http.ResponseWriter, req *http.Reques
 
 // initDebugInterface() listens on :15009 for requests with path /debug/... forwards the paths as Istiod XDS requests
 func (p *XdsProxy) initDebugInterface() error {
-	p.tapRequests = make(map[string][]chan interface{})
+	p.tapRequests = make(map[string][]chan *discovery.DiscoveryResponse)
 
 	httpMux := http.NewServeMux()
 	httpMux.HandleFunc("/debug/", p.makeTapHandler())
