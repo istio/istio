@@ -14,8 +14,8 @@ spec:
   mtls:
     mode: STRICT
 ---
-apiVersion: "networking.istio.io/v1alpha3"
-kind: "DestinationRule"
+apiVersion: networking.istio.io/v1alpha3
+kind: DestinationRule
 metadata:
   name: "mtls"
   namespace: "{{ .Namespace }}"
@@ -30,7 +30,7 @@ spec:
 # - Allow workloads of service account a in the same namespace to access path /principal-a
 # - Allow workloads in namespace-2 to access path /namespace-2
 
-apiVersion: "security.istio.io/v1beta1"
+apiVersion: security.istio.io/v1beta1
 kind: AuthorizationPolicy
 metadata:
   name: policy-{{ .dst }}

@@ -29,7 +29,7 @@ collections:
     group: ""
 
   - name: "istio/networking/v1alpha3/destinationrules"
-    kind: "DestinationRule"
+    kind: DestinationRule
     group: "networking.istio.io"
     pilot: true
 
@@ -69,17 +69,17 @@ collections:
     pilot: true
 
   - name: "istio/security/v1beta1/authorizationpolicies"
-    kind: "AuthorizationPolicy"
+    kind: AuthorizationPolicy
     group: "security.istio.io"
     pilot: true
 
   - name: "istio/security/v1beta1/requestauthentications"
-    kind: "RequestAuthentication"
+    kind: RequestAuthentication
     group: "security.istio.io"
     pilot: true
 
   - name: "istio/security/v1beta1/peerauthentications"
-    kind: "PeerAuthentication"
+    kind: PeerAuthentication
     group: "security.istio.io"
     pilot: true
 
@@ -156,7 +156,7 @@ collections:
 
   # Istio CRD collections
   - name: "k8s/networking.istio.io/v1alpha3/destinationrules"
-    kind: "DestinationRule"
+    kind: DestinationRule
     group: "networking.istio.io"
 
   - name: "k8s/networking.istio.io/v1alpha3/envoyfilters"
@@ -188,15 +188,15 @@ collections:
     group: "networking.istio.io"
 
   - name: "k8s/security.istio.io/v1beta1/authorizationpolicies"
-    kind: "AuthorizationPolicy"
+    kind: AuthorizationPolicy
     group: "security.istio.io"
 
   - name: "k8s/security.istio.io/v1beta1/requestauthentications"
-    kind: "RequestAuthentication"
+    kind: RequestAuthentication
     group: "security.istio.io"
 
   - name: "k8s/security.istio.io/v1beta1/peerauthentications"
-    kind: "PeerAuthentication"
+    kind: PeerAuthentication
     group: "security.istio.io"
 
 # The snapshots to generate
@@ -426,7 +426,7 @@ resources:
     statusProto: "istio.meta.v1alpha1.IstioStatus"
     statusProtoPackage: "istio.io/api/meta/v1alpha1"
 
-  - kind: "DestinationRule"
+  - kind: DestinationRule
     plural: "destinationrules"
     group: "networking.istio.io"
     version: "v1alpha3"
@@ -472,7 +472,7 @@ resources:
     protoPackage: "istio.io/api/mesh/v1alpha1"
     description: "describes the networks for the Istio mesh."
 
-  - kind: "AuthorizationPolicy"
+  - kind: AuthorizationPolicy
     plural: "authorizationpolicies"
     group: "security.istio.io"
     version: "v1beta1"
@@ -482,7 +482,7 @@ resources:
     statusProto: "istio.meta.v1alpha1.IstioStatus"
     statusProtoPackage: "istio.io/api/meta/v1alpha1"
 
-  - kind: "RequestAuthentication"
+  - kind: RequestAuthentication
     plural: "requestauthentications"
     group: "security.istio.io"
     version: "v1beta1"
@@ -492,7 +492,7 @@ resources:
     statusProto: "istio.meta.v1alpha1.IstioStatus"
     statusProtoPackage: "istio.io/api/meta/v1alpha1"
 
-  - kind: "PeerAuthentication"
+  - kind: PeerAuthentication
     plural: "peerauthentications"
     group: "security.istio.io"
     version: "v1beta1"

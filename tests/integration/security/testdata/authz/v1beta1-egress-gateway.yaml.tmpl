@@ -1,5 +1,5 @@
-apiVersion: "security.istio.io/v1beta1"
-kind: "RequestAuthentication"
+apiVersion: security.istio.io/v1beta1
+kind: RequestAuthentication
 metadata:
   name: "default"
   namespace: "{{ .RootNamespace }}"
@@ -148,8 +148,8 @@ spec:
           add:
             x-egress-test: "handled-by-egress-gateway"
 ---
-apiVersion: "networking.istio.io/v1alpha3"
-kind: "DestinationRule"
+apiVersion: networking.istio.io/v1alpha3
+kind: DestinationRule
 metadata:
   name: "test-egress"
   namespace: {{ .Namespace }}
