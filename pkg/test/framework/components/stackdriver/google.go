@@ -116,7 +116,6 @@ func (s *realStackdriver) ListLogEntries(filter LogType) ([]*loggingpb.LogEntry,
 		resppb.Entries[i].HttpRequest.RequestUrl = le.HttpRequest.RequestUrl
 		resppb.Entries[i].HttpRequest.Status = int32(le.HttpRequest.Status)
 		resppb.Entries[i].HttpRequest.Protocol = le.HttpRequest.Protocol
-		resppb.Entries[i].Labels = make(map[string]string)
 		resppb.Entries[i].Labels = le.Labels
 		resppb.Entries[i].TraceSampled = le.TraceSampled
 	}
@@ -128,14 +127,31 @@ func (c *realStackdriver) ListTrafficAssertions() ([]*edgespb.TrafficAssertion, 
 }
 
 func (c *realStackdriver) ListTraces() ([]*cloudtracepb.Trace, error) {
-	// startTime := time.Now().Add(-5 * time.Minute)
-	// listTracesResponse, err := c.traceService.Projects.Traces.List("istio-prow-build").
-	// 	StartTime(startTime.Format(time.RFC3339)).
-	// 	Filter(filter).
-	// 	View("COMPLETE").
-	// 	Context(context.Background()).
-	// 	Do()
-	return nil, nil
+	startTime := time.Now().Add(-5 * time.Minute)
+	listTracesResponse, err := c.traceService.Projects.Traces.List("istio-prow-build").
+		StartTime(startTime.Format(time.RFC3339)).
+		View("COMPLETE").
+		Context(context.Background()).
+		PageSize(50).
+		Do()
+	if err != nil {
+		return nil, fmt.Errorf("unexpected error from the tracing backend: %v", err)
+	}
+
+	ret := make([]*cloudtracepb.Trace, len(listTracesResponse.Traces))
+	for i, t := range listTracesResponse.Traces {
+		ret[i] = &cloudtracepb.Trace{}
+		ret[i].ProjectId = t.ProjectId
+		ret[i].TraceId = t.TraceId
+		ret[i].Spans = make([]*cloudtracepb.TraceSpan, len(t.Spans))
+		for j, s := range t.Spans {
+			ret[i].Spans[j] = &cloudtracepb.TraceSpan{}
+			ret[i].Spans[j].SpanId = s.SpanId
+			ret[i].Spans[j].Name = s.Name
+			ret[i].Spans[j].Labels = s.Labels
+		}
+	}
+	return ret, nil
 }
 
 func (c *realStackdriver) GetStackdriverNamespace() string {
