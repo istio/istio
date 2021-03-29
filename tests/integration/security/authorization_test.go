@@ -616,16 +616,17 @@ func TestAuthorization_EgressGateway(t *testing.T) {
 	framework.NewTest(t).
 		Features("security.authorization.egress-gateway").
 		Run(func(t framework.TestContext) {
-			ns := namespace.NewOrFail(t, t, namespace.Config{
-				Prefix: "v1beta1-egress-gateway",
-				Inject: true,
-			})
-
-			var a, b, c echo.Instance
+			ns := apps.Namespace1
+			rootns := newRootNS(t)
+			a := apps.A.Match(echo.Namespace(apps.Namespace1.Name()))
+			b := apps.B.Match(echo.Namespace(apps.Namespace1.Name()))
+			vm := apps.VM.Match(echo.Namespace(apps.Namespace1.Name()))
+			// Set up workload X that is accessible via egress gateway.
+			var x echo.Instance
+			XSvc := "x"
 			echoboot.NewBuilder(t).
-				With(&a, util.EchoConfig("a", ns, false, nil)).
-				With(&b, echo.Config{
-					Service:   "b",
+				With(&x, echo.Config{
+					Service:   XSvc,
 					Namespace: ns,
 					Subsets:   []echo.SubsetConfig{{}},
 					Ports: []echo.Port{
@@ -636,150 +637,152 @@ func TestAuthorization_EgressGateway(t *testing.T) {
 						},
 					},
 				}).
-				With(&c, util.EchoConfig("c", ns, false, nil)).
 				BuildOrFail(t)
+			for _, src := range [][]echo.Instances{{a, b}, {vm, b}} {
+				args := map[string]string{
+					"Namespace":     ns.Name(),
+					"RootNamespace": rootns.rootNamespace,
+					"src":           src[0][0].Config().Service,
+					"dst":           XSvc,
+				}
+				policies := tmpl.EvaluateAllOrFail(t, args,
+					file.AsStringOrFail(t, "testdata/authz/v1beta1-egress-gateway.yaml.tmpl"))
+				t.Config().ApplyYAMLOrFail(t, "", policies...)
 
-			args := map[string]string{
-				"Namespace":     ns.Name(),
-				"RootNamespace": istio.GetOrFail(t, t).Settings().SystemNamespace,
-			}
-			policies := tmpl.EvaluateAllOrFail(t, args,
-				file.AsStringOrFail(t, "testdata/authz/v1beta1-egress-gateway.yaml.tmpl"))
-			t.Config().ApplyYAMLOrFail(t, "", policies...)
-
-			cases := []struct {
-				name  string
-				path  string
-				code  string
-				body  string
-				host  string
-				from  echo.Workload
-				token string
-			}{
-				{
-					name: "allow path to company.com",
-					path: "/allow",
-					code: response.StatusCodeOK,
-					body: "handled-by-egress-gateway",
-					host: "www.company.com",
-					from: getWorkload(a, t),
-				},
-				{
-					name: "deny path to company.com",
-					path: "/deny",
-					code: response.StatusCodeForbidden,
-					body: "RBAC: access denied",
-					host: "www.company.com",
-					from: getWorkload(a, t),
-				},
-				{
-					name: "allow service account a to a-only.com over mTLS",
-					path: "/",
-					code: response.StatusCodeOK,
-					body: "handled-by-egress-gateway",
-					host: "a-only.com",
-					from: getWorkload(a, t),
-				},
-				{
-					name: "deny service account c to a-only.com over mTLS",
-					path: "/",
-					code: response.StatusCodeForbidden,
-					body: "RBAC: access denied",
-					host: "a-only.com",
-					from: getWorkload(c, t),
-				},
-				{
-					name:  "allow a with JWT to jwt-only.com over mTLS",
-					path:  "/",
-					code:  response.StatusCodeOK,
-					body:  "handled-by-egress-gateway",
-					host:  "jwt-only.com",
-					from:  getWorkload(a, t),
-					token: jwt.TokenIssuer1,
-				},
-				{
-					name:  "allow c with JWT to jwt-only.com over mTLS",
-					path:  "/",
-					code:  response.StatusCodeOK,
-					body:  "handled-by-egress-gateway",
-					host:  "jwt-only.com",
-					from:  getWorkload(c, t),
-					token: jwt.TokenIssuer1,
-				},
-				{
-					name:  "deny c with wrong JWT to jwt-only.com over mTLS",
-					path:  "/",
-					code:  response.StatusCodeForbidden,
-					body:  "RBAC: access denied",
-					host:  "jwt-only.com",
-					from:  getWorkload(c, t),
-					token: jwt.TokenIssuer2,
-				},
-				{
-					name:  "allow service account a with JWT to jwt-and-a-only.com over mTLS",
-					path:  "/",
-					code:  response.StatusCodeOK,
-					body:  "handled-by-egress-gateway",
-					host:  "jwt-and-a-only.com",
-					from:  getWorkload(a, t),
-					token: jwt.TokenIssuer1,
-				},
-				{
-					name:  "deny service account c with JWT to jwt-and-a-only.com over mTLS",
-					path:  "/",
-					code:  response.StatusCodeForbidden,
-					body:  "RBAC: access denied",
-					host:  "jwt-and-a-only.com",
-					from:  getWorkload(c, t),
-					token: jwt.TokenIssuer1,
-				},
-				{
-					name:  "deny service account a with wrong JWT to jwt-and-a-only.com over mTLS",
-					path:  "/",
-					code:  response.StatusCodeForbidden,
-					body:  "RBAC: access denied",
-					host:  "jwt-and-a-only.com",
-					from:  getWorkload(a, t),
-					token: jwt.TokenIssuer2,
-				},
-			}
-
-			for _, tc := range cases {
-				request := &epb.ForwardEchoRequest{
-					// Use a fake IP to make sure the request is handled by our test.
-					Url:   fmt.Sprintf("http://10.4.4.4%s", tc.path),
-					Count: 1,
-					Headers: []*epb.Header{
-						{
-							Key:   "Host",
-							Value: tc.host,
-						},
+				cases := []struct {
+					name  string
+					path  string
+					code  string
+					body  string
+					host  string
+					from  echo.Workload
+					token string
+				}{
+					{
+						name: "allow path to company.com",
+						path: "/allow",
+						code: response.StatusCodeOK,
+						body: "handled-by-egress-gateway",
+						host: "www.company.com",
+						from: getWorkload(src[0][0], t),
+					},
+					{
+						name: "deny path to company.com",
+						path: "/deny",
+						code: response.StatusCodeForbidden,
+						body: "RBAC: access denied",
+						host: "www.company.com",
+						from: getWorkload(src[0][0], t),
+					},
+					{
+						name: "allow service account src0 to src0-only.com over mTLS",
+						path: "/",
+						code: response.StatusCodeOK,
+						body: "handled-by-egress-gateway",
+						host: fmt.Sprintf("%s-only.com", src[0][0].Config().Service),
+						from: getWorkload(src[0][0], t),
+					},
+					{
+						name: "deny service account src1 to src0-only.com over mTLS",
+						path: "/",
+						code: response.StatusCodeForbidden,
+						body: "RBAC: access denied",
+						host: fmt.Sprintf("%s-only.com", src[0][0].Config().Service),
+						from: getWorkload(src[1][0], t),
+					},
+					{
+						name:  "allow src0 with JWT to jwt-only.com over mTLS",
+						path:  "/",
+						code:  response.StatusCodeOK,
+						body:  "handled-by-egress-gateway",
+						host:  "jwt-only.com",
+						from:  getWorkload(src[0][0], t),
+						token: jwt.TokenIssuer1,
+					},
+					{
+						name:  "allow src1 with JWT to jwt-only.com over mTLS",
+						path:  "/",
+						code:  response.StatusCodeOK,
+						body:  "handled-by-egress-gateway",
+						host:  "jwt-only.com",
+						from:  getWorkload(src[1][0], t),
+						token: jwt.TokenIssuer1,
+					},
+					{
+						name:  "deny src1 with wrong JWT to jwt-only.com over mTLS",
+						path:  "/",
+						code:  response.StatusCodeForbidden,
+						body:  "RBAC: access denied",
+						host:  "jwt-only.com",
+						from:  getWorkload(src[1][0], t),
+						token: jwt.TokenIssuer2,
+					},
+					{
+						name:  "allow service account src0 with JWT to jwt-and-src0-only.com over mTLS",
+						path:  "/",
+						code:  response.StatusCodeOK,
+						body:  "handled-by-egress-gateway",
+						host:  fmt.Sprintf("jwt-and-%s-only.com", src[0][0].Config().Service),
+						from:  getWorkload(src[0][0], t),
+						token: jwt.TokenIssuer1,
+					},
+					{
+						name:  "deny service account src1 with JWT to jwt-and-src0-only.com over mTLS",
+						path:  "/",
+						code:  response.StatusCodeForbidden,
+						body:  "RBAC: access denied",
+						host:  fmt.Sprintf("jwt-and-%s-only.com", src[0][0].Config().Service),
+						from:  getWorkload(src[1][0], t),
+						token: jwt.TokenIssuer1,
+					},
+					{
+						name:  "deny service account src0 with wrong JWT to jwt-and-src0-only.com over mTLS",
+						path:  "/",
+						code:  response.StatusCodeForbidden,
+						body:  "RBAC: access denied",
+						host:  fmt.Sprintf("jwt-and-%s-only.com", src[0][0].Config().Service),
+						from:  getWorkload(src[0][0], t),
+						token: jwt.TokenIssuer2,
 					},
 				}
-				if tc.token != "" {
-					request.Headers = append(request.Headers, &epb.Header{
-						Key:   "Authorization",
-						Value: "Bearer " + tc.token,
+
+				for _, tc := range cases {
+					request := &epb.ForwardEchoRequest{
+						// Use a fake IP to make sure the request is handled by our test.
+						Url:   fmt.Sprintf("http://10.4.4.4%s", tc.path),
+						Count: 1,
+						Headers: []*epb.Header{
+							{
+								Key:   "Host",
+								Value: tc.host,
+							},
+						},
+					}
+					if tc.token != "" {
+						request.Headers = append(request.Headers, &epb.Header{
+							Key:   "Authorization",
+							Value: "Bearer " + tc.token,
+						})
+					}
+					t.NewSubTest(tc.name).Run(func(t framework.TestContext) {
+						retry.UntilSuccessOrFail(t, func() error {
+							responses, err := tc.from.ForwardEcho(context.TODO(), request)
+							if err != nil {
+								return err
+							}
+							if len(responses) < 1 {
+								return fmt.Errorf("received no responses from request to %s", tc.path)
+							}
+							if tc.code != responses[0].Code {
+								return fmt.Errorf("want status %s but got %s", tc.code, responses[0].Code)
+							}
+							if !strings.Contains(responses[0].Body, tc.body) {
+								return fmt.Errorf("want %q in body but not found: %s", tc.body, responses[0].Body)
+							}
+							return nil
+						}, retry.Delay(250*time.Millisecond), retry.Timeout(30*time.Second))
 					})
 				}
-				t.NewSubTest(tc.name).Run(func(t framework.TestContext) {
-					retry.UntilSuccessOrFail(t, func() error {
-						responses, err := tc.from.ForwardEcho(context.TODO(), request)
-						if err != nil {
-							return err
-						}
-						if len(responses) < 1 {
-							return fmt.Errorf("received no responses from request to %s", tc.path)
-						}
-						if tc.code != responses[0].Code {
-							return fmt.Errorf("want status %s but got %s", tc.code, responses[0].Code)
-						}
-						if !strings.Contains(responses[0].Body, tc.body) {
-							return fmt.Errorf("want %q in body but not found: %s", tc.body, responses[0].Body)
-						}
-						return nil
-					}, retry.Delay(250*time.Millisecond), retry.Timeout(30*time.Second))
-				})
 			}
 		})
 }
