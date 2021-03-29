@@ -24,6 +24,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/hashicorp/go-multierror"
+
 	"go.uber.org/atomic"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -63,10 +65,10 @@ type MulticlusterHandler interface {
 type Controller struct {
 	kubeclientset kubernetes.Interface
 	namespace     string
-	cs            *clusterStore
+	clusters      *clusterStore
 	queue         workqueue.RateLimitingInterface
 	informer      cache.SharedIndexInformer
-	controllers   []MulticlusterHandler
+	handlers      []MulticlusterHandler
 
 	syncInterval time.Duration
 
@@ -83,8 +85,27 @@ type remoteCluster struct {
 
 // clusterStore is a collection of clusters
 type clusterStore struct {
-	sync.Mutex
+	sync.RWMutex
 	remoteClusters map[string]*remoteCluster
+}
+
+func (c *clusterStore) get(clusterID string) (*remoteCluster, bool) {
+	c.RLock()
+	defer c.RUnlock()
+	cl, ok := c.remoteClusters[clusterID]
+	return cl, ok
+}
+
+func (c *clusterStore) set(clusterID string, cl *remoteCluster) {
+	c.Lock()
+	defer c.Unlock()
+	c.remoteClusters[clusterID] = cl
+}
+
+func (c *clusterStore) delete(clusterID string) {
+	c.Lock()
+	defer c.Unlock()
+	delete(c.remoteClusters, clusterID)
 }
 
 // newClustersStore initializes data struct to store clusters information
@@ -116,7 +137,7 @@ func NewController(kubeclientset kubernetes.Interface, namespace string, syncInt
 	controller := &Controller{
 		kubeclientset: kubeclientset,
 		namespace:     namespace,
-		cs:            newClustersStore(),
+		clusters:      newClustersStore(),
 		informer:      secretsInformer,
 		queue:         queue,
 		syncInterval:  syncInterval,
@@ -155,7 +176,7 @@ func NewController(kubeclientset kubernetes.Interface, namespace string, syncInt
 }
 
 func (c *Controller) AddHandler(mc MulticlusterHandler) {
-	c.controllers = append(c.controllers, mc)
+	c.handlers = append(c.handlers, mc)
 }
 
 // Run starts the controller until it receives a message over stopCh
@@ -181,18 +202,18 @@ func (c *Controller) Run(stopCh <-chan struct{}) error {
 }
 
 func (c *Controller) close() {
-	c.cs.Lock()
-	defer c.cs.Unlock()
-	for clusterID, cluster := range c.cs.remoteClusters {
+	c.clusters.Lock()
+	defer c.clusters.Unlock()
+	for clusterID, cluster := range c.clusters.remoteClusters {
 		log.Infof("Deleting cluster_id=%v configured by secret=%v", clusterID, cluster.secretName)
-		for _, handler := range c.controllers {
+		for _, handler := range c.handlers {
 			if err := handler.OnClusterRemoved(clusterID); err != nil {
 				log.Errorf("Error removing cluster_id=%v configured by secret=%v: %s %v",
 					clusterID, cluster.secretName, err)
 			}
 		}
 		close(cluster.stop)
-		delete(c.cs.remoteClusters, clusterID)
+		delete(c.clusters.remoteClusters, clusterID)
 	}
 }
 
@@ -285,82 +306,99 @@ func createRemoteCluster(kubeConfig []byte, secretName string) (*remoteCluster, 
 	}, nil
 }
 
+// handleEvent runs the given function for every handler in parallel returning the aggregate of any errors.
+func (c *Controller) handleEvent(f func(h MulticlusterHandler) error) error {
+	errG := multierror.Group{}
+	for _, handler := range c.handlers {
+		handler := handler
+		errG.Go(func() error {
+			return f(handler)
+		})
+	}
+	return errG.Wait().ErrorOrNil()
+}
+
 func (c *Controller) addMemberCluster(secretName string, s *corev1.Secret) {
 	for clusterID, kubeConfig := range s.Data {
-		// clusterID must be unique even across multiple secrets
-		var (
-			remoteCluster *remoteCluster
-			err           error
-		)
 
-		if prev, ok := c.cs.remoteClusters[clusterID]; !ok {
-			log.Infof("Adding cluster_id=%v from secret=%v", clusterID, secretName)
-
-			remoteCluster, err = createRemoteCluster(kubeConfig, secretName)
-			if err != nil {
-				log.Errorf("Failed to add remote cluster from secret=%v for cluster_id=%v: %v",
-					secretName, clusterID, err)
-				continue
-			}
-
-			c.cs.remoteClusters[clusterID] = remoteCluster
-			for _, handler := range c.controllers {
-				if err := handler.OnNewCluster(remoteCluster.clients, remoteCluster.stop, clusterID); err != nil {
-					log.Errorf("Error creating cluster_id=%s from secret %v: %v",
-						clusterID, secretName, err)
-				}
-			}
-		} else {
+		prev, update := c.clusters.get(clusterID)
+		if update {
+			// make sure this update is valid
 			if prev.secretName != secretName {
-				log.Errorf("ClusterID reused in two different secrets: %v and %v. ClusterID "+
+				// clusterID must be unique even across multiple secrets
+				log.Errorf("clusterID reused in two different secrets: %v and %v. ClusterID "+
 					"must be unique across all secrets", prev.secretName, secretName)
 				continue
 			}
-
 			kubeConfigSha := sha256.Sum256(kubeConfig)
 			if bytes.Equal(kubeConfigSha[:], prev.kubeConfigSha[:]) {
-				log.Infof("Updating cluster_id=%v from secret=%v: (kubeconfig are identical)", clusterID, secretName)
-			} else {
-				log.Infof("Updating cluster %v from secret %v", clusterID, secretName)
-
-				remoteCluster, err = createRemoteCluster(kubeConfig, secretName)
-				if err != nil {
-					log.Errorf("Error updating cluster_id=%v from secret=%v: %v",
-						clusterID, secretName, err)
-					continue
-				}
-				c.cs.remoteClusters[clusterID] = remoteCluster
-				for _, handler := range c.controllers {
-					if err := handler.OnClusterUpdated(remoteCluster.clients, remoteCluster.stop, clusterID); err != nil {
-						log.Errorf("Error updating cluster_id from secret=%v: %s %v",
-							clusterID, secretName, err)
-					}
-				}
+				log.Infof("updating cluster_id=%v from secret=%v: (kubeconfig are identical)", clusterID, secretName)
+				continue
 			}
 		}
-		if remoteCluster != nil {
+
+		// init the client
+		remoteCluster, err := createRemoteCluster(kubeConfig, secretName)
+		if err != nil {
+			log.Errorf("failed creating client for remote cluster from secret=%v for cluster_id=%v: %v",
+				secretName, clusterID, err)
+			continue
+		}
+		c.clusters.set(clusterID, remoteCluster)
+
+		// choose the correct handler and execute it
+		var (
+			handler func(MulticlusterHandler) error
+			action  string
+		)
+		if !update {
+			handler = func(h MulticlusterHandler) error {
+				return h.OnNewCluster(remoteCluster.clients, remoteCluster.stop, clusterID)
+			}
+			action = "creating"
+
+		} else {
+			handler = func(h MulticlusterHandler) error {
+				return h.OnClusterUpdated(remoteCluster.clients, remoteCluster.stop, clusterID)
+			}
+			action = "updating"
+		}
+		log.Infof("%s cluster_id=%v from secret=%v", action, clusterID, secretName)
+		if err := c.handleEvent(handler); err != nil {
+			// one of the handlers failed, back out all handlers
+			log.Errorf("error %s cluster_id=%s from secret %v: %v",
+				clusterID, secretName, err)
+			if err := c.handleEvent(func(h MulticlusterHandler) error {
+				return h.OnClusterRemoved(clusterID)
+			}); err != nil {
+				log.Errorf("error backing out cluster_id=%v from secret=%v: %v",
+					clusterID, secretName, err)
+			}
+			c.clusters.delete(clusterID)
+		} else if remoteCluster != nil {
 			go remoteCluster.clients.RunAndWait(remoteCluster.stop)
 		}
+
 	}
 
-	log.Infof("Number of remote clusters: %d", len(c.cs.remoteClusters))
+	log.Infof("Number of remote clusters: %d", len(c.clusters.remoteClusters))
 }
 
 func (c *Controller) deleteMemberCluster(secretName string) {
-	c.cs.Lock()
-	defer c.cs.Unlock()
-	for clusterID, cluster := range c.cs.remoteClusters {
+	c.clusters.Lock()
+	defer c.clusters.Unlock()
+	for clusterID, cluster := range c.clusters.remoteClusters {
 		if cluster.secretName == secretName {
 			log.Infof("Deleting cluster_id=%v configured by secret=%v", clusterID, secretName)
-			for _, handler := range c.controllers {
+			for _, handler := range c.handlers {
 				if err := handler.OnClusterRemoved(clusterID); err != nil {
 					log.Errorf("Error removing cluster_id=%v configured by secret=%v: %s %v",
 						clusterID, secretName, err)
 				}
 			}
 			close(cluster.stop)
-			delete(c.cs.remoteClusters, clusterID)
+			delete(c.clusters.remoteClusters, clusterID)
 		}
 	}
-	log.Infof("Number of remote clusters: %d", len(c.cs.remoteClusters))
+	log.Infof("Number of remote clusters: %d", len(c.clusters.remoteClusters))
 }
