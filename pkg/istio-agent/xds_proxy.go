@@ -59,6 +59,7 @@ import (
 	"istio.io/istio/pkg/wasm"
 	"istio.io/istio/security/pkg/nodeagent/caclient"
 	"istio.io/istio/security/pkg/pki/util"
+	"istio.io/pkg/env"
 	"istio.io/pkg/log"
 )
 
@@ -377,7 +378,6 @@ func (p *XdsProxy) HandleUpstream(ctx context.Context, con *ProxyConnection, xds
 				con.upstreamError <- err
 				return
 			}
-			fmt.Printf("@@@ ecs responsesChan got %q from Istiod\n", resp.TypeUrl)
 			con.responsesChan <- resp
 		}
 	}()
@@ -733,7 +733,8 @@ func (p *XdsProxy) tapRequest(req *discovery.DiscoveryRequest) (chan interface{}
 		return nil, fmt.Errorf("proxy not connected to Istiod")
 	}
 
-	fmt.Printf("@@@ ecs Tap sending %q to Istiod\n", req.TypeUrl)
+	req.ResponseNonce = time.Now().String()
+
 	responseChannel := make(chan interface{})
 
 	p.tapMutex.Lock()
@@ -772,15 +773,19 @@ func (p *XdsProxy) directResponseToTapper(resp *discovery.DiscoveryResponse) {
 func (p *XdsProxy) makeTapHandler() func(w http.ResponseWriter, req *http.Request) {
 	return func(w http.ResponseWriter, req *http.Request) {
 
+		serviceAccount := env.RegisterStringVar("SERVICE_ACCOUNT", "default", "").Get()
+		podNamespace := env.RegisterStringVar("POD_NAMESPACE", "default", "").Get()
+		istioVersion := env.RegisterStringVar("ISTIO_META_ISTIO_VERSION", "1.9.1", "").Get()
+
 		responseChan, err := p.tapRequest(&discovery.DiscoveryRequest{
 			Node: &envoy_v3.Node{
 				Id: "sidecar~1.1.1.1~debug~cluster.local", // TODO pick up if we have it
 				Metadata: &structpb.Struct{
 					Fields: map[string]*structpb.Value{
-						"SERVICE_ACCOUNT": {Kind: &structpb.Value_StringValue{StringValue: "default"}}, // @@@ TODO remove
-						"NAMESPACE":       {Kind: &structpb.Value_StringValue{StringValue: "default"}}, // TODO pick up if we have it
+						"SERVICE_ACCOUNT": {Kind: &structpb.Value_StringValue{StringValue: serviceAccount}},
+						"NAMESPACE":       {Kind: &structpb.Value_StringValue{StringValue: podNamespace}},
 						"GENERATOR":       {Kind: &structpb.Value_StringValue{StringValue: "event"}},
-						"ISTIO_VERSION":   {Kind: &structpb.Value_StringValue{StringValue: "1.9.1"}}, // TODO pick up if we have it
+						"ISTIO_VERSION":   {Kind: &structpb.Value_StringValue{StringValue: istioVersion}},
 					},
 				},
 			},
