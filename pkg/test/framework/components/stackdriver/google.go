@@ -74,7 +74,7 @@ func (s *realStackdriver) ListTimeSeries(metricName, resourceName, namespace str
 		AggregationCrossSeriesReducer("REDUCE_NONE").
 		AggregationAlignmentPeriod("60s").
 		AggregationPerSeriesAligner("ALIGN_RATE").
-		Filter(fmt.Sprintf("metric.type = %q AND resource.type = %q & resource.labels.namespace_name = %q", metricName, resourceName, namespace)).
+		Filter(fmt.Sprintf("metric.type = %q AND resource.type = %q AND resource.labels.namespace_name = %q", metricName, resourceName, namespace)).
 		Context(context.Background())
 	resp, err := lr.Do()
 	if err != nil {
@@ -93,7 +93,7 @@ func (s *realStackdriver) ListTimeSeries(metricName, resourceName, namespace str
 func (s *realStackdriver) ListLogEntries(filter LogType, namespace string) ([]*loggingpb.LogEntry, error) {
 	resp, err := s.loggingService.Entries.List(&logging.ListLogEntriesRequest{
 		ResourceNames: []string{"projects/istio-prow-build"},
-		PageSize:      10,
+		PageSize:      200,
 		Filter: fmt.Sprintf("timestamp > %q AND logName=projects/istio-prow-build/logs/server-accesslog-stackdriver AND resource.labels.namespace_name=%q",
 			time.Now().Add(-5*time.Minute).Format(time.RFC3339), namespace),
 	}).Context(context.Background()).Do()
@@ -133,7 +133,7 @@ func (c *realStackdriver) ListTraces(namespace string) ([]*cloudtracepb.Trace, e
 		View("COMPLETE").
 		Filter(fmt.Sprintf("Label:istio.namespace:%v", namespace)).
 		Context(context.Background()).
-		PageSize(50).
+		PageSize(200).
 		Do()
 	if err != nil {
 		return nil, fmt.Errorf("unexpected error from the tracing backend: %v", err)
