@@ -811,14 +811,14 @@ func (p *XdsProxy) makeTapHandler() func(w http.ResponseWriter, req *http.Reques
 	}
 }
 
-// initDebugInterface() listens on :8080 for requests with path /debug/... forwards the paths as Istiod XDS requests
+// initDebugInterface() listens on :15009 for requests with path /debug/... forwards the paths as Istiod XDS requests
 func (p *XdsProxy) initDebugInterface() error {
 	p.tapRequests = make(map[string][]chan interface{})
 
 	httpMux := http.NewServeMux()
 	httpMux.HandleFunc("/debug/", p.makeTapHandler())
 
-	HTTPAddr := ":8080"
+	HTTPAddr := ":15009"
 	p.httpTapServer = &http.Server{
 		Addr:    HTTPAddr,
 		Handler: httpMux,
