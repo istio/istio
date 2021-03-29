@@ -19,21 +19,24 @@ import (
 	loggingpb "google.golang.org/genproto/googleapis/logging/v2"
 	monitoringpb "google.golang.org/genproto/googleapis/monitoring/v3"
 
+	md "istio.io/istio/pkg/bootstrap/platform"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/framework/components/cluster"
 	edgespb "istio.io/istio/pkg/test/framework/components/stackdriver/edges"
 	"istio.io/istio/pkg/test/framework/resource"
 )
 
+var useRealSD bool
+
 // Instance represents a deployed Stackdriver app instance in a Kubernetes cluster.
 type Instance interface {
 	Address() string
 	// Gets the namespace in which stackdriver is deployed.
 	GetStackdriverNamespace() string
-	ListTimeSeries() ([]*monitoringpb.TimeSeries, error)
-	ListLogEntries(LogType) ([]*loggingpb.LogEntry, error)
+	ListTimeSeries(namespace string) ([]*monitoringpb.TimeSeries, error)
+	ListLogEntries(lt LogType, namespace string) ([]*loggingpb.LogEntry, error)
 	ListTrafficAssertions() ([]*edgespb.TrafficAssertion, error)
-	ListTraces() ([]*cloudtracepb.Trace, error)
+	ListTraces(namespace string) ([]*cloudtracepb.Trace, error)
 }
 
 type Config struct {
@@ -42,17 +45,25 @@ type Config struct {
 }
 
 // New returns a new instance of stackdriver.
-func New(ctx resource.Context, c Config) (i Instance, err error) {
+func New(ctx resource.Context, c Config, realSD bool) (i Instance, err error) {
+	useRealSD = realSD
+	if UseRealStackdriver() {
+		return newRealStackdriver(ctx, c)
+	}
 	return newKube(ctx, c)
 }
 
 // NewOrFail returns a new Stackdriver instance or fails test.
-func NewOrFail(t test.Failer, ctx resource.Context, c Config) Instance {
+func NewOrFail(t test.Failer, ctx resource.Context, c Config, realSD bool) Instance {
 	t.Helper()
-	i, err := New(ctx, c)
+	i, err := New(ctx, c, realSD)
 	if err != nil {
 		t.Fatalf("stackdriver.NewOrFail: %v", err)
 	}
 
 	return i
+}
+
+func UseRealStackdriver() bool {
+	return useRealSD && md.IsGCP()
 }

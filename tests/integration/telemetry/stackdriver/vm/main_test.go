@@ -146,7 +146,7 @@ func testSetup(ctx resource.Context) error {
 		return err
 	}
 
-	if sdInst, err = stackdriver.New(ctx, stackdriver.Config{}); err != nil {
+	if sdInst, err = stackdriver.New(ctx, stackdriver.Config{}, false); err != nil {
 		return err
 	}
 

@@ -17,10 +17,12 @@ package stackdriver
 
 import (
 	"context"
+	"path/filepath"
 	"testing"
 
 	"golang.org/x/sync/errgroup"
 
+	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/stackdriver"
@@ -30,9 +32,9 @@ import (
 )
 
 const (
-	tcpServerConnectionCount = "testdata/server_tcp_connection_count.json.tmpl"
-	tcpClientConnectionCount = "testdata/client_tcp_connection_count.json.tmpl"
-	tcpServerLogEntry        = "testdata/tcp_server_access_log.json.tmpl"
+	tcpServerConnectionCount = "tests/integration/telemetry/stackdriver/testdata/server_tcp_connection_count.json.tmpl"
+	tcpClientConnectionCount = "tests/integration/telemetry/stackdriver/testdata/client_tcp_connection_count.json.tmpl"
+	tcpServerLogEntry        = "tests/integration/telemetry/stackdriver/testdata/tcp_server_access_log.json.tmpl"
 )
 
 // TestTCPStackdriverMonitoring verifies that stackdriver TCP filter works.
@@ -56,10 +58,12 @@ func TestTCPStackdriverMonitoring(t *testing.T) {
 						t.Logf("Validating Telemetry for Cluster %v", cltInstance.Config().Cluster)
 						clName := cltInstance.Config().Cluster.Name()
 						trustDomain := telemetry.GetTrustDomain(cltInstance.Config().Cluster, ist.Settings().SystemNamespace)
-						if err := validateMetrics(t, tcpServerConnectionCount, tcpClientConnectionCount, clName, trustDomain); err != nil {
+						if err := validateMetrics(t, filepath.Join(env.IstioSrc, tcpServerConnectionCount),
+							filepath.Join(env.IstioSrc, tcpClientConnectionCount), clName, trustDomain); err != nil {
 							return err
 						}
-						if err := validateLogs(t, tcpServerLogEntry, clName, trustDomain, stackdriver.ServerAccessLog); err != nil {
+						if err := validateLogs(t, filepath.Join(env.IstioSrc, tcpServerLogEntry), clName,
+							trustDomain, stackdriver.ServerAccessLog); err != nil {
 							return err
 						}
 

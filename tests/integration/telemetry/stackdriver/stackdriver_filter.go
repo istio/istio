@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -32,6 +33,7 @@ import (
 	monitoring "google.golang.org/genproto/googleapis/monitoring/v3"
 
 	"istio.io/istio/pkg/config/protocol"
+	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/echo/echoboot"
@@ -50,14 +52,12 @@ import (
 )
 
 const (
-	stackdriverBootstrapOverride = "testdata/custom_bootstrap.yaml.tmpl"
-	serverRequestCount           = "testdata/server_request_count.json.tmpl"
-	clientRequestCount           = "testdata/client_request_count.json.tmpl"
-	serverLogEntry               = "testdata/server_access_log.json.tmpl"
-	trafficAssertionTmpl         = "testdata/traffic_assertion.json.tmpl"
+	stackdriverBootstrapOverride = "tests/integration/telemetry/stackdriver/testdata/custom_bootstrap.yaml.tmpl"
+	serverRequestCount           = "tests/integration/telemetry/stackdriver/testdata/server_request_count.json.tmpl"
+	clientRequestCount           = "tests/integration/telemetry/stackdriver/testdata/client_request_count.json.tmpl"
+	serverLogEntry               = "tests/integration/telemetry/stackdriver/testdata/server_access_log.json.tmpl"
+	trafficAssertionTmpl         = "tests/integration/telemetry/stackdriver/testdata/traffic_assertion.json.tmpl"
 	sdBootstrapConfigMap         = "stackdriver-bootstrap-config"
-
-	projectsPrefix = "projects/test-project"
 
 	fakeGCEMetadataServerValues = `
   defaultConfig:
@@ -117,11 +117,12 @@ func TestStackdriverMonitoring(t *testing.T) {
 						scopes.Framework.Infof("Validating for cluster %s", clName)
 
 						// Validate cluster names in telemetry below once https://github.com/istio/istio/issues/28125 is fixed.
-						if err := validateMetrics(t, serverRequestCount, clientRequestCount, clName, trustDomain); err != nil {
+						if err := validateMetrics(t, filepath.Join(env.IstioSrc, serverRequestCount), filepath.Join(env.IstioSrc, clientRequestCount),
+							clName, trustDomain); err != nil {
 							return err
 						}
 						t.Logf("Metrics validated")
-						if err := validateLogs(t, serverLogEntry, clName, trustDomain, stackdriver.ServerAccessLog); err != nil {
+						if err := validateLogs(t, filepath.Join(env.IstioSrc, serverLogEntry), clName, trustDomain, stackdriver.ServerAccessLog); err != nil {
 							return err
 						}
 						t.Logf("logs validated")
@@ -129,8 +130,11 @@ func TestStackdriverMonitoring(t *testing.T) {
 							return err
 						}
 						t.Logf("Traces validated")
-						if err := validateEdges(t, clName, trustDomain); err != nil {
-							return err
+						if !stackdriver.UseRealStackdriver() {
+							// Only verify edge if using fake sd, since real google backend does not provide public query API for edge.
+							if err := validateEdges(t, clName, trustDomain); err != nil {
+								return err
+							}
 						}
 						t.Logf("Edges validated")
 
@@ -148,12 +152,14 @@ func TestStackdriverMonitoring(t *testing.T) {
 		})
 }
 
-func TestMain(m *testing.M) {
-	framework.NewSuite(m).
-		Label(label.CustomSetup).
+func TestMainSetup(s framework.Suite, useRealSD bool) {
+	setup := func(ctx resource.Context) error {
+		return testSetup(ctx, useRealSD)
+	}
+	s.Label(label.CustomSetup).
 		Setup(conditionallySetupMetadataServer).
 		Setup(istio.Setup(getIstioInstance(), setupConfig)).
-		Setup(testSetup).
+		Setup(setup).
 		Run()
 }
 
@@ -193,7 +199,7 @@ func conditionallySetupMetadataServer(ctx resource.Context) (err error) {
 	return nil
 }
 
-func testSetup(ctx resource.Context) (err error) {
+func testSetup(ctx resource.Context, useRealSD bool) (err error) {
 	echoNsInst, err = namespace.New(ctx, namespace.Config{
 		Prefix: "istio-echo",
 		Inject: true,
@@ -202,17 +208,18 @@ func testSetup(ctx resource.Context) (err error) {
 		return
 	}
 
-	sdInst, err = stackdriver.New(ctx, stackdriver.Config{})
+	sdInst, err = stackdriver.New(ctx, stackdriver.Config{}, useRealSD)
 	if err != nil {
 		return
 	}
-	templateBytes, err := ioutil.ReadFile(stackdriverBootstrapOverride)
+	templateBytes, err := ioutil.ReadFile(filepath.Join(env.IstioSrc, stackdriverBootstrapOverride))
 	if err != nil {
 		return
 	}
 	sdBootstrap, err := tmpl.Evaluate(string(templateBytes), map[string]interface{}{
 		"StackdriverAddress": sdInst.Address(),
 		"EchoNamespace":      getEchoNamespaceInstance().Name(),
+		"UseRealSD":          useRealSD,
 	})
 	if err != nil {
 		return
@@ -324,7 +331,7 @@ func validateMetrics(t *testing.T, serverReqCount, clientReqCount, clName, trust
 	}
 
 	// Traverse all time series received and compare with expected client and server time series.
-	ts, err := sdInst.ListTimeSeries()
+	ts, err := sdInst.ListTimeSeries(getEchoNamespaceInstance().Name())
 	if err != nil {
 		return fmt.Errorf("metrics: error getting time-series from Stackdriver: %v", err)
 	}
@@ -332,6 +339,9 @@ func validateMetrics(t *testing.T, serverReqCount, clientReqCount, clName, trust
 	t.Logf("number of timeseries: %v", len(ts))
 	var gotServer, gotClient bool
 	for _, tt := range ts {
+		if tt == nil {
+			continue
+		}
 		if tt.Metric.Type != wantClient.Metric.Type && tt.Metric.Type != wantServer.Metric.Type {
 			continue
 		}
@@ -357,7 +367,7 @@ func validateLogs(t *testing.T, srvLogEntry, clName, trustDomain string, filter 
 	}
 
 	// Traverse all log entries received and compare with expected server log entry.
-	entries, err := sdInst.ListLogEntries(filter)
+	entries, err := sdInst.ListLogEntries(filter, getEchoNamespaceInstance().Name())
 	if err != nil {
 		return fmt.Errorf("logs: failed to get received log entries: %v", err)
 	}
@@ -374,7 +384,7 @@ func validateEdges(t *testing.T, clName, trustDomain string) error {
 	t.Helper()
 
 	var wantEdge edgespb.TrafficAssertion
-	if err := unmarshalFromTemplateFile(trafficAssertionTmpl, &wantEdge, clName, trustDomain); err != nil {
+	if err := unmarshalFromTemplateFile(filepath.Join(env.IstioSrc, trafficAssertionTmpl), &wantEdge, clName, trustDomain); err != nil {
 		return fmt.Errorf("edges: failed to build wanted traffic assertion: %v", err)
 	}
 	edges, err := sdInst.ListTrafficAssertions()
@@ -402,18 +412,14 @@ func validateTraces(t *testing.T) error {
 
 	// we are looking for a trace that looks something like:
 	//
-	// project_id:"projects/test-project"
+	// project_id:"test-project"
 	// trace_id:"99bc9a02417c12c4877e19a4172ae11a"
 	// spans:{
 	//   span_id:440543054939690778
-	//   name:"projects/test-project/traces/99bc9a02417c12c4877e19a4172ae11a/spans/061d1f9309f2171a"
+	//   name:"srv.istio-echo-1-92573.svc.cluster.local:80/*"
 	//   start_time:{seconds:1594418699  nanos:648039133}
 	//   end_time:{seconds:1594418699  nanos:669864006}
 	//   parent_span_id:18050098903530484457
-	//   labels:{
-	//     key:"span"
-	//     value:"srv.istio-echo-1-92573.svc.cluster.local:80/*"
-	//   }
 	// }
 	//
 	// we only need to validate the span value in the labels and project_id for
@@ -422,21 +428,15 @@ func validateTraces(t *testing.T) error {
 	// future improvements include adding canonical service info, etc. in the
 	// span.
 
-	wantSpanLabel := fmt.Sprintf("srv.%s.svc.cluster.local:80/*", getEchoNamespaceInstance().Name())
-	traces, err := sdInst.ListTraces()
+	wantSpanName := fmt.Sprintf("srv.%s.svc.cluster.local:80/*", getEchoNamespaceInstance().Name())
+	traces, err := sdInst.ListTraces(getEchoNamespaceInstance().Name())
 	if err != nil {
 		return fmt.Errorf("traces: could not retrieve traces from Stackdriver: %v", err)
 	}
 	for _, trace := range traces {
 		t.Logf("trace: %v\n", trace)
-		if trace.ProjectId != projectsPrefix {
-			continue
-		}
 		for _, span := range trace.Spans {
-			if !strings.HasPrefix(span.Name, projectsPrefix) {
-				continue
-			}
-			if got, ok := span.Labels["span"]; ok && got == wantSpanLabel {
+			if span.Name == wantSpanName {
 				return nil
 			}
 		}
