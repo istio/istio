@@ -54,7 +54,7 @@ if (process.env.SERVICE_VERSION === 'v2') {
     var password = process.env.MYSQL_DB_PASSWORD
   } else {
     var MongoClient = require('mongodb').MongoClient
-    var url = process.env.MONGO_DB_URL
+    var url = process.env.MONGODB_PORT
   }
 }
 
