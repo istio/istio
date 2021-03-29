@@ -42,35 +42,35 @@ func debugCommand() *cobra.Command {
 	var centralOpts clioptions.CentralControlPlaneOptions
 
 	debugCommand := &cobra.Command{
-		Use:   "debug [<type>/]<name>[.<namespace>]",
+		Use:   "internal-debug [<type>/]<name>[.<namespace>]",
 		Short: "Retrieves the debug information of istio",
 		Long: `
 Retrieves the debug information from Istiod or Pods in the mesh using the service account from the pod if --cert-dir is empty.
 By default it will use the default serviceAccount from (istio-system) namespace if the pod is not specified.
 `,
 		Example: `  # Retrieve sync status for all Envoys in a mesh
-  istioctl x debug syncz
+  istioctl x internal-debug syncz
 
   # Retrieve sync diff for a single Envoy and Istiod
-  istioctl x debug syncz istio-egressgateway-59585c5b9c-ndc59.istio-system
+  istioctl x internal-debug syncz istio-egressgateway-59585c5b9c-ndc59.istio-system
 
   # SECURITY OPTIONS
 
   # Retrieve syncz debug information directly from the control plane, using token security
   # (This is the usual way to get the debug information with an out-of-cluster control plane.)
-  istioctl x debug syncz --xds-address istio.cloudprovider.example.com:15012
+  istioctl x internal-debug syncz --xds-address istio.cloudprovider.example.com:15012
 
   # Retrieve syncz debug information via Kubernetes config, using token security
   # (This is the usual way to get the debug information with an in-cluster control plane.)
-  istioctl x debug syncz
+  istioctl x internal-debug syncz
 
   # Retrieve syncz debug information directly from the control plane, using RSA certificate security
   # (Certificates must be obtained before this step.  The --cert-dir flag lets istioctl bypass the Kubernetes API server.)
-  istioctl x debug syncz --xds-address istio.example.com:15012 --cert-dir ~/.istio-certs
+  istioctl x internal-debug syncz --xds-address istio.example.com:15012 --cert-dir ~/.istio-certs
 
   # Retrieve syncz information via XDS from specific control plane in multi-control plane in-cluster configuration
   # (Select a specific control plane in an in-cluster canary Istio configuration.)
-  istioctl x debug syncz --xds-label istio.io/rev=default
+  istioctl x internal-debug syncz --xds-label istio.io/rev=default
 `,
 		RunE: func(c *cobra.Command, args []string) error {
 			kubeClient, err := kubeClientWithRevision(kubeconfig, configContext, opts.Revision)
