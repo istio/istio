@@ -83,6 +83,7 @@ func TestLocalRouteSpecificRateLimiting(t *testing.T) {
 }
 
 func TestLocalRateLimitingServiceAccount(t *testing.T) {
+	t.Skip("bianpengyuan")
 	framework.
 		NewTest(t).
 		Features("traffic.ratelimit.envoy").

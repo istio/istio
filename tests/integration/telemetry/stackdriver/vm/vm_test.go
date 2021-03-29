@@ -38,7 +38,6 @@ import (
 )
 
 func TestVMTelemetry(t *testing.T) {
-	t.Skip("bianpengyuan")
 	framework.
 		NewTest(t).
 		Features("observability.telemetry.stackdriver").
@@ -110,11 +109,17 @@ func traceEqual(got, want *cloudtrace.Trace) bool {
 }
 
 func gotRequestCountMetrics(wantClient, wantServer *monitoring.TimeSeries) bool {
-	ts, err := sdInst.ListTimeSeries("istio.io/service/server/request_count", "gce_instance")
+	serverTS, err := sdInst.ListTimeSeries("istio.io/service/server/request_count", "k8s_container")
 	if err != nil {
-		log.Errorf("could not get list of time-series from stackdriver: %v", err)
-		return false
+		return fmt.Errorf("metrics: error getting time-series from Stackdriver: %v", err)
 	}
+	clientTS, err := sdInst.ListTimeSeries("istio.io/service/client/request_count", "k8s_pod")
+	if err != nil {
+		return fmt.Errorf("metrics: error getting time-series from Stackdriver: %v", err)
+	}
+	ts := make([]*monitoring.TimeSeries, 0, len(clientTS)+len(serverTS))
+	ts = append(ts, serverTS...)
+	ts = append(ts, clientTS...)
 
 	var gotServer, gotClient bool
 	for _, series := range ts {
