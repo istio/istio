@@ -68,7 +68,6 @@ func NewStatusGen(s *DiscoveryServer) *StatusGen {
 // - NACKs
 // We can also expose ACKS.
 func (sg *StatusGen) Generate(proxy *model.Proxy, push *model.PushContext, w *model.WatchedResource, updates *model.PushRequest) (model.Resources, error) {
-	fmt.Printf("@@@ ecs REACHED StatusGen.Generate()")
 	res := []*any.Any{}
 
 	switch w.TypeUrl {
