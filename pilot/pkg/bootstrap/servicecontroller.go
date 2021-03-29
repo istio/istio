@@ -18,8 +18,6 @@ import (
 	"fmt"
 	"time"
 
-	"istio.io/istio/pkg/kube/secretcontroller"
-
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry"
 	"istio.io/istio/pilot/pkg/serviceregistry/aggregate"
@@ -27,6 +25,7 @@ import (
 	"istio.io/istio/pilot/pkg/serviceregistry/mock"
 	"istio.io/istio/pilot/pkg/serviceregistry/serviceentry"
 	"istio.io/istio/pkg/config/host"
+	"istio.io/istio/pkg/kube/secretcontroller"
 	"istio.io/pkg/log"
 )
 
