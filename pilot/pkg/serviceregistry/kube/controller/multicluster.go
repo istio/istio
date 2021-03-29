@@ -21,6 +21,10 @@ import (
 	"sync"
 	"time"
 
+	"k8s.io/client-go/tools/cache"
+
+	"go.uber.org/atomic"
+
 	"golang.org/x/sync/errgroup"
 	"k8s.io/client-go/kubernetes"
 
@@ -44,6 +48,9 @@ import (
 const (
 	// Name of the webhook config in the config - no need to change it.
 	webhookName = "sidecar-injector.istio.io"
+
+	// readinessTtimeout is the maximum time we block readiness to allow multicluster registries to ready
+	readinessTimeout = 15 * time.Second
 )
 
 var (
@@ -90,6 +97,8 @@ type Multicluster struct {
 	secretNamespace  string
 	secretController *secretcontroller.Controller
 	syncInterval     time.Duration
+
+	synced *atomic.Bool
 }
 
 // NewMulticluster initializes data structure to store multicluster information
@@ -130,15 +139,32 @@ func NewMulticluster(
 		syncInterval:          opts.GetSyncInterval(),
 		client:                kc,
 		s:                     s,
+		synced:                atomic.NewBool(false),
 	}
 
 	return mc
 }
 
 func (m *Multicluster) Run(stopCh <-chan struct{}) error {
+	go m.sync()
 	// Wait for server shutdown.
 	<-stopCh
 	return m.close()
+}
+
+func (m *Multicluster) sync() {
+	timeout := time.After(10 * time.Second)
+	done := make(chan struct{})
+	go func() {
+		cache.WaitForCacheSync(done, m.secretController.HasSynced)
+		close(done)
+	}()
+	select {
+	case <-timeout:
+		log.Warnf("multicluster registries not ready after %v")
+	case <-done:
+	}
+	m.synced.Store(true)
 }
 
 func (m *Multicluster) close() (err error) {
@@ -380,5 +406,5 @@ func (m *Multicluster) InitSecretController(stop <-chan struct{}) {
 }
 
 func (m *Multicluster) HasSynced() bool {
-	return m.secretController.HasSynced()
+	return m.synced.Load()
 }

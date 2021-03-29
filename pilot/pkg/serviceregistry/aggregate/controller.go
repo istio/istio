@@ -286,6 +286,7 @@ func (c *Controller) Running() bool {
 // HasSynced returns true when all registries have synced
 func (c *Controller) HasSynced() bool {
 	for _, r := range c.GetRegistries() {
+		// the readiness of multicluster registries are handled elsewhere
 		if r.Cluster() != c.configCluster {
 			continue
 		}
