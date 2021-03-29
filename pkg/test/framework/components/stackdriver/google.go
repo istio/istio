@@ -91,11 +91,12 @@ func (s *realStackdriver) ListTimeSeries(metricName, resourceName, namespace str
 }
 
 func (s *realStackdriver) ListLogEntries(filter LogType, namespace string) ([]*loggingpb.LogEntry, error) {
+	logName := logNameSuffix(filter)
 	resp, err := s.loggingService.Entries.List(&logging.ListLogEntriesRequest{
 		ResourceNames: []string{"projects/istio-prow-build"},
 		PageSize:      200,
-		Filter: fmt.Sprintf("timestamp > %q AND logName=projects/istio-prow-build/logs/server-accesslog-stackdriver AND resource.labels.namespace_name=%q",
-			time.Now().Add(-5*time.Minute).Format(time.RFC3339), namespace),
+		Filter: fmt.Sprintf("timestamp > %q AND logName:%q AND resource.labels.namespace_name=%q",
+			time.Now().Add(-5*time.Minute).Format(time.RFC3339), logName, namespace),
 	}).Context(context.Background()).Do()
 	if err != nil {
 		return nil, fmt.Errorf("unexpected error from the logging backend: %v", err)

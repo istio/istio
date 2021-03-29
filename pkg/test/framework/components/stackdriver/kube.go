@@ -253,13 +253,7 @@ func trimMetricLabels(r *monitoringpb.ListTimeSeriesResponse) []*monitoringpb.Ti
 }
 
 func trimLogLabels(r *loggingpb.ListLogEntriesResponse, filter LogType) []*loggingpb.LogEntry {
-	var logNameFilter string
-	switch filter {
-	case ServerAuditLog:
-		logNameFilter = "/server-istio-audit-log"
-	case ServerAccessLog:
-		logNameFilter = "/server-accesslog-stackdriver"
-	}
+	logNameFilter := logNameSuffix(filter)
 
 	var ret []*loggingpb.LogEntry
 	for _, l := range r.Entries {
@@ -297,4 +291,14 @@ func trimLogLabels(r *loggingpb.ListLogEntriesResponse, filter LogType) []*loggi
 		ret = append(ret, l)
 	}
 	return ret
+}
+
+func logNameSuffix(filter LogType) string {
+	switch filter {
+	case ServerAuditLog:
+		return "server-istio-audit-log"
+	case ServerAccessLog:
+		return "server-accesslog-stackdriver"
+	}
+	return ""
 }

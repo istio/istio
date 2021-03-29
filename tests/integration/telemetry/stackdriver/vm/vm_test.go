@@ -109,7 +109,7 @@ func traceEqual(got, want *cloudtrace.Trace) bool {
 }
 
 func gotRequestCountMetrics(wantClient, wantServer *monitoring.TimeSeries) bool {
-	serverTS, err := sdInst.ListTimeSeries("istio.io/service/server/request_count", "k8s_container", ns.Name())
+	serverTS, err := sdInst.ListTimeSeries("istio.io/service/server/request_count", "gce_instance", ns.Name())
 	if err != nil {
 		log.Errorf("metrics: error getting time-series from Stackdriver: %v", err)
 		return false
@@ -136,7 +136,7 @@ func gotRequestCountMetrics(wantClient, wantServer *monitoring.TimeSeries) bool 
 	}
 
 	if !gotServer {
-		log.Errorf("incorrect metric: got %v\n want client %v\n", ts, wantServer)
+		log.Errorf("incorrect metric: got %v\n want server %v\n", ts, wantServer)
 	}
 	if !gotClient {
 		log.Errorf("incorrect metric: got %v\n want client %v\n", ts, wantClient)
