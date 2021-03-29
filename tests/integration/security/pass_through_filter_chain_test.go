@@ -16,17 +16,18 @@
 package security
 
 import (
-	"context"
 	"fmt"
 	"testing"
 
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/test"
+	"istio.io/istio/pkg/test/echo/client"
 	"istio.io/istio/pkg/test/echo/common/response"
-	epb "istio.io/istio/pkg/test/echo/proto"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
-	"istio.io/istio/pkg/test/util/retry"
+	"istio.io/istio/pkg/test/framework/components/echo/echotest"
+	"istio.io/istio/pkg/test/util/tmpl"
+	"istio.io/istio/pkg/test/util/yml"
 	"istio.io/istio/tests/integration/security/util"
 )
 
@@ -38,9 +39,8 @@ func TestPassThroughFilterChain(t *testing.T) {
 		Run(func(ctx framework.TestContext) {
 			ns := apps.Namespace1
 			type expect struct {
-				port   int
-				schema protocol.Instance
-				want   bool
+				port *echo.Port
+				want bool
 			}
 			cases := []struct {
 				name     string
@@ -61,24 +61,20 @@ spec:
     mode: DISABLE`,
 					expected: []expect{
 						{
-							port:   8085,
-							schema: protocol.HTTP,
-							want:   true,
+							port: &echo.Port{ServicePort: 8085, Protocol: protocol.HTTP},
+							want: true,
 						},
 						{
-							port:   8086,
-							schema: protocol.HTTP,
-							want:   true,
+							port: &echo.Port{ServicePort: 8086, Protocol: protocol.HTTP},
+							want: true,
 						},
 						{
-							port:   8087,
-							schema: protocol.TCP,
-							want:   true,
+							port: &echo.Port{ServicePort: 8087, Protocol: protocol.TCP},
+							want: true,
 						},
 						{
-							port:   8088,
-							schema: protocol.TCP,
-							want:   true,
+							port: &echo.Port{ServicePort: 8088, Protocol: protocol.TCP},
+							want: true,
 						},
 					},
 				},
@@ -105,24 +101,20 @@ spec:
         ports: ["8085", "8087"]`,
 					expected: []expect{
 						{
-							port:   8085,
-							schema: protocol.HTTP,
-							want:   true,
+							port: &echo.Port{ServicePort: 8085, Protocol: protocol.HTTP},
+							want: true,
 						},
 						{
-							port:   8086,
-							schema: protocol.HTTP,
-							want:   false,
+							port: &echo.Port{ServicePort: 8086, Protocol: protocol.HTTP},
+							want: false,
 						},
 						{
-							port:   8087,
-							schema: protocol.TCP,
-							want:   true,
+							port: &echo.Port{ServicePort: 8087, Protocol: protocol.TCP},
+							want: true,
 						},
 						{
-							port:   8088,
-							schema: protocol.TCP,
-							want:   false,
+							port: &echo.Port{ServicePort: 8088, Protocol: protocol.TCP},
+							want: false,
 						},
 					},
 				},
@@ -139,24 +131,20 @@ spec:
     mode: STRICT`,
 					expected: []expect{
 						{
-							port:   8085,
-							schema: protocol.HTTP,
-							want:   false,
+							port: &echo.Port{ServicePort: 8085, Protocol: protocol.HTTP},
+							want: false,
 						},
 						{
-							port:   8086,
-							schema: protocol.HTTP,
-							want:   false,
+							port: &echo.Port{ServicePort: 8086, Protocol: protocol.HTTP},
+							want: false,
 						},
 						{
-							port:   8087,
-							schema: protocol.TCP,
-							want:   false,
+							port: &echo.Port{ServicePort: 8087, Protocol: protocol.TCP},
+							want: false,
 						},
 						{
-							port:   8088,
-							schema: protocol.TCP,
-							want:   false,
+							port: &echo.Port{ServicePort: 8088, Protocol: protocol.TCP},
+							want: false,
 						},
 					},
 				},
@@ -173,24 +161,20 @@ spec:
     mode: PERMISSIVE`,
 					expected: []expect{
 						{
-							port:   8085,
-							schema: protocol.HTTP,
-							want:   true,
+							port: &echo.Port{ServicePort: 8085, Protocol: protocol.HTTP},
+							want: true,
 						},
 						{
-							port:   8086,
-							schema: protocol.HTTP,
-							want:   true,
+							port: &echo.Port{ServicePort: 8086, Protocol: protocol.HTTP},
+							want: true,
 						},
 						{
-							port:   8087,
-							schema: protocol.TCP,
-							want:   true,
+							port: &echo.Port{ServicePort: 8087, Protocol: protocol.TCP},
+							want: true,
 						},
 						{
-							port:   8088,
-							schema: protocol.TCP,
-							want:   true,
+							port: &echo.Port{ServicePort: 8088, Protocol: protocol.TCP},
+							want: true,
 						},
 					},
 				},
@@ -206,7 +190,7 @@ metadata:
 spec:
   selector:
     matchLabels:
-      app: a
+      app: {{ .dst }}
   mtls:
     mode: DISABLE
   portLevelMtls:
@@ -216,24 +200,20 @@ spec:
       mode: STRICT`,
 					expected: []expect{
 						{
-							port:   8085,
-							schema: protocol.HTTP,
-							want:   true,
+							port: &echo.Port{ServicePort: 8085, Protocol: protocol.HTTP},
+							want: true,
 						},
 						{
-							port:   8086,
-							schema: protocol.HTTP,
-							want:   false,
+							port: &echo.Port{ServicePort: 8086, Protocol: protocol.HTTP},
+							want: false,
 						},
 						{
-							port:   8087,
-							schema: protocol.TCP,
-							want:   true,
+							port: &echo.Port{ServicePort: 8087, Protocol: protocol.TCP},
+							want: true,
 						},
 						{
-							port:   8088,
-							schema: protocol.TCP,
-							want:   false,
+							port: &echo.Port{ServicePort: 8088, Protocol: protocol.TCP},
+							want: false,
 						},
 					},
 				},
@@ -248,7 +228,7 @@ metadata:
 spec:
   selector:
     matchLabels:
-      app: a
+      app: {{ .dst }}
   mtls:
     mode: STRICT
   portLevelMtls:
@@ -258,83 +238,104 @@ spec:
       mode: DISABLE`,
 					expected: []expect{
 						{
-							port:   8085,
-							schema: protocol.HTTP,
-							want:   false,
+							port: &echo.Port{ServicePort: 8085, Protocol: protocol.HTTP},
+							want: false,
 						},
 						{
-							port:   8086,
-							schema: protocol.HTTP,
-							want:   true,
+							port: &echo.Port{ServicePort: 8086, Protocol: protocol.HTTP},
+							want: true,
 						},
 						{
-							port:   8087,
-							schema: protocol.TCP,
-							want:   false,
+							port: &echo.Port{ServicePort: 8087, Protocol: protocol.TCP},
+							want: false,
 						},
 						{
-							port:   8088,
-							schema: protocol.TCP,
-							want:   true,
+							port: &echo.Port{ServicePort: 8088, Protocol: protocol.TCP},
+							want: true,
 						},
 					},
 				},
 			}
 
-			for _, cluster := range ctx.Clusters() {
-				client := apps.Naked.Match(echo.InCluster(cluster)).GetOrFail(ctx, echo.Namespace(ns.Name()))
-				destination := apps.A.Match(echo.Namespace(ns.Name())).GetOrFail(ctx, echo.InCluster(cluster))
-				from := getWorkload(client, ctx)
-				destWorkload := getWorkload(destination, ctx).Address()
-				for _, tc := range cases {
-					ctx.NewSubTest(fmt.Sprintf("In %s/%v", cluster.StableName(), tc.name)).Run(func(ctx framework.TestContext) {
-						ctx.Config().ApplyYAMLOrFail(ctx, ns.Name(), tc.config)
-						util.WaitForConfig(ctx, tc.config, ns)
-						defer ctx.Config().DeleteYAMLOrFail(t, ns.Name(), tc.config)
+			// srcFilter finds the naked app as client.
+			// TODO(slandow) replace this with built-in framework filters (blocked by https://github.com/istio/istio/pull/31565)
+			srcFilter := []echotest.SimpleFilter{func(instances echo.Instances) echo.Instances {
+				return apps.Naked.Match(echo.Namespace(ns.Name()))
+			}}
+			for _, tc := range cases {
+				echotest.New(ctx, apps.All).
+					SetupForPair(func(t framework.TestContext, src, dst echo.Instances) error {
+						cfg := yml.MustApplyNamespace(t, tmpl.MustEvaluate(
+							tc.config,
+							map[string]string{
+								"dst": dst[0].Config().Service,
+							},
+						), ns.Name())
+						if err := t.Config().ApplyYAML(ns.Name(), cfg); err != nil {
+							return err
+						}
+						util.WaitForConfig(t, cfg, ns)
+						defer t.Config().DeleteYAMLOrFail(t, ns.Name(), cfg)
+						return nil
+					}).
+					From(srcFilter...).
+					ConditionallyTo(echotest.ReachableDestinations).
+					To(
+						echotest.SingleSimplePodServiceAndAllSpecial(),
+						echotest.Not(func(instances echo.Instances) echo.Instances { return instances.Match(echo.IsHeadless()) }),
+						echotest.Not(func(instances echo.Instances) echo.Instances { return instances.Match(echo.IsNaked()) }),
+						echotest.Not(func(instances echo.Instances) echo.Instances { return instances.Match(echo.IsExternal()) }),
+						echotest.Not(func(instances echo.Instances) echo.Instances { return instances.Match(util.IsMultiversion()) }),
+						func(instances echo.Instances) echo.Instances { return instances.Match(echo.Namespace(ns.Name())) },
+					).
+					Run(func(t framework.TestContext, src echo.Instance, dest echo.Instances) {
+						clusterName := src.Config().Cluster.StableName()
+						if dest[0].Config().Cluster.StableName() != clusterName {
+							t.Skip()
+						}
 						for _, expect := range tc.expected {
-							name := fmt.Sprintf("port %d[%t]", expect.port, expect.want)
-
-							// The request should be handled by the pass through filter chain.
-							host := fmt.Sprintf("%s:%d", destWorkload, expect.port)
-							request := &epb.ForwardEchoRequest{
-								Url:     fmt.Sprintf("%s://%s", expect.schema, host),
-								Message: "HelloWorld",
-								Headers: []*epb.Header{
-									{
-										Key:   "Host",
-										Value: host,
-									},
+							name := fmt.Sprintf("In %s/%v/port %d[%t]", clusterName, tc.name, expect.port.ServicePort, expect.want)
+							host := fmt.Sprintf("%s:%d", getWorkload(dest[0], t).Address(), expect.port.ServicePort)
+							callOpt := echo.CallOptions{
+								Count: util.CallsPerCluster * len(dest),
+								Port:  expect.port,
+								Headers: map[string][]string{
+									"Host": {host},
 								},
-							}
-							ctx.NewSubTest(name).Run(func(ctx framework.TestContext) {
-								retry.UntilSuccessOrFail(ctx, func() error {
-									responses, err := from.ForwardEcho(context.TODO(), request)
-									if expect.want {
-										if err != nil {
-											return fmt.Errorf("want allow but got error: %v", err)
-										}
-										if len(responses) < 1 {
-											return fmt.Errorf("received no responses from request to %s", host)
-										}
-										if expect.schema == protocol.HTTP && response.StatusCodeOK != responses[0].Code {
-											return fmt.Errorf("want status %s but got %s", response.StatusCodeOK, responses[0].Code)
-										}
-									} else {
-										// Check HTTP forbidden response
-										if len(responses) >= 1 && response.StatusCodeForbidden == responses[0].Code {
-											return nil
-										}
+								Message: "HelloWorld",
+								// Do not set Target to dest, otherwise fillInCallOptions() will
+								// complain with port does not match.
+								Address: getWorkload(dest[0], t).Address(),
+								Validator: echo.And(echo.ValidatorFunc(
+									func(responses client.ParsedResponses, err error) error {
+										if expect.want {
+											if err != nil {
+												return fmt.Errorf("want allow but got error: %v", err)
+											}
+											if responses.Len() < 1 {
+												return fmt.Errorf("received no responses from request to %s", host)
+											}
+											if okErr := responses.CheckOK(); okErr != nil && expect.port.Protocol == protocol.HTTP {
+												return fmt.Errorf("want status %s but got %s", response.StatusCodeOK, okErr.Error())
+											}
+										} else {
+											// Check HTTP forbidden response
+											if responses.Len() >= 1 && responses.CheckCode(response.StatusCodeForbidden) == nil {
+												return nil
+											}
 
-										if err == nil {
-											return fmt.Errorf("want error but got none: %v", responses)
+											if err == nil {
+												return fmt.Errorf("want error but got none: %v", responses.String())
+											}
 										}
-									}
-									return nil
-								}, echo.DefaultCallRetryOptions()...)
+										return nil
+									})),
+							}
+							t.NewSubTest(name).Run(func(t framework.TestContext) {
+								src.CallWithRetryOrFail(t, callOpt, echo.DefaultCallRetryOptions()...)
 							})
 						}
 					})
-				}
 			}
 		})
 }
