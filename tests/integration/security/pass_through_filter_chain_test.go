@@ -614,14 +614,17 @@ spec:
 						echotest.Not(func(instances echo.Instances) echo.Instances { return instances.Match(echo.IsNaked()) }),
 						echotest.Not(func(instances echo.Instances) echo.Instances { return instances.Match(echo.IsExternal()) }),
 						echotest.Not(func(instances echo.Instances) echo.Instances { return instances.Match(util.IsMultiversion()) }),
-						// TODO(JimmyCYJ): WorkloadOnlyPorts are missing in the VM deployment configuration yaml.
-						echotest.Not(func(instances echo.Instances) echo.Instances { return instances.Match(echo.IsVirtualMachine()) }),
 						func(instances echo.Instances) echo.Instances { return instances.Match(echo.Namespace(ns.Name())) },
 					).
 					Run(func(t framework.TestContext, src echo.Instance, dest echo.Instances) {
 						clusterName := src.Config().Cluster.StableName()
 						if dest[0].Config().Cluster.StableName() != clusterName {
 							// The workaround for mTLS does not work on cross cluster traffic.
+							t.Skip()
+						}
+						if src.Config().Service == dest[0].Config().Service {
+							// The workaround for mTLS does not work on a workload calling itself.
+							// Skip vm->vm requests.
 							t.Skip()
 						}
 						nameSuffix := "mtls"
