@@ -184,11 +184,6 @@ func NewServer(args *PilotArgs, initFuncs ...func(*Server)) (*Server, error) {
 	}
 	e.SetLedger(buildLedger(args.RegistryOptions))
 
-	ac := aggregate.NewController(aggregate.Options{
-		MeshHolder: e,
-	})
-	e.ServiceDiscovery = ac
-
 	s := &Server{
 		clusterID:           getClusterID(args),
 		environment:         e,
@@ -199,6 +194,12 @@ func NewServer(args *PilotArgs, initFuncs ...func(*Server)) (*Server, error) {
 		workloadTrustBundle: tb.NewTrustBundle(nil),
 		server:              server.New(),
 	}
+	ac := aggregate.NewController(aggregate.Options{
+		MeshHolder: e,
+		ClusterID:  s.clusterID,
+	})
+	e.ServiceDiscovery = ac
+
 	// Apply custom initialization functions.
 	for _, fn := range initFuncs {
 		fn(s)
@@ -834,9 +835,6 @@ func (s *Server) waitForCacheSync(stop <-chan struct{}) bool {
 
 // cachesSynced checks whether caches have been synced.
 func (s *Server) cachesSynced() bool {
-	if s.multicluster != nil && !s.multicluster.HasSynced() {
-		return false
-	}
 	if !s.ServiceController().HasSynced() {
 		return false
 	}

@@ -39,13 +39,16 @@ var (
 
 // Controller aggregates data across different registries and monitors for changes
 type Controller struct {
-	registries []serviceregistry.Instance
-	storeLock  sync.RWMutex
-	meshHolder mesh.Holder
-	running    *atomic.Bool
+	// configCluster of the "local" or "config" cluster
+	configCluster string
+	registries    []serviceregistry.Instance
+	storeLock     sync.RWMutex
+	meshHolder    mesh.Holder
+	running       *atomic.Bool
 }
 
 type Options struct {
+	ClusterID  string
 	MeshHolder mesh.Holder
 }
 
@@ -90,9 +93,14 @@ func (c *Controller) GetRegistries() []serviceregistry.Instance {
 	defer c.storeLock.RUnlock()
 
 	// copy registries to prevent race, no need to deep copy here.
-	out := make([]serviceregistry.Instance, len(c.registries))
-	for i := range c.registries {
-		out[i] = c.registries[i]
+	out := make([]serviceregistry.Instance, 0, len(c.registries))
+	for _, r := range c.registries {
+		if !r.HasSynced() {
+			// don't build results using non-ready multicluster registries
+			// this can never happen for the main k8s or serviceentry registries
+			continue
+		}
+		out = append(out, r)
 	}
 	return out
 }
@@ -278,6 +286,9 @@ func (c *Controller) Running() bool {
 // HasSynced returns true when all registries have synced
 func (c *Controller) HasSynced() bool {
 	for _, r := range c.GetRegistries() {
+		if r.Cluster() != c.configCluster {
+			continue
+		}
 		if !r.HasSynced() {
 			return false
 		}
