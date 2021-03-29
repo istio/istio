@@ -1,6 +1,6 @@
 # The following policy denies request with path "/data" to port 8090 for workload b
 
-apiVersion: "security.istio.io/v1beta1"
+apiVersion: security.istio.io/v1beta1
 kind: AuthorizationPolicy
 metadata:
   name: policy-b-deny
@@ -22,7 +22,7 @@ spec:
 # request to port 8093 with principal suffix matching
 # request to port 8092 with namespace suffix matching
 
-apiVersion: "security.istio.io/v1beta1"
+apiVersion: security.istio.io/v1beta1
 kind: AuthorizationPolicy
 metadata:
   name: policy-c-deny
@@ -52,7 +52,7 @@ spec:
 
 # The following policy denies request from service account a and namespace 2 for workload d
 
-apiVersion: "security.istio.io/v1beta1"
+apiVersion: security.istio.io/v1beta1
 kind: AuthorizationPolicy
 metadata:
   name: policy-d-deny
@@ -72,7 +72,7 @@ spec:
 
 # The following policy denies request with path "/other" for workload e
 
-apiVersion: "security.istio.io/v1beta1"
+apiVersion: security.istio.io/v1beta1
 kind: AuthorizationPolicy
 metadata:
   name: policy-e-deny

@@ -101,7 +101,7 @@ spec:
   mtls:
     mode: DISABLE
 ---
-apiVersion: "security.istio.io/v1beta1"
+apiVersion: security.istio.io/v1beta1
 kind: AuthorizationPolicy
 metadata:
   name: authz
