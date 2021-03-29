@@ -21,6 +21,7 @@ import (
 	"errors"
 	"fmt"
 	"reflect"
+	"sync"
 	"time"
 
 	"go.uber.org/atomic"
@@ -82,6 +83,7 @@ type remoteCluster struct {
 
 // clusterStore is a collection of clusters
 type clusterStore struct {
+	sync.Mutex
 	remoteClusters map[string]*remoteCluster
 }
 
@@ -178,8 +180,18 @@ func (c *Controller) Run(stopCh <-chan struct{}) {
 }
 
 func (c *Controller) close() {
-	for _, cluster := range c.cs.remoteClusters {
+	c.cs.Lock()
+	defer c.cs.Unlock()
+	for clusterID, cluster := range c.cs.remoteClusters {
+		log.Infof("Deleting cluster_id=%v configured by secret=%v", clusterID, cluster.secretName)
+		for _, handler := range c.controllers {
+			if err := handler.OnClusterRemoved(clusterID); err != nil {
+				log.Errorf("Error removing cluster_id=%v configured by secret=%v: %s %v",
+					clusterID, cluster.secretName, err)
+			}
+		}
 		close(cluster.stop)
+		delete(c.cs.remoteClusters, clusterID)
 	}
 }
 
@@ -334,6 +346,8 @@ func (c *Controller) addMemberCluster(secretName string, s *corev1.Secret) {
 }
 
 func (c *Controller) deleteMemberCluster(secretName string) {
+	c.cs.Lock()
+	defer c.cs.Unlock()
 	for clusterID, cluster := range c.cs.remoteClusters {
 		if cluster.secretName == secretName {
 			log.Infof("Deleting cluster_id=%v configured by secret=%v", clusterID, secretName)
