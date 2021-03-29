@@ -608,6 +608,7 @@ spec:
 					}).
 					From(srcFilter...).
 					ConditionallyTo(echotest.ReachableDestinations).
+					ConditionallyTo(echotest.InSameNetwork).
 					To(
 						echotest.SingleSimplePodServiceAndAllSpecial(),
 						echotest.Not(func(instances echo.Instances) echo.Instances { return instances.Match(echo.IsHeadless()) }),
@@ -617,11 +618,6 @@ spec:
 						func(instances echo.Instances) echo.Instances { return instances.Match(echo.Namespace(ns.Name())) },
 					).
 					Run(func(t framework.TestContext, src echo.Instance, dest echo.Instances) {
-						clusterName := src.Config().Cluster.StableName()
-						if dest[0].Config().Cluster.StableName() != clusterName {
-							// The workaround for mTLS does not work on cross cluster traffic.
-							t.Skip()
-						}
 						if src.Config().Service == dest[0].Config().Service {
 							// The workaround for mTLS does not work on a workload calling itself.
 							// Skip vm->vm requests.
@@ -636,7 +632,7 @@ spec:
 							if src.Config().IsNaked() {
 								want = expect.plaintextSucceeds
 							}
-							name := fmt.Sprintf("In %s/%v/%v/port %d[%t]", clusterName, tc.name, nameSuffix, expect.port.ServicePort, want)
+							name := fmt.Sprintf("%v/%v/port %d[%t]", tc.name, nameSuffix, expect.port.ServicePort, want)
 							host := fmt.Sprintf("%s:%d", getWorkload(dest[0], t).Address(), expect.port.ServicePort)
 							callOpt := echo.CallOptions{
 								Count: util.CallsPerCluster * len(dest),

@@ -143,6 +143,11 @@ var ReachableDestinations CombinationFilter = func(from echo.Instance, to echo.I
 		And(toInClusterHeadless(from)))
 }
 
+// InSameNetwork filters out destinations that aren't in the same network as the source.
+var InSameNetwork CombinationFilter = func(from echo.Instance, to echo.Instances) echo.Instances {
+	return to.Match(echo.InNetwork(from.Config().Cluster.NetworkName()))
+}
+
 func toInClusterHeadless(from echo.Instance) echo.Matcher {
 	excluded := echo.IsHeadless().
 		And(echo.Not(echo.InCluster(from.Config().Cluster)))
