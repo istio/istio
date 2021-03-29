@@ -88,7 +88,7 @@ func (s *Server) initKubeRegistry(args *PilotArgs) (err error) {
 		caBundlePath = args.ServerOptions.TLSOptions.CaCertFile
 	}
 
-	mc := kubecontroller.NewMulticluster(args.PodName,
+	s.multicluster = kubecontroller.NewMulticluster(args.PodName,
 		s.kubeClient,
 		args.RegistryOptions.ClusterRegistriesNamespace,
 		args.RegistryOptions.KubeOptions,
@@ -102,29 +102,28 @@ func (s *Server) initKubeRegistry(args *PilotArgs) (err error) {
 		s.server)
 
 	// initialize the "main" cluster registry before starting controllers for remote clusters
+	// if it fails, the server should fail immediately
 	s.addStartFunc(func(stop <-chan struct{}) error {
-		if err := mc.OnNewCluster(s.kubeClient, stop, args.RegistryOptions.KubeOptions.ClusterID); err != nil {
+		if err := s.multicluster.OnNewCluster(s.kubeClient, stop, args.RegistryOptions.KubeOptions.ClusterID); err != nil {
 			log.Errorf("failed initializing registry for %s: %v", args.RegistryOptions.KubeOptions.ClusterID, err)
 			return err
 		}
 		return nil
 	})
 
-	// setup a controller to watch for remote secrets
+	// other registries are created by remote secrets
+	// failure to initialize other clusters' registries should not block startup
+	// if other registries can be started successfully, we should allow them to sync before sending the first push
 	s.multiclusterSecrets = secretcontroller.NewController(
 		s.kubeClient,
 		args.RegistryOptions.ClusterRegistriesNamespace,
 		args.RegistryOptions.KubeOptions.ResyncPeriod,
 	)
-
-	// handle kube registry creation/removal for remote secrets
-	s.multiclusterSecrets.AddHandler(mc)
-
-	// Start the multicluster controller and wait for it to shutdown before exiting the server.
-	s.addTerminatingStartFunc(mc.Run)
-
-	// start remote cluster controllers
+	s.multiclusterSecrets.AddHandler(s.multicluster)
 	s.addTerminatingStartFunc(s.multiclusterSecrets.Run)
+
+	// block shutdown with multicluster cleanup
+	s.addTerminatingStartFunc(s.multicluster.Run)
 
 	return
 }
