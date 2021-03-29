@@ -54,5 +54,7 @@ etc/
 var/
 # Go compiled tests
 *.test
-# OSX trash
+# MacOS extended attributes
+._*
+# MacOS Desktop Services Store
 .DS_Store
