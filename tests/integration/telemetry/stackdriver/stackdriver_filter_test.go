@@ -324,11 +324,11 @@ func validateMetrics(t *testing.T, serverReqCount, clientReqCount, clName, trust
 	}
 
 	// Traverse all time series received and compare with expected client and server time series.
-	serverTS, err := sdInst.ListTimeSeries("istio.io/service/server/request_count", "k8s_container")
+	serverTS, err := sdInst.ListTimeSeries("istio.io/service/server/request_count", "k8s_container", getEchoNamespaceInstance().Name())
 	if err != nil {
 		return fmt.Errorf("metrics: error getting time-series from Stackdriver: %v", err)
 	}
-	clientTS, err := sdInst.ListTimeSeries("istio.io/service/client/request_count", "k8s_pod")
+	clientTS, err := sdInst.ListTimeSeries("istio.io/service/client/request_count", "k8s_pod", getEchoNamespaceInstance().Name())
 	if err != nil {
 		return fmt.Errorf("metrics: error getting time-series from Stackdriver: %v", err)
 	}
@@ -368,7 +368,7 @@ func validateLogs(t *testing.T, srvLogEntry, clName, trustDomain string, filter 
 	}
 
 	// Traverse all log entries received and compare with expected server log entry.
-	entries, err := sdInst.ListLogEntries(filter)
+	entries, err := sdInst.ListLogEntries(filter, getEchoNamespaceInstance().Name())
 	if err != nil {
 		return fmt.Errorf("logs: failed to get received log entries: %v", err)
 	}
@@ -430,7 +430,7 @@ func validateTraces(t *testing.T) error {
 	// span.
 
 	wantSpanName := fmt.Sprintf("srv.%s.svc.cluster.local:80/*", getEchoNamespaceInstance().Name())
-	traces, err := sdInst.ListTraces()
+	traces, err := sdInst.ListTraces(getEchoNamespaceInstance().Name())
 	if err != nil {
 		return fmt.Errorf("traces: could not retrieve traces from Stackdriver: %v", err)
 	}

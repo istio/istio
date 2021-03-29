@@ -109,13 +109,15 @@ func traceEqual(got, want *cloudtrace.Trace) bool {
 }
 
 func gotRequestCountMetrics(wantClient, wantServer *monitoring.TimeSeries) bool {
-	serverTS, err := sdInst.ListTimeSeries("istio.io/service/server/request_count", "k8s_container")
+	serverTS, err := sdInst.ListTimeSeries("istio.io/service/server/request_count", "k8s_container", ns.Name())
 	if err != nil {
-		return fmt.Errorf("metrics: error getting time-series from Stackdriver: %v", err)
+		log.Errorf("metrics: error getting time-series from Stackdriver: %v", err)
+		return false
 	}
-	clientTS, err := sdInst.ListTimeSeries("istio.io/service/client/request_count", "k8s_pod")
+	clientTS, err := sdInst.ListTimeSeries("istio.io/service/client/request_count", "k8s_pod", ns.Name())
 	if err != nil {
-		return fmt.Errorf("metrics: error getting time-series from Stackdriver: %v", err)
+		log.Errorf("metrics: error getting time-series from Stackdriver: %v", err)
+		return false
 	}
 	ts := make([]*monitoring.TimeSeries, 0, len(clientTS)+len(serverTS))
 	ts = append(ts, serverTS...)
@@ -143,7 +145,7 @@ func gotRequestCountMetrics(wantClient, wantServer *monitoring.TimeSeries) bool 
 }
 
 func gotLogEntry(want *loggingpb.LogEntry) bool {
-	entries, err := sdInst.ListLogEntries(stackdriver.ServerAccessLog)
+	entries, err := sdInst.ListLogEntries(stackdriver.ServerAccessLog, ns.Name())
 	if err != nil {
 		log.Errorf("failed to get list of log entries from stackdriver: %v", err)
 		return false
@@ -190,7 +192,7 @@ func gotTrafficAssertion(want *edgespb.TrafficAssertion) bool {
 }
 
 func gotTrace(want *cloudtrace.Trace) bool {
-	traces, err := sdInst.ListTraces()
+	traces, err := sdInst.ListTraces(ns.Name())
 	if err != nil {
 		log.Errorf("failed to retrieve list of tracespans from stackdriver: %v", err)
 		return false

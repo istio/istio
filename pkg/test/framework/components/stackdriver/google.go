@@ -64,7 +64,7 @@ func newRealStackdriver(ctx resource.Context, cfg Config) (Instance, error) {
 	}, nil
 }
 
-func (s *realStackdriver) ListTimeSeries(metricName, resourceName string) ([]*monitoringpb.TimeSeries, error) {
+func (s *realStackdriver) ListTimeSeries(metricName, resourceName, namespace string) ([]*monitoringpb.TimeSeries, error) {
 	endTime := time.Now()
 	startTime := endTime.Add(-5 * time.Minute)
 	// TODO!!: get project id somewhere
@@ -74,7 +74,7 @@ func (s *realStackdriver) ListTimeSeries(metricName, resourceName string) ([]*mo
 		AggregationCrossSeriesReducer("REDUCE_NONE").
 		AggregationAlignmentPeriod("60s").
 		AggregationPerSeriesAligner("ALIGN_RATE").
-		Filter(fmt.Sprintf("metric.type = %q AND resource.type = %q", metricName, resourceName)).
+		Filter(fmt.Sprintf("metric.type = %q AND resource.type = %q & resource.labels.namespace_name = %q", metricName, resourceName, namespace)).
 		Context(context.Background())
 	resp, err := lr.Do()
 	if err != nil {
@@ -90,12 +90,12 @@ func (s *realStackdriver) ListTimeSeries(metricName, resourceName string) ([]*mo
 	return trimMetricLabels(&resppb), nil
 }
 
-func (s *realStackdriver) ListLogEntries(filter LogType) ([]*loggingpb.LogEntry, error) {
+func (s *realStackdriver) ListLogEntries(filter LogType, namespace string) ([]*loggingpb.LogEntry, error) {
 	resp, err := s.loggingService.Entries.List(&logging.ListLogEntriesRequest{
 		ResourceNames: []string{"projects/istio-prow-build"},
 		PageSize:      10,
-		Filter: fmt.Sprintf("timestamp > %q AND logName=\"projects/istio-prow-build/logs/server-accesslog-stackdriver\"",
-			time.Now().Add(-5*time.Minute).Format(time.RFC3339)),
+		Filter: fmt.Sprintf("timestamp > %q AND logName=projects/istio-prow-build/logs/server-accesslog-stackdriver AND resource.labels.namespace_name=%q",
+			time.Now().Add(-5*time.Minute).Format(time.RFC3339), namespace),
 	}).Context(context.Background()).Do()
 	if err != nil {
 		return nil, fmt.Errorf("unexpected error from the logging backend: %v", err)
@@ -126,11 +126,12 @@ func (c *realStackdriver) ListTrafficAssertions() ([]*edgespb.TrafficAssertion, 
 	return nil, nil
 }
 
-func (c *realStackdriver) ListTraces() ([]*cloudtracepb.Trace, error) {
+func (c *realStackdriver) ListTraces(namespace string) ([]*cloudtracepb.Trace, error) {
 	startTime := time.Now().Add(-5 * time.Minute)
 	listTracesResponse, err := c.traceService.Projects.Traces.List("istio-prow-build").
 		StartTime(startTime.Format(time.RFC3339)).
 		View("COMPLETE").
+		Filter(fmt.Sprintf("Label:istio.namespace:%v", namespace)).
 		Context(context.Background()).
 		PageSize(50).
 		Do()
