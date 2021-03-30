@@ -180,7 +180,7 @@ func TestUpdateWithCustomGateway(t *testing.T) {
 			})
 
 			// Create the istio-system namespace and Istio control plane of the specified version
-			helmtest.CreateIstioSystemNamespace(t, cs)
+			helmtest.CreateNamespace(t, cs, helmtest.IstioNamespace)
 			configs[iopCPTemplate] = iopCPTemplate
 			if err := ctx.Config().ApplyYAMLNoCleanup(common.IstioNamespace, iopCPTemplate); err != nil {
 				ctx.Fatal(err)
