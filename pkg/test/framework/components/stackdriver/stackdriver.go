@@ -65,5 +65,7 @@ func NewOrFail(t test.Failer, ctx resource.Context, c Config, realSD bool) Insta
 }
 
 func UseRealStackdriver() bool {
+	// Use real stackdriver only if the test intends to AND the test is running on GCP.
+	// Currently real stackdriver only works if the test runs on GCP.
 	return useRealSD && md.IsGCP()
 }

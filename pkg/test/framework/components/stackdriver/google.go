@@ -68,6 +68,7 @@ var (
 			resourceType: "k8s_pod",
 		},
 	}
+	queryInterval = -5 * time.Minute
 )
 
 func newRealStackdriver(_ resource.Context, _ Config) (Instance, error) {
@@ -95,7 +96,7 @@ func newRealStackdriver(_ resource.Context, _ Config) (Instance, error) {
 
 func (s *realStackdriver) ListTimeSeries(namespace string) ([]*monitoringpb.TimeSeries, error) {
 	endTime := time.Now()
-	startTime := endTime.Add(-5 * time.Minute)
+	startTime := endTime.Add(queryInterval)
 	ret := &monitoringpb.ListTimeSeriesResponse{
 		TimeSeries: make([]*monitoringpb.TimeSeries, 0),
 	}
@@ -142,7 +143,7 @@ func (s *realStackdriver) ListLogEntries(filter LogType, namespace string) ([]*l
 		ResourceNames: []string{fmt.Sprintf("projects/%v", s.projectID)},
 		PageSize:      200,
 		Filter: fmt.Sprintf("timestamp > %q AND logName:%q AND resource.labels.namespace_name=%q",
-			time.Now().Add(-5*time.Minute).Format(time.RFC3339), logName, namespace),
+			time.Now().Add(queryInterval).Format(time.RFC3339), logName, namespace),
 	}).Context(context.Background()).Do()
 	if err != nil {
 		return nil, fmt.Errorf("unexpected error from the logging backend: %v", err)
@@ -180,7 +181,7 @@ func (s *realStackdriver) ListTrafficAssertions() ([]*edgespb.TrafficAssertion, 
 }
 
 func (s *realStackdriver) ListTraces(namespace string) ([]*cloudtracepb.Trace, error) {
-	startTime := time.Now().Add(-5 * time.Minute)
+	startTime := time.Now().Add(queryInterval)
 	listTracesResponse, err := s.traceService.Projects.Traces.List(s.projectID).
 		StartTime(startTime.Format(time.RFC3339)).
 		View("COMPLETE").
