@@ -3,17 +3,11 @@ kind: feature
 area: istioctl
 
 issue:
-  - https://github.com/istio/istio/issues/31695
+  - 31695
 
 docs:
  - '[usage] https://istio.io/latest/docs/reference/commands/istioctl/#istioctl-proxy-config'
 
 releaseNotes:
 - |
-  **Added** `istioctl proxy-config -o yaml` to display in yaml along with the current json and short format
-
-upgradeNotes:
-  - title: 
-    content: 
-
-securityNotes:
+  **Added** `istioctl proxy-config -o yaml` to display in yaml along with the current json and short format.
