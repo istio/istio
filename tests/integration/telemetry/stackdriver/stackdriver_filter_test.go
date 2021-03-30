@@ -53,7 +53,6 @@ const (
 	serverRequestCount           = "testdata/server_request_count.json.tmpl"
 	clientRequestCount           = "testdata/client_request_count.json.tmpl"
 	serverLogEntry               = "testdata/server_access_log.json.tmpl"
-	trafficAssertionTmpl         = "testdata/traffic_assertion.json.tmpl"
 	sdBootstrapConfigMap         = "stackdriver-bootstrap-config"
 
 	projectsPrefix = "projects/test-project"

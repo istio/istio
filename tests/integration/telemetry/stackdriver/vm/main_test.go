@@ -186,10 +186,6 @@ func testSetup(ctx resource.Context) error {
 	if err != nil {
 		return fmt.Errorf("failed to get golden log entry from file: %v", err)
 	}
-	wantTrafficAssertion, err = goldenTrafficAssertion(trustDomain)
-	if err != nil {
-		return fmt.Errorf("failed to get golden traffic assertion from file: %v", err)
-	}
 	wantTrace, err = goldenTrace(trustDomain)
 	if err != nil {
 		return fmt.Errorf("failed to get golden trace from file: %v", err)
