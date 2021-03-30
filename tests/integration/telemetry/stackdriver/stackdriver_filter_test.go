@@ -39,7 +39,6 @@ import (
 	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/framework/components/stackdriver"
-	edgespb "istio.io/istio/pkg/test/framework/components/stackdriver/edges"
 	telemetrypkg "istio.io/istio/pkg/test/framework/components/telemetry"
 	"istio.io/istio/pkg/test/framework/label"
 	"istio.io/istio/pkg/test/framework/resource"
@@ -129,10 +128,6 @@ func TestStackdriverMonitoring(t *testing.T) {
 							return err
 						}
 						t.Logf("Traces validated")
-						if err := validateEdges(t, clName, trustDomain); err != nil {
-							return err
-						}
-						t.Logf("Edges validated")
 
 						return nil
 					}, retry.Delay(telemetrypkg.RetryDelay), retry.Timeout(telemetrypkg.RetryTimeout))
@@ -170,8 +165,6 @@ meshConfig:
 	cfg.Values["telemetry.v2.stackdriver.logging"] = "true"
 	cfg.Values["telemetry.v2.stackdriver.topology"] = "true"
 	cfg.Values["telemetry.v2.stackdriver.configOverride.enable_audit_log"] = "true"
-	cfg.Values["telemetry.v2.stackdriver.configOverride.meshEdgesReportingDuration"] = "5s"
-	cfg.Values["telemetry.v2.stackdriver.configOverride.enable_mesh_edges_reporting"] = "true"
 	cfg.Values["global.proxy.tracer"] = "stackdriver"
 	cfg.Values["pilot.traceSampling"] = "100"
 	cfg.Values["telemetry.v2.accessLogPolicy.enabled"] = "true"
@@ -368,33 +361,6 @@ func validateLogs(t *testing.T, srvLogEntry, clName, trustDomain string, filter 
 		}
 	}
 	return fmt.Errorf("logs: did not get expected log entry: got %v\n want %v", entries, wantLog.String())
-}
-
-func validateEdges(t *testing.T, clName, trustDomain string) error {
-	t.Helper()
-
-	var wantEdge edgespb.TrafficAssertion
-	if err := unmarshalFromTemplateFile(trafficAssertionTmpl, &wantEdge, clName, trustDomain); err != nil {
-		return fmt.Errorf("edges: failed to build wanted traffic assertion: %v", err)
-	}
-	edges, err := sdInst.ListTrafficAssertions()
-	if err != nil {
-		return fmt.Errorf("edges: failed to get traffic assertions from Stackdriver: %v", err)
-	}
-	for _, edge := range edges {
-		edge.Destination.Uid = ""
-		edge.Destination.ClusterName = ""
-		edge.Destination.Location = ""
-		edge.Source.Uid = ""
-		edge.Source.ClusterName = ""
-		edge.Source.Location = ""
-		edge.Protocol = 0
-		t.Logf("edge: %v", edge)
-		if proto.Equal(edge, &wantEdge) {
-			return nil
-		}
-	}
-	return fmt.Errorf("edges: did not get expected traffic assertion: got %v\n want %v", edges, wantEdge)
 }
 
 func validateTraces(t *testing.T) error {
