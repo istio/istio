@@ -94,6 +94,13 @@ outer:
 			ctx.Report(collectionType, m)
 		}
 
+		if annotationDef.FeatureStatus == annotation.Alpha {
+			m := msg.NewAlphaAnnotation(r, ann)
+			util.AddLineNumber(r, ann, m)
+
+			ctx.Report(collectionType, m)
+		}
+
 		// If the annotation def attaches to Any, exit early
 		for _, rt := range annotationDef.Resources {
 			if rt == annotation.Any {
