@@ -19,14 +19,12 @@ import (
 	"testing"
 
 	"istio.io/istio/pkg/test/framework"
+	"istio.io/istio/pkg/test/framework/label"
 	sd "istio.io/istio/tests/integration/telemetry/stackdriver"
 )
 
 func TestMain(m *testing.M) {
-	// TODO: uncomment this!!!
-	// s := framework.NewSuite(m).
-	// 	Label(label.Postsubmit)
-	s := framework.NewSuite(m)
+	s := framework.NewSuite(m).Label(label.Postsubmit)
 	sd.TestMainSetup(s, true /* useRealSD */)
 }
 
