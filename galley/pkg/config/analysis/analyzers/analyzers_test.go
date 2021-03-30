@@ -16,6 +16,7 @@ package analyzers
 
 import (
 	"fmt"
+	"istio.io/istio/galley/pkg/config/analysis/analyzers/maturity"
 	"os"
 	"regexp"
 	"strings"
@@ -62,6 +63,7 @@ type testCase struct {
 	meshNetworksFile string // Optional
 	analyzer         analysis.Analyzer
 	expected         []message
+	skipAll          bool
 }
 
 // Some notes on setting up tests for Analyzers:
@@ -83,11 +85,21 @@ var testGrid = []testCase{
 			{msg.MisplacedAnnotation, "Deployment fortio-deploy"},
 			{msg.MisplacedAnnotation, "Namespace staging"},
 			{msg.DeprecatedAnnotation, "Deployment fortio-deploy"},
+		},
+	},
+	{
+		name: "alpha",
+		inputFiles: []string{
+			"testdata/misannotated.yaml",
+		},
+		analyzer: &maturity.AlphaAnalyzer{},
+		expected: []message{
 			{msg.AlphaAnnotation, "Deployment fortio-deploy"},
 			{msg.AlphaAnnotation, "Pod invalid-annotations"},
 			{msg.AlphaAnnotation, "Pod invalid-annotations"},
 			{msg.AlphaAnnotation, "Service httpbin"},
 		},
+		skipAll: true,
 	},
 	{
 		name:       "deprecation",
@@ -574,7 +586,9 @@ func TestAnalyzersInAll(t *testing.T) {
 	}
 
 	for _, tc := range testGrid {
-		g.Expect(allNames).To(ContainElement(tc.analyzer.Metadata().Name))
+		if !tc.skipAll {
+			g.Expect(allNames).To(ContainElement(tc.analyzer.Metadata().Name))
+		}
 	}
 }
 

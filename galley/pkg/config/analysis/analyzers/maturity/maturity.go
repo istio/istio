@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package annotations
+package maturity
 
 import (
 	"strings"
@@ -24,19 +24,22 @@ import (
 	"istio.io/istio/pkg/config/resource"
 	"istio.io/istio/pkg/config/schema/collection"
 	"istio.io/istio/pkg/config/schema/collections"
-	"istio.io/istio/pkg/kube/inject"
 )
 
-// K8sAnalyzer checks for misplaced and invalid Istio annotations in K8s resources
-type K8sAnalyzer struct{}
+// AlphaAnalyzer checks for alpha Istio annotations in K8s resources
+type AlphaAnalyzer struct{}
+
+// the alpha analyzer is currently explicitly left out of the default collection of analyzers to run, as it results
+// in too much noise for users, with annotations that are set by default.  Once the noise dies down, this should be
+// added to the CombinedAnalyzers() function.
 
 var istioAnnotations = annotation.AllResourceAnnotations()
 
 // Metadata implements analyzer.Analyzer
-func (*K8sAnalyzer) Metadata() analysis.Metadata {
+func (*AlphaAnalyzer) Metadata() analysis.Metadata {
 	return analysis.Metadata{
-		Name:        "annotations.K8sAnalyzer",
-		Description: "Checks for misplaced and invalid Istio annotations in Kubernetes resources",
+		Name:        "annotations.AlphaAnalyzer",
+		Description: "Checks for alpha Istio annotations in Kubernetes resources",
 		Inputs: collection.Names{
 			collections.K8SCoreV1Namespaces.Name(),
 			collections.K8SCoreV1Services.Name(),
@@ -47,7 +50,7 @@ func (*K8sAnalyzer) Metadata() analysis.Metadata {
 }
 
 // Analyze implements analysis.Analyzer
-func (fa *K8sAnalyzer) Analyze(ctx analysis.Context) {
+func (fa *AlphaAnalyzer) Analyze(ctx analysis.Context) {
 	ctx.ForEach(collections.K8SCoreV1Namespaces.Name(), func(r *resource.Instance) bool {
 		fa.allowAnnotations(r, ctx, "Namespace", collections.K8SCoreV1Namespaces.Name())
 		return true
@@ -66,58 +69,23 @@ func (fa *K8sAnalyzer) Analyze(ctx analysis.Context) {
 	})
 }
 
-func (*K8sAnalyzer) allowAnnotations(r *resource.Instance, ctx analysis.Context, kind string, collectionType collection.Name) {
+func (*AlphaAnalyzer) allowAnnotations(r *resource.Instance, ctx analysis.Context, kind string, collectionType collection.Name) {
 	if len(r.Metadata.Annotations) == 0 {
 		return
 	}
 
 	// It is fine if the annotation is kubectl.kubernetes.io/last-applied-configuration.
-outer:
-	for ann, value := range r.Metadata.Annotations {
+	for ann, _ := range r.Metadata.Annotations {
 		if !istioAnnotation(ann) {
 			continue
 		}
 
-		annotationDef := lookupAnnotation(ann)
-		if annotationDef == nil {
-			m := msg.NewUnknownAnnotation(r, ann)
-			util.AddLineNumber(r, ann, m)
-
-			ctx.Report(collectionType, m)
-			continue
-		}
-
-		if annotationDef.Deprecated {
-			m := msg.NewDeprecatedAnnotation(r, ann)
-			util.AddLineNumber(r, ann, m)
-
-			ctx.Report(collectionType, m)
-		}
-
-		// If the annotation def attaches to Any, exit early
-		for _, rt := range annotationDef.Resources {
-			if rt == annotation.Any {
-				continue outer
-			}
-		}
-
-		attachesTo := resourceTypesAsStrings(annotationDef.Resources)
-		if !contains(attachesTo, kind) {
-			m := msg.NewMisplacedAnnotation(r, ann, strings.Join(attachesTo, ", "))
-			util.AddLineNumber(r, ann, m)
-
-			ctx.Report(collectionType, m)
-			continue
-		}
-
-		validationFunction := inject.AnnotationValidation[ann]
-		if validationFunction != nil {
-			if err := validationFunction(value); err != nil {
-				m := msg.NewInvalidAnnotation(r, ann, err.Error())
+		if annotationDef := lookupAnnotation(ann); annotationDef != nil {
+			if annotationDef.FeatureStatus == annotation.Alpha {
+				m := msg.NewAlphaAnnotation(r, ann)
 				util.AddLineNumber(r, ann, m)
 
 				ctx.Report(collectionType, m)
-				continue
 			}
 		}
 	}
@@ -142,16 +110,6 @@ func istioAnnotation(ann string) bool {
 	return true
 }
 
-func contains(candidates []string, s string) bool {
-	for _, candidate := range candidates {
-		if s == candidate {
-			return true
-		}
-	}
-
-	return false
-}
-
 func lookupAnnotation(ann string) *annotation.Instance {
 	for _, candidate := range istioAnnotations {
 		if candidate.Name == ann {
@@ -160,14 +118,4 @@ func lookupAnnotation(ann string) *annotation.Instance {
 	}
 
 	return nil
-}
-
-func resourceTypesAsStrings(resourceTypes []annotation.ResourceTypes) []string {
-	retval := []string{}
-	for _, resourceType := range resourceTypes {
-		if s := resourceType.String(); s != "Unknown" {
-			retval = append(retval, s)
-		}
-	}
-	return retval
 }
