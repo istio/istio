@@ -157,13 +157,13 @@ func (s *realStackdriver) ListLogEntries(filter LogType, namespace string) ([]*l
 	for i, le := range resp.Entries {
 		resppb.Entries[i] = &loggingpb.LogEntry{}
 		resppb.Entries[i].LogName = le.LogName
-		resppb.Entries[i].HttpRequest = &ltype.HttpRequest{}
 		if le.TextPayload != "" {
 			resppb.Entries[i].Payload = &loggingpb.LogEntry_TextPayload{
 				TextPayload: le.TextPayload,
 			}
 		}
 		if le.HttpRequest != nil {
+			resppb.Entries[i].HttpRequest = &ltype.HttpRequest{}
 			resppb.Entries[i].HttpRequest.RequestMethod = le.HttpRequest.RequestMethod
 			resppb.Entries[i].HttpRequest.RequestUrl = le.HttpRequest.RequestUrl
 			resppb.Entries[i].HttpRequest.Status = int32(le.HttpRequest.Status)
