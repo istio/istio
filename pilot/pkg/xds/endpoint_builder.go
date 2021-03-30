@@ -444,11 +444,10 @@ func (c *mtlsChecker) isMtlsDisabled(lbEp *endpoint.LbEndpoint) bool {
 // This must be done during conversion from IstioEndpoint since we still have workload metadata.
 func (c *mtlsChecker) computeForEndpoint(ep *model.IstioEndpoint) {
 	tlsMode := envoytransportSocketMetadata(ep.EnvoyEndpoint, model.TLSModeLabelShortname)
-	if tlsMode == model.DisabledTLSModeLabel ||
+	if tlsMode != model.IstioMutualTLSModeLabel ||
 		c.mtlsDisabledByPeerAuthentication(ep) ||
 		c.mtlsDisabledBySubsetTrafficPolicy(ep) {
 		c.mtlsDisabledHosts[lbEpKey(ep.EnvoyEndpoint)] = struct{}{}
-		return
 	}
 }
 
