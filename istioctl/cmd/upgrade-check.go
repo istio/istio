@@ -16,6 +16,10 @@ package cmd
 
 import (
 	"fmt"
+
+	"github.com/spf13/cobra"
+	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
 	"istio.io/istio/galley/pkg/config/analysis"
 	"istio.io/istio/galley/pkg/config/analysis/analyzers/maturity"
 	"istio.io/istio/galley/pkg/config/analysis/local"
@@ -25,18 +29,14 @@ import (
 	"istio.io/istio/pkg/config/resource"
 	"istio.io/istio/pkg/config/schema"
 	"istio.io/istio/pkg/kube"
-	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-
-	"github.com/spf13/cobra"
 )
-
 
 func upgradeCheckCommand() *cobra.Command {
 	var opts clioptions.ControlPlaneOptions
 	var namespaces []string
 	var allNamespaces, skipControlPlane bool
 	// cmd represents the upgradeCheck command
-	var cmd = &cobra.Command{
+	cmd := &cobra.Command{
 		Use:   "upgrade-check",
 		Short: "check whether your istio installation can safely be upgraded",
 		Long: `upgrade-check is a collection of checks to ensure that your Istio installation is ready to upgrade.  By 
@@ -95,6 +95,6 @@ func checkControlPlane(cmd *cobra.Command) error {
 
 func checkDataPlane(cmd *cobra.Command, namespace string) error {
 	// TODO: uncomment this once John's PR merges.
-	//checkBinds(ns)
+	// checkBinds(ns)
 	return nil
 }
