@@ -75,7 +75,7 @@ func (*AlphaAnalyzer) allowAnnotations(r *resource.Instance, ctx analysis.Contex
 	}
 
 	// It is fine if the annotation is kubectl.kubernetes.io/last-applied-configuration.
-	for ann, _ := range r.Metadata.Annotations {
+	for ann := range r.Metadata.Annotations {
 		if !istioAnnotation(ann) {
 			continue
 		}
