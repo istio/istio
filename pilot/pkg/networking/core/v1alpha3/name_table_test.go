@@ -28,6 +28,7 @@ import (
 	"istio.io/istio/pkg/config/protocol"
 )
 
+// nolint unparam
 func makeServiceInstances(proxy *model.Proxy, service *model.Service, hostname, subdomain string) map[int][]*model.ServiceInstance {
 	instances := make(map[int][]*model.ServiceInstance)
 	for _, port := range service.Ports {
@@ -152,7 +153,7 @@ func TestNameTable(t *testing.T) {
 					"pod4.headless-svc.testns.svc.cluster.local": {
 						Ips:       []string{"8.8.8.8"},
 						Registry:  "Kubernetes",
-						Shortname: "pod.headless-svc",
+						Shortname: "pod4.headless-svc",
 						Namespace: "testns",
 					},
 					"headless-svc.testns.svc.cluster.local": {
