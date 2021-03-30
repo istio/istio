@@ -15,16 +15,16 @@
 package stackdriver
 
 import (
-	"bytes"
 	"context"
 	"fmt"
 	"net/http"
 	"time"
 
-	"github.com/gogo/protobuf/jsonpb"
 	cloudtrace "google.golang.org/api/cloudtrace/v1"
 	logging "google.golang.org/api/logging/v2"
 	monitoring "google.golang.org/api/monitoring/v3"
+	"google.golang.org/genproto/googleapis/api/metric"
+	"google.golang.org/genproto/googleapis/api/monitoredres"
 	cloudtracepb "google.golang.org/genproto/googleapis/devtools/cloudtrace/v1"
 	ltype "google.golang.org/genproto/googleapis/logging/type"
 	loggingpb "google.golang.org/genproto/googleapis/logging/v2"
@@ -96,7 +96,9 @@ func newRealStackdriver(_ resource.Context, _ Config) (Instance, error) {
 func (s *realStackdriver) ListTimeSeries(namespace string) ([]*monitoringpb.TimeSeries, error) {
 	endTime := time.Now()
 	startTime := endTime.Add(-5 * time.Minute)
-	ret := &monitoringpb.ListTimeSeriesResponse{}
+	ret := &monitoringpb.ListTimeSeriesResponse{
+		TimeSeries: make([]*monitoringpb.TimeSeries, 0),
+	}
 	for _, q := range timeseriesQueries {
 		lr := s.monitoringService.Projects.TimeSeries.List(fmt.Sprintf("projects/%v", s.projectID)).
 			IntervalStartTime(startTime.Format(time.RFC3339)).
@@ -113,11 +115,22 @@ func (s *realStackdriver) ListTimeSeries(namespace string) ([]*monitoringpb.Time
 		if resp.HTTPStatusCode != http.StatusOK {
 			return nil, fmt.Errorf("failed to get expected status code from monitoring service, got: %d", resp.HTTPStatusCode)
 		}
-		b, _ := resp.MarshalJSON()
-		r := bytes.NewReader(b)
-		resppb := monitoringpb.ListTimeSeriesResponse{}
-		_ = jsonpb.Unmarshal(r, &resppb)
-		ret.TimeSeries = append(ret.TimeSeries, resppb.TimeSeries...)
+		for _, ts := range resp.TimeSeries {
+			newTS := &monitoringpb.TimeSeries{}
+			if ts.Metric == nil {
+				continue
+			}
+			newTS.Metric = &metric.Metric{}
+			newTS.Metric.Labels = ts.Metric.Labels
+			newTS.Metric.Type = ts.Metric.Type
+			if ts.Resource == nil {
+				continue
+			}
+			newTS.Resource = &monitoredres.MonitoredResource{}
+			newTS.Resource.Type = ts.Resource.Type
+			newTS.Resource.Labels = ts.Resource.Labels
+			ret.TimeSeries = append(ret.TimeSeries, newTS)
+		}
 	}
 
 	return trimMetricLabels(ret), nil
@@ -145,6 +158,11 @@ func (s *realStackdriver) ListLogEntries(filter LogType, namespace string) ([]*l
 		resppb.Entries[i] = &loggingpb.LogEntry{}
 		resppb.Entries[i].LogName = le.LogName
 		resppb.Entries[i].HttpRequest = &ltype.HttpRequest{}
+		if le.TextPayload != "" {
+			resppb.Entries[i].Payload = &loggingpb.LogEntry_TextPayload{
+				TextPayload: le.TextPayload,
+			}
+		}
 		if le.HttpRequest != nil {
 			resppb.Entries[i].HttpRequest.RequestMethod = le.HttpRequest.RequestMethod
 			resppb.Entries[i].HttpRequest.RequestUrl = le.HttpRequest.RequestUrl
