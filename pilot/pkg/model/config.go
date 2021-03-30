@@ -35,10 +35,13 @@ var _ = udpa.TypedStruct{}
 
 // ConfigKey describe a specific config item.
 // In most cases, the name is the config's name. However, for ServiceEntry it is service's FQDN.
+// Hostnames store a list of hosts defined in the config, join by ','
+// For config update event, both old config and new config's hosts will be stored.
 type ConfigKey struct {
 	Kind      config.GroupVersionKind
 	Name      string
 	Namespace string
+	Hostnames string
 }
 
 func (key ConfigKey) HashCode() uint32 {
@@ -49,6 +52,44 @@ func (key ConfigKey) HashCode() uint32 {
 	result = 31*result + crc32.ChecksumIEEE([]byte(key.Namespace))
 	result = 31*result + crc32.ChecksumIEEE([]byte(key.Name))
 	return result
+}
+
+// MakeConfigKeyForConfigUpdate will combine old and new config
+// in an update event to one configkey
+func MakeConfigKeyForConfigUpdate(old config.Config, curr config.Config) ConfigKey {
+	key := ConfigKey{
+		Kind:      curr.GroupVersionKind,
+		Name:      curr.Name,
+		Namespace: curr.Namespace,
+	}
+	hostnames := map[string]struct{}{}
+	switch curr.GroupVersionKind {
+	case gvk.VirtualService:
+		if vs, ok := curr.Spec.(*networking.VirtualService); ok {
+			for _, h := range vs.Hosts {
+				hostnames[h] = struct{}{}
+			}
+		}
+		if vs, ok := old.Spec.(*networking.VirtualService); ok {
+			for _, h := range vs.Hosts {
+				hostnames[h] = struct{}{}
+			}
+		}
+	case gvk.DestinationRule:
+		if dr, ok := curr.Spec.(*networking.DestinationRule); ok {
+			hostnames[dr.Host] = struct{}{}
+		}
+		if dr, ok := old.Spec.(*networking.DestinationRule); ok {
+			hostnames[dr.Host] = struct{}{}
+		}
+	}
+	hosts := make([]string, 0, len(hostnames))
+	for h := range hostnames {
+		hosts = append(hosts, h)
+	}
+	sort.Strings(hosts)
+	key.Hostnames = strings.Join(hosts, ",")
+	return key
 }
 
 // ConfigsOfKind extracts configs of the specified kind.

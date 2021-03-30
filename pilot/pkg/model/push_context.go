@@ -18,6 +18,7 @@ import (
 	"encoding/json"
 	"net"
 	"sort"
+	"strings"
 	"sync"
 	"time"
 
@@ -1129,8 +1130,12 @@ func (ps *PushContext) updateContext(
 
 	// Must be initialized in the end
 	// Sidecars need to be updated if services, virtual services, destination rules, or the sidecar configs change
-	if servicesChanged || virtualServicesChanged || destinationRulesChanged || sidecarsChanged {
+	if servicesChanged || sidecarsChanged {
 		if err := ps.initSidecarScopes(env); err != nil {
+			return err
+		}
+	} else if virtualServicesChanged || destinationRulesChanged {
+		if err := ps.updateSidecarScopes(oldPushContext, pushReq); err != nil {
 			return err
 		}
 	} else {
@@ -1377,6 +1382,38 @@ func (ps *PushContext) initDefaultExportMaps() {
 	} else {
 		ps.exportToDefaults.virtualService[visibility.Public] = true
 	}
+}
+
+func (ps *PushContext) updateSidecarScopes(oldPushContext *PushContext, pushReq *PushRequest) error {
+	relatedHostnames := map[string]struct{}{}
+	for conf := range pushReq.ConfigsUpdated {
+		if conf.Hostnames == "" {
+			continue
+		}
+		for _, hostname := range strings.Split(conf.Hostnames, ",") {
+			relatedHostnames[hostname] = struct{}{}
+		}
+	}
+
+	isAffected := func(sc *SidecarScope) bool {
+		for hostname := range relatedHostnames {
+			if sc.DependsOnHostname(hostname) {
+				return true
+			}
+		}
+		return false
+	}
+
+	ps.sidecarsByNamespace = oldPushContext.sidecarsByNamespace
+	for ns, sidecars := range oldPushContext.sidecarsByNamespace {
+		for idx, sidecar := range sidecars {
+			if isAffected(sidecar) {
+				ps.sidecarsByNamespace[ns][idx] = ConvertToSidecarScope(ps, sidecar.Config, ns)
+			}
+		}
+	}
+
+	return nil
 }
 
 // initSidecarScopes synthesizes Sidecar CRDs into objects called

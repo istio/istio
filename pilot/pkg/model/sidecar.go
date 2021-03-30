@@ -72,6 +72,7 @@ type SidecarScope struct {
 	Namespace string
 	// The crd itself. Can be nil if we are constructing the default
 	// sidecar scope
+	Config  *config.Config
 	Sidecar *networking.Sidecar
 
 	// Version this sidecar was computed for
@@ -263,6 +264,7 @@ func ConvertToSidecarScope(ps *PushContext, sidecarConfig *config.Config, config
 	out := &SidecarScope{
 		Name:               sidecarConfig.Name,
 		Namespace:          configNamespace,
+		Config:             sidecarConfig,
 		Sidecar:            sidecar,
 		configDependencies: make(map[uint32]struct{}),
 		RootNamespace:      ps.Mesh.RootNamespace,
@@ -273,6 +275,7 @@ func ConvertToSidecarScope(ps *PushContext, sidecarConfig *config.Config, config
 		sidecarConfig.GroupVersionKind,
 		sidecarConfig.Name,
 		sidecarConfig.Namespace,
+		"",
 	})
 
 	out.EgressListeners = make([]*IstioEgressListenerWrapper, 0)
@@ -549,6 +552,31 @@ func (sc *SidecarScope) AddConfigDependencies(dependencies ...ConfigKey) {
 	for _, config := range dependencies {
 		sc.configDependencies[config.HashCode()] = struct{}{}
 	}
+}
+
+// DependsOnHostname determines if the proxy depends on the given hostname.
+func (sc *SidecarScope) DependsOnHostname(h string) bool {
+	if sc == nil {
+		return true
+	}
+
+	for hostname := range sc.servicesByHostname {
+		if hostname.Matches(host.Name(h)) {
+			return true
+		}
+	}
+
+	for _, el := range sc.EgressListeners {
+		for _, importedHosts := range el.listenerHosts {
+			for _, importedHost := range importedHosts {
+				if importedHost.Matches(host.Name(h)) {
+					return true
+				}
+			}
+		}
+	}
+
+	return false
 }
 
 // Given a list of virtual services visible to this namespace,

@@ -867,13 +867,9 @@ func (s *Server) initRegistryEventHandlers() {
 	if s.configController != nil {
 		configHandler := func(old config.Config, curr config.Config, event model.Event) {
 			pushReq := &model.PushRequest{
-				Full: true,
-				ConfigsUpdated: map[model.ConfigKey]struct{}{{
-					Kind:      curr.GroupVersionKind,
-					Name:      curr.Name,
-					Namespace: curr.Namespace,
-				}: {}},
-				Reason: []model.TriggerReason{model.ConfigUpdate},
+				Full:           true,
+				ConfigsUpdated: map[model.ConfigKey]struct{}{model.MakeConfigKeyForConfigUpdate(old, curr): {}},
+				Reason:         []model.TriggerReason{model.ConfigUpdate},
 			}
 			s.XDSServer.ConfigUpdate(pushReq)
 			if event != model.EventDelete {

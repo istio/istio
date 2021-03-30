@@ -188,15 +188,11 @@ func NewFakeDiscoveryServer(t test.Failer, opts FakeOptions) *FakeDiscoveryServe
 
 	// Setup config handlers
 	// TODO code re-use from server.go
-	configHandler := func(_, curr config.Config, event model.Event) {
+	configHandler := func(old config.Config, curr config.Config, event model.Event) {
 		pushReq := &model.PushRequest{
-			Full: true,
-			ConfigsUpdated: map[model.ConfigKey]struct{}{{
-				Kind:      curr.GroupVersionKind,
-				Name:      curr.Name,
-				Namespace: curr.Namespace,
-			}: {}},
-			Reason: []model.TriggerReason{model.ConfigUpdate},
+			Full:           true,
+			ConfigsUpdated: map[model.ConfigKey]struct{}{model.MakeConfigKeyForConfigUpdate(old, curr): {}},
+			Reason:         []model.TriggerReason{model.ConfigUpdate},
 		}
 		s.ConfigUpdate(pushReq)
 	}

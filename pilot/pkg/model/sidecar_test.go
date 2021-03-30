@@ -1277,9 +1277,9 @@ func TestContainsEgressDependencies(t *testing.T) {
 
 	allContains := func(ns string, contains bool) map[ConfigKey]bool {
 		return map[ConfigKey]bool{
-			{gvk.ServiceEntry, svcName, ns}:   contains,
-			{gvk.VirtualService, vsName, ns}:  contains,
-			{gvk.DestinationRule, drName, ns}: contains,
+			{gvk.ServiceEntry, svcName, ns, ""}:   contains,
+			{gvk.VirtualService, vsName, ns, ""}:  contains,
+			{gvk.DestinationRule, drName, ns, ""}: contains,
 		}
 	}
 
@@ -1296,7 +1296,7 @@ func TestContainsEgressDependencies(t *testing.T) {
 		{"No Sidecar", nil, allContains("ns", true)},
 		{"No Sidecar Other Namespace", nil, allContains("other-ns", false)},
 		{"clusterScope resource", []string{"*/*"}, map[ConfigKey]bool{
-			{gvk.AuthorizationPolicy, "authz", "default"}: true,
+			{gvk.AuthorizationPolicy, "authz", "default", ""}: true,
 		}},
 	}
 	for _, tt := range cases {
@@ -1371,10 +1371,10 @@ func TestRootNsSidecarDependencies(t *testing.T) {
 		contains map[ConfigKey]bool
 	}{
 		{"authorizationPolicy in same ns with workload", []string{"*/*"}, map[ConfigKey]bool{
-			{gvk.AuthorizationPolicy, "authz", "default"}: true,
+			{gvk.AuthorizationPolicy, "authz", "default", ""}: true,
 		}},
 		{"authorizationPolicy in different ns with workload", []string{"*/*"}, map[ConfigKey]bool{
-			{gvk.AuthorizationPolicy, "authz", "ns1"}: false,
+			{gvk.AuthorizationPolicy, "authz", "ns1", ""}: false,
 		}},
 	}
 
@@ -1403,6 +1403,51 @@ func TestRootNsSidecarDependencies(t *testing.T) {
 
 			for k, v := range tt.contains {
 				if ok := sidecarScope.DependsOnConfig(k); ok != v {
+					t.Fatalf("Expected contains %v-%v, but no match", k, v)
+				}
+			}
+		})
+	}
+}
+
+func TestContainsEgressHostnameDependencies(t *testing.T) {
+	allContains := func(contains bool) map[string]bool {
+		return map[string]bool{
+			"foo.com": contains,
+			"bar.com": contains,
+		}
+	}
+
+	cases := []struct {
+		name     string
+		egress   []string
+		contains map[string]bool
+	}{
+		{"Just wildcard", []string{"*/*"}, allContains(true)},
+		{"Wildcard matches subdomains", []string{"*/*.com"}, allContains(true)},
+		{"Non-wildcard domain ", []string{"*/another.com"}, allContains(false)},
+	}
+	for _, tt := range cases {
+		t.Run(tt.name, func(t *testing.T) {
+			cfg := &config.Config{
+				Meta: config.Meta{
+					Name:      "foo",
+					Namespace: "default",
+				},
+				Spec: &networking.Sidecar{
+					Egress: []*networking.IstioEgressListener{
+						{
+							Hosts: tt.egress,
+						},
+					},
+				},
+			}
+			ps := NewPushContext()
+			meshConfig := mesh.DefaultMeshConfig()
+			ps.Mesh = &meshConfig
+			sidecarScope := ConvertToSidecarScope(ps, cfg, "default")
+			for k, v := range tt.contains {
+				if ok := sidecarScope.DependsOnHostname(k); ok != v {
 					t.Fatalf("Expected contains %v-%v, but no match", k, v)
 				}
 			}
