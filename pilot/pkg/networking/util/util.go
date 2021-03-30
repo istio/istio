@@ -37,6 +37,7 @@ import (
 	pstruct "github.com/golang/protobuf/ptypes/struct"
 	"github.com/golang/protobuf/ptypes/wrappers"
 	"github.com/hashicorp/go-multierror"
+	"google.golang.org/protobuf/types/known/durationpb"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
@@ -254,7 +255,7 @@ func GogoDurationToDuration(d *types.Duration) *duration.Duration {
 		log.Warnf("error converting duration %#v, using 0: %v", d, err)
 		return nil
 	}
-	return ptypes.DurationProto(dur)
+	return durationpb.New(dur)
 }
 
 // SortVirtualHosts sorts a slice of virtual hosts by name.
@@ -444,9 +445,11 @@ func IsHTTPFilterChain(filterChain *listener.FilterChain) bool {
 func MergeAnyWithStruct(a *any.Any, pbStruct *pstruct.Struct) (*any.Any, error) {
 	// Assuming that Pilot is compiled with this type [which should always be the case]
 	var err error
+	// nolint: staticcheck
 	var x ptypes.DynamicAny
 
 	// First get an object of type used by this message
+	// nolint: staticcheck
 	if err = ptypes.UnmarshalAny(a, &x); err != nil {
 		return nil, err
 	}
@@ -462,6 +465,7 @@ func MergeAnyWithStruct(a *any.Any, pbStruct *pstruct.Struct) (*any.Any, error) 
 	proto.Merge(x.Message, temp)
 	var retVal *any.Any
 	// Convert the merged proto back to any
+	// nolint: staticcheck
 	if retVal, err = ptypes.MarshalAny(x.Message); err != nil {
 		return nil, err
 	}
@@ -474,14 +478,17 @@ func MergeAnyWithStruct(a *any.Any, pbStruct *pstruct.Struct) (*any.Any, error) 
 func MergeAnyWithAny(dst *any.Any, src *any.Any) (*any.Any, error) {
 	// Assuming that Pilot is compiled with this type [which should always be the case]
 	var err error
+	// nolint: staticcheck
 	var dstX, srcX ptypes.DynamicAny
 
 	// get an object of type used by this message
+	// nolint: staticcheck
 	if err = ptypes.UnmarshalAny(dst, &dstX); err != nil {
 		return nil, err
 	}
 
 	// get an object of type used by this message
+	// nolint: staticcheck
 	if err = ptypes.UnmarshalAny(src, &srcX); err != nil {
 		return nil, err
 	}
@@ -490,6 +497,7 @@ func MergeAnyWithAny(dst *any.Any, src *any.Any) (*any.Any, error) {
 	proto.Merge(dstX.Message, srcX.Message)
 	var retVal *any.Any
 	// Convert the merged proto back to dst
+	// nolint: staticcheck
 	if retVal, err = ptypes.MarshalAny(dstX.Message); err != nil {
 		return nil, err
 	}

@@ -31,6 +31,7 @@ import (
 	"github.com/golang/protobuf/ptypes/empty"
 	"github.com/google/go-cmp/cmp"
 	"google.golang.org/protobuf/testing/protocmp"
+	"google.golang.org/protobuf/types/known/durationpb"
 
 	"istio.io/api/security/v1beta1"
 	type_beta "istio.io/api/type/v1beta1"
@@ -1021,6 +1022,7 @@ func humanReadableAuthnFilterDump(filter *http_conn.HttpFilter) string {
 		return "<nil>"
 	}
 	config := &authn_filter.FilterConfig{}
+	// nolint: staticcheck
 	ptypes.UnmarshalAny(filter.GetTypedConfig(), config)
 	return spew.Sdump(*config)
 }
@@ -1484,7 +1486,7 @@ func TestInboundMTLSSettings(t *testing.T) {
 								},
 							},
 						},
-						InitialFetchTimeout: ptypes.DurationProto(time.Second * 0),
+						InitialFetchTimeout: durationpb.New(time.Second * 0),
 						ResourceApiVersion:  core.ApiVersion_V3,
 					},
 				},
@@ -1509,7 +1511,7 @@ func TestInboundMTLSSettings(t *testing.T) {
 									},
 								},
 							},
-							InitialFetchTimeout: ptypes.DurationProto(time.Second * 0),
+							InitialFetchTimeout: durationpb.New(time.Second * 0),
 							ResourceApiVersion:  core.ApiVersion_V3,
 						},
 					},

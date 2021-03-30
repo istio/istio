@@ -27,7 +27,6 @@ import (
 	httpConn "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
 	tcp "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/tcp_proxy/v3"
 	"github.com/envoyproxy/go-control-plane/pkg/wellknown"
-	"github.com/golang/protobuf/ptypes"
 
 	protio "istio.io/istio/istioctl/pkg/util/proto"
 	"istio.io/istio/pilot/pkg/networking/util"
@@ -249,7 +248,7 @@ func getFilterType(filters []*listener.Filter) string {
 			httpProxy := &httpConn.HttpConnectionManager{}
 			// Allow Unmarshal to work even if Envoy and istioctl are different
 			filter.GetTypedConfig().TypeUrl = "type.googleapis.com/envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager"
-			err := ptypes.UnmarshalAny(filter.GetTypedConfig(), httpProxy)
+			err := filter.GetTypedConfig().UnmarshalTo(httpProxy)
 			if err != nil {
 				return err.Error()
 			}
@@ -265,7 +264,7 @@ func getFilterType(filters []*listener.Filter) string {
 				tcpProxy := &tcp.TcpProxy{}
 				// Allow Unmarshal to work even if Envoy and istioctl are different
 				filter.GetTypedConfig().TypeUrl = "type.googleapis.com/envoy.extensions.filters.network.tcp_proxy.v3.TcpProxy"
-				err := ptypes.UnmarshalAny(filter.GetTypedConfig(), tcpProxy)
+				err := filter.GetTypedConfig().UnmarshalTo(tcpProxy)
 				if err != nil {
 					return err.Error()
 				}
@@ -397,7 +396,7 @@ func (c *ConfigWriter) retrieveSortedListenerSlice() ([]*listener.Listener, erro
 			listenerTyped := &listener.Listener{}
 			// Support v2 or v3 in config dump. See ads.go:RequestedTypes for more info.
 			l.ActiveState.Listener.TypeUrl = v3.ListenerType
-			err = ptypes.UnmarshalAny(l.ActiveState.Listener, listenerTyped)
+			err = l.ActiveState.Listener.UnmarshalTo(listenerTyped)
 			if err != nil {
 				return nil, fmt.Errorf("unmarshal listener: %v", err)
 			}
@@ -410,7 +409,7 @@ func (c *ConfigWriter) retrieveSortedListenerSlice() ([]*listener.Listener, erro
 			listenerTyped := &listener.Listener{}
 			// Support v2 or v3 in config dump. See ads.go:RequestedTypes for more info.
 			l.Listener.TypeUrl = v3.ListenerType
-			err = ptypes.UnmarshalAny(l.Listener, listenerTyped)
+			err = l.Listener.UnmarshalTo(listenerTyped)
 			if err != nil {
 				return nil, fmt.Errorf("unmarshal listener: %v", err)
 			}
