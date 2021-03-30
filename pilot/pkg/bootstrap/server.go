@@ -278,18 +278,29 @@ func NewServer(args *PilotArgs) (*Server, error) {
 		return nil, fmt.Errorf("error initializing secure gRPC Listener: %v", err)
 	}
 
+	var wh *inject.Webhook
 	// common https server for webhooks (e.g. injection, validation)
-	s.initSecureWebhookServer(args)
+	if s.kubeClient != nil {
+		s.initSecureWebhookServer(args)
+		wh, err = s.initSidecarInjector(args)
+		if err != nil {
+			return nil, fmt.Errorf("error initializing sidecar injector: %v", err)
+		}
+		if err := s.initConfigValidation(args); err != nil {
+			return nil, fmt.Errorf("error initializing config validator: %v", err)
+		}
+	}
 
-	wh, err := s.initSidecarInjector(args)
-	if err != nil {
-		return nil, fmt.Errorf("error initializing sidecar injector: %v", err)
+	whc := func() map[string]string {
+		if wh != nil {
+			return wh.Config.Templates
+		} else {
+			return map[string]string{}
+		}
 	}
-	if err := s.initConfigValidation(args); err != nil {
-		return nil, fmt.Errorf("error initializing config validator: %v", err)
-	}
+
 	// Used for readiness, monitoring and debug handlers.
-	if err := s.initIstiodAdminServer(args, wh); err != nil {
+	if err := s.initIstiodAdminServer(args, whc); err != nil {
 		return nil, fmt.Errorf("error initializing debug server: %v", err)
 	}
 	// This should be called only after controllers are initialized.
@@ -558,7 +569,7 @@ func (s *Server) istiodReadyHandler(w http.ResponseWriter, _ *http.Request) {
 }
 
 // initIstiodAdminServer initializes monitoring, debug and readiness end points.
-func (s *Server) initIstiodAdminServer(args *PilotArgs, wh *inject.Webhook) error {
+func (s *Server) initIstiodAdminServer(args *PilotArgs, whc func() map[string]string) error {
 	s.httpServer = &http.Server{
 		Addr:    args.ServerOptions.HTTPAddr,
 		Handler: s.httpMux,
@@ -577,10 +588,6 @@ func (s *Server) initIstiodAdminServer(args *PilotArgs, wh *inject.Webhook) erro
 		log.Info("initializing Istiod admin server multiplexed on httpAddr ", listener.Addr())
 	} else {
 		log.Info("initializing Istiod admin server")
-	}
-
-	whc := func() map[string]string {
-		return wh.Config.Templates
 	}
 
 	// Debug Server.
