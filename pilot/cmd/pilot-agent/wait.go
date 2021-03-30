@@ -33,8 +33,15 @@ var (
 
 	waitCmd = &cobra.Command{
 		Use:   "wait",
-		Short: "Waits until the Envoy proxy is ready",
+		Short: "Waits until the Envoy proxy is ready or simple wait for certain seconds",
 		RunE: func(c *cobra.Command, args []string) error {
+			if url == "" {
+				// Simple wait function for certain seconds
+				time.Sleep(time.Duration(timeoutSeconds) * time.Second)
+				log.Infof("Slept for %d seconds.", timeoutSeconds)
+				return nil
+			}
+
 			client := &http.Client{
 				Timeout: time.Duration(requestTimeoutMillis) * time.Millisecond,
 			}
