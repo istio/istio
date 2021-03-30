@@ -158,9 +158,7 @@ func TestReachability(t *testing.T) {
 						return dest.Match(echo.InNetwork(src.Config().Cluster.NetworkName()))
 					},
 					ExpectSuccess: Always,
-					ExpectMTLS: func(src echo.Instance, opts echo.CallOptions) bool {
-						return !apps.Naked.Contains(src) && !apps.Naked.Contains(opts.Target)
-					},
+					ExpectMTLS:    Never,
 				},
 				{
 					ConfigFile: "automtls-passthrough.yaml",
