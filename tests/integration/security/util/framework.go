@@ -16,7 +16,7 @@
 package util
 
 import (
-	"sync"
+	"github.com/hashicorp/go-multierror"
 
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/test/framework"
@@ -234,21 +234,22 @@ func (apps *EchoDeployments) IsVM(i echo.Instance) bool {
 }
 
 func WaitForConfig(ctx framework.TestContext, configs string, namespace namespace.Instance) {
-	wg := sync.WaitGroup{}
+	errG := multierror.Group{}
 	for _, c := range ctx.Clusters().Primaries() {
 		c := c
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
+		errG.Go(func() error {
 			ik := istioctl.NewOrFail(ctx, ctx, istioctl.Config{Cluster: c})
 			if err := ik.WaitForConfigs(namespace.Name(), configs); err != nil {
-				// Continue anyways, so we can assess the effectiveness of using `istioctl wait`
-				ctx.Logf("warning: failed to wait for config: %v", err)
 				// Get proxy status for additional debugging
 				s, _, _ := ik.Invoke([]string{"ps"})
 				ctx.Logf("proxy status: %v", s)
+				return err
 			}
-		}()
+			return nil
+		})
 	}
-	wg.Wait()
+	if err := errG.Wait(); err != nil {
+		ctx.Logf("errors occurred waiting for config: %v", err)
+	}
+	// Continue anyways, so we can assess the effectiveness of using `istioctl wait`
 }

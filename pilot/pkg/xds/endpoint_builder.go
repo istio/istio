@@ -430,7 +430,7 @@ func newMtlsChecker(push *model.PushContext, svcPort int, dr *config.Config) *mt
 
 // mTLSDisabled returns true if the given lbEp has mTLS disabled due to any of:
 // - disabled tlsMode
-// - DestinationRule disabling mTLS on the entire host or the port TODO handle subsets
+// - DestinationRule disabling mTLS on the entire host or the port
 // - PeerAuthentication disabling mTLS at any applicable level (mesh, ns, workload, port)
 func (c *mtlsChecker) isMtlsDisabled(lbEp *endpoint.LbEndpoint) bool {
 	if c == nil {
