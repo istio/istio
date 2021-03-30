@@ -242,6 +242,11 @@ func (c *controller) HasSynced() bool {
 		(c.classes == nil || c.classes.Informer().HasSynced())
 }
 
+func (c *controller) SyncErr() error {
+	// TODO implement if needed
+	return nil
+}
+
 func (c *controller) Run(stop <-chan struct{}) {
 	go func() {
 		cache.WaitForCacheSync(stop, c.HasSynced)

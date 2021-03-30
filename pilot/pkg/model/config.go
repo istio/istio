@@ -166,6 +166,8 @@ type ConfigStoreCache interface {
 
 	// HasSynced returns true after initial cache synchronization is complete
 	HasSynced() bool
+
+	SyncErr() error
 }
 
 // IstioConfigStore is a specialized interface to access config store using

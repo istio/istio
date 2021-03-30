@@ -264,6 +264,7 @@ type Controller struct {
 	// initialized is set to true once the controller is running successfully. This ensures we do not
 	// return HasSynced=true before we are running
 	initialized *atomic.Bool
+	syncErr     *atomic.Error
 
 	// Duration to wait for cache syncs
 	syncInterval time.Duration
@@ -294,6 +295,7 @@ func NewController(kubeClient kubelib.Client, options Options) *Controller {
 		metrics:                     options.Metrics,
 		syncInterval:                options.GetSyncInterval(),
 		initialized:                 atomic.NewBool(false),
+		syncErr:                     atomic.NewError(nil),
 		discoveryNamespacesFilter:   options.DiscoveryNamespacesFilter,
 	}
 
@@ -594,6 +596,17 @@ func (c *Controller) HasSynced() bool {
 	if !c.initialized.Load() {
 		return false
 	}
+	// clear our sync error
+	c.syncErr.Store(nil)
+
+	// the way we initialize informers won't cause errors, and will block on the following check indefinitely
+	// this smoketests API server reachability, permissions are exercised better in SyncAll
+	req, _ := klabels.NewRequirement("noop.istio.io/noop", "=", []string{"noop"})
+	_, err := c.serviceLister.List(klabels.NewSelector().Add(*req))
+	if err != nil {
+		c.syncErr.Store(err)
+	}
+
 	if (c.systemNsInformer != nil && !c.systemNsInformer.HasSynced()) ||
 		!c.serviceInformer.HasSynced() ||
 		!c.endpoints.HasSynced() ||
@@ -603,16 +616,27 @@ func (c *Controller) HasSynced() bool {
 	}
 
 	// after informer caches sync the first time, process resources in order
+	if c.syncErr.Load() != nil {
+		// reset the "once" if we failed the last sync attempt
+		// TODO there is probably a better way to do this...
+		c.once = sync.Once{}
+	}
 	c.once.Do(func() {
 		if err := c.SyncAll(); err != nil {
 			log.Errorf("one or more errors force-syncing resources: %v", err)
+			c.syncErr.Store(err)
 		}
 	})
 
-	return true
+	return c.syncErr.Load() != nil
 }
 
-// SyncAll syncs all the objects node->service->pod->endpoint in order
+func (c *Controller) SyncErr() error {
+	return c.syncErr.Load()
+}
+
+// SyncAll syncs all the objects node->service->pod->endpoint in order.
+// The order matters and isn't guaranteed on the initial cache sync.
 // TODO: sync same kind of objects in parallel
 // This can cause great performance cost in multi clusters scenario.
 // Maybe just sync the cache and trigger one push at last.
@@ -637,6 +661,8 @@ func (c *Controller) SyncAll() error {
 	for _, s := range services {
 		err = multierror.Append(err, c.onServiceEvent(s, model.EventAdd))
 	}
+
+	c.reloadNetworkGateways()
 
 	err = multierror.Append(err, c.syncPods())
 	err = multierror.Append(err, c.syncEndpoints())

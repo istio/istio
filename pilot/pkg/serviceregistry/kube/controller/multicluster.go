@@ -21,6 +21,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/hashicorp/go-multierror"
+
 	"k8s.io/client-go/tools/cache"
 
 	"go.uber.org/atomic"
@@ -50,6 +52,7 @@ const (
 	webhookName = "sidecar-injector.istio.io"
 
 	// readinessTtimeout is the maximum time we block readiness to allow multicluster registries to ready
+	// TODO move to features/env var
 	readinessTimeout = 15 * time.Second
 )
 
@@ -64,6 +67,7 @@ type kubeController struct {
 	*Controller
 	stopCh             chan struct{}
 	workloadEntryStore *serviceentry.ServiceEntryStore
+	configStore        model.ConfigStoreCache
 }
 
 // Multicluster structure holds the remote kube Controllers and multicluster specific attributes.
@@ -146,25 +150,9 @@ func NewMulticluster(
 }
 
 func (m *Multicluster) Run(stopCh <-chan struct{}) error {
-	go m.sync()
 	// Wait for server shutdown.
 	<-stopCh
 	return m.close()
-}
-
-func (m *Multicluster) sync() {
-	timeout := time.After(10 * time.Second)
-	done := make(chan struct{})
-	go func() {
-		cache.WaitForCacheSync(done, m.secretController.HasSynced)
-		close(done)
-	}()
-	select {
-	case <-timeout:
-		log.Warnf("multicluster registries not ready after %v")
-	case <-done:
-	}
-	m.synced.Store(true)
 }
 
 func (m *Multicluster) close() (err error) {
@@ -235,6 +223,7 @@ func (m *Multicluster) AddMemberCluster(client kubelib.Client, clusterID string)
 		} else if features.WorkloadEntryCrossCluster {
 			// TODO only do this for non-remotes, can't guarantee CRDs in remotes (depends on https://github.com/istio/istio/pull/29824)
 			if configStore, err := createConfigStore(client, m.revision, options); err == nil {
+				m.remoteKubeControllers[clusterID].configStore = configStore
 				m.remoteKubeControllers[clusterID].workloadEntryStore = serviceentry.NewServiceDiscovery(
 					configStore, model.MakeIstioStore(configStore), options.XDSUpdater, serviceentry.DisableServiceEntryProcessing())
 				m.serviceController.AddRegistry(m.remoteKubeControllers[clusterID].workloadEntryStore)
@@ -403,6 +392,89 @@ func (m *Multicluster) InitSecretController(stop <-chan struct{}) {
 	m.secretController = secretcontroller.StartSecretController(
 		m.client, m.AddMemberCluster, m.UpdateMemberCluster, m.DeleteMemberCluster,
 		m.secretNamespace, m.syncInterval, stop)
+	go m.sync()
+}
+
+func (m *Multicluster) sync() {
+	defer func() {
+		m.synced.Store(true)
+	}()
+
+	// stop cancels sync wait
+	stop := make(chan struct{})
+	defer close(stop)
+
+	// timeout places an upper bound on how long sync errors can clear
+	timeout := time.After(readinessTimeout)
+
+	// wait for either readiness, or a timeout
+	done := make(chan struct{})
+	go func() {
+		m.waitForRegistriesSynced(stop)
+		close(done)
+	}()
+	select {
+	case <-done:
+		return
+	case <-timeout:
+	}
+
+	// timeout has expired, start watching for any sync error
+	err := make(chan error)
+	defer close(err)
+	go func() {
+		err <- m.waitForSyncErrors(stop)
+	}()
+
+	select {
+	case <-done:
+		return
+	case err := <-err:
+		log.Warnf("sync errors for multicluster registries still present after %v: %v", readinessTimeout, err)
+	}
+}
+
+func (m *Multicluster) waitForRegistriesSynced(stop chan struct{}) {
+	// wait for the secret controller to init registries
+	cache.WaitForCacheSync(stop, m.secretController.HasSynced)
+
+	// collect all the service registry HasSynced
+	syncs := make([]cache.InformerSynced, 0, len(m.remoteKubeControllers))
+	m.m.Lock()
+	for _, controller := range m.remoteKubeControllers {
+		syncs = append(syncs, controller.HasSynced)
+		if controller.workloadEntryStore != nil {
+			syncs = append(syncs, controller.workloadEntryStore.HasSynced)
+		}
+	}
+	m.m.Unlock()
+
+	cache.WaitForCacheSync(stop, m.secretController.HasSynced)
+}
+
+func (m *Multicluster) waitForSyncErrors(stop chan struct{}) error {
+	syncs := make([]func() error, 0, len(m.remoteKubeControllers))
+	m.m.Lock()
+	for _, controller := range m.remoteKubeControllers {
+		syncs = append(syncs, controller.SyncErr)
+		if controller.configStore != nil {
+			syncs = append(syncs, controller.configStore.SyncErr)
+		}
+	}
+	m.m.Unlock()
+
+	var errs error
+	cache.WaitForCacheSync(stop, func() bool {
+		// collect errors from every cache
+		for _, f := range syncs {
+			if err := f(); err != nil {
+				errs = multierror.Append(errs, err)
+			}
+		}
+		// if we found any, stop waiting
+		return errs != nil
+	})
+	return errs
 }
 
 func (m *Multicluster) HasSynced() bool {

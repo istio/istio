@@ -28,6 +28,8 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/hashicorp/go-multierror"
+
 	jsonmerge "github.com/evanphx/json-patch/v5"
 	"gomodules.xyz/jsonpatch/v2"
 	crd "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
@@ -131,6 +133,17 @@ func (cl *Client) HasSynced() bool {
 		}
 	}
 	return true
+}
+
+func (cl *Client) SyncErr() error {
+	req, _ := klabels.NewRequirement("noop.istio.io/noop", "=", []string{"noop"})
+	var errs error
+	for _, ctl := range cl.kinds {
+		if _, err := ctl.lister("default").List(klabels.NewSelector().Add(*req)); err != nil {
+			errs = multierror.Append(errs, err)
+		}
+	}
+	return errs
 }
 
 func New(client kube.Client, revision, domainSuffix string) (model.ConfigStoreCache, error) {

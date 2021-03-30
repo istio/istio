@@ -180,6 +180,16 @@ func (cr *storeCache) HasSynced() bool {
 	return true
 }
 
+func (cr *storeCache) SyncErr() error {
+	var errs error
+	for _, cache := range cr.caches {
+		if err := cache.SyncErr(); err != nil {
+			errs = multierror.Append(errs, err)
+		}
+	}
+	return errs
+}
+
 func (cr *storeCache) RegisterEventHandler(kind config.GroupVersionKind, handler func(config.Config, config.Config, model.Event)) {
 	for _, cache := range cr.caches {
 		if _, exists := cache.Schemas().FindByGroupVersionKind(kind); exists {

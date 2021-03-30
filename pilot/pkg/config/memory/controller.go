@@ -59,6 +59,10 @@ func (c *controller) HasSynced() bool {
 	return true
 }
 
+func (c *controller) SyncErr() error {
+	return nil
+}
+
 func (c *controller) Run(stop <-chan struct{}) {
 	c.monitor.Run(stop)
 }

@@ -209,3 +209,8 @@ func (c controller) Run(stop <-chan struct{}) {
 func (c controller) HasSynced() bool {
 	return c.cache.HasSynced()
 }
+
+func (c *controller) SyncErr() error {
+	// TODO implement if needed
+	return nil
+}

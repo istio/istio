@@ -87,7 +87,20 @@ func (c *Controller) DeleteRegistry(clusterID string, providerID serviceregistry
 	log.Infof("Registry for the cluster %s has been deleted.", clusterID)
 }
 
-// GetRegistries returns a copy of all registries
+// getAllRegistries returns a copy of all registries
+func (c *Controller) getAllRegistries() []serviceregistry.Instance {
+	c.storeLock.RLock()
+	defer c.storeLock.RUnlock()
+
+	// copy registries to prevent race, no need to deep copy here.
+	out := make([]serviceregistry.Instance, 0, len(c.registries))
+	for _, r := range c.registries {
+		out = append(out, r)
+	}
+	return out
+}
+
+// GetRegistries returns a copy of all registries that are synced and ready.
 func (c *Controller) GetRegistries() []serviceregistry.Instance {
 	c.storeLock.RLock()
 	defer c.storeLock.RUnlock()
@@ -269,7 +282,7 @@ func (c *Controller) GetProxyWorkloadLabels(proxy *model.Proxy) labels.Collectio
 
 // Run starts all the controllers
 func (c *Controller) Run(stop <-chan struct{}) {
-	for _, r := range c.GetRegistries() {
+	for _, r := range c.getAllRegistries() {
 		go r.Run(stop)
 	}
 	c.running.Store(true)
