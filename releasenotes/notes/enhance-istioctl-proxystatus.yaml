@@ -6,4 +6,4 @@ issue:
 releaseNotes:
   - |
     **Improved** `istioctl proxy-status` command to include additional XDS sync statuses
-    like NDS, ECDS, PCDS and added options to filter XDS status columns.
+    like NDS, ECDS, PCDS and added options to filter xDS status columns.

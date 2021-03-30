@@ -66,13 +66,13 @@ func statusCommand() *cobra.Command {
 Retrieves last sent and last acknowledged xDS sync from Istiod to each Envoy in the mesh
 
 `,
-		Example: `  # Retrieve sync status of common XDS types for all Envoys in a mesh
+		Example: `  # Retrieve sync status of all Envoys in a mesh
   istioctl proxy-status
 
-  # Display sync statuses of all XDS types (WARNING: Depending on horizontal screen size
+  # Display sync statuses of all xDS types (WARNING: Depending on horizontal screen size
   # it may be split into multiple lines. In that case, filter columns with --xds-cols
   # option instead (see below)
-  istioctl proxy-status -A
+  istioctl proxy-status --wide
 
   # Display sync statuses of only LDS and EDS for all Envoys in a mesh
   istioctl proxy-status --xds-cols=lds,cds
@@ -96,7 +96,7 @@ Retrieves last sent and last acknowledged xDS sync from Istiod to each Envoy in 
 			}
 			if showAllXDSStatuses {
 				if len(xdsStatusCols) > 0 {
-					return fmt.Errorf("either --all-xds-statuses or --xds-status-cols should be used, not both")
+					return fmt.Errorf("either --wide or --xds-status-cols should be used, not both")
 				}
 				xdsStatusCols = getXDSColsList(allXDSCols)
 			} else if len(xdsStatusCols) == 0 {
@@ -112,7 +112,7 @@ Retrieves last sent and last acknowledged xDS sync from Istiod to each Envoy in 
 					}
 				}
 				if !found {
-					return fmt.Errorf("invalid XDS column: %s (must be one of %s)", xcgiven,
+					return fmt.Errorf("invalid xDS column: %s (must be one of %s)", xcgiven,
 						strings.Join(xdsCols, ","))
 				}
 			}
@@ -163,10 +163,10 @@ Retrieves last sent and last acknowledged xDS sync from Istiod to each Envoy in 
 	}
 
 	opts.AttachControlPlaneFlags(statusCmd)
-	statusCmd.PersistentFlags().BoolVarP(&showAllXDSStatuses, "all-xds-statuses", "A", false,
-		"When true, it displays all xDS distribution statues (including NDS, ECDS, PCDS etc)")
+	statusCmd.PersistentFlags().BoolVarP(&showAllXDSStatuses, "wide", "", false,
+		"When true, it displays all xDS distribution status (including NDS, ECDS, PCDS etc)")
 	statusCmd.PersistentFlags().StringSliceVarP(&xdsStatusCols, "xds-cols", "", nil,
-		fmt.Sprintf("The list of XDS status columns to display. Valid ones are: %s", strings.Join(getXDSColsList(allXDSCols), ",")))
+		fmt.Sprintf("The xDS columns to display. Valid types are: %s", strings.Join(getXDSColsList(allXDSCols), ",")))
 	statusCmd.PersistentFlags().StringVarP(&configDumpFile, "file", "f", "",
 		"Envoy config dump JSON file")
 

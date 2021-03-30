@@ -54,19 +54,19 @@ func TestProxyStatus(t *testing.T) {
 			args:          strings.Split("proxy-status serviceaccount/sleep", " "),
 			wantException: true,
 		},
-		{ // case 8: supplying -A parameter should also include XDS types besides CDS,LDS,EDS and RDS
-			args:           strings.Split("proxy-status -A", " "),
+		{ // case 8: supplying --wide parameter should also include xDS types besides CDS,LDS,EDS and RDS
+			args:           strings.Split("proxy-status --wide", " "),
 			expectedString: "NAME     CDS     LDS     EDS     RDS     NDS     ECDS     PCDS     ISTIOD     VERSION",
 		},
-		{ // case 9: supplying list of XDS columns should result in them being printed in same order
+		{ // case 9: supplying list of xDS columns should result in them being printed in same order
 			args:           strings.Split("proxy-status --xds-cols=lds,nds,cds", " "),
 			expectedString: "NAME     LDS     NDS     CDS     ISTIOD     VERSION",
 		},
-		{ // case 10: supplying invalid XDS column type should result in an error
+		{ // case 10: supplying invalid xDS column type should result in an error
 			args:          strings.Split("proxy-status --xds-cols=lds,abcdefds,nds", " "),
 			wantException: true,
 		},
-		{ // case 11: supplying both -A and --xds-cols should result in an error
+		{ // case 11: supplying both --wide and --xds-cols should result in an error
 			args:          strings.Split("proxy-status -A --xds-cols=cds,lds,eds", " "),
 			wantException: true,
 		},
