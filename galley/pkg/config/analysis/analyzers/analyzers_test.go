@@ -22,10 +22,6 @@ import (
 	"testing"
 	"time"
 
-	"istio.io/istio/galley/pkg/config/analysis/analyzers/maturity"
-
-	"istio.io/istio/galley/pkg/config/analysis/analyzers/maturity"
-
 	. "github.com/onsi/gomega"
 
 	"istio.io/istio/galley/pkg/config/analysis"
