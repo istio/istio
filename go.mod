@@ -89,7 +89,7 @@ require (
 	golang.org/x/time v0.0.0-20210220033141-f8bda1e9f3ba
 	gomodules.xyz/jsonpatch/v2 v2.1.0
 	gomodules.xyz/jsonpatch/v3 v3.0.1
-	google.golang.org/api v0.40.0 // indirect
+	google.golang.org/api v0.40.0
 	google.golang.org/genproto v0.0.0-20210222152913-aa3ee6e6a81c
 	google.golang.org/grpc v1.36.0
 	google.golang.org/grpc/examples v0.0.0-20200825162801-44d73dff99bf // indirect
