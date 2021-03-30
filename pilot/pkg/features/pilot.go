@@ -17,8 +17,8 @@ package features
 import (
 	"time"
 
-	"github.com/golang/protobuf/ptypes"
 	"github.com/golang/protobuf/ptypes/duration"
+	"google.golang.org/protobuf/types/known/durationpb"
 
 	"istio.io/istio/pkg/jwt"
 	"istio.io/pkg/env"
@@ -264,7 +264,7 @@ var (
 	)
 
 	DefaultRequestTimeout = func() *duration.Duration {
-		return ptypes.DurationProto(defaultRequestTimeoutVar.Get())
+		return durationpb.New(defaultRequestTimeoutVar.Get())
 	}()
 
 	EnableServiceApis = env.RegisterBoolVar("PILOT_ENABLED_SERVICE_APIS", true,
