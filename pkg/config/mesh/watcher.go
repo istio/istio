@@ -44,9 +44,13 @@ type Watcher interface {
 var _ Watcher = &InternalWatcher{}
 
 type InternalWatcher struct {
-	mutex      sync.Mutex
-	handlers   []func()
+	mutex    sync.Mutex
+	handlers []func()
+	// Current merged mesh config
 	MeshConfig *meshconfig.MeshConfig
+
+	userMeshConfig string
+	revMeshConfig  string
 }
 
 // NewFixedWatcher creates a new Watcher that always returns the given mesh config. It will never
@@ -92,6 +96,40 @@ func (w *InternalWatcher) AddMeshHandler(h func()) {
 	w.mutex.Lock()
 	defer w.mutex.Unlock()
 	w.handlers = append(w.handlers, h)
+}
+
+func (w *InternalWatcher) HandleMeshConfigData(yaml string) {
+	w.revMeshConfig = yaml
+	w.HandleMeshConfig(w.merged())
+}
+
+func (w *InternalWatcher) HandleUserMeshConfig(yaml string) {
+	w.userMeshConfig = yaml
+	if w.revMeshConfig != "" {
+		w.HandleMeshConfig(w.merged())
+	}
+}
+
+// merged returns the merged user and revision config.
+func (w *InternalWatcher) merged() *meshconfig.MeshConfig {
+	mc := DefaultMeshConfig()
+	if w.userMeshConfig != "" {
+		mc1, err := ApplyMeshConfig(w.userMeshConfig, mc)
+		if err != nil {
+			log.Errorf("user config invalid, ignoring it %v %s", err, w.userMeshConfig)
+		}
+		mc = *mc1
+		log.Infoa("Applied user config: ", spew.Sdump(mc))
+	}
+	if w.revMeshConfig != "" {
+		mc1, err := ApplyMeshConfig(w.revMeshConfig, mc)
+		if err != nil {
+			log.Errorf("revision config invalid, ignoring it %v %s", err, w.userMeshConfig)
+		}
+		mc = *mc1
+		log.Infoa("Applied revision mesh config: ", spew.Sdump(mc))
+	}
+	return &mc
 }
 
 func (w *InternalWatcher) HandleMeshConfig(meshConfig *meshconfig.MeshConfig) {
