@@ -16,12 +16,15 @@ package analyzers
 
 import (
 	"fmt"
-	"istio.io/istio/galley/pkg/config/analysis/analyzers/maturity"
 	"os"
 	"regexp"
 	"strings"
 	"testing"
 	"time"
+
+	"istio.io/istio/galley/pkg/config/analysis/analyzers/maturity"
+
+	"istio.io/istio/galley/pkg/config/analysis/analyzers/maturity"
 
 	. "github.com/onsi/gomega"
 
@@ -33,6 +36,7 @@ import (
 	"istio.io/istio/galley/pkg/config/analysis/analyzers/destinationrule"
 	"istio.io/istio/galley/pkg/config/analysis/analyzers/gateway"
 	"istio.io/istio/galley/pkg/config/analysis/analyzers/injection"
+	"istio.io/istio/galley/pkg/config/analysis/analyzers/maturity"
 	"istio.io/istio/galley/pkg/config/analysis/analyzers/multicluster"
 	schemaValidation "istio.io/istio/galley/pkg/config/analysis/analyzers/schema"
 	"istio.io/istio/galley/pkg/config/analysis/analyzers/service"
