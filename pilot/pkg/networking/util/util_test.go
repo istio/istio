@@ -1161,7 +1161,7 @@ func TestEndpointMetadata(t *testing.T) {
 		},
 		{
 			name:         "tls mode",
-			tlsMode:      string(model.IstioMutualTLSModeLabel),
+			tlsMode:      model.IstioMutualTLSModeLabel,
 			network:      "",
 			workloadName: "",
 			clusterID:    "",
@@ -1171,7 +1171,7 @@ func TestEndpointMetadata(t *testing.T) {
 						Fields: map[string]*structpb.Value{
 							model.TLSModeLabelShortname: {
 								Kind: &structpb.Value_StringValue{
-									StringValue: string(model.IstioMutualTLSModeLabel),
+									StringValue: model.IstioMutualTLSModeLabel,
 								},
 							},
 						},
@@ -1190,7 +1190,7 @@ func TestEndpointMetadata(t *testing.T) {
 		},
 		{
 			name:         "network and tls mode",
-			tlsMode:      string(model.IstioMutualTLSModeLabel),
+			tlsMode:      model.IstioMutualTLSModeLabel,
 			network:      "network",
 			workloadName: "",
 			clusterID:    "",
@@ -1200,7 +1200,7 @@ func TestEndpointMetadata(t *testing.T) {
 						Fields: map[string]*structpb.Value{
 							model.TLSModeLabelShortname: {
 								Kind: &structpb.Value_StringValue{
-									StringValue: string(model.IstioMutualTLSModeLabel),
+									StringValue: model.IstioMutualTLSModeLabel,
 								},
 							},
 						},
@@ -1224,7 +1224,7 @@ func TestEndpointMetadata(t *testing.T) {
 		},
 		{
 			name:         "all label",
-			tlsMode:      string(model.IstioMutualTLSModeLabel),
+			tlsMode:      model.IstioMutualTLSModeLabel,
 			network:      "network",
 			workloadName: "workload",
 			clusterID:    "cluster",
@@ -1239,7 +1239,7 @@ func TestEndpointMetadata(t *testing.T) {
 						Fields: map[string]*structpb.Value{
 							model.TLSModeLabelShortname: {
 								Kind: &structpb.Value_StringValue{
-									StringValue: string(model.IstioMutualTLSModeLabel),
+									StringValue: model.IstioMutualTLSModeLabel,
 								},
 							},
 						},
@@ -1263,7 +1263,7 @@ func TestEndpointMetadata(t *testing.T) {
 		},
 		{
 			name:         "miss pod label",
-			tlsMode:      string(model.IstioMutualTLSModeLabel),
+			tlsMode:      model.IstioMutualTLSModeLabel,
 			network:      "network",
 			workloadName: "workload",
 			clusterID:    "cluster",
@@ -1274,7 +1274,7 @@ func TestEndpointMetadata(t *testing.T) {
 						Fields: map[string]*structpb.Value{
 							model.TLSModeLabelShortname: {
 								Kind: &structpb.Value_StringValue{
-									StringValue: string(model.IstioMutualTLSModeLabel),
+									StringValue: model.IstioMutualTLSModeLabel,
 								},
 							},
 						},
@@ -1298,7 +1298,7 @@ func TestEndpointMetadata(t *testing.T) {
 		},
 		{
 			name:         "miss workload name",
-			tlsMode:      string(model.IstioMutualTLSModeLabel),
+			tlsMode:      model.IstioMutualTLSModeLabel,
 			network:      "network",
 			workloadName: "",
 			clusterID:    "cluster",
@@ -1309,7 +1309,7 @@ func TestEndpointMetadata(t *testing.T) {
 						Fields: map[string]*structpb.Value{
 							model.TLSModeLabelShortname: {
 								Kind: &structpb.Value_StringValue{
-									StringValue: string(model.IstioMutualTLSModeLabel),
+									StringValue: model.IstioMutualTLSModeLabel,
 								},
 							},
 						},
