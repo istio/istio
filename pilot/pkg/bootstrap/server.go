@@ -280,7 +280,7 @@ func NewServer(args *PilotArgs) (*Server, error) {
 
 	var wh *inject.Webhook
 	// common https server for webhooks (e.g. injection, validation)
-	if s.kubeClient != nil {
+	if s.kubeClient != nil || args.isTestingServer() {
 		s.initSecureWebhookServer(args)
 		wh, err = s.initSidecarInjector(args)
 		if err != nil {
