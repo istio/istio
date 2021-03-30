@@ -16,10 +16,12 @@
 package wasm
 
 import (
+	"fmt"
 	"io/ioutil"
 	"testing"
 	"time"
 
+	resource "istio.io/istio/pilot/pkg/xds/v3"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/util/retry"
@@ -70,9 +72,9 @@ func TestBadWasmRemoteLoad(t *testing.T) {
 			t.Log("got istio_agent_wasm_remote_fetch_count metric in prometheus, bad wasm filter is applied, send request to echo server again.")
 
 			// Verify that istiod has a stats about rejected ECDS update
-			// pilot_total_xds_rejects{type="type.googleapis.com/envoy.config.core.v3.TypedExtensionConfig"}
+			// pilot_total_xds_rejects{type="ecds"}
 			retry.UntilSuccessOrFail(t, func() error {
-				q := "pilot_total_xds_rejects{type=\"ecds\"}"
+				q := fmt.Sprintf("pilot_total_xds_rejects{type=\"%v\"}", resource.GetMetricType(resource.ExtensionConfigurationType))
 				c := cltInstance.Config().Cluster
 				if _, err := common.QueryPrometheus(t, c, q, common.GetPromInstance()); err != nil {
 					t.Logf("prometheus values for pilot_total_xds_rejects for cluster %v: \n%s",
