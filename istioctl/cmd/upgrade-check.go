@@ -17,6 +17,7 @@ package cmd
 import (
 	"fmt"
 	"istio.io/istio/galley/pkg/config/analysis"
+	"istio.io/istio/galley/pkg/config/analysis/analyzers/maturity"
 	"istio.io/istio/galley/pkg/config/analysis/local"
 	cfgKube "istio.io/istio/galley/pkg/config/source/kube"
 	"istio.io/istio/istioctl/pkg/clioptions"
@@ -33,25 +34,24 @@ import (
 func upgradeCheckCommand() *cobra.Command {
 	var opts clioptions.ControlPlaneOptions
 	var namespaces []string
-	var allNamespaces bool
+	var allNamespaces, skipControlPlane bool
 	// cmd represents the upgradeCheck command
 	var cmd = &cobra.Command{
 		Use:   "upgrade-check",
 		Short: "check whether your istio installation can safely be upgraded",
-		Long: `A longer description that spans multiple lines and likely contains examples
-and usage of using your command. For example:
-
-Cobra is a CLI library for Go that empowers applications.
-This application is a tool to generate the needed files
-to quickly create a Cobra application.`,
+		Long: `upgrade-check is a collection of checks to ensure that your Istio installation is ready to upgrade.  By 
+default, it checks to ensure that your control plane is safe to upgrade, but you can check that the dataplane is safe 
+to upgrade as well by specifying --namespaces to check, or using --all-namespaces.`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			if err := checkControlPlane(cmd); err != nil {
-				return err
+			if !skipControlPlane {
+				if err := checkControlPlane(cmd); err != nil {
+					return err
+				}
 			}
 			if allNamespaces {
 				namespaces = []string{v1.NamespaceAll}
 			}
-			for ns := range namespaces {
+			for _, ns := range namespaces {
 				if err := checkDataPlane(cmd, ns); err != nil {
 					return err
 				}
@@ -59,14 +59,15 @@ to quickly create a Cobra application.`,
 			return nil
 		},
 	}
-	cmd.PersistentFlags().StringArrayVarP(&namespaces, "namespaces", "n", nil, "")
-	cmd.PersistentFlags().BoolVarP(&allNamespaces, "all-namespaces", "a", false, "")
+	cmd.PersistentFlags().StringArrayVarP(&namespaces, "namespaces", "n", nil, "check the dataplane in these specific namespaces")
+	cmd.PersistentFlags().BoolVarP(&allNamespaces, "all-namespaces", "a", false, "check the dataplane in all accessible namespaces")
+	cmd.PersistentFlags().BoolVar(&skipControlPlane, "skip-controlplane", false, "skip checking the control plane")
 	opts.AttachControlPlaneFlags(cmd)
 	return cmd
 }
 
 func checkControlPlane(cmd *cobra.Command) error {
-	sa := local.NewSourceAnalyzer(schema.MustGet(), &analysis.CombinedAnalyzer{}, // TODO: replace this with alpha analyzer once merged
+	sa := local.NewSourceAnalyzer(schema.MustGet(), analysis.Combine("upgrade precheck", &maturity.AlphaAnalyzer{}),
 		resource.Namespace(selectedNamespace), resource.Namespace(istioNamespace), nil, true, analysisTimeout)
 	// Set up the kube client
 	config := kube.BuildClientCmd(kubeconfig, configContext)
@@ -92,7 +93,8 @@ func checkControlPlane(cmd *cobra.Command) error {
 	return nil
 }
 
-func checkDataPlane(cmd *cobra.Command, string namespace) error {
+func checkDataPlane(cmd *cobra.Command, namespace string) error {
 	// TODO: uncomment this once John's PR merges.
 	//checkBinds(ns)
+	return nil
 }
