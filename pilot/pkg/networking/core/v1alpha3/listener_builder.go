@@ -23,8 +23,8 @@ import (
 	envoytype "github.com/envoyproxy/go-control-plane/envoy/type/v3"
 	wellknown "github.com/envoyproxy/go-control-plane/pkg/wellknown"
 	golangproto "github.com/golang/protobuf/proto"
-	"github.com/golang/protobuf/ptypes"
 	"github.com/golang/protobuf/ptypes/wrappers"
+	"google.golang.org/protobuf/types/known/durationpb"
 
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/features"
@@ -216,7 +216,7 @@ func (lb *ListenerBuilder) aggregateVirtualInboundListener(passthroughInspectors
 
 	timeout := util.GogoDurationToDuration(lb.push.Mesh.GetProtocolDetectionTimeout())
 	if features.InboundProtocolDetectionTimeoutSet {
-		timeout = ptypes.DurationProto(features.InboundProtocolDetectionTimeout)
+		timeout = durationpb.New(features.InboundProtocolDetectionTimeout)
 	}
 	lb.virtualInboundListener.ListenerFiltersTimeout = timeout
 	lb.virtualInboundListener.ContinueOnListenerFiltersTimeout = true

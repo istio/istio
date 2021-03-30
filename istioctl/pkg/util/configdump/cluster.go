@@ -19,7 +19,6 @@ import (
 
 	adminapi "github.com/envoyproxy/go-control-plane/envoy/admin/v3"
 	cluster "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
-	"github.com/golang/protobuf/ptypes"
 
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
 )
@@ -37,12 +36,12 @@ func (w *Wrapper) GetDynamicClusterDump(stripVersions bool) (*adminapi.ClustersC
 	}
 	sort.Slice(dac, func(i, j int) bool {
 		cluster := &cluster.Cluster{}
-		err = ptypes.UnmarshalAny(dac[i].Cluster, cluster)
+		err = dac[i].Cluster.UnmarshalTo(cluster)
 		if err != nil {
 			return false
 		}
 		name := cluster.Name
-		err = ptypes.UnmarshalAny(dac[j].Cluster, cluster)
+		err = dac[j].Cluster.UnmarshalTo(cluster)
 		if err != nil {
 			return false
 		}
@@ -64,7 +63,7 @@ func (w *Wrapper) GetClusterConfigDump() (*adminapi.ClustersConfigDump, error) {
 		return nil, err
 	}
 	clusterDump := &adminapi.ClustersConfigDump{}
-	err = ptypes.UnmarshalAny(clusterDumpAny, clusterDump)
+	err = clusterDumpAny.UnmarshalTo(clusterDump)
 	if err != nil {
 		return nil, err
 	}

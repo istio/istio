@@ -139,6 +139,7 @@ func initXdsProxy(ia *Agent) (*XdsProxy, error) {
 				return nil
 			}
 			var nt nds.NameTable
+			// nolint: staticcheck
 			if err := ptypes.UnmarshalAny(resp.Resources[0], &nt); err != nil {
 				log.Errorf("failed to unmarshall name table: %v", err)
 				return err
