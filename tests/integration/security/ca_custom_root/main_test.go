@@ -336,6 +336,9 @@ values:
     env:
       ISTIO_MULTIROOT_MESH: true
   meshConfig:
+    defaultConfig:
+      proxyMetadata:
+        PROXY_CONFIG_XDS_AGENT: "true"
     trustDomainAliases: [some-other, trust-domain-foo]
     caCertificates:
     - pem: |

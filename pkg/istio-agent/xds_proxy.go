@@ -148,7 +148,7 @@ func initXdsProxy(ia *Agent) (*XdsProxy, error) {
 			return nil
 		}
 	}
-	if ia.secretCache != nil {
+	if ia.cfg.EnableDynamicProxyConfig && ia.secretCache != nil {
 		proxy.handlers[v3.ProxyConfigType] = func(resp *discovery.DiscoveryResponse) error {
 			if len(resp.Resources) == 0 {
 				return fmt.Errorf("empty response")
