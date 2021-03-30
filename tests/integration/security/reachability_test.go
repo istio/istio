@@ -153,19 +153,14 @@ func TestReachability(t *testing.T) {
 				{
 					ConfigFile: "global-plaintext.yaml",
 					Namespace:  systemNM,
-					Include: func(src echo.Instance, opts echo.CallOptions) bool {
-						if apps.IsNaked(opts.Target) && len(apps.Naked.Clusters().ByNetwork()) > 1 {
-							// mTLS would be required for cross-network calls
-							return false
-						}
-						return true
-					},
 					ExpectDestinations: func(src echo.Instance, dest echo.Instances) echo.Instances {
 						// Without TLS we can't perform SNI routing required for multi-network
 						return dest.Match(echo.InNetwork(src.Config().Cluster.NetworkName()))
 					},
 					ExpectSuccess: Always,
-					ExpectMTLS:    Never,
+					ExpectMTLS: func(src echo.Instance, opts echo.CallOptions) bool {
+						return !apps.Naked.Contains(src) && !apps.Naked.Contains(opts.Target)
+					},
 				},
 				{
 					ConfigFile: "automtls-passthrough.yaml",
