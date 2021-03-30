@@ -130,8 +130,8 @@ var (
 	// These are sniffed by the HTTP Inspector in the outbound listener
 	// We need to forward these ALPNs to upstream so that the upstream can
 	// properly use a HTTP or TCP listener
-	plaintextHTTPALPNs  = []string{"http/1.0", "http/1.1", "h2c"}
-	mtlsHTTPALPNs       = []string{"istio-http/1.0", "istio-http/1.1", "istio-h2"}
+	plaintextHTTPALPNs = []string{"http/1.0", "http/1.1", "h2c"}
+	mtlsHTTPALPNs      = []string{"istio-http/1.0", "istio-http/1.1", "istio-h2"}
 
 	allIstioMtlsALPNs = []string{"istio", "istio-peer-exchange", "istio-http/1.0", "istio-http/1.1", "istio-h2"}
 
