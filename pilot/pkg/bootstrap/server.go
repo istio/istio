@@ -177,7 +177,7 @@ type Server struct {
 }
 
 // NewServer creates a new Server instance based on the provided arguments.
-func NewServer(args *PilotArgs) (*Server, error) {
+func NewServer(args *PilotArgs, initFuncs ...func(*Server)) (*Server, error) {
 	e := &model.Environment{
 		PushContext:  model.NewPushContext(),
 		DomainSuffix: args.RegistryOptions.KubeOptions.DomainSuffix,
@@ -198,6 +198,10 @@ func NewServer(args *PilotArgs) (*Server, error) {
 		readinessProbes:     make(map[string]readinessProbe),
 		workloadTrustBundle: tb.NewTrustBundle(nil),
 		server:              server.New(),
+	}
+	// Apply custom initialization functions.
+	for _, fn := range initFuncs {
+		fn(s)
 	}
 	// Initialize workload Trust Bundle before XDS Server
 	e.TrustBundle = s.workloadTrustBundle
@@ -280,7 +284,7 @@ func NewServer(args *PilotArgs) (*Server, error) {
 
 	var wh *inject.Webhook
 	// common https server for webhooks (e.g. injection, validation)
-	if s.kubeClient != nil || args.isTestingServer() {
+	if s.kubeClient != nil {
 		s.initSecureWebhookServer(args)
 		wh, err = s.initSidecarInjector(args)
 		if err != nil {

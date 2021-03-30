@@ -95,9 +95,6 @@ type DiscoveryServerOptions struct {
 	// The listening address for secured gRPC. If the port in the address is empty or "0" (as in "127.0.0.1:" or "[::1]:0")
 	// a port number is automatically chosen.
 	SecureGRPCAddr string
-
-	// Indicates whether the server is running in test mode - so that some features can be enabled.
-	testingMode bool
 }
 
 type InjectionOptions struct {
@@ -165,10 +162,6 @@ func (p *PilotArgs) Complete() error {
 	}
 	p.ServerOptions.TLSOptions.CipherSuits = cipherSuits
 	return nil
-}
-
-func (p *PilotArgs) isTestingServer() bool {
-	return p.ServerOptions.testingMode
 }
 
 func allCiphers() map[string]uint16 {
