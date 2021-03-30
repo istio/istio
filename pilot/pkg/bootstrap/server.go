@@ -294,9 +294,8 @@ func NewServer(args *PilotArgs) (*Server, error) {
 	whc := func() map[string]string {
 		if wh != nil {
 			return wh.Config.Templates
-		} else {
-			return map[string]string{}
 		}
+		return map[string]string{}
 	}
 
 	// Used for readiness, monitoring and debug handlers.

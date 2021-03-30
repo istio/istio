@@ -31,6 +31,7 @@ import (
 	"istio.io/istio/pilot/pkg/serviceregistry"
 	kubecontroller "istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
 	"istio.io/istio/pkg/config/constants"
+	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/testcerts"
 	"istio.io/pkg/filewatcher"
 )
@@ -156,6 +157,7 @@ func TestNewServerCertInit(t *testing.T) {
 			})
 			g := NewWithT(t)
 			s, err := NewServer(args)
+			s.kubeClient = kube.MockClient{}
 			g.Expect(err).To(Succeed())
 			stop := make(chan struct{})
 			g.Expect(s.Start(stop)).To(Succeed())
