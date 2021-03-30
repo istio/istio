@@ -386,7 +386,7 @@ func (p *XdsProxy) HandleUpstream(ctx context.Context, con *ProxyConnection, xds
 				proxyLog.Warnf("upstream terminated with unexpected error %v", err)
 				metrics.IstiodConnectionErrors.Increment()
 			}
-			return nil
+			return err
 		case err := <-con.downstreamError:
 			// error from downstream Envoy.
 			if isExpectedGRPCError(err) {
