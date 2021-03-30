@@ -177,6 +177,23 @@ func TestXdsCache(t *testing.T) {
 		}
 	})
 
+	t.Run("dependent type clears all", func(t *testing.T) {
+		c := model.NewLenientXdsCache()
+		addWithToken(c, ep1, any1)
+		addWithToken(c, ep2, any2)
+
+		c.Clear(map[model.ConfigKey]struct{}{{Kind: gvk.PeerAuthentication}: {}})
+		if len(c.Keys()) != 0 {
+			t.Fatalf("expected no keys, got: %v", c.Keys())
+		}
+		if _, _, f := c.Get(ep1); f {
+			t.Fatalf("unexpected result, found key when not expected: %v", c.Keys())
+		}
+		if _, _, f := c.Get(ep2); f {
+			t.Fatalf("unexpected result, found key when not expected: %v", c.Keys())
+		}
+	})
+
 	t.Run("write without token", func(t *testing.T) {
 		c := model.NewLenientXdsCache()
 		c.Add(ep1, 0, any1)

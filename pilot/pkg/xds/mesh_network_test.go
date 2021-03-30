@@ -29,6 +29,7 @@ import (
 	"istio.io/api/label"
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
+	"istio.io/api/security/v1beta1"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
@@ -37,6 +38,7 @@ import (
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/config/schema/collections"
+	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/test/util/retry"
 )
 
@@ -216,69 +218,105 @@ func TestMeshNetworking(t *testing.T) {
 		}},
 	}
 
+	type trafficConfig struct {
+		config.Config
+		allowCrossNetwork bool
+	}
+	var trafficConfigs []trafficConfig
+	for name, mode := range map[string]v1beta1.PeerAuthentication_MutualTLS_Mode{
+		"strict":     v1beta1.PeerAuthentication_MutualTLS_STRICT,
+		"permissive": v1beta1.PeerAuthentication_MutualTLS_PERMISSIVE,
+		"disable":    v1beta1.PeerAuthentication_MutualTLS_DISABLE,
+	} {
+		trafficConfigs = append(trafficConfigs, trafficConfig{
+			Config: config.Config{
+				Meta: config.Meta{
+					GroupVersionKind: gvk.PeerAuthentication,
+					Namespace:        "istio-system",
+					Name:             "peer-authn-mtls-" + name,
+				},
+				Spec: &v1beta1.PeerAuthentication{
+					Mtls: &v1beta1.PeerAuthentication_MutualTLS{Mode: mode},
+				},
+			},
+			allowCrossNetwork: mode != v1beta1.PeerAuthentication_MutualTLS_DISABLE,
+		})
+	}
+
 	for ingrType, ingressObjects := range ingressServiceScenarios {
+		ingrType, ingressObjects := ingrType, ingressObjects
 		t.Run(string(ingrType), func(t *testing.T) {
 			for name, networkConfig := range meshNetworkConfigs {
+				name, networkConfig := name, networkConfig
 				t.Run(name, func(t *testing.T) {
-					pod := &workload{
-						kind: Pod,
-						name: "unlabeled", namespace: "pod",
-						ip: "10.10.10.10", port: 8080,
-						metaNetwork: "network-1", clusterID: "cluster-1",
+					for _, cfg := range trafficConfigs {
+						cfg := cfg
+						t.Run(cfg.Meta.Name, func(t *testing.T) {
+							pod := &workload{
+								kind: Pod,
+								name: "unlabeled", namespace: "pod",
+								ip: "10.10.10.10", port: 8080,
+								metaNetwork: "network-1", clusterID: "cluster-1",
+							}
+							labeledPod := &workload{
+								kind: Pod,
+								name: "labeled", namespace: "pod",
+								ip: "10.10.10.20", port: 9090,
+								metaNetwork: "network-2", clusterID: "cluster-2",
+								labels: map[string]string{label.IstioNetwork: "network-2"},
+							}
+							vm := &workload{
+								kind: VirtualMachine,
+								name: "vm", namespace: "default",
+								ip: "10.10.10.30", port: 9090,
+								metaNetwork: "vm",
+							}
+							// gw does not have endpoints, it's just some proxy used to test REQUESTED_NETWORK_VIEW
+							gw := &workload{
+								kind: Other,
+								name: "gw", ip: "2.2.2.2",
+								networkView: []string{"vm"},
+							}
+
+							net1gw, net1GwPort := "2.2.2.2", "15443"
+							net2gw, net2GwPort := "3.3.3.3", "15443"
+							if ingrType == corev1.ServiceTypeNodePort {
+								if name == "gateway fromRegistry" {
+									net1GwPort = "25443"
+								}
+								// network 2 gateway uses the labels approach - always does nodeport mapping
+								net2GwPort = "25443"
+							}
+							net1gw += ":" + net1GwPort
+							net2gw += ":" + net2GwPort
+
+							// local ip for self
+							pod.Expect(pod, "10.10.10.10:8080")
+							labeledPod.Expect(labeledPod, "10.10.10.20:9090")
+
+							// vm has no gateway, use the original IP
+							pod.Expect(vm, "10.10.10.30:9090")
+							labeledPod.Expect(vm, "10.10.10.30:9090")
+
+							vm.Expect(vm, "10.10.10.30:9090")
+
+							if cfg.allowCrossNetwork {
+								// pod in network-1 uses gateway to reach pod labeled with network-2
+								pod.Expect(labeledPod, net2gw)
+								// pod labeled as network-2 should use gateway for network-1
+								labeledPod.Expect(pod, net1gw)
+								// vm uses gateway to get to pods
+								vm.Expect(pod, net1gw)
+								vm.Expect(labeledPod, net2gw)
+							}
+
+							runMeshNetworkingTest(t, meshNetworkingTest{
+								workloads:         []*workload{pod, labeledPod, vm, gw},
+								meshNetworkConfig: networkConfig,
+								kubeObjects:       ingressObjects,
+							}, cfg.Config)
+						})
 					}
-					labeledPod := &workload{
-						kind: Pod,
-						name: "labeled", namespace: "pod",
-						ip: "10.10.10.20", port: 9090,
-						metaNetwork: "network-2", clusterID: "cluster-2",
-						labels: map[string]string{label.IstioNetwork: "network-2"},
-					}
-					vm := &workload{
-						kind: VirtualMachine,
-						name: "vm", namespace: "default",
-						ip: "10.10.10.30", port: 9090,
-						metaNetwork: "vm",
-					}
-					// gw does not have endpoints, it's just some proxy used to test REQUESTED_NETWORK_VIEW
-					gw := &workload{
-						kind: Other,
-						name: "gw", ip: "2.2.2.2",
-						networkView: []string{"vm"},
-					}
-
-					net1gw, net1GwPort := "2.2.2.2", "15443"
-					net2gw, net2GwPort := "3.3.3.3", "15443"
-					if ingrType == corev1.ServiceTypeNodePort {
-						if name == "gateway fromRegistry" {
-							net1GwPort = "25443"
-						}
-						// network 2 gateway uses the labels approach - always does nodeport mapping
-						net2GwPort = "25443"
-					}
-					net1gw += ":" + net1GwPort
-					net2gw += ":" + net2GwPort
-
-					// labeled pod should use gateway for network-2, but see it's own ip and vm ip
-					pod.Expect(pod, "10.10.10.10:8080")
-					pod.Expect(labeledPod, net2gw)
-					pod.Expect(vm, "10.10.10.30:9090")
-
-					// labeled pod should use gateway for network-1, but see it's own ip and vm ip
-					labeledPod.Expect(pod, net1gw)
-					labeledPod.Expect(labeledPod, "10.10.10.20:9090")
-					labeledPod.Expect(vm, "10.10.10.30:9090")
-
-					// vm uses gateway to get to pods, but pods can reach it directly since there is no "vm" gateway
-					vm.Expect(pod, net1gw)
-					vm.Expect(labeledPod, net2gw)
-					vm.Expect(vm, "10.10.10.30:9090")
-
-					runMeshNetworkingTest(t, meshNetworkingTest{
-						workloads:         []*workload{pod, labeledPod, vm, gw},
-						meshNetworkConfig: networkConfig,
-						kubeObjects:       ingressObjects,
-					})
-
 				})
 			}
 		})
@@ -291,12 +329,12 @@ type meshNetworkingTest struct {
 	kubeObjects       map[string][]runtime.Object
 }
 
-func runMeshNetworkingTest(t *testing.T, tt meshNetworkingTest) {
+func runMeshNetworkingTest(t *testing.T, tt meshNetworkingTest, configs ...config.Config) {
 	kubeObjects := map[string][]runtime.Object{}
 	for k, v := range tt.kubeObjects {
 		kubeObjects[k] = v
 	}
-	var configObjects []config.Config
+	configObjects := configs
 	for _, w := range tt.workloads {
 		cluster, objs := w.kubeObjects()
 		if cluster != "" {

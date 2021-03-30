@@ -136,6 +136,15 @@ func TestReachability(t *testing.T) {
 				{
 					ConfigFile: "global-plaintext.yaml",
 					Namespace:  systemNM,
+					ExpectDestinations: func(src echo.Instance, dest echo.Instances) echo.Instances {
+						// Without TLS we can't perform SNI routing required for multi-network
+						return dest.Match(echo.InNetwork(src.Config().Cluster.NetworkName()))
+					},
+					ExpectSuccess: Always,
+				},
+				{
+					ConfigFile: "automtls-passthrough.yaml",
+					Namespace:  systemNM,
 					Include: func(src echo.Instance, opts echo.CallOptions) bool {
 						// Exclude calls to the headless TCP port.
 						if apps.IsHeadless(opts.Target) && opts.PortName == "tcp" {
