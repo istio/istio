@@ -1203,6 +1203,10 @@ func (s *Server) addIstioCAToTrustBundle(args *PilotArgs) error {
 func (s *Server) initWorkloadTrustBundle(args *PilotArgs) error {
 	var err error
 
+	if !features.MultiRootMesh.Get() {
+		return nil
+	}
+
 	s.workloadTrustBundle.UpdateCb(func() {
 		pushReq := &model.PushRequest{
 			Full:   true,
