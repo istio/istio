@@ -22,7 +22,6 @@ import (
 	"text/tabwriter"
 
 	cluster "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
-	"github.com/golang/protobuf/ptypes"
 
 	protio "istio.io/istio/istioctl/pkg/util/proto"
 	"istio.io/istio/pilot/pkg/model"
@@ -130,7 +129,7 @@ func (c *ConfigWriter) retrieveSortedClusterSlice() ([]*cluster.Cluster, error) 
 			clusterTyped := &cluster.Cluster{}
 			// Support v2 or v3 in config dump. See ads.go:RequestedTypes for more info.
 			c.Cluster.TypeUrl = v3.ClusterType
-			err = ptypes.UnmarshalAny(c.Cluster, clusterTyped)
+			err = c.Cluster.UnmarshalTo(clusterTyped)
 			if err != nil {
 				return nil, err
 			}
@@ -142,7 +141,7 @@ func (c *ConfigWriter) retrieveSortedClusterSlice() ([]*cluster.Cluster, error) 
 			clusterTyped := &cluster.Cluster{}
 			// Support v2 or v3 in config dump. See ads.go:RequestedTypes for more info.
 			c.Cluster.TypeUrl = v3.ClusterType
-			err = ptypes.UnmarshalAny(c.Cluster, clusterTyped)
+			err = c.Cluster.UnmarshalTo(clusterTyped)
 			if err != nil {
 				return nil, err
 			}

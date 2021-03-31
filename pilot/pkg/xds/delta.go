@@ -24,7 +24,6 @@ import (
 	route "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	"github.com/golang/protobuf/jsonpb"
-	"github.com/golang/protobuf/ptypes"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/peer"
 	"google.golang.org/grpc/status"
@@ -524,19 +523,19 @@ func convertResponseToDelta(ver string, resources model.Resources) []*discovery.
 		switch r.TypeUrl {
 		case v3.ClusterType:
 			aa := &cluster.Cluster{}
-			_ = ptypes.UnmarshalAny(r, aa)
+			_ = r.UnmarshalTo(aa)
 			name = aa.Name
 		case v3.ListenerType:
 			aa := &listener.Listener{}
-			_ = ptypes.UnmarshalAny(r, aa)
+			_ = r.UnmarshalTo(aa)
 			name = aa.Name
 		case v3.EndpointType:
 			aa := &endpoint.ClusterLoadAssignment{}
-			_ = ptypes.UnmarshalAny(r, aa)
+			_ = r.UnmarshalTo(aa)
 			name = aa.ClusterName
 		case v3.RouteType:
 			aa := &route.RouteConfiguration{}
-			_ = ptypes.UnmarshalAny(r, aa)
+			_ = r.UnmarshalTo(aa)
 			name = aa.Name
 		}
 		c := &discovery.Resource{

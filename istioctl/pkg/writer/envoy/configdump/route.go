@@ -24,7 +24,6 @@ import (
 
 	envoy_config_core_v3 "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	route "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
-	"github.com/golang/protobuf/ptypes"
 
 	protio "istio.io/istio/istioctl/pkg/util/proto"
 	pilot_util "istio.io/istio/pilot/pkg/networking/util"
@@ -180,7 +179,7 @@ func (c *ConfigWriter) retrieveSortedRouteSlice() ([]*route.RouteConfiguration, 
 			routeTyped := &route.RouteConfiguration{}
 			// Support v2 or v3 in config dump. See ads.go:RequestedTypes for more info.
 			r.RouteConfig.TypeUrl = v3.RouteType
-			err = ptypes.UnmarshalAny(r.RouteConfig, routeTyped)
+			err = r.RouteConfig.UnmarshalTo(routeTyped)
 			if err != nil {
 				return nil, err
 			}
@@ -192,7 +191,7 @@ func (c *ConfigWriter) retrieveSortedRouteSlice() ([]*route.RouteConfiguration, 
 			routeTyped := &route.RouteConfiguration{}
 			// Support v2 or v3 in config dump. See ads.go:RequestedTypes for more info.
 			r.RouteConfig.TypeUrl = v3.RouteType
-			err = ptypes.UnmarshalAny(r.RouteConfig, routeTyped)
+			err = r.RouteConfig.UnmarshalTo(routeTyped)
 			if err != nil {
 				return nil, err
 			}

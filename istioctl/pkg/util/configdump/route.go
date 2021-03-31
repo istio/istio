@@ -20,7 +20,7 @@ import (
 
 	adminapi "github.com/envoyproxy/go-control-plane/envoy/admin/v3"
 	route "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
-	"github.com/golang/protobuf/ptypes"
+	"google.golang.org/protobuf/types/known/anypb"
 
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
 )
@@ -37,9 +37,8 @@ func (w *Wrapper) GetLastUpdatedDynamicRouteTime() (*time.Time, error) {
 	lastUpdated := time.Unix(0, 0) // get the oldest possible timestamp
 	for i := range drc {
 		if drc[i].LastUpdated != nil {
-			if drLastUpdated, err := ptypes.Timestamp(drc[i].LastUpdated); err != nil {
-				return nil, err
-			} else if drLastUpdated.After(lastUpdated) {
+			drLastUpdated := drc[i].LastUpdated.AsTime()
+			if drLastUpdated.After(lastUpdated) {
 				lastUpdated = drLastUpdated
 			}
 		}
@@ -63,12 +62,12 @@ func (w *Wrapper) GetDynamicRouteDump(stripVersions bool) (*adminapi.RoutesConfi
 	}
 	sort.Slice(drc, func(i, j int) bool {
 		r := &route.RouteConfiguration{}
-		err = ptypes.UnmarshalAny(drc[i].RouteConfig, r)
+		err = drc[i].RouteConfig.UnmarshalTo(r)
 		if err != nil {
 			return false
 		}
 		name := r.Name
-		err = ptypes.UnmarshalAny(drc[j].RouteConfig, r)
+		err = drc[j].RouteConfig.UnmarshalTo(r)
 		if err != nil {
 			return false
 		}
@@ -79,14 +78,14 @@ func (w *Wrapper) GetDynamicRouteDump(stripVersions bool) (*adminapi.RoutesConfi
 	// within a route might have a different order.  Sort those too.
 	for i := range drc {
 		route := &route.RouteConfiguration{}
-		err = ptypes.UnmarshalAny(drc[i].RouteConfig, route)
+		err = drc[i].RouteConfig.UnmarshalTo(route)
 		if err != nil {
 			return nil, err
 		}
 		sort.Slice(route.VirtualHosts, func(i, j int) bool {
 			return route.VirtualHosts[i].Name < route.VirtualHosts[j].Name
 		})
-		drc[i].RouteConfig, err = ptypes.MarshalAny(route)
+		drc[i].RouteConfig, err = anypb.New(route)
 		if err != nil {
 			return nil, err
 		}
@@ -108,7 +107,7 @@ func (w *Wrapper) GetRouteConfigDump() (*adminapi.RoutesConfigDump, error) {
 		return nil, err
 	}
 	routeDump := &adminapi.RoutesConfigDump{}
-	err = ptypes.UnmarshalAny(routeDumpAny, routeDump)
+	err = routeDumpAny.UnmarshalTo(routeDump)
 	if err != nil {
 		return nil, err
 	}

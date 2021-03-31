@@ -18,6 +18,7 @@ import (
 	"encoding/json"
 	"os"
 
+	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/config/mesh/kubemesh"
 	"istio.io/istio/pkg/util/gogoprotomarshal"
@@ -35,6 +36,15 @@ const (
 )
 
 // initMeshConfiguration creates the mesh in the pilotConfig from the input arguments.
+// Original/default behavior:
+// - use the mounted file, if it exists.
+// - use istio-REVISION if k8s is enabled
+// - fallback to default
+//
+// If the 'SHARED_MESH_CONFIG' env is set (experimental feature in 1.10):
+// - if a file exist, load it - will be merged
+// - if istio-REVISION exists, will be used, even if the file is present.
+// - the SHARED_MESH_CONFIG config map will also be loaded and merged.
 func (s *Server) initMeshConfiguration(args *PilotArgs, fileWatcher filewatcher.FileWatcher) {
 	log.Info("initializing mesh configuration ", args.MeshConfigFile)
 	defer func() {
@@ -51,9 +61,10 @@ func (s *Server) initMeshConfiguration(args *PilotArgs, fileWatcher filewatcher.
 	if _, err = os.Stat(args.MeshConfigFile); !os.IsNotExist(err) {
 		s.environment.Watcher, err = mesh.NewFileWatcher(fileWatcher, args.MeshConfigFile)
 		if err == nil {
+			// Normal install no longer uses this mode - testing and special installs still use this.
+			log.Warnf("Using local mesh config file, in cluster configs ignored %s", args.MeshConfigFile)
 			return
 		}
-		log.Warnf("Watching mesh config file %s failed: %v", args.MeshConfigFile, err)
 	}
 
 	// Config file either didn't exist or failed to load.
@@ -61,6 +72,7 @@ func (s *Server) initMeshConfiguration(args *PilotArgs, fileWatcher filewatcher.
 		// Use a default mesh.
 		meshConfig := mesh.DefaultMeshConfig()
 		s.environment.Watcher = mesh.NewFixedWatcher(&meshConfig)
+		log.Warnf("Using default mesh - missing file %s and no k8s client", args.MeshConfigFile)
 		return
 	}
 
@@ -68,7 +80,7 @@ func (s *Server) initMeshConfiguration(args *PilotArgs, fileWatcher filewatcher.
 	// This may be necessary for external Istiod.
 	configMapName := getMeshConfigMapName(args.Revision)
 	s.environment.Watcher = kubemesh.NewConfigMapWatcher(
-		s.kubeClient, args.Namespace, configMapName, configMapKey)
+		s.kubeClient, args.Namespace, configMapName, configMapKey, features.SharedMeshConfig)
 }
 
 // initMeshNetworks loads the mesh networks configuration from the file provided
