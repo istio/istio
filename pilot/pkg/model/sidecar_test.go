@@ -23,12 +23,14 @@ import (
 
 	"istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
+
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/config/schema/gvk"
+	"istio.io/istio/pkg/config/visibility"
 )
 
 var (
@@ -611,6 +613,34 @@ var (
 		},
 	}
 
+	services15 = []*Service{
+		{
+			Hostname: "foo.svc.cluster.local",
+			Ports:    port7443,
+			Attributes: ServiceAttributes{
+				Name:      "foo",
+				Namespace: "ns1",
+				ExportTo:  map[visibility.Instance]bool{visibility.Private: true},
+			},
+		},
+		{
+			Hostname: "foo.svc.cluster.local",
+			Ports:    port8000,
+			Attributes: ServiceAttributes{
+				Name:      "foo",
+				Namespace: "ns2",
+			},
+		},
+		{
+			Hostname: "baz.svc.cluster.local",
+			Ports:    port7443,
+			Attributes: ServiceAttributes{
+				Name:      "baz",
+				Namespace: "ns3",
+			},
+		},
+	}
+
 	virtualServices1 = []config.Config{
 		{
 			Meta: config.Meta{
@@ -979,6 +1009,24 @@ func TestCreateSidecarScope(t *testing.T) {
 			},
 		},
 		{
+			"virtual-service-pick-public",
+			configs11,
+			// Ambiguous; same hostname in ns1 and ns2, neither is config namespace
+			// ns1 should always win
+			services15,
+			virtualServices1,
+			[]*Service{
+				{
+					Hostname: "foo.svc.cluster.local",
+					Ports:    port8000,
+				},
+				{
+					Hostname: "baz.svc.cluster.local",
+					Ports:    port7443,
+				},
+			},
+		},
+		{
 			"virtual-service-bad-host",
 			configs11,
 			services9,
@@ -1023,6 +1071,12 @@ func TestCreateSidecarScope(t *testing.T) {
 			if tt.virtualServices != nil {
 				// nolint lll
 				ps.virtualServiceIndex.publicByGateway[constants.IstioMeshGateway] = append(ps.virtualServiceIndex.publicByGateway[constants.IstioMeshGateway], tt.virtualServices...)
+			}
+
+			ps.exportToDefaults = exportToDefaults{
+				virtualService:  map[visibility.Instance]bool{visibility.Public: true},
+				service:         map[visibility.Instance]bool{visibility.Public: true},
+				destinationRule: map[visibility.Instance]bool{visibility.Public: true},
 			}
 
 			sidecarConfig := tt.sidecarConfig
