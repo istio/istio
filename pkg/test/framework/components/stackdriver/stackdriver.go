@@ -21,11 +21,10 @@ import (
 
 	md "istio.io/istio/pkg/bootstrap/platform"
 	"istio.io/istio/pkg/test"
+	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/cluster"
 	"istio.io/istio/pkg/test/framework/resource"
 )
-
-var useRealSD bool
 
 // Instance represents a deployed Stackdriver app instance in a Kubernetes cluster.
 type Instance interface {
@@ -43,8 +42,7 @@ type Config struct {
 }
 
 // New returns a new instance of stackdriver.
-func New(ctx resource.Context, c Config, realSD bool) (i Instance, err error) {
-	useRealSD = realSD
+func New(ctx resource.Context, c Config) (i Instance, err error) {
 	if UseRealStackdriver() {
 		return newRealStackdriver(ctx, c)
 	}
@@ -54,7 +52,7 @@ func New(ctx resource.Context, c Config, realSD bool) (i Instance, err error) {
 // NewOrFail returns a new Stackdriver instance or fails test.
 func NewOrFail(t test.Failer, ctx resource.Context, c Config, realSD bool) Instance {
 	t.Helper()
-	i, err := New(ctx, c, realSD)
+	i, err := New(ctx, c)
 	if err != nil {
 		t.Fatalf("stackdriver.NewOrFail: %v", err)
 	}
@@ -65,5 +63,5 @@ func NewOrFail(t test.Failer, ctx resource.Context, c Config, realSD bool) Insta
 func UseRealStackdriver() bool {
 	// Use real stackdriver only if the test intends to AND the test is running on GCP.
 	// Currently real stackdriver only works if the test runs on GCP.
-	return useRealSD && md.IsGCP()
+	return framework.UseRealStackdriver && md.IsGCP()
 }

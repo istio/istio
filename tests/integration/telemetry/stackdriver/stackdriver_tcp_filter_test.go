@@ -26,7 +26,6 @@ import (
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/stackdriver"
-	telemetrypkg "istio.io/istio/pkg/test/framework/components/telemetry"
 	"istio.io/istio/pkg/test/util/retry"
 	"istio.io/istio/tests/integration/telemetry"
 )
@@ -68,7 +67,7 @@ func TestTCPStackdriverMonitoring(t *testing.T) {
 						}
 
 						return nil
-					}, retry.Delay(telemetrypkg.RetryDelay), retry.Timeout(telemetrypkg.RetryTimeout))
+					}, retry.Delay(framework.TelemetryRetryDelay), retry.Timeout(framework.TelemetryRetryTimeout))
 					if err != nil {
 						return err
 					}

@@ -41,7 +41,6 @@ import (
 	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/framework/components/stackdriver"
-	telemetrypkg "istio.io/istio/pkg/test/framework/components/telemetry"
 	"istio.io/istio/pkg/test/framework/label"
 	"istio.io/istio/pkg/test/framework/resource"
 	"istio.io/istio/pkg/test/scopes"
@@ -130,7 +129,7 @@ func TestStackdriverMonitoring(t *testing.T) {
 						t.Logf("Traces validated")
 
 						return nil
-					}, retry.Delay(telemetrypkg.RetryDelay), retry.Timeout(telemetrypkg.RetryTimeout))
+					}, retry.Delay(framework.TelemetryRetryDelay), retry.Timeout(framework.TelemetryRetryTimeout))
 					if err != nil {
 						return err
 					}
@@ -143,14 +142,12 @@ func TestStackdriverMonitoring(t *testing.T) {
 		})
 }
 
-func TestMainSetup(s framework.Suite, useRealSD bool) {
-	setup := func(ctx resource.Context) error {
-		return testSetup(ctx, useRealSD)
-	}
-	s.Label(label.CustomSetup).
+func TestMain(m *testing.M) {
+	framework.NewSuite(m).
+		Label(label.CustomSetup).
 		Setup(conditionallySetupMetadataServer).
 		Setup(istio.Setup(getIstioInstance(), setupConfig)).
-		Setup(setup).
+		Setup(testSetup).
 		Run()
 }
 
@@ -188,7 +185,7 @@ func conditionallySetupMetadataServer(ctx resource.Context) (err error) {
 	return nil
 }
 
-func testSetup(ctx resource.Context, useRealSD bool) (err error) {
+func testSetup(ctx resource.Context) (err error) {
 	echoNsInst, err = namespace.New(ctx, namespace.Config{
 		Prefix: "istio-echo",
 		Inject: true,
@@ -197,7 +194,7 @@ func testSetup(ctx resource.Context, useRealSD bool) (err error) {
 		return
 	}
 
-	sdInst, err = stackdriver.New(ctx, stackdriver.Config{}, useRealSD)
+	sdInst, err = stackdriver.New(ctx, stackdriver.Config{})
 	if err != nil {
 		return
 	}
@@ -208,7 +205,7 @@ func testSetup(ctx resource.Context, useRealSD bool) (err error) {
 	sdBootstrap, err := tmpl.Evaluate(string(templateBytes), map[string]interface{}{
 		"StackdriverAddress": sdInst.Address(),
 		"EchoNamespace":      getEchoNamespaceInstance().Name(),
-		"UseRealSD":          useRealSD,
+		"UseRealSD":          stackdriver.UseRealStackdriver(),
 	})
 	if err != nil {
 		return

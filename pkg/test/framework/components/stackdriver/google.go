@@ -31,7 +31,6 @@ import (
 	monitoringpb "google.golang.org/genproto/googleapis/monitoring/v3"
 
 	md "istio.io/istio/pkg/bootstrap/platform"
-	edgespb "istio.io/istio/pkg/test/framework/components/stackdriver/edges"
 	"istio.io/istio/pkg/test/framework/resource"
 )
 
@@ -174,10 +173,6 @@ func (s *realStackdriver) ListLogEntries(filter LogType, namespace string) ([]*l
 		resppb.Entries[i].TraceSampled = le.TraceSampled
 	}
 	return trimLogLabels(&resppb, filter), nil
-}
-
-func (s *realStackdriver) ListTrafficAssertions() ([]*edgespb.TrafficAssertion, error) {
-	return nil, nil
 }
 
 func (s *realStackdriver) ListTraces(namespace string) ([]*cloudtracepb.Trace, error) {

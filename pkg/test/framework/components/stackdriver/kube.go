@@ -167,7 +167,7 @@ func (c *kubeComponent) ListLogEntries(lt LogType, _ string) ([]*loggingpb.LogEn
 	return trimLogLabels(&r, lt), nil
 }
 
-func (c *kubeComponent) ListTraces() ([]*cloudtracepb.Trace, error) {
+func (c *kubeComponent) ListTraces(_ string) ([]*cloudtracepb.Trace, error) {
 	client := http.Client{
 		Timeout: 5 * time.Second,
 	}
