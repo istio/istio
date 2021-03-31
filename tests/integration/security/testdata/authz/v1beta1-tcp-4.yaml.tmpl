@@ -1,0 +1,17 @@
+# The following policy denies request with path "/other" for workload e
+
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: policy-tcp-deny-4
+  namespace: "{{ .Namespace }}"
+spec:
+  selector:
+    matchLabels:
+      "app": "{{ .dst }}"
+  action: DENY
+  rules:
+  - to:
+    - operation:
+        paths: ["/other"]
+---

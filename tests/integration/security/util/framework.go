@@ -92,6 +92,26 @@ func EchoConfig(name string, ns namespace.Instance, headless bool, annos echo.An
 				InstancePort: 8443,
 				TLS:          true,
 			},
+			{
+				Name:         "http-8091",
+				Protocol:     protocol.HTTP,
+				InstancePort: 8091,
+			},
+			{
+				Name:         "http-8092",
+				Protocol:     protocol.HTTP,
+				InstancePort: 8092,
+			},
+			{
+				Name:         "tcp-8093",
+				Protocol:     protocol.TCP,
+				InstancePort: 8093,
+			},
+			{
+				Name:         "tcp-8094",
+				Protocol:     protocol.TCP,
+				InstancePort: 8094,
+			},
 		},
 		// Workload Ports needed by TestPassThroughFilterChain
 		// The port 8084-8089 will be defined only in the workload and not in the k8s service.

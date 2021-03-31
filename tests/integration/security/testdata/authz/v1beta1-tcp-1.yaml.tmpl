@@ -1,0 +1,18 @@
+# The following policy denies request with path "/data" to port 8091 for workload
+
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: policy-tcp-deny-1
+  namespace: "{{ .Namespace }}"
+spec:
+  selector:
+    matchLabels:
+      "app": "{{ .dst }}"
+  action: DENY
+  rules:
+  - to:
+    - operation:
+        paths: ["/data"]
+        ports: ["8091"]
+---
