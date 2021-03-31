@@ -530,6 +530,9 @@ func forwardToEnvoy(con *ProxyConnection, resp *discovery.DiscoveryResponse) {
 func (p *XdsProxy) close() {
 	close(p.stopChan)
 	p.wasmCache.Cleanup()
+	if p.httpTapServer != nil {
+		_ = p.httpTapServer.Close()
+	}
 	if p.downstreamGrpcServer != nil {
 		p.downstreamGrpcServer.Stop()
 	}
@@ -721,11 +724,8 @@ func sendWithTimeout(ctx context.Context, sendFunc func(errorChan chan error)) e
 	}
 }
 
-// tapRequest() sends "req" to Istiod, returning a channel through which the requestor gets their reply.
-//
-// Istiod won't reply with a unique ID to let us know when the
-// response has arrived, but will at least return the requested TypeUrl.  We will keep a map of lists of every
-// request for a TypeUrl, and when a response comes in we will alert the requesters first-come, first served.
+// tapRequest() sends "req" to Istiod, and returns a matching response, or `nil` on timeout.
+// Requests are serialized -- only one may be in-flight at a time.
 func (p *XdsProxy) tapRequest(req *discovery.DiscoveryRequest, timeout time.Duration) (*discovery.DiscoveryResponse, error) {
 	if p.connected == nil {
 		return nil, fmt.Errorf("proxy not connected to Istiod")
@@ -768,7 +768,7 @@ func (p *XdsProxy) makeTapHandler() func(w http.ResponseWriter, req *http.Reques
 		typeURL := fmt.Sprintf("istio.io%s", req.URL.Path)
 		response, err := p.tapRequest(&discovery.DiscoveryRequest{
 			Node: &envoy_v3.Node{
-				Id: "sidecar~1.1.1.1~debug~cluster.local", // TODO pick up if we have it
+				Id: "sidecar~1.1.1.1~debug~cluster.local", // TODO listen for and use Envoy's ID?
 			},
 			TypeUrl: typeURL,
 		}, 5*time.Second)
@@ -799,21 +799,22 @@ func (p *XdsProxy) makeTapHandler() func(w http.ResponseWriter, req *http.Reques
 	}
 }
 
-// initDebugInterface() listens on localhost:15009 for requests with path /debug/... forwards the paths as Istiod xDS requests
+// initDebugInterface() listens on localhost:15009 for path /debug/...
+// forwards the paths to Istiod as xDS requests
+// waits for response from Istiod, sends it as JSON
 func (p *XdsProxy) initDebugInterface() error {
 	p.tapResponseChannel = make(chan *discovery.DiscoveryResponse)
 
 	httpMux := http.NewServeMux()
 	httpMux.HandleFunc("/debug/", p.makeTapHandler())
 
-	HTTPAddr := "localhost:15009"
 	p.httpTapServer = &http.Server{
-		Addr:    HTTPAddr,
+		Addr:    "localhost:15009",
 		Handler: httpMux,
 	}
 
-	// create http listener
-	listener, err := net.Listen("tcp", HTTPAddr)
+	// create HTTP listener
+	listener, err := net.Listen("tcp", p.httpTapServer.Addr)
 	if err != nil {
 		return err
 	}
