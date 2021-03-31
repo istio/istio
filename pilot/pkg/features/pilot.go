@@ -421,7 +421,7 @@ var (
 			"These checks are both expensive and panic on failure. As a result, this should be used only for testing.",
 	).Get()
 
-	DeltaXds = env.RegisterBoolVar("ISTIO_DELTA_XDS", true,
+	DeltaXds = env.RegisterBoolVar("ISTIO_DELTA_XDS", false,
 		"If enabled, pilot will only send the delta configs as opposed to the state of the world on a "+
 			"Resource Request")
 
