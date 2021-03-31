@@ -18,7 +18,6 @@ import (
 	"context"
 	"crypto/tls"
 	"crypto/x509"
-	"encoding/json"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -31,9 +30,10 @@ import (
 	"sync"
 	"time"
 
-	envoy_v3 "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
+	_ "github.com/envoyproxy/go-control-plane/envoy/service/status/v3" // needed for piggyback marshal
 	gogotypes "github.com/gogo/protobuf/types"
+	"github.com/golang/protobuf/jsonpb"
 	"github.com/golang/protobuf/ptypes"
 	"go.uber.org/atomic"
 	google_rpc "google.golang.org/genproto/googleapis/rpc/status"
@@ -473,7 +473,7 @@ func (p *XdsProxy) handleUpstreamResponse(con *ProxyConnection) {
 				}
 			default:
 				if strings.HasPrefix(resp.TypeUrl, "istio.io/debug/") {
-					p.tapResponseChannel <- resp
+					p.forwardToTap(resp)
 				} else {
 					forwardToEnvoy(con, resp)
 				}
@@ -501,6 +501,14 @@ func (p *XdsProxy) rewriteAndForward(con *ProxyConnection, resp *discovery.Disco
 	}
 	proxyLog.Debugf("forward ECDS resources %+v", resp.Resources)
 	forwardToEnvoy(con, resp)
+}
+
+func (p *XdsProxy) forwardToTap(resp *discovery.DiscoveryResponse) {
+	select {
+	case p.tapResponseChannel <- resp:
+	default:
+		log.Infof("tap response %q arrived too late; discarding", resp.TypeUrl)
+	}
 }
 
 func forwardToEnvoy(con *ProxyConnection, resp *discovery.DiscoveryResponse) {
@@ -731,21 +739,9 @@ func (p *XdsProxy) tapRequest(req *discovery.DiscoveryRequest, timeout time.Dura
 		return nil, fmt.Errorf("proxy not connected to Istiod")
 	}
 
-	defer p.tapMutex.Unlock()
-
 	// Only allow one tap request at a time
 	p.tapMutex.Lock()
-
-	// If there was any old value from a previous Istiod tap response, clear it now
-	// (Could happen if Istiod sent a response after a previous timeout)
-	select {
-	case res, ok := <-p.tapResponseChannel:
-		if ok {
-			log.Infof("Clearing late tap response to %q", res.TypeUrl)
-		}
-	default:
-		// Do nothing
-	}
+	defer p.tapMutex.Unlock()
 
 	// Send to Istiod
 	p.connected.requestsChan <- req
@@ -767,9 +763,6 @@ func (p *XdsProxy) makeTapHandler() func(w http.ResponseWriter, req *http.Reques
 	return func(w http.ResponseWriter, req *http.Request) {
 		typeURL := fmt.Sprintf("istio.io%s", req.URL.Path)
 		response, err := p.tapRequest(&discovery.DiscoveryRequest{
-			Node: &envoy_v3.Node{
-				Id: "sidecar~1.1.1.1~debug~cluster.local", // TODO listen for and use Envoy's ID?
-			},
 			TypeUrl: typeURL,
 		}, 5*time.Second)
 		if err != nil {
@@ -785,17 +778,9 @@ func (p *XdsProxy) makeTapHandler() func(w http.ResponseWriter, req *http.Reques
 		}
 
 		// Send Istiod's response as HTTP body
-		j, err := json.Marshal(response)
-		if err != nil {
-			w.WriteHeader(500)
-			fmt.Fprintf(w, "%v\n", err)
-		}
-
+		jsonm := &jsonpb.Marshaler{Indent: "  "}
 		w.Header().Add("Content-Type", "application/json")
-		_, err = w.Write(j)
-		if err != nil {
-			log.Infof("fail to write debug response: %v", err)
-		}
+		_ = jsonm.Marshal(w, response)
 	}
 }
 
