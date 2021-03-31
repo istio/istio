@@ -875,6 +875,7 @@ func (cb *ClusterBuilder) setUseDownstreamProtocol(mc *MutableCluster) {
 	options := mc.httpProtocolOptions
 	options.UpstreamProtocolOptions = &http.HttpProtocolOptions_UseDownstreamProtocolConfig{
 		UseDownstreamProtocolConfig: &http.HttpProtocolOptions_UseDownstreamHttpConfig{
+			HttpProtocolOptions:  &core.Http1ProtocolOptions{},
 			Http2ProtocolOptions: http2ProtocolOptions(),
 		},
 	}
