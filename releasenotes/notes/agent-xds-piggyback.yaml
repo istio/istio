@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: feature
+area: networking
+issue: [22274]
+releaseNotes:
+- |
+  **Updated** The Istio sidecar agent will offer HTTP endpoint localhost:15009/debug/<typeurl>.  GET requests
+  to that URL will be resolved by sending an xDS discovery "event" to istiod.
