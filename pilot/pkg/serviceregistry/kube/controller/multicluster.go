@@ -22,13 +22,10 @@ import (
 	"time"
 
 	"github.com/hashicorp/go-multierror"
-
-	"k8s.io/client-go/tools/cache"
-
 	"go.uber.org/atomic"
-
 	"golang.org/x/sync/errgroup"
 	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/tools/cache"
 
 	"istio.io/istio/pilot/pkg/config/kube/crdclient"
 	"istio.io/istio/pilot/pkg/features"

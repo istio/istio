@@ -28,9 +28,8 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/hashicorp/go-multierror"
-
 	jsonmerge "github.com/evanphx/json-patch/v5"
+	"github.com/hashicorp/go-multierror"
 	"gomodules.xyz/jsonpatch/v2"
 	crd "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	apiextensionsclient "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
