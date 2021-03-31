@@ -186,7 +186,7 @@ func (c *ConfigWriter) retrieveSortedRouteSlice() ([]*route.RouteConfiguration, 
 			routeTyped := &route.RouteConfiguration{}
 			// Support v2 or v3 in config dump. See ads.go:RequestedTypes for more info.
 			r.RouteConfig.TypeUrl = v3.RouteType
-			err = ptypes.UnmarshalAny(r.RouteConfig, routeTyped)
+			err = r.RouteConfig.UnmarshalTo(routeTyped)
 			if err != nil {
 				return nil, err
 			}
@@ -198,7 +198,7 @@ func (c *ConfigWriter) retrieveSortedRouteSlice() ([]*route.RouteConfiguration, 
 			routeTyped := &route.RouteConfiguration{}
 			// Support v2 or v3 in config dump. See ads.go:RequestedTypes for more info.
 			r.RouteConfig.TypeUrl = v3.RouteType
-			err = ptypes.UnmarshalAny(r.RouteConfig, routeTyped)
+			err = r.RouteConfig.UnmarshalTo(routeTyped)
 			if err != nil {
 				return nil, err
 			}

@@ -17,8 +17,8 @@ package features
 import (
 	"time"
 
-	"github.com/golang/protobuf/ptypes"
 	"github.com/golang/protobuf/ptypes/duration"
+	"google.golang.org/protobuf/types/known/durationpb"
 
 	"istio.io/istio/pkg/jwt"
 	"istio.io/pkg/env"
@@ -264,7 +264,7 @@ var (
 	)
 
 	DefaultRequestTimeout = func() *duration.Duration {
-		return ptypes.DurationProto(defaultRequestTimeoutVar.Get())
+		return durationpb.New(defaultRequestTimeoutVar.Get())
 	}()
 
 	EnableServiceApis = env.RegisterBoolVar("PILOT_ENABLED_SERVICE_APIS", true,
@@ -424,6 +424,9 @@ var (
 	DeltaXds = env.RegisterBoolVar("ISTIO_DELTA_XDS", false,
 		"If enabled, pilot will only send the delta configs as opposed to the state of the world on a "+
 			"Resource Request")
+
+	SharedMeshConfig = env.RegisterStringVar("SHARED_MESH_CONFIG", "",
+		"Additional config map to load for shared MeshConfig settings. The standard mesh config will take precedence.").Get()
 )
 
 // UnsafeFeaturesEnabled returns true if any unsafe features are enabled.

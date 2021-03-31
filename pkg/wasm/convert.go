@@ -25,6 +25,7 @@ import (
 	"github.com/golang/protobuf/ptypes"
 	"github.com/golang/protobuf/ptypes/any"
 	"go.uber.org/atomic"
+	"google.golang.org/protobuf/types/known/anypb"
 )
 
 const (
@@ -72,7 +73,7 @@ func convert(resource *any.Any, cache Cache) (newExtensionConfig *any.Any, sendN
 			With(resultTag.Value(status)).
 			Increment()
 	}()
-	if err := ptypes.UnmarshalAny(resource, ec); err != nil {
+	if err := resource.UnmarshalTo(ec); err != nil {
 		wasmLog.Debugf("failed to unmarshal extension config resource: %v", err)
 		return
 	}
@@ -85,6 +86,7 @@ func convert(resource *any.Any, cache Cache) (newExtensionConfig *any.Any, sendN
 	}
 	wasmStruct := &udpa.TypedStruct{}
 	wasmTypedConfig := ec.GetTypedConfig()
+	// nolint: staticcheck
 	if err := ptypes.UnmarshalAny(wasmTypedConfig, wasmStruct); err != nil {
 		wasmLog.Debugf("failed to unmarshal typed config for wasm filter: %v", err)
 		return
@@ -142,7 +144,7 @@ func convert(resource *any.Any, cache Cache) (newExtensionConfig *any.Any, sendN
 		},
 	}
 
-	wasmTypedConfig, err = ptypes.MarshalAny(wasmHTTPFilterConfig)
+	wasmTypedConfig, err = anypb.New(wasmHTTPFilterConfig)
 	if err != nil {
 		status = marshalFailure
 		wasmLog.Errorf("failed to marshal new wasm HTTP filter %+v to protobuf Any: %v", wasmHTTPFilterConfig, err)
@@ -151,7 +153,7 @@ func convert(resource *any.Any, cache Cache) (newExtensionConfig *any.Any, sendN
 	ec.TypedConfig = wasmTypedConfig
 	wasmLog.Debugf("new extension config resource %+v", ec)
 
-	nec, err := ptypes.MarshalAny(ec)
+	nec, err := anypb.New(ec)
 	if err != nil {
 		status = marshalFailure
 		wasmLog.Errorf("failed to marshal new extension config resource: %v", err)

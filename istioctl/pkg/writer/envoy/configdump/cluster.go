@@ -136,7 +136,7 @@ func (c *ConfigWriter) retrieveSortedClusterSlice() ([]*cluster.Cluster, error) 
 			clusterTyped := &cluster.Cluster{}
 			// Support v2 or v3 in config dump. See ads.go:RequestedTypes for more info.
 			c.Cluster.TypeUrl = v3.ClusterType
-			err = ptypes.UnmarshalAny(c.Cluster, clusterTyped)
+			err = c.Cluster.UnmarshalTo(clusterTyped)
 			if err != nil {
 				return nil, err
 			}
@@ -148,7 +148,7 @@ func (c *ConfigWriter) retrieveSortedClusterSlice() ([]*cluster.Cluster, error) 
 			clusterTyped := &cluster.Cluster{}
 			// Support v2 or v3 in config dump. See ads.go:RequestedTypes for more info.
 			c.Cluster.TypeUrl = v3.ClusterType
-			err = ptypes.UnmarshalAny(c.Cluster, clusterTyped)
+			err = c.Cluster.UnmarshalTo(clusterTyped)
 			if err != nil {
 				return nil, err
 			}

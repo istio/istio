@@ -99,7 +99,7 @@ func (a *v1beta1PolicyApplier) setAuthnFilterForPeerAuthn(proxyType model.NodeTy
 
 	var effectiveMTLSMode model.MutualTLSMode
 	if proxyType == model.SidecarProxy {
-		effectiveMTLSMode = a.getMutualTLSModeForPort(port)
+		effectiveMTLSMode = a.GetMutualTLSModeForPort(port)
 
 		// Skip authn filter peer config when mtls is disabled.
 		if effectiveMTLSMode == model.MTLSDisable {
@@ -193,7 +193,7 @@ func (a *v1beta1PolicyApplier) AuthNFilter(proxyType model.NodeType, port uint32
 }
 
 func (a *v1beta1PolicyApplier) InboundMTLSSettings(endpointPort uint32, node *model.Proxy, trustDomainAliases []string) plugin.MTLSSettings {
-	effectiveMTLSMode := a.getMutualTLSModeForPort(endpointPort)
+	effectiveMTLSMode := a.GetMutualTLSModeForPort(endpointPort)
 	authnLog.Debugf("InboundFilterChain: build inbound filter change for %v:%d in %s mode", node.ID, endpointPort, effectiveMTLSMode)
 	return plugin.MTLSSettings{
 		Port: endpointPort,
@@ -396,7 +396,7 @@ func (a *v1beta1PolicyApplier) PortLevelSetting() map[uint32]*v1beta1.PeerAuthen
 	return a.consolidatedPeerPolicy.PortLevelMtls
 }
 
-func (a *v1beta1PolicyApplier) getMutualTLSModeForPort(endpointPort uint32) model.MutualTLSMode {
+func (a *v1beta1PolicyApplier) GetMutualTLSModeForPort(endpointPort uint32) model.MutualTLSMode {
 	if a.consolidatedPeerPolicy.PortLevelMtls != nil {
 		if portMtls, ok := a.consolidatedPeerPolicy.PortLevelMtls[endpointPort]; ok {
 			return getMutualTLSMode(portMtls)

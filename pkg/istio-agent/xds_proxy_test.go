@@ -29,7 +29,6 @@ import (
 	wasm "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/wasm/v3"
 	wasmv3 "github.com/envoyproxy/go-control-plane/envoy/extensions/wasm/v3"
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
-	"github.com/golang/protobuf/ptypes"
 	google_rpc "google.golang.org/genproto/googleapis/rpc/status"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/metadata"
@@ -413,7 +412,7 @@ func TestECDSWasmConversion(t *testing.T) {
 		t.Errorf("xds proxy ecds wasm conversion number of received resource got %v want 1", len(gotResp.Resources))
 	}
 	gotEcdsConfig := &core.TypedExtensionConfig{}
-	if err := ptypes.UnmarshalAny(gotResp.Resources[0], gotEcdsConfig); err != nil {
+	if err := gotResp.Resources[0].UnmarshalTo(gotEcdsConfig); err != nil {
 		t.Fatalf("wasm config conversion output %v failed to unmarshal", gotResp.Resources[0])
 	}
 	wasm := &wasm.Wasm{
