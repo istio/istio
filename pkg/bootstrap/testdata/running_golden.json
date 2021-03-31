@@ -257,7 +257,7 @@
       "resource_api_version": "V3"
     },
     "ads_config": {
-      "api_type": "DELTA_GRPC",
+      "api_type": "GRPC",
       "set_node_on_first_message_only": true,
       "transport_api_version": "V3",
       "grpc_services": [
