@@ -361,7 +361,7 @@ spec:
         host: {{ ( index .dstSvcs 2) }}
       weight: %d
 `, split[0], split[1], split[2]),
-			validate: func(src echo.Instance, dests echo.Deployments) echo.Validator {
+			validate: func(src echo.Instance, dests echo.Services) echo.Validator {
 				return echo.And(
 					echo.ExpectOK(),
 					echo.ValidatorFunc(func(responses echoclient.ParsedResponses, err error) error {
@@ -382,7 +382,8 @@ spec:
 								return fmt.Errorf("expected %v calls to %q, got %v", exp, host, len(hostResponses))
 							}
 							// echotest should have filtered the deployment to only contain reachable clusters
-							if err := hostResponses.CheckReachedClusters(dests.GetByService(host).Clusters()); err != nil {
+							targetClusters := dests.Instances().Match(echo.Service(host)).Clusters()
+							if err := hostResponses.CheckReachedClusters(targetClusters); err != nil {
 								return fmt.Errorf("did not reach all clusters for %s: %v", host, err)
 							}
 						}
@@ -875,7 +876,7 @@ func protocolSniffingCases() []TrafficTestCase {
 				Scheme:   call.scheme,
 				Timeout:  time.Second * 5,
 			},
-			validate: func(src echo.Instance, dst echo.Deployments) echo.Validator {
+			validate: func(src echo.Instance, dst echo.Services) echo.Validator {
 				if call.scheme == scheme.TCP {
 					// no host header for TCP
 					return echo.ExpectOK()

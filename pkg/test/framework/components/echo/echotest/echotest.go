@@ -30,7 +30,7 @@ type T struct {
 	destinationFilters []CombinationFilter
 
 	sourceDeploymentSetup []srcSetupFn
-	deploymentPairSetup   []pairSetupFn
+	deploymentPairSetup   []svcPairSetupFn
 }
 
 // New creates a *T using the given applications as sources and destinations for each subtest.

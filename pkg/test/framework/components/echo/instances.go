@@ -41,7 +41,7 @@ func (i Instances) Clusters() cluster.Clusters {
 
 // IsDeployment returns true if there is only one deployment contained in the Instances
 func (i Instances) IsDeployment() bool {
-	return len(i.Deployments()) == 1
+	return len(i.Services()) == 1
 }
 
 // Matcher is used to filter matching instances
@@ -178,17 +178,20 @@ func (i Instances) Contains(instances ...Instance) bool {
 	return len(matches) > 0
 }
 
-// Deployments is a set of Instances that share the same FQDN.
-type Deployments []Instances
+// Services is a set of Instances that share the same FQDN. While an Instance contains
+// multiple deployments (a single service in a single cluster), Instances contains multiple
+// deployments that may contain multiple Services.
+type Services []Instances
 
-// Deployments groups the Instances by FQDN. Each returned element will have at least one item.
-func (i Instances) Deployments() Deployments {
+// Services groups the Instances by FQDN. Each returned element is an Instances
+// containing only instances of a single service.
+func (i Instances) Services() Services {
 	grouped := map[string]Instances{}
 	for _, instance := range i {
 		k := instance.Config().FQDN()
 		grouped[k] = append(grouped[k], instance)
 	}
-	var out Deployments
+	var out Services
 	for _, deployment := range grouped {
 		out = append(out, deployment)
 	}
@@ -196,10 +199,10 @@ func (i Instances) Deployments() Deployments {
 	return out
 }
 
-// GetByService finds the first deployment with the given Service name. It is possible to have multiple deployments
+// GetByService finds the first Instances with the given Service name. It is possible to have multiple deployments
 // with the same service name but different namespaces (and therefore different FQDNs). Use caution when relying on
 // Service.
-func (d Deployments) GetByService(service string) Instances {
+func (d Services) GetByService(service string) Instances {
 	for _, instances := range d {
 		if instances[0].Config().Service == service {
 			return instances
@@ -209,7 +212,7 @@ func (d Deployments) GetByService(service string) Instances {
 }
 
 // Services gives the service names of each deployment in order.
-func (d Deployments) Services() []string {
+func (d Services) Services() []string {
 	var out []string
 	for _, instances := range d {
 		out = append(out, instances[0].Config().Service)
@@ -218,7 +221,7 @@ func (d Deployments) Services() []string {
 }
 
 // FQDNs gives the fully-qualified-domain-names each deployment in order.
-func (d Deployments) FQDNs() []string {
+func (d Services) FQDNs() []string {
 	var out []string
 	for _, instances := range d {
 		out = append(out, instances[0].Config().FQDN())
@@ -226,7 +229,7 @@ func (d Deployments) FQDNs() []string {
 	return out
 }
 
-func (d Deployments) Flatten() Instances {
+func (d Services) Instances() Instances {
 	var out Instances
 	for _, instances := range d {
 		out = append(out, instances...)
@@ -234,12 +237,12 @@ func (d Deployments) Flatten() Instances {
 	return out
 }
 
-func (d Deployments) MatchFQDNs(fqdns ...string) Deployments {
+func (d Services) MatchFQDNs(fqdns ...string) Services {
 	match := map[string]bool{}
 	for _, fqdn := range fqdns {
 		match[fqdn] = true
 	}
-	var out Deployments
+	var out Services
 	for _, instances := range d {
 		if match[instances[0].Config().FQDN()] {
 			out = append(out, instances)
@@ -248,20 +251,20 @@ func (d Deployments) MatchFQDNs(fqdns ...string) Deployments {
 	return out
 }
 
-// Deployments must be sorted to make sure tests have consistent ordering
-var _ sort.Interface = Deployments{}
+// Services must be sorted to make sure tests have consistent ordering
+var _ sort.Interface = Services{}
 
 // Len returns the number of deployments
-func (d Deployments) Len() int {
+func (d Services) Len() int {
 	return len(d)
 }
 
-// Less returns true if the element at i should appear before the element at j in a sorted Deployments
-func (d Deployments) Less(i, j int) bool {
+// Less returns true if the element at i should appear before the element at j in a sorted Services
+func (d Services) Less(i, j int) bool {
 	return strings.Compare(d[i][0].Config().FQDN(), d[j][0].Config().FQDN()) < 0
 }
 
 // Swap switches the positions of elements at i and j (used for sorting).
-func (d Deployments) Swap(i, j int) {
+func (d Services) Swap(i, j int) {
 	d[i], d[j] = d[j], d[i]
 }

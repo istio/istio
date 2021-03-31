@@ -440,7 +440,7 @@ func (v *StatusVerifier) operatorFromCluster(revision string) (*v1alpha1.IstioOp
 
 func (v *StatusVerifier) reportStatus(crdCount, istioDeploymentCount int, err error) error {
 	v.logger.LogAndPrintf("Checked %v custom resource definitions", crdCount)
-	v.logger.LogAndPrintf("Checked %v Istio Deployments", istioDeploymentCount)
+	v.logger.LogAndPrintf("Checked %v Istio Services", istioDeploymentCount)
 	if istioDeploymentCount == 0 {
 		if err != nil {
 			v.logger.LogAndPrintf("! No Istio installation found: %v", err)

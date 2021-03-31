@@ -54,7 +54,7 @@ type TrafficTestCase struct {
 	// opts specifies the echo call options. When using RunForApps, the Target will be set dynamically.
 	opts echo.CallOptions
 	// validate is used to build validators dynamically when using RunForApps based on the active/src dest pair
-	validate func(src echo.Instance, dst echo.Deployments) echo.Validator
+	validate func(src echo.Instance, dst echo.Services) echo.Validator
 
 	// setting cases to skipped is better than not adding them - gives visibility to what needs to be fixed
 	skip bool
@@ -87,7 +87,7 @@ func (c TrafficTestCase) RunForApps(t framework.TestContext, apps echo.Instances
 
 	job := func(t framework.TestContext) {
 		echoT := echotest.New(t, apps).
-			SetupForPair(func(t framework.TestContext, src echo.Instances, dsts echo.Deployments) error {
+			SetupForServicePair(func(t framework.TestContext, src echo.Instances, dsts echo.Services) error {
 				cfg := yml.MustApplyNamespace(t, tmpl.MustEvaluate(
 					c.config,
 					map[string]interface{}{
@@ -107,7 +107,7 @@ func (c TrafficTestCase) RunForApps(t framework.TestContext, apps echo.Instances
 			From(c.sourceFilters...).
 			To(c.targetFilters...)
 		if c.toN > 0 {
-			echoT.RunToN(c.toN, func(t framework.TestContext, src echo.Instance, dsts echo.Deployments) {
+			echoT.RunToN(c.toN, func(t framework.TestContext, src echo.Instance, dsts echo.Services) {
 				// TODO DRY up Run vs RunToN
 				if c.skip {
 					t.SkipNow()
@@ -141,7 +141,7 @@ func (c TrafficTestCase) RunForApps(t framework.TestContext, apps echo.Instances
 					opts := options
 					opts.Target = dest[0]
 					if c.validate != nil {
-						opts.Validator = c.validate(src, echo.Deployments{dest})
+						opts.Validator = c.validate(src, echo.Services{dest})
 					}
 					if opts.Count == 0 {
 						opts.Count = callsPerCluster * len(dest)

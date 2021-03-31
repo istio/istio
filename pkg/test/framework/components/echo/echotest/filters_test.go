@@ -120,7 +120,7 @@ func TestIsNaked(t *testing.T) {
 
 func TestDeployments(t *testing.T) {
 	if diff := cmp.Diff(
-		all.Deployments().Services(),
+		all.Services().Services(),
 		[]string{"a", "a", "b", "c", "external", "headless", "naked", "vm"},
 	); diff != "" {
 		t.Fatal(diff)
@@ -270,7 +270,7 @@ func TestRun(t *testing.T) {
 						WithDefaultFilters().
 						From(noNaked, noHeadless).
 						To(noHeadless).
-						RunToN(3, func(ctx framework.TestContext, src echo.Instance, dsts echo.Deployments) {
+						RunToN(3, func(ctx framework.TestContext, src echo.Instance, dsts echo.Services) {
 							srcKey := src.Config().FQDN()
 							if testTopology[srcKey] == nil {
 								testTopology[srcKey] = map[string]int{}

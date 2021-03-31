@@ -24,11 +24,11 @@ import (
 
 type (
 	perDeploymentTest  func(t framework.TestContext, instances echo.Instances)
-	perNDeploymentTest func(t framework.TestContext, deployments echo.Deployments)
+	perNDeploymentTest func(t framework.TestContext, deployments echo.Services)
 	perInstanceTest    func(t framework.TestContext, inst echo.Instance)
 
 	oneToOneTest func(t framework.TestContext, src echo.Instance, dst echo.Instances)
-	oneToNTest   func(t framework.TestContext, src echo.Instance, dsts echo.Deployments)
+	oneToNTest   func(t framework.TestContext, src echo.Instance, dsts echo.Services)
 )
 
 // Run will generate and run one subtest to send traffic between each combination
@@ -47,7 +47,7 @@ func (t *T) Run(testFn oneToOneTest) {
 	t.fromEachDeployment(t.rootCtx, func(ctx framework.TestContext, srcInstances echo.Instances) {
 		t.setup(ctx, srcInstances)
 		t.toEachDeployment(ctx, func(ctx framework.TestContext, dstInstances echo.Instances) {
-			t.setupPair(ctx, srcInstances, echo.Deployments{dstInstances})
+			t.setupPair(ctx, srcInstances, echo.Services{dstInstances})
 			t.fromEachCluster(ctx, srcInstances, func(ctx framework.TestContext, src echo.Instance) {
 				filteredDst := t.applyCombinationFilters(src, dstInstances)
 				if len(filteredDst) == 0 {
@@ -74,12 +74,12 @@ func (t *T) Run(testFn oneToOneTest) {
 func (t *T) RunToN(n int, testFn oneToNTest) {
 	t.fromEachDeployment(t.rootCtx, func(ctx framework.TestContext, srcInstances echo.Instances) {
 		t.setup(ctx, srcInstances)
-		t.toNDeployments(ctx, n, srcInstances, func(ctx framework.TestContext, destDeployments echo.Deployments) {
+		t.toNDeployments(ctx, n, srcInstances, func(ctx framework.TestContext, destDeployments echo.Services) {
 			t.setupPair(ctx, srcInstances, destDeployments)
 			t.fromEachCluster(ctx, srcInstances, func(ctx framework.TestContext, src echo.Instance) {
 				// reapply destination filters to only get the reachable instances for this cluster
-				// this can be done safely since toNDeployments asserts the Deployments won't change
-				destDeployments := t.applyCombinationFilters(src, destDeployments.Flatten()).Deployments()
+				// this can be done safely since toNDeployments asserts the Services won't change
+				destDeployments := t.applyCombinationFilters(src, destDeployments.Instances()).Services()
 				testFn(ctx, src, destDeployments)
 			})
 		})
@@ -89,7 +89,7 @@ func (t *T) RunToN(n int, testFn oneToNTest) {
 // fromEachDeployment enumerates subtests for deployment with the structure <src>
 // Intended to be used in combination with other helpers to enumerate subtests for destinations.
 func (t *T) fromEachDeployment(ctx framework.TestContext, testFn perDeploymentTest) {
-	for _, src := range t.sources.Deployments() {
+	for _, src := range t.sources.Services() {
 		src := src
 		ctx.NewSubTestf("%s", src[0].Config().Service).Run(func(ctx framework.TestContext) {
 			testFn(ctx, src)
@@ -100,7 +100,7 @@ func (t *T) fromEachDeployment(ctx framework.TestContext, testFn perDeploymentTe
 // toEachDeployment enumerates subtests for every deployment as a destination, adding /to_<dst> to the parent test.
 // Intended to be used in combination with other helpers which enumerates the subtests and chooses the srcInstnace.
 func (t *T) toEachDeployment(ctx framework.TestContext, testFn perDeploymentTest) {
-	for _, dst := range t.destinations.Deployments() {
+	for _, dst := range t.destinations.Services() {
 		dst := dst
 		ctx.NewSubTestf("to %s", dst[0].Config().Service).Run(func(ctx framework.TestContext) {
 			testFn(ctx, dst)
@@ -128,7 +128,7 @@ func (t *T) toNDeployments(ctx framework.TestContext, n int, srcs echo.Instances
 		// eligible target instnaces from the src cluster
 		filteredForSource := t.applyCombinationFilters(src, t.destinations)
 		// make sure this src targets the same deployments (not necessarily the same instances) as other srcs
-		targetNames := filteredForSource.Deployments().FQDNs()
+		targetNames := filteredForSource.Services().FQDNs()
 		if len(commonTargets) == 0 {
 			commonTargets = targetNames
 		} else if !util.StringSliceEqual(targetNames, commonTargets) {
@@ -137,7 +137,7 @@ func (t *T) toNDeployments(ctx framework.TestContext, n int, srcs echo.Instances
 	}
 	// we take all instances that match the deployments
 	// combination filters should be run again for individual sources
-	filteredTargets := t.destinations.Deployments().MatchFQDNs(commonTargets...)
+	filteredTargets := t.destinations.Services().MatchFQDNs(commonTargets...)
 	for _, set := range nDestinations(ctx, n, filteredTargets) {
 		set := set
 		ctx.NewSubTestf("to %s", strings.Join(set.Services(), " ")).Run(func(ctx framework.TestContext) {
@@ -148,7 +148,7 @@ func (t *T) toNDeployments(ctx framework.TestContext, n int, srcs echo.Instances
 
 // nDestinations splits the given deployments into subsets of size n. A deployment may be present in multiple subsets to
 // ensure every deployment is included.
-func nDestinations(ctx framework.TestContext, n int, deployments echo.Deployments) (out []echo.Deployments) {
+func nDestinations(ctx framework.TestContext, n int, deployments echo.Services) (out []echo.Services) {
 	nDests := len(deployments)
 	if nDests < n {
 		ctx.Fatalf("want to run with %d destinations but there are only %d total", n, nDests)
