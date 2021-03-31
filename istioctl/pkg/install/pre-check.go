@@ -164,7 +164,7 @@ func installPreCheck(istioNamespaceFlag string, restClientGetter genericclioptio
 			namespace: istioNamespaceFlag,
 			group:     "extensions",
 			version:   "v1beta1",
-			name:      "Services",
+			name:      "Deployments",
 		},
 		{
 			namespace: istioNamespaceFlag,

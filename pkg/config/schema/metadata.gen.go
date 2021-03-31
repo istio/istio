@@ -11,7 +11,6 @@ import (
 	"strings"
 	"time"
 )
-
 type asset struct {
 	bytes []byte
 	info  os.FileInfo
@@ -326,7 +325,7 @@ resources:
     protoPackage: "k8s.io/api/admissionregistration/v1"
 
   - kind: "Deployment"
-    plural: "Services"
+    plural: "Deployments"
     group: "apps"
     version: "v1"
     proto: "k8s.io.api.apps.v1.Deployment"
@@ -718,7 +717,7 @@ type bintree struct {
 }
 
 var _bintree = &bintree{nil, map[string]*bintree{
-	"metadata.yaml": {metadataYaml, map[string]*bintree{}},
+	"metadata.yaml": &bintree{metadataYaml, map[string]*bintree{}},
 }}
 
 // RestoreAsset restores an asset under the given directory
@@ -731,7 +730,7 @@ func RestoreAsset(dir, name string) error {
 	if err != nil {
 		return err
 	}
-	err = os.MkdirAll(_filePath(dir, filepath.Dir(name)), os.FileMode(0o755))
+	err = os.MkdirAll(_filePath(dir, filepath.Dir(name)), os.FileMode(0755))
 	if err != nil {
 		return err
 	}

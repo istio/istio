@@ -339,7 +339,7 @@ var (
 		Resource: resource.Builder{
 			Group:         "apps",
 			Kind:          "Deployment",
-			Plural:        "Services",
+			Plural:        "Deployments",
 			Version:       "v1",
 			Proto:         "k8s.io.api.apps.v1.Deployment",
 			ReflectType:   reflect.TypeOf(&k8sioapiappsv1.Deployment{}).Elem(),

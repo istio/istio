@@ -384,7 +384,7 @@ func TestInjection(t *testing.T) {
 				return
 			}
 			// Next run the webhook test. This one is a bit trickier as the webhook operates
-			// on Pods, but the inputs are Services/StatefulSets/etc. As a result, we need
+			// on Pods, but the inputs are Deployments/StatefulSets/etc. As a result, we need
 			// to convert these to pods, then run the injection This test will *not*
 			// overwrite golden files, as we do not have identical textual output as
 			// kube-inject. Instead, we just compare the desired/actual pod specs.
