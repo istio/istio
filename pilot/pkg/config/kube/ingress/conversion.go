@@ -77,11 +77,14 @@ func ConvertIngressV1alpha3(ingress v1beta1.Ingress, mesh *meshconfig.MeshConfig
 	gateway := &networking.Gateway{}
 	gateway.Selector = getIngressGatewaySelector(mesh.IngressSelector, mesh.IngressService)
 
+	httpsRedirect := false
+
 	for i, tls := range ingress.Spec.TLS {
 		if tls.SecretName == "" {
 			log.Infof("invalid ingress rule %s:%s for hosts %q, no secretName defined", ingress.Namespace, ingress.Name, tls.Hosts)
 			continue
 		}
+		httpsRedirect = true
 		// TODO validation when multiple wildcard tls secrets are given
 		if len(tls.Hosts) == 0 {
 			tls.Hosts = []string{"*"}
@@ -108,6 +111,9 @@ func ConvertIngressV1alpha3(ingress v1beta1.Ingress, mesh *meshconfig.MeshConfig
 			Name:     fmt.Sprintf("http-80-ingress-%s-%s", ingress.Name, ingress.Namespace),
 		},
 		Hosts: []string{"*"},
+		Tls: &networking.ServerTLSSettings{
+			HttpsRedirect:  httpsRedirect,
+		},
 	})
 
 	gatewayConfig := config.Config{

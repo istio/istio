@@ -14,6 +14,7 @@ spec:
       name: http-80-ingress-foo-ns
       number: 80
       protocol: HTTP
+    tls: {}
 ---
 apiVersion: networking.istio.io/v1alpha3
 kind: Gateway
@@ -31,6 +32,7 @@ spec:
       name: http-80-ingress-foo2-ns
       number: 80
       protocol: HTTP
+    tls: {}
 ---
 apiVersion: networking.istio.io/v1alpha3
 kind: VirtualService

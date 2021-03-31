@@ -45,4 +45,6 @@ spec:
       name: http-80-ingress-tls-bar
       number: 80
       protocol: HTTP
+    tls:
+      httpsRedirect: true
 ---
