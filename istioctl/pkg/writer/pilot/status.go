@@ -111,8 +111,23 @@ func (s *StatusWriter) setupStatusPrint(statuses map[string][]byte) (*tabwriter.
 func (s *StatusWriter) statusPrintln(w io.Writer, sw *writerStatus) error {
 	statuses := make([]string, 0)
 	for _, ty := range s.XDSCols {
-		statuses = append(statuses, xdsStatus(sw.Statuses[v3.GetShortType(ty)].NonceSent,
-			sw.Statuses[v3.GetShortType(ty)].NonceAcked))
+		curStatus := xdsStatus(sw.Statuses[v3.GetShortType(ty)].NonceSent,
+			sw.Statuses[v3.GetShortType(ty)].NonceAcked)
+
+		// This is required to support the case where istioctl is newer,
+		// but control plane (pilot/istiod) is older
+		switch ty {
+		case "CDS":
+			curStatus = xdsStatus(sw.ClusterSent, sw.ClusterAcked)
+		case "LDS":
+			curStatus = xdsStatus(sw.ListenerSent, sw.ListenerAcked)
+		case "RDS":
+			curStatus = xdsStatus(sw.RouteSent, sw.RouteAcked)
+		case "EDS":
+			curStatus = xdsStatus(sw.EndpointSent, sw.EndpointAcked)
+		}
+
+		statuses = append(statuses, curStatus)
 	}
 
 	version := sw.IstioVersion
