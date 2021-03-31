@@ -31,7 +31,7 @@ import (
 	"time"
 
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
-	_ "github.com/envoyproxy/go-control-plane/envoy/service/status/v3" // needed for piggyback marshal
+	// _ "github.com/envoyproxy/go-control-plane/envoy/service/status/v3" // needed for piggyback marshal
 	gogotypes "github.com/gogo/protobuf/types"
 	"github.com/golang/protobuf/jsonpb"
 	"github.com/golang/protobuf/ptypes"

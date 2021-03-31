@@ -26,7 +26,7 @@ import (
 
 func TestPiggyback(t *testing.T) {
 	framework.
-		NewTest(t).Features("agent.piggyback").
+		NewTest(t).Features("usability.observability.proxy-status"). // TODO create new "agent-piggyback" feature
 		RequiresSingleCluster().
 		Run(func(t framework.TestContext) {
 			execCmd := fmt.Sprintf(
@@ -37,7 +37,7 @@ func TestPiggyback(t *testing.T) {
 			if err != nil {
 				t.Fatalf("couldn't curl sidecar: %v", err)
 			}
-			if !strings.Contains(out, "\"type_url\":\"istio.io/debug/syncz\"") {
+			if !strings.Contains(out, "\"typeUrl\": \"istio.io/debug/syncz\"") {
 				t.Fatalf("the output doesn't contain expected typeURL: %s", out)
 			}
 			if !strings.Contains(out, "\"xdsConfig\"") {
