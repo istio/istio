@@ -146,15 +146,15 @@ func DumpPodEvents(_ resource.Context, c resource.Cluster, workDir, namespace st
 	}
 }
 
-// containerRestarted checks if a container has ever restarted
-func containerRestarted(pod corev1.Pod, container string) bool {
+// containerRestarts checks how many times container has ever restarted
+func containerRestarts(pod corev1.Pod, container string) int {
 	for _, cs := range pod.Status.ContainerStatuses {
 		if cs.Name == container {
-			return cs.RestartCount > 0
+			return int(cs.RestartCount)
 		}
 	}
 	// No match - assume that means no restart
-	return false
+	return 0
 }
 
 // DumpPodLogs will dump logs from each container in each of the provided pods
@@ -177,11 +177,11 @@ func DumpPodLogs(_ resource.Context, c resource.Cluster, workDir, namespace stri
 			}
 
 			// Get previous container logs, if applicable
-			if containerRestarted(pod, container.Name) {
+			if restarts := containerRestarts(pod, container.Name); restarts > 0 {
 				// This is only called if the test failed, so we cannot mark it as "failed" again. Instead, output
 				// a log which will get highlighted in the test logs
 				// TODO proper analysis of restarts to ensure we do not miss crashes when tests still pass.
-				scopes.Framework.Errorf("FAIL: pod %v/%v restarted", pod.Name, pod.Namespace)
+				scopes.Framework.Errorf("FAIL: pod %v/%v restarted %d times", pod.Name, pod.Namespace, restarts)
 				l, err := c.PodLogs(context.TODO(), pod.Name, pod.Namespace, container.Name, true /* previousLog */)
 				if err != nil {
 					scopes.Framework.Errorf("Unable to get previous logs for pod/container: %s/%s/%s", pod.Namespace, pod.Name, container.Name)
