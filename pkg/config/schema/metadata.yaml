@@ -83,6 +83,11 @@ collections:
     group: "security.istio.io"
     pilot: true
 
+  - name: "istio/telemetry/v1alpha1/telemetries"
+    kind: "Telemetry"
+    group: "telemetry.istio.io"
+    pilot: true
+
   ### K8s collections ###
 
   # Built-in K8s collections
@@ -199,6 +204,10 @@ collections:
     kind: PeerAuthentication
     group: "security.istio.io"
 
+  - name: "k8s/telemetry.istio.io/v1alpha1/telemetries"
+    kind: "Telemetry"
+    group: "telemetry.istio.io"
+
 # The snapshots to generate
 snapshots:
   # Used by Galley to distribute configuration.
@@ -217,6 +226,7 @@ snapshots:
       - "istio/security/v1beta1/authorizationpolicies"
       - "istio/security/v1beta1/requestauthentications"
       - "istio/security/v1beta1/peerauthentications"
+      - "istio/telemetry/v1alpha1/telemetries"
       - "k8s/core/v1/namespaces"
       - "k8s/core/v1/services"
 
@@ -503,6 +513,16 @@ resources:
     statusProto: "istio.meta.v1alpha1.IstioStatus"
     statusProtoPackage: "istio.io/api/meta/v1alpha1"
 
+  - kind: "Telemetry"
+    plural: "telemetries"
+    group: "telemetry.istio.io"
+    version: "v1alpha1"
+    proto: "istio.telemetry.v1alpha1.Telemetry"
+    protoPackage: "istio.io/api/telemetry/v1alpha1"
+    description: "describes telemetry configuration for workloads"
+    statusProto: "istio.meta.v1alpha1.IstioStatus"
+    statusProtoPackage: "istio.io/api/meta/v1alpha1"
+
 # Transform specific configurations
 transforms:
   - type: direct
@@ -520,6 +540,7 @@ transforms:
       "k8s/security.istio.io/v1beta1/authorizationpolicies": "istio/security/v1beta1/authorizationpolicies"
       "k8s/security.istio.io/v1beta1/requestauthentications": "istio/security/v1beta1/requestauthentications"
       "k8s/security.istio.io/v1beta1/peerauthentications": "istio/security/v1beta1/peerauthentications"
+      "k8s/telemetry.istio.io/v1alpha1/telemetries": "istio/telemetry/v1alpha1/telemetries"
       "k8s/apps/v1/deployments": "k8s/apps/v1/deployments"
       "k8s/core/v1/namespaces": "k8s/core/v1/namespaces"
       "k8s/core/v1/pods": "k8s/core/v1/pods"

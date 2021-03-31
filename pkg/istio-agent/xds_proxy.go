@@ -139,6 +139,7 @@ func initXdsProxy(ia *Agent) (*XdsProxy, error) {
 				return nil
 			}
 			var nt nds.NameTable
+			// nolint: staticcheck
 			if err := ptypes.UnmarshalAny(resp.Resources[0], &nt); err != nil {
 				log.Errorf("failed to unmarshall name table: %v", err)
 				return err
@@ -386,7 +387,7 @@ func (p *XdsProxy) HandleUpstream(ctx context.Context, con *ProxyConnection, xds
 				proxyLog.Warnf("upstream terminated with unexpected error %v", err)
 				metrics.IstiodConnectionErrors.Increment()
 			}
-			return nil
+			return err
 		case err := <-con.downstreamError:
 			// error from downstream Envoy.
 			if isExpectedGRPCError(err) {

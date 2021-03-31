@@ -23,7 +23,6 @@ import (
 	hcm "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	"github.com/envoyproxy/go-control-plane/pkg/wellknown"
-	"github.com/golang/protobuf/ptypes"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/pkg/model"
@@ -321,7 +320,7 @@ func expectLuaFilter(t *testing.T, l *listener.Listener, expected bool) {
 			t.Fatalf("Expected Http Connection Manager Config Filter_TypedConfig, found %T", filter.ConfigType)
 		}
 		connectionManagerCfg := hcm.HttpConnectionManager{}
-		err := ptypes.UnmarshalAny(httpCfg.TypedConfig, &connectionManagerCfg)
+		err := httpCfg.TypedConfig.UnmarshalTo(&connectionManagerCfg)
 		if err != nil {
 			t.Fatalf("Could not deserialize http connection manager config: %v", err)
 		}
