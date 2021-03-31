@@ -18,7 +18,6 @@ import (
 	"fmt"
 	"io"
 	"strconv"
-	"strings"
 	"sync/atomic"
 	"time"
 
@@ -228,8 +227,6 @@ func (s *DiscoveryServer) processRequest(req *discovery.DiscoveryRequest, con *C
 		// Override the blocked push (if it exists), as this full push is guaranteed to be a superset
 		// of what we would have pushed from the blocked push.
 		request = &model.PushRequest{Full: true}
-	} else if isXdsEvent(req) {
-		request = &model.PushRequest{Full: true}
 	} else if !haveBlockedPush {
 		// This is an ACK, no delayed push
 		// Return immediately, no action needed
@@ -243,10 +240,6 @@ func (s *DiscoveryServer) processRequest(req *discovery.DiscoveryRequest, con *C
 
 	request.Reason = append(request.Reason, model.ProxyRequest)
 	return s.pushXds(con, push, versionInfo(), con.Watched(req.TypeUrl), request)
-}
-
-func isXdsEvent(req *discovery.DiscoveryRequest) bool {
-	return strings.HasPrefix(req.TypeUrl, "istio.io/debug/")
 }
 
 // StreamAggregatedResources implements the ADS interface.

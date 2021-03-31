@@ -35,7 +35,6 @@ import (
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	gogotypes "github.com/gogo/protobuf/types"
 	"github.com/golang/protobuf/ptypes"
-	structpb "github.com/golang/protobuf/ptypes/struct"
 	"go.uber.org/atomic"
 	google_rpc "google.golang.org/genproto/googleapis/rpc/status"
 	"google.golang.org/grpc"
@@ -59,7 +58,6 @@ import (
 	"istio.io/istio/pkg/wasm"
 	"istio.io/istio/security/pkg/nodeagent/caclient"
 	"istio.io/istio/security/pkg/pki/util"
-	"istio.io/pkg/env"
 	"istio.io/pkg/log"
 )
 
@@ -91,9 +89,9 @@ type XdsProxy struct {
 	xdsHeaders           map[string]string
 	xdsUdsPath           string
 
-	httpTapServer *http.Server
-	tapRequests   map[string][]chan *discovery.DiscoveryResponse
-	tapMutex      sync.RWMutex
+	httpTapServer      *http.Server
+	tapMutex           sync.RWMutex
+	tapResponseChannel chan *discovery.DiscoveryResponse
 
 	// connected stores the active gRPC stream. The proxy will only have 1 connection at a time
 	connected           *ProxyConnection
@@ -475,7 +473,7 @@ func (p *XdsProxy) handleUpstreamResponse(con *ProxyConnection) {
 				}
 			default:
 				if strings.HasPrefix(resp.TypeUrl, "istio.io/debug/") {
-					p.directResponseToTapper(resp)
+					p.tapResponseChannel <- resp
 				} else {
 					forwardToEnvoy(con, resp)
 				}
@@ -728,115 +726,60 @@ func sendWithTimeout(ctx context.Context, sendFunc func(errorChan chan error)) e
 // Istiod won't reply with a unique ID to let us know when the
 // response has arrived, but will at least return the requested TypeUrl.  We will keep a map of lists of every
 // request for a TypeUrl, and when a response comes in we will alert the requesters first-come, first served.
-func (p *XdsProxy) tapRequest(req *discovery.DiscoveryRequest) (chan *discovery.DiscoveryResponse, error) {
+func (p *XdsProxy) tapRequest(req *discovery.DiscoveryRequest, timeout time.Duration) (*discovery.DiscoveryResponse, error) {
 	if p.connected == nil {
 		return nil, fmt.Errorf("proxy not connected to Istiod")
 	}
 
-	req.ResponseNonce = time.Now().String()
+	defer p.tapMutex.Unlock()
 
-	responseChannel := make(chan *discovery.DiscoveryResponse)
-
+	// Only allow one tap request at a time
 	p.tapMutex.Lock()
-	requestsQueue, ok := p.tapRequests[req.TypeUrl]
-	if !ok {
-		requestsQueue = make([]chan *discovery.DiscoveryResponse, 0, 1)
+
+	// If there was any old value from a previous Istiod tap response, clear it now
+	// (Could happen if Istiod sent a response after a previous timeout)
+	select {
+	case res, ok := <-p.tapResponseChannel:
+		if ok {
+			log.Infof("Clearing late tap response to %q", res.TypeUrl)
+		}
+	default:
+		// Do nothing
 	}
-	requestsQueue = append(requestsQueue, responseChannel)
-	p.tapRequests[req.TypeUrl] = requestsQueue
 
-	p.tapMutex.Unlock()
-
+	// Send to Istiod
 	p.connected.requestsChan <- req
 
-	return responseChannel, nil
-}
-
-// abortTap() removes a tap created by tapRequest()
-func (p *XdsProxy) abortTap(typeURL string, tap chan *discovery.DiscoveryResponse) error {
-	p.tapMutex.Lock()
-	requestsQueue, ok := p.tapRequests[typeURL]
-	if !ok {
-		p.tapMutex.Unlock()
-		return fmt.Errorf("no tap requests waiting on %q", typeURL)
-	}
-	found := false
-	for i, request := range requestsQueue {
-		if request == tap {
-			found = true
-			// Swap found element with last element
-			requestsQueue[len(requestsQueue)-1], requestsQueue[i] = requestsQueue[i], requestsQueue[len(requestsQueue)-1]
-			// Remove last element
-			p.tapRequests[typeURL] = requestsQueue[:len(requestsQueue)-1]
-			break
+	// Wait for expected response or timeout
+	for {
+		select {
+		case res := <-p.tapResponseChannel:
+			if res.TypeUrl == req.TypeUrl {
+				return res, nil
+			}
+		case <-time.After(timeout):
+			return nil, nil
 		}
 	}
-
-	p.tapMutex.Unlock()
-
-	if !found {
-		return fmt.Errorf("tap request not found")
-	}
-	return nil
-}
-
-// directResponseToTapper() forwards an Istiod debugging discovery response to a waiting channel
-func (p *XdsProxy) directResponseToTapper(resp *discovery.DiscoveryResponse) {
-	p.tapMutex.Lock()
-	requestsQueue, ok := p.tapRequests[resp.TypeUrl]
-	if ok {
-		requestChan := requestsQueue[0]
-		requestsQueue = requestsQueue[1:]
-		p.tapRequests[resp.TypeUrl] = requestsQueue
-		requestChan <- resp
-	} else {
-		log.Errorf("Istiod debug response %q arrived unexpectedly", resp.TypeUrl)
-	}
-	p.tapMutex.Unlock()
 }
 
 func (p *XdsProxy) makeTapHandler() func(w http.ResponseWriter, req *http.Request) {
 	return func(w http.ResponseWriter, req *http.Request) {
-		serviceAccount := env.RegisterStringVar("SERVICE_ACCOUNT", "default", "").Get()
-		podNamespace := env.RegisterStringVar("POD_NAMESPACE", "default", "").Get()
-		istioVersion := env.RegisterStringVar("ISTIO_META_ISTIO_VERSION", "1.9.1", "").Get()
-
 		typeURL := fmt.Sprintf("istio.io%s", req.URL.Path)
-		responseChan, err := p.tapRequest(&discovery.DiscoveryRequest{
+		response, err := p.tapRequest(&discovery.DiscoveryRequest{
 			Node: &envoy_v3.Node{
 				Id: "sidecar~1.1.1.1~debug~cluster.local", // TODO pick up if we have it
-				Metadata: &structpb.Struct{
-					Fields: map[string]*structpb.Value{
-						"SERVICE_ACCOUNT": {Kind: &structpb.Value_StringValue{StringValue: serviceAccount}},
-						"NAMESPACE":       {Kind: &structpb.Value_StringValue{StringValue: podNamespace}},
-						"GENERATOR":       {Kind: &structpb.Value_StringValue{StringValue: "event"}},
-						"ISTIO_VERSION":   {Kind: &structpb.Value_StringValue{StringValue: istioVersion}},
-					},
-				},
 			},
 			TypeUrl: typeURL,
-		})
+		}, 5*time.Second)
 		if err != nil {
 			w.WriteHeader(503)
 			fmt.Fprintf(w, "%v\n", err)
 			return
 		}
 
-		// Timeout if no response from Istiod after 5 seconds
-		go func() {
-			time.Sleep(5 * time.Second)
-			responseChan <- nil
-		}()
-
-		// Wait for Istiod to respond
-		response := <-responseChan
-
 		if response == nil {
 			log.Infof("timed out waiting for Istiod to respond to %q", typeURL)
-			err = p.abortTap(typeURL, responseChan)
-			if err != nil {
-				log.Warnf("failed to cleanup tap for %q: %v", typeURL, err)
-			}
 			w.WriteHeader(504)
 			return
 		}
@@ -856,14 +799,14 @@ func (p *XdsProxy) makeTapHandler() func(w http.ResponseWriter, req *http.Reques
 	}
 }
 
-// initDebugInterface() listens on :15009 for requests with path /debug/... forwards the paths as Istiod XDS requests
+// initDebugInterface() listens on localhost:15009 for requests with path /debug/... forwards the paths as Istiod xDS requests
 func (p *XdsProxy) initDebugInterface() error {
-	p.tapRequests = make(map[string][]chan *discovery.DiscoveryResponse)
+	p.tapResponseChannel = make(chan *discovery.DiscoveryResponse)
 
 	httpMux := http.NewServeMux()
 	httpMux.HandleFunc("/debug/", p.makeTapHandler())
 
-	HTTPAddr := ":15009"
+	HTTPAddr := "localhost:15009"
 	p.httpTapServer = &http.Server{
 		Addr:    HTTPAddr,
 		Handler: httpMux,
