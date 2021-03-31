@@ -584,39 +584,40 @@ func (ps *PushContext) UpdateMetrics() {
 	}
 }
 
-func virtualServiceDestinations(v *networking.VirtualService) []*networking.Destination {
+// It is called after virtual service short host name is resolved to FQDN
+func virtualServiceDestinationHosts(v *networking.VirtualService) []string {
 	if v == nil {
 		return nil
 	}
 
-	var ds []*networking.Destination
+	var out []string
 
 	for _, h := range v.Http {
 		for _, r := range h.Route {
 			if r.Destination != nil {
-				ds = append(ds, r.Destination)
+				out = append(out, r.Destination.Host)
 			}
 		}
 		if h.Mirror != nil {
-			ds = append(ds, h.Mirror)
+			out = append(out, h.Mirror.Host)
 		}
 	}
 	for _, t := range v.Tcp {
 		for _, r := range t.Route {
 			if r.Destination != nil {
-				ds = append(ds, r.Destination)
+				out = append(out, r.Destination.Host)
 			}
 		}
 	}
 	for _, t := range v.Tls {
 		for _, r := range t.Route {
 			if r.Destination != nil {
-				ds = append(ds, r.Destination)
+				out = append(out, r.Destination.Host)
 			}
 		}
 	}
 
-	return ds
+	return out
 }
 
 // GatewayServices returns the set of services which are referred from the proxy gateways.
@@ -639,8 +640,8 @@ func (ps *PushContext) GatewayServices(proxy *Proxy) []*Service {
 				return svcs
 			}
 
-			for _, d := range virtualServiceDestinations(vs) {
-				hostsFromGateways[d.Host] = struct{}{}
+			for _, host := range virtualServiceDestinationHosts(vs) {
+				hostsFromGateways[host] = struct{}{}
 			}
 		}
 	}
