@@ -28,14 +28,13 @@ import (
 	"istio.io/istio/pkg/config/protocol"
 )
 
-// nolint unparam
 func makeServiceInstances(proxy *model.Proxy, service *model.Service, hostname, subdomain string) map[int][]*model.ServiceInstance {
 	instances := make(map[int][]*model.ServiceInstance)
 	for _, port := range service.Ports {
 		instances[port.Port] = makeInstances(proxy, service, port.Port, port.Port)
 		instances[port.Port][0].Endpoint.HostName = hostname
 		instances[port.Port][0].Endpoint.SubDomain = subdomain
-		instances[port.Port][0].Endpoint.Network = proxy.Metadata.Network
+
 	}
 	return instances
 }
@@ -44,12 +43,6 @@ func TestNameTable(t *testing.T) {
 	proxy := &model.Proxy{
 		IPAddresses: []string{"9.9.9.9"},
 		Metadata:    &model.NodeMetadata{},
-		Type:        model.SidecarProxy,
-		DNSDomain:   "testns.svc.cluster.local",
-	}
-	nwproxy := &model.Proxy{
-		IPAddresses: []string{"9.9.9.9"},
-		Metadata:    &model.NodeMetadata{Network: "nw1"},
 		Type:        model.SidecarProxy,
 		DNSDomain:   "testns.svc.cluster.local",
 	}
@@ -63,18 +56,6 @@ func TestNameTable(t *testing.T) {
 	pod2 := &model.Proxy{
 		IPAddresses: []string{"9.6.7.8"},
 		Metadata:    &model.NodeMetadata{},
-		Type:        model.SidecarProxy,
-		DNSDomain:   "testns.svc.cluster.local",
-	}
-	pod3 := &model.Proxy{
-		IPAddresses: []string{"7.7.7.7"},
-		Metadata:    &model.NodeMetadata{Network: "nw1"},
-		Type:        model.SidecarProxy,
-		DNSDomain:   "testns.svc.cluster.local",
-	}
-	pod4 := &model.Proxy{
-		IPAddresses: []string{"8.8.8.8"},
-		Metadata:    &model.NodeMetadata{Network: "nw1"},
 		Type:        model.SidecarProxy,
 		DNSDomain:   "testns.svc.cluster.local",
 	}
@@ -101,10 +82,7 @@ func TestNameTable(t *testing.T) {
 		makeServiceInstances(pod1, headlessService, "pod1", "headless-svc"))
 	push.AddServiceInstances(headlessService,
 		makeServiceInstances(pod2, headlessService, "pod2", "headless-svc"))
-	push.AddServiceInstances(headlessService,
-		makeServiceInstances(pod3, headlessService, "pod3", "headless-svc"))
-	push.AddServiceInstances(headlessService,
-		makeServiceInstances(pod4, headlessService, "pod4", "headless-svc"))
+
 	cases := []struct {
 		name              string
 		proxy             *model.Proxy
@@ -131,45 +109,6 @@ func TestNameTable(t *testing.T) {
 					},
 					"headless-svc.testns.svc.cluster.local": {
 						Ips:       []string{"1.2.3.4", "9.6.7.8"},
-						Registry:  "Kubernetes",
-						Shortname: "headless-svc",
-						Namespace: "testns",
-					},
-				},
-			},
-		},
-		{
-			name:  "headless service pods with network",
-			proxy: nwproxy,
-			push:  push,
-			expectedNameTable: &nds.NameTable{
-				Table: map[string]*nds.NameTable_NameInfo{
-					"pod1.headless-svc.testns.svc.cluster.local": {
-						Ips:       []string{"1.2.3.4"},
-						Registry:  "Kubernetes",
-						Shortname: "pod1.headless-svc",
-						Namespace: "testns",
-					},
-					"pod2.headless-svc.testns.svc.cluster.local": {
-						Ips:       []string{"9.6.7.8"},
-						Registry:  "Kubernetes",
-						Shortname: "pod2.headless-svc",
-						Namespace: "testns",
-					},
-					"pod3.headless-svc.testns.svc.cluster.local": {
-						Ips:       []string{"7.7.7.7"},
-						Registry:  "Kubernetes",
-						Shortname: "pod3.headless-svc",
-						Namespace: "testns",
-					},
-					"pod4.headless-svc.testns.svc.cluster.local": {
-						Ips:       []string{"8.8.8.8"},
-						Registry:  "Kubernetes",
-						Shortname: "pod4.headless-svc",
-						Namespace: "testns",
-					},
-					"headless-svc.testns.svc.cluster.local": {
-						Ips:       []string{"1.2.3.4", "9.6.7.8", "7.7.7.7", "8.8.8.8"},
 						Registry:  "Kubernetes",
 						Shortname: "headless-svc",
 						Namespace: "testns",
