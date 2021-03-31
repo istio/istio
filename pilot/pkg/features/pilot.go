@@ -426,7 +426,7 @@ var (
 			"Resource Request")
 
 	SharedMeshConfig = env.RegisterStringVar("SHARED_MESH_CONFIG", "",
-		"Additional config map to load for shared MeshConfig settings").Get()
+		"Additional config map to load for shared MeshConfig settings. The standard mesh config will take precedence.").Get()
 )
 
 // UnsafeFeaturesEnabled returns true if any unsafe features are enabled.
