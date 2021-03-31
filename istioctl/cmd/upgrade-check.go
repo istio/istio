@@ -16,6 +16,8 @@ package cmd
 
 import (
 	"fmt"
+	"istio.io/istio/galley/pkg/config/analysis/diag"
+	"os"
 
 	"github.com/spf13/cobra"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -42,9 +44,11 @@ func upgradeCheckCommand() *cobra.Command {
 		Long: `upgrade-check is a collection of checks to ensure that your Istio installation is ready to upgrade.  By 
 default, it checks to ensure that your control plane is safe to upgrade, but you can check that the dataplane is safe 
 to upgrade as well by specifying --namespaces to check, or using --all-namespaces.`,
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: func(cmd *cobra.Command, args []string) (err error) {
+			msgs := diag.Messages{}
 			if !skipControlPlane {
-				if err := checkControlPlane(cmd); err != nil {
+				msgs, err = checkControlPlane(cmd)
+				if err != nil {
 					return err
 				}
 			}
@@ -52,11 +56,21 @@ to upgrade as well by specifying --namespaces to check, or using --all-namespace
 				namespaces = []string{v1.NamespaceAll}
 			}
 			for _, ns := range namespaces {
-				if err := checkDataPlane(cmd, ns); err != nil {
+				if nsmsgs, err := checkDataPlane(cmd, ns); err != nil {
 					return err
+				} else {
+					msgs.Add(nsmsgs...)
 				}
 			}
-			return nil
+			// Print all the messages to stdout in the specified format
+			output, err := formatting.Print(msgs, msgOutputFormat, colorize)
+			if err != nil {
+				return err
+			}
+			fmt.Fprintln(cmd.OutOrStdout(), output)
+			if len(msgs) > 0 {
+				os.Exit(2)
+			}
 		},
 	}
 	cmd.PersistentFlags().StringArrayVarP(&namespaces, "namespaces", "n", nil, "check the dataplane in these specific namespaces")
@@ -66,35 +80,27 @@ to upgrade as well by specifying --namespaces to check, or using --all-namespace
 	return cmd
 }
 
-func checkControlPlane(cmd *cobra.Command) error {
+func checkControlPlane(cmd *cobra.Command) (msgs diag.Messages, err error) {
 	sa := local.NewSourceAnalyzer(schema.MustGet(), analysis.Combine("upgrade precheck", &maturity.AlphaAnalyzer{}),
 		resource.Namespace(selectedNamespace), resource.Namespace(istioNamespace), nil, true, analysisTimeout)
 	// Set up the kube client
 	config := kube.BuildClientCmd(kubeconfig, configContext)
 	restConfig, err := config.ClientConfig()
 	if err != nil {
-		return err
+		return
 	}
 	k := cfgKube.NewInterfaces(restConfig)
 	sa.AddRunningKubeSource(k)
 	cancel := make(chan struct{})
 	result, err := sa.Analyze(cancel)
-	if err != nil {
-		return err
+	if result.Messages != nil {
+		msgs = result.Messages
 	}
-	outputMessages := result.Messages.SetDocRef("istioctl-analyze").FilterOutLowerThan(outputThreshold.Level)
-
-	// Print all the messages to stdout in the specified format
-	output, err := formatting.Print(outputMessages, msgOutputFormat, colorize)
-	if err != nil {
-		return err
-	}
-	fmt.Fprintln(cmd.OutOrStdout(), output)
-	return nil
+	return
 }
 
-func checkDataPlane(cmd *cobra.Command, namespace string) error {
+func checkDataPlane(cmd *cobra.Command, namespace string) (diag.Messages, error) {
 	// TODO: uncomment this once John's PR merges.
 	// checkBinds(ns)
-	return nil
+	return nil, nil
 }
