@@ -56,6 +56,8 @@ func GetShortType(typeURL string) string {
 		return "NDS"
 	case ProxyConfigType:
 		return "PCDS"
+	case ExtensionConfigurationType:
+		return "ECDS"
 	default:
 		return typeURL
 	}
@@ -78,6 +80,8 @@ func GetMetricType(typeURL string) string {
 		return "nds"
 	case ProxyConfigType:
 		return "pcds"
+	case ExtensionConfigurationType:
+		return "ecds"
 	default:
 		return typeURL
 	}
