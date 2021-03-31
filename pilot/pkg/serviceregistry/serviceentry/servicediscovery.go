@@ -67,6 +67,7 @@ type configKey struct {
 type ServiceEntryStore struct { // nolint:golint
 	XdsUpdater model.XDSUpdater
 	store      model.IstioConfigStore
+	clusterID  string
 
 	storeMutex sync.RWMutex
 
@@ -97,6 +98,7 @@ func DisableServiceEntryProcessing() ServiceDiscoveryOption {
 
 // NewServiceDiscovery creates a new ServiceEntry discovery service
 func NewServiceDiscovery(
+	clusterID string,
 	configController model.ConfigStoreCache,
 	store model.IstioConfigStore,
 	xdsUpdater model.XDSUpdater,
@@ -105,6 +107,7 @@ func NewServiceDiscovery(
 	s := &ServiceEntryStore{
 		XdsUpdater:                 xdsUpdater,
 		store:                      store,
+		clusterID:                  clusterID,
 		ip2instance:                map[string][]*model.ServiceInstance{},
 		instances:                  map[instancesKey]map[configKey][]*model.ServiceInstance{},
 		workloadInstancesByIP:      map[string]*model.WorkloadInstance{},
@@ -460,9 +463,7 @@ func (s *ServiceEntryStore) Provider() serviceregistry.ProviderID {
 }
 
 func (s *ServiceEntryStore) Cluster() string {
-	// DO NOT ASSIGN CLUSTER ID to non-k8s registries. This will prevent service entries with multiple
-	// VIPs or CIDR ranges in the address field
-	return ""
+	return s.clusterID
 }
 
 // AppendServiceHandler adds service resource event handler. Service Entries does not use these handlers.

@@ -167,6 +167,7 @@ func NewFakeDiscoveryServer(t test.Failer, opts FakeOptions) *FakeDiscoveryServe
 	defaultKubeClient.RunAndWait(stop)
 
 	cg := v1alpha3.NewConfigGenTest(t, v1alpha3.TestOptions{
+		ClusterID:           defaultKubeController.Cluster(),
 		Configs:             opts.Configs,
 		ConfigString:        opts.ConfigString,
 		ConfigTemplateInput: opts.ConfigTemplateInput,

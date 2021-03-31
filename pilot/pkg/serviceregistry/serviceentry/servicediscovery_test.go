@@ -135,7 +135,7 @@ func initServiceDiscoveryWithOpts(opts ...ServiceDiscoveryOption) (model.IstioCo
 	}
 
 	istioStore := model.MakeIstioStore(configController)
-	serviceController := NewServiceDiscovery(configController, istioStore, xdsUpdater, opts...)
+	serviceController := NewServiceDiscovery("", configController, istioStore, xdsUpdater, opts...)
 	return istioStore, serviceController, eventch, func() {
 		stop <- channelTerminal{}
 	}

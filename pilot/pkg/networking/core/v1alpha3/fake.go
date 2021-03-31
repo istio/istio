@@ -76,7 +76,8 @@ type TestOptions struct {
 	PushContextLock *sync.RWMutex
 
 	// If set, we will not run immediately, allowing adding event handlers, etc prior to start.
-	SkipRun bool
+	SkipRun   bool
+	ClusterID string
 }
 
 type ConfigGenTest struct {
@@ -114,7 +115,7 @@ func NewConfigGenTest(t test.Failer, opts TestOptions) *ConfigGenTest {
 	}
 
 	serviceDiscovery := aggregate.NewController(aggregate.Options{})
-	se := serviceentry.NewServiceDiscovery(configController, model.MakeIstioStore(configStore), &FakeXdsUpdater{})
+	se := serviceentry.NewServiceDiscovery(opts.ClusterID, configController, model.MakeIstioStore(configStore), &FakeXdsUpdater{})
 	// TODO allow passing in registry, for k8s, mem reigstry
 	serviceDiscovery.AddRegistry(se)
 	msd := memregistry.NewServiceDiscovery(opts.Services)
