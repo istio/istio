@@ -31,6 +31,7 @@ import (
 	"istio.io/istio/pilot/pkg/serviceregistry"
 	kubecontroller "istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
 	"istio.io/istio/pkg/config/constants"
+	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/testcerts"
 	"istio.io/pkg/filewatcher"
 )
@@ -392,7 +393,8 @@ func TestIstiodCipherSuites(t *testing.T) {
 					KubeOptions: kubecontroller.Options{
 						DomainSuffix: c.domain,
 					},
-					FileDir: configDir,
+					KubeConfig: "config",
+					FileDir:    configDir,
 				}
 
 				// Include all of the default plugins
@@ -401,7 +403,9 @@ func TestIstiodCipherSuites(t *testing.T) {
 			})
 
 			g := NewWithT(t)
-			s, err := NewServer(args)
+			s, err := NewServer(args, func(s *Server) {
+				s.kubeClient = kube.NewFakeClient()
+			})
 			g.Expect(err).To(Succeed())
 
 			stop := make(chan struct{})
