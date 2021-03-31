@@ -39,7 +39,7 @@ export ZONE="${ZONE:-us-central1-c}"
 export CLUSTER="${CLUSTER:-gvisor}"
 
 export TAG="${TAG:-asm-canary}"
-export HUB="${HUB:-gcr.io/wlhe-cr}"
+export HUB="${HUB:-gcr.io/asm-staging-images}"
 
 # Build and push the proxy and cloudrun image
 export BUILD_ALL=false

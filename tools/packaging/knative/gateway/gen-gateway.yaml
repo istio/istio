@@ -153,7 +153,7 @@ spec:
       serviceAccountName: istio-ingressgateway-service-account
       containers:
         - name: istio-proxy
-          image: "gcr.io/wlhe-cr/proxyv2:asm-cr"
+          image: "gcr.io/asm-staging-images/proxyv2:asm-cr"
           ports:
             - containerPort: 15021
               protocol: TCP

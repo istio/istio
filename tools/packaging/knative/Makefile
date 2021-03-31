@@ -3,7 +3,7 @@
 
 # Project used for testing the integration.
 ISTIO_REGION ?= us-central1
-ISTIO_PROJECT ?= wlhe-cr
+ISTIO_PROJECT ?= asm-staging-images
 ISTIO_SA ?= 601426346923-compute@developer.gserviceaccount.com
 ZONE ?= us-central1-c
 ISTIO_SUFFIX?=-icq63pqnqq-uc.a.run.app
@@ -26,7 +26,7 @@ REV ?= oss
 TAG ?= asm-cr
 
 # Hub for the proxy
-PROXY_HUB ?= grc.io/wlhe-cr
+PROXY_HUB ?= grc.io/asm-staging-images
 
 $(ISTIO_OUT)/knative/telemetry-sd.yaml: manifests/charts/istio-control/istio-discovery/templates/telemetryv2_1.9.yaml manifests/charts/istio-control/istio-discovery/templates/telemetryv2_1.10.yaml tools/packaging/knative/values.telemetry-sd.yaml
 	mkdir -p $(ISTIO_OUT)/knative/templates

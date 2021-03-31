@@ -351,7 +351,7 @@ if [[ "${CONTROL_PLANE}" == "UNMANAGED" ]]; then
   fi
 else
   echo "Setting up ASM ${CONTROL_PLANE} control plane for test"
-  export HUB="gcr.io/wlhe-cr/asm-mcp-e2e-test"
+  export HUB="gcr.io/asm-staging-images/asm-mcp-e2e-test"
   export TAG="BUILD_ID_${BUILD_ID}"
   # needed for telemetry test
   export GCR_PROJECT_ID
