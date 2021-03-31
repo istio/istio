@@ -1,0 +1,9 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: networking
+issue:
+- 29412
+releaseNotes:
+- |
+  **Improved** the `istioctl x workload` command to configure VMs to disable inbound `iptables` capture
+  for admin ports, matching behavior of Kubernetes Pods.
