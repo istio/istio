@@ -87,8 +87,8 @@ func (c *Controller) DeleteRegistry(clusterID string, providerID serviceregistry
 	log.Infof("Registry for the cluster %s has been deleted.", clusterID)
 }
 
-// getAllRegistries returns a copy of all registries
-func (c *Controller) getAllRegistries() []serviceregistry.Instance {
+// GetAllRegistries returns a copy of all registries
+func (c *Controller) GetAllRegistries() []serviceregistry.Instance {
 	c.storeLock.RLock()
 	defer c.storeLock.RUnlock()
 
@@ -282,7 +282,7 @@ func (c *Controller) GetProxyWorkloadLabels(proxy *model.Proxy) labels.Collectio
 
 // Run starts all the controllers
 func (c *Controller) Run(stop <-chan struct{}) {
-	for _, r := range c.getAllRegistries() {
+	for _, r := range c.GetAllRegistries() {
 		go r.Run(stop)
 	}
 	c.running.Store(true)

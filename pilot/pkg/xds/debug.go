@@ -191,6 +191,7 @@ func (s *DiscoveryServer) AddDebugHandlers(mux *http.ServeMux, enableProfiling b
 	s.addDebugHandler(mux, "/debug/inject", "Active inject template", s.InjectTemplateHandler(webhook))
 	s.addDebugHandler(mux, "/debug/mesh", "Active mesh config", s.MeshHandler)
 	s.addDebugHandler(mux, "/debug/networkz", "List cross-network gateways", s.networkz)
+	s.addDebugHandler(mux, "/debug/clusterz", "Debug support for service registries per-cluste", s.clusterz)
 }
 
 func (s *DiscoveryServer) addDebugHandler(mux *http.ServeMux, path string, help string,
@@ -884,6 +885,46 @@ func (s *DiscoveryServer) instancesz(w http.ResponseWriter, req *http.Request) {
 func (s *DiscoveryServer) networkz(w http.ResponseWriter, req *http.Request) {
 	gws := s.Env.NetworkGateways()
 	by, err := json.MarshalIndent(gws, "", "  ")
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+	}
+	_, err = w.Write(by)
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+	}
+}
+
+type registryStatus struct {
+	Kind      string `json:"kind"`
+	Ready     bool   `json:"ready"`
+	SyncError string `json:"syncError,omitempty"`
+}
+
+func (s *DiscoveryServer) clusterz(w http.ResponseWriter, req *http.Request) {
+	agg, ok := s.Env.ServiceDiscovery.(*aggregate.Controller)
+	if !ok {
+		w.WriteHeader(http.StatusBadRequest)
+		_, _ = w.Write([]byte(`{"message": "server is not running with aggregate registry"}`))
+		return
+	}
+	statusByCluster := map[string][]registryStatus{}
+	for _, instance := range agg.GetAllRegistries() {
+		var syncErr string
+		errable, ok := instance.(interface{ SyncErr() error })
+		if ok {
+			if err := errable.SyncErr(); err != nil {
+				syncErr = err.Error()
+			}
+		}
+
+		statusByCluster[instance.Cluster()] = append(statusByCluster[instance.Cluster()], registryStatus{
+			Kind:      string(instance.Provider()),
+			Ready:     instance.HasSynced(),
+			SyncError: syncErr,
+		})
+	}
+
+	by, err := json.MarshalIndent(statusByCluster, "", "  ")
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 	}
