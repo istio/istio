@@ -1527,6 +1527,135 @@ func TestServiceWithExportTo(t *testing.T) {
 	}
 }
 
+func TestMergeGatewayServerPort(t *testing.T) {
+	cases := []struct {
+		name        string
+		gateways    []config.Config
+		services    []*ServiceInstance
+		wantedPorts map[uint32]struct{}
+	}{
+		{
+			name: "rewrite",
+			gateways: []config.Config{
+				makeConfig("foo", "not-default", "foo.bar.com", "name1", "http", 7, "ingressgateway", ""),
+				makeConfig("foo", "not-default", "foo.bar.com", "name2", "http", 8, "ingressgateway", ""),
+			},
+			services: []*ServiceInstance{
+				{
+					Endpoint:    &IstioEndpoint{EndpointPort: 7},
+					ServicePort: &Port{Port: 8},
+				},
+			},
+			wantedPorts: map[uint32]struct{}{8: {}},
+		},
+		{
+			name: "skip rewrite: no dup",
+			gateways: []config.Config{
+				makeConfig("foo", "not-default", "foo.bar.com", "name1", "http", 7, "ingressgateway", ""),
+			},
+			services: []*ServiceInstance{
+				{
+					Endpoint:    &IstioEndpoint{EndpointPort: 7},
+					ServicePort: &Port{Port: 8},
+				},
+			},
+			wantedPorts: map[uint32]struct{}{7: {}},
+		},
+		{
+			name: "skip rewrite: ambiguous gateway port",
+			gateways: []config.Config{
+				makeConfig("foo", "not-default", "foo.bar.com", "name1", "http", 7, "ingressgateway", ""),
+				makeConfig("foo", "not-default", "foo.bar.com", "name2", "http", 8, "ingressgateway", ""),
+			},
+			services: []*ServiceInstance{
+				{
+					Endpoint:    &IstioEndpoint{EndpointPort: 7},
+					ServicePort: &Port{Port: 8},
+				},
+				{
+					Endpoint:    &IstioEndpoint{EndpointPort: 6},
+					ServicePort: &Port{Port: 7},
+				},
+			},
+			wantedPorts: map[uint32]struct{}{8: {}, 7: {}},
+		},
+		{
+			name: "skip rewrite: no dup + ambiguous gateway port",
+			gateways: []config.Config{
+				makeConfig("foo", "not-default", "foo.bar.com", "name1", "http", 7, "ingressgateway", ""),
+				makeConfig("foo", "not-default", "foo.bar.com", "name2", "http", 8, "ingressgateway", ""),
+			},
+			services: []*ServiceInstance{
+				{
+					Endpoint:    &IstioEndpoint{EndpointPort: 8},
+					ServicePort: &Port{Port: 8},
+				},
+				{
+					Endpoint:    &IstioEndpoint{EndpointPort: 7},
+					ServicePort: &Port{Port: 7},
+				},
+			},
+			wantedPorts: map[uint32]struct{}{7: {}, 8: {}},
+		},
+		{
+			name: "skip rewrite: target port with multiple service port",
+			gateways: []config.Config{
+				makeConfig("foo", "not-default", "foo.bar.com", "name1", "http", 7, "ingressgateway", ""),
+			},
+			services: []*ServiceInstance{
+				{
+					Endpoint:    &IstioEndpoint{EndpointPort: 7},
+					ServicePort: &Port{Port: 8},
+				},
+				{
+					Endpoint:    &IstioEndpoint{EndpointPort: 7},
+					ServicePort: &Port{Port: 9},
+				},
+			},
+			wantedPorts: map[uint32]struct{}{7: {}},
+		},
+		{
+			name: "skip rewrite: svc port with multiple target ports",
+			gateways: []config.Config{
+				makeConfig("foo", "not-default", "foo.bar.com", "name1", "http", 8, "ingressgateway", ""),
+				makeConfig("foo", "not-default", "foo.bar.com", "name2", "http", 7, "ingressgateway", ""),
+			},
+			services: []*ServiceInstance{
+				{
+					Endpoint:    &IstioEndpoint{EndpointPort: 9},
+					ServicePort: &Port{Port: 8},
+				},
+				{
+					Endpoint:    &IstioEndpoint{EndpointPort: 7},
+					ServicePort: &Port{Port: 8},
+				},
+			},
+			wantedPorts: map[uint32]struct{}{8: {}, 7: {}},
+		},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			proxy := &Proxy{
+				Metadata:         &NodeMetadata{Labels: map[string]string{"istio": "ingressgateway"}},
+				ServiceInstances: c.services,
+			}
+			pc := &PushContext{
+				gatewayIndex: gatewayIndex{all: c.gateways},
+			}
+			mg := pc.mergeGateways(proxy)
+			if len(mg.MergedServers) != len(c.wantedPorts) {
+				t.Errorf("number of servers want %v got %v", c.wantedPorts, mg.MergedServers)
+			}
+			for p := range mg.MergedServers {
+				if _, ok := c.wantedPorts[p.Number]; !ok {
+					t.Errorf("server port want %v got %v", c.wantedPorts, p)
+					break
+				}
+			}
+		})
+	}
+}
+
 var _ ServiceDiscovery = &localServiceDiscovery{}
 
 // MockDiscovery is an in-memory ServiceDiscover with mock services

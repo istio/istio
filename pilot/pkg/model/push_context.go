@@ -1711,6 +1711,7 @@ func (ps *PushContext) mergeGateways(proxy *Proxy) *MergedGateway {
 	if len(out) == 0 {
 		return nil
 	}
+	out = maybeRewriteGatewayPort(proxy.ServiceInstances, out)
 	return MergeGateways(out...)
 }
 
@@ -1808,4 +1809,83 @@ func (ps *PushContext) ServiceInstancesByPort(svc *Service, port int, labels lab
 
 	// Fallback to discovery call.
 	return ps.InstancesByPort(svc, port, labels)
+}
+
+// Maybe rewrite gateway server port from target port to service port if:
+// * GW server port is unambiguously a target port (i.e. there is no service port using the same port number)
+// * There is only one service port mapped to this target port, which the gateway server port will be rewritten to.
+// * There is only one target port mapped to the rewritten service port (i.e. there is no ambiguity later on when generating listener with target port)
+// * Another gateway server is defined to listen on the service port, thus without rewriting, duplicated listeners will be generated.
+func maybeRewriteGatewayPort(svcs []*ServiceInstance, gwc []config.Config) []config.Config {
+	ret := make([]config.Config, 0, len(gwc))
+
+	// Prep several port map for rewriting check.
+	// tgtPorts is a map from target port to service port.
+	// svcPort is a map from service port to target port.
+	// gwPort is a map of all gateway server ports.
+	tgtPorts := make(map[uint32][]uint32)
+	svcPorts := make(map[uint32][]uint32)
+	gwPorts := make(map[uint32]struct{})
+	for _, si := range svcs {
+		svcPort := uint32(si.ServicePort.Port)
+		tgtPort := si.Endpoint.EndpointPort
+		if svcPorts[svcPort] == nil {
+			svcPorts[svcPort] = make([]uint32, 0)
+		}
+		if tgtPorts[tgtPort] == nil {
+			tgtPorts[tgtPort] = make([]uint32, 0)
+		}
+		svcPorts[svcPort] = append(svcPorts[svcPort], tgtPort)
+		tgtPorts[tgtPort] = append(tgtPorts[tgtPort], svcPort)
+	}
+	for _, cfg := range gwc {
+		gw := cfg.Spec.(*networking.Gateway)
+		for _, s := range gw.Servers {
+			gwPorts[s.Port.Number] = struct{}{}
+		}
+	}
+
+	// Traverse all gateways, and rewrite gateway port if necessary.
+	for _, cfg := range gwc {
+		gw := cfg.Spec.(*networking.Gateway)
+		rewritePorts := make(map[int]uint32)
+		for i, s := range gw.Servers {
+			port := s.Port.Number
+
+			_, isSvcPort := svcPorts[port]
+			mappedSvcPorts, isTargetPort := tgtPorts[port]
+			if !isTargetPort || isSvcPort {
+				// Cannot unambiguously tell if the gateway server port is a service port or target port.
+				continue
+			}
+
+			if len(mappedSvcPorts) > 1 {
+				// There is more than one service port mapped to this target port.
+				continue
+			}
+
+			mappedTgtPorts := svcPorts[mappedSvcPorts[0]]
+			if len(mappedTgtPorts) > 1 {
+				// There is more than one target port mapped to the rewritten service port.
+				continue
+			}
+
+			if _, ok := gwPorts[mappedSvcPorts[0]]; ok {
+				// Another gateway server is defined to listen on the service port, thus rewrite it.
+				rewritePorts[i] = mappedSvcPorts[0]
+			}
+		}
+		if len(rewritePorts) != 0 {
+			// Make a deep copy of the gateway configuration and rewrite server port with service port.
+			newGWConfig := cfg.DeepCopy()
+			newGW := newGWConfig.Spec.(*networking.Gateway)
+			for ind, sp := range rewritePorts {
+				newGW.Servers[ind].Port.Number = sp
+			}
+			ret = append(ret, newGWConfig)
+		} else {
+			ret = append(ret, cfg)
+		}
+	}
+	return ret
 }
