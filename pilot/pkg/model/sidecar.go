@@ -349,7 +349,6 @@ func ConvertToSidecarScope(ps *PushContext, sidecarConfig *config.Config, config
 			})
 
 			for _, h := range virtualServiceDestinationHosts(v) {
-
 				// Default to this hostname in our config namespace
 				if s, ok := ps.ServiceIndex.HostnameAndNamespace[host.Name(h)][configNamespace]; ok {
 					// This won't overwrite hostnames that have already been found eg because they were requested in hosts
