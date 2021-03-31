@@ -34,7 +34,6 @@ import (
 	environ "istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/test/framework/components/cluster"
 	"istio.io/istio/pkg/test/framework/components/namespace"
-	edgespb "istio.io/istio/pkg/test/framework/components/stackdriver/edges"
 	"istio.io/istio/pkg/test/framework/resource"
 	testKube "istio.io/istio/pkg/test/kube"
 	"istio.io/istio/pkg/test/scopes"
@@ -168,29 +167,7 @@ func (c *kubeComponent) ListLogEntries(lt LogType, _ string) ([]*loggingpb.LogEn
 	return trimLogLabels(&r, lt), nil
 }
 
-func (c *kubeComponent) ListTrafficAssertions() ([]*edgespb.TrafficAssertion, error) {
-	client := http.Client{
-		Timeout: 5 * time.Second,
-	}
-	resp, err := client.Get("http://" + c.forwarder.Address() + "/trafficassertions")
-	if err != nil {
-		return []*edgespb.TrafficAssertion{}, err
-	}
-	defer resp.Body.Close()
-	body, err := ioutil.ReadAll(resp.Body)
-	if err != nil {
-		return []*edgespb.TrafficAssertion{}, err
-	}
-	var rta edgespb.ReportTrafficAssertionsRequest
-	err = jsonpb.UnmarshalString(string(body), &rta)
-	if err != nil {
-		return []*edgespb.TrafficAssertion{}, err
-	}
-
-	return rta.TrafficAssertions, nil
-}
-
-func (c *kubeComponent) ListTraces(_ string) ([]*cloudtracepb.Trace, error) {
+func (c *kubeComponent) ListTraces() ([]*cloudtracepb.Trace, error) {
 	client := http.Client{
 		Timeout: 5 * time.Second,
 	}

@@ -98,20 +98,28 @@ func (w *InternalWatcher) AddMeshHandler(h func()) {
 	w.handlers = append(w.handlers, h)
 }
 
+// HandleMeshConfigData keeps track of the standard mesh config. These are merged with the user
+// mesh config, but takes precedence.
 func (w *InternalWatcher) HandleMeshConfigData(yaml string) {
+	w.mutex.Lock()
 	w.revMeshConfig = yaml
+	w.mutex.Unlock()
 	w.HandleMeshConfig(w.merged())
 }
 
+// HandleUserMeshConfig keeps track of user mesh config overrides. These are merged with the standard
+// mesh config, which takes precedence.
 func (w *InternalWatcher) HandleUserMeshConfig(yaml string) {
+	w.mutex.Lock()
 	w.userMeshConfig = yaml
-	if w.revMeshConfig != "" {
-		w.HandleMeshConfig(w.merged())
-	}
+	w.mutex.Unlock()
+	w.HandleMeshConfig(w.merged())
 }
 
 // merged returns the merged user and revision config.
 func (w *InternalWatcher) merged() *meshconfig.MeshConfig {
+	w.mutex.Lock()
+	defer w.mutex.Unlock()
 	mc := DefaultMeshConfig()
 	if w.userMeshConfig != "" {
 		mc1, err := ApplyMeshConfig(w.userMeshConfig, mc)

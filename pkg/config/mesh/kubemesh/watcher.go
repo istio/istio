@@ -21,7 +21,6 @@ import (
 	"k8s.io/client-go/tools/cache"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
-	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/configmapwatcher"
@@ -29,13 +28,11 @@ import (
 )
 
 // NewConfigMapWatcher creates a new Watcher for changes to the given ConfigMap.
-func NewConfigMapWatcher(client kube.Client, namespace, name, key string) mesh.Watcher {
-	extra := features.SharedMeshConfig
-
+func NewConfigMapWatcher(client kube.Client, namespace, name, key, extraConfig string) mesh.Watcher {
 	defaultMesh := mesh.DefaultMeshConfig()
 	w := &mesh.InternalWatcher{MeshConfig: &defaultMesh}
 	c := configmapwatcher.NewController(client, namespace, name, func(cm *v1.ConfigMap) {
-		if extra != "" {
+		if extraConfig != "" {
 			meshConfig := meshConfigMapData(cm, key)
 			w.HandleMeshConfigData(meshConfig)
 			return
@@ -53,13 +50,14 @@ func NewConfigMapWatcher(client kube.Client, namespace, name, key string) mesh.W
 	stop := make(chan struct{})
 	go c.Run(stop)
 
-	if extra != "" {
-		extrac := configmapwatcher.NewController(client, namespace, extra, func(cm *v1.ConfigMap) {
+	if extraConfig != "" {
+		extrac := configmapwatcher.NewController(client, namespace, extraConfig, func(cm *v1.ConfigMap) {
 			meshConfig := meshConfigMapData(cm, key)
 			w.HandleUserMeshConfig(meshConfig)
 		})
 
 		go extrac.Run(stop)
+		cache.WaitForCacheSync(stop, extrac.HasSynced)
 	}
 
 	// Ensure the ConfigMap is initially loaded if present.

@@ -22,7 +22,6 @@ import (
 	md "istio.io/istio/pkg/bootstrap/platform"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/framework/components/cluster"
-	edgespb "istio.io/istio/pkg/test/framework/components/stackdriver/edges"
 	"istio.io/istio/pkg/test/framework/resource"
 )
 
@@ -35,7 +34,6 @@ type Instance interface {
 	GetStackdriverNamespace() string
 	ListTimeSeries(namespace string) ([]*monitoringpb.TimeSeries, error)
 	ListLogEntries(lt LogType, namespace string) ([]*loggingpb.LogEntry, error)
-	ListTrafficAssertions() ([]*edgespb.TrafficAssertion, error)
 	ListTraces(namespace string) ([]*cloudtracepb.Trace, error)
 }
 

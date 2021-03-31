@@ -130,9 +130,10 @@ var (
 	// These are sniffed by the HTTP Inspector in the outbound listener
 	// We need to forward these ALPNs to upstream so that the upstream can
 	// properly use a HTTP or TCP listener
-	plaintextHTTPALPNs  = []string{"http/1.0", "http/1.1", "h2c"}
-	mtlsHTTPALPNs       = []string{"istio-http/1.0", "istio-http/1.1", "istio-h2"}
-	legacyMtlsHTTPALPNs = []string{"istio", "istio-http/1.0", "istio-http/1.1", "istio-h2"}
+	plaintextHTTPALPNs = []string{"http/1.0", "http/1.1", "h2c"}
+	mtlsHTTPALPNs      = []string{"istio-http/1.0", "istio-http/1.1", "istio-h2"}
+
+	allIstioMtlsALPNs = []string{"istio", "istio-peer-exchange", "istio-http/1.0", "istio-http/1.1", "istio-h2"}
 
 	mtlsTCPWithMxcALPNs = []string{"istio-peer-exchange", "istio"}
 
@@ -183,7 +184,7 @@ var (
 	inboundPermissiveHTTPFilterChainMatchWithMxcOptions = []FilterChainMatchOptions{
 		{
 			// HTTP over MTLS
-			ApplicationProtocols: legacyMtlsHTTPALPNs,
+			ApplicationProtocols: allIstioMtlsALPNs,
 			TransportProtocol:    xdsfilters.TLSTransportProtocol,
 			Protocol:             istionetworking.ListenerProtocolHTTP,
 			MTLS:                 true,
@@ -198,7 +199,7 @@ var (
 	inboundPermissiveTCPFilterChainMatchWithMxcOptions = []FilterChainMatchOptions{
 		{
 			// MTLS
-			ApplicationProtocols: mtlsTCPWithMxcALPNs,
+			ApplicationProtocols: allIstioMtlsALPNs,
 			TransportProtocol:    xdsfilters.TLSTransportProtocol,
 			Protocol:             istionetworking.ListenerProtocolTCP,
 			MTLS:                 true,
