@@ -52,24 +52,24 @@ func (*AlphaAnalyzer) Metadata() analysis.Metadata {
 // Analyze implements analysis.Analyzer
 func (fa *AlphaAnalyzer) Analyze(ctx analysis.Context) {
 	ctx.ForEach(collections.K8SCoreV1Namespaces.Name(), func(r *resource.Instance) bool {
-		fa.allowAnnotations(r, ctx, "Namespace", collections.K8SCoreV1Namespaces.Name())
+		fa.allowAnnotations(r, ctx, collections.K8SCoreV1Namespaces.Name())
 		return true
 	})
 	ctx.ForEach(collections.K8SCoreV1Services.Name(), func(r *resource.Instance) bool {
-		fa.allowAnnotations(r, ctx, "Service", collections.K8SCoreV1Services.Name())
+		fa.allowAnnotations(r, ctx, collections.K8SCoreV1Services.Name())
 		return true
 	})
 	ctx.ForEach(collections.K8SCoreV1Pods.Name(), func(r *resource.Instance) bool {
-		fa.allowAnnotations(r, ctx, "Pod", collections.K8SCoreV1Pods.Name())
+		fa.allowAnnotations(r, ctx, collections.K8SCoreV1Pods.Name())
 		return true
 	})
 	ctx.ForEach(collections.K8SAppsV1Deployments.Name(), func(r *resource.Instance) bool {
-		fa.allowAnnotations(r, ctx, "Deployment", collections.K8SAppsV1Deployments.Name())
+		fa.allowAnnotations(r, ctx, collections.K8SAppsV1Deployments.Name())
 		return true
 	})
 }
 
-func (*AlphaAnalyzer) allowAnnotations(r *resource.Instance, ctx analysis.Context, kind string, collectionType collection.Name) {
+func (*AlphaAnalyzer) allowAnnotations(r *resource.Instance, ctx analysis.Context, collectionType collection.Name) {
 	if len(r.Metadata.Annotations) == 0 {
 		return
 	}
