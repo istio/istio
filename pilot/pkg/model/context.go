@@ -469,9 +469,6 @@ type BootstrapNodeMetadata struct {
 
 	// ProvCertDir is the directory containing pre-provisioned certs.
 	ProvCert string `json:"PROV_CERT,omitempty"`
-
-	// XdsType is the XDS protocol to use
-	XdsType string `json:"XDS_TYPE,omitempty"`
 }
 
 // NodeMetadata defines the metadata associated with a proxy
