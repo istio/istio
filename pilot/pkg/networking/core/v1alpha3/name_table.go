@@ -78,12 +78,13 @@ func (configgen *ConfigGeneratorImpl) BuildNameTable(node *model.Proxy, push *mo
 			if svc.Attributes.ServiceRegistry == string(serviceregistry.Kubernetes) &&
 				svc.Resolution == model.Passthrough && len(svc.Ports) > 0 {
 				for _, instance := range push.ServiceInstancesByPort(svc, svc.Ports[0].Port, nil) {
-					if instance.Endpoint.Network != node.Metadata.Network {
+					if len(instance.Endpoint.Network) > 0 && instance.Endpoint.Network != node.Metadata.Network {
 						// We take only network-local endpoints. While this seems contradictory to
 						// our logic other parts of the code, where cross-cluster is the default.
 						// However, this only impacts the DNS response. If we were to send all
 						// endpoints, cross network routing would break, as we do passthrough LB and
 						// don't go through the network gateway.
+						// This can be relaxed once cross network routing for headless service is implemented.
 						continue
 					}
 					if instance.Endpoint.SubDomain != "" {

@@ -144,6 +144,18 @@ func TestNameTable(t *testing.T) {
 			push:  push,
 			expectedNameTable: &nds.NameTable{
 				Table: map[string]*nds.NameTable_NameInfo{
+					"pod1.headless-svc.testns.svc.cluster.local": {
+						Ips:       []string{"1.2.3.4"},
+						Registry:  "Kubernetes",
+						Shortname: "pod1.headless-svc",
+						Namespace: "testns",
+					},
+					"pod2.headless-svc.testns.svc.cluster.local": {
+						Ips:       []string{"9.6.7.8"},
+						Registry:  "Kubernetes",
+						Shortname: "pod2.headless-svc",
+						Namespace: "testns",
+					},
 					"pod3.headless-svc.testns.svc.cluster.local": {
 						Ips:       []string{"7.7.7.7"},
 						Registry:  "Kubernetes",
@@ -157,7 +169,7 @@ func TestNameTable(t *testing.T) {
 						Namespace: "testns",
 					},
 					"headless-svc.testns.svc.cluster.local": {
-						Ips:       []string{"7.7.7.7", "8.8.8.8"},
+						Ips:       []string{"1.2.3.4", "9.6.7.8", "7.7.7.7", "8.8.8.8"},
 						Registry:  "Kubernetes",
 						Shortname: "headless-svc",
 						Namespace: "testns",
