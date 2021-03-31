@@ -596,8 +596,6 @@ func (c *Controller) HasSynced() bool {
 	if !c.initialized.Load() {
 		return false
 	}
-	// clear our sync error
-	c.syncErr.Store(nil)
 
 	// the way we initialize informers won't cause errors, and will block on the following check indefinitely
 	// this smoketests API server reachability, permissions are exercised better in SyncAll
@@ -605,6 +603,7 @@ func (c *Controller) HasSynced() bool {
 	_, err := c.serviceLister.List(klabels.NewSelector().Add(*req))
 	if err != nil {
 		c.syncErr.Store(err)
+		return false
 	}
 
 	if (c.systemNsInformer != nil && !c.systemNsInformer.HasSynced()) ||
@@ -622,6 +621,8 @@ func (c *Controller) HasSynced() bool {
 		c.once = sync.Once{}
 	}
 	c.once.Do(func() {
+		// clear our sync error
+		c.syncErr.Store(nil)
 		if err := c.SyncAll(); err != nil {
 			log.Errorf("one or more errors force-syncing resources: %v", err)
 			c.syncErr.Store(err)
