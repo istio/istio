@@ -715,59 +715,33 @@ func (cb *ClusterBuilder) buildUpstreamClusterTLSContext(opts *buildClusterOpts,
 	case networking.ClientTLSSettings_DISABLE:
 		tlsContext = nil
 	case networking.ClientTLSSettings_ISTIO_MUTUAL:
-
 		tlsContext = &auth.UpstreamTlsContext{
 			CommonTlsContext: &auth.CommonTlsContext{},
 			Sni:              tls.Sni,
 		}
 
-		// For ISTIO_MUTUAL_TLS we serve certificates from two well known locations.
-		// - Proxy Metadata: These are certs being mounted from within the pod. Rather
-		//   than reading directly in Envoy, which does not support rotation, we will
-		//   serve them over SDS by reading the files.
-		// - Default SDS Locations served with resource names "default" and "ROOTCA".
-
-		// buildIstioMutualTLS would have populated the TLSSettings with proxy metadata.
-		// Use it if it exists otherwise fallback to default SDS locations.
-		metadataSDS := model.SdsCertificateConfig{
-			CertificatePath:   tls.ClientCertificate,
-			PrivateKeyPath:    tls.PrivateKey,
-			CaCertificatePath: tls.CaCertificates,
-		}
-		metadataCerts := metadataSDS.IsRootCertificate() && metadataSDS.IsKeyCertificate()
-
 		tlsContext.CommonTlsContext.TlsCertificateSdsSecretConfigs = append(tlsContext.CommonTlsContext.TlsCertificateSdsSecretConfigs,
-			authn_model.ConstructSdsSecretConfig(model.GetOrDefault(metadataSDS.GetResourceName(), authn_model.SDSDefaultResourceName), proxy))
+			authn_model.ConstructSdsSecretConfig(authn_model.SDSDefaultResourceName, proxy))
 
 		tlsContext.CommonTlsContext.ValidationContextType = &auth.CommonTlsContext_CombinedValidationContext{
 			CombinedValidationContext: &auth.CommonTlsContext_CombinedCertificateValidationContext{
-				DefaultValidationContext: &auth.CertificateValidationContext{MatchSubjectAltNames: util.StringToExactMatch(tls.SubjectAltNames)},
-				ValidationContextSdsSecretConfig: authn_model.ConstructSdsSecretConfig(model.GetOrDefault(metadataSDS.GetRootResourceName(),
-					authn_model.SDSRootResourceName), proxy),
+				DefaultValidationContext:         &auth.CertificateValidationContext{MatchSubjectAltNames: util.StringToExactMatch(tls.SubjectAltNames)},
+				ValidationContextSdsSecretConfig: authn_model.ConstructSdsSecretConfig(authn_model.SDSRootResourceName, proxy),
 			},
 		}
 		// Set default SNI of cluster name for istio_mutual if sni is not set.
-		if len(tls.Sni) == 0 {
+		if len(tlsContext.Sni) == 0 {
 			tlsContext.Sni = c.cluster.Name
 		}
-
 		// `istio-peer-exchange` alpn is only used when using mtls communication between peers.
 		// We add `istio-peer-exchange` to the list of alpn strings.
 		// The code has repeated snippets because We want to use predefined alpn strings for efficiency.
-		switch {
-		case metadataCerts:
-			if cb.IsHttp2Cluster(c) {
-				// This is HTTP/2 cluster, advertise it with ALPN.
-				tlsContext.CommonTlsContext.AlpnProtocols = util.ALPNH2Only
-			}
-		default:
-			if cb.IsHttp2Cluster(c) {
-				// This is HTTP/2 in-mesh cluster, advertise it with ALPN.
-				tlsContext.CommonTlsContext.AlpnProtocols = util.ALPNInMeshH2WithMxc
-			} else {
-				// This is in-mesh cluster, advertise it with ALPN.
-				tlsContext.CommonTlsContext.AlpnProtocols = util.ALPNInMeshWithMxc
-			}
+		if cb.IsHttp2Cluster(c) {
+			// This is HTTP/2 in-mesh cluster, advertise it with ALPN.
+			tlsContext.CommonTlsContext.AlpnProtocols = util.ALPNInMeshH2WithMxc
+		} else {
+			// This is in-mesh cluster, advertise it with ALPN.
+			tlsContext.CommonTlsContext.AlpnProtocols = util.ALPNInMeshWithMxc
 		}
 	case networking.ClientTLSSettings_SIMPLE:
 		tlsContext = &auth.UpstreamTlsContext{
