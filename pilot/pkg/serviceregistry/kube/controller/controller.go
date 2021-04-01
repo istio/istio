@@ -20,8 +20,6 @@ import (
 	"sync"
 	"time"
 
-	"istio.io/istio/pilot/pkg/controller"
-
 	"github.com/hashicorp/go-multierror"
 	"github.com/yl2chen/cidranger"
 	"go.uber.org/atomic"
@@ -42,6 +40,7 @@ import (
 	"istio.io/istio/pilot/pkg/serviceregistry"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube/controller/filter"
+	"istio.io/istio/pilot/pkg/util/informermetric"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/mesh"
@@ -221,7 +220,6 @@ type Controller struct {
 	pods *PodCache
 
 	metrics         model.Metrics
-	informerMetrics controller.InformerErrHandler
 	networksWatcher mesh.NetworksWatcher
 	xdsUpdater      model.XDSUpdater
 	domainSuffix    string
@@ -280,15 +278,11 @@ type Controller struct {
 func NewController(kubeClient kubelib.Client, options Options) *Controller {
 	// The queue requires a time duration for a retry delay after a handler error
 	c := &Controller{
-		domainSuffix: options.DomainSuffix,
-		client:       kubeClient.Kube(),
-		queue:        queue.NewQueue(1 * time.Second),
-		clusterID:    options.ClusterID,
-		xdsUpdater:   options.XDSUpdater,
-		informerMetrics: controller.NewInformerErrorHandler(
-			"kubernetes",
-			monitoring.MustCreateLabel("cluster").Value(options.ClusterID),
-		),
+		domainSuffix:                options.DomainSuffix,
+		client:                      kubeClient.Kube(),
+		queue:                       queue.NewQueue(1 * time.Second),
+		clusterID:                   options.ClusterID,
+		xdsUpdater:                  options.XDSUpdater,
 		servicesMap:                 make(map[host.Name]*model.Service),
 		nodeSelectorsForServices:    make(map[host.Name]labels.Instance),
 		nodeInfoMap:                 make(map[string]kubernetesNode),
@@ -549,8 +543,7 @@ func (c *Controller) registerHandlers(informer filter.FilteredSharedIndexInforme
 		return handler(obj, event)
 	}
 	if informer, ok := informer.(cache.SharedInformer); ok {
-		informer.AddEventHandler(c.informerMetrics)
-		_ = informer.SetWatchErrorHandler(c.informerMetrics.OnError)
+		_ = informer.SetWatchErrorHandler(informermetric.ErrorHandlerForCluster(c.clusterID))
 	}
 	informer.AddEventHandler(
 		cache.ResourceEventHandlerFuncs{

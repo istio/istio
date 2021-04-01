@@ -20,9 +20,7 @@ import (
 	"strconv"
 	"sync"
 
-	"istio.io/pkg/monitoring"
-
-	"istio.io/istio/pilot/pkg/controller"
+	"istio.io/istio/pilot/pkg/util/informermetric"
 
 	"go.uber.org/atomic"
 
@@ -128,12 +126,11 @@ func NewServiceDiscovery(
 	}
 
 	if configController != nil {
-		metrics := controller.NewInformerErrorHandler("serviceentry", monitoring.MustCreateLabel("cluster").Value(s.clusterID))
 		if s.processServiceEntry {
 			configController.RegisterEventHandler(gvk.ServiceEntry, s.serviceEntryHandler)
 		}
 		configController.RegisterEventHandler(gvk.WorkloadEntry, s.workloadEntryHandler)
-		_ = configController.SetWatchErrorHandler(metrics.OnError)
+		_ = configController.SetWatchErrorHandler(informermetric.ErrorHandlerForCluster(s.clusterID))
 	}
 	return s
 }
