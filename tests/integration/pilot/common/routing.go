@@ -115,6 +115,68 @@ spec:
 			workloadAgnostic: true,
 		},
 		TrafficTestCase{
+			name: "set header",
+			config: `
+apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
+metadata:
+  name: default
+spec:
+  hosts:
+  - {{ (index .dst 0).Config.Service }}
+  http:
+  - route:
+    - destination:
+        host: {{ (index .dst 0).Config.Service }}
+    headers:
+      request:
+        set:
+          x-custom: some-value`,
+			opts: echo.CallOptions{
+				PortName: "http",
+				Validator: echo.And(
+					echo.ExpectOK(),
+					echo.ValidatorFunc(
+						func(response echoclient.ParsedResponses, _ error) error {
+							return response.Check(func(_ int, response *echoclient.ParsedResponse) error {
+								return ExpectString(response.RawResponse["X-Custom"], "some-value", "added request header")
+							})
+						})),
+			},
+			workloadAgnostic: true,
+		},
+		TrafficTestCase{
+			name: "set authority header",
+			config: `
+apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
+metadata:
+  name: default
+spec:
+  hosts:
+  - {{ (index .dst 0).Config.Service }}
+  http:
+  - route:
+    - destination:
+        host: {{ (index .dst 0).Config.Service }}
+    headers:
+      request:
+        set:
+          :authority: my-custom-authority`,
+			opts: echo.CallOptions{
+				PortName: "http",
+				Validator: echo.And(
+					echo.ExpectOK(),
+					echo.ValidatorFunc(
+						func(response echoclient.ParsedResponses, _ error) error {
+							return response.Check(func(_ int, response *echoclient.ParsedResponse) error {
+								return ExpectString(response.RawResponse["Host"], "my-custom-authority", "added authority header")
+							})
+						})),
+			},
+			workloadAgnostic: true,
+		},
+		TrafficTestCase{
 			name: "redirect",
 			config: `
 apiVersion: networking.istio.io/v1alpha3

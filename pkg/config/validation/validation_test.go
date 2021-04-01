@@ -2575,6 +2575,40 @@ func TestValidateVirtualService(t *testing.T) {
 				}},
 			}},
 		}, valid: true, warning: true},
+		{name: "set authority", in: &networking.VirtualService{
+			Hosts: []string{"foo.bar"},
+			Http: []*networking.HTTPRoute{{
+				Headers: &networking.Headers{
+					Request: &networking.Headers_HeaderOperations{Set: map[string]string{":authority": "foo"}},
+				},
+				Route: []*networking.HTTPRouteDestination{{
+					Destination: &networking.Destination{Host: "foo.baz"},
+				}},
+			}},
+		}, valid: true, warning: false},
+		{name: "set authority in destination", in: &networking.VirtualService{
+			Hosts: []string{"foo.bar"},
+			Http: []*networking.HTTPRoute{{
+				Route: []*networking.HTTPRouteDestination{{
+					Destination: &networking.Destination{Host: "foo.baz"},
+					Headers: &networking.Headers{
+						Request: &networking.Headers_HeaderOperations{Set: map[string]string{":authority": "foo"}},
+					},
+				}},
+			}},
+		}, valid: false, warning: false},
+		{name: "set authority in rewrite and header", in: &networking.VirtualService{
+			Hosts: []string{"foo.bar"},
+			Http: []*networking.HTTPRoute{{
+				Headers: &networking.Headers{
+					Request: &networking.Headers_HeaderOperations{Set: map[string]string{":authority": "foo"}},
+				},
+				Rewrite: &networking.HTTPRewrite{Authority: "bar"},
+				Route: []*networking.HTTPRouteDestination{{
+					Destination: &networking.Destination{Host: "foo.baz"},
+				}},
+			}},
+		}, valid: false, warning: false},
 	}
 
 	for _, tc := range testCases {

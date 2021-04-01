@@ -249,6 +249,32 @@ func ValidateHTTPHeaderName(name string) error {
 	return nil
 }
 
+// ValidateHTTPHeaderWithAuthorityOperationName validates a header name when used to add/set in request.
+func ValidateHTTPHeaderWithAuthorityOperationName(name string) error {
+	if name == "" {
+		return fmt.Errorf("header name cannot be empty")
+	}
+	// Authority header is validated later
+	if isInternalHeader(name) && !isAuthorityHeader(name) {
+		return fmt.Errorf(`invalid header %q: header cannot have ":" prefix`, name)
+	}
+	return nil
+}
+
+// ValidateHTTPHeaderOperationName validates a header name when used to remove from request or modify response.
+func ValidateHTTPHeaderOperationName(name string) error {
+	if name == "" {
+		return fmt.Errorf("header name cannot be empty")
+	}
+	if strings.EqualFold(name, "host") {
+		return fmt.Errorf(`invalid header %q: cannot set Host header`, name)
+	}
+	if isInternalHeader(name) {
+		return fmt.Errorf(`invalid header %q: header cannot have ":" prefix`, name)
+	}
+	return nil
+}
+
 // ValidateHTTPHeaderValue validates a header value for Envoy
 // Valid: "foo", "%HOSTNAME%", "100%%", "prefix %HOSTNAME% suffix"
 // Invalid: "abc%123"
@@ -2007,26 +2033,26 @@ func validateHTTPRouteDestinations(weights []*networking.HTTPRouteDestination) (
 
 		// header manipulations
 		for name, val := range weight.Headers.GetRequest().GetAdd() {
-			errs = appendErrors(errs, ValidateHTTPHeaderName(name))
+			errs = appendErrors(errs, ValidateHTTPHeaderOperationName(name))
 			errs = appendErrors(errs, ValidateHTTPHeaderValue(val))
 		}
 		for name, val := range weight.Headers.GetRequest().GetSet() {
-			errs = appendErrors(errs, ValidateHTTPHeaderName(name))
+			errs = appendErrors(errs, ValidateHTTPHeaderOperationName(name))
 			errs = appendErrors(errs, ValidateHTTPHeaderValue(val))
 		}
 		for _, name := range weight.Headers.GetRequest().GetRemove() {
-			errs = appendErrors(errs, ValidateHTTPHeaderName(name))
+			errs = appendErrors(errs, ValidateHTTPHeaderOperationName(name))
 		}
 		for name, val := range weight.Headers.GetResponse().GetAdd() {
-			errs = appendErrors(errs, ValidateHTTPHeaderName(name))
+			errs = appendErrors(errs, ValidateHTTPHeaderOperationName(name))
 			errs = appendErrors(errs, ValidateHTTPHeaderValue(val))
 		}
 		for name, val := range weight.Headers.GetResponse().GetSet() {
-			errs = appendErrors(errs, ValidateHTTPHeaderName(name))
+			errs = appendErrors(errs, ValidateHTTPHeaderOperationName(name))
 			errs = appendErrors(errs, ValidateHTTPHeaderValue(val))
 		}
 		for _, name := range weight.Headers.GetResponse().GetRemove() {
-			errs = appendErrors(errs, ValidateHTTPHeaderName(name))
+			errs = appendErrors(errs, ValidateHTTPHeaderOperationName(name))
 		}
 
 		errs = appendErrors(errs, validateDestination(weight.Destination))
