@@ -80,6 +80,12 @@ spec:
     when:
     - key: source.ip
       values: ["{{ .src1IP }}"]
+  - to:
+    - operation:
+        paths: ["/source-ip-{{ .src2 }}"]
+    when:
+    - key: source.ip
+      values: ["{{ .src2IP }}"]
 ---
 
 apiVersion: security.istio.io/v1beta1
@@ -94,10 +100,10 @@ spec:
   rules:
   - to:
     - operation:
-        paths: ["/source-ip-notValues-{{ .src1 }}"]
+        paths: ["/source-ip-notValues-{{ .src2 }}"]
     when:
     - key: source.ip
-      notValues: ["{{ .src1IP }}"]
+      notValues: ["{{ .src2IP }}"]
 ---
 
 apiVersion: security.istio.io/v1beta1
@@ -115,7 +121,13 @@ spec:
         paths: ["/source-namespace-{{ .src1 }}"]
     when:
     - key: source.namespace
-      values: ["{{ .Namespace }}"]
+      values: ["{{ .src1Namespace }}"]
+  - to:
+    - operation:
+        paths: ["/source-namespace-{{ .src2 }}"]
+    when:
+    - key: source.namespace
+      values: ["{{ .src2Namespace }}"]
 ---
 
 apiVersion: security.istio.io/v1beta1
@@ -130,10 +142,10 @@ spec:
   rules:
   - to:
     - operation:
-        paths: ["/source-namespace-notValues-{{ .src1 }}"]
+        paths: ["/source-namespace-notValues-{{ .src2 }}"]
     when:
     - key: source.namespace
-      notValues: ["{{ .Namespace }}"]
+      notValues: ["{{ .src2Namespace }}"]
 ---
 
 apiVersion: security.istio.io/v1beta1
@@ -151,7 +163,13 @@ spec:
         paths: ["/source-principal-{{ .src1 }}"]
     when:
     - key: source.principal
-      values: ["cluster.local/ns/{{ .Namespace }}/sa/{{ .src1 }}"]
+      values: ["cluster.local/ns/{{ .src1Namespace }}/sa/{{ .src1 }}"]
+  - to:
+    - operation:
+        paths: ["/source-principal-{{ .src2 }}"]
+    when:
+    - key: source.principal
+      values: ["cluster.local/ns/{{ .src2Namespace }}/sa/{{ .src2 }}"]
 ---
 
 apiVersion: security.istio.io/v1beta1
@@ -166,10 +184,10 @@ spec:
   rules:
   - to:
     - operation:
-        paths: ["/source-principal-notValues-{{ .src1 }}"]
+        paths: ["/source-principal-notValues-{{ .src2 }}"]
     when:
     - key: source.principal
-      notValues: ["cluster.local/ns/{{ .Namespace }}/sa/{{ .src1 }}"]
+      notValues: ["cluster.local/ns/{{ .src2Namespace }}/sa/{{ .src2 }}"]
 ---
 
 apiVersion: security.istio.io/v1beta1
@@ -187,7 +205,7 @@ spec:
         paths: ["/destination-ip-good"]
     when:
     - key: destination.ip
-      values: [{{ .src1IP }}]
+      values: [{{ .dstIP }}]
   - to:
     - operation:
         paths: ["/destination-ip-bad"]
@@ -208,16 +226,16 @@ spec:
   rules:
   - to:
     - operation:
-        paths: ["/destination-ip-notValues-1"]
+        paths: ["/destination-ip-notValues-{{ .src1 }}-or-{{ .src2 }}"]
     when:
     - key: destination.ip
       notValues: ["{{ .src1IP }}", "{{ .src2IP }}"]
   - to:
     - operation:
-        paths: ["/destination-ip-notValues-2"]
+        paths: ["/destination-ip-notValues-{{ .src1 }}-or-{{ .src2 }}-or-{{ .dst }}"]
     when:
     - key: destination.ip
-      notValues: ["{{ .src1IP }}", "{{ .src2IP }}", {{ .src3IP }}]
+      notValues: ["{{ .src1IP }}", "{{ .src2IP }}", {{ .dstIP }}]
 ---
 
 apiVersion: security.istio.io/v1beta1
@@ -298,14 +316,14 @@ spec:
   rules:
   - to:
     - operation:
-        paths: ["/connection-sni-notValues-{{ .src1 }}"]
+        paths: ["/connection-sni-notValues-{{ .src1 }}-or-{{ .src2 }}"]
     when:
     - key: connection.sni
-      notValues: ["*.{{ .src1 }}.{{ .src1Namespace }}.svc.cluster.local"]
+      notValues: ["*.{{ .src1 }}.{{ .src1Namespace }}.svc.cluster.local", "*.{{ .src2 }}.{{ .src2Namespace }}.svc.cluster.local"]
   - to:
     - operation:
-        paths: ["/connection-sni-notValues-2"]
+        paths: ["/connection-sni-notValues-{{ .src1 }}-or-{{ .src2 }}-or-{{ .dst }}"]
     when:
     - key: connection.sni
-      notValues: ["*.{{ .dst }}.{{ .dstNamespace }}.svc.cluster.local"]
+      notValues: ["*.{{ .src1 }}.{{ .src1Namespace }}.svc.cluster.local", "*.{{ .src2 }}.{{ .src2Namespace }}.svc.cluster.local", "*.{{ .dst }}.{{ .dstNamespace }}.svc.cluster.local"]
 ---

@@ -1008,40 +1008,36 @@ func TestAuthorization_Conditions(t *testing.T) {
 			nsB := apps.Namespace2
 			nsC := apps.Namespace3
 
-			cSet := apps.C.Match(echo.Namespace(nsC.Name()))
+			c := apps.C.Match(echo.Namespace(nsC.Name()))
+			vm := apps.VM.Match(echo.Namespace(nsA.Name()))
+			for _, dst := range []echo.Instances{c, vm} {
+				for i := 0; i < len(t.Clusters()); i++ {
+					t.NewSubTest(fmt.Sprintf("from %s to %s in %s",
+						t.Clusters()[i].StableName(), dst[0].Config().Service, dst[0].Config().Cluster.Name())).
+						Run(func(t framework.TestContext) {
+							src1 := apps.A.Match(echo.InCluster(t.Clusters()[i])).Match(echo.Namespace(nsA.Name()))
+							src2 := apps.B.Match(echo.InCluster(t.Clusters()[i])).Match(echo.Namespace(nsB.Name()))
+							var ipList string
+							for i := 0; i < len(t.Clusters()); i++ {
+								ipList += "\"" + getWorkload(dst[i], t).Address() + "\","
+							}
+							ipLen := len(ipList)
+							ipList = ipList[:ipLen-1]
+							args := map[string]string{
+								"dst":           dst[0].Config().Service,
+								"dstIP":         ipList,
+								"dstNamespace":  dst[0].Config().Namespace.Name(),
+								"dstPort":       "8090",
+								"src1":          util.ASvc,
+								"src2":          util.BSvc,
+								"src1IP":        getWorkload(src1[0], t).Address(),
+								"src2IP":        getWorkload(src2[0], t).Address(),
+								"src1Namespace": nsA.Name(),
+								"src2Namespace": nsB.Name(),
+							}
 
-			var IPC string
-			for i := 0; i < len(t.Clusters()); i++ {
-				IPC += "\"" + getWorkload(cSet[i], t).Address() + "\","
-			}
-			lengthC := len(IPC)
-			IPC = IPC[:lengthC-1]
-			portC := 8090
-			for i := 0; i < len(t.Clusters()); i++ {
-				t.NewSubTest(fmt.Sprintf("IpA IpB IpC in %s", t.Clusters()[i].StableName())).Run(func(t framework.TestContext) {
-					podAWithIPA := apps.A.Match(echo.InCluster(t.Clusters()[i])).Match(echo.Namespace(nsA.Name()))[0]
-					podBWithIPB := apps.B.Match(echo.InCluster(t.Clusters()[i])).Match(echo.Namespace(nsB.Name()))[0]
-					vm := apps.VM.Match(echo.InCluster(t.Clusters()[i])).Match(echo.Namespace(nsA.Name()))[0]
-
-					args := map[string]string{
-						"NamespaceA": nsA.Name(),
-						"NamespaceB": nsB.Name(),
-						"NamespaceC": nsC.Name(),
-						"IpA":        getWorkload(podAWithIPA, t).Address(),
-						"IpB":        getWorkload(podBWithIPB, t).Address(),
-						"IpC":        IPC,
-						"ipVM":       getWorkload(vm, t).Address(),
-						"PortC":      fmt.Sprintf("%d", portC),
-					}
-
-					policies := tmpl.EvaluateAllOrFail(t, args, file.AsStringOrFail(t, "testdata/authz/v1beta1-conditions.yaml.tmpl"))
-					t.Config().ApplyYAMLOrFail(t, "", policies...)
-
-					for _, srcCluster := range t.Clusters() {
-						t.NewSubTest(fmt.Sprintf("From %s", srcCluster.StableName())).Run(func(t framework.TestContext) {
-							a := apps.A.Match(echo.InCluster(srcCluster).And(echo.Namespace(nsA.Name())))
-							vm := apps.VM.Match(echo.InCluster(srcCluster).And(echo.Namespace(nsA.Name())))
-							b := apps.B.Match(echo.InCluster(srcCluster).And(echo.Namespace(nsB.Name())))
+							policies := tmpl.EvaluateAllOrFail(t, args, file.AsStringOrFail(t, "testdata/authz/v1beta1-conditions.yaml.tmpl"))
+							t.Config().ApplyYAMLOrFail(t, "", policies...)
 							callCount := 1
 							if t.Clusters().IsMulticluster() {
 								// so we can validate all clusters are hit
@@ -1057,102 +1053,76 @@ func TestAuthorization_Conditions(t *testing.T) {
 									Request: connection.Checker{
 										From: from[0],
 										Options: echo.CallOptions{
-											Target:   cSet[0],
+											Target:   dst[0],
 											PortName: "http",
 											Scheme:   scheme.HTTP,
 											Path:     path,
 											Count:    callCount,
 										},
-										DestClusters: cSet.Clusters(),
+										DestClusters: dst.Clusters(),
 									},
 									Headers:       headers,
 									ExpectAllowed: expectAllowed,
 								}
 							}
 							cases := []rbacUtil.TestCase{
-								newTestCase(a, "/request-headers", map[string]string{"x-foo": "foo"}, true),
-								newTestCase(vm, "/request-headers", map[string]string{"x-foo": "foo"}, true),
-								newTestCase(b, "/request-headers", map[string]string{"x-foo": "foo"}, true),
-								newTestCase(a, "/request-headers", map[string]string{"x-foo": "bar"}, false),
-								newTestCase(vm, "/request-headers", map[string]string{"x-foo": "bar"}, false),
-								newTestCase(b, "/request-headers", map[string]string{"x-foo": "bar"}, false),
-								newTestCase(a, "/request-headers", nil, false),
-								newTestCase(vm, "/request-headers", nil, false),
-								newTestCase(b, "/request-headers", nil, false),
-								newTestCase(a, "/request-headers-notValues-bar", map[string]string{"x-foo": "foo"}, true),
-								newTestCase(vm, "/request-headers-notValues-bar", map[string]string{"x-foo": "foo"}, true),
-								newTestCase(a, "/request-headers-notValues-bar", map[string]string{"x-foo": "bar"}, false),
+								newTestCase(src1, "/request-headers", map[string]string{"x-foo": "foo"}, true),
+								newTestCase(src2, "/request-headers", map[string]string{"x-foo": "foo"}, true),
+								newTestCase(src1, "/request-headers", map[string]string{"x-foo": "bar"}, false),
+								newTestCase(src2, "/request-headers", map[string]string{"x-foo": "bar"}, false),
+								newTestCase(src1, "/request-headers", nil, false),
+								newTestCase(src2, "/request-headers", nil, false),
+								newTestCase(src1, "/request-headers-notValues-bar", map[string]string{"x-foo": "foo"}, true),
+								newTestCase(src1, "/request-headers-notValues-bar", map[string]string{"x-foo": "bar"}, false),
 
-								newTestCase(a, "/source-ip-a", nil, true),
-								newTestCase(vm, "/source-ip-vm", nil, true),
-								newTestCase(b, "/source-ip-a", nil, false),
-								newTestCase(a, "/source-ip-b", nil, false),
-								newTestCase(vm, "/source-ip-b", nil, false),
-								newTestCase(b, "/source-ip-b", nil, true),
-								newTestCase(a, "/source-ip-notValues-b", nil, true),
-								newTestCase(vm, "/source-ip-notValues-b", nil, true),
-								newTestCase(b, "/source-ip-notValues-b", nil, false),
+								newTestCase(src1, fmt.Sprintf("/source-ip-%s", args["src1"]), nil, true),
+								newTestCase(src2, fmt.Sprintf("/source-ip-%s", args["src1"]), nil, false),
+								newTestCase(src1, fmt.Sprintf("/source-ip-%s", args["src2"]), nil, false),
+								newTestCase(src2, fmt.Sprintf("/source-ip-%s", args["src2"]), nil, true),
+								newTestCase(src1, fmt.Sprintf("/source-ip-notValues-%s", args["src2"]), nil, true),
+								newTestCase(src2, fmt.Sprintf("/source-ip-notValues-%s", args["src2"]), nil, false),
 
-								newTestCase(a, "/source-namespace-a", nil, true),
-								newTestCase(vm, "/source-namespace-a", nil, true),
-								newTestCase(b, "/source-namespace-a", nil, false),
-								newTestCase(a, "/source-namespace-b", nil, false),
-								newTestCase(vm, "/source-namespace-b", nil, false),
-								newTestCase(b, "/source-namespace-b", nil, true),
-								newTestCase(a, "/source-namespace-notValues-b", nil, true),
-								newTestCase(vm, "/source-namespace-notValues-b", nil, true),
-								newTestCase(b, "/source-namespace-notValues-b", nil, false),
+								newTestCase(src1, fmt.Sprintf("/source-namespace-%s", args["src1"]), nil, true),
+								newTestCase(src2, fmt.Sprintf("/source-namespace-%s", args["src1"]), nil, false),
+								newTestCase(src1, fmt.Sprintf("/source-namespace-%s", args["src2"]), nil, false),
+								newTestCase(src2, fmt.Sprintf("/source-namespace-%s", args["src2"]), nil, true),
+								newTestCase(src1, fmt.Sprintf("/source-namespace-notValues-%s", args["src2"]), nil, true),
+								newTestCase(src2, fmt.Sprintf("/source-namespace-notValues-%s", args["src2"]), nil, false),
 
-								newTestCase(a, "/source-principal-a", nil, true),
-								newTestCase(vm, "/source-principal-vm", nil, true),
-								newTestCase(b, "/source-principal-a", nil, false),
-								newTestCase(a, "/source-principal-b", nil, false),
-								newTestCase(vm, "/source-principal-b", nil, false),
-								newTestCase(b, "/source-principal-b", nil, true),
-								newTestCase(a, "/source-principal-notValues-b", nil, true),
-								newTestCase(vm, "/source-principal-notValues-b", nil, true),
-								newTestCase(b, "/source-principal-notValues-b", nil, false),
+								newTestCase(src1, fmt.Sprintf("/source-principal-%s", args["src1"]), nil, true),
+								newTestCase(src2, fmt.Sprintf("/source-principal-%s", args["src1"]), nil, false),
+								newTestCase(src1, fmt.Sprintf("/source-principal-%s", args["src2"]), nil, false),
+								newTestCase(src2, fmt.Sprintf("/source-principal-%s", args["src2"]), nil, true),
+								newTestCase(src1, fmt.Sprintf("/source-principal-notValues-%s", args["src2"]), nil, true),
+								newTestCase(src2, fmt.Sprintf("/source-principal-notValues-%s", args["src2"]), nil, false),
 
-								newTestCase(a, "/destination-ip-good", nil, true),
-								newTestCase(vm, "/destination-ip-good", nil, true),
-								newTestCase(b, "/destination-ip-good", nil, true),
-								newTestCase(a, "/destination-ip-bad", nil, false),
-								newTestCase(vm, "/destination-ip-bad", nil, false),
-								newTestCase(b, "/destination-ip-bad", nil, false),
-								newTestCase(a, "/destination-ip-notValues-a-or-b", nil, true),
-								newTestCase(vm, "/destination-ip-notValues-a-or-b", nil, true),
-								newTestCase(a, "/destination-ip-notValues-a-or-b-or-c", nil, false),
-								newTestCase(vm, "/destination-ip-notValues-a-or-b-or-c", nil, false),
+								newTestCase(src1, "/destination-ip-good", nil, true),
+								newTestCase(src2, "/destination-ip-good", nil, true),
+								newTestCase(src1, "/destination-ip-bad", nil, false),
+								newTestCase(src2, "/destination-ip-bad", nil, false),
+								newTestCase(src1, fmt.Sprintf("/destination-ip-notValues-%s-or-%s", args["src1"], args["src2"]), nil, true),
+								newTestCase(src1, fmt.Sprintf("/destination-ip-notValues-%s-or-%s-or-%s", args["src1"], args["src2"], args["dst"]), nil, false),
 
-								newTestCase(a, "/destination-port-good", nil, true),
-								newTestCase(vm, "/destination-port-good", nil, true),
-								newTestCase(b, "/destination-port-good", nil, true),
-								newTestCase(a, "/destination-port-bad", nil, false),
-								newTestCase(vm, "/destination-port-bad", nil, false),
-								newTestCase(b, "/destination-port-bad", nil, false),
-								newTestCase(a, "/destination-port-notValues-c", nil, false),
-								newTestCase(vm, "/destination-port-notValues-c", nil, false),
-								newTestCase(b, "/destination-port-notValues-c", nil, false),
+								newTestCase(src1, "/destination-port-good", nil, true),
+								newTestCase(src2, "/destination-port-good", nil, true),
+								newTestCase(src1, "/destination-port-bad", nil, false),
+								newTestCase(src2, "/destination-port-bad", nil, false),
+								newTestCase(src1, fmt.Sprintf("/destination-port-notValues-%s", args["dst"]), nil, false),
+								newTestCase(src2, fmt.Sprintf("/destination-port-notValues-%s", args["dst"]), nil, false),
 
-								newTestCase(a, "/connection-sni-good", nil, true),
-								newTestCase(vm, "/connection-sni-good", nil, true),
-								newTestCase(b, "/connection-sni-good", nil, true),
-								newTestCase(a, "/connection-sni-bad", nil, false),
-								newTestCase(vm, "/connection-sni-bad", nil, false),
-								newTestCase(b, "/connection-sni-bad", nil, false),
-								newTestCase(a, "/connection-sni-notValues-a-or-b", nil, true),
-								newTestCase(vm, "/connection-sni-notValues-a-or-b", nil, true),
-								newTestCase(a, "/connection-sni-notValues-a-or-b-or-c", nil, false),
-								newTestCase(vm, "/connection-sni-notValues-a-or-b-or-c", nil, false),
+								newTestCase(src1, "/connection-sni-good", nil, true),
+								newTestCase(src2, "/connection-sni-good", nil, true),
+								newTestCase(src1, "/connection-sni-bad", nil, false),
+								newTestCase(src2, "/connection-sni-bad", nil, false),
+								newTestCase(src1, fmt.Sprintf("/connection-sni-notValues-%s-or-%s", args["src1"], args["src2"]), nil, true),
+								newTestCase(src1, fmt.Sprintf("/connection-sni-notValues-%s-or-%s-or-%s", args["src1"], args["src2"], args["dst"]), nil, false),
 
-								newTestCase(a, "/other", nil, false),
-								newTestCase(vm, "/other", nil, false),
-								newTestCase(b, "/other", nil, false),
+								newTestCase(src1, "/other", nil, false),
+								newTestCase(src2, "/other", nil, false),
 							}
 							rbacUtil.RunRBACTest(t, cases)
 						})
-					}
-				})
+				}
 			}
 		})
 }
