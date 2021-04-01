@@ -55,6 +55,9 @@ to upgrade as well by specifying --namespaces to check, or using --all-namespace
 			if allNamespaces {
 				namespaces = []string{v1.NamespaceAll}
 			}
+			if len(namespaces) < 1 {
+				fmt.Fprintln(cmd.OutOrStdout(), "WARNING: no namespaces selected for dataplane upgrade checks.")
+			}
 			for _, ns := range namespaces {
 				if nsmsgs, err := checkDataPlane(cmd, ns); err != nil {
 					return err
@@ -63,7 +66,7 @@ to upgrade as well by specifying --namespaces to check, or using --all-namespace
 				}
 			}
 			// Print all the messages to stdout in the specified format
-			output, err := formatting.Print(msgs, msgOutputFormat, colorize)
+			output, err := formatting.Print(msgs.SortedDedupedCopy(), msgOutputFormat, colorize)
 			if err != nil {
 				return err
 			}
@@ -75,7 +78,7 @@ to upgrade as well by specifying --namespaces to check, or using --all-namespace
 		},
 	}
 	cmd.PersistentFlags().StringArrayVarP(&namespaces, "namespaces", "n", nil, "check the dataplane in these specific namespaces")
-	cmd.PersistentFlags().BoolVarP(&allNamespaces, "all-namespaces", "a", false, "check the dataplane in all accessible namespaces")
+	cmd.PersistentFlags().BoolVarP(&allNamespaces, "all-namespaces", "A", false, "check the dataplane in all accessible namespaces")
 	cmd.PersistentFlags().BoolVar(&skipControlPlane, "skip-controlplane", false, "skip checking the control plane")
 	opts.AttachControlPlaneFlags(cmd)
 	return cmd
