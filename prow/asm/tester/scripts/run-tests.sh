@@ -335,7 +335,7 @@ if [[ "${CONTROL_PLANE}" == "UNMANAGED" ]]; then
     INTEGRATION_TEST_FLAGS+=" --istio.test.skip=\"TestValidation\""
     # TODO these are the only security tests that excercise VMs. The other tests are written in a way they panic with StaticVMs.
     if [ "${TEST_TARGET}" == "test.integration.asm.security" ]; then
-      INTEGRATION_TEST_FLAGS+=" -run=TestReachability\|TestMtlsStrictK8sCA"
+      INTEGRATION_TEST_FLAGS+=" -run=TestReachability\|TestMtlsStrictK8sCA\|TestPassThroughFilterChain"
     fi
   fi
 
