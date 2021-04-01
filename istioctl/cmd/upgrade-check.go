@@ -71,6 +71,7 @@ to upgrade as well by specifying --namespaces to check, or using --all-namespace
 			if len(msgs) > 0 {
 				os.Exit(2)
 			}
+			return nil
 		},
 	}
 	cmd.PersistentFlags().StringArrayVarP(&namespaces, "namespaces", "n", nil, "check the dataplane in these specific namespaces")
