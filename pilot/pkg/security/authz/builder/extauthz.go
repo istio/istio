@@ -85,6 +85,13 @@ func processExtensionProvider(in *plugin.InputParams) map[string]*builtExtAuthz 
 			parsed, err = buildExtAuthzHTTP(in, p.EnvoyExtAuthzHttp)
 		case *meshconfig.MeshConfig_ExtensionProvider_EnvoyExtAuthzGrpc:
 			parsed, err = buildExtAuthzGRPC(in, p.EnvoyExtAuthzGrpc)
+		case *meshconfig.MeshConfig_ExtensionProvider_Datadog, *meshconfig.MeshConfig_ExtensionProvider_Lightstep,
+			*meshconfig.MeshConfig_ExtensionProvider_Opencensus, *meshconfig.MeshConfig_ExtensionProvider_Stackdriver,
+			*meshconfig.MeshConfig_ExtensionProvider_Zipkin:
+			// TODO: this logic should probably be more flexible to allow for
+			// expansion of extension providers without requiring update
+			// ignore known telemetry providers
+			continue
 		default:
 			err = fmt.Errorf("unsupported extension provider: %s", config.Name)
 		}

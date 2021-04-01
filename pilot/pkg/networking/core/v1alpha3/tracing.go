@@ -54,7 +54,7 @@ func configureTracingFromSpec(spec *telemetrypb.Telemetry, opts buildListenerOpt
 
 	if len(spec.GetTracing()) == 0 {
 		if !meshCfg.EnableTracing {
-			log.Debugf("no valid tracing configuration found")
+			log.Debug("No valid tracing configuration found")
 			return
 		}
 		// use the prior configuration bits of sampling and custom tags
@@ -68,7 +68,7 @@ func configureTracingFromSpec(spec *telemetrypb.Telemetry, opts buildListenerOpt
 	}
 
 	if len(spec.Tracing) > 1 {
-		log.Warnf("invalid number of tracing configurations provided; using first configuration found")
+		log.Debug("Invalid number of tracing configurations provided; using first configuration found")
 	}
 
 	tracingCfg := spec.Tracing[0]
@@ -89,7 +89,7 @@ func configureTracingFromSpec(spec *telemetrypb.Telemetry, opts buildListenerOpt
 		if strings.EqualFold(p.Name, providerName) {
 			tcfg, err := configureFromProviderConfig(opts.push, opts.proxy.Metadata, p)
 			if err != nil {
-				log.Warnf("not able to configure requested tracing provider %q: %v", p.Name, err)
+				log.Warnf("Not able to configure requested tracing provider %q: %v", p.Name, err)
 				continue
 			}
 			hcm.Tracing = tcfg
@@ -99,7 +99,7 @@ func configureTracingFromSpec(spec *telemetrypb.Telemetry, opts buildListenerOpt
 	}
 
 	if !providerConfigured {
-		log.Warnf("No provider was configured for tracing")
+		log.Debug("No provider was configured for tracing")
 		hcm.Tracing = &hpb.HttpConnectionManager_Tracing{}
 		// TODO: transition to configuring providers from proxy config here?
 		// something like: configureFromProxyConfig(tracingCfg, opts.proxy.Metadata.ProxyConfig.Tracing)
@@ -225,8 +225,6 @@ func configureFromProviderConfig(pushCtx *model.PushContext, meta *model.NodeMet
 			}
 			return anypb.New(sd)
 		})
-	default:
-		log.Warnf("unrecognized provider type: %T; will not configure tracing", provider)
 	}
 	return &hpb.HttpConnectionManager_Tracing{}, nil
 }
