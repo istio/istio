@@ -196,13 +196,13 @@ EOF
     --source-instance-template "${TEMPLATE_NAME}"
 
   # copy echo to the cluster
-  retry 3 10s gcloud compute scp "${ECHO_APP}" staticvm@"${INSTANCE_NAME}":~ --zone="${ZONE}"
-  retry 3 10s gcloud compute scp "${DIR}/echo.service" staticvm@"${INSTANCE_NAME}":~ --zone="${ZONE}"
+  retry 6 10s gcloud compute scp "${ECHO_APP}" staticvm@"${INSTANCE_NAME}":~ --zone="${ZONE}"
+  retry 6 10s gcloud compute scp "${DIR}/echo.service" staticvm@"${INSTANCE_NAME}":~ --zone="${ZONE}"
 
   # install echo as a systemd controlled service and run it
   local INTERNAL_IP
   INTERNAL_IP=$(gcloud compute instances describe --zone="${ZONE}" "${INSTANCE_NAME}" --format="get(networkInterfaces[0].networkIP)")
-  gcloud compute ssh staticvm@"${INSTANCE_NAME}" --zone="${ZONE}" --command "$(cat <<EOF
+  retry 6 15s gcloud compute ssh staticvm@"${INSTANCE_NAME}" --zone="${ZONE}" --command "$(cat <<EOF
 sudo mv ~/server /usr/sbin/echo
 sudo mv ~/echo.service /etc/systemd/system/echo.service
 echo INSTANCE_IP=$INTERNAL_IP >> .echoconfig

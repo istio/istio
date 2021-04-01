@@ -639,6 +639,26 @@ function install_asm() {
           sed -i 's/server\:.*/server\: https:\/\/'"${PRIV_IP}"'/' "${PROJECT_J}"_"${LOCATION_J}"_"${CLUSTER_J}".secret
         fi
         kubectl apply -f "${PROJECT_J}"_"${LOCATION_J}"_"${CLUSTER_J}".secret --context="${CONTEXTS[$i]}"
+        if [ "${USE_VM}" == true ]; then
+          # TODO this is temporary until we have a user-facing way to enable multi-cluster + VMs
+          kubectl -n istio-system set env deployment/istiod --context="${CONTEXTS[$i]}" PILOT_ENABLE_CROSS_CLUSTER_WORKLOAD_ENTRY=true
+          # we have to wait for new pods, but we do this later so the pods can come up in parallel per-cluster
+        fi
+      fi
+    done
+  done
+
+  # TODO this is temporary until we have a user-facing way to enable multi-cluster + VMs
+  # we have to wait for all the istiod pods to be updated, asm_vm doens't like it when istiods are dropped
+  for i in "${!CONTEXTS[@]}"; do
+    WAITING_FOR_ISTIOD=true
+    while "${WAITING_FOR_ISTIOD}" && "${USE_VM}"; do
+      PODS="istiod-pods-$i.json"
+      kubectl --context "${CONTEXTS[$i]}" -n istio-system get po -l app=istiod -ojson > "${PODS}"
+      N_PODS="$(jq '.items | length' < "${PODS}")"
+      READY_PODS="$(jq '.items[].spec.containers[].env[] | select(.name == "PILOT_ENABLE_CROSS_CLUSTER_WORKLOAD_ENTRY") | .value' < "${PODS}"| wc -l | xargs)"
+      if [[ "$N_PODS" == "$READY_PODS" ]]; then
+        WAITING_FOR_ISTIOD=false
       fi
     done
   done

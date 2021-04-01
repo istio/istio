@@ -283,6 +283,8 @@ if [[ "${CONTROL_PLANE}" == "UNMANAGED" ]]; then
 
   DISABLED_PACKAGES="/pilot/cni" # NOT SUPPORTED
   DISABLED_PACKAGES+="\|/security/ca_migration" # NOT SUPPORTED in most tests. Has its own target
+  DISABLED_PACKAGES+="\|/telemetry/stats/prometheus/nullvm" # UNKNOWN TODO: https://buganizer.corp.google.com/issues/184312874
+  DISABLED_PACKAGES+="\|/telemetry/stats/prometheus/wasm" # UNKNOWN TODO: https://buganizer.corp.google.com/issues/184312874
 
   # TODO: Unskip telemetry stats tests when https://b.corp.google.com/issues/177606974 is fixed
   # stats filter tests are flaky for multiproject
