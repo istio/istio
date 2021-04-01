@@ -339,7 +339,7 @@ func createCertsTokens(kubeClient kube.ExtendedClient, wg *clientv1alpha3.Worklo
 
 	serviceAccount := wg.Spec.Template.ServiceAccount
 	tokenPath := filepath.Join(dir, "istio-token")
-	jwtPolicy, err := util.DetectSupportedJWTPolicy(kubeClient.RESTConfig())
+	jwtPolicy, err := util.DetectSupportedJWTPolicy(kubeClient)
 	if err != nil {
 		fmt.Fprintf(out, "Failed to determine JWT policy support: %v", err)
 	}
