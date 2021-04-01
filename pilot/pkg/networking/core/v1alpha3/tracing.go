@@ -125,7 +125,6 @@ func configureTracingFromSpec(spec *telemetrypb.Telemetry, opts buildListenerOpt
 
 func configureFromProviderConfig(pushCtx *model.PushContext, meta map[string]interface{},
 	providerCfg *meshconfig.MeshConfig_ExtensionProvider) (*hpb.HttpConnectionManager_Tracing, error) {
-
 	switch provider := providerCfg.Provider.(type) {
 	case *meshconfig.MeshConfig_ExtensionProvider_Zipkin:
 		return buildHCMTracing(pushCtx, providerCfg.Name, provider.Zipkin.Service, provider.Zipkin.Port, provider.Zipkin.MaxTagLength, zipkinConfigGen)
@@ -215,7 +214,6 @@ type typedConfigGenFn func() (*anypb.Any, error)
 
 func buildHCMTracing(pushCtx *model.PushContext, provider, svc string, port, maxTagLen uint32,
 	anyFn typedConfigGenFromClusterFn) (*hpb.HttpConnectionManager_Tracing, error) {
-
 	config := &hpb.HttpConnectionManager_Tracing{}
 
 	_, cluster, err := clusterLookupFn(pushCtx, svc, int(port))
@@ -265,7 +263,6 @@ var allContexts = []tracingcfg.OpenCensusConfig_TraceContext{
 }
 
 func convert(ctxs []meshconfig.MeshConfig_ExtensionProvider_OpenCensusAgentTracingProvider_TraceContext) []tracingcfg.OpenCensusConfig_TraceContext {
-
 	if len(ctxs) == 0 {
 		return allContexts
 	}
@@ -372,7 +369,6 @@ func fallbackSamplingValue(config *meshconfig.ProxyConfig) float64 {
 
 func configureCustomTags(hcmTracing *hpb.HttpConnectionManager_Tracing,
 	providerTags map[string]*telemetrypb.Tracing_CustomTag, proxyCfg *meshconfig.ProxyConfig) {
-
 	var tags []*tracing.CustomTag
 
 	// TODO(dougreid): remove support for this feature. We don't want this to be
@@ -385,7 +381,7 @@ func configureCustomTags(hcmTracing *hpb.HttpConnectionManager_Tracing,
 	}
 
 	if len(providerTags) == 0 {
-		tags = append(tags, buildCustomTagsFromProxyConfig(proxyCfg.Tracing.CustomTags)...)
+		tags = append(tags, buildCustomTagsFromProxyConfig(proxyCfg.GetTracing().GetCustomTags())...)
 	} else {
 		tags = append(tags, buildCustomTagsFromProvider(providerTags)...)
 	}
