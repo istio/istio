@@ -1380,6 +1380,17 @@ func TestValidateTLS(t *testing.T) {
 			valid: false,
 		},
 		{
+			name: "SIMPLE: neither CredentialName nor caCertificate specified",
+			tls: &networking.ClientTLSSettings{
+				Mode:              networking.ClientTLSSettings_SIMPLE,
+				CredentialName:    "",
+				ClientCertificate: "",
+				PrivateKey:        "",
+				CaCertificates:    "",
+			},
+			valid: true,
+		},
+		{
 			name: "MUTUAL: Credential Name set correctly",
 			tls: &networking.ClientTLSSettings{
 				Mode:              networking.ClientTLSSettings_MUTUAL,
@@ -1424,13 +1435,13 @@ func TestValidateTLS(t *testing.T) {
 			valid: false,
 		},
 		{
-			name: "MUTUAL: CredentialName not set with ClientCertificate and Key specified",
+			name: "MUTUAL: missing CaCertificates",
 			tls: &networking.ClientTLSSettings{
 				Mode:              networking.ClientTLSSettings_MUTUAL,
 				ClientCertificate: "cert",
 				PrivateKey:        "key",
 			},
-			valid: true,
+			valid: false,
 		},
 		{
 			name: "MUTUAL: CredentialName not set with ClientCertificate specified and Key missing",
@@ -1447,6 +1458,39 @@ func TestValidateTLS(t *testing.T) {
 				Mode:              networking.ClientTLSSettings_MUTUAL,
 				ClientCertificate: "",
 				PrivateKey:        "key",
+			},
+			valid: false,
+		},
+		{
+			name: "ISTIO_MUTUAL: Credential Name set",
+			tls: &networking.ClientTLSSettings{
+				Mode:              networking.ClientTLSSettings_ISTIO_MUTUAL,
+				CredentialName:    "some credential",
+				ClientCertificate: "",
+				PrivateKey:        "",
+				CaCertificates:    "",
+			},
+			valid: false,
+		},
+		{
+			name: "ISTIO_MUTUAL: ClientCertificate set",
+			tls: &networking.ClientTLSSettings{
+				Mode:              networking.ClientTLSSettings_ISTIO_MUTUAL,
+				CredentialName:    "",
+				ClientCertificate: "client-cert",
+				PrivateKey:        "",
+				CaCertificates:    "",
+			},
+			valid: false,
+		},
+		{
+			name: "ISTIO_MUTUAL: ClientCertificate set with CredentialName",
+			tls: &networking.ClientTLSSettings{
+				Mode:              networking.ClientTLSSettings_ISTIO_MUTUAL,
+				CredentialName:    "some credential",
+				ClientCertificate: "client-cert",
+				PrivateKey:        "",
+				CaCertificates:    "",
 			},
 			valid: false,
 		},

@@ -1153,6 +1153,17 @@ func validateTLS(settings *networking.ClientTLSSettings) (errs error) {
 		if settings.PrivateKey == "" {
 			errs = appendErrors(errs, fmt.Errorf("private key required for mutual tls"))
 		}
+		if settings.CaCertificates == "" {
+			errs = appendErrors(errs, fmt.Errorf("ca certificate required for mutual tls"))
+		}
+	}
+
+	if settings.Mode == networking.ClientTLSSettings_ISTIO_MUTUAL {
+		if settings.CredentialName != "" || settings.ClientCertificate != "" ||
+			settings.CaCertificates != "" || settings.PrivateKey != "" {
+			errs = appendErrors(errs, fmt.Errorf("cannot specify privateKey, clientCertificate, caCertificates or"+
+				" credentialName for ISTIO_MUTUAL tls"))
+		}
 	}
 
 	return
