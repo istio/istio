@@ -58,13 +58,13 @@ func TestNewServerCertInit(t *testing.T) {
 	caCertFile := filepath.Join(certsDir, "ca-cert.pem")
 
 	// load key and cert files.
-	if err := ioutil.WriteFile(certFile, testcerts.ServerCert, 0644); err != nil { // nolint: vetshadow
+	if err := ioutil.WriteFile(certFile, testcerts.ServerCert, 0o644); err != nil { // nolint: vetshadow
 		t.Fatalf("WriteFile(%v) failed: %v", certFile, err)
 	}
-	if err := ioutil.WriteFile(keyFile, testcerts.ServerKey, 0644); err != nil { // nolint: vetshadow
+	if err := ioutil.WriteFile(keyFile, testcerts.ServerKey, 0o644); err != nil { // nolint: vetshadow
 		t.Fatalf("WriteFile(%v) failed: %v", keyFile, err)
 	}
-	if err := ioutil.WriteFile(caCertFile, testcerts.CACert, 0644); err != nil { // nolint: vetshadow
+	if err := ioutil.WriteFile(caCertFile, testcerts.CACert, 0o644); err != nil { // nolint: vetshadow
 		t.Fatalf("WriteFile(%v) failed: %v", caCertFile, err)
 	}
 
@@ -73,13 +73,13 @@ func TestNewServerCertInit(t *testing.T) {
 	caCertFileEmpty := filepath.Join(certsDir, "ca-cert-empty.pem")
 
 	// create empty files.
-	if err := ioutil.WriteFile(certFileEmpty, []byte{}, 0644); err != nil { // nolint: vetshadow
+	if err := ioutil.WriteFile(certFileEmpty, []byte{}, 0o644); err != nil { // nolint: vetshadow
 		t.Fatalf("WriteFile(%v) failed: %v", certFile, err)
 	}
-	if err := ioutil.WriteFile(keyFileEmpty, []byte{}, 0644); err != nil { // nolint: vetshadow
+	if err := ioutil.WriteFile(keyFileEmpty, []byte{}, 0o644); err != nil { // nolint: vetshadow
 		t.Fatalf("WriteFile(%v) failed: %v", keyFile, err)
 	}
-	if err := ioutil.WriteFile(caCertFileEmpty, []byte{}, 0644); err != nil { // nolint: vetshadow
+	if err := ioutil.WriteFile(caCertFileEmpty, []byte{}, 0o644); err != nil { // nolint: vetshadow
 		t.Fatalf("WriteFile(%v) failed: %v", caCertFile, err)
 	}
 
@@ -207,10 +207,10 @@ func TestReloadIstiodCert(t *testing.T) {
 	keyFile := filepath.Join(dir, "key-file.yaml")
 
 	// load key and cert files.
-	if err := ioutil.WriteFile(certFile, testcerts.ServerCert, 0644); err != nil { // nolint: vetshadow
+	if err := ioutil.WriteFile(certFile, testcerts.ServerCert, 0o644); err != nil { // nolint: vetshadow
 		t.Fatalf("WriteFile(%v) failed: %v", certFile, err)
 	}
-	if err := ioutil.WriteFile(keyFile, testcerts.ServerKey, 0644); err != nil { // nolint: vetshadow
+	if err := ioutil.WriteFile(keyFile, testcerts.ServerKey, 0o644); err != nil { // nolint: vetshadow
 		t.Fatalf("WriteFile(%v) failed: %v", keyFile, err)
 	}
 
@@ -234,10 +234,10 @@ func TestReloadIstiodCert(t *testing.T) {
 	}
 
 	// Update cert/key files.
-	if err := ioutil.WriteFile(tlsOptions.CertFile, testcerts.RotatedCert, 0644); err != nil { // nolint: vetshadow
+	if err := ioutil.WriteFile(tlsOptions.CertFile, testcerts.RotatedCert, 0o644); err != nil { // nolint: vetshadow
 		t.Fatalf("WriteFile(%v) failed: %v", tlsOptions.CertFile, err)
 	}
-	if err := ioutil.WriteFile(tlsOptions.KeyFile, testcerts.RotatedKey, 0644); err != nil { // nolint: vetshadow
+	if err := ioutil.WriteFile(tlsOptions.KeyFile, testcerts.RotatedKey, 0o644); err != nil { // nolint: vetshadow
 		t.Fatalf("WriteFile(%v) failed: %v", tlsOptions.KeyFile, err)
 	}
 

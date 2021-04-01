@@ -71,6 +71,9 @@ var SDSAdsConfig = &core.ConfigSource{
 	ConfigSourceSpecifier: &core.ConfigSource_Ads{
 		Ads: &core.AggregatedConfigSource{},
 	},
+	// We intentionally do *not* set InitialFetchTimeout to 0s here, as this is used for
+	// credentialName SDS which may refer to secrets which do not exist. We do not want to block the
+	// entire listener/cluster in these cases.
 	ResourceApiVersion: core.ApiVersion_V3,
 }
 
