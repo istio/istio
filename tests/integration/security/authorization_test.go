@@ -1271,25 +1271,17 @@ func TestAuthorization_Audit(t *testing.T) {
 			if t.Clusters().IsMulticluster() {
 				t.Skip()
 			}
-			ns := namespace.NewOrFail(t, t, namespace.Config{
-				Prefix: "v1beta1-audit",
-				Inject: true,
-			})
+			ns := apps.Namespace1
+			a := apps.A.Match(echo.Namespace(apps.Namespace1.Name()))
+			b := apps.B.Match(echo.Namespace(apps.Namespace1.Name()))
+			vm := apps.VM.Match(echo.Namespace(apps.Namespace1.Name()))
 
-			var a, b, c, d echo.Instance
-			echoboot.NewBuilder(t).
-				With(&a, util.EchoConfig("a", ns, false, nil)).
-				With(&b, util.EchoConfig("b", ns, false, nil)).
-				With(&c, util.EchoConfig("c", ns, false, nil)).
-				With(&d, util.EchoConfig("d", ns, false, nil)).
-				BuildOrFail(t)
-
-			newTestCase := func(target echo.Instance, path string, expectAllowed bool) rbacUtil.TestCase {
+			newTestCase := func(from, to echo.Instances, path string, expectAllowed bool) rbacUtil.TestCase {
 				return rbacUtil.TestCase{
 					Request: connection.Checker{
-						From: a,
+						From: from[0],
 						Options: echo.CallOptions{
-							Target:   target,
+							Target:   to[0],
 							PortName: "http",
 							Scheme:   scheme.HTTP,
 							Path:     path,
@@ -1298,28 +1290,75 @@ func TestAuthorization_Audit(t *testing.T) {
 					ExpectAllowed: expectAllowed,
 				}
 			}
-			cases := []rbacUtil.TestCase{
-				newTestCase(b, "/allow", true),
-				newTestCase(b, "/audit", false),
-				newTestCase(c, "/audit", true),
-				newTestCase(c, "/deny", false),
-				newTestCase(d, "/audit", true),
-				newTestCase(d, "/other", true),
+
+			cases := []struct {
+				configFile string
+				dst        echo.Instances
+				subCases   []rbacUtil.TestCase
+			}{
+				{
+					configFile: "testdata/authz/v1beta1-audit-allow.yaml.tmpl",
+					dst:        a,
+					subCases: []rbacUtil.TestCase{
+						newTestCase(b, a, "/allow", true),
+						newTestCase(b, a, "/audit", false),
+					},
+				},
+				{
+					configFile: "testdata/authz/v1beta1-audit-deny.yaml.tmpl",
+					dst:        a,
+					subCases: []rbacUtil.TestCase{
+						newTestCase(b, a, "/audit", true),
+						newTestCase(b, a, "/deny", false),
+					},
+				},
+				{
+					configFile: "testdata/authz/v1beta1-audit-default.yaml.tmpl",
+					dst:        a,
+					subCases: []rbacUtil.TestCase{
+						newTestCase(b, a, "/audit", true),
+						newTestCase(b, a, "/other", true),
+					},
+				},
+				{
+					configFile: "testdata/authz/v1beta1-audit-allow.yaml.tmpl",
+					dst:        vm,
+					subCases: []rbacUtil.TestCase{
+						newTestCase(b, vm, "/allow", true),
+						newTestCase(b, vm, "/audit", false),
+					},
+				},
+				{
+					configFile: "testdata/authz/v1beta1-audit-deny.yaml.tmpl",
+					dst:        vm,
+					subCases: []rbacUtil.TestCase{
+						newTestCase(b, vm, "/audit", true),
+						newTestCase(b, vm, "/deny", false),
+					},
+				},
+				{
+					configFile: "testdata/authz/v1beta1-audit-default.yaml.tmpl",
+					dst:        vm,
+					subCases: []rbacUtil.TestCase{
+						newTestCase(b, vm, "/audit", true),
+						newTestCase(b, vm, "/other", true),
+					},
+				},
 			}
 
-			args := map[string]string{
-				"Namespace":     ns.Name(),
-				"RootNamespace": istio.GetOrFail(t, t).Settings().SystemNamespace,
+			for _, tc := range cases {
+				t.NewSubTest(fmt.Sprintf("from %s to %s in %s",
+					b[0].Config().Cluster.StableName(), tc.dst[0].Config().Service, tc.dst[0].Config().Cluster.Name())).
+					Run(func(t framework.TestContext) {
+						args := map[string]string{
+							"Namespace": ns.Name(),
+							"dst":       tc.dst[0].Config().Service,
+						}
+						policies := tmpl.EvaluateAllOrFail(t, args, file.AsStringOrFail(t, tc.configFile))
+						t.Config().ApplyYAMLOrFail(t, ns.Name(), policies...)
+						rbacUtil.RunRBACTest(t, tc.subCases)
+					})
 			}
-
-			applyPolicy := func(filename string, ns namespace.Instance) {
-				policy := tmpl.EvaluateAllOrFail(t, args, file.AsStringOrFail(t, filename))
-				t.Config().ApplyYAMLOrFail(t, ns.Name(), policy...)
-			}
-
-			applyPolicy("testdata/authz/v1beta1-audit.yaml.tmpl", ns)
-
-			rbacUtil.RunRBACTest(t, cases)
 		})
 }
 
