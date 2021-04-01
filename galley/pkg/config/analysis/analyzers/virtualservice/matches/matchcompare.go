@@ -26,6 +26,9 @@ func AnalyzeUnreachableHTTPRules(routes []*v1alpha3.HTTPRoute,
 	matchesEncountered := make(map[string]int)
 	emptyMatchEncountered := -1
 	for rulen, route := range routes {
+		if route == nil {
+			continue
+		}
 		if len(route.Match) == 0 {
 			if emptyMatchEncountered >= 0 {
 				reportUnreachable(routeName(route, rulen), "only the last rule can have no matches")
@@ -56,6 +59,9 @@ func AnalyzeUnreachableTCPRules(routes []*v1alpha3.TCPRoute,
 	matchesEncountered := make(map[string]int)
 	emptyMatchEncountered := -1
 	for rulen, route := range routes {
+		if route == nil {
+			continue
+		}
 		if len(route.Match) == 0 {
 			if emptyMatchEncountered >= 0 {
 				reportUnreachable(routeName(route, rulen), "only the last rule can have no matches")
@@ -86,6 +92,9 @@ func AnalyzeUnreachableTLSRules(routes []*v1alpha3.TLSRoute,
 	matchesEncountered := make(map[string]int)
 	emptyMatchEncountered := -1
 	for rulen, route := range routes {
+		if route == nil {
+			continue
+		}
 		if len(route.Match) == 0 {
 			if emptyMatchEncountered >= 0 {
 				reportUnreachable(routeName(route, rulen), "only the last rule can have no matches")
