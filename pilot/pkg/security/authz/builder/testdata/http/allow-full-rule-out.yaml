@@ -1053,3 +1053,4 @@ typedConfig:
                               safeRegex:
                                 googleRe2: {}
                                 regex: .+
+  shadowRulesStatPrefix: istio_dry_run_

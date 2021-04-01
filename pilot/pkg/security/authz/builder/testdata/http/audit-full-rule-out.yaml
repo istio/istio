@@ -2,9 +2,9 @@ name: envoy.filters.http.rbac
 typedConfig:
   '@type': type.googleapis.com/envoy.extensions.filters.http.rbac.v3.RBAC
   rules:
-    action: DENY
+    action: LOG
     policies:
-      ns[foo]-policy[deny-all]-rule[0]:
+      ns[foo]-policy[audit-all]-rule[0]:
         permissions:
         - andRules:
             rules:
@@ -13,3 +13,4 @@ typedConfig:
         - andIds:
             ids:
             - any: true
+  shadowRulesStatPrefix: istio_dry_run_

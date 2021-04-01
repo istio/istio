@@ -35,6 +35,7 @@ import (
 	"google.golang.org/protobuf/reflect/protoregistry"
 	"google.golang.org/protobuf/types/descriptorpb"
 
+	"istio.io/api/annotation"
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
 	security_beta "istio.io/api/security/v1beta1"
@@ -159,8 +160,33 @@ func GetValidateFunc(name string) ValidateFunc {
 }
 
 func registerValidateFunc(name string, f ValidateFunc) ValidateFunc {
-	validateFuncs[name] = f
-	return f
+	// Wrap the original validate function with an extra validate function for the annotation "istio.io/dry-run".
+	validate := validateAnnotationDryRun(f)
+	validateFuncs[name] = validate
+	return validate
+}
+
+func validateAnnotationDryRun(f ValidateFunc) ValidateFunc {
+	return func(config config.Config) (Warning, error) {
+		_, isAuthz := config.Spec.(*security_beta.AuthorizationPolicy)
+		// Only the AuthorizationPolicy supports the annotation "istio.io/dry-run".
+		if err := checkDryRunAnnotation(config, isAuthz); err != nil {
+			return nil, err
+		}
+		return f(config)
+	}
+}
+
+func checkDryRunAnnotation(cfg config.Config, allowed bool) error {
+	if val, found := cfg.Annotations[annotation.IoIstioDryRun.Name]; found {
+		if !allowed {
+			return fmt.Errorf("%s/%s has unsupported annotation %s, please remove the annotation", cfg.Namespace, cfg.Name, annotation.IoIstioDryRun.Name)
+		}
+		if _, err := strconv.ParseBool(val); err != nil {
+			return fmt.Errorf("%s/%s has annotation %s with invalid value (%s): %v", cfg.Namespace, cfg.Name, annotation.IoIstioDryRun.Name, val, err)
+		}
+	}
+	return nil
 }
 
 // ValidatePort checks that the network port is in range

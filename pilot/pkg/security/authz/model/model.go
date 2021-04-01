@@ -29,8 +29,9 @@ const (
 	RBACHTTPFilterName = "envoy.filters.http.rbac"
 
 	// RBACTCPFilterName is the name of the RBAC network filter in envoy.
-	RBACTCPFilterName       = "envoy.filters.network.rbac"
-	RBACTCPFilterStatPrefix = "tcp."
+	RBACTCPFilterName         = "envoy.filters.network.rbac"
+	RBACTCPFilterStatPrefix   = "tcp."
+	RBACShadowRulesStatPrefix = "istio_dry_run_"
 
 	attrRequestHeader    = "request.headers"             // header name is surrounded by brackets, e.g. "request.headers[User-Agent]".
 	attrSrcIP            = "source.ip"                   // supports both single ip and cidr, e.g. "10.1.2.3" or "10.1.0.0/16".
