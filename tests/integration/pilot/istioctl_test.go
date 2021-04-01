@@ -493,3 +493,17 @@ func TestAuthZCheck(t *testing.T) {
 			}
 		})
 }
+
+func TestKubeInject(t *testing.T) {
+	framework.NewTest(t).Features("usability.helpers.kube-inject").
+		RequiresSingleCluster().
+		Run(func(t framework.TestContext) {
+			istioCtl := istioctl.NewOrFail(t, t, istioctl.Config{})
+			var output string
+			args := []string{"kube-inject", "-f", "testdata/hello.yaml"}
+			output, _ = istioCtl.InvokeOrFail(t, args)
+			if !strings.Contains(output, "istio-proxy") {
+				t.Fatal("istio-proxy has not been injected")
+			}
+		})
+}
