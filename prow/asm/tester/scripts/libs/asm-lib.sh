@@ -14,13 +14,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# shellcheck source=prow/asm/tester/scripts/vm-lib.sh
-source "${WD}/vm-lib.sh"
-
-# The GCP project we use when testing with multicloud clusters, or when we need to
-# hold some GCP resources that are shared across multiple jobs that are run in parallel.
-export SHARED_GCP_PROJECT=${SHARED_GCP_PROJECT:-istio-prow-build}
-
 readonly ROOT_CA_ID_PREFIX="asm-test-root-ca"
 readonly ROOT_CA_LOC="us-central1"
 readonly SUB_CA_ID_PREFIX="asm-test-sub-ca"
@@ -33,9 +26,9 @@ function process_kubeconfigs() {
   IFS=":" read -r -a KUBECONFIGPATHS <<< "${KUBECONFIG}"
   # Each kubeconfig file should have one and only one cluster context.
   for i in "${!KUBECONFIGPATHS[@]}"; do
-    local CONTEXTSTR
-    CONTEXTSTR=$(kubectl config view -o jsonpath="{.contexts[0].name}" --kubeconfig="${KUBECONFIGPATHS[$i]}")
-    kubectl config use-context "${CONTEXTSTR}" --kubeconfig="${KUBECONFIGPATHS[$i]}"
+    local CONTEXT_STR
+    CONTEXT_STR=$(kubectl config view -o jsonpath="{.contexts[0].name}" --kubeconfig="${KUBECONFIGPATHS[$i]}")
+    kubectl config use-context "${CONTEXT_STR}" --kubeconfig="${KUBECONFIGPATHS[$i]}"
   done
 
   for i in "${!KUBECONFIGPATHS[@]}"; do
@@ -71,8 +64,7 @@ function prepare_images_for_managed_control_plane() {
 # Build istioctl in the current branch to install ASM.
 function build_istioctl() {
   make istioctl
-  PATH="$PWD/out/linux_amd64:$PATH"
-  export PATH
+  cp "$PWD/out/linux_amd64/istioctl" "/usr/local/bin"
 }
 
 # Delete temporary images created for the e2e test.
@@ -204,12 +196,9 @@ function cleanup_hub_setup() {
 # Parameters: $1 - project hosts gcr
 function set_multicloud_permissions() {
   local GCR_PROJECT_ID="$1"
-  declare -a CONFIGS
+  local CONFIGS=( "${MC_CONFIGS[@]}" )
   if [[ "${CLUSTER_TYPE}" == "bare-metal" ]]; then
-    CONFIGS=( "${BAREMETAL_SC_CONFIG[@]}" )
     export HTTP_PROXY
-  else
-    CONFIGS=( "${MC_CONFIGS[@]}" )
   fi
   local SECRETNAME="test-gcr-secret"
   for i in "${!CONFIGS[@]}"; do
@@ -434,7 +423,7 @@ function install_asm() {
     PROJECT_ID="${VALS[1]}"
     LOCATION="${VALS[2]}"
     CLUSTER="${VALS[3]}"
-    PROJECT_NUMBER=$(gcloud projects describe "${PROJECT_ID}" --format="value(projectNumber)")
+
     CUSTOM_OVERLAY="${PKG}/overlay/default.yaml"
     if [ -n "${OVERLAY}" ]; then
       CUSTOM_OVERLAY="${CUSTOM_OVERLAY},${PKG}/${OVERLAY}"
@@ -442,9 +431,7 @@ function install_asm() {
 
     # Use the first project as the environ project
     if [[ $i == 0 ]]; then
-      ENVIRON_PROJECT_NUMBER="${PROJECT_NUMBER}"
-      MESH_ID="proj-${ENVIRON_PROJECT_NUMBER}"
-      export MESH_ID="proj-${ENVIRON_PROJECT_NUMBER}"
+      ENVIRON_PROJECT_NUMBER=$(gcloud projects describe "${PROJECT_ID}" --format="value(projectNumber)")
       echo "Environ project ID: ${PROJECT_ID}, project number: ${ENVIRON_PROJECT_NUMBER}"
     fi
 
@@ -453,7 +440,7 @@ function install_asm() {
     kubectl create namespace istio-system --dry-run=client -o yaml | kubectl apply -f - --context="${CONTEXTS[$i]}"
     if [[ "${CA}" == "MESHCA" || "${CA}" == "PRIVATECA" ]]; then
       INSTALL_ASM_CA="mesh_ca"
-      if [[ "${CLUSTER_TOPOLOGY}" == "MULTIPROJECT_MULTICLUSTER" || "${CLUSTER_TOPOLOGY}" == "mp"  ]]; then
+      if [[ "${CLUSTER_TOPOLOGY}" == "mp"  ]]; then
         TRUSTED_GCP_PROJECTS=""
         for j in "${!CONTEXTS[@]}"; do
           if [[ "$i" != "$j" ]]; then
@@ -681,12 +668,9 @@ function install_asm_managed_control_plane() {
     local PROJECT_ID="${VALS[1]}"
     local LOCATION="${VALS[2]}"
     local CLUSTER_NAME="${VALS[3]}"
-    PROJECT_NUMBER=$(gcloud projects describe "${PROJECT_ID}" --format="value(projectNumber)")
     # Use the first project as the environ project
     if [[ $i == 0 ]]; then
-      ENVIRON_PROJECT_NUMBER="${PROJECT_NUMBER}"
-      MESH_ID="proj-${ENVIRON_PROJECT_NUMBER}"
-      export MESH_ID="proj-${ENVIRON_PROJECT_NUMBER}"
+      ENVIRON_PROJECT_NUMBER=$(gcloud projects describe "${PROJECT_ID}" --format="value(projectNumber)")
       echo "Environ project ID: ${PROJECT_ID}, project number: ${ENVIRON_PROJECT_NUMBER}"
     fi
     TMPDIR=$(mktemp -d)
@@ -771,7 +755,6 @@ function install_asm_on_multicloud() {
   USER=${USER:-prowuser}
   export USER
 
-  create_asm_revision_label
   for i in "${!MC_CONFIGS[@]}"; do
     install_certs "${MC_CONFIGS[$i]}"
 
@@ -1018,32 +1001,9 @@ spec:
 EOF
 }
 
-# Keeps only the user-kubeconfig.yaml entries in the KUBECONFIG for onprem
-# Removes any others including the admin-kubeconfig.yaml entries
-# This function will modify the KUBECONFIG env variable
-function onprem::filter_kubeconfigs() {
-  IFS=':' read -r -a CONFIGS <<< "${KUBECONFIG}"
-  for CONFIG in "${CONFIGS[@]}"; do
-    [[ "${CONFIG}" =~ .*user-kubeconfig.yaml.* ]] && MC_CONFIGS+=( "${CONFIG}" )
-  done
-  KUBECONFIG=$( IFS=':'; echo "${MC_CONFIGS[*]}" )
-}
-
-# Keeps only the artifacts/kubeconfig entries in the KUBECONFIG for baremetal
-# Removes any others entries
-# This function will modify the KUBECONFIG env variable
-function filter_baremetal_kubeconfigs() {
-  IFS=':' read -r -a CONFIGS <<< "${KUBECONFIG}"
-  unset IFS
-  for CONFIG in "${CONFIGS[@]}"; do
-    [[ "${CONFIG}" =~ .artifacts/kubeconfig ]] && BAREMETAL_SC_CONFIG+=( "${CONFIG}" )
-  done
-  KUBECONFIG=$( IFS=':'; echo "${BAREMETAL_SC_CONFIG[*]}" )
-}
-
 # Construct correct HTTP_PROXY env value used by baremetal according to the tunnel
 function init_baremetal_http_proxy() {
-  for CONFIG in "${BAREMETAL_SC_CONFIG[@]}"; do
+  for CONFIG in "${MC_CONFIGS[@]}"; do
     BM_ARTIFACTS_PATH=${CONFIG%/*}
     local PORT_NUMBER
     read -r PORT_NUMBER BM_HOST_IP <<<"$(grep "localhost" "${BM_ARTIFACTS_PATH}/tunnel.sh" | sed 's/.*\-L\([0-9]*\):localhost.* root@\([0-9]*\.[0-9]*\.[0-9]*\.[0-9]*\) -N/\1 \2/')"
@@ -1058,16 +1018,6 @@ function init_baremetal_http_proxy() {
   export BM_HOST_IP
 }
 
-# Removes gke_aws_management.conf entry from the KUBECONFIG for aws
-# This function will modify the KUBECONFIG env variable
-function aws::filter_kubeconfigs() {
-  IFS=':' read -r -a CONFIGS <<< "${KUBECONFIG}"
-  for CONFIG in "${CONFIGS[@]}"; do
-    [[ ! "${CONFIG}" =~ .*gke_aws_management.conf ]] && MC_CONFIGS+=( "${CONFIG}" )
-  done
-  KUBECONFIG=$( IFS=':'; echo "${MC_CONFIGS[*]}" )
-}
-
 # Sources the environment variables created by test infra needed to connect
 # to the clusters under test.
 # KUBECONFIG value will be preserved.
@@ -1078,6 +1028,7 @@ function aws::init() {
     CLUSTER_TB_ID=${CLUSTER_TB_ID//\/.kube*/}
 
     RESOURCE_DIR="${ARTIFACTS}/.kubetest2-tailorbird/${CLUSTER_TB_ID}"
+    # shellcheck disable=SC1090
     source "${RESOURCE_DIR}/resource_vars"
 
     HTTPS_PROXY="${HTTP_PROXY}"
@@ -1159,11 +1110,10 @@ function apply_skip_disabled_tests() {
 
 function install_asm_on_baremetal() {
   local MESH_ID="test-mesh"
-  create_asm_revision_label
-  for i in "${!BAREMETAL_SC_CONFIG[@]}"; do
-    install_certs "${BAREMETAL_SC_CONFIG[$i]}"
+  for i in "${!MC_CONFIGS[@]}"; do
+    install_certs "${MC_CONFIGS[$i]}"
     echo "----------Installing ASM----------"
-    cat <<EOF | istioctl install -y --kubeconfig="${BAREMETAL_SC_CONFIG[$i]}" -f -
+    cat <<EOF | istioctl install -y --kubeconfig="${MC_CONFIGS[$i]}" -f -
 apiVersion: install.istio.io/v1alpha1
 kind: IstioOperator
 spec:
@@ -1178,7 +1128,7 @@ spec:
         clusterName: cluster${i}
       network: network${i}
 EOF
-    configure_validating_webhook "${ASM_REVISION_LABEL}" "${BAREMETAL_SC_CONFIG[$i]}"
+    configure_validating_webhook "${ASM_REVISION_LABEL}" "${MC_CONFIGS[$i]}"
   done
 }
 
@@ -1234,7 +1184,7 @@ function cleanup_asm_user_auth() {
 }
 
 # Download dependencies: Chrome, Selenium
-function download_dependencies() {
+function download_user_auth_dependencies() {
   # need this mkdir for installing jre: https://bugs.debian.org/cgi-bin/bugreport.cgi?bug=863199
   mkdir -p /usr/share/man/man1
   # TODO(b/182939536): add apt-get to https://github.com/istio/tools/blob/master/docker/build-tools/Dockerfile
@@ -1262,6 +1212,6 @@ function download_dependencies() {
 }
 
 # Cleanup dependencies
-function cleanup_dependencies() {
+function cleanup_user_auth_dependencies() {
   rm -rf "${CONFIG_DIR}/user-auth/dependencies"
 }

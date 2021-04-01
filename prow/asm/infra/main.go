@@ -39,7 +39,7 @@ const (
 
 var (
 	baseDeployerFlags = []string{"--up", "--skip-test-junit-report"}
-	baseTesterFlags   = []string{"--setup-env", "--setup-system", "--setup-tests", "--run-tests"}
+	baseTesterFlags   = []string{"--setup-env", "--teardown-env", "--setup-system", "--teardown-system", "--setup-tests", "--teardown-tests", "--run-tests"}
 )
 
 type options struct {
@@ -56,7 +56,6 @@ type options struct {
 func main() {
 	o := options{}
 	flag.StringVar(&o.repoRootDir, "repo-root-dir", "", "the repo's root directory, will be used as the working directory for running the kubetest2 command")
-	flag.StringVar(&o.deployerName, "deployer", "", "kubetest2 deployer name, can be gke or tailorbird. Will be deprecated, use --cluster-type instead.")
 	flag.StringVar(&o.clusterType, "cluster-type", "gke", "the cluster type, can be one of gke, gke-on-prem, bare-metal, etc")
 	flag.StringVar(&o.extraDeployerFlags, "deployer-flags", "", "extra flags corresponding to the deployer being used, supported flags can be"+
 		" checked by running `kubetest2 [deployer] --help`")
@@ -86,7 +85,10 @@ func main() {
 	}
 
 	deployerFlags := append(baseDeployerFlags, extraDeployerFlagArr...)
-	testerFlags := append(baseTesterFlags, extraTestFlagArr...)
+
+	testerFlags := append(baseTesterFlags, "--repo-root-dir="+o.repoRootDir)
+	testerFlags = append(testerFlags, "--cluster-type="+o.clusterType, "--cluster-topology="+o.clusterTopology, "--feature="+o.featureToTest)
+	testerFlags = append(testerFlags, extraTestFlagArr...)
 
 	if err := o.runTestFlow(deployerFlags, testerFlags); err != nil {
 		log.Fatal("Error running the test flow: ", err)
@@ -100,23 +102,11 @@ func (o *options) initSetup() error {
 		o.deployerName = tailorbirdDeployerName
 	}
 
-	o.setEnvVars()
-
 	if err := o.installTools(); err != nil {
 		return fmt.Errorf("error installing tools for running %s deployer: %w", o.deployerName, err)
 	}
 
 	return nil
-}
-
-func (o *options) setEnvVars() {
-	// Run the Go tests with verbose logging.
-	os.Setenv("T", "-v")
-
-	os.Setenv("DEPLOYER", o.deployerName)
-	os.Setenv("CLUSTER_TOPOLOGY", o.clusterTopology)
-	os.Setenv("FEATURE_TO_TEST", o.featureToTest)
-	os.Setenv("CLUSTER_TYPE", o.clusterType)
 }
 
 func (o *options) installTools() error {

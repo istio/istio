@@ -15,11 +15,22 @@
 package resource
 
 import (
+	"errors"
+	"fmt"
+	"os"
+
 	"github.com/spf13/pflag"
+	"go.uber.org/multierr"
 )
 
 func BindFlags(settings *Settings) *pflag.FlagSet {
 	flags := pflag.NewFlagSet("asm pipeline tester", pflag.ExitOnError)
+	flags.StringVar(&settings.RepoRootDir, "repo-root-dir", "", "root directory of the repository")
+	flags.StringVar(&settings.Kubeconfig, "kubeconfig", "", "a list of kubeconfig files that can be used to connect to the test clusters")
+	flags.StringVar(&settings.ClusterType, "cluster-type", "", "type of the k8s cluster")
+	flags.StringVar(&settings.ClusterTopology, "cluster-topology", "", "topology of the k8s clusters")
+	flags.StringVar(&settings.FeatureToTest, "feature", "", "feature to test for this test flow")
+
 	flags.StringVar(&settings.ControlPlane, "control-plane", "UNMANAGED", "type of the control plane, can be one of UNMANAGED or MANAGED")
 	flags.StringVar(&settings.CA, "ca", "MESHCA", "Certificate Authority to use, can be one of CITADEL, MESHCA or PRIVATECA")
 	flags.StringVar(&settings.WIP, "wip", "GKE", "Workload Identity Pool, can be one of GKE or HUB")
@@ -39,4 +50,51 @@ func BindFlags(settings *Settings) *pflag.FlagSet {
 	flags.StringVar(&settings.VMImageProject, "image-project", "debian-cloud", "VM image project that will be used as the `--image-project` flag value when using `gcloud compute instance-templates create` to create the VMs.")
 
 	return flags
+}
+
+// ValidateSettings performs basic checks for the settings.
+func ValidateSettings(settings *Settings) error {
+	var errs []error
+	if !validControlPlaneTypes.Has(settings.ControlPlane) {
+		errs = append(errs, fmt.Errorf("%q is not a valid control plane type %v", settings.ControlPlane, validControlPlaneTypes.List()))
+	}
+	if !validCATypes.Has(settings.CA) {
+		errs = append(errs, fmt.Errorf("%q is not a valid CA type in %v", settings.CA, validCATypes.List()))
+	}
+	if !validWIPTypes.Has(settings.WIP) {
+		errs = append(errs, fmt.Errorf("%q is not a valid WIP type in %v", settings.WIP, validWIPTypes.List()))
+	}
+
+	if os.Getenv("KUBECONFIG") == "" && settings.Kubeconfig == "" {
+		errs = append(errs, errors.New("--kubeconfig must be set when KUBECONFIG env var is empty"))
+	}
+	// KUBECONFIG env var can be overriden with the --kubeconfig flag.
+	if settings.Kubeconfig != "" {
+		os.Setenv("KUBECONFIG", settings.Kubeconfig)
+	}
+
+	if !pathExists(settings.RepoRootDir) {
+		errs = append(errs, fmt.Errorf("--repo-root-dir must be set as a valid path, now is %q", settings.RepoRootDir))
+	}
+	// TODO: verify --revision-config and --vm-static-config-dir to be valid
+	// paths.
+
+	if settings.ClusterType == "" {
+		errs = append(errs, errors.New("--cluster-type must be set"))
+	}
+	if settings.ClusterTopology == "" {
+		errs = append(errs, errors.New("--cluster-topology must be set"))
+	}
+	if settings.TestTarget == "" {
+		errs = append(errs, errors.New("--test-target must be set"))
+	}
+
+	return multierr.Combine(errs...)
+}
+
+func pathExists(path string) bool {
+	if _, err := os.Stat(path); os.IsNotExist(err) {
+		return false
+	}
+	return true
 }

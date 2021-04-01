@@ -64,14 +64,14 @@ func RealMain(opts types.Options, pt types.BasePipelineTester) (result error) {
 	if lifecycleEnvEnabled {
 		// setup env if specified
 		if opts.SetupEnv {
-			if err := writer.WrapStep("Setup Env", pt.(types.LifecycleEnv).SetupEnv); err != nil {
+			if err := writer.WrapStep("SetupEnv", pt.(types.LifecycleEnv).SetupEnv); err != nil {
 				return err
 			}
 		}
 		// teardown env at the end if specified
 		defer func() {
 			if opts.TeardownEnv {
-				if err := writer.WrapStep("Teardown Env", pt.(types.LifecycleEnv).TeardownEnv); err != nil {
+				if err := writer.WrapStep("TeardownEnv", pt.(types.LifecycleEnv).TeardownEnv); err != nil {
 					result = err
 				}
 			}
@@ -80,7 +80,7 @@ func RealMain(opts types.Options, pt types.BasePipelineTester) (result error) {
 
 	// setup system if specified
 	if opts.SetupSystem {
-		if err := writer.WrapStep("Setup System", pt.SetupSystem); err != nil {
+		if err := writer.WrapStep("SetupSystem", pt.SetupSystem); err != nil {
 			return err
 		}
 	}
@@ -88,7 +88,7 @@ func RealMain(opts types.Options, pt types.BasePipelineTester) (result error) {
 	// teardown system at the end if specified
 	defer func() {
 		if opts.TeardownSystem {
-			if err := writer.WrapStep("Teardown System", pt.TeardownSystem); err != nil {
+			if err := writer.WrapStep("TeardownSystem", pt.TeardownSystem); err != nil {
 				result = err
 			}
 		}
@@ -97,14 +97,14 @@ func RealMain(opts types.Options, pt types.BasePipelineTester) (result error) {
 	if lifecycleTestsEnabled {
 		// setup tests if specified
 		if opts.SetupTests {
-			if err := writer.WrapStep("Setup Tests", pt.(types.LifecycleTests).SetupTests); err != nil {
+			if err := writer.WrapStep("SetupTests", pt.(types.LifecycleTests).SetupTests); err != nil {
 				return err
 			}
 		}
 		// teardown tests at the end if specified
 		defer func() {
 			if opts.TeardownTests {
-				if err := writer.WrapStep("Teardown Tests", pt.(types.LifecycleTests).TeardownTests); err != nil {
+				if err := writer.WrapStep("TeardownTests", pt.(types.LifecycleTests).TeardownTests); err != nil {
 					result = err
 				}
 			}
@@ -112,11 +112,8 @@ func RealMain(opts types.Options, pt types.BasePipelineTester) (result error) {
 	}
 
 	// run the tests if specified.
-	// TODO(chizhg): stop wrapping the step into junit result after we only
-	// simply run Go tests in the RunTests function, since it'll produce its own
-	// junit.
 	if opts.RunTests {
-		if err := writer.WrapStep("Run Tests", pt.RunTests); err != nil {
+		if err := writer.WrapStep("RunTests", pt.RunTests); err != nil {
 			return err
 		}
 	}

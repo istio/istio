@@ -16,6 +16,28 @@ package resource
 
 import "k8s.io/apimachinery/pkg/util/sets"
 
+// ClusterType is the type of the clusters used for running the tests
+type ClusterType string
+
+const (
+	GKEOnGCP ClusterType = "gke"
+	OnPrem   ClusterType = "gke-on-prem"
+	// TODO: update to "gke-on-aws"
+	GKEOnAWS  ClusterType = "aws"
+	BareMetal ClusterType = "bare-metal"
+)
+
+// ClusterTopology is the topology of the clusters
+type ClusterToplology string
+
+const (
+	MultiProject              ClusterToplology = "mp"
+	MultiCluster              ClusterToplology = "mc"
+	SingleCluster             ClusterToplology = "sc"
+	MultiClusterMultiNetwork  ClusterToplology = "mcmn"
+	MultiClusterSingleNetwork ClusterToplology = "mcsn"
+)
+
 // ControlPlaneType is the type of the ASM control plane
 type ControlPlaneType string
 

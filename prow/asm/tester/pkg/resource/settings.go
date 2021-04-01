@@ -14,14 +14,22 @@
 
 package resource
 
-import (
-	"fmt"
-
-	"go.uber.org/multierr"
-	"k8s.io/apimachinery/pkg/util/sets"
-)
-
 type Settings struct {
+	// Root directory of the repository
+	RepoRootDir string
+
+	// A list of kubeconfig files that can be used to connnect to the test clusters
+	Kubeconfig string
+
+	// Type of the cluster
+	ClusterType string
+
+	// Topology of the cluster
+	ClusterTopology string
+
+	// The feature to test for this test flow
+	FeatureToTest string
+
 	// UNMANAGED or MANAGED
 	ControlPlane string
 
@@ -41,6 +49,8 @@ type Settings struct {
 	DisabledTests string
 
 	VMSettings
+
+	RuntimeSettings
 }
 
 type VMSettings struct {
@@ -60,21 +70,19 @@ type VMSettings struct {
 	VMImageProject string
 }
 
-func ValidateSettings(settings *Settings) error {
-	var errs []error
-	if !isValid(settings.ControlPlane, validControlPlaneTypes) {
-		errs = append(errs, fmt.Errorf("%q is not a valid control plane type %v", settings.ControlPlane, validControlPlaneTypes.List()))
-	}
-	if !isValid(settings.CA, validCATypes) {
-		errs = append(errs, fmt.Errorf("%q is not a valid CA type in %v", settings.CA, validCATypes.List()))
-	}
-	if !isValid(settings.WIP, validWIPTypes) {
-		errs = append(errs, fmt.Errorf("%q is not a valid WIP type in %v", settings.WIP, validWIPTypes.List()))
-	}
+// RuntimeSettings contains fields that are only populated and shared during the
+// test runtime.
+type RuntimeSettings struct {
+	// The kubectl contexts string for the current test clusters.
+	KubectlContexts string
 
-	return multierr.Combine(errs...)
-}
+	// A list of GCP projects for where the GKE clusters are created.
+	// They can be used in the test flow for e.g. hosting the test images with the GCRs
+	GCPProjects []string
 
-func isValid(val string, validVals sets.String) bool {
-	return validVals.Has(val)
+	// The host GCP project when ASM is testing the multi-project profile.
+	HostGCPProject string
+
+	// The project for the GCR that will be used to host the test images
+	GCRProject string
 }

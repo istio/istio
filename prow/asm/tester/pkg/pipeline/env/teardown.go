@@ -12,16 +12,25 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package pipeline
+package env
 
-import "fmt"
+import (
+	"fmt"
+	"log"
+	"path/filepath"
 
-func (apt *ASMPipelineTester) SetupSystem() error {
-	fmt.Println("TODO(chizhg): setup system...")
-	return nil
-}
+	"istio.io/istio/prow/asm/tester/pkg/exec"
+	"istio.io/istio/prow/asm/tester/pkg/resource"
+)
 
-func (apt *ASMPipelineTester) TeardownSystem() error {
-	fmt.Println("TODO(chizhg): tear down system...")
+func Teardown(settings *resource.Settings) error {
+	log.Println("🎬 start tearing down the environment...")
+
+	// TODO: convert the script into Go
+	teardownEnvScript := filepath.Join(settings.RepoRootDir, "prow/asm/tester/scripts/teardown-env.sh")
+	if err := exec.Run(teardownEnvScript); err != nil {
+		return fmt.Errorf("error tearing down the environment: %w", err)
+	}
+
 	return nil
 }
