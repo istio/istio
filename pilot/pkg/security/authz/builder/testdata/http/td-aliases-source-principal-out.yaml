@@ -21,9 +21,7 @@ typedConfig:
                       stringMatch:
                         safeRegex:
                           googleRe2: {}
-                          regex: .+
-        - andIds:
-            ids:
+                          regex: .*/ns/istio-system/.*
             - orIds:
                 ids:
                 - metadata:
@@ -32,18 +30,28 @@ typedConfig:
                     - key: source.principal
                     value:
                       stringMatch:
-                        suffix: /ns/foo/sa/rule[0]-from[1]-principal[0]
+                        safeRegex:
+                          googleRe2: {}
+                          regex: .+
                 - metadata:
                     filter: istio_authn
                     path:
                     - key: source.principal
                     value:
                       stringMatch:
-                        exact: td1/ns/foo/sa/rule[0]-from[1]-principal[1]
+                        suffix: /ns/foo/sa/all-td
                 - metadata:
                     filter: istio_authn
                     path:
                     - key: source.principal
                     value:
                       stringMatch:
-                        suffix: bar/ns/foo/sa/rule[0]-from[1]-principal[1]
+                        suffix: -td/ns/foo/sa/prefix-td
+                - metadata:
+                    filter: istio_authn
+                    path:
+                    - key: source.principal
+                    value:
+                      stringMatch:
+                        exact: some-trustdomain/ns/foo/sa/prefix-td
+  shadowRulesStatPrefix: istio_dry_run_

@@ -12,3 +12,4 @@ typedConfig:
         - andIds:
             ids:
             - any: true
+  shadowRulesStatPrefix: istio_dry_run_
