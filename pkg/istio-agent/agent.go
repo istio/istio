@@ -128,6 +128,9 @@ type AgentOptions struct {
 
 	// Path to local UDS to communicate with Envoy
 	XdsUdsPath string
+
+	// Ability to retrieve ProxyConfig dynamically through XDS
+	EnableDynamicProxyConfig bool
 }
 
 // NewAgent hosts the functionality for local SDS and XDS. This consists of the local SDS server and
@@ -152,12 +155,12 @@ func (a *Agent) Start() error {
 	var err error
 	a.secretCache, err = a.newSecretManager()
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to start workload secret manager %v", err)
 	}
 
 	a.sdsServer, err = sds.NewServer(a.secOpts, a.secretCache)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to start local sds server %v", err)
 	}
 	a.secretCache.SetUpdateCallback(a.sdsServer.UpdateCallback)
 

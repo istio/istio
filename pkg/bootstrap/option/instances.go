@@ -57,6 +57,10 @@ func NodeID(value string) Instance {
 	return newOption("nodeID", value)
 }
 
+func XdsType(value string) Instance {
+	return newOption("xds_type", value)
+}
+
 func Region(value string) Instance {
 	return newOptionOrSkipIfZero("region", value)
 }

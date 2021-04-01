@@ -25,7 +25,6 @@ import (
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	endpoint "github.com/envoyproxy/go-control-plane/envoy/config/endpoint/v3"
 	tls "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
-	"github.com/golang/protobuf/ptypes"
 	"github.com/golang/protobuf/ptypes/duration"
 	structpb "github.com/golang/protobuf/ptypes/struct"
 	"github.com/golang/protobuf/ptypes/wrappers"
@@ -1479,11 +1478,11 @@ func TestApplyUpstreamTLSSettings(t *testing.T) {
 			if test.validateTLSContext != nil {
 				ctx := &tls.UpstreamTlsContext{}
 				if test.expectTransportSocket {
-					if err := ptypes.UnmarshalAny(opts.mutable.cluster.TransportSocket.GetTypedConfig(), ctx); err != nil {
+					if err := opts.mutable.cluster.TransportSocket.GetTypedConfig().UnmarshalTo(ctx); err != nil {
 						t.Fatal(err)
 					}
 				} else if test.expectTransportSocketMatch {
-					if err := ptypes.UnmarshalAny(opts.mutable.cluster.TransportSocketMatches[0].TransportSocket.GetTypedConfig(), ctx); err != nil {
+					if err := opts.mutable.cluster.TransportSocketMatches[0].TransportSocket.GetTypedConfig().UnmarshalTo(ctx); err != nil {
 						t.Fatal(err)
 					}
 				}
@@ -2253,7 +2252,7 @@ func getTLSContext(t *testing.T, c *cluster.Cluster) *tls.UpstreamTlsContext {
 		return nil
 	}
 	tlsContext := &tls.UpstreamTlsContext{}
-	err := ptypes.UnmarshalAny(c.TransportSocket.GetTypedConfig(), tlsContext)
+	err := c.TransportSocket.GetTypedConfig().UnmarshalTo(tlsContext)
 	if err != nil {
 		t.Fatalf("Failed to unmarshall tls context: %v", err)
 	}

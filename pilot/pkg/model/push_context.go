@@ -584,39 +584,40 @@ func (ps *PushContext) UpdateMetrics() {
 	}
 }
 
-func virtualServiceDestinations(v *networking.VirtualService) []*networking.Destination {
+// It is called after virtual service short host name is resolved to FQDN
+func virtualServiceDestinationHosts(v *networking.VirtualService) []string {
 	if v == nil {
 		return nil
 	}
 
-	var ds []*networking.Destination
+	var out []string
 
 	for _, h := range v.Http {
 		for _, r := range h.Route {
 			if r.Destination != nil {
-				ds = append(ds, r.Destination)
+				out = append(out, r.Destination.Host)
 			}
 		}
 		if h.Mirror != nil {
-			ds = append(ds, h.Mirror)
+			out = append(out, h.Mirror.Host)
 		}
 	}
 	for _, t := range v.Tcp {
 		for _, r := range t.Route {
 			if r.Destination != nil {
-				ds = append(ds, r.Destination)
+				out = append(out, r.Destination.Host)
 			}
 		}
 	}
 	for _, t := range v.Tls {
 		for _, r := range t.Route {
 			if r.Destination != nil {
-				ds = append(ds, r.Destination)
+				out = append(out, r.Destination.Host)
 			}
 		}
 	}
 
-	return ds
+	return out
 }
 
 // GatewayServices returns the set of services which are referred from the proxy gateways.
@@ -639,8 +640,8 @@ func (ps *PushContext) GatewayServices(proxy *Proxy) []*Service {
 				return svcs
 			}
 
-			for _, d := range virtualServiceDestinations(vs) {
-				hostsFromGateways[d.Host] = struct{}{}
+			for _, host := range virtualServiceDestinationHosts(vs) {
+				hostsFromGateways[host] = struct{}{}
 			}
 		}
 	}
@@ -1690,19 +1691,11 @@ func (ps *PushContext) mergeGateways(proxy *Proxy) *MergedGateway {
 		configs = ps.gatewayIndex.all
 	}
 
-	// Get the target ports of the service
-	targetPorts := make(map[uint32]uint32)
-	servicePorts := make(map[uint32]uint32)
-	for _, si := range proxy.ServiceInstances {
-		targetPorts[si.Endpoint.EndpointPort] = uint32(si.ServicePort.Port)
-		servicePorts[uint32(si.ServicePort.Port)] = si.Endpoint.EndpointPort
-	}
 	for _, cfg := range configs {
 		gw := cfg.Spec.(*networking.Gateway)
-		selected := false
 		if gw.GetSelector() == nil {
 			// no selector. Applies to all workloads asking for the gateway
-			selected = true
+			out = append(out, cfg)
 		} else {
 			gatewaySelector := labels.Instance(gw.GetSelector())
 			var workloadLabels labels.Collection
@@ -1711,39 +1704,11 @@ func (ps *PushContext) mergeGateways(proxy *Proxy) *MergedGateway {
 				workloadLabels = labels.Collection{proxy.Metadata.Labels}
 			}
 			if workloadLabels.IsSupersetOf(gatewaySelector) {
-				selected = true
-			}
-		}
-		if selected {
-			// rewritePorts records index of gateway server port that needs to be rewritten.
-			rewritePorts := make(map[int]uint32)
-			for i, s := range gw.Servers {
-				if servicePort, ok := targetPorts[s.Port.Number]; ok && servicePort != s.Port.Number {
-					// Check if the gateway server port is also defined as a service port, if so skip rewriting since it is
-					// ambiguous on whether the server port points to service port or target port.
-					if _, ok := servicePorts[s.Port.Number]; ok {
-						continue
-					}
-
-					// The gateway server is defined with target port. Convert it to service port before gateway merging.
-					// Gateway listeners are based on target port, this prevents duplicated listeners be generated when build
-					// listener resources based on merged gateways.
-					rewritePorts[i] = servicePort
-				}
-			}
-			if len(rewritePorts) != 0 {
-				// Make a deep copy of the gateway configuration and rewrite server port with service port.
-				newGWConfig := cfg.DeepCopy()
-				newGW := newGWConfig.Spec.(*networking.Gateway)
-				for ind, sp := range rewritePorts {
-					newGW.Servers[ind].Port.Number = sp
-				}
-				out = append(out, newGWConfig)
-			} else {
 				out = append(out, cfg)
 			}
 		}
 	}
+
 	if len(out) == 0 {
 		return nil
 	}

@@ -87,6 +87,7 @@ func TestNDS(t *testing.T) {
 			})
 
 			var nt nds.NameTable
+			// nolint: staticcheck
 			err := ptypes.UnmarshalAny(res.Resources[0], &nt)
 			if err != nil {
 				t.Fatal("Failed to unmarshal name table", err)

@@ -21,7 +21,6 @@ import (
 	http_conn "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
 	"github.com/envoyproxy/go-control-plane/pkg/wellknown"
 	"github.com/golang/protobuf/proto"
-	"github.com/golang/protobuf/ptypes"
 	"github.com/golang/protobuf/ptypes/any"
 
 	networking "istio.io/api/networking/v1alpha3"
@@ -396,7 +395,7 @@ func doHTTPFilterListOperation(patchContext networking.EnvoyFilter_PatchContext,
 	listener *xdslistener.Listener, fc *xdslistener.FilterChain, filter *xdslistener.Filter) {
 	hcm := &http_conn.HttpConnectionManager{}
 	if filter.GetTypedConfig() != nil {
-		if err := ptypes.UnmarshalAny(filter.GetTypedConfig(), hcm); err != nil {
+		if err := filter.GetTypedConfig().UnmarshalTo(hcm); err != nil {
 			return
 			// todo: figure out a non noisy logging option here
 			//  as this loop will be called very frequently

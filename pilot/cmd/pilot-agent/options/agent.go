@@ -28,12 +28,13 @@ const xdsHeaderPrefix = "XDS_HEADER_"
 
 func NewAgentOptions(proxy *model.Proxy) *istioagent.AgentOptions {
 	o := &istioagent.AgentOptions{
-		XDSRootCerts: xdsRootCA,
-		CARootCerts:  caRootCA,
-		XDSHeaders:   map[string]string{},
-		XdsUdsPath:   constants.DefaultXdsUdsPath,
-		IsIPv6:       proxy.SupportsIPv6(),
-		ProxyType:    proxy.Type,
+		XDSRootCerts:             xdsRootCA,
+		CARootCerts:              caRootCA,
+		XDSHeaders:               map[string]string{},
+		XdsUdsPath:               constants.DefaultXdsUdsPath,
+		IsIPv6:                   proxy.SupportsIPv6(),
+		ProxyType:                proxy.Type,
+		EnableDynamicProxyConfig: enableProxyConfigXdsEnv,
 	}
 	extractXDSHeadersFromEnv(o)
 	if proxyXDSViaAgent {
