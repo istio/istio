@@ -1132,61 +1132,69 @@ func TestAuthorization_GRPC(t *testing.T) {
 	framework.NewTest(t).
 		Features("security.authorization.grpc-protocol").
 		Run(func(t framework.TestContext) {
-			ns := namespace.NewOrFail(t, t, namespace.Config{
-				Prefix: "v1beta1-grpc",
-				Inject: true,
-			})
-			var a, b, c, d echo.Instance
-			echoboot.NewBuilder(t).
-				With(&a, util.EchoConfig("a", ns, false, nil)).
-				With(&b, util.EchoConfig("b", ns, false, nil)).
-				With(&c, util.EchoConfig("c", ns, false, nil)).
-				With(&d, util.EchoConfig("d", ns, false, nil)).
-				BuildOrFail(t)
+			ns := apps.Namespace1
+			a := apps.A.Match(echo.Namespace(apps.Namespace1.Name()))
+			b := apps.B.Match(echo.Namespace(apps.Namespace1.Name()))
+			c := apps.C.Match(echo.Namespace(apps.Namespace1.Name()))
+			d := apps.D.Match(echo.Namespace(apps.Namespace1.Name()))
+			vm := apps.VM.Match(echo.Namespace(apps.Namespace1.Name()))
 
-			cases := []rbacUtil.TestCase{
-				{
-					Request: connection.Checker{
-						From: b,
-						Options: echo.CallOptions{
-							Target:   a,
-							PortName: "grpc",
-							Scheme:   scheme.GRPC,
-						},
-					},
-					ExpectAllowed: true,
-				},
-				{
-					Request: connection.Checker{
-						From: c,
-						Options: echo.CallOptions{
-							Target:   a,
-							PortName: "grpc",
-							Scheme:   scheme.GRPC,
-						},
-					},
-					ExpectAllowed: false,
-				},
-				{
-					Request: connection.Checker{
-						From: d,
-						Options: echo.CallOptions{
-							Target:   a,
-							PortName: "grpc",
-							Scheme:   scheme.GRPC,
-						},
-					},
-					ExpectAllowed: true,
-				},
-			}
-			namespaceTmpl := map[string]string{
-				"Namespace": ns.Name(),
-			}
-			policies := tmpl.EvaluateAllOrFail(t, namespaceTmpl,
-				file.AsStringOrFail(t, "testdata/authz/v1beta1-grpc.yaml.tmpl"))
-			t.Config().ApplyYAMLOrFail(t, ns.Name(), policies...)
+			for _, dst := range []echo.Instances{a, vm} {
+				for _, src := range [][]echo.Instances{{b, c, d}, {vm, c, d}} {
+					t.NewSubTest(fmt.Sprintf("from %s to %s in %s",
+						src[0][0].Config().Cluster.StableName(), dst[0].Config().Service, dst[0].Config().Cluster.Name())).
+						Run(func(t framework.TestContext) {
+							args := map[string]string{
+								"Namespace": ns.Name(),
+								"dst":       dst[0].Config().Service,
+								"src0":      src[0][0].Config().Service,
+								"src1":      src[1][0].Config().Service,
+								"src2":      src[2][0].Config().Service,
+							}
+							policies := tmpl.EvaluateAllOrFail(t, args,
+								file.AsStringOrFail(t, "testdata/authz/v1beta1-grpc.yaml.tmpl"))
+							t.Config().ApplyYAMLOrFail(t, ns.Name(), policies...)
 
-			rbacUtil.RunRBACTest(t, cases)
+							cases := []rbacUtil.TestCase{
+								{
+									Request: connection.Checker{
+										From: src[0][0],
+										Options: echo.CallOptions{
+											Target:   dst[0],
+											PortName: "grpc",
+											Scheme:   scheme.GRPC,
+										},
+									},
+									ExpectAllowed: true,
+								},
+								{
+									Request: connection.Checker{
+										From: src[1][0],
+										Options: echo.CallOptions{
+											Target:   dst[0],
+											PortName: "grpc",
+											Scheme:   scheme.GRPC,
+										},
+									},
+									ExpectAllowed: false,
+								},
+								{
+									Request: connection.Checker{
+										From: src[2][0],
+										Options: echo.CallOptions{
+											Target:   dst[0],
+											PortName: "grpc",
+											Scheme:   scheme.GRPC,
+										},
+									},
+									ExpectAllowed: true,
+								},
+							}
+
+							rbacUtil.RunRBACTest(t, cases)
+						})
+				}
+			}
 		})
 }
 
