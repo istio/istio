@@ -20,6 +20,8 @@ import (
 	"sort"
 	"strings"
 
+	"k8s.io/client-go/tools/cache"
+
 	udpa "github.com/cncf/udpa/go/udpa/type/v1"
 
 	networking "istio.io/api/networking/v1alpha3"
@@ -163,6 +165,8 @@ type ConfigStoreCache interface {
 
 	// Run until a signal is received
 	Run(stop <-chan struct{})
+
+	SetWatchErrorHandler(func(r *cache.Reflector, err error)) error
 
 	// HasSynced returns true after initial cache synchronization is complete
 	HasSynced() bool
