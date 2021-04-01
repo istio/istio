@@ -17,9 +17,11 @@ package v1alpha3
 import (
 	"fmt"
 	"sort"
+	"strconv"
 	"strings"
 
 	opb "github.com/census-instrumentation/opencensus-proto/gen-go/trace/v1"
+	envoy_config_core_v3 "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	tracingcfg "github.com/envoyproxy/go-control-plane/envoy/config/trace/v3"
 	hpb "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
 	tracing "github.com/envoyproxy/go-control-plane/envoy/type/tracing/v3"
@@ -82,12 +84,10 @@ func configureTracingFromSpec(spec *telemetrypb.Telemetry, opts buildListenerOpt
 		providerName = tracingCfg.Providers[0].Name
 	}
 
-	plat := opts.proxy.Metadata.PlatformMetadata
-
 	providerConfigured := false
 	for _, p := range meshCfg.ExtensionProviders {
 		if strings.EqualFold(p.Name, providerName) {
-			tcfg, err := configureFromProviderConfig(opts.push, plat, p)
+			tcfg, err := configureFromProviderConfig(opts.push, opts.proxy.Metadata, p)
 			if err != nil {
 				log.Warnf("not able to configure requested tracing provider %q: %v", p.Name, err)
 				continue
@@ -118,7 +118,7 @@ func configureTracingFromSpec(spec *telemetrypb.Telemetry, opts buildListenerOpt
 
 // TODO: follow-on work to enable bootstrapping of clusters for $(HOST_IP):PORT addresses.
 
-func configureFromProviderConfig(pushCtx *model.PushContext, meta map[string]string,
+func configureFromProviderConfig(pushCtx *model.PushContext, meta *model.NodeMetadata,
 	providerCfg *meshconfig.MeshConfig_ExtensionProvider) (*hpb.HttpConnectionManager_Tracing, error) {
 	switch provider := providerCfg.Provider.(type) {
 	case *meshconfig.MeshConfig_ExtensionProvider_Zipkin:
@@ -149,13 +149,14 @@ func configureFromProviderConfig(pushCtx *model.PushContext, meta map[string]str
 
 	case *meshconfig.MeshConfig_ExtensionProvider_Stackdriver:
 		return buildHCMTracingOpenCensus(providerCfg.Name, provider.Stackdriver.MaxTagLength, func() (*anypb.Any, error) {
-			proj, ok := meta[platform.GCPProject]
+			proj, ok := meta.PlatformMetadata[platform.GCPProject]
 			if !ok {
-				proj, ok = meta[platform.GCPProjectNumber]
+				proj, ok = meta.PlatformMetadata[platform.GCPProjectNumber]
 			}
 			if !ok {
 				return nil, fmt.Errorf("could not configure Stackdriver tracer - unknown project id")
 			}
+
 			sd := &tracingcfg.OpenCensusConfig{
 				StackdriverExporterEnabled: true,
 				StackdriverProjectId:       proj,
@@ -168,6 +169,51 @@ func configureFromProviderConfig(pushCtx *model.PushContext, meta map[string]str
 					MaxNumberOfMessageEvents: 200,
 				},
 			}
+
+			if meta.StsPort != "" {
+				stsPort, err := strconv.Atoi(meta.StsPort)
+				if err != nil || stsPort < 1 {
+					return nil, fmt.Errorf("could not configure Stackdriver tracer - bad sts port: %v", err)
+				}
+				sd.StackdriverGrpcService = &envoy_config_core_v3.GrpcService{
+					InitialMetadata: []*envoy_config_core_v3.HeaderValue{
+						{
+							Key:   "x-goog-user-project",
+							Value: proj,
+						},
+					},
+					TargetSpecifier: &envoy_config_core_v3.GrpcService_GoogleGrpc_{
+						GoogleGrpc: &envoy_config_core_v3.GrpcService_GoogleGrpc{
+							TargetUri:  "cloudtrace.googleapis.com",
+							StatPrefix: "oc_stackdriver_tracer",
+							ChannelCredentials: &envoy_config_core_v3.GrpcService_GoogleGrpc_ChannelCredentials{
+								CredentialSpecifier: &envoy_config_core_v3.GrpcService_GoogleGrpc_ChannelCredentials_SslCredentials{
+									SslCredentials: &envoy_config_core_v3.GrpcService_GoogleGrpc_SslCredentials{
+										RootCerts: &envoy_config_core_v3.DataSource{
+											Specifier: &envoy_config_core_v3.DataSource_Filename{
+												Filename: "/etc/ssl/certs/ca-certificates.crt",
+											},
+										},
+									},
+								},
+							},
+							CallCredentials: []*envoy_config_core_v3.GrpcService_GoogleGrpc_CallCredentials{
+								{
+									CredentialSpecifier: &envoy_config_core_v3.GrpcService_GoogleGrpc_CallCredentials_StsService_{
+										StsService: &envoy_config_core_v3.GrpcService_GoogleGrpc_CallCredentials_StsService{
+											TokenExchangeServiceUri: fmt.Sprintf("http://localhost:%d/token", stsPort),
+											SubjectTokenPath:        "/var/run/secrets/tokens/istio-token",
+											SubjectTokenType:        "urn:ietf:params:oauth:token-type:jwt",
+											Scope:                   "https://www.googleapis.com/auth/cloud-platform",
+										},
+									},
+								},
+							},
+						},
+					},
+				}
+			}
+
 			if provider.Stackdriver.MaxNumberOfAnnotations != nil {
 				sd.TraceConfig.MaxNumberOfAnnotations = provider.Stackdriver.MaxNumberOfAnnotations.Value
 			}
