@@ -20,6 +20,7 @@ import (
 	"sort"
 	"strings"
 	"testing"
+	"time"
 
 	cluster "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
@@ -30,6 +31,7 @@ import (
 	"github.com/golang/protobuf/ptypes/wrappers"
 	"github.com/google/go-cmp/cmp"
 	"google.golang.org/protobuf/testing/protocmp"
+	"google.golang.org/protobuf/types/known/durationpb"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
@@ -1499,9 +1501,7 @@ type expectedResult struct {
 
 // TestBuildUpstreamClusterTLSContext tests the buildUpstreamClusterTLSContext function
 func TestBuildUpstreamClusterTLSContext(t *testing.T) {
-	metadataClientCert := "/path/to/metadata/cert"
 	metadataRootCert := "/path/to/metadata/root-cert"
-	metadataClientKey := "/path/to/metadata/key"
 
 	clientCert := "/path/to/cert"
 	rootCert := "path/to/cacert"
@@ -1537,19 +1537,16 @@ func TestBuildUpstreamClusterTLSContext(t *testing.T) {
 				},
 			},
 			tls: &networking.ClientTLSSettings{
-				Mode:              networking.ClientTLSSettings_ISTIO_MUTUAL,
-				ClientCertificate: metadataClientCert,
-				PrivateKey:        metadataClientKey,
-				CaCertificates:    metadataRootCert,
-				SubjectAltNames:   []string{"SAN"},
-				Sni:               "some-sni.com",
+				Mode:            networking.ClientTLSSettings_ISTIO_MUTUAL,
+				SubjectAltNames: []string{"SAN"},
+				Sni:             "some-sni.com",
 			},
 			result: expectedResult{
 				tlsContext: &tls.UpstreamTlsContext{
 					CommonTlsContext: &tls.CommonTlsContext{
 						TlsCertificateSdsSecretConfigs: []*tls.SdsSecretConfig{
 							{
-								Name: "file-cert:/path/to/metadata/cert~/path/to/metadata/key",
+								Name: "default",
 								SdsConfig: &core.ConfigSource{
 									ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
 										ApiConfigSource: &core.ApiConfigSource{
@@ -1565,7 +1562,8 @@ func TestBuildUpstreamClusterTLSContext(t *testing.T) {
 											},
 										},
 									},
-									ResourceApiVersion: core.ApiVersion_V3,
+									InitialFetchTimeout: durationpb.New(time.Second * 0),
+									ResourceApiVersion:  core.ApiVersion_V3,
 								},
 							},
 						},
@@ -1573,7 +1571,7 @@ func TestBuildUpstreamClusterTLSContext(t *testing.T) {
 							CombinedValidationContext: &tls.CommonTlsContext_CombinedCertificateValidationContext{
 								DefaultValidationContext: &tls.CertificateValidationContext{MatchSubjectAltNames: util.StringToExactMatch([]string{"SAN"})},
 								ValidationContextSdsSecretConfig: &tls.SdsSecretConfig{
-									Name: "file-root:/path/to/metadata/root-cert",
+									Name: "ROOTCA",
 									SdsConfig: &core.ConfigSource{
 										ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
 											ApiConfigSource: &core.ApiConfigSource{
@@ -1589,11 +1587,13 @@ func TestBuildUpstreamClusterTLSContext(t *testing.T) {
 												},
 											},
 										},
-										ResourceApiVersion: core.ApiVersion_V3,
+										InitialFetchTimeout: durationpb.New(time.Second * 0),
+										ResourceApiVersion:  core.ApiVersion_V3,
 									},
 								},
 							},
 						},
+						AlpnProtocols: util.ALPNInMeshWithMxc,
 					},
 					Sni: "some-sni.com",
 				},
@@ -1601,7 +1601,7 @@ func TestBuildUpstreamClusterTLSContext(t *testing.T) {
 			},
 		},
 		{
-			name: "tls mode ISTIO_MUTUAL with metadata certs and H2",
+			name: "tls mode ISTIO_MUTUAL and H2",
 			opts: &buildClusterOpts{
 				mutable: newTestCluster(),
 				proxy: &model.Proxy{
@@ -1609,12 +1609,9 @@ func TestBuildUpstreamClusterTLSContext(t *testing.T) {
 				},
 			},
 			tls: &networking.ClientTLSSettings{
-				Mode:              networking.ClientTLSSettings_ISTIO_MUTUAL,
-				ClientCertificate: metadataClientCert,
-				PrivateKey:        metadataClientKey,
-				CaCertificates:    metadataRootCert,
-				SubjectAltNames:   []string{"SAN"},
-				Sni:               "some-sni.com",
+				Mode:            networking.ClientTLSSettings_ISTIO_MUTUAL,
+				SubjectAltNames: []string{"SAN"},
+				Sni:             "some-sni.com",
 			},
 			h2: true,
 			result: expectedResult{
@@ -1622,7 +1619,7 @@ func TestBuildUpstreamClusterTLSContext(t *testing.T) {
 					CommonTlsContext: &tls.CommonTlsContext{
 						TlsCertificateSdsSecretConfigs: []*tls.SdsSecretConfig{
 							{
-								Name: "file-cert:/path/to/metadata/cert~/path/to/metadata/key",
+								Name: "default",
 								SdsConfig: &core.ConfigSource{
 									ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
 										ApiConfigSource: &core.ApiConfigSource{
@@ -1638,7 +1635,8 @@ func TestBuildUpstreamClusterTLSContext(t *testing.T) {
 											},
 										},
 									},
-									ResourceApiVersion: core.ApiVersion_V3,
+									InitialFetchTimeout: durationpb.New(time.Second * 0),
+									ResourceApiVersion:  core.ApiVersion_V3,
 								},
 							},
 						},
@@ -1646,7 +1644,7 @@ func TestBuildUpstreamClusterTLSContext(t *testing.T) {
 							CombinedValidationContext: &tls.CommonTlsContext_CombinedCertificateValidationContext{
 								DefaultValidationContext: &tls.CertificateValidationContext{MatchSubjectAltNames: util.StringToExactMatch([]string{"SAN"})},
 								ValidationContextSdsSecretConfig: &tls.SdsSecretConfig{
-									Name: "file-root:/path/to/metadata/root-cert",
+									Name: "ROOTCA",
 									SdsConfig: &core.ConfigSource{
 										ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
 											ApiConfigSource: &core.ApiConfigSource{
@@ -1662,12 +1660,13 @@ func TestBuildUpstreamClusterTLSContext(t *testing.T) {
 												},
 											},
 										},
-										ResourceApiVersion: core.ApiVersion_V3,
+										InitialFetchTimeout: durationpb.New(time.Second * 0),
+										ResourceApiVersion:  core.ApiVersion_V3,
 									},
 								},
 							},
 						},
-						AlpnProtocols: util.ALPNH2Only,
+						AlpnProtocols: util.ALPNInMeshH2WithMxc,
 					},
 					Sni: "some-sni.com",
 				},
