@@ -15,8 +15,10 @@
 package model
 
 import (
-	"reflect"
 	"testing"
+
+	"github.com/google/go-cmp/cmp"
+	"google.golang.org/protobuf/testing/protocmp"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	tpb "istio.io/api/telemetry/v1alpha1"
@@ -221,8 +223,8 @@ func TestTelemetries_EffectiveTelemetry(t *testing.T) {
 		t.Run(v.name, func(tt *testing.T) {
 			telemetries := createTestTelemetries(v.configs, tt)
 			got := telemetries.EffectiveTelemetry(v.ns, []labels.Instance{v.workloadLabels})
-			if !reflect.DeepEqual(got, v.want) {
-				tt.Errorf("EffectiveTelemetry(%s, %v) produced unexpected results; got %v, want %v", v.ns, v.workloadLabels, got, v.want)
+			if diff := cmp.Diff(v.want, got, protocmp.Transform()); diff != "" {
+				tt.Errorf("EffectiveTelemetry(%s, %v) returned unexpected diff (-want +got):\n%s", v.ns, v.workloadLabels, diff)
 			}
 		})
 	}

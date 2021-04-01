@@ -82,12 +82,7 @@ func configureTracingFromSpec(spec *telemetrypb.Telemetry, opts buildListenerOpt
 		providerName = tracingCfg.Providers[0].Name
 	}
 
-	plat, ok := opts.proxy.Metadata.Raw["PLATFORM_METADATA"].(map[string]interface{})
-	if !ok {
-		log.Warnf("could not get platform metadata: raw meta = %#v", opts.proxy.Metadata.Raw)
-		log.Warnf("metadata: %#v", opts.proxy.Metadata)
-		plat = map[string]interface{}{}
-	}
+	plat := opts.proxy.Metadata.PlatformMetadata
 
 	providerConfigured := false
 	for _, p := range meshCfg.ExtensionProviders {
@@ -115,7 +110,7 @@ func configureTracingFromSpec(spec *telemetrypb.Telemetry, opts buildListenerOpt
 	configureSampling(hcm.Tracing, tracingCfg.RandomSamplingPercentage, proxyCfg)
 	configureCustomTags(hcm.Tracing, tracingCfg.CustomTags, proxyCfg)
 
-	// if there ia configured max tag length somewhere, fallback to it.
+	// if there is configured max tag length somewhere, fallback to it.
 	if hcm.GetTracing().GetMaxPathTagLength() == nil && proxyCfg.GetTracing().GetMaxPathTagLength() != 0 {
 		hcm.Tracing.MaxPathTagLength = wrapperspb.UInt32(proxyCfg.GetTracing().MaxPathTagLength)
 	}
@@ -123,7 +118,7 @@ func configureTracingFromSpec(spec *telemetrypb.Telemetry, opts buildListenerOpt
 
 // TODO: follow-on work to enable bootstrapping of clusters for $(HOST_IP):PORT addresses.
 
-func configureFromProviderConfig(pushCtx *model.PushContext, meta map[string]interface{},
+func configureFromProviderConfig(pushCtx *model.PushContext, meta map[string]string,
 	providerCfg *meshconfig.MeshConfig_ExtensionProvider) (*hpb.HttpConnectionManager_Tracing, error) {
 	switch provider := providerCfg.Provider.(type) {
 	case *meshconfig.MeshConfig_ExtensionProvider_Zipkin:
@@ -154,9 +149,9 @@ func configureFromProviderConfig(pushCtx *model.PushContext, meta map[string]int
 
 	case *meshconfig.MeshConfig_ExtensionProvider_Stackdriver:
 		return buildHCMTracingOpenCensus(providerCfg.Name, provider.Stackdriver.MaxTagLength, func() (*anypb.Any, error) {
-			proj, ok := meta[platform.GCPProject].(string)
+			proj, ok := meta[platform.GCPProject]
 			if !ok {
-				proj, ok = meta[platform.GCPProjectNumber].(string)
+				proj, ok = meta[platform.GCPProjectNumber]
 			}
 			if !ok {
 				return nil, fmt.Errorf("could not configure Stackdriver tracer - unknown project id")

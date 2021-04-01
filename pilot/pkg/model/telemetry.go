@@ -32,7 +32,7 @@ type Telemetry struct {
 
 // Telemetries organizes Telemetry configuration by namespace.
 type Telemetries struct {
-	// Maps from namespace to the Telemetry configus.
+	// Maps from namespace to the Telemetry configs.
 	NamespaceToTelemetries map[string][]Telemetry `json:"namespace_to_telemetries"`
 
 	// The name of the root namespace.
@@ -76,9 +76,7 @@ func (t *Telemetries) EffectiveTelemetry(namespace string, workload labels.Colle
 
 	if namespace != t.RootNamespace {
 		nsSpec := t.namespaceWideTelemetry(namespace)
-		if nsSpec != nil && effectiveSpec != nil {
-			effectiveSpec = shallowMerge(effectiveSpec, nsSpec)
-		}
+		effectiveSpec = shallowMerge(effectiveSpec, nsSpec)
 	}
 
 	for _, telemetry := range t.NamespaceToTelemetries[namespace] {
@@ -89,6 +87,7 @@ func (t *Telemetries) EffectiveTelemetry(namespace string, workload labels.Colle
 		selector := labels.Instance(spec.GetSelector().GetMatchLabels())
 		if workload.IsSupersetOf(selector) {
 			effectiveSpec = shallowMerge(effectiveSpec, spec)
+			break
 		}
 	}
 
@@ -106,22 +105,25 @@ func (t *Telemetries) namespaceWideTelemetry(namespace string) *tpb.Telemetry {
 }
 
 func shallowMerge(parent, child *tpb.Telemetry) *tpb.Telemetry {
+	if parent == nil {
+		return child
+	}
+	if child == nil {
+		return parent
+	}
 	return shallowMergeTracing(parent, child)
 }
 
 func shallowMergeTracing(parent, child *tpb.Telemetry) *tpb.Telemetry {
+	if parent.GetTracing() == nil || len(parent.GetTracing()) == 0 {
+		return child
+	}
+	if child.GetTracing() == nil || len(child.GetTracing()) == 0 {
+		return parent
+	}
+
 	merged := parent.DeepCopy()
-
-	if len(child.GetTracing()) == 0 {
-		return merged
-	}
-
 	childCopy := child.DeepCopy()
-
-	if len(merged.GetTracing()) == 0 {
-		merged.Tracing = childCopy.Tracing
-		return merged
-	}
 
 	// only use the first Tracing for now (all that is suppported)
 	childTracing := childCopy.Tracing[0]
@@ -130,15 +132,17 @@ func shallowMergeTracing(parent, child *tpb.Telemetry) *tpb.Telemetry {
 		mergedTracing.Providers = childTracing.Providers
 	}
 
-	if len(childTracing.CustomTags) != 0 {
+	if childTracing.GetCustomTags() != nil {
 		mergedTracing.CustomTags = childTracing.CustomTags
 	}
 
-	if childTracing.DisableSpanReporting != mergedTracing.DisableSpanReporting {
+	// TODO: use wrapper in API to allow inheritance of disablement ?
+	if childTracing.GetDisableSpanReporting() != mergedTracing.GetDisableSpanReporting() {
 		mergedTracing.DisableSpanReporting = childTracing.DisableSpanReporting
 	}
 
-	if childTracing.RandomSamplingPercentage != 0 {
+	// TODO: use wrapper in API to allow 0-valued override
+	if childTracing.GetRandomSamplingPercentage() != 0 {
 		mergedTracing.RandomSamplingPercentage = childTracing.RandomSamplingPercentage
 	}
 

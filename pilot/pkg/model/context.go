@@ -443,9 +443,6 @@ type BootstrapNodeMetadata struct {
 	// of the workload instance (ex: k8s deployment for a k8s pod).
 	Owner string `json:"OWNER,omitempty"`
 
-	// PlatformMetadata contains any platform specific metadata
-	PlatformMetadata map[string]string `json:"PLATFORM_METADATA,omitempty"`
-
 	StatsInclusionPrefixes string `json:"sidecar.istio.io/statsInclusionPrefixes,omitempty"`
 	StatsInclusionRegexps  string `json:"sidecar.istio.io/statsInclusionRegexps,omitempty"`
 	StatsInclusionSuffixes string `json:"sidecar.istio.io/statsInclusionSuffixes,omitempty"`
@@ -563,6 +560,9 @@ type NodeMetadata struct {
 
 	// UnprivilegedPod is used to determine whether a Gateway Pod can open ports < 1024
 	UnprivilegedPod string `json:"UNPRIVILEGED_POD,omitempty"`
+
+	// PlatformMetadata contains any platform specific metadata
+	PlatformMetadata map[string]string `json:"PLATFORM_METADATA,omitempty"`
 
 	// Contains a copy of the raw metadata. This is needed to lookup arbitrary values.
 	// If a value is known ahead of time it should be added to the struct rather than reading from here,
