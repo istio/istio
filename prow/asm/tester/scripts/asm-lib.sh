@@ -737,14 +737,12 @@ EOF
 }
 
 # Install ASM on the clusters.
-# Parameters: $1 - INFRA: Path of infra dir
-#             $2 - CA: CITADEL, MESHCA or PRIVATECA
-#             $3 - WIP: GKE or HUB
-#             $4 - array of k8s contexts
+# Parameters: $1 - CA: CITADEL, MESHCA or PRIVATECA
+#             $2 - WIP: GKE or HUB
+#             $3 - array of k8s contexts
 # Depends on env var ${HUB} and ${TAG}
 # TODO(gzip) remove this function once b/176177944 is fixed
 function install_asm_on_multicloud() {
-  local INFRA="$1"; shift
   local CA="$1"; shift
   local WIP="$1"; shift
   local MESH_ID="test-mesh"
@@ -819,7 +817,7 @@ EOF
     kubectl --kubeconfig="${ONPREM_MC_CONFIGS[$i]}" label namespace istio-system topology.istio.io/network="network${i}"
     expose_services "${ONPREM_MC_CONFIGS[$i]}"
     configure_validating_webhook "${ASM_REVISION_LABEL}" "${ONPREM_MC_CONFIGS[$i]}"
-    onprem::configure_external_ip "${INFRA}" "${ONPREM_MC_CONFIGS[$i]}"
+    onprem::configure_external_ip "${ONPREM_MC_CONFIGS[$i]}"
 
   done
 
@@ -888,11 +886,10 @@ function configure_remote_secrets() {
 
 # on-prem specific fucntion to configure external ips for the gateways
 # Parameters:
-# $1    Path of infra dir
-# $2    kubeconfig
+# $1    kubeconfig
 function onprem::configure_external_ip() {
   local HERC_ENV_ID
-  HERC_ENV_ID=$(echo "$2" | rev | cut -d '/' -f 2 | rev)
+  HERC_ENV_ID=$(echo "$1" | rev | cut -d '/' -f 2 | rev)
   local INGRESS_ID=\"lb-test-ip\"
   local EXPANSION_ID=\"expansion-ip\"
   local INGRESS_IP
@@ -912,7 +909,7 @@ function onprem::configure_external_ip() {
     jq -r ".environment.resources.vcenter_server.datacenter.networks.fe.ip_addresses.${EXPANSION_ID}.ip_address")
   if [[ -z "${EXPANSION_IP}" || "${EXPANSION_IP}" == "null" ]]; then
     echo "Requesting herc for expansion IP"
-    herc allocateIPs --parent "${HERC_PARENT}" -f "$1"/tailorbird/herc-configs/expansion-ip.yaml
+    herc allocateIPs --parent "${HERC_PARENT}" -f "${CONFIG_DIR}/herc/expansion-ip.yaml"
     EXPANSION_IP=$(herc getEnvironment "${HERC_ENV_ID}" -o json | \
       jq -r ".environment.resources.vcenter_server.datacenter.networks.fe.ip_addresses.${EXPANSION_ID}.ip_address")
   else
@@ -923,11 +920,11 @@ function onprem::configure_external_ip() {
   echo "----------Configuring external IP for ingress gw----------"
   kubectl patch svc istio-ingressgateway -n istio-system \
     --type='json' -p '[{"op": "add", "path": "/spec/loadBalancerIP", "value": "'"${INGRESS_IP}"'"}]' \
-    --kubeconfig="$2"
+    --kubeconfig="$1"
   echo "----------Configuring external IP for expansion gw----------"
   kubectl patch svc istio-eastwestgateway -n istio-system \
     --type='json' -p '[{"op": "add", "path": "/spec/loadBalancerIP", "value": "'"${EXPANSION_IP}"'"}]' \
-    --kubeconfig="$2"
+    --kubeconfig="$1"
 }
 
 # Installs expansion gw

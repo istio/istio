@@ -207,7 +207,7 @@ if [[ "${CONTROL_PLANE}" == "UNMANAGED" ]]; then
       export -n HTTP_PROXY
       export -n HTTPS_PROXY
     else
-      install_asm_on_multicloud "${WD}/infra" "${CA}" "${WIP}"
+      install_asm_on_multicloud "${CA}" "${WIP}"
       multicloud::gen_topology_file "${INTEGRATION_TEST_TOPOLOGY_FILE}"
     fi
   fi
