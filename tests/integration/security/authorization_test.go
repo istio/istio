@@ -1018,7 +1018,7 @@ func TestAuthorization_Conditions(t *testing.T) {
 							src1 := apps.A.Match(echo.InCluster(t.Clusters()[i])).Match(echo.Namespace(nsA.Name()))
 							src2 := apps.B.Match(echo.InCluster(t.Clusters()[i])).Match(echo.Namespace(nsB.Name()))
 							var ipList string
-							for i := 0; i < len(t.Clusters()); i++ {
+							for i := 0; i < len(dst); i++ {
 								ipList += "\"" + getWorkload(dst[i], t).Address() + "\","
 							}
 							ipLen := len(ipList)
