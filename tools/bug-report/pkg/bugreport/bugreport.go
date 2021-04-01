@@ -109,10 +109,15 @@ func runBugReportCommand(_ *cobra.Command, logOpts *log.Options) error {
 	if err != nil {
 		return err
 	}
-
-	clusterCtxStr, err := content.GetClusterContext()
-	if err != nil {
-		return err
+	clusterCtxStr := ""
+	if config.Context == "" {
+		var err error
+		clusterCtxStr, err = content.GetClusterContext(config.KubeConfigPath)
+		if err != nil {
+			return err
+		}
+	} else {
+		clusterCtxStr = config.Context
 	}
 
 	common.LogAndPrintf("\nTarget cluster context: %s\n", clusterCtxStr)
