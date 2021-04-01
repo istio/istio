@@ -1055,7 +1055,8 @@ metadata:
   name: invalid
 spec:
   tracing:
-    asdfasdf: asdfasd`)
+    asdfasdf: asdfasd
+`)
 
 func datasetTelemetryV1alpha1TelemetryInvalidYamlBytes() ([]byte, error) {
 	return _datasetTelemetryV1alpha1TelemetryInvalidYaml, nil

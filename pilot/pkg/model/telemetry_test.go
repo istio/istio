@@ -29,7 +29,6 @@ import (
 )
 
 func TestTelemetries_EffectiveTelemetry(t *testing.T) {
-
 	rootTrace := &tpb.Telemetry{
 		Tracing: []*tpb.Tracing{
 			{
