@@ -33,6 +33,7 @@ import (
 	"istio.io/istio/galley/pkg/config/analysis/analyzers/gateway"
 	"istio.io/istio/galley/pkg/config/analysis/analyzers/injection"
 	"istio.io/istio/galley/pkg/config/analysis/analyzers/multicluster"
+	schemaValidation "istio.io/istio/galley/pkg/config/analysis/analyzers/schema"
 	"istio.io/istio/galley/pkg/config/analysis/analyzers/service"
 	"istio.io/istio/galley/pkg/config/analysis/analyzers/serviceentry"
 	"istio.io/istio/galley/pkg/config/analysis/analyzers/sidecar"
@@ -45,6 +46,7 @@ import (
 	"istio.io/istio/galley/pkg/config/scope"
 	"istio.io/istio/pkg/config/schema"
 	"istio.io/istio/pkg/config/schema/collection"
+	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/pkg/log"
 )
 
@@ -405,21 +407,21 @@ var testGrid = []testCase{
 		inputFiles: []string{
 			"testdata/virtualservice_dupmatches.yaml",
 		},
-		analyzer: &virtualservice.MatchesAnalyzer{},
+		analyzer: schemaValidation.CollectionValidationAnalyzer(collections.IstioNetworkingV1Alpha3Virtualservices),
 		expected: []message{
-			{msg.VirtualServiceUnreachableRule, "VirtualService duplicate-match"},
-			{msg.VirtualServiceUnreachableRule, "VirtualService sample-foo-cluster01.foo"},
-			{msg.VirtualServiceIneffectiveMatch, "VirtualService almost-duplicate-match"},
-			{msg.VirtualServiceIneffectiveMatch, "VirtualService duplicate-match"},
+			{msg.SchemaWarning, "VirtualService duplicate-match"},
+			{msg.SchemaWarning, "VirtualService sample-foo-cluster01.foo"},
+			{msg.SchemaWarning, "VirtualService almost-duplicate-match"},
+			{msg.SchemaWarning, "VirtualService duplicate-match"},
 
-			{msg.VirtualServiceUnreachableRule, "VirtualService duplicate-tcp-match"},
-			{msg.VirtualServiceUnreachableRule, "VirtualService duplicate-empty-tcp"},
-			{msg.VirtualServiceIneffectiveMatch, "VirtualService almost-duplicate-tcp-match"},
-			{msg.VirtualServiceIneffectiveMatch, "VirtualService duplicate-tcp-match"},
+			{msg.SchemaWarning, "VirtualService duplicate-tcp-match"},
+			{msg.SchemaWarning, "VirtualService duplicate-empty-tcp"},
+			{msg.SchemaWarning, "VirtualService almost-duplicate-tcp-match"},
+			{msg.SchemaWarning, "VirtualService duplicate-tcp-match"},
 
-			{msg.VirtualServiceUnreachableRule, "VirtualService tls-routing.none"},
-			{msg.VirtualServiceIneffectiveMatch, "VirtualService tls-routing-almostmatch.none"},
-			{msg.VirtualServiceIneffectiveMatch, "VirtualService tls-routing.none"},
+			{msg.SchemaWarning, "VirtualService tls-routing.none"},
+			{msg.SchemaWarning, "VirtualService tls-routing-almostmatch.none"},
+			{msg.SchemaWarning, "VirtualService tls-routing.none"},
 		},
 	},
 	{
