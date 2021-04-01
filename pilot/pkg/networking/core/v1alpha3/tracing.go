@@ -97,7 +97,7 @@ func configureTracingFromSpec(spec *telemetrypb.Telemetry, opts buildListenerOpt
 				log.Warnf("not able to configure requested tracing provider %q: %v", p.Name, err)
 				continue
 			}
-			hcm.Tracing = &tcfg
+			hcm.Tracing = tcfg
 			providerConfigured = true
 			break
 		}
@@ -123,7 +123,9 @@ func configureTracingFromSpec(spec *telemetrypb.Telemetry, opts buildListenerOpt
 
 // TODO: follow-on work to enable bootstrapping of clusters for $(HOST_IP):PORT addresses.
 
-func configureFromProviderConfig(pushCtx *model.PushContext, meta map[string]interface{}, providerCfg *meshconfig.MeshConfig_ExtensionProvider) (hpb.HttpConnectionManager_Tracing, error) {
+func configureFromProviderConfig(pushCtx *model.PushContext, meta map[string]interface{},
+	providerCfg *meshconfig.MeshConfig_ExtensionProvider) (*hpb.HttpConnectionManager_Tracing, error) {
+
 	switch provider := providerCfg.Provider.(type) {
 	case *meshconfig.MeshConfig_ExtensionProvider_Zipkin:
 		return buildHCMTracing(pushCtx, providerCfg.Name, provider.Zipkin.Service, provider.Zipkin.Port, provider.Zipkin.MaxTagLength, zipkinConfigGen)
@@ -144,8 +146,8 @@ func configureFromProviderConfig(pushCtx *model.PushContext, meta map[string]int
 			oc := &tracingcfg.OpenCensusConfig{
 				OcagentAddress:         fmt.Sprintf("%s:%d", provider.Opencensus.Service, provider.Opencensus.Port),
 				OcagentExporterEnabled: true,
-				IncomingTraceContext:   convertOpenCensusContexts(provider.Opencensus.Context),
-				OutgoingTraceContext:   convertOpenCensusContexts(provider.Opencensus.Context),
+				IncomingTraceContext:   convert(provider.Opencensus.Context),
+				OutgoingTraceContext:   convert(provider.Opencensus.Context),
 			}
 
 			return anypb.New(oc)
@@ -186,7 +188,7 @@ func configureFromProviderConfig(pushCtx *model.PushContext, meta map[string]int
 	default:
 		log.Warnf("unrecognized provider type: %T; will not configure tracing", provider)
 	}
-	return hpb.HttpConnectionManager_Tracing{}, nil
+	return &hpb.HttpConnectionManager_Tracing{}, nil
 }
 
 type typedConfigGenFromClusterFn func(clusterName string) (*anypb.Any, error)
@@ -211,8 +213,10 @@ func datadogConfigGen(cluster string) (*anypb.Any, error) {
 
 type typedConfigGenFn func() (*anypb.Any, error)
 
-func buildHCMTracing(pushCtx *model.PushContext, provider, svc string, port, maxTagLen uint32, anyFn typedConfigGenFromClusterFn) (hpb.HttpConnectionManager_Tracing, error) {
-	config := hpb.HttpConnectionManager_Tracing{}
+func buildHCMTracing(pushCtx *model.PushContext, provider, svc string, port, maxTagLen uint32,
+	anyFn typedConfigGenFromClusterFn) (*hpb.HttpConnectionManager_Tracing, error) {
+
+	config := &hpb.HttpConnectionManager_Tracing{}
 
 	_, cluster, err := clusterLookupFn(pushCtx, svc, int(port))
 	if err != nil {
@@ -235,8 +239,8 @@ func buildHCMTracing(pushCtx *model.PushContext, provider, svc string, port, max
 	return config, nil
 }
 
-func buildHCMTracingOpenCensus(provider string, maxTagLen uint32, anyFn typedConfigGenFn) (hpb.HttpConnectionManager_Tracing, error) {
-	config := hpb.HttpConnectionManager_Tracing{}
+func buildHCMTracingOpenCensus(provider string, maxTagLen uint32, anyFn typedConfigGenFn) (*hpb.HttpConnectionManager_Tracing, error) {
+	config := &hpb.HttpConnectionManager_Tracing{}
 	any, err := anyFn()
 	if err != nil {
 		return config, fmt.Errorf("could not configure tracing provider %q: %v", provider, err)
@@ -260,7 +264,8 @@ var allContexts = []tracingcfg.OpenCensusConfig_TraceContext{
 	tracingcfg.OpenCensusConfig_TRACE_CONTEXT,
 }
 
-func convertOpenCensusContexts(ctxs []meshconfig.MeshConfig_ExtensionProvider_OpenCensusAgentTracingProvider_TraceContext) []tracingcfg.OpenCensusConfig_TraceContext {
+func convert(ctxs []meshconfig.MeshConfig_ExtensionProvider_OpenCensusAgentTracingProvider_TraceContext) []tracingcfg.OpenCensusConfig_TraceContext {
+
 	if len(ctxs) == 0 {
 		return allContexts
 	}
@@ -350,7 +355,6 @@ func configureSampling(hcmTracing *hpb.HttpConnectionManager_Tracing, providerPe
 	hcmTracing.RandomSampling = &xdstype.Percent{
 		Value: fallbackSamplingValue(proxyCfg),
 	}
-	return
 }
 
 func fallbackSamplingValue(config *meshconfig.ProxyConfig) float64 {
@@ -366,7 +370,9 @@ func fallbackSamplingValue(config *meshconfig.ProxyConfig) float64 {
 	return sampling
 }
 
-func configureCustomTags(hcmTracing *hpb.HttpConnectionManager_Tracing, providerTags map[string]*telemetrypb.Tracing_CustomTag, proxyCfg *meshconfig.ProxyConfig) {
+func configureCustomTags(hcmTracing *hpb.HttpConnectionManager_Tracing,
+	providerTags map[string]*telemetrypb.Tracing_CustomTag, proxyCfg *meshconfig.ProxyConfig) {
+
 	var tags []*tracing.CustomTag
 
 	// TODO(dougreid): remove support for this feature. We don't want this to be
@@ -392,7 +398,6 @@ func configureCustomTags(hcmTracing *hpb.HttpConnectionManager_Tracing, provider
 	})
 
 	hcmTracing.CustomTags = tags
-	return
 }
 
 func buildCustomTagsFromProvider(providerTags map[string]*telemetrypb.Tracing_CustomTag) []*tracing.CustomTag {
