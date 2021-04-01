@@ -246,7 +246,7 @@ func externalSvcMeshifyCmd() *cobra.Command {
 		Use:     "external-service <svcname> <ip> [name1:]port1 [[name2:]port2] ...",
 		Aliases: []string{"es"},
 		Short:   "Add external service (e.g. services running on a VM) to Istio service mesh",
-		Long: `istioctl experimental add-to-mesh external-service create a ServiceEntry and
+		Long: `istioctl experimental add-to-mesh external-service create a ServiceEntry and 
 a Service without selector for the specified external service in Istio service mesh.
 The typical usage scenario is Mesh Expansion on VMs.
 
@@ -289,6 +289,7 @@ See also 'istioctl experimental remove-from-mesh external-service' which does th
 func setupParameters(sidecarTemplate *inject.Templates, valuesConfig *string, revision string) (*meshconfig.MeshConfig, error) {
 	var meshConfig *meshconfig.MeshConfig
 	var err error
+	injectConfigMapName = defaultInjectWebhookConfigName
 	if meshConfigFile != "" {
 		if meshConfig, err = mesh.ReadMeshConfig(meshConfigFile); err != nil {
 			return nil, err
@@ -328,7 +329,7 @@ func injectSideCarIntoDeployment(client kubernetes.Interface, dep *appsv1.Deploy
 	var errs error
 	log.Debugf("updating deployment %s.%s with Istio sidecar injected",
 		dep.Name, dep.Namespace)
-	newDep, err := inject.IntoObject(sidecarTemplate, valuesConfig, revision, meshConfig, dep, warningHandler)
+	newDep, err := inject.IntoObject(nil, sidecarTemplate, valuesConfig, revision, meshConfig, dep, warningHandler)
 	if err != nil {
 		errs = multierror.Append(errs, fmt.Errorf("failed to inject sidecar to deployment resource %s.%s for service %s.%s due to %v",
 			dep.Name, dep.Namespace, svcName, svcNamespace, err))
