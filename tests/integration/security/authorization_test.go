@@ -985,16 +985,17 @@ func TestAuthorization_TCP(t *testing.T) {
 			}
 
 			for _, tc := range cases {
-				policy := tmpl.EvaluateAllOrFail(t, map[string]string{
-					"Namespace":  ns.Name(),
-					"Namespace2": ns2.Name(),
-					"src":        tc.configSrc,
-					"dst":        tc.configDst,
-				}, file.AsStringOrFail(t, tc.configFile))
-				t.Config().ApplyYAMLOrFail(t, "", policy...)
-				rbacUtil.RunRBACTest(t, tc.subcases)
-				// Clean up policies for next group of test cases.
-				t.Config().DeleteYAMLOrFail(t, "", policy...)
+				t.NewSubTest(tc.configDst).
+					Run(func(t framework.TestContext) {
+						policy := tmpl.EvaluateAllOrFail(t, map[string]string{
+							"Namespace":  ns.Name(),
+							"Namespace2": ns2.Name(),
+							"src":        tc.configSrc,
+							"dst":        tc.configDst,
+						}, file.AsStringOrFail(t, tc.configFile))
+						t.Config().ApplyYAMLOrFail(t, "", policy...)
+						rbacUtil.RunRBACTest(t, tc.subcases)
+					})
 			}
 		})
 }
