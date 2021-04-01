@@ -26,12 +26,12 @@ import (
 	"github.com/envoyproxy/go-control-plane/pkg/wellknown"
 	"github.com/hashicorp/go-multierror"
 
+	"istio.io/api/annotation"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/plugin"
 	"istio.io/istio/pilot/pkg/networking/util"
 	authzmodel "istio.io/istio/pilot/pkg/security/authz/model"
 	"istio.io/istio/pilot/pkg/security/trustdomain"
-	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/labels"
 )
 
@@ -155,11 +155,11 @@ type builtConfigs struct {
 
 func (b Builder) isDryRun(policy model.AuthorizationPolicy) bool {
 	dryRun := false
-	if val, ok := policy.Annotations[constants.DryRunAnnotation]; ok {
+	if val, ok := policy.Annotations[annotation.IoIstioDryRun.Name]; ok {
 		var err error
 		dryRun, err = strconv.ParseBool(val)
 		if err != nil {
-			b.option.Logger.AppendError(fmt.Errorf("failed to parse the value of %s: %v", constants.DryRunAnnotation, err))
+			b.option.Logger.AppendError(fmt.Errorf("failed to parse the value of %s: %v", annotation.IoIstioDryRun.Name, err))
 		}
 	}
 	return dryRun
