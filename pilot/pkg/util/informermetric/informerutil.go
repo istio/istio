@@ -17,9 +17,10 @@ package informermetric
 import (
 	"sync"
 
+	"k8s.io/client-go/tools/cache"
+
 	"istio.io/pkg/log"
 	"istio.io/pkg/monitoring"
-	"k8s.io/client-go/tools/cache"
 )
 
 var (
