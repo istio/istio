@@ -1205,65 +1205,60 @@ func TestAuthorization_Path(t *testing.T) {
 		Features("security.authorization.path-normalization").
 		Run(func(t framework.TestContext) {
 			ns := apps.Namespace1
-			args := map[string]string{
-				"Namespace": ns.Name(),
-			}
-			policies := tmpl.EvaluateAllOrFail(t, args,
-				file.AsStringOrFail(t, "testdata/authz/v1beta1-path.yaml.tmpl"))
-			t.Config().ApplyYAMLOrFail(t, ns.Name(), policies...)
-			for _, srcCluster := range t.Clusters() {
-				t.NewSubTest(fmt.Sprintf("In %s", srcCluster.StableName())).Run(func(t framework.TestContext) {
-					b := apps.B.GetOrFail(t, echo.InCluster(srcCluster).And(echo.Namespace(ns.Name())))
-					a := apps.A.Match(echo.Namespace(ns.Name()))
-					vm := apps.VM.Match(echo.Namespace(ns.Name()))
-					callCount := 1
-					if t.Clusters().IsMulticluster() {
-						// so we can validate all clusters are hit
-						callCount = util.CallsPerCluster * len(t.Clusters())
-					}
+			a := apps.A.Match(echo.Namespace(ns.Name()))
+			vm := apps.VM.Match(echo.Namespace(ns.Name()))
 
-					newTestCase := func(to echo.Instances, path string, expectAllowed bool) rbacUtil.TestCase {
-						return rbacUtil.TestCase{
-							Request: connection.Checker{
-								From: b,
-								Options: echo.CallOptions{
-									Target:   to[0],
-									PortName: "http",
-									Scheme:   scheme.HTTP,
-									Path:     path,
-									Count:    callCount,
-								},
-								DestClusters: a.Clusters(),
-							},
-							ExpectAllowed: expectAllowed,
+			for _, dst := range []echo.Instances{a, vm} {
+				for _, srcCluster := range t.Clusters() {
+					t.NewSubTest(fmt.Sprintf("In %s", srcCluster.StableName())).Run(func(t framework.TestContext) {
+						src := apps.B.GetOrFail(t, echo.InCluster(srcCluster).And(echo.Namespace(ns.Name())))
+						args := map[string]string{
+							"Namespace": ns.Name(),
+							"dst":       dst[0].Config().Service,
 						}
-					}
-					cases := []rbacUtil.TestCase{
-						newTestCase(a, "/public", true),
-						newTestCase(a, "/private", false),
-						newTestCase(a, "/public/../private", false),
-						newTestCase(a, "/public/./../private", false),
-						newTestCase(a, "/public/.././private", false),
-						newTestCase(a, "/public/%2E%2E/private", false),
-						newTestCase(a, "/public/%2e%2e/private", false),
-						newTestCase(a, "/public/%2E/%2E%2E/private", false),
-						newTestCase(a, "/public/%2e/%2e%2e/private", false),
-						newTestCase(a, "/public/%2E%2E/%2E/private", false),
-						newTestCase(a, "/public/%2e%2e/%2e/private", false),
-						newTestCase(vm, "/public", true),
-						newTestCase(vm, "/private", false),
-						newTestCase(vm, "/public/../private", false),
-						newTestCase(vm, "/public/./../private", false),
-						newTestCase(vm, "/public/.././private", false),
-						newTestCase(vm, "/public/%2E%2E/private", false),
-						newTestCase(vm, "/public/%2e%2e/private", false),
-						newTestCase(vm, "/public/%2E/%2E%2E/private", false),
-						newTestCase(vm, "/public/%2e/%2e%2e/private", false),
-						newTestCase(vm, "/public/%2E%2E/%2E/private", false),
-						newTestCase(vm, "/public/%2e%2e/%2e/private", false),
-					}
-					rbacUtil.RunRBACTest(t, cases)
-				})
+						policies := tmpl.EvaluateAllOrFail(t, args,
+							file.AsStringOrFail(t, "testdata/authz/v1beta1-path.yaml.tmpl"))
+						t.Config().ApplyYAMLOrFail(t, ns.Name(), policies...)
+
+						callCount := 1
+						if t.Clusters().IsMulticluster() {
+							// so we can validate all clusters are hit
+							callCount = util.CallsPerCluster * len(t.Clusters())
+						}
+
+						newTestCase := func(to echo.Instances, path string, expectAllowed bool) rbacUtil.TestCase {
+							return rbacUtil.TestCase{
+								Request: connection.Checker{
+									From: src,
+									Options: echo.CallOptions{
+										Target:   to[0],
+										PortName: "http",
+										Scheme:   scheme.HTTP,
+										Path:     path,
+										Count:    callCount,
+									},
+									DestClusters: dst.Clusters(),
+								},
+								ExpectAllowed: expectAllowed,
+							}
+						}
+						cases := []rbacUtil.TestCase{
+							newTestCase(dst, "/public", true),
+							newTestCase(dst, "/public/../public", true),
+							newTestCase(dst, "/private", false),
+							newTestCase(dst, "/public/../private", false),
+							newTestCase(dst, "/public/./../private", false),
+							newTestCase(dst, "/public/.././private", false),
+							newTestCase(dst, "/public/%2E%2E/private", false),
+							newTestCase(dst, "/public/%2e%2e/private", false),
+							newTestCase(dst, "/public/%2E/%2E%2E/private", false),
+							newTestCase(dst, "/public/%2e/%2e%2e/private", false),
+							newTestCase(dst, "/public/%2E%2E/%2E/private", false),
+							newTestCase(dst, "/public/%2e%2e/%2e/private", false),
+						}
+						rbacUtil.RunRBACTest(t, cases)
+					})
+				}
 			}
 		})
 }
