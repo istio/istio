@@ -49,7 +49,7 @@ func newEndpointSliceController(c *Controller, informer filter.FilteredSharedInd
 		},
 		endpointCache: newEndpointSliceCache(),
 	}
-	registerHandlers(informer, c.queue, "EndpointSlice", out.onEvent, nil)
+	c.registerHandlers(informer, "EndpointSlice", out.onEvent, nil)
 	return out
 }
 

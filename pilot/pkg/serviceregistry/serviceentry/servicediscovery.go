@@ -20,6 +20,10 @@ import (
 	"strconv"
 	"sync"
 
+	"istio.io/pkg/monitoring"
+
+	"istio.io/istio/pilot/pkg/controller"
+
 	"go.uber.org/atomic"
 
 	networking "istio.io/api/networking/v1alpha3"
@@ -67,6 +71,7 @@ type configKey struct {
 type ServiceEntryStore struct { // nolint:golint
 	XdsUpdater model.XDSUpdater
 	store      model.IstioConfigStore
+	clusterID  string
 
 	storeMutex sync.RWMutex
 
@@ -95,6 +100,12 @@ func DisableServiceEntryProcessing() ServiceDiscoveryOption {
 	}
 }
 
+func WithClusterID(clusterID string) ServiceDiscoveryOption {
+	return func(o *ServiceEntryStore) {
+		o.clusterID = clusterID
+	}
+}
+
 // NewServiceDiscovery creates a new ServiceEntry discovery service
 func NewServiceDiscovery(
 	configController model.ConfigStoreCache,
@@ -117,10 +128,12 @@ func NewServiceDiscovery(
 	}
 
 	if configController != nil {
+		metrics := controller.NewInformerErrorHandler("serviceentry", monitoring.MustCreateLabel("cluster").Value(s.clusterID))
 		if s.processServiceEntry {
 			configController.RegisterEventHandler(gvk.ServiceEntry, s.serviceEntryHandler)
 		}
 		configController.RegisterEventHandler(gvk.WorkloadEntry, s.workloadEntryHandler)
+		_ = configController.SetWatchErrorHandler(metrics.OnError)
 	}
 	return s
 }
