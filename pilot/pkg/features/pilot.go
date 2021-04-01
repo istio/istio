@@ -308,6 +308,9 @@ var (
 		"If enabled, Kubernetes services with selectors will select workload entries with matching labels. "+
 			"It is safe to disable it if you are quite sure you don't need this feature").Get()
 
+	RemoteClusterTimeout = env.RegisterDurationVar("PILOT_REMOTE_CLUSTER_TIMEOUT", 30*time.Second,
+		"The amount of time we give for remote clusters' service registries to sync before marking pilot ready.").Get()
+
 	InjectionWebhookConfigName = env.RegisterStringVar("INJECTION_WEBHOOK_CONFIG_NAME", "istio-sidecar-injector",
 		"Name of the mutatingwebhookconfiguration to patch, if istioctl is not used.")
 

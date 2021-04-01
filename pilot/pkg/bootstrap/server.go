@@ -116,7 +116,8 @@ type Server struct {
 	kubeRestConfig *rest.Config
 	kubeClient     kubelib.Client
 
-	multicluster *kubecontroller.Multicluster
+	multicluster     *kubecontroller.Multicluster
+	secretController *kubesecrets.Multicluster
 
 	configController  model.ConfigStoreCache
 	ConfigStores      []model.ConfigStoreCache
@@ -491,9 +492,8 @@ func (s *Server) initSDSServer(args *PilotArgs) {
 			// Make sure we have security
 			log.Warnf("skipping Kubernetes credential reader; PILOT_ENABLE_XDS_IDENTITY_CHECK must be set to true for this feature.")
 		} else {
-			// TODO move this to a startup function and pass stop
-			sc := kubesecrets.NewMulticluster(s.kubeClient, s.clusterID, args.RegistryOptions.ClusterRegistriesNamespace, make(chan struct{}))
-			sc.AddEventHandler(func(name, namespace string) {
+			s.secretController = kubesecrets.NewMulticluster(s.kubeClient, s.clusterID, args.RegistryOptions.ClusterRegistriesNamespace)
+			s.secretController.AddEventHandler(func(name, namespace string) {
 				s.XDSServer.ConfigUpdate(&model.PushRequest{
 					Full: false,
 					ConfigsUpdated: map[model.ConfigKey]struct{}{
@@ -506,7 +506,11 @@ func (s *Server) initSDSServer(args *PilotArgs) {
 					Reason: []model.TriggerReason{model.SecretTrigger},
 				})
 			})
-			s.XDSServer.Generators[v3.SecretType] = xds.NewSecretGen(sc, s.XDSServer.Cache)
+			s.XDSServer.Generators[v3.SecretType] = xds.NewSecretGen(s.secretController, s.XDSServer.Cache)
+			s.addStartFunc(func(stop <-chan struct{}) error {
+				go s.secretController.Run(stop)
+				return nil
+			})
 		}
 	}
 }
@@ -835,6 +839,9 @@ func (s *Server) waitForCacheSync(stop <-chan struct{}) bool {
 // cachesSynced checks whether caches have been synced.
 func (s *Server) cachesSynced() bool {
 	if s.multicluster != nil && !s.multicluster.HasSynced() {
+		return false
+	}
+	if s.secretController != nil && !s.secretController.HasSynced() {
 		return false
 	}
 	if !s.ServiceController().HasSynced() {

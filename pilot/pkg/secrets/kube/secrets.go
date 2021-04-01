@@ -97,6 +97,10 @@ func toUser(serviceAccount, namespace string) string {
 
 const cacheTTL = time.Minute
 
+func (s *SecretsController) HasSynced() bool {
+	return s.secrets.Informer().HasSynced()
+}
+
 // clearExpiredCache iterates through the cache and removes all expired entries. Should be called with mutex held.
 func (s *SecretsController) clearExpiredCache() {
 	for k, v := range s.authorizationCache {
