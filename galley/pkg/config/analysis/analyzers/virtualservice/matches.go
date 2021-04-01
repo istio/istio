@@ -15,11 +15,9 @@
 package virtualservice
 
 import (
-	"encoding/json"
-	"fmt"
-
 	"istio.io/api/networking/v1alpha3"
 	"istio.io/istio/galley/pkg/config/analysis"
+	"istio.io/istio/galley/pkg/config/analysis/analyzers/virtualservice/matches"
 	"istio.io/istio/galley/pkg/config/analysis/msg"
 	"istio.io/istio/pkg/config/resource"
 	"istio.io/istio/pkg/config/schema/collection"
@@ -65,149 +63,25 @@ func (ma *MatchesAnalyzer) analyzeVirtualService(r *resource.Instance, c analysi
 	// Note that this code is only analyzes a single VirtualService.  TODO Look for duplicates
 	// among all the VirtualSerices on a Gateway
 
-	ma.analyzeUnreachableHTTPRules(r, c, vs.Http)
-	ma.analyzeUnreachableTCPRules(r, c, vs.Tcp)
-	ma.analyzeUnreachableTLSRules(r, c, vs.Tls)
-}
-
-func (ma *MatchesAnalyzer) analyzeUnreachableHTTPRules(r *resource.Instance, c analysis.Context, routes []*v1alpha3.HTTPRoute) {
-	matchesEncountered := make(map[string]int)
-	emptyMatchEncountered := -1
-	for rulen, route := range routes {
-		if len(route.Match) == 0 {
-			if emptyMatchEncountered >= 0 {
-				c.Report(collections.IstioNetworkingV1Alpha3Virtualservices.Name(),
-					msg.NewVirtualServiceUnreachableRule(r,
-						routeName(route, rulen), "only the last rule can have no matches"))
-			}
-			emptyMatchEncountered = rulen
-			continue
-		}
-
-		duplicateMatches := 0
-		for matchn, match := range route.Match {
-			dupn, ok := matchesEncountered[asJSON(match)]
-			if ok {
-				c.Report(collections.IstioNetworkingV1Alpha3Virtualservices.Name(),
-					msg.NewVirtualServiceIneffectiveMatch(r, routeName(route, rulen), requestName(match, matchn), routeName(routes[dupn], dupn)))
-				duplicateMatches++
-			} else {
-				matchesEncountered[asJSON(match)] = rulen
-			}
-		}
-		if duplicateMatches == len(route.Match) {
-			c.Report(collections.IstioNetworkingV1Alpha3Virtualservices.Name(),
-				msg.NewVirtualServiceUnreachableRule(r, routeName(route, rulen), "all matches used by prior rules"))
-		}
-	}
-}
-
-// NOTE: This method identical to analyzeUnreachableHTTPRules.
-func (ma *MatchesAnalyzer) analyzeUnreachableTCPRules(r *resource.Instance, c analysis.Context, routes []*v1alpha3.TCPRoute) {
-	matchesEncountered := make(map[string]int)
-	emptyMatchEncountered := -1
-	for rulen, route := range routes {
-		if len(route.Match) == 0 {
-			if emptyMatchEncountered >= 0 {
-				c.Report(collections.IstioNetworkingV1Alpha3Virtualservices.Name(),
-					msg.NewVirtualServiceUnreachableRule(r,
-						routeName(route, rulen), "only the last rule can have no matches"))
-			}
-			emptyMatchEncountered = rulen
-			continue
-		}
-
-		duplicateMatches := 0
-		for matchn, match := range route.Match {
-			dupn, ok := matchesEncountered[asJSON(match)]
-			if ok {
-				c.Report(collections.IstioNetworkingV1Alpha3Virtualservices.Name(),
-					msg.NewVirtualServiceIneffectiveMatch(r, routeName(route, rulen), requestName(match, matchn), routeName(routes[dupn], dupn)))
-				duplicateMatches++
-			} else {
-				matchesEncountered[asJSON(match)] = rulen
-			}
-		}
-		if duplicateMatches == len(route.Match) {
-			c.Report(collections.IstioNetworkingV1Alpha3Virtualservices.Name(),
-				msg.NewVirtualServiceUnreachableRule(r, routeName(route, rulen), "all matches used by prior rules"))
-		}
-	}
-}
-
-// NOTE: This method identical to analyzeUnreachableHTTPRules.
-func (ma *MatchesAnalyzer) analyzeUnreachableTLSRules(r *resource.Instance, c analysis.Context, routes []*v1alpha3.TLSRoute) {
-	matchesEncountered := make(map[string]int)
-	emptyMatchEncountered := -1
-	for rulen, route := range routes {
-		if len(route.Match) == 0 {
-			if emptyMatchEncountered >= 0 {
-				c.Report(collections.IstioNetworkingV1Alpha3Virtualservices.Name(),
-					msg.NewVirtualServiceUnreachableRule(r,
-						routeName(route, rulen), "only the last rule can have no matches"))
-			}
-			emptyMatchEncountered = rulen
-			continue
-		}
-
-		duplicateMatches := 0
-		for matchn, match := range route.Match {
-			dupn, ok := matchesEncountered[asJSON(match)]
-			if ok {
-				c.Report(collections.IstioNetworkingV1Alpha3Virtualservices.Name(),
-					msg.NewVirtualServiceIneffectiveMatch(r, routeName(route, rulen), requestName(match, matchn), routeName(routes[dupn], dupn)))
-				duplicateMatches++
-			} else {
-				matchesEncountered[asJSON(match)] = rulen
-			}
-		}
-		if duplicateMatches == len(route.Match) {
-			c.Report(collections.IstioNetworkingV1Alpha3Virtualservices.Name(),
-				msg.NewVirtualServiceUnreachableRule(r, routeName(route, rulen), "all matches used by prior rules"))
-		}
-	}
-}
-
-func asJSON(data interface{}) string {
-	// Remove the name, so we can create a serialization that only includes traffic routing config
-	switch mr := data.(type) {
-	case *v1alpha3.HTTPMatchRequest:
-		if mr.Name != "" {
-			unnamed := *mr
-			unnamed.Name = ""
-			data = &unnamed
-		}
-	}
-
-	b, err := json.Marshal(data)
-	if err != nil {
-		return err.Error()
-	}
-	return string(b)
-}
-
-func routeName(route interface{}, routen int) string {
-	switch r := route.(type) {
-	case *v1alpha3.HTTPRoute:
-		if r.Name != "" {
-			return fmt.Sprintf("%q", r.Name)
-		}
-
-		// TCP and TLS routes have no names
-	}
-
-	return fmt.Sprintf("#%d", routen)
-}
-
-func requestName(match interface{}, matchn int) string {
-	switch mr := match.(type) {
-	case *v1alpha3.HTTPMatchRequest:
-		if mr.Name != "" {
-			return fmt.Sprintf("%q", mr.Name)
-		}
-
-		// TCP and TLS matches have no names
-	}
-
-	return fmt.Sprintf("#%d", matchn)
+	matches.AnalyzeUnreachableHTTPRules(vs.Http, func(ruleno, reason string) {
+		c.Report(collections.IstioNetworkingV1Alpha3Virtualservices.Name(),
+			msg.NewVirtualServiceUnreachableRule(r, ruleno, reason))
+	}, func(ruleno, matchno, dupno string) {
+		c.Report(collections.IstioNetworkingV1Alpha3Virtualservices.Name(),
+			msg.NewVirtualServiceIneffectiveMatch(r, ruleno, matchno, dupno))
+	})
+	matches.AnalyzeUnreachableTCPRules(vs.Tcp, func(ruleno, reason string) {
+		c.Report(collections.IstioNetworkingV1Alpha3Virtualservices.Name(),
+			msg.NewVirtualServiceUnreachableRule(r, ruleno, reason))
+	}, func(ruleno, matchno, dupno string) {
+		c.Report(collections.IstioNetworkingV1Alpha3Virtualservices.Name(),
+			msg.NewVirtualServiceIneffectiveMatch(r, ruleno, matchno, dupno))
+	})
+	matches.AnalyzeUnreachableTLSRules(vs.Tls, func(ruleno, reason string) {
+		c.Report(collections.IstioNetworkingV1Alpha3Virtualservices.Name(),
+			msg.NewVirtualServiceUnreachableRule(r, ruleno, reason))
+	}, func(ruleno, matchno, dupno string) {
+		c.Report(collections.IstioNetworkingV1Alpha3Virtualservices.Name(),
+			msg.NewVirtualServiceIneffectiveMatch(r, ruleno, matchno, dupno))
+	})
 }

@@ -39,6 +39,7 @@ import (
 	networking "istio.io/api/networking/v1alpha3"
 	security_beta "istio.io/api/security/v1beta1"
 	type_beta "istio.io/api/type/v1beta1"
+	"istio.io/istio/galley/pkg/config/analysis/analyzers/virtualservice/matches"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/constants"
@@ -1853,6 +1854,18 @@ var ValidateVirtualService = registerValidateFunc("ValidateVirtualService",
 		}
 
 		errs = appendValidation(errs, validateExportTo(cfg.Namespace, virtualService.ExportTo, false))
+
+		warnUnused := func(ruleno, reason string) {
+			errs = appendValidation(errs, WrapWarning(fmt.Errorf("virtualService rule %v not used (%s)", ruleno, reason)))
+		}
+		warnIneffective := func(ruleno, matchno, dupno string) {
+			errs = appendValidation(errs, WrapWarning(fmt.Errorf("virtualService rule %v match %v is not used (duplicates a match in rule %v)", ruleno, matchno, dupno)))
+		}
+
+		matches.AnalyzeUnreachableHTTPRules(virtualService.Http, warnUnused, warnIneffective)
+		matches.AnalyzeUnreachableTCPRules(virtualService.Tcp, warnUnused, warnIneffective)
+		matches.AnalyzeUnreachableTLSRules(virtualService.Tls, warnUnused, warnIneffective)
+
 		return errs.Unwrap()
 	})
 
