@@ -433,17 +433,24 @@ func (sc *SecretManagerClient) generateKeyCertFromExistingFiles(certChainPath, k
 // readFileWithTimeout reads the given file with timeout. It returns error
 // if it is not able to read file after timeout.
 func (sc *SecretManagerClient) readFileWithTimeout(path string) ([]byte, error) {
-	retryBackoffInMS := int64(firstRetryBackOffInMilliSec)
+	retryBackoffInMS := time.Duration(firstRetryBackOffInMilliSec)
 	for {
 		cert, err := ioutil.ReadFile(path)
 		if err == nil {
 			return cert, nil
 		}
 		select {
-		case <-time.After(time.Duration(retryBackoffInMS)):
+		case <-time.After(retryBackoffInMS):
 			retryBackoffInMS *= 2
-		case <-time.After(totalTimeout):
-			return nil, err
+			// Because it is exponential backoff,
+			// when the next time the backoff time is greater than the maximum,
+			// the waiting time reaches the maximum boundary.
+			// e.g. if total time is 4 and interval starts at 1,
+			// we will meet this criteria after 3 (1+2) seconds have
+			// passed instead of 7 (1+2+4) seconds
+			if retryBackoffInMS > totalTimeout {
+				return nil, err
+			}
 		case <-sc.stop:
 			return nil, err
 		}
