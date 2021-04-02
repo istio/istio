@@ -52,14 +52,14 @@ var (
 	deleted string
 )
 
-func addCallback(_ kube.Client, id string) error {
+func addCallback(_ kube.Client, _ chan struct{}, id string) error {
 	mu.Lock()
 	defer mu.Unlock()
 	added = id
 	return nil
 }
 
-func updateCallback(_ kube.Client, id string) error {
+func updateCallback(_ kube.Client, _ chan struct{}, id string) error {
 	mu.Lock()
 	defer mu.Unlock()
 	updated = id

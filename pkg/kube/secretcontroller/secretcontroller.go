@@ -36,6 +36,7 @@ import (
 	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/client-go/util/workqueue"
 
+	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pkg/kube"
 	"istio.io/pkg/log"
 )
@@ -46,14 +47,8 @@ const (
 	maxRetries              = 5
 )
 
-type Handler interface {
-	addSecretCallback(clients kube.Client, dataKey string) error
-	updateSecretCallback(clients kube.Client, dataKey string) error
-	removeSecretCallback(dataKey string) error
-}
-
 // newClientCallback prototype for the add secret callback function.
-type newClientCallback func(clients kube.Client, dataKey string) error
+type newClientCallback func(clients kube.Client, stop chan struct{}, dataKey string) error
 
 // removeClientCallback prototype for the remove secret callback function.
 type removeClientCallback func(dataKey string) error
@@ -61,26 +56,40 @@ type removeClientCallback func(dataKey string) error
 // Controller is the controller implementation for Secret resources
 type Controller struct {
 	kubeclientset kubernetes.Interface
+	configCluster string
 	namespace     string
 	queue         workqueue.RateLimitingInterface
 	informer      cache.SharedIndexInformer
 
-	cs       *ClusterStore
-	handlers []Handler
+	cs *ClusterStore
 
 	addCallback    newClientCallback
 	updateCallback newClientCallback
 	removeCallback removeClientCallback
 
-	syncInterval time.Duration
-	initialSync  atomic.Bool
+	syncInterval      time.Duration
+	initialSync       atomic.Bool
+	remoteSyncTimeout atomic.Bool
 }
 
 // RemoteCluster defines cluster struct
 type RemoteCluster struct {
 	secretName    string
 	clients       kube.Client
+	stop          chan struct{}
+	synced        *atomic.Bool
 	kubeConfigSha [sha256.Size]byte
+}
+
+// Run starts the cluster's informers and waits for caches to sync. Once caches are synced, we mark the cluster synced.
+// This should be called after each of the handlers have registered informers, and should be run in a goroutine.
+func (r *RemoteCluster) Run() {
+	r.clients.RunAndWait(r.stop)
+	r.synced.Store(true)
+}
+
+func (r *RemoteCluster) HasSynced() bool {
+	return r.synced.Load()
 }
 
 // ClusterStore is a collection of clusters
@@ -203,13 +212,39 @@ func (c *Controller) Run(stopCh <-chan struct{}) {
 	}
 	// all secret events before this signal must be processed before we're marked "ready"
 	c.queue.Add(initialSyncSignal)
-
+	time.AfterFunc(features.RemoteClusterTimeout, func() {
+		c.remoteSyncTimeout.Store(true)
+	})
 	go wait.Until(c.runWorker, 5*time.Second, stopCh)
 	<-stopCh
+	c.close()
+}
+
+func (c *Controller) close() {
+	c.cs.Lock()
+	defer c.cs.Unlock()
+	for _, cluster := range c.cs.remoteClusters {
+		close(cluster.stop)
+	}
 }
 
 func (c *Controller) HasSynced() bool {
-	return c.initialSync.Load()
+	if !c.initialSync.Load() {
+		// we haven't finished processing the secrets that were present at startup
+		return false
+	}
+	c.cs.RLock()
+	defer c.cs.RUnlock()
+	for clusterID, cluster := range c.cs.remoteClusters {
+		if c.remoteSyncTimeout.Load() && clusterID != c.configCluster {
+			continue
+		}
+		if !cluster.HasSynced() {
+			// TODO timeout
+			return false
+		}
+	}
+	return true
 }
 
 // StartSecretController creates the secret controller.
@@ -309,6 +344,8 @@ func createRemoteCluster(kubeConfig []byte, secretName string) (*RemoteCluster, 
 	return &RemoteCluster{
 		secretName:    secretName,
 		clients:       clients,
+		stop:          make(chan struct{}),
+		synced:        atomic.NewBool(false),
 		kubeConfigSha: sha256.Sum256(kubeConfig),
 	}, nil
 }
@@ -338,10 +375,11 @@ func (c *Controller) addMemberCluster(secretName string, s *corev1.Secret) {
 			continue
 		}
 		c.cs.Store(clusterID, remoteCluster)
-		if err := callback(remoteCluster.clients, clusterID); err != nil {
+		if err := callback(remoteCluster.clients, remoteCluster.stop, clusterID); err != nil {
 			log.Errorf("%s cluster_id from secret=%v: %s %v", action, clusterID, secretName, err)
 			continue
 		}
+		go remoteCluster.Run()
 	}
 
 	log.Infof("Number of remote clusters: %d", c.cs.Len())
