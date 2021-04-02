@@ -480,135 +480,133 @@ func TestAuthorization_IngressGateway(t *testing.T) {
 	framework.NewTest(t).
 		Features("security.authorization.ingress-gateway").
 		Run(func(t framework.TestContext) {
-			ns := namespace.NewOrFail(t, t, namespace.Config{
-				Prefix: "v1beta1-ingress-gateway",
-				Inject: true,
-			})
-			args := map[string]string{
-				"Namespace":     ns.Name(),
-				"RootNamespace": istio.GetOrFail(t, t).Settings().SystemNamespace,
-			}
+			ns := apps.Namespace1
+			rootns := newRootNS(t)
+			b := apps.B.Match(echo.Namespace(apps.Namespace1.Name()))
+			vm := apps.VM.Match(echo.Namespace(apps.Namespace1.Name()))
+			for _, dst := range []echo.Instances{b, vm} {
+				args := map[string]string{
+					"Namespace":     ns.Name(),
+					"RootNamespace": rootns.rootNamespace,
+					"dst":           dst[0].Config().Service,
+				}
 
-			applyPolicy := func(filename string) {
-				policy := tmpl.EvaluateAllOrFail(t, args, file.AsStringOrFail(t, filename))
-				t.Config().ApplyYAMLOrFail(t, "", policy...)
-			}
-			applyPolicy("testdata/authz/v1beta1-ingress-gateway.yaml.tmpl")
+				applyPolicy := func(filename string) {
+					policy := tmpl.EvaluateAllOrFail(t, args, file.AsStringOrFail(t, filename))
+					t.Config().ApplyYAMLOrFail(t, "", policy...)
+				}
+				applyPolicy("testdata/authz/v1beta1-ingress-gateway.yaml.tmpl")
 
-			var b echo.Instance
-			echoboot.NewBuilder(t).
-				With(&b, util.EchoConfig("b", ns, false, nil)).
-				BuildOrFail(t)
+				ingr := ist.IngressFor(t.Clusters().Default())
 
-			ingr := ist.IngressFor(t.Clusters().Default())
+				cases := []struct {
+					Name     string
+					Host     string
+					Path     string
+					IP       string
+					WantCode int
+				}{
+					{
+						Name:     "allow www.company.com",
+						Host:     "www.company.com",
+						Path:     "/",
+						IP:       "172.16.0.1",
+						WantCode: 200,
+					},
+					{
+						Name:     "deny www.company.com/private",
+						Host:     "www.company.com",
+						Path:     "/private",
+						IP:       "172.16.0.1",
+						WantCode: 403,
+					},
+					{
+						Name:     "allow www.company.com/public",
+						Host:     "www.company.com",
+						Path:     "/public",
+						IP:       "172.16.0.1",
+						WantCode: 200,
+					},
+					{
+						Name:     "deny internal.company.com",
+						Host:     "internal.company.com",
+						Path:     "/",
+						IP:       "172.16.0.1",
+						WantCode: 403,
+					},
+					{
+						Name:     "deny internal.company.com/private",
+						Host:     "internal.company.com",
+						Path:     "/private",
+						IP:       "172.16.0.1",
+						WantCode: 403,
+					},
+					{
+						Name:     "deny 172.17.72.46",
+						Host:     "remoteipblocks.company.com",
+						Path:     "/",
+						IP:       "172.17.72.46",
+						WantCode: 403,
+					},
+					{
+						Name:     "deny 192.168.5.233",
+						Host:     "remoteipblocks.company.com",
+						Path:     "/",
+						IP:       "192.168.5.233",
+						WantCode: 403,
+					},
+					{
+						Name:     "allow 10.4.5.6",
+						Host:     "remoteipblocks.company.com",
+						Path:     "/",
+						IP:       "10.4.5.6",
+						WantCode: 200,
+					},
+					{
+						Name:     "deny 10.2.3.4",
+						Host:     "notremoteipblocks.company.com",
+						Path:     "/",
+						IP:       "10.2.3.4",
+						WantCode: 403,
+					},
+					{
+						Name:     "allow 172.23.242.188",
+						Host:     "notremoteipblocks.company.com",
+						Path:     "/",
+						IP:       "172.23.242.188",
+						WantCode: 200,
+					},
+					{
+						Name:     "deny 10.242.5.7",
+						Host:     "remoteipattr.company.com",
+						Path:     "/",
+						IP:       "10.242.5.7",
+						WantCode: 403,
+					},
+					{
+						Name:     "deny 10.124.99.10",
+						Host:     "remoteipattr.company.com",
+						Path:     "/",
+						IP:       "10.124.99.10",
+						WantCode: 403,
+					},
+					{
+						Name:     "allow 10.4.5.6",
+						Host:     "remoteipattr.company.com",
+						Path:     "/",
+						IP:       "10.4.5.6",
+						WantCode: 200,
+					},
+				}
 
-			cases := []struct {
-				Name     string
-				Host     string
-				Path     string
-				IP       string
-				WantCode int
-			}{
-				{
-					Name:     "allow www.company.com",
-					Host:     "www.company.com",
-					Path:     "/",
-					IP:       "172.16.0.1",
-					WantCode: 200,
-				},
-				{
-					Name:     "deny www.company.com/private",
-					Host:     "www.company.com",
-					Path:     "/private",
-					IP:       "172.16.0.1",
-					WantCode: 403,
-				},
-				{
-					Name:     "allow www.company.com/public",
-					Host:     "www.company.com",
-					Path:     "/public",
-					IP:       "172.16.0.1",
-					WantCode: 200,
-				},
-				{
-					Name:     "deny internal.company.com",
-					Host:     "internal.company.com",
-					Path:     "/",
-					IP:       "172.16.0.1",
-					WantCode: 403,
-				},
-				{
-					Name:     "deny internal.company.com/private",
-					Host:     "internal.company.com",
-					Path:     "/private",
-					IP:       "172.16.0.1",
-					WantCode: 403,
-				},
-				{
-					Name:     "deny 172.17.72.46",
-					Host:     "remoteipblocks.company.com",
-					Path:     "/",
-					IP:       "172.17.72.46",
-					WantCode: 403,
-				},
-				{
-					Name:     "deny 192.168.5.233",
-					Host:     "remoteipblocks.company.com",
-					Path:     "/",
-					IP:       "192.168.5.233",
-					WantCode: 403,
-				},
-				{
-					Name:     "allow 10.4.5.6",
-					Host:     "remoteipblocks.company.com",
-					Path:     "/",
-					IP:       "10.4.5.6",
-					WantCode: 200,
-				},
-				{
-					Name:     "deny 10.2.3.4",
-					Host:     "notremoteipblocks.company.com",
-					Path:     "/",
-					IP:       "10.2.3.4",
-					WantCode: 403,
-				},
-				{
-					Name:     "allow 172.23.242.188",
-					Host:     "notremoteipblocks.company.com",
-					Path:     "/",
-					IP:       "172.23.242.188",
-					WantCode: 200,
-				},
-				{
-					Name:     "deny 10.242.5.7",
-					Host:     "remoteipattr.company.com",
-					Path:     "/",
-					IP:       "10.242.5.7",
-					WantCode: 403,
-				},
-				{
-					Name:     "deny 10.124.99.10",
-					Host:     "remoteipattr.company.com",
-					Path:     "/",
-					IP:       "10.124.99.10",
-					WantCode: 403,
-				},
-				{
-					Name:     "allow 10.4.5.6",
-					Host:     "remoteipattr.company.com",
-					Path:     "/",
-					IP:       "10.4.5.6",
-					WantCode: 200,
-				},
-			}
-
-			for _, tc := range cases {
-				t.NewSubTest(tc.Name).Run(func(t framework.TestContext) {
-					headers := map[string][]string{
-						"X-Forwarded-For": {tc.IP},
-					}
-					authn.CheckIngressOrFail(t, ingr, tc.Host, tc.Path, headers, "", tc.WantCode)
-				})
+				for _, tc := range cases {
+					t.NewSubTest(tc.Name).Run(func(t framework.TestContext) {
+						headers := map[string][]string{
+							"X-Forwarded-For": {tc.IP},
+						}
+						authn.CheckIngressOrFail(t, ingr, tc.Host, tc.Path, headers, "", tc.WantCode)
+					})
+				}
 			}
 		})
 }
@@ -618,32 +616,16 @@ func TestAuthorization_EgressGateway(t *testing.T) {
 	framework.NewTest(t).
 		Features("security.authorization.egress-gateway").
 		Run(func(t framework.TestContext) {
-			ns := namespace.NewOrFail(t, t, namespace.Config{
-				Prefix: "v1beta1-egress-gateway",
-				Inject: true,
-			})
-
-			var a, b, c echo.Instance
-			echoboot.NewBuilder(t).
-				With(&a, util.EchoConfig("a", ns, false, nil)).
-				With(&b, echo.Config{
-					Service:   "b",
-					Namespace: ns,
-					Subsets:   []echo.SubsetConfig{{}},
-					Ports: []echo.Port{
-						{
-							Name:        "http",
-							Protocol:    protocol.HTTP,
-							ServicePort: 8090,
-						},
-					},
-				}).
-				With(&c, util.EchoConfig("c", ns, false, nil)).
-				BuildOrFail(t)
-
+			ns := apps.Namespace1
+			rootns := newRootNS(t)
+			src0 := apps.A.Match(echo.Namespace(apps.Namespace1.Name()))
+			src1 := apps.VM.Match(echo.Namespace(apps.Namespace1.Name()))
+			// Workload c is accessible via egress gateway.
 			args := map[string]string{
 				"Namespace":     ns.Name(),
-				"RootNamespace": istio.GetOrFail(t, t).Settings().SystemNamespace,
+				"RootNamespace": rootns.rootNamespace,
+				"src":           util.ASvc,
+				"dst":           util.CSvc,
 			}
 			policies := tmpl.EvaluateAllOrFail(t, args,
 				file.AsStringOrFail(t, "testdata/authz/v1beta1-egress-gateway.yaml.tmpl"))
@@ -664,7 +646,7 @@ func TestAuthorization_EgressGateway(t *testing.T) {
 					code: response.StatusCodeOK,
 					body: "handled-by-egress-gateway",
 					host: "www.company.com",
-					from: getWorkload(a, t),
+					from: getWorkload(src0[0], t),
 				},
 				{
 					name: "deny path to company.com",
@@ -672,76 +654,76 @@ func TestAuthorization_EgressGateway(t *testing.T) {
 					code: response.StatusCodeForbidden,
 					body: "RBAC: access denied",
 					host: "www.company.com",
-					from: getWorkload(a, t),
+					from: getWorkload(src0[0], t),
 				},
 				{
-					name: "allow service account a to a-only.com over mTLS",
+					name: "allow service account src0 to src0-only.com over mTLS",
 					path: "/",
 					code: response.StatusCodeOK,
 					body: "handled-by-egress-gateway",
-					host: "a-only.com",
-					from: getWorkload(a, t),
+					host: fmt.Sprintf("%s-only.com", src0[0].Config().Service),
+					from: getWorkload(src0[0], t),
 				},
 				{
-					name: "deny service account c to a-only.com over mTLS",
+					name: "deny service account src1 to src0-only.com over mTLS",
 					path: "/",
 					code: response.StatusCodeForbidden,
 					body: "RBAC: access denied",
-					host: "a-only.com",
-					from: getWorkload(c, t),
+					host: fmt.Sprintf("%s-only.com", src0[0].Config().Service),
+					from: getWorkload(src1[0], t),
 				},
 				{
-					name:  "allow a with JWT to jwt-only.com over mTLS",
+					name:  "allow src0 with JWT to jwt-only.com over mTLS",
 					path:  "/",
 					code:  response.StatusCodeOK,
 					body:  "handled-by-egress-gateway",
 					host:  "jwt-only.com",
-					from:  getWorkload(a, t),
+					from:  getWorkload(src0[0], t),
 					token: jwt.TokenIssuer1,
 				},
 				{
-					name:  "allow c with JWT to jwt-only.com over mTLS",
+					name:  "allow src1 with JWT to jwt-only.com over mTLS",
 					path:  "/",
 					code:  response.StatusCodeOK,
 					body:  "handled-by-egress-gateway",
 					host:  "jwt-only.com",
-					from:  getWorkload(c, t),
+					from:  getWorkload(src1[0], t),
 					token: jwt.TokenIssuer1,
 				},
 				{
-					name:  "deny c with wrong JWT to jwt-only.com over mTLS",
+					name:  "deny src1 with wrong JWT to jwt-only.com over mTLS",
 					path:  "/",
 					code:  response.StatusCodeForbidden,
 					body:  "RBAC: access denied",
 					host:  "jwt-only.com",
-					from:  getWorkload(c, t),
+					from:  getWorkload(src1[0], t),
 					token: jwt.TokenIssuer2,
 				},
 				{
-					name:  "allow service account a with JWT to jwt-and-a-only.com over mTLS",
+					name:  "allow service account src0 with JWT to jwt-and-src0-only.com over mTLS",
 					path:  "/",
 					code:  response.StatusCodeOK,
 					body:  "handled-by-egress-gateway",
-					host:  "jwt-and-a-only.com",
-					from:  getWorkload(a, t),
+					host:  fmt.Sprintf("jwt-and-%s-only.com", src0[0].Config().Service),
+					from:  getWorkload(src0[0], t),
 					token: jwt.TokenIssuer1,
 				},
 				{
-					name:  "deny service account c with JWT to jwt-and-a-only.com over mTLS",
+					name:  "deny service account src1 with JWT to jwt-and-src0-only.com over mTLS",
 					path:  "/",
 					code:  response.StatusCodeForbidden,
 					body:  "RBAC: access denied",
-					host:  "jwt-and-a-only.com",
-					from:  getWorkload(c, t),
+					host:  fmt.Sprintf("jwt-and-%s-only.com", src0[0].Config().Service),
+					from:  getWorkload(src1[0], t),
 					token: jwt.TokenIssuer1,
 				},
 				{
-					name:  "deny service account a with wrong JWT to jwt-and-a-only.com over mTLS",
+					name:  "deny service account src0 with wrong JWT to jwt-and-src0-only.com over mTLS",
 					path:  "/",
 					code:  response.StatusCodeForbidden,
 					body:  "RBAC: access denied",
-					host:  "jwt-and-a-only.com",
-					from:  getWorkload(a, t),
+					host:  fmt.Sprintf("jwt-and-%s-only.com", src0[0].Config().Service),
+					from:  getWorkload(src0[0], t),
 					token: jwt.TokenIssuer2,
 				},
 			}
