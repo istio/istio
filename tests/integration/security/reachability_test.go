@@ -140,7 +140,10 @@ func TestReachability(t *testing.T) {
 						// Without TLS we can't perform SNI routing required for multi-network
 						return dest.Match(echo.InNetwork(src.Config().Cluster.NetworkName()))
 					},
-					ExpectSuccess: Always,
+					ExpectSuccess: func(src echo.Instance, opts echo.CallOptions) bool {
+						// When mTLS is disabled, all traffic should work.
+						return true
+					},
 				},
 				{
 					ConfigFile: "automtls-passthrough.yaml",
