@@ -2389,7 +2389,7 @@ func TestShouldH2Upgrade(t *testing.T) {
 	}
 }
 
-// no linit
+// nolint
 func TestIsHttp2Cluster(t *testing.T) {
 	tests := []struct {
 		name           string
