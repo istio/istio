@@ -170,6 +170,7 @@ values:
       # Unauthorized XDS: 10.1.0.159:41960 with identity [spiffe://cluster.local/ns/mounted-certs/sa/client client.mounted-certs.svc]: 
       #    no identities ([spiffe://cluster.local/ns/mounted-certs/sa/client client.mounted-certs.svc]) matched istio-fd-sds-1-4523/default
       XDS_AUTH: "false"
+      PILOT_ALLOW_METADATA_CERTS_DR_MUTUAL_TLS: "true"
 `
 	cfg.DeployEastWestGW = false
 }

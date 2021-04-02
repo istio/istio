@@ -401,10 +401,16 @@ func buildAutoMtlsSettings(
 	tls *networking.ClientTLSSettings,
 	serviceAccounts []string,
 	sni string,
+	proxy *model.Proxy,
 	autoMTLSEnabled bool,
 	meshExternal bool,
 	serviceMTLSMode model.MutualTLSMode) (*networking.ClientTLSSettings, mtlsContextType) {
 	if tls != nil {
+		// For backward compatibility, use metadata certs if provided
+		if features.AllowMetadataCertsInMutualTLS && proxy.Metadata.TLSClientRootCert != "" {
+			return buildMutualTLS(serviceAccounts, sni, proxy), autoDetected
+		}
+
 		if tls.Mode != networking.ClientTLSSettings_ISTIO_MUTUAL {
 			return tls, userSupplied
 		}
@@ -427,8 +433,25 @@ func buildAutoMtlsSettings(
 		return nil, userSupplied
 	}
 
+	// For backward compatibility, use metadata certs if provided
+	if features.AllowMetadataCertsInMutualTLS && proxy.Metadata.TLSClientRootCert != "" {
+		return buildMutualTLS(serviceAccounts, sni, proxy), autoDetected
+	}
+
 	// Build settings for auto MTLS.
 	return buildIstioMutualTLS(serviceAccounts, sni), autoDetected
+}
+
+// buildMutualTLS returns a `TLSSettings` for MUTUAL mode.
+func buildMutualTLS(serviceAccounts []string, sni string, proxy *model.Proxy) *networking.ClientTLSSettings {
+	return &networking.ClientTLSSettings{
+		Mode:              networking.ClientTLSSettings_MUTUAL,
+		CaCertificates:    proxy.Metadata.TLSClientRootCert,
+		ClientCertificate: proxy.Metadata.TLSClientCertChain,
+		PrivateKey:        proxy.Metadata.TLSClientKey,
+		SubjectAltNames:   serviceAccounts,
+		Sni:               sni,
+	}
 }
 
 // buildIstioMutualTLS returns a `TLSSettings` for ISTIO_MUTUAL mode.
