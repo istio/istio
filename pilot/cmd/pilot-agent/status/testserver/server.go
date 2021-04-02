@@ -48,7 +48,10 @@ func createDefaultFuncMap(statsToReturn string) map[string]func(rw http.Response
 
 		"/stats": func(rw http.ResponseWriter, _ *http.Request) {
 			// Send response to be tested
-			rw.Write([]byte(statsToReturn))
+			_, err := rw.Write([]byte(statsToReturn))
+			if err != nil {
+				panic("Could not write response: " + err.Error())
+			}
 		},
 	}
 }
