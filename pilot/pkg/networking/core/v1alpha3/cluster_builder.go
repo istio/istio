@@ -894,8 +894,7 @@ func http2ProtocolOptions() *core.Http2ProtocolOptions {
 // nolint
 func (cb *ClusterBuilder) IsHttp2Cluster(mc *MutableCluster) bool {
 	options := mc.httpProtocolOptions
-	return options != nil && (options.GetExplicitHttpConfig().GetHttp2ProtocolOptions() != nil ||
-		options.GetUseDownstreamProtocolConfig().Http2ProtocolOptions != nil)
+	return options != nil && options.GetExplicitHttpConfig().GetHttp2ProtocolOptions() != nil
 }
 
 func (cb *ClusterBuilder) setUpstreamProtocol(node *model.Proxy, mc *MutableCluster, port *model.Port, direction model.TrafficDirection) {

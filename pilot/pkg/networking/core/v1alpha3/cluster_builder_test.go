@@ -2241,10 +2241,21 @@ func newTestCluster() *MutableCluster {
 }
 
 func newH2TestCluster() *MutableCluster {
-	return NewMutableCluster(&cluster.Cluster{
-		Name:                 "test-cluster",
-		Http2ProtocolOptions: &core.Http2ProtocolOptions{},
+	cb := NewClusterBuilder(nil, nil)
+	mc := NewMutableCluster(&cluster.Cluster{
+		Name: "test-cluster",
 	})
+	cb.setH2Options(mc)
+	return mc
+}
+
+func newDownstreamTestCluster() *MutableCluster {
+	cb := NewClusterBuilder(nil, nil)
+	mc := NewMutableCluster(&cluster.Cluster{
+		Name: "test-cluster",
+	})
+	cb.setUseDownstreamProtocol(mc)
+	return mc
 }
 
 // Helper function to extract TLS context from a cluster
@@ -2373,6 +2384,42 @@ func TestShouldH2Upgrade(t *testing.T) {
 
 			if upgrade != test.upgrade {
 				t.Fatalf("got: %t, want: %t (%v, %v)", upgrade, test.upgrade, test.mesh.H2UpgradePolicy, test.connectionPool.Http.H2UpgradePolicy)
+			}
+		})
+	}
+}
+
+// nolint
+func TestIsHttp2Cluster(t *testing.T) {
+	tests := []struct {
+		name           string
+		cluster        *MutableCluster
+		isHttp2Cluster bool
+	}{
+		{
+			name:           "with no h2 options",
+			cluster:        newTestCluster(),
+			isHttp2Cluster: false,
+		},
+		{
+			name:           "with h2 options",
+			cluster:        newH2TestCluster(),
+			isHttp2Cluster: true,
+		},
+		{
+			name:           "with downstream config and h2 options",
+			cluster:        newDownstreamTestCluster(),
+			isHttp2Cluster: false,
+		},
+	}
+
+	cb := NewClusterBuilder(nil, nil)
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			isHttp2Cluster := cb.IsHttp2Cluster(test.cluster)
+			if isHttp2Cluster != test.isHttp2Cluster {
+				t.Errorf("got: %t, want: %t", isHttp2Cluster, test.isHttp2Cluster)
 			}
 		})
 	}
