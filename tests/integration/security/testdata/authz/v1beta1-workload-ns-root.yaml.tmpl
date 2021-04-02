@@ -8,9 +8,9 @@ metadata:
 spec:
   selector:
     matchLabels:
-      "app": "{{ .dst }}"
+      "app": "{{ .dst1 }}"
   rules:
   - to:
     - operation:
-        paths: ["/policy-ns-root-{{ .dst }}"]
+        paths: ["/policy-ns-root-{{ .dst1 }}"]
 ---

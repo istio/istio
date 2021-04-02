@@ -8,11 +8,11 @@ metadata:
 spec:
   selector:
     matchLabels:
-      "app": "{{ .dst }}"
+      "app": "{{ .dst1 }}"
   rules:
   - to:
     - operation:
-        paths: ["/policy-ns2-{{ .dst }}"]
+        paths: ["/policy-ns2-{{ .dst1 }}"]
 ---
 
 # The following policy selects all workloads in namespace 2

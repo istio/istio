@@ -255,11 +255,13 @@ func TestAuthorization_WorkloadSelector(t *testing.T) {
 			for _, srcCluster := range t.Clusters() {
 				a := apps.A.Match(echo.InCluster(srcCluster).And(echo.Namespace(apps.Namespace1.Name())))
 				cases := []struct {
-					configDst string
-					subCases  []rbacUtil.TestCase
+					configDst0 string
+					configDst1 string
+					subCases   []rbacUtil.TestCase
 				}{
-					{
-						configDst: util.BSvc,
+					{ // Sends requests to b and c in ns1.
+						configDst0: util.BSvc,
+						configDst1: util.CSvc,
 						subCases: []rbacUtil.TestCase{
 							newTestCase("[bInNS1]", a, bInNS1, "/policy-ns1-b", true),
 							newTestCase("[bInNS1]", a, bInNS1, "/policy-ns1-vm", false),
@@ -269,24 +271,6 @@ func TestAuthorization_WorkloadSelector(t *testing.T) {
 							newTestCase("[bInNS1]", a, bInNS1, "/policy-ns2-c", false),
 							newTestCase("[bInNS1]", a, bInNS1, "/policy-ns2-all", false),
 							newTestCase("[bInNS1]", a, bInNS1, "/policy-ns-root-c", false),
-						},
-					},
-					{
-						configDst: util.VMSvc,
-						subCases: []rbacUtil.TestCase{
-							newTestCase("[vmInNS1]", a, vmInNS1, "/policy-ns1-b", false),
-							newTestCase("[vmInNS1]", a, vmInNS1, "/policy-ns1-vm", true),
-							newTestCase("[vmInNS1]", a, vmInNS1, "/policy-ns1-c", false),
-							newTestCase("[vmInNS1]", a, vmInNS1, "/policy-ns1-x", false),
-							newTestCase("[vmInNS1]", a, vmInNS1, "/policy-ns1-all", true),
-							newTestCase("[vmInNS1]", a, vmInNS1, "/policy-ns2-b", false),
-							newTestCase("[vmInNS1]", a, vmInNS1, "/policy-ns2-all", false),
-							newTestCase("[vmInNS1]", a, vmInNS1, "/policy-ns-root-c", false),
-						},
-					},
-					{
-						configDst: util.CSvc,
-						subCases: []rbacUtil.TestCase{
 							newTestCase("[cInNS1]", a, cInNS1, "/policy-ns1-b", false),
 							newTestCase("[cInNS1]", a, cInNS1, "/policy-ns1-vm", false),
 							newTestCase("[cInNS1]", a, cInNS1, "/policy-ns1-c", true),
@@ -297,9 +281,18 @@ func TestAuthorization_WorkloadSelector(t *testing.T) {
 							newTestCase("[cInNS1]", a, cInNS1, "/policy-ns-root-c", true),
 						},
 					},
-					{
-						configDst: util.CSvc,
+					{ // Send requests to vm in ns1 and c in ns2.
+						configDst0: util.VMSvc,
+						configDst1: util.CSvc,
 						subCases: []rbacUtil.TestCase{
+							newTestCase("[vmInNS1]", a, vmInNS1, "/policy-ns1-b", false),
+							newTestCase("[vmInNS1]", a, vmInNS1, "/policy-ns1-vm", true),
+							newTestCase("[vmInNS1]", a, vmInNS1, "/policy-ns1-c", false),
+							newTestCase("[vmInNS1]", a, vmInNS1, "/policy-ns1-x", false),
+							newTestCase("[vmInNS1]", a, vmInNS1, "/policy-ns1-all", true),
+							newTestCase("[vmInNS1]", a, vmInNS1, "/policy-ns2-b", false),
+							newTestCase("[vmInNS1]", a, vmInNS1, "/policy-ns2-all", false),
+							newTestCase("[vmInNS1]", a, vmInNS1, "/policy-ns-root-c", false),
 							newTestCase("[cInNS2]", a, cInNS2, "/policy-ns1-b", false),
 							newTestCase("[cInNS2]", a, cInNS2, "/policy-ns1-vm", false),
 							newTestCase("[cInNS2]", a, cInNS2, "/policy-ns1-c", false),
@@ -319,7 +312,8 @@ func TestAuthorization_WorkloadSelector(t *testing.T) {
 								"Namespace1":    ns1.Name(),
 								"Namespace2":    ns2.Name(),
 								"RootNamespace": rootns.rootNamespace,
-								"dst":           tc.configDst,
+								"dst0":          tc.configDst0,
+								"dst1":          tc.configDst1,
 							}
 							applyPolicy := func(filename string, ns namespace.Instance) {
 								policy := tmpl.EvaluateAllOrFail(t, args, file.AsStringOrFail(t, filename))

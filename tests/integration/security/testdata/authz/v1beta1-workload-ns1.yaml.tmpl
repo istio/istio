@@ -1,18 +1,35 @@
-# The following policy selects workload in namespace 1
+# The following policy selects workload dst0 in namespace 1
 
 apiVersion: security.istio.io/v1beta1
 kind: AuthorizationPolicy
 metadata:
-  name: policy-ns1-workloadselector
+  name: policy-ns1-dst0
   namespace: "{{ .Namespace1 }}"
 spec:
   selector:
     matchLabels:
-      "app": "{{ .dst }}"
+      "app": "{{ .dst0 }}"
   rules:
   - to:
     - operation:
-        paths: ["/policy-ns1-{{ .dst }}"]
+        paths: ["/policy-ns1-{{ .dst0 }}"]
+---
+
+# The following policy selects workload dst1 in namespace 1
+
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: policy-ns1-dst1
+  namespace: "{{ .Namespace1 }}"
+spec:
+  selector:
+    matchLabels:
+      "app": "{{ .dst1 }}"
+  rules:
+  - to:
+    - operation:
+        paths: ["/policy-ns1-{{ .dst1 }}"]
 ---
 
 # The following policy selects a non-exist workload in namespace 1
@@ -25,7 +42,7 @@ metadata:
 spec:
   selector:
     matchLabels:
-      "app": "{{ .dst }}"
+      "app": "{{ .dst1C }}"
       "foo": "bla"
   rules:
   - to:
