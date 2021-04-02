@@ -61,6 +61,17 @@ var h2UpgradeMap = map[upgradeTuple]bool{
 	{meshconfig.MeshConfig_UPGRADE, networking.ConnectionPoolSettings_HTTPSettings_DEFAULT}:               true,
 }
 
+// passthroughHttpProtocolOptions are http protocol options used for pass through clusters.
+// nolint
+var passthroughHttpProtocolOptions = util.MessageToAny(&http.HttpProtocolOptions{
+	UpstreamProtocolOptions: &http.HttpProtocolOptions_UseDownstreamProtocolConfig{
+		UseDownstreamProtocolConfig: &http.HttpProtocolOptions_UseDownstreamHttpConfig{
+			HttpProtocolOptions:  &core.Http1ProtocolOptions{},
+			Http2ProtocolOptions: http2ProtocolOptions(),
+		},
+	},
+})
+
 // MutableCluster wraps Cluster object along with options.
 type MutableCluster struct {
 	cluster *cluster.Cluster
@@ -474,7 +485,9 @@ func (cb *ClusterBuilder) buildDefaultPassthroughCluster() *cluster.Cluster {
 		ClusterDiscoveryType: &cluster.Cluster_Type{Type: cluster.Cluster_ORIGINAL_DST},
 		ConnectTimeout:       gogo.DurationToProtoDuration(cb.push.Mesh.ConnectTimeout),
 		LbPolicy:             cluster.Cluster_CLUSTER_PROVIDED,
-		ProtocolSelection:    cluster.Cluster_USE_DOWNSTREAM_PROTOCOL,
+	}
+	cluster.TypedExtensionProtocolOptions = map[string]*any.Any{
+		v3.HttpProtocolOptionsType: passthroughHttpProtocolOptions,
 	}
 	passthroughSettings := &networking.ConnectionPoolSettings{}
 	cb.applyConnectionPool(cb.push.Mesh, NewMutableCluster(cluster), passthroughSettings)
