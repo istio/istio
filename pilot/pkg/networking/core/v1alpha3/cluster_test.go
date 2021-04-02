@@ -569,11 +569,11 @@ func TestBuildClustersWithMutualTlsAndNodeMetadataCertfileOverrides(t *testing.T
 		g.Expect(tlsContext).NotTo(BeNil())
 
 		rootSdsConfig := tlsContext.CommonTlsContext.GetCombinedValidationContext().GetValidationContextSdsSecretConfig()
-		g.Expect(rootSdsConfig.GetName()).To(Equal("file-root:/defaultCaCert.pem"))
+		g.Expect(rootSdsConfig.GetName()).To(Equal("file-root:/clientRootCertFromNodeMetadata.pem"))
 
 		certSdsConfig := tlsContext.CommonTlsContext.GetTlsCertificateSdsSecretConfigs()
 		g.Expect(certSdsConfig).To(HaveLen(1))
-		g.Expect(certSdsConfig[0].GetName()).To(Equal("file-cert:/defaultCert.pem~/defaultPrivateKey.pem"))
+		g.Expect(certSdsConfig[0].GetName()).To(Equal("file-cert:/clientCertFromNodeMetadata.pem~/clientKeyFromNodeMetadata.pem"))
 	}
 }
 
