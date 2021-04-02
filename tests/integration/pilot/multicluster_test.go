@@ -20,16 +20,20 @@ import (
 	"fmt"
 	"sync"
 	"testing"
+	"time"
 
 	"github.com/hashicorp/go-multierror"
-	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pkg/test/echo/common/scheme"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/cluster"
 	"istio.io/istio/pkg/test/framework/components/echo"
+	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/scopes"
+	"istio.io/istio/pkg/test/util/retry"
 	"istio.io/istio/pkg/util/gogoprotomarshal"
 )
 
@@ -91,6 +95,73 @@ serviceSettings:
 		})
 }
 
+func TestBadRemoteSecret(t *testing.T) {
+	framework.NewTest(t).
+		RequiresMinClusters(2).
+		Features(
+			// TODO tracking topologies as feature labels doesn't make sense
+			"installation.multicluster.multimaster",
+			"installation.multicluster.remote",
+		).
+		Run(func(t framework.TestContext) {
+			// we don't need to test this per-cluster
+			primary := t.Clusters().Configs()[0]
+			// it doesn't matter if the other cluster is a primary/remote/etc.
+			remote := t.Clusters().Exclude(primary)[0]
+
+			if _, err := remote.Config().CoreV1().ServiceAccounts(i.Settings().SystemNamespace).Create(context.TODO(), &corev1.ServiceAccount{
+				ObjectMeta: metav1.ObjectMeta{Name: "istio-reader-no-perms", Namespace: i.Settings().SystemNamespace},
+			}, metav1.CreateOptions{}); err != nil {
+				t.Fatal(err)
+			}
+
+			// intentionally not doing this with subtests since it would be pretty slow
+			for name, opts := range map[string][]string{
+				"unreachable server": {"--server", "https://255.255.255.255"},
+				"no permissions":     {"--service-account", "istio-reader-no-perms"},
+			} {
+				secret, err := istio.CreateRemoteSecret(t, remote, i.Settings(), opts...)
+				if err != nil {
+					t.Fatalf("failed generating secret with %s: %v", name, err)
+				}
+				t.Config().ApplyYAMLOrFail(t, i.Settings().SystemNamespace, secret)
+			}
+
+			deps, err := primary.AppsV1().
+				Deployments(i.Settings().SystemNamespace).List(context.TODO(), metav1.ListOptions{LabelSelector: "app=istiod"})
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			pods := primary.CoreV1().Pods(i.Settings().SystemNamespace)
+			podMeta := deps.Items[0].Spec.Template.ObjectMeta
+			podMeta.Name = "istiod-bad-secrets-test"
+			_, err = pods.Create(context.TODO(), &corev1.Pod{
+				ObjectMeta: podMeta,
+				Spec:       deps.Items[0].Spec.Template.Spec,
+			}, metav1.CreateOptions{})
+			if err != nil {
+				t.Fatal(err)
+			}
+			t.Cleanup(func() {
+				if err := pods.Delete(context.TODO(), podMeta.Name, metav1.DeleteOptions{}); err != nil {
+					t.Logf("error cleaning up %s: %v", podMeta.Name, err)
+				}
+			})
+			retry.UntilSuccessOrFail(t, func() error {
+				pod, err := pods.Get(context.TODO(), podMeta.Name, metav1.GetOptions{})
+				if err != nil {
+					return err
+				}
+				status := pod.Status.ContainerStatuses
+				if len(status) < 1 || !status[0].Ready {
+					return fmt.Errorf("%s not ready", podMeta.Name)
+				}
+				return nil
+			}, retry.Timeout(time.Minute), retry.Delay(time.Second))
+		})
+}
+
 func patchMeshConfig(t framework.TestContext, clusters cluster.Clusters, patch string) {
 	errG := multierror.Group{}
 	origCfg := map[string]string{}
@@ -103,7 +174,7 @@ func patchMeshConfig(t framework.TestContext, clusters cluster.Clusters, patch s
 	for _, c := range clusters.Kube() {
 		c := c
 		errG.Go(func() error {
-			cm, err := c.CoreV1().ConfigMaps(i.Settings().SystemNamespace).Get(context.TODO(), cmName, v1.GetOptions{})
+			cm, err := c.CoreV1().ConfigMaps(i.Settings().SystemNamespace).Get(context.TODO(), cmName, metav1.GetOptions{})
 			if err != nil {
 				return err
 			}
@@ -125,7 +196,7 @@ func patchMeshConfig(t framework.TestContext, clusters cluster.Clusters, patch s
 			if err != nil {
 				return err
 			}
-			_, err = c.CoreV1().ConfigMaps(i.Settings().SystemNamespace).Update(context.TODO(), cm, v1.UpdateOptions{})
+			_, err = c.CoreV1().ConfigMaps(i.Settings().SystemNamespace).Update(context.TODO(), cm, metav1.UpdateOptions{})
 			if err != nil {
 				return err
 			}
@@ -141,12 +212,12 @@ func patchMeshConfig(t framework.TestContext, clusters cluster.Clusters, patch s
 			cn, mcYaml := cn, mcYaml
 			c := clusters.GetByName(cn)
 			errG.Go(func() error {
-				cm, err := c.CoreV1().ConfigMaps(i.Settings().SystemNamespace).Get(context.TODO(), cmName, v1.GetOptions{})
+				cm, err := c.CoreV1().ConfigMaps(i.Settings().SystemNamespace).Get(context.TODO(), cmName, metav1.GetOptions{})
 				if err != nil {
 					return err
 				}
 				cm.Data["mesh"] = mcYaml
-				_, err = c.CoreV1().ConfigMaps(i.Settings().SystemNamespace).Update(context.TODO(), cm, v1.UpdateOptions{})
+				_, err = c.CoreV1().ConfigMaps(i.Settings().SystemNamespace).Update(context.TODO(), cm, metav1.UpdateOptions{})
 				return err
 			})
 		}
