@@ -37,7 +37,6 @@ import (
 	"google.golang.org/protobuf/types/descriptorpb"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
-	"istio.io/api/networking/v1alpha3"
 	networking "istio.io/api/networking/v1alpha3"
 	security_beta "istio.io/api/security/v1beta1"
 	type_beta "istio.io/api/type/v1beta1"
@@ -1871,16 +1870,10 @@ var ValidateVirtualService = registerValidateFunc("ValidateVirtualService",
 		}
 		warnIneffective := func(ruleno, matchno, dupno string) {
 			errs = appendValidation(errs, WrapWarning(&AnalysisAwareError{
-				Type:       "VirtualServiceUnreachableRule",
+				Type:       "VirtualServiceIneffectiveMatch",
 				Msg:        fmt.Sprintf("virtualService rule %v match %v is not used (duplicates a match in rule %v)", ruleno, matchno, dupno),
 				Parameters: []interface{}{ruleno, matchno, dupno},
 			}))
-			/*@@@
-			errs = appendValidation(errs, WrapWarning(&schema.AnalysisFrameworkExtendedError{
-				messageType: msg.VirtualServiceUnreachableRule,
-				params:      []interface{}{ruleno, matchno, dupno},
-			}))
-			*/
 		}
 
 		analyzeUnreachableHTTPRules(virtualService.Http, warnUnused, warnIneffective)
@@ -1991,7 +1984,7 @@ func analyzeUnreachableTLSRules(routes []*networking.TLSRoute,
 func asJSON(data interface{}) string {
 	// Remove the name, so we can create a serialization that only includes traffic routing config
 	switch mr := data.(type) {
-	case *v1alpha3.HTTPMatchRequest:
+	case *networking.HTTPMatchRequest:
 		if mr.Name != "" {
 			unnamed := *mr
 			unnamed.Name = ""
@@ -2008,7 +2001,7 @@ func asJSON(data interface{}) string {
 
 func routeName(route interface{}, routen int) string {
 	switch r := route.(type) {
-	case *v1alpha3.HTTPRoute:
+	case *networking.HTTPRoute:
 		if r.Name != "" {
 			return fmt.Sprintf("%q", r.Name)
 		}
@@ -2021,7 +2014,7 @@ func routeName(route interface{}, routen int) string {
 
 func requestName(match interface{}, matchn int) string {
 	switch mr := match.(type) {
-	case *v1alpha3.HTTPMatchRequest:
+	case *networking.HTTPMatchRequest:
 		if mr.Name != "" {
 			return fmt.Sprintf("%q", mr.Name)
 		}
