@@ -34,7 +34,6 @@ import (
 	"google.golang.org/grpc/credentials"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
-	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/xds"
 	testutil "istio.io/istio/pilot/test/util"
@@ -129,11 +128,6 @@ func TestAgent(t *testing.T) {
 		// expectFileChanged(t, filepath.Join(dir, "key.pem"))
 	})
 	t.Run("File mounted certs", func(t *testing.T) {
-		oldValue := features.AllowMetadataCertsInMutualTLS
-		features.AllowMetadataCertsInMutualTLS = true
-		defer func() {
-			features.AllowMetadataCertsInMutualTLS = oldValue
-		}()
 		// User sets FileMountedCerts. They also need to set ISTIO_META_TLS_CLIENT* to specify the
 		// file paths. CA communication is disabled. mTLS is always used for authentication with
 		// Istiod, never JWT.

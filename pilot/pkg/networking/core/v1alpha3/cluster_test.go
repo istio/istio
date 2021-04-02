@@ -932,8 +932,6 @@ func TestBuildAutoMtlsSettings(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			features.AllowMetadataCertsInMutualTLS = true
-			defer func() { features.AllowMetadataCertsInMutualTLS = false }()
 			gotTLS, gotCtxType := buildAutoMtlsSettings(tt.tls, tt.sans, tt.sni, tt.proxy,
 				tt.autoMTLSEnabled, tt.meshExternal, tt.serviceMTLSMode)
 			if !reflect.DeepEqual(gotTLS, tt.want) {

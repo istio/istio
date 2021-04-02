@@ -418,7 +418,7 @@ func buildAutoMtlsSettings(
 			subjectAltNamesToUse = serviceAccounts
 		}
 		// For backward compatibility, use metadata certs if provided
-		if features.AllowMetadataCertsInMutualTLS && proxy.Metadata.TLSClientRootCert != "" {
+		if proxy.Metadata.TLSClientRootCert != "" {
 			return buildMutualTLS(subjectAltNamesToUse, sniToUse, proxy), autoDetected
 		}
 
@@ -433,7 +433,7 @@ func buildAutoMtlsSettings(
 	}
 
 	// For backward compatibility, use metadata certs if provided
-	if features.AllowMetadataCertsInMutualTLS && proxy.Metadata.TLSClientRootCert != "" {
+	if proxy.Metadata.TLSClientRootCert != "" {
 		return buildMutualTLS(serviceAccounts, sni, proxy), autoDetected
 	}
 
