@@ -78,6 +78,7 @@ func EchoConfig(name string, ns namespace.Instance, headless bool, annos echo.An
 				Protocol: protocol.HTTP,
 				// We use a port > 1024 to not require root
 				InstancePort: 8090,
+				ServicePort:  8095,
 			},
 			{
 				Name:     "tcp",

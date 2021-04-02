@@ -102,7 +102,7 @@ spec:
       - destination:
           host: {{ .dst }}.{{ .Namespace }}.svc.cluster.local
           port:
-            number: 8090
+            number: 8095
         weight: 100
       headers:
         request:
@@ -141,7 +141,7 @@ spec:
       - destination:
           host: {{ .dst }}.{{ .Namespace }}.svc.cluster.local
           port:
-            number: 8090
+            number: 8095
         weight: 100
       headers:
         request:
