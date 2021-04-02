@@ -55,7 +55,6 @@ var (
 
 type kubeController struct {
 	*Controller
-	stopCh             chan struct{}
 	workloadEntryStore *serviceentry.ServiceEntryStore
 }
 
@@ -168,7 +167,7 @@ func (m *Multicluster) close() (err error) {
 // AddMemberCluster is passed to the secret controller as a callback to be called
 // when a remote cluster is added.  This function needs to set up all the handlers
 // to watch for resources being added, deleted or changed on remote clusters.
-func (m *Multicluster) AddMemberCluster(client kubelib.Client, clusterID string) error {
+func (m *Multicluster) AddMemberCluster(client kubelib.Client, clusterStopCh chan struct{}, clusterID string) error {
 	m.m.Lock()
 
 	if m.closing {
@@ -177,7 +176,6 @@ func (m *Multicluster) AddMemberCluster(client kubelib.Client, clusterID string)
 	}
 
 	// clusterStopCh is a channel that will be closed when this cluster removed.
-	clusterStopCh := make(chan struct{})
 	options := m.opts
 	options.ClusterID = clusterID
 
@@ -186,7 +184,6 @@ func (m *Multicluster) AddMemberCluster(client kubelib.Client, clusterID string)
 	m.serviceController.AddRegistry(kubeRegistry)
 	m.remoteKubeControllers[clusterID] = &kubeController{
 		Controller: kubeRegistry,
-		stopCh:     clusterStopCh,
 	}
 	// localCluster may also be the "config" cluster, in an external-istiod setup.
 	localCluster := m.opts.ClusterID == clusterID
@@ -309,11 +306,11 @@ func (m *Multicluster) AddMemberCluster(client kubelib.Client, clusterID string)
 	return nil
 }
 
-func (m *Multicluster) UpdateMemberCluster(clients kubelib.Client, clusterID string) error {
+func (m *Multicluster) UpdateMemberCluster(clients kubelib.Client, stop chan struct{}, clusterID string) error {
 	if err := m.DeleteMemberCluster(clusterID); err != nil {
 		return err
 	}
-	return m.AddMemberCluster(clients, clusterID)
+	return m.AddMemberCluster(clients, stop, clusterID)
 }
 
 // DeleteMemberCluster is passed to the secret controller as a callback to be called
@@ -334,7 +331,6 @@ func (m *Multicluster) DeleteMemberCluster(clusterID string) error {
 	if kc.workloadEntryStore != nil {
 		m.serviceController.DeleteRegistry(clusterID, serviceregistry.External)
 	}
-	close(m.remoteKubeControllers[clusterID].stopCh)
 	delete(m.remoteKubeControllers, clusterID)
 	if m.XDSUpdater != nil {
 		m.XDSUpdater.ConfigUpdate(&model.PushRequest{Full: true})

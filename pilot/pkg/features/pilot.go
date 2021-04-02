@@ -347,6 +347,12 @@ var (
 		"The timeout to send the XDS configuration to proxies. After this timeout is reached, Pilot will discard that push.",
 	).Get()
 
+	RemoteClusterTimeout = env.RegisterDurationVar(
+		"PILOT_REMOTE_CLUSTER_TIMEOUT",
+		30*time.Second,
+		"After this timeout expires, pilot can become ready without syncing data from clusters added via remote-secrets.",
+	).Get()
+
 	EndpointTelemetryLabel = env.RegisterBoolVar("PILOT_ENDPOINT_TELEMETRY_LABEL", true,
 		"If true, pilot will add telemetry related metadata to Endpoint resource, which will be consumed by telemetry filter.",
 	).Get()
