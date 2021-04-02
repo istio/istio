@@ -545,7 +545,7 @@ func (s *DiscoveryServer) configDump(conn *Connection) (*adminapi.ConfigDump, er
 		if len(secrets) > 0 {
 			for _, secretAny := range secrets {
 				secret := &tls.Secret{}
-				if err := secretAny.UnmarshalTo(secret); err != nil {
+				if err := secretAny.GetResource().UnmarshalTo(secret); err != nil {
 					istiolog.Warnf("failed to unmarshal secret: %v", err)
 				}
 				if secret.GetTlsCertificate() != nil {

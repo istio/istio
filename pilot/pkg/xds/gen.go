@@ -120,7 +120,7 @@ func (s *DiscoveryServer) pushXds(con *Connection, push *model.PushContext,
 		TypeUrl:      w.TypeUrl,
 		VersionInfo:  currentVersion,
 		Nonce:        nonce(push.LedgerVersion),
-		Resources:    res,
+		Resources:    model.ResourcesToAny(res),
 	}
 
 	configSize := ResourceSize(res)
@@ -151,7 +151,7 @@ func ResourceSize(r model.Resources) int {
 	// proto.Size, at the expense of slightly under counting.
 	size := 0
 	for _, r := range r {
-		size += len(r.Value)
+		size += len(r.Resource.Value)
 	}
 	return size
 }
