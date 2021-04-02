@@ -2419,7 +2419,7 @@ func TestIsHttp2Cluster(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			isHttp2Cluster := cb.IsHttp2Cluster(test.cluster)
 			if isHttp2Cluster != test.isHttp2Cluster {
-				t.Fatalf("got: %t, want: %t", isHttp2Cluster, test.isHttp2Cluster)
+				t.Errorf("got: %t, want: %t", isHttp2Cluster, test.isHttp2Cluster)
 			}
 		})
 	}
