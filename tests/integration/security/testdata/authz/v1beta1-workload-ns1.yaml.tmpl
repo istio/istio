@@ -3,7 +3,7 @@
 apiVersion: security.istio.io/v1beta1
 kind: AuthorizationPolicy
 metadata:
-  name: policy-ns1-{{ .dst }}
+  name: policy-ns1-workloadselector
   namespace: "{{ .Namespace1 }}"
 spec:
   selector:
@@ -12,7 +12,7 @@ spec:
   rules:
   - to:
     - operation:
-        paths: ["/policy-{{ .Namespace1 }}-{{ .dst }}"]
+        paths: ["/policy-ns1-{{ .dst }}"]
 ---
 
 # The following policy selects a non-exist workload in namespace 1
@@ -30,7 +30,7 @@ spec:
   rules:
   - to:
     - operation:
-        paths: ["/policy-{{ .Namespace1 }}-x"]
+        paths: ["/policy-ns1-x"]
 ---
 
 # The following policy selects all workloads in namespace 1
@@ -44,5 +44,5 @@ spec:
   rules:
   - to:
     - operation:
-        paths: ["/policy-{{ .Namespace1 }}-all"]
+        paths: ["/policy-ns1-all"]
 ---

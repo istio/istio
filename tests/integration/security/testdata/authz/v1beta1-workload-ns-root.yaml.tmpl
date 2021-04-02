@@ -3,7 +3,7 @@
 apiVersion: security.istio.io/v1beta1
 kind: AuthorizationPolicy
 metadata:
-  name: policy-ns-root-{{ .dst }}
+  name: policy-ns-root-workloadselector
   namespace: "{{ .RootNamespace }}"
 spec:
   selector:
@@ -12,5 +12,5 @@ spec:
   rules:
   - to:
     - operation:
-        paths: ["/policy-{{ .RootNamespace }}-{{ .dst }}"]
+        paths: ["/policy-ns-root-{{ .dst }}"]
 ---
