@@ -20,8 +20,6 @@ import (
 	"strconv"
 	"sync"
 
-	"istio.io/istio/pilot/pkg/util/informermetric"
-
 	"go.uber.org/atomic"
 
 	networking "istio.io/api/networking/v1alpha3"
@@ -29,6 +27,7 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/model/status"
 	"istio.io/istio/pilot/pkg/serviceregistry"
+	"istio.io/istio/pilot/pkg/util/informermetric"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/host"
