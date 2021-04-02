@@ -168,8 +168,6 @@ var DefaultStatTags = []string{
 	"response_flags",
 	"grpc_response_status",
 	"connection_security_policy",
-	"permissive_response_code",
-	"permissive_response_policyid",
 	"source_canonical_service",
 	"destination_canonical_service",
 	"source_canonical_revision",

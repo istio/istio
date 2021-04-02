@@ -164,14 +164,6 @@
         "tag_name": "connection_security_policy"
       },
       {
-        "regex": "(permissive_response_code=\\.=(.*?);\\.;)",
-        "tag_name": "permissive_response_code"
-      },
-      {
-        "regex": "(permissive_response_policyid=\\.=(.*?);\\.;)",
-        "tag_name": "permissive_response_policyid"
-      },
-      {
         "regex": "(source_canonical_service=\\.=(.*?);\\.;)",
         "tag_name": "source_canonical_service"
       },
