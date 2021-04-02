@@ -27,6 +27,7 @@ import (
 	"github.com/golang/protobuf/ptypes/duration"
 	structpb "github.com/golang/protobuf/ptypes/struct"
 	"github.com/golang/protobuf/ptypes/wrappers"
+	"google.golang.org/protobuf/types/known/durationpb"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
@@ -969,7 +970,8 @@ func maybeApplyEdsConfig(c *cluster.Cluster) {
 			ConfigSourceSpecifier: &core.ConfigSource_Ads{
 				Ads: &core.AggregatedConfigSource{},
 			},
-			ResourceApiVersion: core.ApiVersion_V3,
+			InitialFetchTimeout: durationpb.New(0),
+			ResourceApiVersion:  core.ApiVersion_V3,
 		},
 	}
 }

@@ -127,6 +127,7 @@ func (s *SecretGen) Generate(proxy *model.Proxy, push *model.PushContext, w *mod
 	for _, resource := range w.ResourceNames {
 		sr, err := parseResourceName(resource, proxy.ConfigNamespace)
 		if err != nil {
+			pilotSDSCertificateErrors.Increment()
 			log.Warnf("error parsing resource name: %v", err)
 			continue
 		}
@@ -139,6 +140,7 @@ func (s *SecretGen) Generate(proxy *model.Proxy, push *model.PushContext, w *mod
 		}
 
 		if err := s.proxyAuthorizedForSecret(proxy, sr); err != nil {
+			pilotSDSCertificateErrors.Increment()
 			log.Warnf("requested secret %v not accessible for proxy %v: %v", sr.ResourceName, proxy.ID, err)
 			continue
 		}
@@ -160,6 +162,7 @@ func (s *SecretGen) Generate(proxy *model.Proxy, push *model.PushContext, w *mod
 				results = append(results, res)
 				s.cache.Add(sr, token, res)
 			} else {
+				pilotSDSCertificateErrors.Increment()
 				log.Warnf("failed to fetch ca certificate for %v", sr.ResourceName)
 			}
 		} else {
@@ -169,6 +172,7 @@ func (s *SecretGen) Generate(proxy *model.Proxy, push *model.PushContext, w *mod
 				results = append(results, res)
 				s.cache.Add(sr, token, res)
 			} else {
+				pilotSDSCertificateErrors.Increment()
 				log.Warnf("failed to fetch key and certificate for %v", sr.ResourceName)
 			}
 		}

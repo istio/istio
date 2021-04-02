@@ -20,4 +20,5 @@ typedConfig:
                       safeRegex:
                         googleRe2: {}
                         regex: .*/ns/ns-1/.*
+  shadowRulesStatPrefix: istio_dry_run_
   statPrefix: tcp.
