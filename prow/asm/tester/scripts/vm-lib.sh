@@ -181,7 +181,7 @@ EOF
 
   retry 3 10s gcloud compute instance-templates create "${BASE_INSTANCE_TEMPLATE_NAME}" --image-project "${IMAGE_PROJECT}" --image-family "${VM_DISTRO}"
   # eventually this will be a static URL - for the time being this needs to be updated to use the latest agent
-  AGENT_BUCKET="gs://gce-service-proxy-canary/service-proxy-agent/releases/service-proxy-agent-latest.tgz"
+  AGENT_BUCKET="gs://gce-service-proxy-canary/service-proxy-agent/releases/service-proxy-agent-staging-latest.tgz"
   [ -z "$TEMPLATE_EXISTS" ] && ASM_REVISION_PREFIX="${REVISION}" _CI_ASM_IMAGE_TAG="${TAG}" SERVICE_PROXY_AGENT_BUCKET="${AGENT_BUCKET}" $VM_SCRIPT create_gce_instance_template \
     "${TEMPLATE_NAME}" \
     -v \
@@ -205,6 +205,7 @@ EOF
   retry 6 15s gcloud compute ssh staticvm@"${INSTANCE_NAME}" --zone="${ZONE}" --command "$(cat <<EOF
 sudo mv ~/server /usr/sbin/echo
 sudo mv ~/echo.service /etc/systemd/system/echo.service
+which restorecon && sudo restorecon /etc/systemd/system/echo.service
 echo INSTANCE_IP=$INTERNAL_IP >> .echoconfig
 echo CLUSTER_ID=static-vms >> .echoconfig
 sudo mv .echoconfig /etc/.echoconfig
