@@ -1458,8 +1458,6 @@ type expectedResult struct {
 
 // TestBuildUpstreamClusterTLSContext tests the buildUpstreamClusterTLSContext function
 func TestBuildUpstreamClusterTLSContext(t *testing.T) {
-	metadataRootCert := "/path/to/metadata/root-cert"
-
 	clientCert := "/path/to/cert"
 	rootCert := "path/to/cacert"
 	clientKey := "/path/to/key"
@@ -1486,7 +1484,7 @@ func TestBuildUpstreamClusterTLSContext(t *testing.T) {
 			result: expectedResult{nil, nil},
 		},
 		{
-			name: "tls mode ISTIO_MUTUAL with metadata certs",
+			name: "tls mode ISTIO_MUTUAL",
 			opts: &buildClusterOpts{
 				mutable: newTestCluster(),
 				proxy: &model.Proxy{
@@ -1752,14 +1750,10 @@ func TestBuildUpstreamClusterTLSContext(t *testing.T) {
 			},
 		},
 		{
-			name: "tls mode SIMPLE, with certs specified in tls with overridden metadata certs",
+			name: "tls mode SIMPLE, with certs specified in tls",
 			opts: &buildClusterOpts{
 				mutable: newTestCluster(),
-				proxy: &model.Proxy{
-					Metadata: &model.NodeMetadata{
-						TLSClientRootCert: metadataRootCert,
-					},
-				},
+				proxy:   &model.Proxy{},
 			},
 			tls: &networking.ClientTLSSettings{
 				Mode:            networking.ClientTLSSettings_SIMPLE,
@@ -1774,7 +1768,7 @@ func TestBuildUpstreamClusterTLSContext(t *testing.T) {
 							CombinedValidationContext: &tls.CommonTlsContext_CombinedCertificateValidationContext{
 								DefaultValidationContext: &tls.CertificateValidationContext{MatchSubjectAltNames: util.StringToExactMatch([]string{"SAN"})},
 								ValidationContextSdsSecretConfig: &tls.SdsSecretConfig{
-									Name: fmt.Sprintf("file-root:%s", metadataRootCert),
+									Name: fmt.Sprintf("file-root:%s", rootCert),
 									SdsConfig: &core.ConfigSource{
 										ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
 											ApiConfigSource: &core.ApiConfigSource{

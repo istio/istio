@@ -30,7 +30,6 @@ import (
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
-	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/util"
 	authn_model "istio.io/istio/pilot/pkg/security/model"
@@ -760,7 +759,7 @@ func (cb *ClusterBuilder) buildUpstreamClusterTLSContext(opts *buildClusterOpts,
 		} else {
 			// If CredentialName is not set fallback to files specified in DR.
 			res := model.SdsCertificateConfig{
-				CaCertificatePath: model.GetOrDefault(proxy.Metadata.TLSClientRootCert, tls.CaCertificates),
+				CaCertificatePath: tls.CaCertificates,
 			}
 
 			// If tls.CaCertificate or CaCertificate in Metadata isn't configured don't set up SdsSecretConfig
@@ -798,25 +797,13 @@ func (cb *ClusterBuilder) buildUpstreamClusterTLSContext(opts *buildClusterOpts,
 				return nil, err
 			}
 
-			var res model.SdsCertificateConfig
-			if features.AllowMetadataCertsInMutualTLS {
-				// These are certs being mounted from within the pod and specified in Metadata.
-				// Rather than reading directly in Envoy, which does not support rotation, we will
-				// serve them over SDS by reading the files. This is only enabled for temporary migration.
-				res = model.SdsCertificateConfig{
-					CertificatePath:   model.GetOrDefault(proxy.Metadata.TLSClientCertChain, tls.ClientCertificate),
-					PrivateKeyPath:    model.GetOrDefault(proxy.Metadata.TLSClientKey, tls.PrivateKey),
-					CaCertificatePath: model.GetOrDefault(proxy.Metadata.TLSClientRootCert, tls.CaCertificates),
-				}
-			} else {
-				// These are certs being mounted from within the pod and specified in Destination Rules.
-				// Rather than reading directly in Envoy, which does not support rotation, we will
-				// serve them over SDS by reading the files.
-				res = model.SdsCertificateConfig{
-					CertificatePath:   tls.ClientCertificate,
-					PrivateKeyPath:    tls.PrivateKey,
-					CaCertificatePath: tls.CaCertificates,
-				}
+			// These are certs being mounted from within the pod and specified in Destination Rules.
+			// Rather than reading directly in Envoy, which does not support rotation, we will
+			// serve them over SDS by reading the files.
+			res := model.SdsCertificateConfig{
+				CertificatePath:   tls.ClientCertificate,
+				PrivateKeyPath:    tls.PrivateKey,
+				CaCertificatePath: tls.CaCertificates,
 			}
 			tlsContext.CommonTlsContext.TlsCertificateSdsSecretConfigs = append(tlsContext.CommonTlsContext.TlsCertificateSdsSecretConfigs,
 				authn_model.ConstructSdsSecretConfig(res.GetResourceName(), proxy))
