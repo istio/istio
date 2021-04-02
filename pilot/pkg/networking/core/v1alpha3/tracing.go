@@ -188,13 +188,7 @@ func configureFromProviderConfig(pushCtx *model.PushContext, meta *model.NodeMet
 							StatPrefix: "oc_stackdriver_tracer",
 							ChannelCredentials: &envoy_config_core_v3.GrpcService_GoogleGrpc_ChannelCredentials{
 								CredentialSpecifier: &envoy_config_core_v3.GrpcService_GoogleGrpc_ChannelCredentials_SslCredentials{
-									SslCredentials: &envoy_config_core_v3.GrpcService_GoogleGrpc_SslCredentials{
-										RootCerts: &envoy_config_core_v3.DataSource{
-											Specifier: &envoy_config_core_v3.DataSource_Filename{
-												Filename: "/etc/ssl/certs/ca-certificates.crt",
-											},
-										},
-									},
+									SslCredentials: &envoy_config_core_v3.GrpcService_GoogleGrpc_SslCredentials{},
 								},
 							},
 							CallCredentials: []*envoy_config_core_v3.GrpcService_GoogleGrpc_CallCredentials{
