@@ -395,6 +395,7 @@ else
   DISABLED_TESTS+="|TestAuthorization_EgressGateway" # UNSUPPORTED: Relies on egress gateway deployed to the cluster.
   DISABLED_TESTS+="|TestStrictMTLS" # UNSUPPORTED: Mesh CA does not support ECDSA
   DISABLED_TESTS+="|TestAuthorization_Custom" # UNSUPPORTED: requires mesh config
+  DISABLED_TESTS+="|TestRequestAuthentication" # UNSUPPORTED: https://buganizer.corp.google.com/issues/180418442
   # DISABLED_PACKAGES contains a list of all packages we skip
   DISABLED_PACKAGES="/multicluster" # NOT SUPPORTED
   DISABLED_PACKAGES+="\|/pilot/cni" # NOT SUPPORTED
