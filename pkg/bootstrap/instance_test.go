@@ -203,13 +203,7 @@ func TestGolden(t *testing.T) {
 								StatPrefix: "oc_stackdriver_tracer",
 								ChannelCredentials: &core.GrpcService_GoogleGrpc_ChannelCredentials{
 									CredentialSpecifier: &core.GrpcService_GoogleGrpc_ChannelCredentials_SslCredentials{
-										SslCredentials: &core.GrpcService_GoogleGrpc_SslCredentials{
-											RootCerts: &core.DataSource{
-												Specifier: &core.DataSource_Filename{
-													Filename: "/etc/ssl/certs/ca-certificates.crt",
-												},
-											},
-										},
+										SslCredentials: &core.GrpcService_GoogleGrpc_SslCredentials{},
 									},
 								},
 								CallCredentials: []*core.GrpcService_GoogleGrpc_CallCredentials{
