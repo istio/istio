@@ -35,7 +35,6 @@ import (
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
-	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/util"
 	authn_model "istio.io/istio/pilot/pkg/security/model"
@@ -1170,17 +1169,12 @@ func TestApplyUpstreamTLSSettings(t *testing.T) {
 		SubjectAltNames: []string{"custom.foo.com"},
 		Sni:             "custom.foo.com",
 	}
-	expectedNodeMetadataClientKeyPath := "/clientKeyFromNodeMetadata.pem"
-	expectedNodeMetadataClientCertPath := "/clientCertFromNodeMetadata.pem"
-	expectedNodeMetadataRootCertPath := "/clientRootCertFromNodeMetadata.pem"
 
 	tests := []struct {
 		name                       string
 		mtlsCtx                    mtlsContextType
 		discoveryType              cluster.Cluster_DiscoveryType
 		tls                        *networking.ClientTLSSettings
-		customMetadata             *model.NodeMetadata
-		allowCustomMetadataMutual  bool
 		h2                         bool
 		expectTransportSocket      bool
 		expectTransportSocketMatch bool
@@ -1339,59 +1333,6 @@ func TestApplyUpstreamTLSSettings(t *testing.T) {
 				}
 			},
 		},
-		{
-			name:          "user specified mutual tls with overridden certs from node metadata allowed",
-			mtlsCtx:       userSupplied,
-			discoveryType: cluster.Cluster_EDS,
-			tls:           mutualTLSSettingsWithCerts,
-			customMetadata: &model.NodeMetadata{
-				TLSClientCertChain: expectedNodeMetadataClientCertPath,
-				TLSClientKey:       expectedNodeMetadataClientKeyPath,
-				TLSClientRootCert:  expectedNodeMetadataRootCertPath,
-			},
-			allowCustomMetadataMutual:  true,
-			expectTransportSocket:      true,
-			expectTransportSocketMatch: false,
-			validateTLSContext: func(t *testing.T, ctx *tls.UpstreamTlsContext) {
-				rootName := "file-root:" + expectedNodeMetadataRootCertPath
-				certName := fmt.Sprintf("file-cert:%s~%s", expectedNodeMetadataClientCertPath, expectedNodeMetadataClientKeyPath)
-				if got := ctx.CommonTlsContext.GetCombinedValidationContext().GetValidationContextSdsSecretConfig().GetName(); rootName != got {
-					t.Fatalf("expected root name %v got %v", rootName, got)
-				}
-				if got := ctx.CommonTlsContext.GetTlsCertificateSdsSecretConfigs()[0].GetName(); certName != got {
-					t.Fatalf("expected cert name %v got %v", certName, got)
-				}
-				if got := ctx.CommonTlsContext.GetAlpnProtocols(); got != nil {
-					t.Fatalf("expected alpn list nil as not h2 or Istio_Mutual TLS Setting; got %v", got)
-				}
-			},
-		},
-		{
-			name:          "user specified mutual tls with overridden certs from node metadata not allowed",
-			mtlsCtx:       userSupplied,
-			discoveryType: cluster.Cluster_EDS,
-			tls:           mutualTLSSettingsWithCerts,
-			customMetadata: &model.NodeMetadata{
-				TLSClientCertChain: expectedNodeMetadataClientCertPath,
-				TLSClientKey:       expectedNodeMetadataClientKeyPath,
-				TLSClientRootCert:  expectedNodeMetadataRootCertPath,
-			},
-			expectTransportSocket:      true,
-			expectTransportSocketMatch: false,
-			validateTLSContext: func(t *testing.T, ctx *tls.UpstreamTlsContext) {
-				rootName := "file-root:" + mutualTLSSettingsWithCerts.CaCertificates
-				certName := fmt.Sprintf("file-cert:%s~%s", mutualTLSSettingsWithCerts.ClientCertificate, mutualTLSSettingsWithCerts.PrivateKey)
-				if got := ctx.CommonTlsContext.GetCombinedValidationContext().GetValidationContextSdsSecretConfig().GetName(); rootName != got {
-					t.Fatalf("expected root name %v got %v", rootName, got)
-				}
-				if got := ctx.CommonTlsContext.GetTlsCertificateSdsSecretConfigs()[0].GetName(); certName != got {
-					t.Fatalf("expected cert name %v got %v", certName, got)
-				}
-				if got := ctx.CommonTlsContext.GetAlpnProtocols(); got != nil {
-					t.Fatalf("expected alpn list nil as not h2 or Istio_Mutual TLS Setting; got %v", got)
-				}
-			},
-		},
 	}
 
 	proxy := &model.Proxy{
@@ -1403,16 +1344,6 @@ func TestApplyUpstreamTLSSettings(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			cb := NewClusterBuilder(proxy, push)
-			customMetadataMutual := features.AllowMetadataCertsInMutualTLS
-			if test.allowCustomMetadataMutual {
-				features.AllowMetadataCertsInMutualTLS = true
-			}
-			defer func() { features.AllowMetadataCertsInMutualTLS = customMetadataMutual }()
-			if test.customMetadata != nil {
-				proxy.Metadata = test.customMetadata
-			} else {
-				proxy.Metadata = &model.NodeMetadata{}
-			}
 			opts := &buildClusterOpts{
 				mutable: NewMutableCluster(&cluster.Cluster{
 					ClusterDiscoveryType: &cluster.Cluster_Type{Type: test.discoveryType},
