@@ -205,11 +205,11 @@ function cleanup_hub_setup() {
 function set_multicloud_permissions() {
   local GCR_PROJECT_ID="$1"
   declare -a CONFIGS
-  if [[ "${CLUSTER_TYPE}" == "gke-on-prem" ]]; then
-    CONFIGS=( "${ONPREM_MC_CONFIGS[@]}" )
-  elif [[ "${CLUSTER_TYPE}" == "bare-metal" ]]; then
+  if [[ "${CLUSTER_TYPE}" == "bare-metal" ]]; then
     CONFIGS=( "${BAREMETAL_SC_CONFIG[@]}" )
     export HTTP_PROXY
+  else
+    CONFIGS=( "${MC_CONFIGS[@]}" )
   fi
   local SECRETNAME="test-gcr-secret"
   for i in "${!CONFIGS[@]}"; do
@@ -772,15 +772,15 @@ function install_asm_on_multicloud() {
   export USER
 
   create_asm_revision_label
-  for i in "${!ONPREM_MC_CONFIGS[@]}"; do
-    install_certs "${ONPREM_MC_CONFIGS[$i]}"
+  for i in "${!MC_CONFIGS[@]}"; do
+    install_certs "${MC_CONFIGS[$i]}"
 
     echo "----------Installing ASM----------"
     if [[ "${WIP}" == "HUB" ]]; then
       local IDENTITY_PROVIDER
       local IDENTITY
       local HUB_MEMBERSHIP_ID
-      IDENTITY_PROVIDER="$(kubectl --kubeconfig="${ONPREM_MC_CONFIGS[$i]}" --context=cluster get memberships membership -o=json | jq .spec.identity_provider)"
+      IDENTITY_PROVIDER="$(kubectl --kubeconfig="${MC_CONFIGS[$i]}" --context=cluster get memberships membership -o=json | jq .spec.identity_provider)"
       IDENTITY="$(echo "${IDENTITY_PROVIDER}" | sed 's/^\"https:\/\/gkehub.googleapis.com\/projects\/\(.*\)\/locations\/global\/memberships\/\(.*\)\"$/\1 \2/g')"
       read -r ENVIRON_PROJECT_ID HUB_MEMBERSHIP_ID <<EOF
 ${IDENTITY}
@@ -814,9 +814,9 @@ EOF
         --cluster "${CLUSTER_NAME}" \
         --network "network${i}" > "tmp/eastwest-gateway.yaml"
       cat "tmp/eastwest-gateway.yaml"
-      istioctl install -y --kubeconfig="${ONPREM_MC_CONFIGS[$i]}" --context=cluster -f "tmp/istio/istio-operator.yaml" -f "tmp/istio/options/hub-meshca.yaml" -f "tmp/eastwest-gateway.yaml"
+      istioctl install -y --kubeconfig="${MC_CONFIGS[$i]}" --context=cluster -f "tmp/istio/istio-operator.yaml" -f "tmp/istio/options/hub-meshca.yaml" -f "tmp/eastwest-gateway.yaml"
     else
-      cat <<EOF | istioctl install -y --kubeconfig="${ONPREM_MC_CONFIGS[$i]}" -f -
+      cat <<EOF | istioctl install -y --kubeconfig="${MC_CONFIGS[$i]}" -f -
 apiVersion: install.istio.io/v1alpha1
 kind: IstioOperator
 spec:
@@ -831,13 +831,16 @@ spec:
         clusterName: cluster${i}
       network: network${i}
 EOF
-      install_expansion_gw "${MESH_ID}" "cluster${i}" "network${i}" "${ASM_REVISION_LABEL}" "${HUB}" "${TAG}" "${ONPREM_MC_CONFIGS[$i]}"
+      install_expansion_gw "${MESH_ID}" "cluster${i}" "network${i}" "${ASM_REVISION_LABEL}" "${HUB}" "${TAG}" "${MC_CONFIGS[$i]}"
     fi
     # set default network for the cluster, allow detecting network of non-injected pods
-    kubectl --kubeconfig="${ONPREM_MC_CONFIGS[$i]}" label namespace istio-system topology.istio.io/network="network${i}"
-    expose_services "${ONPREM_MC_CONFIGS[$i]}"
-    configure_validating_webhook "${ASM_REVISION_LABEL}" "${ONPREM_MC_CONFIGS[$i]}"
-    onprem::configure_external_ip "${ONPREM_MC_CONFIGS[$i]}"
+    kubectl --kubeconfig="${MC_CONFIGS[$i]}" label namespace istio-system topology.istio.io/network="network${i}"
+    expose_services "${MC_CONFIGS[$i]}"
+    configure_validating_webhook "${ASM_REVISION_LABEL}" "${MC_CONFIGS[$i]}"
+
+    if [[ "${CLUSTER_TYPE}" == "gke-on-prem" ]]; then
+      onprem::configure_external_ip "${MC_CONFIGS[$i]}"
+    fi
 
   done
 
@@ -892,13 +895,13 @@ function install_certs() {
 
 # Creates remote secrets for each cluster pair for all the clusters under test
 function configure_remote_secrets() {
-  for i in "${!ONPREM_MC_CONFIGS[@]}"; do
-    for j in "${!ONPREM_MC_CONFIGS[@]}"; do
+  for i in "${!MC_CONFIGS[@]}"; do
+    for j in "${!MC_CONFIGS[@]}"; do
       if [[ "$i" != "$j" ]]; then
         istioctl x create-remote-secret \
-          --kubeconfig="${ONPREM_MC_CONFIGS[$j]}" \
+          --kubeconfig="${MC_CONFIGS[$j]}" \
           --name="secret-${j}" \
-        | kubectl apply --kubeconfig="${ONPREM_MC_CONFIGS[$i]}" -f -
+        | kubectl apply --kubeconfig="${MC_CONFIGS[$i]}" -f -
       fi
     done
   done
@@ -1018,12 +1021,12 @@ EOF
 # Keeps only the user-kubeconfig.yaml entries in the KUBECONFIG for onprem
 # Removes any others including the admin-kubeconfig.yaml entries
 # This function will modify the KUBECONFIG env variable
-function filter_onprem_kubeconfigs() {
+function onprem::filter_kubeconfigs() {
   IFS=':' read -r -a CONFIGS <<< "${KUBECONFIG}"
   for CONFIG in "${CONFIGS[@]}"; do
-    [[ "${CONFIG}" =~ .*user-kubeconfig.yaml.* ]] && ONPREM_MC_CONFIGS+=( "${CONFIG}" )
+    [[ "${CONFIG}" =~ .*user-kubeconfig.yaml.* ]] && MC_CONFIGS+=( "${CONFIG}" )
   done
-  KUBECONFIG=$( IFS=':'; echo "${ONPREM_MC_CONFIGS[*]}" )
+  KUBECONFIG=$( IFS=':'; echo "${MC_CONFIGS[*]}" )
 }
 
 # Keeps only the artifacts/kubeconfig entries in the KUBECONFIG for baremetal
@@ -1053,6 +1056,31 @@ function init_baremetal_http_proxy() {
   echo "BM_ARTIFACTS_PATH: ${BM_ARTIFACTS_PATH}, BM_HOST_IP: ${BM_HOST_IP}"
   export BM_ARTIFACTS_PATH
   export BM_HOST_IP
+}
+
+# Removes gke_aws_management.conf entry from the KUBECONFIG for aws
+# This function will modify the KUBECONFIG env variable
+function aws::filter_kubeconfigs() {
+  IFS=':' read -r -a CONFIGS <<< "${KUBECONFIG}"
+  for CONFIG in "${CONFIGS[@]}"; do
+    [[ ! "${CONFIG}" =~ .*gke_aws_management.conf ]] && MC_CONFIGS+=( "${CONFIG}" )
+  done
+  KUBECONFIG=$( IFS=':'; echo "${MC_CONFIGS[*]}" )
+}
+
+# Sources the environment variables created by test infra needed to connect
+# to the clusters under test.
+function aws::init() {
+  for CONFIG in "${MC_CONFIGS[@]}"; do
+    CLUSTER_TB_ID=${CONFIG//*kubetest2-tailorbird\//}
+    CLUSTER_TB_ID=${CLUSTER_TB_ID//\/.kube*/}
+
+    RESOURCE_DIR="${ARTIFACTS}/.kubetest2-tailorbird/${CLUSTER_TB_ID}"
+    source "${RESOURCE_DIR}/resource_vars"
+
+    HTTPS_PROXY="${HTTP_PROXY}"
+    export HTTPS_PROXY
+  done
 }
 
 # Creates virtual machines, registers them with the cluster and install the test echo app.

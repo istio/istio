@@ -38,8 +38,8 @@ source "${WD}/revision-lib.sh"
 export BUILD_WITH_CONTAINER=0
 
 # shellcheck disable=SC2034
-# holds multiple kubeconfigs for onprem MC
-declare -a ONPREM_MC_CONFIGS
+# holds multiple kubeconfigs for Multicloud test environments
+declare -a MC_CONFIGS
 # shellcheck disable=SC2034
 # hold the configs for baremetal SC
 declare -a BAREMETAL_SC_CONFIG
@@ -51,6 +51,8 @@ declare ENVIRON_PROJECT_ID
 # hold the http proxy used for connected to baremetal SC
 declare HTTP_PROXY
 declare HTTPS_PROXY
+# need for pulling test images from private repos
+declare TEST_IMAGE_PULL_SECRET
 
 echo "Running with CA ${CA}, ${WIP} Workload Identity Pool, ${CONTROL_PLANE} and --vm=${USE_VM} control plane."
 # used in telemetry test to decide expected source/destination principal.
@@ -68,9 +70,11 @@ if [[ -z "${CLUSTER_TYPE}" ]]; then
 fi
 echo "The cluster type is ${CLUSTER_TYPE}"
 # only use user-kubeconfig.yaml files on onprem
-[[ "${CLUSTER_TYPE}" == "gke-on-prem" ]] && filter_onprem_kubeconfigs
+[[ "${CLUSTER_TYPE}" == "gke-on-prem" ]] && onprem::filter_kubeconfigs
 # only use kubeconfig files on baremetal and construct http proxy value
 [[ "${CLUSTER_TYPE}" == "bare-metal" ]] && filter_baremetal_kubeconfigs && init_baremetal_http_proxy
+# filter out management cluster kubeconfig
+[[ "${CLUSTER_TYPE}" == "aws" ]] && aws::filter_kubeconfigs && aws::init
 
 if [[ -z "${CLUSTER_TOPOLOGY}" ]]; then
   echo "Error: CLUSTER_TOPOLOGY env var cannot be empty."
@@ -162,7 +166,7 @@ if [[ "${CONTROL_PLANE}" == "UNMANAGED" ]]; then
     add_trap "remove_gcp_permissions ${GCR_PROJECT_ID} ${CONTEXTSTR}" EXIT SIGKILL SIGTERM SIGQUIT
   else
     echo "Set permissions to allow the Pods on the multicloud clusters to pull images..."
-    set_multicloud_permissions "${GCR_PROJECT_ID}" "${CONTEXTSTR}"
+    set_multicloud_permissions "${GCR_PROJECT_ID}"
   fi
 
   echo "Preparing images..."
@@ -275,7 +279,7 @@ if [[ "${CONTROL_PLANE}" == "UNMANAGED" ]]; then
     # security/ tests
     DISABLED_TESTS+="|TestAuthorization_WorkloadSelector/From_primary-1/.*|TestAuthorization_NegativeMatch/From_primary-1/.*|TestAuthorization_Conditions/IpA_IpB_IpC_in_primary-0/From_primary-1/.*|TestAuthorization_mTLS/From_primary-1/.*|TestAuthorization_JWT/From_primary-1/.*"
   fi
-  if [[ "${CLUSTER_TYPE}" == "bare-metal" ]]; then
+  if [[ "${CLUSTER_TYPE}" == "bare-metal" || "${CLUSTER_TYPE}" == "aws" ]]; then
     DISABLED_TESTS+="|TestAuthorization_EgressGateway" # UNSUPPORTED: Relies on egress gateway deployed to the cluster.
     DISABLED_TESTS+="|TestStrictMTLS" # UNSUPPORTED: Mesh CA does not support ECDSA
     DISABLED_TESTS+="|TestAuthorization_Custom" # UNSUPPORTED: requires mesh config

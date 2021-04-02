@@ -24,4 +24,4 @@ spec:
                 anthosVersion: latest
                 nodeCount: "6"
                 nodeType: m5.xlarge
-                username: prowuser
+                username: asm-svc-acct
