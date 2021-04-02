@@ -16,7 +16,6 @@ package cmd
 
 import (
 	"fmt"
-	"istio.io/istio/galley/pkg/config/analysis/diag"
 	"os"
 
 	"github.com/spf13/cobra"
@@ -24,6 +23,7 @@ import (
 
 	"istio.io/istio/galley/pkg/config/analysis"
 	"istio.io/istio/galley/pkg/config/analysis/analyzers/maturity"
+	"istio.io/istio/galley/pkg/config/analysis/diag"
 	"istio.io/istio/galley/pkg/config/analysis/local"
 	cfgKube "istio.io/istio/galley/pkg/config/source/kube"
 	"istio.io/istio/istioctl/pkg/clioptions"
@@ -47,7 +47,7 @@ to upgrade as well by specifying --namespaces to check, or using --all-namespace
 		RunE: func(cmd *cobra.Command, args []string) (err error) {
 			msgs := diag.Messages{}
 			if !skipControlPlane {
-				msgs, err = checkControlPlane(cmd)
+				msgs, err = checkControlPlane()
 				if err != nil {
 					return err
 				}
@@ -59,11 +59,12 @@ to upgrade as well by specifying --namespaces to check, or using --all-namespace
 				fmt.Fprintln(cmd.OutOrStdout(), "WARNING: no namespaces selected for dataplane upgrade checks.")
 			}
 			for _, ns := range namespaces {
-				if nsmsgs, err := checkDataPlane(cmd, ns); err != nil {
+				nsmsgs, err := checkDataPlane(ns)
+				if  err != nil {
 					return err
-				} else {
-					msgs.Add(nsmsgs...)
 				}
+				msgs.Add(nsmsgs...)
+
 			}
 			// Print all the messages to stdout in the specified format
 			output, err := formatting.Print(msgs.SortedDedupedCopy(), msgOutputFormat, colorize)
@@ -84,7 +85,7 @@ to upgrade as well by specifying --namespaces to check, or using --all-namespace
 	return cmd
 }
 
-func checkControlPlane(cmd *cobra.Command) (msgs diag.Messages, err error) {
+func checkControlPlane() (msgs diag.Messages, err error) {
 	sa := local.NewSourceAnalyzer(schema.MustGet(), analysis.Combine("upgrade precheck", &maturity.AlphaAnalyzer{}),
 		resource.Namespace(selectedNamespace), resource.Namespace(istioNamespace), nil, true, analysisTimeout)
 	// Set up the kube client
@@ -103,7 +104,7 @@ func checkControlPlane(cmd *cobra.Command) (msgs diag.Messages, err error) {
 	return
 }
 
-func checkDataPlane(cmd *cobra.Command, namespace string) (diag.Messages, error) {
+func checkDataPlane(_ string) (diag.Messages, error) {
 	// TODO: uncomment this once John's PR merges.
 	// checkBinds(ns)
 	return nil, nil
