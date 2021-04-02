@@ -34,6 +34,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/intstr"
 
 	"istio.io/istio/pilot/cmd/pilot-agent/status/ready"
+	"istio.io/istio/pilot/cmd/pilot-agent/status/testserver"
 	"istio.io/istio/pkg/kube/apimirror"
 	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/test/util/retry"
@@ -649,7 +650,7 @@ func TestAdditionalProbes(t *testing.T) {
 			err:    errors.New("not ready"),
 		},
 	}
-	testServer := createAndStartServer(liveServerStats)
+	testServer := testserver.CreateAndStartServer(liveServerStats, "127.0.0.1:1234")
 	defer testServer.Close()
 	for _, tc := range testCases {
 		server, err := NewServer(Options{
@@ -683,36 +684,4 @@ type unreadyProbe struct{}
 
 func (u unreadyProbe) Check() error {
 	return errors.New("not ready")
-}
-
-func createDefaultFuncMap(statsToReturn string) map[string]func(rw http.ResponseWriter, _ *http.Request) {
-	return map[string]func(rw http.ResponseWriter, _ *http.Request){
-
-		"/stats": func(rw http.ResponseWriter, _ *http.Request) {
-			// Send response to be tested
-			rw.Write([]byte(statsToReturn))
-		},
-	}
-}
-
-func createAndStartServer(statsToReturn string) *httptest.Server {
-	return createHTTPServer(createDefaultFuncMap(statsToReturn))
-}
-
-func createHTTPServer(handlers map[string]func(rw http.ResponseWriter, _ *http.Request)) *httptest.Server {
-	mux := http.NewServeMux()
-	for k, v := range handlers {
-		mux.HandleFunc(k, http.HandlerFunc(v))
-	}
-
-	// Start a local HTTP server
-	server := httptest.NewUnstartedServer(mux)
-
-	l, err := net.Listen("tcp", "127.0.0.1:1234")
-	if err != nil {
-		panic("Could not create listener for test: " + err.Error())
-	}
-	server.Listener = l
-	server.Start()
-	return server
 }
