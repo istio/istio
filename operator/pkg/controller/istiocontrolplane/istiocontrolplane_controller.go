@@ -309,8 +309,12 @@ func (r *ReconcileIstioOperator) Reconcile(_ context.Context, request reconcile.
 	}
 	globalValues := iopMerged.Spec.Values["global"].(map[string]interface{})
 	scope.Info("Detecting third-party JWT support")
+	kubeClient, err := kubernetes.NewForConfig(r.config)
+	if err != nil {
+		return reconcile.Result{}, nil
+	}
 	var jwtPolicy util.JWTPolicy
-	if jwtPolicy, err = util.DetectSupportedJWTPolicy(r.config); err != nil {
+	if jwtPolicy, err = util.DetectSupportedJWTPolicy(kubeClient); err != nil {
 		// TODO(howardjohn): add to dictionary. When resolved, replace this sentence with Done or WontFix - if WontFix, add reason.
 		scope.Warnf("Failed to detect third-party JWT support: %v", err)
 	} else {
