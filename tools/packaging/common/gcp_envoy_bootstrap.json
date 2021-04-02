@@ -30,11 +30,7 @@
             "target_uri": "{{ .discovery_address }}",
             "stat_prefix": "googlegrpcxds",
             "channel_credentials": {
-              "ssl_credentials": {
-                "root_certs": {
-                  "filename": "/etc/ssl/certs/ca-certificates.crt"
-                }
-              }
+              "ssl_credentials": {}
             },
             "call_credentials": {
             {{ if .sts }}
@@ -85,11 +81,7 @@
             "target_uri": "{{ .discovery_address }}",
             "stat_prefix": "googlegrpcxds",
             "channel_credentials": {
-              "ssl_credentials": {
-                "root_certs": {
-                  "filename": "/etc/ssl/certs/ca-certificates.crt"
-                }
-              }
+              "ssl_credentials": {}
             },
             "call_credentials": {
             {{ if .sts }}
