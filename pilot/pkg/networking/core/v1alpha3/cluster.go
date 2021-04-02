@@ -188,10 +188,10 @@ func (p clusterPatcher) insertedClusters() []*cluster.Cluster {
 func (p clusterPatcher) incrementFilterMetrics() {
 	if p.efw != nil {
 		if len(p.efw.Patches[networking.EnvoyFilter_CLUSTER]) != p.patchesApplied {
-			envoyfilter.RecordEnvoyFilterMetric(envoyfilter.Cluster, false,
+			envoyfilter.RecordEnvoyFilterMetric(p.efw.Key(), envoyfilter.Cluster, false,
 				float64(len(p.efw.Patches[networking.EnvoyFilter_CLUSTER])-p.patchesApplied))
 		}
-		envoyfilter.RecordEnvoyFilterMetric(envoyfilter.Cluster, true, float64(p.patchesApplied))
+		envoyfilter.RecordEnvoyFilterMetric(p.efw.Key(), envoyfilter.Cluster, true, float64(p.patchesApplied))
 	}
 }
 

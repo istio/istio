@@ -27,6 +27,8 @@ import (
 
 // EnvoyFilterWrapper is a wrapper for the EnvoyFilter api object with pre-processed data
 type EnvoyFilterWrapper struct {
+	Name             string
+	Namespace        string
 	workloadSelector labels.Instance
 	Patches          map[networking.EnvoyFilter_ApplyTo][]*EnvoyFilterConfigPatchWrapper
 }
@@ -66,7 +68,7 @@ var wellKnownVersions = map[string]string{
 func convertToEnvoyFilterWrapper(local *config.Config) *EnvoyFilterWrapper {
 	localEnvoyFilter := local.Spec.(*networking.EnvoyFilter)
 
-	out := &EnvoyFilterWrapper{}
+	out := &EnvoyFilterWrapper{Name: local.Name, Namespace: local.Namespace}
 	if localEnvoyFilter.WorkloadSelector != nil {
 		out.workloadSelector = localEnvoyFilter.WorkloadSelector.Labels
 	}
@@ -156,4 +158,8 @@ func proxyMatch(proxy *Proxy, cp *EnvoyFilterConfigPatchWrapper) bool {
 		}
 	}
 	return true
+}
+
+func (efw *EnvoyFilterWrapper) Key() string {
+	return efw.Namespace + "/" + efw.Name
 }

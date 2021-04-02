@@ -48,7 +48,7 @@ func ApplyListenerPatches(
 	listeners []*xdslistener.Listener,
 	skipAdds bool) (out []*xdslistener.Listener) {
 	defer runtime.HandleCrash(runtime.LogPanic, func(interface{}) {
-		IncrementEnvoyFilterErrorMetric(Listener)
+		IncrementEnvoyFilterErrorMetric(efw.Key(), Listener)
 		log.Errorf("listeners patch caused panic, so the patches did not take effect")
 	})
 	// In case the patches cause panic, use the listeners generated before to reduce the influence.
@@ -63,7 +63,7 @@ func ApplyListenerPatches(
 
 func patchListeners(
 	patchContext networking.EnvoyFilter_PatchContext,
-	envoyFilterWrapper *model.EnvoyFilterWrapper,
+	efw *model.EnvoyFilterWrapper,
 	listeners []*xdslistener.Listener,
 	skipAdds bool) []*xdslistener.Listener {
 	listenersRemoved := false
@@ -77,12 +77,12 @@ func patchListeners(
 			// removed by another op
 			continue
 		}
-		patchListener(patchContext, envoyFilterWrapper.Patches, listener, &listenersRemoved)
+		patchListener(patchContext, efw, efw.Patches, listener, &listenersRemoved)
 	}
 	// adds at listener level if enabled
 	applied := false
 	if !skipAdds {
-		for _, lp := range envoyFilterWrapper.Patches[networking.EnvoyFilter_LISTENER] {
+		for _, lp := range efw.Patches[networking.EnvoyFilter_LISTENER] {
 			if lp.Operation == networking.EnvoyFilter_Patch_ADD {
 				if !commonConditionMatch(patchContext, lp) {
 					continue
@@ -95,7 +95,7 @@ func patchListeners(
 			}
 		}
 	}
-	IncrementEnvoyFilterMetric(Listener, applied)
+	IncrementEnvoyFilterMetric(efw.Key(), Listener, applied)
 	if listenersRemoved {
 		tempArray := make([]*xdslistener.Listener, 0, len(listeners))
 		for _, l := range listeners {
@@ -109,6 +109,7 @@ func patchListeners(
 }
 
 func patchListener(patchContext networking.EnvoyFilter_PatchContext,
+	efw *model.EnvoyFilterWrapper,
 	patches map[networking.EnvoyFilter_ApplyTo][]*model.EnvoyFilterConfigPatchWrapper,
 	listener *xdslistener.Listener, listenersRemoved *bool) {
 	applied := false
@@ -127,11 +128,12 @@ func patchListener(patchContext networking.EnvoyFilter_PatchContext,
 			proto.Merge(listener, cp.Value)
 		}
 	}
-	IncrementEnvoyFilterMetric(Listener, applied)
-	patchFilterChains(patchContext, patches, listener)
+	IncrementEnvoyFilterMetric(efw.Key(), Listener, applied)
+	patchFilterChains(patchContext, efw, patches, listener)
 }
 
 func patchFilterChains(patchContext networking.EnvoyFilter_PatchContext,
+	efw *model.EnvoyFilterWrapper,
 	patches map[networking.EnvoyFilter_ApplyTo][]*model.EnvoyFilterConfigPatchWrapper,
 	listener *xdslistener.Listener) {
 	filterChainsRemoved := false
@@ -139,11 +141,11 @@ func patchFilterChains(patchContext networking.EnvoyFilter_PatchContext,
 		if fc.Filters == nil {
 			continue
 		}
-		patchFilterChain(patchContext, patches, listener, listener.FilterChains[i], &filterChainsRemoved)
+		patchFilterChain(patchContext, efw, patches, listener, listener.FilterChains[i], &filterChainsRemoved)
 	}
 	if fc := listener.GetDefaultFilterChain(); fc.GetFilters() != nil {
 		removed := false
-		patchFilterChain(patchContext, patches, listener, fc, &removed)
+		patchFilterChain(patchContext, efw, patches, listener, fc, &removed)
 		if removed {
 			listener.DefaultFilterChain = nil
 		}
@@ -159,7 +161,7 @@ func patchFilterChains(patchContext networking.EnvoyFilter_PatchContext,
 			listener.FilterChains = append(listener.FilterChains, proto.Clone(cp.Value).(*xdslistener.FilterChain))
 		}
 	}
-	IncrementEnvoyFilterMetric(FilterChain, applied)
+	IncrementEnvoyFilterMetric(efw.Key(), FilterChain, applied)
 	if filterChainsRemoved {
 		tempArray := make([]*xdslistener.FilterChain, 0, len(listener.FilterChains))
 		for _, fc := range listener.FilterChains {
@@ -172,6 +174,7 @@ func patchFilterChains(patchContext networking.EnvoyFilter_PatchContext,
 }
 
 func patchFilterChain(patchContext networking.EnvoyFilter_PatchContext,
+	efw *model.EnvoyFilterWrapper,
 	patches map[networking.EnvoyFilter_ApplyTo][]*model.EnvoyFilterConfigPatchWrapper,
 	listener *xdslistener.Listener,
 	fc *xdslistener.FilterChain, filterChainRemoved *bool) {
@@ -199,8 +202,8 @@ func patchFilterChain(patchContext networking.EnvoyFilter_PatchContext,
 			}
 		}
 	}
-	IncrementEnvoyFilterMetric(FilterChain, applied)
-	patchNetworkFilters(patchContext, patches, listener, fc)
+	IncrementEnvoyFilterMetric(efw.Key(), FilterChain, applied)
+	patchNetworkFilters(patchContext, efw, patches, listener, fc)
 }
 
 // Test if the patch contains a config for TransportSocket
@@ -240,6 +243,7 @@ func mergeTransportSocketListener(fc *xdslistener.FilterChain, cp *model.EnvoyFi
 }
 
 func patchNetworkFilters(patchContext networking.EnvoyFilter_PatchContext,
+	efw *model.EnvoyFilterWrapper,
 	patches map[networking.EnvoyFilter_ApplyTo][]*model.EnvoyFilterConfigPatchWrapper,
 	listener *xdslistener.Listener, fc *xdslistener.FilterChain) {
 	networkFiltersRemoved := false
@@ -247,7 +251,7 @@ func patchNetworkFilters(patchContext networking.EnvoyFilter_PatchContext,
 		if filter.Name == "" {
 			continue
 		}
-		patchNetworkFilter(patchContext, patches, listener, fc, fc.Filters[i], &networkFiltersRemoved)
+		patchNetworkFilter(patchContext, efw, patches, listener, fc, fc.Filters[i], &networkFiltersRemoved)
 	}
 	applied := false
 	for _, cp := range patches[networking.EnvoyFilter_NETWORK_FILTER] {
@@ -330,7 +334,7 @@ func patchNetworkFilters(patchContext networking.EnvoyFilter_PatchContext,
 			fc.Filters[replacePosition] = proto.Clone(cp.Value).(*xdslistener.Filter)
 		}
 	}
-	IncrementEnvoyFilterMetric(NetworkFilter, applied)
+	IncrementEnvoyFilterMetric(efw.Key(), NetworkFilter, applied)
 	if networkFiltersRemoved {
 		tempArray := make([]*xdslistener.Filter, 0, len(fc.Filters))
 		for _, filter := range fc.Filters {
@@ -343,6 +347,7 @@ func patchNetworkFilters(patchContext networking.EnvoyFilter_PatchContext,
 }
 
 func patchNetworkFilter(patchContext networking.EnvoyFilter_PatchContext,
+	efw *model.EnvoyFilterWrapper,
 	patches map[networking.EnvoyFilter_ApplyTo][]*model.EnvoyFilterConfigPatchWrapper,
 	listener *xdslistener.Listener, fc *xdslistener.FilterChain,
 	filter *xdslistener.Filter, networkFilterRemoved *bool) {
@@ -399,13 +404,14 @@ func patchNetworkFilter(patchContext networking.EnvoyFilter_PatchContext,
 			}
 		}
 	}
-	IncrementEnvoyFilterMetric(NetworkFilter, applied)
+	IncrementEnvoyFilterMetric(efw.Key(), NetworkFilter, applied)
 	if filter.Name == wellknown.HTTPConnectionManager {
-		patchHTTPFilters(patchContext, patches, listener, fc, filter)
+		patchHTTPFilters(patchContext, efw, patches, listener, fc, filter)
 	}
 }
 
 func patchHTTPFilters(patchContext networking.EnvoyFilter_PatchContext,
+	efw *model.EnvoyFilterWrapper,
 	patches map[networking.EnvoyFilter_ApplyTo][]*model.EnvoyFilterConfigPatchWrapper,
 	listener *xdslistener.Listener, fc *xdslistener.FilterChain, filter *xdslistener.Filter) {
 	hcm := &http_conn.HttpConnectionManager{}
@@ -421,7 +427,7 @@ func patchHTTPFilters(patchContext networking.EnvoyFilter_PatchContext,
 		if httpFilter.Name == "" {
 			continue
 		}
-		patchHTTPFilter(patchContext, patches, listener, fc, filter, httpFilter, &httpFiltersRemoved)
+		patchHTTPFilter(patchContext, efw, patches, listener, fc, filter, httpFilter, &httpFiltersRemoved)
 	}
 	applied := false
 	for _, cp := range patches[networking.EnvoyFilter_HTTP_FILTER] {
@@ -517,7 +523,7 @@ func patchHTTPFilters(patchContext networking.EnvoyFilter_PatchContext,
 		}
 		hcm.HttpFilters = tempArray
 	}
-	IncrementEnvoyFilterMetric(HttpFilter, applied)
+	IncrementEnvoyFilterMetric(efw.Key(), HttpFilter, applied)
 	if filter.GetTypedConfig() != nil {
 		// convert to any type
 		filter.ConfigType = &xdslistener.Filter_TypedConfig{TypedConfig: util.MessageToAny(hcm)}
@@ -525,6 +531,7 @@ func patchHTTPFilters(patchContext networking.EnvoyFilter_PatchContext,
 }
 
 func patchHTTPFilter(patchContext networking.EnvoyFilter_PatchContext,
+	efw *model.EnvoyFilterWrapper,
 	patches map[networking.EnvoyFilter_ApplyTo][]*model.EnvoyFilterConfigPatchWrapper,
 	listener *xdslistener.Listener, fc *xdslistener.FilterChain, filter *xdslistener.Filter,
 	httpFilter *http_conn.HttpFilter, httpFilterRemoved *bool) {
@@ -582,7 +589,7 @@ func patchHTTPFilter(patchContext networking.EnvoyFilter_PatchContext,
 			}
 		}
 	}
-	IncrementEnvoyFilterMetric(HttpFilter, applied)
+	IncrementEnvoyFilterMetric(efw.Key(), HttpFilter, applied)
 }
 
 func listenerMatch(listener *xdslistener.Listener, cp *model.EnvoyFilterConfigPatchWrapper) bool {

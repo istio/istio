@@ -14,6 +14,7 @@
 package envoyfilter
 
 import (
+	"istio.io/istio/pilot/pkg/features"
 	"istio.io/pkg/monitoring"
 )
 
@@ -41,37 +42,50 @@ const (
 var (
 	patchType = monitoring.MustCreateLabel("patch")
 	errorType = monitoring.MustCreateLabel("type")
+	nameType  = monitoring.MustCreateLabel("name")
 
 	totalEnvoyFilters = monitoring.NewSum(
 		"pilot_total_envoy_filter",
 		"Total number of Envoy filters that were applied, skipped and errored.",
-		monitoring.WithLabels(patchType, errorType),
+		monitoring.WithLabels(nameType, patchType, errorType),
 	)
 )
 
 func init() {
-	monitoring.MustRegister(totalEnvoyFilters)
+	if features.EnableEnvoyFilterMetrics {
+		monitoring.MustRegister(totalEnvoyFilters)
+	}
 }
 
 // IncrementEnvoyFilterMetric increments filter metric.
-func IncrementEnvoyFilterMetric(pt PatchType, applied bool) {
+func IncrementEnvoyFilterMetric(name string, pt PatchType, applied bool) {
+	if !features.EnableEnvoyFilterMetrics {
+		return
+	}
 	resultType := Applied
 	if !applied {
 		resultType = Skipped
 	}
-	totalEnvoyFilters.With(patchType.Value(string(pt))).With(errorType.Value(string(resultType))).Record(1)
+	totalEnvoyFilters.With(nameType.Value(name)).With(patchType.Value(string(pt))).
+		With(errorType.Value(string(resultType))).Record(1)
 }
 
 // IncrementEnvoyFilterErrorMetric increments filter metric for errors.
-func IncrementEnvoyFilterErrorMetric(pt PatchType) {
-	totalEnvoyFilters.With(patchType.Value(string(pt))).With(errorType.Value(string(Error))).Record(1)
+func IncrementEnvoyFilterErrorMetric(name string, pt PatchType) {
+	if !features.EnableEnvoyFilterMetrics {
+		return
+	}
+	totalEnvoyFilters.With(nameType.Value(name)).With(patchType.Value(string(pt))).With(errorType.Value(string(Error))).Record(1)
 }
 
 // RecordEnvoyFilterMetric increments the filter metric with the given value.
-func RecordEnvoyFilterMetric(pt PatchType, success bool, value float64) {
+func RecordEnvoyFilterMetric(name string, pt PatchType, success bool, value float64) {
+	if !features.EnableEnvoyFilterMetrics {
+		return
+	}
 	resultType := Applied
 	if !success {
 		resultType = Skipped
 	}
-	totalEnvoyFilters.With(patchType.Value(string(pt))).With(errorType.Value(string(resultType))).Record(value)
+	totalEnvoyFilters.With(nameType.Value(name)).With(patchType.Value(string(pt))).With(errorType.Value(string(resultType))).Record(value)
 }
