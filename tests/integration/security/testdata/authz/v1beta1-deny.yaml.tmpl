@@ -1,14 +1,14 @@
-# The following policy denies access to path /deny to workload b
+# The following policy denies access to path /deny to workload
 
 apiVersion: security.istio.io/v1beta1
 kind: AuthorizationPolicy
 metadata:
-  name: policy-b-deny
+  name: policy-dst0-deny
   namespace: "{{ .Namespace }}"
 spec:
   selector:
     matchLabels:
-      "app": "b"
+      "app": "{{ .dst0 }}"
   action: DENY
   rules:
   - to:
@@ -16,17 +16,17 @@ spec:
         paths: ["/deny"]
 ---
 
-# The following policy denies access to path /allow/admin to workload c
+# The following policy denies access to path /allow/admin to workload
 
 apiVersion: security.istio.io/v1beta1
 kind: AuthorizationPolicy
 metadata:
-  name: policy-c-deny
+  name: policy-dst1-deny
   namespace: "{{ .Namespace }}"
 spec:
   selector:
     matchLabels:
-      "app": "c"
+      "app": "{{ .dst1 }}"
   action: DENY
   rules:
   - to:
@@ -34,17 +34,17 @@ spec:
         paths: ["/allow/admin"]
 ---
 
-# The following policy allows access to path with prefix "/allow" to workload c
+# The following policy allows access to path with prefix "/allow" to workload.
 
 apiVersion: security.istio.io/v1beta1
 kind: AuthorizationPolicy
 metadata:
-  name: policy-c-allow
+  name: policy-dst1-allow
   namespace: "{{ .Namespace }}"
 spec:
   selector:
     matchLabels:
-      "app": "c"
+      "app": "{{ .dst1 }}"
   action: ALLOW
   rules:
   - to:
