@@ -60,7 +60,7 @@ to upgrade as well by specifying --namespaces to check, or using --all-namespace
 			}
 			for _, ns := range namespaces {
 				nsmsgs, err := checkDataPlane(ns)
-				if  err != nil {
+				if err != nil {
 					return err
 				}
 				msgs.Add(nsmsgs...)
