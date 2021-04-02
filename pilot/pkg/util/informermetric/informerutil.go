@@ -35,6 +35,10 @@ var (
 	handlers = map[string]cache.WatchErrorHandler{}
 )
 
+func init() {
+	monitoring.MustRegister(errorMetric)
+}
+
 // ErrorHandlerForCluster fetches or creates an ErrorHandler that emits a metric
 // and logs when a watch error occurs. For use with SetWatchErrorHandler on SharedInformer.
 func ErrorHandlerForCluster(clusterID string) cache.WatchErrorHandler {
@@ -47,12 +51,9 @@ func ErrorHandlerForCluster(clusterID string) cache.WatchErrorHandler {
 
 	mu.Lock()
 	defer mu.Unlock()
-	metric := errorMetric.With(clusterLabel.Value(clusterID))
-	if err := metric.Register(); err != nil {
-		log.Warnf("failed registering metric %s: %v", metric.Name(), err)
-	}
+	clusterMetric := errorMetric.With(clusterLabel.Value(clusterID))
 	h := func(_ *cache.Reflector, err error) {
-		metric.Increment()
+		clusterMetric.Increment()
 		log.Errorf("watch error in cluster %s: %v", clusterID, err)
 	}
 	handlers[clusterID] = h

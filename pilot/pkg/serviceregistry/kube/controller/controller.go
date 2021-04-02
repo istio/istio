@@ -525,7 +525,10 @@ func (c *Controller) onNodeEvent(obj interface{}, event model.Event) error {
 // FilterOutFunc func for filtering out objects during update callback
 type FilterOutFunc func(old, cur interface{}) bool
 
-func (c *Controller) registerHandlers(informer filter.FilteredSharedIndexInformer, otype string, handler func(interface{}, model.Event) error, filter FilterOutFunc) {
+func (c *Controller) registerHandlers(
+	informer filter.FilteredSharedIndexInformer, otype string,
+	handler func(interface{}, model.Event) error, filter FilterOutFunc,
+) {
 	if filter == nil {
 		filter = func(old, cur interface{}) bool {
 			oldObj := old.(metav1.Object)
