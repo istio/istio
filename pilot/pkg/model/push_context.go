@@ -1404,11 +1404,14 @@ func (ps *PushContext) updateSidecarScopes(oldPushContext *PushContext, pushReq 
 		return false
 	}
 
-	ps.sidecarsByNamespace = oldPushContext.sidecarsByNamespace
+	ps.sidecarsByNamespace = make(map[string][]*SidecarScope, len(oldPushContext.sidecarsByNamespace))
 	for ns, sidecars := range oldPushContext.sidecarsByNamespace {
+		ps.sidecarsByNamespace[ns] = make([]*SidecarScope, len(sidecars))
 		for idx, sidecar := range sidecars {
 			if isAffected(sidecar) {
 				ps.sidecarsByNamespace[ns][idx] = ConvertToSidecarScope(ps, sidecar.Config, ns)
+			} else {
+				ps.sidecarsByNamespace[ns][idx] = oldPushContext.sidecarsByNamespace[ns][idx]
 			}
 		}
 	}
