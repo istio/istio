@@ -1981,11 +1981,12 @@ func analyzeUnreachableTLSRules(routes []*networking.TLSRoute,
 	}
 }
 
+// asJSON() creates a JSON serialization of a match, to use for match comparison.  We don't use the JSON itself.
 func asJSON(data interface{}) string {
 	// Remove the name, so we can create a serialization that only includes traffic routing config
 	switch mr := data.(type) {
 	case *networking.HTTPMatchRequest:
-		if mr.Name != "" {
+		if mr != nil && mr.Name != "" {
 			unnamed := *mr
 			unnamed.Name = ""
 			data = &unnamed
