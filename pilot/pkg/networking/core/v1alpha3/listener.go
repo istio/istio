@@ -31,8 +31,8 @@ import (
 	tracing "github.com/envoyproxy/go-control-plane/envoy/type/tracing/v3"
 	xdstype "github.com/envoyproxy/go-control-plane/envoy/type/v3"
 	"github.com/envoyproxy/go-control-plane/pkg/wellknown"
-	"github.com/golang/protobuf/ptypes"
 	"github.com/golang/protobuf/ptypes/wrappers"
+	"google.golang.org/protobuf/types/known/durationpb"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
@@ -49,7 +49,6 @@ import (
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/proto"
 	"istio.io/istio/pkg/util/gogo"
-	"istio.io/istio/pkg/util/protomarshal"
 	"istio.io/pkg/log"
 	"istio.io/pkg/monitoring"
 )
@@ -121,6 +120,8 @@ type FilterChainMatchOptions struct {
 	TransportProtocol string
 	// Filter chain protocol. HTTP for HTTP proxy and TCP for TCP proxy
 	Protocol istionetworking.ListenerProtocol
+	// Whether this chain should terminate mTLS or not
+	MTLS bool
 }
 
 // A set of pre-allocated variables related to protocol sniffing logic for
@@ -132,10 +133,9 @@ var (
 	plaintextHTTPALPNs = []string{"http/1.0", "http/1.1", "h2c"}
 	mtlsHTTPALPNs      = []string{"istio-http/1.0", "istio-http/1.1", "istio-h2"}
 
-	mtlsTCPWithMxcALPNs = []string{"istio-peer-exchange", "istio"}
+	allIstioMtlsALPNs = []string{"istio", "istio-peer-exchange", "istio-http/1.0", "istio-http/1.1", "istio-h2"}
 
-	// ALPN used for TCP Metadata Exchange.
-	tcpMxcALPN = "istio-peer-exchange"
+	mtlsTCPWithMxcALPNs = []string{"istio-peer-exchange", "istio"}
 
 	// Same as inboundPermissiveFilterChainMatchOptions except for following case:
 	// FCM 3: ALPN [istio-peer-exchange, istio] Transport protocol: tls            --> TCP traffic from sidecar over TLS
@@ -146,6 +146,7 @@ var (
 			// If client sends mTLS traffic, transport protocol will be set by the TLS inspector
 			TransportProtocol: xdsfilters.TLSTransportProtocol,
 			Protocol:          istionetworking.ListenerProtocolHTTP,
+			MTLS:              true,
 		},
 		{
 			// client side traffic was detected as HTTP by the outbound listener, sent out as plain text
@@ -160,6 +161,7 @@ var (
 			// If client sends mTLS traffic, transport protocol will be set by the TLS inspector
 			TransportProtocol: xdsfilters.TLSTransportProtocol,
 			Protocol:          istionetworking.ListenerProtocolTCP,
+			MTLS:              true,
 		},
 		{
 			// client side traffic could not be identified by the outbound listener, sent over plaintext
@@ -179,6 +181,40 @@ var (
 			Protocol:          istionetworking.ListenerProtocolTCP,
 		},
 	}
+	inboundPermissiveHTTPFilterChainMatchWithMxcOptions = []FilterChainMatchOptions{
+		{
+			// HTTP over MTLS
+			ApplicationProtocols: allIstioMtlsALPNs,
+			TransportProtocol:    xdsfilters.TLSTransportProtocol,
+			Protocol:             istionetworking.ListenerProtocolHTTP,
+			MTLS:                 true,
+		},
+		{
+			// Plaintext HTTP
+			Protocol:          istionetworking.ListenerProtocolHTTP,
+			TransportProtocol: xdsfilters.RawBufferTransportProtocol,
+		},
+		// We do not need to handle other simple TLS or others, as this is explicitly declared as HTTP type.
+	}
+	inboundPermissiveTCPFilterChainMatchWithMxcOptions = []FilterChainMatchOptions{
+		{
+			// MTLS
+			ApplicationProtocols: allIstioMtlsALPNs,
+			TransportProtocol:    xdsfilters.TLSTransportProtocol,
+			Protocol:             istionetworking.ListenerProtocolTCP,
+			MTLS:                 true,
+		},
+		{
+			// Plain TLS
+			TransportProtocol: xdsfilters.TLSTransportProtocol,
+			Protocol:          istionetworking.ListenerProtocolTCP,
+		},
+		{
+			// Plaintext
+			Protocol:          istionetworking.ListenerProtocolTCP,
+			TransportProtocol: xdsfilters.RawBufferTransportProtocol,
+		},
+	}
 
 	inboundStrictFilterChainMatchOptions = []FilterChainMatchOptions{
 		{
@@ -187,11 +223,27 @@ var (
 			ApplicationProtocols: mtlsHTTPALPNs,
 			Protocol:             istionetworking.ListenerProtocolHTTP,
 			TransportProtocol:    xdsfilters.TLSTransportProtocol,
+			MTLS:                 true,
 		},
 		{
 			// Could not detect traffic on the client side. Server side has no mTLS.
 			Protocol:          istionetworking.ListenerProtocolTCP,
 			TransportProtocol: xdsfilters.TLSTransportProtocol,
+			MTLS:              true,
+		},
+	}
+	inboundStrictTCPFilterChainMatchOptions = []FilterChainMatchOptions{
+		{
+			Protocol:          istionetworking.ListenerProtocolTCP,
+			TransportProtocol: xdsfilters.TLSTransportProtocol,
+			MTLS:              true,
+		},
+	}
+	inboundStrictHTTPFilterChainMatchOptions = []FilterChainMatchOptions{
+		{
+			Protocol:          istionetworking.ListenerProtocolHTTP,
+			TransportProtocol: xdsfilters.TLSTransportProtocol,
+			MTLS:              true,
 		},
 	}
 
@@ -204,6 +256,18 @@ var (
 		{
 			// Could not detect traffic on the client side. Server side has no mTLS.
 			Protocol:          istionetworking.ListenerProtocolTCP,
+			TransportProtocol: xdsfilters.RawBufferTransportProtocol,
+		},
+	}
+	inboundPlainTextTCPFilterChainMatchOptions = []FilterChainMatchOptions{
+		{
+			Protocol:          istionetworking.ListenerProtocolTCP,
+			TransportProtocol: xdsfilters.RawBufferTransportProtocol,
+		},
+	}
+	inboundPlainTextHTTPFilterChainMatchOptions = []FilterChainMatchOptions{
+		{
+			Protocol:          istionetworking.ListenerProtocolHTTP,
 			TransportProtocol: xdsfilters.RawBufferTransportProtocol,
 		},
 	}
@@ -323,16 +387,16 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundListeners(
 				bind:       bind,
 				port:       &port,
 				bindToPort: false,
+				protocol:   istionetworking.ModelProtocolToListenerProtocol(instance.ServicePort.Protocol, core.TrafficDirection_INBOUND),
 			}
 
 			pluginParams := &plugin.InputParams{
-				ListenerProtocol: istionetworking.ModelProtocolToListenerProtocol(instance.ServicePort.Protocol, core.TrafficDirection_INBOUND),
-				Node:             node,
-				ServiceInstance:  instance,
-				Push:             push,
+				Node:            node,
+				ServiceInstance: instance,
+				Push:            push,
 			}
 
-			if l := configgen.buildSidecarInboundListenerForPortOrUDS(node, listenerOpts, pluginParams, listenerMap); l != nil {
+			if l := configgen.buildSidecarInboundListenerForPortOrUDS(listenerOpts, pluginParams, listenerMap); l != nil {
 				listeners = append(listeners, l)
 			}
 		}
@@ -377,6 +441,8 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundListeners(
 			bind:       bind,
 			port:       listenPort,
 			bindToPort: bindToPort,
+			protocol: istionetworking.ModelProtocolToListenerProtocol(listenPort.Protocol,
+				core.TrafficDirection_INBOUND),
 		}
 
 		// we don't need to set other fields of the endpoint here as
@@ -387,14 +453,12 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundListeners(
 		// Validation ensures that the protocol specified in Sidecar.ingress
 		// is always a valid known protocol
 		pluginParams := &plugin.InputParams{
-			ListenerProtocol: istionetworking.ModelProtocolToListenerProtocol(listenPort.Protocol,
-				core.TrafficDirection_INBOUND),
 			Node:            node,
 			ServiceInstance: instance,
 			Push:            push,
 		}
 
-		if l := configgen.buildSidecarInboundListenerForPortOrUDS(node, listenerOpts, pluginParams, listenerMap); l != nil {
+		if l := configgen.buildSidecarInboundListenerForPortOrUDS(listenerOpts, pluginParams, listenerMap); l != nil {
 			listeners = append(listeners, l)
 		}
 	}
@@ -404,15 +468,6 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundListeners(
 
 func (configgen *ConfigGeneratorImpl) buildSidecarInboundHTTPListenerOptsForPortOrUDS(node *model.Proxy,
 	pluginParams *plugin.InputParams, clusterName string) *httpListenerOpts {
-	if clusterName == "" {
-		// In case of unix domain sockets, the service port will be 0. So use the port name to distinguish the
-		// inbound listeners that a user specifies in Sidecar. Otherwise, all inbound clusters will be the same.
-		// We use the port name as the subset in the inbound cluster for differentiation. Its fine to use port
-		// names here because the inbound clusters are not referred to anywhere in the API, unlike the outbound
-		// clusters and these are static endpoint clusters used only for sidecar (proxy -> app)
-		clusterName = model.BuildInboundSubsetKey(int(pluginParams.ServiceInstance.Endpoint.EndpointPort))
-	}
-
 	httpOpts := &httpListenerOpts{
 		routeConfig: configgen.buildSidecarInboundHTTPRouteConfig(pluginParams.Node,
 			pluginParams.Push, pluginParams.ServiceInstance, clusterName),
@@ -448,7 +503,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundHTTPListenerOptsForPort
 
 // buildSidecarInboundListenerForPortOrUDS creates a single listener on the server-side (inbound)
 // for a given port or unix domain socket
-func (configgen *ConfigGeneratorImpl) buildSidecarInboundListenerForPortOrUDS(node *model.Proxy, listenerOpts buildListenerOpts,
+func (configgen *ConfigGeneratorImpl) buildSidecarInboundListenerForPortOrUDS(listenerOpts buildListenerOpts,
 	pluginParams *plugin.InputParams, listenerMap map[int]*inboundListenerEntry) *listener.Listener {
 	// Local service instances can be accessed through one of four addresses:
 	// unix domain socket, localhost, endpoint IP, and service
@@ -473,137 +528,23 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundListenerForPortOrUDS(no
 		// Skip building listener for the same port
 		return nil
 	}
-
-	var allChains []istionetworking.FilterChain
-	for _, p := range configgen.Plugins {
-		chains := p.OnInboundFilterChains(pluginParams)
-		allChains = append(allChains, chains...)
-	}
-
-	tlsInspectorEnabled := false
-	hasTLSContext := false
-allChainsLabel:
-	for _, c := range allChains {
-		for _, lf := range c.ListenerFilters {
-			if lf.Name == wellknown.TlsInspector {
-				tlsInspectorEnabled = true
-				break allChainsLabel
-			}
-		}
-
-		hasTLSContext = hasTLSContext || c.TLSContext != nil
-	}
-
-	var filterChainMatchOption []FilterChainMatchOptions
-	// Detect protocol by sniffing and double the filter chain
-	if pluginParams.ListenerProtocol == istionetworking.ListenerProtocolAuto {
-		allChains = append(allChains, allChains...)
-		if tlsInspectorEnabled {
-			allChains = append(allChains, istionetworking.FilterChain{})
-			filterChainMatchOption = inboundPermissiveFilterChainMatchWithMxcOptions
-		} else {
-			if hasTLSContext {
-				filterChainMatchOption = inboundStrictFilterChainMatchOptions
-			} else {
-				filterChainMatchOption = inboundPlainTextFilterChainMatchOptions
-			}
-		}
+	if listenerOpts.protocol == istionetworking.ListenerProtocolAuto {
 		listenerOpts.needHTTPInspector = true
-	} else if pluginParams.ListenerProtocol == istionetworking.ListenerProtocolTCP {
-		// When we are in permissive mode, we need a third filter chain to handle how envoy treats filter
-		// chain matching
-		// There will be one mtls filter chain, then two identical filter chains with transport=raw and transport=tls.
-		// TODO(https://github.com/istio/istio/issues/29588) clean this up
-		if tlsInspectorEnabled {
-			allChains = append(allChains, istionetworking.FilterChain{
-				FilterChainMatch: &listener.FilterChainMatch{TransportProtocol: xdsfilters.TLSTransportProtocol},
-			})
-		}
 	}
+	// Setup filter chain options and call plugins
+	clusterName := model.BuildInboundSubsetKey(int(pluginParams.ServiceInstance.Endpoint.EndpointPort))
+	fcOpts := configgen.buildInboundFilterchains(pluginParams, listenerOpts, "", clusterName, false)
+	listenerOpts.filterChainOpts = fcOpts
 
-	// name all the filter chains
-
-	for id, chain := range allChains {
-		var httpOpts *httpListenerOpts
-		var tcpNetworkFilters []*listener.Filter
-		var filterChainMatch *listener.FilterChainMatch
-
-		if chain.FilterChainMatch == nil {
-			chain.FilterChainMatch = &listener.FilterChainMatch{}
-		}
-		if chain.FilterChainMatch.TransportProtocol == "" {
-			if chain.TLSContext == nil {
-				chain.FilterChainMatch.TransportProtocol = xdsfilters.RawBufferTransportProtocol
-			} else {
-				chain.FilterChainMatch.TransportProtocol = xdsfilters.TLSTransportProtocol
-			}
-		}
-		switch pluginParams.ListenerProtocol {
-		case istionetworking.ListenerProtocolHTTP:
-			filterChainMatch = chain.FilterChainMatch
-			if len(filterChainMatch.ApplicationProtocols) > 0 {
-				// This is the filter chain used by permissive mTLS. Append mtlsHTTPALPNs as the client side will
-				// override the ALPN with mtlsHTTPALPNs.
-				// TODO: This should move to authN code instead of us appending additional ALPNs here.
-				filterChainMatch.ApplicationProtocols = append(filterChainMatch.ApplicationProtocols, mtlsHTTPALPNs...)
-			}
-
-			httpOpts = configgen.buildSidecarInboundHTTPListenerOptsForPortOrUDS(node, pluginParams, "")
-
-		case istionetworking.ListenerProtocolTCP:
-			filterChainMatch = chain.FilterChainMatch
-			tcpNetworkFilters = buildInboundNetworkFilters(pluginParams.Push, pluginParams.ServiceInstance, node)
-
-		case istionetworking.ListenerProtocolAuto:
-			// Make sure id is not out of boundary of filterChainMatchOption
-			if filterChainMatchOption == nil || len(filterChainMatchOption) <= id {
-				continue
-			}
-
-			// TODO(yxue) avoid bypassing authN using TCP
-			// Build filter chain options for listener configured with protocol sniffing
-			fcm := &listener.FilterChainMatch{}
-			if chain.FilterChainMatch != nil {
-				fcm = protomarshal.ShallowCopy(chain.FilterChainMatch).(*listener.FilterChainMatch)
-			}
-			fcm.ApplicationProtocols = filterChainMatchOption[id].ApplicationProtocols
-			fcm.TransportProtocol = filterChainMatchOption[id].TransportProtocol
-			filterChainMatch = fcm
-			if filterChainMatchOption[id].Protocol == istionetworking.ListenerProtocolHTTP {
-				httpOpts = configgen.buildSidecarInboundHTTPListenerOptsForPortOrUDS(node, pluginParams, "")
-				if chain.TLSContext != nil && chain.TLSContext.CommonTlsContext != nil {
-					chain.TLSContext.CommonTlsContext.AlpnProtocols = dropAlpnFromList(
-						chain.TLSContext.CommonTlsContext.AlpnProtocols, tcpMxcALPN)
-				}
-			} else {
-				tcpNetworkFilters = buildInboundNetworkFilters(pluginParams.Push, pluginParams.ServiceInstance, node)
-			}
-		default:
-			log.Warnf("Unsupported inbound protocol %v for port %#v", pluginParams.ListenerProtocol,
-				pluginParams.ServiceInstance.ServicePort)
-			return nil
-		}
-
-		listenerOpts.filterChainOpts = append(listenerOpts.filterChainOpts, &filterChainOpts{
-			httpOpts:        httpOpts,
-			networkFilters:  tcpNetworkFilters,
-			tlsContext:      chain.TLSContext,
-			match:           filterChainMatch,
-			listenerFilters: chain.ListenerFilters,
-		})
-	}
-
-	// call plugins
+	// Buildup the complete listener
+	// TODO: Currently, we build filter chains, then convert them to listener.Listeners then
+	// aggregate them back to filter chains in the virtual listener. This is complex and inefficient.
+	// We should instead just directly construct the filter chains. We do still need the ability to
+	// create full listeners for bind-to-port listeners added explicitly, but they are not common.
 	l := buildListener(listenerOpts, core.TrafficDirection_INBOUND)
-
 	mutable := &istionetworking.MutableObjects{
 		Listener:     l,
 		FilterChains: getPluginFilterChain(listenerOpts),
-	}
-	for _, p := range configgen.Plugins {
-		if err := p.OnInboundListener(pluginParams, mutable); err != nil {
-			log.Warn(err.Error())
-		}
 	}
 	// Filters are serialized one time into an opaque struct once we have the complete list.
 	if err := buildCompleteFilterChain(mutable, listenerOpts); err != nil {
@@ -814,11 +755,6 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(node *model.
 				bindToPort: bindToPort,
 			}
 
-			pluginParams := &plugin.InputParams{
-				Node: node,
-				Push: push,
-			}
-
 			for _, service := range services {
 				saddress := service.GetServiceAddressForProxy(node)
 				for _, servicePort := range service.Ports {
@@ -827,10 +763,6 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(node *model.
 					// port depends on servicePort.
 					listenerOpts.port = servicePort
 					listenerOpts.service = service
-
-					// The listener protocol is determined by the protocol of service port.
-					pluginParams.ListenerProtocol = istionetworking.ModelProtocolToListenerProtocol(servicePort.Protocol,
-						core.TrafficDirection_OUTBOUND)
 
 					// Support statefulsets/headless services with TCP ports, and empty service address field.
 					// Instead of generating a single 0.0.0.0:Port listener, generate a listener
@@ -1302,9 +1234,8 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListenerForPortOrUDS(l
 	}
 
 	pluginParams := &plugin.InputParams{
-		ListenerProtocol: listenerProtocol,
-		Node:             listenerOpts.proxy,
-		Push:             listenerOpts.push,
+		Node: listenerOpts.proxy,
+		Push: listenerOpts.push,
 	}
 
 	for _, p := range configgen.Plugins {
@@ -1447,6 +1378,7 @@ type filterChainOpts struct {
 	match            *listener.FilterChainMatch
 	listenerFilters  []*listener.ListenerFilter
 	networkFilters   []*listener.Filter
+	filterChain      istionetworking.FilterChain
 }
 
 // ListenerClass defines the class of the listener
@@ -1472,6 +1404,7 @@ type buildListenerOpts struct {
 	needHTTPInspector bool
 	class             ListenerClass
 	service           *model.Service
+	protocol          istionetworking.ListenerProtocol
 }
 
 func buildHTTPConnectionManager(listenerOpts buildListenerOpts, httpOpts *httpListenerOpts,
@@ -1517,11 +1450,11 @@ func buildHTTPConnectionManager(listenerOpts buildListenerOpts, httpOpts *httpLi
 	idleTimeout, err := time.ParseDuration(listenerOpts.proxy.Metadata.IdleTimeout)
 	if err == nil {
 		connectionManager.CommonHttpProtocolOptions = &core.HttpProtocolOptions{
-			IdleTimeout: ptypes.DurationProto(idleTimeout),
+			IdleTimeout: durationpb.New(idleTimeout),
 		}
 	}
 
-	notimeout := ptypes.DurationProto(0 * time.Second)
+	notimeout := durationpb.New(0 * time.Second)
 	connectionManager.StreamIdleTimeout = notimeout
 
 	if httpOpts.rds != "" {
@@ -1531,7 +1464,8 @@ func buildHTTPConnectionManager(listenerOpts buildListenerOpts, httpOpts *httpLi
 					ConfigSourceSpecifier: &core.ConfigSource_Ads{
 						Ads: &core.AggregatedConfigSource{},
 					},
-					ResourceApiVersion: core.ApiVersion_V3,
+					InitialFetchTimeout: durationpb.New(0),
+					ResourceApiVersion:  core.ApiVersion_V3,
 				},
 				RouteConfigName: httpOpts.rds,
 			},
@@ -2092,6 +2026,8 @@ func getPluginFilterChain(opts buildListenerOpts) []istionetworking.FilterChain 
 		} else {
 			filterChain[id].ListenerProtocol = istionetworking.ListenerProtocolHTTP
 		}
+		filterChain[id].TCP = opts.filterChainOpts[id].filterChain.TCP
+		filterChain[id].HTTP = opts.filterChainOpts[id].filterChain.HTTP
 	}
 
 	return filterChain
@@ -2172,15 +2108,4 @@ func removeListenerFilterTimeout(listeners []*listener.Listener) {
 // listenerKey builds the key for a given bind and port
 func listenerKey(bind string, port int) string {
 	return bind + ":" + strconv.Itoa(port)
-}
-
-func dropAlpnFromList(alpnProtocols []string, alpnToDrop string) []string {
-	var newAlpnProtocols []string
-	for _, alpn := range alpnProtocols {
-		if alpn == alpnToDrop {
-			continue
-		}
-		newAlpnProtocols = append(newAlpnProtocols, alpn)
-	}
-	return newAlpnProtocols
 }

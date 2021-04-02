@@ -21,23 +21,25 @@ import (
 
 	"github.com/davecgh/go-spew/spew"
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
-	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
 	route "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
 	envoy_jwt "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/jwt_authn/v3"
 	http_conn "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
 	tls "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
+	"github.com/golang/protobuf/proto"
 	"github.com/golang/protobuf/ptypes"
 	duration "github.com/golang/protobuf/ptypes/duration"
 	"github.com/golang/protobuf/ptypes/empty"
+	"github.com/google/go-cmp/cmp"
+	"google.golang.org/protobuf/testing/protocmp"
+	"google.golang.org/protobuf/types/known/durationpb"
 
 	"istio.io/api/security/v1beta1"
 	type_beta "istio.io/api/type/v1beta1"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/model/test"
-	"istio.io/istio/pilot/pkg/networking"
+	"istio.io/istio/pilot/pkg/networking/plugin"
 	pilotutil "istio.io/istio/pilot/pkg/networking/util"
-	xdsfilters "istio.io/istio/pilot/pkg/xds/filters"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/host"
 	authn_alpha "istio.io/istio/pkg/envoy/config/authentication/v1alpha1"
@@ -1020,6 +1022,7 @@ func humanReadableAuthnFilterDump(filter *http_conn.HttpFilter) string {
 		return "<nil>"
 	}
 	config := &authn_filter.FilterConfig{}
+	// nolint: staticcheck
 	ptypes.UnmarshalAny(filter.GetTypedConfig(), config)
 	return spew.Sdump(*config)
 }
@@ -1461,7 +1464,7 @@ func TestAuthnFilterConfig(t *testing.T) {
 	}
 }
 
-func TestOnInboundFilterChain(t *testing.T) {
+func TestInboundMTLSSettings(t *testing.T) {
 	now := time.Now()
 	tlsContext := &tls.DownstreamTlsContext{
 		CommonTlsContext: &tls.CommonTlsContext{
@@ -1483,7 +1486,7 @@ func TestOnInboundFilterChain(t *testing.T) {
 								},
 							},
 						},
-						InitialFetchTimeout: ptypes.DurationProto(time.Second * 0),
+						InitialFetchTimeout: durationpb.New(time.Second * 0),
 						ResourceApiVersion:  core.ApiVersion_V3,
 					},
 				},
@@ -1508,7 +1511,7 @@ func TestOnInboundFilterChain(t *testing.T) {
 									},
 								},
 							},
-							InitialFetchTimeout: ptypes.DurationProto(time.Second * 0),
+							InitialFetchTimeout: durationpb.New(time.Second * 0),
 							ResourceApiVersion:  core.ApiVersion_V3,
 						},
 					},
@@ -1529,32 +1532,26 @@ func TestOnInboundFilterChain(t *testing.T) {
 		},
 		RequireClientCertificate: protovalue.BoolTrue,
 	}
+	tlsContextHTTP := proto.Clone(tlsContext).(*tls.DownstreamTlsContext)
+	tlsContextHTTP.CommonTlsContext.AlpnProtocols = []string{"h2", "http/1.1"}
 
-	expectedStrict := []networking.FilterChain{
-		{
-			TLSContext: tlsContext,
-		},
+	expectedStrict := plugin.MTLSSettings{
+		Port: 8080,
+		Mode: model.MTLSStrict,
+		TCP:  tlsContext,
+		HTTP: tlsContextHTTP,
 	}
-	// Two filter chains, one for mtls traffic within the mesh, one for plain text traffic.
-	expectedPermissive := []networking.FilterChain{
-		{
-			TLSContext: tlsContext,
-			FilterChainMatch: &listener.FilterChainMatch{
-				ApplicationProtocols: []string{"istio-peer-exchange", "istio"},
-			},
-			ListenerFilters: []*listener.ListenerFilter{
-				xdsfilters.TLSInspector,
-			},
-		},
-		{
-			FilterChainMatch: &listener.FilterChainMatch{},
-		},
+	expectedPermissive := plugin.MTLSSettings{
+		Port: 8080,
+		Mode: model.MTLSPermissive,
+		TCP:  tlsContext,
+		HTTP: tlsContextHTTP,
 	}
 
 	cases := []struct {
 		name         string
 		peerPolicies []*config.Config
-		expected     []networking.FilterChain
+		expected     plugin.MTLSSettings
 	}{
 		{
 			name:     "No policy - behave as permissive",
@@ -1571,7 +1568,7 @@ func TestOnInboundFilterChain(t *testing.T) {
 					},
 				},
 			},
-			expected: []networking.FilterChain{{}},
+			expected: plugin.MTLSSettings{Port: 8080, Mode: model.MTLSDisable},
 		},
 		{
 			name: "Single policy - permissive mode",
@@ -1733,14 +1730,13 @@ func TestOnInboundFilterChain(t *testing.T) {
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			got := NewPolicyApplier("root-namespace", nil, tc.peerPolicies, &model.PushContext{}).InboundFilterChain(
+			got := NewPolicyApplier("root-namespace", nil, tc.peerPolicies, &model.PushContext{}).InboundMTLSSettings(
 				8080,
 				testNode,
-				networking.ListenerProtocolAuto,
 				[]string{},
 			)
-			if !reflect.DeepEqual(got, tc.expected) {
-				t.Errorf("[%v] unexpected filter chains, got %v, want %v", tc.name, got, tc.expected)
+			if diff := cmp.Diff(tc.expected, got, protocmp.Transform()); diff != "" {
+				t.Errorf("unexpected filter chains: %v", diff)
 			}
 		})
 	}

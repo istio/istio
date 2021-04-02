@@ -28,7 +28,7 @@ import (
 // SelectionSpec is a spec for pods that will be Include in the capture
 // archive. The format is:
 //
-//   Namespace1,Namespace2../Deployments/Pods/Label1,Label2.../Annotation1,Annotation2.../ContainerName1,ContainerName2...
+//   Namespace1,Namespace2../Services/Pods/Label1,Label2.../Annotation1,Annotation2.../ContainerName1,ContainerName2...
 //
 // Namespace, pod and container names are pattern matching while labels
 // and annotations may have pattern in the values with exact match for keys.
@@ -82,7 +82,7 @@ func (s SelectionSpecs) String() string {
 			st += fmt.Sprintf("Namespaces: %s", strings.Join(ss.Namespaces, ","))
 		}
 		if !defaultListSetting(ss.Deployments) {
-			st += fmt.Sprintf("/Deployments: %s", strings.Join(ss.Deployments, ","))
+			st += fmt.Sprintf("/Services: %s", strings.Join(ss.Deployments, ","))
 		}
 		if !defaultListSetting(ss.Pods) {
 			st += fmt.Sprintf("/Pods:%s", strings.Join(ss.Pods, ","))

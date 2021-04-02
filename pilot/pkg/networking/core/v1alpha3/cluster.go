@@ -66,6 +66,7 @@ func getDefaultCircuitBreakerThresholds() *cluster.CircuitBreakers_Thresholds {
 		MaxRequests:        &wrappers.UInt32Value{Value: math.MaxUint32},
 		MaxConnections:     &wrappers.UInt32Value{Value: math.MaxUint32},
 		MaxPendingRequests: &wrappers.UInt32Value{Value: math.MaxUint32},
+		TrackRemaining:     true,
 	}
 }
 

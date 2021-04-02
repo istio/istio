@@ -15,6 +15,7 @@
 package istioagent
 
 import (
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"os"
@@ -127,6 +128,9 @@ type AgentOptions struct {
 
 	// Path to local UDS to communicate with Envoy
 	XdsUdsPath string
+
+	// Ability to retrieve ProxyConfig dynamically through XDS
+	EnableDynamicProxyConfig bool
 }
 
 // NewAgent hosts the functionality for local SDS and XDS. This consists of the local SDS server and
@@ -151,16 +155,16 @@ func (a *Agent) Start() error {
 	var err error
 	a.secretCache, err = a.newSecretManager()
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to start workload secret manager %v", err)
 	}
 
 	a.sdsServer, err = sds.NewServer(a.secOpts, a.secretCache)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to start local sds server %v", err)
 	}
 	a.secretCache.SetUpdateCallback(a.sdsServer.UpdateCallback)
 
-	if err = a.initLocalDNSServer(a.cfg.ProxyType == model.SidecarProxy); err != nil {
+	if err = a.initLocalDNSServer(); err != nil {
 		return fmt.Errorf("failed to start local DNS server: %v", err)
 	}
 
@@ -173,13 +177,23 @@ func (a *Agent) Start() error {
 	return nil
 }
 
-func (a *Agent) initLocalDNSServer(isSidecar bool) (err error) {
+func (a *Agent) initLocalDNSServer() (err error) {
 	// we dont need dns server on gateways
-	if a.cfg.DNSCapture && a.cfg.ProxyXDSViaAgent && isSidecar {
+	if a.cfg.DNSCapture && a.cfg.ProxyXDSViaAgent && a.cfg.ProxyType == model.SidecarProxy {
 		if a.localDNSServer, err = dns.NewLocalDNSServer(a.cfg.ProxyNamespace, a.cfg.ProxyDomain); err != nil {
 			return err
 		}
 		a.localDNSServer.StartDNS()
+	}
+	return nil
+}
+
+func (a *Agent) Check() (err error) {
+	// we dont need dns server on gateways
+	if a.cfg.DNSCapture && a.cfg.ProxyXDSViaAgent && a.cfg.ProxyType == model.SidecarProxy {
+		if !a.localDNSServer.IsReady() {
+			return errors.New("istio DNS capture is turned ON and DNS lookup table is not ready yet")
+		}
 	}
 	return nil
 }

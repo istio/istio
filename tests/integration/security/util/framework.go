@@ -16,6 +16,8 @@
 package util
 
 import (
+	"github.com/hashicorp/go-multierror"
+
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
@@ -94,7 +96,7 @@ func EchoConfig(name string, ns namespace.Instance, headless bool, annos echo.An
 			},
 		},
 		// Workload Ports needed by TestPassThroughFilterChain
-		// The port 8085,8086,8087,8088,8089 will be defined only in the workload and not in the k8s service.
+		// The port 8084-8089 will be defined only in the workload and not in the k8s service.
 		WorkloadOnlyPorts: []echo.WorkloadPort{
 			{
 				Port:     8085,
@@ -115,6 +117,12 @@ func EchoConfig(name string, ns namespace.Instance, headless bool, annos echo.An
 			{
 				Port:     8089,
 				Protocol: protocol.HTTPS,
+				TLS:      true,
+			},
+			{
+				Port:     8084,
+				Protocol: protocol.HTTPS,
+				TLS:      true,
 			},
 		},
 	}
@@ -225,13 +233,41 @@ func (apps *EchoDeployments) IsVM(i echo.Instance) bool {
 	return apps.VM.Contains(i)
 }
 
-func WaitForConfig(ctx framework.TestContext, configs string, namespace namespace.Instance) {
-	ik := istioctl.NewOrFail(ctx, ctx, istioctl.Config{})
-	if err := ik.WaitForConfigs(namespace.Name(), configs); err != nil {
-		// Continue anyways, so we can assess the effectiveness of using `istioctl wait`
-		ctx.Logf("warning: failed to wait for config: %v", err)
-		// Get proxy status for additional debugging
-		s, _, _ := ik.Invoke([]string{"ps"})
-		ctx.Logf("proxy status: %v", s)
+// IsMultiversion matches instances that have Multi-version specific setup.
+func IsMultiversion() echo.Matcher {
+	return func(i echo.Instance) bool {
+		if len(i.Config().Subsets) != 2 {
+			return false
+		}
+		var matchIstio, matchLegacy bool
+		for _, s := range i.Config().Subsets {
+			if s.Version == "vistio" {
+				matchIstio = true
+			} else if s.Version == "vlegacy" && !s.Annotations.GetBool(echo.SidecarInject) {
+				matchLegacy = true
+			}
+		}
+		return matchIstio && matchLegacy
 	}
+}
+
+func WaitForConfig(ctx framework.TestContext, configs string, namespace namespace.Instance) {
+	errG := multierror.Group{}
+	for _, c := range ctx.Clusters().Primaries() {
+		c := c
+		errG.Go(func() error {
+			ik := istioctl.NewOrFail(ctx, ctx, istioctl.Config{Cluster: c})
+			if err := ik.WaitForConfigs(namespace.Name(), configs); err != nil {
+				// Get proxy status for additional debugging
+				s, _, _ := ik.Invoke([]string{"ps"})
+				ctx.Logf("proxy status: %v", s)
+				return err
+			}
+			return nil
+		})
+	}
+	if err := errG.Wait(); err != nil {
+		ctx.Logf("errors occurred waiting for config: %v", err)
+	}
+	// Continue anyways, so we can assess the effectiveness of using `istioctl wait`
 }

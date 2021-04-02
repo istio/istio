@@ -28,7 +28,6 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
 	"istio.io/istio/pkg/test"
-	"istio.io/pkg/log"
 )
 
 func NewAdsTest(t test.Failer, conn *grpc.ClientConn) *AdsTest {

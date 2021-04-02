@@ -32,6 +32,7 @@ import (
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking"
+	"istio.io/istio/pilot/pkg/networking/plugin"
 	"istio.io/istio/pilot/pkg/networking/util"
 	security_utils "istio.io/istio/pilot/pkg/security"
 	"istio.io/istio/pilot/pkg/security/authn"
@@ -98,7 +99,7 @@ func (a *v1beta1PolicyApplier) setAuthnFilterForPeerAuthn(proxyType model.NodeTy
 
 	var effectiveMTLSMode model.MutualTLSMode
 	if proxyType == model.SidecarProxy {
-		effectiveMTLSMode = a.getMutualTLSModeForPort(port)
+		effectiveMTLSMode = a.GetMutualTLSModeForPort(port)
 
 		// Skip authn filter peer config when mtls is disabled.
 		if effectiveMTLSMode == model.MTLSDisable {
@@ -191,11 +192,15 @@ func (a *v1beta1PolicyApplier) AuthNFilter(proxyType model.NodeType, port uint32
 	}
 }
 
-func (a *v1beta1PolicyApplier) InboundFilterChain(endpointPort uint32, node *model.Proxy,
-	listenerProtocol networking.ListenerProtocol, trustDomainAliases []string) []networking.FilterChain {
-	effectiveMTLSMode := a.getMutualTLSModeForPort(endpointPort)
+func (a *v1beta1PolicyApplier) InboundMTLSSettings(endpointPort uint32, node *model.Proxy, trustDomainAliases []string) plugin.MTLSSettings {
+	effectiveMTLSMode := a.GetMutualTLSModeForPort(endpointPort)
 	authnLog.Debugf("InboundFilterChain: build inbound filter change for %v:%d in %s mode", node.ID, endpointPort, effectiveMTLSMode)
-	return authn_utils.BuildInboundFilterChain(effectiveMTLSMode, node, listenerProtocol, trustDomainAliases)
+	return plugin.MTLSSettings{
+		Port: endpointPort,
+		Mode: effectiveMTLSMode,
+		TCP:  authn_utils.BuildInboundTLS(effectiveMTLSMode, node, networking.ListenerProtocolTCP, trustDomainAliases),
+		HTTP: authn_utils.BuildInboundTLS(effectiveMTLSMode, node, networking.ListenerProtocolHTTP, trustDomainAliases),
+	}
 }
 
 // NewPolicyApplier returns new applier for v1beta1 authentication policies.
@@ -391,7 +396,7 @@ func (a *v1beta1PolicyApplier) PortLevelSetting() map[uint32]*v1beta1.PeerAuthen
 	return a.consolidatedPeerPolicy.PortLevelMtls
 }
 
-func (a *v1beta1PolicyApplier) getMutualTLSModeForPort(endpointPort uint32) model.MutualTLSMode {
+func (a *v1beta1PolicyApplier) GetMutualTLSModeForPort(endpointPort uint32) model.MutualTLSMode {
 	if a.consolidatedPeerPolicy.PortLevelMtls != nil {
 		if portMtls, ok := a.consolidatedPeerPolicy.PortLevelMtls[endpointPort]; ok {
 			return getMutualTLSMode(portMtls)

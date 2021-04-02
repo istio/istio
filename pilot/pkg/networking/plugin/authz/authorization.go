@@ -15,6 +15,9 @@
 package authz
 
 import (
+	tcppb "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
+	httppb "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
+
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking"
 	"istio.io/istio/pilot/pkg/networking/plugin"
@@ -57,11 +60,6 @@ func (p Plugin) OnOutboundListener(in *plugin.InputParams, mutable *networking.M
 	return nil
 }
 
-// OnInboundFilterChains is called whenever a plugin needs to setup the filter chains, including relevant filter chain configuration.
-func (p Plugin) OnInboundFilterChains(in *plugin.InputParams) []networking.FilterChain {
-	return nil
-}
-
 // OnInboundListener is called whenever a new listener is added to the LDS output for a given service
 // Can be used to add additional filters or add more stuff to the HTTP connection manager
 // on the inbound path
@@ -94,50 +92,28 @@ func (p Plugin) buildFilter(in *plugin.InputParams, mutable *networking.MutableO
 		return
 	}
 
-	switch in.ListenerProtocol {
-	case networking.ListenerProtocolTCP:
-		option.Logger.AppendDebugf("building filters for TCP listener protocol")
-		tcpFilters := b.BuildTCP()
-		if in.Node.Type == model.Router {
-			// For gateways, due to TLS termination, a listener marked as TCP could very well
-			// be using a HTTP connection manager. So check the filterChain.listenerProtocol
-			// to decide the type of filter to attach
-			httpFilters := b.BuildHTTP()
-			for cnum := range mutable.FilterChains {
-				if mutable.FilterChains[cnum].ListenerProtocol == networking.ListenerProtocolHTTP {
-					option.Logger.AppendDebugf("added %d HTTP filters to gateway filter chain %d", len(httpFilters), cnum)
-					mutable.FilterChains[cnum].HTTP = append(mutable.FilterChains[cnum].HTTP, httpFilters...)
-				} else {
-					option.Logger.AppendDebugf("added %d TCP filters to gateway filter chain %d", len(tcpFilters), cnum)
-					mutable.FilterChains[cnum].TCP = append(mutable.FilterChains[cnum].TCP, tcpFilters...)
-				}
+	// We will lazily build filters for tcp/http as needed
+	httpBuilt := false
+	tcpBuilt := false
+	var httpFilters []*httppb.HttpFilter
+	var tcpFilters []*tcppb.Filter
+
+	for cnum := range mutable.FilterChains {
+		switch mutable.FilterChains[cnum].ListenerProtocol {
+		case networking.ListenerProtocolTCP:
+			if !tcpBuilt {
+				tcpFilters = b.BuildTCP()
+				tcpBuilt = true
 			}
-		} else {
-			for cnum := range mutable.FilterChains {
-				option.Logger.AppendDebugf("added %d TCP filter to filter chain %d", len(tcpFilters), cnum)
-				mutable.FilterChains[cnum].TCP = append(mutable.FilterChains[cnum].TCP, tcpFilters...)
+			option.Logger.AppendDebugf("added %d TCP filters to filter chain %d", len(tcpFilters), cnum)
+			mutable.FilterChains[cnum].TCP = append(mutable.FilterChains[cnum].TCP, tcpFilters...)
+		case networking.ListenerProtocolHTTP:
+			if !httpBuilt {
+				httpFilters = b.BuildHTTP()
+				httpBuilt = true
 			}
-		}
-	case networking.ListenerProtocolHTTP:
-		option.Logger.AppendDebugf("building filters for HTTP listener protocol")
-		httpFilters := b.BuildHTTP()
-		for cnum := range mutable.FilterChains {
 			option.Logger.AppendDebugf("added %d HTTP filters to filter chain %d", len(httpFilters), cnum)
 			mutable.FilterChains[cnum].HTTP = append(mutable.FilterChains[cnum].HTTP, httpFilters...)
-		}
-	case networking.ListenerProtocolAuto:
-		option.Logger.AppendDebugf("building filters for AUTO listener protocol")
-		httpFilters := b.BuildHTTP()
-		tcpFilters := b.BuildTCP()
-		for cnum := range mutable.FilterChains {
-			switch mutable.FilterChains[cnum].ListenerProtocol {
-			case networking.ListenerProtocolTCP:
-				option.Logger.AppendDebugf("added %d TCP filters to filter chain %d", len(tcpFilters), cnum)
-				mutable.FilterChains[cnum].TCP = append(mutable.FilterChains[cnum].TCP, tcpFilters...)
-			case networking.ListenerProtocolHTTP:
-				option.Logger.AppendDebugf("added %d HTTP filters to filter chain %d", len(httpFilters), cnum)
-				mutable.FilterChains[cnum].HTTP = append(mutable.FilterChains[cnum].HTTP, httpFilters...)
-			}
 		}
 	}
 }
@@ -153,7 +129,6 @@ func (p Plugin) OnInboundPassthrough(in *plugin.InputParams, mutable *networking
 	return nil
 }
 
-// OnInboundPassthroughFilterChains is called for plugin to update the pass through filter chain.
-func (p Plugin) OnInboundPassthroughFilterChains(in *plugin.InputParams) []networking.FilterChain {
+func (p Plugin) InboundMTLSConfiguration(in *plugin.InputParams, passthrough bool) []plugin.MTLSSettings {
 	return nil
 }

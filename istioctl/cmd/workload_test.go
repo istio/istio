@@ -172,6 +172,7 @@ func TestWorkloadEntryConfigure(t *testing.T) {
 					Interface: fake.NewSimpleClientset(
 						&v1.ServiceAccount{
 							ObjectMeta: metav1.ObjectMeta{Namespace: "bar", Name: "vm-serviceaccount"},
+							Secrets:    []v1.ObjectReference{{Name: "test"}},
 						},
 						&v1.ConfigMap{
 							ObjectMeta: metav1.ObjectMeta{Namespace: "bar", Name: "istio-ca-root-cert"},
@@ -181,6 +182,12 @@ func TestWorkloadEntryConfigure(t *testing.T) {
 							ObjectMeta: metav1.ObjectMeta{Namespace: "istio-system", Name: "istio"},
 							Data: map[string]string{
 								"mesh": string(util.ReadFile(path.Join(testdir, "meshconfig.yaml"), t)),
+							},
+						},
+						&v1.Secret{
+							ObjectMeta: metav1.ObjectMeta{Namespace: "bar", Name: "test"},
+							Data: map[string][]byte{
+								"token": []byte{},
 							},
 						},
 					),

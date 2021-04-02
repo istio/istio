@@ -28,6 +28,7 @@ import (
 	"istio.io/istio/pilot/cmd/pilot-agent/config"
 	"istio.io/istio/pilot/cmd/pilot-agent/options"
 	"istio.io/istio/pilot/cmd/pilot-agent/status"
+	"istio.io/istio/pilot/cmd/pilot-agent/status/ready"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/util/network"
 	"istio.io/istio/pkg/bootstrap"
@@ -133,9 +134,9 @@ var (
 			log.Infof("Pilot SAN: %v", pilotSAN)
 
 			agent := istio_agent.NewAgent(proxyConfig, agentOptions, secOpts)
-			// Start in process SDS.
+			// Start in process SDS, dns server, and xds proxy.
 			if err := agent.Start(); err != nil {
-				log.Fatala("Failed to start in-process SDS", err)
+				log.Fatala("Agent start up error", err)
 			}
 
 			// If we are using a custom template file (for control plane proxy, for example), configure this.
@@ -148,7 +149,7 @@ var (
 
 			// If a status port was provided, start handling status probes.
 			if proxyConfig.StatusPort > 0 {
-				if err := initStatusServer(ctx, proxy, proxyConfig); err != nil {
+				if err := initStatusServer(ctx, proxy, proxyConfig, agent); err != nil {
 					return err
 				}
 			}
@@ -238,8 +239,9 @@ func init() {
 	}))
 }
 
-func initStatusServer(ctx context.Context, proxy *model.Proxy, proxyConfig *meshconfig.ProxyConfig) error {
-	o := options.NewStatusServerOptions(proxy, proxyConfig)
+func initStatusServer(ctx context.Context, proxy *model.Proxy, proxyConfig *meshconfig.ProxyConfig,
+	probes ...ready.Prober) error {
+	o := options.NewStatusServerOptions(proxy, proxyConfig, probes...)
 	statusServer, err := status.NewServer(*o)
 	if err != nil {
 		return err

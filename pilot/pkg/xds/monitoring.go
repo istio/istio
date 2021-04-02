@@ -167,6 +167,11 @@ var (
 		monitoring.WithLabels(typeTag),
 	)
 
+	pilotSDSCertificateErrors = monitoring.NewSum(
+		"pilot_sds_certificate_errors_total",
+		"Total number of failures to fetch SDS key and certificate.",
+	)
+
 	inboundConfigUpdates  = inboundUpdates.With(typeTag.Value("config"))
 	inboundEDSUpdates     = inboundUpdates.With(typeTag.Value("eds"))
 	inboundServiceUpdates = inboundUpdates.With(typeTag.Value("svc"))
@@ -196,7 +201,7 @@ func isUnexpectedError(err error) bool {
 
 func recordSendError(xdsType string, conID string, err error) {
 	if isUnexpectedError(err) {
-		adsLog.Warnf("%s: Send failure %s: %v", xdsType, conID, err)
+		log.Warnf("%s: Send failure %s: %v", xdsType, conID, err)
 		// TODO use a single metric with a type tag
 		switch xdsType {
 		case v3.ListenerType:
@@ -256,5 +261,6 @@ func init() {
 		sendTime,
 		totalDelayedPushes,
 		totalDelayedPushTimeouts,
+		pilotSDSCertificateErrors,
 	)
 }

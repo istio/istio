@@ -151,12 +151,14 @@ func TestReachability(t *testing.T) {
 					ExpectMTLS:    mtlsOnExpect,
 				},
 				{
-					ConfigFile:             "global-plaintext.yaml",
-					Namespace:              systemNM,
-					Include:                Always,
-					ExpectSuccess:          Always,
-					ExpectMTLS:             Never,
-					SkippedForMulticluster: true,
+					ConfigFile: "global-plaintext.yaml",
+					Namespace:  systemNM,
+					ExpectDestinations: func(src echo.Instance, dest echo.Instances) echo.Instances {
+						// Without TLS we can't perform SNI routing required for multi-network
+						return dest.Match(echo.InNetwork(src.Config().Cluster.NetworkName()))
+					},
+					ExpectSuccess: Always,
+					ExpectMTLS:    Never,
 				},
 				{
 					ConfigFile: "automtls-passthrough.yaml",

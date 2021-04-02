@@ -335,6 +335,7 @@ func ConvertToSidecarScope(ps *PushContext, sidecarConfig *config.Config, config
 		for _, delegate := range delegates {
 			out.AddConfigDependencies(delegate)
 		}
+
 		// Infer more possible destinations from virtual services
 		// Services chosen here will not override services explicitly requested in listener.services.
 		// That way, if there is ambiguity around what hostname to pick, a user can specify the one they
@@ -347,31 +348,35 @@ func ConvertToSidecarScope(ps *PushContext, sidecarConfig *config.Config, config
 				Namespace: vs.Namespace,
 			})
 
-			for _, d := range virtualServiceDestinations(v) {
+			for _, h := range virtualServiceDestinationHosts(v) {
 				// Default to this hostname in our config namespace
-				if s, ok := ps.ServiceIndex.HostnameAndNamespace[host.Name(d.Host)][configNamespace]; ok {
+				if s, ok := ps.ServiceIndex.HostnameAndNamespace[host.Name(h)][configNamespace]; ok {
 					// This won't overwrite hostnames that have already been found eg because they were requested in hosts
 					addService(s)
 				} else {
+
 					// We couldn't find the hostname in our config namespace
 					// We have to pick one arbitrarily for now, so we'll pick the first namespace alphabetically
 					// TODO: could we choose services more intelligently based on their ports?
-					byNamespace := ps.ServiceIndex.HostnameAndNamespace[host.Name(d.Host)]
+					byNamespace := ps.ServiceIndex.HostnameAndNamespace[host.Name(h)]
 					if len(byNamespace) == 0 {
 						// This hostname isn't found anywhere
-						log.Debugf("Could not find service hostname %s parsed from %s", d.Host, vs.Key())
+						log.Debugf("Could not find service hostname %s parsed from %s", h, vs.Key())
 						continue
 					}
 
 					ns := make([]string, 0, len(byNamespace))
 					for k := range byNamespace {
-						ns = append(ns, k)
+						if ps.IsServiceVisible(byNamespace[k], configNamespace) {
+							ns = append(ns, k)
+						}
 					}
-					sort.Strings(ns)
-
-					// Pick first namespace alphabetically
-					// This won't overwrite hostnames that have already been found eg because they were requested in hosts
-					addService(byNamespace[ns[0]])
+					if len(ns) > 0 {
+						sort.Strings(ns)
+						// Pick first namespace alphabetically
+						// This won't overwrite hostnames that have already been found eg because they were requested in hosts
+						addService(byNamespace[ns[0]])
+					}
 				}
 			}
 		}
