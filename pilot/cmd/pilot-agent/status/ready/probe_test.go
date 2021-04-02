@@ -15,12 +15,10 @@
 package ready
 
 import (
-	"net"
-	"net/http"
-	"net/http/httptest"
 	"testing"
 
 	. "github.com/onsi/gomega"
+	"istio.io/istio/pilot/cmd/pilot-agent/status/testserver"
 )
 
 var (
@@ -33,7 +31,7 @@ var (
 func TestEnvoyStatsCompleteAndSuccessful(t *testing.T) {
 	g := NewWithT(t)
 
-	server := createAndStartServer(liveServerStats)
+	server := testserver.CreateAndStartServer(liveServerStats, "127.0.0.1:1234")
 	defer server.Close()
 	probe := Probe{AdminPort: 1234}
 
@@ -87,7 +85,7 @@ server.state: 0`,
 
 	for _, tt := range cases {
 		t.Run(tt.name, func(t *testing.T) {
-			server := createAndStartServer(tt.stats)
+			server := testserver.CreateAndStartServer(tt.stats, "127.0.0.1:1234")
 			defer server.Close()
 			probe := Probe{AdminPort: 1234}
 
@@ -111,7 +109,7 @@ server.state: 0`,
 func TestEnvoyInitializing(t *testing.T) {
 	g := NewWithT(t)
 
-	server := createAndStartServer(initServerStats)
+	server := testserver.CreateAndStartServer(initServerStats, "127.0.0.1:1234")
 	defer server.Close()
 	probe := Probe{AdminPort: 1234}
 
@@ -123,7 +121,7 @@ func TestEnvoyInitializing(t *testing.T) {
 func TestEnvoyNoClusterManagerStats(t *testing.T) {
 	g := NewWithT(t)
 
-	server := createAndStartServer(onlyServerStats)
+	server := testserver.CreateAndStartServer(onlyServerStats, "127.0.0.1:1234")
 	defer server.Close()
 	probe := Probe{AdminPort: 1234}
 
@@ -135,7 +133,7 @@ func TestEnvoyNoClusterManagerStats(t *testing.T) {
 func TestEnvoyNoServerStats(t *testing.T) {
 	g := NewWithT(t)
 
-	server := createAndStartServer(noServerStats)
+	server := testserver.CreateAndStartServer(noServerStats, "127.0.0.1:1234")
 	defer server.Close()
 	probe := Probe{AdminPort: 1234}
 
@@ -147,7 +145,7 @@ func TestEnvoyNoServerStats(t *testing.T) {
 func TestEnvoyReadinessCache(t *testing.T) {
 	g := NewWithT(t)
 
-	server := createAndStartServer(noServerStats)
+	server := testserver.CreateAndStartServer(noServerStats, "127.0.0.1:1234")
 	probe := Probe{AdminPort: 1234}
 	err := probe.Check()
 	g.Expect(err).To(HaveOccurred())
@@ -157,13 +155,13 @@ func TestEnvoyReadinessCache(t *testing.T) {
 	g.Expect(probe.atleastOnceReady).Should(BeFalse())
 	server.Close()
 
-	server = createAndStartServer(liveServerStats)
+	server = testserver.CreateAndStartServer(liveServerStats, "127.0.0.1:1234")
 	err = probe.Check()
 	g.Expect(err).NotTo(HaveOccurred())
 	g.Expect(probe.atleastOnceReady).Should(BeTrue())
 	server.Close()
 
-	server = createAndStartServer(noServerStats)
+	server = testserver.CreateAndStartServer(noServerStats, "127.0.0.1:1234")
 	err = probe.Check()
 	g.Expect(err).NotTo(HaveOccurred())
 	g.Expect(probe.atleastOnceReady).Should(BeTrue())
@@ -172,36 +170,4 @@ func TestEnvoyReadinessCache(t *testing.T) {
 	err = probe.Check()
 	g.Expect(err).NotTo(HaveOccurred())
 	g.Expect(probe.atleastOnceReady).Should(BeTrue())
-}
-
-func createDefaultFuncMap(statsToReturn string) map[string]func(rw http.ResponseWriter, _ *http.Request) {
-	return map[string]func(rw http.ResponseWriter, _ *http.Request){
-
-		"/stats": func(rw http.ResponseWriter, _ *http.Request) {
-			// Send response to be tested
-			rw.Write([]byte(statsToReturn))
-		},
-	}
-}
-
-func createAndStartServer(statsToReturn string) *httptest.Server {
-	return createHTTPServer(createDefaultFuncMap(statsToReturn))
-}
-
-func createHTTPServer(handlers map[string]func(rw http.ResponseWriter, _ *http.Request)) *httptest.Server {
-	mux := http.NewServeMux()
-	for k, v := range handlers {
-		mux.HandleFunc(k, http.HandlerFunc(v))
-	}
-
-	// Start a local HTTP server
-	server := httptest.NewUnstartedServer(mux)
-
-	l, err := net.Listen("tcp", "127.0.0.1:1234")
-	if err != nil {
-		panic("Could not create listener for test: " + err.Error())
-	}
-	server.Listener = l
-	server.Start()
-	return server
 }
