@@ -28,13 +28,9 @@ import (
 	route "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
 	hcm "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
 	auth "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
-	tracing "github.com/envoyproxy/go-control-plane/envoy/type/tracing/v3"
-	xdstype "github.com/envoyproxy/go-control-plane/envoy/type/v3"
 	"github.com/envoyproxy/go-control-plane/pkg/wellknown"
-	"github.com/golang/protobuf/ptypes/wrappers"
 	"google.golang.org/protobuf/types/known/durationpb"
 
-	meshconfig "istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
@@ -1477,157 +1473,9 @@ func buildHTTPConnectionManager(listenerOpts buildListenerOpts, httpOpts *httpLi
 
 	accessLogBuilder.setHTTPAccessLog(listenerOpts.push.Mesh, connectionManager, listenerOpts.proxy)
 
-	if listenerOpts.push.Mesh.EnableTracing {
-		proxyConfig := listenerOpts.proxy.Metadata.ProxyConfigOrDefault(listenerOpts.push.Mesh.DefaultConfig)
-		connectionManager.Tracing = buildTracingConfig(proxyConfig)
-	}
+	configureTracing(listenerOpts, connectionManager)
 
 	return connectionManager
-}
-
-func buildTracingConfig(config *meshconfig.ProxyConfig) *hcm.HttpConnectionManager_Tracing {
-	tracingCfg := &hcm.HttpConnectionManager_Tracing{}
-	updateTraceSamplingConfig(config, tracingCfg)
-
-	if config.Tracing != nil {
-		// only specify a MaxPathTagLength if meshconfig has specified one
-		// otherwise, rely on upstream envoy defaults
-		if config.Tracing.MaxPathTagLength != 0 {
-			tracingCfg.MaxPathTagLength =
-				&wrappers.UInt32Value{
-					Value: config.Tracing.MaxPathTagLength,
-				}
-		}
-		tracingCfg.CustomTags = buildCustomTags(config.Tracing.CustomTags)
-	}
-
-	return tracingCfg
-}
-
-func defaultTags() []*tracing.CustomTag {
-	return []*tracing.CustomTag{
-		{
-			Tag: "istio.canonical_revision",
-			Type: &tracing.CustomTag_Environment_{
-				Environment: &tracing.CustomTag_Environment{
-					Name:         "CANONICAL_REVISION",
-					DefaultValue: "latest",
-				},
-			},
-		},
-		{
-			Tag: "istio.canonical_service",
-			Type: &tracing.CustomTag_Environment_{
-				Environment: &tracing.CustomTag_Environment{
-					Name:         "CANONICAL_SERVICE",
-					DefaultValue: "unknown",
-				},
-			},
-		},
-		{
-			Tag: "istio.mesh_id",
-			Type: &tracing.CustomTag_Environment_{
-				Environment: &tracing.CustomTag_Environment{
-					Name:         "ISTIO_META_MESH_ID",
-					DefaultValue: "unknown",
-				},
-			},
-		},
-		{
-			Tag: "istio.namespace",
-			Type: &tracing.CustomTag_Environment_{
-				Environment: &tracing.CustomTag_Environment{
-					Name:         "POD_NAMESPACE",
-					DefaultValue: "default",
-				},
-			},
-		},
-	}
-}
-
-func getPilotRandomSamplingEnv() float64 {
-	f := features.TraceSampling
-	if f < 0.0 || f > 100.0 {
-		log.Warnf("PILOT_TRACE_SAMPLING out of range: %v", f)
-		return 1.0
-	}
-	return f
-}
-
-func updateTraceSamplingConfig(config *meshconfig.ProxyConfig, cfg *hcm.HttpConnectionManager_Tracing) {
-	sampling := pilotTraceSamplingEnv
-
-	if config.Tracing != nil && config.Tracing.Sampling != 0.0 {
-		sampling = config.Tracing.Sampling
-
-		if sampling > 100.0 {
-			sampling = 1.0
-		}
-	}
-	cfg.ClientSampling = &xdstype.Percent{
-		Value: 100.0,
-	}
-	cfg.RandomSampling = &xdstype.Percent{
-		Value: sampling,
-	}
-	cfg.OverallSampling = &xdstype.Percent{
-		Value: 100.0,
-	}
-}
-
-func buildCustomTags(customTags map[string]*meshconfig.Tracing_CustomTag) []*tracing.CustomTag {
-	var tags []*tracing.CustomTag
-
-	if features.EnableIstioTags {
-		defaultTags := defaultTags()
-		tags = append(tags, defaultTags...)
-	}
-
-	for tagName, tagInfo := range customTags {
-		switch tag := tagInfo.Type.(type) {
-		case *meshconfig.Tracing_CustomTag_Environment:
-			env := &tracing.CustomTag{
-				Tag: tagName,
-				Type: &tracing.CustomTag_Environment_{
-					Environment: &tracing.CustomTag_Environment{
-						Name:         tag.Environment.Name,
-						DefaultValue: tag.Environment.DefaultValue,
-					},
-				},
-			}
-			tags = append(tags, env)
-		case *meshconfig.Tracing_CustomTag_Header:
-			header := &tracing.CustomTag{
-				Tag: tagName,
-				Type: &tracing.CustomTag_RequestHeader{
-					RequestHeader: &tracing.CustomTag_Header{
-						Name:         tag.Header.Name,
-						DefaultValue: tag.Header.DefaultValue,
-					},
-				},
-			}
-			tags = append(tags, header)
-		case *meshconfig.Tracing_CustomTag_Literal:
-			env := &tracing.CustomTag{
-				Tag: tagName,
-				Type: &tracing.CustomTag_Literal_{
-					Literal: &tracing.CustomTag_Literal{
-						Value: tag.Literal.Value,
-					},
-				},
-			}
-			tags = append(tags, env)
-		}
-	}
-
-	// looping over customTags, a map, results in the returned value
-	// being non-deterministic when multiple tags were defined; sort by the tag name
-	// to rectify this
-	sort.Slice(tags, func(i, j int) bool {
-		return tags[i].Tag < tags[j].Tag
-	})
-
-	return tags
 }
 
 // buildListener builds and initializes a Listener proto based on the provided opts. It does not set any filters.
