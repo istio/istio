@@ -1151,14 +1151,6 @@ func TestBuildPassthroughClusters(t *testing.T) {
 }
 
 func TestApplyUpstreamTLSSettings(t *testing.T) {
-	istioMutualTLSSettingsWithCerts := &networking.ClientTLSSettings{
-		Mode:              networking.ClientTLSSettings_ISTIO_MUTUAL,
-		CaCertificates:    constants.DefaultRootCert,
-		ClientCertificate: constants.DefaultCertChain,
-		PrivateKey:        constants.DefaultKey,
-		SubjectAltNames:   []string{"custom.foo.com"},
-		Sni:               "custom.foo.com",
-	}
 	istioMutualTLSSettings := &networking.ClientTLSSettings{
 		Mode:            networking.ClientTLSSettings_ISTIO_MUTUAL,
 		SubjectAltNames: []string{"custom.foo.com"},
@@ -1202,33 +1194,6 @@ func TestApplyUpstreamTLSSettings(t *testing.T) {
 			tls:                        nil,
 			expectTransportSocket:      false,
 			expectTransportSocketMatch: false,
-		},
-		{
-			name:                       "user specified with istio_mutual metadata certs tls",
-			mtlsCtx:                    userSupplied,
-			discoveryType:              cluster.Cluster_EDS,
-			tls:                        istioMutualTLSSettingsWithCerts,
-			expectTransportSocket:      true,
-			expectTransportSocketMatch: false,
-			validateTLSContext: func(t *testing.T, ctx *tls.UpstreamTlsContext) {
-				if got := ctx.CommonTlsContext.GetAlpnProtocols(); len(got) != 0 {
-					t.Fatalf("expected empty alpn list got %v", got)
-				}
-			},
-		},
-		{
-			name:                       "user specified with istio_mutual metadata certs tls with h2",
-			mtlsCtx:                    userSupplied,
-			discoveryType:              cluster.Cluster_EDS,
-			tls:                        istioMutualTLSSettingsWithCerts,
-			expectTransportSocket:      true,
-			expectTransportSocketMatch: false,
-			h2:                         true,
-			validateTLSContext: func(t *testing.T, ctx *tls.UpstreamTlsContext) {
-				if got := ctx.CommonTlsContext.GetAlpnProtocols(); !reflect.DeepEqual(got, util.ALPNH2Only) {
-					t.Fatalf("expected alpn list %v; got %v", util.ALPNH2Only, got)
-				}
-			},
 		},
 		{
 			name:                       "user specified with istio_mutual tls",
@@ -1373,14 +1338,6 @@ func TestApplyUpstreamTLSSettings(t *testing.T) {
 					t.Fatalf("expected alpn list %v; got %v", util.ALPNInMeshH2WithMxc, got)
 				}
 			},
-		},
-		{
-			name:                       "auto detect with tls",
-			mtlsCtx:                    autoDetected,
-			discoveryType:              cluster.Cluster_ORIGINAL_DST,
-			tls:                        istioMutualTLSSettingsWithCerts,
-			expectTransportSocket:      true,
-			expectTransportSocketMatch: false,
 		},
 		{
 			name:          "user specified mutual tls with overridden certs from node metadata allowed",
