@@ -109,8 +109,14 @@ func TestBadRemoteSecret(t *testing.T) {
 			// it doesn't matter if the other cluster is a primary/remote/etc.
 			remote := t.Clusters().Exclude(primary)[0]
 
-			if _, err := remote.Config().CoreV1().ServiceAccounts(i.Settings().SystemNamespace).Create(context.TODO(), &corev1.ServiceAccount{
-				ObjectMeta: metav1.ObjectMeta{Name: "istio-reader-no-perms", Namespace: i.Settings().SystemNamespace},
+			var (
+				ns  = i.Settings().SystemNamespace
+				sa  = "istio-reader-no-perms"
+				pod = "istiod-bad-secrets-test"
+			)
+			t.Logf("creating service account %s/%s", ns, sa)
+			if _, err := remote.CoreV1().ServiceAccounts(ns).Create(context.TODO(), &corev1.ServiceAccount{
+				ObjectMeta: metav1.ObjectMeta{Name: sa},
 			}, metav1.CreateOptions{}); err != nil {
 				t.Fatal(err)
 			}
@@ -124,18 +130,19 @@ func TestBadRemoteSecret(t *testing.T) {
 				if err != nil {
 					t.Fatalf("failed generating secret with %s: %v", name, err)
 				}
-				t.Config().ApplyYAMLOrFail(t, i.Settings().SystemNamespace, secret)
+				t.Config().ApplyYAMLOrFail(t, ns, secret)
 			}
 
+			// create a new istiod pod using the template from the deployment, but not managed by the deployment
+			t.Logf("creating pod %s/%s", ns, pod)
 			deps, err := primary.AppsV1().
-				Deployments(i.Settings().SystemNamespace).List(context.TODO(), metav1.ListOptions{LabelSelector: "app=istiod"})
+				Deployments(ns).List(context.TODO(), metav1.ListOptions{LabelSelector: "app=istiod"})
 			if err != nil {
 				t.Fatal(err)
 			}
-
-			pods := primary.CoreV1().Pods(i.Settings().SystemNamespace)
+			pods := primary.CoreV1().Pods(ns)
 			podMeta := deps.Items[0].Spec.Template.ObjectMeta
-			podMeta.Name = "istiod-bad-secrets-test"
+			podMeta.Name = pod
 			_, err = pods.Create(context.TODO(), &corev1.Pod{
 				ObjectMeta: podMeta,
 				Spec:       deps.Items[0].Spec.Template.Spec,
@@ -144,18 +151,20 @@ func TestBadRemoteSecret(t *testing.T) {
 				t.Fatal(err)
 			}
 			t.Cleanup(func() {
-				if err := pods.Delete(context.TODO(), podMeta.Name, metav1.DeleteOptions{}); err != nil {
-					t.Logf("error cleaning up %s: %v", podMeta.Name, err)
+				if err := pods.Delete(context.TODO(), pod, metav1.DeleteOptions{}); err != nil {
+					t.Logf("error cleaning up %s: %v", pod, err)
 				}
 			})
+
+			// make sure the pod comes up healthy
 			retry.UntilSuccessOrFail(t, func() error {
-				pod, err := pods.Get(context.TODO(), podMeta.Name, metav1.GetOptions{})
+				pod, err := pods.Get(context.TODO(), pod, metav1.GetOptions{})
 				if err != nil {
 					return err
 				}
 				status := pod.Status.ContainerStatuses
 				if len(status) < 1 || !status[0].Ready {
-					return fmt.Errorf("%s not ready", podMeta.Name)
+					return fmt.Errorf("%s not ready", pod)
 				}
 				return nil
 			}, retry.Timeout(time.Minute), retry.Delay(time.Second))
@@ -171,10 +180,11 @@ func patchMeshConfig(t framework.TestContext, clusters cluster.Clusters, patch s
 	if rev := t.Settings().Revision; rev != "default" && rev != "" {
 		cmName += "-" + rev
 	}
+	namespace := i.Settings().SystemNamespace
 	for _, c := range clusters.Kube() {
 		c := c
 		errG.Go(func() error {
-			cm, err := c.CoreV1().ConfigMaps(i.Settings().SystemNamespace).Get(context.TODO(), cmName, metav1.GetOptions{})
+			cm, err := c.CoreV1().ConfigMaps(namespace).Get(context.TODO(), cmName, metav1.GetOptions{})
 			if err != nil {
 				return err
 			}
@@ -196,7 +206,7 @@ func patchMeshConfig(t framework.TestContext, clusters cluster.Clusters, patch s
 			if err != nil {
 				return err
 			}
-			_, err = c.CoreV1().ConfigMaps(i.Settings().SystemNamespace).Update(context.TODO(), cm, metav1.UpdateOptions{})
+			_, err = c.CoreV1().ConfigMaps(namespace).Update(context.TODO(), cm, metav1.UpdateOptions{})
 			if err != nil {
 				return err
 			}
@@ -212,12 +222,12 @@ func patchMeshConfig(t framework.TestContext, clusters cluster.Clusters, patch s
 			cn, mcYaml := cn, mcYaml
 			c := clusters.GetByName(cn)
 			errG.Go(func() error {
-				cm, err := c.CoreV1().ConfigMaps(i.Settings().SystemNamespace).Get(context.TODO(), cmName, metav1.GetOptions{})
+				cm, err := c.CoreV1().ConfigMaps(namespace).Get(context.TODO(), cmName, metav1.GetOptions{})
 				if err != nil {
 					return err
 				}
 				cm.Data["mesh"] = mcYaml
-				_, err = c.CoreV1().ConfigMaps(i.Settings().SystemNamespace).Update(context.TODO(), cm, metav1.UpdateOptions{})
+				_, err = c.CoreV1().ConfigMaps(namespace).Update(context.TODO(), cm, metav1.UpdateOptions{})
 				return err
 			})
 		}
