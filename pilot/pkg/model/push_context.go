@@ -180,6 +180,9 @@ type PushContext struct {
 	// are no authorization policies in the cluster.
 	AuthzPolicies *AuthorizationPolicies `json:"-"`
 
+	// Telemetry stores the existing Telemetry resources for the cluster.
+	Telemetry *Telemetries `json:"-"`
+
 	// The following data is either a global index or used in the inbound path.
 	// Namespace specific views do not apply here.
 
@@ -584,39 +587,40 @@ func (ps *PushContext) UpdateMetrics() {
 	}
 }
 
-func virtualServiceDestinations(v *networking.VirtualService) []*networking.Destination {
+// It is called after virtual service short host name is resolved to FQDN
+func virtualServiceDestinationHosts(v *networking.VirtualService) []string {
 	if v == nil {
 		return nil
 	}
 
-	var ds []*networking.Destination
+	var out []string
 
 	for _, h := range v.Http {
 		for _, r := range h.Route {
 			if r.Destination != nil {
-				ds = append(ds, r.Destination)
+				out = append(out, r.Destination.Host)
 			}
 		}
 		if h.Mirror != nil {
-			ds = append(ds, h.Mirror)
+			out = append(out, h.Mirror.Host)
 		}
 	}
 	for _, t := range v.Tcp {
 		for _, r := range t.Route {
 			if r.Destination != nil {
-				ds = append(ds, r.Destination)
+				out = append(out, r.Destination.Host)
 			}
 		}
 	}
 	for _, t := range v.Tls {
 		for _, r := range t.Route {
 			if r.Destination != nil {
-				ds = append(ds, r.Destination)
+				out = append(out, r.Destination.Host)
 			}
 		}
 	}
 
-	return ds
+	return out
 }
 
 // GatewayServices returns the set of services which are referred from the proxy gateways.
@@ -639,8 +643,8 @@ func (ps *PushContext) GatewayServices(proxy *Proxy) []*Service {
 				return svcs
 			}
 
-			for _, d := range virtualServiceDestinations(vs) {
-				hostsFromGateways[d.Host] = struct{}{}
+			for _, host := range virtualServiceDestinationHosts(vs) {
+				hostsFromGateways[host] = struct{}{}
 			}
 		}
 	}
@@ -1002,6 +1006,10 @@ func (ps *PushContext) createNewContext(env *Environment) error {
 		return err
 	}
 
+	if err := ps.initTelemetry(env); err != nil {
+		return err
+	}
+
 	if err := ps.initEnvoyFilters(env); err != nil {
 		return err
 	}
@@ -1022,7 +1030,7 @@ func (ps *PushContext) updateContext(
 	oldPushContext *PushContext,
 	pushReq *PushRequest) error {
 	var servicesChanged, virtualServicesChanged, destinationRulesChanged, gatewayChanged,
-		authnChanged, authzChanged, envoyFiltersChanged, sidecarsChanged bool
+		authnChanged, authzChanged, envoyFiltersChanged, sidecarsChanged, telemetryChanged bool
 
 	for conf := range pushReq.ConfigsUpdated {
 		switch conf.Kind {
@@ -1046,6 +1054,8 @@ func (ps *PushContext) updateContext(
 		case gvk.HTTPRoute, gvk.TCPRoute, gvk.GatewayClass, gvk.ServiceApisGateway, gvk.TLSRoute:
 			virtualServicesChanged = true
 			gatewayChanged = true
+		case gvk.Telemetry:
+			telemetryChanged = true
 		}
 	}
 
@@ -1091,6 +1101,14 @@ func (ps *PushContext) updateContext(
 		}
 	} else {
 		ps.AuthzPolicies = oldPushContext.AuthzPolicies
+	}
+
+	if telemetryChanged {
+		if err := ps.initTelemetry(env); err != nil {
+			return err
+		}
+	} else {
+		ps.Telemetry = oldPushContext.Telemetry
 	}
 
 	if envoyFiltersChanged {
@@ -1573,6 +1591,14 @@ func (ps *PushContext) initAuthorizationPolicies(env *Environment) error {
 	return nil
 }
 
+func (ps *PushContext) initTelemetry(env *Environment) (err error) {
+	if ps.Telemetry, err = GetTelemetries(env); err != nil {
+		telemetryLog.Errorf("failed to initialize telemetry: %v", err)
+		return
+	}
+	return
+}
+
 // pre computes envoy filters per namespace
 func (ps *PushContext) initEnvoyFilters(env *Environment) error {
 	envoyFilterConfigs, err := env.List(gvk.EnvoyFilter, NamespaceAll)
@@ -1763,14 +1789,17 @@ func (ps *PushContext) NetworkGatewaysByNetwork(network string) []*Gateway {
 // to compute the correct service mTLS mode without knowing service to workload binding. For now, this
 // function uses only mesh and namespace level PeerAuthentication and ignore workload & port level policies.
 // This function is used to give a hint for auto-mTLS configuration on client side.
-func (ps *PushContext) BestEffortInferServiceMTLSMode(service *Service, port *Port) MutualTLSMode {
+func (ps *PushContext) BestEffortInferServiceMTLSMode(tp *networking.TrafficPolicy, service *Service, port *Port) MutualTLSMode {
 	if service.MeshExternal {
 		// Only need the authentication MTLS mode when service is not external.
 		return MTLSUnknown
 	}
 
-	// 1. Check service instances' tls mode, mainly used for headless service.
-	if service.Resolution == Passthrough {
+	// For passthrough traffic (headless service or explicitly defined in DestinationRule), we look at the instances
+	// If ALL instances have a sidecar, we enable TLS, otherwise we disable
+	// TODO(https://github.com/istio/istio/issues/27376) enable mixed deployments
+	// A service with passthrough resolution is always passthrough, regardless of the TrafficPolicy.
+	if service.Resolution == Passthrough || tp.GetLoadBalancer().GetSimple() == networking.LoadBalancerSettings_PASSTHROUGH {
 		instances := ps.ServiceInstancesByPort(service, port.Port, nil)
 		if len(instances) == 0 {
 			return MTLSDisable

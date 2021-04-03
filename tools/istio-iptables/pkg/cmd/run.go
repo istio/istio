@@ -113,7 +113,6 @@ func (iptConfigurator *IptablesConfigurator) separateV4V6(cidrList string) (Netw
 
 func (iptConfigurator *IptablesConfigurator) logConfig() {
 	// Dump out our environment for debugging purposes.
-	// TODO: Remove printing of obsolete environment variables, e.g. ISTIO_SERVICE_CIDR.
 	fmt.Println("Environment:")
 	fmt.Println("------------")
 	fmt.Printf("ENVOY_PORT=%s\n", os.Getenv("ENVOY_PORT"))

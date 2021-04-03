@@ -30,6 +30,7 @@ import (
 	"istio.io/istio/pkg/test/echo/common/scheme"
 	epb "istio.io/istio/pkg/test/echo/proto"
 	"istio.io/istio/pkg/test/framework/components/echo"
+	"istio.io/istio/pkg/test/framework/components/echo/echotest"
 	"istio.io/istio/pkg/test/util/retry"
 	"istio.io/istio/pkg/test/util/tmpl"
 )
@@ -77,54 +78,52 @@ spec:
 	}{gateway, host, port})
 }
 
-func virtualServiceCases(apps *EchoDeployments) []TrafficTestCase {
+func virtualServiceCases() []TrafficTestCase {
 	var cases []TrafficTestCase
-	callCount := callsPerCluster * len(apps.PodB)
 	// Send the same call from all different clusters
-	for _, podA := range apps.PodA {
-		podA := podA
-		cases = append(cases,
-			TrafficTestCase{
-				name: "added header",
-				config: `
+
+	cases = append(cases,
+		TrafficTestCase{
+			name: "added header",
+			config: `
 apiVersion: networking.istio.io/v1alpha3
 kind: VirtualService
 metadata:
   name: default
 spec:
   hosts:
-  - b
+  - {{ .dstSvc }}
   http:
   - route:
     - destination:
-        host: b
+        host: {{ .dstSvc }}
     headers:
       request:
         add:
           istio-custom-header: user-defined-value`,
-				call: podA.CallWithRetryOrFail,
-				opts: echo.CallOptions{
-					Target:   apps.PodB[0],
-					PortName: "http",
-					Count:    callCount,
-					Validator: echo.ValidatorFunc(
+			opts: echo.CallOptions{
+				PortName: "http",
+				Validator: echo.And(
+					echo.ExpectOK(),
+					echo.ValidatorFunc(
 						func(response echoclient.ParsedResponses, _ error) error {
 							return response.Check(func(_ int, response *echoclient.ParsedResponse) error {
 								return ExpectString(response.RawResponse["Istio-Custom-Header"], "user-defined-value", "request header")
 							})
-						}),
-				},
+						})),
 			},
-			TrafficTestCase{
-				name: "redirect",
-				config: `
+			workloadAgnostic: true,
+		},
+		TrafficTestCase{
+			name: "redirect",
+			config: `
 apiVersion: networking.istio.io/v1alpha3
 kind: VirtualService
 metadata:
   name: default
 spec:
   hosts:
-    - b
+    - {{ .dstSvc }}
   http:
   - match:
     - uri:
@@ -136,32 +135,32 @@ spec:
         exact: /new/path
     route:
     - destination:
-        host: b`,
-				call: podA.CallWithRetryOrFail,
-				opts: echo.CallOptions{
-					Target:          apps.PodB[0],
-					PortName:        "http",
-					Path:            "/foo?key=value",
-					Count:           callCount,
-					FollowRedirects: true,
-					Validator: echo.ValidatorFunc(
+        host: {{ .dstSvc }}`,
+			opts: echo.CallOptions{
+				PortName:        "http",
+				Path:            "/foo?key=value",
+				FollowRedirects: true,
+				Validator: echo.And(
+					echo.ExpectOK(),
+					echo.ValidatorFunc(
 						func(response echoclient.ParsedResponses, _ error) error {
 							return response.Check(func(_ int, response *echoclient.ParsedResponse) error {
 								return ExpectString(response.URL, "/new/path?key=value", "URL")
 							})
-						}),
-				},
+						})),
 			},
-			TrafficTestCase{
-				name: "rewrite uri",
-				config: `
+			workloadAgnostic: true,
+		},
+		TrafficTestCase{
+			name: "rewrite uri",
+			config: `
 apiVersion: networking.istio.io/v1alpha3
 kind: VirtualService
 metadata:
   name: default
 spec:
   hosts:
-    - b
+    - {{ .dstSvc }}
   http:
   - match:
     - uri:
@@ -170,31 +169,31 @@ spec:
       uri: /new/path
     route:
     - destination:
-        host: b`,
-				call: podA.CallWithRetryOrFail,
-				opts: echo.CallOptions{
-					Target:   apps.PodB[0],
-					PortName: "http",
-					Path:     "/foo?key=value#hash",
-					Count:    callCount,
-					Validator: echo.ValidatorFunc(
+        host: {{ .dstSvc }}`,
+			opts: echo.CallOptions{
+				PortName: "http",
+				Path:     "/foo?key=value#hash",
+				Validator: echo.And(
+					echo.ExpectOK(),
+					echo.ValidatorFunc(
 						func(response echoclient.ParsedResponses, _ error) error {
 							return response.Check(func(_ int, response *echoclient.ParsedResponse) error {
 								return ExpectString(response.URL, "/new/path?key=value", "URL")
 							})
-						}),
-				},
+						})),
 			},
-			TrafficTestCase{
-				name: "rewrite authority",
-				config: `
+			workloadAgnostic: true,
+		},
+		TrafficTestCase{
+			name: "rewrite authority",
+			config: `
 apiVersion: networking.istio.io/v1alpha3
 kind: VirtualService
 metadata:
   name: default
 spec:
   hosts:
-    - b
+    - {{ .dstSvc }}
   http:
   - match:
     - uri:
@@ -203,31 +202,33 @@ spec:
       authority: new-authority
     route:
     - destination:
-        host: b`,
-				call: podA.CallWithRetryOrFail,
-				opts: echo.CallOptions{
-					Target:   apps.PodB[0],
-					PortName: "http",
-					Path:     "/foo",
-					Count:    callCount,
-					Validator: echo.ValidatorFunc(
+        host: {{ .dstSvc }}`,
+			opts: echo.CallOptions{
+				PortName: "http",
+				Path:     "/foo",
+				Validator: echo.And(
+					echo.ExpectOK(),
+					echo.ValidatorFunc(
 						func(response echoclient.ParsedResponses, _ error) error {
 							return response.Check(func(_ int, response *echoclient.ParsedResponse) error {
 								return ExpectString(response.Host, "new-authority", "authority")
 							})
-						}),
-				},
+						})),
 			},
-			TrafficTestCase{
-				name: "cors",
-				config: `
+			workloadAgnostic: true,
+		},
+		TrafficTestCase{
+			name: "cors",
+			// TODO https://github.com/istio/istio/issues/31532
+			targetFilters: []echotest.Filter{echotest.Not(echotest.VirtualMachines)},
+			config: `
 apiVersion: networking.istio.io/v1alpha3
 kind: VirtualService
 metadata:
   name: default
 spec:
   hosts:
-    - b
+    - {{ .dstSvc }}
   http:
   - corsPolicy:
       allowOrigins:
@@ -242,23 +243,22 @@ spec:
       maxAge: "24h"
     route:
     - destination:
-        host: b
+        host: {{ .dstSvc }}
 `,
-				children: []TrafficCall{
-					{
-						name: "preflight",
-						call: podA.CallWithRetryOrFail,
-						opts: func() echo.CallOptions {
-							header := http.Header{}
-							header.Add("Origin", "cors.com")
-							header.Add("Access-Control-Request-Method", "DELETE")
-							return echo.CallOptions{
-								Target:   apps.PodB[0],
-								PortName: "http",
-								Method:   "OPTIONS",
-								Headers:  header,
-								Count:    callCount,
-								Validator: echo.ValidatorFunc(
+			children: []TrafficCall{
+				{
+					name: "preflight",
+					opts: func() echo.CallOptions {
+						header := http.Header{}
+						header.Add("Origin", "cors.com")
+						header.Add("Access-Control-Request-Method", "DELETE")
+						return echo.CallOptions{
+							PortName: "http",
+							Method:   "OPTIONS",
+							Headers:  header,
+							Validator: echo.And(
+								echo.ExpectOK(),
+								echo.ValidatorFunc(
 									func(response echoclient.ParsedResponses, _ error) error {
 										return response.Check(func(_ int, response *echoclient.ParsedResponse) error {
 											if err := ExpectString(response.RawResponse["Access-Control-Allow-Origin"],
@@ -279,130 +279,123 @@ spec:
 											}
 											return nil
 										})
-									}),
-							}
-						}(),
-					},
-					{
-						name: "get",
-						call: podA.CallWithRetryOrFail,
-						opts: func() echo.CallOptions {
-							header := http.Header{}
-							header.Add("Origin", "cors.com")
-							return echo.CallOptions{
-								Target:   apps.PodB[0],
-								PortName: "http",
-								Headers:  header,
-								Count:    callCount,
-								Validator: echo.ValidatorFunc(
+									})),
+						}
+					}(),
+				},
+				{
+					name: "get",
+					opts: func() echo.CallOptions {
+						header := http.Header{}
+						header.Add("Origin", "cors.com")
+						return echo.CallOptions{
+							PortName: "http",
+							Headers:  header,
+							Validator: echo.And(
+								echo.ExpectOK(),
+								echo.ValidatorFunc(
 									func(response echoclient.ParsedResponses, _ error) error {
 										return ExpectString(response[0].RawResponse["Access-Control-Allow-Origin"],
 											"cors.com", "GET CORS origin")
-									}),
-							}
-						}(),
-					},
-					{
-						// GET without matching origin
-						name: "get no origin match",
-						call: podA.CallWithRetryOrFail,
-						opts: echo.CallOptions{
-							Target:   apps.PodB[0],
-							PortName: "http",
-							Count:    callCount,
-							Validator: echo.ValidatorFunc(
+									})),
+						}
+					}(),
+				},
+				{
+					// GET without matching origin
+					name: "get no origin match",
+					opts: echo.CallOptions{
+						PortName: "http",
+						Validator: echo.And(
+							echo.ExpectOK(),
+							echo.ValidatorFunc(
 								func(response echoclient.ParsedResponses, _ error) error {
 									return ExpectString(response[0].RawResponse["Access-Control-Allow-Origin"], "", "mismatched CORS origin")
-								}),
-						},
+								})),
 					},
 				},
 			},
-		)
+			workloadAgnostic: true,
+		},
+	)
 
-		splits := []map[string]int{
-			{
-				PodBSvc:  50,
-				VMSvc:    25,
-				NakedSvc: 25,
-			},
-			{
-				PodBSvc:  80,
-				VMSvc:    10,
-				NakedSvc: 10,
-			},
-		}
-		if len(apps.VM) == 0 {
-			splits = []map[string]int{
-				{
-					PodBSvc:  67,
-					NakedSvc: 33,
-				},
-				{
-					PodBSvc:  88,
-					NakedSvc: 12,
-				},
-			}
-		}
+	// reduce the total # of subtests that don't give valuable coverage or just don't work
+	noNaked := echotest.FilterMatch(echo.Not(echo.IsNaked()))
+	noHeadless := echotest.FilterMatch(echo.Not(echo.IsHeadless()))
+	noExternal := echotest.FilterMatch(echo.Not(echo.IsExternal()))
+	for i, tc := range cases {
 
-		for _, split := range splits {
-			split := split
-			cases = append(cases, TrafficTestCase{
-				name: fmt.Sprintf("shifting-%d from %s", split["b"], podA.Config().Cluster.StableName()),
-				config: fmt.Sprintf(`
+		tc.sourceFilters = append(tc.sourceFilters, noNaked, noHeadless)
+		tc.targetFilters = append(tc.targetFilters, noNaked, noHeadless)
+		cases[i] = tc
+	}
+
+	splits := [][3]int{
+		{50, 25, 25},
+		{80, 10, 10},
+	}
+	for _, split := range splits {
+		split := split
+		cases = append(cases, TrafficTestCase{
+			name:          fmt.Sprintf("shifting-%d", split[0]),
+			toN:           3,
+			sourceFilters: []echotest.Filter{noHeadless, noNaked},
+			targetFilters: []echotest.Filter{noHeadless, noExternal},
+			config: fmt.Sprintf(`
 apiVersion: networking.istio.io/v1alpha3
 kind: VirtualService
 metadata:
   name: default
 spec:
   hosts:
-    - b
+    - {{ ( index .dstSvcs 0) }}
   http:
   - route:
     - destination:
-        host: b
+        host: {{ ( index .dstSvcs 0) }}
       weight: %d
     - destination:
-        host: naked
+        host: {{ ( index .dstSvcs 1) }}
       weight: %d
     - destination:
-        host: vm
+        host: {{ ( index .dstSvcs 2) }}
       weight: %d
-`, split[PodBSvc], split[NakedSvc], split[VMSvc]),
-				call: podA.CallWithRetryOrFail,
-				opts: echo.CallOptions{
-					Target:   apps.PodB[0],
-					PortName: "http",
-					Count:    100,
-					Validator: echo.And(
-						echo.ExpectOK(),
-						echo.ValidatorFunc(
-							func(responses echoclient.ParsedResponses, _ error) error {
-								errorThreshold := 10
-								for host, exp := range split {
-									hostResponses := responses.Match(func(r *echoclient.ParsedResponse) bool {
-										return strings.HasPrefix(r.Hostname, host)
-									})
-									if !AlmostEquals(len(hostResponses), exp, errorThreshold) {
-										return fmt.Errorf("expected %v calls to %q, got %v", exp, host, len(hostResponses))
-									}
-
-									// TODO fix flakes where 1 cluster is not hit (https://github.com/istio/istio/issues/28834)
-									//hostDestinations := apps.All.Match(echo.Service(host))
-									//if host == NakedSvc {
-									//	// only expect to hit same-network clusters for nakedSvc
-									//	hostDestinations = apps.All.Match(echo.Service(host)).Match(echo.InNetwork(podA.Config().Cluster.NetworkName()))
-									//}
-									// since we're changing where traffic goes, make sure we don't break cross-cluster load balancing
-									//if err := hostResponses.CheckReachedClusters(hostDestinations.Clusters()); err != nil {
-									//	return fmt.Errorf("did not reach all clusters for %s: %v", host, err)
-									//}
-								}
-								return nil
-							})),
-				},
-			})
-		}
+`, split[0], split[1], split[2]),
+			validate: func(src echo.Instance, dests echo.Services) echo.Validator {
+				return echo.And(
+					echo.ExpectOK(),
+					echo.ValidatorFunc(func(responses echoclient.ParsedResponses, err error) error {
+						errorThreshold := 10
+						if len(split) != len(dests) {
+							// shouldn't happen
+							return fmt.Errorf("split configured for %d destinations, but framework gives %d", len(split), len(dests))
+						}
+						splitPerHost := map[string]int{}
+						for i, pct := range split {
+							splitPerHost[dests.Services()[i]] = pct
+						}
+						for host, exp := range splitPerHost {
+							hostResponses := responses.Match(func(r *echoclient.ParsedResponse) bool {
+								return strings.HasPrefix(r.Hostname, host)
+							})
+							if !AlmostEquals(len(hostResponses), exp, errorThreshold) {
+								return fmt.Errorf("expected %v calls to %q, got %v", exp, host, len(hostResponses))
+							}
+							// echotest should have filtered the deployment to only contain reachable clusters
+							targetClusters := dests.Instances().Match(echo.Service(host)).Clusters()
+							if err := hostResponses.CheckReachedClusters(targetClusters); err != nil {
+								return fmt.Errorf("did not reach all clusters for %s: %v", host, err)
+							}
+						}
+						return nil
+					}))
+			},
+			opts: echo.CallOptions{
+				PortName: "http",
+				Count:    100,
+			},
+			workloadAgnostic: true,
+		})
 	}
 
 	return cases
@@ -853,79 +846,47 @@ func selfCallsCases(apps *EchoDeployments) []TrafficTestCase {
 }
 
 // Todo merge with security TestReachability code
-func protocolSniffingCases(apps *EchoDeployments) []TrafficTestCase {
+func protocolSniffingCases() []TrafficTestCase {
 	cases := []TrafficTestCase{}
-	for _, clients := range []echo.Instances{apps.PodA, apps.Naked, apps.Headless, apps.VM} {
-		for _, client := range clients {
-			destinationSets := []echo.Instances{
-				apps.PodA,
-				apps.VM,
-				apps.External,
-				// only hit same network naked services
-				apps.Naked.Match(echo.InNetwork(client.Config().Cluster.NetworkName())),
-				// only hit same cluster headless services
-				apps.Headless.Match(echo.InCluster(client.Config().Cluster)),
-			}
 
-			for _, destinations := range destinationSets {
-				if len(destinations) == 0 {
-					continue
-				}
-				client := client
-				destinations := destinations
-				// grabbing the 0th assumes all echos in destinations have the same service name
-				destination := destinations[0]
-				if apps.Headless.Contains(destination) && len(apps.Headless) > 1 {
-					// TODO(landow) incompatibilities with multicluster & headless
-					continue
-				}
-				if apps.Naked.Contains(client) && apps.VM.Contains(destination) {
-					// Need a sidecar to connect to VMs
-					continue
-				}
-				if apps.VM.Contains(client) && apps.External.Contains(destination) {
-					// TODO VM won't resolve DNS in ServiceEntry https://github.com/istio/istio/issues/27154
-					continue
-				}
+	type protocolCase struct {
+		// The port we call
+		port string
+		// The actual type of traffic we send to the port
+		scheme scheme.Instance
+	}
+	protocols := []protocolCase{
+		{"http", scheme.HTTP},
+		{"auto-http", scheme.HTTP},
+		{"tcp", scheme.TCP},
+		{"auto-tcp", scheme.TCP},
+		{"grpc", scheme.GRPC},
+		{"auto-grpc", scheme.GRPC},
+	}
 
-				type protocolCase struct {
-					// The port we call
-					port string
-					// The actual type of traffic we send to the port
-					scheme scheme.Instance
+	// so we can validate all clusters are hit
+	for _, call := range protocols {
+		call := call
+		cases = append(cases, TrafficTestCase{
+			// TODO(https://github.com/istio/istio/issues/26798) enable sniffing tcp
+			skip: call.scheme == scheme.TCP,
+			name: call.port,
+			opts: echo.CallOptions{
+				PortName: call.port,
+				Scheme:   call.scheme,
+				Timeout:  time.Second * 5,
+			},
+			validate: func(src echo.Instance, dst echo.Services) echo.Validator {
+				if call.scheme == scheme.TCP {
+					// no host header for TCP
+					return echo.ExpectOK()
 				}
-				protocols := []protocolCase{
-					{"http", scheme.HTTP},
-					{"auto-http", scheme.HTTP},
-					{"tcp", scheme.TCP},
-					{"auto-tcp", scheme.TCP},
-					{"grpc", scheme.GRPC},
-					{"auto-grpc", scheme.GRPC},
-				}
-
-				// so we can validate all clusters are hit
-				callCount := callsPerCluster * len(destinations)
-				for _, call := range protocols {
-					call := call
-					cases = append(cases, TrafficTestCase{
-						// TODO(https://github.com/istio/istio/issues/26798) enable sniffing tcp
-						skip: call.scheme == scheme.TCP,
-						name: fmt.Sprintf("%v %v->%v from %s", call.port, client.Config().Service, destination.Config().Service, client.Config().Cluster.StableName()),
-						call: client.CallWithRetryOrFail,
-						opts: echo.CallOptions{
-							Target:   destination,
-							PortName: call.port,
-							Scheme:   call.scheme,
-							Count:    callCount,
-							Timeout:  time.Second * 5,
-							Validator: echo.And(
-								echo.ExpectOK(),
-								echo.ExpectHost(destination.Config().HostHeader())),
-						},
-					})
-				}
-			}
-		}
+				return echo.And(
+					echo.ExpectOK(),
+					echo.ExpectHost(dst[0][0].Config().HostHeader()))
+			},
+			workloadAgnostic: true,
+		})
 	}
 	return cases
 }

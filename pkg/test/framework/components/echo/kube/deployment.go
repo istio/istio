@@ -154,6 +154,9 @@ spec:
       - name: app
         image: {{ $.Hub }}/app:{{ $.Tag }}
         imagePullPolicy: {{ $.PullPolicy }}
+        securityContext:
+          runAsUser: 1338
+          runAsGroup: 1338
         args:
           - --metrics=15014
           - --cluster
@@ -242,14 +245,19 @@ spec:
         - mountPath: /etc/certs/custom
           name: custom-certs
       volumes:
+{{- if $.TLSSettings.ProxyProvision }}
+      - emptyDir:
+          medium: Memory
+{{- else }}
       - configMap:
           name: {{ $.Service }}-certs
+{{- end }}
         name: custom-certs
 {{- end }}
 ---
 {{- end }}
 {{- end }}
-{{- if .TLSSettings }}
+{{- if .TLSSettings}}{{if not .TLSSettings.ProxyProvision }}
 apiVersion: v1
 kind: ConfigMap
 metadata:
@@ -262,7 +270,7 @@ data:
   key.pem: |
 {{.TLSSettings.Key | indent 4}}
 ---
-{{- end}}
+{{- end}}{{- end}}
 `
 
 	// vmDeploymentYaml aims to simulate a VM, but instead of managing the complex test setup of spinning up a VM,
@@ -372,6 +380,20 @@ spec:
              --bind-localhost={{ $p.Port }} \
 {{- end }}
 {{- end }}
+{{- range $i, $p := $.WorkloadOnlyPorts }}
+{{- if eq .Protocol "TCP" }}
+             --tcp \
+{{- else }}
+             --port \
+{{- end }}
+             "{{ $p.Port }}" \
+{{- if $p.TLS }}
+             --tls={{ $p.Port }} \
+{{- end }}
+{{- if $p.ServerFirst }}
+             --server-first={{ $p.Port }} \
+{{- end }}
+{{- end }}
              --crt=/var/lib/istio/cert.crt \
              --key=/var/lib/istio/cert.key
         env:
@@ -458,9 +480,9 @@ func newDeployment(ctx resource.Context, cfg echo.Config) (*deployment, error) {
 
 	deploymentYAML, err := generateDeploymentYAML(cfg, nil, ctx.Settings().IstioVersions)
 	if err != nil {
-		return nil, fmt.Errorf("failed generating echo deployment YAML for %s/%s",
+		return nil, fmt.Errorf("failed generating echo deployment YAML for %s/%s: %v",
 			cfg.Namespace.Name(),
-			cfg.Service)
+			cfg.Service, err)
 	}
 
 	// Apply the deployment to the configured cluster.

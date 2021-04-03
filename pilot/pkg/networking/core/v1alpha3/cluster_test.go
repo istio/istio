@@ -28,12 +28,12 @@ import (
 	http "github.com/envoyproxy/go-control-plane/envoy/extensions/upstreams/http/v3"
 	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"
-	"github.com/golang/protobuf/ptypes"
 	structpb "github.com/golang/protobuf/ptypes/struct"
 	"github.com/golang/protobuf/ptypes/wrappers"
 	"github.com/google/go-cmp/cmp"
 	. "github.com/onsi/gomega"
 	"google.golang.org/protobuf/testing/protocmp"
+	"google.golang.org/protobuf/types/known/durationpb"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
@@ -219,7 +219,7 @@ func TestCommonHttpProtocolOptions(t *testing.T) {
 			anyOptions := c.TypedExtensionProtocolOptions[v3.HttpProtocolOptionsType]
 			httpProtocolOptions := &http.HttpProtocolOptions{}
 			if anyOptions != nil {
-				ptypes.UnmarshalAny(anyOptions, httpProtocolOptions)
+				anyOptions.UnmarshalTo(httpProtocolOptions)
 			}
 
 			if tc.useDownStreamProtocol && tc.proxyType == model.SidecarProxy {
@@ -234,7 +234,7 @@ func TestCommonHttpProtocolOptions(t *testing.T) {
 
 			// Verify that the values were set correctly.
 			g.Expect(httpProtocolOptions.CommonHttpProtocolOptions.IdleTimeout).To(Not(BeNil()))
-			g.Expect(httpProtocolOptions.CommonHttpProtocolOptions.IdleTimeout).To(Equal(ptypes.DurationProto(time.Duration(15000000000))))
+			g.Expect(httpProtocolOptions.CommonHttpProtocolOptions.IdleTimeout).To(Equal(durationpb.New(time.Duration(15000000000))))
 		})
 	}
 }
@@ -470,7 +470,7 @@ func TestBuildGatewayClustersWithRingHashLb(t *testing.T) {
 
 			g.Expect(c.LbPolicy).To(Equal(cluster.Cluster_RING_HASH))
 			g.Expect(c.GetRingHashLbConfig().GetMinimumRingSize().GetValue()).To(Equal(uint64(tt.expectedRingSize)))
-			g.Expect(c.ConnectTimeout).To(Equal(ptypes.DurationProto(time.Duration(10000000001))))
+			g.Expect(c.ConnectTimeout).To(Equal(durationpb.New(time.Duration(10000000001))))
 		})
 	}
 }
@@ -1543,6 +1543,7 @@ func TestBuildInboundClustersPortLevelCircuitBreakerThresholds(t *testing.T) {
 				MaxRequests:        &wrappers.UInt32Value{Value: math.MaxUint32},
 				MaxConnections:     &wrappers.UInt32Value{Value: 100},
 				MaxPendingRequests: &wrappers.UInt32Value{Value: math.MaxUint32},
+				TrackRemaining:     true,
 			},
 		},
 		{
@@ -1575,6 +1576,7 @@ func TestBuildInboundClustersPortLevelCircuitBreakerThresholds(t *testing.T) {
 				MaxRequests:        &wrappers.UInt32Value{Value: math.MaxUint32},
 				MaxConnections:     &wrappers.UInt32Value{Value: 1000},
 				MaxPendingRequests: &wrappers.UInt32Value{Value: math.MaxUint32},
+				TrackRemaining:     true,
 			},
 		},
 	}
@@ -2459,15 +2461,15 @@ func TestTelemetryMetadata(t *testing.T) {
 	for _, tt := range cases {
 		t.Run(tt.name, func(t *testing.T) {
 			opt := buildClusterOpts{
-				ic:   NewEnvoyCluster(tt.cluster),
-				port: &model.Port{Port: 80},
+				mutable: NewMutableCluster(tt.cluster),
+				port:    &model.Port{Port: 80},
 				proxy: &model.Proxy{
 					ServiceInstances: tt.svcInsts,
 				},
 			}
 			addTelemetryMetadata(opt, tt.service, tt.direction, tt.svcInsts)
-			if opt.ic.cluster != nil && !reflect.DeepEqual(opt.ic.cluster.Metadata, tt.want) {
-				t.Errorf("cluster metadata does not match expectation want %+v, got %+v", tt.want, opt.ic.cluster.Metadata)
+			if opt.mutable.cluster != nil && !reflect.DeepEqual(opt.mutable.cluster.Metadata, tt.want) {
+				t.Errorf("cluster metadata does not match expectation want %+v, got %+v", tt.want, opt.mutable.cluster.Metadata)
 			}
 		})
 	}

@@ -23,6 +23,7 @@ import (
 	istioKube "istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/test/framework/components/cluster"
 	"istio.io/istio/pkg/test/scopes"
+	"istio.io/istio/pkg/test/util/file"
 )
 
 // clusterIndex is the index of a cluster within the KubeConfig or topology file entries
@@ -113,7 +114,7 @@ func (s *Settings) clusterConfigsFromFlags() ([]cluster.Config, error) {
 
 func (s *Settings) clusterConfigsFromFile() ([]cluster.Config, error) {
 	scopes.Framework.Infof("Using configs file: %v.", topologyFile)
-	filename, err := normalizeFile(topologyFile)
+	filename, err := file.NormalizePath(topologyFile)
 	if err != nil {
 		return nil, err
 	}

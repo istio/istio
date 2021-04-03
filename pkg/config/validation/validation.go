@@ -15,6 +15,7 @@
 package validation
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"net"
@@ -35,6 +36,7 @@ import (
 	"google.golang.org/protobuf/reflect/protoregistry"
 	"google.golang.org/protobuf/types/descriptorpb"
 
+	"istio.io/api/annotation"
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
 	security_beta "istio.io/api/security/v1beta1"
@@ -122,6 +124,12 @@ type Validation struct {
 	Warning Warning
 }
 
+type AnalysisAwareError struct {
+	Type       string
+	Msg        string
+	Parameters []interface{}
+}
+
 var _ error = Validation{}
 
 // WrapError turns an error into a Validation
@@ -159,8 +167,33 @@ func GetValidateFunc(name string) ValidateFunc {
 }
 
 func registerValidateFunc(name string, f ValidateFunc) ValidateFunc {
-	validateFuncs[name] = f
-	return f
+	// Wrap the original validate function with an extra validate function for the annotation "istio.io/dry-run".
+	validate := validateAnnotationDryRun(f)
+	validateFuncs[name] = validate
+	return validate
+}
+
+func validateAnnotationDryRun(f ValidateFunc) ValidateFunc {
+	return func(config config.Config) (Warning, error) {
+		_, isAuthz := config.Spec.(*security_beta.AuthorizationPolicy)
+		// Only the AuthorizationPolicy supports the annotation "istio.io/dry-run".
+		if err := checkDryRunAnnotation(config, isAuthz); err != nil {
+			return nil, err
+		}
+		return f(config)
+	}
+}
+
+func checkDryRunAnnotation(cfg config.Config, allowed bool) error {
+	if val, found := cfg.Annotations[annotation.IoIstioDryRun.Name]; found {
+		if !allowed {
+			return fmt.Errorf("%s/%s has unsupported annotation %s, please remove the annotation", cfg.Namespace, cfg.Name, annotation.IoIstioDryRun.Name)
+		}
+		if _, err := strconv.ParseBool(val); err != nil {
+			return fmt.Errorf("%s/%s has annotation %s with invalid value (%s): %v", cfg.Namespace, cfg.Name, annotation.IoIstioDryRun.Name, val, err)
+		}
+	}
+	return nil
 }
 
 // ValidatePort checks that the network port is in range
@@ -386,6 +419,7 @@ func validateServer(server *networking.Server) (errs error) {
 	if portErr != nil {
 		errs = appendErrors(errs, portErr)
 	}
+	errs = appendErrors(errs, validateServerBind(server.Port, server.Bind))
 	errs = appendErrors(errs, validateTLSOptions(server.Tls))
 
 	// If port is HTTPS or TLS, make sure that server has TLS options
@@ -421,6 +455,18 @@ func validateServerPort(port *networking.Port) (errs error) {
 
 	if port.Name == "" {
 		errs = appendErrors(errs, fmt.Errorf("port name must be set: %v", port))
+	}
+	return
+}
+
+func validateServerBind(port *networking.Port, bind string) (errs error) {
+	if strings.HasPrefix(bind, UnixAddressPrefix) {
+		errs = appendErrors(errs, ValidateUnixAddress(strings.TrimPrefix(bind, UnixAddressPrefix)))
+		if port != nil && port.Number != 0 {
+			errs = appendErrors(errs, fmt.Errorf("port number must be 0 for unix domain socket: %v", port))
+		}
+	} else if len(bind) != 0 {
+		errs = appendErrors(errs, ValidateIPAddress(bind))
 	}
 	return
 }
@@ -1840,8 +1886,171 @@ var ValidateVirtualService = registerValidateFunc("ValidateVirtualService",
 		}
 
 		errs = appendValidation(errs, validateExportTo(cfg.Namespace, virtualService.ExportTo, false))
+
+		warnUnused := func(ruleno, reason string) {
+			errs = appendValidation(errs, WrapWarning(&AnalysisAwareError{
+				Type:       "VirtualServiceUnreachableRule",
+				Msg:        fmt.Sprintf("virtualService rule %v not used (%s)", ruleno, reason),
+				Parameters: []interface{}{ruleno, reason},
+			}))
+		}
+		warnIneffective := func(ruleno, matchno, dupno string) {
+			errs = appendValidation(errs, WrapWarning(&AnalysisAwareError{
+				Type:       "VirtualServiceIneffectiveMatch",
+				Msg:        fmt.Sprintf("virtualService rule %v match %v is not used (duplicates a match in rule %v)", ruleno, matchno, dupno),
+				Parameters: []interface{}{ruleno, matchno, dupno},
+			}))
+		}
+
+		analyzeUnreachableHTTPRules(virtualService.Http, warnUnused, warnIneffective)
+		analyzeUnreachableTCPRules(virtualService.Tcp, warnUnused, warnIneffective)
+		analyzeUnreachableTLSRules(virtualService.Tls, warnUnused, warnIneffective)
+
 		return errs.Unwrap()
 	})
+
+func analyzeUnreachableHTTPRules(routes []*networking.HTTPRoute,
+	reportUnreachable func(ruleno, reason string), reportIneffective func(ruleno, matchno, dupno string)) {
+	matchesEncountered := make(map[string]int)
+	emptyMatchEncountered := -1
+	for rulen, route := range routes {
+		if route == nil {
+			continue
+		}
+		if len(route.Match) == 0 {
+			if emptyMatchEncountered >= 0 {
+				reportUnreachable(routeName(route, rulen), "only the last rule can have no matches")
+			}
+			emptyMatchEncountered = rulen
+			continue
+		}
+
+		duplicateMatches := 0
+		for matchn, match := range route.Match {
+			dupn, ok := matchesEncountered[asJSON(match)]
+			if ok {
+				reportIneffective(routeName(route, rulen), requestName(match, matchn), routeName(routes[dupn], dupn))
+				duplicateMatches++
+			} else {
+				matchesEncountered[asJSON(match)] = rulen
+			}
+		}
+		if duplicateMatches == len(route.Match) {
+			reportUnreachable(routeName(route, rulen), "all matches used by prior rules")
+		}
+	}
+}
+
+// NOTE: This method identical to analyzeUnreachableHTTPRules.
+func analyzeUnreachableTCPRules(routes []*networking.TCPRoute,
+	reportUnreachable func(ruleno, reason string), reportIneffective func(ruleno, matchno, dupno string)) {
+	matchesEncountered := make(map[string]int)
+	emptyMatchEncountered := -1
+	for rulen, route := range routes {
+		if route == nil {
+			continue
+		}
+		if len(route.Match) == 0 {
+			if emptyMatchEncountered >= 0 {
+				reportUnreachable(routeName(route, rulen), "only the last rule can have no matches")
+			}
+			emptyMatchEncountered = rulen
+			continue
+		}
+
+		duplicateMatches := 0
+		for matchn, match := range route.Match {
+			dupn, ok := matchesEncountered[asJSON(match)]
+			if ok {
+				reportIneffective(routeName(route, rulen), requestName(match, matchn), routeName(routes[dupn], dupn))
+				duplicateMatches++
+			} else {
+				matchesEncountered[asJSON(match)] = rulen
+			}
+		}
+		if duplicateMatches == len(route.Match) {
+			reportUnreachable(routeName(route, rulen), "all matches used by prior rules")
+		}
+	}
+}
+
+// NOTE: This method identical to analyzeUnreachableHTTPRules.
+func analyzeUnreachableTLSRules(routes []*networking.TLSRoute,
+	reportUnreachable func(ruleno, reason string), reportIneffective func(ruleno, matchno, dupno string)) {
+	matchesEncountered := make(map[string]int)
+	emptyMatchEncountered := -1
+	for rulen, route := range routes {
+		if route == nil {
+			continue
+		}
+		if len(route.Match) == 0 {
+			if emptyMatchEncountered >= 0 {
+				reportUnreachable(routeName(route, rulen), "only the last rule can have no matches")
+			}
+			emptyMatchEncountered = rulen
+			continue
+		}
+
+		duplicateMatches := 0
+		for matchn, match := range route.Match {
+			dupn, ok := matchesEncountered[asJSON(match)]
+			if ok {
+				reportIneffective(routeName(route, rulen), requestName(match, matchn), routeName(routes[dupn], dupn))
+				duplicateMatches++
+			} else {
+				matchesEncountered[asJSON(match)] = rulen
+			}
+		}
+		if duplicateMatches == len(route.Match) {
+			reportUnreachable(routeName(route, rulen), "all matches used by prior rules")
+		}
+	}
+}
+
+// asJSON() creates a JSON serialization of a match, to use for match comparison.  We don't use the JSON itself.
+func asJSON(data interface{}) string {
+	// Remove the name, so we can create a serialization that only includes traffic routing config
+	switch mr := data.(type) {
+	case *networking.HTTPMatchRequest:
+		if mr != nil && mr.Name != "" {
+			unnamed := *mr
+			unnamed.Name = ""
+			data = &unnamed
+		}
+	}
+
+	b, err := json.Marshal(data)
+	if err != nil {
+		return err.Error()
+	}
+	return string(b)
+}
+
+func routeName(route interface{}, routen int) string {
+	switch r := route.(type) {
+	case *networking.HTTPRoute:
+		if r.Name != "" {
+			return fmt.Sprintf("%q", r.Name)
+		}
+
+		// TCP and TLS routes have no names
+	}
+
+	return fmt.Sprintf("#%d", routen)
+}
+
+func requestName(match interface{}, matchn int) string {
+	switch mr := match.(type) {
+	case *networking.HTTPMatchRequest:
+		if mr.Name != "" {
+			return fmt.Sprintf("%q", mr.Name)
+		}
+
+		// TCP and TLS matches have no names
+	}
+
+	return fmt.Sprintf("#%d", matchn)
+}
 
 func validateTLSRoute(tls *networking.TLSRoute, context *networking.VirtualService) error {
 	var errs error
@@ -2741,4 +2950,8 @@ func validateNetwork(network *meshconfig.Network) (errs error) {
 		}
 	}
 	return
+}
+
+func (aae *AnalysisAwareError) Error() string {
+	return aae.Msg
 }

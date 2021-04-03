@@ -22,10 +22,9 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/mitchellh/go-homedir"
-
 	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/test/scopes"
+	"istio.io/istio/pkg/test/util/file"
 )
 
 const (
@@ -104,7 +103,7 @@ func getKubeConfigsFromEnvironment() ([]string, error) {
 	}
 	if len(out) == 0 {
 		scopes.Framework.Info("Environment variable KUBECONFIG unspecified, defaultiing to ~/.kube/config.")
-		normalizedDefaultKubeConfig, err := normalizeFile(defaultKubeConfig)
+		normalizedDefaultKubeConfig, err := file.NormalizePath(defaultKubeConfig)
 		if err != nil {
 			return nil, fmt.Errorf("error normalizing default kube config file %s: %v",
 				defaultKubeConfig, err)
@@ -125,7 +124,7 @@ func parseKubeConfigs(value, separator string) ([]string, error) {
 		f := strings.TrimSpace(f)
 		if len(f) != 0 {
 			var err error
-			if f, err = normalizeFile(f); err != nil {
+			if f, err = file.NormalizePath(f); err != nil {
 				return nil, err
 			}
 			out = append(out, f)
@@ -213,23 +212,6 @@ func parseClusterIndex(index string) (clusterIndex, error) {
 		return 0, fmt.Errorf("failed parsing cluster index: %s", index)
 	}
 	return clusterIndex(ci), nil
-}
-
-func normalizeFile(originalPath string) (string, error) {
-	// trim leading/trailing spaces from the path and if it uses the homedir ~, expand it.
-	var err error
-	out := strings.TrimSpace(originalPath)
-	out, err = homedir.Expand(out)
-	if err != nil {
-		return "", err
-	}
-
-	// Verify that the file exists.
-	if _, err := os.Stat(out); os.IsNotExist(err) {
-		return "", fmt.Errorf("failed normalizing file %s: %v", originalPath, err)
-	}
-
-	return out, nil
 }
 
 // init registers the command-line flags that we can exposed for "go test".

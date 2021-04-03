@@ -44,9 +44,13 @@ type Watcher interface {
 var _ Watcher = &InternalWatcher{}
 
 type InternalWatcher struct {
-	mutex      sync.Mutex
-	handlers   []func()
+	mutex    sync.Mutex
+	handlers []func()
+	// Current merged mesh config
 	MeshConfig *meshconfig.MeshConfig
+
+	userMeshConfig string
+	revMeshConfig  string
 }
 
 // NewFixedWatcher creates a new Watcher that always returns the given mesh config. It will never
@@ -94,6 +98,48 @@ func (w *InternalWatcher) AddMeshHandler(h func()) {
 	w.handlers = append(w.handlers, h)
 }
 
+// HandleMeshConfigData keeps track of the standard mesh config. These are merged with the user
+// mesh config, but takes precedence.
+func (w *InternalWatcher) HandleMeshConfigData(yaml string) {
+	w.mutex.Lock()
+	w.revMeshConfig = yaml
+	w.mutex.Unlock()
+	w.HandleMeshConfig(w.merged())
+}
+
+// HandleUserMeshConfig keeps track of user mesh config overrides. These are merged with the standard
+// mesh config, which takes precedence.
+func (w *InternalWatcher) HandleUserMeshConfig(yaml string) {
+	w.mutex.Lock()
+	w.userMeshConfig = yaml
+	w.mutex.Unlock()
+	w.HandleMeshConfig(w.merged())
+}
+
+// merged returns the merged user and revision config.
+func (w *InternalWatcher) merged() *meshconfig.MeshConfig {
+	w.mutex.Lock()
+	defer w.mutex.Unlock()
+	mc := DefaultMeshConfig()
+	if w.userMeshConfig != "" {
+		mc1, err := ApplyMeshConfig(w.userMeshConfig, mc)
+		if err != nil {
+			log.Errorf("user config invalid, ignoring it %v %s", err, w.userMeshConfig)
+		}
+		mc = *mc1
+		log.Infoa("Applied user config: ", spew.Sdump(mc))
+	}
+	if w.revMeshConfig != "" {
+		mc1, err := ApplyMeshConfig(w.revMeshConfig, mc)
+		if err != nil {
+			log.Errorf("revision config invalid, ignoring it %v %s", err, w.userMeshConfig)
+		}
+		mc = *mc1
+		log.Infoa("Applied revision mesh config: ", spew.Sdump(mc))
+	}
+	return &mc
+}
+
 func (w *InternalWatcher) HandleMeshConfig(meshConfig *meshconfig.MeshConfig) {
 	var handlers []func()
 
@@ -110,8 +156,9 @@ func (w *InternalWatcher) HandleMeshConfig(meshConfig *meshconfig.MeshConfig) {
 	}
 	w.mutex.Unlock()
 
-	for _, h := range handlers {
-		h()
+	// TODO hack: the first handler added is the ConfigPush, other handlers affect what will be pushed, so reversing iteration
+	for i := len(handlers) - 1; i >= 0; i-- {
+		handlers[i]()
 	}
 }
 

@@ -41,8 +41,8 @@ const (
 	// The length of the example certificate chain.
 	exampleCertChainLength = 3
 
-	defaultIdentityDR = `apiVersion: "networking.istio.io/v1alpha3"
-kind: "DestinationRule"
+	defaultIdentityDR = `apiVersion: networking.istio.io/v1alpha3
+kind: DestinationRule
 metadata:
   name: "service-b-dr"
 spec:
@@ -53,8 +53,8 @@ spec:
       subjectAltNames:
       - "spiffe://cluster.local/ns/NS/sa/default"
 `
-	correctIdentityDR = `apiVersion: "networking.istio.io/v1alpha3"
-kind: "DestinationRule"
+	correctIdentityDR = `apiVersion: networking.istio.io/v1alpha3
+kind: DestinationRule
 metadata:
   name: "service-b-dr"
 spec:
@@ -65,8 +65,8 @@ spec:
       subjectAltNames:
       - "spiffe://cluster.local/ns/NS/sa/b"
 `
-	nonExistIdentityDR = `apiVersion: "networking.istio.io/v1alpha3"
-kind: "DestinationRule"
+	nonExistIdentityDR = `apiVersion: networking.istio.io/v1alpha3
+kind: DestinationRule
 metadata:
   name: "service-b-dr"
 spec:
@@ -77,8 +77,8 @@ spec:
       subjectAltNames:
       - "I-do-not-exist"
 `
-	identityListDR = `apiVersion: "networking.istio.io/v1alpha3"
-kind: "DestinationRule"
+	identityListDR = `apiVersion: networking.istio.io/v1alpha3
+kind: DestinationRule
 metadata:
   name: "service-b-dr"
 spec:
@@ -103,31 +103,31 @@ spec:
 func TestSecureNaming(t *testing.T) {
 	framework.NewTest(t).
 		Features("security.peer.secure-naming").
-		Run(func(ctx framework.TestContext) {
+		Run(func(t framework.TestContext) {
 			// TODO: remove the skip when https://github.com/istio/istio/issues/28798 is fixed
-			if ctx.Clusters().IsMulticluster() {
-				ctx.Skip()
+			if t.Clusters().IsMulticluster() {
+				t.Skip()
 			}
-			istioCfg := istio.DefaultConfigOrFail(t, ctx)
+			istioCfg := istio.DefaultConfigOrFail(t, t)
 			testNamespace := apps.Namespace
-			namespace.ClaimOrFail(t, ctx, istioCfg.SystemNamespace)
+			namespace.ClaimOrFail(t, t, istioCfg.SystemNamespace)
 			// Check that the CA certificate in the configmap of each namespace is as expected, which
 			// is used for data plane to control plane TLS authentication.
 			retry.UntilSuccessOrFail(t, func() error {
-				return checkCACert(ctx, t, testNamespace)
+				return checkCACert(t, testNamespace)
 			}, retry.Delay(time.Second), retry.Timeout(10*time.Second))
 
 			callCount := 1
-			if ctx.Clusters().IsMulticluster() {
+			if t.Clusters().IsMulticluster() {
 				// so we can validate all clusters are hit
-				callCount = util.CallsPerCluster * len(ctx.Clusters())
+				callCount = util.CallsPerCluster * len(t.Clusters())
 			}
 			bSet := apps.B.Match(echo.Namespace(testNamespace.Name()))
-			for _, cluster := range ctx.Clusters() {
-				ctx.NewSubTest(fmt.Sprintf("From %s", cluster.StableName())).Run(func(ctx framework.TestContext) {
+			for _, cluster := range t.Clusters() {
+				t.NewSubTest(fmt.Sprintf("From %s", cluster.StableName())).Run(func(t framework.TestContext) {
 					a := apps.A.Match(echo.InCluster(cluster)).Match(echo.Namespace(testNamespace.Name()))[0]
-					ctx.NewSubTest("mTLS cert validation with plugin CA").
-						Run(func(ctx framework.TestContext) {
+					t.NewSubTest("mTLS cert validation with plugin CA").
+						Run(func(t framework.TestContext) {
 							// Verify that the certificate issued to the sidecar is as expected.
 							connectTarget := fmt.Sprintf("b.%s:80", testNamespace.Name())
 							out, err := cert.DumpCertFromSidecar(testNamespace, "app=a", "istio-proxy",
@@ -151,7 +151,7 @@ func TestSecureNaming(t *testing.T) {
 								ExpectSuccess: true,
 								DestClusters:  bSet.Clusters(),
 							}
-							checker.CheckOrFail(ctx)
+							checker.CheckOrFail(t)
 						})
 
 					secureNamingTestCases := []struct {
@@ -181,10 +181,10 @@ func TestSecureNaming(t *testing.T) {
 						},
 					}
 					for _, tc := range secureNamingTestCases {
-						ctx.NewSubTest(tc.name).
-							Run(func(ctx framework.TestContext) {
+						t.NewSubTest(tc.name).
+							Run(func(t framework.TestContext) {
 								dr := strings.ReplaceAll(tc.destinationRule, "NS", testNamespace.Name())
-								ctx.Config().ApplyYAMLOrFail(t, testNamespace.Name(), dr)
+								t.Config().ApplyYAMLOrFail(t, testNamespace.Name(), dr)
 								// Verify mTLS works between a and b
 								callOptions := echo.CallOptions{
 									Target:   bSet[0],
@@ -200,7 +200,7 @@ func TestSecureNaming(t *testing.T) {
 								}
 								if err := retry.UntilSuccess(
 									checker.Check, retry.Delay(time.Second), retry.Timeout(15*time.Second), retry.Converge(5)); err != nil {
-									ctx.Fatal(err)
+									t.Fatal(err)
 								}
 							})
 					}
@@ -209,7 +209,7 @@ func TestSecureNaming(t *testing.T) {
 		})
 }
 
-func verifyCertificatesWithPluginCA(t *testing.T, dump string) {
+func verifyCertificatesWithPluginCA(t framework.TestContext, dump string) {
 	certExp := regexp.MustCompile("(?sU)-----BEGIN CERTIFICATE-----(.+)-----END CERTIFICATE-----")
 	certs := certExp.FindAll([]byte(dump), -1)
 	// Verify that the certificate chain length is as expected
@@ -233,9 +233,9 @@ func verifyCertificatesWithPluginCA(t *testing.T, dump string) {
 	t.Log("the CA certificate is as expected")
 }
 
-func checkCACert(testCtx framework.TestContext, t *testing.T, testNamespace namespace.Instance) error {
+func checkCACert(t framework.TestContext, testNamespace namespace.Instance) error {
 	configMapName := "istio-ca-root-cert"
-	cm, err := testCtx.Clusters().Default().CoreV1().ConfigMaps(testNamespace.Name()).Get(context.TODO(), configMapName,
+	cm, err := t.Clusters().Default().CoreV1().ConfigMaps(testNamespace.Name()).Get(context.TODO(), configMapName,
 		kubeApiMeta.GetOptions{})
 	if err != nil {
 		return err

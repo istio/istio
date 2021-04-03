@@ -34,8 +34,8 @@ import (
 func TestMtlsStrictK8sCA(t *testing.T) {
 	framework.NewTest(t).
 		Features("security.control-plane.k8s-certs.k8sca").
-		Run(func(ctx framework.TestContext) {
-			systemNM := istio.ClaimSystemNamespaceOrFail(ctx, ctx)
+		Run(func(t framework.TestContext) {
+			systemNM := istio.ClaimSystemNamespaceOrFail(t, t)
 
 			testCases := []reachability.TestCase{
 				{
@@ -85,11 +85,15 @@ func TestMtlsStrictK8sCA(t *testing.T) {
 						// When mTLS is disabled, all traffic should work.
 						return true
 					},
+					ExpectDestinations: func(src echo.Instance, dest echo.Instances) echo.Instances {
+						// Without TLS we can't perform SNI routing required for multi-network
+						return dest.Match(echo.InNetwork(src.Config().Cluster.NetworkName()))
+					},
 					ExpectMTLS: func(src echo.Instance, opts echo.CallOptions) bool {
 						return false
 					},
 				},
 			}
-			reachability.Run(testCases, ctx, apps)
+			reachability.Run(testCases, t, apps)
 		})
 }

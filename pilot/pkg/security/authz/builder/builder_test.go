@@ -119,67 +119,84 @@ func TestGenerator_GenerateHTTP(t *testing.T) {
 		want       []string
 	}{
 		{
-			name:  "path",
-			input: "path-in.yaml",
-			want:  []string{"path-out.yaml"},
+			name:  "allow-empty-rule",
+			input: "allow-empty-rule-in.yaml",
+			want:  []string{"allow-empty-rule-out.yaml"},
 		},
 		{
-			name:       "action-custom-grpc-provider-no-namespace",
+			name:  "allow-full-rule",
+			input: "allow-full-rule-in.yaml",
+			want:  []string{"allow-full-rule-out.yaml"},
+		},
+		{
+			name:  "allow-nil-rule",
+			input: "allow-nil-rule-in.yaml",
+			want:  []string{"allow-nil-rule-out.yaml"},
+		},
+		{
+			name:  "allow-path",
+			input: "allow-path-in.yaml",
+			want:  []string{"allow-path-out.yaml"},
+		},
+		{
+			name:  "audit-full-rule",
+			input: "audit-full-rule-in.yaml",
+			want:  []string{"audit-full-rule-out.yaml"},
+		},
+		{
+			name:       "custom-grpc-provider-no-namespace",
 			meshConfig: meshConfigGRPCNoNamespace,
-			input:      "action-custom-in.yaml",
-			want:       []string{"action-custom-grpc-provider-out1.yaml", "action-custom-grpc-provider-out2.yaml"},
+			input:      "custom-simple-http-in.yaml",
+			want:       []string{"custom-grpc-provider-out1.yaml", "custom-grpc-provider-out2.yaml"},
 		},
 		{
-			name:       "action-custom-grpc-provider",
+			name:       "custom-grpc-provider",
 			meshConfig: meshConfigGRPC,
-			input:      "action-custom-in.yaml",
-			want:       []string{"action-custom-grpc-provider-out1.yaml", "action-custom-grpc-provider-out2.yaml"},
+			input:      "custom-simple-http-in.yaml",
+			want:       []string{"custom-grpc-provider-out1.yaml", "custom-grpc-provider-out2.yaml"},
 		},
 		{
-			name:       "action-custom-http-provider",
+			name:       "custom-http-provider",
 			meshConfig: meshConfigHTTP,
-			input:      "action-custom-in.yaml",
-			want:       []string{"action-custom-http-provider-out1.yaml", "action-custom-http-provider-out2.yaml"},
+			input:      "custom-simple-http-in.yaml",
+			want:       []string{"custom-http-provider-out1.yaml", "custom-http-provider-out2.yaml"},
 		},
 		{
-			name:       "action-custom-bad-multiple-providers",
+			name:       "custom-bad-multiple-providers",
 			meshConfig: meshConfigHTTP,
-			input:      "action-custom-bad-multiple-providers-in.yaml",
-			want:       []string{"action-custom-bad-out.yaml"},
+			input:      "custom-bad-multiple-providers-in.yaml",
+			want:       []string{"custom-bad-out.yaml"},
 		},
 		{
-			name:       "action-custom-bad-invalid-config",
+			name:       "custom-bad-invalid-config",
 			meshConfig: meshConfigInvalid,
-			input:      "action-custom-in.yaml",
-			want:       []string{"action-custom-bad-out.yaml"},
+			input:      "custom-simple-http-in.yaml",
+			want:       []string{"custom-bad-out.yaml"},
 		},
 		{
-			name:  "action-both",
-			input: "action-both-in.yaml",
-			want: []string{
-				"action-both-deny-out.yaml",
-				"action-both-allow-out.yaml",
-			},
+			name:  "deny-and-allow",
+			input: "deny-and-allow-in.yaml",
+			want:  []string{"deny-and-allow-out1.yaml", "deny-and-allow-out2.yaml"},
 		},
 		{
-			name:  "all-fields",
-			input: "all-fields-in.yaml",
-			want:  []string{"all-fields-out.yaml"},
+			name:  "deny-empty-rule",
+			input: "deny-empty-rule-in.yaml",
+			want:  []string{"deny-empty-rule-out.yaml"},
 		},
 		{
-			name:  "allow-all",
-			input: "allow-all-in.yaml",
-			want:  []string{"allow-all-out.yaml"},
+			name:  "dry-run-allow-and-deny",
+			input: "dry-run-allow-and-deny-in.yaml",
+			want:  []string{"dry-run-allow-and-deny-out1.yaml", "dry-run-allow-and-deny-out2.yaml"},
 		},
 		{
-			name:  "allow-none",
-			input: "allow-none-in.yaml",
-			want:  []string{"allow-none-out.yaml"},
+			name:  "dry-run-allow",
+			input: "dry-run-allow-in.yaml",
+			want:  []string{"dry-run-allow-out.yaml"},
 		},
 		{
-			name:  "deny-all",
-			input: "deny-all-in.yaml",
-			want:  []string{"deny-all-out.yaml"},
+			name:  "dry-run-mix",
+			input: "dry-run-mix-in.yaml",
+			want:  []string{"dry-run-mix-out.yaml"},
 		},
 		{
 			name:  "multiple-policies",
@@ -215,27 +232,23 @@ func TestGenerator_GenerateHTTP(t *testing.T) {
 			input:    "td-aliases-source-principal-in.yaml",
 			want:     []string{"td-aliases-source-principal-out.yaml"},
 		},
-		{
-			name:  "audit-all",
-			input: "audit-all-in.yaml",
-			want:  []string{"audit-all-out.yaml"},
-		},
 	}
 
+	baseDir := "http/"
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			option := Option{
 				IsCustomBuilder: tc.meshConfig != nil,
 				Logger:          &AuthzLogger{},
 			}
-			in := inputParams(t, tc.input, tc.meshConfig)
+			in := inputParams(t, baseDir+tc.input, tc.meshConfig)
 			defer option.Logger.Report(in)
 			g := New(tc.tdBundle, in, option)
 			if g == nil {
 				t.Fatalf("failed to create generator")
 			}
 			got := g.BuildHTTP()
-			verify(t, convertHTTP(got), tc.want, false /* forTCP */)
+			verify(t, convertHTTP(got), baseDir, tc.want, false /* forTCP */)
 		})
 	}
 }
@@ -249,53 +262,64 @@ func TestGenerator_GenerateTCP(t *testing.T) {
 		want       []string
 	}{
 		{
-			name:       "action-custom-http-provider",
+			name:  "allow-both-http-tcp",
+			input: "allow-both-http-tcp-in.yaml",
+			want:  []string{"allow-both-http-tcp-out.yaml"},
+		},
+		{
+			name:  "allow-only-http",
+			input: "allow-only-http-in.yaml",
+			want:  []string{"allow-only-http-out.yaml"},
+		},
+		{
+			name:  "audit-both-http-tcp",
+			input: "audit-both-http-tcp-in.yaml",
+			want:  []string{"audit-both-http-tcp-out.yaml"},
+		},
+		{
+			name:       "custom-both-http-tcp",
+			meshConfig: meshConfigGRPC,
+			input:      "custom-both-http-tcp-in.yaml",
+			want:       []string{"custom-both-http-tcp-out1.yaml", "custom-both-http-tcp-out2.yaml"},
+		},
+		{
+			name:       "custom-only-http",
 			meshConfig: meshConfigHTTP,
-			input:      "action-custom-in.yaml",
+			input:      "custom-only-http-in.yaml",
 			want:       []string{},
 		},
 		{
-			name:       "action-custom-HTTP-for-TCP-filter",
-			meshConfig: meshConfigGRPC,
-			input:      "action-custom-HTTP-for-TCP-filter-in.yaml",
-			want:       []string{"action-custom-HTTP-for-TCP-filter-out1.yaml", "action-custom-HTTP-for-TCP-filter-out2.yaml"},
+			name:  "deny-both-http-tcp",
+			input: "deny-both-http-tcp-in.yaml",
+			want:  []string{"deny-both-http-tcp-out.yaml"},
 		},
 		{
-			name:  "action-allow-HTTP-for-TCP-filter",
-			input: "action-allow-HTTP-for-TCP-filter-in.yaml",
-			want:  []string{"action-allow-HTTP-for-TCP-filter-out.yaml"},
-		},
-		{
-			name:  "action-deny-HTTP-for-TCP-filter",
-			input: "action-deny-HTTP-for-TCP-filter-in.yaml",
-			want:  []string{"action-deny-HTTP-for-TCP-filter-out.yaml"},
-		},
-		{
-			name:  "action-audit-HTTP-for-TCP-filter",
-			input: "action-audit-HTTP-for-TCP-filter-in.yaml",
-			want:  []string{"action-audit-HTTP-for-TCP-filter-out.yaml"},
+			name:  "dry-run-mix",
+			input: "dry-run-mix-in.yaml",
+			want:  []string{"dry-run-mix-out.yaml"},
 		},
 	}
 
+	baseDir := "tcp/"
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			option := Option{
 				IsCustomBuilder: tc.meshConfig != nil,
 				Logger:          &AuthzLogger{},
 			}
-			in := inputParams(t, tc.input, tc.meshConfig)
+			in := inputParams(t, baseDir+tc.input, tc.meshConfig)
 			defer option.Logger.Report(in)
 			g := New(tc.tdBundle, in, option)
 			if g == nil {
 				t.Fatalf("failed to create generator")
 			}
 			got := g.BuildTCP()
-			verify(t, convertTCP(got), tc.want, true /* forTCP */)
+			verify(t, convertTCP(got), baseDir, tc.want, true /* forTCP */)
 		})
 	}
 }
 
-func verify(t *testing.T, gots []proto.Message, wants []string, forTCP bool) {
+func verify(t *testing.T, gots []proto.Message, baseDir string, wants []string, forTCP bool) {
 	t.Helper()
 
 	if len(gots) != len(wants) {
@@ -307,7 +331,7 @@ func verify(t *testing.T, gots []proto.Message, wants []string, forTCP bool) {
 			t.Fatalf("failed to convert to YAML: %v", err)
 		}
 
-		wantFile := basePath + wants[i]
+		wantFile := basePath + baseDir + wants[i]
 		want := yamlConfig(t, wantFile, forTCP)
 		wantYaml, err := protomarshal.ToYAML(want)
 		if err != nil {

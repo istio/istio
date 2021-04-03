@@ -15,6 +15,7 @@
 package istioagent
 
 import (
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"os"
@@ -78,8 +79,8 @@ const (
 type Agent struct {
 	proxyConfig *mesh.ProxyConfig
 
-	cfg     *AgentConfig
-	secOpts security.Options
+	cfg     *AgentOptions
+	secOpts *security.Options
 
 	sdsServer   *sds.Server
 	secretCache *cache.SecretManagerClient
@@ -91,11 +92,11 @@ type Agent struct {
 	localDNSServer *dns.LocalDNSServer
 }
 
-// AgentConfig contains additional config for the agent, not included in ProxyConfig.
+// AgentOptions contains additional config for the agent, not included in ProxyConfig.
 // Most are from env variables ( still experimental ) or for testing only.
 // Eventually most non-test settings should graduate to ProxyConfig
 // Please don't add 100 parameters to the NewAgent function (or any other)!
-type AgentConfig struct {
+type AgentOptions struct {
 	// ProxyXDSViaAgent if true will enable a local XDS proxy that will simply
 	// ferry Envoy's XDS requests to istiod and responses back to envoy
 	// This flag is temporary until the feature is stabilized.
@@ -127,19 +128,20 @@ type AgentConfig struct {
 
 	// Path to local UDS to communicate with Envoy
 	XdsUdsPath string
+
+	// Ability to retrieve ProxyConfig dynamically through XDS
+	EnableDynamicProxyConfig bool
 }
 
 // NewAgent hosts the functionality for local SDS and XDS. This consists of the local SDS server and
 // associated clients to sign certificates (when not using files), and the local XDS proxy (including
 // health checking for VMs and DNS proxying).
-func NewAgent(proxyConfig *mesh.ProxyConfig, cfg *AgentConfig, sopts security.Options) *Agent {
-	sa := &Agent{
+func NewAgent(proxyConfig *mesh.ProxyConfig, agentOpts *AgentOptions, sopts *security.Options) *Agent {
+	return &Agent{
 		proxyConfig: proxyConfig,
-		cfg:         cfg,
+		cfg:         agentOpts,
 		secOpts:     sopts,
 	}
-
-	return sa
 }
 
 // Simplified SDS setup. This is called if and only if user has explicitly mounted a K8S JWT token, and is not
@@ -149,25 +151,25 @@ func NewAgent(proxyConfig *mesh.ProxyConfig, cfg *AgentConfig, sopts security.Op
 //    For example Google CA
 //
 // 2. Indirect, using istiod: using K8S cert.
-func (sa *Agent) Start() error {
+func (a *Agent) Start() error {
 	var err error
-	sa.secretCache, err = sa.newSecretManager()
+	a.secretCache, err = a.newSecretManager()
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to start workload secret manager %v", err)
 	}
 
-	sa.sdsServer, err = sds.NewServer(sa.secOpts, sa.secretCache)
+	a.sdsServer, err = sds.NewServer(a.secOpts, a.secretCache)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to start local sds server %v", err)
 	}
-	sa.secretCache.SetUpdateCallback(sa.sdsServer.UpdateCallback)
+	a.secretCache.SetUpdateCallback(a.sdsServer.UpdateCallback)
 
-	if err = sa.initLocalDNSServer(sa.cfg.ProxyType == model.SidecarProxy); err != nil {
+	if err = a.initLocalDNSServer(); err != nil {
 		return fmt.Errorf("failed to start local DNS server: %v", err)
 	}
 
-	if sa.cfg.ProxyXDSViaAgent {
-		sa.xdsProxy, err = initXdsProxy(sa)
+	if a.cfg.ProxyXDSViaAgent {
+		a.xdsProxy, err = initXdsProxy(a)
 		if err != nil {
 			return fmt.Errorf("failed to start xds proxy: %v", err)
 		}
@@ -175,29 +177,39 @@ func (sa *Agent) Start() error {
 	return nil
 }
 
-func (sa *Agent) initLocalDNSServer(isSidecar bool) (err error) {
+func (a *Agent) initLocalDNSServer() (err error) {
 	// we dont need dns server on gateways
-	if sa.cfg.DNSCapture && sa.cfg.ProxyXDSViaAgent && isSidecar {
-		if sa.localDNSServer, err = dns.NewLocalDNSServer(sa.cfg.ProxyNamespace, sa.cfg.ProxyDomain); err != nil {
+	if a.cfg.DNSCapture && a.cfg.ProxyXDSViaAgent && a.cfg.ProxyType == model.SidecarProxy {
+		if a.localDNSServer, err = dns.NewLocalDNSServer(a.cfg.ProxyNamespace, a.cfg.ProxyDomain); err != nil {
 			return err
 		}
-		sa.localDNSServer.StartDNS()
+		a.localDNSServer.StartDNS()
 	}
 	return nil
 }
 
-func (sa *Agent) Close() {
-	if sa.xdsProxy != nil {
-		sa.xdsProxy.close()
+func (a *Agent) Check() (err error) {
+	// we dont need dns server on gateways
+	if a.cfg.DNSCapture && a.cfg.ProxyXDSViaAgent && a.cfg.ProxyType == model.SidecarProxy {
+		if !a.localDNSServer.IsReady() {
+			return errors.New("istio DNS capture is turned ON and DNS lookup table is not ready yet")
+		}
 	}
-	if sa.localDNSServer != nil {
-		sa.localDNSServer.Close()
+	return nil
+}
+
+func (a *Agent) Close() {
+	if a.xdsProxy != nil {
+		a.xdsProxy.close()
 	}
-	if sa.sdsServer != nil {
-		sa.sdsServer.Stop()
+	if a.localDNSServer != nil {
+		a.localDNSServer.Close()
 	}
-	if sa.secretCache != nil {
-		sa.secretCache.Close()
+	if a.sdsServer != nil {
+		a.sdsServer.Stop()
+	}
+	if a.secretCache != nil {
+		a.secretCache.Close()
 	}
 }
 
@@ -216,26 +228,26 @@ func (sa *Agent) Close() {
 // /etc/ssl/certs/ca-certificates.crt
 //
 // TODO: additional checks for existence. Fail early, instead of obscure envoy errors.
-func (sa *Agent) FindRootCAForXDS() string {
-	if sa.cfg.XDSRootCerts == security.SystemRootCerts {
+func (a *Agent) FindRootCAForXDS() string {
+	if a.cfg.XDSRootCerts == security.SystemRootCerts {
 		return ""
-	} else if sa.cfg.XDSRootCerts != "" {
-		return sa.cfg.XDSRootCerts
+	} else if a.cfg.XDSRootCerts != "" {
+		return a.cfg.XDSRootCerts
 	} else if _, err := os.Stat("./etc/certs/root-cert.pem"); err == nil {
 		// Old style - mounted cert. This is used for XDS auth only,
 		// not connecting to CA_ADDR because this mode uses external
 		// agent (Secret refresh, etc)
 		return "./etc/certs/root-cert.pem"
-	} else if sa.secOpts.PilotCertProvider == "kubernetes" {
+	} else if a.secOpts.PilotCertProvider == "kubernetes" {
 		// Using K8S - this is likely incorrect, may work by accident (https://github.com/istio/istio/issues/22161)
 		return k8sCAPath
-	} else if sa.secOpts.ProvCert != "" {
+	} else if a.secOpts.ProvCert != "" {
 		// This was never completely correct - PROV_CERT are only intended for auth with CA_ADDR,
 		// and should not be involved in determining the root CA.
-		return sa.secOpts.ProvCert + "/root-cert.pem"
-	} else if sa.secOpts.FileMountedCerts {
+		return a.secOpts.ProvCert + "/root-cert.pem"
+	} else if a.secOpts.FileMountedCerts {
 		// FileMountedCerts - Load it from Proxy Metadata.
-		return sa.proxyConfig.ProxyMetadata[MetadataClientRootCert]
+		return a.proxyConfig.ProxyMetadata[MetadataClientRootCert]
 	} else {
 		// PILOT_CERT_PROVIDER - default is istiod
 		// This is the default - a mounted config map on K8S
@@ -244,21 +256,21 @@ func (sa *Agent) FindRootCAForXDS() string {
 }
 
 // Find the root CA to use when connecting to the CA (Istiod or external).
-func (sa *Agent) FindRootCAForCA() string {
-	if sa.cfg.CARootCerts == security.SystemRootCerts {
+func (a *Agent) FindRootCAForCA() string {
+	if a.cfg.CARootCerts == security.SystemRootCerts {
 		return ""
-	} else if sa.cfg.CARootCerts != "" {
-		return sa.cfg.CARootCerts
-	} else if sa.secOpts.PilotCertProvider == "kubernetes" {
+	} else if a.cfg.CARootCerts != "" {
+		return a.cfg.CARootCerts
+	} else if a.secOpts.PilotCertProvider == "kubernetes" {
 		// Using K8S - this is likely incorrect, may work by accident.
 		// API is alpha.
 		return k8sCAPath // ./var/run/secrets/kubernetes.io/serviceaccount/ca.crt
-	} else if sa.secOpts.PilotCertProvider == "custom" {
+	} else if a.secOpts.PilotCertProvider == "custom" {
 		return security.DefaultRootCertFilePath // ./etc/certs/root-cert.pem
-	} else if sa.secOpts.ProvCert != "" {
+	} else if a.secOpts.ProvCert != "" {
 		// This was never completely correct - PROV_CERT are only intended for auth with CA_ADDR,
 		// and should not be involved in determining the root CA.
-		return sa.secOpts.ProvCert + "/root-cert.pem"
+		return a.secOpts.ProvCert + "/root-cert.pem"
 	} else {
 		// This is the default - a mounted config map on K8S
 		return path.Join(CitadelCACertPath, constants.CACertNamespaceConfigMapDataName)
@@ -267,24 +279,24 @@ func (sa *Agent) FindRootCAForCA() string {
 }
 
 // newSecretManager creates the SecretManager for workload secrets
-func (sa *Agent) newSecretManager() (*cache.SecretManagerClient, error) {
+func (a *Agent) newSecretManager() (*cache.SecretManagerClient, error) {
 	// If proxy is using file mounted certs, we do not have to connect to CA.
-	if sa.secOpts.FileMountedCerts {
+	if a.secOpts.FileMountedCerts {
 		log.Info("Workload is using file mounted certificates. Skipping connecting to CA")
-		return cache.NewSecretManagerClient(nil, sa.secOpts)
+		return cache.NewSecretManagerClient(nil, a.secOpts)
 	}
 
 	// TODO: this should all be packaged in a plugin, possibly with optional compilation.
-	log.Infof("CA Endpoint %s, provider %s", sa.secOpts.CAEndpoint, sa.secOpts.CAProviderName)
-	if sa.secOpts.CAProviderName == "GoogleCA" || strings.Contains(sa.secOpts.CAEndpoint, "googleapis.com") {
+	log.Infof("CA Endpoint %s, provider %s", a.secOpts.CAEndpoint, a.secOpts.CAProviderName)
+	if a.secOpts.CAProviderName == "GoogleCA" || strings.Contains(a.secOpts.CAEndpoint, "googleapis.com") {
 		// Use a plugin to an external CA - this has direct support for the K8S JWT token
 		// This is only used if the proper env variables are injected - otherwise the existing Citadel or Istiod will be
 		// used.
-		caClient, err := gca.NewGoogleCAClient(sa.secOpts.CAEndpoint, true, caclient.NewCATokenProvider(sa.secOpts))
+		caClient, err := gca.NewGoogleCAClient(a.secOpts.CAEndpoint, true, caclient.NewCATokenProvider(a.secOpts))
 		if err != nil {
 			return nil, err
 		}
-		return cache.NewSecretManagerClient(caClient, sa.secOpts)
+		return cache.NewSecretManagerClient(caClient, a.secOpts)
 	}
 
 	// Using citadel CA
@@ -293,28 +305,28 @@ func (sa *Agent) newSecretManager() (*cache.SecretManagerClient, error) {
 	// Special case: if Istiod runs on a secure network, on the default port, don't use TLS
 	// TODO: may add extra cases or explicit settings - but this is a rare use cases, mostly debugging
 	tls := true
-	if strings.HasSuffix(sa.secOpts.CAEndpoint, ":15010") {
+	if strings.HasSuffix(a.secOpts.CAEndpoint, ":15010") {
 		tls = false
 		log.Warn("Debug mode or IP-secure network")
 	}
 	if tls {
-		caCertFile := sa.FindRootCAForCA()
+		caCertFile := a.FindRootCAForCA()
 		if caCertFile == "" {
-			log.Infof("Using CA %s cert with system certs", sa.secOpts.CAEndpoint)
+			log.Infof("Using CA %s cert with system certs", a.secOpts.CAEndpoint)
 		} else if rootCert, err = ioutil.ReadFile(caCertFile); err != nil {
-			log.Fatalf("invalid config - %s missing a root certificate %s", sa.secOpts.CAEndpoint, caCertFile)
+			log.Fatalf("invalid config - %s missing a root certificate %s", a.secOpts.CAEndpoint, caCertFile)
 		} else {
-			log.Infof("Using CA %s cert with certs: %s", sa.secOpts.CAEndpoint, caCertFile)
+			log.Infof("Using CA %s cert with certs: %s", a.secOpts.CAEndpoint, caCertFile)
 		}
 	}
 
 	// Will use TLS unless the reserved 15010 port is used ( istiod on an ipsec/secure VPC)
 	// rootCert may be nil - in which case the system roots are used, and the CA is expected to have public key
 	// Otherwise assume the injection has mounted /etc/certs/root-cert.pem
-	caClient, err := citadel.NewCitadelClient(sa.secOpts, tls, rootCert)
+	caClient, err := citadel.NewCitadelClient(a.secOpts, tls, rootCert)
 	if err != nil {
 		return nil, err
 	}
 
-	return cache.NewSecretManagerClient(caClient, sa.secOpts)
+	return cache.NewSecretManagerClient(caClient, a.secOpts)
 }

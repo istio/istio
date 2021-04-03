@@ -41,7 +41,7 @@ type CertificateAuthority interface {
 	// SignWithCertChain is similar to Sign but returns the leaf cert and the entire cert chain.
 	SignWithCertChain(csrPEM []byte, subjectIDs []string, ttl time.Duration, forCA bool) ([]byte, error)
 	// GetCAKeyCertBundle returns the KeyCertBundle used by CA.
-	GetCAKeyCertBundle() util.KeyCertBundle
+	GetCAKeyCertBundle() *util.KeyCertBundle
 }
 
 // Server implements IstioCAService and IstioCertificateService and provides the services on the
@@ -100,7 +100,7 @@ func (s *Server) CreateCertificate(ctx context.Context, request *pb.IstioCertifi
 	return response, nil
 }
 
-func recordCertsExpiry(keyCertBundle util.KeyCertBundle) {
+func recordCertsExpiry(keyCertBundle *util.KeyCertBundle) {
 	rootCertExpiry, err := keyCertBundle.ExtractRootCertExpiryTimestamp()
 	if err != nil {
 		serverCaLog.Errorf("failed to extract root cert expiry timestamp (error %v)", err)

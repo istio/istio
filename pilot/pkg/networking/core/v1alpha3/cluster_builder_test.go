@@ -25,12 +25,12 @@ import (
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	endpoint "github.com/envoyproxy/go-control-plane/envoy/config/endpoint/v3"
 	tls "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
-	"github.com/golang/protobuf/ptypes"
 	"github.com/golang/protobuf/ptypes/duration"
 	structpb "github.com/golang/protobuf/ptypes/struct"
 	"github.com/golang/protobuf/ptypes/wrappers"
 	"github.com/google/go-cmp/cmp"
 	"google.golang.org/protobuf/testing/protocmp"
+	"google.golang.org/protobuf/types/known/durationpb"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
@@ -272,7 +272,7 @@ func TestApplyDestinationRule(t *testing.T) {
 			cg.MemRegistry.WantGetProxyServiceInstances = instances
 			cb := NewClusterBuilder(cg.SetupProxy(nil), cg.PushContext())
 
-			ec := NewEnvoyCluster(tt.cluster)
+			ec := NewMutableCluster(tt.cluster)
 			subsetClusters := cb.applyDestinationRule(ec, tt.clusterMode, tt.service, tt.port, tt.networkView)
 			if len(subsetClusters) != len(tt.expectedSubsetClusters) {
 				t.Errorf("Unexpected subset clusters want %v, got %v", len(tt.expectedSubsetClusters), len(subsetClusters))
@@ -608,7 +608,8 @@ func TestApplyEdsConfig(t *testing.T) {
 					ConfigSourceSpecifier: &core.ConfigSource_Ads{
 						Ads: &core.AggregatedConfigSource{},
 					},
-					ResourceApiVersion: core.ApiVersion_V3,
+					InitialFetchTimeout: durationpb.New(0),
+					ResourceApiVersion:  core.ApiVersion_V3,
 				},
 			},
 		},
@@ -826,18 +827,6 @@ func TestBuildLocalityLbEndpoints(t *testing.T) {
 		},
 	}
 
-	emptyMetadata := &core.Metadata{
-		FilterMetadata: make(map[string]*structpb.Struct),
-	}
-
-	nwMetadata := func(nw string) *core.Metadata {
-		return &core.Metadata{
-			FilterMetadata: map[string]*structpb.Struct{"istio": {Fields: map[string]*structpb.Value{
-				"network": {Kind: &structpb.Value_StringValue{StringValue: nw}},
-			}}},
-		}
-	}
-
 	cases := []struct {
 		name      string
 		mesh      meshconfig.MeshConfig
@@ -854,6 +843,8 @@ func TestBuildLocalityLbEndpoints(t *testing.T) {
 					Endpoint: &model.IstioEndpoint{
 						Address:      "192.168.1.1",
 						EndpointPort: 10001,
+						WorkloadName: "workload-1",
+						Namespace:    "namespace-1",
 						Locality: model.Locality{
 							ClusterID: "cluster-1",
 							Label:     "region1/zone1/subzone1",
@@ -868,6 +859,8 @@ func TestBuildLocalityLbEndpoints(t *testing.T) {
 					Endpoint: &model.IstioEndpoint{
 						Address:      "192.168.1.2",
 						EndpointPort: 10001,
+						WorkloadName: "workload-2",
+						Namespace:    "namespace-2",
 						Locality: model.Locality{
 							ClusterID: "cluster-2",
 							Label:     "region1/zone1/subzone1",
@@ -882,6 +875,8 @@ func TestBuildLocalityLbEndpoints(t *testing.T) {
 					Endpoint: &model.IstioEndpoint{
 						Address:      "192.168.1.3",
 						EndpointPort: 10001,
+						WorkloadName: "workload-3",
+						Namespace:    "namespace-3",
 						Locality: model.Locality{
 							ClusterID: "cluster-3",
 							Label:     "region2/zone1/subzone1",
@@ -896,6 +891,8 @@ func TestBuildLocalityLbEndpoints(t *testing.T) {
 					Endpoint: &model.IstioEndpoint{
 						Address:      "192.168.1.4",
 						EndpointPort: 10001,
+						WorkloadName: "workload-1",
+						Namespace:    "namespace-1",
 						Locality: model.Locality{
 							ClusterID: "cluster-1",
 							Label:     "region1/zone1/subzone1",
@@ -931,7 +928,7 @@ func TestBuildLocalityLbEndpoints(t *testing.T) {
 									},
 								},
 							},
-							Metadata: nwMetadata("nw-0"),
+							Metadata: util.BuildLbEndpointMetadata("nw-0", "", "workload-1", "namespace-1", "cluster-1", map[string]string{}),
 							LoadBalancingWeight: &wrappers.UInt32Value{
 								Value: 30,
 							},
@@ -951,7 +948,7 @@ func TestBuildLocalityLbEndpoints(t *testing.T) {
 									},
 								},
 							},
-							Metadata: nwMetadata("nw-1"),
+							Metadata: util.BuildLbEndpointMetadata("nw-1", "", "workload-2", "namespace-2", "cluster-2", map[string]string{}),
 							LoadBalancingWeight: &wrappers.UInt32Value{
 								Value: 30,
 							},
@@ -983,7 +980,7 @@ func TestBuildLocalityLbEndpoints(t *testing.T) {
 									},
 								},
 							},
-							Metadata: emptyMetadata,
+							Metadata: util.BuildLbEndpointMetadata("", "", "workload-3", "namespace-3", "cluster-3", map[string]string{}),
 							LoadBalancingWeight: &wrappers.UInt32Value{
 								Value: 40,
 							},
@@ -1049,7 +1046,7 @@ func TestBuildLocalityLbEndpoints(t *testing.T) {
 									},
 								},
 							},
-							Metadata: emptyMetadata,
+							Metadata: util.BuildLbEndpointMetadata("", "", "", "", "cluster-1", map[string]string{}),
 							LoadBalancingWeight: &wrappers.UInt32Value{
 								Value: 30,
 							},
@@ -1460,34 +1457,34 @@ func TestApplyUpstreamTLSSettings(t *testing.T) {
 				proxy.Metadata = &model.NodeMetadata{}
 			}
 			opts := &buildClusterOpts{
-				ic: NewEnvoyCluster(&cluster.Cluster{
+				mutable: NewMutableCluster(&cluster.Cluster{
 					ClusterDiscoveryType: &cluster.Cluster_Type{Type: test.discoveryType},
 				}),
 				proxy: proxy,
 				mesh:  push.Mesh,
 			}
 			if test.h2 {
-				cb.setH2Options(opts.ic)
+				cb.setH2Options(opts.mutable)
 			}
 			cb.applyUpstreamTLSSettings(opts, test.tls, test.mtlsCtx)
 
-			if test.expectTransportSocket && opts.ic.cluster.TransportSocket == nil ||
-				!test.expectTransportSocket && opts.ic.cluster.TransportSocket != nil {
+			if test.expectTransportSocket && opts.mutable.cluster.TransportSocket == nil ||
+				!test.expectTransportSocket && opts.mutable.cluster.TransportSocket != nil {
 				t.Errorf("Expected TransportSocket %v", test.expectTransportSocket)
 			}
-			if test.expectTransportSocketMatch && opts.ic.cluster.TransportSocketMatches == nil ||
-				!test.expectTransportSocketMatch && opts.ic.cluster.TransportSocketMatches != nil {
+			if test.expectTransportSocketMatch && opts.mutable.cluster.TransportSocketMatches == nil ||
+				!test.expectTransportSocketMatch && opts.mutable.cluster.TransportSocketMatches != nil {
 				t.Errorf("Expected TransportSocketMatch %v", test.expectTransportSocketMatch)
 			}
 
 			if test.validateTLSContext != nil {
 				ctx := &tls.UpstreamTlsContext{}
 				if test.expectTransportSocket {
-					if err := ptypes.UnmarshalAny(opts.ic.cluster.TransportSocket.GetTypedConfig(), ctx); err != nil {
+					if err := opts.mutable.cluster.TransportSocket.GetTypedConfig().UnmarshalTo(ctx); err != nil {
 						t.Fatal(err)
 					}
 				} else if test.expectTransportSocketMatch {
-					if err := ptypes.UnmarshalAny(opts.ic.cluster.TransportSocketMatches[0].TransportSocket.GetTypedConfig(), ctx); err != nil {
+					if err := opts.mutable.cluster.TransportSocketMatches[0].TransportSocket.GetTypedConfig().UnmarshalTo(ctx); err != nil {
 						t.Fatal(err)
 					}
 				}
@@ -1524,7 +1521,7 @@ func TestBuildUpstreamClusterTLSContext(t *testing.T) {
 		{
 			name: "tls mode disabled",
 			opts: &buildClusterOpts{
-				ic: NewEnvoyCluster(&cluster.Cluster{
+				mutable: NewMutableCluster(&cluster.Cluster{
 					Name: "test-cluster",
 				}),
 			},
@@ -1536,7 +1533,7 @@ func TestBuildUpstreamClusterTLSContext(t *testing.T) {
 		{
 			name: "tls mode ISTIO_MUTUAL with metadata certs",
 			opts: &buildClusterOpts{
-				ic: newTestCluster(),
+				mutable: newTestCluster(),
 				proxy: &model.Proxy{
 					Metadata: &model.NodeMetadata{},
 				},
@@ -1608,7 +1605,7 @@ func TestBuildUpstreamClusterTLSContext(t *testing.T) {
 		{
 			name: "tls mode ISTIO_MUTUAL with metadata certs and H2",
 			opts: &buildClusterOpts{
-				ic: newTestCluster(),
+				mutable: newTestCluster(),
 				proxy: &model.Proxy{
 					Metadata: &model.NodeMetadata{},
 				},
@@ -1682,7 +1679,7 @@ func TestBuildUpstreamClusterTLSContext(t *testing.T) {
 		{
 			name: "tls mode SIMPLE, with no certs specified in tls",
 			opts: &buildClusterOpts{
-				ic: newTestCluster(),
+				mutable: newTestCluster(),
 				proxy: &model.Proxy{
 					Metadata: &model.NodeMetadata{},
 				},
@@ -1705,7 +1702,7 @@ func TestBuildUpstreamClusterTLSContext(t *testing.T) {
 		{
 			name: "tls mode SIMPLE, with certs specified in tls",
 			opts: &buildClusterOpts{
-				ic: newTestCluster(),
+				mutable: newTestCluster(),
 				proxy: &model.Proxy{
 					Metadata: &model.NodeMetadata{},
 				},
@@ -1753,7 +1750,7 @@ func TestBuildUpstreamClusterTLSContext(t *testing.T) {
 		{
 			name: "tls mode SIMPLE, with certs specified in tls with h2",
 			opts: &buildClusterOpts{
-				ic: newH2TestCluster(),
+				mutable: newH2TestCluster(),
 				proxy: &model.Proxy{
 					Metadata: &model.NodeMetadata{},
 				},
@@ -1803,7 +1800,7 @@ func TestBuildUpstreamClusterTLSContext(t *testing.T) {
 		{
 			name: "tls mode SIMPLE, with certs specified in tls with overridden metadata certs",
 			opts: &buildClusterOpts{
-				ic: newTestCluster(),
+				mutable: newTestCluster(),
 				proxy: &model.Proxy{
 					Metadata: &model.NodeMetadata{
 						TLSClientRootCert: metadataRootCert,
@@ -1853,7 +1850,7 @@ func TestBuildUpstreamClusterTLSContext(t *testing.T) {
 		{
 			name: "tls mode MUTUAL, with no client certificate",
 			opts: &buildClusterOpts{
-				ic: newTestCluster(),
+				mutable: newTestCluster(),
 			},
 			tls: &networking.ClientTLSSettings{
 				Mode:              networking.ClientTLSSettings_MUTUAL,
@@ -1868,7 +1865,7 @@ func TestBuildUpstreamClusterTLSContext(t *testing.T) {
 		{
 			name: "tls mode MUTUAL, with no client key",
 			opts: &buildClusterOpts{
-				ic: newTestCluster(),
+				mutable: newTestCluster(),
 			},
 			tls: &networking.ClientTLSSettings{
 				Mode:              networking.ClientTLSSettings_MUTUAL,
@@ -1883,7 +1880,7 @@ func TestBuildUpstreamClusterTLSContext(t *testing.T) {
 		{
 			name: "tls mode MUTUAL, with node metadata sdsEnabled true no root CA specified",
 			opts: &buildClusterOpts{
-				ic: newTestCluster(),
+				mutable: newTestCluster(),
 				proxy: &model.Proxy{
 					Metadata: &model.NodeMetadata{},
 				},
@@ -1930,7 +1927,7 @@ func TestBuildUpstreamClusterTLSContext(t *testing.T) {
 		{
 			name: "tls mode MUTUAL, with node metadata sdsEnabled true",
 			opts: &buildClusterOpts{
-				ic: newTestCluster(),
+				mutable: newTestCluster(),
 				proxy: &model.Proxy{
 					Metadata: &model.NodeMetadata{},
 				},
@@ -2002,7 +1999,7 @@ func TestBuildUpstreamClusterTLSContext(t *testing.T) {
 		{
 			name: "tls mode SIMPLE, with CredentialName specified",
 			opts: &buildClusterOpts{
-				ic: newTestCluster(),
+				mutable: newTestCluster(),
 				proxy: &model.Proxy{
 					Metadata: &model.NodeMetadata{},
 					Type:     model.Router,
@@ -2037,7 +2034,7 @@ func TestBuildUpstreamClusterTLSContext(t *testing.T) {
 		{
 			name: "tls mode SIMPLE, with CredentialName specified",
 			opts: &buildClusterOpts{
-				ic: newTestCluster(),
+				mutable: newTestCluster(),
 				proxy: &model.Proxy{
 					Metadata: &model.NodeMetadata{},
 					Type:     model.Router,
@@ -2072,7 +2069,7 @@ func TestBuildUpstreamClusterTLSContext(t *testing.T) {
 		{
 			name: "tls mode SIMPLE, with CredentialName specified with h2 and no SAN",
 			opts: &buildClusterOpts{
-				ic: newH2TestCluster(),
+				mutable: newH2TestCluster(),
 				proxy: &model.Proxy{
 					Metadata: &model.NodeMetadata{},
 					Type:     model.Router,
@@ -2106,7 +2103,7 @@ func TestBuildUpstreamClusterTLSContext(t *testing.T) {
 		{
 			name: "tls mode MUTUAL, with CredentialName specified",
 			opts: &buildClusterOpts{
-				ic: newTestCluster(),
+				mutable: newTestCluster(),
 				proxy: &model.Proxy{
 					Metadata: &model.NodeMetadata{},
 					Type:     model.Router,
@@ -2147,7 +2144,7 @@ func TestBuildUpstreamClusterTLSContext(t *testing.T) {
 		{
 			name: "tls mode MUTUAL, with CredentialName specified with h2 and no SAN",
 			opts: &buildClusterOpts{
-				ic: newH2TestCluster(),
+				mutable: newH2TestCluster(),
 				proxy: &model.Proxy{
 					Metadata: &model.NodeMetadata{},
 					Type:     model.Router,
@@ -2187,7 +2184,7 @@ func TestBuildUpstreamClusterTLSContext(t *testing.T) {
 		{
 			name: "tls mode MUTUAL, credentialName is set with proxy type Sidecar",
 			opts: &buildClusterOpts{
-				ic: newTestCluster(),
+				mutable: newTestCluster(),
 				proxy: &model.Proxy{
 					Metadata: &model.NodeMetadata{},
 					Type:     model.SidecarProxy,
@@ -2205,7 +2202,7 @@ func TestBuildUpstreamClusterTLSContext(t *testing.T) {
 		{
 			name: "tls mode SIMPLE, credentialName is set with proxy type Sidecar",
 			opts: &buildClusterOpts{
-				ic: newTestCluster(),
+				mutable: newTestCluster(),
 				proxy: &model.Proxy{
 					Metadata: &model.NodeMetadata{},
 					Type:     model.SidecarProxy,
@@ -2225,7 +2222,7 @@ func TestBuildUpstreamClusterTLSContext(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			cb := NewClusterBuilder(nil, nil)
 			if tc.h2 {
-				cb.setH2Options(tc.opts.ic)
+				cb.setH2Options(tc.opts.mutable)
 			}
 			ret, err := cb.buildUpstreamClusterTLSContext(tc.opts, tc.tls)
 			if err != nil && tc.result.err == nil || err == nil && tc.result.err != nil {
@@ -2237,17 +2234,28 @@ func TestBuildUpstreamClusterTLSContext(t *testing.T) {
 	}
 }
 
-func newTestCluster() *IstioCluster {
-	return NewEnvoyCluster(&cluster.Cluster{
+func newTestCluster() *MutableCluster {
+	return NewMutableCluster(&cluster.Cluster{
 		Name: "test-cluster",
 	})
 }
 
-func newH2TestCluster() *IstioCluster {
-	return NewEnvoyCluster(&cluster.Cluster{
-		Name:                 "test-cluster",
-		Http2ProtocolOptions: &core.Http2ProtocolOptions{},
+func newH2TestCluster() *MutableCluster {
+	cb := NewClusterBuilder(nil, nil)
+	mc := NewMutableCluster(&cluster.Cluster{
+		Name: "test-cluster",
 	})
+	cb.setH2Options(mc)
+	return mc
+}
+
+func newDownstreamTestCluster() *MutableCluster {
+	cb := NewClusterBuilder(nil, nil)
+	mc := NewMutableCluster(&cluster.Cluster{
+		Name: "test-cluster",
+	})
+	cb.setUseDownstreamProtocol(mc)
+	return mc
 }
 
 // Helper function to extract TLS context from a cluster
@@ -2257,7 +2265,7 @@ func getTLSContext(t *testing.T, c *cluster.Cluster) *tls.UpstreamTlsContext {
 		return nil
 	}
 	tlsContext := &tls.UpstreamTlsContext{}
-	err := ptypes.UnmarshalAny(c.TransportSocket.GetTypedConfig(), tlsContext)
+	err := c.TransportSocket.GetTypedConfig().UnmarshalTo(tlsContext)
 	if err != nil {
 		t.Fatalf("Failed to unmarshall tls context: %v", err)
 	}
@@ -2376,6 +2384,42 @@ func TestShouldH2Upgrade(t *testing.T) {
 
 			if upgrade != test.upgrade {
 				t.Fatalf("got: %t, want: %t (%v, %v)", upgrade, test.upgrade, test.mesh.H2UpgradePolicy, test.connectionPool.Http.H2UpgradePolicy)
+			}
+		})
+	}
+}
+
+// nolint
+func TestIsHttp2Cluster(t *testing.T) {
+	tests := []struct {
+		name           string
+		cluster        *MutableCluster
+		isHttp2Cluster bool
+	}{
+		{
+			name:           "with no h2 options",
+			cluster:        newTestCluster(),
+			isHttp2Cluster: false,
+		},
+		{
+			name:           "with h2 options",
+			cluster:        newH2TestCluster(),
+			isHttp2Cluster: true,
+		},
+		{
+			name:           "with downstream config and h2 options",
+			cluster:        newDownstreamTestCluster(),
+			isHttp2Cluster: false,
+		},
+	}
+
+	cb := NewClusterBuilder(nil, nil)
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			isHttp2Cluster := cb.IsHttp2Cluster(test.cluster)
+			if isHttp2Cluster != test.isHttp2Cluster {
+				t.Errorf("got: %t, want: %t", isHttp2Cluster, test.isHttp2Cluster)
 			}
 		})
 	}

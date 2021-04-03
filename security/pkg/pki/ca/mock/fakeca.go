@@ -15,20 +15,17 @@
 package mock
 
 import (
-	"crypto"
-	"crypto/x509"
 	"time"
 
 	caerror "istio.io/istio/security/pkg/pki/error"
 	"istio.io/istio/security/pkg/pki/util"
-	"istio.io/istio/security/pkg/pki/util/mock"
 )
 
 // FakeCA is a mock of CertificateAuthority.
 type FakeCA struct {
 	SignedCert    []byte
 	SignErr       *caerror.Error
-	KeyCertBundle util.KeyCertBundle
+	KeyCertBundle *util.KeyCertBundle
 	ReceivedIDs   []string
 }
 
@@ -55,15 +52,9 @@ func (ca *FakeCA) SignWithCertChain(csr []byte, identities []string, lifetime ti
 
 // GetCAKeyCertBundle returns KeyCertBundle if KeyCertBundle is not nil, otherwise, it returns an empty
 // FakeKeyCertBundle.
-func (ca *FakeCA) GetCAKeyCertBundle() util.KeyCertBundle {
+func (ca *FakeCA) GetCAKeyCertBundle() *util.KeyCertBundle {
 	if ca.KeyCertBundle == nil {
-		priv := crypto.PrivateKey("foo")
-		return &mock.FakeKeyCertBundle{
-			Cert:           &x509.Certificate{},
-			PrivKey:        &priv,
-			CertChainBytes: []byte("fake"),
-			RootCertBytes:  []byte("fake"),
-		}
+		return util.NewKeyCertBundleFromPem([]byte{}, []byte("foo"), []byte("fake"), []byte("fake"))
 	}
 	return ca.KeyCertBundle
 }

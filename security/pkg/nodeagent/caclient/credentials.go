@@ -34,7 +34,7 @@ import (
 // TokenProvider is a grpc PerRPCCredentials that can be used to attach a JWT token to each gRPC call.
 // TokenProvider can be used for XDS, which may involve token exchange through STS.
 type TokenProvider struct {
-	opts security.Options
+	opts *security.Options
 	// TokenProvider can be used for XDS. Because CA is often used with
 	// external systems and XDS is not often (yet?), many of the security options only apply to CA
 	// communication. A more proper solution would be to have separate options for CA and XDS, but
@@ -46,11 +46,11 @@ var _ credentials.PerRPCCredentials = &TokenProvider{}
 
 // TODO add metrics
 // TODO change package
-func NewCATokenProvider(opts security.Options) *TokenProvider {
+func NewCATokenProvider(opts *security.Options) *TokenProvider {
 	return &TokenProvider{opts, true}
 }
 
-func NewXDSTokenProvider(opts security.Options) *TokenProvider {
+func NewXDSTokenProvider(opts *security.Options) *TokenProvider {
 	return &TokenProvider{opts, false}
 }
 

@@ -18,7 +18,6 @@ import (
 	"context"
 	"crypto/tls"
 	"crypto/x509"
-	"errors"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -33,6 +32,7 @@ import (
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	gogotypes "github.com/gogo/protobuf/types"
 	"github.com/golang/protobuf/ptypes"
+	"github.com/golang/protobuf/ptypes/any"
 	"go.uber.org/atomic"
 	google_rpc "google.golang.org/genproto/googleapis/rpc/status"
 	"google.golang.org/grpc"
@@ -66,7 +66,10 @@ const (
 	sendTimeout                        = 5 * time.Second // default upstream send timeout.
 )
 
-type ResponseHandler func(resp *discovery.DiscoveryResponse) error
+// ResponseHandler handles a XDS response in the agent. These will not be forwarded to Envoy.
+// Currently, all handlers function on a single resource per type, so the API only exposes one
+// resource.
+type ResponseHandler func(resp *any.Any) error
 
 // XDS Proxy proxies all XDS requests from envoy to istiod, in addition to allowing
 // subsystems inside the agent to also communicate with either istiod/envoy (eg dns, sds, etc).
@@ -88,9 +91,10 @@ type XdsProxy struct {
 	xdsUdsPath           string
 
 	// connected stores the active gRPC stream. The proxy will only have 1 connection at a time
-	connected      *ProxyConnection
-	initialRequest *discovery.DiscoveryRequest
-	connectedMutex sync.RWMutex
+	connected           *ProxyConnection
+	initialRequest      *discovery.DiscoveryRequest
+	initialDeltaRequest *discovery.DeltaDiscoveryRequest
+	connectedMutex      sync.RWMutex
 
 	// Wasm cache and ecds channel are used to replace wasm remote load with local file.
 	wasmCache wasm.Cache
@@ -134,12 +138,10 @@ func initXdsProxy(ia *Agent) (*XdsProxy, error) {
 	}
 
 	if ia.localDNSServer != nil {
-		proxy.handlers[v3.NameTableType] = func(resp *discovery.DiscoveryResponse) error {
-			if len(resp.Resources) == 0 {
-				return nil
-			}
+		proxy.handlers[v3.NameTableType] = func(resp *any.Any) error {
 			var nt nds.NameTable
-			if err := ptypes.UnmarshalAny(resp.Resources[0], &nt); err != nil {
+			// nolint: staticcheck
+			if err := ptypes.UnmarshalAny(resp, &nt); err != nil {
 				log.Errorf("failed to unmarshall name table: %v", err)
 				return err
 			}
@@ -147,13 +149,10 @@ func initXdsProxy(ia *Agent) (*XdsProxy, error) {
 			return nil
 		}
 	}
-	if ia.secretCache != nil {
-		proxy.handlers[v3.ProxyConfigType] = func(resp *discovery.DiscoveryResponse) error {
-			if len(resp.Resources) == 0 {
-				return fmt.Errorf("empty response")
-			}
+	if ia.cfg.EnableDynamicProxyConfig && ia.secretCache != nil {
+		proxy.handlers[v3.ProxyConfigType] = func(resp *any.Any) error {
 			var pc meshconfig.ProxyConfig
-			if err := gogotypes.UnmarshalAny(gogo.ConvertAny(resp.Resources[0]), &pc); err != nil {
+			if err := gogotypes.UnmarshalAny(gogo.ConvertAny(resp), &pc); err != nil {
 				log.Errorf("failed to unmarshall proxy config: %v", err)
 				return err
 			}
@@ -184,6 +183,7 @@ func initXdsProxy(ia *Agent) (*XdsProxy, error) {
 	}()
 
 	go proxy.healthChecker.PerformApplicationHealthCheck(func(healthEvent *health.ProbeEvent) {
+		// Store the same response as Delta and SotW. Depending on how Envoy connects we will use one or the other.
 		var req *discovery.DiscoveryRequest
 		if healthEvent.Healthy {
 			req = &discovery.DiscoveryRequest{TypeUrl: v3.HealthInfoType}
@@ -197,7 +197,21 @@ func initXdsProxy(ia *Agent) (*XdsProxy, error) {
 			}
 		}
 		proxy.PersistRequest(req)
+		var deltaReq *discovery.DeltaDiscoveryRequest
+		if healthEvent.Healthy {
+			deltaReq = &discovery.DeltaDiscoveryRequest{TypeUrl: v3.HealthInfoType}
+		} else {
+			deltaReq = &discovery.DeltaDiscoveryRequest{
+				TypeUrl: v3.HealthInfoType,
+				ErrorDetail: &google_rpc.Status{
+					Code:    int32(codes.Internal),
+					Message: healthEvent.UnhealthyMessage,
+				},
+			}
+		}
+		proxy.PersistDeltaRequest(deltaReq)
 	}, proxy.stopChan)
+
 	return proxy, nil
 }
 
@@ -239,13 +253,17 @@ func (p *XdsProxy) RegisterStream(c *ProxyConnection) {
 }
 
 type ProxyConnection struct {
-	upstreamError   chan error
-	downstreamError chan error
-	requestsChan    chan *discovery.DiscoveryRequest
-	responsesChan   chan *discovery.DiscoveryResponse
-	stopChan        chan struct{}
-	downstream      discovery.AggregatedDiscoveryService_StreamAggregatedResourcesServer
-	upstream        discovery.AggregatedDiscoveryService_StreamAggregatedResourcesClient
+	upstreamError      chan error
+	downstreamError    chan error
+	requestsChan       chan *discovery.DiscoveryRequest
+	responsesChan      chan *discovery.DiscoveryResponse
+	deltaRequestsChan  chan *discovery.DeltaDiscoveryRequest
+	deltaResponsesChan chan *discovery.DeltaDiscoveryResponse
+	stopChan           chan struct{}
+	downstream         discovery.AggregatedDiscoveryService_StreamAggregatedResourcesServer
+	upstream           discovery.AggregatedDiscoveryService_StreamAggregatedResourcesClient
+	downstreamDeltas   discovery.AggregatedDiscoveryService_DeltaAggregatedResourcesServer
+	upstreamDeltas     discovery.AggregatedDiscoveryService_DeltaAggregatedResourcesClient
 }
 
 // Every time envoy makes a fresh connection to the agent, we reestablish a new connection to the upstream xds
@@ -364,7 +382,7 @@ func (p *XdsProxy) HandleUpstream(ctx context.Context, con *ProxyConnection, xds
 				proxyLog.Warnf("upstream terminated with unexpected error %v", err)
 				metrics.IstiodConnectionErrors.Increment()
 			}
-			return nil
+			return err
 		case err := <-con.downstreamError:
 			// error from downstream Envoy.
 			if isExpectedGRPCError(err) {
@@ -415,7 +433,12 @@ func (p *XdsProxy) handleUpstreamResponse(con *ProxyConnection) {
 			proxyLog.Debugf("response for type url %s", resp.TypeUrl)
 			metrics.XdsProxyResponses.Increment()
 			if h, f := p.handlers[resp.TypeUrl]; f {
-				err := h(resp)
+				if len(resp.Resources) == 0 {
+					// Empty response, nothing to do
+					// This assumes internal types are always singleton
+					return
+				}
+				err := h(resp.Resources[0])
 				var errorResp *google_rpc.Status
 				if err != nil {
 					errorResp = &google_rpc.Status{
@@ -493,10 +516,6 @@ func forwardToEnvoy(con *ProxyConnection, resp *discovery.DiscoveryResponse) {
 	}
 }
 
-func (p *XdsProxy) DeltaAggregatedResources(server discovery.AggregatedDiscoveryService_DeltaAggregatedResourcesServer) error {
-	return errors.New("delta XDS is not implemented")
-}
-
 func (p *XdsProxy) close() {
 	close(p.stopChan)
 	p.wasmCache.Cleanup()
@@ -515,16 +534,19 @@ func isExpectedGRPCError(err error) bool {
 		return true
 	}
 
-	s := status.Convert(err)
-	if s.Code() == codes.Canceled || s.Code() == codes.DeadlineExceeded {
+	if s, ok := status.FromError(err); ok {
+		if s.Code() == codes.Canceled || s.Code() == codes.DeadlineExceeded {
+			return true
+		}
+		if s.Code() == codes.Unavailable && (s.Message() == "client disconnected" || s.Message() == "transport is closing") {
+			return true
+		}
+	}
+	// If this is not a gRPCStatus we should just error message.
+	if strings.Contains(err.Error(), "stream terminated by RST_STREAM with error code: NO_ERROR") {
 		return true
 	}
-	if s.Code() == codes.Unavailable && (s.Message() == "client disconnected" || s.Message() == "transport is closing") {
-		return true
-	}
-	if s.Code() == codes.Internal && (s.Message() == "stream terminated by RST_STREAM with error code: NO_ERROR") {
-		return true
-	}
+
 	return false
 }
 

@@ -36,8 +36,8 @@ import (
 func TestReachability(t *testing.T) {
 	framework.NewTest(t).
 		Features("security.reachability").
-		Run(func(ctx framework.TestContext) {
-			systemNM := istio.ClaimSystemNamespaceOrFail(ctx, ctx)
+		Run(func(t framework.TestContext) {
+			systemNM := istio.ClaimSystemNamespaceOrFail(t, t)
 			// mtlsOnExpect defines our expectations for when mTLS is expected when its enabled
 			mtlsOnExpect := func(src echo.Instance, opts echo.CallOptions) bool {
 				if apps.IsNaked(src) || apps.IsNaked(opts.Target) {
@@ -151,11 +151,35 @@ func TestReachability(t *testing.T) {
 					ExpectMTLS:    mtlsOnExpect,
 				},
 				{
-					ConfigFile:             "global-plaintext.yaml",
-					Namespace:              systemNM,
-					Include:                Always,
-					ExpectSuccess:          Always,
-					ExpectMTLS:             Never,
+					ConfigFile: "global-plaintext.yaml",
+					Namespace:  systemNM,
+					ExpectDestinations: func(src echo.Instance, dest echo.Instances) echo.Instances {
+						// Without TLS we can't perform SNI routing required for multi-network
+						return dest.Match(echo.InNetwork(src.Config().Cluster.NetworkName()))
+					},
+					ExpectSuccess: Always,
+					ExpectMTLS:    Never,
+				},
+				{
+					ConfigFile: "automtls-passthrough.yaml",
+					Namespace:  systemNM,
+					Include: func(src echo.Instance, opts echo.CallOptions) bool {
+						// VM passthrough doesn't work. We will send traffic to the ClusterIP of
+						// the VM service, which will have 0 Endpoints. If we generated
+						// EndpointSlice's for VMs this might work.
+						return !apps.IsVM(opts.Target)
+					},
+					ExpectSuccess: Always,
+					ExpectMTLS: func(src echo.Instance, opts echo.CallOptions) bool {
+						if opts.Target.Config().Service == apps.Multiversion[0].Config().Service {
+							// For mixed targets, we downgrade to plaintext.
+							// TODO(https://github.com/istio/istio/issues/27376) enable mixed deployments
+							return false
+						}
+						return mtlsOnExpect(src, opts)
+					},
+					// Since we are doing passthrough, only single cluster is relevant here, as we
+					// are bypassing any Istio cluster load balancing
 					SkippedForMulticluster: true,
 				},
 				// --------start of auto mtls partial test cases ---------------
@@ -239,6 +263,6 @@ func TestReachability(t *testing.T) {
 				},
 				// ----- end of automtls partial test suites -----
 			}
-			reachability.Run(testCases, ctx, apps)
+			reachability.Run(testCases, t, apps)
 		})
 }

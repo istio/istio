@@ -998,6 +998,42 @@ func TestValidateServer(t *testing.T) {
 			},
 			"",
 		},
+		{
+			"bind ip",
+			&networking.Server{
+				Hosts: []string{"foo.bar.com"},
+				Port:  &networking.Port{Number: 7, Name: "http", Protocol: "http"},
+				Bind:  "127.0.0.1",
+			},
+			"",
+		},
+		{
+			"bind unix path with invalid port",
+			&networking.Server{
+				Hosts: []string{"foo.bar.com"},
+				Port:  &networking.Port{Number: 7, Name: "http", Protocol: "http"},
+				Bind:  "unix://@foobar",
+			},
+			"port number must be 0 for unix domain socket",
+		},
+		{
+			"bind unix path",
+			&networking.Server{
+				Hosts: []string{"foo.bar.com"},
+				Port:  &networking.Port{Number: 0, Name: "http", Protocol: "http"},
+				Bind:  "unix://@foobar",
+			},
+			"",
+		},
+		{
+			"bind bad ip",
+			&networking.Server{
+				Hosts: []string{"foo.bar.com"},
+				Port:  &networking.Port{Number: 0, Name: "http", Protocol: "http"},
+				Bind:  "foo.bar",
+			},
+			"foo.bar is not a valid IP",
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -4141,9 +4177,10 @@ func TestValidateServiceEntries(t *testing.T) {
 
 func TestValidateAuthorizationPolicy(t *testing.T) {
 	cases := []struct {
-		name  string
-		in    proto.Message
-		valid bool
+		name        string
+		annotations map[string]string
+		in          proto.Message
+		valid       bool
 	}{
 		{
 			name: "good",
@@ -4293,6 +4330,14 @@ func TestValidateAuthorizationPolicy(t *testing.T) {
 				Action: security_beta.AuthorizationPolicy_ALLOW,
 			},
 			valid: true,
+		},
+		{
+			name:        "dry-run-invalid",
+			annotations: map[string]string{"istio.io/dry-run": "foo"},
+			in: &security_beta.AuthorizationPolicy{
+				Action: security_beta.AuthorizationPolicy_ALLOW,
+			},
+			valid: false,
 		},
 		{
 			name: "deny-rules-nil",
@@ -4918,8 +4963,9 @@ func TestValidateAuthorizationPolicy(t *testing.T) {
 	for _, c := range cases {
 		if _, got := ValidateAuthorizationPolicy(config.Config{
 			Meta: config.Meta{
-				Name:      "name",
-				Namespace: "namespace",
+				Name:        "name",
+				Namespace:   "namespace",
+				Annotations: c.annotations,
 			},
 			Spec: c.in,
 		}); (got == nil) != c.valid {
@@ -5660,10 +5706,11 @@ func TestValidationIPSubnet(t *testing.T) {
 
 func TestValidateRequestAuthentication(t *testing.T) {
 	cases := []struct {
-		name       string
-		configName string
-		in         proto.Message
-		valid      bool
+		name        string
+		configName  string
+		annotations map[string]string
+		in          proto.Message
+		valid       bool
 	}{
 		{
 			name:       "empty spec",
@@ -5684,6 +5731,13 @@ func TestValidateRequestAuthentication(t *testing.T) {
 			configName: someName,
 			in:         &security_beta.RequestAuthentication{},
 			valid:      true,
+		},
+		{
+			name:        "dry run annotation not supported",
+			configName:  someName,
+			annotations: map[string]string{"istio.io/dry-run": "true"},
+			in:          &security_beta.RequestAuthentication{},
+			valid:       false,
 		},
 		{
 			name:       "default name with non empty selector",
@@ -5841,8 +5895,9 @@ func TestValidateRequestAuthentication(t *testing.T) {
 		t.Run(c.name, func(t *testing.T) {
 			if _, got := ValidateRequestAuthentication(config.Config{
 				Meta: config.Meta{
-					Name:      c.configName,
-					Namespace: someNamespace,
+					Name:        c.configName,
+					Namespace:   someNamespace,
+					Annotations: c.annotations,
 				},
 				Spec: c.in,
 			}); (got == nil) != c.valid {

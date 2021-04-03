@@ -24,7 +24,9 @@ import (
 	"time"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	k8s "sigs.k8s.io/gateway-api/apis/v1alpha1"
 
+	"istio.io/istio/pilot/pkg/model/kstatus"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/test/echo/common/scheme"
 	"istio.io/istio/pkg/test/env"
@@ -34,6 +36,7 @@ import (
 	"istio.io/istio/pkg/test/framework/components/environment/kube"
 	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/helm"
+	kubetest "istio.io/istio/pkg/test/kube"
 	"istio.io/istio/pkg/test/util/retry"
 	helmtest "istio.io/istio/tests/integration/helm"
 	ingressutil "istio.io/istio/tests/integration/security/sds_ingress/util"
@@ -155,6 +158,18 @@ spec:
 					PortName:  "http",
 					Path:      "/path",
 					Validator: echo.And(echo.ExpectOK(), echo.ExpectKey("My-Added-Header", "added-value")),
+				})
+			})
+			t.NewSubTest("status").Run(func(t framework.TestContext) {
+				retry.UntilSuccessOrFail(t, func() error {
+					gwc, err := t.Clusters().Kube().Default().GatewayAPI().NetworkingV1alpha1().GatewayClasses().Get(context.Background(), "istio", metav1.GetOptions{})
+					if err != nil {
+						return err
+					}
+					if s := kstatus.GetCondition(gwc.Status.Conditions, string(k8s.GatewayClassConditionStatusAdmitted)).Status; s != metav1.ConditionTrue {
+						return fmt.Errorf("expected status %q, got %q", metav1.ConditionTrue, s)
+					}
+					return nil
 				})
 			})
 		})
@@ -463,6 +478,11 @@ spec:
         port:
           number: 80
 `, injectLabel, apps.PodA[0].Config().FQDN()))
+				cs := t.Clusters().Default().(*kubecluster.Cluster)
+				retry.UntilSuccessOrFail(t, func() error {
+					_, err := kubetest.CheckPodsAreReady(kubetest.NewPodFetch(cs, gatewayNs.Name(), "istio=custom"))
+					return err
+				}, retry.Timeout(time.Minute*2))
 				apps.PodB[0].CallWithRetryOrFail(t, echo.CallOptions{
 					Port:      &echo.Port{ServicePort: 80},
 					Scheme:    scheme.HTTP,
@@ -500,6 +520,10 @@ gateways:
 					d, helmtest.HelmTimeout); err != nil {
 					t.Fatal(err)
 				}
+				retry.UntilSuccessOrFail(t, func() error {
+					_, err := kubetest.CheckPodsAreReady(kubetest.NewPodFetch(cs, gatewayNs.Name(), "istio=custom-gateway-helm"))
+					return err
+				}, retry.Timeout(time.Minute*2))
 				t.Config().ApplyYAMLOrFail(t, gatewayNs.Name(), fmt.Sprintf(`apiVersion: networking.istio.io/v1alpha3
 kind: Gateway
 metadata:

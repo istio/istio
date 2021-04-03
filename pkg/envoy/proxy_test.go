@@ -20,17 +20,24 @@ import (
 
 	"github.com/gogo/protobuf/types"
 
+	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/config/mesh"
 )
 
 func TestEnvoyArgs(t *testing.T) {
-	proxyConfig := mesh.DefaultProxyConfig()
+	proxyConfig := model.NodeMetaProxyConfig(mesh.DefaultProxyConfig())
 	proxyConfig.ServiceCluster = "my-cluster"
 	proxyConfig.Concurrency = &types.Int32Value{Value: 8}
 
 	cfg := ProxyConfig{
-		Config:            proxyConfig,
-		Node:              "my-node",
+		Node: &model.Node{
+			ID: "my-node",
+			Metadata: &model.BootstrapNodeMetadata{
+				NodeMetadata: model.NodeMetadata{
+					ProxyConfig: &proxyConfig,
+				},
+			},
+		},
 		LogLevel:          "trace",
 		ComponentLogLevel: "misc:error",
 		NodeIPs:           []string{"10.75.2.9", "192.168.11.18"},

@@ -211,8 +211,23 @@ func (h *HelmReconciler) GetPrunedResources(revision string, includeClusterResou
 			err = h.client.List(context.TODO(), objects,
 				client.MatchingLabelsSelector{Selector: s.Add(*componentRequirement)})
 		} else {
-			err = h.client.List(context.TODO(), objects,
-				client.MatchingLabelsSelector{Selector: selector.Add(*componentRequirement)})
+			// do not prune base components or unknown components
+			includeCN := []string{
+				string(name.PilotComponentName), string(name.IstiodRemoteComponentName),
+				string(name.IngressComponentName), string(name.EgressComponentName),
+				string(name.CNIComponentName), string(name.IstioOperatorComponentName),
+			}
+			includeRequirement, err := klabels.NewRequirement(IstioComponentLabelStr, selection.In, includeCN)
+			if err != nil {
+				return usList, err
+			}
+			if err = h.client.List(context.TODO(), objects,
+				client.MatchingLabelsSelector{
+					Selector: selector.Add(*includeRequirement, *componentRequirement),
+				},
+			); err != nil {
+				continue
+			}
 		}
 		if err != nil {
 			continue

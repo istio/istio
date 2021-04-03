@@ -1,6 +1,6 @@
 # The following policy applies the CUSTOM action with the ext-authz-http provider on workload b for path /custom.
 
-apiVersion: "security.istio.io/v1beta1"
+apiVersion: security.istio.io/v1beta1
 kind: AuthorizationPolicy
 metadata:
   name: policy-b
@@ -20,7 +20,7 @@ spec:
 
 # The following policy applies the CUSTOM action with the ext-authz-grpc provider on workload c for path /custom.
 
-apiVersion: "security.istio.io/v1beta1"
+apiVersion: security.istio.io/v1beta1
 kind: AuthorizationPolicy
 metadata:
   name: policy-c
@@ -40,7 +40,7 @@ spec:
 
 # The following policy applies the CUSTOM action with the ext-authz-http-local provider on workload d for path /custom.
 
-apiVersion: "security.istio.io/v1beta1"
+apiVersion: security.istio.io/v1beta1
 kind: AuthorizationPolicy
 metadata:
   name: policy-d
@@ -60,7 +60,7 @@ spec:
 
 # The following policy applies the CUSTOM action with the ext-authz-grpc-local provider on workload e for path /custom.
 
-apiVersion: "security.istio.io/v1beta1"
+apiVersion: security.istio.io/v1beta1
 kind: AuthorizationPolicy
 metadata:
   name: policy-e
@@ -80,7 +80,7 @@ spec:
 
 # The following policy applies the CUSTOM action with the ext-authz-tcp provider on workload f for port 8092.
 
-apiVersion: "security.istio.io/v1beta1"
+apiVersion: security.istio.io/v1beta1
 kind: AuthorizationPolicy
 metadata:
   name: policy-f-tcp
@@ -101,7 +101,7 @@ spec:
 
 # The following policy applies the CUSTOM action with the ext-authz-http provider on ingress gateway for path /custom.
 
-apiVersion: "security.istio.io/v1beta1"
+apiVersion: security.istio.io/v1beta1
 kind: AuthorizationPolicy
 metadata:
   name: policy-ingress-http

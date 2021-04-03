@@ -27,10 +27,10 @@ import (
 	matcher "github.com/envoyproxy/go-control-plane/envoy/type/matcher/v3"
 	xdstype "github.com/envoyproxy/go-control-plane/envoy/type/v3"
 	wellknown "github.com/envoyproxy/go-control-plane/pkg/wellknown"
-	"github.com/golang/protobuf/ptypes"
 	"github.com/golang/protobuf/ptypes/any"
 	"github.com/golang/protobuf/ptypes/duration"
 	"github.com/golang/protobuf/ptypes/wrappers"
+	"google.golang.org/protobuf/types/known/durationpb"
 
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/features"
@@ -398,14 +398,14 @@ func translateRoute(push *model.PushContext, node *model.Proxy, in *networking.H
 			action.Timeout = features.DefaultRequestTimeout
 		}
 
-		// Disable MaxStream duration to let the request timeout/gRPC timeout drive the timeout for request.
-		action.MaxStreamDuration = &route.RouteAction_MaxStreamDuration{MaxStreamDuration: ptypes.DurationProto(0)}
-
 		// Set the GrpcTimeoutHeaderMax so that Envoy respects grpc-timeout header.
 		// Only set if explicit timeout is defined otherwise Envoy will just use grpc-timeout header
 		// instead of disabling the timeout which is Istio's default behavior.
 		if action.Timeout.AsDuration().Nanoseconds() > 0 {
-			action.MaxStreamDuration.GrpcTimeoutHeaderMax = action.Timeout
+			action.MaxStreamDuration = &route.RouteAction_MaxStreamDuration{
+				MaxStreamDuration:    action.Timeout,
+				GrpcTimeoutHeaderMax: action.Timeout,
+			}
 		}
 		out.Action = &route.Route_Route{Route: action}
 
@@ -822,7 +822,7 @@ func getRouteOperation(in *route.Route, vsName string, port int) string {
 
 // BuildDefaultHTTPInboundRoute builds a default inbound route.
 func BuildDefaultHTTPInboundRoute(node *model.Proxy, clusterName string, operation string) *route.Route {
-	notimeout := ptypes.DurationProto(0)
+	notimeout := durationpb.New(0)
 	routeAction := &route.RouteAction{
 		ClusterSpecifier: &route.RouteAction_Cluster{Cluster: clusterName},
 		Timeout:          notimeout,

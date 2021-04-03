@@ -49,6 +49,7 @@ import (
 	"istio.io/istio/pkg/url"
 	"istio.io/istio/pkg/util/gogoprotomarshal"
 	"istio.io/istio/pkg/util/shellescape"
+	"istio.io/pkg/log"
 )
 
 var (
@@ -70,7 +71,7 @@ var (
 )
 
 const (
-	filePerms = os.FileMode(0744)
+	filePerms = os.FileMode(0o744)
 )
 
 func workloadCommands() *cobra.Command {
@@ -338,7 +339,7 @@ func createCertsTokens(kubeClient kube.ExtendedClient, wg *clientv1alpha3.Worklo
 
 	serviceAccount := wg.Spec.Template.ServiceAccount
 	tokenPath := filepath.Join(dir, "istio-token")
-	jwtPolicy, err := util.DetectSupportedJWTPolicy(kubeClient.RESTConfig())
+	jwtPolicy, err := util.DetectSupportedJWTPolicy(kubeClient)
 	if err != nil {
 		fmt.Fprintf(out, "Failed to determine JWT policy support: %v", err)
 	}
@@ -519,6 +520,8 @@ func createHosts(kubeClient kube.ExtendedClient, ingressIP, dir string) error {
 	}
 	if ingressIP != "" {
 		hosts = fmt.Sprintf("%s %s.%s.svc\n", ingressIP, istiod, istioNamespace)
+	} else {
+		log.Warnf("Could not auto-detect IP for %s.%s. Use --ingressIP to manually specify the Gateway address to reach istiod from the VM.", istiod, istioNamespace)
 	}
 	return ioutil.WriteFile(filepath.Join(dir, "hosts"), []byte(hosts), filePerms)
 }

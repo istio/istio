@@ -48,6 +48,8 @@ features:
     ratelimit:
       envoy:
     original-source-ip:
+    mcs:
+      serviceexport:
   usability:
     observability:
       describe:
@@ -62,6 +64,7 @@ features:
     helpers:
       add-to-mesh:
       remove-from-mesh:
+      kube-inject:
   # features that allow users to secure their services and service mesh.
   security:
     externalca:
@@ -133,6 +136,7 @@ features:
       revision_centric_view:
       revision_tags:
     multicluster:
+      cluster_local:
       multimaster:
       remote:
       centralremotekubeconfig:

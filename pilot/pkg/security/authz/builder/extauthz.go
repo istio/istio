@@ -32,8 +32,8 @@ import (
 	"github.com/hashicorp/go-multierror"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
+	"istio.io/istio/pilot/pkg/extensionproviders"
 	"istio.io/istio/pilot/pkg/networking/plugin"
-	"istio.io/istio/pilot/pkg/security"
 	authzmodel "istio.io/istio/pilot/pkg/security/authz/model"
 )
 
@@ -86,7 +86,7 @@ func processExtensionProvider(in *plugin.InputParams) map[string]*builtExtAuthz 
 		case *meshconfig.MeshConfig_ExtensionProvider_EnvoyExtAuthzGrpc:
 			parsed, err = buildExtAuthzGRPC(in, p.EnvoyExtAuthzGrpc)
 		default:
-			err = fmt.Errorf("unsupported extension provider: %s", config.Name)
+			continue
 		}
 		if err != nil {
 			errs = multierror.Append(errs, multierror.Prefix(err, fmt.Sprintf("failed to parse extension provider %q:", config.Name)))
@@ -145,7 +145,7 @@ func buildExtAuthzHTTP(in *plugin.InputParams, config *meshconfig.MeshConfig_Ext
 	if err != nil {
 		errs = multierror.Append(errs, err)
 	}
-	hostname, cluster, err := security.LookupCluster(in.Push, config.Service, port)
+	hostname, cluster, err := extensionproviders.LookupCluster(in.Push, config.Service, port)
 	if err != nil {
 		errs = multierror.Append(errs, err)
 	}
@@ -174,7 +174,7 @@ func buildExtAuthzGRPC(in *plugin.InputParams, config *meshconfig.MeshConfig_Ext
 	if err != nil {
 		errs = multierror.Append(errs, err)
 	}
-	_, cluster, err := security.LookupCluster(in.Push, config.Service, port)
+	_, cluster, err := extensionproviders.LookupCluster(in.Push, config.Service, port)
 	if err != nil {
 		errs = multierror.Append(errs, err)
 	}

@@ -66,6 +66,7 @@ func getDefaultCircuitBreakerThresholds() *cluster.CircuitBreakers_Thresholds {
 		MaxRequests:        &wrappers.UInt32Value{Value: math.MaxUint32},
 		MaxConnections:     &wrappers.UInt32Value{Value: math.MaxUint32},
 		MaxPendingRequests: &wrappers.UInt32Value{Value: math.MaxUint32},
+		TrackRemaining:     true,
 	}
 }
 
@@ -157,6 +158,9 @@ type clusterPatcher struct {
 }
 
 func (p clusterPatcher) conditionallyAppend(l []*cluster.Cluster, hosts []host.Name, clusters ...*cluster.Cluster) []*cluster.Cluster {
+	if !p.hasPatches() {
+		return append(l, clusters...)
+	}
 	for _, c := range clusters {
 		if envoyfilter.ShouldKeepCluster(p.pctx, p.efw, c, hosts) {
 			l = append(l, envoyfilter.ApplyClusterMerge(p.pctx, p.efw, c, hosts))
@@ -167,6 +171,10 @@ func (p clusterPatcher) conditionallyAppend(l []*cluster.Cluster, hosts []host.N
 
 func (p clusterPatcher) insertedClusters() []*cluster.Cluster {
 	return envoyfilter.InsertedClusters(p.pctx, p.efw)
+}
+
+func (p clusterPatcher) hasPatches() bool {
+	return p.efw != nil && len(p.efw.Patches[networking.EnvoyFilter_CLUSTER]) > 0
 }
 
 // SniDnat clusters do not have any TLS setting, as they simply forward traffic to upstream
@@ -463,7 +471,7 @@ const (
 
 type buildClusterOpts struct {
 	mesh            *meshconfig.MeshConfig
-	ic              *IstioCluster
+	mutable         *MutableCluster
 	policy          *networking.TrafficPolicy
 	port            *model.Port
 	serviceAccounts []string
@@ -656,7 +664,7 @@ func applyLocalityLBSetting(locality *core.Locality, cluster *cluster.Cluster, l
 }
 
 func addTelemetryMetadata(opts buildClusterOpts, service *model.Service, direction model.TrafficDirection, instances []*model.ServiceInstance) {
-	if opts.ic.cluster == nil {
+	if opts.mutable.cluster == nil {
 		return
 	}
 	if direction == model.TrafficDirectionInbound && (opts.proxy == nil || opts.proxy.ServiceInstances == nil ||
@@ -669,7 +677,7 @@ func addTelemetryMetadata(opts buildClusterOpts, service *model.Service, directi
 		return
 	}
 
-	im := getOrCreateIstioMetadata(opts.ic.cluster)
+	im := getOrCreateIstioMetadata(opts.mutable.cluster)
 
 	// Add services field into istio metadata
 	im.Fields["services"] = &structpb.Value{
@@ -709,7 +717,7 @@ func addTelemetryMetadata(opts buildClusterOpts, service *model.Service, directi
 // Insert the original port into the istio metadata. The port is used in BTS delivered from client sidecar to server sidecar.
 // Server side car uses this port after de-multiplexed from tunnel.
 func addNetworkingMetadata(opts buildClusterOpts, service *model.Service, direction model.TrafficDirection) {
-	if opts.ic == nil || direction == model.TrafficDirectionInbound {
+	if opts.mutable == nil || direction == model.TrafficDirectionInbound {
 		return
 	}
 	if service == nil {
@@ -718,7 +726,7 @@ func addNetworkingMetadata(opts buildClusterOpts, service *model.Service, direct
 	}
 
 	if port, ok := service.Ports.GetByPort(opts.port.Port); ok {
-		im := getOrCreateIstioMetadata(opts.ic.cluster)
+		im := getOrCreateIstioMetadata(opts.mutable.cluster)
 
 		// Add original_port field into istio metadata
 		// Endpoint could override this port but the chance should be small.

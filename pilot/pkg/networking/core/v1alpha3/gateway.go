@@ -83,20 +83,23 @@ func (configgen *ConfigGeneratorImpl) buildGatewayListeners(builder *ListenerBui
 				port.Number, builder.node.ID)
 			continue
 		}
+		bind := actualWildcard
+		if len(port.Bind) > 0 {
+			bind = port.Bind
+		}
 
 		// on a given port, we can either have plain text HTTP servers or
 		// HTTPS/TLS servers with SNI. We cannot have a mix of http and https server on same port.
 		opts := buildListenerOpts{
 			push:       builder.push,
 			proxy:      builder.node,
-			bind:       actualWildcard,
+			bind:       bind,
 			port:       &model.Port{Port: int(port.Number)},
 			bindToPort: true,
 			class:      ListenerClassGateway,
 		}
 
 		p := protocol.Parse(port.Protocol)
-		listenerProtocol := istionetworking.ModelProtocolToListenerProtocol(p, core.TrafficDirection_OUTBOUND)
 		filterChains := make([]istionetworking.FilterChain, 0)
 		if p.IsHTTP() {
 			// We have a list of HTTP servers on this port. Build a single listener for the server port.
@@ -148,10 +151,9 @@ func (configgen *ConfigGeneratorImpl) buildGatewayListeners(builder *ListenerBui
 		}
 
 		pluginParams := &plugin.InputParams{
-			ListenerProtocol: listenerProtocol,
-			Node:             builder.node,
-			Push:             builder.push,
-			ServiceInstance:  si,
+			Node:            builder.node,
+			Push:            builder.push,
+			ServiceInstance: si,
 		}
 		for _, p := range configgen.Plugins {
 			if err := p.OnOutboundListener(pluginParams, &mutable.MutableObjects); err != nil {
@@ -485,13 +487,19 @@ func buildGatewayListenerTLSContext(
 		},
 	}
 
+	ctx.RequireClientCertificate = proto.BoolFalse
+	if server.Tls.Mode == networking.ServerTLSSettings_MUTUAL ||
+		server.Tls.Mode == networking.ServerTLSSettings_ISTIO_MUTUAL {
+		ctx.RequireClientCertificate = proto.BoolTrue
+	}
+
 	switch {
 	// If SDS is enabled at gateway, and credential name is specified at gateway config, create
 	// SDS config for gateway to fetch key/cert at gateway agent.
 	case server.Tls.CredentialName != "":
 		authn_model.ApplyCredentialSDSToServerCommonTLSContext(ctx.CommonTlsContext, server.Tls)
 	case server.Tls.Mode == networking.ServerTLSSettings_ISTIO_MUTUAL:
-		authn_model.ApplyToCommonTLSContext(ctx.CommonTlsContext, proxy, server.Tls.SubjectAltNames, []string{})
+		authn_model.ApplyToCommonTLSContext(ctx.CommonTlsContext, proxy, server.Tls.SubjectAltNames, []string{}, ctx.RequireClientCertificate.Value)
 	default:
 		certProxy := &model.Proxy{}
 		certProxy.IstioVersion = proxy.IstioVersion
@@ -501,13 +509,8 @@ func buildGatewayListenerTLSContext(
 			TLSServerKey:       server.Tls.PrivateKey,
 			TLSServerRootCert:  server.Tls.CaCertificates,
 		}
-		authn_model.ApplyToCommonTLSContext(ctx.CommonTlsContext, certProxy, server.Tls.SubjectAltNames, []string{})
-	}
 
-	ctx.RequireClientCertificate = proto.BoolFalse
-	if server.Tls.Mode == networking.ServerTLSSettings_MUTUAL ||
-		server.Tls.Mode == networking.ServerTLSSettings_ISTIO_MUTUAL {
-		ctx.RequireClientCertificate = proto.BoolTrue
+		authn_model.ApplyToCommonTLSContext(ctx.CommonTlsContext, certProxy, server.Tls.SubjectAltNames, []string{}, ctx.RequireClientCertificate.Value)
 	}
 
 	// Set TLS parameters if they are non-default

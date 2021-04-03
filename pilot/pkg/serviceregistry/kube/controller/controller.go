@@ -46,7 +46,7 @@ import (
 	"istio.io/istio/pkg/config/protocol"
 	kubelib "istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/queue"
-	"istio.io/pkg/log"
+	istiolog "istio.io/pkg/log"
 	"istio.io/pkg/monitoring"
 )
 
@@ -69,6 +69,8 @@ const (
 	// by meshNetworks or "networking.istio.io/gatewayPort"
 	DefaultNetworkGatewayPort = 15443
 )
+
+var log = istiolog.RegisterScope("kube", "kubernetes service registry controller", 0)
 
 var (
 	typeTag  = monitoring.MustCreateLabel("type")
@@ -394,18 +396,10 @@ func (c *Controller) Cleanup() error {
 }
 
 func (c *Controller) onServiceEvent(curr interface{}, event model.Event) error {
-	svc, ok := curr.(*v1.Service)
-	if !ok {
-		tombstone, ok := curr.(cache.DeletedFinalStateUnknown)
-		if !ok {
-			log.Errorf("Couldn't get object from tombstone %#v", curr)
-			return nil
-		}
-		svc, ok = tombstone.Obj.(*v1.Service)
-		if !ok {
-			log.Errorf("Tombstone contained object that is not a service %#v", curr)
-			return nil
-		}
+	svc, err := convertToService(curr)
+	if err != nil {
+		log.Errorf(err)
+		return nil
 	}
 
 	log.Debugf("Handle event %s for service %s in namespace %s", event, svc.Name, svc.Namespace)

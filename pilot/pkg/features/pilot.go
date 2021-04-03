@@ -17,8 +17,8 @@ package features
 import (
 	"time"
 
-	"github.com/golang/protobuf/ptypes"
 	"github.com/golang/protobuf/ptypes/duration"
+	"google.golang.org/protobuf/types/known/durationpb"
 
 	"istio.io/istio/pkg/jwt"
 	"istio.io/pkg/env"
@@ -121,14 +121,6 @@ var (
 		"UseRemoteAddress sets useRemoteAddress to true for side car outbound listeners.",
 	).Get()
 
-	// EnableThriftFilter enables injection of `envoy.filters.network.thrift_proxy` in the filter chain.
-	// Pilot injects this outbound filter if the service port name is `thrift`.
-	EnableThriftFilter = env.RegisterBoolVar(
-		"PILOT_ENABLE_THRIFT_FILTER",
-		false,
-		"EnableThriftFilter enables injection of `envoy.filters.network.thrift_proxy` in the filter chain.",
-	).Get()
-
 	// SkipValidateTrustDomain tells the server proxy to not to check the peer's trust domain when
 	// mTLS is enabled in authentication policy.
 	SkipValidateTrustDomain = env.RegisterBoolVar(
@@ -212,6 +204,12 @@ var (
 			"Currently this is mutual exclusive - either Endpoints or EndpointSlices will be used",
 	).Get()
 
+	EnableMCSServiceExport = env.RegisterBoolVar(
+		"PILOT_ENABLE_MCS_SERVICEEXPORT",
+		false,
+		"If enabled, Pilot will generate MCS ServiceExport objects for every non cluster-local service in the cluster",
+	).Get()
+
 	EnableSDSServer = env.RegisterBoolVar(
 		"ISTIOD_ENABLE_SDS_SERVER",
 		true,
@@ -266,7 +264,7 @@ var (
 	)
 
 	DefaultRequestTimeout = func() *duration.Duration {
-		return ptypes.DurationProto(defaultRequestTimeoutVar.Get())
+		return durationpb.New(defaultRequestTimeoutVar.Get())
 	}()
 
 	EnableServiceApis = env.RegisterBoolVar("PILOT_ENABLED_SERVICE_APIS", true,
@@ -422,6 +420,15 @@ var (
 		"If enabled, addition runtime asserts will be performed. "+
 			"These checks are both expensive and panic on failure. As a result, this should be used only for testing.",
 	).Get()
+
+	DeltaXds = env.RegisterBoolVar("ISTIO_DELTA_XDS", false,
+		"If enabled, pilot will only send the delta configs as opposed to the state of the world on a "+
+			"Resource Request")
+
+	SharedMeshConfig = env.RegisterStringVar("SHARED_MESH_CONFIG", "",
+		"Additional config map to load for shared MeshConfig settings. The standard mesh config will take precedence.").Get()
+	MultiRootMesh = env.RegisterBoolVar("ISTIO_MULTIROOT_MESH", false,
+		"If enabled, mesh will support certificates signed by more than one trustAnchor for ISTIO_MUTUAL mTLS")
 )
 
 // UnsafeFeaturesEnabled returns true if any unsafe features are enabled.
