@@ -995,14 +995,6 @@
       "steppedLine": false,
       "targets": [
         {
-          "expr": "pilot_conflict_inbound_listener{app=\"istiod\"}",
-          "format": "time_series",
-          "hide": false,
-          "intervalFactor": 1,
-          "legendFormat": "Inbound Listeners",
-          "refId": "B"
-        },
-        {
           "expr": "pilot_conflict_outbound_listener_http_over_current_tcp{app=\"istiod\"}",
           "format": "time_series",
           "hide": false,
