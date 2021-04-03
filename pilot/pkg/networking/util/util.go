@@ -527,8 +527,8 @@ func MergeAnyWithAny(dst *any.Any, src *any.Any) (*any.Any, error) {
 }
 
 // BuildLbEndpointMetadata adds metadata values to a lb endpoint
-func BuildLbEndpointMetadata(network, tlsMode, workloadname, namespace string, labels labels.Instance) *core.Metadata {
-	if network == "" && tlsMode == model.DisabledTLSModeLabel && !shouldAddTelemetryLabel(workloadname) {
+func BuildLbEndpointMetadata(network, tlsMode, workloadname, namespace, clusterID string, labels labels.Instance) *core.Metadata {
+	if network == "" && (tlsMode == "" || tlsMode == model.DisabledTLSModeLabel) && !features.EndpointTelemetryLabel {
 		return nil
 	}
 
@@ -540,7 +540,7 @@ func BuildLbEndpointMetadata(network, tlsMode, workloadname, namespace string, l
 		addIstioEndpointLabel(metadata, "network", &pstruct.Value{Kind: &pstruct.Value_StringValue{StringValue: network}})
 	}
 
-	if tlsMode != "" {
+	if tlsMode != "" && tlsMode != model.DisabledTLSModeLabel {
 		metadata.FilterMetadata[EnvoyTransportSocketMetadataKey] = &pstruct.Struct{
 			Fields: map[string]*pstruct.Value{
 				model.TLSModeLabelShortname: {Kind: &pstruct.Value_StringValue{StringValue: tlsMode}},
@@ -552,8 +552,8 @@ func BuildLbEndpointMetadata(network, tlsMode, workloadname, namespace string, l
 	// available at client sidecar, so that telemetry filter could use for metric labels. This is useful for two cases:
 	// server does not have sidecar injected, and request fails to reach server and thus metadata exchange does not happen.
 	// Due to performance concern, telemetry metadata is compressed into a semicolon separted string:
-	// workload-name;namespace;canonical-service-name;canonical-service-revision.
-	if shouldAddTelemetryLabel(workloadname) {
+	// workload-name;namespace;canonical-service-name;canonical-service-revision;cluster-id.
+	if features.EndpointTelemetryLabel {
 		var sb strings.Builder
 		sb.WriteString(workloadname)
 		sb.WriteString(";")
@@ -566,6 +566,8 @@ func BuildLbEndpointMetadata(network, tlsMode, workloadname, namespace string, l
 		if csr, ok := labels[model.IstioCanonicalServiceRevisionLabelName]; ok {
 			sb.WriteString(csr)
 		}
+		sb.WriteString(";")
+		sb.WriteString(clusterID)
 		addIstioEndpointLabel(metadata, "workload", &pstruct.Value{Kind: &pstruct.Value_StringValue{StringValue: sb.String()}})
 	}
 

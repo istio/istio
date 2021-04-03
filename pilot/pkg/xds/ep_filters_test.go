@@ -118,7 +118,6 @@ var networkFiltered = []networkFilterCase{
 
 func TestEndpointsByNetworkFilter(t *testing.T) {
 	env := environment()
-	env.Init()
 	// The tests below are calling the endpoints filter from each one of the
 	// networks and examines the returned filtered endpoints
 
@@ -429,7 +428,6 @@ func TestEndpointsByNetworkFilter_WithConfig(t *testing.T) {
 					if err != nil {
 						t.Fatal(err)
 					}
-					env.Init()
 					runNetworkFilterTest(t, env, pa.Tests)
 				})
 			}
@@ -456,7 +454,6 @@ func TestEndpointsByNetworkFilter_SkipLBWithHostname(t *testing.T) {
 	serviceDiscovery.SetGatewaysForNetwork("network2", &model.Gateway{Addr: "aeiou.scooby.do", Port: 80})
 
 	env.ServiceDiscovery = serviceDiscovery
-	env.Init()
 
 	// The tests below are calling the endpoints filter from each one of the
 	// networks and examines the returned filtered endpoints
@@ -674,7 +671,6 @@ func testShards() *EndpointShards {
 	for i, ep := range shards.Shards["cluster-0"] {
 		ep.ServicePortName = "http"
 		ep.Namespace = "ns"
-		ep.HostName = "example.ns.svc.cluster.local"
 		ep.EndpointPort = 8080
 		ep.TLSMode = "istio"
 		ep.Labels = map[string]string{"app": "example"}
