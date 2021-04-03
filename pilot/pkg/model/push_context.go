@@ -453,13 +453,6 @@ var (
 		"Number of conflicting wildcard http listeners with current wildcard tcp listener.",
 	)
 
-	// ProxyStatusConflictInboundListener tracks cases of multiple inbound
-	// listeners - 2 services selecting the same port of the pod.
-	ProxyStatusConflictInboundListener = monitoring.NewGauge(
-		"pilot_conflict_inbound_listener",
-		"Number of conflicting inbound listeners.",
-	)
-
 	// DuplicatedClusters tracks duplicate clusters seen while computing CDS
 	DuplicatedClusters = monitoring.NewGauge(
 		"pilot_duplicate_envoy_clusters",
@@ -512,7 +505,6 @@ var (
 		ProxyStatusConflictOutboundListenerTCPOverHTTP,
 		ProxyStatusConflictOutboundListenerTCPOverTCP,
 		ProxyStatusConflictOutboundListenerHTTPOverTCP,
-		ProxyStatusConflictInboundListener,
 		DuplicatedClusters,
 		ProxyStatusClusterNoInstances,
 		DuplicatedDomains,
