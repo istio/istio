@@ -1013,12 +1013,11 @@ func TestAuthorization_Conditions(t *testing.T) {
 			c := apps.C.Match(echo.Namespace(nsC.Name()))
 			vm := apps.VM.Match(echo.Namespace(nsA.Name()))
 			for _, dst := range []echo.Instances{c, vm} {
-				for i := 0; i < len(t.Clusters()); i++ {
+				for _, src1 := range apps.A.Match(echo.Namespace(nsA.Name())) {
+					src1, src2 := src1, apps.B.Match(echo.InCluster(src1.Config().Cluster)).Match(echo.Namespace(nsB.Name()))
 					t.NewSubTest(fmt.Sprintf("from %s to %s in %s",
-						t.Clusters()[i].StableName(), dst[0].Config().Service, dst[0].Config().Cluster.Name())).
+						src1.Config().Cluster.StableName(), dst[0].Config().Service, dst[0].Config().Cluster.Name())).
 						Run(func(t framework.TestContext) {
-							src1 := apps.A.Match(echo.InCluster(t.Clusters()[i])).Match(echo.Namespace(nsA.Name()))
-							src2 := apps.B.Match(echo.InCluster(t.Clusters()[i])).Match(echo.Namespace(nsB.Name()))
 							var ipList string
 							for i := 0; i < len(dst); i++ {
 								ipList += "\"" + getWorkload(dst[i], t).Address() + "\","
@@ -1032,7 +1031,7 @@ func TestAuthorization_Conditions(t *testing.T) {
 								"dstPort":       "8090",
 								"src1":          util.ASvc,
 								"src2":          util.BSvc,
-								"src1IP":        getWorkload(src1[0], t).Address(),
+								"src1IP":        getWorkload(src1, t).Address(),
 								"src2IP":        getWorkload(src2[0], t).Address(),
 								"src1Namespace": nsA.Name(),
 								"src2Namespace": nsB.Name(),
@@ -1045,16 +1044,10 @@ func TestAuthorization_Conditions(t *testing.T) {
 								// so we can validate all clusters are hit
 								callCount = util.CallsPerCluster * len(t.Clusters())
 							}
-							newTestCase := func(from echo.Instances, path string, headers map[string]string, expectAllowed bool) rbacUtil.TestCase {
-								// Not all workloads are deployed in every cluster, skip the test case if there are no instances.
-								if len(from) == 0 && t.Clusters().IsMulticluster() {
-									return rbacUtil.TestCase{
-										SkippedForMulticluster: true,
-									}
-								}
+							newTestCase := func(from echo.Instance, path string, headers map[string]string, expectAllowed bool) rbacUtil.TestCase {
 								return rbacUtil.TestCase{
 									Request: connection.Checker{
-										From: from[0],
+										From: from,
 										Options: echo.CallOptions{
 											Target:   dst[0],
 											PortName: "http",
@@ -1070,58 +1063,58 @@ func TestAuthorization_Conditions(t *testing.T) {
 							}
 							cases := []rbacUtil.TestCase{
 								newTestCase(src1, "/request-headers", map[string]string{"x-foo": "foo"}, true),
-								newTestCase(src2, "/request-headers", map[string]string{"x-foo": "foo"}, true),
+								newTestCase(src2[0], "/request-headers", map[string]string{"x-foo": "foo"}, true),
 								newTestCase(src1, "/request-headers", map[string]string{"x-foo": "bar"}, false),
-								newTestCase(src2, "/request-headers", map[string]string{"x-foo": "bar"}, false),
+								newTestCase(src2[0], "/request-headers", map[string]string{"x-foo": "bar"}, false),
 								newTestCase(src1, "/request-headers", nil, false),
-								newTestCase(src2, "/request-headers", nil, false),
+								newTestCase(src2[0], "/request-headers", nil, false),
 								newTestCase(src1, "/request-headers-notValues-bar", map[string]string{"x-foo": "foo"}, true),
 								newTestCase(src1, "/request-headers-notValues-bar", map[string]string{"x-foo": "bar"}, false),
 
 								newTestCase(src1, fmt.Sprintf("/source-ip-%s", args["src1"]), nil, true),
-								newTestCase(src2, fmt.Sprintf("/source-ip-%s", args["src1"]), nil, false),
+								newTestCase(src2[0], fmt.Sprintf("/source-ip-%s", args["src1"]), nil, false),
 								newTestCase(src1, fmt.Sprintf("/source-ip-%s", args["src2"]), nil, false),
-								newTestCase(src2, fmt.Sprintf("/source-ip-%s", args["src2"]), nil, true),
+								newTestCase(src2[0], fmt.Sprintf("/source-ip-%s", args["src2"]), nil, true),
 								newTestCase(src1, fmt.Sprintf("/source-ip-notValues-%s", args["src2"]), nil, true),
-								newTestCase(src2, fmt.Sprintf("/source-ip-notValues-%s", args["src2"]), nil, false),
+								newTestCase(src2[0], fmt.Sprintf("/source-ip-notValues-%s", args["src2"]), nil, false),
 
 								newTestCase(src1, fmt.Sprintf("/source-namespace-%s", args["src1"]), nil, true),
-								newTestCase(src2, fmt.Sprintf("/source-namespace-%s", args["src1"]), nil, false),
+								newTestCase(src2[0], fmt.Sprintf("/source-namespace-%s", args["src1"]), nil, false),
 								newTestCase(src1, fmt.Sprintf("/source-namespace-%s", args["src2"]), nil, false),
-								newTestCase(src2, fmt.Sprintf("/source-namespace-%s", args["src2"]), nil, true),
+								newTestCase(src2[0], fmt.Sprintf("/source-namespace-%s", args["src2"]), nil, true),
 								newTestCase(src1, fmt.Sprintf("/source-namespace-notValues-%s", args["src2"]), nil, true),
-								newTestCase(src2, fmt.Sprintf("/source-namespace-notValues-%s", args["src2"]), nil, false),
+								newTestCase(src2[0], fmt.Sprintf("/source-namespace-notValues-%s", args["src2"]), nil, false),
 
 								newTestCase(src1, fmt.Sprintf("/source-principal-%s", args["src1"]), nil, true),
-								newTestCase(src2, fmt.Sprintf("/source-principal-%s", args["src1"]), nil, false),
+								newTestCase(src2[0], fmt.Sprintf("/source-principal-%s", args["src1"]), nil, false),
 								newTestCase(src1, fmt.Sprintf("/source-principal-%s", args["src2"]), nil, false),
-								newTestCase(src2, fmt.Sprintf("/source-principal-%s", args["src2"]), nil, true),
+								newTestCase(src2[0], fmt.Sprintf("/source-principal-%s", args["src2"]), nil, true),
 								newTestCase(src1, fmt.Sprintf("/source-principal-notValues-%s", args["src2"]), nil, true),
-								newTestCase(src2, fmt.Sprintf("/source-principal-notValues-%s", args["src2"]), nil, false),
+								newTestCase(src2[0], fmt.Sprintf("/source-principal-notValues-%s", args["src2"]), nil, false),
 
 								newTestCase(src1, "/destination-ip-good", nil, true),
-								newTestCase(src2, "/destination-ip-good", nil, true),
+								newTestCase(src2[0], "/destination-ip-good", nil, true),
 								newTestCase(src1, "/destination-ip-bad", nil, false),
-								newTestCase(src2, "/destination-ip-bad", nil, false),
+								newTestCase(src2[0], "/destination-ip-bad", nil, false),
 								newTestCase(src1, fmt.Sprintf("/destination-ip-notValues-%s-or-%s", args["src1"], args["src2"]), nil, true),
 								newTestCase(src1, fmt.Sprintf("/destination-ip-notValues-%s-or-%s-or-%s", args["src1"], args["src2"], args["dst"]), nil, false),
 
 								newTestCase(src1, "/destination-port-good", nil, true),
-								newTestCase(src2, "/destination-port-good", nil, true),
+								newTestCase(src2[0], "/destination-port-good", nil, true),
 								newTestCase(src1, "/destination-port-bad", nil, false),
-								newTestCase(src2, "/destination-port-bad", nil, false),
+								newTestCase(src2[0], "/destination-port-bad", nil, false),
 								newTestCase(src1, fmt.Sprintf("/destination-port-notValues-%s", args["dst"]), nil, false),
-								newTestCase(src2, fmt.Sprintf("/destination-port-notValues-%s", args["dst"]), nil, false),
+								newTestCase(src2[0], fmt.Sprintf("/destination-port-notValues-%s", args["dst"]), nil, false),
 
 								newTestCase(src1, "/connection-sni-good", nil, true),
-								newTestCase(src2, "/connection-sni-good", nil, true),
+								newTestCase(src2[0], "/connection-sni-good", nil, true),
 								newTestCase(src1, "/connection-sni-bad", nil, false),
-								newTestCase(src2, "/connection-sni-bad", nil, false),
+								newTestCase(src2[0], "/connection-sni-bad", nil, false),
 								newTestCase(src1, fmt.Sprintf("/connection-sni-notValues-%s-or-%s", args["src1"], args["src2"]), nil, true),
 								newTestCase(src1, fmt.Sprintf("/connection-sni-notValues-%s-or-%s-or-%s", args["src1"], args["src2"], args["dst"]), nil, false),
 
 								newTestCase(src1, "/other", nil, false),
-								newTestCase(src2, "/other", nil, false),
+								newTestCase(src2[0], "/other", nil, false),
 							}
 							rbacUtil.RunRBACTest(t, cases)
 						})
