@@ -414,7 +414,7 @@ func (c *Controller) deleteMemberCluster(secretName string) {
 					clusterID, secretName, err)
 			}
 			close(cluster.stop)
-			c.cs.Delete(clusterID)
+			delete(c.cs.remoteClusters, clusterID)
 		}
 	}
 }
