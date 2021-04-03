@@ -244,7 +244,7 @@ func TestSecretsControllerMulticluster(t *testing.T) {
 	localClient.RunAndWait(stop)
 	remoteClient.RunAndWait(stop)
 	otherRemoteClient.RunAndWait(stop)
-	
+
 	cases := []struct {
 		name      string
 		namespace string
