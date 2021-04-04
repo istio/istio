@@ -453,27 +453,17 @@ spec:
 }
 
 // useClientProtocolCases contains tests use_client_protocol from DestinationRule
-func useClientProtocolCases() []TrafficTestCase {
+func useClientProtocolCases(apps *EchoDeployments) []TrafficTestCase {
 	var cases []TrafficTestCase
-
+	client := apps.PodA
+	destination := apps.PodC[0]
 	cases = append(cases,
 		TrafficTestCase{
-			name: "use client protocol with h2",
-			config: `
-            apiVersion: networking.istio.io/v1alpha3
-            kind: DestinationRule
-            metadata:
-              name: useclientprotocol-h2
-              spec:
-                host: {{ .dstSvc }}
-                trafficPolicy:
-                  connectionPool:
-                    http:
-                      useClientProtocol: true
-                  tls:
-                    mode: SIMPLE
-`,
+			name:   "use client protocol with h2",
+			config: useClientProtocolDestinationRule("use-client-protocol-h1", destination.Config().Service),
+			call:   client.CallWithRetryOrFail,
 			opts: echo.CallOptions{
+				Target:   destination,
 				PortName: "http",
 				HTTP2:    true,
 				Validator: echo.And(
@@ -482,23 +472,12 @@ func useClientProtocolCases() []TrafficTestCase {
 			},
 		},
 		TrafficTestCase{
-			name: "use client protocol with h1",
-			config: `
-            apiVersion: networking.istio.io/v1alpha3
-            kind: DestinationRule
-            metadata:
-              name: useclientprotocol-h1
-              spec:
-                host: {{ .dstSvc }}
-                trafficPolicy:
-                  connectionPool:
-                    http:
-                      useClientProtocol: true
-                  tls:
-                    mode: SIMPLE
-`,
+			name:   "use client protocol with h1",
+			config: useClientProtocolDestinationRule("use-client-protocol-h1", destination.Config().Service),
+			call:   client.CallWithRetryOrFail,
 			opts: echo.CallOptions{
 				PortName: "http",
+				Target:   destination,
 				HTTP2:    false,
 				Validator: echo.And(
 					echo.ExpectOK(),
@@ -1331,6 +1310,22 @@ spec:
       mode: %s
 ---
 `, app, app, mode)
+}
+
+func useClientProtocolDestinationRule(name, app string) string {
+	return fmt.Sprintf(`apiVersion: networking.istio.io/v1beta1
+kind: DestinationRule
+metadata:
+  name: %s
+spec:
+  host: %s
+  trafficPolicy:
+    tls:
+      mode: SIMPLE
+    http:
+      useClientProtocol: true
+---
+`, app, app)
 }
 
 func peerAuthentication(app, mode string) string {
