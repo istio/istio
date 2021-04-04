@@ -471,7 +471,8 @@ func useClientProtocolCases() []TrafficTestCase {
                     http:
                       useClientProtocol: true
                   tls:
-                    mode: SIMPLE`,
+                    mode: SIMPLE
+`,
 			opts: echo.CallOptions{
 				PortName: "http",
 				HTTP2:    true,
@@ -494,7 +495,8 @@ func useClientProtocolCases() []TrafficTestCase {
                     http:
                       useClientProtocol: true
                   tls:
-                    mode: SIMPLE`,
+                    mode: SIMPLE
+`,
 			opts: echo.CallOptions{
 				PortName: "http",
 				HTTP2:    false,
