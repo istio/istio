@@ -452,6 +452,61 @@ spec:
 	return []TrafficTestCase{tc}
 }
 
+// useClientProtocolCases contains tests use_client_protocol from DestinationRule
+func useClientProtocolCases(apps *EchoDeployments) []TrafficTestCase {
+	var cases []TrafficTestCase
+
+	cases = append(cases,
+		TrafficTestCase{
+			name: "use client protocol with h2",
+			config: `
+			apiVersion: networking.istio.io/v1alpha3
+			kind: DestinationRule
+			metadata:
+			  name: useclientprotocol-h2
+			spec:
+			  host: {{ .dstSvc }}
+			  trafficPolicy:
+				connectionPool:
+				  http:
+					useClientProtocol: true
+				tls:
+				  mode: SIMPLE`,
+			opts: echo.CallOptions{
+				PortName: "http",
+				HTTP2:    true,
+				Validator: echo.And(
+					echo.ExpectOK(),
+				),
+			},
+		},
+		TrafficTestCase{
+			name: "use client protocol with h1",
+			config: `
+			apiVersion: networking.istio.io/v1alpha3
+			kind: DestinationRule
+			metadata:
+			  name: useclientprotocol-h1
+			spec:
+			  host: {{ .dstSvc }}
+			  trafficPolicy:
+				connectionPool:
+				  http:
+					useClientProtocol: true
+				tls:
+				  mode: SIMPLE`,
+			opts: echo.CallOptions{
+				PortName: "http",
+				HTTP2:    false,
+				Validator: echo.And(
+					echo.ExpectOK(),
+				),
+			},
+		},
+	)
+	return cases
+}
+
 // trafficLoopCases contains tests to ensure traffic does not loop through the sidecar
 func trafficLoopCases(apps *EchoDeployments) []TrafficTestCase {
 	cases := []TrafficTestCase{}
