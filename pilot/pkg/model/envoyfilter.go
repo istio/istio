@@ -161,5 +161,8 @@ func proxyMatch(proxy *Proxy, cp *EnvoyFilterConfigPatchWrapper) bool {
 }
 
 func (efw *EnvoyFilterWrapper) Key() string {
+	if efw == nil {
+		return ""
+	}
 	return efw.Namespace + "/" + efw.Name
 }
