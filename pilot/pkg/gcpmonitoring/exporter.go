@@ -184,6 +184,7 @@ func (e *ASMExporter) ExportView(vd *view.Data) {
 		// This indicates that this is a stackdriver view
 		e.sdExporter.ExportView(vd)
 	} else if e.PromExporter != nil {
+		// nolint: staticcheck
 		e.PromExporter.ExportView(vd)
 	}
 }

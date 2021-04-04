@@ -4,3 +4,11 @@ spec:
   meshConfig:
     trustDomainAliases:
     - cluster.local
+  values:
+    pilot:
+      env:
+        ISTIO_MULTIROOT_MESH: true
+    meshConfig:
+      defaultConfig:
+        proxyMetadata:
+          PROXY_CONFIG_XDS_AGENT: "true"

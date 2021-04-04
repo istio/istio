@@ -352,6 +352,8 @@ func TestNewServer(t *testing.T) {
 }
 
 func TestIstiodCipherSuites(t *testing.T) {
+	// https://b.corp.google.com/issues/184593223
+	t.Skip("https://github.com/istio/istio/issues/184593223")
 	cases := []struct {
 		name               string
 		serverCipherSuites []uint16

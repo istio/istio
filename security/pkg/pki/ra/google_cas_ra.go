@@ -21,8 +21,8 @@ import (
 	"time"
 
 	privateca "cloud.google.com/go/security/privateca/apiv1beta1"
-	"github.com/golang/protobuf/ptypes"
 	privatecapb "google.golang.org/genproto/googleapis/cloud/security/privateca/v1beta1"
+	"google.golang.org/protobuf/types/known/durationpb"
 	"k8s.io/apimachinery/pkg/util/rand"
 
 	raerror "istio.io/istio/security/pkg/pki/error"
@@ -104,7 +104,7 @@ func (r *GoogleCasRA) createCertReq(name string, csrPEM []byte,
 		Parent:        r.raOpts.CaSigner,
 		CertificateId: name,
 		Certificate: &privatecapb.Certificate{
-			Lifetime: ptypes.DurationProto(lifetime),
+			Lifetime: durationpb.New(lifetime),
 			CertificateConfig: &privatecapb.Certificate_Config{
 				Config: &privatecapb.CertificateConfig{
 					SubjectConfig: subjectConfig,

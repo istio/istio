@@ -260,6 +260,8 @@ if [[ "${CONTROL_PLANE}" == "UNMANAGED" ]]; then
   # telemetry/ tests
   DISABLED_TESTS+="|TestDashboard" # UNSUPPORTED: Relies on istiod in cluster. TODO: filter out only pilot-dashboard.json
   DISABLED_TESTS+="|TestCustomizeMetrics" # UNKNOWN: b/177606974
+  DISABLED_TESTS+="|TestStackdriverAudit" # BROKEN: b/183508169 Disabling Stackdriver Audit tests
+  DISABLED_TESTS+="|TestTraffic/virtualservice/shifting.*" # BROKEN: b/184593218
   # security/ tests
 
   # Skip the subtests that are known to be not working.
@@ -369,6 +371,7 @@ else
   # DISABLED_TESTS contains a list of all tests we skip
   # pilot/ tests
   DISABLED_TESTS="TestWait|TestVersion|TestProxyStatus|TestXdsProxyStatus" # UNSUPPORTED: istioctl doesn't work
+  DISABLED_TESTS+="|TestXdsVersion|TestKubeInject" # UNSUPPORTED: b/184572948
   DISABLED_TESTS+="|TestAnalysisWritesStatus" # UNSUPPORTED: require custom installation
   DISABLED_TESTS+="|TestMultiVersionRevision" # UNSUPPORTED: deploys istiod in the cluster, which fails since its using the wrong root cert
   DISABLED_TESTS+="|TestVmOSPost" # BROKEN: temp, pending oss pr
@@ -377,6 +380,7 @@ else
   DISABLED_TESTS+="|TestAddToAndRemoveFromMesh" # BROKEN: Test current doesn't respect --istio.test.revision
   DISABLED_TESTS+="|TestGateway" # BROKEN: CRDs need to be deployed before Istiod runs. In this case, we install Istiod first, causing failure.
   DISABLED_TESTS+="|TestRevisionedUpgrade" # UNSUPPORTED: OSS Control Plane upgrade is not supported by MCP.
+  DISABLED_TESTS+="|TestTraffic/virtualservice/shifting.*" # BROKEN: b/184593218
   # telemetry/ tests
   DISABLED_TESTS+="|TestStackdriverAudit|TestStackdriverHTTPAuditLogging" # UNSUPPORTED: Relies on customized installation of the stackdriver envoyfilter.
   DISABLED_TESTS+="|TestIstioctlMetrics" # UNSUPPORTED: istioctl doesn't work
@@ -385,6 +389,7 @@ else
   DISABLED_TESTS+="|TestProxyTracing|TestClientTracing|TestRateLimiting" # NOT SUPPORTED: requires customized meshConfig setting
   DISABLED_TESTS+="|TestCustomizeMetrics" # NOT SUPPORTED: Replies on customization on the stats envoyFilter
   DISABLED_TESTS+="|TestOutboundTrafficPolicy" # UNSUPPORTED: Relies on egress gateway deployed to the cluster. TODO: filter out only Traffic_Egress
+  DISABLED_TESTS+="|TestStackdriverAudit" # BROKEN: b/183508169 Disabling Stackdriver Audit tests
   # security/ tests
   DISABLED_TESTS+="|TestAuthorization_IngressGateway" # UNKNOWN
   DISABLED_TESTS+="|TestAuthorization_EgressGateway" # UNSUPPORTED: Relies on egress gateway deployed to the cluster.
@@ -424,13 +429,14 @@ else
 
     DISABLED_TESTS+="|TestStackdriverMonitoring" # NOT NEEDED (duplication): This one uses fake stackdriver. Multi-cluster MCP telemetry tests uses real stackdriver.
 
+    export INTEGRATION_TEST_FLAGS
+    apply_skip_disabled_tests "${DISABLED_TESTS}"
     export DISABLED_PACKAGES
     TAG="latest" HUB="gcr.io/istio-testing" \
       make test.integration.asm.mcp \
-      INTEGRATION_TEST_FLAGS="--istio.test.kube.deploy=false \
+      INTEGRATION_TEST_FLAGS+="--istio.test.kube.deploy=false \
   --istio.test.revision=asm-managed \
   --istio.test.skipVM=true \
-  --istio.test.skip=\"${DISABLED_TESTS}\" \
   --istio.test.skip=\"TestRequestAuthentication/.*/valid-token-forward-remote-jwks\"" # UNSUPPORTED: relies on custom options
   elif [[ "${CLUSTER_TOPOLOGY}" == "MULTICLUSTER" || "${CLUSTER_TOPOLOGY}" == "mc" ]]; then
     echo "Running integration test with ASM managed control plane and ${CLUSTER_TOPOLOGY} topology"
@@ -452,9 +458,9 @@ else
     # which isn't deployed for all configurations.
     INTEGRATION_TEST_FLAGS+=" --istio.test.skipVM"
     # Skip the tests that are known to be not working.
-    INTEGRATION_TEST_FLAGS+=" --istio.test.skip=\"${DISABLED_TESTS}\""
     INTEGRATION_TEST_FLAGS+=" --istio.test.skip=\"TestRequestAuthentication/.*/valid-token-forward-remote-jwks\"" # UNSUPPORTED: relies on custom options
 
+    apply_skip_disabled_tests "${DISABLED_TESTS}"
     echo "Running e2e test: ${TEST_TARGET}..."
     export DISABLED_PACKAGES
     export JUNIT_OUT="${ARTIFACTS}/junit1.xml"
