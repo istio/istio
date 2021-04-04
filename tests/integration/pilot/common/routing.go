@@ -453,25 +453,25 @@ spec:
 }
 
 // useClientProtocolCases contains tests use_client_protocol from DestinationRule
-func useClientProtocolCases(apps *EchoDeployments) []TrafficTestCase {
+func useClientProtocolCases() []TrafficTestCase {
 	var cases []TrafficTestCase
 
 	cases = append(cases,
 		TrafficTestCase{
 			name: "use client protocol with h2",
 			config: `
-			apiVersion: networking.istio.io/v1alpha3
-			kind: DestinationRule
-			metadata:
-			  name: useclientprotocol-h2
-			spec:
-			  host: {{ .dstSvc }}
-			  trafficPolicy:
-				connectionPool:
-				  http:
-					useClientProtocol: true
-				tls:
-				  mode: SIMPLE`,
+            apiVersion: networking.istio.io/v1alpha3
+            kind: DestinationRule
+            metadata:
+              name: useclientprotocol-h2
+              spec:
+                host: {{ .dstSvc }}
+                trafficPolicy:
+                  connectionPool:
+                    http:
+                      useClientProtocol: true
+                  tls:
+                    mode: SIMPLE`,
 			opts: echo.CallOptions{
 				PortName: "http",
 				HTTP2:    true,
@@ -483,18 +483,18 @@ func useClientProtocolCases(apps *EchoDeployments) []TrafficTestCase {
 		TrafficTestCase{
 			name: "use client protocol with h1",
 			config: `
-			apiVersion: networking.istio.io/v1alpha3
-			kind: DestinationRule
-			metadata:
-			  name: useclientprotocol-h1
-			spec:
-			  host: {{ .dstSvc }}
-			  trafficPolicy:
-				connectionPool:
-				  http:
-					useClientProtocol: true
-				tls:
-				  mode: SIMPLE`,
+            apiVersion: networking.istio.io/v1alpha3
+            kind: DestinationRule
+            metadata:
+              name: useclientprotocol-h1
+              spec:
+                host: {{ .dstSvc }}
+                trafficPolicy:
+                  connectionPool:
+                    http:
+                      useClientProtocol: true
+                  tls:
+                    mode: SIMPLE`,
 			opts: echo.CallOptions{
 				PortName: "http",
 				HTTP2:    false,
