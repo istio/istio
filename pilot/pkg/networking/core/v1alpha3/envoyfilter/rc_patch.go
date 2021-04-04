@@ -137,6 +137,9 @@ func doHTTPRouteListOperation(patchContext networking.EnvoyFilter_PatchContext,
 
 	// now for the adds
 	for _, cp := range patches[networking.EnvoyFilter_HTTP_ROUTE] {
+		if cp.Operation == networking.EnvoyFilter_Patch_INSERT_AFTER {
+			continue
+		}
 		if !commonConditionMatch(patchContext, cp) ||
 			!routeConfigurationMatch(patchContext, routeConfiguration, cp) ||
 			!virtualHostMatch(virtualHost, cp) {
@@ -145,31 +148,6 @@ func doHTTPRouteListOperation(patchContext networking.EnvoyFilter_PatchContext,
 
 		if cp.Operation == networking.EnvoyFilter_Patch_ADD {
 			virtualHost.Routes = append(virtualHost.Routes, proto.Clone(cp.Value).(*route.Route))
-		} else if cp.Operation == networking.EnvoyFilter_Patch_INSERT_AFTER {
-			// Insert after without a route match is same as ADD in the end
-			if !hasRouteMatch(cp) {
-				virtualHost.Routes = append(virtualHost.Routes, proto.Clone(cp.Value).(*route.Route))
-				continue
-			}
-			// find the matching route first
-			insertPosition := -1
-			for i := 0; i < len(virtualHost.Routes); i++ {
-				if routeMatch(virtualHost.Routes[i], cp) {
-					insertPosition = i + 1
-					break
-				}
-			}
-
-			if insertPosition == -1 {
-				continue
-			}
-
-			clonedVal := proto.Clone(cp.Value).(*route.Route)
-			virtualHost.Routes = append(virtualHost.Routes, clonedVal)
-			if insertPosition < len(virtualHost.Routes)-1 {
-				copy(virtualHost.Routes[insertPosition+1:], virtualHost.Routes[insertPosition:])
-				virtualHost.Routes[insertPosition] = clonedVal
-			}
 		} else if cp.Operation == networking.EnvoyFilter_Patch_INSERT_BEFORE || cp.Operation == networking.EnvoyFilter_Patch_INSERT_FIRST {
 			// insert before/first without a route match is same as insert in the beginning
 			if !hasRouteMatch(cp) {
@@ -197,6 +175,39 @@ func doHTTPRouteListOperation(patchContext networking.EnvoyFilter_PatchContext,
 
 			clonedVal := proto.Clone(cp.Value).(*route.Route)
 			virtualHost.Routes = append(virtualHost.Routes, clonedVal)
+			copy(virtualHost.Routes[insertPosition+1:], virtualHost.Routes[insertPosition:])
+			virtualHost.Routes[insertPosition] = clonedVal
+		}
+	}
+	for _, cp := range patches[networking.EnvoyFilter_HTTP_ROUTE] {
+		if cp.Operation != networking.EnvoyFilter_Patch_INSERT_AFTER {
+			continue
+		}
+		if !commonConditionMatch(patchContext, cp) ||
+			!routeConfigurationMatch(patchContext, routeConfiguration, cp) ||
+			!virtualHostMatch(virtualHost, cp) {
+			continue
+		}
+		// Insert after without a route match is same as ADD in the end
+		if !hasRouteMatch(cp) {
+			virtualHost.Routes = append(virtualHost.Routes, proto.Clone(cp.Value).(*route.Route))
+			continue
+		}
+		// find the matching route first
+		insertPosition := -1
+		for i := 0; i < len(virtualHost.Routes); i++ {
+			if routeMatch(virtualHost.Routes[i], cp) {
+				insertPosition = i + 1
+				break
+			}
+		}
+
+		if insertPosition == -1 {
+			continue
+		}
+		clonedVal := proto.Clone(cp.Value).(*route.Route)
+		virtualHost.Routes = append(virtualHost.Routes, clonedVal)
+		if insertPosition < len(virtualHost.Routes)-1 {
 			copy(virtualHost.Routes[insertPosition+1:], virtualHost.Routes[insertPosition:])
 			virtualHost.Routes[insertPosition] = clonedVal
 		}
