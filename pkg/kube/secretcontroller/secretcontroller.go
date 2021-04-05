@@ -24,6 +24,8 @@ import (
 	"sync"
 	"time"
 
+	"istio.io/pkg/monitoring"
+
 	"go.uber.org/atomic"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -45,6 +47,15 @@ const (
 	initialSyncSignal       = "INIT"
 	MultiClusterSecretLabel = "istio/multiCluster"
 	maxRetries              = 5
+)
+
+func init() {
+	monitoring.MustRegister(timeouts)
+}
+
+var timeouts = monitoring.NewSum(
+	"remote_cluster_sync_timeouts",
+	"Number of times remote clusters took too long to sync, causing slow startup that excludes remote clusters.",
 )
 
 // newClientCallback prototype for the add secret callback function.
@@ -257,6 +268,7 @@ func (c *Controller) HasSynced() bool {
 	if !synced && c.remoteSyncTimeout.Load() {
 		c.once.Do(func() {
 			log.Errorf("remote clusters failed to sync after %v", features.RemoteClusterTimeout)
+			timeouts.Increment()
 		})
 		return true
 	}
