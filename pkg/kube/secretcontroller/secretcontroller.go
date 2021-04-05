@@ -232,9 +232,11 @@ func (c *Controller) Run(stopCh <-chan struct{}) {
 	}
 	// all secret events before this signal must be processed before we're marked "ready"
 	c.queue.Add(initialSyncSignal)
-	time.AfterFunc(features.RemoteClusterTimeout, func() {
-		c.remoteSyncTimeout.Store(true)
-	})
+	if features.RemoteClusterTimeout != 0 {
+		time.AfterFunc(features.RemoteClusterTimeout, func() {
+			c.remoteSyncTimeout.Store(true)
+		})
+	}
 	go wait.Until(c.runWorker, 5*time.Second, stopCh)
 	<-stopCh
 	c.close()

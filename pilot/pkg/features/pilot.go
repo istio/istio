@@ -350,7 +350,8 @@ var (
 	RemoteClusterTimeout = env.RegisterDurationVar(
 		"PILOT_REMOTE_CLUSTER_TIMEOUT",
 		30*time.Second,
-		"After this timeout expires, pilot can become ready without syncing data from clusters added via remote-secrets.",
+		"After this timeout expires, pilot can become ready without syncing data from clusters added via remote-secrets. "+
+			"Setting the timeout to 0 disables this behavior.",
 	).Get()
 
 	EndpointTelemetryLabel = env.RegisterBoolVar("PILOT_ENDPOINT_TELEMETRY_LABEL", true,
