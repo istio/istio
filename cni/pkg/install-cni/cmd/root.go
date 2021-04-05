@@ -39,6 +39,7 @@ var rootCmd = &cobra.Command{
 		if cfg, err = constructConfig(); err != nil {
 			return
 		}
+		log.Infof("install cni with configuration: \n%+v", cfg)
 
 		isReady := install.StartServer()
 
