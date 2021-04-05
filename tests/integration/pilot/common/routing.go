@@ -461,7 +461,7 @@ func useClientProtocolCases(apps *EchoDeployments) []TrafficTestCase {
 		TrafficTestCase{
 			name:   "use client protocol with h2",
 			config: useClientProtocolDestinationRule("use-client-protocol-h1", destination.Config().Service),
-			call:   client.CallWithRetryOrFail,
+			call:   client[0].CallWithRetryOrFail,
 			opts: echo.CallOptions{
 				Target:   destination,
 				PortName: "http",
@@ -474,7 +474,7 @@ func useClientProtocolCases(apps *EchoDeployments) []TrafficTestCase {
 		TrafficTestCase{
 			name:   "use client protocol with h1",
 			config: useClientProtocolDestinationRule("use-client-protocol-h1", destination.Config().Service),
-			call:   client.CallWithRetryOrFail,
+			call:   client[0].CallWithRetryOrFail,
 			opts: echo.CallOptions{
 				PortName: "http",
 				Target:   destination,
