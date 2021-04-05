@@ -17,6 +17,7 @@ package model
 import (
 	"testing"
 
+	"github.com/gogo/protobuf/types"
 	"github.com/google/go-cmp/cmp"
 	"google.golang.org/protobuf/testing/protocmp"
 
@@ -39,7 +40,7 @@ func TestTelemetries_EffectiveTelemetry(t *testing.T) {
 						Name: "zipkin",
 					},
 				},
-				RandomSamplingPercentage: 10.10,
+				RandomSamplingPercentage: &types.DoubleValue{Value: 10.10},
 			},
 		},
 	}
@@ -50,7 +51,7 @@ func TestTelemetries_EffectiveTelemetry(t *testing.T) {
 		},
 		Tracing: []*tpb.Tracing{
 			{
-				RandomSamplingPercentage: 77.77,
+				RandomSamplingPercentage: &types.DoubleValue{Value: 77.77},
 			},
 		},
 	}
@@ -58,7 +59,7 @@ func TestTelemetries_EffectiveTelemetry(t *testing.T) {
 	barTrace := &tpb.Telemetry{
 		Tracing: []*tpb.Tracing{
 			{
-				DisableSpanReporting: true,
+				DisableSpanReporting: &types.BoolValue{Value: true},
 			},
 		},
 	}
@@ -115,7 +116,7 @@ func TestTelemetries_EffectiveTelemetry(t *testing.T) {
 								Name: "zipkin",
 							},
 						},
-						RandomSamplingPercentage: 10.10,
+						RandomSamplingPercentage: &types.DoubleValue{Value: 10.10},
 					},
 				},
 			},
@@ -135,8 +136,8 @@ func TestTelemetries_EffectiveTelemetry(t *testing.T) {
 								Name: "zipkin",
 							},
 						},
-						RandomSamplingPercentage: 10.10,
-						DisableSpanReporting:     true,
+						RandomSamplingPercentage: &types.DoubleValue{Value: 10.10},
+						DisableSpanReporting:     &types.BoolValue{Value: true},
 					},
 				},
 			},
@@ -159,7 +160,7 @@ func TestTelemetries_EffectiveTelemetry(t *testing.T) {
 								Name: "zipkin",
 							},
 						},
-						RandomSamplingPercentage: 77.77,
+						RandomSamplingPercentage: &types.DoubleValue{Value: 77.77},
 						// no disableSpanReporting because the missing value overrides
 					},
 				},
@@ -182,8 +183,8 @@ func TestTelemetries_EffectiveTelemetry(t *testing.T) {
 								Name: "zipkin",
 							},
 						},
-						RandomSamplingPercentage: 10.10,
-						DisableSpanReporting:     true,
+						RandomSamplingPercentage: &types.DoubleValue{Value: 10.10},
+						DisableSpanReporting:     &types.BoolValue{Value: true},
 					},
 				},
 			},
@@ -204,7 +205,7 @@ func TestTelemetries_EffectiveTelemetry(t *testing.T) {
 								Name: "not-zipkin",
 							},
 						},
-						RandomSamplingPercentage: 10.10,
+						RandomSamplingPercentage: &types.DoubleValue{Value: 10.10},
 						CustomTags: map[string]*tpb.Tracing_CustomTag{
 							"fun": {Type: &tpb.Tracing_CustomTag_Environment{
 								Environment: &tpb.Tracing_Environment{
