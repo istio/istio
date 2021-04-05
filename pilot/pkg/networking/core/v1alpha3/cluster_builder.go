@@ -546,7 +546,7 @@ func (cb *ClusterBuilder) shouldH2Upgrade(clusterName string, direction model.Tr
 	}
 
 	// Do not upgrade non-http ports. This also ensures that we are only upgrading
-	// named ports so that protocol sniffig does not interfere. Protocol sniffing'
+	// named ports so that protocol sniffing does not interfere. Protocol sniffing
 	// uses downstream protocol. Therefore if the client upgrades connection to http2,
 	// the server will send h2 stream to the application,even though the application only
 	// supports http 1.1.
