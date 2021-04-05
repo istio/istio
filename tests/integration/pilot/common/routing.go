@@ -1322,7 +1322,7 @@ spec:
   trafficPolicy:
     tls:
       mode: SIMPLE
-	connectionPool:
+    connectionPool:
       http:
         useClientProtocol: true
 ---
