@@ -66,6 +66,7 @@ type Controller struct {
 	updateCallback newClientCallback
 	removeCallback removeClientCallback
 
+	once              sync.Once
 	syncInterval      time.Duration
 	initialSync       atomic.Bool
 	remoteSyncTimeout atomic.Bool
@@ -236,22 +237,31 @@ func (c *Controller) close() {
 	}
 }
 
-func (c *Controller) HasSynced() bool {
+func (c *Controller) hasSynced() bool {
 	if !c.initialSync.Load() {
 		// we haven't finished processing the secrets that were present at startup
 		return false
 	}
 	c.cs.RLock()
 	defer c.cs.RUnlock()
-	if c.remoteSyncTimeout.Load() {
-		return true
-	}
 	for _, cluster := range c.cs.remoteClusters {
 		if !cluster.HasSynced() {
 			return false
 		}
 	}
 	return true
+}
+
+func (c *Controller) HasSynced() bool {
+	synced := c.hasSynced()
+	if !synced && c.remoteSyncTimeout.Load() {
+		c.once.Do(func() {
+			log.Errorf("remote clusters failed to sync after %v", features.RemoteClusterTimeout)
+		})
+		return true
+	}
+
+	return synced
 }
 
 // StartSecretController creates the secret controller.
