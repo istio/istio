@@ -23,6 +23,8 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+
+	"istio.io/api/operator/v1alpha1"
 )
 
 type FileFilter func(fileName string) bool
@@ -139,4 +141,12 @@ func RenderTemplate(tmpl string, ts interface{}) (string, error) {
 		return "", err
 	}
 	return buf.String(), nil
+}
+
+// BoolValue returns true if v is not nil and v.Value is true, or false otherwise.
+func BoolValue(v *v1alpha1.BoolValueForPB) bool {
+	if v == nil {
+		return false
+	}
+	return v.Value
 }
