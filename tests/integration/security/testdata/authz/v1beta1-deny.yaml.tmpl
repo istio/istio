@@ -51,3 +51,39 @@ spec:
     - operation:
         paths: ["/allow*"]
 ---
+
+# The following policy denies access to path /allow/admin to workload
+
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: policy-dst2-deny
+  namespace: "{{ .Namespace }}"
+spec:
+  selector:
+    matchLabels:
+      "app": "{{ .dst2 }}"
+  action: DENY
+  rules:
+  - to:
+    - operation:
+        paths: ["/allow/admin"]
+---
+
+# The following policy allows access to path with prefix "/allow" to workload.
+
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: policy-dst2-allow
+  namespace: "{{ .Namespace }}"
+spec:
+  selector:
+    matchLabels:
+      "app": "{{ .dst2 }}"
+  action: ALLOW
+  rules:
+  - to:
+    - operation:
+        paths: ["/allow*"]
+---

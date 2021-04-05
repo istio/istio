@@ -54,6 +54,25 @@ spec:
         notPrincipals: ["*"]
 ---
 
+# The following policy denies access to path with prefix "/prefix" except "/prefix/allowlist" to workload
+
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: policy-{{ .dst3 }}-deny
+  namespace: "{{ .Namespace }}"
+spec:
+  selector:
+    matchLabels:
+      "app": "{{ .dst3 }}"
+  action: DENY
+  rules:
+  - to:
+    - operation:
+        paths: ["/prefix*"]
+        notPaths: ["/prefix/allowlist"]
+---
+
 # The following policy enables mTLS with PERMISSIVE mode for all workloads in the namespace
 
 apiVersion: security.istio.io/v1beta1

@@ -317,12 +317,14 @@ func TestAuthorization_Deny(t *testing.T) {
 			ns := apps.Namespace1
 			rootns := newRootNS(t)
 			dst0 := apps.B.Match(echo.Namespace(apps.Namespace1.Name()))
-			dst1 := apps.VM.Match(echo.Namespace(apps.Namespace1.Name()))
+			dst1 := apps.C.Match(echo.Namespace(apps.Namespace1.Name()))
+			dst2 := apps.VM.Match(echo.Namespace(apps.Namespace1.Name()))
 			args := map[string]string{
 				"Namespace":     ns.Name(),
 				"RootNamespace": rootns.rootNamespace,
 				"dst0":          dst0[0].Config().Service,
 				"dst1":          dst1[0].Config().Service,
+				"dst2":          dst2[0].Config().Service,
 			}
 			applyPolicy := func(filename string, ns namespace.Instance) {
 				policy := tmpl.EvaluateAllOrFail(t, args, file.AsStringOrFail(t, filename))
@@ -371,6 +373,15 @@ func TestAuthorization_Deny(t *testing.T) {
 						newTestCase(dst1, "/other?param=value", false),
 						newTestCase(dst1, "/allow", true),
 						newTestCase(dst1, "/allow?param=value", true),
+						// TODO(JimmyCYJ): support multiple VMs and test deny policies on multiple VMs.
+						newTestCase(dst2, "/allow/admin", false),
+						newTestCase(dst2, "/allow/admin?param=value", false),
+						newTestCase(dst2, "/global-deny", false),
+						newTestCase(dst2, "/global-deny?param=value", false),
+						newTestCase(dst2, "/other", false),
+						newTestCase(dst2, "/other?param=value", false),
+						newTestCase(dst2, "/allow", true),
+						newTestCase(dst2, "/allow?param=value", true),
 					}
 
 					rbacUtil.RunRBACTest(t, cases)
@@ -386,15 +397,17 @@ func TestAuthorization_NegativeMatch(t *testing.T) {
 		Run(func(t framework.TestContext) {
 			ns := apps.Namespace1
 			ns2 := apps.Namespace2
-			dst0 := apps.VM.Match(echo.Namespace(apps.Namespace1.Name()))
-			dst1 := apps.B.Match(echo.Namespace(apps.Namespace1.Name()))
-			dst2 := apps.C.Match(echo.Namespace(apps.Namespace1.Name()))
+			dst0 := apps.B.Match(echo.Namespace(apps.Namespace1.Name()))
+			dst1 := apps.C.Match(echo.Namespace(apps.Namespace1.Name()))
+			dst2 := apps.D.Match(echo.Namespace(apps.Namespace1.Name()))
+			dst3 := apps.VM.Match(echo.Namespace(apps.Namespace1.Name()))
 			args := map[string]string{
 				"Namespace":  ns.Name(),
 				"Namespace2": ns2.Name(),
 				"dst0":       dst0[0].Config().Service,
 				"dst1":       dst1[0].Config().Service,
 				"dst2":       dst2[0].Config().Service,
+				"dst3":       dst3[0].Config().Service,
 			}
 			applyPolicy := func(filename string) {
 				policy := tmpl.EvaluateAllOrFail(t, args, file.AsStringOrFail(t, filename))
@@ -456,6 +469,21 @@ func TestAuthorization_NegativeMatch(t *testing.T) {
 						// bInNs2 should be denied because it's using plain-text.
 						newTestCase(srcA[0], dst2, "/", true),
 						newTestCase(srcBInNS2[0], dst2, "/", false),
+
+						// Test the policy with overlapped `paths` and `not_paths` on dst3.
+						// a and bInNs2 should have the same results:
+						// - path with prefix `/prefix` should be denied explicitly.
+						// - path `/prefix/allowlist` should be excluded from the deny.
+						// - path `/allow` should be allowed implicitly.
+						// TODO(JimmyCYJ): support multiple VMs and test negative match on multiple VMs.
+						newTestCase(srcA[0], dst3, "/prefix", false),
+						newTestCase(srcA[0], dst3, "/prefix/other", false),
+						newTestCase(srcA[0], dst3, "/prefix/allowlist", true),
+						newTestCase(srcA[0], dst3, "/allow", true),
+						newTestCase(srcBInNS2[0], dst3, "/prefix", false),
+						newTestCase(srcBInNS2[0], dst3, "/prefix/other", false),
+						newTestCase(srcBInNS2[0], dst3, "/prefix/allowlist", true),
+						newTestCase(srcBInNS2[0], dst3, "/allow", true),
 					}
 
 					rbacUtil.RunRBACTest(t, cases)
