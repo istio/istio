@@ -1322,10 +1322,11 @@ spec:
   trafficPolicy:
     tls:
       mode: SIMPLE
-    http:
-      useClientProtocol: true
+	connectionPool:
+      http:
+        useClientProtocol: true
 ---
-`, app, app)
+`, name, app)
 }
 
 func peerAuthentication(app, mode string) string {
