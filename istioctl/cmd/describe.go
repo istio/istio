@@ -418,6 +418,8 @@ func renderMatch(match *v1alpha3.HTTPMatchRequest) string {
 
 func printPod(writer io.Writer, pod *v1.Pod) {
 	ports := []string{}
+	UID := int64(1337)
+	UIDWarnMsg := "   WARN: Ensure your pods do not run applications as a user with the user ID (UID) value of 1337\n"
 	for _, container := range pod.Spec.Containers {
 		for _, port := range container.Ports {
 			var protocol string
@@ -426,6 +428,14 @@ func printPod(writer io.Writer, pod *v1.Pod) {
 				protocol = fmt.Sprintf("/%s", port.Protocol)
 			}
 			ports = append(ports, fmt.Sprintf("%d%s (%s)", port.ContainerPort, protocol, container.Name))
+		}
+		// Ref: https://istio.io/latest/docs/ops/deployment/requirements/#pod-requirements
+		if container.Name != "istio-proxy" {
+			if container.SecurityContext != nil && container.SecurityContext.RunAsUser != nil {
+				if *container.SecurityContext.RunAsUser == UID {
+					fmt.Fprintf(writer, UIDWarnMsg)
+				}
+			}
 		}
 	}
 
@@ -454,6 +464,13 @@ func printPod(writer io.Writer, pod *v1.Pod) {
 	if !isMeshed(pod) {
 		fmt.Fprintf(writer, "WARNING: %s is not part of mesh; no Istio sidecar\n", kname(pod.ObjectMeta))
 		return
+	}
+
+	// Ref: https://istio.io/latest/docs/ops/deployment/requirements/#pod-requirements
+	if pod.Spec.SecurityContext != nil && pod.Spec.SecurityContext.RunAsUser != nil {
+		if *pod.Spec.SecurityContext.RunAsUser == UID {
+			fmt.Fprintf(writer, UIDWarnMsg)
+		}
 	}
 
 	// https://istio.io/docs/setup/kubernetes/additional-setup/requirements/
