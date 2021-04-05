@@ -35,6 +35,11 @@ import (
 	"istio.io/istio/pkg/config/labels"
 )
 
+const (
+	RBACShadowRulesAllowStatPrefix = "istio_dry_run_allow_"
+	RBACShadowRulesDenyStatPrefix  = "istio_dry_run_deny_"
+)
+
 var rbacPolicyMatchNever = &rbacpb.Policy{
 	Permissions: []*rbacpb.Permission{{Rule: &rbacpb.Permission_NotRule{
 		NotRule: &rbacpb.Permission{Rule: &rbacpb.Permission_Any{Any: true}},
@@ -165,6 +170,17 @@ func (b Builder) isDryRun(policy model.AuthorizationPolicy) bool {
 	return dryRun
 }
 
+func shadowRuleStatPrefix(rule *rbacpb.RBAC) string {
+	switch rule.GetAction() {
+	case rbacpb.RBAC_ALLOW:
+		return RBACShadowRulesAllowStatPrefix
+	case rbacpb.RBAC_DENY:
+		return RBACShadowRulesDenyStatPrefix
+	default:
+		return ""
+	}
+}
+
 func (b Builder) build(policies []model.AuthorizationPolicy, action rbacpb.RBAC_Action, forTCP bool) *builtConfigs {
 	if len(policies) == 0 {
 		return nil
@@ -246,7 +262,7 @@ func (b Builder) build(policies []model.AuthorizationPolicy, action rbacpb.RBAC_
 func (b Builder) buildHTTP(rules *rbacpb.RBAC, shadowRules *rbacpb.RBAC, providers []string) []*httppb.HttpFilter {
 	if !b.option.IsCustomBuilder {
 		rbac := &rbachttppb.RBAC{
-			Rules: rules, ShadowRules: shadowRules, ShadowRulesStatPrefix: authzmodel.RBACShadowRulesStatPrefix,
+			Rules: rules, ShadowRules: shadowRules, ShadowRulesStatPrefix: shadowRuleStatPrefix(shadowRules),
 		}
 		return []*httppb.HttpFilter{
 			{
@@ -289,7 +305,7 @@ func (b Builder) buildTCP(rules *rbacpb.RBAC, shadowRules *rbacpb.RBAC, provider
 	if !b.option.IsCustomBuilder {
 		rbac := &rbactcppb.RBAC{
 			Rules: rules, StatPrefix: authzmodel.RBACTCPFilterStatPrefix,
-			ShadowRules: shadowRules, ShadowRulesStatPrefix: authzmodel.RBACShadowRulesStatPrefix,
+			ShadowRules: shadowRules, ShadowRulesStatPrefix: shadowRuleStatPrefix(shadowRules),
 		}
 		return []*tcppb.Filter{
 			{
