@@ -159,17 +159,7 @@ func (s *DiscoveryServer) receive(con *Connection, reqChannel chan *discovery.Di
 		}
 	}()
 	defer func() {
-		if con.ConID == "" {
-			return
-		}
-		s.removeCon(con.ConID)
-		if s.StatusGen != nil {
-			s.StatusGen.OnDisconnect(con)
-		}
-		if s.StatusReporter != nil {
-			s.StatusReporter.RegisterDisconnect(con.ConID, AllEventTypesList)
-		}
-		s.WorkloadEntryController.QueueUnregisterWorkload(con.proxy, con.Connect)
+		s.closeConnection(con)
 	}()
 	firstReq := true
 	for {
@@ -534,6 +524,21 @@ func (s *DiscoveryServer) initConnection(node *core.Node, con *Connection) error
 		s.StatusGen.OnConnect(con)
 	}
 	return nil
+}
+
+func (s *DiscoveryServer) closeConnection(con *Connection) {
+	if con.ConID == "" {
+		return
+	}
+	log.Infof("ADS: connection closed for node:%s", con.ConID)
+	s.removeCon(con.ConID)
+	if s.StatusGen != nil {
+		s.StatusGen.OnDisconnect(con)
+	}
+	if s.StatusReporter != nil {
+		s.StatusReporter.RegisterDisconnect(con.ConID, AllEventTypesList)
+	}
+	s.WorkloadEntryController.QueueUnregisterWorkload(con.proxy, con.Connect)
 }
 
 func checkConnectionIdentity(con *Connection) (*spiffe.Identity, error) {

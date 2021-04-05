@@ -216,17 +216,7 @@ func (s *DiscoveryServer) receiveDelta(con *Connection, reqChannel chan *discove
 		}
 	}()
 	defer func() {
-		if con.ConID == "" {
-			return
-		}
-		s.removeCon(con.ConID)
-		if s.StatusGen != nil {
-			s.StatusGen.OnDisconnect(con)
-		}
-		if s.StatusReporter != nil {
-			s.StatusReporter.RegisterDisconnect(con.ConID, AllEventTypesList)
-		}
-		s.WorkloadEntryController.QueueUnregisterWorkload(con.proxy, con.Connect)
+		s.closeConnection(con)
 	}()
 	firstReq := true
 	for {
