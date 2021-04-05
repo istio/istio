@@ -36,6 +36,7 @@ import (
 	"istio.io/istio/pilot/pkg/extensionproviders"
 	"istio.io/istio/pilot/pkg/networking/plugin"
 	authzmodel "istio.io/istio/pilot/pkg/security/authz/model"
+	"istio.io/istio/pkg/util/gogo"
 )
 
 const (
@@ -239,6 +240,7 @@ func generateHTTPConfig(hostname, cluster string, status *envoytypev3.HttpStatus
 	}
 	allowedHeaders := generateHeaders(config.IncludeRequestHeadersInCheck)
 	if allowedHeaders == nil {
+		// IncludeHeadersInCheck is deprecated, only use it if IncludeRequestHeadersInCheck is not set.
 		allowedHeaders = generateHeaders(config.IncludeHeadersInCheck)
 	}
 	var headersToAdd []*envoy_config_core_v3.HeaderValue
@@ -367,7 +369,7 @@ func timeoutOrDefault(t *types.Duration) *duration.Duration {
 		// Default timeout is 600s.
 		return &duration.Duration{Seconds: 600}
 	}
-	return &duration.Duration{Seconds: t.Seconds, Nanos: t.Nanos}
+	return gogo.DurationToProtoDuration(t)
 }
 
 func withBodyRequest(config *meshconfig.MeshConfig_ExtensionProvider_EnvoyExternalAuthorizationRequestBody) *extauthzhttp.BufferSettings {
