@@ -303,7 +303,7 @@ func knownCRDs(ctx context.Context, crdClient apiextensionsclient.Interface) (ma
 			return nil, err
 		}
 		var err error
-		res, err = crdClient.ApiextensionsV1().CustomResourceDefinitions().List(context.TODO(), metav1.ListOptions{})
+		res, err = crdClient.ApiextensionsV1().CustomResourceDefinitions().List(ctx, metav1.ListOptions{})
 		if err == nil {
 			break
 		}

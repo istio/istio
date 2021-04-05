@@ -220,7 +220,7 @@ func (m *Multicluster) AddMemberCluster(clusterID string, rc *secretcontroller.C
 				m.remoteKubeControllers[clusterID].workloadEntryStore.AppendWorkloadHandler(kubeRegistry.WorkloadInstanceHandler)
 				go configStore.Run(clusterStopCh)
 			} else {
-				log.Errorf("failed creating config configStore for cluster %s: %v", clusterID, err)
+				return fmt.Errorf("failed creating config configStore for cluster %s: %v", clusterID, err)
 			}
 		}
 	}
