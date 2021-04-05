@@ -189,8 +189,16 @@ func checkDryRunAnnotation(cfg config.Config, allowed bool) error {
 		if !allowed {
 			return fmt.Errorf("%s/%s has unsupported annotation %s, please remove the annotation", cfg.Namespace, cfg.Name, annotation.IoIstioDryRun.Name)
 		}
-		if _, err := strconv.ParseBool(val); err != nil {
-			return fmt.Errorf("%s/%s has annotation %s with invalid value (%s): %v", cfg.Namespace, cfg.Name, annotation.IoIstioDryRun.Name, val, err)
+		if spec, ok := cfg.Spec.(*security_beta.AuthorizationPolicy); ok {
+			switch spec.Action {
+			case security_beta.AuthorizationPolicy_ALLOW, security_beta.AuthorizationPolicy_DENY:
+				if _, err := strconv.ParseBool(val); err != nil {
+					return fmt.Errorf("%s/%s has annotation %s with invalid value (%s): %v", cfg.Namespace, cfg.Name, annotation.IoIstioDryRun.Name, val, err)
+				}
+			default:
+				return fmt.Errorf("the annotation %s currently only supports action ALLOW/DENY, found action %v in %s/%s",
+					annotation.IoIstioDryRun.Name, spec.Action, cfg.Namespace, cfg.Name)
+			}
 		}
 	}
 	return nil
