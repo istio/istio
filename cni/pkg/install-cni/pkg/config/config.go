@@ -14,6 +14,11 @@
 
 package config
 
+import (
+	"fmt"
+	"strings"
+)
+
 // Config struct defines the Istio CNI installation options
 type Config struct {
 	CNINetDir        string
@@ -37,4 +42,28 @@ type Config struct {
 
 	UpdateCNIBinaries bool
 	SkipCNIBinaries   []string
+}
+
+func (c *Config) String() string {
+	var b strings.Builder
+	b.WriteString("CNINetDir: " + c.CNINetDir + "\n")
+	b.WriteString("MountedCNINetDir: " + c.MountedCNINetDir + "\n")
+	b.WriteString("CNIConfName: " + c.CNIConfName + "\n")
+	b.WriteString("ChainedCNIPlugin: " + fmt.Sprint(c.ChainedCNIPlugin) + "\n")
+	b.WriteString("CNINetworkConfigFile: " + c.CNINetworkConfigFile + "\n")
+	b.WriteString("CNINetworkConfig: " + c.CNINetworkConfig + "\n")
+
+	b.WriteString("LogLevel: " + c.LogLevel + "\n")
+	b.WriteString("KubeconfigFilename: " + c.KubeconfigFilename + "\n")
+	b.WriteString("KubeconfigMode: " + fmt.Sprintf("%#o", c.KubeconfigMode) + "\n")
+	b.WriteString("KubeCAFile: " + c.KubeCAFile + "\n")
+	b.WriteString("SkipTLSVerify: " + fmt.Sprint(c.SkipTLSVerify) + "\n")
+
+	b.WriteString("K8sServiceProtocol: " + c.K8sServiceProtocol + "\n")
+	b.WriteString("K8sServiceHost: " + c.K8sServiceHost + "\n")
+	b.WriteString("K8sServicePort: " + fmt.Sprint(c.K8sServicePort) + "\n")
+	b.WriteString("K8sNodeName: " + c.K8sNodeName + "\n")
+	b.WriteString("UpdateCNIBinaries: " + fmt.Sprint(c.UpdateCNIBinaries) + "\n")
+	b.WriteString("SkipCNIBinaries: " + fmt.Sprint(c.SkipCNIBinaries) + "\n")
+	return b.String()
 }
