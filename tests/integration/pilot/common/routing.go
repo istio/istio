@@ -460,6 +460,7 @@ func useClientProtocolCases(apps *EchoDeployments) []TrafficTestCase {
 	cases = append(cases,
 		TrafficTestCase{
 			name:   "use client protocol with h2",
+			skip:   apps.IsMulticluster(), // Not needed for multi cluster.
 			config: useClientProtocolDestinationRule("use-client-protocol-h1", destination.Config().Service),
 			call:   client[0].CallWithRetryOrFail,
 			opts: echo.CallOptions{
@@ -473,6 +474,7 @@ func useClientProtocolCases(apps *EchoDeployments) []TrafficTestCase {
 		},
 		TrafficTestCase{
 			name:   "use client protocol with h1",
+			skip:   apps.IsMulticluster(), // Not needed for multi cluster.
 			config: useClientProtocolDestinationRule("use-client-protocol-h1", destination.Config().Service),
 			call:   client[0].CallWithRetryOrFail,
 			opts: echo.CallOptions{
