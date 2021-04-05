@@ -298,13 +298,18 @@ func createClusterEnv(wg *clientv1alpha3.WorkloadGroup, config *meshconfig.Proxy
 		portBehavior = strings.Join(ports, ",")
 	}
 
+	excludePorts := "15090,15021"
+	if config.StatusPort != 15090 && config.StatusPort != 15021 && config.StatusPort != 0 {
+		excludePorts += fmt.Sprintf(",%d", config.StatusPort)
+	}
 	// default attributes and service name, namespace, ports, service account, service CIDR
 	overrides := map[string]string{
-		"ISTIO_INBOUND_PORTS": portBehavior,
-		"ISTIO_NAMESPACE":     wg.Namespace,
-		"ISTIO_SERVICE":       fmt.Sprintf("%s.%s", wg.Name, wg.Namespace),
-		"ISTIO_SERVICE_CIDR":  "*",
-		"SERVICE_ACCOUNT":     we.ServiceAccount,
+		"ISTIO_INBOUND_PORTS":       portBehavior,
+		"ISTIO_NAMESPACE":           wg.Namespace,
+		"ISTIO_SERVICE":             fmt.Sprintf("%s.%s", wg.Name, wg.Namespace),
+		"ISTIO_SERVICE_CIDR":        "*",
+		"ISTIO_LOCAL_EXCLUDE_PORTS": excludePorts,
+		"SERVICE_ACCOUNT":           we.ServiceAccount,
 	}
 
 	// clusterEnv will use proxyMetadata from the proxyConfig + overrides specific to the WorkloadGroup and cmd args
