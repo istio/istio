@@ -78,7 +78,7 @@ to upgrade as well by specifying --namespaces to check, or using --all-namespace
 			return nil
 		},
 	}
-	cmd.PersistentFlags().StringArrayVarP(&namespaces, "namespaces", "ns", nil, "check the dataplane in these specific namespaces")
+	cmd.PersistentFlags().StringArrayVar(&namespaces, "namespaces", nil, "check the dataplane in these specific namespaces")
 	cmd.PersistentFlags().BoolVarP(&allNamespaces, "all-namespaces", "A", false, "check the dataplane in all accessible namespaces")
 	cmd.PersistentFlags().BoolVar(&skipControlPlane, "skip-controlplane", false, "skip checking the control plane")
 	opts.AttachControlPlaneFlags(cmd)
