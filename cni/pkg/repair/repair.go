@@ -45,24 +45,27 @@ type Filters struct {
 	LabelSelectors                  string `json:"label_selectors"`
 }
 
-type Metrics struct {
-	// PodsRepaired prometheus.Counter
-	PodsRepaired monitoring.Metric
-}
-
 // The pod reconciler struct. Contains state used to reconcile broken pods.
 type BrokenPodReconciler struct {
 	client  client.Interface
 	Filters *Filters
 	Options *Options
-	Metrics *Metrics
 }
 
-var PodsRepaired = monitoring.NewSum("istio_cni_repair_pods_repaired_total",
-	"Total number of pods repaired by repair controller")
+var (
+	typeLabel  = monitoring.MustCreateLabel("type")
+	deleteType = "delete"
+	labelType  = "label"
+
+	podsRepaired = monitoring.NewSum(
+		"istio_cni_repair_pods_repaired_total",
+		"Total number of pods repaired by repair controller",
+		monitoring.WithLabels(typeLabel),
+	)
+)
 
 func init() {
-	monitoring.MustRegister(PodsRepaired)
+	monitoring.MustRegister(podsRepaired)
 }
 
 // Constructs a new BrokenPodReconciler struct.
@@ -71,7 +74,6 @@ func NewBrokenPodReconciler(client client.Interface, filters *Filters, options *
 		client:  client,
 		Filters: filters,
 		Options: options,
-		Metrics: &Metrics{PodsRepaired: PodsRepaired},
 	}
 }
 
@@ -125,8 +127,8 @@ func (bpr BrokenPodReconciler) labelBrokenPod(pod v1.Pod) (err error) {
 		log.Errorf("Failed to update pod: %s", err)
 		return err
 	}
-	bpr.Metrics.PodsRepaired.Increment()
-	return err
+	podsRepaired.With(typeLabel.Value(labelType)).Increment()
+	return nil
 }
 
 // Delete all pods detected as broken by ListPods
@@ -162,8 +164,9 @@ func (bpr BrokenPodReconciler) deleteBrokenPod(pod v1.Pod) error {
 	log.Infof("Pod detected as broken, deleting: %s/%s", pod.Namespace, pod.Name)
 	err := bpr.client.CoreV1().Pods(pod.Namespace).Delete(context.TODO(), pod.Name, metav1.DeleteOptions{})
 	if err == nil {
-		bpr.Metrics.PodsRepaired.Increment()
+		podsRepaired.With(typeLabel.Value(deleteType)).Increment()
 	}
+	fmt.Printf("bianpengyuan increment delete %+v\n", podsRepaired.Name())
 	return err
 }
 
