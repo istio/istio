@@ -113,7 +113,7 @@ spec:
           imagePullPolicy: {{ .Values.cni.pullPolicy | default .Values.global.imagePullPolicy }}
 {{- end }}
 
-          command: ["/opt/cni/bin/istio-cni-repair"]
+          command: ["/opt/local/bin/istio-cni-repair"]
           env:
           - name: "REPAIR_NODE-NAME"
             valueFrom:
@@ -146,7 +146,7 @@ spec:
 {{- if or .Values.cni.pullPolicy .Values.global.imagePullPolicy }}
           imagePullPolicy: {{ .Values.cni.pullPolicy | default .Values.global.imagePullPolicy }}
 {{- end }}
-          command: ["/opt/cni/bin/istio-cni-taint"]
+          command: ["/opt/local/bin/istio-cni-taint"]
           env:
           - name: "TAINT_RUN-AS-DAEMON"
             value: "true"
