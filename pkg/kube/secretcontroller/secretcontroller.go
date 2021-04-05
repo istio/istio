@@ -24,8 +24,6 @@ import (
 	"sync"
 	"time"
 
-	"istio.io/pkg/monitoring"
-
 	"go.uber.org/atomic"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -41,6 +39,7 @@ import (
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pkg/kube"
 	"istio.io/pkg/log"
+	"istio.io/pkg/monitoring"
 )
 
 const (
