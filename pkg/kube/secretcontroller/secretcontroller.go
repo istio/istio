@@ -56,7 +56,6 @@ type removeClientCallback func(clusterID string) error
 // Controller is the controller implementation for Secret resources
 type Controller struct {
 	kubeclientset kubernetes.Interface
-	configCluster string
 	namespace     string
 	queue         workqueue.RateLimitingInterface
 	informer      cache.SharedIndexInformer
@@ -244,12 +243,11 @@ func (c *Controller) HasSynced() bool {
 	}
 	c.cs.RLock()
 	defer c.cs.RUnlock()
-	for clusterID, cluster := range c.cs.remoteClusters {
-		if c.remoteSyncTimeout.Load() && clusterID != c.configCluster {
-			continue
-		}
+	if c.remoteSyncTimeout.Load() {
+		return true
+	}
+	for _, cluster := range c.cs.remoteClusters {
 		if !cluster.HasSynced() {
-			// TODO timeout
 			return false
 		}
 	}

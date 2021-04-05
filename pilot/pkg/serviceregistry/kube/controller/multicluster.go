@@ -351,7 +351,9 @@ func createConfigStore(client kubelib.Client, revision string, opts Options) (mo
 	workloadEntriesSchemas := collection.NewSchemasBuilder().
 		MustAdd(collections.IstioNetworkingV1Alpha3Workloadentries).
 		Build()
-	return crdclient.NewForSchemas(client, revision, opts.DomainSuffix, workloadEntriesSchemas)
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	return crdclient.NewForSchemas(ctx, client, revision, opts.DomainSuffix, workloadEntriesSchemas)
 }
 
 func (m *Multicluster) updateHandler(svc *model.Service) {
