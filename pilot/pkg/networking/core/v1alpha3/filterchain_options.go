@@ -17,7 +17,9 @@ package v1alpha3
 import (
 	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
 
-	istionetworking "istio.io/istio/pilot/pkg/networking"
+	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pilot/pkg/networking"
+	"istio.io/istio/pilot/pkg/networking/plugin"
 	xdsfilters "istio.io/istio/pilot/pkg/xds/filters"
 )
 
@@ -28,7 +30,7 @@ type FilterChainMatchOptions struct {
 	// Transport protocol of the filter chain match. "tls" or empty
 	TransportProtocol string
 	// Filter chain protocol. HTTP for HTTP proxy and TCP for TCP proxy
-	Protocol istionetworking.ListenerProtocol
+	Protocol networking.ListenerProtocol
 	// Whether this chain should terminate mTLS or not
 	MTLS bool
 }
@@ -43,14 +45,14 @@ var (
 			ApplicationProtocols: mtlsHTTPALPNs,
 			// If client sends mTLS traffic, transport protocol will be set by the TLS inspector
 			TransportProtocol: xdsfilters.TLSTransportProtocol,
-			Protocol:          istionetworking.ListenerProtocolHTTP,
+			Protocol:          networking.ListenerProtocolHTTP,
 			MTLS:              true,
 		},
 		{
 			// client side traffic was detected as HTTP by the outbound listener, sent out as plain text
 			ApplicationProtocols: plaintextHTTPALPNs,
 			// No transport protocol match as this filter chain (+match) will be used for plain text connections
-			Protocol:          istionetworking.ListenerProtocolHTTP,
+			Protocol:          networking.ListenerProtocolHTTP,
 			TransportProtocol: xdsfilters.RawBufferTransportProtocol,
 		},
 		{
@@ -58,14 +60,14 @@ var (
 			ApplicationProtocols: mtlsTCPWithMxcALPNs,
 			// If client sends mTLS traffic, transport protocol will be set by the TLS inspector
 			TransportProtocol: xdsfilters.TLSTransportProtocol,
-			Protocol:          istionetworking.ListenerProtocolTCP,
+			Protocol:          networking.ListenerProtocolTCP,
 			MTLS:              true,
 		},
 		{
 			// client side traffic could not be identified by the outbound listener, sent over plaintext
 			// or it could be that the client has no sidecar. In this case, this filter chain is simply
 			// receiving plaintext TCP traffic.
-			Protocol:          istionetworking.ListenerProtocolTCP,
+			Protocol:          networking.ListenerProtocolTCP,
 			TransportProtocol: xdsfilters.RawBufferTransportProtocol,
 		},
 		{
@@ -76,7 +78,7 @@ var (
 			// inspector would detect this as TLS traffic [not necessarily mTLS]. But since there is no ALPN to match,
 			// this filter chain match will treat the traffic as just another TCP proxy.
 			TransportProtocol: xdsfilters.TLSTransportProtocol,
-			Protocol:          istionetworking.ListenerProtocolTCP,
+			Protocol:          networking.ListenerProtocolTCP,
 		},
 	}
 	inboundPermissiveHTTPFilterChainMatchWithMxcOptions = []FilterChainMatchOptions{
@@ -84,12 +86,12 @@ var (
 			// HTTP over MTLS
 			ApplicationProtocols: allIstioMtlsALPNs,
 			TransportProtocol:    xdsfilters.TLSTransportProtocol,
-			Protocol:             istionetworking.ListenerProtocolHTTP,
+			Protocol:             networking.ListenerProtocolHTTP,
 			MTLS:                 true,
 		},
 		{
 			// Plaintext HTTP
-			Protocol:          istionetworking.ListenerProtocolHTTP,
+			Protocol:          networking.ListenerProtocolHTTP,
 			TransportProtocol: xdsfilters.RawBufferTransportProtocol,
 		},
 		// We do not need to handle other simple TLS or others, as this is explicitly declared as HTTP type.
@@ -99,17 +101,17 @@ var (
 			// MTLS
 			ApplicationProtocols: allIstioMtlsALPNs,
 			TransportProtocol:    xdsfilters.TLSTransportProtocol,
-			Protocol:             istionetworking.ListenerProtocolTCP,
+			Protocol:             networking.ListenerProtocolTCP,
 			MTLS:                 true,
 		},
 		{
 			// Plain TLS
 			TransportProtocol: xdsfilters.TLSTransportProtocol,
-			Protocol:          istionetworking.ListenerProtocolTCP,
+			Protocol:          networking.ListenerProtocolTCP,
 		},
 		{
 			// Plaintext
-			Protocol:          istionetworking.ListenerProtocolTCP,
+			Protocol:          networking.ListenerProtocolTCP,
 			TransportProtocol: xdsfilters.RawBufferTransportProtocol,
 		},
 	}
@@ -119,27 +121,27 @@ var (
 			// client side traffic was detected as HTTP by the outbound listener.
 			// If we are in strict mode, we will get mTLS HTTP ALPNS only.
 			ApplicationProtocols: mtlsHTTPALPNs,
-			Protocol:             istionetworking.ListenerProtocolHTTP,
+			Protocol:             networking.ListenerProtocolHTTP,
 			TransportProtocol:    xdsfilters.TLSTransportProtocol,
 			MTLS:                 true,
 		},
 		{
 			// Could not detect traffic on the client side. Server side has no mTLS.
-			Protocol:          istionetworking.ListenerProtocolTCP,
+			Protocol:          networking.ListenerProtocolTCP,
 			TransportProtocol: xdsfilters.TLSTransportProtocol,
 			MTLS:              true,
 		},
 	}
 	inboundStrictTCPFilterChainMatchOptions = []FilterChainMatchOptions{
 		{
-			Protocol:          istionetworking.ListenerProtocolTCP,
+			Protocol:          networking.ListenerProtocolTCP,
 			TransportProtocol: xdsfilters.TLSTransportProtocol,
 			MTLS:              true,
 		},
 	}
 	inboundStrictHTTPFilterChainMatchOptions = []FilterChainMatchOptions{
 		{
-			Protocol:          istionetworking.ListenerProtocolHTTP,
+			Protocol:          networking.ListenerProtocolHTTP,
 			TransportProtocol: xdsfilters.TLSTransportProtocol,
 			MTLS:              true,
 		},
@@ -148,27 +150,60 @@ var (
 	inboundPlainTextFilterChainMatchOptions = []FilterChainMatchOptions{
 		{
 			ApplicationProtocols: plaintextHTTPALPNs,
-			Protocol:             istionetworking.ListenerProtocolHTTP,
+			Protocol:             networking.ListenerProtocolHTTP,
 			TransportProtocol:    xdsfilters.RawBufferTransportProtocol,
 		},
 		{
 			// Could not detect traffic on the client side. Server side has no mTLS.
-			Protocol:          istionetworking.ListenerProtocolTCP,
+			Protocol:          networking.ListenerProtocolTCP,
 			TransportProtocol: xdsfilters.RawBufferTransportProtocol,
 		},
 	}
 	inboundPlainTextTCPFilterChainMatchOptions = []FilterChainMatchOptions{
 		{
-			Protocol:          istionetworking.ListenerProtocolTCP,
+			Protocol:          networking.ListenerProtocolTCP,
 			TransportProtocol: xdsfilters.RawBufferTransportProtocol,
 		},
 	}
 	inboundPlainTextHTTPFilterChainMatchOptions = []FilterChainMatchOptions{
 		{
-			Protocol:          istionetworking.ListenerProtocolHTTP,
+			Protocol:          networking.ListenerProtocolHTTP,
 			TransportProtocol: xdsfilters.RawBufferTransportProtocol,
 		},
 	}
 
 	emptyFilterChainMatch = &listener.FilterChainMatch{}
 )
+
+// getFilterChainMatchOptions returns the FilterChainMatchOptions that should be used based on mTLS mode and protocol
+func getFilterChainMatchOptions(settings plugin.MTLSSettings, protocol networking.ListenerProtocol) []FilterChainMatchOptions {
+	switch protocol {
+	case networking.ListenerProtocolHTTP:
+		switch settings.Mode {
+		case model.MTLSStrict:
+			return inboundStrictHTTPFilterChainMatchOptions
+		case model.MTLSPermissive:
+			return inboundPermissiveHTTPFilterChainMatchWithMxcOptions
+		default:
+			return inboundPlainTextHTTPFilterChainMatchOptions
+		}
+	case networking.ListenerProtocolAuto:
+		switch settings.Mode {
+		case model.MTLSStrict:
+			return inboundStrictFilterChainMatchOptions
+		case model.MTLSPermissive:
+			return inboundPermissiveFilterChainMatchWithMxcOptions
+		default:
+			return inboundPlainTextFilterChainMatchOptions
+		}
+	default:
+		switch settings.Mode {
+		case model.MTLSStrict:
+			return inboundStrictTCPFilterChainMatchOptions
+		case model.MTLSPermissive:
+			return inboundPermissiveTCPFilterChainMatchWithMxcOptions
+		default:
+			return inboundPlainTextTCPFilterChainMatchOptions
+		}
+	}
+}
