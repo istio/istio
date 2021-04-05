@@ -511,128 +511,130 @@ func TestAuthorization_IngressGateway(t *testing.T) {
 			b := apps.B.Match(echo.Namespace(apps.Namespace1.Name()))
 			vm := apps.VM.Match(echo.Namespace(apps.Namespace1.Name()))
 			for _, dst := range []echo.Instances{b, vm} {
-				args := map[string]string{
-					"Namespace":     ns.Name(),
-					"RootNamespace": rootns.rootNamespace,
-					"dst":           dst[0].Config().Service,
-				}
+				t.NewSubTest(fmt.Sprintf("to %s/", dst[0].Config().Service)).Run(func(t framework.TestContext) {
+					args := map[string]string{
+						"Namespace":     ns.Name(),
+						"RootNamespace": rootns.rootNamespace,
+						"dst":           dst[0].Config().Service,
+					}
 
-				applyPolicy := func(filename string) {
-					policy := tmpl.EvaluateAllOrFail(t, args, file.AsStringOrFail(t, filename))
-					t.Config().ApplyYAMLOrFail(t, "", policy...)
-				}
-				applyPolicy("testdata/authz/v1beta1-ingress-gateway.yaml.tmpl")
+					applyPolicy := func(filename string) {
+						policy := tmpl.EvaluateAllOrFail(t, args, file.AsStringOrFail(t, filename))
+						t.Config().ApplyYAMLOrFail(t, "", policy...)
+					}
+					applyPolicy("testdata/authz/v1beta1-ingress-gateway.yaml.tmpl")
 
-				ingr := ist.IngressFor(t.Clusters().Default())
+					ingr := ist.IngressFor(t.Clusters().Default())
 
-				cases := []struct {
-					Name     string
-					Host     string
-					Path     string
-					IP       string
-					WantCode int
-				}{
-					{
-						Name:     "allow www.company.com",
-						Host:     "www.company.com",
-						Path:     "/",
-						IP:       "172.16.0.1",
-						WantCode: 200,
-					},
-					{
-						Name:     "deny www.company.com/private",
-						Host:     "www.company.com",
-						Path:     "/private",
-						IP:       "172.16.0.1",
-						WantCode: 403,
-					},
-					{
-						Name:     "allow www.company.com/public",
-						Host:     "www.company.com",
-						Path:     "/public",
-						IP:       "172.16.0.1",
-						WantCode: 200,
-					},
-					{
-						Name:     "deny internal.company.com",
-						Host:     "internal.company.com",
-						Path:     "/",
-						IP:       "172.16.0.1",
-						WantCode: 403,
-					},
-					{
-						Name:     "deny internal.company.com/private",
-						Host:     "internal.company.com",
-						Path:     "/private",
-						IP:       "172.16.0.1",
-						WantCode: 403,
-					},
-					{
-						Name:     "deny 172.17.72.46",
-						Host:     "remoteipblocks.company.com",
-						Path:     "/",
-						IP:       "172.17.72.46",
-						WantCode: 403,
-					},
-					{
-						Name:     "deny 192.168.5.233",
-						Host:     "remoteipblocks.company.com",
-						Path:     "/",
-						IP:       "192.168.5.233",
-						WantCode: 403,
-					},
-					{
-						Name:     "allow 10.4.5.6",
-						Host:     "remoteipblocks.company.com",
-						Path:     "/",
-						IP:       "10.4.5.6",
-						WantCode: 200,
-					},
-					{
-						Name:     "deny 10.2.3.4",
-						Host:     "notremoteipblocks.company.com",
-						Path:     "/",
-						IP:       "10.2.3.4",
-						WantCode: 403,
-					},
-					{
-						Name:     "allow 172.23.242.188",
-						Host:     "notremoteipblocks.company.com",
-						Path:     "/",
-						IP:       "172.23.242.188",
-						WantCode: 200,
-					},
-					{
-						Name:     "deny 10.242.5.7",
-						Host:     "remoteipattr.company.com",
-						Path:     "/",
-						IP:       "10.242.5.7",
-						WantCode: 403,
-					},
-					{
-						Name:     "deny 10.124.99.10",
-						Host:     "remoteipattr.company.com",
-						Path:     "/",
-						IP:       "10.124.99.10",
-						WantCode: 403,
-					},
-					{
-						Name:     "allow 10.4.5.6",
-						Host:     "remoteipattr.company.com",
-						Path:     "/",
-						IP:       "10.4.5.6",
-						WantCode: 200,
-					},
-				}
+					cases := []struct {
+						Name     string
+						Host     string
+						Path     string
+						IP       string
+						WantCode int
+					}{
+						{
+							Name:     "allow www.company.com",
+							Host:     "www.company.com",
+							Path:     "/",
+							IP:       "172.16.0.1",
+							WantCode: 200,
+						},
+						{
+							Name:     "deny www.company.com/private",
+							Host:     "www.company.com",
+							Path:     "/private",
+							IP:       "172.16.0.1",
+							WantCode: 403,
+						},
+						{
+							Name:     "allow www.company.com/public",
+							Host:     "www.company.com",
+							Path:     "/public",
+							IP:       "172.16.0.1",
+							WantCode: 200,
+						},
+						{
+							Name:     "deny internal.company.com",
+							Host:     "internal.company.com",
+							Path:     "/",
+							IP:       "172.16.0.1",
+							WantCode: 403,
+						},
+						{
+							Name:     "deny internal.company.com/private",
+							Host:     "internal.company.com",
+							Path:     "/private",
+							IP:       "172.16.0.1",
+							WantCode: 403,
+						},
+						{
+							Name:     "deny 172.17.72.46",
+							Host:     "remoteipblocks.company.com",
+							Path:     "/",
+							IP:       "172.17.72.46",
+							WantCode: 403,
+						},
+						{
+							Name:     "deny 192.168.5.233",
+							Host:     "remoteipblocks.company.com",
+							Path:     "/",
+							IP:       "192.168.5.233",
+							WantCode: 403,
+						},
+						{
+							Name:     "allow 10.4.5.6",
+							Host:     "remoteipblocks.company.com",
+							Path:     "/",
+							IP:       "10.4.5.6",
+							WantCode: 200,
+						},
+						{
+							Name:     "deny 10.2.3.4",
+							Host:     "notremoteipblocks.company.com",
+							Path:     "/",
+							IP:       "10.2.3.4",
+							WantCode: 403,
+						},
+						{
+							Name:     "allow 172.23.242.188",
+							Host:     "notremoteipblocks.company.com",
+							Path:     "/",
+							IP:       "172.23.242.188",
+							WantCode: 200,
+						},
+						{
+							Name:     "deny 10.242.5.7",
+							Host:     "remoteipattr.company.com",
+							Path:     "/",
+							IP:       "10.242.5.7",
+							WantCode: 403,
+						},
+						{
+							Name:     "deny 10.124.99.10",
+							Host:     "remoteipattr.company.com",
+							Path:     "/",
+							IP:       "10.124.99.10",
+							WantCode: 403,
+						},
+						{
+							Name:     "allow 10.4.5.6",
+							Host:     "remoteipattr.company.com",
+							Path:     "/",
+							IP:       "10.4.5.6",
+							WantCode: 200,
+						},
+					}
 
-				for _, tc := range cases {
-					t.NewSubTest(tc.Name).Run(func(t framework.TestContext) {
-						headers := map[string][]string{
-							"X-Forwarded-For": {tc.IP},
-						}
-						authn.CheckIngressOrFail(t, ingr, tc.Host, tc.Path, headers, "", tc.WantCode)
-					})
-				}
+					for _, tc := range cases {
+						t.NewSubTest(tc.Name).Run(func(t framework.TestContext) {
+							headers := map[string][]string{
+								"X-Forwarded-For": {tc.IP},
+							}
+							authn.CheckIngressOrFail(t, ingr, tc.Host, tc.Path, headers, "", tc.WantCode)
+						})
+					}
+				})
 			}
 		})
 }
@@ -645,150 +647,153 @@ func TestAuthorization_EgressGateway(t *testing.T) {
 			ns := apps.Namespace1
 			rootns := newRootNS(t)
 			src0 := apps.A.Match(echo.Namespace(apps.Namespace1.Name()))
-			src1 := apps.VM.Match(echo.Namespace(apps.Namespace1.Name()))
-			// Workload c is accessible via egress gateway.
-			args := map[string]string{
-				"Namespace":     ns.Name(),
-				"RootNamespace": rootns.rootNamespace,
-				"src":           util.ASvc,
-				"dst":           util.CSvc,
-			}
-			policies := tmpl.EvaluateAllOrFail(t, args,
-				file.AsStringOrFail(t, "testdata/authz/v1beta1-egress-gateway.yaml.tmpl"))
-			t.Config().ApplyYAMLOrFail(t, "", policies...)
+			src1 := apps.B.Match(echo.Namespace(apps.Namespace1.Name()))
+			for _, dst := range []string{util.CSvc, util.VMSvc} {
+				t.NewSubTest(fmt.Sprintf("to %s/", dst)).Run(func(t framework.TestContext) {
+					args := map[string]string{
+						"Namespace":     ns.Name(),
+						"RootNamespace": rootns.rootNamespace,
+						"src":           util.ASvc,
+						"dst":           dst,
+					}
+					policies := tmpl.EvaluateAllOrFail(t, args,
+						file.AsStringOrFail(t, "testdata/authz/v1beta1-egress-gateway.yaml.tmpl"))
+					t.Config().ApplyYAMLOrFail(t, "", policies...)
 
-			cases := []struct {
-				name  string
-				path  string
-				code  string
-				body  string
-				host  string
-				from  echo.Workload
-				token string
-			}{
-				{
-					name: "allow path to company.com",
-					path: "/allow",
-					code: response.StatusCodeOK,
-					body: "handled-by-egress-gateway",
-					host: "www.company.com",
-					from: getWorkload(src0[0], t),
-				},
-				{
-					name: "deny path to company.com",
-					path: "/deny",
-					code: response.StatusCodeForbidden,
-					body: "RBAC: access denied",
-					host: "www.company.com",
-					from: getWorkload(src0[0], t),
-				},
-				{
-					name: "allow service account src0 to src0-only.com over mTLS",
-					path: "/",
-					code: response.StatusCodeOK,
-					body: "handled-by-egress-gateway",
-					host: fmt.Sprintf("%s-only.com", src0[0].Config().Service),
-					from: getWorkload(src0[0], t),
-				},
-				{
-					name: "deny service account src1 to src0-only.com over mTLS",
-					path: "/",
-					code: response.StatusCodeForbidden,
-					body: "RBAC: access denied",
-					host: fmt.Sprintf("%s-only.com", src0[0].Config().Service),
-					from: getWorkload(src1[0], t),
-				},
-				{
-					name:  "allow src0 with JWT to jwt-only.com over mTLS",
-					path:  "/",
-					code:  response.StatusCodeOK,
-					body:  "handled-by-egress-gateway",
-					host:  "jwt-only.com",
-					from:  getWorkload(src0[0], t),
-					token: jwt.TokenIssuer1,
-				},
-				{
-					name:  "allow src1 with JWT to jwt-only.com over mTLS",
-					path:  "/",
-					code:  response.StatusCodeOK,
-					body:  "handled-by-egress-gateway",
-					host:  "jwt-only.com",
-					from:  getWorkload(src1[0], t),
-					token: jwt.TokenIssuer1,
-				},
-				{
-					name:  "deny src1 with wrong JWT to jwt-only.com over mTLS",
-					path:  "/",
-					code:  response.StatusCodeForbidden,
-					body:  "RBAC: access denied",
-					host:  "jwt-only.com",
-					from:  getWorkload(src1[0], t),
-					token: jwt.TokenIssuer2,
-				},
-				{
-					name:  "allow service account src0 with JWT to jwt-and-src0-only.com over mTLS",
-					path:  "/",
-					code:  response.StatusCodeOK,
-					body:  "handled-by-egress-gateway",
-					host:  fmt.Sprintf("jwt-and-%s-only.com", src0[0].Config().Service),
-					from:  getWorkload(src0[0], t),
-					token: jwt.TokenIssuer1,
-				},
-				{
-					name:  "deny service account src1 with JWT to jwt-and-src0-only.com over mTLS",
-					path:  "/",
-					code:  response.StatusCodeForbidden,
-					body:  "RBAC: access denied",
-					host:  fmt.Sprintf("jwt-and-%s-only.com", src0[0].Config().Service),
-					from:  getWorkload(src1[0], t),
-					token: jwt.TokenIssuer1,
-				},
-				{
-					name:  "deny service account src0 with wrong JWT to jwt-and-src0-only.com over mTLS",
-					path:  "/",
-					code:  response.StatusCodeForbidden,
-					body:  "RBAC: access denied",
-					host:  fmt.Sprintf("jwt-and-%s-only.com", src0[0].Config().Service),
-					from:  getWorkload(src0[0], t),
-					token: jwt.TokenIssuer2,
-				},
-			}
-
-			for _, tc := range cases {
-				request := &epb.ForwardEchoRequest{
-					// Use a fake IP to make sure the request is handled by our test.
-					Url:   fmt.Sprintf("http://10.4.4.4%s", tc.path),
-					Count: 1,
-					Headers: []*epb.Header{
+					cases := []struct {
+						name  string
+						path  string
+						code  string
+						body  string
+						host  string
+						from  echo.Workload
+						token string
+					}{
 						{
-							Key:   "Host",
-							Value: tc.host,
+							name: "allow path to company.com",
+							path: "/allow",
+							code: response.StatusCodeOK,
+							body: "handled-by-egress-gateway",
+							host: "www.company.com",
+							from: getWorkload(src0[0], t),
 						},
-					},
-				}
-				if tc.token != "" {
-					request.Headers = append(request.Headers, &epb.Header{
-						Key:   "Authorization",
-						Value: "Bearer " + tc.token,
-					})
-				}
-				t.NewSubTest(tc.name).Run(func(t framework.TestContext) {
-					retry.UntilSuccessOrFail(t, func() error {
-						responses, err := tc.from.ForwardEcho(context.TODO(), request)
-						if err != nil {
-							return err
+						{
+							name: "deny path to company.com",
+							path: "/deny",
+							code: response.StatusCodeForbidden,
+							body: "RBAC: access denied",
+							host: "www.company.com",
+							from: getWorkload(src0[0], t),
+						},
+						{
+							name: "allow service account src0 to src0-only.com over mTLS",
+							path: "/",
+							code: response.StatusCodeOK,
+							body: "handled-by-egress-gateway",
+							host: fmt.Sprintf("%s-only.com", src0[0].Config().Service),
+							from: getWorkload(src0[0], t),
+						},
+						{
+							name: "deny service account src1 to src0-only.com over mTLS",
+							path: "/",
+							code: response.StatusCodeForbidden,
+							body: "RBAC: access denied",
+							host: fmt.Sprintf("%s-only.com", src0[0].Config().Service),
+							from: getWorkload(src1[0], t),
+						},
+						{
+							name:  "allow src0 with JWT to jwt-only.com over mTLS",
+							path:  "/",
+							code:  response.StatusCodeOK,
+							body:  "handled-by-egress-gateway",
+							host:  "jwt-only.com",
+							from:  getWorkload(src0[0], t),
+							token: jwt.TokenIssuer1,
+						},
+						{
+							name:  "allow src1 with JWT to jwt-only.com over mTLS",
+							path:  "/",
+							code:  response.StatusCodeOK,
+							body:  "handled-by-egress-gateway",
+							host:  "jwt-only.com",
+							from:  getWorkload(src1[0], t),
+							token: jwt.TokenIssuer1,
+						},
+						{
+							name:  "deny src1 with wrong JWT to jwt-only.com over mTLS",
+							path:  "/",
+							code:  response.StatusCodeForbidden,
+							body:  "RBAC: access denied",
+							host:  "jwt-only.com",
+							from:  getWorkload(src1[0], t),
+							token: jwt.TokenIssuer2,
+						},
+						{
+							name:  "allow service account src0 with JWT to jwt-and-src0-only.com over mTLS",
+							path:  "/",
+							code:  response.StatusCodeOK,
+							body:  "handled-by-egress-gateway",
+							host:  fmt.Sprintf("jwt-and-%s-only.com", src0[0].Config().Service),
+							from:  getWorkload(src0[0], t),
+							token: jwt.TokenIssuer1,
+						},
+						{
+							name:  "deny service account src1 with JWT to jwt-and-src0-only.com over mTLS",
+							path:  "/",
+							code:  response.StatusCodeForbidden,
+							body:  "RBAC: access denied",
+							host:  fmt.Sprintf("jwt-and-%s-only.com", src0[0].Config().Service),
+							from:  getWorkload(src1[0], t),
+							token: jwt.TokenIssuer1,
+						},
+						{
+							name:  "deny service account src0 with wrong JWT to jwt-and-src0-only.com over mTLS",
+							path:  "/",
+							code:  response.StatusCodeForbidden,
+							body:  "RBAC: access denied",
+							host:  fmt.Sprintf("jwt-and-%s-only.com", src0[0].Config().Service),
+							from:  getWorkload(src0[0], t),
+							token: jwt.TokenIssuer2,
+						},
+					}
+
+					for _, tc := range cases {
+						request := &epb.ForwardEchoRequest{
+							// Use a fake IP to make sure the request is handled by our test.
+							Url:   fmt.Sprintf("http://10.4.4.4%s", tc.path),
+							Count: 1,
+							Headers: []*epb.Header{
+								{
+									Key:   "Host",
+									Value: tc.host,
+								},
+							},
 						}
-						if len(responses) < 1 {
-							return fmt.Errorf("received no responses from request to %s", tc.path)
+						if tc.token != "" {
+							request.Headers = append(request.Headers, &epb.Header{
+								Key:   "Authorization",
+								Value: "Bearer " + tc.token,
+							})
 						}
-						if tc.code != responses[0].Code {
-							return fmt.Errorf("want status %s but got %s", tc.code, responses[0].Code)
-						}
-						if !strings.Contains(responses[0].Body, tc.body) {
-							return fmt.Errorf("want %q in body but not found: %s", tc.body, responses[0].Body)
-						}
-						return nil
-					}, retry.Delay(250*time.Millisecond), retry.Timeout(30*time.Second))
+						t.NewSubTest(tc.name).Run(func(t framework.TestContext) {
+							retry.UntilSuccessOrFail(t, func() error {
+								responses, err := tc.from.ForwardEcho(context.TODO(), request)
+								if err != nil {
+									return err
+								}
+								if len(responses) < 1 {
+									return fmt.Errorf("received no responses from request to %s", tc.path)
+								}
+								if tc.code != responses[0].Code {
+									return fmt.Errorf("want status %s but got %s", tc.code, responses[0].Code)
+								}
+								if !strings.Contains(responses[0].Body, tc.body) {
+									return fmt.Errorf("want %q in body but not found: %s", tc.body, responses[0].Body)
+								}
+								return nil
+							}, retry.Delay(250*time.Millisecond), retry.Timeout(30*time.Second))
+						})
+					}
 				})
 			}
 		})
