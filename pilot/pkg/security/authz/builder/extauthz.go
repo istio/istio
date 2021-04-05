@@ -241,6 +241,7 @@ func generateHTTPConfig(hostname, cluster string, status *envoytypev3.HttpStatus
 	allowedHeaders := generateHeaders(config.IncludeRequestHeadersInCheck)
 	if allowedHeaders == nil {
 		// IncludeHeadersInCheck is deprecated, only use it if IncludeRequestHeadersInCheck is not set.
+		// TODO: Remove the IncludeHeadersInCheck field before promoting to beta.
 		allowedHeaders = generateHeaders(config.IncludeHeadersInCheck)
 	}
 	var headersToAdd []*envoy_config_core_v3.HeaderValue
