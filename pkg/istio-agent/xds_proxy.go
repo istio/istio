@@ -783,7 +783,7 @@ func (p *XdsProxy) makeTapHandler() func(w http.ResponseWriter, req *http.Reques
 	}
 }
 
-// initDebugInterface() listens on localhost:15014 for path /debug/...
+// initDebugInterface() listens on localhost:15009 for path /debug/...
 // forwards the paths to Istiod as xDS requests
 // waits for response from Istiod, sends it as JSON
 func (p *XdsProxy) initDebugInterface() error {
@@ -793,7 +793,7 @@ func (p *XdsProxy) initDebugInterface() error {
 	httpMux.HandleFunc("/debug/", p.makeTapHandler())
 
 	p.httpTapServer = &http.Server{
-		Addr:    "localhost:15014",
+		Addr:    "localhost:15009",
 		Handler: httpMux,
 	}
 

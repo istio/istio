@@ -101,7 +101,7 @@ type AgentOptions struct {
 	// ferry Envoy's XDS requests to istiod and responses back to envoy
 	// This flag is temporary until the feature is stabilized.
 	ProxyXDSViaAgent bool
-	// ProxyXDSDebugViaAgent if true will listen on 15014 and forward queries
+	// ProxyXDSDebugViaAgent if true will listen on 15009 and forward queries
 	// to XDS istio.io/debug. (Requires ProxyXDSViaAgent).
 	ProxyXDSDebugViaAgent bool
 	// DNSCapture indicates if the XDS proxy has dns capture enabled or not
