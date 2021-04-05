@@ -32,9 +32,7 @@ import (
 	"istio.io/istio/pkg/util/gogo"
 )
 
-var (
-	defaultDestinationRule = networking.DestinationRule{}
-)
+var defaultDestinationRule = networking.DestinationRule{}
 
 // ClusterBuilder interface provides an abstraction for building Envoy Clusters.
 type ClusterBuilder struct {
@@ -331,7 +329,7 @@ func (cb *ClusterBuilder) buildLocalityLbEndpoints(proxyNetworkView map[string]b
 			ep.LoadBalancingWeight.Value = instance.Endpoint.LbWeight
 		}
 		ep.Metadata = util.BuildLbEndpointMetadata(instance.Endpoint.Network, instance.Endpoint.TLSMode, instance.Endpoint.WorkloadName,
-			instance.Endpoint.Namespace, instance.Endpoint.Locality.ClusterID, instance.Endpoint.Labels)
+			instance.Endpoint.Namespace, instance.Endpoint.Labels)
 		locality := instance.Endpoint.Locality.Label
 		lbEndpoints[locality] = append(lbEndpoints[locality], ep)
 	}
