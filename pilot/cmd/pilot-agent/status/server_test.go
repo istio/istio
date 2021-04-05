@@ -650,12 +650,12 @@ func TestAdditionalProbes(t *testing.T) {
 			err:    errors.New("not ready"),
 		},
 	}
-	testServer := testserver.CreateAndStartServer(liveServerStats, "127.0.0.1:1234")
+	testServer := testserver.CreateAndStartServer(liveServerStats)
 	defer testServer.Close()
 	for _, tc := range testCases {
 		server, err := NewServer(Options{
 			Probes:    tc.probes,
-			AdminPort: 1234,
+			AdminPort: uint16(testServer.Listener.Addr().(*net.TCPAddr).Port),
 		})
 		if err != nil {
 			t.Errorf("failed to construct server")
