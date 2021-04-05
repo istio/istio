@@ -44,6 +44,8 @@ func NewConfigMapWatcher(client kube.Client, namespace, name, key, extraConfig s
 			log.Warnf("failed to read mesh config from ConfigMap: %v", err)
 			return
 		}
+		w.Mutex.Lock()
+		defer w.Mutex.Unlock()
 		w.HandleMeshConfig(meshConfig)
 	})
 
