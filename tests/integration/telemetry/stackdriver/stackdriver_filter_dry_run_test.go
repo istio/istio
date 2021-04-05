@@ -39,7 +39,7 @@ const (
 	dryRunTCPAuthorizationPolicy = "testdata/security_authz_dry_run/tcp_authorization_policy.yaml.tmpl"
 )
 
-// TestStackdriverAuthzDryRun verifies that stackdriver WASM filter exports dry-run metrics with expected labels.
+// TestStackdriverAuthzDryRun verifies that stackdriver WASM filter exports dry-run logs with expected labels for HTTP traffic.
 func TestStackdriverAuthzDryRun(t *testing.T) {
 	framework.NewTest(t).
 		Features("observability.telemetry.stackdriver").
@@ -67,7 +67,7 @@ func TestStackdriverAuthzDryRun(t *testing.T) {
 		})
 }
 
-// TestTCPStackdriverAuthzDryRun verifies that stackdriver TCP filter works.
+// TestTCPStackdriverAuthzDryRun verifies that stackdriver WASM filter exports dry-run logs with expected labels for TCP traffic.
 func TestTCPStackdriverAuthzDryRun(t *testing.T) {
 	framework.NewTest(t).
 		Features("observability.telemetry.stackdriver").
