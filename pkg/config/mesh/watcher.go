@@ -44,7 +44,7 @@ type Watcher interface {
 var _ Watcher = &InternalWatcher{}
 
 type InternalWatcher struct {
-	mutex    sync.Mutex
+	Mutex    sync.Mutex
 	handlers []func()
 	// Current merged mesh config
 	MeshConfig *meshconfig.MeshConfig
@@ -81,6 +81,8 @@ func NewFileWatcher(fileWatcher filewatcher.FileWatcher, filename string) (Watch
 			log.Warnf("failed to read mesh configuration, using default: %v", err)
 			return
 		}
+		w.Mutex.Lock()
+		defer w.Mutex.Unlock()
 		w.HandleMeshConfig(meshConfig)
 	})
 	return w, nil
@@ -93,33 +95,33 @@ func (w *InternalWatcher) Mesh() *meshconfig.MeshConfig {
 
 // AddMeshHandler registers a callback handler for changes to the mesh config.
 func (w *InternalWatcher) AddMeshHandler(h func()) {
-	w.mutex.Lock()
-	defer w.mutex.Unlock()
+	w.Mutex.Lock()
+	defer w.Mutex.Unlock()
 	w.handlers = append(w.handlers, h)
 }
 
 // HandleMeshConfigData keeps track of the standard mesh config. These are merged with the user
 // mesh config, but takes precedence.
 func (w *InternalWatcher) HandleMeshConfigData(yaml string) {
-	w.mutex.Lock()
+	w.Mutex.Lock()
+	defer w.Mutex.Unlock()
 	w.revMeshConfig = yaml
-	w.mutex.Unlock()
-	w.HandleMeshConfig(w.merged())
+	merged := w.merged()
+	w.HandleMeshConfig(merged)
 }
 
 // HandleUserMeshConfig keeps track of user mesh config overrides. These are merged with the standard
 // mesh config, which takes precedence.
 func (w *InternalWatcher) HandleUserMeshConfig(yaml string) {
-	w.mutex.Lock()
+	w.Mutex.Lock()
+	defer w.Mutex.Unlock()
 	w.userMeshConfig = yaml
-	w.mutex.Unlock()
-	w.HandleMeshConfig(w.merged())
+	merged := w.merged()
+	w.HandleMeshConfig(merged)
 }
 
 // merged returns the merged user and revision config.
 func (w *InternalWatcher) merged() *meshconfig.MeshConfig {
-	w.mutex.Lock()
-	defer w.mutex.Unlock()
 	mc := DefaultMeshConfig()
 	if w.userMeshConfig != "" {
 		mc1, err := ApplyMeshConfig(w.userMeshConfig, mc)
@@ -140,10 +142,11 @@ func (w *InternalWatcher) merged() *meshconfig.MeshConfig {
 	return &mc
 }
 
+// HandleMeshConfig calls all handlers for a given mesh configuration update. This must be called
+// with a lock on w.Mutex, or updates may be applied out of order.
 func (w *InternalWatcher) HandleMeshConfig(meshConfig *meshconfig.MeshConfig) {
 	var handlers []func()
 
-	w.mutex.Lock()
 	if !reflect.DeepEqual(meshConfig, w.MeshConfig) {
 		log.Infof("mesh configuration updated to: %s", spew.Sdump(meshConfig))
 		if !reflect.DeepEqual(meshConfig.ConfigSources, w.MeshConfig.ConfigSources) {
@@ -154,7 +157,6 @@ func (w *InternalWatcher) HandleMeshConfig(meshConfig *meshconfig.MeshConfig) {
 		atomic.StorePointer((*unsafe.Pointer)(unsafe.Pointer(&w.MeshConfig)), unsafe.Pointer(meshConfig))
 		handlers = append(handlers, w.handlers...)
 	}
-	w.mutex.Unlock()
 
 	// TODO hack: the first handler added is the ConfigPush, other handlers affect what will be pushed, so reversing iteration
 	for i := len(handlers) - 1; i >= 0; i-- {
