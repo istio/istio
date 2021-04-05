@@ -78,5 +78,6 @@ a new one will be generated on demand.
 |CREDENTIAL_FETCHER_TYPE|allows using custom credential fetcher, for VMs with existing identity|
 |CREDENTIAL_IDENTITY_PROVIDER|just used to control the audience for VMs with existing identity|
 |PROXY_XDS_VIA_AGENT|use istio-agent to proxy XDS. True for all use cases now, likely can be always-on now or soon|
+|PROXY_XDS_DEBUG_VIA_AGENT|Offer XDS istio.io/debug API on agent's 15014 HTTP endpoint. (Requires PROXY_XDS_VIA_AGENT)|
 |{XDS,CA}_ROOT_CA|explicitly configure root certificate path|
 |PILOT_CERT_PROVIDER|just used to determine XDS/CA root certificate; redundant with {XDS,CA}_ROOT_CA.|

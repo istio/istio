@@ -30,7 +30,7 @@ func TestPiggyback(t *testing.T) {
 		RequiresSingleCluster().
 		Run(func(t framework.TestContext) {
 			execCmd := fmt.Sprintf(
-				"kubectl -n %s exec %s -c istio-proxy -- curl localhost:15009/debug/syncz",
+				"kubectl -n %s exec %s -c istio-proxy -- curl localhost:15014/debug/syncz",
 				apps.PodA[0].Config().Namespace.Name(),
 				apps.PodA[0].WorkloadsOrFail(t)[0].PodName())
 			out, err := shell.Execute(false, execCmd)
