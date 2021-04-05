@@ -123,8 +123,8 @@ func TestBadRemoteSecret(t *testing.T) {
 
 			// intentionally not doing this with subtests since it would be pretty slow
 			for name, opts := range map[string][]string{
-				"unreachable server": {"--server", "https://255.255.255.255"},
-				"no permissions":     {"--service-account", "istio-reader-no-perms"},
+				"unreachable server": {"--name", "unreachable", "--server", "https://255.255.255.255"},
+				"no permissions":     {"--name", "no-permissions", "--service-account", "istio-reader-no-perms"},
 			} {
 				secret, err := istio.CreateRemoteSecret(t, remote, i.Settings(), opts...)
 				if err != nil {
