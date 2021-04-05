@@ -584,10 +584,6 @@ func addIstioEndpointLabel(metadata *core.Metadata, key string, val *pstruct.Val
 	metadata.FilterMetadata[IstioMetadataKey].Fields[key] = val
 }
 
-func shouldAddTelemetryLabel(workloadName string) bool {
-	return features.EndpointTelemetryLabel && (workloadName != "")
-}
-
 // IsAllowAnyOutbound checks if allow_any is enabled for outbound traffic
 func IsAllowAnyOutbound(node *model.Proxy) bool {
 	return node.SidecarScope != nil &&

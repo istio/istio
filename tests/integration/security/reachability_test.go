@@ -126,7 +126,6 @@ func TestReachability(t *testing.T) {
 						// have proxy or have mTLS disabled
 						if apps.IsNaked(src) {
 							return apps.IsNaked(opts.Target) || (apps.B.Contains(opts.Target) && opts.PortName != "http")
-
 						}
 						// PeerAuthentication disable mTLS for workload app:b, except http port. Thus, autoMTLS
 						// will fail on all ports on b, except http port.
@@ -144,23 +143,6 @@ func TestReachability(t *testing.T) {
 						// When mTLS is disabled, all traffic should work.
 						return true
 					},
-				},
-				{
-					ConfigFile: "automtls-passthrough.yaml",
-					Namespace:  systemNM,
-					Include: func(src echo.Instance, opts echo.CallOptions) bool {
-						// Exclude calls to the headless TCP port.
-						if apps.IsHeadless(opts.Target) && opts.PortName == "tcp" {
-							return false
-						}
-
-						return true
-					},
-					ExpectSuccess: func(src echo.Instance, opts echo.CallOptions) bool {
-						// When mTLS is disabled, all traffic should work.
-						return true
-					},
-					SkippedForMulticluster: true,
 				},
 				// --------start of auto mtls partial test cases ---------------
 				// The follow three consecutive test together ensures the auto mtls works as intended
