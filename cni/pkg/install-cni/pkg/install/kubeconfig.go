@@ -126,7 +126,7 @@ func createKubeconfigFile(cfg *config.Config, saToken string) (kubeconfigFilepat
 
 	kubeconfigFilepath = filepath.Join(cfg.MountedCNINetDir, cfg.KubeconfigFilename)
 	log.Infof("write kubeconfig file %s with: \n%+v", kubeconfigFilepath, kcbbToPrint.String())
-	if err = os.WriteFile(kubeconfigFilepath, kcbb.Bytes(), os.FileMode(cfg.KubeconfigMode)); err != nil {
+	if err = file.AtomicWrite(kubeconfigFilepath, kcbb.Bytes(), os.FileMode(cfg.KubeconfigMode)); err != nil {
 		return "", err
 	}
 
