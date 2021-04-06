@@ -33,6 +33,7 @@ const (
 	BSvc             = "b"
 	CSvc             = "c"
 	DSvc             = "d"
+	ESvc             = "e"
 	MultiversionSvc  = "multiversion"
 	VMSvc            = "vm"
 	HeadlessSvc      = "headless"
@@ -51,7 +52,7 @@ type EchoDeployments struct {
 	Namespace2 namespace.Instance
 	// Namespace3 is used by TestAuthorization_Conditions and there is one C echo instance deployed
 	Namespace3    namespace.Instance
-	A, B, C, D    echo.Instances
+	A, B, C, D, E echo.Instances
 	Multiversion  echo.Instances
 	Headless      echo.Instances
 	Naked         echo.Instances
@@ -191,6 +192,7 @@ func SetupApps(ctx resource.Context, i istio.Instance, apps *EchoDeployments, bu
 		WithConfig(EchoConfig(BSvc, apps.Namespace1, false, nil)).
 		WithConfig(EchoConfig(CSvc, apps.Namespace1, false, nil)).
 		WithConfig(EchoConfig(DSvc, apps.Namespace1, false, nil)).
+		WithConfig(EchoConfig(ESvc, apps.Namespace1, false, nil)).
 		WithConfig(func() echo.Config {
 			// Multi-version specific setup
 			multiVersionCfg := EchoConfig(MultiversionSvc, apps.Namespace1, false, nil)
@@ -232,6 +234,7 @@ func SetupApps(ctx resource.Context, i istio.Instance, apps *EchoDeployments, bu
 	apps.B = echos.Match(echo.Service(BSvc))
 	apps.C = echos.Match(echo.Service(CSvc))
 	apps.D = echos.Match(echo.Service(DSvc))
+	apps.E = echos.Match(echo.Service(ESvc))
 
 	apps.Multiversion = echos.Match(echo.Service(MultiversionSvc))
 	apps.Headless = echos.Match(echo.Service(HeadlessSvc))

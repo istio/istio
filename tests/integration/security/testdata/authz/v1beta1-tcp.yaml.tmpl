@@ -1,0 +1,89 @@
+# The following policy denies request with path "/data" to port 8091 for workload
+
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: policy-dst0-deny
+  namespace: "{{ .Namespace }}"
+spec:
+  selector:
+    matchLabels:
+      "app": "{{ .dst0 }}"
+  action: DENY
+  rules:
+  - to:
+    - operation:
+        paths: ["/data"]
+        ports: ["8091"]
+---
+
+# The following policy denies:
+# request to port 8090 for workload dst1
+# request to port 8093 with principal suffix matching
+# request to port 8092 with namespace suffix matching
+
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: policy-dst1-deny
+  namespace: "{{ .Namespace }}"
+spec:
+  selector:
+    matchLabels:
+      "app": "{{ .dst1 }}"
+  action: DENY
+  rules:
+  - to:
+    - operation:
+        ports: ["8091"]
+  - to:
+    - operation:
+        ports: ["8094"]
+    from:
+    - source:
+        principals: ["*/ns/{{ .Namespace }}/sa/{{ .src1 }}"]
+  - to:
+    - operation:
+        ports: ["8093"]
+    from:
+    - source:
+        namespaces: ["*{{ .Namespace2 }}"]
+---
+
+# The following policy denies request from service account a and namespace 2 for workload dst2
+
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: policy-dst2-deny
+  namespace: "{{ .Namespace }}"
+spec:
+  selector:
+    matchLabels:
+      "app": "{{ .dst2 }}"
+  action: DENY
+  rules:
+  - from:
+    - source:
+        principals: ["cluster.local/ns/{{ .Namespace }}/sa/{{ .src0 }}"]
+    - source:
+        namespaces: ["{{ .Namespace2 }}"]
+---
+
+# The following policy denies request with path "/other" for workload dst3
+
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: policy-dst3-deny
+  namespace: "{{ .Namespace }}"
+spec:
+  selector:
+    matchLabels:
+      "app": "{{ .dst4 }}"
+  action: DENY
+  rules:
+  - to:
+    - operation:
+        paths: ["/other"]
+---
