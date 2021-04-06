@@ -427,8 +427,12 @@ var (
 
 	SharedMeshConfig = env.RegisterStringVar("SHARED_MESH_CONFIG", "",
 		"Additional config map to load for shared MeshConfig settings. The standard mesh config will take precedence.").Get()
+
 	MultiRootMesh = env.RegisterBoolVar("ISTIO_MULTIROOT_MESH", false,
 		"If enabled, mesh will support certificates signed by more than one trustAnchor for ISTIO_MUTUAL mTLS")
+
+	EnableEnvoyFilterMetrics = env.RegisterBoolVar("PILOT_ENVOY_FILTER_STATS", false,
+		"If true, Pilot will collect metrics for envoy filter operations.").Get()
 )
 
 // UnsafeFeaturesEnabled returns true if any unsafe features are enabled.
