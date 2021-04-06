@@ -141,11 +141,13 @@ func (configgen *ConfigGeneratorImpl) buildGatewayListeners(builder *ListenerBui
 
 		l := buildListener(opts, core.TrafficDirection_OUTBOUND)
 
-		mutable := &istionetworking.MutableObjects{
-			Listener: l,
-			// Note: buildListener creates filter chains but does not populate the filters in the chain; that's what
-			// this is for.
-			FilterChains: filterChains,
+		mutable := &MutableListener{
+			MutableObjects: istionetworking.MutableObjects{
+				Listener: l,
+				// Note: buildListener creates filter chains but does not populate the filters in the chain; that's what
+				// this is for.
+				FilterChains: filterChains,
+			},
 		}
 
 		pluginParams := &plugin.InputParams{
@@ -154,13 +156,13 @@ func (configgen *ConfigGeneratorImpl) buildGatewayListeners(builder *ListenerBui
 			ServiceInstance: si,
 		}
 		for _, p := range configgen.Plugins {
-			if err := p.OnOutboundListener(pluginParams, mutable); err != nil {
+			if err := p.OnOutboundListener(pluginParams, &mutable.MutableObjects); err != nil {
 				log.Warn("buildGatewayListeners: failed to build listener for gateway: ", err.Error())
 			}
 		}
 
 		// Filters are serialized one time into an opaque struct once we have the complete list.
-		if err := buildCompleteFilterChain(mutable, opts); err != nil {
+		if err := mutable.build(opts); err != nil {
 			errs = multierror.Append(errs, fmt.Errorf("gateway omitting listener %q due to: %v", mutable.Listener.Name, err.Error()))
 			continue
 		}
