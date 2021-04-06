@@ -213,7 +213,6 @@ debug and diagnose their Istio mesh.
 	experimentalCmd.AddCommand(tagCommand())
 
 	rootCmd.AddCommand(install.NewVerifyCommand())
-	experimentalCmd.AddCommand(install.NewPrecheckCommand())
 	experimentalCmd.AddCommand(AuthZ())
 	rootCmd.AddCommand(seeExperimentalCmd("authz"))
 	experimentalCmd.AddCommand(uninjectCommand())
