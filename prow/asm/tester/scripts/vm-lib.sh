@@ -209,6 +209,10 @@ which restorecon && sudo restorecon /etc/systemd/system/echo.service
 echo INSTANCE_IP=$INTERNAL_IP >> .echoconfig
 echo CLUSTER_ID=static-vms >> .echoconfig
 sudo mv .echoconfig /etc/.echoconfig
+which restorecon && sudo restorecon /etc/.echoconfig
+sudo chmod +x /usr/sbin/echo
+sudo chmod +r /etc/.echoconfig
+which restorecon && sudo restorecon /usr/sbin/echo
 sudo systemctl daemon-reload
 sudo systemctl restart echo.service
 sudo systemctl enable echo.service

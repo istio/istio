@@ -5,7 +5,7 @@ Requires=service-proxy-agent.service
 
 [Service]
 EnvironmentFile=/etc/.echoconfig
-ExecStart=/usr/sbin/echo \
+ExecStart='/usr/sbin/echo' \
   --cluster "$CLUSTER_ID" \
   --version "v1" \
   --port "18080" \
