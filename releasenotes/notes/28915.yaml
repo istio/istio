@@ -3,4 +3,4 @@ kind: feature
 area: istioctl
 releaseNotes:
   - |
-    **Added** Experimental upgrade-check command to show potential problems before upgrading.
+    **Updated** the experimental `precheck` command to show potential problems before upgrading.
