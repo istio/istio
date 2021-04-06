@@ -817,87 +817,12 @@ func TestAuthorization_TCP(t *testing.T) {
 	framework.NewTest(t).
 		Features("security.authorization.tcp").
 		Run(func(t framework.TestContext) {
-			ns := namespace.NewOrFail(t, t, namespace.Config{
-				Prefix: "v1beta1-tcp-1",
-				Inject: true,
-			})
-			ns2 := namespace.NewOrFail(t, t, namespace.Config{
-				Prefix: "v1beta1-tcp-2",
-				Inject: true,
-			})
-			policy := tmpl.EvaluateAllOrFail(t, map[string]string{
-				"Namespace":  ns.Name(),
-				"Namespace2": ns2.Name(),
-			}, file.AsStringOrFail(t, "testdata/authz/v1beta1-tcp.yaml.tmpl"))
-			t.Config().ApplyYAMLOrFail(t, "", policy...)
-
-			var a, b, c, d, e, x echo.Instance
-			ports := []echo.Port{
-				{
-					Name:         "http-8090",
-					Protocol:     protocol.HTTP,
-					InstancePort: 8090,
-				},
-				{
-					Name:         "http-8091",
-					Protocol:     protocol.HTTP,
-					InstancePort: 8091,
-				},
-				{
-					Name:         "tcp-8092",
-					Protocol:     protocol.TCP,
-					InstancePort: 8092,
-				},
-				{
-					Name:         "tcp-8093",
-					Protocol:     protocol.TCP,
-					InstancePort: 8093,
-				},
-			}
-			echoboot.NewBuilder(t).
-				With(&x, util.EchoConfig("x", ns2, false, nil)).
-				With(&a, echo.Config{
-					Subsets:        []echo.SubsetConfig{{}},
-					Namespace:      ns,
-					Service:        "a",
-					Ports:          ports,
-					ServiceAccount: true,
-				}).
-				With(&b, echo.Config{
-					Namespace:      ns,
-					Subsets:        []echo.SubsetConfig{{}},
-					Service:        "b",
-					Ports:          ports,
-					ServiceAccount: true,
-				}).
-				With(&c, echo.Config{
-					Namespace:      ns,
-					Subsets:        []echo.SubsetConfig{{}},
-					Service:        "c",
-					Ports:          ports,
-					ServiceAccount: true,
-				}).
-				With(&d, echo.Config{
-					Namespace:      ns,
-					Subsets:        []echo.SubsetConfig{{}},
-					Service:        "d",
-					Ports:          ports,
-					ServiceAccount: true,
-				}).
-				With(&e, echo.Config{
-					Namespace:      ns,
-					Service:        "e",
-					Ports:          ports,
-					ServiceAccount: true,
-				}).
-				BuildOrFail(t)
-
-			newTestCase := func(from, target echo.Instance, port string, expectAllowed bool, scheme scheme.Instance) rbacUtil.TestCase {
+			newTestCase := func(from, target echo.Instances, port string, expectAllowed bool, scheme scheme.Instance) rbacUtil.TestCase {
 				return rbacUtil.TestCase{
 					Request: connection.Checker{
-						From: from,
+						From: from[0],
 						Options: echo.CallOptions{
-							Target:   target,
+							Target:   target[0],
 							PortName: port,
 							Scheme:   scheme,
 							Path:     "/data",
@@ -906,54 +831,114 @@ func TestAuthorization_TCP(t *testing.T) {
 					ExpectAllowed: expectAllowed,
 				}
 			}
+			ns := apps.Namespace1
+			ns2 := apps.Namespace2
+			src0 := apps.A.Match(echo.Namespace(ns.Name()))
+			src1 := apps.B.Match(echo.Namespace(ns.Name()))
+			src2 := apps.E.Match(echo.Namespace(ns.Name()))
+			src3 := apps.C.Match(echo.Namespace(ns2.Name()))
 
-			cases := []rbacUtil.TestCase{
-				// The policy on workload b denies request with path "/data" to port 8090:
-				// - request to port http-8090 should be denied because both path and port are matched.
-				// - request to port http-8091 should be allowed because the port is not matched.
-				// - request to port tcp-8092 should be allowed because the port is not matched.
-				newTestCase(a, b, "http-8090", false, scheme.HTTP),
-				newTestCase(a, b, "http-8091", true, scheme.HTTP),
-				newTestCase(a, b, "tcp-8092", true, scheme.TCP),
+			dst0 := apps.B.Match(echo.Namespace(ns.Name()))
+			dst1 := apps.C.Match(echo.Namespace(ns.Name()))
+			dst2 := apps.D.Match(echo.Namespace(ns.Name()))
+			dst3 := apps.E.Match(echo.Namespace(ns.Name()))
+			dst4 := apps.A.Match(echo.Namespace(ns.Name()))
+			t.NewSubTest(fmt.Sprintf("to %s %s %s %s %s", dst0[0].Config().Service,
+				dst1[0].Config().Service, dst2[0].Config().Service, dst3[0].Config().Service, dst4[0].Config().Service)).
+				Run(func(t framework.TestContext) {
+					policy := tmpl.EvaluateAllOrFail(t, map[string]string{
+						"Namespace":  ns.Name(),
+						"Namespace2": ns2.Name(),
+						"dst0":       dst0[0].Config().Service,
+						"dst1":       dst1[0].Config().Service,
+						"dst2":       dst2[0].Config().Service,
+						"dst4":       dst4[0].Config().Service,
+						"src0":       src0[0].Config().Service,
+						"src1":       src1[0].Config().Service,
+					}, file.AsStringOrFail(t, "testdata/authz/v1beta1-tcp.yaml.tmpl"))
+					t.Config().ApplyYAMLOrFail(t, "", policy...)
+					cases := []rbacUtil.TestCase{
+						// The policy on workload dst0 denies request with path "/data" to port 8091:
+						// - request to port http-8091 should be denied because both path and port are matched.
+						// - request to port http-8092 should be allowed because the port is not matched.
+						// - request to port tcp-8093 should be allowed because the port is not matched.
+						newTestCase(src0, dst0, "http-8091", false, scheme.HTTP),
+						newTestCase(src0, dst0, "http-8092", true, scheme.HTTP),
+						newTestCase(src0, dst0, "tcp-8093", true, scheme.TCP),
 
-				// The policy on workload c denies request to port 8090:
-				// - request to port http-8090 should be denied because the port is matched.
-				// - request to http port 8091 should be allowed because the port is not matched.
-				// - request to tcp port 8092 should be allowed because the port is not matched.
-				// - request from b to tcp port 8092 should be allowed by default.
-				// - request from b to tcp port 8093 should be denied because the principal is matched.
-				// - request from x to tcp port 8092 should be denied because the namespace is matched.
-				// - request from x to tcp port 8093 should be allowed by default.
-				newTestCase(a, c, "http-8090", false, scheme.HTTP),
-				newTestCase(a, c, "http-8091", true, scheme.HTTP),
-				newTestCase(a, c, "tcp-8092", true, scheme.TCP),
-				newTestCase(b, c, "tcp-8092", true, scheme.TCP),
-				newTestCase(b, c, "tcp-8093", false, scheme.TCP),
-				newTestCase(x, c, "tcp-8092", false, scheme.TCP),
-				newTestCase(x, c, "tcp-8093", true, scheme.TCP),
+						// The policy on workload dst1 denies request to port 8091:
+						// - request to port http-8091 should be denied because the port is matched.
+						// - request to http port 8092 should be allowed because the port is not matched.
+						// - request to tcp port 8093 should be allowed because the port is not matched.
+						// - request from src1 to tcp port 8093 should be allowed by default.
+						// - request from src1 to tcp port 8094 should be denied because the principal is matched.
+						// - request from src3 to tcp port 8093 should be denied because the namespace is matched.
+						// - request from src3 to tcp port 8094 should be allowed by default.
+						newTestCase(src0, dst1, "http-8091", false, scheme.HTTP),
+						newTestCase(src0, dst1, "http-8092", true, scheme.HTTP),
+						newTestCase(src0, dst1, "tcp-8093", true, scheme.TCP),
+						newTestCase(src1, dst1, "tcp-8093", true, scheme.TCP),
+						newTestCase(src1, dst1, "tcp-8094", false, scheme.TCP),
+						newTestCase(src3, dst1, "tcp-8093", false, scheme.TCP),
+						newTestCase(src3, dst1, "tcp-8094", true, scheme.TCP),
 
-				// The policy on workload d denies request from service account a and workloads in namespace 2:
-				// - request from a to d should be denied because it has service account a.
-				// - request from b to d should be allowed.
-				// - request from c to d should be allowed.
-				// - request from x to a should be allowed because there is no policy on a.
-				// - request from x to d should be denied because it's in namespace 2.
-				newTestCase(a, d, "tcp-8092", false, scheme.TCP),
-				newTestCase(b, d, "tcp-8092", true, scheme.TCP),
-				newTestCase(c, d, "tcp-8092", true, scheme.TCP),
-				newTestCase(x, a, "tcp-8092", true, scheme.TCP),
-				newTestCase(x, d, "tcp-8092", false, scheme.TCP),
+						// The policy on workload dst2 denies request from service account src0 and workloads in namespace 2:
+						// - request from src0 to dst2 should be denied because it has service account src0.
+						// - request from src1 to dst2 should be allowed.
+						// - request from src2 to dst2 should be allowed.
+						// - request from src3 to dst3 should be allowed because there is no policy on src1.
+						// - request from src3 to dst2 should be denied because it's in namespace 2.
+						newTestCase(src0, dst2, "tcp-8093", false, scheme.TCP),
+						newTestCase(src1, dst2, "tcp-8093", true, scheme.TCP),
+						newTestCase(src2, dst2, "tcp-8093", true, scheme.TCP),
+						newTestCase(src3, dst3, "tcp-8093", true, scheme.TCP),
+						newTestCase(src3, dst2, "tcp-8093", false, scheme.TCP),
 
-				// The policy on workload e denies request with path "/other":
-				// - request to port http-8090 should be allowed because the path is not matched.
-				// - request to port http-8091 should be allowed because the path is not matched.
-				// - request to port tcp-8092 should be denied because policy uses HTTP fields.
-				newTestCase(a, e, "http-8090", true, scheme.HTTP),
-				newTestCase(a, e, "http-8091", true, scheme.HTTP),
-				newTestCase(a, e, "tcp-8092", false, scheme.TCP),
-			}
+						// The policy on workload dst4 denies request with path "/other":
+						// - request to port http-8091 should be allowed because the path is not matched.
+						// - request to port http-8092 should be allowed because the path is not matched.
+						// - request to port tcp-8093 should be denied because policy uses HTTP fields.
+						newTestCase(src2, dst4, "http-8091", true, scheme.HTTP),
+						newTestCase(src2, dst4, "http-8092", true, scheme.HTTP),
+						newTestCase(src2, dst4, "tcp-8093", false, scheme.TCP),
+					}
 
-			rbacUtil.RunRBACTest(t, cases)
+					rbacUtil.RunRBACTest(t, cases)
+				})
+			// TODO(JimmyCYJ): support multiple VMs and apply different security policies to each VM.
+			dst1 = apps.VM.Match(echo.Namespace(ns.Name()))
+			t.NewSubTest(fmt.Sprintf("to %s", dst1[0].Config().Service)).
+				Run(func(t framework.TestContext) {
+					policy := tmpl.EvaluateAllOrFail(t, map[string]string{
+						"Namespace":  ns.Name(),
+						"Namespace2": ns2.Name(),
+						"dst0":       dst0[0].Config().Service,
+						"dst1":       dst1[0].Config().Service,
+						"dst2":       dst2[0].Config().Service,
+						"dst4":       dst4[0].Config().Service,
+						"src0":       src0[0].Config().Service,
+						"src1":       src1[0].Config().Service,
+					}, file.AsStringOrFail(t, "testdata/authz/v1beta1-tcp.yaml.tmpl"))
+					t.Config().ApplyYAMLOrFail(t, "", policy...)
+					cases := []rbacUtil.TestCase{
+						// The policy on workload dst1 denies request to port 8091:
+						// - request to port http-8091 should be denied because the port is matched.
+						// - request to http port 8092 should be allowed because the port is not matched.
+						// - request to tcp port 8093 should be allowed because the port is not matched.
+						// - request from src1 to tcp port 8093 should be allowed by default.
+						// - request from src1 to tcp port 8094 should be denied because the principal is matched.
+						// - request from src3 to tcp port 8093 should be denied because the namespace is matched.
+						// - request from src3 to tcp port 8094 should be allowed by default.
+						newTestCase(src0, dst1, "http-8091", false, scheme.HTTP),
+						newTestCase(src0, dst1, "http-8092", true, scheme.HTTP),
+						newTestCase(src0, dst1, "tcp-8093", true, scheme.TCP),
+						newTestCase(src1, dst1, "tcp-8093", true, scheme.TCP),
+						newTestCase(src1, dst1, "tcp-8094", false, scheme.TCP),
+						newTestCase(src3, dst1, "tcp-8093", false, scheme.TCP),
+						newTestCase(src3, dst1, "tcp-8094", true, scheme.TCP),
+					}
+					rbacUtil.RunRBACTest(t, cases)
+				})
 		})
 }
 
