@@ -409,10 +409,6 @@ func doHTTPFilterListOperation(patchContext networking.EnvoyFilter_PatchContext,
 		doHTTPFilterOperation(patchContext, patches, listener, fc, filter, httpFilter, &httpFiltersRemoved)
 	}
 	for _, cp := range patches[networking.EnvoyFilter_HTTP_FILTER] {
-		// We should process INSERT_AFTER patches at the end so that we can apply them after other patches.
-		if cp.Operation == networking.EnvoyFilter_Patch_INSERT_AFTER {
-			continue
-		}
 		if !commonConditionMatch(patchContext, cp) ||
 			!listenerMatch(listener, cp) ||
 			!filterChainMatch(listener, fc, cp) ||
@@ -447,6 +443,32 @@ func doHTTPFilterListOperation(patchContext networking.EnvoyFilter_PatchContext,
 			hcm.HttpFilters = append(hcm.HttpFilters, clonedVal)
 			copy(hcm.HttpFilters[insertPosition+1:], hcm.HttpFilters[insertPosition:])
 			hcm.HttpFilters[insertPosition] = clonedVal
+		} else if cp.Operation == networking.EnvoyFilter_Patch_INSERT_AFTER {
+			// Insert after without a filter match is same as ADD in the end
+			if !hasHTTPFilterMatch(cp) {
+				hcm.HttpFilters = append(hcm.HttpFilters, proto.Clone(cp.Value).(*http_conn.HttpFilter))
+				continue
+			}
+
+			// find the matching filter first
+			insertPosition := -1
+			for i := 0; i < len(hcm.HttpFilters); i++ {
+				if httpFilterMatch(hcm.HttpFilters[i], cp) {
+					insertPosition = i + 1
+					break
+				}
+			}
+
+			if insertPosition == -1 {
+				continue
+			}
+
+			clonedVal := proto.Clone(cp.Value).(*http_conn.HttpFilter)
+			hcm.HttpFilters = append(hcm.HttpFilters, clonedVal)
+			if insertPosition < len(hcm.HttpFilters)-1 {
+				copy(hcm.HttpFilters[insertPosition+1:], hcm.HttpFilters[insertPosition:])
+				hcm.HttpFilters[insertPosition] = clonedVal
+			}
 		} else if cp.Operation == networking.EnvoyFilter_Patch_REPLACE {
 			if !hasHTTPFilterMatch(cp) {
 				continue
@@ -468,43 +490,6 @@ func doHTTPFilterListOperation(patchContext networking.EnvoyFilter_PatchContext,
 
 			clonedVal := proto.Clone(cp.Value).(*http_conn.HttpFilter)
 			hcm.HttpFilters[replacePosition] = clonedVal
-		}
-	}
-	// Process INSERT_AFTER now.
-	for _, cp := range patches[networking.EnvoyFilter_HTTP_FILTER] {
-		if cp.Operation != networking.EnvoyFilter_Patch_INSERT_AFTER {
-			continue
-		}
-		if !commonConditionMatch(patchContext, cp) ||
-			!listenerMatch(listener, cp) ||
-			!filterChainMatch(listener, fc, cp) ||
-			!networkFilterMatch(filter, cp) {
-			continue
-		}
-		// Insert after without a filter match is same as ADD in the end
-		if !hasHTTPFilterMatch(cp) {
-			hcm.HttpFilters = append(hcm.HttpFilters, proto.Clone(cp.Value).(*http_conn.HttpFilter))
-			continue
-		}
-
-		// find the matching filter first
-		insertPosition := -1
-		for i := 0; i < len(hcm.HttpFilters); i++ {
-			if httpFilterMatch(hcm.HttpFilters[i], cp) {
-				insertPosition = i + 1
-				break
-			}
-		}
-
-		if insertPosition == -1 {
-			continue
-		}
-
-		clonedVal := proto.Clone(cp.Value).(*http_conn.HttpFilter)
-		hcm.HttpFilters = append(hcm.HttpFilters, clonedVal)
-		if insertPosition < len(hcm.HttpFilters)-1 {
-			copy(hcm.HttpFilters[insertPosition+1:], hcm.HttpFilters[insertPosition:])
-			hcm.HttpFilters[insertPosition] = clonedVal
 		}
 	}
 	if httpFiltersRemoved {
