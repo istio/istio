@@ -34,6 +34,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"istio.io/istio/galley/pkg/config/analysis/diag"
+	"istio.io/istio/galley/pkg/config/analysis/msg"
 	"istio.io/istio/galley/pkg/config/source/kube/rt"
 	"istio.io/istio/istioctl/pkg/clioptions"
 	"istio.io/istio/istioctl/pkg/install/k8sversion"
@@ -190,12 +191,10 @@ func checkInstallPermissions(cli kube.ExtendedClient) (diag.Messages, error) {
 		},
 	}
 	msgs := diag.Messages{}
-	// TODO real message
-	mt := diag.NewMessageType(diag.Error, "IST1339", "Missing required permission to create resource %v (%v)")
 	for _, r := range Resources {
 		err := checkCanCreateResources(cli, r.namespace, r.group, r.version, r.name)
 		if err != nil {
-			msgs.Add(diag.NewMessage(mt, &resource.Instance{Origin: clusterOrigin{}}, r.name, err))
+			msgs.Add(msg.NewInsufficientPermissions(&resource.Instance{Origin: clusterOrigin{}}, r.name, err.Error()))
 		}
 	}
 	return msgs, nil
@@ -214,7 +213,7 @@ func checkCanCreateResources(c kube.ExtendedClient, namespace, group, version, n
 		},
 	}
 
-	response, err := c.AuthorizationV1().SelfSubjectAccessReviews().Create(context.TODO(), s, metav1.CreateOptions{})
+	response, err := c.AuthorizationV1().SelfSubjectAccessReviews().Create(context.Background(), s, metav1.CreateOptions{})
 	if err != nil {
 		return err
 	}
@@ -229,8 +228,6 @@ func checkCanCreateResources(c kube.ExtendedClient, namespace, group, version, n
 }
 
 func checkServerVersion(cli kube.ExtendedClient) (diag.Messages, error) {
-	// TODO real message
-	mt := diag.NewMessageType(diag.Error, "IST1338", "The Kubernetes Version %q is lower than the minimum version: 1."+fmt.Sprint(k8sversion.MinK8SVersion))
 	v, err := cli.GetKubernetesVersion()
 	if err != nil {
 		return nil, err
@@ -241,7 +238,7 @@ func checkServerVersion(cli kube.ExtendedClient) (diag.Messages, error) {
 	}
 	if !compatible {
 		return []diag.Message{
-			diag.NewMessage(mt, &resource.Instance{Origin: clusterOrigin{}}, v.String()),
+			msg.NewUnsupportedKubernetesVersion(&resource.Instance{Origin: clusterOrigin{}}, v.String(), fmt.Sprintf("1.%d", k8sversion.MinK8SVersion)),
 		}, nil
 	}
 	return nil, nil
@@ -262,9 +259,6 @@ func checkDataPlane(cli kube.ExtendedClient, namespace string) (diag.Messages, e
 }
 
 func checkListeners(cli kube.ExtendedClient, namespace string) (diag.Messages, error) {
-	// TODO real message
-	mt := diag.NewMessageType(diag.Warning, "IST1337", "Port %v listens on localhost and will no longer be exposed to other pods.")
-
 	pods, err := cli.CoreV1().Pods(namespace).List(context.Background(), metav1.ListOptions{
 		// Find all injected pods
 		LabelSelector: "security.istio.io/tlsMode=istio",
@@ -345,7 +339,7 @@ func checkListeners(cli kube.ExtendedClient, namespace string) (diag.Messages, e
 			for port, status := range ports {
 				// Binding to localhost no longer works out of the box on Istio 1.10+, give them a warning.
 				if status.Lo == true {
-					messages.Add(diag.NewMessage(mt, &resource.Instance{Origin: origin}, fmt.Sprint(port)))
+					messages.Add(msg.NewLocalhostListener(&resource.Instance{Origin: origin}, fmt.Sprint(port)))
 				}
 			}
 			return nil
