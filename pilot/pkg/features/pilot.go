@@ -431,7 +431,7 @@ var (
 	MultiRootMesh = env.RegisterBoolVar("ISTIO_MULTIROOT_MESH", false,
 		"If enabled, mesh will support certificates signed by more than one trustAnchor for ISTIO_MUTUAL mTLS")
 
-	EnableEnvoyFilterMetrics = env.RegisterBoolVar("PILOT_ENVOY_FILTER_STATS", true,
+	EnableEnvoyFilterMetrics = env.RegisterBoolVar("PILOT_ENVOY_FILTER_STATS", false,
 		"If true, Pilot will collect metrics for envoy filter operations.").Get()
 )
 
