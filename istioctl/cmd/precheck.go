@@ -17,38 +17,37 @@ package cmd
 import (
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"net"
-	"os"
 	"strconv"
 	"strings"
 
 	adminapi "github.com/envoyproxy/go-control-plane/envoy/admin/v3"
 	cluster "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
+	"github.com/fatih/color"
 	"github.com/golang/protobuf/jsonpb"
 	"github.com/golang/protobuf/ptypes"
 	"github.com/spf13/cobra"
 	"golang.org/x/sync/errgroup"
 	"golang.org/x/sync/semaphore"
+	authorizationapi "k8s.io/api/authorization/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	"istio.io/istio/galley/pkg/config/analysis"
 	"istio.io/istio/galley/pkg/config/analysis/diag"
-	"istio.io/istio/galley/pkg/config/analysis/local"
-	cfgKube "istio.io/istio/galley/pkg/config/source/kube"
 	"istio.io/istio/galley/pkg/config/source/kube/rt"
 	"istio.io/istio/istioctl/pkg/clioptions"
+	"istio.io/istio/istioctl/pkg/install/k8sversion"
 	"istio.io/istio/istioctl/pkg/util/formatting"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/config/resource"
-	"istio.io/istio/pkg/config/schema"
 	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/kube"
+	"istio.io/istio/pkg/url"
 )
 
 func preCheck() *cobra.Command {
 	var opts clioptions.ControlPlaneOptions
-	var namespaces []string
 	var skipControlPlane bool
 	// cmd represents the upgradeCheck command
 	cmd := &cobra.Command{
@@ -69,65 +68,223 @@ func preCheck() *cobra.Command {
 					return err
 				}
 			}
-			if len(namespaces) == 0 {
-				namespaces = []string{metav1.NamespaceAll}
-			}
-			for _, ns := range namespaces {
-				nsmsgs, err := checkDataPlane(cli, ns)
-				if err != nil {
-					return err
-				}
-				msgs.Add(nsmsgs...)
-
-			}
-			// Print all the messages to stdout in the specified format
-			msgs = msgs.SortedDedupedCopy()
-			output, err := formatting.Print(msgs.SortedDedupedCopy(), msgOutputFormat, colorize)
+			nsmsgs, err := checkDataPlane(cli, namespace)
 			if err != nil {
 				return err
 			}
-			fmt.Fprintln(cmd.OutOrStdout(), output)
-			if len(msgs) > 0 {
-				os.Exit(2)
+			msgs.Add(nsmsgs...)
+			// Print all the messages to stdout in the specified format
+			msgs = msgs.SortedDedupedCopy()
+			output, err := formatting.Print(msgs, msgOutputFormat, colorize)
+			if err != nil {
+				return err
+			}
+			if len(msgs) == 0 {
+				fmt.Fprintf(cmd.ErrOrStderr(), color.New(color.FgGreen).Sprint("✔")+" No issues found when checking the cluster. Istio is safe to install or upgrade!\n"+
+					"  To get started, check out https://istio.io/latest/docs/setup/getting-started/\n")
+			} else {
+				fmt.Fprintln(cmd.OutOrStdout(), output)
+			}
+			for _, m := range msgs {
+				if m.Type.Level().IsWorseThanOrEqualTo(diag.Warning) {
+					return fmt.Errorf(`Issues found when checking the cluster. Istio may not be safe to install or upgrade.
+See %s for more information about causes and resolutions.`, url.ConfigAnalysis)
+				}
 			}
 			return nil
 		},
 	}
-	cmd.PersistentFlags().StringArrayVar(&namespaces, "namespaces", nil, "check the dataplane in these specific namespaces. If not provided, all namespaces are checked")
 	cmd.PersistentFlags().BoolVar(&skipControlPlane, "skip-controlplane", false, "skip checking the control plane")
 	opts.AttachControlPlaneFlags(cmd)
 	return cmd
 }
 
 func checkControlPlane(cli kube.ExtendedClient) (diag.Messages, error) {
-	// TODO add control plane analyzers
-	sa := local.NewSourceAnalyzer(schema.MustGet(), analysis.Combine("upgrade precheck"),
-		resource.Namespace(metav1.NamespaceAll), resource.Namespace(istioNamespace), nil, true, analysisTimeout)
-	sa.AddRunningKubeSource(cfgKube.NewInterfaces(cli.RESTConfig()))
-
-	cancel := make(chan struct{})
-	result, err := sa.Analyze(cancel)
-	if err != nil {
-		return nil, err
-	}
-	return result.Messages, nil
-}
-
-func checkDataPlane(cli kube.ExtendedClient, namespace string) (diag.Messages, error) {
 	msgs := diag.Messages{}
 
-	listenerMsgs, err := checkListeners(cli, namespace)
-	if err != nil {
+	if m, err := checkServerVersion(cli); err != nil {
 		return nil, err
+	} else {
+		msgs = append(msgs, m...)
 	}
-	msgs = append(msgs, listenerMsgs...)
+
+	if m, err := checkInstallPermissions(cli); err != nil {
+		return nil, err
+	} else {
+		msgs = append(msgs, m...)
+	}
 
 	// TODO: add more checks
 
 	return msgs, nil
 }
 
-func checkListeners(cli kube.ExtendedClient, n string) (diag.Messages, error) {
+func checkInstallPermissions(cli kube.ExtendedClient) (diag.Messages, error) {
+	Resources := []struct {
+		namespace string
+		group     string
+		version   string
+		name      string
+	}{
+		{
+			version: "v1",
+			name:    "Namespace",
+		},
+		{
+			namespace: istioNamespace,
+			group:     "rbac.authorization.k8s.io",
+			version:   "v1",
+			name:      "ClusterRole",
+		},
+		{
+			namespace: istioNamespace,
+			group:     "rbac.authorization.k8s.io",
+			version:   "v1",
+			name:      "ClusterRoleBinding",
+		},
+		{
+			namespace: istioNamespace,
+			group:     "apiextensions.k8s.io",
+			version:   "v1",
+			name:      "CustomResourceDefinition",
+		},
+		{
+			namespace: istioNamespace,
+			group:     "rbac.authorization.k8s.io",
+			version:   "v1",
+			name:      "Role",
+		},
+		{
+			namespace: istioNamespace,
+			version:   "v1",
+			name:      "ServiceAccount",
+		},
+		{
+			namespace: istioNamespace,
+			version:   "v1",
+			name:      "Service",
+		},
+		{
+			namespace: istioNamespace,
+			group:     "apps",
+			version:   "v1",
+			name:      "Deployments",
+		},
+		{
+			namespace: istioNamespace,
+			version:   "v1",
+			name:      "ConfigMap",
+		},
+		{
+			group:   "admissionregistration.k8s.io",
+			version: "v1",
+			name:    "MutatingWebhookConfiguration",
+		},
+		{
+			group:   "admissionregistration.k8s.io",
+			version: "v1",
+			name:    "f",
+		},
+	}
+	msgs := diag.Messages{}
+	// TODO real message
+	mt := diag.NewMessageType(diag.Error, "IST1339", "Missing required permission to create resource %v (%v)")
+	for _, r := range Resources {
+		err := checkCanCreateResources(cli, r.namespace, r.group, r.version, r.name)
+		if err != nil {
+			msgs.Add(diag.NewMessage(mt, &resource.Instance{Origin: clusterOrigin{}}, r.name, err))
+		}
+	}
+	return msgs, nil
+}
+
+func checkCanCreateResources(c kube.ExtendedClient, namespace, group, version, name string) error {
+	s := &authorizationapi.SelfSubjectAccessReview{
+		Spec: authorizationapi.SelfSubjectAccessReviewSpec{
+			ResourceAttributes: &authorizationapi.ResourceAttributes{
+				Namespace: namespace,
+				Verb:      "create",
+				Group:     group,
+				Version:   version,
+				Resource:  name,
+			},
+		},
+	}
+
+	response, err := c.AuthorizationV1().SelfSubjectAccessReviews().Create(context.TODO(), s, metav1.CreateOptions{})
+	if err != nil {
+		return err
+	}
+
+	if !response.Status.Allowed {
+		if len(response.Status.Reason) > 0 {
+			return errors.New(response.Status.Reason)
+		}
+		return errors.New("permission denied")
+	}
+	return nil
+}
+
+type clusterOrigin struct{}
+
+func (o clusterOrigin) String() string {
+	return ""
+}
+
+func (o clusterOrigin) FriendlyName() string {
+	return "Cluster"
+}
+
+func (o clusterOrigin) Comparator() string {
+	return o.FriendlyName()
+}
+
+func (o clusterOrigin) Namespace() resource.Namespace {
+	return ""
+}
+
+func (o clusterOrigin) Reference() resource.Reference {
+	return nil
+}
+
+func (o clusterOrigin) FieldMap() map[string]int {
+	return make(map[string]int)
+}
+
+func checkServerVersion(cli kube.ExtendedClient) (diag.Messages, error) {
+	// TODO real message
+	mt := diag.NewMessageType(diag.Error, "IST1338", "The Kubernetes Version %q is lower than the minimum version: 1."+fmt.Sprint(k8sversion.MinK8SVersion))
+	v, err := cli.GetKubernetesVersion()
+	if err != nil {
+		return nil, err
+	}
+	compatible, err := k8sversion.CheckKubernetesVersion(v)
+	if err != nil {
+		return nil, err
+	}
+	if !compatible {
+		return []diag.Message{
+			diag.NewMessage(mt, &resource.Instance{Origin: clusterOrigin{}}, v.String()),
+		}, nil
+	}
+	return nil, nil
+}
+
+func checkDataPlane(cli kube.ExtendedClient, namespace string) (diag.Messages, error) {
+	msgs := diag.Messages{}
+
+	if m, err := checkListeners(cli, namespace); err != nil {
+		return nil, err
+	} else {
+		msgs = append(msgs, m...)
+	}
+
+	// TODO: add more checks
+
+	return msgs, nil
+}
+
+func checkListeners(cli kube.ExtendedClient, namespace string) (diag.Messages, error) {
 	// TODO real message
 	mt := diag.NewMessageType(diag.Warning, "IST1337", "Port %v listens on localhost and will no longer be exposed to other pods.")
 
