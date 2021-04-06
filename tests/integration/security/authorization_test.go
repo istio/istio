@@ -289,8 +289,10 @@ func TestAuthorization_WorkloadSelector(t *testing.T) {
 							newTestCase("[cInNS2]", a, cInNS2, "/policy-ns-root-c", true),
 						},
 					},
-					{ // Send requests to vm in ns1 and c in ns2.
+					{ // Send requests to a to vm in ns1.
 						configDst0: util.VMSvc,
+						// TODO(JimmyCYJ): Support multiple VMs in different namespaces for workload selector test,
+						// and set configDst1 to service on VM.
 						configDst1: util.CSvc,
 						subCases: []rbacUtil.TestCase{
 							newTestCase("[vmInNS1]", a, vmInNS1, "/policy-ns1-b", false),
@@ -301,7 +303,6 @@ func TestAuthorization_WorkloadSelector(t *testing.T) {
 							newTestCase("[vmInNS1]", a, vmInNS1, "/policy-ns2-b", false),
 							newTestCase("[vmInNS1]", a, vmInNS1, "/policy-ns2-all", false),
 							newTestCase("[vmInNS1]", a, vmInNS1, "/policy-ns-root-c", false),
-							// TODO(JimmyCYJ): Support multiple VMs in different namespaces for workload selector test.
 						},
 					},
 				}

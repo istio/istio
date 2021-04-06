@@ -55,7 +55,8 @@ spec:
 ---
 
 # The following policy denies access to path with prefix "/prefix" except "/prefix/allowlist" to workload
-
+# (TODO)JimmyCYJ: the following policy is a duplicate of policy-{{ .dst0 }}-deny
+# and can be removed once the test framework supports multiple vm workloads
 apiVersion: security.istio.io/v1beta1
 kind: AuthorizationPolicy
 metadata:
@@ -130,7 +131,7 @@ spec:
       mode: ISTIO_MUTUAL
 ---
 
-# The following destination rule disables mTLS from namespace 2 to workload d
+# The following destination rule disables mTLS from namespace 2 to workload
 
 apiVersion: networking.istio.io/v1alpha3
 kind: DestinationRule
