@@ -27,6 +27,7 @@ import (
 	httpConn "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
 	tcp "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/tcp_proxy/v3"
 	"github.com/envoyproxy/go-control-plane/pkg/wellknown"
+	"sigs.k8s.io/yaml"
 
 	protio "istio.io/istio/istioctl/pkg/util/proto"
 	"istio.io/istio/pilot/pkg/networking/util"
@@ -354,7 +355,7 @@ func describeMatch(match *route.RouteMatch) string {
 }
 
 // PrintListenerDump prints the relevant listeners in the config dump to the ConfigWriter stdout
-func (c *ConfigWriter) PrintListenerDump(filter ListenerFilter) error {
+func (c *ConfigWriter) PrintListenerDump(filter ListenerFilter, outputFormat string) error {
 	_, listeners, err := c.setupListenerConfigWriter()
 	if err != nil {
 		return err
@@ -368,6 +369,11 @@ func (c *ConfigWriter) PrintListenerDump(filter ListenerFilter) error {
 	out, err := json.MarshalIndent(filteredListeners, "", "    ")
 	if err != nil {
 		return fmt.Errorf("failed to marshal listeners: %v", err)
+	}
+	if outputFormat == "yaml" {
+		if out, err = yaml.JSONToYAML(out); err != nil {
+			return err
+		}
 	}
 	fmt.Fprintln(c.Stdout, string(out))
 	return nil

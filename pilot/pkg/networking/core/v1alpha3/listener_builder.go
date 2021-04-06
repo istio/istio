@@ -500,39 +500,6 @@ func (lb *ListenerBuilder) getListeners() []*listener.Listener {
 	return lb.gatewayListeners
 }
 
-// getFilterChainMatchOptions returns the FilterChainMatchOptions that should be used based on mTLS mode and protocol
-func getFilterChainMatchOptions(settings plugin.MTLSSettings, protocol istionetworking.ListenerProtocol) []FilterChainMatchOptions {
-	switch protocol {
-	case istionetworking.ListenerProtocolHTTP:
-		switch settings.Mode {
-		case model.MTLSStrict:
-			return inboundStrictHTTPFilterChainMatchOptions
-		case model.MTLSPermissive:
-			return inboundPermissiveHTTPFilterChainMatchWithMxcOptions
-		default:
-			return inboundPlainTextHTTPFilterChainMatchOptions
-		}
-	case istionetworking.ListenerProtocolAuto:
-		switch settings.Mode {
-		case model.MTLSStrict:
-			return inboundStrictFilterChainMatchOptions
-		case model.MTLSPermissive:
-			return inboundPermissiveFilterChainMatchWithMxcOptions
-		default:
-			return inboundPlainTextFilterChainMatchOptions
-		}
-	default:
-		switch settings.Mode {
-		case model.MTLSStrict:
-			return inboundStrictTCPFilterChainMatchOptions
-		case model.MTLSPermissive:
-			return inboundPermissiveTCPFilterChainMatchWithMxcOptions
-		default:
-			return inboundPlainTextTCPFilterChainMatchOptions
-		}
-	}
-}
-
 type fcOpts struct {
 	matchOpts FilterChainMatchOptions
 	fc        istionetworking.FilterChain

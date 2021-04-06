@@ -75,49 +75,52 @@ func TestAuthorization_mTLS(t *testing.T) {
 	framework.NewTest(t).
 		Features("security.authorization.mtls-local").
 		Run(func(t framework.TestContext) {
-			args := map[string]string{
-				"Namespace":  apps.Namespace1.Name(),
-				"Namespace2": apps.Namespace2.Name(),
-			}
-			policies := tmpl.EvaluateAllOrFail(t, args,
-				file.AsStringOrFail(t, "testdata/authz/v1beta1-mtls.yaml.tmpl"))
-
-			t.Config().ApplyYAMLOrFail(t, apps.Namespace1.Name(), policies...)
-			for _, cluster := range t.Clusters() {
-				t.NewSubTest(fmt.Sprintf("From %s", cluster.StableName())).Run(func(t framework.TestContext) {
-					a := apps.A.Match(echo.InCluster(cluster).And(echo.Namespace(apps.Namespace1.Name())))
-					c := apps.C.Match(echo.InCluster(cluster).And(echo.Namespace(apps.Namespace2.Name())))
-					newTestCase := func(from echo.Instance, path string, expectAllowed bool) rbacUtil.TestCase {
-						callCount := 1
-						destInstances := apps.B.Match(echo.Namespace(apps.Namespace1.Name()))
-						if destInstances.Clusters().IsMulticluster() {
-							// so we can validate all clusters are hit
-							callCount = util.CallsPerCluster * len(destInstances.Clusters())
-						}
-						return rbacUtil.TestCase{
-							Request: connection.Checker{
-								From: from, // From service
-								Options: echo.CallOptions{
-									Target:   destInstances[0],
-									PortName: "http",
-									Scheme:   scheme.HTTP,
-									Path:     path, // Requested path
-									Count:    callCount,
+			b := apps.B.Match(echo.Namespace(apps.Namespace1.Name()))
+			vm := apps.VM.Match(echo.Namespace(apps.Namespace1.Name()))
+			for _, dst := range []echo.Instances{b, vm} {
+				args := map[string]string{
+					"Namespace":  apps.Namespace1.Name(),
+					"Namespace2": apps.Namespace2.Name(),
+					"dst":        dst[0].Config().Service,
+				}
+				policies := tmpl.EvaluateAllOrFail(t, args,
+					file.AsStringOrFail(t, "testdata/authz/v1beta1-mtls.yaml.tmpl"))
+				t.Config().ApplyYAMLOrFail(t, apps.Namespace1.Name(), policies...)
+				for _, cluster := range t.Clusters() {
+					t.NewSubTest(fmt.Sprintf("From %s", cluster.StableName())).Run(func(t framework.TestContext) {
+						a := apps.A.Match(echo.InCluster(cluster).And(echo.Namespace(apps.Namespace1.Name())))
+						c := apps.C.Match(echo.InCluster(cluster).And(echo.Namespace(apps.Namespace2.Name())))
+						newTestCase := func(from, to echo.Instances, path string, expectAllowed bool) rbacUtil.TestCase {
+							callCount := 1
+							if to.Clusters().IsMulticluster() {
+								// so we can validate all clusters are hit
+								callCount = util.CallsPerCluster * len(to.Clusters())
+							}
+							return rbacUtil.TestCase{
+								Request: connection.Checker{
+									From: from[0], // From service
+									Options: echo.CallOptions{
+										Target:   to[0],
+										PortName: "http",
+										Scheme:   scheme.HTTP,
+										Path:     path, // Requested path
+										Count:    callCount,
+									},
+									DestClusters: to.Clusters(),
 								},
-								DestClusters: destInstances.Clusters(),
-							},
-							ExpectAllowed: expectAllowed,
+								ExpectAllowed: expectAllowed,
+							}
 						}
-					}
-					// a and c send requests to b
-					cases := []rbacUtil.TestCase{
-						newTestCase(a[0], "/principal-a", true),
-						newTestCase(a[0], "/namespace-2", false),
-						newTestCase(c[0], "/principal-a", false),
-						newTestCase(c[0], "/namespace-2", true),
-					}
-					rbacUtil.RunRBACTest(t, cases)
-				})
+						// a and c send requests to dst
+						cases := []rbacUtil.TestCase{
+							newTestCase(a, dst, "/principal-a", true),
+							newTestCase(a, dst, "/namespace-2", false),
+							newTestCase(c, dst, "/principal-a", false),
+							newTestCase(c, dst, "/namespace-2", true),
+						}
+						rbacUtil.RunRBACTest(t, cases)
+					})
+				}
 			}
 		})
 }
@@ -128,97 +131,88 @@ func TestAuthorization_JWT(t *testing.T) {
 		Features("security.authorization.jwt-token").
 		Run(func(t framework.TestContext) {
 			ns := apps.Namespace1
-			args := map[string]string{
-				"Namespace": apps.Namespace1.Name(),
-			}
-			policies := tmpl.EvaluateAllOrFail(t, args,
-				file.AsStringOrFail(t, "testdata/authz/v1beta1-jwt.yaml.tmpl"))
-			t.Config().ApplyYAMLOrFail(t, ns.Name(), policies...)
-			for _, srcCluster := range t.Clusters() {
-				t.NewSubTest(fmt.Sprintf("From %s", srcCluster.StableName())).Run(func(t framework.TestContext) {
-					a := apps.A.Match(echo.InCluster(srcCluster).And(echo.Namespace(ns.Name())))
-					callCount := 1
-					b := apps.B.Match(echo.Namespace(ns.Name()))
-					c := apps.C.Match(echo.Namespace(ns.Name()))
-					d := apps.D.Match(echo.Namespace(ns.Name()))
-					if t.Clusters().IsMulticluster() {
-						// so we can validate all clusters are hit
-						callCount = util.CallsPerCluster * len(t.Clusters())
-					}
-					newTestCase := func(target echo.Instances, namePrefix string, jwt string, path string, expectAllowed bool) rbacUtil.TestCase {
-						return rbacUtil.TestCase{
-							NamePrefix: namePrefix,
-							Request: connection.Checker{
-								From: a[0],
-								Options: echo.CallOptions{
-									Target:   target[0],
-									PortName: "http",
-									Scheme:   scheme.HTTP,
-									Path:     path,
-									Count:    callCount,
-								},
-								DestClusters: target.Clusters(),
-							},
-							Jwt:           jwt,
-							ExpectAllowed: expectAllowed,
+			b := apps.B.Match(echo.Namespace(ns.Name()))
+			c := apps.C.Match(echo.Namespace(ns.Name()))
+			vm := apps.VM.Match(echo.Namespace(ns.Name()))
+			for _, dst := range []echo.Instances{b, vm} {
+				args := map[string]string{
+					"Namespace":  apps.Namespace1.Name(),
+					"Namespace2": apps.Namespace2.Name(),
+					"dst":        dst[0].Config().Service,
+				}
+				policies := tmpl.EvaluateAllOrFail(t, args,
+					file.AsStringOrFail(t, "testdata/authz/v1beta1-jwt.yaml.tmpl"))
+				t.Config().ApplyYAMLOrFail(t, ns.Name(), policies...)
+				for _, srcCluster := range t.Clusters() {
+					t.NewSubTest(fmt.Sprintf("From %s", srcCluster.StableName())).Run(func(t framework.TestContext) {
+						a := apps.A.Match(echo.InCluster(srcCluster).And(echo.Namespace(ns.Name())))
+						callCount := 1
+						if t.Clusters().IsMulticluster() {
+							// so we can validate all clusters are hit
+							callCount = util.CallsPerCluster * len(t.Clusters())
 						}
-					}
-					cases := []rbacUtil.TestCase{
-						newTestCase(b, "[NoJWT]", "", "/token1", false),
-						newTestCase(b, "[NoJWT]", "", "/token2", false),
-						newTestCase(b, "[Token1]", jwt.TokenIssuer1, "/token1", true),
-						newTestCase(b, "[Token1]", jwt.TokenIssuer1, "/token2", false),
-						newTestCase(b, "[Token2]", jwt.TokenIssuer2, "/token1", false),
-						newTestCase(b, "[Token2]", jwt.TokenIssuer2, "/token2", true),
-						newTestCase(b, "[Token1]", jwt.TokenIssuer1, "/tokenAny", true),
-						newTestCase(b, "[Token2]", jwt.TokenIssuer2, "/tokenAny", true),
-						newTestCase(b, "[PermissionToken1]", jwt.TokenIssuer1, "/permission", false),
-						newTestCase(b, "[PermissionToken2]", jwt.TokenIssuer2, "/permission", false),
-						newTestCase(b, "[PermissionTokenWithSpaceDelimitedScope]", jwt.TokenIssuer2WithSpaceDelimitedScope, "/permission", true),
-						newTestCase(b, "[NestedToken1]", jwt.TokenIssuer1WithNestedClaims1, "/nested-key1", true),
-						newTestCase(b, "[NestedToken2]", jwt.TokenIssuer1WithNestedClaims2, "/nested-key1", false),
-						newTestCase(b, "[NestedToken1]", jwt.TokenIssuer1WithNestedClaims1, "/nested-key2", false),
-						newTestCase(b, "[NestedToken2]", jwt.TokenIssuer1WithNestedClaims2, "/nested-key2", true),
-						newTestCase(b, "[NestedToken1]", jwt.TokenIssuer1WithNestedClaims1, "/nested-2-key1", true),
-						newTestCase(b, "[NestedToken2]", jwt.TokenIssuer1WithNestedClaims2, "/nested-2-key1", false),
-						newTestCase(b, "[NestedToken1]", jwt.TokenIssuer1WithNestedClaims1, "/nested-non-exist", false),
-						newTestCase(b, "[NestedToken2]", jwt.TokenIssuer1WithNestedClaims2, "/nested-non-exist", false),
-						newTestCase(b, "[NoJWT]", "", "/tokenAny", false),
-						newTestCase(c, "[NoJWT]", "", "/somePath", true),
-						newTestCase(b, "[NoJWT]", "", "/token1", false),
-						newTestCase(b, "[NoJWT]", "", "/token2", false),
-						newTestCase(b, "[Token1]", jwt.TokenIssuer1, "/token1", true),
-						newTestCase(b, "[Token1]", jwt.TokenIssuer1, "/token2", false),
-						newTestCase(b, "[Token2]", jwt.TokenIssuer2, "/token1", false),
-						newTestCase(b, "[Token2]", jwt.TokenIssuer2, "/token2", true),
-						newTestCase(b, "[Token1]", jwt.TokenIssuer1, "/tokenAny", true),
-						newTestCase(b, "[Token2]", jwt.TokenIssuer2, "/tokenAny", true),
-						newTestCase(b, "[PermissionToken1]", jwt.TokenIssuer1, "/permission", false),
-						newTestCase(b, "[PermissionToken2]", jwt.TokenIssuer2, "/permission", false),
-						newTestCase(b, "[PermissionTokenWithSpaceDelimitedScope]", jwt.TokenIssuer2WithSpaceDelimitedScope, "/permission", true),
-						newTestCase(b, "[NoJWT]", "", "/tokenAny", false),
-						newTestCase(c, "[NoJWT]", "", "/somePath", true),
+						newTestCase := func(target echo.Instances, namePrefix string, jwt string, path string, expectAllowed bool) rbacUtil.TestCase {
+							return rbacUtil.TestCase{
+								NamePrefix: namePrefix,
+								Request: connection.Checker{
+									From: a[0],
+									Options: echo.CallOptions{
+										Target:   target[0],
+										PortName: "http",
+										Scheme:   scheme.HTTP,
+										Path:     path,
+										Count:    callCount,
+									},
+									DestClusters: target.Clusters(),
+								},
+								Jwt:           jwt,
+								ExpectAllowed: expectAllowed,
+							}
+						}
+						cases := []rbacUtil.TestCase{
+							newTestCase(dst, "[NoJWT]", "", "/token1", false),
+							newTestCase(dst, "[NoJWT]", "", "/token2", false),
+							newTestCase(dst, "[Token1]", jwt.TokenIssuer1, "/token1", true),
+							newTestCase(dst, "[Token1]", jwt.TokenIssuer1, "/token2", false),
+							newTestCase(dst, "[Token2]", jwt.TokenIssuer2, "/token1", false),
+							newTestCase(dst, "[Token2]", jwt.TokenIssuer2, "/token2", true),
+							newTestCase(dst, "[Token1]", jwt.TokenIssuer1, "/tokenAny", true),
+							newTestCase(dst, "[Token2]", jwt.TokenIssuer2, "/tokenAny", true),
+							newTestCase(dst, "[PermissionToken1]", jwt.TokenIssuer1, "/permission", false),
+							newTestCase(dst, "[PermissionToken2]", jwt.TokenIssuer2, "/permission", false),
+							newTestCase(dst, "[PermissionTokenWithSpaceDelimitedScope]", jwt.TokenIssuer2WithSpaceDelimitedScope, "/permission", true),
+							newTestCase(dst, "[NestedToken1]", jwt.TokenIssuer1WithNestedClaims1, "/nested-key1", true),
+							newTestCase(dst, "[NestedToken2]", jwt.TokenIssuer1WithNestedClaims2, "/nested-key1", false),
+							newTestCase(dst, "[NestedToken1]", jwt.TokenIssuer1WithNestedClaims1, "/nested-key2", false),
+							newTestCase(dst, "[NestedToken2]", jwt.TokenIssuer1WithNestedClaims2, "/nested-key2", true),
+							newTestCase(dst, "[NestedToken1]", jwt.TokenIssuer1WithNestedClaims1, "/nested-2-key1", true),
+							newTestCase(dst, "[NestedToken2]", jwt.TokenIssuer1WithNestedClaims2, "/nested-2-key1", false),
+							newTestCase(dst, "[NestedToken1]", jwt.TokenIssuer1WithNestedClaims1, "/nested-non-exist", false),
+							newTestCase(dst, "[NestedToken2]", jwt.TokenIssuer1WithNestedClaims2, "/nested-non-exist", false),
+							newTestCase(dst, "[NoJWT]", "", "/tokenAny", false),
+							newTestCase(c, "[NoJWT]", "", "/somePath", true),
 
-						// Test condition "request.auth.principal" on path "/valid-jwt".
-						newTestCase(d, "[NoJWT]", "", "/valid-jwt", false),
-						newTestCase(d, "[Token1]", jwt.TokenIssuer1, "/valid-jwt", true),
-						newTestCase(d, "[Token1WithAzp]", jwt.TokenIssuer1WithAzp, "/valid-jwt", true),
-						newTestCase(d, "[Token1WithAud]", jwt.TokenIssuer1WithAud, "/valid-jwt", true),
+							// Test condition "request.auth.principal" on path "/valid-jwt".
+							newTestCase(dst, "[NoJWT]", "", "/valid-jwt", false),
+							newTestCase(dst, "[Token1]", jwt.TokenIssuer1, "/valid-jwt", true),
+							newTestCase(dst, "[Token1WithAzp]", jwt.TokenIssuer1WithAzp, "/valid-jwt", true),
+							newTestCase(dst, "[Token1WithAud]", jwt.TokenIssuer1WithAud, "/valid-jwt", true),
 
-						// Test condition "request.auth.presenter" on suffix "/presenter".
-						newTestCase(d, "[Token1]", jwt.TokenIssuer1, "/request/presenter", false),
-						newTestCase(d, "[Token1WithAud]", jwt.TokenIssuer1, "/request/presenter", false),
-						newTestCase(d, "[Token1WithAzp]", jwt.TokenIssuer1WithAzp, "/request/presenter-x", false),
-						newTestCase(d, "[Token1WithAzp]", jwt.TokenIssuer1WithAzp, "/request/presenter", true),
+							// Test condition "request.auth.presenter" on suffix "/presenter".
+							newTestCase(dst, "[Token1]", jwt.TokenIssuer1, "/request/presenter", false),
+							newTestCase(dst, "[Token1WithAud]", jwt.TokenIssuer1, "/request/presenter", false),
+							newTestCase(dst, "[Token1WithAzp]", jwt.TokenIssuer1WithAzp, "/request/presenter-x", false),
+							newTestCase(dst, "[Token1WithAzp]", jwt.TokenIssuer1WithAzp, "/request/presenter", true),
 
-						// Test condition "request.auth.audiences" on suffix "/audiences".
-						newTestCase(d, "[Token1]", jwt.TokenIssuer1, "/request/audiences", false),
-						newTestCase(d, "[Token1WithAzp]", jwt.TokenIssuer1WithAzp, "/request/audiences", false),
-						newTestCase(d, "[Token1WithAud]", jwt.TokenIssuer1WithAud, "/request/audiences-x", false),
-						newTestCase(d, "[Token1WithAud]", jwt.TokenIssuer1WithAud, "/request/audiences", true),
-					}
-					rbacUtil.RunRBACTest(t, cases)
-				})
+							// Test condition "request.auth.audiences" on suffix "/audiences".
+							newTestCase(dst, "[Token1]", jwt.TokenIssuer1, "/request/audiences", false),
+							newTestCase(dst, "[Token1WithAzp]", jwt.TokenIssuer1WithAzp, "/request/audiences", false),
+							newTestCase(dst, "[Token1WithAud]", jwt.TokenIssuer1WithAud, "/request/audiences-x", false),
+							newTestCase(dst, "[Token1WithAud]", jwt.TokenIssuer1WithAud, "/request/audiences", true),
+						}
+						rbacUtil.RunRBACTest(t, cases)
+					})
+				}
 			}
 		})
 }
@@ -228,78 +222,110 @@ func TestAuthorization_WorkloadSelector(t *testing.T) {
 	framework.NewTest(t).
 		Features("security.authorization.workload-selector").
 		Run(func(t framework.TestContext) {
+			bInNS1 := apps.B.Match(echo.Namespace(apps.Namespace1.Name()))
+			vmInNS1 := apps.VM.Match(echo.Namespace(apps.Namespace1.Name()))
+			cInNS1 := apps.C.Match(echo.Namespace(apps.Namespace1.Name()))
+			cInNS2 := apps.C.Match(echo.Namespace(apps.Namespace2.Name()))
 			ns1 := apps.Namespace1
 			ns2 := apps.Namespace2
-			args := map[string]string{
-				"Namespace1":    ns1.Name(),
-				"Namespace2":    ns2.Name(),
-				"RootNamespace": istio.GetOrFail(t, t).Settings().SystemNamespace,
-			}
-
-			applyPolicy := func(filename string, ns namespace.Instance) {
-				policy := tmpl.EvaluateAllOrFail(t, args, file.AsStringOrFail(t, filename))
-				t.Config().ApplyYAMLOrFail(t, ns.Name(), policy...)
-			}
-
 			rootns := newRootNS(t)
-			applyPolicy("testdata/authz/v1beta1-workload-ns1.yaml.tmpl", ns1)
-			applyPolicy("testdata/authz/v1beta1-workload-ns2.yaml.tmpl", ns2)
-			applyPolicy("testdata/authz/v1beta1-workload-ns-root.yaml.tmpl", rootns)
+			callCount := 1
+			if t.Clusters().IsMulticluster() {
+				// so we can validate all clusters are hit
+				callCount = util.CallsPerCluster * len(t.Clusters())
+			}
+			newTestCase := func(namePrefix string, from, target echo.Instances, path string, expectAllowed bool) rbacUtil.TestCase {
+				return rbacUtil.TestCase{
+					NamePrefix: namePrefix,
+					Request: connection.Checker{
+						From: from[0],
+						Options: echo.CallOptions{
+							Target:   target[0],
+							PortName: "http",
+							Scheme:   scheme.HTTP,
+							Path:     path,
+							Count:    callCount,
+						},
+						DestClusters: target.Clusters(),
+					},
+					ExpectAllowed: expectAllowed,
+				}
+			}
+
 			for _, srcCluster := range t.Clusters() {
-				t.NewSubTest(fmt.Sprintf("From %s", srcCluster.StableName())).Run(func(t framework.TestContext) {
-					a := apps.A.Match(echo.InCluster(srcCluster).And(echo.Namespace(apps.Namespace1.Name())))
-					bInNS1 := apps.B.Match(echo.Namespace(apps.Namespace1.Name()))
-					cInNS1 := apps.C.Match(echo.Namespace(apps.Namespace1.Name()))
-					cInNS2 := apps.C.Match(echo.Namespace(apps.Namespace2.Name()))
-					callCount := 1
-					if t.Clusters().IsMulticluster() {
-						// so we can validate all clusters are hit
-						callCount = util.CallsPerCluster * len(t.Clusters())
-					}
-					newTestCase := func(namePrefix string, target echo.Instances, path string, expectAllowed bool) rbacUtil.TestCase {
-						return rbacUtil.TestCase{
-							NamePrefix: namePrefix,
-							Request: connection.Checker{
-								From: a[0],
-								Options: echo.CallOptions{
-									Target:   target[0],
-									PortName: "http",
-									Scheme:   scheme.HTTP,
-									Path:     path,
-									Count:    callCount,
-								},
-								DestClusters: target.Clusters(),
-							},
-							ExpectAllowed: expectAllowed,
-						}
-					}
-					cases := []rbacUtil.TestCase{
-						newTestCase("[bInNS1]", bInNS1, "/policy-ns1-b", true),
-						newTestCase("[bInNS1]", bInNS1, "/policy-ns1-c", false),
-						newTestCase("[bInNS1]", bInNS1, "/policy-ns1-x", false),
-						newTestCase("[bInNS1]", bInNS1, "/policy-ns1-all", true),
-						newTestCase("[bInNS1]", bInNS1, "/policy-ns2-c", false),
-						newTestCase("[bInNS1]", bInNS1, "/policy-ns2-all", false),
-						newTestCase("[bInNS1]", bInNS1, "/policy-ns-root-c", false),
+				a := apps.A.Match(echo.InCluster(srcCluster).And(echo.Namespace(apps.Namespace1.Name())))
+				cases := []struct {
+					configDst0 string
+					configDst1 string
+					subCases   []rbacUtil.TestCase
+				}{
+					{ // Sends requests to b and c in ns1.
+						configDst0: util.BSvc,
+						configDst1: util.CSvc,
+						subCases: []rbacUtil.TestCase{
+							newTestCase("[bInNS1]", a, bInNS1, "/policy-ns1-b", true),
+							newTestCase("[bInNS1]", a, bInNS1, "/policy-ns1-vm", false),
+							newTestCase("[bInNS1]", a, bInNS1, "/policy-ns1-c", false),
+							newTestCase("[bInNS1]", a, bInNS1, "/policy-ns1-x", false),
+							newTestCase("[bInNS1]", a, bInNS1, "/policy-ns1-all", true),
+							newTestCase("[bInNS1]", a, bInNS1, "/policy-ns2-c", false),
+							newTestCase("[bInNS1]", a, bInNS1, "/policy-ns2-all", false),
+							newTestCase("[bInNS1]", a, bInNS1, "/policy-ns-root-c", false),
+							newTestCase("[cInNS1]", a, cInNS1, "/policy-ns1-b", false),
+							newTestCase("[cInNS1]", a, cInNS1, "/policy-ns1-vm", false),
+							newTestCase("[cInNS1]", a, cInNS1, "/policy-ns1-c", true),
+							newTestCase("[cInNS1]", a, cInNS1, "/policy-ns1-x", false),
+							newTestCase("[cInNS1]", a, cInNS1, "/policy-ns1-all", true),
+							newTestCase("[cInNS1]", a, cInNS1, "/policy-ns2-c", false),
+							newTestCase("[cInNS1]", a, cInNS1, "/policy-ns2-all", false),
+							newTestCase("[cInNS1]", a, cInNS1, "/policy-ns-root-c", true),
+							newTestCase("[cInNS2]", a, cInNS2, "/policy-ns1-b", false),
+							newTestCase("[cInNS2]", a, cInNS2, "/policy-ns1-vm", false),
+							newTestCase("[cInNS2]", a, cInNS2, "/policy-ns1-c", false),
+							newTestCase("[cInNS2]", a, cInNS2, "/policy-ns1-x", false),
+							newTestCase("[cInNS2]", a, cInNS2, "/policy-ns1-all", false),
+							newTestCase("[cInNS2]", a, cInNS2, "/policy-ns2-c", true),
+							newTestCase("[cInNS2]", a, cInNS2, "/policy-ns2-all", true),
+							newTestCase("[cInNS2]", a, cInNS2, "/policy-ns-root-c", true),
+						},
+					},
+					{ // Send requests to vm in ns1 and c in ns2.
+						configDst0: util.VMSvc,
+						configDst1: util.CSvc,
+						subCases: []rbacUtil.TestCase{
+							newTestCase("[vmInNS1]", a, vmInNS1, "/policy-ns1-b", false),
+							newTestCase("[vmInNS1]", a, vmInNS1, "/policy-ns1-vm", true),
+							newTestCase("[vmInNS1]", a, vmInNS1, "/policy-ns1-c", false),
+							newTestCase("[vmInNS1]", a, vmInNS1, "/policy-ns1-x", false),
+							newTestCase("[vmInNS1]", a, vmInNS1, "/policy-ns1-all", true),
+							newTestCase("[vmInNS1]", a, vmInNS1, "/policy-ns2-b", false),
+							newTestCase("[vmInNS1]", a, vmInNS1, "/policy-ns2-all", false),
+							newTestCase("[vmInNS1]", a, vmInNS1, "/policy-ns-root-c", false),
+							// TODO(JimmyCYJ): Support multiple VMs in different namespaces for workload selector test.
+						},
+					},
+				}
 
-						newTestCase("[cInNS1]", cInNS1, "/policy-ns1-b", false),
-						newTestCase("[cInNS1]", cInNS1, "/policy-ns1-c", true),
-						newTestCase("[cInNS1]", cInNS1, "/policy-ns1-x", false),
-						newTestCase("[cInNS1]", cInNS1, "/policy-ns1-all", true),
-						newTestCase("[cInNS1]", cInNS1, "/policy-ns2-c", false),
-						newTestCase("[cInNS1]", cInNS1, "/policy-ns2-all", false),
-						newTestCase("[cInNS1]", cInNS1, "/policy-ns-root-c", true),
-
-						newTestCase("[cInNS2]", cInNS2, "/policy-ns1-b", false),
-						newTestCase("[cInNS2]", cInNS2, "/policy-ns1-c", false),
-						newTestCase("[cInNS2]", cInNS2, "/policy-ns1-x", false),
-						newTestCase("[cInNS2]", cInNS2, "/policy-ns1-all", false),
-						newTestCase("[cInNS2]", cInNS2, "/policy-ns2-c", true),
-						newTestCase("[cInNS2]", cInNS2, "/policy-ns2-all", true),
-						newTestCase("[cInNS2]", cInNS2, "/policy-ns-root-c", true),
-					}
-					rbacUtil.RunRBACTest(t, cases)
-				})
+				for _, tc := range cases {
+					t.NewSubTest(fmt.Sprintf("From %s", srcCluster.StableName())).
+						Run(func(t framework.TestContext) {
+							args := map[string]string{
+								"Namespace1":    ns1.Name(),
+								"Namespace2":    ns2.Name(),
+								"RootNamespace": rootns.rootNamespace,
+								"dst0":          tc.configDst0,
+								"dst1":          tc.configDst1,
+							}
+							applyPolicy := func(filename string, ns namespace.Instance) {
+								policy := tmpl.EvaluateAllOrFail(t, args, file.AsStringOrFail(t, filename))
+								t.Config().ApplyYAMLOrFail(t, ns.Name(), policy...)
+							}
+							applyPolicy("testdata/authz/v1beta1-workload-ns1.yaml.tmpl", ns1)
+							applyPolicy("testdata/authz/v1beta1-workload-ns2.yaml.tmpl", ns2)
+							applyPolicy("testdata/authz/v1beta1-workload-ns-root.yaml.tmpl", rootns)
+							rbacUtil.RunRBACTest(t, tc.subCases)
+						})
+				}
 			}
 		})
 }
