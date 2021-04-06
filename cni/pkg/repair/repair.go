@@ -25,7 +25,6 @@ import (
 	client "k8s.io/client-go/kubernetes"
 
 	"istio.io/pkg/log"
-	"istio.io/pkg/monitoring"
 )
 
 type Options struct {
@@ -50,22 +49,6 @@ type BrokenPodReconciler struct {
 	client  client.Interface
 	Filters *Filters
 	Options *Options
-}
-
-var (
-	typeLabel  = monitoring.MustCreateLabel("type")
-	deleteType = "delete"
-	labelType  = "label"
-
-	podsRepaired = monitoring.NewSum(
-		"istio_cni_repair_pods_repaired_total",
-		"Total number of pods repaired by repair controller",
-		monitoring.WithLabels(typeLabel),
-	)
-)
-
-func init() {
-	monitoring.MustRegister(podsRepaired)
 }
 
 // Constructs a new BrokenPodReconciler struct.
@@ -104,13 +87,16 @@ func (bpr BrokenPodReconciler) LabelBrokenPods() (err error) {
 
 func (bpr BrokenPodReconciler) labelBrokenPod(pod v1.Pod) (err error) {
 	// Added for safety, to make sure no healthy pods get labeled.
+	m := podsRepaired.With(typeLabel.Value(labelType))
 	if !bpr.detectPod(pod) {
+		m.With(resultLabel.Value(resultSkip)).Increment()
 		return
 	}
 	log.Infof("Pod detected as broken, adding label: %s/%s", pod.Namespace, pod.Name)
 
 	labels := pod.GetLabels()
 	if _, ok := labels[bpr.Options.PodLabelKey]; ok {
+		m.With(resultLabel.Value(resultSkip)).Increment()
 		log.Infof("Pod %s/%s already has label with key %s, skipping", pod.Namespace, pod.Name, bpr.Options.PodLabelKey)
 		return
 	}
@@ -125,10 +111,11 @@ func (bpr BrokenPodReconciler) labelBrokenPod(pod v1.Pod) (err error) {
 
 	if _, err = bpr.client.CoreV1().Pods(pod.Namespace).Update(context.TODO(), &pod, metav1.UpdateOptions{}); err != nil {
 		log.Errorf("Failed to update pod: %s", err)
-		return err
+		m.With(resultLabel.Value(resultFail)).Increment()
+		return
 	}
-	podsRepaired.With(typeLabel.Value(labelType)).Increment()
-	return nil
+	m.With(resultLabel.Value(resultSuccess)).Increment()
+	return
 }
 
 // Delete all pods detected as broken by ListPods
@@ -157,16 +144,20 @@ func (bpr BrokenPodReconciler) DeleteBrokenPods() error {
 }
 
 func (bpr BrokenPodReconciler) deleteBrokenPod(pod v1.Pod) error {
+	m := podsRepaired.With(typeLabel.Value(deleteType))
 	// Added for safety, to make sure no healthy pods get labeled.
 	if !bpr.detectPod(pod) {
+		m.With(resultLabel.Value(resultSkip)).Increment()
 		return nil
 	}
 	log.Infof("Pod detected as broken, deleting: %s/%s", pod.Namespace, pod.Name)
 	err := bpr.client.CoreV1().Pods(pod.Namespace).Delete(context.TODO(), pod.Name, metav1.DeleteOptions{})
-	if err == nil {
-		podsRepaired.With(typeLabel.Value(deleteType)).Increment()
+	if err != nil {
+		m.With(resultLabel.Value(resultFail)).Increment()
+		return err
 	}
-	return err
+	m.With(resultLabel.Value(resultSuccess)).Increment()
+	return nil
 }
 
 // Lists all pods identified as broken by our Filter criteria
