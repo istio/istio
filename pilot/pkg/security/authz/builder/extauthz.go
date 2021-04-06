@@ -28,6 +28,7 @@ import (
 	extauthztcp "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/ext_authz/v3"
 	envoy_type_matcher_v3 "github.com/envoyproxy/go-control-plane/envoy/type/matcher/v3"
 	envoytypev3 "github.com/envoyproxy/go-control-plane/envoy/type/v3"
+	"github.com/gogo/protobuf/types"
 	"github.com/golang/protobuf/ptypes/duration"
 	"github.com/hashicorp/go-multierror"
 
@@ -35,6 +36,7 @@ import (
 	"istio.io/istio/pilot/pkg/extensionproviders"
 	"istio.io/istio/pilot/pkg/networking/plugin"
 	authzmodel "istio.io/istio/pilot/pkg/security/authz/model"
+	"istio.io/istio/pkg/util/gogo"
 )
 
 const (
@@ -161,6 +163,18 @@ func buildExtAuthzHTTP(in *plugin.InputParams, config *meshconfig.MeshConfig_Ext
 			errs = multierror.Append(errs, fmt.Errorf("pathPrefix must begin with `/`, found: %q", config.PathPrefix))
 		}
 	}
+	checkWildcard := func(field string, values []string) {
+		for _, val := range values {
+			if val == "*" {
+				errs = multierror.Append(errs, fmt.Errorf("a single wildcard (\"*\") is not supported, change it to either prefix or suffix match: %s", field))
+			}
+		}
+	}
+	checkWildcard("IncludeRequestHeadersInCheck", config.IncludeRequestHeadersInCheck)
+	checkWildcard("IncludeHeadersInCheck", config.IncludeHeadersInCheck)
+	checkWildcard("HeadersToDownstreamOnDeny", config.HeadersToDownstreamOnDeny)
+	checkWildcard("HeadersToUpstreamOnAllow", config.HeadersToUpstreamOnAllow)
+
 	if errs != nil {
 		return nil, errs
 	}
@@ -186,7 +200,7 @@ func buildExtAuthzGRPC(in *plugin.InputParams, config *meshconfig.MeshConfig_Ext
 		return nil, errs
 	}
 
-	return generateGRPCConfig(cluster, config.FailOpen, status), nil
+	return generateGRPCConfig(cluster, config, status), nil
 }
 
 func parsePort(port uint32) (int, error) {
@@ -215,10 +229,8 @@ func generateHTTPConfig(hostname, cluster string, status *envoytypev3.HttpStatus
 	service := &extauthzhttp.HttpService{
 		PathPrefix: config.PathPrefix,
 		ServerUri: &envoy_config_core_v3.HttpUri{
-			// Timeout is required. Use a large value as a placeholder and so that the timeout in DestinationRule (should
-			// be much smaller) can be used to control the real timeout.
-			// TODO(yangminzhu): Revisit the default and investigate if we need to expose it in the MeshConfig.
-			Timeout: &duration.Duration{Seconds: 600},
+			// Timeout is required.
+			Timeout: timeoutOrDefault(config.Timeout),
 			// Uri is required but actually not used in the ext_authz filter.
 			Uri: fmt.Sprintf("http://%s", hostname),
 			HttpUpstreamType: &envoy_config_core_v3.HttpUri_Cluster{
@@ -226,11 +238,26 @@ func generateHTTPConfig(hostname, cluster string, status *envoytypev3.HttpStatus
 			},
 		},
 	}
-	if headers := generateHeaders(config.IncludeHeadersInCheck); headers != nil {
+	allowedHeaders := generateHeaders(config.IncludeRequestHeadersInCheck)
+	if allowedHeaders == nil {
+		// IncludeHeadersInCheck is deprecated, only use it if IncludeRequestHeadersInCheck is not set.
+		// TODO: Remove the IncludeHeadersInCheck field before promoting to beta.
+		allowedHeaders = generateHeaders(config.IncludeHeadersInCheck)
+	}
+	var headersToAdd []*envoy_config_core_v3.HeaderValue
+	for k, v := range config.IncludeAdditionalHeadersInCheck {
+		headersToAdd = append(headersToAdd, &envoy_config_core_v3.HeaderValue{
+			Key:   k,
+			Value: v,
+		})
+	}
+	if allowedHeaders != nil || len(headersToAdd) != 0 {
 		service.AuthorizationRequest = &extauthzhttp.AuthorizationRequest{
-			AllowedHeaders: headers,
+			AllowedHeaders: allowedHeaders,
+			HeadersToAdd:   headersToAdd,
 		}
 	}
+
 	if len(config.HeadersToUpstreamOnAllow) > 0 || len(config.HeadersToDownstreamOnDeny) > 0 {
 		service.AuthorizationResponse = &extauthzhttp.AuthorizationResponse{
 			AllowedUpstreamHeaders: generateHeaders(config.HeadersToUpstreamOnAllow),
@@ -245,11 +272,13 @@ func generateHTTPConfig(hostname, cluster string, status *envoytypev3.HttpStatus
 			HttpService: service,
 		},
 		FilterEnabledMetadata: generateFilterMatcher(authzmodel.RBACHTTPFilterName),
+		WithRequestBody:       withBodyRequest(config.IncludeRequestBodyInCheck),
 	}
 	return &builtExtAuthz{http: http}
 }
 
-func generateGRPCConfig(cluster string, failOpen bool, status *envoytypev3.HttpStatus) *builtExtAuthz {
+func generateGRPCConfig(cluster string, config *meshconfig.MeshConfig_ExtensionProvider_EnvoyExternalAuthorizationGrpcProvider,
+	status *envoytypev3.HttpStatus) *builtExtAuthz {
 	// The cluster includes the character `|` that is invalid in gRPC authority header and will cause the connection
 	// rejected in the server side, replace it with a valid character and set in authority otherwise ext_authz will
 	// use the cluster name as default authority.
@@ -261,20 +290,21 @@ func generateGRPCConfig(cluster string, failOpen bool, status *envoytypev3.HttpS
 				Authority:   authority,
 			},
 		},
-		Timeout: &duration.Duration{Seconds: 600},
+		Timeout: timeoutOrDefault(config.Timeout),
 	}
 	http := &extauthzhttp.ExtAuthz{
 		StatusOnError:    status,
-		FailureModeAllow: failOpen,
+		FailureModeAllow: config.FailOpen,
 		Services: &extauthzhttp.ExtAuthz_GrpcService{
 			GrpcService: grpc,
 		},
 		FilterEnabledMetadata: generateFilterMatcher(authzmodel.RBACHTTPFilterName),
 		TransportApiVersion:   envoy_config_core_v3.ApiVersion_V3,
+		WithRequestBody:       withBodyRequest(config.IncludeRequestBodyInCheck),
 	}
 	tcp := &extauthztcp.ExtAuthz{
 		StatPrefix:            "tcp.",
-		FailureModeAllow:      failOpen,
+		FailureModeAllow:      config.FailOpen,
 		TransportApiVersion:   envoy_config_core_v3.ApiVersion_V3,
 		GrpcService:           grpc,
 		FilterEnabledMetadata: generateFilterMatcher(authzmodel.RBACTCPFilterName),
@@ -288,11 +318,27 @@ func generateHeaders(headers []string) *envoy_type_matcher_v3.ListStringMatcher 
 	}
 	var patterns []*envoy_type_matcher_v3.StringMatcher
 	for _, header := range headers {
-		patterns = append(patterns, &envoy_type_matcher_v3.StringMatcher{
-			MatchPattern: &envoy_type_matcher_v3.StringMatcher_Exact{
-				Exact: header,
-			},
-		})
+		var pattern *envoy_type_matcher_v3.StringMatcher
+		if strings.HasPrefix(header, "*") {
+			pattern = &envoy_type_matcher_v3.StringMatcher{
+				MatchPattern: &envoy_type_matcher_v3.StringMatcher_Suffix{
+					Suffix: strings.TrimPrefix(header, "*"),
+				},
+			}
+		} else if strings.HasSuffix(header, "*") {
+			pattern = &envoy_type_matcher_v3.StringMatcher{
+				MatchPattern: &envoy_type_matcher_v3.StringMatcher_Prefix{
+					Prefix: strings.TrimSuffix(header, "*"),
+				},
+			}
+		} else {
+			pattern = &envoy_type_matcher_v3.StringMatcher{
+				MatchPattern: &envoy_type_matcher_v3.StringMatcher_Exact{
+					Exact: header,
+				},
+			}
+		}
+		patterns = append(patterns, pattern)
 	}
 	return &envoy_type_matcher_v3.ListStringMatcher{Patterns: patterns}
 }
@@ -316,5 +362,24 @@ func generateFilterMatcher(name string) *envoy_type_matcher_v3.MetadataMatcher {
 				},
 			},
 		},
+	}
+}
+
+func timeoutOrDefault(t *types.Duration) *duration.Duration {
+	if t == nil {
+		// Default timeout is 600s.
+		return &duration.Duration{Seconds: 600}
+	}
+	return gogo.DurationToProtoDuration(t)
+}
+
+func withBodyRequest(config *meshconfig.MeshConfig_ExtensionProvider_EnvoyExternalAuthorizationRequestBody) *extauthzhttp.BufferSettings {
+	if config == nil {
+		return nil
+	}
+	return &extauthzhttp.BufferSettings{
+		MaxRequestBytes:     config.MaxRequestBytes,
+		AllowPartialMessage: config.AllowPartialMessage,
+		PackAsBytes:         config.PackAsBytes,
 	}
 }
