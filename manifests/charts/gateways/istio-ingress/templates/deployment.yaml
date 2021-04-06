@@ -65,7 +65,6 @@ spec:
 {{- if $gateway.nodeSelector }}
       nodeSelector:
 {{ toYaml $gateway.nodeSelector | trim | indent 8 }}
-      serviceAccountName: {{ $gateway.name | default "istio-ingressgateway" }}-service-account
 {{- if .Values.global.priorityClassName }}
       priorityClassName: "{{ .Values.global.priorityClassName }}"
 {{- end }}
