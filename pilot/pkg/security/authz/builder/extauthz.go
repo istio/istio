@@ -245,10 +245,15 @@ func generateHTTPConfig(hostname, cluster string, status *envoytypev3.HttpStatus
 		allowedHeaders = generateHeaders(config.IncludeHeadersInCheck)
 	}
 	var headersToAdd []*envoy_config_core_v3.HeaderValue
-	for k, v := range config.IncludeAdditionalHeadersInCheck {
+	var additionalHeaders []string
+	for k := range config.IncludeAdditionalHeadersInCheck {
+		additionalHeaders = append(additionalHeaders, k)
+	}
+	sort.Strings(additionalHeaders)
+	for _, k := range additionalHeaders {
 		headersToAdd = append(headersToAdd, &envoy_config_core_v3.HeaderValue{
 			Key:   k,
-			Value: v,
+			Value: config.IncludeAdditionalHeadersInCheck[k],
 		})
 	}
 	if allowedHeaders != nil || len(headersToAdd) != 0 {
