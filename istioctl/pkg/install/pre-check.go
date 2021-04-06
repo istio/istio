@@ -34,7 +34,6 @@ import (
 	"github.com/spf13/cobra"
 	"golang.org/x/sync/errgroup"
 	"golang.org/x/sync/semaphore"
-	"istio.io/istio/pilot/pkg/util/sets"
 	authorizationapi "k8s.io/api/authorization/v1beta1"
 	v1 "k8s.io/api/core/v1"
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -44,14 +43,20 @@ import (
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
 
+	"istio.io/istio/galley/pkg/config/analysis/diag"
+	"istio.io/istio/galley/pkg/config/source/kube/rt"
 	"istio.io/istio/istioctl/pkg/clioptions"
 	"istio.io/istio/istioctl/pkg/install/k8sversion"
+	"istio.io/istio/istioctl/pkg/util/formatting"
 	"istio.io/istio/istioctl/pkg/verifier"
 	operator_istio "istio.io/istio/operator/pkg/apis/istio"
 	operator_v1alpha1 "istio.io/istio/operator/pkg/apis/istio/v1alpha1"
 	"istio.io/istio/operator/pkg/util"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
+	"istio.io/istio/pilot/pkg/util/sets"
+	"istio.io/istio/pkg/config/resource"
+	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/url"
 )
@@ -64,8 +69,9 @@ type istioInstall struct {
 }
 
 type preCheckClient struct {
-	client  *kubernetes.Clientset
-	dclient dynamic.Interface
+	client     *kubernetes.Clientset
+	dclient    dynamic.Interface
+	fullClient kube.ExtendedClient
 }
 
 type preCheckExecClient interface {
@@ -74,6 +80,7 @@ type preCheckExecClient interface {
 	checkAuthorization(s *authorizationapi.SelfSubjectAccessReview) (result *authorizationapi.SelfSubjectAccessReview, err error)
 	checkMutatingWebhook() error
 	getIstioInstalls() ([]istioInstall, error)
+	checkUpgrade() (diag.Messages, error)
 }
 
 // Tell the user if Istio can be installed, and if not give the reason.
@@ -215,12 +222,56 @@ func installPreCheck(istioNamespaceFlag string, restClientGetter genericclioptio
 			" To enable automatic sidecar injection see "+url.SidecarDeployingApp+"\n")
 	}
 	fmt.Fprintf(writer, "\n")
+	fmt.Fprintf(writer, "#6. Upgrade\n")
+	fmt.Fprintf(writer, "-----------------------\n")
+	msgs, err := c.checkUpgrade()
+	if err != nil {
+		fmt.Fprintf(writer, "Upgrade checks failed: %v.\n", err)
+	} else {
+		msgs = msgs.SortedDedupedCopy()
+		output, err := formatting.Print(msgs.SortedDedupedCopy(), formatting.LogFormat, true)
+		if err != nil {
+			return err
+		}
+		fmt.Fprintln(writer, output)
+		if err := errorIfMessagesExceedThreshold(diag.Warning, msgs); err != nil {
+			fmt.Fprintf(writer, "Upgrade checks failed: %v.\n", err)
+		} else {
+			fmt.Fprintf(writer, "Upgrade checks succeeded.\n")
+		}
+	}
+	fmt.Fprintf(writer, "\n")
 	fmt.Fprintf(writer, "-----------------------\n")
 	if errs == nil {
 		fmt.Fprintf(writer, "Install Pre-Check passed! The cluster is ready for Istio installation.\n")
 	}
 	fmt.Fprintf(writer, "\n")
 	return errs
+}
+
+// AnalyzerFoundIssuesError indicates that at least one analyzer found problems.
+type AnalyzerFoundIssuesError struct{}
+
+func (f AnalyzerFoundIssuesError) Error() string {
+	var sb strings.Builder
+	sb.WriteString(fmt.Sprintf("Analyzers found issues when analyzing.\n"))
+	sb.WriteString(fmt.Sprintf("See %s for more information about causes and resolutions.", url.ConfigAnalysis))
+	return sb.String()
+}
+
+func errorIfMessagesExceedThreshold(threshold diag.Level, messages []diag.Message) error {
+	foundIssues := false
+	for _, m := range messages {
+		if m.Type.Level().IsWorseThanOrEqualTo(threshold) {
+			foundIssues = true
+		}
+	}
+
+	if foundIssues {
+		return AnalyzerFoundIssuesError{}
+	}
+
+	return nil
 }
 
 func checkCanCreateResources(c preCheckExecClient, namespace, group, version, name string) error {
@@ -265,7 +316,11 @@ func createKubeClient(restClientGetter genericclioptions.RESTClientGetter) (*pre
 	if err != nil {
 		return nil, err
 	}
-	return &preCheckClient{client: k, dclient: dk}, nil
+	fc, err := kube.NewExtendedClient(restClientGetter.ToRawKubeConfigLoader(), "")
+	if err != nil {
+		return nil, err
+	}
+	return &preCheckClient{client: k, dclient: dk, fullClient: fc}, nil
 }
 
 func (c *preCheckClient) serverVersion() (*version.Info, error) {
@@ -290,6 +345,92 @@ func (c *preCheckClient) checkMutatingWebhook() error {
 
 func (c *preCheckClient) getIstioInstalls() ([]istioInstall, error) {
 	return findIstios(c.dclient)
+}
+
+func (c *preCheckClient) checkUpgrade() (diag.Messages, error) {
+	mt := diag.NewMessageType(diag.Warning, "IST1337", "Port %v listens on localhost and will no longer be exposed to other pods.")
+
+	pods, err := c.fullClient.CoreV1().Pods(meta_v1.NamespaceAll).List(context.Background(), meta_v1.ListOptions{
+		// Find all injected pods
+		LabelSelector: "security.istio.io/tlsMode=istio",
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	var messages diag.Messages = make([]diag.Message, 0)
+	g := errgroup.Group{}
+
+	sem := semaphore.NewWeighted(25)
+	for _, pod := range pods.Items {
+		pod := pod
+		g.Go(func() error {
+			sem.Acquire(context.Background(), 1)
+			defer sem.Release(1)
+			resp, err := c.fullClient.EnvoyDo(context.Background(), pod.Name, pod.Namespace,
+				"GET", "config_dump?resource=dynamic_active_clusters&mask=cluster.name", nil)
+			if err != nil {
+				fmt.Println("failed to get config dump:", err)
+				return nil
+			}
+			ports, err := extractInboundPorts(resp)
+			if err != nil {
+				fmt.Println("failed to get ports:", err)
+				return nil
+			}
+			out, _, err := c.fullClient.PodExec(pod.Name, pod.Namespace, "istio-proxy", "ss -ltnH")
+			if err != nil {
+				fmt.Println("failed to get listener state:", err)
+				return nil
+			}
+			for _, ss := range strings.Split(out, "\n") {
+				if len(ss) == 0 {
+					continue
+				}
+				bind, port, err := net.SplitHostPort(getColumn(ss, 3))
+				if err != nil {
+					fmt.Println("failed to get parse state:", err)
+					continue
+				}
+				ip := net.ParseIP(bind)
+				ip.IsGlobalUnicast()
+				portn, _ := strconv.Atoi(port)
+				if _, f := ports[portn]; f {
+					c := ports[portn]
+					if bind == "" {
+						continue
+					} else if bind == "*" || ip.IsUnspecified() {
+						c.Wildcard = true
+					} else if ip.IsLoopback() {
+						c.Lo = true
+					} else {
+						c.Explicit = true
+					}
+					ports[portn] = c
+				}
+			}
+			origin := &rt.Origin{
+				Collection: collections.K8SCoreV1Pods.Name(),
+				Kind:       collections.K8SCoreV1Pods.Resource().Kind(),
+				FullName: resource.FullName{
+					Namespace: resource.Namespace(pod.Namespace),
+					Name:      resource.LocalName(pod.Name),
+				},
+				Version: resource.Version(pod.ResourceVersion),
+			}
+			for port, status := range ports {
+				if status.Lo == true {
+					messages.Add(
+						diag.NewMessage(mt, &resource.Instance{Origin: origin}, fmt.Sprint(port)))
+				}
+			}
+			return nil
+		})
+	}
+	if err := g.Wait(); err != nil {
+		return nil, err
+	}
+	return messages, nil
 }
 
 // NewPrecheckCommand creates a new command for checking a Kubernetes cluster for Istio compatibility
