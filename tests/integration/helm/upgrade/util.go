@@ -19,6 +19,12 @@ import (
 	"context"
 	"fmt"
 	"io/ioutil"
+	"os"
+	"path/filepath"
+	"testing"
+
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
 	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/cluster"
@@ -30,14 +36,10 @@ import (
 	"istio.io/istio/pkg/test/util/retry"
 	helmtest "istio.io/istio/tests/integration/helm"
 	"istio.io/istio/tests/util/sanitycheck"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"os"
-	"path/filepath"
-	"testing"
 )
 
 const (
-	gcrHub           = "gcr.io/istio-release"
+	gcrHub = "gcr.io/istio-release"
 
 	defaultValues = `
 global:
@@ -142,7 +144,7 @@ func InstallIstio(t *testing.T, cs cluster.Cluster,
 	helmtest.InstallGatewaysCharts(t, cs, h, helmtest.TarGzSuffix, helmtest.IstioNamespace, overrideValuesFile)
 }
 
-// PerformUpgradeFunc returns the provided function necesary to run inside of a integration test
+// PerformUpgradeFunc returns the provided function necessary to run inside of a integration test
 // for upgrade capability
 func PerformUpgradeFunc(t *testing.T, previousVersion string) func(framework.TestContext) {
 	return func(ctx framework.TestContext) {
