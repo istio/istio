@@ -22,6 +22,7 @@ import (
 	"text/tabwriter"
 
 	cluster "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
+	"sigs.k8s.io/yaml"
 
 	protio "istio.io/istio/istioctl/pkg/util/proto"
 	"istio.io/istio/pilot/pkg/model"
@@ -87,7 +88,7 @@ func (c *ConfigWriter) PrintClusterSummary(filter ClusterFilter) error {
 }
 
 // PrintClusterDump prints the relevant clusters in the config dump to the ConfigWriter stdout
-func (c *ConfigWriter) PrintClusterDump(filter ClusterFilter) error {
+func (c *ConfigWriter) PrintClusterDump(filter ClusterFilter, outputFormat string) error {
 	_, clusters, err := c.setupClusterConfigWriter()
 	if err != nil {
 		return err
@@ -101,6 +102,11 @@ func (c *ConfigWriter) PrintClusterDump(filter ClusterFilter) error {
 	out, err := json.MarshalIndent(filteredClusters, "", "    ")
 	if err != nil {
 		return err
+	}
+	if outputFormat == "yaml" {
+		if out, err = yaml.JSONToYAML(out); err != nil {
+			return err
+		}
 	}
 	_, _ = fmt.Fprintln(c.Stdout, string(out))
 	return nil

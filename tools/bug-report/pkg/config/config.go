@@ -217,19 +217,10 @@ func (s *SelectionSpec) UnmarshalJSON(b []byte) error {
 		switch ft[i] {
 		case cluster2.Namespace:
 			s.Namespaces = parseToIncludeTypeSlice(f)
-			if err != nil {
-				return err
-			}
 		case cluster2.Deployment:
 			s.Deployments = parseToIncludeTypeSlice(f)
-			if err != nil {
-				return err
-			}
 		case cluster2.Pod:
 			s.Pods = parseToIncludeTypeSlice(f)
-			if err != nil {
-				return err
-			}
 		case cluster2.Label:
 			s.Labels, err = parseToIncludeTypeMap(f)
 			if err != nil {
@@ -242,10 +233,6 @@ func (s *SelectionSpec) UnmarshalJSON(b []byte) error {
 			}
 		case cluster2.Container:
 			s.Containers = parseToIncludeTypeSlice(f)
-			if err != nil {
-				return err
-			}
-
 		}
 	}
 
