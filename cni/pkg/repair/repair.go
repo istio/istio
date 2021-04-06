@@ -166,7 +166,6 @@ func (bpr BrokenPodReconciler) deleteBrokenPod(pod v1.Pod) error {
 	if err == nil {
 		podsRepaired.With(typeLabel.Value(deleteType)).Increment()
 	}
-	fmt.Printf("bianpengyuan increment delete %+v\n", podsRepaired.Name())
 	return err
 }
 
