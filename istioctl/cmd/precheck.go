@@ -91,6 +91,7 @@ func preCheck() *cobra.Command {
 			}
 			for _, m := range msgs {
 				if m.Type.Level().IsWorseThanOrEqualTo(diag.Warning) {
+					// nolint: golint
 					return fmt.Errorf(`Issues found when checking the cluster. Istio may not be safe to install or upgrade.
 See %s for more information about causes and resolutions.`, url.ConfigAnalysis)
 				}
@@ -112,18 +113,14 @@ func checkControlPlane(cli kube.ExtendedClient) (diag.Messages, error) {
 	}
 	msgs = append(msgs, m...)
 
-	m, err = checkInstallPermissions(cli)
-	if err != nil {
-		return nil, err
-	}
-	msgs = append(msgs, m...)
+	msgs = append(msgs, checkInstallPermissions(cli)...)
 
 	// TODO: add more checks
 
 	return msgs, nil
 }
 
-func checkInstallPermissions(cli kube.ExtendedClient) (diag.Messages, error) {
+func checkInstallPermissions(cli kube.ExtendedClient) diag.Messages {
 	Resources := []struct {
 		namespace string
 		group     string
@@ -197,7 +194,7 @@ func checkInstallPermissions(cli kube.ExtendedClient) (diag.Messages, error) {
 			msgs.Add(msg.NewInsufficientPermissions(&resource.Instance{Origin: clusterOrigin{}}, r.name, err.Error()))
 		}
 	}
-	return msgs, nil
+	return msgs
 }
 
 func checkCanCreateResources(c kube.ExtendedClient, namespace, group, version, name string) error {
@@ -338,7 +335,7 @@ func checkListeners(cli kube.ExtendedClient, namespace string) (diag.Messages, e
 			}
 			for port, status := range ports {
 				// Binding to localhost no longer works out of the box on Istio 1.10+, give them a warning.
-				if status.Lo == true {
+				if status.Lo {
 					messages.Add(msg.NewLocalhostListener(&resource.Instance{Origin: origin}, fmt.Sprint(port)))
 				}
 			}
