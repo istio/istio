@@ -22,9 +22,7 @@ import (
 	helmupgrade "istio.io/istio/tests/integration/helm/upgrade"
 )
 
-const (
-	nMinusTwoVersion = "1.8.1"
-)
+const nMinusTwoVersion = "1.8.1"
 
 // TestDefaultInPlaceUpgradeFromTwoMinorReleases tests Istio installation using Helm with default options for Istio 1.(n-2)
 func TestDefaultInPlaceUpgradeFromTwoMinorReleases(t *testing.T) {
