@@ -505,7 +505,7 @@ func (s *DiscoveryServer) initConnection(node *core.Node, con *Connection) error
 	}
 
 	// Register the connection. this allows pushes to be triggered for the proxy. Note: the timing of
-	// this is important. While registering for pushes *after* initialization is complete seems like
+	// this and initializeProxy important. While registering for pushes *after* initialization is complete seems like
 	// a better choice, it introduces a race condition; If we complete initialization of a new push
 	// context between initializeProxy and addCon, we would not get any pushes triggered for the new
 	// push context, leading the proxy to have a stale state until the next full push.
