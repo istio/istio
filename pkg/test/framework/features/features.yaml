@@ -43,9 +43,13 @@ features:
     mirroring:
     ingress:
       loadbalancing:
+      custom:
+      topology:
     ratelimit:
       envoy:
     original-source-ip:
+    mcs:
+      serviceexport:
   usability:
     observability:
       describe:
@@ -60,14 +64,18 @@ features:
     helpers:
       add-to-mesh:
       remove-from-mesh:
+      kube-inject:
   # features that allow users to secure their services and service mesh.
   security:
+    externalca:
+      reachability:
     peer:
       secure-naming:
       trust-domain-validation:
       trust-domain-alias-secure-naming:
       file-mounted-certs:
       ecc-signature-algorithm:
+      multiple-root:
     user:
     ingress:
       mtls:
@@ -115,14 +123,20 @@ features:
       plugin-cert:
   # features which allow extending or deep integrations with istio and other products
   extensibility:
+    wasm:
+      remote-load:
   # features releated to the lifecycle of istio installations
   installation:
     istioctl:
+      install:
       uninstall_revision:
       uninstall_manifest:
       uninstall_purge:
       postinstall_verify:
+      revision_centric_view:
+      revision_tags:
     multicluster:
+      cluster_local:
       multimaster:
       remote:
       centralremotekubeconfig:

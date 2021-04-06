@@ -132,6 +132,30 @@ var (
 	// ServiceEntryAddressesRequired defines a diag.MessageType for message "ServiceEntryAddressesRequired".
 	// Description: Virtual IP addresses are required for ports serving TCP (or unset) protocol
 	ServiceEntryAddressesRequired = diag.NewMessageType(diag.Warning, "IST0134", "ServiceEntry addresses are required for this protocol.")
+
+	// DeprecatedAnnotation defines a diag.MessageType for message "DeprecatedAnnotation".
+	// Description: A resource is using a deprecated Istio annotation.
+	DeprecatedAnnotation = diag.NewMessageType(diag.Info, "IST0135", "Annotation %q has been deprecated and may not work in future Istio versions.")
+
+	// AlphaAnnotation defines a diag.MessageType for message "AlphaAnnotation".
+	// Description: An Istio annotation may not be suitable for production.
+	AlphaAnnotation = diag.NewMessageType(diag.Info, "IST0136", "Annotation %q is part of an alpha-phase feature and may be incompletely supported.")
+
+	// DeploymentConflictingPorts defines a diag.MessageType for message "DeploymentConflictingPorts".
+	// Description: Two services selecting the same workload with the same targetPort MUST refer to the same port.
+	DeploymentConflictingPorts = diag.NewMessageType(diag.Warning, "IST0137", "This deployment %s is associated with multiple services %v using targetPort %q but different ports: %v.")
+
+	// GatewayDuplicateCertificate defines a diag.MessageType for message "GatewayDuplicateCertificate".
+	// Description: Duplicate certificate in multiple gateways may cause 404s if clients re-use HTTP2 connections.
+	GatewayDuplicateCertificate = diag.NewMessageType(diag.Warning, "IST0138", "Duplicate certificate in multiple gateways %v may cause 404s if clients re-use HTTP2 connections.")
+
+	// InvalidWebhook defines a diag.MessageType for message "InvalidWebhook".
+	// Description: Webhook is invalid or references a control plane service that does not exist.
+	InvalidWebhook = diag.NewMessageType(diag.Error, "IST0139", "%v")
+
+	// IngressRouteRulesNotAffected defines a diag.MessageType for message "IngressRouteRulesNotAffected".
+	// Description: Route rules have no effect on ingress gateway requests
+	IngressRouteRulesNotAffected = diag.NewMessageType(diag.Warning, "IST0140", "Subset in virtual service %s has no effect on ingress gateway %s requests")
 )
 
 // All returns a list of all known message types.
@@ -168,6 +192,12 @@ func All() []*diag.MessageType {
 		VirtualServiceHostNotFoundInGateway,
 		SchemaWarning,
 		ServiceEntryAddressesRequired,
+		DeprecatedAnnotation,
+		AlphaAnnotation,
+		DeploymentConflictingPorts,
+		GatewayDuplicateCertificate,
+		InvalidWebhook,
+		IngressRouteRulesNotAffected,
 	}
 }
 
@@ -482,5 +512,63 @@ func NewServiceEntryAddressesRequired(r *resource.Instance) diag.Message {
 	return diag.NewMessage(
 		ServiceEntryAddressesRequired,
 		r,
+	)
+}
+
+// NewDeprecatedAnnotation returns a new diag.Message based on DeprecatedAnnotation.
+func NewDeprecatedAnnotation(r *resource.Instance, annotation string) diag.Message {
+	return diag.NewMessage(
+		DeprecatedAnnotation,
+		r,
+		annotation,
+	)
+}
+
+// NewAlphaAnnotation returns a new diag.Message based on AlphaAnnotation.
+func NewAlphaAnnotation(r *resource.Instance, annotation string) diag.Message {
+	return diag.NewMessage(
+		AlphaAnnotation,
+		r,
+		annotation,
+	)
+}
+
+// NewDeploymentConflictingPorts returns a new diag.Message based on DeploymentConflictingPorts.
+func NewDeploymentConflictingPorts(r *resource.Instance, deployment string, services []string, targetPort string, ports []int32) diag.Message {
+	return diag.NewMessage(
+		DeploymentConflictingPorts,
+		r,
+		deployment,
+		services,
+		targetPort,
+		ports,
+	)
+}
+
+// NewGatewayDuplicateCertificate returns a new diag.Message based on GatewayDuplicateCertificate.
+func NewGatewayDuplicateCertificate(r *resource.Instance, gateways []string) diag.Message {
+	return diag.NewMessage(
+		GatewayDuplicateCertificate,
+		r,
+		gateways,
+	)
+}
+
+// NewInvalidWebhook returns a new diag.Message based on InvalidWebhook.
+func NewInvalidWebhook(r *resource.Instance, error string) diag.Message {
+	return diag.NewMessage(
+		InvalidWebhook,
+		r,
+		error,
+	)
+}
+
+// NewIngressRouteRulesNotAffected returns a new diag.Message based on IngressRouteRulesNotAffected.
+func NewIngressRouteRulesNotAffected(r *resource.Instance, virtualservicesubset string, virtualservice string) diag.Message {
+	return diag.NewMessage(
+		IngressRouteRulesNotAffected,
+		r,
+		virtualservicesubset,
+		virtualservice,
 	)
 }

@@ -68,9 +68,8 @@ func TestValidation(t *testing.T) {
 	framework.NewTest(t).
 		// Limit to Kube environment as we're testing integration of webhook with K8s.
 
-		RunParallel(func(ctx framework.TestContext) {
-
-			dataset := loadTestData(ctx)
+		RunParallel(func(t framework.TestContext) {
+			dataset := loadTestData(t)
 
 			denied := func(err error) bool {
 				if err == nil {
@@ -85,52 +84,52 @@ func TestValidation(t *testing.T) {
 					strings.Contains(err.Error(), "is invalid")
 			}
 
-			for _, cluster := range ctx.Clusters().Primaries() {
+			for _, cluster := range t.Clusters().Primaries() {
 				for i := range dataset {
 					d := dataset[i]
-					ctx.NewSubTest(string(d)).RunParallel(func(ctx framework.TestContext) {
+					t.NewSubTest(string(d)).RunParallel(func(t framework.TestContext) {
 						if d.isSkipped() {
-							ctx.SkipNow()
+							t.SkipNow()
 							return
 						}
 
 						ym, err := d.load()
 						if err != nil {
-							ctx.Fatalf("Unable to load test data: %v", err)
+							t.Fatalf("Unable to load test data: %v", err)
 						}
 
-						ns := namespace.NewOrFail(t, ctx, namespace.Config{
+						ns := namespace.NewOrFail(t, t, namespace.Config{
 							Prefix: "validation",
 						})
 
-						applyFiles := ctx.WriteYAMLOrFail(ctx, "apply", ym)
+						applyFiles := t.WriteYAMLOrFail(t, "apply", ym)
 						dryRunErr := cluster.ApplyYAMLFilesDryRun(ns.Name(), applyFiles...)
 
 						switch {
 						case dryRunErr != nil && d.isValid():
 							if denied(dryRunErr) {
-								ctx.Fatalf("got unexpected for valid config: %v", dryRunErr)
+								t.Fatalf("got unexpected for valid config: %v", dryRunErr)
 							} else {
-								ctx.Fatalf("got unexpected unknown error for valid config: %v", dryRunErr)
+								t.Fatalf("got unexpected unknown error for valid config: %v", dryRunErr)
 							}
 						case dryRunErr == nil && !d.isValid():
-							ctx.Fatalf("got unexpected success for invalid config")
+							t.Fatalf("got unexpected success for invalid config")
 						case dryRunErr != nil && !d.isValid():
 							if !denied(dryRunErr) {
-								ctx.Fatalf("config request denied for wrong reason: %v", dryRunErr)
+								t.Fatalf("config request denied for wrong reason: %v", dryRunErr)
 							}
 						}
 
 						wetRunErr := cluster.ApplyYAMLFiles(ns.Name(), applyFiles...)
-						ctx.WhenDone(func() error {
-							return cluster.DeleteYAMLFiles(ns.Name(), applyFiles...)
+						t.ConditionalCleanup(func() {
+							cluster.DeleteYAMLFiles(ns.Name(), applyFiles...)
 						})
 
 						if dryRunErr != nil && wetRunErr == nil {
-							ctx.Fatalf("dry run returned error, but wet run returned none: %v", dryRunErr)
+							t.Fatalf("dry run returned error, but wet run returned none: %v", dryRunErr)
 						}
 						if dryRunErr == nil && wetRunErr != nil {
-							ctx.Fatalf("wet run returned errors, but dry run returned none: %v", wetRunErr)
+							t.Fatalf("wet run returned errors, but dry run returned none: %v", wetRunErr)
 						}
 					})
 				}
@@ -147,7 +146,8 @@ var ignoredCRDs = []string{
 	"/v1/Secret",
 	"/v1/Service",
 	"/v1/ConfigMap",
-	"apiextensions.k8s.io/v1beta1/CustomResourceDefinition",
+	"apiextensions.k8s.io/v1/CustomResourceDefinition",
+	"admissionregistration.k8s.io/v1/MutatingWebhookConfiguration",
 	"apps/v1/Deployment",
 	"extensions/v1beta1/Ingress",
 }
@@ -157,8 +157,7 @@ func TestEnsureNoMissingCRDs(t *testing.T) {
 	// that you need to update validation tests by either adding new/missing test cases, or removing test cases for
 	// types that are no longer supported.
 	framework.NewTest(t).
-		Run(func(ctx framework.TestContext) {
-
+		Run(func(t framework.TestContext) {
 			ignored := make(map[string]struct{})
 			for _, ig := range ignoredCRDs {
 				ignored[ig] = struct{}{}
@@ -194,21 +193,21 @@ func TestEnsureNoMissingCRDs(t *testing.T) {
 
 			testedValid := make(map[string]struct{})
 			testedInvalid := make(map[string]struct{})
-			for _, te := range loadTestData(ctx) {
+			for _, te := range loadTestData(t) {
 				yamlBatch, err := te.load()
 				yamlParts := yml.SplitString(yamlBatch)
 				for _, yamlPart := range yamlParts {
 					if err != nil {
-						ctx.Fatalf("error loading test data: %v", err)
+						t.Fatalf("error loading test data: %v", err)
 					}
 
 					m := make(map[string]interface{})
 					by, er := yaml.YAMLToJSON([]byte(yamlPart))
 					if er != nil {
-						ctx.Fatalf("error loading test data: %v", er)
+						t.Fatalf("error loading test data: %v", er)
 					}
 					if err = json.Unmarshal(by, &m); err != nil {
-						ctx.Fatalf("error parsing JSON: %v", err)
+						t.Fatalf("error parsing JSON: %v", err)
 					}
 
 					apiVersion := m["apiVersion"].(string)
@@ -229,21 +228,21 @@ func TestEnsureNoMissingCRDs(t *testing.T) {
 				}
 
 				if _, found := testedValid[rec]; !found {
-					ctx.Errorf("CRD does not have a positive validation test: %v", rec)
+					t.Errorf("CRD does not have a positive validation test: %v", rec)
 				}
 				if _, found := testedInvalid[rec]; !found {
-					ctx.Errorf("CRD does not have a negative validation test: %v", rec)
+					t.Errorf("CRD does not have a negative validation test: %v", rec)
 				}
 			}
 
 			for tst := range testedValid {
 				if _, found := recognized[tst]; !found {
-					ctx.Errorf("Unrecognized positive validation test data found: %v", tst)
+					t.Errorf("Unrecognized positive validation test data found: %v", tst)
 				}
 			}
 			for tst := range testedInvalid {
 				if _, found := recognized[tst]; !found {
-					ctx.Errorf("Unrecognized negative validation test data found: %v", tst)
+					t.Errorf("Unrecognized negative validation test data found: %v", tst)
 				}
 			}
 		})

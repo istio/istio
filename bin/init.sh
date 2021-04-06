@@ -59,6 +59,7 @@ function set_download_command () {
 # Params:
 #   $1: The URL of the Envoy tar.gz to be downloaded.
 #   $2: The full path of the output binary.
+#   $3: Non-versioned name to use
 function download_envoy_if_necessary () {
   if [[ ! -f "$2" ]] ; then
     # Enter the output directory.
@@ -76,8 +77,8 @@ function download_envoy_if_necessary () {
     rm -rf usr
 
     # Make a copy named just "envoy" in the same directory (overwrite if necessary).
-    echo "Copying $2 to $(dirname "$2")/${SIDECAR}"
-    cp -f "$2" "$(dirname "$2")/${SIDECAR}"
+    echo "Copying $2 to $(dirname "$2")/${3}"
+    cp -f "$2" "$(dirname "$2")/${3}"
     popd
   fi
 }
@@ -116,18 +117,18 @@ set_download_command
 
 if [[ -n "${DEBUG_IMAGE:-}" ]]; then
   # Download and extract the Envoy linux debug binary.
-  download_envoy_if_necessary "${ISTIO_ENVOY_LINUX_DEBUG_URL}" "$ISTIO_ENVOY_LINUX_DEBUG_PATH"
+  download_envoy_if_necessary "${ISTIO_ENVOY_LINUX_DEBUG_URL}" "$ISTIO_ENVOY_LINUX_DEBUG_PATH" "${SIDECAR}"
 else
   echo "Skipping envoy debug. Set DEBUG_IMAGE to download."
 fi
 
 # Download and extract the Envoy linux release binary.
-download_envoy_if_necessary "${ISTIO_ENVOY_LINUX_RELEASE_URL}" "$ISTIO_ENVOY_LINUX_RELEASE_PATH"
-download_envoy_if_necessary "${ISTIO_ENVOY_CENTOS_RELEASE_URL}" "$ISTIO_ENVOY_CENTOS_LINUX_RELEASE_PATH"
+download_envoy_if_necessary "${ISTIO_ENVOY_LINUX_RELEASE_URL}" "$ISTIO_ENVOY_LINUX_RELEASE_PATH" "${SIDECAR}"
+download_envoy_if_necessary "${ISTIO_ENVOY_CENTOS_RELEASE_URL}" "$ISTIO_ENVOY_CENTOS_LINUX_RELEASE_PATH" "${SIDECAR}-centos"
 
 if [[ "$GOOS_LOCAL" == "darwin" ]]; then
   # Download and extract the Envoy macOS release binary
-  download_envoy_if_necessary "${ISTIO_ENVOY_MACOS_RELEASE_URL}" "$ISTIO_ENVOY_MACOS_RELEASE_PATH"
+  download_envoy_if_necessary "${ISTIO_ENVOY_MACOS_RELEASE_URL}" "$ISTIO_ENVOY_MACOS_RELEASE_PATH" "${SIDECAR}"
   ISTIO_ENVOY_NATIVE_PATH=${ISTIO_ENVOY_MACOS_RELEASE_PATH}
 else
   ISTIO_ENVOY_NATIVE_PATH=${ISTIO_ENVOY_LINUX_RELEASE_PATH}

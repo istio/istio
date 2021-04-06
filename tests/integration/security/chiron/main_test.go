@@ -24,9 +24,7 @@ import (
 	"istio.io/istio/pkg/test/framework/resource"
 )
 
-var (
-	inst istio.Instance
-)
+var inst istio.Instance
 
 func TestMain(m *testing.M) {
 	// Integration test for provisioning DNS certificates.

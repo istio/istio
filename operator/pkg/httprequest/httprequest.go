@@ -26,14 +26,12 @@ func Get(url string) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
+	defer resp.Body.Close()
 	if resp.StatusCode != 200 {
 		return nil, fmt.Errorf("failed to fetch URL %s : %s", url, resp.Status)
 	}
 	ret, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
-		return nil, err
-	}
-	if err := resp.Body.Close(); err != nil {
 		return nil, err
 	}
 	return ret, nil

@@ -36,14 +36,14 @@ func TestStatusMaps(t *testing.T) {
 	r.processEvent("conD", typ, "d")
 	RegisterTestingT(t)
 	x := struct{}{}
-	Expect(r.status).To(Equal(map[string]string{"conA": "a", "conB": "a", "conC": "c", "conD": "d"}))
-	Expect(r.reverseStatus).To(Equal(map[string]map[string]struct{}{"a": {"conA": x, "conB": x}, "c": {"conC": x}, "d": {"conD": x}}))
+	Expect(r.status).To(Equal(map[string]string{"conA~": "a", "conB~": "a", "conC~": "c", "conD~": "d"}))
+	Expect(r.reverseStatus).To(Equal(map[string]map[string]struct{}{"a": {"conA~": x, "conB~": x}, "c": {"conC~": x}, "d": {"conD~": x}}))
 	r.processEvent("conA", typ, "d")
-	Expect(r.status).To(Equal(map[string]string{"conA": "d", "conB": "a", "conC": "c", "conD": "d"}))
-	Expect(r.reverseStatus).To(Equal(map[string]map[string]struct{}{"a": {"conB": x}, "c": {"conC": x}, "d": {"conD": x, "conA": x}}))
+	Expect(r.status).To(Equal(map[string]string{"conA~": "d", "conB~": "a", "conC~": "c", "conD~": "d"}))
+	Expect(r.reverseStatus).To(Equal(map[string]map[string]struct{}{"a": {"conB~": x}, "c": {"conC~": x}, "d": {"conD~": x, "conA~": x}}))
 	r.RegisterDisconnect("conA", []xds.EventType{typ})
-	Expect(r.status).To(Equal(map[string]string{"conB": "a", "conC": "c", "conD": "d"}))
-	Expect(r.reverseStatus).To(Equal(map[string]map[string]struct{}{"a": {"conB": x}, "c": {"conC": x}, "d": {"conD": x}}))
+	Expect(r.status).To(Equal(map[string]string{"conB~": "a", "conC~": "c", "conD~": "d"}))
+	Expect(r.reverseStatus).To(Equal(map[string]map[string]struct{}{"a": {"conB~": x}, "c": {"conC~": x}, "d": {"conD~": x}}))
 }
 
 func initReporterWithoutStarting() (out Reporter) {
@@ -105,8 +105,8 @@ func TestBuildReport(t *testing.T) {
 		r.processEvent(con, "", firstNoncePrefix)
 	}
 	// modify one resource to version 2
-	resources[1].ResourceVersion = "2"
-	myResources[1].ResourceVersion = "2"
+	resources[1].Generation = int64(2)
+	myResources[1].Generation = "2"
 	// notify the ledger of the new version
 	r.AddInProgressResource(*resources[1])
 	// mark only one connection as having acked version 2

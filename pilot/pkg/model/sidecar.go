@@ -38,12 +38,12 @@ var (
 		gvk.ServiceEntry:    {},
 		gvk.VirtualService:  {},
 		gvk.DestinationRule: {},
+		gvk.Sidecar:         {},
 	}
 
 	// clusterScopedConfigTypes includes configs when they are in root namespace,
 	// they will be applied to all namespaces within the cluster.
 	clusterScopedConfigTypes = map[config.GroupVersionKind]struct{}{
-		gvk.Sidecar:               {},
 		gvk.EnvoyFilter:           {},
 		gvk.AuthorizationPolicy:   {},
 		gvk.RequestAuthentication: {},
@@ -269,8 +269,19 @@ func ConvertToSidecarScope(ps *PushContext, sidecarConfig *config.Config, config
 		Version:            ps.PushVersion,
 	}
 
+	out.AddConfigDependencies(ConfigKey{
+		sidecarConfig.GroupVersionKind,
+		sidecarConfig.Name,
+		sidecarConfig.Namespace,
+	})
+
 	out.EgressListeners = make([]*IstioEgressListenerWrapper, 0)
-	for _, e := range sidecar.Egress {
+	egressConfigs := sidecar.Egress
+	// If egress not set, setup a default listener
+	if len(egressConfigs) == 0 {
+		egressConfigs = append(egressConfigs, &networking.IstioEgressListener{Hosts: []string{"*/*"}})
+	}
+	for _, e := range egressConfigs {
 		out.EgressListeners = append(out.EgressListeners,
 			convertIstioListenerToWrapper(ps, configNamespace, e))
 	}
@@ -324,6 +335,7 @@ func ConvertToSidecarScope(ps *PushContext, sidecarConfig *config.Config, config
 		for _, delegate := range delegates {
 			out.AddConfigDependencies(delegate)
 		}
+
 		// Infer more possible destinations from virtual services
 		// Services chosen here will not override services explicitly requested in listener.services.
 		// That way, if there is ambiguity around what hostname to pick, a user can specify the one they
@@ -336,31 +348,35 @@ func ConvertToSidecarScope(ps *PushContext, sidecarConfig *config.Config, config
 				Namespace: vs.Namespace,
 			})
 
-			for _, d := range virtualServiceDestinations(v) {
+			for _, h := range virtualServiceDestinationHosts(v) {
 				// Default to this hostname in our config namespace
-				if s, ok := ps.ServiceIndex.HostnameAndNamespace[host.Name(d.Host)][configNamespace]; ok {
+				if s, ok := ps.ServiceIndex.HostnameAndNamespace[host.Name(h)][configNamespace]; ok {
 					// This won't overwrite hostnames that have already been found eg because they were requested in hosts
 					addService(s)
 				} else {
+
 					// We couldn't find the hostname in our config namespace
 					// We have to pick one arbitrarily for now, so we'll pick the first namespace alphabetically
 					// TODO: could we choose services more intelligently based on their ports?
-					byNamespace := ps.ServiceIndex.HostnameAndNamespace[host.Name(d.Host)]
+					byNamespace := ps.ServiceIndex.HostnameAndNamespace[host.Name(h)]
 					if len(byNamespace) == 0 {
 						// This hostname isn't found anywhere
-						log.Debugf("Could not find service hostname %s parsed from %s", d.Host, vs.Key())
+						log.Debugf("Could not find service hostname %s parsed from %s", h, vs.Key())
 						continue
 					}
 
 					ns := make([]string, 0, len(byNamespace))
 					for k := range byNamespace {
-						ns = append(ns, k)
+						if ps.IsServiceVisible(byNamespace[k], configNamespace) {
+							ns = append(ns, k)
+						}
 					}
-					sort.Strings(ns)
-
-					// Pick first namespace alphabetically
-					// This won't overwrite hostnames that have already been found eg because they were requested in hosts
-					addService(byNamespace[ns[0]])
+					if len(ns) > 0 {
+						sort.Strings(ns)
+						// Pick first namespace alphabetically
+						// This won't overwrite hostnames that have already been found eg because they were requested in hosts
+						addService(byNamespace[ns[0]])
+					}
 				}
 			}
 		}
@@ -403,7 +419,6 @@ func ConvertToSidecarScope(ps *PushContext, sidecarConfig *config.Config, config
 
 func convertIstioListenerToWrapper(ps *PushContext, configNamespace string,
 	istioListener *networking.IstioEgressListener) *IstioEgressListenerWrapper {
-
 	out := &IstioEgressListenerWrapper{
 		IstioListener: istioListener,
 		listenerHosts: make(map[string][]host.Name),
@@ -609,7 +624,6 @@ func (ilw *IstioEgressListenerWrapper) selectVirtualServices(virtualServices []c
 // Return filtered services through the hosts field in the egress portion of the Sidecar config.
 // Note that the returned service could be trimmed.
 func (ilw *IstioEgressListenerWrapper) selectServices(services []*Service, configNamespace string) []*Service {
-
 	importedServices := make([]*Service, 0)
 	wildcardHosts, wnsFound := ilw.listenerHosts[wildcardNamespace]
 	for _, s := range services {
@@ -630,7 +644,7 @@ func (ilw *IstioEgressListenerWrapper) selectServices(services []*Service, confi
 		}
 	}
 
-	var validServices = make(map[host.Name]string)
+	validServices := make(map[host.Name]string)
 	for _, svc := range importedServices {
 		_, f := validServices[svc.Hostname]
 		// Select a single namespace for a given hostname.

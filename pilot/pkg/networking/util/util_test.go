@@ -26,12 +26,12 @@ import (
 	http_conn "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
 	xdsutil "github.com/envoyproxy/go-control-plane/pkg/wellknown"
 	"github.com/golang/protobuf/proto"
-	"github.com/golang/protobuf/ptypes"
 	"github.com/golang/protobuf/ptypes/any"
 	structpb "github.com/golang/protobuf/ptypes/struct"
 	"github.com/golang/protobuf/ptypes/wrappers"
 	"github.com/google/go-cmp/cmp"
 	"google.golang.org/protobuf/testing/protocmp"
+	"google.golang.org/protobuf/types/known/durationpb"
 
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/features"
@@ -591,7 +591,8 @@ func TestAddSubsetToMetadata(t *testing.T) {
 
 	for _, v := range cases {
 		t.Run(v.name, func(tt *testing.T) {
-			got := AddSubsetToMetadata(v.in, v.subset)
+			AddSubsetToMetadata(v.in, v.subset)
+			got := v.in
 			if diff := cmp.Diff(got, v.want, protocmp.Transform()); diff != "" {
 				tt.Errorf("AddSubsetToMetadata(%v, %s) produced incorrect result:\ngot: %v\nwant: %v\nDiff: %s", v.in, v.subset, got, v.want, diff)
 			}
@@ -643,7 +644,7 @@ func TestMergeAnyWithStruct(t *testing.T) {
 	inAny := MessageToAny(inHCM)
 
 	// listener.go sets this to 0
-	newTimeout := ptypes.DurationProto(5 * time.Minute)
+	newTimeout := durationpb.New(5 * time.Minute)
 	userHCM := &http_conn.HttpConnectionManager{
 		AddUserAgent:      proto2.BoolTrue,
 		StreamIdleTimeout: newTimeout,
@@ -673,7 +674,7 @@ func TestMergeAnyWithStruct(t *testing.T) {
 	}
 
 	outHCM := http_conn.HttpConnectionManager{}
-	if err = ptypes.UnmarshalAny(outAny, &outHCM); err != nil {
+	if err = outAny.UnmarshalTo(&outHCM); err != nil {
 		t.Errorf("Failed to unmarshall outAny to outHCM: %v", err)
 	}
 
@@ -1057,6 +1058,26 @@ func TestCidrRangeSliceEqual(t *testing.T) {
 			true,
 		},
 		{
+			"equal cidr with different insignificant bits",
+			[]*core.CidrRange{
+				{
+					AddressPrefix: "1.2.3.4",
+					PrefixLen: &wrappers.UInt32Value{
+						Value: 24,
+					},
+				},
+			},
+			[]*core.CidrRange{
+				{
+					AddressPrefix: "1.2.3.5",
+					PrefixLen: &wrappers.UInt32Value{
+						Value: 24,
+					},
+				},
+			},
+			true,
+		},
+		{
 			"unequal cidr address prefix mismatch",
 			[]*core.CidrRange{
 				{
@@ -1113,6 +1134,7 @@ func TestEndpointMetadata(t *testing.T) {
 		network      string
 		tlsMode      string
 		workloadName string
+		clusterID    string
 		namespace    string
 		labels       labels.Instance
 		want         *core.Metadata
@@ -1122,20 +1144,43 @@ func TestEndpointMetadata(t *testing.T) {
 			tlsMode:      string(model.DisabledTLSModeLabel),
 			network:      "",
 			workloadName: "",
-			want:         nil,
+			clusterID:    "",
+			want: &core.Metadata{
+				FilterMetadata: map[string]*structpb.Struct{
+					IstioMetadataKey: {
+						Fields: map[string]*structpb.Value{
+							"workload": {
+								Kind: &structpb.Value_StringValue{
+									StringValue: ";;;;",
+								},
+							},
+						},
+					},
+				},
+			},
 		},
 		{
 			name:         "tls mode",
-			tlsMode:      string(model.IstioMutualTLSModeLabel),
+			tlsMode:      model.IstioMutualTLSModeLabel,
 			network:      "",
 			workloadName: "",
+			clusterID:    "",
 			want: &core.Metadata{
 				FilterMetadata: map[string]*structpb.Struct{
 					EnvoyTransportSocketMetadataKey: {
 						Fields: map[string]*structpb.Value{
 							model.TLSModeLabelShortname: {
 								Kind: &structpb.Value_StringValue{
-									StringValue: string(model.IstioMutualTLSModeLabel),
+									StringValue: model.IstioMutualTLSModeLabel,
+								},
+							},
+						},
+					},
+					IstioMetadataKey: {
+						Fields: map[string]*structpb.Value{
+							"workload": {
+								Kind: &structpb.Value_StringValue{
+									StringValue: ";;;;",
 								},
 							},
 						},
@@ -1145,16 +1190,17 @@ func TestEndpointMetadata(t *testing.T) {
 		},
 		{
 			name:         "network and tls mode",
-			tlsMode:      string(model.IstioMutualTLSModeLabel),
+			tlsMode:      model.IstioMutualTLSModeLabel,
 			network:      "network",
 			workloadName: "",
+			clusterID:    "",
 			want: &core.Metadata{
 				FilterMetadata: map[string]*structpb.Struct{
 					EnvoyTransportSocketMetadataKey: {
 						Fields: map[string]*structpb.Value{
 							model.TLSModeLabelShortname: {
 								Kind: &structpb.Value_StringValue{
-									StringValue: string(model.IstioMutualTLSModeLabel),
+									StringValue: model.IstioMutualTLSModeLabel,
 								},
 							},
 						},
@@ -1166,6 +1212,11 @@ func TestEndpointMetadata(t *testing.T) {
 									StringValue: "network",
 								},
 							},
+							"workload": {
+								Kind: &structpb.Value_StringValue{
+									StringValue: ";;;;",
+								},
+							},
 						},
 					},
 				},
@@ -1173,9 +1224,10 @@ func TestEndpointMetadata(t *testing.T) {
 		},
 		{
 			name:         "all label",
-			tlsMode:      string(model.IstioMutualTLSModeLabel),
+			tlsMode:      model.IstioMutualTLSModeLabel,
 			network:      "network",
 			workloadName: "workload",
+			clusterID:    "cluster",
 			namespace:    "default",
 			labels: labels.Instance{
 				model.IstioCanonicalServiceLabelName:         "service",
@@ -1187,7 +1239,7 @@ func TestEndpointMetadata(t *testing.T) {
 						Fields: map[string]*structpb.Value{
 							model.TLSModeLabelShortname: {
 								Kind: &structpb.Value_StringValue{
-									StringValue: string(model.IstioMutualTLSModeLabel),
+									StringValue: model.IstioMutualTLSModeLabel,
 								},
 							},
 						},
@@ -1201,7 +1253,7 @@ func TestEndpointMetadata(t *testing.T) {
 							},
 							"workload": {
 								Kind: &structpb.Value_StringValue{
-									StringValue: "workload;default;service;v1",
+									StringValue: "workload;default;service;v1;cluster",
 								},
 							},
 						},
@@ -1211,9 +1263,10 @@ func TestEndpointMetadata(t *testing.T) {
 		},
 		{
 			name:         "miss pod label",
-			tlsMode:      string(model.IstioMutualTLSModeLabel),
+			tlsMode:      model.IstioMutualTLSModeLabel,
 			network:      "network",
 			workloadName: "workload",
+			clusterID:    "cluster",
 			namespace:    "default",
 			want: &core.Metadata{
 				FilterMetadata: map[string]*structpb.Struct{
@@ -1221,7 +1274,7 @@ func TestEndpointMetadata(t *testing.T) {
 						Fields: map[string]*structpb.Value{
 							model.TLSModeLabelShortname: {
 								Kind: &structpb.Value_StringValue{
-									StringValue: string(model.IstioMutualTLSModeLabel),
+									StringValue: model.IstioMutualTLSModeLabel,
 								},
 							},
 						},
@@ -1235,7 +1288,42 @@ func TestEndpointMetadata(t *testing.T) {
 							},
 							"workload": {
 								Kind: &structpb.Value_StringValue{
-									StringValue: "workload;default;;",
+									StringValue: "workload;default;;;cluster",
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+		{
+			name:         "miss workload name",
+			tlsMode:      model.IstioMutualTLSModeLabel,
+			network:      "network",
+			workloadName: "",
+			clusterID:    "cluster",
+			namespace:    "",
+			want: &core.Metadata{
+				FilterMetadata: map[string]*structpb.Struct{
+					EnvoyTransportSocketMetadataKey: {
+						Fields: map[string]*structpb.Value{
+							model.TLSModeLabelShortname: {
+								Kind: &structpb.Value_StringValue{
+									StringValue: model.IstioMutualTLSModeLabel,
+								},
+							},
+						},
+					},
+					IstioMetadataKey: {
+						Fields: map[string]*structpb.Value{
+							"network": {
+								Kind: &structpb.Value_StringValue{
+									StringValue: "network",
+								},
+							},
+							"workload": {
+								Kind: &structpb.Value_StringValue{
+									StringValue: ";;;;cluster",
 								},
 							},
 						},
@@ -1246,7 +1334,7 @@ func TestEndpointMetadata(t *testing.T) {
 	}
 	for _, tt := range cases {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := BuildLbEndpointMetadata(tt.network, tt.tlsMode, tt.workloadName, tt.namespace, tt.labels); !reflect.DeepEqual(got, tt.want) {
+			if got := BuildLbEndpointMetadata(tt.network, tt.tlsMode, tt.workloadName, tt.namespace, tt.clusterID, tt.labels); !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("Unexpected Endpoint metadata got %v, want %v", got, tt.want)
 			}
 		})

@@ -19,11 +19,11 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strconv"
 	"strings"
 	"time"
 
 	"github.com/spf13/cobra"
-	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/dynamic"
@@ -38,14 +38,14 @@ import (
 )
 
 var (
-	forFlag         string
-	nameflag        string
-	threshold       float32
-	timeout         time.Duration
-	resourceVersion string
-	verbose         bool
-	targetSchema    collection.Schema
-	clientGetter    func(string, string) (dynamic.Interface, error)
+	forFlag      string
+	nameflag     string
+	threshold    float32
+	timeout      time.Duration
+	generation   string
+	verbose      bool
+	targetSchema collection.Schema
+	clientGetter func(string, string) (dynamic.Interface, error)
 )
 
 const pollInterval = time.Second
@@ -74,45 +74,45 @@ func waitCmd() *cobra.Command {
 			var w *watcher
 			ctx, cancel := context.WithTimeout(context.Background(), timeout)
 			defer cancel()
-			if resourceVersion == "" {
+			if generation == "" {
 				w = getAndWatchResource(ctx) // setup version getter from kubernetes
 			} else {
 				w = withContext(ctx)
 				w.Go(func(result chan string) error {
-					result <- resourceVersion
+					result <- generation
 					return nil
 				})
 			}
-			// wait for all deployed versions to be contained in resourceVersions
+			// wait for all deployed versions to be contained in generations
 			t := time.NewTicker(pollInterval)
 			printVerbosef(cmd, "getting first version from chan")
 			firstVersion, err := w.BlockingRead()
 			if err != nil {
 				return fmt.Errorf("unable to retrieve Kubernetes resource %s: %v", "", err)
 			}
-			resourceVersions := []string{firstVersion}
+			generations := []string{firstVersion}
 			targetResource := config.Key(targetSchema.Resource().Kind(), nameflag, namespace)
 			for {
-				//run the check here as soon as we start
+				// run the check here as soon as we start
 				// because tickers won't run immediately
-				present, notpresent, err := poll(resourceVersions, targetResource, opts)
+				present, notpresent, sdcnum, err := poll(cmd, generations, targetResource, opts)
 				printVerbosef(cmd, "Received poll result: %d/%d", present, present+notpresent)
 				if err != nil {
 					return err
 				} else if float32(present)/float32(present+notpresent) >= threshold {
-					_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Resource %s present on %d out of %d sidecars\n",
-						targetResource, present, present+notpresent)
+					_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Resource %s present on %d out of %d configurations for totally %d sidecars\n",
+						targetResource, present, present+notpresent, sdcnum)
 					return nil
 				}
 				select {
 				case newVersion := <-w.resultsChan:
 					printVerbosef(cmd, "received new target version: %s", newVersion)
-					resourceVersions = append(resourceVersions, newVersion)
+					generations = append(generations, newVersion)
 				case <-t.C:
 					printVerbosef(cmd, "tick")
 					continue
 				case err = <-w.errorChan:
-					return fmt.Errorf("unable to retrieve Kubernetes resource %s: %v", "", err)
+					return fmt.Errorf("unable to retrieve Kubernetes resource2 %s: %v", "", err)
 				case <-ctx.Done():
 					printVerbosef(cmd, "timeout")
 					// I think this means the timeout has happened:
@@ -136,9 +136,9 @@ func waitCmd() *cobra.Command {
 		"The duration to wait before failing")
 	cmd.PersistentFlags().Float32Var(&threshold, "threshold", 1,
 		"The ratio of distribution required for success")
-	cmd.PersistentFlags().StringVar(&resourceVersion, "resource-version", "",
-		"Wait for a specific version of config to become current, rather than using whatever is latest in "+
-			"kubernetes")
+	cmd.PersistentFlags().StringVar(&generation, "generation", "",
+		"Wait for a specific generation of config to become current, rather than using whatever is latest in "+
+			"Kubernetes")
 	cmd.PersistentFlags().BoolVarP(&verbose, "verbose", "v", false, "enables verbose output")
 	_ = cmd.PersistentFlags().MarkHidden("verbose")
 	opts.AttachControlPlaneFlags(cmd)
@@ -174,24 +174,30 @@ func countVersions(versionCount map[string]int, configVersion string) {
 	}
 }
 
-func poll(acceptedVersions []string, targetResource string, opts clioptions.ControlPlaneOptions) (present, notpresent int, err error) {
+func poll(cmd *cobra.Command,
+	acceptedVersions []string,
+	targetResource string,
+	opts clioptions.ControlPlaneOptions) (present, notpresent, sdcnum int, err error) {
 	kubeClient, err := kubeClientWithRevision(kubeconfig, configContext, opts.Revision)
 	if err != nil {
-		return 0, 0, err
+		return 0, 0, 0, err
 	}
 	path := fmt.Sprintf("/debug/config_distribution?resource=%s", targetResource)
 	pilotResponses, err := kubeClient.AllDiscoveryDo(context.TODO(), istioNamespace, path)
 	if err != nil {
-		return 0, 0, fmt.Errorf("unable to query pilot for distribution "+
+		return 0, 0, 0, fmt.Errorf("unable to query pilot for distribution "+
 			"(are you using pilot version >= 1.4 with config distribution tracking on): %s", err)
 	}
+	sdcnum = 0
 	versionCount := make(map[string]int)
 	for _, response := range pilotResponses {
 		var configVersions []xds.SyncedVersions
 		err = json.Unmarshal(response, &configVersions)
 		if err != nil {
-			return 0, 0, err
+			return 0, 0, 0, err
 		}
+		printVerbosef(cmd, "sync status: %v", configVersions)
+		sdcnum += len(configVersions)
 		for _, configVersion := range configVersions {
 			countVersions(versionCount, configVersion.ClusterVersion)
 			countVersions(versionCount, configVersion.RouteVersion)
@@ -206,7 +212,7 @@ func poll(acceptedVersions []string, targetResource string, opts clioptions.Cont
 			notpresent += count
 		}
 	}
-	return present, notpresent, nil
+	return present, notpresent, sdcnum, nil
 }
 
 func init() {
@@ -222,16 +228,17 @@ func init() {
 		}
 		return dclient, nil
 	}
-
 }
 
-// getAndWatchResource ensures that ResourceVersions always contains
-// the current resourceVersion of the targetResource, adding new versions
+// getAndWatchResource ensures that Generations always contains
+// the current generation of the targetResource, adding new versions
 // as they are created.
 func getAndWatchResource(ictx context.Context) *watcher {
 	g := withContext(ictx)
+	// copy nameflag to avoid race
+	nf := nameflag
 	g.Go(func(result chan string) error {
-		// retrieve resource version from Kubernetes
+		// retrieve latest generation from Kubernetes
 		dclient, err := clientGetter(kubeconfig, configContext)
 		if err != nil {
 			return err
@@ -241,28 +248,14 @@ func getAndWatchResource(ictx context.Context) *watcher {
 		version := targetSchema.Resource().Version()
 		resource := collectionParts[3]
 		r := dclient.Resource(schema.GroupVersionResource{Group: group, Version: version, Resource: resource}).Namespace(namespace)
-		obj, err := r.Get(context.TODO(), nameflag, metav1.GetOptions{})
+		watch, err := r.Watch(context.TODO(), metav1.ListOptions{FieldSelector: "metadata.name=" + nf})
 		if err != nil {
 			return err
 		}
-		localResourceVersion := obj.GetResourceVersion()
-		result <- localResourceVersion
-		watch, err := r.Watch(context.TODO(), metav1.ListOptions{ResourceVersion: localResourceVersion})
-		if err != nil {
-			return err
-		}
-		metaAccessor := meta.NewAccessor()
 		for w := range watch.ResultChan() {
-			watchname, err := metaAccessor.Name(w.Object)
-			if err != nil {
-				return err
-			}
-			if watchname == nameflag {
-				newVersion, err := metaAccessor.ResourceVersion(w.Object)
-				if err != nil {
-					return err
-				}
-				result <- newVersion
+			o := w.Object.(metav1.Object)
+			if o.GetName() == nf {
+				result <- strconv.FormatInt(o.GetGeneration(), 10)
 			}
 			select {
 			case <-ictx.Done():

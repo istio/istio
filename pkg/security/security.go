@@ -15,8 +15,12 @@
 package security
 
 import (
+	"context"
+	"fmt"
 	"strings"
 	"time"
+
+	"google.golang.org/grpc/metadata"
 
 	"istio.io/pkg/env"
 )
@@ -38,6 +42,17 @@ const (
 	// LocalSDS is the location of the in-process SDS server - must be in a writeable dir.
 	DefaultLocalSDSPath = "./etc/istio/proxy/SDS"
 
+	// SystemRootCerts is special case input for root cert configuration to use system root certificates.
+	SystemRootCerts = "SYSTEM"
+
+	// RootCertReqResourceName is resource name of discovery request for root certificate.
+	RootCertReqResourceName = "ROOTCA"
+
+	// WorkloadKeyCertResourceName is the resource name of the discovery request for workload
+	// identity.
+	// TODO: change all the pilot one reference definition here instead.
+	WorkloadKeyCertResourceName = "default"
+
 	// Credential fetcher type
 	GCE  = "GoogleComputeEngine"
 	Mock = "Mock" // testing only
@@ -58,6 +73,8 @@ var (
 	TokenAudiences = strings.Split(env.RegisterStringVar("TOKEN_AUDIENCES", "istio-ca",
 		"A list of comma separated audiences to check in the JWT token before issuing a certificate. "+
 			"The token is accepted if it matches with one of the audiences").Get(), ",")
+
+	BearerTokenPrefix = "Bearer" + " "
 )
 
 // Options provides all of the configuration parameters for secret discovery service
@@ -140,6 +157,54 @@ type Options struct {
 
 	// Name of the Service Account
 	ServiceAccount string
+
+	// XDS auth provider
+	XdsAuthProvider string
+
+	// Token manager for the token exchange of XDS
+	TokenManager TokenManager
+}
+
+// TokenManager contains methods for generating token.
+type TokenManager interface {
+	// GenerateToken takes STS request parameters and generates token. Returns
+	// StsResponseParameters in JSON.
+	GenerateToken(parameters StsRequestParameters) ([]byte, error)
+	// DumpTokenStatus dumps status of all generated tokens and returns status in JSON.
+	DumpTokenStatus() ([]byte, error)
+	// GetMetadata returns the metadata headers related to the token
+	GetMetadata(forCA bool, xdsAuthProvider, token string) (map[string]string, error)
+}
+
+// StsRequestParameters stores all STS request attributes defined in
+// https://tools.ietf.org/html/draft-ietf-oauth-token-exchange-16#section-2.1
+type StsRequestParameters struct {
+	// REQUIRED. The value "urn:ietf:params:oauth:grant-type:token- exchange"
+	// indicates that a token exchange is being performed.
+	GrantType string
+	// OPTIONAL. Indicates the location of the target service or resource where
+	// the client intends to use the requested security token.
+	Resource string
+	// OPTIONAL. The logical name of the target service where the client intends
+	// to use the requested security token.
+	Audience string
+	// OPTIONAL. A list of space-delimited, case-sensitive strings, that allow
+	// the client to specify the desired Scope of the requested security token in the
+	// context of the service or Resource where the token will be used.
+	Scope string
+	// OPTIONAL. An identifier, for the type of the requested security token.
+	RequestedTokenType string
+	// REQUIRED. A security token that represents the identity of the party on
+	// behalf of whom the request is being made.
+	SubjectToken string
+	// REQUIRED. An identifier, that indicates the type of the security token in
+	// the "subject_token" parameter.
+	SubjectTokenType string
+	// OPTIONAL. A security token that represents the identity of the acting party.
+	ActorToken string
+	// An identifier, that indicates the type of the security token in the
+	// "actor_token" parameter.
+	ActorTokenType string
 }
 
 // Client interface defines the clients need to implement to talk to CA for CSR.
@@ -193,4 +258,53 @@ type CredFetcher interface {
 
 	// The name of the IdentityProvider that can authenticate the workload credential.
 	GetIdentityProvider() string
+
+	// Stop releases resources and cleans up.
+	Stop()
+}
+
+// AuthSource represents where authentication result is derived from.
+type AuthSource int
+
+const (
+	AuthSourceClientCertificate AuthSource = iota
+	AuthSourceIDToken
+)
+
+const (
+	// IdentityTemplate is the SPIFFE format template of the identity.
+	IdentityTemplate = "spiffe://%s/ns/%s/sa/%s"
+
+	authorizationMeta = "authorization"
+)
+
+// Caller carries the identity and authentication source of a caller.
+type Caller struct {
+	AuthSource AuthSource
+	Identities []string
+}
+
+type Authenticator interface {
+	Authenticate(ctx context.Context) (*Caller, error)
+	AuthenticatorType() string
+}
+
+func ExtractBearerToken(ctx context.Context) (string, error) {
+	md, ok := metadata.FromIncomingContext(ctx)
+	if !ok {
+		return "", fmt.Errorf("no metadata is attached")
+	}
+
+	authHeader, exists := md[authorizationMeta]
+	if !exists {
+		return "", fmt.Errorf("no HTTP authorization header exists")
+	}
+
+	for _, value := range authHeader {
+		if strings.HasPrefix(value, BearerTokenPrefix) {
+			return strings.TrimPrefix(value, BearerTokenPrefix), nil
+		}
+	}
+
+	return "", fmt.Errorf("no bearer token exists in HTTP authorization header")
 }

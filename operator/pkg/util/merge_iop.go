@@ -198,9 +198,7 @@ type telemetryV2Config struct {
 	AccessLogPolicy  *v1alpha12.TelemetryV2AccessLogPolicyFilterConfig `json:"accessLogPolicy" patchStrategy:"merge"`
 }
 
-var (
-	iopMergeStruct iopMergeStructType
-)
+var iopMergeStruct iopMergeStructType
 
 // OverlayIOP overlays over base using JSON strategic merge.
 func OverlayIOP(base, overlay string) (string, error) {

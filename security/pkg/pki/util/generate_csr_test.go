@@ -57,7 +57,6 @@ func TestGenCSR(t *testing.T) {
 
 	for id, tc := range cases {
 		csrPem, _, err := GenCSR(tc.csrOptions)
-
 		if err != nil {
 			if tc.err != nil {
 				if reflect.DeepEqual(err, tc.err) {
@@ -124,7 +123,6 @@ func TestGenCSRPKCS8Key(t *testing.T) {
 
 	for id, tc := range cases {
 		csrPem, keyPem, err := GenCSR(tc.csrOptions)
-
 		if err != nil {
 			t.Errorf("%s: failed to gen CSR", id)
 		}

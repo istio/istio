@@ -43,6 +43,12 @@ type ProbeEvent struct {
 	UnhealthyMessage string
 }
 
+const (
+	lastStateUndefined = iota
+	lastStateHealthy
+	lastStateUnhealthy
+)
+
 func fillInDefaults(cfg *v1alpha3.ReadinessProbe) *v1alpha3.ReadinessProbe {
 	cfg = cfg.DeepCopy()
 	// Thresholds have a minimum of 1
@@ -129,7 +135,7 @@ func (w *WorkloadHealthChecker) PerformApplicationHealthCheck(callback func(*Pro
 	numSuccess, numFail := 0, 0
 	// if the last send/event was a success, this is true, by default false because we want to
 	// first send a healthy message.
-	lastStateHealthy := false
+	lastState := lastStateUndefined
 
 	doCheck := func() {
 		// probe target
@@ -141,11 +147,11 @@ func (w *WorkloadHealthChecker) PerformApplicationHealthCheck(callback func(*Pro
 			// wipe numFail (need consecutive success)
 			numFail = 0
 			// if we reached the threshold, mark the target as healthy
-			if numSuccess == w.config.SuccessThresh && !lastStateHealthy {
+			if numSuccess == w.config.SuccessThresh && lastState != lastStateHealthy {
 				healthCheckLog.Info("success threshold hit, marking as healthy")
 				callback(&ProbeEvent{Healthy: true})
 				numSuccess = 0
-				lastStateHealthy = true
+				lastState = lastStateHealthy
 			}
 		} else {
 			healthCheckLog.Debugf("probe completed with unhealthy status: %v", err)
@@ -154,7 +160,7 @@ func (w *WorkloadHealthChecker) PerformApplicationHealthCheck(callback func(*Pro
 			// wipe numSuccess (need consecutive failure)
 			numSuccess = 0
 			// if we reached the fail threshold, mark the target as unhealthy
-			if numFail == w.config.FailThresh && lastStateHealthy {
+			if numFail == w.config.FailThresh && lastState != lastStateUnhealthy {
 				healthCheckLog.Infof("failure threshold hit, marking as unhealthy: %v", err)
 				numFail = 0
 				callback(&ProbeEvent{
@@ -162,7 +168,7 @@ func (w *WorkloadHealthChecker) PerformApplicationHealthCheck(callback func(*Pro
 					UnhealthyStatus:  500,
 					UnhealthyMessage: err.Error(),
 				})
-				lastStateHealthy = false
+				lastState = lastStateUnhealthy
 			}
 		}
 	}

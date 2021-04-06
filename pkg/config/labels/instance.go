@@ -137,7 +137,7 @@ func (i Instance) String() string {
 	sort.Strings(labels)
 
 	var buffer bytes.Buffer
-	var first = true
+	first := true
 	for _, label := range labels {
 		if !first {
 			buffer.WriteString(",")

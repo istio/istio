@@ -1,0 +1,35 @@
+apiVersion: networking.x-k8s.io/v1alpha1
+kind: GatewayClass
+metadata:
+  creationTimestamp: null
+  name: istio
+  namespace: default
+spec: null
+status:
+  conditions:
+  - lastTransitionTime: fake
+    message: Handled by Istio controller
+    reason: Handled
+    status: "True"
+    type: Admitted
+---
+apiVersion: networking.x-k8s.io/v1alpha1
+kind: Gateway
+metadata:
+  creationTimestamp: null
+  name: gateway
+  namespace: istio-system
+spec:
+  gatewayClassName: something-else
+  listeners:
+  - port: 80
+    protocol: HTTP
+    routes:
+      kind: HTTPRoute
+      namespaces:
+        selector: {}
+      selector: {}
+status:
+  Dirty: false
+  Status: {}
+---

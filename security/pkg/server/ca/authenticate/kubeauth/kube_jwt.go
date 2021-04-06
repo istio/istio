@@ -49,7 +49,7 @@ type KubeJWTAuthenticator struct {
 	remoteKubeClientGetter RemoteKubeClientGetter
 }
 
-var _ authenticate.Authenticator = &KubeJWTAuthenticator{}
+var _ security.Authenticator = &KubeJWTAuthenticator{}
 
 // NewKubeJWTAuthenticator creates a new kubeJWTAuthenticator.
 func NewKubeJWTAuthenticator(client kubernetes.Interface, clusterID string,
@@ -70,8 +70,8 @@ func (a *KubeJWTAuthenticator) AuthenticatorType() string {
 
 // Authenticate authenticates the call using the K8s JWT from the context.
 // The returned Caller.Identities is in SPIFFE format.
-func (a *KubeJWTAuthenticator) Authenticate(ctx context.Context) (*authenticate.Caller, error) {
-	targetJWT, err := authenticate.ExtractBearerToken(ctx)
+func (a *KubeJWTAuthenticator) Authenticate(ctx context.Context) (*security.Caller, error) {
+	targetJWT, err := security.ExtractBearerToken(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("target JWT extraction error: %v", err)
 	}
@@ -109,8 +109,8 @@ func (a *KubeJWTAuthenticator) Authenticate(ctx context.Context) (*authenticate.
 	}
 	callerNamespace := id[0]
 	callerServiceAccount := id[1]
-	return &authenticate.Caller{
-		AuthSource: authenticate.AuthSourceIDToken,
+	return &security.Caller{
+		AuthSource: security.AuthSourceIDToken,
 		Identities: []string{fmt.Sprintf(authenticate.IdentityTemplate, a.trustDomain, callerNamespace, callerServiceAccount)},
 	}, nil
 }

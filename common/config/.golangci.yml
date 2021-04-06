@@ -29,6 +29,8 @@ run:
   skip-files:
     - ".*\\.pb\\.go"
     - ".*\\.gen\\.go"
+    # This file requires a custom import order for side effects (https://github.com/grpc/grpc-go/issues/4124)
+    - pilot/pkg/networking/grpcgen/grpcgen_test.go
 
 linters:
   disable-all: true
@@ -36,7 +38,7 @@ linters:
   - deadcode
   - errcheck
   - gocritic
-  - gofmt
+  - gofumpt
   - goimports
   - golint
   - gosimple
@@ -68,7 +70,7 @@ linters-settings:
   golint:
     # minimal confidence for issues, default is 0.8
     min-confidence: 0.0
-  gofmt:
+  gofumpt:
     # simplify code: gofmt with `-s` option, true by default
     simplify: true
   goimports:

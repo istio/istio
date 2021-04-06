@@ -22,10 +22,10 @@ import (
 	"sync"
 	"time"
 
-	corev1 "k8s.io/api/core/v1"
+	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	v12 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
@@ -94,17 +94,19 @@ func NewHelmReconciler(client client.Client, restConfig *rest.Config, iop *value
 	if opts.ProgressLog == nil {
 		opts.ProgressLog = progress.NewLog()
 	}
-	if waitForResourcesTimeoutStr, found := os.LookupEnv("WAIT_FOR_RESOURCES_TIMEOUT"); found {
-		if waitForResourcesTimeout, err := time.ParseDuration(waitForResourcesTimeoutStr); err == nil {
-			opts.WaitTimeout = waitForResourcesTimeout
+	if int64(opts.WaitTimeout) == 0 {
+		if waitForResourcesTimeoutStr, found := os.LookupEnv("WAIT_FOR_RESOURCES_TIMEOUT"); found {
+			if waitForResourcesTimeout, err := time.ParseDuration(waitForResourcesTimeoutStr); err == nil {
+				opts.WaitTimeout = waitForResourcesTimeout
+			} else {
+				scope.Warnf("invalid env variable value: %s for 'WAIT_FOR_RESOURCES_TIMEOUT'! falling back to default value...", waitForResourcesTimeoutStr)
+				// fallback to default wait resource timeout
+				opts.WaitTimeout = defaultWaitResourceTimeout
+			}
 		} else {
-			scope.Warnf("invalid env variable value: %s for 'WAIT_FOR_RESOURCES_TIMEOUT'! falling back to default value...", waitForResourcesTimeoutStr)
 			// fallback to default wait resource timeout
 			opts.WaitTimeout = defaultWaitResourceTimeout
 		}
-	} else {
-		// fallback to default wait resource timeout
-		opts.WaitTimeout = defaultWaitResourceTimeout
 	}
 	if iop == nil {
 		// allows controller code to function for cases where IOP is not provided (e.g. operator remove).
@@ -392,7 +394,7 @@ func (h *HelmReconciler) getCoreOwnerLabels() (map[string]string, error) {
 	if revision == "" {
 		revision = "default"
 	}
-	labels[label.IstioRev] = revision
+	labels[label.IoIstioRev.Name] = revision
 
 	return labels, nil
 }
@@ -496,29 +498,24 @@ func (h *HelmReconciler) reportPrunedObjectKind() {
 	}
 }
 
-// createNamespace creates a namespace using the given k8s client.
-func (h *HelmReconciler) createNamespace(namespace string, network string) error {
+// CreateNamespace creates a namespace using the given k8s interface.
+func CreateNamespace(cs kubernetes.Interface, namespace string, network string) error {
 	if namespace == "" {
 		// Setup default namespace
 		namespace = name.IstioDefaultNamespace
 	}
-	// Check if the namespace already exists. If yes, do nothing. If no, create a new one.
-	// TODO(morvencao): consider to use the helm reconciler's client after Multi Namespace Cache
-	// supports get and create cluster scoped resources, see:
-	// https://github.com/kubernetes-sigs/controller-runtime/issues/934
-	_, err := h.clientSet.CoreV1().Namespaces().Get(context.TODO(), namespace, metav1.GetOptions{})
+	// check if the namespace already exists. If yes, do nothing. If no, create a new one.
+	_, err := cs.CoreV1().Namespaces().Get(context.TODO(), namespace, v12.GetOptions{})
 	if err != nil {
 		if errors.IsNotFound(err) {
-			ns := &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{
-				Name: namespace,
-				Labels: map[string]string{
-					"istio-injection": "disabled",
-				},
+			ns := &v1.Namespace{ObjectMeta: v12.ObjectMeta{
+				Name:   namespace,
+				Labels: map[string]string{},
 			}}
 			if network != "" {
-				ns.Labels[label.IstioNetwork] = network
+				ns.Labels[label.TopologyNetwork.Name] = network
 			}
-			_, err := h.clientSet.CoreV1().Namespaces().Create(context.TODO(), ns, metav1.CreateOptions{})
+			_, err := cs.CoreV1().Namespaces().Create(context.TODO(), ns, v12.CreateOptions{})
 			if err != nil {
 				return fmt.Errorf("failed to create namespace %v: %v", namespace, err)
 			}
@@ -528,6 +525,11 @@ func (h *HelmReconciler) createNamespace(namespace string, network string) error
 	}
 
 	return nil
+}
+
+// createNamespace creates a namespace using the given k8s client.
+func (h *HelmReconciler) createNamespace(namespace string, network string) error {
+	return CreateNamespace(h.clientSet, namespace, network)
 }
 
 func (h *HelmReconciler) networkName() string {

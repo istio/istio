@@ -21,14 +21,13 @@ import (
 	istiolog "istio.io/pkg/log"
 )
 
-var (
-	authzLog = istiolog.RegisterScope("authorization", "Istio Authorization Policy", 0)
-)
+var authzLog = istiolog.RegisterScope("authorization", "Istio Authorization Policy", 0)
 
 type AuthorizationPolicy struct {
-	Name      string                      `json:"name"`
-	Namespace string                      `json:"namespace"`
-	Spec      *authpb.AuthorizationPolicy `json:"spec"`
+	Name        string                      `json:"name"`
+	Namespace   string                      `json:"namespace"`
+	Annotations map[string]string           `json:"annotations"`
+	Spec        *authpb.AuthorizationPolicy `json:"spec"`
 }
 
 // AuthorizationPolicies organizes AuthorizationPolicy by namespace.
@@ -54,9 +53,10 @@ func GetAuthorizationPolicies(env *Environment) (*AuthorizationPolicies, error) 
 	sortConfigByCreationTime(policies)
 	for _, config := range policies {
 		authzConfig := AuthorizationPolicy{
-			Name:      config.Name,
-			Namespace: config.Namespace,
-			Spec:      config.Spec.(*authpb.AuthorizationPolicy),
+			Name:        config.Name,
+			Namespace:   config.Namespace,
+			Annotations: config.Annotations,
+			Spec:        config.Spec.(*authpb.AuthorizationPolicy),
 		}
 		policy.NamespaceToPolicies[config.Namespace] =
 			append(policy.NamespaceToPolicies[config.Namespace], authzConfig)

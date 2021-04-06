@@ -23,12 +23,15 @@ import (
 	"crypto/x509/pkix"
 	"encoding/asn1"
 	"fmt"
+	"io/ioutil"
 	"net"
 	"net/http"
 	"net/url"
 	"time"
 
 	"github.com/gorilla/websocket"
+	"github.com/lucas-clemente/quic-go"
+	"github.com/lucas-clemente/quic-go/http3"
 	"golang.org/x/net/http2"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
@@ -76,6 +79,18 @@ func newProtocol(cfg Config) (protocol, error) {
 	headers := common.GetHeaders(cfg.Request)
 
 	var getClientCertificate func(info *tls.CertificateRequestInfo) (*tls.Certificate, error)
+	if cfg.Request.KeyFile != "" && cfg.Request.CertFile != "" {
+		certData, err := ioutil.ReadFile(cfg.Request.CertFile)
+		if err != nil {
+			return nil, fmt.Errorf("failed to load client certificate: %v", err)
+		}
+		cfg.Request.Cert = string(certData)
+		keyData, err := ioutil.ReadFile(cfg.Request.KeyFile)
+		if err != nil {
+			return nil, fmt.Errorf("failed to load client certificate key: %v", err)
+		}
+		cfg.Request.Key = string(keyData)
+	}
 	if cfg.Request.Cert != "" && cfg.Request.Key != "" {
 		cert, err := tls.X509KeyPair([]byte(cfg.Request.Cert), []byte(cfg.Request.Key))
 		if err != nil {
@@ -112,17 +127,32 @@ func newProtocol(cfg Config) (protocol, error) {
 	tlsConfig := &tls.Config{
 		GetClientCertificate: getClientCertificate,
 		NextProtos:           cfg.Request.GetAlpn().GetValue(),
+		ServerName:           cfg.Request.ServerName,
 	}
-	if cfg.Request.CaCert != "" {
+	if cfg.Request.CaCertFile != "" {
+		certData, err := ioutil.ReadFile(cfg.Request.CaCertFile)
+		if err != nil {
+			return nil, fmt.Errorf("failed to load client certificate: %v", err)
+		}
+		cfg.Request.CaCert = string(certData)
+	}
+	if cfg.Request.InsecureSkipVerify || cfg.Request.CaCert == "" {
+		tlsConfig.InsecureSkipVerify = true
+	} else if cfg.Request.CaCert != "" {
 		certPool := x509.NewCertPool()
 		if !certPool.AppendCertsFromPEM([]byte(cfg.Request.CaCert)) {
 			return nil, fmt.Errorf("failed to create cert pool")
 		}
 		tlsConfig.RootCAs = certPool
-	} else {
-		tlsConfig.InsecureSkipVerify = true
 	}
 
+	// Disable redirects
+	redirectFn := func(req *http.Request, via []*http.Request) error {
+		return http.ErrUseLastResponse
+	}
+	if cfg.Request.FollowRedirects {
+		redirectFn = nil
+	}
 	switch scheme.Instance(u.Scheme) {
 	case scheme.HTTP, scheme.HTTPS:
 		if cfg.Request.Alpn == nil {
@@ -130,6 +160,7 @@ func newProtocol(cfg Config) (protocol, error) {
 		}
 		proto := &httpProtocol{
 			client: &http.Client{
+				CheckRedirect: redirectFn,
 				Transport: &http.Transport{
 					// We are creating a Transport on each ForwardEcho request. Transport is what holds connections,
 					// so this means every ForwardEcho request will create a new connection. Without setting an idle timeout,
@@ -137,12 +168,20 @@ func newProtocol(cfg Config) (protocol, error) {
 					IdleConnTimeout: time.Second,
 					TLSClientConfig: tlsConfig,
 					DialContext:     httpDialContext,
+					Proxy:           http.ProxyFromEnvironment,
 				},
 				Timeout: timeout,
 			},
 			do: cfg.Dialer.HTTP,
 		}
-		if cfg.Request.Http2 && scheme.Instance(u.Scheme) == scheme.HTTPS {
+		if cfg.Request.Http3 && scheme.Instance(u.Scheme) == scheme.HTTP {
+			return nil, fmt.Errorf("http3 requires HTTPS")
+		} else if cfg.Request.Http3 {
+			proto.client.Transport = &http3.RoundTripper{
+				TLSClientConfig: tlsConfig,
+				QuicConfig:      &quic.Config{},
+			}
+		} else if cfg.Request.Http2 && scheme.Instance(u.Scheme) == scheme.HTTPS {
 			if cfg.Request.Alpn == nil {
 				tlsConfig.NextProtos = []string{"h2"}
 			}
@@ -201,6 +240,8 @@ func newProtocol(cfg Config) (protocol, error) {
 		return &websocketProtocol{
 			dialer: dialer,
 		}, nil
+	case scheme.DNS:
+		return &dnsProtocol{}, nil
 	case scheme.TCP:
 		return &tcpProtocol{
 			conn: func() (net.Conn, error) {
@@ -216,7 +257,6 @@ func newProtocol(cfg Config) (protocol, error) {
 					return cfg.Dialer.TCP(dialer, ctx, address)
 				}
 				return tls.Dial("tcp", address, tlsConfig)
-
 			},
 		}, nil
 	}

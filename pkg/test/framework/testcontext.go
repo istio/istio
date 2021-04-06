@@ -25,6 +25,7 @@ import (
 	"time"
 
 	"istio.io/istio/pkg/test"
+	"istio.io/istio/pkg/test/framework/components/cluster"
 	"istio.io/istio/pkg/test/framework/errors"
 	"istio.io/istio/pkg/test/framework/label"
 	"istio.io/istio/pkg/test/framework/resource"
@@ -43,6 +44,7 @@ type TestContext interface {
 	//
 	// If this TestContext was not created by a Test or if that Test is not running, this method will panic.
 	NewSubTest(name string) Test
+	NewSubTestf(format string, a ...interface{}) Test
 
 	// WorkDir allocated for this test.
 	WorkDir() string
@@ -52,20 +54,6 @@ type TestContext interface {
 
 	// CreateTmpDirectoryOrFail creates a new temporary directory with the given prefix in the workdir, or fails the test.
 	CreateTmpDirectoryOrFail(prefix string) string
-
-	// WhenDone runs the given function when the test context completes.
-	// The function will not be skipped by nocleanup.
-	// This function may not (safely) access the test context.
-	WhenDone(fn func() error)
-
-	// Cleanup runs the given function when the test context completes.
-	// This function may not (safely) access the test context.
-	Cleanup(fn func())
-
-	// CleanupOrFail runs the given function when the test context completes.
-	// The context is failed if an error is returned.
-	// This function may not (safely) access the test context.
-	CleanupOrFail(fn func() error)
 
 	// Done should be called when this context is no longer needed. It triggers the asynchronous cleanup of any
 	// allocated resources.
@@ -84,8 +72,10 @@ type TestContext interface {
 	Skipped() bool
 }
 
-var _ TestContext = &testContext{}
-var _ test.Failer = &testContext{}
+var (
+	_ TestContext = &testContext{}
+	_ test.Failer = &testContext{}
+)
 
 // testContext for the currently executing test.
 type testContext struct {
@@ -159,6 +149,10 @@ func newTestContext(test *testImpl, goTest *testing.T, s *suiteContext, parentSc
 		goTest.Skipf("Skipping: label mismatch: labels=%v, filter=%v", allLabels, s.settings.Selector)
 	}
 
+	if s.settings.SkipMatcher.MatchTest(goTest.Name()) {
+		goTest.Skipf("Skipping: test %v matched -istio.test.skip regex", goTest.Name())
+	}
+
 	scopes.Framework.Debugf("Creating New test context")
 	workDir := path.Join(s.settings.RunDir(), goTest.Name(), "_test_context")
 	if err := os.MkdirAll(workDir, os.ModePerm); err != nil {
@@ -206,7 +200,10 @@ func (c *testContext) Environment() resource.Environment {
 	return c.suite.environment
 }
 
-func (c *testContext) Clusters() resource.Clusters {
+func (c *testContext) Clusters() cluster.Clusters {
+	if c == nil || c.Environment() == nil {
+		return nil
+	}
 	return c.Environment().Clusters()
 }
 
@@ -242,7 +239,7 @@ func (c *testContext) CreateTmpDirectory(prefix string) (string, error) {
 	return dir, err
 }
 
-func (c *testContext) Config(clusters ...resource.Cluster) resource.ConfigManager {
+func (c *testContext) Config(clusters ...cluster.Cluster) resource.ConfigManager {
 	return newConfigManager(c, clusters)
 }
 
@@ -275,8 +272,15 @@ func (c *testContext) NewSubTest(name string) Test {
 	}
 }
 
-func (c *testContext) WhenDone(fn func() error) {
-	c.scope.addCloser(&closer{fn: fn, noskip: true})
+func (c *testContext) NewSubTestf(format string, a ...interface{}) Test {
+	return c.NewSubTest(fmt.Sprintf(format, a...))
+}
+
+func (c *testContext) ConditionalCleanup(fn func()) {
+	c.scope.addCloser(&closer{fn: func() error {
+		fn()
+		return nil
+	}, noskip: true})
 }
 
 func (c *testContext) Cleanup(fn func()) {
@@ -286,12 +290,8 @@ func (c *testContext) Cleanup(fn func()) {
 	}})
 }
 
-func (c *testContext) CleanupOrFail(fn func() error) {
-	c.scope.addCloser(&closer{fn: fn})
-}
-
 func (c *testContext) Done() {
-	if c.Failed() {
+	if c.Failed() && c.Settings().CIMode {
 		scopes.Framework.Debugf("Begin dumping testContext: %q", c.id)
 		rt.Dump(c)
 		scopes.Framework.Debugf("Completed dumping testContext: %q", c.id)

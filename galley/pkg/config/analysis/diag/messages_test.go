@@ -132,7 +132,7 @@ func TestMessages_SetRefDoc(t *testing.T) {
 	msgs.SetDocRef("istioctl-awesome")
 
 	getDocURL := func(msg Message) string {
-		return msg.Unstructured(false)["documentation_url"].(string)
+		return msg.Unstructured(false)["documentationUrl"].(string)
 	}
 
 	g.Expect(getDocURL(msgs[0])).To(Equal(url.ConfigAnalysis + "/b1/?ref=istioctl-awesome"))

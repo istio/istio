@@ -37,10 +37,8 @@ const (
 	anonymousName = "_anonymous_match_nothing_"
 )
 
-var (
-	// Matches the policy name in RBAC filter config with format like ns[default]-policy[some-policy]-rule[1].
-	re = regexp.MustCompile(`ns\[(.+)\]-policy\[(.+)\]-rule\[(.+)\]`)
-)
+// Matches the policy name in RBAC filter config with format like ns[default]-policy[some-policy]-rule[1].
+var re = regexp.MustCompile(`ns\[(.+)\]-policy\[(.+)\]-rule\[(.+)\]`)
 
 type filterChain struct {
 	rbacHTTP []*rbac_http_filter.RBAC
@@ -54,6 +52,7 @@ type parsedListener struct {
 func getFilterConfig(filter *listener.Filter, out proto.Message) error {
 	switch c := filter.ConfigType.(type) {
 	case *listener.Filter_TypedConfig:
+		// nolint: staticcheck
 		if err := ptypes.UnmarshalAny(c.TypedConfig, out); err != nil {
 			return err
 		}
@@ -73,6 +72,7 @@ func getHTTPConnectionManager(filter *listener.Filter) *hcm_filter.HttpConnectio
 func getHTTPFilterConfig(filter *hcm_filter.HttpFilter, out proto.Message) error {
 	switch c := filter.ConfigType.(type) {
 	case *hcm_filter.HttpFilter_TypedConfig:
+		// nolint: staticcheck
 		if err := ptypes.UnmarshalAny(c.TypedConfig, out); err != nil {
 			return err
 		}

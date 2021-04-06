@@ -79,7 +79,7 @@ func TestVirtualListenerBuilder(t *testing.T) {
 	services := []*model.Service{service}
 
 	env := buildListenerEnv(services)
-	if err := env.PushContext.InitContext(&env, nil, nil); err != nil {
+	if err := env.PushContext.InitContext(env, nil, nil); err != nil {
 		t.Fatalf("init push context error: %s", err.Error())
 	}
 	instances := make([]*model.ServiceInstance, len(services))
@@ -111,7 +111,6 @@ func TestVirtualListenerBuilder(t *testing.T) {
 	} else {
 		t.Logf("found virtual listener: %s", listeners[0].Name)
 	}
-
 }
 
 func setInboundCaptureAllOnThisNode(proxy *model.Proxy, mode model.TrafficInterceptionMode) {
@@ -125,7 +124,7 @@ func prepareListeners(t *testing.T, services []*model.Service, mode model.Traffi
 	ldsEnv := getDefaultLdsEnv()
 
 	env := buildListenerEnv(services)
-	if err := env.PushContext.InitContext(&env, nil, nil); err != nil {
+	if err := env.PushContext.InitContext(env, nil, nil); err != nil {
 		t.Fatalf("init push context error: %s", err.Error())
 	}
 	instances := make([]*model.ServiceInstance, len(services))
@@ -186,8 +185,8 @@ func TestVirtualInboundListenerBuilder(t *testing.T) {
 	}
 
 	for k, v := range byListenerName {
-		if k == VirtualInboundListenerName && v != 2 {
-			t.Fatalf("expect virtual listener has 2 passthrough filter chains, found %d", v)
+		if k == VirtualInboundListenerName && v != 3 {
+			t.Fatalf("expect virtual listener has 3 passthrough filter chains, found %d", v)
 		}
 		if k == virtualInboundCatchAllHTTPFilterChainName && v != 2 {
 			t.Fatalf("expect virtual listener has 2 passthrough filter chains, found %d", v)
@@ -214,7 +213,6 @@ func TestVirtualInboundHasPassthroughClusters(t *testing.T) {
 	sawFakePluginFilter := false
 	sawIpv4PassthroughCluster := 0
 	sawIpv6PassthroughCluster := false
-	sawIpv4PsssthroughFilterChainMatchAlpnFromFakePlugin := false
 	sawIpv4PsssthroughFilterChainMatchTLSFromFakePlugin := false
 	for _, fc := range l.FilterChains {
 		if fc.TransportSocket != nil && fc.FilterChainMatch.TransportProtocol != "tls" {
@@ -229,17 +227,13 @@ func TestVirtualInboundHasPassthroughClusters(t *testing.T) {
 			if ipLen := len(fc.FilterChainMatch.PrefixRanges); ipLen != 1 {
 				t.Fatalf("expect passthrough filter chain has 1 ip address, found %d", ipLen)
 			}
-			for _, alpn := range fc.FilterChainMatch.ApplicationProtocols {
-				if alpn == fakePluginFilterChainMatchAlpn {
-					sawIpv4PsssthroughFilterChainMatchAlpnFromFakePlugin = true
-				}
-			}
+
 			if fc.TransportSocket != nil {
 				sawIpv4PsssthroughFilterChainMatchTLSFromFakePlugin = true
 			}
 			if fc.FilterChainMatch.PrefixRanges[0].AddressPrefix == util.ConvertAddressToCidr("0.0.0.0/0").AddressPrefix &&
 				fc.FilterChainMatch.PrefixRanges[0].PrefixLen.Value == 0 {
-				if sawIpv4PassthroughCluster == 2 {
+				if sawIpv4PassthroughCluster == 3 {
 					t.Fatalf("duplicated ipv4 passthrough cluster filter chain in listener %v", l)
 				}
 				sawIpv4PassthroughCluster++
@@ -254,8 +248,8 @@ func TestVirtualInboundHasPassthroughClusters(t *testing.T) {
 
 		if len(fc.Filters) == 1 && fc.Filters[0].Name == wellknown.HTTPConnectionManager &&
 			fc.Name == virtualInboundCatchAllHTTPFilterChainName {
-			if fc.TransportSocket != nil && !reflect.DeepEqual(fc.FilterChainMatch.ApplicationProtocols, append(plaintextHTTPALPNs, mtlsHTTPALPNs...)) {
-				t.Fatalf("expect %v application protocols, found %v", append(plaintextHTTPALPNs, mtlsHTTPALPNs...), fc.FilterChainMatch.ApplicationProtocols)
+			if fc.TransportSocket != nil && !reflect.DeepEqual(fc.FilterChainMatch.ApplicationProtocols, mtlsHTTPALPNs) {
+				t.Fatalf("expect %v application protocols, found %v", mtlsHTTPALPNs, fc.FilterChainMatch.ApplicationProtocols)
 			}
 
 			if fc.TransportSocket == nil && !reflect.DeepEqual(fc.FilterChainMatch.ApplicationProtocols, plaintextHTTPALPNs) {
@@ -268,16 +262,12 @@ func TestVirtualInboundHasPassthroughClusters(t *testing.T) {
 		}
 	}
 
-	if sawIpv4PassthroughCluster != 2 {
-		t.Fatalf("fail to find the ipv4 passthrough filter chain in listener %v", l)
+	if sawIpv4PassthroughCluster != 3 {
+		t.Fatalf("fail to find the ipv4 passthrough filter chain in listener, got %v: %v", sawIpv4PassthroughCluster, xdstest.Dump(t, l))
 	}
 
 	if !sawFakePluginFilter {
 		t.Fatalf("fail to find the fake plugin TCP filter in listener %v", l)
-	}
-
-	if !sawIpv4PsssthroughFilterChainMatchAlpnFromFakePlugin {
-		t.Fatalf("fail to find the fake plugin filter chain match with ALPN in listener %v", l)
 	}
 
 	if !sawIpv4PsssthroughFilterChainMatchTLSFromFakePlugin {
@@ -319,7 +309,6 @@ func TestSidecarInboundListenerWithOriginalSrc(t *testing.T) {
 }
 
 func TestListenerBuilderPatchListeners(t *testing.T) {
-
 	configPatches := []*networking.EnvoyFilter_EnvoyConfigObjectPatch{
 		{
 			ApplyTo: networking.EnvoyFilter_LISTENER,
@@ -538,7 +527,6 @@ func TestListenerBuilderPatchListeners(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-
 			lb := &ListenerBuilder{
 				node:                    tt.proxy,
 				push:                    cg.PushContext(),
@@ -584,7 +572,8 @@ func getEnvoyFilterConfigs(configPatches []*networking.EnvoyFilter_EnvoyConfigOb
 			},
 			Spec: &networking.EnvoyFilter{
 				ConfigPatches: []*networking.EnvoyFilter_EnvoyConfigObjectPatch{cp},
-			}})
+			},
+		})
 	}
 	return res
 }
@@ -599,6 +588,7 @@ spec:
   mtls:
     mode: STRICT
 `
+
 const disableMode = `
 apiVersion: security.istio.io/v1beta1
 kind: PeerAuthentication
@@ -709,7 +699,7 @@ func TestInboundListenerFilters(t *testing.T) {
 func evaluateListenerFilterPredicates(t testing.TB, predicate *listener.ListenerFilterChainMatchPredicate, expected map[int]bool) {
 	t.Helper()
 	for port, expect := range expected {
-		got := xdstest.EvaluateListenerFilterPredicates(predicate, false, port)
+		got := xdstest.EvaluateListenerFilterPredicates(predicate, port)
 		if got != expect {
 			t.Errorf("expected port %v to have match=%v, got match=%v", port, expect, got)
 		}

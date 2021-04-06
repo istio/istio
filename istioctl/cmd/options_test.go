@@ -20,16 +20,14 @@ import (
 	"testing"
 )
 
-var (
-	// nolint: lll
-	expectedOutput = `The following options can be passed to any command:
+// nolint: lll
+var expectedOutput = `The following options can be passed to any command:
       --log_as_json: Whether to format output as JSON or in plain console-friendly format
       --log_caller: Comma-separated list of scopes for which to include caller information, scopes can be any of \[.*\]
       --log_output_level: Comma-separated minimum per-scope logging level of messages to output, in the form of <scope>:<level>,<scope>:<level>,... where scope can be one of \[.*\] and level can be one of \[.*\]
       --log_stacktrace_level: Comma-separated minimum per-scope logging level at which stack traces are captured, in the form of <scope>:<level>,<scope:level>,... where scope can be one of \[.*\] and level can be one of \[.*\]
       --log_target: The set of paths where to output the log. This can be any path as well as the special values stdout and stderr
 `
-)
 
 func TestLogHelp(t *testing.T) {
 	var out bytes.Buffer

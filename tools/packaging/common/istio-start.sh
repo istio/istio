@@ -21,7 +21,7 @@
 set -e
 
 # Match pilot/docker/Dockerfile.proxyv2
-export ISTIO_META_ISTIO_VERSION="1.9.0"
+export ISTIO_META_ISTIO_VERSION="1.10.0"
 
 set -a
 # Load optional config variables
@@ -59,6 +59,14 @@ fi
 
 if [ -z "${POD_NAME:-}" ]; then
   POD_NAME=$(hostname -s)
+fi
+
+if [[ ${1-} == "clean" ]] ; then
+  if [ "${ISTIO_CUSTOM_IP_TABLES}" != "true" ] ; then
+    # clean the previous Istio iptables chains.
+    "${ISTIO_BIN_BASE}/pilot-agent" istio-clean-iptables
+  fi
+  exit 0
 fi
 
 # Init option will only initialize iptables. set ISTIO_CUSTOM_IP_TABLES to true if you would like to ignore this step

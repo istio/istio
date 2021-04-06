@@ -160,6 +160,7 @@ func restoreAppProbes(containers []corev1.Container, probers map[string]*inject.
 	}
 	return containers
 }
+
 func retrieveAppProbe(containers []corev1.Container) string {
 	for _, c := range containers {
 		if c.Name != proxyContainerName {
@@ -179,7 +180,6 @@ func retrieveAppProbe(containers []corev1.Container) string {
 // removeInjectedVolumes removes the injected volumes if exists.
 // for example, istio-envoy, istio-certs, and istio-token
 func removeInjectedVolumes(volumes []corev1.Volume, injectedVolume string) []corev1.Volume {
-
 	for index, v := range volumes {
 		if v.Name == injectedVolume {
 			if index < len(volumes)-1 {
@@ -216,7 +216,6 @@ func removeDNSConfig(podDNSConfig *corev1.PodDNSConfig) {
 			index++
 		}
 	}
-
 }
 
 // handleAnnotations removes the injected annotations which contains sidecar.istio.io
@@ -357,7 +356,6 @@ also provides the inverse of "istioctl kube-inject -f".
   # Update an existing deployment.
   kubectl get deployment -o yaml | istioctl experimental kube-uninject -f - | kubectl apply -f -`,
 		RunE: func(c *cobra.Command, _ []string) (err error) {
-
 			if err = validateUninjectFlags(); err != nil {
 				return err
 			}

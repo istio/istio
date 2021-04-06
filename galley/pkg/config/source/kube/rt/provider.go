@@ -29,9 +29,7 @@ import (
 	"istio.io/istio/pkg/config/schema/resource"
 )
 
-var (
-	defaultProvider = NewProvider(nil, metav1.NamespaceAll, 0)
-)
+var defaultProvider = NewProvider(nil, metav1.NamespaceAll, 0)
 
 // DefaultProvider returns a default provider that has no K8s connectivity enabled.
 func DefaultProvider() *Provider {

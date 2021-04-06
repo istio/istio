@@ -31,6 +31,7 @@ import (
 	"istio.io/istio/operator/pkg/patch"
 	"istio.io/istio/operator/pkg/tpath"
 	"istio.io/istio/operator/pkg/translate"
+	"istio.io/istio/operator/pkg/util"
 	"istio.io/pkg/log"
 )
 
@@ -40,9 +41,7 @@ const (
 	yamlCommentStr       = "#"
 )
 
-var (
-	scope = log.RegisterScope("installer", "installer", 0)
-)
+var scope = log.RegisterScope("installer", "installer", 0)
 
 // Options defines options for a component.
 type Options struct {
@@ -334,7 +333,7 @@ func (c *IngressComponent) Namespace() string {
 // Enabled implements the IstioComponent interface.
 func (c *IngressComponent) Enabled() bool {
 	// type assert is guaranteed to work in this context.
-	return boolValue(c.componentSpec.(*v1alpha1.GatewaySpec).Enabled)
+	return util.BoolValue(c.componentSpec.(*v1alpha1.GatewaySpec).Enabled)
 }
 
 // EgressComponent is the egress gateway component.
@@ -384,15 +383,12 @@ func (c *EgressComponent) Namespace() string {
 // Enabled implements the IstioComponent interface.
 func (c *EgressComponent) Enabled() bool {
 	// type assert is guaranteed to work in this context.
-	return boolValue(c.componentSpec.(*v1alpha1.GatewaySpec).Enabled)
+	return util.BoolValue(c.componentSpec.(*v1alpha1.GatewaySpec).Enabled)
 }
 
 // runComponent performs startup tasks for the component defined by the given CommonComponentFields.
 func runComponent(c *CommonComponentFields) error {
-	r, err := createHelmRenderer(c)
-	if err != nil {
-		return err
-	}
+	r := createHelmRenderer(c)
 	if err := r.Run(); err != nil {
 		return err
 	}
@@ -474,7 +470,7 @@ func renderManifest(c IstioComponent, cf *CommonComponentFields) (string, error)
 
 // createHelmRenderer creates a helm renderer for the component defined by c and returns a ptr to it.
 // If a helm subdir is not found in ComponentMap translations, it is assumed to be "addon/<component name>.
-func createHelmRenderer(c *CommonComponentFields) (helm.TemplateRenderer, error) {
+func createHelmRenderer(c *CommonComponentFields) helm.TemplateRenderer {
 	iop := c.InstallSpec
 	cns := string(c.ComponentName)
 	helmSubdir := c.Translator.ComponentMap(cns).HelmSubdir
@@ -496,12 +492,4 @@ func disabledYAMLStr(componentName name.ComponentName, resourceName string) stri
 		fullName += " " + resourceName
 	}
 	return fmt.Sprintf("%s %s %s\n", yamlCommentStr, fullName, componentDisabledStr)
-}
-
-// boolValue returns true is v is not nil and v.Value is true, or false otherwise.
-func boolValue(v *v1alpha1.BoolValueForPB) bool {
-	if v == nil {
-		return false
-	}
-	return v.Value
 }

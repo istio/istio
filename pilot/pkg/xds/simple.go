@@ -31,7 +31,6 @@ import (
 	"istio.io/istio/pkg/adsc"
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/config/schema/collections"
-	"istio.io/pkg/log"
 )
 
 // Server represents the XDS serving feature of Istiod (pilot).
@@ -83,8 +82,9 @@ func NewXDS(stop chan struct{}) *SimpleServer {
 	mc := mesh.DefaultMeshConfig()
 	env.Watcher = mesh.NewFixedWatcher(&mc)
 	env.PushContext.Mesh = env.Watcher.Mesh()
+	env.Init()
 
-	ds := NewDiscoveryServer(env, nil, "istiod")
+	ds := NewDiscoveryServer(env, nil, "istiod", "istio-system")
 	ds.CachesSynced()
 
 	// Config will have a fixed format:
@@ -170,9 +170,13 @@ type ProxyGen struct {
 // HandleResponse will dispatch a response from a federated
 // XDS server to all connections listening for that type.
 func (p *ProxyGen) HandleResponse(con *adsc.ADSC, res *discovery.DiscoveryResponse) {
+	clients := p.server.DiscoveryServer.ClientsOf(res.TypeUrl)
+	if len(clients) == 0 {
+		return
+	}
 	// TODO: filter the push to only connections that
 	// match a filter.
-	p.server.DiscoveryServer.SendResponse(res)
+	p.server.DiscoveryServer.SendResponse(clients, res)
 }
 
 func (s *SimpleServer) NewProxy() *ProxyGen {

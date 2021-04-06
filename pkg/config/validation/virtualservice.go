@@ -17,6 +17,7 @@ package validation
 import (
 	"errors"
 	"fmt"
+	"strings"
 
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/features"
@@ -56,26 +57,26 @@ func validateHTTPRoute(http *networking.HTTPRoute, delegate bool) (errs Validati
 
 	// header manipulation
 	for name, val := range http.Headers.GetRequest().GetAdd() {
-		errs = appendValidation(errs, ValidateHTTPHeaderName(name))
+		errs = appendValidation(errs, ValidateHTTPHeaderWithAuthorityOperationName(name))
 		errs = appendValidation(errs, ValidateHTTPHeaderValue(val))
 	}
 	for name, val := range http.Headers.GetRequest().GetSet() {
-		errs = appendValidation(errs, ValidateHTTPHeaderName(name))
+		errs = appendValidation(errs, ValidateHTTPHeaderWithAuthorityOperationName(name))
 		errs = appendValidation(errs, ValidateHTTPHeaderValue(val))
 	}
 	for _, name := range http.Headers.GetRequest().GetRemove() {
-		errs = appendValidation(errs, ValidateHTTPHeaderName(name))
+		errs = appendValidation(errs, ValidateHTTPHeaderOperationName(name))
 	}
 	for name, val := range http.Headers.GetResponse().GetAdd() {
-		errs = appendValidation(errs, ValidateHTTPHeaderName(name))
+		errs = appendValidation(errs, ValidateHTTPHeaderOperationName(name))
 		errs = appendValidation(errs, ValidateHTTPHeaderValue(val))
 	}
 	for name, val := range http.Headers.GetResponse().GetSet() {
-		errs = appendValidation(errs, ValidateHTTPHeaderName(name))
+		errs = appendValidation(errs, ValidateHTTPHeaderOperationName(name))
 		errs = appendValidation(errs, ValidateHTTPHeaderValue(val))
 	}
 	for _, name := range http.Headers.GetResponse().GetRemove() {
-		errs = appendValidation(errs, ValidateHTTPHeaderName(name))
+		errs = appendValidation(errs, ValidateHTTPHeaderOperationName(name))
 	}
 
 	errs = appendValidation(errs, validateCORSPolicy(http.CorsPolicy))
@@ -98,12 +99,37 @@ func validateHTTPRoute(http *networking.HTTPRoute, delegate bool) (errs Validati
 	errs = appendValidation(errs, validateHTTPRedirect(http.Redirect))
 	errs = appendValidation(errs, validateHTTPRetry(http.Retries))
 	errs = appendValidation(errs, validateHTTPRewrite(http.Rewrite))
+	errs = appendValidation(errs, validateAuthorityRewrite(http.Rewrite, http.Headers))
 	errs = appendValidation(errs, validateHTTPRouteDestinations(http.Route))
 	if http.Timeout != nil {
 		errs = appendValidation(errs, ValidateDurationGogo(http.Timeout))
 	}
 
 	return
+}
+
+// validateAuthorityRewrite ensures we only attempt rewrite authority in a single place.
+func validateAuthorityRewrite(rewrite *networking.HTTPRewrite, headers *networking.Headers) error {
+	current := rewrite.GetAuthority()
+	for k, v := range headers.GetRequest().GetSet() {
+		if !isAuthorityHeader(k) {
+			continue
+		}
+		if current != "" {
+			return fmt.Errorf("authority header cannot be set multiple times: have %q, attempting to set %q", current, v)
+		}
+		current = v
+	}
+	for k, v := range headers.GetRequest().GetAdd() {
+		if !isAuthorityHeader(k) {
+			continue
+		}
+		if current != "" {
+			return fmt.Errorf("authority header cannot be set multiple times: have %q, attempting to set %q", current, v)
+		}
+		current = v
+	}
+	return nil
 }
 
 func validateHTTPRouteMatchRequest(http *networking.HTTPRoute, routeType HTTPRouteType) (errs error) {
@@ -172,7 +198,6 @@ func validateHTTPRouteMatchRequest(http *networking.HTTPRoute, routeType HTTPRou
 
 			}
 		}
-
 	}
 
 	for _, match := range http.Match {
@@ -241,4 +266,14 @@ func containRegexMatch(config *networking.StringMatch) bool {
 		return true
 	}
 	return false
+}
+
+// isInternalHeader returns true if a header refers to an internal value that cannot be modified by Envoy
+func isInternalHeader(headerKey string) bool {
+	return strings.HasPrefix(headerKey, ":") || strings.EqualFold(headerKey, "host")
+}
+
+// isAuthorityHeader returns true if a header refers to the authority header
+func isAuthorityHeader(headerKey string) bool {
+	return strings.EqualFold(headerKey, ":authority") || strings.EqualFold(headerKey, "host")
 }

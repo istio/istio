@@ -27,9 +27,7 @@ import (
 	"istio.io/istio/pilot/pkg/networking/util"
 )
 
-var (
-	defaultRetryPriorityTypedConfig = util.MessageToAny(buildPreviousPrioritiesConfig())
-)
+var defaultRetryPriorityTypedConfig = util.MessageToAny(buildPreviousPrioritiesConfig())
 
 // DefaultPolicy gets a copy of the default retry policy.
 func DefaultPolicy() *route.RetryPolicy {

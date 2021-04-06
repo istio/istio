@@ -9,10 +9,6 @@ spec:
       app: clt
   configPatches:
     - applyTo: HTTP_FILTER
-      listener:
-        filterChain:
-          filter:
-            name: "envoy.http_connection_manager"
       patch:
         operation: INSERT_BEFORE
         value:

@@ -1,5 +1,5 @@
 # prepare a distroless source context to copy files from
-FROM gcr.io/distroless/static-debian10@sha256:5a4bd6a17f8d3c3e78df7ae62a95809e705c7315bccf59091af04b7b554cd037 as distroless_source
+FROM gcr.io/distroless/static-debian10@sha256:34cb7dca899f9f40f576509977cd43b093cf13eeec2ce6333f9b9b2db331f937 as distroless_source
 
 # prepare a base dev to modify file contents
 FROM ubuntu:bionic as ubuntu_source
@@ -14,7 +14,7 @@ RUN echo isito-proxy:x:1337:1337:istio-proxy:/nonexistent:/sbin/nologin >> /home
 # - password file
 # - groups file
 # - /home/nonroot directory
-FROM gcr.io/distroless/static-debian10@sha256:5a4bd6a17f8d3c3e78df7ae62a95809e705c7315bccf59091af04b7b554cd037
+FROM gcr.io/distroless/static-debian10@sha256:34cb7dca899f9f40f576509977cd43b093cf13eeec2ce6333f9b9b2db331f937
 COPY --from=ubuntu_source /home/etc/passwd /etc/passwd
 COPY --from=ubuntu_source /home/etc/group /etc/group
 COPY --from=ubuntu_source /home/nonroot /home/nonroot

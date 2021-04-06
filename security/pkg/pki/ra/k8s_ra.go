@@ -29,7 +29,7 @@ import (
 // KubernetesRA integrated with an external CA using Kubernetes CSR API
 type KubernetesRA struct {
 	csrInterface  certclient.CertificatesV1beta1Interface
-	keyCertBundle util.KeyCertBundle
+	keyCertBundle *util.KeyCertBundle
 	raOpts        *IstioRAOptions
 }
 
@@ -39,9 +39,11 @@ func NewKubernetesRA(raOpts *IstioRAOptions) (*KubernetesRA, error) {
 	if err != nil {
 		return nil, raerror.NewError(raerror.CAInitFail, fmt.Errorf("error processing Certificate Bundle for Kubernetes RA"))
 	}
-	istioRA := &KubernetesRA{csrInterface: raOpts.K8sClient,
+	istioRA := &KubernetesRA{
+		csrInterface:  raOpts.K8sClient,
 		raOpts:        raOpts,
-		keyCertBundle: keyCertBundle}
+		keyCertBundle: keyCertBundle,
+	}
 	return istioRA, nil
 }
 
@@ -88,6 +90,6 @@ func (r *KubernetesRA) SignWithCertChain(csrPEM []byte, subjectIDs []string, ttl
 }
 
 // GetCAKeyCertBundle returns the KeyCertBundle for the CA.
-func (r *KubernetesRA) GetCAKeyCertBundle() util.KeyCertBundle {
+func (r *KubernetesRA) GetCAKeyCertBundle() *util.KeyCertBundle {
 	return r.keyCertBundle
 }

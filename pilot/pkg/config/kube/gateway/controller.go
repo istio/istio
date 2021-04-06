@@ -23,11 +23,13 @@ import (
 	"k8s.io/client-go/kubernetes"
 
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pilot/pkg/model/kstatus"
 	controller2 "istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/schema/collection"
 	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/config/schema/gvk"
+	"istio.io/pkg/log"
 )
 
 var (
@@ -54,7 +56,20 @@ func (c *controller) Schemas() collection.Schemas {
 }
 
 func (c controller) Get(typ config.GroupVersionKind, name, namespace string) *config.Config {
-	panic("get is not supported")
+	return nil
+}
+
+func deepCopyStatus(configs []config.Config) []config.Config {
+	res := make([]config.Config, 0, len(configs))
+	for _, c := range configs {
+		nc := config.Config{
+			Meta:   c.Meta,
+			Spec:   c.Spec,
+			Status: kstatus.Wrap(c.Status),
+		}
+		res = append(res, nc)
+	}
+	return res
 }
 
 func (c controller) List(typ config.GroupVersionKind, namespace string) ([]config.Config, error) {
@@ -88,17 +103,17 @@ func (c controller) List(typ config.GroupVersionKind, namespace string) ([]confi
 	}
 
 	input := &KubernetesResources{
-		GatewayClass:  gatewayClass,
-		Gateway:       gateway,
-		HTTPRoute:     httpRoute,
-		TCPRoute:      tcpRoute,
-		TLSRoute:      tlsRoute,
-		BackendPolicy: backendPolicy,
+		GatewayClass:  deepCopyStatus(gatewayClass),
+		Gateway:       deepCopyStatus(gateway),
+		HTTPRoute:     deepCopyStatus(httpRoute),
+		TCPRoute:      deepCopyStatus(tcpRoute),
+		TLSRoute:      deepCopyStatus(tlsRoute),
+		BackendPolicy: deepCopyStatus(backendPolicy),
 		Domain:        c.domain,
 	}
 
 	if !anyApisUsed(input) {
-		// Early exit for common case of no service-apis used.
+		// Early exit for common case of no gateway-api used.
 		return nil, nil
 	}
 
@@ -113,6 +128,10 @@ func (c controller) List(typ config.GroupVersionKind, namespace string) ([]confi
 	input.Namespaces = namespaces
 	output := convertResources(input)
 
+	// Handle all status updates
+	// TODO we should probably place these on a queue using pilot/pkg/status
+	input.UpdateStatuses(c)
+
 	switch typ {
 	case gvk.Gateway:
 		return output.Gateway, nil
@@ -122,6 +141,33 @@ func (c controller) List(typ config.GroupVersionKind, namespace string) ([]confi
 		return output.DestinationRule, nil
 	}
 	return nil, errUnsupportedOp
+}
+
+func (r *KubernetesResources) UpdateStatuses(c controller) {
+	c.handleStatusUpdates(r.GatewayClass)
+	c.handleStatusUpdates(r.Gateway)
+	c.handleStatusUpdates(r.HTTPRoute)
+	c.handleStatusUpdates(r.TCPRoute)
+	c.handleStatusUpdates(r.TLSRoute)
+	c.handleStatusUpdates(r.BackendPolicy)
+}
+
+func (c controller) handleStatusUpdates(configs []config.Config) {
+	for _, cfg := range configs {
+		ws := cfg.Status.(*kstatus.WrappedStatus)
+
+		if ws.Dirty {
+			_, err := c.cache.UpdateStatus(config.Config{
+				Meta:   cfg.Meta,
+				Status: ws.Unwrap(),
+			})
+			// TODO make this more resilient. When we add a queue we can make transient failures retry
+			// and drop permanent failures
+			if err != nil {
+				log.Errorf("failed to update status for %v/%v: %v", cfg.GroupVersionKind, cfg.Name, err)
+			}
+		}
+	}
 }
 
 func anyApisUsed(input *KubernetesResources) bool {
@@ -154,9 +200,7 @@ func (c controller) Delete(typ config.GroupVersionKind, name, namespace string, 
 }
 
 func (c controller) RegisterEventHandler(typ config.GroupVersionKind, handler func(config.Config, config.Config, model.Event)) {
-	c.cache.RegisterEventHandler(typ, func(prev, cur config.Config, event model.Event) {
-		handler(prev, cur, event)
-	})
+	// do nothing as c.cache has been registered
 }
 
 func (c controller) Run(stop <-chan struct{}) {

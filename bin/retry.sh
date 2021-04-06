@@ -31,10 +31,10 @@ function retry {
   local n=1
   local max=5
   while true; do
-    out="$("$@" 2>&1)"
+    exec 5>&1
+    out="$(set -o pipefail; "$@" 2>&1 | tee /dev/fd/5)"
     # shellcheck disable=SC2181
     if [[ $? == 0 ]]; then
-      echo "${out}"
       break
     fi
     if ! grep "${failureRegex}" <<< "${out}"; then

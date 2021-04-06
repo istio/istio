@@ -62,9 +62,7 @@ type mirrorTestOptions struct {
 	mirrorHost string
 }
 
-var (
-	mirrorProtocols = []protocol.Instance{protocol.HTTP, protocol.GRPC}
-)
+var mirrorProtocols = []protocol.Instance{protocol.HTTP, protocol.GRPC}
 
 func TestMirroring(t *testing.T) {
 	runMirrorTest(t, mirrorTestOptions{
@@ -125,9 +123,9 @@ func runMirrorTest(t *testing.T, options mirrorTestOptions) {
 	framework.
 		NewTest(t).
 		Features("traffic.mirroring").
-		Run(func(ctx framework.TestContext) {
+		Run(func(t framework.TestContext) {
 			for _, c := range options.cases {
-				ctx.NewSubTest(c.name).Run(func(ctx framework.TestContext) {
+				t.NewSubTest(c.name).Run(func(t framework.TestContext) {
 					mirrorHost := options.mirrorHost
 					if len(mirrorHost) == 0 {
 						mirrorHost = common.PodCSvc
@@ -139,19 +137,16 @@ func runMirrorTest(t *testing.T, options mirrorTestOptions) {
 						mirrorHost,
 					}
 
-					deployment := tmpl.EvaluateOrFail(ctx,
-						file.AsStringOrFail(ctx, "testdata/traffic-mirroring-template.yaml"), vsc)
-					ctx.Config().ApplyYAMLOrFail(ctx, apps.Namespace.Name(), deployment)
-					ctx.WhenDone(func() error {
-						return ctx.Config().DeleteYAML(apps.Namespace.Name(), deployment)
-					})
+					deployment := tmpl.EvaluateOrFail(t,
+						file.AsStringOrFail(t, "testdata/traffic-mirroring-template.yaml"), vsc)
+					t.Config().ApplyYAMLOrFail(t, apps.Namespace.Name(), deployment)
 
 					for _, podA := range apps.PodA {
 						podA := podA
-						ctx.NewSubTest(fmt.Sprintf("from %s", podA.Config().Cluster.Name())).Run(func(ctx framework.TestContext) {
+						t.NewSubTest(fmt.Sprintf("from %s", podA.Config().Cluster.StableName())).Run(func(t framework.TestContext) {
 							for _, proto := range mirrorProtocols {
-								ctx.NewSubTest(string(proto)).Run(func(ctx framework.TestContext) {
-									retry.UntilSuccessOrFail(ctx, func() error {
+								t.NewSubTest(string(proto)).Run(func(t framework.TestContext) {
+									retry.UntilSuccessOrFail(t, func() error {
 										testID := util.RandomString(16)
 										if err := sendTrafficMirror(podA, apps.PodB[0], proto, testID); err != nil {
 											return err

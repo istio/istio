@@ -28,6 +28,7 @@ import (
 	envoyAdmin "github.com/envoyproxy/go-control-plane/envoy/admin/v3"
 
 	"istio.io/istio/pkg/config/protocol"
+	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/echo/common"
 	"istio.io/istio/pkg/test/echo/common/response"
 	"istio.io/istio/pkg/test/env"
@@ -41,7 +42,7 @@ import (
 	"istio.io/istio/pkg/test/util/structpath"
 )
 
-func mustReadCert(t *testing.T, f string) string {
+func mustReadCert(t framework.TestContext, f string) string {
 	b, err := ioutil.ReadFile(path.Join(env.IstioSrc, "tests/testdata/certs/dns", f))
 	if err != nil {
 		t.Fatalf("failed to read %v: %v", f, err)
@@ -56,9 +57,8 @@ func mustReadCert(t *testing.T, f string) string {
 func TestEgressGatewayTls(t *testing.T) {
 	framework.NewTest(t).
 		Features("security.egress.tls.filebased").
-		Run(func(ctx framework.TestContext) {
-
-			internalClient, externalServer, _, serviceNamespace := setupEcho(t, ctx)
+		Run(func(t framework.TestContext) {
+			internalClient, externalServer, _, serviceNamespace := setupEcho(t, t)
 			// Set up Host Name
 			host := "server." + serviceNamespace.Name() + ".svc.cluster.local"
 
@@ -101,7 +101,7 @@ func TestEgressGatewayTls(t *testing.T) {
 					response:            []string{response.StatusCodeBadRequest},
 					gateway:             false, // 400 response will not contain header
 				},
-				//5. SIMPLE TLS origination with "fake" root cert::
+				// 5. SIMPLE TLS origination with "fake" root cert::
 				//   internalClient ) ---HTTP request (Host: some-external-site.com----> Hits listener 0.0.0.0_80 ->
 				//     VS Routing (add Egress Header) --> Egress Gateway(originates simple TLS)
 				//     --> externalServer(443 with TLS enforced)
@@ -115,15 +115,14 @@ func TestEgressGatewayTls(t *testing.T) {
 			}
 
 			for name, tc := range testCases {
-				ctx.NewSubTest(name).
-					Run(func(ctx framework.TestContext) {
+				t.NewSubTest(name).
+					Run(func(t framework.TestContext) {
 						bufDestinationRule := createDestinationRule(t, serviceNamespace, tc.destinationRuleMode, tc.fakeRootCert)
 
-						istioCfg := istio.DefaultConfigOrFail(t, ctx)
-						systemNamespace := namespace.ClaimOrFail(t, ctx, istioCfg.SystemNamespace)
+						istioCfg := istio.DefaultConfigOrFail(t, t)
+						systemNamespace := namespace.ClaimOrFail(t, t, istioCfg.SystemNamespace)
 
-						ctx.Config().ApplyYAMLOrFail(ctx, systemNamespace.Name(), bufDestinationRule.String())
-						defer ctx.Config().DeleteYAMLOrFail(ctx, systemNamespace.Name(), bufDestinationRule.String())
+						t.Config().ApplyYAMLOrFail(t, systemNamespace.Name(), bufDestinationRule.String())
 
 						retry.UntilSuccessOrFail(t, func() error {
 							resp, err := internalClient.Call(echo.CallOptions{
@@ -211,7 +210,7 @@ spec:
 `
 )
 
-func createDestinationRule(t *testing.T, serviceNamespace namespace.Instance,
+func createDestinationRule(t framework.TestContext, serviceNamespace namespace.Instance,
 	destinationRuleMode string, fakeRootCert bool) bytes.Buffer {
 	var destinationRuleToParse string
 	var rootCertPathToUse string
@@ -233,8 +232,10 @@ func createDestinationRule(t *testing.T, serviceNamespace namespace.Instance,
 	}
 
 	var buf bytes.Buffer
-	if err := tmpl.Execute(&buf, map[string]string{"AppNamespace": serviceNamespace.Name(),
-		"Mode": destinationRuleMode, "RootCertPath": rootCertPathToUse}); err != nil {
+	if err := tmpl.Execute(&buf, map[string]string{
+		"AppNamespace": serviceNamespace.Name(),
+		"Mode":         destinationRuleMode, "RootCertPath": rootCertPathToUse,
+	}); err != nil {
 		t.Fatalf("failed to create template: %v", err)
 	}
 	return buf
@@ -245,7 +246,7 @@ func createDestinationRule(t *testing.T, serviceNamespace namespace.Instance,
 // is applied to only allow egress traffic to service namespace such that when client to server calls are made
 // we are able to simulate "external" traffic by going outside this namespace. Egress Gateway is set up in the
 // service namespace to handle egress for "external" calls.
-func setupEcho(t *testing.T, ctx resource.Context) (echo.Instance, echo.Instance, namespace.Instance, namespace.Instance) {
+func setupEcho(t framework.TestContext, ctx resource.Context) (echo.Instance, echo.Instance, namespace.Instance, namespace.Instance) {
 	appsNamespace := namespace.NewOrFail(t, ctx, namespace.Config{
 		Prefix: "app",
 		Inject: true,
@@ -388,7 +389,7 @@ spec:
 `
 )
 
-func createGateway(t *testing.T, ctx resource.Context, appsNamespace namespace.Instance, serviceNamespace namespace.Instance) {
+func createGateway(t test.Failer, ctx resource.Context, appsNamespace namespace.Instance, serviceNamespace namespace.Instance) {
 	tmplGateway, err := template.New("Gateway").Parse(Gateway)
 	if err != nil {
 		t.Fatalf("failed to create template: %v", err)

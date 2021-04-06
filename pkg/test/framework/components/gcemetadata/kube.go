@@ -21,6 +21,7 @@ import (
 	kubeApiCore "k8s.io/api/core/v1"
 
 	environ "istio.io/istio/pkg/test/env"
+	"istio.io/istio/pkg/test/framework/components/cluster"
 	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/framework/resource"
 	testKube "istio.io/istio/pkg/test/kube"
@@ -39,7 +40,7 @@ var (
 type kubeComponent struct {
 	id      resource.ID
 	ns      namespace.Instance
-	cluster resource.Cluster
+	cluster cluster.Cluster
 	address string
 }
 

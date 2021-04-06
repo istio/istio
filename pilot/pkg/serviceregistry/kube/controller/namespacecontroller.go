@@ -27,7 +27,6 @@ import (
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/queue"
 	"istio.io/istio/security/pkg/k8s"
-	"istio.io/pkg/log"
 )
 
 const (
@@ -39,9 +38,7 @@ const (
 	CACertNamespaceConfigMap = "istio-ca-root-cert"
 )
 
-var (
-	configMapLabel = map[string]string{"istio.io/config": "true"}
-)
+var configMapLabel = map[string]string{"istio.io/config": "true"}
 
 // NamespaceController manages reconciles a configmap in each namespace with a desired set of data.
 type NamespaceController struct {

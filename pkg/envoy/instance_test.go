@@ -25,7 +25,6 @@ import (
 	"time"
 
 	envoyAdmin "github.com/envoyproxy/go-control-plane/envoy/admin/v3"
-	"github.com/golang/protobuf/ptypes"
 	. "github.com/onsi/gomega"
 
 	"istio.io/istio/pkg/envoy"
@@ -34,9 +33,7 @@ import (
 	"istio.io/istio/pkg/test/util/tmpl"
 )
 
-var (
-	envoyLogFormat = envoy.LogFormat("[ENVOY][%Y-%m-%d %T.%e][%t][%l][%n]")
-)
+var envoyLogFormat = envoy.LogFormat("[ENVOY][%Y-%m-%d %T.%e][%t][%l][%n]")
 
 func TestNewWithoutConfigShouldFail(t *testing.T) {
 	g := NewWithT(t)
@@ -414,7 +411,7 @@ func TestConfigDump(t *testing.T) {
 	for _, c := range cd.Configs {
 		if c.TypeUrl == "type.googleapis.com/envoy.admin.v3.BootstrapConfigDump" {
 			b := envoyAdmin.BootstrapConfigDump{}
-			g.Expect(ptypes.UnmarshalAny(c, &b)).To(BeNil())
+			g.Expect(c.UnmarshalTo(&b)).To(BeNil())
 
 			g.Expect(b.Bootstrap.Admin.GetAddress().GetSocketAddress().GetPortValue()).To(Equal(i.AdminPort()))
 			return

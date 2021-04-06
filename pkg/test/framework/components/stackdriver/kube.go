@@ -32,8 +32,8 @@ import (
 
 	istioKube "istio.io/istio/pkg/kube"
 	environ "istio.io/istio/pkg/test/env"
+	"istio.io/istio/pkg/test/framework/components/cluster"
 	"istio.io/istio/pkg/test/framework/components/namespace"
-	edgespb "istio.io/istio/pkg/test/framework/components/stackdriver/edges"
 	"istio.io/istio/pkg/test/framework/resource"
 	testKube "istio.io/istio/pkg/test/kube"
 	"istio.io/istio/pkg/test/scopes"
@@ -60,7 +60,7 @@ type kubeComponent struct {
 	id        resource.ID
 	ns        namespace.Instance
 	forwarder istioKube.PortForwarder
-	cluster   resource.Cluster
+	cluster   cluster.Cluster
 	address   string
 }
 
@@ -222,28 +222,6 @@ func (c *kubeComponent) ListLogEntries(filter LogType) ([]*loggingpb.LogEntry, e
 		ret = append(ret, l)
 	}
 	return ret, nil
-}
-
-func (c *kubeComponent) ListTrafficAssertions() ([]*edgespb.TrafficAssertion, error) {
-	client := http.Client{
-		Timeout: 5 * time.Second,
-	}
-	resp, err := client.Get("http://" + c.forwarder.Address() + "/trafficassertions")
-	if err != nil {
-		return []*edgespb.TrafficAssertion{}, err
-	}
-	defer resp.Body.Close()
-	body, err := ioutil.ReadAll(resp.Body)
-	if err != nil {
-		return []*edgespb.TrafficAssertion{}, err
-	}
-	var rta edgespb.ReportTrafficAssertionsRequest
-	err = jsonpb.UnmarshalString(string(body), &rta)
-	if err != nil {
-		return []*edgespb.TrafficAssertion{}, err
-	}
-
-	return rta.TrafficAssertions, nil
 }
 
 func (c *kubeComponent) ListTraces() ([]*cloudtracepb.Trace, error) {

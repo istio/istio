@@ -19,17 +19,17 @@ import (
 	"sync"
 
 	v1 "k8s.io/api/core/v1"
-	coreinformers "k8s.io/client-go/informers/core/v1"
 	"k8s.io/client-go/tools/cache"
 
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube"
+	"istio.io/istio/pilot/pkg/serviceregistry/kube/controller/filter"
 	"istio.io/istio/pilot/pkg/util/sets"
 )
 
 // PodCache is an eventually consistent pod cache
 type PodCache struct {
-	informer cache.SharedIndexInformer
+	informer filter.FilteredSharedIndexInformer
 
 	sync.RWMutex
 	// podsByIP maintains stable pod IP to name key mapping
@@ -49,9 +49,9 @@ type PodCache struct {
 	c *Controller
 }
 
-func newPodCache(c *Controller, informer coreinformers.PodInformer, queueEndpointEvent func(string)) *PodCache {
+func newPodCache(c *Controller, informer filter.FilteredSharedIndexInformer, queueEndpointEvent func(string)) *PodCache {
 	out := &PodCache{
-		informer:           informer.Informer(),
+		informer:           informer,
 		c:                  c,
 		podsByIP:           make(map[string]string),
 		IPByPods:           make(map[string]string),
@@ -72,6 +72,7 @@ func IsPodReadyConditionTrue(status v1.PodStatus) bool {
 	condition := GetPodReadyCondition(status)
 	return condition != nil && condition.Status == v1.ConditionTrue
 }
+
 func GetPodReadyCondition(status v1.PodStatus) *v1.PodCondition {
 	_, condition := GetPodCondition(&status, v1.PodReady)
 	return condition
@@ -269,7 +270,7 @@ func (pc *PodCache) getPodByIP(addr string) *v1.Pod {
 
 // getPodByKey returns the pod by key formatted `ns/name`
 func (pc *PodCache) getPodByKey(key string) *v1.Pod {
-	item, _, _ := pc.informer.GetStore().GetByKey(key)
+	item, _, _ := pc.informer.GetIndexer().GetByKey(key)
 	if item != nil {
 		return item.(*v1.Pod)
 	}

@@ -36,7 +36,7 @@ var (
 // CAClient is the mocked CAClient for testing.
 type CAClient struct {
 	SignInvokeCount uint64
-	bundle          util.KeyCertBundle
+	bundle          *util.KeyCertBundle
 	certLifetime    time.Duration
 	GeneratedCerts  [][]string // Cache the generated certificates for verification purpose.
 }

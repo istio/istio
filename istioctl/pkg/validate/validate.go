@@ -63,8 +63,7 @@ Example resource specifications include:
 	serviceProtocolUDP = "UDP"
 )
 
-type validator struct {
-}
+type validator struct{}
 
 func checkFields(un *unstructured.Unstructured) error {
 	var errs error
@@ -76,7 +75,7 @@ func checkFields(un *unstructured.Unstructured) error {
 	return errs
 }
 
-func (v *validator) validateResource(istioNamespace string, un *unstructured.Unstructured, writer io.Writer) (validation.Warning, error) {
+func (v *validator) validateResource(istioNamespace, defaultNamespace string, un *unstructured.Unstructured, writer io.Writer) (validation.Warning, error) {
 	gvk := config.GroupVersionKind{
 		Group:   un.GroupVersionKind().Group,
 		Version: un.GroupVersionKind().Version,
@@ -96,6 +95,17 @@ func (v *validator) validateResource(istioNamespace string, un *unstructured.Uns
 		if err = checkFields(un); err != nil {
 			return nil, err
 		}
+
+		// If object to validate has no namespace, set it (the validity of a CR
+		// may depend on its namespace; for example a VirtualService with exportTo=".")
+		if obj.Namespace == "" {
+			// If the user didn't specify --namespace, and is validating a CR with no namespace, use "default"
+			if defaultNamespace == "" {
+				defaultNamespace = metav1.NamespaceDefault
+			}
+			obj.Namespace = defaultNamespace
+		}
+
 		warnings, err := schema.Resource().ValidateConfig(*obj)
 		return warnings, err
 	}
@@ -221,7 +231,7 @@ func GetTemplateLabels(u *unstructured.Unstructured) (map[string]string, error) 
 	return nil, nil
 }
 
-func (v *validator) validateFile(istioNamespace *string, reader io.Reader, writer io.Writer) (validation.Warning, error) {
+func (v *validator) validateFile(istioNamespace *string, defaultNamespace string, reader io.Reader, writer io.Writer) (validation.Warning, error) {
 	decoder := yaml.NewDecoder(reader)
 	decoder.SetStrict(true)
 	var errs error
@@ -242,7 +252,7 @@ func (v *validator) validateFile(istioNamespace *string, reader io.Reader, write
 		}
 		out := transformInterfaceMap(raw)
 		un := unstructured.Unstructured{Object: out}
-		warning, err := v.validateResource(*istioNamespace, &un, writer)
+		warning, err := v.validateResource(*istioNamespace, defaultNamespace, &un, writer)
 		if err != nil {
 			errs = multierror.Append(errs, multierror.Prefix(err, fmt.Sprintf("%s/%s/%s:",
 				un.GetKind(), un.GetNamespace(), un.GetName())))
@@ -254,7 +264,7 @@ func (v *validator) validateFile(istioNamespace *string, reader io.Reader, write
 	}
 }
 
-func validateFiles(istioNamespace *string, filenames []string, writer io.Writer) error {
+func validateFiles(istioNamespace *string, defaultNamespace string, filenames []string, writer io.Writer) error {
 	if len(filenames) == 0 {
 		return errMissingFilename
 	}
@@ -274,7 +284,7 @@ func validateFiles(istioNamespace *string, filenames []string, writer io.Writer)
 			errs = multierror.Append(errs, fmt.Errorf("cannot read file %q: %v", filename, err))
 			continue
 		}
-		warning, err := v.validateFile(istioNamespace, reader, writer)
+		warning, err := v.validateFile(istioNamespace, defaultNamespace, reader, writer)
 		if err != nil {
 			errs = multierror.Append(errs, err)
 		}
@@ -309,7 +319,6 @@ func validateFiles(istioNamespace *string, filenames []string, writer io.Writer)
 			} else {
 				_, _ = fmt.Fprintf(writer, "%q is valid\n", fname)
 			}
-
 		}
 	}
 
@@ -317,7 +326,7 @@ func validateFiles(istioNamespace *string, filenames []string, writer io.Writer)
 }
 
 // NewValidateCommand creates a new command for validating Istio k8s resources.
-func NewValidateCommand(istioNamespace *string) *cobra.Command {
+func NewValidateCommand(istioNamespace *string, defaultNamespace *string) *cobra.Command {
 	var filenames []string
 	var referential bool
 
@@ -342,7 +351,7 @@ func NewValidateCommand(istioNamespace *string) *cobra.Command {
 `,
 		Args: cobra.NoArgs,
 		RunE: func(c *cobra.Command, _ []string) error {
-			return validateFiles(istioNamespace, filenames, c.OutOrStderr())
+			return validateFiles(istioNamespace, *defaultNamespace, filenames, c.OutOrStderr())
 		},
 	}
 

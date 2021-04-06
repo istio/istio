@@ -15,7 +15,6 @@
 package annotations
 
 import (
-	"fmt"
 	"strings"
 
 	"istio.io/api/annotation"
@@ -31,9 +30,7 @@ import (
 // K8sAnalyzer checks for misplaced and invalid Istio annotations in K8s resources
 type K8sAnalyzer struct{}
 
-var (
-	istioAnnotations = annotation.AllResourceAnnotations()
-)
+var istioAnnotations = annotation.AllResourceAnnotations()
 
 // Metadata implements analyzer.Analyzer
 func (*K8sAnalyzer) Metadata() analysis.Metadata {
@@ -84,13 +81,17 @@ outer:
 		annotationDef := lookupAnnotation(ann)
 		if annotationDef == nil {
 			m := msg.NewUnknownAnnotation(r, ann)
-
-			if line, ok := util.ErrorLine(r, fmt.Sprintf(util.Annotation, ann)); ok {
-				m.Line = line
-			}
+			util.AddLineNumber(r, ann, m)
 
 			ctx.Report(collectionType, m)
 			continue
+		}
+
+		if annotationDef.Deprecated {
+			m := msg.NewDeprecatedAnnotation(r, ann)
+			util.AddLineNumber(r, ann, m)
+
+			ctx.Report(collectionType, m)
 		}
 
 		// If the annotation def attaches to Any, exit early
@@ -103,25 +104,17 @@ outer:
 		attachesTo := resourceTypesAsStrings(annotationDef.Resources)
 		if !contains(attachesTo, kind) {
 			m := msg.NewMisplacedAnnotation(r, ann, strings.Join(attachesTo, ", "))
-
-			if line, ok := util.ErrorLine(r, fmt.Sprintf(util.Annotation, ann)); ok {
-				m.Line = line
-			}
+			util.AddLineNumber(r, ann, m)
 
 			ctx.Report(collectionType, m)
 			continue
 		}
 
-		// TODO: Check annotation.Deprecated.  Not implemented because no
-		// deprecations in the table have yet been deprecated!
 		validationFunction := inject.AnnotationValidation[ann]
 		if validationFunction != nil {
 			if err := validationFunction(value); err != nil {
 				m := msg.NewInvalidAnnotation(r, ann, err.Error())
-
-				if line, ok := util.ErrorLine(r, fmt.Sprintf(util.Annotation, ann)); ok {
-					m.Line = line
-				}
+				util.AddLineNumber(r, ann, m)
 
 				ctx.Report(collectionType, m)
 				continue

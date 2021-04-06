@@ -259,7 +259,8 @@ func TestProxyQueue(t *testing.T) {
 						ConfigsUpdated: map[model.ConfigKey]struct{}{{
 							Kind: gvk.ServiceEntry,
 							Name: fmt.Sprintf("%d", eds),
-						}: {}}})
+						}: {}},
+					})
 				}
 			}
 		}()

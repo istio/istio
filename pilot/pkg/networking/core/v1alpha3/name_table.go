@@ -16,6 +16,7 @@ package v1alpha3
 
 import (
 	"net"
+	"strings"
 
 	"istio.io/istio/pilot/pkg/model"
 	nds "istio.io/istio/pilot/pkg/proto"
@@ -66,21 +67,48 @@ func (configgen *ConfigGeneratorImpl) BuildNameTable(node *model.Proxy, push *mo
 			continue
 		}
 
-		svcAddress := svc.GetServiceAddressForProxy(node, push)
+		svcAddress := svc.GetServiceAddressForProxy(node)
 		var addressList []string
 
 		// The IP will be unspecified here if its headless service or if the auto
 		// IP allocation logic for service entry was unable to allocate an IP.
 		if svcAddress == constants.UnspecifiedIP {
 			// For all k8s headless services, populate the dns table with the endpoint IPs as k8s does.
-			// TODO: Need to have an entry per pod hostname of stateful set but for this, we need to parse
-			// the stateful set object, associate the object with the appropriate kubernetes headless service
-			// and then derive the stable network identities.
+			// And for each individual pod, populate the dns table with the endpoint IP with a manufactured host name.
 			if svc.Attributes.ServiceRegistry == string(serviceregistry.Kubernetes) &&
 				svc.Resolution == model.Passthrough && len(svc.Ports) > 0 {
-				// TODO: this is used in two places now. Needs to be cached as part of the headless service
-				// object to avoid the costly lookup in the registry code
 				for _, instance := range push.ServiceInstancesByPort(svc, svc.Ports[0].Port, nil) {
+					// Add individual addresses even for cross cluster.
+					if instance.Endpoint.SubDomain != "" && instance.Endpoint.Network == node.Metadata.Network {
+						// Follow k8s pods dns naming convention of "<hostname>.<subdomain>.<pod namespace>.svc.<cluster domain>"
+						// i.e. "mysql-0.mysql.default.svc.cluster.local".
+						parts := strings.SplitN(string(svc.Hostname), ".", 2)
+						if len(parts) != 2 {
+							continue
+						}
+						address := []string{instance.Endpoint.Address}
+						shortName := instance.Endpoint.HostName + "." + instance.Endpoint.SubDomain
+						host := shortName + "." + parts[1] // Add cluster domain.
+						nameInfo := &nds.NameTable_NameInfo{
+							Ips:       address,
+							Registry:  svc.Attributes.ServiceRegistry,
+							Namespace: svc.Attributes.Namespace,
+							Shortname: shortName,
+						}
+						out.Table[host] = nameInfo
+					}
+
+					if instance.Endpoint.Locality.ClusterID != node.Metadata.ClusterID {
+						// We take only cluster-local endpoints. While this seems contradictory to
+						// our logic other parts of the code, where cross-cluster is the default.
+						// However, this only impacts the DNS response. If we were to send all
+						// endpoints, cross network routing would break, as we do passthrough LB and
+						// don't go through the network gateway. While we could, hypothetically, send
+						// "network-local" endpoints, this would still make enabling DNS give vastly
+						// different load balancing than without, so its probably best to filter.
+						// This ends up matching the behavior of Kubernetes DNS.
+						continue
+					}
 					// TODO: should we skip the node's own IP like we do in listener?
 					addressList = append(addressList, instance.Endpoint.Address)
 				}

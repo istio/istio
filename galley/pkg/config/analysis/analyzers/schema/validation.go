@@ -19,11 +19,13 @@ import (
 	"github.com/hashicorp/go-multierror"
 
 	"istio.io/istio/galley/pkg/config/analysis"
+	"istio.io/istio/galley/pkg/config/analysis/diag"
 	"istio.io/istio/galley/pkg/config/analysis/msg"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/resource"
 	"istio.io/istio/pkg/config/schema/collection"
 	"istio.io/istio/pkg/config/schema/collections"
+	"istio.io/istio/pkg/config/validation"
 )
 
 // ValidationAnalyzer runs schema validation as an analyzer and reports any violations as messages
@@ -32,6 +34,10 @@ type ValidationAnalyzer struct {
 }
 
 var _ analysis.Analyzer = &ValidationAnalyzer{}
+
+func CollectionValidationAnalyzer(s collection.Schema) analysis.Analyzer {
+	return &ValidationAnalyzer{s: s}
+}
 
 // AllValidationAnalyzers returns a slice with a validation analyzer for each Istio schema
 // This automation comes with an assumption: that the collection names used by the schema match the metadata used by Galley components
@@ -71,23 +77,37 @@ func (a *ValidationAnalyzer) Analyze(ctx analysis.Context) {
 		if err != nil {
 			if multiErr, ok := err.(*multierror.Error); ok {
 				for _, err := range multiErr.WrappedErrors() {
-					ctx.Report(c, msg.NewSchemaValidationError(r, err))
+					ctx.Report(c, morePreciseMessage(r, err, true))
 				}
 			} else {
-				ctx.Report(c, msg.NewSchemaValidationError(r, err))
+				ctx.Report(c, morePreciseMessage(r, err, true))
 			}
 		}
 		if warnings != nil {
 			if multiErr, ok := warnings.(*multierror.Error); ok {
 				for _, err := range multiErr.WrappedErrors() {
-					ctx.Report(c, msg.NewSchemaWarning(r, err))
+					ctx.Report(c, morePreciseMessage(r, err, false))
 				}
 			} else {
-				ctx.Report(c, msg.NewSchemaWarning(r, warnings))
+				ctx.Report(c, morePreciseMessage(r, warnings, false))
 			}
 		}
 
 		return true
 	})
+}
 
+func morePreciseMessage(r *resource.Instance, err error, isError bool) diag.Message {
+	if aae, ok := err.(*validation.AnalysisAwareError); ok {
+		switch aae.Type {
+		case "VirtualServiceUnreachableRule":
+			return msg.NewVirtualServiceUnreachableRule(r, aae.Parameters[0].(string), aae.Parameters[1].(string))
+		case "VirtualServiceIneffectiveMatch":
+			return msg.NewVirtualServiceIneffectiveMatch(r, aae.Parameters[0].(string), aae.Parameters[1].(string), aae.Parameters[2].(string))
+		}
+	}
+	if !isError {
+		return msg.NewSchemaWarning(r, err)
+	}
+	return msg.NewSchemaValidationError(r, err)
 }

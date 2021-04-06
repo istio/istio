@@ -184,5 +184,4 @@ func applyLocalityFailover(
 			}
 		}
 	}
-
 }

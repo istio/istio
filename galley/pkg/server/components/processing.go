@@ -60,8 +60,13 @@ func (p *Processing) Start() (err error) {
 	var src event.Source
 	var updater snapshotter.StatusUpdater
 
-	if mesh, err = meshcfgNewFS(p.args.MeshConfigFile); err != nil {
-		return
+	if p.args.MeshSource != nil {
+		mesh = p.args.MeshSource
+	} else {
+		mesh, err = meshcfgNewFS(p.args.MeshConfigFile)
+		if err != nil {
+			return
+		}
 	}
 
 	m := schema.MustGet()
@@ -124,7 +129,6 @@ func (p *Processing) getKubeInterfaces() (k kube.Interfaces, err error) {
 
 func (p *Processing) createSourceAndStatusUpdater(schemas collection.Schemas) (
 	src event.Source, updater snapshotter.StatusUpdater, err error) {
-
 	var k kube.Interfaces
 	if k, err = p.getKubeInterfaces(); err != nil {
 		return

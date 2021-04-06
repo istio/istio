@@ -20,7 +20,7 @@ import (
 
 	"github.com/gogo/protobuf/types"
 	. "github.com/onsi/gomega"
-	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
+	apiextensions "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	extfake "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset/fake"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -501,26 +501,26 @@ func toEntry(obj *unstructured.Unstructured, schema resource2.Schema) *resource.
 	}
 }
 
-func toCrd(schema collection.Schema) *v1beta1.CustomResourceDefinition {
+func toCrd(schema collection.Schema) *apiextensions.CustomResourceDefinition {
 	r := schema.Resource()
-	return &v1beta1.CustomResourceDefinition{
+	return &apiextensions.CustomResourceDefinition{
 		ObjectMeta: v1.ObjectMeta{
 			Name:            r.Plural() + "." + r.Group(),
 			ResourceVersion: "v1",
 		},
 
-		Spec: v1beta1.CustomResourceDefinitionSpec{
+		Spec: apiextensions.CustomResourceDefinitionSpec{
 			Group: r.Group(),
-			Names: v1beta1.CustomResourceDefinitionNames{
+			Names: apiextensions.CustomResourceDefinitionNames{
 				Plural: r.Plural(),
 				Kind:   r.Kind(),
 			},
-			Versions: []v1beta1.CustomResourceDefinitionVersion{
+			Versions: []apiextensions.CustomResourceDefinitionVersion{
 				{
 					Name: r.Version(),
 				},
 			},
-			Scope: v1beta1.NamespaceScoped,
+			Scope: apiextensions.NamespaceScoped,
 		},
 	}
 }

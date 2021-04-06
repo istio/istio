@@ -61,7 +61,6 @@ type Runtime struct { // nolint:maligned
 
 // NewRuntime returns a new instance of a processing.Runtime.
 func NewRuntime(o RuntimeOptions) *Runtime {
-
 	r := &Runtime{
 		options: o.Clone(),
 	}

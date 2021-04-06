@@ -306,7 +306,8 @@ func genCertTemplateFromCSR(csr *x509.CertificateRequest, subjectIDs []string, t
 		ExtKeyUsage:           extKeyUsages,
 		IsCA:                  isCA,
 		BasicConstraintsValid: true,
-		ExtraExtensions:       exts}, nil
+		ExtraExtensions:       exts,
+	}, nil
 }
 
 // genCertTemplateFromoptions generates a certificate template with the given options.
@@ -369,7 +370,8 @@ func genCertTemplateFromOptions(options CertOptions) (*x509.Certificate, error) 
 		ExtKeyUsage:           extKeyUsages,
 		IsCA:                  options.IsCA,
 		BasicConstraintsValid: true,
-		ExtraExtensions:       exts}, nil
+		ExtraExtensions:       exts,
+	}, nil
 }
 
 func genSerialNum() (*big.Int, error) {

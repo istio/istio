@@ -18,7 +18,6 @@ import (
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
 	http_conn "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
-	thrift_proxy "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/thrift_proxy/v3"
 	tls "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
 
 	"istio.io/istio/pilot/pkg/features"
@@ -35,8 +34,6 @@ const (
 	ListenerProtocolTCP
 	// ListenerProtocolHTTP is an HTTP listener.
 	ListenerProtocolHTTP
-	// ListenerProtocolThrift is a Thrift listener.
-	ListenerProtocolThrift
 	// ListenerProtocolAuto enables auto protocol detection
 	ListenerProtocolAuto
 )
@@ -64,12 +61,7 @@ func ModelProtocolToListenerProtocol(p protocol.Instance,
 	case protocol.HTTP, protocol.HTTP2, protocol.GRPC, protocol.GRPCWeb:
 		return ListenerProtocolHTTP
 	case protocol.TCP, protocol.HTTPS, protocol.TLS,
-		protocol.Mongo, protocol.Redis, protocol.MySQL:
-		return ListenerProtocolTCP
-	case protocol.Thrift:
-		if features.EnableThriftFilter {
-			return ListenerProtocolThrift
-		}
+		protocol.Mongo, protocol.Redis, protocol.MySQL, protocol.Thrift:
 		return ListenerProtocolTCP
 	case protocol.UDP:
 		return ListenerProtocolUnknown
@@ -100,8 +92,6 @@ type FilterChain struct {
 
 	// HTTP is the set of HTTP filters for this filter chain
 	HTTP []*http_conn.HttpFilter
-	// Thrift is the set of Thrift filters for this filter chain
-	Thrift []*thrift_proxy.ThriftFilter
 	// TCP is the set of network (TCP) filters for this filter chain.
 	TCP []*listener.Filter
 	// IsFallthrough indicates if the filter chain is fallthrough.
@@ -125,8 +115,10 @@ const (
 	H2TunnelTypeName = "H2Tunnel"
 )
 
-type TunnelType int
-type TunnelAbility int
+type (
+	TunnelType    int
+	TunnelAbility int
+)
 
 const (
 	// Bind the no tunnel support to a name.

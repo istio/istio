@@ -24,7 +24,7 @@ import (
 )
 
 func TestStaticSnapshots(t *testing.T) {
-	var cases = []struct {
+	cases := []struct {
 		packageName string
 		snapshots   []*ast.Snapshot
 		err         string

@@ -83,7 +83,6 @@ func checkDeprecatedSettings(iop *v1alpha1.IstioOperatorSpec) (util.Errors, stri
 	messages := []string{}
 	warningSettings := []deprecatedSettings{
 		{"Values.global.certificates", "meshConfig.certificates", nil},
-		{"Values.global.trustDomainAliases", "meshConfig.trustDomainAliases", nil},
 		{"Values.global.outboundTrafficPolicy", "meshConfig.outboundTrafficPolicy", nil},
 		{"Values.global.localityLbSetting", "meshConfig.localityLbSetting", nil},
 		{"Values.global.policyCheckFailOpen", "meshConfig.policyCheckFailOpen", false},
@@ -95,7 +94,7 @@ func checkDeprecatedSettings(iop *v1alpha1.IstioOperatorSpec) (util.Errors, stri
 		{"Values.global.proxy.envoyAccessLogService.enabled", "meshConfig.enableEnvoyAccessLogService", nil},
 		{"Values.global.proxy.envoyMetricsService", "meshConfig.defaultConfig.envoyMetricsService", nil},
 		{"Values.global.proxy.protocolDetectionTimeout", "meshConfig.protocolDetectionTimeout", ""},
-		{"Values.global.proxy.holdApplicationUntilProxyStarts", "ProxyConfig holdApplicationUntilProxyStarts", nil},
+		{"Values.global.proxy.holdApplicationUntilProxyStarts", "meshConfig.defaultConfig.holdApplicationUntilProxyStarts", false},
 		{"Values.pilot.ingress", "meshConfig.ingressService, meshConfig.ingressControllerMode, and meshConfig.ingressClass", nil},
 		{"Values.global.mtls.enabled", "the PeerAuthentication resource", nil},
 		{"Values.global.mtls.auto", "meshConfig.enableAutoMtls", nil},
@@ -108,13 +107,15 @@ func checkDeprecatedSettings(iop *v1alpha1.IstioOperatorSpec) (util.Errors, stri
 		{"Values.global.tracer.stackdriver.maxNumberOfMessageEvents", "meshConfig.defaultConfig.tracing.stackdriver.maxNumberOfMessageEvents", 0},
 		{"Values.global.tracer.datadog.address", "meshConfig.defaultConfig.tracing.datadog.address", ""},
 		{"Values.global.meshExpansion.enabled", "Gateway and other Istio networking resources, such as in samples/multicluster/", false},
-		{"Values.global.trustDomain", "meshConfig.trustDomain", false},
 		{"Values.gateways.istio-ingressgateway.meshExpansionPorts", "components.ingressGateways[name=istio-ingressgateway].k8s.service.ports", nil},
 		{"AddonComponents.istiocoredns.Enabled", "the in-proxy DNS capturing (ISTIO_META_DNS_CAPTURE)", false},
 		{"Values.istiocoredns.enabled", "the in-proxy DNS capturing (ISTIO_META_DNS_CAPTURE)", false},
-		{"Values.telemetry.v2.stackdriver.logging", "Values.telemetry.v2.stackdriver.outboundAccessLogging and Values.telemetry.v2.stackdriver.inboundAccessLogging",
-			false},
+		{
+			"Values.telemetry.v2.stackdriver.logging", "Values.telemetry.v2.stackdriver.outboundAccessLogging and Values.telemetry.v2.stackdriver.inboundAccessLogging",
+			false,
+		},
 		{"Values.global.centralIstiod", "Values.global.externalIstiod", false},
+		{"Values.global.arch", "the affinity of k8s settings", nil},
 	}
 
 	failHardSettings := []deprecatedSettings{

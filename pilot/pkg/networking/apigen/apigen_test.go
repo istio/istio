@@ -106,6 +106,5 @@ func TestAPIGen(t *testing.T) {
 		for _, se := range sec {
 			t.Log(se)
 		}
-
 	})
 }

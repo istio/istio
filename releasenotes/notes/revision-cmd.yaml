@@ -1,0 +1,10 @@
+apiVersion: release-notes/v2
+kind: feature
+area: istioctl
+issue:
+  - 23892
+releaseNotes:
+  - |
+    **Added** tooling for revision-centric view of current istio deployments in a cluster. This is to
+    provide better understanding of deployments - like number of istiod, gateway pods, IstioOperator CRs
+    defining a particular revision, the number of pods with sidecars pointing to a particular revision etc

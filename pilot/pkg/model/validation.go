@@ -26,8 +26,11 @@ import (
 
 // UnixAddressPrefix is the prefix used to indicate an address is for a Unix Domain socket. It is used in
 // ServiceEntry.Endpoint.Address message.
-const UnixAddressPrefix = "unix://"
-const PodIPAddressPrefix = "0.0.0.0"
+const (
+	UnixAddressPrefix      = "unix://"
+	PodIPAddressPrefix     = "0.0.0.0"
+	LocalhostAddressPrefix = "127.0.0.1"
+)
 
 // Validate ensures that the service object is well-defined
 func (s *Service) Validate() error {

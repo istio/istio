@@ -15,21 +15,15 @@
 package authn
 
 import (
-	envoy_config_listener_v3 "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
-	"github.com/golang/protobuf/ptypes/wrappers"
-
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking"
 	"istio.io/istio/pilot/pkg/networking/plugin"
 	"istio.io/istio/pilot/pkg/security/authn/factory"
-	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/pkg/log"
 )
 
-var (
-	authnLog = log.RegisterScope("authn", "authn debugging", 0)
-)
+var authnLog = log.RegisterScope("authn", "authn debugging", 0)
 
 // Plugin implements Istio mTLS auth
 type Plugin struct{}
@@ -39,13 +33,7 @@ func NewPlugin() plugin.Plugin {
 	return Plugin{}
 }
 
-// OnInboundFilterChains setups filter chains based on the authentication policy.
-func (Plugin) OnInboundFilterChains(in *plugin.InputParams) []networking.FilterChain {
-	return factory.NewPolicyApplier(in.Push,
-		in.Node.Metadata.Namespace, labels.Collection{in.Node.Metadata.Labels}).InboundFilterChain(
-		in.ServiceInstance.Endpoint.EndpointPort, constants.DefaultSdsUdsPath, in.Node,
-		in.ListenerProtocol, trustDomainsForValidation(in.Push.Mesh))
-}
+var _ plugin.Plugin = Plugin{}
 
 // OnOutboundListener is called whenever a new outbound listener is added to the LDS output for a given service
 // Can be used to add additional filters on the outbound path
@@ -82,7 +70,7 @@ func buildFilter(in *plugin.InputParams, mutable *networking.MutableObjects, isP
 			// Get the real port from the filter chain match if this is generated for pass through filter chain.
 			endpointPort = mutable.FilterChains[i].FilterChainMatch.GetDestinationPort().GetValue()
 		}
-		if in.ListenerProtocol == networking.ListenerProtocolHTTP || mutable.FilterChains[i].ListenerProtocol == networking.ListenerProtocolHTTP {
+		if mutable.FilterChains[i].ListenerProtocol == networking.ListenerProtocolHTTP {
 			// Adding Jwt filter and authn filter, if needed.
 			if filter := applier.JwtFilter(); filter != nil {
 				mutable.FilterChains[i].HTTP = append(mutable.FilterChains[i].HTTP, filter)
@@ -107,33 +95,37 @@ func (Plugin) OnInboundPassthrough(in *plugin.InputParams, mutable *networking.M
 	return buildFilter(in, mutable, true)
 }
 
-// OnInboundPassthroughFilterChains is called for plugin to update the pass through filter chain.
-func (Plugin) OnInboundPassthroughFilterChains(in *plugin.InputParams) []networking.FilterChain {
+func (p Plugin) InboundMTLSConfiguration(in *plugin.InputParams, passthrough bool) []plugin.MTLSSettings {
 	applier := factory.NewPolicyApplier(in.Push, in.Node.Metadata.Namespace, labels.Collection{in.Node.Metadata.Labels})
 	trustDomains := trustDomainsForValidation(in.Push.Mesh)
-	// First generate the default passthrough filter chains, pass 0 for endpointPort so that it never matches any port-level policy.
-	filterChains := applier.InboundFilterChain(0, constants.DefaultSdsUdsPath, in.Node, in.ListenerProtocol, trustDomains)
+
+	port := in.ServiceInstance.Endpoint.EndpointPort
+
+	// For non passthrough, set up the specific port
+	if !passthrough {
+		return []plugin.MTLSSettings{
+			applier.InboundMTLSSettings(port, in.Node, trustDomains),
+		}
+	}
+	// Otherwise, this is for passthrough configuration. We need to create configuration for the
+	// passthrough, but also any ports that are not explicitly declared in the Service but are in the
+	// mTLS port level settings.
+	resp := []plugin.MTLSSettings{
+		// Full passthrough - no port match
+		applier.InboundMTLSSettings(0, in.Node, trustDomains),
+	}
 
 	// Then generate the per-port passthrough filter chains.
 	for port := range applier.PortLevelSetting() {
-		// Skip the per-port passthrough filterchain if the port is already handled by OnInboundFilterChains().
+		// Skip the per-port passthrough filterchain if the port is already handled by InboundMTLSConfiguration().
 		if !needPerPortPassthroughFilterChain(port, in.Node) {
 			continue
 		}
 
-		authnLog.Debugf("InboundPassthroughFilterChains: build extra pass through filter chain for %v:%d", in.Node.ID, port)
-		portLevelFilterChains := applier.InboundFilterChain(port, constants.DefaultSdsUdsPath, in.Node, in.ListenerProtocol, trustDomains)
-		for _, fc := range portLevelFilterChains {
-			// Set the port to distinguish from the default passthrough filter chain.
-			if fc.FilterChainMatch == nil {
-				fc.FilterChainMatch = &envoy_config_listener_v3.FilterChainMatch{}
-			}
-			fc.FilterChainMatch.DestinationPort = &wrappers.UInt32Value{Value: port}
-			filterChains = append(filterChains, fc)
-		}
+		authnLog.Debugf("InboundMTLSConfiguration: build extra pass through filter chain for %v:%d", in.Node.ID, port)
+		resp = append(resp, applier.InboundMTLSSettings(port, in.Node, trustDomains))
 	}
-
-	return filterChains
+	return resp
 }
 
 func needPerPortPassthroughFilterChain(port uint32, node *model.Proxy) bool {

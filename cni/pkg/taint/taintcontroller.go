@@ -35,9 +35,9 @@ type Controller struct {
 	podWorkQueue  workqueue.RateLimitingInterface
 	nodeWorkQueue workqueue.RateLimitingInterface
 	podController []cache.Controller
-	//map[namespace][label_selector]store first key denotes the namespace of pods where cache store should fetch on
-	//and the second key is the label selector which set as a list option during list watch
-	//thus the store inside the map is caching pods from namespace and label selector  given first and second key
+	// map[namespace][label_selector]store first key denotes the namespace of pods where cache store should fetch on
+	// and the second key is the label selector which set as a list option during list watch
+	// thus the store inside the map is caching pods from namespace and label selector  given first and second key
 	cachedPodsStore map[string]map[string]cache.Store // store sync with list watch given namespace and labelselector
 	nodeController  cache.Controller
 	nodeStore       cache.Store
@@ -52,7 +52,7 @@ func NewTaintSetterController(ts *Setter) (*Controller, error) {
 		taintsetter:     ts,
 		cachedPodsStore: make(map[string]map[string]cache.Store),
 	}
-	//construct a series of pod controller according to the configmaps' namespace and labelselector
+	// construct a series of pod controller according to the configmaps' namespace and labelselector
 	c.podController = []cache.Controller{}
 	for _, config := range ts.configs {
 		podListWatch := cache.NewFilteredListWatchFromClient(
@@ -68,21 +68,21 @@ func NewTaintSetterController(ts *Setter) (*Controller, error) {
 	}
 	nodeListWatch := cache.NewFilteredListWatchFromClient(c.clientset.CoreV1().RESTClient(), "nodes", metav1.NamespaceAll, func(options *metav1.ListOptions) {
 	})
-	c.nodeStore, c.nodeController = buildNodeControler(c, nodeListWatch)
+	c.nodeStore, c.nodeController = buildNodeController(c, nodeListWatch)
 	return c, nil
 }
 
-//build a listwatch based on the config
-//monitoring on pod with namespace and labelselectors defined in configmap
-//and add store to cache given namespace and labelsalector,
-//return a controller built by listwatch function
-//add : add it to workqueue
-//update: add it to workquueue
-//remove: retaint the node
+// build a listwatch based on the config
+// monitoring on pod with namespace and label-selectors defined in configmap
+// and add store to cache given namespace and label-selector,
+// return a controller built by listwatch function
+// add : add it to workqueue
+// update: add it to workqueue
+// remove: retaint the node
 func buildPodController(c *Controller, config ConfigSettings, source cache.ListerWatcher) cache.Controller {
 	tempstore, tempcontroller := cache.NewInformer(source, &v1.Pod{}, 0, cache.ResourceEventHandlerFuncs{
 		AddFunc: func(newObj interface{}) {
-			//remove filter condition will introduce a lot of error handling in workqueue
+			// remove filter condition will introduce a lot of error handling in workqueue
 			c.podWorkQueue.AddRateLimited(newObj)
 		},
 		UpdateFunc: func(_, newObj interface{}) {
@@ -103,7 +103,7 @@ func buildPodController(c *Controller, config ConfigSettings, source cache.Liste
 	return tempcontroller
 }
 
-func buildNodeControler(c *Controller, nodeListWatch cache.ListerWatcher) (cache.Store, cache.Controller) {
+func buildNodeController(c *Controller, nodeListWatch cache.ListerWatcher) (cache.Store, cache.Controller) {
 	store, controller := cache.NewInformer(nodeListWatch, &v1.Node{}, 0, cache.ResourceEventHandlerFuncs{
 		AddFunc: func(newObj interface{}) {
 			_, ok := newObj.(*v1.Node)
@@ -137,11 +137,11 @@ func reTaintNodeByPod(obj interface{}, c *Controller) error {
 	return nil
 }
 
-//controller will run all of the critical pod controllers and node controllers, process node and pod in every second
+// controller will run all of the critical pod controllers and node controllers, process node and pod in every second
 func (tc *Controller) Run(stopCh <-chan struct{}) {
 	for _, podcontroller := range tc.podController {
 		go podcontroller.Run(stopCh)
-		//wait for cache sync up
+		// wait for cache sync up
 		err := wait.Poll(100*time.Millisecond, 60*time.Second, func() (bool, error) {
 			return podcontroller.HasSynced(), nil
 		})
@@ -151,7 +151,7 @@ func (tc *Controller) Run(stopCh <-chan struct{}) {
 		}
 	}
 	go tc.nodeController.Run(stopCh)
-	//wait for cache sync up
+	// wait for cache sync up
 	err := wait.Poll(100*time.Millisecond, 60*time.Second, func() (bool, error) {
 		return tc.nodeController.HasSynced(), nil
 	})
@@ -182,19 +182,23 @@ func (tc *Controller) Run(stopCh <-chan struct{}) {
 	<-stopCh
 	log.Infof("stop taint readiness controller")
 }
+
 func (tc *Controller) processNextPod() bool {
 	errorHandler := func(obj interface{}, pod *v1.Pod, err error) {
+		podName := fmt.Sprintf("%s/%s", pod.Namespace, pod.Name)
 		if err == nil {
-			log.Debugf("Removing %s/%s from work queue", pod.Namespace, pod.Name)
+			log.Debugf("Removing %s from work queue", podName)
 			tc.podWorkQueue.Forget(obj)
-		} else if tc.podWorkQueue.NumRequeues(obj) < 50 {
-			log.Errorf("Error: %s", err.Error())
-			log.Infof("Re-adding %s/%s to work queue", pod.Namespace, pod.Name)
-			tc.podWorkQueue.AddRateLimited(obj)
 		} else {
-			log.Infof("Requeue limit reached, removing %s/%s", pod.Namespace, pod.Name)
-			tc.podWorkQueue.Forget(obj)
-			runtime.HandleError(err)
+			log.Errorf("Error while processing pod %s: %s", podName, err.Error())
+			if tc.podWorkQueue.NumRequeues(obj) < 50 {
+				log.Infof("Re-adding %s to work queue", podName)
+				tc.podWorkQueue.AddRateLimited(obj)
+			} else {
+				log.Infof("Requeue limit reached, removing %s", podName)
+				tc.podWorkQueue.Forget(obj)
+				runtime.HandleError(err)
+			}
 		}
 	}
 	obj, quit := tc.podWorkQueue.Get()
@@ -211,21 +215,21 @@ func (tc *Controller) processNextPod() bool {
 		// processing.
 		return true
 	}
-	//check for pod readiness
-	//if pod is ready, check all of critical labels in the corresponding node, if all of them are ready, untaint the node
-	//if pod is not ready or some critical pods are not ready, taint the node
+	// check for pod readiness
+	// if pod is ready, check all of critical labels in the corresponding node, if all of them are ready, untaint the node
+	// if pod is not ready or some critical pods are not ready, taint the node
 	if podutils.IsPodReady(pod) {
 		err := tc.processReadyPod(pod)
 		errorHandler(obj, pod, err)
 	} else {
-		err := tc.processUnReadyPod(pod)
+		err := tc.processUnreadyPod(pod)
 		errorHandler(obj, pod, err)
 	}
 	// Return true to let the loop process the next item
 	return true
 }
 
-//list all candidate pods given node name, namespace and selector using cached storage
+// list all candidate pods given node name, namespace and selector using cached storage
 func (tc Controller) listCandidatePods(nodeName string, namespace string, selector string) []*v1.Pod {
 	if _, ok := tc.cachedPodsStore[namespace]; !ok {
 		return nil
@@ -260,7 +264,7 @@ func (tc Controller) CheckNodeReadiness(node v1.Node) bool {
 	return true
 }
 
-//if pod is ready, check all related pod in the corresponding node, if any critical pod is unready, it should be tainted
+// if pod is ready, check all related pod in the corresponding node, if any critical pod is unready, it should be tainted
 func (tc Controller) processReadyPod(pod *v1.Pod) error {
 	node, err := tc.getNodeByPod(pod)
 	if err != nil {
@@ -286,8 +290,8 @@ func (tc Controller) processReadyPod(pod *v1.Pod) error {
 	return nil
 }
 
-//if pod is unready, it should be tainted
-func (tc Controller) processUnReadyPod(pod *v1.Pod) error {
+// if pod is unready, it should be tainted
+func (tc Controller) processUnreadyPod(pod *v1.Pod) error {
 	node, err := tc.getNodeByPod(pod)
 	if err != nil {
 		return fmt.Errorf("cannot get node by  %s in namespace %s : %s", pod.Name, pod.Namespace, err)
@@ -302,8 +306,8 @@ func (tc Controller) processUnReadyPod(pod *v1.Pod) error {
 	}
 	log.Infof("node %+v add readiness taint because pod %v in namespace %v is not ready", node.Name, pod.Name, pod.Namespace)
 	return nil
-
 }
+
 func (tc Controller) ListAllNode() []*v1.Node {
 	items := tc.nodeStore.List()
 	nodes := make([]*v1.Node, 0)
@@ -328,7 +332,7 @@ func (tc Controller) RegisterTaints() {
 }
 
 // if node is ready, check all of its critical labels and if all of them are ready , remove readiness taint
-//else taint it
+// else taint it
 func (tc Controller) ProcessNode(node *v1.Node) error {
 	if GetNodeLatestReadiness(*node) {
 		if tc.CheckNodeReadiness(*node) {
@@ -380,8 +384,8 @@ func (tc Controller) getNodeByPod(pod *v1.Pod) (*v1.Node, error) {
 	return node, nil
 }
 
-//check node readiess if node is ready, remove taint and forget obj, retry 50 times when taint have error
-//if node is not ready, taint it and retry
+// check node readiess if node is ready, remove taint and forget obj, retry 50 times when taint have error
+// if node is not ready, taint it and retry
 func (tc *Controller) processNextNode() bool {
 	obj, quit := tc.nodeWorkQueue.Get()
 	if quit {

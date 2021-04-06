@@ -27,12 +27,10 @@ import (
 	"istio.io/pkg/log"
 )
 
-var (
-	supportedExtensions = map[string]bool{
-		".yaml": true,
-		".yml":  true,
-	}
-)
+var supportedExtensions = map[string]bool{
+	".yaml": true,
+	".yml":  true,
+}
 
 // FileSnapshot holds a reference to a file directory that contains crd
 // config and filter criteria for which of those configs will be parsed.

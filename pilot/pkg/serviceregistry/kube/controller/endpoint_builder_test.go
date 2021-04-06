@@ -46,13 +46,13 @@ func TestNewEndpointBuilderTopologyLabels(t *testing.T) {
 				locality: "myregion",
 			},
 			podLabels: labels.Instance{
-				"k1":               "v1",
-				label.IstioNetwork: "mynetwork",
+				"k1":                       "v1",
+				label.TopologyNetwork.Name: "mynetwork",
 			},
 			expected: labels.Instance{
-				"k1":               "v1",
-				NodeRegionLabelGA:  "myregion",
-				label.IstioNetwork: "mynetwork",
+				"k1":                       "v1",
+				NodeRegionLabelGA:          "myregion",
+				label.TopologyNetwork.Name: "mynetwork",
 			},
 		},
 		{
@@ -61,14 +61,14 @@ func TestNewEndpointBuilderTopologyLabels(t *testing.T) {
 				locality: "myregion/myzone",
 			},
 			podLabels: labels.Instance{
-				"k1":               "v1",
-				label.IstioNetwork: "mynetwork",
+				"k1":                       "v1",
+				label.TopologyNetwork.Name: "mynetwork",
 			},
 			expected: labels.Instance{
-				"k1":               "v1",
-				NodeRegionLabelGA:  "myregion",
-				NodeZoneLabelGA:    "myzone",
-				label.IstioNetwork: "mynetwork",
+				"k1":                       "v1",
+				NodeRegionLabelGA:          "myregion",
+				NodeZoneLabelGA:            "myzone",
+				label.TopologyNetwork.Name: "mynetwork",
 			},
 		},
 		{
@@ -78,16 +78,16 @@ func TestNewEndpointBuilderTopologyLabels(t *testing.T) {
 				cluster:  "mycluster",
 			},
 			podLabels: labels.Instance{
-				"k1":               "v1",
-				label.IstioNetwork: "mynetwork",
+				"k1":                       "v1",
+				label.TopologyNetwork.Name: "mynetwork",
 			},
 			expected: labels.Instance{
-				"k1":               "v1",
-				NodeRegionLabelGA:  "myregion",
-				NodeZoneLabelGA:    "myzone",
-				label.IstioSubZone: "mysubzone",
-				label.IstioCluster: "mycluster",
-				label.IstioNetwork: "mynetwork",
+				"k1":                       "v1",
+				NodeRegionLabelGA:          "myregion",
+				NodeZoneLabelGA:            "myzone",
+				label.TopologySubzone.Name: "mysubzone",
+				label.TopologyCluster.Name: "mycluster",
+				label.TopologyNetwork.Name: "mynetwork",
 			},
 		},
 	}
@@ -130,8 +130,8 @@ func TestNewEndpointBuilderFromMetadataTopologyLabels(t *testing.T) {
 			proxy: &model.Proxy{
 				Metadata: &model.NodeMetadata{
 					Labels: labels.Instance{
-						"k1":               "v1",
-						label.IstioNetwork: "mynetwork",
+						"k1":                       "v1",
+						label.TopologyNetwork.Name: "mynetwork",
 					},
 				},
 				Locality: &core.Locality{
@@ -139,9 +139,9 @@ func TestNewEndpointBuilderFromMetadataTopologyLabels(t *testing.T) {
 				},
 			},
 			expected: labels.Instance{
-				"k1":               "v1",
-				NodeRegionLabelGA:  "myregion",
-				label.IstioNetwork: "mynetwork",
+				"k1":                       "v1",
+				NodeRegionLabelGA:          "myregion",
+				label.TopologyNetwork.Name: "mynetwork",
 			},
 		},
 		{
@@ -150,8 +150,8 @@ func TestNewEndpointBuilderFromMetadataTopologyLabels(t *testing.T) {
 			proxy: &model.Proxy{
 				Metadata: &model.NodeMetadata{
 					Labels: labels.Instance{
-						"k1":               "v1",
-						label.IstioNetwork: "mynetwork",
+						"k1":                       "v1",
+						label.TopologyNetwork.Name: "mynetwork",
 					},
 				},
 				Locality: &core.Locality{
@@ -160,10 +160,10 @@ func TestNewEndpointBuilderFromMetadataTopologyLabels(t *testing.T) {
 				},
 			},
 			expected: labels.Instance{
-				"k1":               "v1",
-				NodeRegionLabelGA:  "myregion",
-				NodeZoneLabelGA:    "myzone",
-				label.IstioNetwork: "mynetwork",
+				"k1":                       "v1",
+				NodeRegionLabelGA:          "myregion",
+				NodeZoneLabelGA:            "myzone",
+				label.TopologyNetwork.Name: "mynetwork",
 			},
 		},
 		{
@@ -174,8 +174,8 @@ func TestNewEndpointBuilderFromMetadataTopologyLabels(t *testing.T) {
 			proxy: &model.Proxy{
 				Metadata: &model.NodeMetadata{
 					Labels: labels.Instance{
-						"k1":               "v1",
-						label.IstioNetwork: "mynetwork",
+						"k1":                       "v1",
+						label.TopologyNetwork.Name: "mynetwork",
 					},
 				},
 				Locality: &core.Locality{
@@ -185,12 +185,12 @@ func TestNewEndpointBuilderFromMetadataTopologyLabels(t *testing.T) {
 				},
 			},
 			expected: labels.Instance{
-				"k1":               "v1",
-				NodeRegionLabelGA:  "myregion",
-				NodeZoneLabelGA:    "myzone",
-				label.IstioSubZone: "mysubzone",
-				label.IstioCluster: "mycluster",
-				label.IstioNetwork: "mynetwork",
+				"k1":                       "v1",
+				NodeRegionLabelGA:          "myregion",
+				NodeZoneLabelGA:            "myzone",
+				label.TopologySubzone.Name: "mysubzone",
+				label.TopologyCluster.Name: "mycluster",
+				label.TopologyNetwork.Name: "mynetwork",
 			},
 		},
 	}

@@ -50,9 +50,7 @@ import (
 	"istio.io/pkg/log"
 )
 
-var (
-	crdFactory = createDynamicInterface
-)
+var crdFactory = createDynamicInterface
 
 // vmServiceOpts contains the options of a mesh expansion service running on VM.
 type vmServiceOpts struct {
@@ -152,7 +150,7 @@ See also 'istioctl experimental remove-from-mesh deployment' which does the reve
 
 			var valuesConfig string
 			var sidecarTemplate inject.Templates
-			meshConfig, err := setupParameters(&sidecarTemplate, &valuesConfig)
+			meshConfig, err := setupParameters(&sidecarTemplate, &valuesConfig, opts.Revision)
 			if err != nil {
 				return err
 			}
@@ -207,7 +205,7 @@ See also 'istioctl experimental remove-from-mesh service' which does the reverse
 
 			var valuesConfig string
 			var sidecarTemplate inject.Templates
-			meshConfig, err := setupParameters(&sidecarTemplate, &valuesConfig)
+			meshConfig, err := setupParameters(&sidecarTemplate, &valuesConfig, opts.Revision)
 			if err != nil {
 				return err
 			}
@@ -288,15 +286,16 @@ See also 'istioctl experimental remove-from-mesh external-service' which does th
 	return cmd
 }
 
-func setupParameters(sidecarTemplate *inject.Templates, valuesConfig *string) (*meshconfig.MeshConfig, error) {
+func setupParameters(sidecarTemplate *inject.Templates, valuesConfig *string, revision string) (*meshconfig.MeshConfig, error) {
 	var meshConfig *meshconfig.MeshConfig
 	var err error
+	injectConfigMapName = defaultInjectWebhookConfigName
 	if meshConfigFile != "" {
 		if meshConfig, err = mesh.ReadMeshConfig(meshConfigFile); err != nil {
 			return nil, err
 		}
 	} else {
-		if meshConfig, err = getMeshConfigFromConfigMap(kubeconfig, "add-to-mesh"); err != nil {
+		if meshConfig, err = getMeshConfigFromConfigMap(kubeconfig, "add-to-mesh", revision); err != nil {
 			return nil, err
 		}
 	}
@@ -310,7 +309,7 @@ func setupParameters(sidecarTemplate *inject.Templates, valuesConfig *string) (*
 			return nil, multierror.Append(err, fmt.Errorf("loading --injectConfigFile"))
 		}
 		*sidecarTemplate = injectConfig
-	} else if *sidecarTemplate, err = getInjectConfigFromConfigMap(kubeconfig); err != nil {
+	} else if *sidecarTemplate, err = getInjectConfigFromConfigMap(kubeconfig, revision); err != nil {
 		return nil, err
 	}
 	if valuesFile != "" {
@@ -319,7 +318,7 @@ func setupParameters(sidecarTemplate *inject.Templates, valuesConfig *string) (*
 			return nil, err
 		}
 		*valuesConfig = string(valuesConfigBytes)
-	} else if *valuesConfig, err = getValuesFromConfigMap(kubeconfig); err != nil {
+	} else if *valuesConfig, err = getValuesFromConfigMap(kubeconfig, revision); err != nil {
 		return nil, err
 	}
 	return meshConfig, err
@@ -330,7 +329,7 @@ func injectSideCarIntoDeployment(client kubernetes.Interface, dep *appsv1.Deploy
 	var errs error
 	log.Debugf("updating deployment %s.%s with Istio sidecar injected",
 		dep.Name, dep.Namespace)
-	newDep, err := inject.IntoObject(sidecarTemplate, valuesConfig, revision, meshConfig, dep, warningHandler)
+	newDep, err := inject.IntoObject(nil, sidecarTemplate, valuesConfig, revision, meshConfig, dep, warningHandler)
 	if err != nil {
 		errs = multierror.Append(errs, fmt.Errorf("failed to inject sidecar to deployment resource %s.%s for service %s.%s due to %v",
 			dep.Name, dep.Namespace, svcName, svcNamespace, err))
@@ -392,7 +391,6 @@ func findDeploymentsForSvc(client kubernetes.Interface, ns, name string) ([]apps
 
 func createDynamicInterface(kubeconfig string) (dynamic.Interface, error) {
 	restConfig, err := kube.BuildClientConfig(kubeconfig, configContext)
-
 	if err != nil {
 		return nil, err
 	}
@@ -574,6 +572,7 @@ func convertToUnsignedInt32Map(s []string) map[string]uint32 {
 	}
 	return out
 }
+
 func convertToStringMap(s []string) map[string]string {
 	out := make(map[string]string, len(s))
 	for _, l := range s {

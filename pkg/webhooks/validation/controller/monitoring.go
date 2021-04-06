@@ -27,10 +27,8 @@ const (
 	reason = "reason"
 )
 
-var (
-	// reasonTag holds the error reason for the context.
-	reasonTag tag.Key
-)
+// reasonTag holds the error reason for the context.
+var reasonTag tag.Key
 
 var (
 	metricWebhookConfigurationUpdateError = stats.Int64(

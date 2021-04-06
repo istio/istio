@@ -52,7 +52,8 @@ func SetupTrafficTest(t *testing.T, ctx resource.Context) (echo.Instance, echo.I
 					Name:         "http",
 					Protocol:     protocol.HTTP,
 					InstancePort: 8090,
-				}},
+				},
+			},
 		}).
 		BuildOrFail(t)
 

@@ -41,7 +41,7 @@ func TestNamespaceController(t *testing.T) {
 	client.RunAndWait(stop)
 	nc.Run(stop)
 
-	createNamespace(t, client, "foo")
+	createNamespace(t, client, "foo", nil)
 	expectConfigMap(t, client, "foo", testdata)
 
 	newData := map[string]string{"key": "value", "foo": "bar"}
@@ -61,11 +61,20 @@ func deleteConfigMap(t *testing.T, client kubernetes.Interface, ns string) {
 	}
 }
 
-func createNamespace(t *testing.T, client kubernetes.Interface, ns string) {
+func createNamespace(t *testing.T, client kubernetes.Interface, ns string, labels map[string]string) {
 	t.Helper()
 	if _, err := client.CoreV1().Namespaces().Create(context.TODO(), &v1.Namespace{
-		ObjectMeta: metav1.ObjectMeta{Name: ns},
+		ObjectMeta: metav1.ObjectMeta{Name: ns, Labels: labels},
 	}, metav1.CreateOptions{}); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func updateNamespace(t *testing.T, client kubernetes.Interface, ns string, labels map[string]string) {
+	t.Helper()
+	if _, err := client.CoreV1().Namespaces().Update(context.TODO(), &v1.Namespace{
+		ObjectMeta: metav1.ObjectMeta{Name: ns, Labels: labels},
+	}, metav1.UpdateOptions{}); err != nil {
 		t.Fatal(err)
 	}
 }

@@ -18,19 +18,22 @@ import (
 	"fmt"
 	"io/ioutil"
 	"reflect"
+	"regexp"
 	"testing"
 
 	"github.com/ghodss/yaml"
 	"github.com/google/go-cmp/cmp"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	k8s "sigs.k8s.io/service-apis/apis/v1alpha1"
+	k8s "sigs.k8s.io/gateway-api/apis/v1alpha1"
 
 	"istio.io/istio/pilot/pkg/config/kube/crd"
+	"istio.io/istio/pilot/pkg/model/kstatus"
 	"istio.io/istio/pilot/test/util"
 	"istio.io/istio/pkg/config"
 	crdvalidation "istio.io/istio/pkg/config/crd"
 	"istio.io/istio/pkg/config/schema/gvk"
+	"istio.io/istio/pkg/test"
 )
 
 func TestConvertResources(t *testing.T) {
@@ -42,17 +45,19 @@ func TestConvertResources(t *testing.T) {
 		"mismatch",
 		"weighted",
 		"backendpolicy",
+		"mesh",
 	}
 	for _, tt := range cases {
 		t.Run(tt, func(t *testing.T) {
 			input := readConfig(t, fmt.Sprintf("testdata/%s.yaml", tt), validator)
-			output := convertResources(splitInput(input))
+			kr := splitInput(input)
+			output := convertResources(kr)
 
 			goldenFile := fmt.Sprintf("testdata/%s.yaml.golden", tt)
 			if util.Refresh() {
 				res := append(output.Gateway, output.VirtualService...)
 				res = append(res, output.DestinationRule...)
-				if err := ioutil.WriteFile(goldenFile, marshalYaml(t, res), 0644); err != nil {
+				if err := ioutil.WriteFile(goldenFile, marshalYaml(t, res), 0o644); err != nil {
 					t.Fatal(err)
 				}
 			}
@@ -60,17 +65,55 @@ func TestConvertResources(t *testing.T) {
 			if diff := cmp.Diff(golden, output); diff != "" {
 				t.Fatalf("Diff:\n%s", diff)
 			}
+
+			outputStatus := getStatus(t, kr.GatewayClass, kr.Gateway, kr.HTTPRoute, kr.TLSRoute, kr.TCPRoute, kr.BackendPolicy)
+			goldenStatusFile := fmt.Sprintf("testdata/%s.status.yaml.golden", tt)
+			if util.Refresh() {
+				if err := ioutil.WriteFile(goldenStatusFile, outputStatus, 0o644); err != nil {
+					t.Fatal(err)
+				}
+			}
+			goldenStatus, err := ioutil.ReadFile(goldenStatusFile)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if diff := cmp.Diff(string(goldenStatus), string(outputStatus)); diff != "" {
+				t.Fatalf("Diff:\n%s", diff)
+			}
 		})
 	}
 }
 
-func splitOutput(configs []config.Config) IstioResources {
-	out := IstioResources{
+func getStatus(t test.Failer, acfgs ...[]config.Config) []byte {
+	cfgs := []config.Config{}
+	for _, cl := range acfgs {
+		cfgs = append(cfgs, cl...)
+	}
+	for i, c := range cfgs {
+		ws := c.Status.(*kstatus.WrappedStatus)
+		if !ws.Dirty {
+			continue
+		}
+		c = c.DeepCopy()
+		c.Spec = nil
+		c.Labels = nil
+		c.Annotations = nil
+		c.Status = c.Status.(*kstatus.WrappedStatus).Status
+		cfgs[i] = c
+	}
+	return timestampRegex.ReplaceAll(marshalYaml(t, cfgs), []byte("lastTransitionTime: fake"))
+}
+
+var timestampRegex = regexp.MustCompile(`lastTransitionTime:.*`)
+
+func splitOutput(configs []config.Config) OutputResources {
+	out := OutputResources{
 		Gateway:         []config.Config{},
 		VirtualService:  []config.Config{},
 		DestinationRule: []config.Config{},
 	}
 	for _, c := range configs {
+		c.Domain = "domain.suffix"
 		switch c.GroupVersionKind {
 		case gvk.Gateway:
 			out.Gateway = append(out.Gateway, c)
@@ -101,6 +144,7 @@ func splitInput(configs []config.Config) *KubernetesResources {
 			out.BackendPolicy = append(out.BackendPolicy, c)
 		}
 	}
+	out.Domain = "domain.suffix"
 	return out
 }
 
@@ -118,11 +162,35 @@ func readConfig(t *testing.T, filename string, validator *crdvalidation.Validato
 	if err != nil {
 		t.Fatalf("failed to parse CRD: %v", err)
 	}
-	return c
+	return insertDefaults(c)
+}
+
+// insertDefaults sets default values that would be present when reading from Kubernetes but not from
+// files
+func insertDefaults(cfgs []config.Config) []config.Config {
+	res := make([]config.Config, 0, len(cfgs))
+	for _, c := range cfgs {
+		switch c.GroupVersionKind {
+		case gvk.GatewayClass:
+			c.Status = kstatus.Wrap(&k8s.GatewayClassStatus{})
+		case gvk.ServiceApisGateway:
+			c.Status = kstatus.Wrap(&k8s.GatewayStatus{})
+		case gvk.HTTPRoute:
+			c.Status = kstatus.Wrap(&k8s.HTTPRouteStatus{})
+		case gvk.TCPRoute:
+			c.Status = kstatus.Wrap(&k8s.TCPRouteStatus{})
+		case gvk.TLSRoute:
+			c.Status = kstatus.Wrap(&k8s.TLSRouteStatus{})
+		case gvk.BackendPolicy:
+			c.Status = kstatus.Wrap(&k8s.BackendPolicyStatus{})
+		}
+		res = append(res, c)
+	}
+	return res
 }
 
 // Print as YAML
-func marshalYaml(t *testing.T, cl []config.Config) []byte {
+func marshalYaml(t test.Failer, cl []config.Config) []byte {
 	t.Helper()
 	result := []byte{}
 	separator := []byte("---\n")
@@ -222,7 +290,7 @@ func TestIsRouteMatch(t *testing.T) {
 			},
 			gateway: config.Meta{Name: "gateway", Namespace: "not-default"},
 			routes: k8s.RouteBindingSelector{
-				Namespaces: &k8s.RouteNamespaces{From: k8s.RouteSelectAll},
+				Namespaces: k8s.RouteNamespaces{From: k8s.RouteSelectAll},
 				Group:      gvk.HTTPRoute.Group,
 				Kind:       gvk.HTTPRoute.Kind,
 			},
@@ -252,7 +320,7 @@ func TestIsRouteMatch(t *testing.T) {
 			},
 			gateway: config.Meta{Name: "gateway", Namespace: "not-default"},
 			routes: k8s.RouteBindingSelector{
-				Namespaces: &k8s.RouteNamespaces{From: k8s.RouteSelectAll},
+				Namespaces: k8s.RouteNamespaces{From: k8s.RouteSelectAll},
 				Group:      gvk.HTTPRoute.Group,
 				Kind:       gvk.HTTPRoute.Kind,
 			},
@@ -271,7 +339,7 @@ func TestIsRouteMatch(t *testing.T) {
 			},
 			gateway: config.Meta{Name: "gateway", Namespace: "not-default"},
 			routes: k8s.RouteBindingSelector{
-				Namespaces: &k8s.RouteNamespaces{From: k8s.RouteSelectAll},
+				Namespaces: k8s.RouteNamespaces{From: k8s.RouteSelectAll},
 				Group:      gvk.HTTPRoute.Group,
 				Kind:       gvk.HTTPRoute.Kind,
 			},
@@ -290,7 +358,7 @@ func TestIsRouteMatch(t *testing.T) {
 			},
 			gateway: config.Meta{Name: "gateway", Namespace: "not-default"},
 			routes: k8s.RouteBindingSelector{
-				Namespaces: &k8s.RouteNamespaces{From: k8s.RouteSelectAll},
+				Namespaces: k8s.RouteNamespaces{From: k8s.RouteSelectAll},
 				Group:      gvk.HTTPRoute.Group,
 				Kind:       gvk.HTTPRoute.Kind,
 			},
@@ -307,7 +375,7 @@ func TestIsRouteMatch(t *testing.T) {
 			},
 			gateway: config.Meta{Name: "gateway", Namespace: "not-default"},
 			routes: k8s.RouteBindingSelector{
-				Namespaces: &k8s.RouteNamespaces{From: k8s.RouteSelectSelector, Selector: metav1.LabelSelector{MatchLabels: map[string]string{
+				Namespaces: k8s.RouteNamespaces{From: k8s.RouteSelectSelector, Selector: metav1.LabelSelector{MatchLabels: map[string]string{
 					"selected": "true",
 				}}},
 				Group: gvk.HTTPRoute.Group,
@@ -326,7 +394,7 @@ func TestIsRouteMatch(t *testing.T) {
 			},
 			gateway: config.Meta{Name: "gateway", Namespace: "not-default"},
 			routes: k8s.RouteBindingSelector{
-				Namespaces: &k8s.RouteNamespaces{From: k8s.RouteSelectSelector, Selector: metav1.LabelSelector{MatchLabels: map[string]string{
+				Namespaces: k8s.RouteNamespaces{From: k8s.RouteSelectSelector, Selector: metav1.LabelSelector{MatchLabels: map[string]string{
 					"selected": "true",
 				}}},
 				Group: gvk.HTTPRoute.Group,

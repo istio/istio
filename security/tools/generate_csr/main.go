@@ -55,7 +55,6 @@ func main() {
 		RSAKeySize: *keySize,
 		ECSigAlg:   util.SupportedECSignatureAlgorithms(*ec),
 	})
-
 	if err != nil {
 		log.Fatalf("Failed to generate CSR: %s.", err)
 	}

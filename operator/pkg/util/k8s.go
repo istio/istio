@@ -16,10 +16,13 @@ package util
 
 import (
 	"fmt"
+	"strconv"
 
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/discovery"
-	"k8s.io/client-go/rest"
+	"k8s.io/client-go/kubernetes"
+
+	iopv1alpha1 "istio.io/istio/operator/pkg/apis/istio/v1alpha1"
 )
 
 type JWTPolicy string
@@ -30,18 +33,8 @@ const (
 )
 
 // DetectSupportedJWTPolicy queries the api-server to detect whether it has TokenRequest support
-func DetectSupportedJWTPolicy(config *rest.Config) (JWTPolicy, error) {
-	if config == nil {
-		// this happens in unit tests- there's no such thing as a fake config
-		// TODO(dgn): refactor to use Client instead of Config, so this can be faked
-		return ThirdPartyJWT, nil
-	}
-
-	d, err := discovery.NewDiscoveryClientForConfig(config)
-	if err != nil {
-		return "", err
-	}
-	_, s, err := d.ServerGroupsAndResources()
+func DetectSupportedJWTPolicy(client kubernetes.Interface) (JWTPolicy, error) {
+	_, s, err := client.Discovery().ServerGroupsAndResources()
 	// This may fail if any api service is down. We should only fail if the specific API we care about failed
 	if err != nil {
 		if discovery.IsGroupDiscoveryFailedError(err) {
@@ -67,4 +60,33 @@ func DetectSupportedJWTPolicy(config *rest.Config) (JWTPolicy, error) {
 // GKString differs from default representation of GroupKind
 func GKString(gvk schema.GroupKind) string {
 	return fmt.Sprintf("%s/%s", gvk.Group, gvk.Kind)
+}
+
+// ValidateIOPCAConfig validates if the IstioOperator CA configs are applicable to the K8s cluster
+func ValidateIOPCAConfig(client kubernetes.Interface, iop *iopv1alpha1.IstioOperator) error {
+	globalI := iop.Spec.Values["global"]
+	global, ok := globalI.(map[string]interface{})
+	if !ok {
+		// This means no explicit global configuration. Still okay
+		return nil
+	}
+	ca, ok := global["pilotCertProvider"].(string)
+	if !ok {
+		// This means the default pilotCertProvider is being used
+		return nil
+	}
+	if ca == "kubernetes" {
+		versionInfo, err := client.Discovery().ServerVersion()
+		if err != nil {
+			return fmt.Errorf("failed to determine support for K8s legacy signer. Use the --force flag to ignore this: %v", err)
+		}
+		minor, _ := strconv.Atoi(versionInfo.Minor)
+		major, _ := strconv.Atoi(versionInfo.Major)
+
+		if minor >= 22 || major > 1 {
+			return fmt.Errorf("configuration PILOT_CERT_PROVIDER=%s not supported in k8s minor version %v."+
+				"Please pick another value for PILOT_CERT_PROVIDER", ca, minor)
+		}
+	}
+	return nil
 }

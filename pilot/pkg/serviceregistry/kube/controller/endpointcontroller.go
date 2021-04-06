@@ -17,15 +17,14 @@ package controller
 import (
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/client-go/tools/cache"
 
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube"
+	"istio.io/istio/pilot/pkg/serviceregistry/kube/controller/filter"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/schema/gvk"
-	"istio.io/pkg/log"
 )
 
 // Pilot can get EDS information from Kubernetes from two mutually exclusive sources, Endpoints and
@@ -34,7 +33,7 @@ import (
 type kubeEndpointsController interface {
 	HasSynced() bool
 	Run(stopCh <-chan struct{})
-	getInformer() cache.SharedIndexInformer
+	getInformer() filter.FilteredSharedIndexInformer
 	onEvent(curr interface{}, event model.Event) error
 	InstancesByPort(c *Controller, svc *model.Service, reqSvcPort int, labelsList labels.Collection) []*model.ServiceInstance
 	GetProxyServiceInstances(c *Controller, proxy *model.Proxy) []*model.ServiceInstance
@@ -48,7 +47,7 @@ type kubeEndpointsController interface {
 // kubeEndpoints abstracts the common behavior across endpoint and endpoint slices.
 type kubeEndpoints struct {
 	c        *Controller
-	informer cache.SharedIndexInformer
+	informer filter.FilteredSharedIndexInformer
 }
 
 func (e *kubeEndpoints) HasSynced() bool {

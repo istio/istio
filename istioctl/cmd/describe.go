@@ -28,7 +28,6 @@ import (
 	route "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
 	rbac_http_filter "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/rbac/v3"
 	http_conn "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
-	"github.com/golang/protobuf/ptypes"
 	structpb "github.com/golang/protobuf/ptypes/struct"
 	multierror "github.com/hashicorp/go-multierror"
 	"github.com/spf13/cobra"
@@ -560,7 +559,7 @@ func getIstioRBACPolicies(cd *configdump.Wrapper, port int32) ([]string, error) 
 	for _, httpFilter := range hcm.HttpFilters {
 		if httpFilter.Name == authz_model.RBACHTTPFilterName {
 			rbac := &rbac_http_filter.RBAC{}
-			if err := ptypes.UnmarshalAny(httpFilter.GetTypedConfig(), rbac); err == nil {
+			if err := httpFilter.GetTypedConfig().UnmarshalTo(rbac); err == nil {
 				policies := []string{}
 				for polName := range rbac.Rules.Policies {
 					policies = append(policies, polName)
@@ -590,7 +589,7 @@ func getInboundHTTPConnectionManager(cd *configdump.Wrapper, port int32) (*http_
 		// Support v2 or v3 in config dump. See ads.go:RequestedTypes for more info.
 		l.ActiveState.Listener.TypeUrl = v3.ListenerType
 		listenerTyped := &listener.Listener{}
-		err = ptypes.UnmarshalAny(l.ActiveState.Listener, listenerTyped)
+		err = l.ActiveState.Listener.UnmarshalTo(listenerTyped)
 		if err != nil {
 			return nil, err
 		}
@@ -598,7 +597,7 @@ func getInboundHTTPConnectionManager(cd *configdump.Wrapper, port int32) (*http_
 			for _, filterChain := range listenerTyped.FilterChains {
 				for _, filter := range filterChain.Filters {
 					hcm := &http_conn.HttpConnectionManager{}
-					if err := ptypes.UnmarshalAny(filter.GetTypedConfig(), hcm); err == nil {
+					if err := filter.GetTypedConfig().UnmarshalTo(hcm); err == nil {
 						return hcm, nil
 					}
 				}
@@ -618,7 +617,7 @@ func getInboundHTTPConnectionManager(cd *configdump.Wrapper, port int32) (*http_
 			for _, filterChain := range listenerTyped.FilterChains {
 				for _, filter := range filterChain.Filters {
 					hcm := &http_conn.HttpConnectionManager{}
-					if err := ptypes.UnmarshalAny(filter.GetTypedConfig(), hcm); err == nil {
+					if err := filter.GetTypedConfig().UnmarshalTo(hcm); err == nil {
 						return hcm, nil
 					}
 				}
@@ -657,7 +656,7 @@ func getIstioVirtualServicePathForSvcFromRoute(cd *configdump.Wrapper, svc v1.Se
 	}
 	for _, rcd := range rcd.DynamicRouteConfigs {
 		routeTyped := &route.RouteConfiguration{}
-		err = ptypes.UnmarshalAny(rcd.RouteConfig, routeTyped)
+		err = rcd.RouteConfig.UnmarshalTo(routeTyped)
 		if err != nil {
 			return "", err
 		}
@@ -745,7 +744,6 @@ func getIstioDestinationRuleNameForSvc(cd *configdump.Wrapper, svc v1.Service, p
 
 // getIstioDestinationRulePathForSvc returns something like "/apis/networking/v1alpha3/namespaces/default/destination-rule/reviews"
 func getIstioDestinationRulePathForSvc(cd *configdump.Wrapper, svc v1.Service, port int32) (string, error) {
-
 	svcHost := extendFQDN(fmt.Sprintf("%s.%s", svc.ObjectMeta.Name, svc.ObjectMeta.Namespace))
 	filter := istio_envoy_configdump.ClusterFilter{
 		FQDN: host.Name(svcHost),
@@ -764,7 +762,7 @@ func getIstioDestinationRulePathForSvc(cd *configdump.Wrapper, svc v1.Service, p
 		clusterTyped := &cluster.Cluster{}
 		// Support v2 or v3 in config dump. See ads.go:RequestedTypes for more info.
 		dac.Cluster.TypeUrl = v3.ClusterType
-		err = ptypes.UnmarshalAny(dac.Cluster, clusterTyped)
+		err = dac.Cluster.UnmarshalTo(clusterTyped)
 		if err != nil {
 			return "", err
 		}
@@ -984,7 +982,7 @@ func getIngressIP(service v1.Service, pod v1.Pod) string {
 	}
 
 	// The scope of this function is to get the IP from Kubernetes, we do not
-	// ask Docker or Minikube for an IP.
+	// ask Docker or minikube for an IP.
 	// See https://istio.io/docs/tasks/traffic-management/ingress/ingress-control/#determining-the-ingress-ip-and-ports
 
 	return "unknown"

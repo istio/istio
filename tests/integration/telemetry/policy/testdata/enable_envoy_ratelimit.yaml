@@ -17,7 +17,7 @@ spec:
             filter:
               name: "envoy.http_connection_manager"
               subFilter:
-                name: "envoy.router"
+                name: "envoy.filters.http.router"
       patch:
         operation: INSERT_BEFORE
         value:
@@ -32,6 +32,7 @@ spec:
                 envoy_grpc:
                   cluster_name: rate_limit_cluster
                 timeout: 10s
+              transport_api_version: V3
     - applyTo: CLUSTER
       match:
         context: SIDECAR_OUTBOUND

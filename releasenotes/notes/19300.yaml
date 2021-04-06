@@ -1,0 +1,12 @@
+apiVersion: release-notes/v2
+kind: feature
+area: cni
+issue:
+  - 19300
+
+releaseNotes:
+- |
+  **Added** CNI metrics counting repair operations.
+
+docs:
+  - "https://preliminary.istio.io/latest/docs/reference/commands/cni/#metrics"

@@ -42,6 +42,7 @@ func TestTCPStackdriverMonitoring(t *testing.T) {
 		Run(func(ctx framework.TestContext) {
 			g, _ := errgroup.WithContext(context.Background())
 			for _, cltInstance := range clt {
+				cltInstance := cltInstance
 				g.Go(func() error {
 					err := retry.UntilSuccess(func() error {
 						_, err := cltInstance.Call(echo.CallOptions{
@@ -54,10 +55,11 @@ func TestTCPStackdriverMonitoring(t *testing.T) {
 						}
 						t.Logf("Validating Telemetry for Cluster %v", cltInstance.Config().Cluster)
 						clName := cltInstance.Config().Cluster.Name()
-						if err := validateMetrics(t, tcpServerConnectionCount, tcpClientConnectionCount, clName); err != nil {
+						trustDomain := telemetry.GetTrustDomain(cltInstance.Config().Cluster, ist.Settings().SystemNamespace)
+						if err := validateMetrics(t, tcpServerConnectionCount, tcpClientConnectionCount, clName, trustDomain); err != nil {
 							return err
 						}
-						if err := validateLogs(t, tcpServerLogEntry, clName, stackdriver.ServerAccessLog); err != nil {
+						if err := validateLogs(t, tcpServerLogEntry, clName, trustDomain, stackdriver.ServerAccessLog); err != nil {
 							return err
 						}
 

@@ -28,11 +28,11 @@ import (
 
 	pb "istio.io/api/security/v1alpha1"
 	"istio.io/istio/pkg/mcp/status"
+	"istio.io/istio/pkg/security"
 	"istio.io/istio/pkg/spiffe"
 	caerror "istio.io/istio/security/pkg/pki/error"
 	"istio.io/istio/security/pkg/pki/util"
 	"istio.io/istio/security/pkg/server/ca"
-	"istio.io/istio/security/pkg/server/ca/authenticate"
 	"istio.io/pkg/log"
 )
 
@@ -42,11 +42,11 @@ var caServerLog = log.RegisterScope("ca", "CA service debugging", 0)
 type CAServer struct {
 	URL            string
 	GRPCServer     *grpc.Server
-	Authenticators []authenticate.Authenticator
+	Authenticators []security.Authenticator
 
 	certPem       []byte
 	keyPem        []byte
-	KeyCertBundle util.KeyCertBundle
+	KeyCertBundle *util.KeyCertBundle
 	certLifetime  time.Duration
 
 	rejectCSR       bool

@@ -93,7 +93,7 @@ func TestBinarySizes(t *testing.T) {
 		// For now, having two small a range will result in lots of "merge conflicts"
 		"istioctl":        {60, 100},
 		"pilot-agent":     {30, 45},
-		"pilot-discovery": {60, 80},
+		"pilot-discovery": {60, 85},
 		"bug-report":      {60, 100},
 	}
 
@@ -120,12 +120,10 @@ func TestBinarySizes(t *testing.T) {
 	})
 }
 
-var (
-	// If this flag is present, it means "testing" was imported by code that is built by the binary
-	denylistedFlags = []string{
-		"--test.memprofilerate",
-	}
-)
+// If this flag is present, it means "testing" was imported by code that is built by the binary
+var denylistedFlags = []string{
+	"--test.memprofilerate",
+}
 
 func runBinariesTest(t *testing.T, f func(t *testing.T, name string)) {
 	t.Helper()

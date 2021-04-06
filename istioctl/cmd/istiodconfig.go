@@ -38,17 +38,18 @@ type flagState interface {
 	run() (string, error)
 }
 
-var _ flagState = (*resetState)(nil)
-var _ flagState = (*logLevelState)(nil)
-var _ flagState = (*stackTraceLevelState)(nil)
-var _ flagState = (*getAllLogLevelsState)(nil)
+var (
+	_ flagState = (*resetState)(nil)
+	_ flagState = (*logLevelState)(nil)
+	_ flagState = (*stackTraceLevelState)(nil)
+	_ flagState = (*getAllLogLevelsState)(nil)
+)
 
 type resetState struct {
 	client *ControlzClient
 }
 
 func (rs *resetState) run() (string, error) {
-
 	const (
 		defaultOutputLevel     = "info"
 		defaultStackTraceLevel = "none"
@@ -113,7 +114,6 @@ type getAllLogLevelsState struct {
 }
 
 func (ga *getAllLogLevelsState) run() (string, error) {
-
 	type scopeLogLevel struct {
 		ScopeName string `json:"scope_name"`
 		LogLevel  string `json:"log_level"`
@@ -195,7 +195,6 @@ type ScopeLevelPair struct {
 type scopeStackTraceLevelPair ScopeLevelPair
 
 func newScopeLevelPair(slp, validationPattern string) (*ScopeLevelPair, error) {
-
 	matched, err := regexp.MatchString(validationPattern, slp)
 	if err != nil {
 		return nil, err
@@ -309,8 +308,7 @@ func (c *ControlzClient) PutScope(scope *ScopeInfo) error {
 }
 
 func (c *ControlzClient) PutScopes(scopes []*ScopeInfo) error {
-
-	var ch = make(chan struct {
+	ch := make(chan struct {
 		err       error
 		scopeName string
 	}, len(scopes))
@@ -331,11 +329,9 @@ func (c *ControlzClient) PutScopes(scopes []*ScopeInfo) error {
 	for result := range ch {
 		if result.err != nil {
 			return fmt.Errorf("failed updating Scope %s: %v", result.scopeName, result.err)
-
 		}
 	}
 	return nil
-
 }
 
 func (c *ControlzClient) GetScope(scope string) (*ScopeInfo, error) {
@@ -364,27 +360,27 @@ var (
 
 func istiodLogCmd() *cobra.Command {
 	var opts clioptions.ControlPlaneOptions
-	var outputLogLevel = ""
-	var stackTraceLevel = ""
+	outputLogLevel := ""
+	stackTraceLevel := ""
 
 	// output format (yaml or short)
-	var outputFormat = "short"
+	outputFormat := "short"
 
 	logCmd := &cobra.Command{
 		Use:   "log [<pod-name>] [--level <scope>:<level>][--stack-trace-level <scope>:<level>]|[-r|--reset]|[--output|-o short|yaml]",
 		Short: "Manage istiod logging.",
 		Long:  "Retrieve or update logging levels of istiod components.",
 		Example: `  # Retrieve information about istiod logging levels.
-  istioctl experimental istiod log
+  istioctl admin log
 
   # Retrieve information about istiod logging levels on a specific control plane pod.
-  istioctl experimental istiod l istiod-5c868d8bdd-pmvgg
+  istioctl admin l istiod-5c868d8bdd-pmvgg
 
   # Update levels of the specified loggers.
-  istioctl x istiod log --level ads:debug,authorization:debug
+  istioctl admin log --level ads:debug,authorization:debug
 
   # Reset levels of all the loggers to default value (info).
-  istioctl x istiod log -r
+  istioctl admin log -r
 `,
 		Aliases: []string{"l"},
 		Args: func(logCmd *cobra.Command, args []string) error {
@@ -469,29 +465,4 @@ func istiodLogCmd() *cobra.Command {
 	logCmd.PersistentFlags().StringVarP(&outputFormat, "output", "o",
 		outputFormat, "Output format: one of json|short")
 	return logCmd
-}
-
-func istiodConfig() *cobra.Command {
-
-	istiodConfigCmd := &cobra.Command{
-		Use:   "istiod",
-		Short: "Manage control plane (istiod) configuration",
-		Long:  "A group of commands used to manage istiod configuration",
-		Example: `  # Retrieve information about istiod configuration.
-  istioctl experimental istiod log`,
-		RunE: func(cmd *cobra.Command, args []string) error {
-			cmd.HelpFunc()(cmd, args)
-			if len(args) != 0 {
-				return fmt.Errorf("unknown subcommand %q", args[0])
-			}
-
-			return nil
-		},
-	}
-
-	istiodLog := istiodLogCmd()
-	istiodConfigCmd.AddCommand(istiodLog)
-	istiodConfigCmd.PersistentFlags().StringVarP(&istiodLabelSelector, "selector", "l", "app=istiod", "label selector")
-
-	return istiodConfigCmd
 }

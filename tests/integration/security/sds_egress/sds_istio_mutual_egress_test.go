@@ -52,15 +52,15 @@ func TestSdsEgressGatewayIstioMutual(t *testing.T) {
 	t.Skip("https://github.com/istio/istio/issues/17933")
 	framework.NewTest(t).
 		Features("security.egress.mtls.sds").
-		Run(func(ctx framework.TestContext) {
-			istioCfg := istio.DefaultConfigOrFail(t, ctx)
+		Run(func(t framework.TestContext) {
+			istioCfg := istio.DefaultConfigOrFail(t, t)
 
-			namespace.ClaimOrFail(t, ctx, istioCfg.SystemNamespace)
-			ns := namespace.NewOrFail(t, ctx, namespace.Config{
+			namespace.ClaimOrFail(t, t, istioCfg.SystemNamespace)
+			ns := namespace.NewOrFail(t, t, namespace.Config{
 				Prefix: "sds-egress-gateway-workload",
 				Inject: true,
 			})
-			applySetupConfig(ctx, ns)
+			applySetupConfig(t, ns)
 
 			testCases := map[string]struct {
 				configPath string
@@ -77,9 +77,9 @@ func TestSdsEgressGatewayIstioMutual(t *testing.T) {
 			}
 
 			for name, tc := range testCases {
-				ctx.NewSubTest(name).
-					Run(func(ctx framework.TestContext) {
-						doIstioMutualTest(ctx, ns, tc.configPath, tc.response)
+				t.NewSubTest(name).
+					Run(func(t framework.TestContext) {
+						doIstioMutualTest(t, ns, tc.configPath, tc.response)
 					})
 			}
 		})
@@ -89,10 +89,9 @@ func doIstioMutualTest(
 	ctx framework.TestContext, ns namespace.Instance, configPath, expectedResp string) {
 	var client echo.Instance
 	echoboot.NewBuilder(ctx).
-		With(&client, util.EchoConfig("client", ns, false, nil, nil)).
+		With(&client, util.EchoConfig("client", ns, false, nil)).
 		BuildOrFail(ctx)
 	ctx.Config().ApplyYAMLOrFail(ctx, ns.Name(), file.AsStringOrFail(ctx, configPath))
-	defer ctx.Config().DeleteYAMLOrFail(ctx, ns.Name(), file.AsStringOrFail(ctx, configPath))
 
 	// give the configuration a moment to kick in
 	time.Sleep(time.Second * 20)

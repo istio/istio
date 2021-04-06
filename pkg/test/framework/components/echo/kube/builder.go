@@ -21,72 +21,38 @@ import (
 
 	"github.com/hashicorp/go-multierror"
 
-	"istio.io/istio/pkg/config/constants"
-	"istio.io/istio/pkg/test"
+	"istio.io/istio/pkg/test/framework/components/cluster"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/resource"
-	"istio.io/istio/pkg/test/kube"
 	"istio.io/istio/pkg/test/scopes"
-	"istio.io/istio/pkg/test/util/retry"
 )
 
-var _ echo.Builder = &builder{}
-
-type builder struct {
-	ctx        resource.Context
-	references []*echo.Instance
-	configs    []echo.Config
+func init() {
+	echo.RegisterFactory(cluster.Kubernetes, build)
 }
 
-func NewBuilder(ctx resource.Context) echo.Builder {
-	return &builder{
-		ctx: ctx,
-	}
-}
-
-func (b *builder) With(i *echo.Instance, cfg echo.Config) echo.Builder {
-	b.references = append(b.references, i)
-	b.configs = append(b.configs, cfg)
-	return b
-}
-
-func (b *builder) Build() (echo.Instances, error) {
+func build(ctx resource.Context, configs []echo.Config) (echo.Instances, error) {
 	t0 := time.Now()
-	instances, err := b.newInstances()
+	instances, err := newInstances(ctx, configs)
 	if err != nil {
 		return nil, fmt.Errorf("build instance: %v", err)
 	}
 	scopes.Framework.Debugf("created echo deployments in %v", time.Since(t0))
 
-	if err := b.initializeInstances(instances); err != nil {
-		return nil, fmt.Errorf("initialize instances: %v", err)
+	if err := startAll(instances); err != nil {
+		return nil, fmt.Errorf("failed starting kube echo instances: %v", err)
 	}
-	scopes.Framework.Debugf("initialized echo deployments in %v", time.Since(t0))
+	scopes.Framework.Debugf("successfully started kube echo instances in %v", time.Since(t0))
 
-	// Success... update the caller's references.
-	for i, inst := range instances {
-		if b.references[i] != nil {
-			*b.references[i] = inst
-		}
-	}
 	return instances, nil
 }
 
-func (b *builder) BuildOrFail(t test.Failer) echo.Instances {
-	t.Helper()
-	res, err := b.Build()
-	if err != nil {
-		t.Fatal(err)
-	}
-	return res
-}
-
-func (b *builder) newInstances() ([]echo.Instance, error) {
+func newInstances(ctx resource.Context, configs []echo.Config) (echo.Instances, error) {
 	// TODO consider making this parallel. This was attempted but had issues with concurrent writes
 	// it should be possible though.
-	instances := make([]echo.Instance, 0, len(b.configs))
-	for _, cfg := range b.configs {
-		inst, err := newInstance(b.ctx, cfg)
+	instances := make([]echo.Instance, 0, len(configs))
+	for _, cfg := range configs {
+		inst, err := newInstance(ctx, cfg)
 		if err != nil {
 			return nil, err
 		}
@@ -95,39 +61,23 @@ func (b *builder) newInstances() ([]echo.Instance, error) {
 	return instances, nil
 }
 
-func (b *builder) initializeInstances(instances []echo.Instance) error {
+func startAll(instances echo.Instances) error {
 	// Wait to receive the k8s Endpoints for each Echo Instance.
 	wg := sync.WaitGroup{}
 	aggregateErrMux := &sync.Mutex{}
 	var aggregateErr error
-	for _, inst := range instances {
+	for _, i := range instances {
+		inst := i.(*instance)
 		wg.Add(1)
-
-		inst := inst
-		serviceName := inst.Config().Service
-		serviceNamespace := inst.Config().Namespace.Name()
-		timeout := inst.Config().ReadinessTimeout
-		cluster := inst.(*instance).cluster
 
 		// Run the waits in parallel.
 		go func() {
 			defer wg.Done()
-			selector := "app"
-			if inst.Config().DeployAsVM {
-				selector = constants.TestVMLabel
-			}
-			// Wait until all the pods are ready for this service
-			fetch := kube.NewPodMustFetch(cluster, serviceNamespace, fmt.Sprintf("%s=%s", selector, serviceName))
-			pods, err := kube.WaitUntilPodsAreReady(fetch, retry.Timeout(timeout))
-			if err != nil {
+
+			if err := inst.Start(); err != nil {
 				aggregateErrMux.Lock()
-				aggregateErr = multierror.Append(aggregateErr, err)
-				aggregateErrMux.Unlock()
-				return
-			}
-			if err := inst.(*instance).initialize(pods); err != nil {
-				aggregateErrMux.Lock()
-				aggregateErr = multierror.Append(aggregateErr, fmt.Errorf("initialize %v/%v/%v: %v", inst.ID(), inst.Config().Service, inst.Address(), err))
+				aggregateErr = multierror.Append(aggregateErr, fmt.Errorf("start %v/%v/%v: %v",
+					inst.ID(), inst.Config().Service, inst.Address(), err))
 				aggregateErrMux.Unlock()
 			}
 		}()

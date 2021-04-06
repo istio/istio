@@ -55,9 +55,7 @@ var (
 	ScrapeTypeAgent = "agent"
 )
 
-var (
-	processStartTime = time.Now()
-)
+var processStartTime = time.Now()
 
 func RecordStartupTime() {
 	delta := time.Since(processStartTime)

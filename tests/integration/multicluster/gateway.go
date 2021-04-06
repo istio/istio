@@ -43,15 +43,16 @@ func GatewayTest(t *testing.T, feature features.Feature) {
 		Run(func(ctx framework.TestContext) {
 			ctx.NewSubTest("gateway").
 				Run(func(ctx framework.TestContext) {
-
 					cfg, err := istio.DefaultConfig(ctx)
 					if err != nil {
 						t.Fatalf("error ")
 					}
 					clusters := ctx.Environment().Clusters()
-					args := []string{"install", "-f", filepath.Join(env.IstioSrc,
-						"tests/integration/multicluster/testdata/gateway.yaml"), "--manifests",
-						filepath.Join(env.IstioSrc, "manifests"), "--skip-confirmation"}
+					args := []string{
+						"install", "-f", filepath.Join(env.IstioSrc,
+							"tests/integration/multicluster/testdata/gateway.yaml"), "--manifests",
+						filepath.Join(env.IstioSrc, "manifests"), "--skip-confirmation",
+					}
 					for _, cluster := range clusters {
 						_, err = cluster.AdmissionregistrationV1().ValidatingWebhookConfigurations().Get(context.TODO(),
 							"istiod-istio-system", metav1.GetOptions{})
@@ -76,7 +77,6 @@ func GatewayTest(t *testing.T, feature features.Feature) {
 						}
 
 					}
-
 				})
 		})
 }

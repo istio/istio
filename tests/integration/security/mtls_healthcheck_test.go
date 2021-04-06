@@ -34,8 +34,8 @@ import (
 func TestMtlsHealthCheck(t *testing.T) {
 	framework.NewTest(t).
 		Features("security.healthcheck").
-		Run(func(ctx framework.TestContext) {
-			ns := namespace.NewOrFail(t, ctx, namespace.Config{Prefix: "healthcheck", Inject: true})
+		Run(func(t framework.TestContext) {
+			ns := namespace.NewOrFail(t, t, namespace.Config{Prefix: "healthcheck", Inject: true})
 			for _, testCase := range []struct {
 				name    string
 				rewrite bool
@@ -43,19 +43,19 @@ func TestMtlsHealthCheck(t *testing.T) {
 				{name: "norewrite-fail", rewrite: false},
 				{name: "rewrite-success", rewrite: true},
 			} {
-				t.Run(testCase.name, func(t *testing.T) {
-					runHealthCheckDeployment(t, ctx, ns, testCase.name, testCase.rewrite)
+				t.NewSubTest(testCase.name).Run(func(t framework.TestContext) {
+					runHealthCheckDeployment(t, ns, testCase.name, testCase.rewrite)
 				})
 			}
 		})
 }
 
-func runHealthCheckDeployment(t *testing.T, ctx framework.TestContext, ns namespace.Instance, //nolint:interfacer
+func runHealthCheckDeployment(ctx framework.TestContext, ns namespace.Instance, //nolint:interfacer
 	name string, rewrite bool) {
-	t.Helper()
+	ctx.Helper()
 	wantSuccess := rewrite
-	policyYAML := fmt.Sprintf(`apiVersion: "security.istio.io/v1beta1"
-kind: "PeerAuthentication"
+	policyYAML := fmt.Sprintf(`apiVersion: security.istio.io/v1beta1
+kind: PeerAuthentication
 metadata:
   name: "mtls-strict-for-%v"
 spec:
@@ -65,8 +65,7 @@ spec:
   mtls:
     mode: STRICT
 `, name, name)
-	ctx.Config().ApplyYAMLOrFail(t, ns.Name(), policyYAML)
-	defer ctx.Config().DeleteYAMLOrFail(t, ns.Name(), policyYAML)
+	ctx.Config().ApplyYAMLOrFail(ctx, ns.Name(), policyYAML)
 
 	var healthcheck echo.Instance
 	cfg := echo.Config{
@@ -93,6 +92,6 @@ spec:
 		Build()
 	gotSuccess := err == nil
 	if gotSuccess != wantSuccess {
-		t.Errorf("health check app %v, got error %v, want success = %v", name, err, wantSuccess)
+		ctx.Errorf("health check app %v, got error %v, want success = %v", name, err, wantSuccess)
 	}
 }

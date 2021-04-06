@@ -32,6 +32,12 @@
               }
           },
           {
+            "name": "global config",
+            "static_layer": {
+                "overload.global_downstream_max_connections": 2147483647
+            }
+          },
+          {
               "name": "admin",
               "admin_layer": {}
           }
@@ -136,55 +142,23 @@
   "dynamic_resources": {
     "lds_config": {
       "ads": {},
+      "initial_fetch_timeout": "0s",
       "resource_api_version": "V3"
     },
     "cds_config": {
       "ads": {},
+      "initial_fetch_timeout": "0s",
       "resource_api_version": "V3"
     },
     "ads_config": {
-      "api_type": "GRPC",
+      "api_type": "{{ .xds_type }}",
+      "set_node_on_first_message_only": true,
       "transport_api_version": "V3",
       "grpc_services": [
         {
-        {{ if .call_credentials }}
-        "google_grpc": {
-          "target_uri": "{{ .discovery_address }}",
-          "stat_prefix": "googlegrpcxds",
-          "channel_credentials": {
-            "ssl_credentials": {
-              "root_certs": {
-                "filename": "{{- .provisioned_cert }}"
-              }
-            }
-          },
-          "call_credentials": {
-              "sts_service": {
-                "token_exchange_service_uri": "http://localhost:{{ .sts_port }}/token",
-                "subject_token_path": "./var/run/secrets/tokens/istio-token",
-                "subject_token_type": "urn:ietf:params:oauth:token-type:jwt",
-              }
-           },
-           "channel_args": {
-              "args": {
-                "grpc.http2.max_pings_without_data": {
-                  "int_value": 0
-                },
-                "grpc.keepalive_time_ms": {
-                  "int_value": 10000
-                },
-                "grpc.keepalive_timeout_ms": {
-                  "int_value": 20000
-                }
-              }
-            }
-
-       }
-         {{ else }}
           "envoy_grpc": {
             "cluster_name": "xds-grpc"
           }
-        {{ end }}
         }
       ]
     }
@@ -219,7 +193,7 @@
         "connect_timeout": "0.250s",
         "lb_policy": "ROUND_ROBIN",
         "load_assignment": {
-          "cluster_name": "prometheus_stats",
+          "cluster_name": "agent",
           "endpoints": [{
             "lb_endpoints": [{
               "endpoint": {
@@ -255,8 +229,8 @@
             }]
           }]
         }
-      } {{ if .call_credentials }}{{ else }}
-       , {
+      },
+      {
         "name": "xds-grpc",
         {{- if .proxy_via_agent }}
         "type" : "STATIC",
@@ -349,7 +323,6 @@
         "max_requests_per_connection": 1,
         "http2_protocol_options": { }
       }
-      {{ end }}
       {{ if .zipkin }}
       ,
       {
@@ -667,11 +640,7 @@
           "target_uri": "cloudtrace.googleapis.com",
           "stat_prefix": "oc_stackdriver_tracer",
           "channel_credentials": {
-            "ssl_credentials": {
-              "root_certs": {
-                "filename": "/etc/ssl/certs/ca-certificates.crt"
-              }
-            }
+            "ssl_credentials": {}
           },
           "call_credentials": [{
             "sts_service": {
@@ -715,6 +684,7 @@
       "name": "envoy.stat_sinks.metrics_service",
       "typed_config": {
         "@type": "type.googleapis.com/envoy.config.metrics.v3.MetricsServiceConfig",
+        "transport_api_version": "V3",
         "grpc_service": {
           "envoy_grpc": {
             "cluster_name": "envoy_metrics_service"

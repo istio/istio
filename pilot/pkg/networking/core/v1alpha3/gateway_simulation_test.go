@@ -32,6 +32,24 @@ func TestHTTPGateway(t *testing.T) {
   protocol: HTTP
 hosts:
 - "foo.bar"`
+	simpleRoute := `apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
+metadata:
+  name: vs
+spec:
+  hosts:
+  - "example.com"
+  gateways:
+  - gateway
+  http:
+  - match:
+    - uri:
+        prefix: /
+    route:
+    - destination:
+        host: b
+---
+`
 	runGatewayTest(t,
 		simulationTest{
 			name:   "no virtual services",
@@ -209,7 +227,133 @@ spec:
 					simulation.Result{Error: simulation.ErrNoVirtualHost},
 				},
 			},
-		})
+		},
+		simulationTest{
+			name: "httpsRedirect without routes",
+			config: createGateway("gateway", "", `port:
+  number: 80
+  name: http
+  protocol: HTTP
+hosts:
+- "example.com"
+tls:
+  httpsRedirect: true`),
+			calls: []simulation.Expect{
+				{
+					"request",
+					simulation.Call{
+						Port:       80,
+						HostHeader: "example.com",
+						Protocol:   simulation.HTTP,
+					},
+					simulation.Result{
+						Error:              simulation.ErrTLSRedirect,
+						ListenerMatched:    "0.0.0.0_80",
+						VirtualHostMatched: "example.com:80",
+						RouteConfigMatched: "http.80",
+						StrictMatch:        true,
+					},
+				},
+			},
+		},
+		simulationTest{
+			// This should be the same as without, we elide the routes anyways since they always
+			// redirect
+			name: "httpsRedirect with routes",
+			config: createGateway("gateway", "", `port:
+  number: 80
+  name: http
+  protocol: HTTP
+hosts:
+- "example.com"
+tls:
+  httpsRedirect: true`) + simpleRoute,
+			calls: []simulation.Expect{
+				{
+					"request",
+					simulation.Call{
+						Port:       80,
+						HostHeader: "example.com",
+						Protocol:   simulation.HTTP,
+					},
+					simulation.Result{
+						Error:              simulation.ErrTLSRedirect,
+						ListenerMatched:    "0.0.0.0_80",
+						VirtualHostMatched: "example.com:80",
+						RouteConfigMatched: "http.80",
+						StrictMatch:        true,
+					},
+				},
+			},
+		},
+		simulationTest{
+			// A common example of when this would occur is when a user defines their Gateway with
+			// httpsRedirect, then cert-manager creates an Ingress which requires sending HTTP
+			// traffic Unfortunately, Envoy doesn't have a good way to do HTTPS redirect per-route.
+			name: "mixed httpsRedirect with routes",
+			config: createGateway("gateway", "", `port:
+  number: 80
+  name: http
+  protocol: HTTP
+hosts:
+- "example.com"
+tls:
+  httpsRedirect: true`) + createGateway("gateway2", "", `port:
+  number: 80
+  name: http
+  protocol: HTTP
+hosts:
+- "example.com"`) + simpleRoute,
+			calls: []simulation.Expect{
+				{
+					"request",
+					simulation.Call{
+						Port:       80,
+						HostHeader: "example.com",
+						Protocol:   simulation.HTTP,
+					},
+					simulation.Result{
+						Error:              simulation.ErrTLSRedirect,
+						ListenerMatched:    "0.0.0.0_80",
+						VirtualHostMatched: "example.com:80",
+						RouteConfigMatched: "http.80",
+						StrictMatch:        true,
+					},
+				},
+			},
+		},
+		simulationTest{
+			name: "httpsRedirect on https",
+			config: createGateway("gateway", "", `port:
+  number: 443
+  name: https
+  protocol: HTTPS
+hosts:
+- "example.com"
+tls:
+  httpsRedirect: true
+  mode: SIMPLE
+  credentialName: test`) + simpleRoute,
+			calls: []simulation.Expect{
+				{
+					"request",
+					simulation.Call{
+						Port:       443,
+						HostHeader: "example.com",
+						Protocol:   simulation.HTTP,
+						TLS:        simulation.TLS,
+					},
+					simulation.Result{
+						ListenerMatched:    "0.0.0.0_443",
+						VirtualHostMatched: "example.com:443",
+						RouteConfigMatched: "https.443.https.gateway.default",
+						ClusterMatched:     "outbound|443||b.default",
+						StrictMatch:        true,
+					},
+				},
+			},
+		},
+	)
 }
 
 func TestGatewayConflicts(t *testing.T) {
@@ -294,6 +438,81 @@ spec:
 					"call",
 					simulation.Call{Port: 443, Protocol: simulation.HTTP, TLS: simulation.TLS, HostHeader: "foo.bar"},
 					simulation.Result{Error: simulation.ErrMultipleFilterChain},
+				},
+			},
+		},
+		simulationTest{
+			name: "duplicate tls virtual service",
+			// Create the same virtual service in two namespaces
+			config: `
+apiVersion: networking.istio.io/v1alpha3
+kind: Gateway
+metadata:
+  name: ingressgateway
+  namespace: istio-system
+spec:
+  selector:
+    istio: ingressgateway
+  servers:
+  - hosts:
+    - '*.example.com'
+    port:
+      name: https
+      number: 443
+      protocol: HTTPS
+    tls:
+      mode: PASSTHROUGH
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
+metadata:
+  name: vs1
+  namespace: default
+spec:
+  gateways:
+  - istio-system/ingressgateway
+  hosts:
+  - mysite.example.com
+  tls:
+  - match:
+    - port: 443
+      sniHosts:
+      - mysite.example.com
+    route:
+    - destination:
+        host: mysite.default.svc.cluster.local
+        port:
+          number: 443
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
+metadata:
+  name: vs2
+  namespace: default
+spec:
+  gateways:
+  - istio-system/ingressgateway
+  hosts:
+  - mysite.example.com
+  tls:
+  - match:
+    - port: 443
+      sniHosts:
+      - mysite.example.com
+    route:
+    - destination:
+        host: mysite.default.svc.cluster.local
+        port:
+          number: 443
+`,
+			calls: []simulation.Expect{
+				{
+					"call",
+					simulation.Call{Port: 443, Protocol: simulation.HTTP, TLS: simulation.TLS, HostHeader: "mysite.example.com"},
+					simulation.Result{
+						ListenerMatched: "0.0.0.0_443",
+						ClusterMatched:  "outbound|443||mysite.default.svc.cluster.local",
+					},
 				},
 			},
 		},

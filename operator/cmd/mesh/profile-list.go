@@ -40,8 +40,8 @@ func profileListCmd(rootArgs *rootArgs, plArgs *profileListArgs) *cobra.Command 
 		Args:  cobra.ExactArgs(0),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return profileList(cmd, rootArgs, plArgs)
-		}}
-
+		},
+	}
 }
 
 // profileList list all the builtin profiles.

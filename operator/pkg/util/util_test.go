@@ -17,6 +17,10 @@ package util
 import (
 	"errors"
 	"testing"
+
+	protobuf "github.com/gogo/protobuf/types"
+
+	"istio.io/api/operator/v1alpha1"
 )
 
 func TestParseValue(t *testing.T) {
@@ -242,11 +246,46 @@ func TestRenderTemplate(t *testing.T) {
 			got, err := RenderTemplate(tt.template, tt.in)
 			if got != tt.want {
 				t.Errorf("%s: got :%v, wanted output: %v", tt.desc, got, tt.want)
-
 			}
 
 			if (err == nil && tt.err != nil) || (err != nil && tt.err == nil) {
 				t.Errorf("%s: got error :%v, wanted error: %v", tt.desc, err, tt.err)
+			}
+		})
+	}
+}
+
+func TestBoolValue(t *testing.T) {
+	cases := []struct {
+		desc string
+		in   *v1alpha1.BoolValueForPB
+		out  bool
+	}{
+		{
+			desc: "nil value",
+			in:   nil,
+			out:  false,
+		},
+		{
+			desc: "false value",
+			in: &v1alpha1.BoolValueForPB{
+				BoolValue: protobuf.BoolValue{Value: false},
+			},
+			out: false,
+		},
+		{
+			desc: "true value",
+			in: &v1alpha1.BoolValueForPB{
+				BoolValue: protobuf.BoolValue{Value: true},
+			},
+			out: true,
+		},
+	}
+	for _, c := range cases {
+		t.Run(c.desc, func(t *testing.T) {
+			res := BoolValue(c.in)
+			if res != c.out {
+				t.Fatalf("%s: got %v, expected: %v", c.desc, res, c.out)
 			}
 		})
 	}

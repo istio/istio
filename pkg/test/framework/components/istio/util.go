@@ -22,6 +22,7 @@ import (
 
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
+	"istio.io/istio/pkg/test/framework/components/cluster"
 	"istio.io/istio/pkg/test/framework/components/environment/kube"
 	"istio.io/istio/pkg/test/framework/resource"
 	"istio.io/istio/pkg/test/scopes"
@@ -32,8 +33,7 @@ const (
 	istiodLabel = "pilot"
 )
 
-var (
-	dummyValidationVirtualServiceTemplate = `
+var dummyValidationVirtualServiceTemplate = `
 apiVersion: networking.istio.io/v1alpha3
 kind: VirtualService
 metadata:
@@ -53,9 +53,8 @@ spec:
           subset: v2
         weight: 25
 `
-)
 
-func waitForValidationWebhook(ctx resource.Context, cluster resource.Cluster, cfg Config) error {
+func waitForValidationWebhook(ctx resource.Context, cluster cluster.Cluster, cfg Config) error {
 	dummyValidationVirtualService := fmt.Sprintf(dummyValidationVirtualServiceTemplate, cfg.SystemNamespace)
 	defer func() {
 		e := ctx.Config(cluster).DeleteYAML("", dummyValidationVirtualService)
@@ -75,7 +74,7 @@ func waitForValidationWebhook(ctx resource.Context, cluster resource.Cluster, cf
 	}, retry.Timeout(time.Minute))
 }
 
-func (i *operatorComponent) RemoteDiscoveryAddressFor(cluster resource.Cluster) (net.TCPAddr, error) {
+func (i *operatorComponent) RemoteDiscoveryAddressFor(cluster cluster.Cluster) (net.TCPAddr, error) {
 	var addr net.TCPAddr
 	primary := cluster.Primary()
 	if !primary.IsConfig() {
@@ -98,9 +97,8 @@ func (i *operatorComponent) RemoteDiscoveryAddressFor(cluster resource.Cluster) 
 	return addr, nil
 }
 
-func getRemoteServiceAddress(s *kube.Settings, cluster resource.Cluster, ns, label, svcName string,
+func getRemoteServiceAddress(s *kube.Settings, cluster cluster.Cluster, ns, label, svcName string,
 	port int) (interface{}, bool, error) {
-
 	if !s.LoadBalancerSupported {
 		pods, err := cluster.PodsForSelector(context.TODO(), ns, fmt.Sprintf("istio=%s", label))
 		if err != nil {
@@ -111,12 +109,12 @@ func getRemoteServiceAddress(s *kube.Settings, cluster resource.Cluster, ns, lab
 		for _, p := range pods.Items {
 			names = append(names, p.Name)
 		}
-		scopes.Framework.Debugf("Querying remote service, pods:\n%v\n", names)
+		scopes.Framework.Debugf("Querying remote service %s, pods:%v", svcName, names)
 		if len(pods.Items) == 0 {
 			return nil, false, fmt.Errorf("no remote service pod found")
 		}
 
-		scopes.Framework.Debugf("Found pod: \n%v\n", pods.Items[0].Name)
+		scopes.Framework.Debugf("Found pod: %v", pods.Items[0].Name)
 		ip := pods.Items[0].Status.HostIP
 		if ip == "" {
 			return nil, false, fmt.Errorf("no Host IP available on the remote service node yet")

@@ -108,7 +108,9 @@ func TestCreateRemoteSecrets(t *testing.T) {
 	defer func() { makeOutputWriterTestHook = prevOutputWriterStub }()
 
 	sa := makeServiceAccount("saSecret")
+	sa2 := makeServiceAccount("saSecret", "saSecret2")
 	saSecret := makeSecret("saSecret", "caData", "token")
+	saSecret2 := makeSecret("saSecret2", "caData", "token")
 	saSecretMissingToken := makeSecret("saSecret", "caData", "")
 	badStartingConfigErrStr := "could not find cluster for context"
 
@@ -116,10 +118,11 @@ func TestCreateRemoteSecrets(t *testing.T) {
 		testName string
 
 		// test input
-		config  *api.Config
-		objs    []runtime.Object
-		name    string
-		secType SecretType
+		config     *api.Config
+		objs       []runtime.Object
+		name       string
+		secType    SecretType
+		secretName string
 
 		// inject errors
 		badStartingConfig bool
@@ -209,6 +212,55 @@ func TestCreateRemoteSecrets(t *testing.T) {
 			secType: "config",
 			want:    "cal-want",
 		},
+		{
+			testName: "failure due to multiple secrets",
+			objs:     []runtime.Object{kubeSystemNamespace, sa2, saSecret, saSecret2},
+			config: &api.Config{
+				CurrentContext: testContext,
+				Contexts: map[string]*api.Context{
+					testContext: {Cluster: "cluster"},
+				},
+				Clusters: map[string]*api.Cluster{
+					"cluster": {Server: "server"},
+				},
+			},
+			name:       "cluster-foo",
+			want:       "cal-want",
+			wantErrStr: "wrong number of secrets (2) in serviceaccount",
+		},
+		{
+			testName: "success when specific secret name provided",
+			objs:     []runtime.Object{kubeSystemNamespace, sa2, saSecret, saSecret2},
+			config: &api.Config{
+				CurrentContext: testContext,
+				Contexts: map[string]*api.Context{
+					testContext: {Cluster: "cluster"},
+				},
+				Clusters: map[string]*api.Cluster{
+					"cluster": {Server: "server"},
+				},
+			},
+			secretName: saSecret.Name,
+			name:       "cluster-foo",
+			want:       "cal-want",
+		},
+		{
+			testName: "fail when non-existing secret name provided",
+			objs:     []runtime.Object{kubeSystemNamespace, sa2, saSecret, saSecret2},
+			config: &api.Config{
+				CurrentContext: testContext,
+				Contexts: map[string]*api.Context{
+					testContext: {Cluster: "cluster"},
+				},
+				Clusters: map[string]*api.Cluster{
+					"cluster": {Server: "server"},
+				},
+			},
+			secretName: "nonexistingSecret",
+			name:       "cluster-foo",
+			want:       "cal-want",
+			wantErrStr: "provided secret does not exist",
+		},
 	}
 
 	for i := range cases {
@@ -223,13 +275,14 @@ func TestCreateRemoteSecrets(t *testing.T) {
 			opts := RemoteSecretOptions{
 				ServiceAccountName: testServiceAccountName,
 				AuthType:           RemoteSecretAuthTypeBearerToken,
-				//ClusterName: testCluster,
+				// ClusterName: testCluster,
 				KubeOptions: KubeOptions{
 					Namespace:  testNamespace,
 					Context:    testContext,
 					Kubeconfig: testKubeconfig,
 				},
-				Type: c.secType,
+				Type:       c.secType,
+				SecretName: c.secretName,
 			}
 
 			env := newFakeEnvironmentOrDie(t, c.config, c.objs...)
@@ -604,7 +657,6 @@ metadata:
 	if w.String() != want {
 		t.Errorf("got\n%q\nwant\n%q", w.String(), want)
 	}
-
 }
 
 func TestCreateRemoteSecretFromPlugin(t *testing.T) {

@@ -1,0 +1,19 @@
+apiVersion: install.istio.io/v1alpha1
+kind: IstioOperator
+spec:
+  values:
+    sidecarInjectorWebhook:
+      defaultTemplates: ["sidecar", "credential-volume"]
+      templates:
+        credential-volume: |
+          spec:
+            volumes:
+            - name: application-credentials
+              secret:
+                secretName: secret
+            containers:
+            - name: istio-proxy
+              volumeMounts:
+              - name: application-credentials
+                mountPath: /etc/istio/application-credentials
+                readOnly: true

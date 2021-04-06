@@ -57,7 +57,6 @@ func (s *IngressGatewayPortAnalyzer) Analyze(c analysis.Context) {
 }
 
 func (*IngressGatewayPortAnalyzer) analyzeGateway(r *resource.Instance, c analysis.Context) {
-
 	gw := r.Message.(*v1alpha3.Gateway)
 
 	// Typically there will be a single istio-ingressgateway service, which will select

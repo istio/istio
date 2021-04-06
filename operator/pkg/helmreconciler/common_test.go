@@ -111,7 +111,6 @@ func TestHelmReconciler_saveNodePorts(t *testing.T) {
 					t.Errorf("wanted:\n%v\ngot:\n%v", expectedVal, val)
 				}
 			}
-
 		})
 	}
 }

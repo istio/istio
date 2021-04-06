@@ -111,7 +111,6 @@ func init() {
 		newView(sourceConversionSuccess, conversionKeys, view.Count()),
 		newView(sourceConversionFailure, conversionKeys, view.Count()),
 	)
-
 	if err != nil {
 		panic(err)
 	}

@@ -26,7 +26,7 @@ import (
 	"k8s.io/client-go/kubernetes/fake"
 )
 
-//can have nodes, pods  and configMap in a fake clientset unit testing
+// can have nodes, pods  and configMap in a fake clientset unit testing
 func fakeClientset(pods []v1.Pod, nodes []v1.Node, configMaps []v1.ConfigMap) (cs kubernetes.Interface) {
 	var csObjs []runtime.Object
 	for _, node := range nodes {
@@ -42,7 +42,7 @@ func fakeClientset(pods []v1.Pod, nodes []v1.Node, configMaps []v1.ConfigMap) (c
 	return cs
 }
 
-//test on whether critical labels and namespace are successfully loaded
+// test on whether critical labels and namespace are successfully loaded
 func TestTaintSetter_LoadConfig(t *testing.T) {
 	tests := []struct {
 		name   string
@@ -152,6 +152,7 @@ func TestTaintSetter_AddReadinessTaint(t *testing.T) {
 		})
 	}
 }
+
 func TestTaintSetter_HasReadinessTaint(t *testing.T) {
 	tests := []struct {
 		name   string
@@ -184,6 +185,7 @@ func TestTaintSetter_HasReadinessTaint(t *testing.T) {
 		})
 	}
 }
+
 func TestTaintSetter_RemoveReadinessTaint(t *testing.T) {
 	tests := []struct {
 		name     string

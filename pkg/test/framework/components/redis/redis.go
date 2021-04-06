@@ -16,6 +16,7 @@ package redis
 
 import (
 	"istio.io/istio/pkg/test"
+	"istio.io/istio/pkg/test/framework/components/cluster"
 	"istio.io/istio/pkg/test/framework/resource"
 )
 
@@ -27,7 +28,7 @@ type Instance interface {
 
 type Config struct {
 	// Which KubeConfig should be used in a multicluster environment
-	Cluster resource.Cluster
+	Cluster cluster.Cluster
 }
 
 // New returns a new instance of redis.

@@ -28,16 +28,16 @@ import (
 const (
 	HTTPS  = "https"
 	POLICY = `
-apiVersion: "security.istio.io/v1beta1"
-kind: "PeerAuthentication"
+apiVersion: security.istio.io/v1beta1
+kind: PeerAuthentication
 metadata:
   name: "mtls"
 spec:
   mtls:
     mode: STRICT
 ---
-apiVersion: "networking.istio.io/v1alpha3"
-kind: "DestinationRule"
+apiVersion: networking.istio.io/v1alpha3
+kind: DestinationRule
 metadata:
   name: "server-naked"
 spec:
@@ -66,26 +66,25 @@ spec:
 func TestTrustDomainAliasSecureNaming(t *testing.T) {
 	framework.NewTest(t).
 		Features("security.peer.trust-domain-alias-secure-naming").
-		Run(func(ctx framework.TestContext) {
-			//TODO: remove the skip when https://github.com/istio/istio/issues/28798 is fixed
-			if ctx.Clusters().IsMulticluster() {
-				ctx.Skip()
+		Run(func(t framework.TestContext) {
+			// TODO: remove the skip when https://github.com/istio/istio/issues/28798 is fixed
+			if t.Clusters().IsMulticluster() {
+				t.Skip()
 			}
 			testNS := apps.Namespace
 
-			ctx.Config().ApplyYAMLOrFail(ctx, testNS.Name(), POLICY)
-			defer ctx.Config().DeleteYAMLOrFail(ctx, testNS.Name(), POLICY)
+			t.Config().ApplyYAMLOrFail(t, testNS.Name(), POLICY)
 
-			for _, cluster := range ctx.Clusters() {
-				ctx.NewSubTest(fmt.Sprintf("From %s", cluster.Name())).Run(func(ctx framework.TestContext) {
+			for _, cluster := range t.Clusters() {
+				t.NewSubTest(fmt.Sprintf("From %s", cluster.StableName())).Run(func(t framework.TestContext) {
 					verify := func(ctx framework.TestContext, src echo.Instance, dest echo.Instance, s scheme.Instance, success bool) {
 						want := "success"
 						if !success {
 							want = "fail"
 						}
 						name := fmt.Sprintf("server:%s[%s]", dest.Config().Service, want)
-						ctx.NewSubTest(name).Run(func(ctx framework.TestContext) {
-							ctx.Helper()
+						ctx.NewSubTest(name).Run(func(t framework.TestContext) {
+							t.Helper()
 							opt := echo.CallOptions{
 								Target:   dest,
 								PortName: HTTPS,
@@ -96,15 +95,15 @@ func TestTrustDomainAliasSecureNaming(t *testing.T) {
 								From:          src,
 								Options:       opt,
 								ExpectSuccess: success,
-								DestClusters:  ctx.Clusters(),
+								DestClusters:  t.Clusters(),
 							}
-							checker.CheckOrFail(ctx)
+							checker.CheckOrFail(t)
 						})
 					}
 
-					client := apps.Client.GetOrFail(ctx, echo.InCluster(cluster))
-					serverNakedFoo := apps.ServerNakedFoo.GetOrFail(ctx, echo.InCluster(cluster))
-					serverNakedBar := apps.ServerNakedBar.GetOrFail(ctx, echo.InCluster(cluster))
+					client := apps.Client.GetOrFail(t, echo.InCluster(cluster))
+					serverNakedFoo := apps.ServerNakedFoo.GetOrFail(t, echo.InCluster(cluster))
+					serverNakedBar := apps.ServerNakedBar.GetOrFail(t, echo.InCluster(cluster))
 					cases := []struct {
 						src    echo.Instance
 						dest   echo.Instance
@@ -123,7 +122,7 @@ func TestTrustDomainAliasSecureNaming(t *testing.T) {
 					}
 
 					for _, tc := range cases {
-						verify(ctx, tc.src, tc.dest, scheme.HTTP, tc.expect)
+						verify(t, tc.src, tc.dest, scheme.HTTP, tc.expect)
 					}
 				})
 			}

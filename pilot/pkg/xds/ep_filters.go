@@ -76,8 +76,9 @@ func (b *EndpointBuilder) EndpointsByNetworkFilter(endpoints []*LocLbEndpointsAn
 				if !b.canViewNetwork(epNetwork) {
 					continue
 				}
-				if tlsMode := envoytransportSocketMetadata(lbEp, "tlsMode"); tlsMode == model.DisabledTLSModeLabel {
-					// dont allow cross-network endpoints for uninjected traffic
+				// cross-network traffic relies on mTLS to be enabled for SNI routing
+				// TODO BTS may allow us to work around this
+				if b.mtlsChecker.isMtlsDisabled(lbEp) {
 					continue
 				}
 
@@ -119,7 +120,7 @@ func (b *EndpointBuilder) EndpointsByNetworkFilter(endpoints []*LocLbEndpointsAn
 					},
 				}
 				// TODO: figure out a way to extract locality data from the gateway public endpoints in meshNetworks
-				gwEp.Metadata = util.BuildLbEndpointMetadata(network, model.IstioMutualTLSModeLabel, "", "", labels.Instance{})
+				gwEp.Metadata = util.BuildLbEndpointMetadata(network, model.IstioMutualTLSModeLabel, "", "", b.clusterID, labels.Instance{})
 				// Currently gateway endpoint does not support tunnel.
 				lbEndpoints.append(gwEp, networking.MakeTunnelAbility())
 			}

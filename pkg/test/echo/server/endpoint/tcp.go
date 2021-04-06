@@ -144,6 +144,7 @@ func (s *tcpInstance) writeResponse(conn net.Conn) {
 	respFields := map[response.Field]string{
 		response.StatusCodeField:     response.StatusCodeOK,
 		response.ClusterField:        s.Cluster,
+		response.IstioVersionField:   s.IstioVersion,
 		response.ServiceVersionField: s.Version,
 		response.ServicePortField:    strconv.Itoa(s.Port.Port),
 		response.IPField:             ip,

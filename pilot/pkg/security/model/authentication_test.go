@@ -22,11 +22,10 @@ import (
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	auth "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
 	matcher "github.com/envoyproxy/go-control-plane/envoy/type/matcher/v3"
-	"github.com/golang/protobuf/ptypes"
 	"github.com/google/go-cmp/cmp"
 	"google.golang.org/protobuf/testing/protocmp"
+	"google.golang.org/protobuf/types/known/durationpb"
 
-	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/spiffe"
 )
@@ -43,12 +42,12 @@ func TestConstructSdsSecretConfig(t *testing.T) {
 			expected: &auth.SdsSecretConfig{
 				Name: "spiffe://cluster.local/ns/bar/sa/foo",
 				SdsConfig: &core.ConfigSource{
-					InitialFetchTimeout: features.InitialFetchTimeout,
-					ResourceApiVersion:  core.ApiVersion_V3,
+					ResourceApiVersion: core.ApiVersion_V3,
 					ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
 						ApiConfigSource: &core.ApiConfigSource{
-							ApiType:             core.ApiConfigSource_GRPC,
-							TransportApiVersion: core.ApiVersion_V3,
+							ApiType:                   core.ApiConfigSource_GRPC,
+							SetNodeOnFirstMessageOnly: true,
+							TransportApiVersion:       core.ApiVersion_V3,
 							GrpcServices: []*core.GrpcService{
 								{
 									TargetSpecifier: &core.GrpcService_EnvoyGrpc_{
@@ -70,7 +69,7 @@ func TestConstructSdsSecretConfig(t *testing.T) {
 
 	for _, c := range testCases {
 		t.Run(c.name, func(t *testing.T) {
-			if got := ConstructSdsSecretConfig(c.secretName); !cmp.Equal(got, c.expected, protocmp.Transform()) {
+			if got := ConstructSdsSecretConfig(c.secretName, &model.Proxy{}); !cmp.Equal(got, c.expected, protocmp.Transform()) {
 				t.Errorf("ConstructSdsSecretConfig: got(%#v), want(%#v)\n", got, c.expected)
 			}
 		})
@@ -137,28 +136,29 @@ func TestConstructValidationContext(t *testing.T) {
 func TestApplyToCommonTLSContext(t *testing.T) {
 	testCases := []struct {
 		name               string
-		sdsUdsPath         string
 		node               *model.Proxy
 		trustDomainAliases []string
+		validateClient     bool
 		expected           *auth.CommonTlsContext
 	}{
 		{
-			name:       "MTLSStrict using SDS",
-			sdsUdsPath: "/tmp/sdsuds.sock",
+			name: "MTLSStrict using SDS",
 			node: &model.Proxy{
 				Metadata: &model.NodeMetadata{},
 			},
+			validateClient: true,
 			expected: &auth.CommonTlsContext{
 				TlsCertificateSdsSecretConfigs: []*auth.SdsSecretConfig{
 					{
 						Name: "default",
 						SdsConfig: &core.ConfigSource{
-							InitialFetchTimeout: ptypes.DurationProto(time.Second * 0),
+							InitialFetchTimeout: durationpb.New(time.Second * 0),
 							ResourceApiVersion:  core.ApiVersion_V3,
 							ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
 								ApiConfigSource: &core.ApiConfigSource{
-									ApiType:             core.ApiConfigSource_GRPC,
-									TransportApiVersion: core.ApiVersion_V3,
+									ApiType:                   core.ApiConfigSource_GRPC,
+									SetNodeOnFirstMessageOnly: true,
+									TransportApiVersion:       core.ApiVersion_V3,
 									GrpcServices: []*core.GrpcService{
 										{
 											TargetSpecifier: &core.GrpcService_EnvoyGrpc_{
@@ -177,12 +177,13 @@ func TestApplyToCommonTLSContext(t *testing.T) {
 						ValidationContextSdsSecretConfig: &auth.SdsSecretConfig{
 							Name: "ROOTCA",
 							SdsConfig: &core.ConfigSource{
-								InitialFetchTimeout: ptypes.DurationProto(time.Second * 0),
+								InitialFetchTimeout: durationpb.New(time.Second * 0),
 								ResourceApiVersion:  core.ApiVersion_V3,
 								ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
 									ApiConfigSource: &core.ApiConfigSource{
-										ApiType:             core.ApiConfigSource_GRPC,
-										TransportApiVersion: core.ApiVersion_V3,
+										ApiType:                   core.ApiConfigSource_GRPC,
+										SetNodeOnFirstMessageOnly: true,
+										TransportApiVersion:       core.ApiVersion_V3,
 										GrpcServices: []*core.GrpcService{
 											{
 												TargetSpecifier: &core.GrpcService_EnvoyGrpc_{
@@ -199,23 +200,24 @@ func TestApplyToCommonTLSContext(t *testing.T) {
 			},
 		},
 		{
-			name:       "MTLSStrict using SDS and SAN aliases",
-			sdsUdsPath: "/tmp/sdsuds.sock",
+			name: "MTLSStrict using SDS and SAN aliases",
 			node: &model.Proxy{
 				Metadata: &model.NodeMetadata{},
 			},
+			validateClient:     true,
 			trustDomainAliases: []string{"alias-1.domain", "some-other-alias-1.domain", "alias-2.domain"},
 			expected: &auth.CommonTlsContext{
 				TlsCertificateSdsSecretConfigs: []*auth.SdsSecretConfig{
 					{
 						Name: "default",
 						SdsConfig: &core.ConfigSource{
-							InitialFetchTimeout: ptypes.DurationProto(time.Second * 0),
+							InitialFetchTimeout: durationpb.New(time.Second * 0),
 							ResourceApiVersion:  core.ApiVersion_V3,
 							ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
 								ApiConfigSource: &core.ApiConfigSource{
-									ApiType:             core.ApiConfigSource_GRPC,
-									TransportApiVersion: core.ApiVersion_V3,
+									ApiType:                   core.ApiConfigSource_GRPC,
+									SetNodeOnFirstMessageOnly: true,
+									TransportApiVersion:       core.ApiVersion_V3,
 									GrpcServices: []*core.GrpcService{
 										{
 											TargetSpecifier: &core.GrpcService_EnvoyGrpc_{
@@ -238,12 +240,13 @@ func TestApplyToCommonTLSContext(t *testing.T) {
 						ValidationContextSdsSecretConfig: &auth.SdsSecretConfig{
 							Name: "ROOTCA",
 							SdsConfig: &core.ConfigSource{
-								InitialFetchTimeout: ptypes.DurationProto(time.Second * 0),
+								InitialFetchTimeout: durationpb.New(time.Second * 0),
 								ResourceApiVersion:  core.ApiVersion_V3,
 								ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
 									ApiConfigSource: &core.ApiConfigSource{
-										ApiType:             core.ApiConfigSource_GRPC,
-										TransportApiVersion: core.ApiVersion_V3,
+										ApiType:                   core.ApiConfigSource_GRPC,
+										SetNodeOnFirstMessageOnly: true,
+										TransportApiVersion:       core.ApiVersion_V3,
 										GrpcServices: []*core.GrpcService{
 											{
 												TargetSpecifier: &core.GrpcService_EnvoyGrpc_{
@@ -260,8 +263,7 @@ func TestApplyToCommonTLSContext(t *testing.T) {
 			},
 		},
 		{
-			name:       "MTLS using SDS with custom certs in metadata",
-			sdsUdsPath: "/tmp/sdsuds.sock",
+			name: "MTLS using SDS with custom certs in metadata",
 			node: &model.Proxy{
 				Metadata: &model.NodeMetadata{
 					TLSServerCertChain: "serverCertChain",
@@ -269,6 +271,7 @@ func TestApplyToCommonTLSContext(t *testing.T) {
 					TLSServerRootCert:  "servrRootCert",
 				},
 			},
+			validateClient: true,
 			expected: &auth.CommonTlsContext{
 				TlsCertificateSdsSecretConfigs: []*auth.SdsSecretConfig{
 					{
@@ -276,8 +279,9 @@ func TestApplyToCommonTLSContext(t *testing.T) {
 						SdsConfig: &core.ConfigSource{
 							ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
 								ApiConfigSource: &core.ApiConfigSource{
-									ApiType:             core.ApiConfigSource_GRPC,
-									TransportApiVersion: core.ApiVersion_V3,
+									ApiType:                   core.ApiConfigSource_GRPC,
+									SetNodeOnFirstMessageOnly: true,
+									TransportApiVersion:       core.ApiVersion_V3,
 									GrpcServices: []*core.GrpcService{
 										{
 											TargetSpecifier: &core.GrpcService_EnvoyGrpc_{
@@ -299,8 +303,9 @@ func TestApplyToCommonTLSContext(t *testing.T) {
 							SdsConfig: &core.ConfigSource{
 								ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
 									ApiConfigSource: &core.ApiConfigSource{
-										ApiType:             core.ApiConfigSource_GRPC,
-										TransportApiVersion: core.ApiVersion_V3,
+										ApiType:                   core.ApiConfigSource_GRPC,
+										SetNodeOnFirstMessageOnly: true,
+										TransportApiVersion:       core.ApiVersion_V3,
 										GrpcServices: []*core.GrpcService{
 											{
 												TargetSpecifier: &core.GrpcService_EnvoyGrpc_{
@@ -318,11 +323,11 @@ func TestApplyToCommonTLSContext(t *testing.T) {
 			},
 		},
 		{
-			name:       "ISTIO_MUTUAL SDS without node meta",
-			sdsUdsPath: "/tmp/sdsuds.sock",
+			name: "ISTIO_MUTUAL SDS without node meta",
 			node: &model.Proxy{
 				Metadata: &model.NodeMetadata{},
 			},
+			validateClient: true,
 			expected: &auth.CommonTlsContext{
 				TlsCertificateSdsSecretConfigs: []*auth.SdsSecretConfig{
 					{
@@ -330,8 +335,9 @@ func TestApplyToCommonTLSContext(t *testing.T) {
 						SdsConfig: &core.ConfigSource{
 							ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
 								ApiConfigSource: &core.ApiConfigSource{
-									ApiType:             core.ApiConfigSource_GRPC,
-									TransportApiVersion: core.ApiVersion_V3,
+									ApiType:                   core.ApiConfigSource_GRPC,
+									SetNodeOnFirstMessageOnly: true,
+									TransportApiVersion:       core.ApiVersion_V3,
 									GrpcServices: []*core.GrpcService{
 										{
 											TargetSpecifier: &core.GrpcService_EnvoyGrpc_{
@@ -342,7 +348,7 @@ func TestApplyToCommonTLSContext(t *testing.T) {
 								},
 							},
 							ResourceApiVersion:  core.ApiVersion_V3,
-							InitialFetchTimeout: ptypes.DurationProto(time.Second * 0),
+							InitialFetchTimeout: durationpb.New(time.Second * 0),
 						},
 					},
 				},
@@ -354,8 +360,9 @@ func TestApplyToCommonTLSContext(t *testing.T) {
 							SdsConfig: &core.ConfigSource{
 								ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
 									ApiConfigSource: &core.ApiConfigSource{
-										ApiType:             core.ApiConfigSource_GRPC,
-										TransportApiVersion: core.ApiVersion_V3,
+										ApiType:                   core.ApiConfigSource_GRPC,
+										SetNodeOnFirstMessageOnly: true,
+										TransportApiVersion:       core.ApiVersion_V3,
 										GrpcServices: []*core.GrpcService{
 											{
 												TargetSpecifier: &core.GrpcService_EnvoyGrpc_{
@@ -366,7 +373,7 @@ func TestApplyToCommonTLSContext(t *testing.T) {
 									},
 								},
 								ResourceApiVersion:  core.ApiVersion_V3,
-								InitialFetchTimeout: ptypes.DurationProto(time.Second * 0),
+								InitialFetchTimeout: durationpb.New(time.Second * 0),
 							},
 						},
 					},
@@ -374,8 +381,7 @@ func TestApplyToCommonTLSContext(t *testing.T) {
 			},
 		},
 		{
-			name:       "ISTIO_MUTUAL with custom cert paths from proxy node metadata",
-			sdsUdsPath: "/tmp/sdsuds.sock",
+			name: "ISTIO_MUTUAL with custom cert paths from proxy node metadata",
 			node: &model.Proxy{
 				Metadata: &model.NodeMetadata{
 					TLSServerCertChain: "/custom/path/to/cert-chain.pem",
@@ -383,6 +389,7 @@ func TestApplyToCommonTLSContext(t *testing.T) {
 					TLSServerRootCert:  "/custom/path/to/root.pem",
 				},
 			},
+			validateClient: true,
 			expected: &auth.CommonTlsContext{
 				TlsCertificateSdsSecretConfigs: []*auth.SdsSecretConfig{
 					{
@@ -390,8 +397,9 @@ func TestApplyToCommonTLSContext(t *testing.T) {
 						SdsConfig: &core.ConfigSource{
 							ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
 								ApiConfigSource: &core.ApiConfigSource{
-									ApiType:             core.ApiConfigSource_GRPC,
-									TransportApiVersion: core.ApiVersion_V3,
+									ApiType:                   core.ApiConfigSource_GRPC,
+									SetNodeOnFirstMessageOnly: true,
+									TransportApiVersion:       core.ApiVersion_V3,
 									GrpcServices: []*core.GrpcService{
 										{
 											TargetSpecifier: &core.GrpcService_EnvoyGrpc_{
@@ -413,8 +421,9 @@ func TestApplyToCommonTLSContext(t *testing.T) {
 							SdsConfig: &core.ConfigSource{
 								ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
 									ApiConfigSource: &core.ApiConfigSource{
-										ApiType:             core.ApiConfigSource_GRPC,
-										TransportApiVersion: core.ApiVersion_V3,
+										ApiType:                   core.ApiConfigSource_GRPC,
+										SetNodeOnFirstMessageOnly: true,
+										TransportApiVersion:       core.ApiVersion_V3,
 										GrpcServices: []*core.GrpcService{
 											{
 												TargetSpecifier: &core.GrpcService_EnvoyGrpc_{
@@ -431,12 +440,46 @@ func TestApplyToCommonTLSContext(t *testing.T) {
 				},
 			},
 		},
+		{
+			name: "SIMPLE with custom cert paths from proxy node metadata without cacerts",
+			node: &model.Proxy{
+				Metadata: &model.NodeMetadata{
+					TLSServerCertChain: "/custom/path/to/cert-chain.pem",
+					TLSServerKey:       "/custom-key.pem",
+				},
+			},
+			validateClient: false,
+			expected: &auth.CommonTlsContext{
+				TlsCertificateSdsSecretConfigs: []*auth.SdsSecretConfig{
+					{
+						Name: "file-cert:/custom/path/to/cert-chain.pem~/custom-key.pem",
+						SdsConfig: &core.ConfigSource{
+							ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
+								ApiConfigSource: &core.ApiConfigSource{
+									ApiType:                   core.ApiConfigSource_GRPC,
+									SetNodeOnFirstMessageOnly: true,
+									TransportApiVersion:       core.ApiVersion_V3,
+									GrpcServices: []*core.GrpcService{
+										{
+											TargetSpecifier: &core.GrpcService_EnvoyGrpc_{
+												EnvoyGrpc: &core.GrpcService_EnvoyGrpc{ClusterName: SDSClusterName},
+											},
+										},
+									},
+								},
+							},
+							ResourceApiVersion: core.ApiVersion_V3,
+						},
+					},
+				},
+			},
+		},
 	}
 
 	for _, test := range testCases {
 		t.Run(test.name, func(t *testing.T) {
 			tlsContext := &auth.CommonTlsContext{}
-			ApplyToCommonTLSContext(tlsContext, test.node.Metadata, test.sdsUdsPath, []string{}, test.trustDomainAliases)
+			ApplyToCommonTLSContext(tlsContext, test.node, []string{}, test.trustDomainAliases, test.validateClient)
 
 			if !cmp.Equal(tlsContext, test.expected, protocmp.Transform()) {
 				t.Errorf("got(%#v), want(%#v)\n", spew.Sdump(tlsContext), spew.Sdump(test.expected))

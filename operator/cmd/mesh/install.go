@@ -23,6 +23,8 @@ import (
 	"time"
 
 	"github.com/spf13/cobra"
+	"k8s.io/client-go/rest"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"istio.io/api/operator/v1alpha1"
 	"istio.io/istio/istioctl/pkg/clioptions"
@@ -118,7 +120,8 @@ func InstallCmd(logOpts *log.Options) *cobra.Command {
 		},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runApplyCmd(cmd, rootArgs, iArgs, logOpts)
-		}}
+		},
+	}
 
 	addFlags(ic, rootArgs)
 	addInstallFlags(ic, iArgs)
@@ -132,13 +135,20 @@ func runApplyCmd(cmd *cobra.Command, rootArgs *rootArgs, iArgs *installArgs, log
 	if err != nil {
 		return err
 	}
+	restConfig, clientset, client, err := K8sConfig(iArgs.kubeConfigPath, iArgs.context)
+	if err != nil {
+		return err
+	}
+	if err := k8sversion.IsK8VersionSupported(clientset, l); err != nil {
+		return err
+	}
 	tag, err := GetTagVersion(operatorVer.OperatorVersionString)
 	if err != nil {
 		return err
 	}
 	setFlags := applyFlagAliases(iArgs.set, iArgs.manifestsPath, iArgs.revision)
 
-	_, iop, err := manifest.GenerateConfig(iArgs.inFilenames, setFlags, iArgs.force, nil, l)
+	_, iop, err := manifest.GenerateConfig(iArgs.inFilenames, setFlags, iArgs.force, restConfig, l)
 	if err != nil {
 		return err
 	}
@@ -166,7 +176,7 @@ func runApplyCmd(cmd *cobra.Command, rootArgs *rootArgs, iArgs *installArgs, log
 	if err := configLogs(logOpts); err != nil {
 		return fmt.Errorf("could not configure logs: %s", err)
 	}
-	iop, err = InstallManifests(iop, iArgs.force, rootArgs.dryRun, iArgs.kubeConfigPath, iArgs.context, iArgs.readinessTimeout, l)
+	iop, err = InstallManifests(iop, iArgs.force, rootArgs.dryRun, restConfig, client, iArgs.readinessTimeout, l)
 	if err != nil {
 		return fmt.Errorf("failed to install manifests: %v", err)
 	}
@@ -192,20 +202,14 @@ func runApplyCmd(cmd *cobra.Command, rootArgs *rootArgs, iArgs *installArgs, log
 //  force   validation warnings are written to logger but command is not aborted
 //  dryRun  all operations are done but nothing is written
 // Returns final IstioOperator after installation if successful.
-func InstallManifests(iop *v1alpha12.IstioOperator, force bool, dryRun bool, kubeConfigPath string, context string,
+func InstallManifests(iop *v1alpha12.IstioOperator, force bool, dryRun bool, restConfig *rest.Config, client client.Client,
 	waitTimeout time.Duration, l clog.Logger) (*v1alpha12.IstioOperator, error) {
-
-	restConfig, clientset, client, err := K8sConfig(kubeConfigPath, context)
-	if err != nil {
-		return nil, err
-	}
-	if err := k8sversion.IsK8VersionSupported(clientset, l); err != nil {
-		return nil, err
-	}
 	// Needed in case we are running a test through this path that doesn't start a new process.
 	cache.FlushObjectCaches()
-	opts := &helmreconciler.Options{DryRun: dryRun, Log: l, WaitTimeout: waitTimeout, ProgressLog: progress.NewLog(),
-		Force: force}
+	opts := &helmreconciler.Options{
+		DryRun: dryRun, Log: l, WaitTimeout: waitTimeout, ProgressLog: progress.NewLog(),
+		Force: force,
+	}
 	reconciler, err := helmreconciler.NewHelmReconciler(client, restConfig, iop, opts)
 	if err != nil {
 		return iop, err
@@ -272,15 +276,25 @@ func DetectIstioVersionDiff(cmd *cobra.Command, tag string, ns string, kubeClien
 			}
 		}
 		revision := manifest.GetValueForSetFlag(setFlags, "revision")
+		msg := ""
 		// when the revision is not passed and if the ns has a prior istio
 		if revision == "" && tag != icpTag {
+			if icpTag < tag {
+				msg = "A newer"
+			} else {
+				msg = "An older"
+			}
 			cmd.Printf("! Istio control planes installed: %s.\n"+
-				"! An older installed version of Istio has been detected. Running this command will overwrite it.\n", strings.Join(icpTags, ", "))
+				"! "+msg+" installed version of Istio has been detected. Running this command will overwrite it.\n", strings.Join(icpTags, ", "))
 		}
 		// when the revision is passed
 		if icpTag != "" && tag != icpTag && revision != "" {
-			cmd.Printf("! Istio is being upgraded from %s -> %s.\n"+
-				"! Before upgrading, you may wish to use 'istioctl analyze' to check for IST0002 deprecation warnings.\n", icpTag, tag)
+			if icpTag > tag {
+				cmd.Printf("! Istio is being upgraded from %s -> %s.\n"+
+					"! Before upgrading, you may wish to use 'istioctl analyze' to check for IST0002 and IST0135 deprecation warnings.\n", icpTag, tag)
+			} else {
+				cmd.Printf("! Istio is being downgraded from %s -> %s.", icpTag, tag)
+			}
 		}
 	}
 	return nil
@@ -313,13 +327,13 @@ func getProfileNSAndEnabledComponents(iop *v1alpha12.IstioOperator) (string, str
 			}
 		}
 		for _, c := range iop.Spec.Components.IngressGateways {
-			if c.Enabled.Value {
+			if util.BoolValue(c.Enabled) {
 				enabledComponents = append(enabledComponents, name.UserFacingComponentName(name.IngressComponentName))
 				break
 			}
 		}
 		for _, c := range iop.Spec.Components.EgressGateways {
-			if c.Enabled.Value {
+			if util.BoolValue(c.Enabled) {
 				enabledComponents = append(enabledComponents, name.UserFacingComponentName(name.EgressComponentName))
 				break
 			}

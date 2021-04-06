@@ -57,6 +57,7 @@ type Setter struct {
 func (ts *Setter) Configs() []ConfigSettings {
 	return ts.configs
 }
+
 func NewTaintSetter(clientset client.Interface, options *Options) (ts *Setter, err error) {
 	configmap, err := clientset.CoreV1().ConfigMaps(options.ConfigmapNamespace).Get(context.TODO(), options.ConfigmapName, metav1.GetOptions{})
 	if err != nil {
@@ -73,7 +74,7 @@ func NewTaintSetter(clientset client.Interface, options *Options) (ts *Setter, e
 // load corresponding configmap's critical labels and their namespace
 func (ts *Setter) LoadConfig(config v1.ConfigMap) {
 	log.Debugf("Loading configmap %s in %s", config.Name, config.Namespace)
-	ts.configs = make([]ConfigSettings, 0) //clear previous one
+	ts.configs = make([]ConfigSettings, 0) // clear previous one
 	for key, value := range config.Data {
 		log.Debugf("Loading %s ", key)
 		var tempst []ConfigSettings
@@ -95,8 +96,8 @@ func (ts *Setter) LoadConfig(config v1.ConfigMap) {
 	}
 }
 
-//only pod with NodeReadiness Toleracnce with effect no schedule or
-//a generalized tolerance with noschedule effect can be considered
+// only pod with NodeReadiness Toleracnce with effect no schedule or
+// a generalized tolerance with noschedule effect can be considered
 func (ts *Setter) validTolerance(pod v1.Pod) bool {
 	for _, toleration := range pod.Spec.Tolerations {
 		if (toleration.Key == TaintName || toleration.Key == "") &&
@@ -108,7 +109,7 @@ func (ts *Setter) validTolerance(pod v1.Pod) bool {
 	return false
 }
 
-//check whether current node have readiness
+// check whether current node have readiness
 func (ts *Setter) HasReadinessTaint(node *v1.Node) bool {
 	ts.mutex.Lock()
 	defer ts.mutex.Unlock()
@@ -121,7 +122,7 @@ func (ts *Setter) HasReadinessTaint(node *v1.Node) bool {
 	return false
 }
 
-//assumption: order of taint is not important
+// assumption: order of taint is not important
 func (ts *Setter) RemoveReadinessTaint(node *v1.Node) error {
 	ts.mutex.RLock()
 	defer ts.mutex.RUnlock()
@@ -136,7 +137,7 @@ func (ts *Setter) RemoveReadinessTaint(node *v1.Node) error {
 }
 
 // taint node with specific taint name with effect of no schedule
-//do nothing if it already have the readiness taint
+// do nothing if it already have the readiness taint
 func (ts *Setter) AddReadinessTaint(node *v1.Node) error {
 	ts.mutex.Lock()
 	defer ts.mutex.Unlock()
@@ -171,7 +172,7 @@ func deleteTaint(taints []v1.Taint, taintToDelete *v1.Taint) []v1.Taint {
 	return newTaints
 }
 
-//node readiness validation by checking the last heartbeat status
+// node readiness validation by checking the last heartbeat status
 func GetNodeLatestReadiness(node v1.Node) bool {
 	currentCondition := node.Status.Conditions
 	if len(currentCondition) == 0 {

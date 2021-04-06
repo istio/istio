@@ -1,0 +1,24 @@
+# This file provides some defaults for integration testing.
+apiVersion: install.istio.io/v1alpha1
+kind: IstioOperator
+spec:
+  meshConfig:
+    accessLogFile: "/dev/stdout"
+    defaultConfig:
+      proxyMetadata:
+        ISTIO_META_DNS_CAPTURE: "true"
+  components:
+    base:
+      enabled: true
+    pilot:
+      enabled: false
+    istiodRemote:
+      enabled: true
+  values:
+    global:
+      externalIstiod: true
+      proxy:
+        resources:
+          requests:
+            cpu: 10m
+            memory: 40Mi

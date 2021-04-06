@@ -55,11 +55,11 @@ func TestStackdriverHTTPAuditLogging(t *testing.T) {
 			}
 			policies := tmpl.EvaluateAllOrFail(t, args, file.AsStringOrFail(t, auditPolicyForLogEntry))
 			ctx.Config().ApplyYAMLOrFail(t, ns, policies...)
-			defer ctx.Config().DeleteYAMLOrFail(t, ns, policies...)
 			t.Logf("Audit policy deployed to namespace %v", ns)
 
 			for _, cltInstance := range clt {
-				scopes.Framework.Infof("Validating Audit policy and Telemetry for Cluster %v", cltInstance.Config().Cluster.Name())
+				cltInstance := cltInstance
+				scopes.Framework.Infof("Validating Audit policy and Telemetry for Cluster %v", cltInstance.Config().Cluster.StableName())
 				g.Go(func() error {
 					err := retry.UntilSuccess(func() error {
 						if err := sendTrafficForAudit(t, cltInstance); err != nil {
@@ -68,25 +68,26 @@ func TestStackdriverHTTPAuditLogging(t *testing.T) {
 						t.Logf("Traffic sent to namespace %v", ns)
 
 						clName := cltInstance.Config().Cluster.Name()
+						trustDomain := telemetry.GetTrustDomain(cltInstance.Config().Cluster, ist.Settings().SystemNamespace)
 						t.Logf("Collect Audit Log for cluster %v", clName)
 
 						var errs []string
 
-						errAuditFoo := validateLogs(t, serverAuditFooLogEntry, clName, stackdriver.ServerAuditLog)
+						errAuditFoo := validateLogs(t, serverAuditFooLogEntry, clName, trustDomain, stackdriver.ServerAuditLog)
 						if errAuditFoo == nil {
 							t.Logf("Foo Audit Log validated for cluster %v", clName)
 						} else {
 							errs = append(errs, errAuditFoo.Error())
 						}
 
-						errAuditBar := validateLogs(t, serverAuditBarLogEntry, clName, stackdriver.ServerAuditLog)
+						errAuditBar := validateLogs(t, serverAuditBarLogEntry, clName, trustDomain, stackdriver.ServerAuditLog)
 						if errAuditBar == nil {
 							t.Logf("Bar Audit Log validated for cluster %v", clName)
 						} else {
 							errs = append(errs, errAuditBar.Error())
 						}
 
-						errAuditAll := validateLogs(t, serverAuditAllLogEntry, clName, stackdriver.ServerAuditLog)
+						errAuditAll := validateLogs(t, serverAuditAllLogEntry, clName, trustDomain, stackdriver.ServerAuditLog)
 						if errAuditAll == nil {
 							t.Logf("All Audit Log validated for cluster %v", clName)
 						} else {
@@ -110,7 +111,6 @@ func TestStackdriverHTTPAuditLogging(t *testing.T) {
 
 						return fmt.Errorf(strings.Join(errs, "\n"))
 					}, retry.Delay(5*time.Second), retry.Timeout(80*time.Second))
-
 					if err != nil {
 						return err
 					}

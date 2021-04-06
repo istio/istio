@@ -19,7 +19,7 @@ import (
 
 	"github.com/onsi/gomega"
 
-	testID "istio.io/istio/pkg/test/env"
+	"istio.io/istio/pkg/test/envoy"
 	xdsService "istio.io/istio/security/pkg/stsservice/mock"
 	stsTest "istio.io/istio/security/pkg/stsservice/test"
 )
@@ -29,7 +29,7 @@ import (
 func TestTokenFetchTimeoutOne(t *testing.T) {
 	cb := xdsService.CreateXdsCallback(t)
 	// Start all test servers
-	setup := stsTest.SetupTest(t, cb, testID.STSTimeoutTest, false)
+	setup := stsTest.SetupTest(t, cb, envoy.STSTimeoutTest, false)
 
 	// Get initial number of calls to auth server. They are not zero due to STS flow test
 	// in the test setup, to make sure the servers are up and ready to serve.
@@ -59,7 +59,7 @@ func TestTokenFetchTimeoutOne(t *testing.T) {
 func TestTokenFetchTimeoutTwo(t *testing.T) {
 	cb := xdsService.CreateXdsCallback(t)
 	// Start all test servers
-	setup := stsTest.SetupTest(t, cb, testID.STSTimeoutTest, false)
+	setup := stsTest.SetupTest(t, cb, envoy.STSTimeoutTest, false)
 
 	// Get initial number of calls to auth server. They are not zero due to STS flow test
 	// in the test setup, to make sure the servers are up and ready to serve.

@@ -100,7 +100,7 @@ func NewConfigGenTest(t test.Failer, opts TestOptions) *ConfigGenTest {
 	})
 
 	configs := getConfigs(t, opts)
-	configStore := memory.MakeSkipValidation(collections.Pilot, true)
+	configStore := memory.MakeSkipValidation(collections.Pilot)
 
 	cc := memory.NewSyncController(configStore)
 	controllers := []model.ConfigStoreCache{cc}
@@ -140,6 +140,7 @@ func NewConfigGenTest(t test.Failer, opts TestOptions) *ConfigGenTest {
 	env.ServiceDiscovery = serviceDiscovery
 	env.IstioConfigStore = model.MakeIstioStore(configController)
 	env.NetworksWatcher = opts.NetworksWatcher
+	env.Init()
 
 	if opts.Plugins == nil {
 		opts.Plugins = registry.NewPlugins([]string{plugin.AuthzCustom, plugin.Authn, plugin.Authz})

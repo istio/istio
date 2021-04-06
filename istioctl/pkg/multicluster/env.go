@@ -58,6 +58,7 @@ func (e *KubeEnvironment) CreateClient(context string) (kube.ExtendedClient, err
 func (e *KubeEnvironment) Printf(format string, a ...interface{}) {
 	_, _ = fmt.Fprintf(e.stdout, format, a...)
 }
+
 func (e *KubeEnvironment) Errorf(format string, a ...interface{}) {
 	_, _ = fmt.Fprintf(e.stderr, format, a...)
 }

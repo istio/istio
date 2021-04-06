@@ -4,7 +4,7 @@
     "cluster": "istio-proxy",
     "locality": {
     },
-    "metadata": {"INSTANCE_IPS":"10.3.3.3,10.4.4.4,10.5.5.5,10.6.6.6","PROXY_CONFIG":{"binaryPath":"/usr/local/bin/envoy","configPath":"/tmp/bootstrap/all","controlPlaneAuthPolicy":"MUTUAL_TLS","customConfigFile":"envoy_bootstrap.json","discoveryAddress":"mypilot:15011","drainDuration":"5s","envoyAccessLogService":{"address":"accesslog-service:15000"},"envoyMetricsService":{"address":"metrics-service:15000","tlsSettings":{"caCertificates":"/etc/istio/ms/ca.pem","clientCertificate":"/etc/istio/ms/client.pem","mode":"MUTUAL","privateKey":"/etc/istio/ms/key.pem"}},"parentShutdownDuration":"6s","proxyAdminPort":15005,"serviceCluster":"istio-proxy","statNameLength":200,"statsdUdpAddress":"10.1.1.1:9125","tracing":{"zipkin":{"address":"localhost:6000"}}}}
+    "metadata": {"INSTANCE_IPS":"10.3.3.3,10.4.4.4,10.5.5.5,10.6.6.6","OUTLIER_LOG_PATH":"/dev/stdout","PILOT_CERT_PROVIDER":"istiod","PILOT_SAN":["spiffe://cluster.local/ns/istio-system/sa/istio-pilot-service-account"],"PROXY_CONFIG":{"binaryPath":"/usr/local/bin/envoy","configPath":"/tmp/bootstrap/all","controlPlaneAuthPolicy":"MUTUAL_TLS","customConfigFile":"envoy_bootstrap.json","discoveryAddress":"mypilot:15011","drainDuration":"5s","envoyAccessLogService":{"address":"accesslog-service:15000"},"envoyMetricsService":{"address":"metrics-service:15000","tlsSettings":{"caCertificates":"/etc/istio/ms/ca.pem","clientCertificate":"/etc/istio/ms/client.pem","mode":"MUTUAL","privateKey":"/etc/istio/ms/key.pem"}},"parentShutdownDuration":"6s","proxyAdminPort":15005,"serviceCluster":"istio-proxy","statNameLength":200,"statsdUdpAddress":"10.1.1.1:9125","tracing":{"zipkin":{"address":"localhost:6000"}}}}
   },
   "layered_runtime": {
       "layers": [
@@ -15,6 +15,12 @@
                   "envoy.reloadable_features.strict_1xx_and_204_response_headers": false,
                   "re2.max_program_size.error_level": 1024
               }
+          },
+          {
+            "name": "global config",
+            "static_layer": {
+                "overload.global_downstream_max_connections": 2147483647
+            }
           },
           {
               "name": "admin",
@@ -158,14 +164,6 @@
         "tag_name": "connection_security_policy"
       },
       {
-        "regex": "(permissive_response_code=\\.=(.*?);\\.;)",
-        "tag_name": "permissive_response_code"
-      },
-      {
-        "regex": "(permissive_response_policyid=\\.=(.*?);\\.;)",
-        "tag_name": "permissive_response_policyid"
-      },
-      {
         "regex": "(source_canonical_service=\\.=(.*?);\\.;)",
         "tag_name": "source_canonical_service"
       },
@@ -239,22 +237,23 @@
   "dynamic_resources": {
     "lds_config": {
       "ads": {},
+      "initial_fetch_timeout": "0s",
       "resource_api_version": "V3"
     },
     "cds_config": {
       "ads": {},
+      "initial_fetch_timeout": "0s",
       "resource_api_version": "V3"
     },
     "ads_config": {
       "api_type": "GRPC",
+      "set_node_on_first_message_only": true,
       "transport_api_version": "V3",
       "grpc_services": [
         {
-        
           "envoy_grpc": {
             "cluster_name": "xds-grpc"
           }
-        
         }
       ]
     }
@@ -289,7 +288,7 @@
         "connect_timeout": "0.250s",
         "lb_policy": "ROUND_ROBIN",
         "load_assignment": {
-          "cluster_name": "prometheus_stats",
+          "cluster_name": "agent",
           "endpoints": [{
             "lb_endpoints": [{
               "endpoint": {
@@ -325,8 +324,8 @@
             }]
           }]
         }
-      } 
-       , {
+      },
+      {
         "name": "xds-grpc",
         "type": "STRICT_DNS",
         "respect_dns_ttl": true,
@@ -337,7 +336,7 @@
           "name": "envoy.transport_sockets.tls",
           "typed_config": {
             "@type": "type.googleapis.com/envoy.extensions.transport_sockets.tls.v3.UpstreamTlsContext",
-            "sni": "",
+            "sni": "mypilot",
             "common_tls_context": {
               "alpn_protocols": [
                 "h2"
@@ -406,7 +405,6 @@
         "http2_protocol_options": { }
       }
       
-      
       ,
       {
         "name": "zipkin",
@@ -434,7 +432,7 @@
       {
         "name": "envoy_metrics_service",
         "type": "STRICT_DNS",
-        "transport_socket": {"name":"envoy.transport_sockets.tls","typed_config":{"@type":"type.googleapis.com/envoy.extensions.transport_sockets.tls.v3.UpstreamTlsContext","common_tls_context":{"alpn_protocols":["h2"],"combined_validation_context":{"default_validation_context":{},"validation_context_sds_secret_config":{"name":"file-root:/etc/istio/ms/ca.pem","sds_config":{"api_config_source":{"api_type":"GRPC","grpc_services":[{"envoy_grpc":{"cluster_name":"sds-grpc"}}],"transport_api_version":"V3"},"resource_api_version":"V3"}}},"tls_certificate_sds_secret_configs":[{"name":"file-cert:/etc/istio/ms/client.pem~/etc/istio/ms/key.pem","sds_config":{"api_config_source":{"api_type":"GRPC","grpc_services":[{"envoy_grpc":{"cluster_name":"sds-grpc"}}],"transport_api_version":"V3"},"resource_api_version":"V3"}}]}}},
+        "transport_socket": {"name":"envoy.transport_sockets.tls","typed_config":{"@type":"type.googleapis.com/envoy.extensions.transport_sockets.tls.v3.UpstreamTlsContext","common_tls_context":{"alpn_protocols":["h2"],"combined_validation_context":{"default_validation_context":{},"validation_context_sds_secret_config":{"name":"file-root:/etc/istio/ms/ca.pem","sds_config":{"api_config_source":{"api_type":"GRPC","grpc_services":[{"envoy_grpc":{"cluster_name":"sds-grpc"}}],"set_node_on_first_message_only":true,"transport_api_version":"V3"},"resource_api_version":"V3"}}},"tls_certificate_sds_secret_configs":[{"name":"file-cert:/etc/istio/ms/client.pem~/etc/istio/ms/key.pem","sds_config":{"api_config_source":{"api_type":"GRPC","grpc_services":[{"envoy_grpc":{"cluster_name":"sds-grpc"}}],"set_node_on_first_message_only":true,"transport_api_version":"V3"},"resource_api_version":"V3"}}]}}},
         "respect_dns_ttl": true,
         "dns_lookup_family": "V4_ONLY",
         "connect_timeout": "1s",
@@ -602,6 +600,7 @@
       "name": "envoy.stat_sinks.metrics_service",
       "typed_config": {
         "@type": "type.googleapis.com/envoy.config.metrics.v3.MetricsServiceConfig",
+        "transport_api_version": "V3",
         "grpc_service": {
           "envoy_grpc": {
             "cluster_name": "envoy_metrics_service"

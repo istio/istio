@@ -23,16 +23,17 @@ import (
 	echoclient "istio.io/istio/pkg/test/echo/client"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
+	"istio.io/istio/pkg/test/framework/components/echo/echotest"
 	"istio.io/istio/pkg/test/util/retry"
+	"istio.io/istio/pkg/test/util/tmpl"
+	"istio.io/istio/pkg/test/util/yml"
 )
 
 // callsPerCluster is used to ensure cross-cluster load balancing has a chance to work
 const callsPerCluster = 5
 
-var (
-	// Slow down retries to allow for delayed_close_timeout. Also require 3 successive successes.
-	retryOptions = []retry.Option{retry.Delay(1000 * time.Millisecond), retry.Converge(3)}
-)
+// Slow down retries to allow for delayed_close_timeout. Also require 3 successive successes.
+var retryOptions = []retry.Option{retry.Delay(1000 * time.Millisecond), retry.Converge(3)}
 
 type TrafficCall struct {
 	name string
@@ -41,71 +42,186 @@ type TrafficCall struct {
 }
 
 type TrafficTestCase struct {
-	name   string
+	name string
+	// config can optionally be templated using the params src, dst (each are []echo.Instance)
 	config string
 
 	// Multiple calls. Cannot be used with call/opts
 	children []TrafficCall
 
-	// Single call. Cannot be used with children.
+	// Single call. Cannot be used with children or workloadAgnostic tests.
 	call func(t test.Failer, options echo.CallOptions, retryOptions ...retry.Option) echoclient.ParsedResponses
+	// opts specifies the echo call options. When using RunForApps, the Target will be set dynamically.
 	opts echo.CallOptions
+	// validate is used to build validators dynamically when using RunForApps based on the active/src dest pair
+	validate func(src echo.Instance, dst echo.Services) echo.Validator
 
 	// setting cases to skipped is better than not adding them - gives visibility to what needs to be fixed
 	skip bool
+
+	// workloadAgnostic is a temporary setting to trigger using RunForApps
+	// TODO remove this and force everything to be workoad agnostic
+	workloadAgnostic bool
+
+	// toN causes the test to be run for N destinations. The call will be made from instances of the first deployment
+	// in each subset in each cluster. See echotes.T's RunToN for more details.
+	toN int
+	// sourceFilters allows adding additional filtering for workload agnostic cases to test using fewer clients
+	sourceFilters []echotest.Filter
+	// targetFilters allows adding additional filtering for workload agnostic cases to test using fewer targets
+	targetFilters []echotest.Filter
 }
 
-func (c TrafficTestCase) Run(ctx framework.TestContext, namespace string) {
-	job := func(ctx framework.TestContext) {
+func (c TrafficTestCase) RunForApps(t framework.TestContext, apps echo.Instances, namespace string) {
+	if c.opts.Target != nil {
+		t.Fatal("TrafficTestCase.RunForApps: opts.Target must not be specified")
+	}
+	if c.call != nil {
+		t.Fatal("TrafficTestCase.RunForApps: call must not be specified")
+	}
+	// just check if any of the required fields are set
+	optsSpecified := c.opts.Port != nil || c.opts.PortName != "" || c.opts.Scheme != ""
+	if optsSpecified && len(c.children) > 0 {
+		t.Fatal("TrafficTestCase: must not specify both opts and children")
+	}
+
+	job := func(t framework.TestContext) {
+		echoT := echotest.New(t, apps).
+			SetupForServicePair(func(t framework.TestContext, src echo.Instances, dsts echo.Services) error {
+				cfg := yml.MustApplyNamespace(t, tmpl.MustEvaluate(
+					c.config,
+					map[string]interface{}{
+						"src":    src,
+						"srcSvc": src[0].Config().Service,
+						// tests that use simple Run only need the first
+						"dst":    dsts[0],
+						"dstSvc": dsts[0][0].Config().Service,
+						// tests that use RunForN need all destination deployments
+						"dsts":    dsts,
+						"dstSvcs": dsts.Services(),
+					},
+				), namespace)
+				return t.Config().ApplyYAML("", cfg)
+			}).
+			WithDefaultFilters().
+			From(c.sourceFilters...).
+			To(c.targetFilters...)
+		if c.toN > 0 {
+			echoT.RunToN(c.toN, func(t framework.TestContext, src echo.Instance, dsts echo.Services) {
+				// TODO DRY up Run vs RunToN
+				if c.skip {
+					t.SkipNow()
+				}
+				buildOpts := func(options echo.CallOptions) echo.CallOptions {
+					opts := options
+					opts.Target = dsts[0][0]
+					if c.validate != nil {
+						opts.Validator = c.validate(src, dsts)
+					}
+					if opts.Count == 0 {
+						opts.Count = callsPerCluster * len(dsts) * len(dsts[0])
+					}
+					return opts
+				}
+				if optsSpecified {
+					src.CallWithRetryOrFail(t, buildOpts(c.opts), retryOptions...)
+				}
+				for _, child := range c.children {
+					t.NewSubTest(child.name).Run(func(t framework.TestContext) {
+						src.CallWithRetryOrFail(t, buildOpts(child.opts), retryOptions...)
+					})
+				}
+			})
+		} else {
+			echoT.Run(func(t framework.TestContext, src echo.Instance, dest echo.Instances) {
+				if c.skip {
+					t.SkipNow()
+				}
+				buildOpts := func(options echo.CallOptions) echo.CallOptions {
+					opts := options
+					opts.Target = dest[0]
+					if c.validate != nil {
+						opts.Validator = c.validate(src, echo.Services{dest})
+					}
+					if opts.Count == 0 {
+						opts.Count = callsPerCluster * len(dest)
+					}
+					return opts
+				}
+				if optsSpecified {
+					src.CallWithRetryOrFail(t, buildOpts(c.opts), retryOptions...)
+				}
+				for _, child := range c.children {
+					t.NewSubTest(child.name).Run(func(t framework.TestContext) {
+						src.CallWithRetryOrFail(t, buildOpts(child.opts), retryOptions...)
+					})
+				}
+			})
+		}
+	}
+
+	if c.name != "" {
+		t.NewSubTest(c.name).Run(job)
+	} else {
+		job(t)
+	}
+}
+
+func (c TrafficTestCase) Run(t framework.TestContext, namespace string) {
+	job := func(t framework.TestContext) {
 		if c.skip {
-			ctx.SkipNow()
+			t.SkipNow()
 		}
 		if len(c.config) > 0 {
-			ctx.Config().ApplyYAMLOrFail(ctx, namespace, c.config)
-			ctx.Cleanup(func() {
-				_ = ctx.Config().DeleteYAML(namespace, c.config)
-			})
+			cfg := yml.MustApplyNamespace(t, c.config, namespace)
+			t.Config().ApplyYAMLOrFail(t, "", cfg)
 		}
 
 		if c.call != nil && len(c.children) > 0 {
-			ctx.Fatal("TrafficTestCase: must not specify both call and children")
+			t.Fatal("TrafficTestCase: must not specify both call and children")
 		}
 
 		if c.call != nil {
 			// Call the function with a few custom retry options.
-			c.call(ctx, c.opts, retryOptions...)
+			c.call(t, c.opts, retryOptions...)
 		}
 
 		for _, child := range c.children {
-			ctx.NewSubTest(child.name).Run(func(ctx framework.TestContext) {
-				child.call(ctx, child.opts, retryOptions...)
+			t.NewSubTest(child.name).Run(func(t framework.TestContext) {
+				child.call(t, child.opts, retryOptions...)
 			})
 		}
 	}
 	if c.name != "" {
-		ctx.NewSubTest(c.name).Run(job)
+		t.NewSubTest(c.name).Run(job)
 	} else {
-		job(ctx)
+		job(t)
 	}
 }
 
-func RunAllTrafficTests(ctx framework.TestContext, apps *EchoDeployments) {
+func RunAllTrafficTests(t framework.TestContext, apps *EchoDeployments) {
 	cases := map[string][]TrafficTestCase{}
-	cases["virtualservice"] = virtualServiceCases(apps)
-	cases["sniffing"] = protocolSniffingCases(apps)
+	cases["virtualservice"] = virtualServiceCases()
+	cases["sniffing"] = protocolSniffingCases()
+	cases["selfcall"] = selfCallsCases(apps)
 	cases["serverfirst"] = serverFirstTestCases(apps)
 	cases["gateway"] = gatewayCases(apps)
 	cases["loop"] = trafficLoopCases(apps)
 	cases["tls-origination"] = tlsOriginationCases(apps)
 	cases["instanceip"] = instanceIPTests(apps)
 	cases["services"] = serviceCases(apps)
-	if !ctx.Settings().SkipVM {
+	if !t.Settings().SkipVM {
 		cases["vm"] = VMTestCases(apps.VM, apps)
 	}
+	cases["dns"] = DNSTestCases(apps)
 	for name, tts := range cases {
-		ctx.NewSubTest(name).Run(func(ctx framework.TestContext) {
+		t.NewSubTest(name).Run(func(t framework.TestContext) {
 			for _, tt := range tts {
-				tt.Run(ctx, apps.Namespace.Name())
+				if tt.workloadAgnostic {
+					tt.RunForApps(t, apps.All, apps.Namespace.Name())
+				} else {
+					tt.Run(t, apps.Namespace.Name())
+				}
 			}
 		})
 	}

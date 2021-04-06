@@ -23,7 +23,10 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/tools/cache"
 
+	meshconfig "istio.io/api/mesh/v1alpha1"
+	"istio.io/istio/pilot/pkg/server"
 	"istio.io/istio/pilot/pkg/serviceregistry/aggregate"
+	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/secretcontroller"
 	pkgtest "istio.io/istio/pkg/test"
@@ -37,7 +40,7 @@ const (
 	ResyncPeriod        = 1 * time.Second
 )
 
-var mockserviceController = &aggregate.Controller{}
+var mockserviceController = aggregate.NewController(aggregate.Options{})
 
 func createMultiClusterSecret(k8s kube.Client) error {
 	data := map[string][]byte{}
@@ -84,6 +87,7 @@ func Test_KubeSecretController(t *testing.T) {
 	t.Cleanup(func() {
 		close(stop)
 	})
+	s := server.New()
 	mc := NewMulticluster(
 		"pilot-abc-123",
 		clientset,
@@ -93,10 +97,15 @@ func Test_KubeSecretController(t *testing.T) {
 			DomainSuffix:      DomainSuffix,
 			ResyncPeriod:      ResyncPeriod,
 			SyncInterval:      time.Microsecond,
-		}, mockserviceController, nil, "", "default", nil, nil)
+			MeshWatcher:       mesh.NewFixedWatcher(&meshconfig.MeshConfig{}),
+		}, mockserviceController, nil, "", "default", nil, nil, nil, s)
 	mc.InitSecretController(stop)
 	cache.WaitForCacheSync(stop, mc.HasSynced)
 	clientset.RunAndWait(stop)
+	_ = s.Start(stop)
+	go func() {
+		_ = mc.Run(stop)
+	}()
 
 	// Create the multicluster secret. Sleep to allow created remote
 	// controller to start and callback add function to be called.
@@ -116,5 +125,4 @@ func Test_KubeSecretController(t *testing.T) {
 
 	// Test - Verify that the remote controller has been removed.
 	verifyControllers(t, mc, 0, "delete remote controller")
-
 }

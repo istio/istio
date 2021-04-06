@@ -30,19 +30,23 @@ import (
 	istioversion "istio.io/pkg/version"
 )
 
+const (
+	// Service account to create tokens in
+	tokenServiceAccount = "default"
+)
+
 // RequestAndProcessXds merges XDS responses from 1 central or 1..N K8s cluster-based XDS servers
 // Deprecated This method makes multiple responses appear to come from a single control plane;
 // consider using AllRequestAndProcessXds or FirstRequestAndProcessXds
 // nolint: lll
 func RequestAndProcessXds(dr *xdsapi.DiscoveryRequest, centralOpts *clioptions.CentralControlPlaneOptions, istioNamespace string, kubeClient kube.ExtendedClient) (*xdsapi.DiscoveryResponse, error) {
-
 	// If Central Istiod case, just call it
 	if centralOpts.Xds != "" {
-		dialOpts, err := xds.DialOptions(centralOpts, kubeClient)
+		dialOpts, err := xds.DialOptions(centralOpts, istioNamespace, tokenServiceAccount, istioNamespace, kubeClient)
 		if err != nil {
 			return nil, err
 		}
-		return xds.GetXdsResponse(dr, centralOpts, dialOpts)
+		return xds.GetXdsResponse(dr, istioNamespace, tokenServiceAccount, centralOpts, dialOpts)
 	}
 
 	// Self-administered case.  Find all Istiods in revision using K8s, port-forward and call each in turn
@@ -76,7 +80,7 @@ func queryEachShard(all bool, dr *xdsapi.DiscoveryRequest, istioNamespace string
 		CertDir: centralOpts.CertDir,
 		Timeout: centralOpts.Timeout,
 	}
-	dialOpts, err := xds.DialOptions(&xdsOpts, kubeClient)
+	dialOpts, err := xds.DialOptions(&xdsOpts, istioNamespace, tokenServiceAccount, istioNamespace, kubeClient)
 	if err != nil {
 		return nil, err
 	}
@@ -91,7 +95,7 @@ func queryEachShard(all bool, dr *xdsapi.DiscoveryRequest, istioNamespace string
 		}
 		defer fw.Close()
 		xdsOpts.Xds = fw.Address()
-		response, err := xds.GetXdsResponse(dr, &xdsOpts, dialOpts)
+		response, err := xds.GetXdsResponse(dr, istioNamespace, tokenServiceAccount, &xdsOpts, dialOpts)
 		if err != nil {
 			return nil, fmt.Errorf("could not get XDS from discovery pod %q: %v", pod.Name, err)
 		}
@@ -129,27 +133,35 @@ func makeSan(istioNamespace, revision string) string {
 
 // AllRequestAndProcessXds returns all XDS responses from 1 central or 1..N K8s cluster-based XDS servers
 // nolint: lll
-func AllRequestAndProcessXds(dr *xdsapi.DiscoveryRequest, centralOpts *clioptions.CentralControlPlaneOptions, istioNamespace string, kubeClient kube.ExtendedClient) (map[string]*xdsapi.DiscoveryResponse, error) {
-	return multiRequestAndProcessXds(true, dr, centralOpts, istioNamespace, kubeClient)
+func AllRequestAndProcessXds(dr *xdsapi.DiscoveryRequest, centralOpts *clioptions.CentralControlPlaneOptions, istioNamespace string,
+	ns string, serviceAccount string, kubeClient kube.ExtendedClient) (map[string]*xdsapi.DiscoveryResponse, error) {
+	return multiRequestAndProcessXds(true, dr, centralOpts, istioNamespace, ns, serviceAccount, kubeClient)
 }
 
 // FirstRequestAndProcessXds returns all XDS responses from 1 central or 1..N K8s cluster-based XDS servers,
 // stopping after the first response that returns any resources.
 // nolint: lll
-func FirstRequestAndProcessXds(dr *xdsapi.DiscoveryRequest, centralOpts *clioptions.CentralControlPlaneOptions, istioNamespace string, kubeClient kube.ExtendedClient) (map[string]*xdsapi.DiscoveryResponse, error) {
-	return multiRequestAndProcessXds(false, dr, centralOpts, istioNamespace, kubeClient)
+func FirstRequestAndProcessXds(dr *xdsapi.DiscoveryRequest, centralOpts *clioptions.CentralControlPlaneOptions, istioNamespace string,
+	ns string, serviceAccount string, kubeClient kube.ExtendedClient) (map[string]*xdsapi.DiscoveryResponse, error) {
+	return multiRequestAndProcessXds(false, dr, centralOpts, istioNamespace, ns, serviceAccount, kubeClient)
 }
 
 // nolint: lll
-func multiRequestAndProcessXds(all bool, dr *xdsapi.DiscoveryRequest, centralOpts *clioptions.CentralControlPlaneOptions, istioNamespace string, kubeClient kube.ExtendedClient) (map[string]*xdsapi.DiscoveryResponse, error) {
-
+func multiRequestAndProcessXds(all bool, dr *xdsapi.DiscoveryRequest, centralOpts *clioptions.CentralControlPlaneOptions, istioNamespace string,
+	ns string, serviceAccount string, kubeClient kube.ExtendedClient) (map[string]*xdsapi.DiscoveryResponse, error) {
 	// If Central Istiod case, just call it
+	if ns == "" {
+		ns = istioNamespace
+	}
+	if ns == istioNamespace {
+		serviceAccount = tokenServiceAccount
+	}
 	if centralOpts.Xds != "" {
-		dialOpts, err := xds.DialOptions(centralOpts, kubeClient)
+		dialOpts, err := xds.DialOptions(centralOpts, ns, serviceAccount, istioNamespace, kubeClient)
 		if err != nil {
 			return nil, err
 		}
-		response, err := xds.GetXdsResponse(dr, centralOpts, dialOpts)
+		response, err := xds.GetXdsResponse(dr, ns, serviceAccount, centralOpts, dialOpts)
 		if err != nil {
 			return nil, err
 		}

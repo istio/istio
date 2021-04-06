@@ -25,44 +25,39 @@ import (
 )
 
 func TestCtlPlaneConfig(t *testing.T) {
-
 	istiodConfigMap := map[string][]byte{
 		"istiod-7b69ff6f8c-fvjvw": []byte("active_scopes:\n  ads:info"),
 	}
 
 	cases := []execTestCase{
 		{
-			args:           strings.Split("experimental istiod", " "),
+			args:           strings.Split("admin", " "),
 			expectedString: "Manage istiod logging",
 		},
 		{
-			args:           strings.Split("x istiod", " "),
-			expectedString: "Manage istiod logging",
-		},
-		{
-			args:           strings.Split("x istiod log -l app=invalid", " "),
+			args:           strings.Split("admin log -l app=invalid", " "),
 			expectedString: "no pods found",
 			wantException:  true,
 		},
 		{
-			args:           strings.Split("x istiod log", " "),
+			args:           strings.Split("admin log", " "),
 			expectedString: "no pods found",
 			wantException:  true,
 		},
 		{
 			execClientConfig: istiodConfigMap,
-			args:             strings.Split("x istiod log istiod-7b69ff6f8c-fvjvw --level invalid", " "),
+			args:             strings.Split("admin log istiod-7b69ff6f8c-fvjvw --level invalid", " "),
 			expectedString:   "pattern invalid did not match",
 			wantException:    true,
 		},
 		{
 			execClientConfig: istiodConfigMap,
-			args:             strings.Split("x istiod log istiod-7b69ff6f8c-fvjvw --stack-trace-level invalid", " "),
+			args:             strings.Split("admin log istiod-7b69ff6f8c-fvjvw --stack-trace-level invalid", " "),
 			expectedString:   "pattern invalid did not match",
 			wantException:    true,
 		},
 		{
-			args:           strings.Split("x istiod log --reset --level invalid", " "),
+			args:           strings.Split("admin log --reset --level invalid", " "),
 			expectedString: "--level cannot be combined with --reset",
 			wantException:  true,
 		},
@@ -76,7 +71,7 @@ func TestCtlPlaneConfig(t *testing.T) {
 }
 
 func Test_newScopeLevelPair(t *testing.T) {
-	var validationPattern = `^\w+:(debug|error|warn|info|debug)`
+	validationPattern := `^\w+:(debug|error|warn|info|debug)`
 	type args struct {
 		slp               string
 		validationPattern string
@@ -108,7 +103,7 @@ func Test_newScopeLevelPair(t *testing.T) {
 }
 
 func Test_newScopeStackTraceLevelPair(t *testing.T) {
-	var validationPattern = `^\w+:(debug|error|warn|info|debug)`
+	validationPattern := `^\w+:(debug|error|warn|info|debug)`
 	type args struct {
 		sslp              string
 		validationPattern string
@@ -228,9 +223,9 @@ func adsHandler(writer http.ResponseWriter, request *http.Request) {
 	switch request.Method {
 	case http.MethodGet:
 		_, _ = writer.Write([]byte(getResponse))
-
 	}
 }
+
 func setupHTTPServer() (*httptest.Server, *url.URL) {
 	handler := http.NewServeMux()
 	handler.HandleFunc("/scopej/ads", adsHandler)
@@ -241,7 +236,6 @@ func setupHTTPServer() (*httptest.Server, *url.URL) {
 }
 
 func Test_flagState_run(t *testing.T) {
-
 	server, url := setupHTTPServer()
 	defer server.Close()
 

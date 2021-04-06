@@ -30,17 +30,19 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
-	serviceapisclient "sigs.k8s.io/service-apis/pkg/client/clientset/versioned"
+	serviceapisclient "sigs.k8s.io/gateway-api/pkg/client/clientset/versioned"
 
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/schema/collections"
 
 	networkingv1alpha3 "istio.io/api/networking/v1alpha3"
 	securityv1beta1 "istio.io/api/security/v1beta1"
+	telemetryv1alpha1 "istio.io/api/telemetry/v1alpha1"
 	clientnetworkingv1alpha3 "istio.io/client-go/pkg/apis/networking/v1alpha3"
 	clientsecurityv1beta1 "istio.io/client-go/pkg/apis/security/v1beta1"
+	clienttelemetryv1alpha1 "istio.io/client-go/pkg/apis/telemetry/v1alpha1"
 
-	servicev1alpha1 "sigs.k8s.io/service-apis/apis/v1alpha1"
+	servicev1alpha1 "sigs.k8s.io/gateway-api/apis/v1alpha1"
 )
 
 func create(ic versionedclient.Interface, sc serviceapisclient.Interface, cfg config.Config, objMeta metav1.ObjectMeta) (metav1.Object, error) {
@@ -99,6 +101,11 @@ func create(ic versionedclient.Interface, sc serviceapisclient.Interface, cfg co
 		return ic.SecurityV1beta1().RequestAuthentications(cfg.Namespace).Create(context.TODO(), &clientsecurityv1beta1.RequestAuthentication{
 			ObjectMeta: objMeta,
 			Spec:       *(cfg.Spec.(*securityv1beta1.RequestAuthentication)),
+		}, metav1.CreateOptions{})
+	case collections.IstioTelemetryV1Alpha1Telemetries.Resource().GroupVersionKind():
+		return ic.TelemetryV1alpha1().Telemetries(cfg.Namespace).Create(context.TODO(), &clienttelemetryv1alpha1.Telemetry{
+			ObjectMeta: objMeta,
+			Spec:       *(cfg.Spec.(*telemetryv1alpha1.Telemetry)),
 		}, metav1.CreateOptions{})
 	case collections.K8SServiceApisV1Alpha1Backendpolicies.Resource().GroupVersionKind():
 		return sc.NetworkingV1alpha1().BackendPolicies(cfg.Namespace).Create(context.TODO(), &servicev1alpha1.BackendPolicy{
@@ -192,6 +199,11 @@ func update(ic versionedclient.Interface, sc serviceapisclient.Interface, cfg co
 			ObjectMeta: objMeta,
 			Spec:       *(cfg.Spec.(*securityv1beta1.RequestAuthentication)),
 		}, metav1.UpdateOptions{})
+	case collections.IstioTelemetryV1Alpha1Telemetries.Resource().GroupVersionKind():
+		return ic.TelemetryV1alpha1().Telemetries(cfg.Namespace).Update(context.TODO(), &clienttelemetryv1alpha1.Telemetry{
+			ObjectMeta: objMeta,
+			Spec:       *(cfg.Spec.(*telemetryv1alpha1.Telemetry)),
+		}, metav1.UpdateOptions{})
 	case collections.K8SServiceApisV1Alpha1Backendpolicies.Resource().GroupVersionKind():
 		return sc.NetworkingV1alpha1().BackendPolicies(cfg.Namespace).Update(context.TODO(), &servicev1alpha1.BackendPolicy{
 			ObjectMeta: objMeta,
@@ -281,6 +293,11 @@ func updateStatus(ic versionedclient.Interface, sc serviceapisclient.Interface, 
 		}, metav1.UpdateOptions{})
 	case collections.IstioSecurityV1Beta1Requestauthentications.Resource().GroupVersionKind():
 		return ic.SecurityV1beta1().RequestAuthentications(cfg.Namespace).UpdateStatus(context.TODO(), &clientsecurityv1beta1.RequestAuthentication{
+			ObjectMeta: objMeta,
+			Status:     *(cfg.Status.(*metav1alpha1.IstioStatus)),
+		}, metav1.UpdateOptions{})
+	case collections.IstioTelemetryV1Alpha1Telemetries.Resource().GroupVersionKind():
+		return ic.TelemetryV1alpha1().Telemetries(cfg.Namespace).UpdateStatus(context.TODO(), &clienttelemetryv1alpha1.Telemetry{
 			ObjectMeta: objMeta,
 			Status:     *(cfg.Status.(*metav1alpha1.IstioStatus)),
 		}, metav1.UpdateOptions{})
@@ -490,6 +507,21 @@ func patch(ic versionedclient.Interface, sc serviceapisclient.Interface, orig co
 		}
 		return ic.SecurityV1beta1().RequestAuthentications(orig.Namespace).
 			Patch(context.TODO(), orig.Name, typ, patchBytes, metav1.PatchOptions{FieldManager: "pilot-discovery"})
+	case collections.IstioTelemetryV1Alpha1Telemetries.Resource().GroupVersionKind():
+		oldRes := &clienttelemetryv1alpha1.Telemetry{
+			ObjectMeta: origMeta,
+			Spec:       *(orig.Spec.(*telemetryv1alpha1.Telemetry)),
+		}
+		modRes := &clienttelemetryv1alpha1.Telemetry{
+			ObjectMeta: modMeta,
+			Spec:       *(mod.Spec.(*telemetryv1alpha1.Telemetry)),
+		}
+		patchBytes, err := genPatchBytes(oldRes, modRes, typ)
+		if err != nil {
+			return nil, err
+		}
+		return ic.TelemetryV1alpha1().Telemetries(orig.Namespace).
+			Patch(context.TODO(), orig.Name, typ, patchBytes, metav1.PatchOptions{FieldManager: "pilot-discovery"})
 	case collections.K8SServiceApisV1Alpha1Backendpolicies.Resource().GroupVersionKind():
 		oldRes := &servicev1alpha1.BackendPolicy{
 			ObjectMeta: origMeta,
@@ -613,6 +645,8 @@ func delete(ic versionedclient.Interface, sc serviceapisclient.Interface, typ co
 		return ic.SecurityV1beta1().PeerAuthentications(namespace).Delete(context.TODO(), name, deleteOptions)
 	case collections.IstioSecurityV1Beta1Requestauthentications.Resource().GroupVersionKind():
 		return ic.SecurityV1beta1().RequestAuthentications(namespace).Delete(context.TODO(), name, deleteOptions)
+	case collections.IstioTelemetryV1Alpha1Telemetries.Resource().GroupVersionKind():
+		return ic.TelemetryV1alpha1().Telemetries(namespace).Delete(context.TODO(), name, deleteOptions)
 	case collections.K8SServiceApisV1Alpha1Backendpolicies.Resource().GroupVersionKind():
 		return sc.NetworkingV1alpha1().BackendPolicies(namespace).Delete(context.TODO(), name, deleteOptions)
 	case collections.K8SServiceApisV1Alpha1Gatewayclasses.Resource().GroupVersionKind():
@@ -644,6 +678,7 @@ var translationMap = map[config.GroupVersionKind]func(r runtime.Object) *config.
 				CreationTimestamp: obj.CreationTimestamp.Time,
 				OwnerReferences:   obj.OwnerReferences,
 				UID:               string(obj.UID),
+				Generation:        obj.Generation,
 			},
 			Spec:   &obj.Spec,
 			Status: &obj.Status,
@@ -662,6 +697,7 @@ var translationMap = map[config.GroupVersionKind]func(r runtime.Object) *config.
 				CreationTimestamp: obj.CreationTimestamp.Time,
 				OwnerReferences:   obj.OwnerReferences,
 				UID:               string(obj.UID),
+				Generation:        obj.Generation,
 			},
 			Spec:   &obj.Spec,
 			Status: &obj.Status,
@@ -680,6 +716,7 @@ var translationMap = map[config.GroupVersionKind]func(r runtime.Object) *config.
 				CreationTimestamp: obj.CreationTimestamp.Time,
 				OwnerReferences:   obj.OwnerReferences,
 				UID:               string(obj.UID),
+				Generation:        obj.Generation,
 			},
 			Spec:   &obj.Spec,
 			Status: &obj.Status,
@@ -698,6 +735,7 @@ var translationMap = map[config.GroupVersionKind]func(r runtime.Object) *config.
 				CreationTimestamp: obj.CreationTimestamp.Time,
 				OwnerReferences:   obj.OwnerReferences,
 				UID:               string(obj.UID),
+				Generation:        obj.Generation,
 			},
 			Spec:   &obj.Spec,
 			Status: &obj.Status,
@@ -716,6 +754,7 @@ var translationMap = map[config.GroupVersionKind]func(r runtime.Object) *config.
 				CreationTimestamp: obj.CreationTimestamp.Time,
 				OwnerReferences:   obj.OwnerReferences,
 				UID:               string(obj.UID),
+				Generation:        obj.Generation,
 			},
 			Spec:   &obj.Spec,
 			Status: &obj.Status,
@@ -734,6 +773,7 @@ var translationMap = map[config.GroupVersionKind]func(r runtime.Object) *config.
 				CreationTimestamp: obj.CreationTimestamp.Time,
 				OwnerReferences:   obj.OwnerReferences,
 				UID:               string(obj.UID),
+				Generation:        obj.Generation,
 			},
 			Spec:   &obj.Spec,
 			Status: &obj.Status,
@@ -752,6 +792,7 @@ var translationMap = map[config.GroupVersionKind]func(r runtime.Object) *config.
 				CreationTimestamp: obj.CreationTimestamp.Time,
 				OwnerReferences:   obj.OwnerReferences,
 				UID:               string(obj.UID),
+				Generation:        obj.Generation,
 			},
 			Spec:   &obj.Spec,
 			Status: &obj.Status,
@@ -770,6 +811,7 @@ var translationMap = map[config.GroupVersionKind]func(r runtime.Object) *config.
 				CreationTimestamp: obj.CreationTimestamp.Time,
 				OwnerReferences:   obj.OwnerReferences,
 				UID:               string(obj.UID),
+				Generation:        obj.Generation,
 			},
 			Spec:   &obj.Spec,
 			Status: &obj.Status,
@@ -788,6 +830,7 @@ var translationMap = map[config.GroupVersionKind]func(r runtime.Object) *config.
 				CreationTimestamp: obj.CreationTimestamp.Time,
 				OwnerReferences:   obj.OwnerReferences,
 				UID:               string(obj.UID),
+				Generation:        obj.Generation,
 			},
 			Spec:   &obj.Spec,
 			Status: &obj.Status,
@@ -806,6 +849,7 @@ var translationMap = map[config.GroupVersionKind]func(r runtime.Object) *config.
 				CreationTimestamp: obj.CreationTimestamp.Time,
 				OwnerReferences:   obj.OwnerReferences,
 				UID:               string(obj.UID),
+				Generation:        obj.Generation,
 			},
 			Spec:   &obj.Spec,
 			Status: &obj.Status,
@@ -824,6 +868,26 @@ var translationMap = map[config.GroupVersionKind]func(r runtime.Object) *config.
 				CreationTimestamp: obj.CreationTimestamp.Time,
 				OwnerReferences:   obj.OwnerReferences,
 				UID:               string(obj.UID),
+				Generation:        obj.Generation,
+			},
+			Spec:   &obj.Spec,
+			Status: &obj.Status,
+		}
+	},
+	collections.IstioTelemetryV1Alpha1Telemetries.Resource().GroupVersionKind(): func(r runtime.Object) *config.Config {
+		obj := r.(*clienttelemetryv1alpha1.Telemetry)
+		return &config.Config{
+			Meta: config.Meta{
+				GroupVersionKind:  collections.IstioTelemetryV1Alpha1Telemetries.Resource().GroupVersionKind(),
+				Name:              obj.Name,
+				Namespace:         obj.Namespace,
+				Labels:            obj.Labels,
+				Annotations:       obj.Annotations,
+				ResourceVersion:   obj.ResourceVersion,
+				CreationTimestamp: obj.CreationTimestamp.Time,
+				OwnerReferences:   obj.OwnerReferences,
+				UID:               string(obj.UID),
+				Generation:        obj.Generation,
 			},
 			Spec:   &obj.Spec,
 			Status: &obj.Status,
@@ -842,6 +906,7 @@ var translationMap = map[config.GroupVersionKind]func(r runtime.Object) *config.
 				CreationTimestamp: obj.CreationTimestamp.Time,
 				OwnerReferences:   obj.OwnerReferences,
 				UID:               string(obj.UID),
+				Generation:        obj.Generation,
 			},
 			Spec:   &obj.Spec,
 			Status: &obj.Status,
@@ -860,6 +925,7 @@ var translationMap = map[config.GroupVersionKind]func(r runtime.Object) *config.
 				CreationTimestamp: obj.CreationTimestamp.Time,
 				OwnerReferences:   obj.OwnerReferences,
 				UID:               string(obj.UID),
+				Generation:        obj.Generation,
 			},
 			Spec:   &obj.Spec,
 			Status: &obj.Status,
@@ -878,6 +944,7 @@ var translationMap = map[config.GroupVersionKind]func(r runtime.Object) *config.
 				CreationTimestamp: obj.CreationTimestamp.Time,
 				OwnerReferences:   obj.OwnerReferences,
 				UID:               string(obj.UID),
+				Generation:        obj.Generation,
 			},
 			Spec:   &obj.Spec,
 			Status: &obj.Status,
@@ -896,6 +963,7 @@ var translationMap = map[config.GroupVersionKind]func(r runtime.Object) *config.
 				CreationTimestamp: obj.CreationTimestamp.Time,
 				OwnerReferences:   obj.OwnerReferences,
 				UID:               string(obj.UID),
+				Generation:        obj.Generation,
 			},
 			Spec:   &obj.Spec,
 			Status: &obj.Status,
@@ -914,6 +982,7 @@ var translationMap = map[config.GroupVersionKind]func(r runtime.Object) *config.
 				CreationTimestamp: obj.CreationTimestamp.Time,
 				OwnerReferences:   obj.OwnerReferences,
 				UID:               string(obj.UID),
+				Generation:        obj.Generation,
 			},
 			Spec:   &obj.Spec,
 			Status: &obj.Status,
@@ -932,6 +1001,7 @@ var translationMap = map[config.GroupVersionKind]func(r runtime.Object) *config.
 				CreationTimestamp: obj.CreationTimestamp.Time,
 				OwnerReferences:   obj.OwnerReferences,
 				UID:               string(obj.UID),
+				Generation:        obj.Generation,
 			},
 			Spec:   &obj.Spec,
 			Status: &obj.Status,

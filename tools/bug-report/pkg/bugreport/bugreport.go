@@ -109,10 +109,15 @@ func runBugReportCommand(_ *cobra.Command, logOpts *log.Options) error {
 	if err != nil {
 		return err
 	}
-
-	clusterCtxStr, err := content.GetClusterContext()
-	if err != nil {
-		return err
+	clusterCtxStr := ""
+	if config.Context == "" {
+		var err error
+		clusterCtxStr, err = content.GetClusterContext(config.KubeConfigPath)
+		if err != nil {
+			return err
+		}
+	} else {
+		clusterCtxStr = config.Context
 	}
 
 	common.LogAndPrintf("\nTarget cluster context: %s\n", clusterCtxStr)
@@ -161,7 +166,7 @@ func runBugReportCommand(_ *cobra.Command, logOpts *log.Options) error {
 		log.Errorf("using ./ to write archive: %s", err.Error())
 		outDir = "."
 	}
-	outPath := filepath.Join(outDir, "bug-report.tgz")
+	outPath := filepath.Join(outDir, "bug-report.tar.gz")
 	common.LogAndPrintf("Creating an archive at %s.\n", outPath)
 
 	archiveDir := archive.DirToArchive(tempDir)
@@ -269,6 +274,7 @@ func gatherInfo(client kube.ExtendedClient, config *config.BugReportConfig, reso
 	getFromCluster(content.GetCRs, params, clusterDir, &mandatoryWg)
 	getFromCluster(content.GetEvents, params, clusterDir, &mandatoryWg)
 	getFromCluster(content.GetClusterInfo, params, clusterDir, &mandatoryWg)
+	getFromCluster(content.GetNodeInfo, params, clusterDir, &mandatoryWg)
 	getFromCluster(content.GetSecrets, params.SetVerbose(config.FullSecrets), clusterDir, &mandatoryWg)
 	getFromCluster(content.GetDescribePods, params.SetIstioNamespace(config.IstioNamespace), clusterDir, &mandatoryWg)
 
@@ -428,13 +434,13 @@ func writeFile(path, text string) {
 		return
 	}
 	mkdirOrExit(path)
-	if err := ioutil.WriteFile(path, []byte(text), 0644); err != nil {
+	if err := ioutil.WriteFile(path, []byte(text), 0o644); err != nil {
 		log.Errorf(err.Error())
 	}
 }
 
 func mkdirOrExit(fpath string) {
-	if err := os.MkdirAll(path.Dir(fpath), 0755); err != nil {
+	if err := os.MkdirAll(path.Dir(fpath), 0o755); err != nil {
 		fmt.Printf("Could not create output directories: %s", err)
 		os.Exit(-1)
 	}

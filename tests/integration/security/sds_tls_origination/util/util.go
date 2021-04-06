@@ -22,7 +22,6 @@ import (
 	"html/template"
 	"io/ioutil"
 	"path"
-	"testing"
 	"time"
 
 	envoyAdmin "github.com/envoyproxy/go-control-plane/envoy/admin/v3"
@@ -30,6 +29,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"istio.io/istio/pkg/config/protocol"
+	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/echo/common"
 	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/test/framework"
@@ -42,7 +42,7 @@ import (
 	"istio.io/istio/pkg/test/util/structpath"
 )
 
-func MustReadCert(t *testing.T, f string) string {
+func MustReadCert(t test.Failer, f string) string {
 	b, err := ioutil.ReadFile(path.Join(env.IstioSrc, "tests/testdata/certs/dns", f))
 	if err != nil {
 		t.Fatalf("failed to read %v: %v", f, err)
@@ -152,7 +152,7 @@ func createSecret(credentialType string, cn, ns string, ic TLSCredential, isNotG
 // SetupEcho creates two namespaces client and server. It also brings up two echo instances server and
 // client in respective namespaces. HTTP and HTTPS port on the server echo are set up. Egress Gateway is set up in the
 // service namespace to handle egress for "external" calls.
-func SetupEcho(t *testing.T, ctx resource.Context) (echo.Instance, echo.Instance, namespace.Instance, namespace.Instance) {
+func SetupEcho(t test.Failer, ctx resource.Context) (echo.Instance, echo.Instance, namespace.Instance, namespace.Instance) {
 	clientNamespace := namespace.NewOrFail(t, ctx, namespace.Config{
 		Prefix: "client",
 		Inject: true,
@@ -161,10 +161,11 @@ func SetupEcho(t *testing.T, ctx resource.Context) (echo.Instance, echo.Instance
 		Prefix: "server",
 		Inject: true,
 	})
-
+	cluster := ctx.Clusters().Default()
 	var internalClient, externalServer echo.Instance
 	echoboot.NewBuilder(ctx).
 		With(&internalClient, echo.Config{
+			Cluster:   cluster,
 			Service:   "client",
 			Namespace: clientNamespace,
 			Ports:     []echo.Port{},
@@ -173,6 +174,7 @@ func SetupEcho(t *testing.T, ctx resource.Context) (echo.Instance, echo.Instance
 			}},
 		}).
 		With(&externalServer, echo.Config{
+			Cluster:   cluster,
 			Service:   "server",
 			Namespace: serverNamespace,
 			Ports: []echo.Port{
@@ -296,7 +298,7 @@ spec:
 // We want to test out TLS origination at Gateway, to do so traffic from client in client namespace is first
 // routed to egress-gateway service in istio-system namespace and then from egress-gateway to server in server namespace.
 // TLS origination at Gateway happens using DestinationRule with CredentialName reading k8s secret at the gateway proxy.
-func createGateway(t *testing.T, ctx resource.Context, clientNamespace namespace.Instance, serverNamespace namespace.Instance) {
+func createGateway(t test.Failer, ctx resource.Context, clientNamespace namespace.Instance, serverNamespace namespace.Instance) {
 	tmplGateway, err := template.New("Gateway").Parse(Gateway)
 	if err != nil {
 		t.Fatalf("failed to create template: %v", err)
@@ -306,7 +308,7 @@ func createGateway(t *testing.T, ctx resource.Context, clientNamespace namespace
 	if err := tmplGateway.Execute(&bufGateway, map[string]string{"ServerNamespace": serverNamespace.Name()}); err != nil {
 		t.Fatalf("failed to create template: %v", err)
 	}
-	if err := ctx.Config().ApplyYAML(clientNamespace.Name(), bufGateway.String()); err != nil {
+	if err := ctx.Config(ctx.Clusters().Default()).ApplyYAML(clientNamespace.Name(), bufGateway.String()); err != nil {
 		t.Fatalf("failed to apply gateway: %v. template: %v", err, bufGateway.String())
 	}
 
@@ -322,7 +324,7 @@ func createGateway(t *testing.T, ctx resource.Context, clientNamespace namespace
 	if err := tmplVS.Execute(&bufVS, map[string]string{"ServerNamespace": serverNamespace.Name()}); err != nil {
 		t.Fatalf("failed to create template: %v", err)
 	}
-	if err := ctx.Config().ApplyYAML(clientNamespace.Name(), bufVS.String()); err != nil {
+	if err := ctx.Config(ctx.Clusters().Default()).ApplyYAML(clientNamespace.Name(), bufVS.String()); err != nil {
 		t.Fatalf("failed to apply gateway: %v. template: %v", err, bufVS.String())
 	}
 }
@@ -348,19 +350,20 @@ spec:
 )
 
 // Create the DestinationRule for TLS origination at Gateway by reading secret in istio-system namespace.
-func CreateDestinationRule(t *testing.T, serverNamespace namespace.Instance,
+func CreateDestinationRule(t test.Failer, serverNamespace namespace.Instance,
 	destinationRuleMode string, credentialName string) bytes.Buffer {
-
 	destinationRuleToParse := DestinationRuleConfig
 
 	tmpl, err := template.New("DestinationRule").Parse(destinationRuleToParse)
 	if err != nil {
-		t.Errorf("failed to create template: %v", err)
+		t.Fatalf("failed to create template: %v", err)
 	}
 
 	var buf bytes.Buffer
-	if err := tmpl.Execute(&buf, map[string]string{"ServerNamespace": serverNamespace.Name(),
-		"Mode": destinationRuleMode, "CredentialName": credentialName}); err != nil {
+	if err := tmpl.Execute(&buf, map[string]string{
+		"ServerNamespace": serverNamespace.Name(),
+		"Mode":            destinationRuleMode, "CredentialName": credentialName,
+	}); err != nil {
 		t.Fatalf("failed to create template: %v", err)
 	}
 	return buf

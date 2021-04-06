@@ -233,7 +233,10 @@ message EgressGatewayConfig {
 
   google.protobuf.BoolValue runAsRoot = 26;
 
-  // Next available 27.
+  // The injection template to use for the gateway. If not set, no injection will be performed.
+  string injectionTemplate = 27;
+
+  // Next available 28.
 }
 
 // Configuration for gateways.
@@ -255,7 +258,9 @@ message GlobalConfig {
   //   1 - Least preferred
   //   2 - No preference
   //   3 - Most preferred
-  ArchConfig arch = 1;
+  //
+  // Deprecated: replaced by the affinity k8s settings which allows architecture nodeAffinity configuration of this behavior.
+  ArchConfig arch = 1 [deprecated=true];
 
   string configRootNamespace = 50;
 
@@ -368,9 +373,6 @@ message GlobalConfig {
 
   // Specifies the Configuration for each of the supported tracers.
   TracerConfig tracer = 33;
-
-  // Specifies the trust domain that corresponds to the root cert of CA.
-  string trustDomain = 34;
 
   // Controls whether to use of Mesh Configuration Protocol to distribute configuration.
   google.protobuf.BoolValue useMCP = 35;
@@ -518,7 +520,10 @@ message IngressGatewayConfig {
 
   google.protobuf.BoolValue runAsRoot = 45;
 
-  // Next available 46.
+  // The injection template to use for the gateway. If not set, no injection will be performed.
+  string injectionTemplate = 46;
+
+  // Next available 47.
 }
 
 // IngressGatewayZvpnConfig enables cross-cluster access using SNI matching.
@@ -971,15 +976,35 @@ message SidecarInjectorConfig {
   // Templates defines a set of custom injection templates that can be used. For example, defining:
   //
   // templates:
-  //   hello:
-  //    metadata
-  //      labels:
-  //        hello: world
+  //   hello: |
+  //     metadata:
+  //       labels:
+  //         hello: world
   //
   // Then starting a pod with the `inject.istio.io/templates: hello` annotation, will result in the pod
   // being injected with the hello=world labels.
   // This is intended for advanced configuration only; most users should use the built in template
   TypeMapStringInterface templates = 23;
+
+  // Default templates specifies a set of default templates that are used in sidecar injection.
+  // By default, a template `sidecar` is always provided, which contains the template of default sidecar. 
+  // To inject other additional templates, define it using the `templates` option, and add it to 
+  // the default templates list.
+  // For example:
+  
+  // templates:
+  //   hello: |
+  //     metadata:
+  //       labels:
+  //         hello: world
+  
+  // defaultTemplates: ["sidecar", "hello"]
+  repeated string defaultTemplates = 24;
+
+  // If enabled, the legacy webhook selection logic will be used. This relies on filtering of webhook
+  // requests in Istiod, rather than at the webhook selection level.
+  // This is option is intended for migration purposes only and will be removed in Istio 1.10.
+  google.protobuf.BoolValue useLegacySelectors = 4;
 }
 
 // Configuration for each of the supported tracers.
@@ -1078,6 +1103,8 @@ message Values {
   BaseConfig base = 37;
 
   IstiodRemoteConfig istiodRemote = 38;
+
+  repeated string revisionTags = 39;
 }
 
 // GOTYPE: map[string]interface{}

@@ -39,8 +39,8 @@ func TestOptions(t *testing.T) {
 		{
 			testName: "proxy config",
 			key:      "config",
-			option:   option.ProxyConfig(&meshAPI.ProxyConfig{DiscoveryAddress: "fake"}),
-			expected: &meshAPI.ProxyConfig{DiscoveryAddress: "fake"},
+			option:   option.ProxyConfig(&model.NodeMetaProxyConfig{DiscoveryAddress: "fake"}),
+			expected: &model.NodeMetaProxyConfig{DiscoveryAddress: "fake"},
 		},
 		{
 			testName: "pilotSAN",
@@ -493,7 +493,7 @@ func TestOptions(t *testing.T) {
 			option: option.EnvoyMetricsServiceTLS(&networkingAPI.ClientTLSSettings{
 				Mode: networkingAPI.ClientTLSSettings_ISTIO_MUTUAL,
 			}, &model.BootstrapNodeMetadata{}),
-			expected: `{"name":"envoy.transport_sockets.tls","typed_config":{"@type":"type.googleapis.com/envoy.extensions.transport_sockets.tls.v3.UpstreamTlsContext","common_tls_context":{"alpn_protocols":["istio","h2"],"combined_validation_context":{"default_validation_context":{},"validation_context_sds_secret_config":{"name":"ROOTCA","sds_config":{"api_config_source":{"api_type":"GRPC","grpc_services":[{"envoy_grpc":{"cluster_name":"sds-grpc"}}],"transport_api_version":"V3"},"initial_fetch_timeout":"0s","resource_api_version":"V3"}}},"tls_certificate_sds_secret_configs":[{"name":"default","sds_config":{"api_config_source":{"api_type":"GRPC","grpc_services":[{"envoy_grpc":{"cluster_name":"sds-grpc"}}],"transport_api_version":"V3"},"initial_fetch_timeout":"0s","resource_api_version":"V3"}}]},"sni":"envoy_metrics_service"}}`,
+			expected: `{"name":"envoy.transport_sockets.tls","typed_config":{"@type":"type.googleapis.com/envoy.extensions.transport_sockets.tls.v3.UpstreamTlsContext","common_tls_context":{"alpn_protocols":["istio","h2"],"combined_validation_context":{"default_validation_context":{},"validation_context_sds_secret_config":{"name":"ROOTCA","sds_config":{"api_config_source":{"api_type":"GRPC","grpc_services":[{"envoy_grpc":{"cluster_name":"sds-grpc"}}],"set_node_on_first_message_only":true,"transport_api_version":"V3"},"initial_fetch_timeout":"0s","resource_api_version":"V3"}}},"tls_certificate_sds_secret_configs":[{"name":"default","sds_config":{"api_config_source":{"api_type":"GRPC","grpc_services":[{"envoy_grpc":{"cluster_name":"sds-grpc"}}],"set_node_on_first_message_only":true,"transport_api_version":"V3"},"initial_fetch_timeout":"0s","resource_api_version":"V3"}}]},"sni":"envoy_metrics_service"}}`,
 		},
 		{
 			testName: "envoy metrics keepalive nil",
@@ -563,7 +563,7 @@ func TestOptions(t *testing.T) {
 			option: option.EnvoyAccessLogServiceTLS(&networkingAPI.ClientTLSSettings{
 				Mode: networkingAPI.ClientTLSSettings_ISTIO_MUTUAL,
 			}, &model.BootstrapNodeMetadata{}),
-			expected: `{"name":"envoy.transport_sockets.tls","typed_config":{"@type":"type.googleapis.com/envoy.extensions.transport_sockets.tls.v3.UpstreamTlsContext","common_tls_context":{"alpn_protocols":["istio","h2"],"combined_validation_context":{"default_validation_context":{},"validation_context_sds_secret_config":{"name":"ROOTCA","sds_config":{"api_config_source":{"api_type":"GRPC","grpc_services":[{"envoy_grpc":{"cluster_name":"sds-grpc"}}],"transport_api_version":"V3"},"initial_fetch_timeout":"0s","resource_api_version":"V3"}}},"tls_certificate_sds_secret_configs":[{"name":"default","sds_config":{"api_config_source":{"api_type":"GRPC","grpc_services":[{"envoy_grpc":{"cluster_name":"sds-grpc"}}],"transport_api_version":"V3"},"initial_fetch_timeout":"0s","resource_api_version":"V3"}}]},"sni":"envoy_accesslog_service"}}`,
+			expected: `{"name":"envoy.transport_sockets.tls","typed_config":{"@type":"type.googleapis.com/envoy.extensions.transport_sockets.tls.v3.UpstreamTlsContext","common_tls_context":{"alpn_protocols":["istio","h2"],"combined_validation_context":{"default_validation_context":{},"validation_context_sds_secret_config":{"name":"ROOTCA","sds_config":{"api_config_source":{"api_type":"GRPC","grpc_services":[{"envoy_grpc":{"cluster_name":"sds-grpc"}}],"set_node_on_first_message_only":true,"transport_api_version":"V3"},"initial_fetch_timeout":"0s","resource_api_version":"V3"}}},"tls_certificate_sds_secret_configs":[{"name":"default","sds_config":{"api_config_source":{"api_type":"GRPC","grpc_services":[{"envoy_grpc":{"cluster_name":"sds-grpc"}}],"set_node_on_first_message_only":true,"transport_api_version":"V3"},"initial_fetch_timeout":"0s","resource_api_version":"V3"}}]},"sni":"envoy_accesslog_service"}}`,
 		},
 		{
 			testName: "envoy access log keepalive nil",
@@ -676,7 +676,7 @@ func TestOptions(t *testing.T) {
 				Mode:           networkingAPI.ClientTLSSettings_SIMPLE,
 				CaCertificates: "/etc/tracing/ca.pem",
 			}, &model.BootstrapNodeMetadata{}, false),
-			expected: `{"name":"envoy.transport_sockets.tls","typed_config":{"@type":"type.googleapis.com/envoy.extensions.transport_sockets.tls.v3.UpstreamTlsContext","common_tls_context":{"combined_validation_context":{"default_validation_context":{},"validation_context_sds_secret_config":{"name":"file-root:/etc/tracing/ca.pem","sds_config":{"api_config_source":{"api_type":"GRPC","grpc_services":[{"envoy_grpc":{"cluster_name":"sds-grpc"}}],"transport_api_version":"V3"},"resource_api_version":"V3"}}}}}}`,
+			expected: `{"name":"envoy.transport_sockets.tls","typed_config":{"@type":"type.googleapis.com/envoy.extensions.transport_sockets.tls.v3.UpstreamTlsContext","common_tls_context":{"combined_validation_context":{"default_validation_context":{},"validation_context_sds_secret_config":{"name":"file-root:/etc/tracing/ca.pem","sds_config":{"api_config_source":{"api_type":"GRPC","grpc_services":[{"envoy_grpc":{"cluster_name":"sds-grpc"}}],"set_node_on_first_message_only":true,"transport_api_version":"V3"},"resource_api_version":"V3"}}}}}}`,
 		},
 	}
 

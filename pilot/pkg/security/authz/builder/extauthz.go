@@ -32,10 +32,9 @@ import (
 	"github.com/hashicorp/go-multierror"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
-	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pilot/pkg/extensionproviders"
 	"istio.io/istio/pilot/pkg/networking/plugin"
 	authzmodel "istio.io/istio/pilot/pkg/security/authz/model"
-	"istio.io/istio/pkg/config/host"
 )
 
 const (
@@ -66,16 +65,13 @@ var (
 type builtExtAuthz struct {
 	http *extauthzhttp.ExtAuthz
 	tcp  *extauthztcp.ExtAuthz
+	err  error
 }
 
-func processExtensionProvider(in *plugin.InputParams) (map[string]*builtExtAuthz, error) {
-	var errs error
-	configs := in.Push.Mesh.ExtensionProviders
-	if len(configs) == 0 {
-		errs = multierror.Append(errs, fmt.Errorf("at least 1 extension provider must be defined"))
-	}
+func processExtensionProvider(in *plugin.InputParams) map[string]*builtExtAuthz {
 	resolved := map[string]*builtExtAuthz{}
-	for i, config := range configs {
+	for i, config := range in.Push.Mesh.ExtensionProviders {
+		var errs error
 		if config.Name == "" {
 			errs = multierror.Append(errs, fmt.Errorf("extension provider name must not be empty, found empty at index: %d", i))
 		} else if _, found := resolved[config.Name]; found {
@@ -90,21 +86,22 @@ func processExtensionProvider(in *plugin.InputParams) (map[string]*builtExtAuthz
 		case *meshconfig.MeshConfig_ExtensionProvider_EnvoyExtAuthzGrpc:
 			parsed, err = buildExtAuthzGRPC(in, p.EnvoyExtAuthzGrpc)
 		default:
-			err = fmt.Errorf("unsupported extension provider: %s", config.Name)
+			continue
 		}
 		if err != nil {
 			errs = multierror.Append(errs, multierror.Prefix(err, fmt.Sprintf("failed to parse extension provider %q:", config.Name)))
 		}
+		if parsed == nil {
+			parsed = &builtExtAuthz{}
+		}
+		parsed.err = errs
 		resolved[config.Name] = parsed
-	}
-	if errs != nil {
-		return nil, errs
 	}
 
 	if authzLog.DebugEnabled() {
 		authzLog.Debugf("Resolved extension providers: %v", spew.Sdump(resolved))
 	}
-	return resolved, nil
+	return resolved
 }
 
 func notAllTheSame(names []string) bool {
@@ -127,7 +124,6 @@ func getExtAuthz(resolved map[string]*builtExtAuthz, providers []string) (*built
 		return nil, fmt.Errorf("only 1 provider can be used per workload, found multiple providers: %v", providers)
 	}
 
-	var errs error
 	provider := providers[0]
 	ret, found := resolved[provider]
 	if !found {
@@ -135,10 +131,9 @@ func getExtAuthz(resolved map[string]*builtExtAuthz, providers []string) (*built
 		for p := range resolved {
 			li = append(li, p)
 		}
-		errs = multierror.Append(fmt.Errorf("available providers are %v but found %q", li, provider))
-	}
-	if errs != nil {
-		return nil, errs
+		return nil, fmt.Errorf("available providers are %v but found %q", li, provider)
+	} else if ret.err != nil {
+		return nil, fmt.Errorf("found errors in provider %s: %v", provider, ret.err)
 	}
 
 	return ret, nil
@@ -150,7 +145,7 @@ func buildExtAuthzHTTP(in *plugin.InputParams, config *meshconfig.MeshConfig_Ext
 	if err != nil {
 		errs = multierror.Append(errs, err)
 	}
-	hostname, cluster, err := parseService(in, config.Service, port)
+	hostname, cluster, err := extensionproviders.LookupCluster(in.Push, config.Service, port)
 	if err != nil {
 		errs = multierror.Append(errs, err)
 	}
@@ -179,7 +174,7 @@ func buildExtAuthzGRPC(in *plugin.InputParams, config *meshconfig.MeshConfig_Ext
 	if err != nil {
 		errs = multierror.Append(errs, err)
 	}
-	_, cluster, err := parseService(in, config.Service, port)
+	_, cluster, err := extensionproviders.LookupCluster(in.Push, config.Service, port)
 	if err != nil {
 		errs = multierror.Append(errs, err)
 	}
@@ -192,43 +187,6 @@ func buildExtAuthzGRPC(in *plugin.InputParams, config *meshconfig.MeshConfig_Ext
 	}
 
 	return generateGRPCConfig(cluster, config.FailOpen, status), nil
-}
-
-func parseService(in *plugin.InputParams, service string, port int) (hostname string, cluster string, err error) {
-	if service == "" {
-		err = fmt.Errorf("service must not be empty")
-		return
-	}
-
-	// TODO(yangminzhu): Verify the service and its cluster is supported, e.g. resolution type is not OriginalDst.
-	if parts := strings.Split(service, "/"); len(parts) == 2 {
-		namespace, name := parts[0], parts[1]
-		if svc := in.Push.ServiceIndex.HostnameAndNamespace[host.Name(name)][namespace]; svc != nil {
-			hostname = string(svc.Hostname)
-			cluster = model.BuildSubsetKey(model.TrafficDirectionOutbound, "", svc.Hostname, port)
-			return
-		}
-	} else {
-		namespaceToServices := in.Push.ServiceIndex.HostnameAndNamespace[host.Name(service)]
-		var namespaces []string
-		for k := range namespaceToServices {
-			namespaces = append(namespaces, k)
-		}
-		// If namespace is omitted, return successfully if there is only one such host name in the service index.
-		if len(namespaces) == 1 {
-			svc := namespaceToServices[namespaces[0]]
-			hostname = string(svc.Hostname)
-			cluster = model.BuildSubsetKey(model.TrafficDirectionOutbound, "", svc.Hostname, port)
-			return
-		} else if len(namespaces) > 1 {
-			err = fmt.Errorf("found %s in multiple namespaces %v, specify the namespace explicitly in "+
-				"the format of <Namespace>/<Hostname>", service, namespaces)
-			return
-		}
-	}
-
-	err = fmt.Errorf("could not find service %s in Istio service registry", service)
-	return
 }
 
 func parsePort(port uint32) (int, error) {
@@ -303,6 +261,7 @@ func generateGRPCConfig(cluster string, failOpen bool, status *envoytypev3.HttpS
 				Authority:   authority,
 			},
 		},
+		Timeout: &duration.Duration{Seconds: 600},
 	}
 	http := &extauthzhttp.ExtAuthz{
 		StatusOnError:    status,
@@ -311,6 +270,7 @@ func generateGRPCConfig(cluster string, failOpen bool, status *envoytypev3.HttpS
 			GrpcService: grpc,
 		},
 		FilterEnabledMetadata: generateFilterMatcher(authzmodel.RBACHTTPFilterName),
+		TransportApiVersion:   envoy_config_core_v3.ApiVersion_V3,
 	}
 	tcp := &extauthztcp.ExtAuthz{
 		StatPrefix:            "tcp.",

@@ -41,7 +41,6 @@ type VerifyFields struct {
 // - building one or more chains from the certificate to a root certificate;
 // - checking fields are set as expected.
 func VerifyCertificate(privPem []byte, certChainPem []byte, rootCertPem []byte, expectedFields *VerifyFields) error {
-
 	roots := x509.NewCertPool()
 	if rootCertPem != nil {
 		if ok := roots.AppendCertsFromPEM(rootCertPem); !ok {

@@ -353,3 +353,66 @@ messages:
     level: Warning
     description: "Virtual IP addresses are required for ports serving TCP (or unset) protocol"
     template: "ServiceEntry addresses are required for this protocol."
+
+  - name: "DeprecatedAnnotation"
+    code: IST0135
+    level: Info
+    description: "A resource is using a deprecated Istio annotation."
+    template: "Annotation %q has been deprecated and may not work in future Istio versions."
+    args:
+      - name: annotation
+        type: string
+
+  - name: "AlphaAnnotation"
+    code: IST0136
+    level: Info
+    description: "An Istio annotation may not be suitable for production."
+    template: "Annotation %q is part of an alpha-phase feature and may be incompletely supported."
+    args:
+      - name: annotation
+        type: string
+
+  - name: "DeploymentConflictingPorts"
+    code: IST0137
+    level: Warning
+    description: "Two services selecting the same workload with the same targetPort MUST refer to the same port."
+    template: "This deployment %s is associated with multiple services %v using targetPort %q but different ports: %v."
+    args:
+      - name: deployment
+        type: string
+      - name: services
+        type: "[]string"
+      - name: targetPort
+        type: string
+      - name: ports
+        type: "[]int32"
+
+# https://github.com/envoyproxy/envoy/issues/6767
+  - name: "GatewayDuplicateCertificate"
+    code: IST0138
+    level: Warning
+    description: "Duplicate certificate in multiple gateways may cause 404s if clients re-use HTTP2 connections."
+    template: "Duplicate certificate in multiple gateways %v may cause 404s if clients re-use HTTP2 connections."
+    args:
+      - name: gateways
+        type: "[]string"
+
+  - name: "InvalidWebhook"
+    code: IST0139
+    level: Error
+    description: "Webhook is invalid or references a control plane service that does not exist."
+    template: "%v"
+    args:
+      - name: error
+        type: string
+
+  - name: "IngressRouteRulesNotAffected"
+    code: IST0140
+    level: Warning
+    description: "Route rules have no effect on ingress gateway requests"
+    template: "Subset in virtual service %s has no effect on ingress gateway %s requests"
+    args:
+      - name: virtualservicesubset
+        type: string
+      - name: virtualservice
+        type: string

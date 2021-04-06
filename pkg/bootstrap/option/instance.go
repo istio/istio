@@ -52,8 +52,10 @@ type Instance interface {
 
 var _ Instance = &instance{}
 
-type convertFunc func(*instance) (interface{}, error)
-type applyFunc func(map[string]interface{}, *instance) error
+type (
+	convertFunc func(*instance) (interface{}, error)
+	applyFunc   func(map[string]interface{}, *instance) error
+)
 
 type instance struct {
 	name      Name

@@ -28,7 +28,6 @@ import (
 	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
 	route "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
 	tls "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
-	"github.com/golang/protobuf/ptypes"
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
 	"github.com/yl2chen/cidranger"
@@ -63,14 +62,13 @@ func (c Call) IsHTTP() bool {
 	return httpProtocols.Contains(string(c.Protocol)) && (c.TLS == Plaintext || c.TLS == "")
 }
 
-var (
-	httpProtocols = sets.NewSet(string(HTTP), string(HTTP2))
-)
+var httpProtocols = sets.NewSet(string(HTTP), string(HTTP2))
 
 var (
 	ErrNoListener          = errors.New("no listener matched")
 	ErrNoFilterChain       = errors.New("no filter chains matched")
 	ErrNoRoute             = errors.New("no route matched")
+	ErrTLSRedirect         = errors.New("tls required, sending 301")
 	ErrNoVirtualHost       = errors.New("no virtual host matched")
 	ErrMultipleFilterChain = errors.New("multiple filter chains matched")
 	// ErrProtocolError happens when sending TLS/TCP request to HCM, for example
@@ -247,7 +245,7 @@ func hasFilterOnPort(l *listener.Listener, filter string, port int) bool {
 	if got.FilterDisabled == nil {
 		return true
 	}
-	return !xdstest.EvaluateListenerFilterPredicates(got.FilterDisabled, false, port)
+	return !xdstest.EvaluateListenerFilterPredicates(got.FilterDisabled, port)
 }
 
 func (sim *Simulation) Run(input Call) (result Result) {
@@ -328,8 +326,12 @@ func (sim *Simulation) Run(input Call) (result Result) {
 			return
 		}
 		result.VirtualHostMatched = vh.Name
-		r := sim.matchRoute(vh, input)
+		if vh.RequireTls == route.VirtualHost_ALL && input.TLS == Plaintext {
+			result.Error = ErrTLSRedirect
+			return
+		}
 
+		r := sim.matchRoute(vh, input)
 		if r == nil {
 			result.Error = ErrNoRoute
 			return
@@ -350,7 +352,7 @@ func (sim *Simulation) requiresMTLS(fc *listener.FilterChain) bool {
 		return false
 	}
 	t := &tls.DownstreamTlsContext{}
-	if err := ptypes.UnmarshalAny(fc.GetTransportSocket().GetTypedConfig(), t); err != nil {
+	if err := fc.GetTransportSocket().GetTypedConfig().UnmarshalTo(t); err != nil {
 		sim.t.Fatal(err)
 	}
 

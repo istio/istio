@@ -23,6 +23,7 @@ import (
 	"strings"
 
 	"github.com/ghodss/yaml"
+	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 
 	"istio.io/api/operator/v1alpha1"
@@ -37,15 +38,14 @@ import (
 	"istio.io/istio/operator/pkg/util"
 	"istio.io/istio/operator/pkg/util/clog"
 	"istio.io/istio/operator/pkg/validate"
+	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/url"
 	"istio.io/pkg/log"
 	pkgversion "istio.io/pkg/version"
 )
 
-var (
-	// installerScope is the scope for shared manifest package.
-	installerScope = log.RegisterScope("installer", "installer", 0)
-)
+// installerScope is the scope for shared manifest package.
+var installerScope = log.RegisterScope("installer", "installer", 0)
 
 // GenManifests generates a manifest map, keyed by the component name, from input file list and a YAML tree
 // representation of path-values passed through the --set flag.
@@ -101,8 +101,12 @@ func GenerateConfig(inFilenames []string, setFlags []string, force bool, kubeCon
 		return "", nil, err
 	}
 
-	iopsString, iops, err := GenIOPFromProfile(profile, fy, setFlags, force, false, kubeConfig, l)
+	return OverlayYAMLStrings(profile, fy, setFlags, force, kubeConfig, l)
+}
 
+func OverlayYAMLStrings(profile string, fy string,
+	setFlags []string, force bool, kubeConfig *rest.Config, l clog.Logger) (string, *iopv1alpha1.IstioOperator, error) {
+	iopsString, iops, err := GenIOPFromProfile(profile, fy, setFlags, force, false, kubeConfig, l)
 	if err != nil {
 		return "", nil, err
 	}
@@ -122,7 +126,6 @@ func GenerateConfig(inFilenames []string, setFlags []string, force bool, kubeCon
 // files and the --set flag. If successful, it returns an IstioOperator string and struct.
 func GenIOPFromProfile(profileOrPath, fileOverlayYAML string, setFlags []string, skipValidation, allowUnknownField bool,
 	kubeConfig *rest.Config, l clog.Logger) (string, *iopv1alpha1.IstioOperator, error) {
-
 	installPackagePath, err := getInstallPackagePath(fileOverlayYAML)
 	if err != nil {
 		return "", nil, err
@@ -192,8 +195,23 @@ func GenIOPFromProfile(profileOrPath, fileOverlayYAML string, setFlags []string,
 	if err != nil {
 		return "", nil, err
 	}
+
+	// Validate Final IOP config against K8s cluster
+	if kubeConfig != nil {
+		client, err := kubernetes.NewForConfig(kubeConfig)
+		if err != nil {
+			return "", nil, err
+		}
+		err = util.ValidateIOPCAConfig(client, finalIOP)
+		if err != nil {
+			return "", nil, err
+		}
+	}
 	// InstallPackagePath may have been a URL, change to extracted to local file path.
 	finalIOP.Spec.InstallPackagePath = installPackagePath
+	if ns := GetValueForSetFlag(setFlags, "values.global.istioNamespace"); ns != "" {
+		finalIOP.Namespace = ns
+	}
 	return util.ToYAMLWithJSONPB(finalIOP), finalIOP, nil
 }
 
@@ -274,6 +292,34 @@ func readLayeredYAMLs(filenames []string, stdinReader io.Reader) (string, error)
 		}
 	}
 	return ly, nil
+}
+
+func GetProfile(iop *iopv1alpha1.IstioOperator) string {
+	profile := "default"
+	if iop != nil && iop.Spec != nil && iop.Spec.Profile != "" {
+		profile = iop.Spec.Profile
+	}
+	return profile
+}
+
+func GetMergedIOP(userIOPStr, profile, manifestsPath, revision, kubeConfigPath, context string,
+	logger clog.Logger) (*iopv1alpha1.IstioOperator, error) {
+	restConfig, err := kube.BuildClientConfig(kubeConfigPath, context)
+	if err != nil {
+		return nil, err
+	}
+	extraFlags := make([]string, 0)
+	if manifestsPath != "" {
+		extraFlags = append(extraFlags, fmt.Sprintf("installPackagePath=%s", manifestsPath))
+	}
+	if revision != "" {
+		extraFlags = append(extraFlags, fmt.Sprintf("revision=%s", revision))
+	}
+	_, mergedIOP, err := OverlayYAMLStrings(profile, userIOPStr, extraFlags, false, restConfig, logger)
+	if err != nil {
+		return nil, err
+	}
+	return mergedIOP, nil
 }
 
 // validateSetFlags validates that setFlags all have path=value format.
@@ -368,9 +414,7 @@ func getClusterSpecificValues(config *rest.Config, force bool, l clog.Logger) (s
 	} else {
 		overlays = append(overlays, jwt)
 	}
-
 	return makeTreeFromSetList(overlays)
-
 }
 
 func getFSGroupOverlay(config *rest.Config) (string, error) {
@@ -418,7 +462,11 @@ func makeTreeFromSetList(setOverlay []string) (string, error) {
 }
 
 func getJwtTypeOverlay(config *rest.Config, l clog.Logger) (string, error) {
-	jwtPolicy, err := util.DetectSupportedJWTPolicy(config)
+	client, err := kubernetes.NewForConfig(config)
+	if err != nil {
+		return "", err
+	}
+	jwtPolicy, err := util.DetectSupportedJWTPolicy(client)
 	if err != nil {
 		return "", fmt.Errorf("failed to determine JWT policy support. Use the --force flag to ignore this: %v", err)
 	}

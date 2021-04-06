@@ -1,0 +1,55 @@
+apiVersion: networking.istio.io/v1alpha3
+kind: EnvoyFilter
+metadata:
+  name: bad-filter
+spec:
+  configPatches:
+  - applyTo: HTTP_FILTER
+    match:
+      context: ANY
+      listener:
+        filterChain:
+          filter:
+            name: envoy.http_connection_manager
+            subFilter:
+              name: "envoy.filters.http.router"
+    patch:
+      operation: INSERT_BEFORE
+      value:
+        name: bad-filter
+        config_discovery:
+          config_source:
+            ads: {}
+            initial_fetch_timeout: 0s # wait indefinitely to prevent filter chain being disabled
+          type_urls: [ "type.googleapis.com/envoy.extensions.filters.http.wasm.v3.Wasm"]
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: EnvoyFilter
+metadata:
+  name: bad-filter-config
+spec:
+  configPatches:
+  - applyTo: EXTENSION_CONFIG
+    match:
+      context: ANY
+    patch:
+      operation: ADD
+      value:
+        name: bad-filter
+        typed_config:
+          "@type": type.googleapis.com/udpa.type.v1.TypedStruct
+          type_url: type.googleapis.com/envoy.extensions.filters.http.wasm.v3.Wasm
+          value:
+            config:
+              vm_config:
+                vm_id: bad_vm
+                runtime: envoy.wasm.runtime.v8
+                code:
+                  remote:
+                    http_uri:
+                      uri: https://bad-url.wasm
+                      timeout: 10s
+              configuration:
+                '@type': type.googleapis.com/google.protobuf.StringValue
+                value: |
+                  {}

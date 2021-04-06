@@ -28,9 +28,7 @@ import (
 	"istio.io/istio/pkg/test/env"
 )
 
-var (
-	repoRootDir string
-)
+var repoRootDir string
 
 func init() {
 	repoRootDir = env.IstioSrc
@@ -88,10 +86,12 @@ global:
     includeIPRanges: "1.1.0.256/16,2.2.0.257/16"
     excludeIPRanges: "3.3.0.0/33,4.4.0.0/34"
 `,
-			wantErrs: makeErrors([]string{`global.proxy.excludeIPRanges invalid CIDR address: 3.3.0.0/33`,
+			wantErrs: makeErrors([]string{
+				`global.proxy.excludeIPRanges invalid CIDR address: 3.3.0.0/33`,
 				`global.proxy.excludeIPRanges invalid CIDR address: 4.4.0.0/34`,
 				`global.proxy.includeIPRanges invalid CIDR address: 1.1.0.256/16`,
-				`global.proxy.includeIPRanges invalid CIDR address: 2.2.0.257/16`}),
+				`global.proxy.includeIPRanges invalid CIDR address: 2.2.0.257/16`,
+			}),
 		},
 		{
 			desc: "BadIPMalformed",
@@ -100,8 +100,10 @@ global:
   proxy:
     includeIPRanges: "1.2.3/16,1.2.3.x/16"
 `,
-			wantErrs: makeErrors([]string{`global.proxy.includeIPRanges invalid CIDR address: 1.2.3/16`,
-				`global.proxy.includeIPRanges invalid CIDR address: 1.2.3.x/16`}),
+			wantErrs: makeErrors([]string{
+				`global.proxy.includeIPRanges invalid CIDR address: 1.2.3/16`,
+				`global.proxy.includeIPRanges invalid CIDR address: 1.2.3.x/16`,
+			}),
 		},
 		{
 			desc: "BadIPWithStar",
@@ -197,6 +199,7 @@ func TestValidateValuesFromProfile(t *testing.T) {
 		})
 	}
 }
+
 func TestValidateValuesFromValuesYAMLs(t *testing.T) {
 	valuesYAML := ""
 	var allFiles []string

@@ -17,6 +17,8 @@ package model
 import (
 	"fmt"
 
+	"github.com/gogo/protobuf/proto"
+
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/host"
@@ -86,4 +88,35 @@ func (ps *PushContext) mergeDestinationRule(p *processedDestRules, destRuleConfi
 	p.hostsMap[resolvedHost] = struct{}{}
 	p.destRule[resolvedHost] = &destRuleConfig
 	p.exportTo[resolvedHost] = exportToMap
+}
+
+// inheritDestinationRule child config inherits settings from parent mesh/namespace
+func (ps *PushContext) inheritDestinationRule(parent, child *config.Config) *config.Config {
+	if parent == nil {
+		return child
+	}
+	if child == nil {
+		return parent
+	}
+
+	parentDR := parent.Spec.(*networking.DestinationRule)
+	if parentDR.TrafficPolicy == nil {
+		return child
+	}
+
+	merged := parent.DeepCopy()
+	// merge child into parent, child fields will overwrite parent's
+	proto.Merge(merged.Spec.(proto.Message), child.Spec.(proto.Message))
+	merged.Meta = child.Meta
+	merged.Status = child.Status
+
+	childDR := child.Spec.(*networking.DestinationRule)
+	// if parent has MUTUAL+certs/secret specified and child specifies SIMPLE, could break caCertificates
+	// if both parent and child specify TLS context, child's will be used only
+	if parentDR.TrafficPolicy.Tls != nil && (childDR.TrafficPolicy != nil && childDR.TrafficPolicy.Tls != nil) {
+		mergedDR := merged.Spec.(*networking.DestinationRule)
+		mergedDR.TrafficPolicy.Tls = childDR.TrafficPolicy.Tls.DeepCopy()
+	}
+
+	return &merged
 }

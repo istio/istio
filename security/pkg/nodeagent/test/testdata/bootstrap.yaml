@@ -89,7 +89,7 @@ static_resources:
           codec_type: auto
           stat_prefix: outbound
           http_filters:
-          - name: envoy.router
+          - name: envoy.filters.http.router
           route_config:
             name: outbound_cluster_tls
             virtual_hosts:
@@ -141,7 +141,7 @@ static_resources:
           codec_type: auto
           stat_prefix: inbound
           http_filters:
-          - name: envoy.router
+          - name: envoy.filters.http.router
           route_config:
             name: backend
             virtual_hosts:

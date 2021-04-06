@@ -16,9 +16,7 @@ package cache
 
 import "istio.io/pkg/monitoring"
 
-var (
-	RequestType = monitoring.MustCreateLabel("request_type")
-)
+var RequestType = monitoring.MustCreateLabel("request_type")
 
 // Metrics for outgoing requests from citadel agent to external services such as token exchange server or a CA.
 // This is different from incoming request metrics (i.e. from Envoy to citadel agent).

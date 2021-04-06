@@ -152,7 +152,6 @@ func main() {
 		ECSigAlg:     util.SupportedECSignatureAlgorithms(*ec),
 	}
 	certPem, privPem, err := util.GenCertKeyFromOptions(opts)
-
 	if err != nil {
 		log.Fatalf("Failed to generate certificate: %v\n", err)
 	}

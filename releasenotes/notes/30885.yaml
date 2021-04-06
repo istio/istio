@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: networking
+issue: 
+  - 30885
+releaseNotes:
+- |
+  **Fixed** an issue causing the timeout header `x-envoy-upstream-rq-timeout-ms` was not honoured.

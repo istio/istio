@@ -21,6 +21,7 @@ import (
 	"github.com/onsi/gomega"
 
 	"istio.io/istio/pkg/test/env"
+	"istio.io/istio/pkg/test/envoy"
 	xdsService "istio.io/istio/security/pkg/stsservice/mock"
 	stsTest "istio.io/istio/security/pkg/stsservice/test"
 )
@@ -41,7 +42,7 @@ func TestProxySTS(t *testing.T) {
 	cb := xdsService.CreateXdsCallback(t)
 	cb.SetExpectedToken(expectedToken)
 	// Start all test servers and proxy
-	setup := stsTest.SetupTest(t, cb, env.STSTest, false)
+	setup := stsTest.SetupTest(t, cb, envoy.STSTest, false)
 	// Verify that initially XDS stream is not set up, stats do not update initial stats
 	g := gomega.NewWithT(t)
 	g.Expect(cb.NumStream()).To(gomega.Equal(0))

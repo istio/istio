@@ -87,7 +87,8 @@ func TestModelProtocolToListenerProtocol(t *testing.T) {
 			false,
 			true,
 			ListenerProtocolAuto,
-		}, {
+		},
+		{
 			"Inbound unknown to Auto (disable sniffing for outbound)",
 			protocol.Unsupported,
 			core.TrafficDirection_INBOUND,

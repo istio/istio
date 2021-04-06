@@ -182,7 +182,8 @@ func TestCertOptionsAndRetrieveID(t *testing.T) {
 				ECSigAlg: EcdsaSigAlg,
 			},
 			expectedErr: "",
-		}}
+		},
+	}
 	for id, tc := range testCases {
 		k, err := NewVerifiedKeyCertBundleFromFile(tc.caCertFile, tc.caKeyFile, tc.certChainFile, tc.rootCertFile)
 		if err != nil {

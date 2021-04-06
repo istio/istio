@@ -1,0 +1,12 @@
+apiVersion: release-notes/v2
+kind: feature
+
+area: security
+
+issue:
+    - https://github.com/istio/istio/issues/28742
+
+releaseNotes:
+- |
+  **Added** Configuring Envoy to fetch the Jwks by it self. This should be enabled if the JwksUri is a mesh cluster URL for mTLS and other benefits like retries, jws caching etc. 
+  This is disabled by default and can be enabled by setting "PILOT_JWT_ENABLE_REMOTE_JWKS" to true. This is an experimental feature for advanced users only.

@@ -17,6 +17,7 @@ items:
     template:
       metadata:
         annotations:
+          kubectl.kubernetes.io/default-container: hello
           kubectl.kubernetes.io/default-logs-container: hello
           prometheus.io/path: /stats/prometheus
           prometheus.io/port: "15020"
@@ -110,7 +111,6 @@ items:
           - name: TRUST_DOMAIN
             value: cluster.local
           image: gcr.io/istio-testing/proxyv2:latest
-          imagePullPolicy: Always
           name: istio-proxy
           ports:
           - containerPort: 15090
@@ -172,7 +172,6 @@ items:
           - -d
           - 15090,15021,15020
           image: gcr.io/istio-testing/proxyv2:latest
-          imagePullPolicy: Always
           name: istio-init
           resources:
             limits:
@@ -249,6 +248,7 @@ items:
     template:
       metadata:
         annotations:
+          kubectl.kubernetes.io/default-container: hello
           kubectl.kubernetes.io/default-logs-container: hello
           prometheus.io/path: /stats/prometheus
           prometheus.io/port: "15020"
@@ -342,7 +342,6 @@ items:
           - name: TRUST_DOMAIN
             value: cluster.local
           image: gcr.io/istio-testing/proxyv2:latest
-          imagePullPolicy: Always
           name: istio-proxy
           ports:
           - containerPort: 15090
@@ -404,7 +403,6 @@ items:
           - -d
           - 15090,15021,15020
           image: gcr.io/istio-testing/proxyv2:latest
-          imagePullPolicy: Always
           name: istio-init
           resources:
             limits:

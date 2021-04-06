@@ -26,7 +26,6 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/util"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
-	"istio.io/pkg/log"
 )
 
 const (
@@ -198,6 +197,10 @@ func (sg *StatusGen) OnNack(node *model.Proxy, dr *discovery.DiscoveryRequest) {
 // We also want connection events to be dispatched as soon as possible,
 // they may be consumed by other instances of Istiod to update internal state.
 func (sg *StatusGen) pushStatusEvent(typeURL string, data []proto.Message) {
+	clients := sg.Server.ClientsOf(typeURL)
+	if len(clients) == 0 {
+		return
+	}
 
 	resources := make([]*any.Any, 0, len(data))
 	for _, v := range data {
@@ -208,5 +211,5 @@ func (sg *StatusGen) pushStatusEvent(typeURL string, data []proto.Message) {
 		Resources: resources,
 	}
 
-	sg.Server.SendResponse(dr)
+	sg.Server.SendResponse(clients, dr)
 }

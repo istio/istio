@@ -20,7 +20,7 @@ import (
 	"strings"
 	"sync"
 
-	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
+	apiextensions "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 
 	"istio.io/istio/galley/pkg/config/analysis/diag"
 	"istio.io/istio/galley/pkg/config/processing/snapshotter"
@@ -32,22 +32,20 @@ import (
 	"istio.io/istio/pkg/config/schema/resource"
 )
 
-var (
-	// crdKubeResource is metadata for listening to CRD resource on the API Server.
-	crdKubeResource = collection.Builder{
-		Name: "k8s/crd",
-		Resource: resource.Builder{
-			Group:   "apiextensions.k8s.io",
-			Version: "v1beta1",
-			Plural:  "customresourcedefinitions",
-			Kind:    "CustomResourceDefinition",
-		}.BuildNoValidate(),
-	}.MustBuild()
-)
+// crdKubeResource is metadata for listening to CRD resource on the API Server.
+var crdKubeResource = collection.Builder{
+	Name: "k8s/crd",
+	Resource: resource.Builder{
+		Group:   "apiextensions.k8s.io",
+		Version: "v1",
+		Plural:  "customresourcedefinitions",
+		Kind:    "CustomResourceDefinition",
+	}.BuildNoValidate(),
+}.MustBuild()
 
 // Source is an implementation of processing.KubeSource
 type Source struct { // nolint:maligned
-	mu      sync.Mutex
+	mu      sync.RWMutex
 	options Options
 
 	// Keep the handlers that are registered by this Source. As we're recreating watchers, we need to seed them correctly
@@ -80,8 +78,10 @@ type Source struct { // nolint:maligned
 	statusCtl status.Controller
 }
 
-var _ event.Source = &Source{}
-var _ snapshotter.StatusUpdater = &Source{}
+var (
+	_ event.Source              = &Source{}
+	_ snapshotter.StatusUpdater = &Source{}
+)
 
 // New returns a new kube.Source.
 func New(o Options) *Source {
@@ -151,7 +151,7 @@ func (s *Source) onCrdEvent(e event.Event) {
 
 	switch e.Kind {
 	case event.Added:
-		crd := e.Resource.Message.(*v1beta1.CustomResourceDefinitionSpec)
+		crd := e.Resource.Message.(*apiextensions.CustomResourceDefinitionSpec)
 		g := crd.Group
 		k := crd.Names.Kind
 		key := asKey(g, k)
@@ -193,6 +193,10 @@ func (s *Source) startWatchers() {
 	scope.Source.Info("Creating watchers for Kubernetes CRDs")
 	s.watchers = make(map[collection.Name]*watcher)
 	for i, r := range resources {
+		if s.provider == nil {
+			scope.Source.Warn("stopped before finished starting watchers")
+			return
+		}
 		a := s.provider.GetAdapter(r.Resource())
 
 		found := s.foundResources[asKey(r.Resource().Group(), r.Resource().Kind())]
@@ -244,6 +248,8 @@ func (s *Source) Stop() {
 
 // Update implements processing.StatusUpdater
 func (s *Source) Update(messages diag.Messages) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
 	if s.statusCtl == nil {
 		panic("received diagnostic messages while the source is not configured with a status controller")
 	}

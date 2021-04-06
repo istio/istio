@@ -39,9 +39,9 @@ func TelemetryTest(t *testing.T, apps AppContext, features ...features.Feature) 
 						for _, dest := range ctx.Clusters() {
 							src, dest := src, dest
 							subTestName := fmt.Sprintf("%s->%s://%s:%s%s",
-								src.Name(),
+								src.StableName(),
 								"http",
-								dest.Name(),
+								dest.StableName(),
 								"http",
 								"/")
 

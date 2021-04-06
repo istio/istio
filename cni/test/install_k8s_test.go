@@ -115,9 +115,11 @@ func TestInstall(t *testing.T) {
 			resultFileName:        "02-minikube_cni.conflist",
 			expectedOutputFile:    testDataDir + "/expected/minikube_cni.conflist.expected",
 			expectedPostCleanFile: testDataDir + "/expected/minikube_cni.conflist.clean",
-			cniConfDirOrderedFiles: []string{"noname_calico.conflist",
+			cniConfDirOrderedFiles: []string{
+				"noname_calico.conflist",
 				"noplugins_calico.conflist",
-				"minikube_cni.conf", "calico.conflist"},
+				"minikube_cni.conf", "calico.conflist",
+			},
 		},
 		{
 			name:                  "Skip invalid .conflist files for first valid .conflist file",
@@ -125,9 +127,11 @@ func TestInstall(t *testing.T) {
 			resultFileName:        "02-calico.conflist",
 			expectedOutputFile:    testDataDir + "/expected/10-calico.conflist-istioconfig",
 			expectedPostCleanFile: testDataDir + "/pre/calico.conflist",
-			cniConfDirOrderedFiles: []string{"noname_calico.conflist",
+			cniConfDirOrderedFiles: []string{
+				"noname_calico.conflist",
 				"noplugins_calico.conflist",
-				"calico.conflist", "minikube_cni.conf"},
+				"calico.conflist", "minikube_cni.conf",
+			},
 		},
 		{
 			name:                   "confFile env var point to missing .conf with valid .conflist file",

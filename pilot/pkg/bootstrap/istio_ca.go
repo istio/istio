@@ -31,10 +31,14 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	corev1 "k8s.io/client-go/kubernetes/typed/core/v1"
 
+	"istio.io/api/security/v1beta1"
 	"istio.io/istio/pilot/pkg/features"
+	securityModel "istio.io/istio/pilot/pkg/security/model"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
 	"istio.io/istio/pkg/config/constants"
+	"istio.io/istio/pkg/jwt"
 	kubelib "istio.io/istio/pkg/kube"
+	"istio.io/istio/pkg/security"
 	"istio.io/istio/security/pkg/cmd"
 	"istio.io/istio/security/pkg/pki/ca"
 	"istio.io/istio/security/pkg/pki/ra"
@@ -51,7 +55,7 @@ type caOptions struct {
 	// domain to use in SPIFFE identity URLs
 	TrustDomain    string
 	Namespace      string
-	Authenticators []authenticate.Authenticator
+	Authenticators []security.Authenticator
 }
 
 // Based on istio_ca main - removing creation of Secrets with private keys in all namespaces and install complexity.
@@ -117,9 +121,6 @@ var (
 	k8sInCluster = env.RegisterStringVar("KUBERNETES_SERVICE_HOST", "",
 		"Kuberenetes service host, set automatically when running in-cluster")
 
-	// ThirdPartyJWTPath is the well-known location of the projected K8S JWT. This is mounted on all workloads, as well as istiod.
-	ThirdPartyJWTPath = "./var/run/secrets/tokens/istio-token"
-
 	// This value can also be extracted from the mounted token
 	trustedIssuer = env.RegisterStringVar("TOKEN_ISSUER", "",
 		"OIDC token issuer. If set, will be used to check the tokens.")
@@ -178,7 +179,7 @@ func (s *Server) RunCA(grpc *grpc.Server, ca caserver.CertificateAuthority, opts
 	iss := trustedIssuer.Get()
 	aud := audience.Get()
 
-	token, err := ioutil.ReadFile(s.jwtPath)
+	token, err := ioutil.ReadFile(getJwtPath())
 	if err == nil {
 		tok, err := detectAuthEnv(string(token))
 		if err != nil {
@@ -208,7 +209,8 @@ func (s *Server) RunCA(grpc *grpc.Server, ca caserver.CertificateAuthority, opts
 		k8sInCluster.Get() == "" { // not running in cluster - in cluster use direct call to apiserver
 		// Add a custom authenticator using standard JWT validation, if not running in K8S
 		// When running inside K8S - we can use the built-in validator, which also check pod removal (invalidation).
-		oidcAuth, err := authenticate.NewJwtAuthenticator(iss, opts.TrustDomain, aud)
+		jwtRule := v1beta1.JWTRule{Issuer: iss, Audiences: []string{aud}}
+		oidcAuth, err := authenticate.NewJwtAuthenticator(&jwtRule, opts.TrustDomain)
 		if err == nil {
 			caServer.Authenticators = append(caServer.Authenticators, oidcAuth)
 			log.Info("Using out-of-cluster JWT authentication")
@@ -413,7 +415,6 @@ func (s *Server) createIstioCA(client corev1.CoreV1Interface, opts *caOptions) (
 // the caOptions defines the external provider
 func (s *Server) createIstioRA(client kubelib.Client,
 	opts *caOptions) (ra.RegistrationAuthority, error) {
-
 	caCertFile := path.Join(ra.DefaultExtCACertDir, constants.CACertNamespaceConfigMapDataName)
 	if _, err := os.Stat(caCertFile); err != nil {
 		caCertFile = defaultCACertPath
@@ -429,5 +430,18 @@ func (s *Server) createIstioRA(client kubelib.Client,
 		TrustDomain:    opts.TrustDomain,
 	}
 	return ra.NewIstioRA(raOpts)
+}
 
+// getJwtPath returns jwt path.
+func getJwtPath() string {
+	log.Info("JWT policy is ", features.JwtPolicy.Get())
+	switch features.JwtPolicy.Get() {
+	case jwt.PolicyThirdParty:
+		return securityModel.K8sSATrustworthyJwtFileName
+	case jwt.PolicyFirstParty:
+		return securityModel.K8sSAJwtFileName
+	default:
+		log.Infof("unknown JWT policy %v, default to certificates ", features.JwtPolicy.Get())
+		return ""
+	}
 }

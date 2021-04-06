@@ -75,7 +75,8 @@ func TestAggregateStoreGet(t *testing.T) {
 		},
 	}
 
-	store1.Create(*configReturn)
+	_, err := store1.Create(*configReturn)
+	g.Expect(err).NotTo(gomega.HaveOccurred())
 
 	stores := []model.ConfigStore{store1, store2}
 
@@ -237,12 +238,16 @@ func TestAggregateStoreCache(t *testing.T) {
 			handled.Store(true)
 		})
 
-		controller1.Create(config.Config{
+		_, err := controller1.Create(config.Config{
 			Meta: config.Meta{
 				GroupVersionKind: collections.K8SServiceApisV1Alpha1Httproutes.Resource().GroupVersionKind(),
 				Name:             "another",
 			},
 		})
+		if err != nil {
+			t.Fatal(err)
+		}
+
 		retry.UntilOrFail(t, handled.Load, retry.Timeout(time.Second))
 	})
 }

@@ -19,7 +19,10 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/coreos/go-oidc"
+	oidc "github.com/coreos/go-oidc"
+
+	"istio.io/api/security/v1beta1"
+	"istio.io/istio/pkg/security"
 )
 
 const (
@@ -27,46 +30,60 @@ const (
 )
 
 type JwtAuthenticator struct {
-	provider    *oidc.Provider
-	verifier    *oidc.IDTokenVerifier
 	trustDomain string
+	audiences   []string
+	verifier    *oidc.IDTokenVerifier
 }
 
-var _ Authenticator = &JwtAuthenticator{}
+var _ security.Authenticator = &JwtAuthenticator{}
 
 // newJwtAuthenticator is used when running istiod outside of a cluster, to validate the tokens using OIDC
 // K8S is created with --service-account-issuer, service-account-signing-key-file and service-account-api-audiences
 // which enable OIDC.
-func NewJwtAuthenticator(iss string, trustDomain, audience string) (*JwtAuthenticator, error) {
-	provider, err := oidc.NewProvider(context.Background(), iss)
-	if err != nil {
-		return nil, fmt.Errorf("running in cluster with K8S tokens, but failed to initialize %s %s", iss, err)
+func NewJwtAuthenticator(jwtRule *v1beta1.JWTRule, trustDomain string) (*JwtAuthenticator, error) {
+	issuer := jwtRule.GetIssuer()
+	jwksURL := jwtRule.GetJwksUri()
+	// The key of a JWT issuer may change, so the key may need to be updated.
+	// Based on https://godoc.org/github.com/coreos/go-oidc#NewRemoteKeySet,
+	// the oidc library handles caching and cache invalidation. Thus, the verifier
+	// is only created once in the constructor.
+	var verifier *oidc.IDTokenVerifier
+	if len(jwksURL) == 0 {
+		// OIDC discovery is used if jwksURL is not set.
+		provider, err := oidc.NewProvider(context.Background(), issuer)
+		// OIDC discovery may fail, e.g. http request for the OIDC server may fail.
+		if err != nil {
+			return nil, fmt.Errorf("failed at creating an OIDC provider for %v: %v", issuer, err)
+		}
+		verifier = provider.Verifier(&oidc.Config{SkipClientIDCheck: true})
+	} else {
+		keySet := oidc.NewRemoteKeySet(context.Background(), jwksURL)
+		verifier = oidc.NewVerifier(issuer, keySet, &oidc.Config{SkipClientIDCheck: true})
 	}
-
 	return &JwtAuthenticator{
 		trustDomain: trustDomain,
-		provider:    provider,
-		verifier:    provider.Verifier(&oidc.Config{ClientID: audience}),
+		verifier:    verifier,
+		audiences:   jwtRule.Audiences,
 	}, nil
 }
 
 // Authenticate - based on the old OIDC authenticator for mesh expansion.
-func (j *JwtAuthenticator) Authenticate(ctx context.Context) (*Caller, error) {
-	bearerToken, err := ExtractBearerToken(ctx)
+func (j *JwtAuthenticator) Authenticate(ctx context.Context) (*security.Caller, error) {
+	bearerToken, err := security.ExtractBearerToken(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("ID token extraction error: %v", err)
 	}
 
-	idToken, err := j.verifier.Verify(context.Background(), bearerToken)
+	idToken, err := j.verifier.Verify(ctx, bearerToken)
 	if err != nil {
-		return nil, fmt.Errorf("failed to verify the ID token (error %v)", err)
+		return nil, fmt.Errorf("failed to verify the JWT token (error %v)", err)
 	}
 
-	// for GCP-issued JWT, the service account is in the "email" field
 	sa := &JwtPayload{}
-
+	// "aud" for trust domain, "sub" has "system:serviceaccount:$namespace:$serviceaccount".
+	// in future trust domain may use another field as a standard is defined.
 	if err := idToken.Claims(&sa); err != nil {
-		return nil, fmt.Errorf("failed to extract email field from ID token: %v", err)
+		return nil, fmt.Errorf("failed to extract claims from ID token: %v", err)
 	}
 	if !strings.HasPrefix(sa.Sub, "system:serviceaccount") {
 		return nil, fmt.Errorf("invalid sub %v", sa.Sub)
@@ -74,11 +91,27 @@ func (j *JwtAuthenticator) Authenticate(ctx context.Context) (*Caller, error) {
 	parts := strings.Split(sa.Sub, ":")
 	ns := parts[2]
 	ksa := parts[3]
+	if !checkAudience(sa.Aud, j.audiences) {
+		return nil, fmt.Errorf("invalid audiences %v", sa.Aud)
+	}
 
-	return &Caller{
-		AuthSource: AuthSourceIDToken,
+	return &security.Caller{
+		AuthSource: security.AuthSourceIDToken,
 		Identities: []string{fmt.Sprintf(IdentityTemplate, j.trustDomain, ns, ksa)},
 	}, nil
+}
+
+// checkAudience() returns true if the audiences to check are in
+// the expected audiences. Otherwise, return false.
+func checkAudience(audToCheck []string, audExpected []string) bool {
+	for _, a := range audToCheck {
+		for _, b := range audExpected {
+			if a == b {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 type JwtPayload struct {

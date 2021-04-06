@@ -44,9 +44,7 @@ import (
 	"istio.io/istio/pkg/url"
 )
 
-var (
-	clientFactory = createKubeClient
-)
+var clientFactory = createKubeClient
 
 type istioInstall struct {
 	namespace string
@@ -57,6 +55,7 @@ type preCheckClient struct {
 	client  *kubernetes.Clientset
 	dclient dynamic.Interface
 }
+
 type preCheckExecClient interface {
 	getNameSpace(ns string) (*v1.Namespace, error)
 	serverVersion() (*version.Info, error)
@@ -66,8 +65,6 @@ type preCheckExecClient interface {
 }
 
 // Tell the user if Istio can be installed, and if not give the reason.
-// Note: this doesn't check the IstioOperator options.  It only checks a few things every
-// Istio install needs.  It does not check the Revision.
 func installPreCheck(istioNamespaceFlag string, restClientGetter genericclioptions.RESTClientGetter, writer io.Writer) error {
 	fmt.Fprintf(writer, "\n")
 	fmt.Fprintf(writer, "Checking the cluster to make sure it is ready for Istio installation...\n")
@@ -177,7 +174,7 @@ func installPreCheck(istioNamespaceFlag string, restClientGetter genericclioptio
 		},
 	}
 	var createErrors error
-	resourceNames := make([]string, 0)
+	resourceNames := make([]string, 0, len(Resources))
 	errResourceNames := make([]string, 0)
 	for _, r := range Resources {
 		err = checkCanCreateResources(c, r.namespace, r.group, r.version, r.name)
@@ -212,7 +209,6 @@ func installPreCheck(istioNamespaceFlag string, restClientGetter genericclioptio
 	}
 	fmt.Fprintf(writer, "\n")
 	return errs
-
 }
 
 func checkCanCreateResources(c preCheckExecClient, namespace, group, version, name string) error {
@@ -246,7 +242,6 @@ func checkCanCreateResources(c preCheckExecClient, namespace, group, version, na
 
 func createKubeClient(restClientGetter genericclioptions.RESTClientGetter) (preCheckExecClient, error) {
 	restConfig, err := restClientGetter.ToRESTConfig()
-
 	if err != nil {
 		return nil, err
 	}
@@ -277,7 +272,7 @@ func (c *preCheckClient) checkAuthorization(s *authorizationapi.SelfSubjectAcces
 }
 
 func (c *preCheckClient) checkMutatingWebhook() error {
-	_, err := c.client.AdmissionregistrationV1beta1().MutatingWebhookConfigurations().List(context.TODO(), meta_v1.ListOptions{})
+	_, err := c.client.AdmissionregistrationV1().MutatingWebhookConfigurations().List(context.TODO(), meta_v1.ListOptions{})
 	return err
 }
 
@@ -345,11 +340,16 @@ func NewPrecheckCommand() *cobra.Command {
 			installs, err := cli.getIstioInstalls()
 			if err == nil && len(installs) > 0 {
 				matched := false
+				var revision string
 				for _, install := range installs {
 					if !specific || targetNamespace == install.namespace && targetRevision == install.revision {
-						c.Printf("Istio Revision %q already installed in namespace %q\n", install.revision, install.namespace)
+						revision = install.revision
+						if revision == "" {
+							revision = "default"
+						}
+						c.Printf("%q revision of Istio is already installed in %q namespace\n", revision, install.namespace)
 					}
-					if targetNamespace == install.namespace && targetRevision == install.revision {
+					if targetNamespace == install.namespace && targetRevision == revision {
 						matched = true
 					}
 				}

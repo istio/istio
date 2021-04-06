@@ -1,0 +1,9 @@
+apiVersion: release-notes/v2
+kind: feature
+area: installation
+issue:
+  - 30438
+
+releaseNotes:
+ - |
+   **Updated** Kiali addon to the latest version v1.29.

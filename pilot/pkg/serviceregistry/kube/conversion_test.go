@@ -407,7 +407,6 @@ func TestLBServiceConversion(t *testing.T) {
 }
 
 func TestSecureNamingSAN(t *testing.T) {
-
 	pod := &coreV1.Pod{}
 
 	pod.Annotations = make(map[string]string)

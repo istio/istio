@@ -29,8 +29,10 @@ type Buffer struct {
 	processing bool
 }
 
-var _ Handler = &Buffer{}
-var _ Dispatcher = &Buffer{}
+var (
+	_ Handler    = &Buffer{}
+	_ Dispatcher = &Buffer{}
+)
 
 // NewBuffer returns new Buffer instance
 func NewBuffer() *Buffer {

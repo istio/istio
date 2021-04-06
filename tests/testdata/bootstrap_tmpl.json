@@ -104,7 +104,7 @@
               "name": "envoy.cors"
               },
               {
-              "name": "envoy.router"
+              "name": "envoy.filters.http.router"
               }
               ]
             }
@@ -156,7 +156,7 @@
               "name": "envoy.cors"
               },
               {
-              "name": "envoy.router"
+              "name": "envoy.filters.http.router"
               }
               ]
 
@@ -209,7 +209,7 @@
                   "codec_type": "AUTO",
                   "stat_prefix": "http_proxy",
                   "http_filters": [
-                    {"name": "envoy.router"
+                    {"name": "envoy.filters.http.router"
                     }
                   ],
                   "rds": {
@@ -254,7 +254,7 @@
                   "codec_type": "AUTO",
                   "stat_prefix": "http_proxy",
                   "http_filters": [
-                    {"name": "envoy.router"
+                    {"name": "envoy.filters.http.router"
                     }
                   ],
                   "rds": {

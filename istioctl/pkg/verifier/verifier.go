@@ -20,6 +20,7 @@ import (
 	"strings"
 
 	"github.com/fatih/color"
+	"github.com/ghodss/yaml"
 	admit_v1 "k8s.io/api/admissionregistration/v1"
 	appsv1 "k8s.io/api/apps/v1"
 	v1batch "k8s.io/api/batch/v1"
@@ -37,19 +38,18 @@ import (
 	operator_istio "istio.io/istio/operator/pkg/apis/istio"
 	"istio.io/istio/operator/pkg/apis/istio/v1alpha1"
 	"istio.io/istio/operator/pkg/controlplane"
+	"istio.io/istio/operator/pkg/manifest"
 	"istio.io/istio/operator/pkg/translate"
 	"istio.io/istio/operator/pkg/util"
 	"istio.io/istio/operator/pkg/util/clog"
 	"istio.io/istio/pkg/kube"
 )
 
-var (
-	istioOperatorGVR = apimachinery_schema.GroupVersionResource{
-		Group:    v1alpha1.SchemeGroupVersion.Group,
-		Version:  v1alpha1.SchemeGroupVersion.Version,
-		Resource: "istiooperators",
-	}
-)
+var istioOperatorGVR = apimachinery_schema.GroupVersionResource{
+	Group:    v1alpha1.SchemeGroupVersion.Group,
+	Version:  v1alpha1.SchemeGroupVersion.Version,
+	Resource: "istiooperators",
+}
 
 // StatusVerifier checks status of certain resources like deployment,
 // jobs and also verifies count of certain resource types.
@@ -118,6 +118,7 @@ func (v *StatusVerifier) verifyInstallIOPRevision() error {
 	if err != nil {
 		// At this point we know there is no IstioOperator defining a control plane.  This may
 		// be the case in a Istio cluster with external control plane.
+		v.logger.LogAndErrorf("error while fetching revision %s: %v", v.controlPlaneOpts.Revision, err.Error())
 		injector, err2 := v.injectorFromCluster(v.controlPlaneOpts.Revision)
 		if err2 == nil && injector != nil {
 			// The cluster *is* configured for Istio, but no IOP is present.  This could mean
@@ -132,13 +133,24 @@ func (v *StatusVerifier) verifyInstallIOPRevision() error {
 	if v.manifestsPath != "" {
 		iop.Spec.InstallPackagePath = v.manifestsPath
 	}
+	profile := manifest.GetProfile(iop)
+	by, err := yaml.Marshal(iop)
+	if err != nil {
+		return err
+	}
+	mergedIOP, err := manifest.GetMergedIOP(string(by), profile, v.manifestsPath, v.controlPlaneOpts.Revision,
+		v.kubeconfig, v.context, v.logger)
+	if err != nil {
+		return nil
+	}
 	crdCount, istioDeploymentCount, err := v.verifyPostInstallIstioOperator(
-		iop, fmt.Sprintf("in cluster operator %s", iop.GetName()))
+		mergedIOP, fmt.Sprintf("in cluster operator %s", mergedIOP.GetName()))
 	return v.reportStatus(crdCount, istioDeploymentCount, err)
 }
 
 func (v *StatusVerifier) getRevision() (string, error) {
 	var revision string
+	var revs string
 	revCount := 0
 	kubeClient, err := v.createClient()
 	if err != nil {
@@ -149,14 +161,19 @@ func (v *StatusVerifier) getRevision() (string, error) {
 		return "", fmt.Errorf("failed to fetch istiod pod, error: %v", err)
 	}
 	for _, pod := range pods.Items {
-		rev := pod.ObjectMeta.GetLabels()[label.IstioRev]
+		rev := pod.ObjectMeta.GetLabels()[label.IoIstioRev.Name]
 		revCount++
 		if rev == "default" {
 			continue
 		}
 		revision = rev
 	}
-	v.logger.LogAndPrintf("%d Istio control planes detected, checking --revision %q only", revCount, revision)
+	if revision == "" {
+		revs = "default"
+	} else {
+		revs = revision
+	}
+	v.logger.LogAndPrintf("%d Istio control planes detected, checking --revision %q only", revCount, revs)
 	return revision, nil
 }
 
@@ -307,8 +324,16 @@ func (v *StatusVerifier) verifyPostInstall(visitor resource.Visitor, filename st
 			// usual conversion not available.  Convert unstructured to string
 			// and ask operator code to unmarshal.
 			fixTimestampRelatedUnmarshalIssues(un)
+
 			by := util.ToYAML(un)
-			iop, err := operator_istio.UnmarshalIstioOperator(by, true)
+			unmergedIOP, err := operator_istio.UnmarshalIstioOperator(by, true)
+			if err != nil {
+				v.reportFailure(kind, name, namespace, err)
+				return err
+			}
+			profile := manifest.GetProfile(unmergedIOP)
+			iop, err := manifest.GetMergedIOP(by, profile, v.manifestsPath, v.controlPlaneOpts.Revision,
+				v.kubeconfig, v.context, v.logger)
 			if err != nil {
 				v.reportFailure(kind, name, namespace, err)
 				return err
@@ -370,7 +395,7 @@ func (v *StatusVerifier) injectorFromCluster(revision string) (*admit_v1.Mutatin
 	revCount := 0
 	var hookmatch *admit_v1.MutatingWebhookConfiguration
 	for _, hook := range hooks.Items {
-		rev := hook.ObjectMeta.GetLabels()[label.IstioRev]
+		rev := hook.ObjectMeta.GetLabels()[label.IoIstioRev.Name]
 		if rev != "" {
 			revCount++
 			revision = rev
@@ -404,7 +429,9 @@ func (v *StatusVerifier) operatorFromCluster(revision string) (*v1alpha1.IstioOp
 		return nil, err
 	}
 	for _, iop := range iops {
-		if iop.Spec.Revision == revision {
+		if iop.Spec.Revision == revision ||
+			(iop.Spec.Revision == "default" && revision == "") ||
+			(iop.Spec.Revision == "" && revision == "default") {
 			return iop, nil
 		}
 	}

@@ -23,7 +23,7 @@ import (
 	"github.com/pkg/errors"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
+	apiextensions "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	apiextensionsclient "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
@@ -186,19 +186,19 @@ func waitForCRDs(objects object.K8sObjects, restConfig *rest.Config) error {
 	errPoll := wait.Poll(cRDPollInterval, cRDPollTimeout, func() (bool, error) {
 	descriptor:
 		for _, crdName := range crdNames {
-			crd, errGet := cs.ApiextensionsV1beta1().CustomResourceDefinitions().Get(context.TODO(), crdName, metav1.GetOptions{})
+			crd, errGet := cs.ApiextensionsV1().CustomResourceDefinitions().Get(context.TODO(), crdName, metav1.GetOptions{})
 			if errGet != nil {
 				return false, errGet
 			}
 			for _, cond := range crd.Status.Conditions {
 				switch cond.Type {
-				case v1beta1.Established:
-					if cond.Status == v1beta1.ConditionTrue {
+				case apiextensions.Established:
+					if cond.Status == apiextensions.ConditionTrue {
 						scope.Infof("established CRD %s", crdName)
 						continue descriptor
 					}
-				case v1beta1.NamesAccepted:
-					if cond.Status == v1beta1.ConditionFalse {
+				case apiextensions.NamesAccepted:
+					if cond.Status == apiextensions.ConditionFalse {
 						scope.Warnf("name conflict for %v: %v", crdName, cond.Reason)
 					}
 				}
@@ -312,7 +312,7 @@ func statefulsetsReady(statefulsets []*appsv1.StatefulSet) (bool, []string) {
 			// Dereference all the pointers because StatefulSets like them
 			var partition int
 			// default replicasfor sts is 1
-			var replicas = 1
+			replicas := 1
 			// the rollingUpdate field can be nil even if the update strategy is a rolling update.
 			if sts.Spec.UpdateStrategy.RollingUpdate != nil &&
 				sts.Spec.UpdateStrategy.RollingUpdate.Partition != nil {

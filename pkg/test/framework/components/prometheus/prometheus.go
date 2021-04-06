@@ -19,6 +19,7 @@ import (
 	prom "github.com/prometheus/common/model"
 
 	"istio.io/istio/pkg/test"
+	"istio.io/istio/pkg/test/framework/components/cluster"
 	"istio.io/istio/pkg/test/framework/resource"
 )
 
@@ -27,19 +28,19 @@ type Instance interface {
 
 	// API Returns the core Prometheus APIs.
 	API() v1.API
-	APIForCluster(cluster resource.Cluster) v1.API
+	APIForCluster(cluster cluster.Cluster) v1.API
 
 	// WaitForQuiesce runs the provided query periodically until the result gets stable.
 	WaitForQuiesce(fmt string, args ...interface{}) (prom.Value, error)
 	WaitForQuiesceOrFail(t test.Failer, fmt string, args ...interface{}) prom.Value
-	WaitForQuiesceForCluster(cluster resource.Cluster, fmt string, args ...interface{}) (prom.Value, error)
-	WaitForQuiesceOrFailForCluster(cluster resource.Cluster, t test.Failer, fmt string, args ...interface{}) prom.Value
+	WaitForQuiesceForCluster(cluster cluster.Cluster, fmt string, args ...interface{}) (prom.Value, error)
+	WaitForQuiesceOrFailForCluster(cluster cluster.Cluster, t test.Failer, fmt string, args ...interface{}) prom.Value
 
 	// WaitForOneOrMore runs the provided query and waits until one (or more for vector) values are available.
 	WaitForOneOrMore(fmt string, args ...interface{}) (prom.Value, error)
 	WaitForOneOrMoreOrFail(t test.Failer, fmt string, args ...interface{}) prom.Value
-	WaitForOneOrMoreForCluster(cluster resource.Cluster, fmt string, args ...interface{}) (prom.Value, error)
-	WaitForOneOrMoreOrFailForCluster(cluster resource.Cluster, t test.Failer, fmt string, args ...interface{}) prom.Value
+	WaitForOneOrMoreForCluster(cluster cluster.Cluster, fmt string, args ...interface{}) (prom.Value, error)
+	WaitForOneOrMoreOrFailForCluster(cluster cluster.Cluster, t test.Failer, fmt string, args ...interface{}) prom.Value
 
 	// Sum all the samples that has the given labels in the given vector value.
 	Sum(val prom.Value, labels map[string]string) (float64, error)

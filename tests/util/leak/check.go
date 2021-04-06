@@ -33,10 +33,7 @@ import (
 var goroutinesToIgnore = []string{
 	// "global" goroutines we always initialize. Maybe we shouldn't always initialize these, but for now every
 	// test fails with these
-	"k8s.io/klog/v2.(*loggingT).flushDaemon", // k8s logging
-	// constantly runs in the background. This can probably be scoped to DiscoveryServer, but isn't today
-	"(*JwksResolver).refresher",
-	"istio.io/pkg/cache.NewTTLWithCallback",       // part of JwksResolver
+	"k8s.io/klog/v2.(*loggingT).flushDaemon",      // k8s logging
 	"go.opencensus.io/stats/view.(*worker).start", // metrics runs on init. Maybe it should be in main()
 
 	// goroutines for test

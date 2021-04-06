@@ -21,13 +21,11 @@ import (
 	"os"
 	"os/exec"
 	"path"
-	"strings"
 	"time"
 
-	envoyAdmin "github.com/envoyproxy/go-control-plane/envoy/admin/v3"
 	"github.com/gogo/protobuf/types"
 
-	meshconfig "istio.io/api/mesh/v1alpha1"
+	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/bootstrap"
 	"istio.io/pkg/env"
 	"istio.io/pkg/log"
@@ -44,20 +42,12 @@ type envoy struct {
 }
 
 type ProxyConfig struct {
-	Config              meshconfig.ProxyConfig
-	Node                string
-	LogLevel            string
-	ComponentLogLevel   string
-	PilotSubjectAltName []string
-	NodeIPs             []string
-	STSPort             int
-	OutlierLogPath      string
-	PilotCertProvider   string
-	ProvCert            string
-	Sidecar             bool
-	ProxyViaAgent       bool
-	CallCredentials     bool
-	LogAsJSON           bool
+	*model.Node
+	LogLevel          string
+	ComponentLogLevel string
+	NodeIPs           []string
+	Sidecar           bool
+	LogAsJSON         bool
 }
 
 // NewProxy creates an instance of the proxy control commands
@@ -77,25 +67,8 @@ func NewProxy(cfg ProxyConfig) Proxy {
 	}
 }
 
-func (e *envoy) IsLive() bool {
-	adminPort := uint32(e.Config.ProxyAdminPort)
-	info, err := GetServerInfo(adminPort)
-	if err != nil {
-		log.Infof("failed retrieving server from Envoy on port %d: %v", adminPort, err)
-		return false
-	}
-
-	if info.State == envoyAdmin.ServerInfo_LIVE {
-		// It's live.
-		return true
-	}
-
-	log.Infof("envoy server not yet live, state: %s", info.State.String())
-	return false
-}
-
 func (e *envoy) Drain() error {
-	adminPort := uint32(e.Config.ProxyAdminPort)
+	adminPort := uint32(e.Metadata.ProxyConfig.ProxyAdminPort)
 
 	err := DrainListeners(adminPort, e.Sidecar)
 	if err != nil {
@@ -109,19 +82,22 @@ func (e *envoy) args(fname string, epoch int, bootstrapConfig string) []string {
 	if isIPv6Proxy(e.NodeIPs) {
 		proxyLocalAddressType = "v6"
 	}
-	startupArgs := []string{"-c", fname,
+	startupArgs := []string{
+		"-c", fname,
 		"--restart-epoch", fmt.Sprint(epoch),
-		"--drain-time-s", fmt.Sprint(int(convertDuration(e.Config.DrainDuration) / time.Second)),
-		"--parent-shutdown-time-s", fmt.Sprint(int(convertDuration(e.Config.ParentShutdownDuration) / time.Second)),
-		"--service-cluster", e.Config.ServiceCluster,
-		"--service-node", e.Node,
+		"--drain-time-s", fmt.Sprint(int(convertDuration(e.Metadata.ProxyConfig.DrainDuration) / time.Second)),
+		"--drain-strategy", "immediate", // Clients are notified as soon as the drain process starts.
+		"--parent-shutdown-time-s", fmt.Sprint(int(convertDuration(e.Metadata.ProxyConfig.ParentShutdownDuration) / time.Second)),
+		"--service-cluster", e.Metadata.ProxyConfig.ServiceCluster,
+		"--service-node", e.ID,
 		"--local-address-ip-version", proxyLocalAddressType,
 		"--bootstrap-version", "3",
+		"--disable-hot-restart", // We don't use it, so disable it to simplify Envoy's logic
 	}
 	if e.ProxyConfig.LogAsJSON {
 		startupArgs = append(startupArgs,
 			"--log-format",
-			`{"level":"%l","time":"%Y-%m-%dT%T.%fZ","scope":"%n","msg":"%_"}`,
+			`{"level":"%l","time":"%Y-%m-%dT%T.%fZ","scope":"envoy %n","msg":"%j"}`,
 		)
 	} else {
 		// format is like `2020-04-07T16:52:30.471425Z     info    envoy config   ...message..
@@ -140,8 +116,8 @@ func (e *envoy) args(fname string, epoch int, bootstrapConfig string) []string {
 		}
 	}
 
-	if e.Config.Concurrency.GetValue() > 0 {
-		startupArgs = append(startupArgs, "--concurrency", fmt.Sprint(e.Config.Concurrency.GetValue()))
+	if e.Metadata.ProxyConfig.Concurrency.GetValue() > 0 {
+		startupArgs = append(startupArgs, "--concurrency", fmt.Sprint(e.Metadata.ProxyConfig.Concurrency.GetValue()))
 	}
 
 	return startupArgs
@@ -149,29 +125,18 @@ func (e *envoy) args(fname string, epoch int, bootstrapConfig string) []string {
 
 var istioBootstrapOverrideVar = env.RegisterStringVar("ISTIO_BOOTSTRAP_OVERRIDE", "", "")
 
-func (e *envoy) Run(config interface{}, epoch int, abort <-chan error) error {
+func (e *envoy) Run(epoch int, abort <-chan error) error {
+	config := e.Metadata.ProxyConfig
 	var fname string
 	// Note: the cert checking still works, the generated file is updated if certs are changed.
 	// We just don't save the generated file, but use a custom one instead. Pilot will keep
 	// monitoring the certs and restart if the content of the certs changes.
-	if len(e.Config.CustomConfigFile) > 0 {
+	if len(config.CustomConfigFile) > 0 {
 		// there is a custom configuration. Don't write our own config - but keep watching the certs.
-		fname = e.Config.CustomConfigFile
+		fname = config.CustomConfigFile
 	} else {
-		discHost := strings.Split(e.Config.DiscoveryAddress, ":")[0]
 		out, err := bootstrap.New(bootstrap.Config{
-			Node:                e.Node,
-			Proxy:               &e.Config,
-			PilotSubjectAltName: e.PilotSubjectAltName,
-			LocalEnv:            os.Environ(),
-			NodeIPs:             e.NodeIPs,
-			STSPort:             e.STSPort,
-			ProxyViaAgent:       e.ProxyViaAgent,
-			OutlierLogPath:      e.OutlierLogPath,
-			PilotCertProvider:   e.PilotCertProvider,
-			ProvCert:            e.ProvCert,
-			CallCredentials:     e.CallCredentials,
-			DiscoveryHost:       discHost,
+			Node: e.Node,
 		}).CreateFileForEpoch(epoch)
 		if err != nil {
 			log.Error("Failed to generate bootstrap config: ", err)
@@ -185,7 +150,7 @@ func (e *envoy) Run(config interface{}, epoch int, abort <-chan error) error {
 	log.Infof("Envoy command: %v", args)
 
 	/* #nosec */
-	cmd := exec.Command(e.Config.BinaryPath, args...)
+	cmd := exec.Command(config.BinaryPath, args...)
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	if err := cmd.Start(); err != nil {
@@ -210,10 +175,10 @@ func (e *envoy) Run(config interface{}, epoch int, abort <-chan error) error {
 
 func (e *envoy) Cleanup(epoch int) {
 	// should return when use the parameter "--templateFile=/path/xxx.tmpl".
-	if e.Config.CustomConfigFile != "" {
+	if e.Metadata.ProxyConfig.CustomConfigFile != "" {
 		return
 	}
-	filePath := configFile(e.Config.ConfigPath, epoch)
+	filePath := configFile(e.Metadata.ProxyConfig.ConfigPath, epoch)
 	if err := os.Remove(filePath); err != nil {
 		log.Warnf("Failed to delete config file %s for %d, %v", filePath, epoch, err)
 	}

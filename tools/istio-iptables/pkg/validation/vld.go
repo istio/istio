@@ -23,7 +23,7 @@ var nativeByteOrder binary.ByteOrder
 
 func init() {
 	var x uint16 = 0x0102
-	var lowerByte = *(*byte)(unsafe.Pointer(&x))
+	lowerByte := *(*byte)(unsafe.Pointer(&x))
 	switch lowerByte {
 	case 0x01:
 		nativeByteOrder = binary.BigEndian

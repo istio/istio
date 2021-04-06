@@ -109,7 +109,7 @@ func TestJoinString(t *testing.T) {
 }
 
 func TestLineNumber(t *testing.T) {
-	var testCases = []struct {
+	testCases := []struct {
 		input       string
 		lineNumbers []int
 	}{

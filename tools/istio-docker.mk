@@ -53,7 +53,7 @@ $(foreach FILE,$(DOCKER_FILES_FROM_ISTIO_OUT_LINUX), \
 $(ISTIO_DOCKER)/certs:
 	mkdir -p $(ISTIO_DOCKER)
 	cp -a tests/testdata/certs $(ISTIO_DOCKER)/.
-	chmod o+r $(ISTIO_DOCKER)/certs
+	chmod -R o+r $(ISTIO_DOCKER)/certs
 
 # tell make which files are copied from the source tree and generate rules to copy them to the proper location:
 # TODO(sdake)                      $(NODE_AGENT_TEST_FILES) $(GRAFANA_FILES)
@@ -228,7 +228,7 @@ dockerx: DOCKER_RULE?=mkdir -p $(DOCKERX_BUILD_TOP)/$@ && cp -rp $^ $(DOCKERX_BU
 dockerx: RENAME_TEMPLATE?=mkdir -p $(DOCKERX_BUILD_TOP)/$@ && cp $(ECHO_DOCKER)/$(VM_OS_DOCKERFILE_TEMPLATE) $(DOCKERX_BUILD_TOP)/$@/Dockerfile$(suffix $@)
 dockerx: docker | $(ISTIO_DOCKER_TAR)
 dockerx:
-	HUB=$(HUB) \
+	HUBS="$(HUBS)" \
 		TAG=$(TAG) \
 		PROXY_REPO_SHA=$(PROXY_REPO_SHA) \
 		VERSION=$(VERSION) \

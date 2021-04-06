@@ -22,6 +22,7 @@ import (
 	"github.com/golang/protobuf/ptypes/any"
 
 	networkingapi "istio.io/api/networking/v1alpha3"
+	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	networking "istio.io/istio/pilot/pkg/networking/core/v1alpha3"
 	"istio.io/istio/pilot/pkg/networking/core/v1alpha3/loadbalancer"
@@ -131,7 +132,7 @@ func (s *DiscoveryServer) edsCacheUpdate(clusterID, hostname string, namespace s
 		// unnecessary full push which can become a real problem if a pod is in crashloop and thus endpoints
 		// flip flopping between 1 and 0.
 		s.deleteEndpointShards(clusterID, hostname, namespace)
-		adsLog.Infof("Incremental push, service %s has no endpoints", hostname)
+		log.Infof("Incremental push, service %s has no endpoints", hostname)
 		return false
 	}
 
@@ -141,7 +142,7 @@ func (s *DiscoveryServer) edsCacheUpdate(clusterID, hostname string, namespace s
 	ep, created := s.getOrCreateEndpointShard(hostname, namespace)
 	// If we create a new endpoint shard, that means we have not seen the service earlier. We should do a full push.
 	if created {
-		adsLog.Infof("Full push, new service %s/%s", namespace, hostname)
+		log.Infof("Full push, new service %s/%s", namespace, hostname)
 		fullPush = true
 	}
 
@@ -156,13 +157,25 @@ func (s *DiscoveryServer) edsCacheUpdate(clusterID, hostname string, namespace s
 	ep.mutex.Lock()
 	// For existing endpoints, we need to do full push if service accounts change.
 	if !fullPush && !serviceAccounts.Equals(ep.ServiceAccounts) {
-		adsLog.Debugf("Updating service accounts now, svc %v, before service account %v, after %v",
+		log.Debugf("Updating service accounts now, svc %v, before service account %v, after %v",
 			hostname, ep.ServiceAccounts, serviceAccounts)
-		adsLog.Infof("Full push, service accounts changed, %v", hostname)
+		log.Infof("Full push, service accounts changed, %v", hostname)
 		fullPush = true
 	}
 	ep.Shards[clusterID] = istioEndpoints
 	ep.ServiceAccounts = serviceAccounts
+	// Clear the cache here. While it would likely be cleared later when we trigger a push, a race
+	// condition is introduced where an XDS response may be generated before the update, but not
+	// completed until after a response after the update. Essentially, we transition from v0 -> v1 ->
+	// v0 -> invalidate -> v1. Reverting a change we pushed violates our contract of monotonically
+	// moving forward in version. In practice, this is pretty rare and self corrects nearly
+	// immediately. However, clearing the cache here has almost no impact on cache performance as we
+	// would clear it shortly after anyways.
+	s.Cache.Clear(map[model.ConfigKey]struct{}{{
+		Kind:      gvk.ServiceEntry,
+		Name:      hostname,
+		Namespace: namespace,
+	}: {}})
 	ep.mutex.Unlock()
 
 	return fullPush
@@ -197,6 +210,12 @@ func (s *DiscoveryServer) deleteEndpointShards(cluster, serviceName, namespace s
 		s.EndpointShardsByService[serviceName][namespace] != nil {
 		s.EndpointShardsByService[serviceName][namespace].mutex.Lock()
 		delete(s.EndpointShardsByService[serviceName][namespace].Shards, cluster)
+		// Clear the cache here to avoid race in cache writes (see edsCacheUpdate for details).
+		s.Cache.Clear(map[model.ConfigKey]struct{}{{
+			Kind:      gvk.ServiceEntry,
+			Name:      serviceName,
+			Namespace: namespace,
+		}: {}})
 		s.EndpointShardsByService[serviceName][namespace].mutex.Unlock()
 	}
 }
@@ -213,6 +232,12 @@ func (s *DiscoveryServer) deleteService(cluster, serviceName, namespace string) 
 		s.EndpointShardsByService[serviceName][namespace].mutex.Lock()
 		delete(s.EndpointShardsByService[serviceName][namespace].Shards, cluster)
 		shards := len(s.EndpointShardsByService[serviceName][namespace].Shards)
+		// Clear the cache here to avoid race in cache writes (see edsCacheUpdate for details).
+		s.Cache.Clear(map[model.ConfigKey]struct{}{{
+			Kind:      gvk.ServiceEntry,
+			Name:      serviceName,
+			Namespace: namespace,
+		}: {}})
 		s.EndpointShardsByService[serviceName][namespace].mutex.Unlock()
 
 		if shards == 0 {
@@ -230,7 +255,7 @@ func (s *DiscoveryServer) deleteService(cluster, serviceName, namespace string) 
 func (s *DiscoveryServer) llbEndpointAndOptionsForCluster(b EndpointBuilder) ([]*LocLbEndpointsAndOptions, error) {
 	if b.service == nil {
 		// Shouldn't happen here
-		adsLog.Debugf("can not find the service for cluster %s", b.clusterName)
+		log.Debugf("can not find the service for cluster %s", b.clusterName)
 		return make([]*LocLbEndpointsAndOptions, 0), nil
 	}
 
@@ -242,14 +267,14 @@ func (s *DiscoveryServer) llbEndpointAndOptionsForCluster(b EndpointBuilder) ([]
 	// automatically.
 	// Gateways use EDS for Passthrough cluster. So we should allow Passthrough here.
 	if b.service.Resolution == model.DNSLB {
-		adsLog.Infof("cluster %s in eds cluster, but its resolution now is updated to %v, skipping it.", b.clusterName, b.service.Resolution)
+		log.Infof("cluster %s in eds cluster, but its resolution now is updated to %v, skipping it.", b.clusterName, b.service.Resolution)
 		return nil, fmt.Errorf("cluster %s in eds cluster", b.clusterName)
 	}
 
 	svcPort, f := b.service.Ports.GetByPort(b.port)
 	if !f {
 		// Shouldn't happen here
-		adsLog.Debugf("can not find the service port %d for cluster %s", b.port, b.clusterName)
+		log.Debugf("can not find the service port %d for cluster %s", b.port, b.clusterName)
 		return make([]*LocLbEndpointsAndOptions, 0), nil
 	}
 
@@ -258,7 +283,7 @@ func (s *DiscoveryServer) llbEndpointAndOptionsForCluster(b EndpointBuilder) ([]
 	s.mutex.RUnlock()
 	if !f {
 		// Shouldn't happen here
-		adsLog.Debugf("can not find the endpointShards for cluster %s", b.clusterName)
+		log.Debugf("can not find the endpointShards for cluster %s", b.clusterName)
 		return make([]*LocLbEndpointsAndOptions, 0), nil
 	}
 
@@ -348,7 +373,8 @@ func (eds *EdsGenerator) Generate(proxy *model.Proxy, push *model.PushContext, w
 			}
 		}
 		builder := NewEndpointBuilder(clusterName, proxy, push)
-		if marshalledEndpoint, f := eds.Server.Cache.Get(builder); f {
+		if marshalledEndpoint, token, f := eds.Server.Cache.Get(builder); f && !features.EnableUnsafeAssertions {
+			// We skip cache if assertions are enabled, so that the cache will assert our eviction logic is correct
 			resources = append(resources, marshalledEndpoint)
 			cached++
 		} else {
@@ -363,15 +389,15 @@ func (eds *EdsGenerator) Generate(proxy *model.Proxy, push *model.PushContext, w
 			}
 			resource := util.MessageToAny(l)
 			resources = append(resources, resource)
-			eds.Server.Cache.Add(builder, resource)
+			eds.Server.Cache.Add(builder, token, resource)
 		}
 	}
 	if len(edsUpdatedServices) == 0 {
-		adsLog.Infof("EDS: PUSH for node:%s resources:%d size:%s empty:%v cached:%v/%v",
-			proxy.ID, len(resources), util.ByteCount(ResourceSize(resources)), empty, cached, cached+regenerated)
-	} else if adsLog.DebugEnabled() {
-		adsLog.Debugf("EDS: PUSH INC for node:%s clusters:%d size:%s empty:%vcached:%v/%v",
-			proxy.ID, len(resources), util.ByteCount(ResourceSize(resources)), empty, cached, cached+regenerated)
+		log.Infof("EDS: PUSH%s for node:%s resources:%d size:%s empty:%v cached:%v/%v",
+			req.PushReason(), proxy.ID, len(resources), util.ByteCount(ResourceSize(resources)), empty, cached, cached+regenerated)
+	} else if log.DebugEnabled() {
+		log.Debugf("EDS: PUSH INC%s for node:%s clusters:%d size:%s empty:%v cached:%v/%v",
+			req.PushReason(), proxy.ID, len(resources), util.ByteCount(ResourceSize(resources)), empty, cached, cached+regenerated)
 	}
 	return resources, nil
 }
@@ -383,7 +409,7 @@ func getOutlierDetectionAndLoadBalancerSettings(
 	if destinationRule == nil {
 		return false, nil
 	}
-	var outlierDetectionEnabled = false
+	outlierDetectionEnabled := false
 	var lbSettings *networkingapi.LoadBalancerSettings
 
 	port := &model.Port{Port: portNumber}

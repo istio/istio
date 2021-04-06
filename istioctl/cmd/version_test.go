@@ -20,7 +20,6 @@ import (
 	"testing"
 
 	"istio.io/istio/pkg/kube"
-	testKube "istio.io/istio/pkg/test/kube"
 	"istio.io/pkg/version"
 )
 
@@ -66,7 +65,7 @@ func TestVersion(t *testing.T) {
 }
 
 func mockExecClientVersionTest(_, _ string, _ string) (kube.ExtendedClient, error) {
-	return testKube.MockClient{
+	return kube.MockClient{
 		IstioVersions: &meshInfo,
 	}, nil
 }

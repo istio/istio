@@ -24,12 +24,9 @@ import (
 	"istio.io/pkg/log"
 )
 
-var (
-	nsSetupProg = "istio-iptables"
-)
+var nsSetupProg = "istio-iptables"
 
-type iptables struct {
-}
+type iptables struct{}
 
 func newIPTables() InterceptRuleMgr {
 	return &iptables{}

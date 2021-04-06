@@ -56,7 +56,8 @@ func operatorRemoveCmd(rootArgs *rootArgs, orArgs *operatorRemoveArgs) *cobra.Co
 		Run: func(cmd *cobra.Command, args []string) {
 			l := clog.NewConsoleLogger(cmd.OutOrStdout(), cmd.OutOrStderr(), installerScope)
 			operatorRemove(rootArgs, orArgs, l)
-		}}
+		},
+	}
 }
 
 // operatorRemove removes the Istio operator controller from the cluster.

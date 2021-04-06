@@ -42,8 +42,7 @@ import (
 // Example: networking.istio.io/v1alpha3/VirtualService
 //
 // TODO: we can also add a special marker in the header)
-type APIGenerator struct {
-}
+type APIGenerator struct{}
 
 // TODO: take 'updates' into account, don't send pushes for resources that haven't changed
 // TODO: support WorkloadEntry - to generate endpoints (equivalent with EDS)

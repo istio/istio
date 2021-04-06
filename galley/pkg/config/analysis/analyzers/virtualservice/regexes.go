@@ -52,7 +52,6 @@ func (a *RegexAnalyzer) Analyze(ctx analysis.Context) {
 }
 
 func (a *RegexAnalyzer) analyzeVirtualService(r *resource.Instance, ctx analysis.Context) {
-
 	vs := r.Message.(*v1alpha3.VirtualService)
 
 	for i, route := range vs.GetHttp() {

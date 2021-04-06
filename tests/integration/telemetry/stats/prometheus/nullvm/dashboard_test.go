@@ -32,9 +32,9 @@ import (
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/test/framework"
+	"istio.io/istio/pkg/test/framework/components/cluster"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/prometheus"
-	"istio.io/istio/pkg/test/framework/resource"
 	"istio.io/istio/pkg/test/scopes"
 	"istio.io/istio/pkg/test/util/retry"
 	"istio.io/istio/pkg/test/util/yml"
@@ -42,91 +42,89 @@ import (
 	"istio.io/pkg/log"
 )
 
-var (
-	dashboards = []struct {
-		configmap      string
-		name           string
-		excluded       []string
-		requirePrimary bool
-	}{
-		{
-			"istio-grafana-dashboards",
-			"pilot-dashboard.json",
-			[]string{
-				"pilot_xds_push_errors",
-				"pilot_total_xds_internal_errors",
-				"pilot_xds_push_context_errors",
-				`pilot_xds_pushes{type!~"lds|cds|rds|eds"}`,
-				// We do not push credentials in this test
-				`pilot_xds_pushes{type="sds"}`,
-				"_timeout",
-				"_rejects",
-				// We do not simulate injection errors
-				"sidecar_injection_failure_total",
-				// In default install, we have no proxy
-				"istio-proxy",
-				// https://github.com/istio/istio/issues/22674 this causes flaky tests
-				"galley_validation_passed",
-				// cAdvisor does not expose this metrics, and we don't have kubelet in kind
-				"container_fs_usage_bytes",
-				// flakes: https://github.com/istio/istio/issues/29871
-				"container_memory_working_set_bytes",
-				"container_cpu_usage_seconds_total",
-			},
-			// Pilot is installed only on Primary cluster, hence validate for primary clusters only.
-			true,
+var dashboards = []struct {
+	configmap      string
+	name           string
+	excluded       []string
+	requirePrimary bool
+}{
+	{
+		"istio-grafana-dashboards",
+		"pilot-dashboard.json",
+		[]string{
+			"pilot_xds_push_errors",
+			"pilot_total_xds_internal_errors",
+			"pilot_xds_push_context_errors",
+			`pilot_xds_pushes{type!~"lds|cds|rds|eds"}`,
+			// We do not push credentials in this test
+			`pilot_xds_pushes{type="sds"}`,
+			"_timeout",
+			"_rejects",
+			// We do not simulate injection errors
+			"sidecar_injection_failure_total",
+			// In default install, we have no proxy
+			"istio-proxy",
+			// https://github.com/istio/istio/issues/22674 this causes flaky tests
+			"galley_validation_passed",
+			// cAdvisor does not expose this metrics, and we don't have kubelet in kind
+			"container_fs_usage_bytes",
+			// flakes: https://github.com/istio/istio/issues/29871
+			"container_memory_working_set_bytes",
+			"container_cpu_usage_seconds_total",
 		},
-		{
-			"istio-services-grafana-dashboards",
-			"istio-mesh-dashboard.json",
-			[]string{
-				"galley_",
-				"istio_tcp_",
-				"max(pilot_k8s_cfg_events{",
-			},
-			false,
+		// Pilot is installed only on Primary cluster, hence validate for primary clusters only.
+		true,
+	},
+	{
+		"istio-services-grafana-dashboards",
+		"istio-mesh-dashboard.json",
+		[]string{
+			"galley_",
+			"istio_tcp_",
+			"max(pilot_k8s_cfg_events{",
 		},
-		{
-			"istio-services-grafana-dashboards",
-			"istio-service-dashboard.json",
-			[]string{
-				"istio_tcp_",
-			},
-			false,
+		false,
+	},
+	{
+		"istio-services-grafana-dashboards",
+		"istio-service-dashboard.json",
+		[]string{
+			"istio_tcp_",
 		},
-		{
-			"istio-services-grafana-dashboards",
-			"istio-workload-dashboard.json",
-			[]string{
-				"istio_tcp_",
-			},
-			false,
+		false,
+	},
+	{
+		"istio-services-grafana-dashboards",
+		"istio-workload-dashboard.json",
+		[]string{
+			"istio_tcp_",
 		},
-		{
-			"istio-grafana-dashboards",
-			"istio-performance-dashboard.json",
-			[]string{
-				// cAdvisor does not expose this metrics, and we don't have kubelet in kind
-				"container_fs_usage_bytes",
-				// flakes: https://github.com/istio/istio/issues/29871
-				"container_memory_working_set_bytes",
-				"container_cpu_usage_seconds_total",
-			},
-			true,
+		false,
+	},
+	{
+		"istio-grafana-dashboards",
+		"istio-performance-dashboard.json",
+		[]string{
+			// cAdvisor does not expose this metrics, and we don't have kubelet in kind
+			"container_fs_usage_bytes",
+			// flakes: https://github.com/istio/istio/issues/29871
+			"container_memory_working_set_bytes",
+			"container_cpu_usage_seconds_total",
 		},
-		{
-			"istio-services-grafana-dashboards",
-			"istio-extension-dashboard.json",
-			[]string{
-				"avg(envoy_wasm_vm_v8_",
-				// flakes: https://github.com/istio/istio/issues/29871
-				"container_memory_working_set_bytes",
-				"container_cpu_usage_seconds_total",
-			},
-			false,
+		true,
+	},
+	{
+		"istio-services-grafana-dashboards",
+		"istio-extension-dashboard.json",
+		[]string{
+			"avg(envoy_wasm_envoy_wasm_runtime_v8_",
+			// flakes: https://github.com/istio/istio/issues/29871
+			"container_memory_working_set_bytes",
+			"container_cpu_usage_seconds_total",
 		},
-	}
-)
+		false,
+	},
+}
 
 func TestDashboard(t *testing.T) {
 	c, cancel := context.WithCancel(context.Background())
@@ -185,29 +183,27 @@ func TestDashboard(t *testing.T) {
 		})
 }
 
-var (
-	// Some templates use replacement variables. Instead, replace those with wildcard
-	replacer = strings.NewReplacer(
-		"$dstns", ".*",
-		"$dstwl", ".*",
-		"$service", ".*",
-		"$srcns", ".*",
-		"$srcwl", ".*",
-		"$namespace", ".*",
-		"$workload", ".*",
-		"$dstsvc", ".*",
-		"$adapter", ".*",
-		// Just allow all mTLS settings rather than trying to send mtls and plaintext
-		`connection_security_policy="unknown"`, `connection_security_policy=~".*"`,
-		`connection_security_policy="mutual_tls"`, `connection_security_policy=~".*"`,
-		`connection_security_policy!="mutual_tls"`, `connection_security_policy=~".*"`,
-		// Test runs in istio-system
-		`destination_workload_namespace!="istio-system"`, `destination_workload_namespace=~".*"`,
-		`source_workload_namespace!="istio-system"`, `source_workload_namespace=~".*"`,
-	)
+// Some templates use replacement variables. Instead, replace those with wildcard
+var replacer = strings.NewReplacer(
+	"$dstns", ".*",
+	"$dstwl", ".*",
+	"$service", ".*",
+	"$srcns", ".*",
+	"$srcwl", ".*",
+	"$namespace", ".*",
+	"$workload", ".*",
+	"$dstsvc", ".*",
+	"$adapter", ".*",
+	// Just allow all mTLS settings rather than trying to send mtls and plaintext
+	`connection_security_policy="unknown"`, `connection_security_policy=~".*"`,
+	`connection_security_policy="mutual_tls"`, `connection_security_policy=~".*"`,
+	`connection_security_policy!="mutual_tls"`, `connection_security_policy=~".*"`,
+	// Test runs in istio-system
+	`destination_workload_namespace!="istio-system"`, `destination_workload_namespace=~".*"`,
+	`source_workload_namespace!="istio-system"`, `source_workload_namespace=~".*"`,
 )
 
-func checkMetric(cl resource.Cluster, p prometheus.Instance, query string, excluded []string) error {
+func checkMetric(cl cluster.Cluster, p prometheus.Instance, query string, excluded []string) error {
 	query = replacer.Replace(query)
 	value, _, err := p.APIForCluster(cl).QueryRange(context.Background(), query, promv1.Range{
 		Start: time.Now().Add(-time.Minute),

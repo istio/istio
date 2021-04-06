@@ -35,6 +35,7 @@ var (
 	tcpPorts         []int
 	tlsPorts         []int
 	instanceIPPorts  []int
+	localhostIPPorts []int
 	serverFirstPorts []int
 	metricsPort      int
 	uds              string
@@ -42,6 +43,7 @@ var (
 	cluster          string
 	crt              string
 	key              string
+	istioVersion     string
 
 	loggingOptions = log.DefaultOptions()
 
@@ -96,16 +98,22 @@ var (
 			for _, p := range instanceIPPorts {
 				instanceIPByPort[p] = struct{}{}
 			}
+			localhostIPByPort := map[int]struct{}{}
+			for _, p := range localhostIPPorts {
+				localhostIPByPort[p] = struct{}{}
+			}
 
 			s := server.New(server.Config{
-				Ports:          ports,
-				Metrics:        metricsPort,
-				BindIPPortsMap: instanceIPByPort,
-				TLSCert:        crt,
-				TLSKey:         key,
-				Version:        version,
-				Cluster:        cluster,
-				UDSServer:      uds,
+				Ports:                 ports,
+				Metrics:               metricsPort,
+				BindIPPortsMap:        instanceIPByPort,
+				BindLocalhostPortsMap: localhostIPByPort,
+				TLSCert:               crt,
+				TLSKey:                key,
+				Version:               version,
+				Cluster:               cluster,
+				IstioVersion:          istioVersion,
+				UDSServer:             uds,
 			})
 
 			if err := s.Start(); err != nil {
@@ -137,6 +145,7 @@ func init() {
 	rootCmd.PersistentFlags().IntSliceVar(&tcpPorts, "tcp", []int{9090}, "TCP ports")
 	rootCmd.PersistentFlags().IntSliceVar(&tlsPorts, "tls", []int{}, "Ports that are using TLS. These must be defined as http/grpc/tcp.")
 	rootCmd.PersistentFlags().IntSliceVar(&instanceIPPorts, "bind-ip", []int{}, "Ports that are bound to INSTANCE_IP rather than wildcard IP.")
+	rootCmd.PersistentFlags().IntSliceVar(&localhostIPPorts, "bind-localhost", []int{}, "Ports that are bound to localhost rather than wildcard IP.")
 	rootCmd.PersistentFlags().IntSliceVar(&serverFirstPorts, "server-first", []int{}, "Ports that are server first. These must be defined as tcp.")
 	rootCmd.PersistentFlags().IntVar(&metricsPort, "metrics", 0, "Metrics port")
 	rootCmd.PersistentFlags().StringVar(&uds, "uds", "", "HTTP server on unix domain socket")
@@ -144,6 +153,7 @@ func init() {
 	rootCmd.PersistentFlags().StringVar(&cluster, "cluster", "", "Cluster where this server is deployed")
 	rootCmd.PersistentFlags().StringVar(&crt, "crt", "", "gRPC TLS server-side certificate")
 	rootCmd.PersistentFlags().StringVar(&key, "key", "", "gRPC TLS server-side key")
+	rootCmd.PersistentFlags().StringVar(&istioVersion, "istio-version", "", "Istio sidecar version")
 
 	loggingOptions.AttachCobraFlags(rootCmd)
 

@@ -35,9 +35,7 @@ const (
 	rootNamespace = "istio-config"
 )
 
-var (
-	baseTimestamp = time.Date(2020, 2, 2, 2, 2, 2, 0, time.UTC)
-)
+var baseTimestamp = time.Date(2020, 2, 2, 2, 2, 2, 0, time.UTC)
 
 func TestSdsCertificateConfigFromResourceName(t *testing.T) {
 	cases := []struct {
@@ -609,8 +607,6 @@ func TestGetPoliciesForWorkloadWithJwksResolver(t *testing.T) {
 		t.Fatal("failed to start a mock server")
 	}
 
-	mockCertURL := ms.URL + "/oauth2/v3/certs"
-
 	policies := getTestAuthenticationPolicies(createNonTrivialRequestAuthnTestConfigs(ms.URL), t)
 
 	cases := []struct {
@@ -633,8 +629,7 @@ func TestGetPoliciesForWorkloadWithJwksResolver(t *testing.T) {
 					Spec: &securityBeta.RequestAuthentication{
 						JwtRules: []*securityBeta.JWTRule{
 							{
-								Issuer:  ms.URL,
-								JwksUri: mockCertURL,
+								Issuer: ms.URL,
 							},
 						},
 					},
@@ -655,8 +650,7 @@ func TestGetPoliciesForWorkloadWithJwksResolver(t *testing.T) {
 					Spec: &securityBeta.RequestAuthentication{
 						JwtRules: []*securityBeta.JWTRule{
 							{
-								Issuer:  ms.URL,
-								JwksUri: mockCertURL,
+								Issuer: ms.URL,
 							},
 						},
 					},
@@ -675,8 +669,7 @@ func TestGetPoliciesForWorkloadWithJwksResolver(t *testing.T) {
 						},
 						JwtRules: []*securityBeta.JWTRule{
 							{
-								Issuer:  ms.URL,
-								JwksUri: mockCertURL,
+								Issuer: ms.URL,
 							},
 							{
 								Issuer: "bad-issuer",
@@ -725,8 +718,7 @@ func TestGetPoliciesForWorkloadWithJwksResolver(t *testing.T) {
 					Spec: &securityBeta.RequestAuthentication{
 						JwtRules: []*securityBeta.JWTRule{
 							{
-								Issuer:  ms.URL,
-								JwksUri: mockCertURL,
+								Issuer: ms.URL,
 							},
 						},
 					},
@@ -745,8 +737,7 @@ func TestGetPoliciesForWorkloadWithJwksResolver(t *testing.T) {
 						},
 						JwtRules: []*securityBeta.JWTRule{
 							{
-								Issuer:  ms.URL,
-								JwksUri: mockCertURL,
+								Issuer: ms.URL,
 							},
 							{
 								Issuer: "bad-issuer",

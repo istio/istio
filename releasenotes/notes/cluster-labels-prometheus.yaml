@@ -1,0 +1,9 @@
+apiVersion: release-notes/v2
+kind: feature
+area: telemetry
+issue:
+  - 30036
+
+releaseNotes:
+  - |
+    **Updated** prometheus metrics to include source_cluster and destination_cluster labels by default for all scenarios. Previously, this was only enabled for multi-cluster scenarios.

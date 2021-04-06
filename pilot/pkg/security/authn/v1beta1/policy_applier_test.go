@@ -21,22 +21,27 @@ import (
 
 	"github.com/davecgh/go-spew/spew"
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
-	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
 	route "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
 	envoy_jwt "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/jwt_authn/v3"
 	http_conn "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
 	tls "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
+	"github.com/golang/protobuf/proto"
 	"github.com/golang/protobuf/ptypes"
+	duration "github.com/golang/protobuf/ptypes/duration"
 	"github.com/golang/protobuf/ptypes/empty"
+	"github.com/google/go-cmp/cmp"
+	"google.golang.org/protobuf/testing/protocmp"
+	"google.golang.org/protobuf/types/known/durationpb"
 
 	"istio.io/api/security/v1beta1"
 	type_beta "istio.io/api/type/v1beta1"
+	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/model/test"
-	"istio.io/istio/pilot/pkg/networking"
+	"istio.io/istio/pilot/pkg/networking/plugin"
 	pilotutil "istio.io/istio/pilot/pkg/networking/util"
-	xdsfilters "istio.io/istio/pilot/pkg/xds/filters"
 	"istio.io/istio/pkg/config"
+	"istio.io/istio/pkg/config/host"
 	authn_alpha "istio.io/istio/pkg/envoy/config/authentication/v1alpha1"
 	authn_filter "istio.io/istio/pkg/envoy/config/filter/http/authn/v2alpha1"
 	protovalue "istio.io/istio/pkg/proto"
@@ -51,9 +56,10 @@ func TestJwtFilter(t *testing.T) {
 	jwksURI := ms.URL + "/oauth2/v3/certs"
 
 	cases := []struct {
-		name     string
-		in       []*config.Config
-		expected *http_conn.HttpFilter
+		name             string
+		in               []*config.Config
+		enableRemoteJwks bool
+		expected         *http_conn.HttpFilter
 	}{
 		{
 			name:     "No policy",
@@ -129,6 +135,145 @@ func TestJwtFilter(t *testing.T) {
 									},
 									Forward:           false,
 									PayloadInMetadata: "https://secret.foo.com",
+								},
+							},
+						}),
+				},
+			},
+		},
+		{
+			name: "JWT policy with Mesh cluster as issuer and remote jwks enabled",
+			in: []*config.Config{
+				{
+					Spec: &v1beta1.RequestAuthentication{
+						JwtRules: []*v1beta1.JWTRule{
+							{
+								Issuer:  "mesh cluster",
+								JwksUri: "http://jwt-token-issuer.mesh:7443/jwks",
+							},
+						},
+					},
+				},
+			},
+			enableRemoteJwks: true,
+			expected: &http_conn.HttpFilter{
+				Name: "envoy.filters.http.jwt_authn",
+				ConfigType: &http_conn.HttpFilter_TypedConfig{
+					TypedConfig: pilotutil.MessageToAny(
+						&envoy_jwt.JwtAuthentication{
+							Rules: []*envoy_jwt.RequirementRule{
+								{
+									Match: &route.RouteMatch{
+										PathSpecifier: &route.RouteMatch_Prefix{
+											Prefix: "/",
+										},
+									},
+									RequirementType: &envoy_jwt.RequirementRule_Requires{
+										Requires: &envoy_jwt.JwtRequirement{
+											RequiresType: &envoy_jwt.JwtRequirement_RequiresAny{
+												RequiresAny: &envoy_jwt.JwtRequirementOrList{
+													Requirements: []*envoy_jwt.JwtRequirement{
+														{
+															RequiresType: &envoy_jwt.JwtRequirement_ProviderName{
+																ProviderName: "origins-0",
+															},
+														},
+														{
+															RequiresType: &envoy_jwt.JwtRequirement_AllowMissing{
+																AllowMissing: &empty.Empty{},
+															},
+														},
+													},
+												},
+											},
+										},
+									},
+								},
+							},
+							Providers: map[string]*envoy_jwt.JwtProvider{
+								"origins-0": {
+									Issuer: "mesh cluster",
+									JwksSourceSpecifier: &envoy_jwt.JwtProvider_RemoteJwks{
+										RemoteJwks: &envoy_jwt.RemoteJwks{
+											HttpUri: &core.HttpUri{
+												Uri: "http://jwt-token-issuer.mesh:7443/jwks",
+												HttpUpstreamType: &core.HttpUri_Cluster{
+													Cluster: "outbound|7443||jwt-token-issuer.mesh.svc.cluster.local",
+												},
+												Timeout: &duration.Duration{Seconds: 5},
+											},
+											CacheDuration: &duration.Duration{Seconds: 5 * 60},
+										},
+									},
+									Forward:           false,
+									PayloadInMetadata: "mesh cluster",
+								},
+							},
+						}),
+				},
+			},
+		},
+		{
+			name: "JWT policy with non Mesh cluster as issuer and remote jwks enabled",
+			in: []*config.Config{
+				{
+					Spec: &v1beta1.RequestAuthentication{
+						JwtRules: []*v1beta1.JWTRule{
+							{
+								Issuer:  "invalid|7443|",
+								JwksUri: jwksURI,
+							},
+						},
+					},
+				},
+			},
+			enableRemoteJwks: true,
+			expected: &http_conn.HttpFilter{
+				Name: "envoy.filters.http.jwt_authn",
+				ConfigType: &http_conn.HttpFilter_TypedConfig{
+					TypedConfig: pilotutil.MessageToAny(
+						&envoy_jwt.JwtAuthentication{
+							Rules: []*envoy_jwt.RequirementRule{
+								{
+									Match: &route.RouteMatch{
+										PathSpecifier: &route.RouteMatch_Prefix{
+											Prefix: "/",
+										},
+									},
+									RequirementType: &envoy_jwt.RequirementRule_Requires{
+										Requires: &envoy_jwt.JwtRequirement{
+											RequiresType: &envoy_jwt.JwtRequirement_RequiresAny{
+												RequiresAny: &envoy_jwt.JwtRequirementOrList{
+													Requirements: []*envoy_jwt.JwtRequirement{
+														{
+															RequiresType: &envoy_jwt.JwtRequirement_ProviderName{
+																ProviderName: "origins-0",
+															},
+														},
+														{
+															RequiresType: &envoy_jwt.JwtRequirement_AllowMissing{
+																AllowMissing: &empty.Empty{},
+															},
+														},
+													},
+												},
+											},
+										},
+									},
+								},
+							},
+							Providers: map[string]*envoy_jwt.JwtProvider{
+								"origins-0": {
+									Issuer: "invalid|7443|",
+									JwksSourceSpecifier: &envoy_jwt.JwtProvider_LocalJwks{
+										LocalJwks: &core.DataSource{
+											Specifier: &core.DataSource_InlineString{
+												InlineString: test.JwtPubKey2,
+											},
+										},
+									},
+									Forward:           false,
+									PayloadInMetadata: "invalid|7443|",
 								},
 							},
 						}),
@@ -390,7 +535,7 @@ func TestJwtFilter(t *testing.T) {
 									JwksSourceSpecifier: &envoy_jwt.JwtProvider_LocalJwks{
 										LocalJwks: &core.DataSource{
 											Specifier: &core.DataSource_InlineString{
-												InlineString: createFakeJwks("http://site.not.exist"),
+												InlineString: model.CreateFakeJwks("http://site.not.exist"),
 											},
 										},
 									},
@@ -517,7 +662,8 @@ func TestJwtFilter(t *testing.T) {
 											},
 										},
 									},
-								}},
+								},
+							},
 							Providers: map[string]*envoy_jwt.JwtProvider{
 								"origins-0": {
 									Issuer: "https://secret.foo.com",
@@ -539,9 +685,22 @@ func TestJwtFilter(t *testing.T) {
 		},
 	}
 
+	push := model.NewPushContext()
+	push.JwtKeyResolver = model.NewJwksResolver(
+		model.JwtPubKeyEvictionDuration, model.JwtPubKeyRefreshInterval,
+		model.JwtPubKeyRefreshIntervalOnFailure, model.JwtPubKeyRetryInterval)
+	defer push.JwtKeyResolver.Close()
+
+	push.ServiceIndex.HostnameAndNamespace[host.Name("jwt-token-issuer.mesh")] = map[string]*model.Service{}
+	push.ServiceIndex.HostnameAndNamespace[host.Name("jwt-token-issuer.mesh")]["mesh"] = &model.Service{
+		Hostname: host.Name("jwt-token-issuer.mesh.svc.cluster.local"),
+	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
-			if got := NewPolicyApplier("root-namespace", c.in, nil).JwtFilter(); !reflect.DeepEqual(c.expected, got) {
+			defaultValue := features.EnableRemoteJwks
+			features.EnableRemoteJwks = c.enableRemoteJwks
+			defer func() { features.EnableRemoteJwks = defaultValue }()
+			if got := NewPolicyApplier("root-namespace", c.in, nil, push).JwtFilter(); !reflect.DeepEqual(c.expected, got) {
 				t.Errorf("got:\n%s\nwanted:\n%s", spew.Sdump(got), spew.Sdump(c.expected))
 			}
 		})
@@ -777,7 +936,7 @@ func TestConvertToEnvoyJwtConfig(t *testing.T) {
 						JwksSourceSpecifier: &envoy_jwt.JwtProvider_LocalJwks{
 							LocalJwks: &core.DataSource{
 								Specifier: &core.DataSource_InlineString{
-									InlineString: createFakeJwks(""),
+									InlineString: model.CreateFakeJwks(""),
 								},
 							},
 						},
@@ -831,7 +990,7 @@ func TestConvertToEnvoyJwtConfig(t *testing.T) {
 						JwksSourceSpecifier: &envoy_jwt.JwtProvider_LocalJwks{
 							LocalJwks: &core.DataSource{
 								Specifier: &core.DataSource_InlineString{
-									InlineString: createFakeJwks("http://site.not.exist"),
+									InlineString: model.CreateFakeJwks("http://site.not.exist"),
 								},
 							},
 						},
@@ -843,9 +1002,15 @@ func TestConvertToEnvoyJwtConfig(t *testing.T) {
 		},
 	}
 
+	push := &model.PushContext{}
+	push.JwtKeyResolver = model.NewJwksResolver(
+		model.JwtPubKeyEvictionDuration, model.JwtPubKeyRefreshInterval,
+		model.JwtPubKeyRefreshIntervalOnFailure, model.JwtPubKeyRetryInterval)
+	defer push.JwtKeyResolver.Close()
+
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
-			if got := convertToEnvoyJwtConfig(c.in); !reflect.DeepEqual(c.expected, got) {
+			if got := convertToEnvoyJwtConfig(c.in, push); !reflect.DeepEqual(c.expected, got) {
 				t.Errorf("got:\n%s\nwanted:\n%s\n", spew.Sdump(got), spew.Sdump(c.expected))
 			}
 		})
@@ -857,6 +1022,7 @@ func humanReadableAuthnFilterDump(filter *http_conn.HttpFilter) string {
 		return "<nil>"
 	}
 	config := &authn_filter.FilterConfig{}
+	// nolint: staticcheck
 	ptypes.UnmarshalAny(filter.GetTypedConfig(), config)
 	return spew.Sdump(*config)
 }
@@ -1226,6 +1392,19 @@ func TestAuthnFilterConfig(t *testing.T) {
 			},
 		},
 		{
+			name: "beta-mtls-disable",
+			peerIn: []*config.Config{
+				{
+					Spec: &v1beta1.PeerAuthentication{
+						Mtls: &v1beta1.PeerAuthentication_MutualTLS{
+							Mode: v1beta1.PeerAuthentication_MutualTLS_DISABLE,
+						},
+					},
+				},
+			},
+			expected: nil,
+		},
+		{
 			name:      "beta-mtls-for-gateway-does-not-respect-mtls-configs",
 			isGateway: true,
 			peerIn: []*config.Config{
@@ -1277,7 +1456,7 @@ func TestAuthnFilterConfig(t *testing.T) {
 			if c.isGateway {
 				proxyType = model.Router
 			}
-			got := NewPolicyApplier("root-namespace", c.jwtIn, c.peerIn).AuthNFilter(proxyType, 80, c.gatewayServerUsesIstioMutual)
+			got := NewPolicyApplier("root-namespace", c.jwtIn, c.peerIn, &model.PushContext{}).AuthNFilter(proxyType, 80, c.gatewayServerUsesIstioMutual)
 			if !reflect.DeepEqual(c.expected, got) {
 				t.Errorf("got:\n%v\nwanted:\n%v\n", humanReadableAuthnFilterDump(got), humanReadableAuthnFilterDump(c.expected))
 			}
@@ -1285,7 +1464,7 @@ func TestAuthnFilterConfig(t *testing.T) {
 	}
 }
 
-func TestOnInboundFilterChain(t *testing.T) {
+func TestInboundMTLSSettings(t *testing.T) {
 	now := time.Now()
 	tlsContext := &tls.DownstreamTlsContext{
 		CommonTlsContext: &tls.CommonTlsContext{
@@ -1295,8 +1474,9 @@ func TestOnInboundFilterChain(t *testing.T) {
 					SdsConfig: &core.ConfigSource{
 						ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
 							ApiConfigSource: &core.ApiConfigSource{
-								ApiType:             core.ApiConfigSource_GRPC,
-								TransportApiVersion: core.ApiVersion_V3,
+								ApiType:                   core.ApiConfigSource_GRPC,
+								SetNodeOnFirstMessageOnly: true,
+								TransportApiVersion:       core.ApiVersion_V3,
 								GrpcServices: []*core.GrpcService{
 									{
 										TargetSpecifier: &core.GrpcService_EnvoyGrpc_{
@@ -1306,7 +1486,7 @@ func TestOnInboundFilterChain(t *testing.T) {
 								},
 							},
 						},
-						InitialFetchTimeout: ptypes.DurationProto(time.Second * 0),
+						InitialFetchTimeout: durationpb.New(time.Second * 0),
 						ResourceApiVersion:  core.ApiVersion_V3,
 					},
 				},
@@ -1319,8 +1499,9 @@ func TestOnInboundFilterChain(t *testing.T) {
 						SdsConfig: &core.ConfigSource{
 							ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
 								ApiConfigSource: &core.ApiConfigSource{
-									ApiType:             core.ApiConfigSource_GRPC,
-									TransportApiVersion: core.ApiVersion_V3,
+									ApiType:                   core.ApiConfigSource_GRPC,
+									SetNodeOnFirstMessageOnly: true,
+									TransportApiVersion:       core.ApiVersion_V3,
 									GrpcServices: []*core.GrpcService{
 										{
 											TargetSpecifier: &core.GrpcService_EnvoyGrpc_{
@@ -1330,49 +1511,51 @@ func TestOnInboundFilterChain(t *testing.T) {
 									},
 								},
 							},
-							InitialFetchTimeout: ptypes.DurationProto(time.Second * 0),
+							InitialFetchTimeout: durationpb.New(time.Second * 0),
 							ResourceApiVersion:  core.ApiVersion_V3,
 						},
 					},
 				},
 			},
 			AlpnProtocols: []string{"istio-peer-exchange", "h2", "http/1.1"},
+			TlsParams: &tls.TlsParameters{
+				TlsMinimumProtocolVersion: tls.TlsParameters_TLSv1_2,
+				CipherSuites: []string{
+					"ECDHE-ECDSA-AES256-GCM-SHA384",
+					"ECDHE-RSA-AES256-GCM-SHA384",
+					"ECDHE-ECDSA-AES128-GCM-SHA256",
+					"ECDHE-RSA-AES128-GCM-SHA256",
+					"AES256-GCM-SHA384",
+					"AES128-GCM-SHA256",
+				},
+			},
 		},
 		RequireClientCertificate: protovalue.BoolTrue,
 	}
+	tlsContextHTTP := proto.Clone(tlsContext).(*tls.DownstreamTlsContext)
+	tlsContextHTTP.CommonTlsContext.AlpnProtocols = []string{"h2", "http/1.1"}
 
-	expectedStrict := []networking.FilterChain{
-		{
-			TLSContext: tlsContext,
-		},
+	expectedStrict := plugin.MTLSSettings{
+		Port: 8080,
+		Mode: model.MTLSStrict,
+		TCP:  tlsContext,
+		HTTP: tlsContextHTTP,
 	}
-
-	// Two filter chains, one for mtls traffic within the mesh, one for plain text traffic.
-	expectedPermissive := []networking.FilterChain{
-		{
-			TLSContext: tlsContext,
-			FilterChainMatch: &listener.FilterChainMatch{
-				ApplicationProtocols: []string{"istio-peer-exchange", "istio"},
-			},
-			ListenerFilters: []*listener.ListenerFilter{
-				xdsfilters.TLSInspector,
-			},
-		},
-		{
-			FilterChainMatch: &listener.FilterChainMatch{},
-		},
+	expectedPermissive := plugin.MTLSSettings{
+		Port: 8080,
+		Mode: model.MTLSPermissive,
+		TCP:  tlsContext,
+		HTTP: tlsContextHTTP,
 	}
 
 	cases := []struct {
 		name         string
 		peerPolicies []*config.Config
-		sdsUdsPath   string
-		expected     []networking.FilterChain
+		expected     plugin.MTLSSettings
 	}{
 		{
-			name:       "No policy - behave as permissive",
-			sdsUdsPath: "/tmp/sdsuds.sock",
-			expected:   expectedPermissive,
+			name:     "No policy - behave as permissive",
+			expected: expectedPermissive,
 		},
 		{
 			name: "Single policy - disable mode",
@@ -1385,8 +1568,7 @@ func TestOnInboundFilterChain(t *testing.T) {
 					},
 				},
 			},
-			sdsUdsPath: "/tmp/sdsuds.sock",
-			expected:   []networking.FilterChain{{}},
+			expected: plugin.MTLSSettings{Port: 8080, Mode: model.MTLSDisable},
 		},
 		{
 			name: "Single policy - permissive mode",
@@ -1399,8 +1581,7 @@ func TestOnInboundFilterChain(t *testing.T) {
 					},
 				},
 			},
-			sdsUdsPath: "/tmp/sdsuds.sock",
-			expected:   expectedPermissive,
+			expected: expectedPermissive,
 		},
 		{
 			name: "Single policy - strict mode",
@@ -1413,8 +1594,7 @@ func TestOnInboundFilterChain(t *testing.T) {
 					},
 				},
 			},
-			sdsUdsPath: "/tmp/sdsuds.sock",
-			expected:   expectedStrict,
+			expected: expectedStrict,
 		},
 		{
 			name: "Multiple policies resolved to STRICT",
@@ -1454,8 +1634,7 @@ func TestOnInboundFilterChain(t *testing.T) {
 					},
 				},
 			},
-			sdsUdsPath: "/tmp/sdsuds.sock",
-			expected:   expectedStrict,
+			expected: expectedStrict,
 		},
 		{
 			name: "Multiple policies resolved to PERMISSIVE",
@@ -1495,8 +1674,7 @@ func TestOnInboundFilterChain(t *testing.T) {
 					},
 				},
 			},
-			sdsUdsPath: "/tmp/sdsuds.sock",
-			expected:   expectedPermissive,
+			expected: expectedPermissive,
 		},
 		{
 			name: "Port level hit",
@@ -1519,8 +1697,7 @@ func TestOnInboundFilterChain(t *testing.T) {
 					},
 				},
 			},
-			sdsUdsPath: "/tmp/sdsuds.sock",
-			expected:   expectedStrict,
+			expected: expectedStrict,
 		},
 		{
 			name: "Port level miss",
@@ -1540,8 +1717,7 @@ func TestOnInboundFilterChain(t *testing.T) {
 					},
 				},
 			},
-			sdsUdsPath: "/tmp/sdsuds.sock",
-			expected:   expectedPermissive,
+			expected: expectedPermissive,
 		},
 	}
 
@@ -1554,15 +1730,13 @@ func TestOnInboundFilterChain(t *testing.T) {
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			got := NewPolicyApplier("root-namespace", nil, tc.peerPolicies).InboundFilterChain(
+			got := NewPolicyApplier("root-namespace", nil, tc.peerPolicies, &model.PushContext{}).InboundMTLSSettings(
 				8080,
-				tc.sdsUdsPath,
 				testNode,
-				networking.ListenerProtocolAuto,
 				[]string{},
 			)
-			if !reflect.DeepEqual(got, tc.expected) {
-				t.Errorf("[%v] unexpected filter chains, got %v, want %v", tc.name, got, tc.expected)
+			if diff := cmp.Diff(tc.expected, got, protocmp.Transform()); diff != "" {
+				t.Errorf("unexpected filter chains: %v", diff)
 			}
 		})
 	}
@@ -1578,7 +1752,11 @@ func TestComposePeerAuthentication(t *testing.T) {
 		{
 			name:    "no config",
 			configs: []*config.Config{},
-			want:    nil,
+			want: &v1beta1.PeerAuthentication{
+				Mtls: &v1beta1.PeerAuthentication_MutualTLS{
+					Mode: v1beta1.PeerAuthentication_MutualTLS_PERMISSIVE,
+				},
+			},
 		},
 		{
 			name: "mesh only",
@@ -1656,7 +1834,11 @@ func TestComposePeerAuthentication(t *testing.T) {
 					},
 				},
 			},
-			want: nil,
+			want: &v1beta1.PeerAuthentication{
+				Mtls: &v1beta1.PeerAuthentication_MutualTLS{
+					Mode: v1beta1.PeerAuthentication_MutualTLS_PERMISSIVE,
+				},
+			},
 		},
 		{
 			name: "workload vs namespace config",

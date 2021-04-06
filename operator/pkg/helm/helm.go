@@ -28,6 +28,7 @@ import (
 	"helm.sh/helm/v3/pkg/engine"
 	"sigs.k8s.io/yaml"
 
+	"istio.io/istio/manifests"
 	"istio.io/istio/operator/pkg/util"
 	"istio.io/pkg/log"
 )
@@ -44,9 +45,10 @@ const (
 	NotesFileNameSuffix = ".txt"
 )
 
-var (
-	scope = log.RegisterScope("installer", "installer", 0)
-)
+var scope = log.RegisterScope("installer", "installer", 0)
+
+// TemplateFilterFunc filters templates to render by their file name
+type TemplateFilterFunc func(string) bool
 
 // TemplateRenderer defines a helm template renderer interface.
 type TemplateRenderer interface {
@@ -55,19 +57,16 @@ type TemplateRenderer interface {
 	// RenderManifest renders the associated helm charts with the given values YAML string and returns the resulting
 	// string.
 	RenderManifest(values string) (string, error)
+	// RenderManifestFiltered filters manifests to render by template file name
+	RenderManifestFiltered(values string, filter TemplateFilterFunc) (string, error)
 }
 
 // NewHelmRenderer creates a new helm renderer with the given parameters and returns an interface to it.
 // The format of helmBaseDir and profile strings determines the type of helm renderer returned (compiled-in, file,
 // HTTP etc.)
-func NewHelmRenderer(operatorDataDir, helmSubdir, componentName, namespace string) (TemplateRenderer, error) {
+func NewHelmRenderer(operatorDataDir, helmSubdir, componentName, namespace string) TemplateRenderer {
 	dir := filepath.Join(ChartsSubdirName, helmSubdir)
-	switch {
-	case operatorDataDir == "":
-		return NewVFSRenderer(dir, componentName, namespace), nil
-	default:
-		return NewFileTemplateRenderer(filepath.Join(operatorDataDir, dir), componentName, namespace), nil
-	}
+	return NewGenericRenderer(manifests.BuiltinOrDir(operatorDataDir), dir, componentName, namespace)
 }
 
 // ReadProfileYAML reads the YAML values associated with the given profile. It uses an appropriate reader for the
@@ -78,10 +77,6 @@ func ReadProfileYAML(profile, manifestsPath string) (string, error) {
 
 	// Get global values from profile.
 	switch {
-	case manifestsPath == "":
-		if globalValues, err = LoadValuesVFS(profile); err != nil {
-			return "", err
-		}
 	case util.IsFilePath(profile):
 		if globalValues, err = readFile(profile); err != nil {
 			return "", err
@@ -96,7 +91,7 @@ func ReadProfileYAML(profile, manifestsPath string) (string, error) {
 }
 
 // renderChart renders the given chart with the given values and returns the resulting YAML manifest string.
-func renderChart(namespace, values string, chrt *chart.Chart) (string, error) {
+func renderChart(namespace, values string, chrt *chart.Chart, filterFunc TemplateFilterFunc) (string, error) {
 	options := chartutil.ReleaseOptions{
 		Name:      "istio",
 		Namespace: namespace,
@@ -109,6 +104,16 @@ func renderChart(namespace, values string, chrt *chart.Chart) (string, error) {
 	vals, err := chartutil.ToRenderValues(chrt, valuesMap, options, nil)
 	if err != nil {
 		return "", err
+	}
+
+	if filterFunc != nil {
+		filteredTemplates := []*chart.File{}
+		for _, t := range chrt.Templates {
+			if filterFunc(t.Name) {
+				filteredTemplates = append(filteredTemplates, t)
+			}
+		}
+		chrt.Templates = filteredTemplates
 	}
 
 	files, err := engine.Render(chrt, vals)

@@ -153,8 +153,8 @@ func (rb *IptablesBuilderImpl) buildRestore(rules []*Rule) string {
 		tableRulesMap[r.table] = append(tableRulesMap[r.table], strings.Join(r.params, " "))
 	}
 	return rb.constructIptablesRestoreContents(tableRulesMap)
-
 }
+
 func (rb *IptablesBuilderImpl) BuildV4Restore() string {
 	return rb.buildRestore(rb.rules.rulesv4)
 }

@@ -41,10 +41,10 @@ var (
 		Long: `
 Prints the metrics for the specified service(s) when running in Kubernetes.
 
-This command finds a Prometheus pod running in the specified istio system 
+This command finds a Prometheus pod running in the specified istio system
 namespace. It then executes a series of queries per requested workload to
 find the following top-level workload metrics: total requests per second,
-error rate, and request latency at p50, p90, and p99 percentiles. The 
+error rate, and request latency at p50, p90, and p99 percentiles. The
 query results are printed to the console, organized by workload name.
 
 All metrics returned are from server-side reports. This means that latencies
@@ -146,7 +146,6 @@ func prometheusAPI(address string) (promv1.API, error) {
 }
 
 func metrics(promAPI promv1.API, workload string) (workloadMetrics, error) {
-
 	parts := strings.Split(workload, ".")
 	wname := parts[0]
 	wns := ""

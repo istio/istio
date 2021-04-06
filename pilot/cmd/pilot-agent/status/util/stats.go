@@ -35,9 +35,7 @@ const (
 	updateStatsRegex   = "^(cluster_manager\\.cds|listener_manager\\.lds)\\.(update_success|update_rejected)$"
 )
 
-var (
-	readinessTimeout = time.Second * 3 // Default Readiness timeout. It is set the same in helm charts.
-)
+var readinessTimeout = time.Second * 3 // Default Readiness timeout. It is set the same in helm charts.
 
 type stat struct {
 	name  string

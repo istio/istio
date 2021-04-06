@@ -19,10 +19,9 @@ import (
 
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	tls "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
-	"github.com/golang/protobuf/ptypes"
+	"google.golang.org/protobuf/types/known/durationpb"
 
 	networking "istio.io/api/networking/v1alpha3"
-	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pkg/spiffe"
@@ -68,15 +67,15 @@ const (
 	KubernetesSecretTypeURI = KubernetesSecretType + "://"
 )
 
-var (
-	SDSAdsConfig = &core.ConfigSource{
-		ConfigSourceSpecifier: &core.ConfigSource_Ads{
-			Ads: &core.AggregatedConfigSource{},
-		},
-		ResourceApiVersion:  core.ApiVersion_V3,
-		InitialFetchTimeout: features.InitialFetchTimeout,
-	}
-)
+var SDSAdsConfig = &core.ConfigSource{
+	ConfigSourceSpecifier: &core.ConfigSource_Ads{
+		Ads: &core.AggregatedConfigSource{},
+	},
+	// We intentionally do *not* set InitialFetchTimeout to 0s here, as this is used for
+	// credentialName SDS which may refer to secrets which do not exist. We do not want to block the
+	// entire listener/cluster in these cases.
+	ResourceApiVersion: core.ApiVersion_V3,
+}
 
 // ConstructSdsSecretConfigForCredential constructs SDS secret configuration used
 // from certificates referenced by credentialName in DestinationRule or Gateway.
@@ -95,9 +94,9 @@ func ConstructSdsSecretConfigForCredential(name string) *tls.SdsSecretConfig {
 
 // Preconfigured SDS configs to avoid excessive memory allocations
 var (
-	// set the fetch timeout to 0 here in defaultSDSConfig and rootSDSConfig
+	// set the fetch timeout to 0 here in legacyDefaultSDSConfig and rootSDSConfig
 	// because workload certs are guaranteed exist.
-	defaultSDSConfig = &tls.SdsSecretConfig{
+	legacyDefaultSDSConfig = &tls.SdsSecretConfig{
 		Name: SDSDefaultResourceName,
 		SdsConfig: &core.ConfigSource{
 			ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
@@ -114,10 +113,10 @@ var (
 				},
 			},
 			ResourceApiVersion:  core.ApiVersion_V3,
-			InitialFetchTimeout: ptypes.DurationProto(time.Second * 0),
+			InitialFetchTimeout: durationpb.New(time.Second * 0),
 		},
 	}
-	rootSDSConfig = &tls.SdsSecretConfig{
+	legacyRootSDSConfig = &tls.SdsSecretConfig{
 		Name: SDSRootResourceName,
 		SdsConfig: &core.ConfigSource{
 			ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
@@ -134,22 +133,70 @@ var (
 				},
 			},
 			ResourceApiVersion:  core.ApiVersion_V3,
-			InitialFetchTimeout: ptypes.DurationProto(time.Second * 0),
+			InitialFetchTimeout: durationpb.New(time.Second * 0),
+		},
+	}
+	defaultSDSConfig = &tls.SdsSecretConfig{
+		Name: SDSDefaultResourceName,
+		SdsConfig: &core.ConfigSource{
+			ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
+				ApiConfigSource: &core.ApiConfigSource{
+					ApiType:                   core.ApiConfigSource_GRPC,
+					SetNodeOnFirstMessageOnly: true,
+					TransportApiVersion:       core.ApiVersion_V3,
+					GrpcServices: []*core.GrpcService{
+						{
+							TargetSpecifier: &core.GrpcService_EnvoyGrpc_{
+								EnvoyGrpc: &core.GrpcService_EnvoyGrpc{ClusterName: SDSClusterName},
+							},
+						},
+					},
+				},
+			},
+			ResourceApiVersion:  core.ApiVersion_V3,
+			InitialFetchTimeout: durationpb.New(time.Second * 0),
+		},
+	}
+	rootSDSConfig = &tls.SdsSecretConfig{
+		Name: SDSRootResourceName,
+		SdsConfig: &core.ConfigSource{
+			ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
+				ApiConfigSource: &core.ApiConfigSource{
+					ApiType:                   core.ApiConfigSource_GRPC,
+					SetNodeOnFirstMessageOnly: true,
+					TransportApiVersion:       core.ApiVersion_V3,
+					GrpcServices: []*core.GrpcService{
+						{
+							TargetSpecifier: &core.GrpcService_EnvoyGrpc_{
+								EnvoyGrpc: &core.GrpcService_EnvoyGrpc{ClusterName: SDSClusterName},
+							},
+						},
+					},
+				},
+			},
+			ResourceApiVersion:  core.ApiVersion_V3,
+			InitialFetchTimeout: durationpb.New(time.Second * 0),
 		},
 	}
 )
 
 // ConstructSdsSecretConfig constructs SDS Secret Configuration for workload proxy.
-func ConstructSdsSecretConfig(name string) *tls.SdsSecretConfig {
+func ConstructSdsSecretConfig(name string, node *model.Proxy) *tls.SdsSecretConfig {
 	if name == "" {
 		return nil
 	}
 
 	if name == SDSDefaultResourceName {
-		return defaultSDSConfig
+		if util.IsIstioVersionGE19(node) {
+			return defaultSDSConfig
+		}
+		return legacyDefaultSDSConfig
 	}
 	if name == SDSRootResourceName {
-		return rootSDSConfig
+		if util.IsIstioVersionGE19(node) {
+			return rootSDSConfig
+		}
+		return legacyRootSDSConfig
 	}
 
 	cfg := &tls.SdsSecretConfig{
@@ -168,11 +215,13 @@ func ConstructSdsSecretConfig(name string) *tls.SdsSecretConfig {
 					},
 				},
 			},
-			ResourceApiVersion:  core.ApiVersion_V3,
-			InitialFetchTimeout: features.InitialFetchTimeout,
+			ResourceApiVersion: core.ApiVersion_V3,
 		},
 	}
 
+	if util.IsIstioVersionGE19(node) {
+		cfg.SdsConfig.GetApiConfigSource().SetNodeOnFirstMessageOnly = true
+	}
 	return cfg
 }
 
@@ -203,17 +252,16 @@ func appendURIPrefixToTrustDomain(trustDomainAliases []string) []string {
 	return res
 }
 
-// ApplyToCommonTLSContext completes the commonTlsContext for `ISTIO_MUTUAL` TLS mode
-func ApplyToCommonTLSContext(tlsContext *tls.CommonTlsContext, metadata *model.NodeMetadata,
-	sdsPath string, subjectAltNames []string, trustDomainAliases []string) {
-
+// ApplyToCommonTLSContext completes the commonTlsContext
+func ApplyToCommonTLSContext(tlsContext *tls.CommonTlsContext, proxy *model.Proxy,
+	subjectAltNames []string, trustDomainAliases []string, validateClient bool) {
 	// These are certs being mounted from within the pod. Rather than reading directly in Envoy,
 	// which does not support rotation, we will serve them over SDS by reading the files.
 	// We should check if these certs have values, if yes we should use them or otherwise fall back to defaults.
 	res := model.SdsCertificateConfig{
-		CertificatePath:   metadata.TLSServerCertChain,
-		PrivateKeyPath:    metadata.TLSServerKey,
-		CaCertificatePath: metadata.TLSServerRootCert,
+		CertificatePath:   proxy.Metadata.TLSServerCertChain,
+		PrivateKeyPath:    proxy.Metadata.TLSServerKey,
+		CaCertificatePath: proxy.Metadata.TLSServerRootCert,
 	}
 
 	// TODO: if subjectAltName ends with *, create a prefix match as well.
@@ -224,14 +272,16 @@ func ApplyToCommonTLSContext(tlsContext *tls.CommonTlsContext, metadata *model.N
 	}
 
 	// configure server listeners with SDS.
-	tlsContext.ValidationContextType = &tls.CommonTlsContext_CombinedValidationContext{
-		CombinedValidationContext: &tls.CommonTlsContext_CombinedCertificateValidationContext{
-			DefaultValidationContext:         &tls.CertificateValidationContext{MatchSubjectAltNames: matchSAN},
-			ValidationContextSdsSecretConfig: ConstructSdsSecretConfig(model.GetOrDefault(res.GetRootResourceName(), SDSRootResourceName)),
-		},
+	if validateClient {
+		tlsContext.ValidationContextType = &tls.CommonTlsContext_CombinedValidationContext{
+			CombinedValidationContext: &tls.CommonTlsContext_CombinedCertificateValidationContext{
+				DefaultValidationContext:         &tls.CertificateValidationContext{MatchSubjectAltNames: matchSAN},
+				ValidationContextSdsSecretConfig: ConstructSdsSecretConfig(model.GetOrDefault(res.GetRootResourceName(), SDSRootResourceName), proxy),
+			},
+		}
 	}
 	tlsContext.TlsCertificateSdsSecretConfigs = []*tls.SdsSecretConfig{
-		ConstructSdsSecretConfig(model.GetOrDefault(res.GetResourceName(), SDSDefaultResourceName)),
+		ConstructSdsSecretConfig(model.GetOrDefault(res.GetResourceName(), SDSDefaultResourceName), proxy),
 	}
 }
 

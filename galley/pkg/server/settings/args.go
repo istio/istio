@@ -23,6 +23,7 @@ import (
 
 	"istio.io/istio/galley/pkg/config/util/kuberesource"
 	"istio.io/istio/pkg/config/constants"
+	"istio.io/istio/pkg/config/event"
 	"istio.io/istio/pkg/config/schema/snapshots"
 )
 
@@ -48,6 +49,7 @@ type Args struct { // nolint:maligned
 
 	// MeshConfigFile is the path for mesh config
 	MeshConfigFile string
+	MeshSource     event.Source
 
 	// DNS Domain suffix to use while constructing Ingress based resources.
 	DomainSuffix string
@@ -81,7 +83,7 @@ func DefaultArgs() *Args {
 func (a *Args) String() string {
 	buf := &bytes.Buffer{}
 
-	_, _ = fmt.Fprintf(buf, "KubeConfig: %s\n", a.KubeConfig)
+	_, _ = fmt.Fprintf(buf, "Kubeconfigs: %s\n", a.KubeConfig)
 	_, _ = fmt.Fprintf(buf, "WatchedNamespaces: %s\n", a.WatchedNamespaces)
 	_, _ = fmt.Fprintf(buf, "ResyncPeriod: %v\n", a.ResyncPeriod)
 	_, _ = fmt.Fprintf(buf, "MeshConfigFile: %s\n", a.MeshConfigFile)

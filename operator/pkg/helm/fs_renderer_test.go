@@ -16,54 +16,11 @@ package helm
 
 import (
 	"errors"
+	"os"
 	"testing"
 
 	"helm.sh/helm/v3/pkg/chart"
 )
-
-func TestNewFileTemplateRenderer(t *testing.T) {
-	tests := []struct {
-		desc               string
-		inHelmChartDirPath string
-		inComponentName    string
-		inNamespace        string
-		want               FileTemplateRenderer
-	}{
-		{
-			desc:               "empty",
-			inHelmChartDirPath: "",
-			inComponentName:    "",
-			inNamespace:        "",
-			want: FileTemplateRenderer{
-				namespace:        "",
-				componentName:    "",
-				helmChartDirPath: "",
-				chart:            nil,
-				started:          false,
-			},
-		},
-		{
-			desc:               "initialized-notrunning",
-			inHelmChartDirPath: "/goo/bar/goo",
-			inComponentName:    "bazzycomponent",
-			inNamespace:        "fooeynamespace",
-			want: FileTemplateRenderer{
-				namespace:        "fooeynamespace",
-				componentName:    "bazzycomponent",
-				helmChartDirPath: "/goo/bar/goo",
-				chart:            nil,
-				started:          false,
-			},
-		},
-	}
-	for _, tt := range tests {
-		t.Run(tt.desc, func(t *testing.T) {
-			if fileTemplateRenderer := NewFileTemplateRenderer(tt.inHelmChartDirPath, tt.inComponentName, tt.inNamespace); *fileTemplateRenderer != tt.want {
-				t.Errorf("%s, want: %+v, got: %+v", tt.desc, tt.want, *fileTemplateRenderer)
-			}
-		})
-	}
-}
 
 func TestRenderManifest(t *testing.T) {
 	tests := []struct {
@@ -72,24 +29,18 @@ func TestRenderManifest(t *testing.T) {
 		inChart               chart.Chart
 		startRender           bool
 		inPath                string
-		objFileTemplateReader FileTemplateRenderer
+		objFileTemplateReader Renderer
 		wantResult            string
 		wantErr               error
 	}{
 		{
-			desc:        "not-started",
-			inValues:    "",
-			startRender: false,
-			inChart:     chart.Chart{},
-			objFileTemplateReader: FileTemplateRenderer{
-				namespace:        "",
-				componentName:    "",
-				helmChartDirPath: "",
-				chart:            nil,
-				started:          false,
-			},
-			wantResult: "",
-			wantErr:    errors.New("fileTemplateRenderer for  not started in renderChart"),
+			desc:                  "not-started",
+			inValues:              "",
+			startRender:           false,
+			inChart:               chart.Chart{},
+			objFileTemplateReader: Renderer{},
+			wantResult:            "",
+			wantErr:               errors.New("fileTemplateRenderer for not started in renderChart"),
 		},
 		{
 			desc: "started-random-template",
@@ -98,10 +49,11 @@ description: test
 `,
 			inPath:      "testdata/render/Chart.yaml",
 			startRender: true,
-			objFileTemplateReader: FileTemplateRenderer{
-				namespace:        "name-space",
-				componentName:    "foo-component",
-				helmChartDirPath: "testdata/render",
+			objFileTemplateReader: Renderer{
+				namespace:     "name-space",
+				componentName: "foo-component",
+				dir:           "testdata/render",
+				files:         os.DirFS("."),
 			},
 			wantResult: `apiVersion: v1
 description: test
@@ -121,10 +73,11 @@ keywords:
 			inValues:    "",
 			inPath:      "foo/bar/Chart.yaml",
 			startRender: true,
-			objFileTemplateReader: FileTemplateRenderer{
-				namespace:        "name-space",
-				componentName:    "foo-component",
-				helmChartDirPath: "foo/bar",
+			objFileTemplateReader: Renderer{
+				namespace:     "name-space",
+				componentName: "foo-component",
+				dir:           "foo/bar",
+				files:         os.DirFS("."),
 			},
 			wantResult: "",
 			wantErr:    errors.New(`component "foo-component" does not exist`),
@@ -136,7 +89,7 @@ keywords:
 				err := tt.objFileTemplateReader.Run()
 				if err != nil && tt.wantErr != nil {
 					if err.Error() != tt.wantErr.Error() {
-						t.Errorf("%s: expected err :%v got %v", tt.desc, tt.wantErr.Error(), err.Error())
+						t.Errorf("%s: expected err: %q got %q", tt.desc, tt.wantErr.Error(), err.Error())
 					}
 				}
 			}

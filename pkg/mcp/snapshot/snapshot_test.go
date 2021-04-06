@@ -85,7 +85,6 @@ var (
 func nextStrVersion(version *int64) string {
 	v := atomic.AddInt64(version, 1)
 	return strconv.FormatInt(v, 10)
-
 }
 
 // nolint: unparam

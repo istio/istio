@@ -21,7 +21,7 @@
 //
 // * By port-forward existing pilot:
 // ```bash
-// kubectl port-forward $(kubectl get pod -l app=istiod -o jsonpath={.items[0].metadata.name} -n istio-system) -n istio-system 15010
+// kubectl port-forward $(kubectl get pod -l app=istiod -o jsonpath='{.items[0].metadata.name}' -n istio-system) -n istio-system 15010
 // ```
 // * Or run local pilot using the same k8s config.
 // ```bash
@@ -176,7 +176,8 @@ func (p PodInfo) makeRequest(configType string) *discovery.DiscoveryRequest {
 		Node: &core.Node{
 			Id: p.makeNodeID(),
 		},
-		TypeUrl: configTypeToTypeURL(configType)}
+		TypeUrl: configTypeToTypeURL(configType),
+	}
 }
 
 func (p PodInfo) appendResources(req *discovery.DiscoveryRequest, resources []string) *discovery.DiscoveryRequest {
@@ -232,7 +233,7 @@ func portForwardPilot(kubeConfig, pilotURL string) (*os.Process, string, error) 
 		return nil, "", err
 	}
 	for _, pod := range pods.Items {
-		if app, ok := pod.ObjectMeta.Labels["istio"]; ok && app == "pilot" {
+		if app, ok := pod.ObjectMeta.Labels["app"]; ok && app == "istiod" {
 			podName = pod.Name
 		}
 	}

@@ -1,16 +1,15 @@
 ARG VM_IMAGE_VERSION=8
 FROM centos:${VM_IMAGE_VERSION}
 
-# hadolint ignore=DL3005,DL3008
-RUN yum upgrade -y && \
-    yum install -y \
+# hadolint ignore=DL3005,DL3008,DL3033
+RUN yum install -y \
     iptables \
     iproute \
     sudo \
     ca-certificates \
     && update-ca-trust \
-    yum clean all && \
-    rm -rf /var/cache/yum
+    && yum clean all \
+    && rm -rf /var/cache/yum
 
 # Add a user that will run the application. This allows running as this user and capture iptables
 RUN useradd -m --uid 1338 application && \

@@ -38,10 +38,19 @@ spec:
         prometheus.io/scrape: "true"
         prometheus.io/port: "15014"
     spec:
+      imagePullSecrets:
+      - name: myregistrykey
       containers:
+      - name: istio-proxy
+        image: auto
+        securityContext: # to allow core dumps
+          readOnlyRootFilesystem: false
       - name: app
         image: testing.hub/app:latest
         imagePullPolicy: Always
+        securityContext:
+          runAsUser: 1338
+          runAsGroup: 1338
         args:
           - --metrics=15014
           - --cluster
@@ -58,6 +67,8 @@ spec:
           - "3333"
           - --version
           - "v-istio"
+          - --istio-version
+          - ""
           - --crt=/cert.crt
           - --key=/cert.key
         ports:
@@ -111,10 +122,15 @@ spec:
         prometheus.io/port: "15014"
         sidecar.istio.io/inject: "false"
     spec:
+      imagePullSecrets:
+      - name: myregistrykey
       containers:
       - name: app
         image: testing.hub/app:latest
         imagePullPolicy: Always
+        securityContext:
+          runAsUser: 1338
+          runAsGroup: 1338
         args:
           - --metrics=15014
           - --cluster
@@ -131,6 +147,8 @@ spec:
           - "3333"
           - --version
           - "v-legacy"
+          - --istio-version
+          - ""
           - --crt=/cert.crt
           - --key=/cert.key
         ports:

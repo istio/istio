@@ -23,7 +23,7 @@ import (
 	"testing"
 
 	"istio.io/istio/pkg/test/framework"
-	"istio.io/istio/pkg/test/framework/components/environment/kube"
+	kubecluster "istio.io/istio/pkg/test/framework/components/cluster/kube"
 	"istio.io/istio/pkg/test/framework/image"
 	"istio.io/istio/pkg/test/helm"
 )
@@ -38,7 +38,7 @@ func TestDefaultInstall(t *testing.T) {
 			if err != nil {
 				t.Fatal("failed to create test directory")
 			}
-			cs := ctx.Clusters().Default().(*kube.Cluster)
+			cs := ctx.Clusters().Default().(*kubecluster.Cluster)
 			h := helm.New(cs.Filename(), ChartPath)
 			s, err := image.SettingsFromCommandLine()
 			if err != nil {
@@ -54,7 +54,7 @@ global:
 			if err := ioutil.WriteFile(overrideValuesFile, []byte(overrideValues), os.ModePerm); err != nil {
 				t.Fatalf("failed to write iop cr file: %v", err)
 			}
-			InstallGatewaysCharts(t, cs, h, overrideValuesFile)
+			InstallGatewaysCharts(t, cs, h, "", IstioNamespace, overrideValuesFile)
 
 			VerifyInstallation(ctx, cs)
 
@@ -75,7 +75,7 @@ func TestInstallWithFirstPartyJwt(t *testing.T) {
 			if err != nil {
 				t.Fatal("failed to create test directory")
 			}
-			cs := ctx.Clusters().Default().(*kube.Cluster)
+			cs := ctx.Clusters().Default().(*kubecluster.Cluster)
 			h := helm.New(cs.Filename(), ChartPath)
 			s, err := image.SettingsFromCommandLine()
 			if err != nil {
@@ -92,7 +92,7 @@ global:
 			if err := ioutil.WriteFile(overrideValuesFile, []byte(overrideValues), os.ModePerm); err != nil {
 				t.Fatalf("failed to write iop cr file: %v", err)
 			}
-			InstallGatewaysCharts(t, cs, h, overrideValuesFile)
+			InstallGatewaysCharts(t, cs, h, "", IstioNamespace, overrideValuesFile)
 
 			VerifyInstallation(ctx, cs)
 

@@ -29,6 +29,7 @@ import (
 	"istio.io/istio/pkg/security"
 	"istio.io/istio/pkg/spiffe"
 	istioEnv "istio.io/istio/pkg/test/env"
+	"istio.io/istio/pkg/test/envoy"
 	"istio.io/istio/security/pkg/nodeagent/cache"
 	citadel "istio.io/istio/security/pkg/nodeagent/caclient/providers/citadel"
 	"istio.io/istio/security/pkg/nodeagent/sds"
@@ -55,7 +56,7 @@ func RotateCert(interval time.Duration) {
 
 // Env manages test setup and teardown.
 type Env struct {
-	ProxySetup           *istioEnv.TestSetup
+	ProxySetup           *envoy.TestSetup
 	OutboundListenerPort int
 	InboundListenerPort  int
 	// SDS server
@@ -114,7 +115,7 @@ func SetupTest(t *testing.T, testID uint16) *Env {
 
 	env := &Env{}
 	// Set up test environment for Proxy
-	proxySetup := istioEnv.NewTestSetup(testID, t)
+	proxySetup := envoy.NewTestSetup(testID, t)
 	proxySetup.EnvoyTemplate = string(getDataFromFile(istioEnv.IstioSrc+"/security/pkg/nodeagent/test/testdata/bootstrap.yaml", t))
 	proxySetup.EnvoyParams = []string{"--bootstrap-version", "3"}
 	env.ProxySetup = proxySetup
@@ -160,7 +161,7 @@ func (e *Env) StartProxy(t *testing.T) {
 
 // StartSDSServer starts SDS server
 func (e *Env) StartSDSServer(t *testing.T) {
-	serverOptions := security.Options{
+	serverOptions := &security.Options{
 		WorkloadUDSPath: e.ProxySetup.SDSPath(),
 		JWTPath:         proxyTokenPath,
 		CAEndpoint:      fmt.Sprintf("127.0.0.1:%d", e.ProxySetup.Ports().ExtraPort),
@@ -171,7 +172,7 @@ func (e *Env) StartSDSServer(t *testing.T) {
 		t.Fatalf("failed to create CA client: %+v", err)
 	}
 	opt := e.cacheOptions(t)
-	workloadSecretCache, err := cache.NewSecretManagerClient(caClient, opt)
+	workloadSecretCache, err := cache.NewSecretManagerClient(caClient, &opt)
 	if err != nil {
 		t.Fatal(err)
 	}

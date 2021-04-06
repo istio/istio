@@ -45,9 +45,11 @@ type Config struct {
 	ServerReadyBarrier  chan ReturnCode
 	ProbeTimeout        time.Duration
 }
+
 type Service struct {
 	Config *Config
 }
+
 type Client struct {
 	Config *Config
 }
@@ -158,7 +160,6 @@ func restoreOriginalAddress(l net.Listener, config *Config, c chan<- ReturnCode)
 		c <- DONE
 		return
 	}
-
 }
 
 func (s *Service) Run() error {
@@ -185,7 +186,6 @@ func (s *Service) Run() error {
 		return nil
 	}
 	return fmt.Errorf("no listener available: %s", strings.Join(s.Config.ServerListenAddress, ","))
-
 }
 
 func (c *Client) Run() error {

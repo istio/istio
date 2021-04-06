@@ -83,7 +83,7 @@ func (s *Server) initCertController(args *PilotArgs) error {
 	// Provision and manage the certificates for non-Pilot services.
 	// If services are empty, the certificate controller will do nothing.
 	s.certController, err = chiron.NewWebhookController(defaultCertGracePeriodRatio, defaultMinCertGracePeriod,
-		k8sClient.CoreV1(), k8sClient.AdmissionregistrationV1beta1(), k8sClient.CertificatesV1beta1(),
+		k8sClient.CoreV1(), k8sClient.CertificatesV1beta1(),
 		defaultCACertPath, secretNames, dnsNames, namespaces)
 	if err != nil {
 		return fmt.Errorf("failed to create certificate controller: %v", err)
@@ -152,14 +152,14 @@ func (s *Server) initDNSCerts(hostname, customHost, namespace string) error {
 
 			// When Citadel is configured to use self-signed certs, keep a local copy so other
 			// components can load it via file (e.g. webhook config controller).
-			if err := os.MkdirAll(dnsCertDir, 0700); err != nil {
+			if err := os.MkdirAll(dnsCertDir, 0o700); err != nil {
 				return err
 			}
 			// We have direct access to the self-signed
 			internalSelfSignedRootPath := path.Join(dnsCertDir, "self-signed-root.pem")
 
 			rootCert := s.CA.GetCAKeyCertBundle().GetRootCertPem()
-			if err = ioutil.WriteFile(internalSelfSignedRootPath, rootCert, 0600); err != nil {
+			if err = ioutil.WriteFile(internalSelfSignedRootPath, rootCert, 0o600); err != nil {
 				return err
 			}
 
@@ -173,7 +173,7 @@ func (s *Server) initDNSCerts(hostname, customHost, namespace string) error {
 							newRootCert := s.CA.GetCAKeyCertBundle().GetRootCertPem()
 							if !bytes.Equal(rootCert, newRootCert) {
 								rootCert = newRootCert
-								if err = ioutil.WriteFile(internalSelfSignedRootPath, rootCert, 0600); err != nil {
+								if err = ioutil.WriteFile(internalSelfSignedRootPath, rootCert, 0o600); err != nil {
 									log.Errorf("Failed to update local copy of self-signed root: %v", err)
 								} else {
 									log.Info("Updated local copy of self-signed root")
@@ -200,14 +200,14 @@ func (s *Server) initDNSCerts(hostname, customHost, namespace string) error {
 
 	// Save the certificates to ./var/run/secrets/istio-dns - this is needed since most of the code we currently
 	// use to start grpc and webhooks is based on files. This is a memory-mounted dir.
-	if err := os.MkdirAll(dnsCertDir, 0700); err != nil {
+	if err := os.MkdirAll(dnsCertDir, 0o700); err != nil {
 		return err
 	}
-	err = ioutil.WriteFile(dnsKeyFile, keyPEM, 0600)
+	err = ioutil.WriteFile(dnsKeyFile, keyPEM, 0o600)
 	if err != nil {
 		return err
 	}
-	err = ioutil.WriteFile(dnsCertFile, certChain, 0600)
+	err = ioutil.WriteFile(dnsCertFile, certChain, 0o600)
 	if err != nil {
 		return err
 	}

@@ -35,15 +35,17 @@ import (
 
 // Config for an echo server Instance.
 type Config struct {
-	Ports          common.PortList
-	BindIPPortsMap map[int]struct{}
-	Metrics        int
-	TLSCert        string
-	TLSKey         string
-	Version        string
-	UDSServer      string
-	Cluster        string
-	Dialer         common.Dialer
+	Ports                 common.PortList
+	BindIPPortsMap        map[int]struct{}
+	BindLocalhostPortsMap map[int]struct{}
+	Metrics               int
+	TLSCert               string
+	TLSKey                string
+	Version               string
+	UDSServer             string
+	Cluster               string
+	Dialer                common.Dialer
+	IstioVersion          string
 }
 
 var _ io.Closer = &Instance{}
@@ -117,6 +119,9 @@ func (s *Instance) getListenerIP(port *common.Port) (string, error) {
 	if port == nil {
 		return "", nil
 	}
+	if _, f := s.BindLocalhostPortsMap[port.Port]; f {
+		return "localhost", nil
+	}
 	if _, f := s.BindIPPortsMap[port.Port]; !f {
 		return "", nil
 	}
@@ -141,6 +146,7 @@ func (s *Instance) newEndpoint(port *common.Port, udsServer string) (endpoint.In
 		TLSKey:        s.TLSKey,
 		Dialer:        s.Dialer,
 		ListenerIP:    ip,
+		IstioVersion:  s.IstioVersion,
 	})
 }
 

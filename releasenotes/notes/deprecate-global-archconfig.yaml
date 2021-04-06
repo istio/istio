@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: installation
+issue:
+  - 30027
+releaseNotes:
+- |
+  **Deprecated** installation flags `values.global.arch` in favor of the affinity k8s settings.

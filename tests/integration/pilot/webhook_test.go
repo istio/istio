@@ -21,7 +21,7 @@ import (
 	"fmt"
 	"testing"
 
-	kubeApiAdmission "k8s.io/api/admissionregistration/v1beta1"
+	kubeApiAdmission "k8s.io/api/admissionregistration/v1"
 	kubeApiMeta "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 
@@ -36,10 +36,10 @@ const (
 func TestWebhook(t *testing.T) {
 	framework.NewTest(t).
 		RequiresSingleCluster().
-		Run(func(ctx framework.TestContext) {
+		Run(func(t framework.TestContext) {
 			// clear the updated fields and verify istiod updates them
 
-			cluster := ctx.Clusters().Default()
+			cluster := t.Clusters().Default()
 			retry.UntilSuccessOrFail(t, func() error {
 				got, err := getValidatingWebhookConfiguration(cluster, vwcName)
 				if err != nil {
@@ -54,7 +54,7 @@ func TestWebhook(t *testing.T) {
 				ignore := kubeApiAdmission.Ignore // can't take the address of a constant
 				updated.Webhooks[0].FailurePolicy = &ignore
 
-				if _, err := cluster.AdmissionregistrationV1beta1().ValidatingWebhookConfigurations().Update(context.TODO(),
+				if _, err := cluster.AdmissionregistrationV1().ValidatingWebhookConfigurations().Update(context.TODO(),
 					updated, kubeApiMeta.UpdateOptions{}); err != nil {
 					return fmt.Errorf("could not update validating webhook config: %s", updated.Name)
 				}
@@ -75,7 +75,7 @@ func TestWebhook(t *testing.T) {
 }
 
 func getValidatingWebhookConfiguration(client kubernetes.Interface, name string) (*kubeApiAdmission.ValidatingWebhookConfiguration, error) {
-	whc, err := client.AdmissionregistrationV1beta1().ValidatingWebhookConfigurations().Get(context.TODO(),
+	whc, err := client.AdmissionregistrationV1().ValidatingWebhookConfigurations().Get(context.TODO(),
 		name, kubeApiMeta.GetOptions{})
 	if err != nil {
 		return nil, fmt.Errorf("could not get validating webhook config: %s", name)

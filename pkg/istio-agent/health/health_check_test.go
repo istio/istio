@@ -19,6 +19,8 @@ import (
 	"net"
 	"net/http"
 	"net/http/httptest"
+	"strconv"
+	"strings"
 	"testing"
 	"time"
 
@@ -50,23 +52,29 @@ func TestWorkloadHealthChecker_PerformApplicationHealthCheck(t *testing.T) {
 
 		quitChan := make(chan struct{})
 
-		expectedTCPEvents := [6]*ProbeEvent{
-			{Healthy: true},
+		expectedTCPEvents := [7]*ProbeEvent{
 			{Healthy: false},
 			{Healthy: true},
 			{Healthy: false},
 			{Healthy: true},
-			{Healthy: false}}
-		tcpHealthStatuses := [6]bool{true, false, true, false, true, false}
+			{Healthy: false},
+			{Healthy: true},
+			{Healthy: false},
+		}
+		tcpHealthStatuses := [7]bool{false, true, false, true, false, true, false}
 
 		cont := make(chan struct{}, 6)
 		// wait for go-ahead for state change
 		go func() {
 			for i := 0; i < len(tcpHealthStatuses); i++ {
 				if tcpHealthStatuses[i] {
+					var srv net.Listener
 					// open port until we get confirmation that
-					srv, err := net.Listen("tcp", fmt.Sprintf("localhost:%d", port))
-					if err != nil {
+					// retry in case of port conflicts
+					if err := retry.UntilSuccess(func() (err error) {
+						srv, err = net.Listen("tcp", fmt.Sprintf("localhost:%d", port))
+						return
+					}, retry.Delay(time.Millisecond)); err != nil {
 						t.Log(err)
 						return
 					}
@@ -80,7 +88,7 @@ func TestWorkloadHealthChecker_PerformApplicationHealthCheck(t *testing.T) {
 
 		eventNum := atomic.NewInt32(0)
 		go tcpHealthChecker.PerformApplicationHealthCheck(func(event *ProbeEvent) {
-			if eventNum.Load() >= 6 {
+			if eventNum.Load() >= 7 {
 				return
 			}
 			if event.Healthy != expectedTCPEvents[eventNum.Load()].Healthy {
@@ -99,7 +107,26 @@ func TestWorkloadHealthChecker_PerformApplicationHealthCheck(t *testing.T) {
 	})
 	t.Run("http", func(t *testing.T) {
 		httpPath := "/test/health/check"
-		port := reserveport.NewPortManagerOrFail(t).ReservePortNumberOrFail(t)
+		httpHealthStatuses := [4]bool{true, false, false, true}
+		httpServerEventCount := 0
+		sss := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
+			if httpServerEventCount < len(httpHealthStatuses) && httpHealthStatuses[httpServerEventCount] {
+				writer.WriteHeader(200)
+				writer.Write([]byte("foobar"))
+			} else {
+				writer.WriteHeader(500)
+			}
+			httpServerEventCount++
+		}))
+		host, ports, err := net.SplitHostPort(strings.TrimPrefix(sss.URL, "http://"))
+		if err != nil {
+			t.Fatal(err)
+		}
+		port, err := strconv.Atoi(ports)
+		if err != nil {
+			t.Fatal(err)
+		}
+		t.Cleanup(sss.Close)
 		httpHealthChecker := NewWorkloadHealthChecker(&v1alpha3.ReadinessProbe{
 			InitialDelaySeconds: 0,
 			TimeoutSeconds:      1,
@@ -111,39 +138,22 @@ func TestWorkloadHealthChecker_PerformApplicationHealthCheck(t *testing.T) {
 					Path:   httpPath,
 					Port:   uint32(port),
 					Scheme: "http",
-					Host:   "127.0.0.1",
+					Host:   host,
 				},
 			},
 		}, nil)
 		// Speed up tests
 		httpHealthChecker.config.CheckFrequency = time.Millisecond
 		quitChan := make(chan struct{})
+		t.Cleanup(func() {
+			close(quitChan)
+		})
 		expectedHTTPEvents := [4]*ProbeEvent{
 			{Healthy: true},
 			{Healthy: false},
 			{Healthy: true},
 			{Healthy: false},
 		}
-		httpHealthStatuses := [4]bool{true, false, false, true}
-
-		mockListener, err := net.Listen("tcp", fmt.Sprintf("localhost:%d", port))
-		if err != nil {
-			t.Errorf("unable to start mock listener: %v", err)
-		}
-		httpServerEventCount := 0
-		srv := httptest.NewUnstartedServer(http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
-			if httpServerEventCount < len(httpHealthStatuses) && httpHealthStatuses[httpServerEventCount] {
-				writer.WriteHeader(200)
-				writer.Write([]byte("foobar"))
-			} else {
-				writer.WriteHeader(500)
-			}
-			httpServerEventCount++
-		}))
-		srv.Listener.Close()
-		srv.Listener = mockListener
-		srv.Start()
-		defer srv.Close()
 
 		eventNum := atomic.NewInt32(0)
 		go httpHealthChecker.PerformApplicationHealthCheck(func(event *ProbeEvent) {
@@ -160,6 +170,5 @@ func TestWorkloadHealthChecker_PerformApplicationHealthCheck(t *testing.T) {
 			}
 			return nil
 		}, retry.Delay(time.Millisecond*10), retry.Timeout(time.Second))
-		close(quitChan)
 	})
 }

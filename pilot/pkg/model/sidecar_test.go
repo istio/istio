@@ -29,6 +29,7 @@ import (
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/config/schema/gvk"
+	"istio.io/istio/pkg/config/visibility"
 )
 
 var (
@@ -136,7 +137,6 @@ var (
 			},
 		},
 	}
-
 	configs2 = &config.Config{
 		Meta: config.Meta{
 			Name:      "foo",
@@ -237,12 +237,14 @@ var (
 						Name:     "outbound-tcp",
 					},
 					Bind: "7.7.7.7",
-					Hosts: []string{"*/bookinginfo.com",
+					Hosts: []string{
+						"*/bookinginfo.com",
 						"*/private.com",
 					},
 				},
 				{
-					Hosts: []string{"ns1/*",
+					Hosts: []string{
+						"ns1/*",
 						"*/*.tcp.com",
 					},
 				},
@@ -610,6 +612,34 @@ var (
 		},
 	}
 
+	services15 = []*Service{
+		{
+			Hostname: "foo.svc.cluster.local",
+			Ports:    port7443,
+			Attributes: ServiceAttributes{
+				Name:      "foo",
+				Namespace: "ns1",
+				ExportTo:  map[visibility.Instance]bool{visibility.Private: true},
+			},
+		},
+		{
+			Hostname: "foo.svc.cluster.local",
+			Ports:    port8000,
+			Attributes: ServiceAttributes{
+				Name:      "foo",
+				Namespace: "ns2",
+			},
+		},
+		{
+			Hostname: "baz.svc.cluster.local",
+			Ports:    port7443,
+			Attributes: ServiceAttributes{
+				Name:      "baz",
+				Namespace: "ns3",
+			},
+		},
+	}
+
 	virtualServices1 = []config.Config{
 		{
 			Meta: config.Meta{
@@ -717,7 +747,14 @@ func TestCreateSidecarScope(t *testing.T) {
 			configs2,
 			services4,
 			nil,
-			nil,
+			[]*Service{
+				{
+					Hostname: "bar",
+				},
+				{
+					Hostname: "barprime",
+				},
+			},
 		},
 		{
 			"sidecar-with-multiple-egress-noport",
@@ -895,7 +932,8 @@ func TestCreateSidecarScope(t *testing.T) {
 					Hostname: "bar",
 				},
 				{
-					Hostname: "barprime"},
+					Hostname: "barprime",
+				},
 				{
 					Hostname: "foo",
 				},
@@ -970,6 +1008,24 @@ func TestCreateSidecarScope(t *testing.T) {
 			},
 		},
 		{
+			"virtual-service-pick-public",
+			configs11,
+			// Ambiguous; same hostname in ns1 and ns2, neither is config namespace
+			// ns1 should always win
+			services15,
+			virtualServices1,
+			[]*Service{
+				{
+					Hostname: "foo.svc.cluster.local",
+					Ports:    port8000,
+				},
+				{
+					Hostname: "baz.svc.cluster.local",
+					Ports:    port7443,
+				},
+			},
+		},
+		{
 			"virtual-service-bad-host",
 			configs11,
 			services9,
@@ -1016,12 +1072,20 @@ func TestCreateSidecarScope(t *testing.T) {
 				ps.virtualServiceIndex.publicByGateway[constants.IstioMeshGateway] = append(ps.virtualServiceIndex.publicByGateway[constants.IstioMeshGateway], tt.virtualServices...)
 			}
 
+			ps.exportToDefaults = exportToDefaults{
+				virtualService:  map[visibility.Instance]bool{visibility.Public: true},
+				service:         map[visibility.Instance]bool{visibility.Public: true},
+				destinationRule: map[visibility.Instance]bool{visibility.Public: true},
+			}
+
 			sidecarConfig := tt.sidecarConfig
 			sidecarScope := ConvertToSidecarScope(ps, sidecarConfig, "mynamespace")
 			configuredListeneres := 1
 			if sidecarConfig != nil {
 				r := sidecarConfig.Spec.(*networking.Sidecar)
-				configuredListeneres = len(r.Egress)
+				if len(r.Egress) > 0 {
+					configuredListeneres = len(r.Egress)
+				}
 			}
 
 			numberListeners := len(sidecarScope.EgressListeners)
@@ -1344,11 +1408,9 @@ func TestRootNsSidecarDependencies(t *testing.T) {
 			}
 		})
 	}
-
 }
 
 func TestSidecarOutboundTrafficPolicy(t *testing.T) {
-
 	configWithoutOutboundTrafficPolicy := &config.Config{
 		Meta: config.Meta{
 			Name:      "foo",
@@ -1475,7 +1537,6 @@ outboundTrafficPolicy:
 				t.Errorf("Unexpected sidecar outbound traffic, want %v, found %v",
 					test.outboundTrafficPolicy, sidecarScope.OutboundTrafficPolicy)
 			}
-
 		})
 	}
 }

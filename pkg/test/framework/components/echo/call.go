@@ -22,7 +22,7 @@ import (
 
 	"istio.io/istio/pkg/test/echo/client"
 	"istio.io/istio/pkg/test/echo/common/scheme"
-	"istio.io/istio/pkg/test/framework/resource"
+	"istio.io/istio/pkg/test/framework/components/cluster"
 )
 
 // CallOptions defines options for calling a Endpoint.
@@ -58,7 +58,7 @@ type CallOptions struct {
 	// If no Host header is provided, a default will be chosen for the target service endpoint.
 	Headers http.Header
 
-	// Timeout used for each individual request. Must be > 0, otherwise 30 seconds is used.
+	// Timeout used for each individual request. Must be > 0, otherwise 5 seconds is used.
 	Timeout time.Duration
 
 	// Message to be sent if this is a GRPC request
@@ -70,6 +70,16 @@ type CallOptions struct {
 	// Use the custom certificate to make the call. This is mostly used to make mTLS request directly
 	// (without proxy) from naked client to test certificates issued by custom CA instead of the Istio self-signed CA.
 	Cert, Key, CaCert string
+
+	// Use the custom certificates file to make the call.
+	CertFile, KeyFile, CaCertFile string
+
+	// Skip verify peer's certificate.
+	InsecureSkipVerify bool
+
+	// FollowRedirects will instruct the call to follow 301 redirects. Otherwise, the original 301 response
+	// is returned directly.
+	FollowRedirects bool
 
 	// Validator for server responses. If no validator is provided, only the number of responses received
 	// will be verified.
@@ -141,7 +151,7 @@ func ExpectOK() Validator {
 }
 
 // ExpectReachedClusters returns a Validator that checks that all provided clusters are reached.
-func ExpectReachedClusters(clusters resource.Clusters) Validator {
+func ExpectReachedClusters(clusters cluster.Clusters) Validator {
 	return ValidatorFunc(func(responses client.ParsedResponses, _ error) error {
 		return responses.CheckReachedClusters(clusters)
 	})

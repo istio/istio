@@ -23,7 +23,6 @@ import (
 	envoyAdmin "github.com/envoyproxy/go-control-plane/envoy/admin/v3"
 	"github.com/golang/protobuf/jsonpb"
 	"github.com/golang/protobuf/proto"
-	"github.com/golang/protobuf/ptypes"
 	dto "github.com/prometheus/client_model/go"
 	"github.com/prometheus/common/expfmt"
 	kubeCore "k8s.io/api/core/v1"
@@ -31,9 +30,9 @@ import (
 	// Import all XDS config types
 	_ "istio.io/istio/pkg/config/xds"
 	"istio.io/istio/pkg/test"
+	"istio.io/istio/pkg/test/framework/components/cluster"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/echo/common"
-	"istio.io/istio/pkg/test/framework/resource"
 	"istio.io/istio/pkg/test/util/retry"
 )
 
@@ -47,10 +46,10 @@ type sidecar struct {
 	nodeID       string
 	podNamespace string
 	podName      string
-	cluster      resource.Cluster
+	cluster      cluster.Cluster
 }
 
-func newSidecar(pod kubeCore.Pod, cluster resource.Cluster) (*sidecar, error) {
+func newSidecar(pod kubeCore.Pod, cluster cluster.Cluster) (*sidecar, error) {
 	sidecar := &sidecar{
 		podNamespace: pod.Namespace,
 		podName:      pod.Name,
@@ -62,7 +61,7 @@ func newSidecar(pod kubeCore.Pod, cluster resource.Cluster) (*sidecar, error) {
 		for _, c := range cfg.Configs {
 			if c.TypeUrl == "type.googleapis.com/envoy.admin.v3.BootstrapConfigDump" {
 				cd := envoyAdmin.BootstrapConfigDump{}
-				if err := ptypes.UnmarshalAny(c, &cd); err != nil {
+				if err := c.UnmarshalTo(&cd); err != nil {
 					return false, err
 				}
 
