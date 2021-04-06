@@ -16,7 +16,6 @@
 package nminus2
 
 import (
-	helmupgrade "istio.io/istio/tests/integration/helm/upgrade"
 	"path/filepath"
 	"testing"
 
@@ -26,6 +25,7 @@ import (
 	"istio.io/istio/pkg/test/framework/image"
 	"istio.io/istio/pkg/test/helm"
 	helmtest "istio.io/istio/tests/integration/helm"
+	helmupgrade "istio.io/istio/tests/integration/helm/upgrade"
 	"istio.io/istio/tests/util/sanitycheck"
 )
 
