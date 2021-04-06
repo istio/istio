@@ -10,4 +10,4 @@ typedConfig:
         principals:
         - notId:
             any: true
-  shadowRulesStatPrefix: istio_dry_run_
+  shadowRulesStatPrefix: istio_dry_run_allow_

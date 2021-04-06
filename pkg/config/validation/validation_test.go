@@ -4366,10 +4366,43 @@ func TestValidateAuthorizationPolicy(t *testing.T) {
 			valid: true,
 		},
 		{
-			name:        "dry-run-invalid",
+			name:        "dry-run-valid-allow",
+			annotations: map[string]string{"istio.io/dry-run": "true"},
+			in: &security_beta.AuthorizationPolicy{
+				Action: security_beta.AuthorizationPolicy_ALLOW,
+			},
+			valid: true,
+		},
+		{
+			name:        "dry-run-valid-deny",
+			annotations: map[string]string{"istio.io/dry-run": "false"},
+			in: &security_beta.AuthorizationPolicy{
+				Action: security_beta.AuthorizationPolicy_DENY,
+				Rules:  []*security_beta.Rule{{}},
+			},
+			valid: true,
+		},
+		{
+			name:        "dry-run-invalid-value",
 			annotations: map[string]string{"istio.io/dry-run": "foo"},
 			in: &security_beta.AuthorizationPolicy{
 				Action: security_beta.AuthorizationPolicy_ALLOW,
+			},
+			valid: false,
+		},
+		{
+			name:        "dry-run-invalid-action-custom",
+			annotations: map[string]string{"istio.io/dry-run": "true"},
+			in: &security_beta.AuthorizationPolicy{
+				Action: security_beta.AuthorizationPolicy_CUSTOM,
+			},
+			valid: false,
+		},
+		{
+			name:        "dry-run-invalid-action-audit",
+			annotations: map[string]string{"istio.io/dry-run": "true"},
+			in: &security_beta.AuthorizationPolicy{
+				Action: security_beta.AuthorizationPolicy_AUDIT,
 			},
 			valid: false,
 		},

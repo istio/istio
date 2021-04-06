@@ -187,8 +187,9 @@ func TestEndpointsByNetworkFilter_WithConfig(t *testing.T) {
 	}
 
 	cases := map[string]map[string]struct {
-		Config config.Config
-		Tests  []networkFilterCase
+		Config  config.Config
+		Configs []config.Config
+		Tests   []networkFilterCase
 	}{
 		gvk.PeerAuthentication.String(): {
 			"mtls-off-ineffective": {
@@ -283,6 +284,34 @@ func TestEndpointsByNetworkFilter_WithConfig(t *testing.T) {
 			},
 		},
 		gvk.DestinationRule.String(): {
+			"mtls-on-override-pa": {
+				Configs: []config.Config{
+					{
+						Meta: config.Meta{
+							GroupVersionKind: gvk.PeerAuthentication,
+							Name:             "mtls-off",
+							Namespace:        "ns",
+						},
+						Spec: &security.PeerAuthentication{
+							Mtls: &security.PeerAuthentication_MutualTLS{Mode: security.PeerAuthentication_MutualTLS_DISABLE},
+						},
+					},
+					{
+						Meta: config.Meta{
+							GroupVersionKind: gvk.DestinationRule,
+							Name:             "mtls-on",
+							Namespace:        "ns",
+						},
+						Spec: &networking.DestinationRule{
+							Host: "example.ns.svc.cluster.local",
+							TrafficPolicy: &networking.TrafficPolicy{
+								Tls: &networking.ClientTLSSettings{Mode: networking.ClientTLSSettings_ISTIO_MUTUAL},
+							},
+						},
+					},
+				},
+				Tests: networkFiltered,
+			},
 			"mtls-off-innefective": {
 				Config: config.Config{
 					Meta: config.Meta{
@@ -425,9 +454,15 @@ func TestEndpointsByNetworkFilter_WithConfig(t *testing.T) {
 			for name, pa := range cases {
 				t.Run(name, func(t *testing.T) {
 					env := environment()
-					_, err := env.IstioConfigStore.Create(pa.Config)
-					if err != nil {
-						t.Fatal(err)
+					cfgs := pa.Configs
+					if pa.Config.Name != "" {
+						cfgs = append(cfgs, pa.Config)
+					}
+					for _, cfg := range cfgs {
+						_, err := env.IstioConfigStore.Create(cfg)
+						if err != nil {
+							t.Fatalf("failed creating %s: %v", cfg.Name, err)
+						}
 					}
 					env.Init()
 					runNetworkFilterTest(t, env, pa.Tests)

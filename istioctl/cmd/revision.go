@@ -110,6 +110,7 @@ func revisionCommand() *cobra.Command {
 
 	revisionCmd.AddCommand(revisionListCommand())
 	revisionCmd.AddCommand(revisionDescribeCommand())
+	revisionCmd.AddCommand(tagCommand())
 	return revisionCmd
 }
 

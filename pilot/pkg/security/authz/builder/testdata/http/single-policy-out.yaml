@@ -466,4 +466,4 @@ typedConfig:
                 - directRemoteIp:
                     addressPrefix: 192.1.1.2
                     prefixLen: 32
-  shadowRulesStatPrefix: istio_dry_run_
+  shadowRulesStatPrefix: istio_dry_run_allow_
