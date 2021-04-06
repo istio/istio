@@ -27,7 +27,6 @@ import (
 	cluster "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
 	"github.com/fatih/color"
 	"github.com/golang/protobuf/jsonpb"
-	"github.com/golang/protobuf/ptypes"
 	"github.com/spf13/cobra"
 	"golang.org/x/sync/errgroup"
 	"golang.org/x/sync/semaphore"
@@ -51,12 +50,16 @@ func preCheck() *cobra.Command {
 	var skipControlPlane bool
 	// cmd represents the upgradeCheck command
 	cmd := &cobra.Command{
-		Use:     "pre-check",
-		Short:   "check whether Istio can safely be installed or upgrade",
-		Long:    `precheck inspects a Kubernetes cluster for Istio install and upgrade requirements.`,
-		Example: `TODO`,
+		Use:   "precheck",
+		Short: "check whether Istio can safely be installed or upgrade",
+		Long:  `precheck inspects a Kubernetes cluster for Istio install and upgrade requirements.`,
+		Example: `  # Verify that Istio can be installed or upgraded
+  istioctl x precheck
+
+  # Check only a single namespace
+  istioctl x precheck --namespace default`,
 		RunE: func(cmd *cobra.Command, args []string) (err error) {
-			cli, err := kube.NewExtendedClient(kube.BuildClientCmd(kubeconfig, configContext), "")
+			cli, err := kube.NewExtendedClient(kube.BuildClientCmd(kubeconfig, configContext), revision)
 			if err != nil {
 				return err
 			}
@@ -225,32 +228,6 @@ func checkCanCreateResources(c kube.ExtendedClient, namespace, group, version, n
 	return nil
 }
 
-type clusterOrigin struct{}
-
-func (o clusterOrigin) String() string {
-	return ""
-}
-
-func (o clusterOrigin) FriendlyName() string {
-	return "Cluster"
-}
-
-func (o clusterOrigin) Comparator() string {
-	return o.FriendlyName()
-}
-
-func (o clusterOrigin) Namespace() resource.Namespace {
-	return ""
-}
-
-func (o clusterOrigin) Reference() resource.Reference {
-	return nil
-}
-
-func (o clusterOrigin) FieldMap() map[string]int {
-	return make(map[string]int)
-}
-
 func checkServerVersion(cli kube.ExtendedClient) (diag.Messages, error) {
 	// TODO real message
 	mt := diag.NewMessageType(diag.Error, "IST1338", "The Kubernetes Version %q is lower than the minimum version: 1."+fmt.Sprint(k8sversion.MinK8SVersion))
@@ -410,11 +387,11 @@ func extractInboundPorts(configdump []byte) (map[int]bindStatus, error) {
 	}
 	for _, cdump := range cd.Configs {
 		clw := &adminapi.ClustersConfigDump_DynamicCluster{}
-		if err := ptypes.UnmarshalAny(cdump, clw); err != nil {
+		if err := cdump.UnmarshalTo(clw); err != nil {
 			return nil, err
 		}
 		cl := &cluster.Cluster{}
-		if err := ptypes.UnmarshalAny(clw.Cluster, cl); err != nil {
+		if err := clw.Cluster.UnmarshalTo(cl); err != nil {
 			return nil, err
 		}
 		dir, _, _, port := model.ParseSubsetKey(cl.Name)
@@ -450,4 +427,31 @@ func (b bindStatus) String() string {
 		return "Unknown"
 	}
 	return strings.Join(res, ", ")
+}
+
+// clusterOrigin defines an Origin that refers to the cluster
+type clusterOrigin struct{}
+
+func (o clusterOrigin) String() string {
+	return ""
+}
+
+func (o clusterOrigin) FriendlyName() string {
+	return "Cluster"
+}
+
+func (o clusterOrigin) Comparator() string {
+	return o.FriendlyName()
+}
+
+func (o clusterOrigin) Namespace() resource.Namespace {
+	return ""
+}
+
+func (o clusterOrigin) Reference() resource.Reference {
+	return nil
+}
+
+func (o clusterOrigin) FieldMap() map[string]int {
+	return make(map[string]int)
 }
