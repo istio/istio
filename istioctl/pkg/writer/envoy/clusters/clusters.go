@@ -25,6 +25,7 @@ import (
 
 	adminapi "github.com/envoyproxy/go-control-plane/envoy/admin/v3"
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
+	"sigs.k8s.io/yaml"
 
 	"istio.io/istio/istioctl/pkg/util/clusters"
 	protio "istio.io/istio/istioctl/pkg/util/proto"
@@ -146,7 +147,7 @@ func (c *ConfigWriter) PrintEndpointsSummary(filter EndpointFilter) error {
 }
 
 // PrintEndpoints prints the endpoints config to the ConfigWriter stdout
-func (c *ConfigWriter) PrintEndpoints(filter EndpointFilter) error {
+func (c *ConfigWriter) PrintEndpoints(filter EndpointFilter, outputFormat string) error {
 	if c.clusters == nil {
 		return fmt.Errorf("config writer has not been primed")
 	}
@@ -163,6 +164,11 @@ func (c *ConfigWriter) PrintEndpoints(filter EndpointFilter) error {
 	out, err := json.MarshalIndent(filteredClusters, "", "    ")
 	if err != nil {
 		return err
+	}
+	if outputFormat == "yaml" {
+		if out, err = yaml.JSONToYAML(out); err != nil {
+			return err
+		}
 	}
 	fmt.Fprintln(c.Stdout, string(out))
 	return nil

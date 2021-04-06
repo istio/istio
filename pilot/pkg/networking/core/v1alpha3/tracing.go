@@ -73,7 +73,7 @@ func configureTracingFromSpec(spec *telemetrypb.Telemetry, opts buildListenerOpt
 
 	tracingCfg := spec.Tracing[0]
 
-	if tracingCfg.DisableSpanReporting {
+	if tracingCfg.DisableSpanReporting.GetValue() {
 		return
 	}
 
@@ -107,7 +107,7 @@ func configureTracingFromSpec(spec *telemetrypb.Telemetry, opts buildListenerOpt
 
 	// gracefully fallback to MeshConfig configuration. It will act as an implicit
 	// parent configuration during transition period.
-	configureSampling(hcm.Tracing, tracingCfg.RandomSamplingPercentage, proxyCfg)
+	configureSampling(hcm.Tracing, tracingCfg.RandomSamplingPercentage.GetValue(), proxyCfg)
 	configureCustomTags(hcm.Tracing, tracingCfg.CustomTags, proxyCfg)
 
 	// if there is configured max tag length somewhere, fallback to it.

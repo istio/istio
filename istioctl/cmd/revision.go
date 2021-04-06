@@ -110,6 +110,7 @@ func revisionCommand() *cobra.Command {
 
 	revisionCmd.AddCommand(revisionListCommand())
 	revisionCmd.AddCommand(revisionDescribeCommand())
+	revisionCmd.AddCommand(tagCommand())
 	return revisionCmd
 }
 
@@ -968,12 +969,12 @@ func getEnabledComponents(iops *v1alpha1.IstioOperatorSpec) []string {
 		enabledComponents = append(enabledComponents, "istiod-remote")
 	}
 	for _, gw := range iops.Components.IngressGateways {
-		if gw.Enabled.Value {
+		if util.BoolValue(gw.Enabled) {
 			enabledComponents = append(enabledComponents, fmt.Sprintf("ingress:%s", gw.GetName()))
 		}
 	}
 	for _, gw := range iops.Components.EgressGateways {
-		if gw.Enabled.Value {
+		if util.BoolValue(gw.Enabled) {
 			enabledComponents = append(enabledComponents, fmt.Sprintf("egress:%s", gw.GetName()))
 		}
 	}

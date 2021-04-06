@@ -21,6 +21,7 @@ import (
 	hpb "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
 	tracing "github.com/envoyproxy/go-control-plane/envoy/type/tracing/v3"
 	xdstype "github.com/envoyproxy/go-control-plane/envoy/type/v3"
+	"github.com/gogo/protobuf/types"
 	"github.com/google/go-cmp/cmp"
 	"google.golang.org/protobuf/testing/protocmp"
 	"google.golang.org/protobuf/types/known/anypb"
@@ -215,8 +216,8 @@ func fakeTracingSpec(providers []*tpb.ProviderRef, sampling float64, disableRepo
 	t := &tpb.Telemetry{
 		Tracing: []*tpb.Tracing{
 			{
-				RandomSamplingPercentage: sampling,
-				DisableSpanReporting:     disableReporting,
+				RandomSamplingPercentage: &types.DoubleValue{Value: sampling},
+				DisableSpanReporting:     &types.BoolValue{Value: disableReporting},
 				CustomTags: map[string]*tpb.Tracing_CustomTag{
 					"test": {
 						Type: &tpb.Tracing_CustomTag_Environment{
