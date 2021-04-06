@@ -106,17 +106,17 @@ See %s for more information about causes and resolutions.`, url.ConfigAnalysis)
 func checkControlPlane(cli kube.ExtendedClient) (diag.Messages, error) {
 	msgs := diag.Messages{}
 
-	if m, err := checkServerVersion(cli); err != nil {
+	m, err := checkServerVersion(cli)
+	if err != nil {
 		return nil, err
-	} else {
-		msgs = append(msgs, m...)
 	}
+	msgs = append(msgs, m...)
 
-	if m, err := checkInstallPermissions(cli); err != nil {
+	m, err = checkInstallPermissions(cli)
+	if err != nil {
 		return nil, err
-	} else {
-		msgs = append(msgs, m...)
 	}
+	msgs = append(msgs, m...)
 
 	// TODO: add more checks
 
@@ -247,11 +247,11 @@ func checkServerVersion(cli kube.ExtendedClient) (diag.Messages, error) {
 func checkDataPlane(cli kube.ExtendedClient, namespace string) (diag.Messages, error) {
 	msgs := diag.Messages{}
 
-	if m, err := checkListeners(cli, namespace); err != nil {
+	m, err := checkListeners(cli, namespace)
+	if err != nil {
 		return nil, err
-	} else {
-		msgs = append(msgs, m...)
 	}
+	msgs = append(msgs, m...)
 
 	// TODO: add more checks
 
@@ -274,7 +274,7 @@ func checkListeners(cli kube.ExtendedClient, namespace string) (diag.Messages, e
 	for _, pod := range pods.Items {
 		pod := pod
 		g.Go(func() error {
-			sem.Acquire(context.Background(), 1)
+			_ = sem.Acquire(context.Background(), 1)
 			defer sem.Release(1)
 			// Fetch list of all clusters to get which ports we care about
 			resp, err := cli.EnvoyDo(context.Background(), pod.Name, pod.Namespace,

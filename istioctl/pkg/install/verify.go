@@ -97,7 +97,3 @@ istioctl experimental precheck.
 func strPtr(val string) *string {
 	return &val
 }
-
-func boolPtr(val bool) *bool {
-	return &val
-}
