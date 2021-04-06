@@ -109,6 +109,11 @@ const (
 	ProxyInboundListenPort = 15006
 )
 
+// MutableListener represents a listener that is being built.
+type MutableListener struct {
+	istionetworking.MutableObjects
+}
+
 // A set of pre-allocated variables related to protocol sniffing logic for
 // propagating the ALPN to upstreams
 var (
@@ -390,12 +395,16 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundListenerForPortOrUDS(li
 	// We should instead just directly construct the filter chains. We do still need the ability to
 	// create full listeners for bind-to-port listeners added explicitly, but they are not common.
 	l := buildListener(listenerOpts, core.TrafficDirection_INBOUND)
-	mutable := &istionetworking.MutableObjects{
-		Listener:     l,
-		FilterChains: getPluginFilterChain(listenerOpts),
+
+	mutable := &MutableListener{
+		MutableObjects: istionetworking.MutableObjects{
+			Listener:     l,
+			FilterChains: getPluginFilterChain(listenerOpts),
+		},
 	}
+
 	// Filters are serialized one time into an opaque struct once we have the complete list.
-	if err := buildCompleteFilterChain(mutable, listenerOpts); err != nil {
+	if err := mutable.build(listenerOpts); err != nil {
 		log.Warn("buildSidecarInboundListeners ", err.Error())
 		return nil
 	}
@@ -712,11 +721,13 @@ func (configgen *ConfigGeneratorImpl) buildHTTPProxy(node *model.Proxy,
 	l := buildListener(opts, core.TrafficDirection_OUTBOUND)
 
 	// TODO: plugins for HTTP_PROXY mode, envoyfilter needs another listener match for SIDECAR_HTTP_PROXY
-	mutable := &istionetworking.MutableObjects{
-		Listener:     l,
-		FilterChains: []istionetworking.FilterChain{{}},
+	mutable := &MutableListener{
+		MutableObjects: istionetworking.MutableObjects{
+			Listener:     l,
+			FilterChains: []istionetworking.FilterChain{{}},
+		},
 	}
-	if err := buildCompleteFilterChain(mutable, opts); err != nil {
+	if err := mutable.build(opts); err != nil {
 		log.Warn("buildHTTPProxy filter chain error  ", err.Error())
 		return nil
 	}
@@ -1076,9 +1087,11 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListenerForPortOrUDS(l
 	// merge the filter chains with any existing listener on the same port/bind point
 	l := buildListener(listenerOpts, core.TrafficDirection_OUTBOUND)
 
-	mutable := &istionetworking.MutableObjects{
-		Listener:     l,
-		FilterChains: getPluginFilterChain(listenerOpts),
+	mutable := &MutableListener{
+		MutableObjects: istionetworking.MutableObjects{
+			Listener:     l,
+			FilterChains: getPluginFilterChain(listenerOpts),
+		},
 	}
 
 	pluginParams := &plugin.InputParams{
@@ -1087,13 +1100,13 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListenerForPortOrUDS(l
 	}
 
 	for _, p := range configgen.Plugins {
-		if err := p.OnOutboundListener(pluginParams, mutable); err != nil {
+		if err := p.OnOutboundListener(pluginParams, &mutable.MutableObjects); err != nil {
 			log.Warn(err.Error())
 		}
 	}
 
 	// Filters are serialized one time into an opaque struct once we have the complete list.
-	if err := buildCompleteFilterChain(mutable, listenerOpts); err != nil {
+	if err := mutable.build(listenerOpts); err != nil {
 		log.Warn("buildSidecarOutboundListeners: ", err.Error())
 		return
 	}
@@ -1490,23 +1503,20 @@ func (configgen *ConfigGeneratorImpl) appendListenerFallthroughRouteForCompleteL
 	}
 }
 
-// buildCompleteFilterChain adds the provided TCP and HTTP filters to the provided Listener and serializes them.
-//
-// TODO: should we change this from []plugins.FilterChains to [][]listener.Filter, [][]*hcm.HttpFilter?
-// TODO: given how tightly tied listener.FilterChains, opts.filterChainOpts, and mutable.FilterChains are to eachother
-// we should encapsulate them some way to ensure they remain consistent (mainly that in each an index refers to the same
-// chain)
-func buildCompleteFilterChain(mutable *istionetworking.MutableObjects, opts buildListenerOpts) error {
+// build adds the provided TCP and HTTP filters to the provided Listener and serializes them.
+// TODO: given how tightly tied listener.FilterChains, opts.filterChainOpts, and mutable.FilterChains
+// are to eachother we should encapsulate them some way to ensure they remain consistent (mainly that
+// in each an index refers to the same chain).
+func (ml *MutableListener) build(opts buildListenerOpts) error {
 	if len(opts.filterChainOpts) == 0 {
-		return fmt.Errorf("must have more than 0 chains in listener %q", mutable.Listener.Name)
+		return fmt.Errorf("must have more than 0 chains in listener %q", ml.Listener.Name)
 	}
-
-	httpConnectionManagers := make([]*hcm.HttpConnectionManager, len(mutable.FilterChains))
-	for i := range mutable.FilterChains {
-		chain := mutable.FilterChains[i]
+	httpConnectionManagers := make([]*hcm.HttpConnectionManager, len(ml.FilterChains))
+	for i := range ml.FilterChains {
+		chain := ml.FilterChains[i]
 		opt := opts.filterChainOpts[i]
-		mutable.Listener.FilterChains[i].Metadata = opt.metadata
-		mutable.Listener.FilterChains[i].Name = opt.filterChainName
+		ml.Listener.FilterChains[i].Metadata = opt.metadata
+		ml.Listener.FilterChains[i].Name = opt.filterChainName
 		if opt.httpOpts == nil {
 			// we are building a network filter chain (no http connection manager) for this filter chain
 			// In HTTP, we need to have RBAC, etc. upfront so that they can enforce policies immediately
@@ -1518,30 +1528,30 @@ func buildCompleteFilterChain(mutable *istionetworking.MutableObjects, opts buil
 				lastNetworkFilter := opt.networkFilters[len(opt.networkFilters)-1]
 
 				for n := 0; n < len(opt.networkFilters)-1; n++ {
-					mutable.Listener.FilterChains[i].Filters = append(mutable.Listener.FilterChains[i].Filters, opt.networkFilters[n])
+					ml.Listener.FilterChains[i].Filters = append(ml.Listener.FilterChains[i].Filters, opt.networkFilters[n])
 				}
-				mutable.Listener.FilterChains[i].Filters = append(mutable.Listener.FilterChains[i].Filters, chain.TCP...)
-				mutable.Listener.FilterChains[i].Filters = append(mutable.Listener.FilterChains[i].Filters, lastNetworkFilter)
+				ml.Listener.FilterChains[i].Filters = append(ml.Listener.FilterChains[i].Filters, chain.TCP...)
+				ml.Listener.FilterChains[i].Filters = append(ml.Listener.FilterChains[i].Filters, lastNetworkFilter)
 			} else {
-				mutable.Listener.FilterChains[i].Filters = append(mutable.Listener.FilterChains[i].Filters, chain.TCP...)
+				ml.Listener.FilterChains[i].Filters = append(ml.Listener.FilterChains[i].Filters, chain.TCP...)
 			}
-			log.Debugf("attached %d network filters to listener %q filter chain %d", len(chain.TCP)+len(opt.networkFilters), mutable.Listener.Name, i)
+			log.Debugf("attached %d network filters to listener %q filter chain %d", len(chain.TCP)+len(opt.networkFilters), ml.Listener.Name, i)
 		} else {
 			// Add the TCP filters first.. and then the HTTP connection manager
-			mutable.Listener.FilterChains[i].Filters = append(mutable.Listener.FilterChains[i].Filters, chain.TCP...)
+			ml.Listener.FilterChains[i].Filters = append(ml.Listener.FilterChains[i].Filters, chain.TCP...)
 
 			// If statPrefix has been set before calling this method, respect that.
 			if len(opt.httpOpts.statPrefix) == 0 {
-				opt.httpOpts.statPrefix = strings.ToLower(mutable.Listener.TrafficDirection.String()) + "_" + mutable.Listener.Name
+				opt.httpOpts.statPrefix = strings.ToLower(ml.Listener.TrafficDirection.String()) + "_" + ml.Listener.Name
 			}
 			httpConnectionManagers[i] = buildHTTPConnectionManager(opts, opt.httpOpts, chain.HTTP)
 			filter := &listener.Filter{
 				Name:       wellknown.HTTPConnectionManager,
 				ConfigType: &listener.Filter_TypedConfig{TypedConfig: util.MessageToAny(httpConnectionManagers[i])},
 			}
-			mutable.Listener.FilterChains[i].Filters = append(mutable.Listener.FilterChains[i].Filters, filter)
+			ml.Listener.FilterChains[i].Filters = append(ml.Listener.FilterChains[i].Filters, filter)
 			log.Debugf("attached HTTP filter with %d http_filter options to listener %q filter chain %d",
-				len(httpConnectionManagers[i].HttpFilters), mutable.Listener.Name, i)
+				len(httpConnectionManagers[i].HttpFilters), ml.Listener.Name, i)
 		}
 	}
 
