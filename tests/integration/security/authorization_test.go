@@ -18,6 +18,7 @@ package security
 import (
 	"context"
 	"fmt"
+	"os"
 	"strings"
 	"testing"
 	"time"
@@ -79,6 +80,10 @@ func TestAuthorization_mTLS(t *testing.T) {
 	framework.NewTest(t).
 		Features("security.authorization.mtls-local").
 		Run(func(t framework.TestContext) {
+			// Wait for service end point populating for onprem multi-network setup
+			if os.Getenv("CLUSTER_TYPE") == "gke-on-prem" {
+				time.Sleep(time.Second * 30)
+			}
 			b := apps.B.Match(echo.Namespace(apps.Namespace1.Name()))
 			vm := apps.VM.Match(echo.Namespace(apps.Namespace1.Name()))
 			for _, dst := range []echo.Instances{b, vm} {
@@ -90,6 +95,9 @@ func TestAuthorization_mTLS(t *testing.T) {
 				policies := tmpl.EvaluateAllOrFail(t, args,
 					file.AsStringOrFail(t, "testdata/authz/v1beta1-mtls.yaml.tmpl"))
 				t.Config().ApplyYAMLOrFail(t, apps.Namespace1.Name(), policies...)
+				t.NewSubTest("wait for config").Run(func(t framework.TestContext) {
+					util.WaitForConfig(t, policies[0], apps.Namespace1)
+				})
 				for _, cluster := range t.Clusters() {
 					t.NewSubTest(fmt.Sprintf("From %s", cluster.StableName())).Run(func(t framework.TestContext) {
 						a := apps.A.Match(echo.InCluster(cluster).And(echo.Namespace(apps.Namespace1.Name())))
