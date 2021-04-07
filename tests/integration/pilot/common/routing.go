@@ -409,7 +409,10 @@ spec:
 			toN:           len(split),
 			sourceFilters: []echotest.Filter{noHeadless, noNaked},
 			targetFilters: []echotest.Filter{noHeadless, noExternal},
-			config: fmt.Sprintf(`
+			templateVars: map[string]interface{}{
+				"split": split,
+			},
+			config: `
 apiVersion: networking.istio.io/v1alpha3
 kind: VirtualService
 metadata:
@@ -419,16 +422,12 @@ spec:
     - {{ ( index .dstSvcs 0) }}
   http:
   - route:
+{{- range $idx, $svc }}
     - destination:
-        host: {{ ( index .dstSvcs 0) }}
-      weight: %d
-    - destination:
-        host: {{ ( index .dstSvcs 1) }}
-      weight: %d
-    - destination:
-        host: {{ ( index .dstSvcs 2) }}
-      weight: %d
-`, split[0], split[1], split[2]),
+        host: {{ $svc }}
+      weight: {{ ( index .split $idx ) }}
+{{- end }}
+`,
 			validate: func(src echo.Instance, dests echo.Services) echo.Validator {
 				return echo.And(
 					echo.ExpectOK(),
