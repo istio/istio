@@ -158,9 +158,8 @@ func (s *DiscoveryServer) receive(con *Connection, reqChannel chan *discovery.Di
 			close(con.initialized)
 		}
 	}()
-	defer func() {
-		s.closeConnection(con)
-	}()
+	defer s.closeConnection(con)
+
 	firstReq := true
 	for {
 		req, err := con.stream.Recv()
@@ -510,15 +509,15 @@ func (s *DiscoveryServer) initConnection(node *core.Node, con *Connection) error
 	// context between initializeProxy and addCon, we would not get any pushes triggered for the new
 	// push context, leading the proxy to have a stale state until the next full push.
 	s.addCon(con.ConID, con)
+	// Register that initialization is complete. This triggers to calls that it is safe to access the
+	// proxy
+	defer close(con.initialized)
 
 	// Complete full initialization of the proxy
 	if err := s.initializeProxy(node, con); err != nil {
+		s.closeConnection(con)
 		return err
 	}
-
-	// Register that initialization is complete. This triggers to calls that it is safe to access the
-	// proxy.
-	close(con.initialized)
 
 	if s.StatusGen != nil {
 		s.StatusGen.OnConnect(con)
