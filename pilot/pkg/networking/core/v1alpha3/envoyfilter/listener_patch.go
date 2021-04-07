@@ -408,6 +408,8 @@ func doHTTPFilterListOperation(patchContext networking.EnvoyFilter_PatchContext,
 		}
 		doHTTPFilterOperation(patchContext, patches, listener, fc, filter, httpFilter, &httpFiltersRemoved)
 	}
+	opatches := make([]*model.EnvoyFilterConfigPatchWrapper, 0)
+	dependents := map[*model.EnvoyFilterConfigPatchWrapper]struct{}{}
 	for _, cp := range patches[networking.EnvoyFilter_HTTP_FILTER] {
 		if !commonConditionMatch(patchContext, cp) ||
 			!listenerMatch(listener, cp) ||
@@ -415,6 +417,22 @@ func doHTTPFilterListOperation(patchContext networking.EnvoyFilter_PatchContext,
 			!networkFilterMatch(filter, cp) {
 			continue
 		}
+		if (cp.Operation == networking.EnvoyFilter_Patch_INSERT_BEFORE && hasHTTPFilterMatch(cp)) ||
+			(cp.Operation == networking.EnvoyFilter_Patch_INSERT_AFTER && hasHTTPFilterMatch(cp)) {
+			addDependentPatches(cp, patches[networking.EnvoyFilter_HTTP_FILTER], &opatches, dependents)
+		} else {
+			if _, exists := dependents[cp]; !exists {
+				filter := cp.Value.(*http_conn.HttpFilter)
+				fmt.Println("adding patch in else ", filter.Name)
+				opatches = append(opatches, cp)
+			}
+		}
+	}
+	fmt.Println(len(patches[networking.EnvoyFilter_HTTP_FILTER]), len(opatches))
+	for _, cp := range opatches {
+
+		filter := cp.Value.(*http_conn.HttpFilter)
+		fmt.Println("processing patch ", filter.Name)
 		if cp.Operation == networking.EnvoyFilter_Patch_ADD {
 			hcm.HttpFilters = append(hcm.HttpFilters, proto.Clone(cp.Value).(*http_conn.HttpFilter))
 		} else if cp.Operation == networking.EnvoyFilter_Patch_INSERT_FIRST {
@@ -504,6 +522,26 @@ func doHTTPFilterListOperation(patchContext networking.EnvoyFilter_PatchContext,
 	if filter.GetTypedConfig() != nil {
 		// convert to any type
 		filter.ConfigType = &xdslistener.Filter_TypedConfig{TypedConfig: util.MessageToAny(hcm)}
+	}
+}
+
+func addDependentPatches(patch *model.EnvoyFilterConfigPatchWrapper, original []*model.EnvoyFilterConfigPatchWrapper,
+	ordered *[]*model.EnvoyFilterConfigPatchWrapper, dependents map[*model.EnvoyFilterConfigPatchWrapper]struct{}) {
+	for _, cp := range original {
+		if patch.Operation == networking.EnvoyFilter_Patch_INSERT_BEFORE || patch.Operation == networking.EnvoyFilter_Patch_INSERT_AFTER {
+			filter := cp.Value.(*http_conn.HttpFilter)
+			match := patch.Match.GetListener().FilterChain.Filter.SubFilter
+			if match != nil && nameMatches(match.Name, filter.Name) {
+				// fmt.Println("calling dependents ", cp)
+				addDependentPatches(cp, original, ordered, dependents)
+			}
+		}
+	}
+	pf := patch.Value.(*http_conn.HttpFilter)
+	if _, exists := dependents[patch]; !exists {
+		fmt.Println("adding patch ", pf.Name)
+		*ordered = append(*ordered, patch)
+		dependents[patch] = struct{}{}
 	}
 }
 
