@@ -26,6 +26,7 @@ import (
 	"time"
 
 	"istio.io/api/networking/v1alpha3"
+	"istio.io/istio/pilot/cmd/pilot-agent/status"
 	"istio.io/istio/pilot/cmd/pilot-agent/status/ready"
 	"istio.io/istio/pkg/test/echo/common/scheme"
 	"istio.io/pkg/log"
@@ -60,7 +61,7 @@ type HTTPProber struct {
 
 var _ Prober = &HTTPProber{}
 
-func NewHTTPProber(cfg *v1alpha3.HTTPHealthCheckConfig) *HTTPProber {
+func NewHTTPProber(cfg *v1alpha3.HTTPHealthCheckConfig, ipv6 bool) *HTTPProber {
 	h := new(HTTPProber)
 	h.Config = cfg
 
@@ -77,7 +78,10 @@ func NewHTTPProber(cfg *v1alpha3.HTTPHealthCheckConfig) *HTTPProber {
 		}
 	}
 	d := &net.Dialer{
-		LocalAddr: &net.TCPAddr{IP: net.ParseIP("127.0.0.6")},
+		LocalAddr: status.UpstreamLocalAddressIPv4,
+	}
+	if ipv6 {
+		d.LocalAddr = status.UpstreamLocalAddressIPv6
 	}
 	h.Transport.DialContext = d.DialContext
 	return h

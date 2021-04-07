@@ -15,7 +15,7 @@
 package health
 
 import (
-	"istio.io/pkg/env"
+	"istio.io/istio/pilot/cmd/pilot-agent/status"
 	"strings"
 	"time"
 
@@ -50,11 +50,6 @@ const (
 	lastStateUnhealthy
 )
 
-var (
-	legacyLocalhostProbeDestination = env.RegisterBoolVar("REWRITE_PROBE_LEGACY_LOCALHOST_DESTINATION", false,
-		"If enabled, readiness probes will be sent to 'localhost'. Otherwise, they will be sent to the Pod's IP, matching Kubernetes' behavior.")
-)
-
 func fillInDefaults(cfg *v1alpha3.ReadinessProbe, ipAddresses []string) *v1alpha3.ReadinessProbe {
 	cfg = cfg.DeepCopy()
 	// Thresholds have a minimum of 1
@@ -75,7 +70,7 @@ func fillInDefaults(cfg *v1alpha3.ReadinessProbe, ipAddresses []string) *v1alpha
 		}
 		h.HttpGet.Scheme = strings.ToLower(h.HttpGet.Scheme)
 		if h.HttpGet.Host == "" {
-			if len(ipAddresses) == 0 || legacyLocalhostProbeDestination.Get() {
+			if len(ipAddresses) == 0 || status.LegacyLocalhostProbeDestination.Get() {
 				h.HttpGet.Host = "localhost"
 			} else {
 				h.HttpGet.Host = ipAddresses[0]
@@ -85,7 +80,7 @@ func fillInDefaults(cfg *v1alpha3.ReadinessProbe, ipAddresses []string) *v1alpha
 	return cfg
 }
 
-func NewWorkloadHealthChecker(cfg *v1alpha3.ReadinessProbe, envoyProbe ready.Prober, proxyAddrs []string) *WorkloadHealthChecker {
+func NewWorkloadHealthChecker(cfg *v1alpha3.ReadinessProbe, envoyProbe ready.Prober, proxyAddrs []string, ipv6 bool) *WorkloadHealthChecker {
 	// if a config does not exist return a no-op prober
 	if cfg == nil {
 		return nil
@@ -94,7 +89,7 @@ func NewWorkloadHealthChecker(cfg *v1alpha3.ReadinessProbe, envoyProbe ready.Pro
 	var prober Prober
 	switch healthCheckMethod := cfg.HealthCheckMethod.(type) {
 	case *v1alpha3.ReadinessProbe_HttpGet:
-		prober = NewHTTPProber(healthCheckMethod.HttpGet)
+		prober = NewHTTPProber(healthCheckMethod.HttpGet, ipv6)
 	case *v1alpha3.ReadinessProbe_TcpSocket:
 		prober = &TCPProber{Config: healthCheckMethod.TcpSocket}
 	case *v1alpha3.ReadinessProbe_Exec:

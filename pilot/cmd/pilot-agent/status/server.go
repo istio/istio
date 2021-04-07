@@ -65,8 +65,8 @@ const (
 )
 
 var (
-	upstreamLocalAddressIPv4 = &net.TCPAddr{IP: net.ParseIP("127.0.0.6")}
-	upstreamLocalAddressIPv6 = &net.TCPAddr{IP: net.ParseIP("[::6]")}
+	UpstreamLocalAddressIPv4 = &net.TCPAddr{IP: net.ParseIP("127.0.0.6")}
+	UpstreamLocalAddressIPv6 = &net.TCPAddr{IP: net.ParseIP("[::6]")}
 )
 
 var PrometheusScrapingConfig = env.RegisterStringVar("ISTIO_PROMETHEUS_ANNOTATIONS", "", "")
@@ -76,7 +76,7 @@ var (
 
 	promRegistry *prometheus.Registry
 
-	legacyLocalhostProbeDestination = env.RegisterBoolVar("REWRITE_PROBE_LEGACY_LOCALHOST_DESTINATION", false,
+	LegacyLocalhostProbeDestination = env.RegisterBoolVar("REWRITE_PROBE_LEGACY_LOCALHOST_DESTINATION", false,
 		"If enabled, readiness probes will be sent to 'localhost'. Otherwise, they will be sent to the Pod's IP, matching Kubernetes' behavior.")
 )
 
@@ -152,7 +152,7 @@ func NewServer(config Options) (*Server, error) {
 		appProbersDestination: config.PodIP,
 		envoyStatsPort:        15090,
 	}
-	if legacyLocalhostProbeDestination.Get() {
+	if LegacyLocalhostProbeDestination.Get() {
 		s.appProbersDestination = "localhost"
 	}
 
@@ -200,9 +200,9 @@ func NewServer(config Options) (*Server, error) {
 		if prober.HTTPGet.Port.Type != intstr.Int {
 			return nil, fmt.Errorf("invalid prober config for %v, the port must be int type", path)
 		}
-		localAddr := upstreamLocalAddressIPv4
+		localAddr := UpstreamLocalAddressIPv4
 		if config.IPv6 {
-			localAddr = upstreamLocalAddressIPv6
+			localAddr = UpstreamLocalAddressIPv6
 		}
 		d := &net.Dialer{
 			LocalAddr: localAddr,
