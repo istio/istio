@@ -43,11 +43,15 @@ func (c *httpProtocol) setHost(r *http.Request, host string) {
 		// Set SNI value to be same as the request Host
 		// For use with SNI routing tests
 		httpTransport, ok := c.client.Transport.(*http.Transport)
-		if ok {
+		if ok && httpTransport.TLSClientConfig.ServerName == "" {
 			httpTransport.TLSClientConfig.ServerName = host
-		} else {
-			httpTransport := c.client.Transport.(*http2.Transport)
-			httpTransport.TLSClientConfig.ServerName = host
+			return
+		}
+
+		http2Transport, ok := c.client.Transport.(*http2.Transport)
+		if ok && http2Transport.TLSClientConfig.ServerName == "" {
+			http2Transport.TLSClientConfig.ServerName = host
+			return
 		}
 	}
 }
