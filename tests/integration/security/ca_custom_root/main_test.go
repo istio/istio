@@ -329,6 +329,11 @@ func setupConfig(_ resource.Context, cfg *istio.Config) {
 	if err != nil {
 		return
 	}
+	scripCa := path.Join(env.IstioSrc, "samples/certs", "ca-cert.pem")
+	caPEM, err := loadCert(scripCa)
+	if err != nil {
+		return
+	}
 
 	cfgYaml := tmpl.MustEvaluate(`
 values:
@@ -343,6 +348,8 @@ values:
     caCertificates:
     - pem: |
 {{.pem | indent 8}}
-`, map[string]string{"pem": rootPEM})
+    - pem: |
+{{.pem1 | indent 8}}
+`, map[string]string{"pem": rootPEM, "pem1": caPEM})
 	cfg.ControlPlaneValues = cfgYaml
 }
