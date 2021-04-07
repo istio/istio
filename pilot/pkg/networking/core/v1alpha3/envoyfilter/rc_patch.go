@@ -150,9 +150,6 @@ func patchHTTPRoutes(patchContext networking.EnvoyFilter_PatchContext,
 	applied := false
 	// now for the adds
 	for _, rp := range patches[networking.EnvoyFilter_HTTP_ROUTE] {
-		if rp.Operation == networking.EnvoyFilter_Patch_INSERT_AFTER {
-			continue
-		}
 		if !commonConditionMatch(patchContext, rp) ||
 			!routeConfigurationMatch(patchContext, routeConfiguration, rp) ||
 			!virtualHostMatch(virtualHost, rp) {

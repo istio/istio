@@ -446,10 +446,8 @@ func patchHTTPFilters(patchContext networking.EnvoyFilter_PatchContext, filterKe
 		if (lp.Operation == networking.EnvoyFilter_Patch_INSERT_BEFORE && hasHTTPFilterMatch(lp)) ||
 			(lp.Operation == networking.EnvoyFilter_Patch_INSERT_AFTER && hasHTTPFilterMatch(lp)) {
 			orderPatches(lp, inpatches, &opatches, dependents)
-		} else {
-			if _, exists := dependents[lp]; !exists {
-				opatches = append(opatches, lp)
-			}
+		} else if _, exists := dependents[lp]; !exists {
+			opatches = append(opatches, lp)
 		}
 	}
 	for _, lp := range opatches {
