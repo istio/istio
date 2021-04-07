@@ -37,7 +37,7 @@ type HTTPGetAction struct {
 	// Defaults to HTTP.
 	// +optional
 	Scheme URIScheme `json:"scheme,omitempty" protobuf:"bytes,4,opt,name=scheme,casttype=URIScheme"`
-	// Custom headers to set in the request.
+	// Custom headers to set in the request. HTTP allows repeated headers.
 	// +optional
 	HTTPHeaders []HTTPHeader `json:"httpHeaders,omitempty" protobuf:"bytes,5,rep,name=httpHeaders"`
 }
