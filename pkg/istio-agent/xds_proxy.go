@@ -89,6 +89,7 @@ type XdsProxy struct {
 	healthChecker        *health.WorkloadHealthChecker
 	xdsHeaders           map[string]string
 	xdsUdsPath           string
+	proxyAddresses []string
 
 	// connected stores the active gRPC stream. The proxy will only have 1 connection at a time
 	connected           *ProxyConnection
@@ -131,10 +132,11 @@ func initXdsProxy(ia *Agent) (*XdsProxy, error) {
 		clusterID:     ia.secOpts.ClusterID,
 		handlers:      map[string]ResponseHandler{},
 		stopChan:      make(chan struct{}),
-		healthChecker: health.NewWorkloadHealthChecker(ia.proxyConfig.ReadinessProbe, envoyProbe),
+		healthChecker: health.NewWorkloadHealthChecker(ia.proxyConfig.ReadinessProbe, envoyProbe, ia.cfg.ProxyIPAddresses),
 		xdsHeaders:    ia.cfg.XDSHeaders,
 		xdsUdsPath:    ia.cfg.XdsUdsPath,
 		wasmCache:     wasm.NewLocalFileCache(constants.IstioDataDir, wasm.DefaultWasmModulePurgeInteval, wasm.DefaultWasmModuleExpiry),
+		proxyAddresses: ia.cfg.ProxyIPAddresses,
 	}
 
 	if ia.localDNSServer != nil {
