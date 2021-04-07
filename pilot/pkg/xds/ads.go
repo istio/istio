@@ -158,7 +158,6 @@ func (s *DiscoveryServer) receive(con *Connection, reqChannel chan *discovery.Di
 			close(con.initialized)
 		}
 	}()
-	defer s.closeConnection(con)
 
 	firstReq := true
 	for {
@@ -185,6 +184,7 @@ func (s *DiscoveryServer) receive(con *Connection, reqChannel chan *discovery.Di
 				*errP = err
 				return
 			}
+			defer s.closeConnection(con)
 			log.Infof("ADS: new connection for node:%s", con.ConID)
 		}
 
@@ -529,7 +529,6 @@ func (s *DiscoveryServer) closeConnection(con *Connection) {
 	if con.ConID == "" {
 		return
 	}
-	log.Infof("ADS: connection closed for node:%s", con.ConID)
 	s.removeCon(con.ConID)
 	if s.StatusGen != nil {
 		s.StatusGen.OnDisconnect(con)
