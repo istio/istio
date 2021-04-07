@@ -373,7 +373,7 @@ func (h *HelmReconciler) deleteResources(excluded map[string]bool, coreLabels ma
 				errs = util.AppendErr(errs, err)
 			} else {
 				// do not return error if resources are not found
-				h.opts.Log.LogAndPrintf("object: %s is not being deleted because it no longer exist", obj.Hash())
+				h.opts.Log.LogAndPrintf("object: %s is not being deleted because it no longer exists", obj.Hash())
 				continue
 			}
 		}

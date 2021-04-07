@@ -21,6 +21,7 @@ import (
 	tcppb "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
 	httppb "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
 	"github.com/gogo/protobuf/proto"
+	"github.com/gogo/protobuf/types"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/pkg/config/kube/crd"
@@ -67,8 +68,13 @@ var (
 					EnvoyExtAuthzGrpc: &meshconfig.MeshConfig_ExtensionProvider_EnvoyExternalAuthorizationGrpcProvider{
 						Service:       "foo/my-custom-ext-authz.foo.svc.cluster.local",
 						Port:          9000,
+						Timeout:       &types.Duration{Nanos: 2000 * 1000},
 						FailOpen:      true,
 						StatusOnError: "403",
+						IncludeRequestBodyInCheck: &meshconfig.MeshConfig_ExtensionProvider_EnvoyExternalAuthorizationRequestBody{
+							MaxRequestBytes:     4096,
+							AllowPartialMessage: true,
+						},
 					},
 				},
 			},
@@ -80,14 +86,22 @@ var (
 				Name: "default",
 				Provider: &meshconfig.MeshConfig_ExtensionProvider_EnvoyExtAuthzHttp{
 					EnvoyExtAuthzHttp: &meshconfig.MeshConfig_ExtensionProvider_EnvoyExternalAuthorizationHttpProvider{
-						Service:                   "foo/my-custom-ext-authz.foo.svc.cluster.local",
-						Port:                      9000,
-						FailOpen:                  true,
-						StatusOnError:             "403",
-						PathPrefix:                "/check",
-						IncludeHeadersInCheck:     []string{"x-custom-id"},
-						HeadersToUpstreamOnAllow:  []string{"Authorization"},
-						HeadersToDownstreamOnDeny: []string{"Set-cookie"},
+						Service:                         "foo/my-custom-ext-authz.foo.svc.cluster.local",
+						Port:                            9000,
+						Timeout:                         &types.Duration{Seconds: 10},
+						FailOpen:                        true,
+						StatusOnError:                   "403",
+						PathPrefix:                      "/check",
+						IncludeRequestHeadersInCheck:    []string{"x-custom-id", "x-prefix-*", "*-suffix"},
+						IncludeHeadersInCheck:           []string{"should-not-include-when-IncludeRequestHeadersInCheck-is-set"},
+						IncludeAdditionalHeadersInCheck: map[string]string{"x-header-1": "value-1", "x-header-2": "value-2"},
+						IncludeRequestBodyInCheck: &meshconfig.MeshConfig_ExtensionProvider_EnvoyExternalAuthorizationRequestBody{
+							MaxRequestBytes:     2048,
+							AllowPartialMessage: true,
+							PackAsBytes:         true,
+						},
+						HeadersToUpstreamOnAllow:  []string{"Authorization", "x-prefix-*", "*-suffix"},
+						HeadersToDownstreamOnDeny: []string{"Set-cookie", "x-prefix-*", "*-suffix"},
 					},
 				},
 			},
@@ -147,7 +161,7 @@ func TestGenerator_GenerateHTTP(t *testing.T) {
 			name:       "custom-grpc-provider-no-namespace",
 			meshConfig: meshConfigGRPCNoNamespace,
 			input:      "custom-simple-http-in.yaml",
-			want:       []string{"custom-grpc-provider-out1.yaml", "custom-grpc-provider-out2.yaml"},
+			want:       []string{"custom-grpc-provider-no-namespace-out1.yaml", "custom-grpc-provider-no-namespace-out2.yaml"},
 		},
 		{
 			name:       "custom-grpc-provider",
