@@ -24,25 +24,25 @@ spec:
         - operation:
             paths: ["/allow"]
             hosts: ["www.company.com"]
-    - to: # checks only src call 443 over istio mutual without JWT
+    - to: # checks only a call 443 over istio mutual without JWT
       - operation:
-          hosts: ["{{ .src }}-only.com"]
+          hosts: ["{{ .a }}-only.com"]
       from:
       - source:
-          principals: ["cluster.local/ns/{{ .Namespace }}/sa/{{ .src }}"]
+          principals: ["cluster.local/ns/{{ .Namespace }}/sa/{{ .a }}"]
     - to: # checks workload can call 443 over istio mutual with JWT
       - operation:
           hosts: ["jwt-only.com"]
       from:
       - source:
           requestPrincipals: ["test-issuer-1@istio.io/sub-1"]
-    - to: # checks only src can call 443 over istio mutual with JWT
+    - to: # checks only a can call 443 over istio mutual with JWT
       - operation:
-          hosts: ["jwt-and-{{ .src }}-only.com"]
+          hosts: ["jwt-and-{{ .a }}-only.com"]
       from:
       - source:
           requestPrincipals: ["test-issuer-1@istio.io/sub-1"]
-          principals: ["cluster.local/ns/{{ .Namespace }}/sa/{{ .src }}"]
+          principals: ["cluster.local/ns/{{ .Namespace }}/sa/{{ .a }}"]
 ---
 
 # The following policy redirects the request through egress gateway.
@@ -100,7 +100,7 @@ spec:
         port: 80
       route:
       - destination:
-          host: {{ .dst }}.{{ .Namespace }}.svc.cluster.local
+          host: {{ .c }}.{{ .Namespace }}.svc.cluster.local
           port:
             number: 8095
         weight: 100
@@ -116,9 +116,9 @@ metadata:
   namespace: {{ .Namespace }}
 spec:
   hosts:
-  - "{{ .src }}-only.com"
+  - "{{ .a }}-only.com"
   - "jwt-only.com"
-  - "jwt-and-{{ .src }}-only.com"
+  - "jwt-and-{{ .a }}-only.com"
   gateways:
   - test-egress
   - mesh
@@ -139,7 +139,7 @@ spec:
         port: 443
       route:
       - destination:
-          host: {{ .dst }}.{{ .Namespace }}.svc.cluster.local
+          host: {{ .c }}.{{ .Namespace }}.svc.cluster.local
           port:
             number: 8095
         weight: 100
