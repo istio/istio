@@ -46,7 +46,7 @@ func TestWorkloadHealthChecker_PerformApplicationHealthCheck(t *testing.T) {
 					Port: uint32(port),
 				},
 			},
-		}, nil)
+		}, nil, []string{"127.0.0.1"})
 		// Speed up tests
 		tcpHealthChecker.config.CheckFrequency = time.Millisecond
 
@@ -141,7 +141,7 @@ func TestWorkloadHealthChecker_PerformApplicationHealthCheck(t *testing.T) {
 					Host:   host,
 				},
 			},
-		}, nil)
+		}, nil, []string{"127.0.0.1"})
 		// Speed up tests
 		httpHealthChecker.config.CheckFrequency = time.Millisecond
 		quitChan := make(chan struct{})

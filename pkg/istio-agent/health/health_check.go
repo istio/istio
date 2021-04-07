@@ -55,7 +55,7 @@ var (
 		"If enabled, readiness probes will be sent to 'localhost'. Otherwise, they will be sent to the Pod's IP, matching Kubernetes' behavior.")
 )
 
-func fillInDefaults(cfg *v1alpha3.ReadinessProbe) *v1alpha3.ReadinessProbe {
+func fillInDefaults(cfg *v1alpha3.ReadinessProbe, ipAddresses []string) *v1alpha3.ReadinessProbe {
 	cfg = cfg.DeepCopy()
 	// Thresholds have a minimum of 1
 	cfg.FailureThreshold = orDefault(cfg.FailureThreshold, 1)
@@ -75,22 +75,22 @@ func fillInDefaults(cfg *v1alpha3.ReadinessProbe) *v1alpha3.ReadinessProbe {
 		}
 		h.HttpGet.Scheme = strings.ToLower(h.HttpGet.Scheme)
 		if h.HttpGet.Host == "" {
-			if legacyLocalhostProbeDestination.Get() {
+			if len(ipAddresses) == 0 || legacyLocalhostProbeDestination.Get() {
 				h.HttpGet.Host = "localhost"
 			} else {
-				h.HttpGet.Host = "127.0.0.6"
+				h.HttpGet.Host = ipAddresses[0]
 			}
 		}
 	}
 	return cfg
 }
 
-func NewWorkloadHealthChecker(cfg *v1alpha3.ReadinessProbe, envoyProbe ready.Prober) *WorkloadHealthChecker {
+func NewWorkloadHealthChecker(cfg *v1alpha3.ReadinessProbe, envoyProbe ready.Prober, proxyAddrs []string) *WorkloadHealthChecker {
 	// if a config does not exist return a no-op prober
 	if cfg == nil {
 		return nil
 	}
-	cfg = fillInDefaults(cfg)
+	cfg = fillInDefaults(cfg, proxyAddrs)
 	var prober Prober
 	switch healthCheckMethod := cfg.HealthCheckMethod.(type) {
 	case *v1alpha3.ReadinessProbe_HttpGet:
