@@ -27,6 +27,7 @@ import (
 	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pilot/pkg/secrets"
 	authnmodel "istio.io/istio/pilot/pkg/security/model"
+	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/schema/gvk"
 )
 
@@ -45,6 +46,11 @@ type SecretResource struct {
 
 func (sr SecretResource) Key() string {
 	return "sds://" + sr.ResourceName
+}
+
+// DependentTypes is not needed; we know exactly which configs impact SDS, so we can scope at DependentConfigs level
+func (sr SecretResource) DependentTypes() []config.GroupVersionKind {
+	return nil
 }
 
 func (sr SecretResource) DependentConfigs() []model.ConfigKey {

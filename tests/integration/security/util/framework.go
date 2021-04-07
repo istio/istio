@@ -16,7 +16,7 @@
 package util
 
 import (
-	"time"
+	"github.com/hashicorp/go-multierror"
 
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/test/framework"
@@ -191,7 +191,8 @@ func SetupApps(ctx resource.Context, i istio.Instance, apps *EchoDeployments, bu
 		WithConfig(EchoConfig(BSvc, apps.Namespace2, false, nil)).
 		WithConfig(EchoConfig(CSvc, apps.Namespace2, false, nil)).
 		WithConfig(EchoConfig(XSvc, apps.Namespace2, false, nil)).
-		WithConfig(echo.Config{Service: CSvc, Namespace: apps.Namespace3,
+		WithConfig(echo.Config{
+			Service: CSvc, Namespace: apps.Namespace3,
 			Subsets: []echo.SubsetConfig{{}},
 			Ports: []echo.Port{
 				{
@@ -199,7 +200,8 @@ func SetupApps(ctx resource.Context, i istio.Instance, apps *EchoDeployments, bu
 					Protocol:     protocol.HTTP,
 					InstancePort: 8090,
 				},
-			}}).
+			},
+		}).
 		WithClusters(ctx.Clusters().Primaries()...).
 		WithConfig(vmCfg).
 		WithConfig(EchoConfig(HeadlessSvc, apps.Namespace1, true, nil)).
@@ -234,21 +236,27 @@ func (apps *EchoDeployments) IsHeadless(i echo.Instance) bool {
 	return apps.HeadlessNaked.Contains(i) || apps.Headless.Contains(i)
 }
 
-func WaitForConfigWithSleep(ctx framework.TestContext, testName, configs string, namespace namespace.Instance) {
-	ik := istioctl.NewOrFail(ctx, ctx, istioctl.Config{})
-	t0 := time.Now()
-	if err := ik.WaitForConfigs(namespace.Name(), configs); err != nil {
-		// Continue anyways, so we can assess the effectiveness of using `istioctl wait`
-		ctx.Logf("warning: failed to wait for config: %v", err)
-		// Get proxy status for additional debugging
-		s, _, _ := ik.Invoke([]string{"ps"})
-		ctx.Logf("proxy status: %v", s)
+func (apps *EchoDeployments) IsVM(i echo.Instance) bool {
+	return apps.VM.Contains(i)
+}
+
+func WaitForConfig(ctx framework.TestContext, configs string, namespace namespace.Instance) {
+	errG := multierror.Group{}
+	for _, c := range ctx.Clusters().Primaries() {
+		c := c
+		errG.Go(func() error {
+			ik := istioctl.NewOrFail(ctx, ctx, istioctl.Config{Cluster: c})
+			if err := ik.WaitForConfigs(namespace.Name(), configs); err != nil {
+				// Get proxy status for additional debugging
+				s, _, _ := ik.Invoke([]string{"ps"})
+				ctx.Logf("proxy status: %v", s)
+				return err
+			}
+			return nil
+		})
 	}
-	// TODO(https://github.com/istio/istio/issues/25945) introducing istioctl wait in favor of a 10s sleep lead to flakes
-	// to work around this, we will temporarily make sure we are always sleeping at least 10s, even if istioctl wait is faster.
-	// This allows us to debug istioctl wait, while still ensuring tests are stable
-	sleep := time.Second*10 - time.Since(t0)
-	ctx.Logf("[%s] [%v] Wait for additional %v config propagate to endpoints...", testName, time.Now(), sleep)
-	time.Sleep(sleep)
-	ctx.Logf("[%s] [%v] Finish waiting. Continue testing.", testName, time.Now())
+	if err := errG.Wait(); err != nil {
+		ctx.Logf("errors occurred waiting for config: %v", err)
+	}
+	// Continue anyways, so we can assess the effectiveness of using `istioctl wait`
 }
