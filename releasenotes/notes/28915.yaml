@@ -1,0 +1,6 @@
+apiVersion: release-notes/v2
+kind: feature
+area: istioctl
+releaseNotes:
+  - |
+    **Updated** the experimental `precheck` command to show potential problems before upgrading.
