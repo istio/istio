@@ -49,6 +49,8 @@ func TestPiggyback(t *testing.T) {
 			if len(dr.Resources) < 1 {
 				t.Fatalf("the output didn't unmarshal as expected (no resources): %s", out)
 			}
-			t.Fatalf("TODO: Verify that resources[0] is a %T", dr.Resources[0])
+			if dr.Resources[0].TypeUrl != "type.googleapis.com/envoy.service.status.v3.ClientConfig" {
+				t.Fatalf("Resources[0] doesn't contain expected typeURL: %s", out)
+			}
 		})
 }
