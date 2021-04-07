@@ -581,7 +581,6 @@ func TestMergeTrafficPolicy(t *testing.T) {
 			}
 		})
 	}
-
 }
 
 func TestApplyEdsConfig(t *testing.T) {
@@ -679,7 +678,8 @@ func TestBuildDefaultCluster(t *testing.T) {
 										NumberValue: float64(8080),
 									},
 								},
-							}},
+							},
+						},
 					},
 				},
 			},
@@ -785,10 +785,12 @@ func TestBuildDefaultCluster(t *testing.T) {
 			cg := NewConfigGenTest(t, TestOptions{MeshConfig: &testMesh})
 			cb := NewClusterBuilder(cg.SetupProxy(nil), cg.PushContext())
 
-			defaultCluster := cb.buildDefaultCluster(tt.clusterName, tt.discovery, tt.endpoints, tt.direction, servicePort, &model.Service{Ports: model.PortList{
-				servicePort,
-			},
-				Hostname: "host", MeshExternal: false, Attributes: model.ServiceAttributes{Name: "svc", Namespace: "default"}}, nil)
+			defaultCluster := cb.buildDefaultCluster(tt.clusterName, tt.discovery, tt.endpoints, tt.direction, servicePort, &model.Service{
+				Ports: model.PortList{
+					servicePort,
+				},
+				Hostname: "host", MeshExternal: false, Attributes: model.ServiceAttributes{Name: "svc", Namespace: "default"},
+			}, nil)
 
 			if diff := cmp.Diff(defaultCluster, tt.expectedCluster, protocmp.Transform()); diff != "" {
 				t.Errorf("Unexpected default cluster, diff: %v", diff)
@@ -818,10 +820,6 @@ func TestBuildLocalityLbEndpoints(t *testing.T) {
 			Name:      "TestService",
 			Namespace: "test-ns",
 		},
-	}
-
-	emptyMetadata := &core.Metadata{
-		FilterMetadata: make(map[string]*structpb.Struct),
 	}
 
 	nwMetadata := func(nw string) *core.Metadata {
@@ -977,7 +975,6 @@ func TestBuildLocalityLbEndpoints(t *testing.T) {
 									},
 								},
 							},
-							Metadata: emptyMetadata,
 							LoadBalancingWeight: &wrappers.UInt32Value{
 								Value: 40,
 							},
@@ -1043,7 +1040,6 @@ func TestBuildLocalityLbEndpoints(t *testing.T) {
 									},
 								},
 							},
-							Metadata: emptyMetadata,
 							LoadBalancingWeight: &wrappers.UInt32Value{
 								Value: 30,
 							},

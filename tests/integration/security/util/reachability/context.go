@@ -48,10 +48,13 @@ type TestCase struct {
 	Include func(src echo.Instance, opts echo.CallOptions) bool
 
 	// Handler called when the given test is being run.
-	OnRun func(ctx framework.TestContext, src echo.Instance, opts echo.CallOptions)
+	OnRun func(t framework.TestContext, src echo.Instance, opts echo.CallOptions)
 
 	// Indicates whether the test should expect a successful response.
 	ExpectSuccess func(src echo.Instance, opts echo.CallOptions) bool
+
+	// Allows filtering the destinations we expect to reach (optional).
+	ExpectDestinations func(src echo.Instance, dest echo.Instances) echo.Instances
 
 	// Indicates whether a test should be run in the multicluster environment.
 	// This is a temporary flag during the converting tests into multicluster supported.
@@ -60,7 +63,7 @@ type TestCase struct {
 }
 
 // Run runs the given reachability test cases with the context.
-func Run(testCases []TestCase, ctx framework.TestContext, apps *util.EchoDeployments) {
+func Run(testCases []TestCase, t framework.TestContext, apps *util.EchoDeployments) {
 	callOptions := []echo.CallOptions{
 		{
 			PortName: "http",
@@ -87,64 +90,53 @@ func Run(testCases []TestCase, ctx framework.TestContext, apps *util.EchoDeploym
 	for _, c := range testCases {
 		// Create a copy to avoid races, as tests are run in parallel
 		c := c
-		if c.SkippedForMulticluster && ctx.Clusters().IsMulticluster() {
+		if c.SkippedForMulticluster && t.Clusters().IsMulticluster() {
 			continue
 		}
 		testName := strings.TrimSuffix(c.ConfigFile, filepath.Ext(c.ConfigFile))
-		test := ctx.NewSubTest(testName)
-		test.Run(func(ctx framework.TestContext) {
+		t.NewSubTest(testName).Run(func(t framework.TestContext) {
 			// Apply the policy.
-			policyYAML := file.AsStringOrFail(ctx, filepath.Join("./testdata", c.ConfigFile))
-			retry.UntilSuccessOrFail(ctx, func() error {
-				ctx.Logf("[%s] [%v] Apply config %s", testName, time.Now(), c.ConfigFile)
+			policyYAML := file.AsStringOrFail(t, filepath.Join("./testdata", c.ConfigFile))
+			retry.UntilSuccessOrFail(t, func() error {
+				t.Logf("[%s] [%v] Apply config %s", testName, time.Now(), c.ConfigFile)
 				// TODO(https://github.com/istio/istio/issues/20460) We shouldn't need a retry loop
-				return ctx.Config().ApplyYAML(c.Namespace.Name(), policyYAML)
+				return t.Config().ApplyYAML(c.Namespace.Name(), policyYAML)
 			})
-			ctx.NewSubTest("wait for config").Run(func(ctx framework.TestContext) {
-				util.WaitForConfig(ctx, policyYAML, c.Namespace)
+			t.NewSubTest("wait for config").Run(func(t framework.TestContext) {
+				util.WaitForConfig(t, policyYAML, c.Namespace)
 			})
 
-			ctx.Cleanup(func() {
+			t.Cleanup(func() {
 				if err := retry.UntilSuccess(func() error {
-					return ctx.Config().DeleteYAML(c.Namespace.Name(), policyYAML)
+					return t.Config().DeleteYAML(c.Namespace.Name(), policyYAML)
 				}); err != nil {
 					log.Errorf("failed to delete configuration: %v", err)
 				}
 			})
 			for _, clients := range []echo.Instances{apps.A, apps.B.Match(echo.Namespace(apps.Namespace1.Name())), apps.Headless, apps.Naked, apps.HeadlessNaked} {
 				for _, client := range clients {
-					ctx.NewSubTest(fmt.Sprintf("%s in %s",
-						client.Config().Service, client.Config().Cluster.StableName())).Run(func(ctx framework.TestContext) {
-						aSet := apps.A
-						bSet := apps.B
-						vmSet := apps.VM
-
-						if c.ConfigFile == "global-plaintext.yaml" {
-							// TODO: cross-network traffic fails because istiod can't filter endpoints set to non-mTLS via PeerAuthentication
-							// TODO (cont): setting callCount to 1 seems to avoid this somehow See https://github.com/istio/istio/issues/28798
-							aSet = apps.A.Match(echo.InCluster(client.Config().Cluster))
-							bSet = apps.B.Match(echo.InCluster(client.Config().Cluster))
-							if len(vmSet) > 0 {
-								vmSet = vmSet[:1]
-							}
-						}
+					client := client
+					t.NewSubTest(fmt.Sprintf("%s in %s",
+						client.Config().Service, client.Config().Cluster.StableName())).Run(func(t framework.TestContext) {
 						destinationSets := []echo.Instances{
-							aSet,
-							bSet,
+							apps.A,
+							apps.B,
 							// only hit same cluster headless services
 							apps.Headless.Match(echo.InCluster(client.Config().Cluster)),
 							// only hit same cluster multiversion services
 							apps.Multiversion.Match(echo.InCluster(client.Config().Cluster)),
 							// only hit same cluster naked services
 							apps.Naked.Match(echo.InCluster(client.Config().Cluster)),
-							vmSet,
+							apps.VM,
 							// only hit same cluster headless services
 							apps.HeadlessNaked.Match(echo.InCluster(client.Config().Cluster)),
 						}
 
 						for _, destinations := range destinationSets {
-							client := client
 							destinations := destinations
+							if c.ExpectDestinations != nil {
+								destinations = c.ExpectDestinations(client, destinations)
+							}
 							destClusters := destinations.Clusters()
 							if len(destClusters) == 0 {
 								continue
@@ -152,12 +144,12 @@ func Run(testCases []TestCase, ctx framework.TestContext, apps *util.EchoDeploym
 							// grabbing the 0th assumes all echos in destinations have the same service name
 							destination := destinations[0]
 							// TODO: fix Multiversion related test in multicluster
-							if ctx.Clusters().IsMulticluster() && apps.Multiversion.Contains(destination) {
+							if t.Clusters().IsMulticluster() && apps.Multiversion.Contains(destination) {
 								continue
 							}
 							if (apps.IsHeadless(client) || apps.IsHeadless(destination) || apps.IsNaked(client)) && len(destClusters) > 1 {
 								// TODO(landow) fix DNS issues with multicluster/VMs/headless
-								ctx.SkipNow()
+								t.SkipNow()
 								continue
 							}
 							if isNakedToVM(apps, client, destination) {
@@ -186,7 +178,11 @@ func Run(testCases []TestCase, ctx framework.TestContext, apps *util.EchoDeploym
 								opts.Target = dest
 								opts.Count = callCount
 
-								if c.Include(src, opts) {
+								include := c.Include
+								if include == nil {
+									include = func(_ echo.Instance, _ echo.CallOptions) bool { return true }
+								}
+								if include(src, opts) {
 									expectSuccess := c.ExpectSuccess(src, opts)
 
 									tpe := "positive"
@@ -200,10 +196,10 @@ func Run(testCases []TestCase, ctx framework.TestContext, apps *util.EchoDeploym
 										opts.Path,
 										tpe)
 
-									ctx.NewSubTest(subTestName).
-										RunParallel(func(ctx framework.TestContext) {
+									t.NewSubTest(subTestName).
+										RunParallel(func(t framework.TestContext) {
 											if onPreRun != nil {
-												onPreRun(ctx, src, opts)
+												onPreRun(t, src, opts)
 											}
 
 											checker := connection.Checker{
@@ -212,7 +208,7 @@ func Run(testCases []TestCase, ctx framework.TestContext, apps *util.EchoDeploym
 												Options:       opts,
 												ExpectSuccess: expectSuccess,
 											}
-											checker.CheckOrFail(ctx)
+											checker.CheckOrFail(t)
 										})
 								}
 							}
