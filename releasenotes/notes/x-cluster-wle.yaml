@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: feature
+area: networking
+releaseNotes:
+- |
+  **Promoted** `PILOT_ENABLE_CROSS_CLUSTER_WORKLOAD_ENTRY` to be enabled by default, allowing Pilot to read `WorkloadEntry`
+  resources across clusters without the need to duplicate them in each primary cluster. This is required to use VM
+  auto-registration alongside multi-primary multi-cluster.

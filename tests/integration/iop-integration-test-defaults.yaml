@@ -55,7 +55,6 @@ spec:
     pilot:
       env:
         UNSAFE_ENABLE_ADMIN_ENDPOINTS: true
-        PILOT_ENABLE_CROSS_CLUSTER_WORKLOAD_ENTRY: true
 
     gateways:
       istio-ingressgateway:
