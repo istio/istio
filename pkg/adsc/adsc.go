@@ -774,6 +774,11 @@ func (a *ADSC) Send(req *discovery.DiscoveryRequest) error {
 		a.sendNodeMeta = false
 	}
 	req.ResponseNonce = time.Now().String()
+	if adscLog.DebugEnabled() {
+		jsonm := &jsonpb.Marshaler{}
+		strReq, _ := jsonm.MarshalToString(req)
+		adscLog.Debugf("Sending Discovery Request to istiod: %s", strReq)
+	}
 	return a.stream.Send(req)
 }
 
