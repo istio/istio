@@ -80,12 +80,17 @@ func instanceFromMeta(cfg cluster.ConfigMeta) (echo.Config, error) {
 
 	var ips []string
 	for _, meta := range cfg.Slice("instances") {
-		ipStr := meta.String("ip")
-		ip := net.ParseIP(ipStr)
+		publicIPStr := meta.String("ip")
+		privateIPStr := meta.String("instanceIp")
+		ip := net.ParseIP(publicIPStr)
 		if len(ip) == 0 {
-			return echo.Config{}, fmt.Errorf("failed parsing %q as IP address", ipStr)
+			return echo.Config{}, fmt.Errorf("failed parsing %q as IP address", publicIPStr)
 		}
-		ips = append(ips, ipStr)
+		ip = net.ParseIP(privateIPStr)
+		if len(ip) == 0 {
+			return echo.Config{}, fmt.Errorf("failed parsing %q as IP address", publicIPStr)
+		}
+		ips = append(ips, publicIPStr+":"+privateIPStr)
 	}
 	if len(ips) == 0 {
 		return echo.Config{}, fmt.Errorf("%s has no IPs", svc)
