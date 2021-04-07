@@ -1,6 +1,9 @@
 # This configs KinD to spin up a k8s cluster with trustworthy jwt (Service Account Token Volume Projection) feature.
 kind: Cluster
 apiVersion: kind.x-k8s.io/v1alpha4
+runtimeConfig:
+  "admissionregistration.k8s.io/v1beta1": "false"
+  "apiextensions.k8s.io/v1/v1beta1": "false"
 kubeadmConfigPatches:
   - |
     apiVersion: kubeadm.k8s.io/v1beta2
