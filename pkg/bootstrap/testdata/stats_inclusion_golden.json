@@ -206,6 +206,18 @@
       {
         "regex": "(wasm_filter\\.(.+?)\\.)",
         "tag_name": "wasm_filter"
+      },
+      {
+        "tag_name": "authz_enforce_result",
+        "regex": "(\\.(allowed|denied))"
+      },
+      {
+        "tag_name": "authz_dry_run_action",
+        "regex": "(\\.istio_dry_run_(allow|deny)_)"
+      },
+      {
+        "tag_name": "authz_dry_run_result",
+        "regex": "(\\.shadow_(allowed|denied))"
       }
     ],
     "stats_matcher": {
@@ -228,6 +240,12 @@
           },
           {
           "prefix": "wasm"
+          },
+          {
+          "suffix": "allowed"
+          },
+          {
+          "suffix": "denied"
           },
           {
           "safe_regex": {"google_re2":{}, "regex":"http.[0-9]*\\.[0-9]*\\.[0-9]*\\.[0-9]*_8080.downstream_rq_time"}

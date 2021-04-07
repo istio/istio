@@ -50,6 +50,8 @@ const (
 	// required stats are used by readiness checks.
 	requiredEnvoyStatsMatcherInclusionPrefixes = "cluster_manager,listener_manager,server,cluster.xds-grpc,wasm"
 
+	rbacEnvoyStatsMatcherInclusionSuffix = "allowed,denied"
+
 	// Prefixes of V2 metrics.
 	// "reporter" prefix is for istio standard metrics.
 	// "component" suffix is for istio_build metric.
@@ -223,7 +225,8 @@ func getStatsOptions(meta *model.BootstrapNodeMetadata) []option.Instance {
 	return []option.Instance{
 		option.EnvoyStatsMatcherInclusionPrefix(parseOption(meta.StatsInclusionPrefixes,
 			requiredEnvoyStatsMatcherInclusionPrefixes, proxyConfigPrefixes)),
-		option.EnvoyStatsMatcherInclusionSuffix(parseOption(meta.StatsInclusionSuffixes, "", proxyConfigSuffixes)),
+		option.EnvoyStatsMatcherInclusionSuffix(parseOption(meta.StatsInclusionSuffixes,
+			rbacEnvoyStatsMatcherInclusionSuffix, proxyConfigSuffixes)),
 		option.EnvoyStatsMatcherInclusionRegexp(parseOption(meta.StatsInclusionRegexps, "", proxyConfigRegexps)),
 		option.EnvoyExtraStatTags(extraStatTags),
 	}
