@@ -17,7 +17,8 @@ package cluster
 import (
 	"bytes"
 	"fmt"
-	"strconv"
+
+	"k8s.io/apimachinery/pkg/util/version"
 )
 
 // Map can be given as a shared reference to multiple Topology/Cluster implemetations
@@ -137,7 +138,7 @@ func (c Topology) WithConfig(configClusterName string) Topology {
 	return c
 }
 
-func (c Topology) MinKubeVersion(major, minor int) bool {
+func (c Topology) MinKubeVersion(major, minor uint) bool {
 	cluster := c.AllClusters[c.ClusterName]
 	if cluster.Kind() != Kubernetes && cluster.Kind() != Fake {
 		return c.Primary().MinKubeVersion(major, minor)
@@ -146,18 +147,27 @@ func (c Topology) MinKubeVersion(major, minor int) bool {
 	if err != nil {
 		return true
 	}
-	serverMajor, err := strconv.Atoi(ver.Major)
+	pv, err := version.ParseGeneric(ver.String())
 	if err != nil {
 		return true
 	}
-	serverMinor, err := strconv.Atoi(ver.Minor)
+	return pv.AtLeast(version.MustParseGeneric(fmt.Sprintf("v%d.%d.0", major, minor)))
+}
+
+func (c Topology) MaxKubeVersion(minor uint) bool {
+	cluster := c.AllClusters[c.ClusterName]
+	if cluster.Kind() != Kubernetes && cluster.Kind() != Fake {
+		return c.Primary().MaxKubeVersion(minor)
+	}
+	ver, err := cluster.GetKubernetesVersion()
 	if err != nil {
 		return true
 	}
-	if serverMajor > major {
+	pv, err := version.ParseGeneric(ver.String())
+	if err != nil {
 		return true
 	}
-	return serverMajor >= major && serverMinor >= minor
+	return pv.Minor() <= minor
 }
 
 func (c Topology) String() string {

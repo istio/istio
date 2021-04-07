@@ -38,7 +38,7 @@ func TestMain(m *testing.M) {
 		Label(label.CustomSetup).
 
 		// SDS requires Kubernetes 1.13
-		RequireEnvironmentVersion("1.13").
+		RequireMinVersion("1.13").
 		Setup(istio.Setup(&inst, nil)).
 		Setup(func(ctx resource.Context) (err error) {
 			if prom, err = prometheus.New(ctx, prometheus.Config{}); err != nil {
