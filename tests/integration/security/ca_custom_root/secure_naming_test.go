@@ -129,7 +129,7 @@ func TestSecureNaming(t *testing.T) {
 					t.NewSubTest("mTLS cert validation with plugin CA").
 						Run(func(t framework.TestContext) {
 							// Verify that the certificate issued to the sidecar is as expected.
-							connectTarget := fmt.Sprintf("b.%s:80", testNamespace.Name())
+							connectTarget := fmt.Sprintf("b.%s:8095", testNamespace.Name())
 							out, err := cert.DumpCertFromSidecar(testNamespace, "app=a", "istio-proxy",
 								connectTarget)
 							if err != nil {
