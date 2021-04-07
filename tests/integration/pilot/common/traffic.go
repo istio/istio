@@ -70,6 +70,8 @@ type TrafficTestCase struct {
 	sourceFilters []echotest.Filter
 	// targetFilters allows adding additional filtering for workload agnostic cases to test using fewer targets
 	targetFilters []echotest.Filter
+	// vars given to the config template
+	templateVars map[string]interface{}
 }
 
 func (c TrafficTestCase) RunForApps(t framework.TestContext, apps echo.Instances, namespace string) {
@@ -88,19 +90,20 @@ func (c TrafficTestCase) RunForApps(t framework.TestContext, apps echo.Instances
 	job := func(t framework.TestContext) {
 		echoT := echotest.New(t, apps).
 			SetupForServicePair(func(t framework.TestContext, src echo.Instances, dsts echo.Services) error {
-				cfg := yml.MustApplyNamespace(t, tmpl.MustEvaluate(
-					c.config,
-					map[string]interface{}{
-						"src":    src,
-						"srcSvc": src[0].Config().Service,
-						// tests that use simple Run only need the first
-						"dst":    dsts[0],
-						"dstSvc": dsts[0][0].Config().Service,
-						// tests that use RunForN need all destination deployments
-						"dsts":    dsts,
-						"dstSvcs": dsts.Services(),
-					},
-				), namespace)
+				tmplData := map[string]interface{}{
+					"src":    src,
+					"srcSvc": src[0].Config().Service,
+					// tests that use simple Run only need the first
+					"dst":    dsts[0],
+					"dstSvc": dsts[0][0].Config().Service,
+					// tests that use RunForN need all destination deployments
+					"dsts":    dsts,
+					"dstSvcs": dsts.Services(),
+				}
+				for k, v := range c.templateVars {
+					tmplData[k] = v
+				}
+				cfg := yml.MustApplyNamespace(t, tmpl.MustEvaluate(c.config, tmplData), namespace)
 				return t.Config().ApplyYAML("", cfg)
 			}).
 			WithDefaultFilters().
