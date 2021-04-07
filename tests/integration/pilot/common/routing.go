@@ -413,6 +413,7 @@ spec:
 				"split": split,
 			},
 			config: `
+{{ $split := .split }} 
 apiVersion: networking.istio.io/v1alpha3
 kind: VirtualService
 metadata:
@@ -422,10 +423,10 @@ spec:
     - {{ ( index .dstSvcs 0) }}
   http:
   - route:
-{{- range $idx, $svc }}
+{{- range $idx, $svc := .dstSvcs }}
     - destination:
         host: {{ $svc }}
-      weight: {{ ( index .split $idx ) }}
+      weight: {{ ( index $split $idx ) }}
 {{- end }}
 `,
 			validate: func(src echo.Instance, dests echo.Services) echo.Validator {
