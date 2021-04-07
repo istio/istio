@@ -215,6 +215,9 @@ func (s *DiscoveryServer) receiveDelta(con *Connection, reqChannel chan *discove
 			close(con.initialized)
 		}
 	}()
+	defer func() {
+		s.closeConnection(con)
+	}()
 	firstReq := true
 	for {
 		req, err := con.deltaStream.Recv()
@@ -241,13 +244,6 @@ func (s *DiscoveryServer) receiveDelta(con *Connection, reqChannel chan *discove
 				return
 			}
 			log.Infof("ADS: new connection for node:%s", con.ConID)
-			defer func() {
-				s.removeCon(con.ConID)
-				if s.StatusGen != nil {
-					s.StatusGen.OnDisconnect(con)
-				}
-				s.WorkloadEntryController.QueueUnregisterWorkload(con.proxy, con.Connect)
-			}()
 		}
 
 		select {
