@@ -7,6 +7,11 @@ configSources:
   - address: k8s://
   - address: fs:///var/lib/istio/config/data
 
+# Locality LB is not enabled by default in ASM
+# Users can enable it from DestinationRule
+localityLbSetting:
+  enabled: false
+
 defaultConfig:
   proxyMetadata:
     XDS_ROOT_CA: /etc/ssl/certs/ca-certificates.crt
