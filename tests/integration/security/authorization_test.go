@@ -916,7 +916,7 @@ func TestAuthorization_TCP(t *testing.T) {
 					}, file.AsStringOrFail(t, "testdata/authz/v1beta1-tcp.yaml.tmpl"))
 					t.Config().ApplyYAMLOrFail(t, "", policy...)
 					cases := []rbacUtil.TestCase{
-						// The policy on workload c denies request to port 8091:
+						// The policy on workload vm denies request to port 8091:
 						// - request to port http-8091 should be denied because the port is matched.
 						// - request to http port 8092 should be allowed because the port is not matched.
 						// - request to tcp port 8093 should be allowed because the port is not matched.
@@ -924,13 +924,13 @@ func TestAuthorization_TCP(t *testing.T) {
 						// - request from b to tcp port 8094 should be denied because the principal is matched.
 						// - request from cInNS2 to tcp port 8093 should be denied because the namespace is matched.
 						// - request from cInNS2 to tcp port 8094 should be allowed by default.
-						newTestCase(a, c, "http-8091", false, scheme.HTTP),
-						newTestCase(a, c, "http-8092", true, scheme.HTTP),
-						newTestCase(a, c, "tcp-8093", true, scheme.TCP),
-						newTestCase(b, c, "tcp-8093", true, scheme.TCP),
-						newTestCase(b, c, "tcp-8094", false, scheme.TCP),
-						newTestCase(cInNS2, c, "tcp-8093", false, scheme.TCP),
-						newTestCase(cInNS2, c, "tcp-8094", true, scheme.TCP),
+						newTestCase(a, vm, "http-8091", false, scheme.HTTP),
+						newTestCase(a, vm, "http-8092", true, scheme.HTTP),
+						newTestCase(a, vm, "tcp-8093", true, scheme.TCP),
+						newTestCase(b, vm, "tcp-8093", true, scheme.TCP),
+						newTestCase(b, vm, "tcp-8094", false, scheme.TCP),
+						newTestCase(cInNS2, vm, "tcp-8093", false, scheme.TCP),
+						newTestCase(cInNS2, vm, "tcp-8094", true, scheme.TCP),
 					}
 					rbacUtil.RunRBACTest(t, cases)
 				})
