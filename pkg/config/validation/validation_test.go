@@ -1334,6 +1334,7 @@ func TestValidateTLS(t *testing.T) {
 		name  string
 		tls   *networking.ClientTLSSettings
 		valid bool
+		warn  bool
 	}{
 		{
 			name: "SIMPLE: Credential Name set correctly",
@@ -1441,7 +1442,8 @@ func TestValidateTLS(t *testing.T) {
 				ClientCertificate: "cert",
 				PrivateKey:        "key",
 			},
-			valid: false,
+			valid: true,
+			warn:  true,
 		},
 		{
 			name: "MUTUAL: CredentialName not set with ClientCertificate specified and Key missing",
@@ -1451,6 +1453,7 @@ func TestValidateTLS(t *testing.T) {
 				PrivateKey:        "",
 			},
 			valid: false,
+			warn:  true,
 		},
 		{
 			name: "MUTUAL: CredentialName not set with ClientCertificate missing and Key specified",
@@ -1460,6 +1463,7 @@ func TestValidateTLS(t *testing.T) {
 				PrivateKey:        "key",
 			},
 			valid: false,
+			warn:  true,
 		},
 		{
 			name: "ISTIO_MUTUAL: Credential Name set",
@@ -1470,7 +1474,8 @@ func TestValidateTLS(t *testing.T) {
 				PrivateKey:        "",
 				CaCertificates:    "",
 			},
-			valid: false,
+			valid: true,
+			warn:  true,
 		},
 		{
 			name: "ISTIO_MUTUAL: ClientCertificate set",
@@ -1481,7 +1486,8 @@ func TestValidateTLS(t *testing.T) {
 				PrivateKey:        "",
 				CaCertificates:    "",
 			},
-			valid: false,
+			valid: true,
+			warn:  true,
 		},
 		{
 			name: "ISTIO_MUTUAL: ClientCertificate set with CredentialName",
@@ -1492,14 +1498,20 @@ func TestValidateTLS(t *testing.T) {
 				PrivateKey:        "",
 				CaCertificates:    "",
 			},
-			valid: false,
+			valid: true,
+			warn:  true,
 		},
 	}
 
 	for _, tc := range testCases {
-		if got := validateTLS(tc.tls); (got == nil) != tc.valid {
-			t.Errorf("ValidateTLS(%q) => got valid=%v, want valid=%v",
-				tc.name, got == nil, tc.valid)
+		got := validateTLS(tc.tls)
+		if (got.Err == nil) != tc.valid {
+			t.Errorf("ValidateTLS(%q) => got error=%v, want valid=%v",
+				tc.name, got.Err, tc.valid)
+		}
+		if (got.Warning == nil) != !tc.warn {
+			t.Errorf("ValidateTLS(%q) => got warning=%v, want warning=%v",
+				tc.name, got.Warning, tc.warn)
 		}
 	}
 }

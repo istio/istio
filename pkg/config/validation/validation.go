@@ -1129,44 +1129,45 @@ func validateLoadBalancer(settings *networking.LoadBalancerSettings) (errs error
 	return
 }
 
-func validateTLS(settings *networking.ClientTLSSettings) (errs error) {
+func validateTLS(settings *networking.ClientTLSSettings) Validation {
+	v := Validation{}
 	if settings == nil {
-		return
+		return v
 	}
 
 	if (settings.Mode == networking.ClientTLSSettings_SIMPLE || settings.Mode == networking.ClientTLSSettings_MUTUAL) &&
 		settings.CredentialName != "" {
 		if settings.ClientCertificate != "" || settings.CaCertificates != "" || settings.PrivateKey != "" {
-			errs = appendErrors(errs,
+			v = appendValidation(v,
 				fmt.Errorf("cannot specify client certificates or CA certificate If credentialName is set"))
 		}
 
 		// If tls mode is SIMPLE or MUTUAL, and CredentialName is specified, credentials are fetched
 		// remotely. ServerCertificate and CaCertificates fields are not required.
-		return
+		return v
 	}
 
 	if settings.Mode == networking.ClientTLSSettings_MUTUAL {
 		if settings.ClientCertificate == "" {
-			errs = appendErrors(errs, fmt.Errorf("client certificate required for mutual tls"))
+			v = appendValidation(v, fmt.Errorf("client certificate required for mutual tls"))
 		}
 		if settings.PrivateKey == "" {
-			errs = appendErrors(errs, fmt.Errorf("private key required for mutual tls"))
+			v = appendValidation(v, fmt.Errorf("private key required for mutual tls"))
 		}
 		if settings.CaCertificates == "" {
-			errs = appendErrors(errs, fmt.Errorf("ca certificate required for mutual tls"))
+			v = appendValidation(v, WrapWarning(fmt.Errorf("ca certificate required for mutual tls,  it will fail in release 1.12")))
 		}
 	}
 
 	if settings.Mode == networking.ClientTLSSettings_ISTIO_MUTUAL {
 		if settings.CredentialName != "" || settings.ClientCertificate != "" ||
 			settings.CaCertificates != "" || settings.PrivateKey != "" {
-			errs = appendErrors(errs, fmt.Errorf("cannot specify privateKey, clientCertificate, caCertificates or"+
-				" credentialName for ISTIO_MUTUAL tls"))
+			v = appendValidation(v, WrapWarning(fmt.Errorf("cannot specify privateKey, clientCertificate, caCertificates or"+
+				" credentialName for ISTIO_MUTUAL tls, it will fail in release 1.12")))
 		}
 	}
 
-	return
+	return v
 }
 
 func validateSubset(subset *networking.Subset) error {
@@ -1480,8 +1481,13 @@ func ValidateProxyConfig(config *meshconfig.ProxyConfig) (errs error) {
 	}
 
 	if tracer := config.GetTracing().GetTlsSettings(); tracer != nil {
-		if err := validateTLS(tracer); err != nil {
+		v := validateTLS(tracer)
+		err, warning := v.Unwrap()
+		if err != nil {
 			errs = multierror.Append(errs, multierror.Prefix(err, "invalid tracing TLS config:"))
+		}
+		if warning != nil {
+			scope.Warnf("invalid tracing TLS config: %v", warning)
 		}
 	}
 
