@@ -484,6 +484,26 @@ var testGrid = []testCase{
 			{msg.IngressRouteRulesNotAffected, "VirtualService testing-service-01-test-01.default"},
 		},
 	},
+	{
+		name: "Application Pod SecurityContext with UID 1337",
+		inputFiles: []string{
+			"testdata/pod-sec-uid.yaml",
+		},
+		analyzer: &deployment.ApplicationUIDAnalyzer{},
+		expected: []message{
+			{msg.InvalidApplicationUID, "Pod pod-sec-uid"},
+		},
+	},
+	{
+		name: "Application Container SecurityContext with UID 1337",
+		inputFiles: []string{
+			"testdata/pod-con-sec-uid.yaml",
+		},
+		analyzer: &deployment.ApplicationUIDAnalyzer{},
+		expected: []message{
+			{msg.InvalidApplicationUID, "Pod con-sec-uid"},
+		},
+	},
 }
 
 // regex patterns for analyzer names that should be explicitly ignored for testing
