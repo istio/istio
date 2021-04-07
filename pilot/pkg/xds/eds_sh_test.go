@@ -278,7 +278,8 @@ func initRegistry(server *xds.FakeDiscoveryServer, clusterNum int, gatewaysIP []
 			Locality: model.Locality{
 				Label: "az",
 			},
-			Labels: svcLabels,
+			Labels:  svcLabels,
+			TLSMode: model.IstioMutualTLSModeLabel,
 		}
 	}
 	memRegistry.SetEndpoints("service5.default.svc.cluster.local", "default", istioEndpoints)

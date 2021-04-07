@@ -73,6 +73,10 @@ func TestMtlsStrictK8sCA(t *testing.T) {
 						// When mTLS is disabled, all traffic should work.
 						return true
 					},
+					ExpectDestinations: func(src echo.Instance, dest echo.Instances) echo.Instances {
+						// Without TLS we can't perform SNI routing required for multi-network
+						return dest.Match(echo.InNetwork(src.Config().Cluster.NetworkName()))
+					},
 				},
 			}
 			reachability.Run(testCases, ctx, apps)

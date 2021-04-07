@@ -15,6 +15,8 @@
 package model
 
 import (
+	"crypto/md5"
+	"fmt"
 	"strings"
 	"time"
 
@@ -78,6 +80,9 @@ type AuthenticationPolicies struct {
 	globalMutualTLSMode MutualTLSMode
 
 	rootNamespace string
+
+	// AggregateVersion contains the versions of all peer authentications.
+	AggregateVersion string
 }
 
 // initAuthenticationPolicies creates a new AuthenticationPolicies struct and populates with the
@@ -139,8 +144,10 @@ func (policy *AuthenticationPolicies) addPeerAuthentication(configs []config.Con
 	foundNamespaceMTLS := make(map[string]v1beta1.PeerAuthentication_MutualTLS_Mode)
 	// Track which namespace/mesh level policy seen so far to make sure the oldest one is used.
 	seenNamespaceOrMeshConfig := make(map[string]time.Time)
+	versions := []string{}
 
 	for _, config := range configs {
+		versions = append(versions, config.UID+"."+config.ResourceVersion)
 		// Mesh & namespace level policy are those that have empty selector.
 		spec := config.Spec.(*v1beta1.PeerAuthentication)
 		if spec.Selector == nil || len(spec.Selector.MatchLabels) == 0 {
@@ -174,6 +181,8 @@ func (policy *AuthenticationPolicies) addPeerAuthentication(configs []config.Con
 		policy.peerAuthentications[config.Namespace] =
 			append(policy.peerAuthentications[config.Namespace], config)
 	}
+
+	policy.AggregateVersion = fmt.Sprintf("%x", md5.Sum([]byte(strings.Join(versions, ";"))))
 
 	// Process found namespace-level policy.
 	policy.namespaceMutualTLSMode = make(map[string]MutualTLSMode, len(foundNamespaceMTLS))
