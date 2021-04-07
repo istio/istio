@@ -159,7 +159,11 @@ type Cluster interface {
 
 	// MinKubeVersion returns true if the cluster is at least the version specified,
 	// false otherwise
-	MinKubeVersion(major, minor int) bool
+	MinKubeVersion(major, minor uint) bool
+
+	// MaxKubeVersion returns true if the cluster is at most the version specified,
+	// false otherwise
+	MaxKubeVersion(minor uint) bool
 
 	// IsPrimary returns true if this is a primary cluster, containing an instance
 	// of the Istio control plane.

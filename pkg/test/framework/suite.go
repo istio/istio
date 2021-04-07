@@ -95,8 +95,10 @@ type Suite interface {
 	RequireMaxClusters(maxClusters int) Suite
 	// RequireSingleCluster is a utility method that requires that there be exactly 1 cluster in the environment.
 	RequireSingleCluster() Suite
-	// RequireEnvironmentVersion validates the environment meets a minimum version
-	RequireEnvironmentVersion(version string) Suite
+	// RequireMinVersion validates the environment meets a minimum version
+	RequireMinVersion(version string) Suite
+	// RequireMaxVersion validates the environment meets a maximum version
+	RequireMaxVersion(version string) Suite
 	// Setup runs enqueues the given setup function to run before test execution.
 	Setup(fn resource.SetupFn) Suite
 	// Run the suite. This method calls os.Exit and does not return.
@@ -227,7 +229,7 @@ func (s *suiteImpl) RequireSingleCluster() Suite {
 	return s.RequireMinClusters(1).RequireMaxClusters(1)
 }
 
-func (s *suiteImpl) RequireEnvironmentVersion(version string) Suite {
+func (s *suiteImpl) RequireMinVersion(version string) Suite {
 	fn := func(ctx resource.Context) error {
 		for _, c := range ctx.Clusters().Kube() {
 			ver, err := c.GetKubernetesVersion()
@@ -237,6 +239,26 @@ func (s *suiteImpl) RequireEnvironmentVersion(version string) Suite {
 			serverVersion := fmt.Sprintf("%s.%s", ver.Major, ver.Minor)
 			if serverVersion < version {
 				s.Skip(fmt.Sprintf("Required Kubernetes version (%v) is greater than current: %v",
+					version, serverVersion))
+			}
+		}
+		return nil
+	}
+
+	s.requireFns = append(s.requireFns, fn)
+	return s
+}
+
+func (s *suiteImpl) RequireMaxVersion(version string) Suite {
+	fn := func(ctx resource.Context) error {
+		for _, c := range ctx.Clusters().Kube() {
+			ver, err := c.GetKubernetesVersion()
+			if err != nil {
+				return fmt.Errorf("failed to get Kubernetes version: %v", err)
+			}
+			serverVersion := fmt.Sprintf("%s.%s", ver.Major, ver.Minor)
+			if serverVersion > version {
+				s.Skip(fmt.Sprintf("Required maximum Kubernetes version (%v) is less than current: %v",
 					version, serverVersion))
 			}
 		}

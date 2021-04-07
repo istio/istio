@@ -31,7 +31,7 @@ func TestMain(m *testing.M) {
 		Label(label.CustomSetup).
 
 		// SDS requires Kubernetes 1.13
-		RequireEnvironmentVersion("1.13").
+		RequireMinVersion("1.13").
 		Label("CustomSetup").
 		Setup(istio.Setup(&inst, nil)).
 		Run()

@@ -99,8 +99,12 @@ func (s *suiteAnalyzer) RequireSingleCluster() Suite {
 	return s.RequireMinClusters(1).RequireMaxClusters(1)
 }
 
-func (s *suiteAnalyzer) RequireEnvironmentVersion(version string) Suite {
+func (s *suiteAnalyzer) RequireMinVersion(version string) Suite {
 	s.requiredEnvVersion = version
+	return s
+}
+
+func (s *suiteAnalyzer) RequireMaxVersion(version string) Suite {
 	return s
 }
 

@@ -59,7 +59,7 @@ func TestMain(m *testing.M) {
 		RequireSingleCluster().
 
 		// SDS requires Kubernetes 1.13
-		RequireEnvironmentVersion("1.13").
+		RequireMinVersion("1.13").
 		Label("CustomSetup").
 		Setup(istio.Setup(&inst, setupConfig, CreateCustomIstiodSecret)).
 		Run()

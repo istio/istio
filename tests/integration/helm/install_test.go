@@ -50,10 +50,16 @@ global:
   tag: %s
   jwtPolicy: first-party-jwt
 `
+
 	framework.
 		NewTest(t).
 		Features("installation.helm.firstpartyjwt.install").
-		Run(setupInstallation(overrideValuesStr))
+		Run(func(t framework.TestContext) {
+			if !t.Clusters().Default().MaxKubeVersion(20) { // All JWT are third party in 1.21+ (BoundServiceAccountTokenVolume)
+				t.Skip("first-party-jwt is not supported")
+			}
+			setupInstallation(overrideValuesStr)(t)
+		})
 }
 
 func setupInstallation(overrideValuesStr string) func(t framework.TestContext) {
