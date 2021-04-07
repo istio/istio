@@ -27,13 +27,11 @@ import (
 	"istio.io/istio/pkg/test/framework/components/cluster"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/istio/ingress"
-	"istio.io/istio/tests/integration/security/util/connection"
 )
 
 type TestCase struct {
 	Name               string
 	Config             string
-	Request            connection.Checker
 	ExpectResponseCode string
 	// Use empty value to express the header with such key must not exist.
 	ExpectHeaders map[string]string
@@ -42,10 +40,9 @@ type TestCase struct {
 }
 
 func (c *TestCase) String() string {
-	return fmt.Sprintf("%s to %s%s expected code %s, headers %v",
-		c.Request.From.Config().Service,
-		c.Request.Options.Target.Config().Service,
-		c.Request.Options.Path,
+	return fmt.Sprintf("requests to %s%s expected code %s, headers %v",
+		c.CallOpts.Target.Config().Service,
+		c.CallOpts.Path,
 		c.ExpectResponseCode,
 		c.ExpectHeaders)
 }
