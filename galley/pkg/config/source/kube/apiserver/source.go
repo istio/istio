@@ -120,12 +120,14 @@ func (s *Source) Start() {
 		key := asKey(r.Resource().Group(), r.Resource().Kind())
 		s.expectedResources[key] = r
 	}
-	// Releasing the lock here to avoid deadlock on crdWatcher between the existing one and a newly started one.
-	s.mu.Unlock()
 
 	// Start the CRD listener. When the listener is fully-synced, the listening of actual resources will start.
 	scope.Source.Infof("Beginning CRD Discovery, to figure out resources that are available...")
 	s.provider = rt.NewProvider(s.options.Client, s.options.WatchedNamespaces, s.options.ResyncPeriod)
+
+	// Releasing the lock here to avoid deadlock on crdWatcher between the existing one and a newly started one.
+	s.mu.Unlock()
+
 	a := s.provider.GetAdapter(crdKubeResource.Resource())
 	s.crdWatcher = newWatcher(crdKubeResource, a, s.statusCtl)
 	s.crdWatcher.dispatch(event.HandlerFromFn(s.onCrdEvent))

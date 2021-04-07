@@ -15,6 +15,7 @@ package apiserver_test
 
 import (
 	"context"
+	"fmt"
 	"testing"
 	"time"
 
@@ -397,6 +398,56 @@ func TestEndpoints(t *testing.T) {
 	}
 	expected = event.DeleteForResource(k8smeta.K8SCoreV1Endpoints, toResource(eps, eps, k8smeta.K8SCoreV1Endpoints.Resource()))
 	fixtures.ExpectEventsWithoutOriginsEventually(t, acc, expected)
+}
+
+func TestStartEventRace(t *testing.T) {
+	g := NewWithT(t)
+
+	k := mock.NewKube()
+	client, err := k.KubeClient()
+	g.Expect(err).To(BeNil())
+
+	// Start the source.
+	s := newOrFail(t, k, k8smeta.MustGet().KubeCollections(), nil)
+	acc := start(s)
+	defer s.Stop()
+
+	done := make(chan bool)
+	go func() {
+	outer:
+		for {
+			select {
+			case <-done:
+				break outer
+			default:
+				s.Stop()
+				s.Start()
+			}
+		}
+	}()
+
+	acc.Clear()
+
+	// This attempts to prodoce a race condition between events and Stop/Start
+	for i := 0; i < 5; i++ {
+		fakeObjectMeta.Name = fmt.Sprintf("name-%d", i)
+		node := &corev1.Node{
+			ObjectMeta: fakeObjectMeta,
+			Spec: corev1.NodeSpec{
+				PodCIDR: "10.40.0.0/24",
+			},
+		}
+		node.Namespace = "" // nodes don't have namespaces.
+
+		// Add the resource.
+		if _, err = client.CoreV1().Nodes().Create(context.TODO(), node, metav1.CreateOptions{}); err != nil {
+			t.Fatalf("failed creating node: %v", err)
+		}
+	}
+
+	g.Eventually(func() int { return len(acc.Events()) }).Should(BeNumerically(">", 10))
+
+	close(done)
 }
 
 func toResource(objectMeta metav1.Object, item proto.Message, schema resource2.Schema) *resource.Instance {
