@@ -44,7 +44,7 @@ type Watcher interface {
 var _ Watcher = &InternalWatcher{}
 
 type InternalWatcher struct {
-	Mutex    sync.Mutex
+	mutux    sync.Mutex
 	handlers []func()
 	// Current merged mesh config
 	MeshConfig *meshconfig.MeshConfig
@@ -81,8 +81,6 @@ func NewFileWatcher(fileWatcher filewatcher.FileWatcher, filename string) (Watch
 			log.Warnf("failed to read mesh configuration, using default: %v", err)
 			return
 		}
-		w.Mutex.Lock()
-		defer w.Mutex.Unlock()
 		w.HandleMeshConfig(meshConfig)
 	})
 	return w, nil
@@ -95,29 +93,29 @@ func (w *InternalWatcher) Mesh() *meshconfig.MeshConfig {
 
 // AddMeshHandler registers a callback handler for changes to the mesh config.
 func (w *InternalWatcher) AddMeshHandler(h func()) {
-	w.Mutex.Lock()
-	defer w.Mutex.Unlock()
+	w.mutux.Lock()
+	defer w.mutux.Unlock()
 	w.handlers = append(w.handlers, h)
 }
 
 // HandleMeshConfigData keeps track of the standard mesh config. These are merged with the user
 // mesh config, but takes precedence.
 func (w *InternalWatcher) HandleMeshConfigData(yaml string) {
-	w.Mutex.Lock()
-	defer w.Mutex.Unlock()
+	w.mutux.Lock()
+	defer w.mutux.Unlock()
 	w.revMeshConfig = yaml
 	merged := w.merged()
-	w.HandleMeshConfig(merged)
+	w.handleMeshConfigInternal(merged)
 }
 
 // HandleUserMeshConfig keeps track of user mesh config overrides. These are merged with the standard
 // mesh config, which takes precedence.
 func (w *InternalWatcher) HandleUserMeshConfig(yaml string) {
-	w.Mutex.Lock()
-	defer w.Mutex.Unlock()
+	w.mutux.Lock()
+	defer w.mutux.Unlock()
 	w.userMeshConfig = yaml
 	merged := w.merged()
-	w.HandleMeshConfig(merged)
+	w.handleMeshConfigInternal(merged)
 }
 
 // merged returns the merged user and revision config.
@@ -145,6 +143,13 @@ func (w *InternalWatcher) merged() *meshconfig.MeshConfig {
 // HandleMeshConfig calls all handlers for a given mesh configuration update. This must be called
 // with a lock on w.Mutex, or updates may be applied out of order.
 func (w *InternalWatcher) HandleMeshConfig(meshConfig *meshconfig.MeshConfig) {
+	w.mutux.Lock()
+	defer w.mutux.Unlock()
+	w.handleMeshConfigInternal(meshConfig)
+}
+
+// handleMeshConfigInternal behaves the same as HandleMeshConfig but must be called under a lock
+func (w *InternalWatcher) handleMeshConfigInternal(meshConfig *meshconfig.MeshConfig) {
 	var handlers []func()
 
 	if !reflect.DeepEqual(meshConfig, w.MeshConfig) {
