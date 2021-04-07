@@ -86,8 +86,8 @@ func (b EndpointBuilder) DestinationRule() *networkingapi.DestinationRule {
 // Key provides the eds cache key and should include any information that could change the way endpoints are generated.
 func (b EndpointBuilder) Key() string {
 	params := []string{b.clusterName, b.network, b.clusterID, util.LocalityToString(b.locality)}
-	if b.push != nil && b.push.AuthnPolicies != nil {
-		params = append(params, b.push.AuthnPolicies.AggregateVersion)
+	if b.push != nil && b.push.AuthnBetaPolicies != nil {
+		params = append(params, b.push.AuthnBetaPolicies.AggregateVersion)
 	}
 	if b.destinationRule != nil {
 		params = append(params, b.destinationRule.Name+"/"+b.destinationRule.Namespace)

@@ -576,9 +576,6 @@ func runNetworkFilterTest(t *testing.T, env *model.Environment, tests []networkF
 			b := NewEndpointBuilder("outbound|80||example.ns.svc.cluster.local", tt.conn.proxy, push)
 			testEndpoints := b.buildLocalityLbEndpointsFromShards(testShards(), &model.Port{Name: "http", Port: 80, Protocol: protocol.HTTP})
 			filtered := b.EndpointsByNetworkFilter(testEndpoints)
-			for _, e := range testEndpoints {
-				e.AssertInvarianceInTest()
-			}
 			if len(filtered) != len(tt.want) {
 				t.Errorf("Unexpected number of filtered endpoints: got %v, want %v", len(filtered), len(tt.want))
 				return
@@ -599,7 +596,7 @@ func runNetworkFilterTest(t *testing.T, env *model.Environment, tests []networkF
 					t.Errorf("Unexpected weight for endpoint %d: got %v, want %v", i, ep.LoadBalancingWeight.GetValue(), tt.want[i].weight)
 				}
 
-				for _, lbEp := range ep.llbEndpoints.LbEndpoints {
+				for _, lbEp := range ep.LbEndpoints {
 					addr := lbEp.GetEndpoint().Address.GetSocketAddress().Address
 					found := false
 					for _, wantLbEp := range tt.want[i].lbEps {
