@@ -76,9 +76,10 @@ func NewHTTPProber(cfg *v1alpha3.HTTPHealthCheckConfig) *HTTPProber {
 			DisableKeepAlives: true,
 		}
 	}
-	h.Transport.DialContext = net.Dialer{
+	d := &net.Dialer{
 		LocalAddr: &net.TCPAddr{IP: net.ParseIP("127.0.0.6")},
-	}.DialContext
+	}
+	h.Transport.DialContext = d.DialContext
 	return h
 }
 
