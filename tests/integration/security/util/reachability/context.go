@@ -117,7 +117,7 @@ func Run(testCases []TestCase, t framework.TestContext, apps *util.EchoDeploymen
 				for _, client := range clients {
 					client := client
 					t.NewSubTest(fmt.Sprintf("%s in %s",
-						client.Config().Service, client.Config().Cluster.StableName())).Run(func(t framework.TestContext) {
+						client.Config().Service, client.Config().Cluster.Name())).Run(func(t framework.TestContext) {
 						destinationSets := []echo.Instances{
 							apps.A,
 							apps.B,
@@ -213,4 +213,10 @@ func Run(testCases []TestCase, t framework.TestContext, apps *util.EchoDeploymen
 			}
 		})
 	}
+}
+
+// Exclude calls from naked->VM since naked has no Envoy
+// However, no endpoint exists for VM in k8s, so calls from naked->VM will fail, regardless of mTLS
+func isNakedToVM(apps *util.EchoDeployments, src, dst echo.Instance) bool {
+	return apps.IsNaked(src) && apps.IsVM(dst)
 }

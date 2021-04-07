@@ -65,14 +65,14 @@ func TestStrictMTLS(t *testing.T) {
 			ctx.WhenDone(func() error {
 				return ctx.Config().DeleteYAML(apps.Namespace.Name(), peerTemplate)
 			})
-			util.WaitForConfigWithSleep(ctx, "strict-mtls", peerTemplate, apps.Namespace)
+			util.WaitForConfig(ctx, peerTemplate, apps.Namespace)
 
 			drTemplate := tmpl.EvaluateOrFail(ctx, DestinationRuleConfigIstioMutual, map[string]string{"AppNamespace": apps.Namespace.Name()})
 			ctx.Config().ApplyYAMLOrFail(ctx, apps.Namespace.Name(), drTemplate)
 			ctx.WhenDone(func() error {
 				return ctx.Config().DeleteYAML(apps.Namespace.Name(), drTemplate)
 			})
-			util.WaitForConfigWithSleep(ctx, "strict-mtls", drTemplate, apps.Namespace)
+			util.WaitForConfig(ctx, drTemplate, apps.Namespace)
 
 			response := apps.Client.CallOrFail(t, echo.CallOptions{
 				Target:   apps.Server,

@@ -236,7 +236,11 @@ func (apps *EchoDeployments) IsHeadless(i echo.Instance) bool {
 	return apps.HeadlessNaked.Contains(i) || apps.Headless.Contains(i)
 }
 
-func WaitForConfigWithSleep(ctx framework.TestContext, testName, configs string, namespace namespace.Instance) {
+func (apps *EchoDeployments) IsVM(i echo.Instance) bool {
+	return apps.VM.Contains(i)
+}
+
+func WaitForConfig(ctx framework.TestContext, configs string, namespace namespace.Instance) {
 	errG := multierror.Group{}
 	for _, c := range ctx.Clusters().Primaries() {
 		c := c
