@@ -29,5 +29,5 @@ func TestDefaultInPlaceUpgradeFromTwoMinorReleases(t *testing.T) {
 	framework.
 		NewTest(t).
 		Features("installation.helm.default.upgrade").
-		Run(helmupgrade.PerformUpgradeFunc(t, nMinusTwoVersion))
+		Run(helmupgrade.PerformUpgradeFunc(nMinusTwoVersion))
 }
