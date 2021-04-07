@@ -650,17 +650,17 @@ func TestAuthorization_EgressGateway(t *testing.T) {
 			ns := apps.Namespace1
 			rootns := newRootNS(t)
 			a := apps.A.Match(echo.Namespace(apps.Namespace1.Name()))
-			b := apps.B.Match(echo.Namespace(apps.Namespace1.Name()))
+			c := apps.C.Match(echo.Namespace(apps.Namespace1.Name()))
 			// Gateways on VMs are not supported yet. This test verifies that security
 			// policies at gateways are useful for managing accessibility to external
 			// services running on a VM.
-			for _, c := range []string{util.CSvc, util.VMSvc} {
-				t.NewSubTest(fmt.Sprintf("to %s/", c)).Run(func(t framework.TestContext) {
+			for _, b := range []string{util.BSvc, util.VMSvc} {
+				t.NewSubTest(fmt.Sprintf("to %s/", b)).Run(func(t framework.TestContext) {
 					args := map[string]string{
 						"Namespace":     ns.Name(),
 						"RootNamespace": rootns.rootNamespace,
 						"a":             util.ASvc,
-						"c":             c,
+						"b":             b,
 					}
 					policies := tmpl.EvaluateAllOrFail(t, args,
 						file.AsStringOrFail(t, "testdata/authz/v1beta1-egress-gateway.yaml.tmpl"))
@@ -705,7 +705,7 @@ func TestAuthorization_EgressGateway(t *testing.T) {
 							code: response.StatusCodeForbidden,
 							body: "RBAC: access denied",
 							host: fmt.Sprintf("%s-only.com", a[0].Config().Service),
-							from: getWorkload(b[0], t),
+							from: getWorkload(c[0], t),
 						},
 						{
 							name:  "allow a with JWT to jwt-only.com over mTLS",
@@ -722,7 +722,7 @@ func TestAuthorization_EgressGateway(t *testing.T) {
 							code:  response.StatusCodeOK,
 							body:  "handled-by-egress-gateway",
 							host:  "jwt-only.com",
-							from:  getWorkload(b[0], t),
+							from:  getWorkload(c[0], t),
 							token: jwt.TokenIssuer1,
 						},
 						{
@@ -731,7 +731,7 @@ func TestAuthorization_EgressGateway(t *testing.T) {
 							code:  response.StatusCodeForbidden,
 							body:  "RBAC: access denied",
 							host:  "jwt-only.com",
-							from:  getWorkload(b[0], t),
+							from:  getWorkload(c[0], t),
 							token: jwt.TokenIssuer2,
 						},
 						{
@@ -744,12 +744,12 @@ func TestAuthorization_EgressGateway(t *testing.T) {
 							token: jwt.TokenIssuer1,
 						},
 						{
-							name:  "deny service account b with JWT to jwt-and-a-only.com over mTLS",
+							name:  "deny service account c with JWT to jwt-and-a-only.com over mTLS",
 							path:  "/",
 							code:  response.StatusCodeForbidden,
 							body:  "RBAC: access denied",
 							host:  fmt.Sprintf("jwt-and-%s-only.com", a[0].Config().Service),
-							from:  getWorkload(b[0], t),
+							from:  getWorkload(c[0], t),
 							token: jwt.TokenIssuer1,
 						},
 						{
