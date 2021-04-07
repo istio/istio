@@ -39,7 +39,7 @@ func newConfigManager(ctx resource.Context, clusters []resource.Cluster) resourc
 	}
 	return &configManager{
 		ctx:      ctx,
-		clusters: clusters.OfKind(cluster.Kubernetes),
+		clusters: clusters,
 	}
 }
 
