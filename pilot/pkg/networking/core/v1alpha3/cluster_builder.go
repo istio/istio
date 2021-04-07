@@ -137,7 +137,6 @@ func (cb *ClusterBuilder) buildSubsetCluster(opts buildClusterOpts, destRule *co
 		subsetCluster.cluster.AltStatName = util.BuildStatPrefix(cb.push.Mesh.OutboundClusterStatName,
 			string(service.Hostname), subset.Name, opts.port, service.Attributes)
 	}
-	cb.setUpstreamProtocol(cb.proxy, subsetCluster, opts.port, model.TrafficDirectionOutbound)
 
 	// Apply traffic policy for subset cluster with the destination rule traffic policy.
 	opts.mutable = subsetCluster
@@ -309,6 +308,7 @@ func (cb *ClusterBuilder) buildDefaultCluster(name string, discoveryType cluster
 		opts.meshExternal = service.MeshExternal
 	}
 	cb.applyTrafficPolicy(opts)
+	cb.setUpstreamProtocol(opts.proxy, ec, port, direction)
 	addTelemetryMetadata(opts, service, direction, allInstances)
 	addNetworkingMetadata(opts, service, direction)
 	return ec
@@ -342,7 +342,6 @@ func (cb *ClusterBuilder) buildInboundClusterForPortOrUDS(clusterPort int, bind 
 		localCluster.cluster.AltStatName = util.BuildStatPrefix(cb.push.Mesh.InboundClusterStatName,
 			string(instance.Service.Hostname), "", instance.ServicePort, instance.Service.Attributes)
 	}
-	cb.setUpstreamProtocol(cb.proxy, localCluster, instance.ServicePort, model.TrafficDirectionInbound)
 
 	// When users specify circuit breakers, they need to be set on the receiver end
 	// (server side) as well as client side, so that the server has enough capacity
@@ -917,6 +916,11 @@ func (cb *ClusterBuilder) IsHttp2Cluster(mc *MutableCluster) bool {
 }
 
 func (cb *ClusterBuilder) setUpstreamProtocol(node *model.Proxy, mc *MutableCluster, port *model.Port, direction model.TrafficDirection) {
+	if port.Protocol.IsHTTP2() {
+		cb.setH2Options(mc)
+		return
+	}
+
 	// Add use_downstream_protocol for sidecar proxy only if protocol sniffing is enabled.
 	// Since protocol detection is disabled for gateway and use_downstream_protocol is used
 	// under protocol detection for cluster to select upstream connection protocol when
@@ -927,8 +931,6 @@ func (cb *ClusterBuilder) setUpstreamProtocol(node *model.Proxy, mc *MutableClus
 		// upstream cluster will use HTTP 1.1, if incoming traffic use HTTP2,
 		// the upstream cluster will use HTTP2.
 		cb.setUseDownstreamProtocol(mc)
-	} else if port.Protocol.IsHTTP2() {
-		cb.setH2Options(mc)
 	}
 }
 
