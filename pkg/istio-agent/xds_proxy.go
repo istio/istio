@@ -61,9 +61,8 @@ import (
 
 const (
 	defaultClientMaxReceiveMessageSize = math.MaxInt32
-	defaultInitialConnWindowSize       = 1024 * 1024     // default gRPC InitialWindowSize
-	defaultInitialWindowSize           = 1024 * 1024     // default gRPC ConnWindowSize
-	sendTimeout                        = 5 * time.Second // default upstream send timeout.
+	defaultInitialConnWindowSize       = 1024 * 1024 // default gRPC InitialWindowSize
+	defaultInitialWindowSize           = 1024 * 1024 // default gRPC ConnWindowSize
 )
 
 // ResponseHandler handles a XDS response in the agent. These will not be forwarded to Envoy.
@@ -414,7 +413,7 @@ func (p *XdsProxy) handleUpstreamRequest(ctx context.Context, con *ProxyConnecti
 				}
 				p.ecdsLastNonce.Store(req.ResponseNonce)
 			}
-			if err := sendUpstreamWithTimeout(ctx, con.upstream, req); err != nil {
+			if err := sendUpstream(con.upstream, req); err != nil {
 				proxyLog.Errorf("upstream send error for type url %s: %v", req.TypeUrl, err)
 				con.upstreamError <- err
 				return
@@ -497,7 +496,7 @@ func forwardToEnvoy(con *ProxyConnection, resp *discovery.DiscoveryResponse) {
 		proxyLog.Errorf("Skipping forwarding type url %s to Envoy as is not a valid Envoy type", resp.TypeUrl)
 		return
 	}
-	if err := sendDownstreamWithTimeout(con.downstream, resp); err != nil {
+	if err := sendDownstream(con.downstream, resp); err != nil {
 		select {
 		case con.downstreamError <- err:
 			// we cannot return partial error and hope to restart just the downstream
@@ -678,34 +677,27 @@ func (p *XdsProxy) getRootCertificate(agent *Agent) (*x509.CertPool, error) {
 	return certPool, nil
 }
 
-// sendUpstreamWithTimeout sends discovery request with default send timeout.
-func sendUpstreamWithTimeout(ctx context.Context, upstream discovery.AggregatedDiscoveryService_StreamAggregatedResourcesClient,
+// sendUpstream sends discovery request with default send timeout.
+func sendUpstream(upstream discovery.AggregatedDiscoveryService_StreamAggregatedResourcesClient,
 	request *discovery.DiscoveryRequest) error {
-	return sendWithTimeout(ctx, func(errChan chan error) {
+	return send(func(errChan chan error) {
 		errChan <- upstream.Send(request)
 		close(errChan)
 	})
 }
 
-// sendDownstreamWithTimeout sends discovery response with default send timeout.
-func sendDownstreamWithTimeout(downstream discovery.AggregatedDiscoveryService_StreamAggregatedResourcesServer,
+// sendDownstream sends discovery response with default send timeout.
+func sendDownstream(downstream discovery.AggregatedDiscoveryService_StreamAggregatedResourcesServer,
 	response *discovery.DiscoveryResponse) error {
-	return sendWithTimeout(context.Background(), func(errChan chan error) {
+	return send(func(errChan chan error) {
 		errChan <- downstream.Send(response)
 		close(errChan)
 	})
 }
 
-func sendWithTimeout(ctx context.Context, sendFunc func(errorChan chan error)) error {
-	timeoutCtx, cancel := context.WithTimeout(ctx, sendTimeout)
-	defer cancel()
+func send(sendFunc func(errorChan chan error)) error {
 	errChan := make(chan error, 1)
 	go sendFunc(errChan)
-
-	select {
-	case <-timeoutCtx.Done():
-		return timeoutCtx.Err()
-	case err := <-errChan:
-		return err
-	}
+	err := <-errChan
+	return err
 }

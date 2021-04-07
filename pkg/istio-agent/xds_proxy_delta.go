@@ -268,7 +268,7 @@ func forwardDeltaToEnvoy(con *ProxyConnection, resp *discovery.DeltaDiscoveryRes
 
 func sendUpstreamDeltaWithTimeout(ctx context.Context, deltaUpstream discovery.AggregatedDiscoveryService_DeltaAggregatedResourcesClient,
 	req *discovery.DeltaDiscoveryRequest) error {
-	return sendWithTimeout(ctx, func(errChan chan error) {
+	return send(func(errChan chan error) {
 		errChan <- deltaUpstream.Send(req)
 		close(errChan)
 	})
@@ -276,7 +276,7 @@ func sendUpstreamDeltaWithTimeout(ctx context.Context, deltaUpstream discovery.A
 
 func sendDownstreamDeltaWithTimout(deltaUpstream discovery.AggregatedDiscoveryService_DeltaAggregatedResourcesServer,
 	req *discovery.DeltaDiscoveryResponse) error {
-	return sendWithTimeout(context.Background(), func(errChan chan error) {
+	return send(func(errChan chan error) {
 		errChan <- deltaUpstream.Send(req)
 		close(errChan)
 	})
