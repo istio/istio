@@ -19,9 +19,10 @@ import (
 	"context"
 	"fmt"
 	"io/ioutil"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"os"
 	"path/filepath"
+
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/test/framework"
@@ -51,7 +52,7 @@ var previousChartPath = filepath.Join(env.IstioSrc, "tests/integration/helm/test
 
 // upgradeCharts upgrades Istio using Helm charts with the provided
 // override values file to the latest charts in $ISTIO_SRC/manifests
-func UpgradeCharts(ctx framework.TestContext, h *helm.Helm, overrideValuesFile string) {
+func upgradeCharts(ctx framework.TestContext, h *helm.Helm, overrideValuesFile string) {
 	// Upgrade base chart
 	err := h.UpgradeChart(helmtest.BaseReleaseName, filepath.Join(helmtest.ChartPath, helmtest.BaseChart),
 		helmtest.IstioNamespace, overrideValuesFile, helmtest.Timeout)
@@ -81,8 +82,8 @@ func UpgradeCharts(ctx framework.TestContext, h *helm.Helm, overrideValuesFile s
 	}
 }
 
-// DeleteIstio deletes installed Istio Helm charts and resources
-func DeleteIstio(cs cluster.Cluster, h *helm.Helm) error {
+// deleteIstio deletes installed Istio Helm charts and resources
+func deleteIstio(cs cluster.Cluster, h *helm.Helm) error {
 	scopes.Framework.Infof("cleaning up resources")
 	if err := h.DeleteChart(helmtest.EgressReleaseName, helmtest.IstioNamespace); err != nil {
 		return fmt.Errorf("failed to delete %s release", helmtest.EgressReleaseName)
@@ -106,9 +107,9 @@ func DeleteIstio(cs cluster.Cluster, h *helm.Helm) error {
 	return nil
 }
 
-// GetValuesOverrides returns the the values file created to pass into Helm override default values
+// getValuesOverrides returns the the values file created to pass into Helm override default values
 // for the hub and tag
-func GetValuesOverrides(ctx framework.TestContext, valuesStr, hub, tag string) string {
+func getValuesOverrides(ctx framework.TestContext, valuesStr, hub, tag string) string {
 	workDir := ctx.CreateTmpDirectoryOrFail("helm")
 	overrideValues := fmt.Sprintf(valuesStr, hub, tag)
 	overrideValuesFile := filepath.Join(workDir, "values.yaml")
@@ -119,9 +120,9 @@ func GetValuesOverrides(ctx framework.TestContext, valuesStr, hub, tag string) s
 	return overrideValuesFile
 }
 
-// InstallIstio install Istio using Helm charts with the provided
+// installIstio install Istio using Helm charts with the provided
 // override values file and fails the tests on any failures.
-func InstallIstio(t framework.TestContext, cs cluster.Cluster,
+func installIstio(t framework.TestContext, cs cluster.Cluster,
 	h *helm.Helm, overrideValuesFile string) {
 	helmtest.CreateNamespace(t, cs, helmtest.IstioNamespace)
 
@@ -142,9 +143,9 @@ func InstallIstio(t framework.TestContext, cs cluster.Cluster,
 	helmtest.InstallGatewaysCharts(t, cs, h, helmtest.TarGzSuffix, helmtest.IstioNamespace, overrideValuesFile)
 }
 
-// PerformUpgradeFunc returns the provided function necessary to run inside of a integration test
+// performUpgradeFunc returns the provided function necessary to run inside of a integration test
 // for upgrade capability
-func PerformUpgradeFunc(previousVersion string) func(framework.TestContext) {
+func performUpgradeFunc(previousVersion string) func(framework.TestContext) {
 	return func(t framework.TestContext) {
 		cs := t.Clusters().Default().(*kubecluster.Cluster)
 		h := helm.New(cs.Filename(), filepath.Join(previousChartPath, previousVersion))
@@ -152,14 +153,14 @@ func PerformUpgradeFunc(previousVersion string) func(framework.TestContext) {
 		t.ConditionalCleanup(func() {
 			// only need to do call this once as helm doesn't need to remove
 			// all versions
-			err := DeleteIstio(cs, h)
+			err := deleteIstio(cs, h)
 			if err != nil {
 				t.Fatalf("could not delete istio: %v", err)
 			}
 		})
 
-		overrideValuesFile := GetValuesOverrides(t, defaultValues, gcrHub, previousVersion)
-		InstallIstio(t, cs, h, overrideValuesFile)
+		overrideValuesFile := getValuesOverrides(t, defaultValues, gcrHub, previousVersion)
+		installIstio(t, cs, h, overrideValuesFile)
 		helmtest.VerifyInstallation(t, cs)
 
 		oldClient, oldServer := sanitycheck.SetupTrafficTest(t, t)
@@ -173,8 +174,8 @@ func PerformUpgradeFunc(previousVersion string) func(framework.TestContext) {
 			t.Fatal(err)
 		}
 
-		overrideValuesFile = GetValuesOverrides(t, defaultValues, s.Hub, s.Tag)
-		UpgradeCharts(t, h, overrideValuesFile)
+		overrideValuesFile = getValuesOverrides(t, defaultValues, s.Hub, s.Tag)
+		upgradeCharts(t, h, overrideValuesFile)
 		helmtest.VerifyInstallation(t, cs)
 
 		newClient, newServer := sanitycheck.SetupTrafficTest(t, t)

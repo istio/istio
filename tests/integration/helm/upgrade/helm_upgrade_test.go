@@ -21,12 +21,23 @@ import (
 	"istio.io/istio/pkg/test/framework"
 )
 
-const previousSupportedVersion = "1.9.0"
+const (
+	previousSupportedVersion = "1.9.0"
+	nMinusTwoVersion         = "1.8.1"
+)
 
 // TestDefaultInPlaceUpgradeFromPreviousMinorRelease tests Istio installation using Helm with default options for Istio 1.(n-1)
 func TestDefaultInPlaceUpgradeFromPreviousMinorRelease(t *testing.T) {
 	framework.
 		NewTest(t).
 		Features("installation.helm.default.upgrade").
-		Run(PerformUpgradeFunc(t, previousSupportedVersion))
+		Run(performUpgradeFunc(previousSupportedVersion))
+}
+
+// TestDefaultInPlaceUpgradeFromTwoMinorReleases tests Istio installation using Helm with default options for Istio 1.(n-2)
+func TestDefaultInPlaceUpgradeFromTwoMinorReleases(t *testing.T) {
+	framework.
+		NewTest(t).
+		Features("installation.helm.default.upgrade").
+		Run(performUpgradeFunc(nMinusTwoVersion))
 }
