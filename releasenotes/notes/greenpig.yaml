@@ -1,0 +1,11 @@
+apiVersion: release-notes/v2
+kind: security-fix
+area: security
+securityNotes:
+  - |
+    Envoy contains a remotely exploitable NULL pointer dereference and crash in TLS when an unknown TLS alert code is received.
+    - __CVSS Score__: 7.5 []()
+    Envoy contains a remotely exploitable integer overflow in which a very large grpc-timeout value leads to unexpected timeout calculations.
+    - __CVSS Score__: 7.5 []()
+    Envoy contains a remotely exploitable vulnerability where an HTTP2 request with an empty metadata map can cause Envoy to crash.
+    - __CVSS Score__: 7.5 []()
