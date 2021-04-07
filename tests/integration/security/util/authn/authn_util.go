@@ -35,6 +35,7 @@ type TestCase struct {
 	ExpectResponseCode string
 	// Use empty value to express the header with such key must not exist.
 	ExpectHeaders map[string]string
+	CallOpts 			echo.CallOptions
 }
 
 func (c *TestCase) String() string {
