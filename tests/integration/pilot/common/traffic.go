@@ -201,7 +201,7 @@ func (c TrafficTestCase) Run(t framework.TestContext, namespace string) {
 
 func RunAllTrafficTests(t framework.TestContext, apps *EchoDeployments) {
 	cases := map[string][]TrafficTestCase{}
-	cases["virtualservice"] = virtualServiceCases()
+	cases["virtualservice"] = virtualServiceCases(t.Settings().SkipVM)
 	cases["sniffing"] = protocolSniffingCases()
 	cases["selfcall"] = selfCallsCases(apps)
 	cases["serverfirst"] = serverFirstTestCases(apps)
