@@ -142,9 +142,8 @@ func (cb *ClusterBuilder) buildSubsetCluster(opts buildClusterOpts, destRule *co
 	opts.mutable = subsetCluster
 	opts.istioMtlsSni = defaultSni
 
-	destinationRule := destRule.Spec.(*networking.DestinationRule)
 	// If subset has a traffic policy, apply it so that it overrides the destination rule traffic policy.
-	opts.policy = MergeTrafficPolicy(destinationRule.TrafficPolicy, subset.TrafficPolicy, opts.port)
+	opts.policy = MergeTrafficPolicy(opts.policy, subset.TrafficPolicy, opts.port)
 	// Apply traffic policy for the subset cluster.
 	cb.applyTrafficPolicy(opts)
 
@@ -164,10 +163,13 @@ func (cb *ClusterBuilder) applyDestinationRule(mc *MutableCluster, clusterMode C
 	destRule := cb.push.DestinationRule(cb.proxy, service)
 	destinationRule := castDestinationRuleOrDefault(destRule)
 
+	defaultTrafficPolicy := cb.defaultTrafficPolicy(mc.cluster.GetType())
+	// merge default traffic policy with applicable port level traffic policy settings
+	trafficPolicy := MergeTrafficPolicy(defaultTrafficPolicy, destinationRule.TrafficPolicy, port)
 	opts := buildClusterOpts{
 		mesh:        cb.push.Mesh,
 		mutable:     mc,
-		policy:      destinationRule.TrafficPolicy,
+		policy:      trafficPolicy,
 		port:        port,
 		clusterMode: clusterMode,
 		direction:   model.TrafficDirectionOutbound,
@@ -181,9 +183,6 @@ func (cb *ClusterBuilder) applyDestinationRule(mc *MutableCluster, clusterMode C
 		opts.meshExternal = service.MeshExternal
 		opts.serviceMTLSMode = cb.push.BestEffortInferServiceMTLSMode(destinationRule.GetTrafficPolicy(), service, port)
 	}
-
-	// merge with applicable port level traffic policy settings
-	opts.policy = MergeTrafficPolicy(nil, opts.policy, opts.port)
 	// Apply traffic policy for the main default cluster.
 	cb.applyTrafficPolicy(opts)
 
@@ -191,10 +190,8 @@ func (cb *ClusterBuilder) applyDestinationRule(mc *MutableCluster, clusterMode C
 	// discovery type.
 	maybeApplyEdsConfig(mc.cluster)
 
-	var clusterMetadata *core.Metadata
 	if destRule != nil {
-		clusterMetadata = util.AddConfigInfoMetadata(mc.cluster.Metadata, destRule.Meta)
-		mc.cluster.Metadata = clusterMetadata
+		mc.cluster.Metadata = util.AddConfigInfoMetadata(mc.cluster.Metadata, destRule.Meta)
 	}
 	subsetClusters := make([]*cluster.Cluster, 0)
 	for _, subset := range destinationRule.Subsets {
@@ -307,7 +304,7 @@ func (cb *ClusterBuilder) buildDefaultCluster(name string, discoveryType cluster
 		// otherwise, read this information from service object.
 		opts.meshExternal = service.MeshExternal
 	}
-	cb.applyTrafficPolicy(opts)
+
 	cb.setUpstreamProtocol(opts.proxy, ec, port, direction)
 	addTelemetryMetadata(opts, service, direction, allInstances)
 	addNetworkingMetadata(opts, service, direction)
@@ -343,6 +340,17 @@ func (cb *ClusterBuilder) buildInboundClusterForPortOrUDS(clusterPort int, bind 
 			string(instance.Service.Hostname), "", instance.ServicePort, instance.Service.Attributes)
 	}
 
+	opts := buildClusterOpts{
+		mesh:            cb.push.Mesh,
+		mutable:         localCluster,
+		policy:          cb.defaultTrafficPolicy(clusterType),
+		port:            instance.ServicePort,
+		serviceAccounts: nil,
+		istioMtlsSni:    "",
+		clusterMode:     DefaultClusterMode,
+		direction:       model.TrafficDirectionInbound,
+		proxy:           cb.proxy,
+	}
 	// When users specify circuit breakers, they need to be set on the receiver end
 	// (server side) as well as client side, so that the server has enough capacity
 	// (not the defaults) to handle the increased traffic volume
@@ -352,13 +360,12 @@ func (cb *ClusterBuilder) buildInboundClusterForPortOrUDS(clusterPort int, bind 
 	if cfg != nil {
 		destinationRule := cfg.Spec.(*networking.DestinationRule)
 		if destinationRule.TrafficPolicy != nil {
-			connectionPool, _, _, _ := selectTrafficPolicyComponents(MergeTrafficPolicy(nil, destinationRule.TrafficPolicy, instance.ServicePort))
-			// only connection pool settings make sense on the inbound path.
-			// upstream TLS settings/outlier detection/load balancer don't apply here.
-			cb.applyConnectionPool(cb.push.Mesh, localCluster, connectionPool)
+			opts.policy = MergeTrafficPolicy(opts.policy, destinationRule.TrafficPolicy, instance.ServicePort)
 			util.AddConfigInfoMetadata(localCluster.cluster.Metadata, cfg.Meta)
 		}
 	}
+	cb.applyTrafficPolicy(opts)
+
 	if bind != LocalhostAddress && bind != LocalhostIPv6Address {
 		// iptables will redirect our own traffic to localhost back to us if we do not use the "magic" upstream bind
 		// config which will be skipped.
@@ -593,21 +600,21 @@ func (cb *ClusterBuilder) applyTrafficPolicy(opts buildClusterOpts) {
 	connectionPool, outlierDetection, loadBalancer, tls := selectTrafficPolicyComponents(opts.policy)
 	// Connection pool settings are applicable for both inbound and outbound clusters.
 	cb.applyConnectionPool(opts.mesh, opts.mutable, connectionPool)
+
 	if opts.direction != model.TrafficDirectionInbound {
 		cb.applyH2Upgrade(opts, connectionPool)
 		applyOutlierDetection(opts.mutable.cluster, outlierDetection)
 		applyLoadBalancer(opts.mutable.cluster, loadBalancer, opts.port, opts.proxy, opts.mesh)
-	}
-	if opts.mutable.cluster.GetType() == cluster.Cluster_ORIGINAL_DST {
-		opts.mutable.cluster.LbPolicy = cluster.Cluster_CLUSTER_PROVIDED
+		if opts.clusterMode != SniDnatClusterMode {
+			autoMTLSEnabled := opts.mesh.GetEnableAutoMtls().Value
+			tls, mtlsCtxType := buildAutoMtlsSettings(tls, opts.serviceAccounts, opts.istioMtlsSni, opts.proxy,
+				autoMTLSEnabled, opts.meshExternal, opts.serviceMTLSMode)
+			cb.applyUpstreamTLSSettings(&opts, tls, mtlsCtxType)
+		}
 	}
 
-	if opts.clusterMode != SniDnatClusterMode && opts.direction != model.TrafficDirectionInbound {
-		autoMTLSEnabled := opts.mesh.GetEnableAutoMtls().Value
-		var mtlsCtxType mtlsContextType
-		tls, mtlsCtxType = buildAutoMtlsSettings(tls, opts.serviceAccounts, opts.istioMtlsSni, opts.proxy,
-			autoMTLSEnabled, opts.meshExternal, opts.serviceMTLSMode)
-		cb.applyUpstreamTLSSettings(&opts, tls, mtlsCtxType)
+	if opts.mutable.cluster.GetType() == cluster.Cluster_ORIGINAL_DST {
+		opts.mutable.cluster.LbPolicy = cluster.Cluster_CLUSTER_PROVIDED
 	}
 }
 
