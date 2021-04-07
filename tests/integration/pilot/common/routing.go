@@ -484,7 +484,7 @@ func useClientProtocolCases(apps *EchoDeployments) []TrafficTestCase {
 				HTTP2:    false,
 				Validator: echo.And(
 					echo.ExpectOK(),
-					echo.ExpectKey("Proto", "HTTP/1.1")
+					echo.ExpectKey("Proto", "HTTP/1.1"),
 				),
 			},
 		},
