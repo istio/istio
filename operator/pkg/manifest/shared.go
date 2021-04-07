@@ -462,7 +462,11 @@ func makeTreeFromSetList(setOverlay []string) (string, error) {
 }
 
 func getJwtTypeOverlay(config *rest.Config, l clog.Logger) (string, error) {
-	jwtPolicy, err := util.DetectSupportedJWTPolicy(config)
+	client, err := kubernetes.NewForConfig(config)
+	if err != nil {
+		return "", err
+	}
+	jwtPolicy, err := util.DetectSupportedJWTPolicy(client)
 	if err != nil {
 		return "", fmt.Errorf("failed to determine JWT policy support. Use the --force flag to ignore this: %v", err)
 	}

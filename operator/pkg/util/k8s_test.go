@@ -16,6 +16,7 @@ package util
 import (
 	"testing"
 
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/version"
 	fakediscovery "k8s.io/client-go/discovery/fake"
 	"k8s.io/client-go/kubernetes/fake"
@@ -102,4 +103,32 @@ func TestValidateIOPCAConfig(t *testing.T) {
 			t.Fatalf("Failure in test case %v. Expected Error. Got No error", i)
 		}
 	}
+}
+
+func TestDetectSupportedJWTPolicy(t *testing.T) {
+	cli := fake.NewSimpleClientset()
+	cli.Resources = []*metav1.APIResourceList{}
+	t.Run("first-party-jwt", func(t *testing.T) {
+		res, err := DetectSupportedJWTPolicy(cli)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if res != FirstPartyJWT {
+			t.Fatalf("unexpected jwt type, expected %s, got %s", FirstPartyJWT, res)
+		}
+	})
+	cli.Resources = []*metav1.APIResourceList{
+		{
+			APIResources: []metav1.APIResource{{Name: "serviceaccounts/token"}},
+		},
+	}
+	t.Run("third-party-jwt", func(t *testing.T) {
+		res, err := DetectSupportedJWTPolicy(cli)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if res != ThirdPartyJWT {
+			t.Fatalf("unexpected jwt type, expected %s, got %s", ThirdPartyJWT, res)
+		}
+	})
 }

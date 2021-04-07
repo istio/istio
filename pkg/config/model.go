@@ -15,7 +15,7 @@
 package config
 
 import (
-	bytes "bytes"
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"reflect"
@@ -27,8 +27,8 @@ import (
 	gogotypes "github.com/gogo/protobuf/types"
 	"github.com/golang/protobuf/jsonpb"
 	"github.com/golang/protobuf/proto"
-	"github.com/golang/protobuf/ptypes"
 	"google.golang.org/protobuf/reflect/protoreflect"
+	"google.golang.org/protobuf/types/known/anypb"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	kubetypes "k8s.io/apimachinery/pkg/types"
 
@@ -114,17 +114,15 @@ func ToProtoGogo(s Spec) (*gogotypes.Any, error) {
 	// golang protobuf. Use protoreflect.ProtoMessage to distinguish from gogo
 	// golang/protobuf 1.4+ will have this interface. Older golang/protobuf are gogo compatible
 	// but also not used by Istio at all.
-	if _, ok := s.(protoreflect.ProtoMessage); ok {
-		if pb, ok := s.(proto.Message); ok {
-			golangany, err := ptypes.MarshalAny(pb)
-			if err != nil {
-				return nil, err
-			}
-			return &gogotypes.Any{
-				TypeUrl: golangany.TypeUrl,
-				Value:   golangany.Value,
-			}, nil
+	if pb, ok := s.(protoreflect.ProtoMessage); ok {
+		golangany, err := anypb.New(pb)
+		if err != nil {
+			return nil, err
 		}
+		return &gogotypes.Any{
+			TypeUrl: golangany.TypeUrl,
+			Value:   golangany.Value,
+		}, nil
 	}
 
 	// gogo protobuf
@@ -276,7 +274,7 @@ type Status interface{}
 
 // Key function for the configuration objects
 func Key(typ, name, namespace string) string {
-	return fmt.Sprintf("%s/%s/%s", typ, namespace, name)
+	return typ + "/" + namespace + "/" + name // Format: %s/%s/%s
 }
 
 // Key is the unique identifier for a configuration object

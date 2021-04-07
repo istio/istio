@@ -78,7 +78,7 @@ spec:
 	}{gateway, host, port})
 }
 
-func virtualServiceCases(apps *EchoDeployments) []TrafficTestCase {
+func virtualServiceCases(skipVM bool) []TrafficTestCase {
 	var cases []TrafficTestCase
 	// Send the same call from all different clusters
 
@@ -92,11 +92,11 @@ metadata:
   name: default
 spec:
   hosts:
-  - {{ (index .dst 0).Config.Service }}
+  - {{ .dstSvc }}
   http:
   - route:
     - destination:
-        host: {{ (index .dst 0).Config.Service }}
+        host: {{ .dstSvc }}
     headers:
       request:
         add:
@@ -115,6 +115,68 @@ spec:
 			workloadAgnostic: true,
 		},
 		TrafficTestCase{
+			name: "set header",
+			config: `
+apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
+metadata:
+  name: default
+spec:
+  hosts:
+  - {{ (index .dst 0).Config.Service }}
+  http:
+  - route:
+    - destination:
+        host: {{ (index .dst 0).Config.Service }}
+    headers:
+      request:
+        set:
+          x-custom: some-value`,
+			opts: echo.CallOptions{
+				PortName: "http",
+				Validator: echo.And(
+					echo.ExpectOK(),
+					echo.ValidatorFunc(
+						func(response echoclient.ParsedResponses, _ error) error {
+							return response.Check(func(_ int, response *echoclient.ParsedResponse) error {
+								return ExpectString(response.RawResponse["X-Custom"], "some-value", "added request header")
+							})
+						})),
+			},
+			workloadAgnostic: true,
+		},
+		TrafficTestCase{
+			name: "set authority header",
+			config: `
+apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
+metadata:
+  name: default
+spec:
+  hosts:
+  - {{ (index .dst 0).Config.Service }}
+  http:
+  - route:
+    - destination:
+        host: {{ (index .dst 0).Config.Service }}
+    headers:
+      request:
+        set:
+          :authority: my-custom-authority`,
+			opts: echo.CallOptions{
+				PortName: "http",
+				Validator: echo.And(
+					echo.ExpectOK(),
+					echo.ValidatorFunc(
+						func(response echoclient.ParsedResponses, _ error) error {
+							return response.Check(func(_ int, response *echoclient.ParsedResponse) error {
+								return ExpectString(response.RawResponse["Host"], "my-custom-authority", "added authority header")
+							})
+						})),
+			},
+			workloadAgnostic: true,
+		},
+		TrafficTestCase{
 			name: "redirect",
 			config: `
 apiVersion: networking.istio.io/v1alpha3
@@ -123,7 +185,7 @@ metadata:
   name: default
 spec:
   hosts:
-    - {{ (index .dst 0).Config.Service }}
+    - {{ .dstSvc }}
   http:
   - match:
     - uri:
@@ -135,7 +197,7 @@ spec:
         exact: /new/path
     route:
     - destination:
-        host: {{ (index .dst 0).Config.Service }}`,
+        host: {{ .dstSvc }}`,
 			opts: echo.CallOptions{
 				PortName:        "http",
 				Path:            "/foo?key=value",
@@ -160,7 +222,7 @@ metadata:
   name: default
 spec:
   hosts:
-    - {{ (index .dst 0).Config.Service }}
+    - {{ .dstSvc }}
   http:
   - match:
     - uri:
@@ -169,7 +231,7 @@ spec:
       uri: /new/path
     route:
     - destination:
-        host: {{ (index .dst 0).Config.Service }}`,
+        host: {{ .dstSvc }}`,
 			opts: echo.CallOptions{
 				PortName: "http",
 				Path:     "/foo?key=value#hash",
@@ -193,7 +255,7 @@ metadata:
   name: default
 spec:
   hosts:
-    - {{ (index .dst 0).Config.Service }}
+    - {{ .dstSvc }}
   http:
   - match:
     - uri:
@@ -202,7 +264,7 @@ spec:
       authority: new-authority
     route:
     - destination:
-        host: {{ (index .dst 0).Config.Service }}`,
+        host: {{ .dstSvc }}`,
 			opts: echo.CallOptions{
 				PortName: "http",
 				Path:     "/foo",
@@ -220,7 +282,7 @@ spec:
 		TrafficTestCase{
 			name: "cors",
 			// TODO https://github.com/istio/istio/issues/31532
-			targetFilters: []echotest.SimpleFilter{echotest.Not(echotest.VirtualMachines)},
+			targetFilters: []echotest.Filter{echotest.Not(echotest.VirtualMachines)},
 			config: `
 apiVersion: networking.istio.io/v1alpha3
 kind: VirtualService
@@ -228,7 +290,7 @@ metadata:
   name: default
 spec:
   hosts:
-    - {{ (index .dst 0).Config.Service }}
+    - {{ .dstSvc }}
   http:
   - corsPolicy:
       allowOrigins:
@@ -243,7 +305,7 @@ spec:
       maxAge: "24h"
     route:
     - destination:
-        host: {{ (index .dst 0).Config.Service }}
+        host: {{ .dstSvc }}
 `,
 			children: []TrafficCall{
 				{
@@ -319,102 +381,89 @@ spec:
 		},
 	)
 
-	// TODO make shifting test workload agnostic
-	for _, podA := range apps.PodA {
-		podA := podA
-		splits := []map[string]int{
-			{
-				PodBSvc:  50,
-				VMSvc:    25,
-				NakedSvc: 25,
-			},
-			{
-				PodBSvc:  80,
-				VMSvc:    10,
-				NakedSvc: 10,
-			},
-		}
-		if len(apps.VM) == 0 {
-			splits = []map[string]int{
-				{
-					PodBSvc:  67,
-					NakedSvc: 33,
-				},
-				{
-					PodBSvc:  88,
-					NakedSvc: 12,
-				},
-			}
-		}
+	// reduce the total # of subtests that don't give valuable coverage or just don't work
+	noNaked := echotest.FilterMatch(echo.Not(echo.IsNaked()))
+	noHeadless := echotest.FilterMatch(echo.Not(echo.IsHeadless()))
+	noExternal := echotest.FilterMatch(echo.Not(echo.IsExternal()))
+	for i, tc := range cases {
 
-		for _, split := range splits {
-			split := split
-			cases = append(cases, TrafficTestCase{
-				name: fmt.Sprintf("shifting-%d from %s", split["b"], podA.Config().Cluster.StableName()),
-				config: fmt.Sprintf(`
+		tc.sourceFilters = append(tc.sourceFilters, noNaked, noHeadless)
+		tc.targetFilters = append(tc.targetFilters, noNaked, noHeadless)
+		cases[i] = tc
+	}
+
+	splits := [][]int{
+		{50, 25, 25},
+		{80, 10, 10},
+	}
+	if skipVM {
+		splits = [][]int{
+			{50, 50},
+			{80, 20},
+		}
+	}
+	for _, split := range splits {
+		split := split
+		cases = append(cases, TrafficTestCase{
+			name:          fmt.Sprintf("shifting-%d", split[0]),
+			toN:           len(split),
+			sourceFilters: []echotest.Filter{noHeadless, noNaked},
+			targetFilters: []echotest.Filter{noHeadless, noExternal},
+			config: fmt.Sprintf(`
 apiVersion: networking.istio.io/v1alpha3
 kind: VirtualService
 metadata:
   name: default
 spec:
   hosts:
-    - b
+    - {{ ( index .dstSvcs 0) }}
   http:
   - route:
     - destination:
-        host: b
+        host: {{ ( index .dstSvcs 0) }}
       weight: %d
     - destination:
-        host: naked
+        host: {{ ( index .dstSvcs 1) }}
       weight: %d
     - destination:
-        host: vm
+        host: {{ ( index .dstSvcs 2) }}
       weight: %d
-`, split[PodBSvc], split[NakedSvc], split[VMSvc]),
-				call: podA.CallWithRetryOrFail,
-				opts: echo.CallOptions{
-					Target:   apps.PodB[0],
-					PortName: "http",
-					Count:    100,
-					Validator: echo.And(
-						echo.ExpectOK(),
-						echo.ValidatorFunc(
-							func(responses echoclient.ParsedResponses, _ error) error {
-								errorThreshold := 10
-								for host, exp := range split {
-									hostResponses := responses.Match(func(r *echoclient.ParsedResponse) bool {
-										return strings.HasPrefix(r.Hostname, host)
-									})
-									if !AlmostEquals(len(hostResponses), exp, errorThreshold) {
-										return fmt.Errorf("expected %v calls to %q, got %v", exp, host, len(hostResponses))
-									}
-
-									// TODO fix flakes where 1 cluster is not hit (https://github.com/istio/istio/issues/28834)
-									//hostDestinations := apps.All.Match(echo.Service(host))
-									//if host == NakedSvc {
-									//	// only expect to hit same-network clusters for nakedSvc
-									//	hostDestinations = apps.All.Match(echo.Service(host)).Match(echo.InNetwork(podA.Config().Cluster.NetworkName()))
-									//}
-									// since we're changing where traffic goes, make sure we don't break cross-cluster load balancing
-									//if err := hostResponses.CheckReachedClusters(hostDestinations.Clusters()); err != nil {
-									//	return fmt.Errorf("did not reach all clusters for %s: %v", host, err)
-									//}
-								}
-								return nil
-							})),
-				},
-			})
-		}
-	}
-
-	// reduce the total # of subtests that don't give valuable coverage or just don't work
-	for i, tc := range cases {
-		noNakedHeadless := func(instances echo.Instances) echo.Instances {
-			return instances.Match(echo.Not(echo.IsNaked()).And(echo.Not(echo.IsHeadless())))
-		}
-		tc.sourceFilters = append(tc.sourceFilters, noNakedHeadless)
-		tc.targetFilters = append(tc.targetFilters, noNakedHeadless)
-		cases[i] = tc
+`, split[0], split[1], split[2]),
+			validate: func(src echo.Instance, dests echo.Services) echo.Validator {
+				return echo.And(
+					echo.ExpectOK(),
+					echo.ValidatorFunc(func(responses echoclient.ParsedResponses, err error) error {
+						errorThreshold := 10
+						if len(split) != len(dests) {
+							// shouldn't happen
+							return fmt.Errorf("split configured for %d destinations, but framework gives %d", len(split), len(dests))
+						}
+						splitPerHost := map[string]int{}
+						for i, pct := range split {
+							splitPerHost[dests.Services()[i]] = pct
+						}
+						for host, exp := range splitPerHost {
+							hostResponses := responses.Match(func(r *echoclient.ParsedResponse) bool {
+								return strings.HasPrefix(r.Hostname, host)
+							})
+							if !AlmostEquals(len(hostResponses), exp, errorThreshold) {
+								return fmt.Errorf("expected %v calls to %q, got %v", exp, host, len(hostResponses))
+							}
+							// echotest should have filtered the deployment to only contain reachable clusters
+							targetClusters := dests.Instances().Match(echo.Service(host)).Clusters()
+							if err := hostResponses.CheckReachedClusters(targetClusters); err != nil {
+								return fmt.Errorf("did not reach all clusters for %s: %v", host, err)
+							}
+						}
+						return nil
+					}))
+			},
+			opts: echo.CallOptions{
+				PortName: "http",
+				Count:    100,
+			},
+			workloadAgnostic: true,
+		})
 	}
 
 	return cases
@@ -895,14 +944,14 @@ func protocolSniffingCases() []TrafficTestCase {
 				Scheme:   call.scheme,
 				Timeout:  time.Second * 5,
 			},
-			validate: func(src echo.Instance, dst echo.Instances) echo.Validator {
+			validate: func(src echo.Instance, dst echo.Services) echo.Validator {
 				if call.scheme == scheme.TCP {
 					// no host header for TCP
 					return echo.ExpectOK()
 				}
 				return echo.And(
 					echo.ExpectOK(),
-					echo.ExpectHost(dst[0].Config().HostHeader()))
+					echo.ExpectHost(dst[0][0].Config().HostHeader()))
 			},
 			workloadAgnostic: true,
 		})

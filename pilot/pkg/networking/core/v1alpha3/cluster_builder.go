@@ -27,6 +27,7 @@ import (
 	"github.com/golang/protobuf/ptypes/duration"
 	structpb "github.com/golang/protobuf/ptypes/struct"
 	"github.com/golang/protobuf/ptypes/wrappers"
+	"google.golang.org/protobuf/types/known/durationpb"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
@@ -60,6 +61,17 @@ var h2UpgradeMap = map[upgradeTuple]bool{
 	{meshconfig.MeshConfig_UPGRADE, networking.ConnectionPoolSettings_HTTPSettings_DEFAULT}:               true,
 }
 
+// passthroughHttpProtocolOptions are http protocol options used for pass through clusters.
+// nolint
+var passthroughHttpProtocolOptions = util.MessageToAny(&http.HttpProtocolOptions{
+	UpstreamProtocolOptions: &http.HttpProtocolOptions_UseDownstreamProtocolConfig{
+		UseDownstreamProtocolConfig: &http.HttpProtocolOptions_UseDownstreamHttpConfig{
+			HttpProtocolOptions:  &core.Http1ProtocolOptions{},
+			Http2ProtocolOptions: http2ProtocolOptions(),
+		},
+	},
+})
+
 // MutableCluster wraps Cluster object along with options.
 type MutableCluster struct {
 	cluster *cluster.Cluster
@@ -81,11 +93,68 @@ func NewClusterBuilder(proxy *model.Proxy, push *model.PushContext) *ClusterBuil
 	}
 }
 
-// NewMutalbeCluster initializes MutableCluster with the cluser passed.
+// NewMutableCluster initializes MutableCluster with the cluster passed.
 func NewMutableCluster(cluster *cluster.Cluster) *MutableCluster {
 	return &MutableCluster{
 		cluster: cluster,
 	}
+}
+
+func (cb *ClusterBuilder) buildSubsetCluster(opts buildClusterOpts, destRule *config.Config, subset *networking.Subset, service *model.Service,
+	proxyNetworkView map[string]bool) *cluster.Cluster {
+	opts.serviceMTLSMode = cb.push.BestEffortInferServiceMTLSMode(subset.GetTrafficPolicy(), service, opts.port)
+	var subsetClusterName string
+	var defaultSni string
+	if opts.clusterMode == DefaultClusterMode {
+		subsetClusterName = model.BuildSubsetKey(model.TrafficDirectionOutbound, subset.Name, service.Hostname, opts.port.Port)
+		defaultSni = model.BuildDNSSrvSubsetKey(model.TrafficDirectionOutbound, subset.Name, service.Hostname, opts.port.Port)
+	} else {
+		subsetClusterName = model.BuildDNSSrvSubsetKey(model.TrafficDirectionOutbound, subset.Name, service.Hostname, opts.port.Port)
+	}
+	// clusters with discovery type STATIC, STRICT_DNS rely on cluster.LoadAssignment field.
+	// ServiceEntry's need to filter hosts based on subset.labels in order to perform weighted routing
+	var lbEndpoints []*endpoint.LocalityLbEndpoints
+
+	isPassthrough := subset.GetTrafficPolicy().GetLoadBalancer().GetSimple() == networking.LoadBalancerSettings_PASSTHROUGH
+	clusterType := opts.mutable.cluster.GetType()
+	if isPassthrough {
+		clusterType = cluster.Cluster_ORIGINAL_DST
+	}
+	if !(isPassthrough || clusterType == cluster.Cluster_EDS) {
+		if len(subset.Labels) != 0 {
+			lbEndpoints = cb.buildLocalityLbEndpoints(proxyNetworkView, service, opts.port.Port, []labels.Instance{subset.Labels})
+		} else {
+			lbEndpoints = cb.buildLocalityLbEndpoints(proxyNetworkView, service, opts.port.Port, nil)
+		}
+	}
+
+	subsetCluster := cb.buildDefaultCluster(subsetClusterName, clusterType, lbEndpoints, model.TrafficDirectionOutbound, opts.port, service, nil)
+	if subsetCluster == nil {
+		return nil
+	}
+
+	if len(cb.push.Mesh.OutboundClusterStatName) != 0 {
+		subsetCluster.cluster.AltStatName = util.BuildStatPrefix(cb.push.Mesh.OutboundClusterStatName,
+			string(service.Hostname), subset.Name, opts.port, service.Attributes)
+	}
+
+	// Apply traffic policy for subset cluster with the destination rule traffic policy.
+	opts.mutable = subsetCluster
+	opts.istioMtlsSni = defaultSni
+
+	destinationRule := destRule.Spec.(*networking.DestinationRule)
+	// If subset has a traffic policy, apply it so that it overrides the destination rule traffic policy.
+	opts.policy = MergeTrafficPolicy(destinationRule.TrafficPolicy, subset.TrafficPolicy, opts.port)
+	// Apply traffic policy for the subset cluster.
+	cb.applyTrafficPolicy(opts)
+
+	maybeApplyEdsConfig(subsetCluster.cluster)
+
+	// Add the DestinationRule+subsets metadata. Metadata here is generated on a per-cluster
+	// basis in buildDefaultCluster, so we can just insert without a copy.
+	subsetCluster.cluster.Metadata = util.AddConfigInfoMetadata(subsetCluster.cluster.Metadata, destRule.Meta)
+	util.AddSubsetToMetadata(subsetCluster.cluster.Metadata, subset.Name)
+	return subsetCluster.build()
 }
 
 // applyDestinationRule applies the destination rule if it exists for the Service. It returns the subset clusters if any created as it
@@ -129,61 +198,10 @@ func (cb *ClusterBuilder) applyDestinationRule(mc *MutableCluster, clusterMode C
 	}
 	subsetClusters := make([]*cluster.Cluster, 0)
 	for _, subset := range destinationRule.Subsets {
-		opts.serviceMTLSMode = cb.push.BestEffortInferServiceMTLSMode(subset.GetTrafficPolicy(), service, port)
-		var subsetClusterName string
-		var defaultSni string
-		if clusterMode == DefaultClusterMode {
-			subsetClusterName = model.BuildSubsetKey(model.TrafficDirectionOutbound, subset.Name, service.Hostname, port.Port)
-			defaultSni = model.BuildDNSSrvSubsetKey(model.TrafficDirectionOutbound, subset.Name, service.Hostname, port.Port)
-		} else {
-			subsetClusterName = model.BuildDNSSrvSubsetKey(model.TrafficDirectionOutbound, subset.Name, service.Hostname, port.Port)
+		subsetCluster := cb.buildSubsetCluster(opts, destRule, subset, service, proxyNetworkView)
+		if subsetCluster != nil {
+			subsetClusters = append(subsetClusters, subsetCluster)
 		}
-		// clusters with discovery type STATIC, STRICT_DNS rely on cluster.LoadAssignment field.
-		// ServiceEntry's need to filter hosts based on subset.labels in order to perform weighted routing
-		var lbEndpoints []*endpoint.LocalityLbEndpoints
-
-		isPassthrough := subset.GetTrafficPolicy().GetLoadBalancer().GetSimple() == networking.LoadBalancerSettings_PASSTHROUGH
-
-		if !(isPassthrough || mc.cluster.GetType() == cluster.Cluster_EDS) {
-			if len(subset.Labels) != 0 {
-				lbEndpoints = cb.buildLocalityLbEndpoints(proxyNetworkView, service, port.Port, []labels.Instance{subset.Labels})
-			} else {
-				lbEndpoints = cb.buildLocalityLbEndpoints(proxyNetworkView, service, port.Port, nil)
-			}
-		}
-		clusterType := mc.cluster.GetType()
-
-		if isPassthrough {
-			clusterType = cluster.Cluster_ORIGINAL_DST
-		}
-
-		subsetCluster := cb.buildDefaultCluster(subsetClusterName, clusterType, lbEndpoints, model.TrafficDirectionOutbound, port, service, nil)
-
-		if subsetCluster == nil {
-			continue
-		}
-		if len(cb.push.Mesh.OutboundClusterStatName) != 0 {
-			subsetCluster.cluster.AltStatName = util.BuildStatPrefix(cb.push.Mesh.OutboundClusterStatName,
-				string(service.Hostname), subset.Name, port, service.Attributes)
-		}
-		cb.setUpstreamProtocol(cb.proxy, subsetCluster, port, model.TrafficDirectionOutbound)
-
-		// Apply traffic policy for subset cluster with the destination rule traffic policy.
-		opts.mutable = subsetCluster
-		opts.istioMtlsSni = defaultSni
-
-		// If subset has a traffic policy, apply it so that it overrides the destination rule traffic policy.
-		opts.policy = MergeTrafficPolicy(destinationRule.TrafficPolicy, subset.TrafficPolicy, opts.port)
-		// Apply traffic policy for the subset cluster.
-		cb.applyTrafficPolicy(opts)
-
-		maybeApplyEdsConfig(subsetCluster.cluster)
-
-		// Add the DestinationRule+subsets metadata. Metadata here is generated on a per-cluster
-		// basis in buildDefaultCluster, so we can just insert without a copy.
-		subsetCluster.cluster.Metadata = util.AddConfigInfoMetadata(subsetCluster.cluster.Metadata, destRule.Meta)
-		util.AddSubsetToMetadata(subsetCluster.cluster.Metadata, subset.Name)
-		subsetClusters = append(subsetClusters, subsetCluster.build())
 	}
 	return subsetClusters
 }
@@ -290,6 +308,7 @@ func (cb *ClusterBuilder) buildDefaultCluster(name string, discoveryType cluster
 		opts.meshExternal = service.MeshExternal
 	}
 	cb.applyTrafficPolicy(opts)
+	cb.setUpstreamProtocol(opts.proxy, ec, port, direction)
 	addTelemetryMetadata(opts, service, direction, allInstances)
 	addNetworkingMetadata(opts, service, direction)
 	return ec
@@ -323,7 +342,6 @@ func (cb *ClusterBuilder) buildInboundClusterForPortOrUDS(clusterPort int, bind 
 		localCluster.cluster.AltStatName = util.BuildStatPrefix(cb.push.Mesh.InboundClusterStatName,
 			string(instance.Service.Hostname), "", instance.ServicePort, instance.Service.Attributes)
 	}
-	cb.setUpstreamProtocol(cb.proxy, localCluster, instance.ServicePort, model.TrafficDirectionInbound)
 
 	// When users specify circuit breakers, they need to be set on the receiver end
 	// (server side) as well as client side, so that the server has enough capacity
@@ -473,7 +491,9 @@ func (cb *ClusterBuilder) buildDefaultPassthroughCluster() *cluster.Cluster {
 		ClusterDiscoveryType: &cluster.Cluster_Type{Type: cluster.Cluster_ORIGINAL_DST},
 		ConnectTimeout:       gogo.DurationToProtoDuration(cb.push.Mesh.ConnectTimeout),
 		LbPolicy:             cluster.Cluster_CLUSTER_PROVIDED,
-		ProtocolSelection:    cluster.Cluster_USE_DOWNSTREAM_PROTOCOL,
+	}
+	cluster.TypedExtensionProtocolOptions = map[string]*any.Any{
+		v3.HttpProtocolOptionsType: passthroughHttpProtocolOptions,
 	}
 	passthroughSettings := &networking.ConnectionPoolSettings{}
 	cb.applyConnectionPool(cb.push.Mesh, NewMutableCluster(cluster), passthroughSettings)
@@ -531,12 +551,11 @@ func (cb *ClusterBuilder) shouldH2Upgrade(clusterName string, direction model.Tr
 		return true
 	}
 
-	// Do not upgrade non-http ports
-	// This also ensures that we are only upgrading named ports so that
-	// EnableProtocolSniffingForInbound does not interfere.
-	// protocol sniffing uses Cluster_USE_DOWNSTREAM_PROTOCOL.
-	// Therefore if the client upgrades connection to http2, the server will send h2 stream to the application,
-	// even though the application only supports http 1.1.
+	// Do not upgrade non-http ports. This also ensures that we are only upgrading
+	// named ports so that protocol sniffing does not interfere. Protocol sniffing
+	// uses downstream protocol. Therefore if the client upgrades connection to http2,
+	// the server will send h2 stream to the application,even though the application only
+	// supports http 1.1.
 	if port != nil && !port.Protocol.IsHTTP() {
 		return false
 	}
@@ -875,6 +894,7 @@ func (cb *ClusterBuilder) setUseDownstreamProtocol(mc *MutableCluster) {
 	options := mc.httpProtocolOptions
 	options.UpstreamProtocolOptions = &http.HttpProtocolOptions_UseDownstreamProtocolConfig{
 		UseDownstreamProtocolConfig: &http.HttpProtocolOptions_UseDownstreamHttpConfig{
+			HttpProtocolOptions:  &core.Http1ProtocolOptions{},
 			Http2ProtocolOptions: http2ProtocolOptions(),
 		},
 	}
@@ -892,11 +912,15 @@ func http2ProtocolOptions() *core.Http2ProtocolOptions {
 // nolint
 func (cb *ClusterBuilder) IsHttp2Cluster(mc *MutableCluster) bool {
 	options := mc.httpProtocolOptions
-	return options != nil && (options.GetExplicitHttpConfig().GetHttp2ProtocolOptions() != nil ||
-		options.GetUseDownstreamProtocolConfig().Http2ProtocolOptions != nil)
+	return options != nil && options.GetExplicitHttpConfig().GetHttp2ProtocolOptions() != nil
 }
 
 func (cb *ClusterBuilder) setUpstreamProtocol(node *model.Proxy, mc *MutableCluster, port *model.Port, direction model.TrafficDirection) {
+	if port.Protocol.IsHTTP2() {
+		cb.setH2Options(mc)
+		return
+	}
+
 	// Add use_downstream_protocol for sidecar proxy only if protocol sniffing is enabled.
 	// Since protocol detection is disabled for gateway and use_downstream_protocol is used
 	// under protocol detection for cluster to select upstream connection protocol when
@@ -907,8 +931,6 @@ func (cb *ClusterBuilder) setUpstreamProtocol(node *model.Proxy, mc *MutableClus
 		// upstream cluster will use HTTP 1.1, if incoming traffic use HTTP2,
 		// the upstream cluster will use HTTP2.
 		cb.setUseDownstreamProtocol(mc)
-	} else if port.Protocol.IsHTTP2() {
-		cb.setH2Options(mc)
 	}
 }
 
@@ -969,7 +991,8 @@ func maybeApplyEdsConfig(c *cluster.Cluster) {
 			ConfigSourceSpecifier: &core.ConfigSource_Ads{
 				Ads: &core.AggregatedConfigSource{},
 			},
-			ResourceApiVersion: core.ApiVersion_V3,
+			InitialFetchTimeout: durationpb.New(0),
+			ResourceApiVersion:  core.ApiVersion_V3,
 		},
 	}
 }

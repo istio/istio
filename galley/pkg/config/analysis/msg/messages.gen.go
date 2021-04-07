@@ -142,7 +142,7 @@ var (
 	AlphaAnnotation = diag.NewMessageType(diag.Info, "IST0136", "Annotation %q is part of an alpha-phase feature and may be incompletely supported.")
 
 	// DeploymentConflictingPorts defines a diag.MessageType for message "DeploymentConflictingPorts".
-	// Description: Two services selecting the same workload with same target port are MUST refer to the same port.
+	// Description: Two services selecting the same workload with the same targetPort MUST refer to the same port.
 	DeploymentConflictingPorts = diag.NewMessageType(diag.Warning, "IST0137", "This deployment %s is associated with multiple services %v using targetPort %q but different ports: %v.")
 
 	// GatewayDuplicateCertificate defines a diag.MessageType for message "GatewayDuplicateCertificate".
@@ -156,6 +156,18 @@ var (
 	// IngressRouteRulesNotAffected defines a diag.MessageType for message "IngressRouteRulesNotAffected".
 	// Description: Route rules have no effect on ingress gateway requests
 	IngressRouteRulesNotAffected = diag.NewMessageType(diag.Warning, "IST0140", "Subset in virtual service %s has no effect on ingress gateway %s requests")
+
+	// InsufficientPermissions defines a diag.MessageType for message "InsufficientPermissions".
+	// Description: Required permissions to install Istio are missing.
+	InsufficientPermissions = diag.NewMessageType(diag.Error, "IST0141", "Missing required permission to create resource %v (%v)")
+
+	// UnsupportedKubernetesVersion defines a diag.MessageType for message "UnsupportedKubernetesVersion".
+	// Description: The Kubernetes version is not supported
+	UnsupportedKubernetesVersion = diag.NewMessageType(diag.Error, "IST0142", "The Kubernetes Version %q is lower than the minimum version: %v")
+
+	// LocalhostListener defines a diag.MessageType for message "LocalhostListener".
+	// Description: A port exposed in by a Service is bound to a localhost address
+	LocalhostListener = diag.NewMessageType(diag.Warning, "IST0143", "Port %v listeners on localhost and will not be exposed to other pods")
 )
 
 // All returns a list of all known message types.
@@ -198,6 +210,9 @@ func All() []*diag.MessageType {
 		GatewayDuplicateCertificate,
 		InvalidWebhook,
 		IngressRouteRulesNotAffected,
+		InsufficientPermissions,
+		UnsupportedKubernetesVersion,
+		LocalhostListener,
 	}
 }
 
@@ -570,5 +585,34 @@ func NewIngressRouteRulesNotAffected(r *resource.Instance, virtualservicesubset 
 		r,
 		virtualservicesubset,
 		virtualservice,
+	)
+}
+
+// NewInsufficientPermissions returns a new diag.Message based on InsufficientPermissions.
+func NewInsufficientPermissions(r *resource.Instance, resource string, error string) diag.Message {
+	return diag.NewMessage(
+		InsufficientPermissions,
+		r,
+		resource,
+		error,
+	)
+}
+
+// NewUnsupportedKubernetesVersion returns a new diag.Message based on UnsupportedKubernetesVersion.
+func NewUnsupportedKubernetesVersion(r *resource.Instance, version string, minimumVersion string) diag.Message {
+	return diag.NewMessage(
+		UnsupportedKubernetesVersion,
+		r,
+		version,
+		minimumVersion,
+	)
+}
+
+// NewLocalhostListener returns a new diag.Message based on LocalhostListener.
+func NewLocalhostListener(r *resource.Instance, port string) diag.Message {
+	return diag.NewMessage(
+		LocalhostListener,
+		r,
+		port,
 	)
 }

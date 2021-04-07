@@ -28,7 +28,6 @@ import (
 	cluster "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	"github.com/golang/protobuf/jsonpb"
-	"github.com/golang/protobuf/ptypes"
 	"github.com/golang/protobuf/ptypes/any"
 	"k8s.io/client-go/kubernetes/fake"
 
@@ -159,7 +158,7 @@ func TestValidateTelemetry(t *testing.T) {
 	}
 	for _, r := range c {
 		cls := &cluster.Cluster{}
-		if err := ptypes.UnmarshalAny(r, cls); err != nil {
+		if err := r.UnmarshalTo(cls); err != nil {
 			t.Fatal(err)
 		}
 		for _, ff := range cls.Filters {
@@ -328,7 +327,7 @@ func setupTest(t testing.TB, config ConfigInput) (*FakeDiscoveryServer, *model.P
 			Labels: map[string]string{
 				"istio.io/benchmark": "true",
 			},
-			IstioVersion: "1.10.0",
+			IstioVersion: "1.11.0",
 		},
 		ConfigNamespace: "default",
 	}

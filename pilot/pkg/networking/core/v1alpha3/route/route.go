@@ -27,10 +27,10 @@ import (
 	matcher "github.com/envoyproxy/go-control-plane/envoy/type/matcher/v3"
 	xdstype "github.com/envoyproxy/go-control-plane/envoy/type/v3"
 	wellknown "github.com/envoyproxy/go-control-plane/pkg/wellknown"
-	"github.com/golang/protobuf/ptypes"
 	"github.com/golang/protobuf/ptypes/any"
 	"github.com/golang/protobuf/ptypes/duration"
 	"github.com/golang/protobuf/ptypes/wrappers"
+	"google.golang.org/protobuf/types/known/durationpb"
 
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/features"
@@ -409,10 +409,14 @@ func translateRoute(push *model.PushContext, node *model.Proxy, in *networking.H
 		}
 		out.Action = &route.Route_Route{Route: action}
 
-		if rewrite := in.Rewrite; rewrite != nil {
-			action.PrefixRewrite = rewrite.Uri
+		action.PrefixRewrite = in.Rewrite.GetUri()
+		authority := operations.authority
+		if in.Rewrite.GetAuthority() != "" {
+			authority = in.Rewrite.GetAuthority()
+		}
+		if authority != "" {
 			action.HostRewriteSpecifier = &route.RouteAction_HostRewriteLiteral{
-				HostRewriteLiteral: rewrite.Authority,
+				HostRewriteLiteral: authority,
 			}
 		}
 
@@ -543,12 +547,20 @@ func (b SortHeaderValueOption) Swap(i, j int) {
 }
 
 // translateAppendHeaders translates headers
-func translateAppendHeaders(headers map[string]string, appendFlag bool) []*core.HeaderValueOption {
+func translateAppendHeaders(headers map[string]string, appendFlag bool) ([]*core.HeaderValueOption, string) {
 	if len(headers) == 0 {
-		return nil
+		return nil, ""
 	}
+	authority := ""
 	headerValueOptionList := make([]*core.HeaderValueOption, 0, len(headers))
 	for key, value := range headers {
+		if isAuthorityHeader(key) {
+			// If there are multiple, last one wins; validation will reject
+			authority = value
+		}
+		if isInternalHeader(key) {
+			continue
+		}
 		headerValueOptionList = append(headerValueOptionList, &core.HeaderValueOption{
 			Header: &core.HeaderValue{
 				Key:   key,
@@ -558,7 +570,7 @@ func translateAppendHeaders(headers map[string]string, appendFlag bool) []*core.
 		})
 	}
 	sort.Stable(SortHeaderValueOption(headerValueOptionList))
-	return headerValueOptionList
+	return headerValueOptionList, authority
 }
 
 type headersOperations struct {
@@ -566,6 +578,28 @@ type headersOperations struct {
 	responseHeadersToAdd    []*core.HeaderValueOption
 	requestHeadersToRemove  []string
 	responseHeadersToRemove []string
+	authority               string
+}
+
+// isInternalHeader returns true if a header refers to an internal value that cannot be modified by Envoy
+func isInternalHeader(headerKey string) bool {
+	return strings.HasPrefix(headerKey, ":") || strings.EqualFold(headerKey, "host")
+}
+
+// isAuthorityHeader returns true if a header refers to the authority header
+func isAuthorityHeader(headerKey string) bool {
+	return strings.EqualFold(headerKey, ":authority") || strings.EqualFold(headerKey, "host")
+}
+
+func dropInternal(keys []string) []string {
+	result := make([]string, 0, len(keys))
+	for _, k := range keys {
+		if isInternalHeader(k) {
+			continue
+		}
+		result = append(result, k)
+	}
+	return result
 }
 
 // translateHeadersOperations translates headers operations
@@ -573,17 +607,25 @@ func translateHeadersOperations(headers *networking.Headers) headersOperations {
 	req := headers.GetRequest()
 	resp := headers.GetResponse()
 
-	requestHeadersToAdd := translateAppendHeaders(req.GetSet(), false)
-	requestHeadersToAdd = append(requestHeadersToAdd, translateAppendHeaders(req.GetAdd(), true)...)
+	requestHeadersToAdd, setAuthority := translateAppendHeaders(req.GetSet(), false)
+	reqAdd, addAuthority := translateAppendHeaders(req.GetAdd(), true)
+	requestHeadersToAdd = append(requestHeadersToAdd, reqAdd...)
 
-	responseHeadersToAdd := translateAppendHeaders(resp.GetSet(), false)
-	responseHeadersToAdd = append(responseHeadersToAdd, translateAppendHeaders(resp.GetAdd(), true)...)
+	responseHeadersToAdd, _ := translateAppendHeaders(resp.GetSet(), false)
+	respAdd, _ := translateAppendHeaders(resp.GetAdd(), true)
+	responseHeadersToAdd = append(responseHeadersToAdd, respAdd...)
 
+	auth := addAuthority
+	if setAuthority != "" {
+		// If authority is set in 'add' and 'set', pick the one from 'set'
+		auth = setAuthority
+	}
 	return headersOperations{
 		requestHeadersToAdd:     requestHeadersToAdd,
 		responseHeadersToAdd:    responseHeadersToAdd,
-		requestHeadersToRemove:  append([]string{}, req.GetRemove()...), // copy slice
-		responseHeadersToRemove: append([]string{}, resp.GetRemove()...),
+		requestHeadersToRemove:  dropInternal(req.GetRemove()),
+		responseHeadersToRemove: dropInternal(resp.GetRemove()),
+		authority:               auth,
 	}
 }
 
@@ -822,7 +864,7 @@ func getRouteOperation(in *route.Route, vsName string, port int) string {
 
 // BuildDefaultHTTPInboundRoute builds a default inbound route.
 func BuildDefaultHTTPInboundRoute(node *model.Proxy, clusterName string, operation string) *route.Route {
-	notimeout := ptypes.DurationProto(0)
+	notimeout := durationpb.New(0)
 	routeAction := &route.RouteAction{
 		ClusterSpecifier: &route.RouteAction_Cluster{Cluster: clusterName},
 		Timeout:          notimeout,

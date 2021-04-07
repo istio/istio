@@ -541,7 +541,7 @@ spec:
 
 			// srcFilter finds the naked app as client.
 			// TODO(slandow) replace this with built-in framework filters (blocked by https://github.com/istio/istio/pull/31565)
-			srcFilter := []echotest.SimpleFilter{func(instances echo.Instances) echo.Instances {
+			srcFilter := []echotest.Filter{func(instances echo.Instances) echo.Instances {
 				src := apps.Naked.Match(echo.Namespace(ns.Name()))
 				src = append(src, apps.B.Match(echo.Namespace(ns.Name()))...)
 				src = append(src, apps.VM.Match(echo.Namespace(ns.Name()))...)

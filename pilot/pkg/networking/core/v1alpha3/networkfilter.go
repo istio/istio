@@ -23,7 +23,7 @@ import (
 	redis "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/redis_proxy/v3"
 	tcp "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/tcp_proxy/v3"
 	"github.com/envoyproxy/go-control-plane/pkg/wellknown"
-	"github.com/golang/protobuf/ptypes"
+	"google.golang.org/protobuf/types/known/durationpb"
 
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/features"
@@ -77,7 +77,7 @@ func buildOutboundNetworkFiltersWithSingleDestination(push *model.PushContext, n
 
 	idleTimeout, err := time.ParseDuration(node.Metadata.IdleTimeout)
 	if err == nil {
-		tcpProxy.IdleTimeout = ptypes.DurationProto(idleTimeout)
+		tcpProxy.IdleTimeout = durationpb.New(idleTimeout)
 	}
 
 	tcpFilter := setAccessLogAndBuildTCPFilter(push, tcpProxy, node)
@@ -101,7 +101,7 @@ func buildOutboundNetworkFiltersWithWeightedClusters(node *model.Proxy, routes [
 
 	idleTimeout, err := time.ParseDuration(node.Metadata.IdleTimeout)
 	if err == nil {
-		proxyConfig.IdleTimeout = ptypes.DurationProto(idleTimeout)
+		proxyConfig.IdleTimeout = durationpb.New(idleTimeout)
 	}
 
 	for _, route := range routes {
@@ -208,7 +208,7 @@ func buildRedisFilter(statPrefix, clusterName string) *listener.Filter {
 		LatencyInMicros: true,       // redis latency stats are captured in micro seconds which is typically the case.
 		StatPrefix:      statPrefix, // redis stats are prefixed with redis.<statPrefix> by Envoy
 		Settings: &redis.RedisProxy_ConnPoolSettings{
-			OpTimeout: ptypes.DurationProto(redisOpTimeout), // TODO: Make this user configurable
+			OpTimeout: durationpb.New(redisOpTimeout), // TODO: Make this user configurable
 		},
 		PrefixRoutes: &redis.RedisProxy_PrefixRoutes{
 			CatchAllRoute: &redis.RedisProxy_PrefixRoutes_Route{

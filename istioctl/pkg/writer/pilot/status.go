@@ -24,7 +24,6 @@ import (
 
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	xdsstatus "github.com/envoyproxy/go-control-plane/envoy/service/status/v3"
-	"github.com/golang/protobuf/ptypes"
 
 	"istio.io/istio/istioctl/pkg/multixds"
 	"istio.io/istio/pilot/pkg/xds"
@@ -165,7 +164,7 @@ func (s *XdsStatusWriter) setupStatusPrint(drs map[string]*xdsapi.DiscoveryRespo
 			switch resource.TypeUrl {
 			case "type.googleapis.com/envoy.service.status.v3.ClientConfig":
 				clientConfig := xdsstatus.ClientConfig{}
-				err := ptypes.UnmarshalAny(resource, &clientConfig)
+				err := resource.UnmarshalTo(&clientConfig)
 				if err != nil {
 					return nil, nil, fmt.Errorf("could not unmarshal ClientConfig: %w", err)
 				}

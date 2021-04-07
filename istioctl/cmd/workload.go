@@ -303,13 +303,18 @@ func createClusterEnv(wg *clientv1alpha3.WorkloadGroup, config *meshconfig.Proxy
 		portBehavior = strings.Join(ports, ",")
 	}
 
+	excludePorts := "15090,15021"
+	if config.StatusPort != 15090 && config.StatusPort != 15021 && config.StatusPort != 0 {
+		excludePorts += fmt.Sprintf(",%d", config.StatusPort)
+	}
 	// default attributes and service name, namespace, ports, service account, service CIDR
 	overrides := map[string]string{
-		"ISTIO_INBOUND_PORTS": portBehavior,
-		"ISTIO_NAMESPACE":     wg.Namespace,
-		"ISTIO_SERVICE":       fmt.Sprintf("%s.%s", wg.Name, wg.Namespace),
-		"ISTIO_SERVICE_CIDR":  "*",
-		"SERVICE_ACCOUNT":     we.ServiceAccount,
+		"ISTIO_INBOUND_PORTS":       portBehavior,
+		"ISTIO_NAMESPACE":           wg.Namespace,
+		"ISTIO_SERVICE":             fmt.Sprintf("%s.%s", wg.Name, wg.Namespace),
+		"ISTIO_SERVICE_CIDR":        "*",
+		"ISTIO_LOCAL_EXCLUDE_PORTS": excludePorts,
+		"SERVICE_ACCOUNT":           we.ServiceAccount,
 	}
 
 	// clusterEnv will use proxyMetadata from the proxyConfig + overrides specific to the WorkloadGroup and cmd args
@@ -339,7 +344,7 @@ func createCertsTokens(kubeClient kube.ExtendedClient, wg *clientv1alpha3.Worklo
 
 	serviceAccount := wg.Spec.Template.ServiceAccount
 	tokenPath := filepath.Join(dir, "istio-token")
-	jwtPolicy, err := util.DetectSupportedJWTPolicy(kubeClient.RESTConfig())
+	jwtPolicy, err := util.DetectSupportedJWTPolicy(kubeClient)
 	if err != nil {
 		fmt.Fprintf(out, "Failed to determine JWT policy support: %v", err)
 	}
@@ -521,7 +526,7 @@ func createHosts(kubeClient kube.ExtendedClient, ingressIP, dir string) error {
 	if ingressIP != "" {
 		hosts = fmt.Sprintf("%s %s.%s.svc\n", ingressIP, istiod, istioNamespace)
 	} else {
-		log.Warnf("Could not auto-detect IP for %s.%s. Use --ingressIP to manually specify the Gateway address to reach istiod from the VM.")
+		log.Warnf("Could not auto-detect IP for %s.%s. Use --ingressIP to manually specify the Gateway address to reach istiod from the VM.", istiod, istioNamespace)
 	}
 	return ioutil.WriteFile(filepath.Join(dir, "hosts"), []byte(hosts), filePerms)
 }

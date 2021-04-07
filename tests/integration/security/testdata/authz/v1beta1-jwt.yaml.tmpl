@@ -1,6 +1,6 @@
 # Enforce access control based on JWT subject.
 
-# The following policy enables JWT authentication on service b.
+# The following policy enables JWT authentication on destination service.
 
 apiVersion: security.istio.io/v1beta1
 kind: RequestAuthentication
@@ -15,21 +15,24 @@ spec:
     jwksUri: "https://raw.githubusercontent.com/istio/istio/master/tests/common/jwt/jwks.json"
 ---
 
-# The following policy enables authorization on workload b:
+# The following policy enables authorization on workload:
 # - Allow request principal test-issuer-1@istio.io/sub-1 to access path /token1
 # - Allow request in group-2 to access path /token2
 # - Allow request with any token to access path /tokenAny
 # - Allow request with permission claim of "write" to access path /permission
+# - Allow request with valid JWT token to access path /jwt1
+# - Allow request with valid JWT token of presenter foo to access path with suffix "/presenter"
+# - Allow request with valid JWT token of audiences bar to access path with suffix "/audiences"
 
 apiVersion: security.istio.io/v1beta1
 kind: AuthorizationPolicy
 metadata:
-  name: policy-b
+  name: policy-{{ .dst }}
   namespace: "{{ .Namespace }}"
 spec:
   selector:
     matchLabels:
-      "app": "b"
+      "app": "{{ .dst }}"
   rules:
   - to:
     - operation:
@@ -87,39 +90,6 @@ spec:
     when:
     - key: request.auth.claims[nested][nested-2][key1]
       values: ["valueA"]
----
-
-# The following policy enables JWT authentication on workload d.
-
-apiVersion: security.istio.io/v1beta1
-kind: RequestAuthentication
-metadata:
-  name: request-authn-for-d
-  namespace: {{ .Namespace }}
-spec:
-  selector:
-    matchLabels:
-      app: d
-  jwtRules:
-  - issuer: "test-issuer-1@istio.io"
-    jwksUri: "https://raw.githubusercontent.com/istio/istio/master/tests/common/jwt/jwks.json"
----
-
-# The following policy enables authorization on workload d:
-# - Allow request with valid JWT token to access path /jwt1
-# - Allow request with valid JWT token of presenter foo to access path with suffix "/presenter"
-# - Allow request with valid JWT token of audiences bar to access path with suffix "/audiences"
-
-apiVersion: security.istio.io/v1beta1
-kind: AuthorizationPolicy
-metadata:
-  name: policy-d
-  namespace: "{{ .Namespace }}"
-spec:
-  selector:
-    matchLabels:
-      "app": "d"
-  rules:
   - to:
     - operation:
         paths: ["/valid-jwt"]

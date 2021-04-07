@@ -1,0 +1,47 @@
+name: envoy.filters.http.rbac
+typedConfig:
+  '@type': type.googleapis.com/envoy.extensions.filters.http.rbac.v3.RBAC
+  rules:
+    policies:
+      ns[foo]-policy[httpbin-1]-rule[0]:
+        permissions:
+        - andRules:
+            rules:
+            - orRules:
+                rules:
+                - urlPath:
+                    path:
+                      exact: /exact
+                - urlPath:
+                    path:
+                      prefix: /prefix/
+                - urlPath:
+                    path:
+                      suffix: /suffix
+                - urlPath:
+                    path:
+                      safeRegex:
+                        googleRe2: {}
+                        regex: .+
+            - notRule:
+                orRules:
+                  rules:
+                  - urlPath:
+                      path:
+                        exact: /not-exact
+                  - urlPath:
+                      path:
+                        prefix: /not-prefix/
+                  - urlPath:
+                      path:
+                        suffix: /not-suffix
+                  - urlPath:
+                      path:
+                        safeRegex:
+                          googleRe2: {}
+                          regex: .+
+        principals:
+        - andIds:
+            ids:
+            - any: true
+  shadowRulesStatPrefix: istio_dry_run_allow_

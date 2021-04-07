@@ -22,7 +22,6 @@ import (
 
 	envoy_corev3 "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
-	"github.com/golang/protobuf/ptypes"
 	structpb "github.com/golang/protobuf/ptypes/struct"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
@@ -152,9 +151,6 @@ istioctl x version --xds-label istio.io/rev=default
 func xdsRemoteVersionWrapper(opts *clioptions.ControlPlaneOptions, centralOpts *clioptions.CentralControlPlaneOptions, outXDS **xdsapi.DiscoveryResponse) func() (*istioVersion.MeshInfo, error) {
 	return func() (*istioVersion.MeshInfo, error) {
 		xdsRequest := xdsapi.DiscoveryRequest{
-			Node: &envoy_corev3.Node{
-				Id: "sidecar~0.0.0.0~debug~cluster.local",
-			},
 			TypeUrl: "istio.io/connections",
 		}
 		kubeClient, err := kubeClientWithRevision(kubeconfig, configContext, opts.Revision)
@@ -197,7 +193,7 @@ func xdsProxyVersionWrapper(xdsResponse **xdsapi.DiscoveryResponse) func() (*[]i
 			switch resource.TypeUrl {
 			case "type.googleapis.com/envoy.config.core.v3.Node":
 				node := envoy_corev3.Node{}
-				err := ptypes.UnmarshalAny(resource, &node)
+				err := resource.UnmarshalTo(&node)
 				if err != nil {
 					return nil, fmt.Errorf("could not unmarshal Node: %w", err)
 				}

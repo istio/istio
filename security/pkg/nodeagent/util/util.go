@@ -75,12 +75,12 @@ func OutputKeyCertToDir(dir string, privateKey, certChain, rootCert []byte) erro
 		return nil
 	}
 
-	certFileMode := os.FileMode(0600)
+	certFileMode := os.FileMode(0o600)
 	if k8sInCluster.Get() != "" {
 		// If this is running on k8s, give more permission to the file certs.
 		// This is typically used to share the certs with non-proxy containers in the pod which does not run as root or 1337.
 		// For example, prometheus server could use proxy provisioned certs to scrape application metrics through mTLS.
-		certFileMode = os.FileMode(0644)
+		certFileMode = os.FileMode(0o644)
 	}
 	// Depending on the SDS resource to output, some fields may be nil
 	if privateKey == nil && certChain == nil && rootCert == nil {

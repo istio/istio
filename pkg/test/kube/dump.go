@@ -266,7 +266,7 @@ func DumpPodProxies(_ resource.Context, c cluster.Cluster, workDir, namespace st
 				continue
 			}
 
-			if cfgDump, _, err := c.PodExec(pod.Name, pod.Namespace, container.Name, "pilot-agent request GET config_dump"); err == nil {
+			if cfgDump, _, err := c.PodExec(pod.Name, pod.Namespace, container.Name, "pilot-agent request GET config_dump?include_eds=true"); err == nil {
 				fname := outputPath(workDir, c, pod, "proxy-config.json")
 				if err = ioutil.WriteFile(fname, []byte(cfgDump), os.ModePerm); err != nil {
 					scopes.Framework.Errorf("Unable to write config dump for pod/container: %s/%s/%s", pod.Namespace, pod.Name, container.Name)

@@ -19,7 +19,7 @@ import (
 
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	tls "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
-	"github.com/golang/protobuf/ptypes"
+	"google.golang.org/protobuf/types/known/durationpb"
 
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/model"
@@ -71,6 +71,9 @@ var SDSAdsConfig = &core.ConfigSource{
 	ConfigSourceSpecifier: &core.ConfigSource_Ads{
 		Ads: &core.AggregatedConfigSource{},
 	},
+	// We intentionally do *not* set InitialFetchTimeout to 0s here, as this is used for
+	// credentialName SDS which may refer to secrets which do not exist. We do not want to block the
+	// entire listener/cluster in these cases.
 	ResourceApiVersion: core.ApiVersion_V3,
 }
 
@@ -110,7 +113,7 @@ var (
 				},
 			},
 			ResourceApiVersion:  core.ApiVersion_V3,
-			InitialFetchTimeout: ptypes.DurationProto(time.Second * 0),
+			InitialFetchTimeout: durationpb.New(time.Second * 0),
 		},
 	}
 	legacyRootSDSConfig = &tls.SdsSecretConfig{
@@ -130,7 +133,7 @@ var (
 				},
 			},
 			ResourceApiVersion:  core.ApiVersion_V3,
-			InitialFetchTimeout: ptypes.DurationProto(time.Second * 0),
+			InitialFetchTimeout: durationpb.New(time.Second * 0),
 		},
 	}
 	defaultSDSConfig = &tls.SdsSecretConfig{
@@ -151,7 +154,7 @@ var (
 				},
 			},
 			ResourceApiVersion:  core.ApiVersion_V3,
-			InitialFetchTimeout: ptypes.DurationProto(time.Second * 0),
+			InitialFetchTimeout: durationpb.New(time.Second * 0),
 		},
 	}
 	rootSDSConfig = &tls.SdsSecretConfig{
@@ -172,7 +175,7 @@ var (
 				},
 			},
 			ResourceApiVersion:  core.ApiVersion_V3,
-			InitialFetchTimeout: ptypes.DurationProto(time.Second * 0),
+			InitialFetchTimeout: durationpb.New(time.Second * 0),
 		},
 	}
 )

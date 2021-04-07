@@ -31,10 +31,10 @@ import (
 	"github.com/gogo/protobuf/types"
 	"github.com/golang/protobuf/jsonpb"
 	"github.com/golang/protobuf/proto"
-	"github.com/golang/protobuf/ptypes"
 	"github.com/golang/protobuf/ptypes/wrappers"
 	"github.com/google/go-cmp/cmp"
 	"google.golang.org/protobuf/testing/protocmp"
+	"google.golang.org/protobuf/types/known/anypb"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
@@ -1085,12 +1085,12 @@ func TestApplyListenerPatches(t *testing.T) {
 	faultFilterIn := &fault.HTTPFault{
 		UpstreamCluster: "foobar",
 	}
-	faultFilterInAny, _ := ptypes.MarshalAny(faultFilterIn)
+	faultFilterInAny, _ := anypb.New(faultFilterIn)
 	faultFilterOut := &fault.HTTPFault{
 		UpstreamCluster: "scooby",
 		DownstreamNodes: []string{"foo"},
 	}
-	faultFilterOutAny, _ := ptypes.MarshalAny(faultFilterOut)
+	faultFilterOutAny, _ := anypb.New(faultFilterOut)
 
 	gatewayIn := []*listener.Listener{
 		{

@@ -36,7 +36,6 @@ import (
 	"github.com/ghodss/yaml"
 	"github.com/gogo/protobuf/proto"
 	"github.com/golang/protobuf/jsonpb"
-	"github.com/golang/protobuf/ptypes"
 	"github.com/google/go-cmp/cmp"
 	"google.golang.org/protobuf/testing/protocmp"
 
@@ -178,7 +177,7 @@ func TestGolden(t *testing.T) {
 				// nolint: staticcheck
 				cfg := got.Tracing.Http.GetTypedConfig()
 				sdMsg := &trace.OpenCensusConfig{}
-				if err := ptypes.UnmarshalAny(cfg, sdMsg); err != nil {
+				if err := cfg.UnmarshalTo(sdMsg); err != nil {
 					t.Fatalf("unable to parse: %v %v", cfg, err)
 				}
 
@@ -204,13 +203,7 @@ func TestGolden(t *testing.T) {
 								StatPrefix: "oc_stackdriver_tracer",
 								ChannelCredentials: &core.GrpcService_GoogleGrpc_ChannelCredentials{
 									CredentialSpecifier: &core.GrpcService_GoogleGrpc_ChannelCredentials_SslCredentials{
-										SslCredentials: &core.GrpcService_GoogleGrpc_SslCredentials{
-											RootCerts: &core.DataSource{
-												Specifier: &core.DataSource_Filename{
-													Filename: "/etc/ssl/certs/ca-certificates.crt",
-												},
-											},
-										},
+										SslCredentials: &core.GrpcService_GoogleGrpc_SslCredentials{},
 									},
 								},
 								CallCredentials: []*core.GrpcService_GoogleGrpc_CallCredentials{
@@ -361,7 +354,7 @@ func TestGolden(t *testing.T) {
 
 			// apply minor modifications for the generated file so that tests are consistent
 			// across different env setups
-			err = ioutil.WriteFile(fn, correctForEnvDifference(read, !c.checkLocality), 0700)
+			err = ioutil.WriteFile(fn, correctForEnvDifference(read, !c.checkLocality), 0o700)
 			if err != nil {
 				t.Error("Error modifying generated file ", err)
 				return

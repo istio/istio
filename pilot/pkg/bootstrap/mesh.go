@@ -18,6 +18,7 @@ import (
 	"encoding/json"
 	"os"
 
+	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/config/mesh/kubemesh"
 	"istio.io/istio/pkg/util/gogoprotomarshal"
@@ -79,7 +80,7 @@ func (s *Server) initMeshConfiguration(args *PilotArgs, fileWatcher filewatcher.
 	// This may be necessary for external Istiod.
 	configMapName := getMeshConfigMapName(args.Revision)
 	s.environment.Watcher = kubemesh.NewConfigMapWatcher(
-		s.kubeClient, args.Namespace, configMapName, configMapKey)
+		s.kubeClient, args.Namespace, configMapName, configMapKey, features.SharedMeshConfig)
 }
 
 // initMeshNetworks loads the mesh networks configuration from the file provided

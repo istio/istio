@@ -109,7 +109,7 @@ func getEffectiveTemplatePath(pc *model.NodeMetaProxyConfig) string {
 
 func (i *instance) CreateFileForEpoch(epoch int) (string, error) {
 	// Create the output file.
-	if err := os.MkdirAll(i.Metadata.ProxyConfig.ConfigPath, 0700); err != nil {
+	if err := os.MkdirAll(i.Metadata.ProxyConfig.ConfigPath, 0o700); err != nil {
 		return "", err
 	}
 

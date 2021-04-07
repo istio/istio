@@ -5946,6 +5946,7 @@ spec:
                       type: object
                     disableSpanReporting:
                       description: Controls span reporting.
+                      nullable: true
                       type: boolean
                     providers:
                       description: Optional.
@@ -5958,7 +5959,7 @@ spec:
                         type: object
                       type: array
                     randomSamplingPercentage:
-                      format: double
+                      nullable: true
                       type: number
                   type: object
                 type: array
@@ -6068,7 +6069,7 @@ rules:
   # istio configuration
   # removing CRD permissions can break older versions of Istio running alongside this control plane (https://github.com/istio/istio/issues/29382)
   # please proceed with caution
-  - apiGroups: ["config.istio.io", "security.istio.io", "networking.istio.io", "authentication.istio.io", "rbac.istio.io"]
+  - apiGroups: ["config.istio.io", "security.istio.io", "networking.istio.io", "authentication.istio.io", "rbac.istio.io", "telemetry.istio.io"]
     verbs: ["get", "watch", "list"]
     resources: ["*"]
   - apiGroups: ["networking.istio.io"]

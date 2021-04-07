@@ -32,6 +32,7 @@ import (
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	gogotypes "github.com/gogo/protobuf/types"
 	"github.com/golang/protobuf/ptypes"
+	"github.com/golang/protobuf/ptypes/any"
 	"go.uber.org/atomic"
 	google_rpc "google.golang.org/genproto/googleapis/rpc/status"
 	"google.golang.org/grpc"
@@ -65,7 +66,10 @@ const (
 	sendTimeout                        = 5 * time.Second // default upstream send timeout.
 )
 
-type ResponseHandler func(resp *discovery.DiscoveryResponse) error
+// ResponseHandler handles a XDS response in the agent. These will not be forwarded to Envoy.
+// Currently, all handlers function on a single resource per type, so the API only exposes one
+// resource.
+type ResponseHandler func(resp *any.Any) error
 
 // XDS Proxy proxies all XDS requests from envoy to istiod, in addition to allowing
 // subsystems inside the agent to also communicate with either istiod/envoy (eg dns, sds, etc).
@@ -134,12 +138,10 @@ func initXdsProxy(ia *Agent) (*XdsProxy, error) {
 	}
 
 	if ia.localDNSServer != nil {
-		proxy.handlers[v3.NameTableType] = func(resp *discovery.DiscoveryResponse) error {
-			if len(resp.Resources) == 0 {
-				return nil
-			}
+		proxy.handlers[v3.NameTableType] = func(resp *any.Any) error {
 			var nt nds.NameTable
-			if err := ptypes.UnmarshalAny(resp.Resources[0], &nt); err != nil {
+			// nolint: staticcheck
+			if err := ptypes.UnmarshalAny(resp, &nt); err != nil {
 				log.Errorf("failed to unmarshall name table: %v", err)
 				return err
 			}
@@ -147,13 +149,10 @@ func initXdsProxy(ia *Agent) (*XdsProxy, error) {
 			return nil
 		}
 	}
-	if ia.secretCache != nil {
-		proxy.handlers[v3.ProxyConfigType] = func(resp *discovery.DiscoveryResponse) error {
-			if len(resp.Resources) == 0 {
-				return fmt.Errorf("empty response")
-			}
+	if ia.cfg.EnableDynamicProxyConfig && ia.secretCache != nil {
+		proxy.handlers[v3.ProxyConfigType] = func(resp *any.Any) error {
 			var pc meshconfig.ProxyConfig
-			if err := gogotypes.UnmarshalAny(gogo.ConvertAny(resp.Resources[0]), &pc); err != nil {
+			if err := gogotypes.UnmarshalAny(gogo.ConvertAny(resp), &pc); err != nil {
 				log.Errorf("failed to unmarshall proxy config: %v", err)
 				return err
 			}
@@ -183,39 +182,36 @@ func initXdsProxy(ia *Agent) (*XdsProxy, error) {
 		}
 	}()
 
-	if features.DeltaXds.Get() {
-		go proxy.healthChecker.PerformApplicationHealthCheck(func(healthEvent *health.ProbeEvent) {
-			var req *discovery.DeltaDiscoveryRequest
-			if healthEvent.Healthy {
-				req = &discovery.DeltaDiscoveryRequest{TypeUrl: v3.HealthInfoType}
-			} else {
-				req = &discovery.DeltaDiscoveryRequest{
-					TypeUrl: v3.HealthInfoType,
-					ErrorDetail: &google_rpc.Status{
-						Code:    int32(codes.Internal),
-						Message: healthEvent.UnhealthyMessage,
-					},
-				}
+	go proxy.healthChecker.PerformApplicationHealthCheck(func(healthEvent *health.ProbeEvent) {
+		// Store the same response as Delta and SotW. Depending on how Envoy connects we will use one or the other.
+		var req *discovery.DiscoveryRequest
+		if healthEvent.Healthy {
+			req = &discovery.DiscoveryRequest{TypeUrl: v3.HealthInfoType}
+		} else {
+			req = &discovery.DiscoveryRequest{
+				TypeUrl: v3.HealthInfoType,
+				ErrorDetail: &google_rpc.Status{
+					Code:    int32(codes.Internal),
+					Message: healthEvent.UnhealthyMessage,
+				},
 			}
-			proxy.PersistDeltaRequest(req)
-		}, proxy.stopChan)
-	} else {
-		go proxy.healthChecker.PerformApplicationHealthCheck(func(healthEvent *health.ProbeEvent) {
-			var req *discovery.DiscoveryRequest
-			if healthEvent.Healthy {
-				req = &discovery.DiscoveryRequest{TypeUrl: v3.HealthInfoType}
-			} else {
-				req = &discovery.DiscoveryRequest{
-					TypeUrl: v3.HealthInfoType,
-					ErrorDetail: &google_rpc.Status{
-						Code:    int32(codes.Internal),
-						Message: healthEvent.UnhealthyMessage,
-					},
-				}
+		}
+		proxy.PersistRequest(req)
+		var deltaReq *discovery.DeltaDiscoveryRequest
+		if healthEvent.Healthy {
+			deltaReq = &discovery.DeltaDiscoveryRequest{TypeUrl: v3.HealthInfoType}
+		} else {
+			deltaReq = &discovery.DeltaDiscoveryRequest{
+				TypeUrl: v3.HealthInfoType,
+				ErrorDetail: &google_rpc.Status{
+					Code:    int32(codes.Internal),
+					Message: healthEvent.UnhealthyMessage,
+				},
 			}
-			proxy.PersistRequest(req)
-		}, proxy.stopChan)
-	}
+		}
+		proxy.PersistDeltaRequest(deltaReq)
+	}, proxy.stopChan)
+
 	return proxy, nil
 }
 
@@ -437,7 +433,12 @@ func (p *XdsProxy) handleUpstreamResponse(con *ProxyConnection) {
 			proxyLog.Debugf("response for type url %s", resp.TypeUrl)
 			metrics.XdsProxyResponses.Increment()
 			if h, f := p.handlers[resp.TypeUrl]; f {
-				err := h(resp)
+				if len(resp.Resources) == 0 {
+					// Empty response, nothing to do
+					// This assumes internal types are always singleton
+					return
+				}
+				err := h(resp.Resources[0])
 				var errorResp *google_rpc.Status
 				if err != nil {
 					errorResp = &google_rpc.Status{
