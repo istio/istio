@@ -15,6 +15,7 @@
 package health
 
 import (
+	"istio.io/pkg/env"
 	"strings"
 	"time"
 
@@ -49,6 +50,11 @@ const (
 	lastStateUnhealthy
 )
 
+var (
+	legacyLocalhostProbeDestination = env.RegisterBoolVar("REWRITE_PROBE_LEGACY_LOCALHOST_DESTINATION", false,
+		"If enabled, readiness probes will be sent to 'localhost'. Otherwise, they will be sent to the Pod's IP, matching Kubernetes' behavior.")
+)
+
 func fillInDefaults(cfg *v1alpha3.ReadinessProbe) *v1alpha3.ReadinessProbe {
 	cfg = cfg.DeepCopy()
 	// Thresholds have a minimum of 1
@@ -69,9 +75,11 @@ func fillInDefaults(cfg *v1alpha3.ReadinessProbe) *v1alpha3.ReadinessProbe {
 		}
 		h.HttpGet.Scheme = strings.ToLower(h.HttpGet.Scheme)
 		if h.HttpGet.Host == "" {
-			// Kubernetes uses pod IP. However, the istio rewrite app probe uses localhost, so we
-			// should probably favor consistency with Istio than Kubernetes
-			h.HttpGet.Host = "localhost"
+			if legacyLocalhostProbeDestination.Get() {
+				h.HttpGet.Host = "localhost"
+			} else {
+				h.HttpGet.Host = "127.0.0.6"
+			}
 		}
 	}
 	return cfg

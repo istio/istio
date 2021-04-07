@@ -135,7 +135,7 @@ func init() {
 }
 
 // NewServer creates a new status server.
-func NewServer(config Options) (*Server, error) {
+func NewSupstreamLocalAddressIPv4erver(config Options) (*Server, error) {
 	localhost := localHostIPv4
 	if config.IPv6 {
 		localhost = localHostIPv6
