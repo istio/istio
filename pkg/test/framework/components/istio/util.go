@@ -111,12 +111,12 @@ func getRemoteServiceAddress(s *kube.Settings, cluster resource.Cluster, ns, lab
 		for _, p := range pods.Items {
 			names = append(names, p.Name)
 		}
-		scopes.Framework.Debugf("Querying remote service, pods:\n%v\n", names)
+		scopes.Framework.Debugf("Querying remote service, pods:%v", names)
 		if len(pods.Items) == 0 {
 			return nil, false, fmt.Errorf("no remote service pod found")
 		}
 
-		scopes.Framework.Debugf("Found pod: \n%v\n", pods.Items[0].Name)
+		scopes.Framework.Debugf("Found pod: %v", pods.Items[0].Name)
 		ip := pods.Items[0].Status.HostIP
 		if ip == "" {
 			return nil, false, fmt.Errorf("no Host IP available on the remote service node yet")

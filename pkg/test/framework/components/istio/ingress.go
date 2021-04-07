@@ -93,8 +93,16 @@ type ingressImpl struct {
 // getAddressInner returns the external address for the given port. When we don't have support for LoadBalancer,
 // the returned net.Addr will have the externally reachable NodePort address and port.
 func (c *ingressImpl) getAddressInner(port int) (net.TCPAddr, error) {
+	attempts := 0
 	addr, err := retry.Do(func() (result interface{}, completed bool, err error) {
-		return getRemoteServiceAddress(c.env.Settings(), c.cluster, c.namespace, c.istioLabel, c.serviceName, port)
+		attempts++
+		result, completed, err = getRemoteServiceAddress(c.env.Settings(), c.cluster, c.namespace, c.istioLabel, c.serviceName, port)
+		if err != nil && attempts > 1 {
+			// Log if we fail more than once to avoid test appearing to hang
+			// LB provision be slow, so timeout here needs to be long we should give context
+			scopes.Framework.Warnf("failed to get address for port %v: %v", port, err)
+		}
+		return
 	}, getAddressTimeout, getAddressDelay)
 	if addr != nil {
 		return addr.(net.TCPAddr), err
@@ -102,41 +110,34 @@ func (c *ingressImpl) getAddressInner(port int) (net.TCPAddr, error) {
 	return net.TCPAddr{}, err
 }
 
-// HTTPAddress returns the externally reachable HTTP address (80) of the component.
-func (c *ingressImpl) HTTPAddress() net.TCPAddr {
-	address, err := c.getAddressInner(80)
+// AddressForPort returns the externally reachable address of the component for the given port.
+func (c *ingressImpl) AddressForPort(port int) net.TCPAddr {
+	address, err := c.getAddressInner(port)
 	if err != nil {
+		scopes.Framework.Error(err)
 		return net.TCPAddr{}
 	}
 	return address
+}
+
+// HTTPAddress returns the externally reachable HTTP address (80) of the component.
+func (c *ingressImpl) HTTPAddress() net.TCPAddr {
+	return c.AddressForPort(80)
 }
 
 // TCPAddress returns the externally reachable TCP address (31400) of the component.
 func (c *ingressImpl) TCPAddress() net.TCPAddr {
-	address, err := c.getAddressInner(31400)
-	if err != nil {
-		return net.TCPAddr{}
-	}
-	return address
+	return c.AddressForPort(31400)
 }
 
 // HTTPSAddress returns the externally reachable TCP address (443) of the component.
 func (c *ingressImpl) HTTPSAddress() net.TCPAddr {
-	address, err := c.getAddressInner(443)
-	if err != nil {
-		return net.TCPAddr{}
-	}
-	return address
+	return c.AddressForPort(443)
 }
 
 // DiscoveryAddress returns the externally reachable discovery address (15012) of the component.
 func (c *ingressImpl) DiscoveryAddress() net.TCPAddr {
-	address, err := c.getAddressInner(discoveryPort)
-	if err != nil {
-		scopes.Framework.Errorf(err)
-		return net.TCPAddr{}
-	}
-	return address
+	return c.AddressForPort(discoveryPort)
 }
 
 func (c *ingressImpl) CallEcho(options echo.CallOptions) (client.ParsedResponses, error) {
@@ -171,31 +172,27 @@ func (c *ingressImpl) callEcho(options echo.CallOptions, retry bool, retryOption
 	if options.Port == nil || options.Port.Protocol == "" {
 		return nil, fmt.Errorf("must provide protocol")
 	}
+	var addr net.TCPAddr
 	if options.Port.ServicePort == 0 {
 		// Default port based on protocol
 		switch options.Port.Protocol {
 		case protocol.HTTP:
-			options.Port.ServicePort = c.HTTPAddress().Port
+			addr = c.HTTPAddress()
 		case protocol.HTTPS:
-			options.Port.ServicePort = c.HTTPSAddress().Port
+			addr = c.HTTPSAddress()
 		case protocol.TCP:
-			options.Port.ServicePort = c.TCPAddress().Port
+			addr = c.TCPAddress()
 		default:
 			return nil, fmt.Errorf("protocol %v not supported, provide explicit port", options.Port.Protocol)
 		}
+	} else {
+		addr = c.AddressForPort(options.Port.ServicePort)
 	}
+	// Even if they set ServicePort, when load balancer is disabled, we may need to switch to NodePort, so replace it.
+	options.Port.ServicePort = addr.Port
 	if len(options.Address) == 0 {
-		// Default host based on protocol
-		switch options.Port.Protocol {
-		case protocol.HTTP:
-			options.Address = c.HTTPAddress().IP.String()
-		case protocol.HTTPS:
-			options.Address = c.HTTPSAddress().IP.String()
-		case protocol.TCP:
-			options.Address = c.TCPAddress().IP.String()
-		default:
-			return nil, fmt.Errorf("protocol %v not supported, provide explicit port", options.Port.Protocol)
-		}
+		// Default address based on port
+		options.Address = addr.IP.String()
 	}
 	if options.Headers == nil {
 		options.Headers = map[string][]string{}
