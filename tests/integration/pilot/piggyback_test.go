@@ -17,10 +17,10 @@ package pilot
 
 import (
 	"fmt"
-	"strings"
 	"testing"
 
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
+	"github.com/golang/protobuf/jsonpb"
 
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/shell"
@@ -38,7 +38,7 @@ func TestPiggyback(t *testing.T) {
 			out, err := shell.Execute(false, execCmd)
 			if err != nil {
 				t.Fatalf("couldn't curl sidecar: %v", err)
-			}{
+			}
 			dr := xdsapi.DiscoveryResponse{}
 			if err := jsonpb.UnmarshalString(out, &dr); err != nil {
 				t.Fatal(err)
