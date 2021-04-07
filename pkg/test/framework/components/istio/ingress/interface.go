@@ -37,7 +37,9 @@ type Instance interface {
 	// DiscoveryAddress returns the external XDS (!5012) address on the ingress gateway (or the NodePort address,
 	// when in an evnironment that doesn't support LoadBalancer).
 	DiscoveryAddress() net.TCPAddr
-
+	// AddressForPort returns the external address of the ingress gateway (or the NodePort address,
+	// when in an environment that doesn't support LoadBalancer) for the given port.
+	AddressForPort(port int) net.TCPAddr
 	// CallEcho makes a call through ingress using the echo call and response types.
 	CallEcho(options echo.CallOptions) (client.ParsedResponses, error)
 	CallEchoOrFail(t test.Failer, options echo.CallOptions) client.ParsedResponses
