@@ -527,6 +527,9 @@ func TestAuthorization_IngressGateway(t *testing.T) {
 			ns := apps.Namespace1
 			rootns := newRootNS(t)
 			b := apps.B.Match(echo.Namespace(apps.Namespace1.Name()))
+			// Gateways on VMs are not supported yet. This test verifies that security
+			// policies at gateways are useful for managing accessibility to services
+			// running on a VM.
 			vm := apps.VM.Match(echo.Namespace(apps.Namespace1.Name()))
 			for _, dst := range []echo.Instances{b, vm} {
 				t.NewSubTest(fmt.Sprintf("to %s/", dst[0].Config().Service)).Run(func(t framework.TestContext) {
@@ -664,15 +667,18 @@ func TestAuthorization_EgressGateway(t *testing.T) {
 		Run(func(t framework.TestContext) {
 			ns := apps.Namespace1
 			rootns := newRootNS(t)
-			src0 := apps.A.Match(echo.Namespace(apps.Namespace1.Name()))
-			src1 := apps.B.Match(echo.Namespace(apps.Namespace1.Name()))
-			for _, dst := range []string{util.CSvc, util.VMSvc} {
-				t.NewSubTest(fmt.Sprintf("to %s/", dst)).Run(func(t framework.TestContext) {
+			a := apps.A.Match(echo.Namespace(apps.Namespace1.Name()))
+			b := apps.B.Match(echo.Namespace(apps.Namespace1.Name()))
+			// Gateways on VMs are not supported yet. This test verifies that security
+			// policies at gateways are useful for managing accessibility to external
+			// services running on a VM.
+			for _, c := range []string{util.CSvc, util.VMSvc} {
+				t.NewSubTest(fmt.Sprintf("to %s/", c)).Run(func(t framework.TestContext) {
 					args := map[string]string{
 						"Namespace":     ns.Name(),
 						"RootNamespace": rootns.rootNamespace,
-						"src":           util.ASvc,
-						"dst":           dst,
+						"a":             util.ASvc,
+						"c":             c,
 					}
 					policies := tmpl.EvaluateAllOrFail(t, args,
 						file.AsStringOrFail(t, "testdata/authz/v1beta1-egress-gateway.yaml.tmpl"))
@@ -693,7 +699,7 @@ func TestAuthorization_EgressGateway(t *testing.T) {
 							code: response.StatusCodeOK,
 							body: "handled-by-egress-gateway",
 							host: "www.company.com",
-							from: getWorkload(src0[0], t),
+							from: getWorkload(a[0], t),
 						},
 						{
 							name: "deny path to company.com",
@@ -701,76 +707,76 @@ func TestAuthorization_EgressGateway(t *testing.T) {
 							code: response.StatusCodeForbidden,
 							body: "RBAC: access denied",
 							host: "www.company.com",
-							from: getWorkload(src0[0], t),
+							from: getWorkload(a[0], t),
 						},
 						{
-							name: "allow service account src0 to src0-only.com over mTLS",
+							name: "allow service account a to a-only.com over mTLS",
 							path: "/",
 							code: response.StatusCodeOK,
 							body: "handled-by-egress-gateway",
-							host: fmt.Sprintf("%s-only.com", src0[0].Config().Service),
-							from: getWorkload(src0[0], t),
+							host: fmt.Sprintf("%s-only.com", a[0].Config().Service),
+							from: getWorkload(a[0], t),
 						},
 						{
-							name: "deny service account src1 to src0-only.com over mTLS",
+							name: "deny service account b to a-only.com over mTLS",
 							path: "/",
 							code: response.StatusCodeForbidden,
 							body: "RBAC: access denied",
-							host: fmt.Sprintf("%s-only.com", src0[0].Config().Service),
-							from: getWorkload(src1[0], t),
+							host: fmt.Sprintf("%s-only.com", a[0].Config().Service),
+							from: getWorkload(b[0], t),
 						},
 						{
-							name:  "allow src0 with JWT to jwt-only.com over mTLS",
+							name:  "allow a with JWT to jwt-only.com over mTLS",
 							path:  "/",
 							code:  response.StatusCodeOK,
 							body:  "handled-by-egress-gateway",
 							host:  "jwt-only.com",
-							from:  getWorkload(src0[0], t),
+							from:  getWorkload(a[0], t),
 							token: jwt.TokenIssuer1,
 						},
 						{
-							name:  "allow src1 with JWT to jwt-only.com over mTLS",
+							name:  "allow b with JWT to jwt-only.com over mTLS",
 							path:  "/",
 							code:  response.StatusCodeOK,
 							body:  "handled-by-egress-gateway",
 							host:  "jwt-only.com",
-							from:  getWorkload(src1[0], t),
+							from:  getWorkload(b[0], t),
 							token: jwt.TokenIssuer1,
 						},
 						{
-							name:  "deny src1 with wrong JWT to jwt-only.com over mTLS",
+							name:  "deny b with wrong JWT to jwt-only.com over mTLS",
 							path:  "/",
 							code:  response.StatusCodeForbidden,
 							body:  "RBAC: access denied",
 							host:  "jwt-only.com",
-							from:  getWorkload(src1[0], t),
+							from:  getWorkload(b[0], t),
 							token: jwt.TokenIssuer2,
 						},
 						{
-							name:  "allow service account src0 with JWT to jwt-and-src0-only.com over mTLS",
+							name:  "allow service account a with JWT to jwt-and-a-only.com over mTLS",
 							path:  "/",
 							code:  response.StatusCodeOK,
 							body:  "handled-by-egress-gateway",
-							host:  fmt.Sprintf("jwt-and-%s-only.com", src0[0].Config().Service),
-							from:  getWorkload(src0[0], t),
+							host:  fmt.Sprintf("jwt-and-%s-only.com", a[0].Config().Service),
+							from:  getWorkload(a[0], t),
 							token: jwt.TokenIssuer1,
 						},
 						{
-							name:  "deny service account src1 with JWT to jwt-and-src0-only.com over mTLS",
+							name:  "deny service account b with JWT to jwt-and-a-only.com over mTLS",
 							path:  "/",
 							code:  response.StatusCodeForbidden,
 							body:  "RBAC: access denied",
-							host:  fmt.Sprintf("jwt-and-%s-only.com", src0[0].Config().Service),
-							from:  getWorkload(src1[0], t),
+							host:  fmt.Sprintf("jwt-and-%s-only.com", a[0].Config().Service),
+							from:  getWorkload(b[0], t),
 							token: jwt.TokenIssuer1,
 						},
 						{
-							name:  "deny service account src0 with wrong JWT to jwt-and-src0-only.com over mTLS",
+							name:  "deny service account a with wrong JWT to jwt-and-a-only.com over mTLS",
 							path:  "/",
 							code:  response.StatusCodeForbidden,
 							body:  "RBAC: access denied",
-							host:  fmt.Sprintf("jwt-and-%s-only.com", src0[0].Config().Service),
-							from:  getWorkload(src0[0], t),
+							host:  fmt.Sprintf("jwt-and-%s-only.com", a[0].Config().Service),
+							from:  getWorkload(a[0], t),
 							token: jwt.TokenIssuer2,
 						},
 					}
