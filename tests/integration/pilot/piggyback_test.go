@@ -20,6 +20,8 @@ import (
 	"strings"
 	"testing"
 
+	xdsapi "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
+
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/shell"
 )
@@ -36,12 +38,17 @@ func TestPiggyback(t *testing.T) {
 			out, err := shell.Execute(false, execCmd)
 			if err != nil {
 				t.Fatalf("couldn't curl sidecar: %v", err)
+			}{
+			dr := xdsapi.DiscoveryResponse{}
+			if err := jsonpb.UnmarshalString(out, &dr); err != nil {
+				t.Fatal(err)
 			}
-			if !strings.Contains(out, "\"typeUrl\": \"istio.io/debug/syncz\"") {
+			if dr.TypeUrl != "istio.io/debug/syncz" {
 				t.Fatalf("the output doesn't contain expected typeURL: %s", out)
 			}
-			if !strings.Contains(out, "\"xdsConfig\"") {
-				t.Fatalf("the output didn't unmarshal as expected (no xdsConfig): %s", out)
+			if len(dr.Resources) < 1 {
+				t.Fatalf("the output didn't unmarshal as expected (no resources): %s", out)
 			}
+			t.Fatalf("TODO: Verify that resources[0] is a %T", dr.Resources[0])
 		})
 }

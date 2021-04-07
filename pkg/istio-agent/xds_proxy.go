@@ -15,15 +15,18 @@
 package istioagent
 
 import (
+	"bytes"
 	"context"
 	"crypto/tls"
 	"crypto/x509"
+	"encoding/json"
 	"fmt"
 	"io"
 	"io/ioutil"
 	"math"
 	"net"
 	"net/http"
+	"net/url"
 	"os"
 	"path"
 	"strings"
@@ -471,7 +474,7 @@ func (p *XdsProxy) handleUpstreamResponse(con *ProxyConnection) {
 					forwardToEnvoy(con, resp)
 				}
 			default:
-				if strings.HasPrefix(resp.TypeUrl, "istio.io/debug/") {
+				if strings.HasPrefix(resp.TypeUrl, "istio.io/debug") {
 					p.forwardToTap(resp)
 				} else {
 					forwardToEnvoy(con, resp)
@@ -760,10 +763,21 @@ func (p *XdsProxy) tapRequest(req *discovery.DiscoveryRequest, timeout time.Dura
 
 func (p *XdsProxy) makeTapHandler() func(w http.ResponseWriter, req *http.Request) {
 	return func(w http.ResponseWriter, req *http.Request) {
+		qp, err := url.ParseQuery(req.URL.RawQuery)
+		if err != nil {
+			w.WriteHeader(400)
+			fmt.Fprintf(w, "%v\n", err)
+			return
+		}
 		typeURL := fmt.Sprintf("istio.io%s", req.URL.Path)
-		response, err := p.tapRequest(&discovery.DiscoveryRequest{
+		dr := discovery.DiscoveryRequest{
 			TypeUrl: typeURL,
-		}, 5*time.Second)
+		}
+		resourceName := qp.Get("resourceName")
+		if resourceName != "" {
+			dr.ResourceNames = []string{resourceName}
+		}
+		response, err := p.tapRequest(&dr, 5*time.Second)
 		if err != nil {
 			w.WriteHeader(503)
 			fmt.Fprintf(w, "%v\n", err)
@@ -776,10 +790,33 @@ func (p *XdsProxy) makeTapHandler() func(w http.ResponseWriter, req *http.Reques
 			return
 		}
 
-		// Send Istiod's response as HTTP body
-		jsonm := &jsonpb.Marshaler{Indent: "  "}
+		// Try to unmarshal Istiod's response using jsonpb (needed for Envoy protobufs)
 		w.Header().Add("Content-Type", "application/json")
-		_ = jsonm.Marshal(w, response)
+		jsonm := &jsonpb.Marshaler{Indent: "  "}
+		var buf bytes.Buffer
+		err = jsonm.Marshal(&buf, response)
+		if err == nil {
+			_, _ = w.Write(buf.Bytes())
+			if err != nil {
+				log.Infof("fail to write debug response: %v", err)
+			}
+			return
+		}
+
+		// Failed as protobuf.  Try as regular JSON
+		proxyLog.Warnf("could not marshal istiod response as pb: %v", err)
+		j, err := json.Marshal(response)
+		if err != nil {
+			// Couldn't unmarshal at all
+			w.WriteHeader(500)
+			fmt.Fprintf(w, "%v\n", err)
+			return
+		}
+		_, err = w.Write(j)
+		if err != nil {
+			log.Infof("fail to write debug response: %v", err)
+			return
+		}
 	}
 }
 
@@ -790,7 +827,9 @@ func (p *XdsProxy) initDebugInterface() error {
 	p.tapResponseChannel = make(chan *discovery.DiscoveryResponse)
 
 	httpMux := http.NewServeMux()
-	httpMux.HandleFunc("/debug/", p.makeTapHandler())
+	handler := p.makeTapHandler()
+	httpMux.HandleFunc("/debug/", handler)
+	httpMux.HandleFunc("/debug", handler) // For 1.10 Istiod which uses istio.io/debug
 
 	p.httpTapServer = &http.Server{
 		Addr:    "localhost:15009",
