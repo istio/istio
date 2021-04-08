@@ -55,6 +55,15 @@ message ForwardEchoRequest {
   string key = 11;
   // If non-empty, verify the server CA
   string caCert = 12;
+
+  // List of ALPNs to present. If not set, this will be automatically be set based on the protocol
+  Alpn alpn = 13;
+  // Server name (SNI) to present in TLS connections. If not set, Host will be used for http requests.
+  string serverName = 20;
+}
+
+message Alpn {
+  repeated string value = 1;
 }
 
 message ForwardEchoResponse {
