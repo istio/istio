@@ -1070,7 +1070,9 @@ function aws::filter_kubeconfigs() {
 
 # Sources the environment variables created by test infra needed to connect
 # to the clusters under test.
+# KUBECONFIG value will be preserved.
 function aws::init() {
+  local OLD_KC="${KUBECONFIG}"
   for CONFIG in "${MC_CONFIGS[@]}"; do
     CLUSTER_TB_ID=${CONFIG//*kubetest2-tailorbird\//}
     CLUSTER_TB_ID=${CLUSTER_TB_ID//\/.kube*/}
@@ -1081,6 +1083,11 @@ function aws::init() {
     HTTPS_PROXY="${HTTP_PROXY}"
     export HTTPS_PROXY
   done
+
+  # reset to the existing value because resource_vars for each
+  # cluster can override the normalized KUBECONFIGs, including
+  # adding back the management cluster config.
+  KUBECONFIG="${OLD_KC}"
 }
 
 # Creates virtual machines, registers them with the cluster and install the test echo app.
