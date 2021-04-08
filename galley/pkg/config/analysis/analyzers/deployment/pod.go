@@ -15,6 +15,7 @@
 package deployment
 
 import (
+	apps_v1 "k8s.io/api/apps/v1"
 	v1 "k8s.io/api/core/v1"
 
 	"istio.io/istio/galley/pkg/config/analysis"
@@ -29,29 +30,36 @@ type ApplicationUIDAnalyzer struct{}
 
 var _ analysis.Analyzer = &ApplicationUIDAnalyzer{}
 
+const (
+	UID = int64(1337)
+)
+
 func (appUID *ApplicationUIDAnalyzer) Metadata() analysis.Metadata {
 	return analysis.Metadata{
 		Name:        "applicationUID.Analyzer",
 		Description: "Checks invalid application UID",
 		Inputs: collection.Names{
 			collections.K8SCoreV1Pods.Name(),
+			collections.K8SAppsV1Deployments.Name(),
 		},
 	}
 }
 
 func (appUID *ApplicationUIDAnalyzer) Analyze(context analysis.Context) {
 	context.ForEach(collections.K8SCoreV1Pods.Name(), func(resource *resource.Instance) bool {
-		appUID.analyzeApplicationUID(resource, context)
+		appUID.analyzeAppUIDForPod(resource, context)
+		return true
+	})
+	context.ForEach(collections.K8SAppsV1Deployments.Name(), func(resource *resource.Instance) bool {
+		appUID.analyzeAppUIDForDeployment(resource, context)
 		return true
 	})
 }
 
-func (appUID *ApplicationUIDAnalyzer) analyzeApplicationUID(resource *resource.Instance, context analysis.Context) {
+func (appUID *ApplicationUIDAnalyzer) analyzeAppUIDForPod(resource *resource.Instance, context analysis.Context) {
 	p := resource.Message.(*v1.Pod)
-	UID := int64(1337)
 	message := msg.NewInvalidApplicationUID(resource)
 
-	// Ref: https://istio.io/latest/docs/ops/deployment/requirements/#pod-requirements
 	if p.Spec.SecurityContext != nil && p.Spec.SecurityContext.RunAsUser != nil {
 		if *p.Spec.SecurityContext.RunAsUser == UID {
 			context.Report(collections.K8SCoreV1Pods.Name(), message)
@@ -62,6 +70,27 @@ func (appUID *ApplicationUIDAnalyzer) analyzeApplicationUID(resource *resource.I
 			if container.SecurityContext != nil && container.SecurityContext.RunAsUser != nil {
 				if *container.SecurityContext.RunAsUser == UID {
 					context.Report(collections.K8SCoreV1Pods.Name(), message)
+				}
+			}
+		}
+	}
+}
+
+func (appUID *ApplicationUIDAnalyzer) analyzeAppUIDForDeployment(resource *resource.Instance, context analysis.Context) {
+	d := resource.Message.(*apps_v1.Deployment)
+	message := msg.NewInvalidApplicationUID(resource)
+	spec := d.Spec.Template.Spec
+
+	if spec.SecurityContext != nil && spec.SecurityContext.RunAsUser != nil {
+		if *spec.SecurityContext.RunAsUser == UID {
+			context.Report(collections.K8SAppsV1Deployments.Name(), message)
+		}
+	}
+	for _, container := range spec.Containers {
+		if container.Name != util.IstioProxyName {
+			if container.SecurityContext != nil && container.SecurityContext.RunAsUser != nil {
+				if *container.SecurityContext.RunAsUser == UID {
+					context.Report(collections.K8SAppsV1Deployments.Name(), message)
 				}
 			}
 		}
