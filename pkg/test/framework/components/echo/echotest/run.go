@@ -19,6 +19,7 @@ import (
 
 	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pkg/test/framework"
+	"istio.io/istio/pkg/test/framework/components/cluster"
 	"istio.io/istio/pkg/test/framework/components/echo"
 )
 
@@ -26,9 +27,11 @@ type (
 	perDeploymentTest  func(t framework.TestContext, instances echo.Instances)
 	perNDeploymentTest func(t framework.TestContext, deployments echo.Services)
 	perInstanceTest    func(t framework.TestContext, inst echo.Instance)
+	perClusterTest     func(t framework.TestContext, c cluster.Cluster)
 
-	oneToOneTest func(t framework.TestContext, src echo.Instance, dst echo.Instances)
-	oneToNTest   func(t framework.TestContext, src echo.Instance, dsts echo.Services)
+	oneToOneTest      func(t framework.TestContext, src echo.Instance, dst echo.Instances)
+	oneToNTest        func(t framework.TestContext, src echo.Instance, dsts echo.Services)
+	oneClusterOneTest func(t framework.TestContext, src cluster.Cluster, dst echo.Instances)
 )
 
 // Run will generate and run one subtest to send traffic between each combination
@@ -59,6 +62,28 @@ func (t *T) Run(testFn oneToOneTest) {
 			})
 		})
 	})
+}
+
+// RunFromClusters will generate and run one subtest to send traffic to
+// destination instance. This is for ingress gateway testing when source instance
+// is sending requests to destination through the ingress gateway.
+func (t *T) RunFromClusters(testFn oneClusterOneTest) {
+	t.fromEachClusterOnly(t.rootCtx, func(ctx framework.TestContext, c cluster.Cluster) {
+		t.toEachDeployment(ctx, func(ctx framework.TestContext, dstInstances echo.Instances) {
+			t.setupDst(ctx, dstInstances)
+			testFn(ctx, c, dstInstances)
+		})
+	})
+}
+
+// fromEachClusterOnly runs test from each cluster without requiring source deployment.
+func (t *T) fromEachClusterOnly(ctx framework.TestContext, testFn perClusterTest) {
+	for _, srcCluster := range t.sources.Clusters() {
+		srcCluster := srcCluster
+		ctx.NewSubTestf("from %s", srcCluster.StableName()).Run(func(ctx framework.TestContext) {
+			testFn(ctx, srcCluster)
+		})
+	}
 }
 
 // RunToN will generate nested subtests for every instance in every deployment subsets of the full set of deployments,

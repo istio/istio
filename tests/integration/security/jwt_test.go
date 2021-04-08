@@ -24,13 +24,16 @@ import (
 	"istio.io/istio/pkg/test/echo/common/response"
 	"istio.io/istio/pkg/test/echo/common/scheme"
 	"istio.io/istio/pkg/test/framework"
+	"istio.io/istio/pkg/test/framework/components/cluster"
 	"istio.io/istio/pkg/test/framework/components/echo"
+	"istio.io/istio/pkg/test/framework/components/echo/echotest"
 	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/kube"
 	"istio.io/istio/pkg/test/util/file"
 	"istio.io/istio/pkg/test/util/retry"
 	"istio.io/istio/pkg/test/util/tmpl"
+	"istio.io/istio/pkg/test/util/yml"
 	"istio.io/istio/tests/common/jwt"
 	"istio.io/istio/tests/integration/security/util"
 	"istio.io/istio/tests/integration/security/util/authn"
@@ -411,7 +414,6 @@ func TestIngressRequestAuthentication(t *testing.T) {
 			}
 
 			applyPolicy("testdata/requestauthn/global-jwt.yaml.tmpl", rootNS{})
-			applyPolicy("testdata/requestauthn/ingress.yaml.tmpl", ns)
 
 			bSet := apps.B.Match(echo.Namespace(ns.Name()))
 
@@ -464,83 +466,103 @@ func TestIngressRequestAuthentication(t *testing.T) {
 								retry.Delay(250*time.Millisecond), retry.Timeout(30*time.Second))
 						})
 					}
-					ingr := ist.IngressFor(cluster)
-					// These test cases verify requests go through ingress will be checked for validate token.
-					ingTestCases := []struct {
-						Name               string
-						Host               string
-						Path               string
-						Token              string
-						ExpectResponseCode int
-					}{
-						{
-							Name:               "deny without token",
-							Host:               "example.com",
-							Path:               "/",
-							ExpectResponseCode: 403,
-						},
-						{
-							Name:               "allow with sub-1 token",
-							Host:               "example.com",
-							Path:               "/",
-							Token:              jwt.TokenIssuer1,
-							ExpectResponseCode: 200,
-						},
-						{
-							Name:               "deny with sub-2 token",
-							Host:               "example.com",
-							Path:               "/",
-							Token:              jwt.TokenIssuer2,
-							ExpectResponseCode: 403,
-						},
-						{
-							Name:               "deny with expired token",
-							Host:               "example.com",
-							Path:               "/",
-							Token:              jwt.TokenExpired,
-							ExpectResponseCode: 401,
-						},
-						{
-							Name:               "allow with sub-1 token on any.com",
-							Host:               "any-request-principlal-ok.com",
-							Path:               "/",
-							Token:              jwt.TokenIssuer1,
-							ExpectResponseCode: 200,
-						},
-						{
-							Name:               "allow with sub-2 token on any.com",
-							Host:               "any-request-principlal-ok.com",
-							Path:               "/",
-							Token:              jwt.TokenIssuer2,
-							ExpectResponseCode: 200,
-						},
-						{
-							Name:               "deny without token on any.com",
-							Host:               "any-request-principlal-ok.com",
-							Path:               "/",
-							ExpectResponseCode: 403,
-						},
-						{
-							Name:               "deny with token on other host",
-							Host:               "other-host.com",
-							Path:               "/",
-							Token:              jwt.TokenIssuer1,
-							ExpectResponseCode: 403,
-						},
-						{
-							Name:               "allow healthz",
-							Host:               "example.com",
-							Path:               "/healthz",
-							ExpectResponseCode: 200,
-						},
-					}
-
-					for _, c := range ingTestCases {
-						t.NewSubTest(c.Name).Run(func(t framework.TestContext) {
-							authn.CheckIngressOrFail(t, ingr, c.Host, c.Path, nil, c.Token, c.ExpectResponseCode)
-						})
-					}
 				})
+			}
+
+			// These test cases verify requests go through ingress will be checked for validate token.
+			ingTestCases := []struct {
+				Name               string
+				Host               string
+				Path               string
+				Token              string
+				ExpectResponseCode int
+			}{
+				{
+					Name:               "deny without token",
+					Host:               "example.com",
+					Path:               "/",
+					ExpectResponseCode: 403,
+				},
+				{
+					Name:               "allow with sub-1 token",
+					Host:               "example.com",
+					Path:               "/",
+					Token:              jwt.TokenIssuer1,
+					ExpectResponseCode: 200,
+				},
+				{
+					Name:               "deny with sub-2 token",
+					Host:               "example.com",
+					Path:               "/",
+					Token:              jwt.TokenIssuer2,
+					ExpectResponseCode: 403,
+				},
+				{
+					Name:               "deny with expired token",
+					Host:               "example.com",
+					Path:               "/",
+					Token:              jwt.TokenExpired,
+					ExpectResponseCode: 401,
+				},
+				{
+					Name:               "allow with sub-1 token on any.com",
+					Host:               "any-request-principlal-ok.com",
+					Path:               "/",
+					Token:              jwt.TokenIssuer1,
+					ExpectResponseCode: 200,
+				},
+				{
+					Name:               "allow with sub-2 token on any.com",
+					Host:               "any-request-principlal-ok.com",
+					Path:               "/",
+					Token:              jwt.TokenIssuer2,
+					ExpectResponseCode: 200,
+				},
+				{
+					Name:               "deny without token on any.com",
+					Host:               "any-request-principlal-ok.com",
+					Path:               "/",
+					ExpectResponseCode: 403,
+				},
+				{
+					Name:               "deny with token on other host",
+					Host:               "other-host.com",
+					Path:               "/",
+					Token:              jwt.TokenIssuer1,
+					ExpectResponseCode: 403,
+				},
+				{
+					Name:               "allow healthz",
+					Host:               "example.com",
+					Path:               "/healthz",
+					ExpectResponseCode: 200,
+				},
+			}
+
+			for _, c := range ingTestCases {
+				echotest.New(t, apps.All).
+					SetupForDst(func(t framework.TestContext, dst echo.Instances) error {
+						policy := yml.MustApplyNamespace(t, tmpl.MustEvaluate(
+							file.AsStringOrFail(t, "testdata/requestauthn/ingress.yaml.tmpl"),
+							map[string]string{
+								"Namespace": ns.Name(),
+								"dst":       dst[0].Config().Service,
+							},
+						), ns.Name())
+						return t.Config().ApplyYAML(ns.Name(), policy)
+					}).
+					To(
+						echotest.SingleSimplePodServiceAndAllSpecial(),
+						echotest.Not(func(instances echo.Instances) echo.Instances { return instances.Match(echo.IsHeadless()) }),
+						echotest.Not(func(instances echo.Instances) echo.Instances { return instances.Match(echo.IsNaked()) }),
+						echotest.Not(func(instances echo.Instances) echo.Instances { return instances.Match(echo.IsExternal()) }),
+						echotest.Not(func(instances echo.Instances) echo.Instances { return instances.Match(util.IsMultiversion()) }),
+						func(instances echo.Instances) echo.Instances { return instances.Match(echo.Namespace(ns.Name())) },
+					).
+					RunFromClusters(func(t framework.TestContext, src cluster.Cluster, dest echo.Instances) {
+						ingr := ist.IngressFor(src)
+						authn.CheckIngressOrFail(t, ingr, c.Host, c.Path, nil, c.Token, c.ExpectResponseCode)
+					})
 			}
 		})
 }
