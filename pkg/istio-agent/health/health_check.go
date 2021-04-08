@@ -15,11 +15,11 @@
 package health
 
 import (
-	"istio.io/istio/pilot/cmd/pilot-agent/status"
 	"strings"
 	"time"
 
 	"istio.io/api/networking/v1alpha3"
+	"istio.io/istio/pilot/cmd/pilot-agent/status"
 	"istio.io/istio/pilot/cmd/pilot-agent/status/ready"
 	"istio.io/istio/pkg/kube/apimirror"
 )

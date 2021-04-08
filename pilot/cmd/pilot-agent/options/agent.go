@@ -35,7 +35,7 @@ func NewAgentOptions(proxy *model.Proxy) *istioagent.AgentOptions {
 		IsIPv6:                   proxy.SupportsIPv6(),
 		ProxyType:                proxy.Type,
 		EnableDynamicProxyConfig: enableProxyConfigXdsEnv,
-		ProxyIPAddresses: proxy.IPAddresses,
+		ProxyIPAddresses:         proxy.IPAddresses,
 	}
 	extractXDSHeadersFromEnv(o)
 	if proxyXDSViaAgent {
