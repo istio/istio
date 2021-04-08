@@ -58,6 +58,8 @@ else
 	_INTEGRATION_TEST_FLAGS += --istio.test.kube.config=$(_INTEGRATION_TEST_KUBECONFIG)
 endif
 
+_INTEGRATION_TEST_FLAGS += --helmValues=components.cni.enabled=true,components.cni.namespace=kube-system
+
 test.integration.analyze: test.integration...analyze
 
 test.integration.%.analyze: | $(JUNIT_REPORT) check-go-tag
