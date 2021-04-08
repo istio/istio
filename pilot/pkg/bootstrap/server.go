@@ -1156,6 +1156,12 @@ func (s *Server) fetchCARoot() map[string]string {
 	if s.CA == nil {
 		return nil
 	}
+
+	// For Kubernetes CA, we don't distribute it; it is mounted in all pods by Kubernetes.
+	if features.PilotCertProvider.Get() == KubernetesCAProvider {
+		return nil
+	}
+
 	return map[string]string{
 		constants.CACertNamespaceConfigMapDataName: string(s.CA.GetCAKeyCertBundle().GetRootCertPem()),
 	}
