@@ -31,6 +31,7 @@ import (
 
 	"gopkg.in/yaml.v2"
 
+	kubelib "istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/test/framework/components/cluster"
 	"istio.io/istio/pkg/test/framework/components/environment/kube"
 	ferrors "istio.io/istio/pkg/test/framework/errors"
@@ -96,9 +97,9 @@ type Suite interface {
 	// RequireSingleCluster is a utility method that requires that there be exactly 1 cluster in the environment.
 	RequireSingleCluster() Suite
 	// RequireMinVersion validates the environment meets a minimum version
-	RequireMinVersion(version string) Suite
+	RequireMinVersion(minorVersion uint) Suite
 	// RequireMaxVersion validates the environment meets a maximum version
-	RequireMaxVersion(version string) Suite
+	RequireMaxVersion(minorVersion uint) Suite
 	// Setup runs enqueues the given setup function to run before test execution.
 	Setup(fn resource.SetupFn) Suite
 	// Run the suite. This method calls os.Exit and does not return.
@@ -229,17 +230,16 @@ func (s *suiteImpl) RequireSingleCluster() Suite {
 	return s.RequireMinClusters(1).RequireMaxClusters(1)
 }
 
-func (s *suiteImpl) RequireMinVersion(version string) Suite {
+func (s *suiteImpl) RequireMinVersion(minorVersion uint) Suite {
 	fn := func(ctx resource.Context) error {
 		for _, c := range ctx.Clusters().Kube() {
 			ver, err := c.GetKubernetesVersion()
 			if err != nil {
 				return fmt.Errorf("failed to get Kubernetes version: %v", err)
 			}
-			serverVersion := fmt.Sprintf("%s.%s", ver.Major, ver.Minor)
-			if serverVersion < version {
-				s.Skip(fmt.Sprintf("Required Kubernetes version (%v) is greater than current: %v",
-					version, serverVersion))
+			if !kubelib.IsAtLeastVersion(c, minorVersion) {
+				s.Skip(fmt.Sprintf("Required Kubernetes version (1.%v) is greater than current: %v",
+					minorVersion, ver.String()))
 			}
 		}
 		return nil
@@ -249,17 +249,16 @@ func (s *suiteImpl) RequireMinVersion(version string) Suite {
 	return s
 }
 
-func (s *suiteImpl) RequireMaxVersion(version string) Suite {
+func (s *suiteImpl) RequireMaxVersion(minorVersion uint) Suite {
 	fn := func(ctx resource.Context) error {
 		for _, c := range ctx.Clusters().Kube() {
 			ver, err := c.GetKubernetesVersion()
 			if err != nil {
 				return fmt.Errorf("failed to get Kubernetes version: %v", err)
 			}
-			serverVersion := fmt.Sprintf("%s.%s", ver.Major, ver.Minor)
-			if serverVersion > version {
-				s.Skip(fmt.Sprintf("Required maximum Kubernetes version (%v) is less than current: %v",
-					version, serverVersion))
+			if !kubelib.IsLessThanVersion(c, minorVersion+1) {
+				s.Skip(fmt.Sprintf("Maximum Kubernetes version (1.%v) is less than current: %v",
+					minorVersion, ver.String()))
 			}
 		}
 		return nil

@@ -159,7 +159,7 @@ type Cluster interface {
 
 	// MinKubeVersion returns true if the cluster is at least the version specified,
 	// false otherwise
-	MinKubeVersion(major, minor uint) bool
+	MinKubeVersion(minor uint) bool
 
 	// MaxKubeVersion returns true if the cluster is at most the version specified,
 	// false otherwise

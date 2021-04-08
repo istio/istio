@@ -51,8 +51,7 @@ type suiteAnalyzer struct {
 	osExit func(int)
 
 	commonAnalyzer
-	envFactoryCalls    int
-	requiredEnvVersion string
+	envFactoryCalls int
 }
 
 func newSuiteAnalyzer(testID string, fn mRunFn, osExit func(int)) Suite {
@@ -99,12 +98,11 @@ func (s *suiteAnalyzer) RequireSingleCluster() Suite {
 	return s.RequireMinClusters(1).RequireMaxClusters(1)
 }
 
-func (s *suiteAnalyzer) RequireMinVersion(version string) Suite {
-	s.requiredEnvVersion = version
+func (s *suiteAnalyzer) RequireMinVersion(minorVersion uint) Suite {
 	return s
 }
 
-func (s *suiteAnalyzer) RequireMaxVersion(version string) Suite {
+func (s *suiteAnalyzer) RequireMaxVersion(minorVersion uint) Suite {
 	return s
 }
 
