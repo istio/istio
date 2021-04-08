@@ -215,9 +215,6 @@ func (s *DiscoveryServer) receiveDelta(con *Connection, reqChannel chan *discove
 			close(con.initialized)
 		}
 	}()
-	defer func() {
-		s.closeConnection(con)
-	}()
 	firstReq := true
 	for {
 		req, err := con.deltaStream.Recv()
@@ -243,6 +240,7 @@ func (s *DiscoveryServer) receiveDelta(con *Connection, reqChannel chan *discove
 				*errP = err
 				return
 			}
+			defer s.closeConnection(con)
 			log.Infof("ADS: new connection for node:%s", con.ConID)
 		}
 
