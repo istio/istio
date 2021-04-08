@@ -81,5 +81,5 @@ spec:
                   code:
                     remote:
                       http_uri:
-                        uri: https://storage.googleapis.com/istio-build/proxy/attributegen-{{ .ProxySHA }}.wasm
+                        uri: https://storage.googleapis.com/istio-build/proxy/attributegen-8077e13cc567e0e8e4cc5bcc7921f085c1684acc.wasm
                         timeout: 10s
