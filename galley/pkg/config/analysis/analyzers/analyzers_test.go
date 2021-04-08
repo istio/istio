@@ -484,6 +484,30 @@ var testGrid = []testCase{
 			{msg.IngressRouteRulesNotAffected, "VirtualService testing-service-01-test-01.default"},
 		},
 	},
+	{
+		name:       "gateway not declared",
+		inputFiles: []string{"testdata/virtualservice_gateway_not_declared.yaml"},
+		analyzer:   &virtualservice.GatewayAnalyzer{},
+		expected: []message{
+			{msg.GatewayNotDeclared, "VirtualService vs"},
+		},
+	},
+	{
+		name:       "gateway not declared tls",
+		inputFiles: []string{"testdata/virtualservice_gateway_not_declared_tls.yaml"},
+		analyzer:   &virtualservice.GatewayAnalyzer{},
+		expected: []message{
+			{msg.GatewayNotDeclared, "VirtualService vs-tls"},
+		},
+	},
+	{
+		name:       "gateway not declared tcp",
+		inputFiles: []string{"testdata/virtualservice_gateway_not_declared_tcp.yaml"},
+		analyzer:   &virtualservice.GatewayAnalyzer{},
+		expected: []message{
+			{msg.GatewayNotDeclared, "VirtualService vs-tcp"},
+		},
+	},
 }
 
 // regex patterns for analyzer names that should be explicitly ignored for testing

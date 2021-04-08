@@ -168,6 +168,10 @@ var (
 	// LocalhostListener defines a diag.MessageType for message "LocalhostListener".
 	// Description: A port exposed in by a Service is bound to a localhost address
 	LocalhostListener = diag.NewMessageType(diag.Warning, "IST0143", "Port %v listeners on localhost and will not be exposed to other pods")
+
+	// GatewayNotDeclared defines a diag.MessageType for message "GatewayNotDeclared".
+	// Description: Gateway in `match` is not declared in the gateways
+	GatewayNotDeclared = diag.NewMessageType(diag.Warning, "IST0145", "Gateway %s which defined in .%s[].match[].gateways[] was not declared in .spec.gateways[] in virtual service %s")
 )
 
 // All returns a list of all known message types.
@@ -213,6 +217,7 @@ func All() []*diag.MessageType {
 		InsufficientPermissions,
 		UnsupportedKubernetesVersion,
 		LocalhostListener,
+		GatewayNotDeclared,
 	}
 }
 
@@ -614,5 +619,16 @@ func NewLocalhostListener(r *resource.Instance, port string) diag.Message {
 		LocalhostListener,
 		r,
 		port,
+	)
+}
+
+// NewGatewayNotDeclared returns a new diag.Message based on GatewayNotDeclared.
+func NewGatewayNotDeclared(r *resource.Instance, gateway string, protocol string, virtualservice string) diag.Message {
+	return diag.NewMessage(
+		GatewayNotDeclared,
+		r,
+		gateway,
+		protocol,
+		virtualservice,
 	)
 }

@@ -1,0 +1,33 @@
+apiVersion: networking.istio.io/v1alpha3
+kind: Gateway
+metadata:
+  name: good-gateway
+spec:
+  selector:
+    istio: ingressgateway
+  servers:
+    - hosts:
+        - test.com
+      port:
+        name: http
+        number: 80
+        protocol: HTTP
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
+metadata:
+  name: vs-tcp
+spec:
+  hosts:
+    - test.com
+  gateways:
+    - good-gateway
+  tcp:
+    - match:
+      - gateways:
+        - bad-gateway
+      route:
+        - destination:
+            host: something
+            port:
+              number: 1234

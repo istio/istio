@@ -56,8 +56,10 @@ func (s *GatewayAnalyzer) analyzeVirtualService(r *resource.Instance, c analysis
 	vs := r.Message.(*v1alpha3.VirtualService)
 	vsNs := r.Metadata.FullName.Namespace
 	vsName := r.Metadata.FullName
+	gwMap := map[string]bool{}
 
 	for i, gwName := range vs.Gateways {
+		gwMap[gwName] = true
 		// This is a special-case accepted value
 		if gwName == util.MeshGateway {
 			continue
@@ -83,6 +85,40 @@ func (s *GatewayAnalyzer) analyzeVirtualService(r *resource.Instance, c analysis
 			}
 
 			c.Report(collections.IstioNetworkingV1Alpha3Virtualservices.Name(), m)
+		}
+	}
+	gatewayNotDeclaredReport := func(g string, protocol string, ri, mi, gi int) {
+		m := msg.NewGatewayNotDeclared(r, g, protocol, vsName.String())
+		if line, ok := util.ErrorLine(r, fmt.Sprintf(util.VSMatchGateway, protocol, ri, mi, gi)); ok {
+			m.Line = line
+		}
+		c.Report(collections.IstioNetworkingV1Alpha3Virtualservices.Name(), m)
+	}
+	for i, r := range vs.Http {
+		for j, m := range r.Match {
+			for k, g := range m.Gateways {
+				if _, ok := gwMap[g]; !ok {
+					gatewayNotDeclaredReport(g, "http", i, j, k)
+				}
+			}
+		}
+	}
+	for i, r := range vs.Tls {
+		for j, m := range r.Match {
+			for k, g := range m.Gateways {
+				if _, ok := gwMap[g]; !ok {
+					gatewayNotDeclaredReport(g, "tls", i, j, k)
+				}
+			}
+		}
+	}
+	for i, r := range vs.Tcp {
+		for j, m := range r.Match {
+			for k, g := range m.Gateways {
+				if _, ok := gwMap[g]; !ok {
+					gatewayNotDeclaredReport(g, "tcp", i, j, k)
+				}
+			}
 		}
 	}
 }
