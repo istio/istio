@@ -212,6 +212,7 @@ func SetupApps(ctx resource.Context, i istio.Instance, apps *EchoDeployments, bu
 			SetBool(echo.SidecarInject, false))).
 		WithConfig(EchoConfig(BSvc, apps.Namespace2, false, nil)).
 		WithConfig(EchoConfig(CSvc, apps.Namespace2, false, nil)).
+		WithConfig(EchoConfig(ESvc, apps.Namespace2, false, nil)).
 		WithConfig(EchoConfig(CSvc, apps.Namespace3, false, nil)).
 		WithConfig(func() echo.Config {
 			// VM specific setup

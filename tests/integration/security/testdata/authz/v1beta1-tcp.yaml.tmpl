@@ -3,12 +3,12 @@
 apiVersion: security.istio.io/v1beta1
 kind: AuthorizationPolicy
 metadata:
-  name: policy-dst0-deny
+  name: policy-b-deny
   namespace: "{{ .Namespace }}"
 spec:
   selector:
     matchLabels:
-      "app": "{{ .dst0 }}"
+      "app": "{{ .b }}"
   action: DENY
   rules:
   - to:
@@ -18,19 +18,19 @@ spec:
 ---
 
 # The following policy denies:
-# request to port 8090 for workload dst1
-# request to port 8093 with principal suffix matching
-# request to port 8092 with namespace suffix matching
+# request to port 8091 for workload c
+# request to port 8094 with principal suffix matching
+# request to port 8093 with namespace suffix matching
 
 apiVersion: security.istio.io/v1beta1
 kind: AuthorizationPolicy
 metadata:
-  name: policy-dst1-deny
+  name: policy-c-deny
   namespace: "{{ .Namespace }}"
 spec:
   selector:
     matchLabels:
-      "app": "{{ .dst1 }}"
+      "app": "{{ .c }}"
   action: DENY
   rules:
   - to:
@@ -41,7 +41,7 @@ spec:
         ports: ["8094"]
     from:
     - source:
-        principals: ["*/ns/{{ .Namespace }}/sa/{{ .src1 }}"]
+        principals: ["*/ns/{{ .Namespace }}/sa/{{ .b }}"]
   - to:
     - operation:
         ports: ["8093"]
@@ -50,37 +50,37 @@ spec:
         namespaces: ["*{{ .Namespace2 }}"]
 ---
 
-# The following policy denies request from service account a and namespace 2 for workload dst2
+# The following policy denies request from service account a and namespace 2 for workload d
 
 apiVersion: security.istio.io/v1beta1
 kind: AuthorizationPolicy
 metadata:
-  name: policy-dst2-deny
+  name: policy-d-deny
   namespace: "{{ .Namespace }}"
 spec:
   selector:
     matchLabels:
-      "app": "{{ .dst2 }}"
+      "app": "{{ .d }}"
   action: DENY
   rules:
   - from:
     - source:
-        principals: ["cluster.local/ns/{{ .Namespace }}/sa/{{ .src0 }}"]
+        principals: ["cluster.local/ns/{{ .Namespace }}/sa/{{ .a }}"]
     - source:
         namespaces: ["{{ .Namespace2 }}"]
 ---
 
-# The following policy denies request with path "/other" for workload dst3
+# The following policy denies request with path "/other" for workload e
 
 apiVersion: security.istio.io/v1beta1
 kind: AuthorizationPolicy
 metadata:
-  name: policy-dst3-deny
+  name: policy-e-deny
   namespace: "{{ .Namespace }}"
 spec:
   selector:
     matchLabels:
-      "app": "{{ .dst4 }}"
+      "app": "{{ .e }}"
   action: DENY
   rules:
   - to:
