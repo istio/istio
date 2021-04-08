@@ -517,7 +517,7 @@ gateways:
 				h := helm.New(cs.Filename(), filepath.Join(env.IstioSrc, "manifests/charts"))
 				// Install ingress gateway chart
 				if err := h.InstallChart("ingress", filepath.Join("gateways/istio-ingress"), gatewayNs.Name(),
-					d, helmtest.HelmTimeout); err != nil {
+					d, helmtest.Timeout); err != nil {
 					t.Fatal(err)
 				}
 				retry.UntilSuccessOrFail(t, func() error {
