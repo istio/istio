@@ -23,6 +23,10 @@ import (
 	"testing"
 	"time"
 
+	"istio.io/istio/pkg/test/util/tmpl"
+
+	"istio.io/istio/pkg/test/framework/image"
+
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	k8s "sigs.k8s.io/gateway-api/apis/v1alpha1"
 
@@ -413,8 +417,15 @@ func TestCustomGateway(t *testing.T) {
 			if len(t.Settings().Revision) > 0 {
 				injectLabel = fmt.Sprintf(`istio.io/rev: "%v"`, t.Settings().Revision)
 			}
+
+			templateParams := map[string]string{
+				"imagePullSecret": image.PullSecretNameOrFail(t),
+				"injectLabel":     injectLabel,
+				"host":            apps.PodA[0].Config().FQDN(),
+			}
+
 			t.NewSubTest("minimal").Run(func(t framework.TestContext) {
-				t.Config().ApplyYAMLOrFail(t, gatewayNs.Name(), fmt.Sprintf(`apiVersion: v1
+				t.Config().ApplyYAMLOrFail(t, gatewayNs.Name(), tmpl.MustEvaluate(`apiVersion: v1
 kind: Service
 metadata:
   name: custom-gateway
@@ -441,8 +452,12 @@ spec:
         inject.istio.io/templates: gateway
       labels:
         istio: custom
-        %v
+        {{ .injectLabel }}
     spec:
+      {{- if ne .imagePullSecret "" }}
+      imagePullSecrets:
+      - name: {{ .imagePullSecret }}
+      {{- end }}
       containers:
       - name: istio-proxy
         image: auto
@@ -474,10 +489,10 @@ spec:
   http:
   - route:
     - destination:
-        host: %s
+        host: {{ .host }}
         port:
           number: 80
-`, injectLabel, apps.PodA[0].Config().FQDN()))
+`, templateParams))
 				cs := t.Clusters().Default().(*kubecluster.Cluster)
 				retry.UntilSuccessOrFail(t, func() error {
 					_, err := kubetest.CheckPodsAreReady(kubetest.NewPodFetch(cs, gatewayNs.Name(), "istio=custom"))
