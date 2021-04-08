@@ -131,6 +131,9 @@ type AgentOptions struct {
 
 	// Ability to retrieve ProxyConfig dynamically through XDS
 	EnableDynamicProxyConfig bool
+
+	// All of the proxy's IP Addresses
+	ProxyIPAddresses []string
 }
 
 // NewAgent hosts the functionality for local SDS and XDS. This consists of the local SDS server and
