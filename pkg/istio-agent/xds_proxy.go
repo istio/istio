@@ -55,7 +55,6 @@ import (
 	"istio.io/istio/pkg/util/gogo"
 	"istio.io/istio/pkg/wasm"
 	"istio.io/istio/security/pkg/nodeagent/caclient"
-	"istio.io/istio/security/pkg/pki/util"
 	"istio.io/pkg/log"
 )
 
@@ -158,11 +157,7 @@ func initXdsProxy(ia *Agent) (*XdsProxy, error) {
 			}
 			caCerts := pc.GetCaCertificatesPem()
 			log.Debugf("received new certificates to add to mesh trust domain: %v", caCerts)
-			trustBundle := []byte{}
-			for _, cert := range caCerts {
-				trustBundle = util.AppendCertByte(trustBundle, []byte(cert))
-			}
-			return ia.secretCache.UpdateConfigTrustBundle(trustBundle)
+			return ia.secretCache.UpdateConfigTrustBundle(caCerts)
 		}
 	}
 

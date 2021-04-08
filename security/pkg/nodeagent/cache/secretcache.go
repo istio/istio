@@ -700,8 +700,14 @@ func (sc *SecretManagerClient) setConfigTrustBundle(trustBundle []byte) {
 }
 
 // UpdateConfigTrustBundle : Update the Configured Trust Bundle in the secret Manager client
-func (sc *SecretManagerClient) UpdateConfigTrustBundle(trustBundle []byte) error {
+func (sc *SecretManagerClient) UpdateConfigTrustBundle(caCerts []string) error {
 	existingBundle := sc.getConfigTrustBundle()
+	trustBundle := []byte{}
+	for _, cert := range caCerts {
+		if !bytes.Equal([]byte(cert), sc.cache.GetRoot()) {
+			trustBundle = pkiutil.AppendCertByte(trustBundle, []byte(cert))
+		}
+	}
 	if bytes.Equal(existingBundle, trustBundle) {
 		return nil
 	}

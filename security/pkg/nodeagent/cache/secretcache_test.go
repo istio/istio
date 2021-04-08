@@ -561,7 +561,7 @@ func TestProxyConfigAnchors(t *testing.T) {
 	}
 
 	// Update the proxyConfig with certs
-	sc.UpdateConfigTrustBundle(rootCert)
+	sc.UpdateConfigTrustBundle([]string{string(rootCert)})
 
 	// Ensure Callback gets invoked when updating proxyConfig trust bundle
 	u.Expect(map[string]int{security.RootCertReqResourceName: 1})
@@ -574,7 +574,7 @@ func TestProxyConfigAnchors(t *testing.T) {
 	})
 
 	// Update the proxyConfig with fakeCaClient certs
-	sc.UpdateConfigTrustBundle(caClientRootCert)
+	sc.UpdateConfigTrustBundle([]string{string(caClientRootCert)})
 	setupTestDir(t, sc)
 
 	rootCert, err = ioutil.ReadFile(sc.existingCertificateFile.CaCertificatePath)
