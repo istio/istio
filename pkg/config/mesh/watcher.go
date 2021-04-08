@@ -44,7 +44,7 @@ type Watcher interface {
 var _ Watcher = &InternalWatcher{}
 
 type InternalWatcher struct {
-	mutux    sync.Mutex
+	mutex    sync.Mutex
 	handlers []func()
 	// Current merged mesh config
 	MeshConfig *meshconfig.MeshConfig
@@ -93,16 +93,16 @@ func (w *InternalWatcher) Mesh() *meshconfig.MeshConfig {
 
 // AddMeshHandler registers a callback handler for changes to the mesh config.
 func (w *InternalWatcher) AddMeshHandler(h func()) {
-	w.mutux.Lock()
-	defer w.mutux.Unlock()
+	w.mutex.Lock()
+	defer w.mutex.Unlock()
 	w.handlers = append(w.handlers, h)
 }
 
 // HandleMeshConfigData keeps track of the standard mesh config. These are merged with the user
 // mesh config, but takes precedence.
 func (w *InternalWatcher) HandleMeshConfigData(yaml string) {
-	w.mutux.Lock()
-	defer w.mutux.Unlock()
+	w.mutex.Lock()
+	defer w.mutex.Unlock()
 	w.revMeshConfig = yaml
 	merged := w.merged()
 	w.handleMeshConfigInternal(merged)
@@ -111,8 +111,8 @@ func (w *InternalWatcher) HandleMeshConfigData(yaml string) {
 // HandleUserMeshConfig keeps track of user mesh config overrides. These are merged with the standard
 // mesh config, which takes precedence.
 func (w *InternalWatcher) HandleUserMeshConfig(yaml string) {
-	w.mutux.Lock()
-	defer w.mutux.Unlock()
+	w.mutex.Lock()
+	defer w.mutex.Unlock()
 	w.userMeshConfig = yaml
 	merged := w.merged()
 	w.handleMeshConfigInternal(merged)
@@ -143,8 +143,8 @@ func (w *InternalWatcher) merged() *meshconfig.MeshConfig {
 // HandleMeshConfig calls all handlers for a given mesh configuration update. This must be called
 // with a lock on w.Mutex, or updates may be applied out of order.
 func (w *InternalWatcher) HandleMeshConfig(meshConfig *meshconfig.MeshConfig) {
-	w.mutux.Lock()
-	defer w.mutux.Unlock()
+	w.mutex.Lock()
+	defer w.mutex.Unlock()
 	w.handleMeshConfigInternal(meshConfig)
 }
 
