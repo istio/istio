@@ -178,7 +178,7 @@ spec:
 }
 
 func skipIfIngressClassUnsupported(t framework.TestContext) {
-	if !t.Clusters().Default().MinKubeVersion(1, 18) {
+	if !t.Clusters().Default().MinKubeVersion(18) {
 		t.Skip("IngressClass not supported")
 	}
 }
