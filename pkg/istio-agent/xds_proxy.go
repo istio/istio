@@ -89,7 +89,7 @@ type XdsProxy struct {
 	healthChecker        *health.WorkloadHealthChecker
 	xdsHeaders           map[string]string
 	xdsUdsPath           string
-	proxyAddresses []string
+	proxyAddresses       []string
 
 	// connected stores the active gRPC stream. The proxy will only have 1 connection at a time
 	connected           *ProxyConnection
@@ -128,14 +128,14 @@ func initXdsProxy(ia *Agent) (*XdsProxy, error) {
 		LocalHostAddr: localHostAddr,
 	}
 	proxy := &XdsProxy{
-		istiodAddress: ia.proxyConfig.DiscoveryAddress,
-		clusterID:     ia.secOpts.ClusterID,
-		handlers:      map[string]ResponseHandler{},
-		stopChan:      make(chan struct{}),
-		healthChecker: health.NewWorkloadHealthChecker(ia.proxyConfig.ReadinessProbe, envoyProbe, ia.cfg.ProxyIPAddresses, ia.cfg.IsIPv6),
-		xdsHeaders:    ia.cfg.XDSHeaders,
-		xdsUdsPath:    ia.cfg.XdsUdsPath,
-		wasmCache:     wasm.NewLocalFileCache(constants.IstioDataDir, wasm.DefaultWasmModulePurgeInteval, wasm.DefaultWasmModuleExpiry),
+		istiodAddress:  ia.proxyConfig.DiscoveryAddress,
+		clusterID:      ia.secOpts.ClusterID,
+		handlers:       map[string]ResponseHandler{},
+		stopChan:       make(chan struct{}),
+		healthChecker:  health.NewWorkloadHealthChecker(ia.proxyConfig.ReadinessProbe, envoyProbe, ia.cfg.ProxyIPAddresses, ia.cfg.IsIPv6),
+		xdsHeaders:     ia.cfg.XDSHeaders,
+		xdsUdsPath:     ia.cfg.XdsUdsPath,
+		wasmCache:      wasm.NewLocalFileCache(constants.IstioDataDir, wasm.DefaultWasmModulePurgeInteval, wasm.DefaultWasmModuleExpiry),
 		proxyAddresses: ia.cfg.ProxyIPAddresses,
 	}
 
