@@ -233,7 +233,7 @@ func fixOnPrem(settings *resource.Settings) error {
 // This function will modify the KUBECONFIG env variable
 func fixBareMetal(settings *resource.Settings) error {
 	err := filterKubeconfigFiles(func(name string) bool {
-		return strings.Contains(name, ".artifacts/kubeconfig")
+		return strings.HasSuffix(name, "artifacts/kubeconfig")
 	})
 	if err != nil {
 		return err
@@ -268,6 +268,8 @@ func filterKubeconfigFiles(shouldKeep func(string) bool) error {
 	for _, f := range files {
 		if shouldKeep(f) {
 			filteredFiles = append(filteredFiles, f)
+		} else {
+			log.Printf("Remove %q from KUBECONFIG", f)
 		}
 	}
 	os.Setenv("KUBECONFIG", strings.Join(filteredFiles, string(os.PathListSeparator)))
