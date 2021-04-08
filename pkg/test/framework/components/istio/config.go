@@ -62,7 +62,8 @@ const (
 )
 
 var (
-	helmValues string
+	helmValues      string
+	operatorOptions string
 
 	settingsFromCommandline = &Config{
 		SystemNamespace:         DefaultSystemNamespace,
@@ -81,7 +82,6 @@ var (
 		DeployEastWestGW:        true,
 		DumpKubernetesManifests: false,
 		IstiodlessRemotes:       false,
-		EnableCNI:               false,
 	}
 )
 
@@ -164,8 +164,8 @@ type Config struct {
 	// TODO we could set this per-cluster if istiod was smarter about patching remotes.
 	IstiodlessRemotes bool
 
-	// EnableCNI indicates the test should have CNI enabled.
-	EnableCNI bool
+	// OperatorOptions overrides default operator configuration.
+	OperatorOptions map[string]string
 }
 
 func (c *Config) OverridesYAML() string {
@@ -241,6 +241,10 @@ func DefaultConfig(ctx resource.Context) (Config, error) {
 		return Config{}, err
 	}
 
+	if s.OperatorOptions, err = parseConfigOptions(operatorOptions); err != nil {
+		return Config{}, err
+	}
+
 	if ctx.Settings().CIMode {
 		s.DeployTimeout = DefaultCIDeployTimeout
 		s.UndeployTimeout = DefaultCIUndeployTimeout
@@ -269,7 +273,7 @@ func checkFileExists(path string) error {
 }
 
 func newHelmValues(ctx resource.Context, s *image.Settings) (map[string]string, error) {
-	userValues, err := parseHelmValues()
+	userValues, err := parseConfigOptions(helmValues)
 	if err != nil {
 		return nil, err
 	}
@@ -301,17 +305,17 @@ func newHelmValues(ctx resource.Context, s *image.Settings) (map[string]string, 
 	return values, nil
 }
 
-func parseHelmValues() (map[string]string, error) {
+func parseConfigOptions(options string) (map[string]string, error) {
 	out := make(map[string]string)
-	if helmValues == "" {
+	if options == "" {
 		return out, nil
 	}
 
-	values := strings.Split(helmValues, ",")
+	values := strings.Split(options, ",")
 	for _, v := range values {
 		parts := strings.Split(v, "=")
 		if len(parts) != 2 {
-			return nil, fmt.Errorf("failed parsing helm values: %s", helmValues)
+			return nil, fmt.Errorf("failed parsing config options: %s", options)
 		}
 		out[strings.TrimSpace(parts[0])] = strings.TrimSpace(parts[1])
 	}
@@ -341,7 +345,7 @@ func (c *Config) String() string {
 	result += fmt.Sprintf("DeployHelm:                     %v\n", c.DeployHelm)
 	result += fmt.Sprintf("DumpKubernetesManifests:        %v\n", c.DumpKubernetesManifests)
 	result += fmt.Sprintf("IstiodlessRemotes:              %v\n", c.IstiodlessRemotes)
-	result += fmt.Sprintf("EnableCNI:                      %v\n", c.EnableCNI)
+	result += fmt.Sprintf("OperatorOptions:                %v\n", c.OperatorOptions)
 
 	return result
 }
