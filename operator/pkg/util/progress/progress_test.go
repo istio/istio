@@ -22,6 +22,9 @@ import (
 	"istio.io/istio/operator/pkg/name"
 )
 
+// For testing only
+var testWriter *io.Writer
+
 func TestProgressLog(t *testing.T) {
 	buf := bytes.NewBuffer(nil)
 	testBuf := io.Writer(buf)
@@ -37,7 +40,7 @@ func TestProgressLog(t *testing.T) {
 		expected = newExpected
 	}
 
-	p := NewLog()
+	p := NewLogWithWriter(*testWriter)
 	cnp := name.PilotComponentName
 	cnpo := name.UserFacingComponentName(cnp)
 	cnb := name.IstioBaseComponentName

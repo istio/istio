@@ -17,6 +17,7 @@ package progress
 import (
 	"fmt"
 	"io"
+	"os"
 	"sort"
 	"strings"
 	"sync"
@@ -48,9 +49,14 @@ type Log struct {
 }
 
 func NewLog() *Log {
+	return NewLogWithWriter(os.Stdout)
+}
+
+// NewLogWithWriter creates a Log for processing
+func NewLogWithWriter(w io.Writer) *Log {
 	return &Log{
 		components: map[string]*ManifestLog{},
-		bar:        createBar(),
+		bar:        createBarWithWriter(w),
 	}
 }
 
@@ -85,16 +91,20 @@ func (p *Log) createStatus(maxWidth int) string {
 	return prefix + msg
 }
 
-// For testing only
-var testWriter *io.Writer
+var writer io.Writer
+
+func createBarWithWriter(w io.Writer) *pb.ProgressBar {
+	writer = w
+	return createBar()
+}
 
 func createBar() *pb.ProgressBar {
 	// Don't set a total and use Static so we can explicitly control when you write. This is needed
 	// for handling the multiline issues.
 	bar := pb.New(0)
 	bar.Set(pb.Static, true)
-	if testWriter != nil {
-		bar.SetWriter(*testWriter)
+	if writer != nil {
+		bar.SetWriter(writer)
 	}
 	bar.Start()
 	// if we aren't a terminal, we will return a new line for each new message
