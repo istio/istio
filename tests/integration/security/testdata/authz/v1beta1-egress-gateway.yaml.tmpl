@@ -100,7 +100,7 @@ spec:
         port: 80
       route:
       - destination:
-          host: {{ .b }}.{{ .Namespace }}.svc.cluster.local
+          host: b.{{ .Namespace }}.svc.cluster.local
           port:
             number: 8095
         weight: 100
@@ -139,7 +139,7 @@ spec:
         port: 443
       route:
       - destination:
-          host: {{ .b }}.{{ .Namespace }}.svc.cluster.local
+          host: b.{{ .Namespace }}.svc.cluster.local
           port:
             number: 8095
         weight: 100

@@ -668,17 +668,17 @@ func TestAuthorization_EgressGateway(t *testing.T) {
 			ns := apps.Namespace1
 			rootns := newRootNS(t)
 			a := apps.A.Match(echo.Namespace(apps.Namespace1.Name()))
+			vm := apps.VM.Match(echo.Namespace(apps.Namespace1.Name()))
 			c := apps.C.Match(echo.Namespace(apps.Namespace1.Name()))
 			// Gateways on VMs are not supported yet. This test verifies that security
 			// policies at gateways are useful for managing accessibility to external
 			// services running on a VM.
-			for _, b := range []string{util.BSvc, util.VMSvc} {
-				t.NewSubTest(fmt.Sprintf("to %s/", b)).Run(func(t framework.TestContext) {
+			for _, a := range []echo.Instances{a, vm} {
+				t.NewSubTest(fmt.Sprintf("to %s/", a[0].Config().Service)).Run(func(t framework.TestContext) {
 					args := map[string]string{
 						"Namespace":     ns.Name(),
 						"RootNamespace": rootns.rootNamespace,
-						"a":             util.ASvc,
-						"b":             b,
+						"a":             a[0].Config().Service,
 					}
 					policies := tmpl.EvaluateAllOrFail(t, args,
 						file.AsStringOrFail(t, "testdata/authz/v1beta1-egress-gateway.yaml.tmpl"))
