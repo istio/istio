@@ -323,7 +323,7 @@ func TestRequestAuthentication(t *testing.T) {
 						Run(func(t framework.TestContext, src echo.Instance, dest echo.Instances) {
 							t.NewSubTest(c.Name).Run(func(t framework.TestContext) {
 								c.CallOpts.Target = dest[0]
-								c.DestClusters = dest.Clusters()
+								c.DestClusters = dest.Match(echo.InCluster(src.Config().Cluster)).Clusters()
 								c.CallOpts.Validator = echo.And(echo.ValidatorFunc(c.CheckAuthn))
 								src.CallWithRetryOrFail(t, c.CallOpts, echo.DefaultCallRetryOptions()...)
 							})
