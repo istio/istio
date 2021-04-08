@@ -21,6 +21,8 @@ import (
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/cluster"
 	"istio.io/istio/pkg/test/framework/components/echo"
+	"istio.io/istio/pkg/test/framework/components/istio"
+	"istio.io/istio/pkg/test/framework/components/istio/ingress"
 )
 
 type (
@@ -32,6 +34,7 @@ type (
 	oneToOneTest      func(t framework.TestContext, src echo.Instance, dst echo.Instances)
 	oneToNTest        func(t framework.TestContext, src echo.Instance, dsts echo.Services)
 	oneClusterOneTest func(t framework.TestContext, src cluster.Cluster, dst echo.Instances)
+	ingressTest       func(t framework.TestContext, src ingress.Instance, dst echo.Instances)
 )
 
 // Run will generate and run one subtest to send traffic between each combination
@@ -114,6 +117,30 @@ func (t *T) RunToN(n int, testFn oneToNTest) {
 				testFn(ctx, src, destDeployments)
 			})
 		})
+	})
+}
+
+func (t *T) RunFromIngress(testFn ingressTest) {
+	i := istio.GetOrFail(t.rootCtx, t.rootCtx)
+	t.toEachDeployment(t.rootCtx, func(ctx framework.TestContext, dst echo.Instances) {
+		t.setupPair(ctx, nil, echo.Services{dst})
+		for _, c := range ctx.Clusters() {
+			c := c
+			doTest := func(t framework.TestContext) {
+				ingr := i.IngressFor(c)
+				if ingr == nil {
+					t.Skipf("no ingress for %s", c.StableName())
+				}
+				testFn(t, ingr, dst)
+			}
+			if len(ctx.Clusters()) == 1 {
+				doTest(ctx)
+			} else {
+				ctx.NewSubTestf("from %s", c.StableName()).Run(func(t framework.TestContext) {
+					doTest(t)
+				})
+			}
+		}
 	})
 }
 

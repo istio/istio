@@ -164,28 +164,28 @@ func (c *ingressImpl) DiscoveryAddress() net.TCPAddr {
 	return net.TCPAddr{IP: ip, Port: port}
 }
 
-func (c *ingressImpl) CallEcho(options echo.CallOptions) (client.ParsedResponses, error) {
+func (c *ingressImpl) Call(options echo.CallOptions) (client.ParsedResponses, error) {
 	return c.callEcho(options, false)
 }
 
-func (c *ingressImpl) CallEchoOrFail(t test.Failer, options echo.CallOptions) client.ParsedResponses {
+func (c *ingressImpl) CallOrFail(t test.Failer, options echo.CallOptions) client.ParsedResponses {
 	t.Helper()
-	resp, err := c.CallEcho(options)
+	resp, err := c.Call(options)
 	if err != nil {
 		t.Fatal(err)
 	}
 	return resp
 }
 
-func (c *ingressImpl) CallEchoWithRetry(options echo.CallOptions,
+func (c *ingressImpl) CallWithRetry(options echo.CallOptions,
 	retryOptions ...retry.Option) (client.ParsedResponses, error) {
 	return c.callEcho(options, true, retryOptions...)
 }
 
-func (c *ingressImpl) CallEchoWithRetryOrFail(t test.Failer, options echo.CallOptions,
+func (c *ingressImpl) CallWithRetryOrFail(t test.Failer, options echo.CallOptions,
 	retryOptions ...retry.Option) client.ParsedResponses {
 	t.Helper()
-	resp, err := c.CallEchoWithRetry(options, retryOptions...)
+	resp, err := c.CallWithRetry(options, retryOptions...)
 	if err != nil {
 		t.Fatal(err)
 	}

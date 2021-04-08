@@ -19,6 +19,8 @@ import (
 	"fmt"
 	"time"
 
+	"istio.io/istio/pkg/test/framework/components/istio/ingress"
+
 	"istio.io/istio/pkg/test"
 	echoclient "istio.io/istio/pkg/test/echo/client"
 	"istio.io/istio/pkg/test/framework"
@@ -54,9 +56,9 @@ type TrafficTestCase struct {
 	// opts specifies the echo call options. When using RunForApps, the Target will be set dynamically.
 	opts echo.CallOptions
 	// setupOpts allows modifying options based on sources/destinations
-	setupOpts func(src echo.Instance, dest echo.Services, opts *echo.CallOptions)
+	setupOpts func(src echo.Caller, dest echo.Services, opts *echo.CallOptions)
 	// validate is used to build validators dynamically when using RunForApps based on the active/src dest pair
-	validate func(src echo.Instance, dst echo.Services) echo.Validator
+	validate func(src echo.Caller, dst echo.Services) echo.Validator
 
 	// setting cases to skipped is better than not adding them - gives visibility to what needs to be fixed
 	skip bool
@@ -68,6 +70,8 @@ type TrafficTestCase struct {
 	// toN causes the test to be run for N destinations. The call will be made from instances of the first deployment
 	// in each subset in each cluster. See echotes.T's RunToN for more details.
 	toN int
+	// fromIngress makes the ingress gateway the caller for tests
+	fromIngress bool
 	// sourceFilters allows adding additional filtering for workload agnostic cases to test using fewer clients
 	sourceFilters []echotest.Filter
 	// targetFilters allows adding additional filtering for workload agnostic cases to test using fewer targets
@@ -75,7 +79,7 @@ type TrafficTestCase struct {
 	// comboFilters allows conditionally filtering based on pairs of apps
 	comboFilters []echotest.CombinationFilter
 	// vars given to the config template
-	templateVars map[string]interface{}
+	templateVars func(src echo.Instances, dests echo.Services) map[string]interface{}
 }
 
 func (c TrafficTestCase) RunForApps(t framework.TestContext, apps echo.Instances, namespace string) {
@@ -95,8 +99,6 @@ func (c TrafficTestCase) RunForApps(t framework.TestContext, apps echo.Instances
 		echoT := echotest.New(t, apps).
 			SetupForServicePair(func(t framework.TestContext, src echo.Instances, dsts echo.Services) error {
 				tmplData := map[string]interface{}{
-					"src":    src,
-					"srcSvc": src[0].Config().Service,
 					// tests that use simple Run only need the first
 					"dst":    dsts[0],
 					"dstSvc": dsts[0][0].Config().Service,
@@ -104,8 +106,14 @@ func (c TrafficTestCase) RunForApps(t framework.TestContext, apps echo.Instances
 					"dsts":    dsts,
 					"dstSvcs": dsts.Services(),
 				}
-				for k, v := range c.templateVars {
-					tmplData[k] = v
+				if len(src) > 0 {
+					tmplData["src"] = src
+					tmplData["srcSvc"] = src[0].Config().Service
+				}
+				if c.templateVars != nil {
+					for k, v := range c.templateVars(src, dsts) {
+						tmplData[k] = v
+					}
 				}
 				cfg := yml.MustApplyNamespace(t, tmpl.MustEvaluate(c.config, tmplData), namespace)
 				return t.Config().ApplyYAML("", cfg)
@@ -115,7 +123,7 @@ func (c TrafficTestCase) RunForApps(t framework.TestContext, apps echo.Instances
 			To(c.targetFilters...).
 			ConditionallyTo(c.comboFilters...)
 
-		doTest := func(t framework.TestContext, src echo.Instance, dsts echo.Services) {
+		doTest := func(t framework.TestContext, src echo.Caller, dsts echo.Services) {
 			if c.skip {
 				t.SkipNow()
 			}
@@ -146,6 +154,10 @@ func (c TrafficTestCase) RunForApps(t framework.TestContext, apps echo.Instances
 		if c.toN > 0 {
 			echoT.RunToN(c.toN, func(t framework.TestContext, src echo.Instance, dsts echo.Services) {
 				doTest(t, src, dsts)
+			})
+		} else if c.fromIngress {
+			echoT.RunFromIngress(func(t framework.TestContext, src ingress.Instance, dst echo.Instances) {
+				doTest(t, src, echo.Services{dst})
 			})
 		} else {
 			echoT.Run(func(t framework.TestContext, src echo.Instance, dst echo.Instances) {
@@ -199,7 +211,7 @@ func RunAllTrafficTests(t framework.TestContext, apps *EchoDeployments) {
 	cases["sniffing"] = protocolSniffingCases()
 	cases["selfcall"] = selfCallsCases()
 	cases["serverfirst"] = serverFirstTestCases(apps)
-	cases["gateway"] = gatewayCases(apps)
+	cases["gateway"] = gatewayCases()
 	cases["loop"] = trafficLoopCases(apps)
 	cases["tls-origination"] = tlsOriginationCases(apps)
 	cases["instanceip"] = instanceIPTests(apps)

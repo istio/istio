@@ -111,6 +111,11 @@ func isRegularPod(instance echo.Instance) bool {
 	return len(c.Subsets) == 1 && !c.IsVM() && !c.IsTProxy() && !c.IsNaked() && !c.IsHeadless()
 }
 
+// SpecialWorkloads includes VMs, external services, naked services, headless, etc.
+func SpecialWorkloads(instances echo.Instances) echo.Instances {
+	return instances.Match(isRegularPod)
+}
+
 // Not includes all workloads that don't match the given filter
 func Not(filter Filter) Filter {
 	return func(instances echo.Instances) echo.Instances {

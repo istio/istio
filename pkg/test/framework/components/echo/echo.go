@@ -62,8 +62,21 @@ type Builder interface {
 	BuildOrFail(t test.Failer) Instances
 }
 
+type Caller interface {
+	// Call makes a call from this Instance to a target Instance.
+	Call(options CallOptions) (client.ParsedResponses, error)
+	CallOrFail(t test.Failer, options CallOptions) client.ParsedResponses
+
+	// CallWithRetry is the same as call, except that it will attempt to retry based on the provided
+	// options. If no options are provided, uses defaults.
+	CallWithRetry(options CallOptions, retryOptions ...retry.Option) (client.ParsedResponses, error)
+	CallWithRetryOrFail(t test.Failer, options CallOptions, retryOptions ...retry.Option) client.ParsedResponses
+}
+
 // Instance is a component that provides access to a deployed echo service.
 type Instance interface {
+	Caller
+
 	resource.Resource
 
 	// Config returns the configuration of the Echo instance.
@@ -76,15 +89,6 @@ type Instance interface {
 	// Guarantees at least one workload, if error == nil.
 	Workloads() ([]Workload, error)
 	WorkloadsOrFail(t test.Failer) []Workload
-
-	// Call makes a call from this Instance to a target Instance.
-	Call(options CallOptions) (client.ParsedResponses, error)
-	CallOrFail(t test.Failer, options CallOptions) client.ParsedResponses
-
-	// CallWithRetry is the same as call, except that it will attempt to retry based on the provided
-	// options. If no options are provided, uses defaults.
-	CallWithRetry(options CallOptions, retryOptions ...retry.Option) (client.ParsedResponses, error)
-	CallWithRetryOrFail(t test.Failer, options CallOptions, retryOptions ...retry.Option) client.ParsedResponses
 
 	// Restart restarts the workloads associated with this echo instance
 	Restart() error

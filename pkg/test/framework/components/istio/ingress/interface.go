@@ -40,11 +40,11 @@ type Instance interface {
 	// AddressForPort returns the external address of the ingress gateway (or the NodePort address,
 	// when in an environment that doesn't support LoadBalancer) for the given port.
 	AddressForPort(port int) (string, int)
-	// CallEcho makes a call through ingress using the echo call and response types.
-	CallEcho(options echo.CallOptions) (client.ParsedResponses, error)
-	CallEchoOrFail(t test.Failer, options echo.CallOptions) client.ParsedResponses
-	CallEchoWithRetry(options echo.CallOptions, retryOptions ...retry.Option) (client.ParsedResponses, error)
-	CallEchoWithRetryOrFail(t test.Failer, options echo.CallOptions, retryOptions ...retry.Option) client.ParsedResponses
+	// Call makes a call through ingress using the echo call and response types.
+	Call(options echo.CallOptions) (client.ParsedResponses, error)
+	CallOrFail(t test.Failer, options echo.CallOptions) client.ParsedResponses
+	CallWithRetry(options echo.CallOptions, retryOptions ...retry.Option) (client.ParsedResponses, error)
+	CallWithRetryOrFail(t test.Failer, options echo.CallOptions, retryOptions ...retry.Option) client.ParsedResponses
 
 	// ProxyStats returns proxy stats, or error if failure happens.
 	ProxyStats() (map[string]int, error)
