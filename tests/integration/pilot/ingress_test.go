@@ -23,10 +23,6 @@ import (
 	"testing"
 	"time"
 
-	"istio.io/istio/pkg/test/util/tmpl"
-
-	"istio.io/istio/pkg/test/framework/image"
-
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	k8s "sigs.k8s.io/gateway-api/apis/v1alpha1"
 
@@ -39,9 +35,11 @@ import (
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/environment/kube"
 	"istio.io/istio/pkg/test/framework/components/namespace"
+	"istio.io/istio/pkg/test/framework/image"
 	"istio.io/istio/pkg/test/helm"
 	kubetest "istio.io/istio/pkg/test/kube"
 	"istio.io/istio/pkg/test/util/retry"
+	"istio.io/istio/pkg/test/util/tmpl"
 	helmtest "istio.io/istio/tests/integration/helm"
 	ingressutil "istio.io/istio/tests/integration/security/sds_ingress/util"
 )
