@@ -18,11 +18,10 @@ import (
 	"fmt"
 	"io/ioutil"
 
-	"istio.io/istio/pkg/test"
-
 	"gopkg.in/yaml.v3"
-
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+
+	"istio.io/istio/pkg/test"
 )
 
 const (
