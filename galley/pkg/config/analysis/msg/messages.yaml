@@ -416,3 +416,34 @@ messages:
         type: string
       - name: virtualservice
         type: string
+
+  - name: "InsufficientPermissions"
+    code: IST0141
+    level: Error
+    description: "Required permissions to install Istio are missing."
+    template: "Missing required permission to create resource %v (%v)"
+    args:
+      - name: resource
+        type: string
+      - name: error
+        type: string
+
+  - name: "UnsupportedKubernetesVersion"
+    code: IST0142
+    level: Error
+    description: "The Kubernetes version is not supported"
+    template: "The Kubernetes Version %q is lower than the minimum version: %v"
+    args:
+      - name: version
+        type: string
+      - name: minimumVersion
+        type: string
+
+  - name: "LocalhostListener"
+    code: IST0143
+    level: Warning
+    description: "A port exposed in by a Service is bound to a localhost address"
+    template: "Port %v listeners on localhost and will not be exposed to other pods"
+    args:
+      - name: port
+        type: string

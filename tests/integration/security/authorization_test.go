@@ -255,13 +255,13 @@ func TestAuthorization_WorkloadSelector(t *testing.T) {
 			for _, srcCluster := range t.Clusters() {
 				a := apps.A.Match(echo.InCluster(srcCluster).And(echo.Namespace(apps.Namespace1.Name())))
 				cases := []struct {
-					configDst0 string
-					configDst1 string
-					subCases   []rbacUtil.TestCase
+					b        string
+					c        string
+					subCases []rbacUtil.TestCase
 				}{
-					{ // Sends requests to b and c in ns1.
-						configDst0: util.BSvc,
-						configDst1: util.CSvc,
+					{
+						b: util.BSvc,
+						c: util.CSvc,
 						subCases: []rbacUtil.TestCase{
 							newTestCase("[bInNS1]", a, bInNS1, "/policy-ns1-b", true),
 							newTestCase("[bInNS1]", a, bInNS1, "/policy-ns1-vm", false),
@@ -289,9 +289,10 @@ func TestAuthorization_WorkloadSelector(t *testing.T) {
 							newTestCase("[cInNS2]", a, cInNS2, "/policy-ns-root-c", true),
 						},
 					},
-					{ // Send requests to vm in ns1 and c in ns2.
-						configDst0: util.VMSvc,
-						configDst1: util.CSvc,
+					{
+						// TODO(JimmyCYJ): Support multiple VMs in different namespaces for workload selector test and set c to service on VM.
+						b: util.VMSvc,
+						c: util.CSvc,
 						subCases: []rbacUtil.TestCase{
 							newTestCase("[vmInNS1]", a, vmInNS1, "/policy-ns1-b", false),
 							newTestCase("[vmInNS1]", a, vmInNS1, "/policy-ns1-vm", true),
@@ -301,7 +302,6 @@ func TestAuthorization_WorkloadSelector(t *testing.T) {
 							newTestCase("[vmInNS1]", a, vmInNS1, "/policy-ns2-b", false),
 							newTestCase("[vmInNS1]", a, vmInNS1, "/policy-ns2-all", false),
 							newTestCase("[vmInNS1]", a, vmInNS1, "/policy-ns-root-c", false),
-							// TODO(JimmyCYJ): Support multiple VMs in different namespaces for workload selector test.
 						},
 					},
 				}
@@ -313,8 +313,8 @@ func TestAuthorization_WorkloadSelector(t *testing.T) {
 								"Namespace1":    ns1.Name(),
 								"Namespace2":    ns2.Name(),
 								"RootNamespace": rootns.rootNamespace,
-								"dst0":          tc.configDst0,
-								"dst1":          tc.configDst1,
+								"b":             tc.b,
+								"c":             tc.c,
 							}
 							applyPolicy := func(filename string, ns namespace.Instance) {
 								policy := tmpl.EvaluateAllOrFail(t, args, file.AsStringOrFail(t, filename))
@@ -340,25 +340,24 @@ func TestAuthorization_Deny(t *testing.T) {
 			if t.Clusters().IsMulticluster() {
 				t.Skip()
 			}
-
 			ns := apps.Namespace1
+			rootns := newRootNS(t)
+			b := apps.B.Match(echo.Namespace(apps.Namespace1.Name()))
+			c := apps.C.Match(echo.Namespace(apps.Namespace1.Name()))
+			vm := apps.VM.Match(echo.Namespace(apps.Namespace1.Name()))
 			args := map[string]string{
 				"Namespace":     ns.Name(),
-				"RootNamespace": istio.GetOrFail(t, t).Settings().SystemNamespace,
+				"RootNamespace": rootns.rootNamespace,
+				"b":             b[0].Config().Service,
+				"c":             c[0].Config().Service,
+				"vm":            vm[0].Config().Service,
 			}
-
-			applyPolicy := func(filename string, ns namespace.Instance) []string {
+			applyPolicy := func(filename string, ns namespace.Instance) {
 				policy := tmpl.EvaluateAllOrFail(t, args, file.AsStringOrFail(t, filename))
 				t.Config().ApplyYAMLOrFail(t, ns.Name(), policy...)
-				return policy
 			}
-
-			rootns := newRootNS(t)
-			policy := applyPolicy("testdata/authz/v1beta1-deny.yaml.tmpl", ns)
-			util.WaitForConfig(t, policy[0], ns)
-			policyNSRoot := applyPolicy("testdata/authz/v1beta1-deny-ns-root.yaml.tmpl", rootns)
-			util.WaitForConfig(t, policyNSRoot[0], rootns)
-
+			applyPolicy("testdata/authz/v1beta1-deny.yaml.tmpl", ns)
+			applyPolicy("testdata/authz/v1beta1-deny-ns-root.yaml.tmpl", rootns)
 			callCount := 1
 			if t.Clusters().IsMulticluster() {
 				// so we can validate all clusters are hit
@@ -367,9 +366,6 @@ func TestAuthorization_Deny(t *testing.T) {
 			for _, srcCluster := range t.Clusters() {
 				t.NewSubTest(fmt.Sprintf("From %s", srcCluster.StableName())).Run(func(t framework.TestContext) {
 					a := apps.A.Match(echo.InCluster(srcCluster).And(echo.Namespace(apps.Namespace1.Name())))
-					b := apps.B.Match(echo.Namespace(apps.Namespace1.Name()))
-					c := apps.C.Match(echo.Namespace(apps.Namespace1.Name()))
-
 					newTestCase := func(target echo.Instances, path string, expectAllowed bool) rbacUtil.TestCase {
 						return rbacUtil.TestCase{
 							Request: connection.Checker{
@@ -403,6 +399,16 @@ func TestAuthorization_Deny(t *testing.T) {
 						newTestCase(c, "/other?param=value", false),
 						newTestCase(c, "/allow", true),
 						newTestCase(c, "/allow?param=value", true),
+
+						// TODO(JimmyCYJ): support multiple VMs and test deny policies on multiple VMs.
+						newTestCase(vm, "/allow/admin", false),
+						newTestCase(vm, "/allow/admin?param=value", false),
+						newTestCase(vm, "/global-deny", false),
+						newTestCase(vm, "/global-deny?param=value", false),
+						newTestCase(vm, "/other", false),
+						newTestCase(vm, "/other?param=value", false),
+						newTestCase(vm, "/allow", true),
+						newTestCase(vm, "/allow?param=value", true),
 					}
 
 					rbacUtil.RunRBACTest(t, cases)
@@ -418,23 +424,23 @@ func TestAuthorization_NegativeMatch(t *testing.T) {
 		Run(func(t framework.TestContext) {
 			ns := apps.Namespace1
 			ns2 := apps.Namespace2
-
+			b := apps.B.Match(echo.Namespace(apps.Namespace1.Name()))
+			c := apps.C.Match(echo.Namespace(apps.Namespace1.Name()))
+			d := apps.D.Match(echo.Namespace(apps.Namespace1.Name()))
+			vm := apps.VM.Match(echo.Namespace(apps.Namespace1.Name()))
 			args := map[string]string{
 				"Namespace":  ns.Name(),
 				"Namespace2": ns2.Name(),
+				"b":          b[0].Config().Service,
+				"c":          c[0].Config().Service,
+				"d":          d[0].Config().Service,
+				"vm":         vm[0].Config().Service,
 			}
-
-			applyPolicy := func(filename string, ns namespace.Instance) {
+			applyPolicy := func(filename string) {
 				policy := tmpl.EvaluateAllOrFail(t, args, file.AsStringOrFail(t, filename))
-				name := ""
-				if ns != nil {
-					name = ns.Name()
-				}
-				t.Config().ApplyYAMLOrFail(t, name, policy...)
+				t.Config().ApplyYAMLOrFail(t, "", policy...)
 			}
-
-			applyPolicy("testdata/authz/v1beta1-negative-match.yaml.tmpl", nil)
-
+			applyPolicy("testdata/authz/v1beta1-negative-match.yaml.tmpl")
 			callCount := 1
 			if t.Clusters().IsMulticluster() {
 				// so we can validate all clusters are hit
@@ -442,11 +448,8 @@ func TestAuthorization_NegativeMatch(t *testing.T) {
 			}
 			for _, srcCluster := range t.Clusters() {
 				t.NewSubTest(fmt.Sprintf("From %s", srcCluster.StableName())).Run(func(t framework.TestContext) {
-					srcA := apps.A.Match(echo.InCluster(srcCluster).And(echo.Namespace(apps.Namespace1.Name())))
-					srcBInNS2 := apps.B.Match(echo.InCluster(srcCluster).And(echo.Namespace(apps.Namespace2.Name())))
-					destB := apps.B.Match(echo.Namespace(apps.Namespace1.Name()))
-					destC := apps.C.Match(echo.Namespace(apps.Namespace1.Name()))
-					destD := apps.D.Match(echo.Namespace(apps.Namespace1.Name()))
+					a := apps.A.Match(echo.InCluster(srcCluster).And(echo.Namespace(apps.Namespace1.Name())))
+					bInNS2 := apps.B.Match(echo.InCluster(srcCluster).And(echo.Namespace(apps.Namespace2.Name())))
 					newTestCase := func(from echo.Instance, target echo.Instances, path string, expectAllowed bool) rbacUtil.TestCase {
 						return rbacUtil.TestCase{
 							Request: connection.Checker{
@@ -473,26 +476,41 @@ func TestAuthorization_NegativeMatch(t *testing.T) {
 						// - path with prefix `/prefix` should be denied explicitly.
 						// - path `/prefix/allowlist` should be excluded from the deny.
 						// - path `/allow` should be allowed implicitly.
-						newTestCase(srcA[0], destB, "/prefix", false),
-						newTestCase(srcA[0], destB, "/prefix/other", false),
-						newTestCase(srcA[0], destB, "/prefix/allowlist", true),
-						newTestCase(srcA[0], destB, "/allow", true),
-						newTestCase(srcBInNS2[0], destB, "/prefix", false),
-						newTestCase(srcBInNS2[0], destB, "/prefix/other", false),
-						newTestCase(srcBInNS2[0], destB, "/prefix/allowlist", true),
-						newTestCase(srcBInNS2[0], destB, "/allow", true),
+						newTestCase(a[0], b, "/prefix", false),
+						newTestCase(a[0], b, "/prefix/other", false),
+						newTestCase(a[0], b, "/prefix/allowlist", true),
+						newTestCase(a[0], b, "/allow", true),
+						newTestCase(bInNS2[0], b, "/prefix", false),
+						newTestCase(bInNS2[0], b, "/prefix/other", false),
+						newTestCase(bInNS2[0], b, "/prefix/allowlist", true),
+						newTestCase(bInNS2[0], b, "/allow", true),
 
 						// Test the policy that denies other namespace on c.
 						// a should be allowed because it's from the same namespace.
 						// bInNs2 should be denied because it's from a different namespace.
-						newTestCase(srcA[0], destC, "/", true),
-						newTestCase(srcBInNS2[0], destC, "/", false),
+						newTestCase(a[0], c, "/", true),
+						newTestCase(bInNS2[0], c, "/", false),
 
 						// Test the policy that denies plain-text traffic on d.
 						// a should be allowed because it's using mTLS.
 						// bInNs2 should be denied because it's using plain-text.
-						newTestCase(srcA[0], destD, "/", true),
-						newTestCase(srcBInNS2[0], destD, "/", false),
+						newTestCase(a[0], d, "/", true),
+						newTestCase(bInNS2[0], d, "/", false),
+
+						// Test the policy with overlapped `paths` and `not_paths` on vm.
+						// a and bInNs2 should have the same results:
+						// - path with prefix `/prefix` should be denied explicitly.
+						// - path `/prefix/allowlist` should be excluded from the deny.
+						// - path `/allow` should be allowed implicitly.
+						// TODO(JimmyCYJ): support multiple VMs and test negative match on multiple VMs.
+						newTestCase(a[0], vm, "/prefix", false),
+						newTestCase(a[0], vm, "/prefix/other", false),
+						newTestCase(a[0], vm, "/prefix/allowlist", true),
+						newTestCase(a[0], vm, "/allow", true),
+						newTestCase(bInNS2[0], vm, "/prefix", false),
+						newTestCase(bInNS2[0], vm, "/prefix/other", false),
+						newTestCase(bInNS2[0], vm, "/prefix/allowlist", true),
+						newTestCase(bInNS2[0], vm, "/allow", true),
 					}
 
 					rbacUtil.RunRBACTest(t, cases)
