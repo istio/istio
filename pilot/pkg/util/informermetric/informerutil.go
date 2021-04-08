@@ -27,7 +27,7 @@ var (
 	clusterLabel = monitoring.MustCreateLabel("cluster")
 
 	errorMetric = monitoring.NewSum(
-		"controller_sync_errors",
+		"controller_sync_errors_total",
 		"Total number of errorMetric syncing controllers.",
 	)
 
