@@ -77,6 +77,7 @@ spec:
 `, credential, host)
 }
 
+// nolint: unparam
 func httpVirtualService(gateway, host string, port int) string {
 	return tmpl.MustEvaluate(`apiVersion: networking.istio.io/v1alpha3
 kind: VirtualService
