@@ -1,14 +1,14 @@
-# The following policy denies access to path /deny to workload
+# The following policy denies access to path /deny to workload b.
 
 apiVersion: security.istio.io/v1beta1
 kind: AuthorizationPolicy
 metadata:
-  name: policy-dst0-deny
+  name: policy-{{ .b }}-deny
   namespace: "{{ .Namespace }}"
 spec:
   selector:
     matchLabels:
-      "app": "{{ .dst0 }}"
+      "app": "{{ .b }}"
   action: DENY
   rules:
   - to:
@@ -16,17 +16,17 @@ spec:
         paths: ["/deny"]
 ---
 
-# The following policy denies access to path /allow/admin to workload
+# The following policy denies access to path /allow/admin to workload c.
 
 apiVersion: security.istio.io/v1beta1
 kind: AuthorizationPolicy
 metadata:
-  name: policy-dst1-deny
+  name: policy-{{ .c }}-deny
   namespace: "{{ .Namespace }}"
 spec:
   selector:
     matchLabels:
-      "app": "{{ .dst1 }}"
+      "app": "{{ .c }}"
   action: DENY
   rules:
   - to:
@@ -34,17 +34,17 @@ spec:
         paths: ["/allow/admin"]
 ---
 
-# The following policy allows access to path with prefix "/allow" to workload.
+# The following policy allows access to path with prefix "/allow" to workload c.
 
 apiVersion: security.istio.io/v1beta1
 kind: AuthorizationPolicy
 metadata:
-  name: policy-dst1-allow
+  name: policy-{{ .c }}-allow
   namespace: "{{ .Namespace }}"
 spec:
   selector:
     matchLabels:
-      "app": "{{ .dst1 }}"
+      "app": "{{ .c }}"
   action: ALLOW
   rules:
   - to:
@@ -52,18 +52,18 @@ spec:
         paths: ["/allow*"]
 ---
 
-# The following policy denies access to path /allow/admin to workload
+# The following policy denies access to path /allow/admin to workload vm.
 # (TODO)JimmyCYJ: the following two policies are duplicates of existing ones above
-# and can be removed once the test framework supports multiple vm workloads
+# and can be removed once the test framework supports multiple vm workloads.
 apiVersion: security.istio.io/v1beta1
 kind: AuthorizationPolicy
 metadata:
-  name: policy-dst2-deny
+  name: policy-vm-deny
   namespace: "{{ .Namespace }}"
 spec:
   selector:
     matchLabels:
-      "app": "{{ .dst2 }}"
+      "app": "{{ .vm }}"
   action: DENY
   rules:
   - to:
@@ -71,17 +71,17 @@ spec:
         paths: ["/allow/admin"]
 ---
 
-# The following policy allows access to path with prefix "/allow" to workload.
+# The following policy allows access to path with prefix "/allow" to workload vm.
 
 apiVersion: security.istio.io/v1beta1
 kind: AuthorizationPolicy
 metadata:
-  name: policy-dst2-allow
+  name: policy-vm-allow
   namespace: "{{ .Namespace }}"
 spec:
   selector:
     matchLabels:
-      "app": "{{ .dst2 }}"
+      "app": "{{ .vm }}"
   action: ALLOW
   rules:
   - to:

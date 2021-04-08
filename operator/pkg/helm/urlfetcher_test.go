@@ -16,11 +16,12 @@ package helm
 
 import (
 	"io/ioutil"
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
-
-	"istio.io/istio/operator/pkg/util/httpserver"
 )
 
 func TestFetch(t *testing.T) {
@@ -32,35 +33,41 @@ func TestFetch(t *testing.T) {
 			name:                    "Charts download only",
 			installationPackageName: "istio-1.3.0-linux.tar.gz",
 		},
+		{
+			name:                    "Charts download only in folders",
+			installationPackageName: "testdata/istio-1.3.0-linux.tar.gz",
+		},
 	}
-	tmp, err := ioutil.TempDir("", InstallationDirectory)
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer os.RemoveAll(tmp)
 
-	server := httpserver.NewServer(tmp)
-	defer server.Close()
-	if _, err := server.MoveFiles("testdata/*.tar.gz*"); err != nil {
-		t.Error(err)
-		return
-	}
+	server := httptest.NewServer(http.HandlerFunc(func(rw http.ResponseWriter, r *http.Request) {
+		if !strings.HasSuffix(r.URL.Path, ".tar.gz") {
+			http.NotFound(rw, r)
+			return
+		}
+		http.ServeFile(rw, r, "testdata/istio-1.3.0-linux.tar.gz")
+	}))
+
 	for _, tt := range tests {
-		outdir := filepath.Join(server.Root, "testout")
-		os.RemoveAll(outdir)
-		os.Mkdir(outdir, 0755)
-		fq := NewURLFetcher(server.URL()+"/"+tt.installationPackageName, tmp+"/testout")
+		t.Run(tt.name, func(t *testing.T) {
+			tmp, err := ioutil.TempDir("", InstallationDirectory)
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer os.RemoveAll(tmp)
+			rootDir := tmp + "/testout"
+			fq := NewURLFetcher(server.URL+"/"+tt.installationPackageName, rootDir)
 
-		err = fq.Fetch()
-		if err != nil {
-			t.Error(err)
-			return
-		}
+			err = fq.Fetch()
+			if err != nil {
+				t.Error(err)
+				return
+			}
 
-		ef := filepath.Join(fq.destDirRoot, tt.installationPackageName)
-		if _, err := os.Stat(ef); err != nil {
-			t.Error(err)
-			return
-		}
+			ef := filepath.Join(rootDir, filepath.Base(tt.installationPackageName))
+			if _, err := os.Stat(ef); err != nil {
+				t.Error(err)
+				return
+			}
+		})
 	}
 }

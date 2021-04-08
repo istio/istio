@@ -263,7 +263,7 @@ func TestSidecarListeners(t *testing.T) {
 			Exists("{.resources[?(@.address.socketAddress.portValue==15001)]}").
 			Select("{.resources[?(@.address.socketAddress.portValue==15001)]}").
 			Equals("virtualOutbound", "{.name}").
-			Equals("0.0.0.0", "{.address.socketAddress.address}").
+			Equals("127.0.0.1", "{.address.socketAddress.address}").
 			Equals(wellknown.TCPProxy, "{.filterChains[1].filters[0].name}").
 			Equals("PassthroughCluster", "{.filterChains[1].filters[0].typedConfig.cluster}").
 			Equals("PassthroughCluster", "{.filterChains[1].filters[0].typedConfig.statPrefix}").
