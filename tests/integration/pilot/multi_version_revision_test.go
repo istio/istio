@@ -192,7 +192,7 @@ func ReadInstallFile(f string) (string, error) {
 // skipIfK8sVersionUnsupported skips the test if we're running on a k8s version that is not expected to work
 // with any of the revision versions included in the test (i.e. istio 1.7 not supported on k8s 1.15)
 func skipIfK8sVersionUnsupported(t framework.TestContext) {
-	if !t.Clusters().Default().MinKubeVersion(1, 16) {
+	if !t.Clusters().Default().MinKubeVersion(16) {
 		t.Skipf("k8s version not supported for %s (<%s)", t.Name(), "1.16")
 	}
 }

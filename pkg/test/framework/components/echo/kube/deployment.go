@@ -606,7 +606,7 @@ func templateParams(cfg echo.Config, settings *image.Settings, versions resource
 			return nil, err
 		}
 	}
-	supportStartupProbe := cfg.Cluster.MinKubeVersion(16, 0)
+	supportStartupProbe := cfg.Cluster.MinKubeVersion(0)
 
 	// if image is not provided, default to app_sidecar
 	vmImage := DefaultVMImage

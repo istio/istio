@@ -51,7 +51,7 @@ func TestMain(m *testing.M) {
 	framework.
 		NewSuite(m).
 		Label(label.CustomSetup).
-		RequireMinVersion("1.17").
+		RequireMinVersion(17).
 		Setup(func(ctx resource.Context) error {
 			crd, err := ioutil.ReadFile("../testdata/mcs-serviceexport-crd.yaml")
 			if err != nil {
