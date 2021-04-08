@@ -138,7 +138,7 @@ func (c Topology) WithConfig(configClusterName string) Topology {
 	return c
 }
 
-func (c Topology) MinKubeVersion(major, minor uint) bool {
+func (c Topology) MinKubeVersion(minor uint) bool {
 	cluster := c.AllClusters[c.ClusterName]
 	if cluster.Kind() != Kubernetes && cluster.Kind() != Fake {
 		return c.Primary().MinKubeVersion(minor)
