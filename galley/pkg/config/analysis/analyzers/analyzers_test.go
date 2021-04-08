@@ -504,6 +504,26 @@ var testGrid = []testCase{
 			{msg.InvalidApplicationUID, "Pod con-sec-uid"},
 		},
 	},
+	{
+		name: "Deployment Pod SecurityContext with UID 1337",
+		inputFiles: []string{
+			"testdata/deployment-pod-sec-uid.yaml",
+		},
+		analyzer: &deployment.ApplicationUIDAnalyzer{},
+		expected: []message{
+			{msg.InvalidApplicationUID, "Deployment deploy-pod-sec-uid"},
+		},
+	},
+	{
+		name: "Deployment Container SecurityContext with UID 1337",
+		inputFiles: []string{
+			"testdata/deployment-con-sec-uid.yaml",
+		},
+		analyzer: &deployment.ApplicationUIDAnalyzer{},
+		expected: []message{
+			{msg.InvalidApplicationUID, "Deployment deploy-con-sec-uid"},
+		},
+	},
 }
 
 // regex patterns for analyzer names that should be explicitly ignored for testing
