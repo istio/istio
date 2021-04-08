@@ -126,7 +126,7 @@ func TestRequestAuthentication(t *testing.T) {
 						},
 						ExpectResponseCode: response.StatusCodeOK,
 					},
-					// Following app b is configured with authorization, only request with valid JWT succeed.
+					// Destination app is configured with authorization, only request with valid JWT succeed.
 					{
 						Name:   "valid-token",
 						Config: "authn-authz",

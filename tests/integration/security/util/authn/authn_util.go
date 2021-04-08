@@ -69,7 +69,7 @@ func (c *TestCase) CheckAuthn(responses client.ParsedResponses, err error) error
 			}
 		}
 	}
-	if c.ExpectResponseCode == response.StatusCodeOK {
+	if c.ExpectResponseCode == response.StatusCodeOK && c.DestClusters.IsMulticluster() {
 		return responses.CheckReachedClusters(c.DestClusters)
 	}
 	return nil
