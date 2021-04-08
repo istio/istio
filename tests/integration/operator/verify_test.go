@@ -32,9 +32,9 @@ func TestPostInstallControlPlaneVerification(t *testing.T) {
 	framework.
 		NewTest(t).
 		Features("installation.istioctl.postinstall_verify").
-		Run(func(ctx framework.TestContext) {
-			istioCtl := istioctl.NewOrFail(ctx, ctx, istioctl.Config{})
-			cs := ctx.Environment().Clusters().Default()
+		Run(func(t framework.TestContext) {
+			istioCtl := istioctl.NewOrFail(t, t, istioctl.Config{})
+			cs := t.Environment().Clusters().Default()
 			s, err := image.SettingsFromCommandLine()
 			if err != nil {
 				t.Fatal(err)

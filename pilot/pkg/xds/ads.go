@@ -158,6 +158,7 @@ func (s *DiscoveryServer) receive(con *Connection, reqChannel chan *discovery.Di
 			close(con.initialized)
 		}
 	}()
+
 	firstReq := true
 	for {
 		req, err := con.stream.Recv()
@@ -183,14 +184,8 @@ func (s *DiscoveryServer) receive(con *Connection, reqChannel chan *discovery.Di
 				*errP = err
 				return
 			}
+			defer s.closeConnection(con)
 			log.Infof("ADS: new connection for node:%s", con.ConID)
-			defer func() {
-				s.removeCon(con.ConID)
-				if s.StatusGen != nil {
-					s.StatusGen.OnDisconnect(con)
-				}
-				s.WorkloadEntryController.QueueUnregisterWorkload(con.proxy, con.Connect)
-			}()
 		}
 
 		select {
@@ -508,27 +503,40 @@ func (s *DiscoveryServer) initConnection(node *core.Node, con *Connection) error
 		con.proxy.VerifiedIdentity = id
 	}
 
-	// Register the connection; this allows pushes to be triggered for the proxy. Note: the timing of
-	// this an initProxyState is important. While registering for pushes *after* initialization is
-	// complete seems like a better choice, it introduces a race condition; If we complete
-	// initialization of a new push context between initProxyState and addCon, we would not get any pushes
-	// triggered for the new push context, leading the proxy to have a stale state until the next
-	// full push.
+	// Register the connection. this allows pushes to be triggered for the proxy. Note: the timing of
+	// this and initializeProxy important. While registering for pushes *after* initialization is complete seems like
+	// a better choice, it introduces a race condition; If we complete initialization of a new push
+	// context between initializeProxy and addCon, we would not get any pushes triggered for the new
+	// push context, leading the proxy to have a stale state until the next full push.
 	s.addCon(con.ConID, con)
+	// Register that initialization is complete. This triggers to calls that it is safe to access the
+	// proxy
+	defer close(con.initialized)
 
 	// Complete full initialization of the proxy
-	if err := s.initProxyState(node, con); err != nil {
+	if err := s.initializeProxy(node, con); err != nil {
+		s.closeConnection(con)
 		return err
 	}
-
-	// Register that initialization is complete. This triggers to calls that it is safe to access the
-	// proxy.
-	close(con.initialized)
 
 	if s.StatusGen != nil {
 		s.StatusGen.OnConnect(con)
 	}
 	return nil
+}
+
+func (s *DiscoveryServer) closeConnection(con *Connection) {
+	if con.ConID == "" {
+		return
+	}
+	s.removeCon(con.ConID)
+	if s.StatusGen != nil {
+		s.StatusGen.OnDisconnect(con)
+	}
+	if s.StatusReporter != nil {
+		s.StatusReporter.RegisterDisconnect(con.ConID, AllEventTypesList)
+	}
+	s.WorkloadEntryController.QueueUnregisterWorkload(con.proxy, con.Connect)
 }
 
 func checkConnectionIdentity(con *Connection) (*spiffe.Identity, error) {
@@ -570,9 +578,9 @@ func (s *DiscoveryServer) initProxyMetadata(node *core.Node) (*model.Proxy, erro
 	return proxy, nil
 }
 
-// initProxyState completes the initialization of a proxy. It is expected to be called only after
+// initializeProxy completes the initialization of a proxy. It is expected to be called only after
 // initProxyMetadata.
-func (s *DiscoveryServer) initProxyState(node *core.Node, con *Connection) error {
+func (s *DiscoveryServer) initializeProxy(node *core.Node, con *Connection) error {
 	proxy := con.proxy
 	// this should be done before we look for service instances, but after we load metadata
 	// TODO fix check in kubecontroller treat echo VMs like there isn't a pod
@@ -882,10 +890,6 @@ func (s *DiscoveryServer) removeCon(conID string) {
 	} else {
 		delete(s.adsClients, conID)
 		recordXDSClients(con.proxy.Metadata.IstioVersion, -1)
-	}
-
-	if s.StatusReporter != nil {
-		s.StatusReporter.RegisterDisconnect(conID, AllEventTypesList)
 	}
 }
 
