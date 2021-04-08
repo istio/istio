@@ -79,7 +79,8 @@ type CallOptions struct {
 	// will be verified.
 	Validator Validator
 
-	// CallInstance indicates whether call app directly or not.
+	// CallInstance indicates whether to change the servicePort to instancePort.
+	// Note: currently used for self calling
 	CallInstance bool
 }
 
