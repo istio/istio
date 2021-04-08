@@ -41,7 +41,7 @@ func newEndpointsController(c *Controller, informer filter.FilteredSharedIndexIn
 			informer: informer,
 		},
 	}
-	registerHandlers(informer, c.queue, "Endpoints", out.onEvent, endpointsEqual)
+	c.registerHandlers(informer, "Endpoints", out.onEvent, endpointsEqual)
 	return out
 }
 
