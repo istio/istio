@@ -429,10 +429,14 @@ func patchHTTPFilters(patchContext networking.EnvoyFilter_PatchContext, filterKe
 		}
 		patchHTTPFilter(patchContext, filterKey, patches, listener, fc, filter, httpFilter, &httpFiltersRemoved)
 	}
-	opatches := make([]*model.EnvoyFilterConfigPatchWrapper, 0)
-	inpatches := make([]*model.EnvoyFilterConfigPatchWrapper, 0)
+	opatches := make([]*model.EnvoyFilterConfigPatchWrapper, 0)  // List of final patches to be processed.
+	mpatches := make([]*model.EnvoyFilterConfigPatchWrapper, 0)  // List of matched patches based on patch context.
+	cpatches := make([]*model.EnvoyFilterConfigPatchWrapper, 0)  // List of patches that have cyclic dependencies.
+	inpatches := make([]*model.EnvoyFilterConfigPatchWrapper, 0) // List of matched patches excluding cyclic dependencies.
 	dependents := map[*model.EnvoyFilterConfigPatchWrapper]struct{}{}
 	applied := false
+
+	// First collect all matched patches.
 	for _, lp := range patches[networking.EnvoyFilter_HTTP_FILTER] {
 		if !commonConditionMatch(patchContext, lp) ||
 			!listenerMatch(listener, lp) ||
@@ -440,8 +444,37 @@ func patchHTTPFilters(patchContext networking.EnvoyFilter_PatchContext, filterKe
 			!networkFilterMatch(filter, lp) {
 			continue
 		}
+		mpatches = append(mpatches, lp)
+	}
+
+	// Identify cyclic patches and isolate them.
+	for _, lp := range mpatches {
+		if !(lp.Operation == networking.EnvoyFilter_Patch_INSERT_BEFORE && hasHTTPFilterMatch(lp)) ||
+			(lp.Operation == networking.EnvoyFilter_Patch_INSERT_AFTER && hasHTTPFilterMatch(lp)) {
+			continue
+		}
+		if contains(cpatches, lp) {
+			continue
+		}
+		for _, rp := range mpatches {
+			if lp == rp {
+				continue
+			}
+			if hasCyclicDependency(lp, rp) {
+				cpatches = append(cpatches, lp, rp)
+				log.Warnf("patch %v has cyclic dependency on patch %v - skipping both", lp, rp)
+			}
+		}
+	}
+	// Collect all patches that are valid for processing i.e. excluding cycles.
+	for _, lp := range mpatches {
+		if contains(cpatches, lp) {
+			continue
+		}
 		inpatches = append(inpatches, lp)
 	}
+
+	// Order patches as per the dependencies.
 	for _, lp := range inpatches {
 		if (lp.Operation == networking.EnvoyFilter_Patch_INSERT_BEFORE && hasHTTPFilterMatch(lp)) ||
 			(lp.Operation == networking.EnvoyFilter_Patch_INSERT_AFTER && hasHTTPFilterMatch(lp)) {
@@ -450,6 +483,8 @@ func patchHTTPFilters(patchContext networking.EnvoyFilter_PatchContext, filterKe
 			opatches = append(opatches, lp)
 		}
 	}
+
+	// Finally apply the ordered patches.
 	for _, lp := range opatches {
 		if lp.Operation == networking.EnvoyFilter_Patch_ADD {
 			applied = true
@@ -544,6 +579,15 @@ func patchHTTPFilters(patchContext networking.EnvoyFilter_PatchContext, filterKe
 	}
 }
 
+func contains(sp []*model.EnvoyFilterConfigPatchWrapper, p *model.EnvoyFilterConfigPatchWrapper) bool {
+	for _, a := range sp {
+		if a == p {
+			return true
+		}
+	}
+	return false
+}
+
 // orderPatches recursively orders the patches based on insert before/after positions.
 func orderPatches(patch *model.EnvoyFilterConfigPatchWrapper, original []*model.EnvoyFilterConfigPatchWrapper,
 	ordered *[]*model.EnvoyFilterConfigPatchWrapper, dependents map[*model.EnvoyFilterConfigPatchWrapper]struct{}) {
@@ -560,6 +604,15 @@ func orderPatches(patch *model.EnvoyFilterConfigPatchWrapper, original []*model.
 		*ordered = append(*ordered, patch)
 		dependents[patch] = struct{}{}
 	}
+}
+
+func hasCyclicDependency(lp *model.EnvoyFilterConfigPatchWrapper, rp *model.EnvoyFilterConfigPatchWrapper) bool {
+	lfilter := lp.Value.(*http_conn.HttpFilter)
+	rmatch := rp.Match.GetListener().FilterChain.Filter.SubFilter
+	rfilter := rp.Value.(*http_conn.HttpFilter)
+	lmatch := lp.Match.GetListener().FilterChain.Filter.SubFilter
+	return (rmatch != nil && nameMatches(rmatch.Name, lfilter.Name)) &&
+		(lmatch != nil && nameMatches(lmatch.Name, rfilter.Name))
 }
 
 func patchHTTPFilter(patchContext networking.EnvoyFilter_PatchContext,
