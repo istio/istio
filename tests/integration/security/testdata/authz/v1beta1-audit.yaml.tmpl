@@ -1,0 +1,78 @@
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: policy-{{ .b }}-audit
+  namespace: "{{ .Namespace }}"
+spec:
+  selector:
+    matchLabels:
+      "app": "{{ .b }}"
+  action: AUDIT
+  rules:
+  - to:
+    - operation:
+        paths: ["/audit"]
+---
+
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: policy-{{ .b }}-allow
+  namespace: "{{ .Namespace }}"
+spec:
+  selector:
+    matchLabels:
+      "app": "{{ .b }}"
+  action: ALLOW
+  rules:
+  - to:
+    - operation:
+        paths: ["/allow"]
+---
+
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: policy-{{ .c }}-audit
+  namespace: "{{ .Namespace }}"
+spec:
+  selector:
+    matchLabels:
+      "app": "{{ .c }}"
+  action: AUDIT
+  rules:
+  - to:
+    - operation:
+        paths: ["/audit"]
+---
+
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: policy-{{ .c }}-deny
+  namespace: "{{ .Namespace }}"
+spec:
+  selector:
+    matchLabels:
+      "app": "{{ .c }}"
+  action: DENY
+  rules:
+  - to:
+    - operation:
+        paths: ["/deny"]
+---
+
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: policy-{{ .d }}-audit
+  namespace: "{{ .Namespace }}"
+spec:
+  selector:
+    matchLabels:
+      "app": "{{ .d }}"
+  action: AUDIT
+  rules:
+  - to:
+    - operation:
+        paths: ["/audit"]
