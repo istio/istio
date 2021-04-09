@@ -968,29 +968,29 @@ func TestAuthorization_Conditions(t *testing.T) {
 
 			c := apps.C.Match(echo.Namespace(nsC.Name()))
 			vm := apps.VM.Match(echo.Namespace(nsA.Name()))
-			for _, dst := range []echo.Instances{c, vm} {
-				for _, src1 := range apps.A.Match(echo.Namespace(nsA.Name())) {
-					src1, src2 := src1, apps.B.Match(echo.InCluster(src1.Config().Cluster)).Match(echo.Namespace(nsB.Name()))
+			for _, cSet := range []echo.Instances{c, vm} {
+				for _, a := range apps.A.Match(echo.Namespace(nsA.Name())) {
+					a, b := a, apps.B.Match(echo.InCluster(a.Config().Cluster)).Match(echo.Namespace(nsB.Name()))
 					t.NewSubTest(fmt.Sprintf("from %s to %s in %s",
-						src1.Config().Cluster.StableName(), dst[0].Config().Service, dst[0].Config().Cluster.Name())).
+						a.Config().Cluster.StableName(), cSet[0].Config().Service, cSet[0].Config().Cluster.Name())).
 						Run(func(t framework.TestContext) {
-							var ipList string
-							for i := 0; i < len(dst); i++ {
-								ipList += "\"" + getWorkload(dst[i], t).Address() + "\","
+							var ipC string
+							for i := 0; i < len(cSet); i++ {
+								ipC += "\"" + getWorkload(cSet[i], t).Address() + "\","
 							}
-							ipLen := len(ipList)
-							ipList = ipList[:ipLen-1]
+							lengthC := len(ipC)
+							ipC = ipC[:lengthC-1]
 							args := map[string]string{
-								"dst":           dst[0].Config().Service,
-								"dstIP":         ipList,
-								"dstNamespace":  dst[0].Config().Namespace.Name(),
-								"dstPort":       "8090",
-								"src1":          util.ASvc,
-								"src2":          util.BSvc,
-								"src1IP":        getWorkload(src1, t).Address(),
-								"src2IP":        getWorkload(src2[0], t).Address(),
-								"src1Namespace": nsA.Name(),
-								"src2Namespace": nsB.Name(),
+								"NamespaceA": nsA.Name(),
+								"NamespaceB": nsB.Name(),
+								"NamespaceC": cSet[0].Config().Namespace.Name(),
+								"cSet":       cSet[0].Config().Service,
+								"ipA":        getWorkload(a, t).Address(),
+								"ipB":        getWorkload(b[0], t).Address(),
+								"ipC":        ipC,
+								"portC":      "8090",
+								"a":          util.ASvc,
+								"b":          util.BSvc,
 							}
 
 							policies := tmpl.EvaluateAllOrFail(t, args, file.AsStringOrFail(t, "testdata/authz/v1beta1-conditions.yaml.tmpl"))
@@ -1005,72 +1005,72 @@ func TestAuthorization_Conditions(t *testing.T) {
 									Request: connection.Checker{
 										From: from,
 										Options: echo.CallOptions{
-											Target:   dst[0],
+											Target:   cSet[0],
 											PortName: "http",
 											Scheme:   scheme.HTTP,
 											Path:     path,
 											Count:    callCount,
 										},
-										DestClusters: dst.Clusters(),
+										DestClusters: cSet.Clusters(),
 									},
 									Headers:       headers,
 									ExpectAllowed: expectAllowed,
 								}
 							}
 							cases := []rbacUtil.TestCase{
-								newTestCase(src1, "/request-headers", map[string]string{"x-foo": "foo"}, true),
-								newTestCase(src2[0], "/request-headers", map[string]string{"x-foo": "foo"}, true),
-								newTestCase(src1, "/request-headers", map[string]string{"x-foo": "bar"}, false),
-								newTestCase(src2[0], "/request-headers", map[string]string{"x-foo": "bar"}, false),
-								newTestCase(src1, "/request-headers", nil, false),
-								newTestCase(src2[0], "/request-headers", nil, false),
-								newTestCase(src1, "/request-headers-notValues-bar", map[string]string{"x-foo": "foo"}, true),
-								newTestCase(src1, "/request-headers-notValues-bar", map[string]string{"x-foo": "bar"}, false),
+								newTestCase(a, "/request-headers", map[string]string{"x-foo": "foo"}, true),
+								newTestCase(b[0], "/request-headers", map[string]string{"x-foo": "foo"}, true),
+								newTestCase(a, "/request-headers", map[string]string{"x-foo": "bar"}, false),
+								newTestCase(b[0], "/request-headers", map[string]string{"x-foo": "bar"}, false),
+								newTestCase(a, "/request-headers", nil, false),
+								newTestCase(b[0], "/request-headers", nil, false),
+								newTestCase(a, "/request-headers-notValues-bar", map[string]string{"x-foo": "foo"}, true),
+								newTestCase(a, "/request-headers-notValues-bar", map[string]string{"x-foo": "bar"}, false),
 
-								newTestCase(src1, fmt.Sprintf("/source-ip-%s", args["src1"]), nil, true),
-								newTestCase(src2[0], fmt.Sprintf("/source-ip-%s", args["src1"]), nil, false),
-								newTestCase(src1, fmt.Sprintf("/source-ip-%s", args["src2"]), nil, false),
-								newTestCase(src2[0], fmt.Sprintf("/source-ip-%s", args["src2"]), nil, true),
-								newTestCase(src1, fmt.Sprintf("/source-ip-notValues-%s", args["src2"]), nil, true),
-								newTestCase(src2[0], fmt.Sprintf("/source-ip-notValues-%s", args["src2"]), nil, false),
+								newTestCase(a, fmt.Sprintf("/source-ip-%s", args["a"]), nil, true),
+								newTestCase(b[0], fmt.Sprintf("/source-ip-%s", args["a"]), nil, false),
+								newTestCase(a, fmt.Sprintf("/source-ip-%s", args["b"]), nil, false),
+								newTestCase(b[0], fmt.Sprintf("/source-ip-%s", args["b"]), nil, true),
+								newTestCase(a, fmt.Sprintf("/source-ip-notValues-%s", args["b"]), nil, true),
+								newTestCase(b[0], fmt.Sprintf("/source-ip-notValues-%s", args["b"]), nil, false),
 
-								newTestCase(src1, fmt.Sprintf("/source-namespace-%s", args["src1"]), nil, true),
-								newTestCase(src2[0], fmt.Sprintf("/source-namespace-%s", args["src1"]), nil, false),
-								newTestCase(src1, fmt.Sprintf("/source-namespace-%s", args["src2"]), nil, false),
-								newTestCase(src2[0], fmt.Sprintf("/source-namespace-%s", args["src2"]), nil, true),
-								newTestCase(src1, fmt.Sprintf("/source-namespace-notValues-%s", args["src2"]), nil, true),
-								newTestCase(src2[0], fmt.Sprintf("/source-namespace-notValues-%s", args["src2"]), nil, false),
+								newTestCase(a, fmt.Sprintf("/source-namespace-%s", args["a"]), nil, true),
+								newTestCase(b[0], fmt.Sprintf("/source-namespace-%s", args["a"]), nil, false),
+								newTestCase(a, fmt.Sprintf("/source-namespace-%s", args["b"]), nil, false),
+								newTestCase(b[0], fmt.Sprintf("/source-namespace-%s", args["b"]), nil, true),
+								newTestCase(a, fmt.Sprintf("/source-namespace-notValues-%s", args["b"]), nil, true),
+								newTestCase(b[0], fmt.Sprintf("/source-namespace-notValues-%s", args["b"]), nil, false),
 
-								newTestCase(src1, fmt.Sprintf("/source-principal-%s", args["src1"]), nil, true),
-								newTestCase(src2[0], fmt.Sprintf("/source-principal-%s", args["src1"]), nil, false),
-								newTestCase(src1, fmt.Sprintf("/source-principal-%s", args["src2"]), nil, false),
-								newTestCase(src2[0], fmt.Sprintf("/source-principal-%s", args["src2"]), nil, true),
-								newTestCase(src1, fmt.Sprintf("/source-principal-notValues-%s", args["src2"]), nil, true),
-								newTestCase(src2[0], fmt.Sprintf("/source-principal-notValues-%s", args["src2"]), nil, false),
+								newTestCase(a, fmt.Sprintf("/source-principal-%s", args["a"]), nil, true),
+								newTestCase(b[0], fmt.Sprintf("/source-principal-%s", args["a"]), nil, false),
+								newTestCase(a, fmt.Sprintf("/source-principal-%s", args["b"]), nil, false),
+								newTestCase(b[0], fmt.Sprintf("/source-principal-%s", args["b"]), nil, true),
+								newTestCase(a, fmt.Sprintf("/source-principal-notValues-%s", args["b"]), nil, true),
+								newTestCase(b[0], fmt.Sprintf("/source-principal-notValues-%s", args["b"]), nil, false),
 
-								newTestCase(src1, "/destination-ip-good", nil, true),
-								newTestCase(src2[0], "/destination-ip-good", nil, true),
-								newTestCase(src1, "/destination-ip-bad", nil, false),
-								newTestCase(src2[0], "/destination-ip-bad", nil, false),
-								newTestCase(src1, fmt.Sprintf("/destination-ip-notValues-%s-or-%s", args["src1"], args["src2"]), nil, true),
-								newTestCase(src1, fmt.Sprintf("/destination-ip-notValues-%s-or-%s-or-%s", args["src1"], args["src2"], args["dst"]), nil, false),
+								newTestCase(a, "/destination-ip-good", nil, true),
+								newTestCase(b[0], "/destination-ip-good", nil, true),
+								newTestCase(a, "/destination-ip-bad", nil, false),
+								newTestCase(b[0], "/destination-ip-bad", nil, false),
+								newTestCase(a, fmt.Sprintf("/destination-ip-notValues-%s-or-%s", args["a"], args["b"]), nil, true),
+								newTestCase(a, fmt.Sprintf("/destination-ip-notValues-%s-or-%s-or-%s", args["a"], args["b"], args["cSet"]), nil, false),
 
-								newTestCase(src1, "/destination-port-good", nil, true),
-								newTestCase(src2[0], "/destination-port-good", nil, true),
-								newTestCase(src1, "/destination-port-bad", nil, false),
-								newTestCase(src2[0], "/destination-port-bad", nil, false),
-								newTestCase(src1, fmt.Sprintf("/destination-port-notValues-%s", args["dst"]), nil, false),
-								newTestCase(src2[0], fmt.Sprintf("/destination-port-notValues-%s", args["dst"]), nil, false),
+								newTestCase(a, "/destination-port-good", nil, true),
+								newTestCase(b[0], "/destination-port-good", nil, true),
+								newTestCase(a, "/destination-port-bad", nil, false),
+								newTestCase(b[0], "/destination-port-bad", nil, false),
+								newTestCase(a, fmt.Sprintf("/destination-port-notValues-%s", args["cSet"]), nil, false),
+								newTestCase(b[0], fmt.Sprintf("/destination-port-notValues-%s", args["cSet"]), nil, false),
 
-								newTestCase(src1, "/connection-sni-good", nil, true),
-								newTestCase(src2[0], "/connection-sni-good", nil, true),
-								newTestCase(src1, "/connection-sni-bad", nil, false),
-								newTestCase(src2[0], "/connection-sni-bad", nil, false),
-								newTestCase(src1, fmt.Sprintf("/connection-sni-notValues-%s-or-%s", args["src1"], args["src2"]), nil, true),
-								newTestCase(src1, fmt.Sprintf("/connection-sni-notValues-%s-or-%s-or-%s", args["src1"], args["src2"], args["dst"]), nil, false),
+								newTestCase(a, "/connection-sni-good", nil, true),
+								newTestCase(b[0], "/connection-sni-good", nil, true),
+								newTestCase(a, "/connection-sni-bad", nil, false),
+								newTestCase(b[0], "/connection-sni-bad", nil, false),
+								newTestCase(a, fmt.Sprintf("/connection-sni-notValues-%s-or-%s", args["a"], args["b"]), nil, true),
+								newTestCase(a, fmt.Sprintf("/connection-sni-notValues-%s-or-%s-or-%s", args["a"], args["b"], args["cSet"]), nil, false),
 
-								newTestCase(src1, "/other", nil, false),
-								newTestCase(src2[0], "/other", nil, false),
+								newTestCase(a, "/other", nil, false),
+								newTestCase(b[0], "/other", nil, false),
 							}
 							rbacUtil.RunRBACTest(t, cases)
 						})
@@ -1085,23 +1085,18 @@ func TestAuthorization_GRPC(t *testing.T) {
 		Features("security.authorization.grpc-protocol").
 		Run(func(t framework.TestContext) {
 			ns := apps.Namespace1
-			a := apps.A.Match(echo.Namespace(apps.Namespace1.Name()))
-			b := apps.B.Match(echo.Namespace(apps.Namespace1.Name()))
 			c := apps.C.Match(echo.Namespace(apps.Namespace1.Name()))
 			d := apps.D.Match(echo.Namespace(apps.Namespace1.Name()))
-			vm := apps.VM.Match(echo.Namespace(apps.Namespace1.Name()))
-
-			for _, dst := range []echo.Instances{a, vm} {
-				for _, src := range [][]echo.Instances{{b, c, d}, {vm, c, d}} {
-					t.NewSubTest(fmt.Sprintf("from %s to %s in %s",
-						src[0][0].Config().Cluster.StableName(), dst[0].Config().Service, dst[0].Config().Cluster.Name())).
+			for _, a := range []echo.Instances{apps.A.Match(echo.Namespace(apps.Namespace1.Name())), apps.VM.Match(echo.Namespace(apps.Namespace1.Name()))} {
+				for _, b := range []echo.Instances{apps.B.Match(echo.Namespace(apps.Namespace1.Name())), apps.VM.Match(echo.Namespace(apps.Namespace1.Name()))} {
+					t.NewSubTest(fmt.Sprintf("to %s in %s", a[0].Config().Service, a[0].Config().Cluster.Name())).
 						Run(func(t framework.TestContext) {
 							args := map[string]string{
 								"Namespace": ns.Name(),
-								"dst":       dst[0].Config().Service,
-								"src0":      src[0][0].Config().Service,
-								"src1":      src[1][0].Config().Service,
-								"src2":      src[2][0].Config().Service,
+								"a":         a[0].Config().Service,
+								"b":         b[0].Config().Service,
+								"c":         c[0].Config().Service,
+								"d":         d[0].Config().Service,
 							}
 							policies := tmpl.EvaluateAllOrFail(t, args,
 								file.AsStringOrFail(t, "testdata/authz/v1beta1-grpc.yaml.tmpl"))
@@ -1110,9 +1105,9 @@ func TestAuthorization_GRPC(t *testing.T) {
 							cases := []rbacUtil.TestCase{
 								{
 									Request: connection.Checker{
-										From: src[0][0],
+										From: b[0],
 										Options: echo.CallOptions{
-											Target:   dst[0],
+											Target:   a[0],
 											PortName: "grpc",
 											Scheme:   scheme.GRPC,
 										},
@@ -1121,9 +1116,9 @@ func TestAuthorization_GRPC(t *testing.T) {
 								},
 								{
 									Request: connection.Checker{
-										From: src[1][0],
+										From: c[0],
 										Options: echo.CallOptions{
-											Target:   dst[0],
+											Target:   a[0],
 											PortName: "grpc",
 											Scheme:   scheme.GRPC,
 										},
@@ -1132,9 +1127,9 @@ func TestAuthorization_GRPC(t *testing.T) {
 								},
 								{
 									Request: connection.Checker{
-										From: src[2][0],
+										From: d[0],
 										Options: echo.CallOptions{
-											Target:   dst[0],
+											Target:   a[0],
 											PortName: "grpc",
 											Scheme:   scheme.GRPC,
 										},
@@ -1157,16 +1152,13 @@ func TestAuthorization_Path(t *testing.T) {
 		Features("security.authorization.path-normalization").
 		Run(func(t framework.TestContext) {
 			ns := apps.Namespace1
-			a := apps.A.Match(echo.Namespace(ns.Name()))
-			vm := apps.VM.Match(echo.Namespace(ns.Name()))
-
-			for _, dst := range []echo.Instances{a, vm} {
+			for _, a := range []echo.Instances{apps.A.Match(echo.Namespace(ns.Name())), apps.VM.Match(echo.Namespace(ns.Name()))} {
 				for _, srcCluster := range t.Clusters() {
 					t.NewSubTest(fmt.Sprintf("In %s", srcCluster.StableName())).Run(func(t framework.TestContext) {
-						src := apps.B.GetOrFail(t, echo.InCluster(srcCluster).And(echo.Namespace(ns.Name())))
+						b := apps.B.GetOrFail(t, echo.InCluster(srcCluster).And(echo.Namespace(ns.Name())))
 						args := map[string]string{
 							"Namespace": ns.Name(),
-							"dst":       dst[0].Config().Service,
+							"a":         a[0].Config().Service,
 						}
 						policies := tmpl.EvaluateAllOrFail(t, args,
 							file.AsStringOrFail(t, "testdata/authz/v1beta1-path.yaml.tmpl"))
@@ -1181,7 +1173,7 @@ func TestAuthorization_Path(t *testing.T) {
 						newTestCase := func(to echo.Instances, path string, expectAllowed bool) rbacUtil.TestCase {
 							return rbacUtil.TestCase{
 								Request: connection.Checker{
-									From: src,
+									From: b,
 									Options: echo.CallOptions{
 										Target:   to[0],
 										PortName: "http",
@@ -1189,24 +1181,24 @@ func TestAuthorization_Path(t *testing.T) {
 										Path:     path,
 										Count:    callCount,
 									},
-									DestClusters: dst.Clusters(),
+									DestClusters: a.Clusters(),
 								},
 								ExpectAllowed: expectAllowed,
 							}
 						}
 						cases := []rbacUtil.TestCase{
-							newTestCase(dst, "/public", true),
-							newTestCase(dst, "/public/../public", true),
-							newTestCase(dst, "/private", false),
-							newTestCase(dst, "/public/../private", false),
-							newTestCase(dst, "/public/./../private", false),
-							newTestCase(dst, "/public/.././private", false),
-							newTestCase(dst, "/public/%2E%2E/private", false),
-							newTestCase(dst, "/public/%2e%2e/private", false),
-							newTestCase(dst, "/public/%2E/%2E%2E/private", false),
-							newTestCase(dst, "/public/%2e/%2e%2e/private", false),
-							newTestCase(dst, "/public/%2E%2E/%2E/private", false),
-							newTestCase(dst, "/public/%2e%2e/%2e/private", false),
+							newTestCase(a, "/public", true),
+							newTestCase(a, "/public/../public", true),
+							newTestCase(a, "/private", false),
+							newTestCase(a, "/public/../private", false),
+							newTestCase(a, "/public/./../private", false),
+							newTestCase(a, "/public/.././private", false),
+							newTestCase(a, "/public/%2E%2E/private", false),
+							newTestCase(a, "/public/%2e%2e/private", false),
+							newTestCase(a, "/public/%2E/%2E%2E/private", false),
+							newTestCase(a, "/public/%2e/%2e%2e/private", false),
+							newTestCase(a, "/public/%2E%2E/%2E/private", false),
+							newTestCase(a, "/public/%2e%2e/%2e/private", false),
 						}
 						rbacUtil.RunRBACTest(t, cases)
 					})

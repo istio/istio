@@ -8,7 +8,7 @@ metadata:
 spec:
   selector:
     matchLabels:
-      app: {{ .dst }}
+      app: {{ .a }}
   mtls:
     mode: STRICT
 ---
@@ -18,7 +18,7 @@ metadata:
   name: mtls
   namespace: {{ .Namespace }}
 spec:
-  host: "{{ .dst }}.{{ .Namespace }}.svc.cluster.local"
+  host: "{{ .a }}.{{ .Namespace }}.svc.cluster.local"
   trafficPolicy:
     tls:
       mode: ISTIO_MUTUAL
@@ -37,7 +37,7 @@ metadata:
 spec:
   selector:
     matchLabels:
-      "app": "{{ .dst }}"
+      "app": "{{ .a }}"
   rules:
   - to:
     - operation:
@@ -45,7 +45,7 @@ spec:
         methods: ["POST"]
     from:
     - source:
-        principals: ["cluster.local/ns/{{ .Namespace }}/sa/{{ .src0 }}"]
+        principals: ["cluster.local/ns/{{ .Namespace }}/sa/{{ .b }}"]
   - to:
     - operation:
         paths: ["/proto.EchoTestService/Echo"]
@@ -53,8 +53,8 @@ spec:
         methods: ["GET", "DELETE", "PUT"]
     from:
     - source:
-        principals: ["cluster.local/ns/{{ .Namespace }}/sa/{{ .src1 }}"]
+        principals: ["cluster.local/ns/{{ .Namespace }}/sa/{{ .c }}"]
   - from:
     - source:
-        principals: ["cluster.local/ns/{{ .Namespace }}/sa/{{ .src2 }}"]
+        principals: ["cluster.local/ns/{{ .Namespace }}/sa/{{ .d }}"]
 ---
