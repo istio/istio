@@ -679,7 +679,7 @@ func (p *XdsProxy) getRootCertificate(agent *Agent) (*x509.CertPool, error) {
 	return certPool, nil
 }
 
-// sendUpstream sends discovery request with default send timeout.
+// sendUpstream sends discovery reques.
 func sendUpstream(upstream discovery.AggregatedDiscoveryService_StreamAggregatedResourcesClient,
 	request *discovery.DiscoveryRequest) error {
 	return send(func(errChan chan error) {
@@ -688,7 +688,7 @@ func sendUpstream(upstream discovery.AggregatedDiscoveryService_StreamAggregated
 	})
 }
 
-// sendDownstream sends discovery response with default send timeout.
+// sendDownstream sends discovery response.
 func sendDownstream(downstream discovery.AggregatedDiscoveryService_StreamAggregatedResourcesServer,
 	response *discovery.DiscoveryResponse) error {
 	return send(func(errChan chan error) {
