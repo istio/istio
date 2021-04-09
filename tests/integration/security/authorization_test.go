@@ -970,7 +970,11 @@ func TestAuthorization_Conditions(t *testing.T) {
 			vm := apps.VM.Match(echo.Namespace(nsA.Name()))
 			for _, cSet := range []echo.Instances{c, vm} {
 				for _, a := range apps.A.Match(echo.Namespace(nsA.Name())) {
-					a, b := a, apps.B.Match(echo.InCluster(a.Config().Cluster)).Match(echo.Namespace(nsB.Name()))
+					a, bs := a, apps.B.Match(echo.InCluster(a.Config().Cluster)).Match(echo.Namespace(nsB.Name()))
+					if len(bs) < 1 {
+						t.Skip()
+					}
+					b := bs[0]
 					t.NewSubTest(fmt.Sprintf("from %s to %s in %s",
 						a.Config().Cluster.StableName(), cSet[0].Config().Service, cSet[0].Config().Cluster.Name())).
 						Run(func(t framework.TestContext) {
@@ -986,7 +990,7 @@ func TestAuthorization_Conditions(t *testing.T) {
 								"NamespaceC": cSet[0].Config().Namespace.Name(),
 								"cSet":       cSet[0].Config().Service,
 								"ipA":        getWorkload(a, t).Address(),
-								"ipB":        getWorkload(b[0], t).Address(),
+								"ipB":        getWorkload(b, t).Address(),
 								"ipC":        ipC,
 								"portC":      "8090",
 								"a":          util.ASvc,
@@ -1019,58 +1023,58 @@ func TestAuthorization_Conditions(t *testing.T) {
 							}
 							cases := []rbacUtil.TestCase{
 								newTestCase(a, "/request-headers", map[string]string{"x-foo": "foo"}, true),
-								newTestCase(b[0], "/request-headers", map[string]string{"x-foo": "foo"}, true),
+								newTestCase(b, "/request-headers", map[string]string{"x-foo": "foo"}, true),
 								newTestCase(a, "/request-headers", map[string]string{"x-foo": "bar"}, false),
-								newTestCase(b[0], "/request-headers", map[string]string{"x-foo": "bar"}, false),
+								newTestCase(b, "/request-headers", map[string]string{"x-foo": "bar"}, false),
 								newTestCase(a, "/request-headers", nil, false),
-								newTestCase(b[0], "/request-headers", nil, false),
+								newTestCase(b, "/request-headers", nil, false),
 								newTestCase(a, "/request-headers-notValues-bar", map[string]string{"x-foo": "foo"}, true),
 								newTestCase(a, "/request-headers-notValues-bar", map[string]string{"x-foo": "bar"}, false),
 
 								newTestCase(a, fmt.Sprintf("/source-ip-%s", args["a"]), nil, true),
-								newTestCase(b[0], fmt.Sprintf("/source-ip-%s", args["a"]), nil, false),
+								newTestCase(b, fmt.Sprintf("/source-ip-%s", args["a"]), nil, false),
 								newTestCase(a, fmt.Sprintf("/source-ip-%s", args["b"]), nil, false),
-								newTestCase(b[0], fmt.Sprintf("/source-ip-%s", args["b"]), nil, true),
+								newTestCase(b, fmt.Sprintf("/source-ip-%s", args["b"]), nil, true),
 								newTestCase(a, fmt.Sprintf("/source-ip-notValues-%s", args["b"]), nil, true),
-								newTestCase(b[0], fmt.Sprintf("/source-ip-notValues-%s", args["b"]), nil, false),
+								newTestCase(b, fmt.Sprintf("/source-ip-notValues-%s", args["b"]), nil, false),
 
 								newTestCase(a, fmt.Sprintf("/source-namespace-%s", args["a"]), nil, true),
-								newTestCase(b[0], fmt.Sprintf("/source-namespace-%s", args["a"]), nil, false),
+								newTestCase(b, fmt.Sprintf("/source-namespace-%s", args["a"]), nil, false),
 								newTestCase(a, fmt.Sprintf("/source-namespace-%s", args["b"]), nil, false),
-								newTestCase(b[0], fmt.Sprintf("/source-namespace-%s", args["b"]), nil, true),
+								newTestCase(b, fmt.Sprintf("/source-namespace-%s", args["b"]), nil, true),
 								newTestCase(a, fmt.Sprintf("/source-namespace-notValues-%s", args["b"]), nil, true),
-								newTestCase(b[0], fmt.Sprintf("/source-namespace-notValues-%s", args["b"]), nil, false),
+								newTestCase(b, fmt.Sprintf("/source-namespace-notValues-%s", args["b"]), nil, false),
 
 								newTestCase(a, fmt.Sprintf("/source-principal-%s", args["a"]), nil, true),
-								newTestCase(b[0], fmt.Sprintf("/source-principal-%s", args["a"]), nil, false),
+								newTestCase(b, fmt.Sprintf("/source-principal-%s", args["a"]), nil, false),
 								newTestCase(a, fmt.Sprintf("/source-principal-%s", args["b"]), nil, false),
-								newTestCase(b[0], fmt.Sprintf("/source-principal-%s", args["b"]), nil, true),
+								newTestCase(b, fmt.Sprintf("/source-principal-%s", args["b"]), nil, true),
 								newTestCase(a, fmt.Sprintf("/source-principal-notValues-%s", args["b"]), nil, true),
-								newTestCase(b[0], fmt.Sprintf("/source-principal-notValues-%s", args["b"]), nil, false),
+								newTestCase(b, fmt.Sprintf("/source-principal-notValues-%s", args["b"]), nil, false),
 
 								newTestCase(a, "/destination-ip-good", nil, true),
-								newTestCase(b[0], "/destination-ip-good", nil, true),
+								newTestCase(b, "/destination-ip-good", nil, true),
 								newTestCase(a, "/destination-ip-bad", nil, false),
-								newTestCase(b[0], "/destination-ip-bad", nil, false),
+								newTestCase(b, "/destination-ip-bad", nil, false),
 								newTestCase(a, fmt.Sprintf("/destination-ip-notValues-%s-or-%s", args["a"], args["b"]), nil, true),
 								newTestCase(a, fmt.Sprintf("/destination-ip-notValues-%s-or-%s-or-%s", args["a"], args["b"], args["cSet"]), nil, false),
 
 								newTestCase(a, "/destination-port-good", nil, true),
-								newTestCase(b[0], "/destination-port-good", nil, true),
+								newTestCase(b, "/destination-port-good", nil, true),
 								newTestCase(a, "/destination-port-bad", nil, false),
-								newTestCase(b[0], "/destination-port-bad", nil, false),
+								newTestCase(b, "/destination-port-bad", nil, false),
 								newTestCase(a, fmt.Sprintf("/destination-port-notValues-%s", args["cSet"]), nil, false),
-								newTestCase(b[0], fmt.Sprintf("/destination-port-notValues-%s", args["cSet"]), nil, false),
+								newTestCase(b, fmt.Sprintf("/destination-port-notValues-%s", args["cSet"]), nil, false),
 
 								newTestCase(a, "/connection-sni-good", nil, true),
-								newTestCase(b[0], "/connection-sni-good", nil, true),
+								newTestCase(b, "/connection-sni-good", nil, true),
 								newTestCase(a, "/connection-sni-bad", nil, false),
-								newTestCase(b[0], "/connection-sni-bad", nil, false),
+								newTestCase(b, "/connection-sni-bad", nil, false),
 								newTestCase(a, fmt.Sprintf("/connection-sni-notValues-%s-or-%s", args["a"], args["b"]), nil, true),
 								newTestCase(a, fmt.Sprintf("/connection-sni-notValues-%s-or-%s-or-%s", args["a"], args["b"], args["cSet"]), nil, false),
 
 								newTestCase(a, "/other", nil, false),
-								newTestCase(b[0], "/other", nil, false),
+								newTestCase(b, "/other", nil, false),
 							}
 							rbacUtil.RunRBACTest(t, cases)
 						})
