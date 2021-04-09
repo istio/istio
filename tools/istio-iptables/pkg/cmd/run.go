@@ -37,7 +37,7 @@ const (
 	DeleteOps
 
 	// In TPROXY mode, mark the packet from envoy outbound to app by podIP,
-	// this is to make it later intercepted to envoy inbound listener.
+	// this is to prevent it being intercepted to envoy inbound listener.
 	outboundMark = "1338"
 )
 
