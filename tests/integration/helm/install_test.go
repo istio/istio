@@ -26,82 +26,65 @@ import (
 	kubecluster "istio.io/istio/pkg/test/framework/components/cluster/kube"
 	"istio.io/istio/pkg/test/framework/image"
 	"istio.io/istio/pkg/test/helm"
-	"istio.io/istio/tests/util/sanitycheck"
 )
 
 // TestDefaultInstall tests Istio installation using Helm with default options
 func TestDefaultInstall(t *testing.T) {
-	framework.
-		NewTest(t).
-		Features("installation.helm.default.install").
-		Run(func(ctx framework.TestContext) {
-			workDir, err := ctx.CreateTmpDirectory("helm-install-test")
-			if err != nil {
-				t.Fatal("failed to create test directory")
-			}
-			cs := ctx.Clusters().Default().(*kubecluster.Cluster)
-			h := helm.New(cs.Filename(), ChartPath)
-			s, err := image.SettingsFromCommandLine()
-			if err != nil {
-				t.Fatal(err)
-			}
-			overrideValuesStr := `
+	overrideValuesStr := `
 global:
   hub: %s
   tag: %s
 `
-			overrideValues := fmt.Sprintf(overrideValuesStr, s.Hub, s.Tag)
-			overrideValuesFile := filepath.Join(workDir, "values.yaml")
-			if err := ioutil.WriteFile(overrideValuesFile, []byte(overrideValues), os.ModePerm); err != nil {
-				t.Fatalf("failed to write iop cr file: %v", err)
-			}
-			InstallGatewaysCharts(t, cs, h, "", IstioNamespace, overrideValuesFile)
-
-			VerifyInstallation(ctx, cs)
-
-			client, server := sanitycheck.SetupTrafficTest(t, ctx)
-			sanitycheck.RunTrafficTestClientServer(t, client, server)
-
-			t.Cleanup(func() {
-				deleteGatewayCharts(t, h)
-			})
-		})
+	framework.
+		NewTest(t).
+		Features("installation.helm.default.install").
+		Run(setupInstallation(overrideValuesStr))
 }
 
 // TestInstallWithFirstPartyJwt tests Istio installation using Helm
 // with first-party-jwt enabled
 func TestInstallWithFirstPartyJwt(t *testing.T) {
-	framework.
-		NewTest(t).
-		Features("installation.helm.firstpartyjwt.install").
-		Run(func(ctx framework.TestContext) {
-			workDir, err := ctx.CreateTmpDirectory("helm-install-test")
-			if err != nil {
-				t.Fatal("failed to create test directory")
-			}
-			cs := ctx.Clusters().Default().(*kubecluster.Cluster)
-			h := helm.New(cs.Filename(), ChartPath)
-			s, err := image.SettingsFromCommandLine()
-			if err != nil {
-				t.Fatal(err)
-			}
-			overrideValuesStr := `
+	overrideValuesStr := `
 global:
   hub: %s
   tag: %s
   jwtPolicy: first-party-jwt
 `
-			overrideValues := fmt.Sprintf(overrideValuesStr, s.Hub, s.Tag)
-			overrideValuesFile := filepath.Join(workDir, "values.yaml")
-			if err := ioutil.WriteFile(overrideValuesFile, []byte(overrideValues), os.ModePerm); err != nil {
-				t.Fatalf("failed to write iop cr file: %v", err)
+
+	framework.
+		NewTest(t).
+		Features("installation.helm.firstpartyjwt.install").
+		Run(func(t framework.TestContext) {
+			if !t.Clusters().Default().MaxKubeVersion(20) { // All JWT are third party in 1.21+ (BoundServiceAccountTokenVolume)
+				t.Skip("first-party-jwt is not supported")
 			}
-			InstallGatewaysCharts(t, cs, h, "", IstioNamespace, overrideValuesFile)
-
-			VerifyInstallation(ctx, cs)
-
-			t.Cleanup(func() {
-				deleteGatewayCharts(t, h)
-			})
+			setupInstallation(overrideValuesStr)(t)
 		})
+}
+
+func setupInstallation(overrideValuesStr string) func(t framework.TestContext) {
+	return func(t framework.TestContext) {
+		workDir, err := t.CreateTmpDirectory("helm-install-test")
+		if err != nil {
+			t.Fatal("failed to create test directory")
+		}
+		cs := t.Clusters().Default().(*kubecluster.Cluster)
+		h := helm.New(cs.Filename(), ChartPath)
+		s, err := image.SettingsFromCommandLine()
+		if err != nil {
+			t.Fatal(err)
+		}
+		overrideValues := fmt.Sprintf(overrideValuesStr, s.Hub, s.Tag)
+		overrideValuesFile := filepath.Join(workDir, "values.yaml")
+		if err := ioutil.WriteFile(overrideValuesFile, []byte(overrideValues), os.ModePerm); err != nil {
+			t.Fatalf("failed to write iop cr file: %v", err)
+		}
+		InstallGatewaysCharts(t, cs, h, "", IstioNamespace, overrideValuesFile)
+
+		VerifyInstallation(t, cs)
+
+		t.Cleanup(func() {
+			deleteGatewayCharts(t, h)
+		})
+	}
 }
