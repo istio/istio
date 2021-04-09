@@ -32,7 +32,7 @@ type tokenSupplier struct {
 	Expires time.Time
 
 	// regenerate tokens using this
-	mu                  sync.Mutex
+	mu                  sync.RWMutex
 	tokenNamespace      string
 	tokenServiceAccount string
 	audiences           []string
@@ -46,7 +46,7 @@ var _ credentials.PerRPCCredentials = &tokenSupplier{}
 
 // NewRPCCredentials creates a PerRPCCredentials capable of getting tokens from Istio and tracking their expiration
 func NewRPCCredentials(kubeClient Client, tokenNamespace, tokenSA string,
-	tokenAudiences []string, expirationSeconds int64) (credentials.PerRPCCredentials, error) {
+	tokenAudiences []string, expirationSeconds, sunsetPeriodSeconds int64) (credentials.PerRPCCredentials, error) {
 	tokenRequest, err := createServiceAccountToken(context.TODO(), kubeClient, tokenNamespace, tokenSA, tokenAudiences, expirationSeconds)
 	if err != nil {
 		return nil, err
@@ -60,21 +60,25 @@ func NewRPCCredentials(kubeClient Client, tokenNamespace, tokenSA string,
 		tokenServiceAccount: tokenSA,
 		audiences:           tokenAudiences,
 		expirationSeconds:   expirationSeconds,
-		sunsetPeriod:        60 * time.Second,
+		sunsetPeriod:        time.Duration(sunsetPeriodSeconds) * time.Second,
 		kubeClient:          kubeClient,
 	}, nil
 }
 
 // GetRequestMetadata() fulfills the grpc/credentials.PerRPCCredentials interface
 func (its *tokenSupplier) GetRequestMetadata(ctx context.Context, uri ...string) (map[string]string, error) {
-	if time.Until(its.Expires) < its.sunsetPeriod {
+	its.mu.RLock()
+	token := its.Token
+	needRecreate := time.Until(its.Expires) < its.sunsetPeriod
+	its.mu.RUnlock()
+
+	if needRecreate {
 		its.mu.Lock()
-		defer its.mu.Unlock()
 		// This checks the same condition as above.  (The outer check is to bypass the mutex when it is too early to renew)
 		if time.Until(its.Expires) < its.sunsetPeriod {
 			log.Debug("GetRequestMetadata will generate a new token to replace one that is about to expire")
 			// We have no 'renew' method, just request a new token
-			tokenRequest, err := createServiceAccountToken(context.TODO(), its.kubeClient, its.tokenNamespace, its.tokenServiceAccount,
+			tokenRequest, err := createServiceAccountToken(ctx, its.kubeClient, its.tokenNamespace, its.tokenServiceAccount,
 				its.audiences, its.expirationSeconds)
 			if err == nil {
 				its.Token = tokenRequest.Status.Token
@@ -83,10 +87,12 @@ func (its *tokenSupplier) GetRequestMetadata(ctx context.Context, uri ...string)
 				log.Infof("GetRequestMetadata failed to recreate token: %v", err.Error())
 			}
 		}
+		token = its.Token
+		its.mu.Unlock()
 	}
 
 	return map[string]string{
-		"authorization": "Bearer " + its.Token,
+		"authorization": "Bearer " + token,
 	}, nil
 }
 
