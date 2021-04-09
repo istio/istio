@@ -163,9 +163,8 @@ func (cb *ClusterBuilder) applyDestinationRule(mc *MutableCluster, clusterMode C
 	destRule := cb.push.DestinationRule(cb.proxy, service)
 	destinationRule := castDestinationRuleOrDefault(destRule)
 
-	defaultTrafficPolicy := cb.defaultTrafficPolicy(mc.cluster.GetType())
 	// merge default traffic policy with applicable port level traffic policy settings
-	trafficPolicy := MergeTrafficPolicy(defaultTrafficPolicy, destinationRule.TrafficPolicy, port)
+	trafficPolicy := MergeTrafficPolicy(destinationRule.TrafficPolicy, nil, port)
 	opts := buildClusterOpts{
 		mesh:        cb.push.Mesh,
 		mutable:     mc,
@@ -237,10 +236,10 @@ func MergeTrafficPolicy(original, subsetPolicy *networking.TrafficPolicy, port *
 	}
 
 	// Check if port level overrides exist, if yes override with them.
-	if port != nil && len(subsetPolicy.PortLevelSettings) > 0 {
+	if port != nil {
 		for _, p := range subsetPolicy.PortLevelSettings {
 			if p.Port != nil && uint32(port.Port) == p.Port.Number {
-				// per the docs, port level policies do not inherit and intead to defaults if not provided
+				// per the docs, port level policies do not inherit and instead to defaults if not provided
 				mergedPolicy.ConnectionPool = p.ConnectionPool
 				mergedPolicy.OutlierDetection = p.OutlierDetection
 				mergedPolicy.LoadBalancer = p.LoadBalancer
@@ -288,7 +287,7 @@ func (cb *ClusterBuilder) buildDefaultCluster(name string, discoveryType cluster
 	opts := buildClusterOpts{
 		mesh:            cb.push.Mesh,
 		mutable:         ec,
-		policy:          cb.defaultTrafficPolicy(discoveryType),
+		policy:          nil,
 		port:            port,
 		serviceAccounts: nil,
 		istioMtlsSni:    "",
@@ -343,7 +342,7 @@ func (cb *ClusterBuilder) buildInboundClusterForPortOrUDS(clusterPort int, bind 
 	opts := buildClusterOpts{
 		mesh:            cb.push.Mesh,
 		mutable:         localCluster,
-		policy:          cb.defaultTrafficPolicy(clusterType),
+		policy:          nil,
 		port:            instance.ServicePort,
 		serviceAccounts: nil,
 		istioMtlsSni:    "",
@@ -507,29 +506,6 @@ func (cb *ClusterBuilder) buildDefaultPassthroughCluster() *cluster.Cluster {
 	return cluster
 }
 
-// defaultTrafficPolicy builds a default traffic policy applying default connection timeouts.
-func (cb *ClusterBuilder) defaultTrafficPolicy(discoveryType cluster.Cluster_DiscoveryType) *networking.TrafficPolicy {
-	lbPolicy := DefaultLbType
-	if discoveryType == cluster.Cluster_ORIGINAL_DST {
-		lbPolicy = networking.LoadBalancerSettings_PASSTHROUGH
-	}
-	return &networking.TrafficPolicy{
-		LoadBalancer: &networking.LoadBalancerSettings{
-			LbPolicy: &networking.LoadBalancerSettings_Simple{
-				Simple: lbPolicy,
-			},
-		},
-		ConnectionPool: &networking.ConnectionPoolSettings{
-			Tcp: &networking.ConnectionPoolSettings_TCPSettings{
-				ConnectTimeout: &types.Duration{
-					Seconds: cb.push.Mesh.ConnectTimeout.Seconds,
-					Nanos:   cb.push.Mesh.ConnectTimeout.Nanos,
-				},
-			},
-		},
-	}
-}
-
 // applyH2Upgrade function will upgrade outbound cluster to http2 if specified by configuration.
 func (cb *ClusterBuilder) applyH2Upgrade(opts buildClusterOpts, connectionPool *networking.ConnectionPoolSettings) {
 	if cb.shouldH2Upgrade(opts.mutable.cluster.Name, opts.direction, opts.port, opts.mesh, connectionPool) {
@@ -599,8 +575,10 @@ func (cb *ClusterBuilder) setH2Options(mc *MutableCluster) {
 func (cb *ClusterBuilder) applyTrafficPolicy(opts buildClusterOpts) {
 	connectionPool, outlierDetection, loadBalancer, tls := selectTrafficPolicyComponents(opts.policy)
 	// Connection pool settings are applicable for both inbound and outbound clusters.
+	if connectionPool == nil {
+		connectionPool = &networking.ConnectionPoolSettings{}
+	}
 	cb.applyConnectionPool(opts.mesh, opts.mutable, connectionPool)
-
 	if opts.direction != model.TrafficDirectionInbound {
 		cb.applyH2Upgrade(opts, connectionPool)
 		applyOutlierDetection(opts.mutable.cluster, outlierDetection)
@@ -616,6 +594,14 @@ func (cb *ClusterBuilder) applyTrafficPolicy(opts buildClusterOpts) {
 	if opts.mutable.cluster.GetType() == cluster.Cluster_ORIGINAL_DST {
 		opts.mutable.cluster.LbPolicy = cluster.Cluster_CLUSTER_PROVIDED
 	}
+}
+
+func (cb *ClusterBuilder) applyDefaultConnectionPool(cluster *cluster.Cluster) {
+	defaultConnectTimeout := &types.Duration{
+		Seconds: cb.push.Mesh.ConnectTimeout.Seconds,
+		Nanos:   cb.push.Mesh.ConnectTimeout.Nanos,
+	}
+	cluster.ConnectTimeout = gogo.DurationToProtoDuration(defaultConnectTimeout)
 }
 
 // FIXME: there isn't a way to distinguish between unset values and zero values
@@ -649,6 +635,7 @@ func (cb *ClusterBuilder) applyConnectionPool(mesh *meshconfig.MeshConfig, mc *M
 		idleTimeout = settings.Http.IdleTimeout
 	}
 
+	cb.applyDefaultConnectionPool(mc.cluster)
 	if settings.Tcp != nil {
 		if settings.Tcp.ConnectTimeout != nil {
 			mc.cluster.ConnectTimeout = gogo.DurationToProtoDuration(settings.Tcp.ConnectTimeout)
