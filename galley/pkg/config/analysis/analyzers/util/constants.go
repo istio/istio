@@ -25,6 +25,7 @@ const (
 	ExportToNamespaceLocal    = "."
 	ExportToAllNamespaces     = "*"
 	IstioProxyName            = "istio-proxy"
+	IstioOperator             = "istio-operator"
 	MeshGateway               = "mesh"
 	Wildcard                  = "*"
 	MeshConfigName            = "istio"

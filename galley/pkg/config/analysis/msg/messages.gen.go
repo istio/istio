@@ -167,7 +167,7 @@ var (
 
 	// LocalhostListener defines a diag.MessageType for message "LocalhostListener".
 	// Description: A port exposed in by a Service is bound to a localhost address
-	LocalhostListener = diag.NewMessageType(diag.Warning, "IST0143", "Port %v is exposed in a Service but listens on localhost. It will not be exposed to other pods.")
+	LocalhostListener = diag.NewMessageType(diag.Error, "IST0143", "Port %v is exposed in a Service but listens on localhost. It will not be exposed to other pods.")
 
 	// InvalidApplicationUID defines a diag.MessageType for message "InvalidApplicationUID".
 	// Description: Application pods should not run as user ID (UID) 1337
