@@ -636,6 +636,7 @@ func (s *DiscoveryServer) updateProxy(proxy *model.Proxy, request *model.PushReq
 }
 
 func (s *DiscoveryServer) computeProxyState(proxy *model.Proxy, request *model.PushRequest) {
+	fmt.Println("computeProxyState.....")
 	proxy.SetServiceInstances(s.globalPushContext().ServiceDiscovery)
 	// Precompute the sidecar scope and merged gateways associated with this proxy.
 	// Saves compute cycles in networking code. Though this might be redundant sometimes, we still
@@ -648,6 +649,11 @@ func (s *DiscoveryServer) computeProxyState(proxy *model.Proxy, request *model.P
 		gateway = true
 	} else {
 		push = request.Push
+		// This is mainly needed for tests.
+		if len(request.ConfigsUpdated) == 0 {
+			sidecar = true
+			gateway = true
+		}
 		for conf := range request.ConfigsUpdated {
 			switch conf.Kind {
 			case gvk.ServiceEntry, gvk.DestinationRule, gvk.VirtualService, gvk.Sidecar:
