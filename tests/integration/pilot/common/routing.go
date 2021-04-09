@@ -1393,7 +1393,7 @@ spec:
   host: %s
   trafficPolicy:
     tls:
-      mode: SIMPLE
+      mode: DISABLE
     connectionPool:
       http:
         useClientProtocol: true
