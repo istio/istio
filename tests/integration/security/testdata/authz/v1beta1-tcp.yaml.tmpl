@@ -3,7 +3,7 @@
 apiVersion: security.istio.io/v1beta1
 kind: AuthorizationPolicy
 metadata:
-  name: policy-b-deny
+  name: policy-{{ .b }}-deny
   namespace: "{{ .Namespace }}"
 spec:
   selector:
@@ -25,7 +25,7 @@ spec:
 apiVersion: security.istio.io/v1beta1
 kind: AuthorizationPolicy
 metadata:
-  name: policy-c-deny
+  name: policy-{{ .c }}-deny
   namespace: "{{ .Namespace }}"
 spec:
   selector:
@@ -55,7 +55,7 @@ spec:
 apiVersion: security.istio.io/v1beta1
 kind: AuthorizationPolicy
 metadata:
-  name: policy-d-deny
+  name: policy-{{ .d }}-deny
   namespace: "{{ .Namespace }}"
 spec:
   selector:
@@ -75,7 +75,7 @@ spec:
 apiVersion: security.istio.io/v1beta1
 kind: AuthorizationPolicy
 metadata:
-  name: policy-e-deny
+  name: policy-{{ .e }}-deny
   namespace: "{{ .Namespace }}"
 spec:
   selector:
