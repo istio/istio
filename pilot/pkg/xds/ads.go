@@ -642,9 +642,11 @@ func (s *DiscoveryServer) computeProxyState(proxy *model.Proxy, request *model.P
 	// have to compute this because as part of a config change, a new Sidecar could become
 	// applicable to this proxy
 	var sidecar, gateway bool
+	push := request.Push
 	if request == nil {
 		sidecar = true
 		gateway = true
+		push = s.globalPushContext()
 	} else {
 		for conf := range request.ConfigsUpdated {
 			switch conf.Kind {
@@ -659,10 +661,10 @@ func (s *DiscoveryServer) computeProxyState(proxy *model.Proxy, request *model.P
 		}
 	}
 	if sidecar && proxy.Type == model.SidecarProxy {
-		proxy.SetSidecarScope(request.Push)
+		proxy.SetSidecarScope(push)
 	}
 	if gateway && proxy.Type == model.Router {
-		proxy.SetGatewaysForProxy(request.Push)
+		proxy.SetGatewaysForProxy(push)
 	}
 }
 
