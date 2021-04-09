@@ -66,7 +66,7 @@ func (appUID *ApplicationUIDAnalyzer) analyzeAppUIDForPod(resource *resource.Ins
 		}
 	}
 	for _, container := range p.Spec.Containers {
-		if container.Name != util.IstioProxyName {
+		if container.Name != util.IstioProxyName && container.Name != util.IstioOperator {
 			if container.SecurityContext != nil && container.SecurityContext.RunAsUser != nil {
 				if *container.SecurityContext.RunAsUser == UID {
 					context.Report(collections.K8SCoreV1Pods.Name(), message)
@@ -87,7 +87,7 @@ func (appUID *ApplicationUIDAnalyzer) analyzeAppUIDForDeployment(resource *resou
 		}
 	}
 	for _, container := range spec.Containers {
-		if container.Name != util.IstioProxyName {
+		if container.Name != util.IstioProxyName && container.Name != util.IstioOperator {
 			if container.SecurityContext != nil && container.SecurityContext.RunAsUser != nil {
 				if *container.SecurityContext.RunAsUser == UID {
 					context.Report(collections.K8SAppsV1Deployments.Name(), message)
