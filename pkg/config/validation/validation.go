@@ -189,8 +189,16 @@ func checkDryRunAnnotation(cfg config.Config, allowed bool) error {
 		if !allowed {
 			return fmt.Errorf("%s/%s has unsupported annotation %s, please remove the annotation", cfg.Namespace, cfg.Name, annotation.IoIstioDryRun.Name)
 		}
-		if _, err := strconv.ParseBool(val); err != nil {
-			return fmt.Errorf("%s/%s has annotation %s with invalid value (%s): %v", cfg.Namespace, cfg.Name, annotation.IoIstioDryRun.Name, val, err)
+		if spec, ok := cfg.Spec.(*security_beta.AuthorizationPolicy); ok {
+			switch spec.Action {
+			case security_beta.AuthorizationPolicy_ALLOW, security_beta.AuthorizationPolicy_DENY:
+				if _, err := strconv.ParseBool(val); err != nil {
+					return fmt.Errorf("%s/%s has annotation %s with invalid value (%s): %v", cfg.Namespace, cfg.Name, annotation.IoIstioDryRun.Name, val, err)
+				}
+			default:
+				return fmt.Errorf("the annotation %s currently only supports action ALLOW/DENY, found action %v in %s/%s",
+					annotation.IoIstioDryRun.Name, spec.Action, cfg.Namespace, cfg.Name)
+			}
 		}
 	}
 	return nil
@@ -278,6 +286,32 @@ func ValidateTrustDomain(domain string) error {
 func ValidateHTTPHeaderName(name string) error {
 	if name == "" {
 		return fmt.Errorf("header name cannot be empty")
+	}
+	return nil
+}
+
+// ValidateHTTPHeaderWithAuthorityOperationName validates a header name when used to add/set in request.
+func ValidateHTTPHeaderWithAuthorityOperationName(name string) error {
+	if name == "" {
+		return fmt.Errorf("header name cannot be empty")
+	}
+	// Authority header is validated later
+	if isInternalHeader(name) && !isAuthorityHeader(name) {
+		return fmt.Errorf(`invalid header %q: header cannot have ":" prefix`, name)
+	}
+	return nil
+}
+
+// ValidateHTTPHeaderOperationName validates a header name when used to remove from request or modify response.
+func ValidateHTTPHeaderOperationName(name string) error {
+	if name == "" {
+		return fmt.Errorf("header name cannot be empty")
+	}
+	if strings.EqualFold(name, "host") {
+		return fmt.Errorf(`invalid header %q: cannot set Host header`, name)
+	}
+	if isInternalHeader(name) {
+		return fmt.Errorf(`invalid header %q: header cannot have ":" prefix`, name)
 	}
 	return nil
 }
@@ -2203,26 +2237,26 @@ func validateHTTPRouteDestinations(weights []*networking.HTTPRouteDestination) (
 
 		// header manipulations
 		for name, val := range weight.Headers.GetRequest().GetAdd() {
-			errs = appendErrors(errs, ValidateHTTPHeaderName(name))
+			errs = appendErrors(errs, ValidateHTTPHeaderOperationName(name))
 			errs = appendErrors(errs, ValidateHTTPHeaderValue(val))
 		}
 		for name, val := range weight.Headers.GetRequest().GetSet() {
-			errs = appendErrors(errs, ValidateHTTPHeaderName(name))
+			errs = appendErrors(errs, ValidateHTTPHeaderOperationName(name))
 			errs = appendErrors(errs, ValidateHTTPHeaderValue(val))
 		}
 		for _, name := range weight.Headers.GetRequest().GetRemove() {
-			errs = appendErrors(errs, ValidateHTTPHeaderName(name))
+			errs = appendErrors(errs, ValidateHTTPHeaderOperationName(name))
 		}
 		for name, val := range weight.Headers.GetResponse().GetAdd() {
-			errs = appendErrors(errs, ValidateHTTPHeaderName(name))
+			errs = appendErrors(errs, ValidateHTTPHeaderOperationName(name))
 			errs = appendErrors(errs, ValidateHTTPHeaderValue(val))
 		}
 		for name, val := range weight.Headers.GetResponse().GetSet() {
-			errs = appendErrors(errs, ValidateHTTPHeaderName(name))
+			errs = appendErrors(errs, ValidateHTTPHeaderOperationName(name))
 			errs = appendErrors(errs, ValidateHTTPHeaderValue(val))
 		}
 		for _, name := range weight.Headers.GetResponse().GetRemove() {
-			errs = appendErrors(errs, ValidateHTTPHeaderName(name))
+			errs = appendErrors(errs, ValidateHTTPHeaderOperationName(name))
 		}
 
 		errs = appendErrors(errs, validateDestination(weight.Destination))

@@ -22,7 +22,7 @@ import (
 	"strings"
 	"text/tabwriter"
 
-	"github.com/hashicorp/go-multierror"
+	multierror "github.com/hashicorp/go-multierror"
 	"github.com/spf13/cobra"
 	admit_v1 "k8s.io/api/admissionregistration/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -117,13 +117,14 @@ func tagSetCommand() *cobra.Command {
 		Long: `Create or modify revision tags. Tag an Istio control plane revision for use with namespace istio.io/rev
 injection labels.`,
 		Example: ` # Create a revision tag from the "1-8-0" revision
- istioctl x tag set prod --revision 1-8-0
+ istioctl x revision tag set prod --revision 1-8-0
 
  # Point namespace "test-ns" at the revision pointed to by the "prod" revision tag
  kubectl label ns test-ns istio.io/rev=prod
 
  # Change the revision tag to reference the "1-8-1" revision
- istioctl x tag set prod --revision 1-8-1 --overwrite
+ istioctl x revision tag prod --revision 1-8-1 --overwrite
+
 
  # Rollout namespace "test-ns" to update workloads to the "1-8-1" revision
  kubectl rollout restart deployments -n test-ns
@@ -165,7 +166,7 @@ func tagGenerateCommand() *cobra.Command {
 		Long: `Create a revision tag and output to the command's stdout. Tag an Istio control plane revision for use with namespace istio.io/rev
 injection labels.`,
 		Example: ` # Create a revision tag from the "1-8-0" revision
- istioctl x tag generate prod --revision 1-8-0 > tag.yaml
+ istioctl x revision tag generate prod --revision 1-8-0 > tag.yaml
 
  # Apply the tag to cluster
  kubectl apply -f tag.yaml
@@ -209,7 +210,7 @@ func tagListCommand() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "list",
 		Short:   "List existing revision tags",
-		Example: "istioctl x tag list",
+		Example: "istioctl x revision tag list",
 		Aliases: []string{"show"},
 		Args: func(cmd *cobra.Command, args []string) error {
 			if len(args) != 0 {
@@ -237,10 +238,10 @@ func tagRemoveCommand() *cobra.Command {
 
 Removing a revision tag should be done with care. Removing a revision tag will disrupt sidecar injection in namespaces
 that reference the tag in an "istio.io/rev" label. Verify that there are no remaining namespaces referencing a
-revision tag before removing using the "istioctl x tag list" command.
+revision tag before removing using the "istioctl x revision tag list" command.
 `,
 		Example: ` # Remove the revision tag "prod"
-	istioctl x tag remove prod
+	istioctl x revision tag remove prod
 `,
 		Aliases: []string{"delete"},
 		Args: func(cmd *cobra.Command, args []string) error {

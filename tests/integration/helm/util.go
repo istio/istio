@@ -19,7 +19,6 @@ import (
 	"context"
 	"fmt"
 	"path/filepath"
-	"testing"
 	"time"
 
 	v1 "k8s.io/api/core/v1"
@@ -53,7 +52,7 @@ const (
 	GatewayChartsDir    = "gateways"
 	retryDelay          = 2 * time.Second
 	RetryTimeOut        = 5 * time.Minute
-	HelmTimeout         = 2 * time.Minute
+	Timeout             = 2 * time.Minute
 )
 
 // ChartPath is path of local Helm charts used for testing.
@@ -67,14 +66,14 @@ func InstallGatewaysCharts(t test.Failer, cs cluster.Cluster,
 
 	// Install ingress gateway chart
 	err := h.InstallChart(IngressReleaseName, filepath.Join(GatewayChartsDir, IngressGatewayChart)+suffix,
-		namespace, overrideValuesFile, HelmTimeout)
+		namespace, overrideValuesFile, Timeout)
 	if err != nil {
 		t.Fatalf("failed to install istio %s chart", IngressGatewayChart)
 	}
 
 	// Install egress gateway chart
 	err = h.InstallChart(EgressReleaseName, filepath.Join(GatewayChartsDir, EgressGatewayChart)+suffix,
-		namespace, overrideValuesFile, HelmTimeout)
+		namespace, overrideValuesFile, Timeout)
 	if err != nil {
 		t.Fatalf("failed to install istio %s chart", EgressGatewayChart)
 	}
@@ -95,7 +94,7 @@ func CreateNamespace(t test.Failer, cs cluster.Cluster, namespace string) {
 }
 
 // deleteGatewayCharts deletes installed Istio Helm charts and resources
-func deleteGatewayCharts(t *testing.T, h *helm.Helm) {
+func deleteGatewayCharts(t framework.TestContext, h *helm.Helm) {
 	scopes.Framework.Infof("cleaning up resources")
 	if err := h.DeleteChart(EgressReleaseName, IstioNamespace); err != nil {
 		t.Errorf("failed to delete %s release", EgressReleaseName)

@@ -383,12 +383,12 @@ func (lb *ListenerBuilder) buildVirtualOutboundListener(configgen *ConfigGenerat
 
 	filterChains := buildOutboundCatchAllNetworkFilterChains(configgen, lb.node, lb.push)
 
-	actualWildcard, _ := getActualWildcardAndLocalHost(lb.node)
+	_, actualLocalHost := getActualWildcardAndLocalHost(lb.node)
 
 	// add an extra listener that binds to the port that is the recipient of the iptables redirect
 	ipTablesListener := &listener.Listener{
 		Name:             VirtualOutboundListenerName,
-		Address:          util.BuildAddress(actualWildcard, uint32(lb.push.Mesh.ProxyListenPort)),
+		Address:          util.BuildAddress(actualLocalHost, uint32(lb.push.Mesh.ProxyListenPort)),
 		Transparent:      isTransparentProxy,
 		UseOriginalDst:   proto.BoolTrue,
 		FilterChains:     filterChains,
@@ -498,39 +498,6 @@ func (lb *ListenerBuilder) getListeners() []*listener.Listener {
 	}
 
 	return lb.gatewayListeners
-}
-
-// getFilterChainMatchOptions returns the FilterChainMatchOptions that should be used based on mTLS mode and protocol
-func getFilterChainMatchOptions(settings plugin.MTLSSettings, protocol istionetworking.ListenerProtocol) []FilterChainMatchOptions {
-	switch protocol {
-	case istionetworking.ListenerProtocolHTTP:
-		switch settings.Mode {
-		case model.MTLSStrict:
-			return inboundStrictHTTPFilterChainMatchOptions
-		case model.MTLSPermissive:
-			return inboundPermissiveHTTPFilterChainMatchWithMxcOptions
-		default:
-			return inboundPlainTextHTTPFilterChainMatchOptions
-		}
-	case istionetworking.ListenerProtocolAuto:
-		switch settings.Mode {
-		case model.MTLSStrict:
-			return inboundStrictFilterChainMatchOptions
-		case model.MTLSPermissive:
-			return inboundPermissiveFilterChainMatchWithMxcOptions
-		default:
-			return inboundPlainTextFilterChainMatchOptions
-		}
-	default:
-		switch settings.Mode {
-		case model.MTLSStrict:
-			return inboundStrictTCPFilterChainMatchOptions
-		case model.MTLSPermissive:
-			return inboundPermissiveTCPFilterChainMatchWithMxcOptions
-		default:
-			return inboundPlainTextTCPFilterChainMatchOptions
-		}
-	}
 }
 
 type fcOpts struct {

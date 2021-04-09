@@ -78,7 +78,7 @@ spec:
 	}{gateway, host, port})
 }
 
-func virtualServiceCases() []TrafficTestCase {
+func virtualServiceCases(skipVM bool) []TrafficTestCase {
 	var cases []TrafficTestCase
 	// Send the same call from all different clusters
 
@@ -109,6 +109,68 @@ spec:
 						func(response echoclient.ParsedResponses, _ error) error {
 							return response.Check(func(_ int, response *echoclient.ParsedResponse) error {
 								return ExpectString(response.RawResponse["Istio-Custom-Header"], "user-defined-value", "request header")
+							})
+						})),
+			},
+			workloadAgnostic: true,
+		},
+		TrafficTestCase{
+			name: "set header",
+			config: `
+apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
+metadata:
+  name: default
+spec:
+  hosts:
+  - {{ (index .dst 0).Config.Service }}
+  http:
+  - route:
+    - destination:
+        host: {{ (index .dst 0).Config.Service }}
+    headers:
+      request:
+        set:
+          x-custom: some-value`,
+			opts: echo.CallOptions{
+				PortName: "http",
+				Validator: echo.And(
+					echo.ExpectOK(),
+					echo.ValidatorFunc(
+						func(response echoclient.ParsedResponses, _ error) error {
+							return response.Check(func(_ int, response *echoclient.ParsedResponse) error {
+								return ExpectString(response.RawResponse["X-Custom"], "some-value", "added request header")
+							})
+						})),
+			},
+			workloadAgnostic: true,
+		},
+		TrafficTestCase{
+			name: "set authority header",
+			config: `
+apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
+metadata:
+  name: default
+spec:
+  hosts:
+  - {{ (index .dst 0).Config.Service }}
+  http:
+  - route:
+    - destination:
+        host: {{ (index .dst 0).Config.Service }}
+    headers:
+      request:
+        set:
+          :authority: my-custom-authority`,
+			opts: echo.CallOptions{
+				PortName: "http",
+				Validator: echo.And(
+					echo.ExpectOK(),
+					echo.ValidatorFunc(
+						func(response echoclient.ParsedResponses, _ error) error {
+							return response.Check(func(_ int, response *echoclient.ParsedResponse) error {
+								return ExpectString(response.RawResponse["Host"], "my-custom-authority", "added authority header")
 							})
 						})),
 			},
@@ -330,18 +392,28 @@ spec:
 		cases[i] = tc
 	}
 
-	splits := [][3]int{
+	splits := [][]int{
 		{50, 25, 25},
 		{80, 10, 10},
+	}
+	if skipVM {
+		splits = [][]int{
+			{50, 50},
+			{80, 20},
+		}
 	}
 	for _, split := range splits {
 		split := split
 		cases = append(cases, TrafficTestCase{
 			name:          fmt.Sprintf("shifting-%d", split[0]),
-			toN:           3,
+			toN:           len(split),
 			sourceFilters: []echotest.Filter{noHeadless, noNaked},
 			targetFilters: []echotest.Filter{noHeadless, noExternal},
-			config: fmt.Sprintf(`
+			templateVars: map[string]interface{}{
+				"split": split,
+			},
+			config: `
+{{ $split := .split }} 
 apiVersion: networking.istio.io/v1alpha3
 kind: VirtualService
 metadata:
@@ -351,16 +423,12 @@ spec:
     - {{ ( index .dstSvcs 0) }}
   http:
   - route:
+{{- range $idx, $svc := .dstSvcs }}
     - destination:
-        host: {{ ( index .dstSvcs 0) }}
-      weight: %d
-    - destination:
-        host: {{ ( index .dstSvcs 1) }}
-      weight: %d
-    - destination:
-        host: {{ ( index .dstSvcs 2) }}
-      weight: %d
-`, split[0], split[1], split[2]),
+        host: {{ $svc }}
+      weight: {{ ( index $split $idx ) }}
+{{- end }}
+`,
 			validate: func(src echo.Instance, dests echo.Services) echo.Validator {
 				return echo.And(
 					echo.ExpectOK(),
