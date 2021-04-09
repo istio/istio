@@ -333,15 +333,8 @@ func GetLocalityLabelOrDefault(label, defaultLabel string) string {
 
 // SplitLocalityLabel splits a locality label into region, zone and subzone strings.
 func SplitLocalityLabel(locality string) (region, zone, subzone string) {
-	items := strings.Split(locality, "/")
-	switch len(items) {
-	case 1:
-		return items[0], "", ""
-	case 2:
-		return items[0], items[1], ""
-	default:
-		return items[0], items[1], items[2]
-	}
+	items := strings.SplitN(locality, "/", 3)
+	return items[0], items[1], items[2]
 }
 
 // Locality information for an IstioEndpoint

@@ -33,6 +33,7 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/util"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
+	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/spiffe"
 	"istio.io/pkg/env"
 	istiolog "istio.io/pkg/log"
@@ -587,7 +588,9 @@ func (s *DiscoveryServer) initializeProxy(node *core.Node, con *Connection) erro
 	if err := s.WorkloadEntryController.RegisterWorkload(proxy, con.Connect); err != nil {
 		return err
 	}
-	s.setProxyState(proxy, s.globalPushContext())
+
+	proxy.SetWorkloadLabels(s.Env)
+	s.computeProxyState(proxy, nil)
 
 	// Get the locality from the proxy's service instances.
 	// We expect all instances to have the same IP and therefore the same locality.
@@ -620,27 +623,47 @@ func (s *DiscoveryServer) initializeProxy(node *core.Node, con *Connection) erro
 	return nil
 }
 
-func (s *DiscoveryServer) updateProxy(proxy *model.Proxy, push *model.PushContext) {
-	s.setProxyState(proxy, push)
+func (s *DiscoveryServer) updateProxy(proxy *model.Proxy, request *model.PushRequest) {
+	s.computeProxyState(proxy, request)
 	if util.IsLocalityEmpty(proxy.Locality) {
 		// Get the locality from the proxy's service instances.
-		// We expect all instances to have the same locality. So its enough to look at the first instance
+		// We expect all instances to have the same locality.
+		// So its enough to look at the first instance.
 		if len(proxy.ServiceInstances) > 0 {
 			proxy.Locality = util.ConvertLocality(proxy.ServiceInstances[0].Endpoint.Locality.Label)
 		}
 	}
 }
 
-func (s *DiscoveryServer) setProxyState(proxy *model.Proxy, push *model.PushContext) {
-	proxy.SetWorkloadLabels(s.Env)
-	proxy.SetServiceInstances(push.ServiceDiscovery)
-
+func (s *DiscoveryServer) computeProxyState(proxy *model.Proxy, request *model.PushRequest) {
+	proxy.SetServiceInstances(s.globalPushContext().ServiceDiscovery)
 	// Precompute the sidecar scope and merged gateways associated with this proxy.
 	// Saves compute cycles in networking code. Though this might be redundant sometimes, we still
 	// have to compute this because as part of a config change, a new Sidecar could become
 	// applicable to this proxy
-	proxy.SetSidecarScope(push)
-	proxy.SetGatewaysForProxy(push)
+	var sidecar, gateway bool
+	if request == nil {
+		sidecar = true
+		gateway = true
+	} else {
+		for conf := range request.ConfigsUpdated {
+			switch conf.Kind {
+			case gvk.ServiceEntry:
+			case gvk.DestinationRule:
+			case gvk.VirtualService:
+			case gvk.Sidecar:
+				sidecar = true
+			case gvk.Gateway:
+				gateway = true
+			}
+		}
+	}
+	if sidecar {
+		proxy.SetSidecarScope(request.Push)
+	}
+	if gateway {
+		proxy.SetGatewaysForProxy(request.Push)
+	}
 }
 
 // pre-process request. returns whether or not to continue.
@@ -682,7 +705,7 @@ func (s *DiscoveryServer) pushConnection(con *Connection, pushEv *Event) error {
 
 	if pushRequest.Full {
 		// Update Proxy with current information.
-		s.updateProxy(con.proxy, pushRequest.Push)
+		s.updateProxy(con.proxy, pushRequest)
 	}
 
 	if !s.ProxyNeedsPush(con.proxy, pushRequest) {
