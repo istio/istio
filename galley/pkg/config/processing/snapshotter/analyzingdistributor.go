@@ -154,6 +154,7 @@ func (d *AnalyzingDistributor) analyzeAndDistribute(cancelCh chan struct{}, name
 	ctx := &context{
 		sn:                 d.getCombinedSnapshot(),
 		cancelCh:           cancelCh,
+		isCancel:           false,
 		collectionReporter: d.s.CollectionReporter,
 	}
 
@@ -239,6 +240,7 @@ FilterMessages:
 type context struct {
 	sn                 *Snapshot
 	cancelCh           chan struct{}
+	isCancel           bool
 	messages           diag.Messages
 	collectionReporter CollectionReporterFn
 }
@@ -272,8 +274,9 @@ func (c *context) ForEach(col collection.Name, fn analysis.IteratorFn) {
 func (c *context) Canceled() bool {
 	select {
 	case <-c.cancelCh:
-		return true
+		c.isCancel = true
+		return c.isCancel
 	default:
-		return false
+		return c.isCancel
 	}
 }
