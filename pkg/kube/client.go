@@ -853,7 +853,7 @@ func (c *client) ApplyYAMLFilesDryRun(namespace string, yamlFiles ...string) err
 
 func (c *client) CreatePerRPCCredentials(ctx context.Context, tokenNamespace, tokenServiceAccount string, audiences []string,
 	expirationSeconds int64) (credentials.PerRPCCredentials, error) {
-	return NewRPCCredentials(c, tokenNamespace, tokenServiceAccount, audiences, expirationSeconds)
+	return NewRPCCredentials(c, tokenNamespace, tokenServiceAccount, audiences, expirationSeconds, 60)
 }
 
 func (c *client) UtilFactory() util.Factory {
