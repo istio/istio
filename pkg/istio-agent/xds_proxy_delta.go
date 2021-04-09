@@ -177,7 +177,7 @@ func (p *XdsProxy) handleUpstreamDeltaRequest(ctx context.Context, con *ProxyCon
 			if req.TypeUrl == v3.ExtensionConfigurationType {
 				p.ecdsLastNonce.Store(req.ResponseNonce)
 			}
-			if err := sendUpstreamDeltaWithTimeout(ctx, con.upstreamDeltas, req); err != nil {
+			if err := sendUpstreamDelta(ctx, con.upstreamDeltas, req); err != nil {
 				proxyLog.Errorf("upstream send error for type url %s: %v", req.TypeUrl, err)
 				con.upstreamError <- err
 				return
@@ -254,7 +254,7 @@ func (p *XdsProxy) deltaRewriteAndForward(con *ProxyConnection, resp *discovery.
 }
 
 func forwardDeltaToEnvoy(con *ProxyConnection, resp *discovery.DeltaDiscoveryResponse) {
-	if err := sendDownstreamDeltaWithTimout(con.downstreamDeltas, resp); err != nil {
+	if err := sendDownstreamDelta(con.downstreamDeltas, resp); err != nil {
 		select {
 		case con.downstreamError <- err:
 			proxyLog.Errorf("downstream send error: %v", err)
@@ -266,7 +266,7 @@ func forwardDeltaToEnvoy(con *ProxyConnection, resp *discovery.DeltaDiscoveryRes
 	}
 }
 
-func sendUpstreamDeltaWithTimeout(ctx context.Context, deltaUpstream discovery.AggregatedDiscoveryService_DeltaAggregatedResourcesClient,
+func sendUpstreamDelta(ctx context.Context, deltaUpstream discovery.AggregatedDiscoveryService_DeltaAggregatedResourcesClient,
 	req *discovery.DeltaDiscoveryRequest) error {
 	return send(func(errChan chan error) {
 		errChan <- deltaUpstream.Send(req)
@@ -274,7 +274,7 @@ func sendUpstreamDeltaWithTimeout(ctx context.Context, deltaUpstream discovery.A
 	})
 }
 
-func sendDownstreamDeltaWithTimout(deltaUpstream discovery.AggregatedDiscoveryService_DeltaAggregatedResourcesServer,
+func sendDownstreamDelta(deltaUpstream discovery.AggregatedDiscoveryService_DeltaAggregatedResourcesServer,
 	req *discovery.DeltaDiscoveryResponse) error {
 	return send(func(errChan chan error) {
 		errChan <- deltaUpstream.Send(req)
