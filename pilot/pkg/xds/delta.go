@@ -256,8 +256,6 @@ func (s *DiscoveryServer) receiveDelta(con *Connection, reqChannel chan *discove
 func (conn *Connection) sendDelta(res *discovery.DeltaDiscoveryResponse) error {
 	errChan := make(chan error, 1)
 
-	// sendTimeout may be modified via environment
-	t := time.NewTimer(sendTimeout)
 	go func() {
 		start := time.Now()
 		defer func() { recordSendTime(time.Since(start)) }()
@@ -266,10 +264,6 @@ func (conn *Connection) sendDelta(res *discovery.DeltaDiscoveryResponse) error {
 	}()
 
 	select {
-	case <-t.C:
-		log.Infof("Timeout writing %s", conn.ConID)
-		xdsResponseWriteTimeouts.Increment()
-		return status.Errorf(codes.DeadlineExceeded, "timeout sending")
 	case err := <-errChan:
 		if err == nil {
 			sz := 0
@@ -287,11 +281,6 @@ func (conn *Connection) sendDelta(res *discovery.DeltaDiscoveryResponse) error {
 				conn.proxy.WatchedResources[res.TypeUrl].LastSize = sz
 			}
 			conn.proxy.Unlock()
-		}
-		// To ensure the channel is empty after a call to Stop, check the
-		// return value and drain the channel (from Stop docs).
-		if !t.Stop() {
-			<-t.C
 		}
 		return err
 	}

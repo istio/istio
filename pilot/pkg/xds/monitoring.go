@@ -101,11 +101,6 @@ var (
 	xdsClientTrackerMutex = &sync.Mutex{}
 	xdsClientTracker      = make(map[string]float64)
 
-	xdsResponseWriteTimeouts = monitoring.NewSum(
-		"pilot_xds_write_timeout",
-		"Pilot XDS response write timeouts.",
-	)
-
 	// Covers xds_builderr and xds_senderr for xds in {lds, rds, cds, eds}.
 	pushes = monitoring.NewSum(
 		"pilot_xds_pushes",
@@ -249,7 +244,6 @@ func init() {
 		totalXDSRejects,
 		monServices,
 		xdsClients,
-		xdsResponseWriteTimeouts,
 		pushes,
 		pushTime,
 		proxiesConvergeDelay,

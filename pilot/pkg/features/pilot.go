@@ -337,12 +337,6 @@ var (
 		"If true, Istiod will set the pod fsGroup to 1337 on injection. This is required for Kubernetes 1.18 and older "+
 			`(see https://github.com/kubernetes/kubernetes/issues/57923 for details) unless JWT_POLICY is "first-party-jwt".`).Get()
 
-	XdsPushSendTimeout = env.RegisterDurationVar(
-		"PILOT_XDS_SEND_TIMEOUT",
-		5*time.Second,
-		"The timeout to send the XDS configuration to proxies. After this timeout is reached, Pilot will discard that push.",
-	).Get()
-
 	EndpointTelemetryLabel = env.RegisterBoolVar("PILOT_ENDPOINT_TELEMETRY_LABEL", true,
 		"If true, pilot will add telemetry related metadata to Endpoint resource, which will be consumed by telemetry filter.",
 	).Get()

@@ -41,10 +41,6 @@ import (
 var (
 	log = istiolog.RegisterScope("ads", "ads debugging", 0)
 
-	// sendTimeout is the max time to wait for a ADS send to complete. This helps detect
-	// clients in a bad state (not reading). In future it may include checking for ACK
-	sendTimeout = features.XdsPushSendTimeout
-
 	// Tracks connections, increment on each new connection.
 	connectionNumber = int64(0)
 )
@@ -897,8 +893,6 @@ func (s *DiscoveryServer) removeCon(conID string) {
 func (conn *Connection) send(res *discovery.DiscoveryResponse) error {
 	errChan := make(chan error, 1)
 
-	// sendTimeout may be modified via environment
-	t := time.NewTimer(sendTimeout)
 	go func() {
 		start := time.Now()
 		defer func() { recordSendTime(time.Since(start)) }()
@@ -907,10 +901,6 @@ func (conn *Connection) send(res *discovery.DiscoveryResponse) error {
 	}()
 
 	select {
-	case <-t.C:
-		log.Infof("Timeout writing %s", conn.ConID)
-		xdsResponseWriteTimeouts.Increment()
-		return status.Errorf(codes.DeadlineExceeded, "timeout sending")
 	case err := <-errChan:
 		if err == nil {
 			sz := 0
@@ -928,11 +918,6 @@ func (conn *Connection) send(res *discovery.DiscoveryResponse) error {
 				conn.proxy.WatchedResources[res.TypeUrl].LastSize = sz
 			}
 			conn.proxy.Unlock()
-		}
-		// To ensure the channel is empty after a call to Stop, check the
-		// return value and drain the channel (from Stop docs).
-		if !t.Stop() {
-			<-t.C
 		}
 		return err
 	}
