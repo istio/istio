@@ -30,6 +30,16 @@ source "${WD}/libs/asm-lib.sh"
 # shellcheck source=prow/asm/tester/scripts/libs/vm-lib.sh
 source "${WD}/libs/vm-lib.sh"
 
+# holds multiple kubeconfigs for Multicloud test environments
+declare -a MC_CONFIGS
+declare HTTP_PROXY
+declare HTTPS_PROXY
+# shellcheck disable=SC2034
+IFS=':' read -r -a MC_CONFIGS <<< "${KUBECONFIG}"
+
+# construct http proxy value for aws
+[[ "${CLUSTER_TYPE}" == "aws" ]] && aws::init
+
 echo "======= env vars ========"
 printenv
 
@@ -80,10 +90,21 @@ if [[ "${CONTROL_PLANE}" == "UNMANAGED" ]]; then
     # security/ tests
     DISABLED_TESTS+="|TestAuthorization_WorkloadSelector/From_primary-1/.*|TestAuthorization_NegativeMatch/From_primary-1/.*|TestAuthorization_Conditions/IpA_IpB_IpC_in_primary-0/From_primary-1/.*|TestAuthorization_mTLS/From_primary-1/.*|TestAuthorization_JWT/From_primary-1/.*"
   fi
-  if [[ "${CLUSTER_TYPE}" == "bare-metal" || "${CLUSTER_TYPE}" == "aws" ]]; then
+  if [[ "${CLUSTER_TYPE}" == "bare-metal" ]]; then
     DISABLED_TESTS+="|TestAuthorization_EgressGateway" # UNSUPPORTED: Relies on egress gateway deployed to the cluster.
     DISABLED_TESTS+="|TestStrictMTLS" # UNSUPPORTED: Mesh CA does not support ECDSA
     DISABLED_TESTS+="|TestAuthorization_Custom" # UNSUPPORTED: requires mesh config
+    # telemetry/ tests
+    DISABLED_TESTS+="|TestStackdriver|TestStackdriverAudit|TestVMTelemetry" # Stackdriver is not enabled with ASM Distro Baremetal installation
+  fi
+
+  if [[ "${CLUSTER_TYPE}" == "aws" ]]; then
+    DISABLED_TESTS+="|TestAuthorization_EgressGateway" # UNSUPPORTED: Relies on egress gateway deployed to the cluster.
+    DISABLED_TESTS+="|TestStrictMTLS" # UNSUPPORTED: Mesh CA does not support ECDSA
+    DISABLED_TESTS+="|TestAuthorization_Custom" # UNSUPPORTED: requires mesh config
+    # TODO: unskip ingress tests after b/184990912 is fixed
+    DISABLED_TESTS+="|TestAuthorization_IngressGateway|TestIngressRequestAuthentication|TestMtlsGatewaysK8sca|TestTlsGatewaysK8sca|TestSingleTlsGateway*|TestSingleMTLSGateway*|TestTlsGateways|TestMtlsGateways|TestMultiTlsGateway_InvalidSecret|TestMultiMtlsGateway_InvalidSecret"
+    DISABLED_TESTS+="|TestAuthorization_Deny|TestAuthorization_TCP|TestAuthorization_Conditions|TestAuthorization_GRPC|TestAuthorization_Audit|TestPassThroughFilterChain"
     # telemetry/ tests
     DISABLED_TESTS+="|TestStackdriver|TestStackdriverAudit|TestVMTelemetry" # Stackdriver is not enabled with ASM Distro Baremetal installation
   fi

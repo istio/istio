@@ -88,9 +88,9 @@ func CheckIngressOrFail(ctx framework.TestContext, ingr ingress.Instance, host s
 	} else {
 		headers["Host"] = []string{host}
 	}
-	if os.Getenv("CLUSTER_TYPE") == "bare-metal" {
+	if os.Getenv("CLUSTER_TYPE") == "bare-metal" || os.Getenv("CLUSTER_TYPE") == "aws" {
 		// Request will be sent to host in the host header with HTTP proxy
-		// Modify the /etc/hosts file on the bare metal bootstrap VM to direct the request to ingress gateway
+		// Modify the /etc/hosts file on the bootstrap VM to direct the request to ingress gateway
 		if err := setupEtcHostsFile(ingr, host); err != nil {
 			ctx.Fatal(err)
 		}
@@ -113,21 +113,21 @@ func CheckIngressOrFail(ctx framework.TestContext, ingr ingress.Instance, host s
 
 func setupEtcHostsFile(ingr ingress.Instance, host string) error {
 	cmd := exec.Command("ssh", "-o", "UserKnownHostsFile=/dev/null", "-o", "StrictHostKeyChecking=no",
-		"-i", os.Getenv("BM_ARTIFACTS_PATH")+"/id_rsa", "root@"+os.Getenv("BM_HOST_IP"),
+		"-i", os.Getenv("BOOTSTRAP_HOST_SSH_KEY"), os.Getenv("BOOTSTRAP_HOST_SSH_USER"),
 		"grep", host, "/etc/hosts")
 	out, _ := cmd.Output()
 	hostEntry := ingr.HTTPAddress().IP.String() + " " + host
 	if !strings.Contains(string(out), hostEntry) {
 		cmd = exec.Command("ssh", "-o", "UserKnownHostsFile=/dev/null", "-o", "StrictHostKeyChecking=no",
-			"-i", os.Getenv("BM_ARTIFACTS_PATH")+"/id_rsa", "root@"+os.Getenv("BM_HOST_IP"),
-			"sed", "-i", "'/"+host+"/d'", "/etc/hosts")
+			"-i", os.Getenv("BOOTSTRAP_HOST_SSH_KEY"), os.Getenv("BOOTSTRAP_HOST_SSH_USER"),
+			"sudo sed", "-i", "'/"+host+"/d'", "/etc/hosts")
 		out, err := cmd.CombinedOutput()
 		if err != nil {
 			return fmt.Errorf("command %s failed: %q %v", cmd.String(), string(out), err)
 		}
 		cmd := exec.Command("ssh", "-o", "UserKnownHostsFile=/dev/null", "-o", "StrictHostKeyChecking=no",
-			"-i", os.Getenv("BM_ARTIFACTS_PATH")+"/id_rsa", "root@"+os.Getenv("BM_HOST_IP"),
-			"echo", "\""+hostEntry+"\"", ">>", "/etc/hosts")
+			"-i", os.Getenv("BOOTSTRAP_HOST_SSH_KEY"), os.Getenv("BOOTSTRAP_HOST_SSH_USER"),
+			"sudo echo", "\""+hostEntry+"\"", ">>", "/etc/hosts")
 		if out, err := cmd.CombinedOutput(); err != nil {
 			return fmt.Errorf("command %s failed: %q %v", cmd.String(), string(out), err)
 		}

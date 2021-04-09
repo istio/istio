@@ -814,7 +814,10 @@ spec:
         clusterName: cluster${i}
       network: network${i}
 EOF
-      install_expansion_gw "${MESH_ID}" "cluster${i}" "network${i}" "${ASM_REVISION_LABEL}" "${HUB}" "${TAG}" "${MC_CONFIGS[$i]}"
+      # eastwest gateway is not needed for single cluster installation
+      if [[ "${CLUSTER_TOPOLOGY}" != "sc" ]]; then
+        install_expansion_gw "${MESH_ID}" "cluster${i}" "network${i}" "${ASM_REVISION_LABEL}" "${HUB}" "${TAG}" "${MC_CONFIGS[$i]}"
+      fi
     fi
     # set default network for the cluster, allow detecting network of non-injected pods
     kubectl --kubeconfig="${MC_CONFIGS[$i]}" label namespace istio-system topology.istio.io/network="network${i}"
@@ -1004,18 +1007,21 @@ EOF
 # Construct correct HTTP_PROXY env value used by baremetal according to the tunnel
 function init_baremetal_http_proxy() {
   for CONFIG in "${MC_CONFIGS[@]}"; do
-    BM_ARTIFACTS_PATH=${CONFIG%/*}
+    CLUSTER_ARTIFACTS_PATH=${CONFIG%/*}
     local PORT_NUMBER
-    read -r PORT_NUMBER BM_HOST_IP <<<"$(grep "localhost" "${BM_ARTIFACTS_PATH}/tunnel.sh" | sed 's/.*\-L\([0-9]*\):localhost.* root@\([0-9]*\.[0-9]*\.[0-9]*\.[0-9]*\) -N/\1 \2/')"
+    read -r PORT_NUMBER BOOTSTRAP_HOST_SSH_USER <<<"$(grep "localhost" "${CLUSTER_ARTIFACTS_PATH}/tunnel.sh" | sed 's/.*\-L\([0-9]*\):localhost.* \(root@[0-9]*\.[0-9]*\.[0-9]*\.[0-9]*\) -N/\1 \2/')"
     HTTP_PROXY="localhost:${PORT_NUMBER}"
     HTTPS_PROXY="${HTTP_PROXY}"
     echo "----------PROXY env----------"
     echo "HTTP_PROXY: ${HTTP_PROXY}, HTTPS_PROXY: ${HTTPS_PROXY}"
   done
+  BOOTSTRAP_HOST_SSH_KEY="${CLUSTER_ARTIFACTS_PATH}/id_rsa"
   echo "----------BM Cluster env----------"
-  echo "BM_ARTIFACTS_PATH: ${BM_ARTIFACTS_PATH}, BM_HOST_IP: ${BM_HOST_IP}"
-  export BM_ARTIFACTS_PATH
-  export BM_HOST_IP
+  echo "CLUSTER_ARTIFACTS_PATH: ${CLUSTER_ARTIFACTS_PATH}, BOOTSTRAP_HOST_SSH_USER: ${BOOTSTRAP_HOST_SSH_USER}, BOOTSTRAP_HOST_SSH_KEY: ${BOOTSTRAP_HOST_SSH_KEY}"
+  export CLUSTER_ARTIFACTS_PATH
+  # Used by ingress related tests
+  export BOOTSTRAP_HOST_SSH_USER
+  export BOOTSTRAP_HOST_SSH_KEY
 }
 
 # Sources the environment variables created by test infra needed to connect
@@ -1033,7 +1039,20 @@ function aws::init() {
 
     HTTPS_PROXY="${HTTP_PROXY}"
     export HTTPS_PROXY
+
+    CLUSTER_ARTIFACTS_PATH="${RESOURCE_DIR}"
+    read -r BOOTSTRAP_HOST_SSH_USER <<<"$(grep "localhost" "${CLUSTER_ARTIFACTS_PATH}/tunnel-script.sh" | sed 's/.* \(ubuntu@.*compute.amazonaws.com\) .*/\1/')"
   done
+  BOOTSTRAP_HOST_SSH_KEY="${CLUSTER_ARTIFACTS_PATH}/.ssh/anthos-gke"
+  echo "----------AWS Cluster env----------"
+  echo "CLUSTER_ARTIFACTS_PATH: ${CLUSTER_ARTIFACTS_PATH}, BOOTSTRAP_HOST_SSH_USER: ${BOOTSTRAP_HOST_SSH_USER}, BOOTSTRAP_HOST_SSH_KEY; ${BOOTSTRAP_HOST_SSH_KEY}"
+  export CLUSTER_ARTIFACTS_PATH
+  # Used by ingress related tests
+  export BOOTSTRAP_HOST_SSH_USER
+  export BOOTSTRAP_HOST_SSH_KEY
+  # Increase proxy's max connection setup to avoid too many connections error
+  ssh -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -i "${BOOTSTRAP_HOST_SSH_KEY}" "${BOOTSTRAP_HOST_SSH_USER}" "sudo sed -i 's/#max-client-connections.*/max-client-connections 512/' '/etc/privoxy/config'"
+  ssh -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -i "${BOOTSTRAP_HOST_SSH_KEY}" "${BOOTSTRAP_HOST_SSH_USER}" "sudo systemctl restart privoxy.service"
 
   # reset to the existing value because resource_vars for each
   # cluster can override the normalized KUBECONFIGs, including
