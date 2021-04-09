@@ -40,6 +40,7 @@ func NewAgentOptions(proxy *model.Proxy) *istioagent.AgentOptions {
 	extractXDSHeadersFromEnv(o)
 	if proxyXDSViaAgent {
 		o.ProxyXDSViaAgent = true
+		o.ProxyXDSDebugViaAgent = proxyXDSDebugViaAgent
 		o.DNSCapture = dnsCaptureByAgent
 		o.ProxyNamespace = PodNamespaceVar.Get()
 		o.ProxyDomain = proxy.DNSDomain
