@@ -849,11 +849,12 @@ function multicloud::gen_topology_file() {
         jq -r '.items[0].spec.containers[0].env[] | select(.name == "CLUSTER_ID") | .value')
 
       cat <<EOF >> "${TOPO_FILE}"
-      - clusterName: "${CLUSTER_NAME}"
-        kind: Kubernetes
-        meta:
-          kubeconfig: "${KUBECONFIGPATHS[$i]}"
+- clusterName: "${CLUSTER_NAME}"
+  kind: Kubernetes
+  meta:
+    kubeconfig: "${KUBECONFIGPATHS[$i]}"
 EOF
+      echo "  network: network${i}" >> "${TOPO_FILE}"
     done
 }
 
