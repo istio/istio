@@ -658,10 +658,10 @@ func (s *DiscoveryServer) computeProxyState(proxy *model.Proxy, request *model.P
 			}
 		}
 	}
-	if sidecar {
+	if sidecar && proxy.Type == model.SidecarProxy {
 		proxy.SetSidecarScope(request.Push)
 	}
-	if gateway {
+	if gateway && proxy.Type == model.Router {
 		proxy.SetGatewaysForProxy(request.Push)
 	}
 }
