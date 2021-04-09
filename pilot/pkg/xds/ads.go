@@ -642,12 +642,12 @@ func (s *DiscoveryServer) computeProxyState(proxy *model.Proxy, request *model.P
 	// have to compute this because as part of a config change, a new Sidecar could become
 	// applicable to this proxy
 	var sidecar, gateway bool
-	push := request.Push
+	push := s.globalPushContext()
 	if request == nil {
 		sidecar = true
 		gateway = true
-		push = s.globalPushContext()
 	} else {
+		push = request.Push
 		for conf := range request.ConfigsUpdated {
 			switch conf.Kind {
 			case gvk.ServiceEntry:
