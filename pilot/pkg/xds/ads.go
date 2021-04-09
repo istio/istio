@@ -900,27 +900,25 @@ func (conn *Connection) send(res *discovery.DiscoveryResponse) error {
 		close(errChan)
 	}()
 
-	select {
-	case err := <-errChan:
-		if err == nil {
-			sz := 0
-			for _, rc := range res.Resources {
-				sz += len(rc.Value)
-			}
-			conn.proxy.Lock()
-			if res.Nonce != "" {
-				if conn.proxy.WatchedResources[res.TypeUrl] == nil {
-					conn.proxy.WatchedResources[res.TypeUrl] = &model.WatchedResource{TypeUrl: res.TypeUrl}
-				}
-				conn.proxy.WatchedResources[res.TypeUrl].NonceSent = res.Nonce
-				conn.proxy.WatchedResources[res.TypeUrl].VersionSent = res.VersionInfo
-				conn.proxy.WatchedResources[res.TypeUrl].LastSent = time.Now()
-				conn.proxy.WatchedResources[res.TypeUrl].LastSize = sz
-			}
-			conn.proxy.Unlock()
+	err := <-errChan
+	if err == nil {
+		sz := 0
+		for _, rc := range res.Resources {
+			sz += len(rc.Value)
 		}
-		return err
+		conn.proxy.Lock()
+		if res.Nonce != "" {
+			if conn.proxy.WatchedResources[res.TypeUrl] == nil {
+				conn.proxy.WatchedResources[res.TypeUrl] = &model.WatchedResource{TypeUrl: res.TypeUrl}
+			}
+			conn.proxy.WatchedResources[res.TypeUrl].NonceSent = res.Nonce
+			conn.proxy.WatchedResources[res.TypeUrl].VersionSent = res.VersionInfo
+			conn.proxy.WatchedResources[res.TypeUrl].LastSent = time.Now()
+			conn.proxy.WatchedResources[res.TypeUrl].LastSize = sz
+		}
+		conn.proxy.Unlock()
 	}
+	return err
 }
 
 // nolint
