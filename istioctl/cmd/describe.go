@@ -429,7 +429,7 @@ func printPod(writer io.Writer, pod *v1.Pod) {
 			ports = append(ports, fmt.Sprintf("%d%s (%s)", port.ContainerPort, protocol, container.Name))
 		}
 		// Ref: https://istio.io/latest/docs/ops/deployment/requirements/#pod-requirements
-		if container.Name != "istio-proxy" {
+		if container.Name != "istio-proxy" && container.Name != "istio-operator" {
 			if container.SecurityContext != nil && container.SecurityContext.RunAsUser != nil {
 				if *container.SecurityContext.RunAsUser == UID {
 					fmt.Fprintf(writer, "WARNING: Application pods should not run as user ID (UID) 1337\n")
