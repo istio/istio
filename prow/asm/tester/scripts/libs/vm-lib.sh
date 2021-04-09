@@ -43,7 +43,8 @@ retry() {
 TOPOLOGY_JQ_PROG='.[] | "    - service: \(.labels.service)
       namespace: \(.labels.namespace)
       instances:
-      - ip: \(.networkInterfaces[0].accessConfigs[0].natIP)"'
+      - ip: \(.networkInterfaces[0].accessConfigs[0].natIP)
+        instanceIP: \(.networkInterfaces[0].networkIP)"'
 
 # Outputs YAML to the given file, in the structure of []cluster.Config to inform the test framework of details about
 # static VMs running the test app. cluster.Config is defined in pkg/test/framework/components/cluster/factory.go.

@@ -68,6 +68,8 @@ if [[ "${CONTROL_PLANE}" == "UNMANAGED" ]]; then
   # security/ tests
   # Skip the subtests that are known to be not working.
   DISABLED_TESTS+="|TestRequestAuthentication/.*/valid-token-forward-remote-jwks" # UNSUPPORTED: relies on custom options
+  DISABLED_TESTS+="|TestAuthorization_IngressGateway" # UNKNOWN
+  DISABLED_TESTS+="|TestAuthorization_EgressGateway" # UNSUPPORTED: Relies on egress gateway deployed to the cluster.
 
   if [[ "${CLUSTER_TYPE}" == "gke-on-prem" && "${WIP}" == "HUB" ]]; then
     # TODO: Unskip test cases when the same tests in https://b.corp.google.com/issues/174440952 are fixed
