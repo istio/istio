@@ -520,6 +520,44 @@ spec:
 	return []TrafficTestCase{tc}
 }
 
+// useClientProtocolCases contains tests use_client_protocol from DestinationRule
+func useClientProtocolCases(apps *EchoDeployments) []TrafficTestCase {
+	var cases []TrafficTestCase
+	client := apps.PodA
+	destination := apps.PodC[0]
+	cases = append(cases,
+		TrafficTestCase{
+			name:   "use client protocol with h2",
+			config: useClientProtocolDestinationRule("use-client-protocol-h2", destination.Config().Service),
+			call:   client[0].CallWithRetryOrFail,
+			opts: echo.CallOptions{
+				Target:   destination,
+				PortName: "http",
+				HTTP2:    true,
+				Validator: echo.And(
+					echo.ExpectOK(),
+					echo.ExpectKey("Proto", "HTTP/2.0"),
+				),
+			},
+		},
+		TrafficTestCase{
+			name:   "use client protocol with h1",
+			config: useClientProtocolDestinationRule("use-client-protocol-h1", destination.Config().Service),
+			call:   client[0].CallWithRetryOrFail,
+			opts: echo.CallOptions{
+				PortName: "http",
+				Target:   destination,
+				HTTP2:    false,
+				Validator: echo.And(
+					echo.ExpectOK(),
+					echo.ExpectKey("Proto", "HTTP/1.1"),
+				),
+			},
+		},
+	)
+	return cases
+}
+
 // trafficLoopCases contains tests to ensure traffic does not loop through the sidecar
 func trafficLoopCases(apps *EchoDeployments) []TrafficTestCase {
 	cases := []TrafficTestCase{}
@@ -1342,6 +1380,23 @@ spec:
       mode: %s
 ---
 `, app, app, mode)
+}
+
+func useClientProtocolDestinationRule(name, app string) string {
+	return fmt.Sprintf(`apiVersion: networking.istio.io/v1beta1
+kind: DestinationRule
+metadata:
+  name: %s
+spec:
+  host: %s
+  trafficPolicy:
+    tls:
+      mode: DISABLE
+    connectionPool:
+      http:
+        useClientProtocol: true
+---
+`, name, app)
 }
 
 func peerAuthentication(app, mode string) string {
