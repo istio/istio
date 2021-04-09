@@ -46,7 +46,6 @@ import (
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
 	"istio.io/istio/pilot/test/xdstest"
 	"istio.io/istio/pkg/config"
-	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/config/schema/gvk"
@@ -570,11 +569,11 @@ func TestBuildClustersWithMutualTlsAndNodeMetadataCertfileOverrides(t *testing.T
 		g.Expect(tlsContext).NotTo(BeNil())
 
 		rootSdsConfig := tlsContext.CommonTlsContext.GetCombinedValidationContext().GetValidationContextSdsSecretConfig()
-		g.Expect(rootSdsConfig.GetName()).To(Equal("file-root:/defaultCaCert.pem"))
+		g.Expect(rootSdsConfig.GetName()).To(Equal("file-root:/clientRootCertFromNodeMetadata.pem"))
 
 		certSdsConfig := tlsContext.CommonTlsContext.GetTlsCertificateSdsSecretConfigs()
 		g.Expect(certSdsConfig).To(HaveLen(1))
-		g.Expect(certSdsConfig[0].GetName()).To(Equal("file-cert:/defaultCert.pem~/defaultPrivateKey.pem"))
+		g.Expect(certSdsConfig[0].GetName()).To(Equal("file-cert:/clientCertFromNodeMetadata.pem~/clientKeyFromNodeMetadata.pem"))
 	}
 }
 
@@ -819,31 +818,10 @@ func TestBuildAutoMtlsSettings(t *testing.T) {
 			userSupplied,
 		},
 		{
-			"Destination rule TLS sni and SAN override absent",
-			&networking.ClientTLSSettings{
-				Mode:              networking.ClientTLSSettings_ISTIO_MUTUAL,
-				CaCertificates:    constants.DefaultRootCert,
-				ClientCertificate: constants.DefaultCertChain,
-				PrivateKey:        constants.DefaultKey,
-				SubjectAltNames:   []string{},
-				Sni:               "",
-			},
-			[]string{"spiffe://foo/serviceaccount/1"},
-			"foo.com",
-			&model.Proxy{Metadata: &model.NodeMetadata{}},
-			false, false, model.MTLSUnknown,
-			&networking.ClientTLSSettings{
-				Mode:            networking.ClientTLSSettings_ISTIO_MUTUAL,
-				SubjectAltNames: []string{"spiffe://foo/serviceaccount/1"},
-				Sni:             "foo.com",
-			},
-			userSupplied,
-		},
-		{
-			"Cert path override",
+			"Metadata cert path override ISTIO_MUTUAL",
 			tlsSettings,
-			[]string{},
-			"",
+			[]string{"custom.foo.com"},
+			"custom.foo.com",
 			&model.Proxy{Metadata: &model.NodeMetadata{
 				TLSClientCertChain: "/custom/chain.pem",
 				TLSClientKey:       "/custom/key.pem",
@@ -851,14 +829,14 @@ func TestBuildAutoMtlsSettings(t *testing.T) {
 			}},
 			false, false, model.MTLSUnknown,
 			&networking.ClientTLSSettings{
-				Mode:              networking.ClientTLSSettings_ISTIO_MUTUAL,
-				CaCertificates:    "/custom/root.pem",
-				ClientCertificate: "/custom/chain.pem",
+				Mode:              networking.ClientTLSSettings_MUTUAL,
 				PrivateKey:        "/custom/key.pem",
+				ClientCertificate: "/custom/chain.pem",
+				CaCertificates:    "/custom/root.pem",
 				SubjectAltNames:   []string{"custom.foo.com"},
 				Sni:               "custom.foo.com",
 			},
-			userSupplied,
+			autoDetected,
 		},
 		{
 			"Auto fill nil settings when mTLS nil for internal service in strict mode",
@@ -928,6 +906,28 @@ func TestBuildAutoMtlsSettings(t *testing.T) {
 			nil,
 			userSupplied,
 		},
+
+		{
+			"TLS nil auto build tls with metadata cert path",
+			nil,
+			[]string{"spiffe://foo/serviceaccount/1"},
+			"foo.com",
+			&model.Proxy{Metadata: &model.NodeMetadata{
+				TLSClientCertChain: "/custom/chain.pem",
+				TLSClientKey:       "/custom/key.pem",
+				TLSClientRootCert:  "/custom/root.pem",
+			}},
+			true, false, model.MTLSPermissive,
+			&networking.ClientTLSSettings{
+				Mode:              networking.ClientTLSSettings_MUTUAL,
+				ClientCertificate: "/custom/chain.pem",
+				PrivateKey:        "/custom/key.pem",
+				CaCertificates:    "/custom/root.pem",
+				SubjectAltNames:   []string{"spiffe://foo/serviceaccount/1"},
+				Sni:               "foo.com",
+			},
+			autoDetected,
+		},
 	}
 
 	for _, tt := range tests {
@@ -938,7 +938,7 @@ func TestBuildAutoMtlsSettings(t *testing.T) {
 				t.Errorf("cluster TLS does not match expected result want %#v, got %#v", tt.want, gotTLS)
 			}
 			if gotCtxType != tt.wantCtxType {
-				t.Errorf("cluster TLS context type does not match expected result want %#v, got %#v", tt.wantCtxType, gotTLS)
+				t.Errorf("cluster TLS context type does not match expected result want %#v, got %#v", tt.wantCtxType, gotCtxType)
 			}
 		})
 	}

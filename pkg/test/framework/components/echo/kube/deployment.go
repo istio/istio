@@ -28,11 +28,9 @@ import (
 
 	"github.com/Masterminds/sprig/v3"
 	"github.com/hashicorp/go-multierror"
-	"gopkg.in/yaml.v3"
 	kubeCore "k8s.io/api/core/v1"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/client-go/kubernetes"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
@@ -606,7 +604,7 @@ func templateParams(cfg echo.Config, settings *image.Settings, versions resource
 			return nil, err
 		}
 	}
-	supportStartupProbe := cfg.Cluster.MinKubeVersion(16, 0)
+	supportStartupProbe := cfg.Cluster.MinKubeVersion(0)
 
 	// if image is not provided, default to app_sidecar
 	vmImage := DefaultVMImage
@@ -617,17 +615,9 @@ func templateParams(cfg echo.Config, settings *image.Settings, versions resource
 	if cfg.Namespace != nil {
 		namespace = cfg.Namespace.Name()
 	}
-	imagePullSecret := ""
-	if settings.ImagePullSecret != "" {
-		data, err := ioutil.ReadFile(settings.ImagePullSecret)
-		if err != nil {
-			return nil, err
-		}
-		secret := unstructured.Unstructured{Object: map[string]interface{}{}}
-		if err := yaml.Unmarshal(data, secret.Object); err != nil {
-			return nil, err
-		}
-		imagePullSecret = secret.GetName()
+	imagePullSecret, err := settings.ImagePullSecretName()
+	if err != nil {
+		return nil, err
 	}
 	params := map[string]interface{}{
 		"Hub":                settings.Hub,
