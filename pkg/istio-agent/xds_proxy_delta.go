@@ -131,7 +131,7 @@ func (p *XdsProxy) HandleDeltaUpstream(ctx context.Context, con *ProxyConnection
 		}
 	}()
 
-	go p.handleUpstreamDeltaRequest(ctx, con)
+	go p.handleUpstreamDeltaRequest(con)
 	go p.handleUpstreamDeltaResponse(con)
 
 	// todo wasm load conversion
@@ -165,7 +165,7 @@ func (p *XdsProxy) HandleDeltaUpstream(ctx context.Context, con *ProxyConnection
 	}
 }
 
-func (p *XdsProxy) handleUpstreamDeltaRequest(ctx context.Context, con *ProxyConnection) {
+func (p *XdsProxy) handleUpstreamDeltaRequest(con *ProxyConnection) {
 	defer func() {
 		_ = con.upstreamDeltas.CloseSend()
 	}()
