@@ -46,7 +46,7 @@ var _ credentials.PerRPCCredentials = &tokenSupplier{}
 
 // NewRPCCredentials creates a PerRPCCredentials capable of getting tokens from Istio and tracking their expiration
 func NewRPCCredentials(kubeClient Client, tokenNamespace, tokenSA string,
-	tokenAudiences []string, expirationSeconds int64) (credentials.PerRPCCredentials, error) {
+	tokenAudiences []string, expirationSeconds, sunsetPeriodSeconds int64) (credentials.PerRPCCredentials, error) {
 	tokenRequest, err := createServiceAccountToken(context.TODO(), kubeClient, tokenNamespace, tokenSA, tokenAudiences, expirationSeconds)
 	if err != nil {
 		return nil, err
@@ -60,7 +60,7 @@ func NewRPCCredentials(kubeClient Client, tokenNamespace, tokenSA string,
 		tokenServiceAccount: tokenSA,
 		audiences:           tokenAudiences,
 		expirationSeconds:   expirationSeconds,
-		sunsetPeriod:        60 * time.Second,
+		sunsetPeriod:        time.Duration(sunsetPeriodSeconds) * time.Second,
 		kubeClient:          kubeClient,
 	}, nil
 }
