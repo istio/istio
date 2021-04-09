@@ -5,12 +5,12 @@
 apiVersion: security.istio.io/v1beta1
 kind: AuthorizationPolicy
 metadata:
-  name: policy-path
+  name: policy-{{ .a }}-path
   namespace: "{{ .Namespace }}"
 spec:
   selector:
     matchLabels:
-      "app": "{{ .dst }}"
+      "app": "{{ .a }}"
   rules:
   - to:
     - operation:

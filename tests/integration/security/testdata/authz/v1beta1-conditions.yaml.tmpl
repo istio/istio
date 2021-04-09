@@ -4,11 +4,11 @@ apiVersion: security.istio.io/v1beta1
 kind: PeerAuthentication
 metadata:
   name: mtls
-  namespace: "{{ .dstNamespace }}"
+  namespace: "{{ .NamespaceC }}"
 spec:
   selector:
     matchLabels:
-      app: {{ .dst }}
+      app: {{ .cSet }}
   mtls:
     mode: STRICT
 ---
@@ -16,9 +16,9 @@ apiVersion: networking.istio.io/v1alpha3
 kind: DestinationRule
 metadata:
   name: mtls
-  namespace: "{{ .dstNamespace }}"
+  namespace: "{{ .NamespaceC }}"
 spec:
-  host: "{{ .dst }}.{{ .dstNamespace }}.svc.cluster.local"
+  host: "{{ .cSet }}.{{ .NamespaceC }}.svc.cluster.local"
   trafficPolicy:
     tls:
       mode: ISTIO_MUTUAL
@@ -30,11 +30,11 @@ apiVersion: security.istio.io/v1beta1
 kind: AuthorizationPolicy
 metadata:
   name: condition-request-headers
-  namespace: "{{ .dstNamespace }}"
+  namespace: "{{ .NamespaceC }}"
 spec:
   selector:
     matchLabels:
-      app: {{ .dst }}
+      app: {{ .cSet }}
   rules:
   - to:
     - operation:
@@ -50,11 +50,11 @@ apiVersion: security.istio.io/v1beta1
 kind: AuthorizationPolicy
 metadata:
   name: condition-request-headers-notvalues
-  namespace: "{{ .dstNamespace }}"
+  namespace: "{{ .NamespaceC }}"
 spec:
   selector:
     matchLabels:
-      app: {{ .dst }}
+      app: {{ .cSet }}
   rules:
   - to:
     - operation:
@@ -68,144 +68,144 @@ apiVersion: security.istio.io/v1beta1
 kind: AuthorizationPolicy
 metadata:
   name: condition-source-ip
-  namespace: "{{ .dstNamespace }}"
+  namespace: "{{ .NamespaceC }}"
 spec:
   selector:
     matchLabels:
-      app: {{ .dst }}
+      app: {{ .cSet }}
   rules:
   - to:
     - operation:
-        paths: ["/source-ip-{{ .src1 }}"]
+        paths: ["/source-ip-{{ .a }}"]
     when:
     - key: source.ip
-      values: ["{{ .src1IP }}"]
+      values: ["{{ .ipA }}"]
   - to:
     - operation:
-        paths: ["/source-ip-{{ .src2 }}"]
+        paths: ["/source-ip-{{ .b }}"]
     when:
     - key: source.ip
-      values: ["{{ .src2IP }}"]
+      values: ["{{ .ipB }}"]
 ---
 
 apiVersion: security.istio.io/v1beta1
 kind: AuthorizationPolicy
 metadata:
   name: condition-source-ip-notvalues
-  namespace: "{{ .dstNamespace }}"
+  namespace: "{{ .NamespaceC }}"
 spec:
   selector:
     matchLabels:
-      app: {{ .dst }}
+      app: {{ .cSet }}
   rules:
   - to:
     - operation:
-        paths: ["/source-ip-notValues-{{ .src2 }}"]
+        paths: ["/source-ip-notValues-{{ .b }}"]
     when:
     - key: source.ip
-      notValues: ["{{ .src2IP }}"]
+      notValues: ["{{ .ipB }}"]
 ---
 
 apiVersion: security.istio.io/v1beta1
 kind: AuthorizationPolicy
 metadata:
   name: condition-source-namespace
-  namespace: "{{ .dstNamespace }}"
+  namespace: "{{ .NamespaceC }}"
 spec:
   selector:
     matchLabels:
-      app: {{ .dst }}
+      app: {{ .cSet }}
   rules:
   - to:
     - operation:
-        paths: ["/source-namespace-{{ .src1 }}"]
+        paths: ["/source-namespace-{{ .a }}"]
     when:
     - key: source.namespace
-      values: ["{{ .src1Namespace }}"]
+      values: ["{{ .NamespaceA }}"]
   - to:
     - operation:
-        paths: ["/source-namespace-{{ .src2 }}"]
+        paths: ["/source-namespace-{{ .b }}"]
     when:
     - key: source.namespace
-      values: ["{{ .src2Namespace }}"]
+      values: ["{{ .NamespaceB }}"]
 ---
 
 apiVersion: security.istio.io/v1beta1
 kind: AuthorizationPolicy
 metadata:
   name: condition-source-namespace-notvalues
-  namespace: "{{ .dstNamespace }}"
+  namespace: "{{ .NamespaceC }}"
 spec:
   selector:
     matchLabels:
-      app: {{ .dst }}
+      app: {{ .cSet }}
   rules:
   - to:
     - operation:
-        paths: ["/source-namespace-notValues-{{ .src2 }}"]
+        paths: ["/source-namespace-notValues-{{ .b }}"]
     when:
     - key: source.namespace
-      notValues: ["{{ .src2Namespace }}"]
+      notValues: ["{{ .NamespaceB }}"]
 ---
 
 apiVersion: security.istio.io/v1beta1
 kind: AuthorizationPolicy
 metadata:
   name: condition-source-principal
-  namespace: "{{ .dstNamespace }}"
+  namespace: "{{ .NamespaceC }}"
 spec:
   selector:
     matchLabels:
-      app: {{ .dst }}
+      app: {{ .cSet }}
   rules:
   - to:
     - operation:
-        paths: ["/source-principal-{{ .src1 }}"]
+        paths: ["/source-principal-{{ .a }}"]
     when:
     - key: source.principal
-      values: ["cluster.local/ns/{{ .src1Namespace }}/sa/{{ .src1 }}"]
+      values: ["cluster.local/ns/{{ .NamespaceA }}/sa/{{ .a }}"]
   - to:
     - operation:
-        paths: ["/source-principal-{{ .src2 }}"]
+        paths: ["/source-principal-{{ .b }}"]
     when:
     - key: source.principal
-      values: ["cluster.local/ns/{{ .src2Namespace }}/sa/{{ .src2 }}"]
+      values: ["cluster.local/ns/{{ .NamespaceB }}/sa/{{ .b }}"]
 ---
 
 apiVersion: security.istio.io/v1beta1
 kind: AuthorizationPolicy
 metadata:
   name: condition-source-principal-notvalues
-  namespace: "{{ .dstNamespace }}"
+  namespace: "{{ .NamespaceC }}"
 spec:
   selector:
     matchLabels:
-      app: {{ .dst }}
+      app: {{ .cSet }}
   rules:
   - to:
     - operation:
-        paths: ["/source-principal-notValues-{{ .src2 }}"]
+        paths: ["/source-principal-notValues-{{ .b }}"]
     when:
     - key: source.principal
-      notValues: ["cluster.local/ns/{{ .src2Namespace }}/sa/{{ .src2 }}"]
+      notValues: ["cluster.local/ns/{{ .NamespaceB }}/sa/{{ .b }}"]
 ---
 
 apiVersion: security.istio.io/v1beta1
 kind: AuthorizationPolicy
 metadata:
   name: condition-destination-ip
-  namespace: "{{ .dstNamespace }}"
+  namespace: "{{ .NamespaceC }}"
 spec:
   selector:
     matchLabels:
-      app: {{ .dst }}
+      app: {{ .cSet }}
   rules:
   - to:
     - operation:
         paths: ["/destination-ip-good"]
     when:
     - key: destination.ip
-      values: [{{ .dstIP }}]
+      values: [{{ .ipC }}]
   - to:
     - operation:
         paths: ["/destination-ip-bad"]
@@ -218,42 +218,42 @@ apiVersion: security.istio.io/v1beta1
 kind: AuthorizationPolicy
 metadata:
   name: condition-destination-ip-notvalues
-  namespace: "{{ .dstNamespace }}"
+  namespace: "{{ .NamespaceC }}"
 spec:
   selector:
     matchLabels:
-      app: {{ .dst }}
+      app: {{ .cSet }}
   rules:
   - to:
     - operation:
-        paths: ["/destination-ip-notValues-{{ .src1 }}-or-{{ .src2 }}"]
+        paths: ["/destination-ip-notValues-{{ .a }}-or-{{ .b }}"]
     when:
     - key: destination.ip
-      notValues: ["{{ .src1IP }}", "{{ .src2IP }}"]
+      notValues: ["{{ .ipA }}", "{{ .ipB }}"]
   - to:
     - operation:
-        paths: ["/destination-ip-notValues-{{ .src1 }}-or-{{ .src2 }}-or-{{ .dst }}"]
+        paths: ["/destination-ip-notValues-{{ .a }}-or-{{ .b }}-or-{{ .cSet }}"]
     when:
     - key: destination.ip
-      notValues: ["{{ .src1IP }}", "{{ .src2IP }}", {{ .dstIP }}]
+      notValues: ["{{ .ipA }}", "{{ .ipB }}", {{ .ipC }}]
 ---
 
 apiVersion: security.istio.io/v1beta1
 kind: AuthorizationPolicy
 metadata:
   name: condition-destination-port
-  namespace: "{{ .dstNamespace }}"
+  namespace: "{{ .NamespaceC }}"
 spec:
   selector:
     matchLabels:
-      app: {{ .dst }}
+      app: {{ .cSet }}
   rules:
   - to:
     - operation:
         paths: ["/destination-port-good"]
     when:
     - key: destination.port
-      values: ["{{ .dstPort }}"]
+      values: ["{{ .portC }}"]
   - to:
     - operation:
         paths: ["/destination-port-bad"]
@@ -266,36 +266,36 @@ apiVersion: security.istio.io/v1beta1
 kind: AuthorizationPolicy
 metadata:
   name: condition-destination-port-notvalues
-  namespace: "{{ .dstNamespace }}"
+  namespace: "{{ .NamespaceC }}"
 spec:
   selector:
     matchLabels:
-      app: {{ .dst }}
+      app: {{ .cSet }}
   rules:
   - to:
     - operation:
-        paths: ["/destination-port-notValues-{{ .dst }}"]
+        paths: ["/destination-port-notValues-{{ .cSet }}"]
     when:
     - key: destination.port
-      notValues: ["{{ .dstPort }}"]
+      notValues: ["{{ .portC }}"]
 ---
 
 apiVersion: security.istio.io/v1beta1
 kind: AuthorizationPolicy
 metadata:
   name: condition-connection-sni
-  namespace: "{{ .dstNamespace }}"
+  namespace: "{{ .NamespaceC }}"
 spec:
   selector:
     matchLabels:
-      app: {{ .dst }}
+      app: {{ .cSet }}
   rules:
   - to:
     - operation:
         paths: ["/connection-sni-good"]
     when:
     - key: connection.sni
-      values: ["*.{{ .dst }}.{{ .dstNamespace }}.svc.cluster.local"]
+      values: ["*.{{ .cSet }}.{{ .NamespaceC }}.svc.cluster.local"]
   - to:
     - operation:
         paths: ["/connection-sni-bad"]
@@ -308,22 +308,22 @@ apiVersion: security.istio.io/v1beta1
 kind: AuthorizationPolicy
 metadata:
   name: condition-connection-sni-notvalues
-  namespace: "{{ .dstNamespace }}"
+  namespace: "{{ .NamespaceC }}"
 spec:
   selector:
     matchLabels:
-      app: {{ .dst }}
+      app: {{ .cSet }}
   rules:
   - to:
     - operation:
-        paths: ["/connection-sni-notValues-{{ .src1 }}-or-{{ .src2 }}"]
+        paths: ["/connection-sni-notValues-{{ .a }}-or-{{ .b }}"]
     when:
     - key: connection.sni
-      notValues: ["*.{{ .src1 }}.{{ .src1Namespace }}.svc.cluster.local", "*.{{ .src2 }}.{{ .src2Namespace }}.svc.cluster.local"]
+      notValues: ["*.{{ .a }}.{{ .NamespaceA }}.svc.cluster.local", "*.{{ .b }}.{{ .NamespaceB }}.svc.cluster.local"]
   - to:
     - operation:
-        paths: ["/connection-sni-notValues-{{ .src1 }}-or-{{ .src2 }}-or-{{ .dst }}"]
+        paths: ["/connection-sni-notValues-{{ .a }}-or-{{ .b }}-or-{{ .cSet }}"]
     when:
     - key: connection.sni
-      notValues: ["*.{{ .src1 }}.{{ .src1Namespace }}.svc.cluster.local", "*.{{ .src2 }}.{{ .src2Namespace }}.svc.cluster.local", "*.{{ .dst }}.{{ .dstNamespace }}.svc.cluster.local"]
+      notValues: ["*.{{ .a }}.{{ .NamespaceA }}.svc.cluster.local", "*.{{ .b }}.{{ .NamespaceB }}.svc.cluster.local", "*.{{ .cSet }}.{{ .NamespaceC }}.svc.cluster.local"]
 ---
