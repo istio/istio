@@ -650,10 +650,7 @@ func (s *DiscoveryServer) computeProxyState(proxy *model.Proxy, request *model.P
 		push = request.Push
 		for conf := range request.ConfigsUpdated {
 			switch conf.Kind {
-			case gvk.ServiceEntry:
-			case gvk.DestinationRule:
-			case gvk.VirtualService:
-			case gvk.Sidecar:
+			case gvk.ServiceEntry, gvk.DestinationRule, gvk.VirtualService, gvk.Sidecar:
 				sidecar = true
 			case gvk.Gateway:
 				gateway = true
