@@ -25,9 +25,16 @@ spec:
     metadata:
       annotations:
         # This annotation causes Envoy to serve cluster.outbound statistics via 15000/stats
-        # in addition to the stats normally served by Istio.  The Circuit Breaking example task
-        # gives an example of inspecting Envoy stats.
-        sidecar.istio.io/statsInclusionPrefixes: cluster.outbound,cluster_manager,listener_manager,server,cluster.xds-grpc
+        # in addition to the stats normally served by Istio. The Circuit Breaking example task
+        # gives an example of inspecting Envoy stats via proxy config.
+        proxy.istio.io/config: |-
+          proxyStatsMatcher:
+            inclusionPrefixes:
+            - "cluster.outbound"
+            - "cluster_manager"
+            - "listener_manager"
+            - "server"
+            - "cluster.xds-grpc"
       labels:
         app: fortio
     spec:
