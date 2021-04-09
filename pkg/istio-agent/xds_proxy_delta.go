@@ -177,7 +177,7 @@ func (p *XdsProxy) handleUpstreamDeltaRequest(ctx context.Context, con *ProxyCon
 			if req.TypeUrl == v3.ExtensionConfigurationType {
 				p.ecdsLastNonce.Store(req.ResponseNonce)
 			}
-			if err := sendUpstreamDelta(ctx, con.upstreamDeltas, req); err != nil {
+			if err := sendUpstreamDelta(con.upstreamDeltas, req); err != nil {
 				proxyLog.Errorf("upstream send error for type url %s: %v", req.TypeUrl, err)
 				con.upstreamError <- err
 				return
@@ -266,7 +266,7 @@ func forwardDeltaToEnvoy(con *ProxyConnection, resp *discovery.DeltaDiscoveryRes
 	}
 }
 
-func sendUpstreamDelta(ctx context.Context, deltaUpstream discovery.AggregatedDiscoveryService_DeltaAggregatedResourcesClient,
+func sendUpstreamDelta(deltaUpstream discovery.AggregatedDiscoveryService_DeltaAggregatedResourcesClient,
 	req *discovery.DeltaDiscoveryRequest) error {
 	return send(func(errChan chan error) {
 		errChan <- deltaUpstream.Send(req)

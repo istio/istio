@@ -369,7 +369,7 @@ func (p *XdsProxy) HandleUpstream(ctx context.Context, con *ProxyConnection, xds
 		}
 	}()
 
-	go p.handleUpstreamRequest(ctx, con)
+	go p.handleUpstreamRequest(con)
 	go p.handleUpstreamResponse(con)
 
 	for {
@@ -402,7 +402,7 @@ func (p *XdsProxy) HandleUpstream(ctx context.Context, con *ProxyConnection, xds
 	}
 }
 
-func (p *XdsProxy) handleUpstreamRequest(ctx context.Context, con *ProxyConnection) {
+func (p *XdsProxy) handleUpstreamRequest(con *ProxyConnection) {
 	defer con.upstream.CloseSend() // nolint
 	for {
 		select {
