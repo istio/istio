@@ -563,6 +563,9 @@ func patchHTTPFilters(patchContext networking.EnvoyFilter_PatchContext, filterKe
 			hcm.HttpFilters[replacePosition] = clonedVal
 		}
 	}
+	if len(cpatches) > 0 {
+		applied = false
+	}
 	if httpFiltersRemoved {
 		tempArray := make([]*http_conn.HttpFilter, 0, len(hcm.HttpFilters))
 		for _, filter := range hcm.HttpFilters {
