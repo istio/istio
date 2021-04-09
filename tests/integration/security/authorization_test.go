@@ -1190,8 +1190,9 @@ func TestAuthorization_Audit(t *testing.T) {
 				t.Skip()
 			}
 			ns := apps.Namespace1
-			a := apps.A.Match(echo.Namespace(apps.Namespace1.Name()))
 			b := apps.B.Match(echo.Namespace(apps.Namespace1.Name()))
+			c := apps.C.Match(echo.Namespace(apps.Namespace1.Name()))
+			d := apps.D.Match(echo.Namespace(apps.Namespace1.Name()))
 			vm := apps.VM.Match(echo.Namespace(apps.Namespace1.Name()))
 
 			newTestCase := func(from, to echo.Instances, path string, expectAllowed bool) rbacUtil.TestCase {
@@ -1209,35 +1210,40 @@ func TestAuthorization_Audit(t *testing.T) {
 				}
 			}
 
-			cases := []struct {
+			for _, a := range []echo.Instances{apps.A.Match(echo.Namespace(ns.Name())), apps.VM.Match(echo.Namespace(ns.Name()))} {
+				cases := []rbacUtil.TestCase{
+					newTestCase(a, b, "/allow", true),
+					newTestCase(a, b, "/audit", false),
+					newTestCase(a, c, "/audit", true),
+					newTestCase(a, c, "/deny", false),
+					newTestCase(a, d, "/audit", true),
+					newTestCase(a, d, "/other", true),
+				}
+				t.NewSubTest(fmt.Sprintf("from %s in %s", a[0].Config().Service, a[0].Config().Cluster.StableName())).
+					Run(func(t framework.TestContext) {
+						args := map[string]string{
+							"b":             b[0].Config().Service,
+							"c":             c[0].Config().Service,
+							"d":             d[0].Config().Service,
+							"Namespace":     ns.Name(),
+							"RootNamespace": istio.GetOrFail(t, t).Settings().SystemNamespace,
+						}
+						applyPolicy := func(filename string, ns namespace.Instance) {
+							policy := tmpl.EvaluateAllOrFail(t, args, file.AsStringOrFail(t, filename))
+							t.Config().ApplyYAMLOrFail(t, ns.Name(), policy...)
+						}
+						applyPolicy("testdata/authz/v1beta1-audit.yaml.tmpl", ns)
+
+						rbacUtil.RunRBACTest(t, cases)
+					})
+			}
+
+			// (TODO)JimmyCYJ: Support multiple VMs and apply audit policies to multiple VMs for testing.
+			vmCases := []struct {
 				configFile string
 				dst        echo.Instances
 				subCases   []rbacUtil.TestCase
 			}{
-				{
-					configFile: "testdata/authz/v1beta1-audit-allow.yaml.tmpl",
-					dst:        a,
-					subCases: []rbacUtil.TestCase{
-						newTestCase(b, a, "/allow", true),
-						newTestCase(b, a, "/audit", false),
-					},
-				},
-				{
-					configFile: "testdata/authz/v1beta1-audit-deny.yaml.tmpl",
-					dst:        a,
-					subCases: []rbacUtil.TestCase{
-						newTestCase(b, a, "/audit", true),
-						newTestCase(b, a, "/deny", false),
-					},
-				},
-				{
-					configFile: "testdata/authz/v1beta1-audit-default.yaml.tmpl",
-					dst:        a,
-					subCases: []rbacUtil.TestCase{
-						newTestCase(b, a, "/audit", true),
-						newTestCase(b, a, "/other", true),
-					},
-				},
 				{
 					configFile: "testdata/authz/v1beta1-audit-allow.yaml.tmpl",
 					dst:        vm,
@@ -1264,7 +1270,7 @@ func TestAuthorization_Audit(t *testing.T) {
 				},
 			}
 
-			for _, tc := range cases {
+			for _, tc := range vmCases {
 				t.NewSubTest(fmt.Sprintf("from %s to %s in %s",
 					b[0].Config().Cluster.StableName(), tc.dst[0].Config().Service, tc.dst[0].Config().Cluster.Name())).
 					Run(func(t framework.TestContext) {
