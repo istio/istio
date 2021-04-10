@@ -170,8 +170,8 @@ var (
 	LocalhostListener = diag.NewMessageType(diag.Error, "IST0143", "Port %v is exposed in a Service but listens on localhost. It will not be exposed to other pods.")
 
 	// GatewayNotDeclared defines a diag.MessageType for message "GatewayNotDeclared".
-	// Description: Gateway in `match` is not declared in the gateways
-	GatewayNotDeclared = diag.NewMessageType(diag.Warning, "IST0145", "Gateway %s which defined in .%s[].match[].gateways[] was not declared in .spec.gateways[] in virtual service %s")
+	// Description: When using a gateway for matching, the gateway is not declared in the gateway list
+	GatewayNotDeclared = diag.NewMessageType(diag.Warning, "IST0145", "Gateway %s which is defined in .%s[].match[].gateways[] is not declared in .spec.gateways[] in VirtualService %s")
 )
 
 // All returns a list of all known message types.

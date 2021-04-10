@@ -451,8 +451,8 @@ messages:
   - name: "GatewayNotDeclared"
     code: IST0145
     level: Warning
-    description: "Gateway in `match` is not declared in the gateways"
-    template: "Gateway %s which defined in .%s[].match[].gateways[] was not declared in .spec.gateways[] in virtual service %s"
+    description: "When using a gateway for matching, the gateway is not declared in the gateway list"
+    template: "Gateway %s which is defined in .%s[].match[].gateways[] is not declared in .spec.gateways[] in VirtualService %s"
     args:
       - name: gateway
         type: string
