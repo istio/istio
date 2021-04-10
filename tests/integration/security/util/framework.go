@@ -33,6 +33,7 @@ const (
 	BSvc             = "b"
 	CSvc             = "c"
 	DSvc             = "d"
+	ESvc             = "e"
 	MultiversionSvc  = "multiversion"
 	VMSvc            = "vm"
 	HeadlessSvc      = "headless"
@@ -51,7 +52,7 @@ type EchoDeployments struct {
 	Namespace2 namespace.Instance
 	// Namespace3 is used by TestAuthorization_Conditions and there is one C echo instance deployed
 	Namespace3    namespace.Instance
-	A, B, C, D    echo.Instances
+	A, B, C, D, E echo.Instances
 	Multiversion  echo.Instances
 	Headless      echo.Instances
 	Naked         echo.Instances
@@ -78,6 +79,7 @@ func EchoConfig(name string, ns namespace.Instance, headless bool, annos echo.An
 				Protocol: protocol.HTTP,
 				// We use a port > 1024 to not require root
 				InstancePort: 8090,
+				ServicePort:  8095,
 			},
 			{
 				Name:     "tcp",
@@ -93,6 +95,26 @@ func EchoConfig(name string, ns namespace.Instance, headless bool, annos echo.An
 				ServicePort:  443,
 				InstancePort: 8443,
 				TLS:          true,
+			},
+			{
+				Name:         "http-8091",
+				Protocol:     protocol.HTTP,
+				InstancePort: 8091,
+			},
+			{
+				Name:         "http-8092",
+				Protocol:     protocol.HTTP,
+				InstancePort: 8092,
+			},
+			{
+				Name:         "tcp-8093",
+				Protocol:     protocol.TCP,
+				InstancePort: 8093,
+			},
+			{
+				Name:         "tcp-8094",
+				Protocol:     protocol.TCP,
+				InstancePort: 8094,
 			},
 		},
 		// Workload Ports needed by TestPassThroughFilterChain
@@ -170,6 +192,7 @@ func SetupApps(ctx resource.Context, i istio.Instance, apps *EchoDeployments, bu
 		WithConfig(EchoConfig(BSvc, apps.Namespace1, false, nil)).
 		WithConfig(EchoConfig(CSvc, apps.Namespace1, false, nil)).
 		WithConfig(EchoConfig(DSvc, apps.Namespace1, false, nil)).
+		WithConfig(EchoConfig(ESvc, apps.Namespace1, false, nil)).
 		WithConfig(func() echo.Config {
 			// Multi-version specific setup
 			multiVersionCfg := EchoConfig(MultiversionSvc, apps.Namespace1, false, nil)
@@ -190,6 +213,7 @@ func SetupApps(ctx resource.Context, i istio.Instance, apps *EchoDeployments, bu
 			SetBool(echo.SidecarInject, false))).
 		WithConfig(EchoConfig(BSvc, apps.Namespace2, false, nil)).
 		WithConfig(EchoConfig(CSvc, apps.Namespace2, false, nil)).
+		WithConfig(EchoConfig(ESvc, apps.Namespace2, false, nil)).
 		WithConfig(EchoConfig(CSvc, apps.Namespace3, false, nil)).
 		WithConfig(func() echo.Config {
 			// VM specific setup
@@ -211,6 +235,7 @@ func SetupApps(ctx resource.Context, i istio.Instance, apps *EchoDeployments, bu
 	apps.B = echos.Match(echo.Service(BSvc))
 	apps.C = echos.Match(echo.Service(CSvc))
 	apps.D = echos.Match(echo.Service(DSvc))
+	apps.E = echos.Match(echo.Service(ESvc))
 
 	apps.Multiversion = echos.Match(echo.Service(MultiversionSvc))
 	apps.Headless = echos.Match(echo.Service(HeadlessSvc))
