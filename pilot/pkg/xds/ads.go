@@ -658,6 +658,8 @@ func (s *DiscoveryServer) computeProxyState(proxy *model.Proxy, request *model.P
 				sidecar = true
 			case gvk.Gateway:
 				gateway = true
+			case gvk.GatewayClass, gvk.ServiceApisGateway:
+				gateway = true
 			}
 		}
 	}
