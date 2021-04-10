@@ -319,7 +319,7 @@ func TestApplyListenerPatches(t *testing.T) {
 				Context: networking.EnvoyFilter_GATEWAY,
 				ObjectTypes: &networking.EnvoyFilter_EnvoyConfigObjectMatch_Listener{
 					Listener: &networking.EnvoyFilter_ListenerMatch{
-						PortNumber: 80,
+						PortNumber: 8090,
 						FilterChain: &networking.EnvoyFilter_ListenerMatch_FilterChainMatch{
 							Sni: "*.foo.com",
 							Filter: &networking.EnvoyFilter_ListenerMatch_FilterMatch{
@@ -341,7 +341,7 @@ func TestApplyListenerPatches(t *testing.T) {
 				Context: networking.EnvoyFilter_GATEWAY,
 				ObjectTypes: &networking.EnvoyFilter_EnvoyConfigObjectMatch_Listener{
 					Listener: &networking.EnvoyFilter_ListenerMatch{
-						PortNumber: 80,
+						PortNumber: 8090,
 						FilterChain: &networking.EnvoyFilter_ListenerMatch_FilterChainMatch{
 							Sni: "*.foo.com",
 							Filter: &networking.EnvoyFilter_ListenerMatch_FilterMatch{
@@ -1231,6 +1231,37 @@ func TestApplyListenerPatches(t *testing.T) {
 				},
 			},
 		},
+		{
+			Name: "cyclic-listener",
+			Address: &core.Address{
+				Address: &core.Address_SocketAddress{
+					SocketAddress: &core.SocketAddress{
+						PortSpecifier: &core.SocketAddress_PortValue{
+							PortValue: 8090,
+						},
+					},
+				},
+			},
+			FilterChains: []*listener.FilterChain{
+				{
+					FilterChainMatch: &listener.FilterChainMatch{
+						ServerNames: []string{"match.com", "*.foo.com"},
+					},
+					Filters: []*listener.Filter{
+						{
+							Name: wellknown.HTTPConnectionManager,
+							ConfigType: &listener.Filter_TypedConfig{
+								TypedConfig: util.MessageToAny(&http_conn.HttpConnectionManager{
+									HttpFilters: []*http_conn.HttpFilter{
+										{Name: "http-filter1"},
+									},
+								}),
+							},
+						},
+					},
+				},
+			},
+		},
 	}
 
 	gatewayOut := []*listener.Listener{
@@ -1286,6 +1317,37 @@ func TestApplyListenerPatches(t *testing.T) {
 						ServerNames: []string{"nomatch.com", "*.foo.com"},
 					},
 					Filters: []*listener.Filter{{Name: "network-filter"}},
+				},
+			},
+		},
+		{
+			Name: "cyclic-listener",
+			Address: &core.Address{
+				Address: &core.Address_SocketAddress{
+					SocketAddress: &core.SocketAddress{
+						PortSpecifier: &core.SocketAddress_PortValue{
+							PortValue: 8090,
+						},
+					},
+				},
+			},
+			FilterChains: []*listener.FilterChain{
+				{
+					FilterChainMatch: &listener.FilterChainMatch{
+						ServerNames: []string{"match.com", "*.foo.com"},
+					},
+					Filters: []*listener.Filter{
+						{
+							Name: wellknown.HTTPConnectionManager,
+							ConfigType: &listener.Filter_TypedConfig{
+								TypedConfig: util.MessageToAny(&http_conn.HttpConnectionManager{
+									HttpFilters: []*http_conn.HttpFilter{
+										{Name: "http-filter1"},
+									},
+								}),
+							},
+						},
+					},
 				},
 			},
 		},

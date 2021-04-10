@@ -27,6 +27,7 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pilot/pkg/util/runtime"
+	"istio.io/istio/pilot/pkg/util/sets"
 	"istio.io/istio/pkg/config/xds"
 	"istio.io/pkg/log"
 )
@@ -429,10 +430,8 @@ func patchHTTPFilters(patchContext networking.EnvoyFilter_PatchContext, filterKe
 		}
 		patchHTTPFilter(patchContext, filterKey, patches, listener, fc, filter, httpFilter, &httpFiltersRemoved)
 	}
-	opatches := make([]*model.EnvoyFilterConfigPatchWrapper, 0)  // List of final patches to be processed.
-	mpatches := make([]*model.EnvoyFilterConfigPatchWrapper, 0)  // List of matched patches based on patch context.
-	cpatches := make([]*model.EnvoyFilterConfigPatchWrapper, 0)  // List of patches that have cyclic dependencies.
-	inpatches := make([]*model.EnvoyFilterConfigPatchWrapper, 0) // List of matched patches excluding cyclic dependencies.
+	opatches := make([]*model.EnvoyFilterConfigPatchWrapper, 0) // List of final patches to be processed.
+	mpatches := make([]*model.EnvoyFilterConfigPatchWrapper, 0) // List of matched patches based on patch context.
 	dependents := map[*model.EnvoyFilterConfigPatchWrapper]struct{}{}
 	applied := false
 
@@ -448,37 +447,26 @@ func patchHTTPFilters(patchContext networking.EnvoyFilter_PatchContext, filterKe
 	}
 
 	// Identify cyclic patches and isolate them.
+	iapatches := make([]*model.EnvoyFilterConfigPatchWrapper, 0)
 	for _, lp := range mpatches {
-		if !(lp.Operation == networking.EnvoyFilter_Patch_INSERT_BEFORE && hasHTTPFilterMatch(lp)) ||
-			(lp.Operation == networking.EnvoyFilter_Patch_INSERT_AFTER && hasHTTPFilterMatch(lp)) {
+		if !(lp.Operation == networking.EnvoyFilter_Patch_INSERT_BEFORE || lp.Operation == networking.EnvoyFilter_Patch_INSERT_AFTER) {
 			continue
 		}
-		if contains(cpatches, lp) {
-			continue
-		}
-		for _, rp := range mpatches {
-			if lp == rp {
-				continue
-			}
-			if hasCyclicDependency(lp, rp) {
-				cpatches = append(cpatches, lp, rp)
-				log.Warnf("patch %v has cyclic dependency on patch %v - skipping both", lp, rp)
-			}
+		if hasHTTPFilterMatch(lp) {
+			iapatches = append(iapatches, lp)
 		}
 	}
-	// Collect all patches that are valid for processing i.e. excluding cycles.
-	for _, lp := range mpatches {
-		if contains(cpatches, lp) {
-			continue
-		}
-		inpatches = append(inpatches, lp)
+	if hasCyclicDependencies(iapatches) {
+		IncrementEnvoyFilterMetric(filterKey, HttpFilter, applied)
+		log.Warnf("envoy filter %s has patches that have cyclic dependencies. So filter is skipped", filterKey)
+		return
 	}
 
 	// Order patches as per the dependencies.
-	for _, lp := range inpatches {
+	for _, lp := range mpatches {
 		if (lp.Operation == networking.EnvoyFilter_Patch_INSERT_BEFORE && hasHTTPFilterMatch(lp)) ||
 			(lp.Operation == networking.EnvoyFilter_Patch_INSERT_AFTER && hasHTTPFilterMatch(lp)) {
-			orderPatches(lp, inpatches, &opatches, dependents)
+			orderPatches(lp, mpatches, &opatches, dependents)
 		} else if _, exists := dependents[lp]; !exists {
 			opatches = append(opatches, lp)
 		}
@@ -563,9 +551,6 @@ func patchHTTPFilters(patchContext networking.EnvoyFilter_PatchContext, filterKe
 			hcm.HttpFilters[replacePosition] = clonedVal
 		}
 	}
-	if len(cpatches) > 0 {
-		applied = false
-	}
 	if httpFiltersRemoved {
 		tempArray := make([]*http_conn.HttpFilter, 0, len(hcm.HttpFilters))
 		for _, filter := range hcm.HttpFilters {
@@ -580,15 +565,6 @@ func patchHTTPFilters(patchContext networking.EnvoyFilter_PatchContext, filterKe
 		// convert to any type
 		filter.ConfigType = &xdslistener.Filter_TypedConfig{TypedConfig: util.MessageToAny(hcm)}
 	}
-}
-
-func contains(sp []*model.EnvoyFilterConfigPatchWrapper, p *model.EnvoyFilterConfigPatchWrapper) bool {
-	for _, a := range sp {
-		if a == p {
-			return true
-		}
-	}
-	return false
 }
 
 // orderPatches recursively orders the patches based on insert before/after positions.
@@ -609,13 +585,54 @@ func orderPatches(patch *model.EnvoyFilterConfigPatchWrapper, original []*model.
 	}
 }
 
-func hasCyclicDependency(lp *model.EnvoyFilterConfigPatchWrapper, rp *model.EnvoyFilterConfigPatchWrapper) bool {
-	lfilter := lp.Value.(*http_conn.HttpFilter)
-	rmatch := rp.Match.GetListener().FilterChain.Filter.SubFilter
-	rfilter := rp.Value.(*http_conn.HttpFilter)
-	lmatch := lp.Match.GetListener().FilterChain.Filter.SubFilter
-	return (rmatch != nil && nameMatches(rmatch.Name, lfilter.Name)) &&
-		(lmatch != nil && nameMatches(lmatch.Name, rfilter.Name))
+// hasCyclicDependencies checks if the patches have cyclic dependencies.
+// Inspired by https://github.com/dnaeon/go-dependency-graph-algorithm/blob/master/dependency-graph.go#L56.
+func hasCyclicDependencies(original []*model.EnvoyFilterConfigPatchWrapper) bool {
+	dependencies := make(map[string]sets.Set)
+	// First collect all dependencies for every patch.
+	for _, lp := range original {
+		lfilter := lp.Value.(*http_conn.HttpFilter)
+		deps := sets.NewSet()
+		for _, rp := range original {
+			if lp == rp {
+				continue
+			}
+			rmatch := rp.Match.GetListener().FilterChain.Filter.SubFilter
+			if rmatch != nil && nameMatches(rmatch.Name, lfilter.Name) {
+				deps.Insert(rp.Value.(*http_conn.HttpFilter).Name)
+			}
+		}
+		dependencies[lfilter.Name] = deps
+	}
+
+	// Iteratively find and remove patches which have no dependencies.
+	// If at some point there are still patches in the dependencies and
+	// we cannot find patches without dependencies, that means we have a
+	// circular dependency.
+	for len(dependencies) != 0 {
+		// Get all filters from the dependencies which have no dependencies
+		independent := sets.NewSet()
+		for name, deps := range dependencies {
+			if len(deps) == 0 {
+				independent.Insert(name)
+			}
+		}
+
+		// If there aren't any independent patches, then we have a cicular dependency
+		if len(independent) == 0 {
+			return true
+		}
+
+		for name := range independent {
+			delete(dependencies, name)
+		}
+
+		for name, deps := range dependencies {
+			diff := deps.Difference(independent)
+			dependencies[name] = diff
+		}
+	}
+	return false
 }
 
 func patchHTTPFilter(patchContext networking.EnvoyFilter_PatchContext,
