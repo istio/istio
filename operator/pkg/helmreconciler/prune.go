@@ -211,8 +211,23 @@ func (h *HelmReconciler) GetPrunedResources(revision string, includeClusterResou
 			err = h.client.List(context.TODO(), objects,
 				client.MatchingLabelsSelector{Selector: s.Add(*componentRequirement)})
 		} else {
-			err = h.client.List(context.TODO(), objects,
-				client.MatchingLabelsSelector{Selector: selector.Add(*componentRequirement)})
+			// do not prune base components or unknown components
+			includeCN := []string{
+				string(name.PilotComponentName), string(name.IstiodRemoteComponentName),
+				string(name.IngressComponentName), string(name.EgressComponentName),
+				string(name.CNIComponentName), string(name.IstioOperatorComponentName),
+			}
+			includeRequirement, err := klabels.NewRequirement(IstioComponentLabelStr, selection.In, includeCN)
+			if err != nil {
+				return usList, err
+			}
+			if err = h.client.List(context.TODO(), objects,
+				client.MatchingLabelsSelector{
+					Selector: selector.Add(*includeRequirement, *componentRequirement),
+				},
+			); err != nil {
+				continue
+			}
 		}
 		if err != nil {
 			continue
@@ -358,7 +373,7 @@ func (h *HelmReconciler) deleteResources(excluded map[string]bool, coreLabels ma
 				errs = util.AppendErr(errs, err)
 			} else {
 				// do not return error if resources are not found
-				h.opts.Log.LogAndPrintf("object: %s is not being deleted because it no longer exist", obj.Hash())
+				h.opts.Log.LogAndPrintf("object: %s is not being deleted because it no longer exists", obj.Hash())
 				continue
 			}
 		}

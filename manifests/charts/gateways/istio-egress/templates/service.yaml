@@ -1,8 +1,9 @@
 {{ $gateway := index .Values "gateways" "istio-egressgateway" }}
+{{- if not $gateway.customService }}
 apiVersion: v1
 kind: Service
 metadata:
-  name: {{ $gateway.name | default "istio-egressgateway" }}
+  name: {{ $gateway.name }}
   namespace: {{ .Release.Namespace }}
   annotations:
     {{- range $key, $val := $gateway.serviceAnnotations }}
@@ -15,14 +16,32 @@ metadata:
     install.operator.istio.io/owning-resource: {{ .Values.ownerName | default "unknown" }}
     operator.istio.io/component: "EgressGateways"
 spec:
-  type: ClusterIP
+{{- if $gateway.loadBalancerIP }}
+  loadBalancerIP: "{{ $gateway.loadBalancerIP }}"
+{{- end }}
+{{- if $gateway.loadBalancerSourceRanges }}
+  loadBalancerSourceRanges:
+{{ toYaml $gateway.loadBalancerSourceRanges | indent 4 }}
+{{- end }}
+{{- if $gateway.externalTrafficPolicy }}
+  externalTrafficPolicy: {{$gateway.externalTrafficPolicy }}
+{{- end }}
+  type: {{ $gateway.type }}
   selector:
 {{ $gateway.labels | toYaml | indent 4 }}
   ports:
+
     {{- range $key, $val := $gateway.ports }}
     -
       {{- range $pkey, $pval := $val }}
-      {{ $pkey }}: {{ $pval }}
+      {{ $pkey}}: {{ $pval }}
       {{- end }}
     {{- end }}
+
+  {{ range $app := $gateway.egressPorts }}
+    -
+      port: {{ $app.port }}
+      name: {{ $app.name }}
+  {{- end }}
 ---
+{{ end }}

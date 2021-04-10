@@ -14,6 +14,7 @@
 package v1alpha3_test
 
 import (
+	"fmt"
 	"testing"
 
 	"istio.io/istio/pilot/pkg/model"
@@ -21,11 +22,7 @@ import (
 	"istio.io/istio/pilot/pkg/xds"
 )
 
-func TestServiceEntry(t *testing.T) {
-	cases := []simulationTest{
-		{
-			name: "overlapping CIDR causes overlapping fcm",
-			config: `
+const se = `
 apiVersion: networking.istio.io/v1alpha3
 kind: ServiceEntry
 metadata:
@@ -34,7 +31,7 @@ spec:
   hosts:
   - blah.somedomain
   addresses:
-  - 1234:1f1:123:123:f816:3eff:feb8:2287/32
+  - %s
   ports:
   - number: 9999
     name: TCP-9999
@@ -48,7 +45,7 @@ spec:
   hosts:
   - blah.somedomain
   addresses:
-  - 1234:1f1:123:123:f816:3eff:febf:57ce/32
+  - %s
   ports:
   - number: 9999
     name: TCP-9999
@@ -70,8 +67,33 @@ spec:
     - destination:
         host: blah.somedomain
         port:
-          number: 9999
-`,
+          number: 9999`
+
+func TestServiceEntry(t *testing.T) {
+	cases := []simulationTest{
+		{
+			name:       "identical CIDR (ignoreing insignificant bits) is dropped",
+			config:     fmt.Sprintf(se, "1234:1f1:123:123:f816:3eff:feb8:2287/32", "1234:1f1:123:123:f816:3eff:febf:57ce/32"),
+			kubeConfig: "",
+			calls: []simulation.Expect{{
+				// Expect listener, but no routing
+				"defined port",
+				simulation.Call{
+					Port:       9999,
+					HostHeader: "blah.somedomain",
+					Address:    "1234:1f1:1:1:1:1:1:1",
+					Protocol:   simulation.HTTP,
+				},
+				simulation.Result{
+					ListenerMatched: "0.0.0.0_9999",
+					ClusterMatched:  "outbound|9999||blah.somedomain",
+				},
+			}},
+		},
+		{
+			// TODO(https://github.com/istio/istio/issues/29197) we should probably drop these too
+			name:       "overlapping CIDR causes multiple filter chain match",
+			config:     fmt.Sprintf(se, "1234:1f1:123:123:f816:3eff:feb8:2287/16", "1234:1f1:123:123:f816:3eff:febf:57ce/32"),
 			kubeConfig: "",
 			calls: []simulation.Expect{{
 				// Expect listener, but no routing

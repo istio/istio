@@ -43,8 +43,8 @@ components:
      namespace: kube-system
 `
 		})).
-		Setup(func(ctx resource.Context) error {
-			return util.SetupApps(ctx, ist, apps, false)
+		Setup(func(t resource.Context) error {
+			return util.SetupApps(t, ist, apps, false)
 		}).
 		Run()
 }
@@ -57,13 +57,13 @@ components:
 // - Send HTTP/gRPC requests between apps.
 func TestCNIReachability(t *testing.T) {
 	framework.NewTest(t).
-		Run(func(ctx framework.TestContext) {
-			cluster := ctx.Clusters().Default()
+		Run(func(t framework.TestContext) {
+			cluster := t.Clusters().Default()
 			_, err := kube2.WaitUntilPodsAreReady(kube2.NewSinglePodFetch(cluster, "kube-system", "k8s-app=istio-cni-node"))
 			if err != nil {
-				ctx.Fatal(err)
+				t.Fatal(err)
 			}
-			systemNM := istio.ClaimSystemNamespaceOrFail(ctx, ctx)
+			systemNM := istio.ClaimSystemNamespaceOrFail(t, t)
 			testCases := []reachability.TestCase{
 				{
 					ConfigFile: "global-mtls-on.yaml",
@@ -88,8 +88,19 @@ func TestCNIReachability(t *testing.T) {
 						// If one of the two endpoints is naked, expect failure.
 						return !apps.Naked.Contains(src) && !apps.Naked.Contains(opts.Target)
 					},
+					ExpectMTLS: func(src echo.Instance, opts echo.CallOptions) bool {
+						if apps.IsNaked(src) || apps.IsNaked(opts.Target) {
+							// If one of the two endpoints is naked, we don't send mTLS
+							return false
+						}
+						if apps.IsHeadless(opts.Target) && opts.Target == src {
+							// pod calling its own pod IP will not be intercepted
+							return false
+						}
+						return true
+					},
 				},
 			}
-			reachability.Run(testCases, ctx, apps)
+			reachability.Run(testCases, t, apps)
 		})
 }

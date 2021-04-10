@@ -28,8 +28,8 @@ import (
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	tls "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
 	"github.com/golang/protobuf/jsonpb"
-	"github.com/golang/protobuf/ptypes"
 	"github.com/golang/protobuf/ptypes/any"
+	"google.golang.org/protobuf/types/known/anypb"
 
 	"istio.io/istio/pilot/pkg/config/kube/crd"
 	"istio.io/istio/pilot/pkg/features"
@@ -41,7 +41,7 @@ import (
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/schema/collection"
-	"istio.io/pkg/log"
+	istiolog "istio.io/pkg/log"
 )
 
 var indexTmpl = template.Must(template.New("index").Parse(`<html>
@@ -124,7 +124,8 @@ type SyncedVersions struct {
 }
 
 // InitDebug initializes the debug handlers and adds a debug in-memory registry.
-func (s *DiscoveryServer) InitDebug(mux *http.ServeMux, sctl *aggregate.Controller, enableProfiling bool, fetchWebhook func() map[string]string) {
+func (s *DiscoveryServer) InitDebug(mux *http.ServeMux, sctl *aggregate.Controller, enableProfiling bool,
+	fetchWebhook func() map[string]string) {
 	// For debugging and load testing v2 we add an memory registry.
 	s.MemRegistry = memory.NewServiceDiscovery(nil)
 	s.MemRegistry.EDSUpdater = s
@@ -137,6 +138,10 @@ func (s *DiscoveryServer) InitDebug(mux *http.ServeMux, sctl *aggregate.Controll
 		Controller:       s.MemRegistry.Controller,
 	})
 	s.AddDebugHandlers(mux, enableProfiling, fetchWebhook)
+	debugGen, ok := (s.Generators[TypeDebug]).(*DebugGen)
+	if ok {
+		debugGen.DebugMux = mux
+	}
 }
 
 func (s *DiscoveryServer) AddDebugHandlers(mux *http.ServeMux, enableProfiling bool, webhook func() map[string]string) {
@@ -156,7 +161,7 @@ func (s *DiscoveryServer) AddDebugHandlers(mux *http.ServeMux, enableProfiling b
 
 	mux.HandleFunc("/debug", s.Debug)
 
-	if features.EnableAdminEndpoints {
+	if features.EnableUnsafeAdminEndpoints {
 		s.addDebugHandler(mux, "/debug/force_disconnect", "Disconnects a proxy from this Pilot", s.ForceDisconnect)
 	}
 
@@ -178,6 +183,7 @@ func (s *DiscoveryServer) AddDebugHandlers(mux *http.ServeMux, enableProfiling b
 	s.addDebugHandler(mux, "/debug/instancesz", "Debug support for service instances", s.instancesz)
 
 	s.addDebugHandler(mux, "/debug/authorizationz", "Internal authorization policies", s.Authorizationz)
+	s.addDebugHandler(mux, "/debug/telemetryz", "Debug Telemetry configuration", s.telemetryz)
 	s.addDebugHandler(mux, "/debug/config_dump", "ConfigDump in the form of the Envoy admin config dump API for passed in proxyID", s.ConfigDump)
 	s.addDebugHandler(mux, "/debug/push_status", "Last PushContext Details", s.PushStatusHandler)
 	s.addDebugHandler(mux, "/debug/pushcontext", "Debug support for current push context", s.PushContextHandler)
@@ -185,6 +191,7 @@ func (s *DiscoveryServer) AddDebugHandlers(mux *http.ServeMux, enableProfiling b
 
 	s.addDebugHandler(mux, "/debug/inject", "Active inject template", s.InjectTemplateHandler(webhook))
 	s.addDebugHandler(mux, "/debug/mesh", "Active mesh config", s.MeshHandler)
+	s.addDebugHandler(mux, "/debug/networkz", "List cross-network gateways", s.networkz)
 }
 
 func (s *DiscoveryServer) addDebugHandler(mux *http.ServeMux, path string, help string,
@@ -367,7 +374,7 @@ func (s *DiscoveryServer) getResourceVersion(nonce, key string, cache map[string
 	if !ok {
 		lookupResult, err := s.Env.GetLedger().GetPreviousValue(configVersion, key)
 		if err != nil {
-			adsLog.Errorf("Unable to retrieve resource %s at version %s: %v", key, configVersion, err)
+			istiolog.Errorf("Unable to retrieve resource %s at version %s: %v", key, configVersion, err)
 			lookupResult = ""
 		}
 		// update the cache even on an error, because errors will not resolve themselves, and we don't want to
@@ -462,6 +469,16 @@ func (s *DiscoveryServer) Authorizationz(w http.ResponseWriter, req *http.Reques
 	if b, err := json.MarshalIndent(info, "  ", "  "); err == nil {
 		_, _ = w.Write(b)
 	}
+}
+
+func (s *DiscoveryServer) telemetryz(w http.ResponseWriter, req *http.Request) {
+	w.Header().Add("Content-Type", "application/json")
+	t := s.globalPushContext().Telemetry
+	b, err := json.MarshalIndent(t, " ", " ")
+	if err != nil {
+		return
+	}
+	_, _ = w.Write(b)
 }
 
 // ConnectionsHandler implements interface for displaying current connections.
@@ -561,7 +578,7 @@ func (s *DiscoveryServer) configDump(conn *Connection) (*adminapi.ConfigDump, er
 	clusters := s.ConfigGenerator.BuildClusters(conn.proxy, s.globalPushContext())
 
 	for _, cs := range clusters {
-		cluster, err := ptypes.MarshalAny(cs)
+		cluster, err := anypb.New(cs)
 		if err != nil {
 			return nil, err
 		}
@@ -578,7 +595,7 @@ func (s *DiscoveryServer) configDump(conn *Connection) (*adminapi.ConfigDump, er
 	dynamicActiveListeners := make([]*adminapi.ListenersConfigDump_DynamicListener, 0)
 	listeners := s.ConfigGenerator.BuildListeners(conn.proxy, s.globalPushContext())
 	for _, cs := range listeners {
-		listener, err := ptypes.MarshalAny(cs)
+		listener, err := anypb.New(cs)
 		if err != nil {
 			return nil, err
 		}
@@ -600,7 +617,7 @@ func (s *DiscoveryServer) configDump(conn *Connection) (*adminapi.ConfigDump, er
 	if len(routes) > 0 {
 		dynamicRouteConfig := make([]*adminapi.RoutesConfigDump_DynamicRouteConfig, 0)
 		for _, rs := range routes {
-			route, err := ptypes.MarshalAny(rs)
+			route, err := anypb.New(rs)
 			if err != nil {
 				return nil, err
 			}
@@ -618,8 +635,8 @@ func (s *DiscoveryServer) configDump(conn *Connection) (*adminapi.ConfigDump, er
 		if len(secrets) > 0 {
 			for _, secretAny := range secrets {
 				secret := &tls.Secret{}
-				if err := ptypes.UnmarshalAny(secretAny, secret); err != nil {
-					log.Warnf("failed to unmarshal secret: %v", err)
+				if err := secretAny.UnmarshalTo(secret); err != nil {
+					istiolog.Warnf("failed to unmarshal secret: %v", err)
 				}
 				if secret.GetTlsCertificate() != nil {
 					secret.GetTlsCertificate().PrivateKey = &core.DataSource{
@@ -743,7 +760,7 @@ func (s *DiscoveryServer) Debug(w http.ResponseWriter, req *http.Request) {
 	})
 
 	if err := indexTmpl.Execute(w, deps); err != nil {
-		adsLog.Errorf("Error in rendering index template %v", err)
+		istiolog.Errorf("Error in rendering index template %v", err)
 		w.WriteHeader(500)
 	}
 }
@@ -873,4 +890,16 @@ func (s *DiscoveryServer) instancesz(w http.ResponseWriter, req *http.Request) {
 	by, _ := json.MarshalIndent(instances, "", "  ")
 
 	_, _ = w.Write(by)
+}
+
+func (s *DiscoveryServer) networkz(w http.ResponseWriter, req *http.Request) {
+	gws := s.Env.NetworkGateways()
+	by, err := json.MarshalIndent(gws, "", "  ")
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+	}
+	_, err = w.Write(by)
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+	}
 }

@@ -159,7 +159,7 @@ func (i *operatorComponent) CustomIngressFor(c cluster.Cluster, serviceName, ist
 }
 
 func appendToFile(contents string, file string) error {
-	f, err := os.OpenFile(file, os.O_APPEND|os.O_WRONLY|os.O_CREATE, 0600)
+	f, err := os.OpenFile(file, os.O_APPEND|os.O_WRONLY|os.O_CREATE, 0o600)
 	if err != nil {
 		return err
 	}
@@ -221,18 +221,18 @@ func (i *operatorComponent) Close() error {
 
 func (i *operatorComponent) dumpGeneratedManifests() {
 	manifestsDir := path.Join(i.workDir, "manifests")
-	if err := os.Mkdir(manifestsDir, 0700); err != nil {
+	if err := os.Mkdir(manifestsDir, 0o700); err != nil {
 		scopes.Framework.Errorf("Unable to create directory for dumping install manifests: %v", err)
 		return
 	}
 	for clusterName, manifests := range i.installManifest {
 		clusterDir := path.Join(manifestsDir, clusterName)
-		if err := os.Mkdir(manifestsDir, 0700); err != nil {
+		if err := os.Mkdir(manifestsDir, 0o700); err != nil {
 			scopes.Framework.Errorf("Unable to create directory for dumping %s install manifests: %v", clusterName, err)
 			return
 		}
 		for i, manifest := range manifests {
-			err := ioutil.WriteFile(path.Join(clusterDir, "manifest-"+strconv.Itoa(i)+".yaml"), []byte(manifest), 0644)
+			err := ioutil.WriteFile(path.Join(clusterDir, "manifest-"+strconv.Itoa(i)+".yaml"), []byte(manifest), 0o644)
 			if err != nil {
 				scopes.Framework.Errorf("Failed writing manifest %d/%d in %s: %v", i, len(manifests)-1, clusterName, err)
 			}
@@ -325,7 +325,7 @@ func deploy(ctx resource.Context, env *kube.Environment, cfg Config) (Instance, 
 		})
 	}
 	if err := errG.Wait(); err != nil {
-		scopes.Framework.Errorf("one or more errors occurred instlaling control-plane clusters: %v", err)
+		scopes.Framework.Errorf("one or more errors occurred installing control-plane clusters: %v", err)
 		return i, err
 	}
 
@@ -647,9 +647,13 @@ func (i *operatorComponent) generateCommonInstallSettings(cfg Config, cluster cl
 			"--set", "values.global.network="+cluster.NetworkName())
 	}
 
-	// Include all user-specified values.
+	// Include all user-specified values and configuration options.
 	for k, v := range cfg.Values {
 		installSettings = append(installSettings, "--set", fmt.Sprintf("values.%s=%s", k, v))
+	}
+
+	for k, v := range cfg.OperatorOptions {
+		installSettings = append(installSettings, "--set", fmt.Sprintf("%s=%s", k, v))
 	}
 	return installSettings, nil
 }
@@ -706,7 +710,12 @@ func (i *operatorComponent) configureDirectAPIServiceAccessForCluster(ctx resour
 	if err != nil {
 		return fmt.Errorf("failed creating remote secret for cluster %s: %v", cluster.Name(), err)
 	}
-	if err := ctx.Config(ctx.Clusters().Primaries(cluster)...).ApplyYAML(cfg.SystemNamespace, secret); err != nil {
+	clusters := ctx.Clusters().Primaries(cluster)
+	if len(clusters) == 0 {
+		// giving 0 clusters to ctx.Config() means using all clusters
+		return nil
+	}
+	if err := ctx.Config(clusters...).ApplyYAML(cfg.SystemNamespace, secret); err != nil {
 		return fmt.Errorf("failed applying remote secret to clusters: %v", err)
 	}
 	return nil
@@ -736,7 +745,7 @@ func createRemoteSecret(ctx resource.Context, cluster cluster.Cluster, cfg Confi
 
 func deployCACerts(workDir string, env *kube.Environment, cfg Config) error {
 	certsDir := filepath.Join(workDir, "cacerts")
-	if err := os.Mkdir(certsDir, 0700); err != nil {
+	if err := os.Mkdir(certsDir, 0o700); err != nil {
 		return err
 	}
 
@@ -748,7 +757,7 @@ func deployCACerts(workDir string, env *kube.Environment, cfg Config) error {
 	for _, cluster := range env.Clusters() {
 		// Create a subdir for the cluster certs.
 		clusterDir := filepath.Join(certsDir, cluster.Name())
-		if err := os.Mkdir(clusterDir, 0700); err != nil {
+		if err := os.Mkdir(clusterDir, 0o700); err != nil {
 			return err
 		}
 

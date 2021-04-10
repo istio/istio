@@ -23,11 +23,11 @@ import (
 	"sort"
 	"time"
 
+	"github.com/hashicorp/go-multierror"
 	ingress "k8s.io/api/networking/v1beta1"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/util/version"
 	"k8s.io/client-go/informers/networking/v1beta1"
-	"k8s.io/client-go/kubernetes"
 	listerv1 "k8s.io/client-go/listers/core/v1"
 	"k8s.io/client-go/tools/cache"
 
@@ -96,12 +96,31 @@ var ingressNamespace = env.RegisterStringVar("K8S_INGRESS_NS", "", "").Get()
 
 var errUnsupportedOp = errors.New("unsupported operation: the ingress config store is a read-only view")
 
+// Check if the "networking/v1" Ingress is available. Implementation borrowed from ingress-nginx
+func V1Available(client kube.Client) bool {
+	// check kubernetes version to use new ingress package or not
+	version119, _ := version.ParseGeneric("v1.19.0")
+
+	serverVersion, err := client.GetKubernetesVersion()
+	if err != nil {
+		return false
+	}
+
+	runningVersion, err := version.ParseGeneric(serverVersion.String())
+	if err != nil {
+		log.Errorf("unexpected error parsing running Kubernetes version: %v", err)
+		return false
+	}
+
+	return runningVersion.AtLeast(version119)
+}
+
 // Check if the "networking" group Ingress is available. Implementation borrowed from ingress-nginx
-func NetworkingIngressAvailable(client kubernetes.Interface) bool {
+func NetworkingIngressAvailable(client kube.Client) bool {
 	// check kubernetes version to use new ingress package or not
 	version118, _ := version.ParseGeneric("v1.18.0")
 
-	serverVersion, err := client.Discovery().ServerVersion()
+	serverVersion, err := client.GetKubernetesVersion()
 	if err != nil {
 		return false
 	}
@@ -263,6 +282,17 @@ func (c *controller) RegisterEventHandler(kind config.GroupVersionKind, f func(c
 	case gvk.Gateway:
 		c.gatewayHandlers = append(c.gatewayHandlers, f)
 	}
+}
+
+func (c *controller) SetWatchErrorHandler(handler func(r *cache.Reflector, err error)) error {
+	var errs error
+	if err := c.serviceInformer.SetWatchErrorHandler(handler); err != nil {
+		errs = multierror.Append(err, errs)
+	}
+	if err := c.ingressInformer.SetWatchErrorHandler(handler); err != nil {
+		errs = multierror.Append(err, errs)
+	}
+	return errs
 }
 
 func (c *controller) HasSynced() bool {

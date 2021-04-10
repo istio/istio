@@ -35,7 +35,7 @@ func TestRevisionTags(t *testing.T) {
 	framework.NewTest(t).
 		Features("installation.istioctl.revision_tags").
 		RequiresSingleCluster().
-		Run(func(ctx framework.TestContext) {
+		Run(func(t framework.TestContext) {
 			tcs := []struct {
 				name     string
 				tag      string
@@ -62,52 +62,52 @@ func TestRevisionTags(t *testing.T) {
 				},
 			}
 
-			istioCtl := istioctl.NewOrFail(ctx, ctx, istioctl.Config{Cluster: ctx.Clusters().Default()})
-			baseArgs := []string{"experimental", "tag"}
+			istioCtl := istioctl.NewOrFail(t, t, istioctl.Config{Cluster: t.Clusters().Default()})
+			baseArgs := []string{"experimental", "revision", "tag"}
 			for _, tc := range tcs {
-				ctx.NewSubTest(tc.name).Run(func(ctx framework.TestContext) {
-					tagSetArgs := append(baseArgs, "set", tc.tag, "--revision", tc.revision)
+				t.NewSubTest(tc.name).Run(func(t framework.TestContext) {
+					tagSetArgs := append(baseArgs, "set", tc.tag, "--revision", tc.revision, "--skip-confirmation")
 					tagSetArgs = append(tagSetArgs, "--manifests", filepath.Join(env.IstioSrc, "manifests"))
 					tagRemoveArgs := append(baseArgs, "remove", tc.tag, "-y")
 
 					_, cmdErr, _ := istioCtl.Invoke(tagSetArgs)
-					ctx.Cleanup(func() {
+					t.Cleanup(func() {
 						_, _, _ = istioCtl.Invoke(tagRemoveArgs)
 					})
 
 					if tc.error == "" && cmdErr != "" {
-						ctx.Fatalf("did not expect error, got %q", cmdErr)
+						t.Fatalf("did not expect error, got %q", cmdErr)
 					}
 					if tc.error != "" {
 						if !strings.Contains(cmdErr, tc.error) {
-							ctx.Fatalf("expected error to contain %q, got %q", tc.error, cmdErr)
+							t.Fatalf("expected error to contain %q, got %q", tc.error, cmdErr)
 						}
 						// found correct error, don't proceed
 						return
 					}
 
 					// build namespace labeled with tag and create echo in that namespace
-					revTagNs := namespace.NewOrFail(t, ctx, namespace.Config{
+					revTagNs := namespace.NewOrFail(t, t, namespace.Config{
 						Prefix:   "rev-tag",
 						Inject:   true,
 						Revision: tc.tag,
 					})
-					echoboot.NewBuilder(ctx).WithConfig(echo.Config{
+					echoboot.NewBuilder(t).WithConfig(echo.Config{
 						Service:   "rev-tag",
 						Namespace: revTagNs,
-					}).BuildOrFail(ctx)
+					}).BuildOrFail(t)
 
-					fetch := kubetest.NewSinglePodFetch(ctx.Clusters().Default(),
+					fetch := kubetest.NewSinglePodFetch(t.Clusters().Default(),
 						revTagNs.Name(),
 						fmt.Sprintf("app=%s", "rev-tag"))
 					pods, err := fetch()
 					if err != nil {
-						ctx.Fatalf("error fetching pods: %v", err)
+						t.Fatalf("error fetching pods: %v", err)
 					}
 
 					injectedRevision := pods[0].GetLabels()[label.IoIstioRev.Name]
 					if injectedRevision != tc.revision {
-						ctx.Fatalf("expected revision tag %q, got %q", tc.revision, injectedRevision)
+						t.Fatalf("expected revision tag %q, got %q", tc.revision, injectedRevision)
 					}
 				})
 			}

@@ -16,6 +16,7 @@ package bootstrap
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"net"
@@ -24,11 +25,11 @@ import (
 	"strconv"
 	"strings"
 
-	md "cloud.google.com/go/compute/metadata"
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	"github.com/gogo/protobuf/types"
 
 	meshAPI "istio.io/api/mesh/v1alpha1"
+	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pkg/bootstrap/option"
@@ -58,60 +59,48 @@ const (
 
 // Config for creating a bootstrap file.
 type Config struct {
-	Node                string
-	Proxy               *meshAPI.ProxyConfig
-	PlatEnv             platform.Environment
-	PilotSubjectAltName []string
-	LocalEnv            []string
-	NodeIPs             []string
-	STSPort             int
-	ProxyViaAgent       bool
-	OutlierLogPath      string
-	PilotCertProvider   string
-	ProvCert            string
-	DiscoveryHost       string
+	*model.Node
 }
 
 // newTemplateParams creates a new template configuration for the given configuration.
 func (cfg Config) toTemplateParams() (map[string]interface{}, error) {
 	opts := make([]option.Instance, 0)
 
-	// Fill in default config values.
-	if cfg.PlatEnv == nil {
-		cfg.PlatEnv = platform.Discover()
+	discHost := strings.Split(cfg.Metadata.ProxyConfig.DiscoveryAddress, ":")[0]
+
+	xdsType := "GRPC"
+	if features.DeltaXds.Get() {
+		xdsType = "DELTA_GRPC"
 	}
 
-	// Remove duplicates from the node IPs.
-	cfg.NodeIPs = removeDuplicates(cfg.NodeIPs)
-
 	opts = append(opts,
-		option.NodeID(cfg.Node),
-		option.PilotSubjectAltName(cfg.PilotSubjectAltName),
-		option.ProxyViaAgent(cfg.ProxyViaAgent),
-		option.PilotCertProvider(cfg.PilotCertProvider),
-		option.OutlierLogPath(cfg.OutlierLogPath),
-		option.ProvCert(cfg.ProvCert),
-		option.DiscoveryHost(cfg.DiscoveryHost))
+		option.NodeID(cfg.ID),
+		option.PilotSubjectAltName(cfg.Metadata.PilotSubjectAltName),
+		option.ProxyViaAgent(cfg.Metadata.ProxyViaAgent),
+		option.PilotCertProvider(cfg.Metadata.PilotCertProvider),
+		option.OutlierLogPath(cfg.Metadata.OutlierLogPath),
+		option.ProvCert(cfg.Metadata.ProvCert),
+		option.DiscoveryHost(discHost),
+		option.XdsType(xdsType))
 
-	if cfg.STSPort > 0 {
-		opts = append(opts,
-			option.STSEnabled(true),
-			option.STSPort(cfg.STSPort))
-		md := cfg.PlatEnv.Metadata()
-		if projectID, found := md[platform.GCPProject]; found {
-			opts = append(opts, option.GCPProjectID(projectID))
+	if cfg.Metadata.StsPort != "" {
+		stsPort, err := strconv.Atoi(cfg.Metadata.StsPort)
+		if err == nil && stsPort > 0 {
+			opts = append(opts,
+				option.STSEnabled(true),
+				option.STSPort(stsPort))
+			md := cfg.Metadata.PlatformMetadata
+			if projectID, found := md[platform.GCPProject]; found {
+				opts = append(opts, option.GCPProjectID(projectID))
+			}
 		}
 	}
 
 	// Support passing extra info from node environment as metadata
-	meta, rawMeta, err := getNodeMetaData(cfg.LocalEnv, cfg.PlatEnv, cfg.NodeIPs, cfg.STSPort, cfg.Proxy)
-	if err != nil {
-		return nil, err
-	}
-	opts = append(opts, getNodeMetadataOptions(meta, rawMeta, cfg.PlatEnv, cfg.Proxy)...)
+	opts = append(opts, getNodeMetadataOptions(cfg.Node)...)
 
 	// Check if nodeIP carries IPv4 or IPv6 and set up proxy accordingly
-	if isIPv6Proxy(cfg.NodeIPs) {
+	if isIPv6Proxy(cfg.Metadata.InstanceIPs) {
 		opts = append(opts,
 			option.Localhost(option.LocalhostIPv6),
 			option.Wildcard(option.WildcardIPv6),
@@ -123,7 +112,7 @@ func (cfg Config) toTemplateParams() (map[string]interface{}, error) {
 			option.DNSLookupFamily(option.DNSLookupFamilyIPv4))
 	}
 
-	proxyOpts, err := getProxyConfigOptions(cfg.Proxy, meta)
+	proxyOpts, err := getProxyConfigOptions(cfg.Metadata)
 	if err != nil {
 		return nil, err
 	}
@@ -179,15 +168,15 @@ var DefaultStatTags = []string{
 	"response_flags",
 	"grpc_response_status",
 	"connection_security_policy",
-	"permissive_response_code",
-	"permissive_response_policyid",
 	"source_canonical_service",
 	"destination_canonical_service",
 	"source_canonical_revision",
 	"destination_canonical_revision",
 }
 
-func getStatsOptions(meta *model.BootstrapNodeMetadata, nodeIPs []string, config *meshAPI.ProxyConfig) []option.Instance {
+func getStatsOptions(meta *model.BootstrapNodeMetadata) []option.Instance {
+	nodeIPs := meta.InstanceIPs
+	config := meta.ProxyConfig
 	parseOption := func(metaOption string, required string, proxyConfigOption []string) []string {
 		var inclusionOption []string
 		if len(metaOption) > 0 {
@@ -222,6 +211,7 @@ func getStatsOptions(meta *model.BootstrapNodeMetadata, nodeIPs []string, config
 			extraStatTags = append(extraStatTags, tag)
 		}
 	}
+	extraStatTags = removeDuplicates(extraStatTags)
 
 	var proxyConfigPrefixes, proxyConfigSuffixes, proxyConfigRegexps []string
 	if config.ProxyStatsMatcher != nil {
@@ -243,31 +233,23 @@ func lightstepAccessTokenFile(config string) string {
 	return path.Join(config, lightstepAccessTokenBase)
 }
 
-func getNodeMetadataOptions(meta *model.BootstrapNodeMetadata, rawMeta map[string]interface{},
-	platEnv platform.Environment, config *meshAPI.ProxyConfig) []option.Instance {
+func getNodeMetadataOptions(node *model.Node) []option.Instance {
 	// Add locality options.
-	opts := getLocalityOptions(meta, platEnv)
+	opts := getLocalityOptions(node.Locality)
 
-	opts = append(opts, getStatsOptions(meta, meta.InstanceIPs, config)...)
+	opts = append(opts, getStatsOptions(node.Metadata)...)
 
-	opts = append(opts, option.NodeMetadata(meta, rawMeta))
+	opts = append(opts, option.NodeMetadata(node.Metadata, node.RawMetadata))
 	return opts
 }
 
-func getLocalityOptions(meta *model.BootstrapNodeMetadata, platEnv platform.Environment) []option.Instance {
-	var l *core.Locality
-	if meta.Labels[model.LocalityLabel] == "" {
-		l = platEnv.Locality()
-		// The locality string was not set, try to get locality from platform
-	} else {
-		localityString := model.GetLocalityLabelOrDefault(meta.Labels[model.LocalityLabel], "")
-		l = util.ConvertLocality(localityString)
-	}
-
+func getLocalityOptions(l *core.Locality) []option.Instance {
 	return []option.Instance{option.Region(l.Region), option.Zone(l.Zone), option.SubZone(l.SubZone)}
 }
 
-func getProxyConfigOptions(config *meshAPI.ProxyConfig, metadata *model.BootstrapNodeMetadata) ([]option.Instance, error) {
+func getProxyConfigOptions(metadata *model.BootstrapNodeMetadata) ([]option.Instance, error) {
+	config := metadata.ProxyConfig
+
 	// Add a few misc options.
 	opts := make([]option.Instance, 0)
 
@@ -301,10 +283,9 @@ func getProxyConfigOptions(config *meshAPI.ProxyConfig, metadata *model.Bootstra
 		case *meshAPI.Tracing_Datadog_:
 			opts = append(opts, option.DataDogAddress(tracer.Datadog.Address))
 		case *meshAPI.Tracing_Stackdriver_:
-			var projectID string
-			var err error
-			if projectID, err = md.ProjectID(); err != nil {
-				return nil, fmt.Errorf("unable to process Stackdriver tracer: %v", err)
+			projectID, projFound := metadata.PlatformMetadata[platform.GCPProject]
+			if !projFound {
+				return nil, errors.New("unable to process Stackdriver tracer: missing GCP Project")
 			}
 
 			opts = append(opts, option.StackDriverEnabled(true),
@@ -429,20 +410,34 @@ func extractAttributesMetadata(envVars []string, plat platform.Environment, meta
 	}
 }
 
-// getNodeMetaData function uses an environment variable contract
+// MetadataOptions for constructing node metadata.
+type MetadataOptions struct {
+	Envs                []string
+	Platform            platform.Environment
+	InstanceIPs         []string
+	StsPort             int
+	ID                  string
+	ProxyConfig         *meshAPI.ProxyConfig
+	ProxyViaAgent       bool
+	PilotSubjectAltName []string
+	OutlierLogPath      string
+	PilotCertProvider   string
+	ProvCert            string
+}
+
+// GetNodeMetaData function uses an environment variable contract
 // ISTIO_METAJSON_* env variables contain json_string in the value.
 // 					The name of variable is ignored.
 // ISTIO_META_* env variables are passed thru
-func getNodeMetaData(envs []string, plat platform.Environment, nodeIPs []string, stsPort int,
-	pc *meshAPI.ProxyConfig) (*model.BootstrapNodeMetadata, map[string]interface{}, error) {
+func GetNodeMetaData(options MetadataOptions) (*model.Node, error) {
 	meta := &model.BootstrapNodeMetadata{}
 	untypedMeta := map[string]interface{}{}
 
-	extractMetadata(envs, IstioMetaPrefix, func(m map[string]interface{}, key string, val string) {
+	extractMetadata(options.Envs, IstioMetaPrefix, func(m map[string]interface{}, key string, val string) {
 		m[key] = val
 	}, untypedMeta)
 
-	extractMetadata(envs, IstioMetaJSONPrefix, func(m map[string]interface{}, key string, val string) {
+	extractMetadata(options.Envs, IstioMetaJSONPrefix, func(m map[string]interface{}, key string, val string) {
 		err := json.Unmarshal([]byte(val), &m)
 		if err != nil {
 			log.Warnf("Env variable %s [%s] failed json unmarshal: %v", key, val, err)
@@ -451,26 +446,26 @@ func getNodeMetaData(envs []string, plat platform.Environment, nodeIPs []string,
 
 	j, err := json.Marshal(untypedMeta)
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
 
 	if err := json.Unmarshal(j, meta); err != nil {
-		return nil, nil, err
+		return nil, err
 	}
-	extractAttributesMetadata(envs, plat, meta)
+	extractAttributesMetadata(options.Envs, options.Platform, meta)
 
 	// Support multiple network interfaces, removing duplicates.
-	meta.InstanceIPs = nodeIPs
+	meta.InstanceIPs = removeDuplicates(options.InstanceIPs)
 
 	// Add STS port into node metadata if it is not 0. This is read by envoy telemetry filters
-	if stsPort != 0 {
-		meta.StsPort = strconv.Itoa(stsPort)
+	if options.StsPort != 0 {
+		meta.StsPort = strconv.Itoa(options.StsPort)
 	}
 
-	meta.ProxyConfig = (*model.NodeMetaProxyConfig)(pc)
+	meta.ProxyConfig = (*model.NodeMetaProxyConfig)(options.ProxyConfig)
 
 	// Add all instance labels with lower precedence than pod labels
-	extractInstanceLabels(plat, meta)
+	extractInstanceLabels(options.Platform, meta)
 
 	// Add all pod labels found from filesystem
 	// These are typically volume mounted by the downward API
@@ -490,7 +485,27 @@ func getNodeMetaData(envs []string, plat platform.Environment, nodeIPs []string,
 		}
 	}
 
-	return meta, untypedMeta, nil
+	var l *core.Locality
+	if meta.Labels[model.LocalityLabel] == "" && options.Platform != nil {
+		// The locality string was not set, try to get locality from platform
+		l = options.Platform.Locality()
+	} else {
+		localityString := model.GetLocalityLabelOrDefault(meta.Labels[model.LocalityLabel], "")
+		l = util.ConvertLocality(localityString)
+	}
+
+	meta.ProxyViaAgent = options.ProxyViaAgent
+	meta.PilotSubjectAltName = options.PilotSubjectAltName
+	meta.OutlierLogPath = options.OutlierLogPath
+	meta.PilotCertProvider = options.PilotCertProvider
+	meta.ProvCert = options.ProvCert
+
+	return &model.Node{
+		ID:          options.ID,
+		Metadata:    meta,
+		RawMetadata: untypedMeta,
+		Locality:    l,
+	}, nil
 }
 
 // Extracts instance labels for the platform into model.NodeMetadata.Labels

@@ -25,6 +25,7 @@ import (
 	k8s "sigs.k8s.io/gateway-api/apis/v1alpha1"
 
 	istio "istio.io/api/networking/v1alpha3"
+	"istio.io/istio/pilot/pkg/model/kstatus"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/labels"
@@ -179,14 +180,14 @@ func (r *KubernetesResources) fetchTLSRoutes(gateway config.Meta, routes k8s.Rou
 	return result
 }
 
-type IstioResources struct {
+type OutputResources struct {
 	Gateway         []config.Config
 	VirtualService  []config.Config
 	DestinationRule []config.Config
 }
 
-func convertResources(r *KubernetesResources) IstioResources {
-	result := IstioResources{}
+func convertResources(r *KubernetesResources) OutputResources {
+	result := OutputResources{}
 	gw, routeMap := convertGateway(r)
 	result.Gateway = gw
 	result.VirtualService = convertVirtualService(r, routeMap)
@@ -213,6 +214,11 @@ func convertDestinationRule(r *KubernetesResources) []config.Config {
 	result := []config.Config{}
 	for _, obj := range r.BackendPolicy {
 		bp := obj.Spec.(*k8s.BackendPolicySpec)
+
+		// We have no status updates to write. The only condition defined is ConditionNoSuchBackend;
+		// since we translate to opaque host names we don't actually know
+		// TODO(https://github.com/kubernetes-sigs/gateway-api/issues/590) consider more fields in the API
+
 		for i, ref := range bp.BackendRefs {
 			var serviceName string
 			if emptyOrEqual(ref.Group, gvk.Service.CanonicalGroup()) && emptyOrEqual(ref.Kind, gvk.Service.Kind) {
@@ -296,6 +302,12 @@ func buildHTTPVirtualServices(obj config.Config, gateways []string, domain strin
 	result := []config.Config{}
 
 	route := obj.Spec.(*k8s.HTTPRouteSpec)
+	obj.Status.(*kstatus.WrappedStatus).Mutate(func(s config.Status) config.Status {
+		rs := s.(*k8s.HTTPRouteStatus)
+		// TODO report skipped routes
+		rs.Gateways = createRouteStatus(gateways, obj)
+		return rs
+	})
 
 	name := fmt.Sprintf("%s-%s", obj.Name, constants.KubernetesGatewayName)
 
@@ -319,7 +331,7 @@ func buildHTTPVirtualServices(obj config.Config, gateways []string, domain strin
 			}
 		}
 
-		vs.Route = buildHTTPDestination(r.ForwardTo, obj.Namespace)
+		vs.Route = buildHTTPDestination(r.ForwardTo, obj.Namespace, domain)
 		httproutes = append(httproutes, vs)
 	}
 	vsConfig := config.Config{
@@ -340,6 +352,35 @@ func buildHTTPVirtualServices(obj config.Config, gateways []string, domain strin
 	return result
 }
 
+func createRouteStatus(gateways []string, obj config.Config) []k8s.RouteGatewayStatus {
+	gws := make([]k8s.RouteGatewayStatus, 0, len(gateways))
+	// TODO(https://github.com/kubernetes-sigs/gateway-api/issues/591) this assumes full ownership of route
+	for _, gw := range gateways {
+		ref := k8s.GatewayReference{}
+		if gw == constants.IstioMeshGateway {
+			ref.Name = experimentalMeshGatewayName
+			// TODO this is not namespaced but a namespace is required
+			ref.Namespace = "default"
+		} else {
+			s := strings.Split(gw, "/")
+			ref.Name = s[1]
+			ref.Namespace = s[0]
+		}
+		gws = append(gws, k8s.RouteGatewayStatus{
+			GatewayRef: ref,
+			Conditions: []metav1.Condition{{
+				Type:               string(k8s.ConditionRouteAdmitted),
+				Status:             kstatus.StatusTrue,
+				ObservedGeneration: obj.Generation,
+				LastTransitionTime: metav1.Now(),
+				Reason:             "RouteAdmitted",
+				Message:            "Route admitted",
+			}},
+		})
+	}
+	return gws
+}
+
 func hostnameToStringList(h []k8s.Hostname) []string {
 	res := make([]string, 0, len(h))
 	for _, i := range h {
@@ -350,11 +391,19 @@ func hostnameToStringList(h []k8s.Hostname) []string {
 
 func buildTCPVirtualService(obj config.Config, gateways []string, domain string) config.Config {
 	route := obj.Spec.(*k8s.TCPRouteSpec)
+
+	obj.Status.(*kstatus.WrappedStatus).Mutate(func(s config.Status) config.Status {
+		rs := s.(*k8s.TCPRouteStatus)
+		// TODO report skipped routes
+		rs.Gateways = createRouteStatus(gateways, obj)
+		return rs
+	})
+
 	routes := []*istio.TCPRoute{}
 	for _, r := range route.Rules {
 		ir := &istio.TCPRoute{
 			Match: buildTCPMatch(r.Matches),
-			Route: buildTCPDestination(r.ForwardTo, obj.Namespace),
+			Route: buildTCPDestination(r.ForwardTo, obj.Namespace, domain),
 		}
 		routes = append(routes, ir)
 	}
@@ -379,11 +428,19 @@ func buildTCPVirtualService(obj config.Config, gateways []string, domain string)
 
 func buildTLSVirtualService(obj config.Config, gateways []string, domain string) config.Config {
 	route := obj.Spec.(*k8s.TLSRouteSpec)
+
+	obj.Status.(*kstatus.WrappedStatus).Mutate(func(s config.Status) config.Status {
+		rs := s.(*k8s.TLSRouteStatus)
+		// TODO report skipped routes
+		rs.Gateways = createRouteStatus(gateways, obj)
+		return rs
+	})
+
 	routes := []*istio.TLSRoute{}
 	for _, r := range route.Rules {
 		ir := &istio.TLSRoute{
 			Match: buildTLSMatch(r.Matches),
-			Route: buildTCPDestination(r.ForwardTo, obj.Namespace),
+			Route: buildTCPDestination(r.ForwardTo, obj.Namespace, domain),
 		}
 		routes = append(routes, ir)
 	}
@@ -406,7 +463,7 @@ func buildTLSVirtualService(obj config.Config, gateways []string, domain string)
 	return vsConfig
 }
 
-func buildTCPDestination(action []k8s.RouteForwardTo, ns string) []*istio.RouteDestination {
+func buildTCPDestination(action []k8s.RouteForwardTo, ns, domain string) []*istio.RouteDestination {
 	if len(action) == 0 {
 		return nil
 	}
@@ -418,7 +475,7 @@ func buildTCPDestination(action []k8s.RouteForwardTo, ns string) []*istio.RouteD
 	weights = standardizeWeights(weights)
 	res := []*istio.RouteDestination{}
 	for i, fwd := range action {
-		dst := buildGenericDestination(fwd, ns)
+		dst := buildGenericDestination(fwd, ns, domain)
 		res = append(res, &istio.RouteDestination{
 			Destination: dst,
 			Weight:      int32(weights[i]),
@@ -464,7 +521,7 @@ func intSum(n []int) int {
 	return r
 }
 
-func buildHTTPDestination(action []k8s.HTTPRouteForwardTo, ns string) []*istio.HTTPRouteDestination {
+func buildHTTPDestination(action []k8s.HTTPRouteForwardTo, ns string, domain string) []*istio.HTTPRouteDestination {
 	if action == nil {
 		return nil
 	}
@@ -476,7 +533,7 @@ func buildHTTPDestination(action []k8s.HTTPRouteForwardTo, ns string) []*istio.H
 	weights = standardizeWeights(weights)
 	res := []*istio.HTTPRouteDestination{}
 	for i, fwd := range action {
-		dst := buildDestination(fwd, ns)
+		dst := buildDestination(fwd, ns, domain)
 		rd := &istio.HTTPRouteDestination{
 			Destination: dst,
 			Weight:      int32(weights[i]),
@@ -494,7 +551,7 @@ func buildHTTPDestination(action []k8s.HTTPRouteForwardTo, ns string) []*istio.H
 	return res
 }
 
-func buildDestination(to k8s.HTTPRouteForwardTo, ns string) *istio.Destination {
+func buildDestination(to k8s.HTTPRouteForwardTo, ns, domain string) *istio.Destination {
 	res := &istio.Destination{}
 	if to.Port != nil {
 		// TODO: "If unspecified, the destination port in the request is used when forwarding to a backendRef or serviceName."
@@ -503,7 +560,7 @@ func buildDestination(to k8s.HTTPRouteForwardTo, ns string) *istio.Destination {
 		res.Port = &istio.PortSelector{Number: uint32(*to.Port)}
 	}
 	if to.ServiceName != nil {
-		res.Host = fmt.Sprintf("%s.%s.svc.%s", *to.ServiceName, ns, constants.DefaultKubernetesDomain)
+		res.Host = fmt.Sprintf("%s.%s.svc.%s", *to.ServiceName, ns, domain)
 	} else if to.BackendRef != nil {
 		// TODO support this
 		log.Errorf("referencing unsupported destination; backendRef is not supported")
@@ -511,7 +568,7 @@ func buildDestination(to k8s.HTTPRouteForwardTo, ns string) *istio.Destination {
 	return res
 }
 
-func buildGenericDestination(to k8s.RouteForwardTo, ns string) *istio.Destination {
+func buildGenericDestination(to k8s.RouteForwardTo, ns, domain string) *istio.Destination {
 	res := &istio.Destination{}
 	if to.Port != nil {
 		// TODO: "If unspecified, the destination port in the request is used when forwarding to a backendRef or serviceName."
@@ -520,7 +577,7 @@ func buildGenericDestination(to k8s.RouteForwardTo, ns string) *istio.Destinatio
 		res.Port = &istio.PortSelector{Number: uint32(*to.Port)}
 	}
 	if to.ServiceName != nil {
-		res.Host = fmt.Sprintf("%s.%s.svc.%s", *to.ServiceName, ns, constants.DefaultKubernetesDomain)
+		res.Host = fmt.Sprintf("%s.%s.svc.%s", *to.ServiceName, ns, domain)
 	} else if to.BackendRef != nil {
 		// TODO support this
 		log.Errorf("referencing unsupported destination; backendRef is not supported")
@@ -644,6 +701,19 @@ func getGatewayClasses(r *KubernetesResources) map[string]struct{} {
 			// TODO we can add any settings we need here needed for the controller
 			// For now, we have none, so just add a struct
 			classes[obj.Name] = struct{}{}
+
+			obj.Status.(*kstatus.WrappedStatus).Mutate(func(s config.Status) config.Status {
+				gcs := s.(*k8s.GatewayClassStatus)
+				gcs.Conditions = kstatus.ConditionallyUpdateCondition(gcs.Conditions, metav1.Condition{
+					Type:               string(k8s.GatewayClassConditionStatusAdmitted),
+					Status:             kstatus.StatusTrue,
+					ObservedGeneration: obj.Generation,
+					LastTransitionTime: metav1.Now(),
+					Reason:             "Handled",
+					Message:            "Handled by Istio controller",
+				})
+				return gcs
+			})
 		}
 	}
 	return classes
@@ -659,9 +729,40 @@ func convertGateway(r *KubernetesResources) ([]config.Config, map[RouteKey][]str
 			// No gateway class found, this may be meant for another controller; should be skipped.
 			continue
 		}
+		obj.Status.(*kstatus.WrappedStatus).Mutate(func(s config.Status) config.Status {
+			gs := s.(*k8s.GatewayStatus)
+			// TODO implement addresses
+			gs.Addresses = []k8s.GatewayAddress{}
+			// We expect one listener status per listener
+			if len(gs.Listeners) != len(kgw.Listeners) {
+				gs.Listeners = make([]k8s.ListenerStatus, len(kgw.Listeners))
+			}
+			return gs
+		})
 		name := obj.Name + "-" + constants.KubernetesGatewayName
 		var servers []*istio.Server
-		for _, l := range kgw.Listeners {
+		for i, l := range kgw.Listeners {
+			obj.Status.(*kstatus.WrappedStatus).Mutate(func(s config.Status) config.Status {
+				gs := s.(*k8s.GatewayStatus)
+				cond := gs.Listeners[i].Conditions
+				cond = kstatus.ConditionallyUpdateCondition(cond, metav1.Condition{
+					Type:               string(k8s.ListenerConditionReady),
+					Status:             kstatus.StatusTrue,
+					ObservedGeneration: obj.Generation,
+					LastTransitionTime: metav1.Now(),
+					Reason:             "ListenerReady",
+					Message:            "No error found",
+				})
+				// TODO: implement ResolvedRefs if we cannot find all refs
+				// TODO: implement Detached if we find something we cannot support
+				gs.Listeners[i] = k8s.ListenerStatus{
+					Port:       l.Port,
+					Protocol:   l.Protocol,
+					Hostname:   l.Hostname,
+					Conditions: cond,
+				}
+				return gs
+			})
 			server := &istio.Server{
 				// Allow all hosts here. Specific routing will be determined by the virtual services
 				Hosts: buildHostnameMatch(l.Hostname),
@@ -706,9 +807,58 @@ func convertGateway(r *KubernetesResources) ([]config.Config, map[RouteKey][]str
 				Selector: labels.Instance{constants.IstioLabel: "ingressgateway"},
 			},
 		}
+		obj.Status.(*kstatus.WrappedStatus).Mutate(func(s config.Status) config.Status {
+			gs := s.(*k8s.GatewayStatus)
+			// TODO: report invalid configurations
+			gs.Conditions = kstatus.ConditionallyUpdateCondition(gs.Conditions, metav1.Condition{
+				Type:               string(k8s.GatewayConditionReady),
+				Status:             kstatus.StatusTrue,
+				ObservedGeneration: obj.Generation,
+				LastTransitionTime: metav1.Now(),
+				Reason:             "ListenersValid",
+				Message:            "Listeners valid",
+			})
+			// TODO: when we implement "address" support in status, we should report unscheduled
+			// if there is no associated Service.
+			gs.Conditions = kstatus.ConditionallyUpdateCondition(gs.Conditions, metav1.Condition{
+				Type:               string(k8s.GatewayConditionScheduled),
+				Status:             kstatus.StatusTrue,
+				ObservedGeneration: obj.Generation,
+				LastTransitionTime: metav1.Now(),
+				Reason:             "ResourcesAvailable",
+				Message:            "Resources available",
+			})
+			return gs
+		})
 		result = append(result, gatewayConfig)
 	}
+	for _, k := range r.fetchMeshRoutes() {
+		routeToGateway[k] = append(routeToGateway[k], experimentalMeshGatewayName)
+	}
 	return result, routeToGateway
+}
+
+// experimentalMeshGatewayName defines the magic mesh gateway name.
+// TODO: replace this with a more suitable API. This is just added now to allow early adopters to experiment with the API
+const experimentalMeshGatewayName = "mesh"
+
+func (r *KubernetesResources) fetchMeshRoutes() []RouteKey {
+	keys := []RouteKey{}
+	// We only look at HTTP routes for now
+	// TODO(https://github.com/kubernetes-sigs/gateway-api/issues) add TLS. We can do it today, but its a bit annoying
+	// TODO: add TCP. Need an annotation or API change to associate a route with a service (hostname).
+	for _, hr := range r.HTTPRoute {
+		gatewaySelector := getGatewaySelectorFromSpec(hr.Spec)
+		if gatewaySelector == nil || len(gatewaySelector.GatewayRefs) == 0 {
+			continue
+		}
+		for _, ref := range gatewaySelector.GatewayRefs {
+			if ref.Name == experimentalMeshGatewayName { // we ignore namespace. it is required in the spec though
+				keys = append(keys, toRouteKey(hr))
+			}
+		}
+	}
+	return keys
 }
 
 func buildTLS(tls *k8s.GatewayTLSConfig) *istio.ServerTLSSettings {

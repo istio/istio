@@ -228,7 +228,7 @@ dockerx: DOCKER_RULE?=mkdir -p $(DOCKERX_BUILD_TOP)/$@ && cp -rp $^ $(DOCKERX_BU
 dockerx: RENAME_TEMPLATE?=mkdir -p $(DOCKERX_BUILD_TOP)/$@ && cp $(ECHO_DOCKER)/$(VM_OS_DOCKERFILE_TEMPLATE) $(DOCKERX_BUILD_TOP)/$@/Dockerfile$(suffix $@)
 dockerx: docker | $(ISTIO_DOCKER_TAR)
 dockerx:
-	HUB=$(HUB) \
+	HUBS="$(HUBS)" \
 		TAG=$(TAG) \
 		PROXY_REPO_SHA=$(PROXY_REPO_SHA) \
 		VERSION=$(VERSION) \

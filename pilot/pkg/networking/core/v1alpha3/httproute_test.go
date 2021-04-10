@@ -132,7 +132,7 @@ func TestGenerateVirtualHostDomains(t *testing.T) {
 	}
 
 	for _, c := range cases {
-		out, _ := generateVirtualHostDomains(c.service, c.port, c.node, model.NewPushContext())
+		out, _ := generateVirtualHostDomains(c.service, c.port, c.node)
 		sort.SliceStable(c.want, func(i, j int) bool { return c.want[i] < c.want[j] })
 		sort.SliceStable(out, func(i, j int) bool { return out[i] < out[j] })
 		if !reflect.DeepEqual(out, c.want) {
@@ -1084,7 +1084,7 @@ func testSidecarRDSVHosts(t *testing.T, services []*model.Service,
 
 	env := buildListenerEnvWithVirtualServices(services, virtualServices)
 
-	if err := env.PushContext.InitContext(&env, nil, nil); err != nil {
+	if err := env.PushContext.InitContext(env, nil, nil); err != nil {
 		t.Fatalf("failed to initialize push context")
 	}
 	if registryOnly {

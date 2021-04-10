@@ -33,7 +33,6 @@ import (
 	mockca "istio.io/istio/security/pkg/pki/ca/mock"
 	caerror "istio.io/istio/security/pkg/pki/error"
 	"istio.io/istio/security/pkg/pki/util"
-	mockutil "istio.io/istio/security/pkg/pki/util/mock"
 	"istio.io/istio/security/pkg/server/ca/authenticate"
 )
 
@@ -82,11 +81,8 @@ func TestCreateCertificateE2EUsingClientCertAuthenticator(t *testing.T) {
 
 	server := &Server{
 		ca: &mockca.FakeCA{
-			SignedCert: []byte("cert"),
-			KeyCertBundle: &mockutil.FakeKeyCertBundle{
-				CertChainBytes: []byte("cert_chain"),
-				RootCertBytes:  []byte("root_cert"),
-			},
+			SignedCert:    []byte("cert"),
+			KeyCertBundle: util.NewKeyCertBundleFromPem(nil, nil, []byte("cert_chain"), []byte("root_cert")),
 		},
 		Authenticators: []security.Authenticator{auth},
 		monitoring:     newMonitoringMetrics(),
@@ -225,11 +221,8 @@ func TestCreateCertificate(t *testing.T) {
 		"Successful signing": {
 			authenticators: []security.Authenticator{&mockAuthenticator{}},
 			ca: &mockca.FakeCA{
-				SignedCert: []byte("cert"),
-				KeyCertBundle: &mockutil.FakeKeyCertBundle{
-					CertChainBytes: []byte("cert_chain"),
-					RootCertBytes:  []byte("root_cert"),
-				},
+				SignedCert:    []byte("cert"),
+				KeyCertBundle: util.NewKeyCertBundleFromPem(nil, nil, []byte("cert_chain"), []byte("root_cert")),
 			},
 			certChain: []string{"cert", "cert_chain", "root_cert"},
 			code:      codes.OK,

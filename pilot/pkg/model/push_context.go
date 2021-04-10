@@ -18,7 +18,6 @@ import (
 	"encoding/json"
 	"net"
 	"sort"
-	"strings"
 	"sync"
 	"time"
 
@@ -37,8 +36,6 @@ import (
 	"istio.io/istio/pkg/config/visibility"
 	"istio.io/pkg/monitoring"
 )
-
-var defaultClusterLocalNamespaces = []string{"kube-system"}
 
 // Metrics is an interface for capturing metrics on a per-node basis.
 type Metrics interface {
@@ -61,10 +58,6 @@ type serviceIndex struct {
 	// HostnameAndNamespace has all services, indexed by hostname then namespace.
 	HostnameAndNamespace map[host.Name]map[string]*Service `json:"-"`
 
-	// ClusterVIPs contains a map of service and its cluster addresses. It is stored here
-	// to avoid locking each service for every proxy during push.
-	ClusterVIPs map[*Service]map[string]string
-
 	// instancesByPort contains a map of service and instances by port. It is stored here
 	// to avoid recomputations during push. This caches instanceByPort calls with empty labels.
 	// Call InstancesByPort directly when instances need to be filtered by actual labels.
@@ -77,7 +70,6 @@ func newServiceIndex() serviceIndex {
 		privateByNamespace:   map[string][]*Service{},
 		exportedToNamespace:  map[string][]*Service{},
 		HostnameAndNamespace: map[host.Name]map[string]*Service{},
-		ClusterVIPs:          map[*Service]map[string]string{},
 		instancesByPort:      map[*Service]map[int][]*ServiceInstance{},
 	}
 }
@@ -173,7 +165,7 @@ type PushContext struct {
 	gatewayIndex gatewayIndex
 
 	// clusterLocalHosts extracted from the MeshConfig
-	clusterLocalHosts host.Names
+	clusterLocalHosts ClusterLocalHosts
 
 	// sidecars for each namespace
 	sidecarsByNamespace map[string][]*SidecarScope
@@ -187,6 +179,9 @@ type PushContext struct {
 	// AuthzPolicies stores the existing authorization policies in the cluster. Could be nil if there
 	// are no authorization policies in the cluster.
 	AuthzPolicies *AuthorizationPolicies `json:"-"`
+
+	// Telemetry stores the existing Telemetry resources for the cluster.
+	Telemetry *Telemetries `json:"-"`
 
 	// The following data is either a global index or used in the inbound path.
 	// Namespace specific views do not apply here.
@@ -205,6 +200,9 @@ type PushContext struct {
 
 	// LedgerVersion is the version of the configuration ledger
 	LedgerVersion string
+
+	// JwtKeyResolver holds a reference to the JWT key resolver instance.
+	JwtKeyResolver *JwksResolver
 
 	// cache gateways addresses for each network
 	// this is mainly used for kubernetes multi-cluster scenario
@@ -376,7 +374,7 @@ func (pr *PushRequest) Merge(other *PushRequest) *PushRequest {
 
 func (pr *PushRequest) PushReason() string {
 	if len(pr.Reason) == 1 && pr.Reason[0] == ProxyRequest {
-		return "for request"
+		return " request"
 	}
 	return ""
 }
@@ -589,39 +587,40 @@ func (ps *PushContext) UpdateMetrics() {
 	}
 }
 
-func virtualServiceDestinations(v *networking.VirtualService) []*networking.Destination {
+// It is called after virtual service short host name is resolved to FQDN
+func virtualServiceDestinationHosts(v *networking.VirtualService) []string {
 	if v == nil {
 		return nil
 	}
 
-	var ds []*networking.Destination
+	var out []string
 
 	for _, h := range v.Http {
 		for _, r := range h.Route {
 			if r.Destination != nil {
-				ds = append(ds, r.Destination)
+				out = append(out, r.Destination.Host)
 			}
 		}
 		if h.Mirror != nil {
-			ds = append(ds, h.Mirror)
+			out = append(out, h.Mirror.Host)
 		}
 	}
 	for _, t := range v.Tcp {
 		for _, r := range t.Route {
 			if r.Destination != nil {
-				ds = append(ds, r.Destination)
+				out = append(out, r.Destination.Host)
 			}
 		}
 	}
 	for _, t := range v.Tls {
 		for _, r := range t.Route {
 			if r.Destination != nil {
-				ds = append(ds, r.Destination)
+				out = append(out, r.Destination.Host)
 			}
 		}
 	}
 
-	return ds
+	return out
 }
 
 // GatewayServices returns the set of services which are referred from the proxy gateways.
@@ -644,8 +643,8 @@ func (ps *PushContext) GatewayServices(proxy *Proxy) []*Service {
 				return svcs
 			}
 
-			for _, d := range virtualServiceDestinations(vs) {
-				hostsFromGateways[d.Host] = struct{}{}
+			for _, host := range virtualServiceDestinationHosts(vs) {
+				hostsFromGateways[host] = struct{}{}
 			}
 		}
 	}
@@ -915,8 +914,7 @@ func (ps *PushContext) getExportedDestinationRuleFromNamespace(owningNamespace s
 // IsClusterLocal indicates whether the endpoints for the service should only be accessible to clients
 // within the cluster.
 func (ps *PushContext) IsClusterLocal(service *Service) bool {
-	_, ok := MostSpecificHostMatch(service.Hostname, nil, ps.clusterLocalHosts)
-	return ok
+	return ps.clusterLocalHosts.IsClusterLocal(service.Hostname)
 }
 
 // SubsetToLabels returns the labels associated with a subset of a given service.
@@ -980,7 +978,7 @@ func (ps *PushContext) InitContext(env *Environment, oldPushContext *PushContext
 	// TODO: only do this when meshnetworks or gateway service changed
 	ps.initMeshNetworks(env.Networks())
 
-	ps.initClusterLocalHosts(env)
+	ps.clusterLocalHosts = env.ClusterLocal().GetClusterLocalHosts()
 
 	ps.initDone.Store(true)
 	return nil
@@ -1008,6 +1006,10 @@ func (ps *PushContext) createNewContext(env *Environment) error {
 		return err
 	}
 
+	if err := ps.initTelemetry(env); err != nil {
+		return err
+	}
+
 	if err := ps.initEnvoyFilters(env); err != nil {
 		return err
 	}
@@ -1028,7 +1030,7 @@ func (ps *PushContext) updateContext(
 	oldPushContext *PushContext,
 	pushReq *PushRequest) error {
 	var servicesChanged, virtualServicesChanged, destinationRulesChanged, gatewayChanged,
-		authnChanged, authzChanged, envoyFiltersChanged, sidecarsChanged bool
+		authnChanged, authzChanged, envoyFiltersChanged, sidecarsChanged, telemetryChanged bool
 
 	for conf := range pushReq.ConfigsUpdated {
 		switch conf.Kind {
@@ -1052,6 +1054,8 @@ func (ps *PushContext) updateContext(
 		case gvk.HTTPRoute, gvk.TCPRoute, gvk.GatewayClass, gvk.ServiceApisGateway, gvk.TLSRoute:
 			virtualServicesChanged = true
 			gatewayChanged = true
+		case gvk.Telemetry:
+			telemetryChanged = true
 		}
 	}
 
@@ -1099,6 +1103,14 @@ func (ps *PushContext) updateContext(
 		ps.AuthzPolicies = oldPushContext.AuthzPolicies
 	}
 
+	if telemetryChanged {
+		if err := ps.initTelemetry(env); err != nil {
+			return err
+		}
+	} else {
+		ps.Telemetry = oldPushContext.Telemetry
+	}
+
 	if envoyFiltersChanged {
 		if err := ps.initEnvoyFilters(env); err != nil {
 			return err
@@ -1138,13 +1150,6 @@ func (ps *PushContext) initServiceRegistry(env *Environment) error {
 	// Sort the services in order of creation.
 	allServices := sortServicesByCreationTime(services)
 	for _, s := range allServices {
-		s.Mutex.RLock()
-		ps.ServiceIndex.ClusterVIPs[s] = make(map[string]string)
-		for k, v := range s.ClusterVIPs {
-			ps.ServiceIndex.ClusterVIPs[s][k] = v
-		}
-		s.Mutex.RUnlock()
-
 		// Precache instances
 		for _, port := range s.Ports {
 			if _, ok := ps.ServiceIndex.instancesByPort[s]; !ok {
@@ -1586,6 +1591,14 @@ func (ps *PushContext) initAuthorizationPolicies(env *Environment) error {
 	return nil
 }
 
+func (ps *PushContext) initTelemetry(env *Environment) (err error) {
+	if ps.Telemetry, err = GetTelemetries(env); err != nil {
+		telemetryLog.Errorf("failed to initialize telemetry: %v", err)
+		return
+	}
+	return
+}
+
 // pre computes envoy filters per namespace
 func (ps *PushContext) initEnvoyFilters(env *Environment) error {
 	envoyFilterConfigs, err := env.List(gvk.EnvoyFilter, NamespaceAll)
@@ -1754,54 +1767,6 @@ func (ps *PushContext) initMeshNetworks(meshNetworks *meshconfig.MeshNetworks) {
 	}
 }
 
-func (ps *PushContext) initClusterLocalHosts(e *Environment) {
-	// Create the default list of cluster-local hosts.
-	domainSuffix := e.GetDomainSuffix()
-	defaultClusterLocalHosts := make([]host.Name, 0)
-	for _, n := range defaultClusterLocalNamespaces {
-		defaultClusterLocalHosts = append(defaultClusterLocalHosts, host.Name("*."+n+".svc."+domainSuffix))
-	}
-
-	if discoveryHost, _, err := e.GetDiscoveryAddress(); err != nil {
-		log.Errorf("failed to make discoveryAddress cluster-local: %v", err)
-	} else {
-		if !strings.HasSuffix(string(discoveryHost), domainSuffix) {
-			discoveryHost += host.Name("." + domainSuffix)
-		}
-		defaultClusterLocalHosts = append(defaultClusterLocalHosts, discoveryHost)
-	}
-
-	// Collect the cluster-local hosts.
-	clusterLocalHosts := make([]host.Name, 0)
-	for _, serviceSettings := range ps.Mesh.ServiceSettings {
-		if serviceSettings.Settings.ClusterLocal {
-			for _, h := range serviceSettings.Hosts {
-				clusterLocalHosts = append(clusterLocalHosts, host.Name(h))
-			}
-		} else {
-			// Remove defaults if specified to be non-cluster-local.
-			for _, h := range serviceSettings.Hosts {
-				for i, defaultClusterLocalHost := range defaultClusterLocalHosts {
-					if len(defaultClusterLocalHost) > 0 && strings.HasSuffix(h, string(defaultClusterLocalHost[1:])) {
-						// This default was explicitly overridden, so remove it.
-						defaultClusterLocalHosts[i] = ""
-					}
-				}
-			}
-		}
-	}
-
-	// Add any remaining defaults to the end of the list.
-	for _, defaultClusterLocalHost := range defaultClusterLocalHosts {
-		if len(defaultClusterLocalHost) > 0 {
-			clusterLocalHosts = append(clusterLocalHosts, defaultClusterLocalHost)
-		}
-	}
-
-	sort.Sort(host.Names(clusterLocalHosts))
-	ps.clusterLocalHosts = clusterLocalHosts
-}
-
 func (ps *PushContext) NetworkGateways() map[string][]*Gateway {
 	ps.networksMu.RLock()
 	defer ps.networksMu.RUnlock()
@@ -1824,14 +1789,17 @@ func (ps *PushContext) NetworkGatewaysByNetwork(network string) []*Gateway {
 // to compute the correct service mTLS mode without knowing service to workload binding. For now, this
 // function uses only mesh and namespace level PeerAuthentication and ignore workload & port level policies.
 // This function is used to give a hint for auto-mTLS configuration on client side.
-func (ps *PushContext) BestEffortInferServiceMTLSMode(service *Service, port *Port) MutualTLSMode {
+func (ps *PushContext) BestEffortInferServiceMTLSMode(tp *networking.TrafficPolicy, service *Service, port *Port) MutualTLSMode {
 	if service.MeshExternal {
 		// Only need the authentication MTLS mode when service is not external.
 		return MTLSUnknown
 	}
 
-	// 1. Check service instances' tls mode, mainly used for headless service.
-	if service.Resolution == Passthrough {
+	// For passthrough traffic (headless service or explicitly defined in DestinationRule), we look at the instances
+	// If ALL instances have a sidecar, we enable TLS, otherwise we disable
+	// TODO(https://github.com/istio/istio/issues/27376) enable mixed deployments
+	// A service with passthrough resolution is always passthrough, regardless of the TrafficPolicy.
+	if service.Resolution == Passthrough || tp.GetLoadBalancer().GetSimple() == networking.LoadBalancerSettings_PASSTHROUGH {
 		instances := ps.ServiceInstancesByPort(service, port.Port, nil)
 		if len(instances) == 0 {
 			return MTLSDisable

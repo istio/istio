@@ -32,6 +32,11 @@ spec:
         # if it ever gets evicted.
         scheduler.alpha.kubernetes.io/critical-pod: ''
         sidecar.istio.io/inject: "false"
+        # Add Prometheus Scrape annotations
+        prometheus.io/scrape: 'true'
+        prometheus.io/port: "15014"
+        prometheus.io/path: '/metrics'
+        # Custom annotations
         {{- if .Values.cni.podAnnotations }}
 {{ toYaml .Values.cni.podAnnotations | indent 8 }}
         {{- end }}
@@ -108,7 +113,7 @@ spec:
           imagePullPolicy: {{ .Values.cni.pullPolicy | default .Values.global.imagePullPolicy }}
 {{- end }}
 
-          command: ["/opt/cni/bin/istio-cni-repair"]
+          command: ["/opt/local/bin/istio-cni-repair"]
           env:
           - name: "REPAIR_NODE-NAME"
             valueFrom:
@@ -141,14 +146,14 @@ spec:
 {{- if or .Values.cni.pullPolicy .Values.global.imagePullPolicy }}
           imagePullPolicy: {{ .Values.cni.pullPolicy | default .Values.global.imagePullPolicy }}
 {{- end }}
-          command: ["/opt/cni/bin/istio-cni-taint"]
+          command: ["/opt/local/bin/istio-cni-taint"]
           env:
           - name: "TAINT_RUN-AS-DAEMON"
             value: "true"
           - name: "TAINT_CONFIGMAP-NAME"
             value: "istio-cni-taint-configmap"
           - name: "TAINT_CONFIGMAP-NAMESPACE"
-            value: "kube-system"
+            value: {{ .Release.Namespace | quote }}
 {{- end }}
       volumes:
         # Used to install CNI.

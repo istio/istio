@@ -76,12 +76,10 @@ func (s *Server) initSidecarInjector(args *PilotArgs) (*inject.Webhook, error) {
 	log.Info("initializing sidecar injector")
 
 	parameters := inject.WebhookParameters{
-		Watcher: watcher,
-		Env:     s.environment,
-		// Disable monitoring. The injection metrics will be picked up by Pilots metrics exporter already
-		MonitoringPort: -1,
-		Mux:            s.httpsMux,
-		Revision:       args.Revision,
+		Watcher:  watcher,
+		Env:      s.environment,
+		Mux:      s.httpsMux,
+		Revision: args.Revision,
 	}
 
 	wh, err := inject.NewWebhook(parameters)
@@ -109,7 +107,7 @@ func (s *Server) initSidecarInjector(args *PilotArgs) (*inject.Webhook, error) {
 		})
 	}
 	s.addStartFunc(func(stop <-chan struct{}) error {
-		go wh.Run(stop)
+		wh.Run(stop)
 		return nil
 	})
 	return wh, nil

@@ -16,6 +16,7 @@ package builder
 
 import (
 	"fmt"
+	"strconv"
 
 	tcppb "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
 	rbacpb "github.com/envoyproxy/go-control-plane/envoy/config/rbac/v3"
@@ -25,12 +26,18 @@ import (
 	"github.com/envoyproxy/go-control-plane/pkg/wellknown"
 	"github.com/hashicorp/go-multierror"
 
+	"istio.io/api/annotation"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/plugin"
 	"istio.io/istio/pilot/pkg/networking/util"
 	authzmodel "istio.io/istio/pilot/pkg/security/authz/model"
 	"istio.io/istio/pilot/pkg/security/trustdomain"
 	"istio.io/istio/pkg/config/labels"
+)
+
+const (
+	RBACShadowRulesAllowStatPrefix = "istio_dry_run_allow_"
+	RBACShadowRulesDenyStatPrefix  = "istio_dry_run_deny_"
 )
 
 var rbacPolicyMatchNever = &rbacpb.Policy{
@@ -151,12 +158,39 @@ type builtConfigs struct {
 	tcp  []*tcppb.Filter
 }
 
+func (b Builder) isDryRun(policy model.AuthorizationPolicy) bool {
+	dryRun := false
+	if val, ok := policy.Annotations[annotation.IoIstioDryRun.Name]; ok {
+		var err error
+		dryRun, err = strconv.ParseBool(val)
+		if err != nil {
+			b.option.Logger.AppendError(fmt.Errorf("failed to parse the value of %s: %v", annotation.IoIstioDryRun.Name, err))
+		}
+	}
+	return dryRun
+}
+
+func shadowRuleStatPrefix(rule *rbacpb.RBAC) string {
+	switch rule.GetAction() {
+	case rbacpb.RBAC_ALLOW:
+		return RBACShadowRulesAllowStatPrefix
+	case rbacpb.RBAC_DENY:
+		return RBACShadowRulesDenyStatPrefix
+	default:
+		return ""
+	}
+}
+
 func (b Builder) build(policies []model.AuthorizationPolicy, action rbacpb.RBAC_Action, forTCP bool) *builtConfigs {
 	if len(policies) == 0 {
 		return nil
 	}
 
-	rules := &rbacpb.RBAC{
+	enforceRules := &rbacpb.RBAC{
+		Action:   action,
+		Policies: map[string]*rbacpb.Policy{},
+	}
+	shadowRules := &rbacpb.RBAC{
 		Action:   action,
 		Policies: map[string]*rbacpb.Policy{},
 	}
@@ -166,7 +200,16 @@ func (b Builder) build(policies []model.AuthorizationPolicy, action rbacpb.RBAC_
 	if forTCP {
 		filterType = "TCP"
 	}
+	hasEnforcePolicy, hasDryRunPolicy := false, false
 	for _, policy := range policies {
+		var currentRule *rbacpb.RBAC
+		if b.isDryRun(policy) {
+			currentRule = shadowRules
+			hasDryRunPolicy = true
+		} else {
+			currentRule = enforceRules
+			hasEnforcePolicy = true
+		}
 		if b.option.IsCustomBuilder {
 			providers = append(providers, policy.Spec.GetProvider().GetName())
 		}
@@ -192,7 +235,7 @@ func (b Builder) build(policies []model.AuthorizationPolicy, action rbacpb.RBAC_
 				continue
 			}
 			if generated != nil {
-				rules.Policies[name] = generated
+				currentRule.Policies[name] = generated
 				b.option.Logger.AppendDebugf("generated config from rule %s on %s filter chain successfully", name, filterType)
 			}
 		}
@@ -200,19 +243,27 @@ func (b Builder) build(policies []model.AuthorizationPolicy, action rbacpb.RBAC_
 			// Generate an explicit policy that never matches.
 			name := policyName(policy.Namespace, policy.Name, 0, b.option)
 			b.option.Logger.AppendDebugf("generated config from policy %s on %s filter chain successfully", name, filterType)
-			rules.Policies[name] = rbacPolicyMatchNever
+			currentRule.Policies[name] = rbacPolicyMatchNever
 		}
 	}
 
-	if forTCP {
-		return &builtConfigs{tcp: b.buildTCP(rules, providers)}
+	if !hasEnforcePolicy {
+		enforceRules = nil
 	}
-	return &builtConfigs{http: b.buildHTTP(rules, providers)}
+	if !hasDryRunPolicy {
+		shadowRules = nil
+	}
+	if forTCP {
+		return &builtConfigs{tcp: b.buildTCP(enforceRules, shadowRules, providers)}
+	}
+	return &builtConfigs{http: b.buildHTTP(enforceRules, shadowRules, providers)}
 }
 
-func (b Builder) buildHTTP(rules *rbacpb.RBAC, providers []string) []*httppb.HttpFilter {
+func (b Builder) buildHTTP(rules *rbacpb.RBAC, shadowRules *rbacpb.RBAC, providers []string) []*httppb.HttpFilter {
 	if !b.option.IsCustomBuilder {
-		rbac := &rbachttppb.RBAC{Rules: rules}
+		rbac := &rbachttppb.RBAC{
+			Rules: rules, ShadowRules: shadowRules, ShadowRulesStatPrefix: shadowRuleStatPrefix(shadowRules),
+		}
 		return []*httppb.HttpFilter{
 			{
 				Name:       authzmodel.RBACHTTPFilterName,
@@ -250,9 +301,12 @@ func (b Builder) buildHTTP(rules *rbacpb.RBAC, providers []string) []*httppb.Htt
 	}
 }
 
-func (b Builder) buildTCP(rules *rbacpb.RBAC, providers []string) []*tcppb.Filter {
+func (b Builder) buildTCP(rules *rbacpb.RBAC, shadowRules *rbacpb.RBAC, providers []string) []*tcppb.Filter {
 	if !b.option.IsCustomBuilder {
-		rbac := &rbactcppb.RBAC{Rules: rules, StatPrefix: authzmodel.RBACTCPFilterStatPrefix}
+		rbac := &rbactcppb.RBAC{
+			Rules: rules, StatPrefix: authzmodel.RBACTCPFilterStatPrefix,
+			ShadowRules: shadowRules, ShadowRulesStatPrefix: shadowRuleStatPrefix(shadowRules),
+		}
 		return []*tcppb.Filter{
 			{
 				Name:       authzmodel.RBACTCPFilterName,

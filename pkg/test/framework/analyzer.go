@@ -32,15 +32,16 @@ import (
 type commonAnalyzer struct {
 	labels                  label.Set
 	minCusters, maxClusters int
-	skip                    string
+	minIstioVersion, skip   string
 }
 
 func newCommonAnalyzer() commonAnalyzer {
 	return commonAnalyzer{
-		labels:      label.NewSet(),
-		skip:        "",
-		minCusters:  1,
-		maxClusters: -1,
+		labels:          label.NewSet(),
+		skip:            "",
+		minIstioVersion: "",
+		minCusters:      1,
+		maxClusters:     -1,
 	}
 }
 
@@ -50,8 +51,7 @@ type suiteAnalyzer struct {
 	osExit func(int)
 
 	commonAnalyzer
-	envFactoryCalls    int
-	requiredEnvVersion string
+	envFactoryCalls int
 }
 
 func newSuiteAnalyzer(testID string, fn mRunFn, osExit func(int)) Suite {
@@ -98,8 +98,11 @@ func (s *suiteAnalyzer) RequireSingleCluster() Suite {
 	return s.RequireMinClusters(1).RequireMaxClusters(1)
 }
 
-func (s *suiteAnalyzer) RequireEnvironmentVersion(version string) Suite {
-	s.requiredEnvVersion = version
+func (s *suiteAnalyzer) RequireMinVersion(minorVersion uint) Suite {
+	return s
+}
+
+func (s *suiteAnalyzer) RequireMaxVersion(minorVersion uint) Suite {
 	return s
 }
 
@@ -197,6 +200,11 @@ func (t *testAnalyzer) RequiresMinClusters(minClusters int) Test {
 
 func (t *testAnalyzer) RequiresMaxClusters(maxClusters int) Test {
 	t.maxClusters = maxClusters
+	return t
+}
+
+func (t *testAnalyzer) RequireIstioVersion(version string) Test {
+	t.minIstioVersion = version
 	return t
 }
 

@@ -17,7 +17,6 @@ package sdstlsorigination
 
 import (
 	"fmt"
-	"reflect"
 	"strings"
 	"testing"
 	"time"
@@ -37,7 +36,7 @@ import (
 func TestSimpleTlsOrigination(t *testing.T) {
 	framework.NewTest(t).
 		Features("security.egress.tls.sds").
-		Run(func(ctx framework.TestContext) {
+		Run(func(t framework.TestContext) {
 			var (
 				credName        = "tls-credential-cacert"
 				fakeCredName    = "fake-tls-credential-cacert"
@@ -51,34 +50,34 @@ func TestSimpleTlsOrigination(t *testing.T) {
 				CaCert: sdstlsutil.FakeRoot,
 			}
 			// Add kubernetes secret to provision key/cert for gateway.
-			sdstlsutil.CreateKubeSecret(ctx, []string{credName}, "SIMPLE", credentialA, false)
-			defer ingressutil.DeleteKubeSecret(ctx, []string{credName})
+			sdstlsutil.CreateKubeSecret(t, []string{credName}, "SIMPLE", credentialA, false)
+			defer ingressutil.DeleteKubeSecret(t, []string{credName})
 
 			// Add kubernetes secret to provision key/cert for gateway.
-			sdstlsutil.CreateKubeSecret(ctx, []string{fakeCredName}, "SIMPLE", CredentialB, false)
-			defer ingressutil.DeleteKubeSecret(ctx, []string{fakeCredName})
+			sdstlsutil.CreateKubeSecret(t, []string{fakeCredName}, "SIMPLE", CredentialB, false)
+			defer ingressutil.DeleteKubeSecret(t, []string{fakeCredName})
 
-			internalClient, externalServer, _, serverNamespace := sdstlsutil.SetupEcho(t, ctx)
+			internalClient, externalServer, _, serverNamespace := sdstlsutil.SetupEcho(t, t)
 
 			// Set up Host Namespace
 			host := "server." + serverNamespace.Name() + ".svc.cluster.local"
 
 			testCases := map[string]struct {
-				response        []string
+				response        string
 				credentialToUse string
 				gateway         bool // true if the request is expected to be routed through gateway
 			}{
 				// Use CA certificate stored as k8s secret with the same issuing CA as server's CA.
 				// This root certificate can validate the server cert presented by the echoboot server instance.
 				"Simple TLS with Correct Root Cert": {
-					response:        []string{response.StatusCodeOK},
+					response:        response.StatusCodeOK,
 					credentialToUse: strings.TrimSuffix(credName, "-cacert"),
 					gateway:         true,
 				},
 				// Use CA certificate stored as k8s secret with different issuing CA as server's CA.
 				// This root certificate cannot validate the server cert presented by the echoboot server instance.
 				"Simple TLS with Fake Root Cert": {
-					response:        []string{response.StatusCodeUnavailable},
+					response:        response.StatusCodeUnavailable,
 					credentialToUse: strings.TrimSuffix(fakeCredName, "-cacert"),
 					gateway:         false,
 				},
@@ -86,23 +85,23 @@ func TestSimpleTlsOrigination(t *testing.T) {
 				// Set up an UpstreamCluster with a CredentialName when secret doesn't even exist in istio-system ns.
 				// Secret fetching error at Gateway, results in a 503 response.
 				"Simple TLS with credentialName set when the underlying secret doesn't exist": {
-					response:        []string{response.StatusCodeUnavailable},
+					response:        response.StatusCodeUnavailable,
 					credentialToUse: strings.TrimSuffix(credNameMissing, "-cacert"),
 					gateway:         false,
 				},
 			}
 
 			for name, tc := range testCases {
-				ctx.NewSubTest(name).Run(func(ctx framework.TestContext) {
-					bufDestinationRule := sdstlsutil.CreateDestinationRule(ctx, serverNamespace, "SIMPLE", tc.credentialToUse)
+				t.NewSubTest(name).Run(func(t framework.TestContext) {
+					bufDestinationRule := sdstlsutil.CreateDestinationRule(t, serverNamespace, "SIMPLE", tc.credentialToUse)
 
 					// Get namespace for gateway pod.
-					istioCfg := istio.DefaultConfigOrFail(ctx, ctx)
-					systemNS := namespace.ClaimOrFail(ctx, ctx, istioCfg.SystemNamespace)
+					istioCfg := istio.DefaultConfigOrFail(t, t)
+					systemNS := namespace.ClaimOrFail(t, t, istioCfg.SystemNamespace)
 
-					ctx.Config().ApplyYAMLOrFail(ctx, systemNS.Name(), bufDestinationRule.String())
+					t.Config(t.Clusters().Default()).ApplyYAMLOrFail(t, systemNS.Name(), bufDestinationRule.String())
 
-					retry.UntilSuccessOrFail(ctx, func() error {
+					retry.UntilSuccessOrFail(t, func() error {
 						resp, err := internalClient.Call(echo.CallOptions{
 							Target:   externalServer,
 							PortName: "http",
@@ -113,12 +112,10 @@ func TestSimpleTlsOrigination(t *testing.T) {
 						if err != nil {
 							return fmt.Errorf("request failed: %v", err)
 						}
-						codes := make([]string, 0, len(resp))
 						for _, r := range resp {
-							codes = append(codes, r.Code)
-						}
-						if !reflect.DeepEqual(codes, tc.response) {
-							return fmt.Errorf("got codes %q, expected %q", codes, tc.response)
+							if r.Code != tc.response {
+								return fmt.Errorf("got code %s, expected %s", r.Code, tc.response)
+							}
 						}
 						for _, r := range resp {
 							if _, f := r.RawResponse["Handled-By-Egress-Gateway"]; tc.gateway && !f {
@@ -137,7 +134,7 @@ func TestSimpleTlsOrigination(t *testing.T) {
 func TestMutualTlsOrigination(t *testing.T) {
 	framework.NewTest(t).
 		Features("security.egress.mtls.sds").
-		Run(func(ctx framework.TestContext) {
+		Run(func(t framework.TestContext) {
 			var (
 				credNameGeneric    = "mtls-credential-generic"
 				credNameNotGeneric = "mtls-credential-not-generic"
@@ -175,28 +172,28 @@ func TestMutualTlsOrigination(t *testing.T) {
 				CaCert:     sdstlsutil.MustReadCert(t, "root-cert.pem"),
 			}
 			// Add kubernetes secret to provision key/cert for gateway.
-			sdstlsutil.CreateKubeSecret(ctx, []string{credNameGeneric}, "MUTUAL", credentialAGeneric, false)
-			defer ingressutil.DeleteKubeSecret(ctx, []string{credNameGeneric})
+			sdstlsutil.CreateKubeSecret(t, []string{credNameGeneric}, "MUTUAL", credentialAGeneric, false)
+			defer ingressutil.DeleteKubeSecret(t, []string{credNameGeneric})
 
-			sdstlsutil.CreateKubeSecret(ctx, []string{credNameNotGeneric}, "MUTUAL", credentialANonGeneric, true)
-			defer ingressutil.DeleteKubeSecret(ctx, []string{credNameNotGeneric})
+			sdstlsutil.CreateKubeSecret(t, []string{credNameNotGeneric}, "MUTUAL", credentialANonGeneric, true)
+			defer ingressutil.DeleteKubeSecret(t, []string{credNameNotGeneric})
 
-			sdstlsutil.CreateKubeSecret(ctx, []string{fakeCredNameA}, "MUTUAL", credentialBCert, false)
-			defer ingressutil.DeleteKubeSecret(ctx, []string{fakeCredNameA})
+			sdstlsutil.CreateKubeSecret(t, []string{fakeCredNameA}, "MUTUAL", credentialBCert, false)
+			defer ingressutil.DeleteKubeSecret(t, []string{fakeCredNameA})
 
-			sdstlsutil.CreateKubeSecret(ctx, []string{fakeCredNameB}, "MUTUAL", credentialBCertAndKey, false)
-			defer ingressutil.DeleteKubeSecret(ctx, []string{fakeCredNameB})
+			sdstlsutil.CreateKubeSecret(t, []string{fakeCredNameB}, "MUTUAL", credentialBCertAndKey, false)
+			defer ingressutil.DeleteKubeSecret(t, []string{fakeCredNameB})
 
-			sdstlsutil.CreateKubeSecret(ctx, []string{simpleCredName}, "SIMPLE", credentialASimple, false)
-			defer ingressutil.DeleteKubeSecret(ctx, []string{simpleCredName})
+			sdstlsutil.CreateKubeSecret(t, []string{simpleCredName}, "SIMPLE", credentialASimple, false)
+			defer ingressutil.DeleteKubeSecret(t, []string{simpleCredName})
 
-			internalClient, externalServer, _, serverNamespace := sdstlsutil.SetupEcho(t, ctx)
+			internalClient, externalServer, _, serverNamespace := sdstlsutil.SetupEcho(t, t)
 
 			// Set up Host Namespace
 			host := "server." + serverNamespace.Name() + ".svc.cluster.local"
 
 			testCases := map[string]struct {
-				response        []string
+				response        string
 				credentialToUse string
 				gateway         bool // true if the request is expected to be routed through gateway
 			}{
@@ -204,7 +201,7 @@ func TestMutualTlsOrigination(t *testing.T) {
 				// This root certificate can validate the server cert presented by the echoboot server instance and server CA can
 				// validate the client cert. Secret is of type generic.
 				"MUTUAL TLS with correct root cert and client certs and generic secret type": {
-					response:        []string{response.StatusCodeOK},
+					response:        response.StatusCodeOK,
 					credentialToUse: strings.TrimSuffix(credNameGeneric, "-cacert"),
 					gateway:         true,
 				},
@@ -212,7 +209,7 @@ func TestMutualTlsOrigination(t *testing.T) {
 				// This root certificate can validate the server cert presented by the echoboot server instance and server CA can
 				// validate the client cert. Secret is not of type generic.
 				"MUTUAL TLS with correct root cert and client certs and non generic secret type": {
-					response:        []string{response.StatusCodeOK},
+					response:        response.StatusCodeOK,
 					credentialToUse: strings.TrimSuffix(credNameNotGeneric, "-cacert"),
 					gateway:         true,
 				},
@@ -220,7 +217,7 @@ func TestMutualTlsOrigination(t *testing.T) {
 				// This root certificate can validate the server cert presented by the echoboot server instance and server CA
 				// cannot validate the client cert. Returns 503 response as TLS handshake fails.
 				"MUTUAL TLS with correct root cert but invalid client cert": {
-					response:        []string{response.StatusCodeUnavailable},
+					response:        response.StatusCodeUnavailable,
 					credentialToUse: strings.TrimSuffix(fakeCredNameA, "-cacert"),
 					gateway:         false,
 				},
@@ -228,27 +225,27 @@ func TestMutualTlsOrigination(t *testing.T) {
 				// Set up an UpstreamCluster with a CredentialName when secret doesn't even exist in istio-system ns.
 				// Secret fetching error at Gateway, results in a 503 response.
 				"MUTUAL TLS with credentialName set when the underlying secret doesn't exist": {
-					response:        []string{response.StatusCodeUnavailable},
+					response:        response.StatusCodeUnavailable,
 					credentialToUse: strings.TrimSuffix(credNameMissing, "-cacert"),
 					gateway:         false,
 				},
 				"MUTUAL TLS with correct root cert but no client certs": {
-					response:        []string{response.StatusCodeUnavailable},
+					response:        response.StatusCodeUnavailable,
 					credentialToUse: strings.TrimSuffix(simpleCredName, "-cacert"),
 					gateway:         false,
 				},
 			}
 
 			for name, tc := range testCases {
-				ctx.NewSubTest(name).
-					Run(func(ctx framework.TestContext) {
+				t.NewSubTest(name).
+					Run(func(t framework.TestContext) {
 						bufDestinationRule := sdstlsutil.CreateDestinationRule(t, serverNamespace, "MUTUAL", tc.credentialToUse)
 
 						// Get namespace for gateway pod.
-						istioCfg := istio.DefaultConfigOrFail(t, ctx)
-						systemNS := namespace.ClaimOrFail(ctx, ctx, istioCfg.SystemNamespace)
+						istioCfg := istio.DefaultConfigOrFail(t, t)
+						systemNS := namespace.ClaimOrFail(t, t, istioCfg.SystemNamespace)
 
-						ctx.Config().ApplyYAMLOrFail(ctx, systemNS.Name(), bufDestinationRule.String())
+						t.Config(t.Clusters().Default()).ApplyYAMLOrFail(t, systemNS.Name(), bufDestinationRule.String())
 
 						retry.UntilSuccessOrFail(t, func() error {
 							resp, err := internalClient.Call(echo.CallOptions{
@@ -261,12 +258,10 @@ func TestMutualTlsOrigination(t *testing.T) {
 							if err != nil {
 								return fmt.Errorf("request failed: %v", err)
 							}
-							codes := make([]string, 0, len(resp))
 							for _, r := range resp {
-								codes = append(codes, r.Code)
-							}
-							if !reflect.DeepEqual(codes, tc.response) {
-								return fmt.Errorf("got codes %q, expected %q", codes, tc.response)
+								if r.Code != tc.response {
+									return fmt.Errorf("got code %s, expected %s", r.Code, tc.response)
+								}
 							}
 							for _, r := range resp {
 								if _, f := r.RawResponse["Handled-By-Egress-Gateway"]; tc.gateway && !f {

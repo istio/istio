@@ -50,11 +50,11 @@ func TestVmOSPost(t *testing.T) {
 		NewTest(t).
 		Features("traffic.reachability").
 		Label(label.Postsubmit).
-		Run(func(ctx framework.TestContext) {
-			if ctx.Settings().SkipVM {
-				ctx.Skip("VM tests are disabled")
+		Run(func(t framework.TestContext) {
+			if t.Settings().SkipVM {
+				t.Skip("VM tests are disabled")
 			}
-			b := echoboot.NewBuilder(ctx, ctx.Clusters().Primaries().Default())
+			b := echoboot.NewBuilder(t, t.Clusters().Primaries().Default())
 			images := GetAdditionVMImages()
 			for _, image := range images {
 				b = b.WithConfig(echo.Config{
@@ -66,13 +66,13 @@ func TestVmOSPost(t *testing.T) {
 					Subsets:    []echo.SubsetConfig{{}},
 				})
 			}
-			instances := b.BuildOrFail(ctx)
+			instances := b.BuildOrFail(t)
 
 			for i, image := range images {
 				i, image := i, image
-				ctx.NewSubTest(image).RunParallel(func(ctx framework.TestContext) {
+				t.NewSubTest(image).RunParallel(func(t framework.TestContext) {
 					for _, tt := range common.VMTestCases(echo.Instances{instances[i]}, apps) {
-						tt.Run(ctx, apps.Namespace.Name())
+						tt.Run(t, apps.Namespace.Name())
 					}
 				})
 			}
@@ -84,21 +84,24 @@ func TestVMRegistrationLifecycle(t *testing.T) {
 		NewTest(t).
 		RequiresSingleCluster().
 		Features("vm.autoregistration").
-		Run(func(ctx framework.TestContext) {
-			scaleDeploymentOrFail(ctx, "istiod", i.Settings().SystemNamespace, 2)
-			client := apps.PodA.GetOrFail(ctx, echo.InCluster(ctx.Clusters().Default()))
+		Run(func(t framework.TestContext) {
+			if t.Settings().SkipVM {
+				t.Skip()
+			}
+			scaleDeploymentOrFail(t, "istiod", i.Settings().SystemNamespace, 2)
+			client := apps.PodA.GetOrFail(t, echo.InCluster(t.Clusters().Default()))
 			// TODO test multi-network (must be shared control plane but on different networks)
 			var autoVM echo.Instance
-			_ = echoboot.NewBuilder(ctx).
+			_ = echoboot.NewBuilder(t).
 				With(&autoVM, echo.Config{
 					Namespace:      apps.Namespace,
 					Service:        "auto-vm",
 					Ports:          common.EchoPorts,
 					DeployAsVM:     true,
 					AutoRegisterVM: true,
-				}).BuildOrFail(ctx)
-			ctx.NewSubTest("initial registration").Run(func(ctx framework.TestContext) {
-				retry.UntilSuccessOrFail(ctx, func() error {
+				}).BuildOrFail(t)
+			t.NewSubTest("initial registration").Run(func(t framework.TestContext) {
+				retry.UntilSuccessOrFail(t, func() error {
 					res, err := client.Call(echo.CallOptions{Target: autoVM, Port: &autoVM.Config().Ports[0]})
 					if err != nil {
 						return err
@@ -106,10 +109,10 @@ func TestVMRegistrationLifecycle(t *testing.T) {
 					return res.CheckOK()
 				}, retry.Timeout(15*time.Second))
 			})
-			ctx.NewSubTest("reconnect reuses WorkloadEntry").Run(func(ctx framework.TestContext) {
+			t.NewSubTest("reconnect reuses WorkloadEntry").Run(func(t framework.TestContext) {
 				// ensure we have two pilot instances, other tests can pass before the second one comes up
-				retry.UntilSuccessOrFail(ctx, func() error {
-					pilotRes, err := ctx.Clusters().Default().CoreV1().Pods(i.Settings().SystemNamespace).
+				retry.UntilSuccessOrFail(t, func() error {
+					pilotRes, err := t.Clusters().Default().CoreV1().Pods(i.Settings().SystemNamespace).
 						List(context.TODO(), metav1.ListOptions{LabelSelector: "istio=pilot"})
 					if err != nil {
 						return err
@@ -121,35 +124,35 @@ func TestVMRegistrationLifecycle(t *testing.T) {
 				}, retry.Timeout(10*time.Second))
 
 				// get the initial workload entry state
-				entries := getWorkloadEntriesOrFail(ctx, autoVM)
+				entries := getWorkloadEntriesOrFail(t, autoVM)
 				if len(entries) != 1 {
-					ctx.Fatalf("expected exactly 1 WorkloadEntry but got %d", len(entries))
+					t.Fatalf("expected exactly 1 WorkloadEntry but got %d", len(entries))
 				}
 				initialWLE := entries[0]
 
 				// keep force-disconnecting until we observe a reconnect to a different istiod instance
 				initialPilot := initialWLE.Annotations[workloadentry.WorkloadControllerAnnotation]
-				disconnectProxy(ctx, initialPilot, autoVM)
-				retry.UntilSuccessOrFail(ctx, func() error {
-					entries := getWorkloadEntriesOrFail(ctx, autoVM)
+				disconnectProxy(t, initialPilot, autoVM)
+				retry.UntilSuccessOrFail(t, func() error {
+					entries := getWorkloadEntriesOrFail(t, autoVM)
 					if len(entries) != 1 || entries[0].UID != initialWLE.UID {
-						ctx.Fatalf("WorkloadEntry was cleaned up unexpectedly")
+						t.Fatalf("WorkloadEntry was cleaned up unexpectedly")
 					}
 
 					currentPilot := entries[0].Annotations[workloadentry.WorkloadControllerAnnotation]
 					if currentPilot == initialPilot || !strings.HasPrefix(currentPilot, "istiod-") {
-						disconnectProxy(ctx, currentPilot, autoVM)
+						disconnectProxy(t, currentPilot, autoVM)
 						return errors.New("expected WorkloadEntry to be updated by other pilot")
 					}
 					return nil
 				}, retry.Delay(5*time.Second))
 			})
-			ctx.NewSubTest("disconnect deletes WorkloadEntry").Run(func(ctx framework.TestContext) {
+			t.NewSubTest("disconnect deletes WorkloadEntry").Run(func(t framework.TestContext) {
 				deployment := fmt.Sprintf("%s-%s", autoVM.Config().Service, "v1")
-				scaleDeploymentOrFail(ctx, deployment, autoVM.Config().Namespace.Name(), 0)
+				scaleDeploymentOrFail(t, deployment, autoVM.Config().Namespace.Name(), 0)
 				// it should take at most just over GracePeriod to cleanup if all pilots are healthy
-				retry.UntilSuccessOrFail(ctx, func() error {
-					if len(getWorkloadEntriesOrFail(ctx, autoVM)) > 0 {
+				retry.UntilSuccessOrFail(t, func() error {
+					if len(getWorkloadEntriesOrFail(t, autoVM)) > 0 {
 						return errors.New("expected 0 WorkloadEntries")
 					}
 					return nil
@@ -158,36 +161,36 @@ func TestVMRegistrationLifecycle(t *testing.T) {
 		})
 }
 
-func disconnectProxy(ctx framework.TestContext, pilot string, instance echo.Instance) {
-	proxyID := strings.Join([]string{instance.WorkloadsOrFail(ctx)[0].PodName(), instance.Config().Namespace.Name()}, ".")
+func disconnectProxy(t framework.TestContext, pilot string, instance echo.Instance) {
+	proxyID := strings.Join([]string{instance.WorkloadsOrFail(t)[0].PodName(), instance.Config().Namespace.Name()}, ".")
 	cmd := "pilot-discovery request GET /debug/force_disconnect?proxyID=" + proxyID
-	stdOut, _, err := ctx.Clusters().Default().
+	stdOut, _, err := t.Clusters().Default().
 		PodExec(pilot, i.Settings().SystemNamespace, "discovery", cmd)
 	if err != nil {
 		scopes.Framework.Warnf("failed to force disconnect %s: %v: %v", proxyID, stdOut, err)
 	}
 }
 
-func scaleDeploymentOrFail(ctx framework.TestContext, name, namespace string, scale int32) {
-	s, err := ctx.Clusters().Default().AppsV1().Deployments(namespace).
+func scaleDeploymentOrFail(t framework.TestContext, name, namespace string, scale int32) {
+	s, err := t.Clusters().Default().AppsV1().Deployments(namespace).
 		GetScale(context.TODO(), name, metav1.GetOptions{})
 	if err != nil {
-		ctx.Fatal(err)
+		t.Fatal(err)
 	}
 	s.Spec.Replicas = scale
-	_, err = ctx.Clusters().Default().AppsV1().Deployments(namespace).
+	_, err = t.Clusters().Default().AppsV1().Deployments(namespace).
 		UpdateScale(context.TODO(), name, s, metav1.UpdateOptions{})
 	if err != nil {
-		ctx.Fatal(err)
+		t.Fatal(err)
 	}
 }
 
-func getWorkloadEntriesOrFail(ctx framework.TestContext, vm echo.Instance) []v1alpha3.WorkloadEntry {
-	res, err := ctx.Clusters().Default().Istio().NetworkingV1alpha3().
+func getWorkloadEntriesOrFail(t framework.TestContext, vm echo.Instance) []v1alpha3.WorkloadEntry {
+	res, err := t.Clusters().Default().Istio().NetworkingV1alpha3().
 		WorkloadEntries(vm.Config().Namespace.Name()).
 		List(context.TODO(), metav1.ListOptions{LabelSelector: "app=" + vm.Config().Service})
 	if err != nil {
-		ctx.Fatal(err)
+		t.Fatal(err)
 	}
 	return res.Items
 }

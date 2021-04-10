@@ -76,12 +76,8 @@ type Webhook struct {
 	meshConfig   *meshconfig.MeshConfig
 	valuesConfig string
 
-	healthCheckInterval time.Duration
-	healthCheckFile     string
-
 	watcher Watcher
 
-	mon      *monitor
 	env      *model.Environment
 	revision string
 }
@@ -129,19 +125,6 @@ type WebhookParameters struct {
 	// This is mainly used for tests. Webhook runs on the port started by Istiod.
 	Port int
 
-	// MonitoringPort is the webhook port, e.g. typically 15014.
-	// Set to -1 to disable monitoring
-	MonitoringPort int
-
-	// HealthCheckInterval configures how frequently the health check
-	// file is updated. Value of zero disables the health check
-	// update.
-	HealthCheckInterval time.Duration
-
-	// HealthCheckFile specifies the path to the health check file
-	// that is periodically updated.
-	HealthCheckFile string
-
 	Env *model.Environment
 
 	// Use an existing mux instead of creating our own.
@@ -158,12 +141,10 @@ func NewWebhook(p WebhookParameters) (*Webhook, error) {
 	}
 
 	wh := &Webhook{
-		watcher:             p.Watcher,
-		meshConfig:          p.Env.Mesh(),
-		healthCheckInterval: p.HealthCheckInterval,
-		healthCheckFile:     p.HealthCheckFile,
-		env:                 p.Env,
-		revision:            p.Revision,
+		watcher:    p.Watcher,
+		meshConfig: p.Env.Mesh(),
+		env:        p.Env,
+		revision:   p.Revision,
 	}
 
 	p.Watcher.SetHandler(wh.updateConfig)
@@ -182,43 +163,12 @@ func NewWebhook(p WebhookParameters) (*Webhook, error) {
 		wh.mu.Unlock()
 	})
 
-	if p.MonitoringPort >= 0 {
-		mon, err := startMonitor(p.Mux, p.MonitoringPort)
-		if err != nil {
-			return nil, fmt.Errorf("could not start monitoring server %v", err)
-		}
-		wh.mon = mon
-	}
-
 	return wh, nil
 }
 
 // Run implements the webhook server
 func (wh *Webhook) Run(stop <-chan struct{}) {
 	go wh.watcher.Run(stop)
-
-	if wh.mon != nil {
-		defer wh.mon.monitoringServer.Close()
-	}
-
-	var healthC <-chan time.Time
-	if wh.healthCheckInterval != 0 && wh.healthCheckFile != "" {
-		t := time.NewTicker(wh.healthCheckInterval)
-		healthC = t.C
-		defer t.Stop()
-	}
-
-	for {
-		select {
-		case <-healthC:
-			content := []byte(`ok`)
-			if err := ioutil.WriteFile(wh.healthCheckFile, content, 0o644); err != nil {
-				log.Errorf("Health check update of %q failed: %v", wh.healthCheckFile, err)
-			}
-		case <-stop:
-			return
-		}
-	}
 }
 
 func (wh *Webhook) updateConfig(sidecarConfig *Config, valuesConfig string) {
@@ -883,14 +833,40 @@ func (wh *Webhook) serveInject(w http.ResponseWriter, r *http.Request) {
 }
 
 // parseInjectEnvs parse new envs from inject url path
-// follow format: /inject/k1/v1/k2/v2, any kv order works
-// eg. "/inject/cluster/cluster1", "/inject/net/network1/cluster/cluster1"
+// follow format: /inject/k1/v1/k2/v2 when values do not contain slashes,
+// follow format: /inject/:ENV:net=network1:ENV:cluster=cluster1:ENV:rootpage=/foo/bar
+// when values contain slashes.
 func parseInjectEnvs(path string) map[string]string {
 	path = strings.TrimSuffix(path, "/")
-	res := strings.Split(path, "/")
+	res := func(path string) []string {
+		parts := strings.SplitN(path, "/", 3)
+		// The 3rd part has to start with separator :ENV:
+		// If not, this inject path is considered using slash as separator
+		// If length is less than 3, then the path is simply "/inject",
+		// process just like before :ENV: separator is introduced.
+		var newRes []string
+		if len(parts) == 3 {
+			if strings.HasPrefix(parts[2], ":ENV:") {
+				pairs := strings.Split(parts[2], ":ENV:")
+				for i := 1; i < len(pairs); i++ { // skip the first part, it is a nil
+					pair := strings.SplitN(pairs[i], "=", 2)
+					// The first part is the variable name which can not be empty
+					// the second part is the variable value which can be empty but has to exist
+					// for example, aaa=bbb, aaa= are valid, but =aaa or = are not valid, the
+					// invalid ones will be ignored.
+					if len(pair[0]) > 0 && len(pair) == 2 {
+						newRes = append(newRes, pair...)
+					}
+				}
+				return newRes
+			}
+			return strings.Split(parts[2], "/")
+		}
+		return newRes
+	}(path)
 	newEnvs := make(map[string]string)
 
-	for i := 2; i < len(res); i += 2 { // skip '/inject'
+	for i := 0; i < len(res); i += 2 {
 		k := res[i]
 		if i == len(res)-1 { // ignore the last key without value
 			log.Warnf("Odd number of inject env entries, ignore the last key %s\n", k)

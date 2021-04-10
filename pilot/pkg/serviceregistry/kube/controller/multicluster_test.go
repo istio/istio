@@ -24,6 +24,7 @@ import (
 	"k8s.io/client-go/tools/cache"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
+	"istio.io/istio/pilot/pkg/server"
 	"istio.io/istio/pilot/pkg/serviceregistry/aggregate"
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/kube"
@@ -86,6 +87,7 @@ func Test_KubeSecretController(t *testing.T) {
 	t.Cleanup(func() {
 		close(stop)
 	})
+	s := server.New()
 	mc := NewMulticluster(
 		"pilot-abc-123",
 		clientset,
@@ -96,10 +98,14 @@ func Test_KubeSecretController(t *testing.T) {
 			ResyncPeriod:      ResyncPeriod,
 			SyncInterval:      time.Microsecond,
 			MeshWatcher:       mesh.NewFixedWatcher(&meshconfig.MeshConfig{}),
-		}, mockserviceController, nil, "", "default", nil, nil)
+		}, mockserviceController, nil, "", "default", nil, nil, nil, s)
 	mc.InitSecretController(stop)
 	cache.WaitForCacheSync(stop, mc.HasSynced)
 	clientset.RunAndWait(stop)
+	_ = s.Start(stop)
+	go func() {
+		_ = mc.Run(stop)
+	}()
 
 	// Create the multicluster secret. Sleep to allow created remote
 	// controller to start and callback add function to be called.

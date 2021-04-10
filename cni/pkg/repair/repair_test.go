@@ -19,8 +19,12 @@ import (
 	"fmt"
 	"reflect"
 	"strings"
+	"sync"
 	"testing"
+	"time"
 
+	"go.opencensus.io/stats/view"
+	"go.opencensus.io/tag"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -28,6 +32,7 @@ import (
 	"k8s.io/client-go/kubernetes/fake"
 
 	"istio.io/istio/tools/istio-iptables/pkg/constants"
+	"istio.io/pkg/monitoring"
 )
 
 func TestBrokenPodReconciler_detectPod(t *testing.T) {
@@ -397,7 +402,8 @@ func TestNewBrokenPodReconciler(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if gotBpr := NewBrokenPodReconciler(tt.args.client, tt.args.filters, tt.args.options); !reflect.DeepEqual(gotBpr, tt.wantBpr) {
+			gotBpr := NewBrokenPodReconciler(tt.args.client, tt.args.filters, tt.args.options)
+			if !reflect.DeepEqual(gotBpr, tt.wantBpr) {
 				t.Errorf("NewBrokenPodReconciler() = %v, want %v", gotBpr, tt.wantBpr)
 			}
 		})
@@ -437,6 +443,8 @@ func TestBrokenPodReconciler_labelBrokenPods(t *testing.T) {
 		fields     fields
 		wantLabels map[string]string
 		wantErr    bool
+		wantCount  float64
+		wantTags   []tag.Tag
 	}{
 		{
 			name: "No broken pods",
@@ -451,6 +459,7 @@ func TestBrokenPodReconciler_labelBrokenPods(t *testing.T) {
 			},
 			wantLabels: map[string]string{"WorkingPod": "", "WorkingPodDiedPreviously": ""},
 			wantErr:    false,
+			wantCount:  0,
 		},
 		{
 			name: "With broken pods",
@@ -465,6 +474,8 @@ func TestBrokenPodReconciler_labelBrokenPods(t *testing.T) {
 			},
 			wantLabels: map[string]string{"WorkingPod": "", "WorkingPodDiedPreviously": "", "BrokenPodWaiting": "testkey=testval"},
 			wantErr:    false,
+			wantCount:  1,
+			wantTags:   []tag.Tag{{Key: tag.Key(resultLabel), Value: resultSuccess}, {Key: tag.Key(typeLabel), Value: labelType}},
 		},
 		{
 			name: "With already labeled pod",
@@ -479,10 +490,13 @@ func TestBrokenPodReconciler_labelBrokenPods(t *testing.T) {
 			},
 			wantLabels: map[string]string{"WorkingPod": "", "WorkingPodDiedPreviously": "", "BrokenPodTerminating": "testlabel=true"},
 			wantErr:    false,
+			wantCount:  1,
+			wantTags:   []tag.Tag{{Key: tag.Key(resultLabel), Value: resultSkip}, {Key: tag.Key(typeLabel), Value: labelType}},
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			exp := initStats(tt.name)
 			bpr := BrokenPodReconciler{
 				client:  tt.fields.client,
 				Filters: tt.fields.Filters,
@@ -500,6 +514,9 @@ func TestBrokenPodReconciler_labelBrokenPods(t *testing.T) {
 					t.Errorf("LabelBrokenPods() haveLabels = %v, wantLabels = %v", plm, tt.wantLabels)
 				}
 			}
+			if err := checkStats(tt.wantCount, tt.wantTags, exp); err != nil {
+				t.Error(err)
+			}
 		})
 	}
 }
@@ -511,10 +528,12 @@ func TestBrokenPodReconciler_deleteBrokenPods(t *testing.T) {
 		Options *Options
 	}
 	tests := []struct {
-		name     string
-		fields   fields
-		wantErr  bool
-		wantPods []v1.Pod
+		name      string
+		fields    fields
+		wantErr   bool
+		wantPods  []v1.Pod
+		wantCount float64
+		wantTags  []tag.Tag
 	}{
 		{
 			name: "No broken pods",
@@ -527,8 +546,9 @@ func TestBrokenPodReconciler_deleteBrokenPods(t *testing.T) {
 				},
 				Options: &Options{},
 			},
-			wantPods: []v1.Pod{workingPod, workingPodDiedPreviously},
-			wantErr:  false,
+			wantPods:  []v1.Pod{workingPod, workingPodDiedPreviously},
+			wantErr:   false,
+			wantCount: 0,
 		},
 		{
 			name: "With broken pods",
@@ -541,12 +561,15 @@ func TestBrokenPodReconciler_deleteBrokenPods(t *testing.T) {
 				},
 				Options: &Options{},
 			},
-			wantPods: []v1.Pod{workingPod, workingPodDiedPreviously},
-			wantErr:  false,
+			wantPods:  []v1.Pod{workingPod, workingPodDiedPreviously},
+			wantErr:   false,
+			wantCount: 1,
+			wantTags:  []tag.Tag{{Key: tag.Key(resultLabel), Value: resultSuccess}, {Key: tag.Key(typeLabel), Value: deleteType}},
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			exp := initStats(tt.name)
 			bpr := BrokenPodReconciler{
 				client:  tt.fields.client,
 				Filters: tt.fields.Filters,
@@ -562,6 +585,89 @@ func TestBrokenPodReconciler_deleteBrokenPods(t *testing.T) {
 			if !reflect.DeepEqual(havePods.Items, tt.wantPods) {
 				t.Errorf("DeleteBrokenPods() error havePods = %v, wantPods = %v", havePods.Items, tt.wantPods)
 			}
+			if err := checkStats(tt.wantCount, tt.wantTags, exp); err != nil {
+				t.Error(err)
+			}
 		})
 	}
+}
+
+type testExporter struct {
+	sync.Mutex
+
+	rows        map[string][]*view.Row
+	invalidTags bool
+}
+
+func (t *testExporter) ExportView(d *view.Data) {
+	t.Lock()
+	for _, tk := range d.View.TagKeys {
+		if len(tk.Name()) < 1 {
+			t.invalidTags = true
+		}
+	}
+	t.rows[d.View.Name] = append(t.rows[d.View.Name], d.Rows...)
+	t.Unlock()
+}
+
+// because OC uses goroutines to async export, validating proper export
+// can introduce timing problems. this helper just trys validation over
+// and over until the supplied method either succeeds or it times out.
+func retry(fn func() error) error {
+	var lasterr error
+	to := time.After(1 * time.Second)
+	var i int
+	for {
+		select {
+		case <-to:
+			return fmt.Errorf("timeout while waiting after %d iterations (last error: %v)", i, lasterr)
+		default:
+		}
+		i++
+		if err := fn(); err != nil {
+			lasterr = err
+		} else {
+			return nil
+		}
+		<-time.After(10 * time.Millisecond)
+	}
+}
+
+// returns 0 when the metric has not been incremented.
+func readFloat64(exp *testExporter, metric monitoring.Metric, tags []tag.Tag) float64 {
+	exp.Lock()
+	defer exp.Unlock()
+	for _, r := range exp.rows[metric.Name()] {
+		if !reflect.DeepEqual(r.Tags, tags) {
+			continue
+		}
+		if sd, ok := r.Data.(*view.SumData); ok {
+			return sd.Value
+		}
+	}
+	return 0
+}
+
+func initStats(name string) *testExporter {
+	podsRepaired = monitoring.NewSum(name, "", monitoring.WithLabels(typeLabel, resultLabel))
+	monitoring.MustRegister(podsRepaired)
+	exp := &testExporter{rows: make(map[string][]*view.Row)}
+	view.RegisterExporter(exp)
+	view.SetReportingPeriod(1 * time.Millisecond)
+	return exp
+}
+
+func checkStats(wantCount float64, wantTags []tag.Tag, exp *testExporter) error {
+	if wantCount > 0 {
+		if err := retry(func() error {
+			haveCount := readFloat64(exp, podsRepaired, wantTags)
+			if haveCount != wantCount {
+				return fmt.Errorf("counter error in ReconcilePod(): haveCount = %v, wantCount = %v", haveCount, wantCount)
+			}
+			return nil
+		}); err != nil {
+			return err
+		}
+	}
+	return nil
 }

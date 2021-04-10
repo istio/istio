@@ -16,6 +16,8 @@
 package util
 
 import (
+	"github.com/hashicorp/go-multierror"
+
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
@@ -32,8 +34,6 @@ const (
 	CSvc             = "c"
 	DSvc             = "d"
 	ESvc             = "e"
-	FSvc             = "f"
-	GSvc             = "g"
 	MultiversionSvc  = "multiversion"
 	VMSvc            = "vm"
 	HeadlessSvc      = "headless"
@@ -51,14 +51,14 @@ type EchoDeployments struct {
 	// Namespace2 is used by most authorization test cases within authorization_test.go
 	Namespace2 namespace.Instance
 	// Namespace3 is used by TestAuthorization_Conditions and there is one C echo instance deployed
-	Namespace3          namespace.Instance
-	A, B, C, D, E, F, G echo.Instances
-	Multiversion        echo.Instances
-	Headless            echo.Instances
-	Naked               echo.Instances
-	VM                  echo.Instances
-	HeadlessNaked       echo.Instances
-	All                 echo.Instances
+	Namespace3    namespace.Instance
+	A, B, C, D, E echo.Instances
+	Multiversion  echo.Instances
+	Headless      echo.Instances
+	Naked         echo.Instances
+	VM            echo.Instances
+	HeadlessNaked echo.Instances
+	All           echo.Instances
 }
 
 func EchoConfig(name string, ns namespace.Instance, headless bool, annos echo.Annotations) echo.Config {
@@ -79,6 +79,7 @@ func EchoConfig(name string, ns namespace.Instance, headless bool, annos echo.An
 				Protocol: protocol.HTTP,
 				// We use a port > 1024 to not require root
 				InstancePort: 8090,
+				ServicePort:  8095,
 			},
 			{
 				Name:     "tcp",
@@ -95,9 +96,29 @@ func EchoConfig(name string, ns namespace.Instance, headless bool, annos echo.An
 				InstancePort: 8443,
 				TLS:          true,
 			},
+			{
+				Name:         "http-8091",
+				Protocol:     protocol.HTTP,
+				InstancePort: 8091,
+			},
+			{
+				Name:         "http-8092",
+				Protocol:     protocol.HTTP,
+				InstancePort: 8092,
+			},
+			{
+				Name:         "tcp-8093",
+				Protocol:     protocol.TCP,
+				InstancePort: 8093,
+			},
+			{
+				Name:         "tcp-8094",
+				Protocol:     protocol.TCP,
+				InstancePort: 8094,
+			},
 		},
 		// Workload Ports needed by TestPassThroughFilterChain
-		// The port 8085,8086,8087,8088,8089 will be defined only in the workload and not in the k8s service.
+		// The port 8084-8089 will be defined only in the workload and not in the k8s service.
 		WorkloadOnlyPorts: []echo.WorkloadPort{
 			{
 				Port:     8085,
@@ -118,6 +139,12 @@ func EchoConfig(name string, ns namespace.Instance, headless bool, annos echo.An
 			{
 				Port:     8089,
 				Protocol: protocol.HTTPS,
+				TLS:      true,
+			},
+			{
+				Port:     8084,
+				Protocol: protocol.HTTPS,
+				TLS:      true,
 			},
 		},
 	}
@@ -166,8 +193,6 @@ func SetupApps(ctx resource.Context, i istio.Instance, apps *EchoDeployments, bu
 		WithConfig(EchoConfig(CSvc, apps.Namespace1, false, nil)).
 		WithConfig(EchoConfig(DSvc, apps.Namespace1, false, nil)).
 		WithConfig(EchoConfig(ESvc, apps.Namespace1, false, nil)).
-		WithConfig(EchoConfig(FSvc, apps.Namespace1, false, nil)).
-		WithConfig(EchoConfig(GSvc, apps.Namespace1, false, nil)).
 		WithConfig(func() echo.Config {
 			// Multi-version specific setup
 			multiVersionCfg := EchoConfig(MultiversionSvc, apps.Namespace1, false, nil)
@@ -188,6 +213,7 @@ func SetupApps(ctx resource.Context, i istio.Instance, apps *EchoDeployments, bu
 			SetBool(echo.SidecarInject, false))).
 		WithConfig(EchoConfig(BSvc, apps.Namespace2, false, nil)).
 		WithConfig(EchoConfig(CSvc, apps.Namespace2, false, nil)).
+		WithConfig(EchoConfig(ESvc, apps.Namespace2, false, nil)).
 		WithConfig(EchoConfig(CSvc, apps.Namespace3, false, nil)).
 		WithConfig(func() echo.Config {
 			// VM specific setup
@@ -210,8 +236,7 @@ func SetupApps(ctx resource.Context, i istio.Instance, apps *EchoDeployments, bu
 	apps.C = echos.Match(echo.Service(CSvc))
 	apps.D = echos.Match(echo.Service(DSvc))
 	apps.E = echos.Match(echo.Service(ESvc))
-	apps.F = echos.Match(echo.Service(FSvc))
-	apps.G = echos.Match(echo.Service(GSvc))
+
 	apps.Multiversion = echos.Match(echo.Service(MultiversionSvc))
 	apps.Headless = echos.Match(echo.Service(HeadlessSvc))
 	apps.Naked = echos.Match(echo.Service(NakedSvc))
@@ -233,13 +258,41 @@ func (apps *EchoDeployments) IsVM(i echo.Instance) bool {
 	return apps.VM.Contains(i)
 }
 
-func WaitForConfigWithSleep(ctx framework.TestContext, configs string, namespace namespace.Instance) {
-	ik := istioctl.NewOrFail(ctx, ctx, istioctl.Config{})
-	if err := ik.WaitForConfigs(namespace.Name(), configs); err != nil {
-		// Continue anyways, so we can assess the effectiveness of using `istioctl wait`
-		ctx.Logf("warning: failed to wait for config: %v", err)
-		// Get proxy status for additional debugging
-		s, _, _ := ik.Invoke([]string{"ps"})
-		ctx.Logf("proxy status: %v", s)
+// IsMultiversion matches instances that have Multi-version specific setup.
+func IsMultiversion() echo.Matcher {
+	return func(i echo.Instance) bool {
+		if len(i.Config().Subsets) != 2 {
+			return false
+		}
+		var matchIstio, matchLegacy bool
+		for _, s := range i.Config().Subsets {
+			if s.Version == "vistio" {
+				matchIstio = true
+			} else if s.Version == "vlegacy" && !s.Annotations.GetBool(echo.SidecarInject) {
+				matchLegacy = true
+			}
+		}
+		return matchIstio && matchLegacy
 	}
+}
+
+func WaitForConfig(ctx framework.TestContext, configs string, namespace namespace.Instance) {
+	errG := multierror.Group{}
+	for _, c := range ctx.Clusters().Primaries() {
+		c := c
+		errG.Go(func() error {
+			ik := istioctl.NewOrFail(ctx, ctx, istioctl.Config{Cluster: c})
+			if err := ik.WaitForConfigs(namespace.Name(), configs); err != nil {
+				// Get proxy status for additional debugging
+				s, _, _ := ik.Invoke([]string{"ps"})
+				ctx.Logf("proxy status: %v", s)
+				return err
+			}
+			return nil
+		})
+	}
+	if err := errG.Wait(); err != nil {
+		ctx.Logf("errors occurred waiting for config: %v", err)
+	}
+	// Continue anyways, so we can assess the effectiveness of using `istioctl wait`
 }

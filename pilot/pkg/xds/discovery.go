@@ -140,6 +140,9 @@ type DiscoveryServer struct {
 
 	// Cache for XDS resources
 	Cache model.XdsCache
+
+	// JwtKeyResolver holds a reference to the JWT key resolver instance.
+	JwtKeyResolver *model.JwksResolver
 }
 
 // EndpointShards holds the set of endpoint shards of a service. Registries update
@@ -163,7 +166,7 @@ type EndpointShards struct {
 }
 
 // NewDiscoveryServer creates DiscoveryServer that sources data from Pilot's internal mesh data structures
-func NewDiscoveryServer(env *model.Environment, plugins []string, instanceID string) *DiscoveryServer {
+func NewDiscoveryServer(env *model.Environment, plugins []string, instanceID string, systemNameSpace string) *DiscoveryServer {
 	out := &DiscoveryServer{
 		Env:                     env,
 		Generators:              map[string]model.XdsResourceGenerator{},
@@ -185,12 +188,9 @@ func NewDiscoveryServer(env *model.Environment, plugins []string, instanceID str
 		instanceID: instanceID,
 	}
 
-	// Flush cached discovery responses when detecting jwt public key change.
-	model.GetJwtKeyResolver().PushFunc = func() {
-		out.ConfigUpdate(&model.PushRequest{Full: true, Reason: []model.TriggerReason{model.UnknownTrigger}})
-	}
+	out.initJwksResolver()
 
-	out.initGenerators(env)
+	out.initGenerators(env, systemNameSpace)
 
 	if features.EnableXDSCaching {
 		out.Cache = model.NewXdsCache()
@@ -199,6 +199,29 @@ func NewDiscoveryServer(env *model.Environment, plugins []string, instanceID str
 	out.ConfigGenerator = core.NewConfigGenerator(plugins, out.Cache)
 
 	return out
+}
+
+// initJwkResolver initializes the JWT key resolver to be used.
+func (s *DiscoveryServer) initJwksResolver() {
+	if s.JwtKeyResolver != nil {
+		s.closeJwksResolver()
+	}
+	s.JwtKeyResolver = model.NewJwksResolver(
+		model.JwtPubKeyEvictionDuration, model.JwtPubKeyRefreshInterval,
+		model.JwtPubKeyRefreshIntervalOnFailure, model.JwtPubKeyRetryInterval)
+
+	// Flush cached discovery responses when detecting jwt public key change.
+	s.JwtKeyResolver.PushFunc = func() {
+		s.ConfigUpdate(&model.PushRequest{Full: true, Reason: []model.TriggerReason{model.UnknownTrigger}})
+	}
+}
+
+// closeJwksResolver shuts down the JWT key resolver used.
+func (s *DiscoveryServer) closeJwksResolver() {
+	if s.JwtKeyResolver != nil {
+		s.JwtKeyResolver.Close()
+	}
+	s.JwtKeyResolver = nil
 }
 
 // Register adds the ADS handler to the grpc server
@@ -211,7 +234,7 @@ var processStartTime = time.Now()
 
 // CachesSynced is called when caches have been synced so that server can accept connections.
 func (s *DiscoveryServer) CachesSynced() {
-	adsLog.Infof("All caches have been synced up in %v, marking server ready", time.Since(processStartTime))
+	log.Infof("All caches have been synced up in %v, marking server ready", time.Since(processStartTime))
 	s.serverReady.Store(true)
 }
 
@@ -262,7 +285,7 @@ func (s *DiscoveryServer) periodicRefreshMetrics(stopCh <-chan struct{}) {
 				push.UpdateMetrics()
 				out, _ := model.LastPushStatus.StatusJSON()
 				if string(out) != "{}" {
-					adsLog.Infof("Push Status: %s", string(out))
+					log.Infof("Push Status: %s", string(out))
 				}
 			}
 			model.LastPushMutex.Unlock()
@@ -296,7 +319,7 @@ func (s *DiscoveryServer) Push(req *model.PushRequest) {
 	}
 
 	initContextTime := time.Since(t0)
-	adsLog.Debugf("InitContext %v for push took %s", versionLocal, initContextTime)
+	log.Debugf("InitContext %v for push took %s", versionLocal, initContextTime)
 
 	versionMutex.Lock()
 	version = versionLocal
@@ -368,7 +391,7 @@ func debounce(ch chan *model.PushRequest, stopCh <-chan struct{}, opts debounceO
 		if eventDelay >= opts.debounceMax || quietTime >= opts.debounceAfter {
 			if req != nil {
 				pushCounter++
-				adsLog.Infof("Push debounce stable[%d] %d: %v since last change, %v since last push, full=%v",
+				log.Infof("Push debounce stable[%d] %d: %v since last change, %v since last push, full=%v",
 					pushCounter, debouncedEvents,
 					quietTime, eventDelay, req.Full)
 
@@ -439,7 +462,12 @@ func doSendPushes(stopCh <-chan struct{}, semaphore chan struct{}, queue *PushQu
 			}
 
 			proxiesQueueTime.Record(time.Since(push.Start).Seconds())
-
+			var closed <-chan struct{}
+			if client.stream != nil {
+				closed = client.stream.Context().Done()
+			} else {
+				closed = client.deltaStream.Context().Done()
+			}
 			go func() {
 				pushEv := &Event{
 					pushRequest: push,
@@ -449,9 +477,9 @@ func doSendPushes(stopCh <-chan struct{}, semaphore chan struct{}, queue *PushQu
 				select {
 				case client.pushChannel <- pushEv:
 					return
-				case <-client.stream.Context().Done(): // grpc stream was closed
+				case <-closed: // grpc stream was closed
 					doneFunc()
-					adsLog.Infof("Client closed connection %v", client.ConID)
+					log.Infof("Client closed connection %v", client.ConID)
 				}
 			}()
 		}
@@ -465,8 +493,9 @@ func doSendPushes(stopCh <-chan struct{}, semaphore chan struct{}, queue *PushQu
 func (s *DiscoveryServer) initPushContext(req *model.PushRequest, oldPushContext *model.PushContext, version string) (*model.PushContext, error) {
 	push := model.NewPushContext()
 	push.PushVersion = version
+	push.JwtKeyResolver = s.JwtKeyResolver
 	if err := push.InitContext(s.Env, oldPushContext, req); err != nil {
-		adsLog.Errorf("XDS: Failed to update services: %v", err)
+		log.Errorf("XDS: Failed to update services: %v", err)
 		// We can't push if we can't read the data - stick with previous version.
 		pushContextErrors.Increment()
 		return nil, err
@@ -488,7 +517,7 @@ func (s *DiscoveryServer) sendPushes(stopCh <-chan struct{}) {
 }
 
 // initGenerators initializes generators to be used by XdsServer.
-func (s *DiscoveryServer) initGenerators(env *model.Environment) {
+func (s *DiscoveryServer) initGenerators(env *model.Environment, systemNameSpace string) {
 	edsGen := &EdsGenerator{Server: s}
 	s.StatusGen = NewStatusGen(s)
 	s.Generators[v3.ClusterType] = &CdsGenerator{Server: s}
@@ -511,10 +540,12 @@ func (s *DiscoveryServer) initGenerators(env *model.Environment) {
 	s.Generators["api/"+TypeURLConnect] = s.StatusGen
 
 	s.Generators["event"] = s.StatusGen
+	s.Generators[TypeDebug] = NewDebugGen(s, systemNameSpace)
 }
 
 // shutdown shuts down DiscoveryServer components.
 func (s *DiscoveryServer) Shutdown() {
+	s.closeJwksResolver()
 	s.pushQueue.ShutDown()
 }
 
@@ -562,7 +593,7 @@ func (s *DiscoveryServer) SendResponse(connections []*Connection, res *discovery
 		go func() {
 			err := con.stream.Send(res)
 			if err != nil {
-				adsLog.Info("Failed to send internal event ", con.ConID, " ", err)
+				log.Info("Failed to send internal event ", con.ConID, " ", err)
 			}
 		}()
 	}

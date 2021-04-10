@@ -20,6 +20,7 @@ import (
 	"io"
 	"time"
 
+	"github.com/hashicorp/go-multierror"
 	kubeCore "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
@@ -62,7 +63,6 @@ func newInstance(ctx resource.Context, originalCfg echo.Config) (out *instance, 
 		ctx:     ctx,
 		cluster: cfg.Cluster,
 	}
-	c.id = ctx.TrackResource(c)
 
 	// Deploy echo to the cluster
 	c.deployment, err = newDeployment(ctx, cfg)
@@ -75,6 +75,10 @@ func newInstance(ctx resource.Context, originalCfg echo.Config) (out *instance, 
 	if err != nil {
 		return nil, err
 	}
+
+	// Now that we have the successfully created the workload manager, track this resource so
+	// that it will be closed when it goes out of scope.
+	c.id = ctx.TrackResource(c)
 
 	// Now retrieve the service information to find the ClusterIP
 	s, err := c.cluster.CoreV1().Services(cfg.Namespace.Name()).Get(context.TODO(), cfg.Service, metav1.GetOptions{})
@@ -140,11 +144,7 @@ func (c *instance) Config() echo.Config {
 }
 
 func (c *instance) Call(opts echo.CallOptions) (appEcho.ParsedResponses, error) {
-	out, err := common.ForwardEcho(c.cfg.Service, c.firstClient, &opts, false)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
+	return c.aggregateResponses(opts, false)
 }
 
 func (c *instance) CallOrFail(t test.Failer, opts echo.CallOptions) appEcho.ParsedResponses {
@@ -158,11 +158,7 @@ func (c *instance) CallOrFail(t test.Failer, opts echo.CallOptions) appEcho.Pars
 
 func (c *instance) CallWithRetry(opts echo.CallOptions,
 	retryOptions ...retry.Option) (appEcho.ParsedResponses, error) {
-	out, err := common.ForwardEcho(c.cfg.Service, c.firstClient, &opts, true, retryOptions...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
+	return c.aggregateResponses(opts, true, retryOptions...)
 }
 
 func (c *instance) CallWithRetryOrFail(t test.Failer, opts echo.CallOptions,
@@ -204,4 +200,29 @@ func (c *instance) Restart() error {
 
 		return nil
 	}, retry.Timeout(c.cfg.ReadinessTimeout), startDelay)
+}
+
+// aggregateResponses forwards an echo request from all workloads belonging to this echo instance and aggregates the results.
+func (c *instance) aggregateResponses(opts echo.CallOptions, retry bool, retryOptions ...retry.Option) (appEcho.ParsedResponses, error) {
+	resps := make([]*appEcho.ParsedResponse, 0)
+	workloads, err := c.Workloads()
+	if err != nil {
+		return nil, err
+	}
+	var aggErr error
+	for _, w := range workloads {
+		out, err := common.ForwardEcho(c.cfg.Service, w.(*workload).Client, &opts, retry, retryOptions...)
+		if err != nil {
+			aggErr = multierror.Append(err, aggErr)
+			continue
+		}
+		for _, r := range out {
+			resps = append(resps, r)
+		}
+	}
+	if aggErr != nil {
+		return nil, aggErr
+	}
+
+	return resps, nil
 }

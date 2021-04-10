@@ -28,11 +28,7 @@ var inst istio.Instance
 func TestMain(m *testing.M) {
 	framework.
 		NewSuite(m).
-		RequireSingleCluster().
 		Label(label.CustomSetup).
-
-		// SDS requires Kubernetes 1.13
-		RequireEnvironmentVersion("1.13").
 		Label("CustomSetup").
 		Setup(istio.Setup(&inst, nil)).
 		Run()

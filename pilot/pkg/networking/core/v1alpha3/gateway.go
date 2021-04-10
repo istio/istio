@@ -83,20 +83,23 @@ func (configgen *ConfigGeneratorImpl) buildGatewayListeners(builder *ListenerBui
 				port.Number, builder.node.ID)
 			continue
 		}
+		bind := actualWildcard
+		if len(port.Bind) > 0 {
+			bind = port.Bind
+		}
 
 		// on a given port, we can either have plain text HTTP servers or
 		// HTTPS/TLS servers with SNI. We cannot have a mix of http and https server on same port.
 		opts := buildListenerOpts{
 			push:       builder.push,
 			proxy:      builder.node,
-			bind:       actualWildcard,
+			bind:       bind,
 			port:       &model.Port{Port: int(port.Number)},
 			bindToPort: true,
 			class:      ListenerClassGateway,
 		}
 
 		p := protocol.Parse(port.Protocol)
-		listenerProtocol := istionetworking.ModelProtocolToListenerProtocol(p, core.TrafficDirection_OUTBOUND)
 		filterChains := make([]istionetworking.FilterChain, 0)
 		if p.IsHTTP() {
 			// We have a list of HTTP servers on this port. Build a single listener for the server port.
@@ -138,27 +141,28 @@ func (configgen *ConfigGeneratorImpl) buildGatewayListeners(builder *ListenerBui
 
 		l := buildListener(opts, core.TrafficDirection_OUTBOUND)
 
-		mutable := &istionetworking.MutableObjects{
-			Listener: l,
-			// Note: buildListener creates filter chains but does not populate the filters in the chain; that's what
-			// this is for.
-			FilterChains: filterChains,
+		mutable := &MutableListener{
+			MutableObjects: istionetworking.MutableObjects{
+				Listener: l,
+				// Note: buildListener creates filter chains but does not populate the filters in the chain; that's what
+				// this is for.
+				FilterChains: filterChains,
+			},
 		}
 
 		pluginParams := &plugin.InputParams{
-			ListenerProtocol: listenerProtocol,
-			Node:             builder.node,
-			Push:             builder.push,
-			ServiceInstance:  si,
+			Node:            builder.node,
+			Push:            builder.push,
+			ServiceInstance: si,
 		}
 		for _, p := range configgen.Plugins {
-			if err := p.OnOutboundListener(pluginParams, mutable); err != nil {
+			if err := p.OnOutboundListener(pluginParams, &mutable.MutableObjects); err != nil {
 				log.Warn("buildGatewayListeners: failed to build listener for gateway: ", err.Error())
 			}
 		}
 
 		// Filters are serialized one time into an opaque struct once we have the complete list.
-		if err := buildCompleteFilterChain(mutable, opts); err != nil {
+		if err := mutable.build(opts); err != nil {
 			errs = multierror.Append(errs, fmt.Errorf("gateway omitting listener %q due to: %v", mutable.Listener.Name, err.Error()))
 			continue
 		}
@@ -391,6 +395,11 @@ func (configgen *ConfigGeneratorImpl) createGatewayHTTPFilterChainOpts(node *mod
 		}
 	}
 
+	var stripPortMode *hcm.HttpConnectionManager_StripAnyHostPort = nil
+	if features.StripHostPort {
+		stripPortMode = &hcm.HttpConnectionManager_StripAnyHostPort{StripAnyHostPort: true}
+	}
+
 	if serverProto.IsHTTP() {
 		return &filterChainOpts{
 			// This works because we validate that only HTTPS servers can have same port but still different port names
@@ -413,6 +422,7 @@ func (configgen *ConfigGeneratorImpl) createGatewayHTTPFilterChainOpts(node *mod
 					},
 					ServerName:          EnvoyServerName,
 					HttpProtocolOptions: httpProtoOpts,
+					StripPortMode:       stripPortMode,
 				},
 				addGRPCWebFilter: serverProto == protocol.GRPCWeb,
 			},
@@ -443,6 +453,7 @@ func (configgen *ConfigGeneratorImpl) createGatewayHTTPFilterChainOpts(node *mod
 				},
 				ServerName:          EnvoyServerName,
 				HttpProtocolOptions: httpProtoOpts,
+				StripPortMode:       stripPortMode,
 			},
 			addGRPCWebFilter: serverProto == protocol.GRPCWeb,
 			statPrefix:       server.Name,
@@ -476,13 +487,19 @@ func buildGatewayListenerTLSContext(
 		},
 	}
 
+	ctx.RequireClientCertificate = proto.BoolFalse
+	if server.Tls.Mode == networking.ServerTLSSettings_MUTUAL ||
+		server.Tls.Mode == networking.ServerTLSSettings_ISTIO_MUTUAL {
+		ctx.RequireClientCertificate = proto.BoolTrue
+	}
+
 	switch {
 	// If SDS is enabled at gateway, and credential name is specified at gateway config, create
 	// SDS config for gateway to fetch key/cert at gateway agent.
 	case server.Tls.CredentialName != "":
 		authn_model.ApplyCredentialSDSToServerCommonTLSContext(ctx.CommonTlsContext, server.Tls)
 	case server.Tls.Mode == networking.ServerTLSSettings_ISTIO_MUTUAL:
-		authn_model.ApplyToCommonTLSContext(ctx.CommonTlsContext, proxy, server.Tls.SubjectAltNames, []string{})
+		authn_model.ApplyToCommonTLSContext(ctx.CommonTlsContext, proxy, server.Tls.SubjectAltNames, []string{}, ctx.RequireClientCertificate.Value)
 	default:
 		certProxy := &model.Proxy{}
 		certProxy.IstioVersion = proxy.IstioVersion
@@ -492,13 +509,8 @@ func buildGatewayListenerTLSContext(
 			TLSServerKey:       server.Tls.PrivateKey,
 			TLSServerRootCert:  server.Tls.CaCertificates,
 		}
-		authn_model.ApplyToCommonTLSContext(ctx.CommonTlsContext, certProxy, server.Tls.SubjectAltNames, []string{})
-	}
 
-	ctx.RequireClientCertificate = proto.BoolFalse
-	if server.Tls.Mode == networking.ServerTLSSettings_MUTUAL ||
-		server.Tls.Mode == networking.ServerTLSSettings_ISTIO_MUTUAL {
-		ctx.RequireClientCertificate = proto.BoolTrue
+		authn_model.ApplyToCommonTLSContext(ctx.CommonTlsContext, certProxy, server.Tls.SubjectAltNames, []string{}, ctx.RequireClientCertificate.Value)
 	}
 
 	// Set TLS parameters if they are non-default
@@ -765,11 +777,11 @@ func isGatewayMatch(gateway string, gatewayNames []string) bool {
 
 func buildGatewayVirtualHostDomains(hostname string, port int) []string {
 	domains := []string{hostname}
-	if hostname == "*" {
+	if features.StripHostPort || hostname == "*" {
 		return domains
 	}
 
-	// Per https://www.envoyproxy.io/docs/envoy/latest/api-v2/api/v2/route/route_components.proto#route-virtualhost
+	// Per https://www.envoyproxy.io/docs/envoy/latest/api-v3/config/route/v3/route_components.proto#config-route-v3-virtualhost
 	// we can only have one wildcard. Ideally, we want to match any port, as the host
 	// header may have a different port (behind a LB, nodeport, etc). However, if we
 	// have a wildcard domain we cannot do that since we would need two wildcards.

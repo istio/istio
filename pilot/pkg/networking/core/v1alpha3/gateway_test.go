@@ -24,12 +24,13 @@ import (
 	route "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
 	hcm "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
 	auth "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
-	"github.com/golang/protobuf/ptypes"
 	"github.com/google/go-cmp/cmp"
 	"google.golang.org/protobuf/testing/protocmp"
+	"google.golang.org/protobuf/types/known/durationpb"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
+	"istio.io/istio/pilot/pkg/features"
 	pilot_model "istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/plugin"
 	"istio.io/istio/pilot/pkg/networking/util"
@@ -63,7 +64,7 @@ func TestBuildGatewayListenerTlsContext(t *testing.T) {
 						{
 							Name: "default",
 							SdsConfig: &core.ConfigSource{
-								InitialFetchTimeout: ptypes.DurationProto(time.Second * 0),
+								InitialFetchTimeout: durationpb.New(time.Second * 0),
 								ResourceApiVersion:  core.ApiVersion_V3,
 								ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
 									ApiConfigSource: &core.ApiConfigSource{
@@ -88,7 +89,7 @@ func TestBuildGatewayListenerTlsContext(t *testing.T) {
 							ValidationContextSdsSecretConfig: &auth.SdsSecretConfig{
 								Name: "ROOTCA",
 								SdsConfig: &core.ConfigSource{
-									InitialFetchTimeout: ptypes.DurationProto(time.Second * 0),
+									InitialFetchTimeout: durationpb.New(time.Second * 0),
 									ResourceApiVersion:  core.ApiVersion_V3,
 									ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
 										ApiConfigSource: &core.ApiConfigSource{
@@ -127,7 +128,7 @@ func TestBuildGatewayListenerTlsContext(t *testing.T) {
 						{
 							Name: "default",
 							SdsConfig: &core.ConfigSource{
-								InitialFetchTimeout: ptypes.DurationProto(time.Second * 0),
+								InitialFetchTimeout: durationpb.New(time.Second * 0),
 								ResourceApiVersion:  core.ApiVersion_V3,
 								ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
 									ApiConfigSource: &core.ApiConfigSource{
@@ -138,32 +139,6 @@ func TestBuildGatewayListenerTlsContext(t *testing.T) {
 											{
 												TargetSpecifier: &core.GrpcService_EnvoyGrpc_{
 													EnvoyGrpc: &core.GrpcService_EnvoyGrpc{ClusterName: model.SDSClusterName},
-												},
-											},
-										},
-									},
-								},
-							},
-						},
-					},
-					ValidationContextType: &auth.CommonTlsContext_CombinedValidationContext{
-						CombinedValidationContext: &auth.CommonTlsContext_CombinedCertificateValidationContext{
-							DefaultValidationContext: &auth.CertificateValidationContext{},
-							ValidationContextSdsSecretConfig: &auth.SdsSecretConfig{
-								Name: "ROOTCA",
-								SdsConfig: &core.ConfigSource{
-									InitialFetchTimeout: ptypes.DurationProto(time.Second * 0),
-									ResourceApiVersion:  core.ApiVersion_V3,
-									ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
-										ApiConfigSource: &core.ApiConfigSource{
-											ApiType:                   core.ApiConfigSource_GRPC,
-											SetNodeOnFirstMessageOnly: true,
-											TransportApiVersion:       core.ApiVersion_V3,
-											GrpcServices: []*core.GrpcService{
-												{
-													TargetSpecifier: &core.GrpcService_EnvoyGrpc_{
-														EnvoyGrpc: &core.GrpcService_EnvoyGrpc{ClusterName: model.SDSClusterName},
-													},
 												},
 											},
 										},
@@ -235,7 +210,6 @@ func TestBuildGatewayListenerTlsContext(t *testing.T) {
 					Mode:              networking.ServerTLSSettings_SIMPLE,
 					ServerCertificate: "server-cert.crt",
 					PrivateKey:        "private-key.key",
-					CaCertificates:    "ca-cert.crt",
 				},
 			},
 			result: &auth.DownstreamTlsContext{
@@ -255,31 +229,6 @@ func TestBuildGatewayListenerTlsContext(t *testing.T) {
 											{
 												TargetSpecifier: &core.GrpcService_EnvoyGrpc_{
 													EnvoyGrpc: &core.GrpcService_EnvoyGrpc{ClusterName: model.SDSClusterName},
-												},
-											},
-										},
-									},
-								},
-							},
-						},
-					},
-					ValidationContextType: &auth.CommonTlsContext_CombinedValidationContext{
-						CombinedValidationContext: &auth.CommonTlsContext_CombinedCertificateValidationContext{
-							DefaultValidationContext: &auth.CertificateValidationContext{},
-							ValidationContextSdsSecretConfig: &auth.SdsSecretConfig{
-								Name: "file-root:ca-cert.crt",
-								SdsConfig: &core.ConfigSource{
-									ResourceApiVersion: core.ApiVersion_V3,
-									ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
-										ApiConfigSource: &core.ApiConfigSource{
-											ApiType:                   core.ApiConfigSource_GRPC,
-											SetNodeOnFirstMessageOnly: true,
-											TransportApiVersion:       core.ApiVersion_V3,
-											GrpcServices: []*core.GrpcService{
-												{
-													TargetSpecifier: &core.GrpcService_EnvoyGrpc_{
-														EnvoyGrpc: &core.GrpcService_EnvoyGrpc{ClusterName: model.SDSClusterName},
-													},
 												},
 											},
 										},
@@ -562,6 +511,7 @@ func TestBuildGatewayListenerTlsContext(t *testing.T) {
 }
 
 func TestCreateGatewayHTTPFilterChainOpts(t *testing.T) {
+	var stripPortMode *hcm.HttpConnectionManager_StripAnyHostPort
 	testCases := []struct {
 		name        string
 		node        *pilot_model.Proxy
@@ -599,6 +549,7 @@ func TestCreateGatewayHTTPFilterChainOpts(t *testing.T) {
 						HttpProtocolOptions: &core.Http1ProtocolOptions{
 							AcceptHttp_10: true,
 						},
+						StripPortMode: stripPortMode,
 					},
 				},
 			},
@@ -627,7 +578,7 @@ func TestCreateGatewayHTTPFilterChainOpts(t *testing.T) {
 								Name: "default",
 								SdsConfig: &core.ConfigSource{
 									ResourceApiVersion:  core.ApiVersion_V3,
-									InitialFetchTimeout: ptypes.DurationProto(time.Second * 0),
+									InitialFetchTimeout: durationpb.New(time.Second * 0),
 									ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
 										ApiConfigSource: &core.ApiConfigSource{
 											ApiType:                   core.ApiConfigSource_GRPC,
@@ -652,7 +603,7 @@ func TestCreateGatewayHTTPFilterChainOpts(t *testing.T) {
 									Name: "ROOTCA",
 									SdsConfig: &core.ConfigSource{
 										ResourceApiVersion:  core.ApiVersion_V3,
-										InitialFetchTimeout: ptypes.DurationProto(time.Second * 0),
+										InitialFetchTimeout: durationpb.New(time.Second * 0),
 										ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
 											ApiConfigSource: &core.ApiConfigSource{
 												ApiType:                   core.ApiConfigSource_GRPC,
@@ -688,6 +639,7 @@ func TestCreateGatewayHTTPFilterChainOpts(t *testing.T) {
 						},
 						ServerName:          EnvoyServerName,
 						HttpProtocolOptions: &core.Http1ProtocolOptions{},
+						StripPortMode:       stripPortMode,
 					},
 				},
 			},
@@ -716,7 +668,7 @@ func TestCreateGatewayHTTPFilterChainOpts(t *testing.T) {
 								Name: "default",
 								SdsConfig: &core.ConfigSource{
 									ResourceApiVersion:  core.ApiVersion_V3,
-									InitialFetchTimeout: ptypes.DurationProto(time.Second * 0),
+									InitialFetchTimeout: durationpb.New(time.Second * 0),
 									ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
 										ApiConfigSource: &core.ApiConfigSource{
 											ApiType:                   core.ApiConfigSource_GRPC,
@@ -741,7 +693,7 @@ func TestCreateGatewayHTTPFilterChainOpts(t *testing.T) {
 									Name: "ROOTCA",
 									SdsConfig: &core.ConfigSource{
 										ResourceApiVersion:  core.ApiVersion_V3,
-										InitialFetchTimeout: ptypes.DurationProto(time.Second * 0),
+										InitialFetchTimeout: durationpb.New(time.Second * 0),
 										ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
 											ApiConfigSource: &core.ApiConfigSource{
 												ApiType:                   core.ApiConfigSource_GRPC,
@@ -777,6 +729,7 @@ func TestCreateGatewayHTTPFilterChainOpts(t *testing.T) {
 						},
 						ServerName:          EnvoyServerName,
 						HttpProtocolOptions: &core.Http1ProtocolOptions{},
+						StripPortMode:       stripPortMode,
 					},
 				},
 			},
@@ -805,7 +758,7 @@ func TestCreateGatewayHTTPFilterChainOpts(t *testing.T) {
 								Name: "default",
 								SdsConfig: &core.ConfigSource{
 									ResourceApiVersion:  core.ApiVersion_V3,
-									InitialFetchTimeout: ptypes.DurationProto(time.Second * 0),
+									InitialFetchTimeout: durationpb.New(time.Second * 0),
 									ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
 										ApiConfigSource: &core.ApiConfigSource{
 											ApiType:                   core.ApiConfigSource_GRPC,
@@ -830,7 +783,7 @@ func TestCreateGatewayHTTPFilterChainOpts(t *testing.T) {
 									Name: "ROOTCA",
 									SdsConfig: &core.ConfigSource{
 										ResourceApiVersion:  core.ApiVersion_V3,
-										InitialFetchTimeout: ptypes.DurationProto(time.Second * 0),
+										InitialFetchTimeout: durationpb.New(time.Second * 0),
 										ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
 											ApiConfigSource: &core.ApiConfigSource{
 												ApiType:                   core.ApiConfigSource_GRPC,
@@ -866,6 +819,7 @@ func TestCreateGatewayHTTPFilterChainOpts(t *testing.T) {
 						},
 						ServerName:          EnvoyServerName,
 						HttpProtocolOptions: &core.Http1ProtocolOptions{},
+						StripPortMode:       stripPortMode,
 					},
 				},
 			},
@@ -900,6 +854,7 @@ func TestCreateGatewayHTTPFilterChainOpts(t *testing.T) {
 						},
 						ServerName:          EnvoyServerName,
 						HttpProtocolOptions: &core.Http1ProtocolOptions{},
+						StripPortMode:       stripPortMode,
 					},
 				},
 			},
@@ -933,7 +888,7 @@ func TestCreateGatewayHTTPFilterChainOpts(t *testing.T) {
 								Name: "default",
 								SdsConfig: &core.ConfigSource{
 									ResourceApiVersion:  core.ApiVersion_V3,
-									InitialFetchTimeout: ptypes.DurationProto(time.Second * 0),
+									InitialFetchTimeout: durationpb.New(time.Second * 0),
 									ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
 										ApiConfigSource: &core.ApiConfigSource{
 											ApiType:                   core.ApiConfigSource_GRPC,
@@ -958,7 +913,7 @@ func TestCreateGatewayHTTPFilterChainOpts(t *testing.T) {
 									Name: "ROOTCA",
 									SdsConfig: &core.ConfigSource{
 										ResourceApiVersion:  core.ApiVersion_V3,
-										InitialFetchTimeout: ptypes.DurationProto(time.Second * 0),
+										InitialFetchTimeout: durationpb.New(time.Second * 0),
 										ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
 											ApiConfigSource: &core.ApiConfigSource{
 												ApiType:                   core.ApiConfigSource_GRPC,
@@ -994,6 +949,7 @@ func TestCreateGatewayHTTPFilterChainOpts(t *testing.T) {
 						},
 						ServerName:          EnvoyServerName,
 						HttpProtocolOptions: &core.Http1ProtocolOptions{},
+						StripPortMode:       stripPortMode,
 					},
 				},
 			},
@@ -1029,7 +985,7 @@ func TestCreateGatewayHTTPFilterChainOpts(t *testing.T) {
 								Name: "default",
 								SdsConfig: &core.ConfigSource{
 									ResourceApiVersion:  core.ApiVersion_V3,
-									InitialFetchTimeout: ptypes.DurationProto(time.Second * 0),
+									InitialFetchTimeout: durationpb.New(time.Second * 0),
 									ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
 										ApiConfigSource: &core.ApiConfigSource{
 											ApiType:                   core.ApiConfigSource_GRPC,
@@ -1054,7 +1010,7 @@ func TestCreateGatewayHTTPFilterChainOpts(t *testing.T) {
 									Name: "ROOTCA",
 									SdsConfig: &core.ConfigSource{
 										ResourceApiVersion:  core.ApiVersion_V3,
-										InitialFetchTimeout: ptypes.DurationProto(time.Second * 0),
+										InitialFetchTimeout: durationpb.New(time.Second * 0),
 										ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
 											ApiConfigSource: &core.ApiConfigSource{
 												ApiType:                   core.ApiConfigSource_GRPC,
@@ -1089,6 +1045,7 @@ func TestCreateGatewayHTTPFilterChainOpts(t *testing.T) {
 						},
 						ServerName:          EnvoyServerName,
 						HttpProtocolOptions: &core.Http1ProtocolOptions{},
+						StripPortMode:       stripPortMode,
 					},
 					statPrefix: "server1",
 				},
@@ -1243,19 +1200,25 @@ func TestGatewayHTTPRouteConfig(t *testing.T) {
 		},
 	}
 	cases := []struct {
-		name                 string
-		virtualServices      []config.Config
-		gateways             []config.Config
-		routeName            string
-		expectedVirtualHosts map[string][]string
-		expectedHTTPRoutes   map[string]int
-		redirect             bool
+		name                              string
+		virtualServices                   []config.Config
+		gateways                          []config.Config
+		routeName                         string
+		expectedVirtualHosts              map[string][]string
+		expectedVirtualHostsHostPortStrip map[string][]string
+		expectedHTTPRoutes                map[string]int
+		redirect                          bool
 	}{
 		{
 			"404 when no services",
 			[]config.Config{},
 			[]config.Config{httpGateway},
 			"http.80",
+			map[string][]string{
+				"blackhole:80": {
+					"*",
+				},
+			},
 			map[string][]string{
 				"blackhole:80": {
 					"*",
@@ -1274,6 +1237,9 @@ func TestGatewayHTTPRouteConfig(t *testing.T) {
 					"example.org", "example.org:*",
 				},
 			},
+			map[string][]string{
+				"example.org:80": {"example.org"},
+			},
 			// We will setup a VHost which just redirects; no routes
 			map[string]int{"example.org:80": 0},
 			true,
@@ -1288,6 +1254,9 @@ func TestGatewayHTTPRouteConfig(t *testing.T) {
 					"example.org", "example.org:*",
 				},
 			},
+			map[string][]string{
+				"example.org:80": {"example.org"},
+			},
 			map[string]int{"example.org:80": 1},
 			true,
 		},
@@ -1300,6 +1269,9 @@ func TestGatewayHTTPRouteConfig(t *testing.T) {
 				"example.org:80": {
 					"example.org", "example.org:*",
 				},
+			},
+			map[string][]string{
+				"example.org:80": {"example.org"},
 			},
 			map[string]int{"example.org:80": 4},
 			true,
@@ -1314,6 +1286,9 @@ func TestGatewayHTTPRouteConfig(t *testing.T) {
 					"example.org", "example.org:*",
 				},
 			},
+			map[string][]string{
+				"example.org:80": {"example.org"},
+			},
 			map[string]int{"example.org:80": 4},
 			true,
 		},
@@ -1326,6 +1301,9 @@ func TestGatewayHTTPRouteConfig(t *testing.T) {
 				"example.org:80": {
 					"example.org", "example.org:*",
 				},
+			},
+			map[string][]string{
+				"example.org:80": {"example.org"},
 			},
 			map[string]int{"example.org:80": 2},
 			true,
@@ -1340,6 +1318,9 @@ func TestGatewayHTTPRouteConfig(t *testing.T) {
 					"example.org", "example.org:*",
 				},
 			},
+			map[string][]string{
+				"example.org:80": {"example.org"},
+			},
 			map[string]int{"example.org:80": 2},
 			true,
 		},
@@ -1352,6 +1333,9 @@ func TestGatewayHTTPRouteConfig(t *testing.T) {
 				"example.org:80": {
 					"example.org", "example.org:*",
 				},
+			},
+			map[string][]string{
+				"example.org:80": {"example.org"},
 			},
 			map[string]int{"example.org:80": 1},
 			false,
@@ -1366,6 +1350,9 @@ func TestGatewayHTTPRouteConfig(t *testing.T) {
 					"example.org", "example.org:*",
 				},
 			},
+			map[string][]string{
+				"example.org:80": {"example.org"},
+			},
 			map[string]int{"example.org:80": 2},
 			false,
 		},
@@ -1379,6 +1366,9 @@ func TestGatewayHTTPRouteConfig(t *testing.T) {
 					"example.org", "example.org:*",
 				},
 			},
+			map[string][]string{
+				"example.org:80": {"example.org"},
+			},
 			map[string]int{"example.org:80": 2},
 			false,
 		},
@@ -1388,45 +1378,57 @@ func TestGatewayHTTPRouteConfig(t *testing.T) {
 			[]config.Config{httpGatewayWildcard},
 			"http.80",
 			map[string][]string{
-				"*.org:80": {
-					"*.org", "*.org:80",
-				},
+				"*.org:80": {"*.org", "*.org:80"},
+			},
+			map[string][]string{
+				"*.org:80": {"*.org"},
 			},
 			map[string]int{"*.org:80": 1},
 			false,
 		},
 	}
-	for _, tt := range cases {
-		t.Run(tt.name, func(t *testing.T) {
-			cfgs := tt.gateways
-			cfgs = append(cfgs, tt.virtualServices...)
-			cg := NewConfigGenTest(t, TestOptions{
-				Configs: cfgs,
-			})
-			r := cg.ConfigGen.buildGatewayHTTPRouteConfig(cg.SetupProxy(&proxyGateway), cg.PushContext(), tt.routeName)
-			if r == nil {
-				t.Fatal("got an empty route configuration")
-			}
-			vh := make(map[string][]string)
-			hr := make(map[string]int)
-			for _, h := range r.VirtualHosts {
-				vh[h.Name] = h.Domains
-				hr[h.Name] = len(h.Routes)
-				if h.Name != "blackhole:80" && !h.IncludeRequestAttemptCount {
-					t.Errorf("expected attempt count to be set in virtual host, but not found")
-				}
-				if tt.redirect != (h.RequireTls == route.VirtualHost_ALL) {
-					t.Errorf("expected redirect %v, got %v", tt.redirect, h.RequireTls)
-				}
-			}
 
-			if !reflect.DeepEqual(tt.expectedVirtualHosts, vh) {
-				t.Errorf("got unexpected virtual hosts. Expected: %v, Got: %v", tt.expectedVirtualHosts, vh)
-			}
-			if !reflect.DeepEqual(tt.expectedHTTPRoutes, hr) {
-				t.Errorf("got unexpected number of http routes. Expected: %v, Got: %v", tt.expectedHTTPRoutes, hr)
-			}
-		})
+	StripHostPort := []bool{false, true}
+	for _, value := range StripHostPort {
+		features.StripHostPort = value
+		for _, tt := range cases {
+			t.Run(tt.name, func(t *testing.T) {
+				cfgs := tt.gateways
+				cfgs = append(cfgs, tt.virtualServices...)
+				cg := NewConfigGenTest(t, TestOptions{
+					Configs: cfgs,
+				})
+				r := cg.ConfigGen.buildGatewayHTTPRouteConfig(cg.SetupProxy(&proxyGateway), cg.PushContext(), tt.routeName)
+				if r == nil {
+					t.Fatal("got an empty route configuration")
+				}
+				vh := make(map[string][]string)
+				hr := make(map[string]int)
+				for _, h := range r.VirtualHosts {
+					vh[h.Name] = h.Domains
+					hr[h.Name] = len(h.Routes)
+					if h.Name != "blackhole:80" && !h.IncludeRequestAttemptCount {
+						t.Errorf("expected attempt count to be set in virtual host, but not found")
+					}
+					if tt.redirect != (h.RequireTls == route.VirtualHost_ALL) {
+						t.Errorf("expected redirect %v, got %v", tt.redirect, h.RequireTls)
+					}
+				}
+
+				if features.StripHostPort {
+					if !reflect.DeepEqual(tt.expectedVirtualHostsHostPortStrip, vh) {
+						t.Errorf("got unexpected virtual hosts. Expected: %v, Got: %v", tt.expectedVirtualHostsHostPortStrip, vh)
+					}
+				} else {
+					if !reflect.DeepEqual(tt.expectedVirtualHosts, vh) {
+						t.Errorf("got unexpected virtual hosts. Expected: %v, Got: %v", tt.expectedVirtualHosts, vh)
+					}
+				}
+				if !reflect.DeepEqual(tt.expectedHTTPRoutes, hr) {
+					t.Errorf("got unexpected number of http routes. Expected: %v, Got: %v", tt.expectedHTTPRoutes, hr)
+				}
+			})
+		}
 	}
 }
 
@@ -1511,6 +1513,27 @@ func TestBuildGatewayListeners(t *testing.T) {
 				},
 			},
 			[]string{"0.0.0.0_80", "0.0.0.0_8080"},
+		},
+		{
+			"gateway with bind",
+			&pilot_model.Proxy{},
+			&networking.Gateway{
+				Servers: []*networking.Server{
+					{
+						Port: &networking.Port{Name: "http", Number: 80, Protocol: "HTTP"},
+					},
+					{
+						Port:  &networking.Port{Name: "http", Number: 8080, Protocol: "HTTP"},
+						Hosts: []string{"externalgatewayclient.com"},
+					},
+					{
+						Port:  &networking.Port{Name: "http", Number: 8080, Protocol: "HTTP"},
+						Bind:  "127.0.0.1",
+						Hosts: []string{"internalmesh.svc.cluster.local"},
+					},
+				},
+			},
+			[]string{"0.0.0.0_80", "0.0.0.0_8080", "127.0.0.1_8080"},
 		},
 	}
 

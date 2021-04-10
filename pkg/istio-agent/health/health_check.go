@@ -19,6 +19,7 @@ import (
 	"time"
 
 	"istio.io/api/networking/v1alpha3"
+	"istio.io/istio/pilot/cmd/pilot-agent/status"
 	"istio.io/istio/pilot/cmd/pilot-agent/status/ready"
 	"istio.io/istio/pkg/kube/apimirror"
 )
@@ -43,7 +44,13 @@ type ProbeEvent struct {
 	UnhealthyMessage string
 }
 
-func fillInDefaults(cfg *v1alpha3.ReadinessProbe) *v1alpha3.ReadinessProbe {
+const (
+	lastStateUndefined = iota
+	lastStateHealthy
+	lastStateUnhealthy
+)
+
+func fillInDefaults(cfg *v1alpha3.ReadinessProbe, ipAddresses []string) *v1alpha3.ReadinessProbe {
 	cfg = cfg.DeepCopy()
 	// Thresholds have a minimum of 1
 	cfg.FailureThreshold = orDefault(cfg.FailureThreshold, 1)
@@ -63,24 +70,26 @@ func fillInDefaults(cfg *v1alpha3.ReadinessProbe) *v1alpha3.ReadinessProbe {
 		}
 		h.HttpGet.Scheme = strings.ToLower(h.HttpGet.Scheme)
 		if h.HttpGet.Host == "" {
-			// Kubernetes uses pod IP. However, the istio rewrite app probe uses localhost, so we
-			// should probably favor consistency with Istio than Kubernetes
-			h.HttpGet.Host = "localhost"
+			if len(ipAddresses) == 0 || status.LegacyLocalhostProbeDestination.Get() {
+				h.HttpGet.Host = "localhost"
+			} else {
+				h.HttpGet.Host = ipAddresses[0]
+			}
 		}
 	}
 	return cfg
 }
 
-func NewWorkloadHealthChecker(cfg *v1alpha3.ReadinessProbe, envoyProbe ready.Prober) *WorkloadHealthChecker {
+func NewWorkloadHealthChecker(cfg *v1alpha3.ReadinessProbe, envoyProbe ready.Prober, proxyAddrs []string, ipv6 bool) *WorkloadHealthChecker {
 	// if a config does not exist return a no-op prober
 	if cfg == nil {
 		return nil
 	}
-	cfg = fillInDefaults(cfg)
+	cfg = fillInDefaults(cfg, proxyAddrs)
 	var prober Prober
 	switch healthCheckMethod := cfg.HealthCheckMethod.(type) {
 	case *v1alpha3.ReadinessProbe_HttpGet:
-		prober = NewHTTPProber(healthCheckMethod.HttpGet)
+		prober = NewHTTPProber(healthCheckMethod.HttpGet, ipv6)
 	case *v1alpha3.ReadinessProbe_TcpSocket:
 		prober = &TCPProber{Config: healthCheckMethod.TcpSocket}
 	case *v1alpha3.ReadinessProbe_Exec:
@@ -129,7 +138,7 @@ func (w *WorkloadHealthChecker) PerformApplicationHealthCheck(callback func(*Pro
 	numSuccess, numFail := 0, 0
 	// if the last send/event was a success, this is true, by default false because we want to
 	// first send a healthy message.
-	lastStateHealthy := false
+	lastState := lastStateUndefined
 
 	doCheck := func() {
 		// probe target
@@ -141,11 +150,11 @@ func (w *WorkloadHealthChecker) PerformApplicationHealthCheck(callback func(*Pro
 			// wipe numFail (need consecutive success)
 			numFail = 0
 			// if we reached the threshold, mark the target as healthy
-			if numSuccess == w.config.SuccessThresh && !lastStateHealthy {
+			if numSuccess == w.config.SuccessThresh && lastState != lastStateHealthy {
 				healthCheckLog.Info("success threshold hit, marking as healthy")
 				callback(&ProbeEvent{Healthy: true})
 				numSuccess = 0
-				lastStateHealthy = true
+				lastState = lastStateHealthy
 			}
 		} else {
 			healthCheckLog.Debugf("probe completed with unhealthy status: %v", err)
@@ -154,7 +163,7 @@ func (w *WorkloadHealthChecker) PerformApplicationHealthCheck(callback func(*Pro
 			// wipe numSuccess (need consecutive failure)
 			numSuccess = 0
 			// if we reached the fail threshold, mark the target as unhealthy
-			if numFail == w.config.FailThresh && lastStateHealthy {
+			if numFail == w.config.FailThresh && lastState != lastStateUnhealthy {
 				healthCheckLog.Infof("failure threshold hit, marking as unhealthy: %v", err)
 				numFail = 0
 				callback(&ProbeEvent{
@@ -162,7 +171,7 @@ func (w *WorkloadHealthChecker) PerformApplicationHealthCheck(callback func(*Pro
 					UnhealthyStatus:  500,
 					UnhealthyMessage: err.Error(),
 				})
-				lastStateHealthy = false
+				lastState = lastStateUnhealthy
 			}
 		}
 	}

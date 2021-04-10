@@ -214,6 +214,7 @@ data:
           annotations: {
             {{- if eq (len $containers) 1 }}
             kubectl.kubernetes.io/default-logs-container: "{{ index $containers 0 }}",
+            kubectl.kubernetes.io/default-container: "{{ index $containers 0 }}",
             {{ end }}
         {{- if .Values.istio_cni.enabled }}
             {{- if not .Values.istio_cni.chained }}
@@ -416,6 +417,10 @@ data:
                   - wait
           {{- end }}
             env:
+            {{- if eq (env "PILOT_ENABLE_INBOUND_PASSTHROUGH" "true") "false" }}
+            - name: REWRITE_PROBE_LEGACY_LOCALHOST_DESTINATION
+              value: "true"
+            {{- end }}
             - name: JWT_POLICY
               value: {{ .Values.global.jwtPolicy }}
             - name: PILOT_CERT_PROVIDER
@@ -705,6 +710,7 @@ data:
           annotations: {
             {{- if eq (len $containers) 1 }}
             kubectl.kubernetes.io/default-logs-container: "{{ index $containers 0 }}",
+            kubectl.kubernetes.io/default-container: "{{ index $containers 0 }}",
             {{ end }}
           }
         spec:
@@ -1076,8 +1082,6 @@ spec:
               drop:
               - ALL
           volumeMounts:
-          - name: config-volume
-            mountPath: /etc/istio/config
           - name: istio-token
             mountPath: /var/run/secrets/tokens
             readOnly: true
@@ -1088,9 +1092,6 @@ spec:
             readOnly: true
           - name: istio-kubeconfig
             mountPath: /var/run/secrets/remote
-            readOnly: true
-          - name: inject
-            mountPath: /var/lib/istio/inject
             readOnly: true
       volumes:
       # Technically not needed on this pod - but it helps debugging/testing SDS
@@ -1114,13 +1115,6 @@ spec:
         secret:
           secretName: istio-kubeconfig
           optional: true
-      # Optional - image should have
-      - name: inject
-        configMap:
-          name: istio-sidecar-injector
-      - name: config-volume
-        configMap:
-          name: istio
 ---
 # Source: istio-discovery/templates/autoscale.yaml
 apiVersion: autoscaling/v2beta1
@@ -1342,15 +1336,7 @@ spec:
                   value: |
                     {
                       "debug": "false",
-                      "stat_prefix": "istio",
-                      "metrics": [
-                        {
-                          "dimensions": {
-                            "source_cluster": "node.metadata['CLUSTER_ID']",
-                            "destination_cluster": "upstream_peer.cluster_id"
-                          }
-                        }
-                      ]
+                      "stat_prefix": "istio"
                     }
                 vm_config:
                   vm_id: stats_outbound
@@ -1427,15 +1413,7 @@ spec:
                     {
                       "debug": "false",
                       "stat_prefix": "istio",
-                      "disable_host_header_fallback": true,
-                      "metrics": [
-                        {
-                          "dimensions": {
-                            "source_cluster": "node.metadata['CLUSTER_ID']",
-                            "destination_cluster": "upstream_peer.cluster_id"
-                          }
-                        }
-                      ]
+                      "disable_host_header_fallback": true
                     }
                 vm_config:
                   vm_id: stats_outbound
@@ -1519,15 +1497,7 @@ spec:
                   value: |
                     {
                       "debug": "false",
-                      "stat_prefix": "istio",
-                      "metrics": [
-                        {
-                          "dimensions": {
-                            "source_cluster": "node.metadata['CLUSTER_ID']",
-                            "destination_cluster": "upstream_peer.cluster_id"
-                          }
-                        }
-                      ]
+                      "stat_prefix": "istio"
                     }
                 vm_config:
                   vm_id: tcp_stats_outbound
@@ -1559,15 +1529,7 @@ spec:
                   value: |
                     {
                       "debug": "false",
-                      "stat_prefix": "istio",
-                      "metrics": [
-                        {
-                          "dimensions": {
-                            "source_cluster": "node.metadata['CLUSTER_ID']",
-                            "destination_cluster": "upstream_peer.cluster_id"
-                          }
-                        }
-                      ]
+                      "stat_prefix": "istio"
                     }
                 vm_config:
                   vm_id: tcp_stats_outbound
@@ -1576,12 +1538,12 @@ spec:
                     local:
                       inline_string: "envoy.wasm.stats"
 ---
-# Source: istio-discovery/templates/telemetryv2_1.8.yaml
+# Source: istio-discovery/templates/telemetryv2_1.11.yaml
 # Note: metadata exchange filter is wasm enabled only in sidecars.
 apiVersion: networking.istio.io/v1alpha3
 kind: EnvoyFilter
 metadata:
-  name: metadata-exchange-1.8
+  name: metadata-exchange-1.11
   namespace: istio-system
   labels:
     istio.io/rev: default
@@ -1593,7 +1555,7 @@ spec:
       match:
         context: SIDECAR_INBOUND
         proxy:
-          proxyVersion: '^1\.8.*'
+          proxyVersion: '^1\.11.*'
         listener:
           filterChain:
             filter:
@@ -1620,7 +1582,7 @@ spec:
       match:
         context: SIDECAR_OUTBOUND
         proxy:
-          proxyVersion: '^1\.8.*'
+          proxyVersion: '^1\.11.*'
         listener:
           filterChain:
             filter:
@@ -1647,7 +1609,7 @@ spec:
       match:
         context: GATEWAY
         proxy:
-          proxyVersion: '^1\.8.*'
+          proxyVersion: '^1\.11.*'
         listener:
           filterChain:
             filter:
@@ -1671,11 +1633,11 @@ spec:
                     local:
                       inline_string: envoy.wasm.metadata_exchange
 ---
-# Source: istio-discovery/templates/telemetryv2_1.8.yaml
+# Source: istio-discovery/templates/telemetryv2_1.11.yaml
 apiVersion: networking.istio.io/v1alpha3
 kind: EnvoyFilter
 metadata:
-  name: tcp-metadata-exchange-1.8
+  name: tcp-metadata-exchange-1.11
   namespace: istio-system
   labels:
     istio.io/rev: default
@@ -1685,7 +1647,7 @@ spec:
       match:
         context: SIDECAR_INBOUND
         proxy:
-          proxyVersion: '^1\.8.*'
+          proxyVersion: '^1\.11.*'
         listener: {}
       patch:
         operation: INSERT_BEFORE
@@ -1700,7 +1662,7 @@ spec:
       match:
         context: SIDECAR_OUTBOUND
         proxy:
-          proxyVersion: '^1\.8.*'
+          proxyVersion: '^1\.11.*'
         cluster: {}
       patch:
         operation: MERGE
@@ -1716,7 +1678,7 @@ spec:
       match:
         context: GATEWAY
         proxy:
-          proxyVersion: '^1\.8.*'
+          proxyVersion: '^1\.11.*'
         cluster: {}
       patch:
         operation: MERGE
@@ -1729,12 +1691,12 @@ spec:
               value:
                 protocol: istio-peer-exchange
 ---
-# Source: istio-discovery/templates/telemetryv2_1.8.yaml
+# Source: istio-discovery/templates/telemetryv2_1.11.yaml
 # Note: http stats filter is wasm enabled only in sidecars.
 apiVersion: networking.istio.io/v1alpha3
 kind: EnvoyFilter
 metadata:
-  name: stats-filter-1.8
+  name: stats-filter-1.11
   namespace: istio-system
   labels:
     istio.io/rev: default
@@ -1744,7 +1706,7 @@ spec:
       match:
         context: SIDECAR_OUTBOUND
         proxy:
-          proxyVersion: '^1\.8.*'
+          proxyVersion: '^1\.11.*'
         listener:
           filterChain:
             filter:
@@ -1765,6 +1727,8 @@ spec:
                   "@type": "type.googleapis.com/google.protobuf.StringValue"
                   value: |
                     {
+                      "debug": "false",
+                      "stat_prefix": "istio"
                     }
                 vm_config:
                   vm_id: stats_outbound
@@ -1776,7 +1740,7 @@ spec:
       match:
         context: SIDECAR_INBOUND
         proxy:
-          proxyVersion: '^1\.8.*'
+          proxyVersion: '^1\.11.*'
         listener:
           filterChain:
             filter:
@@ -1797,6 +1761,16 @@ spec:
                   "@type": "type.googleapis.com/google.protobuf.StringValue"
                   value: |
                     {
+                      "debug": "false",
+                      "stat_prefix": "istio",
+                      "metrics": [
+                        {
+                          "dimensions": {
+                            "destination_cluster": "node.metadata['CLUSTER_ID']",
+                            "source_cluster": "downstream_peer.cluster_id"
+                          }
+                        }
+                      ]
                     }
                 vm_config:
                   vm_id: stats_inbound
@@ -1808,7 +1782,7 @@ spec:
       match:
         context: GATEWAY
         proxy:
-          proxyVersion: '^1\.8.*'
+          proxyVersion: '^1\.11.*'
         listener:
           filterChain:
             filter:
@@ -1829,6 +1803,8 @@ spec:
                   "@type": "type.googleapis.com/google.protobuf.StringValue"
                   value: |
                     {
+                      "debug": "false",
+                      "stat_prefix": "istio",
                       "disable_host_header_fallback": true
                     }
                 vm_config:
@@ -1838,12 +1814,12 @@ spec:
                     local:
                       inline_string: envoy.wasm.stats
 ---
-# Source: istio-discovery/templates/telemetryv2_1.8.yaml
+# Source: istio-discovery/templates/telemetryv2_1.11.yaml
 # Note: tcp stats filter is wasm enabled only in sidecars.
 apiVersion: networking.istio.io/v1alpha3
 kind: EnvoyFilter
 metadata:
-  name: tcp-stats-filter-1.8
+  name: tcp-stats-filter-1.11
   namespace: istio-system
   labels:
     istio.io/rev: default
@@ -1853,7 +1829,7 @@ spec:
       match:
         context: SIDECAR_INBOUND
         proxy:
-          proxyVersion: '^1\.8.*'
+          proxyVersion: '^1\.11.*'
         listener:
           filterChain:
             filter:
@@ -1872,6 +1848,16 @@ spec:
                   "@type": "type.googleapis.com/google.protobuf.StringValue"
                   value: |
                     {
+                      "debug": "false",
+                      "stat_prefix": "istio",
+                      "metrics": [
+                        {
+                          "dimensions": {
+                            "destination_cluster": "node.metadata['CLUSTER_ID']",
+                            "source_cluster": "downstream_peer.cluster_id"
+                          }
+                        }
+                      ]
                     }
                 vm_config:
                   vm_id: tcp_stats_inbound
@@ -1883,7 +1869,7 @@ spec:
       match:
         context: SIDECAR_OUTBOUND
         proxy:
-          proxyVersion: '^1\.8.*'
+          proxyVersion: '^1\.11.*'
         listener:
           filterChain:
             filter:
@@ -1902,6 +1888,8 @@ spec:
                   "@type": "type.googleapis.com/google.protobuf.StringValue"
                   value: |
                     {
+                      "debug": "false",
+                      "stat_prefix": "istio"
                     }
                 vm_config:
                   vm_id: tcp_stats_outbound
@@ -1913,7 +1901,7 @@ spec:
       match:
         context: GATEWAY
         proxy:
-          proxyVersion: '^1\.8.*'
+          proxyVersion: '^1\.11.*'
         listener:
           filterChain:
             filter:
@@ -1932,6 +1920,8 @@ spec:
                   "@type": "type.googleapis.com/google.protobuf.StringValue"
                   value: |
                     {
+                      "debug": "false",
+                      "stat_prefix": "istio"
                     }
                 vm_config:
                   vm_id: tcp_stats_outbound
@@ -2365,7 +2355,7 @@ spec:
                       inline_string: "envoy.wasm.stats"
 ---
 # Source: istio-discovery/templates/mutatingwebhook.yaml
-apiVersion: admissionregistration.k8s.io/v1beta1
+apiVersion: admissionregistration.k8s.io/v1
 kind: MutatingWebhookConfiguration
 metadata:
   name: istio-sidecar-injector
@@ -2376,6 +2366,66 @@ metadata:
     app: sidecar-injector
     release: istio
 webhooks:
+- name: rev.namespace.sidecar-injector.istio.io
+  clientConfig:
+    service:
+      name: istiod
+      namespace: istio-system
+      path: "/inject"
+    caBundle: ""
+  sideEffects: None
+  rules:
+  - operations: [ "CREATE" ]
+    apiGroups: [""]
+    apiVersions: ["v1"]
+    resources: ["pods"]
+  failurePolicy: Fail
+  admissionReviewVersions: ["v1beta1", "v1"]
+  namespaceSelector:
+    matchExpressions:
+    - key: istio.io/rev
+      operator: In
+      values:
+      - "default"
+    - key: istio-injection
+      operator: DoesNotExist
+  objectSelector:
+    matchExpressions:
+    - key: sidecar.istio.io/inject
+      operator: NotIn
+      values:
+      - "false"
+- name: rev.object.sidecar-injector.istio.io
+  clientConfig:
+    service:
+      name: istiod
+      namespace: istio-system
+      path: "/inject"
+    caBundle: ""
+  sideEffects: None
+  rules:
+  - operations: [ "CREATE" ]
+    apiGroups: [""]
+    apiVersions: ["v1"]
+    resources: ["pods"]
+  failurePolicy: Fail
+  admissionReviewVersions: ["v1beta1", "v1"]
+  namespaceSelector:
+    matchExpressions:
+    - key: istio.io/rev
+      operator: DoesNotExist
+    - key: istio-injection
+      operator: DoesNotExist
+  objectSelector:
+    matchExpressions:
+    - key: sidecar.istio.io/inject
+      operator: NotIn
+      values:
+      - "false"
+    - key: istio.io/rev
+      operator: In
+      values:
+      - "default"
 - name: namespace.sidecar-injector.istio.io
   clientConfig:
     service:

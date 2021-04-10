@@ -20,17 +20,24 @@ import (
 
 	"github.com/gogo/protobuf/types"
 
+	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/config/mesh"
 )
 
 func TestEnvoyArgs(t *testing.T) {
-	proxyConfig := mesh.DefaultProxyConfig()
+	proxyConfig := model.NodeMetaProxyConfig(mesh.DefaultProxyConfig())
 	proxyConfig.ServiceCluster = "my-cluster"
 	proxyConfig.Concurrency = &types.Int32Value{Value: 8}
 
 	cfg := ProxyConfig{
-		Config:            proxyConfig,
-		Node:              "my-node",
+		Node: &model.Node{
+			ID: "my-node",
+			Metadata: &model.BootstrapNodeMetadata{
+				NodeMetadata: model.NodeMetadata{
+					ProxyConfig: &proxyConfig,
+				},
+			},
+		},
 		LogLevel:          "trace",
 		ComponentLogLevel: "misc:error",
 		NodeIPs:           []string{"10.75.2.9", "192.168.11.18"},
@@ -51,11 +58,13 @@ func TestEnvoyArgs(t *testing.T) {
 		"-c", "test.json",
 		"--restart-epoch", "5",
 		"--drain-time-s", "45",
+		"--drain-strategy", "immediate",
 		"--parent-shutdown-time-s", "60",
 		"--service-cluster", "my-cluster",
 		"--service-node", "my-node",
 		"--local-address-ip-version", "v4",
 		"--bootstrap-version", "3",
+		"--disable-hot-restart",
 		"--log-format", "%Y-%m-%dT%T.%fZ\t%l\tenvoy %n\t%v",
 		"-l", "trace",
 		"--component-log-level", "misc:error",

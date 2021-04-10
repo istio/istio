@@ -40,13 +40,14 @@ import (
 	"istio.io/istio/pilot/pkg/serviceregistry"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube/controller/filter"
+	"istio.io/istio/pilot/pkg/util/informermetric"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/config/protocol"
 	kubelib "istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/queue"
-	"istio.io/pkg/log"
+	istiolog "istio.io/pkg/log"
 	"istio.io/pkg/monitoring"
 )
 
@@ -69,6 +70,8 @@ const (
 	// by meshNetworks or "networking.istio.io/gatewayPort"
 	DefaultNetworkGatewayPort = 15443
 )
+
+var log = istiolog.RegisterScope("kube", "kubernetes service registry controller", 0)
 
 var (
 	typeTag  = monitoring.MustCreateLabel("type")
@@ -300,7 +303,7 @@ func NewController(kubeClient kubelib.Client, options Options) *Controller {
 			informers.WithTweakListOptions(func(listOpts *metav1.ListOptions) {
 				listOpts.FieldSelector = fields.OneTermEqualSelector("metadata.name", options.SystemNamespace).String()
 			})).Core().V1().Namespaces().Informer()
-		registerHandlers(c.systemNsInformer, c.queue, "Namespaces", c.onSystemNamespaceEvent, nil)
+		c.registerHandlers(c.systemNsInformer, "Namespaces", c.onSystemNamespaceEvent, nil)
 	}
 
 	c.nsInformer = kubeClient.KubeInformer().Core().V1().Namespaces()
@@ -314,7 +317,7 @@ func NewController(kubeClient kubelib.Client, options Options) *Controller {
 	c.serviceInformer = filter.NewFilteredSharedIndexInformer(c.discoveryNamespacesFilter.Filter, kubeClient.KubeInformer().Core().V1().Services().Informer())
 	c.serviceLister = listerv1.NewServiceLister(c.serviceInformer.GetIndexer())
 
-	registerHandlers(c.serviceInformer, c.queue, "Services", c.onServiceEvent, nil)
+	c.registerHandlers(c.serviceInformer, "Services", c.onServiceEvent, nil)
 
 	switch options.EndpointMode {
 	case EndpointsOnly:
@@ -334,7 +337,7 @@ func NewController(kubeClient kubelib.Client, options Options) *Controller {
 	// This is for getting the node IPs of a selected set of nodes
 	c.nodeInformer = kubeClient.KubeInformer().Core().V1().Nodes().Informer()
 	c.nodeLister = kubeClient.KubeInformer().Core().V1().Nodes().Lister()
-	registerHandlers(c.nodeInformer, c.queue, "Nodes", c.onNodeEvent, nil)
+	c.registerHandlers(c.nodeInformer, "Nodes", c.onNodeEvent, nil)
 
 	podInformer := filter.NewFilteredSharedIndexInformer(c.discoveryNamespacesFilter.Filter, kubeClient.KubeInformer().Core().V1().Pods().Informer())
 	c.pods = newPodCache(c, podInformer, func(key string) {
@@ -351,7 +354,7 @@ func NewController(kubeClient kubelib.Client, options Options) *Controller {
 			return c.endpoints.onEvent(item, model.EventUpdate)
 		})
 	})
-	registerHandlers(c.pods.informer, c.queue, "Pods", c.pods.onEvent, nil)
+	c.registerHandlers(c.pods.informer, "Pods", c.pods.onEvent, nil)
 
 	return c
 }
@@ -394,18 +397,10 @@ func (c *Controller) Cleanup() error {
 }
 
 func (c *Controller) onServiceEvent(curr interface{}, event model.Event) error {
-	svc, ok := curr.(*v1.Service)
-	if !ok {
-		tombstone, ok := curr.(cache.DeletedFinalStateUnknown)
-		if !ok {
-			log.Errorf("Couldn't get object from tombstone %#v", curr)
-			return nil
-		}
-		svc, ok = tombstone.Obj.(*v1.Service)
-		if !ok {
-			log.Errorf("Tombstone contained object that is not a service %#v", curr)
-			return nil
-		}
+	svc, err := convertToService(curr)
+	if err != nil {
+		log.Errorf(err)
+		return nil
 	}
 
 	log.Debugf("Handle event %s for service %s in namespace %s", event, svc.Name, svc.Namespace)
@@ -530,8 +525,10 @@ func (c *Controller) onNodeEvent(obj interface{}, event model.Event) error {
 // FilterOutFunc func for filtering out objects during update callback
 type FilterOutFunc func(old, cur interface{}) bool
 
-func registerHandlers(informer filter.FilteredSharedIndexInformer, q queue.Instance, otype string,
-	handler func(interface{}, model.Event) error, filter FilterOutFunc) {
+func (c *Controller) registerHandlers(
+	informer filter.FilteredSharedIndexInformer, otype string,
+	handler func(interface{}, model.Event) error, filter FilterOutFunc,
+) {
 	if filter == nil {
 		filter = func(old, cur interface{}) bool {
 			oldObj := old.(metav1.Object)
@@ -548,20 +545,22 @@ func registerHandlers(informer filter.FilteredSharedIndexInformer, q queue.Insta
 		obj = tryGetLatestObject(informer, obj)
 		return handler(obj, event)
 	}
-
+	if informer, ok := informer.(cache.SharedInformer); ok {
+		_ = informer.SetWatchErrorHandler(informermetric.ErrorHandlerForCluster(c.clusterID))
+	}
 	informer.AddEventHandler(
 		cache.ResourceEventHandlerFuncs{
 			// TODO: filtering functions to skip over un-referenced resources (perf)
 			AddFunc: func(obj interface{}) {
 				incrementEvent(otype, "add")
-				q.Push(func() error {
+				c.queue.Push(func() error {
 					return wrappedHandler(obj, model.EventAdd)
 				})
 			},
 			UpdateFunc: func(old, cur interface{}) {
 				if !filter(old, cur) {
 					incrementEvent(otype, "update")
-					q.Push(func() error {
+					c.queue.Push(func() error {
 						return wrappedHandler(cur, model.EventUpdate)
 					})
 				} else {
@@ -570,7 +569,7 @@ func registerHandlers(informer filter.FilteredSharedIndexInformer, q queue.Insta
 			},
 			DeleteFunc: func(obj interface{}) {
 				incrementEvent(otype, "delete")
-				q.Push(func() error {
+				c.queue.Push(func() error {
 					return handler(obj, model.EventDelete)
 				})
 			},

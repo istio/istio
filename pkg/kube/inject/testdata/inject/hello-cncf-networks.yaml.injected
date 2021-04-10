@@ -15,6 +15,7 @@ spec:
     metadata:
       annotations:
         k8s.v1.cni.cncf.io/networks: istio-cni
+        kubectl.kubernetes.io/default-container: hello
         kubectl.kubernetes.io/default-logs-container: hello
         prometheus.io/path: /stats/prometheus
         prometheus.io/port: "15020"

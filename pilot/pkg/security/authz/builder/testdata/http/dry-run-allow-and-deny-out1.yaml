@@ -1,0 +1,20 @@
+name: envoy.filters.http.rbac
+typedConfig:
+  '@type': type.googleapis.com/envoy.extensions.filters.http.rbac.v3.RBAC
+  shadowRules:
+    action: DENY
+    policies:
+      ns[foo]-policy[httpbin-2]-rule[0]:
+        permissions:
+        - andRules:
+            rules:
+            - orRules:
+                rules:
+                - urlPath:
+                    path:
+                      exact: /deny
+        principals:
+        - andIds:
+            ids:
+            - any: true
+  shadowRulesStatPrefix: istio_dry_run_deny_

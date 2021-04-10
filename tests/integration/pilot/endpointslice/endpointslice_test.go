@@ -36,16 +36,16 @@ var (
 func TestMain(m *testing.M) {
 	framework.
 		NewSuite(m).
-		RequireEnvironmentVersion("1.17").
-		Setup(istio.Setup(&i, func(ctx resource.Context, cfg *istio.Config) {
+		RequireMinVersion(17).
+		Setup(istio.Setup(&i, func(t resource.Context, cfg *istio.Config) {
 			cfg.ControlPlaneValues = `
 values:
   pilot:
     env:
       PILOT_USE_ENDPOINT_SLICE: "true"`
 		})).
-		Setup(func(ctx resource.Context) error {
-			return common.SetupApps(ctx, i, apps)
+		Setup(func(t resource.Context) error {
+			return common.SetupApps(t, i, apps)
 		}).
 		Run()
 }
@@ -54,7 +54,7 @@ func TestTraffic(t *testing.T) {
 	framework.
 		NewTest(t).
 		Features("traffic.routing", "traffic.reachability", "traffic.shifting").
-		Run(func(ctx framework.TestContext) {
-			common.RunAllTrafficTests(ctx, apps)
+		Run(func(t framework.TestContext) {
+			common.RunAllTrafficTests(t, apps)
 		})
 }

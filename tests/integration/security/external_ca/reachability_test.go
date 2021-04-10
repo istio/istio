@@ -33,28 +33,28 @@ import (
 func TestReachability(t *testing.T) {
 	framework.NewTest(t).
 		Features("security.externalca.reachability").
-		Run(func(ctx framework.TestContext) {
+		Run(func(t framework.TestContext) {
 			/* Test cases cannot be run in multi-cluster environments when using per cluster K8s CA Signers. Revisit this when
 			 * (a) Test environment can be modified to deploy external-signer common to all clusters in multi-cluster environment OR
 			 * (b) When trust-bundle for workload ISTIO_MUTUAL mtls can be explicitly configured PER Istio Trust Domain
 			 */
-			if ctx.Clusters().IsMulticluster() {
-				ctx.Skip()
+			if t.Clusters().IsMulticluster() {
+				t.Skip()
 			}
-			istioCfg := istio.DefaultConfigOrFail(t, ctx)
+			istioCfg := istio.DefaultConfigOrFail(t, t)
 			testNamespace := apps.Namespace
-			namespace.ClaimOrFail(t, ctx, istioCfg.SystemNamespace)
+			namespace.ClaimOrFail(t, t, istioCfg.SystemNamespace)
 			callCount := 1
-			if ctx.Clusters().IsMulticluster() {
+			if t.Clusters().IsMulticluster() {
 				// so we can validate all clusters are hit
-				callCount = util.CallsPerCluster * len(ctx.Clusters())
+				callCount = util.CallsPerCluster * len(t.Clusters())
 			}
 			bSet := apps.B.Match(echo.Namespace(testNamespace.Name()))
-			for _, cluster := range ctx.Clusters() {
-				ctx.NewSubTest(fmt.Sprintf("From %s", cluster.StableName())).Run(func(ctx framework.TestContext) {
+			for _, cluster := range t.Clusters() {
+				t.NewSubTest(fmt.Sprintf("From %s", cluster.StableName())).Run(func(t framework.TestContext) {
 					a := apps.A.Match(echo.InCluster(cluster)).Match(echo.Namespace(testNamespace.Name()))[0]
-					ctx.NewSubTest("Basic reachability with external ca").
-						Run(func(ctx framework.TestContext) {
+					t.NewSubTest("Basic reachability with external ca").
+						Run(func(t framework.TestContext) {
 							// Verify mTLS works between a and b
 							callOptions := echo.CallOptions{
 								Target:   bSet[0],
@@ -68,7 +68,7 @@ func TestReachability(t *testing.T) {
 								ExpectSuccess: true,
 								DestClusters:  bSet.Clusters(),
 							}
-							checker.CheckOrFail(ctx)
+							checker.CheckOrFail(t)
 						})
 				})
 			}

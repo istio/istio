@@ -21,7 +21,6 @@ import (
 	redis "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/redis_proxy/v3"
 	tcp "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/tcp_proxy/v3"
 	wellknown "github.com/envoyproxy/go-control-plane/pkg/wellknown"
-	"github.com/golang/protobuf/ptypes"
 
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/model"
@@ -36,7 +35,7 @@ func TestBuildRedisFilter(t *testing.T) {
 	}
 	if config, ok := redisFilter.ConfigType.(*listener.Filter_TypedConfig); ok {
 		redisProxy := redis.RedisProxy{}
-		if err := ptypes.UnmarshalAny(config.TypedConfig, &redisProxy); err != nil {
+		if err := config.TypedConfig.UnmarshalTo(&redisProxy); err != nil {
 			t.Errorf("unmarshal failed: %v", err)
 		}
 		if redisProxy.StatPrefix != "redis" {
@@ -78,7 +77,7 @@ func TestInboundNetworkFilterStatPrefix(t *testing.T) {
 	for _, tt := range cases {
 		t.Run(tt.name, func(t *testing.T) {
 			env := buildListenerEnv(services)
-			env.PushContext.InitContext(&env, nil, nil)
+			env.PushContext.InitContext(env, nil, nil)
 			env.PushContext.Mesh.InboundClusterStatName = tt.statPattern
 
 			instance := &model.ServiceInstance{
@@ -100,9 +99,9 @@ func TestInboundNetworkFilterStatPrefix(t *testing.T) {
 				},
 			}
 
-			listeners := buildInboundNetworkFilters(env.PushContext, instance, &model.Proxy{})
+			listeners := buildInboundNetworkFilters(env.PushContext, instance, &model.Proxy{}, model.BuildInboundSubsetKey(int(instance.Endpoint.EndpointPort)))
 			tcp := &tcp.TcpProxy{}
-			ptypes.UnmarshalAny(listeners[0].GetTypedConfig(), tcp)
+			listeners[0].GetTypedConfig().UnmarshalTo(tcp)
 			if tcp.StatPrefix != tt.expectedStatPrefix {
 				t.Fatalf("Unexpected Stat Prefix, Expecting %s, Got %s", tt.expectedStatPrefix, tcp.StatPrefix)
 			}
@@ -206,7 +205,7 @@ func TestOutboundNetworkFilterStatPrefix(t *testing.T) {
 	for _, tt := range cases {
 		t.Run(tt.name, func(t *testing.T) {
 			env := buildListenerEnv(services)
-			env.PushContext.InitContext(&env, nil, nil)
+			env.PushContext.InitContext(env, nil, nil)
 			env.PushContext.Mesh.OutboundClusterStatName = tt.statPattern
 
 			proxy := getProxy()
@@ -215,7 +214,7 @@ func TestOutboundNetworkFilterStatPrefix(t *testing.T) {
 
 			listeners := buildOutboundNetworkFilters(proxy, tt.routes, env.PushContext, &model.Port{Port: 9999}, config.Meta{Name: "test.com", Namespace: "ns"})
 			tcp := &tcp.TcpProxy{}
-			ptypes.UnmarshalAny(listeners[0].GetTypedConfig(), tcp)
+			listeners[0].GetTypedConfig().UnmarshalTo(tcp)
 			if tcp.StatPrefix != tt.expectedStatPrefix {
 				t.Fatalf("Unexpected Stat Prefix, Expecting %s, Got %s", tt.expectedStatPrefix, tcp.StatPrefix)
 			}

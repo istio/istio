@@ -1,9 +1,9 @@
-
 {{- $gateway := index .Values "gateways" "istio-ingressgateway" }}
+{{- if eq $gateway.injectionTemplate "" }}
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: {{ $gateway.name | default "istio-ingressgateway" }}
+  name: {{ $gateway.name }}
   namespace: {{ .Release.Namespace }}
   labels:
 {{ $gateway.labels | toYaml | indent 4 }}
@@ -33,7 +33,7 @@ spec:
         release: istio
         chart: gateways
 {{- end }}
-        service.istio.io/canonical-name: {{ $gateway.name | default "istio-ingressgateway" }}
+        service.istio.io/canonical-name: {{ $gateway.name }}
         {{- if not (eq .Values.revision "") }}
         service.istio.io/canonical-revision: {{ .Values.revision }}
         {{- else}}
@@ -42,17 +42,14 @@ spec:
         istio.io/rev: {{ .Values.revision | default "default" }}
         install.operator.istio.io/owning-resource: {{ .Values.ownerName | default "unknown" }}
         operator.istio.io/component: "IngressGateways"
-        sidecar.istio.io/inject: "{{- ne $gateway.injectionTemplate "" }}"
+        sidecar.istio.io/inject: "false"
       annotations:
         {{- if .Values.meshConfig.enablePrometheusMerge }}
         prometheus.io/port: "15020"
         prometheus.io/scrape: "true"
         prometheus.io/path: "/stats/prometheus"
         {{- end }}
-        sidecar.istio.io/inject: "{{- ne $gateway.injectionTemplate "" }}"
-        {{- if ne $gateway.injectionTemplate "" }}
-        inject.istio.io/templates: "{{ $gateway.injectionTemplate }}"
-        {{- end}}
+        sidecar.istio.io/inject: "false"
 {{- if $gateway.podAnnotations }}
 {{ toYaml $gateway.podAnnotations | indent 8 }}
 {{ end }}
@@ -64,7 +61,7 @@ spec:
         runAsNonRoot: true
         fsGroup: 1337
 {{- end }}
-      serviceAccountName: {{ $gateway.name | default "istio-ingressgateway" }}-service-account
+      serviceAccountName: {{ $gateway.name }}-service-account
 {{- if .Values.global.priorityClassName }}
       priorityClassName: "{{ .Values.global.priorityClassName }}"
 {{- end }}
@@ -126,7 +123,7 @@ spec:
           - --log_as_json
         {{- end }}
           - --serviceCluster
-          - {{ $gateway.name | default "istio-ingressgateway" }}
+          - {{ $gateway.name }}
         {{- if .Values.global.sts.servicePort }}
           - --stsPort={{ .Values.global.sts.servicePort }}
         {{- end }}
@@ -204,9 +201,9 @@ spec:
               fieldRef:
                 fieldPath: metadata.labels['service.istio.io/canonical-revision']
           - name: ISTIO_META_WORKLOAD_NAME
-            value: {{ $gateway.name | default "istio-ingressgateway" }}
+            value: {{ $gateway.name }}
           - name: ISTIO_META_OWNER
-            value: kubernetes://apis/apps/v1/namespaces/{{ .Release.Namespace }}/deployments/{{ $gateway.name | default "istio-ingressgateway" }}
+            value: kubernetes://apis/apps/v1/namespaces/{{ .Release.Namespace }}/deployments/{{ $gateway.name }}
           {{- if $.Values.global.meshID }}
           - name: ISTIO_META_MESH_ID
             value: "{{ $.Values.global.meshID }}"
@@ -224,7 +221,7 @@ spec:
           {{- end }}
           {{- range $key, $val := $gateway.env }}
           - name: {{ $key }}
-            value: {{ $val }}
+            value: "{{ $val }}"
           {{- end }}
           {{- range $key, $value := .Values.meshConfig.defaultConfig.proxyMetadata }}
           - name: {{ $key }}
@@ -351,4 +348,5 @@ spec:
 {{- else if .Values.global.defaultTolerations }}
       tolerations:
 {{ toYaml .Values.global.defaultTolerations | indent 6 }}
+{{- end }}
 {{- end }}

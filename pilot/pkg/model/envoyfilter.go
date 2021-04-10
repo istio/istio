@@ -27,6 +27,8 @@ import (
 
 // EnvoyFilterWrapper is a wrapper for the EnvoyFilter api object with pre-processed data
 type EnvoyFilterWrapper struct {
+	Name             string
+	Namespace        string
 	workloadSelector labels.Instance
 	Patches          map[networking.EnvoyFilter_ApplyTo][]*EnvoyFilterConfigPatchWrapper
 }
@@ -50,25 +52,36 @@ type EnvoyFilterConfigPatchWrapper struct {
 // This is done only as an optimization; behavior should remain the same
 // All versions specified by the default installation (Telemetry V2) should be added here.
 var wellKnownVersions = map[string]string{
-	`^1\.4.*`: "1.4",
-	`^1\.5.*`: "1.5",
-	`^1\.6.*`: "1.6",
-	`^1\.7.*`: "1.7",
-	`^1\.8.*`: "1.8",
-	`^1\.9.*`: "1.9",
-	// Hopefully we have a better API by 1.10. If not, add it here
+	`^1\.4.*`:  "1.4",
+	`^1\.5.*`:  "1.5",
+	`^1\.6.*`:  "1.6",
+	`^1\.7.*`:  "1.7",
+	`^1\.8.*`:  "1.8",
+	`^1\.9.*`:  "1.9",
+	`^1\.10.*`: "1.10",
+	`^1\.11.*`: "1.11",
+	`^1\.12.*`: "1.12",
+	// Hopefully we have a better API by 1.13. If not, add it here
 }
 
 // convertToEnvoyFilterWrapper converts from EnvoyFilter config to EnvoyFilterWrapper object
 func convertToEnvoyFilterWrapper(local *config.Config) *EnvoyFilterWrapper {
 	localEnvoyFilter := local.Spec.(*networking.EnvoyFilter)
 
-	out := &EnvoyFilterWrapper{}
+	out := &EnvoyFilterWrapper{Name: local.Name, Namespace: local.Namespace}
 	if localEnvoyFilter.WorkloadSelector != nil {
 		out.workloadSelector = localEnvoyFilter.WorkloadSelector.Labels
 	}
 	out.Patches = make(map[networking.EnvoyFilter_ApplyTo][]*EnvoyFilterConfigPatchWrapper)
 	for _, cp := range localEnvoyFilter.ConfigPatches {
+		if cp.Patch == nil {
+			// Should be caught by validation, but sometimes its disabled and we don't want to crash
+			// as a result.
+			if log.DebugEnabled() {
+				log.Debugf("envoyfilter %v/%v discarded due to missing patch", local.Namespace, local.Name)
+			}
+			continue
+		}
 		cpw := &EnvoyFilterConfigPatchWrapper{
 			ApplyTo:   cp.ApplyTo,
 			Match:     cp.Match,
@@ -145,4 +158,11 @@ func proxyMatch(proxy *Proxy, cp *EnvoyFilterConfigPatchWrapper) bool {
 		}
 	}
 	return true
+}
+
+func (efw *EnvoyFilterWrapper) Key() string {
+	if efw == nil {
+		return ""
+	}
+	return efw.Namespace + "/" + efw.Name
 }

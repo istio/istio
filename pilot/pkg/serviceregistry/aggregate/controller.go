@@ -30,8 +30,6 @@ import (
 	"istio.io/pkg/log"
 )
 
-var clusterAddressesMutex sync.Mutex
-
 // The aggregate controller does not implement serviceregistry.Instance since it may be comprised of various
 // providers and clusters.
 var (
@@ -79,7 +77,7 @@ func (c *Controller) DeleteRegistry(clusterID string, providerID serviceregistry
 	}
 	index, ok := c.getRegistryIndex(clusterID, providerID)
 	if !ok {
-		log.Warnf("Registry is not found in the registries list, nothing to delete")
+		log.Warnf("Registry %s is not found in the registries list, nothing to delete", clusterID)
 		return
 	}
 	c.registries = append(c.registries[:index], c.registries[index+1:]...)
@@ -97,14 +95,6 @@ func (c *Controller) GetRegistries() []serviceregistry.Instance {
 		out[i] = c.registries[i]
 	}
 	return out
-}
-
-// GetRegistryIndex returns the index of a registry
-func (c *Controller) GetRegistryIndex(clusterID string, provider serviceregistry.ProviderID) (int, bool) {
-	c.storeLock.RLock()
-	defer c.storeLock.RUnlock()
-
-	return c.getRegistryIndex(clusterID, provider)
 }
 
 func (c *Controller) getRegistryIndex(clusterID string, provider serviceregistry.ProviderID) (int, bool) {
@@ -131,13 +121,10 @@ func (c *Controller) Services() ([]*model.Service, error) {
 			errs = multierror.Append(errs, err)
 			continue
 		}
-		// Race condition: multiple threads may call Services, and multiple services
-		// may modify one of the service's cluster ID
-		clusterAddressesMutex.Lock()
+
 		if r.Provider() != serviceregistry.Kubernetes {
 			services = append(services, svcs...)
 		} else {
-			// This is K8S typically
 			for _, s := range svcs {
 				sp, ok := smap[s.Hostname]
 				if !ok {
@@ -148,11 +135,12 @@ func (c *Controller) Services() ([]*model.Service, error) {
 					sp = s
 					smap[s.Hostname] = sp
 					services = append(services, sp)
+				} else {
+					// If it is seen second time, that means it is from a different cluster, update cluster VIPs.
+					mergeService(sp, s, r.Cluster())
 				}
-				mergeService(sp, s, r.Cluster())
 			}
 		}
-		clusterAddressesMutex.Unlock()
 	}
 	return services, errs
 }
@@ -173,20 +161,18 @@ func (c *Controller) GetService(hostname host.Name) (*model.Service, error) {
 		if r.Provider() != serviceregistry.Kubernetes {
 			return service, nil
 		}
-		service.Mutex.RLock()
 		if out == nil {
 			out = service.DeepCopy()
+		} else {
+			// If we are seeing the service for the second time, it means it is available in multiple clusters.
+			mergeService(out, service, r.Cluster())
 		}
-		mergeService(out, service, r.Cluster())
-		service.Mutex.RUnlock()
 	}
 	return out, errs
 }
 
 func mergeService(dst, src *model.Service, srcCluster string) {
 	dst.Mutex.Lock()
-	// If the registry has a cluster ID, keep track of the cluster and the
-	// local address inside the cluster.
 	if dst.ClusterVIPs == nil {
 		dst.ClusterVIPs = make(map[string]string)
 	}

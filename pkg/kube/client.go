@@ -26,6 +26,7 @@ import (
 	"os"
 	"reflect"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/hashicorp/go-multierror"
@@ -68,6 +69,9 @@ import (
 	gatewayapiclient "sigs.k8s.io/gateway-api/pkg/client/clientset/versioned"
 	gatewayapifake "sigs.k8s.io/gateway-api/pkg/client/clientset/versioned/fake"
 	gatewayapiinformer "sigs.k8s.io/gateway-api/pkg/client/informers/externalversions"
+	mcsapisClient "sigs.k8s.io/mcs-api/pkg/client/clientset/versioned"
+	mcsapisfake "sigs.k8s.io/mcs-api/pkg/client/clientset/versioned/fake"
+	mcsapisInformer "sigs.k8s.io/mcs-api/pkg/client/informers/externalversions"
 
 	"istio.io/api/label"
 	istioclient "istio.io/client-go/pkg/clientset/versioned"
@@ -110,6 +114,9 @@ type Client interface {
 	// GatewayApi returns the gateway-api kube client.
 	GatewayAPI() gatewayapiclient.Interface
 
+	// MCSApis returns the mcs-apis kube client.
+	MCSApis() mcsapisClient.Interface
+
 	// KubeInformer returns an informer for core kube client
 	KubeInformer() informers.SharedInformerFactory
 
@@ -125,9 +132,15 @@ type Client interface {
 	// GatewayApiInformer returns an informer for the gateway-api client
 	GatewayAPIInformer() gatewayapiinformer.SharedInformerFactory
 
+	// MCSApisInformer returns an informer for the mcs-apis client
+	MCSApisInformer() mcsapisInformer.SharedInformerFactory
+
 	// RunAndWait starts all informers and waits for their caches to sync.
 	// Warning: this must be called AFTER .Informer() is called, which will register the informer.
 	RunAndWait(stop <-chan struct{})
+
+	// GetKubernetesVersion returns the Kubernetes server version
+	GetKubernetesVersion() (*kubeVersion.Info, error)
 }
 
 // ExtendedClient is an extended client with additional helpers/functionality for Istioctl and testing.
@@ -135,9 +148,6 @@ type ExtendedClient interface {
 	Client
 	// Revision of the Istio control plane.
 	Revision() string
-
-	// GetKubernetesVersion returns the Kubernetes server version
-	GetKubernetesVersion() (*kubeVersion.Info, error)
 
 	// EnvoyDo makes an http request to the Envoy in the specified pod.
 	EnvoyDo(ctx context.Context, podName, podNamespace, method, path string, body []byte) ([]byte, error)
@@ -219,6 +229,9 @@ func NewFakeClient(objects ...runtime.Object) ExtendedClient {
 	c.gatewayapi = gatewayapifake.NewSimpleClientset()
 	c.gatewayapiInformer = gatewayapiinformer.NewSharedInformerFactory(c.gatewayapi, resyncInterval)
 
+	c.mcsapis = mcsapisfake.NewSimpleClientset()
+	c.mcsapisInformers = mcsapisInformer.NewSharedInformerFactory(c.mcsapis, resyncInterval)
+
 	c.extSet = extfake.NewSimpleClientset()
 
 	// https://github.com/kubernetes/kubernetes/issues/95372
@@ -261,8 +274,7 @@ type client struct {
 	clientFactory util.Factory
 	config        *rest.Config
 
-	extSet        kubeExtClient.Interface
-	versionClient discovery.ServerVersionInterface
+	extSet kubeExtClient.Interface
 
 	kube         kubernetes.Interface
 	kubeInformer informers.SharedInformerFactory
@@ -279,6 +291,9 @@ type client struct {
 	gatewayapi         gatewayapiclient.Interface
 	gatewayapiInformer gatewayapiinformer.SharedInformerFactory
 
+	mcsapis          mcsapisClient.Interface
+	mcsapisInformers mcsapisInformer.SharedInformerFactory
+
 	// If enable, will wait for cache syncs with extremely short delay. This should be used only for tests
 	fastSync               bool
 	informerWatchesPending *atomic.Int32
@@ -288,6 +303,10 @@ type client struct {
 	restClient      *rest.RESTClient
 	discoveryClient discovery.CachedDiscoveryInterface
 	mapper          meta.RESTMapper
+
+	versionOnce sync.Once
+	version     *kubeVersion.Info
+	versionErr  error
 }
 
 // newClientInternal creates a Kubernetes client from the given factory.
@@ -346,12 +365,17 @@ func newClientInternal(clientFactory util.Factory, revision string) (*client, er
 	}
 	c.gatewayapiInformer = gatewayapiinformer.NewSharedInformerFactory(c.gatewayapi, resyncInterval)
 
+	c.mcsapis, err = mcsapisClient.NewForConfig(c.config)
+	if err != nil {
+		return nil, err
+	}
+	c.mcsapisInformers = mcsapisInformer.NewSharedInformerFactory(c.mcsapis, resyncInterval)
+
 	ext, err := kubeExtClient.NewForConfig(c.config)
 	if err != nil {
 		return nil, err
 	}
 	c.extSet = ext
-	c.versionClient = ext
 
 	return &c, nil
 }
@@ -396,6 +420,10 @@ func (c *client) GatewayAPI() gatewayapiclient.Interface {
 	return c.gatewayapi
 }
 
+func (c *client) MCSApis() mcsapisClient.Interface {
+	return c.mcsapis
+}
+
 func (c *client) KubeInformer() informers.SharedInformerFactory {
 	return c.kubeInformer
 }
@@ -414,6 +442,10 @@ func (c *client) IstioInformer() istioinformer.SharedInformerFactory {
 
 func (c *client) GatewayAPIInformer() gatewayapiinformer.SharedInformerFactory {
 	return c.gatewayapiInformer
+}
+
+func (c *client) MCSApisInformer() mcsapisInformer.SharedInformerFactory {
+	return c.mcsapisInformers
 }
 
 // RunAndWait starts all informers and waits for their caches to sync.
@@ -446,6 +478,15 @@ func (c *client) RunAndWait(stop <-chan struct{}) {
 		c.istioInformer.WaitForCacheSync(stop)
 		c.gatewayapiInformer.WaitForCacheSync(stop)
 	}
+}
+
+func (c *client) GetKubernetesVersion() (*kubeVersion.Info, error) {
+	c.versionOnce.Do(func() {
+		v, err := c.Discovery().ServerVersion()
+		c.version = v
+		c.versionErr = err
+	})
+	return c.version, c.versionErr
 }
 
 type reflectInformerSync interface {
@@ -501,10 +542,6 @@ func WaitForCacheSyncInterval(stopCh <-chan struct{}, interval time.Duration, ca
 
 func (c *client) Revision() string {
 	return c.revision
-}
-
-func (c *client) GetKubernetesVersion() (*kubeVersion.Info, error) {
-	return c.versionClient.ServerVersion()
 }
 
 func (c *client) PodExec(podName, podNamespace, container string, command string) (stdout, stderr string, err error) {
@@ -816,7 +853,7 @@ func (c *client) ApplyYAMLFilesDryRun(namespace string, yamlFiles ...string) err
 
 func (c *client) CreatePerRPCCredentials(ctx context.Context, tokenNamespace, tokenServiceAccount string, audiences []string,
 	expirationSeconds int64) (credentials.PerRPCCredentials, error) {
-	return NewRPCCredentials(c, tokenNamespace, tokenServiceAccount, audiences, expirationSeconds)
+	return NewRPCCredentials(c, tokenNamespace, tokenServiceAccount, audiences, expirationSeconds, 60)
 }
 
 func (c *client) UtilFactory() util.Factory {

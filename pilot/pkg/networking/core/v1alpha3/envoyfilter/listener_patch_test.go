@@ -31,10 +31,10 @@ import (
 	"github.com/gogo/protobuf/types"
 	"github.com/golang/protobuf/jsonpb"
 	"github.com/golang/protobuf/proto"
-	"github.com/golang/protobuf/ptypes"
 	"github.com/golang/protobuf/ptypes/wrappers"
 	"github.com/google/go-cmp/cmp"
 	"google.golang.org/protobuf/testing/protocmp"
+	"google.golang.org/protobuf/types/known/anypb"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
@@ -91,6 +91,7 @@ func newTestEnvironment(serviceDiscovery model.ServiceDiscovery, meshConfig mesh
 	}
 
 	e.PushContext = model.NewPushContext()
+	e.Init()
 	_ = e.PushContext.InitContext(e, nil, nil)
 
 	return e
@@ -652,6 +653,25 @@ func TestApplyListenerPatches(t *testing.T) {
 									"tls_minimum_protocol_version":"TLSv1_2"}}}}}`),
 			},
 		},
+		{
+			ApplyTo: networking.EnvoyFilter_NETWORK_FILTER,
+			Match: &networking.EnvoyFilter_EnvoyConfigObjectMatch{
+				ObjectTypes: &networking.EnvoyFilter_EnvoyConfigObjectMatch_Listener{
+					Listener: &networking.EnvoyFilter_ListenerMatch{
+						Name: VirtualInboundListenerName,
+						FilterChain: &networking.EnvoyFilter_ListenerMatch_FilterChainMatch{
+							Name: "filter-chain-name-match",
+							Filter: &networking.EnvoyFilter_ListenerMatch_FilterMatch{
+								Name: "custom-network-filter-2",
+							},
+						},
+					},
+				},
+			},
+			Patch: &networking.EnvoyFilter_Patch{
+				Operation: networking.EnvoyFilter_Patch_REMOVE,
+			},
+		},
 	}
 
 	sidecarOutboundIn := []*listener.Listener{
@@ -1065,12 +1085,12 @@ func TestApplyListenerPatches(t *testing.T) {
 	faultFilterIn := &fault.HTTPFault{
 		UpstreamCluster: "foobar",
 	}
-	faultFilterInAny, _ := ptypes.MarshalAny(faultFilterIn)
+	faultFilterInAny, _ := anypb.New(faultFilterIn)
 	faultFilterOut := &fault.HTTPFault{
 		UpstreamCluster: "scooby",
 		DownstreamNodes: []string{"foo"},
 	}
-	faultFilterOutAny, _ := ptypes.MarshalAny(faultFilterOut)
+	faultFilterOutAny, _ := anypb.New(faultFilterOut)
 
 	gatewayIn := []*listener.Listener{
 		{
@@ -1241,6 +1261,20 @@ func TestApplyListenerPatches(t *testing.T) {
 					},
 				},
 				{
+					Name: "filter-chain-name-not-match",
+					Filters: []*listener.Filter{
+						{Name: "custom-network-filter-1"},
+						{Name: "custom-network-filter-2"},
+					},
+				},
+				{
+					Name: "filter-chain-name-match",
+					Filters: []*listener.Filter{
+						{Name: "custom-network-filter-1"},
+						{Name: "custom-network-filter-2"},
+					},
+				},
+				{
 					Name:             "catch-all",
 					FilterChainMatch: &listener.FilterChainMatch{},
 					Filters: []*listener.Filter{
@@ -1290,6 +1324,7 @@ func TestApplyListenerPatches(t *testing.T) {
 									MergeSlashes:                 true,
 									AlwaysSetRequestIdInResponse: true,
 									HttpFilters: []*http_conn.HttpFilter{
+										{Name: "http-filter0"},
 										{
 											Name:       wellknown.Fault,
 											ConfigType: &http_conn.HttpFilter_TypedConfig{TypedConfig: faultFilterOutAny},
@@ -1332,6 +1367,19 @@ func TestApplyListenerPatches(t *testing.T) {
 								}),
 							},
 						},
+					},
+				},
+				{
+					Name: "filter-chain-name-not-match",
+					Filters: []*listener.Filter{
+						{Name: "custom-network-filter-1"},
+						{Name: "custom-network-filter-2"},
+					},
+				},
+				{
+					Name: "filter-chain-name-match",
+					Filters: []*listener.Filter{
+						{Name: "custom-network-filter-1"},
 					},
 				},
 				{

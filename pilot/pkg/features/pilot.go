@@ -17,8 +17,8 @@ package features
 import (
 	"time"
 
-	"github.com/golang/protobuf/ptypes"
 	"github.com/golang/protobuf/ptypes/duration"
+	"google.golang.org/protobuf/types/known/durationpb"
 
 	"istio.io/istio/pkg/jwt"
 	"istio.io/pkg/env"
@@ -97,15 +97,6 @@ var (
 		"Enables the use of HTTP 1.0 in the outbound HTTP listeners, to support legacy applications.",
 	).Get()
 
-	TerminationDrainDuration = env.RegisterIntVar(
-		"TERMINATION_DRAIN_DURATION_SECONDS",
-		5,
-		"The amount of time allowed for connections to complete on pilot-agent shutdown. "+
-			"On receiving SIGTERM or SIGINT, pilot-agent tells the active Envoy to start draining, "+
-			"preventing any new connections and allowing existing connections to complete. It then "+
-			"sleeps for the TerminationDrainDuration and then kills any remaining active Envoy processes.",
-	)
-
 	// EnableMysqlFilter enables injection of `envoy.filters.network.mysql_proxy` in the filter chain.
 	// Pilot injects this outbound filter if the service port name is `mysql`.
 	EnableMysqlFilter = env.RegisterBoolVar(
@@ -128,14 +119,6 @@ var (
 		"PILOT_SIDECAR_USE_REMOTE_ADDRESS",
 		false,
 		"UseRemoteAddress sets useRemoteAddress to true for side car outbound listeners.",
-	).Get()
-
-	// EnableThriftFilter enables injection of `envoy.filters.network.thrift_proxy` in the filter chain.
-	// Pilot injects this outbound filter if the service port name is `thrift`.
-	EnableThriftFilter = env.RegisterBoolVar(
-		"PILOT_ENABLE_THRIFT_FILTER",
-		false,
-		"EnableThriftFilter enables injection of `envoy.filters.network.thrift_proxy` in the filter chain.",
 	).Get()
 
 	// SkipValidateTrustDomain tells the server proxy to not to check the peer's trust domain when
@@ -221,19 +204,17 @@ var (
 			"Currently this is mutual exclusive - either Endpoints or EndpointSlices will be used",
 	).Get()
 
+	EnableMCSServiceExport = env.RegisterBoolVar(
+		"PILOT_ENABLE_MCS_SERVICEEXPORT",
+		false,
+		"If enabled, Pilot will generate MCS ServiceExport objects for every non cluster-local service in the cluster",
+	).Get()
+
 	EnableSDSServer = env.RegisterBoolVar(
 		"ISTIOD_ENABLE_SDS_SERVER",
 		true,
 		"If enabled, Istiod will serve SDS for credentialName secrets (rather than in-proxy). "+
 			"To ensure proper security, PILOT_ENABLE_XDS_IDENTITY_CHECK=true is required as well.",
-	).Get()
-
-	EnableCRDValidation = env.RegisterBoolVar(
-		"PILOT_ENABLE_CRD_VALIDATION",
-		false,
-		"If enabled, pilot will validate CRDs while retrieving CRDs from kubernetes cache."+
-			"Use this flag to enable validation of CRDs in Pilot, especially in deployments "+
-			"that do not have galley installed.",
 	).Get()
 
 	EnableAnalysis = env.RegisterBoolVar(
@@ -283,7 +264,7 @@ var (
 	)
 
 	DefaultRequestTimeout = func() *duration.Duration {
-		return ptypes.DurationProto(defaultRequestTimeoutVar.Get())
+		return durationpb.New(defaultRequestTimeoutVar.Get())
 	}()
 
 	EnableServiceApis = env.RegisterBoolVar("PILOT_ENABLED_SERVICE_APIS", true,
@@ -307,7 +288,7 @@ var (
 	EnableDebugOnHTTP = env.RegisterBoolVar("ENABLE_DEBUG_ON_HTTP", true,
 		"If this is set to false, the debug interface will not be ebabled on Http, recommended for production").Get()
 
-	EnableAdminEndpoints = env.RegisterBoolVar("ENABLE_ADMIN_ENDPOINTS", false,
+	EnableUnsafeAdminEndpoints = env.RegisterBoolVar("UNSAFE_ENABLE_ADMIN_ENDPOINTS", false,
 		"If this is set to true, dangerous admin endpoins will be exposed on the debug interface. Not recommended for production.").Get()
 
 	XDSAuth = env.RegisterBoolVar("XDS_AUTH", true,
@@ -322,9 +303,11 @@ var (
 	EnableServiceEntrySelectPods = env.RegisterBoolVar("PILOT_ENABLE_SERVICEENTRY_SELECT_PODS", true,
 		"If enabled, service entries with selectors will select pods from the cluster. "+
 			"It is safe to disable it if you are quite sure you don't need this feature").Get()
+
 	EnableK8SServiceSelectWorkloadEntries = env.RegisterBoolVar("PILOT_ENABLE_K8S_SELECT_WORKLOAD_ENTRIES", true,
 		"If enabled, Kubernetes services with selectors will select workload entries with matching labels. "+
 			"It is safe to disable it if you are quite sure you don't need this feature").Get()
+
 	InjectionWebhookConfigName = env.RegisterStringVar("INJECTION_WEBHOOK_CONFIG_NAME", "istio-sidecar-injector",
 		"Name of the mutatingwebhookconfiguration to patch, if istioctl is not used.")
 
@@ -346,10 +329,6 @@ var (
 	XDSCacheMaxSize = env.RegisterIntVar("PILOT_XDS_CACHE_SIZE", 20000,
 		"The maximum number of cache entries for the XDS cache.").Get()
 
-	AllowMetadataCertsInMutualTLS = env.RegisterBoolVar("PILOT_ALLOW_METADATA_CERTS_DR_MUTUAL_TLS", false,
-		"If true, Pilot will allow certs specified in Metadata to override DR certs in MUTUAL TLS mode. "+
-			"This is only enabled for migration and will be removed soon.").Get()
-
 	// EnableLegacyFSGroupInjection has first-party-jwt as allowed because we only
 	// need the fsGroup configuration for the projected service account volume mount,
 	// which is only used by first-party-jwt. The installer will automatically
@@ -357,9 +336,6 @@ var (
 	EnableLegacyFSGroupInjection = env.RegisterBoolVar("ENABLE_LEGACY_FSGROUP_INJECTION", JwtPolicy.Get() != jwt.PolicyFirstParty,
 		"If true, Istiod will set the pod fsGroup to 1337 on injection. This is required for Kubernetes 1.18 and older "+
 			`(see https://github.com/kubernetes/kubernetes/issues/57923 for details) unless JWT_POLICY is "first-party-jwt".`).Get()
-
-	EnableTLSv2OnInboundPath = env.RegisterBoolVar("PILOT_SIDECAR_ENABLE_INBOUND_TLS_V2", true,
-		"If true, Pilot will set the TLS version on server side as TLSv1_2 and also enforce strong cipher suites").Get()
 
 	XdsPushSendTimeout = env.RegisterDurationVar(
 		"PILOT_XDS_SEND_TIMEOUT",
@@ -398,10 +374,6 @@ var (
 		"If set, the max amount of time to delay a push by. Depends on PILOT_ENABLE_FLOW_CONTROL.",
 	).Get()
 
-	PilotEnableLoopBlockers = env.RegisterBoolVar("PILOT_ENABLE_LOOP_BLOCKER", true,
-		"If enabled, Envoy will be configured to prevent traffic directly the the inbound/outbound "+
-			"ports (15001/15006). This prevents traffic loops. This option will be removed, and considered always enabled, in 1.9.").Get()
-
 	EnableDestinationRuleInheritance = env.RegisterBoolVar(
 		"PILOT_ENABLE_DESTINATION_RULE_INHERITANCE",
 		false,
@@ -431,4 +403,35 @@ var (
 			"The enabled behavior matches the behavior without Istio enabled at all; this flag exists only for backwards compatibility. "+
 			"Regardless of this setting, the configuration can be overridden with the Sidecar.Ingress.DefaultEndpoint configuration.",
 	).Get()
+
+	StripHostPort = env.RegisterBoolVar("ISTIO_GATEWAY_STRIP_HOST_PORT", false,
+		"If enabled, Gateway will remove any port from host/authority header "+
+			"before any processing of request by HTTP filters or routing.").Get()
+
+	// EnableUnsafeAssertions enables runtime checks to test assertions in our code. This should never be enabled in
+	// production; when assertions fail Istio will panic.
+	EnableUnsafeAssertions = env.RegisterBoolVar(
+		"UNSAFE_PILOT_ENABLE_RUNTIME_ASSERTIONS",
+		false,
+		"If enabled, addition runtime asserts will be performed. "+
+			"These checks are both expensive and panic on failure. As a result, this should be used only for testing.",
+	).Get()
+
+	DeltaXds = env.RegisterBoolVar("ISTIO_DELTA_XDS", false,
+		"If enabled, pilot will only send the delta configs as opposed to the state of the world on a "+
+			"Resource Request")
+
+	SharedMeshConfig = env.RegisterStringVar("SHARED_MESH_CONFIG", "",
+		"Additional config map to load for shared MeshConfig settings. The standard mesh config will take precedence.").Get()
+
+	MultiRootMesh = env.RegisterBoolVar("ISTIO_MULTIROOT_MESH", false,
+		"If enabled, mesh will support certificates signed by more than one trustAnchor for ISTIO_MUTUAL mTLS")
+
+	EnableEnvoyFilterMetrics = env.RegisterBoolVar("PILOT_ENVOY_FILTER_STATS", false,
+		"If true, Pilot will collect metrics for envoy filter operations.").Get()
 )
+
+// UnsafeFeaturesEnabled returns true if any unsafe features are enabled.
+func UnsafeFeaturesEnabled() bool {
+	return EnableUnsafeAdminEndpoints || EnableUnsafeAssertions
+}

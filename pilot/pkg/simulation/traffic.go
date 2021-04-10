@@ -28,7 +28,6 @@ import (
 	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
 	route "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
 	tls "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
-	"github.com/golang/protobuf/ptypes"
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
 	"github.com/yl2chen/cidranger"
@@ -246,7 +245,7 @@ func hasFilterOnPort(l *listener.Listener, filter string, port int) bool {
 	if got.FilterDisabled == nil {
 		return true
 	}
-	return !xdstest.EvaluateListenerFilterPredicates(got.FilterDisabled, false, port)
+	return !xdstest.EvaluateListenerFilterPredicates(got.FilterDisabled, port)
 }
 
 func (sim *Simulation) Run(input Call) (result Result) {
@@ -353,7 +352,7 @@ func (sim *Simulation) requiresMTLS(fc *listener.FilterChain) bool {
 		return false
 	}
 	t := &tls.DownstreamTlsContext{}
-	if err := ptypes.UnmarshalAny(fc.GetTransportSocket().GetTypedConfig(), t); err != nil {
+	if err := fc.GetTransportSocket().GetTypedConfig().UnmarshalTo(t); err != nil {
 		sim.t.Fatal(err)
 	}
 

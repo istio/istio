@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: telemetry
+issue:
+- 29919
+releaseNotes:
+- |
+  **Fixed** an issue where certificate provisioned by sidecar proxy cannot be used by Prometheus.

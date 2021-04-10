@@ -810,10 +810,9 @@ func createWebhook(t testing.TB, cfg *Config) (*Webhook, func()) {
 	}
 	_, values, _ := loadInjectionSettings(t, nil, "")
 	var (
-		configFile     = filepath.Join(dir, "config-file.yaml")
-		valuesFile     = filepath.Join(dir, "values-file.yaml")
-		port           = 0
-		monitoringPort = 0
+		configFile = filepath.Join(dir, "config-file.yaml")
+		valuesFile = filepath.Join(dir, "values-file.yaml")
+		port       = 0
 	)
 
 	if err := ioutil.WriteFile(configFile, configBytes, 0644); err != nil { // nolint: vetshadow
@@ -834,11 +833,10 @@ func createWebhook(t testing.TB, cfg *Config) (*Webhook, func()) {
 		t.Fatalf("NewFileWatcher() failed: %v", err)
 	}
 	wh, err := NewWebhook(WebhookParameters{
-		Watcher:        watcher,
-		Port:           port,
-		MonitoringPort: monitoringPort,
-		Env:            &env,
-		Mux:            http.NewServeMux(),
+		Watcher: watcher,
+		Port:    port,
+		Env:     &env,
+		Mux:     http.NewServeMux(),
 	})
 	if err != nil {
 		t.Fatalf("NewWebhook() failed: %v", err)
@@ -852,7 +850,7 @@ func TestRunAndServe(t *testing.T) {
 	defer cleanup()
 	stop := make(chan struct{})
 	defer func() { close(stop) }()
-	go wh.Run(stop)
+	wh.Run(stop)
 
 	validReview := makeTestData(t, false, "v1beta1")
 	validReviewV1 := makeTestData(t, false, "v1")
@@ -1045,7 +1043,7 @@ func BenchmarkInjectServe(b *testing.B) {
 
 	stop := make(chan struct{})
 	defer func() { close(stop) }()
-	go wh.Run(stop)
+	wh.Run(stop)
 
 	body := makeTestData(b, false, "v1beta1")
 	req := httptest.NewRequest("POST", "http://sidecar-injector/inject", bytes.NewReader(body))
@@ -1149,6 +1147,48 @@ func TestParseInjectEnvs(t *testing.T) {
 			name: "key-without-value",
 			in:   "/inject/cluster/cluster1/network",
 			want: map[string]string{"ISTIO_META_CLUSTER_ID": "cluster1"},
+		},
+		{
+			name: "key-with-values-contain-slashes",
+			in:   "/inject/:ENV:cluster=cluster2:ENV:rootpage=/foo/bar",
+			want: map[string]string{"ISTIO_META_CLUSTER_ID": "cluster2", "ROOTPAGE": "/foo/bar"},
+		},
+		{
+			// this is to test the path not following :ENV: format, the
+			// path will be considered using slash as separator
+			name: "no-predefined-kv-with-values-contain-ENV-separator",
+			in:   "/inject/rootpage1/value1/rootpage2/:ENV:abcd=efgh",
+			want: map[string]string{"ROOTPAGE1": "value1", "ROOTPAGE2": ":ENV:abcd=efgh"},
+		},
+		{
+			// this is to test the path following :ENV: format, but two variables
+			// do not have correct format, thus they will be ignored. Eg. :ENV:=abb
+			// :ENV:=, these two are not correct variables.
+			name: "no-predefined-kv-with-values-contain-ENV-separator-invalid-format",
+			in:   "/inject/:ENV:rootpage1=efgh:ENV:=abb:ENV:=",
+			want: map[string]string{"ROOTPAGE1": "efgh"},
+		},
+		{
+			// this is to test that the path is an url encoded string, still using
+			// slash as separators
+			name: "no-predefined-kv-with-mixed-values",
+			in: func() string {
+				req, _ := http.NewRequest("GET",
+					"%2Finject%2Frootpage1%2Ffoo%2Frootpage2%2Fbar", nil)
+				return req.URL.Path
+			}(),
+			want: map[string]string{"ROOTPAGE1": "foo", "ROOTPAGE2": "bar"},
+		},
+		{
+			// this is to test that the path is an url encoded string and :ENV: as separator
+			// eg. /inject/:ENV:rootpage1=/foo/bar:ENV:rootpage2=/bar/toe but url encoded.
+			name: "no-predefined-kv-with-slashes",
+			in: func() string {
+				req, _ := http.NewRequest("GET",
+					"%2Finject%2F%3AENV%3Arootpage1%3D%2Ffoo%2Fbar%3AENV%3Arootpage2%3D%2Fbar%2Ftoe", nil)
+				return req.URL.Path
+			}(),
+			want: map[string]string{"ROOTPAGE1": "/foo/bar", "ROOTPAGE2": "/bar/toe"},
 		},
 	}
 

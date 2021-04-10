@@ -31,6 +31,7 @@ import (
 	"istio.io/istio/operator/pkg/patch"
 	"istio.io/istio/operator/pkg/tpath"
 	"istio.io/istio/operator/pkg/translate"
+	"istio.io/istio/operator/pkg/util"
 	"istio.io/pkg/log"
 )
 
@@ -332,7 +333,7 @@ func (c *IngressComponent) Namespace() string {
 // Enabled implements the IstioComponent interface.
 func (c *IngressComponent) Enabled() bool {
 	// type assert is guaranteed to work in this context.
-	return boolValue(c.componentSpec.(*v1alpha1.GatewaySpec).Enabled)
+	return util.BoolValue(c.componentSpec.(*v1alpha1.GatewaySpec).Enabled)
 }
 
 // EgressComponent is the egress gateway component.
@@ -382,7 +383,7 @@ func (c *EgressComponent) Namespace() string {
 // Enabled implements the IstioComponent interface.
 func (c *EgressComponent) Enabled() bool {
 	// type assert is guaranteed to work in this context.
-	return boolValue(c.componentSpec.(*v1alpha1.GatewaySpec).Enabled)
+	return util.BoolValue(c.componentSpec.(*v1alpha1.GatewaySpec).Enabled)
 }
 
 // runComponent performs startup tasks for the component defined by the given CommonComponentFields.
@@ -491,12 +492,4 @@ func disabledYAMLStr(componentName name.ComponentName, resourceName string) stri
 		fullName += " " + resourceName
 	}
 	return fmt.Sprintf("%s %s %s\n", yamlCommentStr, fullName, componentDisabledStr)
-}
-
-// boolValue returns true is v is not nil and v.Value is true, or false otherwise.
-func boolValue(v *v1alpha1.BoolValueForPB) bool {
-	if v == nil {
-		return false
-	}
-	return v.Value
 }

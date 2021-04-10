@@ -37,9 +37,9 @@ var (
 	apps = &common.EchoDeployments{}
 )
 
-func supportsCRDv1(ctx resource.Context) bool {
-	for _, cluster := range ctx.Clusters() {
-		if !cluster.MinKubeVersion(1, 16) {
+func supportsCRDv1(t resource.Context) bool {
+	for _, cluster := range t.Clusters() {
+		if !cluster.MinKubeVersion(16) {
 			return false
 		}
 	}
@@ -52,19 +52,19 @@ func supportsCRDv1(ctx resource.Context) bool {
 func TestMain(m *testing.M) {
 	framework.
 		NewSuite(m).
-		Setup(func(ctx resource.Context) (err error) {
-			if supportsCRDv1(ctx) {
+		Setup(func(t resource.Context) (err error) {
+			if supportsCRDv1(t) {
 				crd, err := ioutil.ReadFile("testdata/service-apis-crd.yaml")
 				if err != nil {
 					return err
 				}
-				return ctx.Config().ApplyYAMLNoCleanup("", string(crd))
+				return t.Config().ApplyYAMLNoCleanup("", string(crd))
 			}
 			return nil
 		}).
 		Setup(istio.Setup(&i, nil)).
-		Setup(func(ctx resource.Context) error {
-			return common.SetupApps(ctx, i, apps)
+		Setup(func(t resource.Context) error {
+			return common.SetupApps(t, i, apps)
 		}).
 		Run()
 }

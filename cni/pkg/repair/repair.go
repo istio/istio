@@ -68,7 +68,6 @@ func (bpr BrokenPodReconciler) ReconcilePod(pod v1.Pod) (err error) {
 	} else if bpr.Options.LabelPods {
 		err = multierr.Append(err, bpr.labelBrokenPod(pod))
 	}
-
 	return err
 }
 
@@ -88,13 +87,16 @@ func (bpr BrokenPodReconciler) LabelBrokenPods() (err error) {
 
 func (bpr BrokenPodReconciler) labelBrokenPod(pod v1.Pod) (err error) {
 	// Added for safety, to make sure no healthy pods get labeled.
+	m := podsRepaired.With(typeLabel.Value(labelType))
 	if !bpr.detectPod(pod) {
+		m.With(resultLabel.Value(resultSkip)).Increment()
 		return
 	}
 	log.Infof("Pod detected as broken, adding label: %s/%s", pod.Namespace, pod.Name)
 
 	labels := pod.GetLabels()
 	if _, ok := labels[bpr.Options.PodLabelKey]; ok {
+		m.With(resultLabel.Value(resultSkip)).Increment()
 		log.Infof("Pod %s/%s already has label with key %s, skipping", pod.Namespace, pod.Name, bpr.Options.PodLabelKey)
 		return
 	}
@@ -109,9 +111,11 @@ func (bpr BrokenPodReconciler) labelBrokenPod(pod v1.Pod) (err error) {
 
 	if _, err = bpr.client.CoreV1().Pods(pod.Namespace).Update(context.TODO(), &pod, metav1.UpdateOptions{}); err != nil {
 		log.Errorf("Failed to update pod: %s", err)
-		return err
+		m.With(resultLabel.Value(resultFail)).Increment()
+		return
 	}
-	return err
+	m.With(resultLabel.Value(resultSuccess)).Increment()
+	return
 }
 
 // Delete all pods detected as broken by ListPods
@@ -140,12 +144,20 @@ func (bpr BrokenPodReconciler) DeleteBrokenPods() error {
 }
 
 func (bpr BrokenPodReconciler) deleteBrokenPod(pod v1.Pod) error {
+	m := podsRepaired.With(typeLabel.Value(deleteType))
 	// Added for safety, to make sure no healthy pods get labeled.
 	if !bpr.detectPod(pod) {
+		m.With(resultLabel.Value(resultSkip)).Increment()
 		return nil
 	}
 	log.Infof("Pod detected as broken, deleting: %s/%s", pod.Namespace, pod.Name)
-	return bpr.client.CoreV1().Pods(pod.Namespace).Delete(context.TODO(), pod.Name, metav1.DeleteOptions{})
+	err := bpr.client.CoreV1().Pods(pod.Namespace).Delete(context.TODO(), pod.Name, metav1.DeleteOptions{})
+	if err != nil {
+		m.With(resultLabel.Value(resultFail)).Increment()
+		return err
+	}
+	m.With(resultLabel.Value(resultSuccess)).Increment()
+	return nil
 }
 
 // Lists all pods identified as broken by our Filter criteria

@@ -36,6 +36,8 @@ import (
 	"k8s.io/kubectl/pkg/cmd/util"
 	serviceapisclient "sigs.k8s.io/gateway-api/pkg/client/clientset/versioned"
 	serviceapisinformer "sigs.k8s.io/gateway-api/pkg/client/informers/externalversions"
+	mcsapisclient "sigs.k8s.io/mcs-api/pkg/client/clientset/versioned"
+	mcsapisinformer "sigs.k8s.io/mcs-api/pkg/client/informers/externalversions"
 
 	istioclient "istio.io/client-go/pkg/clientset/versioned"
 	istioinformer "istio.io/client-go/pkg/informers/externalversions"
@@ -67,11 +69,12 @@ type MockClient struct {
 	kubernetes.Interface
 	RestClient *rest.RESTClient
 	// Results is a map of podName to the results of the expected test on the pod
-	Results          map[string][]byte
-	DiscoverablePods map[string]map[string]*v1.PodList
-	RevisionValue    string
-	ConfigValue      *rest.Config
-	IstioVersions    *version.MeshInfo
+	Results           map[string][]byte
+	DiscoverablePods  map[string]map[string]*v1.PodList
+	RevisionValue     string
+	ConfigValue       *rest.Config
+	IstioVersions     *version.MeshInfo
+	KubernetesVersion uint
 }
 
 func (c MockClient) Istio() istioclient.Interface {
@@ -82,11 +85,19 @@ func (c MockClient) GatewayAPI() serviceapisclient.Interface {
 	panic("not used in mock")
 }
 
+func (c MockClient) MCSApis() mcsapisclient.Interface {
+	panic("not used in mock")
+}
+
 func (c MockClient) IstioInformer() istioinformer.SharedInformerFactory {
 	panic("not used in mock")
 }
 
 func (c MockClient) GatewayAPIInformer() serviceapisinformer.SharedInformerFactory {
+	panic("not used in mock")
+}
+
+func (c MockClient) MCSApisInformer() mcsapisinformer.SharedInformerFactory {
 	panic("not used in mock")
 }
 
@@ -199,9 +210,13 @@ func (c MockClient) Dynamic() dynamic.Interface {
 }
 
 func (c MockClient) GetKubernetesVersion() (*kubeVersion.Info, error) {
+	minor := fmt.Sprint(c.KubernetesVersion)
+	if c.KubernetesVersion == 0 {
+		minor = "16"
+	}
 	return &kubeVersion.Info{
 		Major: "1",
-		Minor: "16",
+		Minor: minor,
 	}, nil
 }
 

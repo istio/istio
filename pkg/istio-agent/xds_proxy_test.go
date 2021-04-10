@@ -29,7 +29,6 @@ import (
 	wasm "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/wasm/v3"
 	wasmv3 "github.com/envoyproxy/go-control-plane/envoy/extensions/wasm/v3"
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
-	"github.com/golang/protobuf/ptypes"
 	google_rpc "google.golang.org/genproto/googleapis/rpc/status"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/metadata"
@@ -199,7 +198,7 @@ func TestXdsProxyHealthCheck(t *testing.T) {
 }
 
 func setupXdsProxy(t *testing.T) *XdsProxy {
-	secOpts := security.Options{
+	secOpts := &security.Options{
 		FileMountedCerts: true,
 	}
 	proxyConfig := mesh.DefaultProxyConfig()
@@ -213,7 +212,7 @@ func setupXdsProxy(t *testing.T) *XdsProxy {
 		MetadataClientRootCert:  path.Join(env.IstioSrc, "tests/testdata/certs/pilot/root-cert.pem"),
 	}
 	dir := t.TempDir()
-	ia := NewAgent(&proxyConfig, &AgentConfig{
+	ia := NewAgent(&proxyConfig, &AgentOptions{
 		XdsUdsPath: filepath.Join(dir, "XDS"),
 	}, secOpts)
 	t.Cleanup(func() {
@@ -413,7 +412,7 @@ func TestECDSWasmConversion(t *testing.T) {
 		t.Errorf("xds proxy ecds wasm conversion number of received resource got %v want 1", len(gotResp.Resources))
 	}
 	gotEcdsConfig := &core.TypedExtensionConfig{}
-	if err := ptypes.UnmarshalAny(gotResp.Resources[0], gotEcdsConfig); err != nil {
+	if err := gotResp.Resources[0].UnmarshalTo(gotEcdsConfig); err != nil {
 		t.Fatalf("wasm config conversion output %v failed to unmarshal", gotResp.Resources[0])
 	}
 	wasm := &wasm.Wasm{
@@ -550,4 +549,11 @@ func setupDownstreamConnectionUDS(t test.Failer, path string) *grpc.ClientConn {
 
 func setupDownstreamConnection(t *testing.T, proxy *XdsProxy) *grpc.ClientConn {
 	return setupDownstreamConnectionUDS(t, proxy.xdsUdsPath)
+}
+
+func TestIsExpectedGRPCError(t *testing.T) {
+	err := errors.New("code = Internal desc = stream terminated by RST_STREAM with error code: NO_ERROR")
+	if got := isExpectedGRPCError(err); !got {
+		t.Fatalf("expected true, got %v", got)
+	}
 }

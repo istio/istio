@@ -35,12 +35,12 @@ spec:
   tcp:
   - route:
     - destination:
-        host: httpbin.default.svc.cluster.local
+        host: httpbin.default.svc.domain.suffix
         port:
           number: 9090
       weight: 33
     - destination:
-        host: httpbin-alt.default.svc.cluster.local
+        host: httpbin-alt.default.svc.domain.suffix
         port:
           number: 9090
       weight: 67
@@ -62,12 +62,12 @@ spec:
         prefix: /get
     route:
     - destination:
-        host: httpbin.default.svc.cluster.local
+        host: httpbin.default.svc.domain.suffix
         port:
           number: 80
       weight: 40
     - destination:
-        host: httpbin-other.default.svc.cluster.local
+        host: httpbin-other.default.svc.domain.suffix
         port:
           number: 8080
       weight: 60
@@ -76,7 +76,7 @@ spec:
         prefix: /weighted-100
     route:
     - destination:
-        host: foo-svc.default.svc.cluster.local
+        host: foo-svc.default.svc.domain.suffix
         port:
           number: 8000
       headers:

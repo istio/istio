@@ -67,20 +67,37 @@ func (configgen *ConfigGeneratorImpl) BuildNameTable(node *model.Proxy, push *mo
 			continue
 		}
 
-		svcAddress := svc.GetServiceAddressForProxy(node, push)
+		svcAddress := svc.GetServiceAddressForProxy(node)
 		var addressList []string
 
 		// The IP will be unspecified here if its headless service or if the auto
 		// IP allocation logic for service entry was unable to allocate an IP.
 		if svcAddress == constants.UnspecifiedIP {
 			// For all k8s headless services, populate the dns table with the endpoint IPs as k8s does.
-			// And for each individual pod, populate the dns table with the endpoint IP with a manufactured host name from
-			// "statefulset.kubernetes.io/pod-name" that k8s sets.
+			// And for each individual pod, populate the dns table with the endpoint IP with a manufactured host name.
 			if svc.Attributes.ServiceRegistry == string(serviceregistry.Kubernetes) &&
 				svc.Resolution == model.Passthrough && len(svc.Ports) > 0 {
-				// TODO: this is used in two places now. Needs to be cached as part of the headless service
-				// object to avoid the costly lookup in the registry code
 				for _, instance := range push.ServiceInstancesByPort(svc, svc.Ports[0].Port, nil) {
+					// Add individual addresses even for cross cluster.
+					if instance.Endpoint.SubDomain != "" && instance.Endpoint.Network == node.Metadata.Network {
+						// Follow k8s pods dns naming convention of "<hostname>.<subdomain>.<pod namespace>.svc.<cluster domain>"
+						// i.e. "mysql-0.mysql.default.svc.cluster.local".
+						parts := strings.SplitN(string(svc.Hostname), ".", 2)
+						if len(parts) != 2 {
+							continue
+						}
+						address := []string{instance.Endpoint.Address}
+						shortName := instance.Endpoint.HostName + "." + instance.Endpoint.SubDomain
+						host := shortName + "." + parts[1] // Add cluster domain.
+						nameInfo := &nds.NameTable_NameInfo{
+							Ips:       address,
+							Registry:  svc.Attributes.ServiceRegistry,
+							Namespace: svc.Attributes.Namespace,
+							Shortname: shortName,
+						}
+						out.Table[host] = nameInfo
+					}
+
 					if instance.Endpoint.Locality.ClusterID != node.Metadata.ClusterID {
 						// We take only cluster-local endpoints. While this seems contradictory to
 						// our logic other parts of the code, where cross-cluster is the default.
@@ -94,25 +111,6 @@ func (configgen *ConfigGeneratorImpl) BuildNameTable(node *model.Proxy, push *mo
 					}
 					// TODO: should we skip the node's own IP like we do in listener?
 					addressList = append(addressList, instance.Endpoint.Address)
-					if instance.Endpoint.SubDomain != "" {
-						address := []string{instance.Endpoint.Address}
-						// Follow k8s pods dns naming convention of "<hostname>.<subdomain>.<pod namespace>.svc.<cluster domain>"
-						// i,e. "mysql-0.mysql.default.svc.cluster.local".
-						parts := strings.SplitN(string(svc.Hostname), ".", 2)
-						if len(parts) != 2 {
-							break
-						}
-						shortName := instance.Endpoint.HostName + "." + instance.Endpoint.SubDomain
-						host := shortName + "." + parts[1]
-						nameInfo := &nds.NameTable_NameInfo{
-							Ips:       address,
-							Registry:  svc.Attributes.ServiceRegistry,
-							Namespace: svc.Attributes.Namespace,
-							Shortname: shortName,
-						}
-						out.Table[host] = nameInfo
-					}
-
 				}
 			}
 

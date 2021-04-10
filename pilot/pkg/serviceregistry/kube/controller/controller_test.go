@@ -46,7 +46,6 @@ import (
 	"istio.io/istio/pkg/spiffe"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/util/retry"
-	"istio.io/pkg/log"
 )
 
 const (
@@ -409,6 +408,7 @@ func TestGetProxyServiceInstances(t *testing.T) {
 					Hostname:        "svc1.nsa.svc.company.com",
 					Address:         "10.0.0.1",
 					Ports:           []*model.Port{{Name: "tcp-port", Port: 8080, Protocol: protocol.TCP}},
+					ClusterVIPs:     map[string]string{clusterID: "10.0.0.1"},
 					ServiceAccounts: []string{"acctvm2@gserviceaccount2.com", "spiffe://cluster.local/ns/nsa/sa/acct4"},
 					Attributes: model.ServiceAttributes{
 						ServiceRegistry: string(serviceregistry.Kubernetes),
@@ -438,6 +438,7 @@ func TestGetProxyServiceInstances(t *testing.T) {
 					TLSMode: "mutual",
 				},
 			}
+
 			if len(metaServices) != 1 {
 				t.Fatalf("expected 1 instance, got %v", len(metaServices))
 			}
@@ -476,6 +477,7 @@ func TestGetProxyServiceInstances(t *testing.T) {
 					Hostname:        "svc1.nsa.svc.company.com",
 					Address:         "10.0.0.1",
 					Ports:           []*model.Port{{Name: "tcp-port", Port: 8080, Protocol: protocol.TCP}},
+					ClusterVIPs:     map[string]string{clusterID: "10.0.0.1"},
 					ServiceAccounts: []string{"acctvm2@gserviceaccount2.com", "spiffe://cluster.local/ns/nsa/sa/acct4"},
 					Attributes: model.ServiceAttributes{
 						ServiceRegistry: string(serviceregistry.Kubernetes),
@@ -540,6 +542,7 @@ func TestGetProxyServiceInstances(t *testing.T) {
 					Hostname:        "svc1.nsa.svc.company.com",
 					Address:         "10.0.0.1",
 					Ports:           []*model.Port{{Name: "tcp-port", Port: 8080, Protocol: protocol.TCP}},
+					ClusterVIPs:     map[string]string{clusterID: "10.0.0.1"},
 					ServiceAccounts: []string{"acctvm2@gserviceaccount2.com", "spiffe://cluster.local/ns/nsa/sa/acct4"},
 					Attributes: model.ServiceAttributes{
 						ServiceRegistry: string(serviceregistry.Kubernetes),

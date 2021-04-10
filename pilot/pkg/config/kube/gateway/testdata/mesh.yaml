@@ -1,0 +1,56 @@
+apiVersion: networking.x-k8s.io/v1alpha1
+kind: GatewayClass
+metadata:
+  name: istio
+spec:
+  controller: istio.io/gateway-controller
+---
+apiVersion: networking.x-k8s.io/v1alpha1
+kind: Gateway
+metadata:
+  name: gateway
+  namespace: default
+spec:
+  gatewayClassName: istio
+  listeners:
+  - hostname: "*.example.com"
+    port: 80
+    protocol: HTTP
+    routes:
+      kind: HTTPRoute
+---
+apiVersion: networking.x-k8s.io/v1alpha1
+kind: HTTPRoute
+metadata:
+  name: echo
+  namespace: default
+spec:
+  gateways:
+    allow: FromList
+    gatewayRefs:
+      - name: mesh
+        namespace: istio-system
+  hostnames: ["echo.default.svc.cluster.local"]
+  rules:
+  - forwardTo:
+    - serviceName: echo
+      port: 80
+---
+apiVersion: networking.x-k8s.io/v1alpha1
+kind: HTTPRoute
+metadata:
+  name: dual # applies to mesh and explicit gateway
+  namespace: default
+spec:
+  gateways:
+    allow: FromList
+    gatewayRefs:
+      - name: mesh
+        namespace: istio-system
+      - name: gateway
+        namespace: default
+  hostnames: ["foo.example.com"]
+  rules:
+  - forwardTo:
+    - serviceName: example
+      port: 80

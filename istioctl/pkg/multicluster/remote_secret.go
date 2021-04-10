@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+	"strings"
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
@@ -42,6 +43,7 @@ import (
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/secretcontroller"
+	"istio.io/pkg/log"
 )
 
 var (
@@ -380,6 +382,10 @@ func getServerFromKubeconfig(context string, config *api.Config) (string, error)
 	cluster, ok := config.Clusters[configContext.Cluster]
 	if !ok {
 		return "", fmt.Errorf("could not find server for context %q", context)
+	}
+	if strings.Contains(cluster.Server, "127.0.0.1") || strings.Contains(cluster.Server, "localhost") {
+		log.Warnf("Server in Kubeconfig is %s. This is likely not reachable from inside the cluster.\n"+
+			"If you're using Kubernetes in Docker, pass --server with the container IP for the API Server.", cluster.Server)
 	}
 	return cluster.Server, nil
 }

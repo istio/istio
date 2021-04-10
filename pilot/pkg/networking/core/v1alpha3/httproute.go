@@ -20,7 +20,7 @@ import (
 	"strings"
 
 	route "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
-	"github.com/golang/protobuf/ptypes"
+	"google.golang.org/protobuf/types/known/durationpb"
 
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/features"
@@ -223,7 +223,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundVirtualHosts(node *mod
 		} else if svcPort, exists := svc.Ports.GetByPort(listenerPort); exists {
 			nameToServiceMap[svc.Hostname] = &model.Service{
 				Hostname:     svc.Hostname,
-				Address:      svc.GetServiceAddressForProxy(node, push),
+				Address:      svc.GetServiceAddressForProxy(node),
 				MeshExternal: svc.MeshExternal,
 				Resolution:   svc.Resolution,
 				Ports:        []*model.Port{svcPort},
@@ -287,7 +287,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundVirtualHosts(node *mod
 			name := domainName(string(svc.Hostname), virtualHostWrapper.Port)
 			duplicate := duplicateVirtualHost(name, vhosts)
 			if !duplicate {
-				domains, altHosts := generateVirtualHostDomains(svc, virtualHostWrapper.Port, node, push)
+				domains, altHosts := generateVirtualHostDomains(svc, virtualHostWrapper.Port, node)
 				dl := len(domains)
 				domains = dedupeDomains(domains, vhdomains, altHosts, knownFQDN)
 				if dl != len(domains) {
@@ -374,7 +374,7 @@ func getVirtualHostsForSniffedServicePort(vhosts []*route.VirtualHost, routeName
 
 // generateVirtualHostDomains generates the set of domain matches for a service being accessed from
 // a proxy node
-func generateVirtualHostDomains(service *model.Service, port int, node *model.Proxy, push *model.PushContext) ([]string, []string) {
+func generateVirtualHostDomains(service *model.Service, port int, node *model.Proxy) ([]string, []string) {
 	altHosts := generateAltVirtualHosts(string(service.Hostname), port, node.DNSDomain)
 	domains := []string{string(service.Hostname), domainName(string(service.Hostname), port)}
 	domains = append(domains, altHosts...)
@@ -386,7 +386,7 @@ func generateVirtualHostDomains(service *model.Service, port int, node *model.Pr
 		}
 	}
 
-	svcAddr := service.GetServiceAddressForProxy(node, push)
+	svcAddr := service.GetServiceAddressForProxy(node)
 	if len(svcAddr) > 0 && svcAddr != constants.UnspecifiedIP {
 		// add a vhost match for the IP (if its non CIDR)
 		cidr := util.ConvertAddressToCidr(svcAddr)
@@ -535,7 +535,7 @@ func getUniqueAndSharedDNSDomain(fqdnHostname, proxyDomain string) (string, stri
 func buildCatchAllVirtualHost(node *model.Proxy) *route.VirtualHost {
 	if util.IsAllowAnyOutbound(node) {
 		egressCluster := util.PassthroughCluster
-		notimeout := ptypes.DurationProto(0)
+		notimeout := durationpb.New(0)
 
 		// no need to check for nil value as the previous if check has checked
 		if node.SidecarScope.OutboundTrafficPolicy.EgressProxy != nil {

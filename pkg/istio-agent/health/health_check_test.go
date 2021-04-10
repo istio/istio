@@ -46,13 +46,14 @@ func TestWorkloadHealthChecker_PerformApplicationHealthCheck(t *testing.T) {
 					Port: uint32(port),
 				},
 			},
-		}, nil)
+		}, nil, []string{"127.0.0.1"}, false)
 		// Speed up tests
 		tcpHealthChecker.config.CheckFrequency = time.Millisecond
 
 		quitChan := make(chan struct{})
 
-		expectedTCPEvents := [6]*ProbeEvent{
+		expectedTCPEvents := [7]*ProbeEvent{
+			{Healthy: false},
 			{Healthy: true},
 			{Healthy: false},
 			{Healthy: true},
@@ -60,7 +61,7 @@ func TestWorkloadHealthChecker_PerformApplicationHealthCheck(t *testing.T) {
 			{Healthy: true},
 			{Healthy: false},
 		}
-		tcpHealthStatuses := [6]bool{true, false, true, false, true, false}
+		tcpHealthStatuses := [7]bool{false, true, false, true, false, true, false}
 
 		cont := make(chan struct{}, 6)
 		// wait for go-ahead for state change
@@ -87,7 +88,7 @@ func TestWorkloadHealthChecker_PerformApplicationHealthCheck(t *testing.T) {
 
 		eventNum := atomic.NewInt32(0)
 		go tcpHealthChecker.PerformApplicationHealthCheck(func(event *ProbeEvent) {
-			if eventNum.Load() >= 6 {
+			if eventNum.Load() >= 7 {
 				return
 			}
 			if event.Healthy != expectedTCPEvents[eventNum.Load()].Healthy {
@@ -140,7 +141,7 @@ func TestWorkloadHealthChecker_PerformApplicationHealthCheck(t *testing.T) {
 					Host:   host,
 				},
 			},
-		}, nil)
+		}, nil, []string{"127.0.0.1"}, false)
 		// Speed up tests
 		httpHealthChecker.config.CheckFrequency = time.Millisecond
 		quitChan := make(chan struct{})

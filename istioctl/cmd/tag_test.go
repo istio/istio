@@ -382,7 +382,8 @@ func TestSetTagErrors(t *testing.T) {
 			mockClient := kube.MockClient{
 				Interface: client,
 			}
-			err := setTag(context.Background(), mockClient, tc.tag, tc.revision, &out)
+			skipConfirmation = true
+			err := setTag(context.Background(), mockClient, tc.tag, tc.revision, false, &out)
 			if tc.error == "" && err != nil {
 				t.Fatalf("expected no error, got %v", err)
 			}

@@ -97,7 +97,6 @@ func ConvertService(svc coreV1.Service, domainSuffix string, clusterID string) *
 		}
 	}
 	sort.Strings(serviceaccounts)
-
 	istioService := &model.Service{
 		Hostname:        ServiceHostname(svc.Name, svc.Namespace, domainSuffix),
 		Ports:           ports,
@@ -106,6 +105,7 @@ func ConvertService(svc coreV1.Service, domainSuffix string, clusterID string) *
 		MeshExternal:    meshExternal,
 		Resolution:      resolution,
 		CreationTime:    svc.CreationTimestamp.Time,
+		ClusterVIPs:     map[string]string{clusterID: addr},
 		Attributes: model.ServiceAttributes{
 			ServiceRegistry: string(serviceregistry.Kubernetes),
 			Name:            svc.Name,

@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: feature
+area: network
+issue:
+  - 31779
+releaseNotes:
+  - |
+    **Added** SDS screts fetch faliure metric `pilot_sds_certificate_errors_total`.

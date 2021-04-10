@@ -33,6 +33,7 @@ import (
 	"istio.io/istio/galley/pkg/config/analysis/analyzers/gateway"
 	"istio.io/istio/galley/pkg/config/analysis/analyzers/injection"
 	"istio.io/istio/galley/pkg/config/analysis/analyzers/multicluster"
+	schemaValidation "istio.io/istio/galley/pkg/config/analysis/analyzers/schema"
 	"istio.io/istio/galley/pkg/config/analysis/analyzers/service"
 	"istio.io/istio/galley/pkg/config/analysis/analyzers/serviceentry"
 	"istio.io/istio/galley/pkg/config/analysis/analyzers/sidecar"
@@ -45,6 +46,7 @@ import (
 	"istio.io/istio/galley/pkg/config/scope"
 	"istio.io/istio/pkg/config/schema"
 	"istio.io/istio/pkg/config/schema/collection"
+	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/pkg/log"
 )
 
@@ -405,7 +407,7 @@ var testGrid = []testCase{
 		inputFiles: []string{
 			"testdata/virtualservice_dupmatches.yaml",
 		},
-		analyzer: &virtualservice.MatchesAnalyzer{},
+		analyzer: schemaValidation.CollectionValidationAnalyzer(collections.IstioNetworkingV1Alpha3Virtualservices),
 		expected: []message{
 			{msg.VirtualServiceUnreachableRule, "VirtualService duplicate-match"},
 			{msg.VirtualServiceUnreachableRule, "VirtualService sample-foo-cluster01.foo"},
@@ -470,6 +472,16 @@ var testGrid = []testCase{
 			{msg.InvalidWebhook, "MutatingWebhookConfiguration istio-sidecar-injector-missing-overlap"},
 			{msg.InvalidWebhook, "MutatingWebhookConfiguration istio-sidecar-injector-missing-overlap"},
 			{msg.InvalidWebhook, "MutatingWebhookConfiguration istio-sidecar-injector-overlap"},
+		},
+	},
+	{
+		name: "Route Rule no effect on Ingress",
+		inputFiles: []string{
+			"testdata/virtualservice_route_rule_no_effects_ingress.yaml",
+		},
+		analyzer: &virtualservice.DestinationHostAnalyzer{},
+		expected: []message{
+			{msg.IngressRouteRulesNotAffected, "VirtualService testing-service-01-test-01.default"},
 		},
 	},
 	{

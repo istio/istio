@@ -168,6 +168,7 @@ func (h *grpcHandler) Echo(ctx context.Context, req *proto.EchoRequest) (*proto.
 	writeField(&body, response.ServicePortField, strconv.Itoa(portNumber))
 	writeField(&body, response.ClusterField, h.Cluster)
 	writeField(&body, response.IPField, ip)
+	writeField(&body, response.IstioVersionField, h.IstioVersion)
 	writeField(&body, "Echo", req.GetMessage())
 
 	if hostname, err := os.Hostname(); err == nil {
@@ -183,7 +184,6 @@ func (h *grpcHandler) ForwardEcho(ctx context.Context, req *proto.ForwardEchoReq
 	instance, err := forwarder.New(forwarder.Config{
 		Request: req,
 		Dialer:  h.Dialer,
-		TLSCert: h.TLSCert,
 	})
 	if err != nil {
 		return nil, err

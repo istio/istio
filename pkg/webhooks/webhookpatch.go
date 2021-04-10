@@ -179,13 +179,12 @@ func (w *WebhookCertPatcher) patchMutatingWebhookConfig(
 }
 
 func CreateValidationWebhookController(client kube.Client,
-	webhookConfigName, ns, caBundlePath string, remote bool) *controller.Controller {
+	webhookConfigName, ns, caBundlePath string) *controller.Controller {
 	o := controller.Options{
-		WatchedNamespace:    ns,
-		CAPath:              caBundlePath,
-		WebhookConfigName:   webhookConfigName,
-		ServiceName:         "istiod",
-		RemoteWebhookConfig: remote,
+		WatchedNamespace:  ns,
+		CAPath:            caBundlePath,
+		WebhookConfigName: webhookConfigName,
+		ServiceName:       "istiod",
 	}
 	whController, err := controller.New(o, client)
 	if err != nil {
