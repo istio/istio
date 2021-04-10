@@ -895,23 +895,12 @@ func (s *DiscoveryServer) removeCon(conID string) {
 
 // Send with timeout
 func (conn *Connection) send(res *discovery.DiscoveryResponse) error {
-	errChan := make(chan error, 1)
-
-	// sendTimeout may be modified via environment
-	t := time.NewTimer(sendTimeout)
-	go func() {
+	sendHandler := func(errChan chan error) {
 		start := time.Now()
 		defer func() { recordSendTime(time.Since(start)) }()
 		errChan <- conn.stream.Send(res)
-		close(errChan)
-	}()
-
-	select {
-	case <-t.C:
-		log.Infof("Timeout writing %s", conn.ConID)
-		xdsResponseWriteTimeouts.Increment()
-		return status.Errorf(codes.DeadlineExceeded, "timeout sending")
-	case err := <-errChan:
+	}
+	errorHandler := func(err error) {
 		if err == nil {
 			sz := 0
 			for _, rc := range res.Resources {
@@ -928,14 +917,12 @@ func (conn *Connection) send(res *discovery.DiscoveryResponse) error {
 				conn.proxy.WatchedResources[res.TypeUrl].LastSize = sz
 			}
 			conn.proxy.Unlock()
+		} else {
+			log.Infof("Timeout writing %s", conn.ConID)
+			xdsResponseWriteTimeouts.Increment()
 		}
-		// To ensure the channel is empty after a call to Stop, check the
-		// return value and drain the channel (from Stop docs).
-		if !t.Stop() {
-			<-t.C
-		}
-		return err
 	}
+	return Send(conn.stream.Context(), sendHandler, errorHandler, sendTimeout)
 }
 
 // nolint

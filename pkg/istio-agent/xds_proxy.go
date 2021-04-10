@@ -46,6 +46,7 @@ import (
 	"istio.io/istio/pilot/cmd/pilot-agent/status/ready"
 	"istio.io/istio/pilot/pkg/features"
 	nds "istio.io/istio/pilot/pkg/proto"
+	"istio.io/istio/pilot/pkg/xds"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/istio-agent/health"
@@ -56,6 +57,7 @@ import (
 	"istio.io/istio/pkg/wasm"
 	"istio.io/istio/security/pkg/nodeagent/caclient"
 	"istio.io/istio/security/pkg/pki/util"
+	"istio.io/pkg/env"
 	"istio.io/pkg/log"
 )
 
@@ -64,6 +66,9 @@ const (
 	defaultInitialConnWindowSize       = 1024 * 1024 // default gRPC InitialWindowSize
 	defaultInitialWindowSize           = 1024 * 1024 // default gRPC ConnWindowSize
 )
+
+var sendTimeout = env.RegisterDurationVar("XDS_SEND_TIMEOUT", 0*time.Second,
+	"The timeout to send the XDS configuration to proxy/istiod").Get()
 
 // ResponseHandler handles a XDS response in the agent. These will not be forwarded to Envoy.
 // Currently, all handlers function on a single resource per type, so the API only exposes one
@@ -682,24 +687,13 @@ func (p *XdsProxy) getRootCertificate(agent *Agent) (*x509.CertPool, error) {
 // sendUpstream sends discovery reques.
 func sendUpstream(upstream discovery.AggregatedDiscoveryService_StreamAggregatedResourcesClient,
 	request *discovery.DiscoveryRequest) error {
-	return send(func(errChan chan error) {
-		errChan <- upstream.Send(request)
-		close(errChan)
-	})
+	return xds.Send(upstream.Context(), func(errChan chan error) { errChan <- upstream.Send(request) },
+		func(error) {}, sendTimeout)
 }
 
 // sendDownstream sends discovery response.
 func sendDownstream(downstream discovery.AggregatedDiscoveryService_StreamAggregatedResourcesServer,
 	response *discovery.DiscoveryResponse) error {
-	return send(func(errChan chan error) {
-		errChan <- downstream.Send(response)
-		close(errChan)
-	})
-}
-
-func send(sendFunc func(errorChan chan error)) error {
-	errChan := make(chan error, 1)
-	go sendFunc(errChan)
-	err := <-errChan
-	return err
+	return xds.Send(downstream.Context(), func(errChan chan error) { errChan <- downstream.Send(response) },
+		func(error) {}, sendTimeout)
 }

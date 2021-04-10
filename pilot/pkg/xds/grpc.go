@@ -15,60 +15,39 @@
 package xds
 
 import (
+	"context"
 	"time"
-
-	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
-	"istio.io/istio/pilot/pkg/model"
 )
 
 type (
-	SendFunc  func(errorChan chan error)
-	ErrorFunc func()
+	SendHandler  func(errorChan chan error)
+	ErrorHandler func(err error)
 )
 
-// Send with timeout
-func Send(res *discovery.DiscoveryResponse) error {
+// Send with timeout if specified. If timeout is zero, sends without timeout.
+func Send(ctx context.Context, send SendHandler, errorh ErrorHandler, timeout time.Duration) error {
 	errChan := make(chan error, 1)
 
-	// sendTimeout may be modified via environment
-	t := time.NewTimer(sendTimeout)
 	go func() {
-		start := time.Now()
-		defer func() { recordSendTime(time.Since(start)) }()
-		errChan <- conn.stream.Send(res)
+		send(errChan)
 		close(errChan)
 	}()
 
-	select {
-	case <-t.C:
-		log.Infof("Timeout writing %s", conn.ConID)
-		xdsResponseWriteTimeouts.Increment()
-		return status.Errorf(codes.DeadlineExceeded, "timeout sending")
-	case err := <-errChan:
-		if err == nil {
-			sz := 0
-			for _, rc := range res.Resources {
-				sz += len(rc.Value)
-			}
-			conn.proxy.Lock()
-			if res.Nonce != "" {
-				if conn.proxy.WatchedResources[res.TypeUrl] == nil {
-					conn.proxy.WatchedResources[res.TypeUrl] = &model.WatchedResource{TypeUrl: res.TypeUrl}
-				}
-				conn.proxy.WatchedResources[res.TypeUrl].NonceSent = res.Nonce
-				conn.proxy.WatchedResources[res.TypeUrl].VersionSent = res.VersionInfo
-				conn.proxy.WatchedResources[res.TypeUrl].LastSent = time.Now()
-				conn.proxy.WatchedResources[res.TypeUrl].LastSize = sz
-			}
-			conn.proxy.Unlock()
+	if timeout.Nanoseconds() > 0 {
+		timeoutCtx, cancel := context.WithTimeout(ctx, timeout)
+		defer cancel()
+
+		select {
+		case <-timeoutCtx.Done():
+			errorh(timeoutCtx.Err())
+			return timeoutCtx.Err()
+		case err := <-errChan:
+			errorh(err)
+			return err
 		}
-		// To ensure the channel is empty after a call to Stop, check the
-		// return value and drain the channel (from Stop docs).
-		if !t.Stop() {
-			<-t.C
-		}
+	} else {
+		err := <-errChan
+		errorh(err)
 		return err
 	}
 }
