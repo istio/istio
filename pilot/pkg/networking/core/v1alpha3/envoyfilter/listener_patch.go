@@ -27,6 +27,7 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pilot/pkg/util/runtime"
+	"istio.io/istio/pilot/pkg/util/sets"
 	"istio.io/istio/pkg/config/xds"
 	"istio.io/pkg/log"
 )
@@ -37,11 +38,6 @@ const (
 
 	// VirtualInboundListenerName is the name for traffic capture listener
 	VirtualInboundListenerName = "virtualInbound"
-)
-
-type (
-	patchSet          map[*model.EnvoyFilterConfigPatchWrapper]struct{}
-	patchDependencies map[*model.EnvoyFilterConfigPatchWrapper]patchSet
 )
 
 // ApplyListenerPatches applies patches to LDS output
@@ -436,7 +432,6 @@ func patchHTTPFilters(patchContext networking.EnvoyFilter_PatchContext, filterKe
 	}
 	opatches := make([]*model.EnvoyFilterConfigPatchWrapper, 0) // List of final patches to be processed.
 	mpatches := make([]*model.EnvoyFilterConfigPatchWrapper, 0) // List of matched patches based on patch context.
-	dependents := map[*model.EnvoyFilterConfigPatchWrapper]struct{}{}
 	applied := false
 
 	// First collect all matched patches.
@@ -460,7 +455,7 @@ func patchHTTPFilters(patchContext networking.EnvoyFilter_PatchContext, filterKe
 			iapatches = append(iapatches, lp)
 		}
 	}
-	_, cycles := orderDependencies(iapatches)
+	cycles := hasCyclicDependencies(iapatches)
 	if cycles {
 		IncrementEnvoyFilterMetric(filterKey, HttpFilter, applied)
 		log.Warnf("envoy filter %s has patches that have cyclic dependencies. So filter is skipped", filterKey)
@@ -469,12 +464,7 @@ func patchHTTPFilters(patchContext networking.EnvoyFilter_PatchContext, filterKe
 
 	// Order patches as per the dependencies.
 	for _, lp := range mpatches {
-		if (lp.Operation == networking.EnvoyFilter_Patch_INSERT_BEFORE && hasHTTPFilterMatch(lp)) ||
-			(lp.Operation == networking.EnvoyFilter_Patch_INSERT_AFTER && hasHTTPFilterMatch(lp)) {
-			orderPatches(lp, mpatches, &opatches, dependents)
-		} else if _, exists := dependents[lp]; !exists {
-			opatches = append(opatches, lp)
-		}
+		orderDependencies(lp, mpatches, &opatches)
 	}
 
 	// Finally apply the ordered patches.
@@ -572,84 +562,83 @@ func patchHTTPFilters(patchContext networking.EnvoyFilter_PatchContext, filterKe
 	}
 }
 
-// orderPatches recursively orders the patches based on insert before/after positions.
-func orderPatches(patch *model.EnvoyFilterConfigPatchWrapper, original []*model.EnvoyFilterConfigPatchWrapper,
-	ordered *[]*model.EnvoyFilterConfigPatchWrapper, dependents map[*model.EnvoyFilterConfigPatchWrapper]struct{}) {
+// orderDependencies recursively orders the patches based on insert before/after positions.
+func orderDependencies(patch *model.EnvoyFilterConfigPatchWrapper, original []*model.EnvoyFilterConfigPatchWrapper,
+	ordered *[]*model.EnvoyFilterConfigPatchWrapper) {
 	for _, lp := range original {
-		if patch.Operation == networking.EnvoyFilter_Patch_INSERT_BEFORE || patch.Operation == networking.EnvoyFilter_Patch_INSERT_AFTER {
+		if lp == patch {
+			continue
+		}
+		if (patch.Operation == networking.EnvoyFilter_Patch_INSERT_BEFORE && hasHTTPFilterMatch(patch)) ||
+			(patch.Operation == networking.EnvoyFilter_Patch_INSERT_AFTER && hasHTTPFilterMatch(patch)) {
 			filter := lp.Value.(*http_conn.HttpFilter)
 			match := patch.Match.GetListener().FilterChain.Filter.SubFilter
 			if match != nil && nameMatches(match.Name, filter.Name) {
-				orderPatches(lp, original, ordered, dependents)
+				orderDependencies(lp, original, ordered)
 			}
 		}
 	}
-	if _, exists := dependents[patch]; !exists {
+	if !contains(*ordered, patch) {
 		*ordered = append(*ordered, patch)
-		dependents[patch] = struct{}{}
 	}
 }
 
-// orderDependencies checks if the patches have cyclic dependencies and order the dependencies.
+func contains(patches []*model.EnvoyFilterConfigPatchWrapper, patch *model.EnvoyFilterConfigPatchWrapper) bool {
+	for _, p := range patches {
+		if p == patch {
+			return true
+		}
+	}
+	return false
+}
+
+// hasCyclicDependencies checks if the patches have cyclic dependencies.
 // Inspired by https://github.com/dnaeon/go-dependency-graph-algorithm/blob/master/dependency-graph.go#L56.
-func orderDependencies(original []*model.EnvoyFilterConfigPatchWrapper) (patchDependencies, bool) {
-	dependencies := make(patchDependencies)
+func hasCyclicDependencies(original []*model.EnvoyFilterConfigPatchWrapper) bool {
+	dependencies := make(map[string]sets.Set)
 	// First collect all dependencies for every patch.
 	for _, lp := range original {
 		lfilter := lp.Value.(*http_conn.HttpFilter)
-		deps := make(map[*model.EnvoyFilterConfigPatchWrapper]struct{}, 0)
+		deps := sets.NewSet()
 		for _, rp := range original {
 			if lp == rp {
 				continue
 			}
 			rmatch := rp.Match.GetListener().FilterChain.Filter.SubFilter
 			if rmatch != nil && nameMatches(rmatch.Name, lfilter.Name) {
-				if _, exists := deps[rp]; !exists {
-					deps[rp] = struct{}{}
-				}
+				deps.Insert(rp.Value.(*http_conn.HttpFilter).Name)
 			}
 		}
-		dependencies[lp] = deps
+		dependencies[lfilter.Name] = deps
 	}
 
-	// Iteratively find and remove patches which have no dependencies.
-	// If at some point there are still patches in the dependencies and
-	// we cannot find patches without dependencies, that means we have a
-	// circular dependency.
+	// Iteratively find and remove patches which have no dependencies. If at some point
+	// there are still patches in the dependencies and we cannot find patches without
+	// dependencies, that means we have a circular dependency.
 	for len(dependencies) != 0 {
 		// Get all filters from the dependencies which have no dependencies
-		independent := make(patchSet)
-		for patch, deps := range dependencies {
+		independent := sets.NewSet()
+		for name, deps := range dependencies {
 			if len(deps) == 0 {
-				independent[patch] = struct{}{}
+				independent.Insert(name)
 			}
 		}
 
 		// If there aren't any independent patches, then we have a cicular dependency
 		if len(independent) == 0 {
-			return nil, true
+			return true
 		}
 
-		for patch := range independent {
-			delete(dependencies, patch)
+		for name := range independent {
+			delete(dependencies, name)
 		}
 
-		for patch, deps := range dependencies {
-			diff := difference(deps, independent)
-			dependencies[patch] = diff
+		for name, deps := range dependencies {
+			diff := deps.Difference(independent)
+			dependencies[name] = diff
 		}
 	}
-	return dependencies, false
-}
-
-func difference(p1 patchSet, p2 patchSet) patchSet {
-	result := make(map[*model.EnvoyFilterConfigPatchWrapper]struct{})
-	for key := range p1 {
-		if _, exist := p2[key]; !exist {
-			result[key] = struct{}{}
-		}
-	}
-	return result
+	return false
 }
 
 func patchHTTPFilter(patchContext networking.EnvoyFilter_PatchContext,
