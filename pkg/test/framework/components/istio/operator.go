@@ -260,14 +260,28 @@ func deploy(ctx resource.Context, env *kube.Environment, cfg Config) (Instance, 
 	if !i.isExternalControlPlane() {
 		// TODO allow doing this with external control planes (not implemented yet)
 
+		//NOTE(vikas): We are commenting following lines because we do not want istiods
+		// to watch all the k8s apis servers in the multicluster environment.
+		// Following logic creates secrets for each of the remote cluster's kubeconfig
+		// Each istiod then starts watching these remote apiservers.
+		// We need to comment out this because:
+		// 1. our multicluster model does not expect istiod watching remote apiservers and
+		//    lead unexpected configs in the test cases
+		// 2. In xcp e2e, this leads to flakes where istiod fails to become ready.
+		//    apiserver endpoint in the secrets uses localhost and thus not not reachable from within
+		//    istiod. istiod readiness probe is enabled only after remote apiserver cache has got syched,
+		//    which keeps failing because of non-reachable apiserver endpoint. Sometimes if istiod
+		//    starts fast enough that kubeconfig secrets are not created by the the istiod does
+		//    first cache sync, istiod luckily does not get stuck at bootstrap and becomes ready.
+
 		// Remote secrets must be present for remote install to succeed
-		if env.IsMulticluster() {
-			// For multicluster, configure direct access so each control plane can get endpoints from all
-			// API servers.
-			if err := i.configureDirectAPIServerAccess(ctx, env, cfg); err != nil {
-				return nil, err
-			}
-		}
+		//	if env.IsMulticluster() {
+		// For multicluster, configure direct access so each control plane can get endpoints from all
+		// API servers.
+		//	if err := i.configureDirectAPIServerAccess(ctx, env, cfg); err != nil {
+		//		return nil, err
+		//	}
+		//}
 		errG = multierror.Group{}
 		for _, cluster := range env.KubeClusters {
 			if !(env.IsControlPlaneCluster(cluster) || env.IsConfigCluster(cluster)) {
