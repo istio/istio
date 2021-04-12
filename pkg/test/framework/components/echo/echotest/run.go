@@ -104,7 +104,7 @@ func (t *T) fromEachDeployment(ctx framework.TestContext, testFn perDeploymentTe
 		src := src
 		subtestName := src[0].Config().Service
 		if duplicateShortnames {
-			subtestName = src[0].Config().FQDN()
+			subtestName += "." + src[0].Config().Namespace.Prefix()
 		}
 		ctx.NewSubTest(subtestName).Run(func(ctx framework.TestContext) {
 			testFn(ctx, src)
