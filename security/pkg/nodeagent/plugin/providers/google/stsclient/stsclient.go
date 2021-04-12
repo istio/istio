@@ -100,7 +100,7 @@ func (p *SecureTokenServiceExchanger) requestWithRetry(reqBytes []byte) ([]byte,
 			return body, err
 		}
 		body, _ := ioutil.ReadAll(resp.Body)
-		lastError = fmt.Errorf("token exchange request failed: status code %v body %v", resp.StatusCode, body)
+		lastError = fmt.Errorf("token exchange request failed: status code %v body %v", resp.StatusCode, string(body))
 		resp.Body.Close()
 		if !retryable(resp.StatusCode) {
 			break
