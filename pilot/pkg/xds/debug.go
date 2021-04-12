@@ -192,6 +192,8 @@ func (s *DiscoveryServer) AddDebugHandlers(mux *http.ServeMux, enableProfiling b
 	s.addDebugHandler(mux, "/debug/inject", "Active inject template", s.InjectTemplateHandler(webhook))
 	s.addDebugHandler(mux, "/debug/mesh", "Active mesh config", s.MeshHandler)
 	s.addDebugHandler(mux, "/debug/networkz", "List cross-network gateways", s.networkz)
+
+	s.addDebugHandler(mux, "/debug/list", "List all supported debug commands in json", s.List)
 }
 
 func (s *DiscoveryServer) addDebugHandler(mux *http.ServeMux, path string, help string,
@@ -763,6 +765,26 @@ func (s *DiscoveryServer) Debug(w http.ResponseWriter, req *http.Request) {
 		istiolog.Errorf("Error in rendering index template %v", err)
 		w.WriteHeader(500)
 	}
+}
+
+// lists all the supported debug commands in json.
+func (s *DiscoveryServer) List(w http.ResponseWriter, req *http.Request) {
+	var cmdNames []string
+	for k := range s.debugHandlers {
+		key := strings.Replace(k, "/debug/", "", -1)
+		// exclude current list command
+		if key == "list" {
+			continue
+		}
+		// can not support pprof commands
+		if strings.Contains(key, "pprof") {
+			continue
+		}
+		cmdNames = append(cmdNames, key)
+	}
+	sort.Strings(cmdNames)
+	by, _ := json.MarshalIndent(cmdNames, "", "  ")
+	_, _ = w.Write(by)
 }
 
 // Ndsz implements a status and debug interface for NDS.

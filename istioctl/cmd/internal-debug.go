@@ -17,6 +17,8 @@ package cmd
 import (
 	"context"
 	"fmt"
+	"io"
+	"strings"
 
 	envoy_corev3 "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
@@ -28,6 +30,7 @@ import (
 	"istio.io/istio/istioctl/pkg/multixds"
 	"istio.io/istio/istioctl/pkg/util/handlers"
 	"istio.io/istio/istioctl/pkg/writer/pilot"
+	"istio.io/istio/pkg/kube"
 )
 
 const (
@@ -37,7 +40,79 @@ const (
 	xdsPortName       = "https-dns"
 )
 
+type DebugCommandOpts struct {
+	// ResouceName is used for receiving istio CRD resource, e.g. VirtualService/default/bookinfo
+	ResouceName string
+}
+
+// AttachDebugCommandFlags attaches control-plane flags to the internal-debug Cobra command.
+// (Currently just --resource)
+func (o *DebugCommandOpts) AttachDebugCommandFlags(cmd *cobra.Command) {
+	cmd.Flags().StringVar(&o.ResouceName, "resource", "",
+		"resource can be used in format of kind/namespace/name, e.g. 'VirtualService/default/bookinfo'")
+}
+
+func PreHandleForXdsRequest(iPod, namespace string, kubeClient kube.ExtendedClient) (string, string, string, error) {
+	podName, ns, err := handlers.InferPodInfoFromTypedResource(iPod,
+		handlers.HandleNamespace(namespace, defaultNamespace),
+		kubeClient.UtilFactory())
+	if err != nil {
+		return "", "", "", err
+	}
+	pod, perr := kubeClient.CoreV1().Pods(ns).Get(context.TODO(), podName, metav1.GetOptions{})
+	if perr != nil {
+		return "", "", "", perr
+	}
+	return podName, ns, pod.Spec.ServiceAccountName, perr
+}
+
+func HandlerForRetrieveDebugList(kubeClient kube.ExtendedClient,
+	centralOpts *clioptions.CentralControlPlaneOptions,
+	writer io.Writer) (map[string]*xdsapi.DiscoveryResponse, error) {
+	var namespace, serviceAccount string
+	xdsRequest := xdsapi.DiscoveryRequest{
+		ResourceNames: []string{"list"},
+		Node: &envoy_corev3.Node{
+			Id: "debug~0.0.0.0~istioctl~cluster.local",
+		},
+		TypeUrl: TypeDebug,
+	}
+	xdsResponses, respErr := multixds.AllRequestAndProcessXds(&xdsRequest, centralOpts, istioNamespace,
+		namespace, serviceAccount, kubeClient)
+	if respErr != nil {
+		return xdsResponses, respErr
+	}
+	_, _ = fmt.Fprint(writer, "error: according to below command list, please check all supported internal debug commands\n")
+	return xdsResponses, nil
+}
+
+func HandlerForDebugErrors(cmdName string,
+	kubeClient kube.ExtendedClient,
+	centralOpts *clioptions.CentralControlPlaneOptions,
+	writer io.Writer,
+	xdsResponses map[string]*xdsapi.DiscoveryResponse) (map[string]*xdsapi.DiscoveryResponse, error) {
+	for _, response := range xdsResponses {
+		for _, resource := range response.Resources {
+			eString := string(resource.Value)
+			switch {
+			case strings.Contains(eString, "You must provide a proxyID in the query string"):
+				return nil, fmt.Errorf("please specify pod name with namespace, e.g. [%s] for command [%s]",
+					"istio-ingressgateway-xxx-yyy.istio-system", cmdName)
+
+			case strings.Contains(eString, "404 page not found"):
+				return HandlerForRetrieveDebugList(kubeClient, centralOpts, writer)
+
+			case strings.Contains(eString, "querystring parameter 'resource' is required"):
+				return nil, fmt.Errorf("please specify resource option for command [%s], e.g. [%s]",
+					cmdName, "--resource VirtualService/default/bookinfo")
+			}
+		}
+	}
+	return nil, nil
+}
+
 func debugCommand() *cobra.Command {
+	var configDistributedOpt DebugCommandOpts
 	var opts clioptions.ControlPlaneOptions
 	var centralOpts clioptions.CentralControlPlaneOptions
 
@@ -83,22 +158,17 @@ By default it will use the default serviceAccount from (istio-system) namespace 
 				}
 			}
 			var xdsRequest xdsapi.DiscoveryRequest
-			var namespace, serviceAccount string
+			var namespace, serviceAccount, resourceName string
 			if len(args) > 1 {
-				podName, ns, err := handlers.InferPodInfoFromTypedResource(args[1],
-					handlers.HandleNamespace(namespace, defaultNamespace),
-					kubeClient.UtilFactory())
-				if err != nil {
-					return err
-				}
-				pod, err := kubeClient.CoreV1().Pods(ns).Get(context.TODO(), podName, metav1.GetOptions{})
-				if err != nil {
-					return err
+				podName, ns, svcAccount, perr := PreHandleForXdsRequest(args[1], namespace, kubeClient)
+				if perr != nil {
+					return perr
 				}
 				namespace = ns
-				serviceAccount = pod.Spec.ServiceAccountName
+				serviceAccount = svcAccount
+				resourceName = fmt.Sprintf("%s?proxyID=%s.%s", args[0], podName, ns)
 				xdsRequest = xdsapi.DiscoveryRequest{
-					ResourceNames: []string{fmt.Sprintf("%s?proxyID=%s.%s", args[0], podName, ns)},
+					ResourceNames: []string{resourceName},
 					Node: &envoy_corev3.Node{
 						Id: "debug~0.0.0.0~istioctl~cluster.local",
 					},
@@ -107,6 +177,21 @@ By default it will use the default serviceAccount from (istio-system) namespace 
 			} else {
 				xdsRequest = xdsapi.DiscoveryRequest{
 					ResourceNames: []string{args[0]},
+					Node: &envoy_corev3.Node{
+						Id: "debug~0.0.0.0~istioctl~cluster.local",
+					},
+					TypeUrl: TypeDebug,
+				}
+			}
+			if args[0] == "config_distribution" {
+				sResource := configDistributedOpt.ResouceName
+				if resourceName != "" {
+					resourceName += fmt.Sprintf("&resource=%s", sResource)
+				} else {
+					resourceName = fmt.Sprintf("%s?resource=%s", args[0], sResource)
+				}
+				xdsRequest = xdsapi.DiscoveryRequest{
+					ResourceNames: []string{resourceName},
 					Node: &envoy_corev3.Node{
 						Id: "debug~0.0.0.0~istioctl~cluster.local",
 					},
@@ -150,16 +235,24 @@ By default it will use the default serviceAccount from (istio-system) namespace 
 					f.WaitForStop()
 				}()
 			}
-			xdsResponses, err := multixds.AllRequestAndProcessXds(&xdsRequest, &centralOpts, istioNamespace,
+			xdsResponses, respErr := multixds.AllRequestAndProcessXds(&xdsRequest, &centralOpts, istioNamespace,
 				namespace, serviceAccount, kubeClient)
-			if err != nil {
-				return err
+			if respErr != nil {
+				return respErr
 			}
 			sw := pilot.XdsStatusWriter{Writer: c.OutOrStdout()}
+			newResponse, hDErr := HandlerForDebugErrors(args[0], kubeClient, &centralOpts, c.OutOrStdout(), xdsResponses)
+			if newResponse != nil {
+				return sw.PrintAll(newResponse)
+			}
+			if hDErr != nil {
+				return hDErr
+			}
 			return sw.PrintAll(xdsResponses)
 		},
 	}
 
+	configDistributedOpt.AttachDebugCommandFlags(debugCommand)
 	opts.AttachControlPlaneFlags(debugCommand)
 	centralOpts.AttachControlPlaneFlags(debugCommand)
 	debugCommand.Long += "\n\n" + ExperimentalMsg
