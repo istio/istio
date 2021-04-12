@@ -79,7 +79,6 @@ if [[ "${CONTROL_PLANE}" == "UNMANAGED" ]]; then
   DISABLED_TESTS+="|TestDashboard" # UNSUPPORTED: Relies on istiod in cluster. TODO: filter out only pilot-dashboard.json
   DISABLED_TESTS+="|TestCustomizeMetrics" # UNKNOWN: b/177606974
   DISABLED_TESTS+="|TestStackdriverAudit" # BROKEN: b/183508169 Disabling Stackdriver Audit tests
-  DISABLED_TESTS+="|TestTraffic/virtualservice/shifting.*" # BROKEN: b/184593218
   # security/ tests
   # Skip the subtests that are known to be not working.
   DISABLED_TESTS+="|TestRequestAuthentication/.*/valid-token-forward-remote-jwks" # UNSUPPORTED: relies on custom options
@@ -89,7 +88,7 @@ if [[ "${CONTROL_PLANE}" == "UNMANAGED" ]]; then
   if [[ "${CLUSTER_TYPE}" == "gke-on-prem" && "${WIP}" == "HUB" ]]; then
     # TODO: Unskip test cases when the same tests in https://b.corp.google.com/issues/174440952 are fixed
     # pilot/ tests
-    DISABLED_TESTS+="|TestMirroring/mirror-percent-absent/.*|TestMirroring/mirror-50/.*|TestTraffic/sniffing/.*|TestTraffic/virtualservice/shifting.*|TestMirroring/mirror-10/from_primary-0/.*"
+    DISABLED_TESTS+="|TestMirroring/mirror-percent-absent/.*|TestMirroring/mirror-50/.*|TestTraffic/sniffing/.*|TestMirroring/mirror-10/from_primary-0/.*"
     # telemetry/ tests
     DISABLED_TESTS+="|TestMetrics/telemetry_asm|TestMetricsAudit/telemetry_asm"
     # security/ tests
@@ -198,7 +197,6 @@ else
   DISABLED_TESTS+="|TestAddToAndRemoveFromMesh" # BROKEN: Test current doesn't respect --istio.test.revision
   DISABLED_TESTS+="|TestGateway" # BROKEN: CRDs need to be deployed before Istiod runs. In this case, we install Istiod first, causing failure.
   DISABLED_TESTS+="|TestRevisionedUpgrade" # UNSUPPORTED: OSS Control Plane upgrade is not supported by MCP.
-  DISABLED_TESTS+="|TestTraffic/virtualservice/shifting.*" # BROKEN: b/184593218
   # telemetry/ tests
   DISABLED_TESTS+="|TestStackdriverAudit|TestStackdriverHTTPAuditLogging" # UNSUPPORTED: Relies on customized installation of the stackdriver envoyfilter.
   DISABLED_TESTS+="|TestIstioctlMetrics" # UNSUPPORTED: istioctl doesn't work
