@@ -455,16 +455,21 @@ func patchHTTPFilters(patchContext networking.EnvoyFilter_PatchContext, filterKe
 			iapatches = append(iapatches, lp)
 		}
 	}
-	cycles := hasCyclicDependencies(iapatches)
-	if cycles {
-		IncrementEnvoyFilterMetric(filterKey, HttpFilter, applied)
-		log.Warnf("envoy filter %s has patches that have cyclic dependencies. So filter is skipped", filterKey)
-		return
-	}
+	if len(iapatches) > 0 {
+		// Detect cycles and order them if we have insert after and insert before patches.
+		cycles := hasCyclicDependencies(iapatches)
+		if cycles {
+			IncrementEnvoyFilterMetric(filterKey, HttpFilter, applied)
+			log.Warnf("envoy filter %s has patches that have cyclic dependencies. So filter is skipped", filterKey)
+			return
+		}
 
-	// Order patches as per the dependencies.
-	for _, lp := range mpatches {
-		orderDependencies(lp, mpatches, &opatches)
+		// Order patches as per the dependencies.
+		for _, lp := range mpatches {
+			orderDependencies(lp, mpatches, &opatches)
+		}
+	} else {
+		opatches = mpatches
 	}
 
 	// Finally apply the ordered patches.
