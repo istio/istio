@@ -65,6 +65,7 @@ spec:
 {{- if $gateway.nodeSelector }}
       nodeSelector:
 {{ toYaml $gateway.nodeSelector | trim | indent 8 }}
+{{- end }}
 {{- if .Values.global.priorityClassName }}
       priorityClassName: "{{ .Values.global.priorityClassName }}"
 {{- end }}

@@ -57,6 +57,7 @@ spec:
 {{- if .Values.pilot.nodeSelector }}
       nodeSelector:
 {{ toYaml .Values.pilot.nodeSelector | trim | indent 8 }}
+{{- end }}
       serviceAccountName: istiod-service-account
 {{- if .Values.global.priorityClassName }}
       priorityClassName: "{{ .Values.global.priorityClassName }}"
