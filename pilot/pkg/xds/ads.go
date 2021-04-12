@@ -899,12 +899,12 @@ func (s *DiscoveryServer) removeCon(conID string) {
 
 // Send with timeout
 func (conn *Connection) send(res *discovery.DiscoveryResponse) error {
-	sendHandler := func(errChan chan error) {
+	sendHandler := func() error {
 		start := time.Now()
 		defer func() { recordSendTime(time.Since(start)) }()
-		errChan <- conn.stream.Send(res)
+		return conn.stream.Send(res)
 	}
-	errorHandler := func(err error) {
+	responseHandler := func(err error) {
 		if err == nil {
 			sz := 0
 			for _, rc := range res.Resources {
@@ -926,7 +926,7 @@ func (conn *Connection) send(res *discovery.DiscoveryResponse) error {
 			xdsResponseWriteTimeouts.Increment()
 		}
 	}
-	return Send(conn.stream.Context(), sendHandler, errorHandler)
+	return Send(conn.stream.Context(), sendHandler, responseHandler)
 }
 
 // nolint

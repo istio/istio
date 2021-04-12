@@ -19,25 +19,28 @@ import (
 
 	middleware "github.com/grpc-ecosystem/go-grpc-middleware"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/keepalive"
+	"google.golang.org/grpc/status"
 
 	"istio.io/istio/pilot/pkg/features"
 	istiokeepalive "istio.io/istio/pkg/keepalive"
 )
 
 type (
-	SendHandler  func(errorChan chan error)
-	ErrorHandler func(err error)
+	SendHandler     func() error
+	ResponseHandler func(err error)
 )
 
 var timeout = features.XdsPushSendTimeout
 
 // Send with timeout if specified. If timeout is zero, sends without timeout.
-func Send(ctx context.Context, send SendHandler, errorh ErrorHandler) error {
+func Send(ctx context.Context, send SendHandler, response ResponseHandler) error {
 	errChan := make(chan error, 1)
 
 	go func() {
-		send(errChan)
+		err := send()
+		errChan <- err
 		close(errChan)
 	}()
 
@@ -45,14 +48,14 @@ func Send(ctx context.Context, send SendHandler, errorh ErrorHandler) error {
 		timeoutCtx, cancel := context.WithTimeout(ctx, timeout)
 		defer cancel()
 		<-timeoutCtx.Done()
-		if errorh != nil {
-			errorh(timeoutCtx.Err())
+		if response != nil {
+			response(timeoutCtx.Err())
 		}
-		return timeoutCtx.Err()
+		return status.Errorf(codes.DeadlineExceeded, "timeout sending")
 	}
 	err := <-errChan
-	if errorh != nil {
-		errorh(err)
+	if response != nil {
+		response(err)
 	}
 	return err
 }
@@ -61,7 +64,6 @@ func GrpcServerOptions(options *istiokeepalive.Options, interceptors ...grpc.Una
 	maxStreams := features.MaxConcurrentStreams
 	maxRecvMsgSize := features.MaxRecvMsgSize
 
-	log.Infof("using max conn age of %v", options.MaxServerConnectionAge)
 	grpcOptions := []grpc.ServerOption{
 		grpc.UnaryInterceptor(middleware.ChainUnaryServer(interceptors...)),
 		grpc.MaxConcurrentStreams(uint32(maxStreams)),

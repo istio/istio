@@ -706,16 +706,16 @@ func (p *XdsProxy) getRootCertificate(agent *Agent) (*x509.CertPool, error) {
 	return certPool, nil
 }
 
-// sendUpstream sends discovery reques.
+// sendUpstream sends discovery request.
 func sendUpstream(upstream discovery.AggregatedDiscoveryService_StreamAggregatedResourcesClient,
 	request *discovery.DiscoveryRequest) error {
-	return xds.Send(upstream.Context(), func(errChan chan error) { errChan <- upstream.Send(request) }, nil)
+	return xds.Send(upstream.Context(), func() error { return upstream.Send(request) }, nil)
 }
 
 // sendDownstream sends discovery response.
 func sendDownstream(downstream discovery.AggregatedDiscoveryService_StreamAggregatedResourcesServer,
 	response *discovery.DiscoveryResponse) error {
-	return xds.Send(downstream.Context(), func(errChan chan error) { errChan <- downstream.Send(response) }, nil)
+	return xds.Send(downstream.Context(), func() error { return downstream.Send(response) }, nil)
 }
 
 // tapRequest() sends "req" to Istiod, and returns a matching response, or `nil` on timeout.

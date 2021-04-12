@@ -254,12 +254,12 @@ func (s *DiscoveryServer) receiveDelta(con *Connection, reqChannel chan *discove
 }
 
 func (conn *Connection) sendDelta(res *discovery.DeltaDiscoveryResponse) error {
-	sendHandler := func(errChan chan error) {
+	sendHandler := func() error {
 		start := time.Now()
 		defer func() { recordSendTime(time.Since(start)) }()
-		errChan <- conn.deltaStream.Send(res)
+		return conn.deltaStream.Send(res)
 	}
-	errorHandler := func(err error) {
+	responseHandler := func(err error) {
 		if err == nil {
 			sz := 0
 			for _, rc := range res.Resources {
@@ -281,7 +281,7 @@ func (conn *Connection) sendDelta(res *discovery.DeltaDiscoveryResponse) error {
 			xdsResponseWriteTimeouts.Increment()
 		}
 	}
-	return Send(conn.deltaStream.Context(), sendHandler, errorHandler)
+	return Send(conn.deltaStream.Context(), sendHandler, responseHandler)
 }
 
 // processRequest is handling one request. This is currently called from the 'main' thread, which also

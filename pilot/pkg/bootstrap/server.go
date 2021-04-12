@@ -697,6 +697,7 @@ func (s *Server) initGrpcServer(options *istiokeepalive.Options) {
 		// setup server prometheus monitoring (as final interceptor in chain)
 		prometheus.UnaryServerInterceptor,
 	}
+	log.Infof("using max conn age of %v", options.MaxServerConnectionAge)
 	grpcOptions := xds.GrpcServerOptions(options, interceptors...)
 	s.grpcServer = grpc.NewServer(grpcOptions...)
 	s.XDSServer.Register(s.grpcServer)
@@ -748,6 +749,7 @@ func (s *Server) initSecureDiscoveryService(args *PilotArgs) error {
 		// setup server prometheus monitoring (as final interceptor in chain)
 		prometheus.UnaryServerInterceptor,
 	}
+	log.Infof("using max conn age of %v", args.KeepaliveOptions.MaxServerConnectionAge)
 	opts := xds.GrpcServerOptions(args.KeepaliveOptions, interceptors...)
 	opts = append(opts, grpc.Creds(tlsCreds))
 
