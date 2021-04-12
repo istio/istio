@@ -36,6 +36,7 @@ meta:
     namespace: echo
     instances:
     - ip: 172.17.0.4
+      instanceIP: 10.0.0.1
 `), &cfg); err != nil {
 		t.Fatal(err)
 	}
@@ -46,7 +47,7 @@ meta:
 	if diff := cmp.Diff(got.(*vmcluster).vms, []echo.Config{{
 		Service:         "vm",
 		Namespace:       fakeNamespace("echo"),
-		StaticAddresses: []string{"172.17.0.4"},
+		StaticAddresses: []string{"172.17.0.4:10.0.0.1"},
 	}}); diff != "" {
 		t.Fatal(diff)
 	}
