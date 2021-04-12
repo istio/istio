@@ -12,15 +12,19 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package system
+package install
 
 import (
-	"istio.io/istio/prow/asm/tester/pkg/asm/install"
-	"istio.io/istio/prow/asm/tester/pkg/resource"
-	"log"
+	"fmt"
+	"istio.io/istio/prow/asm/tester/pkg/exec"
+	"strings"
 )
 
-func Setup(settings *resource.Settings) error {
-	log.Println("🎬 start installing ASM control plane...")
-	return install.Install(settings)
+// revisionLabel generates a revision label name from the istioctl version.
+func revisionLabel() string {
+	istioVersion, _ := exec.RunWithOutput(
+		"bash -c \"istioctl version --remote=false -o json | jq -r '.clientVersion.tag'\"")
+	versionParts := strings.Split(istioVersion, "-")
+	version := fmt.Sprintf("asm-%s-%s", versionParts[0], versionParts[1])
+	return strings.ReplaceAll(version, ".", "")
 }

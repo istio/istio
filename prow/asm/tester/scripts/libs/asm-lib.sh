@@ -18,6 +18,12 @@ readonly ROOT_CA_ID_PREFIX="asm-test-root-ca"
 readonly ROOT_CA_LOC="us-central1"
 readonly SUB_CA_ID_PREFIX="asm-test-sub-ca"
 
+# shellcheck disable=SC2034
+# holds multiple kubeconfigs for Multicloud test environments
+declare -a MC_CONFIGS
+# shellcheck disable=SC2034
+IFS=':' read -r -a MC_CONFIGS <<< "${KUBECONFIG}"
+
 function buildx-create() {
   export DOCKER_CLI_EXPERIMENTAL=enabled
   if ! docker buildx ls | grep -q container-builder; then
@@ -397,10 +403,6 @@ function install_asm() {
   local REVISION="$1"; shift
   local CONTEXTS=("${@}")
 
-  if [ -n "$REVISION" ]; then
-    CUSTOM_REVISION_FLAGS+=" --revision_name ${REVISION}"
-  fi
-
   # variables that should not persist across install_asm calls should be added here
   local CUSTOM_CA_FLAGS
 
@@ -658,6 +660,7 @@ function install_asm() {
 # Parameters: $1 - array of k8s contexts
 # Depends on env var ${HUB} and ${TAG}
 function install_asm_managed_control_plane() {
+  local CONTEXTS=("${@}")
   # For installation, we'll use the corresponding master branch Scriptaro for ASM branch master-asm.
   git clone --branch master https://github.com/GoogleCloudPlatform/anthos-service-mesh-packages.git
   cp anthos-service-mesh-packages/scripts/asm-installer/install_asm .

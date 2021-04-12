@@ -36,6 +36,14 @@ func WithAdditionalEnvs(envs []string) Option {
 	}
 }
 
+// WithAdditionalArgs returns an option that adds additional env vars
+// for the given Cmd.
+func WithAdditionalArgs(args []string) Option {
+	return func(c *exec.Cmd) {
+		c.Args = append(c.Args, args...)
+	}
+}
+
 // WithWorkingDir returns an option that sets the working directory for the
 // given command.
 func WithWorkingDir(dir string) Option {

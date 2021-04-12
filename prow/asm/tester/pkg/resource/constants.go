@@ -12,15 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package system
+package resource
 
-import (
-	"istio.io/istio/prow/asm/tester/pkg/asm/install"
-	"istio.io/istio/prow/asm/tester/pkg/resource"
-	"log"
-)
-
-func Setup(settings *resource.Settings) error {
-	log.Println("🎬 start installing ASM control plane...")
-	return install.Install(settings)
-}
+const ConfigDirPath = "prow/asm/tester/configs"

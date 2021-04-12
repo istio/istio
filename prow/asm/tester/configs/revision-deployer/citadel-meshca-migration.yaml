@@ -1,0 +1,7 @@
+revisions:
+- name: "asm-revision-istiodca"
+  ca: "CITADEL"
+  overlay: "overlay/trustanchor-meshca.yaml"
+- name: "asm-revision-meshca"
+  ca: "MESHCA"
+  overlay: "overlay/trustdomain-migrate.yaml"

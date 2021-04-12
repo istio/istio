@@ -50,3 +50,7 @@ func ParseGCPProjectIDsFromContexts(kubectlContexts string) []string {
 
 	return projects
 }
+
+func ContextArr(contexts string) string {
+	return strings.Join(strings.Split(contexts, ","), " ")
+}
