@@ -142,24 +142,32 @@ if [[ -z "${CLOUDRUN_ADDR}" ]]; then
   exit 1
 fi
 
-
-if [[ "${CA}" == "1" ]]; then
+ISTIOD_CA=$(gcloud container clusters describe "${CLUSTER}" --zone "${ZONE}" --project "${PROJECT}" --billing-project "${PROJECT}" --format="value(resourceLabels[istiod-ca])")
+kubectl get secret -n istio-system istio-ca-secret
+CA_SECRET_EXISTS="$?"
+# shellcheck disable=SC2181
+if [[ "${CA_SECRET_EXISTS}" == "0" && "${ISTIOD_CA}" == "check" ]]; then
+  echo "Istiod CA secret exists, using Istiod CA"
+  export CA_ADDR=${CLOUDRUN_ADDR}
+  export TRUST_DOMAIN=cluster.local
+  export AUDIENCE=${PROJECT}.svc.id.goog
+elif [[ "${CA}" == "1" ]]; then
+  echo "Using Mesh CA"
   export CA_ADDR=meshca.googleapis.com:443
   export TRUST_DOMAIN=${PROJECT}.svc.id.goog
   export AUDIENCE=${TRUST_DOMAIN}
-  export CA_PROVIDER=${CA_PROVIDER:-istiod}
   # Disable istiod's ca server because it's unused when we're using MeshCA, and
   # to avoid a race condition where multiple istiods race to create CA secrets
   # at the same time and can potentially fail.
   export ENABLE_CA_SERVER=0
 else
+  echo "Using Istiod CA"
   # If not set - the template default is a made-up istiod address instead of discovery.
   # TODO: fix template
   # TODO: if we fetch MeshConfig from cluster - leave trust domain untouched.
   export CA_ADDR=${CLOUDRUN_ADDR}
   export TRUST_DOMAIN=cluster.local
   export AUDIENCE=${PROJECT}.svc.id.goog
-  export CA_PROVIDER=istiod
 fi
 
 kubectl get ns istio-system
