@@ -19,9 +19,9 @@ import (
 
 	"golang.org/x/net/context"
 	"google.golang.org/grpc/metadata"
-	"istio.io/istio/pkg/jwt"
 	"k8s.io/client-go/kubernetes"
 
+	"istio.io/istio/pkg/jwt"
 	"istio.io/istio/pkg/security"
 	"istio.io/istio/security/pkg/k8s/tokenreview"
 	"istio.io/istio/security/pkg/server/ca/authenticate"
