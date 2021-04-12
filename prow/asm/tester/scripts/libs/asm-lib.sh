@@ -689,7 +689,7 @@ function install_asm_managed_control_plane() {
       --output_dir "${TMPDIR}" \
       --ca "mesh_ca" \
       --verbose
-    istioctl install -f "${TMPDIR}"/managed_control_plane_gateway.yaml --set revision=asm-managed --skip-confirmation --context="${CONTEXTS[$i]}"
+    kubectl apply -f tools/packaging/knative/gateway/injected-gateway.yaml -n istio-system --context="${CONTEXTS[$i]}"
   done
 
   for i in "${!CONTEXTS[@]}"; do

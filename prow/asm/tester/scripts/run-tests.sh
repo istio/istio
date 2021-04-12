@@ -190,7 +190,7 @@ if [[ "${CONTROL_PLANE}" == "UNMANAGED" ]]; then
 else
   # DISABLED_TESTS contains a list of all tests we skip
   # pilot/ tests
-  DISABLED_TESTS="TestWait|TestVersion|TestProxyStatus|TestXdsProxyStatus" # UNSUPPORTED: istioctl doesn't work
+  DISABLED_TESTS="TestWait|TestVersion|TestProxyStatus|TestXdsProxyStatus|TestDescribe" # UNSUPPORTED: istioctl doesn't work
   DISABLED_TESTS+="|TestXdsVersion|TestKubeInject" # UNSUPPORTED: b/184572948
   DISABLED_TESTS+="|TestAnalysisWritesStatus" # UNSUPPORTED: require custom installation
   DISABLED_TESTS+="|TestMultiVersionRevision" # UNSUPPORTED: deploys istiod in the cluster, which fails since its using the wrong root cert

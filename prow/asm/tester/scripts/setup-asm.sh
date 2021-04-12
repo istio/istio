@@ -116,6 +116,6 @@ else
 
   install_asm_managed_control_plane "${CONTEXTS[@]}"
   for i in "${!CONTEXTS[@]}"; do
-    kubectl wait --for=condition=Ready --timeout=2m -n istio-system --all pod --context="${CONTEXTS[$i]}"
+    kubectl wait --for=condition=available --timeout=2m -n istio-system deployment/istio-ingressgateway --context="${CONTEXTS[$i]}"
   done
 fi
