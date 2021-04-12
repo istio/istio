@@ -15,14 +15,18 @@
 package istioagent
 
 import (
+	"bytes"
 	"context"
 	"crypto/tls"
 	"crypto/x509"
+	"encoding/json"
 	"fmt"
 	"io"
 	"io/ioutil"
 	"math"
 	"net"
+	"net/http"
+	"net/url"
 	"os"
 	"path"
 	"strings"
@@ -31,6 +35,7 @@ import (
 
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	gogotypes "github.com/gogo/protobuf/types"
+	"github.com/golang/protobuf/jsonpb"
 	"github.com/golang/protobuf/ptypes"
 	"github.com/golang/protobuf/ptypes/any"
 	"go.uber.org/atomic"
@@ -91,6 +96,10 @@ type XdsProxy struct {
 	xdsHeaders           map[string]string
 	xdsUdsPath           string
 	proxyAddresses       []string
+
+	httpTapServer      *http.Server
+	tapMutex           sync.RWMutex
+	tapResponseChannel chan *discovery.DiscoveryResponse
 
 	// connected stores the active gRPC stream. The proxy will only have 1 connection at a time
 	connected           *ProxyConnection
@@ -468,7 +477,11 @@ func (p *XdsProxy) handleUpstreamResponse(con *ProxyConnection) {
 					forwardToEnvoy(con, resp)
 				}
 			default:
-				forwardToEnvoy(con, resp)
+				if strings.HasPrefix(resp.TypeUrl, "istio.io/debug") {
+					p.forwardToTap(resp)
+				} else {
+					forwardToEnvoy(con, resp)
+				}
 			}
 		case <-con.stopChan:
 			return
@@ -493,6 +506,14 @@ func (p *XdsProxy) rewriteAndForward(con *ProxyConnection, resp *discovery.Disco
 	}
 	proxyLog.Debugf("forward ECDS resources %+v", resp.Resources)
 	forwardToEnvoy(con, resp)
+}
+
+func (p *XdsProxy) forwardToTap(resp *discovery.DiscoveryResponse) {
+	select {
+	case p.tapResponseChannel <- resp:
+	default:
+		log.Infof("tap response %q arrived too late; discarding", resp.TypeUrl)
+	}
 }
 
 func forwardToEnvoy(con *ProxyConnection, resp *discovery.DiscoveryResponse) {
@@ -522,6 +543,9 @@ func forwardToEnvoy(con *ProxyConnection, resp *discovery.DiscoveryResponse) {
 func (p *XdsProxy) close() {
 	close(p.stopChan)
 	p.wasmCache.Cleanup()
+	if p.httpTapServer != nil {
+		_ = p.httpTapServer.Close()
+	}
 	if p.downstreamGrpcServer != nil {
 		p.downstreamGrpcServer.Stop()
 	}
@@ -692,4 +716,122 @@ func sendUpstream(upstream discovery.AggregatedDiscoveryService_StreamAggregated
 func sendDownstream(downstream discovery.AggregatedDiscoveryService_StreamAggregatedResourcesServer,
 	response *discovery.DiscoveryResponse) error {
 	return xds.Send(downstream.Context(), func(errChan chan error) { errChan <- downstream.Send(response) }, nil)
+}
+
+// tapRequest() sends "req" to Istiod, and returns a matching response, or `nil` on timeout.
+// Requests are serialized -- only one may be in-flight at a time.
+func (p *XdsProxy) tapRequest(req *discovery.DiscoveryRequest, timeout time.Duration) (*discovery.DiscoveryResponse, error) {
+	if p.connected == nil {
+		return nil, fmt.Errorf("proxy not connected to Istiod")
+	}
+
+	// Only allow one tap request at a time
+	p.tapMutex.Lock()
+	defer p.tapMutex.Unlock()
+
+	// Send to Istiod
+	p.connected.requestsChan <- req
+
+	// Wait for expected response or timeout
+	for {
+		select {
+		case res := <-p.tapResponseChannel:
+			if res.TypeUrl == req.TypeUrl {
+				return res, nil
+			}
+		case <-time.After(timeout):
+			return nil, nil
+		}
+	}
+}
+
+func (p *XdsProxy) makeTapHandler() func(w http.ResponseWriter, req *http.Request) {
+	return func(w http.ResponseWriter, req *http.Request) {
+		qp, err := url.ParseQuery(req.URL.RawQuery)
+		if err != nil {
+			w.WriteHeader(400)
+			fmt.Fprintf(w, "%v\n", err)
+			return
+		}
+		typeURL := fmt.Sprintf("istio.io%s", req.URL.Path)
+		dr := discovery.DiscoveryRequest{
+			TypeUrl: typeURL,
+		}
+		resourceName := qp.Get("resourceName")
+		if resourceName != "" {
+			dr.ResourceNames = []string{resourceName}
+		}
+		response, err := p.tapRequest(&dr, 5*time.Second)
+		if err != nil {
+			w.WriteHeader(503)
+			fmt.Fprintf(w, "%v\n", err)
+			return
+		}
+
+		if response == nil {
+			log.Infof("timed out waiting for Istiod to respond to %q", typeURL)
+			w.WriteHeader(504)
+			return
+		}
+
+		// Try to unmarshal Istiod's response using jsonpb (needed for Envoy protobufs)
+		w.Header().Add("Content-Type", "application/json")
+		jsonm := &jsonpb.Marshaler{Indent: "  "}
+		var buf bytes.Buffer
+		err = jsonm.Marshal(&buf, response)
+		if err == nil {
+			_, _ = w.Write(buf.Bytes())
+			if err != nil {
+				log.Infof("fail to write debug response: %v", err)
+			}
+			return
+		}
+
+		// Failed as protobuf.  Try as regular JSON
+		proxyLog.Warnf("could not marshal istiod response as pb: %v", err)
+		j, err := json.Marshal(response)
+		if err != nil {
+			// Couldn't unmarshal at all
+			w.WriteHeader(500)
+			fmt.Fprintf(w, "%v\n", err)
+			return
+		}
+		_, err = w.Write(j)
+		if err != nil {
+			log.Infof("fail to write debug response: %v", err)
+			return
+		}
+	}
+}
+
+// initDebugInterface() listens on localhost:15009 for path /debug/...
+// forwards the paths to Istiod as xDS requests
+// waits for response from Istiod, sends it as JSON
+func (p *XdsProxy) initDebugInterface() error {
+	p.tapResponseChannel = make(chan *discovery.DiscoveryResponse)
+
+	httpMux := http.NewServeMux()
+	handler := p.makeTapHandler()
+	httpMux.HandleFunc("/debug/", handler)
+	httpMux.HandleFunc("/debug", handler) // For 1.10 Istiod which uses istio.io/debug
+
+	p.httpTapServer = &http.Server{
+		Addr:    "localhost:15009",
+		Handler: httpMux,
+	}
+
+	// create HTTP listener
+	listener, err := net.Listen("tcp", p.httpTapServer.Addr)
+	if err != nil {
+		return err
+	}
+
+	go func() {
+		log.Infof("starting Http service at %s", listener.Addr())
+		if err := p.httpTapServer.Serve(listener); err != nil {
+			log.Errorf("error serving tap http server: %v", err)
+		}
+	}()
+
+	return nil
 }
