@@ -327,13 +327,13 @@ func getProfileNSAndEnabledComponents(iop *v1alpha12.IstioOperator) (string, str
 			}
 		}
 		for _, c := range iop.Spec.Components.IngressGateways {
-			if util.BoolValue(c.Enabled) {
+			if c.Enabled.GetValue() {
 				enabledComponents = append(enabledComponents, name.UserFacingComponentName(name.IngressComponentName))
 				break
 			}
 		}
 		for _, c := range iop.Spec.Components.EgressGateways {
-			if util.BoolValue(c.Enabled) {
+			if c.Enabled.GetValue() {
 				enabledComponents = append(enabledComponents, name.UserFacingComponentName(name.EgressComponentName))
 				break
 			}
