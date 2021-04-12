@@ -44,24 +44,17 @@ func Send(ctx context.Context, send SendHandler, errorh ErrorHandler) error {
 	if timeout.Nanoseconds() > 0 {
 		timeoutCtx, cancel := context.WithTimeout(ctx, timeout)
 		defer cancel()
-
-		select {
-		case <-timeoutCtx.Done():
-			if errorh != nil {
-				errorh(timeoutCtx.Err())
-			}
-			return timeoutCtx.Err()
-		case err := <-errChan:
-			if errorh != nil {
-				errorh(err)
-			}
-			return err
+		<-timeoutCtx.Done()
+		if errorh != nil {
+			errorh(timeoutCtx.Err())
 		}
-	} else {
-		err := <-errChan
-		errorh(err)
-		return err
+		return timeoutCtx.Err()
 	}
+	err := <-errChan
+	if errorh != nil {
+		errorh(err)
+	}
+	return err
 }
 
 func GrpcServerOptions(options *istiokeepalive.Options, interceptors ...grpc.UnaryServerInterceptor) []grpc.ServerOption {
