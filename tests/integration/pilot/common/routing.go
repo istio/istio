@@ -921,34 +921,45 @@ func flatten(clients ...[]echo.Instance) []echo.Instance {
 }
 
 // selfCallsCases checks that pods can call themselves
-func selfCallsCases(apps *EchoDeployments) []TrafficTestCase {
-	cases := []TrafficTestCase{}
-	for _, cl := range flatten(apps.PodA, apps.VM, apps.PodTproxy) {
-		cl := cl
-		cases = append(cases,
-			// Calls to the Service will go through envoy outbound and inbound, so we get envoy headers added
-			TrafficTestCase{
-				name: fmt.Sprintf("to service %v", cl.Config().Service),
-				call: cl.CallWithRetryOrFail,
-				opts: echo.CallOptions{
-					Target:    cl,
-					PortName:  "http",
-					Validator: echo.And(echo.ExpectOK(), echo.ExpectKey("X-Envoy-Attempt-Count", "1")),
-				},
-			},
-			// Localhost calls will go directly to localhost, bypassing Envoy. No envoy headers added.
-			TrafficTestCase{
-				name: fmt.Sprintf("to localhost %v", cl.Config().Service),
-				call: cl.CallWithRetryOrFail,
-				opts: echo.CallOptions{
-					Address:   "localhost",
-					Scheme:    scheme.HTTP,
-					Port:      &echo.Port{ServicePort: 8080},
-					Validator: echo.And(echo.ExpectOK(), echo.ExpectKey("X-Envoy-Attempt-Count", "")),
-				},
-			})
+func selfCallsCases() []TrafficTestCase {
+	sourceFilters := []echotest.Filter{
+		echotest.Not(echotest.ExternalServices),
+		echotest.Not(echotest.FilterMatch(echo.IsNaked())),
 	}
-	return cases
+	comboFilters := []echotest.CombinationFilter{func(from echo.Instance, to echo.Instances) echo.Instances {
+		return to.Match(echo.FQDN(from.Config().FQDN()))
+	}}
+	noTarget := func(_ echo.Instance, _ echo.Services, opts *echo.CallOptions) {
+		opts.Target = nil
+	}
+
+	return []TrafficTestCase{
+		// Calls to the Service will go through envoy outbound and inbound, so we get envoy headers added
+		{
+			name:             "to service",
+			workloadAgnostic: true,
+			sourceFilters:    sourceFilters,
+			comboFilters:     comboFilters,
+			setupOpts:        noTarget,
+			opts: echo.CallOptions{
+				PortName:  "http",
+				Validator: echo.And(echo.ExpectOK(), echo.ExpectKey("X-Envoy-Attempt-Count", "1")),
+			},
+		},
+		// Localhost calls will go directly to localhost, bypassing Envoy. No envoy headers added.
+		{
+			name:             "to localhost",
+			workloadAgnostic: true,
+			comboFilters:     comboFilters,
+			setupOpts:        noTarget,
+			opts: echo.CallOptions{
+				Address:   "localhost",
+				Scheme:    scheme.HTTP,
+				Port:      &echo.Port{ServicePort: 8080},
+				Validator: echo.And(echo.ExpectOK(), echo.ExpectKey("X-Envoy-Attempt-Count", "")),
+			},
+		},
+	}
 }
 
 // Todo merge with security TestReachability code
