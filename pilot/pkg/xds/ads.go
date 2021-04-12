@@ -18,6 +18,7 @@ import (
 	"fmt"
 	"io"
 	"strconv"
+	"strings"
 	"sync/atomic"
 	"time"
 
@@ -203,6 +204,13 @@ func (s *DiscoveryServer) receive(con *Connection, reqChannel chan *discovery.Di
 func (s *DiscoveryServer) processRequest(req *discovery.DiscoveryRequest, con *Connection) error {
 	if !s.preProcessRequest(con.proxy, req) {
 		return nil
+	}
+
+	// For now, don't let xDS piggyback debug requests start watchers
+	if strings.HasPrefix(req.TypeUrl, "istio.io/debug") {
+		return s.pushXds(con, s.globalPushContext(), versionInfo(), &model.WatchedResource{
+			TypeUrl: req.TypeUrl, ResourceNames: req.ResourceNames,
+		}, &model.PushRequest{Full: true})
 	}
 
 	if s.StatusReporter != nil {
