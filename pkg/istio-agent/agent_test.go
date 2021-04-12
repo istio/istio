@@ -370,10 +370,11 @@ func Setup(t *testing.T, opts ...func(a AgentTest) AgentTest) *AgentTest {
 	resp.ProxyConfig.DiscoveryAddress = setupDiscovery(t, resp.XdsAuthenticator, ca.KeyCertBundle.GetRootCertPem())
 	rootCert := filepath.Join(env.IstioSrc, "./tests/testdata/certs/pilot/root-cert.pem")
 	resp.AgentConfig = AgentOptions{
-		ProxyXDSViaAgent: true,
-		CARootCerts:      rootCert,
-		XDSRootCerts:     rootCert,
-		XdsUdsPath:       filepath.Join(d, "XDS"),
+		ProxyXDSViaAgent:      true,
+		ProxyXDSDebugViaAgent: true,
+		CARootCerts:           rootCert,
+		XDSRootCerts:          rootCert,
+		XdsUdsPath:            filepath.Join(d, "XDS"),
 	}
 	// Run through opts again to apply settings
 	for _, opt := range opts {
