@@ -922,7 +922,7 @@ func (conn *Connection) send(res *discovery.DiscoveryResponse) error {
 			xdsResponseWriteTimeouts.Increment()
 		}
 	}
-	return Send(conn.stream.Context(), sendHandler, errorHandler, sendTimeout)
+	return Send(conn.stream.Context(), sendHandler, errorHandler)
 }
 
 // nolint

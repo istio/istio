@@ -269,14 +269,12 @@ func forwardDeltaToEnvoy(con *ProxyConnection, resp *discovery.DeltaDiscoveryRes
 
 func sendUpstreamDelta(deltaUpstream discovery.AggregatedDiscoveryService_DeltaAggregatedResourcesClient,
 	req *discovery.DeltaDiscoveryRequest) error {
-	return xds.Send(deltaUpstream.Context(), func(errChan chan error) { errChan <- deltaUpstream.Send(req) },
-		func(error) {}, sendTimeout)
+	return xds.Send(deltaUpstream.Context(), func(errChan chan error) { errChan <- deltaUpstream.Send(req) }, nil)
 }
 
 func sendDownstreamDelta(deltaDownstream discovery.AggregatedDiscoveryService_DeltaAggregatedResourcesServer,
 	res *discovery.DeltaDiscoveryResponse) error {
-	return xds.Send(deltaDownstream.Context(), func(errChan chan error) { errChan <- deltaDownstream.Send(res) },
-		func(error) {}, sendTimeout)
+	return xds.Send(deltaDownstream.Context(), func(errChan chan error) { errChan <- deltaDownstream.Send(res) }, nil)
 }
 
 func (p *XdsProxy) PersistDeltaRequest(req *discovery.DeltaDiscoveryRequest) {

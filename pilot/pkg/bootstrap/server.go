@@ -28,7 +28,6 @@ import (
 	"sync"
 	"time"
 
-	middleware "github.com/grpc-ecosystem/go-grpc-middleware"
 	prometheus "github.com/grpc-ecosystem/go-grpc-prometheus"
 	prom "github.com/prometheus/client_golang/prometheus"
 	"github.com/soheilhy/cmux"
@@ -36,7 +35,6 @@ import (
 	"golang.org/x/net/http2/h2c"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
-	"google.golang.org/grpc/keepalive"
 	"google.golang.org/grpc/reflection"
 	v1 "k8s.io/client-go/kubernetes/typed/core/v1"
 	"k8s.io/client-go/rest"
@@ -695,7 +693,11 @@ func (s *Server) waitForShutdown(stop <-chan struct{}) {
 }
 
 func (s *Server) initGrpcServer(options *istiokeepalive.Options) {
-	grpcOptions := s.grpcServerOptions(options)
+	interceptors := []grpc.UnaryServerInterceptor{
+		// setup server prometheus monitoring (as final interceptor in chain)
+		prometheus.UnaryServerInterceptor,
+	}
+	grpcOptions := xds.GrpcServerOptions(options, interceptors...)
 	s.grpcServer = grpc.NewServer(grpcOptions...)
 	s.XDSServer.Register(s.grpcServer)
 	reflection.Register(s.grpcServer)
@@ -742,7 +744,11 @@ func (s *Server) initSecureDiscoveryService(args *PilotArgs) error {
 	}
 	s.SecureGrpcListener = l
 
-	opts := s.grpcServerOptions(args.KeepaliveOptions)
+	interceptors := []grpc.UnaryServerInterceptor{
+		// setup server prometheus monitoring (as final interceptor in chain)
+		prometheus.UnaryServerInterceptor,
+	}
+	opts := xds.GrpcServerOptions(args.KeepaliveOptions, interceptors...)
 	opts = append(opts, grpc.Creds(tlsCreds))
 
 	s.secureGrpcServer = grpc.NewServer(opts...)
@@ -758,38 +764,6 @@ func (s *Server) initSecureDiscoveryService(args *PilotArgs) error {
 	})
 
 	return nil
-}
-
-func (s *Server) grpcServerOptions(options *istiokeepalive.Options) []grpc.ServerOption {
-	interceptors := []grpc.UnaryServerInterceptor{
-		// setup server prometheus monitoring (as final interceptor in chain)
-		prometheus.UnaryServerInterceptor,
-	}
-
-	// Temp setting, default should be enough for most supported environments. Can be used for testing
-	// envoy with lower values.
-	maxStreams := features.MaxConcurrentStreams
-	maxRecvMsgSize := features.MaxRecvMsgSize
-
-	log.Infof("using max conn age of %v", options.MaxServerConnectionAge)
-	grpcOptions := []grpc.ServerOption{
-		grpc.UnaryInterceptor(middleware.ChainUnaryServer(interceptors...)),
-		grpc.MaxConcurrentStreams(uint32(maxStreams)),
-		grpc.MaxRecvMsgSize(maxRecvMsgSize),
-		// Ensure we allow clients sufficient ability to send keep alives. If this is higher than client
-		// keep alive setting, it will prematurely get a GOAWAY sent.
-		grpc.KeepaliveEnforcementPolicy(keepalive.EnforcementPolicy{
-			MinTime: options.Time / 2,
-		}),
-		grpc.KeepaliveParams(keepalive.ServerParameters{
-			Time:                  options.Time,
-			Timeout:               options.Timeout,
-			MaxConnectionAge:      options.MaxServerConnectionAge,
-			MaxConnectionAgeGrace: options.MaxServerConnectionAgeGrace,
-		}),
-	}
-
-	return grpcOptions
 }
 
 // addStartFunc appends a function to be run. These are run synchronously in order,

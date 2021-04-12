@@ -16,7 +16,13 @@ package xds
 
 import (
 	"context"
-	"time"
+
+	middleware "github.com/grpc-ecosystem/go-grpc-middleware"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/keepalive"
+
+	"istio.io/istio/pilot/pkg/features"
+	istiokeepalive "istio.io/istio/pkg/keepalive"
 )
 
 type (
@@ -24,8 +30,10 @@ type (
 	ErrorHandler func(err error)
 )
 
+var timeout = features.XdsPushSendTimeout
+
 // Send with timeout if specified. If timeout is zero, sends without timeout.
-func Send(ctx context.Context, send SendHandler, errorh ErrorHandler, timeout time.Duration) error {
+func Send(ctx context.Context, send SendHandler, errorh ErrorHandler) error {
 	errChan := make(chan error, 1)
 
 	go func() {
@@ -39,10 +47,14 @@ func Send(ctx context.Context, send SendHandler, errorh ErrorHandler, timeout ti
 
 		select {
 		case <-timeoutCtx.Done():
-			errorh(timeoutCtx.Err())
+			if errorh != nil {
+				errorh(timeoutCtx.Err())
+			}
 			return timeoutCtx.Err()
 		case err := <-errChan:
-			errorh(err)
+			if errorh != nil {
+				errorh(err)
+			}
 			return err
 		}
 	} else {
@@ -50,4 +62,29 @@ func Send(ctx context.Context, send SendHandler, errorh ErrorHandler, timeout ti
 		errorh(err)
 		return err
 	}
+}
+
+func GrpcServerOptions(options *istiokeepalive.Options, interceptors ...grpc.UnaryServerInterceptor) []grpc.ServerOption {
+	maxStreams := features.MaxConcurrentStreams
+	maxRecvMsgSize := features.MaxRecvMsgSize
+
+	log.Infof("using max conn age of %v", options.MaxServerConnectionAge)
+	grpcOptions := []grpc.ServerOption{
+		grpc.UnaryInterceptor(middleware.ChainUnaryServer(interceptors...)),
+		grpc.MaxConcurrentStreams(uint32(maxStreams)),
+		grpc.MaxRecvMsgSize(maxRecvMsgSize),
+		// Ensure we allow clients sufficient ability to send keep alives. If this is higher than client
+		// keep alive setting, it will prematurely get a GOAWAY sent.
+		grpc.KeepaliveEnforcementPolicy(keepalive.EnforcementPolicy{
+			MinTime: options.Time / 2,
+		}),
+		grpc.KeepaliveParams(keepalive.ServerParameters{
+			Time:                  options.Time,
+			Timeout:               options.Timeout,
+			MaxConnectionAge:      options.MaxServerConnectionAge,
+			MaxConnectionAgeGrace: options.MaxServerConnectionAgeGrace,
+		}),
+	}
+
+	return grpcOptions
 }
