@@ -55,9 +55,6 @@ global:
 		NewTest(t).
 		Features("installation.helm.firstpartyjwt.install").
 		Run(func(t framework.TestContext) {
-			if !t.Clusters().Default().MaxKubeVersion(20) { // All JWT are third party in 1.21+ (BoundServiceAccountTokenVolume)
-				t.Skip("first-party-jwt is not supported")
-			}
 			setupInstallation(overrideValuesStr)(t)
 		})
 }
