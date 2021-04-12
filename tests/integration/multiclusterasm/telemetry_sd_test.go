@@ -110,6 +110,7 @@ func TestAuditStackdriver(t *testing.T) {
 	framework.NewTest(t).
 		Features("observability.telemetry.stackdriver").
 		Run(func(ctx framework.TestContext) {
+			ctx.Skip("https://buganizer.corp.google.com/issues/184872790")
 			projectID, projectID2 := os.Getenv("GCR_PROJECT_ID_1"), os.Getenv("GCR_PROJECT_ID_2")
 
 			// TODO: audit feature supports only single project scenario
