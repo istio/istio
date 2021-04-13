@@ -318,6 +318,8 @@ func convert(ctxs []meshconfig.MeshConfig_ExtensionProvider_OpenCensusAgentTraci
 }
 
 func dryRunPolicyTraceTag(name, key string) *tracing.CustomTag {
+	// The tag will not be populated when not used as there is no default value set for the tag.
+	// See https://www.envoyproxy.io/docs/envoy/v1.17.1/configuration/http/http_filters/rbac_filter#dynamic-metadata.
 	return &tracing.CustomTag{
 		Tag: name,
 		Type: &tracing.CustomTag_Metadata_{

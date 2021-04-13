@@ -486,9 +486,9 @@ func checkStatsMatcher(t *testing.T, got, want *bootstrap.Bootstrap, stats stats
 		stats.prefixes = v2Prefixes + stats.prefixes + "," + requiredEnvoyStatsMatcherInclusionPrefixes + v2Suffix
 	}
 	if stats.suffixes == "" {
-		stats.suffixes = "allowed,denied"
+		stats.suffixes = "rbac.allowed,rbac.denied,shadow_allowed,shadow_denied"
 	} else {
-		stats.suffixes += ",allowed,denied"
+		stats.suffixes += ",rbac.allowed,rbac.denied,shadow_allowed,shadow_denied"
 	}
 
 	if err := gsm.Validate(); err != nil {

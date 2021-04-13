@@ -230,10 +230,16 @@
           "prefix": "wasm"
           },
           {
-          "suffix": "allowed"
+          "suffix": "rbac.allowed"
           },
           {
-          "suffix": "denied"
+          "suffix": "rbac.denied"
+          },
+          {
+          "suffix": "shadow_allowed"
+          },
+          {
+          "suffix": "shadow_denied"
           },
           {
           "prefix": "component"

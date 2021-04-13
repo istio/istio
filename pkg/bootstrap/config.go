@@ -50,7 +50,7 @@ const (
 	// required stats are used by readiness checks.
 	requiredEnvoyStatsMatcherInclusionPrefixes = "cluster_manager,listener_manager,server,cluster.xds-grpc,wasm"
 
-	rbacEnvoyStatsMatcherInclusionSuffix = "allowed,denied"
+	rbacEnvoyStatsMatcherInclusionSuffix = "rbac.allowed,rbac.denied,shadow_allowed,shadow_denied"
 
 	// Prefixes of V2 metrics.
 	// "reporter" prefix is for istio standard metrics.
