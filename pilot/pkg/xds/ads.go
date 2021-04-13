@@ -921,11 +921,9 @@ func (conn *Connection) send(res *discovery.DiscoveryResponse) error {
 			conn.proxy.WatchedResources[res.TypeUrl].LastSize = sz
 		}
 		conn.proxy.Unlock()
-	} else {
-		if status.Convert(err).Code() == codes.DeadlineExceeded {
-			log.Infof("Timeout writing %s", conn.ConID)
-			xdsResponseWriteTimeouts.Increment()
-		}
+	} else if status.Convert(err).Code() == codes.DeadlineExceeded {
+		log.Infof("Timeout writing %s", conn.ConID)
+		xdsResponseWriteTimeouts.Increment()
 	}
 	return err
 }
