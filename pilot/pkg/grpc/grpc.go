@@ -28,14 +28,13 @@ import (
 )
 
 type (
-	SendHandler     func() error
-	ResponseHandler func(err error)
+	SendHandler func() error
 )
 
 var timeout = features.XdsPushSendTimeout
 
 // Send with timeout if specified. If timeout is zero, sends without timeout.
-func Send(ctx context.Context, send SendHandler, response ResponseHandler) error {
+func Send(ctx context.Context, send SendHandler) error {
 	if timeout.Nanoseconds() > 0 {
 		errChan := make(chan error, 1)
 		timeoutCtx, cancel := context.WithTimeout(ctx, timeout)
@@ -47,21 +46,12 @@ func Send(ctx context.Context, send SendHandler, response ResponseHandler) error
 		}()
 		select {
 		case <-timeoutCtx.Done():
-			if response != nil {
-				response(timeoutCtx.Err())
-			}
 			return status.Errorf(codes.DeadlineExceeded, "timeout sending")
 		case err := <-errChan:
-			if response != nil {
-				response(err)
-			}
 			return err
 		}
 	}
 	err := send()
-	if response != nil {
-		response(err)
-	}
 	return err
 }
 

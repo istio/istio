@@ -269,12 +269,12 @@ func forwardDeltaToEnvoy(con *ProxyConnection, resp *discovery.DeltaDiscoveryRes
 
 func sendUpstreamDelta(deltaUpstream discovery.AggregatedDiscoveryService_DeltaAggregatedResourcesClient,
 	req *discovery.DeltaDiscoveryRequest) error {
-	return istiogrpc.Send(deltaUpstream.Context(), func() error { return deltaUpstream.Send(req) }, nil)
+	return istiogrpc.Send(deltaUpstream.Context(), func() error { return deltaUpstream.Send(req) })
 }
 
 func sendDownstreamDelta(deltaDownstream discovery.AggregatedDiscoveryService_DeltaAggregatedResourcesServer,
 	res *discovery.DeltaDiscoveryResponse) error {
-	return istiogrpc.Send(deltaDownstream.Context(), func() error { return deltaDownstream.Send(res) }, nil)
+	return istiogrpc.Send(deltaDownstream.Context(), func() error { return deltaDownstream.Send(res) })
 }
 
 func (p *XdsProxy) PersistDeltaRequest(req *discovery.DeltaDiscoveryRequest) {

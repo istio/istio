@@ -260,29 +260,28 @@ func (conn *Connection) sendDelta(res *discovery.DeltaDiscoveryResponse) error {
 		defer func() { recordSendTime(time.Since(start)) }()
 		return conn.deltaStream.Send(res)
 	}
-	responseHandler := func(err error) {
-		if err == nil {
-			sz := 0
-			for _, rc := range res.Resources {
-				sz += len(rc.Resource.Value)
-			}
-			conn.proxy.Lock()
-			if res.Nonce != "" {
-				if conn.proxy.WatchedResources[res.TypeUrl] == nil {
-					conn.proxy.WatchedResources[res.TypeUrl] = &model.WatchedResource{TypeUrl: res.TypeUrl}
-				}
-				conn.proxy.WatchedResources[res.TypeUrl].NonceSent = res.Nonce
-				conn.proxy.WatchedResources[res.TypeUrl].VersionSent = res.SystemVersionInfo
-				conn.proxy.WatchedResources[res.TypeUrl].LastSent = time.Now()
-				conn.proxy.WatchedResources[res.TypeUrl].LastSize = sz
-			}
-			conn.proxy.Unlock()
-		} else {
-			log.Infof("Timeout writing %s", conn.ConID)
-			xdsResponseWriteTimeouts.Increment()
+	err := istiogrpc.Send(conn.deltaStream.Context(), sendHandler)
+	if err == nil {
+		sz := 0
+		for _, rc := range res.Resources {
+			sz += len(rc.Resource.Value)
 		}
+		conn.proxy.Lock()
+		if res.Nonce != "" {
+			if conn.proxy.WatchedResources[res.TypeUrl] == nil {
+				conn.proxy.WatchedResources[res.TypeUrl] = &model.WatchedResource{TypeUrl: res.TypeUrl}
+			}
+			conn.proxy.WatchedResources[res.TypeUrl].NonceSent = res.Nonce
+			conn.proxy.WatchedResources[res.TypeUrl].VersionSent = res.SystemVersionInfo
+			conn.proxy.WatchedResources[res.TypeUrl].LastSent = time.Now()
+			conn.proxy.WatchedResources[res.TypeUrl].LastSize = sz
+		}
+		conn.proxy.Unlock()
+	} else {
+		log.Infof("Timeout writing %s", conn.ConID)
+		xdsResponseWriteTimeouts.Increment()
 	}
-	return istiogrpc.Send(conn.deltaStream.Context(), sendHandler, responseHandler)
+	return err
 }
 
 // processRequest is handling one request. This is currently called from the 'main' thread, which also
