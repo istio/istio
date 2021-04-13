@@ -40,18 +40,6 @@ const (
 	xdsPortName       = "https-dns"
 )
 
-type DebugCommandOpts struct {
-	// ResouceName is used for receiving istio CRD resource, e.g. VirtualService/default/bookinfo
-	ResouceName string
-}
-
-// AttachDebugCommandFlags attaches control-plane flags to the internal-debug Cobra command.
-// (Currently just --resource)
-func (o *DebugCommandOpts) AttachDebugCommandFlags(cmd *cobra.Command) {
-	cmd.Flags().StringVar(&o.ResouceName, "resource", "",
-		"resource can be used in format of kind/namespace/name, e.g. 'VirtualService/default/bookinfo'")
-}
-
 func PreHandleForXdsRequest(iPod, namespace string, kubeClient kube.ExtendedClient) (string, string, string, error) {
 	podName, ns, err := handlers.InferPodInfoFromTypedResource(iPod,
 		handlers.HandleNamespace(namespace, defaultNamespace),
@@ -103,8 +91,8 @@ func HandlerForDebugErrors(cmdName string,
 				return HandlerForRetrieveDebugList(kubeClient, centralOpts, writer)
 
 			case strings.Contains(eString, "querystring parameter 'resource' is required"):
-				return nil, fmt.Errorf("please specify resource option for command [%s], e.g. [%s]",
-					cmdName, "--resource VirtualService/default/bookinfo")
+				return nil, fmt.Errorf("please specify resource information for command [%s], e.g. [%s]",
+					cmdName, "config_distribution?resource=VirtualService/default/bookinfo")
 			}
 		}
 	}
@@ -112,7 +100,7 @@ func HandlerForDebugErrors(cmdName string,
 }
 
 func debugCommand() *cobra.Command {
-	var configDistributedOpt DebugCommandOpts
+	// var configDistributedOpt DebugCommandOpts
 	var opts clioptions.ControlPlaneOptions
 	var centralOpts clioptions.CentralControlPlaneOptions
 
@@ -183,21 +171,7 @@ By default it will use the default serviceAccount from (istio-system) namespace 
 					TypeUrl: TypeDebug,
 				}
 			}
-			if args[0] == "config_distribution" {
-				sResource := configDistributedOpt.ResouceName
-				if resourceName != "" {
-					resourceName += fmt.Sprintf("&resource=%s", sResource)
-				} else {
-					resourceName = fmt.Sprintf("%s?resource=%s", args[0], sResource)
-				}
-				xdsRequest = xdsapi.DiscoveryRequest{
-					ResourceNames: []string{resourceName},
-					Node: &envoy_corev3.Node{
-						Id: "debug~0.0.0.0~istioctl~cluster.local",
-					},
-					TypeUrl: TypeDebug,
-				}
-			}
+
 			if centralOpts.Xds == "" {
 				svc, err := kubeClient.CoreV1().Services(istioNamespace).Get(context.Background(), istiodServiceName, metav1.GetOptions{})
 				if err != nil {
@@ -252,7 +226,6 @@ By default it will use the default serviceAccount from (istio-system) namespace 
 		},
 	}
 
-	configDistributedOpt.AttachDebugCommandFlags(debugCommand)
 	opts.AttachControlPlaneFlags(debugCommand)
 	centralOpts.AttachControlPlaneFlags(debugCommand)
 	debugCommand.Long += "\n\n" + ExperimentalMsg
