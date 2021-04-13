@@ -31,6 +31,7 @@ import (
 
 	"istio.io/istio/pilot/pkg/controller/workloadentry"
 	"istio.io/istio/pilot/pkg/features"
+	istiogrpc "istio.io/istio/pilot/pkg/grpc"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/util"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
@@ -925,7 +926,7 @@ func (conn *Connection) send(res *discovery.DiscoveryResponse) error {
 			xdsResponseWriteTimeouts.Increment()
 		}
 	}
-	return Send(conn.stream.Context(), sendHandler, responseHandler)
+	return istiogrpc.Send(conn.stream.Context(), sendHandler, responseHandler)
 }
 
 // nolint

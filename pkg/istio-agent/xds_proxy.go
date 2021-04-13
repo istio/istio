@@ -50,8 +50,8 @@ import (
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/cmd/pilot-agent/status/ready"
 	"istio.io/istio/pilot/pkg/features"
+	istiogrpc "istio.io/istio/pilot/pkg/grpc"
 	nds "istio.io/istio/pilot/pkg/proto"
-	"istio.io/istio/pilot/pkg/xds"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/istio-agent/health"
@@ -587,7 +587,7 @@ func (p *XdsProxy) initDownstreamServer() error {
 		return err
 	}
 	// TODO: Expose keepalive options to agent cmd line flags.
-	grpcs := grpc.NewServer(xds.GrpcServerOptions(istiokeepalive.DefaultOption())...)
+	grpcs := grpc.NewServer(istiogrpc.ServerOptions(istiokeepalive.DefaultOption())...)
 	discovery.RegisterAggregatedDiscoveryServiceServer(grpcs, p)
 	reflection.Register(grpcs)
 	p.downstreamGrpcServer = grpcs
@@ -713,13 +713,13 @@ func (p *XdsProxy) getRootCertificate(agent *Agent) (*x509.CertPool, error) {
 // sendUpstream sends discovery request.
 func sendUpstream(upstream discovery.AggregatedDiscoveryService_StreamAggregatedResourcesClient,
 	request *discovery.DiscoveryRequest) error {
-	return xds.Send(upstream.Context(), func() error { return upstream.Send(request) }, nil)
+	return istiogrpc.Send(upstream.Context(), func() error { return upstream.Send(request) }, nil)
 }
 
 // sendDownstream sends discovery response.
 func sendDownstream(downstream discovery.AggregatedDiscoveryService_StreamAggregatedResourcesServer,
 	response *discovery.DiscoveryResponse) error {
-	return xds.Send(downstream.Context(), func() error { return downstream.Send(response) }, nil)
+	return istiogrpc.Send(downstream.Context(), func() error { return downstream.Send(response) }, nil)
 }
 
 // tapRequest() sends "req" to Istiod, and returns a matching response, or `nil` on timeout.

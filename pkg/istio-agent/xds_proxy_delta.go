@@ -25,7 +25,7 @@ import (
 	"google.golang.org/grpc/metadata"
 
 	"istio.io/istio/pilot/pkg/features"
-	"istio.io/istio/pilot/pkg/xds"
+	istiogrpc "istio.io/istio/pilot/pkg/grpc"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
 	"istio.io/istio/pkg/istio-agent/metrics"
 	"istio.io/istio/pkg/wasm"
@@ -269,12 +269,12 @@ func forwardDeltaToEnvoy(con *ProxyConnection, resp *discovery.DeltaDiscoveryRes
 
 func sendUpstreamDelta(deltaUpstream discovery.AggregatedDiscoveryService_DeltaAggregatedResourcesClient,
 	req *discovery.DeltaDiscoveryRequest) error {
-	return xds.Send(deltaUpstream.Context(), func() error { return deltaUpstream.Send(req) }, nil)
+	return istiogrpc.Send(deltaUpstream.Context(), func() error { return deltaUpstream.Send(req) }, nil)
 }
 
 func sendDownstreamDelta(deltaDownstream discovery.AggregatedDiscoveryService_DeltaAggregatedResourcesServer,
 	res *discovery.DeltaDiscoveryResponse) error {
-	return xds.Send(deltaDownstream.Context(), func() error { return deltaDownstream.Send(res) }, nil)
+	return istiogrpc.Send(deltaDownstream.Context(), func() error { return deltaDownstream.Send(res) }, nil)
 }
 
 func (p *XdsProxy) PersistDeltaRequest(req *discovery.DeltaDiscoveryRequest) {

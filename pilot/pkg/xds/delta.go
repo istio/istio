@@ -32,6 +32,7 @@ import (
 	"google.golang.org/grpc/status"
 
 	"istio.io/istio/pilot/pkg/features"
+	istiogrpc "istio.io/istio/pilot/pkg/grpc"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pilot/pkg/util/sets"
@@ -281,7 +282,7 @@ func (conn *Connection) sendDelta(res *discovery.DeltaDiscoveryResponse) error {
 			xdsResponseWriteTimeouts.Increment()
 		}
 	}
-	return Send(conn.deltaStream.Context(), sendHandler, responseHandler)
+	return istiogrpc.Send(conn.deltaStream.Context(), sendHandler, responseHandler)
 }
 
 // processRequest is handling one request. This is currently called from the 'main' thread, which also
