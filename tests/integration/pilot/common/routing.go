@@ -925,6 +925,7 @@ func selfCallsCases() []TrafficTestCase {
 	sourceFilters := []echotest.Filter{
 		echotest.Not(echotest.ExternalServices),
 		echotest.Not(echotest.FilterMatch(echo.IsNaked())),
+		echotest.Not(echotest.FilterMatch(echo.IsHeadless())),
 	}
 	comboFilters := []echotest.CombinationFilter{func(from echo.Instance, to echo.Instances) echo.Instances {
 		return to.Match(echo.FQDN(from.Config().FQDN()))
@@ -950,6 +951,7 @@ func selfCallsCases() []TrafficTestCase {
 		{
 			name:             "to localhost",
 			workloadAgnostic: true,
+			sourceFilters:    sourceFilters,
 			comboFilters:     comboFilters,
 			setupOpts:        noTarget,
 			opts: echo.CallOptions{
