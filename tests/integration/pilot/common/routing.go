@@ -79,9 +79,10 @@ spec:
 }
 
 func virtualServiceCases(skipVM bool) []TrafficTestCase {
+	noTProxy := echotest.FilterMatch(func(instance echo.Instance) bool {
+		return !instance.Config().IsTProxy()
+	})
 	var cases []TrafficTestCase
-	// Send the same call from all different clusters
-
 	cases = append(cases,
 		TrafficTestCase{
 			name: "added header",
@@ -282,7 +283,7 @@ spec:
 		TrafficTestCase{
 			name: "cors",
 			// TODO https://github.com/istio/istio/issues/31532
-			targetFilters: []echotest.Filter{echotest.Not(echotest.VirtualMachines)},
+			targetFilters: []echotest.Filter{noTProxy, echotest.Not(echotest.VirtualMachines)},
 			config: `
 apiVersion: networking.istio.io/v1alpha3
 kind: VirtualService
@@ -930,9 +931,6 @@ func selfCallsCases() []TrafficTestCase {
 	comboFilters := []echotest.CombinationFilter{func(from echo.Instance, to echo.Instances) echo.Instances {
 		return to.Match(echo.FQDN(from.Config().FQDN()))
 	}}
-	noTarget := func(_ echo.Instance, _ echo.Services, opts *echo.CallOptions) {
-		opts.Target = nil
-	}
 
 	return []TrafficTestCase{
 		// Calls to the Service will go through envoy outbound and inbound, so we get envoy headers added
@@ -941,7 +939,6 @@ func selfCallsCases() []TrafficTestCase {
 			workloadAgnostic: true,
 			sourceFilters:    sourceFilters,
 			comboFilters:     comboFilters,
-			setupOpts:        noTarget,
 			opts: echo.CallOptions{
 				PortName:  "http",
 				Validator: echo.And(echo.ExpectOK(), echo.ExpectKey("X-Envoy-Attempt-Count", "1")),
@@ -953,7 +950,10 @@ func selfCallsCases() []TrafficTestCase {
 			workloadAgnostic: true,
 			sourceFilters:    sourceFilters,
 			comboFilters:     comboFilters,
-			setupOpts:        noTarget,
+			setupOpts: func(_ echo.Instance, _ echo.Services, opts *echo.CallOptions) {
+				// the framework will try to set this when enumerating test cases
+				opts.Target = nil
+			},
 			opts: echo.CallOptions{
 				Address:   "localhost",
 				Scheme:    scheme.HTTP,
