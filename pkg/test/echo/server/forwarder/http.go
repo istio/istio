@@ -72,6 +72,8 @@ func (c *httpProtocol) makeRequest(ctx context.Context, req *request) (string, e
 	if err != nil {
 		return "", err
 	}
+	// Use raw path, we don't want golang normalizing anything since we use this for testing purposes
+	httpReq.URL.Opaque = httpReq.URL.RawPath
 
 	// Set the per-request timeout.
 	ctx, cancel := context.WithTimeout(ctx, req.Timeout)
