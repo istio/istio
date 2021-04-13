@@ -36,24 +36,29 @@ var timeout = features.XdsPushSendTimeout
 
 // Send with timeout if specified. If timeout is zero, sends without timeout.
 func Send(ctx context.Context, send SendHandler, response ResponseHandler) error {
-	errChan := make(chan error, 1)
-
-	go func() {
-		err := send()
-		errChan <- err
-		close(errChan)
-	}()
-
 	if timeout.Nanoseconds() > 0 {
+		errChan := make(chan error, 1)
 		timeoutCtx, cancel := context.WithTimeout(ctx, timeout)
 		defer cancel()
-		<-timeoutCtx.Done()
-		if response != nil {
-			response(timeoutCtx.Err())
+		go func() {
+			err := send()
+			errChan <- err
+			close(errChan)
+		}()
+		select {
+		case <-timeoutCtx.Done():
+			if response != nil {
+				response(timeoutCtx.Err())
+			}
+			return status.Errorf(codes.DeadlineExceeded, "timeout sending")
+		case err := <-errChan:
+			if response != nil {
+				response(err)
+			}
+			return err
 		}
-		return status.Errorf(codes.DeadlineExceeded, "timeout sending")
 	}
-	err := <-errChan
+	err := send()
 	if response != nil {
 		response(err)
 	}
