@@ -300,7 +300,8 @@ func (h *httpHandler) addResponsePayload(r *http.Request, body *bytes.Buffer) {
 	writeField(body, response.ServiceVersionField, h.Version)
 	writeField(body, response.ServicePortField, port)
 	writeField(body, response.HostField, r.Host)
-	writeField(body, response.URLField, r.URL.String())
+	// Use raw path, we don't want golang normalizing anything since we use this for testing purposes
+	writeField(body, response.URLField, r.RequestURI)
 	writeField(body, response.ClusterField, h.Cluster)
 
 	writeField(body, "Method", r.Method)
