@@ -55,12 +55,20 @@ var (
 			resourceType: "k8s_container",
 		},
 		{
+			metricName:   "istio.io/service/server/request_count",
+			resourceType: "gce_instance",
+		},
+		{
 			metricName:   "istio.io/service/client/request_count",
 			resourceType: "k8s_pod",
 		},
 		{
 			metricName:   "istio.io/service/server/connection_open_count",
 			resourceType: "k8s_container",
+		},
+		{
+			metricName:   "istio.io/service/server/connection_open_count",
+			resourceType: "gce_instance",
 		},
 		{
 			metricName:   "istio.io/service/client/connection_open_count",
