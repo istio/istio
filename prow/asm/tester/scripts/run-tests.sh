@@ -163,7 +163,7 @@ if [[ "${CONTROL_PLANE}" == "UNMANAGED" ]]; then
     INTEGRATION_TEST_FLAGS+=" --istio.test.skipVM"
   fi
 
-  if [[ -n "${STATIC_VMS}" ]] || [[ -n "${GCE_VMS}" ]]; then
+  if [[ -n "${STATIC_VMS}" ]] || "${GCE_VMS}"; then
     export DISABLED_PACKAGES+="\|/pilot/endpointslice" # we won't reinstall the CP in endpointslice mode
     # waiting for an oSS change that fixes this test's incompatibility with stableNamespaces
     INTEGRATION_TEST_FLAGS+=" --istio.test.skip=\"TestValidation\""

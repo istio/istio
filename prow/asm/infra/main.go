@@ -147,13 +147,13 @@ func (o *options) runTestFlow(deployerFlags, testFlags []string) error {
 	kubetest2Flags = append(kubetest2Flags, deployerFlags...)
 
 	if o.deployerName == gkeDeployerName {
-		var buf bytes.Buffer
 		// Retry creating the cluster in different regions to reduce the test
 		// flakniess caused by GCE_STOCKOUT and other recoverable GKE errors.
 		// This is a temporary workaround before b/162609408 is solved upstream.
 		// TODO(chizhg): remove the retry logic here after b/162609408 is solved
 		//    upstream in kubetest2.
 		for _, region := range []string{"us-central1", "us-west1", "us-east1"} {
+			var buf bytes.Buffer
 			newKubetest2Flags := make([]string, len(kubetest2Flags))
 			copy(newKubetest2Flags, kubetest2Flags)
 			newKubetest2Flags = append(newKubetest2Flags, "--region="+region)

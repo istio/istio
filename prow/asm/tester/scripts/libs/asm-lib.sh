@@ -734,7 +734,7 @@ function gen_topology_file() {
     kubeconfig: "${kubeconfpaths[i]}"
 EOF
       # Disable using simulated Pod-based "VMs" when testing real VMs
-      if [ -n "${STATIC_VMS}" ] || [ -n "${GCE_VMS}" ]; then
+      if [ -n "${STATIC_VMS}" ] || "${GCE_VMS}"; then
         echo '    fakeVM: false' >> "${file}"
       fi
     done
