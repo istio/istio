@@ -947,10 +947,10 @@ var ValidateSidecar = registerValidateFunc("ValidateSidecar",
 					// format should be 127.0.0.1:port or :port
 					parts := strings.Split(i.DefaultEndpoint, ":")
 					if len(parts) < 2 {
-						errs = appendErrors(errs, fmt.Errorf("sidecar: defaultEndpoint must be of form 127.0.0.1:<port> or 0.0.0.0:<port>"))
+						errs = appendErrors(errs, fmt.Errorf("sidecar: defaultEndpoint must be of form 127.0.0.1:<port>, 0.0.0.0:<port>, unix://filepath, or unset"))
 					} else {
 						if len(parts[0]) > 0 && parts[0] != "127.0.0.1" && parts[0] != "0.0.0.0" {
-							errs = appendErrors(errs, fmt.Errorf("sidecar: defaultEndpoint must be of form 127.0.0.1:<port> or 0.0.0.0:<port>"))
+							errs = appendErrors(errs, fmt.Errorf("sidecar: defaultEndpoint must be of form 127.0.0.1:<port>, 0.0.0.0:<port>, unix://filepath, or unset"))
 						}
 
 						port, err := strconv.Atoi(parts[1])
