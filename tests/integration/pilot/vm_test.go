@@ -23,6 +23,8 @@ import (
 	"testing"
 	"time"
 
+	"istio.io/istio/pkg/test/framework/components/echo/kube"
+
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"istio.io/client-go/pkg/apis/networking/v1alpha3"
@@ -37,12 +39,15 @@ import (
 	"istio.io/istio/tests/integration/pilot/common"
 )
 
-func GetAdditionVMImages() []string {
-	// Note - bionic is not here as its the default
-	return []string{
-		"app_sidecar_ubuntu_xenial", "app_sidecar_ubuntu_focal",
-		"app_sidecar_debian_9", "app_sidecar_debian_10", "app_sidecar_centos_7", "app_sidecar_centos_8",
+func GetAdditionVMImages() []echo.VMDistro {
+	out := []echo.VMDistro{}
+	for _, distro := range echo.VMDistros {
+		if distro == kube.DefaultVMDistro {
+			continue
+		}
+		out = append(out, distro)
 	}
+	return out
 }
 
 func TestVmOSPost(t *testing.T) {
@@ -62,7 +67,7 @@ func TestVmOSPost(t *testing.T) {
 					Namespace:  apps.Namespace,
 					Ports:      common.EchoPorts,
 					DeployAsVM: true,
-					VMImage:    image,
+					VMDistro:   image,
 					Subsets:    []echo.SubsetConfig{{}},
 				})
 			}
