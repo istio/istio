@@ -491,15 +491,14 @@ func listEqualUnordered(a []string, b []string) bool {
 // update the node associated with the connection, after receiving a a packet from envoy, also adds the connection
 // to the tracking map.
 func (s *DiscoveryServer) initConnection(node *core.Node, con *Connection) error {
-	// First request so initialize connection id and start tracking it.
-	con.ConID = connectionID(node.Id)
-	con.node = node
-
 	// Setup the initial proxy metadata
 	proxy, err := s.initProxyMetadata(node)
 	if err != nil {
 		return err
 	}
+	// First request so initialize connection id and start tracking it.
+	con.ConID = connectionID(proxy.ID)
+	con.node = node
 	con.proxy = proxy
 	if features.EnableXDSIdentityCheck && con.Identities != nil {
 		// TODO: allow locking down, rejecting unauthenticated requests.
