@@ -23,5 +23,6 @@ spec:
                 gcsBucket: gke-multi-cloud-staging
                 anthosVersion: latest
                 nodeCount: "6"
+                commonOptionsWaitTimeout: "1080000000000"
                 nodeType: m5.xlarge
                 username: asm-svc-acct
