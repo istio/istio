@@ -72,6 +72,8 @@ const (
 	defaultInitialWindowSize           = 1024 * 1024 // default gRPC ConnWindowSize
 )
 
+var connectionNumber = atomic.NewUint32(0)
+
 // ResponseHandler handles a XDS response in the agent. These will not be forwarded to Envoy.
 // Currently, all handlers function on a single resource per type, so the API only exposes one
 // resource.
@@ -265,6 +267,7 @@ func (p *XdsProxy) RegisterStream(c *ProxyConnection) {
 }
 
 type ProxyConnection struct {
+	conID              uint32
 	upstreamError      chan error
 	downstreamError    chan error
 	requestsChan       chan *discovery.DiscoveryRequest
@@ -285,6 +288,7 @@ func (p *XdsProxy) StreamAggregatedResources(downstream discovery.AggregatedDisc
 	proxyLog.Debugf("accepted XDS connection from Envoy, forwarding to upstream XDS server")
 
 	con := &ProxyConnection{
+		conID:           connectionNumber.Inc(),
 		upstreamError:   make(chan error, 2), // can be produced by recv and send
 		downstreamError: make(chan error, 2), // can be produced by recv and send
 		requestsChan:    make(chan *discovery.DiscoveryRequest, 10),
@@ -388,20 +392,20 @@ func (p *XdsProxy) HandleUpstream(ctx context.Context, con *ProxyConnection, xds
 		case err := <-con.upstreamError:
 			// error from upstream Istiod.
 			if isExpectedGRPCError(err) {
-				proxyLog.Debugf("upstream terminated with status %v", err)
+				proxyLog.Debugf("upstream [%d] terminated with status %v", con.conID, err)
 				metrics.IstiodConnectionCancellations.Increment()
 			} else {
-				proxyLog.Warnf("upstream terminated with unexpected error %v", err)
+				proxyLog.Warnf("upstream [%d] terminated with unexpected error %v", con.conID, err)
 				metrics.IstiodConnectionErrors.Increment()
 			}
 			return err
 		case err := <-con.downstreamError:
 			// error from downstream Envoy.
 			if isExpectedGRPCError(err) {
-				proxyLog.Debugf("downstream terminated with status %v", err)
+				proxyLog.Debugf("downstream [%d] terminated with status %v", con.conID, err)
 				metrics.EnvoyConnectionCancellations.Increment()
 			} else {
-				proxyLog.Warnf("downstream terminated with unexpected error %v", err)
+				proxyLog.Warnf("downstream [%d] terminated with unexpected error %v", con.conID, err)
 				metrics.EnvoyConnectionErrors.Increment()
 			}
 			// On downstream error, we will return. This propagates the error to downstream envoy which will trigger reconnect
@@ -427,7 +431,7 @@ func (p *XdsProxy) handleUpstreamRequest(con *ProxyConnection) {
 				p.ecdsLastNonce.Store(req.ResponseNonce)
 			}
 			if err := sendUpstream(con.upstream, req); err != nil {
-				proxyLog.Errorf("upstream send error for type url %s: %v", req.TypeUrl, err)
+				proxyLog.Errorf("upstream [%d] send error for type url %s: %v", con.conID, req.TypeUrl, err)
 				con.upstreamError <- err
 				return
 			}
@@ -527,13 +531,13 @@ func forwardToEnvoy(con *ProxyConnection, resp *discovery.DiscoveryResponse) {
 			// we cannot return partial error and hope to restart just the downstream
 			// as we are blindly proxying req/responses. For now, the best course of action
 			// is to terminate upstream connection as well and restart afresh.
-			proxyLog.Errorf("downstream send error: %v", err)
+			proxyLog.Errorf("downstream [%d] send error: %v", con.conID, err)
 		default:
 			// Do not block on downstream error channel push, this could happen when forward
 			// is triggered from a separated goroutine (e.g. ECDS processing go routine) while
 			// downstream connection has already been teared down and no receiver is available
 			// for downstream error channel.
-			proxyLog.Debugf("downstream error channel full, but get downstream send error: %v", err)
+			proxyLog.Debugf("downstream [%d] error channel full, but get downstream send error: %v", con.conID, err)
 		}
 
 		return
