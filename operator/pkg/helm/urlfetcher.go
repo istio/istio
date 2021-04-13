@@ -77,12 +77,6 @@ func (f *URLFetcher) Fetch() error {
 	if _, _, err := URLToDirname(f.url); err != nil {
 		return err
 	}
-	if _, err := os.Stat(f.destDirRoot); os.IsNotExist(err) {
-		err := os.Mkdir(f.destDirRoot, os.ModeDir|os.ModePerm)
-		if err != nil {
-			return err
-		}
-	}
 	saved, err := DownloadTo(f.url, f.destDirRoot)
 	if err != nil {
 		return err
@@ -110,7 +104,15 @@ func DownloadTo(srcURL, dest string) (string, error) {
 
 	name := filepath.Base(u.Path)
 	destFile := filepath.Join(dest, name)
-	if err := ioutil.WriteFile(destFile, data, 0666); err != nil {
+	dir := filepath.Dir(destFile)
+	if _, err := os.Stat(dir); os.IsNotExist(err) {
+		err := os.Mkdir(dir, 0755)
+		if err != nil {
+			return "", err
+		}
+	}
+
+	if err := ioutil.WriteFile(destFile, data, 0644); err != nil {
 		return destFile, err
 	}
 

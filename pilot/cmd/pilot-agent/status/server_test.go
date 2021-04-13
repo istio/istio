@@ -24,6 +24,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"os/signal"
+	"reflect"
 	"strconv"
 	"strings"
 	"syscall"
@@ -34,6 +35,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/intstr"
 
 	"istio.io/istio/pilot/cmd/pilot-agent/status/ready"
+	"istio.io/istio/pilot/cmd/pilot-agent/status/testserver"
 	"istio.io/istio/pkg/kube/apimirror"
 	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/test/util/retry"
@@ -552,6 +554,154 @@ func TestHttpsAppProbe(t *testing.T) {
 	}
 }
 
+func TestProbeHeader(t *testing.T) {
+	headerChecker := func(t *testing.T, header http.Header) net.Listener {
+		listener, err := net.Listen("tcp", ":0")
+		if err != nil {
+			t.Fatalf("failed to allocate unused port %v", err)
+		}
+		go http.Serve(listener, http.HandlerFunc(func(rw http.ResponseWriter, r *http.Request) {
+			r.Header.Del("User-Agent")
+			r.Header.Del("Accept-Encoding")
+			if !reflect.DeepEqual(r.Header, header) {
+				t.Errorf("unexpected header, want = %v, got = %v", header, r.Header)
+				http.Error(rw, "", http.StatusBadRequest)
+				return
+			}
+			http.Error(rw, "", http.StatusOK)
+		}))
+		return listener
+	}
+
+	testCases := []struct {
+		name          string
+		originHeaders http.Header
+		proxyHeaders  []apimirror.HTTPHeader
+		want          http.Header
+	}{
+		{
+			name: "Only Origin",
+			originHeaders: http.Header{
+				testHeader: []string{testHeaderValue},
+			},
+			proxyHeaders: []apimirror.HTTPHeader{},
+			want: http.Header{
+				testHeader: []string{testHeaderValue},
+			},
+		},
+		{
+			name: "Only Origin, has multiple values",
+			originHeaders: http.Header{
+				testHeader: []string{testHeaderValue, testHeaderValue},
+			},
+			proxyHeaders: []apimirror.HTTPHeader{},
+			want: http.Header{
+				testHeader: []string{testHeaderValue, testHeaderValue},
+			},
+		},
+		{
+			name:          "Only Proxy",
+			originHeaders: http.Header{},
+			proxyHeaders: []apimirror.HTTPHeader{
+				{
+					Name:  testHeader,
+					Value: testHeaderValue,
+				},
+			},
+			want: http.Header{
+				testHeader: []string{testHeaderValue},
+			},
+		},
+		{
+			name:          "Only Proxy, has multiple values",
+			originHeaders: http.Header{},
+			proxyHeaders: []apimirror.HTTPHeader{
+				{
+					Name:  testHeader,
+					Value: testHeaderValue,
+				},
+				{
+					Name:  testHeader,
+					Value: testHeaderValue,
+				},
+			},
+			want: http.Header{
+				testHeader: []string{testHeaderValue, testHeaderValue},
+			},
+		},
+		{
+			name: "Proxy overwrites Origin",
+			originHeaders: http.Header{
+				testHeader: []string{testHeaderValue, testHeaderValue},
+			},
+			proxyHeaders: []apimirror.HTTPHeader{
+				{
+					Name:  testHeader,
+					Value: testHeaderValue + "Over",
+				},
+			},
+			want: http.Header{
+				testHeader: []string{testHeaderValue + "Over"},
+			},
+		},
+	}
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			svc := headerChecker(t, tc.want)
+			defer svc.Close()
+			probePath := "/app-health/hello-world/livez"
+			appAddress := svc.Addr().(*net.TCPAddr)
+			appProber, err := json.Marshal(KubeAppProbers{
+				probePath: &Prober{
+					HTTPGet: &apimirror.HTTPGetAction{
+						Port:        intstr.IntOrString{IntVal: int32(appAddress.Port)},
+						Host:        appAddress.IP.String(),
+						Path:        "/header",
+						HTTPHeaders: tc.proxyHeaders,
+					},
+				},
+			})
+			if err != nil {
+				t.Fatalf("invalid app probers")
+			}
+			config := Options{
+				StatusPort:     0,
+				KubeAppProbers: string(appProber),
+			}
+			// Starts the pilot agent status server.
+			server, err := NewServer(config)
+			if err != nil {
+				t.Fatal("failed to create status server: ", err)
+			}
+			ctx, cancel := context.WithCancel(context.Background())
+			defer cancel()
+			go server.Run(ctx)
+
+			var statusPort uint16
+			for statusPort == 0 {
+				server.mutex.RLock()
+				statusPort = server.statusPort
+				server.mutex.RUnlock()
+			}
+
+			client := http.Client{}
+			req, err := http.NewRequest("GET", fmt.Sprintf("http://localhost:%v%s", statusPort, probePath), nil)
+			if err != nil {
+				t.Fatal("failed to create request: ", err)
+			}
+			req.Header = tc.originHeaders
+			resp, err := client.Do(req)
+			if err != nil {
+				t.Fatal("request failed: ", err)
+			}
+			defer resp.Body.Close()
+			if resp.StatusCode != http.StatusOK {
+				t.Errorf("unexpected status code, want = %v, got = %v", http.StatusOK, resp.StatusCode)
+			}
+		})
+	}
+}
+
 func TestHandleQuit(t *testing.T) {
 	statusPort := 15020
 	s, err := NewServer(Options{StatusPort: uint16(statusPort)})
@@ -649,12 +799,12 @@ func TestAdditionalProbes(t *testing.T) {
 			err:    errors.New("not ready"),
 		},
 	}
-	testServer := createAndStartServer(liveServerStats)
+	testServer := testserver.CreateAndStartServer(liveServerStats)
 	defer testServer.Close()
 	for _, tc := range testCases {
 		server, err := NewServer(Options{
 			Probes:    tc.probes,
-			AdminPort: 1234,
+			AdminPort: uint16(testServer.Listener.Addr().(*net.TCPAddr).Port),
 		})
 		if err != nil {
 			t.Errorf("failed to construct server")
@@ -683,36 +833,4 @@ type unreadyProbe struct{}
 
 func (u unreadyProbe) Check() error {
 	return errors.New("not ready")
-}
-
-func createDefaultFuncMap(statsToReturn string) map[string]func(rw http.ResponseWriter, _ *http.Request) {
-	return map[string]func(rw http.ResponseWriter, _ *http.Request){
-
-		"/stats": func(rw http.ResponseWriter, _ *http.Request) {
-			// Send response to be tested
-			rw.Write([]byte(statsToReturn))
-		},
-	}
-}
-
-func createAndStartServer(statsToReturn string) *httptest.Server {
-	return createHTTPServer(createDefaultFuncMap(statsToReturn))
-}
-
-func createHTTPServer(handlers map[string]func(rw http.ResponseWriter, _ *http.Request)) *httptest.Server {
-	mux := http.NewServeMux()
-	for k, v := range handlers {
-		mux.HandleFunc(k, http.HandlerFunc(v))
-	}
-
-	// Start a local HTTP server
-	server := httptest.NewUnstartedServer(mux)
-
-	l, err := net.Listen("tcp", "127.0.0.1:1234")
-	if err != nil {
-		panic("Could not create listener for test: " + err.Error())
-	}
-	server.Listener = l
-	server.Start()
-	return server
 }

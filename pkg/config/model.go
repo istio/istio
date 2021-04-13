@@ -274,7 +274,7 @@ type Status interface{}
 
 // Key function for the configuration objects
 func Key(typ, name, namespace string) string {
-	return fmt.Sprintf("%s/%s/%s", typ, namespace, name)
+	return typ + "/" + namespace + "/" + name // Format: %s/%s/%s
 }
 
 // Key is the unique identifier for a configuration object

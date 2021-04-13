@@ -59,7 +59,7 @@ spec:
         - "*.company.com"
 ---
 
-# The following virtual service routes requests to workload b
+# The following virtual service routes requests to workload
 
 apiVersion: networking.istio.io/v1alpha3
 kind: VirtualService
@@ -74,6 +74,6 @@ spec:
   http:
   - route:
     - destination:
-        host: b
+        host: {{ .dst }}
         port:
-          number: 80
+          number: 8095

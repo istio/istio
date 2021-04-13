@@ -85,6 +85,9 @@ func TestVMRegistrationLifecycle(t *testing.T) {
 		RequiresSingleCluster().
 		Features("vm.autoregistration").
 		Run(func(t framework.TestContext) {
+			if t.Settings().SkipVM {
+				t.Skip()
+			}
 			scaleDeploymentOrFail(t, "istiod", i.Settings().SystemNamespace, 2)
 			client := apps.PodA.GetOrFail(t, echo.InCluster(t.Clusters().Default()))
 			// TODO test multi-network (must be shared control plane but on different networks)

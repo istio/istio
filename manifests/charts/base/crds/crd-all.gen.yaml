@@ -5944,6 +5944,7 @@ spec:
                       type: object
                     disableSpanReporting:
                       description: Controls span reporting.
+                      nullable: true
                       type: boolean
                     providers:
                       description: Optional.
@@ -5956,7 +5957,7 @@ spec:
                         type: object
                       type: array
                     randomSamplingPercentage:
-                      format: double
+                      nullable: true
                       type: number
                   type: object
                 type: array

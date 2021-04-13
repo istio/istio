@@ -131,9 +131,6 @@ By default it will use the default serviceAccount from (istio-system) namespace 
 				}
 				//  select a pod randomly to simulate current debug behavior
 				pod := podList.Items[0]
-				if err != nil {
-					return fmt.Errorf("please specify %q as %v", "--xds-address", err)
-				}
 				podPort := 15012
 				for _, v := range svc.Spec.Ports {
 					if v.Name == xdsPortName {

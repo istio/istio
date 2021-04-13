@@ -151,9 +151,6 @@ istioctl x version --xds-label istio.io/rev=default
 func xdsRemoteVersionWrapper(opts *clioptions.ControlPlaneOptions, centralOpts *clioptions.CentralControlPlaneOptions, outXDS **xdsapi.DiscoveryResponse) func() (*istioVersion.MeshInfo, error) {
 	return func() (*istioVersion.MeshInfo, error) {
 		xdsRequest := xdsapi.DiscoveryRequest{
-			Node: &envoy_corev3.Node{
-				Id: "sidecar~0.0.0.0~debug~cluster.local",
-			},
 			TypeUrl: "istio.io/connections",
 		}
 		kubeClient, err := kubeClientWithRevision(kubeconfig, configContext, opts.Revision)

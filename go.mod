@@ -29,7 +29,7 @@ require (
 	github.com/coreos/go-oidc v2.2.1+incompatible
 	github.com/davecgh/go-spew v1.1.1
 	github.com/docker/distribution v2.7.1+incompatible
-	github.com/envoyproxy/go-control-plane v0.9.9-0.20210115003313-31f9241a16e6
+	github.com/envoyproxy/go-control-plane v0.9.9-0.20210306002425-5f7f7cb25657
 	github.com/evanphx/json-patch v4.9.0+incompatible
 	github.com/evanphx/json-patch/v5 v5.2.0
 	github.com/fatih/color v1.10.0
@@ -86,7 +86,7 @@ require (
 	gomodules.xyz/jsonpatch/v3 v3.0.1
 	google.golang.org/api v0.42.0
 	google.golang.org/genproto v0.0.0-20210323160006-e668133fea6a
-	google.golang.org/grpc v1.36.0
+	google.golang.org/grpc v1.37.0
 	google.golang.org/grpc/examples v0.0.0-20200825162801-44d73dff99bf // indirect
 	google.golang.org/protobuf v1.26.0
 	gopkg.in/check.v1 v1.0.0-20200227125254-8fa46927fb4f // indirect
@@ -95,10 +95,10 @@ require (
 	gopkg.in/yaml.v3 v3.0.0-20210107192922-496545a6307b
 	helm.sh/helm/v3 v3.5.3
 	honnef.co/go/tools v0.0.1-2020.1.5 // indirect
-	istio.io/api v0.0.0-20210330163503-8cb7ec8d3dc2
-	istio.io/client-go v0.0.0-20210330180900-25338e0c7c51
-	istio.io/gogo-genproto v0.0.0-20210226185354-42d28d740a8c
-	istio.io/pkg v0.0.0-20210226185257-1f58c1049e9f
+	istio.io/api v0.0.0-20210409205742-90c8315bf6c2
+	istio.io/client-go v0.0.0-20210406025641-c740ff1f4def
+	istio.io/gogo-genproto v0.0.0-20210405163638-fcb891f20a5a
+	istio.io/pkg v0.0.0-20210405163638-bd457cbec517
 	k8s.io/api v0.20.5
 	k8s.io/apiextensions-apiserver v0.20.2
 	k8s.io/apimachinery v0.20.5

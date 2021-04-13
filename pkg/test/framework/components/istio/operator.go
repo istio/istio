@@ -647,9 +647,13 @@ func (i *operatorComponent) generateCommonInstallSettings(cfg Config, cluster cl
 			"--set", "values.global.network="+cluster.NetworkName())
 	}
 
-	// Include all user-specified values.
+	// Include all user-specified values and configuration options.
 	for k, v := range cfg.Values {
 		installSettings = append(installSettings, "--set", fmt.Sprintf("values.%s=%s", k, v))
+	}
+
+	for k, v := range cfg.OperatorOptions {
+		installSettings = append(installSettings, "--set", fmt.Sprintf("%s=%s", k, v))
 	}
 	return installSettings, nil
 }

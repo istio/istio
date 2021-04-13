@@ -167,6 +167,11 @@ var (
 		monitoring.WithLabels(typeTag),
 	)
 
+	pilotSDSCertificateErrors = monitoring.NewSum(
+		"pilot_sds_certificate_errors_total",
+		"Total number of failures to fetch SDS key and certificate.",
+	)
+
 	inboundConfigUpdates  = inboundUpdates.With(typeTag.Value("config"))
 	inboundEDSUpdates     = inboundUpdates.With(typeTag.Value("eds"))
 	inboundServiceUpdates = inboundUpdates.With(typeTag.Value("svc"))
@@ -256,5 +261,6 @@ func init() {
 		sendTime,
 		totalDelayedPushes,
 		totalDelayedPushTimeouts,
+		pilotSDSCertificateErrors,
 	)
 }

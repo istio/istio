@@ -17,7 +17,8 @@ package cluster
 import (
 	"bytes"
 	"fmt"
-	"strconv"
+
+	"istio.io/istio/pkg/kube"
 )
 
 // Map can be given as a shared reference to multiple Topology/Cluster implemetations
@@ -137,27 +138,20 @@ func (c Topology) WithConfig(configClusterName string) Topology {
 	return c
 }
 
-func (c Topology) MinKubeVersion(major, minor int) bool {
+func (c Topology) MinKubeVersion(minor uint) bool {
 	cluster := c.AllClusters[c.ClusterName]
 	if cluster.Kind() != Kubernetes && cluster.Kind() != Fake {
-		return c.Primary().MinKubeVersion(major, minor)
+		return c.Primary().MinKubeVersion(minor)
 	}
-	ver, err := cluster.GetKubernetesVersion()
-	if err != nil {
-		return true
+	return kube.IsAtLeastVersion(cluster, minor)
+}
+
+func (c Topology) MaxKubeVersion(minor uint) bool {
+	cluster := c.AllClusters[c.ClusterName]
+	if cluster.Kind() != Kubernetes && cluster.Kind() != Fake {
+		return c.Primary().MaxKubeVersion(minor)
 	}
-	serverMajor, err := strconv.Atoi(ver.Major)
-	if err != nil {
-		return true
-	}
-	serverMinor, err := strconv.Atoi(ver.Minor)
-	if err != nil {
-		return true
-	}
-	if serverMajor > major {
-		return true
-	}
-	return serverMajor >= major && serverMinor >= minor
+	return kube.IsLessThanVersion(cluster, minor+1)
 }
 
 func (c Topology) String() string {
