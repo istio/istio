@@ -17,9 +17,7 @@ defaultConfig:
     XDS_ROOT_CA: /etc/ssl/certs/ca-certificates.crt
     CA_ROOT_CA: /etc/ssl/certs/ca-certificates.crt
     OUTPUT_CERTS: /etc/istio/proxy
-    TRUST_DOMAIN: "${TRUST_DOMAIN}"
     XDS_AUTH_PROVIDER: "${XDS_AUTH_PROVIDER}"
-    ISTIO_META_CLOUDRUN_ADDR: "${CLOUDRUN_ADDR}"
 
   meshId: "proj-${PROJECT_NUMBER}"
   discoveryAddress: "${XDS_ADDR}"
