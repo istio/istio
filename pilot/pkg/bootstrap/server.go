@@ -671,8 +671,8 @@ func (s *Server) waitForShutdown(stop <-chan struct{}) {
 					if s.secureGrpcServer != nil {
 						s.secureGrpcServer.Stop()
 					}
+					close(stopped)
 				}
-				close(stopped)
 			}()
 			s.grpcServer.GracefulStop()
 			if s.secureGrpcServer != nil {
