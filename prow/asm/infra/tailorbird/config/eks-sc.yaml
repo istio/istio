@@ -1,0 +1,23 @@
+apiVersion: sut.tailorbird.io/v1alpha1
+kind: Rookery
+metadata:
+  name: asm-ci-eks-sc-{{.Random6}}
+  namespace: tailorbird-users
+spec:
+  knests:
+  - apiVersion: sut.tailorbird.io/v1alpha1
+    kind: Knest
+    metadata:
+      name: asm-ci-eks-sc-knest-{{.Random6}}
+    spec:
+      clusters:
+      - apiVersion: sut.tailorbird.io/v1alpha1
+        kind: Cluster
+        metadata:
+          name: asm-ci-eks-sc-cluster-{{.Random6}}
+        spec:
+          provider: aws
+          distribution: eks
+          provisionerArgs:
+            username: asm-svc-acct
+            compressArtifacts: "true"

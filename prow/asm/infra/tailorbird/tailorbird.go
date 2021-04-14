@@ -63,6 +63,16 @@ func InstallTools(clusterType string) error {
 		}
 	}
 
+	if clusterType == "eks" {
+		installawsIamAuthenticatorCmd := `curl -o aws-iam-authenticator https://amazon-eks.s3.us-west-2.amazonaws.com/1.19.6/2021-01-05/bin/linux/amd64/aws-iam-authenticator \
+			&& chmod +x ./aws-iam-authenticator \
+			&& mv ./aws-iam-authenticator /usr/local/bin/aws-iam-authenticator`
+
+		if err := exec.Run("bash -c '" + installawsIamAuthenticatorCmd + "'"); err != nil {
+			return fmt.Errorf("error installing aws-iam-authenticator for testing with eks")
+		}
+	}
+
 	return nil
 }
 
