@@ -84,8 +84,8 @@ func HandlerForDebugErrors(cmdName string,
 			eString := string(resource.Value)
 			switch {
 			case strings.Contains(eString, "You must provide a proxyID in the query string"):
-				return nil, fmt.Errorf("please specify pod name with namespace, e.g. [%s] for command [%s]",
-					"istio-ingressgateway-xxx-yyy.istio-system", cmdName)
+				return nil, fmt.Errorf("please specify pod name with namespace, e.g. [%s?%s] for command [%s]",
+					cmdName, "proxyID=istio-ingressgateway-xxx-yyy.istio-system", cmdName)
 
 			case strings.Contains(eString, "404 page not found"):
 				return HandlerForRetrieveDebugList(kubeClient, centralOpts, writer)
@@ -100,7 +100,6 @@ func HandlerForDebugErrors(cmdName string,
 }
 
 func debugCommand() *cobra.Command {
-	// var configDistributedOpt DebugCommandOpts
 	var opts clioptions.ControlPlaneOptions
 	var centralOpts clioptions.CentralControlPlaneOptions
 
@@ -146,30 +145,30 @@ By default it will use the default serviceAccount from (istio-system) namespace 
 				}
 			}
 			var xdsRequest xdsapi.DiscoveryRequest
-			var namespace, serviceAccount, resourceName string
-			if len(args) > 1 {
-				podName, ns, svcAccount, perr := PreHandleForXdsRequest(args[1], namespace, kubeClient)
+			var namespace, serviceAccount, resourceName, cmdName string
+			if strings.Contains(args[0], "?proxyID=") {
+				arrParam := strings.Split(args[0], "?proxyID=")
+				index := len(arrParam) - 1
+				podName, ns, svcAccount, perr := PreHandleForXdsRequest(arrParam[index], namespace, kubeClient)
 				if perr != nil {
 					return perr
 				}
+				cmdName = arrParam[0]
 				namespace = ns
 				serviceAccount = svcAccount
-				resourceName = fmt.Sprintf("%s?proxyID=%s.%s", args[0], podName, ns)
-				xdsRequest = xdsapi.DiscoveryRequest{
-					ResourceNames: []string{resourceName},
-					Node: &envoy_corev3.Node{
-						Id: "debug~0.0.0.0~istioctl~cluster.local",
-					},
-					TypeUrl: TypeDebug,
-				}
+				resourceName = fmt.Sprintf("%s?proxyID=%s.%s", cmdName, podName, ns)
 			} else {
-				xdsRequest = xdsapi.DiscoveryRequest{
-					ResourceNames: []string{args[0]},
-					Node: &envoy_corev3.Node{
-						Id: "debug~0.0.0.0~istioctl~cluster.local",
-					},
-					TypeUrl: TypeDebug,
-				}
+				cmdName = args[0]
+				resourceName = args[0]
+			}
+
+			fmt.Println("resource name:", resourceName)
+			xdsRequest = xdsapi.DiscoveryRequest{
+				ResourceNames: []string{resourceName},
+				Node: &envoy_corev3.Node{
+					Id: "debug~0.0.0.0~istioctl~cluster.local",
+				},
+				TypeUrl: TypeDebug,
 			}
 
 			if centralOpts.Xds == "" {
@@ -215,7 +214,7 @@ By default it will use the default serviceAccount from (istio-system) namespace 
 				return respErr
 			}
 			sw := pilot.XdsStatusWriter{Writer: c.OutOrStdout()}
-			newResponse, hDErr := HandlerForDebugErrors(args[0], kubeClient, &centralOpts, c.OutOrStdout(), xdsResponses)
+			newResponse, hDErr := HandlerForDebugErrors(cmdName, kubeClient, &centralOpts, c.OutOrStdout(), xdsResponses)
 			if newResponse != nil {
 				return sw.PrintAll(newResponse)
 			}
