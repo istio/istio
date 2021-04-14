@@ -137,7 +137,7 @@ func performUpgradeFunc(previousVersion string) func(framework.TestContext) {
 		})
 
 		overrideValuesFile := getValuesOverrides(t, defaultValues, gcrHub, previousVersion)
-		helmtest.InstallIstio(t, cs, h, "", helmtest.IstioNamespace, overrideValuesFile)
+		helmtest.InstallIstio(t, cs, h, "", overrideValuesFile)
 		helmtest.VerifyInstallation(t, cs)
 
 		oldClient, oldServer := sanitycheck.SetupTrafficTest(t, t)
