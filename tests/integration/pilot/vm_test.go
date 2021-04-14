@@ -38,13 +38,13 @@ import (
 	"istio.io/istio/tests/integration/pilot/common"
 )
 
-func GetAdditionVMImages() []echo.VMDistro {
+func GetAdditionVMImages() []string {
 	out := []echo.VMDistro{}
-	for _, distro := range echo.VMDistros {
-		if distro == kube.DefaultVMDistro {
+	for distro, image := range kube.VMImages {
+		if distro == echo.DefaultVMDistro {
 			continue
 		}
-		out = append(out, distro)
+		out = append(out, image)
 	}
 	return out
 }
