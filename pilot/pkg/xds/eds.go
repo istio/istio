@@ -393,10 +393,10 @@ func (eds *EdsGenerator) Generate(proxy *model.Proxy, push *model.PushContext, w
 		}
 	}
 	if len(edsUpdatedServices) == 0 {
-		log.Infof("EDS: GENERATE%s for node:%s resources:%d size:%s empty:%v cached:%v/%v",
+		log.Infof("EDS: PUSH%s for node:%s resources:%d size:%s empty:%v cached:%v/%v",
 			req.PushReason(), proxy.ID, len(resources), util.ByteCount(ResourceSize(resources)), empty, cached, cached+regenerated)
 	} else if log.DebugEnabled() {
-		log.Debugf("EDS: GENERATE INC%s for node:%s clusters:%d size:%s empty:%v cached:%v/%v",
+		log.Debugf("EDS: PUSH INC%s for node:%s clusters:%d size:%s empty:%v cached:%v/%v",
 			req.PushReason(), proxy.ID, len(resources), util.ByteCount(ResourceSize(resources)), empty, cached, cached+regenerated)
 	}
 	return resources, nil
