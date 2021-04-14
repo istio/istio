@@ -114,7 +114,8 @@ if [[ "${CONTROL_PLANE}" == "UNMANAGED" ]]; then
     DISABLED_TESTS+="|TestAuthorization_Custom" # UNSUPPORTED: requires mesh config
     # TODO: unskip ingress tests after b/184990912 is fixed
     DISABLED_TESTS+="|TestAuthorization_IngressGateway|TestIngressRequestAuthentication|TestMtlsGatewaysK8sca|TestTlsGatewaysK8sca|TestSingleTlsGateway*|TestSingleMTLSGateway*|TestTlsGateways|TestMtlsGateways|TestMultiTlsGateway_InvalidSecret|TestMultiMtlsGateway_InvalidSecret"
-    DISABLED_TESTS+="|TestAuthorization_Deny|TestAuthorization_TCP|TestAuthorization_Conditions|TestAuthorization_GRPC|TestAuthorization_Audit"
+    # TODO: https://buganizer.corp.google.com/issues/185244363
+    DISABLED_TESTS+="|TestAuthorization_Deny|TestAuthorization_TCP|TestAuthorization_Conditions|TestAuthorization_GRPC|TestAuthorization_Audit|TestPassThroughFilterChain"
     # telemetry/ tests
     DISABLED_TESTS+="|TestStackdriver|TestStackdriverAudit|TestVMTelemetry" # Stackdriver is not enabled with ASM Distro Baremetal installation
   fi
