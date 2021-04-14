@@ -44,11 +44,22 @@ func TestHeaderMatcher(t *testing.T) {
 		{
 			Name: "suffix match",
 			K:    ":path",
-			V:    "*/productpage*",
+			V:    "*/productpage",
 			Expect: &routepb.HeaderMatcher{
 				Name: ":path",
 				HeaderMatchSpecifier: &routepb.HeaderMatcher_SuffixMatch{
-					SuffixMatch: "/productpage*",
+					SuffixMatch: "/productpage",
+				},
+			},
+		},
+		{
+			Name: "contains match",
+			K:    ":path",
+			V:    "*/productpage*",
+			Expect: &routepb.HeaderMatcher{
+				Name: ":path",
+				HeaderMatchSpecifier: &routepb.HeaderMatcher_ContainsMatch{
+					ContainsMatch: "/productpage",
 				},
 			},
 		},
