@@ -26,6 +26,7 @@ import (
 	kubecluster "istio.io/istio/pkg/test/framework/components/cluster/kube"
 	"istio.io/istio/pkg/test/framework/image"
 	"istio.io/istio/pkg/test/helm"
+	"istio.io/istio/tests/util/sanitycheck"
 )
 
 // TestDefaultInstall tests Istio installation using Helm with default options
@@ -43,6 +44,7 @@ global:
 
 // TestInstallWithFirstPartyJwt tests Istio installation using Helm
 // with first-party-jwt enabled
+// (TODO) remove this test when Istio no longer supports first-party-jwt
 func TestInstallWithFirstPartyJwt(t *testing.T) {
 	overrideValuesStr := `
 global:
@@ -79,12 +81,13 @@ func setupInstallation(overrideValuesStr string) func(t framework.TestContext) {
 		if err := ioutil.WriteFile(overrideValuesFile, []byte(overrideValues), os.ModePerm); err != nil {
 			t.Fatalf("failed to write iop cr file: %v", err)
 		}
-		InstallGatewaysCharts(t, cs, h, "", IstioNamespace, overrideValuesFile)
+		InstallIstio(t, cs, h, "", overrideValuesFile)
 
 		VerifyInstallation(t, cs)
 
+		sanitycheck.RunTrafficTest(t, t)
 		t.Cleanup(func() {
-			deleteGatewayCharts(t, h)
+			deleteIstio(t, h, cs)
 		})
 	}
 }
