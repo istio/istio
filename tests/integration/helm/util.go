@@ -65,14 +65,14 @@ func InstallIstio(t test.Failer, cs cluster.Cluster,
 	CreateNamespace(t, cs, IstioNamespace)
 
 	// Install base chart
-	err := h.InstallChart(BaseReleaseName, BaseChart,
+	err := h.InstallChart(BaseReleaseName, BaseChart+suffix,
 		IstioNamespace, overrideValuesFile, Timeout)
 	if err != nil {
 		t.Fatalf("failed to install istio %s chart", BaseChart)
 	}
 
 	// Install discovery chart
-	err = h.InstallChart(IstiodReleaseName, filepath.Join(ControlChartsDir, DiscoveryChart),
+	err = h.InstallChart(IstiodReleaseName, filepath.Join(ControlChartsDir, DiscoveryChart)+suffix,
 		IstioNamespace, overrideValuesFile, Timeout)
 	if err != nil {
 		t.Fatalf("failed to install istio %s chart", DiscoveryChart)

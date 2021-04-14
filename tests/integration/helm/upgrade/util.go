@@ -45,6 +45,7 @@ global:
   hub: %s
   tag: %s
 `
+	tarGzSuffix = ".tar.gz"
 )
 
 // previousChartPath is path of Helm charts for previous Istio deployments.
@@ -137,7 +138,7 @@ func performUpgradeFunc(previousVersion string) func(framework.TestContext) {
 		})
 
 		overrideValuesFile := getValuesOverrides(t, defaultValues, gcrHub, previousVersion)
-		helmtest.InstallIstio(t, cs, h, "", overrideValuesFile)
+		helmtest.InstallIstio(t, cs, h, tarGzSuffix, overrideValuesFile)
 		helmtest.VerifyInstallation(t, cs)
 
 		oldClient, oldServer := sanitycheck.SetupTrafficTest(t, t)
