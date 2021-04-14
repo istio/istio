@@ -23,8 +23,6 @@ import (
 	"testing"
 	"time"
 
-	"istio.io/istio/pkg/test/framework/components/echo/kube"
-
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"istio.io/client-go/pkg/apis/networking/v1alpha3"
@@ -33,6 +31,7 @@ import (
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/echo/echoboot"
+	"istio.io/istio/pkg/test/framework/components/echo/kube"
 	"istio.io/istio/pkg/test/framework/label"
 	"istio.io/istio/pkg/test/scopes"
 	"istio.io/istio/pkg/test/util/retry"

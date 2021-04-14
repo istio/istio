@@ -33,7 +33,7 @@ type Cluster interface {
 	CanDeploy(Config) (Config, bool)
 }
 
-type VMDistro string
+type VMDistro = string
 
 const (
 	UbuntuXenial VMDistro = "UbuntuXenial"
