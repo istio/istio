@@ -339,7 +339,7 @@ var (
 
 	XdsPushSendTimeout = env.RegisterDurationVar(
 		"PILOT_XDS_SEND_TIMEOUT",
-		5*time.Second,
+		0*time.Second,
 		"The timeout to send the XDS configuration to proxies. After this timeout is reached, Pilot will discard that push.",
 	).Get()
 
