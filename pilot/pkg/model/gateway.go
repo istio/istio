@@ -114,6 +114,12 @@ func MergeGateways(gateways ...config.Config) *MergedGateway {
 					snames.Insert(s.Name)
 				}
 			}
+			if s.Port == nil {
+				// Should be rejected in validation, this is an extra check
+				log.Debugf("invalid server without port: %q", gatewayName)
+				RecordRejectedConfig(gatewayName)
+				continue
+			}
 			sanitizeServerHostNamespace(s, gatewayConfig.Namespace)
 			gatewayNameForServer[s] = gatewayName
 			log.Debugf("MergeGateways: gateway %q processing server %s :%v", gatewayName, s.Name, s.Hosts)

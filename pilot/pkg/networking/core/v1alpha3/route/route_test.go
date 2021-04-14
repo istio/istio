@@ -97,7 +97,7 @@ func TestBuildHTTPRoutes(t *testing.T) {
 		g.Expect(len(routes)).To(gomega.Equal(1))
 		// Validate that when timeout is not specified, we send what is set in the timeout flag.
 		g.Expect(routes[0].GetRoute().Timeout.Seconds).To(gomega.Equal(int64(1)))
-		g.Expect(routes[0].GetRoute().MaxStreamDuration.MaxStreamDuration.Seconds).To(gomega.Equal(int64(1)))
+		g.Expect(routes[0].GetRoute().MaxStreamDuration.MaxStreamDuration).To(gomega.BeNil())
 		g.Expect(routes[0].GetRoute().MaxStreamDuration.GrpcTimeoutHeaderMax.Seconds).To(gomega.Equal(int64(1)))
 	})
 
@@ -111,7 +111,7 @@ func TestBuildHTTPRoutes(t *testing.T) {
 		g.Expect(len(routes)).To(gomega.Equal(1))
 		// Validate that when timeout specified, we send the configured timeout to Envoys.
 		g.Expect(routes[0].GetRoute().Timeout.Seconds).To(gomega.Equal(int64(10)))
-		g.Expect(routes[0].GetRoute().MaxStreamDuration.MaxStreamDuration.Seconds).To(gomega.Equal(int64(10)))
+		g.Expect(routes[0].GetRoute().MaxStreamDuration.MaxStreamDuration).To(gomega.BeNil())
 		g.Expect(routes[0].GetRoute().MaxStreamDuration.GrpcTimeoutHeaderMax.Seconds).To(gomega.Equal(int64(10)))
 	})
 

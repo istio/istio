@@ -32,6 +32,7 @@ import (
 	"google.golang.org/grpc/status"
 
 	"istio.io/istio/pilot/pkg/features"
+	istiogrpc "istio.io/istio/pilot/pkg/grpc"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pilot/pkg/util/sets"
@@ -146,7 +147,7 @@ func (s *DiscoveryServer) pushConnectionDelta(con *Connection, pushEv *Event) er
 
 	if pushRequest.Full {
 		// Update Proxy with current information.
-		s.updateProxy(con.proxy, pushRequest.Push)
+		s.updateProxy(con.proxy, pushRequest)
 	}
 
 	if !s.ProxyNeedsPush(con.proxy, pushRequest) {
@@ -254,47 +255,33 @@ func (s *DiscoveryServer) receiveDelta(con *Connection, reqChannel chan *discove
 }
 
 func (conn *Connection) sendDelta(res *discovery.DeltaDiscoveryResponse) error {
-	errChan := make(chan error, 1)
-
-	// sendTimeout may be modified via environment
-	t := time.NewTimer(sendTimeout)
-	go func() {
+	sendHandler := func() error {
 		start := time.Now()
 		defer func() { recordSendTime(time.Since(start)) }()
-		errChan <- conn.deltaStream.Send(res)
-		close(errChan)
-	}()
-
-	select {
-	case <-t.C:
+		return conn.deltaStream.Send(res)
+	}
+	err := istiogrpc.Send(conn.deltaStream.Context(), sendHandler)
+	if err == nil {
+		sz := 0
+		for _, rc := range res.Resources {
+			sz += len(rc.Resource.Value)
+		}
+		conn.proxy.Lock()
+		if res.Nonce != "" {
+			if conn.proxy.WatchedResources[res.TypeUrl] == nil {
+				conn.proxy.WatchedResources[res.TypeUrl] = &model.WatchedResource{TypeUrl: res.TypeUrl}
+			}
+			conn.proxy.WatchedResources[res.TypeUrl].NonceSent = res.Nonce
+			conn.proxy.WatchedResources[res.TypeUrl].VersionSent = res.SystemVersionInfo
+			conn.proxy.WatchedResources[res.TypeUrl].LastSent = time.Now()
+			conn.proxy.WatchedResources[res.TypeUrl].LastSize = sz
+		}
+		conn.proxy.Unlock()
+	} else {
 		log.Infof("Timeout writing %s", conn.ConID)
 		xdsResponseWriteTimeouts.Increment()
-		return status.Errorf(codes.DeadlineExceeded, "timeout sending")
-	case err := <-errChan:
-		if err == nil {
-			sz := 0
-			for _, rc := range res.Resources {
-				sz += len(rc.Resource.Value)
-			}
-			conn.proxy.Lock()
-			if res.Nonce != "" {
-				if conn.proxy.WatchedResources[res.TypeUrl] == nil {
-					conn.proxy.WatchedResources[res.TypeUrl] = &model.WatchedResource{TypeUrl: res.TypeUrl}
-				}
-				conn.proxy.WatchedResources[res.TypeUrl].NonceSent = res.Nonce
-				conn.proxy.WatchedResources[res.TypeUrl].VersionSent = res.SystemVersionInfo
-				conn.proxy.WatchedResources[res.TypeUrl].LastSent = time.Now()
-				conn.proxy.WatchedResources[res.TypeUrl].LastSize = sz
-			}
-			conn.proxy.Unlock()
-		}
-		// To ensure the channel is empty after a call to Stop, check the
-		// return value and drain the channel (from Stop docs).
-		if !t.Stop() {
-			<-t.C
-		}
-		return err
 	}
+	return err
 }
 
 // processRequest is handling one request. This is currently called from the 'main' thread, which also
