@@ -39,21 +39,29 @@ func gkeDeployerBaseFlags() []string {
 	return []string{"--ignore-gcp-ssh-key=true", "-v=2", "--gcp-service-account=" + os.Getenv("GOOGLE_APPLICATION_CREDENTIALS")}
 }
 
+func gkeDeployerCreateCommandFlag(clusterType string) string {
+	name := "create"
+	if clusterType == "gke-autopilot" {
+		name = "create-auto"
+	}
+	return fmt.Sprintf("--create-command='beta container clusters %s --quiet --enable-network-policy'", name)
+}
+
 // DeployerFlags returns the deployer flags needed for the given cluster
 // topology and the feature to test
-func DeployerFlags(clusterTopology, featureToTest string) ([]string, error) {
+func DeployerFlags(clusterType, clusterTopology, featureToTest string) ([]string, error) {
 	var flags []string
 	var err error
 	switch clusterTopology {
 	case "SINGLECLUSTER", "sc":
-		flags, err = singleClusterFlags()
+		flags, err = singleClusterFlags(clusterType)
 	case "MULTICLUSTER", "mc":
 		boskosResourceType := commonBoskosResource
 		// Testing with VPC-SC requires a different project type.
 		if featureToTest == "VPC_SC" {
 			boskosResourceType = vpcSCBoskosResource
 		}
-		flags, err = multiClusterFlags(boskosResourceType)
+		flags, err = multiClusterFlags(boskosResourceType, clusterType)
 	case "MULTIPROJECT_MULTICLUSTER", "mp":
 		hostBoskosResourceType := sharedVPCHostBoskosResource
 		svcBoskosResourceType := sharedVPCSVCBoskosResource
@@ -61,7 +69,7 @@ func DeployerFlags(clusterTopology, featureToTest string) ([]string, error) {
 			hostBoskosResourceType = vpcSCSharedVPCHostBoskosResource
 			svcBoskosResourceType = vpcSCSharedVPCSVCBoskosResource
 		}
-		flags, err = multiProjectMultiClusterFlags(hostBoskosResourceType, svcBoskosResourceType)
+		flags, err = multiProjectMultiClusterFlags(hostBoskosResourceType, svcBoskosResourceType, clusterType)
 	default:
 		err = fmt.Errorf("cluster topology %q is not supported", clusterTopology)
 	}
@@ -84,7 +92,7 @@ func DeployerFlags(clusterTopology, featureToTest string) ([]string, error) {
 }
 
 // singleClusterFlags returns the kubetest2 flags for single-cluster setup.
-func singleClusterFlags() ([]string, error) {
+func singleClusterFlags(clusterType string) ([]string, error) {
 	flags := gkeDeployerBaseFlags()
 
 	if err := configureProjectFlag(&flags, func() (string, error) {
@@ -92,7 +100,7 @@ func singleClusterFlags() ([]string, error) {
 	}); err != nil {
 		return nil, fmt.Errorf("error acquiring GCP projects for singlecluster setup: %w", err)
 	}
-	flags = append(flags, "--create-command='beta container clusters create --quiet --enable-network-policy'")
+	flags = append(flags, gkeDeployerCreateCommandFlag(clusterType))
 	flags = append(flags, "--cluster-name=prow-test", "--machine-type=e2-standard-4", "--num-nodes=2")
 	flags = append(flags, "--network=default", "--release-channel=regular", "--version=latest", "--enable-workload-identity")
 	// TODO(chizhg): uncomment after b/162609408 is fixed upstream
@@ -103,7 +111,7 @@ func singleClusterFlags() ([]string, error) {
 
 // multiClusterFlags returns the kubetest2 flags for single-project
 // multi-cluster setup.
-func multiClusterFlags(boskosResourceType string) ([]string, error) {
+func multiClusterFlags(boskosResourceType, clusterType string) ([]string, error) {
 	flags := gkeDeployerBaseFlags()
 
 	if err := configureProjectFlag(&flags, func() (string, error) {
@@ -111,7 +119,7 @@ func multiClusterFlags(boskosResourceType string) ([]string, error) {
 	}); err != nil {
 		return nil, fmt.Errorf("error acquiring GCP projects for multicluster setup: %w", err)
 	}
-	flags = append(flags, "--create-command='beta container clusters create --quiet --enable-network-policy'")
+	flags = append(flags, gkeDeployerCreateCommandFlag(clusterType))
 	flags = append(flags, "--cluster-name=prow-test1,prow-test2", "--machine-type=e2-standard-4", "--num-nodes=2")
 	flags = append(flags, "--network=default", "--release-channel=regular", "--version=latest", "--enable-workload-identity")
 	// TODO(chizhg): uncomment after b/162609408 is fixed upstream
@@ -141,7 +149,7 @@ func featureVPCSCClusterFlags(existingFlags []string) ([]string, error) {
 
 // multiProjectMultiClusterFlags returns the kubetest2 flags for multi-project
 // multi-cluster setup.
-func multiProjectMultiClusterFlags(hostBoskosResourceType, svcBoskosResourceType string) ([]string, error) {
+func multiProjectMultiClusterFlags(hostBoskosResourceType, svcBoskosResourceType, clusterType string) ([]string, error) {
 	flags := gkeDeployerBaseFlags()
 
 	if err := configureProjectFlag(&flags, func() (string, error) {
@@ -149,7 +157,7 @@ func multiProjectMultiClusterFlags(hostBoskosResourceType, svcBoskosResourceType
 	}); err != nil {
 		return nil, fmt.Errorf("error acquiring GCP projects for multi-project multi-cluster setup: %w", err)
 	}
-	flags = append(flags, "--create-command='beta container clusters create --quiet --enable-network-policy'")
+	flags = append(flags, gkeDeployerCreateCommandFlag(clusterType))
 	flags = append(flags, "--cluster-name=prow-test1:1,prow-test2:2", "--machine-type=e2-standard-4", "--num-nodes=2")
 	flags = append(flags, "--network=test-network", "--subnetwork-ranges='172.16.4.0/22 172.16.16.0/20 172.20.0.0/14,10.0.4.0/22 10.0.32.0/20 10.4.0.0/14'")
 	flags = append(flags, "--release-channel=regular", "--version=latest", "--enable-workload-identity")

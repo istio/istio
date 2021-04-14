@@ -56,7 +56,7 @@ type options struct {
 func main() {
 	o := options{}
 	flag.StringVar(&o.repoRootDir, "repo-root-dir", "", "the repo's root directory, will be used as the working directory for running the kubetest2 command")
-	flag.StringVar(&o.clusterType, "cluster-type", "gke", "the cluster type, can be one of gke, gke-on-prem, bare-metal, etc")
+	flag.StringVar(&o.clusterType, "cluster-type", "gke", "the cluster type, can be one of gke, gke-autopilot, gke-on-prem, bare-metal, etc")
 	flag.StringVar(&o.extraDeployerFlags, "deployer-flags", "", "extra flags corresponding to the deployer being used, supported flags can be"+
 		" checked by running `kubetest2 [deployer] --help`")
 	flag.StringVar(&o.testScript, "test-script", "", "the script to run the tests after clusters are created")
@@ -96,7 +96,7 @@ func main() {
 }
 
 func (o *options) initSetup() error {
-	if o.clusterType == "gke" {
+	if o.clusterType == "gke" || o.clusterType == "gke-autopilot" {
 		o.deployerName = gkeDeployerName
 	} else {
 		o.deployerName = tailorbirdDeployerName
@@ -126,7 +126,7 @@ func (o *options) runTestFlow(deployerFlags, testFlags []string) error {
 	case gkeDeployerName:
 		log.Println("Will run kubetest2 gke deployer to create the clusters...")
 
-		extraFlags, err := gke.DeployerFlags(o.clusterTopology, o.featureToTest)
+		extraFlags, err := gke.DeployerFlags(o.clusterType, o.clusterTopology, o.featureToTest)
 		if err != nil {
 			return fmt.Errorf("error getting deployer flags for gke: %w", err)
 		}
