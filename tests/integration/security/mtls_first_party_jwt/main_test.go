@@ -34,7 +34,6 @@ func TestMain(m *testing.M) {
 	framework.
 		NewSuite(m).
 		Label(label.CustomSetup).
-		RequireMaxVersion(20). // All JWT are third party in 1.21+ (BoundServiceAccountTokenVolume)
 		Setup(istio.Setup(&inst, setupConfig)).
 		Setup(func(ctx resource.Context) error {
 			// TODO: due to issue https://github.com/istio/istio/issues/25286,
