@@ -26,10 +26,10 @@ import (
 	"istio.io/istio/galley/pkg/config/scope"
 	"istio.io/istio/galley/pkg/config/testing/fixtures"
 	"istio.io/istio/galley/pkg/config/testing/k8smeta"
-	"istio.io/istio/galley/pkg/testing/mock"
 	"istio.io/istio/pkg/config/event"
 	"istio.io/istio/pkg/config/resource"
 	resource2 "istio.io/istio/pkg/config/schema/resource"
+	"istio.io/istio/pkg/kube"
 	"istio.io/pkg/log"
 )
 
@@ -65,9 +65,7 @@ func TestBasic(t *testing.T) {
 	prevLevel := setDebugLogLevel()
 	defer restoreLogLevel(prevLevel)
 
-	k := mock.NewKube()
-	client, err := k.KubeClient()
-	g.Expect(err).To(BeNil())
+	k := kube.NewFakeClient()
 
 	// Start the source.
 	s := newOrFail(t, k, k8smeta.MustGet().KubeCollections(), nil)
@@ -90,7 +88,7 @@ func TestBasic(t *testing.T) {
 	node.Namespace = "" // nodes don't have namespaces.
 
 	// Add the resource.
-	if node, err = client.CoreV1().Nodes().Create(context.TODO(), node, metav1.CreateOptions{}); err != nil {
+	if _, err := k.CoreV1().Nodes().Create(context.TODO(), node, metav1.CreateOptions{}); err != nil {
 		t.Fatalf("failed creating node: %v", err)
 	}
 
@@ -106,9 +104,7 @@ func TestNodes(t *testing.T) {
 	prevLevel := setDebugLogLevel()
 	defer restoreLogLevel(prevLevel)
 
-	k := mock.NewKube()
-	client, err := k.KubeClient()
-	g.Expect(err).To(BeNil())
+	k := kube.NewFakeClient()
 
 	// Start the source.
 	s := newOrFail(t, k, metadata, nil)
@@ -130,7 +126,7 @@ func TestNodes(t *testing.T) {
 	node.Namespace = "" // nodes don't have namespaces.
 
 	// Add the resource.
-	if node, err = client.CoreV1().Nodes().Create(context.TODO(), node, metav1.CreateOptions{}); err != nil {
+	if _, err := k.CoreV1().Nodes().Create(context.TODO(), node, metav1.CreateOptions{}); err != nil {
 		t.Fatalf("failed creating node: %v", err)
 	}
 
@@ -143,7 +139,7 @@ func TestNodes(t *testing.T) {
 	node = node.DeepCopy()
 	node.Spec.PodCIDR = "10.20.0.0/32"
 	node.ResourceVersion = "rv2"
-	if _, err = client.CoreV1().Nodes().Update(context.TODO(), node, metav1.UpdateOptions{}); err != nil {
+	if _, err := k.CoreV1().Nodes().Update(context.TODO(), node, metav1.UpdateOptions{}); err != nil {
 		t.Fatalf("failed updating node: %v", err)
 	}
 
@@ -152,7 +148,7 @@ func TestNodes(t *testing.T) {
 
 	acc.Clear()
 
-	if _, err = client.CoreV1().Nodes().Update(context.TODO(), node, metav1.UpdateOptions{}); err != nil {
+	if _, err := k.CoreV1().Nodes().Update(context.TODO(), node, metav1.UpdateOptions{}); err != nil {
 		t.Fatalf("failed updating node: %v", err)
 	}
 	g.Consistently(acc.EventsWithoutOrigins).Should(BeEmpty())
@@ -160,7 +156,7 @@ func TestNodes(t *testing.T) {
 	acc.Clear()
 
 	// Delete the resource.
-	if err = client.CoreV1().Nodes().Delete(context.TODO(), node.Name, metav1.DeleteOptions{}); err != nil {
+	if err := k.CoreV1().Nodes().Delete(context.TODO(), node.Name, metav1.DeleteOptions{}); err != nil {
 		t.Fatalf("failed deleting node: %v", err)
 	}
 	expected = event.DeleteForResource(k8smeta.K8SCoreV1Nodes, toResource(node, &node.Spec, k8smeta.K8SCoreV1Nodes.Resource()))
@@ -174,9 +170,7 @@ func TestPods(t *testing.T) {
 	prevLevel := setDebugLogLevel()
 	defer restoreLogLevel(prevLevel)
 
-	k := mock.NewKube()
-	client, err := k.KubeClient()
-	g.Expect(err).To(BeNil())
+	k := kube.NewFakeClient()
 
 	// Start the source.
 	s := newOrFail(t, k, metadata, nil)
@@ -209,7 +203,7 @@ func TestPods(t *testing.T) {
 		},
 	}
 
-	if pod, err = client.CoreV1().Pods(namespace).Create(context.TODO(), pod, metav1.CreateOptions{}); err != nil {
+	if _, err := k.CoreV1().Pods(namespace).Create(context.TODO(), pod, metav1.CreateOptions{}); err != nil {
 		t.Fatalf("failed creating pod: %v", err)
 	}
 	expected := event.AddFor(k8smeta.K8SCoreV1Pods, toResource(pod, pod, k8smeta.K8SCoreV1Pods.Resource()))
@@ -221,7 +215,7 @@ func TestPods(t *testing.T) {
 	pod = pod.DeepCopy()
 	pod.Spec.Containers[0].Name = "c2"
 	pod.ResourceVersion = "rv2"
-	if _, err = client.CoreV1().Pods(namespace).Update(context.TODO(), pod, metav1.UpdateOptions{}); err != nil {
+	if _, err := k.CoreV1().Pods(namespace).Update(context.TODO(), pod, metav1.UpdateOptions{}); err != nil {
 		t.Fatalf("failed updating pod: %v", err)
 	}
 	expected = event.UpdateFor(k8smeta.K8SCoreV1Pods, toResource(pod, pod, k8smeta.K8SCoreV1Pods.Resource()))
@@ -230,7 +224,7 @@ func TestPods(t *testing.T) {
 	acc.Clear()
 
 	// Update event with no changes, should yield no events.
-	if _, err = client.CoreV1().Pods(namespace).Update(context.TODO(), pod, metav1.UpdateOptions{}); err != nil {
+	if _, err := k.CoreV1().Pods(namespace).Update(context.TODO(), pod, metav1.UpdateOptions{}); err != nil {
 		t.Fatalf("failed updating pod: %v", err)
 	}
 	g.Consistently(acc.EventsWithoutOrigins).Should(BeEmpty())
@@ -238,7 +232,7 @@ func TestPods(t *testing.T) {
 	acc.Clear()
 
 	// Delete the resource.
-	if err = client.CoreV1().Pods(namespace).Delete(context.TODO(), pod.Name, metav1.DeleteOptions{}); err != nil {
+	if err := k.CoreV1().Pods(namespace).Delete(context.TODO(), pod.Name, metav1.DeleteOptions{}); err != nil {
 		t.Fatalf("failed deleting pod: %v", err)
 	}
 	expected = event.DeleteForResource(k8smeta.K8SCoreV1Pods, toResource(pod, pod, k8smeta.K8SCoreV1Pods.Resource()))
@@ -252,12 +246,10 @@ func TestServices(t *testing.T) {
 	prevLevel := setDebugLogLevel()
 	defer restoreLogLevel(prevLevel)
 
-	k := mock.NewKube()
-	client, err := k.KubeClient()
-	g.Expect(err).To(BeNil())
+	client := kube.NewFakeClient()
 
 	// Start the source.
-	s := newOrFail(t, k, metadata, nil)
+	s := newOrFail(t, client, metadata, nil)
 	acc := start(s)
 	defer s.Stop()
 
@@ -282,7 +274,7 @@ func TestServices(t *testing.T) {
 	}
 
 	// Add the resource.
-	if svc, err = client.CoreV1().Services(namespace).Create(context.TODO(), svc, metav1.CreateOptions{}); err != nil {
+	if _, err := client.CoreV1().Services(namespace).Create(context.TODO(), svc, metav1.CreateOptions{}); err != nil {
 		t.Fatalf("failed creating service: %v", err)
 	}
 	expected := event.AddFor(k8smeta.K8SCoreV1Services, toResource(svc, &svc.Spec, k8smeta.K8SCoreV1Services.Resource()))
@@ -294,7 +286,7 @@ func TestServices(t *testing.T) {
 	svc = svc.DeepCopy()
 	svc.Spec.Ports[0].Port = 8080
 	svc.ResourceVersion = "rv2"
-	if _, err = client.CoreV1().Services(namespace).Update(context.TODO(), svc, metav1.UpdateOptions{}); err != nil {
+	if _, err := client.CoreV1().Services(namespace).Update(context.TODO(), svc, metav1.UpdateOptions{}); err != nil {
 		t.Fatalf("failed updating service: %v", err)
 	}
 	expected = event.UpdateFor(k8smeta.K8SCoreV1Services, toResource(svc, &svc.Spec, k8smeta.K8SCoreV1Services.Resource()))
@@ -303,7 +295,7 @@ func TestServices(t *testing.T) {
 	acc.Clear()
 
 	// Update event with no changes, should yield no events.
-	if _, err = client.CoreV1().Services(namespace).Update(context.TODO(), svc, metav1.UpdateOptions{}); err != nil {
+	if _, err := client.CoreV1().Services(namespace).Update(context.TODO(), svc, metav1.UpdateOptions{}); err != nil {
 		t.Fatalf("failed updating service: %v", err)
 	}
 	g.Consistently(acc.EventsWithoutOrigins).Should(BeEmpty())
@@ -311,7 +303,7 @@ func TestServices(t *testing.T) {
 	acc.Clear()
 
 	// Delete the resource.
-	if err = client.CoreV1().Services(namespace).Delete(context.TODO(), svc.Name, metav1.DeleteOptions{}); err != nil {
+	if err := client.CoreV1().Services(namespace).Delete(context.TODO(), svc.Name, metav1.DeleteOptions{}); err != nil {
 		t.Fatalf("failed deleting service: %v", err)
 	}
 	expected = event.DeleteForResource(k8smeta.K8SCoreV1Services, toResource(svc, &svc.Spec, k8smeta.K8SCoreV1Services.Resource()))
@@ -325,12 +317,10 @@ func TestEndpoints(t *testing.T) {
 	prevLevel := setDebugLogLevel()
 	defer restoreLogLevel(prevLevel)
 
-	k := mock.NewKube()
-	client, err := k.KubeClient()
-	g.Expect(err).To(BeNil())
+	client := kube.NewFakeClient()
 
 	// Start the source.
-	s := newOrFail(t, k, metadata, nil)
+	s := newOrFail(t, client, metadata, nil)
 	acc := start(s)
 	defer s.Stop()
 
@@ -361,6 +351,7 @@ func TestEndpoints(t *testing.T) {
 		},
 	}
 
+	var err error
 	// Add the resource.
 	if eps, err = client.CoreV1().Endpoints(namespace).Create(context.TODO(), eps, metav1.CreateOptions{}); err != nil {
 		t.Fatalf("failed creating endpoints: %v", err)
