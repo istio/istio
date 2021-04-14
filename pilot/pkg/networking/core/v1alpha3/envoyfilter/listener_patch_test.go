@@ -26,6 +26,7 @@ import (
 	fault "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/fault/v3"
 	http_conn "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
 	redis_proxy "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/redis_proxy/v3"
+	tls "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
 	wellknown "github.com/envoyproxy/go-control-plane/pkg/wellknown"
 	"github.com/gogo/protobuf/types"
 	"github.com/golang/protobuf/jsonpb"
@@ -595,6 +596,32 @@ func TestApplyListenerPatches(t *testing.T) {
 				Value:     buildPatchStruct(`{"name": "http-filter-replaced-should-not-be-applied"}`),
 			},
 		},
+		{
+			ApplyTo: networking.EnvoyFilter_FILTER_CHAIN,
+			Match: &networking.EnvoyFilter_EnvoyConfigObjectMatch{
+				Context: networking.EnvoyFilter_SIDECAR_OUTBOUND,
+				ObjectTypes: &networking.EnvoyFilter_EnvoyConfigObjectMatch_Listener{
+					Listener: &networking.EnvoyFilter_ListenerMatch{
+						FilterChain: &networking.EnvoyFilter_ListenerMatch_FilterChainMatch{
+							Filter: &networking.EnvoyFilter_ListenerMatch_FilterMatch{
+								Name: "envoy.transport_sockets.tls"},
+						},
+					},
+				},
+			},
+			Patch: &networking.EnvoyFilter_Patch{
+				Operation: networking.EnvoyFilter_Patch_MERGE,
+				Value: buildPatchStruct(`
+					{"transport_socket":{
+						"name":"envoy.transport_sockets.tls",
+						"typed_config":{
+							"@type":"type.googleapis.com/envoy.extensions.transport_sockets.tls.v3.DownstreamTlsContext",
+							"common_tls_context":{
+								"tls_params":{
+									"tls_maximum_protocol_version":"TLSv1_3",
+									"tls_minimum_protocol_version":"TLSv1_2"}}}}}`),
+			},
+		},
 	}
 
 	sidecarOutboundIn := []*listener.Listener{
@@ -610,6 +637,23 @@ func TestApplyListenerPatches(t *testing.T) {
 				},
 			},
 			FilterChains: []*listener.FilterChain{
+				{
+					FilterChainMatch: &listener.FilterChainMatch{TransportProtocol: "tls"},
+					TransportSocket: &core.TransportSocket{
+						Name: "envoy.transport_sockets.tls",
+						ConfigType: &core.TransportSocket_TypedConfig{
+							TypedConfig: util.MessageToAny(&tls.DownstreamTlsContext{
+								CommonTlsContext: &tls.CommonTlsContext{
+									TlsParams: &tls.TlsParameters{
+										EcdhCurves:                []string{"X25519"},
+										TlsMaximumProtocolVersion: tls.TlsParameters_TLSv1_1,
+									},
+								},
+							}),
+						},
+					},
+					Filters: []*listener.Filter{{Name: "envoy.transport_sockets.tls"}},
+				},
 				{
 					Filters: []*listener.Filter{
 						{Name: "filter1"},
@@ -750,6 +794,24 @@ func TestApplyListenerPatches(t *testing.T) {
 				},
 			},
 			FilterChains: []*listener.FilterChain{
+				{
+					FilterChainMatch: &listener.FilterChainMatch{TransportProtocol: "tls"},
+					TransportSocket: &core.TransportSocket{
+						Name: "envoy.transport_sockets.tls",
+						ConfigType: &core.TransportSocket_TypedConfig{
+							TypedConfig: util.MessageToAny(&tls.DownstreamTlsContext{
+								CommonTlsContext: &tls.CommonTlsContext{
+									TlsParams: &tls.TlsParameters{
+										EcdhCurves:                []string{"X25519"},
+										TlsMaximumProtocolVersion: tls.TlsParameters_TLSv1_3,
+										TlsMinimumProtocolVersion: tls.TlsParameters_TLSv1_2,
+									},
+								},
+							}),
+						},
+					},
+					Filters: []*listener.Filter{{Name: "envoy.transport_sockets.tls"}},
+				},
 				{
 					Filters: []*listener.Filter{
 						{Name: "filter0"},
@@ -904,6 +966,16 @@ func TestApplyListenerPatches(t *testing.T) {
 			},
 			FilterChains: []*listener.FilterChain{
 				{
+					FilterChainMatch: &listener.FilterChainMatch{TransportProtocol: "tls"},
+					TransportSocket: &core.TransportSocket{
+						Name: "envoy.transport_sockets.tls",
+						ConfigType: &core.TransportSocket_TypedConfig{
+							TypedConfig: util.MessageToAny(&tls.DownstreamTlsContext{}),
+						},
+					},
+					Filters: []*listener.Filter{{Name: "envoy.transport_sockets.tls"}},
+				},
+				{
 					Filters: []*listener.Filter{
 						{Name: "filter1"},
 						{Name: "filter2"},
@@ -929,6 +1001,23 @@ func TestApplyListenerPatches(t *testing.T) {
 				},
 			},
 			FilterChains: []*listener.FilterChain{
+				{
+					FilterChainMatch: &listener.FilterChainMatch{TransportProtocol: "tls"},
+					TransportSocket: &core.TransportSocket{
+						Name: "envoy.transport_sockets.tls",
+						ConfigType: &core.TransportSocket_TypedConfig{
+							TypedConfig: util.MessageToAny(&tls.DownstreamTlsContext{
+								CommonTlsContext: &tls.CommonTlsContext{
+									TlsParams: &tls.TlsParameters{
+										TlsMaximumProtocolVersion: tls.TlsParameters_TLSv1_3,
+										TlsMinimumProtocolVersion: tls.TlsParameters_TLSv1_2,
+									},
+								},
+							}),
+						},
+					},
+					Filters: []*listener.Filter{{Name: "envoy.transport_sockets.tls"}},
+				},
 				{
 					Filters: []*listener.Filter{
 						{Name: "filter0"},

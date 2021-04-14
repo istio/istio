@@ -1,0 +1,9 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+issue:
+  - 28996
+
+releaseNotes:
+  - |
+    **Fixed** transport socket parameters are now taken into account when configured in envoyfilter
