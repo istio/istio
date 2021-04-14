@@ -33,6 +33,7 @@ import (
 	"istio.io/istio/pkg/test/framework/components/echo/echotest"
 	"istio.io/istio/pkg/test/util/retry"
 	"istio.io/istio/pkg/test/util/tmpl"
+	ingressutil "istio.io/istio/tests/integration/security/sds_ingress/util"
 )
 
 func httpGateway(host string) string {
@@ -54,6 +55,29 @@ spec:
 `, host)
 }
 
+func httpsGateway(host, credential string) string {
+	return fmt.Sprintf(`apiVersion: networking.istio.io/v1alpha3
+kind: Gateway
+metadata:
+  name: gateway
+spec:
+  selector:
+    istio: ingressgateway
+  servers:
+  - port:
+      number: 443
+      name: https
+      protocol: HTTPS
+    tls:
+      mode: SIMPLE
+      credentialName: %s
+    hosts:
+    - "%s"
+---
+`, credential, host)
+}
+
+// nolint: unparam
 func httpVirtualService(gateway, host string, port int) string {
 	return tmpl.MustEvaluate(`apiVersion: networking.istio.io/v1alpha3
 kind: VirtualService
@@ -591,6 +615,7 @@ func trafficLoopCases(apps *EchoDeployments) []TrafficTestCase {
 
 func gatewayCases(apps *EchoDeployments) []TrafficTestCase {
 	cases := []TrafficTestCase{}
+	podAFQDN := apps.PodA[0].Config().FQDN()
 
 	destinationSets := []echo.Instances{
 		apps.PodA,
@@ -667,6 +692,121 @@ spec:
 			},
 		},
 		TrafficTestCase{
+			name: "https",
+			config: httpsGateway(podAFQDN, "cred") +
+				ingressutil.IngressKubeSecretYAML("cred", apps.Ingress.Namespace(), ingressutil.TLS, ingressutil.IngressCredentialA) +
+				httpVirtualService("gateway", podAFQDN, apps.PodA[0].Config().PortByName("http").ServicePort),
+			call: apps.Ingress.CallEchoWithRetryOrFail,
+			opts: echo.CallOptions{
+				Port: &echo.Port{
+					Protocol: protocol.HTTPS,
+				},
+				Headers: map[string][]string{
+					"Host": {podAFQDN},
+				},
+				Validator: echo.ExpectCode("200"),
+			},
+		},
+		TrafficTestCase{
+			name: "https scheme match",
+			config: httpsGateway(podAFQDN, "cred") +
+				ingressutil.IngressKubeSecretYAML("cred", apps.Ingress.Namespace(), ingressutil.TLS, ingressutil.IngressCredentialA) +
+				tmpl.MustEvaluate(`apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
+metadata:
+  name: {{.Host}}
+spec:
+  gateways:
+  - gateway
+  hosts:
+  - {{.Host}}
+  http:
+  - match:
+    - scheme:
+        exact: https
+    headers:
+      request:
+        add:
+          istio-custom-header: user-defined-value
+    route:
+    - destination:
+        host: {{.Host}}
+        port:
+          number: {{.Port}}
+---
+`, struct {
+					Host string
+					Port int
+				}{podAFQDN, apps.PodA[0].Config().PortByName("http").ServicePort}),
+			call: apps.Ingress.CallEchoWithRetryOrFail,
+			opts: echo.CallOptions{
+				Port: &echo.Port{
+					Protocol: protocol.HTTPS,
+				},
+				Headers: map[string][]string{
+					"Host": {podAFQDN},
+				},
+				Validator: echo.And(
+					echo.ExpectOK(),
+					echo.ValidatorFunc(
+						func(response echoclient.ParsedResponses, _ error) error {
+							return response.Check(func(_ int, response *echoclient.ParsedResponse) error {
+								// We check a header is added to ensure our VS actually applied
+								return ExpectString(response.RawResponse["Istio-Custom-Header"], "user-defined-value", "request header")
+							})
+						})),
+			},
+		},
+		TrafficTestCase{
+			name: "http scheme match",
+			config: httpGateway(podAFQDN) +
+				tmpl.MustEvaluate(`apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
+metadata:
+  name: {{.Host}}
+spec:
+  gateways:
+  - gateway
+  hosts:
+  - {{.Host}}
+  http:
+  - match:
+    - scheme:
+        exact: http
+    headers:
+      request:
+        add:
+          istio-custom-header: user-defined-value
+    route:
+    - destination:
+        host: {{.Host}}
+        port:
+          number: {{.Port}}
+---
+`, struct {
+					Host string
+					Port int
+				}{podAFQDN, apps.PodA[0].Config().PortByName("http").ServicePort}),
+			call: apps.Ingress.CallEchoWithRetryOrFail,
+			opts: echo.CallOptions{
+				Port: &echo.Port{
+					Protocol: protocol.HTTP,
+				},
+				Headers: map[string][]string{
+					"Host": {podAFQDN},
+				},
+				Validator: echo.And(
+					echo.ExpectOK(),
+					echo.ValidatorFunc(
+						func(response echoclient.ParsedResponses, _ error) error {
+							return response.Check(func(_ int, response *echoclient.ParsedResponse) error {
+								// We check a header is added to ensure our VS actually applied
+								return ExpectString(response.RawResponse["Istio-Custom-Header"], "user-defined-value", "request header")
+							})
+						})),
+			},
+		},
+		TrafficTestCase{
 			// See https://github.com/istio/istio/issues/27315
 			name: "https with x-forwarded-proto",
 			config: `apiVersion: networking.istio.io/v1alpha3
@@ -711,7 +851,7 @@ spec:
     labels:
       istio: ingressgateway
 ---
-` + httpVirtualService("gateway", apps.PodA[0].Config().FQDN(), apps.PodA[0].Config().PortByName("http").ServicePort),
+` + httpVirtualService("gateway", podAFQDN, apps.PodA[0].Config().PortByName("http").ServicePort),
 			call: apps.Ingress.CallEchoWithRetryOrFail,
 			opts: echo.CallOptions{
 				Port: &echo.Port{
@@ -720,7 +860,7 @@ spec:
 				Headers: map[string][]string{
 					// In real world, this may be set by a downstream LB that terminates the TLS
 					"X-Forwarded-Proto": {"https"},
-					"Host":              {apps.PodA[0].Config().FQDN()},
+					"Host":              {podAFQDN},
 				},
 				Validator: echo.ExpectOK(),
 			},

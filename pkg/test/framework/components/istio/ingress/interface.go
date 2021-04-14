@@ -52,4 +52,7 @@ type Instance interface {
 	// PodID returns the name of the ingress gateway pod of index i. Returns error if failed to get the pod
 	// or the index is out of boundary.
 	PodID(i int) (string, error)
+
+	// Namespace of the ingress
+	Namespace() string
 }
