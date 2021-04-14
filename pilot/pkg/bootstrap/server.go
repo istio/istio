@@ -662,6 +662,18 @@ func (s *Server) waitForShutdown(stop <-chan struct{}) {
 		// force stop them. This does not happen normally.
 		stopped := make(chan struct{})
 		go func() {
+			// Some grpcServer implementations do not support GracefulStop. Unfortunately, this is not
+			// exposed; they just panic. To avoid this, we will recover and do a standard Stop when its not
+			// support.
+			defer func() {
+				if r := recover(); r != nil {
+					s.grpcServer.Stop()
+					if s.secureGrpcServer != nil {
+						s.secureGrpcServer.Stop()
+					}
+				}
+				close(stopped)
+			}()
 			s.grpcServer.GracefulStop()
 			if s.secureGrpcServer != nil {
 				s.secureGrpcServer.GracefulStop()
