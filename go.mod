@@ -70,7 +70,6 @@ require (
 	github.com/prometheus/common v0.15.0
 	github.com/ryanuber/go-glob v1.0.0
 	github.com/satori/go.uuid v1.2.0
-	github.com/soheilhy/cmux v0.1.4
 	github.com/spf13/cobra v1.1.1
 	github.com/spf13/pflag v1.0.5
 	github.com/spf13/viper v1.7.1
@@ -91,7 +90,6 @@ require (
 	gomodules.xyz/jsonpatch/v3 v3.0.1
 	google.golang.org/genproto v0.0.0-20201203001206-6486ece9c497
 	google.golang.org/grpc v1.33.2
-	google.golang.org/grpc/examples v0.0.0-20200825162801-44d73dff99bf // indirect
 	google.golang.org/protobuf v1.25.0
 	gopkg.in/check.v1 v1.0.0-20200227125254-8fa46927fb4f // indirect
 	gopkg.in/square/go-jose.v2 v2.5.1
