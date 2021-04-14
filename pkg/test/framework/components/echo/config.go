@@ -163,6 +163,11 @@ func (c Config) IsNaked() bool {
 	return len(c.Subsets) > 0 && c.Subsets[0].Annotations != nil && !c.Subsets[0].Annotations.GetBool(SidecarInject)
 }
 
+func (c Config) IsTProxy() bool {
+	// TODO this could be HasCustomInjectionMode
+	return len(c.Subsets) > 0 && c.Subsets[0].Annotations != nil && c.Subsets[0].Annotations.Get(SidecarInterceptionMode) == "TPROXY"
+}
+
 func (c Config) IsVM() bool {
 	return c.DeployAsVM
 }
