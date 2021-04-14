@@ -14,18 +14,19 @@
 package apiserver_test
 
 import (
-	"errors"
+	"fmt"
+	"sync"
 	"sync/atomic"
 	"testing"
 
 	"github.com/gogo/protobuf/types"
 	. "github.com/onsi/gomega"
+	uatomic "go.uber.org/atomic"
 	apiextensions "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	extfake "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset/fake"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	k8sRuntime "k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/dynamic/fake"
 	k8sTesting "k8s.io/client-go/testing"
@@ -43,26 +44,13 @@ import (
 	"istio.io/istio/pkg/config/resource"
 	"istio.io/istio/pkg/config/schema/collection"
 	resource2 "istio.io/istio/pkg/config/schema/resource"
+	kubelib "istio.io/istio/pkg/kube"
+	"istio.io/istio/pkg/test"
 )
 
-func TestNewSource(t *testing.T) {
-	k := &mock.Kube{}
-	for i := 0; i < 100; i++ {
-		_ = fakeClient(k)
-	}
-
-	r := basicmeta.MustGet().KubeCollections()
-
-	_ = newOrFail(t, k, r, nil)
-}
-
 func TestStartTwice(t *testing.T) {
-	// Create the source
-	w, _, cl := createMocks()
-	defer w.Stop()
-
 	r := basicmeta.MustGet().KubeCollections()
-	s := newOrFail(t, cl, r, nil)
+	s := newOrFail(t, kubelib.NewFakeClient(), r, nil)
 
 	// Start it once.
 	_ = start(s)
@@ -75,13 +63,9 @@ func TestStartTwice(t *testing.T) {
 func TestStartStop_WithStatusCtl(t *testing.T) {
 	g := NewWithT(t)
 
-	// Create the source
-	w, _, cl := createMocks()
-	defer w.Stop()
-
 	sc := &statusCtl{}
 	r := basicmeta.MustGet().KubeCollections()
-	s := newOrFail(t, cl, r, sc)
+	s := newOrFail(t, kubelib.NewFakeClient(), r, sc)
 
 	s.Start()
 	g.Eventually(sc.hasStarted).Should(BeTrue())
@@ -91,11 +75,8 @@ func TestStartStop_WithStatusCtl(t *testing.T) {
 }
 
 func TestStopTwiceShouldSucceed(t *testing.T) {
-	// Create the source
-	w, _, cl := createMocks()
-	defer w.Stop()
 	r := basicmeta.MustGet().KubeCollections()
-	s := newOrFail(t, cl, r, nil)
+	s := newOrFail(t, kubelib.NewFakeClient(), r, nil)
 
 	// Start it once.
 	_ = start(s)
@@ -107,13 +88,9 @@ func TestStopTwiceShouldSucceed(t *testing.T) {
 func TestReport(t *testing.T) {
 	g := NewWithT(t)
 
-	// Create the source
-	w, _, cl := createMocks()
-	defer w.Stop()
-
 	sc := &statusCtl{}
 	r := basicmeta.MustGet().KubeCollections()
-	s := newOrFail(t, cl, r, sc)
+	s := newOrFail(t, kubelib.NewFakeClient(), r, sc)
 
 	s.Start()
 	defer s.Stop()
@@ -134,7 +111,7 @@ func TestReport(t *testing.T) {
 func TestEvents(t *testing.T) {
 	g := NewWithT(t)
 
-	w, wcrd, cl := createMocks()
+	w, wcrd, cl := createMocks(t)
 	defer wcrd.Stop()
 	defer w.Stop()
 
@@ -196,9 +173,7 @@ func TestEvents(t *testing.T) {
 func TestEvents_WatchUpdatesStatusCtl(t *testing.T) {
 	g := NewWithT(t)
 
-	w, wcrd, cl := createMocks()
-	defer wcrd.Stop()
-	defer w.Stop()
+	w, wcrd, cl := createMocks(t)
 
 	r := basicmeta.MustGet().KubeCollections()
 	addCrdEvents(wcrd, r.All())
@@ -273,9 +248,7 @@ func TestEvents_WatchUpdatesStatusCtl(t *testing.T) {
 }
 
 func TestEvents_CRDEventAfterFullSync(t *testing.T) {
-	w, wcrd, cl := createMocks()
-	defer wcrd.Stop()
-	defer w.Stop()
+	_, wcrd, cl := createMocks(t)
 
 	r := basicmeta.MustGet().KubeCollections()
 	addCrdEvents(wcrd, r.All())
@@ -301,9 +274,7 @@ func TestEvents_CRDEventAfterFullSync(t *testing.T) {
 func TestEvents_NonAddEvent(t *testing.T) {
 	g := NewWithT(t)
 
-	w, wcrd, cl := createMocks()
-	defer wcrd.Stop()
-	defer w.Stop()
+	_, wcrd, cl := createMocks(t)
 
 	r := basicmeta.MustGet().KubeCollections()
 	addCrdEvents(wcrd, r.All())
@@ -327,9 +298,7 @@ func TestEvents_NonAddEvent(t *testing.T) {
 func TestEvents_NoneForDisabled(t *testing.T) {
 	g := NewWithT(t)
 
-	w, wcrd, cl := createMocks()
-	defer wcrd.Stop()
-	defer w.Stop()
+	_, wcrd, cl := createMocks(t)
 
 	r := basicmeta.MustGet().KubeCollections()
 	addCrdEvents(wcrd, r.All())
@@ -343,13 +312,35 @@ func TestEvents_NoneForDisabled(t *testing.T) {
 }
 
 func TestSource_WatcherFailsCreatingInformer(t *testing.T) {
-	k := mock.NewKube()
-	wcrd := mockCrdWatch(k.APIExtClientSet)
+	// Setup a lock so we can dynamically change the watch returned
+	mu := sync.Mutex{}
+	errRet := uatomic.NewString("")
+	k := kubelib.NewFakeClient()
+
+	// Setup mock watch
+	w := mock.NewWatch()
+	k.Dynamic().(*fake.FakeDynamicClient).PrependWatchReactor("*", func(_ k8sTesting.Action) (handled bool, ret watch.Interface, err error) {
+		mu.Lock()
+		defer mu.Unlock()
+		return true, w, nil
+	})
+	t.Cleanup(w.Stop)
+
+	wcrd := mockCrdWatch(k.Ext().(*extfake.Clientset))
+	t.Cleanup(wcrd.Stop)
 
 	r := basicmeta.MustGet().KubeCollections()
 	addCrdEvents(wcrd, r.All())
+	k.Dynamic().(*fake.FakeDynamicClient).PrependReactor("*", "*", func(action k8sTesting.Action) (handled bool, ret k8sRuntime.Object, err error) {
+		e := errRet.Load() // Fetch the error and wipe it out
+		errRet.Store("")
+		if e == "" {
+			return false, nil, nil
+		}
+		return true, nil, fmt.Errorf(e)
+	})
 
-	k.AddResponse(nil, errors.New("no cheese found"))
+	errRet.Store("no cheese found")
 
 	// Create and start the source
 	s := newOrFail(t, k, r, nil)
@@ -364,16 +355,14 @@ func TestSource_WatcherFailsCreatingInformer(t *testing.T) {
 	acc.Clear()
 	wcrd.Stop()
 
-	wcrd = mockCrdWatch(k.APIExtClientSet)
+	wcrd = mockCrdWatch(k.Ext().(*extfake.Clientset))
 	addCrdEvents(wcrd, r.All())
 
 	// Now start properly and get events
-	gvrToListKind := map[schema.GroupVersionResource]string{
-		{Group: "testdata.istio.io", Version: "v1alpha1", Resource: "Kind1s"}: "Kind1List",
-	}
-	cl := fake.NewSimpleDynamicClientWithCustomListKinds(k8sRuntime.NewScheme(), gvrToListKind)
-	k.AddResponse(cl, nil)
-	w := mockWatch(cl)
+	errRet.Store("")
+	mu.Lock()
+	w = mock.NewWatch()
+	mu.Unlock()
 
 	s.Start()
 
@@ -408,25 +397,21 @@ func TestUpdateMessage_NoStatusController_Panic(t *testing.T) {
 		g.Expect(r).NotTo(BeNil())
 	}()
 
-	w, wcrd, cl := createMocks()
-	defer wcrd.Stop()
-	defer w.Stop()
-
 	r := basicmeta.MustGet().KubeCollections()
 
-	s := newOrFail(t, cl, r, nil)
+	s := newOrFail(t, kubelib.NewFakeClient(), r, nil)
 
 	start(s)
 	defer s.Stop()
 	s.Update(diag.Messages{})
 }
 
-func newOrFail(t *testing.T, ifaces kube.Interfaces, r collection.Schemas, sc status.Controller) *apiserver.Source {
+func newOrFail(t *testing.T, client kubelib.Client, r collection.Schemas, sc status.Controller) *apiserver.Source {
 	t.Helper()
 	o := apiserver.Options{
 		Schemas:          r,
 		ResyncPeriod:     0,
-		Client:           ifaces,
+		Client:           kube.NewInterfacesFromClient(client),
 		StatusController: sc,
 	}
 	s := apiserver.New(o)
@@ -444,12 +429,13 @@ func start(s *apiserver.Source) *fixtures.Accumulator {
 	return acc
 }
 
-func createMocks() (*mock.Watch, *mock.Watch, *mock.Kube) {
-	k := mock.NewKube()
-	cl := fakeClient(k)
-	w := mockWatch(cl)
-	wcrd := mockCrdWatch(k.APIExtClientSet)
-	return w, wcrd, k
+func createMocks(t test.Failer) (*mock.Watch, *mock.Watch, kubelib.ExtendedClient) {
+	c := kubelib.NewFakeClient()
+	w := mockWatch(c.Dynamic().(*fake.FakeDynamicClient))
+	t.Cleanup(w.Stop)
+	wcrd := mockCrdWatch(c.Ext().(*extfake.Clientset))
+	t.Cleanup(wcrd.Stop)
+	return w, wcrd, c
 }
 
 func addCrdEvents(w *mock.Watch, res []collection.Schema) {
@@ -459,15 +445,6 @@ func addCrdEvents(w *mock.Watch, res []collection.Schema) {
 			Type:   watch.Added,
 		})
 	}
-}
-
-func fakeClient(k *mock.Kube) *fake.FakeDynamicClient {
-	gvrToListKind := map[schema.GroupVersionResource]string{
-		{Group: "testdata.istio.io", Version: "v1alpha1", Resource: "Kind1s"}: "Kind1List",
-	}
-	cl := fake.NewSimpleDynamicClientWithCustomListKinds(k8sRuntime.NewScheme(), gvrToListKind)
-	k.AddResponse(cl, nil)
-	return cl
 }
 
 func mockWatch(cl *fake.FakeDynamicClient) *mock.Watch {
