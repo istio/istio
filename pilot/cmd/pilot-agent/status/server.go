@@ -503,12 +503,19 @@ func (s *Server) handleAppProbe(w http.ResponseWriter, req *http.Request) {
 		appReq.Header[name] = newValues
 	}
 
-	for _, h := range prober.HTTPGet.HTTPHeaders {
-		if h.Name == "Host" || h.Name == ":authority" {
-			// Probe has specific host header override; honor it
-			appReq.Host = h.Value
-		} else {
-			appReq.Header.Set(h.Name, h.Value)
+	// If there are custom HTTPHeaders, it will override the forwarding header
+	if headers := prober.HTTPGet.HTTPHeaders; len(headers) != 0 {
+		for _, h := range headers {
+			delete(appReq.Header, h.Name)
+		}
+		for _, h := range headers {
+			if h.Name == "Host" || h.Name == ":authority" {
+				// Probe has specific host header override; honor it
+				appReq.Host = h.Value
+				appReq.Header.Set(h.Name, h.Value)
+			} else {
+				appReq.Header.Add(h.Name, h.Value)
+			}
 		}
 	}
 
