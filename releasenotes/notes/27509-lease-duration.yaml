@@ -5,4 +5,4 @@ issue:
   - 27509
 releaseNotes:
   - |
-    **Fixed** allow custom configuration of LEASE_DURATION for istio operator manager.
+    **Fixed** ensure lease duration is always larger than the user configured `RENEW_DEADLINE` for Istio operator manager.
