@@ -31,6 +31,7 @@ import (
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/echo/echoboot"
+	"istio.io/istio/pkg/test/framework/components/echo/kube"
 	"istio.io/istio/pkg/test/framework/label"
 	"istio.io/istio/pkg/test/scopes"
 	"istio.io/istio/pkg/test/util/retry"
@@ -38,11 +39,14 @@ import (
 )
 
 func GetAdditionVMImages() []string {
-	// Note - bionic is not here as its the default
-	return []string{
-		"app_sidecar_ubuntu_xenial", "app_sidecar_ubuntu_focal",
-		"app_sidecar_debian_9", "app_sidecar_debian_10", "app_sidecar_centos_7", "app_sidecar_centos_8",
+	out := []echo.VMDistro{}
+	for distro, image := range kube.VMImages {
+		if distro == echo.DefaultVMDistro {
+			continue
+		}
+		out = append(out, image)
 	}
+	return out
 }
 
 func TestVmOSPost(t *testing.T) {
@@ -62,7 +66,7 @@ func TestVmOSPost(t *testing.T) {
 					Namespace:  apps.Namespace,
 					Ports:      common.EchoPorts,
 					DeployAsVM: true,
-					VMImage:    image,
+					VMDistro:   image,
 					Subsets:    []echo.SubsetConfig{{}},
 				})
 			}
