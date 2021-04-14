@@ -155,6 +155,8 @@ if [[ "${CONTROL_PLANE}" == "UNMANAGED" ]]; then
 
     TEST_IMAGE_PULL_SECRET="${ARTIFACTS}/test_image_pull_secret.yaml"
     INTEGRATION_TEST_FLAGS+=" --istio.test.imagePullSecret ${TEST_IMAGE_PULL_SECRET}"
+    INTEGRATION_TEST_FLAGS+=" --istio.test.echo.callTimeout 5s"
+
   fi
 
   # Don't run VM tests. Echo deployment requires the eastwest gateway
