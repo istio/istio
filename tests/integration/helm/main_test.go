@@ -19,17 +19,11 @@ import (
 	"testing"
 
 	"istio.io/istio/pkg/test/framework"
-	"istio.io/istio/pkg/test/framework/components/istio"
-	"istio.io/istio/pkg/test/framework/resource"
 )
 
 func TestMain(m *testing.M) {
-	var ist istio.Instance
 	framework.
 		NewSuite(m).
 		RequireSingleCluster().
-		Setup(istio.Setup(&ist, func(ctx resource.Context, cfg *istio.Config) {
-			cfg.DeployHelm = true
-		})).
 		Run()
 }

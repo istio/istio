@@ -140,7 +140,7 @@ func installIstio(t framework.TestContext, cs cluster.Cluster,
 		t.Errorf("failed to install istio %s chart", helmtest.DiscoveryChart)
 	}
 
-	helmtest.InstallGatewaysCharts(t, cs, h, helmtest.TarGzSuffix, helmtest.IstioNamespace, overrideValuesFile)
+	helmtest.InstallIstio(t, cs, h, helmtest.TarGzSuffix, helmtest.IstioNamespace, overrideValuesFile)
 }
 
 // performUpgradeFunc returns the provided function necessary to run inside of a integration test

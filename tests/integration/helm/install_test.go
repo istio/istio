@@ -18,6 +18,7 @@ package helm
 import (
 	"fmt"
 	"io/ioutil"
+	"istio.io/istio/tests/util/sanitycheck"
 	"os"
 	"path/filepath"
 	"testing"
@@ -43,6 +44,7 @@ global:
 
 // TestInstallWithFirstPartyJwt tests Istio installation using Helm
 // with first-party-jwt enabled
+// (TODO) remove this test when Istio no longer supports first-party-jwt
 func TestInstallWithFirstPartyJwt(t *testing.T) {
 	overrideValuesStr := `
 global:
@@ -79,12 +81,13 @@ func setupInstallation(overrideValuesStr string) func(t framework.TestContext) {
 		if err := ioutil.WriteFile(overrideValuesFile, []byte(overrideValues), os.ModePerm); err != nil {
 			t.Fatalf("failed to write iop cr file: %v", err)
 		}
-		InstallGatewaysCharts(t, cs, h, "", IstioNamespace, overrideValuesFile)
+		InstallIstio(t, cs, h, "", IstioNamespace, overrideValuesFile)
 
 		VerifyInstallation(t, cs)
 
+		sanitycheck.RunTrafficTest(t, t)
 		t.Cleanup(func() {
-			deleteGatewayCharts(t, h)
+			deleteIstio(t, h, cs)
 		})
 	}
 }
