@@ -194,6 +194,9 @@ func GenIOPFromProfile(profileOrPath, fileOverlayYAML string, setFlags []string,
 	}
 	// InstallPackagePath may have been a URL, change to extracted to local file path.
 	finalIOP.Spec.InstallPackagePath = installPackagePath
+	if ns := GetValueForSetFlag(setFlags, "values.global.istioNamespace"); ns != "" {
+		finalIOP.Namespace = ns
+	}
 	return util.ToYAMLWithJSONPB(finalIOP), finalIOP, nil
 }
 
