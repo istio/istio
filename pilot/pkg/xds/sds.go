@@ -177,7 +177,7 @@ func (s *SecretGen) Generate(proxy *model.Proxy, push *model.PushContext, w *mod
 			}
 		}
 	}
-	log.Infof("SDS: GENERATE for node:%s resources:%d size:%s cached:%v/%v",
+	log.Infof("SDS: PUSH for node:%s resources:%d size:%s cached:%v/%v",
 		proxy.ID, len(results), util.ByteCount(ResourceSize(results)), cached, cached+regenerated)
 	return results, nil
 }
