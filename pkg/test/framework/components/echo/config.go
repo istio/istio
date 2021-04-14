@@ -43,9 +43,9 @@ const (
 	Debian10     VMDistro = "Debian10"
 	Centos7      VMDistro = "Centos7"
 	Centos8      VMDistro = "Centos8"
-)
 
-var VMDistros = []VMDistro{UbuntuXenial, UbuntuFocal, UbuntuBionic, Debian9, Debian10, Centos7, Centos8}
+	DefaultVMDistro = UbuntuBionic
+)
 
 // Config defines the options for creating an Echo component.
 // nolint: maligned

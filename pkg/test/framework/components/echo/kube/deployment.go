@@ -594,9 +594,7 @@ func GenerateService(cfg echo.Config) (string, error) {
 	return tmpl.Execute(serviceTemplate, params)
 }
 
-const DefaultVMDistro = echo.UbuntuBionic
-
-var vmImages = map[echo.VMDistro]string{
+var VMImages = map[echo.VMDistro]string{
 	echo.UbuntuXenial: "app_sidecar_ubuntu_xenial",
 	echo.UbuntuFocal:  "app_sidecar_ubuntu_focal",
 	echo.UbuntuBionic: "app_sidecar_ubuntu_bionic",
@@ -616,10 +614,10 @@ func templateParams(cfg echo.Config, settings *image.Settings, versions resource
 	}
 	supportStartupProbe := cfg.Cluster.MinKubeVersion(0)
 
-	// if image is not provided, default to app_sidecar
-	vmImage := vmImages[DefaultVMDistro]
-	if cfg.VMDistro != "" {
-		vmImage = vmImages[cfg.VMDistro]
+	vmImage := VMImages[cfg.VMDistro]
+	if vmImage == "" {
+		vmImage = VMImages[echo.DefaultVMDistro]
+		log.Warnf("no image for distro %s, defaulting to %s", cfg.VMDistro, echo.DefaultVMDistro)
 	}
 	namespace := ""
 	if cfg.Namespace != nil {
