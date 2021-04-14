@@ -455,7 +455,7 @@ func shouldUnsubscribe(request *discovery.DiscoveryRequest) bool {
 // resource names.
 func isWildcardTypeURL(typeURL string) bool {
 	switch typeURL {
-	case v3.SecretType, v3.EndpointType, v3.RouteType:
+	case v3.SecretType, v3.EndpointType, v3.RouteType, v3.ExtensionConfigurationType:
 		// By XDS spec, these are not wildcard
 		return false
 	case v3.ClusterType, v3.ListenerType:
