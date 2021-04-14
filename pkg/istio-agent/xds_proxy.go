@@ -15,14 +15,18 @@
 package istioagent
 
 import (
+	"bytes"
 	"context"
 	"crypto/tls"
 	"crypto/x509"
+	"encoding/json"
 	"fmt"
 	"io"
 	"io/ioutil"
 	"math"
 	"net"
+	"net/http"
+	"net/url"
 	"os"
 	"path"
 	"strings"
@@ -31,6 +35,7 @@ import (
 
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	gogotypes "github.com/gogo/protobuf/types"
+	"github.com/golang/protobuf/jsonpb"
 	"github.com/golang/protobuf/ptypes"
 	"github.com/golang/protobuf/ptypes/any"
 	"go.uber.org/atomic"
@@ -45,11 +50,13 @@ import (
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/cmd/pilot-agent/status/ready"
 	"istio.io/istio/pilot/pkg/features"
+	istiogrpc "istio.io/istio/pilot/pkg/grpc"
 	nds "istio.io/istio/pilot/pkg/proto"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/istio-agent/health"
 	"istio.io/istio/pkg/istio-agent/metrics"
+	istiokeepalive "istio.io/istio/pkg/keepalive"
 	"istio.io/istio/pkg/mcp/status"
 	"istio.io/istio/pkg/uds"
 	"istio.io/istio/pkg/util/gogo"
@@ -61,10 +68,11 @@ import (
 
 const (
 	defaultClientMaxReceiveMessageSize = math.MaxInt32
-	defaultInitialConnWindowSize       = 1024 * 1024     // default gRPC InitialWindowSize
-	defaultInitialWindowSize           = 1024 * 1024     // default gRPC ConnWindowSize
-	sendTimeout                        = 5 * time.Second // default upstream send timeout.
+	defaultInitialConnWindowSize       = 1024 * 1024 // default gRPC InitialWindowSize
+	defaultInitialWindowSize           = 1024 * 1024 // default gRPC ConnWindowSize
 )
+
+var connectionNumber = atomic.NewUint32(0)
 
 // ResponseHandler handles a XDS response in the agent. These will not be forwarded to Envoy.
 // Currently, all handlers function on a single resource per type, so the API only exposes one
@@ -89,6 +97,11 @@ type XdsProxy struct {
 	healthChecker        *health.WorkloadHealthChecker
 	xdsHeaders           map[string]string
 	xdsUdsPath           string
+	proxyAddresses       []string
+
+	httpTapServer      *http.Server
+	tapMutex           sync.RWMutex
+	tapResponseChannel chan *discovery.DiscoveryResponse
 
 	// connected stores the active gRPC stream. The proxy will only have 1 connection at a time
 	connected           *ProxyConnection
@@ -127,14 +140,15 @@ func initXdsProxy(ia *Agent) (*XdsProxy, error) {
 		LocalHostAddr: localHostAddr,
 	}
 	proxy := &XdsProxy{
-		istiodAddress: ia.proxyConfig.DiscoveryAddress,
-		clusterID:     ia.secOpts.ClusterID,
-		handlers:      map[string]ResponseHandler{},
-		stopChan:      make(chan struct{}),
-		healthChecker: health.NewWorkloadHealthChecker(ia.proxyConfig.ReadinessProbe, envoyProbe),
-		xdsHeaders:    ia.cfg.XDSHeaders,
-		xdsUdsPath:    ia.cfg.XdsUdsPath,
-		wasmCache:     wasm.NewLocalFileCache(constants.IstioDataDir, wasm.DefaultWasmModulePurgeInteval, wasm.DefaultWasmModuleExpiry),
+		istiodAddress:  ia.proxyConfig.DiscoveryAddress,
+		clusterID:      ia.secOpts.ClusterID,
+		handlers:       map[string]ResponseHandler{},
+		stopChan:       make(chan struct{}),
+		healthChecker:  health.NewWorkloadHealthChecker(ia.proxyConfig.ReadinessProbe, envoyProbe, ia.cfg.ProxyIPAddresses, ia.cfg.IsIPv6),
+		xdsHeaders:     ia.cfg.XDSHeaders,
+		xdsUdsPath:     ia.cfg.XdsUdsPath,
+		wasmCache:      wasm.NewLocalFileCache(constants.IstioDataDir, wasm.DefaultWasmModulePurgeInteval, wasm.DefaultWasmModuleExpiry),
+		proxyAddresses: ia.cfg.ProxyIPAddresses,
 	}
 
 	if ia.localDNSServer != nil {
@@ -253,6 +267,7 @@ func (p *XdsProxy) RegisterStream(c *ProxyConnection) {
 }
 
 type ProxyConnection struct {
+	conID              uint32
 	upstreamError      chan error
 	downstreamError    chan error
 	requestsChan       chan *discovery.DiscoveryRequest
@@ -273,6 +288,7 @@ func (p *XdsProxy) StreamAggregatedResources(downstream discovery.AggregatedDisc
 	proxyLog.Debugf("accepted XDS connection from Envoy, forwarding to upstream XDS server")
 
 	con := &ProxyConnection{
+		conID:           connectionNumber.Inc(),
 		upstreamError:   make(chan error, 2), // can be produced by recv and send
 		downstreamError: make(chan error, 2), // can be produced by recv and send
 		requestsChan:    make(chan *discovery.DiscoveryRequest, 10),
@@ -368,7 +384,7 @@ func (p *XdsProxy) HandleUpstream(ctx context.Context, con *ProxyConnection, xds
 		}
 	}()
 
-	go p.handleUpstreamRequest(ctx, con)
+	go p.handleUpstreamRequest(con)
 	go p.handleUpstreamResponse(con)
 
 	for {
@@ -376,20 +392,20 @@ func (p *XdsProxy) HandleUpstream(ctx context.Context, con *ProxyConnection, xds
 		case err := <-con.upstreamError:
 			// error from upstream Istiod.
 			if isExpectedGRPCError(err) {
-				proxyLog.Debugf("upstream terminated with status %v", err)
+				proxyLog.Debugf("upstream [%d] terminated with status %v", con.conID, err)
 				metrics.IstiodConnectionCancellations.Increment()
 			} else {
-				proxyLog.Warnf("upstream terminated with unexpected error %v", err)
+				proxyLog.Warnf("upstream [%d] terminated with unexpected error %v", con.conID, err)
 				metrics.IstiodConnectionErrors.Increment()
 			}
 			return err
 		case err := <-con.downstreamError:
 			// error from downstream Envoy.
 			if isExpectedGRPCError(err) {
-				proxyLog.Debugf("downstream terminated with status %v", err)
+				proxyLog.Debugf("downstream [%d] terminated with status %v", con.conID, err)
 				metrics.EnvoyConnectionCancellations.Increment()
 			} else {
-				proxyLog.Warnf("downstream terminated with unexpected error %v", err)
+				proxyLog.Warnf("downstream [%d] terminated with unexpected error %v", con.conID, err)
 				metrics.EnvoyConnectionErrors.Increment()
 			}
 			// On downstream error, we will return. This propagates the error to downstream envoy which will trigger reconnect
@@ -401,7 +417,7 @@ func (p *XdsProxy) HandleUpstream(ctx context.Context, con *ProxyConnection, xds
 	}
 }
 
-func (p *XdsProxy) handleUpstreamRequest(ctx context.Context, con *ProxyConnection) {
+func (p *XdsProxy) handleUpstreamRequest(con *ProxyConnection) {
 	defer con.upstream.CloseSend() // nolint
 	for {
 		select {
@@ -414,8 +430,8 @@ func (p *XdsProxy) handleUpstreamRequest(ctx context.Context, con *ProxyConnecti
 				}
 				p.ecdsLastNonce.Store(req.ResponseNonce)
 			}
-			if err := sendUpstreamWithTimeout(ctx, con.upstream, req); err != nil {
-				proxyLog.Errorf("upstream send error for type url %s: %v", req.TypeUrl, err)
+			if err := sendUpstream(con.upstream, req); err != nil {
+				proxyLog.Errorf("upstream [%d] send error for type url %s: %v", con.conID, req.TypeUrl, err)
 				con.upstreamError <- err
 				return
 			}
@@ -465,7 +481,11 @@ func (p *XdsProxy) handleUpstreamResponse(con *ProxyConnection) {
 					forwardToEnvoy(con, resp)
 				}
 			default:
-				forwardToEnvoy(con, resp)
+				if strings.HasPrefix(resp.TypeUrl, "istio.io/debug") {
+					p.forwardToTap(resp)
+				} else {
+					forwardToEnvoy(con, resp)
+				}
 			}
 		case <-con.stopChan:
 			return
@@ -492,24 +512,32 @@ func (p *XdsProxy) rewriteAndForward(con *ProxyConnection, resp *discovery.Disco
 	forwardToEnvoy(con, resp)
 }
 
+func (p *XdsProxy) forwardToTap(resp *discovery.DiscoveryResponse) {
+	select {
+	case p.tapResponseChannel <- resp:
+	default:
+		log.Infof("tap response %q arrived too late; discarding", resp.TypeUrl)
+	}
+}
+
 func forwardToEnvoy(con *ProxyConnection, resp *discovery.DiscoveryResponse) {
 	if !v3.IsEnvoyType(resp.TypeUrl) {
 		proxyLog.Errorf("Skipping forwarding type url %s to Envoy as is not a valid Envoy type", resp.TypeUrl)
 		return
 	}
-	if err := sendDownstreamWithTimeout(con.downstream, resp); err != nil {
+	if err := sendDownstream(con.downstream, resp); err != nil {
 		select {
 		case con.downstreamError <- err:
 			// we cannot return partial error and hope to restart just the downstream
 			// as we are blindly proxying req/responses. For now, the best course of action
 			// is to terminate upstream connection as well and restart afresh.
-			proxyLog.Errorf("downstream send error: %v", err)
+			proxyLog.Errorf("downstream [%d] send error: %v", con.conID, err)
 		default:
 			// Do not block on downstream error channel push, this could happen when forward
 			// is triggered from a separated goroutine (e.g. ECDS processing go routine) while
 			// downstream connection has already been teared down and no receiver is available
 			// for downstream error channel.
-			proxyLog.Debugf("downstream error channel full, but get downstream send error: %v", err)
+			proxyLog.Debugf("downstream [%d] error channel full, but get downstream send error: %v", con.conID, err)
 		}
 
 		return
@@ -519,6 +547,9 @@ func forwardToEnvoy(con *ProxyConnection, resp *discovery.DiscoveryResponse) {
 func (p *XdsProxy) close() {
 	close(p.stopChan)
 	p.wasmCache.Cleanup()
+	if p.httpTapServer != nil {
+		_ = p.httpTapServer.Close()
+	}
 	if p.downstreamGrpcServer != nil {
 		p.downstreamGrpcServer.Stop()
 	}
@@ -555,7 +586,8 @@ func (p *XdsProxy) initDownstreamServer() error {
 	if err != nil {
 		return err
 	}
-	grpcs := grpc.NewServer()
+	// TODO: Expose keepalive options to agent cmd line flags.
+	grpcs := grpc.NewServer(istiogrpc.ServerOptions(istiokeepalive.DefaultOption())...)
 	discovery.RegisterAggregatedDiscoveryServiceServer(grpcs, p)
 	reflection.Register(grpcs)
 	p.downstreamGrpcServer = grpcs
@@ -678,34 +710,132 @@ func (p *XdsProxy) getRootCertificate(agent *Agent) (*x509.CertPool, error) {
 	return certPool, nil
 }
 
-// sendUpstreamWithTimeout sends discovery request with default send timeout.
-func sendUpstreamWithTimeout(ctx context.Context, upstream discovery.AggregatedDiscoveryService_StreamAggregatedResourcesClient,
+// sendUpstream sends discovery request.
+func sendUpstream(upstream discovery.AggregatedDiscoveryService_StreamAggregatedResourcesClient,
 	request *discovery.DiscoveryRequest) error {
-	return sendWithTimeout(ctx, func(errChan chan error) {
-		errChan <- upstream.Send(request)
-		close(errChan)
-	})
+	return istiogrpc.Send(upstream.Context(), func() error { return upstream.Send(request) })
 }
 
-// sendDownstreamWithTimeout sends discovery response with default send timeout.
-func sendDownstreamWithTimeout(downstream discovery.AggregatedDiscoveryService_StreamAggregatedResourcesServer,
+// sendDownstream sends discovery response.
+func sendDownstream(downstream discovery.AggregatedDiscoveryService_StreamAggregatedResourcesServer,
 	response *discovery.DiscoveryResponse) error {
-	return sendWithTimeout(context.Background(), func(errChan chan error) {
-		errChan <- downstream.Send(response)
-		close(errChan)
-	})
+	return istiogrpc.Send(downstream.Context(), func() error { return downstream.Send(response) })
 }
 
-func sendWithTimeout(ctx context.Context, sendFunc func(errorChan chan error)) error {
-	timeoutCtx, cancel := context.WithTimeout(ctx, sendTimeout)
-	defer cancel()
-	errChan := make(chan error, 1)
-	go sendFunc(errChan)
+// tapRequest() sends "req" to Istiod, and returns a matching response, or `nil` on timeout.
+// Requests are serialized -- only one may be in-flight at a time.
+func (p *XdsProxy) tapRequest(req *discovery.DiscoveryRequest, timeout time.Duration) (*discovery.DiscoveryResponse, error) {
+	if p.connected == nil {
+		return nil, fmt.Errorf("proxy not connected to Istiod")
+	}
 
-	select {
-	case <-timeoutCtx.Done():
-		return timeoutCtx.Err()
-	case err := <-errChan:
+	// Only allow one tap request at a time
+	p.tapMutex.Lock()
+	defer p.tapMutex.Unlock()
+
+	// Send to Istiod
+	p.connected.requestsChan <- req
+
+	// Wait for expected response or timeout
+	for {
+		select {
+		case res := <-p.tapResponseChannel:
+			if res.TypeUrl == req.TypeUrl {
+				return res, nil
+			}
+		case <-time.After(timeout):
+			return nil, nil
+		}
+	}
+}
+
+func (p *XdsProxy) makeTapHandler() func(w http.ResponseWriter, req *http.Request) {
+	return func(w http.ResponseWriter, req *http.Request) {
+		qp, err := url.ParseQuery(req.URL.RawQuery)
+		if err != nil {
+			w.WriteHeader(400)
+			fmt.Fprintf(w, "%v\n", err)
+			return
+		}
+		typeURL := fmt.Sprintf("istio.io%s", req.URL.Path)
+		dr := discovery.DiscoveryRequest{
+			TypeUrl: typeURL,
+		}
+		resourceName := qp.Get("resourceName")
+		if resourceName != "" {
+			dr.ResourceNames = []string{resourceName}
+		}
+		response, err := p.tapRequest(&dr, 5*time.Second)
+		if err != nil {
+			w.WriteHeader(503)
+			fmt.Fprintf(w, "%v\n", err)
+			return
+		}
+
+		if response == nil {
+			log.Infof("timed out waiting for Istiod to respond to %q", typeURL)
+			w.WriteHeader(504)
+			return
+		}
+
+		// Try to unmarshal Istiod's response using jsonpb (needed for Envoy protobufs)
+		w.Header().Add("Content-Type", "application/json")
+		jsonm := &jsonpb.Marshaler{Indent: "  "}
+		var buf bytes.Buffer
+		err = jsonm.Marshal(&buf, response)
+		if err == nil {
+			_, _ = w.Write(buf.Bytes())
+			if err != nil {
+				log.Infof("fail to write debug response: %v", err)
+			}
+			return
+		}
+
+		// Failed as protobuf.  Try as regular JSON
+		proxyLog.Warnf("could not marshal istiod response as pb: %v", err)
+		j, err := json.Marshal(response)
+		if err != nil {
+			// Couldn't unmarshal at all
+			w.WriteHeader(500)
+			fmt.Fprintf(w, "%v\n", err)
+			return
+		}
+		_, err = w.Write(j)
+		if err != nil {
+			log.Infof("fail to write debug response: %v", err)
+			return
+		}
+	}
+}
+
+// initDebugInterface() listens on localhost:15004 for path /debug/...
+// forwards the paths to Istiod as xDS requests
+// waits for response from Istiod, sends it as JSON
+func (p *XdsProxy) initDebugInterface() error {
+	p.tapResponseChannel = make(chan *discovery.DiscoveryResponse)
+
+	httpMux := http.NewServeMux()
+	handler := p.makeTapHandler()
+	httpMux.HandleFunc("/debug/", handler)
+	httpMux.HandleFunc("/debug", handler) // For 1.10 Istiod which uses istio.io/debug
+
+	p.httpTapServer = &http.Server{
+		Addr:    "localhost:15004",
+		Handler: httpMux,
+	}
+
+	// create HTTP listener
+	listener, err := net.Listen("tcp", p.httpTapServer.Addr)
+	if err != nil {
 		return err
 	}
+
+	go func() {
+		log.Infof("starting Http service at %s", listener.Addr())
+		if err := p.httpTapServer.Serve(listener); err != nil {
+			log.Errorf("error serving tap http server: %v", err)
+		}
+	}()
+
+	return nil
 }

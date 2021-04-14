@@ -21,11 +21,11 @@ import (
 )
 
 // CreateAndStartServer starts a server and returns the response passed.
-func CreateAndStartServer(response string, address string) *httptest.Server {
-	return createHTTPServer(createDefaultFuncMap(response), address)
+func CreateAndStartServer(response string) *httptest.Server {
+	return createHTTPServer(createDefaultFuncMap(response))
 }
 
-func createHTTPServer(handlers map[string]func(rw http.ResponseWriter, _ *http.Request), address string) *httptest.Server {
+func createHTTPServer(handlers map[string]func(rw http.ResponseWriter, _ *http.Request)) *httptest.Server {
 	mux := http.NewServeMux()
 	for k, v := range handlers {
 		mux.HandleFunc(k, http.HandlerFunc(v))
@@ -34,7 +34,7 @@ func createHTTPServer(handlers map[string]func(rw http.ResponseWriter, _ *http.R
 	// Start a local HTTP server
 	server := httptest.NewUnstartedServer(mux)
 
-	l, err := net.Listen("tcp", address)
+	l, err := net.Listen("tcp", ":0")
 	if err != nil {
 		panic("Could not create listener for test: " + err.Error())
 	}

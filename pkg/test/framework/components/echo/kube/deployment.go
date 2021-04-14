@@ -28,11 +28,9 @@ import (
 
 	"github.com/Masterminds/sprig/v3"
 	"github.com/hashicorp/go-multierror"
-	"gopkg.in/yaml.v3"
 	kubeCore "k8s.io/api/core/v1"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/client-go/kubernetes"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
@@ -351,8 +349,6 @@ spec:
           # read certs from correct directory
           sudo sh -c 'echo PROV_CERT=/var/run/secrets/istio >> /var/lib/istio/envoy/cluster.env'
           sudo sh -c 'echo OUTPUT_CERTS=/var/run/secrets/istio >> /var/lib/istio/envoy/cluster.env'
-          # Block standard inbound ports
-          sudo sh -c 'echo ISTIO_LOCAL_EXCLUDE_PORTS="15090,15021,15020" >> /var/lib/istio/envoy/cluster.env'
 
           # TODO: run with systemctl?
           export ISTIO_AGENT_FLAGS="--concurrency 2"
@@ -598,7 +594,15 @@ func GenerateService(cfg echo.Config) (string, error) {
 	return tmpl.Execute(serviceTemplate, params)
 }
 
-const DefaultVMImage = "app_sidecar_ubuntu_bionic"
+var VMImages = map[echo.VMDistro]string{
+	echo.UbuntuXenial: "app_sidecar_ubuntu_xenial",
+	echo.UbuntuFocal:  "app_sidecar_ubuntu_focal",
+	echo.UbuntuBionic: "app_sidecar_ubuntu_bionic",
+	echo.Debian9:      "app_sidecar_debian_9",
+	echo.Debian10:     "app_sidecar_debian_10",
+	echo.Centos7:      "app_sidecar_centos_7",
+	echo.Centos8:      "app_sidecar_centos_8",
+}
 
 func templateParams(cfg echo.Config, settings *image.Settings, versions resource.RevVerMap) (map[string]interface{}, error) {
 	if settings == nil {
@@ -608,28 +612,20 @@ func templateParams(cfg echo.Config, settings *image.Settings, versions resource
 			return nil, err
 		}
 	}
-	supportStartupProbe := cfg.Cluster.MinKubeVersion(16, 0)
+	supportStartupProbe := cfg.Cluster.MinKubeVersion(0)
 
-	// if image is not provided, default to app_sidecar
-	vmImage := DefaultVMImage
-	if cfg.VMImage != "" {
-		vmImage = cfg.VMImage
+	vmImage := VMImages[cfg.VMDistro]
+	if vmImage == "" {
+		vmImage = VMImages[echo.DefaultVMDistro]
+		log.Warnf("no image for distro %s, defaulting to %s", cfg.VMDistro, echo.DefaultVMDistro)
 	}
 	namespace := ""
 	if cfg.Namespace != nil {
 		namespace = cfg.Namespace.Name()
 	}
-	imagePullSecret := ""
-	if settings.ImagePullSecret != "" {
-		data, err := ioutil.ReadFile(settings.ImagePullSecret)
-		if err != nil {
-			return nil, err
-		}
-		secret := unstructured.Unstructured{Object: map[string]interface{}{}}
-		if err := yaml.Unmarshal(data, secret.Object); err != nil {
-			return nil, err
-		}
-		imagePullSecret = secret.GetName()
+	imagePullSecret, err := settings.ImagePullSecretName()
+	if err != nil {
+		return nil, err
 	}
 	params := map[string]interface{}{
 		"Hub":                settings.Hub,

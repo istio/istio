@@ -27,6 +27,7 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/model/status"
 	"istio.io/istio/pilot/pkg/serviceregistry"
+	"istio.io/istio/pilot/pkg/util/informermetric"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/host"
@@ -67,6 +68,7 @@ type configKey struct {
 type ServiceEntryStore struct { // nolint:golint
 	XdsUpdater model.XDSUpdater
 	store      model.IstioConfigStore
+	clusterID  string
 
 	storeMutex sync.RWMutex
 
@@ -92,6 +94,12 @@ type ServiceDiscoveryOption func(*ServiceEntryStore)
 func DisableServiceEntryProcessing() ServiceDiscoveryOption {
 	return func(o *ServiceEntryStore) {
 		o.processServiceEntry = false
+	}
+}
+
+func WithClusterID(clusterID string) ServiceDiscoveryOption {
+	return func(o *ServiceEntryStore) {
+		o.clusterID = clusterID
 	}
 }
 
@@ -121,6 +129,7 @@ func NewServiceDiscovery(
 			configController.RegisterEventHandler(gvk.ServiceEntry, s.serviceEntryHandler)
 		}
 		configController.RegisterEventHandler(gvk.WorkloadEntry, s.workloadEntryHandler)
+		_ = configController.SetWatchErrorHandler(informermetric.ErrorHandlerForCluster(s.clusterID))
 	}
 	return s
 }
