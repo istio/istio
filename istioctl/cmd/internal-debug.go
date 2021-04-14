@@ -162,7 +162,6 @@ By default it will use the default serviceAccount from (istio-system) namespace 
 				resourceName = args[0]
 			}
 
-			fmt.Println("resource name:", resourceName)
 			xdsRequest = xdsapi.DiscoveryRequest{
 				ResourceNames: []string{resourceName},
 				Node: &envoy_corev3.Node{
