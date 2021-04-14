@@ -16,6 +16,7 @@ package kubeauth
 
 import (
 	"fmt"
+	"net/http"
 
 	"golang.org/x/net/context"
 	"google.golang.org/grpc/metadata"
@@ -72,6 +73,15 @@ func (a *KubeJWTAuthenticator) AuthenticatorType() string {
 
 const DefaultKubernetesAudience = "kubernetes.default.svc"
 
+func (a *KubeJWTAuthenticator) AuthenticateRequest(req *http.Request) (*security.Caller, error) {
+	targetJWT, err := security.ExtractRequestToken(req)
+	if err != nil {
+		return nil, fmt.Errorf("target JWT extraction error: %v", err)
+	}
+	clusterID := req.Header.Get(clusterIDMeta)
+	return a.authenticate(targetJWT, clusterID)
+}
+
 // Authenticate authenticates the call using the K8s JWT from the context.
 // The returned Caller.Identities is in SPIFFE format.
 func (a *KubeJWTAuthenticator) Authenticate(ctx context.Context) (*security.Caller, error) {
@@ -110,6 +120,47 @@ func (a *KubeJWTAuthenticator) Authenticate(ctx context.Context) (*security.Call
 					DefaultKubernetesAudience, aud)
 			}
 		}
+		// TODO: check the audience from token, no need to call
+		// apiserver if audience is not matching. This may also
+		// handle older apiservers that don't check audience.
+	} else {
+		// No audience will be passed to the check if the token
+		// is unbound and the setting to require bound tokens is off
+		aud = nil
+	}
+	id, err = tokenreview.ValidateK8sJwt(kubeClient, targetJWT, aud)
+	if err != nil {
+		return nil, fmt.Errorf("failed to validate the JWT from cluster %q: %v", clusterID, err)
+	}
+	if len(id) != 2 {
+		return nil, fmt.Errorf("failed to parse the JWT. Validation result length is not 2, but %d", len(id))
+	}
+	callerNamespace := id[0]
+	callerServiceAccount := id[1]
+	return &security.Caller{
+		AuthSource: security.AuthSourceIDToken,
+		Identities: []string{fmt.Sprintf(authenticate.IdentityTemplate, a.trustDomain, callerNamespace, callerServiceAccount)},
+	}, nil
+}
+
+func (a *KubeJWTAuthenticator) authenticate(targetJWT, clusterID string) (*security.Caller, error) {
+	var err error
+	var id []string
+
+	kubeClient := a.GetKubeClient(clusterID)
+	if kubeClient == nil {
+		return nil, fmt.Errorf("could not get cluster %s's kube client", clusterID)
+	}
+	var aud []string
+
+	// If the token has audience - we will validate it by setting in in the audiences field,
+	// This happens regardless of Require3PToken setting.
+	//
+	// If 'Require3PToken' is set - we will also set the audiences field, forcing the check.
+	// If Require3P is not set - and token does not have audience - we will
+	// tolerate the unbound tokens.
+	if !util.IsK8SUnbound(targetJWT) || security.Require3PToken.Get() {
+		aud = security.TokenAudiences
 		// TODO: check the audience from token, no need to call
 		// apiserver if audience is not matching. This may also
 		// handle older apiservers that don't check audience.
