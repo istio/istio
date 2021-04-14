@@ -18,7 +18,6 @@ package helm
 import (
 	"fmt"
 	"io/ioutil"
-	"istio.io/istio/tests/util/sanitycheck"
 	"os"
 	"path/filepath"
 	"testing"
@@ -27,6 +26,7 @@ import (
 	kubecluster "istio.io/istio/pkg/test/framework/components/cluster/kube"
 	"istio.io/istio/pkg/test/framework/image"
 	"istio.io/istio/pkg/test/helm"
+	"istio.io/istio/tests/util/sanitycheck"
 )
 
 // TestDefaultInstall tests Istio installation using Helm with default options
