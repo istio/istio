@@ -660,7 +660,7 @@ func TestProbeHeader(t *testing.T) {
 			if err != nil {
 				t.Fatalf("invalid app probers")
 			}
-			config := Options{
+			config := Config{
 				StatusPort:     0,
 				KubeAppProbers: string(appProber),
 			}
