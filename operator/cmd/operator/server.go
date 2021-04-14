@@ -106,22 +106,6 @@ func getRenewDeadline() *time.Duration {
 	return &duration
 }
 
-// getLeaseDuration returns the lease duration, duration for waiting to force acquire leadership.
-func getLeaseDuration() *time.Duration {
-	ddl, found := os.LookupEnv("LEASE_DURATION")
-	// default duration in controller-runtime package
-	df := time.Second * 15
-	if !found {
-		return &df
-	}
-	duration, err := time.ParseDuration(ddl)
-	if err != nil {
-		log.Errorf("failed to parse leaseDuration: %v, use default value", err)
-		return &df
-	}
-	return &duration
-}
-
 func run() {
 	watchNS, err := getWatchNamespace()
 	if err != nil {
@@ -133,9 +117,9 @@ func run() {
 		log.Warn("Leader election namespace not set. Leader election is disabled. NOT APPROPRIATE FOR PRODUCTION USE!")
 	}
 
-	// TODO renewDeadline cannot be greater than leaseDuration
+	// renewDeadline cannot be greater than leaseDuration
 	renewDeadline := getRenewDeadline()
-	leaseDuration := getLeaseDuration()
+	leaseDuration := time.Duration(renewDeadline.Nanoseconds() * 2)
 
 	// Get a config to talk to the apiserver
 	cfg, err := config.GetConfig()
@@ -158,7 +142,7 @@ func run() {
 			LeaderElection:          leaderElectionEnabled,
 			LeaderElectionNamespace: leaderElectionNS,
 			LeaderElectionID:        leaderElectionID,
-			LeaseDuration:           leaseDuration,
+			LeaseDuration:           &leaseDuration,
 			RenewDeadline:           renewDeadline,
 		}
 	} else {
@@ -169,7 +153,7 @@ func run() {
 			LeaderElection:          leaderElectionEnabled,
 			LeaderElectionNamespace: leaderElectionNS,
 			LeaderElectionID:        leaderElectionID,
-			LeaseDuration:           leaseDuration,
+			LeaseDuration:           &leaseDuration,
 			RenewDeadline:           renewDeadline,
 		}
 	}
