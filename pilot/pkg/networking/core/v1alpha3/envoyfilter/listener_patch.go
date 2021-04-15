@@ -496,7 +496,7 @@ func patchHTTPFilters(patchContext networking.EnvoyFilter_PatchContext, filterKe
 	}
 }
 
-// no lint
+// nolint
 func applyHttpFilterPatch(lp *model.EnvoyFilterConfigPatchWrapper, hcm *http_conn.HttpConnectionManager) bool {
 	applied := false
 	switch lp.Operation {
