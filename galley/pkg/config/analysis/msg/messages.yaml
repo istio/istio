@@ -442,7 +442,7 @@ messages:
   - name: "LocalhostListener"
     code: IST0143
     level: Error
-    description: "A port exposed in by a Service is bound to a localhost address"
+    description: "A port exposed in a Service is bound to a localhost address"
     template: "Port %v is exposed in a Service but listens on localhost. It will not be exposed to other pods."
     args:
       - name: port
