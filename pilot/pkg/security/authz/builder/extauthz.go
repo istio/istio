@@ -354,7 +354,7 @@ func generateFilterMatcher(name string) *envoy_type_matcher_v3.MetadataMatcher {
 		Path: []*envoy_type_matcher_v3.MetadataMatcher_PathSegment{
 			{
 				Segment: &envoy_type_matcher_v3.MetadataMatcher_PathSegment_Key{
-					Key: "shadow_effective_policy_id",
+					Key: authzmodel.RBACExtAuthzShadowRulesStatPrefix + authzmodel.RBACShadowEffectivePolicyID,
 				},
 			},
 		},
