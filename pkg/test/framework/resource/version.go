@@ -18,10 +18,26 @@ import (
 	"strings"
 
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pkg/test/framework/config"
 )
+
+var _ config.Value = &RevVerMap{}
 
 // RevVerMap maps installed revisions to their Istio versions.
 type RevVerMap map[string]IstioVersion
+
+func (rv *RevVerMap) SetConfig(m config.Map) error {
+	out := make(RevVerMap)
+	for k := range m {
+		version, err := ParseIstioVersion(m.String(k))
+		if err != nil {
+			return err
+		}
+		out[k] = version
+	}
+	*rv = out
+	return nil
+}
 
 // Set parses IstioVersions from a string flag in the form "a=1.5.6,b=1.9.0,c=1.4".
 func (rv *RevVerMap) Set(value string) error {
