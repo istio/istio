@@ -442,6 +442,7 @@ func patchHTTPFilters(patchContext networking.EnvoyFilter_PatchContext, filterKe
 	}
 
 	// First collect all matched patches.
+	needorder := false
 	mpatches := make([]*model.EnvoyFilterConfigPatchWrapper, 0)
 	for _, lp := range patches[networking.EnvoyFilter_HTTP_FILTER] {
 		if !commonConditionMatch(patchContext, lp) ||
@@ -450,34 +451,46 @@ func patchHTTPFilters(patchContext networking.EnvoyFilter_PatchContext, filterKe
 			!networkFilterMatch(filter, lp) {
 			continue
 		}
+		// If there are insert before and insert after patches with http filter match, we need dependency ordering.
+		if (lp.Operation == networking.EnvoyFilter_Patch_INSERT_BEFORE ||
+			lp.Operation == networking.EnvoyFilter_Patch_INSERT_AFTER) && hasHTTPFilterMatch(lp) {
+			needorder = true
+		}
 		mpatches = append(mpatches, lp)
 	}
-
-	// Order patches as per dependencies. This will also detect cycles.
-	optaches, err := orderPatches(mpatches, hcm)
-	// TODO(ramaraochavali): When cycle is detected instead of ignoring the entire patch,
-	// consider applying remaining filters.
-	if err != nil {
-		IncrementEnvoyFilterMetric(filterKey, HttpFilter, false)
-		log.Warnf("envoy filter has patches that have cyclic dependencies. So filter is skipped: %s", toString(optaches))
-		return
-	}
-
-	// Finally apply the ordered patches.
 	applied := false
-	unique := sets.Set{}
-	for _, pnode := range optaches {
-		// First apply all dependencies.
-		for _, dep := range pnode.deps {
-			if !unique.Contains(dep.Value.(*http_conn.HttpFilter).Name) {
-				applied = applyHttpFilterPatch(dep, hcm) && applied
-				unique.Insert(dep.Value.(*http_conn.HttpFilter).Name)
+	if needorder {
+		// Order patches as per dependencies. This will also detect cycles.
+		optaches, err := orderPatches(mpatches, hcm)
+		// TODO(ramaraochavali): When cycle is detected instead of ignoring the entire patch,
+		// consider applying remaining filters.
+		if err != nil {
+			IncrementEnvoyFilterMetric(filterKey, HttpFilter, false)
+			log.Warnf("envoy filter has patches that have cyclic dependencies. So filter is skipped: %s", toString(optaches))
+			return
+		}
+
+		// Finally apply the ordered patches.
+
+		unique := sets.Set{}
+		for _, pnode := range optaches {
+			// First apply all dependencies.
+			for _, dep := range pnode.deps {
+				if !unique.Contains(dep.Value.(*http_conn.HttpFilter).Name) {
+					applied = applyHttpFilterPatch(dep, hcm) && applied
+					unique.Insert(dep.Value.(*http_conn.HttpFilter).Name)
+				}
+			}
+			// Then apply the main patch.
+			if !unique.Contains(pnode.patch.Value.(*http_conn.HttpFilter).Name) {
+				applied = applyHttpFilterPatch(pnode.patch, hcm) && applied
+				unique.Insert(pnode.patch.Value.(*http_conn.HttpFilter).Name)
 			}
 		}
-		// Then apply the main patch.
-		if !unique.Contains(pnode.patch.Value.(*http_conn.HttpFilter).Name) {
-			applied = applyHttpFilterPatch(pnode.patch, hcm) && applied
-			unique.Insert(pnode.patch.Value.(*http_conn.HttpFilter).Name)
+	} else {
+		// We do not need ordering - just apply patches as is.
+		for _, patch := range mpatches {
+			applied = applyHttpFilterPatch(patch, hcm) && applied
 		}
 	}
 	if httpFiltersRemoved {
