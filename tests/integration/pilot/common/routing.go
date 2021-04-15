@@ -1095,11 +1095,11 @@ func selfCallsCases() []TrafficTestCase {
 				opts.Target = nil
 			},
 			opts: echo.CallOptions{
-				Address:      "localhost",
-				CallInstance: true,
-				Scheme:       scheme.HTTP,
-				PortName:     "http",
-				Validator:    echo.And(echo.ExpectOK(), echo.ExpectKey("X-Envoy-Attempt-Count", "")),
+				Address:   "localhost",
+				Port:      &echo.Port{ServicePort: 8080},
+				Scheme:    scheme.HTTP,
+				PortName:  "http",
+				Validator: echo.And(echo.ExpectOK(), echo.ExpectKey("X-Envoy-Attempt-Count", "")),
 			},
 		},
 		// PodIP calls will go directly to podIP, bypassing Envoy. No envoy headers added.
@@ -1117,7 +1117,7 @@ func selfCallsCases() []TrafficTestCase {
 			opts: echo.CallOptions{
 				CallInstance: true,
 				Scheme:       scheme.HTTP,
-				PortName:     "http",
+				Port:         &echo.Port{ServicePort: 8080},
 				Validator:    echo.And(echo.ExpectOK(), echo.ExpectKey("X-Envoy-Attempt-Count", "")),
 			},
 		},
