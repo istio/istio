@@ -197,6 +197,7 @@ func NewServer(args *PilotArgs, initFuncs ...func(*Server)) (*Server, error) {
 		readinessProbes:     make(map[string]readinessProbe),
 		workloadTrustBundle: tb.NewTrustBundle(nil),
 		server:              server.New(),
+		shutdownDuration:    args.ShutdownDuration,
 	}
 	// Apply custom initialization functions.
 	for _, fn := range initFuncs {
@@ -206,10 +207,6 @@ func NewServer(args *PilotArgs, initFuncs ...func(*Server)) (*Server, error) {
 	e.TrustBundle = s.workloadTrustBundle
 	s.XDSServer = xds.NewDiscoveryServer(e, args.Plugins, args.PodName, args.Namespace)
 
-	if args.ShutdownDuration == 0 {
-		s.shutdownDuration = 10 * time.Second // If not specified set to 10 seconds.
-	}
-
 	if args.RegistryOptions.KubeOptions.WatchedNamespaces != "" {
 		// Add the control-plane namespace to the list of watched namespaces.
 		args.RegistryOptions.KubeOptions.WatchedNamespaces = fmt.Sprintf("%s,%s",
@@ -218,7 +215,7 @@ func NewServer(args *PilotArgs, initFuncs ...func(*Server)) (*Server, error) {
 		)
 	}
 
-	// used for both initKubeRegistry and initClusterRegistreis
+	// used for both initKubeRegistry and initClusterRegistries
 	if features.EnableEndpointSliceController {
 		args.RegistryOptions.KubeOptions.EndpointMode = kubecontroller.EndpointSliceOnly
 	} else {
