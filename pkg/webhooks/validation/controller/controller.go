@@ -48,7 +48,10 @@ import (
 	"istio.io/pkg/log"
 )
 
-var scope = log.RegisterScope("validationController", "validation webhook controller", 0)
+var (
+	scope             = log.RegisterScope("validationController", "validation webhook controller", 0)
+	dryRunCreationReq = &reconcileRequest{"retry dry-run creation of invalid config"}
+)
 
 type Options struct {
 	// Istio system namespace where istiod resides.
