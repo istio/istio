@@ -57,14 +57,14 @@ global:
 			}
 			InstallIstio(t, cs, h, "", overrideValuesFile)
 
+			t.Cleanup(func() {
+				DeleteIstio(t, h, cs)
+			})
+
 			VerifyInstallation(ctx, cs)
 
 			client, server := sanitycheck.SetupTrafficTest(t, ctx)
 			sanitycheck.RunTrafficTestClientServer(t, client, server)
-
-			t.Cleanup(func() {
-				deleteIstio(t, h, cs)
-			})
 		})
 }
 
@@ -97,12 +97,12 @@ global:
 				t.Fatalf("failed to write iop cr file: %v", err)
 			}
 			InstallIstio(t, cs, h, "", overrideValuesFile)
+			t.Cleanup(func() {
+				DeleteIstio(t, h, cs)
+			})
 
 			VerifyInstallation(ctx, cs)
 
 			sanitycheck.RunTrafficTest(t, ctx)
-			t.Cleanup(func() {
-				deleteIstio(t, h, cs)
-			})
 		})
 }

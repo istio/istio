@@ -42,7 +42,6 @@ const (
 	IstioNamespace      = "istio-system"
 	ReleasePrefix       = "istio-"
 	BaseChart           = "base"
-	TarGzSuffix         = ".tar.gz"
 	DiscoveryChart      = "istio-discovery"
 	IngressGatewayChart = "istio-ingress"
 	EgressGatewayChart  = "istio-egress"
@@ -109,9 +108,9 @@ func CreateNamespace(t test.Failer, cs cluster.Cluster, namespace string) {
 	}
 }
 
-// deleteIstio deletes installed Istio Helm charts and resources
-func deleteIstio(t *testing.T, h *helm.Helm, cs *kube.Cluster) {
-	scopes.Framework.Infof("cleaning up resources")
+// DeleteIstio deletes installed Istio Helm charts and resources
+func DeleteIstio(t *testing.T, h *helm.Helm, cs *kube.Cluster) {
+	scopes.Framework.Infof("=== cleaning up resources ===")
 	if err := h.DeleteChart(EgressReleaseName, IstioNamespace); err != nil {
 		t.Errorf("failed to delete %s release", EgressReleaseName)
 	}
@@ -130,6 +129,7 @@ func deleteIstio(t *testing.T, h *helm.Helm, cs *kube.Cluster) {
 	if err := kubetest.WaitForNamespaceDeletion(cs, IstioNamespace, retry.Timeout(RetryTimeOut)); err != nil {
 		t.Errorf("wating for istio namespace to be deleted: %v", err)
 	}
+	scopes.Framework.Infof("=== succeeded ===")
 }
 
 // VerifyInstallation verify that the Helm installation is successful
