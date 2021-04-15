@@ -99,15 +99,15 @@ func (p *SecureTokenServiceExchanger) requestWithRetry(reqBytes []byte) ([]byte,
 			body, err := ioutil.ReadAll(resp.Body)
 			return body, err
 		}
-		if retryable(resp.StatusCode) {
-			body, _ := ioutil.ReadAll(resp.Body)
-			lastError = fmt.Errorf("token exchange request failed: status code %v", resp.StatusCode)
-			stsClientLog.Debugf("token exchange request failed: status code %v, body %v", resp.StatusCode, string(body))
-			resp.Body.Close()
-			time.Sleep(p.backoff)
-			monitoring.NumOutgoingRetries.With(monitoring.RequestType.Value(monitoring.TokenExchange)).Increment()
-			continue
+		body, _ := ioutil.ReadAll(resp.Body)
+		lastError = fmt.Errorf("token exchange request failed: status code %v body %v", resp.StatusCode, string(body))
+		resp.Body.Close()
+		if !retryable(resp.StatusCode) {
+			break
 		}
+		monitoring.NumOutgoingRetries.With(monitoring.RequestType.Value(monitoring.TokenExchange)).Increment()
+		stsClientLog.Debugf("token exchange request failed: status code %v, body %v", resp.StatusCode, string(body))
+		time.Sleep(p.backoff)
 	}
 	return nil, fmt.Errorf("exchange failed all retries, last error: %v", lastError)
 }
@@ -125,12 +125,13 @@ func (p *SecureTokenServiceExchanger) ExchangeToken(k8sSAjwt string) (string, er
 	if err := json.Unmarshal(body, respData); err != nil {
 		// Normally the request should json - extremely hard to debug otherwise, not enough info in status/err
 		stsClientLog.Debugf("Unexpected unmarshal error, response was %s", string(body))
-		return "", fmt.Errorf("failed to unmarshal response data of size %v: %v", len(body), err)
+		return "", fmt.Errorf("(aud: %s), failed to unmarshal response data of size %v: %v",
+			aud, len(body), err)
 	}
 
 	if respData.AccessToken == "" {
 		return "", fmt.Errorf(
-			"exchanged empty token, response: %v", string(body))
+			"exchanged empty token (aud: %s), response: %v", aud, string(body))
 	}
 
 	return respData.AccessToken, nil

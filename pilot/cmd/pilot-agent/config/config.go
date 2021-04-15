@@ -36,7 +36,7 @@ import (
 )
 
 // return proxyConfig and trustDomain
-func ConstructProxyConfig(meshConfigFile, serviceCluster, proxyConfigEnv string, concurrency int, role *model.Proxy) (meshconfig.ProxyConfig, error) {
+func ConstructProxyConfig(meshConfigFile, serviceCluster, proxyConfigEnv string, concurrency int, role *model.Proxy) (*meshconfig.ProxyConfig, error) {
 	annotations, err := readPodAnnotations()
 	if err != nil {
 		if os.IsNotExist(err) {
@@ -49,13 +49,13 @@ func ConstructProxyConfig(meshConfigFile, serviceCluster, proxyConfigEnv string,
 	if fileExists(meshConfigFile) {
 		contents, err := ioutil.ReadFile(meshConfigFile)
 		if err != nil {
-			return meshconfig.ProxyConfig{}, fmt.Errorf("failed to read mesh config file %v: %v", meshConfigFile, err)
+			return nil, fmt.Errorf("failed to read mesh config file %v: %v", meshConfigFile, err)
 		}
 		fileMeshContents = string(contents)
 	}
-	meshConfig, err := getMeshConfig(fileMeshContents, annotations[annotation.ProxyConfig.Name], proxyConfigEnv)
+	meshConfig, err := getMeshConfig(fileMeshContents, annotations[annotation.ProxyConfig.Name], proxyConfigEnv, role.Type == model.SidecarProxy)
 	if err != nil {
-		return meshconfig.ProxyConfig{}, err
+		return nil, err
 	}
 	proxyConfig := mesh.DefaultProxyConfig()
 	if meshConfig.DefaultConfig != nil {
@@ -70,7 +70,9 @@ func ConstructProxyConfig(meshConfigFile, serviceCluster, proxyConfigEnv string,
 		if byResources != nil {
 			proxyConfig.Concurrency = byResources
 		}
-	} else {
+	} else if concurrency != 0 {
+		// If --concurrency is explicitly set, we will use that. Otherwise, use source determined by
+		// proxy config.
 		proxyConfig.Concurrency = &types.Int32Value{Value: int32(concurrency)}
 	}
 	proxyConfig.ServiceCluster = serviceCluster
@@ -85,9 +87,9 @@ func ConstructProxyConfig(meshConfigFile, serviceCluster, proxyConfigEnv string,
 		}
 	}
 	if err := validation.ValidateProxyConfig(&proxyConfig); err != nil {
-		return meshconfig.ProxyConfig{}, err
+		return nil, err
 	}
-	return applyAnnotations(proxyConfig, annotations), nil
+	return applyAnnotations(&proxyConfig, annotations), nil
 }
 
 // determineConcurrencyOption determines the correct setting for --concurrency based on CPU requests/limits
@@ -117,8 +119,12 @@ func determineConcurrencyOption() *types.Int32Value {
 //
 // Merging is done by replacement. Any fields present in the overlay will replace those existing fields, while
 // untouched fields will remain untouched. This means lists will be replaced, not appended to, for example.
-func getMeshConfig(fileOverride, annotationOverride, proxyConfigEnv string) (meshconfig.MeshConfig, error) {
+func getMeshConfig(fileOverride, annotationOverride, proxyConfigEnv string, isSidecar bool) (meshconfig.MeshConfig, error) {
 	mc := mesh.DefaultMeshConfig()
+	// Gateway default should be concurrency unset (ie listen on all threads)
+	if !isSidecar {
+		mc.DefaultConfig.Concurrency = nil
+	}
 
 	if fileOverride != "" {
 		log.Infof("Apply mesh config from file %v", fileOverride)
@@ -182,7 +188,7 @@ func readPodCPULimits() (int, error) {
 }
 
 // Apply any overrides to proxy config from annotations
-func applyAnnotations(config meshconfig.ProxyConfig, annos map[string]string) meshconfig.ProxyConfig {
+func applyAnnotations(config *meshconfig.ProxyConfig, annos map[string]string) *meshconfig.ProxyConfig {
 	if v, f := annos[annotation.SidecarDiscoveryAddress.Name]; f {
 		config.DiscoveryAddress = v
 	}

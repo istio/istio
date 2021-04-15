@@ -63,10 +63,10 @@ func TestRevisionTags(t *testing.T) {
 			}
 
 			istioCtl := istioctl.NewOrFail(t, t, istioctl.Config{Cluster: t.Clusters().Default()})
-			baseArgs := []string{"experimental", "tag"}
+			baseArgs := []string{"experimental", "revision", "tag"}
 			for _, tc := range tcs {
 				t.NewSubTest(tc.name).Run(func(t framework.TestContext) {
-					tagSetArgs := append(baseArgs, "set", tc.tag, "--revision", tc.revision)
+					tagSetArgs := append(baseArgs, "set", tc.tag, "--revision", tc.revision, "--skip-confirmation")
 					tagSetArgs = append(tagSetArgs, "--manifests", filepath.Join(env.IstioSrc, "manifests"))
 					tagRemoveArgs := append(baseArgs, "remove", tc.tag, "-y")
 

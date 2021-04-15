@@ -35,7 +35,10 @@ func (s *Server) ServiceController() *aggregate.Controller {
 func (s *Server) initServiceControllers(args *PilotArgs) error {
 	serviceControllers := s.ServiceController()
 
-	s.serviceEntryStore = serviceentry.NewServiceDiscovery(s.configController, s.environment.IstioConfigStore, s.XDSServer)
+	s.serviceEntryStore = serviceentry.NewServiceDiscovery(
+		s.configController, s.environment.IstioConfigStore, s.XDSServer,
+		serviceentry.WithClusterID(s.clusterID),
+	)
 	serviceControllers.AddRegistry(s.serviceEntryStore)
 
 	registered := make(map[serviceregistry.ProviderID]bool)
@@ -91,13 +94,18 @@ func (s *Server) initKubeRegistry(args *PilotArgs) (err error) {
 		caBundlePath,
 		args.Revision,
 		s.fetchCARoot,
-		s.environment)
+		s.environment,
+		s.environment.ClusterLocal(),
+		s.server)
 
 	// initialize the "main" cluster registry before starting controllers for remote clusters
 	if err := mc.AddMemberCluster(s.kubeClient, args.RegistryOptions.KubeOptions.ClusterID); err != nil {
 		log.Errorf("failed initializing registry for %s: %v", args.RegistryOptions.KubeOptions.ClusterID, err)
 		return err
 	}
+
+	// Start the multicluster controller and wait for it to shutdown before exiting the server.
+	s.addTerminatingStartFunc(mc.Run)
 
 	// start remote cluster controllers
 	s.addStartFunc(func(stop <-chan struct{}) error {

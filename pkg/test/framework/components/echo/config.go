@@ -33,6 +33,20 @@ type Cluster interface {
 	CanDeploy(Config) (Config, bool)
 }
 
+type VMDistro = string
+
+const (
+	UbuntuXenial VMDistro = "UbuntuXenial"
+	UbuntuFocal  VMDistro = "UbuntuFocal"
+	UbuntuBionic VMDistro = "UbuntuBionic"
+	Debian9      VMDistro = "Debian9"
+	Debian10     VMDistro = "Debian10"
+	Centos7      VMDistro = "Centos7"
+	Centos8      VMDistro = "Centos8"
+
+	DefaultVMDistro = UbuntuBionic
+)
+
 // Config defines the options for creating an Echo component.
 // nolint: maligned
 type Config struct {
@@ -97,8 +111,8 @@ type Config struct {
 	// If enabled, ISTIO_META_AUTO_REGISTER_GROUP will be set on the VM and the WorkloadEntry will be created automatically.
 	AutoRegisterVM bool
 
-	// The image name to be used to pull the image for the VM. `DeployAsVM` must be enabled.
-	VMImage string
+	// The distro to use for a VM. For fake VMs, this maps to docker images.
+	VMDistro VMDistro
 
 	// The set of environment variables to set for `DeployAsVM` instances.
 	VMEnvironment map[string]string
@@ -155,6 +169,23 @@ func (c Config) HostHeader() string {
 	return c.FQDN()
 }
 
+func (c Config) IsHeadless() bool {
+	return c.Headless
+}
+
+func (c Config) IsNaked() bool {
+	return len(c.Subsets) > 0 && c.Subsets[0].Annotations != nil && !c.Subsets[0].Annotations.GetBool(SidecarInject)
+}
+
+func (c Config) IsTProxy() bool {
+	// TODO this could be HasCustomInjectionMode
+	return len(c.Subsets) > 0 && c.Subsets[0].Annotations != nil && c.Subsets[0].Annotations.Get(SidecarInterceptionMode) == "TPROXY"
+}
+
+func (c Config) IsVM() bool {
+	return c.DeployAsVM
+}
+
 // DeepCopy creates a clone of IstioEndpoint.
 func (c Config) DeepCopy() Config {
 	newc := c
@@ -163,6 +194,10 @@ func (c Config) DeepCopy() Config {
 	newc.Cluster = c.Cluster
 	newc.Namespace = c.Namespace
 	return newc
+}
+
+func (c Config) IsExternal() bool {
+	return c.HostHeader() != c.FQDN()
 }
 
 func copyInternal(v interface{}) interface{} {

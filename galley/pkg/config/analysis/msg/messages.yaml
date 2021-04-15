@@ -375,7 +375,7 @@ messages:
   - name: "DeploymentConflictingPorts"
     code: IST0137
     level: Warning
-    description: "Two services selecting the same workload with same target port are MUST refer to the same port."
+    description: "Two services selecting the same workload with the same targetPort MUST refer to the same port."
     template: "This deployment %s is associated with multiple services %v using targetPort %q but different ports: %v."
     args:
       - name: deployment
@@ -404,4 +404,46 @@ messages:
     template: "%v"
     args:
       - name: error
+        type: string
+
+  - name: "IngressRouteRulesNotAffected"
+    code: IST0140
+    level: Warning
+    description: "Route rules have no effect on ingress gateway requests"
+    template: "Subset in virtual service %s has no effect on ingress gateway %s requests"
+    args:
+      - name: virtualservicesubset
+        type: string
+      - name: virtualservice
+        type: string
+
+  - name: "InsufficientPermissions"
+    code: IST0141
+    level: Error
+    description: "Required permissions to install Istio are missing."
+    template: "Missing required permission to create resource %v (%v)"
+    args:
+      - name: resource
+        type: string
+      - name: error
+        type: string
+
+  - name: "UnsupportedKubernetesVersion"
+    code: IST0142
+    level: Error
+    description: "The Kubernetes version is not supported"
+    template: "The Kubernetes Version %q is lower than the minimum version: %v"
+    args:
+      - name: version
+        type: string
+      - name: minimumVersion
+        type: string
+
+  - name: "LocalhostListener"
+    code: IST0143
+    level: Error
+    description: "A port exposed in by a Service is bound to a localhost address"
+    template: "Port %v is exposed in a Service but listens on localhost. It will not be exposed to other pods."
+    args:
+      - name: port
         type: string

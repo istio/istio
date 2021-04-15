@@ -1,0 +1,7 @@
+apiVersion: release-notes/v2
+kind: feature
+area: installation
+releaseNotes:
+  - |
+    **Updated** non-revisioned installs to target the label `istio.io/rev=default` for injection in addition to the
+    existing default injection labels `istio-injection=enabled` and `sidecar.istio.io/inject=true`.

@@ -22,15 +22,17 @@ import (
 	"strings"
 	"text/tabwriter"
 
-	"github.com/hashicorp/go-multierror"
+	multierror "github.com/hashicorp/go-multierror"
 	"github.com/spf13/cobra"
 	admit_v1 "k8s.io/api/admissionregistration/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 
 	"istio.io/api/label"
+	"istio.io/istio/istioctl/pkg/clioptions"
 	"istio.io/istio/operator/cmd/mesh"
 	"istio.io/istio/operator/pkg/helm"
+	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/kube"
 )
 
@@ -41,6 +43,9 @@ const (
 	defaultRevisionName         = "default"
 	pilotDiscoveryChart         = "istio-control/istio-discovery"
 	revisionTagTemplateName     = "revision-tags.yaml"
+	// Revision tags require that the target istiod patches ALL webhooks with matching istio.io/rev label,
+	// a behavior that just made it into 1.10 (https://github.com/istio/istio/pull/29583)
+	minRevisionTagIstioVersion = "1.10"
 
 	// help strings and long formatted user outputs
 	skipConfirmationFlagHelpStr = `The skipConfirmation determines whether the user is prompted for confirmation.
@@ -52,6 +57,7 @@ overwrite existing revision tags.`
 revision tag, use 'kubectl label namespace <NAMESPACE> istio.io/rev=%s'
 `
 	webhookNameHelpStr = "Name to use for a revision tag's mutating webhook configuration."
+	versionCheckStr    = "Revision %q on version %q, must be at least version %q to patch revision tag webhooks. Continue anyways? (y/N)"
 )
 
 var (
@@ -77,7 +83,7 @@ func tagCommand() *cobra.Command {
 referring to control plane revisions for sidecar injection.
 
 With revision tags, rather than relabeling a namespace from "istio.io/rev=revision-a" to "istio.io/rev=revision-b" to
-change which control plane revision handles injection, it's possible to create a revision tag "prod" and label our 
+change which control plane revision handles injection, it's possible to create a revision tag "prod" and label our
 namespace "istio.io/rev=prod". The "prod" revision tag could point to "1-7-6" initially and then be changed to point to "1-8-1"
 at some later point.
 
@@ -111,13 +117,14 @@ func tagSetCommand() *cobra.Command {
 		Long: `Create or modify revision tags. Tag an Istio control plane revision for use with namespace istio.io/rev
 injection labels.`,
 		Example: ` # Create a revision tag from the "1-8-0" revision
- istioctl x tag set prod --revision 1-8-0
+ istioctl x revision tag set prod --revision 1-8-0
 
  # Point namespace "test-ns" at the revision pointed to by the "prod" revision tag
  kubectl label ns test-ns istio.io/rev=prod
 
  # Change the revision tag to reference the "1-8-1" revision
- istioctl x tag set prod --revision 1-8-1 --overwrite
+ istioctl x revision tag prod --revision 1-8-1 --overwrite
+
 
  # Rollout namespace "test-ns" to update workloads to the "1-8-1" revision
  kubectl rollout restart deployments -n test-ns
@@ -159,7 +166,7 @@ func tagGenerateCommand() *cobra.Command {
 		Long: `Create a revision tag and output to the command's stdout. Tag an Istio control plane revision for use with namespace istio.io/rev
 injection labels.`,
 		Example: ` # Create a revision tag from the "1-8-0" revision
- istioctl x tag generate prod --revision 1-8-0 > tag.yaml
+ istioctl x revision tag generate prod --revision 1-8-0 > tag.yaml
 
  # Apply the tag to cluster
  kubectl apply -f tag.yaml
@@ -203,7 +210,7 @@ func tagListCommand() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "list",
 		Short:   "List existing revision tags",
-		Example: "istioctl x tag list",
+		Example: "istioctl x revision tag list",
 		Aliases: []string{"show"},
 		Args: func(cmd *cobra.Command, args []string) error {
 			if len(args) != 0 {
@@ -231,10 +238,10 @@ func tagRemoveCommand() *cobra.Command {
 
 Removing a revision tag should be done with care. Removing a revision tag will disrupt sidecar injection in namespaces
 that reference the tag in an "istio.io/rev" label. Verify that there are no remaining namespaces referencing a
-revision tag before removing using the "istioctl x tag list" command.
+revision tag before removing using the "istioctl x revision tag list" command.
 `,
 		Example: ` # Remove the revision tag "prod"
-	istioctl x tag remove prod
+	istioctl x revision tag remove prod
 `,
 		Aliases: []string{"delete"},
 		Args: func(cmd *cobra.Command, args []string) error {
@@ -262,6 +269,17 @@ revision tag before removing using the "istioctl x tag list" command.
 
 // setTag creates or modifies a revision tag.
 func setTag(ctx context.Context, kubeClient kube.ExtendedClient, tag, revision string, generate bool, w io.Writer) error {
+	// ensure that the revision is recent enough to patch tag webhooks
+	if !skipConfirmation {
+		sufficient, version, err := versionCheck(revision)
+		if err != nil {
+			return err
+		}
+		if !sufficient {
+			confirm(fmt.Sprintf(versionCheckStr, revision, version, minRevisionTagIstioVersion), w)
+		}
+	}
+
 	// abort if there exists a revision with the target tag name
 	revWebhookCollisions, err := getWebhooksWithRevision(ctx, kubeClient, tag)
 	if err != nil {
@@ -581,4 +599,32 @@ func confirm(msg string, w io.Writer) bool {
 	}
 	response = strings.ToUpper(response)
 	return response == "Y" || response == "YES"
+}
+
+// versionCheck returns true if revision tag being created is pointed to a CP version
+// >=1.10 since that's the first version that patches all matching istio.io/rev webhooks
+func versionCheck(rev string) (bool, string, error) {
+	meshInfo, err := getRemoteInfo(clioptions.ControlPlaneOptions{
+		Revision: revision,
+	})
+	if err != nil {
+		return false, "", err
+	}
+	if meshInfo == nil {
+		return false, "", fmt.Errorf("could not retrieve control plane version for revision: %s", rev)
+	}
+	minVersion := model.ParseIstioVersion(minRevisionTagIstioVersion)
+	revVersion := model.ParseIstioVersion((*meshInfo)[0].Info.Version)
+	if minVersion.Compare(revVersion) > 0 {
+		return false, versionToString(revVersion), nil
+	}
+
+	return true, versionToString(revVersion), nil
+}
+
+func versionToString(v *model.IstioVersion) string {
+	if v.Patch != 65535 {
+		return fmt.Sprintf("%d.%d.%d", v.Major, v.Minor, v.Patch)
+	}
+	return fmt.Sprintf("%d.%d", v.Major, v.Minor)
 }

@@ -27,6 +27,7 @@ import (
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"sigs.k8s.io/yaml"
 
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/test"
@@ -86,6 +87,17 @@ var IngressCredentialB = IngressCredential{
 var IngressCredentialServerKeyCertB = IngressCredential{
 	PrivateKey: TLSServerKeyB,
 	ServerCert: TLSServerCertB,
+}
+
+// IngressKubeSecretYAML will generate a credential for a gateway
+func IngressKubeSecretYAML(name, namespace string, ingressType CallType, ingressCred IngressCredential) string {
+	// Create Kubernetes secret for ingress gateway
+	secret := createSecret(ingressType, name, namespace, ingressCred, true)
+	by, err := yaml.Marshal(secret)
+	if err != nil {
+		panic(err)
+	}
+	return string(by) + "\n---\n"
 }
 
 // CreateIngressKubeSecret reads credential names from credNames and key/cert from ingressCred,
@@ -159,6 +171,10 @@ func createSecret(ingressType CallType, cn, ns string, ic IngressCredential, isC
 	if ingressType == Mtls {
 		if isCompoundAndNotGeneric {
 			return &v1.Secret{
+				TypeMeta: metav1.TypeMeta{
+					Kind:       "Secret",
+					APIVersion: "v1",
+				},
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      cn,
 					Namespace: ns,
@@ -171,6 +187,10 @@ func createSecret(ingressType CallType, cn, ns string, ic IngressCredential, isC
 			}
 		}
 		return &v1.Secret{
+			TypeMeta: metav1.TypeMeta{
+				Kind:       "Secret",
+				APIVersion: "v1",
+			},
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      cn,
 				Namespace: ns,
@@ -183,6 +203,10 @@ func createSecret(ingressType CallType, cn, ns string, ic IngressCredential, isC
 		}
 	}
 	return &v1.Secret{
+		TypeMeta: metav1.TypeMeta{
+			Kind:       "Secret",
+			APIVersion: "v1",
+		},
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      cn,
 			Namespace: ns,
@@ -432,8 +456,8 @@ func RunTestMultiMtlsGateways(ctx framework.TestContext, inst istio.Instance, ns
 	callType := Mtls
 
 	for _, h := range tests {
-		ctx.NewSubTest(h.Host).Run(func(ctx framework.TestContext) {
-			SendRequestOrFail(ctx, ing, h.Host, h.CredentialName, callType, tlsContext,
+		ctx.NewSubTest(h.Host).Run(func(t framework.TestContext) {
+			SendRequestOrFail(t, ing, h.Host, h.CredentialName, callType, tlsContext,
 				ExpectedResponse{ResponseCode: 200, ErrorMessage: ""})
 		})
 	}
@@ -464,8 +488,8 @@ func RunTestMultiTLSGateways(ctx framework.TestContext, inst istio.Instance, ns 
 	callType := TLS
 
 	for _, h := range tests {
-		ctx.NewSubTest(h.Host).Run(func(ctx framework.TestContext) {
-			SendRequestOrFail(ctx, ing, h.Host, h.CredentialName, callType, tlsContext,
+		ctx.NewSubTest(h.Host).Run(func(t framework.TestContext) {
+			SendRequestOrFail(t, ing, h.Host, h.CredentialName, callType, tlsContext,
 				ExpectedResponse{ResponseCode: 200, ErrorMessage: ""})
 		})
 	}

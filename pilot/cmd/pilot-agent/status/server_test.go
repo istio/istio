@@ -17,12 +17,14 @@ package status
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net"
 	"net/http"
 	"net/http/httptest"
 	"os"
 	"os/signal"
+	"reflect"
 	"strconv"
 	"strings"
 	"syscall"
@@ -32,6 +34,8 @@ import (
 	"github.com/prometheus/common/expfmt"
 	"k8s.io/apimachinery/pkg/util/intstr"
 
+	"istio.io/istio/pilot/cmd/pilot-agent/status/ready"
+	"istio.io/istio/pilot/cmd/pilot-agent/status/testserver"
 	"istio.io/istio/pkg/kube/apimirror"
 	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/test/util/retry"
@@ -45,6 +49,8 @@ const (
 	testHeaderValue = "some-value"
 	testHostValue   = "host"
 )
+
+var liveServerStats = "cluster_manager.cds.update_success: 1\nlistener_manager.lds.update_success: 1\nserver.state: 0\nlistener_manager.workers_started: 1"
 
 func (h *handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if r.URL.Path == "/header" {
@@ -114,7 +120,7 @@ func TestNewServer(t *testing.T) {
 		},
 	}
 	for _, tc := range testCases {
-		_, err := NewServer(Config{
+		_, err := NewServer(Options{
 			KubeAppProbers: tc.probe,
 		})
 
@@ -137,7 +143,7 @@ func TestNewServer(t *testing.T) {
 func TestPprof(t *testing.T) {
 	pprofPath := "/debug/pprof/cmdline"
 	// Starts the pilot agent status server.
-	server, err := NewServer(Config{StatusPort: 0})
+	server, err := NewServer(Options{StatusPort: 0})
 	if err != nil {
 		t.Fatalf("failed to create status server %v", err)
 	}
@@ -441,7 +447,7 @@ func TestAppProbe(t *testing.T) {
 			if err != nil {
 				t.Fatalf("invalid app probers")
 			}
-			config := Config{
+			config := Options{
 				StatusPort:     0,
 				KubeAppProbers: string(appProber),
 			}
@@ -490,7 +496,7 @@ func TestHttpsAppProbe(t *testing.T) {
 	appPort := listener.Addr().(*net.TCPAddr).Port
 
 	// Starts the pilot agent status server.
-	server, err := NewServer(Config{
+	server, err := NewServer(Options{
 		StatusPort: 0,
 		KubeAppProbers: fmt.Sprintf(`{"/app-health/hello-world/readyz": {"httpGet": {"path": "/hello/sunnyvale", "port": %v, "scheme": "HTTPS"}},
 "/app-health/hello-world/livez": {"httpGet": {"port": %v, "scheme": "HTTPS"}}}`, appPort, appPort),
@@ -548,9 +554,157 @@ func TestHttpsAppProbe(t *testing.T) {
 	}
 }
 
+func TestProbeHeader(t *testing.T) {
+	headerChecker := func(t *testing.T, header http.Header) net.Listener {
+		listener, err := net.Listen("tcp", ":0")
+		if err != nil {
+			t.Fatalf("failed to allocate unused port %v", err)
+		}
+		go http.Serve(listener, http.HandlerFunc(func(rw http.ResponseWriter, r *http.Request) {
+			r.Header.Del("User-Agent")
+			r.Header.Del("Accept-Encoding")
+			if !reflect.DeepEqual(r.Header, header) {
+				t.Errorf("unexpected header, want = %v, got = %v", header, r.Header)
+				http.Error(rw, "", http.StatusBadRequest)
+				return
+			}
+			http.Error(rw, "", http.StatusOK)
+		}))
+		return listener
+	}
+
+	testCases := []struct {
+		name          string
+		originHeaders http.Header
+		proxyHeaders  []apimirror.HTTPHeader
+		want          http.Header
+	}{
+		{
+			name: "Only Origin",
+			originHeaders: http.Header{
+				testHeader: []string{testHeaderValue},
+			},
+			proxyHeaders: []apimirror.HTTPHeader{},
+			want: http.Header{
+				testHeader: []string{testHeaderValue},
+			},
+		},
+		{
+			name: "Only Origin, has multiple values",
+			originHeaders: http.Header{
+				testHeader: []string{testHeaderValue, testHeaderValue},
+			},
+			proxyHeaders: []apimirror.HTTPHeader{},
+			want: http.Header{
+				testHeader: []string{testHeaderValue, testHeaderValue},
+			},
+		},
+		{
+			name:          "Only Proxy",
+			originHeaders: http.Header{},
+			proxyHeaders: []apimirror.HTTPHeader{
+				{
+					Name:  testHeader,
+					Value: testHeaderValue,
+				},
+			},
+			want: http.Header{
+				testHeader: []string{testHeaderValue},
+			},
+		},
+		{
+			name:          "Only Proxy, has multiple values",
+			originHeaders: http.Header{},
+			proxyHeaders: []apimirror.HTTPHeader{
+				{
+					Name:  testHeader,
+					Value: testHeaderValue,
+				},
+				{
+					Name:  testHeader,
+					Value: testHeaderValue,
+				},
+			},
+			want: http.Header{
+				testHeader: []string{testHeaderValue, testHeaderValue},
+			},
+		},
+		{
+			name: "Proxy overwrites Origin",
+			originHeaders: http.Header{
+				testHeader: []string{testHeaderValue, testHeaderValue},
+			},
+			proxyHeaders: []apimirror.HTTPHeader{
+				{
+					Name:  testHeader,
+					Value: testHeaderValue + "Over",
+				},
+			},
+			want: http.Header{
+				testHeader: []string{testHeaderValue + "Over"},
+			},
+		},
+	}
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			svc := headerChecker(t, tc.want)
+			defer svc.Close()
+			probePath := "/app-health/hello-world/livez"
+			appAddress := svc.Addr().(*net.TCPAddr)
+			appProber, err := json.Marshal(KubeAppProbers{
+				probePath: &Prober{
+					HTTPGet: &apimirror.HTTPGetAction{
+						Port:        intstr.IntOrString{IntVal: int32(appAddress.Port)},
+						Host:        appAddress.IP.String(),
+						Path:        "/header",
+						HTTPHeaders: tc.proxyHeaders,
+					},
+				},
+			})
+			if err != nil {
+				t.Fatalf("invalid app probers")
+			}
+			config := Options{
+				StatusPort:     0,
+				KubeAppProbers: string(appProber),
+			}
+			// Starts the pilot agent status server.
+			server, err := NewServer(config)
+			if err != nil {
+				t.Fatal("failed to create status server: ", err)
+			}
+			ctx, cancel := context.WithCancel(context.Background())
+			defer cancel()
+			go server.Run(ctx)
+
+			var statusPort uint16
+			for statusPort == 0 {
+				server.mutex.RLock()
+				statusPort = server.statusPort
+				server.mutex.RUnlock()
+			}
+
+			client := http.Client{}
+			req, err := http.NewRequest("GET", fmt.Sprintf("http://localhost:%v%s", statusPort, probePath), nil)
+			if err != nil {
+				t.Fatal("failed to create request: ", err)
+			}
+			req.Header = tc.originHeaders
+			resp, err := client.Do(req)
+			if err != nil {
+				t.Fatal("request failed: ", err)
+			}
+			defer resp.Body.Close()
+			if resp.StatusCode != http.StatusOK {
+				t.Errorf("unexpected status code, want = %v, got = %v", http.StatusOK, resp.StatusCode)
+			}
+		})
+	}
+}
+
 func TestHandleQuit(t *testing.T) {
 	statusPort := 15020
-	s, err := NewServer(Config{StatusPort: uint16(statusPort)})
+	s, err := NewServer(Options{StatusPort: uint16(statusPort)})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -619,4 +773,64 @@ func TestHandleQuit(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestAdditionalProbes(t *testing.T) {
+	rp := readyProbe{}
+	urp := unreadyProbe{}
+	testCases := []struct {
+		name   string
+		probes []ready.Prober
+		err    error
+	}{
+		{
+			name:   "success probe",
+			probes: []ready.Prober{rp},
+			err:    nil,
+		},
+		{
+			name:   "not ready probe",
+			probes: []ready.Prober{urp},
+			err:    errors.New("not ready"),
+		},
+		{
+			name:   "both probes",
+			probes: []ready.Prober{rp, urp},
+			err:    errors.New("not ready"),
+		},
+	}
+	testServer := testserver.CreateAndStartServer(liveServerStats)
+	defer testServer.Close()
+	for _, tc := range testCases {
+		server, err := NewServer(Options{
+			Probes:    tc.probes,
+			AdminPort: uint16(testServer.Listener.Addr().(*net.TCPAddr).Port),
+		})
+		if err != nil {
+			t.Errorf("failed to construct server")
+		}
+		err = server.isReady()
+		if tc.err == nil {
+			if err != nil {
+				t.Errorf("Unexpected result, expected: %v got: %v", tc.err, err)
+			}
+		} else {
+			if err.Error() != tc.err.Error() {
+				t.Errorf("Unexpected result, expected: %v got: %v", tc.err, err)
+			}
+		}
+
+	}
+}
+
+type readyProbe struct{}
+
+func (s readyProbe) Check() error {
+	return nil
+}
+
+type unreadyProbe struct{}
+
+func (u unreadyProbe) Check() error {
+	return errors.New("not ready")
 }

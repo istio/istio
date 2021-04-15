@@ -14,10 +14,10 @@ COPY istio-iptables /opt/cni/bin/
 COPY install-cni /usr/local/bin/
 
 # Copy over the Repair binary
-COPY istio-cni-repair /opt/cni/bin/
+COPY istio-cni-repair /opt/local/bin/
 
 # Copy over the Taint binary
-COPY istio-cni-taint /opt/cni/bin/
+COPY istio-cni-taint /opt/local/bin/
 
 ENV PATH=$PATH:/opt/cni/bin
 WORKDIR /opt/cni/bin

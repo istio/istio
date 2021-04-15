@@ -86,13 +86,6 @@ type Environment struct {
 	clusterLocalServices ClusterLocalProvider
 }
 
-func (e *Environment) GetDomainSuffix() string {
-	if len(e.DomainSuffix) > 0 {
-		return e.DomainSuffix
-	}
-	return constants.DefaultKubernetesDomain
-}
-
 func (e *Environment) Mesh() *meshconfig.MeshConfig {
 	if e != nil && e.Watcher != nil {
 		return e.Watcher.Mesh()
@@ -148,7 +141,14 @@ func (e *Environment) Version() string {
 	return ""
 }
 
+// Init initializes the Environment for use.
 func (e *Environment) Init() {
+	// Use a default DomainSuffix, if none was provided.
+	if len(e.DomainSuffix) == 0 {
+		e.DomainSuffix = constants.DefaultKubernetesDomain
+	}
+
+	// Create the cluster-local service registry.
 	e.clusterLocalServices = NewClusterLocalProvider(e)
 }
 
@@ -413,6 +413,18 @@ func (s *NodeMetaProxyConfig) UnmarshalJSON(data []byte) error {
 	return gogojsonpb.Unmarshal(bytes.NewReader(data), pc)
 }
 
+// Node is a typed version of Envoy node with metadata.
+type Node struct {
+	// ID of the Envoy node
+	ID string
+	// Metadata is the typed node metadata
+	Metadata *BootstrapNodeMetadata
+	// RawMetadata is the untyped node metadata
+	RawMetadata map[string]interface{}
+	// Locality from Envoy bootstrap
+	Locality *core.Locality
+}
+
 // BootstrapNodeMetadata is a superset of NodeMetadata, intended to model the entirety of the node metadata
 // we configure in the Envoy bootstrap. This is split out from NodeMetadata to explicitly segment the parameters
 // that are consumed by Pilot from the parameters used only as part of the bootstrap. Fields used by bootstrap only
@@ -431,17 +443,25 @@ type BootstrapNodeMetadata struct {
 	// of the workload instance (ex: k8s deployment for a k8s pod).
 	Owner string `json:"OWNER,omitempty"`
 
-	// PlatformMetadata contains any platform specific metadata
-	PlatformMetadata map[string]string `json:"PLATFORM_METADATA,omitempty"`
-
 	StatsInclusionPrefixes string `json:"sidecar.istio.io/statsInclusionPrefixes,omitempty"`
 	StatsInclusionRegexps  string `json:"sidecar.istio.io/statsInclusionRegexps,omitempty"`
 	StatsInclusionSuffixes string `json:"sidecar.istio.io/statsInclusionSuffixes,omitempty"`
 	ExtraStatTags          string `json:"sidecar.istio.io/extraStatTags,omitempty"`
 
-	// StsPort specifies the port of security token exchange server (STS).
-	// Used by envoy filters
-	StsPort string `json:"STS_PORT,omitempty"`
+	// ProxyViaAgent specifies whether xDS streams are proxied through the agent.
+	ProxyViaAgent bool `json:"PROXY_VIA_AGENT,omitempty"`
+
+	// PilotSAN is the list of subject alternate names for the xDS server.
+	PilotSubjectAltName []string `json:"PILOT_SAN,omitempty"`
+
+	// OutlierLogPath is the cluster manager outlier event log path.
+	OutlierLogPath string `json:"OUTLIER_LOG_PATH,omitempty"`
+
+	// PilotCertProvider is the provider of the xDS server DNS certificate.
+	PilotCertProvider string `json:"PILOT_CERT_PROVIDER,omitempty"`
+
+	// ProvCertDir is the directory containing pre-provisioned certs.
+	ProvCert string `json:"PROV_CERT,omitempty"`
 }
 
 // NodeMetadata defines the metadata associated with a proxy
@@ -536,6 +556,13 @@ type NodeMetadata struct {
 
 	// UnprivilegedPod is used to determine whether a Gateway Pod can open ports < 1024
 	UnprivilegedPod string `json:"UNPRIVILEGED_POD,omitempty"`
+
+	// PlatformMetadata contains any platform specific metadata
+	PlatformMetadata map[string]string `json:"PLATFORM_METADATA,omitempty"`
+
+	// StsPort specifies the port of security token exchange server (STS).
+	// Used by envoy filters
+	StsPort string `json:"STS_PORT,omitempty"`
 
 	// Contains a copy of the raw metadata. This is needed to lookup arbitrary values.
 	// If a value is known ahead of time it should be added to the struct rather than reading from here,

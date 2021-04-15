@@ -27,7 +27,7 @@ import (
 	httpConn "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
 	tcp "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/tcp_proxy/v3"
 	"github.com/envoyproxy/go-control-plane/pkg/wellknown"
-	"github.com/golang/protobuf/ptypes"
+	"sigs.k8s.io/yaml"
 
 	protio "istio.io/istio/istioctl/pkg/util/proto"
 	"istio.io/istio/pilot/pkg/networking/util"
@@ -249,7 +249,7 @@ func getFilterType(filters []*listener.Filter) string {
 			httpProxy := &httpConn.HttpConnectionManager{}
 			// Allow Unmarshal to work even if Envoy and istioctl are different
 			filter.GetTypedConfig().TypeUrl = "type.googleapis.com/envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager"
-			err := ptypes.UnmarshalAny(filter.GetTypedConfig(), httpProxy)
+			err := filter.GetTypedConfig().UnmarshalTo(httpProxy)
 			if err != nil {
 				return err.Error()
 			}
@@ -265,7 +265,7 @@ func getFilterType(filters []*listener.Filter) string {
 				tcpProxy := &tcp.TcpProxy{}
 				// Allow Unmarshal to work even if Envoy and istioctl are different
 				filter.GetTypedConfig().TypeUrl = "type.googleapis.com/envoy.extensions.filters.network.tcp_proxy.v3.TcpProxy"
-				err := ptypes.UnmarshalAny(filter.GetTypedConfig(), tcpProxy)
+				err := filter.GetTypedConfig().UnmarshalTo(tcpProxy)
 				if err != nil {
 					return err.Error()
 				}
@@ -355,7 +355,7 @@ func describeMatch(match *route.RouteMatch) string {
 }
 
 // PrintListenerDump prints the relevant listeners in the config dump to the ConfigWriter stdout
-func (c *ConfigWriter) PrintListenerDump(filter ListenerFilter) error {
+func (c *ConfigWriter) PrintListenerDump(filter ListenerFilter, outputFormat string) error {
 	_, listeners, err := c.setupListenerConfigWriter()
 	if err != nil {
 		return err
@@ -369,6 +369,11 @@ func (c *ConfigWriter) PrintListenerDump(filter ListenerFilter) error {
 	out, err := json.MarshalIndent(filteredListeners, "", "    ")
 	if err != nil {
 		return fmt.Errorf("failed to marshal listeners: %v", err)
+	}
+	if outputFormat == "yaml" {
+		if out, err = yaml.JSONToYAML(out); err != nil {
+			return err
+		}
 	}
 	fmt.Fprintln(c.Stdout, string(out))
 	return nil
@@ -397,7 +402,7 @@ func (c *ConfigWriter) retrieveSortedListenerSlice() ([]*listener.Listener, erro
 			listenerTyped := &listener.Listener{}
 			// Support v2 or v3 in config dump. See ads.go:RequestedTypes for more info.
 			l.ActiveState.Listener.TypeUrl = v3.ListenerType
-			err = ptypes.UnmarshalAny(l.ActiveState.Listener, listenerTyped)
+			err = l.ActiveState.Listener.UnmarshalTo(listenerTyped)
 			if err != nil {
 				return nil, fmt.Errorf("unmarshal listener: %v", err)
 			}
@@ -410,7 +415,7 @@ func (c *ConfigWriter) retrieveSortedListenerSlice() ([]*listener.Listener, erro
 			listenerTyped := &listener.Listener{}
 			// Support v2 or v3 in config dump. See ads.go:RequestedTypes for more info.
 			l.Listener.TypeUrl = v3.ListenerType
-			err = ptypes.UnmarshalAny(l.Listener, listenerTyped)
+			err = l.Listener.UnmarshalTo(listenerTyped)
 			if err != nil {
 				return nil, fmt.Errorf("unmarshal listener: %v", err)
 			}

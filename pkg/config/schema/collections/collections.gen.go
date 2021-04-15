@@ -18,6 +18,7 @@ import (
 	istioioapimetav1alpha1 "istio.io/api/meta/v1alpha1"
 	istioioapinetworkingv1alpha3 "istio.io/api/networking/v1alpha3"
 	istioioapisecurityv1beta1 "istio.io/api/security/v1beta1"
+	istioioapitelemetryv1alpha1 "istio.io/api/telemetry/v1alpha1"
 	"istio.io/istio/pkg/config/schema/collection"
 	"istio.io/istio/pkg/config/schema/resource"
 	"istio.io/istio/pkg/config/validation"
@@ -269,6 +270,25 @@ var (
 			ProtoPackage: "istio.io/api/security/v1beta1", StatusPackage: "istio.io/api/meta/v1alpha1",
 			ClusterScoped: false,
 			ValidateProto: validation.ValidateRequestAuthentication,
+		}.MustBuild(),
+	}.MustBuild()
+
+	// IstioTelemetryV1Alpha1Telemetries describes the collection
+	// istio/telemetry/v1alpha1/telemetries
+	IstioTelemetryV1Alpha1Telemetries = collection.Builder{
+		Name:         "istio/telemetry/v1alpha1/telemetries",
+		VariableName: "IstioTelemetryV1Alpha1Telemetries",
+		Disabled:     false,
+		Resource: resource.Builder{
+			Group:   "telemetry.istio.io",
+			Kind:    "Telemetry",
+			Plural:  "telemetries",
+			Version: "v1alpha1",
+			Proto:   "istio.telemetry.v1alpha1.Telemetry", StatusProto: "istio.meta.v1alpha1.IstioStatus",
+			ReflectType: reflect.TypeOf(&istioioapitelemetryv1alpha1.Telemetry{}).Elem(), StatusType: reflect.TypeOf(&istioioapimetav1alpha1.IstioStatus{}).Elem(),
+			ProtoPackage: "istio.io/api/telemetry/v1alpha1", StatusPackage: "istio.io/api/meta/v1alpha1",
+			ClusterScoped: false,
+			ValidateProto: validation.EmptyValidate,
 		}.MustBuild(),
 	}.MustBuild()
 
@@ -797,6 +817,25 @@ var (
 		}.MustBuild(),
 	}.MustBuild()
 
+	// K8STelemetryIstioIoV1Alpha1Telemetries describes the collection
+	// k8s/telemetry.istio.io/v1alpha1/telemetries
+	K8STelemetryIstioIoV1Alpha1Telemetries = collection.Builder{
+		Name:         "k8s/telemetry.istio.io/v1alpha1/telemetries",
+		VariableName: "K8STelemetryIstioIoV1Alpha1Telemetries",
+		Disabled:     false,
+		Resource: resource.Builder{
+			Group:   "telemetry.istio.io",
+			Kind:    "Telemetry",
+			Plural:  "telemetries",
+			Version: "v1alpha1",
+			Proto:   "istio.telemetry.v1alpha1.Telemetry", StatusProto: "istio.meta.v1alpha1.IstioStatus",
+			ReflectType: reflect.TypeOf(&istioioapitelemetryv1alpha1.Telemetry{}).Elem(), StatusType: reflect.TypeOf(&istioioapimetav1alpha1.IstioStatus{}).Elem(),
+			ProtoPackage: "istio.io/api/telemetry/v1alpha1", StatusPackage: "istio.io/api/meta/v1alpha1",
+			ClusterScoped: false,
+			ValidateProto: validation.EmptyValidate,
+		}.MustBuild(),
+	}.MustBuild()
+
 	// All contains all collections in the system.
 	All = collection.NewSchemasBuilder().
 		MustAdd(IstioMeshV1Alpha1MeshConfig).
@@ -812,6 +851,7 @@ var (
 		MustAdd(IstioSecurityV1Beta1Authorizationpolicies).
 		MustAdd(IstioSecurityV1Beta1Peerauthentications).
 		MustAdd(IstioSecurityV1Beta1Requestauthentications).
+		MustAdd(IstioTelemetryV1Alpha1Telemetries).
 		MustAdd(K8SAdmissionregistrationK8SIoV1Mutatingwebhookconfigurations).
 		MustAdd(K8SApiextensionsK8SIoV1Customresourcedefinitions).
 		MustAdd(K8SAppsV1Deployments).
@@ -840,6 +880,7 @@ var (
 		MustAdd(K8SServiceApisV1Alpha1Httproutes).
 		MustAdd(K8SServiceApisV1Alpha1Tcproutes).
 		MustAdd(K8SServiceApisV1Alpha1Tlsroutes).
+		MustAdd(K8STelemetryIstioIoV1Alpha1Telemetries).
 		Build()
 
 	// Istio contains only Istio collections.
@@ -857,6 +898,7 @@ var (
 		MustAdd(IstioSecurityV1Beta1Authorizationpolicies).
 		MustAdd(IstioSecurityV1Beta1Peerauthentications).
 		MustAdd(IstioSecurityV1Beta1Requestauthentications).
+		MustAdd(IstioTelemetryV1Alpha1Telemetries).
 		Build()
 
 	// Kube contains only kubernetes collections.
@@ -889,6 +931,7 @@ var (
 		MustAdd(K8SServiceApisV1Alpha1Httproutes).
 		MustAdd(K8SServiceApisV1Alpha1Tcproutes).
 		MustAdd(K8SServiceApisV1Alpha1Tlsroutes).
+		MustAdd(K8STelemetryIstioIoV1Alpha1Telemetries).
 		Build()
 
 	// Pilot contains only collections used by Pilot.
@@ -904,6 +947,7 @@ var (
 		MustAdd(IstioSecurityV1Beta1Authorizationpolicies).
 		MustAdd(IstioSecurityV1Beta1Peerauthentications).
 		MustAdd(IstioSecurityV1Beta1Requestauthentications).
+		MustAdd(IstioTelemetryV1Alpha1Telemetries).
 		Build()
 
 	// PilotServiceApi contains only collections used by Pilot, including experimental Service Api.
@@ -919,6 +963,7 @@ var (
 			MustAdd(IstioSecurityV1Beta1Authorizationpolicies).
 			MustAdd(IstioSecurityV1Beta1Peerauthentications).
 			MustAdd(IstioSecurityV1Beta1Requestauthentications).
+			MustAdd(IstioTelemetryV1Alpha1Telemetries).
 			MustAdd(K8SServiceApisV1Alpha1Backendpolicies).
 			MustAdd(K8SServiceApisV1Alpha1Gatewayclasses).
 			MustAdd(K8SServiceApisV1Alpha1Gateways).

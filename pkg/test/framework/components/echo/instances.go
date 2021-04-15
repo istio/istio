@@ -16,6 +16,7 @@ package echo
 
 import (
 	"errors"
+	"sort"
 	"strings"
 
 	"istio.io/istio/pkg/test"
@@ -38,14 +39,32 @@ func (i Instances) Clusters() cluster.Clusters {
 	return out
 }
 
+// IsDeployment returns true if there is only one deployment contained in the Instances
+func (i Instances) IsDeployment() bool {
+	return len(i.Services()) == 1
+}
+
 // Matcher is used to filter matching instances
 type Matcher func(Instance) bool
+
+// Any doesn't filter out any echos.
+func Any(_ Instance) bool {
+	return true
+}
 
 // And combines two or more matches. Example:
 //     Service("a").And(InCluster(c)).And(Match(func(...))
 func (m Matcher) And(other Matcher) Matcher {
 	return func(i Instance) bool {
 		return m(i) && other(i)
+	}
+}
+
+// Not negates the given matcher. Example:
+//     Not(IsNaked())
+func Not(m Matcher) Matcher {
+	return func(i Instance) bool {
+		return !m(i)
 	}
 }
 
@@ -63,7 +82,21 @@ func Service(value string) Matcher {
 	}
 }
 
-// Service matches instances within the given namespace name.
+// FQDN matches instances with have the given fully qualified domain name.
+func FQDN(value string) Matcher {
+	return func(i Instance) bool {
+		return value == i.Config().FQDN()
+	}
+}
+
+// SameDeployment matches instnaces with the same FQDN and assumes they're part of the same Service and Namespace.
+func SameDeployment(match Instance) Matcher {
+	return func(instance Instance) bool {
+		return match.Config().FQDN() == instance.Config().FQDN()
+	}
+}
+
+// Namespace matches instances within the given namespace name.
 func Namespace(namespace string) Matcher {
 	return func(i Instance) bool {
 		return i.Config().Namespace.Name() == namespace
@@ -81,6 +114,34 @@ func InCluster(c cluster.Cluster) Matcher {
 func InNetwork(n string) Matcher {
 	return func(i Instance) bool {
 		return i.Config().Cluster.NetworkName() == n
+	}
+}
+
+// IsVirtualMachine matches instances with DeployAsVM
+func IsVirtualMachine() Matcher {
+	return func(i Instance) bool {
+		return i.Config().IsVM()
+	}
+}
+
+// IsExternal matches instances that have a custom DefaultHostHeader defined
+func IsExternal() Matcher {
+	return func(i Instance) bool {
+		return i.Config().IsExternal()
+	}
+}
+
+// IsNaked matches instances that are Pods with a SidecarInject annotation equal to false.
+func IsNaked() Matcher {
+	return func(i Instance) bool {
+		return i.Config().IsNaked()
+	}
+}
+
+// IsHeadless matches instances that are backed by headless services.
+func IsHeadless() Matcher {
+	return func(i Instance) bool {
+		return i.Config().Headless
 	}
 }
 
@@ -122,4 +183,95 @@ func (i Instances) Contains(instances ...Instance) bool {
 		return false
 	})
 	return len(matches) > 0
+}
+
+// Services is a set of Instances that share the same FQDN. While an Instance contains
+// multiple deployments (a single service in a single cluster), Instances contains multiple
+// deployments that may contain multiple Services.
+type Services []Instances
+
+// Services groups the Instances by FQDN. Each returned element is an Instances
+// containing only instances of a single service.
+func (i Instances) Services() Services {
+	grouped := map[string]Instances{}
+	for _, instance := range i {
+		k := instance.Config().FQDN()
+		grouped[k] = append(grouped[k], instance)
+	}
+	var out Services
+	for _, deployment := range grouped {
+		out = append(out, deployment)
+	}
+	sort.Stable(out)
+	return out
+}
+
+// GetByService finds the first Instances with the given Service name. It is possible to have multiple deployments
+// with the same service name but different namespaces (and therefore different FQDNs). Use caution when relying on
+// Service.
+func (d Services) GetByService(service string) Instances {
+	for _, instances := range d {
+		if instances[0].Config().Service == service {
+			return instances
+		}
+	}
+	return nil
+}
+
+// Services gives the service names of each deployment in order.
+func (d Services) Services() []string {
+	var out []string
+	for _, instances := range d {
+		out = append(out, instances[0].Config().Service)
+	}
+	return out
+}
+
+// FQDNs gives the fully-qualified-domain-names each deployment in order.
+func (d Services) FQDNs() []string {
+	var out []string
+	for _, instances := range d {
+		out = append(out, instances[0].Config().FQDN())
+	}
+	return out
+}
+
+func (d Services) Instances() Instances {
+	var out Instances
+	for _, instances := range d {
+		out = append(out, instances...)
+	}
+	return out
+}
+
+func (d Services) MatchFQDNs(fqdns ...string) Services {
+	match := map[string]bool{}
+	for _, fqdn := range fqdns {
+		match[fqdn] = true
+	}
+	var out Services
+	for _, instances := range d {
+		if match[instances[0].Config().FQDN()] {
+			out = append(out, instances)
+		}
+	}
+	return out
+}
+
+// Services must be sorted to make sure tests have consistent ordering
+var _ sort.Interface = Services{}
+
+// Len returns the number of deployments
+func (d Services) Len() int {
+	return len(d)
+}
+
+// Less returns true if the element at i should appear before the element at j in a sorted Services
+func (d Services) Less(i, j int) bool {
+	return strings.Compare(d[i][0].Config().FQDN(), d[j][0].Config().FQDN()) < 0
+}
+
+// Swap switches the positions of elements at i and j (used for sorting).
+func (d Services) Swap(i, j int) {
+	d[i], d[j] = d[j], d[i]
 }

@@ -16,6 +16,7 @@ package framework
 
 import (
 	"fmt"
+	"strings"
 
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/framework/components/cluster"
@@ -37,7 +38,7 @@ func newConfigManager(ctx resource.Context, clusters cluster.Clusters) resource.
 	}
 	return &configManager{
 		ctx:      ctx,
-		clusters: clusters.OfKind(cluster.Kubernetes),
+		clusters: clusters.Kube(),
 	}
 }
 
@@ -55,12 +56,14 @@ func (c *configManager) applyYAML(cleanup bool, ns string, yamlText ...string) e
 	for _, cl := range c.clusters {
 		cl := cl
 		if err := cl.ApplyYAMLFiles(ns, yamlFiles...); err != nil {
+			scopes.Framework.Infof("Applying to %s: %s", cl.StableName(), strings.Join(yamlFiles, ", "))
 			return fmt.Errorf("failed applying YAML to cluster %s: %v", cl.Name(), err)
 		}
 		if cleanup {
 			c.ctx.Cleanup(func() {
 				if err := cl.DeleteYAMLFiles(ns, yamlFiles...); err != nil {
-					scopes.Framework.Errorf("failed applying YAML from cluster %s: %v", cl.Name(), err)
+					scopes.Framework.Infof("Deleting from %s: %s", cl.StableName(), strings.Join(yamlFiles, ", "))
+					scopes.Framework.Errorf("failed deleting YAML from cluster %s: %v", cl.Name(), err)
 				}
 			})
 		}

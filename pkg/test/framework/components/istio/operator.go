@@ -647,9 +647,13 @@ func (i *operatorComponent) generateCommonInstallSettings(cfg Config, cluster cl
 			"--set", "values.global.network="+cluster.NetworkName())
 	}
 
-	// Include all user-specified values.
+	// Include all user-specified values and configuration options.
 	for k, v := range cfg.Values {
 		installSettings = append(installSettings, "--set", fmt.Sprintf("values.%s=%s", k, v))
+	}
+
+	for k, v := range cfg.OperatorOptions {
+		installSettings = append(installSettings, "--set", fmt.Sprintf("%s=%s", k, v))
 	}
 	return installSettings, nil
 }
@@ -706,7 +710,12 @@ func (i *operatorComponent) configureDirectAPIServiceAccessForCluster(ctx resour
 	if err != nil {
 		return fmt.Errorf("failed creating remote secret for cluster %s: %v", cluster.Name(), err)
 	}
-	if err := ctx.Config(ctx.Clusters().Primaries(cluster)...).ApplyYAML(cfg.SystemNamespace, secret); err != nil {
+	clusters := ctx.Clusters().Primaries(cluster)
+	if len(clusters) == 0 {
+		// giving 0 clusters to ctx.Config() means using all clusters
+		return nil
+	}
+	if err := ctx.Config(clusters...).ApplyYAML(cfg.SystemNamespace, secret); err != nil {
 		return fmt.Errorf("failed applying remote secret to clusters: %v", err)
 	}
 	return nil

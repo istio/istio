@@ -23,7 +23,6 @@ import (
 
 	envoy_admin "github.com/envoyproxy/go-control-plane/envoy/admin/v3"
 	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
-	"github.com/golang/protobuf/ptypes"
 
 	"istio.io/istio/istioctl/pkg/util/configdump"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
@@ -51,7 +50,7 @@ func (a *Analyzer) Print(writer io.Writer) {
 		listenerTyped := &listener.Listener{}
 		// Support v2 or v3 in config dump. See ads.go:RequestedTypes for more info.
 		l.ActiveState.Listener.TypeUrl = v3.ListenerType
-		err := ptypes.UnmarshalAny(l.ActiveState.Listener, listenerTyped)
+		err := l.ActiveState.Listener.UnmarshalTo(listenerTyped)
 		if err != nil {
 			return
 		}

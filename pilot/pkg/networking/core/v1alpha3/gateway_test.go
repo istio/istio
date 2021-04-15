@@ -24,9 +24,9 @@ import (
 	route "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
 	hcm "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
 	auth "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
-	"github.com/golang/protobuf/ptypes"
 	"github.com/google/go-cmp/cmp"
 	"google.golang.org/protobuf/testing/protocmp"
+	"google.golang.org/protobuf/types/known/durationpb"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
@@ -64,7 +64,7 @@ func TestBuildGatewayListenerTlsContext(t *testing.T) {
 						{
 							Name: "default",
 							SdsConfig: &core.ConfigSource{
-								InitialFetchTimeout: ptypes.DurationProto(time.Second * 0),
+								InitialFetchTimeout: durationpb.New(time.Second * 0),
 								ResourceApiVersion:  core.ApiVersion_V3,
 								ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
 									ApiConfigSource: &core.ApiConfigSource{
@@ -89,7 +89,7 @@ func TestBuildGatewayListenerTlsContext(t *testing.T) {
 							ValidationContextSdsSecretConfig: &auth.SdsSecretConfig{
 								Name: "ROOTCA",
 								SdsConfig: &core.ConfigSource{
-									InitialFetchTimeout: ptypes.DurationProto(time.Second * 0),
+									InitialFetchTimeout: durationpb.New(time.Second * 0),
 									ResourceApiVersion:  core.ApiVersion_V3,
 									ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
 										ApiConfigSource: &core.ApiConfigSource{
@@ -128,7 +128,7 @@ func TestBuildGatewayListenerTlsContext(t *testing.T) {
 						{
 							Name: "default",
 							SdsConfig: &core.ConfigSource{
-								InitialFetchTimeout: ptypes.DurationProto(time.Second * 0),
+								InitialFetchTimeout: durationpb.New(time.Second * 0),
 								ResourceApiVersion:  core.ApiVersion_V3,
 								ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
 									ApiConfigSource: &core.ApiConfigSource{
@@ -139,32 +139,6 @@ func TestBuildGatewayListenerTlsContext(t *testing.T) {
 											{
 												TargetSpecifier: &core.GrpcService_EnvoyGrpc_{
 													EnvoyGrpc: &core.GrpcService_EnvoyGrpc{ClusterName: model.SDSClusterName},
-												},
-											},
-										},
-									},
-								},
-							},
-						},
-					},
-					ValidationContextType: &auth.CommonTlsContext_CombinedValidationContext{
-						CombinedValidationContext: &auth.CommonTlsContext_CombinedCertificateValidationContext{
-							DefaultValidationContext: &auth.CertificateValidationContext{},
-							ValidationContextSdsSecretConfig: &auth.SdsSecretConfig{
-								Name: "ROOTCA",
-								SdsConfig: &core.ConfigSource{
-									InitialFetchTimeout: ptypes.DurationProto(time.Second * 0),
-									ResourceApiVersion:  core.ApiVersion_V3,
-									ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
-										ApiConfigSource: &core.ApiConfigSource{
-											ApiType:                   core.ApiConfigSource_GRPC,
-											SetNodeOnFirstMessageOnly: true,
-											TransportApiVersion:       core.ApiVersion_V3,
-											GrpcServices: []*core.GrpcService{
-												{
-													TargetSpecifier: &core.GrpcService_EnvoyGrpc_{
-														EnvoyGrpc: &core.GrpcService_EnvoyGrpc{ClusterName: model.SDSClusterName},
-													},
 												},
 											},
 										},
@@ -236,7 +210,6 @@ func TestBuildGatewayListenerTlsContext(t *testing.T) {
 					Mode:              networking.ServerTLSSettings_SIMPLE,
 					ServerCertificate: "server-cert.crt",
 					PrivateKey:        "private-key.key",
-					CaCertificates:    "ca-cert.crt",
 				},
 			},
 			result: &auth.DownstreamTlsContext{
@@ -256,31 +229,6 @@ func TestBuildGatewayListenerTlsContext(t *testing.T) {
 											{
 												TargetSpecifier: &core.GrpcService_EnvoyGrpc_{
 													EnvoyGrpc: &core.GrpcService_EnvoyGrpc{ClusterName: model.SDSClusterName},
-												},
-											},
-										},
-									},
-								},
-							},
-						},
-					},
-					ValidationContextType: &auth.CommonTlsContext_CombinedValidationContext{
-						CombinedValidationContext: &auth.CommonTlsContext_CombinedCertificateValidationContext{
-							DefaultValidationContext: &auth.CertificateValidationContext{},
-							ValidationContextSdsSecretConfig: &auth.SdsSecretConfig{
-								Name: "file-root:ca-cert.crt",
-								SdsConfig: &core.ConfigSource{
-									ResourceApiVersion: core.ApiVersion_V3,
-									ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
-										ApiConfigSource: &core.ApiConfigSource{
-											ApiType:                   core.ApiConfigSource_GRPC,
-											SetNodeOnFirstMessageOnly: true,
-											TransportApiVersion:       core.ApiVersion_V3,
-											GrpcServices: []*core.GrpcService{
-												{
-													TargetSpecifier: &core.GrpcService_EnvoyGrpc_{
-														EnvoyGrpc: &core.GrpcService_EnvoyGrpc{ClusterName: model.SDSClusterName},
-													},
 												},
 											},
 										},
@@ -630,7 +578,7 @@ func TestCreateGatewayHTTPFilterChainOpts(t *testing.T) {
 								Name: "default",
 								SdsConfig: &core.ConfigSource{
 									ResourceApiVersion:  core.ApiVersion_V3,
-									InitialFetchTimeout: ptypes.DurationProto(time.Second * 0),
+									InitialFetchTimeout: durationpb.New(time.Second * 0),
 									ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
 										ApiConfigSource: &core.ApiConfigSource{
 											ApiType:                   core.ApiConfigSource_GRPC,
@@ -655,7 +603,7 @@ func TestCreateGatewayHTTPFilterChainOpts(t *testing.T) {
 									Name: "ROOTCA",
 									SdsConfig: &core.ConfigSource{
 										ResourceApiVersion:  core.ApiVersion_V3,
-										InitialFetchTimeout: ptypes.DurationProto(time.Second * 0),
+										InitialFetchTimeout: durationpb.New(time.Second * 0),
 										ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
 											ApiConfigSource: &core.ApiConfigSource{
 												ApiType:                   core.ApiConfigSource_GRPC,
@@ -720,7 +668,7 @@ func TestCreateGatewayHTTPFilterChainOpts(t *testing.T) {
 								Name: "default",
 								SdsConfig: &core.ConfigSource{
 									ResourceApiVersion:  core.ApiVersion_V3,
-									InitialFetchTimeout: ptypes.DurationProto(time.Second * 0),
+									InitialFetchTimeout: durationpb.New(time.Second * 0),
 									ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
 										ApiConfigSource: &core.ApiConfigSource{
 											ApiType:                   core.ApiConfigSource_GRPC,
@@ -745,7 +693,7 @@ func TestCreateGatewayHTTPFilterChainOpts(t *testing.T) {
 									Name: "ROOTCA",
 									SdsConfig: &core.ConfigSource{
 										ResourceApiVersion:  core.ApiVersion_V3,
-										InitialFetchTimeout: ptypes.DurationProto(time.Second * 0),
+										InitialFetchTimeout: durationpb.New(time.Second * 0),
 										ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
 											ApiConfigSource: &core.ApiConfigSource{
 												ApiType:                   core.ApiConfigSource_GRPC,
@@ -810,7 +758,7 @@ func TestCreateGatewayHTTPFilterChainOpts(t *testing.T) {
 								Name: "default",
 								SdsConfig: &core.ConfigSource{
 									ResourceApiVersion:  core.ApiVersion_V3,
-									InitialFetchTimeout: ptypes.DurationProto(time.Second * 0),
+									InitialFetchTimeout: durationpb.New(time.Second * 0),
 									ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
 										ApiConfigSource: &core.ApiConfigSource{
 											ApiType:                   core.ApiConfigSource_GRPC,
@@ -835,7 +783,7 @@ func TestCreateGatewayHTTPFilterChainOpts(t *testing.T) {
 									Name: "ROOTCA",
 									SdsConfig: &core.ConfigSource{
 										ResourceApiVersion:  core.ApiVersion_V3,
-										InitialFetchTimeout: ptypes.DurationProto(time.Second * 0),
+										InitialFetchTimeout: durationpb.New(time.Second * 0),
 										ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
 											ApiConfigSource: &core.ApiConfigSource{
 												ApiType:                   core.ApiConfigSource_GRPC,
@@ -940,7 +888,7 @@ func TestCreateGatewayHTTPFilterChainOpts(t *testing.T) {
 								Name: "default",
 								SdsConfig: &core.ConfigSource{
 									ResourceApiVersion:  core.ApiVersion_V3,
-									InitialFetchTimeout: ptypes.DurationProto(time.Second * 0),
+									InitialFetchTimeout: durationpb.New(time.Second * 0),
 									ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
 										ApiConfigSource: &core.ApiConfigSource{
 											ApiType:                   core.ApiConfigSource_GRPC,
@@ -965,7 +913,7 @@ func TestCreateGatewayHTTPFilterChainOpts(t *testing.T) {
 									Name: "ROOTCA",
 									SdsConfig: &core.ConfigSource{
 										ResourceApiVersion:  core.ApiVersion_V3,
-										InitialFetchTimeout: ptypes.DurationProto(time.Second * 0),
+										InitialFetchTimeout: durationpb.New(time.Second * 0),
 										ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
 											ApiConfigSource: &core.ApiConfigSource{
 												ApiType:                   core.ApiConfigSource_GRPC,
@@ -1037,7 +985,7 @@ func TestCreateGatewayHTTPFilterChainOpts(t *testing.T) {
 								Name: "default",
 								SdsConfig: &core.ConfigSource{
 									ResourceApiVersion:  core.ApiVersion_V3,
-									InitialFetchTimeout: ptypes.DurationProto(time.Second * 0),
+									InitialFetchTimeout: durationpb.New(time.Second * 0),
 									ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
 										ApiConfigSource: &core.ApiConfigSource{
 											ApiType:                   core.ApiConfigSource_GRPC,
@@ -1062,7 +1010,7 @@ func TestCreateGatewayHTTPFilterChainOpts(t *testing.T) {
 									Name: "ROOTCA",
 									SdsConfig: &core.ConfigSource{
 										ResourceApiVersion:  core.ApiVersion_V3,
-										InitialFetchTimeout: ptypes.DurationProto(time.Second * 0),
+										InitialFetchTimeout: durationpb.New(time.Second * 0),
 										ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
 											ApiConfigSource: &core.ApiConfigSource{
 												ApiType:                   core.ApiConfigSource_GRPC,
@@ -1565,6 +1513,27 @@ func TestBuildGatewayListeners(t *testing.T) {
 				},
 			},
 			[]string{"0.0.0.0_80", "0.0.0.0_8080"},
+		},
+		{
+			"gateway with bind",
+			&pilot_model.Proxy{},
+			&networking.Gateway{
+				Servers: []*networking.Server{
+					{
+						Port: &networking.Port{Name: "http", Number: 80, Protocol: "HTTP"},
+					},
+					{
+						Port:  &networking.Port{Name: "http", Number: 8080, Protocol: "HTTP"},
+						Hosts: []string{"externalgatewayclient.com"},
+					},
+					{
+						Port:  &networking.Port{Name: "http", Number: 8080, Protocol: "HTTP"},
+						Bind:  "127.0.0.1",
+						Hosts: []string{"internalmesh.svc.cluster.local"},
+					},
+				},
+			},
+			[]string{"0.0.0.0_80", "0.0.0.0_8080", "127.0.0.1_8080"},
 		},
 	}
 

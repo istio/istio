@@ -187,13 +187,12 @@ func testRevisionDescription(t framework.TestContext, istioCtl istioctl.Instance
 			podsForRev, err := t.Clusters().Default().
 				CoreV1().Pods(nsName).
 				List(context.Background(), meta_v1.ListOptions{LabelSelector: labelSelector.String()})
-			if podsForRev == nil || err != nil {
+			if podsForRev == nil || err != nil { // nolint: staticcheck
 				t.Fatalf("error while getting pods for revision: %s from namespace: %s: %v", rev, nsName, err)
 			}
 			expectedPodsForRev := map[string]bool{}
 			actualPodsForRev := map[string]bool{}
-			//nolint:staticcheck
-			for _, pod := range podsForRev.Items {
+			for _, pod := range podsForRev.Items { // nolint: staticcheck
 				expectedPodsForRev[fmt.Sprintf("%s/%s", pod.Namespace, pod.Name)] = true
 			}
 			for _, pod := range podsInNamespace {
@@ -362,7 +361,7 @@ func subsetOf(a map[string]bool, b map[string]bool) bool {
 // K8s 1.15 - https://v1-16.docs.kubernetes.io/docs/reference/generated/kubernetes-api/v1.15/#mutatingwebhookconfiguration-v1beta1-admissionregistration-k8s-io
 // K8s 1.16 - https://v1-16.docs.kubernetes.io/docs/reference/generated/kubernetes-api/v1.16/#mutatingwebhookconfiguration-v1-admissionregistration-k8s-io
 func skipIfUnsupportedKubernetesVersion(t framework.TestContext) {
-	if !t.Clusters().Default().MinKubeVersion(1, 16) {
+	if !t.Clusters().Default().MinKubeVersion(16) {
 		t.Skipf("k8s version not supported for %s (<%s)", t.Name(), "1.16")
 	}
 }
