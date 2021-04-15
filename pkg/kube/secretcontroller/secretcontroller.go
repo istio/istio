@@ -91,11 +91,9 @@ type Cluster struct {
 	Client kube.Client
 	// Stop channel which is closed when the cluster is removed or the secretcontroller that created the client is stopped.
 	// Client.RunAndWait is called using this channel.
-	Stop <-chan struct{}
-	// stop is the same as Stop, but writable
-	stop chan struct{}
-	// InitialSync is marked when RunAndWait completes
-	InitialSync *atomic.Bool
+	Stop chan struct{}
+	// initialSync is marked when RunAndWait completes
+	initialSync *atomic.Bool
 	// SyncTimeout is marked after features.RemoteClusterTimeout
 	SyncTimeout *atomic.Bool
 }
@@ -104,11 +102,11 @@ type Cluster struct {
 // This should be called after each of the handlers have registered informers, and should be run in a goroutine.
 func (r *Cluster) Run() {
 	r.Client.RunAndWait(r.Stop)
-	r.InitialSync.Store(true)
+	r.initialSync.Store(true)
 }
 
 func (r *Cluster) HasSynced() bool {
-	return r.InitialSync.Load() || r.SyncTimeout.Load()
+	return r.initialSync.Load() || r.SyncTimeout.Load()
 }
 
 // ClusterStore is a collection of clusters
@@ -245,7 +243,7 @@ func (c *Controller) close() {
 	c.cs.Lock()
 	defer c.cs.Unlock()
 	for _, cluster := range c.cs.remoteClusters {
-		close(cluster.stop)
+		close(cluster.Stop)
 	}
 }
 
@@ -371,15 +369,13 @@ func (c *Controller) createRemoteCluster(kubeConfig []byte, secretName string) (
 	if err != nil {
 		return nil, err
 	}
-	stop := make(chan struct{})
 	return &Cluster{
 		secretName: secretName,
 		Client:     clients,
 		// access outside this package should only be reading
-		Stop: stop,
+		Stop: make(chan struct{}),
 		// for use inside the package, to close on cleanup
-		stop:          stop,
-		InitialSync:   atomic.NewBool(false),
+		initialSync:   atomic.NewBool(false),
 		SyncTimeout:   &c.remoteSyncTimeout,
 		kubeConfigSha: sha256.Sum256(kubeConfig),
 	}, nil
@@ -434,7 +430,7 @@ func (c *Controller) deleteMemberCluster(secretName string) {
 				log.Errorf("Error removing cluster_id=%v configured by secret=%v: %v",
 					clusterID, secretName, err)
 			}
-			close(cluster.stop)
+			close(cluster.Stop)
 			delete(c.cs.remoteClusters, clusterID)
 		}
 	}
