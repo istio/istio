@@ -15,6 +15,7 @@
 package envoyfilter
 
 import (
+	"errors"
 	"fmt"
 
 	xdslistener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
@@ -39,6 +40,15 @@ const (
 	// VirtualInboundListenerName is the name for traffic capture listener
 	VirtualInboundListenerName = "virtualInbound"
 )
+
+// patchDependencies struct holds patch and its dependencies.
+type patchDependencies struct {
+	patch *model.EnvoyFilterConfigPatchWrapper
+	deps  []*model.EnvoyFilterConfigPatchWrapper
+}
+
+// patchSet is set of unique patches used for dependency calculation.
+type patchSet map[*model.EnvoyFilterConfigPatchWrapper]struct{}
 
 // ApplyListenerPatches applies patches to LDS output
 func ApplyListenerPatches(
@@ -430,11 +440,9 @@ func patchHTTPFilters(patchContext networking.EnvoyFilter_PatchContext, filterKe
 		}
 		patchHTTPFilter(patchContext, filterKey, patches, listener, fc, filter, httpFilter, &httpFiltersRemoved)
 	}
-	opatches := make([]*model.EnvoyFilterConfigPatchWrapper, 0) // List of final patches to be processed.
-	mpatches := make([]*model.EnvoyFilterConfigPatchWrapper, 0) // List of matched patches based on patch context.
-	applied := false
 
 	// First collect all matched patches.
+	mpatches := make([]*model.EnvoyFilterConfigPatchWrapper, 0)
 	for _, lp := range patches[networking.EnvoyFilter_HTTP_FILTER] {
 		if !commonConditionMatch(patchContext, lp) ||
 			!listenerMatch(listener, lp) ||
@@ -445,110 +453,29 @@ func patchHTTPFilters(patchContext networking.EnvoyFilter_PatchContext, filterKe
 		mpatches = append(mpatches, lp)
 	}
 
-	// Identify cyclic patches and isolate them.
-	iapatches := make([]*model.EnvoyFilterConfigPatchWrapper, 0)
-	for _, lp := range mpatches {
-		if !(lp.Operation == networking.EnvoyFilter_Patch_INSERT_BEFORE || lp.Operation == networking.EnvoyFilter_Patch_INSERT_AFTER) {
-			continue
-		}
-		if hasHTTPFilterMatch(lp) {
-			iapatches = append(iapatches, lp)
-		}
-	}
-	if len(iapatches) > 0 {
-		// Detect cycles and order them if we have insert after and insert before patches.
-		cycles := hasCyclicDependencies(iapatches)
-		if cycles {
-			IncrementEnvoyFilterMetric(filterKey, HttpFilter, applied)
-			log.Warnf("envoy filter %s has patches that have cyclic dependencies. So filter is skipped", filterKey)
-			return
-		}
-
-		// Order patches as per the dependencies.
-		for _, lp := range mpatches {
-			orderDependencies(lp, mpatches, &opatches)
-		}
-	} else {
-		opatches = mpatches
+	// Order patches as per dependencies. This will also detect cycles.
+	optaches, err := orderPatches(mpatches, hcm)
+	if err != nil {
+		IncrementEnvoyFilterMetric(filterKey, HttpFilter, false)
+		log.Warnf("envoy filter %s has patches that have cyclic dependencies. So filter is skipped", toString(optaches))
+		return
 	}
 
 	// Finally apply the ordered patches.
-	for _, lp := range opatches {
-		if lp.Operation == networking.EnvoyFilter_Patch_ADD {
-			applied = true
-			hcm.HttpFilters = append(hcm.HttpFilters, proto.Clone(lp.Value).(*http_conn.HttpFilter))
-		} else if lp.Operation == networking.EnvoyFilter_Patch_INSERT_FIRST {
-			hcm.HttpFilters = append([]*http_conn.HttpFilter{proto.Clone(lp.Value).(*http_conn.HttpFilter)}, hcm.HttpFilters...)
-		} else if lp.Operation == networking.EnvoyFilter_Patch_INSERT_BEFORE {
-			// insert before without a filter match is same as insert in the beginning
-			if !hasHTTPFilterMatch(lp) {
-				hcm.HttpFilters = append([]*http_conn.HttpFilter{proto.Clone(lp.Value).(*http_conn.HttpFilter)}, hcm.HttpFilters...)
-				continue
+	applied := false
+	unique := sets.Set{}
+	for _, pnode := range optaches {
+		// First apply all dependencies.
+		for _, dep := range pnode.deps {
+			if !unique.Contains(dep.Value.(*http_conn.HttpFilter).Name) {
+				applied = applyHttpFilterPatch(dep, hcm) && applied
+				unique.Insert(dep.Value.(*http_conn.HttpFilter).Name)
 			}
-
-			// find the matching filter first
-			insertPosition := -1
-			for i := 0; i < len(hcm.HttpFilters); i++ {
-				if httpFilterMatch(hcm.HttpFilters[i], lp) {
-					insertPosition = i
-					break
-				}
-			}
-
-			if insertPosition == -1 {
-				continue
-			}
-			applied = true
-			clonedVal := proto.Clone(lp.Value).(*http_conn.HttpFilter)
-			hcm.HttpFilters = append(hcm.HttpFilters, clonedVal)
-			copy(hcm.HttpFilters[insertPosition+1:], hcm.HttpFilters[insertPosition:])
-			hcm.HttpFilters[insertPosition] = clonedVal
-		} else if lp.Operation == networking.EnvoyFilter_Patch_INSERT_AFTER {
-			// Insert after without a filter match is same as ADD in the end
-			if !hasHTTPFilterMatch(lp) {
-				hcm.HttpFilters = append(hcm.HttpFilters, proto.Clone(lp.Value).(*http_conn.HttpFilter))
-				continue
-			}
-
-			// find the matching filter first
-			insertPosition := -1
-			for i := 0; i < len(hcm.HttpFilters); i++ {
-				if httpFilterMatch(hcm.HttpFilters[i], lp) {
-					insertPosition = i + 1
-					break
-				}
-			}
-
-			if insertPosition == -1 {
-				continue
-			}
-			applied = true
-			clonedVal := proto.Clone(lp.Value).(*http_conn.HttpFilter)
-			hcm.HttpFilters = append(hcm.HttpFilters, clonedVal)
-			if insertPosition < len(hcm.HttpFilters)-1 {
-				copy(hcm.HttpFilters[insertPosition+1:], hcm.HttpFilters[insertPosition:])
-				hcm.HttpFilters[insertPosition] = clonedVal
-			}
-		} else if lp.Operation == networking.EnvoyFilter_Patch_REPLACE {
-			if !hasHTTPFilterMatch(lp) {
-				continue
-			}
-
-			// find the matching filter first
-			replacePosition := -1
-			for i := 0; i < len(hcm.HttpFilters); i++ {
-				if httpFilterMatch(hcm.HttpFilters[i], lp) {
-					replacePosition = i
-					break
-				}
-			}
-			if replacePosition == -1 {
-				log.Debugf("EnvoyFilter patch %v is not applied because no matching HTTP filter found.", lp)
-				continue
-			}
-			applied = true
-			clonedVal := proto.Clone(lp.Value).(*http_conn.HttpFilter)
-			hcm.HttpFilters[replacePosition] = clonedVal
+		}
+		// Then apply the main patch.
+		if !unique.Contains(pnode.patch.Value.(*http_conn.HttpFilter).Name) {
+			applied = applyHttpFilterPatch(pnode.patch, hcm) && applied
+			unique.Insert(pnode.patch.Value.(*http_conn.HttpFilter).Name)
 		}
 	}
 	if httpFiltersRemoved {
@@ -567,83 +494,201 @@ func patchHTTPFilters(patchContext networking.EnvoyFilter_PatchContext, filterKe
 	}
 }
 
-// orderDependencies recursively orders the patches based on insert before/after positions.
-func orderDependencies(patch *model.EnvoyFilterConfigPatchWrapper, original []*model.EnvoyFilterConfigPatchWrapper,
-	ordered *[]*model.EnvoyFilterConfigPatchWrapper) {
-	for _, lp := range original {
-		if lp == patch {
-			continue
+func applyHttpFilterPatch(lp *model.EnvoyFilterConfigPatchWrapper, hcm *http_conn.HttpConnectionManager) bool {
+	applied := false
+	switch lp.Operation {
+	case networking.EnvoyFilter_Patch_ADD:
+		hcm.HttpFilters = append(hcm.HttpFilters, proto.Clone(lp.Value).(*http_conn.HttpFilter))
+		applied = true
+	case networking.EnvoyFilter_Patch_INSERT_FIRST:
+		hcm.HttpFilters = append([]*http_conn.HttpFilter{proto.Clone(lp.Value).(*http_conn.HttpFilter)}, hcm.HttpFilters...)
+		applied = true
+	case networking.EnvoyFilter_Patch_INSERT_BEFORE:
+		// insert before without a filter match is same as insert in the beginning
+		if !hasHTTPFilterMatch(lp) {
+			hcm.HttpFilters = append([]*http_conn.HttpFilter{proto.Clone(lp.Value).(*http_conn.HttpFilter)}, hcm.HttpFilters...)
+			return applied
 		}
-		if (patch.Operation == networking.EnvoyFilter_Patch_INSERT_BEFORE && hasHTTPFilterMatch(patch)) ||
-			(patch.Operation == networking.EnvoyFilter_Patch_INSERT_AFTER && hasHTTPFilterMatch(patch)) {
-			filter := lp.Value.(*http_conn.HttpFilter)
-			match := patch.Match.GetListener().FilterChain.Filter.SubFilter
-			if match != nil && nameMatches(match.Name, filter.Name) {
-				orderDependencies(lp, original, ordered)
+
+		// find the matching filter first
+		insertPosition := -1
+		for i := 0; i < len(hcm.HttpFilters); i++ {
+			if httpFilterMatch(hcm.HttpFilters[i], lp) {
+				insertPosition = i
+				break
 			}
 		}
+
+		if insertPosition != -1 {
+			clonedVal := proto.Clone(lp.Value).(*http_conn.HttpFilter)
+			hcm.HttpFilters = append(hcm.HttpFilters, clonedVal)
+			copy(hcm.HttpFilters[insertPosition+1:], hcm.HttpFilters[insertPosition:])
+			hcm.HttpFilters[insertPosition] = clonedVal
+			applied = true
+		}
+	case networking.EnvoyFilter_Patch_INSERT_AFTER:
+		// Insert after without a filter match is same as ADD in the end
+		if !hasHTTPFilterMatch(lp) {
+			hcm.HttpFilters = append(hcm.HttpFilters, proto.Clone(lp.Value).(*http_conn.HttpFilter))
+			return applied
+		}
+
+		// find the matching filter first
+		insertPosition := -1
+		for i := 0; i < len(hcm.HttpFilters); i++ {
+			if httpFilterMatch(hcm.HttpFilters[i], lp) {
+				insertPosition = i + 1
+				break
+			}
+		}
+
+		if insertPosition != -1 {
+			clonedVal := proto.Clone(lp.Value).(*http_conn.HttpFilter)
+			hcm.HttpFilters = append(hcm.HttpFilters, clonedVal)
+			if insertPosition < len(hcm.HttpFilters)-1 {
+				copy(hcm.HttpFilters[insertPosition+1:], hcm.HttpFilters[insertPosition:])
+				hcm.HttpFilters[insertPosition] = clonedVal
+			}
+			applied = true
+		}
+
+	case networking.EnvoyFilter_Patch_REPLACE:
+		if !hasHTTPFilterMatch(lp) {
+			return applied
+		}
+
+		// find the matching filter first
+		replacePosition := -1
+		for i := 0; i < len(hcm.HttpFilters); i++ {
+			if httpFilterMatch(hcm.HttpFilters[i], lp) {
+				replacePosition = i
+				break
+			}
+		}
+		if replacePosition == -1 {
+			log.Debugf("EnvoyFilter patch %v is not applied because no matching HTTP filter found.", lp)
+			return applied
+		}
+		clonedVal := proto.Clone(lp.Value).(*http_conn.HttpFilter)
+		hcm.HttpFilters[replacePosition] = clonedVal
+		applied = true
 	}
-	if !contains(*ordered, patch) {
-		*ordered = append(*ordered, patch)
-	}
+	return applied
 }
 
-func contains(patches []*model.EnvoyFilterConfigPatchWrapper, patch *model.EnvoyFilterConfigPatchWrapper) bool {
-	for _, p := range patches {
-		if p == patch {
-			return true
+// toString returns the string representation of the patch dependencies.
+func toString(pd []*patchDependencies) string {
+	var format string
+	for _, patch := range pd {
+		for _, dep := range patch.deps {
+			filter := patch.patch.Value.(*http_conn.HttpFilter)
+			format = format + fmt.Sprintf("%s -> %s\n", filter.Name, dep)
 		}
 	}
-	return false
+	return format
 }
 
-// hasCyclicDependencies checks if the patches have cyclic dependencies.
-// Inspired by https://github.com/dnaeon/go-dependency-graph-algorithm/blob/master/dependency-graph.go#L56.
-func hasCyclicDependencies(original []*model.EnvoyFilterConfigPatchWrapper) bool {
-	dependencies := make(map[string]sets.Set)
+// orderPatches orders paches as per dependecies and also detects if they have cycles.
+// Inspired by https://github.com/dnaeon/go-dependency-graph-algorithm/blob/08beaada45a80cb1cc40aaf51adfe4fd69d684cf/dependency-graph.go#L56.
+func orderPatches(original []*model.EnvoyFilterConfigPatchWrapper, hcm *http_conn.HttpConnectionManager) ([]*patchDependencies, error) {
+	// Maps from patch to all other patches that depend on it and it maintains the order.
+	orderedPatches := make(map[*model.EnvoyFilterConfigPatchWrapper]*patchDependencies)
+
+	// A map containing the patch and their unique dependencies.
+	dependencySet := make(map[*model.EnvoyFilterConfigPatchWrapper]patchSet)
+
 	// First collect all dependencies for every patch.
 	for _, lp := range original {
-		lfilter := lp.Value.(*http_conn.HttpFilter)
-		deps := sets.NewSet()
+		lmatch := lp.Match.GetListener().FilterChain.Filter.SubFilter
+		// If operation is not insert before or insert after, we will not have any dependencies.
+		if !(lp.Operation == networking.EnvoyFilter_Patch_INSERT_BEFORE || lp.Operation == networking.EnvoyFilter_Patch_INSERT_AFTER) {
+			orderedPatches[lp] = &patchDependencies{lp, []*model.EnvoyFilterConfigPatchWrapper{}}
+			dependencySet[lp] = make(map[*model.EnvoyFilterConfigPatchWrapper]struct{})
+			continue
+		}
+		// If there is no http filter match - we should add it to top or bottom.
+		if !hasHTTPFilterMatch(lp) {
+			orderedPatches[lp] = &patchDependencies{lp, []*model.EnvoyFilterConfigPatchWrapper{}}
+			dependencySet[lp] = make(map[*model.EnvoyFilterConfigPatchWrapper]struct{})
+			continue
+		} else {
+			// If there is a http filter match, check if the filter already exists in hcm filters.
+			// If it is there, we should not compute dependencies.
+			exists := false
+			for _, filter := range hcm.HttpFilters {
+				if lmatch != nil && lmatch.Name == filter.Name {
+					exists = true
+					break
+				}
+			}
+			if exists {
+				orderedPatches[lp] = &patchDependencies{lp, []*model.EnvoyFilterConfigPatchWrapper{}}
+				dependencySet[lp] = make(patchSet)
+				continue
+			}
+		}
+		// Now collect all dependencies of this patch.
+		deps := make([]*model.EnvoyFilterConfigPatchWrapper, 0)
+		dset := make(patchSet)
 		for _, rp := range original {
 			if lp == rp {
 				continue
 			}
-			rmatch := rp.Match.GetListener().FilterChain.Filter.SubFilter
-			if rmatch != nil && nameMatches(rmatch.Name, lfilter.Name) {
-				deps.Insert(rp.Value.(*http_conn.HttpFilter).Name)
+			rfilter := rp.Value.(*http_conn.HttpFilter)
+			// A patch is dependendent if it has sub filter match that matches with filter name.
+			if lmatch != nil && nameMatches(lmatch.Name, rfilter.Name) {
+				deps = append(deps, rp)
+				dset[rp] = struct{}{}
 			}
 		}
-		dependencies[lfilter.Name] = deps
+		dependencySet[lp] = dset
+		orderedPatches[lp] = &patchDependencies{lp, deps}
 	}
+
+	var opatches []*patchDependencies
 
 	// Iteratively find and remove patches which have no dependencies. If at some point
 	// there are still patches in the dependencies and we cannot find patches without
 	// dependencies, that means we have a circular dependency.
-	for len(dependencies) != 0 {
-		// Get all filters from the dependencies which have no dependencies
-		independent := sets.NewSet()
-		for name, deps := range dependencies {
+	for len(dependencySet) != 0 {
+		// Get all patches from the dependencies which have no dependencies.
+		ready := make(patchSet)
+		for patch, deps := range dependencySet {
 			if len(deps) == 0 {
-				independent.Insert(name)
+				ready[patch] = struct{}{}
 			}
 		}
 
-		// If there aren't any independent patches, then we have a cicular dependency
-		if len(independent) == 0 {
-			return true
+		// If there aren't any ready patches, then we have a circular dependency.
+		if len(ready) == 0 {
+			var g []*patchDependencies
+			for lp := range dependencySet {
+				g = append(g, orderedPatches[lp])
+			}
+			return g, errors.New("circular dependency found")
 		}
 
-		for name := range independent {
-			delete(dependencies, name)
+		for patch := range ready {
+			delete(dependencySet, patch)
+			opatches = append(opatches, orderedPatches[patch])
 		}
 
-		for name, deps := range dependencies {
-			diff := deps.Difference(independent)
-			dependencies[name] = diff
+		for patch, deps := range dependencySet {
+			diff := deps.difference(ready)
+			dependencySet[patch] = diff
 		}
 	}
-	return false
+	return opatches, nil
+}
+
+func (ps patchSet) difference(other patchSet) patchSet {
+	difference := make(patchSet)
+	for elem := range ps {
+		if _, exists := other[elem]; !exists {
+			difference[elem] = struct{}{}
+		}
+	}
+	return difference
 }
 
 func patchHTTPFilter(patchContext networking.EnvoyFilter_PatchContext,
