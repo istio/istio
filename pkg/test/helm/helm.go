@@ -38,7 +38,7 @@ func New(kubeConfig, baseWorkDir string) *Helm {
 	}
 }
 
-// InstallChart installs the specified chart with its given name to the given namespace
+// InstallChartWithValues installs the specified chart with its given name to the given namespace
 func (h *Helm) InstallChartWithValues(name, relpath, namespace string, values []string, timeout time.Duration) error {
 	p := filepath.Join(h.baseDir, relpath)
 

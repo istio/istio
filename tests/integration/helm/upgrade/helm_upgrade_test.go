@@ -16,24 +16,17 @@
 package helmupgrade
 
 import (
-	"context"
 	"fmt"
 	"io/ioutil"
 	"os"
 	"path/filepath"
 	"testing"
 
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-
 	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/test/framework"
-	"istio.io/istio/pkg/test/framework/components/cluster"
 	kubecluster "istio.io/istio/pkg/test/framework/components/cluster/kube"
 	"istio.io/istio/pkg/test/framework/image"
 	"istio.io/istio/pkg/test/helm"
-	kubetest "istio.io/istio/pkg/test/kube"
-	"istio.io/istio/pkg/test/scopes"
-	"istio.io/istio/pkg/test/util/retry"
 	helmtest "istio.io/istio/tests/integration/helm"
 	"istio.io/istio/tests/util/sanitycheck"
 )
@@ -44,6 +37,7 @@ var previousChartPath = filepath.Join(env.IstioSrc, "tests/integration/helm/test
 const (
 	gcrHub                   = "gcr.io/istio-release"
 	previousSupportedVersion = "1.8.1"
+	tarGzSuffix              = ".tar.gz"
 
 	defaultValues = `
 global:
@@ -61,14 +55,12 @@ func TestDefaultInPlaceUpgrades(t *testing.T) {
 			cs := ctx.Clusters().Default().(*kubecluster.Cluster)
 			h := helm.New(cs.Filename(), filepath.Join(previousChartPath, previousSupportedVersion))
 
-			ctx.WhenDone(func() error {
-				// only need to do call this once as helm doesn't need to remove
-				// all versions
-				return deleteIstio(cs, h)
+			overrideValuesFile := getValuesOverrides(ctx, defaultValues, gcrHub, previousSupportedVersion)
+			helmtest.InstallIstio(t, cs, h, tarGzSuffix, overrideValuesFile)
+			t.Cleanup(func() {
+				helmtest.DeleteIstio(t, h, cs)
 			})
 
-			overrideValuesFile := getValuesOverrides(ctx, defaultValues, gcrHub, previousSupportedVersion)
-			installIstio(t, cs, h, overrideValuesFile)
 			helmtest.VerifyInstallation(ctx, cs)
 
 			oldClient, oldServer := sanitycheck.SetupTrafficTest(t, ctx)
@@ -124,54 +116,6 @@ func upgradeCharts(ctx framework.TestContext, h *helm.Helm, overrideValuesFile s
 	if err != nil {
 		ctx.Fatalf("failed to upgrade istio %s chart", helmtest.EgressGatewayChart)
 	}
-}
-
-// installIstio install Istio using Helm charts with the provided
-// override values file and fails the tests on any failures.
-func installIstio(t *testing.T, cs cluster.Cluster,
-	h *helm.Helm, overrideValuesFile string) {
-	helmtest.CreateNamespace(t, cs, helmtest.IstioNamespace)
-
-	// Install base chart
-	err := h.InstallChart(helmtest.BaseReleaseName, helmtest.BaseChart+helmtest.TarGzSuffix,
-		helmtest.IstioNamespace, overrideValuesFile, helmtest.HelmTimeout)
-	if err != nil {
-		t.Errorf("failed to install istio %s chart", helmtest.BaseChart)
-	}
-
-	// Install discovery chart
-	err = h.InstallChart(helmtest.IstiodReleaseName, filepath.Join(helmtest.ControlChartsDir, helmtest.DiscoveryChart)+helmtest.TarGzSuffix,
-		helmtest.IstioNamespace, overrideValuesFile, helmtest.HelmTimeout)
-	if err != nil {
-		t.Errorf("failed to install istio %s chart", helmtest.DiscoveryChart)
-	}
-
-	helmtest.InstallGatewaysCharts(t, cs, h, helmtest.TarGzSuffix, helmtest.IstioNamespace, overrideValuesFile)
-}
-
-// deleteIstio deletes installed Istio Helm charts and resources
-func deleteIstio(cs cluster.Cluster, h *helm.Helm) error {
-	scopes.Framework.Infof("cleaning up resources")
-	if err := h.DeleteChart(helmtest.EgressReleaseName, helmtest.IstioNamespace); err != nil {
-		return fmt.Errorf("failed to delete %s release", helmtest.EgressReleaseName)
-	}
-	if err := h.DeleteChart(helmtest.IngressReleaseName, helmtest.IstioNamespace); err != nil {
-		return fmt.Errorf("failed to delete %s release", helmtest.IngressReleaseName)
-	}
-	if err := h.DeleteChart(helmtest.IstiodReleaseName, helmtest.IstioNamespace); err != nil {
-		return fmt.Errorf("failed to delete %s release", helmtest.IngressReleaseName)
-	}
-	if err := h.DeleteChart(helmtest.BaseReleaseName, helmtest.IstioNamespace); err != nil {
-		return fmt.Errorf("failed to delete %s release", helmtest.BaseReleaseName)
-	}
-	if err := cs.CoreV1().Namespaces().Delete(context.TODO(), helmtest.IstioNamespace, metav1.DeleteOptions{}); err != nil {
-		return fmt.Errorf("failed to delete istio namespace: %v", err)
-	}
-	if err := kubetest.WaitForNamespaceDeletion(cs, helmtest.IstioNamespace, retry.Timeout(helmtest.RetryTimeOut)); err != nil {
-		return fmt.Errorf("wating for istio namespace to be deleted: %v", err)
-	}
-
-	return nil
 }
 
 func getValuesOverrides(ctx framework.TestContext, valuesStr, hub, tag string) string {

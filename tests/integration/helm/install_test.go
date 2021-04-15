@@ -55,16 +55,16 @@ global:
 			if err := ioutil.WriteFile(overrideValuesFile, []byte(overrideValues), os.ModePerm); err != nil {
 				t.Fatalf("failed to write iop cr file: %v", err)
 			}
-			InstallGatewaysCharts(t, cs, h, "", IstioNamespace, overrideValuesFile)
+			InstallIstio(t, cs, h, "", overrideValuesFile)
+
+			t.Cleanup(func() {
+				DeleteIstio(t, h, cs)
+			})
 
 			VerifyInstallation(ctx, cs)
 
 			client, server := sanitycheck.SetupTrafficTest(t, ctx)
 			sanitycheck.RunTrafficTestClientServer(t, client, server)
-
-			t.Cleanup(func() {
-				deleteGatewayCharts(t, h)
-			})
 		})
 }
 
@@ -96,12 +96,13 @@ global:
 			if err := ioutil.WriteFile(overrideValuesFile, []byte(overrideValues), os.ModePerm); err != nil {
 				t.Fatalf("failed to write iop cr file: %v", err)
 			}
-			InstallGatewaysCharts(t, cs, h, "", IstioNamespace, overrideValuesFile)
+			InstallIstio(t, cs, h, "", overrideValuesFile)
+			t.Cleanup(func() {
+				DeleteIstio(t, h, cs)
+			})
 
 			VerifyInstallation(ctx, cs)
 
-			t.Cleanup(func() {
-				deleteGatewayCharts(t, h)
-			})
+			sanitycheck.RunTrafficTest(t, ctx)
 		})
 }
