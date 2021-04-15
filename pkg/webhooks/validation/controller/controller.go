@@ -48,7 +48,10 @@ import (
 	"istio.io/pkg/log"
 )
 
-var scope = log.RegisterScope("validationController", "validation webhook controller", 0)
+var (
+	scope             = log.RegisterScope("validationController", "validation webhook controller", 0)
+	dryRunCreationReq = &reconcileRequest{"retry dry-run creation of invalid config"}
+)
 
 type Options struct {
 	// Istio system namespace where istiod resides.
@@ -299,8 +302,7 @@ func (c *Controller) readyForFailClose() bool {
 	if !c.dryRunOfInvalidConfigRejected {
 		if rejected, reason := c.isDryRunOfInvalidConfigRejected(); !rejected {
 			scope.Infof("Not ready to switch validation to fail-closed: %v", reason)
-			req := &reconcileRequest{"retry dry-run creation of invalid config"}
-			c.queue.AddAfter(req, time.Second)
+			c.queue.AddRateLimited(dryRunCreationReq)
 			return false
 		}
 		scope.Info("Endpoint successfully rejected invalid config. Switching to fail-close.")
