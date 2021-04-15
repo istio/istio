@@ -5,7 +5,7 @@ typedConfig:
   filterEnabledMetadata:
     filter: envoy.filters.network.rbac
     path:
-    - key: shadow_effective_policy_id
+    - key: istio_ext_authz_shadow_effective_policy_id
     value:
       stringMatch:
         prefix: istio-ext-authz
