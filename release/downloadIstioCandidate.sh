@@ -103,7 +103,7 @@ without_arch() {
 }
 
 # Istio 1.6 and above support arch
-ARCH_SUPPORTED=$(echo "$ISTIO_VERSION" | awk  '{ ARCH_SUPPORTED=substr($0, 1, 3); print ARCH_SUPPORTED; }' )
+ARCH_SUPPORTED=$(echo "$ISTIO_VERSION" | awk -F'.' '{print $1"."$2}' )
 # Istio 1.5 and below do not have arch support
 ARCH_UNSUPPORTED="1.5"
 
