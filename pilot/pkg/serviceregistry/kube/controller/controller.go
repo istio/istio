@@ -269,8 +269,8 @@ type Controller struct {
 	informerInit *atomic.Bool
 	// initialSync is set to true after performing an initial in-order processing of all objects.
 	initialSync *atomic.Bool
-	// syncTimeout, if non-nil, will short-circuit HasSynced to be true for remote clusters to avoid blocking istiod startup
-	// during communication failures
+	// syncTimeout signals that the registry should mark itself synced even if informers haven't been processed yet.
+	// The timeout may be controlled by a different component than the kube controller.
 	syncTimeout *atomic.Bool
 	// Duration to wait for cache syncs
 	syncInterval time.Duration
@@ -604,10 +604,7 @@ func tryGetLatestObject(informer filter.FilteredSharedIndexInformer, obj interfa
 
 // HasSynced returns true after the initial state synchronization
 func (c *Controller) HasSynced() bool {
-	if c.syncTimeout != nil && c.syncTimeout.Load() {
-		return true
-	}
-	return c.informersSynced() && c.initialSync.Load()
+	return (c.syncTimeout != nil && c.syncTimeout.Load()) || c.initialSync.Load()
 }
 
 func (c *Controller) informersSynced() bool {

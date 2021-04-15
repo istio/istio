@@ -101,9 +101,14 @@ func (s *Server) initKubeRegistry(args *PilotArgs) (err error) {
 
 	// initialize the "main" cluster registry before starting controllers for remote clusters
 	s.addStartFunc(func(stop <-chan struct{}) error {
+		writableStop := make(chan struct{})
+		go func() {
+			<-stop
+			close(writableStop)
+		}()
 		if err := mc.AddMemberCluster(args.RegistryOptions.KubeOptions.ClusterID, &secretcontroller.Cluster{
 			Client: s.kubeClient,
-			Stop:   stop,
+			Stop:   writableStop,
 		}); err != nil {
 			return fmt.Errorf("failed initializing registry for %s: %v", args.RegistryOptions.KubeOptions.ClusterID, err)
 		}
