@@ -31,7 +31,6 @@ import (
 	"istio.io/istio/operator/pkg/patch"
 	"istio.io/istio/operator/pkg/tpath"
 	"istio.io/istio/operator/pkg/translate"
-	"istio.io/istio/operator/pkg/util"
 	"istio.io/pkg/log"
 )
 
@@ -333,7 +332,7 @@ func (c *IngressComponent) Namespace() string {
 // Enabled implements the IstioComponent interface.
 func (c *IngressComponent) Enabled() bool {
 	// type assert is guaranteed to work in this context.
-	return util.BoolValue(c.componentSpec.(*v1alpha1.GatewaySpec).Enabled)
+	return c.componentSpec.(*v1alpha1.GatewaySpec).Enabled.GetValue()
 }
 
 // EgressComponent is the egress gateway component.
@@ -383,7 +382,7 @@ func (c *EgressComponent) Namespace() string {
 // Enabled implements the IstioComponent interface.
 func (c *EgressComponent) Enabled() bool {
 	// type assert is guaranteed to work in this context.
-	return util.BoolValue(c.componentSpec.(*v1alpha1.GatewaySpec).Enabled)
+	return c.componentSpec.(*v1alpha1.GatewaySpec).Enabled.GetValue()
 }
 
 // runComponent performs startup tasks for the component defined by the given CommonComponentFields.

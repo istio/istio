@@ -33,6 +33,7 @@ import (
 	"istio.io/istio/pkg/test/framework/components/echo/echotest"
 	"istio.io/istio/pkg/test/util/retry"
 	"istio.io/istio/pkg/test/util/tmpl"
+	ingressutil "istio.io/istio/tests/integration/security/sds_ingress/util"
 )
 
 func httpGateway(host string) string {
@@ -54,6 +55,29 @@ spec:
 `, host)
 }
 
+func httpsGateway(host, credential string) string {
+	return fmt.Sprintf(`apiVersion: networking.istio.io/v1alpha3
+kind: Gateway
+metadata:
+  name: gateway
+spec:
+  selector:
+    istio: ingressgateway
+  servers:
+  - port:
+      number: 443
+      name: https
+      protocol: HTTPS
+    tls:
+      mode: SIMPLE
+      credentialName: %s
+    hosts:
+    - "%s"
+---
+`, credential, host)
+}
+
+// nolint: unparam
 func httpVirtualService(gateway, host string, port int) string {
 	return tmpl.MustEvaluate(`apiVersion: networking.istio.io/v1alpha3
 kind: VirtualService
@@ -79,9 +103,10 @@ spec:
 }
 
 func virtualServiceCases(skipVM bool) []TrafficTestCase {
+	noTProxy := echotest.FilterMatch(func(instance echo.Instance) bool {
+		return !instance.Config().IsTProxy()
+	})
 	var cases []TrafficTestCase
-	// Send the same call from all different clusters
-
 	cases = append(cases,
 		TrafficTestCase{
 			name: "added header",
@@ -282,7 +307,7 @@ spec:
 		TrafficTestCase{
 			name: "cors",
 			// TODO https://github.com/istio/istio/issues/31532
-			targetFilters: []echotest.Filter{echotest.Not(echotest.VirtualMachines)},
+			targetFilters: []echotest.Filter{noTProxy, echotest.Not(echotest.VirtualMachines)},
 			config: `
 apiVersion: networking.istio.io/v1alpha3
 kind: VirtualService
@@ -520,6 +545,44 @@ spec:
 	return []TrafficTestCase{tc}
 }
 
+// useClientProtocolCases contains tests use_client_protocol from DestinationRule
+func useClientProtocolCases(apps *EchoDeployments) []TrafficTestCase {
+	var cases []TrafficTestCase
+	client := apps.PodA
+	destination := apps.PodC[0]
+	cases = append(cases,
+		TrafficTestCase{
+			name:   "use client protocol with h2",
+			config: useClientProtocolDestinationRule("use-client-protocol-h2", destination.Config().Service),
+			call:   client[0].CallWithRetryOrFail,
+			opts: echo.CallOptions{
+				Target:   destination,
+				PortName: "http",
+				HTTP2:    true,
+				Validator: echo.And(
+					echo.ExpectOK(),
+					echo.ExpectKey("Proto", "HTTP/2.0"),
+				),
+			},
+		},
+		TrafficTestCase{
+			name:   "use client protocol with h1",
+			config: useClientProtocolDestinationRule("use-client-protocol-h1", destination.Config().Service),
+			call:   client[0].CallWithRetryOrFail,
+			opts: echo.CallOptions{
+				PortName: "http",
+				Target:   destination,
+				HTTP2:    false,
+				Validator: echo.And(
+					echo.ExpectOK(),
+					echo.ExpectKey("Proto", "HTTP/1.1"),
+				),
+			},
+		},
+	)
+	return cases
+}
+
 // trafficLoopCases contains tests to ensure traffic does not loop through the sidecar
 func trafficLoopCases(apps *EchoDeployments) []TrafficTestCase {
 	cases := []TrafficTestCase{}
@@ -552,6 +615,7 @@ func trafficLoopCases(apps *EchoDeployments) []TrafficTestCase {
 
 func gatewayCases(apps *EchoDeployments) []TrafficTestCase {
 	cases := []TrafficTestCase{}
+	podAFQDN := apps.PodA[0].Config().FQDN()
 
 	destinationSets := []echo.Instances{
 		apps.PodA,
@@ -628,6 +692,121 @@ spec:
 			},
 		},
 		TrafficTestCase{
+			name: "https",
+			config: httpsGateway(podAFQDN, "cred") +
+				ingressutil.IngressKubeSecretYAML("cred", apps.Ingress.Namespace(), ingressutil.TLS, ingressutil.IngressCredentialA) +
+				httpVirtualService("gateway", podAFQDN, apps.PodA[0].Config().PortByName("http").ServicePort),
+			call: apps.Ingress.CallEchoWithRetryOrFail,
+			opts: echo.CallOptions{
+				Port: &echo.Port{
+					Protocol: protocol.HTTPS,
+				},
+				Headers: map[string][]string{
+					"Host": {podAFQDN},
+				},
+				Validator: echo.ExpectCode("200"),
+			},
+		},
+		TrafficTestCase{
+			name: "https scheme match",
+			config: httpsGateway(podAFQDN, "cred") +
+				ingressutil.IngressKubeSecretYAML("cred", apps.Ingress.Namespace(), ingressutil.TLS, ingressutil.IngressCredentialA) +
+				tmpl.MustEvaluate(`apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
+metadata:
+  name: {{.Host}}
+spec:
+  gateways:
+  - gateway
+  hosts:
+  - {{.Host}}
+  http:
+  - match:
+    - scheme:
+        exact: https
+    headers:
+      request:
+        add:
+          istio-custom-header: user-defined-value
+    route:
+    - destination:
+        host: {{.Host}}
+        port:
+          number: {{.Port}}
+---
+`, struct {
+					Host string
+					Port int
+				}{podAFQDN, apps.PodA[0].Config().PortByName("http").ServicePort}),
+			call: apps.Ingress.CallEchoWithRetryOrFail,
+			opts: echo.CallOptions{
+				Port: &echo.Port{
+					Protocol: protocol.HTTPS,
+				},
+				Headers: map[string][]string{
+					"Host": {podAFQDN},
+				},
+				Validator: echo.And(
+					echo.ExpectOK(),
+					echo.ValidatorFunc(
+						func(response echoclient.ParsedResponses, _ error) error {
+							return response.Check(func(_ int, response *echoclient.ParsedResponse) error {
+								// We check a header is added to ensure our VS actually applied
+								return ExpectString(response.RawResponse["Istio-Custom-Header"], "user-defined-value", "request header")
+							})
+						})),
+			},
+		},
+		TrafficTestCase{
+			name: "http scheme match",
+			config: httpGateway(podAFQDN) +
+				tmpl.MustEvaluate(`apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
+metadata:
+  name: {{.Host}}
+spec:
+  gateways:
+  - gateway
+  hosts:
+  - {{.Host}}
+  http:
+  - match:
+    - scheme:
+        exact: http
+    headers:
+      request:
+        add:
+          istio-custom-header: user-defined-value
+    route:
+    - destination:
+        host: {{.Host}}
+        port:
+          number: {{.Port}}
+---
+`, struct {
+					Host string
+					Port int
+				}{podAFQDN, apps.PodA[0].Config().PortByName("http").ServicePort}),
+			call: apps.Ingress.CallEchoWithRetryOrFail,
+			opts: echo.CallOptions{
+				Port: &echo.Port{
+					Protocol: protocol.HTTP,
+				},
+				Headers: map[string][]string{
+					"Host": {podAFQDN},
+				},
+				Validator: echo.And(
+					echo.ExpectOK(),
+					echo.ValidatorFunc(
+						func(response echoclient.ParsedResponses, _ error) error {
+							return response.Check(func(_ int, response *echoclient.ParsedResponse) error {
+								// We check a header is added to ensure our VS actually applied
+								return ExpectString(response.RawResponse["Istio-Custom-Header"], "user-defined-value", "request header")
+							})
+						})),
+			},
+		},
+		TrafficTestCase{
 			// See https://github.com/istio/istio/issues/27315
 			name: "https with x-forwarded-proto",
 			config: `apiVersion: networking.istio.io/v1alpha3
@@ -672,7 +851,7 @@ spec:
     labels:
       istio: ingressgateway
 ---
-` + httpVirtualService("gateway", apps.PodA[0].Config().FQDN(), apps.PodA[0].Config().PortByName("http").ServicePort),
+` + httpVirtualService("gateway", podAFQDN, apps.PodA[0].Config().PortByName("http").ServicePort),
 			call: apps.Ingress.CallEchoWithRetryOrFail,
 			opts: echo.CallOptions{
 				Port: &echo.Port{
@@ -681,7 +860,7 @@ spec:
 				Headers: map[string][]string{
 					// In real world, this may be set by a downstream LB that terminates the TLS
 					"X-Forwarded-Proto": {"https"},
-					"Host":              {apps.PodA[0].Config().FQDN()},
+					"Host":              {podAFQDN},
 				},
 				Validator: echo.ExpectOK(),
 			},
@@ -883,34 +1062,46 @@ func flatten(clients ...[]echo.Instance) []echo.Instance {
 }
 
 // selfCallsCases checks that pods can call themselves
-func selfCallsCases(apps *EchoDeployments) []TrafficTestCase {
-	cases := []TrafficTestCase{}
-	for _, cl := range flatten(apps.PodA, apps.VM, apps.PodTproxy) {
-		cl := cl
-		cases = append(cases,
-			// Calls to the Service will go through envoy outbound and inbound, so we get envoy headers added
-			TrafficTestCase{
-				name: fmt.Sprintf("to service %v", cl.Config().Service),
-				call: cl.CallWithRetryOrFail,
-				opts: echo.CallOptions{
-					Target:    cl,
-					PortName:  "http",
-					Validator: echo.And(echo.ExpectOK(), echo.ExpectKey("X-Envoy-Attempt-Count", "1")),
-				},
-			},
-			// Localhost calls will go directly to localhost, bypassing Envoy. No envoy headers added.
-			TrafficTestCase{
-				name: fmt.Sprintf("to localhost %v", cl.Config().Service),
-				call: cl.CallWithRetryOrFail,
-				opts: echo.CallOptions{
-					Address:   "localhost",
-					Scheme:    scheme.HTTP,
-					Port:      &echo.Port{ServicePort: 8080},
-					Validator: echo.And(echo.ExpectOK(), echo.ExpectKey("X-Envoy-Attempt-Count", "")),
-				},
-			})
+func selfCallsCases() []TrafficTestCase {
+	sourceFilters := []echotest.Filter{
+		echotest.Not(echotest.ExternalServices),
+		echotest.Not(echotest.FilterMatch(echo.IsNaked())),
+		echotest.Not(echotest.FilterMatch(echo.IsHeadless())),
 	}
-	return cases
+	comboFilters := []echotest.CombinationFilter{func(from echo.Instance, to echo.Instances) echo.Instances {
+		return to.Match(echo.FQDN(from.Config().FQDN()))
+	}}
+
+	return []TrafficTestCase{
+		// Calls to the Service will go through envoy outbound and inbound, so we get envoy headers added
+		{
+			name:             "to service",
+			workloadAgnostic: true,
+			sourceFilters:    sourceFilters,
+			comboFilters:     comboFilters,
+			opts: echo.CallOptions{
+				PortName:  "http",
+				Validator: echo.And(echo.ExpectOK(), echo.ExpectKey("X-Envoy-Attempt-Count", "1")),
+			},
+		},
+		// Localhost calls will go directly to localhost, bypassing Envoy. No envoy headers added.
+		{
+			name:             "to localhost",
+			workloadAgnostic: true,
+			sourceFilters:    sourceFilters,
+			comboFilters:     comboFilters,
+			setupOpts: func(_ echo.Instance, _ echo.Services, opts *echo.CallOptions) {
+				// the framework will try to set this when enumerating test cases
+				opts.Target = nil
+			},
+			opts: echo.CallOptions{
+				Address:   "localhost",
+				Scheme:    scheme.HTTP,
+				Port:      &echo.Port{ServicePort: 8080},
+				Validator: echo.And(echo.ExpectOK(), echo.ExpectKey("X-Envoy-Attempt-Count", "")),
+			},
+		},
+	}
 }
 
 // Todo merge with security TestReachability code
@@ -1342,6 +1533,23 @@ spec:
       mode: %s
 ---
 `, app, app, mode)
+}
+
+func useClientProtocolDestinationRule(name, app string) string {
+	return fmt.Sprintf(`apiVersion: networking.istio.io/v1beta1
+kind: DestinationRule
+metadata:
+  name: %s
+spec:
+  host: %s
+  trafficPolicy:
+    tls:
+      mode: DISABLE
+    connectionPool:
+      http:
+        useClientProtocol: true
+---
+`, name, app)
 }
 
 func peerAuthentication(app, mode string) string {

@@ -114,9 +114,24 @@ func (t *T) RunToN(n int, testFn oneToNTest) {
 // fromEachDeployment enumerates subtests for deployment with the structure <src>
 // Intended to be used in combination with other helpers to enumerate subtests for destinations.
 func (t *T) fromEachDeployment(ctx framework.TestContext, testFn perDeploymentTest) {
+	duplicateShortnames := false
+	shortnames := map[string]struct{}{}
+	for _, src := range t.sources.Services() {
+		svc := src[0].Config().Service
+		if _, ok := shortnames[svc]; ok {
+			duplicateShortnames = true
+			break
+		}
+		shortnames[svc] = struct{}{}
+	}
+
 	for _, src := range t.sources.Services() {
 		src := src
-		ctx.NewSubTestf("%s", src[0].Config().Service).Run(func(ctx framework.TestContext) {
+		subtestName := src[0].Config().Service
+		if duplicateShortnames {
+			subtestName += "." + src[0].Config().Namespace.Prefix()
+		}
+		ctx.NewSubTest(subtestName).Run(func(ctx framework.TestContext) {
 			testFn(ctx, src)
 		})
 	}

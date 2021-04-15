@@ -90,24 +90,35 @@ type jwtPayload struct {
 // Clients should not use unbound tokens except in cases where
 // bound tokens are not possible.
 func IsK8SUnbound(jwt string) bool {
+	aud, f := ExtractJwtAud(jwt)
+	if !f {
+		return false // unbound tokens are valid JWT
+	}
+
+	return len(aud) == 0
+}
+
+// ExtractJwtAud extracts the audiences from a JWT token. If aud cannot be parse, the bool will be set
+// to false. This distinguishes aud=[] from not parsed.
+func ExtractJwtAud(jwt string) ([]string, bool) {
 	jwtSplit := strings.Split(jwt, ".")
 	if len(jwtSplit) != 3 {
-		return false // unbound tokens are valid JWT
+		return nil, false
 	}
 	payload := jwtSplit[1]
 
 	payloadBytes, err := base64.RawStdEncoding.DecodeString(payload)
 	if err != nil {
-		return false // unbound tokens are valid JWT
+		return nil, false
 	}
 
 	structuredPayload := &jwtPayload{}
 	err = json.Unmarshal(payloadBytes, &structuredPayload)
 	if err != nil {
-		return false
+		return nil, false
 	}
 
-	return len(structuredPayload.Aud) == 0
+	return structuredPayload.Aud, true
 }
 
 func parseJwtClaims(token string) (map[string]interface{}, error) {

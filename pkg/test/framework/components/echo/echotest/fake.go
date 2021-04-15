@@ -86,6 +86,10 @@ func (f fakeNamespace) Name() string {
 	return string(f)
 }
 
+func (f fakeNamespace) Prefix() string {
+	return string(f)
+}
+
 func (f fakeNamespace) SetLabel(key, value string) error {
 	panic("cannot interact with fake namespace, should not be exposed outside of staticvm")
 }
