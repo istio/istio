@@ -1162,9 +1162,9 @@ function install_asm_user_auth() {
 
   # The following account is from IAP team
   # TODO(b/182940034): use ASM owned account once created
-  OIDC_CLIENT_ID="1042451928015-7voa7j6bvjp28eqcfhj5dvhbp6n248ip.apps.googleusercontent.com"
-  OIDC_CLIENT_SECRET="X20PzlEEKgEomFYR0alkXF3P"
-  OIDC_ISSUER_URI="https://accounts.google.com"
+  OIDC_CLIENT_ID="$(jq -r ".client_id" "${CONFIG_DIR}/user-auth/userauth_oidc.json")"
+  OIDC_CLIENT_SECRET="$(jq -r ".client_secret" "${CONFIG_DIR}/user-auth/userauth_oidc.json")"
+  OIDC_ISSUER_URI="$(jq -r ".issuer" "${CONFIG_DIR}/user-auth/userauth_oidc.json")"
 
   # TODO(b/182918059): Fetch image from GCR release repo and GitHub packet.
   USER_AUTH_IMAGE="gcr.io/gke-release-staging/asm/asm_user_auth:staging"

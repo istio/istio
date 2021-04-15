@@ -13,7 +13,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// Current setup is based on the httpbin is deployed by the asm-lib.sh.
+// Package util Current setup is based on the httpbin is deployed by the asm-lib.sh.
 // TODO: Install httpbin in Go code or use echo
 package util
 
@@ -22,7 +22,7 @@ import (
 	ingressutil "istio.io/istio/tests/integration/security/sds_ingress/util"
 )
 
-// Setup following items assuming httpbin is deployed to default namespace:
+// SetupConfig Setup following items assuming httpbin is deployed to default namespace:
 // 1. Create k8s secret using existing cert
 func SetupConfig(ctx framework.TestContext) {
 	credName := "userauth-tls-cert"
