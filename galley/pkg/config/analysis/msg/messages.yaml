@@ -447,16 +447,3 @@ messages:
     args:
       - name: port
         type: string
-
-  - name: "GatewayNotDeclared"
-    code: IST0145
-    level: Warning
-    description: "When using a gateway for matching, the gateway is not declared in the gateway list"
-    template: "Gateway %s which is defined in .%s[].match[].gateways[] is not declared in .spec.gateways[] in VirtualService %s"
-    args:
-      - name: gateway
-        type: string
-      - name: protocol
-        type: string
-      - name: virtualservice
-        type: string

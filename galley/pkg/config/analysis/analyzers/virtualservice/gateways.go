@@ -88,7 +88,7 @@ func (s *GatewayAnalyzer) analyzeVirtualService(r *resource.Instance, c analysis
 		}
 	}
 	gatewayNotDeclaredReport := func(g string, protocol string, ri, mi, gi int) {
-		m := msg.NewGatewayNotDeclared(r, g, protocol, vsName.String())
+		m := msg.NewReferencedResourceNotFound(r, "gateway", g)
 		if line, ok := util.ErrorLine(r, fmt.Sprintf(util.VSMatchGateway, protocol, ri, mi, gi)); ok {
 			m.Line = line
 		}

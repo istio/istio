@@ -489,7 +489,7 @@ var testGrid = []testCase{
 		inputFiles: []string{"testdata/virtualservice_gateway_not_declared.yaml"},
 		analyzer:   &virtualservice.GatewayAnalyzer{},
 		expected: []message{
-			{msg.GatewayNotDeclared, "VirtualService vs"},
+			{msg.ReferencedResourceNotFound, "VirtualService vs"},
 		},
 	},
 	{
@@ -497,7 +497,7 @@ var testGrid = []testCase{
 		inputFiles: []string{"testdata/virtualservice_gateway_not_declared_tls.yaml"},
 		analyzer:   &virtualservice.GatewayAnalyzer{},
 		expected: []message{
-			{msg.GatewayNotDeclared, "VirtualService vs-tls"},
+			{msg.ReferencedResourceNotFound, "VirtualService vs-tls"},
 		},
 	},
 	{
@@ -505,7 +505,7 @@ var testGrid = []testCase{
 		inputFiles: []string{"testdata/virtualservice_gateway_not_declared_tcp.yaml"},
 		analyzer:   &virtualservice.GatewayAnalyzer{},
 		expected: []message{
-			{msg.GatewayNotDeclared, "VirtualService vs-tcp"},
+			{msg.ReferencedResourceNotFound, "VirtualService vs-tcp"},
 		},
 	},
 }
