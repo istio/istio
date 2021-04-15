@@ -123,6 +123,9 @@ func (s *DiscoveryServer) pushXds(con *Connection, push *model.PushContext,
 		Resources:    res,
 	}
 
+	configSize := ResourceSize(res)
+	configSizeBytes.With(typeTag.Value(w.TypeUrl)).Record(float64(configSize))
+
 	if err := con.send(resp); err != nil {
 		recordSendError(w.TypeUrl, con.ConID, err)
 		return err
@@ -133,12 +136,13 @@ func (s *DiscoveryServer) pushXds(con *Connection, push *model.PushContext,
 		if log.DebugEnabled() {
 			// Add additional information to logs when debug mode enabled
 			log.Infof("%s: PUSH%s for node:%s resources:%d size:%s nonce:%v version:%v",
-				v3.GetShortType(w.TypeUrl), req.PushReason(), con.proxy.ID, len(res), util.ByteCount(ResourceSize(res)), resp.Nonce, resp.VersionInfo)
+				v3.GetShortType(w.TypeUrl), req.PushReason(), con.ConID, len(res), util.ByteCount(configSize), resp.Nonce, resp.VersionInfo)
 		} else {
 			log.Infof("%s: PUSH%s for node:%s resources:%d size:%s",
-				v3.GetShortType(w.TypeUrl), req.PushReason(), con.proxy.ID, len(res), util.ByteCount(ResourceSize(res)))
+				v3.GetShortType(w.TypeUrl), req.PushReason(), con.ConID, len(res), util.ByteCount(configSize))
 		}
 	}
+
 	return nil
 }
 

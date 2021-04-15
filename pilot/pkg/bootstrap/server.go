@@ -25,18 +25,16 @@ import (
 	"net"
 	"net/http"
 	"os"
+	"strings"
 	"sync"
 	"time"
 
-	middleware "github.com/grpc-ecosystem/go-grpc-middleware"
 	prometheus "github.com/grpc-ecosystem/go-grpc-prometheus"
 	prom "github.com/prometheus/client_golang/prometheus"
-	"github.com/soheilhy/cmux"
 	"golang.org/x/net/http2"
 	"golang.org/x/net/http2/h2c"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
-	"google.golang.org/grpc/keepalive"
 	"google.golang.org/grpc/reflection"
 	v1 "k8s.io/client-go/kubernetes/typed/core/v1"
 	"k8s.io/client-go/rest"
@@ -44,6 +42,7 @@ import (
 
 	"istio.io/api/security/v1beta1"
 	"istio.io/istio/pilot/pkg/features"
+	istiogrpc "istio.io/istio/pilot/pkg/grpc"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/plugin"
 	kubesecrets "istio.io/istio/pilot/pkg/secrets/kube"
@@ -396,9 +395,6 @@ func isUnexpectedListenerError(err error) bool {
 	if errors.Is(err, http.ErrServerClosed) {
 		return false
 	}
-	if errors.Is(err, cmux.ErrListenerClosed) {
-		return false
-	}
 	return true
 }
 
@@ -452,12 +448,28 @@ func (s *Server) Start(stop <-chan struct{}) error {
 
 	if s.HTTP2Listener != nil {
 		go func() {
-			log.Infof("starting Http2 muxed service at %s", s.HTTP2Listener.Addr())
-			h2s := &http2.Server{}
-			h1s := &http.Server{
-				Addr:    ":8080",
-				Handler: h2c.NewHandler(s.httpMux, h2s),
+			log.Infof("starting Http2 service at %s", s.HTTP2Listener.Addr())
+			h2s := &http2.Server{
+				MaxConcurrentStreams: uint32(features.MaxConcurrentStreams),
 			}
+			h1s := &http.Server{
+				Addr: ":8080",
+				Handler: h2c.NewHandler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+					// If we detect gRPC, serve using grpcServer
+					if r.ProtoMajor == 2 && strings.HasPrefix(r.Header.Get("content-type"), "application/grpc") {
+						s.grpcServer.ServeHTTP(w, r)
+						return
+					}
+					// Otherwise, this is meant for the standard HTTP server
+					s.httpMux.ServeHTTP(w, r)
+				}), h2s),
+			}
+			// In the past, we have tried using "cmux" to handle multiplexing. This only works if we have
+			// only HTTP/1.1 and gRPC on the same port. If we have gRPC and HTTP2, clients (envoy) may
+			// multiplex the connections. cmux works at the connection level, so if the first request is
+			// gRPC then all future non-GRPC HTTP2 requests will match the gRPC server and fail. The major
+			// downside of multiplexing by using gRPC's ServeHTTP is that we are using the golang HTTP2
+			// stack. This means a lot of features on the gRPC server (keepalives, etc) do not apply.
 			if err := h1s.Serve(s.HTTP2Listener); isUnexpectedListenerError(err) {
 				log.Errorf("error serving http server: %v", err)
 			}
@@ -636,16 +648,7 @@ func (s *Server) initDiscoveryService(args *PilotArgs) {
 		// This happens only if the GRPC port (15010) is disabled. We will multiplex
 		// it on the HTTP port. Does not impact the HTTPS gRPC or HTTPS.
 		log.Info("multiplexing gRPC on http port ", s.HTTPListener.Addr())
-		m := cmux.New(s.HTTPListener)
-		s.GRPCListener = m.Match(cmux.HTTP2HeaderField("content-type", "application/grpc"))
-		s.HTTP2Listener = m.Match(cmux.HTTP2())
-		s.HTTPListener = m.Match(cmux.Any())
-		go func() {
-			if err := m.Serve(); isUnexpectedListenerError(err) {
-				log.Warnf("Failed to listen on multiplexed port %v", err)
-			}
-		}()
-
+		s.HTTP2Listener = s.HTTPListener
 	}
 }
 
@@ -659,6 +662,18 @@ func (s *Server) waitForShutdown(stop <-chan struct{}) {
 		// force stop them. This does not happen normally.
 		stopped := make(chan struct{})
 		go func() {
+			// Some grpcServer implementations do not support GracefulStop. Unfortunately, this is not
+			// exposed; they just panic. To avoid this, we will recover and do a standard Stop when its not
+			// support.
+			defer func() {
+				if r := recover(); r != nil {
+					s.grpcServer.Stop()
+					if s.secureGrpcServer != nil {
+						s.secureGrpcServer.Stop()
+					}
+					close(stopped)
+				}
+			}()
 			s.grpcServer.GracefulStop()
 			if s.secureGrpcServer != nil {
 				s.secureGrpcServer.GracefulStop()
@@ -695,7 +710,11 @@ func (s *Server) waitForShutdown(stop <-chan struct{}) {
 }
 
 func (s *Server) initGrpcServer(options *istiokeepalive.Options) {
-	grpcOptions := s.grpcServerOptions(options)
+	interceptors := []grpc.UnaryServerInterceptor{
+		// setup server prometheus monitoring (as final interceptor in chain)
+		prometheus.UnaryServerInterceptor,
+	}
+	grpcOptions := istiogrpc.ServerOptions(options, interceptors...)
 	s.grpcServer = grpc.NewServer(grpcOptions...)
 	s.XDSServer.Register(s.grpcServer)
 	reflection.Register(s.grpcServer)
@@ -742,7 +761,11 @@ func (s *Server) initSecureDiscoveryService(args *PilotArgs) error {
 	}
 	s.SecureGrpcListener = l
 
-	opts := s.grpcServerOptions(args.KeepaliveOptions)
+	interceptors := []grpc.UnaryServerInterceptor{
+		// setup server prometheus monitoring (as final interceptor in chain)
+		prometheus.UnaryServerInterceptor,
+	}
+	opts := istiogrpc.ServerOptions(args.KeepaliveOptions, interceptors...)
 	opts = append(opts, grpc.Creds(tlsCreds))
 
 	s.secureGrpcServer = grpc.NewServer(opts...)
@@ -758,38 +781,6 @@ func (s *Server) initSecureDiscoveryService(args *PilotArgs) error {
 	})
 
 	return nil
-}
-
-func (s *Server) grpcServerOptions(options *istiokeepalive.Options) []grpc.ServerOption {
-	interceptors := []grpc.UnaryServerInterceptor{
-		// setup server prometheus monitoring (as final interceptor in chain)
-		prometheus.UnaryServerInterceptor,
-	}
-
-	// Temp setting, default should be enough for most supported environments. Can be used for testing
-	// envoy with lower values.
-	maxStreams := features.MaxConcurrentStreams
-	maxRecvMsgSize := features.MaxRecvMsgSize
-
-	log.Infof("using max conn age of %v", options.MaxServerConnectionAge)
-	grpcOptions := []grpc.ServerOption{
-		grpc.UnaryInterceptor(middleware.ChainUnaryServer(interceptors...)),
-		grpc.MaxConcurrentStreams(uint32(maxStreams)),
-		grpc.MaxRecvMsgSize(maxRecvMsgSize),
-		// Ensure we allow clients sufficient ability to send keep alives. If this is higher than client
-		// keep alive setting, it will prematurely get a GOAWAY sent.
-		grpc.KeepaliveEnforcementPolicy(keepalive.EnforcementPolicy{
-			MinTime: options.Time / 2,
-		}),
-		grpc.KeepaliveParams(keepalive.ServerParameters{
-			Time:                  options.Time,
-			Timeout:               options.Timeout,
-			MaxConnectionAge:      options.MaxServerConnectionAge,
-			MaxConnectionAgeGrace: options.MaxServerConnectionAgeGrace,
-		}),
-	}
-
-	return grpcOptions
 }
 
 // addStartFunc appends a function to be run. These are run synchronously in order,

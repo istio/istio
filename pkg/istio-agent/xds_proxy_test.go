@@ -51,6 +51,11 @@ import (
 	"istio.io/istio/pkg/test/util/retry"
 )
 
+func init() {
+	features.WorkloadEntryHealthChecks = true
+	features.WorkloadEntryAutoRegistration = true
+}
+
 // Validates basic xds proxy flow by proxying one CDS requests end to end.
 func TestXdsProxyBasicFlow(t *testing.T) {
 	proxy := setupXdsProxy(t)
@@ -58,12 +63,10 @@ func TestXdsProxyBasicFlow(t *testing.T) {
 	setDialOptions(proxy, f.Listener)
 	conn := setupDownstreamConnection(t, proxy)
 	downstream := stream(t, conn)
-	sendDownstream(t, downstream)
-}
-
-func init() {
-	features.WorkloadEntryHealthChecks = true
-	features.WorkloadEntryAutoRegistration = true
+	sendDownstreamWithNode(t, downstream, model.NodeMetadata{
+		Namespace:   "default",
+		InstanceIPs: []string{"1.1.1.1"},
+	})
 }
 
 // Validates the proxy health checking updates
@@ -258,13 +261,19 @@ func TestXdsProxyReconnects(t *testing.T) {
 
 		conn := setupDownstreamConnection(t, proxy)
 		downstream := stream(t, conn)
-		sendDownstream(t, downstream)
+		sendDownstreamWithNode(t, downstream, model.NodeMetadata{
+			Namespace:   "default",
+			InstanceIPs: []string{"1.1.1.1"},
+		})
 
 		downstream.CloseSend()
 		waitDisconnect(proxy)
 
 		downstream = stream(t, conn)
-		sendDownstream(t, downstream)
+		sendDownstreamWithNode(t, downstream, model.NodeMetadata{
+			Namespace:   "default",
+			InstanceIPs: []string{"1.1.1.1"},
+		})
 	})
 	t.Run("Envoy opens multiple stream", func(t *testing.T) {
 		proxy := setupXdsProxy(t)
@@ -273,9 +282,15 @@ func TestXdsProxyReconnects(t *testing.T) {
 
 		conn := setupDownstreamConnection(t, proxy)
 		downstream := stream(t, conn)
-		sendDownstream(t, downstream)
+		sendDownstreamWithNode(t, downstream, model.NodeMetadata{
+			Namespace:   "default",
+			InstanceIPs: []string{"1.1.1.1"},
+		})
 		downstream = stream(t, conn)
-		sendDownstream(t, downstream)
+		sendDownstreamWithNode(t, downstream, model.NodeMetadata{
+			Namespace:   "default",
+			InstanceIPs: []string{"1.1.1.1"},
+		})
 	})
 	t.Run("Envoy closes connection", func(t *testing.T) {
 		proxy := setupXdsProxy(t)
@@ -284,12 +299,18 @@ func TestXdsProxyReconnects(t *testing.T) {
 
 		conn := setupDownstreamConnection(t, proxy)
 		downstream := stream(t, conn)
-		sendDownstream(t, downstream)
+		sendDownstreamWithNode(t, downstream, model.NodeMetadata{
+			Namespace:   "default",
+			InstanceIPs: []string{"1.1.1.1"},
+		})
 		conn.Close()
 
 		c := setupDownstreamConnection(t, proxy)
 		downstream = stream(t, c)
-		sendDownstream(t, downstream)
+		sendDownstreamWithNode(t, downstream, model.NodeMetadata{
+			Namespace:   "default",
+			InstanceIPs: []string{"1.1.1.1"},
+		})
 	})
 	t.Run("Envoy sends concurrent requests", func(t *testing.T) {
 		// Envoy doesn't really do this, in reality it should only have a single connection. However,
@@ -300,14 +321,23 @@ func TestXdsProxyReconnects(t *testing.T) {
 
 		conn := setupDownstreamConnection(t, proxy)
 		downstream := stream(t, conn)
-		sendDownstream(t, downstream)
+		sendDownstreamWithNode(t, downstream, model.NodeMetadata{
+			Namespace:   "default",
+			InstanceIPs: []string{"1.1.1.1"},
+		})
 
 		c := setupDownstreamConnection(t, proxy)
 		downstream = stream(t, c)
-		sendDownstream(t, downstream)
+		sendDownstreamWithNode(t, downstream, model.NodeMetadata{
+			Namespace:   "default",
+			InstanceIPs: []string{"1.1.1.1"},
+		})
 		conn.Close()
 
-		sendDownstream(t, downstream)
+		sendDownstreamWithNode(t, downstream, model.NodeMetadata{
+			Namespace:   "default",
+			InstanceIPs: []string{"1.1.1.1"},
+		})
 	})
 	t.Run("Istiod closes connection", func(t *testing.T) {
 		proxy := setupXdsProxy(t)
@@ -331,7 +361,10 @@ func TestXdsProxyReconnects(t *testing.T) {
 		// Send initial request
 		conn := setupDownstreamConnection(t, proxy)
 		downstream := stream(t, conn)
-		sendDownstream(t, downstream)
+		sendDownstreamWithNode(t, downstream, model.NodeMetadata{
+			Namespace:   "default",
+			InstanceIPs: []string{"1.1.1.1"},
+		})
 
 		// Stop server, setup a new one. This simulates an Istiod pod being torn down
 		grpcServer.Stop()
@@ -348,7 +381,10 @@ func TestXdsProxyReconnects(t *testing.T) {
 
 		// Send downstream again
 		downstream = stream(t, conn)
-		sendDownstream(t, downstream)
+		sendDownstreamWithNode(t, downstream, model.NodeMetadata{
+			Namespace:   "default",
+			InstanceIPs: []string{"1.1.1.1"},
+		})
 	})
 }
 
@@ -518,14 +554,6 @@ func sendDownstreamWithNode(t *testing.T, downstream discovery.AggregatedDiscove
 	if res == nil || res.TypeUrl != v3.ListenerType {
 		t.Fatalf("Expected to get listener response but got %v", res)
 	}
-}
-
-func sendDownstream(t *testing.T, downstream discovery.AggregatedDiscoveryService_StreamAggregatedResourcesClient) {
-	t.Helper()
-	sendDownstreamWithNode(t, downstream, model.NodeMetadata{
-		Namespace:   "default",
-		InstanceIPs: []string{"1.1.1.1"},
-	})
 }
 
 func setupDownstreamConnectionUDS(t test.Failer, path string) *grpc.ClientConn {

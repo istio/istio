@@ -53,6 +53,8 @@ type TrafficTestCase struct {
 	call func(t test.Failer, options echo.CallOptions, retryOptions ...retry.Option) echoclient.ParsedResponses
 	// opts specifies the echo call options. When using RunForApps, the Target will be set dynamically.
 	opts echo.CallOptions
+	// setupOpts allows modifying options based on sources/destinations
+	setupOpts func(src echo.Instance, dest echo.Services, opts *echo.CallOptions)
 	// validate is used to build validators dynamically when using RunForApps based on the active/src dest pair
 	validate func(src echo.Instance, dst echo.Services) echo.Validator
 
@@ -70,6 +72,8 @@ type TrafficTestCase struct {
 	sourceFilters []echotest.Filter
 	// targetFilters allows adding additional filtering for workload agnostic cases to test using fewer targets
 	targetFilters []echotest.Filter
+	// comboFilters allows conditionally filtering based on pairs of apps
+	comboFilters []echotest.CombinationFilter
 	// vars given to the config template
 	templateVars map[string]interface{}
 }
@@ -108,57 +112,44 @@ func (c TrafficTestCase) RunForApps(t framework.TestContext, apps echo.Instances
 			}).
 			WithDefaultFilters().
 			From(c.sourceFilters...).
-			To(c.targetFilters...)
+			To(c.targetFilters...).
+			ConditionallyTo(c.comboFilters...)
+
+		doTest := func(t framework.TestContext, src echo.Instance, dsts echo.Services) {
+			if c.skip {
+				t.SkipNow()
+			}
+			buildOpts := func(options echo.CallOptions) echo.CallOptions {
+				opts := options
+				opts.Target = dsts[0][0]
+				if c.validate != nil {
+					opts.Validator = c.validate(src, dsts)
+				}
+				if opts.Count == 0 {
+					opts.Count = callsPerCluster * len(dsts) * len(dsts[0])
+				}
+				if c.setupOpts != nil {
+					c.setupOpts(src, dsts, &opts)
+				}
+				return opts
+			}
+			if optsSpecified {
+				src.CallWithRetryOrFail(t, buildOpts(c.opts), retryOptions...)
+			}
+			for _, child := range c.children {
+				t.NewSubTest(child.name).Run(func(t framework.TestContext) {
+					src.CallWithRetryOrFail(t, buildOpts(child.opts), retryOptions...)
+				})
+			}
+		}
+
 		if c.toN > 0 {
 			echoT.RunToN(c.toN, func(t framework.TestContext, src echo.Instance, dsts echo.Services) {
-				// TODO DRY up Run vs RunToN
-				if c.skip {
-					t.SkipNow()
-				}
-				buildOpts := func(options echo.CallOptions) echo.CallOptions {
-					opts := options
-					opts.Target = dsts[0][0]
-					if c.validate != nil {
-						opts.Validator = c.validate(src, dsts)
-					}
-					if opts.Count == 0 {
-						opts.Count = callsPerCluster * len(dsts) * len(dsts[0])
-					}
-					return opts
-				}
-				if optsSpecified {
-					src.CallWithRetryOrFail(t, buildOpts(c.opts), retryOptions...)
-				}
-				for _, child := range c.children {
-					t.NewSubTest(child.name).Run(func(t framework.TestContext) {
-						src.CallWithRetryOrFail(t, buildOpts(child.opts), retryOptions...)
-					})
-				}
+				doTest(t, src, dsts)
 			})
 		} else {
-			echoT.Run(func(t framework.TestContext, src echo.Instance, dest echo.Instances) {
-				if c.skip {
-					t.SkipNow()
-				}
-				buildOpts := func(options echo.CallOptions) echo.CallOptions {
-					opts := options
-					opts.Target = dest[0]
-					if c.validate != nil {
-						opts.Validator = c.validate(src, echo.Services{dest})
-					}
-					if opts.Count == 0 {
-						opts.Count = callsPerCluster * len(dest)
-					}
-					return opts
-				}
-				if optsSpecified {
-					src.CallWithRetryOrFail(t, buildOpts(c.opts), retryOptions...)
-				}
-				for _, child := range c.children {
-					t.NewSubTest(child.name).Run(func(t framework.TestContext) {
-						src.CallWithRetryOrFail(t, buildOpts(child.opts), retryOptions...)
-					})
-				}
+			echoT.Run(func(t framework.TestContext, src echo.Instance, dst echo.Instances) {
+				doTest(t, src, echo.Services{dst})
 			})
 		}
 	}
@@ -206,7 +197,7 @@ func RunAllTrafficTests(t framework.TestContext, apps *EchoDeployments) {
 	cases := map[string][]TrafficTestCase{}
 	cases["virtualservice"] = virtualServiceCases(t.Settings().SkipVM)
 	cases["sniffing"] = protocolSniffingCases()
-	cases["selfcall"] = selfCallsCases(apps)
+	cases["selfcall"] = selfCallsCases()
 	cases["serverfirst"] = serverFirstTestCases(apps)
 	cases["gateway"] = gatewayCases(apps)
 	cases["loop"] = trafficLoopCases(apps)

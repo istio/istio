@@ -176,6 +176,17 @@ var (
 	inboundEDSUpdates     = inboundUpdates.With(typeTag.Value("eds"))
 	inboundServiceUpdates = inboundUpdates.With(typeTag.Value("svc"))
 	inboundServiceDeletes = inboundUpdates.With(typeTag.Value("svcdelete"))
+
+	configSizeBytes = monitoring.NewDistribution(
+		"pilot_xds_config_size_bytes",
+		"Distribution of configuration sizes pushed to clients",
+		// Important boundaries: 10K, 1M, 4M, 10M, 40M
+		// 4M default limit for gRPC, 10M config will start to strain system,
+		// 40M is likely upper-bound on config sizes supported.
+		[]float64{1, 10000, 1000000, 4000000, 10000000, 40000000},
+		monitoring.WithLabels(typeTag),
+		monitoring.WithUnit(monitoring.Bytes),
+	)
 )
 
 func recordXDSClients(version string, delta float64) {
@@ -262,5 +273,6 @@ func init() {
 		totalDelayedPushes,
 		totalDelayedPushTimeouts,
 		pilotSDSCertificateErrors,
+		configSizeBytes,
 	)
 }

@@ -45,6 +45,7 @@ global:
   hub: %s
   tag: %s
 `
+	tarGzSuffix = ".tar.gz"
 )
 
 // previousChartPath is path of Helm charts for previous Istio deployments.
@@ -120,29 +121,6 @@ func getValuesOverrides(ctx framework.TestContext, valuesStr, hub, tag string) s
 	return overrideValuesFile
 }
 
-// installIstio install Istio using Helm charts with the provided
-// override values file and fails the tests on any failures.
-func installIstio(t framework.TestContext, cs cluster.Cluster,
-	h *helm.Helm, overrideValuesFile string) {
-	helmtest.CreateNamespace(t, cs, helmtest.IstioNamespace)
-
-	// Install base chart
-	err := h.InstallChart(helmtest.BaseReleaseName, helmtest.BaseChart+helmtest.TarGzSuffix,
-		helmtest.IstioNamespace, overrideValuesFile, helmtest.Timeout)
-	if err != nil {
-		t.Errorf("failed to install istio %s chart", helmtest.BaseChart)
-	}
-
-	// Install discovery chart
-	err = h.InstallChart(helmtest.IstiodReleaseName, filepath.Join(helmtest.ControlChartsDir, helmtest.DiscoveryChart)+helmtest.TarGzSuffix,
-		helmtest.IstioNamespace, overrideValuesFile, helmtest.Timeout)
-	if err != nil {
-		t.Errorf("failed to install istio %s chart", helmtest.DiscoveryChart)
-	}
-
-	helmtest.InstallGatewaysCharts(t, cs, h, helmtest.TarGzSuffix, helmtest.IstioNamespace, overrideValuesFile)
-}
-
 // performUpgradeFunc returns the provided function necessary to run inside of a integration test
 // for upgrade capability
 func performUpgradeFunc(previousVersion string) func(framework.TestContext) {
@@ -160,7 +138,7 @@ func performUpgradeFunc(previousVersion string) func(framework.TestContext) {
 		})
 
 		overrideValuesFile := getValuesOverrides(t, defaultValues, gcrHub, previousVersion)
-		installIstio(t, cs, h, overrideValuesFile)
+		helmtest.InstallIstio(t, cs, h, tarGzSuffix, overrideValuesFile)
 		helmtest.VerifyInstallation(t, cs)
 
 		oldClient, oldServer := sanitycheck.SetupTrafficTest(t, t)
