@@ -561,6 +561,9 @@ func TestIngressRequestAuthentication(t *testing.T) {
 					).
 					RunFromClusters(func(t framework.TestContext, src cluster.Cluster, dest echo.Instances) {
 						ingr := ist.IngressFor(src)
+						if ingr == nil {
+							t.Skip()
+						}
 						authn.CheckIngressOrFail(t, ingr, c.Host, c.Path, nil, c.Token, c.ExpectResponseCode)
 					})
 			}

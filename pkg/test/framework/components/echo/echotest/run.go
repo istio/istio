@@ -51,7 +51,7 @@ func (t *T) Run(testFn oneToOneTest) {
 		t.setup(ctx, srcInstances)
 		t.toEachDeployment(ctx, func(ctx framework.TestContext, dstInstances echo.Instances) {
 			t.setupPair(ctx, srcInstances, echo.Services{dstInstances})
-			t.fromEachCluster(ctx, srcInstances, func(ctx framework.TestContext, src echo.Instance) {
+			t.fromEachWorkloadCluster(ctx, srcInstances, func(ctx framework.TestContext, src echo.Instance) {
 				filteredDst := t.applyCombinationFilters(src, dstInstances)
 				if len(filteredDst) == 0 {
 					// this only happens due to conditional filters and when an entire deployment is filtered we should be noisy
@@ -68,13 +68,13 @@ func (t *T) Run(testFn oneToOneTest) {
 // destination instance. This is for ingress gateway testing when source instance
 // destination instances. This can be used when we're not using echo workloads
 // as the source of traffic, such as from the ingress gateway. For example:
-//    
+//
 //    RunFromClusters(func(t framework.TestContext, src cluster.Cluster, dst echo.Instances)) {
 //      ingr := ist.IngressFor(src)
 //      ingr.CallWithRetryOrFail(...)
 //    })
 func (t *T) RunFromClusters(testFn oneClusterOneTest) {
-	t.fromEachClusterOnly(t.rootCtx, func(ctx framework.TestContext, c cluster.Cluster) {
+	t.fromEachCluster(t.rootCtx, func(ctx framework.TestContext, c cluster.Cluster) {
 		t.toEachDeployment(ctx, func(ctx framework.TestContext, dstInstances echo.Instances) {
 			t.setupDst(ctx, dstInstances)
 			testFn(ctx, c, dstInstances)
@@ -82,8 +82,8 @@ func (t *T) RunFromClusters(testFn oneClusterOneTest) {
 	})
 }
 
-// fromEachClusterOnly runs test from each cluster without requiring source deployment.
-func (t *T) fromEachClusterOnly(ctx framework.TestContext, testFn perClusterTest) {
+// fromEachCluster runs test from each cluster without requiring source deployment.
+func (t *T) fromEachCluster(ctx framework.TestContext, testFn perClusterTest) {
 	for _, srcCluster := range t.sources.Clusters() {
 		srcCluster := srcCluster
 		ctx.NewSubTestf("from %s", srcCluster.StableName()).Run(func(ctx framework.TestContext) {
@@ -107,7 +107,7 @@ func (t *T) RunToN(n int, testFn oneToNTest) {
 		t.setup(ctx, srcInstances)
 		t.toNDeployments(ctx, n, srcInstances, func(ctx framework.TestContext, destDeployments echo.Services) {
 			t.setupPair(ctx, srcInstances, destDeployments)
-			t.fromEachCluster(ctx, srcInstances, func(ctx framework.TestContext, src echo.Instance) {
+			t.fromEachWorkloadCluster(ctx, srcInstances, func(ctx framework.TestContext, src echo.Instance) {
 				// reapply destination filters to only get the reachable instances for this cluster
 				// this can be done safely since toNDeployments asserts the Services won't change
 				destDeployments := t.applyCombinationFilters(src, destDeployments.Instances()).Services()
@@ -154,7 +154,7 @@ func (t *T) toEachDeployment(ctx framework.TestContext, testFn perDeploymentTest
 	}
 }
 
-func (t *T) fromEachCluster(ctx framework.TestContext, src echo.Instances, testFn perInstanceTest) {
+func (t *T) fromEachWorkloadCluster(ctx framework.TestContext, src echo.Instances, testFn perInstanceTest) {
 	for _, srcInstance := range src {
 		srcInstance := srcInstance
 		if len(ctx.Clusters()) == 1 && len(src) == 1 {
