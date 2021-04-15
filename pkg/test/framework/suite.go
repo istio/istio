@@ -16,7 +16,6 @@ package framework
 
 import (
 	"errors"
-	"flag"
 	"fmt"
 	"io/ioutil"
 	"os"
@@ -34,6 +33,7 @@ import (
 	kubelib "istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/test/framework/components/cluster"
 	"istio.io/istio/pkg/test/framework/components/environment/kube"
+	"istio.io/istio/pkg/test/framework/config"
 	ferrors "istio.io/istio/pkg/test/framework/errors"
 	"istio.io/istio/pkg/test/framework/label"
 	"istio.io/istio/pkg/test/framework/resource"
@@ -508,8 +508,8 @@ func newEnvironment(ctx resource.Context) (resource.Environment, error) {
 
 func getSettings(testID string) (*resource.Settings, error) {
 	// Parse flags and init logging.
-	if !flag.Parsed() {
-		flag.Parse()
+	if !config.Parsed() {
+		config.Parse()
 	}
 
 	return resource.SettingsFromCommandLine(testID)
