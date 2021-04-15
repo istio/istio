@@ -1098,27 +1098,25 @@ func selfCallsCases() []TrafficTestCase {
 				Address:   "localhost",
 				Port:      &echo.Port{ServicePort: 8080},
 				Scheme:    scheme.HTTP,
-				PortName:  "http",
 				Validator: echo.And(echo.ExpectOK(), echo.ExpectKey("X-Envoy-Attempt-Count", "")),
 			},
 		},
 		// PodIP calls will go directly to podIP, bypassing Envoy. No envoy headers added.
 		{
-			name:             fmt.Sprintf("to podIP"),
+			name:             "to podIP",
 			workloadAgnostic: true,
 			sourceFilters:    sourceFilters,
 			comboFilters:     comboFilters,
 			setupOpts: func(src echo.Instance, _ echo.Services, opts *echo.CallOptions) {
-				// the framework will try to set this when enumerating test cases
 				workloads, _ := src.Workloads()
 				opts.Address = workloads[0].Address()
+				// the framework will try to set this when enumerating test cases
 				opts.Target = nil
 			},
 			opts: echo.CallOptions{
-				CallInstance: true,
-				Scheme:       scheme.HTTP,
-				Port:         &echo.Port{ServicePort: 8080},
-				Validator:    echo.And(echo.ExpectOK(), echo.ExpectKey("X-Envoy-Attempt-Count", "")),
+				Scheme:    scheme.HTTP,
+				Port:      &echo.Port{ServicePort: 8080},
+				Validator: echo.And(echo.ExpectOK(), echo.ExpectKey("X-Envoy-Attempt-Count", "")),
 			},
 		},
 	}

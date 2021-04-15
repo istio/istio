@@ -84,10 +84,6 @@ type CallOptions struct {
 	// Validator for server responses. If no validator is provided, only the number of responses received
 	// will be verified.
 	Validator Validator
-
-	// CallInstance indicates whether to change the servicePort to instancePort.
-	// Note: currently used for self calling
-	CallInstance bool
 }
 
 // Validator validates that the given responses are expected.
