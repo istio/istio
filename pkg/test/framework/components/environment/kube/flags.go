@@ -23,6 +23,7 @@ import (
 	"strings"
 
 	"istio.io/istio/pkg/test/env"
+	"istio.io/istio/pkg/test/framework/config"
 	"istio.io/istio/pkg/test/scopes"
 	"istio.io/istio/pkg/test/util/file"
 )
@@ -49,10 +50,10 @@ var (
 )
 
 // NewSettingsFromCommandLine returns Settings obtained from command-line flags.
-// flag.Parse must be called before calling this function.
+// config.Parse must be called before calling this function.
 func NewSettingsFromCommandLine() (*Settings, error) {
-	if !flag.Parsed() {
-		panic("flag.Parse must be called before this function")
+	if !config.Parsed() {
+		panic("config.Parse must be called before this function")
 	}
 
 	s := settingsFromCommandLine.clone()
