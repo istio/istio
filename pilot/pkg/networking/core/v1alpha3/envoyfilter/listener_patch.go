@@ -496,6 +496,7 @@ func patchHTTPFilters(patchContext networking.EnvoyFilter_PatchContext, filterKe
 	}
 }
 
+// no lint
 func applyHttpFilterPatch(lp *model.EnvoyFilterConfigPatchWrapper, hcm *http_conn.HttpConnectionManager) bool {
 	applied := false
 	switch lp.Operation {
@@ -584,7 +585,7 @@ func toString(pd []*patchDependencies) string {
 	for _, patch := range pd {
 		for _, dep := range patch.deps {
 			filter := patch.patch.Value.(*http_conn.HttpFilter)
-			format = format + fmt.Sprintf("%s -> %s\n", filter.Name, dep)
+			format += fmt.Sprintf("%s -> %s\n", filter.Name, dep)
 		}
 	}
 	return format
