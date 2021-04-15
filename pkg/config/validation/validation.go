@@ -26,7 +26,7 @@ import (
 	"strings"
 	"time"
 
-	udpaa "github.com/cncf/udpa/go/udpa/annotations"
+	udpaa "github.com/cncf/xds/go/udpa/annotations"
 	"github.com/envoyproxy/go-control-plane/pkg/wellknown"
 	"github.com/gogo/protobuf/types"
 	"github.com/golang/protobuf/proto"
