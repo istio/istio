@@ -578,10 +578,3 @@ func setupDownstreamConnectionUDS(t test.Failer, path string) *grpc.ClientConn {
 func setupDownstreamConnection(t *testing.T, proxy *XdsProxy) *grpc.ClientConn {
 	return setupDownstreamConnectionUDS(t, proxy.xdsUdsPath)
 }
-
-func TestIsExpectedGRPCError(t *testing.T) {
-	err := errors.New("code = Internal desc = stream terminated by RST_STREAM with error code: NO_ERROR")
-	if got := isExpectedGRPCError(err); !got {
-		t.Fatalf("expected true, got %v", got)
-	}
-}
