@@ -79,7 +79,7 @@ func (t *T) setupPair(ctx framework.TestContext, src echo.Instances, dsts echo.S
 	}
 }
 
-func (t *T) SetupForDst(setupFn dstSetupFn) *T {
+func (t *T) SetupForDestination(setupFn dstSetupFn) *T {
 	t.destinationDeploymentSetup = append(t.destinationDeploymentSetup, setupFn)
 	return t
 }
