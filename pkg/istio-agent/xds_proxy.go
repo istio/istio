@@ -21,7 +21,6 @@ import (
 	"crypto/x509"
 	"encoding/json"
 	"fmt"
-	"io"
 	"io/ioutil"
 	"math"
 	"net"
@@ -57,7 +56,6 @@ import (
 	"istio.io/istio/pkg/istio-agent/health"
 	"istio.io/istio/pkg/istio-agent/metrics"
 	istiokeepalive "istio.io/istio/pkg/keepalive"
-	"istio.io/istio/pkg/mcp/status"
 	"istio.io/istio/pkg/uds"
 	"istio.io/istio/pkg/util/gogo"
 	"istio.io/istio/pkg/wasm"
@@ -391,7 +389,7 @@ func (p *XdsProxy) HandleUpstream(ctx context.Context, con *ProxyConnection, xds
 		select {
 		case err := <-con.upstreamError:
 			// error from upstream Istiod.
-			if isExpectedGRPCError(err) {
+			if istiogrpc.IsExpectedGRPCError(err) {
 				proxyLog.Debugf("upstream [%d] terminated with status %v", con.conID, err)
 				metrics.IstiodConnectionCancellations.Increment()
 			} else {
@@ -401,7 +399,7 @@ func (p *XdsProxy) HandleUpstream(ctx context.Context, con *ProxyConnection, xds
 			return err
 		case err := <-con.downstreamError:
 			// error from downstream Envoy.
-			if isExpectedGRPCError(err) {
+			if istiogrpc.IsExpectedGRPCError(err) {
 				proxyLog.Debugf("downstream [%d] terminated with status %v", con.conID, err)
 				metrics.EnvoyConnectionCancellations.Increment()
 			} else {
@@ -556,29 +554,6 @@ func (p *XdsProxy) close() {
 	if p.downstreamListener != nil {
 		_ = p.downstreamListener.Close()
 	}
-}
-
-// isExpectedGRPCError checks a gRPC error code and determines whether it is an expected error when
-// things are operating normally. This is basically capturing when the client disconnects.
-func isExpectedGRPCError(err error) bool {
-	if err == io.EOF {
-		return true
-	}
-
-	if s, ok := status.FromError(err); ok {
-		if s.Code() == codes.Canceled || s.Code() == codes.DeadlineExceeded {
-			return true
-		}
-		if s.Code() == codes.Unavailable && (s.Message() == "client disconnected" || s.Message() == "transport is closing") {
-			return true
-		}
-	}
-	// If this is not a gRPCStatus we should just error message.
-	if strings.Contains(err.Error(), "stream terminated by RST_STREAM with error code: NO_ERROR") {
-		return true
-	}
-
-	return false
 }
 
 func (p *XdsProxy) initDownstreamServer() error {

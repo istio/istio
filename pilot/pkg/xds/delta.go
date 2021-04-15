@@ -220,7 +220,7 @@ func (s *DiscoveryServer) receiveDelta(con *Connection, reqChannel chan *discove
 	for {
 		req, err := con.deltaStream.Recv()
 		if err != nil {
-			if isExpectedGRPCError(err) {
+			if istiogrpc.IsExpectedGRPCError(err) {
 				log.Infof("ADS: %q %s terminated %v", con.PeerAddr, con.ConID, err)
 				return
 			}
