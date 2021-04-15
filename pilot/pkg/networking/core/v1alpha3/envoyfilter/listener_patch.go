@@ -455,9 +455,11 @@ func patchHTTPFilters(patchContext networking.EnvoyFilter_PatchContext, filterKe
 
 	// Order patches as per dependencies. This will also detect cycles.
 	optaches, err := orderPatches(mpatches, hcm)
+	// TODO(ramaraochavali): When cycle is detected instead of ignoring the entire patch,
+	// consider applying remaining filters.
 	if err != nil {
 		IncrementEnvoyFilterMetric(filterKey, HttpFilter, false)
-		log.Warnf("envoy filter %s has patches that have cyclic dependencies. So filter is skipped", toString(optaches))
+		log.Warnf("envoy filter has patches that have cyclic dependencies. So filter is skipped: %s", toString(optaches))
 		return
 	}
 
@@ -606,7 +608,7 @@ func orderPatches(original []*model.EnvoyFilterConfigPatchWrapper, hcm *http_con
 			dependencySet[lp] = make(map[*model.EnvoyFilterConfigPatchWrapper]struct{})
 			continue
 		}
-		// If there is no http filter match - we should add it to top or bottom.
+		// If there is no http filter match - we should add it to top or bottom depending on operation.
 		if !hasHTTPFilterMatch(lp) {
 			orderedPatches[lp] = &patchDependencies{lp, []*model.EnvoyFilterConfigPatchWrapper{}}
 			dependencySet[lp] = make(map[*model.EnvoyFilterConfigPatchWrapper]struct{})
@@ -652,10 +654,12 @@ func orderPatches(original []*model.EnvoyFilterConfigPatchWrapper, hcm *http_con
 	// dependencies, that means we have a circular dependency.
 	for len(dependencySet) != 0 {
 		// Get all patches from the dependencies which have no dependencies.
-		ready := make(patchSet)
-		for patch, deps := range dependencySet {
-			if len(deps) == 0 {
-				ready[patch] = struct{}{}
+		ready := make([]*model.EnvoyFilterConfigPatchWrapper, 0)
+		readySet := make(patchSet)
+		for _, patch := range original {
+			if len(dependencySet[patch]) == 0 {
+				ready = append(ready, patch)
+				readySet[patch] = struct{}{}
 			}
 		}
 
@@ -668,13 +672,13 @@ func orderPatches(original []*model.EnvoyFilterConfigPatchWrapper, hcm *http_con
 			return g, errors.New("circular dependency found")
 		}
 
-		for patch := range ready {
+		for _, patch := range ready {
 			delete(dependencySet, patch)
 			opatches = append(opatches, orderedPatches[patch])
 		}
 
 		for patch, deps := range dependencySet {
-			diff := deps.difference(ready)
+			diff := deps.difference(readySet)
 			dependencySet[patch] = diff
 		}
 	}
