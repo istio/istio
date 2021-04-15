@@ -51,7 +51,7 @@ func TestTelemetries_EffectiveTelemetry(t *testing.T) {
 		},
 		Tracing: []*tpb.Tracing{
 			{
-				RandomSamplingPercentage: &types.DoubleValue{Value: 77.77},
+				RandomSamplingPercentage: &types.DoubleValue{Value: 0.0},
 			},
 		},
 	}
@@ -160,8 +160,8 @@ func TestTelemetries_EffectiveTelemetry(t *testing.T) {
 								Name: "zipkin",
 							},
 						},
-						RandomSamplingPercentage: &types.DoubleValue{Value: 77.77},
-						// no disableSpanReporting because the missing value overrides
+						DisableSpanReporting:     &types.BoolValue{Value: true},
+						RandomSamplingPercentage: &types.DoubleValue{Value: 0.0},
 					},
 				},
 			},
