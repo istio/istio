@@ -27,6 +27,7 @@ testdirs() {
   find -L "${PKG_ROOT}" \
     -not \( -path "${PKG_ROOT}/tests/integration/*" -prune \) \
     -not \( -path "${PKG_ROOT}/samples/*" -prune \) \
+    -not \( -path "${PKG_ROOT}/prow/asm/tester/*" -prune \) \
     -not \( -path "${PKG_ROOT}/pkg/test/framework/components/echo/kube/*" -prune \) \
     -name \*_test.go -print0 | xargs -0n1 dirname | \
     sed "s|^${PKG_ROOT}/|./|" | LC_ALL=C sort -u
