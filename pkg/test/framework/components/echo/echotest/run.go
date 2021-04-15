@@ -66,7 +66,13 @@ func (t *T) Run(testFn oneToOneTest) {
 
 // RunFromClusters will generate and run one subtest to send traffic to
 // destination instance. This is for ingress gateway testing when source instance
-// is sending requests to destination through the ingress gateway.
+// destination instances. This can be used when we're not using echo workloads
+// as the source of traffic, such as from the ingress gateway. For example:
+//    
+//    RunFromClusters(func(t framework.TestContext, src cluster.Cluster, dst echo.Instances)) {
+//      ingr := ist.IngressFor(src)
+//      ingr.CallWithRetryOrFail(...)
+//    })
 func (t *T) RunFromClusters(testFn oneClusterOneTest) {
 	t.fromEachClusterOnly(t.rootCtx, func(ctx framework.TestContext, c cluster.Cluster) {
 		t.toEachDeployment(ctx, func(ctx framework.TestContext, dstInstances echo.Instances) {

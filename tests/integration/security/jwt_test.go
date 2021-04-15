@@ -541,7 +541,7 @@ func TestIngressRequestAuthentication(t *testing.T) {
 
 			for _, c := range ingTestCases {
 				echotest.New(t, apps.All).
-					SetupForDst(func(t framework.TestContext, dst echo.Instances) error {
+					SetupForDestination(func(t framework.TestContext, dst echo.Instances) error {
 						policy := yml.MustApplyNamespace(t, tmpl.MustEvaluate(
 							file.AsStringOrFail(t, "testdata/requestauthn/ingress.yaml.tmpl"),
 							map[string]string{
