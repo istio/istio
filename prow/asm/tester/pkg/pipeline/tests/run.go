@@ -16,6 +16,7 @@ package tests
 
 import (
 	"fmt"
+	"istio.io/istio/prow/asm/tester/pkg/tests"
 	"log"
 	"path/filepath"
 
@@ -26,11 +27,11 @@ import (
 func Run(settings *resource.Settings) error {
 	log.Println("🎬 start running the tests...")
 
-	// TODO: convert the script into Go
+	// TODO: convert the remainder of the script to Go
 	runTestsScript := filepath.Join(settings.RepoRootDir, "prow/asm/tester/scripts/run-tests.sh")
 	if err := exec.Run(runTestsScript); err != nil {
 		return fmt.Errorf("error running the ASM tests: %w", err)
 	}
 
-	return nil
+	return tests.Run(settings)
 }

@@ -1,0 +1,100 @@
+//  Copyright Istio Authors
+//
+//  Licensed under the Apache License, Version 2.0 (the "License");
+//  you may not use this file except in compliance with the License.
+//  You may obtain a copy of the License at
+//
+//      http://www.apache.org/licenses/LICENSE-2.0
+//
+//  Unless required by applicable law or agreed to in writing, software
+//  distributed under the License is distributed on an "AS IS" BASIS,
+//  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+//  See the License for the specific language governing permissions and
+//  limitations under the License.
+
+package tests
+
+import (
+	"fmt"
+	"istio.io/istio/prow/asm/tester/pkg/exec"
+	"istio.io/istio/prow/asm/tester/pkg/resource"
+	"log"
+	"os"
+	"path/filepath"
+	"strings"
+)
+
+const (
+	testSkipConfigFile = "tests/skip.yaml"
+	imagePullSecretFile = "test_image_pull_secret.yaml"
+)
+
+func Setup(settings *resource.Settings) error {
+	skipConfigPath := filepath.Join(resource.ConfigDirPath, testSkipConfigFile)
+	skipConfig, err := parseSkipConfig(skipConfigPath)
+	if err != nil {
+		return err
+	}
+	testSkipFlags, err := testSkipFlags(skipConfig.Tests, settings.DisabledTests, skipLabels(settings))
+	if err != nil {
+		return err
+	}
+	packageSkipEnvvar, err := packageSkipEnvvar(skipConfig.Packages, skipLabels(settings))
+	if err != nil {
+		return err
+	}
+	integrationTestFlags := append(generateTestFlags(settings), testSkipFlags...)
+	integrationTestFlagsEnvvar := strings.Join(integrationTestFlags, " ")
+
+	gcrProjectID1 := settings.GCRProject
+	var gcrProjectID2 string
+	if len(settings.GCPProjects) == 2 {
+		// If it's using multiple gke clusters, set gcrProjectID2 as the project
+		// for the second cluster.
+		gcrProjectID2 = settings.GCPProjects[1]
+	} else {
+		gcrProjectID2 = gcrProjectID1
+	}
+	// When HUB Workload Identity Pool is used in the case of multi projects setup, clusters in different projects
+	// will use the same WIP and P4SA of the Hub host project.
+	if settings.WIP == string(resource.HUB) && strings.Contains(settings.TestTarget, "security") {
+		gcrProjectID2 = gcrProjectID1
+	}
+
+
+	// environment variables required when running the test make target
+	envVars := map[string]string{
+		"INTEGRATION_TEST_FLAGS": integrationTestFlagsEnvvar,
+		"DISABLED_PACKAGES": packageSkipEnvvar,
+		"TEST_SELECT": generateTestSelect(settings),
+		"INTEGRATION_TEST_TOPOLOGY_FILE": fmt.Sprintf("%s/integration_test_topology.yaml", os.Getenv("ARTIFACTS")),
+		"JUNIT_OUT": fmt.Sprintf("%s/junit1.xml", os.Getenv("ARTIFACTS")),
+		// exported GCR_PROJECT_ID_1 and GCR_PROJECT_ID_2
+		// for security and telemetry test.
+		"GCR_PROJECT_ID_1": gcrProjectID1,
+		"GCR_PROJECT_ID_2": gcrProjectID2,
+		// required for bare metal and multicloud environments
+		"HTTP_PROXY": os.Getenv("MC_HTTP_PROXY"),
+		"HTTPS_PROXY": os.Getenv("MC_HTTP_PROXY"),
+	}
+	for k, v := range envVars {
+		log.Printf("Set env %s=%s", k, v)
+		os.Setenv(k, v)
+	}
+	return nil
+}
+
+func Run(settings *resource.Settings) error {
+	return exec.Run(testCommand(settings))
+}
+
+func testCommand(settings *resource.Settings) string {
+	makeTarget := settings.TestTarget
+	// TODO(samnaser) move this to prow job config
+	if settings.ControlPlane == string(resource.Managed) {
+		if settings.ClusterTopology == "SINGLECLUSTER" || settings.ClusterTopology == "sc" {
+			makeTarget = "test.integration.asm.mcp"
+		}
+	}
+	return fmt.Sprintf("make %s", makeTarget)
+}

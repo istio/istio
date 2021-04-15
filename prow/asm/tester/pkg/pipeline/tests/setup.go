@@ -16,50 +16,25 @@ package tests
 
 import (
 	"fmt"
-	"log"
-	"os"
-	"path/filepath"
-	"strings"
-
 	"istio.io/istio/prow/asm/tester/pkg/exec"
 	"istio.io/istio/prow/asm/tester/pkg/resource"
+	"istio.io/istio/prow/asm/tester/pkg/tests"
+	"log"
+	"path/filepath"
 )
 
 func Setup(settings *resource.Settings) error {
 	log.Println("🎬 start running the setups for the tests...")
 
-	gcrProjectID1 := settings.GCRProject
-	var gcrProjectID2 string
-	if len(settings.GCPProjects) == 2 {
-		// If it's using multiple gke clusters, set gcrProjectID2 as the project
-		// for the second cluster.
-		gcrProjectID2 = settings.GCPProjects[1]
-	} else {
-		gcrProjectID2 = gcrProjectID1
-	}
-	// When HUB Workload Identity Pool is used in the case of multi projects setup, clusters in different projects
-	// will use the same WIP and P4SA of the Hub host project.
-	if settings.WIP == string(resource.HUB) && strings.Contains(settings.TestTarget, "security") {
-		gcrProjectID2 = gcrProjectID1
-	}
-
-	for name, val := range map[string]string{
-		// exported GCR_PROJECT_ID_1 and GCR_PROJECT_ID_2
-		// for security and telemetry test.
-		"GCR_PROJECT_ID_1": gcrProjectID1,
-		"GCR_PROJECT_ID_2": gcrProjectID2,
-	} {
-		log.Printf("Set env var: %s=%s", name, val)
-		if err := os.Setenv(name, val); err != nil {
-			return fmt.Errorf("error setting env var %q to %q", name, val)
-		}
+	if err := tests.Setup(settings); err != nil {
+		return fmt.Errorf("error setting up the tests: %w", err)
 	}
 
 	// Run the setup-tests.sh
 	// TODO: convert the script into Go
 	setupTestsScript := filepath.Join(settings.RepoRootDir, "prow/asm/tester/scripts/setup-tests.sh")
 	if err := exec.Run(setupTestsScript); err != nil {
-		return fmt.Errorf("error setting up the tests: %w", err)
+		return fmt.Errorf("error setting up the tests in setup-tests.sh: %w", err)
 	}
 
 	if settings.ControlPlane == string(resource.Unmanaged) && settings.FeatureToTest == "USER_AUTH" {
