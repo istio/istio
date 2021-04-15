@@ -28,7 +28,6 @@ import (
 
 	"istio.io/istio/istioctl/pkg/clioptions"
 	"istio.io/istio/istioctl/pkg/multixds"
-	"istio.io/istio/istioctl/pkg/util/handlers"
 	"istio.io/istio/istioctl/pkg/writer/pilot"
 	"istio.io/istio/pkg/kube"
 )
@@ -39,20 +38,6 @@ const (
 	istiodServiceName = "istiod"
 	xdsPortName       = "https-dns"
 )
-
-func PreHandleForXdsRequest(iPod, namespace string, kubeClient kube.ExtendedClient) (string, string, string, error) {
-	podName, ns, err := handlers.InferPodInfoFromTypedResource(iPod,
-		handlers.HandleNamespace(namespace, defaultNamespace),
-		kubeClient.UtilFactory())
-	if err != nil {
-		return "", "", "", err
-	}
-	pod, perr := kubeClient.CoreV1().Pods(ns).Get(context.TODO(), podName, metav1.GetOptions{})
-	if perr != nil {
-		return "", "", "", perr
-	}
-	return podName, ns, pod.Spec.ServiceAccountName, perr
-}
 
 func HandlerForRetrieveDebugList(kubeClient kube.ExtendedClient,
 	centralOpts *clioptions.CentralControlPlaneOptions,
@@ -74,8 +59,7 @@ func HandlerForRetrieveDebugList(kubeClient kube.ExtendedClient,
 	return xdsResponses, nil
 }
 
-func HandlerForDebugErrors(cmdName string,
-	kubeClient kube.ExtendedClient,
+func HandlerForDebugErrors(kubeClient kube.ExtendedClient,
 	centralOpts *clioptions.CentralControlPlaneOptions,
 	writer io.Writer,
 	xdsResponses map[string]*xdsapi.DiscoveryResponse) (map[string]*xdsapi.DiscoveryResponse, error) {
@@ -84,15 +68,15 @@ func HandlerForDebugErrors(cmdName string,
 			eString := string(resource.Value)
 			switch {
 			case strings.Contains(eString, "You must provide a proxyID in the query string"):
-				return nil, fmt.Errorf("please specify pod name with namespace, e.g. [%s?%s] for command [%s]",
-					cmdName, "proxyID=istio-ingressgateway-xxx-yyy.istio-system", cmdName)
+				return nil, fmt.Errorf("You must provide a proxyID in the query string, e.g. [%s]",
+					"edsz?proxyID=istio-ingressgateway")
 
 			case strings.Contains(eString, "404 page not found"):
 				return HandlerForRetrieveDebugList(kubeClient, centralOpts, writer)
 
 			case strings.Contains(eString, "querystring parameter 'resource' is required"):
-				return nil, fmt.Errorf("please specify resource information for command [%s], e.g. [%s]",
-					cmdName, "config_distribution?resource=VirtualService/default/bookinfo")
+				return nil, fmt.Errorf("querystring parameter 'resource' is required, e.g. [%s]",
+					"config_distribution?resource=VirtualService/default/bookinfo")
 			}
 		}
 	}
@@ -145,25 +129,10 @@ By default it will use the default serviceAccount from (istio-system) namespace 
 				}
 			}
 			var xdsRequest xdsapi.DiscoveryRequest
-			var namespace, serviceAccount, resourceName, cmdName string
-			if strings.Contains(args[0], "?proxyID=") {
-				arrParam := strings.Split(args[0], "?proxyID=")
-				index := len(arrParam) - 1
-				podName, ns, svcAccount, perr := PreHandleForXdsRequest(arrParam[index], namespace, kubeClient)
-				if perr != nil {
-					return perr
-				}
-				cmdName = arrParam[0]
-				namespace = ns
-				serviceAccount = svcAccount
-				resourceName = fmt.Sprintf("%s?proxyID=%s.%s", cmdName, podName, ns)
-			} else {
-				cmdName = args[0]
-				resourceName = args[0]
-			}
+			var namespace, serviceAccount string
 
 			xdsRequest = xdsapi.DiscoveryRequest{
-				ResourceNames: []string{resourceName},
+				ResourceNames: []string{args[0]},
 				Node: &envoy_corev3.Node{
 					Id: "debug~0.0.0.0~istioctl~cluster.local",
 				},
@@ -213,7 +182,7 @@ By default it will use the default serviceAccount from (istio-system) namespace 
 				return respErr
 			}
 			sw := pilot.XdsStatusWriter{Writer: c.OutOrStdout()}
-			newResponse, hDErr := HandlerForDebugErrors(cmdName, kubeClient, &centralOpts, c.OutOrStdout(), xdsResponses)
+			newResponse, hDErr := HandlerForDebugErrors(kubeClient, &centralOpts, c.OutOrStdout(), xdsResponses)
 			if newResponse != nil {
 				return sw.PrintAll(newResponse)
 			}
