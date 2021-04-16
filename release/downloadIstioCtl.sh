@@ -105,7 +105,7 @@ ARCH_UNSUPPORTED="1.5"
 
 if [ "${OS}" = "Linux" ] ; then
   # This checks if 1.6 <= 1.5 or 1.4 <= 1.5
-  if [ "$(expr "${ARCH_SUPPORTED}" \<= "${ARCH_UNSUPPORTED}")" -eq 1 ]; then
+  if awk 'BEGIN {exit !('$ARCH_SUPPORTED' <= '$ARCH_UNSUPPORTED')}'; then
     without_arch
   else
     with_arch
