@@ -55,7 +55,14 @@ const (
 	genericScrtKey = "key"
 	// The ID/name for the CA certificate in kubernetes generic secret.
 	genericScrtCaCert = "cacert"
+	ASvc              = "a"
+	VMSvc             = "vm"
 )
+
+type EchoDeployments struct {
+	ServerNs namespace.Instance
+	All      echo.Instances
+}
 
 type IngressCredential struct {
 	PrivateKey string
@@ -331,37 +338,47 @@ func updateSecret(ingressType CallType, scrt *v1.Secret, ic IngressCredential, i
 	return scrt
 }
 
-func SetupTest(ctx resource.Context) (namespace.Instance, error) {
-	serverNs, err := namespace.New(ctx, namespace.Config{
+func EchoConfig(service string, ns namespace.Instance, buildVM bool) echo.Config {
+	return echo.Config{
+		Service:   service,
+		Namespace: ns,
+		Ports: []echo.Port{
+			{
+				Name:     "http",
+				Protocol: protocol.HTTP,
+				// We use a port > 1024 to not require root
+				InstancePort: 8090,
+			},
+		},
+		DeployAsVM: buildVM,
+	}
+}
+
+func SetupTest(ctx resource.Context, apps *EchoDeployments) error {
+	var err error
+	apps.ServerNs, err = namespace.New(ctx, namespace.Config{
 		Prefix: "ingress",
 		Inject: true,
 	})
 	if err != nil {
-		return nil, err
+		return err
 	}
-	var a echo.Instance
-	if _, err := echoboot.NewBuilder(ctx).
-		With(&a, echo.Config{
-			Service:   "server",
-			Namespace: serverNs,
-			Ports: []echo.Port{
-				{
-					Name:     "http",
-					Protocol: protocol.HTTP,
-					// We use a port > 1024 to not require root
-					InstancePort: 8090,
-				},
-			},
-		}).Build(); err != nil {
-		return nil, err
+	echos, err := echoboot.NewBuilder(ctx).
+		WithClusters(ctx.Clusters()...).
+		WithConfig(EchoConfig(ASvc, apps.ServerNs, false)).
+		WithConfig(EchoConfig(VMSvc, apps.ServerNs, true)).Build()
+	if err != nil {
+		return err
 	}
-	return serverNs, nil
+	apps.All = echos
+	return nil
 }
 
 type TestConfig struct {
 	Mode           string
 	CredentialName string
 	Host           string
+	ServiceName    string
 }
 
 const vsTemplate = `
@@ -380,7 +397,7 @@ spec:
         exact: /{{.CredentialName}}
     route:
     - destination:
-        host: server
+        host: {{.ServiceName}}
         port:
           number: 80
 `
@@ -441,6 +458,7 @@ func RunTestMultiMtlsGateways(ctx framework.TestContext, inst istio.Instance, ns
 			Mode:           "MUTUAL",
 			CredentialName: cred,
 			Host:           fmt.Sprintf("runtestmultimtlsgateways%d.example.com", i),
+			ServiceName:    ASvc,
 		})
 		credNames = append(credNames, cred)
 	}
@@ -475,6 +493,7 @@ func RunTestMultiTLSGateways(ctx framework.TestContext, inst istio.Instance, ns 
 			Mode:           "SIMPLE",
 			CredentialName: cred,
 			Host:           fmt.Sprintf("runtestmultitlsgateways%d.example.com", i),
+			ServiceName:    ASvc,
 		})
 		credNames = append(credNames, cred)
 	}

@@ -20,14 +20,13 @@ import (
 
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/istio"
-	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/framework/resource"
 	ingressutil "istio.io/istio/tests/integration/security/sds_ingress/util"
 )
 
 var (
 	inst istio.Instance
-	ns   namespace.Instance
+	apps = &ingressutil.EchoDeployments{}
 )
 
 func TestMain(m *testing.M) {
@@ -35,9 +34,8 @@ func TestMain(m *testing.M) {
 	framework.
 		NewSuite(m).
 		Setup(istio.Setup(&inst, nil)).
-		Setup(func(ctx resource.Context) (err error) {
-			ns, err = ingressutil.SetupTest(ctx)
-			return
+		Setup(func(ctx resource.Context) error {
+			return ingressutil.SetupTest(ctx, apps)
 		}).
 		Run()
 }
@@ -65,10 +63,11 @@ func TestSingleTlsGateway_SecretRotation(t *testing.T) {
 				ingressutil.IngressCredentialA, false)
 			defer ingressutil.DeleteKubeSecret(t, []string{credName})
 
-			ingressutil.SetupConfig(t, ns, ingressutil.TestConfig{
+			ingressutil.SetupConfig(t, apps.ServerNs, ingressutil.TestConfig{
 				Mode:           "SIMPLE",
 				CredentialName: credName,
 				Host:           host,
+				ServiceName:    ingressutil.ASvc,
 			})
 			ing := inst.IngressFor(t.Clusters().Default())
 
@@ -117,10 +116,11 @@ func TestSingleMTLSGateway_ServerKeyCertRotation(t *testing.T) {
 				host       = "testsinglemtlsgateway-serverkeycertrotation.example.com"
 			)
 
-			ingressutil.SetupConfig(t, ns, ingressutil.TestConfig{
+			ingressutil.SetupConfig(t, apps.ServerNs, ingressutil.TestConfig{
 				Mode:           "MUTUAL",
 				CredentialName: credName[0],
 				Host:           host,
+				ServiceName:    ingressutil.ASvc,
 			})
 
 			// Add two kubernetes secrets to provision server key/cert and client CA cert for ingress gateway.
@@ -183,10 +183,11 @@ func TestSingleMTLSGateway_CompoundSecretRotation(t *testing.T) {
 				ingressutil.IngressCredentialA, false)
 			defer ingressutil.DeleteKubeSecret(t, credName)
 
-			ingressutil.SetupConfig(t, ns, ingressutil.TestConfig{
+			ingressutil.SetupConfig(t, apps.ServerNs, ingressutil.TestConfig{
 				Mode:           "MUTUAL",
 				CredentialName: credName[0],
 				Host:           host,
+				ServiceName:    ingressutil.ASvc,
 			})
 			// Wait for ingress gateway to fetch key/cert from Gateway agent via SDS.
 			ing := inst.IngressFor(t.Clusters().Default())
@@ -241,10 +242,11 @@ func TestSingleMTLSGatewayAndNotGeneric_CompoundSecretRotation(t *testing.T) {
 				ingressutil.IngressCredentialA, true)
 			defer ingressutil.DeleteKubeSecret(t, credName)
 
-			ingressutil.SetupConfig(t, ns, ingressutil.TestConfig{
+			ingressutil.SetupConfig(t, apps.ServerNs, ingressutil.TestConfig{
 				Mode:           "MUTUAL",
 				CredentialName: credName[0],
 				Host:           host,
+				ServiceName:    ingressutil.ASvc,
 			})
 			// Wait for ingress gateway to fetch key/cert from Gateway agent via SDS.
 			ing := inst.IngressFor(t.Clusters().Default())
@@ -286,7 +288,7 @@ func TestTlsGateways(t *testing.T) {
 		NewTest(t).
 		Features("security.ingress.tls.gateway.valid-secret").
 		Run(func(t framework.TestContext) {
-			ingressutil.RunTestMultiTLSGateways(t, inst, ns)
+			ingressutil.RunTestMultiTLSGateways(t, inst, apps.ServerNs)
 		})
 }
 
@@ -298,7 +300,7 @@ func TestMtlsGateways(t *testing.T) {
 		NewTest(t).
 		Features("security.ingress.mtls.gateway").
 		Run(func(t framework.TestContext) {
-			ingressutil.RunTestMultiMtlsGateways(t, inst, ns)
+			ingressutil.RunTestMultiMtlsGateways(t, inst, apps.ServerNs)
 		})
 }
 
@@ -412,10 +414,11 @@ func TestMultiTlsGateway_InvalidSecret(t *testing.T) {
 					ingressutil.CreateIngressKubeSecret(t, []string{c.secretName}, ingressutil.TLS,
 						c.ingressGatewayCredential, false)
 					defer ingressutil.DeleteKubeSecret(t, []string{c.secretName})
-					t.Cleanup(ingressutil.SetupConfig(t, ns, ingressutil.TestConfig{
+					t.Cleanup(ingressutil.SetupConfig(t, apps.ServerNs, ingressutil.TestConfig{
 						Mode:           "SIMPLE",
 						CredentialName: c.secretName,
 						Host:           c.hostName,
+						ServiceName:    ingressutil.ASvc,
 					}))
 					ingressutil.SendRequestOrFail(t, ing, c.hostName, c.secretName, c.callType, c.tlsContext,
 						c.expectedResponse)
@@ -511,10 +514,11 @@ func TestMultiMtlsGateway_InvalidSecret(t *testing.T) {
 						c.ingressGatewayCredential, false)
 					defer ingressutil.DeleteKubeSecret(t, []string{c.secretName})
 
-					ingressutil.SetupConfig(t, ns, ingressutil.TestConfig{
+					ingressutil.SetupConfig(t, apps.ServerNs, ingressutil.TestConfig{
 						Mode:           "MUTUAL",
 						CredentialName: c.secretName,
 						Host:           c.hostName,
+						ServiceName:    ingressutil.ASvc,
 					})
 					ingressutil.SendRequestOrFail(t, ing, c.hostName, c.secretName, c.callType, c.tlsContext,
 						c.expectedResponse)
