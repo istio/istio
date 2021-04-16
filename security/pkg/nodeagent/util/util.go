@@ -25,7 +25,11 @@ import (
 	"go.opencensus.io/stats/view"
 
 	"istio.io/istio/pkg/file"
+	"istio.io/pkg/env"
 )
+
+var k8sInCluster = env.RegisterStringVar("KUBERNETES_SERVICE_HOST", "",
+	"Kuberenetes service host, set automatically when running in-cluster")
 
 // ParseCertAndGetExpiryTimestamp parses the first certificate in certByte and returns cert expire
 // time, or return error if fails to parse certificate.
@@ -70,23 +74,31 @@ func OutputKeyCertToDir(dir string, privateKey, certChain, rootCert []byte) erro
 	if len(dir) == 0 {
 		return nil
 	}
+
+	certFileMode := os.FileMode(0600)
+	if k8sInCluster.Get() != "" {
+		// If this is running on k8s, give more permission to the file certs.
+		// This is typically used to share the certs with non-proxy containers in the pod which does not run as root or 1337.
+		// For example, prometheus server could use proxy provisioned certs to scrape application metrics through mTLS.
+		certFileMode = os.FileMode(0644)
+	}
 	// Depending on the SDS resource to output, some fields may be nil
 	if privateKey == nil && certChain == nil && rootCert == nil {
 		return fmt.Errorf("the input private key, cert chain, and root cert are nil")
 	}
 
 	if privateKey != nil {
-		if err := file.AtomicWrite(path.Join(dir, "key.pem"), privateKey, os.FileMode(0600)); err != nil {
+		if err := file.AtomicWrite(path.Join(dir, "key.pem"), privateKey, certFileMode); err != nil {
 			return fmt.Errorf("failed to write private key to file: %v", err)
 		}
 	}
 	if certChain != nil {
-		if err := file.AtomicWrite(path.Join(dir, "cert-chain.pem"), certChain, os.FileMode(0600)); err != nil {
+		if err := file.AtomicWrite(path.Join(dir, "cert-chain.pem"), certChain, certFileMode); err != nil {
 			return fmt.Errorf("failed to write cert chain to file: %v", err)
 		}
 	}
 	if rootCert != nil {
-		if err := file.AtomicWrite(path.Join(dir, "root-cert.pem"), rootCert, os.FileMode(0600)); err != nil {
+		if err := file.AtomicWrite(path.Join(dir, "root-cert.pem"), rootCert, certFileMode); err != nil {
 			return fmt.Errorf("failed to write root cert to file: %v", err)
 		}
 	}
