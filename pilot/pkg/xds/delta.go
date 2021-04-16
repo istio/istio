@@ -297,6 +297,7 @@ func (s *DiscoveryServer) processDeltaRequest(req *discovery.DeltaDiscoveryReque
 
 	var request *model.PushRequest
 	if shouldRespond {
+		debugRequest(req)
 		// This is a request, trigger a full push for this type. Override the blocked push (if it exists),
 		// as this full push is guaranteed to be a superset of what we would have pushed from the blocked push.
 		request = &model.PushRequest{Full: true}
