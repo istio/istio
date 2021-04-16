@@ -143,11 +143,11 @@ func (s *Server) initDNSCerts(hostname, customHost, namespace string) error {
 			return fmt.Errorf("failed reading %s: %v", defaultCACertPath, err)
 		}
 	} else if features.PilotCertProvider.Get() == IstiodCAProvider {
-		log.Infof("Generating istiod-signed cert for %v", names)
 		certChain, keyPEM, err = s.CA.GenKeyCert(names, SelfSignedCACertTTL.Get(), false)
 		if err != nil {
 			return fmt.Errorf("failed generating istiod key cert %v", err)
 		}
+		log.Infof("Generating istiod-signed cert for %v:\n %s", names, certChain)
 
 		signingKeyFile := path.Join(LocalCertDir.Get(), "ca-key.pem")
 		// check if signing key file exists the cert dir
@@ -172,7 +172,7 @@ func (s *Server) initDNSCerts(hostname, customHost, namespace string) error {
 		log.Infof("User specified cert provider: %v", features.PilotCertProvider.Get())
 		return nil
 	}
-	s.keyCertBundleWatcher.SetAndNotify(keyPEM, certChain, caBundle)
+	s.istiodCertBundleWatcher.SetAndNotify(keyPEM, certChain, caBundle)
 	return nil
 }
 
@@ -191,7 +191,8 @@ func (s *Server) watchRootCertAndGenKeyCert(names []string, stop <-chan struct{}
 				if err != nil {
 					log.Errorf("failed generating istiod key cert %v", err)
 				} else {
-					s.keyCertBundleWatcher.SetAndNotify(keyPEM, certChain, caBundle)
+					s.istiodCertBundleWatcher.SetAndNotify(keyPEM, certChain, caBundle)
+					log.Infof("regenerated istiod dns cert: %s", certChain)
 				}
 			}
 		}
@@ -199,13 +200,16 @@ func (s *Server) watchRootCertAndGenKeyCert(names []string, stop <-chan struct{}
 }
 
 // initCertificateWatches sets up watches for the dns certs.
+// 1. plugin cert
+// 2. istiod signed certs.
 func (s *Server) initCertificateWatches(tlsOptions TLSOptions) error {
 	hasPluginCert := hasCustomTLSCerts(tlsOptions)
-	if !hasPluginCert && !s.EnableCA() && features.PilotCertProvider.Get() == IstiodCAProvider {
+	// If there is neither plugin cert nor istiod signed cert, return.
+	if !hasPluginCert && !features.EnableCAServer {
 		return nil
 	}
 	if hasPluginCert {
-		if err := s.keyCertBundleWatcher.SetFromFilesAndNotify(tlsOptions.KeyFile, tlsOptions.CertFile, tlsOptions.CaCertFile); err != nil {
+		if err := s.istiodCertBundleWatcher.SetFromFilesAndNotify(tlsOptions.KeyFile, tlsOptions.CertFile, tlsOptions.CaCertFile); err != nil {
 			return fmt.Errorf("set keyCertBundle failed: %v", err)
 		}
 		// TODO: Setup watcher for root and restart server if it changes.
@@ -222,7 +226,7 @@ func (s *Server) initCertificateWatches(tlsOptions TLSOptions) error {
 					select {
 					case <-keyCertTimerC:
 						keyCertTimerC = nil
-						if err := s.keyCertBundleWatcher.SetFromFilesAndNotify(tlsOptions.KeyFile, tlsOptions.CertFile, tlsOptions.CaCertFile); err != nil {
+						if err := s.istiodCertBundleWatcher.SetFromFilesAndNotify(tlsOptions.KeyFile, tlsOptions.CertFile, tlsOptions.CaCertFile); err != nil {
 							log.Errorf("Setting keyCertBundle failed: %v", err)
 						}
 					case <-s.fileWatcher.Events(tlsOptions.CertFile):
@@ -247,7 +251,7 @@ func (s *Server) initCertificateWatches(tlsOptions TLSOptions) error {
 	}
 
 	neverStop := make(chan struct{})
-	watchCh := s.keyCertBundleWatcher.AddWatcher()
+	watchCh := s.istiodCertBundleWatcher.AddWatcher()
 	if err := s.loadIstiodCert(watchCh, neverStop); err != nil {
 		return fmt.Errorf("first time loadIstiodCert failed: %v", err)
 	}

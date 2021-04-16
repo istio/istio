@@ -158,11 +158,11 @@ type Server struct {
 	RA             ra.RegistrationAuthority
 
 	// TrustAnchors for workload to workload mTLS
-	workloadTrustBundle  *tb.TrustBundle
-	certMu               sync.RWMutex
-	istiodCert           *tls.Certificate
-	keyCertBundleWatcher *keycertbundle.Watcher
-	server               server.Instance
+	workloadTrustBundle     *tb.TrustBundle
+	certMu                  sync.RWMutex
+	istiodCert              *tls.Certificate
+	istiodCertBundleWatcher *keycertbundle.Watcher
+	server                  server.Instance
 
 	// requiredTerminations keeps track of components that should block server exit
 	// if they are not stopped. This allows important cleanup tasks to be completed.
@@ -191,16 +191,16 @@ func NewServer(args *PilotArgs, initFuncs ...func(*Server)) (*Server, error) {
 	e.ServiceDiscovery = ac
 
 	s := &Server{
-		clusterID:            getClusterID(args),
-		environment:          e,
-		fileWatcher:          filewatcher.NewWatcher(),
-		httpMux:              http.NewServeMux(),
-		monitoringMux:        http.NewServeMux(),
-		readinessProbes:      make(map[string]readinessProbe),
-		workloadTrustBundle:  tb.NewTrustBundle(nil),
-		server:               server.New(),
-		shutdownDuration:     args.ShutdownDuration,
-		keyCertBundleWatcher: keycertbundle.NewWatcher(),
+		clusterID:               getClusterID(args),
+		environment:             e,
+		fileWatcher:             filewatcher.NewWatcher(),
+		httpMux:                 http.NewServeMux(),
+		monitoringMux:           http.NewServeMux(),
+		readinessProbes:         make(map[string]readinessProbe),
+		workloadTrustBundle:     tb.NewTrustBundle(nil),
+		server:                  server.New(),
+		shutdownDuration:        args.ShutdownDuration,
+		istiodCertBundleWatcher: keycertbundle.NewWatcher(),
 	}
 	// Apply custom initialization functions.
 	for _, fn := range initFuncs {
@@ -904,16 +904,24 @@ func (s *Server) initIstiodCerts(args *PilotArgs, host string) error {
 	return nil
 }
 
-// maybeInitDNSCerts initializes DNS certs if needed.
-func (s *Server) maybeInitDNSCerts(args *PilotArgs, host string) error {
+// shouldInitDNSCerts returns whether DNS certs need to be signed.
+func (s *Server) shouldInitDNSCerts(args *PilotArgs) bool {
 	if hasCustomTLSCerts(args.ServerOptions.TLSOptions) {
 		// Use the DNS certificate provided via args.
 		// This allows injector, validation to work without Citadel, and
 		// allows secure SDS connections to Istiod.
-		return nil
+		return false
 	}
 	if !s.EnableCA() && features.PilotCertProvider.Get() == IstiodCAProvider {
 		// If CA functionality is disabled, istiod cannot sign the DNS certificates.
+		return false
+	}
+	return true
+}
+
+// maybeInitDNSCerts initializes DNS certs if needed.
+func (s *Server) maybeInitDNSCerts(args *PilotArgs, host string) error {
+	if !s.shouldInitDNSCerts(args) {
 		return nil
 	}
 	log.Infof("initializing Istiod DNS certificates host: %s, custom host: %s", host, features.IstiodServiceCustomHost.Get())

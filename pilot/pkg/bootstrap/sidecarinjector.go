@@ -92,7 +92,7 @@ func (s *Server) initSidecarInjector(args *PilotArgs) (*inject.Webhook, error) {
 	if features.InjectionWebhookConfigName.Get() != "" {
 		s.addStartFunc(func(stop <-chan struct{}) error {
 			// No leader election - different istiod revisions will patch their own cert.
-			caBundle := s.keyCertBundleWatcher.GetCABundle()
+			caBundle := s.istiodCertBundleWatcher.GetCABundle()
 			// TODO(hzxuzhonghu): this should be consistent with validating webhook,
 			// update webhook configuration by watching the cabundle
 			patcher, err := webhooks.NewWebhookCertPatcher(s.kubeClient, args.Revision, webhookName, caBundle)

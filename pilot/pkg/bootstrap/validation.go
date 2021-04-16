@@ -64,7 +64,7 @@ func (s *Server) initConfigValidation(args *PilotArgs) error {
 
 		o := controller.Options{
 			WatchedNamespace:  args.Namespace,
-			CABundleWatcher:   s.keyCertBundleWatcher,
+			CABundleWatcher:   s.istiodCertBundleWatcher,
 			WebhookConfigName: webhookConfigName,
 			ServiceName:       "istiod",
 		}

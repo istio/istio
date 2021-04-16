@@ -175,9 +175,9 @@ func TestReloadIstiodCert(t *testing.T) {
 	dir, err := ioutil.TempDir("", "istiod_certs")
 	stop := make(chan struct{})
 	s := &Server{
-		fileWatcher:          filewatcher.NewWatcher(),
-		server:               server.New(),
-		keyCertBundleWatcher: keycertbundle.NewWatcher(),
+		fileWatcher:             filewatcher.NewWatcher(),
+		server:                  server.New(),
+		istiodCertBundleWatcher: keycertbundle.NewWatcher(),
 	}
 
 	defer func() {
