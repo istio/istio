@@ -303,9 +303,11 @@ func (s *DiscoveryServer) Stream(stream DiscoveryStream) error {
 	for {
 		select {
 		case req := <-reqChan:
-			err := s.processRequest(req, con)
-			if err != nil {
-				return err
+			if req != nil {
+				err := s.processRequest(req, con)
+				if err != nil {
+					return err
+				}
 			}
 		case err := <-errorChan:
 			// Remote side closed connection or error processing the request.

@@ -116,12 +116,14 @@ func (s *DiscoveryServer) StreamDeltas(stream DeltaDiscoveryStream) error {
 	for {
 		select {
 		case req := <-reqChan:
-			// processRequest is calling pushXXX, accessing common structs with pushConnection.
-			// Adding sync is the second issue to be resolved if we want to save 1/2 of the threads.
-			log.Debugf("Got Delta Request: %+v", req.TypeUrl)
-			err := s.processDeltaRequest(req, con)
-			if err != nil {
-				return err
+			if req != nil {
+				// processRequest is calling pushXXX, accessing common structs with pushConnection.
+				// Adding sync is the second issue to be resolved if we want to save 1/2 of the threads.
+				log.Debugf("Got Delta Request: %+v", req.TypeUrl)
+				err := s.processDeltaRequest(req, con)
+				if err != nil {
+					return err
+				}
 			}
 		case err := <-errorChan:
 			// Remote side closed connection or error processing the request.
