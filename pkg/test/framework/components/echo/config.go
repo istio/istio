@@ -44,7 +44,8 @@ const (
 	Centos7      VMDistro = "Centos7"
 	Centos8      VMDistro = "Centos8"
 
-	DefaultVMDistro = UbuntuBionic
+	// DefaultVMDistro is intentionally different in ASM; making it "" means we prefer the env vars
+	DefaultVMDistro = ""
 )
 
 // Config defines the options for creating an Echo component.
