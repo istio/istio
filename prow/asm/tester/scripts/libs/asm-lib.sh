@@ -690,6 +690,17 @@ function install_asm_managed_control_plane() {
       --ca "mesh_ca" \
       --verbose
     kubectl apply -f tools/packaging/knative/gateway/injected-gateway.yaml -n istio-system --context="${CONTEXTS[$i]}"
+    # Enable access logging to help with debugging tests
+    cat <<EOF | kubectl apply --context="${CONTEXTS[$i]}" -f -
+apiVersion: v1
+data:
+  mesh: |-
+    accessLogFile: /dev/stdout
+kind: ConfigMap
+metadata:
+  name: asm
+  namespace: istio-system
+EOF
   done
 
   for i in "${!CONTEXTS[@]}"; do
