@@ -81,6 +81,13 @@ func (c Clusters) Primaries(excluded ...Cluster) Clusters {
 	}, exclude(excluded...))
 }
 
+// Exclude returns all clusters not given as input.
+func (c Clusters) Exclude(excluded ...Cluster) Clusters {
+	return c.filterClusters(func(cc Cluster) bool {
+		return true
+	}, exclude(excluded...))
+}
+
 // Configs returns the subset that are config clusters.
 func (c Clusters) Configs(excluded ...Cluster) Clusters {
 	return c.filterClusters(func(cc Cluster) bool {

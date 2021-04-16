@@ -142,8 +142,10 @@ type Server struct {
 	// If the address os empty, the webhooks will be set on the default httpPort.
 	httpsMux *http.ServeMux // webhooks
 
+	// MultiplexGRPC will serve gRPC and HTTP (1 or 2) over the HTTPListener, if enabled.
+	MultiplexGRPC bool
+
 	HTTPListener       net.Listener
-	HTTP2Listener      net.Listener
 	GRPCListener       net.Listener
 	SecureGrpcListener net.Listener
 
@@ -197,6 +199,7 @@ func NewServer(args *PilotArgs, initFuncs ...func(*Server)) (*Server, error) {
 		readinessProbes:     make(map[string]readinessProbe),
 		workloadTrustBundle: tb.NewTrustBundle(nil),
 		server:              server.New(),
+		shutdownDuration:    args.ShutdownDuration,
 	}
 	// Apply custom initialization functions.
 	for _, fn := range initFuncs {
@@ -206,10 +209,6 @@ func NewServer(args *PilotArgs, initFuncs ...func(*Server)) (*Server, error) {
 	e.TrustBundle = s.workloadTrustBundle
 	s.XDSServer = xds.NewDiscoveryServer(e, args.Plugins, args.PodName, args.Namespace)
 
-	if args.ShutdownDuration == 0 {
-		s.shutdownDuration = 10 * time.Second // If not specified set to 10 seconds.
-	}
-
 	if args.RegistryOptions.KubeOptions.WatchedNamespaces != "" {
 		// Add the control-plane namespace to the list of watched namespaces.
 		args.RegistryOptions.KubeOptions.WatchedNamespaces = fmt.Sprintf("%s,%s",
@@ -218,7 +217,7 @@ func NewServer(args *PilotArgs, initFuncs ...func(*Server)) (*Server, error) {
 		)
 	}
 
-	// used for both initKubeRegistry and initClusterRegistreis
+	// used for both initKubeRegistry and initClusterRegistries
 	if features.EnableEndpointSliceController {
 		args.RegistryOptions.KubeOptions.EndpointMode = kubecontroller.EndpointSliceOnly
 	} else {
@@ -438,6 +437,29 @@ func (s *Server) Start(stop <-chan struct{}) error {
 		}()
 	}
 
+	if s.MultiplexGRPC {
+		log.Infof("multiplexing gRPC services with HTTP services")
+		h2s := &http2.Server{
+			MaxConcurrentStreams: uint32(features.MaxConcurrentStreams),
+		}
+		// In the past, we have tried using "cmux" to handle multiplexing. This only works if we have
+		// only HTTP/1.1 and gRPC on the same port. If we have gRPC and HTTP2, clients (envoy) may
+		// multiplex the connections. cmux works at the connection level, so if the first request is
+		// gRPC then all future non-GRPC HTTP2 requests will match the gRPC server and fail. The major
+		// downside of multiplexing by using gRPC's ServeHTTP is that we are using the golang HTTP2
+		// stack. This means a lot of features on the gRPC server (keepalives, etc) do not apply.
+		multiplexHandler := h2c.NewHandler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			// If we detect gRPC, serve using grpcServer
+			if r.ProtoMajor == 2 && strings.HasPrefix(r.Header.Get("content-type"), "application/grpc") {
+				s.grpcServer.ServeHTTP(w, r)
+				return
+			}
+			// Otherwise, this is meant for the standard HTTP server
+			s.httpMux.ServeHTTP(w, r)
+		}), h2s)
+		s.httpServer.Handler = multiplexHandler
+	}
+
 	// At this point we are ready - start Http Listener so that it can respond to readiness events.
 	go func() {
 		log.Infof("starting Http service at %s", s.HTTPListener.Addr())
@@ -445,36 +467,6 @@ func (s *Server) Start(stop <-chan struct{}) error {
 			log.Errorf("error serving http server: %v", err)
 		}
 	}()
-
-	if s.HTTP2Listener != nil {
-		go func() {
-			log.Infof("starting Http2 service at %s", s.HTTP2Listener.Addr())
-			h2s := &http2.Server{
-				MaxConcurrentStreams: uint32(features.MaxConcurrentStreams),
-			}
-			h1s := &http.Server{
-				Addr: ":8080",
-				Handler: h2c.NewHandler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-					// If we detect gRPC, serve using grpcServer
-					if r.ProtoMajor == 2 && strings.HasPrefix(r.Header.Get("content-type"), "application/grpc") {
-						s.grpcServer.ServeHTTP(w, r)
-						return
-					}
-					// Otherwise, this is meant for the standard HTTP server
-					s.httpMux.ServeHTTP(w, r)
-				}), h2s),
-			}
-			// In the past, we have tried using "cmux" to handle multiplexing. This only works if we have
-			// only HTTP/1.1 and gRPC on the same port. If we have gRPC and HTTP2, clients (envoy) may
-			// multiplex the connections. cmux works at the connection level, so if the first request is
-			// gRPC then all future non-GRPC HTTP2 requests will match the gRPC server and fail. The major
-			// downside of multiplexing by using gRPC's ServeHTTP is that we are using the golang HTTP2
-			// stack. This means a lot of features on the gRPC server (keepalives, etc) do not apply.
-			if err := h1s.Serve(s.HTTP2Listener); isUnexpectedListenerError(err) {
-				log.Errorf("error serving http server: %v", err)
-			}
-		}()
-	}
 
 	if s.httpsServer != nil {
 		go func() {
@@ -648,7 +640,7 @@ func (s *Server) initDiscoveryService(args *PilotArgs) {
 		// This happens only if the GRPC port (15010) is disabled. We will multiplex
 		// it on the HTTP port. Does not impact the HTTPS gRPC or HTTPS.
 		log.Info("multiplexing gRPC on http port ", s.HTTPListener.Addr())
-		s.HTTP2Listener = s.HTTPListener
+		s.MultiplexGRPC = true
 	}
 }
 
