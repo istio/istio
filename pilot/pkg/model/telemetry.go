@@ -136,13 +136,11 @@ func shallowMergeTracing(parent, child *tpb.Telemetry) *tpb.Telemetry {
 		mergedTracing.CustomTags = childTracing.CustomTags
 	}
 
-	// TODO: use wrapper in API to allow inheritance of disablement ?
-	if childTracing.GetDisableSpanReporting() != mergedTracing.GetDisableSpanReporting() {
+	if childTracing.GetDisableSpanReporting() != nil {
 		mergedTracing.DisableSpanReporting = childTracing.DisableSpanReporting
 	}
 
-	// TODO: use wrapper in API to allow 0-valued override
-	if childTracing.RandomSamplingPercentage != nil {
+	if childTracing.GetRandomSamplingPercentage() != nil {
 		mergedTracing.RandomSamplingPercentage = childTracing.RandomSamplingPercentage
 	}
 
