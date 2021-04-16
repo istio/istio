@@ -74,6 +74,8 @@ func (f *HTTPFetcher) Fetch(url string, timeout time.Duration) ([]byte, error) {
 			time.Sleep(f.retryBackoff)
 			continue
 		}
+		resp.Body.Close()
+		break
 	}
 	return nil, fmt.Errorf("wasm module download failed, last error: %v", lastError)
 }
