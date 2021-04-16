@@ -1,0 +1,61 @@
+// Copyright Istio Authors
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+syntax = 'proto3';
+
+package v1alpha1;
+
+// Package-wide variables from generator "generated".
+option go_package = "v1alpha1";
+
+// Spec for the in-cluster MDP upgrade controller.
+message MDPConfigSpec {
+  // true -> enable MDP control of proxies and workload restarts.
+  // false -> MDP is disabled, MCP controls proxy injection and user restarts workloads manually.
+  bool enabled = 1;
+
+  // Version of MCP running in the cluster.
+  string mcp_version = 5;
+
+  // The old/previous version of the proxy running in the cluster. The balance between old and new
+  // proxies is set by newProxyVersionPct below.
+  string oldProxyVersion = 10;
+  // The new/upgrade target version of the proxy in the cluster.
+  string newProxyVersion = 11;
+  // Percent of proxies which should be at newProxyVersion. If 0, all proxies are still at the
+  // old version. If 100, all proxies are at the new version and the old control plane can be
+  // removed (once the rollback window expires).
+  // The actual percent may vary depending on quantization due to the total number of proxies.
+  // Actual percentage will be rounded down to the nearest value, but never rounded to zero
+  // if newProxyVersionPct > 0.
+  uint32 newProxyVersionPct = 12;
+}
+
+// Status for the MDP controller.
+message MDPStatus {
+  enum Status {
+    UNKNOWN = 0;
+    // The actual state has not yet reached the declared state.
+    RECONCILING = 1;
+    // The actual state reflects the declared state.
+    READY = 2;
+    // The controller encountered an error, with further information in the errorMsg field.
+    ERROR = 3;
+  }
+
+  // The current status of the controller.
+  Status status = 1;
+  // Error message, if status is ERROR.
+  string errorMsg = 2;
+}

@@ -1,0 +1,7 @@
+apiVersion: mdp.istio.io/v1alpha1
+kind: MDPConfig
+metadata:
+  namespace: mdp-system
+  name: mdp-config
+spec:
+  enabled: true

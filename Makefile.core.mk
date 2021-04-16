@@ -219,6 +219,7 @@ ifeq ($(PULL_POLICY),)
 endif
 
 include operator/operator.mk
+include mdp/controller/api.mk
 
 .PHONY: default
 default: init build test
@@ -298,6 +299,7 @@ STANDARD_BINARIES:=./istioctl/cmd/istioctl \
   ./cni/cmd/istio-cni-taint \
   ./cni/cmd/install-cni \
   ./tools/istio-iptables \
+  ./mdp/controller/cmd \
   ./tools/bug-report
 BINARIES:=$(STANDARD_BINARIES) $(AGENT_BINARIES)
 
@@ -366,7 +368,7 @@ update-golden: refresh-goldens
 gen-charts:
 	@echo "This target is no longer required and will be removed in the future"
 
-gen: mod-download-go go-gen mirror-licenses format update-crds operator-proto sync-configs-from-istiod gen-kustomize update-golden ## Update all generated code.
+gen: mod-download-go go-gen mirror-licenses format update-crds operator-proto sync-configs-from-istiod gen-kustomize update-golden mdp-proto## Update all generated code.
 
 gen-check: gen check-clean-repo
 

@@ -1,0 +1,60 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: mdp-system
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  namespace: mdp-system
+  name: mdp-controller
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      name: mdp-controller
+  template:
+    metadata:
+      labels:
+        name: mdp-controller
+    spec:
+      serviceAccountName: mdp-controller
+      containers:
+        - name: mdp-controller
+          image: gke.gcr.io/mdp/mdp-controller
+          command:
+            - mdp
+            - server
+          imagePullPolicy: IfNotPresent
+          resources:
+            limits:
+              cpu: 200m
+              memory: 256Mi
+            requests:
+              cpu: 50m
+              memory: 128Mi
+          env:
+            - name: POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+---
+apiVersion: v1
+kind: Service
+metadata:
+  namespace: mdp-system
+  name: mdp-controller
+spec:
+  ports:
+    - name: http-metrics
+      port: 8383
+      targetPort: 8383
+  selector:
+    name: mdp-controller
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  namespace: mdp-system
+  name: mdp-controller
+
