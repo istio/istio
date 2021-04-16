@@ -12,9 +12,16 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package v2
+package grpc
 
-const (
-	// EndpointType is used for EDS and ADS endpoint discovery. Typically second request.
-	EndpointType = "type.googleapis.com/envoy.api.v2.ClusterLoadAssignment"
+import (
+	"errors"
+	"testing"
 )
+
+func TestIsExpectedGRPCError(t *testing.T) {
+	err := errors.New("code = Internal desc = stream terminated by RST_STREAM with error code: NO_ERROR")
+	if got := IsExpectedGRPCError(err); !got {
+		t.Fatalf("expected true, got %v", got)
+	}
+}

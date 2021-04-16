@@ -40,6 +40,7 @@ import (
 	"istio.io/istio/pilot/pkg/serviceregistry"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube/controller/filter"
+	"istio.io/istio/pilot/pkg/util/informermetric"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/mesh"
@@ -140,6 +141,9 @@ type Options struct {
 
 	// Duration to wait for cache syncs
 	SyncInterval time.Duration
+
+	// SyncTimeout, if set, causes HasSynced to be returned when marked true.
+	SyncTimeout *atomic.Bool
 
 	// If meshConfig.DiscoverySelectors are specified, the DiscoveryNamespacesFilter tracks the namespaces this controller watches.
 	DiscoveryNamespacesFilter filter.DiscoveryNamespacesFilter
@@ -260,11 +264,14 @@ type Controller struct {
 	// gateways for each network, indexed by the service that runs them so we clean them up later
 	networkGateways map[host.Name]map[string][]*model.Gateway
 
-	once sync.Once
-	// initialized is set to true once the controller is running successfully. This ensures we do not
+	// informerInit is set to true once the controller is running successfully. This ensures we do not
 	// return HasSynced=true before we are running
-	initialized *atomic.Bool
-
+	informerInit *atomic.Bool
+	// initialSync is set to true after performing an initial in-order processing of all objects.
+	initialSync *atomic.Bool
+	// syncTimeout signals that the registry should mark itself synced even if informers haven't been processed yet.
+	// The timeout may be controlled by a different component than the kube controller.
+	syncTimeout *atomic.Bool
 	// Duration to wait for cache syncs
 	syncInterval time.Duration
 
@@ -293,7 +300,9 @@ func NewController(kubeClient kubelib.Client, options Options) *Controller {
 		networksWatcher:             options.NetworksWatcher,
 		metrics:                     options.Metrics,
 		syncInterval:                options.GetSyncInterval(),
-		initialized:                 atomic.NewBool(false),
+		informerInit:                atomic.NewBool(false),
+		initialSync:                 atomic.NewBool(false),
+		syncTimeout:                 options.SyncTimeout,
 		discoveryNamespacesFilter:   options.DiscoveryNamespacesFilter,
 	}
 
@@ -302,7 +311,7 @@ func NewController(kubeClient kubelib.Client, options Options) *Controller {
 			informers.WithTweakListOptions(func(listOpts *metav1.ListOptions) {
 				listOpts.FieldSelector = fields.OneTermEqualSelector("metadata.name", options.SystemNamespace).String()
 			})).Core().V1().Namespaces().Informer()
-		registerHandlers(c.systemNsInformer, c.queue, "Namespaces", c.onSystemNamespaceEvent, nil)
+		c.registerHandlers(c.systemNsInformer, "Namespaces", c.onSystemNamespaceEvent, nil)
 	}
 
 	c.nsInformer = kubeClient.KubeInformer().Core().V1().Namespaces()
@@ -316,7 +325,7 @@ func NewController(kubeClient kubelib.Client, options Options) *Controller {
 	c.serviceInformer = filter.NewFilteredSharedIndexInformer(c.discoveryNamespacesFilter.Filter, kubeClient.KubeInformer().Core().V1().Services().Informer())
 	c.serviceLister = listerv1.NewServiceLister(c.serviceInformer.GetIndexer())
 
-	registerHandlers(c.serviceInformer, c.queue, "Services", c.onServiceEvent, nil)
+	c.registerHandlers(c.serviceInformer, "Services", c.onServiceEvent, nil)
 
 	switch options.EndpointMode {
 	case EndpointsOnly:
@@ -336,7 +345,7 @@ func NewController(kubeClient kubelib.Client, options Options) *Controller {
 	// This is for getting the node IPs of a selected set of nodes
 	c.nodeInformer = kubeClient.KubeInformer().Core().V1().Nodes().Informer()
 	c.nodeLister = kubeClient.KubeInformer().Core().V1().Nodes().Lister()
-	registerHandlers(c.nodeInformer, c.queue, "Nodes", c.onNodeEvent, nil)
+	c.registerHandlers(c.nodeInformer, "Nodes", c.onNodeEvent, nil)
 
 	podInformer := filter.NewFilteredSharedIndexInformer(c.discoveryNamespacesFilter.Filter, kubeClient.KubeInformer().Core().V1().Pods().Informer())
 	c.pods = newPodCache(c, podInformer, func(key string) {
@@ -353,7 +362,7 @@ func NewController(kubeClient kubelib.Client, options Options) *Controller {
 			return c.endpoints.onEvent(item, model.EventUpdate)
 		})
 	})
-	registerHandlers(c.pods.informer, c.queue, "Pods", c.pods.onEvent, nil)
+	c.registerHandlers(c.pods.informer, "Pods", c.pods.onEvent, nil)
 
 	return c
 }
@@ -524,8 +533,10 @@ func (c *Controller) onNodeEvent(obj interface{}, event model.Event) error {
 // FilterOutFunc func for filtering out objects during update callback
 type FilterOutFunc func(old, cur interface{}) bool
 
-func registerHandlers(informer filter.FilteredSharedIndexInformer, q queue.Instance, otype string,
-	handler func(interface{}, model.Event) error, filter FilterOutFunc) {
+func (c *Controller) registerHandlers(
+	informer filter.FilteredSharedIndexInformer, otype string,
+	handler func(interface{}, model.Event) error, filter FilterOutFunc,
+) {
 	if filter == nil {
 		filter = func(old, cur interface{}) bool {
 			oldObj := old.(metav1.Object)
@@ -542,20 +553,22 @@ func registerHandlers(informer filter.FilteredSharedIndexInformer, q queue.Insta
 		obj = tryGetLatestObject(informer, obj)
 		return handler(obj, event)
 	}
-
+	if informer, ok := informer.(cache.SharedInformer); ok {
+		_ = informer.SetWatchErrorHandler(informermetric.ErrorHandlerForCluster(c.clusterID))
+	}
 	informer.AddEventHandler(
 		cache.ResourceEventHandlerFuncs{
 			// TODO: filtering functions to skip over un-referenced resources (perf)
 			AddFunc: func(obj interface{}) {
 				incrementEvent(otype, "add")
-				q.Push(func() error {
+				c.queue.Push(func() error {
 					return wrappedHandler(obj, model.EventAdd)
 				})
 			},
 			UpdateFunc: func(old, cur interface{}) {
 				if !filter(old, cur) {
 					incrementEvent(otype, "update")
-					q.Push(func() error {
+					c.queue.Push(func() error {
 						return wrappedHandler(cur, model.EventUpdate)
 					})
 				} else {
@@ -564,7 +577,7 @@ func registerHandlers(informer filter.FilteredSharedIndexInformer, q queue.Insta
 			},
 			DeleteFunc: func(obj interface{}) {
 				incrementEvent(otype, "delete")
-				q.Push(func() error {
+				c.queue.Push(func() error {
 					return handler(obj, model.EventDelete)
 				})
 			},
@@ -591,7 +604,12 @@ func tryGetLatestObject(informer filter.FilteredSharedIndexInformer, obj interfa
 
 // HasSynced returns true after the initial state synchronization
 func (c *Controller) HasSynced() bool {
-	if !c.initialized.Load() {
+	return (c.syncTimeout != nil && c.syncTimeout.Load()) || c.initialSync.Load()
+}
+
+func (c *Controller) informersSynced() bool {
+	if !c.informerInit.Load() {
+		// registration/Run of informers hasn't occurred yet
 		return false
 	}
 	if (c.systemNsInformer != nil && !c.systemNsInformer.HasSynced()) ||
@@ -601,14 +619,6 @@ func (c *Controller) HasSynced() bool {
 		!c.nodeInformer.HasSynced() {
 		return false
 	}
-
-	// after informer caches sync the first time, process resources in order
-	c.once.Do(func() {
-		if err := c.SyncAll(); err != nil {
-			log.Errorf("one or more errors force-syncing resources: %v", err)
-		}
-	})
-
 	return true
 }
 
@@ -674,8 +684,14 @@ func (c *Controller) Run(stop <-chan struct{}) {
 	if c.systemNsInformer != nil {
 		go c.systemNsInformer.Run(stop)
 	}
-	c.initialized.Store(true)
-	kubelib.WaitForCacheSyncInterval(stop, c.syncInterval, c.HasSynced)
+	c.informerInit.Store(true)
+	kubelib.WaitForCacheSyncInterval(stop, c.syncInterval, c.informersSynced)
+	// after informer caches sync the first time, process resources in order
+	if err := c.SyncAll(); err != nil {
+		log.Errorf("one or more errors force-syncing resources: %v", err)
+	}
+	c.initialSync.Store(true)
+	// after the in-order sync we can start processing the queue
 	c.queue.Run(stop)
 	log.Infof("Controller terminated")
 }

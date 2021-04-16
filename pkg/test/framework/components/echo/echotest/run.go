@@ -19,6 +19,7 @@ import (
 
 	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pkg/test/framework"
+	"istio.io/istio/pkg/test/framework/components/cluster"
 	"istio.io/istio/pkg/test/framework/components/echo"
 )
 
@@ -26,9 +27,11 @@ type (
 	perDeploymentTest  func(t framework.TestContext, instances echo.Instances)
 	perNDeploymentTest func(t framework.TestContext, deployments echo.Services)
 	perInstanceTest    func(t framework.TestContext, inst echo.Instance)
+	perClusterTest     func(t framework.TestContext, c cluster.Cluster)
 
-	oneToOneTest func(t framework.TestContext, src echo.Instance, dst echo.Instances)
-	oneToNTest   func(t framework.TestContext, src echo.Instance, dsts echo.Services)
+	oneToOneTest      func(t framework.TestContext, src echo.Instance, dst echo.Instances)
+	oneToNTest        func(t framework.TestContext, src echo.Instance, dsts echo.Services)
+	oneClusterOneTest func(t framework.TestContext, src cluster.Cluster, dst echo.Instances)
 )
 
 // Run will generate and run one subtest to send traffic between each combination
@@ -48,7 +51,7 @@ func (t *T) Run(testFn oneToOneTest) {
 		t.setup(ctx, srcInstances)
 		t.toEachDeployment(ctx, func(ctx framework.TestContext, dstInstances echo.Instances) {
 			t.setupPair(ctx, srcInstances, echo.Services{dstInstances})
-			t.fromEachCluster(ctx, srcInstances, func(ctx framework.TestContext, src echo.Instance) {
+			t.fromEachWorkloadCluster(ctx, srcInstances, func(ctx framework.TestContext, src echo.Instance) {
 				filteredDst := t.applyCombinationFilters(src, dstInstances)
 				if len(filteredDst) == 0 {
 					// this only happens due to conditional filters and when an entire deployment is filtered we should be noisy
@@ -59,6 +62,34 @@ func (t *T) Run(testFn oneToOneTest) {
 			})
 		})
 	})
+}
+
+// RunFromClusters will generate and run one subtest to send traffic to
+// destination instance. This is for ingress gateway testing when source instance
+// destination instances. This can be used when we're not using echo workloads
+// as the source of traffic, such as from the ingress gateway. For example:
+//
+//    RunFromClusters(func(t framework.TestContext, src cluster.Cluster, dst echo.Instances)) {
+//      ingr := ist.IngressFor(src)
+//      ingr.CallWithRetryOrFail(...)
+//    })
+func (t *T) RunFromClusters(testFn oneClusterOneTest) {
+	t.fromEachCluster(t.rootCtx, func(ctx framework.TestContext, c cluster.Cluster) {
+		t.toEachDeployment(ctx, func(ctx framework.TestContext, dstInstances echo.Instances) {
+			t.setupDst(ctx, dstInstances)
+			testFn(ctx, c, dstInstances)
+		})
+	})
+}
+
+// fromEachCluster runs test from each cluster without requiring source deployment.
+func (t *T) fromEachCluster(ctx framework.TestContext, testFn perClusterTest) {
+	for _, srcCluster := range t.sources.Clusters() {
+		srcCluster := srcCluster
+		ctx.NewSubTestf("from %s", srcCluster.StableName()).Run(func(ctx framework.TestContext) {
+			testFn(ctx, srcCluster)
+		})
+	}
 }
 
 // RunToN will generate nested subtests for every instance in every deployment subsets of the full set of deployments,
@@ -76,7 +107,7 @@ func (t *T) RunToN(n int, testFn oneToNTest) {
 		t.setup(ctx, srcInstances)
 		t.toNDeployments(ctx, n, srcInstances, func(ctx framework.TestContext, destDeployments echo.Services) {
 			t.setupPair(ctx, srcInstances, destDeployments)
-			t.fromEachCluster(ctx, srcInstances, func(ctx framework.TestContext, src echo.Instance) {
+			t.fromEachWorkloadCluster(ctx, srcInstances, func(ctx framework.TestContext, src echo.Instance) {
 				// reapply destination filters to only get the reachable instances for this cluster
 				// this can be done safely since toNDeployments asserts the Services won't change
 				destDeployments := t.applyCombinationFilters(src, destDeployments.Instances()).Services()
@@ -89,9 +120,24 @@ func (t *T) RunToN(n int, testFn oneToNTest) {
 // fromEachDeployment enumerates subtests for deployment with the structure <src>
 // Intended to be used in combination with other helpers to enumerate subtests for destinations.
 func (t *T) fromEachDeployment(ctx framework.TestContext, testFn perDeploymentTest) {
+	duplicateShortnames := false
+	shortnames := map[string]struct{}{}
+	for _, src := range t.sources.Services() {
+		svc := src[0].Config().Service
+		if _, ok := shortnames[svc]; ok {
+			duplicateShortnames = true
+			break
+		}
+		shortnames[svc] = struct{}{}
+	}
+
 	for _, src := range t.sources.Services() {
 		src := src
-		ctx.NewSubTestf("%s", src[0].Config().Service).Run(func(ctx framework.TestContext) {
+		subtestName := src[0].Config().Service
+		if duplicateShortnames {
+			subtestName += "." + src[0].Config().Namespace.Prefix()
+		}
+		ctx.NewSubTest(subtestName).Run(func(ctx framework.TestContext) {
 			testFn(ctx, src)
 		})
 	}
@@ -108,7 +154,7 @@ func (t *T) toEachDeployment(ctx framework.TestContext, testFn perDeploymentTest
 	}
 }
 
-func (t *T) fromEachCluster(ctx framework.TestContext, src echo.Instances, testFn perInstanceTest) {
+func (t *T) fromEachWorkloadCluster(ctx framework.TestContext, src echo.Instances, testFn perInstanceTest) {
 	for _, srcInstance := range src {
 		srcInstance := srcInstance
 		if len(ctx.Clusters()) == 1 && len(src) == 1 {

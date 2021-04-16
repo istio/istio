@@ -368,15 +368,19 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundListenerForPortOrUDS(li
 	listenerOpts.class = ListenerClassSidecarInbound
 
 	if old, exists := listenerMap[listenerOpts.port.Port]; exists {
-		// If we already setup this hostname, its not a conflict. This may just mean there are multiple
-		// IPs for this hostname
-		if old.instanceHostname != pluginParams.ServiceInstance.Service.Hostname {
+		if old.protocol != listenerOpts.port.Protocol && old.instanceHostname != pluginParams.ServiceInstance.Service.Hostname {
 			// For sidecar specified listeners, the caller is expected to supply a dummy service instance
 			// with the right port and a hostname constructed from the sidecar config's name+namespace
-			// TODO everything in inbound listener is now workload oriented. We should no longer have listener conflicts.
 			pluginParams.Push.AddMetric(model.ProxyStatusConflictInboundListener, pluginParams.Node.ID, pluginParams.Node.ID,
 				fmt.Sprintf("Conflicting inbound listener:%d. existing: %s, incoming: %s", listenerOpts.port.Port,
 					old.instanceHostname, pluginParams.ServiceInstance.Service.Hostname))
+			return nil
+		}
+		// This can happen if two services select the same pod with same port and protocol - we should skip building listener again.
+		if old.instanceHostname != pluginParams.ServiceInstance.Service.Hostname {
+			log.Debugf("skipping inbound listener:%d as we have already build it for existing host: %s, new host: %s",
+				listenerOpts.port.Port,
+				old.instanceHostname, pluginParams.ServiceInstance.Service.Hostname)
 		}
 		// Skip building listener for the same port
 		return nil
@@ -411,12 +415,14 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundListenerForPortOrUDS(li
 
 	listenerMap[listenerOpts.port.Port] = &inboundListenerEntry{
 		instanceHostname: pluginParams.ServiceInstance.Service.Hostname,
+		protocol:         listenerOpts.port.Protocol,
 	}
 	return mutable.Listener
 }
 
 type inboundListenerEntry struct {
 	instanceHostname host.Name // could be empty if generated via Sidecar CRD
+	protocol         protocol.Instance
 }
 
 type outboundListenerEntry struct {

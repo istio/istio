@@ -82,6 +82,13 @@ func Service(value string) Matcher {
 	}
 }
 
+// FQDN matches instances with have the given fully qualified domain name.
+func FQDN(value string) Matcher {
+	return func(i Instance) bool {
+		return value == i.Config().FQDN()
+	}
+}
+
 // SameDeployment matches instnaces with the same FQDN and assumes they're part of the same Service and Namespace.
 func SameDeployment(match Instance) Matcher {
 	return func(instance Instance) bool {

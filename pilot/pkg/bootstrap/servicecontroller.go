@@ -24,6 +24,7 @@ import (
 	"istio.io/istio/pilot/pkg/serviceregistry/mock"
 	"istio.io/istio/pilot/pkg/serviceregistry/serviceentry"
 	"istio.io/istio/pkg/config/host"
+	"istio.io/istio/pkg/kube/secretcontroller"
 	"istio.io/pkg/log"
 )
 
@@ -35,7 +36,10 @@ func (s *Server) ServiceController() *aggregate.Controller {
 func (s *Server) initServiceControllers(args *PilotArgs) error {
 	serviceControllers := s.ServiceController()
 
-	s.serviceEntryStore = serviceentry.NewServiceDiscovery(s.configController, s.environment.IstioConfigStore, s.XDSServer)
+	s.serviceEntryStore = serviceentry.NewServiceDiscovery(
+		s.configController, s.environment.IstioConfigStore, s.XDSServer,
+		serviceentry.WithClusterID(s.clusterID),
+	)
 	serviceControllers.AddRegistry(s.serviceEntryStore)
 
 	registered := make(map[serviceregistry.ProviderID]bool)
@@ -96,10 +100,20 @@ func (s *Server) initKubeRegistry(args *PilotArgs) (err error) {
 		s.server)
 
 	// initialize the "main" cluster registry before starting controllers for remote clusters
-	if err := mc.AddMemberCluster(s.kubeClient, args.RegistryOptions.KubeOptions.ClusterID); err != nil {
-		log.Errorf("failed initializing registry for %s: %v", args.RegistryOptions.KubeOptions.ClusterID, err)
-		return err
-	}
+	s.addStartFunc(func(stop <-chan struct{}) error {
+		writableStop := make(chan struct{})
+		go func() {
+			<-stop
+			close(writableStop)
+		}()
+		if err := mc.AddMemberCluster(args.RegistryOptions.KubeOptions.ClusterID, &secretcontroller.Cluster{
+			Client: s.kubeClient,
+			Stop:   writableStop,
+		}); err != nil {
+			return fmt.Errorf("failed initializing registry for %s: %v", args.RegistryOptions.KubeOptions.ClusterID, err)
+		}
+		return nil
+	})
 
 	// Start the multicluster controller and wait for it to shutdown before exiting the server.
 	s.addTerminatingStartFunc(mc.Run)

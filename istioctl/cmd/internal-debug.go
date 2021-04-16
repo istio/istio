@@ -17,6 +17,8 @@ package cmd
 import (
 	"context"
 	"fmt"
+	"io"
+	"strings"
 
 	envoy_corev3 "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
@@ -26,8 +28,8 @@ import (
 
 	"istio.io/istio/istioctl/pkg/clioptions"
 	"istio.io/istio/istioctl/pkg/multixds"
-	"istio.io/istio/istioctl/pkg/util/handlers"
 	"istio.io/istio/istioctl/pkg/writer/pilot"
+	"istio.io/istio/pkg/kube"
 )
 
 const (
@@ -36,6 +38,50 @@ const (
 	istiodServiceName = "istiod"
 	xdsPortName       = "https-dns"
 )
+
+func HandlerForRetrieveDebugList(kubeClient kube.ExtendedClient,
+	centralOpts *clioptions.CentralControlPlaneOptions,
+	writer io.Writer) (map[string]*xdsapi.DiscoveryResponse, error) {
+	var namespace, serviceAccount string
+	xdsRequest := xdsapi.DiscoveryRequest{
+		ResourceNames: []string{"list"},
+		Node: &envoy_corev3.Node{
+			Id: "debug~0.0.0.0~istioctl~cluster.local",
+		},
+		TypeUrl: TypeDebug,
+	}
+	xdsResponses, respErr := multixds.AllRequestAndProcessXds(&xdsRequest, centralOpts, istioNamespace,
+		namespace, serviceAccount, kubeClient)
+	if respErr != nil {
+		return xdsResponses, respErr
+	}
+	_, _ = fmt.Fprint(writer, "error: according to below command list, please check all supported internal debug commands\n")
+	return xdsResponses, nil
+}
+
+func HandlerForDebugErrors(kubeClient kube.ExtendedClient,
+	centralOpts *clioptions.CentralControlPlaneOptions,
+	writer io.Writer,
+	xdsResponses map[string]*xdsapi.DiscoveryResponse) (map[string]*xdsapi.DiscoveryResponse, error) {
+	for _, response := range xdsResponses {
+		for _, resource := range response.Resources {
+			eString := string(resource.Value)
+			switch {
+			case strings.Contains(eString, "You must provide a proxyID in the query string"):
+				return nil, fmt.Errorf(" You must provide a proxyID in the query string, e.g. [%s]",
+					"edsz?proxyID=istio-ingressgateway")
+
+			case strings.Contains(eString, "404 page not found"):
+				return HandlerForRetrieveDebugList(kubeClient, centralOpts, writer)
+
+			case strings.Contains(eString, "querystring parameter 'resource' is required"):
+				return nil, fmt.Errorf("querystring parameter 'resource' is required, e.g. [%s]",
+					"config_distribution?resource=VirtualService/default/bookinfo")
+			}
+		}
+	}
+	return nil, nil
+}
 
 func debugCommand() *cobra.Command {
 	var opts clioptions.ControlPlaneOptions
@@ -84,35 +130,15 @@ By default it will use the default serviceAccount from (istio-system) namespace 
 			}
 			var xdsRequest xdsapi.DiscoveryRequest
 			var namespace, serviceAccount string
-			if len(args) > 1 {
-				podName, ns, err := handlers.InferPodInfoFromTypedResource(args[1],
-					handlers.HandleNamespace(namespace, defaultNamespace),
-					kubeClient.UtilFactory())
-				if err != nil {
-					return err
-				}
-				pod, err := kubeClient.CoreV1().Pods(ns).Get(context.TODO(), podName, metav1.GetOptions{})
-				if err != nil {
-					return err
-				}
-				namespace = ns
-				serviceAccount = pod.Spec.ServiceAccountName
-				xdsRequest = xdsapi.DiscoveryRequest{
-					ResourceNames: []string{fmt.Sprintf("%s?proxyID=%s.%s", args[0], podName, ns)},
-					Node: &envoy_corev3.Node{
-						Id: "debug~0.0.0.0~istioctl~cluster.local",
-					},
-					TypeUrl: TypeDebug,
-				}
-			} else {
-				xdsRequest = xdsapi.DiscoveryRequest{
-					ResourceNames: []string{args[0]},
-					Node: &envoy_corev3.Node{
-						Id: "debug~0.0.0.0~istioctl~cluster.local",
-					},
-					TypeUrl: TypeDebug,
-				}
+
+			xdsRequest = xdsapi.DiscoveryRequest{
+				ResourceNames: []string{args[0]},
+				Node: &envoy_corev3.Node{
+					Id: "debug~0.0.0.0~istioctl~cluster.local",
+				},
+				TypeUrl: TypeDebug,
 			}
+
 			if centralOpts.Xds == "" {
 				svc, err := kubeClient.CoreV1().Services(istioNamespace).Get(context.Background(), istiodServiceName, metav1.GetOptions{})
 				if err != nil {
@@ -150,12 +176,19 @@ By default it will use the default serviceAccount from (istio-system) namespace 
 					f.WaitForStop()
 				}()
 			}
-			xdsResponses, err := multixds.AllRequestAndProcessXds(&xdsRequest, &centralOpts, istioNamespace,
+			xdsResponses, respErr := multixds.AllRequestAndProcessXds(&xdsRequest, &centralOpts, istioNamespace,
 				namespace, serviceAccount, kubeClient)
-			if err != nil {
-				return err
+			if respErr != nil {
+				return respErr
 			}
 			sw := pilot.XdsStatusWriter{Writer: c.OutOrStdout()}
+			newResponse, hDErr := HandlerForDebugErrors(kubeClient, &centralOpts, c.OutOrStdout(), xdsResponses)
+			if newResponse != nil {
+				return sw.PrintAll(newResponse)
+			}
+			if hDErr != nil {
+				return hDErr
+			}
 			return sw.PrintAll(xdsResponses)
 		},
 	}

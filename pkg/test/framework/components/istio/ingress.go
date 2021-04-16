@@ -265,3 +265,7 @@ func (c *ingressImpl) unmarshalStats(statsJSON string) (map[string]int, error) {
 	}
 	return statsMap, nil
 }
+
+func (c *ingressImpl) Namespace() string {
+	return c.namespace
+}
