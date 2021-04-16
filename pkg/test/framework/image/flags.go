@@ -19,6 +19,7 @@ import (
 	"fmt"
 
 	"istio.io/istio/pkg/test/env"
+	"istio.io/istio/pkg/test/framework/config"
 )
 
 var (
@@ -31,10 +32,10 @@ var (
 	}
 )
 
-// SettingsFromCommandLine returns Settings obtained from command-line flags. flag.Parse must be called before calling this function.
+// SettingsFromCommandLine returns Settings obtained from command-line flags. config.Parse must be called before calling this function.
 func SettingsFromCommandLine() (*Settings, error) {
-	if !flag.Parsed() {
-		panic("flag.Parse must be called before this function")
+	if !config.Parsed() {
+		panic("config.Parse must be called before this function")
 	}
 
 	s := settingsFromCommandLine.clone()
