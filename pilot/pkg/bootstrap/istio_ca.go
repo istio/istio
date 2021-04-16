@@ -15,6 +15,7 @@
 package bootstrap
 
 import (
+	"bytes"
 	"context"
 	"encoding/base64"
 	"encoding/json"
@@ -25,6 +26,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/fsnotify/fsnotify"
 	"google.golang.org/grpc"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -264,6 +266,171 @@ func (s *Server) loadRemoteCACerts(caOpts *caOptions, dir string) error {
 	return nil
 }
 
+const ( // CACerts file operation states
+	create  = 0
+	write   = 1
+	remove  = 2
+	invalid = 3
+)
+
+var cacertsMap map[string]uint8
+
+// isValidCACertsFile As we are watching entire directory, but interested
+// in only 'ca-key.pem', 'ca-cert.pem', 'root-cert.pem' and 'cert-chain.pem'.
+// Events on other files are ignored.
+func isValidCACertsFile(file string) (string, bool) {
+	if strings.Contains(file, "ca-cert.pem") {
+		return "ca-cert.pem", true
+	} else if strings.Contains(file, "ca-key.pem") {
+		return "ca-key.pem", true
+	} else if strings.Contains(file, "root-cert.pem") {
+		return "root-cert.pem", true
+	} else if strings.Contains(file, "cert-chain.pem") {
+		return "cert-chain.pem", true
+	}
+
+	return "", false
+}
+
+// isValidCACertsEvent We are interested in only Create, Write
+// and Delete events. Other event types are ignored at the moment.
+func isValidCACertsEvent(event fsnotify.Event) uint8 {
+	if event.Op&fsnotify.Create == fsnotify.Create {
+		return create
+	} else if event.Op&fsnotify.Write == fsnotify.Write {
+		return write
+	} else if event.Op&fsnotify.Remove == fsnotify.Remove {
+		return remove
+	}
+
+	return invalid
+}
+
+// updateCACertsMap updates the map with cacerts files with
+// particular events only.
+func updateCACertsMap(event fsnotify.Event) bool {
+	file, ok := isValidCACertsFile(event.Name)
+	if !ok {
+		return false
+	}
+
+	op := isValidCACertsEvent(event)
+	if op == invalid {
+		return false
+	}
+
+	cacertsMap[file] = op
+	return true
+}
+
+// handleEvent handles the events on cacerts related files.
+// If create/write(modified) event occurs, then it verifies that
+// newly introduced cacerts are intermediate CA which is generated
+// from cuurent root-cert.pem. Then it updates and keycertbundle
+// and generates new dns certs.
+// TODO(rveerama1): Add support for new ROOT-CA rotation also.
+func handleEvent(s *Server, event fsnotify.Event) {
+	ok := updateCACertsMap(event)
+	if !ok {
+		return
+	}
+
+	if (cacertsMap["ca-cert.pem"] == create && cacertsMap["ca-key.pem"] == create &&
+		cacertsMap["root-cert.pem"] == create && cacertsMap["cert-chain.pem"] == create) ||
+		(cacertsMap["ca-cert.pem"] == write && cacertsMap["ca-key.pem"] == write &&
+			cacertsMap["root-cert.pem"] == write && cacertsMap["cert-chain.pem"] == write) {
+		log.Info("Update Istiod cacerts")
+
+		currentCABundle := s.CA.GetCAKeyCertBundle().GetRootCertPem()
+		newCABundle, err := ioutil.ReadFile(path.Join(LocalCertDir.Get(), "root-cert.pem"))
+		if err != nil {
+			log.Error("failed reading root-cert.pem: ", err)
+			return
+		}
+
+		// Only updating intermediate CA is supported now
+		if !bytes.Equal(currentCABundle, newCABundle) {
+			log.Info("Updating new ROOT-CA not supported")
+			return
+		}
+
+		err = s.CA.GetCAKeyCertBundle().UpdateNewPluggedInCACerts(
+			path.Join(LocalCertDir.Get(), "/ca-cert.pem"),
+			path.Join(LocalCertDir.Get(), "ca-key.pem"),
+			path.Join(LocalCertDir.Get(), "cert-chain.pem"),
+			path.Join(LocalCertDir.Get(), "root-cert.pem"))
+		if err != nil {
+			log.Error("Failed to update new Plug-in CA certs: ", err)
+			return
+		}
+
+		err = s.updatePluggedinRootCertAndGenKeyCert()
+		if err != nil {
+			log.Error("Failed generating plugged-in istiod key cert: ", err)
+			return
+		}
+	}
+}
+
+// handleCACertsFileWatch handles the events on cacerts files
+func (s *Server) handleCACertsFileWatch() {
+	cacertsMap = map[string]uint8{
+		"ca-cert.pem":    invalid,
+		"ca-key.pem":     invalid,
+		"root-cert.pem":  invalid,
+		"cert-chain.pem": invalid,
+	}
+
+	for {
+		select {
+		case event, ok := <-s.cacertsWatcher.Events:
+			if !ok {
+				log.Info("Failed to catch events on cacerts files")
+				return
+			}
+			handleEvent(s, event)
+
+		case err, ok := <-s.cacertsWatcher.Errors:
+			if !ok {
+				return
+			}
+			log.Error("Failed to catch events on cacerts file: ", err)
+		}
+	}
+}
+
+func (s *Server) addCACertsFileWatcher(file string) error {
+	err := s.cacertsWatcher.Add(file)
+	if err != nil {
+		log.Info("Failed to add file watcher: ", err)
+		return err
+	}
+
+	log.Info("Added cacerts file watcher at ", file)
+
+	return nil
+}
+
+// initCACertsWatcher initializes the cacerts (/etc/cacerts) directory.
+// In particular it monitors 'ca-key.pem', 'ca-cert.pem', 'root-cert.pem'
+// and 'cert-chain.pem'.
+func (s *Server) initCACertsWatcher() {
+	var err error
+
+	s.cacertsWatcher, err = fsnotify.NewWatcher()
+	if err != nil {
+		log.Info("Failed to add CAcerts watcher: ", err)
+		return
+	}
+
+	err = s.addCACertsFileWatcher(LocalCertDir.Get())
+	if err != nil {
+		return
+	}
+
+	go s.handleCACertsFileWatch()
+}
+
 // createIstioCA initializes the Istio CA signing functionality.
 // - for 'plugged in', uses ./etc/cacert directory, mounted from 'cacerts' secret in k8s.
 //   Inside, the key/cert are 'ca-key.pem' and 'ca-cert.pem'. The root cert signing the intermediate is root-cert.pem,
@@ -327,6 +494,9 @@ func (s *Server) createIstioCA(client corev1.CoreV1Interface, opts *caOptions) (
 	if err != nil {
 		return nil, fmt.Errorf("failed to create an istiod CA: %v", err)
 	}
+
+	s.initCACertsWatcher()
+
 	// TODO: provide an endpoint returning all the roots. SDS can only pull a single root in current impl.
 	// ca.go saves or uses the secret, but also writes to the configmap "istio-security", under caTLSRootCert
 	// rootCertRotatorChan channel accepts signals to stop root cert rotator for
