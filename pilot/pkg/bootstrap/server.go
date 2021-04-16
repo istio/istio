@@ -25,12 +25,12 @@ import (
 	"net"
 	"net/http"
 	"os"
+	"strings"
 	"sync"
 	"time"
 
 	prometheus "github.com/grpc-ecosystem/go-grpc-prometheus"
 	prom "github.com/prometheus/client_golang/prometheus"
-	"github.com/soheilhy/cmux"
 	"golang.org/x/net/http2"
 	"golang.org/x/net/http2/h2c"
 	"google.golang.org/grpc"
@@ -142,8 +142,10 @@ type Server struct {
 	// If the address os empty, the webhooks will be set on the default httpPort.
 	httpsMux *http.ServeMux // webhooks
 
+	// MultiplexGRPC will serve gRPC and HTTP (1 or 2) over the HTTPListener, if enabled.
+	MultiplexGRPC bool
+
 	HTTPListener       net.Listener
-	HTTP2Listener      net.Listener
 	GRPCListener       net.Listener
 	SecureGrpcListener net.Listener
 
@@ -395,9 +397,6 @@ func isUnexpectedListenerError(err error) bool {
 	if errors.Is(err, http.ErrServerClosed) {
 		return false
 	}
-	if errors.Is(err, cmux.ErrListenerClosed) {
-		return false
-	}
 	return true
 }
 
@@ -441,6 +440,29 @@ func (s *Server) Start(stop <-chan struct{}) error {
 		}()
 	}
 
+	if s.MultiplexGRPC {
+		log.Infof("multiplexing gRPC services with HTTP services")
+		h2s := &http2.Server{
+			MaxConcurrentStreams: uint32(features.MaxConcurrentStreams),
+		}
+		// In the past, we have tried using "cmux" to handle multiplexing. This only works if we have
+		// only HTTP/1.1 and gRPC on the same port. If we have gRPC and HTTP2, clients (envoy) may
+		// multiplex the connections. cmux works at the connection level, so if the first request is
+		// gRPC then all future non-GRPC HTTP2 requests will match the gRPC server and fail. The major
+		// downside of multiplexing by using gRPC's ServeHTTP is that we are using the golang HTTP2
+		// stack. This means a lot of features on the gRPC server (keepalives, etc) do not apply.
+		multiplexHandler := h2c.NewHandler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			// If we detect gRPC, serve using grpcServer
+			if r.ProtoMajor == 2 && strings.HasPrefix(r.Header.Get("content-type"), "application/grpc") {
+				s.grpcServer.ServeHTTP(w, r)
+				return
+			}
+			// Otherwise, this is meant for the standard HTTP server
+			s.httpMux.ServeHTTP(w, r)
+		}), h2s)
+		s.httpServer.Handler = multiplexHandler
+	}
+
 	// At this point we are ready - start Http Listener so that it can respond to readiness events.
 	go func() {
 		log.Infof("starting Http service at %s", s.HTTPListener.Addr())
@@ -448,20 +470,6 @@ func (s *Server) Start(stop <-chan struct{}) error {
 			log.Errorf("error serving http server: %v", err)
 		}
 	}()
-
-	if s.HTTP2Listener != nil {
-		go func() {
-			log.Infof("starting Http2 muxed service at %s", s.HTTP2Listener.Addr())
-			h2s := &http2.Server{}
-			h1s := &http.Server{
-				Addr:    ":8080",
-				Handler: h2c.NewHandler(s.httpMux, h2s),
-			}
-			if err := h1s.Serve(s.HTTP2Listener); isUnexpectedListenerError(err) {
-				log.Errorf("error serving http server: %v", err)
-			}
-		}()
-	}
 
 	if s.httpsServer != nil {
 		go func() {
@@ -635,16 +643,7 @@ func (s *Server) initDiscoveryService(args *PilotArgs) {
 		// This happens only if the GRPC port (15010) is disabled. We will multiplex
 		// it on the HTTP port. Does not impact the HTTPS gRPC or HTTPS.
 		log.Info("multiplexing gRPC on http port ", s.HTTPListener.Addr())
-		m := cmux.New(s.HTTPListener)
-		s.GRPCListener = m.Match(cmux.HTTP2HeaderField("content-type", "application/grpc"))
-		s.HTTP2Listener = m.Match(cmux.HTTP2())
-		s.HTTPListener = m.Match(cmux.Any())
-		go func() {
-			if err := m.Serve(); isUnexpectedListenerError(err) {
-				log.Warnf("Failed to listen on multiplexed port %v", err)
-			}
-		}()
-
+		s.MultiplexGRPC = true
 	}
 }
 
@@ -658,6 +657,18 @@ func (s *Server) waitForShutdown(stop <-chan struct{}) {
 		// force stop them. This does not happen normally.
 		stopped := make(chan struct{})
 		go func() {
+			// Some grpcServer implementations do not support GracefulStop. Unfortunately, this is not
+			// exposed; they just panic. To avoid this, we will recover and do a standard Stop when its not
+			// support.
+			defer func() {
+				if r := recover(); r != nil {
+					s.grpcServer.Stop()
+					if s.secureGrpcServer != nil {
+						s.secureGrpcServer.Stop()
+					}
+					close(stopped)
+				}
+			}()
 			s.grpcServer.GracefulStop()
 			if s.secureGrpcServer != nil {
 				s.secureGrpcServer.GracefulStop()

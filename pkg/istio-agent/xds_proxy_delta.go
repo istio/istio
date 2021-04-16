@@ -140,7 +140,7 @@ func (p *XdsProxy) HandleDeltaUpstream(ctx context.Context, con *ProxyConnection
 		select {
 		case err := <-con.upstreamError:
 			// error from upstream Istiod.
-			if isExpectedGRPCError(err) {
+			if istiogrpc.IsExpectedGRPCError(err) {
 				proxyLog.Debugf("upstream terminated with status %v", err)
 				metrics.IstiodConnectionCancellations.Increment()
 			} else {
@@ -150,7 +150,7 @@ func (p *XdsProxy) HandleDeltaUpstream(ctx context.Context, con *ProxyConnection
 			return err
 		case err := <-con.downstreamError:
 			// error from downstream Envoy.
-			if isExpectedGRPCError(err) {
+			if istiogrpc.IsExpectedGRPCError(err) {
 				proxyLog.Debugf("downstream terminated with status %v", err)
 				metrics.EnvoyConnectionCancellations.Increment()
 			} else {

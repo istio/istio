@@ -24,6 +24,7 @@ import (
 	envoy_config_core_v3 "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	tracingcfg "github.com/envoyproxy/go-control-plane/envoy/config/trace/v3"
 	hpb "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
+	envoy_type_metadata_v3 "github.com/envoyproxy/go-control-plane/envoy/type/metadata/v3"
 	tracing "github.com/envoyproxy/go-control-plane/envoy/type/tracing/v3"
 	xdstype "github.com/envoyproxy/go-control-plane/envoy/type/v3"
 	"github.com/golang/protobuf/ptypes/wrappers"
@@ -35,6 +36,7 @@ import (
 	"istio.io/istio/pilot/pkg/extensionproviders"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
+	authz_model "istio.io/istio/pilot/pkg/security/authz/model"
 	"istio.io/istio/pkg/bootstrap/platform"
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/pkg/log"
@@ -315,8 +317,39 @@ func convert(ctxs []meshconfig.MeshConfig_ExtensionProvider_OpenCensusAgentTraci
 	return converted
 }
 
+func dryRunPolicyTraceTag(name, key string) *tracing.CustomTag {
+	// The tag will not be populated when not used as there is no default value set for the tag.
+	// See https://www.envoyproxy.io/docs/envoy/v1.17.1/configuration/http/http_filters/rbac_filter#dynamic-metadata.
+	return &tracing.CustomTag{
+		Tag: name,
+		Type: &tracing.CustomTag_Metadata_{
+			Metadata: &tracing.CustomTag_Metadata{
+				Kind: &envoy_type_metadata_v3.MetadataKind{
+					Kind: &envoy_type_metadata_v3.MetadataKind_Request_{
+						Request: &envoy_type_metadata_v3.MetadataKind_Request{},
+					},
+				},
+				MetadataKey: &envoy_type_metadata_v3.MetadataKey{
+					Key: authz_model.RBACHTTPFilterName,
+					Path: []*envoy_type_metadata_v3.MetadataKey_PathSegment{
+						{
+							Segment: &envoy_type_metadata_v3.MetadataKey_PathSegment_Key{
+								Key: key,
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+}
+
 func defaultTags() []*tracing.CustomTag {
 	return []*tracing.CustomTag{
+		dryRunPolicyTraceTag("istio.authorization.dry_run.allow_policy.name", authz_model.RBACShadowRulesAllowStatPrefix+authz_model.RBACShadowEffectivePolicyID),
+		dryRunPolicyTraceTag("istio.authorization.dry_run.allow_policy.result", authz_model.RBACShadowRulesAllowStatPrefix+authz_model.RBACShadowEngineResult),
+		dryRunPolicyTraceTag("istio.authorization.dry_run.deny_policy.name", authz_model.RBACShadowRulesDenyStatPrefix+authz_model.RBACShadowEffectivePolicyID),
+		dryRunPolicyTraceTag("istio.authorization.dry_run.deny_policy.result", authz_model.RBACShadowRulesDenyStatPrefix+authz_model.RBACShadowEngineResult),
 		{
 			Tag: "istio.canonical_revision",
 			Type: &tracing.CustomTag_Environment_{

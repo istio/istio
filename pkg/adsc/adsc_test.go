@@ -180,18 +180,22 @@ func TestADSC_Save(t *testing.T) {
 			expectedJSON: map[string]string{
 				"_lds_tcp": `{
     "listener-1": {
-      "name": "bar"
+      "name": "bar",
+      "ListenerSpecifier": null
     },
     "listener-2": {
-      "name": "mar"
+      "name": "mar",
+      "ListenerSpecifier": null
     }
   }`,
 				"_lds_http": `{
     "http-list-1": {
-      "name": "bar"
+      "name": "bar",
+      "ListenerSpecifier": null
     },
     "http-list-2": {
-      "name": "mar"
+      "name": "mar",
+      "ListenerSpecifier": null
     }
   }`,
 				"_rds": `{
@@ -267,7 +271,7 @@ func TestADSC_Save(t *testing.T) {
 				t.Errorf("AdscSave() => %v expected err %v", err, tt.err)
 			}
 			if ldsTCP := readFile(base+"_lds_tcp.json", t); ldsTCP != tt.expectedJSON["_lds_tcp"] {
-				t.Errorf("AdscSave() => %s expected ldsTcp %s", ldsTCP, tt.expectedJSON["_lds_tcp"])
+				t.Errorf("AdscSave() => %s expected ldsTcp %s\n%v", ldsTCP, tt.expectedJSON["_lds_tcp"], cmp.Diff(ldsTCP, tt.expectedJSON["_lds_tcp"]))
 			}
 			if ldsHTTP := readFile(base+"_lds_http.json", t); ldsHTTP != tt.expectedJSON["_lds_http"] {
 				t.Errorf("AdscSave() => %s expected ldsHttp %s", ldsHTTP, tt.expectedJSON["_lds_http"])
