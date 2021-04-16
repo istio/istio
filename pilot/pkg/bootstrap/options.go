@@ -153,7 +153,6 @@ func (p *PilotArgs) applyDefaults() {
 	p.KeepaliveOptions = keepalive.DefaultOption()
 	p.RegistryOptions.DistributionTrackingEnabled = features.EnableDistributionTracking
 	p.RegistryOptions.DistributionCacheRetention = features.DistributionHistoryRetention
-	p.ShutdownDuration = 10 * time.Second
 }
 
 func (p *PilotArgs) Complete() error {
