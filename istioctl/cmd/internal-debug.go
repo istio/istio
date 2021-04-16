@@ -28,11 +28,10 @@ import (
 	"istio.io/istio/istioctl/pkg/multixds"
 	"istio.io/istio/istioctl/pkg/util/handlers"
 	"istio.io/istio/istioctl/pkg/writer/pilot"
+	v3 "istio.io/istio/pilot/pkg/xds/v3"
 )
 
 const (
-	// TypeDebug requests debug info from istio, a secured implementation for istio debug interface
-	TypeDebug         = "istio.io/debug"
 	istiodServiceName = "istiod"
 	xdsPortName       = "https-dns"
 )
@@ -102,7 +101,7 @@ By default it will use the default serviceAccount from (istio-system) namespace 
 					Node: &envoy_corev3.Node{
 						Id: "debug~0.0.0.0~istioctl~cluster.local",
 					},
-					TypeUrl: TypeDebug,
+					TypeUrl: v3.DebugType,
 				}
 			} else {
 				xdsRequest = xdsapi.DiscoveryRequest{
@@ -110,7 +109,7 @@ By default it will use the default serviceAccount from (istio-system) namespace 
 					Node: &envoy_corev3.Node{
 						Id: "debug~0.0.0.0~istioctl~cluster.local",
 					},
-					TypeUrl: TypeDebug,
+					TypeUrl: v3.DebugType,
 				}
 			}
 			if centralOpts.Xds == "" {
