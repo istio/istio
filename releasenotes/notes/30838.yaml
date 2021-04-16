@@ -1,0 +1,11 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: networking
+issue:
+  - 30838
+
+releaseNotes:
+- |
+  **Fixed** istiod never becoming ready when it fails to read resources from clusters configured via remote secrets.
+  After a timeout configured by `PILOT_REMOTE_CLUSTER_TIMEOUT` (default 30s), istiod will become ready without
+  syncing remote clusters. The stat `remote_cluster_sync_timeouts` will be incremented when this occurs.
