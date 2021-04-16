@@ -142,6 +142,9 @@ type Options struct {
 	// Duration to wait for cache syncs
 	SyncInterval time.Duration
 
+	// SyncTimeout, if set, causes HasSynced to be returned when marked true.
+	SyncTimeout *atomic.Bool
+
 	// If meshConfig.DiscoverySelectors are specified, the DiscoveryNamespacesFilter tracks the namespaces this controller watches.
 	DiscoveryNamespacesFilter filter.DiscoveryNamespacesFilter
 }
@@ -261,11 +264,14 @@ type Controller struct {
 	// gateways for each network, indexed by the service that runs them so we clean them up later
 	networkGateways map[host.Name]map[string][]*model.Gateway
 
-	once sync.Once
-	// initialized is set to true once the controller is running successfully. This ensures we do not
+	// informerInit is set to true once the controller is running successfully. This ensures we do not
 	// return HasSynced=true before we are running
-	initialized *atomic.Bool
-
+	informerInit *atomic.Bool
+	// initialSync is set to true after performing an initial in-order processing of all objects.
+	initialSync *atomic.Bool
+	// syncTimeout signals that the registry should mark itself synced even if informers haven't been processed yet.
+	// The timeout may be controlled by a different component than the kube controller.
+	syncTimeout *atomic.Bool
 	// Duration to wait for cache syncs
 	syncInterval time.Duration
 
@@ -294,7 +300,9 @@ func NewController(kubeClient kubelib.Client, options Options) *Controller {
 		networksWatcher:             options.NetworksWatcher,
 		metrics:                     options.Metrics,
 		syncInterval:                options.GetSyncInterval(),
-		initialized:                 atomic.NewBool(false),
+		informerInit:                atomic.NewBool(false),
+		initialSync:                 atomic.NewBool(false),
+		syncTimeout:                 options.SyncTimeout,
 		discoveryNamespacesFilter:   options.DiscoveryNamespacesFilter,
 	}
 
@@ -596,7 +604,12 @@ func tryGetLatestObject(informer filter.FilteredSharedIndexInformer, obj interfa
 
 // HasSynced returns true after the initial state synchronization
 func (c *Controller) HasSynced() bool {
-	if !c.initialized.Load() {
+	return (c.syncTimeout != nil && c.syncTimeout.Load()) || c.initialSync.Load()
+}
+
+func (c *Controller) informersSynced() bool {
+	if !c.informerInit.Load() {
+		// registration/Run of informers hasn't occurred yet
 		return false
 	}
 	if (c.systemNsInformer != nil && !c.systemNsInformer.HasSynced()) ||
@@ -606,14 +619,6 @@ func (c *Controller) HasSynced() bool {
 		!c.nodeInformer.HasSynced() {
 		return false
 	}
-
-	// after informer caches sync the first time, process resources in order
-	c.once.Do(func() {
-		if err := c.SyncAll(); err != nil {
-			log.Errorf("one or more errors force-syncing resources: %v", err)
-		}
-	})
-
 	return true
 }
 
@@ -679,8 +684,14 @@ func (c *Controller) Run(stop <-chan struct{}) {
 	if c.systemNsInformer != nil {
 		go c.systemNsInformer.Run(stop)
 	}
-	c.initialized.Store(true)
-	kubelib.WaitForCacheSyncInterval(stop, c.syncInterval, c.HasSynced)
+	c.informerInit.Store(true)
+	kubelib.WaitForCacheSyncInterval(stop, c.syncInterval, c.informersSynced)
+	// after informer caches sync the first time, process resources in order
+	if err := c.SyncAll(); err != nil {
+		log.Errorf("one or more errors force-syncing resources: %v", err)
+	}
+	c.initialSync.Store(true)
+	// after the in-order sync we can start processing the queue
 	c.queue.Run(stop)
 	log.Infof("Controller terminated")
 }
