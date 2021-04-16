@@ -129,8 +129,8 @@ func (s *DiscoveryServer) StreamDeltas(stream DeltaDiscoveryStream) error {
 			// Remote side closed connection or error processing the request.
 			return err
 		case pushEv := <-con.pushChannel:
-			defer pushEv.done()
 			err := s.pushConnectionDelta(con, pushEv)
+			pushEv.done()
 			if err != nil {
 				return err
 			}

@@ -313,8 +313,8 @@ func (s *DiscoveryServer) Stream(stream DiscoveryStream) error {
 			// Remote side closed connection or error processing the request.
 			return err
 		case pushEv := <-con.pushChannel:
-			defer pushEv.done()
 			err := s.pushConnection(con, pushEv)
+			pushEv.done()
 			if err != nil {
 				return err
 			}
