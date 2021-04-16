@@ -6,8 +6,6 @@ apiVersion: install.istio.io/v1alpha1
 kind: IstioOperator
 spec:
   meshConfig:
-    # Protocol detection timeout is not supported
-    protocolDetectionTimeout: 0s
     # Locality load balancing is not supported
     localityLbSetting:
       enabled: false
@@ -38,10 +36,6 @@ spec:
           minReplicas: 2
         replicaCount: 2
   values:
-    # Protocol sniffing is not supported
-    pilot:
-      enableProtocolSniffingForOutbound: false
-      enableProtocolSniffingForInbound: false
     # Enable telemetry v2 backend by Prometheus.
     telemetry:
       enabled: true

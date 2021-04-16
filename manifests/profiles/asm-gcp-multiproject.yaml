@@ -10,8 +10,6 @@ spec:
       proxyMetadata:
         CA_PROVIDER: "GoogleCA"
         PLUGINS: "GoogleTokenExchange"
-    # Protocol detection timeout is not supported
-    protocolDetectionTimeout: 0s
     # Locality load balancing is not supported
     localityLbSetting:
       enabled: false
@@ -39,10 +37,6 @@ spec:
           requests:
             cpu: 500m
   values:
-    # Protocol sniffing is not supported
-    pilot:
-      enableProtocolSniffingForOutbound: false
-      enableProtocolSniffingForInbound: false
     # Enable telemetry v2 backend by Stackdriver.
     # Prometheus is also supported with --set values.telemetry.v2.prometheus.enabled=true --set prometheus.enabled=true
     telemetry:
