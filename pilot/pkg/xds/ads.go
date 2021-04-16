@@ -660,7 +660,9 @@ func (s *DiscoveryServer) shouldProcessRequest(proxy *model.Proxy, req *discover
 	if features.WorkloadEntryHealthChecks {
 		event := workloadentry.HealthEvent{}
 		event.Healthy = req.ErrorDetail == nil
-		event.Message = req.ErrorDetail.Message
+		if !event.Healthy {
+			event.Message = req.ErrorDetail.Message
+		}
 		s.WorkloadEntryController.QueueWorkloadEntryHealth(proxy, event)
 	}
 	return false
