@@ -29,7 +29,6 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/apigen"
 	"istio.io/istio/pilot/pkg/networking/core"
-	"istio.io/istio/pilot/pkg/networking/grpcgen"
 	"istio.io/istio/pilot/pkg/serviceregistry"
 	"istio.io/istio/pilot/pkg/serviceregistry/aggregate"
 	"istio.io/istio/pilot/pkg/serviceregistry/memory"
@@ -527,12 +526,6 @@ func (s *DiscoveryServer) initGenerators(env *model.Environment, systemNameSpace
 	s.Generators[v3.NameTableType] = &NdsGenerator{Server: s}
 	s.Generators[v3.ExtensionConfigurationType] = &EcdsGenerator{Server: s}
 	s.Generators[v3.ProxyConfigType] = &PcdsGenerator{Server: s, TrustBundle: env.TrustBundle}
-
-	s.Generators["grpc"] = &grpcgen.GrpcConfigGenerator{}
-	s.Generators["grpc/"+v3.EndpointType] = edsGen
-	s.Generators["grpc/"+v3.ListenerType] = s.Generators["grpc"]
-	s.Generators["grpc/"+v3.RouteType] = s.Generators["grpc"]
-	s.Generators["grpc/"+v3.ClusterType] = s.Generators["grpc"]
 
 	s.Generators["api"] = &apigen.APIGenerator{}
 	s.Generators["api/"+v3.EndpointType] = edsGen
