@@ -91,12 +91,6 @@ func (s *DiscoveryServer) StreamDeltas(stream DeltaDiscoveryStream) error {
 	// with push. According to the spec: "It's only necessary to close a channel when it is important
 	// to tell the receiving goroutines that all data have been sent."
 
-	// Reading from a stream is a blocking operation. Each connection needs to read
-	// discovery requests and wait for push commands on config change, so we add a
-	// go routine. If go grpc adds gochannel support for streams this will not be needed.
-	// This also detects close.
-	reqChan := make(chan *discovery.DeltaDiscoveryRequest, 1)
-	errorChan := make(chan error, 1)
 	// Block until either a request is received or a push is triggered.
 	// We need 2 go routines because 'read' blocks in Recv().
 	//
@@ -104,7 +98,7 @@ func (s *DiscoveryServer) StreamDeltas(stream DeltaDiscoveryStream) error {
 	// on different short-lived go routines started when the push is happening. This would cut in 1/2
 	// the number of long-running go routines, since push is throttled. The main problem is with
 	// closing - the current gRPC library didn't allow closing the stream.
-	go s.receiveDelta(con, reqChan, errorChan)
+	go s.receiveDelta(con)
 
 	// Wait for the proxy to be fully initialized before we start serving traffic. Because
 	// initialization doesn't have dependencies that will block, there is no need to add any timeout
@@ -115,7 +109,7 @@ func (s *DiscoveryServer) StreamDeltas(stream DeltaDiscoveryStream) error {
 
 	for {
 		select {
-		case req := <-reqChan:
+		case req := <-con.deltaReqChan:
 			if req != nil {
 				// processRequest is calling pushXXX, accessing common structs with pushConnection.
 				// Adding sync is the second issue to be resolved if we want to save 1/2 of the threads.
@@ -125,7 +119,7 @@ func (s *DiscoveryServer) StreamDeltas(stream DeltaDiscoveryStream) error {
 					return err
 				}
 			}
-		case err := <-errorChan:
+		case err := <-con.errorChan:
 			// Remote side closed connection or error processing the request.
 			return err
 		case pushEv := <-con.pushChannel:
@@ -206,10 +200,10 @@ func (s *DiscoveryServer) pushConnectionDelta(con *Connection, pushEv *Event) er
 	return nil
 }
 
-func (s *DiscoveryServer) receiveDelta(con *Connection, reqChan chan *discovery.DeltaDiscoveryRequest, errorChan chan error) {
+func (s *DiscoveryServer) receiveDelta(con *Connection) {
 	defer func() {
-		close(reqChan)
-		close(errorChan)
+		close(con.deltaReqChan)
+		close(con.errorChan)
 		// Close the initialized channel, if its not already closed, to prevent blocking the stream
 		select {
 		case <-con.initialized:
@@ -225,7 +219,7 @@ func (s *DiscoveryServer) receiveDelta(con *Connection, reqChan chan *discovery.
 				log.Infof("ADS: %q %s terminated %v", con.PeerAddr, con.ConID, err)
 				return
 			}
-			errorChan <- err
+			con.errorChan <- err
 			log.Errorf("ADS: %q %s terminated with error: %v", con.PeerAddr, con.ConID, err)
 			totalXDSInternalErrors.Increment()
 			return
@@ -234,12 +228,12 @@ func (s *DiscoveryServer) receiveDelta(con *Connection, reqChan chan *discovery.
 		if !initialized {
 			initialized = true
 			if req.Node == nil || req.Node.Id == "" {
-				errorChan <- status.New(codes.InvalidArgument, "missing node information").Err()
+				con.errorChan <- status.New(codes.InvalidArgument, "missing node information").Err()
 				return
 			}
 			// TODO: We should validate that the namespace in the cert matches the claimed namespace in metadata.
 			if err := s.initConnection(req.Node, con); err != nil {
-				errorChan <- err
+				con.errorChan <- err
 				return
 			}
 			defer s.closeConnection(con)
@@ -247,7 +241,7 @@ func (s *DiscoveryServer) receiveDelta(con *Connection, reqChan chan *discovery.
 		}
 
 		select {
-		case reqChan <- req:
+		case con.deltaReqChan <- req:
 		case <-con.deltaStream.Context().Done():
 			log.Infof("ADS: %q %s terminated with stream closed", con.PeerAddr, con.ConID)
 			return
@@ -504,6 +498,8 @@ func newDeltaConnection(peerAddr string, stream DeltaDiscoveryStream) *Connectio
 		PeerAddr:      peerAddr,
 		Connect:       time.Now(),
 		deltaStream:   stream,
+		deltaReqChan:  make(chan *discovery.DeltaDiscoveryRequest, 1),
+		errorChan:     make(chan error, 1),
 		blockedPushes: map[string]*model.PushRequest{},
 	}
 }

@@ -17,6 +17,7 @@ package xds
 import (
 	"fmt"
 	"strconv"
+	"strings"
 	"sync/atomic"
 	"time"
 
@@ -101,6 +102,13 @@ type Connection struct {
 	// stop can be used to end the connection manually via debug endpoints. Only to be used for testing.
 	stop chan struct{}
 
+	// reqChan is used to receive discovery requests for this connection.
+	reqChan      chan *discovery.DiscoveryRequest
+	deltaReqChan chan *discovery.DeltaDiscoveryRequest
+
+	// errorChan is used to process error during discovery request processing.
+	errorChan chan error
+
 	// blockedPushes is a map of TypeUrl to push request. This is set when we attempt to push to a busy Envoy
 	// (last push not ACKed). When we get an ACK from Envoy, if the type is populated here, we will trigger
 	// the push.
@@ -121,6 +129,8 @@ func newConnection(peerAddr string, stream DiscoveryStream) *Connection {
 		pushChannel:   make(chan *Event),
 		initialized:   make(chan struct{}),
 		stop:          make(chan struct{}),
+		reqChan:       make(chan *discovery.DiscoveryRequest, 1),
+		errorChan:     make(chan error, 1),
 		PeerAddr:      peerAddr,
 		Connect:       time.Now(),
 		stream:        stream,
@@ -128,10 +138,10 @@ func newConnection(peerAddr string, stream DiscoveryStream) *Connection {
 	}
 }
 
-func (s *DiscoveryServer) receive(con *Connection, reqChan chan *discovery.DiscoveryRequest, errorChan chan error) {
+func (s *DiscoveryServer) receive(con *Connection) {
 	defer func() {
-		close(reqChan)
-		close(errorChan)
+		close(con.errorChan)
+		close(con.reqChan)
 		// Close the initialized channel, if its not already closed, to prevent blocking the stream.
 		select {
 		case <-con.initialized:
@@ -148,7 +158,7 @@ func (s *DiscoveryServer) receive(con *Connection, reqChan chan *discovery.Disco
 				log.Infof("ADS: %q %s terminated %v", con.PeerAddr, con.ConID, err)
 				return
 			}
-			errorChan <- err
+			con.errorChan <- err
 			log.Errorf("ADS: %q %s terminated with error: %v", con.PeerAddr, con.ConID, err)
 			totalXDSInternalErrors.Increment()
 			return
@@ -157,12 +167,12 @@ func (s *DiscoveryServer) receive(con *Connection, reqChan chan *discovery.Disco
 		if !initialized {
 			initialized = true
 			if req.Node == nil || req.Node.Id == "" {
-				errorChan <- status.New(codes.InvalidArgument, "missing node information").Err()
+				con.errorChan <- status.New(codes.InvalidArgument, "missing node information").Err()
 				return
 			}
 			// TODO: We should validate that the namespace in the cert matches the claimed namespace in metadata.
 			if err := s.initConnection(req.Node, con); err != nil {
-				errorChan <- err
+				con.errorChan <- err
 				return
 			}
 			defer s.closeConnection(con)
@@ -170,7 +180,7 @@ func (s *DiscoveryServer) receive(con *Connection, reqChan chan *discovery.Disco
 		}
 
 		select {
-		case reqChan <- req:
+		case con.reqChan <- req:
 		case <-con.stream.Context().Done():
 			log.Infof("ADS: %q %s terminated with stream closed", con.PeerAddr, con.ConID)
 			return
@@ -187,7 +197,7 @@ func (s *DiscoveryServer) processRequest(req *discovery.DiscoveryRequest, con *C
 	}
 
 	// For now, don't let xDS piggyback debug requests start watchers.
-	if req.TypeUrl == v3.DebugType {
+	if strings.HasPrefix(req.TypeUrl, v3.DebugType) {
 		return s.pushXds(con, s.globalPushContext(), versionInfo(), &model.WatchedResource{
 			TypeUrl: req.TypeUrl, ResourceNames: req.ResourceNames,
 		}, &model.PushRequest{Full: true})
@@ -282,8 +292,6 @@ func (s *DiscoveryServer) Stream(stream DiscoveryStream) error {
 	// with push. According to the spec: "It's only necessary to close a channel when it is important
 	// to tell the receiving goroutines that all data have been sent."
 
-	reqChan := make(chan *discovery.DiscoveryRequest, 1)
-	errorChan := make(chan error, 1)
 	// Block until either a request is received or a push is triggered.
 	// We need 2 go routines because 'read' blocks in Recv().
 	//
@@ -291,7 +299,7 @@ func (s *DiscoveryServer) Stream(stream DiscoveryStream) error {
 	// on different short-lived go routines started when the push is happening. This would cut in 1/2
 	// the number of long-running go routines, since push is throttled. The main problem is with
 	// closing - the current gRPC library didn't allow closing the stream.
-	go s.receive(con, reqChan, errorChan)
+	go s.receive(con)
 
 	// Wait for the proxy to be fully initialized before we start serving traffic. Because
 	// initialization doesn't have dependencies that will block, there is no need to add any timeout
@@ -302,14 +310,14 @@ func (s *DiscoveryServer) Stream(stream DiscoveryStream) error {
 
 	for {
 		select {
-		case req := <-reqChan:
+		case req := <-con.reqChan:
 			if req != nil {
 				err := s.processRequest(req, con)
 				if err != nil {
 					return err
 				}
 			}
-		case err := <-errorChan:
+		case err := <-con.errorChan:
 			// Remote side closed connection or error processing the request.
 			return err
 		case pushEv := <-con.pushChannel:
