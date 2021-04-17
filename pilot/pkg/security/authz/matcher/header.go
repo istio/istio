@@ -36,7 +36,7 @@ func HeaderMatcher(k, v string) *routepb.HeaderMatcher {
 		return &routepb.HeaderMatcher{
 			Name: k,
 			HeaderMatchSpecifier: &routepb.HeaderMatcher_ContainsMatch{
-				ContainsMatch: v[1 : len(v)-1],
+				ContainsMatch: v[1:len(v)-1],
 			},
 		}
 	} else if strings.HasPrefix(v, "*") {
