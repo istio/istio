@@ -37,6 +37,8 @@ func TestMain(m *testing.M) {
 		RequireSingleCluster().
 		Setup(istio.Setup(&inst, setupConfig)).
 		Setup(func(ctx resource.Context) (err error) {
+			// Skip VM as eastwest gateway is disabled.
+			ctx.Settings().SkipVM = true
 			return util.SetupTest(ctx, apps)
 		}).
 		Run()

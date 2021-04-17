@@ -365,10 +365,11 @@ func SetupTest(ctx resource.Context, apps *EchoDeployments) error {
 	if err != nil {
 		return err
 	}
+	buildVM := !ctx.Settings().SkipVM
 	echos, err := echoboot.NewBuilder(ctx).
 		WithClusters(ctx.Clusters()...).
 		WithConfig(EchoConfig(ASvc, apps.ServerNs, false)).
-		WithConfig(EchoConfig(VMSvc, apps.ServerNs, true)).Build()
+		WithConfig(EchoConfig(VMSvc, apps.ServerNs, buildVM)).Build()
 	if err != nil {
 		return err
 	}
