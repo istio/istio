@@ -168,7 +168,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundListeners(
 	sidecarScope := node.SidecarScope
 	noneMode := node.GetInterceptionMode() == model.InterceptionNone
 	// No user supplied sidecar scope or the user supplied one has no ingress listeners
-	if len(sidecarScope.Sidecar.Ingress) == 0 {
+	if !sidecarScope.HasIngressListener() {
 		// Construct inbound listeners in the usual way by looking at the ports of the service instances
 		// attached to the proxy
 		// We should not create inbound listeners in NONE mode based on the service instances

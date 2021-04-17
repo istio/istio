@@ -487,6 +487,19 @@ func (sc *SidecarScope) GetEgressListenerForRDS(port int, bind string) *IstioEgr
 	return nil
 }
 
+// HasIngressListener returns if the sidecar scope has ingress listener set
+func (sc *SidecarScope) HasIngressListener() bool {
+	if sc == nil {
+		return false
+	}
+
+	if sc.Sidecar == nil || len(sc.Sidecar.Ingress) == 0 {
+		return false
+	}
+
+	return true
+}
+
 // Services returns the list of services imported by this egress listener
 func (ilw *IstioEgressListenerWrapper) Services() []*Service {
 	return ilw.services

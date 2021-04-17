@@ -271,7 +271,7 @@ func (configgen *ConfigGeneratorImpl) buildInboundClusters(cb *ClusterBuilder, i
 	_, actualLocalHost := getActualWildcardAndLocalHost(cb.proxy)
 
 	// No user supplied sidecar scope or the user supplied one has no ingress listeners
-	if len(sidecarScope.Sidecar.Ingress) == 0 {
+	if !sidecarScope.HasIngressListener() {
 		// We should not create inbound listeners in NONE mode based on the service instances
 		// Doing so will prevent the workloads from starting as they would be listening on the same port
 		// Users are required to provide the sidecar config to define the inbound listeners

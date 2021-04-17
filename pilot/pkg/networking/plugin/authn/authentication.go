@@ -132,7 +132,7 @@ func needPerPortPassthroughFilterChain(port uint32, node *model.Proxy) bool {
 	// If there is any Sidecar defined, check if the port is explicitly defined there.
 	// This means the Sidecar resource takes precedence over the service. A port defined in service but not in Sidecar
 	// means the port is going to be handled by the pass through filter chain.
-	if len(node.SidecarScope.Sidecar.Ingress) > 0 {
+	if node.SidecarScope.HasIngressListener() {
 		for _, ingressListener := range node.SidecarScope.Sidecar.Ingress {
 			if port == ingressListener.Port.Number {
 				return false
