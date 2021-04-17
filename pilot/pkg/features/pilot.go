@@ -22,6 +22,7 @@ import (
 
 	"istio.io/istio/pkg/jwt"
 	"istio.io/pkg/env"
+	"istio.io/pkg/log"
 )
 
 var (
@@ -31,12 +32,21 @@ var (
 		"Sets the maximum number of concurrent grpc streams.",
 	).Get()
 
-	TraceSampling = env.RegisterFloatVar(
+	traceSamplingVar = env.RegisterFloatVar(
 		"PILOT_TRACE_SAMPLING",
 		1.0,
 		"Sets the mesh-wide trace sampling percentage. Should be 0.0 - 100.0. Precision to 0.01. "+
 			"Default is 1.0.",
-	).Get()
+	)
+
+	TraceSampling = func() float64 {
+		f := traceSamplingVar.Get()
+		if f < 0.0 || f > 100.0 {
+			log.Warnf("PILOT_TRACE_SAMPLING out of range: %v", f)
+			return 1.0
+		}
+		return f
+	}()
 
 	// EnableIstioTags controls whether or not to configure Envoy with support for Istio-specific tags
 	// in trace spans. This is a temporary flag for controlling the feature that will be replaced by
