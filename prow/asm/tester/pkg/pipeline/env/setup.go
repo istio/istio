@@ -17,9 +17,11 @@ package env
 import (
 	"errors"
 	"fmt"
+	"io/ioutil"
 	"log"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strconv"
 	"strings"
 
@@ -225,41 +227,72 @@ func fixGKE(settings *resource.Settings) error {
 // by removing others including the admin-kubeconfig.yaml entries.
 // This function will modify the KUBECONFIG env variable.
 func fixOnPrem(settings *resource.Settings) error {
-	return filterKubeconfigFiles(func(name string) bool {
+	return filterKubeconfigFiles(settings, func(name string) bool {
 		return strings.HasSuffix(name, "user-kubeconfig.yaml")
 	})
 }
 
-// Keeps only the artifacts/kubeconfig entries in the KUBECONFIG for baremetal
-// by removing any others entries.
-// This function will modify the KUBECONFIG env variable
+// Fix bare-metal cluster configs that are created by Tailorbird:
+// 1. Keep only the artifacts/kubeconfig entries in the KUBECONFIG for baremetal
+//    by removing any others entries.
+// 2. Set required env vars that are needed for running ASM tests.
 func fixBareMetal(settings *resource.Settings) error {
-	err := filterKubeconfigFiles(func(name string) bool {
+	err := filterKubeconfigFiles(settings, func(name string) bool {
 		return strings.HasSuffix(name, "artifacts/kubeconfig")
 	})
 	if err != nil {
 		return err
 	}
 
-	// TODO: init_baremetal_http_proxy
+	if err := injectMulticloudClusterEnvVars(settings, multicloudClusterConfig{
+		// kubeconfig has the format of "${ARTIFACTS}"/.kubetest2-tailorbird/tf97d94df28f4277/artifacts/kubeconfig
+		clusterArtifactsPath: filepath.Dir(settings.Kubeconfig),
+		scriptRelPath:        "tunnel.sh",
+		regexMatcher:         `.*\-L([0-9]*):localhost.* (root@[0-9]*\.[0-9]*\.[0-9]*\.[0-9]*)`,
+		sshKeyRelPath:        "id_rsa",
+	}, nil); err != nil {
+		return err
+	}
+
 	return nil
 }
 
-// Removes gke_aws_management.conf entry from the KUBECONFIG for aws
-// This function will modify the KUBECONFIG env variable
+// Fix aws cluster configs that are created by Tailorbird:
+// 1. Removes gke_aws_management.conf entry from the KUBECONFIG for aws
+// 2. Set required env vars that are needed for running ASM tests.
 func fixAWS(settings *resource.Settings) error {
-	err := filterKubeconfigFiles(func(name string) bool {
+	err := filterKubeconfigFiles(settings, func(name string) bool {
 		return !strings.HasSuffix(name, "gke_aws_management.conf")
 	})
 	if err != nil {
 		return err
 	}
 
-	// TODO: aws::init
+	sshPostprocess := func(bootstrapHostSSHKey, bootstrapHostSSHUser string) error {
+		//  Increase proxy's max connection setup to avoid too many connections error
+		sshCmd1 := fmt.Sprintf("ssh -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -i %s %s \"sudo sed -i 's/#max-client-connections.*/max-client-connections 512/' '/etc/privoxy/config'\"",
+			bootstrapHostSSHKey, bootstrapHostSSHUser)
+		sshCmd2 := fmt.Sprintf("ssh -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -i %s %s \"sudo systemctl restart privoxy.service\"",
+			bootstrapHostSSHKey, bootstrapHostSSHUser)
+		if err := exec.RunMultiple([]string{sshCmd1, sshCmd2}); err != nil {
+			return fmt.Errorf("error running the commands to increase proxy's max connection setup: %w", err)
+		}
+		return nil
+	}
+	if err := injectMulticloudClusterEnvVars(settings, multicloudClusterConfig{
+		// kubeconfig has the format of "${ARTIFACTS}"/.kubetest2-tailorbird/t96ea7cc97f047f5/.kube/gke_aws_default_t96ea7cc97f047f5.conf
+		clusterArtifactsPath: filepath.Dir(filepath.Dir(settings.Kubeconfig)),
+		scriptRelPath:        "tunnel-script.sh",
+		regexMatcher:         `.*\-L([0-9]*):localhost.* (ubuntu@.*compute\.amazonaws\.com)`,
+		sshKeyRelPath:        ".ssh/anthos-gke",
+	}, sshPostprocess); err != nil {
+		return err
+	}
+
 	return nil
 }
 
-func filterKubeconfigFiles(shouldKeep func(string) bool) error {
+func filterKubeconfigFiles(settings *resource.Settings, shouldKeep func(string) bool) error {
 	kubeconfig := os.Getenv("KUBECONFIG")
 	if kubeconfig == "" {
 		return errors.New("KUBECONFIG env var cannot be empty")
@@ -274,7 +307,61 @@ func filterKubeconfigFiles(shouldKeep func(string) bool) error {
 			log.Printf("Remove %q from KUBECONFIG", f)
 		}
 	}
-	os.Setenv("KUBECONFIG", strings.Join(filteredFiles, string(os.PathListSeparator)))
+	filteredKubeconfig := strings.Join(filteredFiles, string(os.PathListSeparator))
+	os.Setenv("KUBECONFIG", filteredKubeconfig)
+	settings.Kubeconfig = filteredKubeconfig
+
+	return nil
+}
+
+type multicloudClusterConfig struct {
+	// the path for storing the cluster artifacts files.
+	clusterArtifactsPath string
+	// tunnel script relative path to the cluster artifacts path.
+	scriptRelPath string
+	// ssh key file relative path to the cluster artifacts path.
+	sshKeyRelPath string
+	// regex to find the PORT_NUMBER and BOOTSTRAP_HOST_SSH_USER from the tunnel
+	// script.
+	regexMatcher string
+}
+
+func injectMulticloudClusterEnvVars(settings *resource.Settings, mcConf multicloudClusterConfig,
+	postprocess func(bootstrapHostSSHKey, bootstrapHostSSHUser string) error) error {
+	tunnelScriptPath := filepath.Join(mcConf.clusterArtifactsPath, mcConf.scriptRelPath)
+	tunnelScriptContent, err := ioutil.ReadFile(tunnelScriptPath)
+	if err != nil {
+		return fmt.Errorf("error reading %q under the cluster artifacts path for aws: %w", mcConf.scriptRelPath, err)
+	}
+
+	patn := regexp.MustCompile(mcConf.regexMatcher)
+	matches := patn.FindStringSubmatch(string(tunnelScriptContent))
+	if len(matches) != 3 {
+		return fmt.Errorf("error finding PORT_NUMBER and BOOTSTRAP_HOST_SSH_USER from: %q", tunnelScriptContent)
+	}
+	portNum, bootstrapHostSSHUser := matches[1], matches[2]
+	httpProxy := "localhost:" + portNum
+	bootstrapHostSSHKey := filepath.Join(mcConf.clusterArtifactsPath, mcConf.sshKeyRelPath)
+	log.Printf("----------%s Cluster env----------", settings.ClusterType)
+	log.Print("MC_HTTP_PROXY: ", httpProxy)
+	log.Printf("BOOTSTRAP_HOST_SSH_USER: %s, BOOTSTRAP_HOST_SSH_KEY: %s", bootstrapHostSSHUser, bootstrapHostSSHKey)
+
+	for name, val := range map[string]string{
+		// Used by ingress related tests
+		"BOOTSTRAP_HOST_SSH_USER": bootstrapHostSSHUser,
+		"BOOTSTRAP_HOST_SSH_KEY":  bootstrapHostSSHKey,
+
+		"MC_HTTP_PROXY": httpProxy,
+	} {
+		log.Printf("Set env var: %s=%s", name, val)
+		if err := os.Setenv(name, val); err != nil {
+			return fmt.Errorf("error setting env var %q to %q: %w", name, val, err)
+		}
+	}
+
+	if postprocess != nil {
+		return postprocess(bootstrapHostSSHKey, bootstrapHostSSHUser)
+	}
 
 	return nil
 }

@@ -74,6 +74,7 @@ func ValidateSettings(settings *Settings) error {
 	if settings.Kubeconfig != "" {
 		os.Setenv("KUBECONFIG", settings.Kubeconfig)
 	}
+	settings.Kubeconfig = os.Getenv("KUBECONFIG")
 
 	if !pathExists(settings.RepoRootDir) {
 		errs = append(errs, fmt.Errorf("--repo-root-dir must be set as a valid path, now is %q", settings.RepoRootDir))

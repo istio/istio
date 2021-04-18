@@ -39,15 +39,6 @@ IFS=':' read -r -a MC_CONFIGS <<< "${KUBECONFIG}"
 
 # hold the ENVIRON_PROJECT_ID used for ASM Onprem cluster installation with Hub
 declare ENVIRON_PROJECT_ID
-# hold the http proxy used for connected to baremetal SC
-declare HTTP_PROXY
-declare HTTPS_PROXY
-
-# TODO: these should really be part of setup-env
-# construct http proxy value for baremetal
-[[ "${CLUSTER_TYPE}" == "bare-metal" ]] && init_baremetal_http_proxy
-# construct http proxy value for aws
-[[ "${CLUSTER_TYPE}" == "aws" ]] && aws::init
 
 # Get all contexts of the clusters into an array
 IFS="," read -r -a CONTEXTS <<< "${CONTEXT_STR}"
@@ -84,12 +75,8 @@ if [[ "${CONTROL_PLANE}" == "UNMANAGED" ]]; then
     fi
   else
     create_asm_revision_label
-    if [[ "${CLUSTER_TYPE}" == "bare-metal" ]]; then
-      export HTTP_PROXY
-      export HTTPS_PROXY
-      install_asm_on_baremetal
-      export -n HTTP_PROXY
-      export -n HTTPS_PROXY
+    if [[ "${CLUSTER_TYPE}" == "bare-metal" || "${CLUSTER_TYPE}" == "aws" ]]; then
+      HTTP_PROXY="${MC_HTTP_PROXY}" HTTPS_PROXY="${MC_HTTP_PROXY}" install_asm_on_proxied_clusters
     else
       install_asm_on_multicloud "${CA}" "${WIP}"
     fi

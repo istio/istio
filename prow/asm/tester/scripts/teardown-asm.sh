@@ -28,11 +28,6 @@ set -x
 source "${WD}/libs/asm-lib.sh"
 
 if [[ "${CONTROL_PLANE}" == "UNMANAGED" ]]; then
-  if [[ "${CLUSTER_TYPE}" == "bare-metal" ]]; then
-    # Proxy env needs to be unset to let gcloud command run correctly
-    unset_http_proxy
-  fi
-
   # Clean up the private CA.
   if [[ "${CLUSTER_TYPE}" == "gke" && "${CA}" == "PRIVATECA" ]]; then
     cleanup_private_ca "${CONTEXT_STR}"
@@ -42,12 +37,6 @@ if [[ "${CONTROL_PLANE}" == "UNMANAGED" ]]; then
     # Use the first project as the GKE Hub host project
     GKEHUB_PROJECT_ID="${GCR_PROJECT_ID}"
     cleanup_hub_setup "${GKEHUB_PROJECT_ID}" "${CONTEXT_STR}"
-  fi
-
-  if [[ "${FEATURE_TO_TEST}" == "USER_AUTH" ]]; then
-    # kill -9 "$(pgrep -f "kubectl port-forward")"
-    cleanup_user_auth_dependencies
-    cleanup_asm_user_auth
   fi
 
   # Do not clean up the images for multicloud tests, since they are using a

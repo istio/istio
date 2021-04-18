@@ -85,12 +85,6 @@ function cleanup_images() {
   gcloud beta container images delete "${HUB}/stackdriver-prometheus-sidecar:${TAG}" --force-delete-tags --quiet
 }
 
-# Unset the exported HTTP_PROXY and HTTPS_PROXY in Baremetal Installation
-function unset_http_proxy() {
-  unset HTTP_PROXY
-  unset HTTPS_PROXY
-}
-
 # Delete temporary images created for the managed control plane e2e test.
 # Depends on env var ${HUB} and ${TAG}
 function cleanup_images_for_managed_control_plane() {
@@ -206,8 +200,8 @@ function cleanup_hub_setup() {
 function set_multicloud_permissions() {
   local GCR_PROJECT_ID="$1"
   local CONFIGS=( "${MC_CONFIGS[@]}" )
-  if [[ "${CLUSTER_TYPE}" == "bare-metal" ]]; then
-    export HTTP_PROXY
+  if [[ "${CLUSTER_TYPE}" == "bare-metal" || "${CLUSTER_TYPE}" == "aws" ]]; then
+    export HTTP_PROXY="${MC_HTTP_PROXY}"
   fi
   local SECRETNAME="test-gcr-secret"
   for i in "${!CONFIGS[@]}"; do
@@ -239,7 +233,7 @@ istiod-service-account
 EOF
 
   done
-  if [[ "${CLUSTER_TYPE}" == "bare-metal" ]]; then
+  if [[ "${CLUSTER_TYPE}" == "bare-metal" || "${CLUSTER_TYPE}" == "aws" ]]; then
     export -n HTTP_PROXY
   fi
 }
@@ -737,28 +731,28 @@ EOF
 #             $2 - array of k8s contexts
 # Depends on env var ${KUBECONFIG}
 function gen_topology_file() {
-    local file="$1"; shift
-    local contexts=("${@}")
+  local file="$1"; shift
+  local contexts=("${@}")
 
-    local kubeconfpaths
-    IFS=":" read -r -a kubeconfpaths <<< "${KUBECONFIG}"
+  local kubeconfpaths
+  IFS=":" read -r -a kubeconfpaths <<< "${KUBECONFIG}"
 
-    for i in "${!contexts[@]}"; do
-      IFS="_" read -r -a VALS <<< "${contexts[$i]}"
-      local PROJECT_ID=${VALS[1]}
-      local CLUSTER_LOCATION=${VALS[2]}
-      local CLUSTER_NAME=${VALS[3]}
-      cat <<EOF >> "${file}"
+  for i in "${!contexts[@]}"; do
+    IFS="_" read -r -a VALS <<< "${contexts[$i]}"
+    local PROJECT_ID=${VALS[1]}
+    local CLUSTER_LOCATION=${VALS[2]}
+    local CLUSTER_NAME=${VALS[3]}
+    cat <<EOF >> "${file}"
 - clusterName: "cn-${PROJECT_ID}-${CLUSTER_LOCATION}-${CLUSTER_NAME}"
   kind: Kubernetes
   meta:
     kubeconfig: "${kubeconfpaths[i]}"
 EOF
-      # Disable using simulated Pod-based "VMs" when testing real VMs
-      if [ -n "${STATIC_VMS}" ] || "${GCE_VMS}"; then
-        echo '    fakeVM: false' >> "${file}"
-      fi
-    done
+    # Disable using simulated Pod-based "VMs" when testing real VMs
+    if [ -n "${STATIC_VMS}" ] || "${GCE_VMS}"; then
+      echo '    fakeVM: false' >> "${file}"
+    fi
+  done
 }
 
 # Install ASM on the clusters.
@@ -859,24 +853,32 @@ EOF
 # Parameters: $1 - path to the file to append to
 # Depends on env var ${KUBECONFIG} and that ASM is already installed (istio-system is present)
 function multicloud::gen_topology_file() {
-    local TOPO_FILE="$1"; shift
-    local KUBECONFIGPATHS
-    IFS=":" read -r -a KUBECONFIGPATHS <<< "${KUBECONFIG}"
+  local TOPO_FILE="$1"; shift
+  local KUBECONFIGPATHS
+  IFS=":" read -r -a KUBECONFIGPATHS <<< "${KUBECONFIG}"
 
-    # Each kubeconfig file should have one and only one cluster context.
-    for i in "${!KUBECONFIGPATHS[@]}"; do
-      local CLUSTER_NAME
-      CLUSTER_NAME=$(kubectl -n istio-system get pod -l app=istiod -o json --kubeconfig="${KUBECONFIGPATHS[$i]}" | \
-        jq -r '.items[0].spec.containers[0].env[] | select(.name == "CLUSTER_ID") | .value')
+  if [[ "${CLUSTER_TYPE}" == "bare-metal" || "${CLUSTER_TYPE}" == "aws" ]]; then
+    export HTTP_PROXY="${MC_HTTP_PROXY}"
+  fi
 
-      cat <<EOF >> "${TOPO_FILE}"
+  # Each kubeconfig file should have one and only one cluster context.
+  for i in "${!KUBECONFIGPATHS[@]}"; do
+    local CLUSTER_NAME
+    CLUSTER_NAME=$(kubectl -n istio-system get pod -l app=istiod -o json --kubeconfig="${KUBECONFIGPATHS[$i]}" | \
+      jq -r '.items[0].spec.containers[0].env[] | select(.name == "CLUSTER_ID") | .value')
+
+    cat <<EOF >> "${TOPO_FILE}"
 - clusterName: "${CLUSTER_NAME}"
   kind: Kubernetes
   meta:
     kubeconfig: "${KUBECONFIGPATHS[$i]}"
 EOF
-      echo "  network: network${i}" >> "${TOPO_FILE}"
-    done
+    echo "  network: network${i}" >> "${TOPO_FILE}"
+  done
+
+  if [[ "${CLUSTER_TYPE}" == "bare-metal" || "${CLUSTER_TYPE}" == "aws" ]]; then
+    export -n HTTP_PROXY
+  fi
 }
 
 # Exports variable ASM_REVISION_LABEL with the value being a function of istioctl client version.
@@ -1026,62 +1028,6 @@ spec:
 EOF
 }
 
-# Construct correct HTTP_PROXY env value used by baremetal according to the tunnel
-function init_baremetal_http_proxy() {
-  for CONFIG in "${MC_CONFIGS[@]}"; do
-    CLUSTER_ARTIFACTS_PATH=${CONFIG%/*}
-    local PORT_NUMBER
-    read -r PORT_NUMBER BOOTSTRAP_HOST_SSH_USER <<<"$(grep "localhost" "${CLUSTER_ARTIFACTS_PATH}/tunnel.sh" | sed 's/.*\-L\([0-9]*\):localhost.* \(root@[0-9]*\.[0-9]*\.[0-9]*\.[0-9]*\) -N/\1 \2/')"
-    HTTP_PROXY="localhost:${PORT_NUMBER}"
-    HTTPS_PROXY="${HTTP_PROXY}"
-    echo "----------PROXY env----------"
-    echo "HTTP_PROXY: ${HTTP_PROXY}, HTTPS_PROXY: ${HTTPS_PROXY}"
-  done
-  BOOTSTRAP_HOST_SSH_KEY="${CLUSTER_ARTIFACTS_PATH}/id_rsa"
-  echo "----------BM Cluster env----------"
-  echo "CLUSTER_ARTIFACTS_PATH: ${CLUSTER_ARTIFACTS_PATH}, BOOTSTRAP_HOST_SSH_USER: ${BOOTSTRAP_HOST_SSH_USER}, BOOTSTRAP_HOST_SSH_KEY: ${BOOTSTRAP_HOST_SSH_KEY}"
-  export CLUSTER_ARTIFACTS_PATH
-  # Used by ingress related tests
-  export BOOTSTRAP_HOST_SSH_USER
-  export BOOTSTRAP_HOST_SSH_KEY
-}
-
-# Sources the environment variables created by test infra needed to connect
-# to the clusters under test.
-# KUBECONFIG value will be preserved.
-function aws::init() {
-  local OLD_KC="${KUBECONFIG}"
-  for CONFIG in "${MC_CONFIGS[@]}"; do
-    CLUSTER_TB_ID=${CONFIG//*kubetest2-tailorbird\//}
-    CLUSTER_TB_ID=${CLUSTER_TB_ID//\/.kube*/}
-
-    RESOURCE_DIR="${ARTIFACTS}/.kubetest2-tailorbird/${CLUSTER_TB_ID}"
-    # shellcheck disable=SC1090
-    source "${RESOURCE_DIR}/resource_vars"
-
-    HTTPS_PROXY="${HTTP_PROXY}"
-    export HTTPS_PROXY
-
-    CLUSTER_ARTIFACTS_PATH="${RESOURCE_DIR}"
-    read -r BOOTSTRAP_HOST_SSH_USER <<<"$(grep "localhost" "${CLUSTER_ARTIFACTS_PATH}/tunnel-script.sh" | sed 's/.* \(ubuntu@.*compute.amazonaws.com\) .*/\1/')"
-  done
-  BOOTSTRAP_HOST_SSH_KEY="${CLUSTER_ARTIFACTS_PATH}/.ssh/anthos-gke"
-  echo "----------AWS Cluster env----------"
-  echo "CLUSTER_ARTIFACTS_PATH: ${CLUSTER_ARTIFACTS_PATH}, BOOTSTRAP_HOST_SSH_USER: ${BOOTSTRAP_HOST_SSH_USER}, BOOTSTRAP_HOST_SSH_KEY; ${BOOTSTRAP_HOST_SSH_KEY}"
-  export CLUSTER_ARTIFACTS_PATH
-  # Used by ingress related tests
-  export BOOTSTRAP_HOST_SSH_USER
-  export BOOTSTRAP_HOST_SSH_KEY
-  # Increase proxy's max connection setup to avoid too many connections error
-  ssh -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -i "${BOOTSTRAP_HOST_SSH_KEY}" "${BOOTSTRAP_HOST_SSH_USER}" "sudo sed -i 's/#max-client-connections.*/max-client-connections 512/' '/etc/privoxy/config'"
-  ssh -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -i "${BOOTSTRAP_HOST_SSH_KEY}" "${BOOTSTRAP_HOST_SSH_USER}" "sudo systemctl restart privoxy.service"
-
-  # reset to the existing value because resource_vars for each
-  # cluster can override the normalized KUBECONFIGs, including
-  # adding back the management cluster config.
-  KUBECONFIG="${OLD_KC}"
-}
-
 # Creates virtual machines, registers them with the cluster and install the test echo app.
 # Parameters: $1 - the name of a directory in echo-vm-provisioner describing how to setup the VMs.
 #             $2 - the context of the cluster VMs will connect to
@@ -1134,7 +1080,7 @@ function apply_skip_disabled_tests() {
   fi
 }
 
-function install_asm_on_baremetal() {
+function install_asm_on_proxied_clusters() {
   local MESH_ID="test-mesh"
   for i in "${!MC_CONFIGS[@]}"; do
     install_certs "${MC_CONFIGS[$i]}"

@@ -37,11 +37,6 @@ IFS=':' read -r -a MC_CONFIGS <<< "${KUBECONFIG}"
 # shellcheck disable=SC2034
 IFS="," read -r -a CONTEXTS <<< "${CONTEXT_STR}"
 
-# construct http proxy value for baremetal
-[[ "${CLUSTER_TYPE}" == "bare-metal" ]] && init_baremetal_http_proxy
-# construct http proxy value for aws
-[[ "${CLUSTER_TYPE}" == "aws" ]] && aws::init
-
 if [[ "${CONTROL_PLANE}" == "UNMANAGED" ]]; then
   if [[ "${CLUSTER_TYPE}" == "gke" ]]; then
     echo "Set permissions to allow the Pods on the GKE clusters to pull images..."

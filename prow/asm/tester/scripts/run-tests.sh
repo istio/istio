@@ -32,13 +32,8 @@ source "${WD}/libs/vm-lib.sh"
 
 # holds multiple kubeconfigs for Multicloud test environments
 declare -a MC_CONFIGS
-declare HTTP_PROXY
-declare HTTPS_PROXY
 # shellcheck disable=SC2034
 IFS=':' read -r -a MC_CONFIGS <<< "${KUBECONFIG}"
-
-# construct http proxy value for aws
-[[ "${CLUSTER_TYPE}" == "aws" ]] && aws::init
 
 echo "======= env vars ========"
 printenv
@@ -185,8 +180,8 @@ if [[ "${CONTROL_PLANE}" == "UNMANAGED" ]]; then
   echo "Running e2e test: ${TEST_TARGET}..."
   export DISABLED_PACKAGES
   export JUNIT_OUT="${ARTIFACTS}/junit1.xml"
-  if [[ "${CLUSTER_TYPE}" == "bare-metal" ]]; then
-    HTTP_PROXY="${HTTP_PROXY}" make "${TEST_TARGET}"
+  if [[ "${CLUSTER_TYPE}" == "bare-metal" || "${CLUSTER_TYPE}" == "aws" ]]; then
+    HTTP_PROXY="${MC_HTTP_PROXY}" HTTPS_PROXY="${MC_HTTP_PROXY}" make "${TEST_TARGET}"
   else
     make "${TEST_TARGET}"
   fi

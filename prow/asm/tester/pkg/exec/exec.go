@@ -68,6 +68,19 @@ func Run(rawCommand string, options ...Option) error {
 	return nil
 }
 
+// RunMultiple will run the commands with the given options and stop if there is an error.
+// It will wait until the command is finished.
+func RunMultiple(rawCommands []string, options ...Option) error {
+	var err error
+	for _, cmd := range rawCommands {
+		err = Run(cmd, options...)
+		if err != nil {
+			return fmt.Errorf("command %q failed with error: %w", cmd, err)
+		}
+	}
+	return nil
+}
+
 func commonRun(rawCommand string, stdout, stderr io.Writer, options ...Option) error {
 	log.Printf("⚙️ %s", rawCommand)
 	cmdSplit, err := shell.Split(rawCommand)
