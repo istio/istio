@@ -15,6 +15,7 @@
 package route_test
 
 import (
+	"fmt"
 	"os"
 	"reflect"
 	"testing"
@@ -131,6 +132,8 @@ func TestBuildHTTPRoutes(t *testing.T) {
 		g := gomega.NewWithT(t)
 		routes, err := route.BuildHTTPRoutesForVirtualService(node, nil, virtualServiceWithCatchAllRoute, serviceRegistry, 8080, gatewayNames)
 		xdstest.ValidateRoutes(t, routes)
+
+		fmt.Println(routes)
 
 		g.Expect(err).NotTo(gomega.HaveOccurred())
 		g.Expect(len(routes)).To(gomega.Equal(2))

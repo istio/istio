@@ -32,6 +32,7 @@ import (
 	"github.com/golang/protobuf/ptypes/wrappers"
 	"google.golang.org/protobuf/types/known/durationpb"
 
+	"istio.io/api/networking/v1alpha3"
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
@@ -271,23 +272,33 @@ func BuildHTTPRoutesForVirtualService(
 
 	out := make([]*route.Route, 0, len(vs.Http))
 
-allroutes:
+	catchallfound := false
+	var httpRoute *v1alpha3.HTTPRoute
 	for _, http := range vs.Http {
 		if len(http.Match) == 0 {
-			if r := translateRoute(push, node, http, nil, listenPort, virtualService, serviceRegistry, gatewayNames); r != nil {
-				out = append(out, r)
-			}
-			// We have a rule with catch all match. Other rules are of no use.
-			break
+			httpRoute = http
+			catchallfound = true
 		} else {
+			for _, match := range http.Match {
+				if isCatchAllMatch(match) {
+					httpRoute = http
+					catchallfound = true
+					break
+				}
+			}
+		}
+	}
+	if catchallfound {
+		// If there is a catchall route add only catch all route.
+		if r := translateRoute(push, node, httpRoute, nil, listenPort, virtualService, serviceRegistry, gatewayNames); r != nil {
+			out = append(out, r)
+		}
+	} else {
+		// There is no catchall route, so add all routes.
+		for _, http := range vs.Http {
 			for _, match := range http.Match {
 				if r := translateRoute(push, node, http, match, listenPort, virtualService, serviceRegistry, gatewayNames); r != nil {
 					out = append(out, r)
-					// This is a catch all path. Routes are matched in order, so we will never go beyond this match
-					// As an optimization, we can just top sending any more routes here.
-					if isCatchAllMatch(match) {
-						break allroutes
-					}
 				}
 			}
 		}
