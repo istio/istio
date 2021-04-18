@@ -32,7 +32,6 @@ import (
 	"github.com/golang/protobuf/ptypes/wrappers"
 	"google.golang.org/protobuf/types/known/durationpb"
 
-	"istio.io/api/networking/v1alpha3"
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
@@ -273,7 +272,7 @@ func BuildHTTPRoutesForVirtualService(
 	out := make([]*route.Route, 0, len(vs.Http))
 
 	catchallfound := false
-	var httpRoute *v1alpha3.HTTPRoute
+	var httpRoute *networking.HTTPRoute
 	for _, http := range vs.Http {
 		if len(http.Match) == 0 {
 			httpRoute = http
