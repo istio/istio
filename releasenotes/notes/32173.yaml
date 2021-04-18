@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: enhancement
+area: security
+issue:
+- 32173
+releaseNotes:
+- |
+  **Added** support for contains match for authorization header matching
