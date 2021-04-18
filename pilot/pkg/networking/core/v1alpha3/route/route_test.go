@@ -15,7 +15,6 @@
 package route_test
 
 import (
-	"fmt"
 	"os"
 	"reflect"
 	"testing"
@@ -133,12 +132,9 @@ func TestBuildHTTPRoutes(t *testing.T) {
 		routes, err := route.BuildHTTPRoutesForVirtualService(node, nil, virtualServiceWithCatchAllRoute, serviceRegistry, 8080, gatewayNames)
 		xdstest.ValidateRoutes(t, routes)
 
-		fmt.Println(routes)
-
 		g.Expect(err).NotTo(gomega.HaveOccurred())
-		g.Expect(len(routes)).To(gomega.Equal(2))
-		g.Expect(routes[0].Name).To(gomega.Equal("route.non-catch-all"))
-		g.Expect(routes[1].Name).To(gomega.Equal("route.catch-all"))
+		g.Expect(len(routes)).To(gomega.Equal(1))
+		g.Expect(routes[0].Name).To(gomega.Equal("route"))
 	})
 
 	t.Run("for virtual service with top level catch all route", func(t *testing.T) {
