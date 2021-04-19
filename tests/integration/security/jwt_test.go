@@ -307,6 +307,9 @@ func TestRequestAuthentication(t *testing.T) {
 							echotest.Not(func(instances echo.Instances) echo.Instances { return instances.Match(echo.IsExternal()) }),
 							echotest.Not(func(instances echo.Instances) echo.Instances { return instances.Match(util.IsMultiversion()) }),
 							func(instances echo.Instances) echo.Instances { return instances.Match(echo.Namespace(ns.Name())) },
+							func(instances echo.Instances) echo.Instances {
+								return instances.Match(echo.InCluster(t.Clusters().Default()))
+							},
 						).
 						ConditionallyTo(echotest.ReachableDestinations).
 						ConditionallyTo(func(from echo.Instance, to echo.Instances) echo.Instances {
@@ -319,6 +322,9 @@ func TestRequestAuthentication(t *testing.T) {
 							echotest.Not(func(instances echo.Instances) echo.Instances { return instances.Match(echo.IsExternal()) }),
 							echotest.Not(func(instances echo.Instances) echo.Instances { return instances.Match(util.IsMultiversion()) }),
 							func(instances echo.Instances) echo.Instances { return instances.Match(echo.Namespace(ns.Name())) },
+							func(instances echo.Instances) echo.Instances {
+								return instances.Match(echo.InCluster(t.Clusters().Default()))
+							},
 						).
 						Run(func(t framework.TestContext, src echo.Instance, dest echo.Instances) {
 							t.NewSubTest(c.Name).Run(func(t framework.TestContext) {
@@ -403,6 +409,9 @@ func TestIngressRequestAuthentication(t *testing.T) {
 							echotest.Not(func(instances echo.Instances) echo.Instances { return instances.Match(echo.IsExternal()) }),
 							echotest.Not(func(instances echo.Instances) echo.Instances { return instances.Match(util.IsMultiversion()) }),
 							func(instances echo.Instances) echo.Instances { return instances.Match(echo.Namespace(ns.Name())) },
+							func(instances echo.Instances) echo.Instances {
+								return instances.Match(echo.InCluster(t.Clusters().Default()))
+							},
 						).
 						ConditionallyTo(echotest.ReachableDestinations).
 						ConditionallyTo(func(from echo.Instance, to echo.Instances) echo.Instances {
@@ -415,6 +424,9 @@ func TestIngressRequestAuthentication(t *testing.T) {
 							echotest.Not(func(instances echo.Instances) echo.Instances { return instances.Match(echo.IsExternal()) }),
 							echotest.Not(func(instances echo.Instances) echo.Instances { return instances.Match(util.IsMultiversion()) }),
 							func(instances echo.Instances) echo.Instances { return instances.Match(echo.Namespace(ns.Name())) },
+							func(instances echo.Instances) echo.Instances {
+								return instances.Match(echo.InCluster(t.Clusters().Default()))
+							},
 						).
 						Run(func(t framework.TestContext, src echo.Instance, dest echo.Instances) {
 							t.NewSubTest(c.Name).Run(func(t framework.TestContext) {
