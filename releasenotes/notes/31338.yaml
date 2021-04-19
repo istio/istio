@@ -1,0 +1,9 @@
+apiVersion: release-notes/v2
+kind: feature
+area: istioctl
+issue:
+  - 31338
+releaseNotes:
+  - |
+    **Added** `istioctl experimental internal-debug` to retrieves the debug information of istio via secured debug interface.
+

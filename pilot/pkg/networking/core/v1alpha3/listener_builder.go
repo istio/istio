@@ -23,8 +23,8 @@ import (
 	envoytype "github.com/envoyproxy/go-control-plane/envoy/type/v3"
 	wellknown "github.com/envoyproxy/go-control-plane/pkg/wellknown"
 	golangproto "github.com/golang/protobuf/proto"
-	"github.com/golang/protobuf/ptypes"
 	"github.com/golang/protobuf/ptypes/wrappers"
+	"google.golang.org/protobuf/types/known/durationpb"
 
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/features"
@@ -216,7 +216,7 @@ func (lb *ListenerBuilder) aggregateVirtualInboundListener(passthroughInspectors
 
 	timeout := util.GogoDurationToDuration(lb.push.Mesh.GetProtocolDetectionTimeout())
 	if features.InboundProtocolDetectionTimeoutSet {
-		timeout = ptypes.DurationProto(features.InboundProtocolDetectionTimeout)
+		timeout = durationpb.New(features.InboundProtocolDetectionTimeout)
 	}
 	lb.virtualInboundListener.ListenerFiltersTimeout = timeout
 	lb.virtualInboundListener.ContinueOnListenerFiltersTimeout = true
@@ -498,39 +498,6 @@ func (lb *ListenerBuilder) getListeners() []*listener.Listener {
 	}
 
 	return lb.gatewayListeners
-}
-
-// getFilterChainMatchOptions returns the FilterChainMatchOptions that should be used based on mTLS mode and protocol
-func getFilterChainMatchOptions(settings plugin.MTLSSettings, protocol istionetworking.ListenerProtocol) []FilterChainMatchOptions {
-	switch protocol {
-	case istionetworking.ListenerProtocolHTTP:
-		switch settings.Mode {
-		case model.MTLSStrict:
-			return inboundStrictHTTPFilterChainMatchOptions
-		case model.MTLSPermissive:
-			return inboundPermissiveHTTPFilterChainMatchWithMxcOptions
-		default:
-			return inboundPlainTextHTTPFilterChainMatchOptions
-		}
-	case istionetworking.ListenerProtocolAuto:
-		switch settings.Mode {
-		case model.MTLSStrict:
-			return inboundStrictFilterChainMatchOptions
-		case model.MTLSPermissive:
-			return inboundPermissiveFilterChainMatchWithMxcOptions
-		default:
-			return inboundPlainTextFilterChainMatchOptions
-		}
-	default:
-		switch settings.Mode {
-		case model.MTLSStrict:
-			return inboundStrictTCPFilterChainMatchOptions
-		case model.MTLSPermissive:
-			return inboundPermissiveTCPFilterChainMatchWithMxcOptions
-		default:
-			return inboundPlainTextTCPFilterChainMatchOptions
-		}
-	}
 }
 
 type fcOpts struct {

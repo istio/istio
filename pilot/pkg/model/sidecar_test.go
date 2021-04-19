@@ -18,7 +18,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"reflect"
-	"strings"
 	"testing"
 
 	"istio.io/api/mesh/v1alpha1"
@@ -29,6 +28,7 @@ import (
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/config/schema/gvk"
+	"istio.io/istio/pkg/config/visibility"
 )
 
 var (
@@ -611,6 +611,34 @@ var (
 		},
 	}
 
+	services15 = []*Service{
+		{
+			Hostname: "foo.svc.cluster.local",
+			Ports:    port7443,
+			Attributes: ServiceAttributes{
+				Name:      "foo",
+				Namespace: "ns1",
+				ExportTo:  map[visibility.Instance]bool{visibility.Private: true},
+			},
+		},
+		{
+			Hostname: "foo.svc.cluster.local",
+			Ports:    port8000,
+			Attributes: ServiceAttributes{
+				Name:      "foo",
+				Namespace: "ns2",
+			},
+		},
+		{
+			Hostname: "baz.svc.cluster.local",
+			Ports:    port7443,
+			Attributes: ServiceAttributes{
+				Name:      "baz",
+				Namespace: "ns3",
+			},
+		},
+	}
+
 	virtualServices1 = []config.Config{
 		{
 			Meta: config.Meta{
@@ -979,6 +1007,24 @@ func TestCreateSidecarScope(t *testing.T) {
 			},
 		},
 		{
+			"virtual-service-pick-public",
+			configs11,
+			// Ambiguous; same hostname in ns1 and ns2, neither is config namespace
+			// ns1 should always win
+			services15,
+			virtualServices1,
+			[]*Service{
+				{
+					Hostname: "foo.svc.cluster.local",
+					Ports:    port8000,
+				},
+				{
+					Hostname: "baz.svc.cluster.local",
+					Ports:    port7443,
+				},
+			},
+		},
+		{
 			"virtual-service-bad-host",
 			configs11,
 			services9,
@@ -1025,6 +1071,12 @@ func TestCreateSidecarScope(t *testing.T) {
 				ps.virtualServiceIndex.publicByGateway[constants.IstioMeshGateway] = append(ps.virtualServiceIndex.publicByGateway[constants.IstioMeshGateway], tt.virtualServices...)
 			}
 
+			ps.exportToDefaults = exportToDefaults{
+				virtualService:  map[visibility.Instance]bool{visibility.Public: true},
+				service:         map[visibility.Instance]bool{visibility.Public: true},
+				destinationRule: map[visibility.Instance]bool{visibility.Public: true},
+			}
+
 			sidecarConfig := tt.sidecarConfig
 			sidecarScope := ConvertToSidecarScope(ps, sidecarConfig, "mynamespace")
 			configuredListeneres := 1
@@ -1038,36 +1090,6 @@ func TestCreateSidecarScope(t *testing.T) {
 			numberListeners := len(sidecarScope.EgressListeners)
 			if numberListeners != configuredListeneres {
 				t.Errorf("Expected %d listeners, Got: %d", configuredListeneres, numberListeners)
-			}
-
-			if sidecarConfig != nil {
-				a := sidecarConfig.Spec.(*networking.Sidecar)
-				for _, egress := range a.Egress {
-					for _, egressHost := range egress.Hosts {
-						parts := strings.SplitN(egressHost, "/", 2)
-						if len(parts) < 2 {
-							continue
-						}
-						found = false
-						for _, listeners := range sidecarScope.EgressListeners {
-							if sidecarScopeHosts, ok := listeners.listenerHosts[parts[0]]; ok {
-								for _, sidecarScopeHost := range sidecarScopeHosts {
-									if sidecarScopeHost == host.Name(parts[1]) &&
-										listeners.IstioListener.Port == egress.Port {
-										found = true
-										break
-									}
-								}
-							}
-							if found {
-								break
-							}
-						}
-						if !found {
-							t.Errorf("Did not find %v entry in any listener", egressHost)
-						}
-					}
-				}
 			}
 
 			for _, s1 := range sidecarScope.services {
@@ -1201,10 +1223,8 @@ func TestIstioEgressListenerWrapper(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			ilw := &IstioEgressListenerWrapper{
-				listenerHosts: tt.listenerHosts,
-			}
-			got := ilw.selectServices(tt.services, tt.namespace)
+			ilw := &IstioEgressListenerWrapper{}
+			got := ilw.selectServices(tt.services, tt.namespace, tt.listenerHosts)
 			if !reflect.DeepEqual(got, tt.expected) {
 				gots, _ := json.MarshalIndent(got, "", "  ")
 				expecteds, _ := json.MarshalIndent(tt.expected, "", "  ")

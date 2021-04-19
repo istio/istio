@@ -41,8 +41,8 @@ const (
 	// The length of the example certificate chain.
 	exampleCertChainLength = 3
 
-	defaultIdentityDR = `apiVersion: "networking.istio.io/v1alpha3"
-kind: "DestinationRule"
+	defaultIdentityDR = `apiVersion: networking.istio.io/v1alpha3
+kind: DestinationRule
 metadata:
   name: "service-b-dr"
 spec:
@@ -53,8 +53,8 @@ spec:
       subjectAltNames:
       - "spiffe://cluster.local/ns/NS/sa/default"
 `
-	correctIdentityDR = `apiVersion: "networking.istio.io/v1alpha3"
-kind: "DestinationRule"
+	correctIdentityDR = `apiVersion: networking.istio.io/v1alpha3
+kind: DestinationRule
 metadata:
   name: "service-b-dr"
 spec:
@@ -65,8 +65,8 @@ spec:
       subjectAltNames:
       - "spiffe://cluster.local/ns/NS/sa/b"
 `
-	nonExistIdentityDR = `apiVersion: "networking.istio.io/v1alpha3"
-kind: "DestinationRule"
+	nonExistIdentityDR = `apiVersion: networking.istio.io/v1alpha3
+kind: DestinationRule
 metadata:
   name: "service-b-dr"
 spec:
@@ -77,8 +77,8 @@ spec:
       subjectAltNames:
       - "I-do-not-exist"
 `
-	identityListDR = `apiVersion: "networking.istio.io/v1alpha3"
-kind: "DestinationRule"
+	identityListDR = `apiVersion: networking.istio.io/v1alpha3
+kind: DestinationRule
 metadata:
   name: "service-b-dr"
 spec:
@@ -129,7 +129,7 @@ func TestSecureNaming(t *testing.T) {
 					t.NewSubTest("mTLS cert validation with plugin CA").
 						Run(func(t framework.TestContext) {
 							// Verify that the certificate issued to the sidecar is as expected.
-							connectTarget := fmt.Sprintf("b.%s:80", testNamespace.Name())
+							connectTarget := fmt.Sprintf("b.%s:8095", testNamespace.Name())
 							out, err := cert.DumpCertFromSidecar(testNamespace, "app=a", "istio-proxy",
 								connectTarget)
 							if err != nil {

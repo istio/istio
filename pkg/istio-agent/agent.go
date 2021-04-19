@@ -101,6 +101,9 @@ type AgentOptions struct {
 	// ferry Envoy's XDS requests to istiod and responses back to envoy
 	// This flag is temporary until the feature is stabilized.
 	ProxyXDSViaAgent bool
+	// ProxyXDSDebugViaAgent if true will listen on 15004 and forward queries
+	// to XDS istio.io/debug. (Requires ProxyXDSViaAgent).
+	ProxyXDSDebugViaAgent bool
 	// DNSCapture indicates if the XDS proxy has dns capture enabled or not
 	// This option will not be considered if proxyXDSViaAgent is false.
 	DNSCapture bool
@@ -128,6 +131,12 @@ type AgentOptions struct {
 
 	// Path to local UDS to communicate with Envoy
 	XdsUdsPath string
+
+	// Ability to retrieve ProxyConfig dynamically through XDS
+	EnableDynamicProxyConfig bool
+
+	// All of the proxy's IP Addresses
+	ProxyIPAddresses []string
 }
 
 // NewAgent hosts the functionality for local SDS and XDS. This consists of the local SDS server and
@@ -152,12 +161,12 @@ func (a *Agent) Start() error {
 	var err error
 	a.secretCache, err = a.newSecretManager()
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to start workload secret manager %v", err)
 	}
 
 	a.sdsServer, err = sds.NewServer(a.secOpts, a.secretCache)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to start local sds server %v", err)
 	}
 	a.secretCache.SetUpdateCallback(a.sdsServer.UpdateCallback)
 
@@ -169,6 +178,12 @@ func (a *Agent) Start() error {
 		a.xdsProxy, err = initXdsProxy(a)
 		if err != nil {
 			return fmt.Errorf("failed to start xds proxy: %v", err)
+		}
+		if a.cfg.ProxyXDSDebugViaAgent {
+			err = a.xdsProxy.initDebugInterface()
+			if err != nil {
+				return fmt.Errorf("failed to start istio tap server: %v", err)
+			}
 		}
 	}
 	return nil

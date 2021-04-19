@@ -134,9 +134,9 @@ var (
 			log.Infof("Pilot SAN: %v", pilotSAN)
 
 			agent := istio_agent.NewAgent(proxyConfig, agentOptions, secOpts)
-			// Start in process SDS.
+			// Start in process SDS, dns server, and xds proxy.
 			if err := agent.Start(); err != nil {
-				log.Fatala("Failed to start in-process SDS", err)
+				log.Fatala("Agent start up error", err)
 			}
 
 			// If we are using a custom template file (for control plane proxy, for example), configure this.

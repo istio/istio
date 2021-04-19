@@ -36,7 +36,7 @@ var (
 func TestMain(m *testing.M) {
 	framework.
 		NewSuite(m).
-		RequireEnvironmentVersion("1.17").
+		RequireMinVersion(17).
 		Setup(istio.Setup(&i, func(t resource.Context, cfg *istio.Config) {
 			cfg.ControlPlaneValues = `
 values:

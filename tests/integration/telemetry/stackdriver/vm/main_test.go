@@ -35,7 +35,6 @@ import (
 	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/framework/components/stackdriver"
-	edgespb "istio.io/istio/pkg/test/framework/components/stackdriver/edges"
 	"istio.io/istio/pkg/test/framework/resource"
 	"istio.io/istio/pkg/test/util/tmpl"
 	"istio.io/istio/tests/integration/telemetry"
@@ -47,7 +46,6 @@ const (
 	serverRequestCount           = "testdata/server_request_count.json.tmpl"
 	clientRequestCount           = "testdata/client_request_count.json.tmpl"
 	serverLogEntry               = "testdata/server_access_log.json.tmpl"
-	serverEdgeFile               = "testdata/server_edge.prototext.tmpl"
 	traceTmplFile                = "testdata/trace.prototext.tmpl"
 	sdBootstrapConfigMap         = "stackdriver-bootstrap-config"
 )
@@ -64,11 +62,10 @@ var (
 
 var (
 	// golden values for tests
-	wantServerReqs       *monitoring.TimeSeries
-	wantClientReqs       *monitoring.TimeSeries
-	wantLogEntry         *loggingpb.LogEntry
-	wantTrafficAssertion *edgespb.TrafficAssertion
-	wantTrace            *cloudtrace.Trace
+	wantServerReqs *monitoring.TimeSeries
+	wantClientReqs *monitoring.TimeSeries
+	wantLogEntry   *loggingpb.LogEntry
+	wantTrace      *cloudtrace.Trace
 )
 
 var clientBuilder, serverBuilder echo.Builder
@@ -125,8 +122,6 @@ func TestMain(m *testing.M) {
 			cfg.Values["telemetry.v2.enabled"] = "true"
 			cfg.Values["telemetry.v2.stackdriver.enabled"] = "true"
 			cfg.Values["telemetry.v2.stackdriver.logging"] = "true"
-			cfg.Values["telemetry.v2.stackdriver.configOverride.meshEdgesReportingDuration"] = "5s"
-			cfg.Values["telemetry.v2.stackdriver.configOverride.enable_mesh_edges_reporting"] = "true"
 		})).
 		Setup(testSetup).
 		Run()
@@ -190,10 +185,6 @@ func testSetup(ctx resource.Context) error {
 	wantLogEntry, err = goldenLogEntry(trustDomain)
 	if err != nil {
 		return fmt.Errorf("failed to get golden log entry from file: %v", err)
-	}
-	wantTrafficAssertion, err = goldenTrafficAssertion(trustDomain)
-	if err != nil {
-		return fmt.Errorf("failed to get golden traffic assertion from file: %v", err)
 	}
 	wantTrace, err = goldenTrace(trustDomain)
 	if err != nil {
@@ -292,27 +283,6 @@ func goldenLogEntry(trustDomain string) (srvLogEntry *loggingpb.LogEntry, err er
 		return
 	}
 	return
-}
-
-func goldenTrafficAssertion(trustDomain string) (*edgespb.TrafficAssertion, error) {
-	taTmpl, err := ioutil.ReadFile(serverEdgeFile)
-	if err != nil {
-		return nil, err
-	}
-
-	taString, err := tmpl.Evaluate(string(taTmpl), map[string]interface{}{
-		"EchoNamespace": ns.Name(),
-		"TrustDomain":   trustDomain,
-	})
-	if err != nil {
-		return nil, err
-	}
-
-	var ta edgespb.TrafficAssertion
-	if err = proto.UnmarshalText(taString, &ta); err != nil {
-		return nil, err
-	}
-	return &ta, nil
 }
 
 func goldenTrace(trustDomain string) (*cloudtrace.Trace, error) {

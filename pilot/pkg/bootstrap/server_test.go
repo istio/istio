@@ -16,11 +16,14 @@ package bootstrap
 import (
 	"bytes"
 	"crypto/tls"
+	"fmt"
 	"io/ioutil"
+	"net"
 	"net/http"
 	"net/url"
 	"os"
 	"path/filepath"
+	"strconv"
 	"testing"
 	"time"
 
@@ -31,6 +34,7 @@ import (
 	"istio.io/istio/pilot/pkg/serviceregistry"
 	kubecontroller "istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
 	"istio.io/istio/pkg/config/constants"
+	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/testcerts"
 	"istio.io/pkg/filewatcher"
 )
@@ -57,13 +61,13 @@ func TestNewServerCertInit(t *testing.T) {
 	caCertFile := filepath.Join(certsDir, "ca-cert.pem")
 
 	// load key and cert files.
-	if err := ioutil.WriteFile(certFile, testcerts.ServerCert, 0644); err != nil { // nolint: vetshadow
+	if err := ioutil.WriteFile(certFile, testcerts.ServerCert, 0o644); err != nil { // nolint: vetshadow
 		t.Fatalf("WriteFile(%v) failed: %v", certFile, err)
 	}
-	if err := ioutil.WriteFile(keyFile, testcerts.ServerKey, 0644); err != nil { // nolint: vetshadow
+	if err := ioutil.WriteFile(keyFile, testcerts.ServerKey, 0o644); err != nil { // nolint: vetshadow
 		t.Fatalf("WriteFile(%v) failed: %v", keyFile, err)
 	}
-	if err := ioutil.WriteFile(caCertFile, testcerts.CACert, 0644); err != nil { // nolint: vetshadow
+	if err := ioutil.WriteFile(caCertFile, testcerts.CACert, 0o644); err != nil { // nolint: vetshadow
 		t.Fatalf("WriteFile(%v) failed: %v", caCertFile, err)
 	}
 
@@ -72,13 +76,13 @@ func TestNewServerCertInit(t *testing.T) {
 	caCertFileEmpty := filepath.Join(certsDir, "ca-cert-empty.pem")
 
 	// create empty files.
-	if err := ioutil.WriteFile(certFileEmpty, []byte{}, 0644); err != nil { // nolint: vetshadow
+	if err := ioutil.WriteFile(certFileEmpty, []byte{}, 0o644); err != nil { // nolint: vetshadow
 		t.Fatalf("WriteFile(%v) failed: %v", certFile, err)
 	}
-	if err := ioutil.WriteFile(keyFileEmpty, []byte{}, 0644); err != nil { // nolint: vetshadow
+	if err := ioutil.WriteFile(keyFileEmpty, []byte{}, 0o644); err != nil { // nolint: vetshadow
 		t.Fatalf("WriteFile(%v) failed: %v", keyFile, err)
 	}
-	if err := ioutil.WriteFile(caCertFileEmpty, []byte{}, 0644); err != nil { // nolint: vetshadow
+	if err := ioutil.WriteFile(caCertFileEmpty, []byte{}, 0o644); err != nil { // nolint: vetshadow
 		t.Fatalf("WriteFile(%v) failed: %v", caCertFile, err)
 	}
 
@@ -206,10 +210,10 @@ func TestReloadIstiodCert(t *testing.T) {
 	keyFile := filepath.Join(dir, "key-file.yaml")
 
 	// load key and cert files.
-	if err := ioutil.WriteFile(certFile, testcerts.ServerCert, 0644); err != nil { // nolint: vetshadow
+	if err := ioutil.WriteFile(certFile, testcerts.ServerCert, 0o644); err != nil { // nolint: vetshadow
 		t.Fatalf("WriteFile(%v) failed: %v", certFile, err)
 	}
-	if err := ioutil.WriteFile(keyFile, testcerts.ServerKey, 0644); err != nil { // nolint: vetshadow
+	if err := ioutil.WriteFile(keyFile, testcerts.ServerKey, 0o644); err != nil { // nolint: vetshadow
 		t.Fatalf("WriteFile(%v) failed: %v", keyFile, err)
 	}
 
@@ -233,10 +237,10 @@ func TestReloadIstiodCert(t *testing.T) {
 	}
 
 	// Update cert/key files.
-	if err := ioutil.WriteFile(tlsOptions.CertFile, testcerts.RotatedCert, 0644); err != nil { // nolint: vetshadow
+	if err := ioutil.WriteFile(tlsOptions.CertFile, testcerts.RotatedCert, 0o644); err != nil { // nolint: vetshadow
 		t.Fatalf("WriteFile(%v) failed: %v", tlsOptions.CertFile, err)
 	}
-	if err := ioutil.WriteFile(tlsOptions.KeyFile, testcerts.RotatedKey, 0644); err != nil { // nolint: vetshadow
+	if err := ioutil.WriteFile(tlsOptions.KeyFile, testcerts.RotatedKey, 0o644); err != nil { // nolint: vetshadow
 		t.Fatalf("WriteFile(%v) failed: %v", tlsOptions.KeyFile, err)
 	}
 
@@ -252,11 +256,11 @@ func TestNewServer(t *testing.T) {
 	// All of the settings to apply and verify. Currently just testing domain suffix,
 	// but we should expand this list.
 	cases := []struct {
-		name           string
-		domain         string
-		expectedDomain string
-		secureGRPCport string
-		jwtRule        string
+		name             string
+		domain           string
+		expectedDomain   string
+		enableSecureGRPC bool
+		jwtRule          string
 	}{
 		{
 			name:           "default domain",
@@ -275,10 +279,10 @@ func TestNewServer(t *testing.T) {
 			expectedDomain: "mydomain.com",
 		},
 		{
-			name:           "override default secured grpc port",
-			domain:         "",
-			expectedDomain: constants.DefaultKubernetesDomain,
-			secureGRPCport: ":31128",
+			name:             "override default secured grpc port",
+			domain:           "",
+			expectedDomain:   constants.DefaultKubernetesDomain,
+			enableSecureGRPC: true,
 		},
 	}
 
@@ -293,6 +297,15 @@ func TestNewServer(t *testing.T) {
 				_ = os.RemoveAll(configDir)
 			}()
 
+			var secureGRPCPort int
+			if c.enableSecureGRPC {
+				secureGRPCPort, err = findFreePort()
+				if err != nil {
+					t.Errorf("unable to find a free port: %v", err)
+					return
+				}
+			}
+
 			args := NewPilotArgs(func(p *PilotArgs) {
 				p.Namespace = "istio-system"
 				p.ServerOptions = DiscoveryServerOptions{
@@ -300,7 +313,7 @@ func TestNewServer(t *testing.T) {
 					HTTPAddr:       ":0",
 					MonitoringAddr: ":0",
 					GRPCAddr:       ":0",
-					SecureGRPCAddr: c.secureGRPCport,
+					SecureGRPCAddr: fmt.Sprintf(":%d", secureGRPCPort),
 				}
 				p.RegistryOptions = RegistryOptions{
 					KubeOptions: kubecontroller.Options{
@@ -319,7 +332,6 @@ func TestNewServer(t *testing.T) {
 			g := NewWithT(t)
 			s, err := NewServer(args)
 			g.Expect(err).To(Succeed())
-
 			stop := make(chan struct{})
 			g.Expect(s.Start(stop)).To(Succeed())
 			defer func() {
@@ -328,6 +340,15 @@ func TestNewServer(t *testing.T) {
 			}()
 
 			g.Expect(s.environment.DomainSuffix).To(Equal(c.expectedDomain))
+
+			if c.enableSecureGRPC {
+				tcpAddr := s.SecureGrpcListener.Addr()
+				_, port, err := net.SplitHostPort(tcpAddr.String())
+				if err != nil {
+					t.Errorf("invalid SecureGrpcListener addr %v", err)
+				}
+				g.Expect(port).To(Equal(strconv.Itoa(secureGRPCPort)))
+			}
 		})
 	}
 }
@@ -335,30 +356,22 @@ func TestNewServer(t *testing.T) {
 func TestIstiodCipherSuites(t *testing.T) {
 	cases := []struct {
 		name               string
-		domain             string
-		httpsAddr          string
 		serverCipherSuites []uint16
 		clientCipherSuites []uint16
 		expectSuccess      bool
 	}{
 		{
 			name:          "default cipher suites",
-			domain:        "",
-			httpsAddr:     ":41111",
 			expectSuccess: true,
 		},
 		{
 			name:               "client and istiod cipher suites match",
-			domain:             "",
-			httpsAddr:          ":42222",
 			serverCipherSuites: []uint16{tls.TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256, tls.TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256},
 			clientCipherSuites: []uint16{tls.TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256, tls.TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256},
 			expectSuccess:      true,
 		},
 		{
 			name:               "client and istiod cipher suites mismatch",
-			domain:             "",
-			httpsAddr:          ":43333",
 			serverCipherSuites: []uint16{tls.TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256, tls.TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256},
 			clientCipherSuites: []uint16{tls.TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384, tls.TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384},
 			expectSuccess:      false,
@@ -376,6 +389,12 @@ func TestIstiodCipherSuites(t *testing.T) {
 				_ = os.RemoveAll(configDir)
 			}()
 
+			port, err := findFreePort()
+			if err != nil {
+				t.Errorf("unable to find a free port: %v", err)
+				return
+			}
+
 			args := NewPilotArgs(func(p *PilotArgs) {
 				p.Namespace = "istio-system"
 				p.ServerOptions = DiscoveryServerOptions{
@@ -383,16 +402,14 @@ func TestIstiodCipherSuites(t *testing.T) {
 					HTTPAddr:       ":0",
 					MonitoringAddr: ":0",
 					GRPCAddr:       ":0",
-					HTTPSAddr:      c.httpsAddr,
+					HTTPSAddr:      fmt.Sprintf(":%d", port),
 					TLSOptions: TLSOptions{
 						CipherSuits: c.serverCipherSuites,
 					},
 				}
 				p.RegistryOptions = RegistryOptions{
-					KubeOptions: kubecontroller.Options{
-						DomainSuffix: c.domain,
-					},
-					FileDir: configDir,
+					KubeConfig: "config",
+					FileDir:    configDir,
 				}
 
 				// Include all of the default plugins
@@ -401,7 +418,9 @@ func TestIstiodCipherSuites(t *testing.T) {
 			})
 
 			g := NewWithT(t)
-			s, err := NewServer(args)
+			s, err := NewServer(args, func(s *Server) {
+				s.kubeClient = kube.NewFakeClient()
+			})
 			g.Expect(err).To(Succeed())
 
 			stop := make(chan struct{})
@@ -455,7 +474,6 @@ func TestNewServerWithMockRegistry(t *testing.T) {
 		name             string
 		registry         string
 		expectedRegistry serviceregistry.ProviderID
-		secureGRPCport   string
 	}{
 		{
 			name:             "Mock Registry",
@@ -488,7 +506,6 @@ func TestNewServerWithMockRegistry(t *testing.T) {
 					HTTPAddr:       ":0",
 					MonitoringAddr: ":0",
 					GRPCAddr:       ":0",
-					SecureGRPCAddr: c.secureGRPCport,
 				}
 
 				p.RegistryOptions = RegistryOptions{
@@ -562,4 +579,17 @@ func checkCert(t *testing.T, s *Server, cert, key []byte) bool {
 		t.Fatalf("fail to load test certs.")
 	}
 	return bytes.Equal(actual.Certificate[0], expected.Certificate[0])
+}
+
+func findFreePort() (int, error) {
+	ln, err := net.Listen("tcp", ":0")
+	if err != nil {
+		return 0, err
+	}
+	defer ln.Close()
+	tcpAddr, ok := ln.Addr().(*net.TCPAddr)
+	if !ok {
+		return 0, fmt.Errorf("invalid listen address: %q", ln.Addr().String())
+	}
+	return tcpAddr.Port, nil
 }

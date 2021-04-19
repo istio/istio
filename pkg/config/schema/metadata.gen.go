@@ -84,7 +84,7 @@ collections:
     group: ""
 
   - name: "istio/networking/v1alpha3/destinationrules"
-    kind: "DestinationRule"
+    kind: DestinationRule
     group: "networking.istio.io"
     pilot: true
 
@@ -124,18 +124,23 @@ collections:
     pilot: true
 
   - name: "istio/security/v1beta1/authorizationpolicies"
-    kind: "AuthorizationPolicy"
+    kind: AuthorizationPolicy
     group: "security.istio.io"
     pilot: true
 
   - name: "istio/security/v1beta1/requestauthentications"
-    kind: "RequestAuthentication"
+    kind: RequestAuthentication
     group: "security.istio.io"
     pilot: true
 
   - name: "istio/security/v1beta1/peerauthentications"
-    kind: "PeerAuthentication"
+    kind: PeerAuthentication
     group: "security.istio.io"
+    pilot: true
+
+  - name: "istio/telemetry/v1alpha1/telemetries"
+    kind: "Telemetry"
+    group: "telemetry.istio.io"
     pilot: true
 
   ### K8s collections ###
@@ -211,7 +216,7 @@ collections:
 
   # Istio CRD collections
   - name: "k8s/networking.istio.io/v1alpha3/destinationrules"
-    kind: "DestinationRule"
+    kind: DestinationRule
     group: "networking.istio.io"
 
   - name: "k8s/networking.istio.io/v1alpha3/envoyfilters"
@@ -243,16 +248,20 @@ collections:
     group: "networking.istio.io"
 
   - name: "k8s/security.istio.io/v1beta1/authorizationpolicies"
-    kind: "AuthorizationPolicy"
+    kind: AuthorizationPolicy
     group: "security.istio.io"
 
   - name: "k8s/security.istio.io/v1beta1/requestauthentications"
-    kind: "RequestAuthentication"
+    kind: RequestAuthentication
     group: "security.istio.io"
 
   - name: "k8s/security.istio.io/v1beta1/peerauthentications"
-    kind: "PeerAuthentication"
+    kind: PeerAuthentication
     group: "security.istio.io"
+
+  - name: "k8s/telemetry.istio.io/v1alpha1/telemetries"
+    kind: "Telemetry"
+    group: "telemetry.istio.io"
 
 # The snapshots to generate
 snapshots:
@@ -272,6 +281,7 @@ snapshots:
       - "istio/security/v1beta1/authorizationpolicies"
       - "istio/security/v1beta1/requestauthentications"
       - "istio/security/v1beta1/peerauthentications"
+      - "istio/telemetry/v1alpha1/telemetries"
       - "k8s/core/v1/namespaces"
       - "k8s/core/v1/services"
 
@@ -481,7 +491,7 @@ resources:
     statusProto: "istio.meta.v1alpha1.IstioStatus"
     statusProtoPackage: "istio.io/api/meta/v1alpha1"
 
-  - kind: "DestinationRule"
+  - kind: DestinationRule
     plural: "destinationrules"
     group: "networking.istio.io"
     version: "v1alpha3"
@@ -527,7 +537,7 @@ resources:
     protoPackage: "istio.io/api/mesh/v1alpha1"
     description: "describes the networks for the Istio mesh."
 
-  - kind: "AuthorizationPolicy"
+  - kind: AuthorizationPolicy
     plural: "authorizationpolicies"
     group: "security.istio.io"
     version: "v1beta1"
@@ -537,7 +547,7 @@ resources:
     statusProto: "istio.meta.v1alpha1.IstioStatus"
     statusProtoPackage: "istio.io/api/meta/v1alpha1"
 
-  - kind: "RequestAuthentication"
+  - kind: RequestAuthentication
     plural: "requestauthentications"
     group: "security.istio.io"
     version: "v1beta1"
@@ -547,7 +557,7 @@ resources:
     statusProto: "istio.meta.v1alpha1.IstioStatus"
     statusProtoPackage: "istio.io/api/meta/v1alpha1"
 
-  - kind: "PeerAuthentication"
+  - kind: PeerAuthentication
     plural: "peerauthentications"
     group: "security.istio.io"
     version: "v1beta1"
@@ -555,6 +565,16 @@ resources:
     protoPackage: "istio.io/api/security/v1beta1"
     validate: "ValidatePeerAuthentication"
     description: "describes the peer authentication."
+    statusProto: "istio.meta.v1alpha1.IstioStatus"
+    statusProtoPackage: "istio.io/api/meta/v1alpha1"
+
+  - kind: "Telemetry"
+    plural: "telemetries"
+    group: "telemetry.istio.io"
+    version: "v1alpha1"
+    proto: "istio.telemetry.v1alpha1.Telemetry"
+    protoPackage: "istio.io/api/telemetry/v1alpha1"
+    description: "describes telemetry configuration for workloads"
     statusProto: "istio.meta.v1alpha1.IstioStatus"
     statusProtoPackage: "istio.io/api/meta/v1alpha1"
 
@@ -575,6 +595,7 @@ transforms:
       "k8s/security.istio.io/v1beta1/authorizationpolicies": "istio/security/v1beta1/authorizationpolicies"
       "k8s/security.istio.io/v1beta1/requestauthentications": "istio/security/v1beta1/requestauthentications"
       "k8s/security.istio.io/v1beta1/peerauthentications": "istio/security/v1beta1/peerauthentications"
+      "k8s/telemetry.istio.io/v1alpha1/telemetries": "istio/telemetry/v1alpha1/telemetries"
       "k8s/apps/v1/deployments": "k8s/apps/v1/deployments"
       "k8s/core/v1/namespaces": "k8s/core/v1/namespaces"
       "k8s/core/v1/pods": "k8s/core/v1/pods"

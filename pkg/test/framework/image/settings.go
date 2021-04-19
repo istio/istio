@@ -14,7 +14,15 @@
 
 package image
 
-import "fmt"
+import (
+	"fmt"
+	"io/ioutil"
+
+	"gopkg.in/yaml.v3"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+
+	"istio.io/istio/pkg/test"
+)
 
 const (
 	// HubValuesKey values key for the Docker image hub.
@@ -44,7 +52,7 @@ type Settings struct {
 	// BitnamiHub value to use in Helm templates for bitnami images
 	BitnamiHub string
 
-	// ImagePullSecret to use for test pods
+	// ImagePullSecret path to a file containing a k8s secret in yaml so test pods can pull from protected registries.
 	ImagePullSecret string
 }
 
@@ -64,4 +72,31 @@ func (s *Settings) String() string {
 	result += fmt.Sprintf("BitnamiHub:      %s\n", s.BitnamiHub)
 
 	return result
+}
+
+func (s *Settings) ImagePullSecretName() (string, error) {
+	if s.ImagePullSecret == "" {
+		return "", nil
+	}
+	data, err := ioutil.ReadFile(s.ImagePullSecret)
+	if err != nil {
+		return "", err
+	}
+	secret := unstructured.Unstructured{Object: map[string]interface{}{}}
+	if err := yaml.Unmarshal(data, secret.Object); err != nil {
+		return "", err
+	}
+	return secret.GetName(), nil
+}
+
+func PullSecretNameOrFail(t test.Failer) string {
+	s, err := SettingsFromCommandLine()
+	if err != nil {
+		t.Fatalf("failed reading image settings: %v", err)
+	}
+	name, err := s.ImagePullSecretName()
+	if err != nil {
+		t.Fatalf("failed getting name of image pull secret: %v", err)
+	}
+	return name
 }

@@ -49,12 +49,14 @@ type TrafficTestCase struct {
 	// Multiple calls. Cannot be used with call/opts
 	children []TrafficCall
 
-	// Single call. Cannot be used with children.
+	// Single call. Cannot be used with children or workloadAgnostic tests.
 	call func(t test.Failer, options echo.CallOptions, retryOptions ...retry.Option) echoclient.ParsedResponses
 	// opts specifies the echo call options. When using RunForApps, the Target will be set dynamically.
 	opts echo.CallOptions
+	// setupOpts allows modifying options based on sources/destinations
+	setupOpts func(src echo.Instance, dest echo.Services, opts *echo.CallOptions)
 	// validate is used to build validators dynamically when using RunForApps based on the active/src dest pair
-	validate func(src echo.Instance, dst echo.Instances) echo.Validator
+	validate func(src echo.Instance, dst echo.Services) echo.Validator
 
 	// setting cases to skipped is better than not adding them - gives visibility to what needs to be fixed
 	skip bool
@@ -63,10 +65,17 @@ type TrafficTestCase struct {
 	// TODO remove this and force everything to be workoad agnostic
 	workloadAgnostic bool
 
+	// toN causes the test to be run for N destinations. The call will be made from instances of the first deployment
+	// in each subset in each cluster. See echotes.T's RunToN for more details.
+	toN int
 	// sourceFilters allows adding additional filtering for workload agnostic cases to test using fewer clients
-	sourceFilters []echotest.SimpleFilter
+	sourceFilters []echotest.Filter
 	// targetFilters allows adding additional filtering for workload agnostic cases to test using fewer targets
-	targetFilters []echotest.SimpleFilter
+	targetFilters []echotest.Filter
+	// comboFilters allows conditionally filtering based on pairs of apps
+	comboFilters []echotest.CombinationFilter
+	// vars given to the config template
+	templateVars map[string]interface{}
 }
 
 func (c TrafficTestCase) RunForApps(t framework.TestContext, apps echo.Instances, namespace string) {
@@ -83,42 +92,66 @@ func (c TrafficTestCase) RunForApps(t framework.TestContext, apps echo.Instances
 	}
 
 	job := func(t framework.TestContext) {
-		echotest.New(t, apps).
-			SetupForPair(func(t framework.TestContext, src, dst echo.Instances) error {
-				cfg := yml.MustApplyNamespace(t, tmpl.MustEvaluate(
-					c.config,
-					map[string]interface{}{
-						"src": src,
-						"dst": dst,
-					},
-				), namespace)
+		echoT := echotest.New(t, apps).
+			SetupForServicePair(func(t framework.TestContext, src echo.Instances, dsts echo.Services) error {
+				tmplData := map[string]interface{}{
+					"src":    src,
+					"srcSvc": src[0].Config().Service,
+					// tests that use simple Run only need the first
+					"dst":    dsts[0],
+					"dstSvc": dsts[0][0].Config().Service,
+					// tests that use RunForN need all destination deployments
+					"dsts":    dsts,
+					"dstSvcs": dsts.Services(),
+				}
+				for k, v := range c.templateVars {
+					tmplData[k] = v
+				}
+				cfg := yml.MustApplyNamespace(t, tmpl.MustEvaluate(c.config, tmplData), namespace)
 				return t.Config().ApplyYAML("", cfg)
 			}).
 			WithDefaultFilters().
 			From(c.sourceFilters...).
 			To(c.targetFilters...).
-			Run(func(t framework.TestContext, src echo.Instance, dest echo.Instances) {
-				if c.skip {
-					t.SkipNow()
+			ConditionallyTo(c.comboFilters...)
+
+		doTest := func(t framework.TestContext, src echo.Instance, dsts echo.Services) {
+			if c.skip {
+				t.SkipNow()
+			}
+			buildOpts := func(options echo.CallOptions) echo.CallOptions {
+				opts := options
+				opts.Target = dsts[0][0]
+				if c.validate != nil {
+					opts.Validator = c.validate(src, dsts)
 				}
-				buildOpts := func(options echo.CallOptions) echo.CallOptions {
-					opts := options
-					opts.Target = dest[0]
-					if c.validate != nil {
-						opts.Validator = c.validate(src, dest)
-					}
-					opts.Count = callsPerCluster * len(dest)
-					return opts
+				if opts.Count == 0 {
+					opts.Count = callsPerCluster * len(dsts) * len(dsts[0])
 				}
-				if optsSpecified {
-					src.CallWithRetryOrFail(t, buildOpts(c.opts), retryOptions...)
+				if c.setupOpts != nil {
+					c.setupOpts(src, dsts, &opts)
 				}
-				for _, child := range c.children {
-					t.NewSubTest(child.name).Run(func(t framework.TestContext) {
-						src.CallWithRetryOrFail(t, buildOpts(child.opts), retryOptions...)
-					})
-				}
+				return opts
+			}
+			if optsSpecified {
+				src.CallWithRetryOrFail(t, buildOpts(c.opts), retryOptions...)
+			}
+			for _, child := range c.children {
+				t.NewSubTest(child.name).Run(func(t framework.TestContext) {
+					src.CallWithRetryOrFail(t, buildOpts(child.opts), retryOptions...)
+				})
+			}
+		}
+
+		if c.toN > 0 {
+			echoT.RunToN(c.toN, func(t framework.TestContext, src echo.Instance, dsts echo.Services) {
+				doTest(t, src, dsts)
 			})
+		} else {
+			echoT.Run(func(t framework.TestContext, src echo.Instance, dst echo.Instances) {
+				doTest(t, src, echo.Services{dst})
+			})
+		}
 	}
 
 	if c.name != "" {
@@ -162,15 +195,16 @@ func (c TrafficTestCase) Run(t framework.TestContext, namespace string) {
 
 func RunAllTrafficTests(t framework.TestContext, apps *EchoDeployments) {
 	cases := map[string][]TrafficTestCase{}
-	cases["virtualservice"] = virtualServiceCases(apps)
+	cases["virtualservice"] = virtualServiceCases(t.Settings().SkipVM)
 	cases["sniffing"] = protocolSniffingCases()
-	cases["selfcall"] = selfCallsCases(apps)
+	cases["selfcall"] = selfCallsCases()
 	cases["serverfirst"] = serverFirstTestCases(apps)
 	cases["gateway"] = gatewayCases(apps)
 	cases["loop"] = trafficLoopCases(apps)
 	cases["tls-origination"] = tlsOriginationCases(apps)
 	cases["instanceip"] = instanceIPTests(apps)
 	cases["services"] = serviceCases(apps)
+	cases["use-client-protocol"] = useClientProtocolCases(apps)
 	if !t.Settings().SkipVM {
 		cases["vm"] = VMTestCases(apps.VM, apps)
 	}

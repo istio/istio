@@ -16,8 +16,8 @@ package xds
 
 import (
 	"fmt"
-	"io"
 	"strconv"
+	"strings"
 	"sync/atomic"
 	"time"
 
@@ -30,9 +30,11 @@ import (
 
 	"istio.io/istio/pilot/pkg/controller/workloadentry"
 	"istio.io/istio/pilot/pkg/features"
+	istiogrpc "istio.io/istio/pilot/pkg/grpc"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/util"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
+	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/spiffe"
 	"istio.io/pkg/env"
 	istiolog "istio.io/pkg/log"
@@ -40,10 +42,6 @@ import (
 
 var (
 	log = istiolog.RegisterScope("ads", "ads debugging", 0)
-
-	// sendTimeout is the max time to wait for a ADS send to complete. This helps detect
-	// clients in a bad state (not reading). In future it may include checking for ACK
-	sendTimeout = features.XdsPushSendTimeout
 
 	// Tracks connections, increment on each new connection.
 	connectionNumber = int64(0)
@@ -131,23 +129,6 @@ func newConnection(peerAddr string, stream DiscoveryStream) *Connection {
 	}
 }
 
-// isExpectedGRPCError checks a gRPC error code and determines whether it is an expected error when
-// things are operating normally. This is basically capturing when the client disconnects.
-func isExpectedGRPCError(err error) bool {
-	if err == io.EOF {
-		return true
-	}
-
-	s := status.Convert(err)
-	if s.Code() == codes.Canceled || s.Code() == codes.DeadlineExceeded {
-		return true
-	}
-	if s.Code() == codes.Unavailable && s.Message() == "client disconnected" {
-		return true
-	}
-	return false
-}
-
 func (s *DiscoveryServer) receive(con *Connection, reqChannel chan *discovery.DiscoveryRequest, errP *error) {
 	defer func() {
 		close(reqChannel)
@@ -158,11 +139,12 @@ func (s *DiscoveryServer) receive(con *Connection, reqChannel chan *discovery.Di
 			close(con.initialized)
 		}
 	}()
+
 	firstReq := true
 	for {
 		req, err := con.stream.Recv()
 		if err != nil {
-			if isExpectedGRPCError(err) {
+			if istiogrpc.IsExpectedGRPCError(err) {
 				log.Infof("ADS: %q %s terminated %v", con.PeerAddr, con.ConID, err)
 				return
 			}
@@ -183,14 +165,8 @@ func (s *DiscoveryServer) receive(con *Connection, reqChannel chan *discovery.Di
 				*errP = err
 				return
 			}
+			defer s.closeConnection(con)
 			log.Infof("ADS: new connection for node:%s", con.ConID)
-			defer func() {
-				s.removeCon(con.ConID)
-				if s.StatusGen != nil {
-					s.StatusGen.OnDisconnect(con)
-				}
-				s.WorkloadEntryController.QueueUnregisterWorkload(con.proxy, con.Connect)
-			}()
 		}
 
 		select {
@@ -208,6 +184,13 @@ func (s *DiscoveryServer) receive(con *Connection, reqChannel chan *discovery.Di
 func (s *DiscoveryServer) processRequest(req *discovery.DiscoveryRequest, con *Connection) error {
 	if !s.preProcessRequest(con.proxy, req) {
 		return nil
+	}
+
+	// For now, don't let xDS piggyback debug requests start watchers
+	if strings.HasPrefix(req.TypeUrl, "istio.io/debug") {
+		return s.pushXds(con, s.globalPushContext(), versionInfo(), &model.WatchedResource{
+			TypeUrl: req.TypeUrl, ResourceNames: req.ResourceNames,
+		}, &model.PushRequest{Full: true})
 	}
 
 	if s.StatusReporter != nil {
@@ -455,7 +438,7 @@ func shouldUnsubscribe(request *discovery.DiscoveryRequest) bool {
 // resource names.
 func isWildcardTypeURL(typeURL string) bool {
 	switch typeURL {
-	case v3.SecretType, v3.EndpointType, v3.RouteType:
+	case v3.SecretType, v3.EndpointType, v3.RouteType, v3.ExtensionConfigurationType:
 		// By XDS spec, these are not wildcard
 		return false
 	case v3.ClusterType, v3.ListenerType:
@@ -488,15 +471,14 @@ func listEqualUnordered(a []string, b []string) bool {
 // update the node associated with the connection, after receiving a a packet from envoy, also adds the connection
 // to the tracking map.
 func (s *DiscoveryServer) initConnection(node *core.Node, con *Connection) error {
-	// First request so initialize connection id and start tracking it.
-	con.ConID = connectionID(node.Id)
-	con.node = node
-
 	// Setup the initial proxy metadata
 	proxy, err := s.initProxyMetadata(node)
 	if err != nil {
 		return err
 	}
+	// First request so initialize connection id and start tracking it.
+	con.ConID = connectionID(proxy.ID)
+	con.node = node
 	con.proxy = proxy
 	if features.EnableXDSIdentityCheck && con.Identities != nil {
 		// TODO: allow locking down, rejecting unauthenticated requests.
@@ -508,27 +490,40 @@ func (s *DiscoveryServer) initConnection(node *core.Node, con *Connection) error
 		con.proxy.VerifiedIdentity = id
 	}
 
-	// Register the connection; this allows pushes to be triggered for the proxy. Note: the timing of
-	// this an initProxyState is important. While registering for pushes *after* initialization is
-	// complete seems like a better choice, it introduces a race condition; If we complete
-	// initialization of a new push context between initProxyState and addCon, we would not get any pushes
-	// triggered for the new push context, leading the proxy to have a stale state until the next
-	// full push.
+	// Register the connection. this allows pushes to be triggered for the proxy. Note: the timing of
+	// this and initializeProxy important. While registering for pushes *after* initialization is complete seems like
+	// a better choice, it introduces a race condition; If we complete initialization of a new push
+	// context between initializeProxy and addCon, we would not get any pushes triggered for the new
+	// push context, leading the proxy to have a stale state until the next full push.
 	s.addCon(con.ConID, con)
+	// Register that initialization is complete. This triggers to calls that it is safe to access the
+	// proxy
+	defer close(con.initialized)
 
 	// Complete full initialization of the proxy
-	if err := s.initProxyState(node, con); err != nil {
+	if err := s.initializeProxy(node, con); err != nil {
+		s.closeConnection(con)
 		return err
 	}
-
-	// Register that initialization is complete. This triggers to calls that it is safe to access the
-	// proxy.
-	close(con.initialized)
 
 	if s.StatusGen != nil {
 		s.StatusGen.OnConnect(con)
 	}
 	return nil
+}
+
+func (s *DiscoveryServer) closeConnection(con *Connection) {
+	if con.ConID == "" {
+		return
+	}
+	s.removeCon(con.ConID)
+	if s.StatusGen != nil {
+		s.StatusGen.OnDisconnect(con)
+	}
+	if s.StatusReporter != nil {
+		s.StatusReporter.RegisterDisconnect(con.ConID, AllEventTypesList)
+	}
+	s.WorkloadEntryController.QueueUnregisterWorkload(con.proxy, con.Connect)
 }
 
 func checkConnectionIdentity(con *Connection) (*spiffe.Identity, error) {
@@ -570,16 +565,18 @@ func (s *DiscoveryServer) initProxyMetadata(node *core.Node) (*model.Proxy, erro
 	return proxy, nil
 }
 
-// initProxyState completes the initialization of a proxy. It is expected to be called only after
+// initializeProxy completes the initialization of a proxy. It is expected to be called only after
 // initProxyMetadata.
-func (s *DiscoveryServer) initProxyState(node *core.Node, con *Connection) error {
+func (s *DiscoveryServer) initializeProxy(node *core.Node, con *Connection) error {
 	proxy := con.proxy
 	// this should be done before we look for service instances, but after we load metadata
 	// TODO fix check in kubecontroller treat echo VMs like there isn't a pod
 	if err := s.WorkloadEntryController.RegisterWorkload(proxy, con.Connect); err != nil {
 		return err
 	}
-	s.setProxyState(proxy, s.globalPushContext())
+
+	proxy.SetWorkloadLabels(s.Env)
+	s.computeProxyState(proxy, nil)
 
 	// Get the locality from the proxy's service instances.
 	// We expect all instances to have the same IP and therefore the same locality.
@@ -612,27 +609,53 @@ func (s *DiscoveryServer) initProxyState(node *core.Node, con *Connection) error
 	return nil
 }
 
-func (s *DiscoveryServer) updateProxy(proxy *model.Proxy, push *model.PushContext) {
-	s.setProxyState(proxy, push)
+func (s *DiscoveryServer) updateProxy(proxy *model.Proxy, request *model.PushRequest) {
+	s.computeProxyState(proxy, request)
 	if util.IsLocalityEmpty(proxy.Locality) {
 		// Get the locality from the proxy's service instances.
-		// We expect all instances to have the same locality. So its enough to look at the first instance
+		// We expect all instances to have the same locality.
+		// So its enough to look at the first instance.
 		if len(proxy.ServiceInstances) > 0 {
 			proxy.Locality = util.ConvertLocality(proxy.ServiceInstances[0].Endpoint.Locality.Label)
 		}
 	}
 }
 
-func (s *DiscoveryServer) setProxyState(proxy *model.Proxy, push *model.PushContext) {
-	proxy.SetWorkloadLabels(s.Env)
-	proxy.SetServiceInstances(push.ServiceDiscovery)
-
+func (s *DiscoveryServer) computeProxyState(proxy *model.Proxy, request *model.PushRequest) {
+	proxy.SetServiceInstances(s.globalPushContext().ServiceDiscovery)
 	// Precompute the sidecar scope and merged gateways associated with this proxy.
 	// Saves compute cycles in networking code. Though this might be redundant sometimes, we still
 	// have to compute this because as part of a config change, a new Sidecar could become
 	// applicable to this proxy
-	proxy.SetSidecarScope(push)
-	proxy.SetGatewaysForProxy(push)
+	var sidecar, gateway bool
+	push := s.globalPushContext()
+	if request == nil {
+		sidecar = true
+		gateway = true
+	} else {
+		push = request.Push
+		if len(request.ConfigsUpdated) == 0 {
+			sidecar = true
+			gateway = true
+		}
+		for conf := range request.ConfigsUpdated {
+			switch conf.Kind {
+			case gvk.ServiceEntry, gvk.DestinationRule, gvk.VirtualService, gvk.Sidecar:
+				sidecar = true
+			case gvk.Gateway:
+				gateway = true
+			}
+		}
+	}
+	switch {
+	case sidecar && proxy.Type == model.SidecarProxy:
+		proxy.SetSidecarScope(push)
+	case gateway && proxy.Type == model.Router:
+		proxy.SetGatewaysForProxy(push)
+	default:
+		proxy.SetSidecarScope(push)
+		proxy.SetGatewaysForProxy(push)
+	}
 }
 
 // pre-process request. returns whether or not to continue.
@@ -674,7 +697,7 @@ func (s *DiscoveryServer) pushConnection(con *Connection, pushEv *Event) error {
 
 	if pushRequest.Full {
 		// Update Proxy with current information.
-		s.updateProxy(con.proxy, pushRequest.Push)
+		s.updateProxy(con.proxy, pushRequest)
 	}
 
 	if !s.ProxyNeedsPush(con.proxy, pushRequest) {
@@ -883,55 +906,37 @@ func (s *DiscoveryServer) removeCon(conID string) {
 		delete(s.adsClients, conID)
 		recordXDSClients(con.proxy.Metadata.IstioVersion, -1)
 	}
-
-	if s.StatusReporter != nil {
-		s.StatusReporter.RegisterDisconnect(conID, AllEventTypesList)
-	}
 }
 
 // Send with timeout
 func (conn *Connection) send(res *discovery.DiscoveryResponse) error {
-	errChan := make(chan error, 1)
-
-	// sendTimeout may be modified via environment
-	t := time.NewTimer(sendTimeout)
-	go func() {
+	sendHandler := func() error {
 		start := time.Now()
 		defer func() { recordSendTime(time.Since(start)) }()
-		errChan <- conn.stream.Send(res)
-		close(errChan)
-	}()
-
-	select {
-	case <-t.C:
+		return conn.stream.Send(res)
+	}
+	err := istiogrpc.Send(conn.stream.Context(), sendHandler)
+	if err == nil {
+		sz := 0
+		for _, rc := range res.Resources {
+			sz += len(rc.Value)
+		}
+		conn.proxy.Lock()
+		if res.Nonce != "" {
+			if conn.proxy.WatchedResources[res.TypeUrl] == nil {
+				conn.proxy.WatchedResources[res.TypeUrl] = &model.WatchedResource{TypeUrl: res.TypeUrl}
+			}
+			conn.proxy.WatchedResources[res.TypeUrl].NonceSent = res.Nonce
+			conn.proxy.WatchedResources[res.TypeUrl].VersionSent = res.VersionInfo
+			conn.proxy.WatchedResources[res.TypeUrl].LastSent = time.Now()
+			conn.proxy.WatchedResources[res.TypeUrl].LastSize = sz
+		}
+		conn.proxy.Unlock()
+	} else if status.Convert(err).Code() == codes.DeadlineExceeded {
 		log.Infof("Timeout writing %s", conn.ConID)
 		xdsResponseWriteTimeouts.Increment()
-		return status.Errorf(codes.DeadlineExceeded, "timeout sending")
-	case err := <-errChan:
-		if err == nil {
-			sz := 0
-			for _, rc := range res.Resources {
-				sz += len(rc.Value)
-			}
-			conn.proxy.Lock()
-			if res.Nonce != "" {
-				if conn.proxy.WatchedResources[res.TypeUrl] == nil {
-					conn.proxy.WatchedResources[res.TypeUrl] = &model.WatchedResource{TypeUrl: res.TypeUrl}
-				}
-				conn.proxy.WatchedResources[res.TypeUrl].NonceSent = res.Nonce
-				conn.proxy.WatchedResources[res.TypeUrl].VersionSent = res.VersionInfo
-				conn.proxy.WatchedResources[res.TypeUrl].LastSent = time.Now()
-				conn.proxy.WatchedResources[res.TypeUrl].LastSize = sz
-			}
-			conn.proxy.Unlock()
-		}
-		// To ensure the channel is empty after a call to Stop, check the
-		// return value and drain the channel (from Stop docs).
-		if !t.Stop() {
-			<-t.C
-		}
-		return err
 	}
+	return err
 }
 
 // nolint

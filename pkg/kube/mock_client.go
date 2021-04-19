@@ -69,11 +69,12 @@ type MockClient struct {
 	kubernetes.Interface
 	RestClient *rest.RESTClient
 	// Results is a map of podName to the results of the expected test on the pod
-	Results          map[string][]byte
-	DiscoverablePods map[string]map[string]*v1.PodList
-	RevisionValue    string
-	ConfigValue      *rest.Config
-	IstioVersions    *version.MeshInfo
+	Results           map[string][]byte
+	DiscoverablePods  map[string]map[string]*v1.PodList
+	RevisionValue     string
+	ConfigValue       *rest.Config
+	IstioVersions     *version.MeshInfo
+	KubernetesVersion uint
 }
 
 func (c MockClient) Istio() istioclient.Interface {
@@ -209,9 +210,13 @@ func (c MockClient) Dynamic() dynamic.Interface {
 }
 
 func (c MockClient) GetKubernetesVersion() (*kubeVersion.Info, error) {
+	minor := fmt.Sprint(c.KubernetesVersion)
+	if c.KubernetesVersion == 0 {
+		minor = "16"
+	}
 	return &kubeVersion.Info{
 		Major: "1",
-		Minor: "16",
+		Minor: minor,
 	}, nil
 }
 

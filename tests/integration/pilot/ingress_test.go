@@ -24,7 +24,9 @@ import (
 	"time"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	k8s "sigs.k8s.io/gateway-api/apis/v1alpha1"
 
+	"istio.io/istio/pilot/pkg/model/kstatus"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/test/echo/common/scheme"
 	"istio.io/istio/pkg/test/env"
@@ -33,9 +35,11 @@ import (
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/environment/kube"
 	"istio.io/istio/pkg/test/framework/components/namespace"
+	"istio.io/istio/pkg/test/framework/image"
 	"istio.io/istio/pkg/test/helm"
 	kubetest "istio.io/istio/pkg/test/kube"
 	"istio.io/istio/pkg/test/util/retry"
+	"istio.io/istio/pkg/test/util/tmpl"
 	helmtest "istio.io/istio/tests/integration/helm"
 	ingressutil "istio.io/istio/tests/integration/security/sds_ingress/util"
 )
@@ -158,11 +162,23 @@ spec:
 					Validator: echo.And(echo.ExpectOK(), echo.ExpectKey("My-Added-Header", "added-value")),
 				})
 			})
+			t.NewSubTest("status").Run(func(t framework.TestContext) {
+				retry.UntilSuccessOrFail(t, func() error {
+					gwc, err := t.Clusters().Kube().Default().GatewayAPI().NetworkingV1alpha1().GatewayClasses().Get(context.Background(), "istio", metav1.GetOptions{})
+					if err != nil {
+						return err
+					}
+					if s := kstatus.GetCondition(gwc.Status.Conditions, string(k8s.GatewayClassConditionStatusAdmitted)).Status; s != metav1.ConditionTrue {
+						return fmt.Errorf("expected status %q, got %q", metav1.ConditionTrue, s)
+					}
+					return nil
+				})
+			})
 		})
 }
 
 func skipIfIngressClassUnsupported(t framework.TestContext) {
-	if !t.Clusters().Default().MinKubeVersion(1, 18) {
+	if !t.Clusters().Default().MinKubeVersion(18) {
 		t.Skip("IngressClass not supported")
 	}
 }
@@ -399,8 +415,15 @@ func TestCustomGateway(t *testing.T) {
 			if len(t.Settings().Revision) > 0 {
 				injectLabel = fmt.Sprintf(`istio.io/rev: "%v"`, t.Settings().Revision)
 			}
+
+			templateParams := map[string]string{
+				"imagePullSecret": image.PullSecretNameOrFail(t),
+				"injectLabel":     injectLabel,
+				"host":            apps.PodA[0].Config().FQDN(),
+			}
+
 			t.NewSubTest("minimal").Run(func(t framework.TestContext) {
-				t.Config().ApplyYAMLOrFail(t, gatewayNs.Name(), fmt.Sprintf(`apiVersion: v1
+				t.Config().ApplyYAMLOrFail(t, gatewayNs.Name(), tmpl.MustEvaluate(`apiVersion: v1
 kind: Service
 metadata:
   name: custom-gateway
@@ -427,8 +450,12 @@ spec:
         inject.istio.io/templates: gateway
       labels:
         istio: custom
-        %v
+        {{ .injectLabel }}
     spec:
+      {{- if ne .imagePullSecret "" }}
+      imagePullSecrets:
+      - name: {{ .imagePullSecret }}
+      {{- end }}
       containers:
       - name: istio-proxy
         image: auto
@@ -460,10 +487,10 @@ spec:
   http:
   - route:
     - destination:
-        host: %s
+        host: {{ .host }}
         port:
           number: 80
-`, injectLabel, apps.PodA[0].Config().FQDN()))
+`, templateParams))
 				cs := t.Clusters().Default().(*kubecluster.Cluster)
 				retry.UntilSuccessOrFail(t, func() error {
 					_, err := kubetest.CheckPodsAreReady(kubetest.NewPodFetch(cs, gatewayNs.Name(), "istio=custom"))
@@ -503,7 +530,7 @@ gateways:
 				h := helm.New(cs.Filename(), filepath.Join(env.IstioSrc, "manifests/charts"))
 				// Install ingress gateway chart
 				if err := h.InstallChart("ingress", filepath.Join("gateways/istio-ingress"), gatewayNs.Name(),
-					d, helmtest.HelmTimeout); err != nil {
+					d, helmtest.Timeout); err != nil {
 					t.Fatal(err)
 				}
 				retry.UntilSuccessOrFail(t, func() error {

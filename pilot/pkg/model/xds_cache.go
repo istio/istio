@@ -26,6 +26,7 @@ import (
 
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/util/sets"
+	"istio.io/istio/pkg/config"
 	"istio.io/pkg/monitoring"
 )
 
@@ -89,11 +90,24 @@ func indexConfig(configIndex map[ConfigKey]sets.Set, k string, entry XdsCacheEnt
 	}
 }
 
+func indexType(typeIndex map[config.GroupVersionKind]sets.Set, k string, entry XdsCacheEntry) {
+	for _, t := range entry.DependentTypes() {
+		if typeIndex[t] == nil {
+			typeIndex[t] = sets.NewSet()
+		}
+		typeIndex[t].Insert(k)
+	}
+}
+
 // XdsCacheEntry interface defines functions that should be implemented by
 // resources that can be cached.
 type XdsCacheEntry interface {
 	// Key is the key to be used in cache.
 	Key() string
+	// DependentTypes are config types that this cache key is dependant on.
+	// Whenever any configs of this type changes, we should invalidate this cache entry.
+	// Note: DependentConfigs should be preferred wherever possible.
+	DependentTypes() []config.GroupVersionKind
 	// DependentConfigs is config items that this cache key is dependent on.
 	// Whenever these configs change, we should invalidate this cache entry.
 	DependentConfigs() []ConfigKey
@@ -138,6 +152,7 @@ func NewXdsCache() XdsCache {
 		enableAssertions: features.EnableUnsafeAssertions,
 		store:            newLru(),
 		configIndex:      map[ConfigKey]sets.Set{},
+		typesIndex:       map[config.GroupVersionKind]sets.Set{},
 		nextToken:        atomic.NewUint64(0),
 	}
 }
@@ -148,6 +163,7 @@ func NewLenientXdsCache() XdsCache {
 		enableAssertions: false,
 		store:            newLru(),
 		configIndex:      map[ConfigKey]sets.Set{},
+		typesIndex:       map[config.GroupVersionKind]sets.Set{},
 		nextToken:        atomic.NewUint64(0),
 	}
 }
@@ -160,6 +176,7 @@ type lruCache struct {
 	nextToken   *atomic.Uint64
 	mu          sync.RWMutex
 	configIndex map[ConfigKey]sets.Set
+	typesIndex  map[config.GroupVersionKind]sets.Set
 }
 
 var _ XdsCache = &lruCache{}
@@ -227,6 +244,7 @@ func (l *lruCache) Add(entry XdsCacheEntry, token CacheToken, value *any.Any) {
 	}
 	l.store.Add(k, toWrite)
 	indexConfig(l.configIndex, entry.Key(), entry)
+	indexType(l.typesIndex, entry.Key(), entry)
 	size(l.store.Len())
 }
 
@@ -269,6 +287,11 @@ func (l *lruCache) Clear(configs map[ConfigKey]struct{}) {
 		referenced := l.configIndex[ckey]
 		delete(l.configIndex, ckey)
 		for key := range referenced {
+			l.store.Remove(key)
+		}
+		tReferenced := l.typesIndex[ckey.Kind]
+		delete(l.typesIndex, ckey.Kind)
+		for key := range tReferenced {
 			l.store.Remove(key)
 		}
 	}

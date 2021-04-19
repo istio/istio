@@ -22,6 +22,7 @@ import (
 
 	istioKube "istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/test/framework/components/cluster"
+	"istio.io/istio/pkg/test/framework/config"
 	"istio.io/istio/pkg/test/scopes"
 	"istio.io/istio/pkg/test/util/file"
 )
@@ -99,7 +100,7 @@ func (s *Settings) clusterConfigsFromFlags() ([]cluster.Config, error) {
 			Name:    fmt.Sprintf("cluster-%d", i),
 			Kind:    cluster.Kubernetes,
 			Network: s.networkTopology[ci],
-			Meta:    cluster.ConfigMeta{"kubeconfig": kc},
+			Meta:    config.Map{"kubeconfig": kc},
 		}
 		if idx, ok := s.controlPlaneTopology[ci]; ok {
 			cfg.PrimaryClusterName = fmt.Sprintf("cluster-%d", idx)
@@ -200,19 +201,19 @@ func replaceKubeconfigs(configs []cluster.Config, kubeconfigs []string) ([]clust
 	}
 	kube := 0
 	out := []cluster.Config{}
-	for _, config := range configs {
-		if config.Kind == cluster.Kubernetes {
+	for _, cfg := range configs {
+		if cfg.Kind == cluster.Kubernetes {
 			if kube >= len(kubeconfigs) {
 				// not enough to cover all clusters in file
-				return nil, fmt.Errorf("istio.test.kube.config should have a kubeconfig for each kube cluster")
+				return nil, fmt.Errorf("istio.test.kube.cfg should have a kubeconfig for each kube cluster")
 			}
-			if config.Meta == nil {
-				config.Meta = cluster.ConfigMeta{}
+			if cfg.Meta == nil {
+				cfg.Meta = config.Map{}
 			}
-			config.Meta["kubeconfig"] = kubeconfigs[kube]
+			cfg.Meta["kubeconfig"] = kubeconfigs[kube]
 		}
 		kube++
-		out = append(out, config)
+		out = append(out, cfg)
 	}
 	if kube < len(kubeconfigs) {
 		return nil, fmt.Errorf("%d kubeconfigs were provided but topolgy has %d kube clusters", len(kubeconfigs), kube)
