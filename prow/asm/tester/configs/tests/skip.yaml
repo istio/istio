@@ -22,9 +22,6 @@ tests:
         - TestStackdriverAudit
       buganizerID: 183508169
     - names:
-        - TestTraffic/virtualservice/shifting.*
-      buganizerID: 184593218
-    - names:
         - TestAuthorization_IngressGateway
       reason: unknown
     - names:
@@ -137,7 +134,6 @@ tests:
         reason: istioctl doesn't work
       - names:
           - TestXdsVersion
-          - TestKubeInject
         buganizerID: 184572948
       - names:
           - TestAnalysisWritesStatus
@@ -164,9 +160,6 @@ tests:
       - names:
           - TestRevisionedUpgrade
         reason: OSS CP upgrade not supported with MCP
-      - names:
-          - TestTraffic/virtualservice/shifting.*
-        buganizerID: 184593218
 
       # telemetry/ tests
       - names:
