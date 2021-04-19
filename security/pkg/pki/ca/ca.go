@@ -63,6 +63,27 @@ var pkiCaLog = log.RegisterScope("pkica", "Citadel CA log", 0)
 // caTypes is the enum for the CA type.
 type caTypes int
 
+type CertOpts struct {
+	// SubjectIDs are used for building the SAN extension for the certificate.
+	SubjectIDs []string
+
+	// TTL is the requested lifetime (Time to live) to be applied in the certificate.
+	TTL time.Duration
+
+	// ForCA indicates whether the signed certificate if for CA.
+	// If true, the signed certificate is a CA certificate, otherwise, it is a workload certificate.
+	ForCA bool
+}
+
+// NewCertOpts creates new cert options based on the given inputs.
+func NewCertOpts(subjectIDs []string, ttl time.Duration, forCA bool) *CertOpts {
+	return &CertOpts{
+		subjectIDs,
+		ttl,
+		forCA,
+	}
+}
+
 const (
 	// selfSignedCA means the Istio CA uses a self signed certificate.
 	selfSignedCA caTypes = iota
@@ -289,18 +310,17 @@ func (ca *IstioCA) Run(stopChan chan struct{}) {
 	}
 }
 
-// Sign takes a PEM-encoded CSR, subject IDs and lifetime, and returns a signed certificate. If forCA is true,
-// the signed certificate is a CA certificate, otherwise, it is a workload certificate.
+// Sign takes a PEM-encoded CSR and cert opts, and returns a signed certificate.
 // TODO(myidpt): Add error code to identify the Sign error types.
-func (ca *IstioCA) Sign(csrPEM []byte, subjectIDs []string, requestedLifetime time.Duration, forCA bool) (
+func (ca *IstioCA) Sign(csrPEM []byte, certOpts *CertOpts) (
 	[]byte, error) {
-	return ca.sign(csrPEM, subjectIDs, requestedLifetime, true, forCA)
+	return ca.sign(csrPEM, certOpts.SubjectIDs, certOpts.TTL, true, certOpts.ForCA)
 }
 
 // SignWithCertChain is similar to Sign but returns the leaf cert and the entire cert chain.
-func (ca *IstioCA) SignWithCertChain(csrPEM []byte, subjectIDs []string, requestedLifetime time.Duration, forCA bool) (
+func (ca *IstioCA) SignWithCertChain(csrPEM []byte, certOpts *CertOpts) (
 	[]byte, error) {
-	return ca.signWithCertChain(csrPEM, subjectIDs, requestedLifetime, true, forCA)
+	return ca.signWithCertChain(csrPEM, certOpts.SubjectIDs, certOpts.TTL, true, certOpts.ForCA)
 }
 
 // GetCAKeyCertBundle returns the KeyCertBundle for the CA.

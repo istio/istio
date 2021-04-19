@@ -16,12 +16,12 @@ package ra
 
 import (
 	"fmt"
-	"time"
 
 	cert "k8s.io/api/certificates/v1beta1"
 	certclient "k8s.io/client-go/kubernetes/typed/certificates/v1beta1"
 
 	"istio.io/istio/security/pkg/k8s/chiron"
+	"istio.io/istio/security/pkg/pki/ca"
 	raerror "istio.io/istio/security/pkg/pki/error"
 	"istio.io/istio/security/pkg/pki/util"
 )
@@ -66,9 +66,9 @@ func (r *KubernetesRA) kubernetesSign(csrPEM []byte, csrName string, caCertFile 
 	return certChain, err
 }
 
-// Sign takes a PEM-encoded CSR, subject IDs and lifetime, and returns a certificate signed by k8s CA.
-func (r *KubernetesRA) Sign(csrPEM []byte, subjectIDs []string, requestedLifetime time.Duration, forCA bool) ([]byte, error) {
-	_, err := preSign(r.raOpts, csrPEM, subjectIDs, requestedLifetime, forCA)
+// Sign takes a PEM-encoded CSR and cert opts, and returns a certificate signed by k8s CA.
+func (r *KubernetesRA) Sign(csrPEM []byte, certOpts *ca.CertOpts) ([]byte, error) {
+	_, err := preSign(r.raOpts, csrPEM, certOpts.SubjectIDs, certOpts.TTL, certOpts.ForCA)
 	if err != nil {
 		return nil, err
 	}
@@ -77,8 +77,8 @@ func (r *KubernetesRA) Sign(csrPEM []byte, subjectIDs []string, requestedLifetim
 }
 
 // SignWithCertChain is similar to Sign but returns the leaf cert and the entire cert chain.
-func (r *KubernetesRA) SignWithCertChain(csrPEM []byte, subjectIDs []string, ttl time.Duration, forCA bool) ([]byte, error) {
-	cert, err := r.Sign(csrPEM, subjectIDs, ttl, forCA)
+func (r *KubernetesRA) SignWithCertChain(csrPEM []byte, certOpts *ca.CertOpts) ([]byte, error) {
+	cert, err := r.Sign(csrPEM, certOpts)
 	if err != nil {
 		return nil, err
 	}
