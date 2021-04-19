@@ -51,7 +51,6 @@ const (
 
 type EchoDeployments struct {
 	All             echo.Instances
-	Clients         echo.Instance
 	Server          echo.Instance
 	ClientNamespace namespace.Instance
 	ServerNamespace namespace.Instance
@@ -242,7 +241,6 @@ func SetupEcho(t test.Failer, ctx resource.Context, apps *EchoDeployments) {
 		BuildOrFail(t)
 
 	apps.All = echos
-	apps.Clients = internalClient
 	apps.Server = externalServer
 	// Apply Egress Gateway for service namespace to originate external traffic
 	createGateway(t, ctx, apps.ClientNamespace, apps.ServerNamespace)
