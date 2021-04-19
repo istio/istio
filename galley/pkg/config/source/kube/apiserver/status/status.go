@@ -63,6 +63,8 @@ func returnStatusToPool(s *status) {
 	s.observedVersion = ""
 	s.desiredStatus = nil
 	s.desiredStatusVersion = ""
+	s.next = nil
+	statusPool.Put(s)
 }
 
 func (r *status) setObserved(v resource.Version, status interface{}) bool {
