@@ -37,8 +37,6 @@ require (
 	github.com/fatih/color v1.10.0
 	github.com/fsnotify/fsnotify v1.4.9
 	github.com/ghodss/yaml v1.0.0
-	github.com/go-openapi/spec v0.19.8 // indirect
-	github.com/go-openapi/swag v0.19.9 // indirect
 	github.com/gogo/protobuf v1.3.2
 	github.com/golang/protobuf v1.5.1
 	github.com/google/go-cmp v0.5.5
@@ -51,17 +49,16 @@ require (
 	github.com/hashicorp/go-multierror v1.1.1
 	github.com/hashicorp/go-version v1.2.1
 	github.com/hashicorp/golang-lru v0.5.4
+	github.com/hashicorp/vault/api v1.1.0
 	github.com/kr/pretty v0.2.1
 	github.com/kylelemons/godebug v1.1.0
 	github.com/lestrrat-go/jwx v1.1.5
 	github.com/lucas-clemente/quic-go v0.20.0
-	github.com/mailru/easyjson v0.7.1 // indirect
 	github.com/mattn/go-isatty v0.0.12
 	github.com/mholt/archiver/v3 v3.5.0
 	github.com/miekg/dns v1.1.41
 	github.com/mitchellh/copystructure v1.1.1
 	github.com/mitchellh/go-homedir v1.1.0
-	github.com/mitchellh/mapstructure v1.3.2 // indirect
 	github.com/onsi/gomega v1.11.0
 	github.com/openshift/api v0.0.0-20200713203337-b2494ecb17dd
 	github.com/pkg/errors v0.9.1
@@ -75,6 +72,8 @@ require (
 	github.com/spf13/pflag v1.0.5
 	github.com/spf13/viper v1.7.1
 	github.com/stretchr/testify v1.7.0
+	github.com/tebeka/selenium v0.9.9
+	github.com/thalescpl-io/k8s-kms-plugin v0.5.1-0.20200921230108-72051fb36f12
 	github.com/xeipuuv/gojsonpointer v0.0.0-20190905194746-02993c407bfb // indirect
 	github.com/yl2chen/cidranger v1.0.2
 	go.opencensus.io v0.23.0
