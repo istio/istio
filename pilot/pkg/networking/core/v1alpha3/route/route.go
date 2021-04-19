@@ -271,14 +271,13 @@ func BuildHTTPRoutesForVirtualService(
 
 	out := make([]*route.Route, 0, len(vs.Http))
 
-allroutes:
+	catchall := false
 	for _, http := range vs.Http {
 		if len(http.Match) == 0 {
 			if r := translateRoute(push, node, http, nil, listenPort, virtualService, serviceRegistry, gatewayNames); r != nil {
 				out = append(out, r)
 			}
-			// We have a rule with catch all match. Other rules are of no use.
-			break
+			catchall = true
 		} else {
 			for _, match := range http.Match {
 				if r := translateRoute(push, node, http, match, listenPort, virtualService, serviceRegistry, gatewayNames); r != nil {
@@ -286,10 +285,14 @@ allroutes:
 					// This is a catch all path. Routes are matched in order, so we will never go beyond this match
 					// As an optimization, we can just top sending any more routes here.
 					if isCatchAllMatch(match) {
-						break allroutes
+						catchall = true
+						break
 					}
 				}
 			}
+		}
+		if catchall {
+			break
 		}
 	}
 
@@ -329,13 +332,13 @@ func translateRoute(push *model.PushContext, node *model.Proxy, in *networking.H
 	// When building routes, its okay if the target cluster cannot be
 	// resolved Traffic to such clusters will blackhole.
 
-	// Match by source labels/gateway names inside the match condition
-	if !sourceMatchHTTP(match, labels.Collection{node.Metadata.Labels}, gatewayNames, node.Metadata.Namespace) {
+	// Match by the destination port specified in the match condition
+	if match != nil && match.Port != 0 && match.Port != uint32(port) {
 		return nil
 	}
 
-	// Match by the destination port specified in the match condition
-	if match != nil && match.Port != 0 && match.Port != uint32(port) {
+	// Match by source labels/gateway names inside the match condition
+	if !sourceMatchHTTP(match, labels.Collection{node.Metadata.Labels}, gatewayNames, node.Metadata.Namespace) {
 		return nil
 	}
 
@@ -350,14 +353,16 @@ func translateRoute(push *model.PushContext, node *model.Proxy, in *networking.H
 	}
 	// add a name to the route
 	out.Name = routeName
+	authority := ""
+	if in.Headers != nil {
+		operations := translateHeadersOperations(in.Headers)
+		out.RequestHeadersToAdd = operations.requestHeadersToAdd
+		out.ResponseHeadersToAdd = operations.responseHeadersToAdd
+		out.RequestHeadersToRemove = operations.requestHeadersToRemove
+		out.ResponseHeadersToRemove = operations.responseHeadersToRemove
+		authority = operations.authority
+	}
 
-	operations := translateHeadersOperations(in.Headers)
-	out.RequestHeadersToAdd = operations.requestHeadersToAdd
-	out.ResponseHeadersToAdd = operations.responseHeadersToAdd
-	out.RequestHeadersToRemove = operations.requestHeadersToRemove
-	out.ResponseHeadersToRemove = operations.responseHeadersToRemove
-
-	out.TypedPerFilterConfig = make(map[string]*any.Any)
 	if redirect := in.Redirect; redirect != nil {
 		action := &route.Route_Redirect{
 			Redirect: &route.RedirectAction{
@@ -409,7 +414,6 @@ func translateRoute(push *model.PushContext, node *model.Proxy, in *networking.H
 		out.Action = &route.Route_Route{Route: action}
 
 		action.PrefixRewrite = in.Rewrite.GetUri()
-		authority := operations.authority
 		if in.Rewrite.GetAuthority() != "" {
 			authority = in.Rewrite.GetAuthority()
 		}
@@ -442,19 +446,18 @@ func translateRoute(push *model.PushContext, node *model.Proxy, in *networking.H
 					continue
 				}
 			}
-
-			operations := translateHeadersOperations(dst.Headers)
-
 			hostname := host.Name(dst.GetDestination().GetHost())
 			n := GetDestinationCluster(dst.Destination, serviceRegistry[hostname], port)
-
 			clusterWeight := &route.WeightedCluster_ClusterWeight{
-				Name:                    n,
-				Weight:                  weight,
-				RequestHeadersToAdd:     operations.requestHeadersToAdd,
-				RequestHeadersToRemove:  operations.requestHeadersToRemove,
-				ResponseHeadersToAdd:    operations.responseHeadersToAdd,
-				ResponseHeadersToRemove: operations.responseHeadersToRemove,
+				Name:   n,
+				Weight: weight,
+			}
+			if dst.Headers != nil {
+				operations := translateHeadersOperations(dst.Headers)
+				clusterWeight.RequestHeadersToAdd = operations.requestHeadersToAdd
+				clusterWeight.RequestHeadersToRemove = operations.requestHeadersToRemove
+				clusterWeight.ResponseHeadersToAdd = operations.responseHeadersToAdd
+				clusterWeight.ResponseHeadersToRemove = operations.responseHeadersToRemove
 			}
 
 			weighted = append(weighted, clusterWeight)
@@ -489,6 +492,7 @@ func translateRoute(push *model.PushContext, node *model.Proxy, in *networking.H
 		Operation: getRouteOperation(out, virtualService.Name, port),
 	}
 	if fault := in.Fault; fault != nil {
+		out.TypedPerFilterConfig = make(map[string]*any.Any)
 		out.TypedPerFilterConfig[wellknown.Fault] = util.MessageToAny(translateFault(in.Fault))
 	}
 
