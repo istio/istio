@@ -1243,8 +1243,6 @@ func instanceIPTests(apps *EchoDeployments) []TrafficTestCase {
 			ipCase := ipCase
 			client := client
 			destination := apps.PodB[0]
-			// so we can validate all clusters are hit
-			callCount := callsPerCluster * len(apps.PodB)
 			var config string
 			if !ipCase.disableSidecar {
 				config = fmt.Sprintf(`
@@ -1275,7 +1273,6 @@ spec:
 						Target:    destination,
 						PortName:  ipCase.port,
 						Scheme:    scheme.HTTP,
-						Count:     callCount,
 						Timeout:   time.Second * 5,
 						Validator: echo.ExpectCode(fmt.Sprint(ipCase.code)),
 					},
