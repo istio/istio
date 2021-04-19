@@ -30,7 +30,9 @@ import (
 
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/test"
+	"istio.io/istio/pkg/test/echo/client"
 	"istio.io/istio/pkg/test/echo/common"
+	"istio.io/istio/pkg/test/echo/common/scheme"
 	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
@@ -41,6 +43,25 @@ import (
 	"istio.io/istio/pkg/test/util/retry"
 	"istio.io/istio/pkg/test/util/structpath"
 )
+
+const (
+	CallsPerCluster = 5
+	ServerSvc       = "server"
+)
+
+type EchoDeployments struct {
+	All             echo.Instances
+	Clients         echo.Instance
+	Server          echo.Instance
+	ClientNamespace namespace.Instance
+	ServerNamespace namespace.Instance
+}
+
+type TestCase struct {
+	Response        string
+	CredentialToUse string
+	Gateway         bool // true if the request is expected to be routed through gateway
+}
 
 func MustReadCert(t test.Failer, f string) string {
 	b, err := ioutil.ReadFile(path.Join(env.IstioSrc, "tests/testdata/certs/dns", f))
@@ -152,31 +173,41 @@ func createSecret(credentialType string, cn, ns string, ic TLSCredential, isNotG
 // SetupEcho creates two namespaces client and server. It also brings up two echo instances server and
 // client in respective namespaces. HTTP and HTTPS port on the server echo are set up. Egress Gateway is set up in the
 // service namespace to handle egress for "external" calls.
-func SetupEcho(t test.Failer, ctx resource.Context) (echo.Instance, echo.Instance, namespace.Instance, namespace.Instance) {
-	clientNamespace := namespace.NewOrFail(t, ctx, namespace.Config{
+func SetupEcho(t test.Failer, ctx resource.Context, apps *EchoDeployments) {
+	apps.ClientNamespace = namespace.NewOrFail(t, ctx, namespace.Config{
 		Prefix: "client",
 		Inject: true,
 	})
-	serverNamespace := namespace.NewOrFail(t, ctx, namespace.Config{
+	apps.ServerNamespace = namespace.NewOrFail(t, ctx, namespace.Config{
 		Prefix: "server",
 		Inject: true,
 	})
 	cluster := ctx.Clusters().Default()
-	var internalClient, externalServer echo.Instance
-	echoboot.NewBuilder(ctx).
+	var internalClient, internalVM, externalServer echo.Instance
+	echos := echoboot.NewBuilder(ctx).
 		With(&internalClient, echo.Config{
 			Cluster:   cluster,
-			Service:   "client",
-			Namespace: clientNamespace,
+			Service:   "a",
+			Namespace: apps.ClientNamespace,
 			Ports:     []echo.Port{},
 			Subsets: []echo.SubsetConfig{{
 				Version: "v1",
 			}},
 		}).
+		With(&internalVM, echo.Config{
+			Cluster:   cluster,
+			Service:   "vm",
+			Namespace: apps.ClientNamespace,
+			Ports:     []echo.Port{},
+			Subsets: []echo.SubsetConfig{{
+				Version: "v1",
+			}},
+			DeployAsVM: true,
+		}).
 		With(&externalServer, echo.Config{
 			Cluster:   cluster,
-			Service:   "server",
-			Namespace: serverNamespace,
+			Service:   ServerSvc,
+			Namespace: apps.ServerNamespace,
 			Ports: []echo.Port{
 				{
 					// Plain HTTP port only used to route request to egress gateway
@@ -210,14 +241,15 @@ func SetupEcho(t test.Failer, ctx resource.Context) (echo.Instance, echo.Instanc
 		}).
 		BuildOrFail(t)
 
+	apps.All = echos
+	apps.Clients = internalClient
+	apps.Server = externalServer
 	// Apply Egress Gateway for service namespace to originate external traffic
-	createGateway(t, ctx, clientNamespace, serverNamespace)
+	createGateway(t, ctx, apps.ClientNamespace, apps.ServerNamespace)
 
 	if err := WaitUntilNotCallable(internalClient, externalServer); err != nil {
 		t.Fatalf("failed to apply sidecar, %v", err)
 	}
-
-	return internalClient, externalServer, clientNamespace, serverNamespace
 }
 
 const (
@@ -402,4 +434,33 @@ func WaitUntilNotCallable(c echo.Instance, dest echo.Instance) error {
 func clusterName(target echo.Instance, port echo.Port) string {
 	cfg := target.Config()
 	return fmt.Sprintf("outbound|%d||%s.%s.svc.%s", port.ServicePort, cfg.Service, cfg.Namespace.Name(), cfg.Domain)
+}
+
+func CallOpts(dest echo.Instance, host, name string, tc TestCase) echo.CallOptions {
+	return echo.CallOptions{
+		Target:   dest,
+		Count:    CallsPerCluster,
+		PortName: "http",
+		Scheme:   scheme.HTTP,
+		Headers: map[string][]string{
+			"Host": {host},
+		},
+		Validator: echo.And(echo.ValidatorFunc(
+			func(responses client.ParsedResponses, err error) error {
+				if err != nil {
+					return fmt.Errorf("request failed: %v", err)
+				}
+				for _, r := range responses {
+					if r.Code != tc.Response {
+						return fmt.Errorf("got code %s, expected %s", r.Code, tc.Response)
+					}
+				}
+				for _, r := range responses {
+					if _, f := r.RawResponse["Handled-By-Egress-Gateway"]; tc.Gateway && !f {
+						return fmt.Errorf("expected to be handled by gateway. response: %+v", r.RawResponse)
+					}
+				}
+				return nil
+			})),
+	}
 }
