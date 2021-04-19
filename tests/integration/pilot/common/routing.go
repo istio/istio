@@ -433,7 +433,7 @@ spec:
 			name:          fmt.Sprintf("shifting-%d", split[0]),
 			toN:           len(split),
 			sourceFilters: []echotest.Filter{noHeadless, noNaked},
-			targetFilters: []echotest.Filter{noHeadless, noExternal},
+			targetFilters: []echotest.Filter{noHeadless, noExternal, noTProxy},
 			templateVars: map[string]interface{}{
 				"split": split,
 			},
