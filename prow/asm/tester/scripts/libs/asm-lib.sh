@@ -695,6 +695,7 @@ function install_asm_managed_control_plane() {
       --cluster_name "${CLUSTER_NAME}" \
       --managed \
       --enable_cluster_labels \
+      --enable_namespace_creation \
       --output_dir "${TMPDIR}" \
       --ca "mesh_ca" \
       --verbose
