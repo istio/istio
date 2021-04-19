@@ -304,9 +304,6 @@ func TestRequestAuthentication(t *testing.T) {
 							// TODO(JimmyCYJ): enable VM and fix valid-token-forward-remote-jwks and invalid_aud.
 							filters(t, ns.Name(), true)...).
 						ConditionallyTo(echotest.ReachableDestinations).
-						ConditionallyTo(func(from echo.Instance, to echo.Instances) echo.Instances {
-							return to.Match(echo.Not(echo.SameDeployment(from)))
-						}).
 						To(filters(t, ns.Name(), false)...).
 						Run(func(t framework.TestContext, src echo.Instance, dest echo.Instances) {
 							t.NewSubTest(c.Name).Run(func(t framework.TestContext) {
@@ -321,6 +318,9 @@ func TestRequestAuthentication(t *testing.T) {
 		})
 }
 
+// filters returns a set of filters to only select injected workloads. VM is skipped
+// if skipVM is true.
+// TODO(JimmyCYJ): Simplify this function as a single filter.
 func filters(t framework.TestContext, ns string, skipVM bool) []echotest.Filter {
 	rt := []echotest.Filter{
 		echotest.SingleSimplePodServiceAndAllSpecial(),
@@ -365,7 +365,7 @@ func TestIngressRequestAuthentication(t *testing.T) {
 				callCount = util.CallsPerCluster * len(t.Clusters())
 			}
 
-			t.NewSubTest("").Run(func(t framework.TestContext) {
+			t.NewSubTest("in-mesh-authn").Run(func(t framework.TestContext) {
 				// These test cases verify in-mesh traffic doesn't need tokens.
 				testCases := []authn.TestCase{
 					{
@@ -428,7 +428,7 @@ func TestIngressRequestAuthentication(t *testing.T) {
 				},
 			), ns.Name())
 			t.Config().ApplyYAMLOrFail(t, ns.Name(), policy)
-			t.NewSubTest("").Run(func(t framework.TestContext) {
+			t.NewSubTest("ingress-authn").Run(func(t framework.TestContext) {
 				for _, cluster := range t.Clusters() {
 					ingr := ist.IngressFor(cluster)
 					// These test cases verify requests go through ingress will be checked for validate token.
