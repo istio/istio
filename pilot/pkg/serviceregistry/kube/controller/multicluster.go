@@ -154,11 +154,10 @@ func (m *Multicluster) close() (err error) {
 	// Remove all of the clusters.
 	g, _ := errgroup.WithContext(context.Background())
 	for _, clusterID := range clusterIDs {
-		func(cid string) {
-			g.Go(func() error {
-				return m.DeleteMemberCluster(cid)
-			})
-		}(clusterID)
+		clusterID := clusterID
+		g.Go(func() error {
+			return m.DeleteMemberCluster(clusterID)
+		})
 	}
 	err = g.Wait()
 	return
