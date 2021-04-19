@@ -157,6 +157,7 @@ telemetry:
       enabled: false
       logging: false
       monitoring: false
+      topology: false # deprecated. setting this to true will have no effect, as this option is no longer supported.
       disableOutbound: false
       #  configOverride parts give you the ability to override the low level configuration params passed to envoy filter.
 
