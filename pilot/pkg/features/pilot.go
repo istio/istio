@@ -439,4 +439,10 @@ var (
 		"If enabled, addition runtime asserts will be performed. "+
 			"These checks are both expensive and panic on failure. As a result, this should be used only for testing.",
 	).Get()
+
+	EnableLegacyAutoPassthrough = env.RegisterBoolVar(
+		"PILOT_ENABLE_LEGACY_AUTO_PASSTHROUGH",
+		false,
+		"If enabled, pilot will allow any upstream cluster to be used with AUTO_PASSTHROUGH. "+
+			"This option is intended for backwards compatibility only and is not secure with untrusted downstreams; it will be removed in the future.").Get()
 )
