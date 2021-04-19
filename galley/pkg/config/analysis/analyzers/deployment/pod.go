@@ -31,7 +31,7 @@ type ApplicationUIDAnalyzer struct{}
 var _ analysis.Analyzer = &ApplicationUIDAnalyzer{}
 
 const (
-	UID = int64(1337)
+	UserID = int64(1337)
 )
 
 func (appUID *ApplicationUIDAnalyzer) Metadata() analysis.Metadata {
@@ -61,14 +61,14 @@ func (appUID *ApplicationUIDAnalyzer) analyzeAppUIDForPod(resource *resource.Ins
 	message := msg.NewInvalidApplicationUID(resource)
 
 	if p.Spec.SecurityContext != nil && p.Spec.SecurityContext.RunAsUser != nil {
-		if *p.Spec.SecurityContext.RunAsUser == UID {
+		if *p.Spec.SecurityContext.RunAsUser == UserID {
 			context.Report(collections.K8SCoreV1Pods.Name(), message)
 		}
 	}
 	for _, container := range p.Spec.Containers {
 		if container.Name != util.IstioProxyName && container.Name != util.IstioOperator {
 			if container.SecurityContext != nil && container.SecurityContext.RunAsUser != nil {
-				if *container.SecurityContext.RunAsUser == UID {
+				if *container.SecurityContext.RunAsUser == UserID {
 					context.Report(collections.K8SCoreV1Pods.Name(), message)
 				}
 			}
@@ -82,14 +82,14 @@ func (appUID *ApplicationUIDAnalyzer) analyzeAppUIDForDeployment(resource *resou
 	spec := d.Spec.Template.Spec
 
 	if spec.SecurityContext != nil && spec.SecurityContext.RunAsUser != nil {
-		if *spec.SecurityContext.RunAsUser == UID {
+		if *spec.SecurityContext.RunAsUser == UserID {
 			context.Report(collections.K8SAppsV1Deployments.Name(), message)
 		}
 	}
 	for _, container := range spec.Containers {
 		if container.Name != util.IstioProxyName && container.Name != util.IstioOperator {
 			if container.SecurityContext != nil && container.SecurityContext.RunAsUser != nil {
-				if *container.SecurityContext.RunAsUser == UID {
+				if *container.SecurityContext.RunAsUser == UserID {
 					context.Report(collections.K8SAppsV1Deployments.Name(), message)
 				}
 			}
