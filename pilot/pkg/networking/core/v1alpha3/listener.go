@@ -139,6 +139,8 @@ var (
 
 	mtlsTCPWithMxcALPNs = []string{"istio-peer-exchange", "istio"}
 
+	allIstioMtlsALPNs = []string{"istio", "istio-peer-exchange", "istio-http/1.0", "istio-http/1.1", "istio-h2"}
+
 	// ALPN used for TCP Metadata Exchange.
 	tcpMxcALPN = "istio-peer-exchange"
 
@@ -220,14 +222,12 @@ var (
 	emptyFilterChainMatch = &listener.FilterChainMatch{}
 )
 
-var (
-	// TODO: gauge should be reset on refresh, not the best way to represent errors but better
-	// than nothing.
-	// TODO: add dimensions - namespace of rule, service, rule name
-	invalidOutboundListeners = monitoring.NewGauge(
-		"pilot_invalid_out_listeners",
-		"Number of invalid outbound listeners.",
-	)
+// TODO: gauge should be reset on refresh, not the best way to represent errors but better
+// than nothing.
+// TODO: add dimensions - namespace of rule, service, rule name
+var invalidOutboundListeners = monitoring.NewGauge(
+	"pilot_invalid_out_listeners",
+	"Number of invalid outbound listeners.",
 )
 
 func init() {
@@ -573,7 +573,7 @@ allChainsLabel:
 				// This is the filter chain used by permissive mTLS. Append mtlsHTTPALPNs as the client side will
 				// override the ALPN with mtlsHTTPALPNs.
 				// TODO: This should move to authN code instead of us appending additional ALPNs here.
-				filterChainMatch.ApplicationProtocols = append(filterChainMatch.ApplicationProtocols, mtlsHTTPALPNs...)
+				filterChainMatch.ApplicationProtocols = allIstioMtlsALPNs
 			}
 
 			httpOpts = configgen.buildSidecarInboundHTTPListenerOptsForPortOrUDS(node, pluginParams, "")
@@ -584,6 +584,9 @@ allChainsLabel:
 
 		case istionetworking.ListenerProtocolTCP:
 			filterChainMatch = chain.FilterChainMatch
+			if len(filterChainMatch.ApplicationProtocols) > 0 {
+				filterChainMatch.ApplicationProtocols = allIstioMtlsALPNs
+			}
 			tcpNetworkFilters = buildInboundNetworkFilters(pluginParams.Push, pluginParams.ServiceInstance, node)
 
 		case istionetworking.ListenerProtocolAuto:
@@ -1759,7 +1762,6 @@ func updateTraceSamplingConfig(config *meshconfig.ProxyConfig, cfg *hcm.HttpConn
 }
 
 func buildCustomTags(customTags map[string]*meshconfig.Tracing_CustomTag) []*tracing.CustomTag {
-
 	var tags []*tracing.CustomTag
 
 	if features.EnableIstioTags {

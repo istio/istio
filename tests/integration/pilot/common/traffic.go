@@ -169,6 +169,7 @@ func RunAllTrafficTests(ctx framework.TestContext, apps *EchoDeployments) {
 	cases["sniffing"] = protocolSniffingCases()
 	cases["serverfirst"] = serverFirstTestCases(apps)
 	cases["gateway"] = gatewayCases(apps)
+	cases["autopassthrough"] = autoPassthroughCases(apps)
 	cases["loop"] = trafficLoopCases(apps)
 	cases["tls-origination"] = tlsOriginationCases(apps)
 	cases["instanceip"] = instanceIPTests(apps)
