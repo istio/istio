@@ -300,32 +300,12 @@ func TestRequestAuthentication(t *testing.T) {
 							}
 							return nil
 						}).
-						From(
-							echotest.SingleSimplePodServiceAndAllSpecial(),
-							echotest.Not(func(instances echo.Instances) echo.Instances { return instances.Match(echo.IsHeadless()) }),
-							echotest.Not(func(instances echo.Instances) echo.Instances { return instances.Match(echo.IsNaked()) }),
-							echotest.Not(func(instances echo.Instances) echo.Instances { return instances.Match(echo.IsExternal()) }),
-							echotest.Not(func(instances echo.Instances) echo.Instances { return instances.Match(util.IsMultiversion()) }),
-							func(instances echo.Instances) echo.Instances { return instances.Match(echo.Namespace(ns.Name())) },
-							func(instances echo.Instances) echo.Instances {
-								return instances.Match(echo.InCluster(t.Clusters().Default()))
-							},
-						).
+						From(filters(t, ns.Name())...).
 						ConditionallyTo(echotest.ReachableDestinations).
 						ConditionallyTo(func(from echo.Instance, to echo.Instances) echo.Instances {
-							return to.Match(echo.InCluster(from.Config().Cluster))
+							return to.Match(echo.Not(echo.SameDeployment(from)))
 						}).
-						To(
-							echotest.SingleSimplePodServiceAndAllSpecial(),
-							echotest.Not(func(instances echo.Instances) echo.Instances { return instances.Match(echo.IsHeadless()) }),
-							echotest.Not(func(instances echo.Instances) echo.Instances { return instances.Match(echo.IsNaked()) }),
-							echotest.Not(func(instances echo.Instances) echo.Instances { return instances.Match(echo.IsExternal()) }),
-							echotest.Not(func(instances echo.Instances) echo.Instances { return instances.Match(util.IsMultiversion()) }),
-							func(instances echo.Instances) echo.Instances { return instances.Match(echo.Namespace(ns.Name())) },
-							func(instances echo.Instances) echo.Instances {
-								return instances.Match(echo.InCluster(t.Clusters().Default()))
-							},
-						).
+						To(filters(t, ns.Name())...).
 						Run(func(t framework.TestContext, src echo.Instance, dest echo.Instances) {
 							t.NewSubTest(c.Name).Run(func(t framework.TestContext) {
 								c.CallOpts.Target = dest[0]
@@ -337,6 +317,20 @@ func TestRequestAuthentication(t *testing.T) {
 				}
 			})
 		})
+}
+
+func filters(t framework.TestContext, ns string) []echotest.Filter {
+	return []echotest.Filter{
+		echotest.SingleSimplePodServiceAndAllSpecial(),
+		echotest.Not(func(instances echo.Instances) echo.Instances { return instances.Match(echo.IsHeadless()) }),
+		echotest.Not(func(instances echo.Instances) echo.Instances { return instances.Match(echo.IsNaked()) }),
+		echotest.Not(func(instances echo.Instances) echo.Instances { return instances.Match(echo.IsExternal()) }),
+		echotest.Not(func(instances echo.Instances) echo.Instances { return instances.Match(util.IsMultiversion()) }),
+		func(instances echo.Instances) echo.Instances { return instances.Match(echo.Namespace(ns)) },
+		func(instances echo.Instances) echo.Instances {
+			return instances.Match(echo.InCluster(t.Clusters().Default()))
+		},
+	}
 }
 
 // TestIngressRequestAuthentication tests beta authn policy for jwt on ingress.
@@ -402,32 +396,12 @@ func TestIngressRequestAuthentication(t *testing.T) {
 							), ns.Name())
 							return t.Config().ApplyYAML(ns.Name(), policy)
 						}).
-						From(
-							echotest.SingleSimplePodServiceAndAllSpecial(),
-							echotest.Not(func(instances echo.Instances) echo.Instances { return instances.Match(echo.IsHeadless()) }),
-							echotest.Not(func(instances echo.Instances) echo.Instances { return instances.Match(echo.IsNaked()) }),
-							echotest.Not(func(instances echo.Instances) echo.Instances { return instances.Match(echo.IsExternal()) }),
-							echotest.Not(func(instances echo.Instances) echo.Instances { return instances.Match(util.IsMultiversion()) }),
-							func(instances echo.Instances) echo.Instances { return instances.Match(echo.Namespace(ns.Name())) },
-							func(instances echo.Instances) echo.Instances {
-								return instances.Match(echo.InCluster(t.Clusters().Default()))
-							},
-						).
+						From(filters(t, ns.Name())...).
 						ConditionallyTo(echotest.ReachableDestinations).
 						ConditionallyTo(func(from echo.Instance, to echo.Instances) echo.Instances {
 							return to.Match(echo.InCluster(from.Config().Cluster))
 						}).
-						To(
-							echotest.SingleSimplePodServiceAndAllSpecial(),
-							echotest.Not(func(instances echo.Instances) echo.Instances { return instances.Match(echo.IsHeadless()) }),
-							echotest.Not(func(instances echo.Instances) echo.Instances { return instances.Match(echo.IsNaked()) }),
-							echotest.Not(func(instances echo.Instances) echo.Instances { return instances.Match(echo.IsExternal()) }),
-							echotest.Not(func(instances echo.Instances) echo.Instances { return instances.Match(util.IsMultiversion()) }),
-							func(instances echo.Instances) echo.Instances { return instances.Match(echo.Namespace(ns.Name())) },
-							func(instances echo.Instances) echo.Instances {
-								return instances.Match(echo.InCluster(t.Clusters().Default()))
-							},
-						).
+						To(filters(t, ns.Name())...).
 						Run(func(t framework.TestContext, src echo.Instance, dest echo.Instances) {
 							t.NewSubTest(c.Name).Run(func(t framework.TestContext) {
 								c.CallOpts.Target = dest[0]
