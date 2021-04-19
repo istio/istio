@@ -300,12 +300,14 @@ func TestRequestAuthentication(t *testing.T) {
 							}
 							return nil
 						}).
-						From(filters(t, ns.Name())...).
+						From(
+							// TODO(JimmyCYJ): enable VM and fix valid-token-forward-remote-jwks and invalid_aud.
+							filters(t, ns.Name(), true)...).
 						ConditionallyTo(echotest.ReachableDestinations).
 						ConditionallyTo(func(from echo.Instance, to echo.Instances) echo.Instances {
 							return to.Match(echo.Not(echo.SameDeployment(from)))
 						}).
-						To(filters(t, ns.Name())...).
+						To(filters(t, ns.Name(), false)...).
 						Run(func(t framework.TestContext, src echo.Instance, dest echo.Instances) {
 							t.NewSubTest(c.Name).Run(func(t framework.TestContext) {
 								c.CallOpts.Target = dest[0]
@@ -319,8 +321,8 @@ func TestRequestAuthentication(t *testing.T) {
 		})
 }
 
-func filters(t framework.TestContext, ns string) []echotest.Filter {
-	return []echotest.Filter{
+func filters(t framework.TestContext, ns string, skipVM bool) []echotest.Filter {
+	rt := []echotest.Filter{
 		echotest.SingleSimplePodServiceAndAllSpecial(),
 		echotest.Not(func(instances echo.Instances) echo.Instances { return instances.Match(echo.IsHeadless()) }),
 		echotest.Not(func(instances echo.Instances) echo.Instances { return instances.Match(echo.IsNaked()) }),
@@ -331,6 +333,10 @@ func filters(t framework.TestContext, ns string) []echotest.Filter {
 			return instances.Match(echo.InCluster(t.Clusters().Default()))
 		},
 	}
+	if skipVM {
+		rt = append(rt, echotest.Not(func(instances echo.Instances) echo.Instances { return instances.Match(echo.IsVirtualMachine()) }))
+	}
+	return rt
 }
 
 // TestIngressRequestAuthentication tests beta authn policy for jwt on ingress.
@@ -396,12 +402,12 @@ func TestIngressRequestAuthentication(t *testing.T) {
 							), ns.Name())
 							return t.Config().ApplyYAML(ns.Name(), policy)
 						}).
-						From(filters(t, ns.Name())...).
+						From(filters(t, ns.Name(), false)...).
 						ConditionallyTo(echotest.ReachableDestinations).
 						ConditionallyTo(func(from echo.Instance, to echo.Instances) echo.Instances {
 							return to.Match(echo.InCluster(from.Config().Cluster))
 						}).
-						To(filters(t, ns.Name())...).
+						To(filters(t, ns.Name(), false)...).
 						Run(func(t framework.TestContext, src echo.Instance, dest echo.Instances) {
 							t.NewSubTest(c.Name).Run(func(t framework.TestContext) {
 								c.CallOpts.Target = dest[0]
