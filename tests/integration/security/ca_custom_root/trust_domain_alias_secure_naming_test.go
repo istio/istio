@@ -91,7 +91,7 @@ func TestTrustDomainAliasSecureNaming(t *testing.T) {
 								From:          src,
 								Options:       opt,
 								ExpectSuccess: success,
-								DestClusters:  t.Clusters(),
+								DestClusters:  t.Clusters().ByNetwork()[cluster.NetworkName()],
 							}
 							checker.CheckOrFail(t)
 						})

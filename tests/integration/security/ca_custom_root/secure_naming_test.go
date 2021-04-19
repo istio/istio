@@ -104,6 +104,10 @@ func TestSecureNaming(t *testing.T) {
 	framework.NewTest(t).
 		Features("security.peer.secure-naming").
 		Run(func(t framework.TestContext) {
+			// TODO https://github.com/istio/istio/issues/32292
+			if t.Clusters().IsMulticluster() {
+				t.Skip()
+			}
 			istioCfg := istio.DefaultConfigOrFail(t, t)
 			testNamespace := apps.Namespace
 			namespace.ClaimOrFail(t, t, istioCfg.SystemNamespace)
