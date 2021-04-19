@@ -171,7 +171,7 @@ var (
 
 	// InvalidApplicationUID defines a diag.MessageType for message "InvalidApplicationUID".
 	// Description: Application pods should not run as user ID (UID) 1337
-	InvalidApplicationUID = diag.NewMessageType(diag.Warning, "IST0144", "Application pods should not run as user ID (UID) 1337 because the istio-proxy container runs as UID 1337. Running your application containers using the same UID would result in conflicts with its configuration")
+	InvalidApplicationUID = diag.NewMessageType(diag.Warning, "IST0144", "User ID (UID) 1337 is reserved for the sidecar proxy.")
 )
 
 // All returns a list of all known message types.
