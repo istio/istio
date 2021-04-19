@@ -71,7 +71,7 @@ esac
 
 if [ "x${ISTIO_VERSION}" = "x" ] ; then
   printf "Unable to get latest Istio version. Set ISTIO_VERSION env var and re-run. For example: export ISTIO_VERSION=1.0.4"
-  exit;
+  exit 1;
 fi
 
 NAME="istio-$ISTIO_VERSION"
@@ -82,7 +82,7 @@ with_arch() {
   printf "\nDownloading %s from %s ...\n" "$NAME" "$ARCH_URL"
   if ! curl -o /dev/null -sIf "$ARCH_URL"; then
     printf "\n%s is not found, please specify a valid ISTIO_VERSION and TARGET_ARCH\n" "$ARCH_URL"
-    exit
+    exit 1
   fi
   curl -fsLO "$ARCH_URL"
   filename="istio-${ISTIO_VERSION}-${OSEXT}-${ISTIO_ARCH}.tar.gz"
@@ -94,7 +94,7 @@ without_arch() {
   printf "\nDownloading %s from %s ..." "$NAME" "$URL"
   if ! curl -o /dev/null -sIf "$URL"; then
     printf "\n%s is not found, please specify a valid ISTIO_VERSION\n" "$URL"
-    exit
+    exit 1
   fi
   curl -fsLO "$URL"
   filename="istio-${ISTIO_VERSION}-${OSEXT}.tar.gz"
@@ -120,7 +120,7 @@ else
   printf "\n\n"
   printf "Unable to download Istio %s at this moment!\n" "$ISTIO_VERSION"
   printf "Please verify the version you are trying to download.\n\n"
-  exit
+  exit 1
 fi
 
 printf ""
