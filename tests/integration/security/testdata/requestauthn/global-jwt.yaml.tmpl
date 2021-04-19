@@ -1,7 +1,7 @@
 apiVersion: security.istio.io/v1beta1
 kind: RequestAuthentication
 metadata:
-  name: default
+  name: "default"
   namespace: "{{ .RootNamespace }}"
 spec:
   jwtRules:
