@@ -97,6 +97,7 @@ func RunAllTrafficTests(ctx framework.TestContext, apps *EchoDeployments) {
 	cases["sniffing"] = protocolSniffingCases(apps)
 	cases["serverfirst"] = serverFirstTestCases(apps)
 	cases["gateway"] = gatewayCases(apps)
+	cases["autopassthrough"] = autoPassthroughCases(apps)
 	cases["loop"] = trafficLoopCases(apps)
 	cases["tls-origination"] = tlsOriginationCases(apps)
 	if !ctx.Settings().SkipVM {
