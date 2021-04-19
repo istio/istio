@@ -67,10 +67,6 @@ func TestTrustDomainAliasSecureNaming(t *testing.T) {
 	framework.NewTest(t).
 		Features("security.peer.trust-domain-alias-secure-naming").
 		Run(func(t framework.TestContext) {
-			// TODO: remove the skip when https://github.com/istio/istio/issues/28798 is fixed
-			if t.Clusters().IsMulticluster() {
-				t.Skip()
-			}
 			testNS := apps.Namespace
 
 			t.Config().ApplyYAMLOrFail(t, testNS.Name(), POLICY)
