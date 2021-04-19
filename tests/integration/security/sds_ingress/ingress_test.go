@@ -78,7 +78,7 @@ func TestSingleTlsGateway_SecretRotation(t *testing.T) {
 						ingressutil.IngressCredentialA, false)
 					defer ingressutil.DeleteKubeSecret(t, []string{credName})
 
-					ing := inst.IngressFor(src)
+					ing := inst.IngressFor(t.Clusters().Default())
 					if ing == nil {
 						t.Skip()
 					}
@@ -149,7 +149,7 @@ func TestSingleMTLSGateway_ServerKeyCertRotation(t *testing.T) {
 					defer ingressutil.DeleteKubeSecret(t, credName)
 					defer ingressutil.DeleteKubeSecret(t, credCaName)
 
-					ing := inst.IngressFor(src)
+					ing := inst.IngressFor(t.Clusters().Default())
 					if ing == nil {
 						t.Skip()
 					}
@@ -282,7 +282,7 @@ func TestSingleMTLSGatewayAndNotGeneric_CompoundSecretRotation(t *testing.T) {
 					defer ingressutil.DeleteKubeSecret(t, credName)
 
 					// Wait for ingress gateway to fetch key/cert from Gateway agent via SDS.
-					ing := inst.IngressFor(src)
+					ing := inst.IngressFor(t.Clusters().Default())
 					if ing == nil {
 						t.Skip()
 					}
@@ -458,7 +458,7 @@ func TestMultiTlsGateway_InvalidSecret(t *testing.T) {
 					}).
 					To(echotest.SingleSimplePodServiceAndAllSpecial()).
 					RunFromClusters(func(t framework.TestContext, src cluster.Cluster, dest echo.Instances) {
-						ing := inst.IngressFor(src)
+						ing := inst.IngressFor(t.Clusters().Default())
 						if ing == nil {
 							t.Skip()
 						}
@@ -568,7 +568,7 @@ func TestMultiMtlsGateway_InvalidSecret(t *testing.T) {
 					}).
 					To(echotest.SingleSimplePodServiceAndAllSpecial()).
 					RunFromClusters(func(t framework.TestContext, src cluster.Cluster, dest echo.Instances) {
-						ing := inst.IngressFor(src)
+						ing := inst.IngressFor(t.Clusters().Default())
 						if ing == nil {
 							t.Skip()
 						}
