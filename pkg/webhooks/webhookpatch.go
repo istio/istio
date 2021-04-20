@@ -19,7 +19,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"io/ioutil"
 	"strings"
 	"time"
 
@@ -31,6 +30,7 @@ import (
 	"k8s.io/client-go/tools/cache"
 
 	"istio.io/api/label"
+	"istio.io/istio/pilot/pkg/keycertbundle"
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/queue"
 	"istio.io/istio/pkg/webhooks/validation/controller"
@@ -63,19 +63,12 @@ func (w *WebhookCertPatcher) Run(stopChan <-chan struct{}) {
 // NewWebhookCertPatcher creates a WebhookCertPatcher
 func NewWebhookCertPatcher(
 	client kubernetes.Interface,
-	revision, webhookName, caBundlePath string) (*WebhookCertPatcher, error) {
-	// ca from k8s
-	caCertPem, err := ioutil.ReadFile(caBundlePath)
-	if err != nil {
-		log.Errorf("Skipping webhook patch, missing CA path %v", caBundlePath)
-		return nil, fmt.Errorf("could not read CA path: %v", err)
-	}
-
+	revision, webhookName string, caBundle []byte) (*WebhookCertPatcher, error) {
 	return &WebhookCertPatcher{
 		client:      client,
 		revision:    revision,
 		webhookName: webhookName,
-		caCertPem:   caCertPem,
+		caCertPem:   caBundle,
 		queue:       queue.NewQueue(time.Second * 2),
 	}, nil
 }
@@ -179,10 +172,10 @@ func (w *WebhookCertPatcher) patchMutatingWebhookConfig(
 }
 
 func CreateValidationWebhookController(client kube.Client,
-	webhookConfigName, ns, caBundlePath string) *controller.Controller {
+	webhookConfigName, ns string, caBundleWatcher *keycertbundle.Watcher) *controller.Controller {
 	o := controller.Options{
 		WatchedNamespace:  ns,
-		CAPath:            caBundlePath,
+		CABundleWatcher:   caBundleWatcher,
 		WebhookConfigName: webhookConfigName,
 		ServiceName:       "istiod",
 	}
