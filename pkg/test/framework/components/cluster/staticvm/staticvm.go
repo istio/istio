@@ -25,6 +25,7 @@ import (
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/test/framework/components/cluster"
 	"istio.io/istio/pkg/test/framework/components/echo"
+	"istio.io/istio/pkg/test/framework/config"
 	"istio.io/istio/pkg/test/scopes"
 )
 
@@ -68,7 +69,7 @@ func readInstances(cfg cluster.Config) ([]echo.Config, error) {
 	return out, nil
 }
 
-func instanceFromMeta(cfg cluster.ConfigMeta) (echo.Config, error) {
+func instanceFromMeta(cfg config.Map) (echo.Config, error) {
 	svc := cfg.String("service")
 	if svc == "" {
 		return echo.Config{}, errors.New("service must not be empty")

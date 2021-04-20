@@ -19,16 +19,17 @@ import (
 	"fmt"
 	"os"
 
+	"istio.io/istio/pkg/test/framework/config"
 	"istio.io/istio/pkg/test/framework/label"
 )
 
 var settingsFromCommandLine = DefaultSettings()
 
-// SettingsFromCommandLine returns settings obtained from command-line flags. flag.Parse must be called before
+// SettingsFromCommandLine returns settings obtained from command-line flags. config.Parse must be called before
 // calling this function.
 func SettingsFromCommandLine(testID string) (*Settings, error) {
-	if !flag.Parsed() {
-		panic("flag.Parse must be called before this function")
+	if !config.Parsed() {
+		panic("config.Parse must be called before this function")
 	}
 
 	s := settingsFromCommandLine.Clone()
