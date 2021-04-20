@@ -191,7 +191,6 @@ func getStatsOptions(meta *model.BootstrapNodeMetadata) []option.Instance {
 		} else {
 			log.Warnf("failed to read pod annotations: %v", err)
 		}
-		return []option.Instance{}
 	}
 
 	tagAnno := annotations[extraTagsAnnotation]
