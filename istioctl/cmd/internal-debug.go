@@ -24,7 +24,6 @@ import (
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	"github.com/spf13/cobra"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/kubectl/pkg/polymorphichelpers"
 
 	"istio.io/istio/istioctl/pkg/clioptions"
 	"istio.io/istio/istioctl/pkg/multixds"
@@ -143,30 +142,36 @@ By default it will use the default serviceAccount from (istio-system) namespace 
 			if err != nil {
 				return fmt.Errorf("please specify %q as %v", "--xds-address", err)
 			}
-			istiodNS, selector, serr := polymorphichelpers.SelectorsForObject(svc)
-			if serr != nil {
-				return fmt.Errorf("please specify %q as we cannot attach to %T: %v", "--xds-address", svc, serr)
-			}
-			options := metav1.ListOptions{LabelSelector: selector.String()}
-			podList, plerr := kubeClient.CoreV1().Pods(istiodNS).List(context.TODO(), options)
-			if plerr != nil {
-				return fmt.Errorf("please specify %q as %v", "--xds-address", plerr)
-			}
-
 			podPort := 15012
 			for _, v := range svc.Spec.Ports {
 				if v.Name == xdsPortName {
 					podPort = v.TargetPort.IntValue()
 				}
 			}
+
+			labelSelector := centralOpts.XdsPodLabel
+			if labelSelector == "" {
+				labelSelector = "app=istiod"
+			}
+			podList, podErr := kubeClient.GetIstioPods(context.TODO(), istioNamespace, map[string]string{
+				"labelSelector": labelSelector,
+				"fieldSelector": "status.phase=Running",
+			})
+			if podErr != nil {
+				return podErr
+			}
+			if len(podList) == 0 {
+				return fmt.Errorf("no running Istio pods in %q", istioNamespace)
+			}
+
 			var isNull bool = false
 			var printErr error
 			// Iterate all istiod pods for retrieving debug information
-			for _, pod := range podList.Items {
+			for _, pod := range podList {
 				fmt.Println("")
-				fmt.Println("##############################################################################")
-				fmt.Println("### istioctl x debug for pod: ", pod.Name)
-				fmt.Println("##############################################################################")
+				fmt.Println("------------------------------------------------------------------------------")
+				fmt.Println("--- istioctl x debug for pod: ", pod.Name)
+				fmt.Println("------------------------------------------------------------------------------")
 				fmt.Println("")
 				if centralOpts.Xds == "" {
 					isNull = true
