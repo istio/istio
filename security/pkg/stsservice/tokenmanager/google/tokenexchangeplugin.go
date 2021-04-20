@@ -48,7 +48,7 @@ const (
 
 var (
 	pluginLog              = log.RegisterScope("token", "token manager plugin debugging", 0)
-	federatedTokenEndpoint = "https://securetoken.googleapis.com/v1/identitybindingtoken"
+	federatedTokenEndpoint = "https://sts.googleapis.com/v1/token"
 	accessTokenEndpoint    = "https://iamcredentials.googleapis.com/v1/projects/-/" +
 		"serviceAccounts/service-%s@gcp-sa-meshdataplane.iam.gserviceaccount.com:generateAccessToken"
 	// default grace period in seconds of an access token. If caching is enabled and token remaining life time is
@@ -195,7 +195,7 @@ func (p *Plugin) constructAudience(subjectToken string) string {
 
 // constructFederatedTokenRequest returns an HTTP request for federated token.
 // Example of a federated token request:
-// POST https://securetoken.googleapis.com/v1/identitybindingtoken
+// POST https://sts.googleapis.com/v1/token
 // Content-Type: application/json
 // {
 //    audience: <trust domain>:<provider>
@@ -246,7 +246,7 @@ func (p *Plugin) constructFederatedTokenRequest(parameters security.StsRequestPa
 			pluginLog.Debugf("Prepared federated token request: \n%s", string(reqDump))
 		}
 	} else {
-		pluginLog.Info("Prepared federated token request")
+		pluginLog.Infof("Prepared federated token request, aud: %s, STS endpoint: %s", aud, federatedTokenEndpoint)
 	}
 	return req, nil
 }
