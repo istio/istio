@@ -41,7 +41,11 @@ func TestWatcher(t *testing.T) {
 	// 2. set key cert bundle
 	watcher.SetAndNotify(key, cert, ca)
 	select {
-	case <-watch1:
+	case keyCertBundle := <-watch1:
+		if string(keyCertBundle.KeyPem) != string(key) || string(keyCertBundle.CertPem) != string(cert) ||
+			string(keyCertBundle.CABundle) != string(ca) {
+			t.Errorf("got wrong keyCertBundle %v", keyCertBundle)
+		}
 	default:
 		t.Errorf("watched non keyCertBundle")
 	}
@@ -49,7 +53,11 @@ func TestWatcher(t *testing.T) {
 	// 3. new watcher get notified immediately
 	watch2 := watcher.AddWatcher()
 	select {
-	case <-watch2:
+	case keyCertBundle := <-watch2:
+		if string(keyCertBundle.KeyPem) != string(key) || string(keyCertBundle.CertPem) != string(cert) ||
+			string(keyCertBundle.CABundle) != string(ca) {
+			t.Errorf("got wrong keyCertBundle %v", keyCertBundle)
+		}
 	default:
 		t.Errorf("watched non keyCertBundle")
 	}
@@ -95,18 +103,25 @@ func TestWatcherFromFile(t *testing.T) {
 	tmpDir, err := ioutil.TempDir(os.TempDir(), t.Name())
 	g.Expect(err).To(BeNil())
 
-	key := path.Join(tmpDir, "key.pem")
-	cert := path.Join(tmpDir, "cert.pem")
-	ca := path.Join(tmpDir, "ca.pem")
+	key := []byte("key")
+	cert := []byte("cert")
+	ca := []byte("caBundle")
+	keyFile := path.Join(tmpDir, "key.pem")
+	certFile := path.Join(tmpDir, "cert.pem")
+	caFile := path.Join(tmpDir, "ca.pem")
 
-	ioutil.WriteFile(key, []byte("key"), os.ModePerm)
-	ioutil.WriteFile(cert, []byte("cert"), os.ModePerm)
-	ioutil.WriteFile(ca, []byte("ca"), os.ModePerm)
+	ioutil.WriteFile(keyFile, key, os.ModePerm)
+	ioutil.WriteFile(certFile, cert, os.ModePerm)
+	ioutil.WriteFile(caFile, ca, os.ModePerm)
 
 	// 2. set key cert bundle
-	watcher.SetFromFilesAndNotify(key, cert, ca)
+	watcher.SetFromFilesAndNotify(keyFile, certFile, caFile)
 	select {
-	case <-watch1:
+	case keyCertBundle := <-watch1:
+		if string(keyCertBundle.KeyPem) != string(key) || string(keyCertBundle.CertPem) != string(cert) ||
+			string(keyCertBundle.CABundle) != string(ca) {
+			t.Errorf("got wrong keyCertBundle %v", keyCertBundle)
+		}
 	default:
 		t.Errorf("watched non keyCertBundle")
 	}
@@ -114,7 +129,11 @@ func TestWatcherFromFile(t *testing.T) {
 	// 3. new watcher get notified immediately
 	watch2 := watcher.AddWatcher()
 	select {
-	case <-watch2:
+	case keyCertBundle := <-watch2:
+		if string(keyCertBundle.KeyPem) != string(key) || string(keyCertBundle.CertPem) != string(cert) ||
+			string(keyCertBundle.CABundle) != string(ca) {
+			t.Errorf("got wrong keyCertBundle %v", keyCertBundle)
+		}
 	default:
 		t.Errorf("watched non keyCertBundle")
 	}
