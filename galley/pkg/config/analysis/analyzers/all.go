@@ -39,6 +39,7 @@ func All() []analysis.Analyzer {
 		&annotations.K8sAnalyzer{},
 		&authz.AuthorizationPoliciesAnalyzer{},
 		&deployment.ServiceAssociationAnalyzer{},
+		&deployment.ApplicationUIDAnalyzer{},
 		&deprecation.FieldAnalyzer{},
 		&gateway.IngressGatewayPortAnalyzer{},
 		&gateway.CertificateAnalyzer{},
