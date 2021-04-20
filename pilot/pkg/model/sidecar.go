@@ -186,7 +186,7 @@ func DefaultSidecarScopeForNamespace(ps *PushContext, configNamespace string) *S
 		EgressListeners:    []*IstioEgressListenerWrapper{defaultEgressListener},
 		services:           defaultEgressListener.services,
 		destinationRules:   make(map[host.Name]*config.Config),
-		servicesByHostname: make(map[host.Name]*Service),
+		servicesByHostname: make(map[host.Name]*Service, len(defaultEgressListener.services)),
 		configDependencies: make(map[uint32]struct{}),
 		RootNamespace:      ps.Mesh.RootNamespace,
 		Version:            ps.PushVersion,
@@ -256,17 +256,17 @@ func ConvertToSidecarScope(ps *PushContext, sidecarConfig *config.Config, config
 	}
 
 	out.AddConfigDependencies(ConfigKey{
-		sidecarConfig.GroupVersionKind,
-		sidecarConfig.Name,
-		sidecarConfig.Namespace,
+		Kind:      gvk.Sidecar,
+		Name:      sidecarConfig.Name,
+		Namespace: sidecarConfig.Namespace,
 	})
 
-	out.EgressListeners = make([]*IstioEgressListenerWrapper, 0)
 	egressConfigs := sidecar.Egress
 	// If egress not set, setup a default listener
 	if len(egressConfigs) == 0 {
 		egressConfigs = append(egressConfigs, &networking.IstioEgressListener{Hosts: []string{"*/*"}})
 	}
+	out.EgressListeners = make([]*IstioEgressListenerWrapper, 0, len(egressConfigs))
 	for _, e := range egressConfigs {
 		out.EgressListeners = append(out.EgressListeners,
 			convertIstioListenerToWrapper(ps, configNamespace, e))
@@ -371,7 +371,7 @@ func ConvertToSidecarScope(ps *PushContext, sidecarConfig *config.Config, config
 	// Now that we have all the services that sidecars using this scope (in
 	// this config namespace) will see, identify all the destinationRules
 	// that these services need
-	out.servicesByHostname = make(map[host.Name]*Service)
+	out.servicesByHostname = make(map[host.Name]*Service, len(out.services))
 	out.destinationRules = make(map[host.Name]*config.Config)
 	for _, s := range out.services {
 		out.servicesByHostname[s.Hostname] = s
@@ -538,7 +538,6 @@ func (sc *SidecarScope) AddConfigDependencies(dependencies ...ConfigKey) {
 	if sc == nil {
 		return
 	}
-
 	if sc.configDependencies == nil {
 		sc.configDependencies = make(map[uint32]struct{})
 	}
