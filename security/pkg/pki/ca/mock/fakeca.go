@@ -29,7 +29,7 @@ type FakeCA struct {
 }
 
 // Sign returns the SignErr if SignErr is not nil, otherwise, it returns SignedCert.
-func (ca *FakeCA) Sign(csr []byte, certOpts *ca.CertOpts) ([]byte, error) {
+func (ca *FakeCA) Sign(csr []byte, certOpts ca.CertOpts) ([]byte, error) {
 	ca.ReceivedIDs = certOpts.SubjectIDs
 	if ca.SignErr != nil {
 		return nil, ca.SignErr
@@ -38,7 +38,7 @@ func (ca *FakeCA) Sign(csr []byte, certOpts *ca.CertOpts) ([]byte, error) {
 }
 
 // SignWithCertChain returns the SignErr if SignErr is not nil, otherwise, it returns SignedCert and the cert chain.
-func (ca *FakeCA) SignWithCertChain(csr []byte, certOpts *ca.CertOpts) ([]byte, error) {
+func (ca *FakeCA) SignWithCertChain(csr []byte, certOpts ca.CertOpts) ([]byte, error) {
 	if ca.SignErr != nil {
 		return nil, ca.SignErr
 	}

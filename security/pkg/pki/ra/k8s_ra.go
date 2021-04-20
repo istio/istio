@@ -67,7 +67,7 @@ func (r *KubernetesRA) kubernetesSign(csrPEM []byte, csrName string, caCertFile 
 }
 
 // Sign takes a PEM-encoded CSR and cert opts, and returns a certificate signed by k8s CA.
-func (r *KubernetesRA) Sign(csrPEM []byte, certOpts *ca.CertOpts) ([]byte, error) {
+func (r *KubernetesRA) Sign(csrPEM []byte, certOpts ca.CertOpts) ([]byte, error) {
 	_, err := preSign(r.raOpts, csrPEM, certOpts.SubjectIDs, certOpts.TTL, certOpts.ForCA)
 	if err != nil {
 		return nil, err
@@ -77,7 +77,7 @@ func (r *KubernetesRA) Sign(csrPEM []byte, certOpts *ca.CertOpts) ([]byte, error
 }
 
 // SignWithCertChain is similar to Sign but returns the leaf cert and the entire cert chain.
-func (r *KubernetesRA) SignWithCertChain(csrPEM []byte, certOpts *ca.CertOpts) ([]byte, error) {
+func (r *KubernetesRA) SignWithCertChain(csrPEM []byte, certOpts ca.CertOpts) ([]byte, error) {
 	cert, err := r.Sign(csrPEM, certOpts)
 	if err != nil {
 		return nil, err

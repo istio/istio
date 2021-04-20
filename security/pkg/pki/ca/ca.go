@@ -303,13 +303,13 @@ func (ca *IstioCA) Run(stopChan chan struct{}) {
 
 // Sign takes a PEM-encoded CSR and cert opts, and returns a signed certificate.
 // TODO(myidpt): Add error code to identify the Sign error types.
-func (ca *IstioCA) Sign(csrPEM []byte, certOpts *CertOpts) (
+func (ca *IstioCA) Sign(csrPEM []byte, certOpts CertOpts) (
 	[]byte, error) {
 	return ca.sign(csrPEM, certOpts.SubjectIDs, certOpts.TTL, true, certOpts.ForCA)
 }
 
 // SignWithCertChain is similar to Sign but returns the leaf cert and the entire cert chain.
-func (ca *IstioCA) SignWithCertChain(csrPEM []byte, certOpts *CertOpts) (
+func (ca *IstioCA) SignWithCertChain(csrPEM []byte, certOpts CertOpts) (
 	[]byte, error) {
 	return ca.signWithCertChain(csrPEM, certOpts.SubjectIDs, certOpts.TTL, true, certOpts.ForCA)
 }

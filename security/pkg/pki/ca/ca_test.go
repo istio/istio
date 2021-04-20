@@ -374,7 +374,7 @@ func TestSignCSRForWorkload(t *testing.T) {
 		}
 
 		requestedTTL := 30 * time.Minute
-		caCertOpts := &CertOpts{
+		caCertOpts := CertOpts{
 			SubjectIDs: []string{subjectID},
 			TTL:        requestedTTL,
 			ForCA:      false,
@@ -452,7 +452,7 @@ func TestSignCSRForCA(t *testing.T) {
 		}
 
 		requestedTTL := 30 * 24 * time.Hour
-		caCertOpts := &CertOpts{
+		caCertOpts := CertOpts{
 			SubjectIDs: []string{subjectID},
 			TTL:        requestedTTL,
 			ForCA:      true,
@@ -528,7 +528,7 @@ func TestSignCSRTTLError(t *testing.T) {
 			t.Errorf("%s: createCA error: %v", id, err)
 		}
 
-		caCertOpts := &CertOpts{
+		caCertOpts := CertOpts{
 			SubjectIDs: []string{subjectID},
 			TTL:        3 * time.Hour,
 			ForCA:      false,
@@ -607,7 +607,7 @@ func TestSignWithCertChain(t *testing.T) {
 		t.Error(err)
 	}
 
-	caCertOpts := &CertOpts{
+	caCertOpts := CertOpts{
 		SubjectIDs: []string{"localhost"},
 		TTL:        time.Hour,
 		ForCA:      false,

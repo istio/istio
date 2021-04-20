@@ -37,9 +37,9 @@ var serverCaLog = log.RegisterScope("serverca", "Citadel server log", 0)
 // CertificateAuthority contains methods to be supported by a CA.
 type CertificateAuthority interface {
 	// Sign generates a certificate for a workload or CA, from the given CSR and cert opts.
-	Sign(csrPEM []byte, opt *ca.CertOpts) ([]byte, error)
+	Sign(csrPEM []byte, opts ca.CertOpts) ([]byte, error)
 	// SignWithCertChain is similar to Sign but returns the leaf cert and the entire cert chain.
-	SignWithCertChain(csrPEM []byte, opt *ca.CertOpts) ([]byte, error)
+	SignWithCertChain(csrPEM []byte, opts ca.CertOpts) ([]byte, error)
 	// GetCAKeyCertBundle returns the KeyCertBundle used by CA.
 	GetCAKeyCertBundle() *util.KeyCertBundle
 }
@@ -80,7 +80,7 @@ func (s *Server) CreateCertificate(ctx context.Context, request *pb.IstioCertifi
 	// TODO: Call authorizer.
 
 	_, _, certChainBytes, rootCertBytes := s.ca.GetCAKeyCertBundle().GetAll()
-	certOpts := &ca.CertOpts{
+	certOpts := ca.CertOpts{
 		SubjectIDs: caller.Identities,
 		TTL:        time.Duration(request.ValidityDuration) * time.Second,
 		ForCA:      false,
