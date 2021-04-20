@@ -77,11 +77,15 @@ func (t *T) Run(testFn oneToOneTest) {
 //      ingr.CallWithRetryOrFail(...)
 //    })
 func (t *T) RunFromClusters(testFn oneClusterOneTest) {
-	t.fromEachCluster(t.rootCtx, func(ctx framework.TestContext, c cluster.Cluster) {
-		t.toEachDeployment(ctx, func(ctx framework.TestContext, dstInstances echo.Instances) {
-			t.setupDst(ctx, dstInstances)
-			testFn(ctx, c, dstInstances)
-		})
+	t.toEachDeployment(t.rootCtx, func(ctx framework.TestContext, dstInstances echo.Instances) {
+		t.setupPair(ctx, nil, echo.Services{dstInstances})
+		if len(ctx.Clusters()) == 1 {
+			testFn(ctx, ctx.Clusters()[0], dstInstances)
+		} else {
+			t.fromEachCluster(ctx, func(ctx framework.TestContext, c cluster.Cluster) {
+				testFn(ctx, c, dstInstances)
+			})
+		}
 	})
 }
 
@@ -121,26 +125,13 @@ func (t *T) RunToN(n int, testFn oneToNTest) {
 }
 
 func (t *T) RunFromIngress(testFn ingressTest) {
-	i := istio.GetOrFail(t.rootCtx, t.rootCtx)
-	t.toEachDeployment(t.rootCtx, func(ctx framework.TestContext, dst echo.Instances) {
-		t.setupPair(ctx, nil, echo.Services{dst})
-		for _, c := range ctx.Clusters() {
-			c := c
-			doTest := func(t framework.TestContext) {
-				ingr := i.IngressFor(c)
-				if ingr == nil {
-					t.Skipf("no ingress for %s", c.StableName())
-				}
-				testFn(t, ingr, dst)
-			}
-			if len(ctx.Clusters()) == 1 {
-				doTest(ctx)
-			} else {
-				ctx.NewSubTestf("from %s", c.StableName()).Run(func(t framework.TestContext) {
-					doTest(t)
-				})
-			}
+	t.RunFromClusters(func(t framework.TestContext, src cluster.Cluster, dst echo.Instances) {
+		i := istio.GetOrFail(t, t)
+		ingr := i.IngressFor(src)
+		if ingr == nil {
+			t.Skipf("no ingress for %s", src.StableName())
 		}
+		testFn(t, ingr, dst)
 	})
 }
 

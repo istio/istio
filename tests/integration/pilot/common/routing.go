@@ -69,7 +69,8 @@ func httpVirtualService(gateway, host string, port int) string {
 		Gateway            string
 		VirtualServiceHost string
 		Port               int
-	}{gateway, host, port})
+		MatchScheme        string
+	}{gateway, host, port, ""})
 }
 
 const gatewayTmpl = `
@@ -95,22 +96,15 @@ spec:
 ---
 `
 
-type gatewayTmplParams struct {
-	Host            string
-	GatewayPortName string
-	GatewayProtocol string
-	Credential      string
-}
-
 func httpGateway(host string) string {
-	return tmpl.MustEvaluate(gatewayTmpl, gatewayTmplParams{
-		host, "http", "HTTP", "",
-	})
-}
-
-func httpsGateway(host, credential string) string {
-	return tmpl.MustEvaluate(gatewayTmpl, gatewayTmplParams{
-		host, "http", "HTTP", credential,
+	return tmpl.MustEvaluate(gatewayTmpl, struct {
+		GatewayHost     string
+		GatewayPort     int
+		GatewayPortName string
+		GatewayProtocol string
+		Credential      string
+	}{
+		host, 80, "http", "HTTP", "",
 	})
 }
 
@@ -490,7 +484,7 @@ spec:
 							}
 							// echotest should have filtered the deployment to only contain reachable clusters
 							targetClusters := dests.Instances().Match(echo.Service(host)).Clusters()
-							if len(targetClusters.ByNetwork()[src.Config().Cluster.NetworkName()]) > 1 {
+							if len(targetClusters.ByNetwork()[src.(echo.Instance).Config().Cluster.NetworkName()]) > 1 {
 								// Conditionally check reached clusters to work around connection load balancing issues
 								// See https://github.com/istio/istio/issues/32208 for details
 								// We want to skip this for requests from the cross-network pod
@@ -650,7 +644,12 @@ func gatewayCases() []TrafficTestCase {
 		}
 	}
 
+	// allows setting the target indirectly via the host header
 	fqdnHostHeader := func(src echo.Caller, dsts echo.Services, opts *echo.CallOptions) {
+		if opts.Headers == nil {
+			opts.Headers = map[string][]string{}
+		}
+		opts.Target = nil
 		opts.Headers["Host"] = []string{dsts[0][0].Config().FQDN()}
 	}
 
@@ -1068,7 +1067,8 @@ func selfCallsCases() []TrafficTestCase {
 			workloadAgnostic: true,
 			sourceFilters:    sourceFilters,
 			comboFilters:     comboFilters,
-			setupOpts: func(src echo.Instance, _ echo.Services, opts *echo.CallOptions) {
+			setupOpts: func(srcCaller echo.Caller, _ echo.Services, opts *echo.CallOptions) {
+				src := srcCaller.(echo.Instance)
 				workloads, _ := src.Workloads()
 				opts.Address = workloads[0].Address()
 				// the framework will try to set this when enumerating test cases

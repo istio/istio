@@ -77,6 +77,7 @@ func (t *T) setupPair(ctx framework.TestContext, src echo.Instances, dsts echo.S
 			ctx.Fatal(err)
 		}
 	}
+	t.setupDst(ctx, dsts.Instances())
 }
 
 func (t *T) SetupForDestination(setupFn dstSetupFn) *T {
