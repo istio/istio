@@ -85,12 +85,6 @@ type SidecarScope struct {
 	// services/virtual services in that listener.
 	EgressListeners []*IstioEgressListenerWrapper
 
-	// HasCustomIngressListeners is a convenience variable that if set to
-	// true indicates that the config object has one or more listeners.
-	// If set to false, networking code should derive the inbound
-	// listeners from the proxy service instances
-	HasCustomIngressListeners bool
-
 	// Union of services imported across all egress listeners for use by CDS code.
 	services           []*Service
 	servicesByHostname map[host.Name]*Service
@@ -402,10 +396,6 @@ func ConvertToSidecarScope(ps *PushContext, sidecarConfig *config.Config, config
 		out.OutboundTrafficPolicy = sidecar.OutboundTrafficPolicy
 	}
 
-	if len(sidecar.Ingress) > 0 {
-		out.HasCustomIngressListeners = true
-	}
-
 	return out
 }
 
@@ -495,6 +485,19 @@ func (sc *SidecarScope) GetEgressListenerForRDS(port int, bind string) *IstioEgr
 	// This should never be reached unless user explicitly set an empty array for egress
 	// listeners which we actually forbid
 	return nil
+}
+
+// HasIngressListener returns if the sidecar scope has ingress listener set
+func (sc *SidecarScope) HasIngressListener() bool {
+	if sc == nil {
+		return false
+	}
+
+	if sc.Sidecar == nil || len(sc.Sidecar.Ingress) == 0 {
+		return false
+	}
+
+	return true
 }
 
 // Services returns the list of services imported by this egress listener
