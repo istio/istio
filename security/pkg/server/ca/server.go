@@ -80,7 +80,11 @@ func (s *Server) CreateCertificate(ctx context.Context, request *pb.IstioCertifi
 	// TODO: Call authorizer.
 
 	_, _, certChainBytes, rootCertBytes := s.ca.GetCAKeyCertBundle().GetAll()
-	certOpts := ca.NewCertOpts(caller.Identities, time.Duration(request.ValidityDuration)*time.Second, false)
+	certOpts := &ca.CertOpts{
+		SubjectIDs: caller.Identities,
+		TTL:        time.Duration(request.ValidityDuration) * time.Second,
+		ForCA:      false,
+	}
 	cert, signErr := s.ca.Sign([]byte(request.Csr), certOpts)
 	if signErr != nil {
 		serverCaLog.Errorf("CSR signing error (%v)", signErr.Error())

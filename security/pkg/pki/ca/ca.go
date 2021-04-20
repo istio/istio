@@ -75,15 +75,6 @@ type CertOpts struct {
 	ForCA bool
 }
 
-// NewCertOpts creates new cert options based on the given inputs.
-func NewCertOpts(subjectIDs []string, ttl time.Duration, forCA bool) *CertOpts {
-	return &CertOpts{
-		subjectIDs,
-		ttl,
-		forCA,
-	}
-}
-
 const (
 	// selfSignedCA means the Istio CA uses a self signed certificate.
 	selfSignedCA caTypes = iota
