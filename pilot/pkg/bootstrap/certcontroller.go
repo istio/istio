@@ -265,8 +265,13 @@ func (s *Server) initCertificateWatches(tlsOptions TLSOptions) error {
 
 func (s *Server) reloadIstiodCert(watchCh <-chan keycertbundle.KeyCertBundle, stopCh <-chan struct{}) {
 	for {
-		if err := s.loadIstiodCert(watchCh, stopCh); err != nil {
-			log.Errorf("reload istiod cert failed: %v", err)
+		select {
+		case <-stopCh:
+			return
+		default:
+			if err := s.loadIstiodCert(watchCh, stopCh); err != nil {
+				log.Errorf("reload istiod cert failed: %v", err)
+			}
 		}
 	}
 }
