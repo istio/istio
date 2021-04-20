@@ -168,11 +168,9 @@ By default it will use the default serviceAccount from (istio-system) namespace 
 			var printErr error
 			// Iterate all istiod pods for retrieving debug information
 			for _, pod := range podList {
-				fmt.Println("")
 				fmt.Println("------------------------------------------------------------------------------")
-				fmt.Println("--- istioctl x debug for pod: ", pod.Name)
+				fmt.Println("istioctl x debug for pod: ", pod.Name + "." + pod.Namespace)
 				fmt.Println("------------------------------------------------------------------------------")
-				fmt.Println("")
 				if centralOpts.Xds == "" {
 					isNull = true
 					f, kcerr := kubeClient.NewPortForwarder(pod.Name, pod.Namespace, "", 0, podPort)
