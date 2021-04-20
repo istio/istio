@@ -417,6 +417,10 @@ func istioctlWithStderr(t test.Failer, i istioctl.Instance, ns string, useKube b
 		args = append(args, "--namespace", ns)
 	}
 	args = append(args, fmt.Sprintf("--use-kube=%t", useKube))
+	// Suppress some cluster-wide checks. This ensures we do not fail tests when running on clusters that trigger
+	// analyzers we didn't intended to test.
+	args = append(args, "--suppress=IST0139=*")
+	args = append(args, "--suppress=IST0002=CustomResourceDefinition *")
 	args = append(args, extraArgs...)
 
 	return i.Invoke(args)
