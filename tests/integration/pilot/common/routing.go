@@ -476,8 +476,13 @@ spec:
 							}
 							// echotest should have filtered the deployment to only contain reachable clusters
 							targetClusters := dests.Instances().Match(echo.Service(host)).Clusters()
-							if err := hostResponses.CheckReachedClusters(targetClusters); err != nil {
-								return fmt.Errorf("did not reach all clusters for %s: %v", host, err)
+							if len(targetClusters.ByNetwork()[src.Config().Cluster.NetworkName()]) > 1 {
+								// Conditionally check reached clusters to work around connection load balancing issues
+								// See https://github.com/istio/istio/issues/32208 for details
+								// We want to skip this for requests from the cross-network pod
+								if err := hostResponses.CheckReachedClusters(targetClusters); err != nil {
+									return fmt.Errorf("did not reach all clusters for %s: %v", host, err)
+								}
 							}
 						}
 						return nil
