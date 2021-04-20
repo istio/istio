@@ -164,7 +164,7 @@ func TestDescribe(t *testing.T) {
 					return fmt.Errorf("output:\n%v\n does not match regex:\n%v", output, describeSvcAOutput)
 				}
 				return nil
-			}, retry.Timeout(time.Second*5))
+			}, retry.Timeout(time.Second*20))
 
 			retry.UntilSuccessOrFail(t, func() error {
 				podID, err := getPodID(apps.PodA[0])
@@ -183,7 +183,7 @@ func TestDescribe(t *testing.T) {
 					return fmt.Errorf("output:\n%v\n does not match regex:\n%v", output, describePodAOutput)
 				}
 				return nil
-			}, retry.Timeout(time.Second*5))
+			}, retry.Timeout(time.Second*20))
 		})
 }
 
