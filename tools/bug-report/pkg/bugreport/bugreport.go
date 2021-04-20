@@ -414,11 +414,10 @@ func runAnalyze(config *config.BugReportConfig, params *content.Params) {
 		log.Error(err.Error())
 		return
 	}
-	common.LogAndPrintf("\n################################################################\n")
+	common.LogAndPrintf("\nAnalysis Report:\n")
 	common.LogAndPrintf(out[common.StrNamespaceAll])
-	common.LogAndPrintf("\n################################################################\n")
-	writeFiles(archive.AnalyzePath(tempDir, common.StrNamespaceAll), out)
 	common.LogAndPrintf("\n")
+	writeFiles(archive.AnalyzePath(tempDir, common.StrNamespaceAll), out)
 }
 
 func writeFiles(dir string, files map[string]string) {
