@@ -28,6 +28,7 @@ import (
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	"github.com/gogo/protobuf/types"
 
+	"istio.io/api/annotation"
 	meshAPI "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
@@ -57,6 +58,9 @@ const (
 	// "component" suffix is for istio_build metric.
 	v2Prefixes = "reporter=,"
 	v2Suffix   = ",component"
+
+	// TODO: add this to istio/api repo.
+	extraTagsAnnotation = "sidecar.istio.io/extraStatTags"
 )
 
 // Config for creating a bootstrap file.
@@ -180,6 +184,21 @@ var DefaultStatTags = []string{
 func getStatsOptions(meta *model.BootstrapNodeMetadata) []option.Instance {
 	nodeIPs := meta.InstanceIPs
 	config := meta.ProxyConfig
+	annotations, err := readPodAnnotations()
+	if err != nil {
+		if os.IsNotExist(err) {
+			log.Debugf("failed to read pod annotations: %v", err)
+		} else {
+			log.Warnf("failed to read pod annotations: %v", err)
+		}
+		return []option.Instance{}
+	}
+
+	tagAnno := annotations[extraTagsAnnotation]
+	prefixAnno := annotations[annotation.SidecarStatsInclusionRegexps.Name]
+	RegexAnno := annotations[annotation.SidecarStatsInclusionRegexps.Name]
+	suffixAnno := annotations[annotation.SidecarStatsInclusionSuffixes.Name]
+
 	parseOption := func(metaOption string, required string, proxyConfigOption []string) []string {
 		var inclusionOption []string
 		if len(metaOption) > 0 {
@@ -209,7 +228,7 @@ func getStatsOptions(meta *model.BootstrapNodeMetadata) []option.Instance {
 			extraStatTags = append(extraStatTags, tag)
 		}
 	}
-	for _, tag := range strings.Split(meta.ExtraStatTags, ",") {
+	for _, tag := range strings.Split(tagAnno, ",") {
 		if tag != "" {
 			extraStatTags = append(extraStatTags, tag)
 		}
@@ -224,11 +243,11 @@ func getStatsOptions(meta *model.BootstrapNodeMetadata) []option.Instance {
 	}
 
 	return []option.Instance{
-		option.EnvoyStatsMatcherInclusionPrefix(parseOption(meta.StatsInclusionPrefixes,
+		option.EnvoyStatsMatcherInclusionPrefix(parseOption(prefixAnno,
 			requiredEnvoyStatsMatcherInclusionPrefixes, proxyConfigPrefixes)),
-		option.EnvoyStatsMatcherInclusionSuffix(parseOption(meta.StatsInclusionSuffixes,
+		option.EnvoyStatsMatcherInclusionSuffix(parseOption(RegexAnno,
 			rbacEnvoyStatsMatcherInclusionSuffix, proxyConfigSuffixes)),
-		option.EnvoyStatsMatcherInclusionRegexp(parseOption(meta.StatsInclusionRegexps, "", proxyConfigRegexps)),
+		option.EnvoyStatsMatcherInclusionRegexp(parseOption(suffixAnno, "", proxyConfigRegexps)),
 		option.EnvoyExtraStatTags(extraStatTags),
 	}
 }
@@ -529,6 +548,14 @@ func extractInstanceLabels(plat platform.Environment, meta *model.BootstrapNodeM
 
 func readPodLabels() (map[string]string, error) {
 	b, err := ioutil.ReadFile(constants.PodInfoLabelsPath)
+	if err != nil {
+		return nil, err
+	}
+	return ParseDownwardAPI(string(b))
+}
+
+func readPodAnnotations() (map[string]string, error) {
+	b, err := ioutil.ReadFile(constants.PodInfoAnnotationsPath)
 	if err != nil {
 		return nil, err
 	}

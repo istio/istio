@@ -443,11 +443,6 @@ type BootstrapNodeMetadata struct {
 	// of the workload instance (ex: k8s deployment for a k8s pod).
 	Owner string `json:"OWNER,omitempty"`
 
-	StatsInclusionPrefixes string `json:"sidecar.istio.io/statsInclusionPrefixes,omitempty"`
-	StatsInclusionRegexps  string `json:"sidecar.istio.io/statsInclusionRegexps,omitempty"`
-	StatsInclusionSuffixes string `json:"sidecar.istio.io/statsInclusionSuffixes,omitempty"`
-	ExtraStatTags          string `json:"sidecar.istio.io/extraStatTags,omitempty"`
-
 	// ProxyViaAgent specifies whether xDS streams are proxied through the agent.
 	ProxyViaAgent bool `json:"PROXY_VIA_AGENT,omitempty"`
 
