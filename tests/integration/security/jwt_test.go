@@ -57,8 +57,10 @@ func TestRequestAuthentication(t *testing.T) {
 
 			jwtServer := applyYAML("../../../samples/jwt-server/jwt-server.yaml", ns)
 			defer t.Config().DeleteYAMLOrFail(t, ns.Name(), jwtServer...)
-			if _, _, err := kube.WaitUntilServiceEndpointsAreReady(t.Clusters().Default(), ns.Name(), "jwt-server"); err != nil {
-				t.Fatalf("Wait for jwt-server server failed: %v", err)
+			for _, cluster := range t.Clusters() {
+				if _, _, err := kube.WaitUntilServiceEndpointsAreReady(cluster, ns.Name(), "jwt-server"); err != nil {
+					t.Fatalf("Wait for jwt-server server failed: %v", err)
+				}
 			}
 
 			callCount := 1
