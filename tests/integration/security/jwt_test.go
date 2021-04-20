@@ -67,7 +67,7 @@ func TestRequestAuthentication(t *testing.T) {
 				callCount = util.CallsPerCluster * len(t.Clusters())
 			}
 
-			t.NewSubTest("").Run(func(t framework.TestContext) {
+			t.NewSubTest("jwt-authn").Run(func(t framework.TestContext) {
 				testCases := []authn.TestCase{
 					{
 						Name:   "valid-token-noauthz",
