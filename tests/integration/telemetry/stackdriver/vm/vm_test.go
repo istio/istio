@@ -102,7 +102,7 @@ func traceEqual(got, want *cloudtrace.Trace) bool {
 }
 
 func gotRequestCountMetrics(wantClient, wantServer *monitoring.TimeSeries) bool {
-	ts, err := sdInst.ListTimeSeries()
+	ts, err := sdInst.ListTimeSeries(ns.Name())
 	if err != nil {
 		log.Errorf("could not get list of time-series from stackdriver: %v", err)
 		return false
@@ -130,7 +130,7 @@ func gotRequestCountMetrics(wantClient, wantServer *monitoring.TimeSeries) bool 
 }
 
 func gotLogEntry(want *loggingpb.LogEntry) bool {
-	entries, err := sdInst.ListLogEntries(stackdriver.ServerAccessLog)
+	entries, err := sdInst.ListLogEntries(stackdriver.ServerAccessLog, ns.Name())
 	if err != nil {
 		log.Errorf("failed to get list of log entries from stackdriver: %v", err)
 		return false
@@ -147,7 +147,7 @@ func gotLogEntry(want *loggingpb.LogEntry) bool {
 }
 
 func gotTrace(want *cloudtrace.Trace) bool {
-	traces, err := sdInst.ListTraces()
+	traces, err := sdInst.ListTraces(ns.Name())
 	if err != nil {
 		log.Errorf("failed to retrieve list of tracespans from stackdriver: %v", err)
 		return false

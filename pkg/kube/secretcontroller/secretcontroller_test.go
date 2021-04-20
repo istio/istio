@@ -122,12 +122,7 @@ func Test_SecretController(t *testing.T) {
 	})
 	c := StartSecretController(clientset, addCallback, updateCallback, deleteCallback, secretNamespace, time.Microsecond, stopCh)
 	t.Run("sync timeout", func(t *testing.T) {
-		retry.UntilSuccessOrFail(t, func() error {
-			if !c.HasSynced() {
-				return fmt.Errorf("expected secretcontroller synctimeout to expire")
-			}
-			return nil
-		}, retry.Timeout(50*time.Millisecond))
+		retry.UntilOrFail(t, c.HasSynced, retry.Timeout(2*time.Second))
 	})
 	kube.WaitForCacheSyncInterval(stopCh, time.Microsecond, c.informer.HasSynced)
 	clientset.RunAndWait(stopCh)

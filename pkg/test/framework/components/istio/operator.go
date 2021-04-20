@@ -715,7 +715,7 @@ func (i *operatorComponent) configureDirectAPIServiceAccessForCluster(ctx resour
 		// giving 0 clusters to ctx.Config() means using all clusters
 		return nil
 	}
-	if err := ctx.Config(clusters...).ApplyYAML(cfg.SystemNamespace, secret); err != nil {
+	if err := ctx.Config(clusters...).ApplyYAMLNoCleanup(cfg.SystemNamespace, secret); err != nil {
 		return fmt.Errorf("failed applying remote secret to clusters: %v", err)
 	}
 	return nil

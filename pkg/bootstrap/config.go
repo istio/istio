@@ -77,6 +77,7 @@ func (cfg Config) toTemplateParams() (map[string]interface{}, error) {
 
 	opts = append(opts,
 		option.NodeID(cfg.ID),
+		option.NodeType(cfg.ID),
 		option.PilotSubjectAltName(cfg.Metadata.PilotSubjectAltName),
 		option.ProxyViaAgent(cfg.Metadata.ProxyViaAgent),
 		option.PilotCertProvider(cfg.Metadata.PilotCertProvider),
