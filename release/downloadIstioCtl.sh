@@ -103,9 +103,15 @@ ARCH_SUPPORTED=$(echo "$ISTIO_VERSION" | awk -F'.' '{print $1"."$2}' )
 # Istio 1.5 and below do not have arch support
 ARCH_UNSUPPORTED="1.5"
 
+VERSION_LEN=${#ARCH_SUPPORTED}
+# for 1.10 and above, append 0 to unsupported version number for better float comparision.
+if [ "$VERSION_LEN" -eq 4 ]; then
+  ARCH_UNSUPPORTED="1.05"
+fi
+
 if [ "${OS}" = "Linux" ] ; then
   # This checks if 1.6 <= 1.5 or 1.4 <= 1.5
-  if awk 'BEGIN {exit !('$ARCH_SUPPORTED' <= '$ARCH_UNSUPPORTED')}'; then
+  if [ "$(expr "${ARCH_SUPPORTED}" \<= "${ARCH_UNSUPPORTED}")" -eq 1 ]; then
     without_arch
   else
     with_arch
