@@ -960,7 +960,7 @@ spec:
   selector:
     app: b`, FindPortByName("http").ServicePort, FindPortByName("http").InstancePort)
 		cases = append(cases, TrafficTestCase{
-			name:   "case 1 both match",
+			name:   fmt.Sprintf("case 1 both match in cluster %v", c.Config().Cluster.StableName()),
 			config: svc,
 			call:   c.CallWithRetryOrFail,
 			opts: echo.CallOptions{
@@ -988,7 +988,7 @@ spec:
   selector:
     app: b`, FindPortByName("http").ServicePort, WorkloadPorts[0].Port)
 		cases = append(cases, TrafficTestCase{
-			name:   "case 2 service port match",
+			name:   fmt.Sprintf("case 2 service port match in cluster %v", c.Config().Cluster.StableName()),
 			config: svc,
 			call:   c.CallWithRetryOrFail,
 			opts: echo.CallOptions{
@@ -1016,7 +1016,7 @@ spec:
   selector:
     app: b`, FindPortByName("http").InstancePort)
 		cases = append(cases, TrafficTestCase{
-			name:   "case 3 target port match",
+			name:   fmt.Sprintf("case 3 target port match in cluster %v", c.Config().Cluster.StableName()),
 			config: svc,
 			call:   c.CallWithRetryOrFail,
 			opts: echo.CallOptions{
@@ -1043,7 +1043,7 @@ spec:
   selector:
     app: b`, WorkloadPorts[1].Port)
 		cases = append(cases, TrafficTestCase{
-			name:   "case 4 no match",
+			name:   fmt.Sprintf("case 4 no match in cluster %v", c.Config().Cluster.StableName()),
 			config: svc,
 			call:   c.CallWithRetryOrFail,
 			opts: echo.CallOptions{
