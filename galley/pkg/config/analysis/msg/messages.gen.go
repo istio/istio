@@ -168,6 +168,10 @@ var (
 	// LocalhostListener defines a diag.MessageType for message "LocalhostListener".
 	// Description: A port exposed in a Service is bound to a localhost address
 	LocalhostListener = diag.NewMessageType(diag.Error, "IST0143", "Port %v is exposed in a Service but listens on localhost. It will not be exposed to other pods.")
+
+	// InvalidApplicationUID defines a diag.MessageType for message "InvalidApplicationUID".
+	// Description: Application pods should not run as user ID (UID) 1337
+	InvalidApplicationUID = diag.NewMessageType(diag.Warning, "IST0144", "User ID (UID) 1337 is reserved for the sidecar proxy.")
 )
 
 // All returns a list of all known message types.
@@ -213,6 +217,7 @@ func All() []*diag.MessageType {
 		InsufficientPermissions,
 		UnsupportedKubernetesVersion,
 		LocalhostListener,
+		InvalidApplicationUID,
 	}
 }
 
@@ -614,5 +619,13 @@ func NewLocalhostListener(r *resource.Instance, port string) diag.Message {
 		LocalhostListener,
 		r,
 		port,
+	)
+}
+
+// NewInvalidApplicationUID returns a new diag.Message based on InvalidApplicationUID.
+func NewInvalidApplicationUID(r *resource.Instance) diag.Message {
+	return diag.NewMessage(
+		InvalidApplicationUID,
+		r,
 	)
 }
