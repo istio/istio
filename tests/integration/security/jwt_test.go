@@ -329,6 +329,7 @@ func filters(t framework.TestContext, ns string, skipVM bool) []echotest.Filter 
 		echotest.Not(func(instances echo.Instances) echo.Instances { return instances.Match(echo.IsExternal()) }),
 		echotest.Not(func(instances echo.Instances) echo.Instances { return instances.Match(util.IsMultiversion()) }),
 		func(instances echo.Instances) echo.Instances { return instances.Match(echo.Namespace(ns)) },
+		// TODO(JimmyCYJ): extend clusters to cover cross-cluster traffic.
 		func(instances echo.Instances) echo.Instances {
 			return instances.Match(echo.InCluster(t.Clusters().Default()))
 		},
