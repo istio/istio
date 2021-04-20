@@ -169,7 +169,7 @@ By default it will use the default serviceAccount from (istio-system) namespace 
 			// Iterate all istiod pods for retrieving debug information
 			for _, pod := range podList {
 				fmt.Println("------------------------------------------------------------------------------")
-				fmt.Println("istioctl x debug for pod: ", pod.Name + "." + pod.Namespace)
+				fmt.Println("istioctl x debug for pod: ", pod.Name+"."+pod.Namespace)
 				fmt.Println("------------------------------------------------------------------------------")
 				if centralOpts.Xds == "" {
 					isNull = true
