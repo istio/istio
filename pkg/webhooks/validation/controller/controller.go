@@ -22,7 +22,6 @@ import (
 	"encoding/pem"
 	"errors"
 	"fmt"
-	"io/ioutil"
 	"reflect"
 	"strings"
 	"time"
@@ -43,9 +42,9 @@ import (
 
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/client-go/pkg/apis/networking/v1alpha3"
+	"istio.io/istio/pilot/pkg/keycertbundle"
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/kube"
-	"istio.io/pkg/filewatcher"
 	"istio.io/pkg/log"
 )
 
@@ -57,7 +56,7 @@ type Options struct {
 
 	// File path to the x509 certificate bundle used by the webhook server
 	// and patched into the webhook config.
-	CAPath string
+	CABundleWatcher *keycertbundle.Watcher
 
 	// Name of the k8s validatingwebhookconfiguration resource. This should
 	// match the name in the config template.
@@ -79,8 +78,8 @@ func (o Options) Validate() error {
 	if o.ServiceName == "" || !labels.IsDNS1123Label(o.ServiceName) {
 		errs = multierror.Append(errs, fmt.Errorf("invalid service name: %q", o.ServiceName))
 	}
-	if o.CAPath == "" {
-		errs = multierror.Append(errs, errors.New("CA cert file not specified"))
+	if o.CABundleWatcher == nil {
+		errs = multierror.Append(errs, errors.New("CA bundle watcher not specified"))
 	}
 	return errs.ErrorOrNil()
 }
@@ -89,13 +88,10 @@ func (o Options) Validate() error {
 func (o Options) String() string {
 	buf := &bytes.Buffer{}
 	_, _ = fmt.Fprintf(buf, "WatchedNamespace: %v\n", o.WatchedNamespace)
-	_, _ = fmt.Fprintf(buf, "CAPath: %v\n", o.CAPath)
 	_, _ = fmt.Fprintf(buf, "WebhookConfigName: %v\n", o.WebhookConfigName)
 	_, _ = fmt.Fprintf(buf, "ServiceName: %v\n", o.ServiceName)
 	return buf.String()
 }
-
-type readFileFunc func(filename string) ([]byte, error)
 
 type Controller struct {
 	o               Options
@@ -104,11 +100,6 @@ type Controller struct {
 
 	queue                         workqueue.RateLimitingInterface
 	dryRunOfInvalidConfigRejected bool
-	fw                            filewatcher.FileWatcher
-
-	// unittest hooks
-	readFile      readFileFunc
-	reconcileDone func()
 }
 
 const QuitSignal = "unblock client on queue.Get return and exit the current go routine"
@@ -198,28 +189,17 @@ var (
 )
 
 func New(o Options, client kube.Client) (*Controller, error) {
-	return newController(o, client, filewatcher.NewWatcher, ioutil.ReadFile, nil)
+	return newController(o, client)
 }
 
 func newController(
 	o Options,
 	client kube.Client,
-	newFileWatcher filewatcher.NewFileWatcherFunc,
-	readFile readFileFunc,
-	reconcileDone func(),
 ) (*Controller, error) {
-	caFileWatcher := newFileWatcher()
-	if err := caFileWatcher.Add(o.CAPath); err != nil {
-		return nil, err
-	}
-
 	c := &Controller{
-		o:             o,
-		client:        client,
-		queue:         workqueue.NewRateLimitingQueue(workqueue.DefaultItemBasedRateLimiter()),
-		fw:            caFileWatcher,
-		readFile:      readFile,
-		reconcileDone: reconcileDone,
+		o:      o,
+		client: client,
+		queue:  workqueue.NewRateLimitingQueue(workqueue.DefaultItemBasedRateLimiter()),
 	}
 
 	c.webhookInformer = client.KubeInformer().Admissionregistration().V1().ValidatingWebhookConfigurations()
@@ -229,29 +209,24 @@ func newController(
 }
 
 func (c *Controller) Start(stop <-chan struct{}) {
-	go c.startFileWatcher(stop)
+	go c.startCaBundleWatcher(stop)
 	if !cache.WaitForCacheSync(stop, c.webhookInformer.Informer().HasSynced) {
 		log.Errorf("failed to wait for cache sync")
 		return
 	}
-
-	req := &reconcileRequest{"initial request to kickstart reconciliation"}
-	c.queue.Add(req)
-
 	go c.runWorker()
 
 	<-stop
 	c.queue.Add(&reconcileRequest{QuitSignal})
 }
 
-func (c *Controller) startFileWatcher(stop <-chan struct{}) {
+func (c *Controller) startCaBundleWatcher(stop <-chan struct{}) {
+	watchCh := c.o.CABundleWatcher.AddWatcher()
 	for {
 		select {
-		case ev := <-c.fw.Events(c.o.CAPath):
-			req := &reconcileRequest{fmt.Sprintf("CA file changed: %v", ev)}
+		case <-watchCh:
+			req := &reconcileRequest{"CABundle changed"}
 			c.queue.Add(req)
-		case err := <-c.fw.Errors(c.o.CAPath):
-			scope.Warnf("error watching local CA bundle: %v", err)
 		case <-stop:
 			return
 		}
@@ -294,12 +269,6 @@ func (c *Controller) processNextWorkItem() (cont bool) {
 
 // reconcile the desired state with the kube-apiserver.
 func (c *Controller) reconcileRequest(req *reconcileRequest) error {
-	defer func() {
-		if c.reconcileDone != nil {
-			c.reconcileDone()
-		}
-	}()
-
 	// Stop early if webhook is not present, rather than attempting (and failing) to reconcile permanently
 	// If the webhook is later added a new reconciliation request will trigger it to update
 	_, err := c.webhookInformer.Lister().Get(c.o.WebhookConfigName)
@@ -454,11 +423,7 @@ func init() {
 }
 
 func (c *Controller) loadCABundle() ([]byte, error) {
-	caBundle, err := c.readFile(c.o.CAPath)
-	if err != nil {
-		return nil, &configError{err, "could not read caBundle file"}
-	}
-
+	caBundle := c.o.CABundleWatcher.GetCABundle()
 	if err := verifyCABundle(caBundle); err != nil {
 		return nil, &configError{err, "could not verify caBundle"}
 	}

@@ -204,9 +204,9 @@ func (ms *AuthorizationServer) NumGetFederatedTokenCalls() int {
 func (ms *AuthorizationServer) Start(port int) error {
 	atEndpoint := fmt.Sprintf("/v1/projects/-/serviceAccounts/service-%s@gcp-sa-meshdataplane.iam.gserviceaccount.com:generateAccessToken", FakeProjectNum)
 	mux := http.NewServeMux()
-	mux.HandleFunc("/v1/identitybindingtoken", ms.getFederatedToken)
+	mux.HandleFunc("/v1/token", ms.getFederatedToken)
 	mux.HandleFunc(atEndpoint, ms.getAccessToken)
-	ms.t.Logf("Registered handler for endpoints:\n%s\n%s", atEndpoint, "/v1/identitybindingtoken")
+	ms.t.Logf("Registered handler for endpoints:\n%s\n%s", atEndpoint, "/v1/token")
 	ms.server = &http.Server{
 		Addr:    fmt.Sprintf("127.0.0.1:%d", port),
 		Handler: mux,

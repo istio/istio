@@ -20,14 +20,13 @@ import (
 
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/istio"
-	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/framework/resource"
 	"istio.io/istio/tests/integration/security/sds_ingress/util"
 )
 
 var (
 	inst istio.Instance
-	ns   namespace.Instance
+	apps = &util.EchoDeployments{}
 )
 
 func TestMain(m *testing.M) {
@@ -38,8 +37,9 @@ func TestMain(m *testing.M) {
 		RequireSingleCluster().
 		Setup(istio.Setup(&inst, setupConfig)).
 		Setup(func(ctx resource.Context) (err error) {
-			ns, err = util.SetupTest(ctx)
-			return
+			// Skip VM as eastwest gateway is disabled.
+			ctx.Settings().SkipVM = true
+			return util.SetupTest(ctx, apps)
 		}).
 		Run()
 }
@@ -61,7 +61,7 @@ func TestMtlsGatewaysK8sca(t *testing.T) {
 		NewTest(t).
 		Features("security.ingress.mtls.gateway").
 		Run(func(t framework.TestContext) {
-			util.RunTestMultiMtlsGateways(t, inst, ns)
+			util.RunTestMultiMtlsGateways(t, inst, apps)
 		})
 }
 
@@ -70,6 +70,6 @@ func TestTlsGatewaysK8sca(t *testing.T) {
 		NewTest(t).
 		Features("security.ingress.tls.gateway.K8sca").
 		Run(func(t framework.TestContext) {
-			util.RunTestMultiTLSGateways(t, inst, ns)
+			util.RunTestMultiTLSGateways(t, inst, apps)
 		})
 }

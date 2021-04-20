@@ -91,7 +91,7 @@ spec:
 func TestTrustDomainValidation(t *testing.T) {
 	framework.NewTest(t).Features("security.peer.trust-domain-validation").Run(
 		func(ctx framework.TestContext) {
-			// TODO: remove the skip when https://github.com/istio/istio/issues/28798 is fixed
+			// TODO https://github.com/istio/istio/issues/32294
 			if ctx.Clusters().IsMulticluster() {
 				ctx.Skip()
 			}

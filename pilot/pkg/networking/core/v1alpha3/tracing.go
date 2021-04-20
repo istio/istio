@@ -389,15 +389,6 @@ func defaultTags() []*tracing.CustomTag {
 	}
 }
 
-func getPilotRandomSamplingEnv() float64 {
-	f := features.TraceSampling
-	if f < 0.0 || f > 100.0 {
-		log.Warnf("PILOT_TRACE_SAMPLING out of range: %v", f)
-		return 1.0
-	}
-	return f
-}
-
 func configureSampling(hcmTracing *hpb.HttpConnectionManager_Tracing, providerPercentage float64, proxyCfg *meshconfig.ProxyConfig) {
 	hcmTracing.ClientSampling = &xdstype.Percent{
 		Value: 100.0,
@@ -421,7 +412,7 @@ func configureSampling(hcmTracing *hpb.HttpConnectionManager_Tracing, providerPe
 }
 
 func fallbackSamplingValue(config *meshconfig.ProxyConfig) float64 {
-	sampling := pilotTraceSamplingEnv
+	sampling := features.TraceSampling
 
 	if config.Tracing != nil && config.Tracing.Sampling != 0.0 {
 		sampling = config.Tracing.Sampling

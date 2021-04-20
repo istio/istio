@@ -24,7 +24,6 @@ import (
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	"github.com/spf13/cobra"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/kubectl/pkg/polymorphichelpers"
 
 	"istio.io/istio/istioctl/pkg/clioptions"
 	"istio.io/istio/istioctl/pkg/multixds"
@@ -139,57 +138,78 @@ By default it will use the default serviceAccount from (istio-system) namespace 
 				TypeUrl: TypeDebug,
 			}
 
-			if centralOpts.Xds == "" {
-				svc, err := kubeClient.CoreV1().Services(istioNamespace).Get(context.Background(), istiodServiceName, metav1.GetOptions{})
-				if err != nil {
-					return fmt.Errorf("please specify %q as %v", "--xds-address", err)
+			svc, err := kubeClient.CoreV1().Services(istioNamespace).Get(context.Background(), istiodServiceName, metav1.GetOptions{})
+			if err != nil {
+				return fmt.Errorf("please specify %q as %v", "--xds-address", err)
+			}
+			podPort := 15012
+			for _, v := range svc.Spec.Ports {
+				if v.Name == xdsPortName {
+					podPort = v.TargetPort.IntValue()
 				}
-				namespace, selector, err := polymorphichelpers.SelectorsForObject(svc)
-				if err != nil {
-					return fmt.Errorf("please specify %q as we cannot attach to %T: %v", "--xds-address", svc, err)
-				}
+			}
 
-				options := metav1.ListOptions{LabelSelector: selector.String()}
+			labelSelector := centralOpts.XdsPodLabel
+			if labelSelector == "" {
+				labelSelector = "app=istiod"
+			}
+			podList, podErr := kubeClient.GetIstioPods(context.TODO(), istioNamespace, map[string]string{
+				"labelSelector": labelSelector,
+				"fieldSelector": "status.phase=Running",
+			})
+			if podErr != nil {
+				return podErr
+			}
+			if len(podList) == 0 {
+				return fmt.Errorf("no running Istio pods in %q", istioNamespace)
+			}
 
-				podList, err := kubeClient.CoreV1().Pods(namespace).List(context.TODO(), options)
-				if err != nil {
-					return fmt.Errorf("please specify %q as %v", "--xds-address", err)
-				}
-				//  select a pod randomly to simulate current debug behavior
-				pod := podList.Items[0]
-				podPort := 15012
-				for _, v := range svc.Spec.Ports {
-					if v.Name == xdsPortName {
-						podPort = v.TargetPort.IntValue()
+			var isNull bool = false
+			var printErr error
+			// Iterate all istiod pods for retrieving debug information
+			for _, pod := range podList {
+				fmt.Println("------------------------------------------------------------------------------")
+				fmt.Println("istioctl x debug for pod: ", pod.Name+"."+pod.Namespace)
+				fmt.Println("------------------------------------------------------------------------------")
+				if centralOpts.Xds == "" {
+					isNull = true
+					f, kcerr := kubeClient.NewPortForwarder(pod.Name, pod.Namespace, "", 0, podPort)
+					if kcerr != nil {
+						return fmt.Errorf("please specify %q as %v", "--xds-address", kcerr)
 					}
+					if ferr := f.Start(); ferr != nil {
+						return fmt.Errorf("please specify %q as %v", "--xds-address", ferr)
+					}
+					centralOpts.Xds = f.Address()
+					defer func() {
+						f.Close()
+						f.WaitForStop()
+					}()
 				}
-				f, err := kubeClient.NewPortForwarder(pod.Name, pod.Namespace, "", 0, podPort)
-				if err != nil {
-					return fmt.Errorf("please specify %q as %v", "--xds-address", err)
+
+				xdsResponses, respErr := multixds.AllRequestAndProcessXds(&xdsRequest, &centralOpts, istioNamespace,
+					namespace, serviceAccount, kubeClient)
+				if respErr != nil {
+					return respErr
 				}
-				if err := f.Start(); err != nil {
-					return fmt.Errorf("please specify %q as %v", "--xds-address", err)
+				sw := pilot.XdsStatusWriter{Writer: c.OutOrStdout()}
+				newResponse, hDErr := HandlerForDebugErrors(kubeClient, &centralOpts, c.OutOrStdout(), xdsResponses)
+				if newResponse != nil {
+					return sw.PrintAll(newResponse)
 				}
-				centralOpts.Xds = f.Address()
-				defer func() {
-					f.Close()
-					f.WaitForStop()
-				}()
+				if hDErr != nil {
+					return hDErr
+				}
+				printErr = sw.PrintAll(xdsResponses)
+				if printErr != nil {
+					return printErr
+				}
+				// reset centralOpts.Xds as blank if it's originally null
+				if isNull {
+					centralOpts.Xds = ""
+				}
 			}
-			xdsResponses, respErr := multixds.AllRequestAndProcessXds(&xdsRequest, &centralOpts, istioNamespace,
-				namespace, serviceAccount, kubeClient)
-			if respErr != nil {
-				return respErr
-			}
-			sw := pilot.XdsStatusWriter{Writer: c.OutOrStdout()}
-			newResponse, hDErr := HandlerForDebugErrors(kubeClient, &centralOpts, c.OutOrStdout(), xdsResponses)
-			if newResponse != nil {
-				return sw.PrintAll(newResponse)
-			}
-			if hDErr != nil {
-				return hDErr
-			}
-			return sw.PrintAll(xdsResponses)
+			return nil
 		},
 	}
 
