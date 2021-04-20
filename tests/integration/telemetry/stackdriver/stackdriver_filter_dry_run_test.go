@@ -24,7 +24,6 @@ import (
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/stackdriver"
-	telemetrypkg "istio.io/istio/pkg/test/framework/components/telemetry"
 	"istio.io/istio/pkg/test/util/file"
 	"istio.io/istio/pkg/test/util/retry"
 	"istio.io/istio/pkg/test/util/tmpl"
@@ -54,7 +53,7 @@ func TestStackdriverAuthzDryRun(t *testing.T) {
 							return err
 						}
 						return verifyAccessLog(t, cltInstance, dryRunServerLogEntry)
-					}, retry.Delay(telemetrypkg.RetryDelay), retry.Timeout(telemetrypkg.RetryTimeout))
+					}, retry.Delay(framework.TelemetryRetryDelay), retry.Timeout(framework.TelemetryRetryTimeout))
 					if err != nil {
 						return err
 					}
@@ -87,7 +86,7 @@ func TestTCPStackdriverAuthzDryRun(t *testing.T) {
 							return err
 						}
 						return verifyAccessLog(t, cltInstance, dryRunTCPServerLogEntry)
-					}, retry.Delay(telemetrypkg.RetryDelay), retry.Timeout(telemetrypkg.RetryTimeout))
+					}, retry.Delay(framework.TelemetryRetryDelay), retry.Timeout(framework.TelemetryRetryTimeout))
 					if err != nil {
 						return err
 					}
