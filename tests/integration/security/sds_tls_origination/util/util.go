@@ -169,8 +169,8 @@ func createSecret(credentialType string, cn, ns string, ic TLSCredential, isNotG
 	}
 }
 
-// SetupEcho creates two namespaces client and server. It also brings up two echo instances server and
-// client in respective namespaces. HTTP and HTTPS port on the server echo are set up. Egress Gateway is set up in the
+// SetupEcho creates two namespaces client and server. It also brings up echo instances server and
+// clients in respective namespaces. HTTP and HTTPS port on the server echo are set up. Egress Gateway is set up in the
 // service namespace to handle egress for "external" calls.
 func SetupEcho(t test.Failer, ctx resource.Context, apps *EchoDeployments) {
 	apps.ClientNamespace = namespace.NewOrFail(t, ctx, namespace.Config{
