@@ -117,7 +117,10 @@ func run() {
 		log.Warn("Leader election namespace not set. Leader election is disabled. NOT APPROPRIATE FOR PRODUCTION USE!")
 	}
 
+	// renewDeadline cannot be greater than leaseDuration
 	renewDeadline := getRenewDeadline()
+	leaseDuration := time.Duration(renewDeadline.Nanoseconds() * 2)
+
 	// Get a config to talk to the apiserver
 	cfg, err := config.GetConfig()
 	if err != nil {
@@ -139,6 +142,7 @@ func run() {
 			LeaderElection:          leaderElectionEnabled,
 			LeaderElectionNamespace: leaderElectionNS,
 			LeaderElectionID:        leaderElectionID,
+			LeaseDuration:           &leaseDuration,
 			RenewDeadline:           renewDeadline,
 		}
 	} else {
@@ -149,6 +153,7 @@ func run() {
 			LeaderElection:          leaderElectionEnabled,
 			LeaderElectionNamespace: leaderElectionNS,
 			LeaderElectionID:        leaderElectionID,
+			LeaseDuration:           &leaseDuration,
 			RenewDeadline:           renewDeadline,
 		}
 	}
