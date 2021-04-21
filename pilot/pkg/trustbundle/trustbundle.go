@@ -22,6 +22,8 @@ import (
 	"sync"
 	"time"
 
+	"go.uber.org/atomic"
+
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pkg/spiffe"
 	"istio.io/pkg/log"
@@ -39,15 +41,24 @@ type TrustAnchorUpdate struct {
 	Source Source
 }
 
+type trustAnchorEndpoint struct {
+	CachedTrustAnchors TrustAnchorConfig
+	RetryCount         int
+}
+
 type TrustBundle struct {
 	sourceConfig       map[Source]TrustAnchorConfig
 	mutex              sync.RWMutex
 	mergedCerts        []string
 	updatecb           func()
+	endpointCfg        []string
 	endpointMutex      sync.RWMutex
-	endpoints          []string
+	endpoints          map[string]*trustAnchorEndpoint
 	endpointUpdateChan chan struct{}
 	remoteCaCertPool   *x509.CertPool
+	createTime         time.Time
+	syncTimeout        time.Duration
+	initDone           atomic.Bool
 }
 
 var (
@@ -77,7 +88,7 @@ func isEqSliceStr(certs1 []string, certs2 []string) bool {
 }
 
 // NewTrustBundle: Returns a new trustbundle
-func NewTrustBundle(remoteCaCertPool *x509.CertPool) *TrustBundle {
+func NewTrustBundle(remoteCaCertPool *x509.CertPool, syncTimeout time.Duration) *TrustBundle {
 	var err error
 	tb := &TrustBundle{
 		sourceConfig: map[Source]TrustAnchorConfig{
@@ -89,8 +100,11 @@ func NewTrustBundle(remoteCaCertPool *x509.CertPool) *TrustBundle {
 		mergedCerts:        []string{},
 		updatecb:           nil,
 		endpointUpdateChan: make(chan struct{}, 1),
-		endpoints:          []string{},
+		endpoints:          map[string]*trustAnchorEndpoint{},
+		createTime:         time.Now(),
+		syncTimeout:        syncTimeout,
 	}
+	tb.initDone.Store(false)
 	if remoteCaCertPool == nil {
 		tb.remoteCaCertPool, err = x509.SystemCertPool()
 		if err != nil {
@@ -185,19 +199,33 @@ func (tb *TrustBundle) UpdateTrustAnchor(anchorConfig *TrustAnchorUpdate) error 
 	return nil
 }
 
-func (tb *TrustBundle) updateRemoteEndpoint(spiffeEndpoints []string) {
-	tb.mutex.RLock()
-	remoteEndpoints := tb.endpoints
-	tb.mutex.RUnlock()
+func (tb *TrustBundle) updateCfgRemoteEndpoint(spiffeEndpoints []string) {
+	var changed bool = false
+	var endpointURI string
 
-	if isEqSliceStr(spiffeEndpoints, remoteEndpoints) {
-		return
+	newEndpoints := make(map[string]struct{}, len(spiffeEndpoints))
+	for _, endpoint := range spiffeEndpoints {
+		newEndpoints[endpoint] = struct{}{}
 	}
-	trustBundleLog.Infof("updated remote endpoints  :%v", spiffeEndpoints)
-	tb.mutex.Lock()
-	tb.endpoints = spiffeEndpoints
-	tb.mutex.Unlock()
-	tb.endpointUpdateChan <- struct{}{}
+
+	for endpointURI = range newEndpoints {
+		if _, ok := tb.endpoints[endpointURI]; !ok {
+			changed = true
+			tb.endpoints[endpointURI] = &trustAnchorEndpoint{
+				CachedTrustAnchors: TrustAnchorConfig{Certs: []string{}}, RetryCount: 0,
+			}
+		}
+	}
+
+	for endpointURI = range tb.endpoints {
+		if _, ok := newEndpoints[endpointURI]; !ok {
+			changed = true
+			delete(tb.endpoints, endpointURI)
+		}
+	}
+	if changed {
+		trustBundleLog.Infof("updated remote endpoints  : %v", spiffeEndpoints)
+	}
 }
 
 // AddMeshConfigUpdate : Update trustAnchor configurations from meshConfig
@@ -223,34 +251,52 @@ func (tb *TrustBundle) AddMeshConfigUpdate(cfg *meshconfig.MeshConfig) error {
 			trustBundleLog.Errorf("failed to update meshConfig PEM trustAnchors: %v", err)
 			return err
 		}
-
-		tb.updateRemoteEndpoint(endpoints)
+		tb.endpointMutex.Lock()
+		tb.endpointCfg = endpoints
+		tb.endpointMutex.Unlock()
+		tb.endpointUpdateChan <- struct{}{}
 	}
 	return nil
 }
 
-func (tb *TrustBundle) fetchRemoteTrustAnchors() {
+func (tb *TrustBundle) updateRemoteTrustAnchors() {
 	var err error
+	var remoteCerts []string
+	var fetchFail bool = false
 
 	tb.endpointMutex.RLock()
-	remoteEndpoints := tb.endpoints
+	endpointCfg := make([]string, len(tb.endpointCfg))
+	copy(endpointCfg, tb.endpointCfg)
 	tb.endpointMutex.RUnlock()
-	remoteCerts := []string{}
 
 	currentTrustDomain := spiffe.GetTrustDomain()
-	for _, endpoint := range remoteEndpoints {
+	tb.updateCfgRemoteEndpoint(endpointCfg)
+	remoteEndpoints := tb.endpoints
+
+	for endpointURI, remoteTrustAnchor := range remoteEndpoints {
 		trustDomainAnchorMap, err := spiffe.RetrieveSpiffeBundleRootCerts(
-			map[string]string{currentTrustDomain: endpoint}, tb.remoteCaCertPool, remoteTimeout)
-		if err != nil {
-			trustBundleLog.Errorf("unable to fetch trust Anchors from endpoint %s: %s", endpoint, err)
-			continue
+			map[string]string{currentTrustDomain: endpointURI}, tb.remoteCaCertPool, remoteTimeout)
+		if err == nil {
+			remoteTrustAnchor.Reset()
+			certs := trustDomainAnchorMap[currentTrustDomain]
+			for _, cert := range certs {
+				certStr := string(pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: cert.Raw}))
+				trustBundleLog.Debugf("from endpoint %v, fetched trust anchor cert: %v", endpointURI, certStr)
+				remoteCerts = append(remoteCerts, certStr)
+				remoteTrustAnchor.AddCert(certStr)
+			}
+		} else {
+			fetchFail = true
+			remoteTrustAnchor.IncrementRetry()
+			trustBundleLog.Infof("unable to fetch trustAnchor from endpoint %s after %v retries : %v",
+				endpointURI, remoteTrustAnchor.RetryCount, err)
+			// Re-use older trustAnchors associated with this endpoint
+			anchors := remoteTrustAnchor.CachedTrustAnchors.Certs
+			remoteCerts = append(remoteCerts, anchors...)
 		}
-		certs := trustDomainAnchorMap[currentTrustDomain]
-		for _, cert := range certs {
-			certStr := string(pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: cert.Raw}))
-			trustBundleLog.Debugf("from endpoint %v, fetched trust anchor cert: %v", endpoint, certStr)
-			remoteCerts = append(remoteCerts, certStr)
-		}
+	}
+	if !fetchFail {
+		tb.initDone.Store(true)
 	}
 	err = tb.UpdateTrustAnchor(&TrustAnchorUpdate{
 		TrustAnchorConfig: TrustAnchorConfig{Certs: remoteCerts},
@@ -268,13 +314,37 @@ func (tb *TrustBundle) ProcessRemoteTrustAnchors(stop <-chan struct{}, pollInter
 		select {
 		case <-ticker.C:
 			trustBundleLog.Infof("waking up to perform periodic checks")
-			tb.fetchRemoteTrustAnchors()
+			tb.updateRemoteTrustAnchors()
 		case <-stop:
 			trustBundleLog.Infof("stop processing endpoint trustAnchor pdates")
 			return
 		case <-tb.endpointUpdateChan:
-			tb.fetchRemoteTrustAnchors()
+			tb.updateRemoteTrustAnchors()
 			trustBundleLog.Infof("processing endpoint trustAnchor Updates for config change")
 		}
 	}
+}
+
+func (tb *TrustBundle) HasSynced() bool {
+	initDone := tb.initDone.Load()
+	if !initDone && time.Since(tb.createTime) < tb.syncTimeout {
+		return false
+	}
+	if !initDone {
+		trustBundleLog.Infof("pending trustAnchor Sync from some remote endpoints")
+	}
+	return true
+}
+
+func (r *trustAnchorEndpoint) IncrementRetry() {
+	r.RetryCount++
+}
+
+func (r *trustAnchorEndpoint) AddCert(cert string) {
+	r.CachedTrustAnchors.Certs = append(r.CachedTrustAnchors.Certs, cert)
+}
+
+func (r *trustAnchorEndpoint) Reset() {
+	r.CachedTrustAnchors.Certs = []string{}
+	r.RetryCount = 0
 }

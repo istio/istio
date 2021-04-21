@@ -157,7 +157,7 @@ func TestVerifyTrustAnchor(t *testing.T) {
 
 func TestUpdateTrustAnchor(t *testing.T) {
 	var cbCounter int = 0
-	tb := NewTrustBundle(nil)
+	tb := NewTrustBundle(nil, time.Duration(0))
 	tb.UpdateCb(func() { cbCounter++ })
 
 	var trustedCerts []string
@@ -271,6 +271,7 @@ func TestAddMeshConfigUpdate(t *testing.T) {
 		t.Fatalf("failed to get SystemCertPool: %v", err)
 	}
 	stop := make(chan struct{})
+	defer func() { stop <- struct{}{} }()
 
 	// Mock response from TLS Spiffe Server
 	validHandler := http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
@@ -286,7 +287,7 @@ func TestAddMeshConfigUpdate(t *testing.T) {
 	caCertPool.AddCert(server2.Certificate())
 	defer server2.Close()
 
-	tb := NewTrustBundle(caCertPool)
+	tb := NewTrustBundle(caCertPool, time.Duration(0))
 
 	// Change global remote timeout interval for the duration of the unit test
 	remoteTimeout = 300 * time.Millisecond
@@ -297,38 +298,88 @@ func TestAddMeshConfigUpdate(t *testing.T) {
 	}})
 	expectTbCount(t, tb, 1, 1*time.Second, "meshConfig pem trustAnchor not updated in bundle")
 
-	// Test2: Append server1 as spiffe endpoint to existing MeshConfig
-
-	// Start processing remote anchor update with poll frequency.
+	// Test2: Append server1 and server 2 as spiffe endpoint to existing MeshConfig
 	go tb.ProcessRemoteTrustAnchors(stop, 2*time.Second)
-	tb.AddMeshConfigUpdate(&meshconfig.MeshConfig{CaCertificates: []*meshconfig.MeshConfig_CertificateData{
-		{CertificateData: &meshconfig.MeshConfig_CertificateData_SpiffeBundleUrl{SpiffeBundleUrl: server1.Listener.Addr().String()}},
-		{CertificateData: &meshconfig.MeshConfig_CertificateData_Pem{Pem: rootCACert}},
-	}})
-	if !isEqSliceStr(tb.endpoints, []string{server1.Listener.Addr().String()}) {
-		t.Errorf("server1 endpoint not correctly updated in trustbundle. Trustbundle endpoints: %v", tb.endpoints)
-	}
-	// Check server1's anchor has been added along with meshConfig pem cert
-	expectTbCount(t, tb, 2, 3*time.Second, "server1(running) trustAnchor not updated in bundle")
 
-	// Test3: Stop server1
-	server1.Close()
-	// Check server1's valid trustAnchor is no longer in the trustbundle within poll frequency window
-	expectTbCount(t, tb, 1, 6*time.Second, "server1(stopped) trustAnchor not removed from bundle")
-
-	// Test4: Update with server1, server2 and mesh pem ca
+	// Test3: Update with different remote server, server2 and mesh pem ca
 	tb.AddMeshConfigUpdate(&meshconfig.MeshConfig{CaCertificates: []*meshconfig.MeshConfig_CertificateData{
 		{CertificateData: &meshconfig.MeshConfig_CertificateData_SpiffeBundleUrl{SpiffeBundleUrl: server2.Listener.Addr().String()}},
 		{CertificateData: &meshconfig.MeshConfig_CertificateData_SpiffeBundleUrl{SpiffeBundleUrl: server1.Listener.Addr().String()}},
 		{CertificateData: &meshconfig.MeshConfig_CertificateData_Pem{Pem: rootCACert}},
 	}})
-	if !isEqSliceStr(tb.endpoints, []string{server2.Listener.Addr().String(), server1.Listener.Addr().String()}) {
-		t.Errorf("server2 endpoint not correctly updated in trustbundle. Trustbundle endpoints: %v", tb.endpoints)
+
+	tb.endpointMutex.RLock()
+	if tb.endpointCfg[0] != server2.Listener.Addr().String() ||
+		tb.endpointCfg[1] != server1.Listener.Addr().String() {
+		t.Errorf("server1 and server2 endpoint not correctly updated in trustbundle")
 	}
-	// Check only server 2's trustanchor is present along with meshConfig pem and not server 1 (since it is down)
+	tb.endpointMutex.RUnlock()
+	// server 1 and server 2 have same remote TrustAnchor.
 	expectTbCount(t, tb, 2, 3*time.Second, "server2(running) trustAnchor not updated in bundle")
 
-	// Test5. remove everything
+	// Test3. remove everything
 	tb.AddMeshConfigUpdate(&meshconfig.MeshConfig{CaCertificates: []*meshconfig.MeshConfig_CertificateData{}})
 	expectTbCount(t, tb, 0, 3*time.Second, "trustAnchor not updated in bundle after meshConfig cleared")
+}
+
+func TestRemoteAnchorUpdate(t *testing.T) {
+	caCertPool, err := x509.SystemCertPool()
+	if err != nil {
+		t.Fatalf("failed to get SystemCertPool: %v", err)
+	}
+
+	validHandler := http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(validSpiffeX509Bundle))
+	})
+
+	server1 := httptest.NewTLSServer(validHandler)
+	caCertPool.AddCert(server1.Certificate())
+
+	// Change global remote timeout interval for the duration of the unit test
+	remoteTimeout = 300 * time.Millisecond
+	tb := NewTrustBundle(caCertPool, time.Duration(10))
+
+	tb.AddMeshConfigUpdate(&meshconfig.MeshConfig{CaCertificates: []*meshconfig.MeshConfig_CertificateData{
+		{CertificateData: &meshconfig.MeshConfig_CertificateData_SpiffeBundleUrl{SpiffeBundleUrl: server1.Listener.Addr().String()}},
+	}})
+
+	tb.updateRemoteTrustAnchors()
+
+	if !tb.HasSynced() {
+		t.Errorf("trustAnchor Sync is not complete")
+	}
+
+	if _, ok := tb.endpoints[server1.Listener.Addr().String()]; !ok {
+		t.Errorf("server1 endpoint not correctly updated in trustbundle. Trustbundle endpoints: %v", tb.endpoints)
+	}
+	// Check server1's anchor has been added along with meshConfig pem cert
+	expectTbCount(t, tb, 1, 1*time.Second, "server1(running) trustAnchor not updated in bundle")
+
+	// stop server 1
+	server1.Close()
+	tb.updateRemoteTrustAnchors()
+	// Check server1's valid trustAnchor is still within the trustbundle
+	expectTbCount(t, tb, 1, 1*time.Second, "server1(stopped) trustAnchor not removed from bundle")
+}
+
+func TestRemoteAnchorSyncTimeout(t *testing.T) {
+	tb := NewTrustBundle(nil, 2*time.Second)
+
+	remoteTimeout = 300 * time.Millisecond
+	stop := make(chan struct{})
+	defer func() { stop <- struct{}{} }()
+	// Start processing remote anchor update with poll frequency.
+	go tb.ProcessRemoteTrustAnchors(stop, 2*time.Second)
+
+	tb.AddMeshConfigUpdate(&meshconfig.MeshConfig{CaCertificates: []*meshconfig.MeshConfig_CertificateData{
+		{CertificateData: &meshconfig.MeshConfig_CertificateData_SpiffeBundleUrl{SpiffeBundleUrl: "1.1.1.1"}},
+	}})
+	if tb.HasSynced() {
+		t.Errorf("sync should not have timed out")
+	}
+	time.Sleep(2 * time.Second)
+	if !tb.HasSynced() {
+		t.Errorf("sync should have timed out")
+	}
 }
