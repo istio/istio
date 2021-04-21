@@ -37,7 +37,7 @@ import (
 
 // return proxyConfig and trustDomain
 func ConstructProxyConfig(meshConfigFile, serviceCluster, proxyConfigEnv string, concurrency int, role *model.Proxy) (*meshconfig.ProxyConfig, error) {
-	annotations, err := readPodAnnotations()
+	annotations, err := bootstrap.ReadPodAnnotations("")
 	if err != nil {
 		if os.IsNotExist(err) {
 			log.Debugf("failed to read pod annotations: %v", err)
@@ -161,14 +161,6 @@ func fileExists(path string) bool {
 		return false
 	}
 	return true
-}
-
-func readPodAnnotations() (map[string]string, error) {
-	b, err := ioutil.ReadFile(constants.PodInfoAnnotationsPath)
-	if err != nil {
-		return nil, err
-	}
-	return bootstrap.ParseDownwardAPI(string(b))
 }
 
 func readPodCPURequests() (int, error) {
