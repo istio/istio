@@ -270,6 +270,7 @@ import (
 	_ "github.com/envoyproxy/go-control-plane/envoy/extensions/upstreams/http/http/v3"
 	_ "github.com/envoyproxy/go-control-plane/envoy/extensions/upstreams/http/tcp/v3"
 	_ "github.com/envoyproxy/go-control-plane/envoy/extensions/wasm/v3"
+	_ "github.com/envoyproxy/go-control-plane/envoy/extensions/watchdog/abort_action/v3alpha"
 	_ "github.com/envoyproxy/go-control-plane/envoy/extensions/watchdog/profile_action/v3alpha"
 	_ "github.com/envoyproxy/go-control-plane/envoy/service/accesslog/v2"
 	_ "github.com/envoyproxy/go-control-plane/envoy/service/accesslog/v3"

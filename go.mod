@@ -35,7 +35,7 @@ require (
 	github.com/d4l3k/messagediff v1.2.1 // indirect
 	github.com/davecgh/go-spew v1.1.1
 	github.com/docker/distribution v2.7.1+incompatible
-	github.com/envoyproxy/go-control-plane v0.9.8-0.20201019204000-12785f608982
+	github.com/envoyproxy/go-control-plane v0.9.8-0.20210420150603-831d6316d7b9
 	github.com/evanphx/json-patch v4.9.0+incompatible
 	github.com/evanphx/json-patch/v5 v5.1.0
 	github.com/fatih/color v1.9.0
@@ -103,7 +103,7 @@ require (
 	gopkg.in/yaml.v2 v2.3.0
 	gopkg.in/yaml.v3 v3.0.0-20200615113413-eeeca48fe776
 	helm.sh/helm/v3 v3.2.4
-	istio.io/api v0.0.0-20210406215405-038ea2bb43a0
+	istio.io/api v0.0.0-20210419172736-4acdfb7450da
 	istio.io/client-go v0.0.0-20200908160912-f99162621a1a
 	istio.io/gogo-genproto v0.0.0-20201112235858-7e611cb4d738
 	istio.io/pkg v0.0.0-20201112235759-c861803834b2
