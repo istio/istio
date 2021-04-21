@@ -34,9 +34,10 @@ type TestCase struct {
 	Config             string
 	ExpectResponseCode string
 	// Use empty value to express the header with such key must not exist.
-	ExpectHeaders map[string]string
-	CallOpts      echo.CallOptions
-	DestClusters  cluster.Clusters
+	ExpectHeaders    map[string]string
+	CallOpts         echo.CallOptions
+	DestClusters     cluster.Clusters
+	SkipMultiCluster bool
 }
 
 func (c *TestCase) String() string {
