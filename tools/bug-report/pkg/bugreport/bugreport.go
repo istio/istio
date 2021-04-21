@@ -34,7 +34,6 @@ import (
 
 	analyzer_util "istio.io/istio/galley/pkg/config/analysis/analyzers/util"
 	"istio.io/istio/operator/pkg/util"
-	"istio.io/istio/pkg/config/resource"
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/proxy"
 	"istio.io/istio/tools/bug-report/pkg/archive"
@@ -318,7 +317,7 @@ func gatherInfo(client kube.ExtendedClient, config *config.BugReportConfig, reso
 	<-cmdTimer.C
 
 	// Analyze runs many queries internally, so run these queries sequentially and after everything else has finished.
-	runAnalyze(config, resources, params)
+	runAnalyze(config, params)
 }
 
 // getFromCluster runs a cluster info fetching function f against the cluster and writes the results to fileName.
@@ -407,20 +406,18 @@ func getLog(client kube.ExtendedClient, resources *cluster2.Resources, config *c
 	return clog, cstat, cstat.Importance(), nil
 }
 
-func runAnalyze(config *config.BugReportConfig, resources *cluster2.Resources, params *content.Params) {
-	for ns := range resources.Root {
-		if analyzer_util.IsSystemNamespace(resource.Namespace(ns)) {
-			continue
-		}
-		common.LogAndPrintf("Running istio analyze on namespace %s.\n", ns)
-		out, err := content.GetAnalyze(params.SetIstioNamespace(config.IstioNamespace))
-		if err != nil {
-			log.Error(err.Error())
-			continue
-		}
-		writeFiles(archive.AnalyzePath(tempDir, ns), out)
+func runAnalyze(config *config.BugReportConfig, params *content.Params) {
+	newParam := params.SetNamespace(common.NamespaceAll)
+	common.LogAndPrintf("Running istio analyze on all namespaces and report as below:")
+	out, err := content.GetAnalyze(newParam.SetIstioNamespace(config.IstioNamespace))
+	if err != nil {
+		log.Error(err.Error())
+		return
 	}
+	common.LogAndPrintf("\nAnalysis Report:\n")
+	common.LogAndPrintf(out[common.StrNamespaceAll])
 	common.LogAndPrintf("\n")
+	writeFiles(archive.AnalyzePath(tempDir, common.StrNamespaceAll), out)
 }
 
 func writeFiles(dir string, files map[string]string) {
