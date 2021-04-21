@@ -113,7 +113,7 @@ func isRegularPod(instance echo.Instance) bool {
 
 // SpecialWorkloads includes VMs, external services, naked services, headless, etc.
 func SpecialWorkloads(instances echo.Instances) echo.Instances {
-	return instances.Match(isRegularPod)
+	return instances.Match(echo.Not(isRegularPod))
 }
 
 // Not includes all workloads that don't match the given filter

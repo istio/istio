@@ -99,6 +99,13 @@ func TestIsRegularPod(t *testing.T) {
 	}
 }
 
+func TestNoSpecial(t *testing.T) {
+	out := Not(SpecialWorkloads)(all).Services().Services()
+	if diff := cmp.Diff(out, []string{"a", "a", "b", "c"}); diff != "" {
+		t.Fatal(diff)
+	}
+}
+
 func TestIsNaked(t *testing.T) {
 	tests := []struct {
 		app    echo.Instance
