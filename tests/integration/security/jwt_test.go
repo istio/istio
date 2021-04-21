@@ -65,6 +65,7 @@ func TestRequestAuthentication(t *testing.T) {
 			// Apply the policy.
 			namespaceTmpl := map[string]string{
 				"Namespace": ns.Name(),
+				"dst":       util.BSvc,
 			}
 
 			callCount := 1
@@ -247,7 +248,51 @@ func TestRequestAuthentication(t *testing.T) {
 							},
 						},
 						{
-							Name:   "valid-token-forward-remote-jwks",
+							Name:   "valid-token-forward-remote-jwks-b",
+							Config: "remote",
+							Request: connection.Checker{
+								From: client,
+								Options: echo.CallOptions{
+									Target:   dest[0],
+									PortName: "http",
+									Scheme:   scheme.HTTP,
+									Headers: map[string][]string{
+										authHeaderKey: {"Bearer " + jwt.TokenIssuer1},
+									},
+									Count: callCount,
+								},
+								DestClusters: dest.Clusters(),
+							},
+							ExpectResponseCode: response.StatusCodeOK,
+							ExpectHeaders: map[string]string{
+								authHeaderKey:    "Bearer " + jwt.TokenIssuer1,
+								"X-Test-Payload": payload1,
+							},
+						},
+						{
+							Name:   "valid-token-forward-remote-jwks-b2",
+							Config: "remote",
+							Request: connection.Checker{
+								From: client,
+								Options: echo.CallOptions{
+									Target:   dest[0],
+									PortName: "http",
+									Scheme:   scheme.HTTP,
+									Headers: map[string][]string{
+										authHeaderKey: {"Bearer " + jwt.TokenIssuer1},
+									},
+									Count: callCount,
+								},
+								DestClusters: dest.Clusters(),
+							},
+							ExpectResponseCode: response.StatusCodeOK,
+							ExpectHeaders: map[string]string{
+								authHeaderKey:    "Bearer " + jwt.TokenIssuer1,
+								"X-Test-Payload": payload1,
+							},
+						},
+						{
+							Name:   "valid-token-forward-remote-jwks-b3",
 							Config: "remote",
 							Request: connection.Checker{
 								From: client,
@@ -375,6 +420,98 @@ func TestRequestAuthentication(t *testing.T) {
 						},
 					}
 					for _, c := range testCases {
+						t.NewSubTest(c.Name).Run(func(t framework.TestContext) {
+							if c.Config != "" {
+								policy := tmpl.EvaluateOrFail(t,
+									file.AsStringOrFail(t, fmt.Sprintf("testdata/requestauthn/%s.yaml.tmpl", c.Config)), namespaceTmpl)
+								t.Config().ApplyYAMLOrFail(t, ns.Name(), policy)
+								util.WaitForConfig(t, policy, ns)
+							}
+
+							retry.UntilSuccessOrFail(t, c.CheckAuthn, echo.DefaultCallRetryOptions()...)
+						})
+					}
+				})
+			}
+
+			namespaceTmpl = map[string]string{
+				"Namespace": ns.Name(),
+				"dst":       util.CSvc,
+			}
+
+			for _, cluster := range t.Clusters() {
+				client := apps.A.Match(echo.InCluster(cluster).And(echo.Namespace(apps.Namespace1.Name())))[0]
+				dest := apps.C.Match(echo.InCluster(cluster).And(echo.Namespace(apps.Namespace1.Name())))
+				t.NewSubTest(fmt.Sprintf("From %s", cluster.StableName())).Run(func(t framework.TestContext) {
+					extraTestCases := []authn.TestCase{
+						{
+							Name:   "valid-token-forward-remote-jwks-c",
+							Config: "remote",
+							Request: connection.Checker{
+								From: client,
+								Options: echo.CallOptions{
+									Target:   dest[0],
+									PortName: "http",
+									Scheme:   scheme.HTTP,
+									Headers: map[string][]string{
+										authHeaderKey: {"Bearer " + jwt.TokenIssuer1},
+									},
+									Count: callCount,
+								},
+								DestClusters: dest.Clusters(),
+							},
+							ExpectResponseCode: response.StatusCodeOK,
+							ExpectHeaders: map[string]string{
+								authHeaderKey:    "Bearer " + jwt.TokenIssuer1,
+								"X-Test-Payload": payload1,
+							},
+						},
+						{
+							Name:   "valid-token-forward-remote-jwks-c2",
+							Config: "remote",
+							Request: connection.Checker{
+								From: client,
+								Options: echo.CallOptions{
+									Target:   dest[0],
+									PortName: "http",
+									Scheme:   scheme.HTTP,
+									Headers: map[string][]string{
+										authHeaderKey: {"Bearer " + jwt.TokenIssuer1},
+									},
+									Count: callCount,
+								},
+								DestClusters: dest.Clusters(),
+							},
+							ExpectResponseCode: response.StatusCodeOK,
+							ExpectHeaders: map[string]string{
+								authHeaderKey:    "Bearer " + jwt.TokenIssuer1,
+								"X-Test-Payload": payload1,
+							},
+						},
+						{
+							Name:   "valid-token-forward-remote-jwks-c3",
+							Config: "remote",
+							Request: connection.Checker{
+								From: client,
+								Options: echo.CallOptions{
+									Target:   dest[0],
+									PortName: "http",
+									Scheme:   scheme.HTTP,
+									Headers: map[string][]string{
+										authHeaderKey: {"Bearer " + jwt.TokenIssuer1},
+									},
+									Count: callCount,
+								},
+								DestClusters: dest.Clusters(),
+							},
+							ExpectResponseCode: response.StatusCodeOK,
+							ExpectHeaders: map[string]string{
+								authHeaderKey:    "Bearer " + jwt.TokenIssuer1,
+								"X-Test-Payload": payload1,
+							},
+						},
+					}
+					for _, c := range extraTestCases {
 						t.NewSubTest(c.Name).Run(func(t framework.TestContext) {
 							if c.Config != "" {
 								policy := tmpl.EvaluateOrFail(t,
