@@ -445,6 +445,174 @@ func TestRequestAuthentication(t *testing.T) {
 				t.NewSubTest(fmt.Sprintf("From %s", cluster.StableName())).Run(func(t framework.TestContext) {
 					extraTestCases := []authn.TestCase{
 						{
+							Name:   "valid-token-noauthz",
+							Config: "authn-only",
+							Request: connection.Checker{
+								From: client,
+								Options: echo.CallOptions{
+									Target:   dest[0],
+									PortName: "http",
+									Scheme:   scheme.HTTP,
+									Headers: map[string][]string{
+										authHeaderKey: {"Bearer " + jwt.TokenIssuer1},
+									},
+									Count: callCount,
+								},
+								DestClusters: dest.Clusters(),
+							},
+							ExpectResponseCode: response.StatusCodeOK,
+							ExpectHeaders: map[string]string{
+								authHeaderKey:    "",
+								"X-Test-Payload": payload1,
+							},
+						},
+						{
+							Name:   "valid-token-2-noauthz",
+							Config: "authn-only",
+							Request: connection.Checker{
+								From: client,
+								Options: echo.CallOptions{
+									Target:   dest[0],
+									PortName: "http",
+									Scheme:   scheme.HTTP,
+									Headers: map[string][]string{
+										authHeaderKey: {"Bearer " + jwt.TokenIssuer2},
+									},
+									Count: callCount,
+								},
+								DestClusters: dest.Clusters(),
+							},
+							ExpectResponseCode: response.StatusCodeOK,
+							ExpectHeaders: map[string]string{
+								authHeaderKey:    "",
+								"X-Test-Payload": payload2,
+							},
+						},
+						{
+							Name:   "expired-token-noauthz",
+							Config: "authn-only",
+							Request: connection.Checker{
+								From: client,
+								Options: echo.CallOptions{
+									Target:   dest[0],
+									PortName: "http",
+									Scheme:   scheme.HTTP,
+									Headers: map[string][]string{
+										authHeaderKey: {"Bearer " + jwt.TokenExpired},
+									},
+									Count: callCount,
+								},
+								DestClusters: dest.Clusters(),
+							},
+							ExpectResponseCode: response.StatusUnauthorized,
+						},
+						{
+							Name:   "no-token-noauthz",
+							Config: "authn-only",
+							Request: connection.Checker{
+								From: client,
+								Options: echo.CallOptions{
+									Target:   dest[0],
+									PortName: "http",
+									Scheme:   scheme.HTTP,
+									Count:    callCount,
+								},
+								DestClusters: dest.Clusters(),
+							},
+							ExpectResponseCode: response.StatusCodeOK,
+						},
+						// Following app b is configured with authorization, only request with valid JWT succeed.
+						{
+							Name:   "valid-token",
+							Config: "authn-authz",
+							Request: connection.Checker{
+								From: client,
+								Options: echo.CallOptions{
+									Target:   dest[0],
+									PortName: "http",
+									Scheme:   scheme.HTTP,
+									Headers: map[string][]string{
+										authHeaderKey: {"Bearer " + jwt.TokenIssuer1},
+									},
+									Count: callCount,
+								},
+								DestClusters: dest.Clusters(),
+							},
+							ExpectResponseCode: response.StatusCodeOK,
+							ExpectHeaders: map[string]string{
+								authHeaderKey: "",
+							},
+						},
+						{
+							Name:   "expired-token",
+							Config: "authn-authz",
+							Request: connection.Checker{
+								From: client,
+								Options: echo.CallOptions{
+									Target:   dest[0],
+									PortName: "http",
+									Scheme:   scheme.HTTP,
+									Headers: map[string][]string{
+										authHeaderKey: {"Bearer " + jwt.TokenExpired},
+									},
+									Count: callCount,
+								},
+								DestClusters: dest.Clusters(),
+							},
+							ExpectResponseCode: response.StatusUnauthorized,
+						},
+						{
+							Name:   "no-token",
+							Config: "authn-authz",
+							Request: connection.Checker{
+								From: client,
+								Options: echo.CallOptions{
+									Target:   dest[0],
+									PortName: "http",
+									Scheme:   scheme.HTTP,
+									Count:    callCount,
+								},
+								DestClusters: dest.Clusters(),
+							},
+							ExpectResponseCode: response.StatusCodeForbidden,
+						},
+						{
+							Name: "no-authn-authz",
+							Request: connection.Checker{
+								From: client,
+								Options: echo.CallOptions{
+									Target:   dest[0],
+									PortName: "http",
+									Scheme:   scheme.HTTP,
+									Count:    callCount,
+								},
+								DestClusters: dest.Clusters(),
+							},
+							ExpectResponseCode: response.StatusCodeOK,
+						},
+						{
+							Name:   "valid-token-forward",
+							Config: "forward",
+							Request: connection.Checker{
+								From: client,
+								Options: echo.CallOptions{
+									Target:   dest[0],
+									PortName: "http",
+									Scheme:   scheme.HTTP,
+									Headers: map[string][]string{
+										authHeaderKey: {"Bearer " + jwt.TokenIssuer1},
+									},
+									Count: callCount,
+								},
+								DestClusters: dest.Clusters(),
+							},
+							ExpectResponseCode: response.StatusCodeOK,
+							ExpectHeaders: map[string]string{
+								authHeaderKey:    "Bearer " + jwt.TokenIssuer1,
+								"X-Test-Payload": payload1,
+							},
+						},
+						{
 							Name:   "valid-token-forward-remote-jwks-c",
 							Config: "remote",
 							Request: connection.Checker{
@@ -509,6 +677,111 @@ func TestRequestAuthentication(t *testing.T) {
 								authHeaderKey:    "Bearer " + jwt.TokenIssuer1,
 								"X-Test-Payload": payload1,
 							},
+						},
+						{
+							Name:   "invalid aud",
+							Config: "aud",
+							Request: connection.Checker{
+								From: client,
+								Options: echo.CallOptions{
+									Target:   dest[0],
+									PortName: "http",
+									Scheme:   scheme.HTTP,
+									Headers: map[string][]string{
+										authHeaderKey: {"Bearer " + jwt.TokenIssuer1},
+									},
+									Count: callCount,
+								},
+								DestClusters: dest.Clusters(),
+							},
+							ExpectResponseCode: response.StatusCodeForbidden,
+						},
+						{
+							Name:   "valid aud",
+							Config: "aud",
+							Request: connection.Checker{
+								From: client,
+								Options: echo.CallOptions{
+									Target:   dest[0],
+									PortName: "http",
+									Scheme:   scheme.HTTP,
+									Headers: map[string][]string{
+										authHeaderKey: {"Bearer " + jwt.TokenIssuer1WithAud},
+									},
+									Count: callCount,
+								},
+								DestClusters: dest.Clusters(),
+							},
+							ExpectResponseCode: response.StatusCodeOK,
+						},
+						{
+							Name:   "verify policies are combined",
+							Config: "aud",
+							Request: connection.Checker{
+								From: client,
+								Options: echo.CallOptions{
+									Target:   dest[0],
+									PortName: "http",
+									Scheme:   scheme.HTTP,
+									Headers: map[string][]string{
+										authHeaderKey: {"Bearer " + jwt.TokenIssuer2},
+									},
+									Count: callCount,
+								},
+								DestClusters: dest.Clusters(),
+							},
+							ExpectResponseCode: response.StatusCodeOK,
+						},
+						{
+							Name:   "invalid-jwks-valid-token-noauthz",
+							Config: "invalid-jwks",
+							Request: connection.Checker{
+								From: client,
+								Options: echo.CallOptions{
+									Target:   dest[0],
+									PortName: "http",
+									Scheme:   scheme.HTTP,
+									Headers: map[string][]string{
+										authHeaderKey: {"Bearer " + jwt.TokenIssuer1},
+									},
+									Count: callCount,
+								},
+								DestClusters: dest.Clusters(),
+							},
+							ExpectResponseCode: response.StatusUnauthorized,
+						},
+						{
+							Name:   "invalid-jwks-expired-token-noauthz",
+							Config: "invalid-jwks",
+							Request: connection.Checker{
+								From: client,
+								Options: echo.CallOptions{
+									Target:   dest[0],
+									PortName: "http",
+									Scheme:   scheme.HTTP,
+									Headers: map[string][]string{
+										authHeaderKey: {"Bearer " + jwt.TokenExpired},
+									},
+									Count: callCount,
+								},
+								DestClusters: dest.Clusters(),
+							},
+							ExpectResponseCode: response.StatusUnauthorized,
+						},
+						{
+							Name:   "invalid-jwks-no-token-noauthz",
+							Config: "invalid-jwks",
+							Request: connection.Checker{
+								From: client,
+								Options: echo.CallOptions{
+									Target:   dest[0],
+									PortName: "http",
+									Scheme:   scheme.HTTP,
+									Count:    callCount,
+								},
+								DestClusters: dest.Clusters(),
+							},
+							ExpectResponseCode: response.StatusCodeOK,
 						},
 					}
 					for _, c := range extraTestCases {
