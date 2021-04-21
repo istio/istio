@@ -322,6 +322,16 @@ func TestGolden(t *testing.T) {
 			plat := &fakePlatform{
 				meta: c.platformMeta,
 			}
+
+			annoFile, err := ioutil.TempFile("", "annotations")
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer os.Remove(annoFile.Name())
+			for k, v := range c.annotations {
+				annoFile.Write([]byte(fmt.Sprintf("%s=%q\n", k, v)))
+			}
+
 			node, err := GetNodeMetaData(MetadataOptions{
 				ID:          "sidecar~1.2.3.4~foo~bar",
 				Envs:        localEnv,
@@ -332,9 +342,10 @@ func TestGolden(t *testing.T) {
 				PilotSubjectAltName: []string{
 					"spiffe://cluster.local/ns/istio-system/sa/istio-pilot-service-account",
 				},
-				OutlierLogPath:    "/dev/stdout",
-				PilotCertProvider: "istiod",
-				ProxyViaAgent:     c.proxyViaAgent,
+				OutlierLogPath:     "/dev/stdout",
+				PilotCertProvider:  "istiod",
+				ProxyViaAgent:      c.proxyViaAgent,
+				annotationFilePath: annoFile.Name(),
 			})
 			if err != nil {
 				t.Fatal(err)

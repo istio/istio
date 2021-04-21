@@ -184,19 +184,11 @@ var DefaultStatTags = []string{
 func getStatsOptions(meta *model.BootstrapNodeMetadata) []option.Instance {
 	nodeIPs := meta.InstanceIPs
 	config := meta.ProxyConfig
-	annotations, err := readPodAnnotations()
-	if err != nil {
-		if os.IsNotExist(err) {
-			log.Debugf("failed to read pod annotations: %v", err)
-		} else {
-			log.Warnf("failed to read pod annotations: %v", err)
-		}
-	}
 
-	tagAnno := annotations[extraTagsAnnotation]
-	prefixAnno := annotations[annotation.SidecarStatsInclusionRegexps.Name]
-	RegexAnno := annotations[annotation.SidecarStatsInclusionRegexps.Name]
-	suffixAnno := annotations[annotation.SidecarStatsInclusionSuffixes.Name]
+	tagAnno := meta.Annotations[extraTagsAnnotation]
+	prefixAnno := meta.Annotations[annotation.SidecarStatsInclusionPrefixes.Name]
+	RegexAnno := meta.Annotations[annotation.SidecarStatsInclusionRegexps.Name]
+	suffixAnno := meta.Annotations[annotation.SidecarStatsInclusionSuffixes.Name]
 
 	parseOption := func(metaOption string, required string, proxyConfigOption []string) []string {
 		var inclusionOption []string
@@ -244,9 +236,9 @@ func getStatsOptions(meta *model.BootstrapNodeMetadata) []option.Instance {
 	return []option.Instance{
 		option.EnvoyStatsMatcherInclusionPrefix(parseOption(prefixAnno,
 			requiredEnvoyStatsMatcherInclusionPrefixes, proxyConfigPrefixes)),
-		option.EnvoyStatsMatcherInclusionSuffix(parseOption(RegexAnno,
+		option.EnvoyStatsMatcherInclusionSuffix(parseOption(suffixAnno,
 			rbacEnvoyStatsMatcherInclusionSuffix, proxyConfigSuffixes)),
-		option.EnvoyStatsMatcherInclusionRegexp(parseOption(suffixAnno, "", proxyConfigRegexps)),
+		option.EnvoyStatsMatcherInclusionRegexp(parseOption(RegexAnno, "", proxyConfigRegexps)),
 		option.EnvoyExtraStatTags(extraStatTags),
 	}
 }
@@ -445,6 +437,7 @@ type MetadataOptions struct {
 	OutlierLogPath      string
 	PilotCertProvider   string
 	ProvCert            string
+	annotationFilePath  string
 }
 
 // GetNodeMetaData function uses an environment variable contract
@@ -507,6 +500,24 @@ func GetNodeMetaData(options MetadataOptions) (*model.Node, error) {
 		}
 	}
 
+	// Add all pod annotations found from filesystem
+	// These are typically volume mounted by the downward API
+	annos, err := ReadPodAnnotations(options.annotationFilePath)
+	if err == nil {
+		if meta.Annotations == nil {
+			meta.Annotations = map[string]string{}
+		}
+		for k, v := range annos {
+			meta.Annotations[k] = v
+		}
+	} else {
+		if os.IsNotExist(err) {
+			log.Debugf("failed to read pod annotations: %v", err)
+		} else {
+			log.Warnf("failed to read pod annotations: %v", err)
+		}
+	}
+
 	var l *core.Locality
 	if meta.Labels[model.LocalityLabel] == "" && options.Platform != nil {
 		// The locality string was not set, try to get locality from platform
@@ -553,8 +564,11 @@ func readPodLabels() (map[string]string, error) {
 	return ParseDownwardAPI(string(b))
 }
 
-func readPodAnnotations() (map[string]string, error) {
-	b, err := ioutil.ReadFile(constants.PodInfoAnnotationsPath)
+func ReadPodAnnotations(path string) (map[string]string, error) {
+	if path == "" {
+		path = constants.PodInfoAnnotationsPath
+	}
+	b, err := ioutil.ReadFile(path)
 	if err != nil {
 		return nil, err
 	}

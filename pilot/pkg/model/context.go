@@ -477,6 +477,9 @@ type NodeMetadata struct {
 	// Labels specifies the set of workload instance (ex: k8s pod) labels associated with this node.
 	Labels map[string]string `json:"LABELS,omitempty"`
 
+	// Labels specifies the set of workload instance (ex: k8s pod) annotations associated with this node.
+	Annotations map[string]string `json:"ANNOTATIONS,omitempty"`
+
 	// InstanceIPs is the set of IPs attached to this proxy
 	InstanceIPs StringList `json:"INSTANCE_IPS,omitempty"`
 
