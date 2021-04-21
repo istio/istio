@@ -294,11 +294,6 @@ func (s *DiscoveryServer) Stream(stream DiscoveryStream) error {
 
 	// Block until either a request is received or a push is triggered.
 	// We need 2 go routines because 'read' blocks in Recv().
-	//
-	// To avoid 2 routines, we tried to have Recv() in StreamAggregateResource - and the push
-	// on different short-lived go routines started when the push is happening. This would cut in 1/2
-	// the number of long-running go routines, since push is throttled. The main problem is with
-	// closing - the current gRPC library didn't allow closing the stream.
 	go s.receive(con)
 
 	// Wait for the proxy to be fully initialized before we start serving traffic. Because
@@ -316,6 +311,10 @@ func (s *DiscoveryServer) Stream(stream DiscoveryStream) error {
 				if err != nil {
 					return err
 				}
+			} else {
+				err := <-con.errorChan
+				close(con.errorChan)
+				return err
 			}
 		case err := <-con.errorChan:
 			// Remote side closed connection or error processing the request.
