@@ -53,7 +53,7 @@ spec:
           operator: Exists
         - effect: NoExecute
           operator: Exists
-      priorityClassName: system-cluster-critical
+      priorityClassName: system-node-critical
       serviceAccountName: istio-cni
       # Minimize downtime during a rolling upgrade or deletion; tell Kubernetes to do a "force
       # deletion": https://kubernetes.io/docs/concepts/workloads/pods/pod/#termination-of-pods.
