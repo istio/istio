@@ -138,10 +138,10 @@ func New(client kube.Client, revision, domainSuffix string) (model.ConfigStoreCa
 	if features.EnableServiceApis {
 		schemas = collections.PilotServiceApi
 	}
-	return NewForSchemas(client, revision, domainSuffix, schemas)
+	return NewForSchemas(context.Background(), client, revision, domainSuffix, schemas)
 }
 
-func NewForSchemas(client kube.Client, revision, domainSuffix string, schemas collection.Schemas) (model.ConfigStoreCache, error) {
+func NewForSchemas(ctx context.Context, client kube.Client, revision, domainSuffix string, schemas collection.Schemas) (model.ConfigStoreCache, error) {
 	out := &Client{
 		domainSuffix:      domainSuffix,
 		schemas:           schemas,
@@ -151,7 +151,10 @@ func NewForSchemas(client kube.Client, revision, domainSuffix string, schemas co
 		istioClient:       client.Istio(),
 		serviceApisClient: client.ServiceApis(),
 	}
-	known := knownCRDs(client.Ext())
+	known, err := knownCRDs(ctx, client.Ext())
+	if err != nil {
+		return nil, err
+	}
 	for _, s := range out.schemas.All() {
 		// From the spec: "Its name MUST be in the format <.spec.name>.<.spec.group>."
 		name := fmt.Sprintf("%s.%s", s.Resource().Plural(), s.Resource().Group())
@@ -310,13 +313,16 @@ func (cl *Client) objectInRevision(o *config.Config) bool {
 }
 
 // knownCRDs returns all CRDs present in the cluster, with retries
-func knownCRDs(crdClient apiextensionsclient.Interface) map[string]struct{} {
+func knownCRDs(ctx context.Context, crdClient apiextensionsclient.Interface) (map[string]struct{}, error) {
 	delay := time.Second
 	maxDelay := time.Minute
 	var res *v1beta1.CustomResourceDefinitionList
 	for {
+		if err := ctx.Err(); err != nil {
+			return nil, err
+		}
 		var err error
-		res, err = crdClient.ApiextensionsV1beta1().CustomResourceDefinitions().List(context.TODO(), metav1.ListOptions{})
+		res, err = crdClient.ApiextensionsV1beta1().CustomResourceDefinitions().List(ctx, metav1.ListOptions{})
 		if err == nil {
 			break
 		}
@@ -332,7 +338,7 @@ func knownCRDs(crdClient apiextensionsclient.Interface) map[string]struct{} {
 	for _, r := range res.Items {
 		mp[r.Name] = struct{}{}
 	}
-	return mp
+	return mp, nil
 }
 
 func TranslateObject(r runtime.Object, gvk config.GroupVersionKind, domainSuffix string) *config.Config {

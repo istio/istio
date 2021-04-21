@@ -669,7 +669,7 @@ func (i *operatorComponent) configureDirectAPIServerAccess(ctx resource.Context,
 func (i *operatorComponent) configureDirectAPIServiceAccessForCluster(ctx resource.Context, cfg Config,
 	cluster cluster.Cluster) error {
 	// Create a secret.
-	secret, err := createRemoteSecret(ctx, cluster, cfg)
+	secret, err := CreateRemoteSecret(ctx, cluster, cfg)
 	if err != nil {
 		return fmt.Errorf("failed creating remote secret for cluster %s: %v", cluster.Name(), err)
 	}
@@ -684,7 +684,7 @@ func (i *operatorComponent) configureDirectAPIServiceAccessForCluster(ctx resour
 	return nil
 }
 
-func createRemoteSecret(ctx resource.Context, cluster cluster.Cluster, cfg Config) (string, error) {
+func CreateRemoteSecret(ctx resource.Context, cluster cluster.Cluster, cfg Config, opts ...string) (string, error) {
 	istioCtl, err := istioctl.New(ctx, istioctl.Config{
 		Cluster: cluster,
 	})
@@ -697,6 +697,7 @@ func createRemoteSecret(ctx resource.Context, cluster cluster.Cluster, cfg Confi
 		"--namespace", cfg.SystemNamespace,
 		"--manifests", filepath.Join(testenv.IstioSrc, "manifests"),
 	}
+	cmd = append(cmd, opts...)
 
 	scopes.Framework.Infof("Creating remote secret for cluster cluster %s %v", cluster.Name(), cmd)
 	out, _, err := istioCtl.Invoke(cmd)

@@ -21,11 +21,12 @@ import (
 	"errors"
 	"fmt"
 	"reflect"
+	"sync"
 	"time"
 
 	"go.uber.org/atomic"
 	corev1 "k8s.io/api/core/v1"
-	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -35,8 +36,10 @@ import (
 	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/client-go/util/workqueue"
 
+	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pkg/kube"
 	"istio.io/pkg/log"
+	"istio.io/pkg/monitoring"
 )
 
 const (
@@ -45,67 +48,120 @@ const (
 	maxRetries              = 5
 )
 
-// addSecretCallback prototype for the add secret callback function.
-type addSecretCallback func(clients kube.Client, dataKey string) error
+func init() {
+	monitoring.MustRegister(timeouts)
+}
 
-// updateSecretCallback prototype for the update secret callback function.
-type updateSecretCallback func(clients kube.Client, dataKey string) error
+var timeouts = monitoring.NewSum(
+	"remote_cluster_sync_timeouts_total",
+	"Number of times remote clusters took too long to sync, causing slow startup that excludes remote clusters.",
+)
 
-// removeSecretCallback prototype for the remove secret callback function.
-type removeSecretCallback func(dataKey string) error
+// newClientCallback prototype for the add secret callback function.
+type newClientCallback func(clusterID string, cluster *Cluster) error
+
+// removeClientCallback prototype for the remove secret callback function.
+type removeClientCallback func(clusterID string) error
 
 // Controller is the controller implementation for Secret resources
 type Controller struct {
-	kubeclientset  kubernetes.Interface
-	namespace      string
-	cs             *ClusterStore
-	queue          workqueue.RateLimitingInterface
-	informer       cache.SharedIndexInformer
-	addCallback    addSecretCallback
-	updateCallback updateSecretCallback
-	removeCallback removeSecretCallback
+	kubeclientset kubernetes.Interface
+	namespace     string
+	queue         workqueue.RateLimitingInterface
+	informer      cache.SharedIndexInformer
 
-	syncInterval time.Duration
+	cs *ClusterStore
 
-	initialSync atomic.Bool
+	addCallback    newClientCallback
+	updateCallback newClientCallback
+	removeCallback removeClientCallback
+
+	once              sync.Once
+	syncInterval      time.Duration
+	initialSync       atomic.Bool
+	remoteSyncTimeout atomic.Bool
 }
 
-// RemoteCluster defines cluster struct
-type RemoteCluster struct {
+// Cluster defines cluster struct
+type Cluster struct {
 	secretName    string
-	clients       kube.Client
 	kubeConfigSha [sha256.Size]byte
+
+	// Client for accessing the cluster.
+	Client kube.Client
+	// Stop channel which is closed when the cluster is removed or the secretcontroller that created the client is stopped.
+	// Client.RunAndWait is called using this channel.
+	Stop chan struct{}
+	// initialSync is marked when RunAndWait completes
+	initialSync *atomic.Bool
+	// SyncTimeout is marked after features.RemoteClusterTimeout
+	SyncTimeout *atomic.Bool
+}
+
+// Run starts the cluster's informers and waits for caches to sync. Once caches are synced, we mark the cluster synced.
+// This should be called after each of the handlers have registered informers, and should be run in a goroutine.
+func (r *Cluster) Run() {
+	r.Client.RunAndWait(r.Stop)
+	r.initialSync.Store(true)
+}
+
+func (r *Cluster) HasSynced() bool {
+	return r.initialSync.Load() || r.SyncTimeout.Load()
 }
 
 // ClusterStore is a collection of clusters
 type ClusterStore struct {
-	remoteClusters map[string]*RemoteCluster
+	sync.RWMutex
+	remoteClusters map[string]*Cluster
 }
 
 // newClustersStore initializes data struct to store clusters information
 func newClustersStore() *ClusterStore {
-	remoteClusters := make(map[string]*RemoteCluster)
+	remoteClusters := make(map[string]*Cluster)
 	return &ClusterStore{
 		remoteClusters: remoteClusters,
 	}
+}
+
+func (c *ClusterStore) Store(key string, value *Cluster) {
+	c.Lock()
+	defer c.Unlock()
+	c.remoteClusters[key] = value
+}
+
+func (c *ClusterStore) Get(key string) (*Cluster, bool) {
+	c.RLock()
+	defer c.RUnlock()
+	out, ok := c.remoteClusters[key]
+	return out, ok
+}
+
+func (c *ClusterStore) Delete(key string) {
+	c.Lock()
+	defer c.Unlock()
+	delete(c.remoteClusters, key)
+}
+
+func (c *ClusterStore) Len() int {
+	c.Lock()
+	defer c.Unlock()
+	return len(c.remoteClusters)
 }
 
 // NewController returns a new secret controller
 func NewController(
 	kubeclientset kubernetes.Interface,
 	namespace string,
-	cs *ClusterStore,
-	addCallback addSecretCallback,
-	updateCallback updateSecretCallback,
-	removeCallback removeSecretCallback) *Controller {
-
+	addCallback newClientCallback,
+	updateCallback newClientCallback,
+	removeCallback removeClientCallback) *Controller {
 	secretsInformer := cache.NewSharedIndexInformer(
 		&cache.ListWatch{
-			ListFunc: func(opts meta_v1.ListOptions) (runtime.Object, error) {
+			ListFunc: func(opts metav1.ListOptions) (runtime.Object, error) {
 				opts.LabelSelector = MultiClusterSecretLabel + "=true"
 				return kubeclientset.CoreV1().Secrets(namespace).List(context.TODO(), opts)
 			},
-			WatchFunc: func(opts meta_v1.ListOptions) (watch.Interface, error) {
+			WatchFunc: func(opts metav1.ListOptions) (watch.Interface, error) {
 				opts.LabelSelector = MultiClusterSecretLabel + "=true"
 				return kubeclientset.CoreV1().Secrets(namespace).Watch(context.TODO(), opts)
 			},
@@ -118,7 +174,7 @@ func NewController(
 	controller := &Controller{
 		kubeclientset:  kubeclientset,
 		namespace:      namespace,
-		cs:             cs,
+		cs:             newClustersStore(),
 		informer:       secretsInformer,
 		queue:          queue,
 		addCallback:    addCallback,
@@ -173,26 +229,62 @@ func (c *Controller) Run(stopCh <-chan struct{}) {
 	}
 	// all secret events before this signal must be processed before we're marked "ready"
 	c.queue.Add(initialSyncSignal)
-
+	if features.RemoteClusterTimeout != 0 {
+		time.AfterFunc(features.RemoteClusterTimeout, func() {
+			c.remoteSyncTimeout.Store(true)
+		})
+	}
 	go wait.Until(c.runWorker, 5*time.Second, stopCh)
 	<-stopCh
+	c.close()
+}
+
+func (c *Controller) close() {
+	c.cs.Lock()
+	defer c.cs.Unlock()
+	for _, cluster := range c.cs.remoteClusters {
+		close(cluster.Stop)
+	}
+}
+
+func (c *Controller) hasSynced() bool {
+	if !c.initialSync.Load() {
+		// we haven't finished processing the secrets that were present at startup
+		return false
+	}
+	c.cs.RLock()
+	defer c.cs.RUnlock()
+	for _, cluster := range c.cs.remoteClusters {
+		if !cluster.HasSynced() {
+			return false
+		}
+	}
+	return true
 }
 
 func (c *Controller) HasSynced() bool {
-	return c.initialSync.Load()
+	synced := c.hasSynced()
+	if !synced && c.remoteSyncTimeout.Load() {
+		c.once.Do(func() {
+			log.Errorf("remote clusters failed to sync after %v", features.RemoteClusterTimeout)
+			timeouts.Increment()
+		})
+		return true
+	}
+
+	return synced
 }
 
 // StartSecretController creates the secret controller.
 func StartSecretController(
 	k8s kubernetes.Interface,
-	addCallback addSecretCallback, updateCallback updateSecretCallback,
-	removeCallback removeSecretCallback,
+	addCallback newClientCallback, updateCallback newClientCallback,
+	removeCallback removeClientCallback,
 	namespace string,
 	syncInterval time.Duration,
 	stop <-chan struct{},
 ) *Controller {
-	clusterStore := newClustersStore()
-	controller := NewController(k8s, namespace, clusterStore, addCallback, updateCallback, removeCallback)
+	controller := NewController(k8s, namespace, addCallback, updateCallback, removeCallback)
 	controller.syncInterval = syncInterval
 
 	go controller.Run(stop)
@@ -272,68 +364,64 @@ var BuildClientsFromConfig = func(kubeConfig []byte) (kube.Client, error) {
 	return clients, nil
 }
 
-func createRemoteCluster(kubeConfig []byte, secretName string) (*RemoteCluster, error) {
+func (c *Controller) createRemoteCluster(kubeConfig []byte, secretName string) (*Cluster, error) {
 	clients, err := BuildClientsFromConfig(kubeConfig)
 	if err != nil {
 		return nil, err
 	}
-	return &RemoteCluster{
-		secretName:    secretName,
-		clients:       clients,
+	return &Cluster{
+		secretName: secretName,
+		Client:     clients,
+		// access outside this package should only be reading
+		Stop: make(chan struct{}),
+		// for use inside the package, to close on cleanup
+		initialSync:   atomic.NewBool(false),
+		SyncTimeout:   &c.remoteSyncTimeout,
 		kubeConfigSha: sha256.Sum256(kubeConfig),
 	}, nil
 }
 
 func (c *Controller) addMemberCluster(secretName string, s *corev1.Secret) {
 	for clusterID, kubeConfig := range s.Data {
-		// clusterID must be unique even across multiple secrets
-		if prev, ok := c.cs.remoteClusters[clusterID]; !ok {
-			log.Infof("Adding cluster_id=%v from secret=%v", clusterID, secretName)
-
-			remoteCluster, err := createRemoteCluster(kubeConfig, secretName)
-			if err != nil {
-				log.Errorf("Failed to add remote cluster from secret=%v for cluster_id=%v: %v",
-					secretName, clusterID, err)
-				continue
-			}
-
-			c.cs.remoteClusters[clusterID] = remoteCluster
-			if err := c.addCallback(remoteCluster.clients, clusterID); err != nil {
-				log.Errorf("Error creating cluster_id=%s from secret %v: %v",
-					clusterID, secretName, err)
-			}
-		} else {
+		action, callback := "Adding", c.addCallback
+		if prev, ok := c.cs.Get(clusterID); ok {
+			action, callback = "Updating", c.updateCallback
+			// clusterID must be unique even across multiple secrets
 			if prev.secretName != secretName {
 				log.Errorf("ClusterID reused in two different secrets: %v and %v. ClusterID "+
 					"must be unique across all secrets", prev.secretName, secretName)
 				continue
 			}
-
 			kubeConfigSha := sha256.Sum256(kubeConfig)
 			if bytes.Equal(kubeConfigSha[:], prev.kubeConfigSha[:]) {
-				log.Infof("Updating cluster_id=%v from secret=%v: (kubeconfig are identical)", clusterID, secretName)
-			} else {
-				log.Infof("Updating cluster %v from secret %v", clusterID, secretName)
-
-				remoteCluster, err := createRemoteCluster(kubeConfig, secretName)
-				if err != nil {
-					log.Errorf("Error updating cluster_id=%v from secret=%v: %v",
-						clusterID, secretName, err)
-					continue
-				}
-				c.cs.remoteClusters[clusterID] = remoteCluster
-				if err := c.updateCallback(remoteCluster.clients, clusterID); err != nil {
-					log.Errorf("Error updating cluster_id from secret=%v: %s %v",
-						clusterID, secretName, err)
-				}
+				log.Infof("%s cluster_id=%v from secret=%v: (kubeconfig are identical)", clusterID, secretName)
+				continue
 			}
 		}
+		log.Infof("%s cluster %v from secret %v", action, clusterID, secretName)
+
+		remoteCluster, err := c.createRemoteCluster(kubeConfig, secretName)
+		if err != nil {
+			log.Errorf("%s cluster_id=%v from secret=%v: %v", action, clusterID, secretName, err)
+			continue
+		}
+		c.cs.Store(clusterID, remoteCluster)
+		if err := callback(clusterID, remoteCluster); err != nil {
+			log.Errorf("%s cluster_id from secret=%v: %s %v", action, clusterID, secretName, err)
+			continue
+		}
+		go remoteCluster.Run()
 	}
 
-	log.Infof("Number of remote clusters: %d", len(c.cs.remoteClusters))
+	log.Infof("Number of remote clusters: %d", c.cs.Len())
 }
 
 func (c *Controller) deleteMemberCluster(secretName string) {
+	c.cs.Lock()
+	defer func() {
+		c.cs.Unlock()
+		log.Infof("Number of remote clusters: %d", len(c.cs.remoteClusters))
+	}()
 	for clusterID, cluster := range c.cs.remoteClusters {
 		if cluster.secretName == secretName {
 			log.Infof("Deleting cluster_id=%v configured by secret=%v", clusterID, secretName)
@@ -342,8 +430,8 @@ func (c *Controller) deleteMemberCluster(secretName string) {
 				log.Errorf("Error removing cluster_id=%v configured by secret=%v: %v",
 					clusterID, secretName, err)
 			}
+			close(cluster.Stop)
 			delete(c.cs.remoteClusters, clusterID)
 		}
 	}
-	log.Infof("Number of remote clusters: %d", len(c.cs.remoteClusters))
 }

@@ -15,6 +15,8 @@
 package controller
 
 import (
+	"context"
+	"fmt"
 	"strings"
 	"sync"
 	"time"
@@ -52,7 +54,6 @@ var (
 
 type kubeController struct {
 	*Controller
-	stopCh             chan struct{}
 	workloadEntryStore *serviceentry.ServiceEntryStore
 }
 
@@ -128,19 +129,23 @@ func NewMulticluster(
 // AddMemberCluster is passed to the secret controller as a callback to be called
 // when a remote cluster is added.  This function needs to set up all the handlers
 // to watch for resources being added, deleted or changed on remote clusters.
-func (m *Multicluster) AddMemberCluster(client kubelib.Client, clusterID string) error {
+func (m *Multicluster) AddMemberCluster(clusterID string, rc *secretcontroller.Cluster) error {
 	// stopCh to stop controller created here when cluster removed.
-	stopCh := make(chan struct{})
 	m.m.Lock()
+
+	client := rc.Client
+	clusterStopCh := rc.Stop
+
 	options := m.opts
 	options.ClusterID = clusterID
+	// the aggregate registry's HasSynced will use the k8s controller's HasSynced, so we reference the same timeout
+	options.SyncTimeout = rc.SyncTimeout
 
 	log.Infof("Initializing Kubernetes service registry %q", options.ClusterID)
 	kubeRegistry := NewController(client, options)
 	m.serviceController.AddRegistry(kubeRegistry)
 	m.remoteKubeControllers[clusterID] = &kubeController{
 		Controller: kubeRegistry,
-		stopCh:     stopCh,
 	}
 	// localCluster may also be the "config" cluster, in an external-istiod setup.
 	localCluster := m.opts.ClusterID == clusterID
@@ -170,18 +175,20 @@ func (m *Multicluster) AddMemberCluster(client kubelib.Client, clusterID string)
 				m.serviceController.AddRegistry(m.remoteKubeControllers[clusterID].workloadEntryStore)
 				// Services can select WorkloadEntry from the same cluster. We only duplicate the Service to configure kube-dns.
 				m.remoteKubeControllers[clusterID].workloadEntryStore.AppendWorkloadHandler(kubeRegistry.WorkloadInstanceHandler)
-				go configStore.Run(stopCh)
+				go configStore.Run(clusterStopCh)
 			} else {
-				log.Errorf("failed creating config configStore for cluster %s: %v", clusterID, err)
+				return fmt.Errorf("failed creating config configStore for cluster %s: %v", clusterID, err)
 			}
 		}
 	}
 
-	// TODO only create namespace controller and cert patch for remote clusters (no way to tell currently)
+	// TODO make the aggregate controller keep clusters tied to their individual stop channels
 	if m.serviceController.Running() {
 		// if serviceController isn't running, it will start its members when it is started
-		go kubeRegistry.Run(stopCh)
+		go kubeRegistry.Run(clusterStopCh)
 	}
+
+	// TODO only create namespace controller and cert patch for remote clusters (no way to tell currently)
 	if m.fetchCaRoot != nil && m.fetchCaRoot() != nil && (features.ExternalIstiod || localCluster) {
 		log.Infof("joining leader-election for %s in %s", leaderelection.NamespaceController, options.SystemNamespace)
 		go leaderelection.
@@ -194,9 +201,9 @@ func (m *Multicluster) AddMemberCluster(client kubelib.Client, clusterID string)
 				// Note: stop here should be the overall pilot stop, NOT the leader election stop. We are
 				// basically lazy loading the informer, if we stop it when we lose the lock we will never
 				// recreate it again.
-				client.RunAndWait(stopCh)
+				client.RunAndWait(clusterStopCh)
 				nc.Run(leaderStop)
-			}).Run(stopCh)
+			}).Run(clusterStopCh)
 	}
 
 	// The local cluster has this patching set-up elsewhere. We may eventually want to move it here.
@@ -211,7 +218,7 @@ func (m *Multicluster) AddMemberCluster(client kubelib.Client, clusterID string)
 			if err != nil {
 				log.Errorf("could not initialize webhook cert patcher: %v", err)
 			} else {
-				patcher.Run(stopCh)
+				patcher.Run(clusterStopCh)
 			}
 		}
 		// Patch validation webhook cert
@@ -220,27 +227,25 @@ func (m *Multicluster) AddMemberCluster(client kubelib.Client, clusterID string)
 			validationWebhookController := webhooks.CreateValidationWebhookController(client, webhookConfigName,
 				m.secretNamespace, m.caBundlePath, true)
 			if validationWebhookController != nil {
-				go validationWebhookController.Start(stopCh)
+				go validationWebhookController.Start(clusterStopCh)
 			}
 		}
 	}
 
-	client.RunAndWait(stopCh)
 	return nil
 }
 
-func (m *Multicluster) UpdateMemberCluster(clients kubelib.Client, clusterID string) error {
+func (m *Multicluster) UpdateMemberCluster(clusterID string, rc *secretcontroller.Cluster) error {
 	if err := m.DeleteMemberCluster(clusterID); err != nil {
 		return err
 	}
-	return m.AddMemberCluster(clients, clusterID)
+	return m.AddMemberCluster(clusterID, rc)
 }
 
 // DeleteMemberCluster is passed to the secret controller as a callback to be called
 // when a remote cluster is deleted.  Also must clear the cache so remote resources
 // are removed.
 func (m *Multicluster) DeleteMemberCluster(clusterID string) error {
-
 	m.m.Lock()
 	defer m.m.Unlock()
 	m.serviceController.DeleteRegistry(clusterID, serviceregistry.Kubernetes)
@@ -255,7 +260,6 @@ func (m *Multicluster) DeleteMemberCluster(clusterID string) error {
 	if kc.workloadEntryStore != nil {
 		m.serviceController.DeleteRegistry(clusterID, serviceregistry.External)
 	}
-	close(m.remoteKubeControllers[clusterID].stopCh)
 	delete(m.remoteKubeControllers, clusterID)
 	if m.XDSUpdater != nil {
 		m.XDSUpdater.ConfigUpdate(&model.PushRequest{Full: true})
@@ -269,7 +273,9 @@ func createConfigStore(client kubelib.Client, revision string, opts Options) (mo
 	workloadEntriesSchemas := collection.NewSchemasBuilder().
 		MustAdd(collections.IstioNetworkingV1Alpha3Workloadentries).
 		Build()
-	return crdclient.NewForSchemas(client, revision, opts.DomainSuffix, workloadEntriesSchemas)
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	return crdclient.NewForSchemas(ctx, client, revision, opts.DomainSuffix, workloadEntriesSchemas)
 }
 
 func (m *Multicluster) updateHandler(svc *model.Service) {
