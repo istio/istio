@@ -93,11 +93,6 @@ func (s *DiscoveryServer) StreamDeltas(stream DeltaDiscoveryStream) error {
 
 	// Block until either a request is received or a push is triggered.
 	// We need 2 go routines because 'read' blocks in Recv().
-	//
-	// To avoid 2 routines, we tried to have Recv() in StreamAggregateResource - and the push
-	// on different short-lived go routines started when the push is happening. This would cut in 1/2
-	// the number of long-running go routines, since push is throttled. The main problem is with
-	// closing - the current gRPC library didn't allow closing the stream.
 	go s.receiveDelta(con)
 
 	// Wait for the proxy to be fully initialized before we start serving traffic. Because
@@ -109,19 +104,18 @@ func (s *DiscoveryServer) StreamDeltas(stream DeltaDiscoveryStream) error {
 
 	for {
 		select {
-		case req := <-con.deltaReqChan:
-			if req != nil {
+		case req, ok := <-con.deltaReqChan:
+			if ok {
 				// processRequest is calling pushXXX, accessing common structs with pushConnection.
 				// Adding sync is the second issue to be resolved if we want to save 1/2 of the threads.
 				log.Debugf("Got Delta Request: %+v", req.TypeUrl)
-				err := s.processDeltaRequest(req, con)
-				if err != nil {
+				if err := s.processDeltaRequest(req, con); err != nil {
 					return err
 				}
+			} else {
+				// Remote side closed connection or error processing the request.
+				return <-con.errorChan
 			}
-		case err := <-con.errorChan:
-			// Remote side closed connection or error processing the request.
-			return err
 		case pushEv := <-con.pushChannel:
 			err := s.pushConnectionDelta(con, pushEv)
 			pushEv.done()
@@ -211,7 +205,7 @@ func (s *DiscoveryServer) receiveDelta(con *Connection) {
 			close(con.initialized)
 		}
 	}()
-	initialized := false
+	firstRequest := true
 	for {
 		req, err := con.deltaStream.Recv()
 		if err != nil {
@@ -225,8 +219,8 @@ func (s *DiscoveryServer) receiveDelta(con *Connection) {
 			return
 		}
 		// This should be only set for the first request. The node id may not be set - for example malicious clients.
-		if !initialized {
-			initialized = true
+		if firstRequest {
+			firstRequest = false
 			if req.Node == nil || req.Node.Id == "" {
 				con.errorChan <- status.New(codes.InvalidArgument, "missing node information").Err()
 				return

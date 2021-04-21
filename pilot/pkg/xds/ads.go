@@ -150,7 +150,7 @@ func (s *DiscoveryServer) receive(con *Connection) {
 		}
 	}()
 
-	initialized := false
+	firstRequest := true
 	for {
 		req, err := con.stream.Recv()
 		if err != nil {
@@ -164,8 +164,8 @@ func (s *DiscoveryServer) receive(con *Connection) {
 			return
 		}
 		// This should be only set for the first request. The node id may not be set - for example malicious clients.
-		if !initialized {
-			initialized = true
+		if firstRequest {
+			firstRequest = false
 			if req.Node == nil || req.Node.Id == "" {
 				con.errorChan <- status.New(codes.InvalidArgument, "missing node information").Err()
 				return
@@ -305,20 +305,15 @@ func (s *DiscoveryServer) Stream(stream DiscoveryStream) error {
 
 	for {
 		select {
-		case req := <-con.reqChan:
-			if req != nil {
-				err := s.processRequest(req, con)
-				if err != nil {
+		case req, ok := <-con.reqChan:
+			if ok {
+				if err := s.processRequest(req, con); err != nil {
 					return err
 				}
 			} else {
-				err := <-con.errorChan
-				close(con.errorChan)
-				return err
+				// Remote side closed connection or error processing the request.
+				return <-con.errorChan
 			}
-		case err := <-con.errorChan:
-			// Remote side closed connection or error processing the request.
-			return err
 		case pushEv := <-con.pushChannel:
 			err := s.pushConnection(con, pushEv)
 			pushEv.done()
