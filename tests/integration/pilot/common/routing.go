@@ -440,7 +440,7 @@ spec:
 			toN:           len(split),
 			sourceFilters: []echotest.Filter{noHeadless, noNaked},
 			targetFilters: []echotest.Filter{noHeadless, noExternal},
-			templateVars: func(src echo.Instances, dests echo.Services) map[string]interface{} {
+			templateVarsForN: func(src echo.Instances, dests echo.Services) map[string]interface{} {
 				return map[string]interface{}{
 					"split": split,
 				}
@@ -462,7 +462,7 @@ spec:
       weight: {{ ( index $split $idx ) }}
 {{- end }}
 `,
-			validate: func(src echo.Caller, dests echo.Services) echo.Validator {
+			validateForN: func(src echo.Caller, dests echo.Services) echo.Validator {
 				return echo.And(
 					echo.ExpectOK(),
 					echo.ValidatorFunc(func(responses echoclient.ParsedResponses, err error) error {
@@ -627,8 +627,8 @@ func trafficLoopCases(apps *EchoDeployments) []TrafficTestCase {
 }
 
 func gatewayCases() []TrafficTestCase {
-	templateParams := func(protocol protocol.Instance, dests echo.Services) map[string]interface{} {
-		host, dest, portN, cred := "*", dests[0][0], 80, ""
+	templateParams := func(protocol protocol.Instance, dests echo.Instances) map[string]interface{} {
+		host, dest, portN, cred := "*", dests[0], 80, ""
 		if protocol.IsTLS() {
 			host, portN, cred = dest.Config().FQDN(), 443, "cred"
 		}
@@ -645,15 +645,15 @@ func gatewayCases() []TrafficTestCase {
 	}
 
 	// clears the Target to avoid echo internals trying to match the protocol with the port on echo.Config
-	noTarget := func(src echo.Caller, dsts echo.Services, opts *echo.CallOptions) {
+	noTarget := func(src echo.Caller, dsts echo.Instances, opts *echo.CallOptions) {
 		opts.Target = nil
 	}
 	// allows setting the target indirectly via the host header
-	fqdnHostHeader := func(src echo.Caller, dsts echo.Services, opts *echo.CallOptions) {
+	fqdnHostHeader := func(src echo.Caller, dsts echo.Instances, opts *echo.CallOptions) {
 		if opts.Headers == nil {
 			opts.Headers = map[string][]string{}
 		}
-		opts.Headers["Host"] = []string{dsts[0][0].Config().FQDN()}
+		opts.Headers["Host"] = []string{dsts[0].Config().FQDN()}
 		noTarget(src, dsts, opts)
 	}
 
@@ -769,8 +769,8 @@ spec:
 				Validator: echo.ExpectOK(),
 			},
 			setupOpts: fqdnHostHeader,
-			templateVars: func(_ echo.Instances, dests echo.Services) map[string]interface{} {
-				dest := dests[0][0]
+			templateVars: func(_ echo.Instances, dests echo.Instances) map[string]interface{} {
+				dest := dests[0]
 				return map[string]interface{}{
 					"Gateway":            "gateway",
 					"VirtualServiceHost": dest.Config().FQDN(),
@@ -790,7 +790,7 @@ spec:
 			TrafficTestCase{
 				name:   string(proto),
 				config: gatewayTmpl + httpVirtualServiceTmpl + secret,
-				templateVars: func(_ echo.Instances, dests echo.Services) map[string]interface{} {
+				templateVars: func(_ echo.Instances, dests echo.Instances) map[string]interface{} {
 					return templateParams(proto, dests)
 				},
 				setupOpts: fqdnHostHeader,
@@ -806,7 +806,7 @@ spec:
 			TrafficTestCase{
 				name:   fmt.Sprintf("%s scheme match", proto),
 				config: gatewayTmpl + httpVirtualServiceTmpl + secret,
-				templateVars: func(_ echo.Instances, dests echo.Services) map[string]interface{} {
+				templateVars: func(_ echo.Instances, dests echo.Instances) map[string]interface{} {
 					params := templateParams(proto, dests)
 					params["MatchScheme"] = strings.ToLower(string(proto))
 					return params
@@ -1057,7 +1057,7 @@ func selfCallsCases() []TrafficTestCase {
 			workloadAgnostic: true,
 			sourceFilters:    sourceFilters,
 			comboFilters:     comboFilters,
-			setupOpts: func(_ echo.Caller, _ echo.Services, opts *echo.CallOptions) {
+			setupOpts: func(_ echo.Caller, _ echo.Instances, opts *echo.CallOptions) {
 				// the framework will try to set this when enumerating test cases
 				opts.Target = nil
 			},
@@ -1074,7 +1074,7 @@ func selfCallsCases() []TrafficTestCase {
 			workloadAgnostic: true,
 			sourceFilters:    sourceFilters,
 			comboFilters:     comboFilters,
-			setupOpts: func(srcCaller echo.Caller, _ echo.Services, opts *echo.CallOptions) {
+			setupOpts: func(srcCaller echo.Caller, _ echo.Instances, opts *echo.CallOptions) {
 				src := srcCaller.(echo.Instance)
 				workloads, _ := src.Workloads()
 				opts.Address = workloads[0].Address()

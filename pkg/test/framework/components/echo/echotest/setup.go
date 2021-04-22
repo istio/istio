@@ -50,9 +50,8 @@ func (t *T) setup(ctx framework.TestContext, srcInstances echo.Instances) {
 	}
 }
 
-// SetupForPair runs the given function in the source + destination deployment context. The setup function
-// takes an echo.Services. When using Run there will always be 1 destination deployment. When using RunForN,
-// the length will always be N.
+// SetupForPair runs the given function for every source instance in every cluster in combination with every
+// destination service.
 //
 // Example of how long this setup lasts before the given context is cleaned up:
 //     a/to_b/from_cluster-1
@@ -62,10 +61,13 @@ func (t *T) setup(ctx framework.TestContext, srcInstances echo.Instances) {
 //     ...
 func (t *T) SetupForPair(setupFn pairSetupFn) *T {
 	return t.SetupForServicePair(func(ctx framework.TestContext, src echo.Instances, dsts echo.Services) error {
-		return setupFn(ctx, src, dsts[0])
+		return setupFn(ctx, src, dsts.Instances())
 	})
 }
 
+// SetupForServicePair works similarly to SetupForPair, but the setup funciton accepts echo.Services, which
+// contains instances for multiple services and should be used in combination with RunForN.
+// The length of dsts services will alyas be N.
 func (t *T) SetupForServicePair(setupFn svcPairSetupFn) *T {
 	t.deploymentPairSetup = append(t.deploymentPairSetup, setupFn)
 	return t
@@ -80,6 +82,7 @@ func (t *T) setupPair(ctx framework.TestContext, src echo.Instances, dsts echo.S
 	t.setupDst(ctx, dsts.Instances())
 }
 
+// SetupForDestination is run each time the destination Service (but not destination cluser) changes.
 func (t *T) SetupForDestination(setupFn dstSetupFn) *T {
 	t.destinationDeploymentSetup = append(t.destinationDeploymentSetup, setupFn)
 	return t

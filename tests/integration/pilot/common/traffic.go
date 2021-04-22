@@ -56,9 +56,10 @@ type TrafficTestCase struct {
 	// opts specifies the echo call options. When using RunForApps, the Target will be set dynamically.
 	opts echo.CallOptions
 	// setupOpts allows modifying options based on sources/destinations
-	setupOpts func(src echo.Caller, dest echo.Services, opts *echo.CallOptions)
+	setupOpts func(src echo.Caller, dest echo.Instances, opts *echo.CallOptions)
 	// validate is used to build validators dynamically when using RunForApps based on the active/src dest pair
-	validate func(src echo.Caller, dst echo.Services) echo.Validator
+	validate     func(src echo.Caller, dst echo.Instances) echo.Validator
+	validateForN func(src echo.Caller, dst echo.Services) echo.Validator
 
 	// setting cases to skipped is better than not adding them - gives visibility to what needs to be fixed
 	skip bool
@@ -79,7 +80,8 @@ type TrafficTestCase struct {
 	// comboFilters allows conditionally filtering based on pairs of apps
 	comboFilters []echotest.CombinationFilter
 	// vars given to the config template
-	templateVars func(src echo.Instances, dests echo.Services) map[string]interface{}
+	templateVars     func(src echo.Instances, dest echo.Instances) map[string]interface{}
+	templateVarsForN func(src echo.Instances, dests echo.Services) map[string]interface{}
 }
 
 func (c TrafficTestCase) RunForApps(t framework.TestContext, apps echo.Instances, namespace string) {
@@ -111,7 +113,12 @@ func (c TrafficTestCase) RunForApps(t framework.TestContext, apps echo.Instances
 					tmplData["srcSvc"] = src[0].Config().Service
 				}
 				if c.templateVars != nil {
-					for k, v := range c.templateVars(src, dsts) {
+					for k, v := range c.templateVars(src, dsts[0]) {
+						tmplData[k] = v
+					}
+				}
+				if c.templateVarsForN != nil {
+					for k, v := range c.templateVarsForN(src, dsts) {
 						tmplData[k] = v
 					}
 				}
@@ -131,13 +138,16 @@ func (c TrafficTestCase) RunForApps(t framework.TestContext, apps echo.Instances
 				opts := options
 				opts.Target = dsts[0][0]
 				if c.validate != nil {
-					opts.Validator = c.validate(src, dsts)
+					opts.Validator = c.validate(src, dsts[0])
+				}
+				if c.validateForN != nil {
+					opts.Validator = c.validateForN(src, dsts)
 				}
 				if opts.Count == 0 {
 					opts.Count = callsPerCluster * len(dsts) * len(dsts[0])
 				}
 				if c.setupOpts != nil {
-					c.setupOpts(src, dsts, &opts)
+					c.setupOpts(src, dsts[0], &opts)
 				}
 				return opts
 			}
