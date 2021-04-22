@@ -657,8 +657,8 @@ func gatewayCases() []TrafficTestCase {
 		noTarget(src, dsts, opts)
 	}
 
-	// we already have SingleRegualrPod. Not(SpecialWorkloads) should make this only one case per-cluster
-	singleTarget := []echotest.Filter{echotest.Not(echotest.SpecialWorkloads)}
+	// SingleRegualrPod is already applied leaving one regular pod, to only regular pods should leave a single workload.
+	singleTarget := []echotest.Filter{echotest.FilterMatch(echotest.RegularPod)}
 	// the following cases don't actually target workloads, we use the singleTarget filter to avoid duplicate cases
 	cases := []TrafficTestCase{
 		{
@@ -827,6 +827,7 @@ spec:
 							})),
 				},
 				targetFilters:    singleTarget,
+				fromIngress:      true,
 				workloadAgnostic: true,
 			},
 		)
@@ -1121,14 +1122,14 @@ func protocolSniffingCases() []TrafficTestCase {
 				Scheme:   call.scheme,
 				Timeout:  time.Second * 5,
 			},
-			validate: func(src echo.Caller, dst echo.Services) echo.Validator {
+			validate: func(src echo.Caller, dst echo.Instances) echo.Validator {
 				if call.scheme == scheme.TCP {
 					// no host header for TCP
 					return echo.ExpectOK()
 				}
 				return echo.And(
 					echo.ExpectOK(),
-					echo.ExpectHost(dst[0][0].Config().HostHeader()))
+					echo.ExpectHost(dst[0].Config().HostHeader()))
 			},
 			workloadAgnostic: true,
 		})

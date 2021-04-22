@@ -92,17 +92,10 @@ func TestIsRegularPod(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.app.Config().Service, func(t *testing.T) {
-			if got := isRegularPod(tt.app); got != tt.expect {
+			if got := RegularPod(tt.app); got != tt.expect {
 				t.Errorf("got %v expected %v", got, tt.expect)
 			}
 		})
-	}
-}
-
-func TestNoSpecial(t *testing.T) {
-	out := Not(SpecialWorkloads)(all).Services().Services()
-	if diff := cmp.Diff(out, []string{"a", "a", "b", "c"}); diff != "" {
-		t.Fatal(diff)
 	}
 }
 
