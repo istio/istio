@@ -201,7 +201,8 @@ func (s *Server) watchRootCertAndGenKeyCert(names []string, stop <-chan struct{}
 func (s *Server) initCertificateWatches(tlsOptions TLSOptions) error {
 	hasPluginCert := hasCustomTLSCerts(tlsOptions)
 	// If there is neither plugin cert nor istiod signed cert, return.
-	if !hasPluginCert && !features.EnableCAServer {
+	if !hasPluginCert && !features.EnableCAServer &&
+		features.PilotCertProvider.Get() == IstiodCAProvider {
 		return nil
 	}
 	if hasPluginCert {

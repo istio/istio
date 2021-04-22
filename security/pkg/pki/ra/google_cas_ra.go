@@ -25,6 +25,7 @@ import (
 	"google.golang.org/protobuf/types/known/durationpb"
 	"k8s.io/apimachinery/pkg/util/rand"
 
+	"istio.io/istio/security/pkg/pki/ca"
 	raerror "istio.io/istio/security/pkg/pki/error"
 	"istio.io/istio/security/pkg/pki/util"
 	"istio.io/pkg/log"
@@ -121,13 +122,13 @@ func (r *GoogleCasRA) createCertReq(name string, csrPEM []byte,
 	return creq
 }
 
-func (r *GoogleCasRA) Sign(csrPEM []byte, subjectIDs []string, requestedLifetime time.Duration, forCA bool) ([]byte, error) {
-	lifetime, err := preSign(r.raOpts, csrPEM, subjectIDs, requestedLifetime, forCA)
+func (r *GoogleCasRA) Sign(csrPEM []byte, certOpts ca.CertOpts) ([]byte, error) {
+	lifetime, err := preSign(r.raOpts, csrPEM, certOpts.SubjectIDs, certOpts.TTL, certOpts.ForCA)
 	if err != nil {
 		return []byte{}, err
 	}
 	name := fmt.Sprintf("csr-workload-%s", rand.String(8))
-	creq := r.createCertReq(name, csrPEM, subjectIDs, lifetime)
+	creq := r.createCertReq(name, csrPEM, certOpts.SubjectIDs, lifetime)
 
 	// TODO - Derive context from parent function
 	ctx := context.Background()
@@ -136,15 +137,16 @@ func (r *GoogleCasRA) Sign(csrPEM []byte, subjectIDs []string, requestedLifetime
 	if err != nil {
 		return []byte{}, raerror.NewError(raerror.CertGenError, fmt.Errorf("certificate creation on CAS failed because %s", err.Error()))
 	}
-	casRaLog.Infof("successfully created certificate using google Certificate Authority Service for identity %s!", strings.Join(subjectIDs, ","))
+	casRaLog.Infof("successfully created certificate using google Certificate Authority Service for identity %s!",
+		strings.Join(certOpts.SubjectIDs, ","))
 	return []byte(cresp.PemCertificate), nil
 }
 
 // SignWithCertChain is similar to Sign but returns the leaf cert and the entire cert chain.
-func (r *GoogleCasRA) SignWithCertChain(csrPEM []byte, subjectIDs []string, ttl time.Duration, forCA bool) ([]byte, error) {
+func (r *GoogleCasRA) SignWithCertChain(csrPEM []byte, certOpts ca.CertOpts) ([]byte, error) {
 	/* TODO Fix: All these implementations that rely on the certBundle functions are incorrect because
 	they don't include the root-cert */
-	cert, err := r.Sign(csrPEM, subjectIDs, ttl, forCA)
+	cert, err := r.Sign(csrPEM, certOpts)
 	if err != nil {
 		return nil, err
 	}
