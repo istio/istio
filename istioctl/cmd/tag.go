@@ -27,12 +27,21 @@ import (
 	admit_v1 "k8s.io/api/admissionregistration/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/rest"
 
 	"istio.io/api/label"
+	"istio.io/istio/galley/pkg/config/analysis"
+	"istio.io/istio/galley/pkg/config/analysis/analyzers/webhook"
+	"istio.io/istio/galley/pkg/config/analysis/diag"
+	"istio.io/istio/galley/pkg/config/analysis/local"
+	cfgKube "istio.io/istio/galley/pkg/config/source/kube"
 	"istio.io/istio/istioctl/pkg/clioptions"
+	"istio.io/istio/istioctl/pkg/util/formatting"
 	"istio.io/istio/operator/cmd/mesh"
 	"istio.io/istio/operator/pkg/helm"
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pkg/config/resource"
+	"istio.io/istio/pkg/config/schema"
 	"istio.io/istio/pkg/kube"
 )
 
@@ -321,6 +330,14 @@ func setTag(ctx context.Context, kubeClient kube.ExtendedClient, tag, revision s
 	if webhookName != "" {
 		tagWhYAML = renameTagWebhookConfiguration(tagWhYAML, tag, webhookName)
 	}
+
+	resName := webhookName
+	if resName == "" {
+		resName = fmt.Sprintf("%s-%s", "istio-revision-tag", tag)
+	}
+	if err := analyzeWebhook(resName, tagWhYAML, kubeClient.RESTConfig()); err != nil {
+		return err
+	}
 	if generate {
 		_, err := w.Write([]byte(tagWhYAML))
 		if err != nil {
@@ -333,6 +350,34 @@ func setTag(ctx context.Context, kubeClient kube.ExtendedClient, tag, revision s
 		return fmt.Errorf("failed to apply tag webhook MutatingWebhookConfiguration to cluster: %v", err)
 	}
 	fmt.Fprintf(w, tagCreatedStr, tag, revision, tag)
+	return nil
+}
+
+func analyzeWebhook(name, wh string, config *rest.Config) error {
+	sa := local.NewSourceAnalyzer(schema.MustGet(), analysis.Combine("webhook", &webhook.Analyzer{}),
+		resource.Namespace(selectedNamespace), resource.Namespace(istioNamespace), nil, true, analysisTimeout)
+	if err := sa.AddReaderKubeSource([]local.ReaderSource{{Name: "", Reader: strings.NewReader(wh)}}); err != nil {
+		return err
+	}
+	k := cfgKube.NewInterfaces(config)
+	sa.AddRunningKubeSource(k)
+	res, err := sa.Analyze(make(chan struct{}))
+	if err != nil {
+		return err
+	}
+	relevantMessages := diag.Messages{}
+	for _, msg := range res.Messages.FilterOutLowerThan(diag.Error) {
+		if msg.Resource.Metadata.FullName.Name == resource.LocalName(name) {
+			relevantMessages = append(relevantMessages, msg)
+		}
+	}
+	if len(relevantMessages) > 0 {
+		o, err := formatting.Print(relevantMessages, formatting.LogFormat, colorize)
+		if err != nil {
+			return err
+		}
+		return fmt.Errorf("creating tag would conflict:\n%v", o)
+	}
 	return nil
 }
 
@@ -608,6 +653,10 @@ func versionCheck(rev string) (bool, string, error) {
 		Revision: revision,
 	})
 	if err != nil {
+		if strings.Contains(err.Error(), "no running Istio pods") {
+			// No pods in cluster - assume it is external Istiod and is supported
+			return true, "", nil
+		}
 		return false, "", err
 	}
 	if meshInfo == nil {
