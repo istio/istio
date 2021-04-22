@@ -644,13 +644,17 @@ func gatewayCases() []TrafficTestCase {
 		}
 	}
 
+	// clears the Target to avoid echo internals trying to match the protocol with the port on echo.Config
+	noTarget := func(src echo.Caller, dsts echo.Services, opts *echo.CallOptions) {
+		opts.Target = nil
+	}
 	// allows setting the target indirectly via the host header
 	fqdnHostHeader := func(src echo.Caller, dsts echo.Services, opts *echo.CallOptions) {
 		if opts.Headers == nil {
 			opts.Headers = map[string][]string{}
 		}
-		opts.Target = nil
 		opts.Headers["Host"] = []string{dsts[0][0].Config().FQDN()}
+		noTarget(src, dsts, opts)
 	}
 
 	// we already have SingleRegualrPod. Not(SpecialWorkloads) should make this only one case per-cluster
@@ -672,6 +676,7 @@ func gatewayCases() []TrafficTestCase {
 				},
 				Validator: echo.ExpectCode("404"),
 			},
+			setupOpts: noTarget,
 		},
 		{
 			name:             "https redirect",
@@ -702,6 +707,7 @@ spec:
 				},
 				Validator: echo.ExpectCode("301"),
 			},
+			setupOpts: fqdnHostHeader,
 		},
 		{
 			// See https://github.com/istio/istio/issues/27315
