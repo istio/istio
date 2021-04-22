@@ -99,9 +99,6 @@ spec:
           value: Kubernetes
         - name: ISTIO_META_INTERCEPTION_MODE
           value: REDIRECT
-        - name: ISTIO_METAJSON_ANNOTATIONS
-          value: |
-            {"sidecar.istio.io/proxyImage":"docker.io/istio/proxy2_debug:unittest"}
         - name: ISTIO_META_WORKLOAD_NAME
           value: hello
         - name: ISTIO_META_OWNER

@@ -103,9 +103,6 @@ spec:
           value: Kubernetes
         - name: ISTIO_META_INTERCEPTION_MODE
           value: REDIRECT
-        - name: ISTIO_METAJSON_ANNOTATIONS
-          value: |
-            {"proxy.istio.io/config":"discoveryAddress: foo:123\nconcurrency: 0\nproxyMetadata:\n  FOO: bar","sidecar.istio.io/proxyCPU":"4000m","traffic.sidecar.istio.io/excludeInboundPorts":"4,5,6","traffic.sidecar.istio.io/excludeOutboundIPRanges":"10.96.0.2/24,10.96.0.3/24","traffic.sidecar.istio.io/excludeOutboundPorts":"7,8,9","traffic.sidecar.istio.io/includeInboundPorts":"1,2,3","traffic.sidecar.istio.io/includeOutboundIPRanges":"127.0.0.1/24,10.96.0.1/24"}
         - name: ISTIO_META_WORKLOAD_NAME
           value: traffic
         - name: ISTIO_META_OWNER

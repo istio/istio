@@ -98,9 +98,6 @@ spec:
           value: Kubernetes
         - name: ISTIO_META_INTERCEPTION_MODE
           value: REDIRECT
-        - name: ISTIO_METAJSON_ANNOTATIONS
-          value: |
-            {"sidecar.istio.io/proxyCPU":"100m","sidecar.istio.io/proxyCPULimit":"1000m","sidecar.istio.io/proxyMemory":"1Gi","sidecar.istio.io/proxyMemoryLimit":"2Gi"}
         - name: ISTIO_META_WORKLOAD_NAME
           value: resource
         - name: ISTIO_META_OWNER

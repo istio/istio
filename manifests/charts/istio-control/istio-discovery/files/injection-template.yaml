@@ -280,11 +280,6 @@ spec:
     - name: ISTIO_META_NETWORK
       value: "{{ .Values.global.network }}"
     {{- end }}
-    {{ if .ObjectMeta.Annotations }}
-    - name: ISTIO_METAJSON_ANNOTATIONS
-      value: |
-             {{ toJSON .ObjectMeta.Annotations }}
-    {{ end }}
     {{- if .DeploymentMeta.Name }}
     - name: ISTIO_META_WORKLOAD_NAME
       value: "{{ .DeploymentMeta.Name }}"

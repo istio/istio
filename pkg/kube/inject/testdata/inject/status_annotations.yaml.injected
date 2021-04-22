@@ -99,9 +99,6 @@ spec:
           value: Kubernetes
         - name: ISTIO_META_INTERCEPTION_MODE
           value: REDIRECT
-        - name: ISTIO_METAJSON_ANNOTATIONS
-          value: |
-            {"readiness.status.sidecar.istio.io/applicationPorts":"1,2,3","readiness.status.sidecar.istio.io/failureThreshold":"300","readiness.status.sidecar.istio.io/initialDelaySeconds":"100","readiness.status.sidecar.istio.io/periodSeconds":"200","status.sidecar.istio.io/port":"123"}
         - name: ISTIO_META_WORKLOAD_NAME
           value: statusPort
         - name: ISTIO_META_OWNER

@@ -99,9 +99,6 @@ spec:
           value: Kubernetes
         - name: ISTIO_META_INTERCEPTION_MODE
           value: REDIRECT
-        - name: ISTIO_METAJSON_ANNOTATIONS
-          value: |
-            {"sidecar.istio.io/enableCoreDump":"true"}
         - name: ISTIO_META_WORKLOAD_NAME
           value: hello
         - name: ISTIO_META_OWNER
