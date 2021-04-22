@@ -334,6 +334,31 @@ func fixGKE(settings *resource.Settings) error {
 			return fmt.Errorf("error creating the restricted-vip route for VPC-SC testing: %w", err)
 		}
 
+		// Create router and NAT
+		if err := exec.Run(fmt.Sprintf(
+			"gcloud compute routers create test-router"+
+				" --network %s --region us-central1",
+			networkName)); err != nil {
+			log.Println("test-router already exists")
+		}
+		if err := exec.Run("gcloud compute routers nats create test-nat" +
+			" --router=test-router --auto-allocate-nat-external-ips --nat-all-subnet-ip-ranges" +
+			" --router-region=us-central1 --enable-logging"); err != nil {
+			log.Println("test-nat already exists")
+		}
+
+		// Setup the firewall for VPC-SC
+		firewallRuleName, err := exec.RunWithOutput("bash -c \"gcloud compute firewall-rules list --filter=\"name~gke-\"%s\"-[0-9a-z]*-master\" --format=json | jq -r '.[0].name'\"")
+		if err != nil {
+			return fmt.Errorf("failed to get firewall rule name: %w", err)
+		}
+		if err := exec.RunMultiple([]string{
+			fmt.Sprintf("gcloud firewall-rules update %s --allow tcp --source-ranges 0.0.0.0/0", firewallRuleName),
+			fmt.Sprintf("gcloud firewall-rules list --filter=\"name~gke-%s-[0-9a-z]*-master\""),
+		}); err != nil {
+			return err
+		}
+
 		if settings.ClusterTopology == resource.MultiProject {
 			for _, project := range settings.GCPProjects {
 				updateSubnetCmd := fmt.Sprintf(`gcloud compute networks subnets update "test-network-%s" \

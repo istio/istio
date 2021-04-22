@@ -20,28 +20,28 @@ import (
 	"io/ioutil"
 )
 
-// RevisionConfigs carries the Configs for all ASM control plane revisions.
+// Configs carries the Config for all ASM control plane revisions.
 // Revision configuration files are unmarshalled into this struct.
-type RevisionConfigs struct {
-	Configs []RevisionConfig `json:"revisions"`
+type Configs struct {
+	Configs []Config `json:"revisions"`
 }
 
-// RevisionConfig carries config for an ASM control plane revision.
+// Config carries config for an ASM control plane revision.
 // Tests that require multiple revisions with different configurations or
 // versions may use this to configure their SUT.
-type RevisionConfig struct {
+type Config struct {
 	Name    string `json:"name"`
 	CA      string `json:"ca"`
 	Overlay string `json:"overlay"`
 }
 
-func ParseRevisionConfig(path string) (*RevisionConfigs, error) {
+func ParseConfig(path string) (*Configs, error) {
 	yamlContents, err := ioutil.ReadFile(path)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read revision config file %q: %w",
 			path, err)
 	}
-	configs := new(RevisionConfigs)
+	configs := new(Configs)
 	err = yaml.Unmarshal(yamlContents, configs)
 	if err != nil {
 		return nil, fmt.Errorf("failed to unmarshal revision config from file %q: %w",

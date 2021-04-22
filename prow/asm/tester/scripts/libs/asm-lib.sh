@@ -164,7 +164,7 @@ function cleanup_hub_setup() {
 }
 
 # Setup the private CAs.
-# Parameters: $1 - a string of k8s contexts
+# Parameters: $1 - comma-separated string of k8s contexts
 function setup_private_ca() {
   IFS="," read -r -a CONTEXTS <<< "$1"
 
@@ -191,6 +191,7 @@ function setup_private_ca() {
     local SUBORDINATE_CA_ID="${SUB_CA_ID_PREFIX}-${BUILD_ID}-${CLUSTER}"
     local CSR_FILE="${WORKING_DIR}/${SUBORDINATE_CA_ID}.csr"
     local CERT_FILE="${WORKING_DIR}/${SUBORDINATE_CA_ID}.crt"
+    local WORKLOAD_IDENTITY="$PROJECT_ID.svc.id.goog[istio-system/istiod-service-account]"
     if ! gcloud beta privateca subordinates list --location "${LOCATION}" --project "${PROJECT_ID}" | grep -q "${SUBORDINATE_CA_ID}"; then
       echo "Creating subordinate CA ${SUBORDINATE_CA_ID}..."
       gcloud beta privateca subordinates create "${SUBORDINATE_CA_ID}" \
@@ -219,6 +220,12 @@ function setup_private_ca() {
         --project "${PROJECT_ID}" \
         --pem-chain "${CERT_FILE}"
     fi
+    gcloud beta privateca subordinates add-iam-policy-binding "${SUBORDINATE_CA_ID}" \
+      --location "${LOCATION}" \
+      --project "${PROJECT_ID}" \
+      --member "serviceAccount:$WORKLOAD_IDENTITY" \
+      --role "roles/privateca.certificateManager" \
+      --quiet
   done
 }
 
@@ -287,276 +294,6 @@ function purge-ca() {
       gcloud beta privateca "$1" delete "$2" --location="$3" --project="$4" --quiet
     fi
   fi
-}
-
-# Install ASM on the clusters.
-# Parameters: $1 - PKG: Path of Kpt package
-#             $2 - CA: CITADEL, MESHCA or PRIVATECA
-#             $3 - WIP: GKE or HUB
-#             $4 - OVERLAY: custom install options
-#             $5 - CUSTOM_REVISION_FLAGS: per-revision scriptaro options
-#             $6 - array of k8s contexts
-# Depends on env var ${HUB} and ${TAG}
-function install_asm() {
-  local PKG="$1"; shift
-  local CA="$1"; shift
-  local WIP="$1"; shift
-  local OVERLAY="$1"; shift
-  local CUSTOM_REVISION_FLAGS="$1"; shift
-  local REVISION="$1"; shift
-  local CONTEXTS=("${@}")
-
-  # variables that should not persist across install_asm calls should be added here
-  local CUSTOM_CA_FLAGS
-
-  # Setup NAT to grant private nodes outbound internet access
-  if [[ "${FEATURE_TO_TEST}" == "VPC_SC" ]]; then
-    local NETWORK_NAME="default"
-    if [[ "${CLUSTER_TOPOLOGY}" == "mp" ]]; then
-      NETWORK_NAME="test-network"
-    fi
-    gcloud compute routers create test-router \
-      --network "${NETWORK_NAME}" \
-      --region us-central1 || echo "test-router already exists"
-    gcloud compute routers nats create test-nat \
-      --router=test-router \
-      --auto-allocate-nat-external-ips \
-      --nat-all-subnet-ip-ranges \
-      --router-region=us-central1 \
-      --enable-logging || echo "test-nat already exists"
-  fi
-
-  for i in "${!CONTEXTS[@]}"; do
-    IFS="_" read -r -a VALS <<< "${CONTEXTS[$i]}"
-    PROJECT_ID="${VALS[1]}"
-    LOCATION="${VALS[2]}"
-    CLUSTER="${VALS[3]}"
-
-    CUSTOM_OVERLAY="${PKG}/overlay/default.yaml"
-    if [ -n "${OVERLAY}" ]; then
-      CUSTOM_OVERLAY="${CUSTOM_OVERLAY},${PKG}/${OVERLAY}"
-    fi
-
-    # Use the first project as the environ project
-    if [[ $i == 0 ]]; then
-      ENVIRON_PROJECT_NUMBER=$(gcloud projects describe "${PROJECT_ID}" --format="value(projectNumber)")
-      echo "Environ project ID: ${PROJECT_ID}, project number: ${ENVIRON_PROJECT_NUMBER}"
-    fi
-
-    # Create the istio-system ns before running the install_asm script.
-    # TODO(chizhg): remove this line after install_asm script can create it.
-    kubectl create namespace istio-system --dry-run=client -o yaml | kubectl apply -f - --context="${CONTEXTS[$i]}"
-    if [[ "${CA}" == "MESHCA" || "${CA}" == "PRIVATECA" ]]; then
-      INSTALL_ASM_CA="mesh_ca"
-      if [[ "${CLUSTER_TOPOLOGY}" == "mp"  ]]; then
-        TRUSTED_GCP_PROJECTS=""
-        for j in "${!CONTEXTS[@]}"; do
-          if [[ "$i" != "$j" ]]; then
-            IFS="_" read -r -a TMP <<< "${CONTEXTS[$j]}"
-            TRUSTED_GCP_PROJECTS="${TMP[1]},$TRUSTED_GCP_PROJECTS"
-          fi
-        done
-      fi
-
-      # b/177358640: for Prow jobs running with GKE staging/staging2 clusters, overwrite
-      # GKE_CLUSTER_URL with a custom overlay to fix the issue in installing ASM
-      # with MeshCA.
-      if [[ "${CLOUDSDK_API_ENDPOINT_OVERRIDES_CONTAINER}" == "https://staging-container.sandbox.googleapis.com/" ]]; then
-        kpt cfg set "${PKG}" gcloud.core.project "${PROJECT_ID}"
-        kpt cfg set "${PKG}" gcloud.compute.location "${LOCATION}"
-        kpt cfg set "${PKG}" gcloud.container.cluster "${CLUSTER}"
-        CUSTOM_OVERLAY="${CUSTOM_OVERLAY},${PKG}/overlay/meshca-staging-gke.yaml"
-      fi
-      if [[ "${CLOUDSDK_API_ENDPOINT_OVERRIDES_CONTAINER}" == "https://staging2-container.sandbox.googleapis.com/" ]]; then
-        kpt cfg set "${PKG}" gcloud.core.project "${PROJECT_ID}"
-        kpt cfg set "${PKG}" gcloud.compute.location "${LOCATION}"
-        kpt cfg set "${PKG}" gcloud.container.cluster "${CLUSTER}"
-        CUSTOM_OVERLAY="${CUSTOM_OVERLAY},${PKG}/overlay/meshca-staging2-gke.yaml"
-      fi
-
-      # Temporary. Private CA will get its own installation profile in the asm install scripts
-      if [[ "${CA}" == "PRIVATECA" ]]; then
-        local WORKLOAD_IDENTITY="$PROJECT_ID.svc.id.goog[istio-system/istiod-service-account]"
-        local SUBORDINATE_CA_ID="${SUB_CA_ID_PREFIX}-${BUILD_ID}-${CLUSTER}"
-        local CA_NAME="projects/${PROJECT_ID}/locations/${LOCATION}/certificateAuthorities/${SUBORDINATE_CA_ID}"
-        kpt cfg set "${PKG}" anthos.servicemesh.external_ca.ca_name "${CA_NAME}"
-        kpt cfg set "${PKG}" gcloud.core.project "${PROJECT_ID}"
-        if [[ "${WIP}" != "HUB" ]]; then
-          CUSTOM_OVERLAY="${CUSTOM_OVERLAY},${PKG}/overlay/private-ca.yaml"
-        fi
-        gcloud beta privateca subordinates add-iam-policy-binding "${SUBORDINATE_CA_ID}" \
-          --location "${LOCATION}" \
-          --project "${PROJECT_ID}" \
-          --member "serviceAccount:$WORKLOAD_IDENTITY" \
-          --role "roles/privateca.certificateManager" \
-          --quiet
-      fi
-    elif [[ "${CA}" == "CITADEL" ]]; then
-      INSTALL_ASM_CA="citadel"
-      CUSTOM_CA_FLAGS="--ca_cert samples/certs/ca-cert.pem \
---ca_key samples/certs/ca-key.pem \
---root_cert samples/certs/root-cert.pem \
---cert_chain samples/certs/cert-chain.pem"
-    else
-      echo "Invalid CA ${CA}"
-      exit 1
-    fi
-
-    if [[ "${FEATURE_TO_TEST}" == "VPC_SC" ]]; then
-      # Set up the firewall for VPC-SC
-      FIREWALL_RULE_NAME=$(gcloud compute firewall-rules list --filter="name~gke-""${CLUSTER}""-[0-9a-z]*-master" --format=json | jq -r '.[0].name')
-      gcloud compute firewall-rules update "${FIREWALL_RULE_NAME}" --allow tcp --source-ranges 0.0.0.0/0
-      # Check the updated firewall rule
-      gcloud compute firewall-rules list --filter="name~gke-""${CLUSTER}""-[0-9a-z]*-master"
-    elif [[ "${FEATURE_TO_TEST}" == "USER_AUTH" ]]; then
-      # Add user auth overlay
-      CUSTOM_OVERLAY="${CUSTOM_OVERLAY},${PKG}/overlay/user-auth.yaml"
-    fi
-
-    # INSTALL_ASM_BRANCH is one of the branches in https://github.com/GoogleCloudPlatform/anthos-service-mesh-packages
-    INSTALL_ASM_BRANCH="master"
-    curl -O https://raw.githubusercontent.com/GoogleCloudPlatform/anthos-service-mesh-packages/"${INSTALL_ASM_BRANCH}"/scripts/asm-installer/install_asm
-    TRUSTED_GCP_PROJECTS="${TRUSTED_GCP_PROJECTS:=}"
-    CUSTOM_CA_FLAGS="${CUSTOM_CA_FLAGS:=}"
-    chmod +x install_asm
-
-    # Env variable for CI options on install_asm
-    export _CI_ISTIOCTL_REL_PATH="$PWD/out/linux_amd64/istioctl"
-    export _CI_ASM_IMAGE_LOCATION="${HUB}"
-    export _CI_ASM_IMAGE_TAG="${TAG}"
-    export _CI_ASM_KPT_BRANCH="${INSTALL_ASM_BRANCH}"
-    export _CI_NO_VALIDATE=1
-
-    if [ -n "$REVISION" ]; then
-      export _CI_NO_REVISION=0
-    else
-      export _CI_NO_REVISION=1
-    fi
-
-    # Required when using unreleased Scriptaro
-    export _CI_ASM_PKG_LOCATION="asm-staging-images"
-
-    if [[ "${WIP}" != "HUB" ]]; then
-      if [[ "${CLUSTER_TOPOLOGY}" == "MULTIPROJECT_MULTICLUSTER" || "${CLUSTER_TOPOLOGY}" == "mp" ]]; then
-        export _CI_ENVIRON_PROJECT_NUMBER="${ENVIRON_PROJECT_NUMBER}"
-        export _CI_TRUSTED_GCP_PROJECTS="${TRUSTED_GCP_PROJECTS}"
-        eval ./install_asm \
-          --project_id "${PROJECT_ID}" \
-          --cluster_name "${CLUSTER}" \
-          --cluster_location "${LOCATION}" \
-          --ca ${INSTALL_ASM_CA} \
-          "${CUSTOM_CA_FLAGS}" \
-          --mode install \
-          --enable_all \
-          --option multiproject \
-          --option audit-authorizationpolicy \
-          --custom_overlay "${CUSTOM_OVERLAY}" \
-          "${CUSTOM_REVISION_FLAGS}" \
-          --verbose
-      else
-        eval ./install_asm \
-          --project_id "${PROJECT_ID}" \
-          --cluster_name "${CLUSTER}" \
-          --cluster_location "${LOCATION}" \
-          --ca ${INSTALL_ASM_CA} \
-          "${CUSTOM_CA_FLAGS}" \
-          --mode install \
-          --enable_all \
-          --custom_overlay "${CUSTOM_OVERLAY}" \
-          --option audit-authorizationpolicy \
-          "${CUSTOM_REVISION_FLAGS}" \
-          --verbose
-      fi
-    else
-      if [[ "${CLUSTER_TOPOLOGY}" == "MULTIPROJECT_MULTICLUSTER" || "${CLUSTER_TOPOLOGY}" == "mp" ]]; then
-        export _CI_ENVIRON_PROJECT_NUMBER="${ENVIRON_PROJECT_NUMBER}"
-        export _CI_TRUSTED_GCP_PROJECTS="${TRUSTED_GCP_PROJECTS}"
-        eval ./install_asm \
-          --project_id "${PROJECT_ID}" \
-          --cluster_name "${CLUSTER}" \
-          --cluster_location "${LOCATION}" \
-          --ca ${INSTALL_ASM_CA} \
-          "${CUSTOM_CA_FLAGS}" \
-          --mode install \
-          --enable_all \
-          --option multiproject \
-          --option hub-meshca \
-          --custom_overlay "${CUSTOM_OVERLAY}" \
-          --option audit-authorizationpolicy \
-          "${CUSTOM_REVISION_FLAGS}" \
-          --verbose
-      else
-        if [[ "${USE_VM}" == false ]]; then
-          eval ./install_asm \
-            --project_id "${PROJECT_ID}" \
-            --cluster_name "${CLUSTER}" \
-            --cluster_location "${LOCATION}" \
-            --ca ${INSTALL_ASM_CA} \
-            "${CUSTOM_CA_FLAGS}" \
-            --mode install \
-            --enable_all \
-            --option hub-meshca \
-            --custom_overlay "${CUSTOM_OVERLAY}" \
-            --option audit-authorizationpolicy \
-            "${CUSTOM_REVISION_FLAGS}" \
-            --verbose
-        else
-          eval ./install_asm \
-            --project_id "${PROJECT_ID}" \
-            --cluster_name "${CLUSTER}" \
-            --cluster_location "${LOCATION}" \
-            --ca ${INSTALL_ASM_CA} \
-            "${CUSTOM_CA_FLAGS}" \
-            --mode install \
-            --enable_all \
-            --option hub-meshca \
-            --option vm \
-            --custom_overlay "${CUSTOM_OVERLAY}" \
-            --option audit-authorizationpolicy \
-            "${CUSTOM_REVISION_FLAGS}" \
-            --verbose
-        fi
-      fi
-    fi
-  done
-
-  for i in "${!CONTEXTS[@]}"; do
-    for j in "${!CONTEXTS[@]}"; do
-      if [[ "$i" != "$j" ]]; then
-        IFS="_" read -r -a VALS <<< "${CONTEXTS[$j]}"
-        local PROJECT_J=${VALS[1]}
-        local LOCATION_J=${VALS[2]}
-        local CLUSTER_J=${VALS[3]}
-        istioctl x create-remote-secret --context="${CONTEXTS[$j]}" --name="${CLUSTER_J}" > "${PROJECT_J}"_"${LOCATION_J}"_"${CLUSTER_J}".secret
-        if [[ "${FEATURE_TO_TEST}" == "VPC_SC" ]]; then
-          # For private clusters, convert the cluster masters' public IPs to private IPs.
-          PRIV_IP=$(gcloud container clusters describe "${CLUSTER_J}" --project "${PROJECT_J}" --zone "${LOCATION_J}" --format "value(privateClusterConfig.privateEndpoint)")
-          sed -i 's/server\:.*/server\: https:\/\/'"${PRIV_IP}"'/' "${PROJECT_J}"_"${LOCATION_J}"_"${CLUSTER_J}".secret
-        fi
-        kubectl apply -f "${PROJECT_J}"_"${LOCATION_J}"_"${CLUSTER_J}".secret --context="${CONTEXTS[$i]}"
-        if [ "${USE_VM}" == true ]; then
-          # TODO this is temporary until we have a user-facing way to enable multi-cluster + VMs
-          kubectl -n istio-system set env deployment/istiod --context="${CONTEXTS[$i]}" PILOT_ENABLE_CROSS_CLUSTER_WORKLOAD_ENTRY=true
-          # we have to wait for new pods, but we do this later so the pods can come up in parallel per-cluster
-        fi
-      fi
-    done
-  done
-
-  # TODO this is temporary until we have a user-facing way to enable multi-cluster + VMs
-  # we have to wait for all the istiod pods to be updated, asm_vm doens't like it when istiods are dropped
-  for i in "${!CONTEXTS[@]}"; do
-    WAITING_FOR_ISTIOD=true
-    while "${WAITING_FOR_ISTIOD}" && "${USE_VM}"; do
-      PODS="istiod-pods-$i.json"
-      kubectl --context "${CONTEXTS[$i]}" -n istio-system get po -l app=istiod -ojson > "${PODS}"
-      N_PODS="$(jq '.items | length' < "${PODS}")"
-      READY_PODS="$(jq '.items[].spec.containers[].env[] | select(.name == "PILOT_ENABLE_CROSS_CLUSTER_WORKLOAD_ENTRY") | .value' < "${PODS}"| wc -l | xargs)"
-      if [[ "$N_PODS" == "$READY_PODS" ]]; then
-        WAITING_FOR_ISTIOD=false
-      fi
-    done
-  done
 }
 
 # Install ASM managed control plane.
@@ -662,13 +399,10 @@ EOF
 }
 
 # Install ASM on the clusters.
-# Parameters: $1 - CA: CITADEL, MESHCA or PRIVATECA
-#             $2 - WIP: GKE or HUB
-#             $3 - array of k8s contexts
+# Parameters: $1 - WIP: GKE or HUB
 # Depends on env var ${HUB} and ${TAG}
 # TODO(gzip) remove this function once b/176177944 is fixed
 function install_asm_on_multicloud() {
-  local CA="$1"; shift
   local WIP="$1"; shift
   local MESH_ID="test-mesh"
 

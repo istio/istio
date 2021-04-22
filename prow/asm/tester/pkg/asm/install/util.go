@@ -16,9 +16,52 @@ package install
 
 import (
 	"fmt"
+	"io"
+	"istio.io/istio/prow/asm/tester/pkg/asm/install/revision"
 	"istio.io/istio/prow/asm/tester/pkg/exec"
+	"net/http"
+	"os"
+	"path/filepath"
 	"strings"
 )
+
+func downloadScriptaro(rev *revision.Config, cluster *cluster) (string, error) {
+	// TODO(samnaser) once revision config supports version use the correct release
+	const (
+		scriptaroURL    = "https://raw.githubusercontent.com/GoogleCloudPlatform/anthos-service-mesh-packages/%s/scripts/asm-installer/install_asm"
+		scriptaroBranch = "master"
+	)
+	scriptaroName := fmt.Sprintf("install_asm_%s_%s_%s",
+		cluster.projectID, cluster.location, cluster.name)
+
+	resp, err := http.Get(fmt.Sprintf(scriptaroURL, scriptaroBranch))
+	if err != nil {
+		return "", err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode == http.StatusNotFound {
+		return "", fmt.Errorf("scriptaro not found at URL: %s",
+			fmt.Sprintf(scriptaroURL, scriptaroBranch))
+	}
+
+	f, err := os.OpenFile(scriptaroName, os.O_WRONLY|os.O_CREATE, 0o555)
+	if err != nil {
+		return "", err
+	}
+
+	_, err = io.Copy(f, resp.Body)
+	if err != nil {
+		return "", err
+	}
+	f.Close()
+
+	path, err := filepath.Abs(scriptaroName)
+	if err != nil {
+		return "", err
+	}
+
+	return path, nil
+}
 
 // revisionLabel generates a revision label name from the istioctl version.
 func revisionLabel() string {
@@ -27,4 +70,15 @@ func revisionLabel() string {
 	versionParts := strings.Split(istioVersion, "-")
 	version := fmt.Sprintf("asm-%s-%s", versionParts[0], versionParts[1])
 	return strings.ReplaceAll(version, ".", "")
+}
+
+// clusterFromKubeContext parses a cluster struct from a kubecontext.
+func clusterFromKubeContext(context string) *cluster {
+	parts := strings.Split(context, "_")
+	proj := &cluster{
+		projectID: parts[1],
+		location:  parts[2],
+		name:      parts[3],
+	}
+	return proj
 }

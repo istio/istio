@@ -69,11 +69,11 @@ func TestParseRevisionConfig(t *testing.T) {
 			if err != nil {
 				t.Fatalf("failed writing to temp revision config file: %v", err)
 			}
-			revisionConfigs, err := ParseRevisionConfig(f.Name())
+			revisionConfigs, err := ParseConfig(f.Name())
 			if err != nil {
 				t.Fatalf("failed to parse revision config for %q: %v", f.Name(), err)
 			}
-			want := RevisionConfigs{Configs: []RevisionConfig{
+			want := Configs{Configs: []Config{
 				{
 					Name:    "asm-revision-istiodca",
 					CA:      "CITADEL",

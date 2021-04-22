@@ -17,12 +17,12 @@ package exec
 import (
 	"bytes"
 	"fmt"
+	shell "github.com/kballard/go-shellquote"
 	"io"
 	"log"
 	"os"
 	"os/exec"
-
-	shell "github.com/kballard/go-shellquote"
+	"strings"
 )
 
 // Option enables further configuration of a Cmd.
@@ -90,7 +90,6 @@ func RunMultiple(rawCommands []string, options ...Option) error {
 }
 
 func commonRun(rawCommand string, stdout, stderr io.Writer, options ...Option) error {
-	log.Printf("⚙️ %s", rawCommand)
 	cmdSplit, err := shell.Split(rawCommand)
 	if len(cmdSplit) == 0 || err != nil {
 		return fmt.Errorf("error parsing the command %q: %w", rawCommand, err)
@@ -105,5 +104,7 @@ func commonRun(rawCommand string, stdout, stderr io.Writer, options ...Option) e
 		option(cmd)
 	}
 
+	log.Printf("⚙️ %s",
+		strings.Join(append([]string{rawCommand}, cmd.Args...), " "))
 	return cmd.Run()
 }

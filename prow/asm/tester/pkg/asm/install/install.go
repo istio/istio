@@ -16,111 +16,308 @@ package install
 
 import (
 	"fmt"
-	"log"
-	"os"
-	"path/filepath"
-
 	"istio.io/istio/prow/asm/tester/pkg/asm/install/revision"
 	"istio.io/istio/prow/asm/tester/pkg/exec"
 	"istio.io/istio/prow/asm/tester/pkg/kube"
 	"istio.io/istio/prow/asm/tester/pkg/resource"
+	"log"
+	"os"
+	"path/filepath"
+	"strings"
 )
-
-// installationType enumerates the installation type.
-type installationType string
 
 const (
-	basic      installationType = "basic"
-	bareMetal                   = "bareMetal"
-	multiCloud                  = "multiCloud"
-	mcp                         = "mcp"
+	istioctlPath  = "out/linux_amd64/istioctl"
+	kptBranch     = "master"
+	subCaIdPrefix = "asm-test-sub-ca"
+
+	// Envvar consts
+	cloudAPIEndpointOverrides = "CLOUDSDK_API_ENDPOINT_OVERRIDES_CONTAINER"
+	stagingEndpoint           = "https://staging-container.sandbox.googleapis.com/"
+	staging2Endpoint          = "https://staging2-container.sandbox.googleapis.com/"
 )
 
-// basicInstallConfig contains all information needed to perform a basic installation.
-// required because we have a bad architecture and need to overwrite settings from
-// resource.Settings with the per-revision values.
-type basicInstallConfig struct {
-	pkg      string
-	ca       string
-	wip      string
-	overlay  string
-	flags    string
-	revision string
-	contexts string
+type cluster struct {
+	name      string
+	projectID string
+	location  string
 }
 
-func (c *installer) install(r *revision.RevisionConfig) error {
-	installType := c.installationType()
-	log.Printf("🏄 performing ASM installation type: %s\n", installType)
-	switch installType {
-	case basic:
-		return c.installASM(c.generateBasicInstallConfig(r))
-	case bareMetal:
-		return c.installASMOnBareMetal()
-	case multiCloud:
-		return c.installASMOnMulticloud()
-	case mcp:
-		return c.installASMOnManagedControlPlane()
-	default:
-		return fmt.Errorf("unknown installation type %q passed to ASM installer", installType)
-	}
-}
-
-// installationType uses existing settings to determine what type of installation
-// we should be performing.
-func (c *installer) installationType() installationType {
+func (c *installer) install(r *revision.Config) error {
 	if c.settings.ControlPlane == resource.Unmanaged {
 		switch c.settings.ClusterType {
 		case resource.GKEOnGCP:
-			return basic
+			log.Println("🏄 performing ASM installation")
+			return c.installASM(r)
 		case resource.BareMetal:
-			return bareMetal
+			log.Println("🏄 performing ASM bare metal installation")
+			return c.installASMOnBareMetal()
 		default:
-			return multiCloud
+			log.Println("🏄 performing ASM multi cloud installation")
+			return c.installASMOnMulticloud()
 		}
 	} else {
-		return mcp
+		log.Println("🏄 performing ASM MCP installation")
+		return c.installASMOnManagedControlPlane()
 	}
 }
 
-func (c *installer) installASM(config *basicInstallConfig) error {
-	return exec.Dispatch(
-		c.settings.RepoRootDir,
-		"install_asm",
-		[]string{
-			config.pkg,
-			config.ca,
-			config.wip,
-			config.overlay,
-			config.flags,
-			config.revision,
-			config.contexts,
-		})
+func (c *installer) installASM(rev *revision.Config) error {
+	pkgPath := filepath.Join(c.settings.RepoRootDir, resource.ConfigDirPath, "kpt-pkg")
+	kptSetPrefix := fmt.Sprintf("kpt cfg set %s", pkgPath)
+	contexts := strings.Split(c.settings.KubectlContexts, ",")
+
+	// Use the first project as the environ name
+	// must do this here because each installation depends on the value
+	environProjectNumber, err := exec.RunWithOutput(fmt.Sprintf(
+		"gcloud projects describe %s --format=\"value(projectNumber)\"",
+		clusterFromKubeContext(contexts[0]).projectID))
+	if err != nil {
+		return fmt.Errorf("failed to read environ number: %w", err)
+	}
+	os.Setenv("_CI_ENVIRON_PROJECT_NUMBER", strings.TrimSpace(environProjectNumber))
+
+	for _, context := range contexts {
+		contextLogger := log.New(os.Stdout,
+			fmt.Sprintf("[kubeContext: %s] ", context), log.Ldate|log.Ltime)
+		contextLogger.Println("Performing installation...")
+		cluster := clusterFromKubeContext(context)
+		var trustedGCPProjects string
+
+		// Create the istio-system ns before running the install_asm script.
+		// TODO(chizhg): remove this line after install_asm script can create it.
+		if err := exec.Run(fmt.Sprintf("bash -c "+
+			"\"kubectl create namespace istio-system --dry-run=client -o yaml "+
+			"| kubectl apply -f - --context=%s \"", context)); err != nil {
+			return fmt.Errorf("failed to create istio-system namespace: %w", err)
+		}
+
+		// Override CA with CA from revision
+		// clunky but works
+		ca := c.settings.CA
+		if rev.CA != "" {
+			ca = resource.CAType(rev.CA)
+		}
+		// Per-CA custom setup
+		if ca == resource.MeshCA || ca == resource.PrivateCA {
+			// add other projects to the trusted GCP projects for this cluster
+			if c.settings.ClusterTopology == resource.MultiProject {
+				var otherIds []string
+				for _, otherContext := range contexts {
+					if otherContext != context {
+						otherIds = append(otherIds, clusterFromKubeContext(otherContext).projectID)
+					}
+				}
+				trustedGCPProjects = strings.Join(otherIds, ",")
+				contextLogger.Printf("Running with trusted GCP projects: %s", trustedGCPProjects)
+			}
+
+			// b/177358640: for Prow jobs running with GKE staging/staging2 clusters, overwrite
+			// GKE_CLUSTER_URL with a custom overlay to fix the issue in installing ASM
+			// with MeshCA.
+			// TODO(samnaser) setting KPT properties cannot be done in parallel, must copy kpt directories
+			// for each installation
+			if os.Getenv(cloudAPIEndpointOverrides) == stagingEndpoint ||
+				os.Getenv(cloudAPIEndpointOverrides) == staging2Endpoint {
+				contextLogger.Println("Setting KPT for staging...")
+				if err := exec.RunMultiple([]string{
+					fmt.Sprintf("%s gcloud.core.project %s", kptSetPrefix, cluster.projectID),
+					fmt.Sprintf("%s gcloud.compute.location %s", kptSetPrefix, cluster.location),
+					fmt.Sprintf("%s gcloud.container.cluster %s", kptSetPrefix, cluster.name),
+				}); err != nil {
+					return err
+				}
+			}
+
+			// Need to set kpt values per install
+			if ca == resource.PrivateCA {
+				subordinateCaId := fmt.Sprintf("%s-%s-%s",
+					subCaIdPrefix, os.Getenv("BUILD_ID"), cluster.name)
+				caName := fmt.Sprintf("projects/%s/locations/%s/certificateAuthorities/%s",
+					cluster.projectID, cluster.location, subordinateCaId)
+				if err := exec.RunMultiple([]string{
+					fmt.Sprintf("%s anthos.servicemesh.external_ca.ca_name %s", kptSetPrefix, caName),
+					fmt.Sprintf("%s gcloud.core.project %s", kptSetPrefix, cluster.projectID),
+				}); err != nil {
+					return err
+				}
+			}
+		}
+
+		contextLogger.Println("Downloading Scriptaro release...")
+		scriptaroPath, err := downloadScriptaro(rev, cluster)
+		if err != nil {
+			return fmt.Errorf("failed to download Scriptaro: %w", err)
+		}
+		contextLogger.Println("Running Scriptaro installation...")
+		installOutput, err := exec.RunWithOutput(scriptaroPath,
+			exec.WithAdditionalEnvs(generateInstallEnvvars(c.settings, rev, trustedGCPProjects)),
+			exec.WithAdditionalArgs(generateInstallFlags(c.settings, rev, pkgPath, cluster)))
+		if err != nil {
+			return fmt.Errorf("scriptaro ASM installation failed: %w", err)
+		}
+		contextLogger.Println(installOutput)
+	}
+
+	if err := createRemoteSecrets(c.settings, contexts); err != nil {
+		return fmt.Errorf("failed to create remote secrets: %w", err)
+	}
+	return nil
 }
 
-func (c *installer) generateBasicInstallConfig(r *revision.RevisionConfig) *basicInstallConfig {
-	config := &basicInstallConfig{
-		pkg:      filepath.Join(c.settings.RepoRootDir, resource.ConfigDirPath, "kpt-pkg"),
-		ca:       c.settings.CA.String(),
-		wip:      c.settings.WIP.String(),
-		overlay:  "\"\"",
-		revision: "\"\"",
-		flags:    "\"\"",
-		contexts: kube.ContextArr(c.settings.KubectlContexts),
+// generateInstallEnvvars generates the environt variables needed when running install_asm script.
+func generateInstallEnvvars(settings *resource.Settings, rev *revision.Config, trustedGCPProjects string) []string {
+	var envvars []string
+	varMap := map[string]string{
+		"_CI_ISTIOCTL_REL_PATH":  filepath.Join(settings.RepoRootDir, istioctlPath),
+		"_CI_ASM_IMAGE_LOCATION": os.Getenv("HUB"),
+		"_CI_ASM_IMAGE_TAG":      os.Getenv("TAG"),
+		"_CI_ASM_KPT_BRANCH":     kptBranch,
+		"_CI_NO_VALIDATE":        "1",
+		"_CI_NO_REVISION":        "1",
+		"_CI_ASM_PKG_LOCATION":   "asm-staging-images",
 	}
-	if r != nil {
-		if r.Name != "" {
-			config.revision = r.Name
-			config.flags = fmt.Sprintf("\" --revision_name %s\"", r.Name)
-		}
-		if r.CA != "" {
-			config.ca = r.CA
-		}
-		if r.Overlay != "" {
-			config.overlay = r.Overlay
+	if rev.Name != "" {
+		varMap["_CI_NO_REVISION"] = "0"
+	}
+	if settings.ClusterTopology == resource.MultiProject {
+		varMap["_CI_TRUSTED_GCP_PROJECTS"] = trustedGCPProjects
+	}
+
+	for k, v := range varMap {
+		log.Printf("Setting envvar %s=%s", k, v)
+		envvars = append(envvars, fmt.Sprintf("%s=%s", k, v))
+	}
+
+	return envvars
+}
+
+// generateInstallFlags returns the flags required when running install_asm script.
+func generateInstallFlags(settings *resource.Settings, rev *revision.Config, pkgPath string, cluster *cluster) []string {
+	installFlags := []string{
+		"--project_id", cluster.projectID,
+		"--cluster_name", cluster.name,
+		"--cluster_location", cluster.location,
+		"--mode", "install",
+		"--enable-all",
+		"--verbose",
+		"--option", "audit-authorizationpolicy",
+	}
+
+	// Use the CA from revision config for the revision we're installing
+	ca := settings.CA
+	if rev.CA != "" {
+		ca = resource.CAType(rev.CA)
+	}
+	if ca == resource.MeshCA || ca == resource.PrivateCA {
+		installFlags = append(installFlags, "--ca", "mesh_ca")
+	} else if ca == resource.Citadel {
+		installFlags = append(installFlags,
+			"--ca", "citadel",
+			"--ca_cert", "samples/certs/ca-cert.pem",
+			"--ca_key", "samples/certs/ca-key.pem",
+			"--root_cert", "samples/certs/root-cert.pem",
+			"--cert_chain", "samples/certs/cert-chain.pem")
+	}
+
+	// Set kpt overlays
+	overlays := []string{
+		filepath.Join(pkgPath, "overlay/default.yaml"),
+	}
+
+	// Apply per-revision overlay customizations
+	if rev.Overlay != "" {
+		overlays = append(overlays, filepath.Join(pkgPath, rev.Overlay))
+	}
+	if ca == resource.PrivateCA && settings.WIP != resource.HUBWorkloadIdentityPool {
+		overlays = append(overlays, filepath.Join(pkgPath, "overlay/private-ca.yaml"))
+	}
+	if settings.FeatureToTest == string(resource.UserAuth) {
+		overlays = append(overlays, filepath.Join(pkgPath, "overlay/user-auth.yaml"))
+	}
+	if os.Getenv(cloudAPIEndpointOverrides) == stagingEndpoint {
+		overlays = append(overlays, filepath.Join(pkgPath, "overlay/meshca-staging-gke.yaml"))
+	}
+	if os.Getenv(cloudAPIEndpointOverrides) == staging2Endpoint {
+		overlays = append(overlays, filepath.Join(pkgPath, "overlay/meshca-staging2-gke.yaml"))
+	}
+	installFlags = append(installFlags, "--custom_overlay", strings.Join(overlays, ","))
+
+	// Set the revision name if specified on the per-revision config
+	// note that this flag only exists on newer Scriptaro versions
+	if rev.Name != "" {
+		installFlags = append(installFlags, "--revision_name", rev.Name)
+	}
+
+	// Other random options
+	if settings.ClusterTopology == resource.MultiProject {
+		installFlags = append(installFlags, "--option", "multiproject")
+	}
+	if settings.WIP == resource.HUBWorkloadIdentityPool {
+		installFlags = append(installFlags, "--option", "hub-meshca")
+	}
+	if settings.UseVMs {
+		installFlags = append(installFlags, "--option", "vm")
+	}
+
+	return installFlags
+}
+
+// createRemoteSecrets creates remote secrets for each cluster to each other cluster
+func createRemoteSecrets(settings *resource.Settings, contexts []string) error {
+	for _, context := range contexts {
+		for _, otherContext := range contexts {
+			if context == otherContext {
+				continue
+			}
+			otherProject := clusterFromKubeContext(otherContext)
+			log.Printf("creating remote secret with context %s to cluster %s",
+				context, otherProject.name)
+			createRemoteSecretCmd := fmt.Sprintf("istioctl x create-remote-secret"+
+				" --context %s --name %s", otherContext, otherProject.name)
+			secretContents, err := exec.RunWithOutput(createRemoteSecretCmd)
+			if err != nil {
+				return fmt.Errorf("failed creating remote secret: %w", err)
+			}
+			secretFileName := fmt.Sprintf("%s_%s_%s.secret",
+				otherProject.projectID, otherProject.location, otherProject.name)
+			if err := os.WriteFile(secretFileName, []byte(secretContents), 0o644); err != nil {
+				return fmt.Errorf("failed to write secret to file: %w", err)
+			}
+
+			// for private clusters, convert the cluster master public IP to private IP
+			if settings.FeatureToTest == string(resource.VPCSC) {
+				privateIPCmd := fmt.Sprintf("gcloud container clusters describe %s"+
+					" --project %s --zone %s --format \"value(privateClusterConfig.privateEndpoint)\"",
+					otherProject.name, otherProject.projectID, otherProject.location)
+				privateIP, err := exec.RunWithOutput(privateIPCmd)
+				if err != nil {
+					return fmt.Errorf("failed to retrieve private IP: %w", err)
+				}
+				sedCmd := fmt.Sprintf("sed -i 's/server\\:.*/server\\: https:\\/\\/'%s'/' %s",
+					privateIP, secretFileName)
+				if err := exec.Run(sedCmd); err != nil {
+					return fmt.Errorf("sed command failed: %w", err)
+				}
+			}
+
+			kubeCreateSecretCmd := fmt.Sprintf("kubectl apply -f %s --context %s",
+				secretFileName, context)
+			if err := exec.Run(kubeCreateSecretCmd); err != nil {
+				return fmt.Errorf("failed to create remote secret: %w", err)
+			}
+			if settings.UseVMs {
+				// TODO(landow) this is temporary until we have a user-facing way to enable multi-cluster + VMs
+				// we have to wait for new pods, but we do this later so the pods can come up in parallel per-cluster
+				patchWLECmd := fmt.Sprintf("kubectl -n istio-system set env deployment/istiod"+
+					" --context %s PILOT_ENABLE_CROSS_CLUSTER_WORKLOAD_ENTRY=true", context)
+				if err := exec.Run(patchWLECmd); err != nil {
+					return fmt.Errorf("failed to patch istiod: %w", err)
+				}
+			}
 		}
 	}
-	return config
+	return nil
 }
 
 func (c *installer) installASMOnBareMetal() error {
@@ -140,8 +337,7 @@ func (c *installer) installASMOnMulticloud() error {
 		c.settings.RepoRootDir,
 		"install_asm_on_multicloud",
 		[]string{
-			c.settings.CA.String(),
-			c.settings.WIP.String(),
+			string(c.settings.WIP),
 		},
 		exec.WithAdditionalEnvs([]string{
 			fmt.Sprintf("HTTP_PROXY=%s", os.Getenv("MC_HTTP_PROXY")),
@@ -157,14 +353,6 @@ func (c *installer) installASMOnManagedControlPlane() error {
 			kube.ContextArr(c.settings.KubectlContexts),
 		},
 	)
-}
-
-// processKubeconfigs should perform steps required after running ASM installation
-func (c *installer) processKubeconfigs() error {
-	return exec.Dispatch(
-		c.settings.RepoRootDir,
-		"process_kubeconfigs",
-		nil)
 }
 
 // preInstall contains all steps required before performing the direct install
@@ -192,7 +380,9 @@ func (c *installer) preInstall() error {
 			if err := exec.Dispatch(
 				c.settings.RepoRootDir,
 				"setup_private_ca",
-				[]string{c.settings.KubectlContexts}); err != nil {
+				[]string{
+					c.settings.KubectlContexts,
+				}); err != nil {
 				return err
 			}
 		}
@@ -228,4 +418,12 @@ func (c *installer) postInstall() error {
 		return err
 	}
 	return nil
+}
+
+// processKubeconfigs should perform steps required after running ASM installation
+func (c *installer) processKubeconfigs() error {
+	return exec.Dispatch(
+		c.settings.RepoRootDir,
+		"process_kubeconfigs",
+		nil)
 }

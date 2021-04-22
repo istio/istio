@@ -39,18 +39,18 @@ func Install(settings *resource.Settings) error {
 // Rather than using this single overloaded installer, we could use a factory method
 // that returns an Installer given settings.
 type installer struct {
-	settings   *resource.Settings
+	settings *resource.Settings
 }
 
 // Install performs an ASM installation. There one-off steps that have to occur
 // both before and after the actual installation.
 func (c *installer) Install() error {
 	if c.settings.RevisionConfig == "" {
-		return c.installInner(nil)
+		return c.installInner(&revision.Config{})
 	}
 
 	revisionConfigPath := filepath.Join(c.settings.RepoRootDir, resource.ConfigDirPath, "revision-deployer", c.settings.RevisionConfig)
-	revisionConfig, err := revision.ParseRevisionConfig(revisionConfigPath)
+	revisionConfig, err := revision.ParseConfig(revisionConfigPath)
 	if err != nil {
 		return err
 	}
@@ -64,7 +64,7 @@ func (c *installer) Install() error {
 	return nil
 }
 
-func (c *installer) installInner(r *revision.RevisionConfig) error {
+func (c *installer) installInner(r *revision.Config) error {
 	if err := c.preInstall(); err != nil {
 		return err
 	}

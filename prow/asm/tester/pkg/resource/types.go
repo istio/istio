@@ -134,3 +134,27 @@ func (wip *WIPType) Set(value string) error {
 func (wip *WIPType) String() string { return string(*wip) }
 
 func (wip *WIPType) Type() string { return "wip" }
+
+// Feature is the type of the Workload Identity Pool to use
+type Feature string
+
+const (
+	UserAuth Feature = "UserAuth"
+	VPCSC    Feature = "VPCSC"
+)
+
+var validFeatureTypes = sets.NewString(string(UserAuth), string(VPCSC))
+
+// Set converts the value string to WIPType
+func (wip *Feature) Set(value string) error {
+	if !validFeatureTypes.Has(value) {
+		return fmt.Errorf("%q is not a valid WIP type in %v", value, validFeatureTypes)
+	}
+
+	*wip = Feature(value)
+	return nil
+}
+
+func (wip *Feature) String() string { return string(*wip) }
+
+func (wip *Feature) Type() string { return "wip" }
