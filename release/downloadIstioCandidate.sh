@@ -103,13 +103,12 @@ without_arch() {
 }
 
 # Istio 1.6 and above support arch
-ARCH_SUPPORTED=$(echo "$ISTIO_VERSION" | awk -F'.' '{print $1"."$2}' )
 # Istio 1.5 and below do not have arch support
-ARCH_UNSUPPORTED="1.5"
+ARCH_SUPPORTED="1.6"
 
 if [ "${OS}" = "Linux" ] ; then
-  # This checks if 1.6 <= 1.5 or 1.4 <= 1.5
-  if [ "$(expr "${ARCH_SUPPORTED}" \<= "${ARCH_UNSUPPORTED}")" -eq 1 ]; then
+  # This checks if ISTIO_VERSION is less than ARCH_SUPPORTED (version-sort's before it)
+  if [ "$(printf '%s\n%s' "${ARCH_SUPPORTED}" "${ISTIO_VERSION}" | sort --version-sort | head -n 1)" = "${ISTIO_VERSION}" ]; then
     without_arch
   else
     with_arch
