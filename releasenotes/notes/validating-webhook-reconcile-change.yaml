@@ -5,6 +5,6 @@ issue:
 - 32210
 releaseNotes:
 - |
-  **Updated** reconciliation logic in the validation webhook controller to rate-limit
+  **Fixed** reconciliation logic in the validation webhook controller to rate-limit
   the retries in the loop. This should drastically reduce churn (and generated logs)
   in cases of misconfiguration.
