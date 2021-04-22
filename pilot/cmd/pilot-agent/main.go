@@ -140,11 +140,6 @@ var (
 			ctx, cancel := context.WithCancel(context.Background())
 			defer cancel()
 
-			// Start in process SDS, dns server, and xds proxy.
-			if err := agent.Start(ctx); err != nil {
-				log.Fatala("Agent start up error", err)
-			}
-
 			// If a status port was provided, start handling status probes.
 			if proxyConfig.StatusPort > 0 {
 				if err := initStatusServer(ctx, proxy, proxyConfig, agent); err != nil {
@@ -153,8 +148,10 @@ var (
 			}
 
 			// On SIGINT or SIGTERM, cancel the context, triggering a graceful shutdown
-			cmd.WaitSignalFunc(cancel)
-			return nil
+			go cmd.WaitSignalFunc(cancel)
+
+			// Start in process SDS, dns server, xds proxy, and Envoy.
+			return agent.Run(ctx)
 		},
 	}
 )

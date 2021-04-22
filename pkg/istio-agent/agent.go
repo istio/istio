@@ -241,7 +241,7 @@ func (a *Agent) initializeEnvoyAgent() error {
 //    For example Google CA
 //
 // 2. Indirect, using istiod: using K8S cert.
-func (a *Agent) Start(ctx context.Context) error {
+func (a *Agent) Run(ctx context.Context) error {
 	var err error
 	a.secretCache, err = a.newSecretManager()
 	if err != nil {
@@ -275,8 +275,10 @@ func (a *Agent) Start(ctx context.Context) error {
 	if err != nil {
 		return fmt.Errorf("failed to start envoy agent: %v", err)
 	}
+
+	// This is a blocking call for graceful termination.
 	if a.envoyAgent != nil {
-		go a.envoyAgent.Run(ctx)
+		a.envoyAgent.Run(ctx)
 	}
 
 	return nil
