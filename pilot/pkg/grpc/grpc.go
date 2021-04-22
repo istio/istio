@@ -29,9 +29,7 @@ import (
 	istiokeepalive "istio.io/istio/pkg/keepalive"
 )
 
-type (
-	SendHandler func() error
-)
+type SendHandler func() error
 
 var timeout = features.XdsPushSendTimeout
 

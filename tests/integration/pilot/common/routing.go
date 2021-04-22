@@ -476,8 +476,13 @@ spec:
 							}
 							// echotest should have filtered the deployment to only contain reachable clusters
 							targetClusters := dests.Instances().Match(echo.Service(host)).Clusters()
-							if err := hostResponses.CheckReachedClusters(targetClusters); err != nil {
-								return fmt.Errorf("did not reach all clusters for %s: %v", host, err)
+							if len(targetClusters.ByNetwork()[src.Config().Cluster.NetworkName()]) > 1 {
+								// Conditionally check reached clusters to work around connection load balancing issues
+								// See https://github.com/istio/istio/issues/32208 for details
+								// We want to skip this for requests from the cross-network pod
+								if err := hostResponses.CheckReachedClusters(targetClusters); err != nil {
+									return fmt.Errorf("did not reach all clusters for %s: %v", host, err)
+								}
 							}
 						}
 						return nil
@@ -955,7 +960,7 @@ spec:
   selector:
     app: b`, FindPortByName("http").ServicePort, FindPortByName("http").InstancePort)
 		cases = append(cases, TrafficTestCase{
-			name:   "case 1 both match",
+			name:   fmt.Sprintf("case 1 both match in cluster %v", c.Config().Cluster.StableName()),
 			config: svc,
 			call:   c.CallWithRetryOrFail,
 			opts: echo.CallOptions{
@@ -983,7 +988,7 @@ spec:
   selector:
     app: b`, FindPortByName("http").ServicePort, WorkloadPorts[0].Port)
 		cases = append(cases, TrafficTestCase{
-			name:   "case 2 service port match",
+			name:   fmt.Sprintf("case 2 service port match in cluster %v", c.Config().Cluster.StableName()),
 			config: svc,
 			call:   c.CallWithRetryOrFail,
 			opts: echo.CallOptions{
@@ -1011,7 +1016,7 @@ spec:
   selector:
     app: b`, FindPortByName("http").InstancePort)
 		cases = append(cases, TrafficTestCase{
-			name:   "case 3 target port match",
+			name:   fmt.Sprintf("case 3 target port match in cluster %v", c.Config().Cluster.StableName()),
 			config: svc,
 			call:   c.CallWithRetryOrFail,
 			opts: echo.CallOptions{
@@ -1038,7 +1043,7 @@ spec:
   selector:
     app: b`, WorkloadPorts[1].Port)
 		cases = append(cases, TrafficTestCase{
-			name:   "case 4 no match",
+			name:   fmt.Sprintf("case 4 no match in cluster %v", c.Config().Cluster.StableName()),
 			config: svc,
 			call:   c.CallWithRetryOrFail,
 			opts: echo.CallOptions{
@@ -1096,6 +1101,24 @@ func selfCallsCases() []TrafficTestCase {
 			},
 			opts: echo.CallOptions{
 				Address:   "localhost",
+				Port:      &echo.Port{ServicePort: 8080},
+				Scheme:    scheme.HTTP,
+				Validator: echo.And(echo.ExpectOK(), echo.ExpectKey("X-Envoy-Attempt-Count", "")),
+			},
+		},
+		// PodIP calls will go directly to podIP, bypassing Envoy. No envoy headers added.
+		{
+			name:             "to podIP",
+			workloadAgnostic: true,
+			sourceFilters:    sourceFilters,
+			comboFilters:     comboFilters,
+			setupOpts: func(src echo.Instance, _ echo.Services, opts *echo.CallOptions) {
+				workloads, _ := src.Workloads()
+				opts.Address = workloads[0].Address()
+				// the framework will try to set this when enumerating test cases
+				opts.Target = nil
+			},
+			opts: echo.CallOptions{
 				Scheme:    scheme.HTTP,
 				Port:      &echo.Port{ServicePort: 8080},
 				Validator: echo.And(echo.ExpectOK(), echo.ExpectKey("X-Envoy-Attempt-Count", "")),
@@ -1243,8 +1266,6 @@ func instanceIPTests(apps *EchoDeployments) []TrafficTestCase {
 			ipCase := ipCase
 			client := client
 			destination := apps.PodB[0]
-			// so we can validate all clusters are hit
-			callCount := callsPerCluster * len(apps.PodB)
 			var config string
 			if !ipCase.disableSidecar {
 				config = fmt.Sprintf(`
@@ -1275,7 +1296,6 @@ spec:
 						Target:    destination,
 						PortName:  ipCase.port,
 						Scheme:    scheme.HTTP,
-						Count:     callCount,
 						Timeout:   time.Second * 5,
 						Validator: echo.ExpectCode(fmt.Sprint(ipCase.code)),
 					},

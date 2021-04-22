@@ -250,7 +250,11 @@ func GetAnalyze(p *Params) (map[string]string, error) {
 	if err != nil {
 		return nil, err
 	}
-	out[p.Namespace] = output
+	if p.Namespace == common.NamespaceAll {
+		out[common.StrNamespaceAll] = output
+	} else {
+		out[p.Namespace] = output
+	}
 	return out, nil
 }
 

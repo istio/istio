@@ -25,7 +25,9 @@ import (
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
+	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pkg/kube"
+	"istio.io/istio/pkg/test/util/retry"
 )
 
 const secretNamespace string = "istio-system"
@@ -52,14 +54,14 @@ var (
 	deleted string
 )
 
-func addCallback(_ kube.Client, id string) error {
+func addCallback(id string, _ *Cluster) error {
 	mu.Lock()
 	defer mu.Unlock()
 	added = id
 	return nil
 }
 
-func updateCallback(_ kube.Client, id string) error {
+func updateCallback(id string, _ *Cluster) error {
 	mu.Lock()
 	defer mu.Unlock()
 	updated = id
@@ -83,6 +85,7 @@ func Test_SecretController(t *testing.T) {
 	BuildClientsFromConfig = func(kubeConfig []byte) (kube.Client, error) {
 		return kube.NewFakeClient(), nil
 	}
+	features.RemoteClusterTimeout = 10 * time.Nanosecond
 	clientset := kube.NewFakeClient()
 
 	var (
@@ -118,6 +121,9 @@ func Test_SecretController(t *testing.T) {
 		close(stopCh)
 	})
 	c := StartSecretController(clientset, addCallback, updateCallback, deleteCallback, secretNamespace, time.Microsecond, stopCh)
+	t.Run("sync timeout", func(t *testing.T) {
+		retry.UntilOrFail(t, c.HasSynced, retry.Timeout(2*time.Second))
+	})
 	kube.WaitForCacheSyncInterval(stopCh, time.Microsecond, c.informer.HasSynced)
 	clientset.RunAndWait(stopCh)
 

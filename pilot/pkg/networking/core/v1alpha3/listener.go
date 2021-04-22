@@ -128,22 +128,6 @@ var (
 	mtlsTCPWithMxcALPNs = []string{"istio-peer-exchange", "istio"}
 )
 
-// pilotTraceSamplingEnv is value of PILOT_TRACE_SAMPLING env bounded
-// by [0.0, 100.0]; if outside the range it is set to 1.0
-var pilotTraceSamplingEnv = getPilotRandomSamplingEnv()
-
-// TODO: gauge should be reset on refresh, not the best way to represent errors but better
-// than nothing.
-// TODO: add dimensions - namespace of rule, service, rule name
-var invalidOutboundListeners = monitoring.NewGauge(
-	"pilot_invalid_out_listeners",
-	"Number of invalid outbound listeners.",
-)
-
-func init() {
-	monitoring.MustRegister(invalidOutboundListeners)
-}
-
 // BuildListeners produces a list of listeners and referenced clusters for all proxies
 func (configgen *ConfigGeneratorImpl) BuildListeners(node *model.Proxy,
 	push *model.PushContext) []*listener.Listener {
@@ -170,7 +154,6 @@ func (configgen *ConfigGeneratorImpl) buildSidecarListeners(builder *ListenerBui
 			buildVirtualOutboundListener(configgen).
 			buildVirtualInboundListener(configgen)
 	}
-
 	return builder
 }
 
@@ -184,9 +167,8 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundListeners(
 
 	sidecarScope := node.SidecarScope
 	noneMode := node.GetInterceptionMode() == model.InterceptionNone
-
-	if !sidecarScope.HasCustomIngressListeners {
-		// There is no user supplied sidecarScope for this namespace
+	// No user supplied sidecar scope or the user supplied one has no ingress listeners
+	if !sidecarScope.HasIngressListener() {
 		// Construct inbound listeners in the usual way by looking at the ports of the service instances
 		// attached to the proxy
 		// We should not create inbound listeners in NONE mode based on the service instances
@@ -196,7 +178,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundListeners(
 			return nil
 		}
 
-		// inbound connections/requests are redirected to the endpoint address but appear to be sent
+		// Inbound connections/requests are redirected to the endpoint address but appear to be sent
 		// to the service address.
 		//
 		// Protocol sniffing for inbound listener.
@@ -1565,9 +1547,7 @@ func (ml *MutableListener) build(opts buildListenerOpts) error {
 }
 
 // getActualWildcardAndLocalHost will return corresponding Wildcard and LocalHost
-// depending on value of proxy's IPAddresses. This function checks each element
-// and if there is at least one ipv4 address other than 127.0.0.1, it will use ipv4 address,
-// if all addresses are ipv6  addresses then ipv6 address will be used to get wildcard and local host address.
+// depending on value of proxy's IPAddresses.
 func getActualWildcardAndLocalHost(node *model.Proxy) (string, string) {
 	if node.SupportsIPv4() {
 		return WildcardAddress, LocalhostAddress

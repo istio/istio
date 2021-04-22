@@ -22,6 +22,7 @@ import (
 
 	"istio.io/istio/pkg/jwt"
 	"istio.io/pkg/env"
+	"istio.io/pkg/log"
 )
 
 var (
@@ -31,12 +32,21 @@ var (
 		"Sets the maximum number of concurrent grpc streams.",
 	).Get()
 
-	TraceSampling = env.RegisterFloatVar(
+	traceSamplingVar = env.RegisterFloatVar(
 		"PILOT_TRACE_SAMPLING",
 		1.0,
 		"Sets the mesh-wide trace sampling percentage. Should be 0.0 - 100.0. Precision to 0.01. "+
 			"Default is 1.0.",
-	).Get()
+	)
+
+	TraceSampling = func() float64 {
+		f := traceSamplingVar.Get()
+		if f < 0.0 || f > 100.0 {
+			log.Warnf("PILOT_TRACE_SAMPLING out of range: %v", f)
+			return 1.0
+		}
+		return f
+	}()
 
 	// EnableIstioTags controls whether or not to configure Envoy with support for Istio-specific tags
 	// in trace spans. This is a temporary flag for controlling the feature that will be replaced by
@@ -341,6 +351,13 @@ var (
 		"PILOT_XDS_SEND_TIMEOUT",
 		0*time.Second,
 		"The timeout to send the XDS configuration to proxies. After this timeout is reached, Pilot will discard that push.",
+	).Get()
+
+	RemoteClusterTimeout = env.RegisterDurationVar(
+		"PILOT_REMOTE_CLUSTER_TIMEOUT",
+		30*time.Second,
+		"After this timeout expires, pilot can become ready without syncing data from clusters added via remote-secrets. "+
+			"Setting the timeout to 0 disables this behavior.",
 	).Get()
 
 	EndpointTelemetryLabel = env.RegisterBoolVar("PILOT_ENDPOINT_TELEMETRY_LABEL", true,

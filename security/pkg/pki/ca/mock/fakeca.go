@@ -15,8 +15,7 @@
 package mock
 
 import (
-	"time"
-
+	"istio.io/istio/security/pkg/pki/ca"
 	caerror "istio.io/istio/security/pkg/pki/error"
 	"istio.io/istio/security/pkg/pki/util"
 )
@@ -30,8 +29,8 @@ type FakeCA struct {
 }
 
 // Sign returns the SignErr if SignErr is not nil, otherwise, it returns SignedCert.
-func (ca *FakeCA) Sign(csr []byte, identities []string, lifetime time.Duration, forCA bool) ([]byte, error) {
-	ca.ReceivedIDs = identities
+func (ca *FakeCA) Sign(csr []byte, certOpts ca.CertOpts) ([]byte, error) {
+	ca.ReceivedIDs = certOpts.SubjectIDs
 	if ca.SignErr != nil {
 		return nil, ca.SignErr
 	}
@@ -39,7 +38,7 @@ func (ca *FakeCA) Sign(csr []byte, identities []string, lifetime time.Duration, 
 }
 
 // SignWithCertChain returns the SignErr if SignErr is not nil, otherwise, it returns SignedCert and the cert chain.
-func (ca *FakeCA) SignWithCertChain(csr []byte, identities []string, lifetime time.Duration, forCA bool) ([]byte, error) {
+func (ca *FakeCA) SignWithCertChain(csr []byte, certOpts ca.CertOpts) ([]byte, error) {
 	if ca.SignErr != nil {
 		return nil, ca.SignErr
 	}
