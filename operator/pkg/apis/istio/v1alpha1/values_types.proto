@@ -784,7 +784,7 @@ message TelemetryV2StackDriverConfig {
 
   google.protobuf.BoolValue monitoring = 3;
 
-  google.protobuf.BoolValue topology = 4;
+  google.protobuf.BoolValue topology = 4 [deprecated=true];
 
   google.protobuf.BoolValue disableOutbound = 6;
 
