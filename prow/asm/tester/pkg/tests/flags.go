@@ -57,17 +57,29 @@ func generateTestFlags(settings *resource.Settings) []string {
 // generateTestSelect returns an array containing options to be passed
 // when running the test target.
 func generateTestSelect(settings *resource.Settings) string {
+	const (
+		mcPresubmitTarget = "test.integration.multicluster.kube.presubmit"
+		asmSecurityTarget = "test.integration.asm.security"
+	)
+	testSelect := os.Getenv("TEST_SELECT")
 	if settings.ControlPlane == string(resource.Unmanaged) {
 		// TODO(nmittler): remove this once we no longer run the multicluster tests.
-		if settings.TestTarget == "test.integration.multicluster.kube.presubmit" {
-			return "+multicluster"
+		if settings.TestTarget == mcPresubmitTarget {
+			testSelect = "+multicluster"
 		}
-		if settings.TestTarget == "test.integration.asm.security" {
-			return "-customsetup"
+		if settings.TestTarget == asmSecurityTarget {
+			if testSelect == "" {
+				testSelect = "-customsetup"
+			}
 		}
-		return ""
+	} else if settings.ControlPlane == string(resource.Managed) {
+		testSelect = "-customsetup"
+		if settings.TestTarget == mcPresubmitTarget {
+			testSelect += ",+multicluster"
+		}
 	}
-	return "-customsetup"
+
+	return testSelect
 }
 
 // revisionLabel generates a revision label name from the istioctl version.

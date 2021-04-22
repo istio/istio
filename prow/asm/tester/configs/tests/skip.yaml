@@ -1,6 +1,6 @@
 tests:
   - selectors:
-    - control_plane: unmanaged
+      control_plane: unmanaged
     targets:
     - names:
         - TestProxyStatus
@@ -36,7 +36,7 @@ tests:
   # Unmanaged CP + GKE_ON_PGREM + HUB
   # TODO: Unskip test cases when the same tests in https://b.corp.google.com/issues/174440952 are fixed
   - selectors:
-    - control_plane: unmanaged
+      control_plane: unmanaged
       cluster_type: gke-on-prem
       wip: hub
     targets:
@@ -61,7 +61,7 @@ tests:
 
   # Unmanaged CP + bare-metal
   - selectors:
-    - control_plane: unmanaged
+      control_plane: unmanaged
       cluster_type: bare-metal
     targets:
       - names:
@@ -78,7 +78,7 @@ tests:
 
   # Unmanaged CP + aws
   - selectors:
-    - control_plane: unmanaged
+      control_plane: unmanaged
       cluster_type: aws
     targets:
       - names:
@@ -113,7 +113,7 @@ tests:
 
   # Unmanaged CP, cluster topology = mp OR multiproject
   - selectors:
-    - control_plane: unmanaged
+      control_plane: unmanaged
       cluster_topology: mp
     targets:
       - names:
@@ -125,7 +125,7 @@ tests:
 
   # MCP test skips
   - selectors:
-    - control_plane: managed
+      control_plane: managed
     targets:
       # pilot/ tests
       - names:
@@ -215,7 +215,7 @@ tests:
           - TestRequestAuthentication
         buganizerID: 180418442
   - selectors:
-    - gce_vms: true
+      gce_vms: true
     targets:
       - names:
           - TestValidation
@@ -223,7 +223,7 @@ tests:
 
   # Managed CP, cluster topology = sc OR SINGLECLUSTER
   - selectors:
-    - control_plane: managed
+      control_plane: managed
       cluster_topology: sc
     targets:
       - names:
@@ -231,7 +231,7 @@ tests:
         reason: Not needed, multi-cluster MCP telemetry tests use real stackdriver.
 packages:
   - selectors:
-    - control_plane: unmanaged
+      control_plane: unmanaged
     targets:
       - names:
           - /pilot/cni
@@ -244,7 +244,7 @@ packages:
 
   # MCP package skips
   - selectors:
-    - control_plane: managed
+      control_plane: managed
     targets:
       - names:
           - /multicluster
@@ -274,7 +274,7 @@ packages:
         buganizerID: 183429870
 
   - selectors:
-    - gce_vms: true
+      gce_vms: true
     targets:
       - names:
           - /pilot/endpointslice

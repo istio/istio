@@ -18,6 +18,7 @@ import (
 	"github.com/google/go-cmp/cmp"
 	"io/ioutil"
 	"istio.io/istio/prow/asm/tester/pkg/resource"
+	"sort"
 	"strings"
 	"testing"
 )
@@ -26,29 +27,29 @@ func TestLabelMatches(t *testing.T) {
 	tcs := []struct {
 		name        string
 		selectors   map[string]string
-		matchLabels map[string]string
+		skipLabels  map[string]string
 		expectError string
 		expectMatch bool
 	}{
 		{
 			name: "wrong value does not match",
 			selectors: map[string]string{
-				"control_plane": "unmanaged",
+				controlPlaneSkipLabel: "unmanaged",
 			},
-			matchLabels: map[string]string{
-				"control_plane": "managed",
+			skipLabels: map[string]string{
+				controlPlaneSkipLabel: "managed",
 			},
 			expectMatch: false,
 		},
 		{
 			name: "two matching values matches",
 			selectors: map[string]string{
-				"cluster_type": "gke-on-prem",
-				"wip":          "hub",
+				clusterTypeSkipLabel: "gke-on-prem",
+				wipSkipLabel:         "hub",
 			},
-			matchLabels: map[string]string{
-				"cluster_type": "gke-on-prem",
-				"wip":          "hub",
+			skipLabels: map[string]string{
+				clusterTypeSkipLabel: "gke-on-prem",
+				wipSkipLabel:         "hub",
 			},
 			expectMatch: true,
 		},
@@ -57,23 +58,14 @@ func TestLabelMatches(t *testing.T) {
 			selectors: map[string]string{
 				"fake_key": "fake_value",
 			},
-			matchLabels: map[string]string{},
+			skipLabels:  map[string]string{},
 			expectError: "unknown match key",
-		},
-		{
-			name: "empty selectors matches",
-			selectors: map[string]string{},
-			matchLabels: map[string]string{
-				"cluster_type": "gke-on-prem",
-				"wip": "hub",
-			},
-			expectMatch: true,
 		},
 	}
 
 	for _, tc := range tcs {
 		t.Run(tc.name, func(t *testing.T) {
-			match, err := matches(tc.selectors, tc.matchLabels)
+			match, err := matches(tc.selectors, tc.skipLabels)
 			if tc.expectError != "" {
 				if err == nil {
 					t.Fatalf("expected error %s, got none", tc.expectError)
@@ -91,9 +83,18 @@ func TestLabelMatches(t *testing.T) {
 	}
 }
 
-const sampleTestSkipConfig = `tests:
+func TestTargetSkip(t *testing.T) {
+	tcs := []struct {
+		name             string
+		config           string
+		desiredTestSkips []string
+		settings         resource.Settings
+	}{
+		{
+			name: "one test group matches, the other doesn't",
+			config: `tests:
   - selectors:
-    - control_plane: unmanaged
+      control_plane: unmanaged
     targets:
     - names:
         - A
@@ -101,39 +102,98 @@ const sampleTestSkipConfig = `tests:
     - names:
         - C
   - selectors:
-    - control_plane: unmanaged
+      control_plane: unmanaged
       wip: hub
     targets:
     - names:
         - D
         - E
-`
-
-func TestSkipFlags(t *testing.T) {
-	f, err := ioutil.TempFile("", "revision-config")
-	if err != nil {
-		t.Fatalf("failed creating skip test config file: %v", err)
+`,
+			settings: resource.Settings{
+				ControlPlane: "unmanaged",
+			},
+			desiredTestSkips: []string{
+				"--istio.test.skip=\"A\"",
+				"--istio.test.skip=\"B\"",
+				"--istio.test.skip=\"C\"",
+			},
+		},
+		{
+			name: "both tests groups match",
+			config: `tests:
+  - selectors:
+      control_plane: unmanaged
+    targets:
+    - names:
+        - A
+        - B
+    - names:
+        - C
+  - selectors:
+      control_plane: unmanaged
+      wip: hub
+    targets:
+    - names:
+        - D
+        - E
+`,
+			settings: resource.Settings{
+				ControlPlane: "unmanaged",
+				WIP:          "hub",
+			},
+			desiredTestSkips: []string{
+				"--istio.test.skip=\"A\"",
+				"--istio.test.skip=\"B\"",
+				"--istio.test.skip=\"C\"",
+				"--istio.test.skip=\"D\"",
+				"--istio.test.skip=\"E\"",
+			},
+		},
+		{
+			name: "neither test group matches",
+			config: `tests:
+  - selectors:
+      control_plane: unmanaged
+    targets:
+    - names:
+        - A
+        - B
+    - names:
+        - C
+  - selectors:
+      control_plane: unmanaged
+      wip: hub
+    targets:
+    - names:
+        - D
+        - E
+`,
+			settings: resource.Settings{
+				ControlPlane: "managed",
+			},
+			desiredTestSkips: nil,
+		},
 	}
-	_, err = f.WriteString(sampleTestSkipConfig)
-	if err != nil {
-		t.Fatalf("failed writing to temp skip test config file: %v", err)
-	}
-	skipTestConfig, err := parseSkipConfig(f.Name())
-	if err != nil {
-		t.Fatalf("failed to parse skip test config for %q: %v", f.Name(), err)
-	}
-	skipFlags, err := testSkipFlags(skipTestConfig.Tests, "", skipLabels(&resource.Settings{
-		ControlPlane: "UNMANAGED",
-		WIP:          "HUB",
-	}))
-	desired := []string{
-		"--istio.test.skip=\"A\"",
-		"--istio.test.skip=\"B\"",
-		"--istio.test.skip=\"C\"",
-		"--istio.test.skip=\"D\"",
-		"--istio.test.skip=\"E\"",
-	}
-	if diff := cmp.Diff(skipFlags, desired); diff != "" {
-		t.Errorf("got(+) different than want(-) %s", diff)
+	for _, tc := range tcs {
+		t.Run(tc.name, func(t *testing.T) {
+			f, err := ioutil.TempFile("", "revision-config")
+			if err != nil {
+				t.Fatalf("failed creating skip test config file: %v", err)
+			}
+			_, err = f.WriteString(tc.config)
+			if err != nil {
+				t.Fatalf("failed writing to temp skip test config file: %v", err)
+			}
+			skipTestConfig, err := parseSkipConfig(f.Name())
+			if err != nil {
+				t.Fatalf("failed to parse skip test config for %q: %v", f.Name(), err)
+			}
+			skipFlags, err := testSkipFlags(skipTestConfig.Tests, "", skipLabels(&tc.settings))
+			sort.Strings(skipFlags)
+			sort.Strings(tc.desiredTestSkips)
+			if diff := cmp.Diff(skipFlags, tc.desiredTestSkips); diff != "" {
+				t.Errorf("got(+) different than want(-) %s", diff)
+			}
+		})
 	}
 }

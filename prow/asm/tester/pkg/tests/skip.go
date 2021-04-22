@@ -39,8 +39,9 @@ type TargetSkipConfig struct {
 type TargetGroup struct {
 	// Selectors are expressions in the form "key=value" where key is one of
 	// "control_plane", "cluster_type", "cluster_topology", "wip", or "gce_vms"
-	// If all selectors are matched than the given Targets are skipped.
-	Selectors map[string]string `json:"selector,omitempty"`
+	// The selectors field is required and the config will fail to parse if
+	// there exist TargetGroup's without Selectors
+	Selectors map[string]string `json:"selectors,omitempty"`
 	Targets   []Target          `json:"targets,omitempty"`
 }
 
@@ -67,6 +68,19 @@ func parseSkipConfig(path string) (*TargetSkipConfig, error) {
 		return nil, fmt.Errorf("failed to unmarshal test skip config from file %q: %w",
 			path, err)
 	}
+	// Verify required fields are present
+	for  _, t := range config.Tests {
+		if t.Selectors == nil {
+			return nil, fmt.Errorf("cannot have test group with empty expressions")
+		}
+	}
+	for  _, t := range config.Packages {
+		if t.Selectors == nil {
+			return nil, fmt.Errorf("cannot have package group with empty expressions")
+		}
+	}
+
+
 	return config, nil
 }
 
