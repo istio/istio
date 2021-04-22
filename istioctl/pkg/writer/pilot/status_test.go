@@ -209,6 +209,12 @@ func statusInput1() []xds.SyncStatus {
 					NonceAcked: preDefinedNonce,
 				},
 			},
+			ClusterSent:   preDefinedNonce,
+			ClusterAcked:  newNonce(),
+			ListenerSent:  preDefinedNonce,
+			ListenerAcked: preDefinedNonce,
+			EndpointSent:  preDefinedNonce,
+			EndpointAcked: preDefinedNonce,
 		},
 	}
 }
@@ -236,6 +242,14 @@ func statusInput2() []xds.SyncStatus {
 					NonceAcked: preDefinedNonce,
 				},
 			},
+			ClusterSent:   preDefinedNonce,
+			ClusterAcked:  newNonce(),
+			ListenerSent:  preDefinedNonce,
+			ListenerAcked: preDefinedNonce,
+			EndpointSent:  preDefinedNonce,
+			EndpointAcked: newNonce(),
+			RouteSent:     preDefinedNonce,
+			RouteAcked:    preDefinedNonce,
 		},
 	}
 }
@@ -262,6 +276,13 @@ func statusInput3() []xds.SyncStatus {
 					NonceAcked: preDefinedNonce,
 				},
 			},
+			ClusterSent:   preDefinedNonce,
+			ClusterAcked:  "",
+			ListenerAcked: preDefinedNonce,
+			EndpointSent:  preDefinedNonce,
+			EndpointAcked: "",
+			RouteSent:     preDefinedNonce,
+			RouteAcked:    preDefinedNonce,
 		},
 	}
 }
@@ -289,6 +310,14 @@ func statusInputProxyVersion() []xds.SyncStatus {
 					NonceAcked: preDefinedNonce,
 				},
 			},
+			ClusterSent:   preDefinedNonce,
+			ClusterAcked:  newNonce(),
+			ListenerSent:  preDefinedNonce,
+			ListenerAcked: preDefinedNonce,
+			EndpointSent:  preDefinedNonce,
+			EndpointAcked: newNonce(),
+			RouteSent:     preDefinedNonce,
+			RouteAcked:    preDefinedNonce,
 		},
 	}
 }

@@ -118,13 +118,13 @@ func (s *StatusWriter) statusPrintln(w io.Writer, sw *writerStatus) error {
 		// but control plane (pilot/istiod) is older
 		switch ty {
 		case "CDS":
-			curStatus = xdsStatus(sw.ClusterSent, sw.ClusterAcked)
+			curStatus = xdsStatus(sw.ClusterSent, sw.ClusterAcked) //nolint:staticcheck
 		case "LDS":
-			curStatus = xdsStatus(sw.ListenerSent, sw.ListenerAcked)
+			curStatus = xdsStatus(sw.ListenerSent, sw.ListenerAcked) //nolint:staticcheck
 		case "RDS":
-			curStatus = xdsStatus(sw.RouteSent, sw.RouteAcked)
+			curStatus = xdsStatus(sw.RouteSent, sw.RouteAcked) //nolint:staticcheck
 		case "EDS":
-			curStatus = xdsStatus(sw.EndpointSent, sw.EndpointAcked)
+			curStatus = xdsStatus(sw.EndpointSent, sw.EndpointAcked) //nolint:staticcheck
 		}
 
 		statuses = append(statuses, curStatus)
