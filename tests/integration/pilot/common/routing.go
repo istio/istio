@@ -628,12 +628,12 @@ func trafficLoopCases(apps *EchoDeployments) []TrafficTestCase {
 
 func gatewayCases() []TrafficTestCase {
 	templateParams := func(protocol protocol.Instance, dests echo.Services) map[string]interface{} {
-		dest, portN, cred := dests[0][0], 80, ""
+		host, dest, portN, cred := "*", dests[0][0], 80, ""
 		if protocol.IsTLS() {
-			portN, cred = 443, "cred"
+			host, portN, cred = dest.Config().FQDN(), 443, "cred"
 		}
 		return map[string]interface{}{
-			"GatewayHost":        "*",
+			"GatewayHost":        host,
 			"GatewayPort":        portN,
 			"GatewayPortName":    strings.ToLower(string(protocol)),
 			"GatewayProtocol":    string(protocol),
@@ -826,7 +826,8 @@ spec:
 								})
 							})),
 				},
-				targetFilters: singleTarget,
+				targetFilters:    singleTarget,
+				workloadAgnostic: true,
 			},
 		)
 	}
