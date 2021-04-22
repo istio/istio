@@ -28,12 +28,11 @@ import (
 	"istio.io/istio/istioctl/pkg/clioptions"
 	"istio.io/istio/istioctl/pkg/multixds"
 	"istio.io/istio/istioctl/pkg/writer/pilot"
+	v3 "istio.io/istio/pilot/pkg/xds/v3"
 	"istio.io/istio/pkg/kube"
 )
 
 const (
-	// TypeDebug requests debug info from istio, a secured implementation for istio debug interface
-	TypeDebug         = "istio.io/debug"
 	istiodServiceName = "istiod"
 	xdsPortName       = "https-dns"
 )
@@ -47,7 +46,7 @@ func HandlerForRetrieveDebugList(kubeClient kube.ExtendedClient,
 		Node: &envoy_corev3.Node{
 			Id: "debug~0.0.0.0~istioctl~cluster.local",
 		},
-		TypeUrl: TypeDebug,
+		TypeUrl: v3.DebugType,
 	}
 	xdsResponses, respErr := multixds.AllRequestAndProcessXds(&xdsRequest, centralOpts, istioNamespace,
 		namespace, serviceAccount, kubeClient)
@@ -135,7 +134,7 @@ By default it will use the default serviceAccount from (istio-system) namespace 
 				Node: &envoy_corev3.Node{
 					Id: "debug~0.0.0.0~istioctl~cluster.local",
 				},
-				TypeUrl: TypeDebug,
+				TypeUrl: v3.DebugType,
 			}
 
 			svc, err := kubeClient.CoreV1().Services(istioNamespace).Get(context.Background(), istiodServiceName, metav1.GetOptions{})
