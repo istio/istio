@@ -197,11 +197,6 @@ func (a *Agent) initializeEnvoyAgent() error {
 		return fmt.Errorf("failed to generate bootstrap metadata: %v", err)
 	}
 
-	// Early exit for unit tests
-	if a.envoyOpts.TestOnly {
-		return nil
-	}
-
 	// Note: the cert checking still works, the generated file is updated if certs are changed.
 	// We just don't save the generated file, but use a custom one instead. Pilot will keep
 	// monitoring the certs and restart if the content of the certs changes.
@@ -271,14 +266,16 @@ func (a *Agent) Run(ctx context.Context) error {
 		}
 	}
 
-	err = a.initializeEnvoyAgent()
-	if err != nil {
-		return fmt.Errorf("failed to start envoy agent: %v", err)
-	}
+	if !a.envoyOpts.TestOnly {
+		err = a.initializeEnvoyAgent()
+		if err != nil {
+			return fmt.Errorf("failed to start envoy agent: %v", err)
+		}
 
-	// This is a blocking call for graceful termination.
-	if a.envoyAgent != nil {
-		a.envoyAgent.Run(ctx)
+		// This is a blocking call for graceful termination.
+		if a.envoyAgent != nil {
+			a.envoyAgent.Run(ctx)
+		}
 	}
 
 	return nil
