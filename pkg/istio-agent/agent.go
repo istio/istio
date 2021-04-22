@@ -276,7 +276,7 @@ func (a *Agent) Start(ctx context.Context) error {
 		return fmt.Errorf("failed to start envoy agent: %v", err)
 	}
 	if a.envoyAgent != nil {
-		a.envoyAgent.Start(ctx)
+		go a.envoyAgent.Run(ctx)
 	}
 
 	return nil

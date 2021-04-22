@@ -68,7 +68,7 @@ type exitStatus struct {
 }
 
 // Run starts the envoy and waits until it terminates.
-func (a *Agent) Start(ctx context.Context) {
+func (a *Agent) Run(ctx context.Context) {
 	log.Info("Starting proxy agent")
 	go a.runWait(0, a.abortCh)
 
