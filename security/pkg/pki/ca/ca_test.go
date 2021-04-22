@@ -401,7 +401,7 @@ func TestSignCSRForWorkload(t *testing.T) {
 			t.Errorf("%s: ParsePemEncodedCertificate error: %v", id, err)
 		}
 
-		if ttl := cert.NotAfter.Sub(cert.NotBefore); ttl != requestedTTL {
+		if ttl := cert.NotAfter.Sub(cert.NotBefore) - util.ClockSkewGracePeriod; ttl != requestedTTL {
 			t.Errorf("%s: Unexpected certificate TTL (expecting %v, actual %v)", id, requestedTTL, ttl)
 		}
 		san := util.ExtractSANExtension(cert.Extensions)
@@ -478,7 +478,7 @@ func TestSignCSRForCA(t *testing.T) {
 			t.Errorf("%s: ParsePemEncodedCertificate error: %v", id, err)
 		}
 
-		if ttl := cert.NotAfter.Sub(cert.NotBefore); ttl != requestedTTL {
+		if ttl := cert.NotAfter.Sub(cert.NotBefore) - util.ClockSkewGracePeriod; ttl != requestedTTL {
 			t.Errorf("Unexpected certificate TTL (expecting %v, actual %v)", requestedTTL, ttl)
 		}
 		san := util.ExtractSANExtension(cert.Extensions)
