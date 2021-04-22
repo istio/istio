@@ -34,7 +34,6 @@ import (
 	"k8s.io/api/admission/v1beta1"
 	appsv1 "k8s.io/api/apps/v1"
 	batchv1 "k8s.io/api/batch/v1"
-	batch "k8s.io/api/batch/v2alpha1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -493,7 +492,7 @@ func objectToPod(t testing.TB, obj runtime.Object) *corev1.Pod {
 	switch o := obj.(type) {
 	case *corev1.Pod:
 		return o
-	case *batch.CronJob:
+	case *batchv1.CronJob:
 		o.Spec.JobTemplate.Spec.Template.ObjectMeta = simulateOwnerRef(o.Spec.JobTemplate.Spec.Template.ObjectMeta, o.Name, gvk)
 		return &corev1.Pod{
 			ObjectMeta: o.Spec.JobTemplate.Spec.Template.ObjectMeta,
@@ -815,11 +814,11 @@ func createWebhook(t testing.TB, cfg *Config) (*Webhook, func()) {
 		port       = 0
 	)
 
-	if err := ioutil.WriteFile(configFile, configBytes, 0644); err != nil { // nolint: vetshadow
+	if err := ioutil.WriteFile(configFile, configBytes, 0o644); err != nil { // nolint: vetshadow
 		t.Fatalf("WriteFile(%v) failed: %v", configFile, err)
 	}
 
-	if err := ioutil.WriteFile(valuesFile, []byte(values), 0644); err != nil { // nolint: vetshadow
+	if err := ioutil.WriteFile(valuesFile, []byte(values), 0o644); err != nil { // nolint: vetshadow
 		t.Fatalf("WriteFile(%v) failed: %v", valuesFile, err)
 	}
 

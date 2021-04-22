@@ -31,7 +31,7 @@ import (
 	"github.com/ghodss/yaml"
 	"github.com/hashicorp/go-multierror"
 	appsv1 "k8s.io/api/apps/v1"
-	"k8s.io/api/batch/v2alpha1"
+	batch "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
@@ -584,7 +584,7 @@ func IntoObject(injector Injector, sidecarTemplate Templates, valuesConfig strin
 	// CronJobs have JobTemplates in them, instead of Templates, so we
 	// special case them.
 	switch v := out.(type) {
-	case *v2alpha1.CronJob:
+	case *batch.CronJob:
 		job := v
 		typeMeta = &job.TypeMeta
 		metadata = &job.Spec.JobTemplate.ObjectMeta
