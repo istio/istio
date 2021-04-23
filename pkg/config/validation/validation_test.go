@@ -415,6 +415,7 @@ func TestValidateMeshConfig(t *testing.T) {
 			"trustDomainAliases[0]",
 			"trustDomainAliases[1]",
 			"trustDomainAliases[2]",
+			"extension provider default: port number 999999 must be in the range 1..65535",
 		}
 		switch err := err.(type) {
 		case *multierror.Error:

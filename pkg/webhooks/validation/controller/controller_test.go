@@ -82,6 +82,27 @@ var (
 				},
 			}},
 			FailurePolicy: &failurePolicyIgnore,
+		}, {
+			Name: meshConfigValidationName,
+			ClientConfig: kubeApiAdmission.WebhookClientConfig{Service: &kubeApiAdmission.ServiceReference{
+				Namespace: namespace,
+				Name:      istiod,
+				Path:      &[]string{"/hook1"}[0],
+			}},
+			ObjectSelector: &kubeApiMeta.LabelSelector{
+				MatchLabels: map[string]string{
+					"istio.io/rev": "default",
+				},
+			},
+			Rules: []kubeApiAdmission.RuleWithOperations{{
+				Operations: []kubeApiAdmission.OperationType{kubeApiAdmission.Create, kubeApiAdmission.Update},
+				Rule: kubeApiAdmission.Rule{
+					APIGroups:   []string{""},
+					APIVersions: []string{"*"},
+					Resources:   []string{"configmaps"},
+				},
+			}},
+			FailurePolicy: &failurePolicyIgnore,
 		}},
 	}
 
@@ -136,10 +157,14 @@ func init() {
 	webhookConfigWithCABundleIgnore = unpatchedWebhookConfig.DeepCopyObject().(*kubeApiAdmission.ValidatingWebhookConfiguration)
 	webhookConfigWithCABundleIgnore.Webhooks[0].ClientConfig.CABundle = caBundle0
 	webhookConfigWithCABundleIgnore.Webhooks[1].ClientConfig.CABundle = caBundle0
+	webhookConfigWithCABundleIgnore.Webhooks[2].ClientConfig.CABundle = caBundle0
+	webhookConfigWithCABundleIgnore.Webhooks[2].ObjectSelector.MatchLabels[istioRevisionLabel] = revision
 
 	webhookConfigWithCABundleFail = webhookConfigWithCABundleIgnore.DeepCopyObject().(*kubeApiAdmission.ValidatingWebhookConfiguration)
 	webhookConfigWithCABundleFail.Webhooks[0].FailurePolicy = &failurePolicyFail
 	webhookConfigWithCABundleFail.Webhooks[1].FailurePolicy = &failurePolicyFail
+	webhookConfigWithCABundleFail.Webhooks[2].FailurePolicy = &failurePolicyFail
+	webhookConfigWithCABundleFail.Webhooks[2].ObjectSelector.MatchLabels[istioRevisionLabel] = revision
 }
 
 type fakeController struct {
@@ -157,6 +182,7 @@ type fakeController struct {
 const (
 	namespace = "istio-system"
 	istiod    = "istiod"
+	revision  = "test-rev"
 )
 
 func createTestController(t *testing.T) *fakeController {
@@ -167,6 +193,7 @@ func createTestController(t *testing.T) *fakeController {
 		WebhookConfigName: istiod,
 		ServiceName:       istiod,
 		CABundleWatcher:   watcher,
+		Revision:          revision,
 	}
 	watcher.SetAndNotify(nil, nil, caBundle0)
 
@@ -264,6 +291,7 @@ func TestCABundleChange(t *testing.T) {
 	webhookConfigAfterCAUpdate := webhookConfigWithCABundleFail.DeepCopyObject().(*kubeApiAdmission.ValidatingWebhookConfiguration)
 	webhookConfigAfterCAUpdate.Webhooks[0].ClientConfig.CABundle = caBundle1
 	webhookConfigAfterCAUpdate.Webhooks[1].ClientConfig.CABundle = caBundle1
+	webhookConfigAfterCAUpdate.Webhooks[2].ClientConfig.CABundle = caBundle1
 
 	reconcileHelper(t, c)
 	g.Expect(c.ValidatingWebhookConfigurations().Get(context.TODO(), istiod, kubeApiMeta.GetOptions{})).

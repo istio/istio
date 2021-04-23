@@ -1428,7 +1428,7 @@ func IsNegativeDuration(in time.Duration) error {
 	return nil
 }
 
-// ValidateMeshConfig checks that the mesh config is well-formed
+// ValidateMeshConfig checks that the mesh config is well-formed, invalid mesh config will be rejected by validation webhook.
 func ValidateMeshConfig(mesh *meshconfig.MeshConfig) (errs error) {
 	if err := ValidatePort(int(mesh.ProxyListenPort)); err != nil {
 		errs = multierror.Append(errs, multierror.Prefix(err, "invalid proxy listen port:"))
@@ -1461,7 +1461,7 @@ func ValidateMeshConfig(mesh *meshconfig.MeshConfig) (errs error) {
 	}
 
 	if err := validateExtensionProvider(mesh); err != nil {
-		scope.Warnf("found invalid extension provider (can be ignored if the given extension provider is not used): %v", err)
+		errs = multierror.Append(errs, err)
 	}
 
 	return

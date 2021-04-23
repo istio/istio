@@ -6294,3 +6294,31 @@ webhooks:
     failurePolicy: Ignore
     sideEffects: None
     admissionReviewVersions: ["v1beta1", "v1"]
+  - name: meshconfig-validation.istio.io
+    clientConfig:
+      service:
+        name: istiod
+        namespace: istio-system
+        path: "/validate"
+      caBundle: "" # patched at runtime when the webhook is ready.
+    rules:
+      - operations:
+        - CREATE
+        - UPDATE
+        apiGroups:
+        - ''
+        apiVersions:
+        - '*'
+        resources:
+        - configmaps
+    # Fail open until the validation webhook is ready. The webhook controller
+    # will update this to `Fail` and patch in the `caBundle` when the webhook
+    # endpoint is ready.
+    failurePolicy: Ignore
+    # Use objectSelector to only validate configmap with given label to reduce the number of validation requests.
+    objectSelector:
+      matchLabels:
+        # Use the default revision until the validation webhook is ready. The webhook controller will update this to the correct revision.
+        istio.io/rev: default
+    sideEffects: None
+    admissionReviewVersions: ["v1beta1", "v1"]

@@ -26,16 +26,22 @@ import (
 	kubeApiAdmissionv1 "k8s.io/api/admission/v1"
 	kubeApiAdmissionv1beta1 "k8s.io/api/admission/v1beta1"
 	kubeApiApps "k8s.io/api/apps/v1beta1"
+	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/serializer"
 
 	"istio.io/istio/pilot/pkg/config/kube/crd"
+	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/config/schema/collection"
 	"istio.io/istio/pkg/config/schema/resource"
 	"istio.io/istio/pkg/config/validation"
 	"istio.io/istio/pkg/kube"
 	"istio.io/pkg/log"
+)
+
+const (
+	configMapKey = "mesh"
 )
 
 var scope = log.RegisterScope("validationServer", "validation webhook server", 0)
@@ -76,6 +82,12 @@ type Options struct {
 	// Mainly used for testing. Webhook server is started by Istiod.
 	Port uint
 
+	// Namespace of the mesh config.
+	MeshConfigNamespace string
+
+	// Name of the mesh config.
+	MeshConfigMapName string
+
 	// Use an existing mux instead of creating our own.
 	Mux *http.ServeMux
 }
@@ -100,8 +112,10 @@ func DefaultArgs() Options {
 // Webhook implements the validating admission webhook for validating Istio configuration.
 type Webhook struct {
 	// pilot
-	schemas      collection.Schemas
-	domainSuffix string
+	schemas             collection.Schemas
+	domainSuffix        string
+	meshConfigNamespace string
+	meshConfigMapName   string
 }
 
 // New creates a new instance of the admission webhook server.
@@ -111,8 +125,10 @@ func New(o Options) (*Webhook, error) {
 		return nil, errors.New("expected mux to be passed, but was not passed")
 	}
 	wh := &Webhook{
-		schemas:      o.Schemas,
-		domainSuffix: o.DomainSuffix,
+		schemas:             o.Schemas,
+		domainSuffix:        o.DomainSuffix,
+		meshConfigNamespace: o.MeshConfigNamespace,
+		meshConfigMapName:   o.MeshConfigMapName,
 	}
 
 	o.Mux.HandleFunc("/validate", wh.serveValidate)
@@ -214,6 +230,35 @@ func (wh *Webhook) validate(request *kube.AdmissionRequest) *kube.AdmissionRespo
 	default:
 		scope.Warnf("Unsupported webhook operation %v", request.Operation)
 		reportValidationFailed(request, reasonUnsupportedOperation)
+		return &kube.AdmissionResponse{Allowed: true}
+	}
+
+	if request.Kind.Kind == "ConfigMap" {
+		if request.Namespace == wh.meshConfigNamespace && request.Name == wh.meshConfigMapName {
+			// Only validate the config map if it is Istio mesh config.
+			mcName := fmt.Sprintf("%s/%s", request.Namespace, request.Name)
+			scope.Infof("validating mesh config %s", mcName)
+			var cm v1.ConfigMap
+			if err := json.Unmarshal(request.Object.Raw, &cm); err != nil {
+				scope.Infof("cannot decode mesh config (%s): %v", mcName, err)
+				reportValidationFailed(request, reasonYamlDecodeError)
+				return toAdmissionResponse(fmt.Errorf("cannot decode mesh config: %v", err))
+			}
+
+			mc, err := mesh.ApplyMeshConfigDefaults(cm.Data[configMapKey])
+			if err != nil {
+				scope.Infof("cannot parse mesh config (%s): %v", mcName, err)
+				reportValidationFailed(request, reasonMeshConfigParseError)
+				return toAdmissionResponse(fmt.Errorf("cannot parse mesh config: %v", err))
+			}
+
+			if err := validation.ValidateMeshConfig(mc); err != nil {
+				scope.Infof("invalid mesh config (%s): %v", mcName, err)
+				reportValidationFailed(request, reasonInvalidMeshConfig)
+				return toAdmissionResponse(fmt.Errorf("mesh config (%s) is invalid: %v", mcName, err))
+			}
+		}
+
 		return &kube.AdmissionResponse{Allowed: true}
 	}
 

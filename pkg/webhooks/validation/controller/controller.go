@@ -48,11 +48,19 @@ import (
 	"istio.io/pkg/log"
 )
 
+const (
+	meshConfigValidationName = "meshconfig-validation.istio.io"
+	istioRevisionLabel       = "istio.io/rev"
+)
+
 var scope = log.RegisterScope("validationController", "validation webhook controller", 0)
 
 type Options struct {
 	// Istio system namespace where istiod resides.
 	WatchedNamespace string
+
+	// Revision used by the current istiod.
+	Revision string
 
 	// File path to the x509 certificate bundle used by the webhook server
 	// and patched into the webhook config.
@@ -366,6 +374,10 @@ func (c *Controller) updateValidatingWebhookConfiguration(caBundle []byte, failu
 	for i := range updated.Webhooks {
 		updated.Webhooks[i].ClientConfig.CABundle = caBundle
 		updated.Webhooks[i].FailurePolicy = &failurePolicy
+		// Update the mesh config webhook to only validate Istio mesh config of the specified revision.
+		if updated.Webhooks[i].Name == meshConfigValidationName {
+			updated.Webhooks[i].ObjectSelector.MatchLabels[istioRevisionLabel] = c.o.Revision
+		}
 	}
 
 	if !reflect.DeepEqual(updated, current) {

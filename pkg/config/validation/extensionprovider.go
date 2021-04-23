@@ -21,7 +21,6 @@ import (
 	"strings"
 
 	envoytypev3 "github.com/envoyproxy/go-control-plane/envoy/type/v3"
-	"github.com/hashicorp/go-multierror"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 )
@@ -49,7 +48,7 @@ func validateExtensionProviderEnvoyExtAuthzStatusOnError(status string) error {
 
 func validateExtensionProviderEnvoyExtAuthzHTTP(config *meshconfig.MeshConfig_ExtensionProvider_EnvoyExternalAuthorizationHttpProvider) (errs error) {
 	if config == nil {
-		return fmt.Errorf("nil EnvoyExternalAuthorizationHttpProvider")
+		return fmt.Errorf("EnvoyExternalAuthorizationHttpProvider must not be nil")
 	}
 	if err := ValidatePort(int(config.Port)); err != nil {
 		errs = appendErrors(errs, err)
@@ -65,7 +64,7 @@ func validateExtensionProviderEnvoyExtAuthzHTTP(config *meshconfig.MeshConfig_Ex
 			errs = appendErrors(errs, fmt.Errorf("invalid pathPrefix %s: %v", config.PathPrefix, err))
 		}
 		if !strings.HasPrefix(config.PathPrefix, "/") {
-			errs = appendErrors(errs, fmt.Errorf("pathPrefix should begin with `/` but found %q", config.PathPrefix))
+			errs = appendErrors(errs, fmt.Errorf("pathPrefix must begin with `/` but found %q", config.PathPrefix))
 		}
 	}
 	return
@@ -73,7 +72,7 @@ func validateExtensionProviderEnvoyExtAuthzHTTP(config *meshconfig.MeshConfig_Ex
 
 func validateExtensionProviderEnvoyExtAuthzGRPC(config *meshconfig.MeshConfig_ExtensionProvider_EnvoyExternalAuthorizationGrpcProvider) (errs error) {
 	if config == nil {
-		return fmt.Errorf("nil EnvoyExternalAuthorizationGrpcProvider")
+		return fmt.Errorf("EnvoyExternalAuthorizationGrpcProvider must not be nil")
 	}
 	if err := ValidatePort(int(config.Port)); err != nil {
 		errs = appendErrors(errs, fmt.Errorf("invalid service port: %v", err))
@@ -88,29 +87,29 @@ func validateExtensionProviderEnvoyExtAuthzGRPC(config *meshconfig.MeshConfig_Ex
 }
 
 func validateExtensionProvider(config *meshconfig.MeshConfig) (errs error) {
-	definedProviders := map[string]struct{}{}
-	for _, c := range config.ExtensionProviders {
-		var currentErrs error
+	definedProviders := map[string]int{}
+	for i, c := range config.ExtensionProviders {
 		// Provider name must be unique and not empty.
 		if c.Name == "" {
-			currentErrs = appendErrors(currentErrs, fmt.Errorf("empty extension provider name"))
+			errs = appendErrors(errs, fmt.Errorf("extension provider at %d: name must not be empty", i))
 		} else {
-			if _, found := definedProviders[c.Name]; found {
-				currentErrs = appendErrors(currentErrs, fmt.Errorf("duplicate extension provider name %s", c.Name))
+			if j, found := definedProviders[c.Name]; found {
+				errs = appendErrors(errs, fmt.Errorf("extension provider at %d: name (%s) must be unique, previously defined at %d", i, c.Name, j))
+			} else {
+				definedProviders[c.Name] = i
 			}
-			definedProviders[c.Name] = struct{}{}
 		}
 
+		var err error
 		switch provider := c.Provider.(type) {
 		case *meshconfig.MeshConfig_ExtensionProvider_EnvoyExtAuthzHttp:
-			currentErrs = appendErrors(currentErrs, validateExtensionProviderEnvoyExtAuthzHTTP(provider.EnvoyExtAuthzHttp))
+			err = validateExtensionProviderEnvoyExtAuthzHTTP(provider.EnvoyExtAuthzHttp)
 		case *meshconfig.MeshConfig_ExtensionProvider_EnvoyExtAuthzGrpc:
-			currentErrs = appendErrors(currentErrs, validateExtensionProviderEnvoyExtAuthzGRPC(provider.EnvoyExtAuthzGrpc))
-		default:
-			currentErrs = appendErrors(currentErrs, fmt.Errorf("unsupported provider: %v", provider))
+			err = validateExtensionProviderEnvoyExtAuthzGRPC(provider.EnvoyExtAuthzGrpc)
 		}
-		currentErrs = multierror.Prefix(currentErrs, fmt.Sprintf("invalid extension provider %s:", c.Name))
-		errs = appendErrors(errs, currentErrs)
+		if err != nil {
+			errs = appendErrors(errs, fmt.Errorf("extension provider %s: %v", c.Name, err))
+		}
 	}
 	return
 }

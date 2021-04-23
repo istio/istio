@@ -101,4 +101,6 @@ const (
 	reasonUnknownType          = "unknown_type"
 	reasonCRDConversionError   = "crd_conversion_error"
 	reasonInvalidConfig        = "invalid_resource"
+	reasonInvalidMeshConfig    = "invalid_mesh_config"
+	reasonMeshConfigParseError = "mesh_config_parse_error"
 )

@@ -43,9 +43,11 @@ func (s *Server) initConfigValidation(args *PilotArgs) error {
 	log.Info("initializing config validator")
 	// always start the validation server
 	params := server.Options{
-		Schemas:      collections.Istio,
-		DomainSuffix: args.RegistryOptions.KubeOptions.DomainSuffix,
-		Mux:          s.httpsMux,
+		Schemas:             collections.Istio,
+		DomainSuffix:        args.RegistryOptions.KubeOptions.DomainSuffix,
+		MeshConfigNamespace: args.Namespace,
+		MeshConfigMapName:   getMeshConfigMapName(args.Revision),
+		Mux:                 s.httpsMux,
 	}
 	whServer, err := server.New(params)
 	if err != nil {
@@ -64,6 +66,7 @@ func (s *Server) initConfigValidation(args *PilotArgs) error {
 
 		o := controller.Options{
 			WatchedNamespace:  args.Namespace,
+			Revision:          args.Revision,
 			CABundleWatcher:   s.istiodCertBundleWatcher,
 			WebhookConfigName: webhookConfigName,
 			ServiceName:       "istiod",

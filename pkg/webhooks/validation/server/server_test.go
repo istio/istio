@@ -29,6 +29,7 @@ import (
 	"time"
 
 	kubeApiAdmission "k8s.io/api/admission/v1beta1"
+	v1 "k8s.io/api/core/v1"
 	kubeApisMeta "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -80,10 +81,12 @@ func createTestWebhook(t testing.TB) (*Webhook, func()) {
 	}
 
 	options := Options{
-		Port:         port,
-		DomainSuffix: testDomainSuffix,
-		Schemas:      collections.Mocks,
-		Mux:          http.NewServeMux(),
+		Port:                port,
+		DomainSuffix:        testDomainSuffix,
+		Schemas:             collections.Mocks,
+		MeshConfigMapName:   "istio",
+		MeshConfigNamespace: "istio-system",
+		Mux:                 http.NewServeMux(),
 	}
 	wh, err := New(options)
 	if err != nil {
@@ -137,6 +140,38 @@ func makePilotConfig(t *testing.T, i int, validConfig bool, includeBogusKey bool
 		if raw, err = json.Marshal(&trial); err != nil {
 			t.Fatalf("re-Marshal(%v) failed: %v", name, err)
 		}
+	}
+	return raw
+}
+
+func makeMeshConfig(t *testing.T, validConfig bool) []byte {
+	t.Helper()
+
+	listenPort := 15001
+	if !validConfig {
+		listenPort = 9999999
+	}
+
+	cm := v1.ConfigMap{}
+	cm.Name = "istio"
+	cm.Namespace = "istio-system"
+	cm.Data = map[string]string{
+		configMapKey: fmt.Sprintf(`
+proxyListenPort: %d
+accessLogFile: /dev/stdout
+defaultConfig:
+  discoveryAddress: istiod.istio-system.svc:15012
+  proxyMetadata: {}
+  tracing:
+    zipkin:
+      address: zipkin.istio-system:9411
+rootNamespace: istio-system
+trustDomain: cluster.local`, listenPort),
+	}
+
+	raw, err := json.Marshal(&cm)
+	if err != nil {
+		t.Fatalf("Marshal failed: %v", err)
 	}
 	return raw
 }
@@ -214,6 +249,42 @@ func TestAdmitPilot(t *testing.T) {
 				Operation: kube.Create,
 			},
 			allowed: false,
+		},
+		{
+			name:  "ignore none meshconfig",
+			admit: wh.validate,
+			in: &kube.AdmissionRequest{
+				Name:      "custom",
+				Namespace: "istio-system",
+				Kind:      kubeApisMeta.GroupVersionKind{Kind: "ConfigMap"},
+				Object:    runtime.RawExtension{Raw: makeMeshConfig(t, false)},
+				Operation: kube.Update,
+			},
+			allowed: true,
+		},
+		{
+			name:  "invalid meshconfig",
+			admit: wh.validate,
+			in: &kube.AdmissionRequest{
+				Name:      "istio",
+				Namespace: "istio-system",
+				Kind:      kubeApisMeta.GroupVersionKind{Kind: "ConfigMap"},
+				Object:    runtime.RawExtension{Raw: makeMeshConfig(t, false)},
+				Operation: kube.Update,
+			},
+			allowed: false,
+		},
+		{
+			name:  "valid meshconfig",
+			admit: wh.validate,
+			in: &kube.AdmissionRequest{
+				Name:      "istio",
+				Namespace: "istio-system",
+				Kind:      kubeApisMeta.GroupVersionKind{Kind: "ConfigMap"},
+				Object:    runtime.RawExtension{Raw: makeMeshConfig(t, true)},
+				Operation: kube.Update,
+			},
+			allowed: true,
 		},
 	}
 
