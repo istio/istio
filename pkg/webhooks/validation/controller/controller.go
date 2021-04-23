@@ -49,8 +49,8 @@ import (
 )
 
 var (
-	scope             = log.RegisterScope("validationController", "validation webhook controller", 0)
-	dryRunCreationReq = &reconcileRequest{"retry dry-run creation of invalid config"}
+	scope          = log.RegisterScope("validationController", "validation webhook controller", 0)
+	retryReconcile = &reconcileRequest{"retry reconcile loop"}
 )
 
 type Options struct {
@@ -262,6 +262,10 @@ func (c *Controller) processNextWorkItem() (cont bool) {
 	}
 
 	if retry, err := c.reconcileRequest(req); retry || err != nil {
+		if retry {
+			c.queue.AddRateLimited(retryReconcile)
+			return true
+		}
 		c.queue.AddRateLimited(obj)
 		utilruntime.HandleError(err)
 	} else {
