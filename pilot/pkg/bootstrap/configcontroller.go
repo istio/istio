@@ -101,7 +101,7 @@ func (s *Server) initConfigController(args *PilotArgs) error {
 
 		s.addTerminatingStartFunc(func(stop <-chan struct{}) error {
 			leaderelection.
-				NewLeaderElection(args.Namespace, args.PodName, leaderelection.IngressController, s.kubeClient.Kube()).
+				NewLeaderElection(args.Namespace, args.PodName, leaderelection.IngressController, s.kubeClient.Kube(), args.Revision).
 				AddRunFunction(func(leaderStop <-chan struct{}) {
 					if ingressV1 {
 						ingressSyncer := ingressv1.NewStatusSyncer(s.environment.Watcher, s.kubeClient)
@@ -254,7 +254,7 @@ func (s *Server) initInprocessAnalysisController(args *PilotArgs) error {
 
 	s.addStartFunc(func(stop <-chan struct{}) error {
 		go leaderelection.
-			NewLeaderElection(args.Namespace, args.PodName, leaderelection.AnalyzeController, s.kubeClient).
+			NewLeaderElection(args.Namespace, args.PodName, leaderelection.AnalyzeController, s.kubeClient, args.Revision).
 			AddRunFunction(func(stop <-chan struct{}) {
 				// to protect pilot from panics in analysis (which should never cause pilot to exit), recover from
 				// panics in analysis and, unless stop is called, restart the analysis controller.
@@ -302,7 +302,7 @@ func (s *Server) initStatusController(args *PilotArgs, writeStatus bool) {
 		s.addTerminatingStartFunc(func(stop <-chan struct{}) error {
 			controller := status.NewController(*s.kubeRestConfig, args.Namespace, s.RWConfigStore)
 			leaderelection.
-				NewLeaderElection(args.Namespace, args.PodName, leaderelection.StatusController, s.kubeClient).
+				NewLeaderElection(args.Namespace, args.PodName, leaderelection.StatusController, s.kubeClient, args.Revision).
 				AddRunFunction(func(stop <-chan struct{}) {
 					s.statusReporter.SetController(controller)
 					controller.Start(stop)

@@ -119,14 +119,18 @@ func (l *LeaderElection) AddRunFunction(f func(stop <-chan struct{})) *LeaderEle
 	return l
 }
 
-func NewLeaderElection(namespace, name, electionID string, client kubernetes.Interface) *LeaderElection {
+func NewLeaderElection(namespace, name, electionID string, client kubernetes.Interface, revision string) *LeaderElection {
 	if name == "" {
 		name = "unknown"
+	}
+	electionIDWithRevision := electionID + "-" + revision
+	if revision == "default" || revision == "" {
+		electionIDWithRevision = electionID
 	}
 	return &LeaderElection{
 		namespace:  namespace,
 		name:       name,
-		electionID: electionID,
+		electionID: electionIDWithRevision,
 		client:     client,
 		// Default to a 30s ttl. Overridable for tests
 		ttl:   time.Second * 30,

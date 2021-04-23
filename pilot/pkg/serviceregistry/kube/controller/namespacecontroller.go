@@ -40,6 +40,8 @@ const (
 
 var configMapLabel = map[string]string{"istio.io/config": "true"}
 
+var caCertConfigMapWithRevision string
+
 // NamespaceController manages reconciles a configmap in each namespace with a desired set of data.
 type NamespaceController struct {
 	// getData is the function to fetch the data we will insert into the config map
@@ -54,18 +56,22 @@ type NamespaceController struct {
 }
 
 // NewNamespaceController returns a pointer to a newly constructed NamespaceController instance.
-func NewNamespaceController(data func() map[string]string, kubeClient kube.Client) *NamespaceController {
+func NewNamespaceController(data func() map[string]string, kubeClient kube.Client,
+	revision string, systemNamespace string) *NamespaceController {
 	c := &NamespaceController{
 		getData: data,
 		client:  kubeClient.CoreV1(),
 		queue:   queue.NewQueue(time.Second),
 	}
-
+	if revision == "default" || revision == "" {
+		caCertConfigMapWithRevision = CACertNamespaceConfigMap
+	} else {
+		caCertConfigMapWithRevision = CACertNamespaceConfigMap + "-" + revision
+	}
 	c.configMapInformer = kubeClient.KubeInformer().Core().V1().ConfigMaps().Informer()
 	c.configmapLister = kubeClient.KubeInformer().Core().V1().ConfigMaps().Lister()
 	c.namespacesInformer = kubeClient.KubeInformer().Core().V1().Namespaces().Informer()
 	c.namespaceLister = kubeClient.KubeInformer().Core().V1().Namespaces().Lister()
-
 	c.configMapInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
 		UpdateFunc: func(_, obj interface{}) {
 			cm, err := convertToConfigMap(obj)
@@ -73,7 +79,7 @@ func NewNamespaceController(data func() map[string]string, kubeClient kube.Clien
 				log.Errorf("failed to convert to configmap: %v", err)
 			}
 			// This is a change to a configmap we don't watch, ignore it
-			if cm.Name != CACertNamespaceConfigMap {
+			if cm.Name != caCertConfigMapWithRevision {
 				return
 			}
 			c.queue.Push(func() error {
@@ -86,7 +92,7 @@ func NewNamespaceController(data func() map[string]string, kubeClient kube.Clien
 				log.Errorf("failed to convert to configmap: %v", err)
 			}
 			// This is a change to a configmap we don't watch, ignore it
-			if cm.Name != CACertNamespaceConfigMap {
+			if cm.Name != caCertConfigMapWithRevision {
 				return
 			}
 			c.queue.Push(func() error {
@@ -97,7 +103,7 @@ func NewNamespaceController(data func() map[string]string, kubeClient kube.Clien
 				// If the namespace is terminating, we may get into a loop of trying to re-add the configmap back
 				// We should make sure the namespace still exists
 				if ns.Status.Phase != v1.NamespaceTerminating {
-					return c.insertDataForNamespace(cm.Namespace)
+					return c.insertDataForNamespace(ns, revision, systemNamespace)
 				}
 				return nil
 			})
@@ -107,16 +113,15 @@ func NewNamespaceController(data func() map[string]string, kubeClient kube.Clien
 	c.namespacesInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc: func(obj interface{}) {
 			c.queue.Push(func() error {
-				return c.namespaceChange(obj.(*v1.Namespace))
+				return c.namespaceChange(obj.(*v1.Namespace), revision, systemNamespace)
 			})
 		},
 		UpdateFunc: func(_, obj interface{}) {
 			c.queue.Push(func() error {
-				return c.namespaceChange(obj.(*v1.Namespace))
+				return c.namespaceChange(obj.(*v1.Namespace), revision, systemNamespace)
 			})
 		},
 	})
-
 	return c
 }
 
@@ -130,10 +135,20 @@ func (nc *NamespaceController) Run(stopCh <-chan struct{}) {
 // insertDataForNamespace will add data into the configmap for the specified namespace
 // If the configmap is not found, it will be created.
 // If you know the current contents of the configmap, using UpdateDataInConfigMap is more efficient.
-func (nc *NamespaceController) insertDataForNamespace(ns string) error {
+func (nc *NamespaceController) insertDataForNamespace(ns *v1.Namespace, revision string, systemNamespace string) error {
+	revisionLabel := ns.Labels["istio.io/rev"]
+	if revisionLabel == "" {
+		revisionLabel = "default"
+	}
+	if ns.Name == systemNamespace {
+		revisionLabel = revision
+	}
+	if revision != revisionLabel {
+		return nil
+	}
 	meta := metav1.ObjectMeta{
-		Name:      CACertNamespaceConfigMap,
-		Namespace: ns,
+		Name:      caCertConfigMapWithRevision,
+		Namespace: ns.Name,
 		Labels:    configMapLabel,
 	}
 	return k8s.InsertDataToConfigMap(nc.client, nc.configmapLister, meta, nc.getData())
@@ -141,9 +156,9 @@ func (nc *NamespaceController) insertDataForNamespace(ns string) error {
 
 // On namespace change, update the config map.
 // If terminating, this will be skipped
-func (nc *NamespaceController) namespaceChange(ns *v1.Namespace) error {
+func (nc *NamespaceController) namespaceChange(ns *v1.Namespace, revision, systemNamespace string) error {
 	if ns.Status.Phase != v1.NamespaceTerminating {
-		return nc.insertDataForNamespace(ns.Name)
+		return nc.insertDataForNamespace(ns, revision, systemNamespace)
 	}
 	return nil
 }

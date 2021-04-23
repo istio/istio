@@ -664,7 +664,7 @@ data:
           {{- if eq .Values.global.pilotCertProvider "istiod" }}
           - name: istiod-ca-cert
             configMap:
-              name: istio-ca-root-cert
+              name: istio-ca-root-cert{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}
           {{- end }}
           {{- if .Values.global.mountMtlsCerts }}
           # Use the key and cert mounted to /etc/certs/ for the in-cluster mTLS communications.

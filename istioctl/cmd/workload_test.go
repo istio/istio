@@ -184,6 +184,11 @@ func TestWorkloadEntryConfigure(t *testing.T) {
 								"mesh": string(util.ReadFile(path.Join(testdir, "meshconfig.yaml"), t)),
 							},
 						},
+						&v1.Namespace{
+							ObjectMeta: metav1.ObjectMeta{
+								Name: "bar",
+							},
+						},
 						&v1.Secret{
 							ObjectMeta: metav1.ObjectMeta{Namespace: "bar", Name: "test"},
 							Data: map[string][]byte{

@@ -35,24 +35,28 @@ func TestNamespaceController(t *testing.T) {
 	testdata := map[string]string{"key": "value"}
 	nc := NewNamespaceController(func() map[string]string {
 		return testdata
-	}, client)
+	}, client, "default", "istio-system")
 	nc.configmapLister = client.KubeInformer().Core().V1().ConfigMaps().Lister()
 	stop := make(chan struct{})
 	client.RunAndWait(stop)
 	nc.Run(stop)
 
 	createNamespace(t, client, "foo", nil)
-	expectConfigMap(t, client, "foo", testdata)
+	createNamespace(t, client, "istio-system", nil)
+	createNamespace(t, client, "foo-rev", map[string]string{"istio.io/rev": "rev1"})
+	checkConfigMap(t, client, "foo", testdata, true)
+	checkConfigMap(t, client, "foo-rev", nil, false)
+	checkConfigMap(t, client, "istio-system", testdata, true)
 
 	newData := map[string]string{"key": "value", "foo": "bar"}
 	if err := k8s.InsertDataToConfigMap(client.CoreV1(), nc.configmapLister,
 		metav1.ObjectMeta{Name: CACertNamespaceConfigMap, Namespace: "foo"}, newData); err != nil {
 		t.Fatal(err)
 	}
-	expectConfigMap(t, client, "foo", newData)
+	checkConfigMap(t, client, "foo", newData, true)
 
 	deleteConfigMap(t, client, "foo")
-	expectConfigMap(t, client, "foo", testdata)
+	checkConfigMap(t, client, "foo", testdata, true)
 }
 
 func deleteConfigMap(t *testing.T, client kubernetes.Interface, ns string) {
@@ -84,15 +88,20 @@ func updateNamespace(t *testing.T, client kubernetes.Interface, ns string, label
 	}
 }
 
-func expectConfigMap(t *testing.T, client kubernetes.Interface, ns string, data map[string]string) {
+func checkConfigMap(t *testing.T, client kubernetes.Interface, ns string, data map[string]string, needFound bool) {
 	t.Helper()
 	retry.UntilSuccessOrFail(t, func() error {
 		cm, err := client.CoreV1().ConfigMaps(ns).Get(context.TODO(), CACertNamespaceConfigMap, metav1.GetOptions{})
-		if err != nil {
-			return err
+		if !needFound && cm != nil {
+			return fmt.Errorf("configmap %q has been created unexpectedly", cm.Name)
 		}
-		if !reflect.DeepEqual(cm.Data, data) {
-			return fmt.Errorf("data mismatch, expected %+v got %+v", data, cm.Data)
+		if needFound {
+			if err != nil {
+				return err
+			}
+			if !reflect.DeepEqual(cm.Data, data) {
+				return fmt.Errorf("data mismatch, expected %+v got %+v", data, cm.Data)
+			}
 		}
 		return nil
 	}, retry.Timeout(time.Second*2))

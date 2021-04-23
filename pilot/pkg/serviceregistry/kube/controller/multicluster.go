@@ -239,10 +239,10 @@ func (m *Multicluster) AddMemberCluster(clusterID string, rc *secretcontroller.C
 			log.Infof("joining leader-election for %s in %s on cluster %s",
 				leaderelection.NamespaceController, options.SystemNamespace, options.ClusterID)
 			leaderelection.
-				NewLeaderElection(options.SystemNamespace, m.serverID, leaderelection.NamespaceController, client.Kube()).
+				NewLeaderElection(options.SystemNamespace, m.serverID, leaderelection.NamespaceController, client.Kube(), m.revision).
 				AddRunFunction(func(leaderStop <-chan struct{}) {
 					log.Infof("starting namespace controller for cluster %s", clusterID)
-					nc := NewNamespaceController(m.fetchCaRoot, client)
+					nc := NewNamespaceController(m.fetchCaRoot, client, m.revision, m.opts.SystemNamespace)
 					// Start informers again. This fixes the case where informers for namespace do not start,
 					// as we create them only after acquiring the leader lock
 					// Note: stop here should be the overall pilot stop, NOT the leader election stop. We are
@@ -289,7 +289,7 @@ func (m *Multicluster) AddMemberCluster(clusterID string, rc *secretcontroller.C
 		// Block server exit on graceful termination of the leader controller.
 		m.s.RunComponentAsyncAndWait(func(_ <-chan struct{}) error {
 			leaderelection.
-				NewLeaderElection(options.SystemNamespace, m.serverID, leaderelection.ServiceExportController, client.Kube()).
+				NewLeaderElection(options.SystemNamespace, m.serverID, leaderelection.ServiceExportController, client.Kube(), m.revision).
 				AddRunFunction(func(leaderStop <-chan struct{}) {
 					log.Infof("starting service export controller for cluster %s", clusterID)
 					serviceExportController := NewServiceExportController(ServiceExportOptions{

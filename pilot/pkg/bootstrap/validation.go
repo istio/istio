@@ -70,7 +70,7 @@ func (s *Server) initConfigValidation(args *PilotArgs) error {
 		}
 		s.addTerminatingStartFunc(func(stop <-chan struct{}) error {
 			leaderelection.
-				NewLeaderElection(args.Namespace, args.PodName, leaderelection.ValidationController, s.kubeClient).
+				NewLeaderElection(args.Namespace, args.PodName, leaderelection.ValidationController, s.kubeClient, args.Revision).
 				AddRunFunction(func(leaderStop <-chan struct{}) {
 					whController, err := controller.New(o, s.kubeClient)
 					if err != nil {
