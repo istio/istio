@@ -132,6 +132,8 @@ metadata:
   {{- end }}
   labels:
     istio.io/rev: {{ .Values.revision | default "default" }}
+    install.operator.istio.io/owning-resource: {{ .Values.ownerName | default "unknown" }}
+    operator.istio.io/component: "Pilot"
 spec:
   configPatches:
     - applyTo: NETWORK_FILTER
@@ -195,6 +197,8 @@ metadata:
   {{- end }}
   labels:
     istio.io/rev: {{ .Values.revision | default "default" }}
+    install.operator.istio.io/owning-resource: {{ .Values.ownerName | default "unknown" }}
+    operator.istio.io/component: "Pilot"
 spec:
   configPatches:
     - applyTo: HTTP_FILTER
@@ -357,6 +361,8 @@ metadata:
   {{- end }}
   labels:
     istio.io/rev: {{ .Values.revision | default "default" }}
+    install.operator.istio.io/owning-resource: {{ .Values.ownerName | default "unknown" }}
+    operator.istio.io/component: "Pilot"
 spec:
   configPatches:
     - applyTo: NETWORK_FILTER
@@ -513,6 +519,8 @@ metadata:
   {{- end }}
   labels:
     istio.io/rev: {{ .Values.revision | default "default" }}
+    install.operator.istio.io/owning-resource: {{ .Values.ownerName | default "unknown" }}
+    operator.istio.io/component: "Pilot"
 spec:
   configPatches:
 {{- if not .Values.telemetry.v2.stackdriver.disableOutbound }}
@@ -631,6 +639,8 @@ metadata:
   {{- end }}
   labels:
     istio.io/rev: {{ .Values.revision | default "default" }}
+    install.operator.istio.io/owning-resource: {{ .Values.ownerName | default "unknown" }}
+    operator.istio.io/component: "Pilot"
 spec:
   configPatches:
   {{- if not .Values.telemetry.v2.stackdriver.disableOutbound }}
@@ -744,6 +754,8 @@ metadata:
   {{- end }}
   labels:
     istio.io/rev: {{ .Values.revision | default "default" }}
+    install.operator.istio.io/owning-resource: {{ .Values.ownerName | default "unknown" }}
+    operator.istio.io/component: "Pilot"
 spec:
   configPatches:
     - applyTo: HTTP_FILTER
