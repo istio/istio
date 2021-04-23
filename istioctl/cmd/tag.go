@@ -45,7 +45,7 @@ const (
 	revisionTagTemplateName     = "revision-tags.yaml"
 	// Revision tags require that the target istiod patches ALL webhooks with matching istio.io/rev label,
 	// a behavior that just made it into 1.10 (https://github.com/istio/istio/pull/29583)
-	minRevisionTagIstioVersion = "1.10"
+	minRevisionTagIstioVersion = "1.10.0"
 
 	// help strings and long formatted user outputs
 	skipConfirmationFlagHelpStr = `The skipConfirmation determines whether the user is prompted for confirmation.
@@ -276,7 +276,9 @@ func setTag(ctx context.Context, kubeClient kube.ExtendedClient, tag, revision s
 			return err
 		}
 		if !sufficient {
-			confirm(fmt.Sprintf(versionCheckStr, revision, version, minRevisionTagIstioVersion), w)
+			if !confirm(fmt.Sprintf(versionCheckStr, revision, version, minRevisionTagIstioVersion), w) {
+				return nil
+			}
 		}
 	}
 
