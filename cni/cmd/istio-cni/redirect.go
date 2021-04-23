@@ -22,6 +22,7 @@ import (
 	"strings"
 
 	"istio.io/api/annotation"
+	"istio.io/istio/pilot/cmd/pilot-agent/options"
 	"istio.io/pkg/log"
 )
 
@@ -75,6 +76,7 @@ type Redirect struct {
 	excludeInboundPorts  string
 	excludeOutboundPorts string
 	kubevirtInterfaces   string
+	dnsRedirect          bool
 }
 
 type annotationValidationFunc func(value string) error
@@ -191,26 +193,26 @@ func getAnnotationOrDefault(name string, annotations map[string]string) (isFound
 }
 
 // NewRedirect returns a new Redirect Object constructed from a list of ports and annotations
-func NewRedirect(annotations map[string]string) (*Redirect, error) {
+func NewRedirect(pi *PodInfo) (*Redirect, error) {
 	var isFound bool
 	var valErr error
 
 	redir := &Redirect{}
 	redir.targetPort = defaultRedirectToPort
-	isFound, redir.redirectMode, valErr = getAnnotationOrDefault("redirectMode", annotations)
+	isFound, redir.redirectMode, valErr = getAnnotationOrDefault("redirectMode", pi.Annotations)
 	if valErr != nil {
 		log.Errorf("Annotation value error for value %s; annotationFound = %t: %v",
 			"redirectMode", isFound, valErr)
 		return nil, valErr
 	}
 	redir.noRedirectUID = defaultNoRedirectUID
-	isFound, redir.includeIPCidrs, valErr = getAnnotationOrDefault("includeIPCidrs", annotations)
+	isFound, redir.includeIPCidrs, valErr = getAnnotationOrDefault("includeIPCidrs", pi.Annotations)
 	if valErr != nil {
 		log.Errorf("Annotation value error for value %s; annotationFound = %t: %v",
 			"includeIPCidrs", isFound, valErr)
 		return nil, valErr
 	}
-	isFound, redir.includePorts, valErr = getAnnotationOrDefault("includePorts", annotations)
+	isFound, redir.includePorts, valErr = getAnnotationOrDefault("includePorts", pi.Annotations)
 	if valErr != nil {
 		log.Errorf("Annotation value error for redirect ports, using ContainerPorts=\"%s\": %v",
 			redir.includePorts, valErr)
@@ -220,19 +222,19 @@ func NewRedirect(annotations map[string]string) (*Redirect, error) {
 		// reflect injection-template: istio fill the value only when the annotation is not set
 		redir.includePorts = "*"
 	}
-	isFound, redir.excludeIPCidrs, valErr = getAnnotationOrDefault("excludeIPCidrs", annotations)
+	isFound, redir.excludeIPCidrs, valErr = getAnnotationOrDefault("excludeIPCidrs", pi.Annotations)
 	if valErr != nil {
 		log.Errorf("Annotation value error for value %s; annotationFound = %t: %v",
 			"excludeIPCidrs", isFound, valErr)
 		return nil, valErr
 	}
-	isFound, redir.excludeInboundPorts, valErr = getAnnotationOrDefault("excludeInboundPorts", annotations)
+	isFound, redir.excludeInboundPorts, valErr = getAnnotationOrDefault("excludeInboundPorts", pi.Annotations)
 	if valErr != nil {
 		log.Errorf("Annotation value error for value %s; annotationFound = %t: %v",
 			"excludeInboundPorts", isFound, valErr)
 		return nil, valErr
 	}
-	isFound, redir.excludeOutboundPorts, valErr = getAnnotationOrDefault("excludeOutboundPorts", annotations)
+	isFound, redir.excludeOutboundPorts, valErr = getAnnotationOrDefault("excludeOutboundPorts", pi.Annotations)
 	if valErr != nil {
 		log.Errorf("Annotation value error for value %s; annotationFound = %t: %v",
 			"excludeOutboundPorts", isFound, valErr)
@@ -246,11 +248,18 @@ func NewRedirect(annotations map[string]string) (*Redirect, error) {
 	}
 	redir.excludeInboundPorts += "15020,15021,15090"
 	redir.excludeInboundPorts = strings.Join(dedupPorts(splitPorts(redir.excludeInboundPorts)), ",")
-	isFound, redir.kubevirtInterfaces, valErr = getAnnotationOrDefault("kubevirtInterfaces", annotations)
+	isFound, redir.kubevirtInterfaces, valErr = getAnnotationOrDefault("kubevirtInterfaces", pi.Annotations)
 	if valErr != nil {
 		log.Errorf("Annotation value error for value %s; annotationFound = %t: %v",
 			"kubevirtInterfaces", isFound, valErr)
 		return nil, valErr
+	}
+	if v, found := pi.ProxyConfig.ProxyMetadata[options.DnsCaptureByAgent.Name]; found {
+		// parse and set the bool value of dnsRedirect
+		redir.dnsRedirect, valErr = strconv.ParseBool(v)
+		if valErr != nil {
+			log.Warnf("cannot parse DNS capture environment variable %v", valErr)
+		}
 	}
 
 	return redir, nil

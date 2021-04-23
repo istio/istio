@@ -17,10 +17,13 @@ package main
 import (
 	"context"
 
+	meshconfig "istio.io/api/mesh/v1alpha1"
+	"istio.io/istio/pkg/config/mesh"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/clientcmd"
 
+	"istio.io/istio/pilot/cmd/pilot-agent/options"
 	"istio.io/pkg/log"
 )
 
@@ -29,6 +32,14 @@ var newKubeClient = newK8sClient
 
 // getKubePodInfo is a unit test override variable for interface create.
 var getKubePodInfo = getK8sPodInfo
+
+type PodInfo struct {
+	Containers     []string
+	InitContainers map[string]struct{}
+	Labels         map[string]string
+	Annotations    map[string]string
+	ProxyConfig    *meshconfig.ProxyConfig
+}
 
 // newK8sClient returns a Kubernetes client
 func newK8sClient(conf PluginConf) (*kubernetes.Clientset, error) {
@@ -55,28 +66,47 @@ func newK8sClient(conf PluginConf) (*kubernetes.Clientset, error) {
 }
 
 // getK8sPodInfo returns information of a POD
-func getK8sPodInfo(client *kubernetes.Clientset, podName, podNamespace string) (containers []string,
-	initContainers map[string]struct{}, labels map[string]string, annotations map[string]string, err error) {
+func getK8sPodInfo(client *kubernetes.Clientset, podName, podNamespace string) (*PodInfo, error) {
 	pod, err := client.CoreV1().Pods(podNamespace).Get(context.TODO(), podName, metav1.GetOptions{})
 	log.Infof("pod info %+v", pod)
 	if err != nil {
-		return nil, nil, nil, nil, err
+		return nil, err
 	}
 
-	initContainers = map[string]struct{}{}
-	for _, initContainer := range pod.Spec.InitContainers {
-		initContainers[initContainer.Name] = struct{}{}
+	pi := &PodInfo{
+		InitContainers: make(map[string]struct{}),
+		Containers:     make([]string, len(pod.Spec.Containers)),
+		Labels:         pod.Labels,
+		Annotations:    pod.Annotations,
 	}
-	containers = make([]string, len(pod.Spec.Containers))
+	for _, initContainer := range pod.Spec.InitContainers {
+		pi.InitContainers[initContainer.Name] = struct{}{}
+	}
 	for containerIdx, container := range pod.Spec.Containers {
 		log.WithLabels("pod", podName, "container", container.Name).Debug("Inspecting container")
-		containers[containerIdx] = container.Name
+		pi.Containers[containerIdx] = container.Name
 
 		if container.Name == "istio-proxy" {
 			// don't include ports from istio-proxy in the redirect ports
+			// Check for container env variable and extract out ProxyConfig from it.
+			for _, e := range container.Env {
+				if e.Name == options.ProxyConfigEnv {
+					proxyConfig := mesh.DefaultProxyConfig()
+					mc := &meshconfig.MeshConfig{
+						DefaultConfig: &proxyConfig,
+					}
+					mc, err := mesh.ApplyProxyConfig(e.Value, *mc)
+					if err != nil {
+						log.Warnf("failed to apply proxy config for %v: %+v", pod.Name, err)
+					} else {
+						pi.ProxyConfig = mc.DefaultConfig
+					}
+					break
+				}
+			}
 			continue
 		}
 	}
 
-	return containers, initContainers, pod.Labels, pod.Annotations, nil
+	return pi, nil
 }
