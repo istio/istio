@@ -891,11 +891,11 @@ data:
     Workloads\",\"type\":\"row\"},{\"collapsed\":true,\"gridPos\":{\"h\":1,\"w\":24,\"x\":0,\"y\":2},\"id\":91,\"panels\":[{\"content\":\"<div
     class=\\\"dashboard-header text-center\\\">\\n<span>OUTBOUND SERVICES</span>\\n</div>\",\"fieldConfig\":{\"defaults\":{\"custom\":{}},\"overrides\":[]},\"gridPos\":{\"h\":3,\"w\":24,\"x\":0,\"y\":14},\"id\":69,\"links\":[],\"mode\":\"html\",\"options\":{\"content\":\"<div
     class=\\\"dashboard-header text-center\\\">\\n<span>OUTBOUND SERVICES</span>\\n</div>\",\"mode\":\"html\"},\"pluginVersion\":\"7.1.0\",\"title\":\"\",\"transparent\":true,\"type\":\"text\"},{\"aliasColors\":{},\"bars\":false,\"dashLength\":10,\"dashes\":false,\"datasource\":\"Prometheus\",\"fieldConfig\":{\"defaults\":{\"custom\":{}},\"overrides\":[]},\"fill\":0,\"fillGradient\":0,\"gridPos\":{\"h\":6,\"w\":12,\"x\":0,\"y\":17},\"hiddenSeries\":false,\"id\":70,\"legend\":{\"avg\":false,\"current\":false,\"hideEmpty\":true,\"max\":false,\"min\":false,\"show\":true,\"total\":false,\"values\":false},\"lines\":true,\"linewidth\":1,\"links\":[],\"nullPointMode\":\"null
-    as zero\",\"percentage\":false,\"pluginVersion\":\"7.1.0\",\"pointradius\":5,\"points\":false,\"renderer\":\"flot\",\"seriesOverrides\":[],\"spaceLength\":10,\"stack\":false,\"steppedLine\":false,\"targets\":[{\"expr\":\"round(sum(irate(istio_requests_total{connection_security_policy=\\\"mutual_tls\\\",
+    as zero\",\"percentage\":false,\"pluginVersion\":\"7.1.0\",\"pointradius\":5,\"points\":false,\"renderer\":\"flot\",\"seriesOverrides\":[],\"spaceLength\":10,\"stack\":false,\"steppedLine\":false,\"targets\":[{\"expr\":\"round(sum(irate(istio_requests_total{destination_principal=~\\\"spiffe.*\\\",
     source_workload_namespace=~\\\"$namespace\\\", source_workload=~\\\"$workload\\\",
     reporter=\\\"source\\\", destination_service=~\\\"$dstsvc\\\"}[5m])) by (destination_service,
     response_code), 0.001)\",\"format\":\"time_series\",\"intervalFactor\":1,\"legendFormat\":\"{{
-    destination_service }} : {{ response_code }} (\U0001F510mTLS)\",\"refId\":\"A\",\"step\":2},{\"expr\":\"round(sum(irate(istio_requests_total{connection_security_policy!=\\\"mutual_tls\\\",
+    destination_service }} : {{ response_code }} (\U0001F510mTLS)\",\"refId\":\"A\",\"step\":2},{\"expr\":\"round(sum(irate(istio_requests_total{destination_principal!~\\\"spiffe.*\\\",
     source_workload_namespace=~\\\"$namespace\\\", source_workload=~\\\"$workload\\\",
     reporter=\\\"source\\\", destination_service=~\\\"$dstsvc\\\"}[5m])) by (destination_service,
     response_code), 0.001)\",\"format\":\"time_series\",\"hide\":false,\"intervalFactor\":1,\"legendFormat\":\"{{

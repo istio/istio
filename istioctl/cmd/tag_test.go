@@ -383,7 +383,7 @@ func TestSetTagErrors(t *testing.T) {
 				Interface: client,
 			}
 			skipConfirmation = true
-			err := setTag(context.Background(), mockClient, tc.tag, tc.revision, false, &out)
+			err := setTag(context.Background(), mockClient, tc.tag, tc.revision, false, &out, nil)
 			if tc.error == "" && err != nil {
 				t.Fatalf("expected no error, got %v", err)
 			}

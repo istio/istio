@@ -137,6 +137,8 @@ func constructConfig() (*config.Config, error) {
 		K8sServicePort:     os.Getenv("KUBERNETES_SERVICE_PORT"),
 		K8sNodeName:        os.Getenv("KUBERNETES_NODE_NAME"),
 
+		CNIBinSourceDir:   constants.CNIBinDir,
+		CNIBinTargetDirs:  []string{constants.HostCNIBinDir, constants.SecondaryBinDir},
 		UpdateCNIBinaries: viper.GetBool(constants.UpdateCNIBinaries),
 		SkipCNIBinaries:   viper.GetStringSlice(constants.SkipCNIBinaries),
 	}
