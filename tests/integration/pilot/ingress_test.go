@@ -19,6 +19,7 @@ import (
 	"context"
 	"fmt"
 	"io/ioutil"
+	"net"
 	"path/filepath"
 	"testing"
 	"time"
@@ -140,13 +141,13 @@ spec:
 				})
 			})
 			t.NewSubTest("tcp").Run(func(t framework.TestContext) {
-				address := apps.Ingress.TCPAddress()
+				host, port := apps.Ingress.TCPAddress()
 				_ = apps.Ingress.CallEchoWithRetryOrFail(t, echo.CallOptions{
 					Port: &echo.Port{
 						Protocol:    protocol.HTTP,
-						ServicePort: address.Port,
+						ServicePort: port,
 					},
-					Address: address.IP.String(),
+					Address: host,
 					Path:    "/",
 					Headers: map[string][]string{
 						"Host": {"my.domain.example"},
@@ -319,14 +320,22 @@ spec:
 					t.Skip("ingress status not supported without load balancer")
 				}
 
-				ip := apps.Ingress.HTTPAddress().IP.String()
+				host, _ := apps.Ingress.HTTPAddress()
+				hostIsIP := net.ParseIP(host).String() != "<nil>"
 				retry.UntilSuccessOrFail(t, func() error {
 					ing, err := t.Clusters().Default().NetworkingV1beta1().Ingresses(apps.Namespace.Name()).Get(context.Background(), "ingress", metav1.GetOptions{})
 					if err != nil {
 						return err
 					}
-					if len(ing.Status.LoadBalancer.Ingress) != 1 || ing.Status.LoadBalancer.Ingress[0].IP != ip {
-						return fmt.Errorf("unexpected ingress status, got %+v want %v", ing.Status.LoadBalancer, ip)
+					if len(ing.Status.LoadBalancer.Ingress) < 1 {
+						return fmt.Errorf("unexpected ingress status, ingress is empty")
+					}
+					got := ing.Status.LoadBalancer.Ingress[0].Hostname
+					if hostIsIP {
+						got = ing.Status.LoadBalancer.Ingress[0].IP
+					}
+					if got != host {
+						return fmt.Errorf("unexpected ingress status, got %+v want %v", got, host)
 					}
 					return nil
 				}, retry.Delay(time.Second*5), retry.Timeout(time.Second*90))
