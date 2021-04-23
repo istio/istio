@@ -36,7 +36,10 @@ func (s *Server) ServiceController() *aggregate.Controller {
 func (s *Server) initServiceControllers(args *PilotArgs) error {
 	serviceControllers := s.ServiceController()
 
-	s.serviceEntryStore = serviceentry.NewServiceDiscovery(s.configController, s.environment.IstioConfigStore, s.XDSServer)
+	s.serviceEntryStore = serviceentry.NewServiceDiscovery(
+		s.configController, s.environment.IstioConfigStore, s.XDSServer,
+		serviceentry.WithClusterID(s.clusterID),
+	)
 	serviceControllers.AddRegistry(s.serviceEntryStore)
 
 	registered := make(map[serviceregistry.ProviderID]bool)

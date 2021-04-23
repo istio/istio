@@ -215,7 +215,8 @@ func (m *Multicluster) AddMemberCluster(clusterID string, rc *secretcontroller.C
 			// TODO only do this for non-remotes, can't guarantee CRDs in remotes (depends on https://github.com/istio/istio/pull/29824)
 			if configStore, err := createConfigStore(client, m.revision, options); err == nil {
 				m.remoteKubeControllers[clusterID].workloadEntryStore = serviceentry.NewServiceDiscovery(
-					configStore, model.MakeIstioStore(configStore), options.XDSUpdater, serviceentry.DisableServiceEntryProcessing())
+					configStore, model.MakeIstioStore(configStore), options.XDSUpdater,
+					serviceentry.DisableServiceEntryProcessing(), serviceentry.WithClusterID(clusterID))
 				m.serviceController.AddRegistry(m.remoteKubeControllers[clusterID].workloadEntryStore)
 				// Services can select WorkloadEntry from the same cluster. We only duplicate the Service to configure kube-dns.
 				m.remoteKubeControllers[clusterID].workloadEntryStore.AppendWorkloadHandler(kubeRegistry.WorkloadInstanceHandler)
