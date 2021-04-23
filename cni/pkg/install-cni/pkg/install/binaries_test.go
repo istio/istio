@@ -15,7 +15,6 @@
 package install
 
 import (
-	"fmt"
 	"io/ioutil"
 	"os"
 	"path/filepath"
@@ -58,31 +57,25 @@ func TestCopyBinaries(t *testing.T) {
 		},
 	}
 
-	for i, c := range cases {
+	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
-			srcDir, err := ioutil.TempDir("", fmt.Sprintf("test-case-%d-src", i))
-			if err != nil {
-				t.Fatal(err)
-			}
+			srcDir := t.TempDir()
 			for filename, contents := range c.srcFiles {
-				err = ioutil.WriteFile(filepath.Join(srcDir, filename), []byte(contents), os.ModePerm)
+				err := ioutil.WriteFile(filepath.Join(srcDir, filename), []byte(contents), os.ModePerm)
 				if err != nil {
 					t.Fatal(err)
 				}
 			}
 
-			targetDir, err := ioutil.TempDir("", fmt.Sprintf("test-case-%d-target", i))
-			if err != nil {
-				t.Fatal(err)
-			}
+			targetDir := t.TempDir()
 			for filename, contents := range c.existingFiles {
-				err = ioutil.WriteFile(filepath.Join(targetDir, filename), []byte(contents), os.ModePerm)
+				err := ioutil.WriteFile(filepath.Join(targetDir, filename), []byte(contents), os.ModePerm)
 				if err != nil {
 					t.Fatal(err)
 				}
 			}
 
-			err = copyBinaries(srcDir, []string{targetDir}, c.updateBinaries, c.skipBinaries)
+			err := copyBinaries(srcDir, []string{targetDir}, c.updateBinaries, c.skipBinaries)
 			if err != nil {
 				t.Fatal(err)
 			}
