@@ -267,8 +267,21 @@ func getProxyConfigOptions(metadata *model.BootstrapNodeMetadata) ([]option.Inst
 	// Add a few misc options.
 	opts := make([]option.Instance, 0)
 
+	serviceCluster := config.ServiceCluster
+
+	// Update the default value to something more informative.
+	if serviceCluster == "" || serviceCluster == "istio-proxy" {
+		if app, ok := metadata.Labels["app"]; ok {
+			serviceCluster = app + "." + metadata.Namespace
+		} else if metadata.WorkloadName != "" {
+			serviceCluster = metadata.WorkloadName + "." + metadata.Namespace
+		} else if metadata.Namespace != "" {
+			serviceCluster = "istio-proxy." + metadata.Namespace
+		}
+	}
+
 	opts = append(opts, option.ProxyConfig(config),
-		option.Cluster(config.ServiceCluster),
+		option.Cluster(serviceCluster),
 		option.PilotGRPCAddress(config.DiscoveryAddress),
 		option.DiscoveryAddress(config.DiscoveryAddress),
 		option.StatsdAddress(config.StatsdUdpAddress))
