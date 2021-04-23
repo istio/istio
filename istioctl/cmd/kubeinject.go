@@ -41,6 +41,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/serializer"
 	"k8s.io/client-go/kubernetes"
+	v1 "k8s.io/client-go/kubernetes/typed/core/v1"
 	"k8s.io/kubectl/pkg/polymorphichelpers"
 	"k8s.io/kubectl/pkg/util/podutils"
 
@@ -95,8 +96,7 @@ func (e ExternalInjector) Inject(pod *corev1.Pod) ([]byte, error) {
 		if err != nil {
 			return nil, fmt.Errorf("cannot attach to %T: %v", svc, err)
 		}
-		sortBy := func(pods []*corev1.Pod) sort.Interface { return sort.Reverse(podutils.ActivePods(pods)) }
-		pod, _, err := polymorphichelpers.GetFirstPod(e.client.CoreV1(), namespace, selector.String(), timeout, sortBy)
+		pod, err := GetFirstPod(e.client.CoreV1(), namespace, selector.String())
 		if err != nil {
 			return nil, err
 		}
@@ -191,6 +191,29 @@ var (
 	codecs       = serializer.NewCodecFactory(runtimeScheme)
 	deserializer = codecs.UniversalDeserializer()
 )
+
+// GetFirstPod returns a pod matching the namespace and label selector
+// and the number of all pods that match the label selector.
+// This is forked from  polymorphichelpers.GetFirstPod to not watch and instead return an error if no pods are found
+func GetFirstPod(client v1.CoreV1Interface, namespace string, selector string) (*corev1.Pod, error) {
+	options := metav1.ListOptions{LabelSelector: selector}
+
+	sortBy := func(pods []*corev1.Pod) sort.Interface { return sort.Reverse(podutils.ActivePods(pods)) }
+	podList, err := client.Pods(namespace).List(context.TODO(), options)
+	if err != nil {
+		return nil, err
+	}
+	pods := []*corev1.Pod{}
+	for i := range podList.Items {
+		pod := podList.Items[i]
+		pods = append(pods, &pod)
+	}
+	if len(pods) > 0 {
+		sort.Sort(sortBy(pods))
+		return pods[0], nil
+	}
+	return nil, fmt.Errorf("no pods matching selector %q found in namespace %q", selector, namespace)
+}
 
 func createInterface(kubeconfig string) (kubernetes.Interface, error) {
 	restConfig, err := kube.BuildClientConfig(kubeconfig, configContext)
@@ -493,12 +516,17 @@ kube-inject on deployments to get the most up-to-date changes.
 			var valuesConfig string
 			var sidecarTemplate inject.Templates
 			var meshConfig *meshconfig.MeshConfig
-			injector, meshConfig, err := setupKubeInjectParameters(&sidecarTemplate, &valuesConfig, opts.Revision)
+			rev := opts.Revision
+			// if the revision is "default", render templates with an empty revision
+			if rev == defaultRevisionName {
+				rev = ""
+			}
+			injector, meshConfig, err := setupKubeInjectParameters(&sidecarTemplate, &valuesConfig, rev)
 			if err != nil {
 				return err
 			}
 			var warnings []string
-			retval := inject.IntoResourceFile(injector, sidecarTemplate, valuesConfig, opts.Revision, meshConfig,
+			retval := inject.IntoResourceFile(injector, sidecarTemplate, valuesConfig, rev, meshConfig,
 				reader, writer, func(warning string) {
 					warnings = append(warnings, warning)
 				})
