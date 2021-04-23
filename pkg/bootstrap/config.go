@@ -268,12 +268,14 @@ func getProxyConfigOptions(metadata *model.BootstrapNodeMetadata) ([]option.Inst
 	opts := make([]option.Instance, 0)
 
 	serviceCluster := config.ServiceCluster
-	if serviceCluster == "" {
+
+	// Update the default value to something more informative.
+	if serviceCluster == "" || serviceCluster == "istio-proxy" {
 		if app, ok := metadata.Labels["app"]; ok {
 			serviceCluster = app + "." + metadata.Namespace
 		} else if metadata.WorkloadName != "" {
 			serviceCluster = metadata.WorkloadName + "." + metadata.Namespace
-		} else {
+		} else if metadata.Namespace != "" {
 			serviceCluster = "istio-proxy." + metadata.Namespace
 		}
 	}
