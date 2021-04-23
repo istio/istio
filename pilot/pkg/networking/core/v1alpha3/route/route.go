@@ -405,6 +405,7 @@ func translateRoute(push *model.PushContext, node *model.Proxy, in *networking.H
 		}
 		action.Timeout = d
 		// Use deprecated value for now as the replacement MaxStreamDuration has some regressions.
+		// nolint: staticcheck
 		action.MaxGrpcTimeout = d
 		out.Action = &route.Route_Route{Route: action}
 
