@@ -33,6 +33,20 @@ type Cluster interface {
 	CanDeploy(Config) (Config, bool)
 }
 
+type VMDistro = string
+
+const (
+	UbuntuXenial VMDistro = "UbuntuXenial"
+	UbuntuFocal  VMDistro = "UbuntuFocal"
+	UbuntuBionic VMDistro = "UbuntuBionic"
+	Debian9      VMDistro = "Debian9"
+	Debian10     VMDistro = "Debian10"
+	Centos7      VMDistro = "Centos7"
+	Centos8      VMDistro = "Centos8"
+
+	DefaultVMDistro = UbuntuBionic
+)
+
 // Config defines the options for creating an Echo component.
 // nolint: maligned
 type Config struct {
@@ -97,8 +111,8 @@ type Config struct {
 	// If enabled, ISTIO_META_AUTO_REGISTER_GROUP will be set on the VM and the WorkloadEntry will be created automatically.
 	AutoRegisterVM bool
 
-	// The image name to be used to pull the image for the VM. `DeployAsVM` must be enabled.
-	VMImage string
+	// The distro to use for a VM. For fake VMs, this maps to docker images.
+	VMDistro VMDistro
 
 	// The set of environment variables to set for `DeployAsVM` instances.
 	VMEnvironment map[string]string
