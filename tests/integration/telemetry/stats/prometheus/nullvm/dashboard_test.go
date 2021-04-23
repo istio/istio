@@ -300,7 +300,7 @@ func setupDashboardTest(done <-chan struct{}) {
 			times++
 			scopes.Framework.Infof("sending traffic %v", times)
 			for _, ing := range common.GetIngressInstance() {
-				tcpAddr := ing.TCPAddress()
+				host, port := ing.TCPAddress()
 				_, err := ing.CallEcho(echo.CallOptions{
 					Port: &echo.Port{
 						Protocol: protocol.HTTP,
@@ -319,9 +319,9 @@ func setupDashboardTest(done <-chan struct{}) {
 				_, err = ing.CallEcho(echo.CallOptions{
 					Port: &echo.Port{
 						Protocol:    protocol.TCP,
-						ServicePort: tcpAddr.Port,
+						ServicePort: port,
 					},
-					Address: tcpAddr.IP.String(),
+					Address: host,
 					Path:    fmt.Sprintf("/echo-%s", common.GetAppNamespace().Name()),
 					Headers: map[string][]string{
 						"Host": {"server"},
