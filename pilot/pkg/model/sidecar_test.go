@@ -715,7 +715,7 @@ var (
 			Ports:    port9999,
 			Attributes: ServiceAttributes{
 				Name:      "random",
-				Namespace: "randomns",
+				Namespace: "randomns", // nolint
 			},
 		},
 	}
@@ -1013,7 +1013,7 @@ func TestCreateSidecarScope(t *testing.T) {
 					Ports:    port9999,
 					Attributes: ServiceAttributes{
 						Name:      "random",
-						Namespace: "randomns",
+						Namespace: "randomns", // nolint
 					},
 				},
 			},
