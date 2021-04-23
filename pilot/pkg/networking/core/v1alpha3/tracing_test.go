@@ -102,7 +102,7 @@ func TestConfigureTracing(t *testing.T) {
 }
 
 func defaultTracingTags() []*tracing.CustomTag {
-	return append(defaultTags(),
+	return append(buildOptionalPolicyTags(),
 		&tracing.CustomTag{
 			Tag: "istio.canonical_revision",
 			Type: &tracing.CustomTag_Literal_{

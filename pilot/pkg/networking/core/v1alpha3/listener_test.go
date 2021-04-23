@@ -2069,7 +2069,7 @@ func TestHttpProxyListener_Tracing(t *testing.T) {
 }
 
 func customTracingTags() []*tracing.CustomTag {
-	return append(defaultTags(),
+	return append(buildOptionalPolicyTags(),
 		&tracing.CustomTag{
 			Tag: "istio.canonical_revision",
 			Type: &tracing.CustomTag_Literal_{

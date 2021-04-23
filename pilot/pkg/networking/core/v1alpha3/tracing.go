@@ -344,7 +344,7 @@ func dryRunPolicyTraceTag(name, key string) *tracing.CustomTag {
 	}
 }
 
-func defaultTags() []*tracing.CustomTag {
+func buildOptionalPolicyTags() []*tracing.CustomTag {
 	return []*tracing.CustomTag{
 		dryRunPolicyTraceTag("istio.authorization.dry_run.allow_policy.name", authz_model.RBACShadowRulesAllowStatPrefix+authz_model.RBACShadowEffectivePolicyID),
 		dryRunPolicyTraceTag("istio.authorization.dry_run.allow_policy.result", authz_model.RBACShadowRulesAllowStatPrefix+authz_model.RBACShadowEngineResult),
@@ -353,7 +353,7 @@ func defaultTags() []*tracing.CustomTag {
 	}
 }
 
-func buildCustomTracingTags(metadata *model.NodeMetadata) []*tracing.CustomTag {
+func buildServiceTags(metadata *model.NodeMetadata) []*tracing.CustomTag {
 	var revision, service string
 	if metadata.Labels != nil {
 		revision = metadata.Labels["service.istio.io/canonical-revision"]
@@ -362,6 +362,7 @@ func buildCustomTracingTags(metadata *model.NodeMetadata) []*tracing.CustomTag {
 	if revision == "" {
 		revision = "latest"
 	}
+	// TODO: This should have been properly handled with the injector.
 	if service == "" {
 		service = "unknown"
 	}
@@ -453,9 +454,8 @@ func configureCustomTags(hcmTracing *hpb.HttpConnectionManager_Tracing,
 	// later, if needed.
 	// THESE TAGS SHOULD BE ALWAYS ON.
 	if features.EnableIstioTags {
-		defaultTags := defaultTags()
-		tags = append(tags, defaultTags...)
-		tags = append(tags, buildCustomTracingTags(metadata)...)
+		tags = append(tags, buildOptionalPolicyTags()...)
+		tags = append(tags, buildServiceTags(metadata)...)
 	}
 
 	if len(providerTags) == 0 {
