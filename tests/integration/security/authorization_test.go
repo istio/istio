@@ -56,6 +56,10 @@ func (i rootNS) Name() string {
 	return i.rootNamespace
 }
 
+func (i rootNS) Prefix() string {
+	return i.rootNamespace
+}
+
 func (i rootNS) SetLabel(key, value string) error {
 	return nil
 }
