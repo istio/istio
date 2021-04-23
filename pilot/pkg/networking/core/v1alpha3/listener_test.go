@@ -1666,7 +1666,7 @@ func TestHttpProxyListener_Tracing(t *testing.T) {
 				OverallSampling: &xdstype.Percent{
 					Value: 100.0,
 				},
-				CustomTags: defaultTags(),
+				CustomTags: customTracingTags(),
 			},
 		},
 		{
@@ -1714,7 +1714,7 @@ func TestHttpProxyListener_Tracing(t *testing.T) {
 				OverallSampling: &xdstype.Percent{
 					Value: 100.0,
 				},
-				CustomTags: defaultTags(),
+				CustomTags: customTracingTags(),
 			},
 		},
 		{
@@ -1738,7 +1738,7 @@ func TestHttpProxyListener_Tracing(t *testing.T) {
 				OverallSampling: &xdstype.Percent{
 					Value: 100.0,
 				},
-				CustomTags: defaultTags(),
+				CustomTags: customTracingTags(),
 			},
 		},
 		{
@@ -1762,7 +1762,7 @@ func TestHttpProxyListener_Tracing(t *testing.T) {
 				OverallSampling: &xdstype.Percent{
 					Value: 100.0,
 				},
-				CustomTags: defaultTags(),
+				CustomTags: customTracingTags(),
 			},
 		},
 		{
@@ -1786,7 +1786,7 @@ func TestHttpProxyListener_Tracing(t *testing.T) {
 				OverallSampling: &xdstype.Percent{
 					Value: 100.0,
 				},
-				CustomTags: defaultTags(),
+				CustomTags: customTracingTags(),
 			},
 		},
 		{
@@ -1811,7 +1811,7 @@ func TestHttpProxyListener_Tracing(t *testing.T) {
 				OverallSampling: &xdstype.Percent{
 					Value: 100.0,
 				},
-				CustomTags: defaultTags(),
+				CustomTags: customTracingTags(),
 			},
 		},
 		{
@@ -1836,7 +1836,7 @@ func TestHttpProxyListener_Tracing(t *testing.T) {
 				OverallSampling: &xdstype.Percent{
 					Value: 100.0,
 				},
-				CustomTags: defaultTags(),
+				CustomTags: customTracingTags(),
 			},
 		},
 		{
@@ -1908,7 +1908,7 @@ func TestHttpProxyListener_Tracing(t *testing.T) {
 							},
 						},
 					},
-				}, defaultTags()...),
+				}, customTracingTags()...),
 			},
 		},
 		{
@@ -2023,7 +2023,7 @@ func TestHttpProxyListener_Tracing(t *testing.T) {
 							},
 						},
 					},
-				}, defaultTags()...),
+				}, customTracingTags()...),
 			},
 		},
 	}
@@ -2066,6 +2066,42 @@ func TestHttpProxyListener_Tracing(t *testing.T) {
 			features.TraceSampling = capturedSamplingValue
 		}
 	}
+}
+
+func customTracingTags() []*tracing.CustomTag {
+	return append(defaultTags(),
+		&tracing.CustomTag{
+			Tag: "istio.canonical_revision",
+			Type: &tracing.CustomTag_Literal_{
+				Literal: &tracing.CustomTag_Literal{
+					Value: "latest",
+				},
+			},
+		},
+		&tracing.CustomTag{
+			Tag: "istio.canonical_service",
+			Type: &tracing.CustomTag_Literal_{
+				Literal: &tracing.CustomTag_Literal{
+					Value: "unknown",
+				},
+			},
+		},
+		&tracing.CustomTag{
+			Tag: "istio.mesh_id",
+			Type: &tracing.CustomTag_Literal_{
+				Literal: &tracing.CustomTag_Literal{
+					Value: "unknown",
+				},
+			},
+		},
+		&tracing.CustomTag{
+			Tag: "istio.namespace",
+			Type: &tracing.CustomTag_Literal_{
+				Literal: &tracing.CustomTag_Literal{
+					Value: "not-default",
+				},
+			},
+		})
 }
 
 func verifyHTTPConnectionManagerFilter(t *testing.T, f *listener.Filter, expected *hcm.HttpConnectionManager_Tracing, name string) {
