@@ -48,7 +48,10 @@ import (
 	"istio.io/pkg/log"
 )
 
-var scope = log.RegisterScope("validationController", "validation webhook controller", 0)
+var (
+	scope          = log.RegisterScope("validationController", "validation webhook controller", 0)
+	retryReconcile = &reconcileRequest{"retry reconcile loop"}
+)
 
 type Options struct {
 	// Istio system namespace where istiod resides.
@@ -199,7 +202,7 @@ func newController(
 	c := &Controller{
 		o:      o,
 		client: client,
-		queue:  workqueue.NewRateLimitingQueue(workqueue.DefaultItemBasedRateLimiter()),
+		queue:  workqueue.NewRateLimitingQueue(workqueue.NewItemExponentialFailureRateLimiter(1*time.Second, 1*time.Minute)),
 	}
 
 	c.webhookInformer = client.KubeInformer().Admissionregistration().V1().ValidatingWebhookConfigurations()
@@ -258,7 +261,11 @@ func (c *Controller) processNextWorkItem() (cont bool) {
 		return false
 	}
 
-	if err := c.reconcileRequest(req); err != nil {
+	if retry, err := c.reconcileRequest(req); retry || err != nil {
+		if retry {
+			c.queue.AddRateLimited(retryReconcile)
+			return true
+		}
 		c.queue.AddRateLimited(obj)
 		utilruntime.HandleError(err)
 	} else {
@@ -268,13 +275,15 @@ func (c *Controller) processNextWorkItem() (cont bool) {
 }
 
 // reconcile the desired state with the kube-apiserver.
-func (c *Controller) reconcileRequest(req *reconcileRequest) error {
+// the returned results indicate if the reconciliation should be retried and/or
+// if there was an error.
+func (c *Controller) reconcileRequest(req *reconcileRequest) (bool, error) {
 	// Stop early if webhook is not present, rather than attempting (and failing) to reconcile permanently
 	// If the webhook is later added a new reconciliation request will trigger it to update
 	_, err := c.webhookInformer.Lister().Get(c.o.WebhookConfigName)
 	if err != nil && kubeErrors.IsNotFound(err) {
 		scope.Infof("Skip patching webhook, webhook not found")
-		return nil
+		return false, nil
 	}
 
 	scope.Infof("Reconcile(enter): %v", req)
@@ -290,17 +299,15 @@ func (c *Controller) reconcileRequest(req *reconcileRequest) error {
 		scope.Errorf("Failed to load CA bundle: %v", err)
 		reportValidationConfigLoadError(err.(*configError).Reason())
 		// no point in retrying unless cert file changes.
-		return nil
+		return !ready, nil
 	}
-	return c.updateValidatingWebhookConfiguration(caBundle, failurePolicy)
+	return !ready, c.updateValidatingWebhookConfiguration(caBundle, failurePolicy)
 }
 
 func (c *Controller) readyForFailClose() bool {
 	if !c.dryRunOfInvalidConfigRejected {
 		if rejected, reason := c.isDryRunOfInvalidConfigRejected(); !rejected {
 			scope.Infof("Not ready to switch validation to fail-closed: %v", reason)
-			req := &reconcileRequest{"retry dry-run creation of invalid config"}
-			c.queue.AddAfter(req, time.Second)
 			return false
 		}
 		scope.Info("Endpoint successfully rejected invalid config. Switching to fail-close.")
