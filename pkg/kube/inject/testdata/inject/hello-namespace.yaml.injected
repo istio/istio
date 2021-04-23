@@ -43,8 +43,6 @@ spec:
         - sidecar
         - --domain
         - $(POD_NAMESPACE).svc.cluster.local
-        - --serviceCluster
-        - hello.$(POD_NAMESPACE)
         - --proxyLogLevel=warning
         - --proxyComponentLogLevel=misc:error
         - --log_output_level=default:info

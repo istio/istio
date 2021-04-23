@@ -28,8 +28,6 @@ spec:
     - sidecar
     - --domain
     - $(POD_NAMESPACE).svc.cluster.local
-    - --serviceCluster
-    - hellopod.default
     - --proxyLogLevel=warning
     - --proxyComponentLogLevel=misc:error
     - --log_output_level=default:info
