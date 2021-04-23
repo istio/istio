@@ -16,13 +16,14 @@ package install
 
 import (
 	"fmt"
+	"log"
+	"os"
+	"path/filepath"
+
 	"istio.io/istio/prow/asm/tester/pkg/asm/install/revision"
 	"istio.io/istio/prow/asm/tester/pkg/exec"
 	"istio.io/istio/prow/asm/tester/pkg/kube"
 	"istio.io/istio/prow/asm/tester/pkg/resource"
-	"log"
-	"os"
-	"path/filepath"
 )
 
 // installationType enumerates the installation type.
@@ -68,11 +69,11 @@ func (c *installer) install(r *revision.RevisionConfig) error {
 // installationType uses existing settings to determine what type of installation
 // we should be performing.
 func (c *installer) installationType() installationType {
-	if c.settings.ControlPlane == string(resource.Unmanaged) {
+	if c.settings.ControlPlane == resource.Unmanaged {
 		switch c.settings.ClusterType {
-		case string(resource.GKEOnGCP):
+		case resource.GKEOnGCP:
 			return basic
-		case string(resource.BareMetal):
+		case resource.BareMetal:
 			return bareMetal
 		default:
 			return multiCloud
@@ -100,8 +101,8 @@ func (c *installer) installASM(config *basicInstallConfig) error {
 func (c *installer) generateBasicInstallConfig(r *revision.RevisionConfig) *basicInstallConfig {
 	config := &basicInstallConfig{
 		pkg:      filepath.Join(c.settings.RepoRootDir, resource.ConfigDirPath, "kpt-pkg"),
-		ca:       c.settings.CA,
-		wip:      c.settings.WIP,
+		ca:       c.settings.CA.String(),
+		wip:      c.settings.WIP.String(),
 		overlay:  "\"\"",
 		revision: "\"\"",
 		flags:    "\"\"",
@@ -139,8 +140,8 @@ func (c *installer) installASMOnMulticloud() error {
 		c.settings.RepoRootDir,
 		"install_asm_on_multicloud",
 		[]string{
-			c.settings.CA,
-			c.settings.WIP,
+			c.settings.CA.String(),
+			c.settings.WIP.String(),
 		},
 		exec.WithAdditionalEnvs([]string{
 			fmt.Sprintf("HTTP_PROXY=%s", os.Getenv("MC_HTTP_PROXY")),
@@ -168,7 +169,7 @@ func (c *installer) processKubeconfigs() error {
 
 // preInstall contains all steps required before performing the direct install
 func (c *installer) preInstall() error {
-	if c.settings.ControlPlane == string(resource.Unmanaged) {
+	if c.settings.ControlPlane == resource.Unmanaged {
 		if err := exec.Dispatch(c.settings.RepoRootDir,
 			"prepare_images", nil); err != nil {
 			return err
@@ -186,8 +187,8 @@ func (c *installer) preInstall() error {
 		return err
 	}
 
-	if c.settings.ControlPlane == string(resource.Unmanaged) {
-		if c.settings.CA == string(resource.PrivateCA) {
+	if c.settings.ControlPlane == resource.Unmanaged {
+		if c.settings.CA == resource.PrivateCA {
 			if err := exec.Dispatch(
 				c.settings.RepoRootDir,
 				"setup_private_ca",
@@ -195,7 +196,7 @@ func (c *installer) preInstall() error {
 				return err
 			}
 		}
-		if c.settings.WIP == string(resource.HUB) {
+		if c.settings.WIP == resource.HUBWorkloadIdentityPool {
 			if err := exec.Dispatch(
 				c.settings.RepoRootDir,
 				"register_clusters_in_hub",
@@ -206,7 +207,7 @@ func (c *installer) preInstall() error {
 				return err
 			}
 		}
-		if c.settings.ClusterType != string(resource.GKEOnGCP) {
+		if c.settings.ClusterType != resource.GKEOnGCP {
 			if err := exec.Dispatch(
 				c.settings.RepoRootDir,
 				"create_asm_revision_label",

@@ -24,16 +24,23 @@ import (
 )
 
 func BindFlags(settings *Settings) *pflag.FlagSet {
+	// Default control plane type to Unmanaged
+	settings.ControlPlane = Unmanaged
+	// Default ca type to MeshCA
+	settings.CA = MeshCA
+	// Default workload identity pool to GKE
+	settings.WIP = GKEWorkloadIdentityPool
+
 	flags := pflag.NewFlagSet("asm pipeline tester", pflag.ExitOnError)
 	flags.StringVar(&settings.RepoRootDir, "repo-root-dir", "", "root directory of the repository")
 	flags.StringVar(&settings.Kubeconfig, "kubeconfig", "", "a list of kubeconfig files that can be used to connect to the test clusters")
-	flags.StringVar(&settings.ClusterType, "cluster-type", "", "type of the k8s cluster")
-	flags.StringVar(&settings.ClusterTopology, "cluster-topology", "", "topology of the k8s clusters")
+	flags.Var(&settings.ClusterType, "cluster-type", "type of the k8s cluster")
+	flags.Var(&settings.ClusterTopology, "cluster-topology", "topology of the k8s clusters")
 	flags.StringVar(&settings.FeatureToTest, "feature", "", "feature to test for this test flow")
 
-	flags.StringVar(&settings.ControlPlane, "control-plane", "UNMANAGED", "type of the control plane, can be one of UNMANAGED or MANAGED")
-	flags.StringVar(&settings.CA, "ca", "MESHCA", "Certificate Authority to use, can be one of CITADEL, MESHCA or PRIVATECA")
-	flags.StringVar(&settings.WIP, "wip", "GKE", "Workload Identity Pool, can be one of GKE or HUB")
+	flags.Var(&settings.ControlPlane, "control-plane", "type of the control plane, can be one of UNMANAGED or MANAGED")
+	flags.Var(&settings.CA, "ca", "Certificate Authority to use, can be one of CITADEL, MESHCA or PRIVATECA")
+	flags.Var(&settings.WIP, "wip", "Workload Identity Pool, can be one of GKE or HUB")
 	flags.StringVar(&settings.RevisionConfig, "revision-config", "", "path to the revision config file (see revision-deployer/README.md)")
 	flags.StringVar(&settings.TestTarget, "test", "test.integration.multicluster.kube.presubmit", "test target for the make command to run the tests, e.g. test.integration.asm.security")
 	flags.StringVar(&settings.DisabledTests, "disabled-tests", "", "tests to disable, should be a regex that matches the test and test suite names")
@@ -57,15 +64,6 @@ func BindFlags(settings *Settings) *pflag.FlagSet {
 // ValidateSettings performs basic checks for the settings.
 func ValidateSettings(settings *Settings) error {
 	var errs []error
-	if !validControlPlaneTypes.Has(settings.ControlPlane) {
-		errs = append(errs, fmt.Errorf("%q is not a valid control plane type %v", settings.ControlPlane, validControlPlaneTypes.List()))
-	}
-	if !validCATypes.Has(settings.CA) {
-		errs = append(errs, fmt.Errorf("%q is not a valid CA type in %v", settings.CA, validCATypes.List()))
-	}
-	if !validWIPTypes.Has(settings.WIP) {
-		errs = append(errs, fmt.Errorf("%q is not a valid WIP type in %v", settings.WIP, validWIPTypes.List()))
-	}
 
 	if os.Getenv("KUBECONFIG") == "" && settings.Kubeconfig == "" {
 		errs = append(errs, errors.New("--kubeconfig must be set when KUBECONFIG env var is empty"))

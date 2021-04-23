@@ -98,25 +98,6 @@ function cleanup_images_for_managed_control_plane() {
   gcloud beta container images delete "${HUB}/proxyv2:${TAG}" --force-delete-tags || true
 }
 
-# Set permissions to allow test projects to read images for gcr for testing with
-# GCP.
-# Parameters: $1 - project hosts gcr
-#             $2 - a string of k8s contexts
-function set_gcp_permissions() {
-  local GCR_PROJECT_ID=$1
-  IFS="," read -r -a CONTEXTS <<< "$2"
-
-  for i in "${!CONTEXTS[@]}"; do
-    IFS="_" read -r -a VALS <<< "${CONTEXTS[$i]}"
-    if [[ "${VALS[1]}" != "${GCR_PROJECT_ID}" ]]; then
-      PROJECT_NUMBER=$(gcloud projects describe "${VALS[1]}" --format="value(projectNumber)")
-      gcloud projects add-iam-policy-binding "${GCR_PROJECT_ID}" \
-        --member="serviceAccount:${PROJECT_NUMBER}-compute@developer.gserviceaccount.com" \
-        --role=roles/storage.objectViewer
-    fi
-  done
-}
-
 # Revert the operations in set_gcp_permissions.
 # Parameters: $1 - project hosts gcr
 #             $2 - a string of k8s contexts
@@ -198,66 +179,6 @@ function cleanup_hub_setup() {
         --role roles/gkehub.serviceAgent
     fi
   done
-}
-
-# Set permissions to allow test projects to read images for gcr for testing with
-# multicloud.
-# Parameters: $1 - project hosts gcr
-function set_multicloud_permissions() {
-  local GCR_PROJECT_ID="$1"
-  local CONFIGS=( "${MC_CONFIGS[@]}" )
-  if [[ "${CLUSTER_TYPE}" == "bare-metal" || "${CLUSTER_TYPE}" == "aws" ]]; then
-    export HTTP_PROXY="${MC_HTTP_PROXY}"
-  fi
-  local SECRETNAME="test-gcr-secret"
-  for i in "${!CONFIGS[@]}"; do
-    kubectl create ns istio-system --kubeconfig="${CONFIGS[$i]}"
-
-    kubectl create secret -n istio-system docker-registry "${SECRETNAME}" \
-      --docker-server=https://gcr.io \
-      --docker-username=_json_key \
-      --docker-email="$(gcloud config get-value account)" \
-      --docker-password="$(cat "${GOOGLE_APPLICATION_CREDENTIALS}")" \
-      --kubeconfig="${CONFIGS[$i]}"
-
-    # Save secret data once, to be passed into the test framework
-    if [[ "${i}" == 0 ]]; then
-      export TEST_IMAGE_PULL_SECRET="${ARTIFACTS}/test_image_pull_secret.yaml"
-      kubectl -n istio-system get secrets test-gcr-secret \
-        --kubeconfig="${CONFIGS[$i]}" \
-        -o yaml \
-      | sed '/namespace/d' > "${TEST_IMAGE_PULL_SECRET}"
-    fi
-
-    while read -r SA; do
-      add_image_pull_secret_to_sa "${SA}" "${SECRETNAME}" "${CONFIGS[$i]}"
-    done <<EOF
-default
-istio-ingressgateway-service-account
-istio-reader-service-account
-istiod-service-account
-EOF
-
-  done
-  if [[ "${CLUSTER_TYPE}" == "bare-metal" || "${CLUSTER_TYPE}" == "aws" ]]; then
-    export -n HTTP_PROXY
-  fi
-}
-
-# Add the imagePullSecret to the service account
-# Parameters: $1 - service account
-#             $2 - secret name
-#             $3 - kubeconfig
-function add_image_pull_secret_to_sa() {
-  cat <<EOF | kubectl --kubeconfig="${3}" apply -f -
-apiVersion: v1
-kind: ServiceAccount
-metadata:
-  name: ${1}
-  namespace: istio-system
-imagePullSecrets:
-- name: ${2}
-EOF
 }
 
 # Setup the private CAs.

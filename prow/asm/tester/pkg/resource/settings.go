@@ -22,22 +22,22 @@ type Settings struct {
 	Kubeconfig string
 
 	// Type of the cluster
-	ClusterType string
+	ClusterType ClusterType
 
 	// Topology of the cluster
-	ClusterTopology string
+	ClusterTopology ClusterToplology
 
 	// The feature to test for this test flow
 	FeatureToTest string
 
 	// UNMANAGED or MANAGED
-	ControlPlane string
+	ControlPlane ControlPlaneType
 
 	// Certificate Authority to use, can be one of CITADEL, MESHCA or PRIVATECA
-	CA string
+	CA CAType
 
 	// Workload Identity Pool, can be one of GKE or HUB
-	WIP string
+	WIP WIPType
 
 	// Path to the revision config file (see revision-deployer/README.md)
 	RevisionConfig string

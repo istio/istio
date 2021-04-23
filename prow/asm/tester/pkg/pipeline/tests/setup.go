@@ -16,11 +16,12 @@ package tests
 
 import (
 	"fmt"
+	"log"
+	"path/filepath"
+
 	"istio.io/istio/prow/asm/tester/pkg/exec"
 	"istio.io/istio/prow/asm/tester/pkg/resource"
 	"istio.io/istio/prow/asm/tester/pkg/tests"
-	"log"
-	"path/filepath"
 )
 
 func Setup(settings *resource.Settings) error {
@@ -37,7 +38,7 @@ func Setup(settings *resource.Settings) error {
 		return fmt.Errorf("error setting up the tests in setup-tests.sh: %w", err)
 	}
 
-	if settings.ControlPlane == string(resource.Unmanaged) && settings.FeatureToTest == "USER_AUTH" {
+	if settings.ControlPlane == resource.Unmanaged && settings.FeatureToTest == "USER_AUTH" {
 		// TODO(b/182912549): port-forward in go test code instead of here
 		go exec.Run("kubectl port-forward service/istio-ingressgateway 8443:443 -n istio-system")
 	}

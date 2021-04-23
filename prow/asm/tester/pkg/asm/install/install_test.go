@@ -15,11 +15,12 @@
 package install
 
 import (
+	"path/filepath"
+	"testing"
+
 	"github.com/google/go-cmp/cmp"
 	"istio.io/istio/prow/asm/tester/pkg/asm/install/revision"
 	"istio.io/istio/prow/asm/tester/pkg/resource"
-	"path/filepath"
-	"testing"
 )
 
 func TestInstallationType(t *testing.T) {
@@ -53,8 +54,8 @@ func TestInstallationType(t *testing.T) {
 	for _, tc := range tcs {
 		i := installer{
 			&resource.Settings{
-				ControlPlane: string(tc.controlPlane),
-				ClusterType:  string(tc.clusterType),
+				ControlPlane: tc.controlPlane,
+				ClusterType:  tc.clusterType,
 			},
 		}
 		got := i.installationType()
@@ -75,7 +76,7 @@ func TestBasicInstallSettingsMerge(t *testing.T) {
 		{
 			name: "check empty revision",
 			settings: resource.Settings{
-				CA:  "citadel",
+				CA:  resource.Citadel,
 				WIP: "wip-from-settings",
 			},
 			revisionConfig: revision.RevisionConfig{
@@ -83,7 +84,7 @@ func TestBasicInstallSettingsMerge(t *testing.T) {
 			},
 			want: basicInstallConfig{
 				pkg:      filepath.Join(resource.ConfigDirPath, "kpt-pkg"),
-				ca:       "citadel",
+				ca:       string(resource.Citadel),
 				wip:      "wip-from-settings",
 				overlay:  "overlay",
 				flags:    "\"\"",
@@ -93,16 +94,16 @@ func TestBasicInstallSettingsMerge(t *testing.T) {
 		{
 			name: "check CA overrides",
 			settings: resource.Settings{
-				CA:  "citadel",
-				WIP: "wip",
+				CA:  resource.Citadel,
+				WIP: resource.GKEWorkloadIdentityPool,
 			},
 			revisionConfig: revision.RevisionConfig{
-				CA: "meshca",
+				CA: string(resource.MeshCA),
 			},
 			want: basicInstallConfig{
 				pkg:      filepath.Join(resource.ConfigDirPath, "kpt-pkg"),
-				ca:       "meshca",
-				wip:      "wip",
+				ca:       string(resource.MeshCA),
+				wip:      string(resource.GKEWorkloadIdentityPool),
 				overlay:  "\"\"",
 				flags:    "\"\"",
 				revision: "\"\"",

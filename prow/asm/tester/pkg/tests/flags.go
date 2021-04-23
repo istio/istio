@@ -16,18 +16,19 @@ package tests
 
 import (
 	"fmt"
-	"istio.io/istio/prow/asm/tester/pkg/exec"
-	"istio.io/istio/prow/asm/tester/pkg/resource"
 	"os"
 	"strings"
+
+	"istio.io/istio/prow/asm/tester/pkg/exec"
+	"istio.io/istio/prow/asm/tester/pkg/resource"
 )
 
 // generateTestFlags returns an array containing options to be passed
 // when running the test target.
 func generateTestFlags(settings *resource.Settings) []string {
 	testFlags := []string{"--istio.test.kube.deploy=false"}
-	if settings.ControlPlane == string(resource.Unmanaged) {
-		if settings.ClusterType != string(resource.GKEOnGCP) {
+	if settings.ControlPlane == resource.Unmanaged {
+		if settings.ClusterType != resource.GKEOnGCP {
 			testFlags = append(testFlags,
 				fmt.Sprintf("--istio.test.revision=%s", revisionLabel()))
 			testFlags = append(testFlags, "--istio.test.echo.callTimeout=5s")
@@ -62,7 +63,7 @@ func generateTestSelect(settings *resource.Settings) string {
 		asmSecurityTarget = "test.integration.asm.security"
 	)
 	testSelect := os.Getenv("TEST_SELECT")
-	if settings.ControlPlane == string(resource.Unmanaged) {
+	if settings.ControlPlane == resource.Unmanaged {
 		// TODO(nmittler): remove this once we no longer run the multicluster tests.
 		if settings.TestTarget == mcPresubmitTarget {
 			testSelect = "+multicluster"
@@ -72,7 +73,7 @@ func generateTestSelect(settings *resource.Settings) string {
 				testSelect = "-customsetup"
 			}
 		}
-	} else if settings.ControlPlane == string(resource.Managed) {
+	} else if settings.ControlPlane == resource.Managed {
 		testSelect = "-customsetup"
 		if settings.TestTarget == mcPresubmitTarget {
 			testSelect += ",+multicluster"

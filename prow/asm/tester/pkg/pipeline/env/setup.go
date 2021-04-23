@@ -52,16 +52,14 @@ func Setup(settings *resource.Settings) error {
 		return err
 	}
 
+	// Setup permissions to allow pulling images from GCR registries.
+	if err := setupPermissions(settings); err != nil {
+		return fmt.Errorf("error setting up the permissions: %w", err)
+	}
+
 	// Inject system env vars that are required for the test flow.
 	if err := injectEnvVars(settings); err != nil {
 		return err
-	}
-
-	// Run the setup-env.sh
-	// TODO: convert the script into Go
-	setupEnvScript := filepath.Join(settings.RepoRootDir, "prow/asm/tester/scripts/setup-env.sh")
-	if err := exec.Run(setupEnvScript); err != nil {
-		return fmt.Errorf("error setting up the environment: %w", err)
 	}
 
 	log.Printf("Running with %q CA, %q Workload Identity Pool, %q and --vm=%t control plane.", settings.CA, settings.WIP, settings.ControlPlane, settings.UseVMs)
@@ -80,7 +78,7 @@ func populateRuntimeSettings(settings *resource.Settings) error {
 	settings.KubectlContexts = kubectlContexts
 
 	var gcrProjectID string
-	if settings.ClusterType == string(resource.GKEOnGCP) {
+	if settings.ClusterType == resource.GKEOnGCP {
 		settings.GCPProjects = kube.ParseGCPProjectIDsFromContexts(kubectlContexts)
 		// If it's using the gke clusters, use the first available project to hold the images.
 		gcrProjectID = settings.GCPProjects[0]
@@ -90,28 +88,157 @@ func populateRuntimeSettings(settings *resource.Settings) error {
 	}
 	settings.GCRProject = gcrProjectID
 
-	if settings.ClusterTopology == string(resource.MultiProject) {
+	if settings.ClusterTopology == resource.MultiProject {
 		settings.HostGCPProject = os.Getenv("HOST_PROJECT")
 	}
 
 	return nil
 }
 
+func setupPermissions(settings *resource.Settings) error {
+	if settings.ControlPlane == resource.Unmanaged {
+		if settings.ClusterType == resource.GKEOnGCP {
+			log.Print("Set permissions to allow the Pods on the GKE clusters to pull images...")
+			return setGcpPermissions(settings)
+		} else {
+			log.Print("Set permissions to allow the Pods on the multicloud clusters to pull images...")
+			return setMulticloudPermissions(settings)
+		}
+	}
+	return nil
+}
+
+func setGcpPermissions(settings *resource.Settings) error {
+	projectIds := kube.ParseGCPProjectIDsFromContexts(settings.KubectlContexts)
+	for _, projectId := range projectIds {
+		if projectId != settings.GCRProject {
+			projectNum, err := getProjectNumber(projectId)
+			if err != nil {
+				return err
+			}
+			err = exec.Run(
+				fmt.Sprintf("gcloud projects add-iam-policy-binding %s "+
+					"--member=serviceAccount:%s-compute@developer.gserviceaccount.com "+
+					"--role=roles/storage.objectViewer",
+					settings.GCRProject,
+					projectNum),
+			)
+			if err != nil {
+				return fmt.Errorf("error adding the binding for the service account to access GCR: %w", err)
+			}
+		}
+	}
+	return nil
+}
+
+// TODO: use kubernetes client-go library instead of kubectl.
+func setMulticloudPermissions(settings *resource.Settings) error {
+	if settings.ClusterType == resource.BareMetal || settings.ClusterType == resource.GKEOnAWS {
+		os.Setenv("HTTP_PROXY", os.Getenv("MC_HTTP_PROXY"))
+		defer os.Unsetenv("HTTP_PROXY")
+	}
+
+	secretName := "test-gcr-secret"
+	cred := os.Getenv("GOOGLE_APPLICATION_CREDENTIALS")
+	configs := strings.Split(settings.Kubeconfig, ":")
+	for i, config := range configs {
+		err := exec.Run(
+			fmt.Sprintf("kubectl create ns istio-system --kubeconfig=%s", config),
+		)
+		if err != nil {
+			return fmt.Errorf("Error at 'kubectl create ns ...': %w", err)
+		}
+
+		// Create the secret that can be used to pull images from GCR.
+		err = exec.Run(
+			fmt.Sprintf(
+				"bash -c 'kubectl create secret -n istio-system docker-registry %s "+
+					"--docker-server=https://gcr.io "+
+					"--docker-username=_json_key "+
+					"--docker-email=\"$(gcloud config get-value account)\" "+
+					"--docker-password=\"$(cat %s)\" "+
+					"--kubeconfig=%s'",
+				secretName,
+				cred,
+				config,
+			),
+		)
+		if err != nil {
+			return fmt.Errorf("Error at 'kubectl create secret ...': %w", err)
+		}
+
+		// Save secret data once (to be passed into the test framework),
+		// deleting the line that contains 'namespace'.
+		if i == 0 {
+			err = exec.Run(
+				fmt.Sprintf(
+					"bash -c 'kubectl -n istio-system get secrets %s --kubeconfig=%s -o yaml "+
+						"| sed \"/namespace/d\" > %s'",
+					secretName,
+					config,
+					fmt.Sprintf("%s/test_image_pull_secret.yaml", os.Getenv("ARTIFACTS")),
+				),
+			)
+			if err != nil {
+				return fmt.Errorf("Error at 'kubectl get secrets ...': %w", err)
+			}
+		}
+
+		// Patch the service accounts to use imagePullSecrets.
+		serviceAccts := []string{
+			"default",
+			"istio-ingressgateway-service-account",
+			"istio-reader-service-account",
+			"istiod-service-account",
+		}
+		for _, serviceAcct := range serviceAccts {
+			err = exec.Run(
+				fmt.Sprintf(`bash -c 'cat <<EOF | kubectl --kubeconfig=%s apply -f -
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: %s
+  namespace: istio-system
+imagePullSecrets:
+- name: %s
+EOF'`,
+					config,
+					serviceAcct,
+					secretName,
+				),
+			)
+			if err != nil {
+				return fmt.Errorf("Error at 'kubectl apply ...': %s", err)
+			}
+		}
+	}
+
+	return nil
+}
+
+func getProjectNumber(projectId string) (string, error) {
+	projectNum, err := exec.RunWithOutput(
+		fmt.Sprintf("gcloud projects describe %s --format=value(projectNumber)", projectId))
+	if err != nil {
+		err = fmt.Errorf("Error getting the project number for %q: %w", projectId, err)
+	}
+	return strings.TrimSpace(projectNum), err
+}
+
 func injectEnvVars(settings *resource.Settings) error {
 	var hub, tag string
 	tag = "BUILD_ID_" + os.Getenv("BUILD_ID")
-	if settings.ControlPlane == string(resource.Unmanaged) {
+	if settings.ControlPlane == resource.Unmanaged {
 		hub = fmt.Sprintf("gcr.io/%s/asm", settings.GCRProject)
 	} else {
 		hub = "gcr.io/asm-staging-images/asm-mcp-e2e-test"
 	}
 
 	var meshID string
-	if settings.ClusterType == string(resource.GKEOnGCP) {
-		projectNum, err := exec.RunWithOutput(
-			fmt.Sprintf("gcloud projects describe %s --format=value(projectNumber)", settings.GCPProjects[0]))
+	if settings.ClusterType == resource.GKEOnGCP {
+		projectNum, err := getProjectNumber(settings.GCPProjects[0])
 		if err != nil {
-			return fmt.Errorf("error getting the project number for %q: %w", settings.GCPProjects[0], err)
+			return err
 		}
 		meshID = "proj-" + strings.TrimSpace(projectNum)
 	}
@@ -130,8 +257,8 @@ func injectEnvVars(settings *resource.Settings) error {
 		"GCR_PROJECT_ID":   settings.GCRProject,
 		"CONTEXT_STR":      settings.KubectlContexts,
 		"CONFIG_DIR":       filepath.Join(settings.RepoRootDir, "prow/asm/tester/configs"),
-		"CLUSTER_TYPE":     settings.ClusterType,
-		"CLUSTER_TOPOLOGY": settings.ClusterTopology,
+		"CLUSTER_TYPE":     settings.ClusterType.String(),
+		"CLUSTER_TOPOLOGY": settings.ClusterTopology.String(),
 		"FEATURE_TO_TEST":  settings.FeatureToTest,
 
 		// exported TAG and HUB are used for ASM installation, and as the --istio.test.tag and
@@ -141,9 +268,9 @@ func injectEnvVars(settings *resource.Settings) error {
 
 		"MESH_ID": meshID,
 
-		"CONTROL_PLANE":        settings.ControlPlane,
-		"CA":                   settings.CA,
-		"WIP":                  settings.WIP,
+		"CONTROL_PLANE":        settings.ControlPlane.String(),
+		"CA":                   settings.CA.String(),
+		"WIP":                  settings.WIP.String(),
 		"REVISION_CONFIG_FILE": settings.RevisionConfig,
 		"TEST_TARGET":          settings.TestTarget,
 		"DISABLED_TESTS":       settings.DisabledTests,
@@ -170,14 +297,14 @@ func injectEnvVars(settings *resource.Settings) error {
 // These fixes are considered as hacky and temporary, ideally in the future they
 // should all be handled by the corresponding deployer.
 func fixClusterConfigs(settings *resource.Settings) error {
-	switch settings.ClusterType {
-	case string(resource.GKEOnGCP):
+	switch resource.ClusterType(settings.ClusterType) {
+	case resource.GKEOnGCP:
 		return fixGKE(settings)
-	case string(resource.OnPrem):
+	case resource.OnPrem:
 		return fixOnPrem(settings)
-	case string(resource.BareMetal):
+	case resource.BareMetal:
 		return fixBareMetal(settings)
-	case string(resource.GKEOnAWS):
+	case resource.GKEOnAWS:
 		return fixAWS(settings)
 	}
 
@@ -185,7 +312,7 @@ func fixClusterConfigs(settings *resource.Settings) error {
 }
 
 func fixGKE(settings *resource.Settings) error {
-	if settings.ClusterTopology == string(resource.MultiProject) {
+	if settings.ClusterTopology == resource.MultiProject {
 		// For MULTIPROJECT_MULTICLUSTER topology, firewall rules need to be added to
 		// allow the clusters talking with each other for security tests.
 		// See the details in b/175599359 and b/177919868
@@ -197,7 +324,7 @@ func fixGKE(settings *resource.Settings) error {
 
 	if settings.FeatureToTest == "VPC_SC" {
 		networkName := "default"
-		if settings.ClusterTopology == string(resource.MultiProject) {
+		if settings.ClusterTopology == resource.MultiProject {
 			networkName = "test-network"
 		}
 		// Create the route as per the user guide in https://docs.google.com/document/d/11yYDxxI-fbbqlpvUYRtJiBmGdY_nIKPJLbssM3YQtKI/edit#heading=h.e2laig460f1d.
@@ -207,7 +334,7 @@ func fixGKE(settings *resource.Settings) error {
 			return fmt.Errorf("error creating the restricted-vip route for VPC-SC testing: %w", err)
 		}
 
-		if settings.ClusterTopology == string(resource.MultiProject) {
+		if settings.ClusterTopology == resource.MultiProject {
 			for _, project := range settings.GCPProjects {
 				updateSubnetCmd := fmt.Sprintf(`gcloud compute networks subnets update "test-network-%s" \
 				 	--project=%s \
@@ -260,6 +387,7 @@ func fixBareMetal(settings *resource.Settings) error {
 // Fix aws cluster configs that are created by Tailorbird:
 // 1. Removes gke_aws_management.conf entry from the KUBECONFIG for aws
 // 2. Set required env vars that are needed for running ASM tests.
+// 3. Increase proxy's max connection setup to avoid too many connections error
 func fixAWS(settings *resource.Settings) error {
 	err := filterKubeconfigFiles(settings, func(name string) bool {
 		return !strings.HasSuffix(name, "gke_aws_management.conf")

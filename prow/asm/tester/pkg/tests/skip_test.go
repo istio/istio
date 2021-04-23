@@ -15,12 +15,13 @@
 package tests
 
 import (
-	"github.com/google/go-cmp/cmp"
 	"io/ioutil"
-	"istio.io/istio/prow/asm/tester/pkg/resource"
 	"sort"
 	"strings"
 	"testing"
+
+	"github.com/google/go-cmp/cmp"
+	"istio.io/istio/prow/asm/tester/pkg/resource"
 )
 
 func TestLabelMatches(t *testing.T) {
@@ -110,7 +111,7 @@ func TestTargetSkip(t *testing.T) {
         - E
 `,
 			settings: resource.Settings{
-				ControlPlane: "unmanaged",
+				ControlPlane: resource.Unmanaged,
 			},
 			desiredTestSkips: []string{
 				"--istio.test.skip=\"A\"",
@@ -138,8 +139,8 @@ func TestTargetSkip(t *testing.T) {
         - E
 `,
 			settings: resource.Settings{
-				ControlPlane: "unmanaged",
-				WIP:          "hub",
+				ControlPlane: resource.Unmanaged,
+				WIP:          resource.HUBWorkloadIdentityPool,
 			},
 			desiredTestSkips: []string{
 				"--istio.test.skip=\"A\"",
@@ -169,7 +170,7 @@ func TestTargetSkip(t *testing.T) {
         - E
 `,
 			settings: resource.Settings{
-				ControlPlane: "managed",
+				ControlPlane: resource.Managed,
 			},
 			desiredTestSkips: nil,
 		},

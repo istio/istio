@@ -3,7 +3,7 @@ module istio.io/istio/prow/asm/tester
 go 1.16
 
 require (
-	github.com/ghodss/yaml v1.0.0 // indirect
+	github.com/ghodss/yaml v1.0.0
 	github.com/google/go-cmp v0.5.4
 	github.com/kballard/go-shellquote v0.0.0-20180428030007-95032a82bc51
 	github.com/pkg/errors v0.9.1

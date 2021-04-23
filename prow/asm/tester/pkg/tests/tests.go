@@ -16,16 +16,17 @@ package tests
 
 import (
 	"fmt"
-	"istio.io/istio/prow/asm/tester/pkg/exec"
-	"istio.io/istio/prow/asm/tester/pkg/resource"
 	"log"
 	"os"
 	"path/filepath"
 	"strings"
+
+	"istio.io/istio/prow/asm/tester/pkg/exec"
+	"istio.io/istio/prow/asm/tester/pkg/resource"
 )
 
 const (
-	testSkipConfigFile = "tests/skip.yaml"
+	testSkipConfigFile  = "tests/skip.yaml"
 	imagePullSecretFile = "test_image_pull_secret.yaml"
 )
 
@@ -57,24 +58,23 @@ func Setup(settings *resource.Settings) error {
 	}
 	// When HUB Workload Identity Pool is used in the case of multi projects setup, clusters in different projects
 	// will use the same WIP and P4SA of the Hub host project.
-	if settings.WIP == string(resource.HUB) && strings.Contains(settings.TestTarget, "security") {
+	if settings.WIP == resource.HUBWorkloadIdentityPool && strings.Contains(settings.TestTarget, "security") {
 		gcrProjectID2 = gcrProjectID1
 	}
 
-
 	// environment variables required when running the test make target
 	envVars := map[string]string{
-		"INTEGRATION_TEST_FLAGS": integrationTestFlagsEnvvar,
-		"DISABLED_PACKAGES": packageSkipEnvvar,
-		"TEST_SELECT": generateTestSelect(settings),
+		"INTEGRATION_TEST_FLAGS":         integrationTestFlagsEnvvar,
+		"DISABLED_PACKAGES":              packageSkipEnvvar,
+		"TEST_SELECT":                    generateTestSelect(settings),
 		"INTEGRATION_TEST_TOPOLOGY_FILE": fmt.Sprintf("%s/integration_test_topology.yaml", os.Getenv("ARTIFACTS")),
-		"JUNIT_OUT": fmt.Sprintf("%s/junit1.xml", os.Getenv("ARTIFACTS")),
+		"JUNIT_OUT":                      fmt.Sprintf("%s/junit1.xml", os.Getenv("ARTIFACTS")),
 		// exported GCR_PROJECT_ID_1 and GCR_PROJECT_ID_2
 		// for security and telemetry test.
 		"GCR_PROJECT_ID_1": gcrProjectID1,
 		"GCR_PROJECT_ID_2": gcrProjectID2,
 		// required for bare metal and multicloud environments
-		"HTTP_PROXY": os.Getenv("MC_HTTP_PROXY"),
+		"HTTP_PROXY":  os.Getenv("MC_HTTP_PROXY"),
 		"HTTPS_PROXY": os.Getenv("MC_HTTP_PROXY"),
 	}
 	for k, v := range envVars {
@@ -91,8 +91,8 @@ func Run(settings *resource.Settings) error {
 func testCommand(settings *resource.Settings) string {
 	makeTarget := settings.TestTarget
 	// TODO(samnaser) move this to prow job config
-	if settings.ControlPlane == string(resource.Managed) {
-		if settings.ClusterTopology == "SINGLECLUSTER" || settings.ClusterTopology == "sc" {
+	if settings.ControlPlane == resource.Managed {
+		if settings.ClusterTopology == resource.SingleCluster {
 			makeTarget = "test.integration.asm.mcp"
 		}
 	}

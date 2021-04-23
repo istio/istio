@@ -16,10 +16,11 @@ package tests
 
 import (
 	"fmt"
-	"github.com/ghodss/yaml"
 	"io/ioutil"
-	"istio.io/istio/prow/asm/tester/pkg/resource"
 	"strings"
+
+	"github.com/ghodss/yaml"
+	"istio.io/istio/prow/asm/tester/pkg/resource"
 )
 
 const (
@@ -69,17 +70,16 @@ func parseSkipConfig(path string) (*TargetSkipConfig, error) {
 			path, err)
 	}
 	// Verify required fields are present
-	for  _, t := range config.Tests {
+	for _, t := range config.Tests {
 		if t.Selectors == nil {
 			return nil, fmt.Errorf("cannot have test group with empty expressions")
 		}
 	}
-	for  _, t := range config.Packages {
+	for _, t := range config.Packages {
 		if t.Selectors == nil {
 			return nil, fmt.Errorf("cannot have package group with empty expressions")
 		}
 	}
-
 
 	return config, nil
 }
@@ -129,10 +129,10 @@ func packageSkipEnvvar(packageTargetGroup []TargetGroup, skipLabels SkipLabels) 
 
 func skipLabels(settings *resource.Settings) SkipLabels {
 	labelMap := make(map[string]string)
-	labelMap[controlPlaneSkipLabel] = strings.ToLower(settings.ControlPlane)
-	labelMap[clusterTypeSkipLabel] = strings.ToLower(settings.ClusterType)
-	labelMap[clusterTopologySkipLabel] = strings.ToLower(settings.ClusterTopology)
-	labelMap[wipSkipLabel] = strings.ToLower(settings.WIP)
+	labelMap[controlPlaneSkipLabel] = strings.ToLower(settings.ControlPlane.String())
+	labelMap[clusterTypeSkipLabel] = strings.ToLower(settings.ClusterType.String())
+	labelMap[clusterTopologySkipLabel] = strings.ToLower(settings.ClusterTopology.String())
+	labelMap[wipSkipLabel] = strings.ToLower(settings.WIP.String())
 	labelMap[gceVmSkipLabel] = fmt.Sprintf("%t", settings.UseGCEVMs || settings.VMStaticConfigDir != "")
 	return labelMap
 }
