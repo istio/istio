@@ -154,7 +154,7 @@ injection labels.`,
 				return fmt.Errorf("failed to create Kubernetes client: %v", err)
 			}
 
-			return setTag(context.Background(), client, args[0], revision, false, cmd.OutOrStdout())
+			return setTag(context.Background(), client, args[0], revision, false, cmd.OutOrStdout(), cmd.OutOrStderr())
 		},
 	}
 
@@ -201,7 +201,7 @@ injection labels.`,
 				return fmt.Errorf("failed to create Kubernetes client: %v", err)
 			}
 
-			return setTag(context.Background(), client, args[0], revision, true, cmd.OutOrStdout())
+			return setTag(context.Background(), client, args[0], revision, true, cmd.OutOrStdout(), cmd.OutOrStderr())
 		},
 	}
 
@@ -277,7 +277,7 @@ revision tag before removing using the "istioctl x revision tag list" command.
 }
 
 // setTag creates or modifies a revision tag.
-func setTag(ctx context.Context, kubeClient kube.ExtendedClient, tag, revision string, generate bool, w io.Writer) error {
+func setTag(ctx context.Context, kubeClient kube.ExtendedClient, tag, revision string, generate bool, w, stderr io.Writer) error {
 	// ensure that the revision is recent enough to patch tag webhooks
 	if !skipConfirmation {
 		sufficient, version, err := versionCheck(revision)
@@ -331,13 +331,27 @@ func setTag(ctx context.Context, kubeClient kube.ExtendedClient, tag, revision s
 		tagWhYAML = renameTagWebhookConfiguration(tagWhYAML, tag, webhookName)
 	}
 
+	// Check the newly generated webhook does not conflict with existing ones
 	resName := webhookName
 	if resName == "" {
 		resName = fmt.Sprintf("%s-%s", "istio-revision-tag", tag)
 	}
 	if err := analyzeWebhook(resName, tagWhYAML, kubeClient.RESTConfig()); err != nil {
-		return err
+		// if we have a conflict, we will fail. If --skip-confirmation is set, we will continue with a
+		// warning; when actually applying we will also confirm to ensure the user does not see the
+		// warning *after* it has applied
+		if skipConfirmation {
+			_, _ = stderr.Write([]byte(err.Error()))
+			if !generate {
+				if !confirm("Apply anyways? [y/N]", w) {
+					return nil
+				}
+			}
+		} else {
+			return err
+		}
 	}
+
 	if generate {
 		_, err := w.Write([]byte(tagWhYAML))
 		if err != nil {
@@ -376,7 +390,8 @@ func analyzeWebhook(name, wh string, config *rest.Config) error {
 		if err != nil {
 			return err
 		}
-		return fmt.Errorf("creating tag would conflict:\n%v", o)
+		// nolint
+		return fmt.Errorf("creating tag would conflict, pass --skip-confirmation to proceed:\n%v\n", o)
 	}
 	return nil
 }
