@@ -548,8 +548,10 @@ func buildCatchAllVirtualHost(node *model.Proxy) *route.VirtualHost {
 		routeAction := &route.RouteAction{
 			ClusterSpecifier: &route.RouteAction_Cluster{Cluster: egressCluster},
 			// Disable timeout instead of assuming some defaults.
-			Timeout:           notimeout,
-			MaxStreamDuration: &route.RouteAction_MaxStreamDuration{MaxStreamDuration: notimeout},
+			Timeout: notimeout,
+			// Use deprecated value for now as the replacement MaxStreamDuration has some regressions.
+			// nolint: staticcheck
+			MaxGrpcTimeout: notimeout,
 		}
 
 		return &route.VirtualHost{
