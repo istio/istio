@@ -2636,6 +2636,31 @@ func TestValidateWorkloadEntry(t *testing.T) {
 			in:    &networking.WorkloadEntry{},
 			valid: false,
 		},
+		{
+			name:  "valid unix endpoint",
+			in:    &networking.WorkloadEntry{Address: "unix:///lon/google/com"},
+			valid: true,
+		},
+		{
+			name:  "invalid unix endpoint",
+			in:    &networking.WorkloadEntry{Address: "unix:///lon/google/com", Ports: map[string]uint32{"7777": 7777}},
+			valid: false,
+		},
+		{
+			name:  "valid FQDN",
+			in:    &networking.WorkloadEntry{Address: "validdns.com", Ports: map[string]uint32{"7777": 7777}},
+			valid: true,
+		},
+		{
+			name:  "invalid FQDN",
+			in:    &networking.WorkloadEntry{Address: "invaliddns.com:9443", Ports: map[string]uint32{"7777": 7777}},
+			valid: false,
+		},
+		{
+			name:  "valid IP",
+			in:    &networking.WorkloadEntry{Address: "172.16.1.1", Ports: map[string]uint32{"7777": 7777}},
+			valid: true,
+		},
 	}
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
