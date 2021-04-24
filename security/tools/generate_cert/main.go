@@ -56,8 +56,9 @@ var (
 	keySize        = flag.Int("key-size", 2048, "Size of the generated private key")
 	mode           = flag.String("mode", selfSignedMode, "Supported mode: self-signed, signer, citadel")
 	// Enable this flag if istio mTLS is enabled and the service is running as server side
-	isServer = flag.Bool("server", false, "Whether this certificate is for a server.")
-	ec       = flag.String("ec-sig-alg", "", "Generate an elliptical curve private key with the specified algorithm")
+	isServer  = flag.Bool("server", false, "Whether this certificate is for a server.")
+	ec        = flag.String("ec-sig-alg", "", "Generate an elliptical curve private key with the specified algorithm")
+	sanFields = flag.String("san", "", "Subject Alternative Names")
 )
 
 func checkCmdLine() {
@@ -150,6 +151,7 @@ func main() {
 		RSAKeySize:   *keySize,
 		IsServer:     *isServer,
 		ECSigAlg:     util.SupportedECSignatureAlgorithms(*ec),
+		DNSNames:     *sanFields,
 	}
 	certPem, privPem, err := util.GenCertKeyFromOptions(opts)
 	if err != nil {
