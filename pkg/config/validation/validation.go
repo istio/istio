@@ -2499,7 +2499,7 @@ func validateHTTPRewrite(rewrite *networking.HTTPRewrite) error {
 
 // ValidateWorkloadEntry validates a workload entry.
 var ValidateWorkloadEntry = registerValidateFunc("ValidateWorkloadEntry",
-	func(cfg config.Config) (warnings Warning, errs error) {
+	func(cfg config.Config) (Warning, error) {
 		we, ok := cfg.Spec.(*networking.WorkloadEntry)
 		if !ok {
 			return nil, fmt.Errorf("cannot cast to workload entry")
@@ -2507,13 +2507,40 @@ var ValidateWorkloadEntry = registerValidateFunc("ValidateWorkloadEntry",
 		return validateWorkloadEntry(we)
 	})
 
-func validateWorkloadEntry(we *networking.WorkloadEntry) (warnings Warning, errs error) {
+func validateWorkloadEntry(we *networking.WorkloadEntry) (Warning, error) {
+	errs := Validation{}
 	if we.Address == "" {
 		return nil, fmt.Errorf("address must be set")
 	}
-	// TODO: add better validation. The tricky thing is that we don't know if its meant to be
-	// DNS or STATIC type without association with a ServiceEntry
-	return nil, nil
+	// Since we don't know if its meant to be DNS or STATIC type without association with a ServiceEntry,
+	// check based on content and try validations.
+	addr := we.Address
+	// First check if it is a Unix endpoint - this will be specified for STATIC.
+	if strings.HasPrefix(we.Address, UnixAddressPrefix) {
+		errs = appendValidation(errs, ValidateUnixAddress(strings.TrimPrefix(addr, UnixAddressPrefix)))
+		if len(we.Ports) != 0 {
+			errs = appendValidation(errs, fmt.Errorf("unix endpoint %s must not include ports", we.Address))
+		}
+	} else {
+		// This could be IP (in STATIC resolution) or DNS host name (for DNS).
+		ipAddr := net.ParseIP(we.Address)
+		if ipAddr == nil {
+			if err := ValidateFQDN(we.Address); err != nil { // Otherwise could be an FQDN
+				errs = appendValidation(errs,
+					fmt.Errorf("endpoint address %q is not a valid FQDN or an IP address", we.Address))
+			}
+		}
+	}
+
+	errs = appendValidation(errs,
+		labels.Instance(we.Labels).Validate())
+	for name, port := range we.Ports {
+		// TODO: Validate port is part of Service Port - which is tricky to validate with out service entry.
+		errs = appendValidation(errs,
+			ValidatePortName(name),
+			ValidatePort(int(port)))
+	}
+	return errs.Unwrap()
 }
 
 // ValidateWorkloadGroup validates a workload group.
