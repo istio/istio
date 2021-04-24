@@ -166,9 +166,6 @@ func cmdAdd(args *skel.CmdArgs) error {
 				return err
 			}
 			log.Debugf("Created Kubernetes client: %v", client)
-			// var containers []string
-			// var initContainersMap map[string]struct{}
-			// var annotations map[string]string
 			pi := &PodInfo{}
 			var k8sErr error
 			for attempt := 1; attempt <= podRetrievalMaxRetries; attempt++ {

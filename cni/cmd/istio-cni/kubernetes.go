@@ -17,13 +17,13 @@ package main
 import (
 	"context"
 
-	meshconfig "istio.io/api/mesh/v1alpha1"
-	"istio.io/istio/pkg/config/mesh"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/clientcmd"
 
+	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/cmd/pilot-agent/options"
+	"istio.io/istio/pkg/config/mesh"
 	"istio.io/pkg/log"
 )
 
@@ -34,11 +34,12 @@ var newKubeClient = newK8sClient
 var getKubePodInfo = getK8sPodInfo
 
 type PodInfo struct {
-	Containers     []string
-	InitContainers map[string]struct{}
-	Labels         map[string]string
-	Annotations    map[string]string
-	ProxyConfig    *meshconfig.ProxyConfig
+	Containers        []string
+	InitContainers    map[string]struct{}
+	Labels            map[string]string
+	Annotations       map[string]string
+	ProxyEnvironments map[string]string
+	ProxyConfig       *meshconfig.ProxyConfig
 }
 
 // newK8sClient returns a Kubernetes client
@@ -74,10 +75,11 @@ func getK8sPodInfo(client *kubernetes.Clientset, podName, podNamespace string) (
 	}
 
 	pi := &PodInfo{
-		InitContainers: make(map[string]struct{}),
-		Containers:     make([]string, len(pod.Spec.Containers)),
-		Labels:         pod.Labels,
-		Annotations:    pod.Annotations,
+		InitContainers:    make(map[string]struct{}),
+		Containers:        make([]string, len(pod.Spec.Containers)),
+		Labels:            pod.Labels,
+		Annotations:       pod.Annotations,
+		ProxyEnvironments: make(map[string]string),
 	}
 	for _, initContainer := range pod.Spec.InitContainers {
 		pi.InitContainers[initContainer.Name] = struct{}{}
@@ -88,8 +90,9 @@ func getK8sPodInfo(client *kubernetes.Clientset, podName, podNamespace string) (
 
 		if container.Name == "istio-proxy" {
 			// don't include ports from istio-proxy in the redirect ports
-			// Check for container env variable and extract out ProxyConfig from it.
+			// Get proxy container env variable, and extract out ProxyConfig from it.
 			for _, e := range container.Env {
+				pi.ProxyEnvironments[e.Name] = e.Value
 				if e.Name == options.ProxyConfigEnv {
 					proxyConfig := mesh.DefaultProxyConfig()
 					mc := &meshconfig.MeshConfig{

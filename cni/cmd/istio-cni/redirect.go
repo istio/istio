@@ -254,7 +254,7 @@ func NewRedirect(pi *PodInfo) (*Redirect, error) {
 			"kubevirtInterfaces", isFound, valErr)
 		return nil, valErr
 	}
-	if v, found := pi.ProxyConfig.ProxyMetadata[options.DnsCaptureByAgent.Name]; found {
+	if v, found := pi.ProxyEnvironments[options.DNSCaptureByAgent.Name]; found {
 		// parse and set the bool value of dnsRedirect
 		redir.dnsRedirect, valErr = strconv.ParseBool(v)
 		if valErr != nil {
