@@ -15,7 +15,6 @@
 package opentelemetry
 
 import (
-	"net"
 	"testing"
 
 	"istio.io/istio/pkg/test/framework/components/cluster"
@@ -29,7 +28,7 @@ type Config struct {
 	Cluster cluster.Cluster
 
 	// HTTP Address of ingress gateway of the cluster to be used to install open telemetry collector in.
-	IngressAddr net.TCPAddr
+	IngressAddr string
 }
 
 // Instance represents a opencensus collector deployment on kubernetes.

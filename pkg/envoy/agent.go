@@ -39,7 +39,7 @@ func NewAgent(proxy Proxy, terminationDrainDuration time.Duration) *Agent {
 // Proxy defines command interface for a proxy
 type Proxy interface {
 
-	// Run command for a config, epoch, and abort channel
+	// Run command for an epoch, and abort channel
 	Run(int, <-chan error) error
 
 	// Drains the current epoch.
@@ -68,7 +68,7 @@ type exitStatus struct {
 }
 
 // Run starts the envoy and waits until it terminates.
-func (a *Agent) Run(ctx context.Context) error {
+func (a *Agent) Run(ctx context.Context) {
 	log.Info("Starting proxy agent")
 	go a.runWait(0, a.abortCh)
 
@@ -84,11 +84,9 @@ func (a *Agent) Run(ctx context.Context) error {
 		}
 
 		log.Infof("No more active epochs, terminating")
-		return nil
 	case <-ctx.Done():
 		a.terminate()
 		log.Info("Agent has successfully terminated")
-		return nil
 	}
 }
 

@@ -374,7 +374,12 @@ func TestSignCSRForWorkload(t *testing.T) {
 		}
 
 		requestedTTL := 30 * time.Minute
-		certPEM, signErr := ca.Sign(csrPEM, []string{subjectID}, requestedTTL, false)
+		caCertOpts := CertOpts{
+			SubjectIDs: []string{subjectID},
+			TTL:        requestedTTL,
+			ForCA:      false,
+		}
+		certPEM, signErr := ca.Sign(csrPEM, caCertOpts)
 		if signErr != nil {
 			t.Errorf("%s: Sign error: %v", id, err)
 		}
@@ -396,7 +401,7 @@ func TestSignCSRForWorkload(t *testing.T) {
 			t.Errorf("%s: ParsePemEncodedCertificate error: %v", id, err)
 		}
 
-		if ttl := cert.NotAfter.Sub(cert.NotBefore); ttl != requestedTTL {
+		if ttl := cert.NotAfter.Sub(cert.NotBefore) - util.ClockSkewGracePeriod; ttl != requestedTTL {
 			t.Errorf("%s: Unexpected certificate TTL (expecting %v, actual %v)", id, requestedTTL, ttl)
 		}
 		san := util.ExtractSANExtension(cert.Extensions)
@@ -447,7 +452,12 @@ func TestSignCSRForCA(t *testing.T) {
 		}
 
 		requestedTTL := 30 * 24 * time.Hour
-		certPEM, signErr := ca.Sign(csrPEM, []string{subjectID}, requestedTTL, true)
+		caCertOpts := CertOpts{
+			SubjectIDs: []string{subjectID},
+			TTL:        requestedTTL,
+			ForCA:      true,
+		}
+		certPEM, signErr := ca.Sign(csrPEM, caCertOpts)
 		if signErr != nil {
 			t.Errorf("%s: Sign error: %v", id, err)
 		}
@@ -468,7 +478,7 @@ func TestSignCSRForCA(t *testing.T) {
 			t.Errorf("%s: ParsePemEncodedCertificate error: %v", id, err)
 		}
 
-		if ttl := cert.NotAfter.Sub(cert.NotBefore); ttl != requestedTTL {
+		if ttl := cert.NotAfter.Sub(cert.NotBefore) - util.ClockSkewGracePeriod; ttl != requestedTTL {
 			t.Errorf("Unexpected certificate TTL (expecting %v, actual %v)", requestedTTL, ttl)
 		}
 		san := util.ExtractSANExtension(cert.Extensions)
@@ -518,9 +528,12 @@ func TestSignCSRTTLError(t *testing.T) {
 			t.Errorf("%s: createCA error: %v", id, err)
 		}
 
-		ttl := 3 * time.Hour
-
-		cert, signErr := ca.Sign(csrPEM, []string{subjectID}, ttl, false)
+		caCertOpts := CertOpts{
+			SubjectIDs: []string{subjectID},
+			TTL:        3 * time.Hour,
+			ForCA:      false,
+		}
+		cert, signErr := ca.Sign(csrPEM, caCertOpts)
 		if cert != nil {
 			t.Errorf("%s: Expected null cert be obtained a non-null cert.", id)
 		}
@@ -594,7 +607,12 @@ func TestSignWithCertChain(t *testing.T) {
 		t.Error(err)
 	}
 
-	certPEM, signErr := ca.SignWithCertChain(csrPEM, []string{"localhost"}, time.Hour, false)
+	caCertOpts := CertOpts{
+		SubjectIDs: []string{"localhost"},
+		TTL:        time.Hour,
+		ForCA:      false,
+	}
+	certPEM, signErr := ca.SignWithCertChain(csrPEM, caCertOpts)
 	if signErr != nil {
 		t.Error(err)
 	}

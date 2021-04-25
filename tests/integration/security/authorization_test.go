@@ -969,7 +969,7 @@ func TestAuthorization_Conditions(t *testing.T) {
 					}
 					b := bs[0]
 					t.NewSubTest(fmt.Sprintf("from %s to %s in %s",
-						a.Config().Cluster.StableName(), cSet[0].Config().Service, cSet[0].Config().Cluster.Name())).
+						a.Config().Cluster.StableName(), cSet[0].Config().Service, cSet[0].Config().Cluster.StableName())).
 						Run(func(t framework.TestContext) {
 							var ipC string
 							for i := 0; i < len(cSet); i++ {
@@ -1089,7 +1089,7 @@ func TestAuthorization_GRPC(t *testing.T) {
 			vm := apps.VM.Match(echo.Namespace(apps.Namespace1.Name()))
 			for _, a := range []echo.Instances{a, vm} {
 				for _, b := range []echo.Instances{b, vm} {
-					t.NewSubTest(fmt.Sprintf("to %s in %s", a[0].Config().Service, a[0].Config().Cluster.Name())).
+					t.NewSubTest(fmt.Sprintf("to %s in %s", a[0].Config().Service, a[0].Config().Cluster.StableName())).
 						Run(func(t framework.TestContext) {
 							args := map[string]string{
 								"Namespace": ns.Name(),
@@ -1301,7 +1301,7 @@ func TestAuthorization_Audit(t *testing.T) {
 
 			for _, tc := range vmCases {
 				t.NewSubTest(fmt.Sprintf("from %s to %s in %s",
-					b[0].Config().Cluster.StableName(), tc.dst[0].Config().Service, tc.dst[0].Config().Cluster.Name())).
+					b[0].Config().Cluster.StableName(), tc.dst[0].Config().Service, tc.dst[0].Config().Cluster.StableName())).
 					Run(func(t framework.TestContext) {
 						args := map[string]string{
 							"Namespace": ns.Name(),

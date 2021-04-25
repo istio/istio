@@ -12,7 +12,7 @@
               "name": "deprecation",
               "static_layer": {
                   "envoy.deprecated_features:envoy.config.listener.v3.Listener.hidden_envoy_deprecated_use_original_dst": true,
-                  "envoy.reloadable_features.strict_1xx_and_204_response_headers": false,
+                  "envoy.reloadable_features.require_strict_1xx_and_204_response_headers": false,
                   "re2.max_program_size.error_level": 1024
               }
           },
@@ -331,7 +331,14 @@
       {
         "name": "sds-grpc",
         "type": "STATIC",
-        "http2_protocol_options": {},
+        "typed_extension_protocol_options": {
+          "envoy.extensions.upstreams.http.v3.HttpProtocolOptions": {
+           "@type": "type.googleapis.com/envoy.extensions.upstreams.http.v3.HttpProtocolOptions",
+           "explicit_http_config": {
+            "http2_protocol_options": {}
+           }
+          }
+        },
         "connect_timeout": "1s",
         "lb_policy": "ROUND_ROBIN",
         "load_assignment": {
@@ -426,7 +433,14 @@
           }
         },
         "max_requests_per_connection": 1,
-        "http2_protocol_options": { }
+        "typed_extension_protocol_options": {
+          "envoy.extensions.upstreams.http.v3.HttpProtocolOptions": {
+           "@type": "type.googleapis.com/envoy.extensions.upstreams.http.v3.HttpProtocolOptions",
+           "explicit_http_config": {
+            "http2_protocol_options": {}
+           }
+          }
+        }
       }
       
       ,
@@ -461,7 +475,14 @@
         "dns_lookup_family": "V4_ONLY",
         "connect_timeout": "1s",
         "lb_policy": "ROUND_ROBIN",
-        "http2_protocol_options": {},
+        "typed_extension_protocol_options": {
+          "envoy.extensions.upstreams.http.v3.HttpProtocolOptions": {
+           "@type": "type.googleapis.com/envoy.extensions.upstreams.http.v3.HttpProtocolOptions",
+           "explicit_http_config": {
+            "http2_protocol_options": {}
+           }
+          }
+        },
         "load_assignment": {
           "cluster_name": "envoy_metrics_service",
           "endpoints": [{
@@ -485,7 +506,14 @@
         "dns_lookup_family": "V4_ONLY",
         "connect_timeout": "1s",
         "lb_policy": "ROUND_ROBIN",
-        "http2_protocol_options": {},
+        "typed_extension_protocol_options": {
+          "envoy.extensions.upstreams.http.v3.HttpProtocolOptions": {
+           "@type": "type.googleapis.com/envoy.extensions.upstreams.http.v3.HttpProtocolOptions",
+           "explicit_http_config": {
+            "http2_protocol_options": {}
+           }
+          }
+        },
         "load_assignment": {
           "cluster_name": "envoy_accesslog_service",
           "endpoints": [{

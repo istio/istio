@@ -1269,7 +1269,7 @@ func (ps *PushContext) initVirtualServices(env *Environment) error {
 	for _, virtualService := range vservices {
 		ns := virtualService.Namespace
 		rule := virtualService.Spec.(*networking.VirtualService)
-		gwNames := getGatewayNames(rule, virtualService.Meta)
+		gwNames := getGatewayNames(rule)
 		if len(rule.ExportTo) == 0 {
 			// No exportTo in virtualService. Use the global default
 			// We only honor ., *
@@ -1333,7 +1333,7 @@ func (ps *PushContext) initVirtualServices(env *Environment) error {
 
 var meshGateways = []string{constants.IstioMeshGateway}
 
-func getGatewayNames(vs *networking.VirtualService, meta config.Meta) []string {
+func getGatewayNames(vs *networking.VirtualService) []string {
 	if len(vs.Gateways) == 0 {
 		return meshGateways
 	}
@@ -1342,8 +1342,7 @@ func getGatewayNames(vs *networking.VirtualService, meta config.Meta) []string {
 		if g == constants.IstioMeshGateway {
 			res = append(res, constants.IstioMeshGateway)
 		} else {
-			name := resolveGatewayName(g, meta)
-			res = append(res, name)
+			res = append(res, g)
 		}
 	}
 	return res

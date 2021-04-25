@@ -20,7 +20,7 @@ spec:
         prometheus.io/port: "15020"
         prometheus.io/scrape: "true"
         sidecar.istio.io/enableCoreDump: "true"
-        sidecar.istio.io/status: '{"initContainers":["istio-init"],"containers":["istio-proxy"],"volumes":["istio-envoy","istio-data","istio-podinfo","istio-token","istiod-ca-cert"],"imagePullSecrets":null}'
+        sidecar.istio.io/status: '{"initContainers":["istio-init","enable-core-dump"],"containers":["istio-proxy"],"volumes":["istio-envoy","istio-data","istio-podinfo","istio-token","istiod-ca-cert"],"imagePullSecrets":null}'
       creationTimestamp: null
       labels:
         app: hello
@@ -43,8 +43,6 @@ spec:
         - sidecar
         - --domain
         - $(POD_NAMESPACE).svc.cluster.local
-        - --serviceCluster
-        - hello.$(POD_NAMESPACE)
         - --proxyLogLevel=warning
         - --proxyComponentLogLevel=misc:error
         - --log_output_level=default:info
@@ -137,7 +135,7 @@ spec:
             drop:
             - ALL
           privileged: false
-          readOnlyRootFilesystem: true
+          readOnlyRootFilesystem: false
           runAsGroup: 1337
           runAsNonRoot: true
           runAsUser: 1337
@@ -189,6 +187,27 @@ spec:
             drop:
             - ALL
           privileged: false
+          readOnlyRootFilesystem: false
+          runAsGroup: 0
+          runAsNonRoot: false
+          runAsUser: 0
+      - args:
+        - -c
+        - sysctl -w kernel.core_pattern=/var/lib/istio/data/core.proxy && ulimit -c
+          unlimited
+        command:
+        - /bin/sh
+        image: gcr.io/istio-testing/proxyv2:latest
+        name: enable-core-dump
+        resources: {}
+        securityContext:
+          allowPrivilegeEscalation: true
+          capabilities:
+            add:
+            - SYS_ADMIN
+            drop:
+            - ALL
+          privileged: true
           readOnlyRootFilesystem: false
           runAsGroup: 0
           runAsNonRoot: false

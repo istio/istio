@@ -51,7 +51,7 @@ func TestStartExit(t *testing.T) {
 	done := make(chan struct{})
 	a := NewAgent(TestProxy{}, 0)
 	go func() {
-		_ = a.Run(ctx)
+		a.Run(ctx)
 		done <- struct{}{}
 	}()
 	<-done
@@ -81,7 +81,7 @@ func TestStartDrain(t *testing.T) {
 		return nil
 	}
 	a := NewAgent(TestProxy{run: start, blockChannel: blockChan}, -10*time.Second)
-	go func() { _ = a.Run(ctx) }()
+	go func() { a.Run(ctx) }()
 	<-blockChan
 	cancel()
 	<-blockChan
@@ -104,7 +104,7 @@ func TestStartStop(t *testing.T) {
 		}
 	}
 	a := NewAgent(TestProxy{run: start, cleanup: cleanup}, 0)
-	go func() { _ = a.Run(ctx) }()
+	go func() { a.Run(ctx) }()
 	<-ctx.Done()
 }
 
@@ -124,7 +124,7 @@ func TestRecovery(t *testing.T) {
 		return nil
 	}
 	a := NewAgent(TestProxy{run: start}, 0)
-	go func() { _ = a.Run(ctx) }()
+	go func() { a.Run(ctx) }()
 
 	// make sure we don't try to reconcile twice
 	<-time.After(100 * time.Millisecond)

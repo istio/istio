@@ -78,9 +78,16 @@ spec:
                       }]
                     }
                 vm_config:
+                 {{- if .WasmRemoteLoad }}
                   runtime: envoy.wasm.runtime.v8
                   code:
                     remote:
                       http_uri:
-                        uri: https://storage.googleapis.com/istio-build/proxy/attributegen-{{ .ProxySHA }}.wasm
+                        uri: {{ .AttributeGenURL }}
                         timeout: 10s
+                  {{- else }}
+                  runtime: envoy.wasm.runtime.null
+                  code:
+                    local:
+                      inline_string: envoy.wasm.attributegen
+                  {{- end }}

@@ -43,6 +43,7 @@ import (
 	"istio.io/api/security/v1beta1"
 	"istio.io/istio/pilot/pkg/features"
 	istiogrpc "istio.io/istio/pilot/pkg/grpc"
+	"istio.io/istio/pilot/pkg/keycertbundle"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/plugin"
 	kubesecrets "istio.io/istio/pilot/pkg/secrets/kube"
@@ -157,12 +158,11 @@ type Server struct {
 	RA             ra.RegistrationAuthority
 
 	// TrustAnchors for workload to workload mTLS
-	workloadTrustBundle *tb.TrustBundle
-	// path to the caBundle that signs the DNS certs. This should be agnostic to provider.
-	caBundlePath string
-	certMu       sync.RWMutex
-	istiodCert   *tls.Certificate
-	server       server.Instance
+	workloadTrustBundle     *tb.TrustBundle
+	certMu                  sync.RWMutex
+	istiodCert              *tls.Certificate
+	istiodCertBundleWatcher *keycertbundle.Watcher
+	server                  server.Instance
 
 	// requiredTerminations keeps track of components that should block server exit
 	// if they are not stopped. This allows important cleanup tasks to be completed.
@@ -191,14 +191,16 @@ func NewServer(args *PilotArgs, initFuncs ...func(*Server)) (*Server, error) {
 	e.ServiceDiscovery = ac
 
 	s := &Server{
-		clusterID:           getClusterID(args),
-		environment:         e,
-		fileWatcher:         filewatcher.NewWatcher(),
-		httpMux:             http.NewServeMux(),
-		monitoringMux:       http.NewServeMux(),
-		readinessProbes:     make(map[string]readinessProbe),
-		workloadTrustBundle: tb.NewTrustBundle(nil),
-		server:              server.New(),
+		clusterID:               getClusterID(args),
+		environment:             e,
+		fileWatcher:             filewatcher.NewWatcher(),
+		httpMux:                 http.NewServeMux(),
+		monitoringMux:           http.NewServeMux(),
+		readinessProbes:         make(map[string]readinessProbe),
+		workloadTrustBundle:     tb.NewTrustBundle(nil),
+		server:                  server.New(),
+		shutdownDuration:        args.ShutdownDuration,
+		istiodCertBundleWatcher: keycertbundle.NewWatcher(),
 	}
 	// Apply custom initialization functions.
 	for _, fn := range initFuncs {
@@ -208,10 +210,6 @@ func NewServer(args *PilotArgs, initFuncs ...func(*Server)) (*Server, error) {
 	e.TrustBundle = s.workloadTrustBundle
 	s.XDSServer = xds.NewDiscoveryServer(e, args.Plugins, args.PodName, args.Namespace)
 
-	if args.ShutdownDuration == 0 {
-		s.shutdownDuration = 10 * time.Second // If not specified set to 10 seconds.
-	}
-
 	if args.RegistryOptions.KubeOptions.WatchedNamespaces != "" {
 		// Add the control-plane namespace to the list of watched namespaces.
 		args.RegistryOptions.KubeOptions.WatchedNamespaces = fmt.Sprintf("%s,%s",
@@ -220,7 +218,7 @@ func NewServer(args *PilotArgs, initFuncs ...func(*Server)) (*Server, error) {
 		)
 	}
 
-	// used for both initKubeRegistry and initClusterRegistreis
+	// used for both initKubeRegistry and initClusterRegistries
 	if features.EnableEndpointSliceController {
 		args.RegistryOptions.KubeOptions.EndpointMode = kubecontroller.EndpointSliceOnly
 	} else {
@@ -906,16 +904,24 @@ func (s *Server) initIstiodCerts(args *PilotArgs, host string) error {
 	return nil
 }
 
-// maybeInitDNSCerts initializes DNS certs if needed.
-func (s *Server) maybeInitDNSCerts(args *PilotArgs, host string) error {
+// shouldInitDNSCerts returns whether DNS certs need to be signed.
+func (s *Server) shouldInitDNSCerts(args *PilotArgs) bool {
 	if hasCustomTLSCerts(args.ServerOptions.TLSOptions) {
 		// Use the DNS certificate provided via args.
 		// This allows injector, validation to work without Citadel, and
 		// allows secure SDS connections to Istiod.
-		return nil
+		return false
 	}
 	if !s.EnableCA() && features.PilotCertProvider.Get() == IstiodCAProvider {
 		// If CA functionality is disabled, istiod cannot sign the DNS certificates.
+		return false
+	}
+	return true
+}
+
+// maybeInitDNSCerts initializes DNS certs if needed.
+func (s *Server) maybeInitDNSCerts(args *PilotArgs, host string) error {
+	if !s.shouldInitDNSCerts(args) {
 		return nil
 	}
 	log.Infof("initializing Istiod DNS certificates host: %s, custom host: %s", host, features.IstiodServiceCustomHost.Get())
@@ -923,95 +929,6 @@ func (s *Server) maybeInitDNSCerts(args *PilotArgs, host string) error {
 		return err
 	}
 	return nil
-}
-
-// initCertificateWatches sets up watches for the dns certs.
-func (s *Server) initCertificateWatches(tlsOptions TLSOptions) error {
-	// load the cert/key and setup a persistent watch for updates.
-	cert, err := s.getCertKeyPair(tlsOptions)
-	if err != nil {
-		return err
-	}
-	s.istiodCert = &cert
-	// TODO: Setup watcher for root and restart server if it changes.
-	keyFile, certFile := s.getCertKeyPaths(tlsOptions)
-	for _, file := range []string{certFile, keyFile} {
-		log.Infof("adding watcher for certificate %s", file)
-		if err := s.fileWatcher.Add(file); err != nil {
-			return fmt.Errorf("could not watch %v: %v", file, err)
-		}
-	}
-	s.addStartFunc(func(stop <-chan struct{}) error {
-		go func() {
-			var keyCertTimerC <-chan time.Time
-			for {
-				select {
-				case <-keyCertTimerC:
-					keyCertTimerC = nil
-					// Reload the certificates from the paths.
-					cert, err := s.getCertKeyPair(tlsOptions)
-					if err != nil {
-						log.Errorf("error in reloading certs, %v", err)
-						// TODO: Add metrics?
-						break
-					}
-					s.certMu.Lock()
-					s.istiodCert = &cert
-					s.certMu.Unlock()
-
-					var cnum int
-					log.Info("Istiod certificates are reloaded")
-					for _, c := range cert.Certificate {
-						if x509Cert, err := x509.ParseCertificates(c); err != nil {
-							log.Infof("x509 cert [%v] - ParseCertificates() error: %v\n", cnum, err)
-							cnum++
-						} else {
-							for _, c := range x509Cert {
-								log.Infof("x509 cert [%v] - Issuer: %q, Subject: %q, SN: %x, NotBefore: %q, NotAfter: %q\n",
-									cnum, c.Issuer, c.Subject, c.SerialNumber,
-									c.NotBefore.Format(time.RFC3339), c.NotAfter.Format(time.RFC3339))
-								cnum++
-							}
-						}
-					}
-
-				case <-s.fileWatcher.Events(certFile):
-					if keyCertTimerC == nil {
-						keyCertTimerC = time.After(watchDebounceDelay)
-					}
-				case <-s.fileWatcher.Events(keyFile):
-					if keyCertTimerC == nil {
-						keyCertTimerC = time.After(watchDebounceDelay)
-					}
-				case <-s.fileWatcher.Errors(certFile):
-					log.Errorf("error watching %v: %v", certFile, err)
-				case <-s.fileWatcher.Errors(keyFile):
-					log.Errorf("error watching %v: %v", keyFile, err)
-				case <-stop:
-					return
-				}
-			}
-		}()
-		return nil
-	})
-	return nil
-}
-
-// getCertKeyPair returns cert and key loaded in tls.Certificate.
-func (s *Server) getCertKeyPair(tlsOptions TLSOptions) (tls.Certificate, error) {
-	key, cert := s.getCertKeyPaths(tlsOptions)
-	keyPair, err := tls.LoadX509KeyPair(cert, key)
-	if err != nil {
-		return tls.Certificate{}, err
-	}
-	return keyPair, nil
-}
-
-// getCertKeyPaths returns the paths for key and cert.
-func (s *Server) getCertKeyPaths(tlsOptions TLSOptions) (string, string) {
-	key := model.GetOrDefault(tlsOptions.KeyFile, dnsKeyFile)
-	cert := model.GetOrDefault(tlsOptions.CertFile, dnsCertFile)
-	return key, cert
 }
 
 // createPeerCertVerifier creates a SPIFFE certificate verifier with the current istiod configuration.
@@ -1109,9 +1026,6 @@ func (s *Server) maybeCreateCA(caOpts *caOptions) error {
 			if s.RA, err = s.createIstioRA(s.kubeClient, caOpts); err != nil {
 				return fmt.Errorf("failed to create RA: %v", err)
 			}
-		}
-		if err = s.initPublicKey(); err != nil {
-			return fmt.Errorf("error initializing public key: %v", err)
 		}
 	}
 	return nil
