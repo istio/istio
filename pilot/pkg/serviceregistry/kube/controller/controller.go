@@ -16,7 +16,6 @@ package controller
 
 import (
 	"fmt"
-	"sort"
 	"sync"
 	"time"
 
@@ -237,6 +236,8 @@ type Controller struct {
 	sync.RWMutex
 	// servicesMap stores hostname ==> service, it is used to reduce convertService calls.
 	servicesMap map[host.Name]*model.Service
+	// services keeps track of all services - mainly used to return from Services() to avoid iteration.
+	services []*model.Service
 	// nodeSelectorsForServices stores hostname => label selectors that can be used to
 	// refine the set of node port IPs for a service.
 	nodeSelectorsForServices map[host.Name]labels.Instance
@@ -290,6 +291,7 @@ func NewController(kubeClient kubelib.Client, options Options) *Controller {
 		clusterID:                   options.ClusterID,
 		xdsUpdater:                  options.XDSUpdater,
 		servicesMap:                 make(map[host.Name]*model.Service),
+		services:                    make([]*model.Service, 0),
 		nodeSelectorsForServices:    make(map[host.Name]labels.Instance),
 		nodeInfoMap:                 make(map[string]kubernetesNode),
 		externalNameSvcInstanceMap:  make(map[host.Name][]*model.ServiceInstance),
@@ -418,6 +420,12 @@ func (c *Controller) onServiceEvent(curr interface{}, event model.Event) error {
 	case model.EventDelete:
 		c.Lock()
 		delete(c.servicesMap, svcConv.Hostname)
+		for i, svc := range c.services {
+			if svc.Hostname == svcConv.Hostname {
+				c.services[i] = c.services[len(c.services)-1]
+				c.services = c.services[:len(c.services)-1]
+			}
+		}
 		delete(c.nodeSelectorsForServices, svcConv.Hostname)
 		delete(c.externalNameSvcInstanceMap, svcConv.Hostname)
 		delete(c.networkGateways, svcConv.Hostname)
@@ -439,19 +447,20 @@ func (c *Controller) onServiceEvent(curr interface{}, event model.Event) error {
 			needsFullPush = c.updateServiceNodePortAddresses(svcConv)
 		}
 
-		if needsFullPush {
-			// networks are different, we need to update all eds endpoints
-			c.xdsUpdater.ConfigUpdate(&model.PushRequest{Full: true, Reason: []model.TriggerReason{model.NetworksTrigger}})
-		}
-
 		// instance conversion is only required when service is added/updated.
 		instances := kube.ExternalNameServiceInstances(svc, svcConv)
 		c.Lock()
 		c.servicesMap[svcConv.Hostname] = svcConv
+		c.services = append(c.services, svcConv)
 		if len(instances) > 0 {
 			c.externalNameSvcInstanceMap[svcConv.Hostname] = instances
 		}
 		c.Unlock()
+
+		if needsFullPush {
+			// networks are different, we need to update all eds endpoints
+			c.xdsUpdater.ConfigUpdate(&model.PushRequest{Full: true, Reason: []model.TriggerReason{model.NetworksTrigger}})
+		}
 	}
 
 	// We also need to update when the Service changes. For Kubernetes, a service change will result in Endpoint updates,
@@ -706,14 +715,8 @@ func (c *Controller) Stop() {
 // Services implements a service catalog operation
 func (c *Controller) Services() ([]*model.Service, error) {
 	c.RLock()
-	out := make([]*model.Service, 0, len(c.servicesMap))
-	for _, svc := range c.servicesMap {
-		out = append(out, svc)
-	}
-	c.RUnlock()
-	sort.Slice(out, func(i, j int) bool { return out[i].Hostname < out[j].Hostname })
-
-	return out, nil
+	defer c.RUnlock()
+	return c.services, nil
 }
 
 // GetService implements a service catalog operation by hostname specified.
