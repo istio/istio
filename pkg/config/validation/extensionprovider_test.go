@@ -232,3 +232,60 @@ func TestValidateExtensionProviderTracingDatadog(t *testing.T) {
 		})
 	}
 }
+
+func TestValidateExtensionProviderTracingOpenCensusAgent(t *testing.T) {
+	cases := []struct {
+		name   string
+		config *meshconfig.MeshConfig_ExtensionProvider_OpenCensusAgentTracingProvider
+		valid  bool
+	}{
+		{
+			name: "opencensus normal",
+			config: &meshconfig.MeshConfig_ExtensionProvider_OpenCensusAgentTracingProvider{
+				Service: "opencensus-agent.com",
+				Port:    4000,
+			},
+			valid: true,
+		},
+		{
+			name: "opencensus service with namespace",
+			config: &meshconfig.MeshConfig_ExtensionProvider_OpenCensusAgentTracingProvider{
+				Service: "namespace/opencensus-agent.com",
+				Port:    4000,
+			},
+			valid: true,
+		},
+		{
+			name: "opencensus service with invalid namespace",
+			config: &meshconfig.MeshConfig_ExtensionProvider_OpenCensusAgentTracingProvider{
+				Service: "name/space/opencensus-agent.com",
+				Port:    4000,
+			},
+			valid: false,
+		},
+		{
+			name: "opencensus service with port",
+			config: &meshconfig.MeshConfig_ExtensionProvider_OpenCensusAgentTracingProvider{
+				Service: "opencensus-agent.com:4000",
+				Port:    4000,
+			},
+			valid: false,
+		},
+		{
+			name: "opencensus missing port",
+			config: &meshconfig.MeshConfig_ExtensionProvider_OpenCensusAgentTracingProvider{
+				Service: "opencensus-agent.com",
+			},
+			valid: false,
+		},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			err := validateExtensionProviderTracingOpenCensusAgent(c.config)
+			valid := err == nil
+			if valid != c.valid {
+				t.Errorf("Expected valid=%v, got valid=%v for %v", c.valid, valid, c.config)
+			}
+		})
+	}
+}

@@ -141,6 +141,19 @@ func validateExtensionProviderTracingDatadog(config *meshconfig.MeshConfig_Exten
 	return
 }
 
+func validateExtensionProviderTracingOpenCensusAgent(config *meshconfig.MeshConfig_ExtensionProvider_OpenCensusAgentTracingProvider) (errs error) {
+	if config == nil {
+		return fmt.Errorf("nil OpenCensusAgent")
+	}
+	if err := validateExtensionProviderService(config.Service); err != nil {
+		errs = appendErrors(errs, err)
+	}
+	if err := ValidatePort(int(config.Port)); err != nil {
+		errs = appendErrors(errs, fmt.Errorf("invalid service port: %v", err))
+	}
+	return
+}
+
 func validateExtensionProvider(config *meshconfig.MeshConfig) (errs error) {
 	definedProviders := map[string]struct{}{}
 	for _, c := range config.ExtensionProviders {
