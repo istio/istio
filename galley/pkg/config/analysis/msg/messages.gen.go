@@ -173,8 +173,8 @@ var (
 	// Description: Application pods should not run as user ID (UID) 1337
 	InvalidApplicationUID = diag.NewMessageType(diag.Warning, "IST0144", "User ID (UID) 1337 is reserved for the sidecar proxy.")
 
-	// ConflictingGateways  defines a diag.MessageType for message "Conflicting gateways are detected".
-	// Description: Conflicting gateways can be detected if selector, port number and hosts are same or matched.
+	// ConflictingGateways defines a diag.MessageType for message "ConflictingGateways".
+	// Description: Gateway should not have the same selector, port number and matched hosts of server
 	ConflictingGateways = diag.NewMessageType(diag.Error, "IST0145", "Conflicting gateways are detected for gateways %s on selector, port number and hosts.")
 )
 
@@ -638,8 +638,8 @@ func NewInvalidApplicationUID(r *resource.Instance) diag.Message {
 // NewConflictingGateways returns a new diag.Message based on ConflictingGateways.
 func NewConflictingGateways(r *resource.Instance, gateways string) diag.Message {
 	return diag.NewMessage(
-                ConflictingGateways,
-                r,
-                gateways,
-        )
+		ConflictingGateways,
+		r,
+		gateways,
+	)
 }

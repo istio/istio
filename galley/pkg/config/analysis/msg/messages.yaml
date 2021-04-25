@@ -457,7 +457,7 @@ messages:
   - name: "ConflictingGateways"
     code: IST0145
     level: Error
-    description: "Gateeay should not have the same selector, port number and matched hosts of server"
+    description: "Gateway should not have the same selector, port number and matched hosts of server"
     template: "Conflicting gateways are detected for gateways %s on selector, port number and hosts."
     args:
       - name: gateways
