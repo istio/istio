@@ -1,7 +1,7 @@
 {
   "node": {
     "id": "sidecar~1.2.3.4~foo~bar",
-    "cluster": "istio-proxy",
+    "cluster": "test.test",
     "locality": {
       "region": "regionA"
       ,

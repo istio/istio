@@ -140,6 +140,9 @@ type Options struct {
 	// we would refresh 6 minutes before expiration.
 	SecretRotationGracePeriodRatio float64
 
+	// STS port
+	STSPort int
+
 	// authentication provider specific plugins, will exchange the token
 	// For example exchange long lived refresh with access tokens.
 	// Used by the secret fetcher when signing CSRs.

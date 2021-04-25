@@ -58,9 +58,9 @@ func (r *YAMLCmpReporter) Report(rs cmp.Result) {
 		isNonEmptyX := isValidAndNonEmpty(vx)
 		isNonEmptyY := isValidAndNonEmpty(vy)
 		if isNonEmptyX && !isNonEmptyY {
-			dm = fmt.Sprintf("%v ->", vx)
+			dm = fmt.Sprintf("%v -> <empty> (REMOVED)", vx)
 		} else if !isNonEmptyX && isNonEmptyY {
-			dm = fmt.Sprintf("-> %v", vy)
+			dm = fmt.Sprintf("<empty> -> %v (ADDED)", vy)
 		} else if isNonEmptyX && isNonEmptyY {
 			dm = fmt.Sprintf("%v -> %v", vx, vy)
 		} else {
