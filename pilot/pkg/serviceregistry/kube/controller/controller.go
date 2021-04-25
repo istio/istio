@@ -420,12 +420,14 @@ func (c *Controller) onServiceEvent(curr interface{}, event model.Event) error {
 	case model.EventDelete:
 		c.Lock()
 		delete(c.servicesMap, svcConv.Hostname)
+		index := 0
 		for i, svc := range c.services {
 			if svc.Hostname == svcConv.Hostname {
-				c.services[i] = c.services[len(c.services)-1]
-				c.services = c.services[:len(c.services)-1]
+				index = i
+				break
 			}
 		}
+		c.services = append(c.services[:index], c.services[index+1:]...)
 		delete(c.nodeSelectorsForServices, svcConv.Hostname)
 		delete(c.externalNameSvcInstanceMap, svcConv.Hostname)
 		delete(c.networkGateways, svcConv.Hostname)
@@ -451,7 +453,16 @@ func (c *Controller) onServiceEvent(curr interface{}, event model.Event) error {
 		instances := kube.ExternalNameServiceInstances(svc, svcConv)
 		c.Lock()
 		c.servicesMap[svcConv.Hostname] = svcConv
-		c.services = append(c.services, svcConv)
+		if event == model.EventAdd {
+			c.services = append(c.services, svcConv)
+		} else {
+			for i, svc := range c.services {
+				if svc.Hostname == svcConv.Hostname {
+					c.services[i] = svcConv
+					break
+				}
+			}
+		}
 		if len(instances) > 0 {
 			c.externalNameSvcInstanceMap[svcConv.Hostname] = instances
 		}
