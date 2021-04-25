@@ -53,6 +53,12 @@ func (ipt *iptables) Program(netns string, rdrct *Redirect) error {
 	}
 	if rdrct.dnsRedirect {
 		nsenterArgs = append(nsenterArgs, "--redirect-dns")
+		if rdrct.dnsServersIPv4 != "" {
+			nsenterArgs = append(nsenterArgs, "--dns-servers-v4", rdrct.dnsServersIPv4)
+		}
+		if rdrct.dnsServersIPv6 != "" {
+			nsenterArgs = append(nsenterArgs, "--dns-servers-v6", rdrct.dnsServersIPv6)
+		}
 	}
 	log.Infof("nsenter args: %s", strings.Join(nsenterArgs, " "))
 	out, err := exec.Command("nsenter", nsenterArgs...).CombinedOutput()

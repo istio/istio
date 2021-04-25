@@ -98,6 +98,8 @@ func constructConfig() *config.Config {
 		SkipRuleApply:           viper.GetBool(constants.SkipRuleApply),
 		RunValidation:           viper.GetBool(constants.RunValidation),
 		RedirectDNS:             viper.GetBool(constants.RedirectDNS),
+		DNSServersV4:            viper.GetStringSlice(constants.DNSServersV4),
+		DNSServersV6:            viper.GetStringSlice(constants.DNSServersV6),
 	}
 
 	// TODO: Make this more configurable, maybe with an allowlist of users to be captured for output instead of a denylist.
@@ -126,7 +128,7 @@ func constructConfig() *config.Config {
 
 	// Lookup DNS nameservers. We only do this if DNS is enabled in case of some obscure theoretical
 	// case where reading /etc/resolv.conf could fail.
-	if cfg.RedirectDNS {
+	if cfg.RedirectDNS && cfg.DNSServersV4 == nil && cfg.DNSServersV6 == nil {
 		dnsConfig, err := dns.ClientConfigFromFile("/etc/resolv.conf")
 		if err != nil {
 			panic(fmt.Sprintf("failed to load /etc/resolv.conf: %v", err))
@@ -281,6 +283,16 @@ func bindFlags(cmd *cobra.Command, args []string) {
 		handleError(err)
 	}
 	viper.SetDefault(constants.RedirectDNS, dnsCaptureByAgent)
+
+	if err := viper.BindPFlag(constants.DNSServersV4, cmd.Flags().Lookup(constants.DNSServersV4)); err != nil {
+		handleError(err)
+	}
+	viper.SetDefault(constants.DNSServersV4, []string{})
+
+	if err := viper.BindPFlag(constants.DNSServersV6, cmd.Flags().Lookup(constants.DNSServersV6)); err != nil {
+		handleError(err)
+	}
+	viper.SetDefault(constants.DNSServersV6, []string{})
 }
 
 // https://github.com/spf13/viper/issues/233.
@@ -346,6 +358,10 @@ func init() {
 	rootCmd.Flags().Bool(constants.RunValidation, false, "Validate iptables")
 
 	rootCmd.Flags().Bool(constants.RedirectDNS, dnsCaptureByAgent, "Enable capture of dns traffic by istio-agent")
+
+	rootCmd.Flags().StringSlice(constants.DNSServersV4, []string{}, "DNS server IPv4 addresses which will be captured and redirected when DNS capture is enabled")
+
+	rootCmd.Flags().StringSlice(constants.DNSServersV6, []string{}, "DNS server IPv6 addresses which will be captured and redirected when DNS capture is enabled")
 }
 
 func GetCommand() *cobra.Command {

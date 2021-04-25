@@ -21,7 +21,9 @@ data:
           "kubernetes": {
               "kubeconfig": "__KUBECONFIG_FILEPATH__",
               "cni_bin_dir": {{ quote .Values.cni.cniBinDir }},
-              "exclude_namespaces": [ {{ range $idx, $ns := .Values.cni.excludeNamespaces }}{{ if $idx }}, {{ end }}{{ quote $ns }}{{ end }} ]
+              "exclude_namespaces": [ {{ range $idx, $ns := .Values.cni.excludeNamespaces }}{{ if $idx }}, {{ end }}{{ quote $ns }}{{ end }} ],
+              "dns_servers_v4": __DNS_SERVERS_V4__,
+              "dns_servers_v6": __DNS_SERVERS_V6__
           }
         }
 ---

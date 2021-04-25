@@ -19,6 +19,7 @@ import (
 	"os"
 	"strings"
 
+	"github.com/miekg/dns"
 	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
@@ -26,6 +27,7 @@ import (
 	"istio.io/istio/cni/pkg/install-cni/pkg/config"
 	"istio.io/istio/cni/pkg/install-cni/pkg/constants"
 	"istio.io/istio/cni/pkg/install-cni/pkg/install"
+	iptable "istio.io/istio/tools/istio-iptables/pkg/cmd"
 	"istio.io/pkg/log"
 )
 
@@ -148,6 +150,13 @@ func constructConfig() (*config.Config, error) {
 			return nil, err
 		}
 	}
+
+	// Get install-cni DNS server addresses
+	dnsConfig, err := dns.ClientConfigFromFile("/etc/resolv.conf")
+	if err != nil {
+		log.Warnf("failed to load /etc/resolv.conf, DNS redirect might not work: %v", err)
+	}
+	cfg.DNSServersV4, cfg.DNSServersV6 = iptable.SplitV4V6(dnsConfig.Servers)
 
 	return cfg, nil
 }

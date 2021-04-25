@@ -51,6 +51,8 @@ type cniConfigVars struct {
 	k8sServiceHost     string
 	k8sServicePort     string
 	k8sNodeName        string
+	DNSServersV4       []string
+	DNSServersV6       []string
 }
 
 func getPluginConfig(cfg *config.Config) pluginConfig {
@@ -76,6 +78,8 @@ func getCNIConfigVars(cfg *config.Config) cniConfigVars {
 		k8sServiceHost:     cfg.K8sServiceHost,
 		k8sServicePort:     cfg.K8sServicePort,
 		k8sNodeName:        cfg.K8sNodeName,
+		DNSServersV4:       cfg.DNSServersV4,
+		DNSServersV6:       cfg.DNSServersV6,
 	}
 }
 
@@ -117,6 +121,16 @@ func replaceCNIConfigVars(cniConfig []byte, vars cniConfigVars, saToken string) 
 	cniConfigStr = strings.ReplaceAll(cniConfigStr, "__KUBERNETES_SERVICE_HOST__", vars.k8sServiceHost)
 	cniConfigStr = strings.ReplaceAll(cniConfigStr, "__KUBERNETES_SERVICE_PORT__", vars.k8sServicePort)
 	cniConfigStr = strings.ReplaceAll(cniConfigStr, "__KUBERNETES_NODE_NAME__", vars.k8sNodeName)
+	if dnsv4, err := json.Marshal(vars.DNSServersV4); err != nil {
+		log.Errorf("failed to marshal DNS IPv4 addresses %v: %v", vars.DNSServersV4, err)
+	} else {
+		cniConfigStr = strings.ReplaceAll(cniConfigStr, "__DNS_SERVERS_V4__", string(dnsv4))
+	}
+	if dnsv6, err := json.Marshal(vars.DNSServersV6); err != nil {
+		log.Errorf("failed to marshal DNS IPv6 addresses %v: %v", vars.DNSServersV6, err)
+	} else {
+		cniConfigStr = strings.ReplaceAll(cniConfigStr, "__DNS_SERVERS_V6__", string(dnsv6))
+	}
 
 	// Log the config file before inserting service account token.
 	// This way auth token is not visible in the logs.

@@ -357,6 +357,8 @@ func (iptConfigurator *IptablesConfigurator) shortCircuitKubeInternalInterface()
 }
 
 func SplitV4V6(ips []string) (ipv4 []string, ipv6 []string) {
+	ipv4 = make([]string, 0)
+	ipv6 = make([]string, 0)
 	for _, i := range ips {
 		parsed := net.ParseIP(i)
 		if parsed.To4() != nil {

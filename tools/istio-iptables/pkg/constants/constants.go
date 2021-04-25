@@ -88,6 +88,8 @@ const (
 	IptablesProbePort         = "iptables-probe-port"
 	ProbeTimeout              = "probe-timeout"
 	RedirectDNS               = "redirect-dns"
+	DNSServersV4              = "dns-servers-v4"
+	DNSServersV6              = "dns-servers-v6"
 )
 
 const (
