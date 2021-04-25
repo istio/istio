@@ -453,3 +453,12 @@ messages:
     level: Warning
     description: "Application pods should not run as user ID (UID) 1337"
     template: "User ID (UID) 1337 is reserved for the sidecar proxy."
+
+  - name: "ConflictingGateways"
+    code: IST0145
+    level: Error
+    description: "Gateeay should not have the same selector, port number and matched hosts of server"
+    template: "Conflicting gateways are detected for gateways %s on selector, port number and hosts."
+    args:
+      - name: gateways
+        type: string
