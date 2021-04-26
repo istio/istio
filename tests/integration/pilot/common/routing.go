@@ -48,8 +48,13 @@ spec:
   hosts:
   - {{.VirtualServiceHost}}
   http:
+  - route:
+    - destination:
+        host: {{.VirtualServiceHost}}
+        port:
+          number: {{.Port}}
 {{- if .MatchScheme }}
-  - match:
+    match:
     - scheme:
         exact: {{.MatchScheme}}
     headers:
@@ -57,11 +62,6 @@ spec:
         add:
           istio-custom-header: user-defined-value
 {{- end }}
-  - route:
-    - destination:
-        host: {{.VirtualServiceHost}}
-        port:
-          number: {{.Port}}
 ---
 `
 
