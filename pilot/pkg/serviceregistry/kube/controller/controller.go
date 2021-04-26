@@ -236,8 +236,6 @@ type Controller struct {
 	sync.RWMutex
 	// servicesMap stores hostname ==> service, it is used to reduce convertService calls.
 	servicesMap map[host.Name]*model.Service
-	// services keeps track of all services - mainly used to return from Services() to avoid iteration.
-	services []*model.Service
 	// nodeSelectorsForServices stores hostname => label selectors that can be used to
 	// refine the set of node port IPs for a service.
 	nodeSelectorsForServices map[host.Name]labels.Instance
@@ -291,7 +289,6 @@ func NewController(kubeClient kubelib.Client, options Options) *Controller {
 		clusterID:                   options.ClusterID,
 		xdsUpdater:                  options.XDSUpdater,
 		servicesMap:                 make(map[host.Name]*model.Service),
-		services:                    make([]*model.Service, 0),
 		nodeSelectorsForServices:    make(map[host.Name]labels.Instance),
 		nodeInfoMap:                 make(map[string]kubernetesNode),
 		externalNameSvcInstanceMap:  make(map[host.Name][]*model.ServiceInstance),
@@ -420,14 +417,6 @@ func (c *Controller) onServiceEvent(curr interface{}, event model.Event) error {
 	case model.EventDelete:
 		c.Lock()
 		delete(c.servicesMap, svcConv.Hostname)
-		index := 0
-		for i, svc := range c.services {
-			if svc.Hostname == svcConv.Hostname {
-				index = i
-				break
-			}
-		}
-		c.services = append(c.services[:index], c.services[index+1:]...)
 		delete(c.nodeSelectorsForServices, svcConv.Hostname)
 		delete(c.externalNameSvcInstanceMap, svcConv.Hostname)
 		delete(c.networkGateways, svcConv.Hostname)
@@ -453,16 +442,6 @@ func (c *Controller) onServiceEvent(curr interface{}, event model.Event) error {
 		instances := kube.ExternalNameServiceInstances(svc, svcConv)
 		c.Lock()
 		c.servicesMap[svcConv.Hostname] = svcConv
-		if event == model.EventAdd {
-			c.services = append(c.services, svcConv)
-		} else {
-			for i, svc := range c.services {
-				if svc.Hostname == svcConv.Hostname {
-					c.services[i] = svcConv
-					break
-				}
-			}
-		}
 		if len(instances) > 0 {
 			c.externalNameSvcInstanceMap[svcConv.Hostname] = instances
 		}
@@ -726,8 +705,12 @@ func (c *Controller) Stop() {
 // Services implements a service catalog operation
 func (c *Controller) Services() ([]*model.Service, error) {
 	c.RLock()
-	defer c.RUnlock()
-	return c.services, nil
+	out := make([]*model.Service, 0, len(c.servicesMap))
+	for _, svc := range c.servicesMap {
+		out = append(out, svc)
+	}
+	c.RUnlock()
+	return out, nil
 }
 
 // GetService implements a service catalog operation by hostname specified.

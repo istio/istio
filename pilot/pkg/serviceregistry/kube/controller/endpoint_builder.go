@@ -178,8 +178,3 @@ func (b *EndpointBuilder) endpointNetwork(endpointIP string) string {
 	// Fallback to legacy fromRegistry setting, all endpoints from this cluster are on that network.
 	return b.controller.defaultNetwork()
 }
-
-// TODO(lambdai): Make it true everywhere.
-func (b *EndpointBuilder) supportsH2Tunnel() bool {
-	return false
-}
