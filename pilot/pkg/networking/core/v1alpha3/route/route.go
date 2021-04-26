@@ -392,20 +392,16 @@ func translateRoute(push *model.PushContext, node *model.Proxy, in *networking.H
 		}
 
 		// Configure timeouts specified by Virtual Service if they are provided, otherwise set it to defaults.
+		var d *duration.Duration
 		if in.Timeout != nil {
-			action.Timeout = gogo.DurationToProtoDuration(in.Timeout)
+			d = gogo.DurationToProtoDuration(in.Timeout)
 		} else {
-			action.Timeout = features.DefaultRequestTimeout
+			d = features.DefaultRequestTimeout
 		}
-
-		// Set the GrpcTimeoutHeaderMax so that Envoy respects grpc-timeout header.
-		// Only set if explicit timeout is defined otherwise Envoy will just use grpc-timeout header
-		// instead of disabling the timeout which is Istio's default behavior.
-		if action.Timeout.AsDuration().Nanoseconds() > 0 {
-			action.MaxStreamDuration = &route.RouteAction_MaxStreamDuration{
-				GrpcTimeoutHeaderMax: action.Timeout,
-			}
-		}
+		action.Timeout = d
+		// Use deprecated value for now as the replacement MaxStreamDuration has some regressions.
+		// nolint: staticcheck
+		action.MaxGrpcTimeout = d
 		out.Action = &route.Route_Route{Route: action}
 
 		action.PrefixRewrite = in.Rewrite.GetUri()
