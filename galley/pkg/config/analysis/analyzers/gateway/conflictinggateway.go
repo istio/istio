@@ -87,7 +87,7 @@ func (*ConflictingGatewayAnalyzer) analyzeGateway(r *resource.Instance, c analys
 		var rmsg []string
 		conflictingGWMatch := 0
 		sPortNumber := strconv.Itoa(int(server.Port.Number))
-		mapKey := GenGatewayMapKey(sGWSelector, sPortNumber)
+		mapKey := genGatewayMapKey(sGWSelector, sPortNumber)
 		for gwNameKey, gwHostsValue := range gwCMap[mapKey] {
 			for _, gwHost := range server.Hosts {
 				// both selector and portnumber are the same, then check hosts
@@ -130,7 +130,7 @@ func initGatewaysMap(ctx analysis.Context) map[string]map[string][]string {
 		sGWSelector := gwSelector.String()
 		for _, server := range gw.Servers {
 			sPortNumber := strconv.Itoa(int(server.Port.Number))
-			mapKey := GenGatewayMapKey(sGWSelector, sPortNumber)
+			mapKey := genGatewayMapKey(sGWSelector, sPortNumber)
 			if _, exits := gwConflictingMap[mapKey]; !exits {
 				objMap := make(map[string][]string)
 				objMap[gwName] = server.Hosts
@@ -144,7 +144,7 @@ func initGatewaysMap(ctx analysis.Context) map[string]map[string][]string {
 	return gwConflictingMap
 }
 
-func GenGatewayMapKey(selector, portNumber string) string {
+func genGatewayMapKey(selector, portNumber string) string {
 	key := selector + "~" + portNumber
 	return key
 }

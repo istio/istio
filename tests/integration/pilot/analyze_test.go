@@ -297,7 +297,7 @@ func TestAllNamespaces(t *testing.T) {
 
 			// If we look at one namespace, we should successfully run and see one message (and not anything from any other namespace)
 			output, _ := istioctlSafe(t, istioCtl, ns1.Name(), true)
-			expectMessages(t, g, output, msg.ReferencedResourceNotFound)
+			expectMessages(t, g, output, msg.ReferencedResourceNotFound, msg.ConflictingGateways)
 
 			// If we use --all-namespaces, we should successfully run and see a message from each namespace
 			output, _ = istioctlSafe(t, istioCtl, "", true, "--all-namespaces")
